@@ -64,6 +64,94 @@ function normalizeHexColor(value: string): string | null {
   return /^[0-9a-fA-F]{6}$/.test(hex) ? `#${hex.toLowerCase()}` : null;
 }
 
+interface ParsedTextField<T> {
+  text: string;
+  parsed: T | null;
+  handleChange: (text: string) => void;
+  resetText: () => void;
+}
+
+function useParsedTextField<T>(
+  value: T,
+  onValidChange: (value: T) => void,
+  parse: (text: string) => T | null,
+): ParsedTextField<T> {
+  const [text, setText] = useState<string>(String(value));
+
+  useEffect(() => {
+    setText(String(value));
+  }, [value]);
+
+  const handleChange = (next: string) => {
+    setText(next);
+    const parsed = parse(next);
+    if (parsed !== null) onValidChange(parsed);
+  };
+
+  return { text, parsed: parse(text), handleChange, resetText: () => setText(String(value)) };
+}
+
+interface ValidatedNumberInputProps {
+  ariaLabel: string;
+  disabled: boolean;
+  field: ParsedTextField<number>;
+  max?: number;
+}
+
+function ValidatedNumberInput({ ariaLabel, disabled, field, max }: ValidatedNumberInputProps) {
+  return (
+    <input
+      aria-label={ariaLabel}
+      className={`w-20 bg-surface text-center rounded-md p-2 border focus:ring-accent text-text-secondary focus:text-text-primary ${
+        field.parsed === null ? 'border-red-500' : 'border-surface focus:border-accent'
+      }`}
+      disabled={disabled}
+      max={max}
+      min="0"
+      onChange={(e) => field.handleChange(e.target.value)}
+      step="any"
+      type="number"
+      value={field.text}
+    />
+  );
+}
+
+interface ColorFieldProps {
+  color: string;
+  disabled: boolean;
+  field: ParsedTextField<string>;
+  label: string;
+  onColorChange: (color: string) => void;
+}
+
+function ColorField({ color, disabled, field, label, onColorChange }: ColorFieldProps) {
+  return (
+    <div>
+      <Text variant={TextVariants.label} className="mb-2 block">
+        {label}
+      </Text>
+      <div className="flex items-center gap-2 bg-surface p-2 rounded-md">
+        <input
+          aria-label={label}
+          className="w-8 h-8 p-0 border-none rounded-sm cursor-pointer bg-transparent"
+          disabled={disabled}
+          onChange={(e) => onColorChange(e.target.value)}
+          type="color"
+          value={color}
+        />
+        <input
+          className="w-full bg-bg-primary text-center rounded-md p-1 border border-surface focus:border-accent focus:ring-accent"
+          disabled={disabled}
+          onBlur={field.resetText}
+          onChange={(e) => field.handleChange(e.target.value)}
+          type="text"
+          value={field.text}
+        />
+      </div>
+    </div>
+  );
+}
+
 interface SectionProps {
   children: any;
   title: string;
@@ -332,72 +420,25 @@ export default function ExportPanel({
     [appSettings, currentSettingsObject, onSettingsChange],
   );
 
-  const [padRatioWidthText, setPadRatioWidthText] = useState<string>(String(padRatioWidth));
-  const [padRatioHeightText, setPadRatioHeightText] = useState<string>(String(padRatioHeight));
-  const [padColorText, setPadColorText] = useState<string>(padColor);
+  const padRatioWidthField = useParsedTextField(padRatioWidth, setPadRatioWidth, parseRatio);
+  const padRatioHeightField = useParsedTextField(padRatioHeight, setPadRatioHeight, parseRatio);
+  const padColorField = useParsedTextField(padColor, setPadColor, normalizeHexColor);
 
-  useEffect(() => {
-    setPadRatioWidthText(String(padRatioWidth));
-  }, [padRatioWidth]);
-
-  useEffect(() => {
-    setPadRatioHeightText(String(padRatioHeight));
-  }, [padRatioHeight]);
-
-  useEffect(() => {
-    setPadColorText(padColor);
-  }, [padColor]);
-
-  const padRatioWidthValue = parseRatio(padRatioWidthText);
-  const padRatioHeightValue = parseRatio(padRatioHeightText);
+  const padRatioWidthValue = padRatioWidthField.parsed;
+  const padRatioHeightValue = padRatioHeightField.parsed;
   const isPadValid = !enablePad || (padRatioWidthValue !== null && padRatioHeightValue !== null);
   const padSettings =
     enablePad && padRatioWidthValue !== null && padRatioHeightValue !== null
       ? { ratioWidth: padRatioWidthValue, ratioHeight: padRatioHeightValue, color: padColor }
       : null;
 
-  const handlePadRatioWidthChange = (value: string) => {
-    setPadRatioWidthText(value);
-    const parsed = parseRatio(value);
-    if (parsed !== null) setPadRatioWidth(parsed);
-  };
+  const borderHorizontalField = useParsedTextField(borderHorizontalPercent, setBorderHorizontalPercent, parsePercent);
+  const borderVerticalField = useParsedTextField(borderVerticalPercent, setBorderVerticalPercent, parsePercent);
+  const borderColorField = useParsedTextField(borderColor, setBorderColor, normalizeHexColor);
 
-  const handlePadRatioHeightChange = (value: string) => {
-    setPadRatioHeightText(value);
-    const parsed = parseRatio(value);
-    if (parsed !== null) setPadRatioHeight(parsed);
-  };
-
-  const handlePadColorTextChange = (value: string) => {
-    setPadColorText(value);
-    const normalized = normalizeHexColor(value);
-    if (normalized !== null) setPadColor(normalized);
-  };
-
-  const [borderHorizontalText, setBorderHorizontalText] = useState<string>(
-    String(borderHorizontalPercent),
-  );
-  const [borderVerticalText, setBorderVerticalText] = useState<string>(
-    String(borderVerticalPercent),
-  );
-  const [borderColorText, setBorderColorText] = useState<string>(borderColor);
-
-  useEffect(() => {
-    setBorderHorizontalText(String(borderHorizontalPercent));
-  }, [borderHorizontalPercent]);
-
-  useEffect(() => {
-    setBorderVerticalText(String(borderVerticalPercent));
-  }, [borderVerticalPercent]);
-
-  useEffect(() => {
-    setBorderColorText(borderColor);
-  }, [borderColor]);
-
-  const borderHorizontalValue = parsePercent(borderHorizontalText);
-  const borderVerticalValue = parsePercent(borderVerticalText);
-  const isBorderValid =
-    !enableBorder || (borderHorizontalValue !== null && borderVerticalValue !== null);
+  const borderHorizontalValue = borderHorizontalField.parsed;
+  const borderVerticalValue = borderVerticalField.parsed;
+  const isBorderValid = !enableBorder || (borderHorizontalValue !== null && borderVerticalValue !== null);
   const borderSettings =
     enableBorder && borderHorizontalValue !== null && borderVerticalValue !== null
       ? {
@@ -407,24 +448,6 @@ export default function ExportPanel({
           color: borderColor,
         }
       : null;
-
-  const handleBorderHorizontalChange = (value: string) => {
-    setBorderHorizontalText(value);
-    const parsed = parsePercent(value);
-    if (parsed !== null) setBorderHorizontalPercent(parsed);
-  };
-
-  const handleBorderVerticalChange = (value: string) => {
-    setBorderVerticalText(value);
-    const parsed = parsePercent(value);
-    if (parsed !== null) setBorderVerticalPercent(parsed);
-  };
-
-  const handleBorderColorTextChange = (value: string) => {
-    setBorderColorText(value);
-    const normalized = normalizeHexColor(value);
-    if (normalized !== null) setBorderColor(normalized);
-  };
 
   const [estimatedSize, setEstimatedSize] = useState<number | null>(null);
   const [isEstimating, setIsEstimating] = useState<boolean>(false);
@@ -588,13 +611,13 @@ export default function ExportPanel({
     resizeValue,
     dontEnlarge,
     enablePad,
-    padRatioWidthText,
-    padRatioHeightText,
+    padRatioWidthField.text,
+    padRatioHeightField.text,
     padColor,
     enableBorder,
     borderBasis,
-    borderHorizontalText,
-    borderVerticalText,
+    borderHorizontalField.text,
+    borderVerticalField.text,
     borderColor,
     keepMetadata,
     preserveTimestamps,
@@ -900,20 +923,11 @@ export default function ExportPanel({
                         <Text variant={TextVariants.label} className="flex-1">
                           {t('export.border.leftRight')}
                         </Text>
-                        <input
-                          aria-label={t('export.border.leftRight')}
-                          className={`w-20 bg-surface text-center rounded-md p-2 border focus:ring-accent text-text-secondary focus:text-text-primary ${
-                            borderHorizontalValue === null
-                              ? 'border-red-500'
-                              : 'border-surface focus:border-accent'
-                          }`}
+                        <ValidatedNumberInput
+                          ariaLabel={t('export.border.leftRight')}
                           disabled={isExporting}
+                          field={borderHorizontalField}
                           max={MAX_BORDER_PERCENT}
-                          min="0"
-                          onChange={(e) => handleBorderHorizontalChange(e.target.value)}
-                          step="any"
-                          type="number"
-                          value={borderHorizontalText}
                         />
                         <Text variant={TextVariants.label}>{t('export.border.percent')}</Text>
                       </div>
@@ -921,20 +935,11 @@ export default function ExportPanel({
                         <Text variant={TextVariants.label} className="flex-1">
                           {t('export.border.topBottom')}
                         </Text>
-                        <input
-                          aria-label={t('export.border.topBottom')}
-                          className={`w-20 bg-surface text-center rounded-md p-2 border focus:ring-accent text-text-secondary focus:text-text-primary ${
-                            borderVerticalValue === null
-                              ? 'border-red-500'
-                              : 'border-surface focus:border-accent'
-                          }`}
+                        <ValidatedNumberInput
+                          ariaLabel={t('export.border.topBottom')}
                           disabled={isExporting}
+                          field={borderVerticalField}
                           max={MAX_BORDER_PERCENT}
-                          min="0"
-                          onChange={(e) => handleBorderVerticalChange(e.target.value)}
-                          step="any"
-                          type="number"
-                          value={borderVerticalText}
                         />
                         <Text variant={TextVariants.label}>{t('export.border.percent')}</Text>
                       </div>
@@ -943,32 +948,14 @@ export default function ExportPanel({
                           {t('export.border.invalidPercent')}
                         </Text>
                       )}
-                      <div>
-                        <Text variant={TextVariants.label} className="mb-2 block">
-                          {t('export.border.color')}
-                        </Text>
-                        <div className="flex items-center gap-2 bg-surface p-2 rounded-md">
-                          <input
-                            aria-label={t('export.border.color')}
-                            className="w-8 h-8 p-0 border-none rounded-sm cursor-pointer bg-transparent"
-                            disabled={isExporting}
-                            onChange={(e) => setBorderColor(e.target.value)}
-                            type="color"
-                            value={borderColor}
-                          />
-                          <input
-                            className="w-full bg-bg-primary text-center rounded-md p-1 border border-surface focus:border-accent focus:ring-accent"
-                            disabled={isExporting}
-                            onBlur={() => setBorderColorText(borderColor)}
-                            onChange={(e) => handleBorderColorTextChange(e.target.value)}
-                            type="text"
-                            value={borderColorText}
-                          />
-                        </div>
-                      </div>
-                      {enablePad && (
-                        <Text variant={TextVariants.label}>{t('export.border.hint')}</Text>
-                      )}
+                      <ColorField
+                        color={borderColor}
+                        disabled={isExporting}
+                        field={borderColorField}
+                        label={t('export.border.color')}
+                        onColorChange={setBorderColor}
+                      />
+                      {enablePad && <Text variant={TextVariants.label}>{t('export.border.hint')}</Text>}
                     </div>
                   )}
                   <Switch
@@ -984,30 +971,16 @@ export default function ExportPanel({
                         <Text variant={TextVariants.label} className="flex-1">
                           {t('export.pad.aspectRatio')}
                         </Text>
-                        <input
-                          aria-label={t('export.pad.ratioWidth')}
-                          className={`w-20 bg-surface text-center rounded-md p-2 border focus:ring-accent text-text-secondary focus:text-text-primary ${
-                            padRatioWidthValue === null ? 'border-red-500' : 'border-surface focus:border-accent'
-                          }`}
+                        <ValidatedNumberInput
+                          ariaLabel={t('export.pad.ratioWidth')}
                           disabled={isExporting}
-                          min="0"
-                          onChange={(e) => handlePadRatioWidthChange(e.target.value)}
-                          step="any"
-                          type="number"
-                          value={padRatioWidthText}
+                          field={padRatioWidthField}
                         />
                         <Text variant={TextVariants.label}>:</Text>
-                        <input
-                          aria-label={t('export.pad.ratioHeight')}
-                          className={`w-20 bg-surface text-center rounded-md p-2 border focus:ring-accent text-text-secondary focus:text-text-primary ${
-                            padRatioHeightValue === null ? 'border-red-500' : 'border-surface focus:border-accent'
-                          }`}
+                        <ValidatedNumberInput
+                          ariaLabel={t('export.pad.ratioHeight')}
                           disabled={isExporting}
-                          min="0"
-                          onChange={(e) => handlePadRatioHeightChange(e.target.value)}
-                          step="any"
-                          type="number"
-                          value={padRatioHeightText}
+                          field={padRatioHeightField}
                         />
                       </div>
                       {!isPadValid && (
@@ -1015,29 +988,13 @@ export default function ExportPanel({
                           {t('export.pad.invalidRatio')}
                         </Text>
                       )}
-                      <div>
-                        <Text variant={TextVariants.label} className="mb-2 block">
-                          {t('export.pad.backgroundColor')}
-                        </Text>
-                        <div className="flex items-center gap-2 bg-surface p-2 rounded-md">
-                          <input
-                            aria-label={t('export.pad.backgroundColor')}
-                            className="w-8 h-8 p-0 border-none rounded-sm cursor-pointer bg-transparent"
-                            disabled={isExporting}
-                            onChange={(e) => setPadColor(e.target.value)}
-                            type="color"
-                            value={padColor}
-                          />
-                          <input
-                            className="w-full bg-bg-primary text-center rounded-md p-1 border border-surface focus:border-accent focus:ring-accent"
-                            disabled={isExporting}
-                            onBlur={() => setPadColorText(padColor)}
-                            onChange={(e) => handlePadColorTextChange(e.target.value)}
-                            type="text"
-                            value={padColorText}
-                          />
-                        </div>
-                      </div>
+                      <ColorField
+                        color={padColor}
+                        disabled={isExporting}
+                        field={padColorField}
+                        label={t('export.pad.backgroundColor')}
+                        onColorChange={setPadColor}
+                      />
                     </div>
                   )}
                   <Switch
