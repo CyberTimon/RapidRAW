@@ -915,7 +915,6 @@ function App() {
                   )}
                 >
                   {selectedImage && (
-<<<<<<< HEAD
                     <ErrorBoundary fallbackTitle="Editor View Error">
                       <EditorView
                         transformWrapperRef={transformWrapperRef}
@@ -942,33 +941,6 @@ function App() {
                         renderAppPanel={renderAppPanel}
                       />
                     </ErrorBoundary>
-=======
-                    <EditorView
-                      transformWrapperRef={transformWrapperRef}
-                      isResizing={isResizing}
-                      layoutMode={layoutMode}
-                      isAndroid={isAndroid}
-                      compactEditorPanelHeight={compactEditorPanelHeight}
-                      compactEditorPanelCollapsedHeight={compactEditorPanelCollapsedHeight}
-                      thumbnailAspectRatio={thumbnailAspectRatio}
-                      sortedImageList={sortedImageList}
-                      createResizeHandler={createResizeHandler}
-                      createResizeResetHandler={createResizeResetHandler}
-                      handleBackToLibrary={handleBackToLibrary}
-                      handleEditorContextMenu={handleEditorContextMenu}
-                      handleThumbnailContextMenu={handleThumbnailContextMenu}
-                      handleMainLibraryContextMenu={handleMainLibraryContextMenu}
-                      handleImageClick={handleImageClick}
-                      handleClearSelection={handleClearSelection}
-                      handleCopyAdjustments={handleCopyAdjustments}
-                      handlePasteAdjustments={handlePasteAdjustments}
-                      handleRate={handleRate}
-                      handleZoomChange={handleZoomChange}
-                      handlePanelSelect={handlePanelSelect}
-                      requestThumbnails={requestThumbnails}
-                      renderAppPanel={renderAppPanel}
-                    />
->>>>>>> origin/main
                   )}
                 </div>
                 <div
@@ -977,7 +949,6 @@ function App() {
                     activeView === 'editor' ? 'hidden' : 'flex',
                   )}
                 >
-<<<<<<< HEAD
                   <ErrorBoundary fallbackTitle="Library View Error">
                     <LibraryView
                       sortedImageList={sortedImageList}
@@ -1008,35 +979,6 @@ function App() {
                       handleHistoryForward={handleHistoryForward}
                     />
                   </ErrorBoundary>
-=======
-                  <LibraryView
-                    sortedImageList={sortedImageList}
-                    groupBadgeInfo={groupBadgeInfo}
-                    thumbnailSize={thumbnailSize}
-                    thumbnailAspectRatio={thumbnailAspectRatio}
-                    libraryViewMode={libraryViewMode}
-                    isAndroid={isAndroid}
-                    layoutMode={layoutMode}
-                    setThumbnailSize={setThumbnailSize}
-                    setThumbnailAspectRatio={setThumbnailAspectRatio}
-                    setLibraryViewMode={setLibraryViewMode}
-                    handleClearSelection={handleClearSelection}
-                    handleLibraryImageSingleClick={handleLibraryImageSingleClick}
-                    handleImageSelect={handleImageSelect}
-                    handleRate={handleRate}
-                    handleThumbnailContextMenu={handleThumbnailContextMenu}
-                    handleMainLibraryContextMenu={handleMainLibraryContextMenu}
-                    handleContinueSession={handleContinueSession}
-                    handleGoHome={handleGoHome}
-                    handleOpenFolder={handleOpenFolder}
-                    handleImportClick={handleImportClick}
-                    handleLibraryRefresh={handleLibraryRefresh}
-                    handleCopyAdjustments={handleCopyAdjustments}
-                    handlePasteAdjustments={handlePasteAdjustments}
-                    handleResetAdjustments={handleResetAdjustments}
-                    requestThumbnails={requestThumbnails}
-                  />
->>>>>>> origin/main
                 </div>
                 {isSettingsOpen && appSettings && hasRoots && (
                   <div className="absolute inset-0 z-50 flex bg-bg-secondary rounded-lg">

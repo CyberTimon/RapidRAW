@@ -569,7 +569,6 @@ export default function ColorPanel({
         />
       </div>
 
-<<<<<<< HEAD
       <div className="p-2 bg-bg-tertiary rounded-md">
         <div className="flex justify-between items-center mb-3">
           <Text variant={TextVariants.heading}>
@@ -597,12 +596,6 @@ export default function ColorPanel({
             </button>
           )}
         </div>
-=======
-      <div className="p-1 bg-bg-tertiary rounded-md">
-        <Text variant={TextVariants.heading} className="mb-3">
-          {t('adjustments.color.colorMixer')}
-        </Text>
->>>>>>> origin/main
         <div className="flex justify-between mb-4 px-1">
           {HSL_COLORS.map(({ name, color, label }) => (
             <ColorSwatch

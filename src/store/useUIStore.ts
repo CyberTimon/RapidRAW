@@ -1,6 +1,14 @@
 import { create } from 'zustand';
 import { ImageFile, Panel, UiVisibility, CullingSuggestions, PanelRegion } from '../components/ui/AppProperties';
 
+export const DEFAULT_PANEL_WIDTH = 320;
+export const DEFAULT_BOTTOM_PANEL_HEIGHT = 160;
+export const DEFAULT_PANEL_SECTION_HEIGHT = 240;
+
+export function reconcileWorkspace() {
+  // Utility stub for workspace reconciliation
+}
+
 export type SwitcherPlacement = 'bottom' | 'right' | 'left' | 'top';
 
 export interface CollapsibleSectionsState {

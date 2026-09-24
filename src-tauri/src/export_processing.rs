@@ -52,6 +52,26 @@ pub enum ResizeMode {
     Height,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum TiffBitDepth {
+    #[default]
+    Eight = 8,
+    Sixteen = 16,
+}
+
+impl TryFrom<u8> for TiffBitDepth {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            8 => Ok(TiffBitDepth::Eight),
+            16 => Ok(TiffBitDepth::Sixteen),
+            _ => Err(()),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ResizeOptions {
