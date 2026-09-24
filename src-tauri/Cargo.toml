@@ -33,7 +33,7 @@ tokio = { version = "1", features = ["full"] }
 uuid = { version = "1.25", features = ["v4", "serde"] }
 walkdir = "2.5.0"
 imageproc = "0.27.0"
-ort = { version = "2.0.0-rc.13", features = ["ndarray", "cuda", "directml", "fetch-models"] }
+ort = { version = "2.0.0-rc.13", features = ["ndarray", "cuda", "directml", "fetch-models", "lax-feature-matching"] }
 ndarray = "0.17"
 tauri-plugin-process = "2.3.1"
 tauri-plugin-os = "2.3.2"
