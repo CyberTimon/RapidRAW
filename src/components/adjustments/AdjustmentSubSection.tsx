@@ -6,6 +6,7 @@ import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useCollapsibleHeight } from '../../hooks/useCollapsibleHeight';
+import { withAdjustmentLayout } from '../../utils/adjustments';
 
 interface AdjustmentSubSectionProps {
   actions?: ReactNode;
@@ -23,7 +24,7 @@ export default function AdjustmentSubSection({ actions, children, id, order, tit
     })),
   );
 
-  const collapsedTools = appSettings?.collapsedAdjustmentTools ?? [];
+  const collapsedTools = appSettings?.adjustmentLayout?.collapsedTools ?? [];
   const isCollapsed = collapsedTools.includes(id);
   const { contentRef, wrapperRef } = useCollapsibleHeight(!isCollapsed);
 
@@ -31,10 +32,11 @@ export default function AdjustmentSubSection({ actions, children, id, order, tit
     if (!appSettings) {
       return;
     }
-    handleSettingsChange({
-      ...appSettings,
-      collapsedAdjustmentTools: isCollapsed ? collapsedTools.filter((tool) => tool !== id) : [...collapsedTools, id],
-    });
+    handleSettingsChange(
+      withAdjustmentLayout(appSettings, {
+        collapsedTools: isCollapsed ? collapsedTools.filter((tool) => tool !== id) : [...collapsedTools, id],
+      }),
+    );
   };
 
   return (

@@ -403,7 +403,7 @@ export default function ColorPanel({
   const { t } = useTranslation();
   const [activeColor, setActiveColor] = useState('reds');
   const adjustmentVisibility = appSettings?.adjustmentVisibility || {};
-  const toolOrder = getAdjustmentToolOrder('color', appSettings?.adjustmentToolOrder);
+  const toolOrder = getAdjustmentToolOrder('color', appSettings?.adjustmentLayout?.toolOrder);
 
   const HSL_COLORS = useMemo<Array<ColorProps>>(
     () => [

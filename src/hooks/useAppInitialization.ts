@@ -7,7 +7,7 @@ import { useLibraryStore } from '../store/useLibraryStore';
 import { useEditorStore } from '../store/useEditorStore';
 import { useProcessStore } from '../store/useProcessStore';
 import { THEMES, DEFAULT_THEME_ID, ThemeProps } from '../utils/themes';
-import { COPYABLE_ADJUSTMENT_KEYS } from '../utils/adjustments';
+import { COPYABLE_ADJUSTMENT_KEYS, withAdjustmentLayout } from '../utils/adjustments';
 import {
   FilterCriteria,
   Invokes,
@@ -193,9 +193,9 @@ export const useAppInitialization = ({
           setUI((state) => ({ uiVisibility: { ...state.uiVisibility, ...settings.uiVisibility } }));
         }
 
-        if (settings?.collapsibleSectionsState) {
+        if (settings?.adjustmentLayout?.openSections) {
           setUI((state) => ({
-            collapsibleSectionsState: { ...state.collapsibleSectionsState, ...settings.collapsibleSectionsState },
+            collapsibleSectionsState: { ...state.collapsibleSectionsState, ...settings.adjustmentLayout.openSections },
           }));
         }
 
@@ -326,8 +326,8 @@ export const useAppInitialization = ({
 
   useEffect(() => {
     if (isInitialMount.current || !appSettings) return;
-    if (JSON.stringify(appSettings.collapsibleSectionsState) !== JSON.stringify(collapsibleSectionsState)) {
-      handleSettingsChange({ ...appSettings, collapsibleSectionsState });
+    if (JSON.stringify(appSettings.adjustmentLayout?.openSections) !== JSON.stringify(collapsibleSectionsState)) {
+      handleSettingsChange(withAdjustmentLayout(appSettings, { openSections: collapsibleSectionsState }));
     }
   }, [collapsibleSectionsState, appSettings, handleSettingsChange]);
 

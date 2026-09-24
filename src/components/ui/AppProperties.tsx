@@ -225,11 +225,7 @@ export interface AppSettings {
   exportPresets?: ExportPreset[];
   myLenses?: any;
   customAspectRatios?: CustomAspectRatio[];
-  adjustmentSectionOrder?: string[];
-  hiddenAdjustmentSections?: string[];
-  adjustmentToolOrder?: Record<string, string[]>;
-  collapsedAdjustmentTools?: string[];
-  collapsibleSectionsState?: CollapsibleSectionsState;
+  adjustmentLayout?: AdjustmentLayout;
   enableFolderImageCounts?: boolean;
   displayEditIcon?: boolean;
   linearRawMode?: string;
@@ -399,6 +395,14 @@ export interface CollapsibleSectionsState {
   curves: boolean;
   details: boolean;
   effects: boolean;
+}
+
+export interface AdjustmentLayout {
+  collapsedTools?: string[];
+  hiddenSections?: string[];
+  openSections?: Partial<CollapsibleSectionsState>;
+  sectionOrder?: string[];
+  toolOrder?: Record<string, string[]>;
 }
 
 export interface WaveformData {

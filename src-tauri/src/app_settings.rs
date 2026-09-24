@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 
@@ -310,6 +310,16 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
     ]
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct AdjustmentLayout {
+    pub section_order: Vec<String>,
+    pub hidden_sections: Vec<String>,
+    pub open_sections: BTreeMap<String, bool>,
+    pub tool_order: HashMap<String, Vec<String>>,
+    pub collapsed_tools: Vec<String>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkspaceState {
@@ -547,15 +557,7 @@ pub struct AppSettings {
     #[serde(default)]
     pub custom_aspect_ratios: Vec<CustomAspectRatio>,
     #[serde(default)]
-    pub adjustment_section_order: Vec<String>,
-    #[serde(default)]
-    pub hidden_adjustment_sections: Vec<String>,
-    #[serde(default)]
-    pub adjustment_tool_order: HashMap<String, Vec<String>>,
-    #[serde(default)]
-    pub collapsed_adjustment_tools: Vec<String>,
-    #[serde(default)]
-    pub collapsible_sections_state: Option<Value>,
+    pub adjustment_layout: AdjustmentLayout,
     #[serde(default)]
     pub workspace: WorkspaceState,
 }
@@ -654,11 +656,7 @@ impl Default for AppSettings {
             group_preferred_type: Some("raw".to_string()),
             always_decode_raw_thumbnails: Some(false),
             custom_aspect_ratios: Vec::new(),
-            adjustment_section_order: Vec::new(),
-            hidden_adjustment_sections: Vec::new(),
-            adjustment_tool_order: HashMap::new(),
-            collapsed_adjustment_tools: Vec::new(),
-            collapsible_sections_state: None,
+            adjustment_layout: AdjustmentLayout::default(),
             workspace: WorkspaceState::default(),
         }
     }

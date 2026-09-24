@@ -44,10 +44,7 @@ export default function Controls() {
     })),
   );
 
-  const visibleSections = getVisibleAdjustmentSections(
-    appSettings?.adjustmentSectionOrder,
-    appSettings?.hiddenAdjustmentSections,
-  );
+  const visibleSections = getVisibleAdjustmentSections(appSettings?.adjustmentLayout);
 
   const { collapsibleSectionsState, setUI } = useUIStore(
     useShallow((state) => ({

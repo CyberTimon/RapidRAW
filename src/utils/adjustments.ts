@@ -1,6 +1,7 @@
 import { Crop } from 'react-image-crop';
 import { v4 as uuidv4 } from 'uuid';
 import { SubMask, SubMaskMode } from '../components/panel/right/Masks';
+import type { AdjustmentLayout, AppSettings } from '../components/ui/AppProperties';
 
 export enum ActiveChannel {
   Blue = 'blue',
@@ -962,8 +963,13 @@ const reconcileOrder = (defaultOrder: string[], order: string[] = []): string[] 
 export const getAdjustmentSectionOrder = (order?: string[]): string[] =>
   reconcileOrder(Object.keys(ADJUSTMENT_SECTIONS), order);
 
-export const getVisibleAdjustmentSections = (order?: string[], hidden: string[] = []): string[] =>
-  getAdjustmentSectionOrder(order).filter((section) => !hidden.includes(section));
+export const getVisibleAdjustmentSections = (layout?: AdjustmentLayout): string[] =>
+  getAdjustmentSectionOrder(layout?.sectionOrder).filter((section) => !layout?.hiddenSections?.includes(section));
+
+export const withAdjustmentLayout = (settings: AppSettings, changes: Partial<AdjustmentLayout>): AppSettings => ({
+  ...settings,
+  adjustmentLayout: { ...settings.adjustmentLayout, ...changes },
+});
 
 export interface AdjustmentSectionTool {
   id: string;

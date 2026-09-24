@@ -2114,10 +2114,7 @@ function SettingsPanel({
 
   const sectionVisibility =
     displayContainer.adjustments.sectionVisibility || INITIAL_MASK_ADJUSTMENTS.sectionVisibility;
-  const visibleSections = getVisibleAdjustmentSections(
-    appSettings?.adjustmentSectionOrder,
-    appSettings?.hiddenAdjustmentSections,
-  );
+  const visibleSections = getVisibleAdjustmentSections(appSettings?.adjustmentLayout);
 
   return (
     <div

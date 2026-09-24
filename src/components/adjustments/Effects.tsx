@@ -195,7 +195,7 @@ export default function EffectsPanel({
   };
 
   const adjustmentVisibility = appSettings?.adjustmentVisibility || {};
-  const toolOrder = getAdjustmentToolOrder('effects', appSettings?.adjustmentToolOrder);
+  const toolOrder = getAdjustmentToolOrder('effects', appSettings?.adjustmentLayout?.toolOrder);
 
   return (
     <div className="flex flex-col gap-4">

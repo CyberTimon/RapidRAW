@@ -27,7 +27,7 @@ export default function DetailsPanel({
   };
 
   const adjustmentVisibility = appSettings?.adjustmentVisibility || {};
-  const toolOrder = getAdjustmentToolOrder('details', appSettings?.adjustmentToolOrder);
+  const toolOrder = getAdjustmentToolOrder('details', appSettings?.adjustmentLayout?.toolOrder);
 
   return (
     <div className="flex flex-col gap-4">
