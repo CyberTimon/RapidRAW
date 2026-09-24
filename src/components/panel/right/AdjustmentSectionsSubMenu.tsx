@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { DragControls, Reorder, useDragControls } from 'framer-motion';
 import { ChevronDown, Eye, EyeOff, GripVertical, RotateCcw } from 'lucide-react';
 import clsx from 'clsx';
@@ -190,7 +190,7 @@ function SectionRow({
   );
 }
 
-export default function AdjustmentSectionsSubMenu() {
+function AdjustmentSectionsSubMenu() {
   const { t } = useTranslation();
 
   const { appSettings, handleSettingsChange } = useSettingsStore(
@@ -310,3 +310,5 @@ export default function AdjustmentSectionsSubMenu() {
     </div>
   );
 }
+
+export default memo(AdjustmentSectionsSubMenu);
