@@ -50,7 +50,7 @@ const PresetTypeSwitch = ({ selectedType, onChange }: PresetTypeSwitchProps) => 
     const targetWidth = `${widthPercent}%`;
 
     if (isInitialAnimation.current) {
-      let initialX = selectedType === 'style' ? '-25%' : '100%';
+      const initialX = selectedType === 'style' ? '-25%' : '100%';
 
       setBubbleStyle({
         x: [initialX, targetX],

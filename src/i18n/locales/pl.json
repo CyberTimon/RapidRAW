@@ -2,8 +2,8 @@
   "adjustments": {
     "basic": {
       "blacks": "Czernie",
+      "brightness": "Jasność",
       "contrast": "Kontrast",
-      "evShift": "Przesunięcie EV",
       "exposure": "Ekspozycja",
       "highlights": "Światła",
       "mappers": {
@@ -180,6 +180,7 @@
     },
     "editor": {
       "autoAdjust": "Auto-korekta obrazu",
+      "autoLensCorrection": "Automatyczna korekcja obiektywu",
       "cancel": "Anuluj",
       "colorLabel": "Etykieta koloru",
       "confirmReset": "Potwierdź reset",
@@ -252,6 +253,8 @@
       "autoAdjust_many": "Auto-korekta obrazów",
       "autoAdjust_one": "Auto-korekta obrazu",
       "autoAdjust_other": "Auto-korekta obrazów",
+      "autoLensCorrection_one": "Automatyczna korekcja obiektywu",
+      "autoLensCorrection_other": "Automatyczna korekcja obiektywu",
       "collage_few": "Dodaj ramki do obrazów",
       "collage_many": "Utwórz kolaż z {{count}} obrazów",
       "collage_one": "Dodaj ramkę do obrazu",
@@ -400,11 +403,22 @@
       "generatingDepthMap": "Obliczanie mapy głębi AI...",
       "generativeEditTitle": "Edycja generatywna",
       "inpaintingTitle": "Inpainting",
+      "liquify": {
+        "mode": "Tryb Skraplania",
+        "modes": {
+          "expand": "Wzdęcie",
+          "pinch": "Marszczenie",
+          "push": "Wypychanie",
+          "twirl": "Zawirowanie"
+        }
+      },
       "manualCleanupTitle": "Ręczne czyszczenie",
       "noImageSelected": "Brak zaznaczonego obrazu.",
       "params": {
         "feather": "Wtapianie",
-        "grow": "Rozszerzanie"
+        "grow": "Rozszerzanie",
+        "intensity": "Intensywność",
+        "pressure": "Nacisk"
       },
       "patches": {
         "aiEdit": "Edycja AI {{count}}",
@@ -423,17 +437,22 @@
         "heal_one": "Naprawianie {{count}}",
         "heal_other": "Naprawianie {{count}}",
         "invertedName": "{{name}} odwrócone",
+        "liquify": "Skraplanie {{count}}",
+        "liquify_one": "Skraplanie {{count}}",
+        "liquify_other": "Skraplanie {{count}}",
         "quickErase": "Szybkie wymazanie {{count}}",
         "quickErase_few": "Szybkie wymazania {{count}}",
         "quickErase_many": "Szybkich wymazań {{count}}",
         "quickErase_one": "Szybkie wymazanie {{count}}",
-        "quickErase_other": "Szybkie wymazanie {{count}}"
+        "quickErase_other": "Szybkie wymazanie {{count}}",
+        "retouch": "Retusz {{count}}"
       },
       "resetInpaintingTooltip": "Resetuj Inpainting",
       "settings": {
         "aiModelDownloading": "Pobieranie modelu AI: ",
         "basicInpaintTooltipDisabled": "Generatywny backend jest niedostępny lub nieskonfigurowany. Wymagany jest podstawowy inpainting.",
         "basicInpaintTooltipEnabled": "Podstawowy inpainting jest szybszy, ale nie generatywny. Odznacz, aby użyć Generatywnej AI za pomocą monitu tekstowego.",
+        "cancelGeneration": "Anuluj generowanie",
         "componentPropertiesTitle": "Właściwości dla {{name}}",
         "downloading": "Pobieranie: ",
         "fastInpaintDesc": "Wypełnij zaznaczenie na podstawie otaczających pikseli.",
@@ -448,13 +467,17 @@
         "quickEraseDesc": "Wypełnij zaznaczenie, aby usunąć obiekt.",
         "selectionPropertiesTitle": "Właściwości zaznaczenia",
         "useBasicInpaint": "Użyj podstawowego inpaintingu"
-      }
+      },
+      "touchUpTitle": "Poprawki"
     },
     "crop": {
       "aspectRatioHeading": "Proporcje",
       "custom": {
         "hPlaceholder": "Wys.",
         "hTooltip": "Wysokość",
+        "removeTooltip": "Usuń zapisane proporcje",
+        "saveTooltip": "Zapisz proporcje jako ustawienie",
+        "savedTooltip": "Zapisane proporcje {{ratio}}",
         "wPlaceholder": "Szer.",
         "wTooltip": "Szerokość"
       },
@@ -472,6 +495,10 @@
         "armature": {
           "desc": "Armatura",
           "name": "Armatura"
+        },
+        "center": {
+          "desc": "Linie środkowe",
+          "name": "Środek"
         },
         "diagonal": {
           "desc": "Linie ukośne",
@@ -565,6 +592,16 @@
       "exporting": "Eksportowanie…",
       "savesTo": "Zewnętrzna edycja — zapisuje do"
     },
+    "guided": {
+      "cancel": "Anuluj",
+      "drawingActive": "Rysowanie aktywne",
+      "hint": "Rysuj wzdłuż krawędzi na zdjęciu, które powinny być pionowe lub poziome.",
+      "linesStatus": "Aktywne linie pomocnicze",
+      "toast": {
+        "angleRejected": "Kąt linii jest zbyt odległy od poziomu lub pionu",
+        "maxLines": "Dozwolone są maksymalnie 2 linie pionowe i 2 poziome"
+      }
+    },
     "layout": {
       "split": "Podziel"
     },
@@ -597,6 +634,8 @@
         "switchToSubtract": "Przełącz na Odejmowanie"
       },
       "addNewMask": "Dodaj nową maskę",
+      "aiTitle": "Zaznaczenia AI",
+      "basicTitle": "Podstawowe narzędzia",
       "brush": {
         "brush": "Pędzel",
         "eraser": "Gumka",
@@ -605,7 +644,6 @@
         "size": "Rozmiar pędzla"
       },
       "comingSoon": "Wkrótce",
-      "createNewTitle": "Utwórz nową maskę",
       "depthRange": {
         "far": "Daleko",
         "near": "Blisko",
@@ -631,6 +669,7 @@
         "maskName_one": "Maska {{count}}",
         "maskName_other": "Maska {{count}}"
       },
+      "rangeTitle": "Zakresy i globalne",
       "resetMaskingTooltip": "Resetuj maskowanie",
       "settings": {
         "aiModelDownloading": "Pobieranie modelu AI: ",
@@ -653,8 +692,7 @@
       "tooltips": {
         "addToCurrent": "Dodaj {{name}} do bieżącej maski lub utwórz nową (Prawy przycisk)",
         "createNew": "Utwórz nową maskę {{name}}",
-        "selectNewSourcePoint": "{{modifier}} + Kliknij, aby wybrać nowy punkt źródłowy",
-        "showMore": "Pokaż więcej typów masek"
+        "selectNewSourcePoint": "{{modifier}} + Kliknij, aby wybrać nowy punkt źródłowy"
       }
     },
     "metadata": {
@@ -765,7 +803,8 @@
         "info": "Informacje",
         "inpaint": "Inpaint",
         "masks": "Maski",
-        "presets": "Presety"
+        "presets": "Presety",
+        "tethering": "Tethering (Połączenie przewodowe)"
       }
     },
     "toolbar": {
@@ -792,12 +831,32 @@
       "preserveTimestamps": "Ustaw datę modyfikacji pliku na podstawie daty wykonania (EXIF)",
       "title": "Ustawienia eksportu"
     },
+    "border": {
+      "addBorder": "Dodaj ramkę",
+      "bases": {
+        "eachEdge": "Odpowiednia krawędź",
+        "longEdge": "Dłuższa krawędź",
+        "shortEdge": "Krótsza krawędź"
+      },
+      "basis": "Podstawa grubości",
+      "color": "Kolor ramki",
+      "invalidPercent": "Wprowadź liczbę od 0 do 100 dla obu.",
+      "leftRight": "Lewo i prawo",
+      "percent": "%",
+      "topBottom": "Góra i dół"
+    },
     "bytes": {
       "bytes": "Bajty",
       "gb": "GB",
       "kb": "KB",
       "mb": "MB",
       "tb": "TB"
+    },
+    "destination": {
+      "customFolder": "Folder niestandardowy",
+      "originalFolder": "Folder oryginalnego obrazu",
+      "subfolder": "Podfolder",
+      "subfolderPlaceholder": "np. final, WebP"
     },
     "dialog": {
       "saveEditedImageTitle": "Zapisz edytowany obraz",
@@ -809,7 +868,10 @@
     },
     "file": {
       "quality": "Jakość",
-      "qualityLossless": "Jakość (Bezstratna)"
+      "qualityLossless": "Jakość (Bezstratna)",
+      "tiffBitDepth": "Głębia bitowa TIFF",
+      "tiffBitDepth16": "16 bitów",
+      "tiffBitDepth8": "8 bitów"
     },
     "labels": {
       "image": "Obraz",
@@ -820,6 +882,14 @@
     "metadata": {
       "removeGps": "Usuń dane GPS",
       "saveWithMetadata": "Zapisz z metadanymi"
+    },
+    "pad": {
+      "aspectRatio": "Proporcje",
+      "backgroundColor": "Kolor tła",
+      "invalidRatio": "Wprowadź liczbę dodatnią dla szerokości i wysokości.",
+      "padToAspectRatio": "Rozszerz do proporcji",
+      "ratioHeight": "Wysokość proporcji",
+      "ratioWidth": "Szerokość proporcji"
     },
     "resize": {
       "dontEnlarge": "Nie powiększaj",
@@ -834,6 +904,7 @@
     },
     "sections": {
       "advanced": "Zaawansowane",
+      "destination": "Miejsce docelowe",
       "fileNaming": "Nazewnictwo plików",
       "fileSettings": "Ustawienia pliku",
       "imageSizing": "Rozmiar obrazu",
@@ -974,6 +1045,9 @@
         "clearSearch": "Wyczyść wyszukiwanie",
         "collapse": "Zwiń",
         "expand": "Rozwiń",
+        "moreOptions": "Opcje",
+        "navBack": "Wstecz",
+        "navForward": "Dalej",
         "sortFolders": "Sortuj foldery"
       }
     },
@@ -1095,6 +1169,7 @@
     },
     "thumbnailFit": {
       "fillSquare": "Wypełnij kwadrat",
+      "justified": "Mozaika",
       "originalRatio": "Oryginalne proporcje"
     },
     "thumbnailSize": {
@@ -1120,11 +1195,13 @@
       "foreground": "Pierwszy plan",
       "heal": "Naprawianie",
       "linear": "Liniowy",
+      "liquify": "Skraplanie",
       "luminance": "Luminancja",
       "others": "Inne",
       "quickErase": "Szybkie wymazanie",
       "quickEraser": "Szybka gumka",
       "radial": "Radialny",
+      "retouch": "Retusz",
       "sky": "Niebo",
       "subject": "Temat"
     }
@@ -1191,6 +1268,7 @@
         "curves": "Krzywe",
         "exposureToneMapper": "Ekspozycja i Mapowanie tonów",
         "grain": "Ziarno",
+        "guidedPerspective": "Perspektywa z przewodnikiem",
         "halationGlow": "Halacja i Poświata",
         "hueShift": "Globalne przesunięcie odcienia",
         "lensCorrection": "Korekcja obiektywu",
@@ -1278,6 +1356,7 @@
       "methodAi": "NIND (AI - Najlepsze dla RAW)",
       "methodBm3d": "BM3D (Tradycyjne - Wszystkie formaty)",
       "methodLabel": "Metoda",
+      "methodRaw9": "Apple RAW 9 (Neural Engine)",
       "openInEditor": "Otwórz w edytorze",
       "original": "Oryginał",
       "panZoomEnabled": "Przesuwanie i przybliżanie jest włączone",
@@ -1452,7 +1531,10 @@
       "cancel": "Anuluj",
       "compareTooltip": "Przytrzymaj, aby porównać",
       "distortion": "Dystorsja",
+      "geometry": "Geometria",
+      "guided": "Perspektywa z przewodnikiem",
       "horizontal": "Poziomo",
+      "manual": "Ręczne przekształcenie",
       "maskWarning": "Przekształcanie aktualizuje geometrię bazową. Istniejące maski mogą się przesunąć, a maski AI będą musiały zostać wygenerowane ponownie.",
       "offset": "Przesunięcie",
       "original": "Oryginał",
@@ -1499,6 +1581,9 @@
       "speed": "Prędkość",
       "title": "Sterowanie myszą",
       "zoom": "Mnożnik szybkości przybliżania",
+      "zoomClick": "Powiększ zdjęcie do 100%",
+      "zoomClickDesc": "Powiększ zdjęcie w edytorze do 100% po kliknięciu",
+      "zoomClickInfo": "Kliknij zdjęcie, aby natychmiast powiększyć je do 100% (piksele 1:1) w celu oceny ostrości i szumu. Jeśli wyłączone, kliknięcie przybliża stopniowo.",
       "zoomDesc": "Dostosuj, jak szybko płótno się powiększa i pomniejsza przy użyciu kółka myszy lub gestu szczypania."
     },
     "data": {
@@ -1524,10 +1609,16 @@
         "confirmClearAll": "Wyczyść wszystkie tagi",
         "confirmClearCache": "Wyczyść pamięć podręczną",
         "confirmDeleteAllEdits": "Usuń wszystkie edycje",
+        "confirmResetLayout": "Zresetuj układ",
+        "confirmResetLayoutTitle": "Zresetuj układ obszaru roboczego",
         "confirmTitle": "Potwierdź usunięcie",
+        "resetLayoutMessage": "Czy na pewno chcesz zresetować układ obszaru roboczego? Wszystkie przypięte panele, szerokości i pozycje przełączników zostaną przywrócone do wartości domyślnych.",
         "sidecarMessage": "Czy na pewno chcesz usunąć wszystkie pliki sidecar?\n\nTo trwale usunie wszystkie twoje edycje dla wszystkich obrazów wewnątrz wszystkich aktywnych folderów głównych oraz ich podfolderów."
       },
       "noFolders": "Nie wybrano żadnych folderów",
+      "resetLayoutButton": "Zresetuj układ",
+      "resetLayoutDesc": "Przywraca domyślny układ paneli, podziałów bocznych, wysokości oraz przełączników paneli.",
+      "resetLayoutTitle": "Zresetuj układ obszaru roboczego",
       "statuses": {
         "aiSuccess": "Zaktualizowano {{count}} plików. Tagi AI usunięte.",
         "aiSuccess_few": "Zaktualizowano {{count}} pliki. Tagi AI usunięte.",
@@ -1545,7 +1636,9 @@
         "clearingCache": "Czyszczenie pamięci podręcznej miniatur...",
         "deleting": "Usuwanie plików sidecar, proszę czekać...",
         "failedToGetPath": "Nie można uzyskać ścieżki pliku dziennika.",
+        "layoutResetSuccess": "Układ obszaru roboczego został zresetowany do ustawień domyślnych.",
         "processing": "Przetwarzanie...",
+        "resettingLayout": "Resetowanie obszaru roboczego...",
         "sidecarSuccess": "Pomyślnie usunięto {{count}} plików sidecar.",
         "sidecarSuccess_few": "Pomyślnie usunięto {{count}} pliki sidecar.",
         "sidecarSuccess_many": "Pomyślnie usunięto {{count}} plików sidecar.",
@@ -1561,6 +1654,7 @@
       "displayEditIcon": "Wyświetl ikonę edycji",
       "displayEditIconDesc": "Pokazuje małą ikonkę suwaków na miniaturach, które były edytowane.",
       "enableFocusMode": "Włącz Tryb skupienia",
+      "enableNeutralGreyCanvas": "Włącz neutralne szare tło",
       "enableOsTitlebar": "Włącz systemowy pasek tytułu",
       "enableXmpSync": "Włącz synchronizację XMP",
       "focusMode": "Tryb skupienia",
@@ -1571,6 +1665,8 @@
       "fontDesc": "Zmień czcionkę aplikacji.",
       "nativeTitlebar": "Natywny pasek tytułu",
       "nativeTitlebarDesc": "Użyj domyślnego paska tytułu okna twojego systemu zamiast niestandardowego w RapidRAW.",
+      "neutralGreyCanvas": "Neutralne szare płótno",
+      "neutralGreyCanvasDesc": "Użyj neutralnego, szarego płótna do dokładniejszej korekcji kolorów i ekspozycji bez zmiany motywu aplikacji.",
       "poppins": "Poppins",
       "showImageCounts": "Pokaż licznik obrazów",
       "system": "Domyślna systemowa",
@@ -1735,12 +1831,16 @@
       "livePreviewQualityDesc": "Zarządza rozdzielczością i kompresją obrazu podczas przesuwania suwaków. Niższa jakość znacząco poprawia czas reakcji.",
       "livePreviews": "Interaktywny podgląd na żywo",
       "livePreviewsDesc": "Podgląd jest aktualizowany natychmiast podczas przesuwania suwaków. Wyłącz to ustawienie, jeśli interfejs zacina się w trakcie edycji.",
+      "mediumThumbnailRes": "Rozdzielczość miniatury edytora",
+      "mediumThumbnailResDesc": "Rozdzielczość podglądu wyświetlanego podczas ładowania pełnych obrazów w edytorze.",
       "modes": {
         "dynamic": "Dynamiczny",
         "static": "Stała rozdzielczość"
       },
       "nativeDpi": "Renderuj w natywnym DPI",
       "preprocessing": {
+        "appleRaw9": "Silnik Apple RAW 9",
+        "appleRaw9Desc": "Wywołuj pliki RAW za pomocą dekodera RAW 9 w Core Image od Apple, który przeprowadza demozaikowanie i odszumianie w jednym kroku w silniku Neural Engine. Wymaga systemu macOS 27 lub nowszego oraz obsługiwanego aparatu; nieobsługiwane pliki automatycznie korzystają z wbudowanego dekodera. Wolniejszy niż domyślny dekoder. Nie wpływa na miniatury.",
         "applyPreprocessing": "Zastosuj wstępne przetwarzanie do formatów innych niż RAW",
         "applyPreprocessingDesc": "Jeśli włączone, redukcja szumu kolorów i wstępne wyostrzanie powyżej zostaną również zastosowane do standardowych formatów.",
         "colorNr": "Bazowa redukcja szumu koloru",
@@ -1749,6 +1849,7 @@
         "defaultNonRawTonemapperDesc": "Mapowanie tonów aplikowane na formaty inne niż RAW (np. JPEG, PNG).",
         "defaultRawTonemapper": "Domyślne mapowanie tonów (RAW)",
         "defaultRawTonemapperDesc": "Mapowanie tonów aplikowane do obrazów RAW.",
+        "enableAppleRaw9": "Używaj Apple RAW 9 dla plików RAW",
         "enablePreprocessingNonRaws": "Włącz dla innych niż RAW",
         "enableTonemapperOverride": "Włącz nadpisywanie mapowania tonów",
         "highlightRecovery": "Odzyskiwanie świateł w RAW",
@@ -1784,6 +1885,8 @@
       "renderScaleDesc": "Skaluje rozdzielczość względem twojego ekranu. Niższe wartości poprawiają wydajność na ekranach o wysokiej rozdzielczości kosztem ostrości.",
       "restartRequired": "Zmiany w silniku przetwarzania wymagają ponownego uruchomienia aplikacji, aby odniosły skutek.",
       "saveRelaunch": "Zapisz i uruchom ponownie",
+      "smallThumbnailRes": "Rozdzielczość miniatur w siatce",
+      "smallThumbnailResDesc": "Rozdzielczość miniatur wyświetlanych w siatce biblioteki.",
       "staticDesc": "Edytor renderuje obraz w stałej rozdzielczości. Ten tryb jest najszybszy i najbardziej spójny, idealny dla słabszych komputerów, gdzie priorytetem jest płynne działanie a nie perfekcyjna jakość po zbliżeniu.",
       "staticPreviewRes": "Rozdzielczość statycznego podglądu",
       "staticPreviewResDesc": "Określa rozdzielczość dla statycznych podglądów, takich jak tryb kadrowania i narzędzia perspektywy. Nie wpływa to na podgląd głównego edytora.",
@@ -1834,10 +1937,12 @@
         "depth": "Za zaawansowany model szacowania głębi, który włącza maskowanie oparte na głębi za pomocą AI.",
         "lama": "Za niesamowity model do inpaintingu obrazu, umożliwiający usuwanie obiektów z uwzględnieniem kontekstu.",
         "lensfun": "Za nieocenioną bibliotekę open-source z bogatą bazą obiektywów do automatycznej korekcji.",
+        "libgphoto2": "Za kompleksową bibliotekę komunikacji z aparatami, napędzającą tethering i zdalne wyzwalanie w RapidRAW.",
         "negpy": "Za inspirację stojącą za rozwiązaniem do inwersji negatywów.",
         "nind": "Za dostarczenie modeli AI, które stanowią silnik odszumiający RapidRAW.",
         "rawler": "Za świetną bibliotekę w Rust, dostarczającą fundament dla przetwarzania plików RAW w tym projekcie.",
         "sam2": "Za dostarczenie bazowego modelu do wykrywania i wycinania obiektów za pomocą AI.",
+        "spektrafilm": "Za oparte na danych spektralnych LUT-y emulacji filmu autorstwa Andrei Volpato, napędzające wbudowane emulacje filmowe RapidRAW. Licencja CC BY-SA 4.0.",
         "u2net": "Za świetną architekturę używaną przez nasze modele wykrywania nieba i pierwszego planu.",
         "you": "Za to, że używasz i wspierasz RapidRAW. Twoje zainteresowanie sprawia, że ten projekt nadal ewoluuje.",
         "youLabel": "Ty"
@@ -1853,6 +1958,59 @@
     "tooltips": {
       "goHome": "Przejdź do strony głównej"
     }
+  },
+  "tethering": {
+    "aperture": "Przysłona",
+    "aperturePlaceholder": "np. 2.8",
+    "autoApplyPreset": "Automatycznie stosuj preset",
+    "autoOpenCaptured": "Automatycznie otwieraj zrobione zdjęcie",
+    "cameraConnected": "Aparat połączony",
+    "capturing": "Robienie zdjęcia...",
+    "changePreset": "Zmień",
+    "clearPreset": "Wyczyść preset",
+    "connectCamera": "Połącz aparat",
+    "expComp": "Komp. eksp.",
+    "expCompPlaceholder": "np. 0.0",
+    "expMode": "Tryb ekspozycji",
+    "exposureSettings": "Ustawienia ekspozycji",
+    "flipHorizontal": "Obróć w poziomie",
+    "generalSettings": "Ustawienia ogólne",
+    "ghostOverlayAlt": "Nakładka poprzedniego zdjęcia",
+    "iso": "ISO",
+    "isoPlaceholder": "np. 400",
+    "liveViewAlt": "Live View",
+    "metering": "Tryb pomiaru",
+    "noCameraDetected": "Nie wykryto aparatu",
+    "noCamerasFound": "Nie znaleziono aparatów. Upewnij się, że aparat jest podłączony i działa w trybie PC Remote.",
+    "overlayLastShot": "Nałóż ostatnie zdjęcie",
+    "overlayOff": "Wył.",
+    "rotate90": "Obróć o 90°",
+    "scanTooltip": "Szukaj aparatów",
+    "selectCamera": "Wybierz aparat",
+    "selectCameraPlaceholder": "Wybierz aparat",
+    "shutter": "Migawka",
+    "shutterPlaceholder": "np. 1/200",
+    "startLiveView": "Uruchom Live View",
+    "status": "Status",
+    "stopLiveView": "Zatrzymaj Live View",
+    "title": "Tethering",
+    "toasts": {
+      "afFailed": "Błąd wyzwalania autofocusu",
+      "cameraDisconnected": "Aparat został odłączony",
+      "captureFailed": "Przechwytywanie nie powiodło się: {{err}}",
+      "communicationFailed": "Błąd komunikacji z aparatem",
+      "connectionFailed": "Połączenie nie powiodło się: {{err}}",
+      "detectionFailed": "Wykrywanie nie powiodło się: {{err}}",
+      "noCamerasFound": "Nie znaleziono aparatów. Upewnij się, że włączono tryb PC Remote.",
+      "presetApplyFailed": "Nie udało się zastosować presetu do zdjęcia",
+      "selectFolderFirst": "Najpierw wybierz standardowy folder w bibliotece.",
+      "setFailed": "Nie udało się ustawić {{key}}: {{err}}"
+    },
+    "triggerAutofocus": "Wyzwól autofocus",
+    "triggerCapture": "Zrób zdjęcie",
+    "wbTemp": "Temp. barwowa (K)",
+    "wbTempPlaceholder": "np. 5600",
+    "whiteBalance": "Balans bieli"
   },
   "ui": {
     "bottomBar": {
@@ -1916,7 +2074,9 @@
     },
     "lut": {
       "clearLut": "Wyczyść LUT",
+      "customLuts": "Własne LUT-y",
       "empty": "Brak LUT — zaimportuj jakieś",
+      "filmEmulations": "Emulacje filmowe",
       "filterLabel": "Pliki LUT",
       "import": "Importuj profile",
       "importFailed": "Nie udało się zaimportować LUT",

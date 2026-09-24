@@ -9,12 +9,18 @@ export interface ExternalEditSession {
   jpegQuality: number;
 }
 
+export interface AiTask {
+  id: string;
+  type: string;
+}
+
 interface ProcessState {
   exportState: ExportState;
   importState: ImportState;
   isIndexing: boolean;
   indexingProgress: Progress;
   thumbnails: Record<string, string>;
+  mediumThumbnails: Record<string, string>;
   thumbnailProgress: Progress;
   previews: Record<string, { url: string; thumbKey: string; timestamp: number }>;
   aiModelDownloadStatus: string | null;
@@ -23,12 +29,16 @@ interface ProcessState {
   isPasted: boolean;
   initialFileToOpen: string | null;
   externalEditSession: ExternalEditSession | null;
+  activeAiTasks: Record<string, AiTask>;
 
   setProcess: (state: Partial<ProcessState> | ((state: ProcessState) => Partial<ProcessState>)) => void;
   setExportState: (updater: Partial<ExportState> | ((state: ExportState) => Partial<ExportState>)) => void;
   setImportState: (updater: Partial<ImportState> | ((state: ImportState) => Partial<ImportState>)) => void;
   setPreview: (path: string, url: string, thumbKey: string) => void;
   clearPreviews: () => void;
+  registerAiTask: (id: string, type: string) => void;
+  unregisterAiTask: (id: string) => void;
+  isAiTaskRunning: (id: string) => boolean;
 }
 
 let exportTimeout: ReturnType<typeof setTimeout>;
@@ -44,6 +54,7 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
   isIndexing: false,
   indexingProgress: { current: 0, total: 0 },
   thumbnails: {},
+  mediumThumbnails: {},
   thumbnailProgress: { current: 0, total: 0 },
   previews: {},
   aiModelDownloadStatus: null,
@@ -52,6 +63,7 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
   isPasted: false,
   initialFileToOpen: null,
   externalEditSession: null,
+  activeAiTasks: {},
 
   setProcess: (updater) => {
     set((prev) => {
@@ -155,4 +167,18 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
       return { previews: {} };
     });
   },
+
+  registerAiTask: (id, type) =>
+    set((state) => ({
+      activeAiTasks: { ...state.activeAiTasks, [id]: { id, type } },
+    })),
+
+  unregisterAiTask: (id) =>
+    set((state) => {
+      const next = { ...state.activeAiTasks };
+      delete next[id];
+      return { activeAiTasks: next };
+    }),
+
+  isAiTaskRunning: (id) => !!get().activeAiTasks[id],
 }));

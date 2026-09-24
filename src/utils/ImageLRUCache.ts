@@ -1,6 +1,6 @@
 import type { Adjustments } from './adjustments';
 
-export interface ImageCacheEntry {
+interface ImageCacheEntry {
   adjustments: Adjustments;
   histogram: any;
   waveform: any;
@@ -11,7 +11,7 @@ export interface ImageCacheEntry {
   previewSize: { width: number; height: number };
 }
 
-export class ImageLRUCache {
+class ImageLRUCache {
   private maxSize: number;
   private cache = new Map<string, ImageCacheEntry>();
   private protectedBlobUrls = new Set<string>();

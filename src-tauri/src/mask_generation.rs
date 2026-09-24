@@ -10,7 +10,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::f32::consts::PI;
 use std::hash::{Hash, Hasher};
 use std::io::Cursor;
-use std::sync::Arc; // Required for parallel rasterization
+use std::sync::Arc;
 
 use crate::app_state::AppState;
 use crate::get_cached_full_warped_image;
@@ -1401,7 +1401,7 @@ fn generate_sub_mask_bitmap(
             scale,
             crop_offset,
         )),
-        "brush" | "clone" | "heal" => Some(generate_brush_bitmap(
+        "brush" | "clone" | "heal" | "liquify" | "retouch" => Some(generate_brush_bitmap(
             &sub_mask.parameters,
             width,
             height,

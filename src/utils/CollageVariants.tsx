@@ -1,6 +1,6 @@
 import { type JSX } from 'react';
 
-export interface LayoutCell {
+interface LayoutCell {
   x: number;
   y: number;
   width: number;

@@ -32,7 +32,7 @@ export default function DetailsPanel({
   return (
     <div className="space-y-4">
       {adjustmentVisibility.sharpening !== false && (
-        <div className="p-2 bg-bg-tertiary rounded-md">
+        <div className="p-1 bg-bg-tertiary rounded-md">
           <Text variant={TextVariants.heading} className="mb-2">
             {t('adjustments.details.sharpening')}
           </Text>
@@ -45,22 +45,24 @@ export default function DetailsPanel({
             value={adjustments.sharpness}
             onDragStateChange={onDragStateChange}
           />
-          <Slider
-            label={t('adjustments.details.threshold')}
-            max={80}
-            min={0}
-            onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.SharpnessThreshold, e.target.value)}
-            step={1}
-            value={adjustments.sharpnessThreshold ?? 15}
-            onDragStateChange={onDragStateChange}
-            defaultValue={15}
-            fillOrigin="min"
-          />
+          {!isForMask && (
+            <Slider
+              label={t('adjustments.details.threshold')}
+              max={80}
+              min={0}
+              onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.SharpnessThreshold, e.target.value)}
+              step={1}
+              value={adjustments.sharpnessThreshold ?? 15}
+              onDragStateChange={onDragStateChange}
+              defaultValue={15}
+              fillOrigin="min"
+            />
+          )}
         </div>
       )}
 
       {adjustmentVisibility.presence !== false && (
-        <div className="p-2 bg-bg-tertiary rounded-md">
+        <div className="p-1 bg-bg-tertiary rounded-md">
           <Text variant={TextVariants.heading} className="mb-2">
             {t('adjustments.details.presence')}
           </Text>
@@ -106,7 +108,7 @@ export default function DetailsPanel({
       )}
 
       {adjustmentVisibility.noiseReduction !== false && (
-        <div className="p-2 bg-bg-tertiary rounded-md">
+        <div className="p-1 bg-bg-tertiary rounded-md">
           <Text variant={TextVariants.heading} className="mb-2">
             {t('adjustments.details.noiseReduction')}
           </Text>
@@ -132,7 +134,7 @@ export default function DetailsPanel({
       )}
 
       {!isForMask && adjustmentVisibility.chromaticAberration !== false && (
-        <div className="p-2 bg-bg-tertiary rounded-md">
+        <div className="p-1 bg-bg-tertiary rounded-md">
           <Text variant={TextVariants.heading} className="mb-2">
             {t('adjustments.details.chromaticAberration')}
           </Text>

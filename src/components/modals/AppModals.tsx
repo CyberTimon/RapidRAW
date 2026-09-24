@@ -7,6 +7,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { useProcessStore } from '../../store/useProcessStore';
 import { useEditorStore } from '../../store/useEditorStore';
 import CopyPasteSettingsModal from './CopyPasteSettingsModal';
+import type { DenoiseMethod } from './DenoiseModal';
 import CreateFolderModal from './CreateFolderModal';
 import RenameFolderModal from './RenameFolderModal';
 import RenameFileModal from './RenameFileModal';
@@ -54,7 +55,7 @@ export interface AppModalsProps {
   refreshImageList: () => Promise<void>;
   handleApplyDenoise: (
     intensity: number,
-    method: 'ai' | 'bm3d',
+    method: DenoiseMethod,
     healDust?: boolean,
     visualizeDefects?: boolean,
     protectStars?: boolean,
@@ -66,7 +67,7 @@ export interface AppModalsProps {
   ) => Promise<void>;
   handleBatchDenoise: (
     intensity: number,
-    method: 'ai' | 'bm3d',
+    method: DenoiseMethod,
     paths: string[],
     healDust?: boolean,
     protectStars?: boolean,

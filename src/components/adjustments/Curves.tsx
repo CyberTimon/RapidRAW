@@ -2,7 +2,15 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RotateCcw, Copy, ClipboardPaste, Spline, Settings2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { ActiveChannel, Adjustments, Coord, ParametricCurveSettings } from '../../utils/adjustments';
+import {
+  ActiveChannel,
+  Adjustments,
+  Coord,
+  DEFAULT_PARAMETRIC_CURVE,
+  DEFAULT_PARAMETRIC_CURVE_SETTINGS,
+  ParametricCurveSettings,
+  getDefaultCurves,
+} from '../../utils/adjustments';
 import { Theme, OPTION_SEPARATOR } from '../ui/AppProperties';
 import { useContextMenu } from '../../context/ContextMenuContext';
 import Text from '../ui/Text';
@@ -34,43 +42,7 @@ interface CurveGraphProps {
   onDragStateChange?: (isDragging: boolean) => void;
 }
 
-const DEFAULT_PARAMETRIC_CURVE_SETTINGS: ParametricCurveSettings = {
-  darks: 0,
-  shadows: 0,
-  highlights: 0,
-  lights: 0,
-  whiteLevel: 0,
-  blackLevel: 0,
-  split1: 25,
-  split2: 50,
-  split3: 75,
-};
-
-const DEFAULT_PARAMETRIC_CURVE = {
-  luma: { ...DEFAULT_PARAMETRIC_CURVE_SETTINGS },
-  red: { ...DEFAULT_PARAMETRIC_CURVE_SETTINGS },
-  green: { ...DEFAULT_PARAMETRIC_CURVE_SETTINGS },
-  blue: { ...DEFAULT_PARAMETRIC_CURVE_SETTINGS },
-};
-
-const DEFAULT_POINT_CURVES = {
-  blue: [
-    { x: 0, y: 0 },
-    { x: 255, y: 255 },
-  ],
-  green: [
-    { x: 0, y: 0 },
-    { x: 255, y: 255 },
-  ],
-  luma: [
-    { x: 0, y: 0 },
-    { x: 255, y: 255 },
-  ],
-  red: [
-    { x: 0, y: 0 },
-    { x: 255, y: 255 },
-  ],
-};
+const DEFAULT_POINT_CURVES = getDefaultCurves();
 
 function buildParametricPoints(settings: ParametricCurveSettings): Array<Coord> {
   const vH = settings.highlights / 100;
@@ -111,7 +83,7 @@ function buildParametricPoints(settings: ParametricCurveSettings): Array<Coord> 
 
   const clamp = (v: number) => Math.max(0, Math.min(1, v));
 
-  let points = xs.map((x, i) => ({
+  const points = xs.map((x, i) => ({
     x: x * 255,
     y: clamp(ys[i]) * 255,
   }));

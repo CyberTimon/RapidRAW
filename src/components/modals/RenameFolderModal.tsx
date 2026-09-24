@@ -44,18 +44,22 @@ export default function RenameFolderModal({
   }, [isOpen, currentName]);
 
   const handleSave = useCallback(() => {
-    if (name.trim() && name.trim() !== currentName) {
-      onSave(name.trim());
-    } else {
-      onClose();
+    const trimmed = name.trim();
+    if (trimmed && trimmed !== currentName) {
+      onSave(trimmed);
     }
+    onClose();
   }, [name, currentName, onSave, onClose]);
 
   const handleKeyDown = useCallback(
-    (e: any) => {
+    (e: React.KeyboardEvent) => {
       if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
         handleSave();
       } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
         onClose();
       }
     },

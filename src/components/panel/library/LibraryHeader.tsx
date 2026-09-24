@@ -65,7 +65,7 @@ function DropdownMenu({ buttonContent, buttonTitle, children, contentClassName =
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            className={`absolute right-0 mt-2 ${contentClassName} origin-top-right z-20`}
+            className={`absolute right-0 mt-2 ${contentClassName} origin-top-right z-50`}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
@@ -747,6 +747,7 @@ export function ViewOptionsDropdown({
                             onLibraryRefresh?.();
                           }
                         }}
+                        trackClassName="bg-surface"
                       />
                       <Switch
                         checked={appSettings?.groupEditedFiles ?? true}
@@ -758,6 +759,7 @@ export function ViewOptionsDropdown({
                             onLibraryRefresh?.();
                           }
                         }}
+                        trackClassName="bg-surface"
                       />
                     </div>
                   </motion.div>

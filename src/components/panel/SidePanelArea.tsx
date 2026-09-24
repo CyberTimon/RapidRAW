@@ -3,9 +3,9 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import { useDroppable, useDndMonitor } from '@dnd-kit/core';
-import { SwitcherPlacement, useUIStore } from '../../store/useUIStore';
+import { DEFAULT_PANEL_SECTION_HEIGHT, SwitcherPlacement, useUIStore } from '../../store/useUIStore';
 import { Panel, PanelRegion } from '../ui/AppProperties';
-import PanelSwitcher from './PanelSwitcher';
+import PanelSwitcher, { MobilePanelSwitcher } from './PanelSwitcher';
 
 const COLLAPSE_THRESHOLD = 200;
 
@@ -16,7 +16,9 @@ interface SidePanelAreaProps {
   bottomRegion: PanelRegion;
   renderPanel: (panel: Panel) => React.ReactNode;
   onWidthChange: (e: React.PointerEvent<HTMLDivElement>) => void;
+  onWidthReset: () => void;
   isResizing: boolean;
+  showAdditionalTabs?: boolean;
 }
 
 function RegionDroppableContainer({
@@ -48,10 +50,13 @@ function RegionDroppableContainer({
   const panelsInRegion = panelLayout[region];
   const activePanel = activePanels[region] ?? (panelsInRegion.length > 0 ? panelsInRegion[0] : null);
 
-  const { setNodeRef, isOver } = useDroppable({
+  const { setNodeRef, isOver, active } = useDroppable({
     id: `layout-region-${region}`,
     data: { type: 'layout-region', region },
   });
+
+  const isLayoutDrag = active?.data?.current?.type === 'layout-tab';
+  const isActualOver = isOver && isLayoutDrag;
 
   const setRefs = useCallback(
     (node: HTMLDivElement | null) => {
@@ -119,11 +124,11 @@ function RegionDroppableContainer({
       className={clsx(
         'flex h-full w-full bg-bg-secondary rounded-lg overflow-hidden border transition-colors shadow-xs relative',
         isFlexRow ? 'flex-row' : 'flex-col',
-        isOver && !hoverPlacement ? 'border-accent' : 'border-surface',
+        isActualOver && !hoverPlacement ? 'border-accent' : 'border-surface',
       )}
     >
       <AnimatePresence>
-        {isOver && !hoverPlacement && (
+        {isActualOver && !hoverPlacement && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -133,7 +138,7 @@ function RegionDroppableContainer({
           />
         )}
 
-        {isOver && hoverPlacement && (
+        {isActualOver && hoverPlacement && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -202,10 +207,13 @@ function SplitOverlayDropzone({
   const hoverPlacementRef = useRef<SwitcherPlacement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const { setNodeRef, isOver } = useDroppable({
+  const { setNodeRef, isOver, active } = useDroppable({
     id: `layout-region-${region}`,
     data: { type: 'layout-region', region },
   });
+
+  const isLayoutDrag = active?.data?.current?.type === 'layout-tab';
+  const isActualOver = isOver && isLayoutDrag;
 
   const setRefs = useCallback(
     (node: HTMLDivElement | null) => {
@@ -267,13 +275,13 @@ function SplitOverlayDropzone({
       className={clsx(
         'absolute inset-x-0 h-1/2 z-30 border-2 flex items-center justify-center transition-all duration-200 backdrop-blur-sm overflow-hidden',
         isTop ? 'top-0 rounded-t-lg' : 'bottom-0 rounded-b-lg',
-        isOver
+        isActualOver
           ? 'scale-[0.98] text-accent font-semibold border-transparent'
           : 'border-dashed border-accent/40 bg-bg-secondary/60 text-text-secondary',
       )}
     >
       <AnimatePresence>
-        {isOver && (
+        {isActualOver && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -310,7 +318,9 @@ export default function SidePanelArea({
   bottomRegion,
   renderPanel,
   onWidthChange,
+  onWidthReset,
   isResizing,
+  showAdditionalTabs = false,
 }: SidePanelAreaProps) {
   const panelLayout = useUIStore((s) => s.panelLayout);
   const isFullScreen = useUIStore((s) => s.isFullScreen);
@@ -323,7 +333,8 @@ export default function SidePanelArea({
 
   const topHeight = useUIStore((s) => (side === 'left' ? s.leftTopHeight : s.rightTopHeight));
   const setUI = useUIStore((s) => s.setUI);
-
+  const activePanel = useUIStore((s) => s.activePanel);
+  const setPanel = useUIStore((s) => s.setPanel);
   const colContainerRef = useRef<HTMLDivElement>(null);
 
   const handleVerticalResize = useCallback(
@@ -335,8 +346,8 @@ export default function SidePanelArea({
 
       const doDrag = (moveEvent: PointerEvent) => {
         const containerHeight = colContainerRef.current?.clientHeight || window.innerHeight;
-        const maxTopHeight = Math.max(150, containerHeight - 150);
-        const newHeight = Math.max(150, Math.min(maxTopHeight, startHeight + (moveEvent.clientY - startY)));
+        const maxTopHeight = Math.max(250, containerHeight - 250);
+        const newHeight = Math.max(250, Math.min(maxTopHeight, startHeight + (moveEvent.clientY - startY)));
 
         if (side === 'left') {
           setUI({ leftTopHeight: newHeight });
@@ -354,6 +365,14 @@ export default function SidePanelArea({
     },
     [topHeight, side, setUI],
   );
+
+  const handleVerticalResizeReset = useCallback(() => {
+    if (side === 'left') {
+      setUI({ leftTopHeight: DEFAULT_PANEL_SECTION_HEIGHT });
+    } else {
+      setUI({ rightTopHeight: DEFAULT_PANEL_SECTION_HEIGHT });
+    }
+  }, [side, setUI]);
 
   const topPanels = panelLayout[topRegion];
   const bottomPanels = panelLayout[bottomRegion];
@@ -374,6 +393,50 @@ export default function SidePanelArea({
   const isCollapsed = width < COLLAPSE_THRESHOLD;
   const shouldAnimateWidth = !isInstantTransition && (!isResizing || isCollapsed);
 
+  if (showAdditionalTabs) {
+    return (
+      <div
+        className={clsx(
+          'flex shrink-0 h-full relative overflow-hidden',
+          isFullScreen ? 'w-0 opacity-0 pointer-events-none' : 'opacity-100',
+          shouldAnimateWidth && 'transition-all duration-300 ease-in-out',
+        )}
+        style={{ width: isFullScreen ? 0 : width }}
+      >
+        <div
+          className="shrink-0 w-2 my-auto h-full cursor-col-resize z-20"
+          onPointerDown={onWidthChange}
+          onDoubleClick={onWidthReset}
+        />
+        <div className="flex-1 min-w-0 min-h-0 flex bg-bg-secondary rounded-lg overflow-hidden border border-surface">
+          <div
+            className={clsx(
+              'relative flex-1 min-w-0 min-h-0 transition-opacity duration-200',
+              isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto',
+            )}
+          >
+            {activePanel && (
+              <div className="absolute inset-0 overflow-y-auto custom-scrollbar">{renderPanel(activePanel)}</div>
+            )}
+          </div>
+          <MobilePanelSwitcher
+            activePanel={activePanel}
+            onPanelSelect={(id) => {
+              setPanel(id);
+              if (isCollapsed) {
+                setUI((s) => ({
+                  uiVisibility: { ...s.uiVisibility, rightPanel: true },
+                  rightPanelWidth: s.rightPanelWidth < 250 ? 350 : s.rightPanelWidth,
+                }));
+              }
+            }}
+            placement="right"
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={clsx(
@@ -384,7 +447,11 @@ export default function SidePanelArea({
       style={{ width: isFullScreen ? 0 : width }}
     >
       {side === 'right' && (
-        <div className="shrink-0 w-2 my-auto h-full cursor-col-resize z-20" onPointerDown={onWidthChange} />
+        <div
+          className="shrink-0 w-2 my-auto h-full cursor-col-resize z-20"
+          onPointerDown={onWidthChange}
+          onDoubleClick={onWidthReset}
+        />
       )}
 
       <div ref={colContainerRef} className="flex flex-col h-full w-full overflow-hidden relative">
@@ -411,7 +478,11 @@ export default function SidePanelArea({
         )}
 
         {hasTop && hasBottom && (
-          <div className="shrink-0 h-2 cursor-row-resize z-20" onPointerDown={handleVerticalResize} />
+          <div
+            className="shrink-0 h-2 cursor-row-resize z-20"
+            onPointerDown={handleVerticalResize}
+            onDoubleClick={handleVerticalResizeReset}
+          />
         )}
 
         {hasBottom && (
@@ -448,7 +519,11 @@ export default function SidePanelArea({
       </div>
 
       {side === 'left' && (
-        <div className="shrink-0 w-2 my-auto h-full cursor-col-resize z-20" onPointerDown={onWidthChange} />
+        <div
+          className="shrink-0 w-2 my-auto h-full cursor-col-resize z-20"
+          onPointerDown={onWidthChange}
+          onDoubleClick={onWidthReset}
+        />
       )}
     </div>
   );

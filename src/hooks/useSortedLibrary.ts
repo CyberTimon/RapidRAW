@@ -7,7 +7,7 @@ import { buildImageGroups, GroupBadgeInfo, GroupId } from '../utils/imageGroupin
 export const ADVANCED_QUERY_REGEX =
   /^(iso|aperture|f|shutter|s|focal|mm|rating|color|camera|make|model|lens)\s*(?::)?\s*(>=|<=|>|<|=)?\s*(.+)$/i;
 
-export const parseShutter = (val: string | undefined): number => {
+const parseShutter = (val: string | undefined): number => {
   if (!val) return 0;
   const cleanVal = val.replace(/s/i, '').trim();
   const parts = cleanVal.split('/');
@@ -20,14 +20,14 @@ export const parseShutter = (val: string | undefined): number => {
   return isNaN(numVal) ? 0 : numVal;
 };
 
-export const parseAperture = (val: string | undefined): number => {
+const parseAperture = (val: string | undefined): number => {
   if (!val) return 0;
   const match = val.match(/(\d+(\.\d+)?)/);
   const numVal = match ? parseFloat(match[0]) : 0;
   return isNaN(numVal) ? 0 : numVal;
 };
 
-export const parseFocalLength = (val: string | undefined): number => {
+const parseFocalLength = (val: string | undefined): number => {
   if (!val) return 0;
   const match = val.match(/(\d+(\.\d+)?)/);
   if (!match) return 0;
@@ -40,7 +40,7 @@ export interface GroupedLibrary {
   badges: Map<GroupId, GroupBadgeInfo> | null;
 }
 
-export function computeGroupedLibrary(libraryState: any, settingsState: any): GroupedLibrary {
+function computeGroupedLibrary(libraryState: any, settingsState: any): GroupedLibrary {
   const { imageList, imageRatings, filterCriteria, searchCriteria, sortCriteria } = libraryState;
   const { appSettings } = settingsState;
 

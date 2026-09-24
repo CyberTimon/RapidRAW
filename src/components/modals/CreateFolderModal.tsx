@@ -41,17 +41,22 @@ export default function CreateFolderModal({
   }, [isOpen]);
 
   const handleSave = useCallback(() => {
-    if (name.trim()) {
-      onSave(name.trim());
+    const trimmed = name.trim();
+    if (trimmed) {
+      onSave(trimmed);
+      onClose();
     }
-    onClose();
   }, [name, onSave, onClose]);
 
   const handleKeyDown = useCallback(
-    (e: any) => {
+    (e: React.KeyboardEvent) => {
       if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
         handleSave();
       } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
         onClose();
       }
     },

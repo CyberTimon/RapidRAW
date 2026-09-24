@@ -12,6 +12,7 @@ use image::{
 use ndarray::{Array, Array4, IxDyn};
 use ort::session::Session;
 use ort::value::Tensor;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tauri::Emitter;
@@ -168,6 +169,148 @@ fn edt_2d(grid: &[bool], width: usize, height: usize) -> Vec<f32> {
     }
 
     f.into_iter().map(|v| v.sqrt()).collect()
+}
+
+fn box_filter_horiz(src: &[f32], dest: &mut [f32], w: usize, r: usize) {
+    dest.par_chunks_exact_mut(w)
+        .zip(src.par_chunks_exact(w))
+        .for_each(|(dest_row, src_row)| {
+            let mut prefix = vec![0.0; w + 1];
+            for x in 0..w {
+                prefix[x + 1] = prefix[x] + src_row[x];
+            }
+            for (x, dest_val) in dest_row.iter_mut().enumerate() {
+                let x_min = x.saturating_sub(r);
+                let x_max = (x + r).min(w - 1);
+                let count = (x_max - x_min + 1) as f32;
+                *dest_val = (prefix[x_max + 1] - prefix[x_min]) / count;
+            }
+        });
+}
+
+fn transpose(src: &[f32], dest: &mut [f32], w: usize, h: usize) {
+    dest.par_chunks_exact_mut(h)
+        .enumerate()
+        .for_each(|(x, dest_col)| {
+            for y in 0..h {
+                dest_col[y] = src[y * w + x];
+            }
+        });
+}
+
+fn box_filter_opt(
+    src: &[f32],
+    dest: &mut [f32],
+    temp1: &mut [f32],
+    temp2: &mut [f32],
+    w: usize,
+    h: usize,
+    r: usize,
+) {
+    box_filter_horiz(src, temp1, w, r);
+    transpose(temp1, temp2, w, h);
+    box_filter_horiz(temp2, temp1, h, r);
+    transpose(temp1, dest, h, w);
+}
+
+pub fn fast_guided_filter(
+    guide_hr: &GrayImage,
+    mask_lr: &GrayImage,
+    r: usize,
+    eps: f32,
+) -> GrayImage {
+    let (hr_w, hr_h) = guide_hr.dimensions();
+    let (lr_w, lr_h) = mask_lr.dimensions();
+
+    let w = lr_w as usize;
+    let h = lr_h as usize;
+    let area = w * h;
+
+    let guide_lr = imageops::resize(guide_hr, lr_w, lr_h, FilterType::Triangle);
+
+    let mut i_lr = vec![0.0; area];
+    let mut p_lr = vec![0.0; area];
+    let mut ip_lr = vec![0.0; area];
+    let mut ii_lr = vec![0.0; area];
+
+    let guide_lr_raw = guide_lr.as_raw();
+    let mask_lr_raw = mask_lr.as_raw();
+
+    i_lr.par_iter_mut()
+        .zip(p_lr.par_iter_mut())
+        .zip(ip_lr.par_iter_mut())
+        .zip(ii_lr.par_iter_mut())
+        .zip(guide_lr_raw.par_iter())
+        .zip(mask_lr_raw.par_iter())
+        .for_each(|(((((i_out, p_out), ip_out), ii_out), &g_val), &m_val)| {
+            let i_val = g_val as f32 / 255.0;
+            let p_val = m_val as f32 / 255.0;
+            *i_out = i_val;
+            *p_out = p_val;
+            *ip_out = i_val * p_val;
+            *ii_out = i_val * i_val;
+        });
+
+    let mut temp1 = vec![0.0; area];
+    let mut temp2 = vec![0.0; area];
+
+    let mut mean_i = vec![0.0; area];
+    let mut mean_p = vec![0.0; area];
+    let mut mean_ip = vec![0.0; area];
+    let mut mean_ii = vec![0.0; area];
+
+    box_filter_opt(&i_lr, &mut mean_i, &mut temp1, &mut temp2, w, h, r);
+    box_filter_opt(&p_lr, &mut mean_p, &mut temp1, &mut temp2, w, h, r);
+    box_filter_opt(&ip_lr, &mut mean_ip, &mut temp1, &mut temp2, w, h, r);
+    box_filter_opt(&ii_lr, &mut mean_ii, &mut temp1, &mut temp2, w, h, r);
+
+    let mut a = vec![0.0; area];
+    let mut b = vec![0.0; area];
+
+    a.par_iter_mut()
+        .zip(b.par_iter_mut())
+        .zip(mean_i.par_iter())
+        .zip(mean_p.par_iter())
+        .zip(mean_ip.par_iter())
+        .zip(mean_ii.par_iter())
+        .for_each(|(((((a_out, b_out), &m_i), &m_p), &m_ip), &m_ii)| {
+            let cov_ip = m_ip - m_i * m_p;
+            let var_i = m_ii - m_i * m_i;
+            let a_val = cov_ip / (var_i + eps);
+            *a_out = a_val;
+            *b_out = m_p - a_val * m_i;
+        });
+
+    let mut mean_a = vec![0.0; area];
+    let mut mean_b = vec![0.0; area];
+
+    box_filter_opt(&a, &mut mean_a, &mut temp1, &mut temp2, w, h, r);
+    box_filter_opt(&b, &mut mean_b, &mut temp1, &mut temp2, w, h, r);
+
+    let mean_a_img = ImageBuffer::<Luma<f32>, Vec<f32>>::from_raw(lr_w, lr_h, mean_a).unwrap();
+    let mean_b_img = ImageBuffer::<Luma<f32>, Vec<f32>>::from_raw(lr_w, lr_h, mean_b).unwrap();
+
+    let mean_a_hr = imageops::resize(&mean_a_img, hr_w, hr_h, FilterType::Triangle);
+    let mean_b_hr = imageops::resize(&mean_b_img, hr_w, hr_h, FilterType::Triangle);
+
+    let mean_a_hr_raw = mean_a_hr.as_raw();
+    let mean_b_hr_raw = mean_b_hr.as_raw();
+    let guide_hr_raw = guide_hr.as_raw();
+
+    let mut final_mask_raw = vec![0u8; (hr_w * hr_h) as usize];
+
+    final_mask_raw
+        .par_iter_mut()
+        .zip(mean_a_hr_raw.par_iter())
+        .zip(mean_b_hr_raw.par_iter())
+        .zip(guide_hr_raw.par_iter())
+        .for_each(|(((out, &a_val), &b_val), &i_val)| {
+            let i_v = i_val as f32 / 255.0;
+            let q = a_val * i_v + b_val;
+            *out = (q.clamp(0.0, 1.0) * 255.0).round() as u8;
+        });
+
+    GrayImage::from_raw(hr_w, hr_h, final_mask_raw).unwrap()
 }
 
 fn get_models_dir(app_handle: &tauri::AppHandle) -> Result<PathBuf> {
@@ -1006,6 +1149,7 @@ pub fn run_sam_decoder(
     embeddings: &ImageEmbeddings,
     start_point: (f64, f64),
     end_point: (f64, f64),
+    original_image: Option<&DynamicImage>,
 ) -> Result<GrayImage> {
     let (orig_width, orig_height) = embeddings.original_size;
     let long_side = orig_width.max(orig_height) as f64;
@@ -1227,9 +1371,39 @@ pub fn run_sam_decoder(
     let gray_mask = GrayImage::from_raw(final_w as u32, final_h as u32, final_mask_data)
         .ok_or_else(|| anyhow::anyhow!("Failed to create mask image from raw data"))?;
 
-    let feathered_mask = image::imageops::blur(&gray_mask, 2.0);
+    if let Some(img) = original_image {
+        let (orig_width, orig_height) = img.dimensions();
+        let guide_hr = img.to_luma8();
 
-    Ok(feathered_mask)
+        let long_edge = orig_width.max(orig_height) as f32;
+        let radius = (long_edge * 0.0075).clamp(8.0, 24.0);
+
+        let resized_coarse_mask =
+            image::imageops::resize(&gray_mask, orig_width, orig_height, FilterType::Triangle);
+
+        let feathered_coarse_mask = image::imageops::blur(&resized_coarse_mask, radius / 3.0);
+
+        let mut refined_mask =
+            fast_guided_filter(&guide_hr, &feathered_coarse_mask, radius as usize, 0.01);
+
+        for p in refined_mask.pixels_mut() {
+            let v = p[0] as f32 / 255.0;
+            p[0] = (((v - 0.03) / 0.94).clamp(0.0, 1.0) * 255.0).round() as u8;
+        }
+
+        Ok(refined_mask)
+    } else {
+        let feathered_mask = image::imageops::blur(&gray_mask, 2.0);
+        let (orig_width, orig_height) = embeddings.original_size;
+        let final_mask = image::imageops::resize(
+            &feathered_mask,
+            orig_width,
+            orig_height,
+            FilterType::Triangle,
+        );
+
+        Ok(final_mask)
+    }
 }
 
 pub fn run_sky_seg_model(

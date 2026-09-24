@@ -18,6 +18,7 @@ interface SliderProps {
   min: number;
   onChange(event: SliderChangeEvent): void;
   onDragStateChange?(state: boolean): void;
+  onPointerUp?(): void;
   step: number;
   value: number;
   trackClassName?: string;
@@ -41,6 +42,7 @@ const Slider = ({
   min,
   onChange,
   onDragStateChange = () => {},
+  onPointerUp,
   step = 1,
   value,
   trackClassName,
@@ -106,9 +108,12 @@ const Slider = ({
   snapToStepRef.current = snapToStep;
   rangeRef.current = { min, max };
 
+  const onDragStateChangeRef = useRef(onDragStateChange);
+  onDragStateChangeRef.current = onDragStateChange;
+
   useEffect(() => {
-    onDragStateChange(isDragging);
-  }, [isDragging, onDragStateChange]);
+    onDragStateChangeRef.current(isDragging);
+  }, [isDragging]);
 
   useEffect(() => {
     if (!disabled) return;
@@ -152,6 +157,7 @@ const Slider = ({
       if (clampedValue !== value && !isNaN(clampedValue)) {
         isWheelActivelyChangingRef.current = true;
         setDisplayValue(clampedValue);
+        setInputValue(String(clampedValue));
 
         if (wheelTimeoutRef.current !== undefined) {
           window.clearTimeout(wheelTimeoutRef.current);
@@ -217,6 +223,7 @@ const Slider = ({
       const snappedValue = snapToStepRef.current(accumulatedValueRef.current);
 
       setDisplayValue(snappedValue);
+      setInputValue(String(snappedValue));
       onChangeRef.current({ target: { value: snappedValue } });
     };
 
@@ -224,6 +231,9 @@ const Slider = ({
       lastUpTime.current = Date.now();
       pendingTouchRef.current = null;
       suppressTouchChangeRef.current = false;
+      if (isDragging) {
+        onPointerUp?.();
+      }
       setIsDragging(false);
     };
 
@@ -291,10 +301,10 @@ const Slider = ({
   }, [value, isDragging]);
 
   useEffect(() => {
-    if (!isEditing) {
+    if (!isEditing || isDragging) {
       setInputValue(String(value));
     }
-  }, [value, isEditing]);
+  }, [value, isEditing, isDragging]);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -306,12 +316,14 @@ const Slider = ({
   const handleReset = () => {
     if (disabled) return;
 
+    setInputValue(String(defaultValue));
     const syntheticEvent = {
       target: {
         value: defaultValue,
       },
     };
     onChange(syntheticEvent);
+    onPointerUp?.();
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -320,7 +332,9 @@ const Slider = ({
     }
 
     if (!isDragging) {
-      setDisplayValue(Number(e.target.value));
+      const numVal = Number(e.target.value);
+      setDisplayValue(numVal);
+      setInputValue(String(numVal));
       onChange(e);
     }
   };
@@ -344,6 +358,7 @@ const Slider = ({
 
     setIsDragging(true);
     setDisplayValue(snappedValue);
+    setInputValue(String(snappedValue));
     onChange({ target: { value: snappedValue } });
   };
 
@@ -414,6 +429,7 @@ const Slider = ({
 
     setIsDragging(true);
     setDisplayValue(snappedValue);
+    setInputValue(String(snappedValue));
     onChange({ target: { value: snappedValue } });
   };
 
@@ -468,6 +484,7 @@ const Slider = ({
     };
     onChange(syntheticEvent);
     setIsEditing(false);
+    onPointerUp?.();
   };
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

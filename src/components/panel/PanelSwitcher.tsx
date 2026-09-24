@@ -11,6 +11,7 @@ import {
   Paintbrush,
   SwatchBook,
   FileInput,
+  Camera,
   Folder as FolderIcon,
   type LucideIcon,
 } from 'lucide-react';
@@ -26,6 +27,7 @@ export const PANEL_ICONS: Record<Panel, LucideIcon> = {
   [Panel.Presets]: SwatchBook,
   [Panel.Export]: FileInput,
   [Panel.FolderTree]: FolderIcon,
+  [Panel.Tethering]: Camera,
 };
 
 const PANEL_TITLES: Record<Panel, string> = {
@@ -37,6 +39,7 @@ const PANEL_TITLES: Record<Panel, string> = {
   [Panel.Presets]: 'editor.switcher.tooltips.presets',
   [Panel.Export]: 'editor.switcher.tooltips.export',
   [Panel.FolderTree]: 'library.folders.sourcesTitle',
+  [Panel.Tethering]: 'editor.switcher.tooltips.tethering',
 };
 
 function PanelTab({ panel, region, side }: { panel: Panel; region: PanelRegion; side: 'left' | 'right' }) {
@@ -240,9 +243,11 @@ export default function PanelSwitcher({
 export function MobilePanelSwitcher({
   activePanel,
   onPanelSelect,
+  placement = 'bottom',
 }: {
   activePanel: Panel | null;
   onPanelSelect: (id: Panel) => void;
+  placement?: 'bottom' | 'right';
 }) {
   const MOBILE_PANELS = [
     Panel.Metadata,
@@ -254,8 +259,13 @@ export function MobilePanelSwitcher({
     Panel.Export,
   ];
 
+  const isVertical = placement === 'right';
+
   return (
-    <div className="flex items-center gap-2 p-2 overflow-x-auto border-t border-surface shrink-0 custom-scrollbar">
+    <div className={clsx(
+      'flex items-center p-1.5 gap-1 shrink-0 custom-scrollbar',
+      isVertical ? 'flex-col overflow-y-auto h-full border-l border-surface' : 'flex-row overflow-x-auto w-full border-t border-surface',
+    )}>
       {MOBILE_PANELS.map((id) => {
         const Icon = PANEL_ICONS[id];
         const isActive = activePanel === id;

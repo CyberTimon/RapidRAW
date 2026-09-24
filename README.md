@@ -60,9 +60,43 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 <details>
 <summary><strong>Recent Changes</strong></summary>
 
+- **2026-09-17:** Rewrite vibrance & local contrast preserving highlights adjustment
+- **2026-09-16:** Add highlights color reconstruction & improve exposure shader
+- **2026-09-14:** Add neutral grey canvas toggle
+- **2026-09-13:** Improve RAW highlight recovery and color clipping
+- **2026-09-12:** Add Ctrl crop pan/zoom and optimize preview transform caching
+- **2026-09-09:** Add masonry thumbnail layout mode
+- **2026-09-09:** Add back and forward navigation history for library
+- **2026-09-06:** Support exporting to original folder with subfolder
+- **2026-09-03:** Rewrite Wayland/Nvidia workaround
+- **2026-09-02:** Refactor crop panel & integrate transform/lens correction directly into main canvas
+
+<details>
+<summary><strong>Expand further</strong></summary>
+
+- **2026-09-01:** Implemented guided perspective correction thanks to @hogar1977
+- **2026-09-01:** Add context menu option to auto apply lens correction
+- **2026-08-31:** New edge-aware filter for ai masks, improved sharpening & mobile UI improvements
+- **2026-08-29:** Improved EXIF ​​metadata processing during export
+- **2026-08-29:** Implement folder-level EXIF caching and prevent redundant adjustment saves
+- **2026-08-28:** Categorize mask creation panel
+- **2026-08-27:** Split thumbnail resolution settings into separate grid and editor preview sizes
+- **2026-08-26:** Introduced a retouch tool to effortlessly smooth skin
+- **2026-08-25:** Added a liquify tool to reshape and warp parts of an image
+- **2026-08-24:** New global shift+drag straighten shortcut & improved auto-crop calculation
+- **2026-08-20:** Add drag & drop image move system to quickly organize library
+- **2026-08-19:** Restored side panels on tablets
+- **2026-08-17:** Integrated built-in analog film emulations powered by Spektrafilm, featuring a scene-referred V-Log color pipeline in the WGSL shader
+- **2026-08-16:** Added native Camera Tethering with real-time Live View, exposure controls, ghost overlay, and direct library ingestion (macOS & Linux)
+- **2026-08-16:** Added Focus Stacking to merge multi-focus brackets into a single sharp image
+- **2026-08-14:** Export now preserves and writes full EXIF metadata
+- **2026-08-13:** Replaced local contrast sharpening with a high-quality multi-scale filter
+- **2026-08-11:** Added automatic canvas cropping for generative AI inpainting workflows
+- **2026-08-07:** Updated Lensfun database for latest camera bodies and lenses
+- **2026-08-06:** Added customizable keyboard shortcuts and visibility toggles for left, right, and bottom panels
 - **2026-08-05:** Added Catalan language support and folder tree shortcut
 - **2026-08-03:** Added support for image-based LUTs (.png, .jpg, .jpeg, .tiff) and batch importing multiple presets
-- **2026-08-01:** Implemented customizable workspace layout system with animated side panels
+- **2026-08-01:** Implemented customizable workspace layout system with drag & drop panels
 - **2026-07-31:** Enabled White Balance color picker tool for the WGPU renderer
 - **2026-07-29:** Added Cmd/Ctrl+L keyboard shortcut to quickly copy image file paths to the clipboard
 - **2026-07-26:** Added AI Lens Blur (Bokeh) for realistic depth-of-field background blurring
@@ -70,10 +104,6 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 - **2026-07-24:** Added Ctrl/Cmd+F search shortcut and optimized library & scope performance
 - **2026-07-23:** Significantly improved HDD thumbnail loading and resolved Linux NVIDIA crash issues
 - **2026-07-22:** Calibrated JPEG XL (JXL) export quality curves
-
-<details>
-<summary><strong>Expand further</strong></summary>
-
 - **2026-07-20:** Made automatic adjustment synchronization optional for multi-selections
 - **2026-07-19:** Introduced new Culling View (up to 6 images side-by-side) with star ratings and metadata
 - **2026-07-16:** Enhanced crop tool with area preservation and crop-centered rotation
@@ -321,6 +351,7 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 - [AI Roadmap](#ai-roadmap)
 - [Initial Development Log](#initial-development-log)
 - [Getting Started](#getting-started)
+- [Camera Tethering](#camera-tethering)
 - [Command Line Interface (CLI)](#command-line-interface-cli)
 - [System Requirements](#system-requirements)
 - [Contributing](#contributing)
@@ -512,6 +543,7 @@ Explore example edits processed entirely within RapidRAW. You can download the `
         <li><strong>Filmstrip View:</strong> Quickly navigate between images in your current folder while editing.</li>
         <li><strong>Batch Operations:</strong> Apply adjustments or export entire batches of images simultaneously.</li>
         <li><strong>EXIF Data & CLI:</strong> Full metadata viewer and headless CLI batch exporter for scripting/terminal use.</li>
+        <li><strong>Camera Tethering:</strong> Shoot directly into RapidRAW with real-time Live View, remote camera controls and more.</li>
       </ul>
     </td>
   </tr>
@@ -590,6 +622,7 @@ RapidRAW isn't just for RAW files! You can also import, edit, and convert standa
 - **Graphics & Textures:** `.tga`, `.ico`, `.dds`
 - **Specialist Formats:** `.qoi`, `.ff`
 - **Netpbm Bitmaps:** `.pnm`, `.pbm`, `.pgm`, `.ppm`, `.pam`
+
 </details>
 
 <details>
@@ -626,8 +659,8 @@ RapidRAW is fully translated into the following 13 languages:
 
 Here is an outlook on what is actively being developed and planned for the coming months:
 
+- **Astrophotography Stacking:** Implementing GPU-accelerated star alignment and stacking (mean, median, sigma-clipping) to merge multi-exposure night sky sequences into 32-bit linear composites.
 - **Bug Fixes & Stability:** Continuous memory optimization, resolving OS-specific crashes (such as Linux Wayland/WebKit edge cases), and refining GPU processing backend auto-selection for seamless performance across all platforms.
-- **Tethered Shooting:** Adding native camera tethering support to allow studio and portrait photographers to capture photos directly into RapidRAW with instant live previews and automatic sidecar application.
 - **Cloud AI Inpainting:** Launching the optional cloud generative AI integration to deliver high-quality object removal and generative replace without requiring local ComfyUI setups or heavy GPU hardware.
 - **Performance & Algorithm Refinements:** Further optimizing processing speed on older GPU architectures, refining Fujifilm X-Trans sensor demosaicing algorithms, and expanding UI responsiveness on mobile/Android devices.
 
@@ -740,6 +773,123 @@ npm run tauri build
 ./src-tauri/target/release/RapidRAW
 ```
 
+<details>
+<summary><strong>Camera Tethering Build (macOS & Linux)</strong></summary>
+
+To build with camera tethering support, install the system dependencies first:
+
+```bash
+# macOS (Homebrew)
+brew install libgphoto2 pkg-config
+
+# Linux (Ubuntu / Debian)
+sudo apt-get install -y libgphoto2-dev pkg-config
+```
+
+Then run or build using the `tethering` feature flag:
+
+```bash
+# Development mode with Tethering
+npm run start:tethering
+# or: npm start -- -- --features tethering
+
+# Release build with Tethering
+npm run tauri build -- --features tethering
+```
+
+</details>
+
+## Camera Tethering
+
+RapidRAW includes camera tethering for studio, portrait, and product photography workflows. Connect your camera via USB to control exposure settings, monitor your shot in real time, and automatically ingest files directly into your workspace.
+
+<table width="100%">
+  <tr>
+    <td width="65%" valign="top">
+      <h3>Key Capabilities</h3>
+      <ul>
+        <li><strong>Real-Time Live View:</strong> High-frame-rate live view with composition guides, 90° rotation, and horizontal flip.</li>
+        <li><strong>Full Camera Control:</strong> Adjust Aperture, Shutter Speed, ISO, White Balance, Exposure Compensation, Exposure Mode, and Metering Mode directly from RapidRAW.</li>
+        <li><strong>Autofocus Control:</strong> Trigger autofocus directly from RapidRAW.</li>
+        <li><strong>Ghost Overlay:</strong> Overlay previous captures with adjustable opacity to maintain consistent framing and perspective.</li>
+        <li><strong>Battery Monitoring:</strong> View the connected camera's battery level directly in RapidRAW.</li>
+        <li><strong>Automatic Presets:</strong> Automatically apply a selected preset to newly captured images.</li>
+        <li><strong>Instant Ingestion:</strong> Captured images are automatically saved to your active library, indexed, and optionally opened in the editor.</li>
+        <br>
+      </ul>
+    </td>
+    <td width="35%" valign="top" align="center">
+      <br>
+      <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/tethering.jpeg" alt="RapidRAW Camera Tethering Setup" width="100%" style="border-radius: 8px;">
+      <br><br>
+      <strong>Live Camera Tethering</strong><br>
+      <sub>Sony α7 III connected with real-time Live View</sub>
+    </td>
+  </tr>
+</table>
+
+### Supported Cameras
+
+Tethering is powered by **[libgphoto2](http://gphoto.org/)** and supports over **2,500+ camera models** across Canon, Nikon, Sony, Fujifilm, Olympus, Panasonic, and other manufacturers.
+
+- **[View the Full List of Supported Cameras](http://gphoto.org/proj/libgphoto2/support.php)**
+
+> **Note:** Ensure your camera's USB connection mode is set to **PC Remote**, **Tether Shooting**, or **PTP** in the camera settings.
+
+### Platform Support & Installation
+
+Tethering is supported on **macOS** and **Linux**. Windows and Android are not supported.
+
+<details>
+<summary><strong>Why is Tethering a Separate Build?</strong></summary>
+
+The tethering build dynamically links directly against `libgphoto2`. If these system libraries are not present on a machine, an executable linked against them will fail to launch entirely. To ensure standard RapidRAW builds remain dependency-free and start on any system without extra installation steps, tethering is distributed as a dedicated `_tethering` release.
+
+</details>
+
+<details>
+<summary><strong>Why is Windows Unsupported?</strong></summary>
+
+`libgphoto2` is designed for POSIX environments and requires direct low-level access via `libusb`. On Windows, connected cameras are claimed by the operating system's native Windows Portable Device (WPD) drivers. Interfacing with `libgphoto2` on Windows requires overriding OEM drivers with WinUSB (using tools like Zadig), which breaks standard file transfer and camera utilities. Because of these driver conflicts and platform limitations, Windows is fully unsupported.
+
+</details>
+
+#### Setting up the Tethering Build
+
+To run the `_tethering` release binaries (or build from source), you **must install `libgphoto2` on your machine first**.
+
+<details>
+<summary><strong>How to install libgphoto2 dependencies</strong></summary>
+
+**macOS (via Homebrew):**
+
+```bash
+brew install libgphoto2 pkg-config
+```
+
+**Linux (Ubuntu / Debian):**
+
+```bash
+sudo apt-get update
+sudo apt-get install -y libgphoto2-dev pkg-config
+```
+
+**Linux (Arch Linux):**
+
+```bash
+sudo pacman -S libgphoto2 pkgconf
+```
+
+**Linux (Fedora):**
+
+```bash
+sudo dnf install libgphoto2-devel pkgconf-pkg-config
+```
+
+</details>
+
+After installing the system dependencies, download the corresponding `_tethering` build from the [Releases](https://github.com/CyberTimon/RapidRAW/releases) page, or run/build from source using the `tethering` feature flag.
+
 ## Command Line Interface (CLI)
 
 RapidRAW includes a headless export tool for batch processing photos in automated scripts, terminal pipelines, or server environments without opening the GUI:
@@ -750,6 +900,9 @@ rapidraw export /path/to/photos --output /path/to/output_dir --format jpeg --qua
 
 # Export a single image directly to a specific target file
 rapidraw export /path/to/photo.raw --output /path/to/output.png --format png
+
+# Export a true 16-bit TIFF (the TIFF default; use 8 for an RGB8 TIFF)
+rapidraw export /path/to/photo.raw --output /path/to/output.tiff --format tiff --tiff-bit-depth 16
 
 # Batch export a folder using a custom adjustments JSON file to override sidecars
 rapidraw export /path/to/photos --output /path/to/output_dir --adjustments /path/to/preset.json
@@ -763,6 +916,7 @@ rapidraw export /path/to/photos --output /path/to/output_dir --adjustments /path
 | `--output <path>`      | Target directory or specific output file path                          | _(Required)_      |
 | `--format <fmt>`       | Output format (`jpeg`, `png`, `webp`, `avif`, `tiff`, `jxl`, `cube`)   | `jpeg`            |
 | `--quality <1-100>`    | Image export quality                                                   | `90`              |
+| `--tiff-bit-depth <n>` | TIFF channel depth (`8` or `16`)                                       | `16`              |
 | `--keep-metadata`      | Retain EXIF/capture metadata in exported files                         | `false`           |
 | `--adjustments <path>` | Path to a custom JSON file containing adjustments to override sidecars | _(Auto-detected)_ |
 
@@ -793,6 +947,7 @@ If the application crashes immediately when you try to start editing a picture, 
 3.  Locate the **Processing Backend** setting.
 4.  Change it from **Auto** to a specific backend supported by your OS (e.g., **Vulkan**, **DirectX12**, **OpenGL**, or **Metal**).
 5.  Restart the application and try opening the image again. Experiment with different backends if the first one doesn't work.
+
 </details>
 
 <details>
@@ -839,6 +994,8 @@ A huge thank you to the following projects and tools that were very important in
 - **[NegPy](https://github.com/marcinz606/NegPy):** For the inspiration behind the negative conversion logic, particularly the mathematical approach to film inversion using characteristic curves.
 - **[pixls.us](https://discuss.pixls.us/):** For being an incredible community full of knowledgeable people who offered inspiration, advice, and ideas.
 - **[darktable & co.](https://github.com/darktable-org/darktable):** For some reference implementations that guided parts of this work.
+- **[libgphoto2](http://gphoto.org/):** For the comprehensive camera communication library powering RapidRAW's tethering and remote capture subsystem.
+- **[spektrafilm](https://github.com/andreavolpato/spektrafilm):** For the spectrally-based film emulation LUTs by Andrea Volpato, used to power RapidRAW's built-in film emulations.
 - **You:** For using and supporting RapidRAW. Your interest keeps this project alive and evolving.
 
 ## Support the Project
