@@ -317,6 +317,7 @@ pub struct AdjustmentLayout {
     pub hidden_sections: Vec<String>,
     pub open_sections: BTreeMap<String, bool>,
     pub tool_order: HashMap<String, Vec<String>>,
+    pub hidden_tools: Vec<String>,
     pub collapsed_tools: Vec<String>,
 }
 
@@ -402,18 +403,6 @@ pub fn default_tagging_shortcuts_option() -> Option<Vec<String>> {
     ])
 }
 
-pub fn default_adjustment_visibility() -> HashMap<String, bool> {
-    let mut map = HashMap::new();
-    map.insert("sharpening".to_string(), true);
-    map.insert("presence".to_string(), true);
-    map.insert("noiseReduction".to_string(), true);
-    map.insert("chromaticAberration".to_string(), false);
-    map.insert("vignette".to_string(), true);
-    map.insert("colorCalibration".to_string(), false);
-    map.insert("grain".to_string(), true);
-    map
-}
-
 pub fn default_open_tree_sections() -> Vec<String> {
     vec!["current".to_string()]
 }
@@ -462,8 +451,6 @@ pub struct AppSettings {
     pub thumbnail_size: Option<String>,
     pub thumbnail_aspect_ratio: Option<String>,
     pub ai_provider: Option<String>,
-    #[serde(default = "default_adjustment_visibility")]
-    pub adjustment_visibility: HashMap<String, bool>,
     #[serde(default = "default_open_tree_sections")]
     pub open_tree_sections: Vec<String>,
     #[serde(default)]
@@ -597,7 +584,6 @@ impl Default for AppSettings {
             thumbnail_size: Some("medium".to_string()),
             thumbnail_aspect_ratio: Some("contain".to_string()),
             ai_provider: Some("cpu".to_string()),
-            adjustment_visibility: default_adjustment_visibility(),
             open_tree_sections: default_open_tree_sections(),
             copy_paste_settings: CopyPasteSettings::default(),
             raw_highlight_compression: Some(2.5),

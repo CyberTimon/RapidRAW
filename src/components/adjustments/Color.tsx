@@ -402,7 +402,7 @@ export default function ColorPanel({
 }: ColorPanelProps) {
   const { t } = useTranslation();
   const [activeColor, setActiveColor] = useState('reds');
-  const adjustmentVisibility = appSettings?.adjustmentVisibility || {};
+  const hiddenTools = appSettings?.adjustmentLayout?.hiddenTools ?? [];
   const toolOrder = getAdjustmentToolOrder('color', appSettings?.adjustmentLayout?.toolOrder);
 
   const HSL_COLORS = useMemo<Array<ColorProps>>(
@@ -468,7 +468,7 @@ export default function ColorPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      {adjustmentVisibility.whiteBalance !== false && (
+      {!hiddenTools.includes('whiteBalance') && (
         <AdjustmentSubSection
           actions={
             !isForMask &&
@@ -511,7 +511,7 @@ export default function ColorPanel({
         </AdjustmentSubSection>
       )}
 
-      {adjustmentVisibility.colorPresence !== false && (
+      {!hiddenTools.includes('colorPresence') && (
         <AdjustmentSubSection
           id="colorPresence"
           order={toolOrder.indexOf('colorPresence')}
@@ -538,7 +538,7 @@ export default function ColorPanel({
         </AdjustmentSubSection>
       )}
 
-      {adjustmentVisibility.hue !== false && (
+      {!hiddenTools.includes('hue') && (
         <AdjustmentSubSection
           id="hue"
           order={toolOrder.indexOf('hue')}
@@ -557,7 +557,7 @@ export default function ColorPanel({
         </AdjustmentSubSection>
       )}
 
-      {adjustmentVisibility.colorGrading !== false && (
+      {!hiddenTools.includes('colorGrading') && (
         <AdjustmentSubSection
           id="colorGrading"
           order={toolOrder.indexOf('colorGrading')}
@@ -572,7 +572,7 @@ export default function ColorPanel({
         </AdjustmentSubSection>
       )}
 
-      {adjustmentVisibility.colorMixer !== false && (
+      {!hiddenTools.includes('colorMixer') && (
         <AdjustmentSubSection
           id="colorMixer"
           order={toolOrder.indexOf('colorMixer')}
@@ -623,7 +623,7 @@ export default function ColorPanel({
         </AdjustmentSubSection>
       )}
 
-      {!isForMask && adjustmentVisibility.colorCalibration !== false && (
+      {!isForMask && !hiddenTools.includes('colorCalibration') && (
         <AdjustmentSubSection
           id="colorCalibration"
           order={toolOrder.indexOf('colorCalibration')}

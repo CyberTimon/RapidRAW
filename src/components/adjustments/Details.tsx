@@ -26,12 +26,12 @@ export default function DetailsPanel({
     setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: numericValue }));
   };
 
-  const adjustmentVisibility = appSettings?.adjustmentVisibility || {};
+  const hiddenTools = appSettings?.adjustmentLayout?.hiddenTools ?? [];
   const toolOrder = getAdjustmentToolOrder('details', appSettings?.adjustmentLayout?.toolOrder);
 
   return (
     <div className="flex flex-col gap-4">
-      {adjustmentVisibility.sharpening !== false && (
+      {!hiddenTools.includes('sharpening') && (
         <AdjustmentSubSection
           id="sharpening"
           order={toolOrder.indexOf('sharpening')}
@@ -62,7 +62,7 @@ export default function DetailsPanel({
         </AdjustmentSubSection>
       )}
 
-      {adjustmentVisibility.presence !== false && (
+      {!hiddenTools.includes('presence') && (
         <AdjustmentSubSection
           id="presence"
           order={toolOrder.indexOf('presence')}
@@ -109,7 +109,7 @@ export default function DetailsPanel({
         </AdjustmentSubSection>
       )}
 
-      {adjustmentVisibility.noiseReduction !== false && (
+      {!hiddenTools.includes('noiseReduction') && (
         <AdjustmentSubSection
           id="noiseReduction"
           order={toolOrder.indexOf('noiseReduction')}
@@ -136,7 +136,7 @@ export default function DetailsPanel({
         </AdjustmentSubSection>
       )}
 
-      {!isForMask && adjustmentVisibility.chromaticAberration !== false && (
+      {!isForMask && !hiddenTools.includes('chromaticAberration') && (
         <AdjustmentSubSection
           id="chromaticAberration"
           order={toolOrder.indexOf('chromaticAberration')}

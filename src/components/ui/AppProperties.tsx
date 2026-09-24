@@ -218,7 +218,6 @@ export interface AppSettings {
   thumbnailSize?: ThumbnailSize;
   thumbnailAspectRatio?: ThumbnailAspectRatio;
   uiVisibility?: UiVisibility;
-  adjustmentVisibility?: { [key: string]: boolean };
   rawHighlightCompression?: number;
   processingBackend?: string;
   linuxGpuOptimization?: boolean;
@@ -400,6 +399,7 @@ export interface CollapsibleSectionsState {
 export interface AdjustmentLayout {
   collapsedTools?: string[];
   hiddenSections?: string[];
+  hiddenTools?: string[];
   openSections?: Partial<CollapsibleSectionsState>;
   sectionOrder?: string[];
   toolOrder?: Record<string, string[]>;

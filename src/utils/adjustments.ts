@@ -973,31 +973,30 @@ export const withAdjustmentLayout = (settings: AppSettings, changes: Partial<Adj
 
 export interface AdjustmentSectionTool {
   id: string;
-  isVisibleByDefault: boolean;
   label: string;
 }
 
 export const ADJUSTMENT_SECTION_TOOLS: Record<string, Array<AdjustmentSectionTool>> = {
   color: [
-    { id: 'whiteBalance', isVisibleByDefault: true, label: 'adjustments.color.whiteBalance' },
-    { id: 'colorPresence', isVisibleByDefault: true, label: 'adjustments.color.presence' },
-    { id: 'hue', isVisibleByDefault: true, label: 'adjustments.color.hue' },
-    { id: 'colorGrading', isVisibleByDefault: true, label: 'adjustments.color.colorGrading' },
-    { id: 'colorMixer', isVisibleByDefault: true, label: 'adjustments.color.colorMixer' },
-    { id: 'colorCalibration', isVisibleByDefault: false, label: 'adjustments.color.calibration.title' },
+    { id: 'whiteBalance', label: 'adjustments.color.whiteBalance' },
+    { id: 'colorPresence', label: 'adjustments.color.presence' },
+    { id: 'hue', label: 'adjustments.color.hue' },
+    { id: 'colorGrading', label: 'adjustments.color.colorGrading' },
+    { id: 'colorMixer', label: 'adjustments.color.colorMixer' },
+    { id: 'colorCalibration', label: 'adjustments.color.calibration.title' },
   ],
   details: [
-    { id: 'sharpening', isVisibleByDefault: true, label: 'adjustments.details.sharpening' },
-    { id: 'presence', isVisibleByDefault: true, label: 'adjustments.details.presence' },
-    { id: 'noiseReduction', isVisibleByDefault: true, label: 'adjustments.details.noiseReduction' },
-    { id: 'chromaticAberration', isVisibleByDefault: false, label: 'adjustments.details.chromaticAberration' },
+    { id: 'sharpening', label: 'adjustments.details.sharpening' },
+    { id: 'presence', label: 'adjustments.details.presence' },
+    { id: 'noiseReduction', label: 'adjustments.details.noiseReduction' },
+    { id: 'chromaticAberration', label: 'adjustments.details.chromaticAberration' },
   ],
   effects: [
-    { id: 'creative', isVisibleByDefault: true, label: 'adjustments.effects.creative' },
-    { id: 'lensBlur', isVisibleByDefault: true, label: 'adjustments.effects.lensBlur' },
-    { id: 'lut', isVisibleByDefault: true, label: 'adjustments.effects.lut' },
-    { id: 'vignette', isVisibleByDefault: true, label: 'adjustments.effects.vignette' },
-    { id: 'grain', isVisibleByDefault: true, label: 'adjustments.effects.grain' },
+    { id: 'creative', label: 'adjustments.effects.creative' },
+    { id: 'lensBlur', label: 'adjustments.effects.lensBlur' },
+    { id: 'lut', label: 'adjustments.effects.lut' },
+    { id: 'vignette', label: 'adjustments.effects.vignette' },
+    { id: 'grain', label: 'adjustments.effects.grain' },
   ],
 };
 

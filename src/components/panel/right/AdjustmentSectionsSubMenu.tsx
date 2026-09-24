@@ -5,7 +5,7 @@ import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import type { ParseKeys } from 'i18next';
 import { useShallow } from 'zustand/react/shallow';
-import { AdjustmentLayout, AppSettings } from '../../ui/AppProperties';
+import { AdjustmentLayout } from '../../ui/AppProperties';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import {
   ADJUSTMENT_SECTIONS,
@@ -52,6 +52,8 @@ interface SectionRowProps {
 
 const ALL_TOOLS = Object.values(ADJUSTMENT_SECTION_TOOLS).flat();
 const TOOLS_BY_ID = Object.fromEntries(ALL_TOOLS.map((tool) => [tool.id, tool]));
+
+const toggleId = (ids: string[], id: string) => (ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id]);
 
 function useReorderableList(savedOrder: string[], onCommit: (order: string[]) => void) {
   const [order, setOrder] = useState(savedOrder);
@@ -213,35 +215,25 @@ function AdjustmentSectionsSubMenu() {
     [layout?.toolOrder],
   );
   const hiddenSections = layout?.hiddenSections ?? [];
-  const adjustmentVisibility = appSettings?.adjustmentVisibility ?? {};
+  const hiddenTools = layout?.hiddenTools ?? [];
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
-  const updateSettings = (update: (settings: AppSettings) => AppSettings) => {
+  const updateLayout = (changes: Partial<AdjustmentLayout>) => {
     if (appSettings) {
-      handleSettingsChange(update(appSettings));
+      handleSettingsChange(withAdjustmentLayout(appSettings, changes));
     }
   };
-
-  const updateLayout = (changes: Partial<AdjustmentLayout>) =>
-    updateSettings((settings) => withAdjustmentLayout(settings, changes));
 
   const sections = useReorderableList(savedOrder, (order) => updateLayout({ sectionOrder: order }));
 
   const handleToggleSection = (section: string) => {
-    updateLayout({
-      hiddenSections: hiddenSections.includes(section)
-        ? hiddenSections.filter((hiddenSection) => hiddenSection !== section)
-        : [...hiddenSections, section],
-    });
+    updateLayout({ hiddenSections: toggleId(hiddenSections, section) });
   };
 
-  const isToolHidden = (tool: string) => adjustmentVisibility[tool] === false;
+  const isToolHidden = (tool: string) => hiddenTools.includes(tool);
 
   const handleToggleTool = (tool: string) => {
-    updateSettings((settings) => ({
-      ...settings,
-      adjustmentVisibility: { ...adjustmentVisibility, [tool]: isToolHidden(tool) },
-    }));
+    updateLayout({ hiddenTools: toggleId(hiddenTools, tool) });
   };
 
   const handleReorderTools = (section: string, order: string[]) => {
@@ -249,10 +241,7 @@ function AdjustmentSectionsSubMenu() {
   };
 
   const handleReset = () => {
-    updateSettings((settings) => ({
-      ...withAdjustmentLayout(settings, { hiddenSections: [], sectionOrder: [], toolOrder: {} }),
-      adjustmentVisibility: Object.fromEntries(ALL_TOOLS.map((tool) => [tool.id, tool.isVisibleByDefault])),
-    }));
+    updateLayout({ hiddenSections: [], hiddenTools: [], sectionOrder: [], toolOrder: {} });
   };
 
   const visibleCount = sections.order.filter((section) => !hiddenSections.includes(section)).length;
@@ -262,7 +251,7 @@ function AdjustmentSectionsSubMenu() {
     Object.entries(savedToolOrder).every(
       ([section, order]) => order.join() === getAdjustmentToolOrder(section).join(),
     ) &&
-    ALL_TOOLS.every((tool) => isToolHidden(tool.id) !== tool.isVisibleByDefault);
+    hiddenTools.length === 0;
 
   return (
     <div

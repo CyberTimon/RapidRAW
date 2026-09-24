@@ -194,12 +194,12 @@ export default function EffectsPanel({
     }
   };
 
-  const adjustmentVisibility = appSettings?.adjustmentVisibility || {};
+  const hiddenTools = appSettings?.adjustmentLayout?.hiddenTools ?? [];
   const toolOrder = getAdjustmentToolOrder('effects', appSettings?.adjustmentLayout?.toolOrder);
 
   return (
     <div className="flex flex-col gap-4">
-      {adjustmentVisibility.creative !== false && (
+      {!hiddenTools.includes('creative') && (
         <AdjustmentSubSection
           id="creative"
           order={toolOrder.indexOf('creative')}
@@ -241,7 +241,7 @@ export default function EffectsPanel({
 
       {!isForMask && (
         <>
-          {adjustmentVisibility.lensBlur !== false && (
+          {!hiddenTools.includes('lensBlur') && (
             <AdjustmentSubSection
               id="lensBlur"
               order={toolOrder.indexOf('lensBlur')}
@@ -344,7 +344,7 @@ export default function EffectsPanel({
             </AdjustmentSubSection>
           )}
 
-          {adjustmentVisibility.lut !== false && (
+          {!hiddenTools.includes('lut') && (
             <AdjustmentSubSection id="lut" order={toolOrder.indexOf('lut')} title={t('adjustments.effects.lut')}>
               <LUTControl
                 lutPath={adjustments.lutPath || null}
@@ -359,7 +359,7 @@ export default function EffectsPanel({
             </AdjustmentSubSection>
           )}
 
-          {adjustmentVisibility.vignette !== false && (
+          {!hiddenTools.includes('vignette') && (
             <AdjustmentSubSection
               id="vignette"
               order={toolOrder.indexOf('vignette')}
@@ -408,7 +408,7 @@ export default function EffectsPanel({
             </AdjustmentSubSection>
           )}
 
-          {adjustmentVisibility.grain !== false && (
+          {!hiddenTools.includes('grain') && (
             <AdjustmentSubSection id="grain" order={toolOrder.indexOf('grain')} title={t('adjustments.effects.grain')}>
               <Slider
                 label={t('adjustments.effects.amount')}
