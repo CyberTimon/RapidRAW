@@ -119,6 +119,7 @@ function ToolRow({ isHidden, isSectionHidden, onDragEnd, onToggle, tool }: ToolR
       dragListener={false}
       layout="position"
       onDragEnd={onDragEnd}
+      transition={{ duration: 0 }}
       value={tool.id}
     >
       <DragHandle
@@ -156,6 +157,7 @@ function SectionRow({
       dragListener={false}
       layout="position"
       onDragEnd={onDragEnd}
+      transition={{ duration: 0 }}
       value={section}
     >
       <div className="flex items-center gap-1 pl-2 pr-1 rounded-md hover:bg-bg-primary transition-colors">
