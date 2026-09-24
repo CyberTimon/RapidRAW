@@ -1,5 +1,4 @@
 use crate::gpu_processing::WgpuDisplay;
-use crate::guided_perspective::{GuideLine, compute_guided_homography, count_valid_lines};
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat3, Vec2, Vec3};
 use image::{DynamicImage, GenericImageView, Rgb32FImage, Rgba};
@@ -15,8 +14,8 @@ use std::f32::consts::PI;
 use std::sync::Arc;
 
 pub use crate::gpu_processing::{
-    RenderOutputPrecision, RenderRequest, get_or_init_gpu_context, process_and_get_dynamic_image,
-    process_and_get_dynamic_image_with_analytics, process_and_get_dynamic_image_with_precision,
+    RenderRequest, get_or_init_gpu_context, process_and_get_dynamic_image,
+    process_and_get_dynamic_image_with_analytics,
 };
 use crate::{AppState, mask_generation::MaskDefinition};
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
@@ -80,7 +79,7 @@ pub struct Crop {
     pub height: f64,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct GeometryParams {
     pub distortion: f32,
     pub vertical: f32,
@@ -105,10 +104,6 @@ pub struct GeometryParams {
     pub vig_k1: f32,
     pub vig_k2: f32,
     pub vig_k3: f32,
-    #[serde(default)]
-    pub guided_lines: Vec<GuideLine>,
-    #[serde(default)]
-    pub guided_perspective_enabled: bool,
 }
 
 impl Default for GeometryParams {
@@ -137,8 +132,6 @@ impl Default for GeometryParams {
             vig_k1: 0.0,
             vig_k2: 0.0,
             vig_k3: 0.0,
-            guided_lines: Vec::new(),
-            guided_perspective_enabled: false,
         }
     }
 }
@@ -147,16 +140,6 @@ pub fn get_geometry_params_from_json(adjustments: &serde_json::Value) -> Geometr
     let lens_params = adjustments
         .get("lensDistortionParams")
         .and_then(|v| v.as_object());
-
-    let guided = adjustments.get("guidedPerspective");
-    let guided_perspective_enabled = guided
-        .and_then(|g| g.get("enabled"))
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    let guided_lines: Vec<GuideLine> = guided
-        .and_then(|g| g.get("lines"))
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
-        .unwrap_or_default();
 
     GeometryParams {
         distortion: adjustments["transformDistortion"].as_f64().unwrap_or(0.0) as f32,
@@ -208,169 +191,11 @@ pub fn get_geometry_params_from_json(adjustments: &serde_json::Value) -> Geometr
         vig_k3: lens_params
             .and_then(|p| p.get("vig_k3").and_then(|k| k.as_f64()))
             .unwrap_or(0.0) as f32,
-        guided_lines,
-        guided_perspective_enabled,
     }
 }
 
 pub fn downscale_f32_image(image: &DynamicImage, nwidth: u32, nheight: u32) -> DynamicImage {
-    let start = std::time::Instant::now();
-
-    let (width, height) = image.dimensions();
-    if nwidth == 0 || nheight == 0 || (nwidth >= width && nheight >= height) {
-        return image.clone();
-    }
-
-    let ratio = (nwidth as f32 / width as f32).min(nheight as f32 / height as f32);
-    let new_w = (width as f32 * ratio).round() as u32;
-    let new_h = (height as f32 * ratio).round() as u32;
-
-    if new_w == 0 || new_h == 0 {
-        return image.clone();
-    }
-
-    let tmp_img;
-    let img_ref = if let Some(rgb) = image.as_rgb32f() {
-        rgb
-    } else {
-        tmp_img = image.to_rgb32f();
-        &tmp_img
-    };
-    let src: &[f32] = img_ref.as_raw();
-
-    let x_ratio = width as f32 / new_w as f32;
-    let y_ratio = height as f32 / new_h as f32;
-    let width_usize = width as usize;
-
-    let mut x_bounds = Vec::with_capacity(new_w as usize);
-    let mut x_weights = Vec::new();
-    for x_out in 0..new_w as usize {
-        let x_start = x_out as f32 * x_ratio;
-        let x_end = (x_out + 1) as f32 * x_ratio;
-        let x_in_start = x_start.floor() as usize;
-        let x_in_end = (x_end.ceil() as usize).min(width as usize);
-
-        let weight_start_idx = x_weights.len();
-        let mut w_sum = 0.0;
-        let mut tmp_w = Vec::with_capacity(x_in_end.saturating_sub(x_in_start));
-
-        let mut actual_start = x_in_end;
-        let mut actual_end = x_in_start;
-
-        for x_in in x_in_start..x_in_end {
-            let overlap_start = x_start.max(x_in as f32);
-            let overlap_end = x_end.min((x_in + 1) as f32);
-            let w = (overlap_end - overlap_start).max(0.0);
-            if w > 0.0 {
-                actual_start = actual_start.min(x_in);
-                actual_end = actual_end.max(x_in + 1);
-                tmp_w.push(w);
-                w_sum += w;
-            }
-        }
-
-        if w_sum > 0.0 {
-            let inv_w = 1.0 / w_sum;
-            for w in tmp_w {
-                x_weights.push(w * inv_w);
-            }
-            x_bounds.push((actual_start, actual_end, weight_start_idx));
-        } else {
-            x_bounds.push((0, 0, weight_start_idx));
-        }
-    }
-
-    let mut y_bounds = Vec::with_capacity(new_h as usize);
-    let mut y_weights = Vec::new();
-    for y_out in 0..new_h as usize {
-        let y_start = y_out as f32 * y_ratio;
-        let y_end = (y_out + 1) as f32 * y_ratio;
-        let y_in_start = y_start.floor() as usize;
-        let y_in_end = (y_end.ceil() as usize).min(height as usize);
-
-        let weight_start_idx = y_weights.len();
-        let mut w_sum = 0.0;
-        let mut tmp_w = Vec::with_capacity(y_in_end.saturating_sub(y_in_start));
-
-        let mut actual_start = y_in_end;
-        let mut actual_end = y_in_start;
-
-        for y_in in y_in_start..y_in_end {
-            let overlap_start = y_start.max(y_in as f32);
-            let overlap_end = y_end.min((y_in + 1) as f32);
-            let w = (overlap_end - overlap_start).max(0.0);
-            if w > 0.0 {
-                actual_start = actual_start.min(y_in);
-                actual_end = actual_end.max(y_in + 1);
-                tmp_w.push(w);
-                w_sum += w;
-            }
-        }
-
-        if w_sum > 0.0 {
-            let inv_w = 1.0 / w_sum;
-            for w in tmp_w {
-                y_weights.push(w * inv_w);
-            }
-            y_bounds.push((actual_start, actual_end, weight_start_idx));
-        } else {
-            y_bounds.push((0, 0, weight_start_idx));
-        }
-    }
-
-    let mut out_buf = vec![0.0f32; (new_w * new_h * 3) as usize];
-
-    out_buf
-        .par_chunks_exact_mut(new_w as usize * 3)
-        .enumerate()
-        .for_each(|(y_out, row)| {
-            let (y_in_start, y_in_end, y_wt_offset) = y_bounds[y_out];
-            let y_len = y_in_end - y_in_start;
-            let y_wts = &y_weights[y_wt_offset..y_wt_offset + y_len];
-
-            for (x_out, &(x_in_start, x_in_end, x_wt_offset)) in x_bounds.iter().enumerate() {
-                let mut r_sum = 0.0;
-                let mut g_sum = 0.0;
-                let mut b_sum = 0.0;
-
-                let x_len = x_in_end - x_in_start;
-                let x_wts = &x_weights[x_wt_offset..x_wt_offset + x_len];
-
-                for (dy, &w_y) in y_wts.iter().enumerate() {
-                    let y_in = y_in_start + dy;
-                    let row_offset = y_in * width_usize * 3;
-
-                    let src_start = row_offset + x_in_start * 3;
-                    let src_end = row_offset + x_in_end * 3;
-                    let src_slice = &src[src_start..src_end];
-
-                    for (&w_x, chunk) in x_wts.iter().zip(src_slice.as_chunks::<3>().0) {
-                        let w = w_x * w_y;
-
-                        let r = chunk[0].max(0.0);
-                        let g = chunk[1].max(0.0);
-                        let b = chunk[2].max(0.0);
-
-                        r_sum += r * w;
-                        g_sum += g * w;
-                        b_sum += b * w;
-                    }
-                }
-
-                let out_idx = x_out * 3;
-
-                row[out_idx] = r_sum;
-                row[out_idx + 1] = g_sum;
-                row[out_idx + 2] = b_sum;
-            }
-        });
-
-    let out = Rgb32FImage::from_raw(new_w, new_h, out_buf).expect("buffer size mismatch");
-    let result = DynamicImage::ImageRgb32F(out);
-
-    log::info!("downscale_f32_image took {:.2?}", start.elapsed());
-
-    result
+    crate::fast_resizer::fast_downscale_dynamic(image, nwidth, nheight)
 }
 
 #[inline(always)]
@@ -467,32 +292,7 @@ fn build_transform_matrices(
     );
     let m_offset = NaMatrix3::new(1.0, 0.0, off_x, 0.0, 1.0, off_y, 0.0, 0.0, 1.0);
 
-    let guided_m = if params.guided_perspective_enabled
-        && count_valid_lines(&params.guided_lines, width as f64, height as f64) >= 2
-    {
-        if let Some(res) =
-            compute_guided_homography(&params.guided_lines, width as f64, height as f64)
-        {
-            let h = res.forward_h;
-            NaMatrix3::new(
-                h[0][0] as f32,
-                h[0][1] as f32,
-                h[0][2] as f32,
-                h[1][0] as f32,
-                h[1][1] as f32,
-                h[1][2] as f32,
-                h[2][0] as f32,
-                h[2][1] as f32,
-                h[2][2] as f32,
-            )
-        } else {
-            NaMatrix3::identity()
-        }
-    } else {
-        NaMatrix3::identity()
-    };
-
-    let forward = t_center * m_offset * m_perspective * m_rotate * m_scale * guided_m * t_uncenter;
+    let forward = t_center * m_offset * m_perspective * m_rotate * m_scale * t_uncenter;
     let half_diagonal =
         ((width as f64 * width as f64 + height as f64 * height as f64).sqrt()) / 2.0;
 
@@ -759,7 +559,7 @@ pub fn warp_image_geometry(image: &DynamicImage, params: GeometryParams) -> Dyna
             let y_f = y as f32;
             let mut current_vec = origin_vec + (step_vec_y * y_f);
 
-            for pixel in row_pixel_data.as_chunks_mut::<3>().0.iter_mut() {
+            for pixel in row_pixel_data.chunks_exact_mut(3) {
                 if current_vec.z.abs() > 1e-6 {
                     let inv_z = 1.0 / current_vec.z;
                     let mut src_x = current_vec.x * inv_z;
@@ -883,7 +683,7 @@ pub fn unwarp_image_geometry(warped_image: &DynamicImage, params: GeometryParams
         .for_each(|(y, row_pixel_data)| {
             let y_f = y as f32;
 
-            for (x, pixel) in row_pixel_data.as_chunks_mut::<3>().0.iter_mut().enumerate() {
+            for (x, pixel) in row_pixel_data.chunks_exact_mut(3).enumerate() {
                 let x_f = x as f32;
                 let mut current_x = x_f;
                 let mut current_y = y_f;
@@ -1357,10 +1157,6 @@ pub fn apply_flip<'a>(
 }
 
 pub fn is_geometry_identity(params: &GeometryParams) -> bool {
-    if params.guided_perspective_enabled && params.guided_lines.len() >= 2 {
-        return false;
-    }
-
     let dist_identity = !params.lens_distortion_enabled
         || ((params.lens_distortion_amount - 1.0).abs() < 1e-4
             && params.lens_dist_k1.abs() < 1e-6
@@ -1889,7 +1685,12 @@ pub fn resolve_tonemapper_override(settings: &crate::AppSettings, is_raw: bool) 
             .as_deref()
             .unwrap_or("basic")
     };
-    Some(if tm == "agx" { 1 } else { 0 })
+    Some(match tm {
+        "agx" => 1,
+        "aces" | "acescg" => 2,
+        "oklab" => 3,
+        _ => 0,
+    })
 }
 
 pub fn resolve_tonemapper_override_from_handle(
@@ -2198,10 +1999,7 @@ fn get_global_adjustments_from_json(
                 0
             },
             js_adjustments["lutIntensity"].as_f64().unwrap_or(100.0) as f32 / 100.0,
-            if js_adjustments["lutIsSceneReferred"]
-                .as_bool()
-                .unwrap_or(false)
-            {
+            if js_adjustments["lutIsSceneReferred"].as_bool().unwrap_or(false) {
                 1
             } else {
                 0
@@ -2298,8 +2096,16 @@ fn get_global_adjustments_from_json(
         has_lut,
         lut_intensity,
 
-        tonemapper_mode: tonemapper_override
-            .unwrap_or_else(|| if tone_mapper == "agx" { 1 } else { 0 }),
+        tonemapper_mode: tonemapper_override.unwrap_or_else(|| match tone_mapper {
+            "agx" => 1,
+            "aces" | "acescg" => 2,
+            "oklab" => 3,
+            // "basic" on RAW files routes to raw_photographic_transform which
+            // blows out normal Canon 77D midtones (Oklab L ≈ 0.45-0.65) to
+            // L ≈ 0.93-0.98, turning images almost pure white.
+            // Default RAW images to AgX (mode 1) which handles full dynamic range correctly.
+            _ => if is_raw { 1 } else { 0 },
+        }),
         lut_is_scene_referred,
         _pad_lut3: 0.0,
         _pad_lut4: 0.0,
@@ -2669,9 +2475,9 @@ pub fn remove_raw_artifacts_and_enhance(
                     let (r, g, b) = yc_to_rgb(cy, out_cb, out_cr);
 
                     let o = x * 3;
-                    row[o] = r.max(0.0);
-                    row[o + 1] = g.max(0.0);
-                    row[o + 2] = b.max(0.0);
+                    row[o] = r.clamp(0.0, 1.0);
+                    row[o + 1] = g.clamp(0.0, 1.0);
+                    row[o + 2] = b.clamp(0.0, 1.0);
                 }
             });
     }
@@ -2768,9 +2574,9 @@ fn apply_gentle_detail_enhance(
 
                 let safe_boost = boost * scale.clamp(0.0, 1.0);
 
-                rgb_row[r_idx] = (r + safe_boost).max(0.0);
-                rgb_row[g_idx] = (g + safe_boost).max(0.0);
-                rgb_row[b_idx] = (b + safe_boost).max(0.0);
+                rgb_row[r_idx] = (r + safe_boost).clamp(0.0, 1.0);
+                rgb_row[g_idx] = (g + safe_boost).clamp(0.0, 1.0);
+                rgb_row[b_idx] = (b + safe_boost).clamp(0.0, 1.0);
             }
         });
 }
@@ -2802,7 +2608,7 @@ pub fn calculate_histogram_from_image(image: &DynamicImage) -> Result<HistogramD
             let raw = f32_img.as_raw();
             raw.par_chunks(30_000)
                 .fold(init_hist, |mut acc, chunk| {
-                    for pixel in chunk.as_chunks::<3>().0.iter().step_by(2) {
+                    for pixel in chunk.chunks_exact(3).step_by(2) {
                         let r = (pixel[0].clamp(0.0, 1.0) * 255.0) as usize;
                         let g = (pixel[1].clamp(0.0, 1.0) * 255.0) as usize;
                         let b = (pixel[2].clamp(0.0, 1.0) * 255.0) as usize;
@@ -2823,7 +2629,7 @@ pub fn calculate_histogram_from_image(image: &DynamicImage) -> Result<HistogramD
             let raw = rgb.as_raw();
             raw.par_chunks(30_000)
                 .fold(init_hist, |mut acc, chunk| {
-                    for pixel in chunk.as_chunks::<3>().0.iter().step_by(2) {
+                    for pixel in chunk.chunks_exact(3).step_by(2) {
                         let r = pixel[0] as usize;
                         let g = pixel[1] as usize;
                         let b = pixel[2] as usize;
@@ -3485,3 +3291,77 @@ pub fn calculate_auto_adjustments(
 
     Ok(auto_results_to_json(&results))
 }
+
+/// Centralized, high-performance 2D discrete 4-neighbor Laplacian variance metric for sharpness and focus estimation.
+/// Computes mean and standard deviation / variance in a single streaming O(1)-memory pass.
+pub fn compute_laplacian_sharpness_score(img: &DynamicImage) -> f32 {
+    let gray = img.to_luma8();
+    compute_gray_laplacian_variance(&gray).sqrt() as f32
+}
+
+/// Computes the Laplacian variance on a grayscale image buffer using a streaming pass without allocating vectors.
+pub fn compute_gray_laplacian_variance(gray: &image::GrayImage) -> f64 {
+    let (w, h) = gray.dimensions();
+    if w < 3 || h < 3 {
+        return 0.0;
+    }
+
+    let mut sum = 0.0f64;
+    let mut sq_sum = 0.0f64;
+    let mut count = 0.0f64;
+
+    for y in 1..h - 1 {
+        for x in 1..w - 1 {
+            let center = gray.get_pixel(x, y)[0] as f64;
+            let up = gray.get_pixel(x, y - 1)[0] as f64;
+            let down = gray.get_pixel(x, y + 1)[0] as f64;
+            let left = gray.get_pixel(x - 1, y)[0] as f64;
+            let right = gray.get_pixel(x + 1, y)[0] as f64;
+
+            let lap = (4.0 * center - up - down - left - right).abs();
+            sum += lap;
+            sq_sum += lap * lap;
+            count += 1.0;
+        }
+    }
+
+    if count == 0.0 {
+        return 0.0;
+    }
+
+    let mean = sum / count;
+    let variance = (sq_sum / count) - (mean * mean);
+    variance.max(0.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{GrayImage, Luma};
+
+    #[test]
+    fn test_laplacian_flat_image_has_zero_variance() {
+        let flat = GrayImage::from_pixel(100, 100, Luma([128u8]));
+        let variance = compute_gray_laplacian_variance(&flat);
+        assert_eq!(variance, 0.0);
+    }
+
+    #[test]
+    fn test_laplacian_sharp_edge_has_positive_variance() {
+        let mut img = GrayImage::from_pixel(50, 50, Luma([0u8]));
+        for y in 15..35 {
+            for x in 15..35 {
+                img.put_pixel(x, y, Luma([255u8]));
+            }
+        }
+        let variance = compute_gray_laplacian_variance(&img);
+        assert!(variance > 100.0, "Sharp edge should have high Laplacian variance, got {}", variance);
+    }
+
+    #[test]
+    fn test_laplacian_small_image_edge_case() {
+        let tiny = GrayImage::new(2, 2);
+        assert_eq!(compute_gray_laplacian_variance(&tiny), 0.0);
+    }
+}
+

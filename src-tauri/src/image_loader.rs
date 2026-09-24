@@ -102,30 +102,6 @@ pub fn load_base_image_from_bytes(
         bytes,
     );
 
-    if is_raw_file(path_for_ext_check)
-        && !use_fast_raw_dev
-        && settings.use_apple_raw9.unwrap_or(false)
-    {
-        if let Some((tracker, generation)) = &cancel_token
-            && tracker.load(Ordering::SeqCst) != *generation
-        {
-            return Err(anyhow!("Load cancelled"));
-        }
-
-        match crate::apple_raw::develop_raw9(
-            bytes,
-            path_for_ext_check,
-            &crate::apple_raw::Raw9Options::for_loading(),
-        ) {
-            Ok(image) => return Ok(image),
-            Err(e) => log::warn!(
-                "Apple RAW 9 unavailable for '{}', falling back to rawler: {}",
-                path_for_ext_check,
-                e
-            ),
-        }
-    }
-
     if is_raw_file(path_for_ext_check) {
         match panic::catch_unwind(move || {
             crate::raw_processing::develop_raw_image(
@@ -742,7 +718,6 @@ pub fn composite_patches_on_image(
                                     let pb_u8 = color_raw[color_idx + 2];
 
                                     let (pr, pg, pb) = get_color(&patch, pr_u8, pg_u8, pb_u8);
-
                                     let alpha = mask_value as f32 / 255.0;
                                     let one_minus_alpha = 1.0 - alpha;
 
@@ -867,56 +842,19 @@ pub async fn load_image(
     let cancel_token = Some((generation_tracker.clone(), my_generation));
 
     {
-        *state
-            .original_image
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
-        *state
-            .cached_preview
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
-        *state
-            .gpu_image_cache
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
-        *state
-            .full_warped_cache
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
-        *state
-            .full_transformed_cache
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
-        *state
-            .patched_warped_cache
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
+        *state.original_image.lock().unwrap() = None;
+        *state.cached_preview.lock().unwrap() = None;
+        *state.gpu_image_cache.lock().unwrap() = None;
+        *state.full_warped_cache.lock().unwrap() = None;
+        *state.full_transformed_cache.lock().unwrap() = None;
 
-        state
-            .mask_cache
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .clear();
-        state
-            .patch_cache
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .clear();
-        state
-            .geometry_cache
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .clear();
+        state.mask_cache.lock().unwrap().clear();
+        state.patch_cache.lock().unwrap().clear();
+        state.geometry_cache.lock().unwrap().clear();
 
-        *state
-            .denoise_result
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
-        *state.hdr_result.lock().unwrap_or_else(|e| e.into_inner()) = None;
-        *state
-            .panorama_result
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
+        *state.denoise_result.lock().unwrap() = None;
+        *state.hdr_result.lock().unwrap() = None;
+        *state.panorama_result.lock().unwrap() = None;
     }
 
     let (source_path, sidecar_path) = parse_virtual_path(&path);
@@ -1020,11 +958,13 @@ pub async fn load_image(
     }
 
     let (orig_width, orig_height) = pristine_arc.dimensions();
+    let screen_proxy = Arc::new(crate::fast_resizer::fast_downscale_dynamic(&pristine_arc, 2560, 2560));
 
     *state.original_image.lock().unwrap() = Some(LoadedImage {
         path,
         image: pristine_arc,
         is_raw,
+        screen_proxy: Some(screen_proxy),
     });
 
     Ok(LoadImageResult {

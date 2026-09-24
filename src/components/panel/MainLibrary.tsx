@@ -3,6 +3,7 @@ import { getVersion } from '@tauri-apps/api/app';
 import { open } from '@tauri-apps/plugin-shell';
 import {
   AlertTriangle,
+  Camera,
   Check,
   Folder,
   FolderInput,
@@ -16,6 +17,9 @@ import {
   Columns,
   SlidersHorizontal,
   Rows3,
+  Zap,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import CullingView from './library/CullingView';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -50,10 +54,6 @@ export interface ColumnWidths {
   date: number;
   rating: number;
   color: number;
-  shutter: number;
-  aperture: number;
-  iso: number;
-  focal: number;
 }
 
 interface MainLibraryProps {
@@ -93,6 +93,20 @@ interface MainLibraryProps {
   thumbnailProgress: Progress;
   thumbnailSize: ThumbnailSize;
   onNavigateToCommunity(): void;
+  onHistoryBack?: () => void;
+  onHistoryForward?: () => void;
+}
+
+export interface ColumnWidths {
+  thumbnail: number;
+  name: number;
+  date: number;
+  rating: number;
+  color: number;
+  shutter: number;
+  aperture: number;
+  iso: number;
+  focal: number;
 }
 
 interface DisplayModeSwitchProps {
@@ -183,6 +197,10 @@ export default function MainLibrary(props: MainLibraryProps) {
   };
 
   const searchCriteria = useLibraryStore((state) => state.searchCriteria);
+  const folderHistory = useLibraryStore((state) => state.folderHistory);
+  const folderHistoryIndex = useLibraryStore((state) => state.folderHistoryIndex);
+  const canGoBack = folderHistoryIndex > 0;
+  const canGoForward = folderHistoryIndex < folderHistory.length - 1;
 
   const translatedRatingFilterOptions = useMemo(
     () => [
@@ -217,18 +235,20 @@ export default function MainLibrary(props: MainLibraryProps) {
 
   const translatedThumbnailSizeOptions = useMemo(
     () => [
-      { id: ThumbnailSize.Small, label: t('library.thumbnailSize.small'), size: 160 },
-      { id: ThumbnailSize.Medium, label: t('library.thumbnailSize.medium'), size: 240 },
-      { id: ThumbnailSize.Large, label: t('library.thumbnailSize.large'), size: 320 },
+      { id: ThumbnailSize.Tiny, label: String((t as any)('library.thumbnailSize.tiny') || 'Tiny'), size: 120 },
+      { id: ThumbnailSize.Small, label: String((t as any)('library.thumbnailSize.small') || 'Small'), size: 180 },
+      { id: ThumbnailSize.Medium, label: String((t as any)('library.thumbnailSize.medium') || 'Medium'), size: 240 },
+      { id: ThumbnailSize.Large, label: String((t as any)('library.thumbnailSize.large') || 'Large'), size: 360 },
+      { id: ThumbnailSize.Huge, label: String((t as any)('library.thumbnailSize.huge') || 'Huge'), size: 480 },
     ],
     [t],
   );
 
   const translatedThumbnailAspectRatioOptions = useMemo(
     () => [
-      { id: ThumbnailAspectRatio.Contain, label: t('library.thumbnailFit.originalRatio') },
       { id: ThumbnailAspectRatio.Cover, label: t('library.thumbnailFit.fillSquare') },
-      { id: ThumbnailAspectRatio.Justified, label: t('library.thumbnailFit.justified') },
+      { id: ThumbnailAspectRatio.Contain, label: t('library.thumbnailFit.originalRatio') },
+      { id: ThumbnailAspectRatio.Masonry, label: t('library.thumbnailFit.masonry', 'Masonry Adaptive') },
     ],
     [t],
   );
@@ -312,6 +332,34 @@ export default function MainLibrary(props: MainLibraryProps) {
 
     checkVersion();
   }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.isComposing
+      ) {
+        return;
+      }
+      if (e.key === 'c' || e.key === 'C') {
+        if (!e.ctrlKey && !e.metaKey && !e.altKey && props.imageList.length > 0) {
+          e.preventDefault();
+          setUI({
+            speedCullerModalState: {
+              isOpen: true,
+              selectedPaths: props.multiSelectedPaths.length > 1 ? props.multiSelectedPaths : [],
+              initialIndex: props.activePath
+                ? Math.max(0, props.imageList.findIndex((im) => im.path === props.activePath))
+                : 0,
+            },
+          });
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [props.imageList, props.activePath, props.multiSelectedPaths, setUI]);
 
   if (!props.rootPaths || props.rootPaths.length === 0) {
     if (!props.appSettings) {
@@ -501,7 +549,7 @@ export default function MainLibrary(props: MainLibraryProps) {
   }
 
   return (
-    <div className="relative z-20 flex-1 flex flex-col h-full min-w-0 bg-bg-secondary rounded-lg overflow-visible">
+    <div className="flex-1 flex flex-col h-full min-w-0 bg-bg-secondary rounded-lg overflow-hidden">
       <header
         className="p-3 shrink-0 flex justify-between items-center border-b border-surface gap-4"
         onMouseEnter={() => setIsProgressHovered(true)}
@@ -569,6 +617,25 @@ export default function MainLibrary(props: MainLibraryProps) {
           <DisplayModeSwitch displayMode={libraryDisplayMode} setDisplayMode={setLibraryDisplayMode} t={t} />
 
           <div className="flex items-center bg-surface p-1 rounded-lg gap-1 border border-border-color/20">
+            {/* Folder History Navigation */}
+            <div className="flex items-center gap-0.5 mr-0.5">
+              <Button
+                className="h-10 w-10 bg-transparent text-text-primary shadow-none p-0 flex items-center justify-center hover:bg-card-active rounded-md transition-colors disabled:opacity-25 disabled:pointer-events-none"
+                disabled={!canGoBack}
+                onClick={props.onHistoryBack}
+                data-tooltip="Go Back (History)"
+              >
+                <ChevronLeft size={18} />
+              </Button>
+              <Button
+                className="h-10 w-10 bg-transparent text-text-primary shadow-none p-0 flex items-center justify-center hover:bg-card-active rounded-md transition-colors disabled:opacity-25 disabled:pointer-events-none"
+                disabled={!canGoForward}
+                onClick={props.onHistoryForward}
+                data-tooltip="Go Forward (History)"
+              >
+                <ChevronRight size={18} />
+              </Button>
+            </div>
             <SearchInput indexingProgress={props.indexingProgress} isIndexing={props.isIndexing} />
             <ViewOptionsDropdown
               libraryViewMode={props.libraryViewMode}
@@ -586,13 +653,43 @@ export default function MainLibrary(props: MainLibraryProps) {
               sortOptions={translatedSortOptions}
             />
             {!props.isAndroid && (
-              <Button
-                className="h-12 w-12 bg-transparent text-text-primary shadow-none p-0 flex items-center justify-center"
-                onClick={props.onNavigateToCommunity}
-                data-tooltip={t('library.tooltips.communityPresets')}
-              >
-                <Users className="w-5 h-5" />
-              </Button>
+              <>
+                <Button
+                  className="h-12 w-12 bg-transparent text-amber-400 shadow-none p-0 flex items-center justify-center hover:text-amber-300 hover:scale-105 transition-all"
+                  onClick={() =>
+                    setUI({
+                      speedCullerModalState: {
+                        isOpen: true,
+                        selectedPaths: props.multiSelectedPaths.length > 1 ? props.multiSelectedPaths : [],
+                        initialIndex: props.activePath
+                          ? Math.max(0, props.imageList.findIndex((im) => im.path === props.activePath))
+                          : 0,
+                      },
+                    })
+                  }
+                  data-tooltip="⚡ Speed Culler & AI Face Loupe (C)"
+                >
+                  <Zap className="w-5 h-5 fill-amber-400/20 text-amber-400" />
+                </Button>
+                <Button
+                  className="h-12 w-12 bg-transparent text-text-primary shadow-none p-0 flex items-center justify-center hover:text-accent transition-colors"
+                  onClick={() =>
+                    setUI((state) => ({
+                      tetheringModalState: { ...state.tetheringModalState, isOpen: true },
+                    }))
+                  }
+                  data-tooltip="Camera Tethering (Live View & Remote Shutter)"
+                >
+                  <Camera className="w-5 h-5" />
+                </Button>
+                <Button
+                  className="h-12 w-12 bg-transparent text-text-primary shadow-none p-0 flex items-center justify-center"
+                  onClick={props.onNavigateToCommunity}
+                  data-tooltip={t('library.tooltips.communityPresets')}
+                >
+                  <Users className="w-5 h-5" />
+                </Button>
+              </>
             )}
             <Button
               className="h-12 w-12 bg-transparent text-text-primary shadow-none p-0 flex items-center justify-center"

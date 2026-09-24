@@ -1,3 +1,4 @@
+import React, { Suspense, lazy } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../store/useUIStore';
@@ -6,33 +7,76 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { useProcessStore } from '../../store/useProcessStore';
 import { useEditorStore } from '../../store/useEditorStore';
 import CopyPasteSettingsModal from './CopyPasteSettingsModal';
-import PanoramaModal from './PanoramaModal';
-import HdrModal from './HdrModal';
-import FocusStackModal from './FocusStackModal';
-import NegativeConversionModal from './NegativeConversionModal';
-import DenoiseModal from './DenoiseModal';
 import type { DenoiseMethod } from './DenoiseModal';
 import CreateFolderModal from './CreateFolderModal';
 import RenameFolderModal from './RenameFolderModal';
 import RenameFileModal from './RenameFileModal';
 import ConfirmModal from './ConfirmModal';
 import ImportSettingsModal from './ImportSettingsModal';
-import CullingModal from './CullingModal';
-import CollageModal from './CollageModal';
+
+// Heavy feature modals lazy-loaded on demand
+const PanoramaModal = lazy(() => import('./PanoramaModal'));
+const HdrModal = lazy(() => import('./HdrModal'));
+const FocusStackModal = lazy(() => import('./FocusStackModal'));
+const NegativeConversionModal = lazy(() => import('./NegativeConversionModal'));
+const DenoiseModal = lazy(() => import('./DenoiseModal'));
+const CullingModal = lazy(() => import('./CullingModal'));
+const CollageModal = lazy(() => import('./CollageModal'));
+const BatchPolishModal = lazy(() => import('./BatchPolishModal'));
+const TetheringModal = lazy(() => import('./TetheringModal'));
+const ColorMatcherModal = lazy(() => import('./ColorMatcherModal'));
+const HeroCuratorModal = lazy(() => import('./HeroCuratorModal'));
+const ClientDeliveryModal = lazy(() => import('./ClientDeliveryModal'));
+const BokehModal = lazy(() => import('./BokehModal'));
+const AdvancedExportModal = lazy(() => import('./AdvancedExportModal'));
+const SpeedCullerModal = lazy(() => import('./SpeedCullerModal'));
+const DrizzleModal = lazy(() => import('./DrizzleModal'));
+
 import { AppSettings, Invokes, AlbumItem, Album, AlbumGroup } from '../ui/AppProperties';
 import { CopyPasteSettings } from '../../utils/adjustments';
 
 export interface AppModalsProps {
   handleImageSelect: (path: string) => void;
-  handleSavePanorama: () => Promise<string>;
-  handleStartPanorama: (paths: string[]) => void;
-  handleSaveHdr: () => Promise<string>;
-  handleStartHdr: (paths: string[]) => void;
+  handleSavePanorama: (format?: string) => Promise<string>;
+  handleStartPanorama: (paths: string[], projection?: 'cylindrical' | 'spherical' | 'planar', isHdr?: boolean, boundaryWarp?: number, halfSize?: boolean) => void;
+  handleSaveHdr: (format?: string) => Promise<string>;
+  handleStartHdr: (paths: string[], options?: {
+    profile?: 'natural' | 'vivid' | 'interior' | 'dramatic' | 'portra' | 'velvia' | 'cinestill' | 'monochromeHdr';
+    deghostSensitivity?: 'off' | 'low' | 'medium' | 'high';
+    autoSemantic?: boolean;
+    exposureBias?: number;
+    highlightRecovery?: number;
+    shadowLift?: number;
+    detailBoost?: number;
+    halfSize?: boolean;
+  }) => void;
   handleStartFocusStack: (paths: string[]) => void;
   handleSaveFocusStack: () => Promise<string>;
   refreshImageList: () => Promise<void>;
-  handleApplyDenoise: (intensity: number, method: DenoiseMethod) => Promise<void>;
-  handleBatchDenoise: (intensity: number, method: DenoiseMethod, paths: string[]) => Promise<string[]>;
+  handleApplyDenoise: (
+    intensity: number,
+    method: DenoiseMethod,
+    healDust?: boolean,
+    visualizeDefects?: boolean,
+    protectStars?: boolean,
+    preserveDetails?: number,
+    chromaIntensity?: number,
+    shadowBoost?: number,
+    deband?: boolean,
+    filmGrain?: number
+  ) => Promise<void>;
+  handleBatchDenoise: (
+    intensity: number,
+    method: DenoiseMethod,
+    paths: string[],
+    healDust?: boolean,
+    protectStars?: boolean,
+    preserveDetails?: number,
+    chromaIntensity?: number,
+    shadowBoost?: number,
+    deband?: boolean,
+    filmGrain?: number
+  ) => Promise<string[]>;
   handleSaveDenoisedImage: () => Promise<string>;
   handleCreateFolder: (folderName: string) => Promise<void>;
   handleRenameFolder: (newName: string) => Promise<void>;
@@ -75,6 +119,13 @@ export default function AppModals(props: AppModalsProps) {
     negativeModalState,
     denoiseModalState,
     cullingModalState,
+    batchPolishModalState,
+    tetheringModalState,
+    colorMatcherModalState,
+    heroCuratorModalState,
+    clientDeliveryModalState,
+    bokehModalState,
+    advancedExportModalState,
     collageModalState,
     setUI,
   } = useUIStore(
@@ -98,6 +149,13 @@ export default function AppModals(props: AppModalsProps) {
       negativeModalState: state.negativeModalState,
       denoiseModalState: state.denoiseModalState,
       cullingModalState: state.cullingModalState,
+      batchPolishModalState: state.batchPolishModalState,
+      tetheringModalState: state.tetheringModalState,
+      colorMatcherModalState: state.colorMatcherModalState,
+      heroCuratorModalState: state.heroCuratorModalState,
+      clientDeliveryModalState: state.clientDeliveryModalState,
+      bokehModalState: state.bokehModalState,
+      advancedExportModalState: state.advancedExportModalState,
       collageModalState: state.collageModalState,
       setUI: state.setUI,
     })),
@@ -141,7 +199,7 @@ export default function AppModals(props: AppModalsProps) {
   const isAlbumGroup = currentAlbumData?.type === 'group';
 
   return (
-    <>
+    <Suspense fallback={null}>
       <CopyPasteSettingsModal
         isOpen={isCopyPasteSettingsModalOpen}
         onClose={() => setUI({ isCopyPasteSettingsModalOpen: false })}
@@ -176,14 +234,17 @@ export default function AppModals(props: AppModalsProps) {
           })
         }
         onOpenFile={(path: string) => props.handleImageSelect(path)}
-        onSave={props.handleSavePanorama}
-        onStitch={() => props.handleStartPanorama(panoramaModalState.stitchingSourcePaths)}
+        onSave={(fmt) => props.handleSavePanorama(fmt)}
+        onStitch={(proj, warp, isHdr, halfSize) => props.handleStartPanorama(panoramaModalState.stitchingSourcePaths, proj as any, !!isHdr, warp, halfSize)}
         progressMessage={panoramaModalState.progressMessage}
+        sourcePaths={panoramaModalState.stitchingSourcePaths}
       />
       <HdrModal
+        detectedScene={hdrModalState.detectedScene}
         error={hdrModalState.error}
         finalImageBase64={hdrModalState.finalImageBase64}
         imageCount={hdrModalState.stitchingSourcePaths.length}
+        sourcePaths={hdrModalState.stitchingSourcePaths}
         isOpen={hdrModalState.isOpen}
         isProcessing={hdrModalState.isProcessing}
         loadingImageUrl={
@@ -206,8 +267,8 @@ export default function AppModals(props: AppModalsProps) {
           })
         }
         onOpenFile={(path: string) => props.handleImageSelect(path)}
-        onSave={props.handleSaveHdr}
-        onMerge={() => props.handleStartHdr(hdrModalState.stitchingSourcePaths)}
+        onSave={(fmt) => props.handleSaveHdr(fmt)}
+        onMerge={(opts) => props.handleStartHdr(hdrModalState.stitchingSourcePaths, opts)}
         progressMessage={hdrModalState.progressMessage}
       />
       <FocusStackModal
@@ -358,6 +419,53 @@ export default function AppModals(props: AppModalsProps) {
         sourceImages={collageModalState.sourceImages}
         thumbnails={thumbnails}
       />
-    </>
+      <BatchPolishModal
+        isOpen={batchPolishModalState.isOpen}
+        onClose={() => setUI({ batchPolishModalState: { isOpen: false, selectedPaths: [] } })}
+        selectedPaths={batchPolishModalState.selectedPaths}
+        onComplete={props.refreshImageList}
+      />
+      <TetheringModal
+        isOpen={tetheringModalState.isOpen}
+        onClose={() =>
+          setUI((state) => ({
+            tetheringModalState: { ...state.tetheringModalState, isOpen: false },
+          }))
+        }
+        onPhotoCaptured={props.handleImageSelect}
+      />
+      <ColorMatcherModal
+        isOpen={colorMatcherModalState.isOpen}
+        onClose={() => setUI({ colorMatcherModalState: { isOpen: false, heroPath: null, targetPaths: [] } })}
+        heroPath={colorMatcherModalState.heroPath}
+        targetPaths={colorMatcherModalState.targetPaths}
+        initialMode={colorMatcherModalState.initialMode}
+      />
+      <HeroCuratorModal
+        isOpen={heroCuratorModalState.isOpen}
+        onClose={() => setUI({ heroCuratorModalState: { isOpen: false, selectedPaths: [] } })}
+        selectedPaths={heroCuratorModalState.selectedPaths}
+        onSelectWinner={(path) => {
+          props.handleImageSelect(path);
+          props.refreshImageList();
+        }}
+      />
+      <ClientDeliveryModal
+        isOpen={clientDeliveryModalState.isOpen}
+        onClose={() => setUI({ clientDeliveryModalState: { isOpen: false, selectedPaths: [] } })}
+        selectedPaths={clientDeliveryModalState.selectedPaths}
+      />
+      <BokehModal
+        isOpen={bokehModalState.isOpen}
+        onClose={() => setUI({ bokehModalState: { isOpen: false } })}
+      />
+      <AdvancedExportModal
+        isOpen={advancedExportModalState.isOpen}
+        onClose={() => setUI({ advancedExportModalState: { isOpen: false, selectedPaths: [] } })}
+        selectedPaths={advancedExportModalState.selectedPaths}
+      />
+      <SpeedCullerModal />
+      <DrizzleModal onOpenFile={props.handleImageSelect} />
+    </Suspense>
   );
 }

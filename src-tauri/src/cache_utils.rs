@@ -290,8 +290,7 @@ impl DecodedImageCache {
     }
 }
 
-#[tauri::command]
-pub fn clear_image_caches(state: tauri::State<AppState>) {
+pub fn clear_image_caches_internal(state: &AppState) {
     if let Ok(mut decoded_cache) = state.decoded_image_cache.lock() {
         decoded_cache.clear();
     }
@@ -312,8 +311,7 @@ pub fn clear_image_caches(state: tauri::State<AppState>) {
     }
 }
 
-#[tauri::command]
-pub fn clear_session_caches(state: tauri::State<AppState>) {
+pub fn clear_session_caches_internal(state: &AppState) {
     if let Ok(mut patch_cache) = state.patch_cache.lock() {
         patch_cache.clear();
     }
@@ -323,4 +321,14 @@ pub fn clear_session_caches(state: tauri::State<AppState>) {
     if let Ok(mut geometry_cache) = state.geometry_cache.lock() {
         geometry_cache.clear();
     }
+}
+
+#[tauri::command]
+pub fn clear_image_caches(state: tauri::State<AppState>) {
+    clear_image_caches_internal(&state);
+}
+
+#[tauri::command]
+pub fn clear_session_caches(state: tauri::State<AppState>) {
+    clear_session_caches_internal(&state);
 }

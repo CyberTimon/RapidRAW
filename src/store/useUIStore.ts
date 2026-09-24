@@ -1,17 +1,17 @@
 import { create } from 'zustand';
-import {
-  ImageFile,
-  Panel,
-  UiVisibility,
-  CullingSuggestions,
-  PanelRegion,
-  WorkspaceState,
-} from '../components/ui/AppProperties';
-import { useEditorStore } from './useEditorStore';
+import { ImageFile, Panel, UiVisibility, CullingSuggestions, PanelRegion } from '../components/ui/AppProperties';
+
+export const DEFAULT_PANEL_WIDTH = 320;
+export const DEFAULT_BOTTOM_PANEL_HEIGHT = 160;
+export const DEFAULT_PANEL_SECTION_HEIGHT = 240;
+
+export function reconcileWorkspace() {
+  // Utility stub for workspace reconciliation
+}
 
 export type SwitcherPlacement = 'bottom' | 'right' | 'left' | 'top';
 
-interface CollapsibleSectionsState {
+export interface CollapsibleSectionsState {
   basic: boolean;
   color: boolean;
   curves: boolean;
@@ -19,12 +19,7 @@ interface CollapsibleSectionsState {
   effects: boolean;
 }
 
-export interface CropSectionsState {
-  transform: boolean;
-  lens: boolean;
-}
-
-interface ConfirmModalState {
+export interface ConfirmModalState {
   confirmText?: string;
   confirmVariant?: string;
   isOpen: boolean;
@@ -33,12 +28,12 @@ interface ConfirmModalState {
   title?: string;
 }
 
-interface CollageModalState {
+export interface CollageModalState {
   isOpen: boolean;
   sourceImages: Array<Pick<ImageFile, 'path'>>;
 }
 
-interface PanoramaModalState {
+export interface PanoramaModalState {
   error: string | null;
   finalImageBase64: string | null;
   isOpen: boolean;
@@ -47,7 +42,7 @@ interface PanoramaModalState {
   stitchingSourcePaths: Array<string>;
 }
 
-interface FocusStackModalState {
+export interface FocusStackModalState {
   error: string | null;
   finalImageBase64: string | null;
   depthMapBase64: string | null;
@@ -57,7 +52,8 @@ interface FocusStackModalState {
   sourcePaths: Array<string>;
 }
 
-interface HdrModalState {
+export interface HdrModalState {
+  detectedScene?: string | null;
   error: string | null;
   finalImageBase64: string | null;
   isOpen: boolean;
@@ -66,7 +62,26 @@ interface HdrModalState {
   stitchingSourcePaths: Array<string>;
 }
 
-interface DenoiseModalState {
+export interface DrizzleModalState {
+  isOpen: boolean;
+  isProcessing: boolean;
+  sourcePaths: string[];
+  scaleFactor: number;
+  pixfrac: number;
+  progressMessage: string | null;
+  error: string | null;
+  finalImageBase64: string | null;
+  originalBase64: string | null;
+  meta: {
+    width: number;
+    height: number;
+    scale: number;
+    frames_stacked: number;
+    snr_boost: string;
+  } | null;
+}
+
+export interface DenoiseModalState {
   isOpen: boolean;
   isProcessing: boolean;
   previewBase64: string | null;
@@ -77,12 +92,80 @@ interface DenoiseModalState {
   isRaw: boolean;
 }
 
-interface NegativeConversionModalState {
+export interface NegativeConversionModalState {
   isOpen: boolean;
   targetPaths: Array<string>;
 }
 
-interface CullingModalState {
+export interface BatchPolishModalState {
+  isOpen: boolean;
+  selectedPaths: Array<string>;
+}
+
+export interface ColorMatcherModalState {
+  isOpen: boolean;
+  heroPath?: string | null;
+  targetPaths?: string[];
+  initialMode?: 'matcher' | 'harmonize';
+}
+
+export interface HeroCuratorModalState {
+  isOpen: boolean;
+  selectedPaths: Array<string>;
+}
+
+export interface ClientDeliveryModalState {
+  isOpen: boolean;
+  selectedPaths: Array<string>;
+}
+
+export interface BokehModalState {
+  isOpen: boolean;
+}
+
+export interface AdvancedExportModalState {
+  isOpen: boolean;
+  selectedPaths: Array<string>;
+}
+
+export interface SpeedCullerModalState {
+  isOpen: boolean;
+  selectedPaths: Array<string>;
+  initialIndex: number;
+}
+
+export interface TetheringModalState {
+  isOpen: boolean;
+  isLiveViewActive: boolean;
+  isConnected: boolean;
+  cameraInfo: any | null;
+  capturedPhotos: Array<{
+    filePath: string;
+    fileName: string;
+    exposureInfo: string;
+    timestamp: number;
+  }>;
+  isCapturing: boolean;
+  error: string | null;
+}
+
+export interface NightSkyState {
+  isExpanded: boolean;
+  targetPaths: Array<string>;
+  isProcessing: boolean;
+  progressMessage: string | null;
+  freezeGround: boolean;
+  removeLightPollution: boolean;
+  sigmaClip: number;
+  error: string | null;
+  starTrailsMode: boolean;
+  cometDecay: boolean;
+  decayRate: number;
+  fillGaps: boolean;
+  useGpu: boolean;
+}
+
+export interface CullingModalState {
   isOpen: boolean;
   suggestions: CullingSuggestions | null;
   progress: { current: number; total: number; stage: string } | null;
@@ -90,126 +173,7 @@ interface CullingModalState {
   pathsToCull: Array<string>;
 }
 
-const ALL_PANELS: Panel[] = [
-  Panel.Metadata,
-  Panel.FolderTree,
-  Panel.Export,
-  Panel.Tethering,
-  Panel.Adjustments,
-  Panel.Crop,
-  Panel.Masks,
-  Panel.Ai,
-  Panel.Presets,
-];
-
-const DEFAULT_PANEL_DEFAULT_REGIONS: Record<Panel, PanelRegion> = {
-  [Panel.Metadata]: 'leftTop',
-  [Panel.FolderTree]: 'leftTop',
-  [Panel.Export]: 'leftTop',
-  [Panel.Tethering]: 'leftTop',
-  [Panel.Adjustments]: 'rightTop',
-  [Panel.Crop]: 'rightTop',
-  [Panel.Masks]: 'rightTop',
-  [Panel.Ai]: 'rightTop',
-  [Panel.Presets]: 'rightTop',
-};
-
-export const DEFAULT_PANEL_WIDTH = 350;
-export const DEFAULT_PANEL_SECTION_HEIGHT = 450;
-export const DEFAULT_BOTTOM_PANEL_HEIGHT = 144;
-
-export function reconcileWorkspace(
-  savedWorkspace: WorkspaceState | undefined,
-  isTetheringSupported: boolean,
-): WorkspaceState {
-  const allowedPanels = new Set(ALL_PANELS.filter((p) => p !== Panel.Tethering || isTetheringSupported));
-
-  const defaultWorkspace: WorkspaceState = {
-    leftPanelWidth: DEFAULT_PANEL_WIDTH,
-    rightPanelWidth: DEFAULT_PANEL_WIDTH,
-    leftTopHeight: DEFAULT_PANEL_SECTION_HEIGHT,
-    rightTopHeight: DEFAULT_PANEL_SECTION_HEIGHT,
-    panelLayout: {
-      leftTop: [Panel.Metadata, Panel.FolderTree, Panel.Export, ...(isTetheringSupported ? [Panel.Tethering] : [])],
-      leftBottom: [],
-      rightTop: [Panel.Adjustments, Panel.Crop, Panel.Masks, Panel.Ai, Panel.Presets],
-      rightBottom: [],
-    },
-    activePanels: {
-      leftTop: Panel.FolderTree,
-      leftBottom: null,
-      rightTop: Panel.Adjustments,
-      rightBottom: null,
-    },
-    panelSwitcherPlacement: {
-      leftTop: 'bottom',
-      leftBottom: 'bottom',
-      rightTop: 'right',
-      rightBottom: 'right',
-    },
-  };
-
-  if (!savedWorkspace || !savedWorkspace.panelLayout) {
-    return defaultWorkspace;
-  }
-
-  const seenPanels = new Set<Panel>();
-  const sanitizedLayout: Record<PanelRegion, Panel[]> = {
-    leftTop: [],
-    leftBottom: [],
-    rightTop: [],
-    rightBottom: [],
-  };
-
-  (['leftTop', 'leftBottom', 'rightTop', 'rightBottom'] as PanelRegion[]).forEach((region) => {
-    const list = savedWorkspace.panelLayout[region] || [];
-    list.forEach((panel) => {
-      if (allowedPanels.has(panel) && !seenPanels.has(panel)) {
-        sanitizedLayout[region].push(panel);
-        seenPanels.add(panel);
-      }
-    });
-  });
-
-  allowedPanels.forEach((panel) => {
-    if (!seenPanels.has(panel)) {
-      const targetRegion = DEFAULT_PANEL_DEFAULT_REGIONS[panel] || 'leftTop';
-      sanitizedLayout[targetRegion].push(panel);
-      seenPanels.add(panel);
-    }
-  });
-
-  const sanitizedActive: Record<PanelRegion, Panel | null> = {
-    leftTop: null,
-    leftBottom: null,
-    rightTop: null,
-    rightBottom: null,
-  };
-
-  (['leftTop', 'leftBottom', 'rightTop', 'rightBottom'] as PanelRegion[]).forEach((region) => {
-    const currentActive = savedWorkspace.activePanels?.[region];
-    if (currentActive && sanitizedLayout[region].includes(currentActive)) {
-      sanitizedActive[region] = currentActive;
-    } else {
-      sanitizedActive[region] = sanitizedLayout[region].length > 0 ? sanitizedLayout[region][0] : null;
-    }
-  });
-
-  return {
-    leftPanelWidth: savedWorkspace.leftPanelWidth || defaultWorkspace.leftPanelWidth,
-    rightPanelWidth: savedWorkspace.rightPanelWidth || defaultWorkspace.rightPanelWidth,
-    leftTopHeight: savedWorkspace.leftTopHeight || defaultWorkspace.leftTopHeight,
-    rightTopHeight: savedWorkspace.rightTopHeight || defaultWorkspace.rightTopHeight,
-    panelLayout: sanitizedLayout,
-    activePanels: sanitizedActive,
-    panelSwitcherPlacement: {
-      ...defaultWorkspace.panelSwitcherPlacement,
-      ...(savedWorkspace.panelSwitcherPlacement || {}),
-    },
-  };
-}
-
-export interface UIState {
+interface UIState {
   activeView: string;
   isFullScreen: boolean;
   isWindowFullScreen: boolean;
@@ -241,7 +205,6 @@ export interface UIState {
   renderedPanel: Panel | null;
   slideDirection: number;
   collapsibleSectionsState: CollapsibleSectionsState;
-  cropSectionsState: CropSectionsState;
 
   isCreateFolderModalOpen: boolean;
   isRenameFolderModalOpen: boolean;
@@ -262,10 +225,20 @@ export interface UIState {
   panoramaModalState: PanoramaModalState;
   focusStackModalState: FocusStackModalState;
   hdrModalState: HdrModalState;
+  drizzleModalState: DrizzleModalState;
   negativeModalState: NegativeConversionModalState;
   denoiseModalState: DenoiseModalState;
   cullingModalState: CullingModalState;
+  batchPolishModalState: BatchPolishModalState;
+  tetheringModalState: TetheringModalState;
+  colorMatcherModalState: ColorMatcherModalState;
+  heroCuratorModalState: HeroCuratorModalState;
+  clientDeliveryModalState: ClientDeliveryModalState;
+  bokehModalState: BokehModalState;
+  advancedExportModalState: AdvancedExportModalState;
+  speedCullerModalState: SpeedCullerModalState;
   collageModalState: CollageModalState;
+  nightSkyState: NightSkyState;
 
   setUI: (updater: Partial<UIState> | ((state: UIState) => Partial<UIState>)) => void;
   setPanel: (panel: Panel | null) => void;
@@ -273,8 +246,6 @@ export interface UIState {
   setCustomEscapeHandler: (handler: (() => void) | null) => void;
   searchFocusRequest: number;
   requestSearchFocus: () => void;
-  toggleFullScreen: () => void;
-  resetWorkspaceLayout: (isTetheringSupported?: boolean) => WorkspaceState;
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -283,15 +254,15 @@ export const useUIStore = create<UIState>((set, get) => ({
   isWindowFullScreen: false,
   isInstantTransition: false,
   isLayoutReady: false,
-  uiVisibility: { filmstrip: true, leftPanel: true, rightPanel: true, quickFilter: false },
+  uiVisibility: { filmstrip: true, leftPanel: true, rightPanel: true },
   isLibraryExportPanelVisible: false,
   isSettingsOpen: false,
 
-  leftPanelWidth: DEFAULT_PANEL_WIDTH,
-  rightPanelWidth: DEFAULT_PANEL_WIDTH,
-  bottomPanelHeight: DEFAULT_BOTTOM_PANEL_HEIGHT,
-  leftTopHeight: DEFAULT_PANEL_SECTION_HEIGHT,
-  rightTopHeight: DEFAULT_PANEL_SECTION_HEIGHT,
+  leftPanelWidth: 350,
+  rightPanelWidth: 350,
+  bottomPanelHeight: 144,
+  leftTopHeight: 450,
+  rightTopHeight: 450,
   compactEditorPanelHeightOverride: null,
 
   panelLayout: {
@@ -323,7 +294,6 @@ export const useUIStore = create<UIState>((set, get) => ({
   renderedPanel: Panel.Adjustments,
   slideDirection: 1,
   collapsibleSectionsState: { basic: true, color: false, curves: true, details: false, effects: false },
-  cropSectionsState: { transform: false, lens: false },
 
   isCreateFolderModalOpen: false,
   isRenameFolderModalOpen: false,
@@ -365,6 +335,18 @@ export const useUIStore = create<UIState>((set, get) => ({
     progressMessage: '',
     stitchingSourcePaths: [],
   },
+  drizzleModalState: {
+    isOpen: false,
+    isProcessing: false,
+    sourcePaths: [],
+    scaleFactor: 2,
+    pixfrac: 0.8,
+    progressMessage: null,
+    error: null,
+    finalImageBase64: null,
+    originalBase64: null,
+    meta: null,
+  },
   negativeModalState: { isOpen: false, targetPaths: [] },
   denoiseModalState: {
     isOpen: false,
@@ -376,7 +358,38 @@ export const useUIStore = create<UIState>((set, get) => ({
     isRaw: false,
   },
   cullingModalState: { isOpen: false, suggestions: null, progress: null, error: null, pathsToCull: [] },
+  batchPolishModalState: { isOpen: false, selectedPaths: [] },
+  tetheringModalState: {
+    isOpen: false,
+    isLiveViewActive: false,
+    isConnected: false,
+    cameraInfo: null,
+    capturedPhotos: [],
+    isCapturing: false,
+    error: null,
+  },
+  colorMatcherModalState: { isOpen: false },
+  heroCuratorModalState: { isOpen: false, selectedPaths: [] },
+  clientDeliveryModalState: { isOpen: false, selectedPaths: [] },
+  bokehModalState: { isOpen: false },
+  advancedExportModalState: { isOpen: false, selectedPaths: [] },
+  speedCullerModalState: { isOpen: false, selectedPaths: [], initialIndex: 0 },
   collageModalState: { isOpen: false, sourceImages: [] },
+  nightSkyState: {
+    isExpanded: false,
+    targetPaths: [],
+    isProcessing: false,
+    progressMessage: null,
+    freezeGround: true,
+    removeLightPollution: true,
+    sigmaClip: 2.5,
+    error: null,
+    starTrailsMode: false,
+    cometDecay: true,
+    decayRate: 0.08,
+    fillGaps: true,
+    useGpu: true,
+  },
 
   setUI: (updater) => set((state) => (typeof updater === 'function' ? updater(state) : updater)),
 
@@ -402,8 +415,11 @@ export const useUIStore = create<UIState>((set, get) => ({
 
       if (!layout[toRegion].includes(panel)) layout[toRegion].push(panel);
 
-      if (fromRegion && active[fromRegion] === panel) {
-        active[fromRegion] = layout[fromRegion].length > 0 ? layout[fromRegion][0] : null;
+      if (fromRegion !== null) {
+        const srcReg = fromRegion as PanelRegion;
+        if ((active as any)[srcReg] === panel) {
+          (active as any)[srcReg] = (layout as any)[srcReg]?.length > 0 ? (layout as any)[srcReg][0] : null;
+        }
       }
 
       active[toRegion] = panel;
@@ -438,8 +454,11 @@ export const useUIStore = create<UIState>((set, get) => ({
       const clampedIndex = Math.max(0, Math.min(index, layout[toRegion].length));
       layout[toRegion].splice(clampedIndex, 0, panel);
 
-      if (fromRegion && active[fromRegion] === panel) {
-        active[fromRegion] = layout[fromRegion].length > 0 ? layout[fromRegion][0] : null;
+      if (fromRegion !== null) {
+        const srcReg = fromRegion as PanelRegion;
+        if ((active as any)[srcReg] === panel) {
+          (active as any)[srcReg] = (layout as any)[srcReg]?.length > 0 ? (layout as any)[srcReg][0] : null;
+        }
       }
       active[toRegion] = panel;
 
@@ -460,24 +479,6 @@ export const useUIStore = create<UIState>((set, get) => ({
         activePanel: panel,
         renderedPanel: panel,
       };
-
-      const isLeft = region === 'leftTop' || region === 'leftBottom';
-      const isRight = region === 'rightTop' || region === 'rightBottom';
-
-      if (isLeft && !state.uiVisibility.leftPanel) {
-        updates.uiVisibility = { ...state.uiVisibility, leftPanel: true };
-        if (state.leftPanelWidth < DEFAULT_PANEL_WIDTH) {
-          updates.leftPanelWidth = DEFAULT_PANEL_WIDTH;
-        }
-      }
-
-      if (isRight && !state.uiVisibility.rightPanel) {
-        updates.uiVisibility = { ...state.uiVisibility, rightPanel: true };
-        if (state.rightPanelWidth < DEFAULT_PANEL_WIDTH) {
-          updates.rightPanelWidth = DEFAULT_PANEL_WIDTH;
-        }
-      }
-
       return updates;
     }),
 
@@ -493,42 +494,6 @@ export const useUIStore = create<UIState>((set, get) => ({
       }
     }
     if (targetRegion) state.setActivePanel(targetRegion, panelId);
-  },
-
-  toggleFullScreen: () => {
-    const { isFullScreen } = get();
-    const { zoom, selectedImage } = useEditorStore.getState();
-
-    const isNotFitToScreen = Math.abs(zoom - 1) > 0.01;
-    set({ isInstantTransition: isNotFitToScreen });
-
-    if (isFullScreen) {
-      set({ isFullScreen: false });
-    } else {
-      if (!selectedImage) return;
-      set({ isFullScreen: true });
-    }
-
-    if (isNotFitToScreen) {
-      setTimeout(() => set({ isInstantTransition: false }), 100);
-    }
-  },
-
-  resetWorkspaceLayout: (isTetheringSupported = false) => {
-    const defaultWorkspace = reconcileWorkspace(undefined, isTetheringSupported);
-    set({
-      leftPanelWidth: defaultWorkspace.leftPanelWidth,
-      rightPanelWidth: defaultWorkspace.rightPanelWidth,
-      leftTopHeight: defaultWorkspace.leftTopHeight,
-      rightTopHeight: defaultWorkspace.rightTopHeight,
-      panelLayout: defaultWorkspace.panelLayout,
-      activePanels: defaultWorkspace.activePanels,
-      panelSwitcherPlacement: defaultWorkspace.panelSwitcherPlacement,
-      uiVisibility: { filmstrip: true, leftPanel: true, rightPanel: true, quickFilter: false },
-      activePanel: defaultWorkspace.activePanels.rightTop || null,
-      renderedPanel: defaultWorkspace.activePanels.rightTop || null,
-    });
-    return defaultWorkspace;
   },
 
   customEscapeHandler: null,

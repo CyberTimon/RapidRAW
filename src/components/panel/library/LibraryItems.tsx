@@ -1,16 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import {
-  Image as ImageIcon,
-  Folder,
-  FolderOpen,
-  Star as StarIcon,
-  SlidersHorizontal,
-  CloudOff,
-  Layers,
-} from 'lucide-react';
+import { Image as ImageIcon, Folder, FolderOpen, Star as StarIcon, SlidersHorizontal, CloudOff, Layers } from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
-import { useDraggable } from '@dnd-kit/core';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
 import { ThumbnailAspectRatio, ImageFile, ExifOverlay } from '../../ui/AppProperties';
 import Text from '../../ui/Text';
@@ -18,6 +9,7 @@ import { TextColors, TextVariants, TextWeights, TEXT_COLOR_KEYS } from '../../..
 import { ColumnWidths } from '../MainLibrary';
 import { useProcessStore } from '../../../store/useProcessStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
+import { useLibraryStore } from '../../../store/useLibraryStore';
 import { IconAperture, IconFocalLength, IconIso, IconShutter } from '../editor/ExifIcons';
 
 interface ImageLayer {
@@ -42,7 +34,6 @@ const ThumbnailComponent = ({
   exif,
   isCloudPlaceholder,
   groupBadgeLabel,
-  onAspectRatioLoaded,
 }: any) => {
   const { t } = useTranslation();
   const data = useProcessStore((s) => s.thumbnails[path]);
@@ -66,11 +57,6 @@ const ThumbnailComponent = ({
     pathRef.current = path;
     hadDataOnPathChange.current = !!data;
   }
-
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `image-${path}`,
-    data: { type: 'library-image', path },
-  });
 
   const { baseName, isVirtualCopy } = useMemo(() => {
     const fullFileName = path.split(/[\\/]/).pop() || '';
@@ -165,14 +151,16 @@ const ThumbnailComponent = ({
 
   return (
     <div
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      className={clsx(
-        'w-full h-full bg-surface rounded-md overflow-hidden cursor-pointer group relative flex flex-col transition-all duration-150 transform-gpu [-webkit-mask-image:-webkit-radial-gradient(white,black)]',
-        isDragging && 'opacity-50 ring-2 ring-accent z-50',
-      )}
+      className="aspect-square bg-surface rounded-md overflow-hidden cursor-pointer group relative flex flex-col transition-all duration-150 transform-gpu [-webkit-mask-image:-webkit-radial-gradient(white,black)]"
       data-bench-id="thumbnail"
+      draggable={true}
+      onDragStart={(e: any) => {
+        const multiSelected = useLibraryStore.getState().multiSelectedPaths;
+        const pathsToDrag = multiSelected.includes(path) ? multiSelected : [path];
+        e.dataTransfer.setData('application/x-rapidraw-images', JSON.stringify(pathsToDrag));
+        e.dataTransfer.setData('text/plain', JSON.stringify(pathsToDrag));
+        e.dataTransfer.effectAllowed = 'copyMove';
+      }}
       onClick={(e: any) => {
         e.stopPropagation();
         onImageClick(path, e);
@@ -195,23 +183,16 @@ const ThumbnailComponent = ({
               >
                 <img
                   alt={path.split(/[\\/]/).pop()}
+                  draggable={false}
                   className={clsx(
-                    'w-full h-full transition-transform duration-300 will-change-transform relative',
+                    'w-full h-full transition-transform duration-300 will-change-transform relative select-none pointer-events-none',
                     thumbnailAspectRatio === ThumbnailAspectRatio.Contain ? 'object-contain' : 'object-cover',
                     isForcedHover ? 'scale-[1.02]' : 'group-hover:scale-[1.02]',
                   )}
                   decoding="async"
                   loading="lazy"
                   src={layer.url}
-                  onLoad={(e: any) => {
-                    onLoad(path);
-                    if (thumbnailAspectRatio === ThumbnailAspectRatio.Justified && onAspectRatioLoaded) {
-                      const img = e.target as HTMLImageElement;
-                      if (img.naturalWidth && img.naturalHeight) {
-                        onAspectRatioLoaded(path, img.naturalWidth / img.naturalHeight);
-                      }
-                    }
-                  }}
+                  onLoad={() => onLoad(path)}
                 />
               </div>
             ))}
@@ -503,11 +484,6 @@ const ListItemComponent = ({
     hadDataOnPathChange.current = !!data;
   }
 
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `image-${path}`,
-    data: { type: 'library-image', path },
-  });
-
   const { baseName, isVirtualCopy } = useMemo(() => {
     const fullFileName = path.split(/[\\/]/).pop() || '';
     const parts = fullFileName.split('?vc=');
@@ -620,10 +596,15 @@ const ListItemComponent = ({
 
   return (
     <div
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      className={`flex items-center w-full h-full cursor-pointer transition-all duration-150 ${borderClass} ${roundingClass} ${stateClass} ${isDragging ? 'opacity-50 ring-2 ring-accent z-50' : ''}`}
+      className={`flex items-center w-full h-full cursor-pointer transition-all duration-150 ${borderClass} ${roundingClass} ${stateClass}`}
+      draggable={true}
+      onDragStart={(e: any) => {
+        const multiSelected = useLibraryStore.getState().multiSelectedPaths;
+        const pathsToDrag = multiSelected.includes(path) ? multiSelected : [path];
+        e.dataTransfer.setData('application/x-rapidraw-images', JSON.stringify(pathsToDrag));
+        e.dataTransfer.setData('text/plain', JSON.stringify(pathsToDrag));
+        e.dataTransfer.effectAllowed = 'copyMove';
+      }}
       onClick={(e: any) => {
         e.stopPropagation();
         onImageClick(path, e);
@@ -647,8 +628,9 @@ const ListItemComponent = ({
                 >
                   <img
                     alt={baseName}
-                    className={`w-full h-full relative ${
-                      thumbnailAspectRatio === ThumbnailAspectRatio.Cover ? 'object-cover' : 'object-contain'
+                    draggable={false}
+                    className={`w-full h-full relative select-none pointer-events-none ${
+                      thumbnailAspectRatio === ThumbnailAspectRatio.Contain ? 'object-contain' : 'object-cover'
                     }`}
                     decoding="async"
                     loading="lazy"
@@ -766,7 +748,7 @@ const ListItemComponent = ({
 };
 
 export const Thumbnail = React.memo(ThumbnailComponent);
-const ListItem = React.memo(ListItemComponent);
+export const ListItem = React.memo(ListItemComponent);
 
 const RowComponent = ({
   index,
@@ -790,7 +772,6 @@ const RowComponent = ({
   queueThumbnailRequest,
   onToggleRecursiveFolder,
   groupBadgeInfo,
-  onAspectRatioLoaded,
 }: any) => {
   const { t } = useTranslation();
   const row = rows[index];
@@ -882,7 +863,7 @@ const RowComponent = ({
         boxSizing: 'border-box',
       }}
     >
-      {row.images.map((imageFile: ImageFile, imageIndex: number) => {
+      {row.images.map((imageFile: ImageFile) => {
         let isPrevSelected = false;
         let isNextSelected = false;
 
@@ -898,14 +879,12 @@ const RowComponent = ({
           }
         }
 
-        const currentItemWidth = row.justifiedWidths ? row.justifiedWidths[imageIndex] : itemWidth;
-
         return (
           <div
             key={imageFile.path}
             style={{
-              width: isListView ? '100%' : currentItemWidth,
-              height: isListView ? itemHeight : row.rowHeight || itemHeight,
+              width: isListView ? '100%' : itemWidth,
+              height: itemHeight,
             }}
           >
             {isListView ? (
@@ -943,7 +922,6 @@ const RowComponent = ({
                 aspectRatio={thumbnailAspectRatio}
                 isCloudPlaceholder={imageFile.is_cloud_placeholder}
                 groupBadgeLabel={imageFile.group_id && groupBadgeInfo?.get(imageFile.group_id)?.label}
-                onAspectRatioLoaded={onAspectRatioLoaded}
               />
             )}
           </div>

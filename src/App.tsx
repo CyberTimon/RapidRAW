@@ -2,7 +2,7 @@ import { type PointerEvent as ReactPointerEvent, useState, useEffect, useCallbac
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { ClerkProvider } from '@clerk/react';
+import { SafeAuthProvider } from './context/AuthContext';
 import { ToastContainer, toast, Slide } from 'react-toastify';
 import {
   DndContext,
@@ -22,6 +22,7 @@ import SettingsPanel from './components/panel/SettingsPanel';
 import ExportPanel from './components/panel/right/ExportPanel';
 import GlobalTooltip from './components/ui/GlobalTooltip';
 import AppModals from './components/modals/AppModals';
+import ErrorBoundary from './components/ui/ErrorBoundary';
 
 import SidePanelArea from './components/panel/SidePanelArea';
 import { PANEL_ICONS } from './components/panel/PanelSwitcher';
@@ -77,8 +78,6 @@ import {
 
 import ImageProcessingManager from './components/managers/ImageProcessingManager';
 import ImageLoaderManager from './components/managers/ImageLoaderManager';
-
-const CLERK_PUBLISHABLE_KEY = 'pk_test_YnJpZWYtc2Vhc25haWwtMTIuY2xlcmsuYWNjb3VudHMuZGV2JA'; // local dev key
 
 const insertChildrenIntoTree = (node: any, targetPath: string, newChildren: any[]): any => {
   if (!node) return null;
@@ -345,6 +344,8 @@ function App() {
     handleBackToLibrary,
     handleImageSelect,
     handleSelectSubfolder,
+    handleHistoryBack,
+    handleHistoryForward,
     handleSelectAlbum,
     handleOpenFolder,
     handleNavBack,
@@ -531,7 +532,7 @@ function App() {
     const interval = setInterval(() => invoke(Invokes.CheckAIConnectorStatus), 10000);
     return () => {
       clearInterval(interval);
-      unlisten.then((f) => f());
+      unlisten.then((f: any) => f());
     };
   }, [setEditor]);
 
@@ -910,70 +911,74 @@ function App() {
                 <div
                   className={clsx(
                     'flex-1 flex flex-col min-w-0 h-full',
-                    activeView === 'editor' && selectedImage ? 'flex' : 'hidden',
+                    activeView === 'editor' ? 'flex' : 'hidden',
                   )}
                 >
                   {selectedImage && (
-                    <EditorView
-                      transformWrapperRef={transformWrapperRef}
-                      isResizing={isResizing}
-                      layoutMode={layoutMode}
-                      isAndroid={isAndroid}
-                      compactEditorPanelHeight={compactEditorPanelHeight}
-                      compactEditorPanelCollapsedHeight={compactEditorPanelCollapsedHeight}
-                      thumbnailAspectRatio={thumbnailAspectRatio}
-                      sortedImageList={sortedImageList}
-                      createResizeHandler={createResizeHandler}
-                      createResizeResetHandler={createResizeResetHandler}
-                      handleBackToLibrary={handleBackToLibrary}
-                      handleEditorContextMenu={handleEditorContextMenu}
-                      handleThumbnailContextMenu={handleThumbnailContextMenu}
-                      handleMainLibraryContextMenu={handleMainLibraryContextMenu}
-                      handleImageClick={handleImageClick}
-                      handleClearSelection={handleClearSelection}
-                      handleCopyAdjustments={handleCopyAdjustments}
-                      handlePasteAdjustments={handlePasteAdjustments}
-                      handleRate={handleRate}
-                      handleZoomChange={handleZoomChange}
-                      handlePanelSelect={handlePanelSelect}
-                      requestThumbnails={requestThumbnails}
-                      renderAppPanel={renderAppPanel}
-                    />
+                    <ErrorBoundary fallbackTitle="Editor View Error">
+                      <EditorView
+                        transformWrapperRef={transformWrapperRef}
+                        isResizing={isResizing}
+                        isCompactPortrait={isCompactPortrait}
+                        isAndroid={isAndroid}
+                        compactEditorPanelHeight={compactEditorPanelHeight}
+                        compactEditorPanelCollapsedHeight={compactEditorPanelCollapsedHeight}
+                        thumbnailAspectRatio={thumbnailAspectRatio}
+                        sortedImageList={sortedImageList}
+                        createResizeHandler={createResizeHandler}
+                        handleBackToLibrary={handleBackToLibrary}
+                        handleEditorContextMenu={handleEditorContextMenu}
+                        handleThumbnailContextMenu={handleThumbnailContextMenu}
+                        handleMainLibraryContextMenu={handleMainLibraryContextMenu}
+                        handleImageClick={handleImageClick}
+                        handleClearSelection={handleClearSelection}
+                        handleCopyAdjustments={handleCopyAdjustments}
+                        handlePasteAdjustments={handlePasteAdjustments}
+                        handleRate={handleRate}
+                        handleZoomChange={handleZoomChange}
+                        handlePanelSelect={handlePanelSelect}
+                        requestThumbnails={requestThumbnails}
+                        renderAppPanel={renderAppPanel}
+                      />
+                    </ErrorBoundary>
                   )}
                 </div>
                 <div
                   className={clsx(
                     'flex-1 flex flex-col min-w-0 h-full',
-                    activeView === 'editor' && selectedImage ? 'hidden' : 'flex',
+                    activeView === 'editor' ? 'hidden' : 'flex',
                   )}
                 >
-                  <LibraryView
-                    sortedImageList={sortedImageList}
-                    groupBadgeInfo={groupBadgeInfo}
-                    thumbnailSize={thumbnailSize}
-                    thumbnailAspectRatio={thumbnailAspectRatio}
-                    libraryViewMode={libraryViewMode}
-                    isAndroid={isAndroid}
-                    layoutMode={layoutMode}
-                    setThumbnailSize={setThumbnailSize}
-                    setThumbnailAspectRatio={setThumbnailAspectRatio}
-                    setLibraryViewMode={setLibraryViewMode}
-                    handleClearSelection={handleClearSelection}
-                    handleLibraryImageSingleClick={handleLibraryImageSingleClick}
-                    handleImageSelect={handleImageSelect}
-                    handleRate={handleRate}
-                    handleThumbnailContextMenu={handleThumbnailContextMenu}
-                    handleMainLibraryContextMenu={handleMainLibraryContextMenu}
-                    handleContinueSession={handleContinueSession}
-                    handleGoHome={handleGoHome}
-                    handleOpenFolder={handleOpenFolder}
-                    handleImportClick={handleImportClick}
-                    handleLibraryRefresh={handleLibraryRefresh}
-                    handleCopyAdjustments={handleCopyAdjustments}
-                    handlePasteAdjustments={handlePasteAdjustments}
-                    handleResetAdjustments={handleResetAdjustments}
-                    requestThumbnails={requestThumbnails}
-                  />
+                  <ErrorBoundary fallbackTitle="Library View Error">
+                    <LibraryView
+                      sortedImageList={sortedImageList}
+                      groupBadgeInfo={groupBadgeInfo}
+                      thumbnailSize={thumbnailSize}
+                      thumbnailAspectRatio={thumbnailAspectRatio}
+                      libraryViewMode={libraryViewMode}
+                      isAndroid={isAndroid}
+                      setThumbnailSize={setThumbnailSize}
+                      setThumbnailAspectRatio={setThumbnailAspectRatio}
+                      setLibraryViewMode={setLibraryViewMode}
+                      handleClearSelection={handleClearSelection}
+                      handleLibraryImageSingleClick={handleLibraryImageSingleClick}
+                      handleImageSelect={handleImageSelect}
+                      handleRate={handleRate}
+                      handleThumbnailContextMenu={handleThumbnailContextMenu}
+                      handleMainLibraryContextMenu={handleMainLibraryContextMenu}
+                      handleContinueSession={handleContinueSession}
+                      handleGoHome={handleGoHome}
+                      handleOpenFolder={handleOpenFolder}
+                      handleImportClick={handleImportClick}
+                      handleLibraryRefresh={handleLibraryRefresh}
+                      handleCopyAdjustments={handleCopyAdjustments}
+                      handlePasteAdjustments={handlePasteAdjustments}
+                      handleResetAdjustments={handleResetAdjustments}
+                      requestThumbnails={requestThumbnails}
+                      handleHistoryBack={handleHistoryBack}
+                      handleHistoryForward={handleHistoryForward}
+                    />
+                  </ErrorBoundary>
                 </div>
                 {isSettingsOpen && appSettings && hasRoots && (
                   <div className="absolute inset-0 z-50 flex bg-bg-secondary rounded-lg">
@@ -1061,12 +1066,12 @@ function App() {
 }
 
 const AppWrapper = () => (
-  <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} routerPush={(to) => {}} routerReplace={(to) => {}}>
+  <SafeAuthProvider>
     <ContextMenuProvider>
       <App />
       <GlobalTooltip />
     </ContextMenuProvider>
-  </ClerkProvider>
+  </SafeAuthProvider>
 );
 
 export default AppWrapper;

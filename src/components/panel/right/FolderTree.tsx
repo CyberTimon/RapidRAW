@@ -19,28 +19,24 @@ import {
   User,
   Car,
   Briefcase,
+  ArrowUpDown,
   Check,
-  MoveRight,
-  ArrowLeft,
-  ArrowRight,
-  FolderPlus,
-  RefreshCw,
-  Menu,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
-import { useDroppable } from '@dnd-kit/core';
 import Text from '../../ui/Text';
-import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
+import { TEXT_COLOR_KEYS, TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useShallow } from 'zustand/react/shallow';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useUIStore } from '../../../store/useUIStore';
+import NightSkyDropzone from './NightSkyDropzone';
+import FocusStackDropzone from './FocusStackDropzone';
+import StockPrepDropzone from './StockPrepDropzone';
 import { AlbumItem, AlbumGroup, Album, Invokes, FolderTreeSort, SortDirection } from '../../ui/AppProperties';
-import { useLibraryActions } from '../../../hooks/useLibraryActions';
 
 export interface FolderTree {
   children: FolderTree[];
@@ -57,18 +53,15 @@ interface FolderTreeProps {
   isResizing: boolean;
   onContextMenu(event: any, path: string | null, isPinned?: boolean): void;
   onAlbumContextMenu(event: any, item: AlbumItem | null): void;
-  onFolderSelect(folder: string, skipHistory?: boolean): void;
-  onSelectAlbum(albumId: string, albumName: string, images: string[], skipHistory?: boolean): void;
+  onFolderSelect(folder: string): void;
+  onSelectAlbum(albumId: string, albumName: string, images: string[]): void;
   onToggleFolder(folder: string): void;
   onOpenFolder(): void;
-  onNavBack(): void;
-  onNavForward(): void;
   style: any;
   isInstantTransition: boolean;
 }
 
 interface TreeNodeProps {
-  sectionId: string;
   expandedFolders: Set<string>;
   isExpanded: boolean;
   node: FolderTree;
@@ -80,7 +73,6 @@ interface TreeNodeProps {
   showImageCounts: boolean;
   isInstantTransition: boolean;
   folderIcons: Record<string, string>;
-  isLayoutDragging: boolean;
 }
 
 interface VisibleProps {
@@ -178,18 +170,17 @@ const sortFolderTree = (nodes: FolderTree[], sort: FolderTreeSort): FolderTree[]
   }));
 };
 
-function FolderOptionsMenu({
+function FolderSortMenu({
   sort,
   onChange,
-  onAddFolder,
-  onRefresh,
+  isOpen,
+  setIsOpen,
 }: {
   sort: FolderTreeSort;
   onChange: (s: FolderTreeSort) => void;
-  onAddFolder: () => void;
-  onRefresh: () => void;
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation();
 
@@ -197,11 +188,9 @@ function FolderOptionsMenu({
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setIsOpen(false);
     };
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
+    document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen]);
+  }, [setIsOpen]);
 
   const options = [
     { key: 'name', label: t('library.folders.sort.name') },
@@ -214,13 +203,13 @@ function FolderOptionsMenu({
     <div className="relative" ref={menuRef}>
       <button
         className={clsx(
-          'flex items-center justify-center shrink-0 w-9 h-9 bg-surface rounded-md hover:bg-card-active transition-colors text-text-secondary hover:text-text-primary',
+          'bg-surface rounded-md hover:bg-card-active flex items-center justify-center shrink-0 overflow-hidden transition-colors w-9 h-9',
           isOpen && 'bg-card-active',
         )}
         onClick={() => setIsOpen(!isOpen)}
-        data-tooltip={t('library.folders.tooltips.moreOptions')}
+        data-tooltip={t('library.folders.tooltips.sortFolders')}
       >
-        <Menu size={16} />
+        <ArrowUpDown size={16} className="text-text-secondary" />
       </button>
       <AnimatePresence>
         {isOpen && (
@@ -229,19 +218,11 @@ function FolderOptionsMenu({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.1, ease: 'easeOut' }}
-            className="absolute right-0 top-full mt-2 z-50 origin-top-right"
+            className="absolute right-0 top-full mt-2 w-48 origin-top-right z-50"
           >
-            <div
-              className="bg-surface/95 backdrop-blur-md rounded-lg shadow-xl p-2 w-64 border border-border-color/50 flex flex-col"
-              role="menu"
-            >
-              <div className="px-3 py-2 relative flex items-center justify-between">
-                <Text
-                  as="div"
-                  variant={TextVariants.small}
-                  weight={TextWeights.semibold}
-                  className="uppercase text-text-secondary"
-                >
+            <div className="bg-surface/90 backdrop-blur-md border border-border-color/50 rounded-lg shadow-xl p-2 flex flex-col">
+              <div className="px-3 py-2 relative flex items-center">
+                <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="uppercase">
                   {t('library.header.viewOptions.sortBy')}
                 </Text>
                 <button
@@ -258,7 +239,7 @@ function FolderOptionsMenu({
                       ? t('library.header.viewOptions.sortDescending')
                       : t('library.header.viewOptions.sortAscending')
                   }
-                  className="p-1 bg-transparent border-none text-text-secondary hover:text-text-primary transition-colors"
+                  className="absolute top-1/2 right-3 -translate-y-1/2 p-1 bg-transparent border-none text-text-secondary hover:text-text-primary rounded-sm transition-colors"
                 >
                   {sort.order === SortDirection.Ascending ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                 </button>
@@ -269,50 +250,28 @@ function FolderOptionsMenu({
                 return (
                   <button
                     key={opt.key}
-                    className="w-full text-left px-3 py-2 text-sm rounded-md flex items-center gap-3 justify-between transition-colors duration-150 text-text-primary hover:bg-bg-primary"
+                    className={clsx(
+                      'w-full text-left px-3 py-2 rounded-md flex items-center justify-between transition-colors duration-150',
+                      isSelected ? 'bg-card-active' : 'hover:bg-bg-primary',
+                    )}
                     onClick={() => {
                       if (sort.key !== opt.key) {
                         onChange({ key: opt.key as any, order: sort.order });
                       }
                       setIsOpen(false);
                     }}
-                    role="menuitem"
                   >
-                    <div className="flex items-center gap-3 capitalize">
-                      <span>{opt.label}</span>
-                    </div>
-                    {isSelected && <Check size={16} className="text-text-primary" />}
+                    <Text
+                      variant={TextVariants.label}
+                      color={TextColors.primary}
+                      weight={isSelected ? TextWeights.semibold : TextWeights.normal}
+                    >
+                      {opt.label}
+                    </Text>
+                    {isSelected && <Check size={16} className={TEXT_COLOR_KEYS[TextColors.primary]} />}
                   </button>
                 );
               })}
-              <div className="h-px bg-text-secondary/20 my-1 mx-2" />
-              <button
-                className="w-full text-left px-3 py-2 text-sm rounded-md flex items-center gap-3 justify-between transition-colors duration-150 text-text-primary hover:bg-bg-primary"
-                onClick={() => {
-                  onAddFolder();
-                  setIsOpen(false);
-                }}
-                role="menuitem"
-              >
-                <div className="flex items-center gap-3 capitalize">
-                  <FolderPlus size={16} />
-                  <span>{t('library.folders.addFolder')}</span>
-                </div>
-              </button>
-
-              <button
-                className="w-full text-left px-3 py-2 text-sm rounded-md flex items-center gap-3 justify-between transition-colors duration-150 text-text-primary hover:bg-bg-primary"
-                onClick={() => {
-                  onRefresh();
-                  setIsOpen(false);
-                }}
-                role="menuitem"
-              >
-                <div className="flex items-center gap-3 capitalize">
-                  <RefreshCw size={16} />
-                  <span>{t('contextMenus.folders.refresh')}</span>
-                </div>
-              </button>
             </div>
           </motion.div>
         )}
@@ -322,18 +281,26 @@ function FolderOptionsMenu({
 }
 
 function SectionHeader({ title, isOpen, onToggle }: { title: string; isOpen: boolean; onToggle: () => void }) {
+  const { t } = useTranslation();
+
   return (
-    <div
-      className="flex items-center justify-between w-full px-1 py-1.5 cursor-pointer group rounded-md hover:bg-surface/30 transition-colors"
+    <Text
+      as="div"
+      variant={TextVariants.small}
+      weight={TextWeights.bold}
+      className="flex items-center w-full px-1 py-1.5 cursor-pointer group"
       onClick={onToggle}
+      data-tooltip={
+        isOpen
+          ? t('library.folders.collapseSection', { section: title })
+          : t('library.folders.expandSection', { section: title })
+      }
     >
-      <Text as="div" variant={TextVariants.small} weight={TextWeights.bold} className="flex items-center min-w-0">
-        <div className="p-0.5 rounded-md transition-colors">
-          {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        </div>
-        <span className="ml-1 uppercase tracking-wider select-none truncate">{title}</span>
-      </Text>
-    </div>
+      <div className="p-0.5 rounded-md transition-colors">
+        {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+      </div>
+      <span className="ml-1 uppercase tracking-wider select-none">{title}</span>
+    </Text>
   );
 }
 
@@ -348,7 +315,6 @@ const getAlbumImageCount = (item: any): number => {
 };
 
 function AlbumTreeNode({
-  sectionId,
   item,
   expandedGroups,
   onToggle,
@@ -356,9 +322,7 @@ function AlbumTreeNode({
   onContextMenu,
   selectedAlbumId,
   showImageCounts,
-  isLayoutDragging,
 }: {
-  sectionId: string;
   item: AlbumItem;
   expandedGroups: Set<string>;
   onToggle: (id: string) => void;
@@ -366,42 +330,24 @@ function AlbumTreeNode({
   onContextMenu: (e: any, item: AlbumItem) => void;
   selectedAlbumId: string | null;
   showImageCounts: boolean;
-  isLayoutDragging: boolean;
 }) {
   const isGroup = item.type === 'group';
   const isExpanded = expandedGroups.has(item.id);
   const isSelected = item.id === selectedAlbumId;
   const imageCount = getAlbumImageCount(item);
 
-  const { setNodeRef, isOver, active } = useDroppable({
-    id: `album-${sectionId}-${item.id}`,
-    data: { type: 'album', id: item.id },
-    disabled: isGroup || isLayoutDragging,
-  });
-
-  const isImageDrag = active?.data?.current?.type === 'library-image';
-  const isDropTarget = isOver && isImageDrag && !isGroup;
-
-  let ItemIcon = isGroup ? (isExpanded ? FolderOpen : Folder) : AlbumIcon;
+  let ItemIcon: any = isGroup ? (isExpanded ? FolderOpen : Folder) : AlbumIcon;
   if (item.icon && ALBUM_ICONS[item.icon]) {
     ItemIcon = ALBUM_ICONS[item.icon];
   }
-  if (isDropTarget) {
-    ItemIcon = MoveRight;
-  }
-
-  const iconKey = isDropTarget
-    ? 'drop-target'
-    : item.icon || (isGroup ? (isExpanded ? 'group-open' : 'group-closed') : 'album');
+  const iconKey = item.icon || (isGroup ? (isExpanded ? 'group-open' : 'group-closed') : 'album');
 
   return (
     <Text as="div" color={TextColors.primary} weight={TextWeights.medium}>
       <div
-        ref={setNodeRef}
         className={clsx('flex items-center gap-2 p-1.5 rounded-md transition-colors cursor-pointer', {
-          'bg-surface': isSelected && !isDropTarget,
-          'hover:bg-card-active': !isSelected && !isDropTarget,
-          'bg-accent/20': isDropTarget,
+          'bg-surface': isSelected,
+          'hover:bg-card-active': !isSelected,
         })}
         onClick={() => (isGroup ? onToggle(item.id) : onSelectAlbum(item.id, item.name, (item as Album).images))}
         onContextMenu={(e) => onContextMenu(e, item)}
@@ -414,7 +360,7 @@ function AlbumTreeNode({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.5 }}
               transition={{ duration: 0.15 }}
-              className="absolute flex items-center justify-center"
+              className="absolute"
             >
               <ItemIcon size={16} />
             </motion.div>
@@ -465,14 +411,13 @@ function AlbumTreeNode({
               <AnimatePresence>
                 {(item as AlbumGroup).children.map((child) => (
                   <motion.div
-                    key={`${sectionId}-${child.id}`}
+                    key={child.id}
                     initial={{ opacity: 0, height: 0, x: -10 }}
                     animate={{ opacity: 1, height: 'auto', x: 0 }}
                     exit={{ opacity: 0, height: 0, x: -10, overflow: 'hidden' }}
                     transition={{ duration: 0.2 }}
                   >
                     <AlbumTreeNode
-                      sectionId={sectionId}
                       item={child}
                       expandedGroups={expandedGroups}
                       onToggle={onToggle}
@@ -480,7 +425,6 @@ function AlbumTreeNode({
                       onContextMenu={onContextMenu}
                       selectedAlbumId={selectedAlbumId}
                       showImageCounts={showImageCounts}
-                      isLayoutDragging={isLayoutDragging}
                     />
                   </motion.div>
                 ))}
@@ -494,7 +438,6 @@ function AlbumTreeNode({
 }
 
 function TreeNode({
-  sectionId,
   expandedFolders,
   isExpanded,
   node,
@@ -506,20 +449,10 @@ function TreeNode({
   showImageCounts,
   isInstantTransition,
   folderIcons,
-  isLayoutDragging,
 }: TreeNodeProps) {
   const hasChildren = node.hasSubdirs || (node.children && node.children.length > 0);
   const isSelected = node.path === selectedPath;
   const isPinned = pinnedFolders.includes(node.path);
-
-  const { setNodeRef, isOver, active } = useDroppable({
-    id: `folder-${sectionId}-${node.path}`,
-    data: { type: 'folder', path: node.path },
-    disabled: isLayoutDragging,
-  });
-
-  const isImageDrag = active?.data?.current?.type === 'library-image';
-  const isDropTarget = isOver && isImageDrag;
 
   const handleFolderIconClick = (e: any) => {
     e.stopPropagation();
@@ -557,35 +490,28 @@ function TreeNode({
   };
 
   const currentFolderIconKey = folderIcons[node.path];
-  let ResolvedIcon = isExpanded ? FolderOpen : Folder;
-
+  let ResolvedIcon: any = isExpanded ? FolderOpen : Folder;
   if (currentFolderIconKey && ALBUM_ICONS[currentFolderIconKey]) {
     ResolvedIcon = ALBUM_ICONS[currentFolderIconKey];
   }
-
-  if (isDropTarget) {
-    ResolvedIcon = MoveRight;
-  }
-
-  const iconKey = isDropTarget ? 'drop-target' : currentFolderIconKey || (isExpanded ? 'folder-open' : 'folder-closed');
+  const iconKey = currentFolderIconKey || (isExpanded ? 'folder-open' : 'folder-closed');
 
   return (
     <Text as="div" color={TextColors.primary} weight={TextWeights.medium}>
       <div
-        ref={setNodeRef}
         className={clsx('flex items-center gap-2 p-1.5 rounded-md transition-colors cursor-pointer', {
-          'bg-surface': isSelected && !isDropTarget,
-          'hover:bg-card-active': !isSelected && !isDropTarget,
-          'bg-accent/20': isDropTarget,
+          'bg-surface': isSelected,
+          'hover:bg-card-active': !isSelected,
         })}
         onClick={handleNameClick}
         onContextMenu={(e: any) => onContextMenu(e, node.path, isPinned)}
       >
         <div
           className={clsx(
-            'relative w-5 h-5 flex items-center justify-center p-0.5 rounded-sm text-text-secondary transition-colors shrink-0',
+            'relative w-5 h-5 flex items-center justify-center p-0.5 rounded-sm transition-colors shrink-0',
             {
-              'hover:bg-surface-hover': !isSelected && hasChildren && !isDropTarget,
+              [TEXT_COLOR_KEYS[TextColors.secondary]]: !isExpanded,
+              'hover:bg-surface-hover': !isSelected && hasChildren,
             },
           )}
           onClick={handleFolderIconClick}
@@ -597,7 +523,7 @@ function TreeNode({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.5 }}
               transition={{ duration: 0.15 }}
-              className="absolute flex items-center justify-center"
+              className="absolute"
             >
               <ResolvedIcon size={16} />
             </motion.div>
@@ -653,12 +579,11 @@ function TreeNode({
                     custom={{ index, total: node.children.length }}
                     exit="exit"
                     initial={isInstantTransition ? 'visible' : 'hidden'}
-                    key={`${sectionId}-${childNode.path}`}
+                    key={childNode.path}
                     layout={isInstantTransition ? false : 'position'}
                     variants={itemVariants}
                   >
                     <TreeNode
-                      sectionId={sectionId}
                       expandedFolders={expandedFolders}
                       isExpanded={expandedFolders.has(childNode.path)}
                       node={childNode}
@@ -670,7 +595,6 @@ function TreeNode({
                       showImageCounts={showImageCounts}
                       isInstantTransition={isInstantTransition}
                       folderIcons={folderIcons}
-                      isLayoutDragging={isLayoutDragging}
                     />
                   </motion.div>
                 ))}
@@ -691,8 +615,6 @@ export default function FolderTree({
   onSelectAlbum,
   onToggleFolder,
   onOpenFolder,
-  onNavBack,
-  onNavForward,
   style,
   isInstantTransition,
 }: FolderTreeProps) {
@@ -703,9 +625,6 @@ export default function FolderTree({
       handleSettingsChange: state.handleSettingsChange,
     })),
   );
-
-  const isLayoutDragging = useUIStore((state) => !!state.activeLayoutDragItem);
-
   const {
     folderTrees,
     pinnedFolderTrees,
@@ -715,8 +634,6 @@ export default function FolderTree({
     albumTree,
     activeAlbumId,
     expandedAlbumGroups,
-    navHistory,
-    navIndex,
   } = useLibraryStore(
     useShallow((state) => ({
       folderTrees: state.folderTrees,
@@ -727,20 +644,20 @@ export default function FolderTree({
       albumTree: state.albumTree,
       activeAlbumId: state.activeAlbumId,
       expandedAlbumGroups: state.expandedAlbumGroups,
-      navHistory: state.navHistory,
-      navIndex: state.navIndex,
     })),
   );
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isHovering, setIsHovering] = useState(false);
+  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
+  const [isFocusStackExpanded, setIsFocusStackExpanded] = useState(false);
+  const [isStockPrepExpanded, setIsStockPrepExpanded] = useState(false);
   const pinnedFolders = appSettings?.pinnedFolders || [];
   const openSections = appSettings?.openTreeSections ?? ['current'];
   const showImageCounts = appSettings?.enableFolderImageCounts ?? false;
   const folderIcons = appSettings?.folderIcons || {};
   const folderTreeSort: FolderTreeSort = appSettings?.folderTreeSort || { key: 'name', order: SortDirection.Ascending };
-
-  const { refreshAllFolderTrees } = useLibraryActions();
+  const showHeaderButtons = isHovering || isSortMenuOpen;
 
   useEffect(() => {
     invoke(Invokes.GetAlbums).then((res: any) => useLibraryStore.getState().setLibrary({ albumTree: res }));
@@ -804,7 +721,7 @@ export default function FolderTree({
   const filteredAlbumTree = useMemo(() => {
     let base = albumTree;
     if (isSearching) {
-      base = base.map((item: any) => filterAlbumTree(item, trimmedQuery)).filter((t: any) => t !== null);
+      base = base.map((item: any) => filterAlbumTree(item, trimmedQuery)).filter((t: any): t is AlbumItem => t !== null);
     }
     return base;
   }, [albumTree, trimmedQuery, isSearching]);
@@ -826,7 +743,7 @@ export default function FolderTree({
       const hasBaseResults = filteredTrees && filteredTrees.length > 0;
       const hasAlbumResults = filteredAlbumTree && filteredAlbumTree.length > 0;
 
-      const newSections = [...openSections];
+      let newSections = [...openSections];
       let changed = false;
 
       if (hasPinnedResults && !newSections.includes('pinned')) {
@@ -859,6 +776,10 @@ export default function FolderTree({
   const isPinnedOpen = openSections.includes('pinned');
   const isCurrentOpen = openSections.includes('current');
   const isAlbumsOpen = openSections.includes('albums');
+  const isAutoToolsOpen = openSections.includes('autotools') || true;
+
+  const nightSkyState = useUIStore((s) => s.nightSkyState);
+  const setUI = useUIStore((s) => s.setUI);
 
   const hasVisiblePinnedTrees = filteredPinnedTrees && filteredPinnedTrees.length > 0;
   const hasVisibleAlbums = filteredAlbumTree && filteredAlbumTree.length > 0;
@@ -875,56 +796,56 @@ export default function FolderTree({
       onMouseLeave={() => setIsHovering(false)}
     >
       <div className="p-3 flex justify-between items-center shrink-0 border-b border-surface">
-        <Text variant={TextVariants.title}>{t('library.folders.sourcesTitle')}</Text>
-        <div className="flex items-center gap-1">
-          <button
-            className="p-1.5 rounded-full hover:bg-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-text-secondary hover:text-text-primary"
-            disabled={navIndex <= 0}
-            onClick={onNavBack}
-            data-tooltip={t('library.folders.tooltips.navBack')}
-          >
-            <ArrowLeft size={16} />
-          </button>
-          <button
-            className="p-1.5 rounded-full hover:bg-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-text-secondary hover:text-text-primary"
-            disabled={navIndex >= navHistory.length - 1}
-            onClick={onNavForward}
-            data-tooltip={t('library.folders.tooltips.navForward')}
-          >
-            <ArrowRight size={16} />
-          </button>
-        </div>
+        <Text variant={TextVariants.title}>{t('library.folders.sourcesTitle', 'Sources')}</Text>
       </div>
-      <div className="p-2 flex flex-col flex-1 min-h-0">
-        <div className="pt-1 pb-2 flex items-center gap-1">
-          <div className="relative flex-1 min-w-0">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
-            <input
-              type="text"
-              placeholder={t('library.folders.searchPlaceholder')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-9 bg-surface border border-transparent rounded-md pl-9 pr-8 py-2 text-sm focus:outline-hidden truncate"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-card-active"
-                data-tooltip={t('library.folders.tooltips.clearSearch')}
-              >
-                <X size={16} className="text-text-secondary" />
-              </button>
-            )}
-          </div>
 
-          <FolderOptionsMenu
-            sort={folderTreeSort}
-            onChange={(newSort) => {
-              if (appSettings) handleSettingsChange({ ...appSettings, folderTreeSort: newSort });
-            }}
-            onAddFolder={onOpenFolder}
-            onRefresh={refreshAllFolderTrees}
-          />
+      <div className="p-2 flex flex-col flex-1 min-h-0">
+        <div className="pt-1 pb-2">
+          <div className="flex items-center">
+            <div className="relative flex-1 min-w-0">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
+              <input
+                type="text"
+                placeholder={t('library.folders.searchPlaceholder')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-surface border border-transparent rounded-md pl-9 pr-8 py-2 text-sm focus:outline-hidden truncate"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-card-active"
+                  data-tooltip={t('library.folders.tooltips.clearSearch')}
+                >
+                  <X size={16} className="text-text-secondary" />
+                </button>
+              )}
+            </div>
+
+            <AnimatePresence>
+              {showHeaderButtons && (
+                <motion.div
+                  initial={{ width: 0, opacity: 0, marginLeft: 0 }}
+                  animate={{ width: 'auto', opacity: 1, marginLeft: 4 }}
+                  exit={{ width: 0, opacity: 0, marginLeft: 0 }}
+                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  className={clsx(
+                    'flex items-center shrink-0',
+                    isSortMenuOpen ? 'overflow-visible' : 'overflow-hidden',
+                  )}
+                >
+                  <FolderSortMenu
+                    sort={folderTreeSort}
+                    onChange={(newSort) => {
+                      if (appSettings) handleSettingsChange({ ...appSettings, folderTreeSort: newSort });
+                    }}
+                    isOpen={isSortMenuOpen}
+                    setIsOpen={setIsSortMenuOpen}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
         <LayoutGroup id="folder-tree">
@@ -951,7 +872,7 @@ export default function FolderTree({
                         <AnimatePresence>
                           {filteredPinnedTrees.map((pinnedTree, index) => (
                             <motion.div
-                              key={`pinned-${pinnedTree.path}`}
+                              key={pinnedTree.path}
                               animate="visible"
                               custom={{ index, total: filteredPinnedTrees.length }}
                               exit="exit"
@@ -968,7 +889,6 @@ export default function FolderTree({
                               }}
                             >
                               <TreeNode
-                                sectionId="pinned"
                                 expandedFolders={effectiveExpandedFolders}
                                 isExpanded={effectiveExpandedFolders.has(pinnedTree.path)}
                                 node={pinnedTree}
@@ -980,7 +900,6 @@ export default function FolderTree({
                                 showImageCounts={showImageCounts && isHovering}
                                 isInstantTransition={isInstantTransition}
                                 folderIcons={folderIcons}
-                                isLayoutDragging={isLayoutDragging}
                               />
                             </motion.div>
                           ))}
@@ -1018,7 +937,7 @@ export default function FolderTree({
                         <AnimatePresence>
                           {filteredAlbumTree.map((item: any) => (
                             <motion.div
-                              key={`albums-${item.id}`}
+                              key={item.id}
                               initial={{ opacity: 0, height: 0, x: -15 }}
                               animate={{ opacity: 1, height: 'auto', x: 0 }}
                               exit={{ opacity: 0, height: 0, x: -15, overflow: 'hidden' }}
@@ -1026,7 +945,6 @@ export default function FolderTree({
                               layout="position"
                             >
                               <AlbumTreeNode
-                                sectionId="albums"
                                 item={item}
                                 expandedGroups={effectiveExpandedAlbumGroups}
                                 onToggle={toggleAlbumGroup}
@@ -1034,7 +952,6 @@ export default function FolderTree({
                                 onContextMenu={onAlbumContextMenu}
                                 selectedAlbumId={activeAlbumId}
                                 showImageCounts={showImageCounts && isHovering}
-                                isLayoutDragging={isLayoutDragging}
                               />
                             </motion.div>
                           ))}
@@ -1052,6 +969,176 @@ export default function FolderTree({
                 </AnimatePresence>
               </>
             )}
+
+            {/* Auto-Tools Category */}
+            <div>
+              <SectionHeader
+                title="⛏️ Auto-Tools"
+                isOpen={isAutoToolsOpen}
+                onToggle={() => toggleSection('autotools')}
+              />
+            </div>
+            <AnimatePresence initial={false}>
+              {isAutoToolsOpen && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  className="overflow-hidden"
+                >
+                  <div className="pt-1 pb-2 px-1 flex flex-col gap-1">
+                    {/* Night Sky / Astro Stacker */}
+                    <div>
+                      <div
+                        className={clsx(
+                          'flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer text-sm font-medium transition-colors select-none',
+                          nightSkyState.isExpanded ? 'bg-card-active text-text-primary' : 'hover:bg-card-active text-text-primary/90',
+                        )}
+                        onClick={() =>
+                          setUI((s) => ({
+                            nightSkyState: {
+                              ...s.nightSkyState,
+                              isExpanded: !s.nightSkyState.isExpanded,
+                            },
+                          }))
+                        }
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-base leading-none">🪐</span>
+                          <span>Night Sky (Astro)</span>
+                        </div>
+                        <ChevronDown
+                          size={15}
+                          className={clsx(
+                            'text-text-secondary transition-transform duration-200',
+                            nightSkyState.isExpanded && 'rotate-180',
+                          )}
+                        />
+                      </div>
+
+                      <AnimatePresence>
+                        {nightSkyState.isExpanded && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden pt-1"
+                          >
+                            <NightSkyDropzone />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    {/* Focus Stacker */}
+                    <div>
+                      <div
+                        className={clsx(
+                          'flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer text-sm font-medium transition-colors select-none',
+                          isFocusStackExpanded ? 'bg-card-active text-text-primary' : 'hover:bg-card-active text-text-primary/90',
+                        )}
+                        onClick={() => setIsFocusStackExpanded((prev) => !prev)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-base leading-none">🥞</span>
+                          <span>Focus Stacker</span>
+                        </div>
+                        <ChevronDown
+                          size={15}
+                          className={clsx(
+                            'text-text-secondary transition-transform duration-200',
+                            isFocusStackExpanded && 'rotate-180',
+                          )}
+                        />
+                      </div>
+
+                      <AnimatePresence>
+                        {isFocusStackExpanded && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden pt-1"
+                          >
+                            <FocusStackDropzone />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    {/* Stock Photo Prep */}
+                    <div>
+                      <div
+                        className={clsx(
+                          'flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer text-sm font-medium transition-colors select-none',
+                          isStockPrepExpanded ? 'bg-card-active text-text-primary' : 'hover:bg-card-active text-text-primary/90',
+                        )}
+                        onClick={() => setIsStockPrepExpanded((prev) => !prev)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-base leading-none">💼</span>
+                          <span>Stock Photo Prep</span>
+                        </div>
+                        <ChevronDown
+                          size={15}
+                          className={clsx(
+                            'text-text-secondary transition-transform duration-200',
+                            isStockPrepExpanded && 'rotate-180',
+                          )}
+                        />
+                      </div>
+
+                      <AnimatePresence>
+                        {isStockPrepExpanded && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden pt-1"
+                          >
+                            <StockPrepDropzone />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    {/* Collage & Contact Sheet Launcher */}
+                    <div
+                      className="flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer text-sm font-medium hover:bg-card-active text-text-primary/90 transition-colors select-none"
+                      onClick={() => {
+                        const multiSelectedPaths = useLibraryStore.getState().multiSelectedPaths;
+                        const libraryActivePath = useLibraryStore.getState().libraryActivePath;
+                        const imageList = useLibraryStore.getState().imageList;
+
+                        const paths =
+                          multiSelectedPaths && multiSelectedPaths.length > 0
+                            ? multiSelectedPaths
+                            : libraryActivePath
+                              ? [libraryActivePath]
+                              : [];
+                        const sourceImages = imageList.filter((img) => paths.includes(img.path));
+                        setUI({
+                          collageModalState: {
+                            isOpen: true,
+                            sourceImages: sourceImages.length > 0 ? sourceImages : imageList.slice(0, 4),
+                          },
+                        });
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-base leading-none">🖼️</span>
+                        <span>Collage & Contact Sheet</span>
+                      </div>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/15 text-accent font-medium">Launch</span>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {filteredTrees && filteredTrees.length > 0 && (
               <>
@@ -1075,7 +1162,7 @@ export default function FolderTree({
                         <AnimatePresence>
                           {filteredTrees.map((tree: any, index: number) => (
                             <motion.div
-                              key={`current-${tree.path}`}
+                              key={tree.path}
                               animate="visible"
                               custom={{ index, total: filteredTrees.length }}
                               exit="exit"
@@ -1092,7 +1179,6 @@ export default function FolderTree({
                               }}
                             >
                               <TreeNode
-                                sectionId="current"
                                 expandedFolders={effectiveExpandedFolders}
                                 isExpanded={effectiveExpandedFolders.has(tree.path)}
                                 node={tree}
@@ -1104,7 +1190,6 @@ export default function FolderTree({
                                 showImageCounts={showImageCounts && isHovering}
                                 isInstantTransition={isInstantTransition}
                                 folderIcons={folderIcons}
-                                isLayoutDragging={isLayoutDragging}
                               />
                             </motion.div>
                           ))}

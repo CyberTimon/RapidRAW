@@ -255,9 +255,70 @@ function computeGroupedLibrary(libraryState: any, settingsState: any): GroupedLi
     return order === SortDirection.Ascending ? comparison : -comparison;
   });
 
-  const badges = isGroupingActive
+  const baseBadges = isGroupingActive
     ? buildImageGroups(imageList, groupingMode, appSettings?.groupEditedFiles ?? true).badges
-    : null;
+    : new Map();
+
+  // Auto-detect panorama sequences (consecutive shots with delta_t <= 3.5s and same focal length)
+  let currentPanoGroup: ImageFile[] = [];
+  const getTs = (img: ImageFile): number => {
+    const dto = img.exif?.DateTimeOriginal;
+    if (dto) {
+      const parts = dto.split(/[: ]/);
+      if (parts.length >= 6) {
+        const d = new Date(
+          parseInt(parts[0], 10),
+          parseInt(parts[1], 10) - 1,
+          parseInt(parts[2], 10),
+          parseInt(parts[3], 10),
+          parseInt(parts[4], 10),
+          parseInt(parts[5], 10),
+        );
+        return d.getTime() / 1000;
+      }
+    }
+    return img.modified / 1000;
+  };
+
+  for (let i = 0; i < list.length; i++) {
+    const img = list[i];
+    const prev = currentPanoGroup[currentPanoGroup.length - 1];
+
+    if (!prev) {
+      currentPanoGroup.push(img);
+      continue;
+    }
+
+    const dt = Math.abs(getTs(img) - getTs(prev));
+    const f1 = parseFocalLength(prev.exif?.FocalLength);
+    const f2 = parseFocalLength(img.exif?.FocalLength);
+    const isPano = (f1 > 0 && f2 > 0 ? Math.abs(f2 - f1) < 1.0 : true) && dt <= 3.5;
+
+    if (isPano) {
+      currentPanoGroup.push(img);
+    } else {
+      if (currentPanoGroup.length >= 2) {
+        const gid = `pano_${currentPanoGroup[0].path}`;
+        const count = currentPanoGroup.length;
+        for (const item of currentPanoGroup) {
+          if (!item.group_id) item.group_id = gid;
+        }
+        baseBadges.set(gid, { count, label: `Pano (${count})` });
+      }
+      currentPanoGroup = [img];
+    }
+  }
+
+  if (currentPanoGroup.length >= 2) {
+    const gid = `pano_${currentPanoGroup[0].path}`;
+    const count = currentPanoGroup.length;
+    for (const item of currentPanoGroup) {
+      if (!item.group_id) item.group_id = gid;
+    }
+    baseBadges.set(gid, { count, label: `Pano (${count})` });
+  }
+
+  const badges = baseBadges.size > 0 ? baseBadges : null;
 
   return { displayList: list, badges };
 }

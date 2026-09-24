@@ -6,25 +6,23 @@ import {
   Droplet,
   Droplets,
   Eraser,
-  SquareMousePointer,
+  MoreHorizontal,
   RectangleHorizontal,
+  Sparkles,
   TriangleRight,
   User,
+  Users,
   Sun,
   Stamp,
   Bandage,
-  Spline,
-  MopSparkles,
+  Waves,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { useTranslation } from 'react-i18next';
-import Text from '../../ui/Text';
-import { TextWeights } from '../../../types/typography';
 import i18n from 'i18next';
 
 export enum Mask {
   AiDepth = 'ai-depth',
   AiForeground = 'ai-foreground',
+  AiPortrait = 'ai-portrait',
   AiSky = 'ai-sky',
   AiSubject = 'ai-subject',
   All = 'all',
@@ -37,8 +35,8 @@ export enum Mask {
   Radial = 'radial',
   Clone = 'clone',
   Heal = 'heal',
-  Liquify = 'liquify',
   Retouch = 'retouch',
+  Liquify = 'liquify',
 }
 
 export enum SubMaskMode {
@@ -89,8 +87,8 @@ export function formatMaskTypeName(type: string) {
   if (type === Mask.Radial) return i18n.t('masks.types.radial');
   if (type === Mask.Clone) return i18n.t('masks.types.clone');
   if (type === Mask.Heal) return i18n.t('masks.types.heal');
-  if (type === Mask.Liquify) return i18n.t('masks.types.liquify');
-  if (type === Mask.Retouch) return i18n.t('masks.types.retouch');
+  if (type === Mask.Retouch) return i18n.t('masks.types.retouch', 'Retouch / Skin');
+  if (type === Mask.Liquify) return i18n.t('masks.types.liquify', 'Liquify Warp');
   return type.charAt(0).toUpperCase() + type.slice(1);
 }
 
@@ -106,48 +104,73 @@ export function getSubMaskName(subMask: Pick<SubMask, 'name' | 'type'>) {
   return subMask.name?.trim() || formatMaskTypeName(subMask.type);
 }
 
-export const MASK_ICON_MAP: Record<Mask, any> = {
+export const MASK_ICON_MAP: Record<string, any> = {
   [Mask.AiDepth]: BringToFront,
   [Mask.AiForeground]: User,
+  [Mask.AiPortrait]: Users,
   [Mask.AiSky]: Cloud,
-  [Mask.AiSubject]: SquareMousePointer,
+  [Mask.AiSubject]: Sparkles,
   [Mask.All]: RectangleHorizontal,
   [Mask.Brush]: Brush,
   [Mask.Flow]: Droplets,
   [Mask.Color]: Droplet,
   [Mask.Linear]: TriangleRight,
-  [Mask.Luminance]: Sun,
+  [Mask.Luminance]: Sparkles,
   [Mask.QuickEraser]: Eraser,
   [Mask.Radial]: Circle,
   [Mask.Clone]: Stamp,
   [Mask.Heal]: Bandage,
-  [Mask.Liquify]: Spline,
-  [Mask.Retouch]: MopSparkles,
+  [Mask.Retouch]: Sparkles,
+  [Mask.Liquify]: Waves,
 };
 
-export const MASK_AI_TYPES: Array<MaskType> = [
-  { disabled: false, icon: SquareMousePointer, name: 'Subject', type: Mask.AiSubject },
-  { disabled: false, icon: Cloud, name: 'Sky', type: Mask.AiSky },
-  { disabled: false, icon: User, name: 'Foreground', type: Mask.AiForeground },
-  { disabled: false, icon: BringToFront, name: 'Depth', type: Mask.AiDepth },
+export const MASK_PANEL_CREATION_TYPES: Array<MaskType> = [
+  {
+    disabled: false,
+    icon: Sparkles,
+    name: 'Subject',
+    type: Mask.AiSubject,
+  },
+  {
+    disabled: false,
+    icon: Users,
+    name: 'Portrait AI',
+    type: Mask.AiPortrait,
+  },
+  {
+    disabled: false,
+    icon: Cloud,
+    name: 'Sky',
+    type: Mask.AiSky,
+  },
+  {
+    disabled: false,
+    icon: User,
+    name: 'Foreground',
+    type: Mask.AiForeground,
+  },
+  {
+    disabled: false,
+    icon: TriangleRight,
+    name: 'Linear',
+    type: Mask.Linear,
+  },
+  {
+    disabled: false,
+    icon: Circle,
+    name: 'Radial',
+    type: Mask.Radial,
+  },
+  {
+    disabled: false,
+    icon: MoreHorizontal,
+    id: 'others',
+    name: 'Others',
+    type: null as any,
+  },
 ];
 
-export const MASK_BASIC_TYPES: Array<MaskType> = [
-  { disabled: false, icon: Brush, name: 'Brush', type: Mask.Brush },
-  { disabled: false, icon: TriangleRight, name: 'Linear', type: Mask.Linear },
-  { disabled: false, icon: Circle, name: 'Radial', type: Mask.Radial },
-  { disabled: false, icon: Droplets, name: 'Flow', type: Mask.Flow },
-];
-
-export const MASK_RANGE_TYPES: Array<MaskType> = [
-  { disabled: false, icon: Droplet, name: 'Color', type: Mask.Color },
-  { disabled: false, icon: Sun, name: 'Luminance', type: Mask.Luminance },
-  { disabled: false, icon: RectangleHorizontal, name: 'Whole Image', type: Mask.All },
-];
-
-export const ALL_MASK_TYPES = [...MASK_AI_TYPES, ...MASK_BASIC_TYPES, ...MASK_RANGE_TYPES];
-
-export const AI_DIRECT_PATCH_TYPES: Array<MaskType> = [
+export const AI_MANUAL_CLEANUP_TYPES: Array<MaskType> = [
   {
     disabled: false,
     icon: Stamp,
@@ -160,20 +183,17 @@ export const AI_DIRECT_PATCH_TYPES: Array<MaskType> = [
     name: 'Heal',
     type: Mask.Heal,
   },
-];
-
-export const AI_TOUCH_UP_TYPES: Array<MaskType> = [
   {
     disabled: false,
-    icon: Spline,
-    name: 'Liquify',
-    type: Mask.Liquify,
+    icon: Sparkles,
+    name: 'Retouch',
+    type: Mask.Retouch,
   },
   {
     disabled: false,
-    icon: MopSparkles,
-    name: 'Retouch',
-    type: Mask.Retouch,
+    icon: Waves,
+    name: 'Liquify',
+    type: Mask.Liquify,
   },
 ];
 
@@ -186,7 +206,7 @@ export const AI_GENERATIVE_CREATION_TYPES: Array<MaskType> = [
   },
   {
     disabled: false,
-    icon: SquareMousePointer,
+    icon: Sparkles,
     name: 'Subject',
     type: Mask.AiSubject,
   },
@@ -213,6 +233,46 @@ export const AI_GENERATIVE_CREATION_TYPES: Array<MaskType> = [
     icon: Circle,
     name: 'Radial',
     type: Mask.Radial,
+  },
+];
+
+export const SUB_MASK_COMPONENT_TYPES: Array<MaskType> = [
+  {
+    disabled: false,
+    icon: Sparkles,
+    name: 'Subject',
+    type: Mask.AiSubject,
+  },
+  {
+    disabled: false,
+    icon: Cloud,
+    name: 'Sky',
+    type: Mask.AiSky,
+  },
+  {
+    disabled: false,
+    icon: User,
+    name: 'Foreground',
+    type: Mask.AiForeground,
+  },
+  {
+    disabled: false,
+    icon: TriangleRight,
+    name: 'Linear',
+    type: Mask.Linear,
+  },
+  {
+    disabled: false,
+    icon: Circle,
+    name: 'Radial',
+    type: Mask.Radial,
+  },
+  {
+    disabled: false,
+    icon: MoreHorizontal,
+    id: 'others',
+    name: 'Others',
+    type: null as any,
   },
 ];
 
@@ -256,23 +316,6 @@ export const OTHERS_MASK_TYPES: Array<MaskType> = [
 ];
 
 export const AI_SUB_MASK_COMPONENT_TYPES: Array<MaskType> = [
-  ...AI_DIRECT_PATCH_TYPES,
-  ...AI_TOUCH_UP_TYPES,
+  ...AI_MANUAL_CLEANUP_TYPES,
   ...AI_GENERATIVE_CREATION_TYPES,
 ];
-
-export function NewMaskDropZone({ isOver, textKey }: { isOver: boolean; textKey: string }) {
-  const { t } = useTranslation();
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, height: 0, marginTop: 0 }}
-      animate={{ opacity: 1, height: 'auto', marginTop: '4px' }}
-      exit={{ opacity: 0, height: 0, marginTop: 0 }}
-      transition={{ duration: 0.2, ease: 'easeOut' }}
-      className={`p-3 rounded-lg text-center ${isOver ? 'border border-accent/80 bg-bg-tertiary/50' : ''}`}
-    >
-      <Text weight={TextWeights.medium}>{t(textKey)}</Text>
-    </motion.div>
-  );
-}

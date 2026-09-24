@@ -335,6 +335,28 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
         adjustments.insert("curves".to_string(), Value::Object(curves_map));
     }
 
+    let mut calibration_map = Map::new();
+    let calib_mappings = [
+        ("ShadowTint", "shadowsTint"),
+        ("RedHue", "redHue"),
+        ("RedSaturation", "redSaturation"),
+        ("GreenHue", "greenHue"),
+        ("GreenSaturation", "greenSaturation"),
+        ("BlueHue", "blueHue"),
+        ("BlueSaturation", "blueSaturation"),
+    ];
+    for (xmp_k, rr_k) in calib_mappings {
+        if let Some(raw) = attrs.get(xmp_k)
+            && let Some(num) = parse_num(raw.trim_start_matches('+'))
+            && let Some(json_val) = num_to_json(num)
+        {
+            calibration_map.insert(rr_k.to_string(), json_val);
+        }
+    }
+    if !calibration_map.is_empty() {
+        adjustments.insert("colorCalibration".to_string(), Value::Object(calibration_map));
+    }
+
     let preset_name =
         extract_xmp_name(xmp_content).unwrap_or_else(|| "Imported Preset".to_string());
 

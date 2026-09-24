@@ -25,7 +25,7 @@ interface LUTControlProps {
   lutPath: string | null;
   lutName: string | null;
   lutIntensity: number;
-  onLutSelect: (path: string, isBuiltIn: boolean) => void;
+  onLutSelect: (path: string, isBuiltIn?: boolean) => void;
   onLutHover?: (path: string | null, isBuiltIn?: boolean) => void;
   onIntensityChange: (intensity: number) => void;
   onClear: () => void;
@@ -57,8 +57,6 @@ export default function LUTControl({
   const previewCache = useRef<Map<string, Record<string, string | null>>>(new Map());
 
   const handleContextMenu = (event: React.MouseEvent, entry: LutEntry) => {
-    if (entry.isBuiltIn) return;
-
     event.preventDefault();
     event.stopPropagation();
 
@@ -82,7 +80,6 @@ export default function LUTControl({
             }
           } catch (err) {
             console.error('Failed to remove LUT:', err);
-            toast.error(String(err));
           }
         },
       },
@@ -106,9 +103,7 @@ export default function LUTControl({
     if (!isExpanded || !selectedImagePath || !isImageReady || entries.length === 0) {
       return;
     }
-    const cacheKey = `${selectedImagePath}|${entries
-      .map((entry) => `${entry.path}:${entry.isBuiltIn ? 1 : 0}`)
-      .join(',')}`;
+    const cacheKey = `${selectedImagePath}|${entries.map((entry) => entry.path).join(',')}`;
     const cached = previewCache.current.get(cacheKey);
     if (cached) {
       setPreviews(cached);
@@ -118,7 +113,7 @@ export default function LUTControl({
     let isActive = true;
     setIsLoadingPreviews(true);
     invoke<LutPreview[]>('generate_lut_previews', {
-      luts: entries.map((entry) => ({ path: entry.path, isBuiltIn: entry.isBuiltIn })),
+      luts: entries.map((entry) => ({ path: entry.path, is_built_in: entry.isBuiltIn })),
       size: PREVIEW_SIZE,
     })
       .then((results) => {
@@ -218,7 +213,7 @@ export default function LUTControl({
         onMouseLeave={() => onLutHover?.(null)}
         onClick={() => handleSwatchClick(entry)}
         onContextMenu={entry.isBuiltIn ? undefined : (e) => handleContextMenu(e, entry)}
-        className={`relative aspect-square rounded-md overflow-hidden bg-bg-tertiary border-2 transition-colors ${
+        className={`relative aspect-square rounded-md overflow-hidden bg-bg-tertiary border-2 transition-colors cursor-pointer ${
           isSelected ? 'border-accent' : 'border-transparent hover:border-surface'
         }`}
         data-tooltip={entry.name}
@@ -315,7 +310,7 @@ export default function LUTControl({
                   {customLuts.length > 0 && (
                     <button
                       onClick={handleImport}
-                      className="text-xs text-text-secondary hover:text-accent flex items-center gap-1 transition-colors"
+                      className="text-xs text-text-secondary hover:text-accent flex items-center gap-1 transition-colors cursor-pointer"
                       data-tooltip={t('ui.lut.import')}
                     >
                       <Upload size={12} />

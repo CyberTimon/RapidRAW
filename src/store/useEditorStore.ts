@@ -6,7 +6,7 @@ import { ImageDimensions } from '../hooks/useImageRenderSize';
 import { ToolType } from '../components/panel/right/Masks';
 import { OverlayMode } from '../components/panel/right/CropPanel';
 
-interface InteractivePatch {
+export interface InteractivePatch {
   url: string;
   normX: number;
   normY: number;
@@ -21,11 +21,27 @@ interface BaseRenderSize extends ImageDimensions {
   offsetY: number;
 }
 
+export type CompareMode = 'none' | 'vertical_split' | 'horizontal_split' | 'side_by_side' | 'matrix_4way';
+
+export interface GradingSnapshot {
+  id: string;
+  name: string;
+  adjustments: Adjustments;
+  previewUrl: string | null;
+  timestamp: number;
+}
+
 interface EditorState {
   // Core Image & Adjustments
   selectedImage: SelectedImage | null;
   adjustments: Adjustments;
   previewOverride: Adjustments | null;
+
+  // Compare & Split View
+  compareMode: CompareMode;
+  splitPosition: number; // 0.0 to 1.0 (default 0.5)
+  snapshots: GradingSnapshot[];
+  activeSnapshotId: string | null;
 
   // History State
   history: Adjustments[];
@@ -34,6 +50,7 @@ interface EditorState {
   // Previews & Overlays
   finalPreviewUrl: string | null;
   uncroppedAdjustedPreviewUrl: string | null;
+  transformedOriginalUrl: string | null;
   interactivePatch: InteractivePatch | null;
   showOriginal: boolean;
 
@@ -58,7 +75,8 @@ interface EditorState {
   overlayRotation: number;
   isStraightenActive: boolean;
   isWbPickerActive: boolean;
-  isGuidedPerspectiveActive: boolean;
+  isTatActive: boolean;
+  tatMode: 'hsl_hue' | 'hsl_sat' | 'hsl_lum' | 'curve' | 'exposure' | null;
   liveRotation: number | null;
   brushSettings: BrushSettings | null;
 
@@ -92,6 +110,10 @@ export const useEditorStore = create<EditorState>((set) => ({
   selectedImage: null,
   adjustments: INITIAL_ADJUSTMENTS,
   previewOverride: null,
+  compareMode: 'none',
+  splitPosition: 0.5,
+  snapshots: [],
+  activeSnapshotId: null,
   history: [INITIAL_ADJUSTMENTS],
   historyIndex: 0,
 
@@ -120,9 +142,11 @@ export const useEditorStore = create<EditorState>((set) => ({
   isRotationActive: false,
   overlayMode: 'thirds',
   overlayRotation: 0,
+  transformedOriginalUrl: null,
   isStraightenActive: false,
   isWbPickerActive: false,
-  isGuidedPerspectiveActive: false,
+  isTatActive: false,
+  tatMode: null,
   liveRotation: null,
 
   copiedSectionAdjustments: null,

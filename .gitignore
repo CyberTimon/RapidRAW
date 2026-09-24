@@ -19,7 +19,6 @@ dist-ssr
 !.vscode/settings.json
 .idea
 .DS_Store
-patch.txt
 *.suo
 *.ntvs*
 *.njsproj
@@ -42,3 +41,8 @@ src-tauri/libs/
 
 # bench/replay.js result dumps
 bench/out/
+# Local scratch and local cargo config
+/scratch/*
+!/scratch/triage.md
+.cargo/config.toml
+src-tauri/.cargo/config.toml

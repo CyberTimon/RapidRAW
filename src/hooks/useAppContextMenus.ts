@@ -14,16 +14,21 @@ import {
   FolderPlus,
   Images,
   LayoutTemplate,
-  LayersArrowDown,
   Redo,
   RefreshCw,
   RotateCcw,
   Star,
+  Sparkles,
   SquaresUnite,
+  Wand2,
   Palette,
+  Trophy,
+  Package,
+  Download,
   Tag,
   Trash2,
   Undo,
+  Zap,
   X,
   Pin,
   PinOff,
@@ -43,7 +48,7 @@ import {
   Briefcase,
   User,
   Album as AlbumIcon,
-  PencilSparkles,
+  Telescope,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
@@ -76,13 +81,8 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
   const { t } = useTranslation();
   const { showContextMenu } = useContextMenu();
 
-  const {
-    handleAutoAdjustments,
-    handleAutoLensCorrection,
-    handleResetAdjustments,
-    handleCopyAdjustments,
-    handlePasteAdjustments,
-  } = useEditorActions();
+  const { handleAutoAdjustments, handleResetAdjustments, handleCopyAdjustments, handlePasteAdjustments } =
+    useEditorActions();
   const { handleRate, handleSetColorLabel, handleTagsChanged } = useLibraryActions();
 
   const albumIcons = useMemo(
@@ -202,19 +202,28 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
           disabled: copiedAdjustments === null,
         },
         {
+          label: t('contextMenus.thumbnail.virtualCopy'),
+          icon: Copy,
+          onClick: () => {
+            invoke(Invokes.CreateVirtualCopy, {
+              sourceVirtualPath: selectedImage.path,
+              targetAlbumId: null,
+            })
+              .then(() => {
+                toast.success('Virtual Copy created');
+                props.refreshImageList();
+              })
+              .catch((err) => toast.error(String(err)));
+          },
+        },
+        {
           label: t('contextMenus.editor.productivity'),
           icon: Gauge,
           submenu: [
             {
               label: t('contextMenus.editor.autoAdjust'),
-              icon: PencilSparkles,
-              onClick: handleAutoAdjustments,
-              disabled: !selectedImage?.isReady,
-            },
-            {
-              label: t('contextMenus.editor.autoLensCorrection'),
               icon: Aperture,
-              onClick: () => handleAutoLensCorrection([selectedImage.path]),
+              onClick: handleAutoAdjustments,
               disabled: !selectedImage?.isReady,
             },
             {
@@ -255,7 +264,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
         },
         {
           label: t('contextMenus.merge.title'),
-          icon: LayersArrowDown,
+          icon: Layers,
           submenu: [
             { disabled: true, icon: SquaresUnite, label: t('contextMenus.editor.stitchPanorama') },
             { disabled: true, icon: Images, label: t('contextMenus.editor.mergeHdr') },
@@ -280,7 +289,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
           submenu: [
             { label: t('contextMenus.editor.noLabel'), onClick: () => handleSetColorLabel(null) },
             ...COLOR_LABELS.map((label: Color) => ({
-              label: t(`contextMenus.colors.${label.name}`),
+              label: (t as any)(`contextMenus.colors.${label.name}`),
               color: label.color,
               onClick: () => handleSetColorLabel(label.name),
             })),
@@ -492,11 +501,16 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
       };
 
       const onExportClick = () => {
-        setLibrary({ multiSelectedPaths: finalSelection });
-        if (activeView === 'editor' && selectedImage && selectedImage.path !== path) {
-          props.handleImageSelect(path);
+        if (selectedImage) {
+          if (selectedImage.path !== path) {
+            props.handleImageSelect(path);
+          }
+          setLibrary({ multiSelectedPaths: finalSelection });
+          setPanel(Panel.Export);
+        } else {
+          setLibrary({ multiSelectedPaths: finalSelection });
+          setUI({ isLibraryExportPanelVisible: true });
         }
-        setPanel(Panel.Export);
       };
 
       const handleRemoveFromAlbum = async () => {
@@ -566,15 +580,16 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
           onClick: () => handlePasteAdjustments(finalSelection),
         },
         {
+          disabled: !isSingleSelection,
+          icon: Copy,
+          label: t('contextMenus.thumbnail.virtualCopy'),
+          onClick: handleCreateVirtualCopy,
+        },
+        {
           label: t('contextMenus.editor.productivity'),
           icon: Gauge,
           submenu: [
-            { label: autoAdjustLabel, icon: PencilSparkles, onClick: handleApplyAutoAdjustmentsToSelection },
-            {
-              label: t('contextMenus.thumbnail.autoLensCorrection', { count: selectionCount }),
-              icon: Aperture,
-              onClick: () => handleAutoLensCorrection(finalSelection),
-            },
+            { label: autoAdjustLabel, icon: Aperture, onClick: handleApplyAutoAdjustmentsToSelection },
             {
               label: denoiseLabel,
               icon: Grip,
@@ -610,6 +625,42 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
               },
               disabled: selectionCount === 0 || selectionCount > 9,
             },
+          ],
+        },
+        {
+          label: '⚡ Culling & Selection',
+          icon: Users,
+          submenu: [
+            {
+              icon: Zap,
+              label: 'Speed Culler & Face Loupe (C)',
+              onClick: () => {
+                const initialIdx =
+                  finalSelection.length > 0
+                    ? imageList.findIndex((img) => img.path === finalSelection[0])
+                    : 0;
+                setUI({
+                  speedCullerModalState: {
+                    isOpen: true,
+                    selectedPaths: finalSelection.length > 1 ? finalSelection : [],
+                    initialIndex: Math.max(0, initialIdx),
+                  },
+                });
+              },
+            },
+            {
+              icon: Trophy,
+              label: 'AI Hero-Shot Curator...',
+              onClick: () => {
+                setUI({
+                  heroCuratorModalState: {
+                    isOpen: true,
+                    selectedPaths: finalSelection,
+                  },
+                });
+              },
+              disabled: finalSelection.length < 2,
+            },
             {
               label: cullLabel,
               icon: Users,
@@ -628,8 +679,131 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
           ],
         },
         {
+          label: '✨ AI Studio & Color',
+          icon: Wand2,
+          submenu: [
+            {
+              icon: Wand2,
+              label: 'Universal AI Shoot Polish...',
+              onClick: () => {
+                setUI({
+                  batchPolishModalState: {
+                    isOpen: true,
+                    selectedPaths: finalSelection,
+                  },
+                });
+              },
+              disabled: finalSelection.length === 0,
+            },
+            {
+              icon: Palette,
+              label: '"Steal the Look" Color Matcher...',
+              onClick: () => {
+                setUI({
+                  colorMatcherModalState: {
+                    isOpen: true,
+                    heroPath: finalSelection[0] || null,
+                    targetPaths: finalSelection.slice(1),
+                    initialMode: 'matcher',
+                  },
+                });
+              },
+            },
+            {
+              icon: Wand2,
+              label: 'Harmonize Series to Hero Photo...',
+              disabled: finalSelection.length < 2,
+              onClick: () => {
+                setUI({
+                  colorMatcherModalState: {
+                    isOpen: true,
+                    heroPath: finalSelection[0] || null,
+                    targetPaths: finalSelection.slice(1),
+                    initialMode: 'harmonize',
+                  },
+                });
+              },
+            },
+            {
+              icon: Aperture,
+              label: 'Optical AI Bokeh & Depth...',
+              onClick: () => {
+                setUI({
+                  bokehModalState: {
+                    isOpen: true,
+                  },
+                });
+              },
+            },
+            {
+              icon: Sparkles,
+              label: 'Heal Sensor Dust Spots',
+              onClick: async () => {
+                try {
+                  const res: any = await invoke('batch_heal_sensor_dust', { paths: finalSelection });
+                  if (res) {
+                    await props.refreshImageList();
+                  }
+                } catch (err) {
+                  console.error('Failed to heal sensor dust:', err);
+                }
+              },
+              disabled: finalSelection.length === 0,
+            },
+          ],
+        },
+        {
+          label: '🚀 Studio & Delivery',
+          icon: Package,
+          submenu: [
+            {
+              icon: Download,
+              label: 'Advanced Batch Exporter & Watermark...',
+              onClick: () => {
+                setUI({
+                  advancedExportModalState: {
+                    isOpen: true,
+                    selectedPaths: finalSelection,
+                  },
+                });
+              },
+              disabled: finalSelection.length === 0,
+            },
+            {
+              icon: Package,
+              label: 'Export Client Delivery Pack...',
+              onClick: () => {
+                setUI({
+                  clientDeliveryModalState: {
+                    isOpen: true,
+                    selectedPaths: finalSelection,
+                  },
+                });
+              },
+              disabled: finalSelection.length === 0,
+            },
+            {
+              icon: Camera,
+              label: 'Canon EOS Studio Tethering...',
+              onClick: () => {
+                setUI({
+                  tetheringModalState: {
+                    isOpen: true,
+                    isLiveViewActive: false,
+                    isConnected: true,
+                    cameraInfo: null,
+                    capturedPhotos: [],
+                    isCapturing: false,
+                    error: null,
+                  },
+                });
+              },
+            },
+          ],
+        },
+        {
           label: t('contextMenus.merge.title'),
-          icon: LayersArrowDown,
+          icon: Layers,
           submenu: [
             {
               disabled: selectionCount < 2 || selectionCount > 30,
@@ -679,6 +853,56 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
                     isProcessing: false,
                     progressMessage: null,
                     sourcePaths: finalSelection,
+                  },
+                });
+              },
+            },
+            {
+              disabled: selectionCount < 2,
+              icon: Sparkles,
+              label: t('contextMenus.merge.astroStack', 'Astro Stack (Kappa-Sigma)'),
+              onClick: () => {
+                setUI({
+                  hdrModalState: {
+                    error: null,
+                    finalImageBase64: null,
+                    isOpen: true,
+                    isProcessing: true,
+                    progressMessage: 'Aligning stars and stacking with Kappa-Sigma rejection...',
+                    stitchingSourcePaths: finalSelection,
+                  },
+                });
+                invoke('stack_astro_frames', {
+                  options: {
+                    paths: finalSelection,
+                    sigma_clip: 2.5,
+                    stack_mode: 'kappa_sigma',
+                    auto_dark_subtract: true,
+                  },
+                }).catch((err) => {
+                  setUI((state) => ({
+                    hdrModalState: { ...state.hdrModalState, isProcessing: false, error: String(err) },
+                  }));
+                });
+              },
+            },
+            {
+              disabled: selectionCount < 2,
+              icon: Telescope,
+              label: t('contextMenus.merge.drizzle', 'Hubble Drizzle Super-Resolution (2x/3x/4x)'),
+              onClick: () => {
+                setUI({
+                  drizzleModalState: {
+                    error: null,
+                    finalImageBase64: null,
+                    originalBase64: null,
+                    isOpen: true,
+                    isProcessing: false,
+                    progressMessage: null,
+                    sourcePaths: finalSelection,
+                    scaleFactor: 2,
+                    pixfrac: 0.8,
+                    meta: null,
                   },
                 });
               },
@@ -745,7 +969,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
           submenu: [
             { label: t('contextMenus.editor.noLabel'), onClick: () => handleSetColorLabel(null, finalSelection) },
             ...COLOR_LABELS.map((label: Color) => ({
-              label: t(`contextMenus.colors.${label.name}`),
+              label: (t as any)(`contextMenus.colors.${label.name}`),
               color: label.color,
               onClick: () => handleSetColorLabel(label.name, finalSelection),
             })),
@@ -1138,7 +1362,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
       };
 
       const buildMoveSubmenu = (nodes: AlbumItem[]): Option[] => {
-        const opts: Option[] = [];
+        let opts: Option[] = [];
         nodes.forEach((n) => {
           if (n.type === 'group' && n.id !== item?.id) {
             const isCurrentParent = n.id === currentParentId;

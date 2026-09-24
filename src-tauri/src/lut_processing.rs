@@ -29,15 +29,13 @@ pub struct Lut {
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct LutEntry {
     pub name: String,
     pub path: String,
     pub is_built_in: bool,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Deserialize)]
 pub struct LutPreviewRequest {
     pub path: String,
     pub is_built_in: bool,
@@ -55,16 +53,23 @@ pub struct LutPreview {
 }
 
 fn strip_verbatim(path: &Path) -> PathBuf {
-    let s = path.to_string_lossy();
-    PathBuf::from(s.strip_prefix(r"\\?\").unwrap_or(&s).to_string())
+    #[cfg(target_os = "windows")]
+    {
+        let path_str = path.to_string_lossy();
+        if let Some(stripped) = path_str.strip_prefix(r"\\?\") {
+            return PathBuf::from(stripped);
+        }
+    }
+    path.to_path_buf()
 }
 
-fn film_luts_dir(app_handle: &AppHandle) -> Option<PathBuf> {
+pub fn film_luts_dir(app_handle: &AppHandle) -> Option<PathBuf> {
     app_handle
         .path()
-        .resolve("resources/film_luts", tauri::path::BaseDirectory::Resource)
+        .resource_dir()
         .ok()
-        .map(|p| strip_verbatim(&p))
+        .map(|p| p.join("resources").join("film_luts"))
+        .filter(|p| p.exists())
 }
 
 pub fn get_luts_dir(app_data_dir: &Path) -> anyhow::Result<PathBuf> {
@@ -99,7 +104,6 @@ pub fn list_luts_in_dir(dir: &Path, is_built_in: bool) -> anyhow::Result<Vec<Lut
                 .and_then(|s| s.to_str())
                 .unwrap_or("LUT")
                 .to_string();
-
             entries.push(LutEntry {
                 name,
                 path: strip_verbatim(&path).to_string_lossy().into_owned(),
@@ -137,17 +141,20 @@ pub fn import_luts_to_dir(dir: &Path, source_paths: &[String]) -> anyhow::Result
         }
 
         let source_path = Path::new(source);
+        let Some(_file_name) = source_path.file_name() else {
+            continue;
+        };
         let stem = source_path
             .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("LUT");
-        let extension = source_path
+        let ext = source_path
             .extension()
             .and_then(|s| s.to_str())
-            .unwrap_or("cube")
-            .to_lowercase();
-        let destination = unique_lut_destination(dir, stem, &extension);
-        if let Err(error) = copy(source_path, &destination) {
+            .unwrap_or("cube");
+
+        let dest = unique_lut_destination(dir, stem, ext);
+        if let Err(error) = copy(source_path, &dest) {
             log::error!("Failed to copy LUT '{}': {}", source, error);
         }
     }
@@ -349,9 +356,7 @@ fn parse_hald(image: DynamicImage) -> anyhow::Result<Lut> {
 }
 
 pub fn parse_lut_file(path_str: &str) -> anyhow::Result<Lut> {
-    let normalized_path_str = path_str.strip_prefix(r"\\?\").unwrap_or(path_str);
-
-    if normalized_path_str.starts_with(r"\\") || normalized_path_str.starts_with("//") {
+    if path_str.starts_with(r"\\") || path_str.starts_with("//") {
         return Err(anyhow!("Network paths (UNC) are not allowed for LUTs"));
     }
 
@@ -720,4 +725,50 @@ pub fn load_and_parse_lut(path: String, state: State<AppState>) -> Result<LutPar
     cache.insert(path, Arc::new(lut));
 
     Ok(LutParseResult { size: lut_size })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn test_parse_cube_synthetic_2x2x2() {
+        let cube_content = "
+# Synthetic 2x2x2 Cube
+TITLE \"Test 2x2x2\"
+LUT_3D_SIZE 2
+0.0 0.0 0.0
+1.0 0.0 0.0
+0.0 1.0 0.0
+1.0 1.0 0.0
+0.0 0.0 1.0
+1.0 0.0 1.0
+0.0 1.0 1.0
+1.0 1.0 1.0
+";
+        let lut = parse_cube(Cursor::new(cube_content)).expect("Should parse 2x2x2 cube");
+        assert_eq!(lut.size, 2);
+        assert_eq!(lut.data.len(), 2 * 2 * 2 * 3);
+        assert_eq!(lut.data[0], 0.0);
+        assert_eq!(lut.data[lut.data.len() - 1], 1.0);
+    }
+
+    #[test]
+    fn test_parse_3dl_synthetic_2x2x2() {
+        let content_3dl = "
+# 3DL test file
+0.0 0.0 0.0
+1.0 0.0 0.0
+0.0 1.0 0.0
+1.0 1.0 0.0
+0.0 0.0 1.0
+1.0 0.0 1.0
+0.0 1.0 1.0
+1.0 1.0 1.0
+";
+        let lut = parse_3dl(Cursor::new(content_3dl)).expect("Should parse 3DL file");
+        assert_eq!(lut.size, 2);
+        assert_eq!(lut.data.len(), 24);
+    }
 }

@@ -1,14 +1,16 @@
 import { memo, useState, useEffect, useRef, useMemo } from 'react';
-import { Eye, EyeOff, ArrowLeft, Maximize, Loader2, Undo, Redo } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft, Maximize, Loader2, Undo, Redo, Columns, Rows, Grid2X2, Sparkles, Waves } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
-import { SelectedImage, GroupingMode } from '../../ui/AppProperties';
+import { SelectedImage, GroupingMode, Panel } from '../../ui/AppProperties';
 import { IconAperture, IconCalendar, IconClock, IconFocalLength, IconIso, IconShutter } from './ExifIcons';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
+import { useEditorStore, CompareMode } from '../../../store/useEditorStore';
+import { useUIStore } from '../../../store/useUIStore';
 import { findGroupVariants, getVariantLabel } from '../../../utils/imageGrouping';
 
 interface EditorToolbarProps {
@@ -63,6 +65,41 @@ const EditorToolbar = memo(
     const [isHistoryVisible, setIsHistoryVisible] = useState(false);
     const historyContainerRef = useRef<HTMLDivElement>(null);
     const historyButtonRef = useRef<HTMLDivElement>(null);
+
+    const compareMode = useEditorStore((s) => s.compareMode);
+    const setEditor = useEditorStore((s) => s.setEditor);
+
+    const toggleCompareMode = (mode: CompareMode) => {
+      setEditor({ compareMode: compareMode === mode ? 'none' : mode });
+    };
+
+    useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (
+          e.target instanceof HTMLInputElement ||
+          e.target instanceof HTMLTextAreaElement ||
+          e.isComposing
+        ) {
+          return;
+        }
+        if (e.code === 'KeyY') {
+          e.preventDefault();
+          setEditor((state) => {
+            const nextMode: CompareMode =
+              state.compareMode === 'none'
+                ? 'vertical_split'
+                : state.compareMode === 'vertical_split'
+                  ? 'horizontal_split'
+                  : state.compareMode === 'horizontal_split'
+                    ? 'matrix_4way'
+                    : 'none';
+            return { compareMode: nextMode };
+          });
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [setEditor]);
 
     const showResolution = !isAndroid && selectedImage.width > 0 && selectedImage.height > 0;
     const [displayedResolution, setDisplayedResolution] = useState('');
@@ -665,6 +702,74 @@ const EditorToolbar = memo(
                 </motion.div>
               )}
             </AnimatePresence>
+          </div>
+
+          {/* Compare & Split Modes */}
+          <div className="flex items-center bg-surface rounded-full p-0.5 border border-border-color/60 gap-0.5">
+            <button
+              className={clsx(
+                'p-1.5 rounded-full transition-colors',
+                compareMode === 'vertical_split'
+                  ? 'bg-accent text-black font-semibold shadow-xs'
+                  : 'text-text-secondary hover:text-text-primary hover:bg-card-active'
+              )}
+              onClick={() => toggleCompareMode('vertical_split')}
+              data-tooltip="Vertical Split View (Y)"
+            >
+              <Columns size={16} />
+            </button>
+            <button
+              className={clsx(
+                'p-1.5 rounded-full transition-colors',
+                compareMode === 'horizontal_split'
+                  ? 'bg-accent text-black font-semibold shadow-xs'
+                  : 'text-text-secondary hover:text-text-primary hover:bg-card-active'
+              )}
+              onClick={() => toggleCompareMode('horizontal_split')}
+              data-tooltip="Horizontal Split View (Y)"
+            >
+              <Rows size={16} />
+            </button>
+            <button
+              className={clsx(
+                'p-1.5 rounded-full transition-colors',
+                compareMode === 'matrix_4way'
+                  ? 'bg-accent text-black font-semibold shadow-xs'
+                  : 'text-text-secondary hover:text-text-primary hover:bg-card-active'
+              )}
+              onClick={() => toggleCompareMode('matrix_4way')}
+              data-tooltip="4-Way Variant Matrix (A/B/C/D)"
+            >
+              <Grid2X2 size={16} />
+            </button>
+          </div>
+
+          {/* 1-Click Retouch & Liquify Studio Quick Actions */}
+          <div className="flex items-center bg-surface rounded-full p-0.5 border border-border-color/60 gap-0.5">
+            <button
+              className="p-1.5 rounded-full transition-colors text-text-secondary hover:text-text-primary hover:bg-card-active"
+              onClick={() => {
+                const uiStore = useUIStore.getState();
+                uiStore.setActivePanel('rightTop', Panel.Ai);
+                uiStore.setUI({ activePanel: Panel.Ai });
+                window.dispatchEvent(new CustomEvent('rapidraw-quick-retouch'));
+              }}
+              data-tooltip="Retouch (Skin Smoothing & Blemish Removal)"
+            >
+              <Sparkles size={16} />
+            </button>
+            <button
+              className="p-1.5 rounded-full transition-colors text-text-secondary hover:text-text-primary hover:bg-card-active"
+              onClick={() => {
+                const uiStore = useUIStore.getState();
+                uiStore.setActivePanel('rightTop', Panel.Ai);
+                uiStore.setUI({ activePanel: Panel.Ai });
+                window.dispatchEvent(new CustomEvent('rapidraw-quick-liquify'));
+              }}
+              data-tooltip="Liquify (Mesh Warp & Reshape)"
+            >
+              <Waves size={16} />
+            </button>
           </div>
 
           <button

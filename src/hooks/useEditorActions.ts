@@ -38,10 +38,7 @@ export function useEditorActions() {
         const prev = state.adjustments;
         const newAdjustments = typeof value === 'function' ? value(prev) : { ...prev, ...value };
         debouncedSetHistory(newAdjustments);
-        return {
-          adjustments: newAdjustments,
-          ...(state.showOriginal ? { showOriginal: false, previewOverride: null } : {}),
-        };
+        return { adjustments: newAdjustments };
       });
     },
     [setEditor],
@@ -85,58 +82,14 @@ export function useEditorActions() {
     }
   }, [setAdjustments]);
 
-  const toggleShowOriginal = useCallback(() => {
-    setEditor((state) => {
-      const isShowing = !state.showOriginal;
-
-      if (isShowing) {
-        const override = { ...INITIAL_ADJUSTMENTS };
-        const geometryKeys: Array<keyof Adjustments> = [
-          'crop',
-          'rotation',
-          'flipHorizontal',
-          'flipVertical',
-          'orientationSteps',
-          'aspectRatio',
-          'transformDistortion',
-          'transformVertical',
-          'transformHorizontal',
-          'transformRotate',
-          'transformAspect',
-          'transformScale',
-          'transformXOffset',
-          'transformYOffset',
-          'lensDistortionAmount',
-          'lensVignetteAmount',
-          'lensTcaAmount',
-          'lensDistortionParams',
-          'lensMaker',
-          'lensModel',
-          'lensDistortionEnabled',
-          'lensTcaEnabled',
-          'lensVignetteEnabled',
-        ];
-
-        geometryKeys.forEach((key) => {
-          (override as any)[key] = state.adjustments[key];
-        });
-
-        return { showOriginal: true, previewOverride: override };
-      } else {
-        return { showOriginal: false, previewOverride: null };
-      }
-    });
-  }, [setEditor]);
-
   const handleLutSelect = useCallback(
     async (path: string, isBuiltIn: boolean = false) => {
       const isAndroid = useSettingsStore.getState().osPlatform === 'android';
       try {
         const result: { size: number } = await invoke('load_and_parse_lut', { path });
-        const name =
-          isAndroid && path.startsWith('content://')
-            ? await invoke<string>('resolve_android_content_uri_name', { uriStr: path })
-            : path.split(/[\\/]/).pop() || 'LUT';
+        let name = isAndroid && path.startsWith('content://')
+          ? await invoke<string>('resolve_android_content_uri_name', { uriStr: path })
+          : path.split(/[\\/]/).pop() || 'LUT';
         setAdjustments((prev: Adjustments) => ({
           ...prev,
           lutPath: path,
@@ -144,10 +97,7 @@ export function useEditorActions() {
           lutSize: result.size,
           lutIntensity: 100,
           lutIsSceneReferred: isBuiltIn,
-          sectionVisibility: {
-            ...(prev.sectionVisibility || INITIAL_ADJUSTMENTS.sectionVisibility),
-            effects: true,
-          },
+          sectionVisibility: { ...(prev.sectionVisibility || INITIAL_ADJUSTMENTS.sectionVisibility), effects: true },
         }));
       } catch (err) {
         toast.error(`Failed to load LUT: ${err}`);
@@ -202,46 +152,6 @@ export function useEditorActions() {
     [setEditor],
   );
 
-  const handleAutoLensCorrection = useCallback(
-    (paths?: string[]) => {
-      const { multiSelectedPaths, libraryActivePath, setLibrary } = useLibraryStore.getState();
-      const { selectedImage, resetHistory } = useEditorStore.getState();
-
-      const pathsToUpdate =
-        paths && paths.length > 0
-          ? paths
-          : multiSelectedPaths.length > 0
-            ? multiSelectedPaths
-            : selectedImage
-              ? [selectedImage.path]
-              : [];
-
-      if (pathsToUpdate.length === 0) return;
-
-      pathsToUpdate.forEach((p) => globalImageCache.delete(p));
-
-      invoke('apply_auto_lens_correction_to_paths', { paths: pathsToUpdate })
-        .then(async () => {
-          if (selectedImage && pathsToUpdate.includes(selectedImage.path)) {
-            const meta: any = await invoke(Invokes.LoadMetadata, { path: selectedImage.path });
-            if (meta.adjustments && !meta.adjustments.is_null) {
-              const normalized = normalizeLoadedAdjustments(meta.adjustments);
-              setEditor({ adjustments: normalized });
-              resetHistory(normalized);
-            }
-          }
-          if (libraryActivePath && pathsToUpdate.includes(libraryActivePath)) {
-            const meta: any = await invoke(Invokes.LoadMetadata, { path: libraryActivePath });
-            if (meta.adjustments && !meta.adjustments.is_null) {
-              setLibrary({ libraryActiveAdjustments: normalizeLoadedAdjustments(meta.adjustments) });
-            }
-          }
-        })
-        .catch((err) => toast.error(`Failed to apply auto lens correction: ${err}`));
-    },
-    [setEditor],
-  );
-
   const handleCopyAdjustments = useCallback(async (pathOrEvent?: string | any) => {
     const pathOverride = typeof pathOrEvent === 'string' ? pathOrEvent : undefined;
     const { selectedImage, adjustments } = useEditorStore.getState();
@@ -287,7 +197,7 @@ export function useEditorActions() {
       const { appSettings } = useSettingsStore.getState();
       const { setProcess } = useProcessStore.getState();
 
-      if (!copiedAdjustments || !appSettings) return;
+      if (!copiedAdjustments || !appSettings || !appSettings.copyPasteSettings) return;
 
       const { mode, includedAdjustments } = appSettings.copyPasteSettings;
       const adjustmentsToApply: Partial<Adjustments> = {};
@@ -405,10 +315,8 @@ export function useEditorActions() {
     handleLutSelect,
     setLutPreviewOverride,
     handleResetAdjustments,
-    handleAutoLensCorrection,
     handleCopyAdjustments,
     handlePasteAdjustments,
     handleZoomChange,
-    toggleShowOriginal,
   };
 }

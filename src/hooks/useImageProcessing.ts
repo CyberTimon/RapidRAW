@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import debounce from 'lodash.debounce';
-import throttle from 'lodash.throttle';
 import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
@@ -30,7 +29,9 @@ export function useImageProcessing(
   const displaySize = useEditorStore((state) => state.displaySize);
   const baseRenderSize = useEditorStore((state) => state.baseRenderSize);
   const originalSize = useEditorStore((state) => state.originalSize);
+  const showOriginal = useEditorStore((state) => state.showOriginal);
   const isSliderDragging = useEditorStore((state) => state.isSliderDragging);
+  const transformedOriginalUrl = useEditorStore((state) => state.transformedOriginalUrl);
   const setEditor = useEditorStore((state) => state.setEditor);
 
   const activeView = useUIStore((state) => state.activeView);
@@ -38,13 +39,11 @@ export function useImageProcessing(
   const appSettings = useSettingsStore((state) => state.appSettings);
   const multiSelectedPaths = useLibraryStore((state) => state.multiSelectedPaths);
 
-  const uncroppedJobIdRef = useRef(0);
-  const latestUncroppedJobIdRef = useRef(0);
-
   const inFlightCountRef = useRef(0);
-  const lastAnalyticsTimeRef = useRef<number>(0);
   const pendingApplyRef = useRef<{ adjustments: Adjustments; targetRes?: number } | null>(null);
+  const currentOriginalResRef = useRef<number>(0);
   const dragIdleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastAnalyticsRequestTime = useRef<number>(0);
   const activeWaveformChannelRef = useRef(activeWaveformChannel);
   activeWaveformChannelRef.current = activeWaveformChannel;
 
@@ -52,6 +51,18 @@ export function useImageProcessing(
   useEffect(() => {
     selectedImagePathRef.current = selectedImage?.path ?? null;
   }, [selectedImage?.path]);
+
+  const geometricAdjustmentsKey = useMemo(() => {
+    if (!adjustments) return '';
+    const { crop, rotation, flipHorizontal, flipVertical, orientationSteps } = adjustments;
+    return JSON.stringify({ crop, rotation, flipHorizontal, flipVertical, orientationSteps });
+  }, [
+    adjustments?.crop,
+    adjustments?.rotation,
+    adjustments?.flipHorizontal,
+    adjustments?.flipVertical,
+    adjustments?.orientationSteps,
+  ]);
 
   const calculateROI = useCallback(() => {
     if (!transformWrapperRef.current) return null;
@@ -89,10 +100,10 @@ export function useImageProcessing(
       return null;
     }
 
-    const roiX = (intersectLeft - imgLeft) / baseW;
-    const roiY = (intersectTop - imgTop) / baseH;
-    const roiW = (intersectRight - intersectLeft) / baseW;
-    const roiH = (intersectBottom - intersectTop) / baseH;
+    let roiX = (intersectLeft - imgLeft) / baseW;
+    let roiY = (intersectTop - imgTop) / baseH;
+    let roiW = (intersectRight - intersectLeft) / baseW;
+    let roiH = (intersectBottom - intersectTop) / baseH;
 
     const newRoiX = roiX - paddingX;
     const newRoiY = roiY - paddingY;
@@ -113,18 +124,6 @@ export function useImageProcessing(
     async (currentAdjustments: Adjustments, dragging: boolean = false, targetRes?: number) => {
       const currentPath = selectedImage?.path;
       if (!currentPath) return;
-
-      let shouldRequestAnalytics = false;
-      if (dragging) {
-        const now = performance.now();
-        if (now - lastAnalyticsTimeRef.current > 33.33) {
-          shouldRequestAnalytics = true;
-          lastAnalyticsTimeRef.current = now;
-        }
-      } else {
-        shouldRequestAnalytics = true;
-        lastAnalyticsTimeRef.current = 0;
-      }
 
       const payload = structuredClone(currentAdjustments);
       const { patchesSentToBackend } = useEditorStore.getState();
@@ -174,13 +173,20 @@ export function useImageProcessing(
       const jobId = ++previewJobIdRef.current;
       const roi = calculateROI();
 
+      const now = performance.now();
+      const requestAnalytics =
+        now - lastAnalyticsRequestTime.current > 33.33 || dragging === false;
+      if (requestAnalytics) {
+        lastAnalyticsRequestTime.current = now;
+      }
+
       try {
         const buffer: ArrayBuffer = await invoke(Invokes.ApplyAdjustments, {
           jsAdjustments: payload,
           isInteractive: dragging,
           targetResolution: targetRes || null,
           roi: roi || null,
-          requestAnalytics: shouldRequestAnalytics,
+          requestAnalytics,
           computeWaveform: !!isWaveformVisible,
           activeWaveformChannel: activeWaveformChannelRef.current || null,
         });
@@ -218,8 +224,8 @@ export function useImageProcessing(
             const url = URL.createObjectURL(blob);
 
             setEditor((state) => {
-              if (state.interactivePatch && state.interactivePatch.url)
-                setTimeout(() => URL.revokeObjectURL(state.interactivePatch.url), 100);
+              const oldUrl = state.interactivePatch?.url;
+              if (oldUrl) setTimeout(() => URL.revokeObjectURL(oldUrl), 100);
               return {
                 interactivePatch: {
                   url,
@@ -252,8 +258,9 @@ export function useImageProcessing(
             });
 
             setEditor((state) => {
-              if (state.interactivePatch && state.interactivePatch.url) {
-                setTimeout(() => URL.revokeObjectURL(state.interactivePatch.url), 500);
+              const oldUrl = state.interactivePatch?.url;
+              if (oldUrl) {
+                setTimeout(() => URL.revokeObjectURL(oldUrl), 500);
               }
               return { interactivePatch: null };
             });
@@ -306,39 +313,15 @@ export function useImageProcessing(
     [selectedImage?.isReady, flushPipeline, executeApplyAdjustments],
   );
 
-  const throttledUncroppedPreview = useMemo(
-    () =>
-      throttle(
-        (adj: Adjustments) => {
-          if (!useEditorStore.getState().selectedImage?.isReady) return;
-          const jobId = ++uncroppedJobIdRef.current;
-          invoke<string>(Invokes.GenerateUncroppedPreview, { jsAdjustments: adj })
-            .then((dataUrl) => {
-              if (jobId >= latestUncroppedJobIdRef.current) {
-                latestUncroppedJobIdRef.current = jobId;
-                useEditorStore.getState().setEditor({ uncroppedAdjustedPreviewUrl: dataUrl });
-              }
-            })
-            .catch(console.error);
-        },
-        30,
-        { leading: true, trailing: true },
-      ),
-    [],
-  );
-
   const generateUncroppedPreview = useCallback(
     (currentAdjustments: Adjustments) => {
-      throttledUncroppedPreview(currentAdjustments);
+      if (!selectedImage?.isReady) return;
+      invoke(Invokes.GenerateUncroppedPreview, { jsAdjustments: currentAdjustments }).catch((err) =>
+        console.error('Failed to generate uncropped preview:', err),
+      );
     },
-    [throttledUncroppedPreview],
+    [selectedImage?.isReady],
   );
-
-  useEffect(() => {
-    if (activeView === 'editor' && activePanel === Panel.Crop && selectedImage?.isReady) {
-      generateUncroppedPreview(adjustments);
-    }
-  }, [activeView, adjustments, activePanel, selectedImage?.isReady, generateUncroppedPreview]);
 
   const calculateTargetRes = useCallback(() => {
     const baseTargetRes = appSettings?.editorPreviewResolution || 1920;
@@ -389,6 +372,12 @@ export function useImageProcessing(
       }, 50),
     [applyAdjustments, currentResRef],
   );
+
+  useEffect(() => {
+    if (activeView === 'editor' && activePanel === Panel.Crop && selectedImage?.isReady) {
+      generateUncroppedPreview(adjustments);
+    }
+  }, [activeView, adjustments, activePanel, selectedImage?.isReady, generateUncroppedPreview]);
 
   useEffect(() => {
     if (activeView === 'editor' && selectedImage?.isReady && displaySize.width > 0 && !isSliderDragging) {
@@ -442,20 +431,12 @@ export function useImageProcessing(
 
         if (previewOverride) return;
 
-        const prev = prevAdjustmentsRef.current;
+        debouncedSave(selectedImage.path, adjustments);
 
-        if (!prev || prev.path !== selectedImage.path) {
-          prevAdjustmentsRef.current = { path: selectedImage.path, adjustments };
-          return;
-        }
-
-        const hasAdjustmentsChanged = prev.adjustments !== adjustments;
-
-        if (hasAdjustmentsChanged) {
-          debouncedSave(selectedImage.path, adjustments);
-
-          const otherPaths = multiSelectedPaths.filter((p) => p !== selectedImage.path);
-          if (appSettings?.copyPasteSettings?.autoSync && otherPaths.length > 0) {
+        const otherPaths = multiSelectedPaths.filter((p) => p !== selectedImage.path);
+        if (appSettings?.copyPasteSettings?.autoSync && otherPaths.length > 0) {
+          const prev = prevAdjustmentsRef.current;
+          if (prev && prev.path === selectedImage.path) {
             const delta: Partial<Adjustments> = {};
             const includedKeys = appSettings?.copyPasteSettings?.includedAdjustments || COPYABLE_ADJUSTMENT_KEYS;
             for (const key of Object.keys(adjustments) as Array<keyof Adjustments>) {
@@ -472,9 +453,8 @@ export function useImageProcessing(
               });
             }
           }
-
-          prevAdjustmentsRef.current = { path: selectedImage.path, adjustments };
         }
+        prevAdjustmentsRef.current = { path: selectedImage.path, adjustments };
       }, 50);
     }
 

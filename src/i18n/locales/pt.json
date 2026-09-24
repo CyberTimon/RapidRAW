@@ -10,7 +10,9 @@
         "agx": "AgX",
         "agxDesc": "Mapeamento de Tons tipo Filme",
         "basic": "Básico",
-        "basicDesc": "Mapeamento de Tons Padrão"
+        "basicDesc": "Mapeamento de Tons Padrão",
+        "oklab": "Oklab",
+        "oklabDesc": "Perceptual Color & Highlight Science"
       },
       "reset": "Redefinir",
       "shadows": "Sombras",
@@ -1831,7 +1833,8 @@
         "title": "Pré-processamento de Imagem",
         "tonemapperOptions": {
           "agx": "AgX",
-          "basic": "Básico"
+          "basic": "Básico",
+          "oklab": "Oklab (Perceptual)"
         },
         "tonemapperOverride": "Substituição Global de Mapeador de Tons",
         "tonemapperOverrideDesc": "Força um mapeador de tons específico globalmente para todas as imagens, ocultando a opção do mapeador de tons do painel de ajustes."

@@ -31,12 +31,12 @@ export const OPTION_SEPARATOR = 'separator';
 
 export enum Invokes {
   AddTagForPaths = 'add_tag_for_paths',
+  AnalyzeImageNoiseProfile = 'analyze_image_noise_profile',
   ApplyAdjustments = 'apply_adjustments',
   ApplyAdjustmentsToPaths = 'apply_adjustments_to_paths',
   ApplyAutoAdjustmentsToPaths = 'apply_auto_adjustments_to_paths',
   ApplyDenoising = 'apply_denoising',
   CalculateAutoAdjustments = 'calculate_auto_adjustments',
-  CancelAiTask = 'cancel_ai_task',
   CancelExport = 'cancel_export',
   CheckAIConnectorStatus = 'check_ai_connector_status',
   ClearAllSidecars = 'clear_all_sidecars',
@@ -71,8 +71,6 @@ export enum Invokes {
   HandleImportLegacyPresetsFromFile = 'handle_import_legacy_presets_from_file',
   ImportFiles = 'import_files',
   InvokeGenerativeReplaseWithMaskDef = 'invoke_generative_replace_with_mask_def',
-  IsTetheringSupported = 'is_tethering_supported',
-  IsRaw9Available = 'is_raw9_available',
   ListImagesInDir = 'list_images_in_dir',
   ListImagesRecursive = 'list_images_recursive',
   LoadImage = 'load_image',
@@ -80,6 +78,7 @@ export enum Invokes {
   LoadPresets = 'load_presets',
   LoadSettings = 'load_settings',
   MoveFiles = 'move_files',
+  PreviewDenoisedRoi = 'preview_denoised_roi',
   ReadExifForPaths = 'read_exif_for_paths',
   RemoveTagForPaths = 'remove_tag_for_paths',
   RenameFiles = 'rename_files',
@@ -97,9 +96,14 @@ export enum Invokes {
   ShowInFinder = 'show_in_finder',
   StartBackgroundIndexing = 'start_background_indexing',
   StitchPanorama = 'stitch_panorama',
+  CancelPanorama = 'cancel_panorama',
+  DetectPanoramaSequences = 'detect_panorama_sequences',
+  StitchHdrPanorama = 'stitch_hdr_panorama',
   StitchFocusStack = 'stitch_focus_stack',
   SaveFocusStack = 'save_focus_stack',
   MergeHdr = 'merge_hdr',
+  UpdateHdrToneMapping = 'update_hdr_tone_mapping',
+  ValidateHdrBrackets = 'validate_hdr_brackets',
   TestAIConnectorConnection = 'test_ai_connector_connection',
   UpdateWgpuTransform = 'update_wgpu_transform',
   UpdateExifFields = 'update_exif_fields',
@@ -111,12 +115,7 @@ export enum Invokes {
   SaveAlbums = 'save_albums',
   AddToAlbum = 'add_to_album',
   GetAlbumImages = 'get_album_images',
-  TetherListCameras = 'tether_list_cameras',
-  TetherConnect = 'tether_connect',
-  TetherGetSettings = 'tether_get_settings',
-  TetherSetSetting = 'tether_set_setting',
-  TetherCapture = 'tether_capture',
-  TetherGetPreview = 'tether_get_preview',
+  ExtractEmbeddedRawPreview = 'extract_embedded_raw_preview',
 }
 
 export enum ExifOverlay {
@@ -134,7 +133,6 @@ export enum Panel {
   Metadata = 'metadata',
   Presets = 'presets',
   FolderTree = 'folderTree',
-  Tethering = 'tethering',
 }
 
 export type PanelRegion = 'leftTop' | 'leftBottom' | 'rightTop' | 'rightBottom';
@@ -150,7 +148,7 @@ export enum SortDirection {
   Descending = 'desc',
 }
 
-type FolderSortKey = 'name' | 'modified' | 'created' | 'imageCount';
+export type FolderSortKey = 'name' | 'modified' | 'created' | 'imageCount';
 
 export interface FolderTreeSort {
   key: FolderSortKey;
@@ -171,7 +169,7 @@ export enum Theme {
 export enum ThumbnailAspectRatio {
   Cover = 'cover',
   Contain = 'contain',
-  Justified = 'justified',
+  Masonry = 'masonry',
 }
 
 export interface WorkspaceState {
@@ -184,11 +182,6 @@ export interface WorkspaceState {
   panelSwitcherPlacement: Record<PanelRegion, 'left' | 'right' | 'top' | 'bottom'>;
 }
 
-export interface CustomAspectRatio {
-  width: number;
-  height: number;
-}
-
 export type GroupPreference = 'jpeg' | 'raw';
 export type GroupingMode = 'off' | GroupPreference;
 
@@ -197,8 +190,6 @@ export interface AppSettings {
   aiProvider?: string;
   decorations?: any;
   editorPreviewResolution?: number;
-  smallThumbnailResolution?: number;
-  mediumThumbnailResolution?: number;
   enableZoomHifi?: boolean;
   useFullDpiRendering?: boolean;
   highResZoomMultiplier?: number;
@@ -224,7 +215,6 @@ export interface AppSettings {
   linuxGpuOptimization?: boolean;
   exportPresets?: ExportPreset[];
   myLenses?: any;
-  customAspectRatios?: CustomAspectRatio[];
   enableFolderImageCounts?: boolean;
   displayEditIcon?: boolean;
   linearRawMode?: string;
@@ -234,10 +224,8 @@ export interface AppSettings {
   waveformHeight?: number;
   activeWaveformChannel?: string;
   useWgpuRenderer?: boolean;
-  editorNeutralGreyBg?: boolean;
   canvasInputMode?: 'mouse' | 'trackpad';
   zoomSpeedMultiplier?: number;
-  zoomPhotoToPixelClick?: boolean;
   keybinds?: { [action: string]: string[] };
   tonemapperOverrideEnabled?: boolean;
   defaultRawTonemapper?: string;
@@ -347,6 +335,7 @@ export interface SelectedImage {
   isReady: boolean;
   metadata?: any;
   original_base64?: string;
+  originalUrl: string | null;
   path: string;
   thumbnailUrl: string;
   width: number;
@@ -370,9 +359,11 @@ export enum LibraryDisplayMode {
 }
 
 export enum ThumbnailSize {
-  Large = 'large',
-  Medium = 'medium',
+  Tiny = 'tiny',
   Small = 'small',
+  Medium = 'medium',
+  Large = 'large',
+  Huge = 'huge',
 }
 
 export interface TransformState {
@@ -385,7 +376,6 @@ export interface UiVisibility {
   filmstrip: boolean;
   leftPanel: boolean;
   rightPanel: boolean;
-  quickFilter?: boolean;
 }
 
 export interface WaveformData {
@@ -407,7 +397,7 @@ export interface CullingSettings {
   filterBlurry: boolean;
 }
 
-interface ImageAnalysisResult {
+export interface ImageAnalysisResult {
   path: string;
   qualityScore: number;
   sharpnessMetric: number;
@@ -417,7 +407,7 @@ interface ImageAnalysisResult {
   height: number;
 }
 
-interface CullGroup {
+export interface CullGroup {
   representative: ImageAnalysisResult;
   duplicates: ImageAnalysisResult[];
 }
@@ -428,7 +418,7 @@ export interface CullingSuggestions {
   failedPaths: string[];
 }
 
-interface KeybindHandler {
+export interface KeybindHandler {
   shouldFire?: () => boolean;
   execute: (event: KeyboardEvent) => void;
 }

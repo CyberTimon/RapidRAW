@@ -283,13 +283,46 @@ export function useTauriListeners({
       }),
       listen('hdr-progress', (event: any) => {
         if (isEffectActive) {
+          useUIStore.getState().setUI((state) => {
+            if (!state.hdrModalState.isOpen) return state;
+            return {
+              hdrModalState: {
+                ...state.hdrModalState,
+                progressMessage: event.payload,
+              },
+            };
+          });
+        }
+      }),
+      listen('astro-progress', (event: any) => {
+        if (isEffectActive) {
+          useUIStore.getState().setUI((state) => {
+            if (!state.nightSkyState.isProcessing && !state.hdrModalState.isOpen) return state;
+            return {
+              nightSkyState: {
+                ...state.nightSkyState,
+                progressMessage: event.payload,
+              },
+              hdrModalState: {
+                ...state.hdrModalState,
+                progressMessage: event.payload,
+              },
+            };
+          });
+        }
+      }),
+      listen('astro-error', (event: any) => {
+        if (isEffectActive) {
           useUIStore.getState().setUI((state) => ({
+            nightSkyState: {
+              ...state.nightSkyState,
+              isProcessing: false,
+              error: String(event.payload),
+            },
             hdrModalState: {
               ...state.hdrModalState,
-              error: null,
-              finalImageBase64: null,
-              isOpen: true,
-              progressMessage: event.payload,
+              isProcessing: false,
+              error: String(event.payload),
             },
           }));
         }
@@ -297,12 +330,18 @@ export function useTauriListeners({
       listen('hdr-complete', (event: any) => {
         if (isEffectActive) {
           useUIStore.getState().setUI((state) => ({
+            nightSkyState: {
+              ...state.nightSkyState,
+              isProcessing: false,
+              progressMessage: 'Astro stack completed!',
+            },
             hdrModalState: {
               ...state.hdrModalState,
+              detectedScene: event.payload.scene || null,
               error: null,
               finalImageBase64: event.payload.base64,
               isProcessing: false,
-              progressMessage: 'Hdr Ready',
+              progressMessage: 'HDR Ready',
             },
           }));
         }
@@ -315,7 +354,7 @@ export function useTauriListeners({
               error: String(event.payload),
               finalImageBase64: null,
               isProcessing: false,
-              progressMessage: 'An error occurred.',
+              progressMessage: null,
             },
           }));
         }
@@ -350,6 +389,47 @@ export function useTauriListeners({
               error: String(event.payload),
               finalImageBase64: null,
               depthMapBase64: null,
+              isProcessing: false,
+              progressMessage: null,
+            },
+          }));
+        }
+      }),
+      listen('drizzle-progress', (event: any) => {
+        if (isEffectActive) {
+          const msg = typeof event.payload === 'object' && event.payload?.message ? event.payload.message : String(event.payload);
+          useUIStore.getState().setUI((state) => ({
+            drizzleModalState: { ...state.drizzleModalState, progressMessage: msg },
+          }));
+        }
+      }),
+      listen('drizzle-complete', (event: any) => {
+        if (isEffectActive) {
+          const payload = event.payload;
+          useUIStore.getState().setUI((state) => ({
+            drizzleModalState: {
+              ...state.drizzleModalState,
+              error: null,
+              finalImageBase64: payload?.base64 || null,
+              meta: payload ? {
+                width: payload.width,
+                height: payload.height,
+                scale: payload.scale,
+                frames_stacked: payload.frames_stacked,
+                snr_boost: payload.snr_boost,
+              } : null,
+              isProcessing: false,
+              progressMessage: null,
+            },
+          }));
+        }
+      }),
+      listen('drizzle-error', (event: any) => {
+        if (isEffectActive) {
+          useUIStore.getState().setUI((state) => ({
+            drizzleModalState: {
+              ...state.drizzleModalState,
+              error: String(event.payload),
               isProcessing: false,
               progressMessage: null,
             },

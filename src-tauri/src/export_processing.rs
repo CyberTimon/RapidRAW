@@ -12,6 +12,7 @@ use jxl_encoder::{
     LosslessConfig, LossyConfig, PixelLayout,
     api::{calibrated_jxl_quality, quality_to_distance},
 };
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::Emitter;
@@ -27,9 +28,9 @@ use crate::image_loader::{
     composite_patches_on_image, load_and_composite, load_base_image_from_bytes,
 };
 use crate::image_processing::{
-    AllAdjustments, Crop, GpuContext, RenderOutputPrecision, RenderRequest, downscale_f32_image,
+    AllAdjustments, Crop, GpuContext, RenderRequest, downscale_f32_image,
     get_all_adjustments_from_json, get_or_init_gpu_context, process_and_get_dynamic_image,
-    process_and_get_dynamic_image_with_precision, resolve_tonemapper_override_from_handle,
+    resolve_tonemapper_override_from_handle,
 };
 use crate::lut_processing::{
     convert_image_to_cube_lut, generate_identity_lut_image, get_or_load_lut,
@@ -42,35 +43,6 @@ use crate::{
     hydrate_adjustments, load_settings, resolve_warped_image_for_masks,
 };
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[serde(try_from = "u8", into = "u8")]
-pub enum TiffBitDepth {
-    Eight = 8,
-    #[default]
-    Sixteen = 16,
-}
-
-impl TryFrom<u8> for TiffBitDepth {
-    type Error = String;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            8 => Ok(Self::Eight),
-            16 => Ok(Self::Sixteen),
-            _ => Err(format!(
-                "Invalid TIFF bit depth '{}'; expected 8 or 16.",
-                value
-            )),
-        }
-    }
-}
-
-impl From<TiffBitDepth> for u8 {
-    fn from(value: TiffBitDepth) -> Self {
-        value as u8
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum ResizeMode {
@@ -78,6 +50,26 @@ pub enum ResizeMode {
     ShortEdge,
     Width,
     Height,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum TiffBitDepth {
+    #[default]
+    Eight = 8,
+    Sixteen = 16,
+}
+
+impl TryFrom<u8> for TiffBitDepth {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            8 => Ok(TiffBitDepth::Eight),
+            16 => Ok(TiffBitDepth::Sixteen),
+            _ => Err(()),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -88,59 +80,45 @@ pub struct ResizeOptions {
     pub dont_enlarge: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-#[allow(clippy::enum_variant_names)]
-pub enum BorderBasis {
-    #[default]
-    LongEdge,
-    ShortEdge,
-    EachEdge,
+pub enum OutputSharpeningMedium {
+    Screen,
+    MattePaper,
+    GlossyPaper,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum OutputSharpeningAmount {
+    Low,
+    Standard,
+    High,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct BorderOptions {
-    #[serde(default)]
-    pub basis: BorderBasis,
-    pub horizontal_percent: f32,
-    pub vertical_percent: f32,
-    pub color: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct PadOptions {
-    pub ratio_width: f32,
-    pub ratio_height: f32,
-    pub color: String,
+pub struct OutputSharpeningSettings {
+    pub medium: OutputSharpeningMedium,
+    pub amount: OutputSharpeningAmount,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ExportSettings {
     pub jpeg_quality: u8,
-    #[serde(default)]
-    pub tiff_bit_depth: TiffBitDepth,
     pub resize: Option<ResizeOptions>,
-    #[serde(default)]
-    pub border: Option<BorderOptions>,
-    #[serde(default)]
-    pub pad: Option<PadOptions>,
     pub keep_metadata: bool,
     #[serde(default)]
     pub preserve_timestamps: bool,
     pub strip_gps: bool,
     pub filename_template: Option<String>,
     pub watermark: Option<WatermarkSettings>,
+    pub output_sharpening: Option<OutputSharpeningSettings>,
     #[serde(default)]
     pub export_masks: bool,
     #[serde(default)]
     pub preserve_folders: bool,
-    #[serde(default)]
-    pub destination_type: Option<String>,
-    #[serde(default)]
-    pub subfolder: Option<String>,
 }
 
 #[derive(Clone)]
@@ -197,10 +175,16 @@ fn apply_watermark(
 
     let scaled_watermark =
         watermark_img.resize_exact(new_wm_w, new_wm_h, image::imageops::FilterType::Lanczos3);
+    let mut scaled_watermark_rgba = scaled_watermark.to_rgba8();
+
     let opacity_factor = (watermark_settings.opacity / 100.0).clamp(0.0, 1.0);
+    for pixel in scaled_watermark_rgba.pixels_mut() {
+        pixel[3] = (pixel[3] as f32 * opacity_factor) as u8;
+    }
+    let final_watermark = DynamicImage::ImageRgba8(scaled_watermark_rgba);
 
     let spacing_pixels = (base_min_dim * (watermark_settings.spacing / 100.0)) as i64;
-    let (wm_w, wm_h) = scaled_watermark.dimensions();
+    let (wm_w, wm_h) = final_watermark.dimensions();
 
     let x = match watermark_settings.anchor {
         WatermarkAnchor::TopLeft | WatermarkAnchor::CenterLeft | WatermarkAnchor::BottomLeft => {
@@ -226,65 +210,9 @@ fn apply_watermark(
         | WatermarkAnchor::BottomRight => base_h as i64 - wm_h as i64 - spacing_pixels,
     };
 
-    if matches!(
-        base_image,
-        DynamicImage::ImageRgb16(_) | DynamicImage::ImageRgba16(_)
-    ) {
-        let mut base_rgba = base_image.to_rgba16();
-        let mut watermark_rgba = scaled_watermark.to_rgba16();
-        for pixel in watermark_rgba.pixels_mut() {
-            pixel[3] = (pixel[3] as f32 * opacity_factor).round() as u16;
-        }
-        image::imageops::overlay(&mut base_rgba, &watermark_rgba, x, y);
-        *base_image = DynamicImage::ImageRgba16(base_rgba);
-    } else if matches!(
-        base_image,
-        DynamicImage::ImageRgb32F(_) | DynamicImage::ImageRgba32F(_)
-    ) {
-        let mut base_rgba = base_image.to_rgba32f();
-        let mut watermark_rgba = scaled_watermark.to_rgba32f();
-        for pixel in watermark_rgba.pixels_mut() {
-            pixel[3] *= opacity_factor;
-        }
-        image::imageops::overlay(&mut base_rgba, &watermark_rgba, x, y);
-        *base_image = DynamicImage::ImageRgba32F(base_rgba);
-    } else {
-        let mut base_rgba = base_image.to_rgba8();
-        let mut watermark_rgba = scaled_watermark.to_rgba8();
-        for pixel in watermark_rgba.pixels_mut() {
-            pixel[3] = (pixel[3] as f32 * opacity_factor).round() as u8;
-        }
-        image::imageops::overlay(&mut base_rgba, &watermark_rgba, x, y);
-        *base_image = DynamicImage::ImageRgba8(base_rgba);
-    }
+    image::imageops::overlay(base_image, &final_watermark, x, y);
 
     Ok(())
-}
-
-const PAD_RATIO_EPSILON: f64 = 0.001;
-const MAX_PAD_DIMENSION: u32 = 65_535;
-const MAX_BORDER_PERCENT: f64 = 100.0;
-
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct ExportGeometry {
-    pub canvas_w: u32,
-    pub canvas_h: u32,
-    pub photo_w: u32,
-    pub photo_h: u32,
-    pub offset_x: u32,
-    pub offset_y: u32,
-    pub border_x: u32,
-    pub border_y: u32,
-}
-
-impl ExportGeometry {
-    fn has_border(&self) -> bool {
-        self.border_x > 0 || self.border_y > 0
-    }
-
-    fn is_identity(&self) -> bool {
-        self.canvas_w == self.photo_w && self.canvas_h == self.photo_h
-    }
 }
 
 fn calculate_resize_target(
@@ -318,386 +246,6 @@ fn calculate_resize_target(
     } else {
         let w = (value as f32 * (current_w as f32 / current_h as f32)).round() as u32;
         (w, value)
-    }
-}
-
-fn parse_hex_color(hex: &str) -> Option<[u8; 3]> {
-    let raw = hex.trim().trim_start_matches('#');
-    let normalized: String = match raw.len() {
-        3 => raw.chars().flat_map(|c| [c, c]).collect(),
-        6 => raw.to_string(),
-        8 => raw[..6].to_string(),
-        _ => return None,
-    };
-    Some([
-        u8::from_str_radix(&normalized[0..2], 16).ok()?,
-        u8::from_str_radix(&normalized[2..4], 16).ok()?,
-        u8::from_str_radix(&normalized[4..6], 16).ok()?,
-    ])
-}
-
-fn fill_color(hex: Option<&str>) -> [u8; 3] {
-    hex.and_then(parse_hex_color).unwrap_or([0, 0, 0])
-}
-
-fn resize_target(width: u32, height: u32, resize_opts: Option<&ResizeOptions>) -> (u32, u32) {
-    match resize_opts {
-        Some(opts) => calculate_resize_target(width, height, opts),
-        None => (width, height),
-    }
-}
-
-fn bordered_size(width: u32, height: u32, border_x: u32, border_y: u32) -> (u32, u32) {
-    (
-        width.saturating_add(border_x.saturating_mul(2)),
-        height.saturating_add(border_y.saturating_mul(2)),
-    )
-}
-
-fn exceeds_max_dimension(label: &str, width: u32, height: u32) -> bool {
-    let exceeds = width > MAX_PAD_DIMENSION || height > MAX_PAD_DIMENSION;
-    if exceeds {
-        log::warn!(
-            "{} {}x{} exceeds the maximum supported dimension; skipping.",
-            label,
-            width,
-            height
-        );
-    }
-    exceeds
-}
-
-fn calculate_pad_target(current_w: u32, current_h: u32, pad: &PadOptions) -> Option<(u32, u32)> {
-    let ratio_w = pad.ratio_width as f64;
-    let ratio_h = pad.ratio_height as f64;
-    if !ratio_w.is_finite() || !ratio_h.is_finite() || ratio_w <= 0.0 || ratio_h <= 0.0 {
-        return None;
-    }
-
-    let target_ratio = ratio_w / ratio_h;
-    let original_ratio = current_w as f64 / current_h as f64;
-    if (original_ratio - target_ratio).abs() < PAD_RATIO_EPSILON {
-        return None;
-    }
-
-    let (new_w, new_h) = if original_ratio > target_ratio {
-        (current_w, (current_w as f64 / target_ratio).round() as u32)
-    } else {
-        ((current_h as f64 * target_ratio).round() as u32, current_h)
-    };
-
-    let new_w = new_w.max(current_w);
-    let new_h = new_h.max(current_h);
-
-    if exceeds_max_dimension("Pad target", new_w, new_h)
-        || (new_w == current_w && new_h == current_h)
-    {
-        return None;
-    }
-
-    Some((new_w, new_h))
-}
-
-fn calculate_border_thickness(
-    src_w: u32,
-    src_h: u32,
-    border: &BorderOptions,
-) -> Option<(u32, u32)> {
-    let horizontal = border.horizontal_percent as f64;
-    let vertical = border.vertical_percent as f64;
-    if !horizontal.is_finite() || !vertical.is_finite() {
-        return None;
-    }
-
-    if horizontal < 0.0
-        || vertical < 0.0
-        || horizontal > MAX_BORDER_PERCENT
-        || vertical > MAX_BORDER_PERCENT
-    {
-        log::warn!(
-            "Border percentages {}/{} are outside 0..={}; skipping border.",
-            horizontal,
-            vertical,
-            MAX_BORDER_PERCENT
-        );
-        return None;
-    }
-
-    let (basis_x, basis_y) = match border.basis {
-        BorderBasis::LongEdge => {
-            let edge = src_w.max(src_h) as f64;
-            (edge, edge)
-        }
-        BorderBasis::ShortEdge => {
-            let edge = src_w.min(src_h) as f64;
-            (edge, edge)
-        }
-        BorderBasis::EachEdge => (src_w as f64, src_h as f64),
-    };
-
-    let border_x = (basis_x * horizontal / 100.0).round() as u32;
-    let border_y = (basis_y * vertical / 100.0).round() as u32;
-
-    if border_x == 0 && border_y == 0 {
-        return None;
-    }
-
-    let (bordered_w, bordered_h) = bordered_size(src_w, src_h, border_x, border_y);
-    if exceeds_max_dimension("Bordered size", bordered_w, bordered_h) {
-        return None;
-    }
-
-    Some((border_x, border_y))
-}
-
-fn compute_export_geometry(
-    src_w: u32,
-    src_h: u32,
-    settings: &ExportSettings,
-) -> Option<ExportGeometry> {
-    if src_w == 0 || src_h == 0 {
-        return None;
-    }
-
-    let border = settings
-        .border
-        .as_ref()
-        .and_then(|border| calculate_border_thickness(src_w, src_h, border));
-    let (border_src_x, border_src_y) = border.unwrap_or((0, 0));
-    let (bordered_w, bordered_h) = bordered_size(src_w, src_h, border_src_x, border_src_y);
-
-    let pad_target = settings
-        .pad
-        .as_ref()
-        .and_then(|pad| calculate_pad_target(bordered_w, bordered_h, pad));
-
-    if border.is_none() && pad_target.is_none() {
-        return None;
-    }
-
-    let (canvas_w, canvas_h) = pad_target.unwrap_or((bordered_w, bordered_h));
-
-    Some(compute_fused_geometry(
-        src_w,
-        src_h,
-        border_src_x,
-        border_src_y,
-        canvas_w,
-        canvas_h,
-        settings.resize.as_ref(),
-    ))
-}
-
-#[allow(clippy::too_many_arguments)]
-fn compute_fused_geometry(
-    src_w: u32,
-    src_h: u32,
-    border_src_x: u32,
-    border_src_y: u32,
-    canvas_w: u32,
-    canvas_h: u32,
-    resize_opts: Option<&ResizeOptions>,
-) -> ExportGeometry {
-    let (final_w, final_h) = resize_target(canvas_w, canvas_h, resize_opts);
-    let (final_w, final_h) = (final_w.max(1), final_h.max(1));
-
-    let photo_w =
-        ((src_w as f64 * final_w as f64 / canvas_w as f64).round() as u32).clamp(1, final_w);
-    let photo_h =
-        ((src_h as f64 * final_h as f64 / canvas_h as f64).round() as u32).clamp(1, final_h);
-
-    let border_x = ((border_src_x as f64 * final_w as f64 / canvas_w as f64).round() as u32)
-        .min(final_w.saturating_sub(photo_w) / 2);
-    let border_y = ((border_src_y as f64 * final_h as f64 / canvas_h as f64).round() as u32)
-        .min(final_h.saturating_sub(photo_h) / 2);
-
-    ExportGeometry {
-        canvas_w: final_w,
-        canvas_h: final_h,
-        photo_w,
-        photo_h,
-        offset_x: (final_w - photo_w) / 2,
-        offset_y: (final_h - photo_h) / 2,
-        border_x,
-        border_y,
-    }
-}
-
-fn compute_export_output_size(src_w: u32, src_h: u32, settings: &ExportSettings) -> (u32, u32) {
-    match compute_export_geometry(src_w, src_h, settings) {
-        Some(geometry) => (geometry.canvas_w, geometry.canvas_h),
-        None => resize_target(src_w, src_h, settings.resize.as_ref()),
-    }
-}
-
-trait FillChannel: image::Primitive {
-    fn from_u8(value: u8) -> Self;
-}
-
-impl FillChannel for u8 {
-    fn from_u8(value: u8) -> Self {
-        value
-    }
-}
-
-impl FillChannel for u16 {
-    fn from_u8(value: u8) -> Self {
-        value as u16 * 257
-    }
-}
-
-impl FillChannel for f32 {
-    fn from_u8(value: u8) -> Self {
-        value as f32 / 255.0
-    }
-}
-
-trait SolidFill: image::Pixel + 'static {
-    fn from_rgb8(color: [u8; 3]) -> Self;
-}
-
-impl<T: FillChannel> SolidFill for image::Rgb<T>
-where
-    image::Rgb<T>: image::Pixel<Subpixel = T> + 'static,
-{
-    fn from_rgb8([r, g, b]: [u8; 3]) -> Self {
-        image::Rgb([T::from_u8(r), T::from_u8(g), T::from_u8(b)])
-    }
-}
-
-impl<T: FillChannel> SolidFill for image::Rgba<T>
-where
-    image::Rgba<T>: image::Pixel<Subpixel = T> + 'static,
-{
-    fn from_rgb8([r, g, b]: [u8; 3]) -> Self {
-        image::Rgba([
-            T::from_u8(r),
-            T::from_u8(g),
-            T::from_u8(b),
-            T::DEFAULT_MAX_VALUE,
-        ])
-    }
-}
-
-fn fill_border_frame<P>(
-    canvas: &mut ImageBuffer<P, Vec<P::Subpixel>>,
-    geometry: &ExportGeometry,
-    fill: P,
-) where
-    P: image::Pixel + 'static,
-    P::Subpixel: 'static,
-{
-    let box_x = geometry.offset_x.saturating_sub(geometry.border_x);
-    let box_y = geometry.offset_y.saturating_sub(geometry.border_y);
-    let box_w = geometry
-        .photo_w
-        .saturating_add(geometry.border_x.saturating_mul(2));
-    let below_photo = geometry.offset_y.saturating_add(geometry.photo_h);
-    let right_of_photo = geometry.offset_x.saturating_add(geometry.photo_w);
-
-    let strips = [
-        (box_x, box_y, box_w, geometry.border_y),
-        (box_x, below_photo, box_w, geometry.border_y),
-        (
-            box_x,
-            geometry.offset_y,
-            geometry.border_x,
-            geometry.photo_h,
-        ),
-        (
-            right_of_photo,
-            geometry.offset_y,
-            geometry.border_x,
-            geometry.photo_h,
-        ),
-    ];
-
-    for (x, y, width, height) in strips {
-        let x_end = x.saturating_add(width).min(canvas.width());
-        let y_end = y.saturating_add(height).min(canvas.height());
-        for row in y..y_end {
-            for col in x..x_end {
-                canvas.put_pixel(col, row, fill);
-            }
-        }
-    }
-}
-
-fn place_photo_on_canvas<P>(
-    src: &ImageBuffer<P, Vec<P::Subpixel>>,
-    geometry: &ExportGeometry,
-    outer_fill: P,
-    border_fill: Option<P>,
-) -> ImageBuffer<P, Vec<P::Subpixel>>
-where
-    P: image::Pixel + 'static,
-    P::Subpixel: 'static,
-{
-    let mut canvas = ImageBuffer::from_pixel(geometry.canvas_w, geometry.canvas_h, outer_fill);
-
-    if let Some(fill) = border_fill
-        && geometry.has_border()
-    {
-        fill_border_frame(&mut canvas, geometry, fill);
-    }
-
-    imageops::replace(
-        &mut canvas,
-        src,
-        geometry.offset_x as i64,
-        geometry.offset_y as i64,
-    );
-    canvas
-}
-
-fn compose_image_on_canvas(
-    image: &DynamicImage,
-    geometry: &ExportGeometry,
-    pad_color: [u8; 3],
-    border_color: [u8; 3],
-) -> DynamicImage {
-    fn compose<P: SolidFill>(
-        src: &ImageBuffer<P, Vec<P::Subpixel>>,
-        geometry: &ExportGeometry,
-        pad_color: [u8; 3],
-        border_color: [u8; 3],
-    ) -> ImageBuffer<P, Vec<P::Subpixel>>
-    where
-        P::Subpixel: 'static,
-    {
-        place_photo_on_canvas(
-            src,
-            geometry,
-            P::from_rgb8(pad_color),
-            Some(P::from_rgb8(border_color)),
-        )
-    }
-
-    match image {
-        DynamicImage::ImageRgb8(buffer) => {
-            DynamicImage::ImageRgb8(compose(buffer, geometry, pad_color, border_color))
-        }
-        DynamicImage::ImageRgba8(buffer) => {
-            DynamicImage::ImageRgba8(compose(buffer, geometry, pad_color, border_color))
-        }
-        DynamicImage::ImageRgb16(buffer) => {
-            DynamicImage::ImageRgb16(compose(buffer, geometry, pad_color, border_color))
-        }
-        DynamicImage::ImageRgba16(buffer) => {
-            DynamicImage::ImageRgba16(compose(buffer, geometry, pad_color, border_color))
-        }
-        DynamicImage::ImageRgb32F(buffer) => {
-            DynamicImage::ImageRgb32F(compose(buffer, geometry, pad_color, border_color))
-        }
-        DynamicImage::ImageRgba32F(buffer) => {
-            DynamicImage::ImageRgba32F(compose(buffer, geometry, pad_color, border_color))
-        }
-        other => DynamicImage::ImageRgba8(compose(
-            &other.to_rgba8(),
-            geometry,
-            pad_color,
-            border_color,
-        )),
     }
 }
 
@@ -763,69 +311,74 @@ fn relative_export_dir_for_preserved_folders(
         })
 }
 
-fn apply_export_geometry(
-    mut image: DynamicImage,
-    export_settings: &ExportSettings,
-) -> Result<(DynamicImage, ExportGeometry), String> {
-    let (src_w, src_h) = image.dimensions();
+pub fn apply_output_sharpening(image: &mut DynamicImage, settings: &OutputSharpeningSettings) {
+    let (radius, base_amount) = match settings.medium {
+        OutputSharpeningMedium::Screen => (0.6f32, 0.45f32),
+        OutputSharpeningMedium::MattePaper => (1.8f32, 0.85f32),
+        OutputSharpeningMedium::GlossyPaper => (1.0f32, 0.70f32),
+    };
 
-    match compute_export_geometry(src_w, src_h, export_settings) {
-        None => {
-            let (target_w, target_h) = resize_target(src_w, src_h, export_settings.resize.as_ref());
-            if target_w != src_w || target_h != src_h {
-                image = image.resize(target_w, target_h, imageops::FilterType::Lanczos3);
-            }
+    let mult = match settings.amount {
+        OutputSharpeningAmount::Low => 0.65f32,
+        OutputSharpeningAmount::Standard => 1.00f32,
+        OutputSharpeningAmount::High => 1.45f32,
+    };
 
-            let (width, height) = image.dimensions();
-            Ok((
-                image,
-                ExportGeometry {
-                    canvas_w: width,
-                    canvas_h: height,
-                    photo_w: width,
-                    photo_h: height,
-                    offset_x: 0,
-                    offset_y: 0,
-                    border_x: 0,
-                    border_y: 0,
-                },
-            ))
-        }
-        Some(geometry) => {
-            if geometry.photo_w != src_w || geometry.photo_h != src_h {
-                image = image.resize_exact(
-                    geometry.photo_w,
-                    geometry.photo_h,
-                    imageops::FilterType::Lanczos3,
-                );
-            }
-
-            let pad_color = fill_color(export_settings.pad.as_ref().map(|pad| pad.color.as_str()));
-            let border_color = fill_color(
-                export_settings
-                    .border
-                    .as_ref()
-                    .map(|border| border.color.as_str()),
-            );
-
-            Ok((
-                compose_image_on_canvas(&image, &geometry, pad_color, border_color),
-                geometry,
-            ))
-        }
+    let total_amount = base_amount * mult;
+    if total_amount < 0.05 {
+        return;
     }
+
+    // Unsharp mask in linear / perceptual space
+    let blurred = image.blur(radius);
+    let (w, _h) = image.dimensions();
+
+    let mut rgb32f = image.to_rgb32f();
+    let blur_rgb32f = blurred.to_rgb32f();
+    let full_stride = (w * 3) as usize;
+
+    rgb32f
+        .as_mut()
+        .par_chunks_mut(full_stride)
+        .zip(blur_rgb32f.as_raw().par_chunks(full_stride))
+        .for_each(|(orig_row, blur_row)| {
+            for idx in 0..orig_row.len() {
+                let orig_val = orig_row[idx];
+                let blur_val = blur_row[idx];
+                let diff = orig_val - blur_val;
+                let sharpened = if diff.abs() > 0.002 {
+                    orig_val + diff * total_amount
+                } else {
+                    orig_val
+                };
+                orig_row[idx] = sharpened.clamp(0.0, 1.0);
+            }
+        });
+
+    *image = DynamicImage::ImageRgb32F(rgb32f);
 }
 
-fn apply_export_geometry_and_watermark(
-    image: DynamicImage,
+fn apply_export_resize_and_watermark(
+    mut image: DynamicImage,
     export_settings: &ExportSettings,
-) -> Result<(DynamicImage, ExportGeometry), String> {
-    let (mut image, geometry) = apply_export_geometry(image, export_settings)?;
+) -> Result<DynamicImage, String> {
+    if let Some(resize_opts) = &export_settings.resize {
+        let (current_w, current_h) = image.dimensions();
+        let (target_w, target_h) = calculate_resize_target(current_w, current_h, resize_opts);
+
+        if target_w != current_w || target_h != current_h {
+            image = image.resize(target_w, target_h, imageops::FilterType::Lanczos3);
+        }
+    }
+
+    if let Some(sharpening) = &export_settings.output_sharpening {
+        apply_output_sharpening(&mut image, sharpening);
+    }
 
     if let Some(watermark_settings) = &export_settings.watermark {
         apply_watermark(&mut image, watermark_settings)?;
     }
-    Ok((image, geometry))
+    Ok(image)
 }
 
 fn ensure_export_not_cancelled(cancellation_token: &AtomicBool) -> Result<(), String> {
@@ -957,7 +510,6 @@ fn process_image_for_export_pipeline(
     is_raw: bool,
     debug_tag: &str,
     app_handle: &tauri::AppHandle,
-    output_precision: RenderOutputPrecision,
 ) -> Result<DynamicImage, String> {
     let (transformed_image, unscaled_crop_offset) =
         apply_all_transformations(Cow::Borrowed(base_image), js_adjustments);
@@ -992,7 +544,7 @@ fn process_image_for_export_pipeline(
 
     let unique_hash = calculate_full_job_hash(path, js_adjustments);
 
-    process_and_get_dynamic_image_with_precision(
+    process_and_get_dynamic_image(
         context,
         state,
         transformed_image.as_ref(),
@@ -1004,34 +556,11 @@ fn process_image_for_export_pipeline(
             roi: None,
         },
         debug_tag,
-        output_precision,
     )
-}
-
-fn render_output_precision(
-    output_format: &str,
-    export_settings: &ExportSettings,
-) -> RenderOutputPrecision {
-    if matches!(output_format.to_lowercase().as_str(), "tif" | "tiff")
-        && export_settings.tiff_bit_depth == TiffBitDepth::Sixteen
-    {
-        RenderOutputPrecision::SixteenBit
-    } else {
-        RenderOutputPrecision::EightBit
-    }
 }
 
 fn set_timestamps_from_exif(src: &Path, dst: &Path) {
     let capture_dt = exif_processing::get_creation_date_from_path(src);
-
-    if capture_dt.timestamp() <= 0 {
-        let now = filetime::FileTime::now();
-        if let Err(e) = filetime::set_file_times(dst, now, now) {
-            log::warn!("Could not set timestamps on '{}': {}", dst.display(), e);
-        }
-        return;
-    }
-
     let ft = filetime::FileTime::from_unix_time(
         capture_dt.timestamp(),
         capture_dt.timestamp_subsec_nanos(),
@@ -1053,12 +582,7 @@ fn save_image_with_metadata(
         .unwrap_or("")
         .to_lowercase();
 
-    let mut image_bytes = encode_image_to_bytes(
-        image,
-        &extension,
-        export_settings.jpeg_quality,
-        export_settings.tiff_bit_depth,
-    )?;
+    let mut image_bytes = encode_image_to_bytes(image, &extension, export_settings.jpeg_quality)?;
 
     exif_processing::write_image_with_metadata(
         &mut image_bytes,
@@ -1082,8 +606,7 @@ fn save_image_with_metadata(
     }
 
     #[cfg(not(target_os = "android"))]
-    fs::write(output_path, image_bytes)
-        .map_err(|e| format!("Failed to write file to '{}': {}", output_path.display(), e))?;
+    fs::write(output_path, image_bytes).map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -1112,7 +635,6 @@ fn process_image_for_export(
     state: &tauri::State<AppState>,
     is_raw: bool,
     app_handle: &tauri::AppHandle,
-    output_format: &str,
 ) -> Result<DynamicImage, String> {
     let processed_image = process_image_for_export_pipeline(
         path,
@@ -1123,10 +645,9 @@ fn process_image_for_export(
         is_raw,
         "process_image_for_export",
         app_handle,
-        render_output_precision(output_format, export_settings),
     )?;
 
-    apply_export_geometry_and_watermark(processed_image, export_settings).map(|(image, _)| image)
+    apply_export_resize_and_watermark(processed_image, export_settings)
 }
 
 fn build_single_mask_adjustments(all: &AllAdjustments, mask_index: usize) -> AllAdjustments {
@@ -1158,7 +679,6 @@ fn encode_image_to_bytes(
     image: &DynamicImage,
     output_format: &str,
     jpeg_quality: u8,
-    tiff_bit_depth: TiffBitDepth,
 ) -> Result<Vec<u8>, String> {
     let mut image_bytes = Vec::new();
     let mut cursor = Cursor::new(&mut image_bytes);
@@ -1223,14 +743,14 @@ fn encode_image_to_bytes(
                 .write_to(&mut cursor, image::ImageFormat::Png)
                 .map_err(|e| e.to_string())?;
         }
-        "tif" | "tiff" => {
-            let image_to_encode = match tiff_bit_depth {
-                TiffBitDepth::Eight => DynamicImage::ImageRgb8(image.to_rgb8()),
-                TiffBitDepth::Sixteen => DynamicImage::ImageRgb16(image.to_rgb16()),
-            };
-            image_to_encode
+        "tiff" => {
+            DynamicImage::ImageRgb16(image.to_rgb16())
                 .write_to(&mut cursor, image::ImageFormat::Tiff)
                 .map_err(|e| e.to_string())?;
+        }
+        "dng" => {
+            let dng_data = crate::dng_encoder::encode_dynamic_image_to_linear_dng(image, None)?;
+            return Ok(dng_data);
         }
         "avif" => {
             image
@@ -1240,6 +760,519 @@ fn encode_image_to_bytes(
         _ => return Err(format!("Unsupported file format: {}", output_format)),
     };
     Ok(image_bytes)
+}
+
+/// Generates ISO 21496-1 Ultra HDR Logarithmic Gain Map from 32-bit linear radiance and 8-bit SDR tone-mapped image
+pub fn generate_iso21496_gain_map(
+    hdr_image: &DynamicImage,
+    sdr_image: &image::RgbImage,
+    max_headroom_ev: f32,
+) -> (image::GrayImage, f32) {
+    let (w, h) = sdr_image.dimensions();
+    let target_w = (w / 2).max(1);
+    let target_h = (h / 2).max(1);
+
+    // Downsample SDR and HDR to half resolution for compliant spatial gain map
+    let sdr_small = imageops::resize(sdr_image, target_w, target_h, imageops::FilterType::Triangle);
+    let hdr_rgb = hdr_image.to_rgb32f();
+    let hdr_small = imageops::resize(&hdr_rgb, target_w, target_h, imageops::FilterType::Triangle);
+
+    let mut gain_map = image::GrayImage::new(target_w, target_h);
+    let max_headroom = max_headroom_ev.max(1.0);
+
+    let eps = 1e-4f32;
+    for y in 0..target_h {
+        for x in 0..target_w {
+            let sdr_px = sdr_small.get_pixel(x, y);
+            let hdr_px = hdr_small.get_pixel(x, y);
+
+            // Linearize SDR luminance via inverse sRGB EOTF before computing ratio
+            let sdr_l_srgb = (0.2126 * sdr_px[0] as f32 + 0.7152 * sdr_px[1] as f32 + 0.0722 * sdr_px[2] as f32) / 255.0;
+            let sdr_luma = if sdr_l_srgb <= 0.04045 {
+                sdr_l_srgb / 12.92
+            } else {
+                ((sdr_l_srgb + 0.055) / 1.055).powf(2.4)
+            };
+            let hdr_luma = (0.2126 * hdr_px[0] + 0.7152 * hdr_px[1] + 0.0722 * hdr_px[2]).max(0.0);
+
+            // Logarithmic gain ratio normalized by MaxHeadroom
+            let log_ratio = (hdr_luma + eps).log2() - (sdr_luma + eps).log2();
+            let norm_gain = (log_ratio / max_headroom).clamp(0.0, 1.0);
+            let u8_val = (norm_gain * 255.0).round() as u8;
+
+            gain_map.put_pixel(x, y, image::Luma([u8_val]));
+        }
+    }
+
+    (gain_map, max_headroom)
+}
+
+/// Builds ISO 21496-1 standard XMP metadata string for Ultra HDR Gain Maps
+pub fn build_iso21496_xmp_metadata(max_headroom: f32) -> String {
+    format!(
+        "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description rdf:about=\"\" xmlns:hdrgm=\"http://ns.adobe.com/hdr-gain-map/1.0/\" xmlns:Container=\"http://schemas.google.com/photos/1.0/container/\" xmlns:Item=\"http://schemas.google.com/photos/1.0/container/item/\" hdrgm:Version=\"1.0\" hdrgm:GainMapMin=\"0.0\" hdrgm:GainMapMax=\"{:.2}\" hdrgm:Gamma=\"1.0\" hdrgm:OffsetSDR=\"0.0\" hdrgm:OffsetHDR=\"0.0\" hdrgm:HDRCapacityMin=\"0.0\" hdrgm:HDRCapacityMax=\"{:.2}\" hdrgm:BaseRenditionIsHDR=\"False\"><Container:Directory><rdf:Seq><rdf:li rdf:parseType=\"Resource\"><Container:Item Item:Semantic=\"Primary\" Item:Mime=\"image/jpeg\"/></rdf:li><rdf:li rdf:parseType=\"Resource\"><Container:Item Item:Semantic=\"GainMap\" Item:Mime=\"image/jpeg\"/></rdf:li></rdf:Seq></Container:Directory></rdf:Description></rdf:RDF></x:xmpmeta>",
+        max_headroom, max_headroom
+    )
+}
+
+/// High-speed Triangular Probability Density Function (TPDF) random dither generator
+#[inline]
+pub fn tpdf_dither(seed: &mut u64) -> f32 {
+    // 64-bit XorShift PRNG
+    *seed ^= *seed << 13;
+    *seed ^= *seed >> 7;
+    *seed ^= *seed << 17;
+    let u1 = (*seed as u32) as f32 / 4294967296.0;
+    *seed ^= *seed << 13;
+    *seed ^= *seed >> 7;
+    *seed ^= *seed << 17;
+    let u2 = (*seed as u32) as f32 / 4294967296.0;
+    // TPDF dither in [-1.0, 1.0], triangular distribution centered at 0
+    (u1 + u2 - 1.0) * 0.5
+}
+
+/// Injects standard ICC Profile tag (Tag 34675 / 0x8773) and 300 DPI Resolution Tags
+/// (Tag 282 XResolution, Tag 283 YResolution, Tag 296 ResolutionUnit) into a TIFF file's IFD directory.
+/// Ensures 100% compliance with professional print RIP software, Photoshop, and fine-art labs.
+pub fn inject_icc_and_resolution_tags_into_tiff(
+    path: &Path,
+    icc_bytes: &[u8],
+    x_dpi: u32,
+    y_dpi: u32,
+) -> Result<(), String> {
+    let mut data = fs::read(path).map_err(|e| format!("Failed to read TIFF for ICC/DPI injection: {}", e))?;
+    if data.len() < 8 || &data[0..4] != b"II*\0" {
+        return Ok(()); // Not a standard little-endian TIFF
+    }
+
+    let ifd_offset = u32::from_le_bytes([data[4], data[5], data[6], data[7]]) as usize;
+    if ifd_offset + 2 > data.len() {
+        return Ok(());
+    }
+
+    let num_tags = u16::from_le_bytes([data[ifd_offset], data[ifd_offset + 1]]) as usize;
+    if ifd_offset + 2 + num_tags * 12 + 4 > data.len() {
+        return Ok(());
+    }
+
+    let mut entries = Vec::with_capacity(num_tags + 4);
+    let mut cur = ifd_offset + 2;
+    for _ in 0..num_tags {
+        let tag = u16::from_le_bytes([data[cur], data[cur + 1]]);
+        // Filter out existing resolution or ICC tags so we replace them cleanly
+        if tag != 34675 && tag != 282 && tag != 283 && tag != 296 {
+            let entry: [u8; 12] = data[cur..cur + 12].try_into().unwrap();
+            entries.push((tag, entry));
+        }
+        cur += 12;
+    }
+
+    // 1. Append 8-byte RATIONAL for XResolution: [x_dpi, 1]
+    if data.len() % 4 != 0 {
+        data.resize(data.len() + (4 - (data.len() % 4)), 0);
+    }
+    let x_res_offset = data.len() as u32;
+    data.extend_from_slice(&x_dpi.to_le_bytes());
+    data.extend_from_slice(&1u32.to_le_bytes());
+
+    // 2. Append 8-byte RATIONAL for YResolution: [y_dpi, 1]
+    if data.len() % 4 != 0 {
+        data.resize(data.len() + (4 - (data.len() % 4)), 0);
+    }
+    let y_res_offset = data.len() as u32;
+    data.extend_from_slice(&y_dpi.to_le_bytes());
+    data.extend_from_slice(&1u32.to_le_bytes());
+
+    // 3. Append ICC profile bytes aligned to 2-byte boundary
+    if data.len() % 2 != 0 {
+        data.push(0);
+    }
+    let icc_offset = data.len() as u32;
+    data.extend_from_slice(icc_bytes);
+
+    // Tag 282: XResolution (RATIONAL, count=1, offset)
+    let mut x_entry = [0u8; 12];
+    x_entry[0..2].copy_from_slice(&282u16.to_le_bytes());
+    x_entry[2..4].copy_from_slice(&5u16.to_le_bytes()); // Type 5 = RATIONAL
+    x_entry[4..8].copy_from_slice(&1u32.to_le_bytes());  // Count = 1
+    x_entry[8..12].copy_from_slice(&x_res_offset.to_le_bytes());
+    entries.push((282, x_entry));
+
+    // Tag 283: YResolution (RATIONAL, count=1, offset)
+    let mut y_entry = [0u8; 12];
+    y_entry[0..2].copy_from_slice(&283u16.to_le_bytes());
+    y_entry[2..4].copy_from_slice(&5u16.to_le_bytes()); // Type 5 = RATIONAL
+    y_entry[4..8].copy_from_slice(&1u32.to_le_bytes());  // Count = 1
+    y_entry[8..12].copy_from_slice(&y_res_offset.to_le_bytes());
+    entries.push((283, y_entry));
+
+    // Tag 296: ResolutionUnit (SHORT, count=1, value=2 for Inches)
+    let mut res_unit_entry = [0u8; 12];
+    res_unit_entry[0..2].copy_from_slice(&296u16.to_le_bytes());
+    res_unit_entry[2..4].copy_from_slice(&3u16.to_le_bytes()); // Type 3 = SHORT
+    res_unit_entry[4..8].copy_from_slice(&1u32.to_le_bytes());  // Count = 1
+    res_unit_entry[8..10].copy_from_slice(&2u16.to_le_bytes()); // 2 = Inches
+    entries.push((296, res_unit_entry));
+
+    // Tag 34675: ICC Profile (UNDEFINED, count=len, offset)
+    let mut icc_entry = [0u8; 12];
+    icc_entry[0..2].copy_from_slice(&34675u16.to_le_bytes());
+    icc_entry[2..4].copy_from_slice(&7u16.to_le_bytes()); // Type 7 = UNDEFINED
+    icc_entry[4..8].copy_from_slice(&(icc_bytes.len() as u32).to_le_bytes());
+    icc_entry[8..12].copy_from_slice(&icc_offset.to_le_bytes());
+    entries.push((34675, icc_entry));
+
+    // Sort entries ascending by tag ID (mandatory in TIFF specification)
+    entries.sort_by_key(|&(tag, _)| tag);
+
+    // 4. Append new IFD to file
+    if data.len() % 2 != 0 {
+        data.push(0);
+    }
+    let new_ifd_offset = data.len() as u32;
+    let new_num_tags = entries.len() as u16;
+    data.extend_from_slice(&new_num_tags.to_le_bytes());
+    for (_, entry) in entries {
+        data.extend_from_slice(&entry);
+    }
+    data.extend_from_slice(&0u32.to_le_bytes()); // Next IFD = 0
+
+    // 5. Update header IFD pointer at offset 4..8
+    data[4..8].copy_from_slice(&new_ifd_offset.to_le_bytes());
+
+    fs::write(path, data).map_err(|e| format!("Failed to write TIFF with ICC and resolution tags: {}", e))?;
+    Ok(())
+}
+
+/// Backwards-compatible wrapper that injects ICC profile and standard 300 DPI resolution tags
+pub fn inject_icc_profile_into_tiff(path: &Path, icc_bytes: &[u8]) -> Result<(), String> {
+    inject_icc_and_resolution_tags_into_tiff(path, icc_bytes, 300, 300)
+}
+
+/// Saves a 32-bit floating point image as a Deflate-compressed 16-bit TIFF with TPDF anti-contour dithering,
+/// embedded sRGB ICC profile, and physical 300 DPI print resolution tags.
+pub fn save_tiff_compressed<P: AsRef<Path>>(path: P, img: &image::Rgb32FImage) -> Result<(), String> {
+    use tiff::encoder::{TiffEncoder, colortype::RGB16, Compression, DeflateLevel};
+    use std::io::BufWriter;
+    let file = fs::File::create(path.as_ref()).map_err(|e| format!("Failed to create TIFF file: {}", e))?;
+    let mut writer = BufWriter::new(file);
+    let mut encoder = TiffEncoder::new(&mut writer)
+        .map_err(|e| format!("TIFF encoder error: {}", e))?
+        .with_compression(Compression::Deflate(DeflateLevel::default()));
+    let (w, h) = img.dimensions();
+    let image = encoder
+        .new_image::<RGB16>(w, h)
+        .map_err(|e| format!("TIFF image init error: {}", e))?;
+
+    // TPDF anti-contour continuous-tone print dithering
+    let mut rng_seed = 0x853c49e6748fea9b_u64;
+    let u16_data: Vec<u16> = img.as_raw().iter().map(|&v| {
+        let d = tpdf_dither(&mut rng_seed) / 65535.0;
+        ((v + d).clamp(0.0, 1.0) * 65535.0).round() as u16
+    }).collect();
+
+    image.write_data(&u16_data).map_err(|e| format!("TIFF write error: {}", e))?;
+    std::io::Write::flush(&mut writer).map_err(|e| format!("Failed to flush TIFF: {}", e))?;
+    drop(writer);
+
+    let _ = inject_icc_and_resolution_tags_into_tiff(path.as_ref(), crate::exif_processing::STANDARD_SRGB_ICC_PROFILE, 300, 300);
+    Ok(())
+}
+
+/// Saves an 8-bit sRGB image as a high quality JPEG with standard EXIF and sRGB ICC profile
+pub fn save_jpeg_high_quality<P: AsRef<Path>>(
+    path: P,
+    sdr_image: &image::RgbImage,
+) -> Result<(), String> {
+    save_jpeg_high_quality_with_metadata(path, sdr_image, None)
+}
+
+/// Saves an 8-bit sRGB image as a high quality JPEG with standard EXIF and sRGB ICC profile
+pub fn save_jpeg_high_quality_with_metadata<P: AsRef<Path>>(
+    path: P,
+    sdr_image: &image::RgbImage,
+    reference_raw_path: Option<&str>,
+) -> Result<(), String> {
+    use std::io::BufWriter;
+    let mut base_jpeg = Vec::new();
+    {
+        let mut encoder = JpegEncoder::new_with_quality(&mut base_jpeg, 95);
+        encoder
+            .encode_image(&DynamicImage::ImageRgb8(sdr_image.clone()))
+            .map_err(|e| format!("JPEG encode error: {}", e))?;
+    }
+
+    let exif_app1 = if let Some(p) = reference_raw_path {
+        crate::exif_processing::build_standard_exif_app1_segment(Path::new(p)).unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+    let icc_app2 = crate::exif_processing::build_standard_icc_app2_segment();
+
+    let mut final_jpeg = Vec::with_capacity(base_jpeg.len() + exif_app1.len() + icc_app2.len());
+    if base_jpeg.len() >= 2 {
+        final_jpeg.extend_from_slice(&base_jpeg[..2]); // SOI (0xFF, 0xD8)
+        final_jpeg.extend_from_slice(&exif_app1);       // APP1 EXIF
+        final_jpeg.extend_from_slice(&icc_app2);        // APP2 ICC
+        final_jpeg.extend_from_slice(&base_jpeg[2..]);   // Rest of JPEG scan data
+    } else {
+        final_jpeg = base_jpeg;
+    }
+
+    let file = fs::File::create(path).map_err(|e| format!("Failed to create JPEG file: {}", e))?;
+    let mut writer = BufWriter::new(file);
+    std::io::Write::write_all(&mut writer, &final_jpeg).map_err(|e| format!("Failed to write JPEG: {}", e))?;
+    std::io::Write::flush(&mut writer).map_err(|e| format!("Failed to flush JPEG: {}", e))?;
+    Ok(())
+}
+
+/// Saves a DynamicImage (or 32-bit floating point RGB image) as a high quality 16-bit or 8-bit PNG
+pub fn save_png_high_quality_with_metadata<P: AsRef<Path>>(
+    path: P,
+    img: &DynamicImage,
+    _reference_raw_path: Option<&str>,
+) -> Result<(), String> {
+    use image::codecs::png::{PngEncoder, CompressionType, FilterType};
+    use image::ImageEncoder;
+    use std::io::BufWriter;
+
+    let (w, h) = img.dimensions();
+    let mut raw_png = Vec::new();
+    {
+        let encoder = PngEncoder::new_with_quality(&mut raw_png, CompressionType::Default, FilterType::Sub);
+
+        if let Some(rgb32f) = img.as_rgb32f() {
+            let raw = rgb32f.as_raw();
+            let mut ne_bytes = Vec::with_capacity(raw.len() * 2);
+            let mut rng_seed = 0x123456789abcdef0_u64;
+            for &v in raw {
+                let d = tpdf_dither(&mut rng_seed) / 65535.0;
+                let u = ((v + d).clamp(0.0, 1.0) * 65535.0).round() as u16;
+                ne_bytes.extend_from_slice(&u.to_ne_bytes());
+            }
+            encoder
+                .write_image(&ne_bytes, w, h, image::ExtendedColorType::Rgb16)
+                .map_err(|e| format!("PNG 16-bit encoding error: {}", e))?;
+        } else if let Some(rgb16) = img.as_rgb16() {
+            let raw = rgb16.as_raw();
+            let mut ne_bytes = Vec::with_capacity(raw.len() * 2);
+            for &val in raw {
+                ne_bytes.extend_from_slice(&val.to_ne_bytes());
+            }
+            encoder
+                .write_image(&ne_bytes, w, h, image::ExtendedColorType::Rgb16)
+                .map_err(|e| format!("PNG 16-bit encoding error: {}", e))?;
+        } else {
+            let rgb8 = img.to_rgb8();
+            encoder
+                .write_image(rgb8.as_raw(), w, h, image::ExtendedColorType::Rgb8)
+                .map_err(|e| format!("PNG 8-bit encoding error: {}", e))?;
+        }
+    }
+
+    // Inject standard PNG sRGB chunk (Perceptual intent) and 300 DPI pHYs chunk directly after IHDR (at byte offset 33)
+    let srgb_chunk: [u8; 13] = [
+        0x00, 0x00, 0x00, 0x01, // Length: 1
+        0x73, 0x52, 0x47, 0x42, // Chunk type: "sRGB"
+        0x00,                   // Rendering intent: 0 (Perceptual)
+        0xAE, 0xCE, 0x1C, 0xE9, // CRC-32 for "sRGB\0"
+    ];
+    let phys_chunk: [u8; 21] = [
+        0x00, 0x00, 0x00, 0x09, // Length: 9
+        0x70, 0x48, 0x59, 0x73, // Chunk type: "pHYs"
+        0x00, 0x00, 0x2E, 0x23, // 11811 pixels per meter (~300 DPI) X
+        0x00, 0x00, 0x2E, 0x23, // 11811 pixels per meter (~300 DPI) Y
+        0x01,                   // Unit: meter
+        0x78, 0xA5, 0x3F, 0x76, // CRC-32
+    ];
+
+    let mut final_png = Vec::with_capacity(raw_png.len() + srgb_chunk.len() + phys_chunk.len());
+    if raw_png.len() >= 33 && &raw_png[12..16] == b"IHDR" {
+        final_png.extend_from_slice(&raw_png[..33]);
+        final_png.extend_from_slice(&srgb_chunk);
+        final_png.extend_from_slice(&phys_chunk);
+        final_png.extend_from_slice(&raw_png[33..]);
+    } else {
+        final_png = raw_png;
+    }
+
+    let file = fs::File::create(path).map_err(|e| format!("Failed to create PNG file: {}", e))?;
+    let mut writer = BufWriter::new(file);
+    std::io::Write::write_all(&mut writer, &final_png).map_err(|e| format!("Failed to write PNG: {}", e))?;
+    std::io::Write::flush(&mut writer).map_err(|e| format!("Failed to flush PNG: {}", e))?;
+    Ok(())
+}
+
+/// Injects standard Adobe APP1 XMP metadata into an encoded JPEG byte stream
+pub fn inject_xmp_into_jpeg(jpeg_bytes: &[u8], xmp_str: &str) -> Vec<u8> {
+    if jpeg_bytes.len() < 2 || jpeg_bytes[0] != 0xFF || jpeg_bytes[1] != 0xD8 {
+        return jpeg_bytes.to_vec();
+    }
+    let namespace = b"http://ns.adobe.com/xap/1.0/\0";
+    let xmp_bytes = xmp_str.as_bytes();
+    let payload_len = namespace.len() + xmp_bytes.len();
+    let marker_len = payload_len + 2; // includes 2-byte length field itself
+
+    if marker_len > 65535 {
+        return jpeg_bytes.to_vec();
+    }
+
+    // If existing APP1 EXIF segment is at index 2, insert XMP after it
+    let mut insert_pos = 2;
+    if jpeg_bytes.len() > 6 && jpeg_bytes[2] == 0xFF && jpeg_bytes[3] == 0xE1 {
+        let seg_len = ((jpeg_bytes[4] as usize) << 8) | (jpeg_bytes[5] as usize);
+        if 2 + 2 + seg_len <= jpeg_bytes.len() {
+            insert_pos = 2 + 2 + seg_len;
+        }
+    }
+
+    let mut out = Vec::with_capacity(jpeg_bytes.len() + marker_len + 2);
+    out.extend_from_slice(&jpeg_bytes[..insert_pos]); // SOI + (APP1 EXIF if present)
+
+    // APP1 marker: 0xFF, 0xE1
+    out.push(0xFF);
+    out.push(0xE1);
+    out.push(((marker_len >> 8) & 0xFF) as u8);
+    out.push((marker_len & 0xFF) as u8);
+    out.extend_from_slice(namespace);
+    out.extend_from_slice(xmp_bytes);
+
+    out.extend_from_slice(&jpeg_bytes[insert_pos..]);
+    out
+}
+
+/// Builds MPF (Multi-Picture Format) APP2 header for Ultra HDR dual-stream JPEGs
+pub fn build_mpf_app2_header(primary_size: usize, gain_map_size: usize) -> Vec<u8> {
+    // 0xFF, 0xE2 APP2 marker with CIPA DC-007 Multi-Picture Format (MPF) directory
+    let mut mpf_payload = Vec::new();
+    mpf_payload.extend_from_slice(b"MPF\0");
+    // TIFF Header: Little Endian
+    mpf_payload.extend_from_slice(b"II*\0");
+    mpf_payload.extend_from_slice(&8u32.to_le_bytes()); // Offset to IFD0
+
+    // Number of tags: 3 (Version, Number of Images, Entry List)
+    mpf_payload.extend_from_slice(&3u16.to_le_bytes());
+
+    // Tag 0xB000 (MPF Version: 0100)
+    mpf_payload.extend_from_slice(&0xB000u16.to_le_bytes());
+    mpf_payload.extend_from_slice(&7u16.to_le_bytes()); // UNDEFINED
+    mpf_payload.extend_from_slice(&4u32.to_le_bytes()); // Count 4
+    mpf_payload.extend_from_slice(b"0100");
+
+    // Tag 0xB001 (Number of Images: 2)
+    mpf_payload.extend_from_slice(&0xB001u16.to_le_bytes());
+    mpf_payload.extend_from_slice(&4u16.to_le_bytes()); // LONG
+    mpf_payload.extend_from_slice(&1u32.to_le_bytes()); // Count 1
+    mpf_payload.extend_from_slice(&2u32.to_le_bytes()); // 2 Images
+
+    // Tag 0xB002 (MP Entry List Offset)
+    mpf_payload.extend_from_slice(&0xB002u16.to_le_bytes());
+    mpf_payload.extend_from_slice(&7u16.to_le_bytes()); // UNDEFINED
+    mpf_payload.extend_from_slice(&32u32.to_le_bytes()); // 2 entries * 16 bytes = 32 bytes
+    mpf_payload.extend_from_slice(&46u32.to_le_bytes()); // Offset relative to TIFF header start (46 bytes)
+
+    // Offset to Next IFD: 0 (No more IFDs)
+    mpf_payload.extend_from_slice(&0u32.to_le_bytes());
+
+    // MP Entry 1: Primary Image (Type: Baseline SDR, Length: 0 for primary, Offset: 0)
+    mpf_payload.extend_from_slice(&0x030000u32.to_le_bytes()); // Type: Primary Image
+    mpf_payload.extend_from_slice(&0u32.to_le_bytes());        // Individual image size (0 for primary)
+    mpf_payload.extend_from_slice(&0u32.to_le_bytes());        // Image offset (0 for primary)
+    mpf_payload.extend_from_slice(&0u16.to_le_bytes());        // Dependent image 1
+    mpf_payload.extend_from_slice(&0u16.to_le_bytes());        // Dependent image 2
+
+    // MP Entry 2: Secondary Image (Type: Large Thumbnail / Gain Map, Length: gain_map_size, Offset: primary_size)
+    mpf_payload.extend_from_slice(&0x000000u32.to_le_bytes()); // Type: Secondary
+    mpf_payload.extend_from_slice(&(gain_map_size as u32).to_le_bytes());
+    mpf_payload.extend_from_slice(&(primary_size as u32).to_le_bytes());
+    mpf_payload.extend_from_slice(&0u16.to_le_bytes());
+    mpf_payload.extend_from_slice(&0u16.to_le_bytes());
+
+    let marker_len = mpf_payload.len() + 2;
+    let mut out = Vec::with_capacity(marker_len + 2);
+    out.push(0xFF);
+    out.push(0xE2);
+    out.push(((marker_len >> 8) & 0xFF) as u8);
+    out.push((marker_len & 0xFF) as u8);
+    out.extend_from_slice(&mpf_payload);
+    out
+}
+
+/// Saves an ISO 21496-1 Ultra HDR JPEG with embedded logarithmic Gain Map and valid XMP / MPF metadata
+pub fn save_ultrahdr_jpeg<P: AsRef<Path>>(
+    path: P,
+    linear_hdr: &image::Rgb32FImage,
+    sdr_preview: &image::RgbImage,
+) -> Result<(), String> {
+    save_ultrahdr_jpeg_with_metadata(path, linear_hdr, sdr_preview, None)
+}
+
+/// Saves an ISO 21496-1 Ultra HDR JPEG with embedded logarithmic Gain Map, standard EXIF, ICC and XMP / MPF metadata
+pub fn save_ultrahdr_jpeg_with_metadata<P: AsRef<Path>>(
+    path: P,
+    linear_hdr: &image::Rgb32FImage,
+    sdr_preview: &image::RgbImage,
+    reference_raw_path: Option<&str>,
+) -> Result<(), String> {
+    use std::io::{BufWriter, Write};
+    let (gain_map, max_headroom) = generate_iso21496_gain_map(
+        &DynamicImage::ImageRgb32F(linear_hdr.clone()),
+        sdr_preview,
+        3.5,
+    );
+    let xmp_meta = build_iso21496_xmp_metadata(max_headroom);
+
+    let mut base_jpeg = Vec::new();
+    {
+        let mut encoder = JpegEncoder::new_with_quality(&mut base_jpeg, 95);
+        encoder
+            .encode_image(&DynamicImage::ImageRgb8(sdr_preview.clone()))
+            .map_err(|e| format!("Base JPEG encode error: {}", e))?;
+    }
+
+    let exif_app1 = if let Some(p) = reference_raw_path {
+        crate::exif_processing::build_standard_exif_app1_segment(Path::new(p)).unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+    let icc_app2 = crate::exif_processing::build_standard_icc_app2_segment();
+
+    let mut gain_map_jpeg = Vec::new();
+    {
+        let mut encoder = JpegEncoder::new_with_quality(&mut gain_map_jpeg, 90);
+        encoder
+            .encode_image(&DynamicImage::ImageLuma8(gain_map))
+            .map_err(|e| format!("Gain map JPEG encode error: {}", e))?;
+    }
+
+    // Inject XMP into both primary and secondary streams
+    let base_with_xmp = inject_xmp_into_jpeg(&base_jpeg, &xmp_meta);
+    let gain_map_with_xmp = inject_xmp_into_jpeg(&gain_map_jpeg, &xmp_meta);
+
+    // Build MPF directory header
+    let dummy_mpf = build_mpf_app2_header(0, gain_map_with_xmp.len());
+    let primary_exact_size = base_with_xmp.len() + exif_app1.len() + icc_app2.len() + dummy_mpf.len();
+    let mpf_header = build_mpf_app2_header(primary_exact_size, gain_map_with_xmp.len());
+
+    // Assemble final base stream: SOI -> APP1 EXIF -> APP2 ICC -> APP2 MPF -> APP1 XMP + image scan data
+    let mut final_base = Vec::with_capacity(primary_exact_size);
+    if base_with_xmp.len() >= 2 {
+        final_base.extend_from_slice(&base_with_xmp[..2]); // SOI (0xFF, 0xD8)
+        final_base.extend_from_slice(&exif_app1);          // APP1 EXIF
+        final_base.extend_from_slice(&icc_app2);           // APP2 ICC Profile
+        final_base.extend_from_slice(&mpf_header);          // APP2 MPF Dual-Stream Header
+        final_base.extend_from_slice(&base_with_xmp[2..]);  // APP1 XMP + Primary Image Scan
+    } else {
+        final_base = base_with_xmp;
+    }
+
+    let file = fs::File::create(path).map_err(|e| format!("Failed to create Ultra HDR file: {}", e))?;
+    let mut writer = BufWriter::new(file);
+    writer.write_all(&final_base).map_err(|e| e.to_string())?;
+    writer.write_all(&gain_map_with_xmp).map_err(|e| e.to_string())?;
+    writer.flush().map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1304,7 +1337,7 @@ fn export_masks_for_image(
             let full_white_mask = ImageBuffer::from_fn(img_w, img_h, |_, _| Luma([255u8]));
             let single_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = vec![full_white_mask];
 
-            let processed = process_and_get_dynamic_image_with_precision(
+            let processed = process_and_get_dynamic_image(
                 context,
                 state,
                 transformed_image.as_ref(),
@@ -1316,25 +1349,18 @@ fn export_masks_for_image(
                     roi: None,
                 },
                 "export_mask_image",
-                render_output_precision(extension, export_settings),
             )?;
             ensure_export_not_cancelled(cancellation_token)?;
 
-            let (with_options, geometry) =
-                apply_export_geometry_and_watermark(processed, export_settings)?;
+            let with_options = apply_export_resize_and_watermark(processed, export_settings)?;
+            let (out_w, out_h) = with_options.dimensions();
 
-            let alpha_scaled = imageops::resize(
+            let alpha_resized = imageops::resize(
                 &mask_bitmaps[i],
-                geometry.photo_w,
-                geometry.photo_h,
+                out_w,
+                out_h,
                 imageops::FilterType::Lanczos3,
             );
-
-            let alpha_resized: GrayImage = if geometry.is_identity() {
-                alpha_scaled
-            } else {
-                place_photo_on_canvas(&alpha_scaled, &geometry, Luma([0u8]), None)
-            };
             ensure_export_not_cancelled(cancellation_token)?;
 
             let mask_image_path =
@@ -1469,15 +1495,13 @@ pub(crate) async fn export_images_impl(
     let context = Arc::new(context);
     let progress_counter = Arc::new(AtomicUsize::new(0));
 
-    let available_cores = std::thread::available_parallelism()
-        .map(|n| n.get())
-        .unwrap_or(1);
+    let available_cores = crate::stability::get_safe_worker_core_count();
 
     let mut sys = sysinfo::System::new();
     sys.refresh_memory();
 
     let available_ram_gb = sys.available_memory() as f64 / 1024.0 / 1024.0 / 1024.0;
-    let ram_based_limit = (available_ram_gb / 4.0).floor() as usize;
+    let ram_based_limit = (available_ram_gb / 3.5).floor() as usize;
 
     let num_threads = if paths.len() == 1 {
         1
@@ -1486,13 +1510,15 @@ pub(crate) async fn export_images_impl(
     };
 
     log::info!(
-        "Batch Export: {} cores, {:.1} GB free RAM -> {} threads",
+        "Batch Export (Stability Governor): {} reserved cores, {:.1} GB free RAM -> {} threads",
         available_cores,
         available_ram_gb,
         num_threads
     );
 
     let _export_task = tokio::spawn(async move {
+        let _priority_guard = crate::stability::BackgroundPriorityGuard::new();
+        let _sleep_guard = crate::sleep_lock::SleepLockGuard::new("batch_export");
         let _task_guard = task_guard;
         let output_folder_path = std::path::Path::new(&output_folder_or_file);
         let total_paths = paths.len();
@@ -1529,7 +1555,6 @@ pub(crate) async fn export_images_impl(
             export_items.push((i, path_str, *count, explicit_vc));
         }
 
-        let used_paths = Arc::new(Mutex::new(std::collections::HashSet::new()));
         let semaphore = Arc::new(tokio::sync::Semaphore::new(num_threads));
         let mut join_handles = Vec::new();
 
@@ -1537,6 +1562,12 @@ pub(crate) async fn export_images_impl(
             if cancellation_token.load(Ordering::SeqCst) {
                 break;
             }
+
+            let state_ref = app_handle.state::<AppState>();
+            if crate::stability::check_and_mitigate_memory_pressure(&state_ref) {
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            }
+
             let permit = semaphore.clone().acquire_owned().await.unwrap();
             if cancellation_token.load(Ordering::SeqCst) {
                 drop(permit);
@@ -1553,9 +1584,9 @@ pub(crate) async fn export_images_impl(
             let settings = settings.clone();
             let cancellation_token_clone = Arc::clone(&cancellation_token);
             let adjustments_mode = adjustments_mode.clone();
-            let used_paths_clone = Arc::clone(&used_paths);
 
             let handle = tokio::task::spawn_blocking(move || {
+                let _thread_prio = crate::stability::BackgroundPriorityGuard::new();
                 ensure_export_not_cancelled(&cancellation_token_clone)?;
 
                 let state = app_handle_clone.state::<AppState>();
@@ -1611,75 +1642,26 @@ pub(crate) async fn export_images_impl(
                 }
 
                 let new_filename = format!("{}.{}", new_stem, output_format);
-
-                let mut output_path =
-                    if export_settings.destination_type.as_deref() == Some("originalFolder") {
-                        let mut dir = source_path
-                            .parent()
-                            .unwrap_or(std::path::Path::new(""))
-                            .to_path_buf();
-                        if let Some(sub) = &export_settings.subfolder {
-                            let mut trimmed = sub.trim();
-
-                            while trimmed.starts_with('/') || trimmed.starts_with('\\') {
-                                trimmed = &trimmed[1..];
-                            }
-
-                            if !trimmed.is_empty() {
-                                dir = dir.join(trimmed);
-                            }
+                let output_path = if is_explicit_file_path && total_paths == 1 {
+                    output_folder_path
+                } else if export_settings.preserve_folders {
+                    if let Some(rel_dir) = relative_export_dir_for_preserved_folders(
+                        source_path.as_path(),
+                        &base_origin_folders,
+                    ) {
+                        let full_dir = output_folder_path.join(rel_dir);
+                        if let Err(e) = std::fs::create_dir_all(&full_dir) {
+                            log::warn!("Failed to create export subdirectory: {}", e);
                         }
-
-                        if let Err(e) = std::fs::create_dir_all(&dir) {
-                            return Err(format!(
-                                "Failed to create export subdirectory '{}': {}",
-                                dir.display(),
-                                e
-                            ));
-                        }
-
-                        dir.join(&new_filename)
-                    } else if is_explicit_file_path && total_paths == 1 {
-                        output_folder_path.clone()
-                    } else if export_settings.preserve_folders {
-                        if let Some(rel_dir) = relative_export_dir_for_preserved_folders(
-                            source_path.as_path(),
-                            &base_origin_folders,
-                        ) {
-                            let full_dir = output_folder_path.join(rel_dir);
-                            if let Err(e) = std::fs::create_dir_all(&full_dir) {
-                                return Err(format!(
-                                    "Failed to create export subdirectory '{}': {}",
-                                    full_dir.display(),
-                                    e
-                                ));
-                            }
-                            full_dir.join(&new_filename)
-                        } else {
-                            output_folder_path.join(&new_filename)
-                        }
+                        full_dir.join(&new_filename)
                     } else {
                         output_folder_path.join(&new_filename)
-                    };
+                    }
+                } else {
+                    output_folder_path.join(&new_filename)
+                };
 
                 let extension = output_format.to_lowercase();
-
-                if !(is_explicit_file_path && total_paths == 1) {
-                    let mut used = used_paths_clone.lock().unwrap();
-                    let parent_dir = output_path
-                        .parent()
-                        .unwrap_or(std::path::Path::new(""))
-                        .to_path_buf();
-                    let mut counter = 1;
-
-                    while output_path.exists() || used.contains(&output_path) {
-                        let incremented_filename =
-                            format!("{}_{}.{}", new_stem, counter, extension);
-                        output_path = parent_dir.join(&incremented_filename);
-                        counter += 1;
-                    }
-                    used.insert(output_path.clone());
-                }
 
                 let result: Result<(), String> = (|| {
                     if extension == "cube" {
@@ -1765,11 +1747,6 @@ pub(crate) async fn export_images_impl(
                         obj.insert("masks".to_string(), serde_json::json!([]));
                     }
 
-                    let actual_output_format = output_path
-                        .extension()
-                        .and_then(|extension| extension.to_str())
-                        .unwrap_or(output_format.as_str());
-
                     let final_image = process_image_for_export(
                         &source_path_str,
                         &base_image,
@@ -1779,7 +1756,6 @@ pub(crate) async fn export_images_impl(
                         &state,
                         is_raw,
                         &app_handle_clone,
-                        actual_output_format,
                     )?;
                     ensure_export_not_cancelled(&cancellation_token_clone)?;
                     save_image_with_metadata(
@@ -1973,19 +1949,15 @@ pub async fn run_headless_export(
 
     let export_settings = ExportSettings {
         jpeg_quality: session.quality,
-        tiff_bit_depth: session.tiff_bit_depth,
         resize: None,
-        border: None,
-        pad: None,
         keep_metadata: session.keep_metadata,
         preserve_timestamps: true,
         strip_gps: false,
         filename_template: None,
         watermark: None,
+        output_sharpening: None,
         export_masks: false,
         preserve_folders: true,
-        destination_type: None,
-        subfolder: None,
     };
 
     let mut custom_adjustments = None;
@@ -2158,7 +2130,7 @@ pub async fn estimate_export_sizes(
         let unique_hash =
             calculate_full_job_hash(&loaded_image.path, &adjustments_clone).wrapping_add(1);
 
-        let processed_preview = process_and_get_dynamic_image_with_precision(
+        let processed_preview = process_and_get_dynamic_image(
             &context,
             &state,
             &preview_image,
@@ -2170,14 +2142,12 @@ pub async fn estimate_export_sizes(
                 roi: None,
             },
             "estimate_export_size",
-            render_output_precision(&output_format, &export_settings),
         )?;
 
         let preview_bytes = encode_image_to_bytes(
             &processed_preview,
             &output_format,
             export_settings.jpeg_quality,
-            export_settings.tiff_bit_depth,
         )?;
         let preview_byte_size = preview_bytes.len();
 
@@ -2185,8 +2155,11 @@ pub async fn estimate_export_sizes(
             apply_all_transformations(&loaded_image.image, &adjustments_clone);
         let (full_w, full_h) = transformed_full_res.dimensions();
 
-        let (final_full_w, final_full_h) =
-            compute_export_output_size(full_w, full_h, &export_settings);
+        let (final_full_w, final_full_h) = if let Some(resize_opts) = &export_settings.resize {
+            calculate_resize_target(full_w, full_h, resize_opts)
+        } else {
+            (full_w, full_h)
+        };
 
         let (processed_preview_w, processed_preview_h) = processed_preview.dimensions();
         let pixel_ratio = if processed_preview_w > 0 && processed_preview_h > 0 {
@@ -2295,7 +2268,7 @@ pub async fn estimate_export_sizes(
         let unique_hash =
             calculate_full_job_hash(&source_path_str, &js_adjustments).wrapping_add(1);
 
-        let processed_preview = process_and_get_dynamic_image_with_precision(
+        let processed_preview = process_and_get_dynamic_image(
             &context,
             &state,
             &preview_base,
@@ -2307,22 +2280,23 @@ pub async fn estimate_export_sizes(
                 roi: None,
             },
             "estimate_batch_export_size",
-            render_output_precision(&output_format, &export_settings),
         )?;
 
         let preview_bytes = encode_image_to_bytes(
             &processed_preview,
             &output_format,
             export_settings.jpeg_quality,
-            export_settings.tiff_bit_depth,
         )?;
         let single_image_estimated_size = preview_bytes.len();
 
         let full_w = (shrunk_w as f32 / raw_scale_factor).round() as u32;
         let full_h = (shrunk_h as f32 / raw_scale_factor).round() as u32;
 
-        let (final_full_w, final_full_h) =
-            compute_export_output_size(full_w, full_h, &export_settings);
+        let (final_full_w, final_full_h) = if let Some(resize_opts) = &export_settings.resize {
+            calculate_resize_target(full_w, full_h, resize_opts)
+        } else {
+            (full_w, full_h)
+        };
 
         let (processed_preview_w, processed_preview_h) = processed_preview.dimensions();
         let pixel_ratio = if processed_preview_w > 0 && processed_preview_h > 0 {
@@ -2336,4 +2310,99 @@ pub async fn estimate_export_sizes(
     };
 
     Ok(single_image_extrapolated_size * paths.len())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::Rgb;
+
+    #[test]
+    fn test_encode_image_to_bytes_all_formats() {
+        let (w, h) = (32u32, 32u32);
+        let mut img_raw = image::RgbImage::new(w, h);
+        for y in 0..h {
+            for x in 0..w {
+                let v = ((x + y) * 4) as u8;
+                img_raw.put_pixel(x, y, Rgb([v, v, v]));
+            }
+        }
+        let dynamic_img = DynamicImage::ImageRgb8(img_raw);
+
+        // JPEG
+        let jpg_bytes = encode_image_to_bytes(&dynamic_img, "jpg", 90);
+        assert!(jpg_bytes.is_ok(), "JPEG encoding must succeed");
+        assert!(!jpg_bytes.unwrap().is_empty());
+
+        // PNG
+        let png_bytes = encode_image_to_bytes(&dynamic_img, "png", 90);
+        assert!(png_bytes.is_ok(), "PNG encoding must succeed");
+        assert!(!png_bytes.unwrap().is_empty());
+
+        // TIFF
+        let tiff_bytes = encode_image_to_bytes(&dynamic_img, "tiff", 90);
+        assert!(tiff_bytes.is_ok(), "TIFF encoding must succeed");
+        assert!(!tiff_bytes.unwrap().is_empty());
+
+        // WebP
+        let webp_bytes = encode_image_to_bytes(&dynamic_img, "webp", 85);
+        assert!(webp_bytes.is_ok(), "WebP encoding must succeed");
+        assert!(!webp_bytes.unwrap().is_empty());
+
+        // DNG (LinearRaw 32-bit float)
+        let dng_bytes = encode_image_to_bytes(&dynamic_img, "dng", 100);
+        assert!(dng_bytes.is_ok(), "Linear DNG encoding must succeed");
+        assert!(!dng_bytes.unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_apply_output_sharpening_screen_and_print() {
+        let (w, h) = (32u32, 32u32);
+        let mut img_raw = image::RgbImage::new(w, h);
+        for y in 0..h {
+            for x in 0..w {
+                let v = if x % 4 == 0 { 200 } else { 50 };
+                img_raw.put_pixel(x, y, Rgb([v, v, v]));
+            }
+        }
+        let mut screen_img = DynamicImage::ImageRgb8(img_raw.clone());
+        let mut print_img = DynamicImage::ImageRgb8(img_raw);
+
+        let screen_settings = OutputSharpeningSettings {
+            medium: OutputSharpeningMedium::Screen,
+            amount: OutputSharpeningAmount::Standard,
+        };
+        apply_output_sharpening(&mut screen_img, &screen_settings);
+
+        let print_settings = OutputSharpeningSettings {
+            medium: OutputSharpeningMedium::MattePaper,
+            amount: OutputSharpeningAmount::High,
+        };
+        apply_output_sharpening(&mut print_img, &print_settings);
+
+        let screen_edge = screen_img.to_rgb32f().get_pixel(4, 16)[0];
+        let print_edge = print_img.to_rgb32f().get_pixel(4, 16)[0];
+
+        assert!(screen_edge >= 0.75, "Screen sharpening must enhance edge: got {}", screen_edge);
+        assert!(print_edge >= 0.75, "Matte paper sharpening must compensate bleed: got {}", print_edge);
+    }
+
+    #[test]
+    fn test_resize_target_calculation() {
+        let opts_long = ResizeOptions {
+            mode: ResizeMode::LongEdge,
+            value: 2000,
+            dont_enlarge: true,
+        };
+        let (tw, th) = calculate_resize_target(4000, 3000, &opts_long);
+        assert_eq!((tw, th), (2000, 1500));
+
+        let opts_short = ResizeOptions {
+            mode: ResizeMode::ShortEdge,
+            value: 1500,
+            dont_enlarge: true,
+        };
+        let (tw2, th2) = calculate_resize_target(4000, 3000, &opts_short);
+        assert_eq!((tw2, th2), (2000, 1500));
+    }
 }

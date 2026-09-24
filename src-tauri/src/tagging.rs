@@ -372,6 +372,9 @@ pub async fn start_background_indexing(
 
                                     if let Ok(json_string) = serde_json::to_string_pretty(&metadata)
                                     {
+                                        if let Some(parent) = sidecar_path.parent() {
+                                            let _ = fs::create_dir_all(parent);
+                                        }
                                         let _ = fs::write(sidecar_path, json_string);
                                     }
                                 }
@@ -415,10 +418,9 @@ pub async fn start_background_indexing(
 
 fn modify_tags_for_path(
     path_str: &str,
-    app_handle: &AppHandle,
     modify_fn: impl Fn(&mut Vec<String>),
 ) -> Result<(), String> {
-    let (source_path, sidecar_path) = parse_virtual_path(path_str);
+    let (_, sidecar_path) = parse_virtual_path(path_str);
 
     let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
@@ -435,27 +437,17 @@ fn modify_tags_for_path(
     }
 
     let json_string = serde_json::to_string_pretty(&metadata).map_err(|e| e.to_string())?;
-    fs::write(&sidecar_path, json_string).map_err(|e| e.to_string())?;
-
-    if let Ok(settings) = crate::load_settings(app_handle.clone())
-        && settings.enable_xmp_sync.unwrap_or(false)
-    {
-        let create_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
-        file_management::sync_metadata_to_xmp(&source_path, &metadata, create_if_missing);
+    if let Some(parent) = sidecar_path.parent() {
+        let _ = fs::create_dir_all(parent);
     }
-
-    Ok(())
+    fs::write(sidecar_path, json_string).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn add_tag_for_paths(
-    paths: Vec<String>,
-    tag: String,
-    app_handle: AppHandle,
-) -> Result<(), String> {
+pub fn add_tag_for_paths(paths: Vec<String>, tag: String) -> Result<(), String> {
     paths.par_iter().for_each(|path| {
         let tag_clone = tag.clone();
-        if let Err(e) = modify_tags_for_path(path, &app_handle, |tags| {
+        if let Err(e) = modify_tags_for_path(path, |tags| {
             if !tags.contains(&tag_clone) {
                 tags.push(tag_clone.clone());
             }
@@ -467,14 +459,10 @@ pub fn add_tag_for_paths(
 }
 
 #[tauri::command]
-pub fn remove_tag_for_paths(
-    paths: Vec<String>,
-    tag: String,
-    app_handle: AppHandle,
-) -> Result<(), String> {
+pub fn remove_tag_for_paths(paths: Vec<String>, tag: String) -> Result<(), String> {
     paths.par_iter().for_each(|path| {
         let tag_clone = tag.clone();
-        if let Err(e) = modify_tags_for_path(path, &app_handle, |tags| {
+        if let Err(e) = modify_tags_for_path(path, |tags| {
             tags.retain(|t| t != &tag_clone);
         }) {
             eprintln!("Failed to remove tag from {}: {}", path, e);
@@ -483,47 +471,11 @@ pub fn remove_tag_for_paths(
     Ok(())
 }
 
-fn rrdata_source_path(rrdata: &Path) -> Option<PathBuf> {
-    let name = rrdata.file_name()?.to_str()?;
-    let base = name.strip_suffix(".rrdata")?;
-
-    let source_filename = if base.len() >= 7 && base.as_bytes()[base.len() - 7] == b'.' {
-        let id = &base[base.len() - 6..];
-        if id.chars().all(|c| c.is_ascii_hexdigit()) {
-            &base[..base.len() - 7]
-        } else {
-            base
-        }
-    } else {
-        base
-    };
-
-    Some(rrdata.with_file_name(source_filename))
-}
-
-fn sync_xmp_for_rrdata(
-    rrdata_path: &Path,
-    metadata: &ImageMetadata,
-    enable_xmp_sync: bool,
-    create_xmp_if_missing: bool,
-) {
-    if !enable_xmp_sync {
-        return;
-    }
-    if let Some(source_path) = rrdata_source_path(rrdata_path) {
-        file_management::sync_metadata_to_xmp(&source_path, metadata, create_xmp_if_missing);
-    }
-}
-
 #[tauri::command]
-pub fn clear_ai_tags(root_path: String, app_handle: AppHandle) -> Result<usize, String> {
+pub fn clear_ai_tags(root_path: String) -> Result<usize, String> {
     if !Path::new(&root_path).exists() {
         return Err(format!("Root path does not exist: {}", root_path));
     }
-
-    let settings = crate::load_settings(app_handle.clone()).unwrap_or_default();
-    let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
-    let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
 
     let mut updated_count = 0;
     let walker = WalkDir::new(root_path).into_iter();
@@ -550,7 +502,6 @@ pub fn clear_ai_tags(root_path: String, app_handle: AppHandle) -> Result<usize, 
                     && fs::write(path, json_string).is_ok()
                 {
                     updated_count += 1;
-                    sync_xmp_for_rrdata(path, &metadata, enable_xmp_sync, create_xmp_if_missing);
                 }
             }
         }
@@ -559,14 +510,10 @@ pub fn clear_ai_tags(root_path: String, app_handle: AppHandle) -> Result<usize, 
 }
 
 #[tauri::command]
-pub fn clear_all_tags(root_path: String, app_handle: AppHandle) -> Result<usize, String> {
+pub fn clear_all_tags(root_path: String) -> Result<usize, String> {
     if !Path::new(&root_path).exists() {
         return Err(format!("Root path does not exist: {}", root_path));
     }
-
-    let settings = crate::load_settings(app_handle.clone()).unwrap_or_default();
-    let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
-    let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
 
     let mut updated_count = 0;
     let walker = WalkDir::new(root_path).into_iter();
@@ -591,7 +538,6 @@ pub fn clear_all_tags(root_path: String, app_handle: AppHandle) -> Result<usize,
                     && fs::write(path, json_string).is_ok()
                 {
                     updated_count += 1;
-                    sync_xmp_for_rrdata(path, &metadata, enable_xmp_sync, create_xmp_if_missing);
                 }
             }
         }

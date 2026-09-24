@@ -39,6 +39,8 @@ interface LibraryViewProps {
   handlePasteAdjustments: () => void;
   handleResetAdjustments: () => void;
   requestThumbnails: any;
+  handleHistoryBack?: () => void;
+  handleHistoryForward?: () => void;
 }
 
 export default function LibraryView({
@@ -67,6 +69,8 @@ export default function LibraryView({
   handlePasteAdjustments,
   handleResetAdjustments,
   requestThumbnails,
+  handleHistoryBack,
+  handleHistoryForward,
 }: LibraryViewProps) {
   const { activeView, setUI } = useUIStore(
     useShallow((state) => ({
@@ -167,6 +171,8 @@ export default function LibraryView({
             thumbnailProgress={thumbnailProgress}
             thumbnailSize={thumbnailSize}
             onNavigateToCommunity={() => setUI({ activeView: 'community' })}
+            onHistoryBack={handleHistoryBack}
+            onHistoryForward={handleHistoryForward}
           />
         )}
         {rootPaths && rootPaths.length > 0 && (

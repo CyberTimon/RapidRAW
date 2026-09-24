@@ -62,7 +62,14 @@ impl MaskDefinition {
     pub fn requires_warped_image(&self) -> bool {
         self.sub_masks
             .iter()
-            .any(|sm| sm.mask_type == "color" || sm.mask_type == "luminance")
+            .any(|sm| {
+                sm.mask_type == "color"
+                    || sm.mask_type == "luminance"
+                    || sm.mask_type.starts_with("ai-face")
+                    || sm.mask_type == "ai-lips"
+                    || sm.mask_type == "ai-teeth"
+                    || sm.mask_type == "ai-iris"
+            })
     }
 }
 
@@ -336,6 +343,131 @@ fn apply_grow_and_feather(mask: &mut GrayImage, grow: f32, feather: f32, width: 
             *mask = imageproc::filter::gaussian_blur_f32(mask, sigma);
         }
     }
+}
+
+#[allow(dead_code)]
+pub fn box_filter_f32(src: &[f32], width: usize, height: usize, radius: usize) -> Vec<f32> {
+    if width == 0 || height == 0 {
+        return Vec::new();
+    }
+    let r = radius.max(1);
+    let mut temp = vec![0.0f32; width * height];
+    let mut dst = vec![0.0f32; width * height];
+
+    // Horizontal pass
+    for y in 0..height {
+        let row_offset = y * width;
+        let mut sum = 0.0f32;
+        let mut count = 0usize;
+
+        for x in 0..=r.min(width - 1) {
+            sum += src[row_offset + x];
+            count += 1;
+        }
+
+        for x in 0..width {
+            temp[row_offset + x] = sum / count as f32;
+
+            let add_x = x + r + 1;
+            if add_x < width {
+                sum += src[row_offset + add_x];
+                count += 1;
+            }
+
+            if x >= r {
+                let sub_x = x - r;
+                sum -= src[row_offset + sub_x];
+                count -= 1;
+            }
+        }
+    }
+
+    // Vertical pass
+    for x in 0..width {
+        let mut sum = 0.0f32;
+        let mut count = 0usize;
+
+        for y in 0..=r.min(height - 1) {
+            sum += temp[y * width + x];
+            count += 1;
+        }
+
+        for y in 0..height {
+            dst[y * width + x] = sum / count as f32;
+
+            let add_y = y + r + 1;
+            if add_y < height {
+                sum += temp[add_y * width + x];
+                count += 1;
+            }
+
+            if y >= r {
+                let sub_y = y - r;
+                sum -= temp[sub_y * width + x];
+                count -= 1;
+            }
+        }
+    }
+
+    dst
+}
+
+/// Fast O(1) guided filter for edge-aware mask refinement
+#[allow(dead_code)]
+pub fn fast_guided_filter(guide: &GrayImage, mask: &GrayImage, radius: usize, eps: f32) -> GrayImage {
+    let (w, h) = guide.dimensions();
+    let (mw, mh) = mask.dimensions();
+    if w == 0 || h == 0 || w != mw || h != mh {
+        return mask.clone();
+    }
+    let len = (w * h) as usize;
+    let width = w as usize;
+    let height = h as usize;
+
+    let mut i_norm = vec![0.0f32; len];
+    let mut p_norm = vec![0.0f32; len];
+    let mut ip = vec![0.0f32; len];
+    let mut ii = vec![0.0f32; len];
+
+    let guide_slice = guide.as_raw();
+    let mask_slice = mask.as_raw();
+
+    for idx in 0..len {
+        let i_val = guide_slice[idx] as f32 / 255.0;
+        let p_val = mask_slice[idx] as f32 / 255.0;
+        i_norm[idx] = i_val;
+        p_norm[idx] = p_val;
+        ip[idx] = i_val * p_val;
+        ii[idx] = i_val * i_val;
+    }
+
+    let mean_i = box_filter_f32(&i_norm, width, height, radius);
+    let mean_p = box_filter_f32(&p_norm, width, height, radius);
+    let mean_ip = box_filter_f32(&ip, width, height, radius);
+    let mean_ii = box_filter_f32(&ii, width, height, radius);
+
+    let mut a = vec![0.0f32; len];
+    let mut b = vec![0.0f32; len];
+
+    for idx in 0..len {
+        let cov_ip = mean_ip[idx] - mean_i[idx] * mean_p[idx];
+        let var_i = (mean_ii[idx] - mean_i[idx] * mean_i[idx]).max(0.0);
+        let a_val = cov_ip / (var_i + eps);
+        let b_val = mean_p[idx] - a_val * mean_i[idx];
+        a[idx] = a_val;
+        b[idx] = b_val;
+    }
+
+    let mean_a = box_filter_f32(&a, width, height, radius);
+    let mean_b = box_filter_f32(&b, width, height, radius);
+
+    let mut output = GrayImage::new(w, h);
+    for (idx, p) in output.pixels_mut().enumerate() {
+        let q = (mean_a[idx] * i_norm[idx] + mean_b[idx]).clamp(0.0, 1.0);
+        p[0] = (q * 255.0 + 0.5) as u8;
+    }
+
+    output
 }
 
 fn stroke_bounds(
@@ -1312,9 +1444,86 @@ fn generate_sub_mask_bitmap(
         "quick-eraser" => {
             generate_ai_subject_bitmap(&sub_mask.parameters, width, height, scale, crop_offset)
         }
+        "ai-face-skin" => generate_ai_face_feature_bitmap("face-skin", width, height, scale, crop_offset, warped_image),
+        "ai-lips" => generate_ai_face_feature_bitmap("lips", width, height, scale, crop_offset, warped_image),
+        "ai-teeth" => generate_ai_face_feature_bitmap("teeth", width, height, scale, crop_offset, warped_image),
+        "ai-iris" => generate_ai_face_feature_bitmap("iris", width, height, scale, crop_offset, warped_image),
         "all" => Some(generate_all_bitmap(width, height)),
         _ => None,
     }
+}
+
+fn generate_ai_face_feature_bitmap(
+    feature: &str,
+    width: u32,
+    height: u32,
+    scale: f32,
+    crop_offset: (f32, f32),
+    warped_image: Option<&DynamicImage>,
+) -> Option<GrayImage> {
+    let warped = warped_image?;
+    let (full_w, full_h) = warped.dimensions();
+    let mut mask = GrayImage::new(width, height);
+    let inv_scale = 1.0 / scale.max(0.001);
+
+    let rgb = warped.to_rgb8();
+
+    for y_out in 0..height {
+        let y_src = ((y_out as f32 + crop_offset.1) * inv_scale) as u32;
+        if y_src >= full_h { continue; }
+        for x_out in 0..width {
+            let x_src = ((x_out as f32 + crop_offset.0) * inv_scale) as u32;
+            if x_src >= full_w { continue; }
+
+            let p = rgb.get_pixel(x_src, y_src);
+            let r = p[0] as f32;
+            let g = p[1] as f32;
+            let b = p[2] as f32;
+            let luma = 0.299 * r + 0.587 * g + 0.114 * b;
+
+            let intensity = match feature {
+                "face-skin" => {
+                    if r > 65.0 && g > 40.0 && b > 20.0 && r > g && g >= b && (r - g) > 12.0 && (r / (g + 0.01)) < 2.5 {
+                        255u8
+                    } else {
+                        0u8
+                    }
+                }
+                "lips" => {
+                    if r > 80.0 && (r - g) > 28.0 && (r - b) > 28.0 && (g / (b + 0.01)) < 1.4 {
+                        255u8
+                    } else {
+                        0u8
+                    }
+                }
+                "teeth" => {
+                    let max_c = r.max(g).max(b);
+                    let min_c = r.min(g).min(b);
+                    let sat = if max_c > 0.0 { (max_c - min_c) / max_c } else { 0.0 };
+                    if luma > 140.0 && sat < 0.25 {
+                        255u8
+                    } else {
+                        0u8
+                    }
+                }
+                "iris" => {
+                    if luma < 60.0 && (r - g).abs() < 20.0 && (g - b).abs() < 20.0 {
+                        255u8
+                    } else {
+                        0u8
+                    }
+                }
+                _ => 0u8,
+            };
+
+            if intensity > 0 {
+                mask.put_pixel(x_out, y_out, Luma([intensity]));
+            }
+        }
+    }
+
+    apply_grow_and_feather(&mut mask, 1.0, 3.0, width, height);
+    Some(mask)
 }
 
 pub fn generate_mask_bitmap(
@@ -1508,4 +1717,91 @@ pub fn get_cached_or_generate_mask(
     }
 
     generated
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_radial_mask_generation_and_feather() {
+        let params = serde_json::json!({
+            "centerX": 32.0,
+            "centerY": 32.0,
+            "radiusX": 16.0,
+            "radiusY": 16.0,
+            "rotation": 0.0,
+            "feather": 50.0
+        });
+
+        let mask = generate_radial_bitmap(&params, 64, 64, 1.0, (0.0, 0.0));
+        assert_eq!(mask.dimensions(), (64, 64));
+
+        // Center must be 255 (maximum opacity)
+        let center_val = mask.get_pixel(32, 32)[0];
+        assert_eq!(center_val, 255);
+
+        // Corner must be 0 (transparent outside radial field)
+        let corner_val = mask.get_pixel(0, 0)[0];
+        assert_eq!(corner_val, 0);
+
+        // Mid-radius boundary must smoothly feather between 0 and 255
+        let edge_val = mask.get_pixel(40, 32)[0];
+        assert!(edge_val > 0 && edge_val < 255, "Feathered edge must be intermediate value, got {}", edge_val);
+    }
+
+    #[test]
+    fn test_linear_gradient_mask_generation() {
+        let params = serde_json::json!({
+            "startX": 10.0,
+            "startY": 32.0,
+            "endX": 50.0,
+            "endY": 32.0,
+            "range": 50.0
+        });
+
+        let mask = generate_linear_bitmap(&params, 64, 64, 1.0, (0.0, 0.0));
+        assert_eq!(mask.dimensions(), (64, 64));
+
+        let top_val = mask.get_pixel(32, 0)[0];
+        let mid_val = mask.get_pixel(32, 32)[0];
+        let bot_val = mask.get_pixel(32, 63)[0];
+
+        assert!(top_val > 190, "Top perpendicular region must be bright: got {}", top_val);
+        assert!(mid_val >= 125 && mid_val <= 130, "Midpoint line must be ~127: got {}", mid_val);
+        assert!(bot_val < 60, "Bottom perpendicular region must be dark: got {}", bot_val);
+    }
+
+    #[test]
+    fn test_submask_combination_modes() {
+        let sub1 = SubMask {
+            id: "sub1".into(),
+            mask_type: "radial".into(),
+            visible: true,
+            invert: false,
+            opacity: 100.0,
+            mode: SubMaskMode::Additive,
+            parameters: serde_json::json!({
+                "centerX": 32.0,
+                "centerY": 32.0,
+                "radiusX": 20.0,
+                "radiusY": 20.0,
+                "rotation": 0.0,
+                "feather": 0.0
+            }),
+        };
+
+        let def = MaskDefinition {
+            id: "mask1".into(),
+            name: "Test Mask".into(),
+            visible: true,
+            invert: false,
+            opacity: 100.0,
+            adjustments: serde_json::Value::Null,
+            sub_masks: vec![sub1],
+        };
+
+        let mask = generate_mask_bitmap(&def, 64, 64, 1.0, (0.0, 0.0), None).expect("Mask bitmap must succeed");
+        assert_eq!(mask.get_pixel(32, 32)[0], 255);
+    }
 }

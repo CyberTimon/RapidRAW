@@ -157,7 +157,6 @@ pub async fn generate_manual_cleanup_patch(
     patch_definition: AiPatchDefinition,
     current_adjustments: Value,
     source_point: (f64, f64),
-    _task_id: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
     let (source_image, is_raw) =
@@ -367,7 +366,6 @@ pub async fn generate_manual_cleanup_patch(
     )
 }
 
-#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn invoke_generative_replace_with_mask_def(
     path: String,
@@ -375,19 +373,9 @@ pub async fn invoke_generative_replace_with_mask_def(
     current_adjustments: Value,
     use_fast_inpaint: bool,
     token: Option<String>,
-    task_id: Option<String>,
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
-    let _guard = task_id
-        .as_ref()
-        .map(|id| crate::app_state::AiTaskGuard::new(&state.active_ai_tasks, id.clone()));
-    let cancel_flag = _guard.as_ref().map(|g| &g.token);
-
-    if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
-        return Err("Task cancelled".to_string());
-    }
-
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
 
     let (source_image, is_raw) =
@@ -437,10 +425,6 @@ pub async fn invoke_generative_replace_with_mask_def(
 
     let (min_x, max_x, min_y, max_y) = calculate_mask_bounds(&mask_bitmap)?;
 
-    if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
-        return Err("Task cancelled".to_string());
-    }
-
     let patch_rgba = if use_fast_inpaint {
         let lama_model = ai_processing::get_or_init_lama_model(
             &app_handle,
@@ -449,10 +433,6 @@ pub async fn invoke_generative_replace_with_mask_def(
         )
         .await
         .map_err(|e| e.to_string())?;
-
-        if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
-            return Err("Task cancelled".to_string());
-        }
 
         ai_processing::run_lama_inpainting(&source_image, &mask_bitmap, &lama_model)
             .map_err(|e| e.to_string())?
@@ -536,28 +516,15 @@ pub async fn invoke_generative_replace_with_mask_def(
         }
 
         let base_url = "http://127.0.0.1:5000";
-
-        let dyn_src_crop = DynamicImage::ImageRgba8(final_src_crop);
-        let dyn_rgba_mask = DynamicImage::ImageRgba8(rgba_mask);
-
-        let cloud_fut = ai_connector::process_cloud_inpainting(
+        let generated_ai_patch = ai_connector::process_cloud_inpainting(
             base_url,
-            &dyn_src_crop,
-            &dyn_rgba_mask,
+            &DynamicImage::ImageRgba8(final_src_crop),
+            &DynamicImage::ImageRgba8(rgba_mask),
             patch_definition.prompt,
             &auth_token,
-        );
-
-        let generated_ai_patch = if let Some(token) = cancel_flag.as_ref() {
-            tokio::select! {
-                res = cloud_fut => res.map_err(|e| e.to_string())?,
-                _ = token.wait_for_cancel() => {
-                    return Err("Task cancelled".to_string());
-                }
-            }
-        } else {
-            cloud_fut.await.map_err(|e| e.to_string())?
-        };
+        )
+        .await
+        .map_err(|e| e.to_string())?;
 
         let generated_ai_patch_rgba = generated_ai_patch.to_rgba8();
         let restored_ai_patch = if resize_needed {
@@ -596,37 +563,23 @@ pub async fn invoke_generative_replace_with_mask_def(
         let mask_image_dynamic = DynamicImage::ImageRgba8(rgba_mask);
 
         let (real_path_buf, _) = crate::file_management::parse_virtual_path(&path);
-        let real_path_str = real_path_buf.to_string_lossy().to_string();
 
-        let inpaint_fut = ai_connector::process_inpainting(
+        ai_connector::process_inpainting(
             &base_url,
-            &real_path_str,
+            &real_path_buf.to_string_lossy(),
             &source_image,
             &mask_image_dynamic,
             patch_definition.prompt,
             None,
-        );
-
-        if let Some(token) = cancel_flag.as_ref() {
-            tokio::select! {
-                res = inpaint_fut => res.map_err(|e| e.to_string())?,
-                _ = token.wait_for_cancel() => {
-                    return Err("Task cancelled".to_string());
-                }
-            }
-        } else {
-            inpaint_fut.await.map_err(|e| e.to_string())?
-        }
+        )
+        .await
+        .map_err(|e| e.to_string())?
     } else {
         return Err(
             "No generative backend configured or connection invalid. Please check your AI settings."
                 .to_string(),
         );
     };
-
-    if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
-        return Err("Task cancelled".to_string());
-    }
 
     let (patch_w, patch_h) = patch_rgba.dimensions();
     let final_patch = if patch_w != img_w || patch_h != img_h {
@@ -734,7 +687,6 @@ pub async fn generate_liquify_patch(
     patch_definition: AiPatchDefinition,
     current_adjustments: Value,
     _source_point: (f64, f64),
-    _task_id: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
     let (source_dynamic, is_raw) =
@@ -1124,7 +1076,6 @@ fn draw_stroke_to_mask(
 pub async fn generate_retouch_patch(
     patch_definition: AiPatchDefinition,
     current_adjustments: Value,
-    _task_id: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
     let (source_dynamic, is_raw) =

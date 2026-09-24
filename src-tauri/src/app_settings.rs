@@ -698,10 +698,7 @@ pub fn get_settings_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
     Ok(settings_dir.join("settings.json"))
 }
 
-#[tauri::command]
-pub fn is_tethering_supported() -> bool {
-    cfg!(feature = "tethering")
-}
+
 
 #[tauri::command]
 pub fn load_settings(app_handle: AppHandle) -> Result<AppSettings, String> {
@@ -784,4 +781,9 @@ pub fn save_settings(settings: AppSettings, app_handle: AppHandle) -> Result<(),
         .unwrap()
         .set_capacity(cache_size);
     Ok(())
+}
+
+#[tauri::command]
+pub fn is_tethering_supported() -> bool {
+    cfg!(feature = "tethering") || cfg!(target_os = "windows")
 }

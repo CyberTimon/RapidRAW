@@ -10,14 +10,7 @@ import {
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../utils/adjustments';
 import { ColumnWidths } from '../components/panel/MainLibrary';
 
-export interface NavHistoryItem {
-  type: 'folder' | 'album';
-  path: string;
-  albumName?: string;
-  images?: string[];
-}
-
-interface SearchCriteria {
+export interface SearchCriteria {
   tags: string[];
   text: string;
   mode: 'AND' | 'OR';
@@ -55,17 +48,18 @@ interface LibraryState {
   libraryScrollTop: number;
   listColumnWidths: ColumnWidths;
 
-  // Navigation History
-  navHistory: NavHistoryItem[];
-  navIndex: number;
+  // Folder Navigation History
+  folderHistory: string[];
+  folderHistoryIndex: number;
 
   // Actions
   setLibrary: (updater: Partial<LibraryState> | ((state: LibraryState) => Partial<LibraryState>)) => void;
   clearSelection: () => void;
+  pushFolderHistory: (path: string) => void;
+  stepFolderHistory: (direction: 'back' | 'forward') => string | null;
   setFilterCriteria: (criteria: Partial<FilterCriteria> | ((prev: FilterCriteria) => FilterCriteria)) => void;
   setSearchCriteria: (criteria: Partial<SearchCriteria> | ((prev: SearchCriteria) => SearchCriteria)) => void;
   setSortCriteria: (criteria: Partial<SortCriteria> | ((prev: SortCriteria) => SortCriteria)) => void;
-  pushNavHistory: (item: NavHistoryItem) => void;
 }
 
 export const useLibraryStore = create<LibraryState>((set) => ({
@@ -105,12 +99,43 @@ export const useLibraryStore = create<LibraryState>((set) => ({
     focal: 15,
   },
 
-  navHistory: [],
-  navIndex: -1,
+  folderHistory: [],
+  folderHistoryIndex: -1,
 
   setLibrary: (updater) => set((state) => (typeof updater === 'function' ? updater(state) : updater)),
 
   clearSelection: () => set({ multiSelectedPaths: [], libraryActivePath: null }),
+
+  pushFolderHistory: (path: string) =>
+    set((state) => {
+      if (!path) return state;
+      if (state.folderHistory[state.folderHistoryIndex] === path) return state;
+      const newHistory = state.folderHistory.slice(0, state.folderHistoryIndex + 1);
+      newHistory.push(path);
+      if (newHistory.length > 50) newHistory.shift();
+      return {
+        folderHistory: newHistory,
+        folderHistoryIndex: newHistory.length - 1,
+      };
+    }),
+
+  stepFolderHistory: (direction: 'back' | 'forward') => {
+    let targetPath: string | null = null;
+    set((state) => {
+      if (direction === 'back' && state.folderHistoryIndex > 0) {
+        const nextIdx = state.folderHistoryIndex - 1;
+        targetPath = state.folderHistory[nextIdx];
+        return { folderHistoryIndex: nextIdx };
+      }
+      if (direction === 'forward' && state.folderHistoryIndex < state.folderHistory.length - 1) {
+        const nextIdx = state.folderHistoryIndex + 1;
+        targetPath = state.folderHistory[nextIdx];
+        return { folderHistoryIndex: nextIdx };
+      }
+      return state;
+    });
+    return targetPath;
+  },
 
   setFilterCriteria: (criteria) =>
     set((state) => ({
@@ -129,14 +154,4 @@ export const useLibraryStore = create<LibraryState>((set) => ({
       sortCriteria:
         typeof criteria === 'function' ? criteria(state.sortCriteria) : { ...state.sortCriteria, ...criteria },
     })),
-
-  pushNavHistory: (item) =>
-    set((state) => {
-      const current = state.navHistory[state.navIndex];
-      if (current && current.path === item.path && current.type === item.type) return state;
-
-      const newHistory = state.navHistory.slice(0, state.navIndex + 1);
-      newHistory.push(item);
-      return { navHistory: newHistory, navIndex: newHistory.length - 1 };
-    }),
 }));

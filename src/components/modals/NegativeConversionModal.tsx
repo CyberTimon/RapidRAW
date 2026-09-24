@@ -11,12 +11,23 @@ import throttle from 'lodash.throttle';
 import Text from '../ui/Text';
 import { TextColors, TextVariants } from '../../types/typography';
 
+import { Pipette, Sparkles } from 'lucide-react';
+
 interface NegativeParams {
   red_weight: number;
   green_weight: number;
   blue_weight: number;
   contrast: number;
   exposure: number;
+  film_profile?: string;
+  base_mask_r?: number;
+  base_mask_g?: number;
+  base_mask_b?: number;
+  toe_compression?: number;
+  shoulder_compression?: number;
+  shadow_crossover?: number;
+  highlight_crossover?: number;
+  auto_crop_borders?: boolean;
 }
 
 const DEFAULT_PARAMS: NegativeParams = {
@@ -25,6 +36,15 @@ const DEFAULT_PARAMS: NegativeParams = {
   blue_weight: 1.0,
   contrast: 1.0,
   exposure: 0.0,
+  film_profile: 'portra_400',
+  base_mask_r: 1.0,
+  base_mask_g: 1.0,
+  base_mask_b: 1.0,
+  toe_compression: 0.0,
+  shoulder_compression: 0.0,
+  shadow_crossover: 0.0,
+  highlight_crossover: 0.0,
+  auto_crop_borders: false,
 };
 
 interface NegativeConversionModalProps {
@@ -214,7 +234,200 @@ export default function NegativeConversionModal({
         </button>
       </div>
 
-      <div className="grow overflow-y-auto p-4 flex flex-col gap-8">
+      <div className="grow overflow-y-auto p-4 flex flex-col gap-6">
+        {/* Film Emulsion Stock */}
+        <div className={clsx('transition-opacity duration-200', isSaving && 'opacity-50 pointer-events-none grayscale')}>
+          <div className="flex items-center justify-between mb-2">
+            <Text variant={TextVariants.heading} className="flex items-center gap-1.5">
+              <Sparkles size={14} className="text-amber-400" />
+              Film Stock Profile
+            </Text>
+          </div>
+          <select
+            value={params.film_profile || 'portra_400'}
+            onChange={(e) => {
+              const newParams = { ...params, film_profile: e.target.value };
+              setParams(newParams);
+              updatePreview(newParams);
+            }}
+            className="w-full bg-surface border border-border-color text-text-primary text-xs rounded-lg px-3 py-2 outline-hidden focus:border-accent"
+          >
+            <optgroup label="Wedding & Fine-Art">
+              <option value="portra_400">🎞️ Kodak Portra 400 (Golden Skin Tones)</option>
+              <option value="portra_160">🎞️ Kodak Portra 160 (Fine Grain Portrait)</option>
+              <option value="portra_800">🎞️ Kodak Portra 800 (Rich Warmth)</option>
+              <option value="portra_400nc">🎞️ Kodak Portra 400NC (Natural Color)</option>
+              <option value="portra_160nc">🎞️ Kodak Portra 160NC (Soft Skin)</option>
+              <option value="fuji_400h">🎞️ Fujifilm Pro 400H (Pastel Greens/Cyan)</option>
+              <option value="fuji_pro_160ns">🎞️ Fujifilm Pro 160NS (Studio Portrait)</option>
+              <option value="xp2_super">⚪ Ilford XP2 Super 400 (C-41 Silky B&W)</option>
+            </optgroup>
+
+            <optgroup label="Travel & Street Life">
+              <option value="kodak_ultramax_400">🎞️ Kodak UltraMax 400 (Vibrant Travel)</option>
+              <option value="gold_200">🎞️ Kodak Gold 200 (Vintage Warmth)</option>
+              <option value="fuji_sensia_100">🎞️ Fujichrome Sensia 100 (Travel Slide)</option>
+              <option value="superia_xtra_400">🎞️ Fujicolor Superia X-TRA 400</option>
+              <option value="fuji_superia">🎞️ Fujicolor Superia 400 (Vibrant)</option>
+            </optgroup>
+
+            <optgroup label="Night Sky & Astrophotography">
+              <option value="ektachrome_e200">✨ Kodak Ektachrome E200 (Astro H-Alpha)</option>
+              <option value="provia_400x">✨ Fujichrome Provia 400X (Star Trails)</option>
+              <option value="superia_venus_800">✨ Fujicolor Superia Venus 800 (Night Street)</option>
+              <option value="cinestill_800t">🎬 CineStill 800T (Tungsten Cinema)</option>
+            </optgroup>
+
+            <optgroup label="Ultra-High Resolution & Macro Specialists">
+              <option value="ektar_25">🔬 Kodak Ektar 25 (Ultra-Fine Color Macro)</option>
+              <option value="ektar_100">🔬 Kodak Ektar 100 (Vivid Landscape)</option>
+              <option value="fuji_reala">🔬 Fujicolor Reala 100 (4th Layer Botanical)</option>
+              <option value="kodachrome_25">🔬 Kodachrome 25 (High-Acutance Macro)</option>
+              <option value="ektachrome_epn">🔬 Ektachrome EPN 100 (Scientific Neutral)</option>
+              <option value="ektachrome_100vs">🔬 Ektachrome 100VS (Vivid Saturation)</option>
+              <option value="kodak_tech_pan">🔬 Kodak Technical Pan 2415 (1000 lp/mm)</option>
+              <option value="adox_cms_20">🔬 Adox CMS 20 II Pro (800 lp/mm)</option>
+              <option value="agfa_ultra_50">🔬 Agfa Ultra 50 (Hyper-Saturated)</option>
+            </optgroup>
+
+            <optgroup label="Konica & Minolta Classics">
+              <option value="konica_impresa_50">🇯🇵 Konica Impresa 50 (Finest Grain Color)</option>
+              <option value="konica_centuria_200">🇯🇵 Konica Centuria 200 (Warm Skin/Sky)</option>
+            </optgroup>
+
+            <optgroup label="Svema & Eastern Bloc">
+              <option value="svema_foto_100">🏛️ Svema Foto 100 (Silver Contrast B&W)</option>
+              <option value="svema_mz3">🏛️ Svema MZ-3 (Orthochromatic B&W)</option>
+              <option value="tasma_type42">🏛️ Tasma Type-42 (High-Contrast Aerial)</option>
+            </optgroup>
+
+            <optgroup label="European Heritage">
+              <option value="fomapan_100">🏰 Fomapan 100 Classic (Czech B&W)</option>
+              <option value="rollei_retro_80s">🏰 Rollei Retro 80S (Near-IR Red)</option>
+              <option value="rollei_ortho_25">🏰 Rollei Ortho 25 (Red-Blind Micro)</option>
+              <option value="ferrania_p30">🏰 Film Ferrania P30 (Italian Cinema B&W)</option>
+              <option value="harman_phoenix">🏰 Harman Phoenix 200 (Warm Halation)</option>
+            </optgroup>
+
+            <optgroup label="Creative, Shift & Cinema">
+              <option value="cinestill_400d">🎬 CineStill 400D (Dynamic Daylight)</option>
+              <option value="eterna_bleach_bypass">🎬 Fujifilm Eterna Bleach Bypass</option>
+              <option value="eastman_5247">🎬 Kodak Eastman 5247 (70s ECN-2)</option>
+              <option value="eastman_5248">🎬 Kodak Eastman 5248 (50s-60s Hollywood)</option>
+              <option value="plus_x_5231">🎬 Kodak Plus-X Pan 5231 (Golden Age B&W)</option>
+              <option value="super8_k40">🎬 Super 8 Kodachrome 40 (Home Movie)</option>
+              <option value="ektachrome_100d">🎬 Kodak Ektachrome 100D (16mm Cine)</option>
+              <option value="technicolor_3strip">🎬 Technicolor 3-Strip (Process IV)</option>
+              <option value="vision3_50d">🎬 Kodak Vision3 50D (IMAX Cinema)</option>
+              <option value="orwo_nc500">🎬 ORWO Wolfen NC500 (German Cinema)</option>
+              <option value="tarkovsky">🎬 Tarkovsky's (Art-House Cinema)</option>
+              <option value="lomochrome_turquoise">🎨 LomoChrome Turquoise (Teal/Gold Shift)</option>
+              <option value="adox_color_implosion">🎨 Adox Color Implosion (Grain Explosion)</option>
+              <option value="polaroid_type_55">🎨 Polaroid Type 55 (Fine Grain B&W)</option>
+            </optgroup>
+
+            <optgroup label="Black & White Classics">
+              <option value="ilford_hp5">⚪ Ilford HP5 Plus (Classic Silver B&W)</option>
+              <option value="kodak_tri_x">⚫ Kodak Tri-X 400 (High Contrast B&W)</option>
+            </optgroup>
+          </select>
+        </div>
+
+        {/* Orange Base Mask Sampling */}
+        <div className={clsx('transition-opacity duration-200', isSaving && 'opacity-50 pointer-events-none grayscale')}>
+          <Text variant={TextVariants.heading} className="mb-2">
+            Film Base Mask (Orange Tint)
+          </Text>
+          <div className="flex items-center justify-between p-2.5 bg-surface rounded-lg border border-border-color">
+            <div className="flex items-center gap-2">
+              <div
+                className="w-5 h-5 rounded-md border border-white/20 shadow-xs"
+                style={{
+                  backgroundColor: `rgb(${Math.round((params.base_mask_r || 1.0) * 180)}, ${Math.round((params.base_mask_g || 1.0) * 120)}, ${Math.round((params.base_mask_b || 1.0) * 80)})`,
+                }}
+              />
+              <span className="text-xs text-text-secondary">Base Mask Compensation</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={async () => {
+                  if (!selectedImagePath) return;
+                  try {
+                    const detected: any = await invoke('auto_detect_negative_border_mask', {
+                      path: selectedImagePath,
+                    });
+                    if (detected) {
+                      const newParams = {
+                        ...params,
+                        base_mask_r: detected.r,
+                        base_mask_g: detected.g,
+                        base_mask_b: detected.b,
+                      };
+                      setParams(newParams);
+                      updatePreview(newParams);
+                    }
+                  } catch (e) {
+                    console.error('Auto base detection failed', e);
+                  }
+                }}
+                className="flex items-center gap-1 text-xs px-2.5 py-1 bg-accent text-white rounded-md hover:brightness-110 transition-all font-medium shadow-xs"
+                title="Automatically detect unexposed orange film rebate density"
+              >
+                <Sparkles size={13} />
+                Auto Base
+              </button>
+              <button
+                onClick={async () => {
+                  if (!selectedImagePath) return;
+                  try {
+                    const sampled: any = await invoke('sample_negative_border_mask', {
+                      path: selectedImagePath,
+                      normX: 0.05,
+                      normY: 0.05,
+                      normRadius: 0.03,
+                    });
+                    if (sampled) {
+                      const newParams = {
+                        ...params,
+                        base_mask_r: sampled.r,
+                        base_mask_g: sampled.g,
+                        base_mask_b: sampled.b,
+                      };
+                      setParams(newParams);
+                      updatePreview(newParams);
+                    }
+                  } catch (e) {
+                    console.error('Border sampling failed', e);
+                  }
+                }}
+                className="flex items-center gap-1 text-xs px-2.5 py-1 bg-accent/15 text-accent rounded-md hover:bg-accent/25 transition-colors"
+                title="Sample manual ROI base mask"
+              >
+                <Pipette size={13} />
+                Sample
+              </button>
+            </div>
+          </div>
+
+          <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-text-primary mt-2">
+            <input
+              type="checkbox"
+              checked={params.auto_crop_borders ?? false}
+              onChange={(e) => {
+                const newParams = {
+                  ...params,
+                  auto_crop_borders: e.target.checked,
+                };
+                setParams(newParams);
+                updatePreview(newParams);
+              }}
+              className="rounded border-surface text-accent focus:ring-accent accent-accent h-3.5 w-3.5"
+            />
+            <span>Auto-Crop Scanner Border (Prevents White-Edge Blowout)</span>
+          </label>
+        </div>
+
+        {/* Color Timing Weights */}
         <div
           className={clsx('transition-opacity duration-200', isSaving && 'opacity-50 pointer-events-none grayscale')}
         >
@@ -255,6 +468,7 @@ export default function NegativeConversionModal({
           </div>
         </div>
 
+        {/* Print Grade Exposure & Contrast */}
         <div
           className={clsx('transition-opacity duration-200', isSaving && 'opacity-50 pointer-events-none grayscale')}
         >
@@ -280,6 +494,42 @@ export default function NegativeConversionModal({
               defaultValue={1}
               onChange={(e) => handleParamChange('contrast', Number(e.target.value))}
               fillOrigin="min"
+            />
+            <Slider
+              label="Shadow Toe Roll-off"
+              value={params.toe_compression ?? 0}
+              min={-0.5}
+              max={0.5}
+              step={0.02}
+              defaultValue={0}
+              onChange={(e) => handleParamChange('toe_compression', Number(e.target.value))}
+            />
+            <Slider
+              label="Highlight Shoulder Roll-off"
+              value={params.shoulder_compression ?? 0}
+              min={-0.5}
+              max={0.5}
+              step={0.02}
+              defaultValue={0}
+              onChange={(e) => handleParamChange('shoulder_compression', Number(e.target.value))}
+            />
+            <Slider
+              label="Shadow Color Crossover"
+              value={params.shadow_crossover ?? 0}
+              min={-0.5}
+              max={0.5}
+              step={0.02}
+              defaultValue={0}
+              onChange={(e) => handleParamChange('shadow_crossover', Number(e.target.value))}
+            />
+            <Slider
+              label="Highlight Color Crossover"
+              value={params.highlight_crossover ?? 0}
+              min={-0.5}
+              max={0.5}
+              step={0.02}
+              defaultValue={0}
+              onChange={(e) => handleParamChange('highlight_crossover', Number(e.target.value))}
             />
           </div>
         </div>

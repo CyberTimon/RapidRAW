@@ -211,8 +211,6 @@ const HSL_RANGES: array<HslRange, 8> = array<HslRange, 8>(
 @group(0) @binding(10) var flare_texture: texture_2d<f32>;
 @group(0) @binding(11) var flare_sampler: sampler;
 
-override HIGH_PRECISION_OUTPUT: u32 = 0u;
-
 const LUMA_COEFF = vec3<f32>(0.2126, 0.7152, 0.0722);
 
 fn get_luma(c: vec3<f32>) -> f32 {
@@ -251,6 +249,60 @@ fn linear_to_vlog(c: vec3<f32>) -> vec3<f32> {
     let log10_val = log2(safe_c + 0.00873) * 0.30102999566398;
     let high = 0.241514 * log10_val + 0.598206;
     return select(high, low, safe_c <= vec3<f32>(0.01));
+}
+
+// Convert Linear sRGB to Oklab perceptual color space
+fn linear_srgb_to_oklab(c: vec3<f32>) -> vec3<f32> {
+    let l = 0.4122214708 * c.r + 0.5363325363 * c.g + 0.0514459929 * c.b;
+    let m = 0.2119034982 * c.r + 0.6806995451 * c.g + 0.1073969566 * c.b;
+    let s = 0.0883024619 * c.r + 0.2817188376 * c.g + 0.6299787005 * c.b;
+
+    let l_ = pow(max(l, 0.0), 1.0 / 3.0);
+    let m_ = pow(max(m, 0.0), 1.0 / 3.0);
+    let s_ = pow(max(s, 0.0), 1.0 / 3.0);
+
+    return vec3<f32>(
+        0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
+        1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
+        0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_
+    );
+}
+
+// Convert Oklab perceptual color space to Linear sRGB
+fn oklab_to_linear_srgb(c: vec3<f32>) -> vec3<f32> {
+    let l_ = c.x + 0.3963377774 * c.y + 0.2158037573 * c.z;
+    let m_ = c.x - 0.1055613458 * c.y - 0.0638541728 * c.z;
+    let s_ = c.x - 0.0894841775 * c.y - 1.2914855480 * c.z;
+
+    let l = l_ * l_ * l_;
+    let m = m_ * m_ * m_;
+    let s = s_ * s_ * s_;
+
+    return vec3<f32>(
+        4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+        -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+        -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s
+    );
+}
+
+// Oklab perceptual tone transformation with smooth highlight shoulder compression
+fn oklab_full_transform(linear_rgb: vec3<f32>) -> vec3<f32> {
+    let safe_rgb = max(linear_rgb, vec3<f32>(0.0));
+    var lab = linear_srgb_to_oklab(safe_rgb);
+
+    // Perceptual lightness curve with smooth highlight roll-off
+    let l = lab.x;
+    let compressed_l = l / pow(1.0 + pow(l, 1.25), 1.0 / 1.25);
+    let target_l = clamp(compressed_l * 1.35, 0.0, 1.0);
+
+    // Gentle chroma compression in extreme highlights to prevent gamut clipping
+    let chroma_scale = clamp(1.0 - smoothstep(0.75, 1.0, target_l) * 0.35, 0.0, 1.0);
+    lab.x = target_l;
+    lab.y *= chroma_scale;
+    lab.z *= chroma_scale;
+
+    let out_linear = max(oklab_to_linear_srgb(lab), vec3<f32>(0.0));
+    return linear_to_srgb(out_linear);
 }
 
 fn rgb_to_hsv(c: vec3<f32>) -> vec3<f32> {
@@ -293,6 +345,98 @@ fn apply_hue_shift(color: vec3<f32>, shift_degrees: f32) -> vec3<f32> {
     shifted_h = (shifted_h + 360.0) % 360.0;
     let shifted_srgb = hsv_to_rgb(vec3<f32>(shifted_h, hsv.y, hsv.z));
     return srgb_to_linear(shifted_srgb);
+}
+
+// Analytical Memory Color Enhancement for RAW sensor spectra (Foliage, Sky, Skin)
+fn apply_analytical_memory_colors(linear_rgb: vec3<f32>) -> vec3<f32> {
+    let safe_rgb = max(linear_rgb, vec3<f32>(0.0));
+    let srgb = linear_to_srgb_extended(safe_rgb);
+    var hsv = rgb_to_hsv(srgb);
+    let hue = hsv.x;
+    let sat = hsv.y;
+
+    if (sat < 0.015) {
+        return safe_rgb;
+    }
+
+    // 1. Sky & Cyan-Blue correction (200° - 255°)
+    // RAW 3x3 matrices shift skies towards purplish-blue. Shift toward rich cobalt-cyan.
+    let sky_mask = smoothstep(190.0, 215.0, hue) * (1.0 - smoothstep(245.0, 265.0, hue));
+    let sky_sat_mod = 1.0 + (0.16 * sky_mask);
+    let sky_hue_shift = -8.5 * sky_mask;
+
+    // 2. Foliage & Nature Greens (65° - 135°)
+    // RAW chlorophyll greens appear yellowish/olive. Shift towards lush emerald green.
+    let green_mask = smoothstep(55.0, 75.0, hue) * (1.0 - smoothstep(125.0, 150.0, hue));
+    let green_sat_mod = 1.0 + (0.14 * green_mask);
+    let green_hue_shift = 11.0 * green_mask;
+
+    // 3. Warm Skin-Tone Harmony (12° - 42°)
+    // Stabilize human skin tones around ~28° and prevent oversaturation/sunburned look
+    let skin_mask = smoothstep(8.0, 18.0, hue) * (1.0 - smoothstep(40.0, 52.0, hue));
+    let skin_hue_target = 28.0;
+    let skin_hue_delta = (skin_hue_target - hue) * 0.22 * skin_mask;
+    let skin_sat_mod = 1.0 + (0.05 * skin_mask);
+
+    // Apply composite adjustments
+    var new_hue = hue + sky_hue_shift + green_hue_shift + skin_hue_delta;
+    new_hue = (new_hue + 360.0) % 360.0;
+    let new_sat = clamp(sat * sky_sat_mod * green_sat_mod * skin_sat_mod, 0.0, 1.0);
+
+    let tuned_srgb = hsv_to_rgb(vec3<f32>(new_hue, new_sat, hsv.z));
+    return srgb_to_linear(tuned_srgb);
+}
+
+// Asymmetric Sigmoidal Photographic S-Curve & Perceptual Color Engine for RAW Images
+fn raw_photographic_transform(composite_linear: vec3<f32>) -> vec3<f32> {
+    // 1. Analytical Memory Color Vector Tuning
+    let color_tuned = apply_analytical_memory_colors(composite_linear);
+
+    // 2. Transform to Oklab perceptual color space
+    let safe_rgb = max(color_tuned, vec3<f32>(0.0));
+    var lab = linear_srgb_to_oklab(safe_rgb);
+    let L = lab.x;
+    let C = length(lab.yz);
+    let h = atan2(lab.z, lab.y);
+
+    if (L <= 0.0001) {
+        return vec3<f32>(0.0);
+    }
+
+    // 3. Photographic Exposure Baseline Lift (+0.55 EV equivalent in linear light)
+    const BASELINE_GAIN: f32 = 1.45;
+    let L_gain = L * BASELINE_GAIN;
+
+    // 4. Asymmetric Photographic Sigmoidal Tone Curve on Lightness (L)
+    // - Sharp midtone contrast slope (gamma = 1.32) around 18% middle gray (sigma = 0.20)
+    // - Deep toe anchoring true zero black
+    // - Smooth asymptotic shoulder compression for highlights
+    const SIGMOID_GAMMA: f32 = 1.32;
+    const SIGMOID_SIGMA: f32 = 0.20;
+    let L_pow = pow(L_gain, SIGMOID_GAMMA);
+    let sigma_pow = pow(SIGMOID_SIGMA, SIGMOID_GAMMA);
+    let sigmoid_L = L_pow / (L_pow + sigma_pow);
+
+    // Scale curve so standard diffuse white settles smoothly around 1.0
+    const CURVE_SCALE: f32 = 1.16;
+    let target_L = clamp(sigmoid_L * CURVE_SCALE, 0.0, 1.0);
+
+    // 5. Perceptual Chroma Preservation
+    // Scale chroma with lightness change so contrast does not desaturate the image
+    let luma_ratio = target_L / max(L, 0.001);
+    let chroma_scale = clamp(pow(luma_ratio, 0.65), 0.5, 1.5);
+    var target_C = C * chroma_scale;
+
+    // 6. Filmic Highlight Desaturation (Path-to-White)
+    // Natural specular highlights and sun reflections roll off smoothly to neutral white
+    let highlight_burn = smoothstep(0.78, 1.0, target_L);
+    target_C *= (1.0 - highlight_burn * 0.75);
+
+    // 7. Reconstruct Oklab coordinates & convert back to Linear sRGB
+    let reconstructed_lab = vec3<f32>(target_L, target_C * cos(h), target_C * sin(h));
+    let linear_out = max(oklab_to_linear_srgb(reconstructed_lab), vec3<f32>(0.0));
+
+    return linear_to_srgb(linear_out);
 }
 
 fn get_raw_hsl_influence(hue: f32, center: f32, width: f32) -> f32 {
@@ -477,123 +621,51 @@ fn apply_tonal_adjustments(
 
 fn apply_highlights_adjustment(
     color_in: vec3<f32>,
-    coords_i: vec2<i32>,
-    scale: f32,
+    blurred_color_input_space: vec3<f32>,
     is_raw: u32,
     highlights_adj: f32
 ) -> vec3<f32> {
-    if (abs(highlights_adj) < 0.001) {
+    if (highlights_adj == 0.0) { return color_in; }
+
+    let safe_rgb = max(color_in, vec3<f32>(0.0));
+    var lab = linear_srgb_to_oklab(safe_rgb);
+    let luma = lab.x;
+
+    // Perceptual highlight mask focused on upper midtones and highlights
+    let highlight_mask = smoothstep(0.35, 0.95, luma);
+    if (highlight_mask < 0.0001) {
         return color_in;
     }
-
-    let pixel_luma = get_luma(max(color_in, vec3<f32>(0.0)));
-    if (pixel_luma < 0.0001) {
-        return color_in;
-    }
-
-    const l_pivot: f32 = 0.10;
-    if (pixel_luma <= l_pivot) {
-        return color_in;
-    }
-
-    let dims = vec2<i32>(textureDimensions(input_texture));
-    let max_idx = dims - vec2<i32>(1);
-
-    var center_tex = textureLoad(input_texture, clamp(coords_i, vec2<i32>(0), max_idx), 0).rgb;
-    if (is_raw == 0u) {
-        center_tex = srgb_to_linear(center_tex);
-    }
-    let center_tex_luma = max(get_luma(center_tex), 1e-4);
-
-    let r_inner = max(1, i32(round(3.5 * scale)));
-    let r_outer = max(2, i32(round(7.5 * scale)));
-    let r_diag  = max(1, i32(round(f32(r_outer) * 0.7071)));
-
-    let offsets = array<vec2<i32>, 12>(
-        vec2<i32>( r_inner,        0), vec2<i32>(-r_inner,        0),
-        vec2<i32>(       0,  r_inner), vec2<i32>(       0, -r_inner),
-        vec2<i32>( r_outer,        0), vec2<i32>(-r_outer,        0),
-        vec2<i32>(       0,  r_outer), vec2<i32>(       0, -r_outer),
-        vec2<i32>(  r_diag,   r_diag), vec2<i32>( -r_diag,   r_diag),
-        vec2<i32>(  r_diag,  -r_diag), vec2<i32>( -r_diag,  -r_diag)
-    );
-
-    let spatial_weights = array<f32, 12>(
-        0.85, 0.85, 0.85, 0.85,
-        0.50, 0.50, 0.50, 0.50,
-        0.50, 0.50, 0.50, 0.50
-    );
-
-    let range_tol = max(pixel_luma * 0.22, 0.03);
-    let inv_two_range_sq = 1.0 / (2.0 * range_tol * range_tol);
-
-    var sum_luma: f32 = pixel_luma;
-    var sum_w: f32 = 1.0;
-
-    for (var i = 0u; i < 12u; i = i + 1u) {
-        let coord = clamp(coords_i + offsets[i], vec2<i32>(0), max_idx);
-        var s_rgb = textureLoad(input_texture, coord, 0).rgb;
-        if (is_raw == 0u) {
-            s_rgb = srgb_to_linear(s_rgb);
-        }
-        let s_luma_raw = max(get_luma(s_rgb), 0.0);
-        let s_luma = pixel_luma * (s_luma_raw / center_tex_luma);
-
-        let diff = abs(s_luma - pixel_luma);
-        let w = exp(- (diff * diff) * inv_two_range_sq) * spatial_weights[i];
-
-        sum_luma += s_luma * w;
-        sum_w += w;
-    }
-
-    let luma_base = sum_luma / sum_w;
-    let detail_ratio = pixel_luma / max(luma_base, 1e-4);
-
-    let safe_detail = clamp(detail_ratio, 0.65, 1.55);
-
-    let log_detail = log2(safe_detail);
-    let soft_log_detail = log_detail / (1.0 + abs(log_detail) * 0.40);
-
-    var target_luma: f32 = pixel_luma;
 
     if (highlights_adj < 0.0) {
-        let k = -highlights_adj;
-        let delta_base = max(luma_base - l_pivot, 0.0);
+        // High-fidelity Sigmoid compression for highlight recovery (Capture One / Darktable Sigmoid grade)
+        let strength = -highlights_adj; // 0.0 to 1.0
 
-        let compression_strength = k * 2.2;
-        let compressed_delta = delta_base / (1.0 + compression_strength * (delta_base / (1.0 + delta_base * 0.35)));
-        let target_base = l_pivot + compressed_delta;
+        // Asymptotic Sigmoidal compression on Oklab lightness above knee threshold
+        let knee = 0.50;
+        let diff = max(luma - knee, 0.0);
+        let compression_factor = 1.0 / (1.0 + diff * strength * 2.85);
+        let new_luma = knee + diff * compression_factor;
 
-        let restoration_gain = 1.0 + k * 0.55;
-        let recovered_detail = exp2(soft_log_detail * restoration_gain);
+        // Chromatic saturation preservation:
+        // When pulling down overexposed areas, boost chroma proportionally to prevent washed-out grey clouds / cyan shifts
+        let chroma_boost = 1.0 + strength * 0.45 * smoothstep(knee, 1.2, luma);
 
-        let recovered_target = target_base * recovered_detail;
+        let recovered_lab = vec3<f32>(
+            new_luma,
+            lab.y * chroma_boost,
+            lab.z * chroma_boost
+        );
 
-        let blend = smoothstep(l_pivot, l_pivot + 0.35, pixel_luma);
-        target_luma = mix(pixel_luma, recovered_target, blend);
-
+        let recovered_rgb = max(oklab_to_linear_srgb(recovered_lab), vec3<f32>(0.0));
+        return mix(color_in, recovered_rgb, highlight_mask);
     } else {
-        let boost = highlights_adj * 0.70;
-        let delta_base = max(luma_base - l_pivot, 0.0);
-        let boosted_delta = delta_base * (1.0 + boost / (1.0 + delta_base * 0.25));
-        let target_base = l_pivot + boosted_delta;
-
-        let detail_boost = exp2(soft_log_detail * (1.0 + highlights_adj * 0.20));
-        let boosted_target = target_base * detail_boost;
-
-        let blend = smoothstep(l_pivot, l_pivot + 0.35, pixel_luma);
-        target_luma = mix(pixel_luma, boosted_target, blend);
+        // Smooth photographic highlight boost
+        let boost = highlights_adj * 1.5;
+        let factor = pow(2.0, boost);
+        let boosted_rgb = color_in * factor;
+        return mix(color_in, boosted_rgb, highlight_mask);
     }
-
-    let luma_ratio = target_luma / pixel_luma;
-    var final_color = color_in * luma_ratio;
-
-    if (highlights_adj < 0.0 && pixel_luma > 1.0) {
-        let blowout = smoothstep(1.0, 3.5, pixel_luma) * (-highlights_adj) * 0.40;
-        final_color = mix(final_color, vec3<f32>(target_luma), blowout);
-    }
-
-    return final_color;
 }
 
 fn apply_linear_exposure(color_in: vec3<f32>, exposure_adj: f32) -> vec3<f32> {
@@ -607,42 +679,30 @@ fn apply_filmic_exposure(color_in: vec3<f32>, brightness_adj: f32) -> vec3<f32> 
     if (brightness_adj == 0.0) {
         return color_in;
     }
-    const RATIONAL_CURVE_MIX: f32 = 1.0;
+    const RATIONAL_CURVE_MIX: f32 = 0.95;
     const MIDTONE_STRENGTH: f32 = 1.2;
-    const TOP_ANCHOR: f32 = 1.0;
-
+    const TOP_ANCHOR: f32 = 1.06;
     let original_luma = get_luma(color_in);
     if (abs(original_luma) < 0.00001) {
         return color_in;
     }
-
     let direct_adj = brightness_adj * (1.0 - RATIONAL_CURVE_MIX);
     let rational_adj = brightness_adj * RATIONAL_CURVE_MIX;
     let scale = pow(2.0, direct_adj);
     let k = pow(2.0, -rational_adj * MIDTONE_STRENGTH);
     let luma_abs = abs(original_luma);
-
-    var shaped_luma_abs: f32;
-    if (luma_abs <= TOP_ANCHOR) {
-        let luma_norm = luma_abs / TOP_ANCHOR;
-        let shaped_norm = luma_norm / (luma_norm + (1.0 - luma_norm) * k);
-        shaped_luma_abs = shaped_norm * TOP_ANCHOR;
-    } else {
-        shaped_luma_abs = TOP_ANCHOR + (luma_abs - TOP_ANCHOR) * k;
-    }
-
-    let new_luma_abs = shaped_luma_abs * scale;
-    let new_luma = sign(original_luma) * new_luma_abs;
+    let luma_floor = floor(luma_abs / TOP_ANCHOR) * TOP_ANCHOR;
+    let luma_norm = (luma_abs - luma_floor) / TOP_ANCHOR;
+    let shaped_norm = luma_norm / (luma_norm + (1.0 - luma_norm) * k);
+    let shaped_luma_abs = luma_floor + (shaped_norm * TOP_ANCHOR);
+    let new_luma = sign(original_luma) * shaped_luma_abs * scale;
     let chroma = color_in - vec3<f32>(original_luma);
-
-    let total_luma_scale = new_luma_abs / luma_abs;
-    let luma_weight = clamp(new_luma_abs, 0.0, 2.0) * 0.5;
+    let total_luma_scale = new_luma / original_luma;
+    let luma_weight = clamp(new_luma, 0.0, 2.0) * 0.5;
     let dynamic_exp = mix(0.95, 0.65, luma_weight);
     let base_chroma_scale = pow(total_luma_scale, dynamic_exp);
-
-    let highlight_rolloff = clamp((1.05 - new_luma_abs) / max(1.05 - original_luma, 1e-4), 0.0, 1.0);
-    let chroma_scale = base_chroma_scale * mix(1.0, highlight_rolloff, clamp(abs(brightness_adj), 0.0, 1.0));
-
+    let highlight_rolloff = 1.0 / (1.0 + max(0.0, new_luma - 0.9) * 2.0);
+    let chroma_scale = base_chroma_scale * highlight_rolloff;
     return vec3<f32>(new_luma) + chroma * chroma_scale;
 }
 
@@ -693,41 +753,36 @@ fn apply_white_balance(color: vec3<f32>, temp: f32, tnt: f32) -> vec3<f32> {
 }
 
 fn apply_creative_color(color: vec3<f32>, sat: f32, vib: f32) -> vec3<f32> {
-    if (sat == 0.0 && vib == 0.0) {
-        return color;
-    }
-
     var processed = color;
-    let luma = get_luma(max(processed, vec3<f32>(0.0)));
+    let luma = get_luma(processed);
 
-    let srgb = linear_to_srgb_extended(max(processed, vec3<f32>(0.0)));
-    let hsv = rgb_to_hsv(srgb);
-    let current_sat = hsv.y;
-    let hue = hsv.x;
-
-    var vib_factor: f32 = 0.0;
-    if (vib != 0.0) {
-        if (vib > 0.0) {
-            let sat_weight = pow(1.0 - current_sat, 1.25);
-            let skin_center = 25.0;
-            let hue_dist = min(abs(hue - skin_center), 360.0 - abs(hue - skin_center));
-            let is_skin = 1.0 - smoothstep(12.0, 38.0, hue_dist);
-            let skin_dampener = mix(1.0, 0.50, is_skin);
-
-            vib_factor = vib * sat_weight * skin_dampener * 1.5;
-        } else {
-            let desat_weight = smoothstep(0.05, 0.75, current_sat);
-            vib_factor = vib * desat_weight;
-        }
+    if (sat != 0.0) {
+        processed = mix(vec3<f32>(luma), processed, 1.0 + sat);
     }
-
-    let sat_scale = max(1.0 + sat, 0.0);
-    let vib_scale = max(1.0 + vib_factor, 0.0);
-    let final_mult = sat_scale * vib_scale;
-
-    processed = mix(vec3<f32>(luma), processed, final_mult);
-
-    return max(processed, vec3<f32>(0.0));
+    if (vib == 0.0) { return processed; }
+    let c_max = max(processed.r, max(processed.g, processed.b));
+    let c_min = min(processed.r, min(processed.g, processed.b));
+    let delta = c_max - c_min;
+    if (delta < 0.02) {
+        return processed;
+    }
+    let current_sat = delta / max(c_max, 0.001);
+    if (vib > 0.0) {
+        let sat_mask = 1.0 - smoothstep(0.4, 0.9, current_sat);
+        let hsv = rgb_to_hsv(processed);
+        let hue = hsv.x;
+        let skin_center = 25.0;
+        let hue_dist = min(abs(hue - skin_center), 360.0 - abs(hue - skin_center));
+        let is_skin = smoothstep(35.0, 10.0, hue_dist);
+        let skin_dampener = mix(1.0, 0.6, is_skin);
+        let amount = vib * sat_mask * skin_dampener * 3.0;
+        processed = mix(vec3<f32>(luma), processed, 1.0 + amount);
+    } else {
+        let desat_mask = 1.0 - smoothstep(0.2, 0.8, current_sat);
+        let amount = vib * desat_mask;
+        processed = mix(vec3<f32>(luma), processed, 1.0 + amount);
+    }
+    return processed;
 }
 
 fn apply_hsl_panel(color: vec3<f32>, hsl_adjustments: array<HslColor, 8>, coords_i: vec2<i32>) -> vec3<f32> {
@@ -951,7 +1006,8 @@ fn apply_sharpen(
     let g0 = smoothstep(t * 0.20, t * 0.85, abs(d0));
     let g1 = smoothstep(t * 0.12, t * 0.55, abs(d1));
 
-    let boost = (d0 * 1.25 * g0 + d1 * 0.25 * g1) * amount;
+    let boost = (d0 * 1.20 * g0
+               + d1 * 0.70 * g1) * amount;
 
     let dims = vec2<i32>(textureDimensions(input_texture));
     let max_idx = dims - vec2<i32>(1);
@@ -1006,28 +1062,21 @@ fn apply_sharpen(
 
         if (aa > 0.002) {
             let inv_g = inverseSqrt(g2);
-
-            let tang = vec2<f32>(-gy, gx) * inv_g * 0.75;
+            let tang = vec2<f32>(-gy, gx) * inv_g * 1.30;
             let p = vec2<f32>(coords_i) + vec2<f32>(0.5);
 
             let tp = sharpen_tap_bilinear(p + tang - vec2<f32>(0.5), max_idx, is_raw);
             let tn = sharpen_tap_bilinear(p - tang - vec2<f32>(0.5), max_idx, is_raw);
-
-            let safe_tp = max(tp, l * 0.6);
-            let safe_tn = max(tn, l * 0.6);
-
-            let l_tan = (safe_tp + safe_tn + l * 2.0) * 0.25;
+            let l_tan = (tp + tn + l * 2.0) * 0.25;
 
             let l_aa = l_tan + (l_new - l);
-
-            l_new = mix(l_new, l_aa, min(aa, 0.5));
+            l_new = mix(l_new, l_aa, aa);
         }
     }
 
     let shadow_floor = select(0.03, 0.10, is_raw == 1u);
     let prot = smoothstep(0.0, shadow_floor, l) * (1.0 - smoothstep(0.92, 1.0, l));
     l_new = max(mix(l, l_new, prot), 0.0);
-    l_new = max(l_new, l * 0.40);
 
     let ratio = l_new / max(l, 1e-4);
     if (is_raw == 1u) {
@@ -1093,7 +1142,7 @@ fn apply_centre_tonal_and_color(
     var processed_color = color_in;
 
     let exposure_boost = centre_mask * centre_amount * EXPOSURE_SCALE;
-    processed_color = apply_linear_exposure(processed_color, exposure_boost);
+    processed_color = apply_filmic_exposure(processed_color, exposure_boost);
 
     let vibrance_center_boost = centre_mask * centre_amount * VIBRANCE_SCALE;
     let saturation_center_boost = centre_mask * centre_amount * SATURATION_CENTER_SCALE;
@@ -1453,6 +1502,36 @@ fn no_tonemap(c: vec3<f32>) -> vec3<f32> {
     return c;
 }
 
+// ACEScg (AP1) to sRGB and sRGB to ACEScg conversion matrices
+const ACEScg_to_sRGB_mat = mat3x3<f32>(
+    vec3<f32>(1.70505, -0.13008, -0.02400),
+    vec3<f32>(-0.62423, 1.17144, -0.12970),
+    vec3<f32>(-0.08082, -0.04136, 1.15370)
+);
+
+const sRGB_to_ACEScg_mat = mat3x3<f32>(
+    vec3<f32>(0.613097, 0.070194, 0.020616),
+    vec3<f32>(0.339523, 0.916354, 0.109570),
+    vec3<f32>(0.047379, 0.013452, 0.869814)
+);
+
+fn acescg_rrt_odt_fit(c: vec3<f32>) -> vec3<f32> {
+    let a: f32 = 2.51;
+    let b: f32 = 0.03;
+    let c_val: f32 = 2.43;
+    let d: f32 = 0.59;
+    let e: f32 = 0.14;
+    let v = max(c, vec3<f32>(0.0));
+    return clamp((v * (a * v + b)) / (v * (c_val * v + d) + e), vec3<f32>(0.0), vec3<f32>(1.0));
+}
+
+fn acescg_full_transform(color_in: vec3<f32>) -> vec3<f32> {
+    let in_aces = sRGB_to_ACEScg_mat * max(color_in, vec3<f32>(0.0));
+    let tonemapped_aces = acescg_rrt_odt_fit(in_aces);
+    let srgb_out = ACEScg_to_sRGB_mat * tonemapped_aces;
+    return linear_to_srgb(clamp(srgb_out, vec3<f32>(0.0), vec3<f32>(1.0)));
+}
+
 fn is_default_curve(points: array<Point, 16>, count: u32) -> bool {
     if (count < 2u) {
         return false;
@@ -1474,28 +1553,39 @@ fn is_default_curve(points: array<Point, 16>, count: u32) -> bool {
     return is_identity && p0_is_origin && p_last_is_end;
 }
 
-fn apply_all_curves(
-    color: vec3<f32>,
-    luma_curve: array<Point, 16>, luma_curve_count: u32,
-    red_curve: array<Point, 16>, red_curve_count: u32,
-    green_curve: array<Point, 16>, green_curve_count: u32,
-    blue_curve: array<Point, 16>, blue_curve_count: u32
-) -> vec3<f32> {
-    var r = apply_curve(color.r, luma_curve, luma_curve_count);
-    var g = apply_curve(color.g, luma_curve, luma_curve_count);
-    var b = apply_curve(color.b, luma_curve, luma_curve_count);
+fn apply_all_curves(color: vec3<f32>, luma_curve: array<Point, 16>, luma_curve_count: u32, red_curve: array<Point, 16>, red_curve_count: u32, green_curve: array<Point, 16>, green_curve_count: u32, blue_curve: array<Point, 16>, blue_curve_count: u32) -> vec3<f32> {
+    let red_is_default = is_default_curve(red_curve, red_curve_count);
+    let green_is_default = is_default_curve(green_curve, green_curve_count);
+    let blue_is_default = is_default_curve(blue_curve, blue_curve_count);
+    let rgb_curves_are_active = !red_is_default || !green_is_default || !blue_is_default;
 
-    if (!is_default_curve(red_curve, red_curve_count)) {
-        r = apply_curve(r, red_curve, red_curve_count);
-    }
-    if (!is_default_curve(green_curve, green_curve_count)) {
-        g = apply_curve(g, green_curve, green_curve_count);
-    }
-    if (!is_default_curve(blue_curve, blue_curve_count)) {
-        b = apply_curve(b, blue_curve, blue_curve_count);
-    }
+    if (rgb_curves_are_active) {
+        let color_graded = vec3<f32>(
+            apply_curve(color.r, red_curve, red_curve_count),
+            apply_curve(color.g, green_curve, green_curve_count),
+            apply_curve(color.b, blue_curve, blue_curve_count)
+        );
+        let luma_initial = get_luma(color);
+        let luma_target = apply_curve(luma_initial, luma_curve, luma_curve_count);
+        let luma_graded = get_luma(color_graded);
 
-    return clamp(vec3<f32>(r, g, b), vec3<f32>(0.0), vec3<f32>(1.0));
+        let d = luma_target - luma_graded;
+        var final_color = color_graded + vec3<f32>(d);
+
+        let c_min = min(final_color.r, min(final_color.g, final_color.b));
+        if (c_min < 0.0) {
+            final_color = vec3<f32>(luma_target) + ((final_color - vec3<f32>(luma_target)) * luma_target) / max(luma_target - c_min, 1e-6);
+        }
+
+        let c_max = max(final_color.r, max(final_color.g, final_color.b));
+        if (c_max > 1.0) {
+            final_color = vec3<f32>(luma_target) + ((final_color - vec3<f32>(luma_target)) * (1.0 - luma_target)) / max(c_max - luma_target, 1e-6);
+        }
+
+        return clamp(final_color, vec3<f32>(0.0), vec3<f32>(1.0));
+    } else {
+        return vec3<f32>(apply_curve(color.r, luma_curve, luma_curve_count), apply_curve(color.g, luma_curve, luma_curve_count), apply_curve(color.b, luma_curve, luma_curve_count));
+    }
 }
 
 fn get_mask_influence(mask_index: u32, coords: vec2<u32>) -> f32 {
@@ -1861,8 +1951,9 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     var composite_rgb_linear = apply_dehaze(processed_rgb, structure_blurred, is_raw, t_dehaze);
     composite_rgb_linear = apply_white_balance(composite_rgb_linear, t_temperature, t_tint);
     composite_rgb_linear = apply_centre_tonal_and_color(composite_rgb_linear, adjustments.global.centre, absolute_coord_i);
+    composite_rgb_linear = apply_filmic_exposure(composite_rgb_linear, t_brightness);
     composite_rgb_linear = apply_tonal_adjustments(composite_rgb_linear, tonal_blurred, is_raw, t_contrast, t_shadows, t_whites, t_blacks);
-    composite_rgb_linear = apply_highlights_adjustment(composite_rgb_linear, absolute_coord_i, scale, is_raw, t_highlights);
+    composite_rgb_linear = apply_highlights_adjustment(composite_rgb_linear, tonal_blurred, is_raw, t_highlights);
     composite_rgb_linear = apply_color_calibration(composite_rgb_linear, adjustments.global.color_calibration);
     composite_rgb_linear = apply_hsl_panel(composite_rgb_linear, final_hsl, absolute_coord_i);
     composite_rgb_linear = apply_hue_shift(composite_rgb_linear, t_hue);
@@ -1912,16 +2003,16 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     var default_tonemapped: vec3<f32>;
     if (adjustments.global.tonemapper_mode == 1u) {
         default_tonemapped = agx_full_transform(composite_rgb_linear);
+    } else if (adjustments.global.tonemapper_mode == 2u) {
+        default_tonemapped = acescg_full_transform(composite_rgb_linear);
+    } else if (adjustments.global.tonemapper_mode == 3u) {
+        default_tonemapped = oklab_full_transform(composite_rgb_linear);
     } else if (is_raw == 1u) {
-        var srgb_emulated = linear_to_srgb(composite_rgb_linear);
-        const BRIGHTNESS_GAMMA: f32 = 1.1;
-        srgb_emulated = pow(srgb_emulated, vec3<f32>(1.0 / BRIGHTNESS_GAMMA));
-        const CONTRAST_MIX: f32 = 0.75;
-        let contrast_curve = srgb_emulated * srgb_emulated * (3.0 - 2.0 * srgb_emulated);
-        default_tonemapped = mix(srgb_emulated, contrast_curve, CONTRAST_MIX);
+        default_tonemapped = raw_photographic_transform(composite_rgb_linear);
     } else {
         default_tonemapped = linear_to_srgb(composite_rgb_linear);
     }
+
     var base_srgb: vec3<f32>;
     let is_scene_lut = (adjustments.global.has_lut == 1u && adjustments.global.lut_is_scene_referred == 1u);
 
@@ -1932,8 +2023,6 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     } else {
         base_srgb = default_tonemapped;
     }
-
-    base_srgb = apply_filmic_exposure(base_srgb, t_brightness);
 
     var final_rgb = apply_all_curves(base_srgb,
         adjustments.global.luma_curve, adjustments.global.luma_curve_count,
@@ -1988,10 +2077,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         }
     }
 
-    if (HIGH_PRECISION_OUTPUT == 0u) {
-        let dither_amount = 1.0 / 255.0;
-        final_rgb += dither(id.xy) * dither_amount;
-    }
+    let dither_amount = 1.0 / 255.0;
+    final_rgb += dither(id.xy) * dither_amount;
 
     textureStore(output_texture, id.xy, vec4<f32>(clamp(final_rgb, vec3<f32>(0.0), vec3<f32>(1.0)), original_alpha));
 }

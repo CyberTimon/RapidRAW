@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Pipette, Sliders } from 'lucide-react';
+import { Pipette, Sliders, Target } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import Slider from '../ui/Slider';
@@ -9,6 +9,8 @@ import { Adjustments, ColorGrading } from '../../utils/adjustments';
 import { AppSettings } from '../ui/AppProperties';
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
+import { useShallow } from 'zustand/react/shallow';
+import { useEditorStore } from '../../store/useEditorStore';
 
 interface ColorProps {
   color: string;
@@ -407,6 +409,14 @@ export default function ColorPanel({
   const adjustmentVisibility = appSettings?.adjustmentVisibility || {};
   const isWgpuEnabled = appSettings?.useWgpuRenderer !== false;
 
+  const { isTatActive, tatMode, setEditor } = useEditorStore(
+    useShallow((state) => ({
+      isTatActive: state.isTatActive,
+      tatMode: state.tatMode,
+      setEditor: state.setEditor,
+    })),
+  );
+
   const HSL_COLORS = useMemo<Array<ColorProps>>(
     () => [
       { name: 'reds', color: '#f87171', label: t('adjustments.color.mixerColors.reds') },
@@ -559,10 +569,33 @@ export default function ColorPanel({
         />
       </div>
 
-      <div className="p-1 bg-bg-tertiary rounded-md">
-        <Text variant={TextVariants.heading} className="mb-3">
-          {t('adjustments.color.colorMixer')}
-        </Text>
+      <div className="p-2 bg-bg-tertiary rounded-md">
+        <div className="flex justify-between items-center mb-3">
+          <Text variant={TextVariants.heading}>
+            {t('adjustments.color.colorMixer')}
+          </Text>
+          {!isForMask && (
+            <button
+              type="button"
+              onClick={() => {
+                const isCurrentlyActive = isTatActive && tatMode === 'hsl_sat';
+                setEditor({
+                  isTatActive: !isCurrentlyActive,
+                  tatMode: !isCurrentlyActive ? 'hsl_sat' : null,
+                });
+              }}
+              className={`px-2 py-1 rounded-md text-xs font-semibold flex items-center gap-1 transition-all border cursor-pointer ${
+                isTatActive && tatMode?.startsWith('hsl')
+                  ? 'bg-accent text-white border-accent shadow-sm'
+                  : 'bg-surface/60 text-text-secondary border-surface hover:text-white'
+              }`}
+              title="Targeted Adjustment Tool (Click on image and drag to adjust color saturation/luminance/hue directly on canvas)"
+            >
+              <Target size={13} className={isTatActive && tatMode?.startsWith('hsl') ? 'animate-pulse' : ''} />
+              <span>{isTatActive && tatMode?.startsWith('hsl') ? 'TAT Active' : 'On-Canvas TAT'}</span>
+            </button>
+          )}
+        </div>
         <div className="flex justify-between mb-4 px-1">
           {HSL_COLORS.map(({ name, color, label }) => (
             <ColorSwatch

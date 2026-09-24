@@ -17,7 +17,7 @@ use chrono::{DateTime, Utc};
 use image::codecs::jpeg::JpegEncoder;
 use image::{DynamicImage, GenericImageView, ImageBuffer, Luma};
 use rayon::prelude::*;
-use regex::regex;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sysinfo::Disks;
@@ -100,6 +100,9 @@ fn resolve_image_metadata(
         && sync_metadata_from_xmp(image_path, &mut metadata)
         && let Ok(json) = serde_json::to_string_pretty(&metadata)
     {
+        if let Some(parent) = sidecar_path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
         let _ = fs::write(sidecar_path, json);
     }
 
@@ -400,7 +403,7 @@ pub fn parse_virtual_path(virtual_path: &str) -> (PathBuf, PathBuf) {
                 .file_name()
                 .unwrap_or_default()
                 .to_string_lossy(),
-            id
+            &id
         )
     } else {
         format!(
@@ -412,7 +415,18 @@ pub fn parse_virtual_path(virtual_path: &str) -> (PathBuf, PathBuf) {
         )
     };
 
-    let sidecar_path = source_path.with_file_name(sidecar_filename);
+    let parent = source_path.parent().unwrap_or_else(|| Path::new(""));
+    let subfolder_sidecar = parent.join(".rapidraw").join(&sidecar_filename);
+    let legacy_sidecar = source_path.with_file_name(&sidecar_filename);
+
+    let sidecar_path = if subfolder_sidecar.exists() {
+        subfolder_sidecar
+    } else if legacy_sidecar.exists() {
+        legacy_sidecar
+    } else {
+        subfolder_sidecar
+    };
+
     (source_path, sidecar_path)
 }
 
@@ -435,6 +449,10 @@ pub async fn read_exif_for_paths(
                 crate::exif_processing::read_rrexif_sidecar(&source_path)
             {
                 sidecar_exif
+            } else if let Some(cached_exif) =
+                crate::exif_processing::read_central_cached_exif(&source_path)
+            {
+                cached_exif
             } else if is_cloud_placeholder(&source_path) {
                 HashMap::new()
             } else if let Ok(mmap) = read_file_mapped(&source_path) {
@@ -498,8 +516,12 @@ pub async fn update_exif_fields(
 
             let mut final_metadata = crate::exif_processing::load_sidecar(&primary_path);
 
+            crate::exif_processing::write_central_cached_exif(original_path, &exif_data);
             final_metadata.exif = Some(exif_data);
             if let Ok(json) = serde_json::to_string_pretty(&final_metadata) {
+                if let Some(parent) = primary_path.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
                 let _ = std::fs::write(&primary_path, json);
             }
         });
@@ -572,13 +594,7 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
     let mut images = Vec::new();
     let mut sidecars_by_filename: HashMap<String, Vec<Option<String>>> = HashMap::new();
 
-    for entry in entries.filter_map(Result::ok) {
-        let entry_path = entry.path();
-        let file_name = entry
-            .file_name()
-            .into_string()
-            .unwrap_or_else(|os| os.to_string_lossy().into_owned());
-
+    let mut parse_sidecar_filename = |file_name: &str| {
         if file_name.ends_with(".rrdata") {
             let base = &file_name[..file_name.len() - 7];
 
@@ -594,12 +610,44 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
                     (base, None)
                 };
 
-            sidecars_by_filename
+            let list = sidecars_by_filename
                 .entry(source_filename.to_string())
-                .or_default()
-                .push(copy_id);
+                .or_default();
+            if !list.contains(&copy_id) {
+                list.push(copy_id);
+            }
+        }
+    };
+
+    for entry in entries.filter_map(Result::ok) {
+        let entry_path = entry.path();
+        let file_name = entry
+            .file_name()
+            .into_string()
+            .unwrap_or_else(|os| os.to_string_lossy().into_owned());
+
+        if file_name == ".rapidraw" {
+            continue;
+        }
+
+        if file_name.ends_with(".rrdata") {
+            parse_sidecar_filename(&file_name);
         } else if is_supported_image_file(&file_name) {
             images.push((file_name, entry_path));
+        }
+    }
+
+    // Also scan .rapidraw subfolder if present
+    let subfolder = Path::new(&path).join(".rapidraw");
+    if let Ok(sub_entries) = fs::read_dir(subfolder) {
+        for entry in sub_entries.filter_map(Result::ok) {
+            let file_name = entry
+                .file_name()
+                .into_string()
+                .unwrap_or_else(|os| os.to_string_lossy().into_owned());
+            if file_name.ends_with(".rrdata") {
+                parse_sidecar_filename(&file_name);
+            }
         }
     }
 
@@ -638,7 +686,17 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
                     None => (path_str.clone(), false, format!("{}.rrdata", file_name)),
                 };
 
-                let sidecar_path = path_buf.with_file_name(sidecar_filename);
+                let parent = path_buf.parent().unwrap_or_else(|| Path::new(""));
+                let subfolder_sidecar = parent.join(".rapidraw").join(&sidecar_filename);
+                let legacy_sidecar = path_buf.with_file_name(&sidecar_filename);
+
+                let sidecar_path = if subfolder_sidecar.exists() {
+                    subfolder_sidecar
+                } else if legacy_sidecar.exists() {
+                    legacy_sidecar
+                } else {
+                    subfolder_sidecar
+                };
 
                 let xmp_is_placeholder = enable_xmp_sync
                     && resolve_xmp_path(&path_buf)
@@ -721,13 +779,22 @@ pub fn list_images_recursive(
                 };
 
             if let Some(parent) = entry_path.parent() {
-                sidecars_by_path
-                    .entry(parent.join(source_filename))
-                    .or_default()
-                    .push(copy_id);
+                let target_dir = if parent.file_name().and_then(|n| n.to_str()) == Some(".rapidraw") {
+                    parent.parent().unwrap_or(parent)
+                } else {
+                    parent
+                };
+                let list = sidecars_by_path
+                    .entry(target_dir.join(source_filename))
+                    .or_default();
+                if !list.contains(&copy_id) {
+                    list.push(copy_id);
+                }
             }
         } else if is_supported_image_file(entry_path.to_string_lossy().as_ref()) {
-            images.push(entry_path.to_path_buf());
+            if entry_path.parent().and_then(|p| p.file_name()).and_then(|n| n.to_str()) != Some(".rapidraw") {
+                images.push(entry_path.to_path_buf());
+            }
         }
     }
 
@@ -771,7 +838,17 @@ pub fn list_images_recursive(
                     None => (path_str.clone(), false, format!("{}.rrdata", file_name)),
                 };
 
-                let sidecar_path = path_buf.with_file_name(sidecar_filename);
+                let parent = path_buf.parent().unwrap_or_else(|| Path::new(""));
+                let subfolder_sidecar = parent.join(".rapidraw").join(&sidecar_filename);
+                let legacy_sidecar = path_buf.with_file_name(&sidecar_filename);
+
+                let sidecar_path = if subfolder_sidecar.exists() {
+                    subfolder_sidecar
+                } else if legacy_sidecar.exists() {
+                    legacy_sidecar
+                } else {
+                    subfolder_sidecar
+                };
 
                 let xmp_is_placeholder = enable_xmp_sync
                     && resolve_xmp_path(&path_buf)
@@ -1480,7 +1557,7 @@ pub fn generate_thumbnail_data(
     let always_decode_raw = settings.always_decode_raw_thumbnails.unwrap_or(false);
 
     if is_raw && adjustments.is_null() && preloaded_image.is_none() && !always_decode_raw {
-        let target_res = settings.medium_thumbnail_resolution.unwrap_or(1280);
+        let target_res = settings.small_thumbnail_resolution.unwrap_or(480);
         if let Some(preview) = try_load_embedded_raw_preview(&source_path, target_res) {
             return Ok(preview);
         }
@@ -1490,7 +1567,7 @@ pub fn generate_thumbnail_data(
         && !meta.adjustments.is_null()
     {
         let state = app_handle.state::<AppState>();
-        let target_res = settings.medium_thumbnail_resolution.unwrap_or(1280);
+        let target_res = settings.small_thumbnail_resolution.unwrap_or(480);
 
         let base_cache_hash = crate::cache_utils::calculate_thumbnail_base_hash(&meta.adjustments);
 
@@ -1521,8 +1598,8 @@ pub fn generate_thumbnail_data(
             }
         };
 
-        let (processing_base_arc, total_scale) = if let Some((arc_img, scale)) = cached_base {
-            (arc_img, scale)
+        let (processing_base, total_scale) = if let Some((img, total_scale)) = cached_base {
+            ((*img).clone(), total_scale)
         } else {
             let mut raw_scale_factor = 1.0f32;
 
@@ -1616,20 +1693,15 @@ pub fn generate_thumbnail_data(
             let total_scale = gpu_scale * raw_scale_factor;
 
             let mut cache = state.thumbnail_geometry_cache.lock().unwrap();
-            if cache.len() >= 8 {
-                let key_to_remove = cache.keys().next().cloned();
-                if let Some(key) = key_to_remove {
-                    cache.remove(&key);
-                }
+            if cache.len() > 30 {
+                cache.clear();
             }
-
-            let base_arc = Arc::new(base);
             cache.insert(
                 path_str.to_string(),
-                (base_cache_hash, Arc::clone(&base_arc), total_scale),
+                (base_cache_hash, Arc::new(base.clone()), total_scale),
             );
 
-            (base_arc, total_scale)
+            (base, total_scale)
         };
 
         let rotation_degrees = meta.adjustments["rotation"].as_f64().unwrap_or(0.0) as f32;
@@ -1638,11 +1710,7 @@ pub fn generate_thumbnail_data(
             .unwrap_or(false);
         let flip_vertical = meta.adjustments["flipVertical"].as_bool().unwrap_or(false);
 
-        let flipped_image = apply_flip(
-            Cow::Borrowed(&*processing_base_arc),
-            flip_horizontal,
-            flip_vertical,
-        );
+        let flipped_image = apply_flip(Cow::Owned(processing_base), flip_horizontal, flip_vertical);
         let rotated_image = apply_rotation(flipped_image, rotation_degrees);
 
         let scaled_crop_json = if let Some(c) = &crop_data {
@@ -1753,10 +1821,15 @@ pub fn generate_thumbnail_data(
     };
 
     if adjustments.is_null() {
-        let tm_override = crate::image_processing::resolve_tonemapper_override(&settings, is_raw);
-        let use_agx = tm_override == Some(1);
-
-        if use_agx {
+        let default_tm = if is_raw {
+            settings.default_raw_tonemapper.as_deref().unwrap_or("agx")
+        } else {
+            settings
+                .default_non_raw_tonemapper
+                .as_deref()
+                .unwrap_or("basic")
+        };
+        if default_tm == "agx" {
             if !is_raw {
                 final_image = crate::image_processing::apply_srgb_to_linear(final_image);
             }
@@ -1801,6 +1874,7 @@ fn generate_single_thumbnail_and_cache(
         if let Ok(meta) = serde_json::from_str::<ImageMetadata>(&content) {
             let is_raw = crate::formats::is_raw_file(path_str);
             let tm = crate::image_processing::resolve_tonemapper_override(settings, is_raw);
+
             (
                 meta.rating,
                 crate::image_processing::is_image_edited(&meta.adjustments, is_raw, tm),
@@ -1855,9 +1929,7 @@ fn generate_single_thumbnail_and_cache(
 
 fn prefetch_source_file(path_str: &str) {
     let (source_path, _) = parse_virtual_path(path_str);
-    if let Ok(mut file) = std::fs::File::open(&source_path) {
-        let _ = std::io::copy(&mut file, &mut std::io::sink());
-    }
+    let _ = fs::read(&source_path);
 }
 
 pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
@@ -1869,8 +1941,10 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
     for _ in 0..thread_count {
         let app_clone = app_handle.clone();
         let manager_clone = manager.clone();
+        let worker_settings = settings.clone();
 
         std::thread::spawn(move || {
+            let _priority_guard = crate::stability::BackgroundPriorityGuard::new();
             loop {
                 let path_to_process: String = {
                     let mut queue = manager_clone.queue.lock().unwrap();
@@ -1890,10 +1964,12 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
                 };
 
                 let state = app_clone.state::<crate::AppState>();
+                if crate::stability::check_and_mitigate_memory_pressure(&state) {
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                }
+
                 let gpu_context =
                     crate::gpu_processing::get_or_init_gpu_context(&state, &app_clone).ok();
-
-                let current_settings = load_settings(app_clone.clone()).unwrap_or_default();
 
                 if let Ok(cache_dir) = get_thumb_cache_dir(&app_clone) {
                     if manager_clone.rotational_disk.load(Ordering::Relaxed) {
@@ -1908,7 +1984,7 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
                         None,
                         false,
                         &app_clone,
-                        &current_settings,
+                        &worker_settings,
                     );
 
                     if let Some((small_path, medium_path, rating, is_edited)) = result {
@@ -2081,12 +2157,7 @@ pub fn resolve_lens_params_in_adjustments(
                 let exif_camera_model = exif.get("Model").map(|s| s.as_str()).unwrap_or("");
                 if let Some(db) = lens_db {
                     if let Some((detected_maker, detected_model)) =
-                        crate::lens_correction::find_best_lens_match(
-                            db,
-                            exif_maker,
-                            exif_model,
-                            exif_camera_model,
-                        )
+                        crate::lens_correction::find_best_lens_match(db, exif_maker, exif_model, exif_camera_model)
                     {
                         map.insert(
                             "lensMaker".to_string(),
@@ -2341,21 +2412,24 @@ fn find_all_associated_files(source_image_path: &Path) -> Result<Vec<PathBuf>, S
     let primary_sidecar_name = format!("{}.rrdata", source_filename);
     let virtual_copy_prefix = format!("{}.", source_filename);
 
-    if let Ok(entries) = fs::read_dir(parent_dir) {
-        for entry in entries.filter_map(Result::ok) {
-            let entry_path = entry.path();
-            if !entry_path.is_file() {
-                continue;
-            }
+    let dirs_to_check = [parent_dir.to_path_buf(), parent_dir.join(".rapidraw")];
+    for dir in &dirs_to_check {
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.filter_map(Result::ok) {
+                let entry_path = entry.path();
+                if !entry_path.is_file() {
+                    continue;
+                }
 
-            let entry_os_filename = entry.file_name();
-            let entry_filename = entry_os_filename.to_string_lossy();
+                let entry_os_filename = entry.file_name();
+                let entry_filename = entry_os_filename.to_string_lossy();
 
-            if entry_filename == primary_sidecar_name
-                || (entry_filename.starts_with(&virtual_copy_prefix)
-                    && entry_filename.ends_with(".rrdata"))
-            {
-                associated_files.push(entry_path);
+                if entry_filename == primary_sidecar_name
+                    || (entry_filename.starts_with(&virtual_copy_prefix)
+                        && entry_filename.ends_with(".rrdata"))
+                {
+                    associated_files.push(entry_path);
+                }
             }
         }
     }
@@ -2378,15 +2452,12 @@ pub fn copy_files(source_paths: Vec<String>, destination_folder: String) -> Resu
         .map(|p| parse_virtual_path(p).0)
         .collect();
 
-    let mut operations_to_perform = Vec::new();
-
-    for source_image_path in &unique_source_images {
-        let all_files_to_copy = find_all_associated_files(source_image_path)?;
+    for source_image_path in unique_source_images {
+        let all_files_to_copy = find_all_associated_files(&source_image_path)?;
 
         let source_parent = source_image_path
             .parent()
             .ok_or("Could not get parent directory")?;
-
         if source_parent == dest_path {
             let stem = source_image_path
                 .file_stem()
@@ -2413,33 +2484,19 @@ pub fn copy_files(source_paths: Vec<String>, destination_folder: String) -> Resu
                 let source_base_filename = source_image_path.file_name().unwrap().to_string_lossy();
                 let new_dest_filename =
                     original_full_filename.replacen(&*source_base_filename, &new_filename, 1);
-
                 let final_dest_path = dest_path.join(new_dest_filename);
-                operations_to_perform.push((original_file, final_dest_path));
+
+                fs::copy(&original_file, &final_dest_path).map_err(|e| e.to_string())?;
             }
         } else {
             for file_to_copy in all_files_to_copy {
                 if let Some(file_name) = file_to_copy.file_name() {
                     let dest_file_path = dest_path.join(file_name);
-
-                    if dest_file_path.exists() {
-                        return Err(format!(
-                            "Copy aborted: File already exists at destination: {}",
-                            dest_file_path.display()
-                        ));
-                    }
-
-                    operations_to_perform.push((file_to_copy, dest_file_path));
+                    fs::copy(&file_to_copy, &dest_file_path).map_err(|e| e.to_string())?;
                 }
             }
         }
     }
-
-    for (source, dest) in operations_to_perform {
-        fs::copy(&source, &dest)
-            .map_err(|e| format!("Copy failed for {}: {}", source.display(), e))?;
-    }
-
     Ok(())
 }
 
@@ -2462,32 +2519,35 @@ pub fn move_files(
         .map(|p| parse_virtual_path(p).0)
         .collect();
 
-    let mut operations_to_perform = Vec::new();
+    let mut all_files_to_trash = Vec::new();
     let mut renames = HashMap::new();
 
-    for source_image_path in &unique_source_images {
+    for source_image_path in unique_source_images {
         let source_parent = source_image_path
             .parent()
             .ok_or("Could not get parent directory")?;
-
         if source_parent == dest_path {
             return Err("Cannot move files into the same folder they are already in.".to_string());
         }
 
-        let all_files_to_move = find_all_associated_files(source_image_path)?;
+        let files_to_move = find_all_associated_files(&source_image_path)?;
 
-        for file_to_move in &all_files_to_move {
+        for file_to_move in &files_to_move {
             if let Some(file_name) = file_to_move.file_name() {
                 let dest_file_path = dest_path.join(file_name);
-
                 if dest_file_path.exists() {
                     return Err(format!(
-                        "Move aborted: File already exists at destination: {}",
+                        "File already exists at destination: {}",
                         dest_file_path.display()
                     ));
                 }
+            }
+        }
 
-                operations_to_perform.push((file_to_move.clone(), dest_file_path));
+        for file_to_move in &files_to_move {
+            if let Some(file_name) = file_to_move.file_name() {
+                let dest_file_path = dest_path.join(file_name);
+                fs::copy(file_to_move, &dest_file_path).map_err(|e| e.to_string())?;
             }
         }
 
@@ -2496,20 +2556,32 @@ pub fn move_files(
             source_image_path.to_string_lossy().into_owned(),
             dest_image_path.to_string_lossy().into_owned(),
         );
+
+        all_files_to_trash.extend(files_to_move);
     }
 
-    for (source, dest) in operations_to_perform {
-        if fs::rename(&source, &dest).is_err() {
-            fs::copy(&source, &dest)
-                .map_err(|e| format!("Move failed during copy for {}: {}", source.display(), e))?;
-
-            if let Err(e) = fs::remove_file(&source) {
-                log::warn!(
-                    "Moved file successfully, but failed to delete original {}: {}",
-                    source.display(),
-                    e
-                );
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    if !all_files_to_trash.is_empty()
+        && let Err(trash_error) = trash::delete_all(&all_files_to_trash)
+    {
+        log::warn!(
+            "Failed to move source files to trash: {}. Falling back to permanent delete.",
+            trash_error
+        );
+        for path in all_files_to_trash {
+            if path.is_file() {
+                fs::remove_file(&path).map_err(|e| {
+                    format!("Failed to delete source file {}: {}", path.display(), e)
+                })?;
             }
+        }
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    for path in all_files_to_trash {
+        if path.is_file() {
+            fs::remove_file(&path)
+                .map_err(|e| format!("Failed to delete source file {}: {}", path.display(), e))?;
         }
     }
 
@@ -2527,7 +2599,7 @@ pub fn save_metadata_and_update_thumbnail(
 ) -> Result<(), String> {
     let (source_path, sidecar_path) = parse_virtual_path(&path);
 
-    let mut metadata = crate::exif_processing::load_sidecar_with_exif(&sidecar_path, &source_path);
+    let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
     let mut final_adjustments = adjustments;
     {
@@ -2540,8 +2612,10 @@ pub fn save_metadata_and_update_thumbnail(
     }
 
     metadata.adjustments = final_adjustments;
-
     let json_string = serde_json::to_string_pretty(&metadata).map_err(|e| e.to_string())?;
+    if let Some(parent) = sidecar_path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
     std::fs::write(&sidecar_path, json_string).map_err(|e| e.to_string())?;
 
     if let Ok(settings) = load_settings(app_handle.clone())
@@ -2636,10 +2710,9 @@ pub async fn apply_adjustments_to_paths(
             .clone();
 
         paths.par_iter().for_each(|path| {
-            let (source_path, sidecar_path) = parse_virtual_path(path);
+            let (_, sidecar_path) = parse_virtual_path(path);
 
-            let mut existing_metadata =
-                crate::exif_processing::load_sidecar_with_exif(&sidecar_path, &source_path);
+            let mut existing_metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
             let mut new_adjustments = existing_metadata.adjustments;
             if new_adjustments.is_null() {
@@ -2663,6 +2736,9 @@ pub async fn apply_adjustments_to_paths(
             existing_metadata.adjustments = new_adjustments;
 
             if let Ok(json_string) = serde_json::to_string_pretty(&existing_metadata) {
+                if let Some(parent) = sidecar_path.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
                 let _ = std::fs::write(&sidecar_path, json_string);
             }
 
@@ -2739,6 +2815,9 @@ pub async fn reset_adjustments_for_paths(
             existing_metadata.adjustments = serde_json::json!({});
 
             if let Ok(json_string) = serde_json::to_string_pretty(&existing_metadata) {
+                if let Some(parent) = sidecar_path.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
                 let _ = std::fs::write(&sidecar_path, json_string);
             }
 
@@ -2780,92 +2859,6 @@ pub async fn reset_adjustments_for_paths(
                 emit_thumbnail_generated(
                     &app_handle,
                     path_str,
-                    &small_path,
-                    &medium_path,
-                    rating,
-                    is_edited,
-                );
-            }
-
-            increment_thumbnail_progress(&state, &app_handle);
-        });
-    });
-
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn apply_auto_lens_correction_to_paths(
-    paths: Vec<String>,
-    app_handle: tauri::AppHandle,
-) -> Result<(), String> {
-    let state = app_handle.state::<crate::AppState>();
-    add_to_thumbnail_queue(&state, paths.len(), &app_handle);
-
-    tauri::async_runtime::spawn_blocking(move || {
-        let settings = crate::app_settings::load_settings(app_handle.clone()).unwrap_or_default();
-        let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
-        let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
-
-        let state = app_handle.state::<crate::AppState>();
-        let thumb_cache_dir = match resolve_thumbnail_cache_dir(&app_handle) {
-            Ok(dir) => dir,
-            Err(e) => {
-                log::warn!("Unable to initialize thumbnail cache directory: {}", e);
-                for _ in 0..paths.len() {
-                    increment_thumbnail_progress(&state, &app_handle);
-                }
-                return;
-            }
-        };
-
-        let gpu_context = crate::gpu_processing::get_or_init_gpu_context(&state, &app_handle).ok();
-        let lens_db = state.lens_db.lock().unwrap().clone();
-
-        paths.par_iter().for_each(|path| {
-            let (source_path, sidecar_path) = parse_virtual_path(path);
-            let mut existing_metadata =
-                crate::exif_processing::load_sidecar_with_exif(&sidecar_path, &source_path);
-
-            if existing_metadata.adjustments.is_null() {
-                existing_metadata.adjustments = serde_json::json!({});
-            }
-
-            if let Some(obj) = existing_metadata.adjustments.as_object_mut() {
-                obj.insert("lensCorrectionMode".to_string(), serde_json::json!("auto"));
-                obj.insert("lensDistortionEnabled".to_string(), serde_json::json!(true));
-                obj.insert("lensTcaEnabled".to_string(), serde_json::json!(true));
-                obj.insert("lensVignetteEnabled".to_string(), serde_json::json!(true));
-            }
-
-            resolve_lens_params_in_adjustments(
-                &mut existing_metadata.adjustments,
-                &existing_metadata.exif,
-                lens_db.as_deref(),
-            );
-
-            if let Ok(json_string) = serde_json::to_string_pretty(&existing_metadata) {
-                let _ = std::fs::write(&sidecar_path, json_string);
-            }
-
-            if enable_xmp_sync {
-                sync_metadata_to_xmp(&source_path, &existing_metadata, create_xmp_if_missing);
-            }
-
-            let result = generate_single_thumbnail_and_cache(
-                path,
-                &thumb_cache_dir,
-                gpu_context.as_ref(),
-                None,
-                true,
-                &app_handle,
-                &settings,
-            );
-
-            if let Some((small_path, medium_path, rating, is_edited)) = result {
-                emit_thumbnail_generated(
-                    &app_handle,
-                    path,
                     &small_path,
                     &medium_path,
                     rating,
@@ -2958,6 +2951,9 @@ pub async fn apply_auto_adjustments_to_paths(
                 }
 
                 if let Ok(json_string) = serde_json::to_string_pretty(&existing_metadata) {
+                    if let Some(parent) = sidecar_path.parent() {
+                        let _ = std::fs::create_dir_all(parent);
+                    }
                     let _ = std::fs::write(&sidecar_path, json_string);
                 }
 
@@ -3028,6 +3024,9 @@ pub fn set_color_label_for_paths(
         }
 
         if let Ok(json_string) = serde_json::to_string_pretty(&metadata) {
+            if let Some(parent) = sidecar_path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
             let _ = std::fs::write(&sidecar_path, json_string);
         }
 
@@ -3058,6 +3057,9 @@ pub fn set_rating_for_paths(
         metadata.rating = rating;
 
         if let Ok(json_string) = serde_json::to_string_pretty(&metadata) {
+            if let Some(parent) = sidecar_path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
             let _ = std::fs::write(&sidecar_path, json_string);
         }
 
@@ -3082,6 +3084,9 @@ pub fn load_metadata(path: String, app_handle: AppHandle) -> Result<ImageMetadat
         && sync_metadata_from_xmp(&source_path, &mut metadata)
         && let Ok(json) = serde_json::to_string_pretty(&metadata)
     {
+        if let Some(parent) = sidecar_path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
         let _ = fs::write(&sidecar_path, json);
     }
 
@@ -3106,10 +3111,17 @@ fn get_presets_path(app_handle: &AppHandle) -> Result<std::path::PathBuf, String
 pub fn load_presets(app_handle: AppHandle) -> Result<Vec<PresetItem>, String> {
     let path = get_presets_path(&app_handle)?;
     if !path.exists() {
-        return Ok(Vec::new());
+        let defaults = crate::default_presets::get_default_curated_presets();
+        let _ = save_presets(defaults.clone(), app_handle);
+        return Ok(defaults);
     }
     let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
-    serde_json::from_str(&content).map_err(|e| e.to_string())
+    let mut items: Vec<PresetItem> = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+    if items.is_empty() {
+        items = crate::default_presets::get_default_curated_presets();
+        let _ = save_presets(items.clone(), app_handle);
+    }
+    Ok(items)
 }
 
 #[tauri::command]
@@ -3179,7 +3191,9 @@ fn parse_preset_file(file_path: &str) -> Result<Vec<PresetItem>, String> {
         .map_err(|e| format!("Failed to read legacy preset file: {}", e))?;
 
     let xmp_content = if lower_path.ends_with(".lrtemplate") {
-        if let Some(caps) = regex!(r#"(?s)s.xmp = "(.*)""#).captures(&content) {
+        let re = Regex::new(r#"(?s)s.xmp = "(.*)""#)
+            .map_err(|e| format!("Regex compilation failed: {}", e))?;
+        if let Some(caps) = re.captures(&content) {
             caps.get(1)
                 .map(|m| m.as_str().replace(r#"\""#, r#"""#))
                 .unwrap_or(content)
@@ -3460,6 +3474,7 @@ pub fn show_in_finder(path: String) -> Result<(), String> {
 #[tauri::command]
 pub fn delete_files_from_disk(paths: Vec<String>, app_handle: AppHandle) -> Result<(), String> {
     let mut files_to_trash = HashSet::new();
+
     let mut deletions = HashSet::new();
 
     for path_str in paths {
@@ -3495,7 +3510,6 @@ pub fn delete_files_from_disk(paths: Vec<String>, app_handle: AppHandle) -> Resu
     }
 
     let final_paths_to_delete: Vec<PathBuf> = files_to_trash.into_iter().collect();
-
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     if let Err(trash_error) = trash::delete_all(&final_paths_to_delete) {
         log::warn!(
@@ -3504,13 +3518,11 @@ pub fn delete_files_from_disk(paths: Vec<String>, app_handle: AppHandle) -> Resu
         );
         for path in final_paths_to_delete {
             if path.is_file() {
-                if let Err(e) = fs::remove_file(&path) {
-                    log::warn!("Failed to delete file {}: {}", path.display(), e);
-                }
-            } else if path.is_dir()
-                && let Err(e) = fs::remove_dir_all(&path)
-            {
-                log::warn!("Failed to delete directory {}: {}", path.display(), e);
+                fs::remove_file(&path)
+                    .map_err(|e| format!("Failed to delete file {}: {}", path.display(), e))?;
+            } else if path.is_dir() {
+                fs::remove_dir_all(&path)
+                    .map_err(|e| format!("Failed to delete directory {}: {}", path.display(), e))?;
             }
         }
     }
@@ -3518,13 +3530,11 @@ pub fn delete_files_from_disk(paths: Vec<String>, app_handle: AppHandle) -> Resu
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     for path in final_paths_to_delete {
         if path.is_file() {
-            if let Err(e) = fs::remove_file(&path) {
-                log::warn!("Failed to delete file {}: {}", path.display(), e);
-            }
+            fs::remove_file(&path)
+                .map_err(|e| format!("Failed to delete file {}: {}", path.display(), e))?;
         } else if path.is_dir() {
-            if let Err(e) = fs::remove_dir_all(&path) {
-                log::warn!("Failed to delete directory {}: {}", path.display(), e);
-            }
+            fs::remove_dir_all(&path)
+                .map_err(|e| format!("Failed to delete directory {}: {}", path.display(), e))?;
         }
     }
 
@@ -3613,7 +3623,6 @@ pub fn delete_files_with_associated(
     }
 
     let final_paths_to_delete: Vec<PathBuf> = files_to_trash.into_iter().collect();
-
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     if let Err(trash_error) = trash::delete_all(&final_paths_to_delete) {
         log::warn!(
@@ -3621,10 +3630,9 @@ pub fn delete_files_with_associated(
             trash_error
         );
         for path in final_paths_to_delete {
-            if path.is_file()
-                && let Err(e) = fs::remove_file(&path)
-            {
-                log::warn!("Failed to delete file {}: {}", path.display(), e);
+            if path.is_file() {
+                fs::remove_file(&path)
+                    .map_err(|e| format!("Failed to delete file {}: {}", path.display(), e))?;
             }
         }
     }
@@ -3632,9 +3640,8 @@ pub fn delete_files_with_associated(
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     for path in final_paths_to_delete {
         if path.is_file() {
-            if let Err(e) = fs::remove_file(&path) {
-                log::warn!("Failed to delete file {}: {}", path.display(), e);
-            }
+            fs::remove_file(&path)
+                .map_err(|e| format!("Failed to delete file {}: {}", path.display(), e))?;
         }
     }
 
@@ -3896,7 +3903,7 @@ pub async fn import_files(
             if let Err(e) = import_result {
                 eprintln!("Failed to import {}: {}", source_path_str, e);
                 let _ = app_handle.emit("import-error", e);
-                continue;
+                return;
             }
         }
 
@@ -3930,10 +3937,16 @@ pub fn generate_filename_from_template(
 
     let mut result = template.to_string();
     result = result.replace("{original_filename}", stem);
+    result = result.replace("{filename}", stem);
     result = result.replace("{sequence}", &sequence_str);
+    result = result.replace("{seq}", &sequence_str);
     result = result.replace("{YYYY}", &local_date.format("%Y").to_string());
+    result = result.replace("{year}", &local_date.format("%Y").to_string());
     result = result.replace("{MM}", &local_date.format("%m").to_string());
+    result = result.replace("{month}", &local_date.format("%m").to_string());
     result = result.replace("{DD}", &local_date.format("%d").to_string());
+    result = result.replace("{day}", &local_date.format("%d").to_string());
+    result = result.replace("{date}", &local_date.format("%Y-%m-%d").to_string());
     result = result.replace("{hh}", &local_date.format("%H").to_string());
     result = result.replace("{mm}", &local_date.format("%M").to_string());
 
@@ -3950,7 +3963,7 @@ pub fn rename_files(
         return Ok(Vec::new());
     }
 
-    let mut operations: Vec<(PathBuf, PathBuf)> = Vec::new();
+    let mut operations: HashMap<PathBuf, PathBuf> = HashMap::new();
     let mut final_new_paths = Vec::with_capacity(paths.len());
     let mut renames = HashMap::new();
 
@@ -3987,10 +4000,10 @@ pub fn rename_files(
             ));
         }
 
-        operations.push((original_path, new_path));
+        operations.insert(original_path, new_path);
     }
 
-    let mut sidecar_operations: Vec<(PathBuf, PathBuf)> = Vec::new();
+    let mut sidecar_operations: HashMap<PathBuf, PathBuf> = HashMap::new();
     for (original_path, new_path) in &operations {
         let parent = original_path
             .parent()
@@ -3998,52 +4011,52 @@ pub fn rename_files(
         let original_filename_str = original_path.file_name().unwrap().to_string_lossy();
         let new_filename_str = new_path.file_name().unwrap().to_string_lossy();
 
-        if let Ok(entries) = fs::read_dir(parent) {
-            for entry in entries.filter_map(Result::ok) {
-                let entry_path = entry.path();
-                let entry_os_filename = entry.file_name();
-                let entry_filename = entry_os_filename.to_string_lossy();
+        let dirs_to_check = [parent.to_path_buf(), parent.join(".rapidraw")];
+        for dir in &dirs_to_check {
+            if let Ok(entries) = fs::read_dir(dir) {
+                for entry in entries.filter_map(Result::ok) {
+                    let entry_path = entry.path();
+                    let entry_os_filename = entry.file_name();
+                    let entry_filename = entry_os_filename.to_string_lossy();
 
-                if entry_filename.starts_with(&format!("{}.", original_filename_str))
-                    && entry_filename.ends_with(".rrdata")
-                {
-                    let new_sidecar_filename =
-                        entry_filename.replacen(&*original_filename_str, &new_filename_str, 1);
-                    let new_sidecar_path = parent.join(new_sidecar_filename);
-                    sidecar_operations.push((entry_path, new_sidecar_path));
-                } else if entry_filename == format!("{}.rrdata", original_filename_str) {
-                    let mut new_sidecar_name = new_path.file_name().unwrap().to_os_string();
-                    new_sidecar_name.push(".rrdata");
-                    let new_sidecar_path = new_path.with_file_name(new_sidecar_name);
+                    if entry_filename.starts_with(&format!("{}.", original_filename_str))
+                        && entry_filename.ends_with(".rrdata")
+                    {
+                        let new_sidecar_filename =
+                            entry_filename.replacen(&*original_filename_str, &new_filename_str, 1);
+                        let new_sidecar_path = dir.join(new_sidecar_filename);
+                        sidecar_operations.insert(entry_path, new_sidecar_path);
+                    } else if entry_filename == format!("{}.rrdata", original_filename_str) {
+                        let mut new_sidecar_name = new_path.file_name().unwrap().to_os_string();
+                        new_sidecar_name.push(".rrdata");
+                        let new_sidecar_path = dir.join(new_sidecar_name);
 
-                    sidecar_operations.push((entry_path, new_sidecar_path));
+                        sidecar_operations.insert(entry_path, new_sidecar_path);
+                    } else if entry_filename == format!("{}.rrexif", original_filename_str) {
+                        let mut new_rrexif_name = new_path.file_name().unwrap().to_os_string();
+                        new_rrexif_name.push(".rrexif");
+                        let new_rrexif_path = dir.join(new_rrexif_name);
+
+                        sidecar_operations.insert(entry_path, new_rrexif_path);
+                    }
                 }
             }
-        }
-
-        let mut old_rrexif_name = original_path.file_name().unwrap().to_os_string();
-        old_rrexif_name.push(".rrexif");
-        let old_rrexif = original_path.with_file_name(old_rrexif_name);
-
-        if old_rrexif.exists() {
-            let mut new_rrexif_name = new_path.file_name().unwrap().to_os_string();
-            new_rrexif_name.push(".rrexif");
-            let new_rrexif = new_path.with_file_name(new_rrexif_name);
-            sidecar_operations.push((old_rrexif, new_rrexif));
         }
     }
     operations.extend(sidecar_operations);
 
     for (old_path, new_path) in operations {
-        if let Err(e) = fs::rename(&old_path, &new_path) {
-            log::warn!(
+        if let Some(parent) = new_path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        fs::rename(&old_path, &new_path).map_err(|e| {
+            format!(
                 "Failed to rename {} to {}: {}",
                 old_path.display(),
                 new_path.display(),
                 e
-            );
-            continue;
-        }
+            )
+        })?;
 
         let old_str = old_path.to_string_lossy().into_owned();
         let new_str = new_path.to_string_lossy().into_owned();
@@ -4235,8 +4248,8 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
         && let Ok(mut content) = fs::read_to_string(&xmp_file)
     {
         let rating_str = metadata.rating.to_string();
-        let re_rating_attr = regex!(r#"xmp:Rating\s*=\s*"[^"]*""#);
-        let re_rating_tag = regex!(r#"<xmp:Rating\s*>[^<]*</xmp:Rating>"#);
+        let re_rating_attr = Regex::new(r#"xmp:Rating\s*=\s*"[^"]*""#).unwrap();
+        let re_rating_tag = Regex::new(r#"<xmp:Rating\s*>[^<]*</xmp:Rating>"#).unwrap();
 
         if re_rating_attr.is_match(&content) {
             content = re_rating_attr
@@ -4269,8 +4282,8 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
         }
 
         if let Some(lbl) = label {
-            let re_label_attr = regex!(r#"xmp:Label\s*=\s*"[^"]*""#);
-            let re_label_tag = regex!(r#"<xmp:Label\s*>[^<]*</xmp:Label>"#);
+            let re_label_attr = Regex::new(r#"xmp:Label\s*=\s*"[^"]*""#).unwrap();
+            let re_label_tag = Regex::new(r#"<xmp:Label\s*>[^<]*</xmp:Label>"#).unwrap();
 
             if re_label_attr.is_match(&content) {
                 content = re_label_attr
@@ -4285,13 +4298,14 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
                 content = format!("{} <xmp:Label>{}</xmp:Label>\n{}", start, lbl, end);
             }
         } else {
-            let re_label_attr = regex!(r#"\s*xmp:Label\s*=\s*"[^"]*""#);
-            let re_label_tag = regex!(r#"\s*<xmp:Label\s*>[^<]*</xmp:Label>"#);
+            let re_label_attr = Regex::new(r#"\s*xmp:Label\s*=\s*"[^"]*""#).unwrap();
+            let re_label_tag = Regex::new(r#"\s*<xmp:Label\s*>[^<]*</xmp:Label>"#).unwrap();
             content = re_label_attr.replace_all(&content, "").to_string();
             content = re_label_tag.replace_all(&content, "").to_string();
         }
 
-        let re_subject = regex!(r#"(?s)<dc:subject>\s*<rdf:Bag>.*?</rdf:Bag>\s*</dc:subject>"#);
+        let re_subject =
+            Regex::new(r#"(?s)<dc:subject>\s*<rdf:Bag>.*?</rdf:Bag>\s*</dc:subject>"#).unwrap();
         if normal_tags.is_empty() {
             content = re_subject.replace_all(&content, "").to_string();
         } else {

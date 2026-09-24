@@ -24,7 +24,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import clsx from 'clsx';
-import { Show, SignIn, useUser, useAuth, useClerk } from '@clerk/react';
+import { Show, SignIn, useUser, useAuth, useClerk } from '../../context/AuthContext';
 import Button from '../ui/Button';
 import ConfirmModal from '../modals/ConfirmModal';
 import Dropdown, { OptionItem } from '../ui/Dropdown';
@@ -595,6 +595,7 @@ export default function SettingsPanel({
     () => [
       { value: 'agx', label: t('settings.processing.preprocessing.tonemapperOptions.agx') },
       { value: 'basic', label: t('settings.processing.preprocessing.tonemapperOptions.basic') },
+      { value: 'oklab', label: t('settings.processing.preprocessing.tonemapperOptions.oklab') },
     ],
     [t],
   );
@@ -892,7 +893,7 @@ export default function SettingsPanel({
   };
 
   const shortcutTagVariants = {
-    visible: { opacity: 1, scale: 1, transition: { type: 'spring', stiffness: 500, damping: 30 } },
+    visible: { opacity: 1, scale: 1, transition: { type: 'spring' as const, stiffness: 500, damping: 30 } },
     exit: { opacity: 0, scale: 0.8, transition: { duration: 0.15 } },
   };
 

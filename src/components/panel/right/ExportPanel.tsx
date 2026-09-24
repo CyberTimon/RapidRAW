@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { save, open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
-import { FileInput, CheckCircle, XCircle, Loader, Ban, ChevronDown, ChevronRight, Settings, X } from 'lucide-react';
+import { FileInput, CheckCircle, XCircle, Loader, Ban, ChevronDown, ChevronRight, Settings, X, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import debounce from 'lodash.debounce';
@@ -451,6 +451,8 @@ export default function ExportPanel({
 
   const [estimatedSize, setEstimatedSize] = useState<number | null>(null);
   const [isEstimating, setIsEstimating] = useState<boolean>(false);
+  const [isUpscaling, setIsUpscaling] = useState<boolean>(false);
+  const [upscaleMsg, setUpscaleMsg] = useState<string | null>(null);
   const [watermarkImageAspectRatio, setWatermarkImageAspectRatio] = useState(1);
   const [imageAspectRatio, setImageAspectRatio] = useState(16 / 9);
   const filenameInputRef = useRef<HTMLInputElement>(null);
@@ -458,6 +460,27 @@ export default function ExportPanel({
   const isAndroid = osPlatform === 'android';
   const activePanels = useUIStore((state) => state.activePanels);
   const isPanelReallyActive = Object.values(activePanels).includes(Panel.Export);
+
+  const handleSuperResolution = async (factor: number) => {
+    try {
+      setIsUpscaling(true);
+      setUpscaleMsg(null);
+      const res: any = await invoke('upscale_active_image', {
+        scaleFactor: factor,
+        textureEnhancement: 0.35,
+        noiseSuppression: 0.15,
+      });
+      if (res && res.newWidth) {
+        setUpscaleMsg(`Upscaled to ${res.newWidth}x${res.newHeight} (${res.processingTimeMs}ms)`);
+      }
+      setTimeout(() => setUpscaleMsg(null), 5000);
+    } catch (e: any) {
+      console.error('Super-resolution error:', e);
+      setUpscaleMsg(`Error: ${e?.toString() || 'Upscale failed'}`);
+    } finally {
+      setIsUpscaling(false);
+    }
+  };
 
   const { status, progress, errorMessage } = exportState;
   const isExporting = [Status.Exporting, Status.Cancelling].includes(status);
@@ -1032,6 +1055,34 @@ export default function ExportPanel({
                       />
                     </div>
                   )}
+                </Section>
+
+                <Section title="AI Super-Resolution & Upscale">
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleSuperResolution(2)}
+                        disabled={isUpscaling || isExporting}
+                        className="flex-1 py-1.5 px-3 rounded-md bg-surface hover:bg-surface-secondary text-xs font-medium border border-border-color/50 text-text-primary hover:text-accent transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {isUpscaling ? <Loader size={13} className="animate-spin text-accent" /> : <Sparkles size={13} className="text-accent" />}
+                        <span>AI 2x Upscale</span>
+                      </button>
+                      <button
+                        onClick={() => handleSuperResolution(4)}
+                        disabled={isUpscaling || isExporting}
+                        className="flex-1 py-1.5 px-3 rounded-md bg-surface hover:bg-surface-secondary text-xs font-medium border border-border-color/50 text-text-primary hover:text-accent transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {isUpscaling ? <Loader size={13} className="animate-spin text-accent" /> : <Sparkles size={13} className="text-accent" />}
+                        <span>AI 4x Upscale</span>
+                      </button>
+                    </div>
+                    {upscaleMsg && (
+                      <Text variant={TextVariants.small} className="text-green-400">
+                        {upscaleMsg}
+                      </Text>
+                    )}
+                  </div>
                 </Section>
 
                 {fileFormat == FileFormats.Jpeg && (

@@ -29,5 +29,28 @@ export default defineConfig(async () => ({
   build: {
     minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('framer-motion') || id.includes('zustand')) {
+              return 'vendor-react';
+            }
+            if (id.includes('konva') || id.includes('react-image-crop')) {
+              return 'vendor-canvas';
+            }
+            if (id.includes('lucide-react')) {
+              return 'vendor-icons';
+            }
+            if (id.includes('simple-icons')) {
+              return 'vendor-icons-community';
+            }
+            if (id.includes('i18next')) {
+              return 'vendor-i18n';
+            }
+          }
+        },
+      },
+    },
   },
 }));

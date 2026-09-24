@@ -82,7 +82,7 @@ function PanelTab({ panel, region, side }: { panel: Panel; region: PanelRegion; 
         isDragging && 'opacity-30',
       )}
       onClick={handleClick}
-      data-tooltip={t(PANEL_TITLES[panel])}
+      data-tooltip={String((t as any)(PANEL_TITLES[panel]))}
       style={{ touchAction: 'none' }}
     >
       {isActive && (

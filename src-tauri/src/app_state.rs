@@ -108,6 +108,7 @@ pub struct LoadedImage {
     pub path: String,
     pub image: Arc<DynamicImage>,
     pub is_raw: bool,
+    pub screen_proxy: Option<Arc<DynamicImage>>,
 }
 
 #[derive(Clone)]
@@ -223,7 +224,10 @@ pub struct AppState {
     pub active_ai_tasks: Mutex<HashMap<String, Arc<AiTaskToken>>>,
     pub export_task_token: Arc<Mutex<Option<Arc<AtomicBool>>>>,
     pub hdr_result: Arc<Mutex<Option<DynamicImage>>>,
+    pub hdr_linear_radiance: Arc<Mutex<Option<image::Rgb32FImage>>>,
     pub panorama_result: Arc<Mutex<Option<DynamicImage>>>,
+    pub panorama_linear_radiance: Arc<Mutex<Option<image::Rgb32FImage>>>,
+    pub panorama_metadata: Arc<Mutex<Option<(crate::panorama_utils::stitching::PanoramaProjection, f32)>>>,
     pub focus_stack_result: Arc<Mutex<Option<DynamicImage>>>,
     pub denoise_result: Arc<Mutex<Option<DynamicImage>>>,
     pub indexing_task_handle: Mutex<Option<JoinHandle<()>>>,
@@ -231,6 +235,7 @@ pub struct AppState {
     pub initial_file_path: Mutex<Option<String>>,
     pub pending_edit_session: Mutex<Option<ExternalEditSession>>,
     pub thumbnail_cancellation_token: Arc<AtomicBool>,
+    pub panorama_cancellation_token: Arc<AtomicBool>,
     pub thumbnail_progress: Mutex<ThumbnailProgressTracker>,
     pub preview_worker_tx: Mutex<Option<Sender<PreviewJob>>>,
     pub analytics_worker_tx: Mutex<Option<Sender<AnalyticsJob>>>,
