@@ -735,7 +735,7 @@ fn apply_hsl_panel(color: vec3<f32>, hsl_adjustments: array<HslColor, 8>, coords
     if (distance(safe_color.r, safe_color.g) < 0.001 && distance(safe_color.g, safe_color.b) < 0.001) {
         return safe_color;
     }
-    let original_hsv = rgb_to_hsv(safe_color);
+    let original_hsv = rgb_to_hsv(linear_to_srgb_extended(safe_color));
     let original_luma = get_luma(safe_color);
 
     let saturation_mask = smoothstep(0.05, 0.20, original_hsv.y);
@@ -778,7 +778,7 @@ fn apply_hsl_panel(color: vec3<f32>, hsl_adjustments: array<HslColor, 8>, coords
     var hsv = original_hsv;
     hsv.x = (hsv.x + total_hue_shift + 360.0) % 360.0;
     hsv.y = clamp(hsv.y * (1.0 + total_sat_multiplier), 0.0, 1.0);
-    let hs_shifted_rgb = hsv_to_rgb(vec3<f32>(hsv.x, hsv.y, original_hsv.z));
+    let hs_shifted_rgb = srgb_to_linear(hsv_to_rgb(vec3<f32>(hsv.x, hsv.y, original_hsv.z)));
     let new_luma = get_luma(hs_shifted_rgb);
     let target_luma = original_luma * (1.0 + total_lum_adjust);
     if (new_luma < 0.0001) {
