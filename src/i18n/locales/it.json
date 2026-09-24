@@ -1520,6 +1520,12 @@
     }
   },
   "settings": {
+    "search": {
+      "clear": "Cancella ricerca",
+      "noResults": "Nessuna impostazione trovata.",
+      "placeholder": "Cerca nelle impostazioni…",
+      "results": "Risultati della ricerca"
+    },
     "adjustments": {
       "chromaticAberration": "Aberrazione Cromatica",
       "colorCalibration": "Calibrazione Colore",
