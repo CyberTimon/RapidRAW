@@ -11,8 +11,10 @@ import {
   ADJUSTMENT_SECTIONS,
   ADJUSTMENT_SECTION_TOOLS,
   AdjustmentSectionTool,
+  DEFAULT_HIDDEN_ADJUSTMENT_TOOLS,
   getAdjustmentSectionOrder,
   getAdjustmentToolOrder,
+  getHiddenAdjustmentTools,
   withAdjustmentLayout,
 } from '../../../utils/adjustments';
 
@@ -217,7 +219,7 @@ function AdjustmentSectionsSubMenu() {
     [layout?.toolOrder],
   );
   const hiddenSections = layout?.hiddenSections ?? [];
-  const hiddenTools = layout?.hiddenTools ?? [];
+  const hiddenTools = getHiddenAdjustmentTools(layout);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   const updateLayout = (changes: Partial<AdjustmentLayout>) => {
@@ -243,7 +245,7 @@ function AdjustmentSectionsSubMenu() {
   };
 
   const handleReset = () => {
-    updateLayout({ hiddenSections: [], hiddenTools: [], sectionOrder: [], toolOrder: {} });
+    updateLayout({ hiddenSections: [], hiddenTools: undefined, sectionOrder: [], toolOrder: {} });
   };
 
   const visibleCount = sections.order.filter((section) => !hiddenSections.includes(section)).length;
@@ -253,7 +255,7 @@ function AdjustmentSectionsSubMenu() {
     Object.entries(savedToolOrder).every(
       ([section, order]) => order.join() === getAdjustmentToolOrder(section).join(),
     ) &&
-    hiddenTools.length === 0;
+    [...hiddenTools].sort().join() === [...DEFAULT_HIDDEN_ADJUSTMENT_TOOLS].sort().join();
 
   return (
     <div

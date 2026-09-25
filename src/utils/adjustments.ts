@@ -966,6 +966,11 @@ export const getAdjustmentSectionOrder = (order?: string[]): string[] =>
 export const getVisibleAdjustmentSections = (layout?: AdjustmentLayout): string[] =>
   getAdjustmentSectionOrder(layout?.sectionOrder).filter((section) => !layout?.hiddenSections?.includes(section));
 
+export const DEFAULT_HIDDEN_ADJUSTMENT_TOOLS = ['chromaticAberration', 'colorCalibration'];
+
+export const getHiddenAdjustmentTools = (layout?: AdjustmentLayout): string[] =>
+  layout?.hiddenTools ?? DEFAULT_HIDDEN_ADJUSTMENT_TOOLS;
+
 export const withAdjustmentLayout = (settings: AppSettings, changes: Partial<AdjustmentLayout>): AppSettings => ({
   ...settings,
   adjustmentLayout: { ...settings.adjustmentLayout, ...changes },
