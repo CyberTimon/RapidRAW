@@ -520,6 +520,7 @@ export default function SettingsPanel({
     rawHighlightCompression: appSettings?.rawHighlightCompression ?? 2.5,
     processingBackend: appSettings?.processingBackend || 'auto',
     linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
+    enableGlobalMenu: appSettings?.enableGlobalMenu ?? false,
     highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
     useFullDpiRendering: appSettings?.useFullDpiRendering ?? false,
     useWgpuRenderer:
@@ -630,6 +631,7 @@ export default function SettingsPanel({
       rawHighlightCompression: appSettings?.rawHighlightCompression ?? 2.5,
       processingBackend: appSettings?.processingBackend || 'auto',
       linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
+      enableGlobalMenu: appSettings?.enableGlobalMenu ?? false,
       highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
       useFullDpiRendering: appSettings?.useFullDpiRendering ?? false,
       useWgpuRenderer: appSettings?.useWgpuRenderer ?? true,
@@ -668,6 +670,7 @@ export default function SettingsPanel({
     if (
       key === 'processingBackend' ||
       key === 'linuxGpuOptimization' ||
+      key === 'enableGlobalMenu' ||
       key === 'useWgpuRenderer' ||
       key === 'thumbnailWorkerThreads'
     ) {
@@ -1950,6 +1953,20 @@ export default function SettingsPanel({
                             id="gpu-compat-toggle"
                             label={t('settings.processing.linuxCompatLabel')}
                             onChange={(checked) => handleProcessingSettingChange('linuxGpuOptimization', checked)}
+                          />
+                        </SettingItem>
+                      )}
+
+                      {osPlatform === 'linux' && (
+                        <SettingItem
+                          label={t('settings.processing.globalMenu')}
+                          description={t('settings.processing.globalMenuDesc')}
+                        >
+                          <Switch
+                            checked={processingSettings.enableGlobalMenu}
+                            id="global-menu-toggle"
+                            label={t('settings.processing.globalMenuLabel')}
+                            onChange={(checked) => handleProcessingSettingChange('enableGlobalMenu', checked)}
                           />
                         </SettingItem>
                       )}
