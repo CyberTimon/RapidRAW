@@ -215,19 +215,31 @@ function isDefaultParametricCurve(settings: ParametricCurveSettings | undefined)
   );
 }
 
-function getSplitterGradient(channel: ActiveChannel) {
+function getSplitterGradient(channel: ActiveChannel, direction = 'to right') {
   switch (channel) {
     case ActiveChannel.Luma:
-      return 'linear-gradient(to right, rgba(0, 0, 0, 0.8) 0%, rgba(64, 64, 64, 0.8) 25%, rgba(105, 101, 101, 0.8) 50%, rgba(158, 154, 154, 0.8) 75%, rgba(198, 195, 197, 0.8) 100%)';
+      return `linear-gradient(${direction}, rgba(0, 0, 0, 0.8) 0%, rgba(64, 64, 64, 0.8) 25%, rgba(105, 101, 101, 0.8) 50%, rgba(158, 154, 154, 0.8) 75%, rgba(198, 195, 197, 0.8) 100%)`;
     case ActiveChannel.Red:
-      return 'linear-gradient(to right, rgba(0, 0, 0, 0.8) 0%, rgba(64, 0, 0, 0.8) 25%, rgba(105, 50, 50, 0.8) 50%, rgba(158, 100, 100, 0.8) 75%, rgba(255, 107, 107, 0.8) 100%)';
+      return `linear-gradient(${direction}, rgba(0, 0, 0, 0.8) 0%, rgba(64, 0, 0, 0.8) 25%, rgba(105, 50, 50, 0.8) 50%, rgba(158, 100, 100, 0.8) 75%, rgba(255, 107, 107, 0.8) 100%)`;
     case ActiveChannel.Green:
-      return 'linear-gradient(to right, rgba(0, 0, 0, 0.8) 0%, rgba(0, 64, 0, 0.8) 25%, rgba(50, 105, 50, 0.8) 50%, rgba(100, 158, 100, 0.8) 75%, rgba(107, 203, 119, 0.8) 100%)';
+      return `linear-gradient(${direction}, rgba(0, 0, 0, 0.8) 0%, rgba(0, 64, 0, 0.8) 25%, rgba(50, 105, 50, 0.8) 50%, rgba(100, 158, 100, 0.8) 75%, rgba(107, 203, 119, 0.8) 100%)`;
     case ActiveChannel.Blue:
-      return 'linear-gradient(to right, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 64, 0.8) 25%, rgba(50, 50, 105, 0.8) 50%, rgba(100, 100, 158, 0.8) 75%, rgba(77, 150, 255, 0.8) 100%)';
+      return `linear-gradient(${direction}, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 64, 0.8) 25%, rgba(50, 50, 105, 0.8) 50%, rgba(100, 100, 158, 0.8) 75%, rgba(77, 150, 255, 0.8) 100%)`;
     default:
-      return 'linear-gradient(to right, rgba(0, 0, 0, 0.8) 0%, rgba(64, 64, 64, 0.8) 25%, rgba(105, 101, 101, 0.8) 50%, rgba(158, 154, 154, 0.8) 75%, rgba(198, 195, 197, 0.8) 100%)';
+      return `linear-gradient(${direction}, rgba(0, 0, 0, 0.8) 0%, rgba(64, 64, 64, 0.8) 25%, rgba(105, 101, 101, 0.8) 50%, rgba(158, 154, 154, 0.8) 75%, rgba(198, 195, 197, 0.8) 100%)`;
   }
+}
+
+const OUTPUT_AXIS_COMPLEMENTS: Record<string, string> = {
+  red: '#6BE5E5',
+  green: '#E06BD6',
+  blue: '#FFD84D',
+};
+
+function getOutputAxisGradient(channel: ActiveChannel, color: string) {
+  const complement = OUTPUT_AXIS_COMPLEMENTS[channel];
+  if (!complement) return getSplitterGradient(channel, 'to top');
+  return `linear-gradient(to top, ${complement}CC 0%, ${color}CC 100%)`;
 }
 
 function convertParametricToPoints(settings: ParametricCurveSettings): Array<Coord> {
@@ -457,7 +469,9 @@ export default function CurveGraph({
     [histogram],
   );
 
-  const activePoints = isParametricMode
+  const inactiveChannels = Object.keys(channelConfig).filter((channel) => channel !== activeChannel);
+
+  const activePoints: Array<Coord> = isParametricMode
     ? buildParametricPoints(activeParametricSettings)
     : (localPoints ?? adjustments?.curves?.[activeChannel]);
 
@@ -598,12 +612,9 @@ export default function CurveGraph({
         });
       };
 
-      const areOtherParametricCurvesDirty = [
-        ActiveChannel.Luma,
-        ActiveChannel.Red,
-        ActiveChannel.Green,
-        ActiveChannel.Blue,
-      ].some((channel) => channel !== activeChannel && !isDefaultParametricCurve(parametricCurves[channel]));
+      const areOtherParametricCurvesDirty = inactiveChannels.some(
+        (channel) => !isDefaultParametricCurve(parametricCurves[channel]),
+      );
 
       const options = [
         {
@@ -685,12 +696,7 @@ export default function CurveGraph({
       }));
     };
 
-    const areOtherPointCurvesDirty = [
-      ActiveChannel.Luma,
-      ActiveChannel.Red,
-      ActiveChannel.Green,
-      ActiveChannel.Blue,
-    ].some((channel) => channel !== activeChannel && !isDefaultCurve(adjustments.curves?.[channel]));
+    const areOtherPointCurvesDirty = inactiveChannels.some((channel) => !isDefaultCurve(adjustments.curves?.[channel]));
 
     const options = [
       {
@@ -738,6 +744,11 @@ export default function CurveGraph({
     [activeParametricSettings.split1, activeParametricSettings.split2, activeParametricSettings.split3],
   );
 
+  const getParametricMarkers = (key: keyof ParametricCurveSettings) =>
+    inactiveChannels
+      .filter((channel) => parametricCurves[channel]?.[key] !== DEFAULT_PARAMETRIC_CURVE_SETTINGS[key])
+      .map((channel) => ({ channel, color: channelConfig[channel].color, value: parametricCurves[channel][key] }));
+
   if (!activePoints) {
     return (
       <Text
@@ -777,7 +788,7 @@ export default function CurveGraph({
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
-          {Object.keys(channelConfig).map((channel: any) => {
+          {(Object.keys(channelConfig) as Array<ActiveChannel>).map((channel) => {
             const selected = activeChannel === channel;
             const channelLabel = t(`adjustments.curves.channels.${channel}`);
             return (
@@ -786,7 +797,7 @@ export default function CurveGraph({
                 className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
                   selected ? 'ring-2 ring-offset-2 ring-offset-surface ring-accent' : 'bg-surface-secondary'
                 } ${channel === ActiveChannel.Luma ? 'text-text-primary' : ''}`}
-                onClick={() => setActiveChannel(channel as ActiveChannel)}
+                onClick={() => setActiveChannel(channel)}
                 type="button"
                 style={{
                   backgroundColor:
@@ -803,7 +814,8 @@ export default function CurveGraph({
         </div>
       </div>
 
-      <div className="relative">
+      <div className="relative grid grid-cols-[auto_1fr] gap-1.5">
+        <div className="w-1.5 my-1 rounded-full" style={{ background: getOutputAxisGradient(activeChannel, color) }} />
         <div
           className="w-full aspect-square bg-surface-secondary p-1 rounded-md relative touch-none"
           onMouseDown={handleContainerStart}
@@ -856,6 +868,24 @@ export default function CurveGraph({
                 return <line key={key} x1={x} y1="0" x2={x} y2="255" stroke="rgba(255,255,255,0.12)" strokeWidth="1" />;
               })}
 
+            {inactiveChannels
+              .filter((channel) =>
+                isParametricMode
+                  ? !isDefaultParametricCurve(parametricCurves[channel])
+                  : !isDefaultCurve(adjustments.curves?.[channel]),
+              )
+              .map((channel) => (
+                <path
+                  d={getCurvePath(adjustments.curves[channel])}
+                  fill="none"
+                  key={channel}
+                  pointerEvents="none"
+                  stroke={channelConfig[channel].color}
+                  strokeOpacity={0.5}
+                  strokeWidth="1.5"
+                />
+              ))}
+
             <path d={getCurvePath(activePoints)} fill="none" stroke={color} strokeWidth="2.5" />
 
             {isParametricMode && activePoints.length >= 2 && (
@@ -897,6 +927,10 @@ export default function CurveGraph({
               ))}
           </svg>
         </div>
+        <div
+          className="col-start-2 h-1.5 mx-1 rounded-full"
+          style={{ background: getSplitterGradient(activeChannel) }}
+        />
       </div>
 
       <AnimatePresence initial={false}>
@@ -918,6 +952,15 @@ export default function CurveGraph({
                         background: getSplitterGradient(activeChannel),
                       }}
                     />
+                    {splitPositions.flatMap(({ key }) =>
+                      getParametricMarkers(key).map(({ channel, color: markerColor, value }) => (
+                        <div
+                          className="absolute inset-y-0 w-0.5 -translate-x-1/2 pointer-events-none opacity-70"
+                          key={`${key}-${channel}`}
+                          style={{ backgroundColor: markerColor, left: `${value}%` }}
+                        />
+                      )),
+                    )}
                     {splitPositions.map(({ key, value }) => (
                       <button
                         key={key}
@@ -953,6 +996,7 @@ export default function CurveGraph({
               <div className="flex flex-col gap-2">
                 <Slider
                   label={t('adjustments.curves.params.whiteLevel')}
+                  markers={getParametricMarkers('whiteLevel')}
                   min={-100}
                   max={0}
                   step={1}
@@ -963,6 +1007,7 @@ export default function CurveGraph({
                 />
                 <Slider
                   label={t('adjustments.curves.params.highlights')}
+                  markers={getParametricMarkers('highlights')}
                   min={-100}
                   max={100}
                   step={1}
@@ -973,6 +1018,7 @@ export default function CurveGraph({
                 />
                 <Slider
                   label={t('adjustments.curves.params.lights')}
+                  markers={getParametricMarkers('lights')}
                   min={-100}
                   max={100}
                   step={1}
@@ -983,6 +1029,7 @@ export default function CurveGraph({
                 />
                 <Slider
                   label={t('adjustments.curves.params.darks')}
+                  markers={getParametricMarkers('darks')}
                   min={-100}
                   max={100}
                   step={1}
@@ -993,6 +1040,7 @@ export default function CurveGraph({
                 />
                 <Slider
                   label={t('adjustments.curves.params.shadows')}
+                  markers={getParametricMarkers('shadows')}
                   min={-100}
                   max={100}
                   step={1}
@@ -1003,6 +1051,7 @@ export default function CurveGraph({
                 />
                 <Slider
                   label={t('adjustments.curves.params.blackLevel')}
+                  markers={getParametricMarkers('blackLevel')}
                   min={0}
                   max={100}
                   step={1}
