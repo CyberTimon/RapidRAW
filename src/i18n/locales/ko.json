@@ -427,7 +427,11 @@
       "touchUpTitle": "터치업"
     },
     "crop": {
+      "apply": "적용",
+      "applyTooltip": "자르기 적용 (Enter)",
       "aspectRatioHeading": "종횡비",
+      "cancel": "취소",
+      "cancelTooltip": "자르기 변경 취소 (Esc)",
       "custom": {
         "hPlaceholder": "높이",
         "hTooltip": "높이",

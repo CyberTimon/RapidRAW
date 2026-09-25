@@ -429,7 +429,11 @@
       "touchUpTitle": "Ausbessern"
     },
     "crop": {
+      "apply": "Anwenden",
+      "applyTooltip": "Zuschnitt anwenden (Eingabe)",
       "aspectRatioHeading": "Seitenverhältnis",
+      "cancel": "Abbrechen",
+      "cancelTooltip": "Zuschnittänderungen verwerfen (Esc)",
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Höhe",

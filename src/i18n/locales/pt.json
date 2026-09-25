@@ -449,7 +449,11 @@
       "touchUpTitle": "Retoques"
     },
     "crop": {
+      "apply": "Aplicar",
+      "applyTooltip": "Aplicar recorte (Enter)",
       "aspectRatioHeading": "Proporção de Tela",
+      "cancel": "Cancelar",
+      "cancelTooltip": "Reverter alterações do recorte (Esc)",
       "custom": {
         "hPlaceholder": "A",
         "hTooltip": "Altura",

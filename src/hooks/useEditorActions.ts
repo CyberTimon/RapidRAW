@@ -6,8 +6,10 @@ import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useProcessStore } from '../store/useProcessStore';
+import { useUIStore } from '../store/useUIStore';
 import {
   Adjustments,
+  CROP_GEOMETRY_KEYS,
   INITIAL_ADJUSTMENTS,
   COPYABLE_ADJUSTMENT_KEYS,
   PasteMode,
@@ -15,7 +17,7 @@ import {
   normalizeLoadedAdjustments,
 } from '../utils/adjustments';
 import { calculateCenteredCrop } from '../utils/cropUtils';
-import { Invokes } from '../components/ui/AppProperties';
+import { Invokes, Panel } from '../components/ui/AppProperties';
 import { globalImageCache } from '../utils/ImageLRUCache';
 
 export const debouncedSetHistory = debounce((newAdj: Adjustments) => {
@@ -28,6 +30,32 @@ export const debouncedSave = debounce((path: string, adjustmentsToSave: Adjustme
     toast.error(`Failed to save changes: ${err}`);
   });
 }, 300);
+
+export const applyCrop = () => {
+  useEditorStore.getState().setEditor({ isStraightenActive: false, liveRotation: null });
+  useUIStore.getState().setPanel(Panel.Adjustments);
+};
+
+export const cancelCrop = () => {
+  const { cropSessionSnapshot, selectedImage, adjustments, setEditor } = useEditorStore.getState();
+  if (cropSessionSnapshot && cropSessionSnapshot.path === (selectedImage?.path ?? null)) {
+    const { geometry } = cropSessionSnapshot;
+    const hasChanged = CROP_GEOMETRY_KEYS.some(
+      (key) => JSON.stringify(adjustments[key]) !== JSON.stringify(geometry[key]),
+    );
+    if (hasChanged) {
+      setEditor((state) => {
+        const newAdjustments = { ...state.adjustments, ...geometry };
+        debouncedSetHistory(newAdjustments);
+        return {
+          adjustments: newAdjustments,
+          ...(state.showOriginal ? { showOriginal: false, previewOverride: null } : {}),
+        };
+      });
+    }
+  }
+  applyCrop();
+};
 
 export function useEditorActions() {
   const setEditor = useEditorStore((s) => s.setEditor);

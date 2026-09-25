@@ -429,7 +429,11 @@
       "touchUpTitle": "Touch Up"
     },
     "crop": {
+      "apply": "Apply",
+      "applyTooltip": "Apply crop (Enter)",
       "aspectRatioHeading": "Aspect Ratio",
+      "cancel": "Cancel",
+      "cancelTooltip": "Revert crop changes (Esc)",
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Height",

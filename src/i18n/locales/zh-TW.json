@@ -427,7 +427,11 @@
       "touchUpTitle": "潤色"
     },
     "crop": {
+      "apply": "套用",
+      "applyTooltip": "套用裁切 (Enter)",
       "aspectRatioHeading": "寬高比",
+      "cancel": "取消",
+      "cancelTooltip": "還原裁切變更 (Esc)",
       "custom": {
         "hPlaceholder": "高",
         "hTooltip": "高度",

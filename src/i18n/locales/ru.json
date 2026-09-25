@@ -469,7 +469,11 @@
       "touchUpTitle": "Ретушь"
     },
     "crop": {
+      "apply": "Применить",
+      "applyTooltip": "Применить кадрирование (Enter)",
       "aspectRatioHeading": "Соотношение сторон",
+      "cancel": "Отмена",
+      "cancelTooltip": "Отменить изменения кадрирования (Esc)",
       "custom": {
         "hPlaceholder": "В",
         "hTooltip": "Высота",

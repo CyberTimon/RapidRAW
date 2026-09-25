@@ -429,7 +429,11 @@
       "touchUpTitle": "Retocs"
     },
     "crop": {
+      "apply": "Aplica",
+      "applyTooltip": "Aplica el retall (Retorn)",
       "aspectRatioHeading": "Relació d'aspecte",
+      "cancel": "Cancel·la",
+      "cancelTooltip": "Desfés els canvis de retall (Esc)",
       "custom": {
         "hPlaceholder": "Al",
         "hTooltip": "Alçada",

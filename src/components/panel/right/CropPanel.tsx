@@ -39,7 +39,7 @@ import Dropdown from '../../ui/Dropdown';
 import Button from '../../ui/Button';
 import { TEXT_COLOR_KEYS, TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useEditorStore } from '../../../store/useEditorStore';
-import { useEditorActions } from '../../../hooks/useEditorActions';
+import { applyCrop, cancelCrop, useEditorActions } from '../../../hooks/useEditorActions';
 import { calculateAreaPreservingCrop, calculateCenteredCrop } from '../../../utils/cropUtils';
 import { Crop } from 'react-image-crop';
 import { useShallow } from 'zustand/react/shallow';
@@ -1645,6 +1645,26 @@ export default function CropPanel() {
           </div>
         )}
       </div>
+
+      {selectedImage && (
+        <div className="p-3 border-t border-surface shrink-0 flex items-center gap-2 w-full">
+          <Button
+            className="bg-surface hover:bg-card-active text-text-primary shadow-none rounded-md h-11 flex-1 transition-colors"
+            onClick={cancelCrop}
+            data-tooltip={t('editor.crop.cancelTooltip')}
+          >
+            {t('editor.crop.cancel')}
+          </Button>
+          <Button
+            className="rounded-md h-11 flex-1 font-bold!"
+            onClick={applyCrop}
+            data-tooltip={t('editor.crop.applyTooltip')}
+          >
+            <Check size={18} />
+            {t('editor.crop.apply')}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
