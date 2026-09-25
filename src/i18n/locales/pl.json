@@ -538,9 +538,13 @@
       "vertical": "Podział lewo / prawo"
     },
     "crop": {
+      "apply": "Zastosuj",
+      "applyTooltip": "Zastosuj kadrowanie (Enter)",
       "aspectRatioHeading": "Proporcje",
       "autoStraightenFailed": "Automatyczne prostowanie nie powiodło się: {{error}}",
       "autoStraightenNoLines": "Nie znaleziono prostych linii do wyprostowania",
+      "cancel": "Anuluj",
+      "cancelTooltip": "Cofnij zmiany kadrowania (Esc)",
       "custom": {
         "hPlaceholder": "Wys.",
         "hTooltip": "Wysokość",

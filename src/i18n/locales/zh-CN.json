@@ -496,9 +496,13 @@
       "vertical": "左右分割"
     },
     "crop": {
+      "apply": "应用",
+      "applyTooltip": "应用裁剪 (Enter)",
       "aspectRatioHeading": "宽高比",
       "autoStraightenFailed": "自动拉直失败：{{error}}",
       "autoStraightenNoLines": "未找到可用于拉直的直线",
+      "cancel": "取消",
+      "cancelTooltip": "撤销裁剪更改 (Esc)",
       "custom": {
         "hPlaceholder": "高",
         "hTooltip": "高度",

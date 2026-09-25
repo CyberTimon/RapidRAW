@@ -1,5 +1,12 @@
 import { create } from 'zustand';
-import { Adjustments, INITIAL_ADJUSTMENTS, MaskContainer, AiPatch } from '../utils/adjustments';
+import {
+  Adjustments,
+  INITIAL_ADJUSTMENTS,
+  MaskContainer,
+  AiPatch,
+  CropGeometry,
+  pickCropGeometry,
+} from '../utils/adjustments';
 import { SelectedImage, WaveformData, BrushSettings, CompareView } from '../components/ui/AppProperties';
 import { ChannelConfig } from '../components/adjustments/Curves';
 import { ImageDimensions } from '../hooks/useImageRenderSize';
@@ -69,6 +76,7 @@ interface EditorState {
   activeCenterMarker: CenterMarker | null;
   isGuidedPerspectiveActive: boolean;
   liveRotation: number | null;
+  cropSessionSnapshot: { path: string | null; geometry: CropGeometry } | null;
   brushSettings: BrushSettings | null;
 
   // Masks & AI
@@ -141,6 +149,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   activeCenterMarker: null,
   isGuidedPerspectiveActive: false,
   liveRotation: null,
+  cropSessionSnapshot: null,
 
   copiedSectionAdjustments: null,
   copiedMask: null,
@@ -184,11 +193,19 @@ export const useEditorStore = create<EditorState>((set) => ({
     }),
 
   resetHistory: (initialState) =>
-    set({
+    set((state) => ({
       history: [initialState],
       historyIndex: 0,
       adjustments: initialState,
-    }),
+      ...(state.cropSessionSnapshot
+        ? {
+            cropSessionSnapshot: {
+              path: state.selectedImage?.path ?? null,
+              geometry: pickCropGeometry(initialState),
+            },
+          }
+        : {}),
+    })),
 
   goToHistoryIndex: (index) =>
     set((state) => {

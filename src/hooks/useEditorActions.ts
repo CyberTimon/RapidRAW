@@ -13,6 +13,7 @@ import { useUIStore } from '../store/useUIStore';
 import {
   Adjustments,
   AutoAdjustMode,
+  CROP_GEOMETRY_KEYS,
   INITIAL_ADJUSTMENTS,
   COPYABLE_ADJUSTMENT_KEYS,
   PasteMode,
@@ -23,7 +24,7 @@ import {
   setToolActive,
 } from '../utils/adjustments';
 import { calculateAutoCropForRotation, calculateCenteredCrop } from '../utils/cropUtils';
-import { CompareMode, Invokes, Option, SelectedImage } from '../components/ui/AppProperties';
+import { CompareMode, Invokes, Option, Panel, SelectedImage } from '../components/ui/AppProperties';
 import { globalImageCache } from '../utils/ImageLRUCache';
 
 export const debouncedSetHistory = debounce((newAdj: Adjustments) => {
@@ -137,6 +138,32 @@ export const reloadAdjustmentsForPaths = async (paths: string[]) => {
       setLibrary({ libraryActiveAdjustments: normalizeLoadedAdjustments(meta.adjustments) });
     }
   }
+};
+
+export const applyCrop = () => {
+  useEditorStore.getState().setEditor({ isStraightenActive: false, liveRotation: null });
+  useUIStore.getState().setPanel(Panel.Adjustments);
+};
+
+export const cancelCrop = () => {
+  const { cropSessionSnapshot, selectedImage, adjustments, setEditor } = useEditorStore.getState();
+  if (cropSessionSnapshot && cropSessionSnapshot.path === (selectedImage?.path ?? null)) {
+    const { geometry } = cropSessionSnapshot;
+    const hasChanged = CROP_GEOMETRY_KEYS.some(
+      (key) => JSON.stringify(adjustments[key]) !== JSON.stringify(geometry[key]),
+    );
+    if (hasChanged) {
+      setEditor((state) => {
+        const newAdjustments = { ...state.adjustments, ...geometry };
+        debouncedSetHistory(newAdjustments);
+        return {
+          adjustments: newAdjustments,
+          ...(state.showOriginal ? { showOriginal: false, previewOverride: null } : {}),
+        };
+      });
+    }
+  }
+  applyCrop();
 };
 
 export function useEditorActions() {

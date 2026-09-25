@@ -496,9 +496,13 @@
       "vertical": "左右に分割"
     },
     "crop": {
+      "apply": "適用",
+      "applyTooltip": "切り抜きを適用 (Enter)",
       "aspectRatioHeading": "アスペクト比",
       "autoStraightenFailed": "自動角度補正に失敗しました: {{error}}",
       "autoStraightenNoLines": "補正に使える直線が見つかりません",
+      "cancel": "キャンセル",
+      "cancelTooltip": "切り抜きの変更を元に戻す (Esc)",
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "高さ",

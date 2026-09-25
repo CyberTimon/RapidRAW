@@ -499,9 +499,13 @@
       "vertical": "Dividir esquerra / dreta"
     },
     "crop": {
+      "apply": "Aplica",
+      "applyTooltip": "Aplica el retall (Retorn)",
       "aspectRatioHeading": "Relació d'aspecte",
       "autoStraightenFailed": "No s'ha pogut redreçar automàticament: {{error}}",
       "autoStraightenNoLines": "No s'han trobat línies rectes per redreçar",
+      "cancel": "Cancel·la",
+      "cancelTooltip": "Desfés els canvis de retall (Esc)",
       "custom": {
         "hPlaceholder": "Al",
         "hTooltip": "Alçada",

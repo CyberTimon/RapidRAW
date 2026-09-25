@@ -520,9 +520,13 @@
       "vertical": "Dividi sinistra / destra"
     },
     "crop": {
+      "apply": "Applica",
+      "applyTooltip": "Applica ritaglio (Invio)",
       "aspectRatioHeading": "Proporzioni",
       "autoStraightenFailed": "Raddrizzamento automatico non riuscito: {{error}}",
       "autoStraightenNoLines": "Nessuna linea retta trovata per raddrizzare",
+      "cancel": "Annulla",
+      "cancelTooltip": "Annulla modifiche al ritaglio (Esc)",
       "custom": {
         "hPlaceholder": "A",
         "hTooltip": "Altezza",

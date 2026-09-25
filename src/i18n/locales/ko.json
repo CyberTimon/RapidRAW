@@ -496,9 +496,13 @@
       "vertical": "좌우 분할"
     },
     "crop": {
+      "apply": "적용",
+      "applyTooltip": "자르기 적용 (Enter)",
       "aspectRatioHeading": "종횡비",
       "autoStraightenFailed": "자동 수평 맞추기 실패: {{error}}",
       "autoStraightenNoLines": "수평을 맞출 직선을 찾을 수 없습니다",
+      "cancel": "취소",
+      "cancelTooltip": "자르기 변경 취소 (Esc)",
       "custom": {
         "hPlaceholder": "높이",
         "hTooltip": "높이",
