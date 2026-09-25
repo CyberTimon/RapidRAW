@@ -412,9 +412,11 @@ export default function CropPanel() {
   const handleCustomInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      e.stopPropagation();
       handleApplyCustomRatio();
       (e.target as HTMLInputElement).blur();
     } else if (e.key === 'Escape') {
+      e.stopPropagation();
       setIsEditingCustom(false);
       if (aspectRatio) {
         const h = 100;
