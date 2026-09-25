@@ -218,13 +218,13 @@ export interface AppSettings {
   thumbnailSize?: ThumbnailSize;
   thumbnailAspectRatio?: ThumbnailAspectRatio;
   uiVisibility?: UiVisibility;
-  adjustmentVisibility?: { [key: string]: boolean };
   rawHighlightCompression?: number;
   processingBackend?: string;
   linuxGpuOptimization?: boolean;
   exportPresets?: ExportPreset[];
   myLenses?: any;
   customAspectRatios?: CustomAspectRatio[];
+  adjustmentLayout?: AdjustmentLayout;
   enableFolderImageCounts?: boolean;
   displayEditIcon?: boolean;
   linearRawMode?: string;
@@ -386,6 +386,23 @@ export interface UiVisibility {
   leftPanel: boolean;
   rightPanel: boolean;
   quickFilter?: boolean;
+}
+
+export interface CollapsibleSectionsState {
+  basic: boolean;
+  color: boolean;
+  curves: boolean;
+  details: boolean;
+  effects: boolean;
+}
+
+export interface AdjustmentLayout {
+  collapsedTools?: string[];
+  hiddenSections?: string[];
+  hiddenTools?: string[];
+  openSections?: Partial<CollapsibleSectionsState>;
+  sectionOrder?: string[];
+  toolOrder?: Record<string, string[]>;
 }
 
 export interface WaveformData {

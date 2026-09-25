@@ -312,8 +312,10 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "Copia Impostazioni {{section}}",
+        "customizePanels": "Personalizza Pannelli",
         "pasteLabel": "Incolla Impostazioni {{section}}",
         "pasteSettings": "Incolla Impostazioni",
+        "resetPanelLayout": "Ripristina Predefiniti",
         "resetSectionSettings": "Ripristina Impostazioni {{section}}"
       },
       "sections": {
@@ -326,7 +328,9 @@
       "title": "Regolazioni",
       "tooltips": {
         "autoAdjust": "Regolazione Automatica Immagine",
+        "hideFromPanel": "Nascondi dal Pannello",
         "resetAdjustments": "Ripristina Regolazioni",
+        "showInPanel": "Mostra nel Pannello",
         "toggleAnalytics": "Attiva/Disattiva Visualizzazione Analitiche"
       }
     },
@@ -1520,14 +1524,6 @@
     }
   },
   "settings": {
-    "adjustments": {
-      "chromaticAberration": "Aberrazione Cromatica",
-      "colorCalibration": "Calibrazione Colore",
-      "description": "Nascondi le sezioni di regolazione che non usi spesso per semplificare il pannello di modifica. Le tue impostazioni verranno mantenute e applicate anche se nascoste.",
-      "grain": "Grana",
-      "noiseReduction": "Riduzione Rumore",
-      "title": "Visibilità Regolazioni"
-    },
     "categories": {
       "general": "Generale",
       "processing": "Elaborazione",

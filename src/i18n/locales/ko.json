@@ -296,8 +296,10 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "{{section}} 설정 복사",
+        "customizePanels": "패널 사용자 지정",
         "pasteLabel": "{{section}} 설정 붙여넣기",
         "pasteSettings": "설정 붙여넣기",
+        "resetPanelLayout": "기본값으로 초기화",
         "resetSectionSettings": "{{section}} 설정 초기화"
       },
       "sections": {
@@ -310,7 +312,9 @@
       "title": "조정",
       "tooltips": {
         "autoAdjust": "이미지 자동 조정",
+        "hideFromPanel": "패널에서 숨기기",
         "resetAdjustments": "조정값 초기화",
+        "showInPanel": "패널에 표시",
         "toggleAnalytics": "분석 표시 전환"
       }
     },
@@ -1488,14 +1492,6 @@
     }
   },
   "settings": {
-    "adjustments": {
-      "chromaticAberration": "색수차",
-      "colorCalibration": "색상 보정",
-      "description": "자주 사용하지 않는 조정 섹션을 숨겨 편집 패널을 간소화합니다. 숨겨진 상태에서도 설정은 유지되고 적용됩니다.",
-      "grain": "그레인",
-      "noiseReduction": "노이즈 감소",
-      "title": "조정 표시"
-    },
     "categories": {
       "general": "일반",
       "processing": "처리",

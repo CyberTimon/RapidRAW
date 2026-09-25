@@ -1,6 +1,7 @@
 import { Crop } from 'react-image-crop';
 import { v4 as uuidv4 } from 'uuid';
 import { SubMask, SubMaskMode } from '../components/panel/right/Masks';
+import type { AdjustmentLayout, AppSettings } from '../components/ui/AppProperties';
 
 export enum ActiveChannel {
   Blue = 'blue',
@@ -953,3 +954,54 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     Effect.LensBlurMaxFade,
   ],
 };
+
+const reconcileOrder = (defaultOrder: string[], order: string[] = []): string[] => {
+  const savedOrder = order.filter((id, index) => defaultOrder.includes(id) && order.indexOf(id) === index);
+  return [...savedOrder, ...defaultOrder.filter((id) => !savedOrder.includes(id))];
+};
+
+export const getAdjustmentSectionOrder = (order?: string[]): string[] =>
+  reconcileOrder(Object.keys(ADJUSTMENT_SECTIONS), order);
+
+export const getVisibleAdjustmentSections = (layout?: AdjustmentLayout): string[] =>
+  getAdjustmentSectionOrder(layout?.sectionOrder).filter((section) => !layout?.hiddenSections?.includes(section));
+
+export const withAdjustmentLayout = (settings: AppSettings, changes: Partial<AdjustmentLayout>): AppSettings => ({
+  ...settings,
+  adjustmentLayout: { ...settings.adjustmentLayout, ...changes },
+});
+
+export interface AdjustmentSectionTool {
+  id: string;
+  label: string;
+}
+
+export const ADJUSTMENT_SECTION_TOOLS: Record<string, Array<AdjustmentSectionTool>> = {
+  color: [
+    { id: 'whiteBalance', label: 'adjustments.color.whiteBalance' },
+    { id: 'colorPresence', label: 'adjustments.color.presence' },
+    { id: 'hue', label: 'adjustments.color.hue' },
+    { id: 'colorGrading', label: 'adjustments.color.colorGrading' },
+    { id: 'colorMixer', label: 'adjustments.color.colorMixer' },
+    { id: 'colorCalibration', label: 'adjustments.color.calibration.title' },
+  ],
+  details: [
+    { id: 'sharpening', label: 'adjustments.details.sharpening' },
+    { id: 'presence', label: 'adjustments.details.presence' },
+    { id: 'noiseReduction', label: 'adjustments.details.noiseReduction' },
+    { id: 'chromaticAberration', label: 'adjustments.details.chromaticAberration' },
+  ],
+  effects: [
+    { id: 'creative', label: 'adjustments.effects.creative' },
+    { id: 'lensBlur', label: 'adjustments.effects.lensBlur' },
+    { id: 'lut', label: 'adjustments.effects.lut' },
+    { id: 'vignette', label: 'adjustments.effects.vignette' },
+    { id: 'grain', label: 'adjustments.effects.grain' },
+  ],
+};
+
+export const getAdjustmentToolOrder = (section: string, toolOrder?: Record<string, string[]>): string[] =>
+  reconcileOrder(
+    (ADJUSTMENT_SECTION_TOOLS[section] ?? []).map((tool) => tool.id),
+    toolOrder?.[section],
+  );

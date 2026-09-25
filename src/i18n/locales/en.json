@@ -296,8 +296,10 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "Copy {{section}} Settings",
+        "customizePanels": "Customize Panels",
         "pasteLabel": "Paste {{section}} Settings",
         "pasteSettings": "Paste Settings",
+        "resetPanelLayout": "Reset to Default",
         "resetSectionSettings": "Reset {{section}} Settings"
       },
       "sections": {
@@ -310,7 +312,9 @@
       "title": "Adjustments",
       "tooltips": {
         "autoAdjust": "Auto Adjust Image",
+        "hideFromPanel": "Hide from Panel",
         "resetAdjustments": "Reset Adjustments",
+        "showInPanel": "Show in Panel",
         "toggleAnalytics": "Toggle Analytics Display"
       }
     },
@@ -1490,14 +1494,6 @@
     }
   },
   "settings": {
-    "adjustments": {
-      "chromaticAberration": "Chromatic Aberration",
-      "colorCalibration": "Color Calibration",
-      "description": "Hide adjustment sections you don't use often to simplify the editing panel. Your settings will be preserved and applied even when hidden.",
-      "grain": "Grain",
-      "noiseReduction": "Noise Reduction",
-      "title": "Adjustments Visibility"
-    },
     "categories": {
       "general": "General",
       "processing": "Processing",

@@ -296,8 +296,10 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "复制 {{section}} 设置",
+        "customizePanels": "自定义面板",
         "pasteLabel": "粘贴 {{section}} 设置",
         "pasteSettings": "粘贴设置",
+        "resetPanelLayout": "重置为默认值",
         "resetSectionSettings": "重置 {{section}} 设置"
       },
       "sections": {
@@ -310,7 +312,9 @@
       "title": "调整",
       "tooltips": {
         "autoAdjust": "自动调整图像",
+        "hideFromPanel": "在面板中隐藏",
         "resetAdjustments": "重置调整",
+        "showInPanel": "在面板中显示",
         "toggleAnalytics": "切换分析显示"
       }
     },
@@ -1488,14 +1492,6 @@
     }
   },
   "settings": {
-    "adjustments": {
-      "chromaticAberration": "色差",
-      "colorCalibration": "颜色校准",
-      "description": "隐藏不常用的调整部分以简化编辑面板。即使隐藏，您的设置也会被保留和应用。",
-      "grain": "颗粒",
-      "noiseReduction": "降噪",
-      "title": "调整可见性"
-    },
     "categories": {
       "general": "通用",
       "processing": "处理",

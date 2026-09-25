@@ -312,8 +312,10 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "Copier les paramètres de la section {{section}}",
+        "customizePanels": "Personnaliser les panneaux",
         "pasteLabel": "Coller les paramètres de la section {{section}}",
         "pasteSettings": "Coller les paramètres",
+        "resetPanelLayout": "Réinitialiser par défaut",
         "resetSectionSettings": "Réinitialiser les paramètres de la section {{section}}"
       },
       "sections": {
@@ -326,7 +328,9 @@
       "title": "Ajustements",
       "tooltips": {
         "autoAdjust": "Ajustement auto de l'image",
+        "hideFromPanel": "Masquer du panneau",
         "resetAdjustments": "Réinitialiser les ajustements",
+        "showInPanel": "Afficher dans le panneau",
         "toggleAnalytics": "Basculer l'affichage des analyses"
       }
     },
@@ -1520,14 +1524,6 @@
     }
   },
   "settings": {
-    "adjustments": {
-      "chromaticAberration": "Aberration chromatique",
-      "colorCalibration": "Étalonnage des couleurs",
-      "description": "Masquez les sections d'ajustement que vous n'utilisez pas souvent pour simplifier le panneau de retouche. Vos paramètres seront conservés et appliqués même s'ils sont masqués.",
-      "grain": "Grain",
-      "noiseReduction": "Réduction du bruit",
-      "title": "Visibilité des ajustements"
-    },
     "categories": {
       "general": "Général",
       "processing": "Traitement",

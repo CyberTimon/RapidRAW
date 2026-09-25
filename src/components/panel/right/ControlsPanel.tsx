@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { RotateCcw, Copy, ClipboardPaste, PencilSparkles, ChartArea } from 'lucide-react';
+import { RotateCcw, Copy, ClipboardPaste, PencilSparkles, ChartArea, LayoutList } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
@@ -11,7 +11,14 @@ import EffectsPanel from '../../adjustments/Effects';
 import CollapsibleSection from '../../ui/CollapsibleSection';
 import Waveform from '../editor/Waveform';
 import Resizer from '../../ui/Resizer';
-import { Adjustments, SectionVisibility, INITIAL_ADJUSTMENTS, ADJUSTMENT_SECTIONS } from '../../../utils/adjustments';
+import AdjustmentSectionsSubMenu from './AdjustmentSectionsSubMenu';
+import {
+  Adjustments,
+  SectionVisibility,
+  INITIAL_ADJUSTMENTS,
+  ADJUSTMENT_SECTIONS,
+  getVisibleAdjustmentSections,
+} from '../../../utils/adjustments';
 import { useContextMenu } from '../../../context/ContextMenuContext';
 import { OPTION_SEPARATOR, Orientation } from '../../ui/AppProperties';
 import Text from '../../ui/Text';
@@ -36,6 +43,8 @@ export default function Controls() {
       theme: state.theme,
     })),
   );
+
+  const visibleSections = getVisibleAdjustmentSections(appSettings?.adjustmentLayout);
 
   const { collapsibleSectionsState, setUI } = useUIStore(
     useShallow((state) => ({
@@ -202,6 +211,12 @@ export default function Controls() {
         icon: RotateCcw,
         onClick: handleReset,
       },
+      { type: OPTION_SEPARATOR },
+      {
+        label: t('editor.adjustments.actions.customizePanels'),
+        icon: LayoutList,
+        submenu: [{ customComponent: AdjustmentSectionsSubMenu }],
+      },
     ];
 
     showContextMenu(event.clientX, event.clientY, options);
@@ -273,7 +288,7 @@ export default function Controls() {
 
       <div className="grow overflow-y-scroll p-3 flex flex-col gap-2">
         {selectedImage ? (
-          Object.keys(ADJUSTMENT_SECTIONS).map((sectionName: string) => {
+          visibleSections.map((sectionName: string) => {
             const SectionComponent: any = {
               basic: BasicAdjustments,
               curves: CurveGraph,

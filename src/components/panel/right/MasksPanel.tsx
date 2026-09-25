@@ -33,6 +33,7 @@ import {
   FileEdit,
   FolderOpen,
   Folder as FolderIcon,
+  LayoutList,
   Loader2,
   Minus,
   Plus,
@@ -54,6 +55,7 @@ import EffectsPanel from '../../adjustments/Effects';
 import Waveform from '../editor/Waveform';
 import Resizer from '../../ui/Resizer';
 import { DepthRangePicker } from '../../ui/DepthRangePicker';
+import AdjustmentSectionsSubMenu from './AdjustmentSectionsSubMenu';
 
 import {
   Mask,
@@ -77,6 +79,7 @@ import {
   INITIAL_MASK_CONTAINER,
   MaskContainer,
   ADJUSTMENT_SECTIONS,
+  getVisibleAdjustmentSections,
 } from '../../../utils/adjustments';
 import { useContextMenu } from '../../../context/ContextMenuContext';
 import { OPTION_SEPARATOR, Orientation, Panel } from '../../ui/AppProperties';
@@ -2100,11 +2103,18 @@ function SettingsPanel({
         label: t('editor.masks.settings.resetSectionSettings', { section: sectionTitle }),
         onClick: handleReset,
       },
+      { type: OPTION_SEPARATOR },
+      {
+        icon: LayoutList,
+        label: t('editor.adjustments.actions.customizePanels'),
+        submenu: [{ customComponent: AdjustmentSectionsSubMenu }],
+      },
     ]);
   };
 
   const sectionVisibility =
     displayContainer.adjustments.sectionVisibility || INITIAL_MASK_ADJUSTMENTS.sectionVisibility;
+  const visibleSections = getVisibleAdjustmentSections(appSettings?.adjustmentLayout);
 
   return (
     <div
@@ -2256,7 +2266,7 @@ function SettingsPanel({
         onMouseLeave={() => setIsMaskControlHovered(false)}
         className="flex flex-col gap-2"
       >
-        {Object.keys(ADJUSTMENT_SECTIONS).map((sectionName) => {
+        {visibleSections.map((sectionName) => {
           const SectionComponent: any = {
             basic: BasicAdjustments,
             curves: CurveGraph,
