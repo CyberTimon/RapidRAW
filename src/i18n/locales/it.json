@@ -449,7 +449,11 @@
       "touchUpTitle": "Ritocchi"
     },
     "crop": {
+      "apply": "Applica",
+      "applyTooltip": "Applica ritaglio (Invio)",
       "aspectRatioHeading": "Proporzioni",
+      "cancel": "Annulla",
+      "cancelTooltip": "Annulla modifiche al ritaglio (Esc)",
       "custom": {
         "hPlaceholder": "A",
         "hTooltip": "Altezza",

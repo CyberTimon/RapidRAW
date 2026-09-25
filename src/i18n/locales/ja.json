@@ -427,7 +427,11 @@
       "touchUpTitle": "タッチアップ"
     },
     "crop": {
+      "apply": "適用",
+      "applyTooltip": "切り抜きを適用 (Enter)",
       "aspectRatioHeading": "アスペクト比",
+      "cancel": "キャンセル",
+      "cancelTooltip": "切り抜きの変更を元に戻す (Esc)",
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "高さ",

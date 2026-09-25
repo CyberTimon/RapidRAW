@@ -469,7 +469,11 @@
       "touchUpTitle": "Poprawki"
     },
     "crop": {
+      "apply": "Zastosuj",
+      "applyTooltip": "Zastosuj kadrowanie (Enter)",
       "aspectRatioHeading": "Proporcje",
+      "cancel": "Anuluj",
+      "cancelTooltip": "Cofnij zmiany kadrowania (Esc)",
       "custom": {
         "hPlaceholder": "Wys.",
         "hTooltip": "Wysokość",

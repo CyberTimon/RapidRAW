@@ -449,7 +449,11 @@
       "touchUpTitle": "Retouches"
     },
     "crop": {
+      "apply": "Appliquer",
+      "applyTooltip": "Appliquer le recadrage (Entrée)",
       "aspectRatioHeading": "Rapport d'aspect",
+      "cancel": "Annuler",
+      "cancelTooltip": "Annuler les modifications du recadrage (Échap)",
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Hauteur",

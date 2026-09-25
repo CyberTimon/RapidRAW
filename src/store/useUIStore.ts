@@ -8,6 +8,7 @@ import {
   WorkspaceState,
 } from '../components/ui/AppProperties';
 import { useEditorStore } from './useEditorStore';
+import { pickCropGeometry } from '../utils/adjustments';
 
 export type SwitcherPlacement = 'bottom' | 'right' | 'left' | 'top';
 
@@ -536,3 +537,15 @@ export const useUIStore = create<UIState>((set, get) => ({
   searchFocusRequest: 0,
   requestSearchFocus: () => set((state) => ({ searchFocusRequest: state.searchFocusRequest + 1 })),
 }));
+
+useUIStore.subscribe((state, prev) => {
+  if (state.activePanel === prev.activePanel) return;
+  const { selectedImage, adjustments, setEditor } = useEditorStore.getState();
+  if (state.activePanel === Panel.Crop) {
+    setEditor({
+      cropSessionSnapshot: { path: selectedImage?.path ?? null, geometry: pickCropGeometry(adjustments) },
+    });
+  } else if (prev.activePanel === Panel.Crop) {
+    setEditor({ cropSessionSnapshot: null });
+  }
+});
