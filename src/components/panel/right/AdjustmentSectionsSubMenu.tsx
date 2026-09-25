@@ -245,7 +245,7 @@ function AdjustmentSectionsSubMenu() {
   };
 
   const handleReset = () => {
-    updateLayout({ hiddenSections: [], hiddenTools: undefined, sectionOrder: [], toolOrder: {} });
+    updateLayout({ hiddenSections: [], hiddenTools: DEFAULT_HIDDEN_ADJUSTMENT_TOOLS, sectionOrder: [], toolOrder: {} });
   };
 
   const visibleCount = sections.order.filter((section) => !hiddenSections.includes(section)).length;
