@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import Slider from '../ui/Slider';
 import ColorWheel from '../ui/ColorWheel';
 import { ColorAdjustment, ColorCalibration, HueSatLum, INITIAL_ADJUSTMENTS } from '../../utils/adjustments';
-import { Adjustments, ColorGrading, getAdjustmentToolOrder } from '../../utils/adjustments';
+import { Adjustments, ColorGrading, getAdjustmentToolOrder, getHiddenAdjustmentTools } from '../../utils/adjustments';
 import { AppSettings } from '../ui/AppProperties';
 import Text from '../ui/Text';
 import AdjustmentSubSection from './AdjustmentSubSection';
@@ -402,7 +402,7 @@ export default function ColorPanel({
 }: ColorPanelProps) {
   const { t } = useTranslation();
   const [activeColor, setActiveColor] = useState('reds');
-  const hiddenTools = appSettings?.adjustmentLayout?.hiddenTools ?? [];
+  const hiddenTools = getHiddenAdjustmentTools(appSettings?.adjustmentLayout);
   const toolOrder = getAdjustmentToolOrder('color', appSettings?.adjustmentLayout?.toolOrder);
 
   const HSL_COLORS = useMemo<Array<ColorProps>>(

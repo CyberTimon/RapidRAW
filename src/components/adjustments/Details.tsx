@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import Slider from '../ui/Slider';
-import { Adjustments, DetailsAdjustment, getAdjustmentToolOrder } from '../../utils/adjustments';
+import { Adjustments, DetailsAdjustment, getAdjustmentToolOrder, getHiddenAdjustmentTools } from '../../utils/adjustments';
 import { AppSettings } from '../ui/AppProperties';
 import AdjustmentSubSection from './AdjustmentSubSection';
 
@@ -26,7 +26,7 @@ export default function DetailsPanel({
     setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: numericValue }));
   };
 
-  const hiddenTools = appSettings?.adjustmentLayout?.hiddenTools ?? [];
+  const hiddenTools = getHiddenAdjustmentTools(appSettings?.adjustmentLayout);
   const toolOrder = getAdjustmentToolOrder('details', appSettings?.adjustmentLayout?.toolOrder);
 
   return (

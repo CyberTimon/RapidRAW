@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import Slider from '../ui/Slider';
 import Switch from '../ui/Switch';
-import { Adjustments, Effect, CreativeAdjustment, getAdjustmentToolOrder } from '../../utils/adjustments';
+import { Adjustments, Effect, CreativeAdjustment, getAdjustmentToolOrder, getHiddenAdjustmentTools } from '../../utils/adjustments';
 import LUTControl from '../ui/LUTControl';
 import { AppSettings } from '../ui/AppProperties';
 import Text from '../ui/Text';
@@ -194,7 +194,7 @@ export default function EffectsPanel({
     }
   };
 
-  const hiddenTools = appSettings?.adjustmentLayout?.hiddenTools ?? [];
+  const hiddenTools = getHiddenAdjustmentTools(appSettings?.adjustmentLayout);
   const toolOrder = getAdjustmentToolOrder('effects', appSettings?.adjustmentLayout?.toolOrder);
 
   return (

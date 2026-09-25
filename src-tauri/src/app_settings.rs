@@ -353,7 +353,8 @@ pub struct AdjustmentLayout {
     pub hidden_sections: Vec<String>,
     pub open_sections: BTreeMap<String, bool>,
     pub tool_order: HashMap<String, Vec<String>>,
-    pub hidden_tools: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hidden_tools: Option<Vec<String>>,
     pub collapsed_tools: Vec<String>,
 }
 
