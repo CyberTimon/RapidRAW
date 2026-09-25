@@ -41,6 +41,7 @@ mod preset_converter;
 mod raw_processing;
 mod tagging;
 mod tagging_utils;
+mod tiff_metadata;
 mod window_customizer;
 
 use std::collections::{HashMap, hash_map::DefaultHasher};
@@ -1306,11 +1307,15 @@ async fn save_hdr(
 
     let output_path = parent_dir.join(output_filename);
 
-    image_to_save
-        .save(&output_path)
-        .map_err(|e| format!("Failed to save hdr image: {}", e))?;
-
     let (real_path, _) = crate::file_management::parse_virtual_path(&first_path_str);
+
+    crate::exif_processing::save_converted_image(
+        &image_to_save,
+        &output_path,
+        &real_path.to_string_lossy(),
+    )
+    .map_err(|e| format!("Failed to save hdr image: {}", e))?;
+
     let _ =
         crate::exif_processing::write_rrexif_sidecar(&real_path.to_string_lossy(), &output_path);
 

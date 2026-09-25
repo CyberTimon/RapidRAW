@@ -1029,6 +1029,13 @@ fn copy_full_exif_from_source(
             continue;
         }
         for tag in ifd.get_tags() {
+            // Tags describing the source's own pixel layout (and its maker
+            // notes, which point into it) would be wrong or broken in the
+            // exported file. This matters for TIFF sources in particular,
+            // since those carry the full set of them.
+            if !tag.is_writable() || crate::tiff_metadata::is_structural_tag(tag.as_u16()) {
+                continue;
+            }
             metadata.set_tag(tag.clone());
             copied_any = true;
         }
@@ -1221,23 +1228,7 @@ pub fn write_image_with_metadata(
     keep_metadata: bool,
     strip_gps: bool,
 ) -> Result<(), String> {
-    // FIXME: temporary solution until I find a way to write metadata to TIFF
-    if !keep_metadata || output_format.to_lowercase() == "tiff" {
-        return Ok(());
-    }
-
-    let original_path = Path::new(original_path_str);
-    if !original_path.exists() {
-        return Ok(());
-    }
-
-    // Skip TIFF sources to avoid potential tag corruption issues
-    let original_ext = original_path
-        .extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("")
-        .to_lowercase();
-    if original_ext == "tiff" || original_ext == "tif" {
+    if !keep_metadata {
         return Ok(());
     }
 
@@ -1246,10 +1237,45 @@ pub fn write_image_with_metadata(
         "png" => FileExtension::PNG {
             as_zTXt_chunk: true,
         },
-        "tiff" => FileExtension::TIFF,
         "webp" => FileExtension::WEBP,
+        // TIFF is not patched in afterwards; its tags are written while the
+        // file is encoded, see `tiff_metadata::encode_tiff_with_metadata`.
         _ => return Ok(()),
     };
+
+    let dimensions = image::ImageReader::new(Cursor::new(image_bytes.as_slice()))
+        .with_guessed_format()
+        .ok()
+        .and_then(|reader| reader.into_dimensions().ok());
+
+    let Some(metadata) = collect_metadata_from_source(original_path_str, strip_gps, dimensions)
+    else {
+        return Ok(());
+    };
+
+    if let Err(e) = metadata.write_to_vec(image_bytes, file_type) {
+        log::warn!("Failed to write metadata: {}", e);
+    }
+
+    Ok(())
+}
+
+/// Gathers everything that should end up in an exported image: the source's own
+/// EXIF, RapidRAW's sidecar, GPS, and the fields RapidRAW sets itself. Returns
+/// `None` when the source is gone, since there is nothing to copy then.
+///
+/// `dimensions` are those of the encoded image and are written as
+/// `ExifImageWidth`/`ExifImageHeight`. Callers that let the TIFF encoder record
+/// the size pass `None`.
+pub fn collect_metadata_from_source(
+    original_path_str: &str,
+    strip_gps: bool,
+    dimensions: Option<(u32, u32)>,
+) -> Option<Metadata> {
+    let original_path = Path::new(original_path_str);
+    if !original_path.exists() {
+        return None;
+    }
 
     let mut metadata = Metadata::new();
 
@@ -1541,19 +1567,12 @@ pub fn write_image_with_metadata(
     metadata.set_tag(ExifTag::Orientation(vec![1u16]));
     metadata.set_tag(ExifTag::ColorSpace(vec![1u16]));
 
-    if let Ok(reader) =
-        image::ImageReader::new(Cursor::new(image_bytes.as_slice())).with_guessed_format()
-        && let Ok((width, height)) = reader.into_dimensions()
-    {
+    if let Some((width, height)) = dimensions {
         metadata.set_tag(ExifTag::ExifImageWidth(vec![width]));
         metadata.set_tag(ExifTag::ExifImageHeight(vec![height]));
     }
 
-    if let Err(e) = metadata.write_to_vec(image_bytes, file_type) {
-        log::warn!("Failed to write metadata: {}", e);
-    }
-
-    Ok(())
+    Some(metadata)
 }
 
 pub fn get_primary_sidecar_path(image_path: &Path) -> PathBuf {
@@ -1678,6 +1697,73 @@ pub fn persist_exif_if_missing(source_path: &Path, source_path_str: &str, file_b
     } else {
         save_exif_to_rrcache(source_path, exif_map);
     }
+}
+
+/// Saves an image produced by one of the conversions (denoising, negative
+/// conversion, panorama stitching, HDR merging, focus stacking) with the
+/// metadata of the image it was derived from embedded in it.
+///
+/// These conversions also drop a RapidRAW sidecar next to their output, which
+/// is what RapidRAW itself reads. Embedding the same data makes the file say
+/// the same thing to everything else.
+pub fn save_converted_image(
+    image: &image::DynamicImage,
+    output_path: &Path,
+    source_path_str: &str,
+) -> Result<(), String> {
+    let dimensions = image::GenericImageView::dimensions(image);
+    let metadata = collect_metadata_from_source(source_path_str, false, Some(dimensions));
+
+    let extension = output_path
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    let bytes = match extension.as_str() {
+        "tif" | "tiff" => {
+            let samples = match image {
+                image::DynamicImage::ImageRgb32F(_) | image::DynamicImage::ImageRgba32F(_) => {
+                    crate::tiff_metadata::TiffSamples::ThirtyTwoFloat
+                }
+                image::DynamicImage::ImageRgb16(_)
+                | image::DynamicImage::ImageRgba16(_)
+                | image::DynamicImage::ImageLuma16(_)
+                | image::DynamicImage::ImageLumaA16(_) => {
+                    crate::tiff_metadata::TiffSamples::Sixteen
+                }
+                _ => crate::tiff_metadata::TiffSamples::Eight,
+            };
+            crate::tiff_metadata::encode_tiff_with_metadata(image, samples, metadata.as_ref())?
+        }
+        "png" => {
+            let mut bytes = Vec::new();
+            image
+                .write_to(&mut Cursor::new(&mut bytes), image::ImageFormat::Png)
+                .map_err(|e| format!("Failed to encode image: {}", e))?;
+
+            if let Some(metadata) = metadata
+                && let Err(e) = metadata.write_to_vec(
+                    &mut bytes,
+                    FileExtension::PNG {
+                        as_zTXt_chunk: true,
+                    },
+                )
+            {
+                log::warn!("Failed to write metadata: {}", e);
+            }
+            bytes
+        }
+        other => {
+            return Err(format!(
+                "Unsupported format for a converted image: '{}'",
+                other
+            ));
+        }
+    };
+
+    fs::write(output_path, bytes)
+        .map_err(|e| format!("Failed to write file to '{}': {}", output_path.display(), e))
 }
 
 pub fn write_rrexif_sidecar(source_path_str: &str, target_image_path: &Path) -> Result<(), String> {
