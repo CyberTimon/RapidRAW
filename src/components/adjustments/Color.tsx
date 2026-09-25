@@ -157,7 +157,7 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
 
   return (
     <div>
-      <div className="flex items-center justify-start gap-2 mb-4 mt-2">
+      <div className="flex items-center justify-start gap-2 mb-4 mt-2 px-1">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
