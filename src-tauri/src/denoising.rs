@@ -1,5 +1,6 @@
 use crate::app_settings::load_settings;
 use crate::app_state::AppState;
+use crate::exif_processing::read_iso;
 use crate::file_management::parse_virtual_path;
 use crate::formats::is_raw_file;
 use crate::image_loader::load_base_image_from_bytes;

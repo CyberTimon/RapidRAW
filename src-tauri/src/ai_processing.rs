@@ -1033,6 +1033,7 @@ impl TileParams {
 const TILE_BALANCED: TileParams = TileParams::new(504, 480, 6);
 const TILE_FASTER: TileParams = TileParams::new(504, 504, 0);
 const TILE_HIGHER_QUALITY: TileParams = TileParams::new(504, 448, 12);
+const TILE_RAWREFINARY: TileParams = TileParams::new(504, 504, 12);
 
 fn select_tile_params(quality_0_1: f32) -> TileParams {
     let q = quality_0_1.clamp(0.0, 1.0);
@@ -1150,7 +1151,11 @@ fn run_native_denoise(
 ) -> Result<()> {
     let w = width as i32;
     let h = height as i32;
-    let params = select_tile_params(intensity);
+    let params = if method == "ai_rr" {
+        TILE_RAWREFINARY
+    } else {
+        select_tile_params(intensity)
+    };
     let step = params.ucs.saturating_sub(params.overlap).max(1);
     let iperhl = (width.saturating_sub(params.ucs) as f64 / step as f64).ceil() as usize;
     let ipervl = (height.saturating_sub(params.ucs) as f64 / step as f64).ceil() as usize;
@@ -1176,7 +1181,7 @@ fn run_native_denoise(
         // Tensor::from_array (owned) can be misidentified as already on-device, giving zeros.
 
         let mut cond = Array::<f32, _>::zeros((1, 1));
-        cond[[0, 0]] = 10.; // This value needs to be set based on the ISO number, 10 works for now (see RawRefinery documentation).
+        cond[[0, 0]] = 5.0 + 10.0 * intensity;
 
         let out = {
             let mut sess = session.lock().unwrap();
