@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Pipette, Sliders } from 'lucide-react';
+import { Contrast, Pipette, Sliders } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import Slider from '../ui/Slider';
@@ -437,6 +437,27 @@ export default function ColorPanel({
   const baseHue = colorHueMap[activeColor] || 0;
   const effectiveHue = baseHue + (currentHsl.hue || 0);
 
+  const isMixerBw = useMemo(
+    () =>
+      HSL_COLORS.every(({ name }) => ((adjustments.hsl?.[name] || INITIAL_ADJUSTMENTS.hsl[name]).saturation ?? 0) === -100),
+    [adjustments.hsl, HSL_COLORS],
+  );
+
+  const handleToggleMixerBw = () => {
+    const targetSaturation = isMixerBw ? 0 : -100;
+    setAdjustments((prev: Partial<Adjustments>) => {
+      const prevHsl = prev.hsl || INITIAL_ADJUSTMENTS.hsl;
+      const newHsl = HSL_COLORS.reduce(
+        (acc, { name }) => ({
+          ...acc,
+          [name]: { ...(prevHsl[name] || INITIAL_ADJUSTMENTS.hsl[name]), saturation: targetSaturation },
+        }),
+        {} as Record<string, HueSatLum>,
+      );
+      return { ...prev, hsl: { ...prevHsl, ...newHsl } };
+    });
+  };
+
   useEffect(() => {
     const normalizedHue = ((effectiveHue % 360) + 360) % 360;
     const effectiveSaturation = (currentHsl.saturation + 100) / 2;
@@ -574,6 +595,18 @@ export default function ColorPanel({
 
       {!hiddenTools.includes('colorMixer') && (
         <AdjustmentSubSection
+          actions={
+            <button
+              onClick={handleToggleMixerBw}
+              className={`p-1.5 rounded-md transition-colors ${
+                isMixerBw ? 'bg-accent text-button-text' : 'hover:bg-bg-secondary text-text-secondary'
+              }`}
+              data-tooltip={t('adjustments.color.blackAndWhiteTooltip')}
+              aria-label={t('adjustments.color.blackAndWhiteTooltip')}
+            >
+              <Contrast size={16} />
+            </button>
+          }
           id="colorMixer"
           order={toolOrder.indexOf('colorMixer')}
           title={t('adjustments.color.colorMixer')}
