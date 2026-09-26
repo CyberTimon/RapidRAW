@@ -969,9 +969,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   const handleIntensityChange = useCallback(
     (preset: Preset, intensity: number) => {
       const base = presetBaseAdjustmentsRef.current ?? adjustmentsRef.current;
-      const nextActive = activePresetsRef.current.map((p) =>
-        p.preset.id === preset.id ? { ...p, intensity } : p,
-      );
+      const nextActive = activePresetsRef.current.map((p) => (p.preset.id === preset.id ? { ...p, intensity } : p));
       const nextAdjustments = applyPresetStack(base, nextActive);
       setAdjustments(nextAdjustments);
       setEditor({
@@ -1038,15 +1036,13 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     }
 
     const currentActive = activePresetsRef.current;
-    let nextActive = currentActive;
-
-    if (isFolder) {
-      const folderItem = presets.find((item: any) => item.folder && item.folder.id === id);
-      const childIds = new Set((folderItem?.folder?.children || []).map((c: any) => c.id));
-      nextActive = currentActive.filter((p) => !childIds.has(p.preset.id));
-    } else {
-      nextActive = currentActive.filter((p) => p.preset.id !== id);
-    }
+    const nextActive = isFolder
+      ? (() => {
+          const folderItem = presets.find((item: any) => item.folder && item.folder.id === id);
+          const childIds = new Set((folderItem?.folder?.children || []).map((c: any) => c.id));
+          return currentActive.filter((p) => !childIds.has(p.preset.id));
+        })()
+      : currentActive.filter((p) => p.preset.id !== id);
 
     if (nextActive.length !== currentActive.length) {
       if (nextActive.length === 0) {
@@ -1461,7 +1457,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
                         preset={item.preset}
                         previewUrl={(item.preset?.id ? previews[item.preset.id] : '') || ''}
                         isActive={item.preset?.id ? activePresetMap.has(item.preset.id) : false}
-                        intensity={item.preset?.id ? activePresetMap.get(item.preset.id)?.intensity ?? 100 : 100}
+                        intensity={item.preset?.id ? (activePresetMap.get(item.preset.id)?.intensity ?? 100) : 100}
                         onIntensityChange={(val) => handleIntensityChange(item.preset as Preset, val)}
                         onDragStateChange={handleDragStateChange}
                       />
