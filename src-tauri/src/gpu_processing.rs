@@ -225,6 +225,16 @@ pub fn get_or_init_gpu_context(
         format!("Failed to find a wgpu adapter: {}", e)
     })?;
 
+    let adapter_info = adapter.get_info();
+    log::info!(
+        "Using GPU adapter: {} ({:?}, {:?}, driver: {} {})",
+        adapter_info.name,
+        adapter_info.backend,
+        adapter_info.device_type,
+        adapter_info.driver,
+        adapter_info.driver_info
+    );
+
     let mut required_features = wgpu::Features::empty();
     if adapter
         .features()
@@ -426,6 +436,7 @@ pub fn get_or_init_gpu_context(
         device: Arc::new(device),
         queue: Arc::new(queue),
         limits,
+        adapter_info,
         display: Arc::new(std::sync::Mutex::new(display_opt)),
     };
     *context_lock = Some(new_context.clone());
