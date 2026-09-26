@@ -26,6 +26,7 @@ pub fn develop_raw_image(
         linear_mode,
         cancel_token,
     )?;
+    let _span = crate::perf_trace::span("decode.orientation");
     Ok(apply_orientation(developed_image, orientation))
 }
 
@@ -124,6 +125,7 @@ fn develop_internal(
 
     check_cancel()?;
 
+    let decode_span = crate::perf_trace::span("decode.rawler_decode");
     let source = RawSource::new_from_slice(file_bytes);
     let decoder = rawler::get_decoder(&source)?;
 
@@ -131,6 +133,7 @@ fn develop_internal(
     let mut raw_image: RawImage = decoder.raw_image(&source, &RawDecodeParams::default(), false)?;
 
     let metadata = decoder.raw_metadata(&source, &RawDecodeParams::default())?;
+    drop(decode_span);
     let orientation = metadata
         .exif
         .orientation
@@ -182,7 +185,9 @@ fn develop_internal(
         crate::multi_exposure::neutralize_wb_if_multiexposure(raw_image.wb_coeffs, file_bytes);
 
     check_cancel()?;
+    let develop_span = crate::perf_trace::span("decode.develop_intermediate");
     let mut developed_intermediate = developer.develop_intermediate(&raw_image)?;
+    drop(develop_span);
 
     drop(raw_image);
 
@@ -204,6 +209,7 @@ fn develop_internal(
 
     check_cancel()?;
 
+    let post_span = crate::perf_trace::span("decode.rescale_recover");
     match &mut developed_intermediate {
         Intermediate::Monochrome(pixels) => {
             pixels.data.iter_mut().for_each(|p| {
@@ -246,8 +252,10 @@ fn develop_internal(
         }
     }
 
+    drop(post_span);
     check_cancel()?;
 
+    let _convert_span = crate::perf_trace::span("decode.to_rgba32f");
     let dynamic_image = match developed_intermediate {
         Intermediate::ThreeColor(pixels) => {
             let buffer = ImageBuffer::<Rgba<f32>, _>::from_fn(width, height, |x, y| {

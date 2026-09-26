@@ -1245,6 +1245,7 @@ impl GpuProcessor {
         });
         let out_width = bounds.width;
         let out_height = bounds.height;
+        let mask_lut_span = crate::perf_trace::span("gpu.mask_lut_upload");
         let mask_layer_count = request.mask_bitmaps.len().clamp(2, MAX_MASKS) as u32;
         let full_texture_size = wgpu::Extent3d {
             width,
@@ -1326,8 +1327,12 @@ impl GpuProcessor {
             (self.dummy_lut_view.clone(), self.dummy_lut_sampler.clone())
         };
 
+        mask_lut_span.gpu_sync(device);
+        drop(mask_lut_span);
+
         let adjustments = request.adjustments;
         if adjustments.global.flare_amount > 0.0 {
+            let _flare_span = crate::perf_trace::span("gpu.flare");
             let mut encoder = device.create_command_encoder(&Default::default());
 
             let aspect_ratio = if height > 0 {
@@ -1479,6 +1484,7 @@ impl GpuProcessor {
                     if radius == 0 {
                         return false;
                     }
+                    let blur_span = crate::perf_trace::span("gpu.blur_passes");
 
                     let params = BlurParams {
                         radius,
@@ -1547,6 +1553,7 @@ impl GpuProcessor {
                     }
 
                     queue.submit(Some(blur_encoder.finish()));
+                    blur_span.gpu_sync(device);
                     true
                 };
 
@@ -1555,6 +1562,7 @@ impl GpuProcessor {
                 let did_create_clarity_blur = run_blur(8.0, &self.clarity_blur_view);
                 let did_create_structure_blur = run_blur(40.0, &self.structure_blur_view);
 
+                let main_span = crate::perf_trace::span("gpu.main_kernel");
                 let mut main_encoder = device.create_command_encoder(&Default::default());
 
                 let mut tile_adjustments = adjustments;
@@ -1691,8 +1699,11 @@ impl GpuProcessor {
                 }
 
                 queue.submit(Some(main_encoder.finish()));
+                main_span.gpu_sync(device);
+                drop(main_span);
 
                 if !output_to_display {
+                    let readback_span = crate::perf_trace::span("gpu.readback_tile");
                     let processed_tile_data = read_texture_data_roi(
                         device,
                         queue,
@@ -1702,6 +1713,8 @@ impl GpuProcessor {
                         bytes_per_pixel,
                     )?;
 
+                    drop(readback_span);
+                    let _copy_span = crate::perf_trace::span("gpu.tile_copy_cpu");
                     match &mut final_pixels {
                         RenderedPixels::U8(final_pixels) => {
                             for row in 0..tile_height {
@@ -1848,6 +1861,7 @@ fn process_and_get_dynamic_image_inner(
         return Ok(base_image.clone());
     }
 
+    let lock_span = crate::perf_trace::span("gpu.wait_processor_lock");
     let mut processor_lock = match state.gpu_processor.lock() {
         Ok(guard) => guard,
         Err(poisoned) => {
@@ -1857,6 +1871,7 @@ fn process_and_get_dynamic_image_inner(
             guard
         }
     };
+    drop(lock_span);
     let mut needs_new_processor = false;
     let new_width = (width + 255) & !255;
     let new_height = (height + 255) & !255;
@@ -1884,6 +1899,7 @@ fn process_and_get_dynamic_image_inner(
             timeout: Some(std::time::Duration::from_millis(500)),
         });
 
+        let _span = crate::perf_trace::span("gpu.create_processor");
         let new_processor = GpuProcessor::new(context.clone(), new_width, new_height)?;
 
         *processor_lock = Some(crate::GpuProcessorState {
@@ -1925,7 +1941,10 @@ fn process_and_get_dynamic_image_inner(
             timeout: Some(std::time::Duration::from_millis(500)),
         });
 
+        let convert_span = crate::perf_trace::span("gpu.upload_convert_f16");
         let img_rgba_f16 = to_rgba_f16(base_image);
+        drop(convert_span);
+        let upload_span = crate::perf_trace::span("gpu.upload_texture");
         let texture_size = wgpu::Extent3d {
             width,
             height,
@@ -1947,6 +1966,8 @@ fn process_and_get_dynamic_image_inner(
             bytemuck::cast_slice(&img_rgba_f16),
         );
         let texture_view = texture.create_view(&Default::default());
+        upload_span.gpu_sync(device);
+        drop(upload_span);
 
         *cache_lock = Some(GpuImageCache {
             texture,

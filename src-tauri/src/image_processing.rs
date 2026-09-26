@@ -2575,10 +2575,13 @@ pub fn remove_raw_artifacts_and_enhance(
     color_nr_inv_sigma: f32,
     sharpening_amount: f32,
 ) {
+    let convert_span = crate::perf_trace::span("enhance.to_rgb32f");
     let mut buffer = image.to_rgb32f();
+    drop(convert_span);
     let w = buffer.width() as usize;
     let h = buffer.height() as usize;
 
+    let ycc_span = crate::perf_trace::span("enhance.ycbcr");
     let mut ycbcr_buffer = vec![0.0f32; w * h * 3];
 
     let src = buffer.as_raw();
@@ -2593,7 +2596,9 @@ pub fn remove_raw_artifacts_and_enhance(
             dest[2] = cr;
         });
 
+    drop(ycc_span);
     if color_nr_inv_sigma > 0.0 {
+        let _nr_span = crate::perf_trace::span("enhance.color_nr");
         let base_inv_sigma = color_nr_inv_sigma;
         const OFFSETS: [isize; 3] = [-5, -1, 3];
         const OFFSET_SQUARES: [f32; 3] = [25.0, 1.0, 9.0];
@@ -2678,6 +2683,7 @@ pub fn remove_raw_artifacts_and_enhance(
     }
 
     if sharpening_amount > 0.0 {
+        let _span = crate::perf_trace::span("enhance.detail");
         apply_gentle_detail_enhance(&mut buffer, &ycbcr_buffer, sharpening_amount);
     }
 
