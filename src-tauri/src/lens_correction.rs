@@ -515,7 +515,8 @@ impl Lens {
 
 fn extract_dist_params(dist: &Distortion) -> (f64, f64, f64, u32) {
     match dist.model.as_str() {
-        "poly3" | "poly5" => (
+        "poly3" => (0.0, dist.k1.unwrap_or(0.0) as f64, 0.0, 1),
+        "poly5" => (
             dist.k1.unwrap_or(0.0) as f64,
             dist.k2.unwrap_or(0.0) as f64,
             dist.k3.unwrap_or(0.0) as f64,
