@@ -2533,7 +2533,8 @@ pub fn save_metadata_and_update_thumbnail(
     {
         let _guard = state.sidecar_write_lock.lock().unwrap();
 
-        let mut metadata = crate::exif_processing::load_sidecar_with_exif(&sidecar_path, &source_path);
+        let mut metadata =
+            crate::exif_processing::load_sidecar_with_exif(&sidecar_path, &source_path);
 
         let mut final_adjustments = adjustments;
         {
@@ -2976,7 +2977,11 @@ pub async fn apply_auto_adjustments_to_paths(
                     }
 
                     if enable_xmp_sync {
-                        sync_metadata_to_xmp(&source_path, &existing_metadata, create_xmp_if_missing);
+                        sync_metadata_to_xmp(
+                            &source_path,
+                            &existing_metadata,
+                            create_xmp_if_missing,
+                        );
                     }
                 }
                 Ok(image)
@@ -3081,18 +3086,12 @@ pub async fn auto_apply_lens_correction_to_paths(
             let exif_model = exif.get("LensModel").map(|s| s.as_str()).unwrap_or("");
             let camera_model = exif.get("Model").map(|s| s.as_str()).unwrap_or("");
 
-            let detected = if !exif_model.is_empty() {
-                crate::lens_correction::find_best_lens_match(&lens_db, exif_maker, exif_model)
-            } else {
-                None
-            }
-            .or_else(|| {
-                crate::lens_correction::find_lens_by_camera_mount(
-                    &lens_db,
-                    exif_maker,
-                    camera_model,
-                )
-            });
+            let detected = crate::lens_correction::find_best_lens_match(
+                &lens_db,
+                exif_maker,
+                exif_model,
+                camera_model,
+            );
 
             let Some((lens_maker, lens_model)) = detected else {
                 return;
@@ -3101,7 +3100,9 @@ pub async fn auto_apply_lens_correction_to_paths(
             let mut focal_length = 50.0;
             let mut aperture = None;
             let mut distance = None;
-            if let Some(fl_str) = exif.get("FocalLength").or(exif.get("FocalLengthIn35mmFilm"))
+            if let Some(fl_str) = exif
+                .get("FocalLength")
+                .or(exif.get("FocalLengthIn35mmFilm"))
                 && let Ok(fl) = fl_str.replace(" mm", "").trim().parse::<f32>()
             {
                 focal_length = fl;
@@ -3168,16 +3169,25 @@ pub async fn auto_apply_lens_correction_to_paths(
                 }
             }
 
-            if let Some((thumbnail_path, rating, is_edited)) = generate_single_thumbnail_and_cache(
-                path,
-                &thumb_cache_dir,
-                gpu_context.as_ref(),
-                None,
-                true,
-                &app_handle,
-                &settings,
-            ) {
-                emit_thumbnail_generated(&app_handle, path, &thumbnail_path, rating, is_edited);
+            if let Some((small_path, medium_path, rating, is_edited)) =
+                generate_single_thumbnail_and_cache(
+                    path,
+                    &thumb_cache_dir,
+                    gpu_context.as_ref(),
+                    None,
+                    true,
+                    &app_handle,
+                    &settings,
+                )
+            {
+                emit_thumbnail_generated(
+                    &app_handle,
+                    path,
+                    &small_path,
+                    &medium_path,
+                    rating,
+                    is_edited,
+                );
             }
         });
     });

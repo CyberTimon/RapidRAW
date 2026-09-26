@@ -550,54 +550,6 @@ fn lenses_for_maker<'a>(db: &'a LensDatabase, maker: &str) -> Vec<&'a Lens> {
         .collect()
 }
 
-impl Camera {
-    pub fn get_maker(&self) -> String {
-        self.maker
-            .iter()
-            .find(|m| m.lang.as_deref() == Some("en"))
-            .or_else(|| self.maker.first())
-            .map(|m| m.value.clone())
-            .unwrap_or_else(|| "Misc".to_string())
-    }
-
-    fn matches_model(&self, model: &str) -> bool {
-        self.model.iter().any(|m| m.value.eq_ignore_ascii_case(model))
-    }
-}
-
-/// Fixed-lens cameras (compacts) rarely populate the EXIF LensModel tag, since
-/// there is no interchangeable lens to name. Lensfun instead links these cameras
-/// to their (often shared) lens profile through a common `<mount>` id. This looks
-/// up the camera by maker/model, then finds the lens profile registered for that
-/// same mount.
-pub fn find_lens_by_camera_mount(
-    db: &LensDatabase,
-    maker: &str,
-    camera_model: &str,
-) -> Option<(String, String)> {
-    let clean_maker = maker.trim().trim_matches('"');
-    let clean_model = camera_model.trim().trim_matches('"');
-    if clean_model.is_empty() {
-        return None;
-    }
-
-    let camera = db.cameras.iter().find(|c| {
-        c.get_maker().eq_ignore_ascii_case(clean_maker) && c.matches_model(clean_model)
-    })?;
-
-    let lenses_from_maker: Vec<&Lens> = db
-        .lenses
-        .iter()
-        .filter(|lens| lens.get_maker().eq_ignore_ascii_case(clean_maker))
-        .collect();
-
-    let lens = lenses_from_maker
-        .iter()
-        .find(|lens| lens.mount.iter().any(|m| m == &camera.mount))?;
-
-    Some((lens.get_maker(), lens.get_display_name(&lenses_from_maker)))
-}
-
 pub fn load_lensfun_db(app_handle: &tauri::AppHandle) -> LensDatabase {
     let mut combined_db = LensDatabase {
         cameras: Vec::new(),
@@ -973,7 +925,8 @@ mod tests {
         // A Sony RX10 IV RAW leaves EXIF LensModel empty (no interchangeable lens),
         // so autodetection must fall back to the camera model -> mount -> lens lookup.
         let result = find_lens_by_camera_mount(&db, "Sony", "DSC-RX10M4");
-        let (maker, model) = result.expect("expected a lens match for the Sony RX10 IV via its camera mount");
+        let lens = result.expect("expected a lens match for the Sony RX10 IV via its camera mount");
+        let (maker, model) = lens_result(&db, lens);
         assert_eq!(maker, "Sony");
         assert!(
             model.contains("RX10"),
