@@ -43,6 +43,8 @@ mod preset_converter;
 mod raw_processing;
 mod tagging;
 mod tagging_utils;
+#[cfg(test)]
+mod test_support;
 mod window_customizer;
 
 use std::collections::{HashMap, hash_map::DefaultHasher};
