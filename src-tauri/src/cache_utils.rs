@@ -532,6 +532,7 @@ struct DecodedEntry {
 pub struct DecodedImageCache {
     capacity: usize,
     items: Vec<DecodedEntry>,
+    active: Option<String>,
 }
 
 impl DecodedImageCache {
@@ -539,6 +540,7 @@ impl DecodedImageCache {
         Self {
             capacity,
             items: Vec::with_capacity(capacity),
+            active: None,
         }
     }
 
@@ -573,6 +575,7 @@ impl DecodedImageCache {
     }
 
     pub fn compact_except(&mut self, keep_path: &str) {
+        self.active = Some(keep_path.to_string());
         if let Some(pos) = self.items.iter().position(|e| e.path == keep_path) {
             let item = self.items.remove(pos);
             self.items.push(item);
@@ -610,9 +613,7 @@ impl DecodedImageCache {
     }
 
     fn evict(&mut self) {
-        while self.items.len() > self.capacity.max(1) {
-            self.items.remove(0);
-        }
+        while self.items.len() > self.capacity.max(1) && self.remove_oldest_inactive() {}
         while self.items.len() > 1
             && self
                 .items
@@ -620,8 +621,22 @@ impl DecodedImageCache {
                 .map(|e| e.image.byte_size())
                 .sum::<usize>()
                 > *DECODED_CACHE_BUDGET_BYTES
+            && self.remove_oldest_inactive()
+        {}
+    }
+
+    fn remove_oldest_inactive(&mut self) -> bool {
+        let active = self.active.as_deref();
+        match self
+            .items
+            .iter()
+            .position(|e| Some(e.path.as_str()) != active)
         {
-            self.items.remove(0);
+            Some(pos) => {
+                self.items.remove(pos);
+                true
+            }
+            None => false,
         }
     }
 }
@@ -672,6 +687,13 @@ impl Drop for FlightGuard<'_> {
 }
 
 impl DecodeFlights {
+    pub fn is_idle(&self) -> bool {
+        self.inflight
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .is_empty()
+    }
+
     pub fn begin(&self, path: &str) -> FlightRole<'_> {
         let mut inflight = self.inflight.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(flight) = inflight.get(path) {

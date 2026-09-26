@@ -49,6 +49,7 @@ mod guided_perspective;
 mod hdr_deghosting;
 mod highlight_reconstruction;
 mod image_loader;
+mod image_preload;
 mod image_processing;
 mod immich;
 mod inpainting;
@@ -2427,6 +2428,7 @@ pub fn run() {
 
             start_preview_worker(app_handle.clone());
             start_analytics_worker(app_handle.clone());
+            image_preload::start_preload_worker(app_handle.clone());
             file_management::start_thumbnail_workers(app_handle.clone());
             file_management::start_metadata_workers(app_handle.clone());
             ai_jobs::start_worker(app_handle.clone());
@@ -2662,6 +2664,9 @@ pub fn run() {
             full_transformed_cache: Mutex::new(None),
             decoded_image_cache: Mutex::new(DecodedImageCache::new(5)),
             decode_flights: Default::default(),
+            preload_worker_tx: Mutex::new(None),
+            preload_generation: Arc::new(AtomicUsize::new(0)),
+            preloading_path: Mutex::new(None),
             thumbnail_manager: ThumbnailManager::new(),
             memory_budget: crate::memory_budget::MemoryBudget::from_total_ram(0.6),
             metadata_manager: MetadataManager::new(),
@@ -2736,6 +2741,7 @@ pub fn run() {
             focus_stacking::save_focus_stack,
             image_loader::load_image,
             image_loader::is_image_cached,
+            image_preload::preload_images,
             panorama_stitching::stitch_panorama,
             panorama_stitching::save_panorama,
             export_processing::export_images,
