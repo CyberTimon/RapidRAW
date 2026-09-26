@@ -312,8 +312,10 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "Copiar Configurações de {{section}}",
+        "customizePanels": "Personalizar Painéis",
         "pasteLabel": "Colar Configurações de {{section}}",
         "pasteSettings": "Colar Configurações",
+        "resetPanelLayout": "Redefinir para o Padrão",
         "resetSectionSettings": "Redefinir Configurações de {{section}}"
       },
       "sections": {
@@ -326,7 +328,9 @@
       "title": "Ajustes",
       "tooltips": {
         "autoAdjust": "Ajuste Automático de Imagem",
+        "hideFromPanel": "Ocultar do Painel",
         "resetAdjustments": "Redefinir Ajustes",
+        "showInPanel": "Mostrar no Painel",
         "toggleAnalytics": "Alternar Exibição de Análises"
       }
     },
@@ -1521,14 +1525,6 @@
     }
   },
   "settings": {
-    "adjustments": {
-      "chromaticAberration": "Aberração Cromática",
-      "colorCalibration": "Calibração de Cores",
-      "description": "Oculte as seções de ajuste que você não usa com frequência para simplificar o painel de edição. Suas configurações serão preservadas e aplicadas mesmo quando ocultas.",
-      "grain": "Granulação",
-      "noiseReduction": "Redução de Ruído",
-      "title": "Visibilidade dos Ajustes"
-    },
     "categories": {
       "general": "Geral",
       "processing": "Processamento",

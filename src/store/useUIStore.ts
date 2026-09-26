@@ -6,18 +6,11 @@ import {
   CullingSuggestions,
   PanelRegion,
   WorkspaceState,
+  CollapsibleSectionsState,
 } from '../components/ui/AppProperties';
 import { useEditorStore } from './useEditorStore';
 
 export type SwitcherPlacement = 'bottom' | 'right' | 'left' | 'top';
-
-interface CollapsibleSectionsState {
-  basic: boolean;
-  color: boolean;
-  curves: boolean;
-  details: boolean;
-  effects: boolean;
-}
 
 export interface CropSectionsState {
   transform: boolean;

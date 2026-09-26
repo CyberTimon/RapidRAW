@@ -7,10 +7,11 @@ import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import Slider from '../ui/Slider';
 import Switch from '../ui/Switch';
-import { Adjustments, Effect, CreativeAdjustment } from '../../utils/adjustments';
+import { Adjustments, Effect, CreativeAdjustment, getAdjustmentToolOrder, getHiddenAdjustmentTools } from '../../utils/adjustments';
 import LUTControl from '../ui/LUTControl';
 import { AppSettings } from '../ui/AppProperties';
 import Text from '../ui/Text';
+import AdjustmentSubSection from './AdjustmentSubSection';
 import { TextVariants } from '../../types/typography';
 import { DepthRangePicker } from '../ui/DepthRangePicker';
 import { useProcessStore } from '../../store/useProcessStore';
@@ -193,169 +194,177 @@ export default function EffectsPanel({
     }
   };
 
-  const adjustmentVisibility = appSettings?.adjustmentVisibility || {};
+  const hiddenTools = getHiddenAdjustmentTools(appSettings?.adjustmentLayout);
+  const toolOrder = getAdjustmentToolOrder('effects', appSettings?.adjustmentLayout?.toolOrder);
 
   return (
-    <div className="space-y-4">
-      <div className="p-1 bg-bg-tertiary rounded-md">
-        <Text variant={TextVariants.heading} className="mb-2">
-          {t('adjustments.effects.creative')}
-        </Text>
-
-        <Slider
-          label={t('adjustments.effects.glow')}
-          max={100}
-          min={0}
-          onChange={(e: any) => handleAdjustmentChange(CreativeAdjustment.GlowAmount, e.target.value)}
-          step={1}
-          value={adjustments.glowAmount}
-          onDragStateChange={onDragStateChange}
-        />
-
-        <Slider
-          label={t('adjustments.effects.halation')}
-          max={100}
-          min={0}
-          onChange={(e: any) => handleAdjustmentChange(CreativeAdjustment.HalationAmount, e.target.value)}
-          step={1}
-          value={adjustments.halationAmount}
-          onDragStateChange={onDragStateChange}
-        />
-
-        {!isForMask && (
+    <div className="flex flex-col gap-4">
+      {!hiddenTools.includes('creative') && (
+        <AdjustmentSubSection
+          id="creative"
+          order={toolOrder.indexOf('creative')}
+          title={t('adjustments.effects.creative')}
+        >
           <Slider
-            label={t('adjustments.effects.lightFlares')}
+            label={t('adjustments.effects.glow')}
             max={100}
             min={0}
-            onChange={(e: any) => handleAdjustmentChange(CreativeAdjustment.FlareAmount, e.target.value)}
+            onChange={(e: any) => handleAdjustmentChange(CreativeAdjustment.GlowAmount, e.target.value)}
             step={1}
-            value={adjustments.flareAmount}
+            value={adjustments.glowAmount}
             onDragStateChange={onDragStateChange}
           />
-        )}
-      </div>
 
-      {!isForMask && (
-        <div className="space-y-4">
-          <div className="p-1 bg-bg-tertiary rounded-md">
-            <Text variant={TextVariants.heading} className="mb-2">
-              {t('adjustments.effects.lensBlur')}
-            </Text>
+          <Slider
+            label={t('adjustments.effects.halation')}
+            max={100}
+            min={0}
+            onChange={(e: any) => handleAdjustmentChange(CreativeAdjustment.HalationAmount, e.target.value)}
+            step={1}
+            value={adjustments.halationAmount}
+            onDragStateChange={onDragStateChange}
+          />
 
-            <Switch
-              label={t('adjustments.effects.lensBlur')}
-              checked={!!adjustments.lensBlurEnabled}
-              onChange={handleLensBlurToggle}
-            />
-
-            <div
-              className={`grid transition-all duration-300 ease-in-out ${
-                adjustments.lensBlurEnabled ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-              }`}
-            >
-              <div className="overflow-hidden">
-                <div className="space-y-4 pt-4 pb-1">
-                  {isGeneratingDepth ? (
-                    <div className="flex flex-col items-center justify-center gap-1 p-4 text-text-secondary text-center">
-                      <div className="flex items-center gap-2">
-                        <Loader2 size={16} className="animate-spin shrink-0" />
-                        <Text variant={TextVariants.label}>
-                          {aiModelDownloadStatus
-                            ? t('editor.masks.settings.aiModelDownloading')
-                            : t('editor.ai.generatingDepthMap')}
-                        </Text>
-                      </div>
-                      {aiModelDownloadStatus && (
-                        <Text variant={TextVariants.small} className="text-accent">
-                          {aiModelDownloadStatus}
-                        </Text>
-                      )}
-                    </div>
-                  ) : (
-                    <>
-                      <Slider
-                        label={t('adjustments.effects.amount')}
-                        max={100}
-                        min={0}
-                        defaultValue={40}
-                        onChange={(e: any) => handleAdjustmentChange(Effect.LensBlurAmount, e.target.value)}
-                        step={1}
-                        value={adjustments.lensBlurAmount ?? 50}
-                        onDragStateChange={onDragStateChange}
-                        fillOrigin="min"
-                      />
-
-                      <Slider
-                        label={t('adjustments.effects.lensDiffusion')}
-                        max={100}
-                        min={0}
-                        defaultValue={0}
-                        onChange={(e: any) => handleAdjustmentChange(Effect.lensBlurDiffusion, e.target.value)}
-                        step={1}
-                        value={adjustments.lensBlurDiffusion ?? 0}
-                        onDragStateChange={onDragStateChange}
-                      />
-
-                      <BokehShapeSwitch
-                        selectedShape={adjustments.lensBlurShape || 'circle'}
-                        onShapeChange={(shapeId) =>
-                          setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [Effect.LensBlurShape]: shapeId }))
-                        }
-                      />
-
-                      <DepthRangePicker
-                        minDepth={100 - (adjustments.lensBlurMaxDepth ?? 100)}
-                        maxDepth={100 - (adjustments.lensBlurMinDepth ?? 20)}
-                        minFade={adjustments.lensBlurMaxFade ?? 20}
-                        maxFade={adjustments.lensBlurMinFade ?? 20}
-                        defaultMinDepth={0}
-                        defaultMaxDepth={80}
-                        defaultMinFade={20}
-                        defaultMaxFade={20}
-                        onChange={(values: {
-                          minDepth: number;
-                          maxDepth: number;
-                          minFade: number;
-                          maxFade: number;
-                        }) => {
-                          setAdjustments((prev: Partial<Adjustments>) => ({
-                            ...prev,
-                            lensBlurMinDepth: 100 - values.maxDepth,
-                            lensBlurMaxDepth: 100 - values.minDepth,
-                            lensBlurMinFade: values.maxFade,
-                            lensBlurMaxFade: values.minFade,
-                          }));
-                        }}
-                        onDragStateChange={onDragStateChange}
-                      />
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-1 bg-bg-tertiary rounded-md">
-            <Text variant={TextVariants.heading} className="mb-2">
-              {t('adjustments.effects.lut')}
-            </Text>
-            <LUTControl
-              lutPath={adjustments.lutPath || null}
-              lutName={adjustments.lutName || null}
-              lutIntensity={adjustments.lutIntensity || 100}
-              onLutSelect={handleLutSelect}
-              onLutHover={onLutHover}
-              onIntensityChange={handleLutIntensityChange}
-              onClear={handleLutClear}
+          {!isForMask && (
+            <Slider
+              label={t('adjustments.effects.lightFlares')}
+              max={100}
+              min={0}
+              onChange={(e: any) => handleAdjustmentChange(CreativeAdjustment.FlareAmount, e.target.value)}
+              step={1}
+              value={adjustments.flareAmount}
               onDragStateChange={onDragStateChange}
             />
-          </div>
+          )}
+        </AdjustmentSubSection>
+      )}
 
-          {adjustmentVisibility.vignette !== false && (
-            <div className="p-1 bg-bg-tertiary rounded-md">
-              <Text variant={TextVariants.heading} className="mb-2">
-                {t('adjustments.effects.vignette')}
-              </Text>
+      {!isForMask && (
+        <>
+          {!hiddenTools.includes('lensBlur') && (
+            <AdjustmentSubSection
+              id="lensBlur"
+              order={toolOrder.indexOf('lensBlur')}
+              title={t('adjustments.effects.lensBlur')}
+            >
+              <Switch
+                label={t('adjustments.effects.lensBlur')}
+                checked={!!adjustments.lensBlurEnabled}
+                onChange={handleLensBlurToggle}
+              />
+
+              <div
+                className={`grid transition-all duration-300 ease-in-out ${
+                  adjustments.lensBlurEnabled ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+                }`}
+              >
+                <div className="overflow-hidden">
+                  <div className="space-y-4 pt-4 pb-1">
+                    {isGeneratingDepth ? (
+                      <div className="flex flex-col items-center justify-center gap-1 p-4 text-text-secondary text-center">
+                        <div className="flex items-center gap-2">
+                          <Loader2 size={16} className="animate-spin shrink-0" />
+                          <Text variant={TextVariants.label}>
+                            {aiModelDownloadStatus
+                              ? t('editor.masks.settings.aiModelDownloading')
+                              : t('editor.ai.generatingDepthMap')}
+                          </Text>
+                        </div>
+                        {aiModelDownloadStatus && (
+                          <Text variant={TextVariants.small} className="text-accent">
+                            {aiModelDownloadStatus}
+                          </Text>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        <Slider
+                          label={t('adjustments.effects.amount')}
+                          max={100}
+                          min={0}
+                          defaultValue={40}
+                          onChange={(e: any) => handleAdjustmentChange(Effect.LensBlurAmount, e.target.value)}
+                          step={1}
+                          value={adjustments.lensBlurAmount ?? 50}
+                          onDragStateChange={onDragStateChange}
+                          fillOrigin="min"
+                        />
+
+                        <Slider
+                          label={t('adjustments.effects.lensDiffusion')}
+                          max={100}
+                          min={0}
+                          defaultValue={0}
+                          onChange={(e: any) => handleAdjustmentChange(Effect.lensBlurDiffusion, e.target.value)}
+                          step={1}
+                          value={adjustments.lensBlurDiffusion ?? 0}
+                          onDragStateChange={onDragStateChange}
+                        />
+
+                        <BokehShapeSwitch
+                          selectedShape={adjustments.lensBlurShape || 'circle'}
+                          onShapeChange={(shapeId) =>
+                            setAdjustments((prev: Partial<Adjustments>) => ({
+                              ...prev,
+                              [Effect.LensBlurShape]: shapeId,
+                            }))
+                          }
+                        />
+
+                        <DepthRangePicker
+                          minDepth={100 - (adjustments.lensBlurMaxDepth ?? 100)}
+                          maxDepth={100 - (adjustments.lensBlurMinDepth ?? 20)}
+                          minFade={adjustments.lensBlurMaxFade ?? 20}
+                          maxFade={adjustments.lensBlurMinFade ?? 20}
+                          defaultMinDepth={0}
+                          defaultMaxDepth={80}
+                          defaultMinFade={20}
+                          defaultMaxFade={20}
+                          onChange={(values: {
+                            minDepth: number;
+                            maxDepth: number;
+                            minFade: number;
+                            maxFade: number;
+                          }) => {
+                            setAdjustments((prev: Partial<Adjustments>) => ({
+                              ...prev,
+                              lensBlurMinDepth: 100 - values.maxDepth,
+                              lensBlurMaxDepth: 100 - values.minDepth,
+                              lensBlurMinFade: values.maxFade,
+                              lensBlurMaxFade: values.minFade,
+                            }));
+                          }}
+                          onDragStateChange={onDragStateChange}
+                        />
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </AdjustmentSubSection>
+          )}
+
+          {!hiddenTools.includes('lut') && (
+            <AdjustmentSubSection id="lut" order={toolOrder.indexOf('lut')} title={t('adjustments.effects.lut')}>
+              <LUTControl
+                lutPath={adjustments.lutPath || null}
+                lutName={adjustments.lutName || null}
+                lutIntensity={adjustments.lutIntensity || 100}
+                onLutSelect={handleLutSelect}
+                onLutHover={onLutHover}
+                onIntensityChange={handleLutIntensityChange}
+                onClear={handleLutClear}
+                onDragStateChange={onDragStateChange}
+              />
+            </AdjustmentSubSection>
+          )}
+
+          {!hiddenTools.includes('vignette') && (
+            <AdjustmentSubSection
+              id="vignette"
+              order={toolOrder.indexOf('vignette')}
+              title={t('adjustments.effects.vignette')}
+            >
               <Slider
                 label={t('adjustments.effects.amount')}
                 max={100}
@@ -396,14 +405,11 @@ export default function EffectsPanel({
                 onDragStateChange={onDragStateChange}
                 fillOrigin="min"
               />
-            </div>
+            </AdjustmentSubSection>
           )}
 
-          {adjustmentVisibility.grain !== false && (
-            <div className="p-1 bg-bg-tertiary rounded-md">
-              <Text variant={TextVariants.heading} className="mb-2">
-                {t('adjustments.effects.grain')}
-              </Text>
+          {!hiddenTools.includes('grain') && (
+            <AdjustmentSubSection id="grain" order={toolOrder.indexOf('grain')} title={t('adjustments.effects.grain')}>
               <Slider
                 label={t('adjustments.effects.amount')}
                 max={100}
@@ -435,9 +441,9 @@ export default function EffectsPanel({
                 onDragStateChange={onDragStateChange}
                 fillOrigin="min"
               />
-            </div>
+            </AdjustmentSubSection>
           )}
-        </div>
+        </>
       )}
     </div>
   );

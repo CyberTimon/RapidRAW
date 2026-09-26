@@ -106,16 +106,6 @@ interface MyLens {
 
 const EXECUTE_TIMEOUT = 3000;
 
-const adjustmentVisibilityDefaults = {
-  sharpening: true,
-  presence: true,
-  noiseReduction: true,
-  chromaticAberration: false,
-  vignette: true,
-  colorCalibration: false,
-  grain: true,
-};
-
 const resolutions: OptionItem<number>[] = [
   { value: 720, label: '720px' },
   { value: 1280, label: '1280px' },
@@ -1242,67 +1232,6 @@ export default function SettingsPanel({
                           />
                         </SettingItem>
                       )}
-                    </div>
-                  </div>
-
-                  <div className="p-6 bg-surface rounded-xl shadow-md">
-                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
-                      {t('settings.adjustments.title')}
-                    </Text>
-                    <Text className="mb-4">{t('settings.adjustments.description')}</Text>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                      <Switch
-                        label={t('settings.adjustments.chromaticAberration')}
-                        checked={appSettings?.adjustmentVisibility?.chromaticAberration ?? false}
-                        onChange={(checked) =>
-                          onSettingsChange({
-                            ...appSettings,
-                            adjustmentVisibility: {
-                              ...(appSettings?.adjustmentVisibility || adjustmentVisibilityDefaults),
-                              chromaticAberration: checked,
-                            },
-                          })
-                        }
-                      />
-                      <Switch
-                        label={t('settings.adjustments.grain')}
-                        checked={appSettings?.adjustmentVisibility?.grain ?? true}
-                        onChange={(checked) =>
-                          onSettingsChange({
-                            ...appSettings,
-                            adjustmentVisibility: {
-                              ...(appSettings?.adjustmentVisibility || adjustmentVisibilityDefaults),
-                              grain: checked,
-                            },
-                          })
-                        }
-                      />
-                      <Switch
-                        label={t('settings.adjustments.colorCalibration')}
-                        checked={appSettings?.adjustmentVisibility?.colorCalibration ?? true}
-                        onChange={(checked) =>
-                          onSettingsChange({
-                            ...appSettings,
-                            adjustmentVisibility: {
-                              ...(appSettings?.adjustmentVisibility || adjustmentVisibilityDefaults),
-                              colorCalibration: checked,
-                            },
-                          })
-                        }
-                      />
-                      <Switch
-                        label={t('settings.adjustments.noiseReduction')}
-                        checked={appSettings?.adjustmentVisibility?.noiseReduction ?? true}
-                        onChange={(checked) =>
-                          onSettingsChange({
-                            ...appSettings,
-                            adjustmentVisibility: {
-                              ...(appSettings?.adjustmentVisibility || adjustmentVisibilityDefaults),
-                              noiseReduction: checked,
-                            },
-                          })
-                        }
-                      />
                     </div>
                   </div>
 

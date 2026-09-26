@@ -328,8 +328,10 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "Kopiuj ustawienia sekcji {{section}}",
+        "customizePanels": "Dostosuj panele",
         "pasteLabel": "Wklej ustawienia sekcji {{section}}",
         "pasteSettings": "Wklej ustawienia",
+        "resetPanelLayout": "Przywróć domyślne",
         "resetSectionSettings": "Resetuj ustawienia sekcji {{section}}"
       },
       "sections": {
@@ -342,7 +344,9 @@
       "title": "Ustawienia",
       "tooltips": {
         "autoAdjust": "Auto-korekta obrazu",
+        "hideFromPanel": "Ukryj w panelu",
         "resetAdjustments": "Resetuj ustawienia",
+        "showInPanel": "Pokaż w panelu",
         "toggleAnalytics": "Przełącz widok analityki"
       }
     },
@@ -1552,14 +1556,6 @@
     }
   },
   "settings": {
-    "adjustments": {
-      "chromaticAberration": "Aberracja chromatyczna",
-      "colorCalibration": "Kalibracja kolorów",
-      "description": "Ukryj rzadziej używane sekcje korekcji, by uprościć panel edycji. Twoje ustawienia zostaną zachowane i zastosowane nawet jeśli będą ukryte.",
-      "grain": "Ziarno",
-      "noiseReduction": "Redukcja szumu",
-      "title": "Widoczność narzędzi"
-    },
     "categories": {
       "general": "Ogólne",
       "processing": "Przetwarzanie",

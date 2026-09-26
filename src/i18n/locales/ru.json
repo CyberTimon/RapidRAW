@@ -328,8 +328,10 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "Копировать настройки раздела «{{section}}»",
+        "customizePanels": "Настроить панели",
         "pasteLabel": "Вставить настройки раздела «{{section}}»",
         "pasteSettings": "Вставить настройки",
+        "resetPanelLayout": "Сбросить по умолчанию",
         "resetSectionSettings": "Сбросить настройки раздела «{{section}}»"
       },
       "sections": {
@@ -342,7 +344,9 @@
       "title": "Настройки",
       "tooltips": {
         "autoAdjust": "Автонастройка изображения",
+        "hideFromPanel": "Скрыть с панели",
         "resetAdjustments": "Сбросить настройки",
+        "showInPanel": "Показать на панели",
         "toggleAnalytics": "Показать/скрыть панель гистограммы"
       }
     },
@@ -1552,14 +1556,6 @@
     }
   },
   "settings": {
-    "adjustments": {
-      "chromaticAberration": "Хроматическая аберрация",
-      "colorCalibration": "Калибровка цвета",
-      "description": "Скройте неиспользуемые разделы инструментов редактирования, чтобы упростить боковую панель. Ваши настройки сохранятся и будут применены к снимкам, даже если соответствующие панели скрыты.",
-      "grain": "Зернистость",
-      "noiseReduction": "Подавление шума",
-      "title": "Отображение инструментов"
-    },
     "categories": {
       "general": "Общие",
       "processing": "Обработка",
