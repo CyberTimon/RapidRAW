@@ -69,3 +69,61 @@ Deterministic replay for comparing UI smoothness before/after a change.
   cross-platform self-measurement approach above for a Linux/Windows-only automation
   path. If you need unattended/CI runs, that trade-off is worth revisiting, but it's out
   of scope for this same-machine before/after tool.
+
+# Image Pipeline Benchmark (headless)
+
+`replay.js` above measures UI smoothness. The image processing pipeline itself (raw decode,
+preview renders, GPU work, JPEG encode) can be measured without opening the GUI:
+
+```bash
+rapidraw bench /path/to/photo.ARW --json bench/out/pipeline.json
+```
+
+It loads the image with its `.rrdata` sidecar edits, runs the same code paths the editor
+uses, and prints the median and p90 time of each phase with a per-stage breakdown (`job.*`,
+`gpu.*`, `decode.*`, ...). Some stages run inside others, for example `base.*` inside
+`job.transformed_preview_base`, so stage times don't add up to the phase total. It uses your
+saved app settings and writes to the normal app log.
+
+| Phase      | What it measures                                                                    |
+| :--------- | :---------------------------------------------------------------------------------- |
+| `open`     | Decoding and raw pre-processing of the file                                         |
+| `first`    | The first editor frame after opening (always runs)                                  |
+| `style`    | A preview render after changing several adjustments at once, like applying a preset |
+| `drag`     | Interactive slider updates                                                          |
+| `geometry` | A preview render after a rotation change                                            |
+| `full`     | A full-resolution render as used by the culling view                                |
+
+| Option                 | Description                                                                    | Default                |
+| :--------------------- | :----------------------------------------------------------------------------- | :--------------------- |
+| `<image>`              | Image file to benchmark                                                        | _(Required)_           |
+| `--adjustments <path>` | Adjustments JSON or `.rrdata` file to use instead of the image's sidecar       | `<image>.rrdata`       |
+| `--iters <n>`          | Iterations per phase (`geometry` uses n/4 and `full` n/5, at least 3)          | `20`                   |
+| `--preview-dim <px>`   | Preview resolution                                                             | Editor preview setting |
+| `--phases <list>`      | Comma-separated subset of `open,style,drag,geometry,full`                      | All                    |
+| `--gpu-sync`           | Wait for the GPU after each GPU stage, so its time is attributed to that stage | Off                    |
+| `--json <path>`        | Also write every iteration's timings and each phase's output hash as JSON      | Off                    |
+
+Each phase records a blake3 hash of its first output. To compare two builds, for example
+before and after a change:
+
+```bash
+rapidraw-before bench photo.ARW --json bench/out/pipeline-before.json
+rapidraw-after bench photo.ARW --json bench/out/pipeline-after.json
+node bench/compare-pipeline.mjs bench/out/pipeline-before.json bench/out/pipeline-after.json
+```
+
+`compare-pipeline.mjs` prints the speedup of each phase and exits with status 1 if any phase's
+output differs, so it also confirms that an optimization left rendered pixels unchanged. It
+warns when the two runs used a different image, GPU, or setting that changes the output, such
+as the editor preview resolution, because then neither timings nor hashes are comparable.
+
+`compare-renders.sh` checks exported files the same way. It exports a folder with both builds,
+as 16-bit TIFF and as JPEG using each image's sidecar edits, and compares the files byte for byte:
+
+```bash
+bench/compare-renders.sh ./rapidraw-before ./rapidraw-after ~/Pictures/test-set /tmp/render-check
+```
+
+Only compare builds on the same machine. GPU output is deterministic for one GPU and driver,
+but can differ slightly between GPUs.

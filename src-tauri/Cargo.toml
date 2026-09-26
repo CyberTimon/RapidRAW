@@ -50,7 +50,8 @@ hex = "0.4"
 rand = "0.10"
 tauri-plugin-shell = "2.3.5"
 tempfile = "3.27.0"
-mimalloc = "0.1.52"
+# no_thp: MADV_HUGEPAGE causes multi-second compaction stalls on fragmented Linux systems.
+mimalloc = { version = "0.1.52", features = ["no_thp"] }
 image_hasher = "3.1.1"
 regex = "1.13.1"
 memmap2 = "0.9.11"
