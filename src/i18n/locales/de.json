@@ -43,6 +43,7 @@
         "shadows": "Tiefen"
       },
       "hue": "Farbton",
+      "kelvinModeTooltip": "Temperatur in Kelvin anzeigen",
       "localHue": "Lokaler Farbton",
       "luminance": "Luminanz",
       "mixerColors": {

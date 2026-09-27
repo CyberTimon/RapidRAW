@@ -43,6 +43,7 @@
         "shadows": "シャドウ"
       },
       "hue": "色相",
+      "kelvinModeTooltip": "色温度をケルビンで表示",
       "localHue": "ローカル色相",
       "luminance": "輝度",
       "mixerColors": {

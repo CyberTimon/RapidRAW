@@ -43,6 +43,7 @@
         "shadows": "Тени"
       },
       "hue": "Цветовой тон",
+      "kelvinModeTooltip": "Показывать температуру в кельвинах",
       "localHue": "Локальный оттенок",
       "luminance": "Светимость",
       "mixerColors": {
