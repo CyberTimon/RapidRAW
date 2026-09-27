@@ -3483,8 +3483,6 @@ pub fn calculate_auto_adjustments(
     let results = perform_auto_analysis(&original_image);
     let mut adjustments = auto_results_to_json(&results);
 
-    // Fold automatic lens correction into the auto-edit workflow. When the lens cannot be
-    // resolved from EXIF the lens keys are stripped again so the image is simply left uncorrected.
     if let Some(map) = adjustments.as_object_mut() {
         map.insert("lensCorrectionMode".to_string(), json!("auto"));
     }
