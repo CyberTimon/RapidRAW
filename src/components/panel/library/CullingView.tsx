@@ -25,10 +25,12 @@ import FlagBadges from '../../ui/FlagBadges';
 import { Thumbnail } from './LibraryItems';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
+import { useEditorStore } from '../../../store/useEditorStore';
 import { useProcessStore } from '../../../store/useProcessStore';
 import { loadCullingPreview } from '../../../utils/cullingPreview';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
+import { useUIStore } from '../../../store/useUIStore';
 import { useLibraryActions } from '../../../hooks/useLibraryActions';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
 import { expandGroupedPaths } from '../../../utils/imageGrouping';
@@ -84,6 +86,9 @@ function CullingPreview({
   const [highResSrc, setHighResSrc] = useState<string | null>(
     initialPreview?.thumbKey === safeThumbKey ? initialPreview.url : null,
   );
+  const isEditorOpen = useUIStore((s) => s.activeView === 'editor');
+  const hasSelectedImage = useEditorStore((s) => !!s.selectedImage);
+  const isHidden = isEditorOpen && hasSelectedImage;
   const [isLoading, setIsLoading] = useState(!highResSrc);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -244,6 +249,7 @@ function CullingPreview({
   }, [updateFitScale]);
 
   useEffect(() => {
+    if (isHidden) return;
     const currentPreview = useProcessStore.getState().previews[image.path];
     if (currentPreview && currentPreview.thumbKey === safeThumbKey) {
       setHighResSrc(currentPreview.url);
@@ -271,7 +277,7 @@ function CullingPreview({
       active = false;
       clearTimeout(delayTimeout);
     };
-  }, [image.path, safeThumbKey, setPreview]);
+  }, [image.path, safeThumbKey, setPreview, isHidden]);
 
   useEffect(() => {
     if (syncViewport.isActive) {
