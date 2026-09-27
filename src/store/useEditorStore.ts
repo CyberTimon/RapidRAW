@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { resetPreviewAssetRevisions } from '../utils/previewPipeline';
 import { AdjustmentSection, Adjustments, INITIAL_ADJUSTMENTS, MaskContainer } from '../utils/adjustments';
 import { SelectedImage, WaveformData, BrushSettings } from '../components/ui/AppProperties';
 import { ChannelConfig } from '../components/adjustments/Curves';
@@ -24,6 +25,8 @@ export interface BaseRenderSize extends ImageDimensions {
 export interface EditorState {
   // Core Image & Adjustments
   selectedImage: SelectedImage | null;
+  imageSession: number;
+  backendGeneration: number | null;
   adjustments: Adjustments;
   previewOverride: Adjustments | null;
 
@@ -33,6 +36,7 @@ export interface EditorState {
 
   // Previews & Overlays
   finalPreviewUrl: string | null;
+  comparisonPreviewUrl: string | null;
   uncroppedAdjustedPreviewUrl: string | null;
   interactivePatch: InteractivePatch | null;
   showOriginal: boolean;
@@ -92,12 +96,15 @@ export interface EditorState {
 
 export const useEditorStore = create<EditorState>((set) => ({
   selectedImage: null,
+  imageSession: 0,
+  backendGeneration: null,
   adjustments: INITIAL_ADJUSTMENTS,
   previewOverride: null,
   history: [INITIAL_ADJUSTMENTS],
   historyIndex: 0,
 
   finalPreviewUrl: null,
+  comparisonPreviewUrl: null,
   uncroppedAdjustedPreviewUrl: null,
   showOriginal: false,
   histogram: null,
@@ -141,7 +148,38 @@ export const useEditorStore = create<EditorState>((set) => ({
   hasRenderedFirstFrame: false,
   patchesSentToBackend: new Set<string>(),
 
-  setEditor: (updater) => set((state) => (typeof updater === 'function' ? updater(state) : updater)),
+  setEditor: (updater) =>
+    set((state) => {
+      const next = typeof updater === 'function' ? updater(state) : updater;
+      const switchingImage = 'selectedImage' in next && next.selectedImage?.path !== state.selectedImage?.path;
+      const leavingComparison = state.showOriginal && next.showOriginal === false;
+      const replacingComparison =
+        'comparisonPreviewUrl' in next && next.comparisonPreviewUrl !== state.comparisonPreviewUrl;
+      if (state.comparisonPreviewUrl && (switchingImage || leavingComparison || replacingComparison)) {
+        const oldUrl = state.comparisonPreviewUrl;
+        if (oldUrl.startsWith('blob:')) setTimeout(() => URL.revokeObjectURL(oldUrl), 500);
+      }
+      if (switchingImage) {
+        resetPreviewAssetRevisions();
+        if (state.interactivePatch?.url) URL.revokeObjectURL(state.interactivePatch.url);
+        return {
+          finalPreviewUrl: null,
+          comparisonPreviewUrl: null,
+          uncroppedAdjustedPreviewUrl: null,
+          histogram: null,
+          waveform: null,
+          ...next,
+          imageSession: state.imageSession + 1,
+          backendGeneration: null,
+          hasRenderedFirstFrame: false,
+          interactivePatch: null,
+          isSliderDragging: false,
+          patchesSentToBackend: new Set<string>(),
+        };
+      }
+      if (leavingComparison) return { comparisonPreviewUrl: null, ...next };
+      return next;
+    }),
 
   pushHistory: (newAdj) =>
     set((state) => {

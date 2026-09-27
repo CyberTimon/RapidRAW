@@ -50,6 +50,7 @@
     "test:photo-quality": "npm run build && node scripts/photo-quality-e2e.mjs",
     "test:setup": "npm run build && node scripts/fresh-setup.mjs",
     "test:geometry": "npm run build && node scripts/geometry-review-e2e.mjs",
+    "test:mask-composition": "npm run build && node scripts/mask-composition-e2e.mjs",
     "test:portable": "npm run build && node scripts/portable-sessions-e2e.mjs",
     "coverage": "node scripts/coverage-report.mjs",
     "test:large": "npm run build && node scripts/large-image-e2e.mjs",

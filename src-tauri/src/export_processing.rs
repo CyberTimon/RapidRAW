@@ -34,12 +34,11 @@ use crate::image_processing::{
 use crate::lut_processing::{
     convert_image_to_cube_lut, generate_identity_lut_image, get_or_load_lut,
 };
-use crate::mask_generation::generate_mask_bitmap;
+use crate::mask_generation::{render_source_mask_bitmaps, render_source_mask_bitmaps_checked};
 
 use crate::cache_utils::{calculate_full_job_hash, calculate_transform_hash};
 use crate::{
-    apply_all_transformations, generate_transformed_preview, get_cached_or_generate_mask,
-    hydrate_adjustments, load_settings, resolve_warped_image_for_masks,
+    apply_all_transformations, generate_transformed_preview, hydrate_adjustments, load_settings,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -466,6 +465,36 @@ impl Drop for ExportTaskGuard {
 }
 
 #[allow(clippy::too_many_arguments)]
+fn render_export_source_masks(
+    definitions: &[crate::mask_generation::MaskDefinition],
+    base_image: &DynamicImage,
+    is_raw: bool,
+    adjustments: &Value,
+    width: u32,
+    height: u32,
+    crop_offset: (f32, f32),
+    cancellation_token: Option<&AtomicBool>,
+) -> Result<Vec<GrayImage>, String> {
+    render_source_mask_bitmaps_checked(
+        definitions,
+        Some(base_image),
+        is_raw,
+        adjustments,
+        width,
+        height,
+        1.0,
+        crop_offset,
+        || {
+            if let Some(token) = cancellation_token {
+                ensure_export_not_cancelled(token)
+            } else {
+                Ok(())
+            }
+        },
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
 fn process_image_for_export_pipeline(
     path: &str,
     base_image: &DynamicImage,
@@ -483,20 +512,16 @@ fn process_image_for_export_pipeline(
 
     let mask_definitions = crate::marigold_surface::render_masks(js_adjustments);
 
-    let warped_image = resolve_warped_image_for_masks(state, js_adjustments, &mask_definitions);
-    let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
-        .iter()
-        .filter_map(|def| {
-            generate_mask_bitmap(
-                def,
-                img_w,
-                img_h,
-                1.0,
-                unscaled_crop_offset,
-                warped_image.as_deref(),
-            )
-        })
-        .collect();
+    let mask_bitmaps = render_export_source_masks(
+        &mask_definitions,
+        base_image,
+        is_raw,
+        js_adjustments,
+        img_w,
+        img_h,
+        unscaled_crop_offset,
+        None,
+    )?;
 
     let tm_override = resolve_tonemapper_override_from_handle(app_handle, is_raw);
     let mut all_adjustments = get_all_adjustments_from_json(js_adjustments, is_raw, tm_override);
@@ -812,22 +837,17 @@ fn export_masks_for_image(
     let (img_w, img_h) = transformed_image.dimensions();
     let mask_definitions = crate::marigold_surface::render_masks(js_adjustments);
 
-    let warped_image = resolve_warped_image_for_masks(state, js_adjustments, &mask_definitions);
-    let mut mask_bitmaps = Vec::with_capacity(mask_definitions.len());
-    for definition in &mask_definitions {
-        ensure_export_not_cancelled(cancellation_token)?;
-        if let Some(bitmap) = generate_mask_bitmap(
-            definition,
-            img_w,
-            img_h,
-            1.0,
-            unscaled_crop_offset,
-            warped_image.as_deref(),
-        ) {
-            mask_bitmaps.push(bitmap);
-        }
-        ensure_export_not_cancelled(cancellation_token)?;
-    }
+    let mask_bitmaps = render_export_source_masks(
+        &mask_definitions,
+        base_image,
+        is_raw,
+        js_adjustments,
+        img_w,
+        img_h,
+        unscaled_crop_offset,
+        Some(cancellation_token),
+    )?;
+    ensure_export_not_cancelled(cancellation_token)?;
 
     if !mask_bitmaps.is_empty() {
         let tm_override = resolve_tonemapper_override_from_handle(app_handle, is_raw);
@@ -1192,7 +1212,7 @@ pub(crate) async fn export_images_impl(
                     ExportAdjustmentsMode::GlobalOverride(adj) => adj.clone(),
                 };
 
-                hydrate_adjustments(&state, &mut js_adjustments);
+                hydrate_adjustments(&state, &mut js_adjustments)?;
                 let is_raw = is_raw_file(&source_path_str);
                 let original_path = std::path::Path::new(&source_path_str);
                 let file_date = exif_processing::get_creation_date_from_path(original_path);
@@ -1695,7 +1715,7 @@ pub async fn estimate_export_sizes(
             .clone()
             .ok_or("No original image loaded")?;
         let mut adjustments_clone = current_edit_adjustments.clone().unwrap();
-        hydrate_adjustments(&state, &mut adjustments_clone);
+        hydrate_adjustments(&state, &mut adjustments_clone)?;
 
         let new_transform_hash = calculate_transform_hash(&adjustments_clone);
         let cached_preview_lock = state.cached_preview.lock().unwrap();
@@ -1733,20 +1753,22 @@ pub async fn estimate_export_sizes(
             unscaled_crop_offset.1 * scale,
         );
 
-        let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
+        let mask_source = mask_definitions
             .iter()
-            .filter_map(|def| {
-                get_cached_or_generate_mask(
-                    &state,
-                    def,
-                    img_w,
-                    img_h,
-                    scale,
-                    scaled_crop_offset,
-                    &adjustments_clone,
-                )
-            })
-            .collect();
+            .any(crate::mask_generation::MaskDefinition::requires_warped_image)
+            .then(|| composite_patches_on_image(&loaded_image.image, &adjustments_clone))
+            .transpose()
+            .map_err(|error| error.to_string())?;
+        let mask_bitmaps = render_source_mask_bitmaps(
+            &mask_definitions,
+            mask_source.as_ref(),
+            is_raw,
+            &adjustments_clone,
+            img_w,
+            img_h,
+            scale,
+            scaled_crop_offset,
+        )?;
 
         let tm_override = resolve_tonemapper_override_from_handle(&app_handle, is_raw);
         let mut all_adjustments =
@@ -1870,20 +1892,34 @@ pub async fn estimate_export_sizes(
             unscaled_crop_offset.1 * gpu_scale,
         );
 
-        let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
+        let mask_source = if mask_definitions
             .iter()
-            .filter_map(|def| {
-                get_cached_or_generate_mask(
-                    &state,
-                    def,
-                    preview_w,
-                    preview_h,
-                    total_scale,
-                    scaled_crop_offset,
+            .any(crate::mask_generation::MaskDefinition::requires_warped_image)
+        {
+            Some(
+                load_and_composite(
+                    file_data,
+                    &source_path_str,
                     &js_adjustments,
+                    false,
+                    &settings,
+                    None,
                 )
-            })
-            .collect();
+                .map_err(|error| error.to_string())?,
+            )
+        } else {
+            None
+        };
+        let mask_bitmaps = render_source_mask_bitmaps(
+            &mask_definitions,
+            mask_source.as_ref(),
+            is_raw,
+            &js_adjustments,
+            preview_w,
+            preview_h,
+            total_scale,
+            scaled_crop_offset,
+        )?;
 
         let tm_override = resolve_tonemapper_override_from_handle(&app_handle, is_raw);
         let mut all_adjustments =
@@ -1940,4 +1976,55 @@ pub async fn estimate_export_sizes(
     };
 
     Ok(single_image_extrapolated_size * paths.len())
+}
+
+#[cfg(test)]
+mod source_mask_export_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn export_source_masks_follow_batch_image_and_keep_cancellation() {
+        let adjustments = json!({
+            "masks": [{
+                "id": "mask", "name": "Color", "visible": true, "invert": false,
+                "adjustments": {},
+                "subMasks": [{
+                    "id": "color", "type": "color", "visible": true,
+                    "mode": "additive",
+                    "parameters": {"targetX": 1, "targetY": 1, "tolerance": 20, "grow": 0, "feather": 0}
+                }]
+            }]
+        });
+        let definitions = crate::marigold_surface::render_masks(&adjustments);
+        let first = DynamicImage::ImageRgb8(image::RgbImage::from_fn(8, 4, |x, _| {
+            if x < 4 {
+                image::Rgb([255, 0, 0])
+            } else {
+                image::Rgb([0, 0, 255])
+            }
+        }));
+        let second =
+            DynamicImage::ImageRgb8(image::RgbImage::from_pixel(8, 4, image::Rgb([0, 255, 0])));
+        let cancellation = AtomicBool::new(false);
+        let render = |source: &DynamicImage| {
+            render_export_source_masks(
+                &definitions,
+                source,
+                false,
+                &adjustments,
+                8,
+                4,
+                (0.0, 0.0),
+                Some(&cancellation),
+            )
+        };
+        let first_mask = render(&first).unwrap().remove(0);
+        let second_mask = render(&second).unwrap().remove(0);
+        assert_eq!(first_mask.get_pixel(6, 1)[0], 0);
+        assert!(second_mask.get_pixel(6, 1)[0] > 0);
+
+        cancellation.store(true, Ordering::SeqCst);
+        assert_eq!(render(&second).unwrap_err(), "Export cancelled");
+    }
 }

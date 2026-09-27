@@ -16,9 +16,14 @@ await build({
   format: 'esm',
   platform: 'node',
 });
-const { PreviewPipeline, preparePreviewAdjustments, interactivePreviewResolution } = await import(
-  pathToFileURL(output)
-);
+const {
+  PreviewPipeline,
+  PreviewRefinementScheduler,
+  preparePreviewAdjustments,
+  interactivePreviewResolution,
+  previewMissingAssetKeys,
+  retryMissingPreviewAssets,
+} = await import(pathToFileURL(output));
 const drain = () => new Promise((resolve) => setImmediate(resolve));
 
 function renderer() {
@@ -96,6 +101,28 @@ test('unmounting before dispatch cancels a reserved request without calling the 
   assert.deepEqual(started, []);
 });
 
+test('refinement waits for quiet time and matching quick completion without occupying the render queue', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const refined = [];
+  const scheduler = new PreviewRefinementScheduler(150, (request) => refined.push(request));
+  const first = { exposure: 1 };
+  scheduler.schedule(first, false);
+  t.mock.timers.tick(150);
+  assert.deepEqual(refined, []);
+  const second = { exposure: 2 };
+  scheduler.schedule(second, false);
+  scheduler.quickCompleted(first);
+  t.mock.timers.tick(149);
+  scheduler.quickCompleted(second);
+  assert.deepEqual(refined, []);
+  t.mock.timers.tick(1);
+  assert.deepEqual(refined, [second]);
+  scheduler.schedule({ exposure: 3 }, true);
+  scheduler.clear();
+  t.mock.timers.tick(150);
+  assert.deepEqual(refined, [second]);
+});
+
 test('preview payloads omit only acknowledged assets and preserve frozen recipes, strokes and repair provenance', () => {
   const strokes = [{ points: [{ x: 1, y: 2 }], size: 12 }];
   const subMasks = [
@@ -112,18 +139,27 @@ test('preview payloads omit only acknowledged assets and preserve frozen recipes
       { id: 'loading-patch', patchData, isLoading: true, subMasks: [] },
     ],
   });
-  const cached = new Set(['cached-mask', 'cached-patch', 'loading-patch']);
+  const first = preparePreviewAdjustments(adjustments, new Set()).payload;
+  const maskKey = first.masks[0].subMasks[0].previewAssetKey;
+  const patchKey = first.aiPatches[0].previewAssetKey;
+  const cached = new Set([maskKey, patchKey]);
   const { payload, sentAssets } = preparePreviewAdjustments(adjustments, cached);
   assert.equal(payload.masks[0].subMasks[0].parameters.mask_data_base64, null);
+  assert.deepEqual(payload.masks[0].subMasks[0].previewAssetFields, ['mask_data_base64']);
   assert.equal(payload.masks[0].subMasks[1].parameters.maskDataBase64, 'new camel bitmap');
+  assert.deepEqual(payload.masks[0].subMasks[1].previewAssetFields, []);
   assert.equal(payload.aiPatches[0].patchData, null);
+  assert.deepEqual(payload.aiPatches[0].previewAssetFields, ['patchData']);
   assert.equal(payload.aiPatches[1].patchData, patchData);
   assert.equal(payload.aiPatches[2].patchData, patchData);
   assert.equal(payload.masks[0].subMasks[0].parameters.lines, strokes);
   assert.equal(adjustments.masks[0].subMasks[0].parameters.mask_data_base64, 'large snake bitmap');
   assert.equal(adjustments.aiPatches[0].patchData, patchData);
-  assert.deepEqual([...sentAssets].sort(), ['new-mask', 'new-patch']);
-  assert.deepEqual([...cached], ['cached-mask', 'cached-patch', 'loading-patch']);
+  assert.deepEqual(
+    [...sentAssets].sort(),
+    [first.masks[0].subMasks[1].previewAssetKey, first.aiPatches[1].previewAssetKey].sort(),
+  );
+  assert.deepEqual([...cached], [maskKey, patchKey]);
 });
 
 test('drag previews bound zoom cost while preserving smaller images and the Full quality choice', () => {
@@ -132,4 +168,97 @@ test('drag previews bound zoom cost while preserving smaller images and the Full
   assert.equal(interactivePreviewResolution(5120), 1920);
   assert.equal(interactivePreviewResolution(960, 'high'), 960);
   assert.equal(interactivePreviewResolution(5120, 'full'), 5120);
+});
+
+test('replacing pixels under the same mask or patch ID sends a new revision and preserves the old revision for undo', () => {
+  const before = {
+    masks: [{ subMasks: [{ id: 'same', parameters: { maskDataBase64: 'AAAA' } }] }],
+    aiPatches: [{ id: 'same', patchData: { color: 'CCCC', mask: 'MMMM' }, subMasks: [] }],
+  };
+  const first = preparePreviewAdjustments(before, new Set());
+  const acknowledged = first.sentAssets;
+  const after = {
+    masks: [{ subMasks: [{ id: 'same', parameters: { maskDataBase64: 'BBBB' } }] }],
+    aiPatches: [{ id: 'same', patchData: { color: 'DDDD', mask: 'MMMM' }, subMasks: [] }],
+  };
+  const changed = preparePreviewAdjustments(after, acknowledged);
+  assert.equal(changed.payload.masks[0].subMasks[0].parameters.maskDataBase64, 'BBBB');
+  assert.equal(changed.payload.aiPatches[0].patchData.color, 'DDDD');
+  assert.notEqual(
+    changed.payload.masks[0].subMasks[0].previewAssetKey,
+    first.payload.masks[0].subMasks[0].previewAssetKey,
+  );
+  const undo = preparePreviewAdjustments(before, new Set([...acknowledged, ...changed.sentAssets]));
+  assert.equal(undo.payload.masks[0].subMasks[0].parameters.maskDataBase64, null);
+  assert.equal(undo.payload.aiPatches[0].patchData, null);
+});
+
+test('changing selection parameters keeps the same pixel revision without growing the native asset cache', () => {
+  const recipe = { masks: [{ subMasks: [{ id: 'depth', parameters: { maskDataBase64: 'UNCHANGED', near: 0.2 } }] }] };
+  const initial = preparePreviewAdjustments(recipe, new Set());
+  const edited = { masks: [{ subMasks: [{ id: 'depth', parameters: { maskDataBase64: 'UNCHANGED', near: 0.7 } }] }] };
+  const next = preparePreviewAdjustments(edited, initial.sentAssets);
+  assert.equal(next.payload.masks[0].subMasks[0].parameters.maskDataBase64, null);
+  assert.equal(next.payload.masks[0].subMasks[0].parameters.near, 0.7);
+  assert.equal(next.sentAssets.size, 0);
+});
+
+test('intentional null bitmap fields are not marked as stripped cache references', () => {
+  const recipe = {
+    masks: [{ subMasks: [{ id: 'radial', parameters: { maskDataBase64: null, radius: 0.5 } }] }],
+    aiPatches: [{ id: 'loading', patchData: null, isLoading: true, subMasks: [] }],
+  };
+  const prepared = preparePreviewAdjustments(recipe, new Set());
+  assert.deepEqual(prepared.payload.masks[0].subMasks[0].previewAssetFields, []);
+  assert.deepEqual(prepared.payload.aiPatches[0].previewAssetFields, []);
+  assert.equal(prepared.sentAssets.size, 0);
+});
+
+test('an evicted acknowledged asset is resent once from the still-current recipe', async () => {
+  const error = 'PREVIEW_ASSET_MISSING:{"cacheEpoch":4,"missingKeys":["mask:old"]}';
+  assert.deepEqual(previewMissingAssetKeys(error), ['mask:old']);
+  const sends = [];
+  const forgotten = [];
+  const result = await retryMissingPreviewAssets(
+    async (forceInline) => {
+      sends.push(forceInline);
+      if (!forceInline) throw error;
+      return 'current frame';
+    },
+    () => true,
+    (keys) => forgotten.push(...keys),
+  );
+  assert.equal(result, 'current frame');
+  assert.deepEqual(sends, [false, true]);
+  assert.deepEqual(forgotten, ['mask:old']);
+});
+
+test('eviction retry is bounded and stale work never resends pixels', async () => {
+  const error = 'PREVIEW_ASSET_MISSING:{"cacheEpoch":5,"missingKeys":["patch:old"]}';
+  let attempts = 0;
+  await assert.rejects(
+    retryMissingPreviewAssets(
+      async () => {
+        attempts++;
+        throw error;
+      },
+      () => true,
+      () => {},
+    ),
+    (actual) => actual === error,
+  );
+  assert.equal(attempts, 2);
+  attempts = 0;
+  await assert.rejects(
+    retryMissingPreviewAssets(
+      async () => {
+        attempts++;
+        throw error;
+      },
+      () => false,
+      () => assert.fail('stale request must not mutate acknowledgement state'),
+    ),
+    (actual) => actual === error,
+  );
+  assert.equal(attempts, 1);
 });

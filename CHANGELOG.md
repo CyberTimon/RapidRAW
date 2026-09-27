@@ -4,6 +4,21 @@ Changes added by this fork to RapidRAW. Upstream application changes remain in t
 
 ## Unreleased
 
+### MCP mask composition
+
+- Add native parent-mask duplication with fresh IDs, optional inversion, and independent local adjustments. Generated AI subject, depth, and other supported AI components can now join an existing parent in additive, subtractive, or intersect mode. The Node MCP host exposes both operations; installed releases require an updated native bridge and host.
+
+### Preview reliability
+
+- Clear the previous photo's GPU frame, interactive patch, and mask overlay when switching photos, including cached photos with matching dimensions. Wait for the selected photo's native load before rendering its adjustments.
+- Reject preview and analytics results from earlier photo sessions, and keep in-flight preview work from repopulating caches after a photo switch.
+- Cache saved mask and repair pixels by content as well as edit ID, so replacing a selection or undoing a repair cannot reuse another revision's pixels.
+- Render image-dependent masks from the photo being previewed or exported, including thumbnails, comparison previews, and batches.
+- Show a lower-resolution preview before full-detail refinement for high-zoom adjustments. New edits supersede queued refinement; Full preview quality keeps its existing behavior.
+- Supersede obsolete work as soon as a new edit is made. Keep JPEG and GPU frames, overlays, crop previews, and analytics tied to the newest input; start full-detail refinement after a short pause while preserving the selected quality and resolution.
+- Bound decoded-photo, preview-image, and transported mask/repair caches by bytes. Detect source-file replacement when revisiting a cached photo, refresh its filmstrip thumbnail, and resend evicted mask or repair pixels when a preview still needs them.
+- Keep the edited frame displayed while Show Original renders a separate comparison image. When a settled edited frame is still valid, leaving the comparison restores it immediately; otherwise the preview renders normally.
+
 ### Local editing
 
 - Add rename, duplicate, duplicate-and-invert, copy/paste, reset, and delete actions for Local Edits and their selection components through context menus. Duplicated repairs discard generated pixels and candidate state while keeping independent selection geometry.

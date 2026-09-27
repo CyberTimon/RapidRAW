@@ -196,6 +196,39 @@ try {
       `${prefix}-mask.jpg`,
     );
     await call('mask_update', { session_id, mask_id: mask.mask_id, patch: { opacity: 80 } });
+    const directMask = await writePreview(
+      await call('render', { session_id, mask_id: mask.mask_id, mask_mode: 'grayscale', long_edge: 800 }),
+      `${prefix}-direct-mask.png`,
+    );
+    const beforeDuplicate = data(await call('get_session', { session_id, include_adjustments: true }));
+    const duplicate = data(
+      await call('mask_duplicate', {
+        session_id,
+        expected_revision: beforeDuplicate.revision,
+        mask_id: mask.mask_id,
+        name: 'E2E complementary selection',
+        invert: true,
+      }),
+    );
+    const afterDuplicate = data(await call('get_session', { session_id, include_adjustments: true }));
+    const sourceMask = beforeDuplicate.adjustments.masks.find((item) => item.id === mask.mask_id);
+    const copiedMask = afterDuplicate.adjustments.masks.find((item) => item.id === duplicate.mask_id);
+    assert.ok(copiedMask && sourceMask);
+    assert.notEqual(duplicate.mask_id, mask.mask_id);
+    assert.equal(duplicate.source_mask_id, mask.mask_id);
+    assert.equal(copiedMask.invert, !sourceMask.invert);
+    assert.equal(copiedMask.subMasks.length, sourceMask.subMasks.length);
+    assert.deepEqual(
+      copiedMask.subMasks.map((item) => item.parameters),
+      sourceMask.subMasks.map((item) => item.parameters),
+    );
+    assert.ok(copiedMask.subMasks.every((item, index) => item.id !== sourceMask.subMasks[index].id));
+    assert.equal(copiedMask.adjustments.exposure ?? 0, 0);
+    const inverseMask = await writePreview(
+      await call('render', { session_id, mask_id: duplicate.mask_id, mask_mode: 'grayscale', long_edge: 800 }),
+      `${prefix}-inverse-mask.png`,
+    );
+    assert.notEqual(inverseMask, directMask);
     await call('history', { session_id });
     await call('undo', { session_id });
     await call('redo', { session_id });

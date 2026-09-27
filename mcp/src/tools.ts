@@ -556,6 +556,17 @@ export const toolDefinitions: ToolDefinition[] = [
     },
   ),
   tool(
+    'mask_duplicate',
+    'Copy a parent mask and its native selection assets into an independently editable mask with fresh IDs. By default, clear its local adjustments; invert=true toggles the copied parent selection.',
+    {
+      ...mutation,
+      mask_id: z.string().min(1).max(128),
+      name: z.string().max(200).optional(),
+      invert: z.boolean().optional(),
+      copy_adjustments: z.boolean().optional(),
+    },
+  ),
+  tool(
     'mask_update',
     'Patch an existing mask or edit individual submasks atomically. Native validation rejects malformed masks; use current revision.',
     {
@@ -571,7 +582,7 @@ export const toolDefinitions: ToolDefinition[] = [
   }),
   tool(
     'mask_generate',
-    'Generate an AI mask. Normals/albedo explicitly use the separately enabled shared AI connector and save RGB16 maps. Normals parameters: normalAngle (degrees), normalAmount (signed exposure stops, -1.5..1.5). Albedo parameters: surfacePointX/Y (0..1 on the unrotated map), surfaceTolerance (.005..1), surfaceColor (RGB 0..255), surfaceAmount (0..1). Saved maps work offline; intersect with regional masks to confine edits. Depth defaults to the built-in model; depth_provider=marigold explicitly sends analysis pixels to the separately enabled depth service and saves a reusable 16-bit map. Subject include/exclude points use the full mask canvas before crop. New point-guided masks require a region or positive point. refine replaces only an existing AI-subject submask, preserving IDs, siblings and grade; requires expected_revision. Inspect returned refinement.prior_mode and review the mask before edits.',
+    'Generate an AI mask. Set target_mask_id and mode to add a new component inside an existing parent; omit both to create a parent. Normals/albedo explicitly use the separately enabled shared AI connector and save RGB16 maps. Normals parameters: normalAngle (degrees), normalAmount (signed exposure stops, -1.5..1.5). Albedo parameters: surfacePointX/Y (0..1 on the unrotated map), surfaceTolerance (.005..1), surfaceColor (RGB 0..255), surfaceAmount (0..1). Saved maps work offline; intersect with regional masks to confine edits. Depth defaults to the built-in model; depth_provider=marigold explicitly sends analysis pixels to the separately enabled depth service and saves a reusable 16-bit map. Subject include/exclude points use the full mask canvas before crop. New point-guided masks require a region or positive point. refine replaces only an existing AI-subject submask, preserving IDs, siblings and grade; requires expected_revision. Inspect returned refinement.prior_mode and review the mask before edits.',
     {
       ...mutation,
       kind: z.enum(['subject', 'foreground', 'sky', 'depth', 'normals', 'albedo']),
@@ -595,6 +606,16 @@ export const toolDefinitions: ToolDefinition[] = [
         .describe(
           'Update the named ai-subject submask; omit sub_mask_id only when exactly one subject submask exists.',
         ),
+      target_mask_id: z
+        .string()
+        .min(1)
+        .max(128)
+        .optional()
+        .describe('Existing parent to receive a new AI component; cannot be combined with refine.'),
+      mode: z
+        .enum(['additive', 'subtractive', 'intersect'])
+        .optional()
+        .describe('Required with target_mask_id; the new component is appended in this composition mode.'),
       parameters: record.optional(),
       adjustments: adjustments.optional(),
     },

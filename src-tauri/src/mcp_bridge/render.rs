@@ -17,7 +17,7 @@ use crate::image_processing::{
     calculate_histogram_from_image, calculate_waveform_from_image, get_all_adjustments_from_json,
     get_or_init_gpu_context, resolve_tonemapper_override_from_handle,
 };
-use crate::mask_generation::{MaskDefinition, generate_mask_bitmap};
+use crate::mask_generation::{MaskDefinition, render_source_mask_bitmaps};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use image::{DynamicImage, GenericImageView, GrayImage, ImageBuffer, ImageFormat, Luma, imageops};
 use serde_json::{Value, json};
@@ -37,6 +37,42 @@ struct Prepared {
     bitmaps: Vec<GrayImage>,
     crop_offset: (f32, f32),
     warnings: Vec<String>,
+}
+
+fn render_mcp_source_masks(
+    masks: &[MaskDefinition],
+    composited_source: &DynamicImage,
+    is_raw: bool,
+    adjustments: &Value,
+    dimensions: (u32, u32),
+    crop_offset: (f32, f32),
+) -> Result<(Vec<GrayImage>, Vec<String>)> {
+    let bitmaps = render_source_mask_bitmaps(
+        masks,
+        Some(composited_source),
+        is_raw,
+        adjustments,
+        dimensions.0,
+        dimensions.1,
+        1.0,
+        crop_offset,
+    )
+    .map_err(|error| format!("MASK_RENDER_FAILED: {error}"))?;
+    if bitmaps.len() != masks.len() {
+        return Err("MASK_RENDER_FAILED: Could not rasterize every visible mask".into());
+    }
+    let warnings = masks
+        .iter()
+        .zip(&bitmaps)
+        .filter(|(_, bitmap)| !bitmap.as_raw().iter().any(|value| *value > 0))
+        .map(|(mask, _)| {
+            format!(
+                "Mask {} ({}) has no coverage in the rendered image; it may lie outside the current crop.",
+                mask.name, mask.id
+            )
+        })
+        .collect();
+    Ok((bitmaps, warnings))
 }
 
 struct Frame {
@@ -97,43 +133,22 @@ impl Bridge {
             crate::image_loader::composite_patches_on_image(&loaded.image, &adjustments)
                 .map_err(|e| format!("PATCH_RENDER_FAILED: {e}"))?;
         let (image, crop_offset) =
-            crate::apply_all_transformations(Cow::Owned(composite), &adjustments);
+            crate::apply_all_transformations(Cow::Borrowed(&composite), &adjustments);
         // Native cropping rounds source pixels; masks use the same sampled origin.
         let crop_offset = (crop_offset.0.round(), crop_offset.1.round());
         let image = image.into_owned();
         let masks = crate::marigold_surface::render_masks(&adjustments);
         let masks: Vec<_> = masks.into_iter().filter(|m| m.visible).collect();
-        // The native cache resolves the active original and geometry. Propagate
-        // failures instead of silently omitting color/luminance masks.
-        let warped = if masks.iter().any(MaskDefinition::requires_warped_image) {
-            Some(crate::get_cached_full_warped_image(&state, &adjustments)?)
-        } else {
-            None
-        };
-        let mut warnings = Vec::new();
-        let bitmaps = masks
-            .iter()
-            .map(|mask| {
-                let bitmap = generate_mask_bitmap(
-                    mask,
-                    image.width(),
-                    image.height(),
-                    1.0,
-                    crop_offset,
-                    warped.as_deref(),
-                )
-                .ok_or_else(|| {
-                    format!(
-                        "MASK_RENDER_FAILED: Could not render mask {} ({})",
-                        mask.name, mask.id
-                    )
-                })?;
-                if !bitmap.as_raw().iter().any(|value| *value > 0) {
-                    warnings.push(format!("Mask {} ({}) has no coverage in the rendered image; it may lie outside the current crop.",mask.name,mask.id));
-                }
-                Ok(bitmap)
-            })
-            .collect::<Result<Vec<_>>>()?;
+        // Bind image-dependent masks to this session's captured photo, even if
+        // the editor switches to another image while the MCP render is running.
+        let (bitmaps, warnings) = render_mcp_source_masks(
+            &masks,
+            &composite,
+            loaded.is_raw,
+            &adjustments,
+            image.dimensions(),
+            crop_offset,
+        )?;
         Ok(Prepared {
             image,
             adjustments,
@@ -1258,6 +1273,44 @@ fn reject_source_destination(target: &Path, source: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mcp_source_masks_follow_the_session_photo_when_editor_selection_changes() {
+        let mask: MaskDefinition = serde_json::from_value(json!({
+            "id": "color", "name": "Color", "visible": true, "invert": false,
+            "adjustments": {},
+            "subMasks": [{
+                "id": "sample", "type": "color", "visible": true,
+                "mode": "additive",
+                "parameters": {"targetX": 1, "targetY": 1, "tolerance": 20, "grow": 0, "feather": 0}
+            }]
+        }))
+        .unwrap();
+        let session_photo = DynamicImage::ImageRgb8(image::RgbImage::from_fn(8, 4, |x, _| {
+            if x < 4 {
+                image::Rgb([255, 0, 0])
+            } else {
+                image::Rgb([0, 0, 255])
+            }
+        }));
+        let other_selected_photo =
+            DynamicImage::ImageRgb8(image::RgbImage::from_pixel(8, 4, image::Rgb([0, 255, 0])));
+        let render = |source: &DynamicImage| {
+            render_mcp_source_masks(
+                std::slice::from_ref(&mask),
+                source,
+                false,
+                &json!({}),
+                (8, 4),
+                (0.0, 0.0),
+            )
+            .unwrap()
+            .0
+            .remove(0)
+        };
+        assert_eq!(render(&session_photo).get_pixel(6, 1)[0], 0);
+        assert!(render(&other_selected_photo).get_pixel(6, 1)[0] > 0);
+    }
 
     fn precision_ramp() -> DynamicImage {
         DynamicImage::ImageRgb16(ImageBuffer::from_fn(1025, 2, |x, y| {

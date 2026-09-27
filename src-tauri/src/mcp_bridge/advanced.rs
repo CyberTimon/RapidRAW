@@ -115,6 +115,21 @@ fn mask_statistics(mask: &GrayImage) -> Value {
     json!({"width":mask.width(),"height":mask.height(),"nonzero_fraction":selected,"mean_opacity":opacity,"empty":selected==0.0})
 }
 
+fn append_generated_submask(
+    mask: &mut Value,
+    kind: &str,
+    mode: &str,
+    parameters: Value,
+) -> Result<String> {
+    let sub_mask_id = uuid::Uuid::new_v4().to_string();
+    let component = json!({"id":sub_mask_id,"type":format!("ai-{kind}"),"visible":true,"invert":false,"mode":mode,"opacity":100,"parameters":parameters});
+    mask["subMasks"]
+        .as_array_mut()
+        .ok_or("INVALID_MASK: Missing submasks")?
+        .push(component);
+    Ok(sub_mask_id)
+}
+
 fn oriented_dimensions(session: &Session) -> (u32, u32) {
     if session.current().adjustments["orientationSteps"]
         .as_u64()
@@ -406,6 +421,52 @@ impl Bridge {
                 ));
             }
         }
+        let append_target = if let Some(value) = params.get("target_mask_id") {
+            if params.get("refine").is_some() {
+                return Err(
+                    "INVALID_ARGUMENT: target_mask_id cannot be combined with refine".into(),
+                );
+            }
+            let mask_id = value
+                .as_str()
+                .filter(|id| !id.is_empty())
+                .ok_or("INVALID_ARGUMENT: target_mask_id must be a mask ID")?;
+            let mode = required(params, "mode")?;
+            if !["additive", "subtractive", "intersect"].contains(&mode) {
+                return Err(
+                    "INVALID_ARGUMENT: mode must be additive, subtractive or intersect".into(),
+                );
+            }
+            let masks = session.current().adjustments["masks"]
+                .as_array()
+                .ok_or("MASK_NOT_FOUND: Session contains no masks")?;
+            let index = masks
+                .iter()
+                .position(|mask| mask["id"] == mask_id)
+                .ok_or("MASK_NOT_FOUND: target_mask_id is not in this session")?;
+            let components = masks[index]["subMasks"]
+                .as_array()
+                .ok_or("INVALID_MASK: Missing submasks")?;
+            if components.len() >= 128 {
+                return Err("INVALID_MASK: A parent can contain at most 128 submasks".into());
+            }
+            if matches!(kind, "normals" | "albedo")
+                && components.iter().any(|component| {
+                    crate::marigold_surface::is_surface(component["type"].as_str().unwrap_or(""))
+                })
+            {
+                return Err(
+                    "INVALID_MASK: A parent can contain only one normals or albedo component"
+                        .into(),
+                );
+            }
+            Some((index, mode.to_string()))
+        } else {
+            if params.get("mode").is_some() {
+                return Err("INVALID_ARGUMENT: mode requires target_mask_id".into());
+            }
+            None
+        };
         let bbox = region(params, oriented_dimensions(&session))?;
         let subject_request = subject_refinement::prepare(params, &session)?;
         number(&controls, "grow", 0.0, -100.0, 100.0)?;
@@ -570,7 +631,7 @@ impl Bridge {
             .cloned()
             .unwrap_or_else(|| json!({}));
         validation::resolve_curve_patch(&mut local, &params["adjustments"]);
-        let mask = if let Some((mi, si)) = target {
+        let (mask, sub_mask_id) = if let Some((mi, si)) = target {
             let mut mask = adjustments["masks"][mi].clone();
             mask["subMasks"][si]["parameters"] = parameters;
             if let Some(name) = params.get("name") {
@@ -579,12 +640,26 @@ impl Bridge {
             if params.get("adjustments").is_some() {
                 validation::merge_patch(&mut mask["adjustments"], &local)?;
             }
-            mask
+            let sub_mask_id = mask["subMasks"][si]["id"].clone();
+            (mask, sub_mask_id)
+        } else if let Some((mi, mode)) = &append_target {
+            let mut mask = adjustments["masks"][*mi].clone();
+            let sub_mask_id = append_generated_submask(&mut mask, kind, mode, parameters)?;
+            if let Some(name) = params.get("name") {
+                mask["name"] = name.clone();
+            }
+            if params.get("adjustments").is_some() {
+                validation::merge_patch(&mut mask["adjustments"], &local)?;
+            }
+            (mask, json!(sub_mask_id))
         } else {
-            json!({"id":id,"name":params["name"].as_str().unwrap_or(kind),"visible":true,"invert":false,"opacity":100,"adjustments":local,"subMasks":[{"id":uuid::Uuid::new_v4().to_string(),"type":format!("ai-{kind}"),"visible":true,"invert":false,"mode":"additive","opacity":100,"parameters":parameters}]})
+            let sub_mask_id = uuid::Uuid::new_v4().to_string();
+            (
+                json!({"id":id,"name":params["name"].as_str().unwrap_or(kind),"visible":true,"invert":false,"opacity":100,"adjustments":local,"subMasks":[{"id":sub_mask_id,"type":format!("ai-{kind}"),"visible":true,"invert":false,"mode":"additive","opacity":100,"parameters":parameters}]}),
+                json!(sub_mask_id),
+            )
         };
         let id = mask["id"].as_str().unwrap().to_string();
-        let sub_mask_id = mask["subMasks"][target.map_or(0, |(_, si)| si)]["id"].clone();
         validation::validate_adjustments(&json!({"masks":[mask.clone()]}), session.dimensions)?;
         let definition: MaskDefinition =
             serde_json::from_value(mask.clone()).map_err(|e| e.to_string())?;
@@ -597,7 +672,7 @@ impl Bridge {
             (0.0, 0.0),
             None,
         );
-        let bitmap = if target.is_some() {
+        let bitmap = if target.is_some() || append_target.is_some() {
             // The model selection was checked before applying preserved parent
             // visibility, opacity and sibling add/subtract/intersect operations.
             bitmap.unwrap_or_else(|| GrayImage::new(width, height))
@@ -605,7 +680,10 @@ impl Bridge {
             bitmap.ok_or("MASK_GENERATION_FAILED: Generated mask could not be rasterized")?
         };
         let statistics = mask_statistics(&bitmap);
-        if target.is_none() && !matches!(kind, "normals" | "albedo") && statistics["empty"] == true
+        if target.is_none()
+            && append_target.is_none()
+            && !matches!(kind, "normals" | "albedo")
+            && statistics["empty"] == true
         {
             return Err("EMPTY_MASK: Model selected no pixels. Adjust the subject region or mask parameters and retry.".into());
         }
@@ -614,6 +692,8 @@ impl Bridge {
             next["masks"] = json!([]);
         }
         if let Some((mi, _)) = target {
+            next["masks"][mi] = mask;
+        } else if let Some((mi, _)) = append_target {
             next["masks"][mi] = mask;
         } else {
             next["masks"].as_array_mut().unwrap().push(mask);
@@ -1177,6 +1257,29 @@ impl Bridge {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn generated_component_joins_existing_parent_in_requested_mode() {
+        let mut mask = json!({"id":"parent","subMasks":[{"id":"depth","type":"ai-depth","mode":"additive","parameters":{"depthArtifact":"opaque-depth"}}]});
+        let id = append_generated_submask(
+            &mut mask,
+            "subject",
+            "intersect",
+            json!({"maskDataBase64":"opaque-subject"}),
+        )
+        .unwrap();
+        assert_eq!(mask["subMasks"].as_array().unwrap().len(), 2);
+        assert_eq!(
+            mask["subMasks"][0]["parameters"]["depthArtifact"],
+            "opaque-depth"
+        );
+        assert_eq!(mask["subMasks"][1]["id"], id);
+        assert_eq!(mask["subMasks"][1]["mode"], "intersect");
+        assert_eq!(mask["subMasks"][1]["type"], "ai-subject");
+        assert_eq!(
+            mask["subMasks"][1]["parameters"]["maskDataBase64"],
+            "opaque-subject"
+        );
+    }
     #[test]
     fn generation_options_require_explicit_generative_mode_and_valid_values() {
         assert!(generation_options(&json!({}), "inpaint").unwrap().is_none());

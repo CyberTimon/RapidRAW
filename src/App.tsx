@@ -253,7 +253,6 @@ function App() {
     };
   });
 
-  const isBackendReadyRef = useRef(true);
   const previewJobIdRef = useRef<number>(0);
   const latestRenderedJobIdRef = useRef<number>(0);
   const currentResRef = useRef<number>(1280);
@@ -264,7 +263,15 @@ function App() {
   const [thumbnailSize, setThumbnailSize] = useState(defaultThumbnailSize);
   const [thumbnailAspectRatio, setThumbnailAspectRatio] = useState(ThumbnailAspectRatio.Contain);
 
-  const { requestThumbnails, clearThumbnailQueue, markGenerated } = useThumbnails();
+  const {
+    requestThumbnails,
+    clearThumbnailQueue,
+    markGenerated,
+    invalidateSourceThumbnails,
+    shouldAcceptGenerated,
+    needsSourceThumbnailRefresh,
+    retryStaleGenerated,
+  } = useThumbnails();
 
   const transformWrapperRef = useRef<CanvasTransformHandle | null>(null);
   const preloadedDataRef = useRef<Partial<PreloadedData>>({});
@@ -342,7 +349,6 @@ function App() {
     preloadedDataRef,
     cachedEditStateRef,
     selectedImagePathRef,
-    isBackendReadyRef,
     latestRenderedJobIdRef,
     previewJobIdRef,
     currentResRef,
@@ -361,6 +367,8 @@ function App() {
     handleContinueSession,
   } = useAppNavigation({
     clearThumbnailQueue,
+    invalidateSourceThumbnails,
+    needsSourceThumbnailRefresh,
     refs: navigationRefs,
   });
 
@@ -462,6 +470,8 @@ function App() {
     handleSelectSubfolder,
     refreshImageList: handleLibraryRefresh,
     markGenerated,
+    shouldAcceptGenerated,
+    retryStaleGenerated,
   });
 
   useAndroidBackHandler();
@@ -865,7 +875,11 @@ function App() {
         latestRenderedJobIdRef={latestRenderedJobIdRef}
         currentResRef={currentResRef}
       />
-      <ImageLoaderManager cachedEditStateRef={cachedEditStateRef} />
+      <ImageLoaderManager
+        cachedEditStateRef={cachedEditStateRef}
+        invalidateSourceThumbnails={invalidateSourceThumbnails}
+        needsSourceThumbnailRefresh={needsSourceThumbnailRefresh}
+      />
       <div
         className={clsx(
           'flex flex-col h-screen font-sans text-text-primary overflow-hidden select-none',

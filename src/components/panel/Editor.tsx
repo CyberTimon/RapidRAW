@@ -4,8 +4,16 @@ import { Loader2 } from 'lucide-react';
 import clsx from 'clsx';
 import { invoke } from '@tauri-apps/api/core';
 import debounce from 'lodash.debounce';
-import { preparePreviewAdjustments, preparePreviewSubMasks } from '../../utils/previewPipeline';
+import {
+  preparePreviewAdjustments,
+  preparePreviewSubMasks,
+  previewAssetRevision,
+  retryMissingPreviewAssets,
+  type PreviewAssetCacheStatus,
+} from '../../utils/previewPipeline';
+import { isPreviewSuperseded, latestPreviewRevision, reservePreviewRevision } from '../../utils/previewIntent';
 import { maskOverlayForEditing } from '../../utils/maskOverlay';
+import { wgpuTransformGeneration, wgpuTransformRequest } from '../../utils/wgpuTransform';
 
 import { ImageDimensions, RenderSize, useImageRenderSize } from '../../hooks/useImageRenderSize';
 import { Adjustments, AiPatch, MaskContainer, INITIAL_ADJUSTMENTS, pickAdjustments } from '../../utils/adjustments';
@@ -71,6 +79,7 @@ const checkCropValid = (pixelCrop: Partial<Crop>, imageW: number, imageH: number
 type OverlayMask = Omit<MaskContainer, 'adjustments'> & { adjustments?: Partial<Adjustments> };
 
 interface WgpuRenderState {
+  expectedGeneration: number;
   useWgpuRenderer: boolean | undefined;
   isReady: boolean;
   hasRenderedFirstFrame: boolean;
@@ -108,10 +117,13 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const isInstantTransition = useUIStore((s) => s.isInstantTransition);
   const isLoading = useLibraryStore((s) => s.isViewLoading);
   const selectedImage = useEditorStore((s) => s.selectedImage);
+  const imageSession = useEditorStore((s) => s.imageSession);
+  const backendGeneration = useEditorStore((s) => s.backendGeneration);
   const adjustments = useEditorStore((s) => s.adjustments);
   const adjustmentsHistory = useEditorStore((s) => s.history);
   const adjustmentsHistoryIndex = useEditorStore((s) => s.historyIndex);
   const finalPreviewUrl = useEditorStore((s) => s.finalPreviewUrl);
+  const comparisonPreviewUrl = useEditorStore((s) => s.comparisonPreviewUrl);
   const uncroppedAdjustedPreviewUrl = useEditorStore((s) => s.uncroppedAdjustedPreviewUrl);
   const interactivePatch = useEditorStore((s) => s.interactivePatch);
   const showOriginal = useEditorStore((s) => s.showOriginal);
@@ -200,9 +212,11 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const [toolbarOverflowVisible, setToolbarOverflowVisible] = useState(!isFullScreen);
   const isGeneratingOverlayRef = useRef(false);
   const overlayGenerationRef = useRef(0);
-  const overlayMaskIdRef = useRef<string | null>(null);
   const pendingOverlayRequestRef = useRef<{
     generation: number;
+    session: number;
+    expectedGeneration: number | null;
+    inputRevision: number;
     maskDef: OverlayMask | AiPatch | null;
     renderSize: RenderSize;
     jsAdjustments: Adjustments;
@@ -1308,18 +1322,19 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     return () => clearTimeout(timer);
   }, [imageRenderSize, transformState.scale, handleDisplaySizeChange]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setMaskOverlayUrl(null);
     return () => {
       overlayGenerationRef.current += 1;
       pendingOverlayRequestRef.current = null;
     };
-  }, [selectedImage?.path]);
+  }, [selectedImage?.path, imageSession]);
 
   const processOverlayQueue = useCallback(async () => {
     if (isGeneratingOverlayRef.current || !pendingOverlayRequestRef.current) return;
 
-    const { generation, maskDef, renderSize, jsAdjustments } = pendingOverlayRequestRef.current;
+    const { generation, session, expectedGeneration, inputRevision, maskDef, renderSize, jsAdjustments } =
+      pendingOverlayRequestRef.current;
     pendingOverlayRequestRef.current = null;
 
     if (!maskDef || !maskDef.visible || renderSize.width === 0) {
@@ -1327,33 +1342,63 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       return;
     }
 
+    if (!useEditorStore.getState().selectedImage?.isReady) return;
+    const isCurrent = () =>
+      generation === overlayGenerationRef.current &&
+      session === useEditorStore.getState().imageSession &&
+      expectedGeneration === useEditorStore.getState().backendGeneration &&
+      inputRevision === latestPreviewRevision('overlay');
     isGeneratingOverlayRef.current = true;
     try {
       const cropOffset = [jsAdjustments.crop?.x || 0, jsAdjustments.crop?.y || 0];
 
       const { patchesSentToBackend } = useEditorStore.getState();
 
-      const { payload: strippedAdjustments } = preparePreviewAdjustments(jsAdjustments, patchesSentToBackend);
-      const strippedMaskDef = {
-        ...maskDef,
-        subMasks: preparePreviewSubMasks(maskDef.subMasks, patchesSentToBackend),
-      };
+      let sentAssets = new Set<string>();
+      const dataUrl = await retryMissingPreviewAssets(
+        (forceInline) => {
+          const acknowledged = forceInline ? new Set<string>() : patchesSentToBackend;
+          const prepared = preparePreviewAdjustments(jsAdjustments, acknowledged);
+          sentAssets = prepared.sentAssets;
+          const strippedMaskDef = {
+            ...maskDef,
+            subMasks: preparePreviewSubMasks(maskDef.subMasks, acknowledged, sentAssets),
+          };
+          return invoke<string>(Invokes.GenerateMaskOverlay, {
+            expectedGeneration,
+            inputRevision,
+            cropOffset,
+            height: Math.round(renderSize.height),
+            maskDef: strippedMaskDef,
+            scale: renderSize.scale,
+            width: Math.round(renderSize.width),
+            jsAdjustments: prepared.payload,
+          });
+        },
+        isCurrent,
+        (keys) => keys.forEach((key) => patchesSentToBackend.delete(key)),
+      );
 
-      const dataUrl: string = await invoke(Invokes.GenerateMaskOverlay, {
-        cropOffset,
-        height: Math.round(renderSize.height),
-        maskDef: strippedMaskDef,
-        scale: renderSize.scale,
-        width: Math.round(renderSize.width),
-        jsAdjustments: strippedAdjustments,
-      });
-
-      if (generation === overlayGenerationRef.current) {
+      if (isCurrent()) {
         setMaskOverlayUrl(dataUrl || null);
+        if (sentAssets.size) {
+          void invoke<PreviewAssetCacheStatus>(Invokes.GetPreviewAssetCacheStatus, { keys: [...sentAssets] })
+            .then(({ retainedKeys }) => {
+              const state = useEditorStore.getState();
+              if (
+                state.imageSession === session &&
+                state.backendGeneration === expectedGeneration &&
+                state.patchesSentToBackend === patchesSentToBackend
+              ) {
+                retainedKeys.forEach((key) => patchesSentToBackend.add(key));
+              }
+            })
+            .catch((error) => console.warn('Could not confirm overlay asset retention:', error));
+        }
       }
     } catch (e) {
-      console.error('Failed to generate live mask overlay:', e);
-      if (generation === overlayGenerationRef.current) setMaskOverlayUrl(null);
+      if (isCurrent() && !isPreviewSuperseded(e)) console.error('Failed to generate live mask overlay:', e);
+      if (isCurrent()) setMaskOverlayUrl(null);
     } finally {
       isGeneratingOverlayRef.current = false;
       if (pendingOverlayRequestRef.current) {
@@ -1365,18 +1410,20 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const requestMaskOverlay = useCallback(
     (maskDef: OverlayMask | AiPatch | null, renderSize: RenderSize, currentAdjustments: Adjustments) => {
       overlayGenerationRef.current += 1;
-      const maskId = maskDef?.id ?? null;
-      if (maskId !== overlayMaskIdRef.current) {
-        overlayMaskIdRef.current = maskId;
-        setMaskOverlayUrl(null);
-      }
+      const state = useEditorStore.getState();
+      const inputRevision = reservePreviewRevision('overlay', state.backendGeneration);
+      // Even the same mask can move or change shape. The previous raster no
+      // longer matches the current geometry once a new request is queued.
+      setMaskOverlayUrl(null);
       if (!maskDef?.visible || renderSize.width === 0) {
         pendingOverlayRequestRef.current = null;
-        setMaskOverlayUrl(null);
         return;
       }
       pendingOverlayRequestRef.current = {
         generation: overlayGenerationRef.current,
+        session: state.imageSession,
+        expectedGeneration: state.backendGeneration,
+        inputRevision,
         maskDef,
         renderSize,
         jsAdjustments: currentAdjustments,
@@ -1411,6 +1458,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   }, [croppedDimensions]);
 
   const wgpuStateRef = useRef<WgpuRenderState>({
+    expectedGeneration: wgpuTransformGeneration(backendGeneration),
     useWgpuRenderer: appSettings?.useWgpuRenderer,
     isReady: selectedImage?.isReady ?? false,
     hasRenderedFirstFrame,
@@ -1427,6 +1475,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     const isNeutralGrey = appSettings?.editorNeutralGreyBg ?? false;
 
     wgpuStateRef.current = {
+      expectedGeneration: wgpuTransformGeneration(backendGeneration),
       useWgpuRenderer: appSettings?.useWgpuRenderer,
       isReady: selectedImage?.isReady ?? false,
       hasRenderedFirstFrame,
@@ -1439,6 +1488,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   }, [
     appSettings?.useWgpuRenderer,
     appSettings?.editorNeutralGreyBg,
+    backendGeneration,
     selectedImage?.isReady,
     hasRenderedFirstFrame,
     isCropping,
@@ -1453,6 +1503,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   }, [
     appSettings?.useWgpuRenderer,
     appSettings?.editorNeutralGreyBg,
+    backendGeneration,
     selectedImage?.isReady,
     hasRenderedFirstFrame,
     isCropping,
@@ -1508,28 +1559,29 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         irs.width === 0 ||
         irs.height === 0
       ) {
-        const hiddenTransform = `${windowWidth},${windowHeight},-999999,-999999,1,1,${clipX},${clipY},${clipW},${clipH},${state.bgPrimary?.join(',')},${state.bgSecondary?.join(',')}`;
+        const hiddenTransform = wgpuTransformRequest(
+          {
+            windowWidth,
+            windowHeight,
+            x: -999999,
+            y: -999999,
+            width: 1,
+            height: 1,
+            clipX,
+            clipY,
+            clipWidth: clipW,
+            clipHeight: clipH,
+            bgPrimary: state.bgPrimary,
+            bgSecondary: state.bgSecondary,
+            pixelated: false,
+          },
+          state.expectedGeneration,
+        );
 
-        if (lastWgpuTransformRef.current !== hiddenTransform && !isInvoking) {
-          lastWgpuTransformRef.current = hiddenTransform;
+        if (lastWgpuTransformRef.current !== hiddenTransform.key && !isInvoking) {
+          lastWgpuTransformRef.current = hiddenTransform.key;
           isInvoking = true;
-          invoke(Invokes.UpdateWgpuTransform, {
-            payload: {
-              windowWidth,
-              windowHeight,
-              x: -999999,
-              y: -999999,
-              width: 1,
-              height: 1,
-              clipX,
-              clipY,
-              clipWidth: clipW,
-              clipHeight: clipH,
-              bgPrimary: state.bgPrimary || [0, 0, 0, 1],
-              bgSecondary: state.bgSecondary || [0, 0, 0, 1],
-              pixelated: false,
-            },
-          })
+          invoke(Invokes.UpdateWgpuTransform, { payload: hiddenTransform.payload })
             .catch(() => {})
             .finally(() => {
               isInvoking = false;
@@ -1568,31 +1620,31 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         screenH = Math.max(screenH, 1);
       }
 
-      const currentTransform = `${windowWidth},${windowHeight},${screenX},${screenY},${screenW},${screenH},${clipX},${clipY},${clipW},${clipH},${state.bgPrimary?.join(',')},${state.bgSecondary?.join(',')}`;
+      const isZoomedIn = scale >= maxScaleRef.current - 0.5;
+      const currentTransform = wgpuTransformRequest(
+        {
+          windowWidth,
+          windowHeight,
+          x: screenX,
+          y: screenY,
+          width: screenW,
+          height: screenH,
+          clipX,
+          clipY,
+          clipWidth: clipW,
+          clipHeight: clipH,
+          bgPrimary: state.bgPrimary,
+          bgSecondary: state.bgSecondary,
+          pixelated: isZoomedIn,
+        },
+        state.expectedGeneration,
+      );
 
-      if (lastWgpuTransformRef.current !== currentTransform && !isInvoking) {
-        lastWgpuTransformRef.current = currentTransform;
+      if (lastWgpuTransformRef.current !== currentTransform.key && !isInvoking) {
+        lastWgpuTransformRef.current = currentTransform.key;
         isInvoking = true;
 
-        const isZoomedIn = scale >= maxScaleRef.current - 0.5;
-
-        invoke(Invokes.UpdateWgpuTransform, {
-          payload: {
-            windowWidth,
-            windowHeight,
-            x: screenX,
-            y: screenY,
-            width: screenW,
-            height: screenH,
-            clipX,
-            clipY,
-            clipWidth: clipW,
-            clipHeight: clipH,
-            bgPrimary: state.bgPrimary || [0, 0, 0, 1],
-            bgSecondary: state.bgSecondary || [0, 0, 0, 1],
-            pixelated: isZoomedIn,
-          },
-        })
+        invoke(Invokes.UpdateWgpuTransform, { payload: currentTransform.payload })
           .catch((err) => console.warn('WGPU Sync Error:', err))
           .finally(() => {
             isInvoking = false;
@@ -1663,23 +1715,21 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     const subMasks = activeMaskDef.subMasks?.map((sm) => {
       const { parameters, ...rest } = sm;
       const cleanParams = { ...parameters };
-      const maskDataFingerprint = cleanParams.mask_data_base64
-        ? `${cleanParams.mask_data_base64.length}-${cleanParams.mask_data_base64.slice(-20)}`
-        : null;
-      const maskDataCamelFingerprint = cleanParams.maskDataBase64
-        ? `${cleanParams.maskDataBase64.length}-${cleanParams.maskDataBase64.slice(-20)}`
-        : null;
+      const maskDataFingerprint = previewAssetRevision(`${sm.id}:mask`, [
+        cleanParams.mask_data_base64,
+        cleanParams.maskDataBase64,
+      ]);
       delete cleanParams.mask_data_base64;
       delete cleanParams.maskDataBase64;
       return {
         ...rest,
         parameters: cleanParams,
         _maskDataFingerprint: maskDataFingerprint,
-        _maskDataCamelFingerprint: maskDataCamelFingerprint,
       };
     });
 
     return JSON.stringify({
+      visible: activeMaskDef.visible,
       id: activeMaskDef.id,
       invert: activeMaskDef.invert,
       ...('opacity' in activeMaskDef ? { opacity: activeMaskDef.opacity } : {}),
@@ -1727,6 +1777,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   }, [
     overlayTriggerHash,
     selectedImage?.path,
+    selectedImage?.isReady,
     requestMaskOverlay,
     activePanel,
     isMasking,
@@ -2335,6 +2386,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
           }}
         >
           <ImageCanvas
+            key={`${selectedImage.path}:${imageSession}`}
             appSettings={appSettings}
             activeAiPatchContainerId={activeAiPatchContainerId}
             activeAiSubMaskId={activeAiSubMaskId}
@@ -2344,6 +2396,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
             brushSettings={brushSettings}
             crop={crop}
             finalPreviewUrl={finalPreviewUrl}
+            comparisonPreviewUrl={comparisonPreviewUrl}
             handleCropComplete={handleCropComplete}
             imageRenderSize={imageRenderSize}
             interactivePatch={interactivePatch}

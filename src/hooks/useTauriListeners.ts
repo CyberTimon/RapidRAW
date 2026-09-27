@@ -7,6 +7,8 @@ import { useProcessStore, ExternalEditSession } from '../store/useProcessStore';
 import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
 import { useLibraryStore } from '../store/useLibraryStore';
+import { acceptMainPreviewAttempt } from '../utils/previewIntent';
+import { tracePreview } from '../utils/previewDiagnostics';
 
 interface TauriListenerProps {
   refreshAllFolderTrees: () => void;
@@ -18,6 +20,8 @@ interface TauriListenerProps {
   ) => void;
   refreshImageList: () => void;
   markGenerated: (path: string) => void;
+  shouldAcceptGenerated: (path: string, sourceRevision?: string | null) => boolean;
+  retryStaleGenerated: (path: string) => void;
 }
 
 export function useTauriListeners({
@@ -25,15 +29,32 @@ export function useTauriListeners({
   handleSelectSubfolder,
   refreshImageList,
   markGenerated,
+  shouldAcceptGenerated,
+  retryStaleGenerated,
 }: TauriListenerProps) {
-  const refs = useRef({ refreshAllFolderTrees, handleSelectSubfolder, refreshImageList, markGenerated });
+  const refs = useRef({
+    refreshAllFolderTrees,
+    handleSelectSubfolder,
+    refreshImageList,
+    markGenerated,
+    shouldAcceptGenerated,
+    retryStaleGenerated,
+  });
 
   useEffect(() => {
-    refs.current = { refreshAllFolderTrees, handleSelectSubfolder, refreshImageList, markGenerated };
+    refs.current = {
+      refreshAllFolderTrees,
+      handleSelectSubfolder,
+      refreshImageList,
+      markGenerated,
+      shouldAcceptGenerated,
+      retryStaleGenerated,
+    };
   });
 
   const thumbnailBuffer = useRef<Record<string, string>>({});
   const mediumThumbnailBuffer = useRef<Record<string, string>>({});
+  const thumbnailRevisionBuffer = useRef<Record<string, string | null>>({});
   const ratingBuffer = useRef<Record<string, number>>({});
   const editStatusBuffer = useRef<Record<string, boolean>>({});
   const flushHandle = useRef<number | null>(null);
@@ -47,18 +68,32 @@ export function useTauriListeners({
 
       const pendingThumbs = thumbnailBuffer.current;
       const pendingMediumThumbs = mediumThumbnailBuffer.current;
+      const pendingRevisions = thumbnailRevisionBuffer.current;
       const pendingRatings = ratingBuffer.current;
       const pendingEdits = editStatusBuffer.current;
 
       thumbnailBuffer.current = {};
       mediumThumbnailBuffer.current = {};
+      thumbnailRevisionBuffer.current = {};
       ratingBuffer.current = {};
       editStatusBuffer.current = {};
+
+      for (const path of Object.keys(pendingThumbs)) {
+        if (!refs.current.shouldAcceptGenerated(path, pendingRevisions[path])) {
+          delete pendingThumbs[path];
+          delete pendingMediumThumbs[path];
+          delete pendingRevisions[path];
+          delete pendingRatings[path];
+          delete pendingEdits[path];
+          refs.current.retryStaleGenerated(path);
+        }
+      }
 
       if (Object.keys(pendingThumbs).length > 0) {
         useProcessStore.getState().setProcess((state) => ({
           thumbnails: { ...state.thumbnails, ...pendingThumbs },
           mediumThumbnails: { ...state.mediumThumbnails, ...pendingMediumThumbs },
+          thumbnailSourceRevisions: { ...state.thumbnailSourceRevisions, ...pendingRevisions },
         }));
       }
 
@@ -81,20 +116,40 @@ export function useTauriListeners({
     };
 
     const listeners = [
-      listen<string>('preview-update-uncropped', (event) => {
-        if (isEffectActive) useEditorStore.getState().setEditor({ uncroppedAdjustedPreviewUrl: event.payload });
+      listen<
+        {
+          path: string;
+          generation: number;
+          inputRevision: number | null;
+          renderAttempt: number | null;
+          qualityTier: string | null;
+        } & Pick<Partial<ReturnType<typeof useEditorStore.getState>>, 'histogram' | 'waveform'>
+      >('analytics-update', (event) => {
+        if (
+          isEffectActive &&
+          event.payload.path === useEditorStore.getState().selectedImage?.path &&
+          event.payload.generation === useEditorStore.getState().backendGeneration &&
+          acceptMainPreviewAttempt(event.payload.inputRevision, event.payload.renderAttempt)
+        ) {
+          tracePreview({
+            stage: 'analytics-accepted',
+            session: useEditorStore.getState().imageSession,
+            generation: event.payload.generation,
+            revision: event.payload.inputRevision!,
+            attempt: event.payload.renderAttempt!,
+            tier:
+              event.payload.qualityTier === 'quick' ||
+              event.payload.qualityTier === 'detail' ||
+              event.payload.qualityTier === 'full'
+                ? event.payload.qualityTier
+                : 'unknown',
+          });
+          const update: Pick<Partial<ReturnType<typeof useEditorStore.getState>>, 'histogram' | 'waveform'> = {};
+          if (event.payload.histogram != null) update.histogram = event.payload.histogram;
+          if (event.payload.waveform != null) update.waveform = event.payload.waveform;
+          useEditorStore.getState().setEditor(update);
+        }
       }),
-      listen<{ path: string } & Pick<Partial<ReturnType<typeof useEditorStore.getState>>, 'histogram' | 'waveform'>>(
-        'analytics-update',
-        (event) => {
-          if (isEffectActive && event.payload.path === useEditorStore.getState().selectedImage?.path) {
-            const update: Pick<Partial<ReturnType<typeof useEditorStore.getState>>, 'histogram' | 'waveform'> = {};
-            if (event.payload.histogram != null) update.histogram = event.payload.histogram;
-            if (event.payload.waveform != null) update.waveform = event.payload.waveform;
-            useEditorStore.getState().setEditor(update);
-          }
-        },
-      ),
       listen<string>('open-with-file', (event) => {
         if (isEffectActive) useProcessStore.getState().setProcess({ initialFileToOpen: event.payload as string });
       }),
@@ -117,17 +172,24 @@ export function useTauriListeners({
         rating?: number;
         is_edited?: boolean;
         data?: string;
+        sourceRevision?: string;
       }>('thumbnail-generated', (event) => {
         if (!isEffectActive) return;
-        const { path, thumbnailPath, previewPath, rating, is_edited, data } = event.payload;
+        const { path, thumbnailPath, previewPath, rating, is_edited, data, sourceRevision } = event.payload;
+        if (!refs.current.shouldAcceptGenerated(path, sourceRevision)) {
+          if (thumbnailPath || data) refs.current.retryStaleGenerated(path);
+          return;
+        }
 
         if (thumbnailPath && previewPath) {
           thumbnailBuffer.current[path] = convertFileSrc(thumbnailPath.replace(/\\/g, '/'));
           mediumThumbnailBuffer.current[path] = convertFileSrc(previewPath.replace(/\\/g, '/'));
+          thumbnailRevisionBuffer.current[path] = sourceRevision ?? null;
           refs.current.markGenerated(path);
         } else if (data) {
           thumbnailBuffer.current[path] = data;
           mediumThumbnailBuffer.current[path] = data;
+          thumbnailRevisionBuffer.current[path] = sourceRevision ?? null;
           refs.current.markGenerated(path);
         }
         if (rating !== undefined) {
@@ -261,8 +323,32 @@ export function useTauriListeners({
           }));
         }
       }),
-      listen<{ path: string }>('wgpu-frame-ready', (event) => {
-        if (isEffectActive && event.payload?.path === useEditorStore.getState().selectedImage?.path) {
+      listen<{
+        path: string;
+        generation: number;
+        inputRevision: number | null;
+        renderAttempt: number | null;
+        qualityTier: string | null;
+      }>('wgpu-frame-ready', (event) => {
+        if (
+          isEffectActive &&
+          event.payload?.path === useEditorStore.getState().selectedImage?.path &&
+          event.payload.generation === useEditorStore.getState().backendGeneration &&
+          acceptMainPreviewAttempt(event.payload.inputRevision, event.payload.renderAttempt)
+        ) {
+          tracePreview({
+            stage: 'wgpu-frame-ready',
+            session: useEditorStore.getState().imageSession,
+            generation: event.payload.generation,
+            revision: event.payload.inputRevision!,
+            attempt: event.payload.renderAttempt!,
+            tier:
+              event.payload.qualityTier === 'quick' ||
+              event.payload.qualityTier === 'detail' ||
+              event.payload.qualityTier === 'full'
+                ? event.payload.qualityTier
+                : 'unknown',
+          });
           useEditorStore.getState().setEditor({ hasRenderedFirstFrame: true });
         }
       }),
@@ -421,7 +507,10 @@ export function useTauriListeners({
         flushHandle.current = null;
       }
       thumbnailBuffer.current = {};
+      mediumThumbnailBuffer.current = {};
+      thumbnailRevisionBuffer.current = {};
       ratingBuffer.current = {};
+      editStatusBuffer.current = {};
       listeners.forEach((p) => p.then((unlisten) => unlisten()));
     };
   }, []);

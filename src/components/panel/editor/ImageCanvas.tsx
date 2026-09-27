@@ -20,6 +20,7 @@ import CompositionOverlays from './overlays/CompositionOverlays';
 import { calculateStraightenAngle } from '../../../utils/cropUtils';
 import { toast } from 'react-toastify';
 import { photoPointToSurface, surfacePointToPhoto } from '../../../utils/surfaceEditing';
+import { traceJpegPresented } from '../../../utils/previewDiagnostics';
 
 type CanvasInputEvent = KonvaEventObject<MouseEvent | TouchEvent>;
 
@@ -47,6 +48,7 @@ interface ImageCanvasProps {
   brushSettings: BrushSettings | null;
   crop: Crop | null;
   finalPreviewUrl: string | null;
+  comparisonPreviewUrl: string | null;
   handleCropComplete(c: Crop, cp: PercentCrop): void;
   imageRenderSize: RenderSize;
   isAiEditing: boolean;
@@ -1408,6 +1410,7 @@ const ImageCanvas = memo(
     brushSettings,
     crop,
     finalPreviewUrl,
+    comparisonPreviewUrl,
     handleCropComplete,
     imageRenderSize,
     interactivePatch,
@@ -1456,7 +1459,6 @@ const ImageCanvas = memo(
 
     const [isCropViewVisible, setIsCropViewVisible] = useState(false);
     const cropImageRef = useRef<HTMLImageElement>(null);
-    const [displayedMaskUrl, setDisplayedMaskUrl] = useState<string | null>(null);
     const [localInitialDrawParams, setLocalInitialDrawParams] = useState<MaskParameters | null>(null);
     const [isMaskInteractionActive, setIsMaskInteractionActive] = useState(false);
     const [hoveredMarkerId, setHoveredMarkerId] = useState<string | null>(null);
@@ -1555,13 +1557,20 @@ const ImageCanvas = memo(
 
     const maxDimension = Math.max(stageWidth, stageHeight, 1);
     const maxSafeScale = Math.max(1, Math.min(settledScale, 4092 / maxDimension));
+    const maskCanvasWidth = stageWidth * maxSafeScale;
+    const maskCanvasHeight = stageHeight * maxSafeScale;
+    const hasRenderableMaskCanvas =
+      Number.isFinite(maskCanvasWidth) &&
+      Number.isFinite(maskCanvasHeight) &&
+      maskCanvasWidth >= 1 &&
+      maskCanvasHeight >= 1;
 
     // Resize the backing canvas and paint its new coordinates in the same frame
     // as the inverse CSS scale. Konva's deferred draw otherwise shows a stale
     // mask for a frame after zoom settles.
     useLayoutEffect(() => {
-      maskStageRef.current?.draw();
-    }, [maxSafeScale, stageWidth, stageHeight]);
+      if (hasRenderableMaskCanvas) maskStageRef.current?.draw();
+    }, [hasRenderableMaskCanvas, maskCanvasWidth, maskCanvasHeight]);
 
     const getCanvasPointer = useCallback(
       (stage: Konva.Stage | null) => {
@@ -1575,18 +1584,21 @@ const ImageCanvas = memo(
       [groupOffsetX, groupOffsetY, maxSafeScale],
     );
 
-    useEffect(() => {
+    useLayoutEffect(() => {
       if (interactivePatch) {
         retainedPatchRef.current = interactivePatch;
       }
     }, [interactivePatch]);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
       const newSrc = finalPreviewUrl || selectedImage.thumbnailUrl;
       const isNewImage = prevImageIdentityRef.current !== selectedImage.thumbnailUrl;
+      const replacingInteractivePatch =
+        !!finalPreviewUrl && !interactivePatch && !!retainedPatchRef.current && displayState.base !== newSrc;
 
-      if (isNewImage) {
+      if (isNewImage || replacingInteractivePatch) {
         prevImageIdentityRef.current = selectedImage.thumbnailUrl;
+        retainedPatchRef.current = null;
         setDisplayState({ base: newSrc, fade: null });
         setIsFadingIn(false);
         return;
@@ -1817,14 +1829,6 @@ const ImageCanvas = memo(
       isBrushActive || isAiSubjectActive || isInitialDrawing || isParametricActive || isSurfaceColourActive;
 
     useEffect(() => {
-      if (maskOverlayUrl && (isMasking || isAiEditing)) {
-        setDisplayedMaskUrl(maskOverlayUrl);
-      } else {
-        setDisplayedMaskUrl(null);
-      }
-    }, [maskOverlayUrl, isMasking, isAiEditing]);
-
-    useEffect(() => {
       if (isToolActive) {
         return;
       }
@@ -1964,6 +1968,14 @@ const ImageCanvas = memo(
 
       return { width: renderWidth, height: renderHeight };
     }, [selectedImage?.width, selectedImage?.height, imageRenderSize, adjustments.orientationSteps]);
+    const hasRenderableCropCanvas =
+      Number.isFinite(uncroppedImageRenderSize?.width) &&
+      Number.isFinite(uncroppedImageRenderSize?.height) &&
+      (uncroppedImageRenderSize?.width ?? 0) >= 1 &&
+      (uncroppedImageRenderSize?.height ?? 0) >= 1;
+    const showCropGuideCanvas =
+      hasRenderableCropCanvas &&
+      (isStraightenActive || isGuidedPerspectiveActive || Boolean(adjustments.guidedPerspective?.lines?.length));
 
     useEffect(() => {
       const calcMatrix = async () => {
@@ -3057,13 +3069,15 @@ const ImageCanvas = memo(
     const currentTarget = finalPreviewUrl || selectedImage.thumbnailUrl;
     const baseIsReady = displayState.base === currentTarget && !displayState.fade;
 
-    const visiblePatch = interactivePatch ?? (baseIsReady ? null : retainedPatchRef.current);
+    const visiblePatch = interactivePatch;
 
     useEffect(() => {
       if (baseIsReady && !interactivePatch) {
         retainedPatchRef.current = null;
       }
     }, [baseIsReady, interactivePatch]);
+
+    const displayedMaskUrl = isMasking || isAiEditing ? maskOverlayUrl : null;
 
     const cropImageTransforms = useMemo(() => {
       const rotation = liveRotation !== null && liveRotation !== undefined ? liveRotation : adjustments.rotation || 0;
@@ -3204,6 +3218,7 @@ const ImageCanvas = memo(
                 {displayState.base && !isWgpuActive && (
                   <image
                     href={displayState.base}
+                    onLoad={() => traceJpegPresented(displayState.base)}
                     x="0"
                     y="0"
                     width="100%"
@@ -3215,6 +3230,7 @@ const ImageCanvas = memo(
                 {displayState.fade && !isWgpuActive && (
                   <image
                     href={displayState.fade}
+                    onLoad={() => traceJpegPresented(displayState.fade!)}
                     x="0"
                     y="0"
                     width="100%"
@@ -3230,11 +3246,24 @@ const ImageCanvas = memo(
                 {visiblePatch && !isWgpuActive && (
                   <image
                     href={visiblePatch.url}
+                    onLoad={() => traceJpegPresented(visiblePatch.url)}
                     x={`${visiblePatch.normX * 100}%`}
                     y={`${visiblePatch.normY * 100}%`}
                     width={`${visiblePatch.normW * 100}%`}
                     height={`${visiblePatch.normH * 100}%`}
                     preserveAspectRatio="none"
+                    style={{ imageRendering: isMaxZoom ? 'pixelated' : 'auto' }}
+                  />
+                )}
+
+                {showOriginal && comparisonPreviewUrl && (
+                  <image
+                    href={comparisonPreviewUrl}
+                    onLoad={() => traceJpegPresented(comparisonPreviewUrl)}
+                    x="0"
+                    y="0"
+                    width="100%"
+                    height="100%"
                     style={{ imageRendering: isMaxZoom ? 'pixelated' : 'auto' }}
                   />
                 )}
@@ -3336,7 +3365,7 @@ const ImageCanvas = memo(
             </div>
           </div>
 
-          {(isMasking || isAiEditing || isWbPickerActive) && (
+          {(isMasking || isAiEditing || isWbPickerActive) && hasRenderableMaskCanvas && (
             <div
               style={{
                 position: 'absolute',
@@ -3344,8 +3373,8 @@ const ImageCanvas = memo(
                 left: stageLeft,
                 transformOrigin: '0 0',
                 transform: `scale(${1 / maxSafeScale})`,
-                width: stageWidth * maxSafeScale,
-                height: stageHeight * maxSafeScale,
+                width: maskCanvasWidth,
+                height: maskCanvasHeight,
                 zIndex: 4,
                 touchAction: 'none',
                 userSelect: 'none',
@@ -3356,8 +3385,8 @@ const ImageCanvas = memo(
             >
               <Stage
                 ref={maskStageRef}
-                width={stageWidth * maxSafeScale}
-                height={stageHeight * maxSafeScale}
+                width={maskCanvasWidth}
+                height={maskCanvasHeight}
                 onMouseDown={handleStart}
                 onTouchStart={handleStart}
                 onMouseEnter={handleMouseEnter}
@@ -3534,9 +3563,7 @@ const ImageCanvas = memo(
                 />
               </ReactCrop>
 
-              {(isStraightenActive ||
-                isGuidedPerspectiveActive ||
-                (adjustments.guidedPerspective?.lines && adjustments.guidedPerspective.lines.length > 0)) && (
+              {showCropGuideCanvas && (
                 <Stage
                   height={uncroppedImageRenderSize.height}
                   onMouseDown={isStraightenActive ? handleStraightenMouseDown : handleStart}
