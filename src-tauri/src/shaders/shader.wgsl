@@ -211,6 +211,8 @@ const HSL_RANGES: array<HslRange, 8> = array<HslRange, 8>(
 @group(0) @binding(10) var flare_texture: texture_2d<f32>;
 @group(0) @binding(11) var flare_sampler: sampler;
 
+override HIGH_PRECISION_OUTPUT: u32 = 0u;
+
 const LUMA_COEFF = vec3<f32>(0.2126, 0.7152, 0.0722);
 
 fn get_luma(c: vec3<f32>) -> f32 {
@@ -475,47 +477,123 @@ fn apply_tonal_adjustments(
 
 fn apply_highlights_adjustment(
     color_in: vec3<f32>,
-    blurred_color_input_space: vec3<f32>,
+    coords_i: vec2<i32>,
+    scale: f32,
     is_raw: u32,
     highlights_adj: f32
 ) -> vec3<f32> {
-    if (highlights_adj == 0.0) { return color_in; }
-
-    let pixel_luma = get_luma(max(color_in, vec3<f32>(0.0)));
-    let safe_pixel_luma = max(pixel_luma, 0.0001);
-
-    let pixel_mask_input = tanh(safe_pixel_luma * 1.5);
-    let highlight_mask = smoothstep(0.3, 0.95, pixel_mask_input);
-
-    if (highlight_mask < 0.001) {
+    if (abs(highlights_adj) < 0.001) {
         return color_in;
     }
 
-    let luma = pixel_luma;
-    var final_adjusted_color: vec3<f32>;
-
-    if (highlights_adj < 0.0) {
-        var new_luma: f32;
-        if (luma <= 1.0) {
-            let gamma = 1.0 - highlights_adj * 1.75;
-            new_luma = pow(luma, gamma);
-        } else {
-            let luma_excess = luma - 1.0;
-            let compression_strength = -highlights_adj * 6.0;
-            let compressed_excess = luma_excess / (1.0 + luma_excess * compression_strength);
-            new_luma = 1.0 + compressed_excess;
-        }
-        let tonally_adjusted_color = color_in * (new_luma / max(luma, 0.0001));
-        let desaturation_amount = smoothstep(1.0, 10.0, luma);
-        let white_point = vec3<f32>(new_luma);
-        final_adjusted_color = mix(tonally_adjusted_color, white_point, desaturation_amount);
-    } else {
-        let adjustment = highlights_adj * 1.75;
-        let factor = pow(2.0, adjustment);
-        final_adjusted_color = color_in * factor;
+    let pixel_luma = get_luma(max(color_in, vec3<f32>(0.0)));
+    if (pixel_luma < 0.0001) {
+        return color_in;
     }
 
-    return mix(color_in, final_adjusted_color, highlight_mask);
+    const l_pivot: f32 = 0.10;
+    if (pixel_luma <= l_pivot) {
+        return color_in;
+    }
+
+    let dims = vec2<i32>(textureDimensions(input_texture));
+    let max_idx = dims - vec2<i32>(1);
+
+    var center_tex = textureLoad(input_texture, clamp(coords_i, vec2<i32>(0), max_idx), 0).rgb;
+    if (is_raw == 0u) {
+        center_tex = srgb_to_linear(center_tex);
+    }
+    let center_tex_luma = max(get_luma(center_tex), 1e-4);
+
+    let r_inner = max(1, i32(round(3.5 * scale)));
+    let r_outer = max(2, i32(round(7.5 * scale)));
+    let r_diag  = max(1, i32(round(f32(r_outer) * 0.7071)));
+
+    let offsets = array<vec2<i32>, 12>(
+        vec2<i32>( r_inner,        0), vec2<i32>(-r_inner,        0),
+        vec2<i32>(       0,  r_inner), vec2<i32>(       0, -r_inner),
+        vec2<i32>( r_outer,        0), vec2<i32>(-r_outer,        0),
+        vec2<i32>(       0,  r_outer), vec2<i32>(       0, -r_outer),
+        vec2<i32>(  r_diag,   r_diag), vec2<i32>( -r_diag,   r_diag),
+        vec2<i32>(  r_diag,  -r_diag), vec2<i32>( -r_diag,  -r_diag)
+    );
+
+    let spatial_weights = array<f32, 12>(
+        0.85, 0.85, 0.85, 0.85,
+        0.50, 0.50, 0.50, 0.50,
+        0.50, 0.50, 0.50, 0.50
+    );
+
+    let range_tol = max(pixel_luma * 0.22, 0.03);
+    let inv_two_range_sq = 1.0 / (2.0 * range_tol * range_tol);
+
+    var sum_luma: f32 = pixel_luma;
+    var sum_w: f32 = 1.0;
+
+    for (var i = 0u; i < 12u; i = i + 1u) {
+        let coord = clamp(coords_i + offsets[i], vec2<i32>(0), max_idx);
+        var s_rgb = textureLoad(input_texture, coord, 0).rgb;
+        if (is_raw == 0u) {
+            s_rgb = srgb_to_linear(s_rgb);
+        }
+        let s_luma_raw = max(get_luma(s_rgb), 0.0);
+        let s_luma = pixel_luma * (s_luma_raw / center_tex_luma);
+
+        let diff = abs(s_luma - pixel_luma);
+        let w = exp(- (diff * diff) * inv_two_range_sq) * spatial_weights[i];
+
+        sum_luma += s_luma * w;
+        sum_w += w;
+    }
+
+    let luma_base = sum_luma / sum_w;
+    let detail_ratio = pixel_luma / max(luma_base, 1e-4);
+
+    let safe_detail = clamp(detail_ratio, 0.65, 1.55);
+
+    let log_detail = log2(safe_detail);
+    let soft_log_detail = log_detail / (1.0 + abs(log_detail) * 0.40);
+
+    var target_luma: f32 = pixel_luma;
+
+    if (highlights_adj < 0.0) {
+        let k = -highlights_adj;
+        let delta_base = max(luma_base - l_pivot, 0.0);
+
+        let compression_strength = k * 2.2;
+        let compressed_delta = delta_base / (1.0 + compression_strength * (delta_base / (1.0 + delta_base * 0.35)));
+        let target_base = l_pivot + compressed_delta;
+
+        let restoration_gain = 1.0 + k * 0.55;
+        let recovered_detail = exp2(soft_log_detail * restoration_gain);
+
+        let recovered_target = target_base * recovered_detail;
+
+        let blend = smoothstep(l_pivot, l_pivot + 0.35, pixel_luma);
+        target_luma = mix(pixel_luma, recovered_target, blend);
+
+    } else {
+        let boost = highlights_adj * 0.70;
+        let delta_base = max(luma_base - l_pivot, 0.0);
+        let boosted_delta = delta_base * (1.0 + boost / (1.0 + delta_base * 0.25));
+        let target_base = l_pivot + boosted_delta;
+
+        let detail_boost = exp2(soft_log_detail * (1.0 + highlights_adj * 0.20));
+        let boosted_target = target_base * detail_boost;
+
+        let blend = smoothstep(l_pivot, l_pivot + 0.35, pixel_luma);
+        target_luma = mix(pixel_luma, boosted_target, blend);
+    }
+
+    let luma_ratio = target_luma / pixel_luma;
+    var final_color = color_in * luma_ratio;
+
+    if (highlights_adj < 0.0 && pixel_luma > 1.0) {
+        let blowout = smoothstep(1.0, 3.5, pixel_luma) * (-highlights_adj) * 0.40;
+        final_color = mix(final_color, vec3<f32>(target_luma), blowout);
+    }
+
+    return final_color;
 }
 
 fn apply_linear_exposure(color_in: vec3<f32>, exposure_adj: f32) -> vec3<f32> {
@@ -529,30 +607,42 @@ fn apply_filmic_exposure(color_in: vec3<f32>, brightness_adj: f32) -> vec3<f32> 
     if (brightness_adj == 0.0) {
         return color_in;
     }
-    const RATIONAL_CURVE_MIX: f32 = 0.95;
+    const RATIONAL_CURVE_MIX: f32 = 1.0;
     const MIDTONE_STRENGTH: f32 = 1.2;
-    const TOP_ANCHOR: f32 = 1.06;
+    const TOP_ANCHOR: f32 = 1.0;
+
     let original_luma = get_luma(color_in);
     if (abs(original_luma) < 0.00001) {
         return color_in;
     }
+
     let direct_adj = brightness_adj * (1.0 - RATIONAL_CURVE_MIX);
     let rational_adj = brightness_adj * RATIONAL_CURVE_MIX;
     let scale = pow(2.0, direct_adj);
     let k = pow(2.0, -rational_adj * MIDTONE_STRENGTH);
     let luma_abs = abs(original_luma);
-    let luma_floor = floor(luma_abs / TOP_ANCHOR) * TOP_ANCHOR;
-    let luma_norm = (luma_abs - luma_floor) / TOP_ANCHOR;
-    let shaped_norm = luma_norm / (luma_norm + (1.0 - luma_norm) * k);
-    let shaped_luma_abs = luma_floor + (shaped_norm * TOP_ANCHOR);
-    let new_luma = sign(original_luma) * shaped_luma_abs * scale;
+
+    var shaped_luma_abs: f32;
+    if (luma_abs <= TOP_ANCHOR) {
+        let luma_norm = luma_abs / TOP_ANCHOR;
+        let shaped_norm = luma_norm / (luma_norm + (1.0 - luma_norm) * k);
+        shaped_luma_abs = shaped_norm * TOP_ANCHOR;
+    } else {
+        shaped_luma_abs = TOP_ANCHOR + (luma_abs - TOP_ANCHOR) * k;
+    }
+
+    let new_luma_abs = shaped_luma_abs * scale;
+    let new_luma = sign(original_luma) * new_luma_abs;
     let chroma = color_in - vec3<f32>(original_luma);
-    let total_luma_scale = new_luma / original_luma;
-    let luma_weight = clamp(new_luma, 0.0, 2.0) * 0.5;
+
+    let total_luma_scale = new_luma_abs / luma_abs;
+    let luma_weight = clamp(new_luma_abs, 0.0, 2.0) * 0.5;
     let dynamic_exp = mix(0.95, 0.65, luma_weight);
     let base_chroma_scale = pow(total_luma_scale, dynamic_exp);
-    let highlight_rolloff = 1.0 / (1.0 + max(0.0, new_luma - 0.9) * 2.0);
-    let chroma_scale = base_chroma_scale * highlight_rolloff;
+
+    let highlight_rolloff = clamp((1.05 - new_luma_abs) / max(1.05 - original_luma, 1e-4), 0.0, 1.0);
+    let chroma_scale = base_chroma_scale * mix(1.0, highlight_rolloff, clamp(abs(brightness_adj), 0.0, 1.0));
+
     return vec3<f32>(new_luma) + chroma * chroma_scale;
 }
 
@@ -603,36 +693,41 @@ fn apply_white_balance(color: vec3<f32>, temp: f32, tnt: f32) -> vec3<f32> {
 }
 
 fn apply_creative_color(color: vec3<f32>, sat: f32, vib: f32) -> vec3<f32> {
-    var processed = color;
-    let luma = get_luma(processed);
+    if (sat == 0.0 && vib == 0.0) {
+        return color;
+    }
 
-    if (sat != 0.0) {
-        processed = mix(vec3<f32>(luma), processed, 1.0 + sat);
+    var processed = color;
+    let luma = get_luma(max(processed, vec3<f32>(0.0)));
+
+    let srgb = linear_to_srgb_extended(max(processed, vec3<f32>(0.0)));
+    let hsv = rgb_to_hsv(srgb);
+    let current_sat = hsv.y;
+    let hue = hsv.x;
+
+    var vib_factor: f32 = 0.0;
+    if (vib != 0.0) {
+        if (vib > 0.0) {
+            let sat_weight = pow(1.0 - current_sat, 1.25);
+            let skin_center = 25.0;
+            let hue_dist = min(abs(hue - skin_center), 360.0 - abs(hue - skin_center));
+            let is_skin = 1.0 - smoothstep(12.0, 38.0, hue_dist);
+            let skin_dampener = mix(1.0, 0.50, is_skin);
+
+            vib_factor = vib * sat_weight * skin_dampener * 1.5;
+        } else {
+            let desat_weight = smoothstep(0.05, 0.75, current_sat);
+            vib_factor = vib * desat_weight;
+        }
     }
-    if (vib == 0.0) { return processed; }
-    let c_max = max(processed.r, max(processed.g, processed.b));
-    let c_min = min(processed.r, min(processed.g, processed.b));
-    let delta = c_max - c_min;
-    if (delta < 0.02) {
-        return processed;
-    }
-    let current_sat = delta / max(c_max, 0.001);
-    if (vib > 0.0) {
-        let sat_mask = 1.0 - smoothstep(0.4, 0.9, current_sat);
-        let hsv = rgb_to_hsv(processed);
-        let hue = hsv.x;
-        let skin_center = 25.0;
-        let hue_dist = min(abs(hue - skin_center), 360.0 - abs(hue - skin_center));
-        let is_skin = smoothstep(35.0, 10.0, hue_dist);
-        let skin_dampener = mix(1.0, 0.6, is_skin);
-        let amount = vib * sat_mask * skin_dampener * 3.0;
-        processed = mix(vec3<f32>(luma), processed, 1.0 + amount);
-    } else {
-        let desat_mask = 1.0 - smoothstep(0.2, 0.8, current_sat);
-        let amount = vib * desat_mask;
-        processed = mix(vec3<f32>(luma), processed, 1.0 + amount);
-    }
-    return processed;
+
+    let sat_scale = max(1.0 + sat, 0.0);
+    let vib_scale = max(1.0 + vib_factor, 0.0);
+    let final_mult = sat_scale * vib_scale;
+
+    processed = mix(vec3<f32>(luma), processed, final_mult);
+
+    return max(processed, vec3<f32>(0.0));
 }
 
 fn apply_hsl_panel(color: vec3<f32>, hsl_adjustments: array<HslColor, 8>, coords_i: vec2<i32>) -> vec3<f32> {
@@ -998,7 +1093,7 @@ fn apply_centre_tonal_and_color(
     var processed_color = color_in;
 
     let exposure_boost = centre_mask * centre_amount * EXPOSURE_SCALE;
-    processed_color = apply_filmic_exposure(processed_color, exposure_boost);
+    processed_color = apply_linear_exposure(processed_color, exposure_boost);
 
     let vibrance_center_boost = centre_mask * centre_amount * VIBRANCE_SCALE;
     let saturation_center_boost = centre_mask * centre_amount * SATURATION_CENTER_SCALE;
@@ -1379,39 +1474,28 @@ fn is_default_curve(points: array<Point, 16>, count: u32) -> bool {
     return is_identity && p0_is_origin && p_last_is_end;
 }
 
-fn apply_all_curves(color: vec3<f32>, luma_curve: array<Point, 16>, luma_curve_count: u32, red_curve: array<Point, 16>, red_curve_count: u32, green_curve: array<Point, 16>, green_curve_count: u32, blue_curve: array<Point, 16>, blue_curve_count: u32) -> vec3<f32> {
-    let red_is_default = is_default_curve(red_curve, red_curve_count);
-    let green_is_default = is_default_curve(green_curve, green_curve_count);
-    let blue_is_default = is_default_curve(blue_curve, blue_curve_count);
-    let rgb_curves_are_active = !red_is_default || !green_is_default || !blue_is_default;
+fn apply_all_curves(
+    color: vec3<f32>,
+    luma_curve: array<Point, 16>, luma_curve_count: u32,
+    red_curve: array<Point, 16>, red_curve_count: u32,
+    green_curve: array<Point, 16>, green_curve_count: u32,
+    blue_curve: array<Point, 16>, blue_curve_count: u32
+) -> vec3<f32> {
+    var r = apply_curve(color.r, luma_curve, luma_curve_count);
+    var g = apply_curve(color.g, luma_curve, luma_curve_count);
+    var b = apply_curve(color.b, luma_curve, luma_curve_count);
 
-    if (rgb_curves_are_active) {
-        let color_graded = vec3<f32>(
-            apply_curve(color.r, red_curve, red_curve_count),
-            apply_curve(color.g, green_curve, green_curve_count),
-            apply_curve(color.b, blue_curve, blue_curve_count)
-        );
-        let luma_initial = get_luma(color);
-        let luma_target = apply_curve(luma_initial, luma_curve, luma_curve_count);
-        let luma_graded = get_luma(color_graded);
-
-        let d = luma_target - luma_graded;
-        var final_color = color_graded + vec3<f32>(d);
-
-        let c_min = min(final_color.r, min(final_color.g, final_color.b));
-        if (c_min < 0.0) {
-            final_color = vec3<f32>(luma_target) + ((final_color - vec3<f32>(luma_target)) * luma_target) / max(luma_target - c_min, 1e-6);
-        }
-
-        let c_max = max(final_color.r, max(final_color.g, final_color.b));
-        if (c_max > 1.0) {
-            final_color = vec3<f32>(luma_target) + ((final_color - vec3<f32>(luma_target)) * (1.0 - luma_target)) / max(c_max - luma_target, 1e-6);
-        }
-
-        return clamp(final_color, vec3<f32>(0.0), vec3<f32>(1.0));
-    } else {
-        return vec3<f32>(apply_curve(color.r, luma_curve, luma_curve_count), apply_curve(color.g, luma_curve, luma_curve_count), apply_curve(color.b, luma_curve, luma_curve_count));
+    if (!is_default_curve(red_curve, red_curve_count)) {
+        r = apply_curve(r, red_curve, red_curve_count);
     }
+    if (!is_default_curve(green_curve, green_curve_count)) {
+        g = apply_curve(g, green_curve, green_curve_count);
+    }
+    if (!is_default_curve(blue_curve, blue_curve_count)) {
+        b = apply_curve(b, blue_curve, blue_curve_count);
+    }
+
+    return clamp(vec3<f32>(r, g, b), vec3<f32>(0.0), vec3<f32>(1.0));
 }
 
 fn get_mask_influence(mask_index: u32, coords: vec2<u32>) -> f32 {
@@ -1777,9 +1861,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     var composite_rgb_linear = apply_dehaze(processed_rgb, structure_blurred, is_raw, t_dehaze);
     composite_rgb_linear = apply_white_balance(composite_rgb_linear, t_temperature, t_tint);
     composite_rgb_linear = apply_centre_tonal_and_color(composite_rgb_linear, adjustments.global.centre, absolute_coord_i);
-    composite_rgb_linear = apply_filmic_exposure(composite_rgb_linear, t_brightness);
     composite_rgb_linear = apply_tonal_adjustments(composite_rgb_linear, tonal_blurred, is_raw, t_contrast, t_shadows, t_whites, t_blacks);
-    composite_rgb_linear = apply_highlights_adjustment(composite_rgb_linear, tonal_blurred, is_raw, t_highlights);
+    composite_rgb_linear = apply_highlights_adjustment(composite_rgb_linear, absolute_coord_i, scale, is_raw, t_highlights);
     composite_rgb_linear = apply_color_calibration(composite_rgb_linear, adjustments.global.color_calibration);
     composite_rgb_linear = apply_hsl_panel(composite_rgb_linear, final_hsl, absolute_coord_i);
     composite_rgb_linear = apply_hue_shift(composite_rgb_linear, t_hue);
@@ -1850,6 +1933,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         base_srgb = default_tonemapped;
     }
 
+    base_srgb = apply_filmic_exposure(base_srgb, t_brightness);
+
     var final_rgb = apply_all_curves(base_srgb,
         adjustments.global.luma_curve, adjustments.global.luma_curve_count,
         adjustments.global.red_curve, adjustments.global.red_curve_count,
@@ -1903,8 +1988,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         }
     }
 
-    let dither_amount = 1.0 / 255.0;
-    final_rgb += dither(id.xy) * dither_amount;
+    if (HIGH_PRECISION_OUTPUT == 0u) {
+        let dither_amount = 1.0 / 255.0;
+        final_rgb += dither(id.xy) * dither_amount;
+    }
 
     textureStore(output_texture, id.xy, vec4<f32>(clamp(final_rgb, vec3<f32>(0.0), vec3<f32>(1.0)), original_alpha));
 }

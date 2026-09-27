@@ -2,8 +2,8 @@
   "adjustments": {
     "basic": {
       "blacks": "Neri",
+      "brightness": "Luminosità",
       "contrast": "Contrasto",
-      "evShift": "Compensazione EV",
       "exposure": "Esposizione",
       "highlights": "Luci",
       "mappers": {
@@ -312,8 +312,10 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "Copia Impostazioni {{section}}",
+        "customizePanels": "Personalizza Pannelli",
         "pasteLabel": "Incolla Impostazioni {{section}}",
         "pasteSettings": "Incolla Impostazioni",
+        "resetPanelLayout": "Ripristina Predefiniti",
         "resetSectionSettings": "Ripristina Impostazioni {{section}}"
       },
       "sections": {
@@ -326,7 +328,9 @@
       "title": "Regolazioni",
       "tooltips": {
         "autoAdjust": "Regolazione Automatica Immagine",
+        "hideFromPanel": "Nascondi dal Pannello",
         "resetAdjustments": "Ripristina Regolazioni",
+        "showInPanel": "Mostra nel Pannello",
         "toggleAnalytics": "Attiva/Disattiva Visualizzazione Analitiche"
       }
     },
@@ -430,6 +434,7 @@
         "aiModelDownloading": "Download Modello AI: ",
         "basicInpaintTooltipDisabled": "Backend generativo non disponibile o non configurato. È richiesto l'inpainting semplice.",
         "basicInpaintTooltipEnabled": "L'inpainting semplice è più veloce ma non generativo. Deseleziona per usare l'AI generativa con un prompt di testo.",
+        "cancelGeneration": "Annulla generazione",
         "componentPropertiesTitle": "Proprietà {{name}}",
         "downloading": "Download in corso: ",
         "fastInpaintDesc": "Riempi la selezione in base ai pixel circostanti.",
@@ -452,6 +457,9 @@
       "custom": {
         "hPlaceholder": "A",
         "hTooltip": "Altezza",
+        "removeTooltip": "Rimuovi le proporzioni salvate",
+        "saveTooltip": "Salva le proporzioni come preimpostazione",
+        "savedTooltip": "Proporzioni salvate {{ratio}}",
         "wPlaceholder": "L",
         "wTooltip": "Larghezza"
       },
@@ -469,6 +477,10 @@
         "armature": {
           "desc": "Triangoli Armonici",
           "name": "Armatura"
+        },
+        "center": {
+          "desc": "Linee centrali",
+          "name": "Centro"
         },
         "diagonal": {
           "desc": "Linee Diagonali",
@@ -800,6 +812,20 @@
       "preserveTimestamps": "Imposta Timestamp File dalla Data di Acquisizione EXIF",
       "title": "Impostazioni di Esportazione"
     },
+    "border": {
+      "addBorder": "Aggiungi Bordo",
+      "bases": {
+        "eachEdge": "Ogni Lato Rispettivo",
+        "longEdge": "Lato Lungo",
+        "shortEdge": "Lato Corto"
+      },
+      "basis": "Base dello Spessore",
+      "color": "Colore Bordo",
+      "invalidPercent": "Inserisci un numero tra 0 e 100 per entrambi.",
+      "leftRight": "Sinistra e Destra",
+      "percent": "%",
+      "topBottom": "Alto e Basso"
+    },
     "bytes": {
       "bytes": "Byte",
       "gb": "GB",
@@ -822,7 +848,10 @@
     },
     "file": {
       "quality": "Qualità",
-      "qualityLossless": "Qualità (Senza Perdita)"
+      "qualityLossless": "Qualità (Senza Perdita)",
+      "tiffBitDepth": "Profondità bit TIFF",
+      "tiffBitDepth16": "16 bit",
+      "tiffBitDepth8": "8 bit"
     },
     "labels": {
       "image": "Immagine",
@@ -833,6 +862,14 @@
     "metadata": {
       "removeGps": "Rimuovi Dati GPS",
       "saveWithMetadata": "Salva con Metadati"
+    },
+    "pad": {
+      "aspectRatio": "Proporzioni",
+      "backgroundColor": "Colore Sfondo",
+      "invalidRatio": "Inserisci un numero positivo per larghezza e altezza.",
+      "padToAspectRatio": "Estendi alle Proporzioni",
+      "ratioHeight": "Altezza delle proporzioni",
+      "ratioWidth": "Larghezza delle proporzioni"
     },
     "resize": {
       "dontEnlarge": "Non Ingrandire",
@@ -987,6 +1024,9 @@
         "clearSearch": "Cancella ricerca",
         "collapse": "Comprimi",
         "expand": "Espandi",
+        "moreOptions": "Opzioni",
+        "navBack": "Indietro",
+        "navForward": "Avanti",
         "sortFolders": "Ordina cartelle"
       }
     },
@@ -1107,6 +1147,7 @@
     },
     "thumbnailFit": {
       "fillSquare": "Riempi Quadrato",
+      "justified": "Mosaico",
       "originalRatio": "Proporzioni Originali"
     },
     "thumbnailSize": {
@@ -1291,6 +1332,7 @@
       "methodAi": "NIND (AI - Consigliato per RAW)",
       "methodBm3d": "BM3D (Tradizionale - Tutti i formati)",
       "methodLabel": "Metodo",
+      "methodRaw9": "Apple RAW 9 (Neural Engine)",
       "openInEditor": "Apri nell'Editor",
       "original": "Originale",
       "panZoomEnabled": "Panoramica e Zoom abilitati",
@@ -1482,14 +1524,6 @@
     }
   },
   "settings": {
-    "adjustments": {
-      "chromaticAberration": "Aberrazione Cromatica",
-      "colorCalibration": "Calibrazione Colore",
-      "description": "Nascondi le sezioni di regolazione che non usi spesso per semplificare il pannello di modifica. Le tue impostazioni verranno mantenute e applicate anche se nascoste.",
-      "grain": "Grana",
-      "noiseReduction": "Riduzione Rumore",
-      "title": "Visibilità Regolazioni"
-    },
     "categories": {
       "general": "Generale",
       "processing": "Elaborazione",
@@ -1579,6 +1613,7 @@
       "displayEditIcon": "Mostra Icona Modifica",
       "displayEditIconDesc": "Mostra una piccola icona del cursore sulle miniature che sono state modificate.",
       "enableFocusMode": "Abilita Modalità Focus",
+      "enableNeutralGreyCanvas": "Abilita sfondo grigio neutro",
       "enableOsTitlebar": "Abilita Barra del Titolo di Sistema",
       "enableXmpSync": "Abilita Sincronizzazione XMP",
       "focusMode": "Modalità Focus",
@@ -1589,6 +1624,8 @@
       "fontDesc": "Cambia il tipo di carattere dell'applicazione.",
       "nativeTitlebar": "Barra del Titolo Nativa",
       "nativeTitlebarDesc": "Usa la barra del titolo della finestra predefinita del tuo sistema invece di quella personalizzata di RapidRAW.",
+      "neutralGreyCanvas": "Tela grigio neutro",
+      "neutralGreyCanvasDesc": "Usa una tela grigio neutro per una correzione del colore e dell'esposizione più precisa senza cambiare il tema dell'app.",
       "poppins": "Poppins",
       "showImageCounts": "Mostra Conteggi Immagini",
       "system": "Predefinito di Sistema",
@@ -1761,6 +1798,8 @@
       },
       "nativeDpi": "Renderizza al DPI nativo",
       "preprocessing": {
+        "appleRaw9": "Motore Apple RAW 9",
+        "appleRaw9Desc": "Sviluppa i file RAW con il decodificatore RAW 9 di Core Image di Apple, che esegue la demosaicizzazione e la riduzione del rumore in un solo passaggio sul Neural Engine. Richiede macOS 27 o successivo e una fotocamera supportata; i file non supportati utilizzano automaticamente il decodificatore integrato. Più lento del decodificatore predefinito. Le miniature non ne sono influenzate.",
         "applyPreprocessing": "Applica Pre-elaborazione a File non RAW",
         "applyPreprocessingDesc": "Se abilitato, la riduzione del rumore cromatico di base e la pre-nitidezza indicate sopra verranno applicate anche ai formati standard.",
         "colorNr": "Riduzione Rumore Cromatico di Base",
@@ -1769,6 +1808,7 @@
         "defaultNonRawTonemapperDesc": "Il tonemapper da applicare alle immagini non RAW (es. JPEG, PNG).",
         "defaultRawTonemapper": "Tonemapper Predefinito per RAW",
         "defaultRawTonemapperDesc": "Il tonemapper da applicare alle immagini RAW.",
+        "enableAppleRaw9": "Usa Apple RAW 9 per i file RAW",
         "enablePreprocessingNonRaws": "Abilita per Non-RAW",
         "enableTonemapperOverride": "Abilita Sovrascrittura Tonemapper",
         "highlightRecovery": "Recupero Luci RAW",

@@ -2,8 +2,8 @@
   "adjustments": {
     "basic": {
       "blacks": "Negres",
+      "brightness": "Brillantor",
       "contrast": "Contrast",
-      "evShift": "Compensació EV",
       "exposure": "Exposició",
       "highlights": "Altes llums",
       "mappers": {
@@ -296,8 +296,10 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "Copiar ajustaments de {{section}}",
+        "customizePanels": "Personalitzar taulers",
         "pasteLabel": "Enganxar ajustaments de {{section}}",
         "pasteSettings": "Enganxar ajustaments",
+        "resetPanelLayout": "Restablir per defecte",
         "resetSectionSettings": "Restablir ajustaments de {{section}}"
       },
       "sections": {
@@ -310,7 +312,9 @@
       "title": "Ajustaments",
       "tooltips": {
         "autoAdjust": "Ajustament automàtic de la imatge",
+        "hideFromPanel": "Ocultar del tauler",
         "resetAdjustments": "Restablir ajustaments",
+        "showInPanel": "Mostrar al tauler",
         "toggleAnalytics": "Alternar visualització d'anàlisi"
       }
     },
@@ -410,6 +414,7 @@
         "aiModelDownloading": "S'està baixant el model d'IA: ",
         "basicInpaintTooltipDisabled": "Rerefons generatiu no disponible o no configurat. Es requereix l'inpainting bàsic.",
         "basicInpaintTooltipEnabled": "L'inpainting bàsic és més ràpid però no és generatiu. Desmarqueu per utilitzar l'IA generativa amb una indicació de text.",
+        "cancelGeneration": "Cancel·lar generació",
         "componentPropertiesTitle": "Propietats de {{name}}",
         "downloading": "S'està baixant: ",
         "fastInpaintDesc": "Omplir la selecció basant-se en els píxels del voltant.",
@@ -432,6 +437,9 @@
       "custom": {
         "hPlaceholder": "Al",
         "hTooltip": "Alçada",
+        "removeTooltip": "Elimina la relació d'aspecte desada",
+        "saveTooltip": "Desa la relació d'aspecte com a predefinit",
+        "savedTooltip": "Relació d'aspecte desada {{ratio}}",
         "wPlaceholder": "Am",
         "wTooltip": "Amplada"
       },
@@ -449,6 +457,10 @@
         "armature": {
           "desc": "Armadura",
           "name": "Armadura"
+        },
+        "center": {
+          "desc": "Línies centrals",
+          "name": "Centre"
         },
         "diagonal": {
           "desc": "Línies diagonals",
@@ -779,6 +791,20 @@
       "preserveTimestamps": "Establir les marques de temps dels fitxers des de la data de captura EXIF",
       "title": "Configuració d'exportació"
     },
+    "border": {
+      "addBorder": "Afegeix una vora",
+      "bases": {
+        "eachEdge": "Cada vora respectiva",
+        "longEdge": "Vora llarga",
+        "shortEdge": "Vora curta"
+      },
+      "basis": "Base del gruix",
+      "color": "Color de la vora",
+      "invalidPercent": "Introduïu un nombre entre 0 i 100 per a tots dos.",
+      "leftRight": "Esquerra i dreta",
+      "percent": "%",
+      "topBottom": "A dalt i a baix"
+    },
     "bytes": {
       "bytes": "Bytes",
       "gb": "GB",
@@ -800,7 +826,10 @@
     },
     "file": {
       "quality": "Qualitat",
-      "qualityLossless": "Qualitat (Sense pèrdua)"
+      "qualityLossless": "Qualitat (Sense pèrdua)",
+      "tiffBitDepth": "Profunditat de bits TIFF",
+      "tiffBitDepth16": "16 bits",
+      "tiffBitDepth8": "8 bits"
     },
     "labels": {
       "image": "Imatge",
@@ -811,6 +840,14 @@
     "metadata": {
       "removeGps": "Eliminar dades GPS",
       "saveWithMetadata": "Desar amb metadades"
+    },
+    "pad": {
+      "aspectRatio": "Relació d'aspecte",
+      "backgroundColor": "Color de fons",
+      "invalidRatio": "Introduïu un nombre positiu per a l'amplada i l'alçada.",
+      "padToAspectRatio": "Ampliar a la relació d'aspecte",
+      "ratioHeight": "Alçada de la relació d'aspecte",
+      "ratioWidth": "Amplada de la relació d'aspecte"
     },
     "resize": {
       "dontEnlarge": "No ampliar",
@@ -940,7 +977,7 @@
       }
     },
     "folders": {
-      "addFolder": "Afegir carpeta",
+      "addFolder": "Afegeix una carpeta",
       "albumsEmpty": "Feu clic amb el botó dret per crear un àlbum.",
       "collapseSection": "Contraure {{section}}",
       "expandSection": "Expandir {{section}}",
@@ -964,6 +1001,9 @@
         "clearSearch": "Netejar cerca",
         "collapse": "Contraure",
         "expand": "Expandir",
+        "moreOptions": "Opcions",
+        "navBack": "Enrere",
+        "navForward": "Endavant",
         "sortFolders": "Ordenar carpetes"
       }
     },
@@ -1083,6 +1123,7 @@
     },
     "thumbnailFit": {
       "fillSquare": "Omplir el quadrat",
+      "justified": "Mosaic",
       "originalRatio": "Proporció original"
     },
     "thumbnailSize": {
@@ -1265,6 +1306,7 @@
       "methodAi": "NIND (IA - Millor per a RAW)",
       "methodBm3d": "BM3D (Tradicional - Tots els formats)",
       "methodLabel": "Mètode",
+      "methodRaw9": "Apple RAW 9 (Neural Engine)",
       "openInEditor": "Obrir a l'editor",
       "original": "Original",
       "panZoomEnabled": "Desplaçament i zoom activats",
@@ -1452,14 +1494,6 @@
     }
   },
   "settings": {
-    "adjustments": {
-      "chromaticAberration": "Aberració cromàtica",
-      "colorCalibration": "Calibratge de color",
-      "description": "Oculteu les seccions d'ajust que no utilitzeu sovint per simplificar el tauler d'edició. La vostra configuració es conservarà i s'aplicarà fins i tot quan estigui oculta.",
-      "grain": "Gra",
-      "noiseReduction": "Reducció de soroll",
-      "title": "Visibilitat dels ajustaments"
-    },
     "categories": {
       "general": "General",
       "processing": "Processament",
@@ -1546,6 +1580,7 @@
       "displayEditIcon": "Mostrar icona d'edició",
       "displayEditIconDesc": "Mostra una petita icona de control lliscant a les miniatures que han estat editades.",
       "enableFocusMode": "Activar mode de concentració",
+      "enableNeutralGreyCanvas": "Activa el fons gris neutre",
       "enableOsTitlebar": "Activar barra de títol del SO",
       "enableXmpSync": "Activar sincronització XMP",
       "focusMode": "Mode de concentració",
@@ -1556,6 +1591,8 @@
       "fontDesc": "Canvia el tipus de lletra de l'aplicació.",
       "nativeTitlebar": "Barra de títol nativa",
       "nativeTitlebarDesc": "Utilitzar la barra de títol de la finestra predeterminada del sistema en lloc de la personalitzada de RapidRAW.",
+      "neutralGreyCanvas": "Llenç gris neutre",
+      "neutralGreyCanvasDesc": "Utilitzeu un llenç gris neutre per a una gradació de color i exposició més precisa sense canviar el tema de l'aplicació.",
       "poppins": "Poppins",
       "showImageCounts": "Mostrar recomptes d'imatges",
       "system": "Predeterminat del sistema",
@@ -1728,6 +1765,8 @@
       },
       "nativeDpi": "Renderitzar a la DPI nativa",
       "preprocessing": {
+        "appleRaw9": "Motor Apple RAW 9",
+        "appleRaw9Desc": "Revela els fitxers RAW amb el descodificador RAW 9 de Core Image d'Apple, que realitza el procés de demosaic i reducció de soroll en un sol pas al Neural Engine. Requereix macOS 27 o posterior i una càmera compatible; els fitxers no compatibles utilitzen automàticament el descodificador integrat. Més lent que el descodificador per defecte. Les miniatures no es veuen afectades.",
         "applyPreprocessing": "Aplicar preprocessament als No-RAW",
         "applyPreprocessingDesc": "Si està activat, la reducció del soroll de color base i la pre-nitidesa esmentades abans també s'aplicaran als formats estàndard.",
         "colorNr": "Reducció de soroll de color base",
@@ -1736,6 +1775,7 @@
         "defaultNonRawTonemapperDesc": "El mapejador de tons a aplicar a les imatges que no són RAW (p. ex., JPEG, PNG).",
         "defaultRawTonemapper": "Mapejador de tons predeterminat RAW",
         "defaultRawTonemapperDesc": "El mapejador de tons a aplicar a les imatges RAW.",
+        "enableAppleRaw9": "Utilitza Apple RAW 9 per als fitxers RAW",
         "enablePreprocessingNonRaws": "Activar per a No-RAW",
         "enableTonemapperOverride": "Activar la sobreescriptura del mapejador de tons",
         "highlightRecovery": "Recuperació de llums altes RAW",

@@ -2,8 +2,8 @@
   "adjustments": {
     "basic": {
       "blacks": "블랙",
+      "brightness": "밝기",
       "contrast": "대비",
-      "evShift": "EV 시프트",
       "exposure": "노출",
       "highlights": "하이라이트",
       "mappers": {
@@ -296,8 +296,10 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "{{section}} 설정 복사",
+        "customizePanels": "패널 사용자 지정",
         "pasteLabel": "{{section}} 설정 붙여넣기",
         "pasteSettings": "설정 붙여넣기",
+        "resetPanelLayout": "기본값으로 초기화",
         "resetSectionSettings": "{{section}} 설정 초기화"
       },
       "sections": {
@@ -310,7 +312,9 @@
       "title": "조정",
       "tooltips": {
         "autoAdjust": "이미지 자동 조정",
+        "hideFromPanel": "패널에서 숨기기",
         "resetAdjustments": "조정값 초기화",
+        "showInPanel": "패널에 표시",
         "toggleAnalytics": "분석 표시 전환"
       }
     },
@@ -408,6 +412,7 @@
         "aiModelDownloading": "AI 모델 다운로드 중: ",
         "basicInpaintTooltipDisabled": "생성형 백엔드를 사용할 수 없거나 구성되지 않았습니다. 기본 인페인팅이 필요합니다.",
         "basicInpaintTooltipEnabled": "기본 인페인팅은 더 빠르지만 생성형은 아닙니다. 텍스트 프롬프트로 생성형 AI를 사용하려면 선택을 해제하세요.",
+        "cancelGeneration": "생성 취소",
         "componentPropertiesTitle": "{{name}} 속성",
         "downloading": "다운로드 중: ",
         "fastInpaintDesc": "주변 픽셀을 기반으로 선택 영역을 채웁니다.",
@@ -430,6 +435,9 @@
       "custom": {
         "hPlaceholder": "높이",
         "hTooltip": "높이",
+        "removeTooltip": "저장된 종횡비 삭제",
+        "saveTooltip": "종횡비를 프리셋으로 저장",
+        "savedTooltip": "저장된 종횡비 {{ratio}}",
         "wPlaceholder": "너비",
         "wTooltip": "너비"
       },
@@ -447,6 +455,10 @@
         "armature": {
           "desc": "골격선 구도",
           "name": "골격선"
+        },
+        "center": {
+          "desc": "중앙선",
+          "name": "중앙"
         },
         "diagonal": {
           "desc": "대각선",
@@ -777,6 +789,20 @@
       "preserveTimestamps": "EXIF 촬영 날짜로 파일 타임스탬프 설정",
       "title": "내보내기 설정"
     },
+    "border": {
+      "addBorder": "테두리 추가",
+      "bases": {
+        "eachEdge": "각 변",
+        "longEdge": "긴 변",
+        "shortEdge": "짧은 변"
+      },
+      "basis": "두께 기준",
+      "color": "테두리 색상",
+      "invalidPercent": "둘 다 0에서 100 사이의 숫자를 입력하세요.",
+      "leftRight": "좌우",
+      "percent": "%",
+      "topBottom": "상하"
+    },
     "bytes": {
       "bytes": "바이트",
       "gb": "GB",
@@ -798,7 +824,10 @@
     },
     "file": {
       "quality": "품질",
-      "qualityLossless": "품질 (무손실)"
+      "qualityLossless": "품질 (무손실)",
+      "tiffBitDepth": "TIFF 비트 심도",
+      "tiffBitDepth16": "16비트",
+      "tiffBitDepth8": "8비트"
     },
     "labels": {
       "image": "이미지",
@@ -809,6 +838,14 @@
     "metadata": {
       "removeGps": "GPS 데이터 제거",
       "saveWithMetadata": "메타데이터와 함께 저장"
+    },
+    "pad": {
+      "aspectRatio": "종횡비",
+      "backgroundColor": "배경색",
+      "invalidRatio": "너비와 높이에 양수를 입력하세요.",
+      "padToAspectRatio": "종횡비에 맞춰 여백 추가",
+      "ratioHeight": "종횡비 높이",
+      "ratioWidth": "종횡비 너비"
     },
     "resize": {
       "dontEnlarge": "확대하지 않음",
@@ -962,6 +999,9 @@
         "clearSearch": "검색 지우기",
         "collapse": "접기",
         "expand": "펼치기",
+        "moreOptions": "옵션",
+        "navBack": "뒤로",
+        "navForward": "앞으로",
         "sortFolders": "폴더 정렬"
       }
     },
@@ -1081,6 +1121,7 @@
     },
     "thumbnailFit": {
       "fillSquare": "정사각형 채우기",
+      "justified": "메이슨리",
       "originalRatio": "원본 비율"
     },
     "thumbnailSize": {
@@ -1263,6 +1304,7 @@
       "methodAi": "NIND (AI - RAW에 최적)",
       "methodBm3d": "BM3D (기존 방식 - 모든 포맷)",
       "methodLabel": "방식",
+      "methodRaw9": "Apple RAW 9 (Neural Engine)",
       "openInEditor": "편집기에서 열기",
       "original": "원본",
       "panZoomEnabled": "이동 및 확대/축소 활성화됨",
@@ -1450,14 +1492,6 @@
     }
   },
   "settings": {
-    "adjustments": {
-      "chromaticAberration": "색수차",
-      "colorCalibration": "색상 보정",
-      "description": "자주 사용하지 않는 조정 섹션을 숨겨 편집 패널을 간소화합니다. 숨겨진 상태에서도 설정은 유지되고 적용됩니다.",
-      "grain": "그레인",
-      "noiseReduction": "노이즈 감소",
-      "title": "조정 표시"
-    },
     "categories": {
       "general": "일반",
       "processing": "처리",
@@ -1544,6 +1578,7 @@
       "displayEditIcon": "편집 아이콘 표시",
       "displayEditIconDesc": "편집된 썸네일에 작은 슬라이더 아이콘을 표시합니다.",
       "enableFocusMode": "집중 모드 활성화",
+      "enableNeutralGreyCanvas": "뉴트럴 그레이 배경 활성화",
       "enableOsTitlebar": "OS 제목 표시줄 활성화",
       "enableXmpSync": "XMP 동기화 활성화",
       "focusMode": "집중 모드",
@@ -1554,6 +1589,8 @@
       "fontDesc": "애플리케이션 글꼴을 변경합니다.",
       "nativeTitlebar": "네이티브 제목 표시줄",
       "nativeTitlebarDesc": "RapidRAW의 사용자 지정 제목 표시줄 대신 시스템 기본 창 제목 표시줄을 사용합니다.",
+      "neutralGreyCanvas": "뉴트럴 그레이 캔버스",
+      "neutralGreyCanvasDesc": "앱 테마를 변경하지 않고 더 정확한 색상 및 노출 보정을 위해 뉴트럴 그레이 캔버스를 사용합니다.",
       "poppins": "Poppins",
       "showImageCounts": "이미지 개수 표시",
       "system": "시스템 기본값",
@@ -1726,6 +1763,8 @@
       },
       "nativeDpi": "네이티브 DPI로 렌더링",
       "preprocessing": {
+        "appleRaw9": "Apple RAW 9 엔진",
+        "appleRaw9Desc": "Apple의 Core Image RAW 9 디코더로 RAW 파일을 현상합니다. Neural Engine에서 디모자이크와 노이즈 제거를 한 번에 처리합니다. macOS 27 이상 및 지원되는 카메라가 필요하며, 지원되지 않는 파일은 내장 디코더를 자동으로 사용합니다. 기본 디코더보다 느립니다. 썸네일에는 영향을 주지 않습니다.",
         "applyPreprocessing": "RAW가 아닌 이미지에 전처리 적용",
         "applyPreprocessingDesc": "활성화하면 위의 기본 색상 노이즈 감소와 사전 선명도 향상이 표준 포맷에도 적용됩니다.",
         "colorNr": "기본 색상 노이즈 감소",
@@ -1734,6 +1773,7 @@
         "defaultNonRawTonemapperDesc": "RAW가 아닌 이미지(예: JPEG, PNG)에 적용할 톤매퍼입니다.",
         "defaultRawTonemapper": "기본 RAW 톤매퍼",
         "defaultRawTonemapperDesc": "RAW 이미지에 적용할 톤매퍼입니다.",
+        "enableAppleRaw9": "RAW 파일에 Apple RAW 9 사용",
         "enablePreprocessingNonRaws": "RAW가 아닌 이미지에 활성화",
         "enableTonemapperOverride": "톤매퍼 재정의 활성화",
         "highlightRecovery": "RAW 하이라이트 복구",

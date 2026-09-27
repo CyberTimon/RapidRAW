@@ -2,8 +2,8 @@
   "adjustments": {
     "basic": {
       "blacks": "Затемнение",
+      "brightness": "Яркость",
       "contrast": "Контрастность",
-      "evShift": "Сдвиг экспозиции",
       "exposure": "Экспозиция",
       "highlights": "Света",
       "mappers": {
@@ -328,8 +328,10 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "Копировать настройки раздела «{{section}}»",
+        "customizePanels": "Настроить панели",
         "pasteLabel": "Вставить настройки раздела «{{section}}»",
         "pasteSettings": "Вставить настройки",
+        "resetPanelLayout": "Сбросить по умолчанию",
         "resetSectionSettings": "Сбросить настройки раздела «{{section}}»"
       },
       "sections": {
@@ -342,7 +344,9 @@
       "title": "Настройки",
       "tooltips": {
         "autoAdjust": "Автонастройка изображения",
+        "hideFromPanel": "Скрыть с панели",
         "resetAdjustments": "Сбросить настройки",
+        "showInPanel": "Показать на панели",
         "toggleAnalytics": "Показать/скрыть панель гистограммы"
       }
     },
@@ -450,6 +454,7 @@
         "aiModelDownloading": "Загрузка ИИ-модели: ",
         "basicInpaintTooltipDisabled": "Генеративная платформа недоступна или не настроена. Требуется простое восстановление.",
         "basicInpaintTooltipEnabled": "Простое восстановление работает быстрее, но оно не генеративное. Снимите флажок для использования текстовых промптов ИИ.",
+        "cancelGeneration": "Отменить генерацию",
         "componentPropertiesTitle": "Свойства {{name}}",
         "downloading": "Загрузка: ",
         "fastInpaintDesc": "Заполнить выделение на основе окружающих пикселей.",
@@ -472,6 +477,9 @@
       "custom": {
         "hPlaceholder": "В",
         "hTooltip": "Высота",
+        "removeTooltip": "Удалить сохранённое соотношение сторон",
+        "saveTooltip": "Сохранить соотношение сторон как пресет",
+        "savedTooltip": "Сохранённое соотношение сторон {{ratio}}",
         "wPlaceholder": "Ш",
         "wTooltip": "Ширина"
       },
@@ -489,6 +497,10 @@
         "armature": {
           "desc": "Гармоническая сетка (Диагонали)",
           "name": "Диагонали"
+        },
+        "center": {
+          "desc": "Центральные линии",
+          "name": "Центр"
         },
         "diagonal": {
           "desc": "Диагональные линии",
@@ -821,6 +833,20 @@
       "preserveTimestamps": "Установить дату файла из EXIF даты съемки",
       "title": "Настройки экспорта"
     },
+    "border": {
+      "addBorder": "Добавить рамку",
+      "bases": {
+        "eachEdge": "Соответствующая сторона",
+        "longEdge": "Длинная сторона",
+        "shortEdge": "Короткая сторона"
+      },
+      "basis": "Основа толщины",
+      "color": "Цвет рамки",
+      "invalidPercent": "Введите число от 0 до 100 для обоих.",
+      "leftRight": "Слева и справа",
+      "percent": "%",
+      "topBottom": "Сверху и снизу"
+    },
     "bytes": {
       "bytes": "Байт",
       "gb": "ГБ",
@@ -844,7 +870,10 @@
     },
     "file": {
       "quality": "Качество",
-      "qualityLossless": "Качество (без потерь)"
+      "qualityLossless": "Качество (без потерь)",
+      "tiffBitDepth": "Глубина цвета TIFF",
+      "tiffBitDepth16": "16 бит",
+      "tiffBitDepth8": "8 бит"
     },
     "labels": {
       "image": "Изображение",
@@ -855,6 +884,14 @@
     "metadata": {
       "removeGps": "Удалить данные GPS",
       "saveWithMetadata": "Сохранить с метаданными"
+    },
+    "pad": {
+      "aspectRatio": "Соотношение сторон",
+      "backgroundColor": "Цвет фона",
+      "invalidRatio": "Введите положительное число для ширины и высоты.",
+      "padToAspectRatio": "Расширить до соотношения сторон",
+      "ratioHeight": "Высота соотношения сторон",
+      "ratioWidth": "Ширина соотношения сторон"
     },
     "resize": {
       "dontEnlarge": "Не увеличивать",
@@ -1010,6 +1047,9 @@
         "clearSearch": "Очистить поиск",
         "collapse": "Свернуть",
         "expand": "Развернуть",
+        "moreOptions": "Опции",
+        "navBack": "Назад",
+        "navForward": "Вперед",
         "sortFolders": "Сортировать папки"
       }
     },
@@ -1131,6 +1171,7 @@
     },
     "thumbnailFit": {
       "fillSquare": "Заполнить квадрат",
+      "justified": "Мозаика",
       "originalRatio": "Исходный формат"
     },
     "thumbnailSize": {
@@ -1317,6 +1358,7 @@
       "methodAi": "NIND (ИИ — лучшее для RAW)",
       "methodBm3d": "BM3D (Классический — для всех форматов)",
       "methodLabel": "Метод",
+      "methodRaw9": "Apple RAW 9 (Neural Engine)",
       "openInEditor": "Открыть в редакторе",
       "original": "Оригинал",
       "panZoomEnabled": "Панорамирование и масштабирование активны",
@@ -1514,14 +1556,6 @@
     }
   },
   "settings": {
-    "adjustments": {
-      "chromaticAberration": "Хроматическая аберрация",
-      "colorCalibration": "Калибровка цвета",
-      "description": "Скройте неиспользуемые разделы инструментов редактирования, чтобы упростить боковую панель. Ваши настройки сохранятся и будут применены к снимкам, даже если соответствующие панели скрыты.",
-      "grain": "Зернистость",
-      "noiseReduction": "Подавление шума",
-      "title": "Отображение инструментов"
-    },
     "categories": {
       "general": "Общие",
       "processing": "Обработка",
@@ -1614,6 +1648,7 @@
       "displayEditIcon": "Показывать индикатор изменений",
       "displayEditIconDesc": "Показывать небольшой значок ползунка на эскизах тех кадров, которые были изменены.",
       "enableFocusMode": "Включить фокусный режим",
+      "enableNeutralGreyCanvas": "Включить нейтрально-серый фон",
       "enableOsTitlebar": "Использовать заголовок окна ОС",
       "enableXmpSync": "Включить синхронизацию XMP",
       "focusMode": "Фокусный режим",
@@ -1624,6 +1659,8 @@
       "fontDesc": "Изменить шрифт интерфейса приложения.",
       "nativeTitlebar": "Системный заголовок окна",
       "nativeTitlebarDesc": "Использовать стандартный заголовок окна вашей операционной системы вместо кастомного заголовка RapidRAW.",
+      "neutralGreyCanvas": "Нейтрально-серый холст",
+      "neutralGreyCanvasDesc": "Используйте нейтрально-серый холст для более точной цветокоррекции и настройки экспозиции без изменения темы приложения.",
       "poppins": "Poppins",
       "showImageCounts": "Показывать счетчик изображений",
       "system": "Системный по умолчанию",
@@ -1796,6 +1833,8 @@
       },
       "nativeDpi": "Рендерить в родном разрешении",
       "preprocessing": {
+        "appleRaw9": "Движок Apple RAW 9",
+        "appleRaw9Desc": "Проявка RAW-файлов с помощью декодера Apple Core Image RAW 9, который выполняет демозаику и шумоподавление за один шаг с использованием Neural Engine. Требуется macOS 27 или новее и поддерживаемая камера; неподдерживаемые файлы автоматически используют встроенный декодер. Работает медленнее, чем декодер по умолчанию. На миниатюры не влияет.",
         "applyPreprocessing": "Предварительная обработка для не-RAW",
         "applyPreprocessingDesc": "Если включено, базовая коррекция хроматического шума и предварительное повышение резкости будут применяться также к обычным графическим форматам.",
         "colorNr": "Базовое шумоподавление цвета",
@@ -1804,6 +1843,7 @@
         "defaultNonRawTonemapperDesc": "Алгоритм тонального компрессора, применяемый по умолчанию к изображениям не в формате RAW (например, JPEG, PNG).",
         "defaultRawTonemapper": "Тон-маппер для RAW",
         "defaultRawTonemapperDesc": "Алгоритм тонального компрессора, применяемый по умолчанию к файлам RAW.",
+        "enableAppleRaw9": "Использовать Apple RAW 9 для RAW-файлов",
         "enablePreprocessingNonRaws": "Включить для не-RAW файлов",
         "enableTonemapperOverride": "Принудительный выбор тон-маппера",
         "highlightRecovery": "Восстановление светов в RAW",

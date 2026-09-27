@@ -2,8 +2,8 @@
   "adjustments": {
     "basic": {
       "blacks": "黑色",
+      "brightness": "亮度",
       "contrast": "對比",
-      "evShift": "EV 偏移",
       "exposure": "曝光",
       "highlights": "亮部",
       "mappers": {
@@ -296,8 +296,10 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "複製 {{section}} 設定",
+        "customizePanels": "自訂面板",
         "pasteLabel": "貼上 {{section}} 設定",
         "pasteSettings": "貼上設定",
+        "resetPanelLayout": "重置為預設值",
         "resetSectionSettings": "重置 {{section}} 設定"
       },
       "sections": {
@@ -310,7 +312,9 @@
       "title": "調整",
       "tooltips": {
         "autoAdjust": "自動調整影像",
+        "hideFromPanel": "在面板中隱藏",
         "resetAdjustments": "重置調整",
+        "showInPanel": "在面板中顯示",
         "toggleAnalytics": "切換分析顯示"
       }
     },
@@ -408,6 +412,7 @@
         "aiModelDownloading": "AI 模型下載中：",
         "basicInpaintTooltipDisabled": "生成式後端不可用或未配置。需要基礎影像修復。",
         "basicInpaintTooltipEnabled": "基礎影像修復更快但不具備生成式能力。取消勾選以使用生成式 AI 並輸入文字提示。",
+        "cancelGeneration": "取消生成",
         "componentPropertiesTitle": "{{name}} 屬性",
         "downloading": "下載中：",
         "fastInpaintDesc": "基於周圍畫素填充選區。",
@@ -430,6 +435,9 @@
       "custom": {
         "hPlaceholder": "高",
         "hTooltip": "高度",
+        "removeTooltip": "刪除已儲存的寬高比",
+        "saveTooltip": "將寬高比儲存為預設",
+        "savedTooltip": "已儲存的寬高比 {{ratio}}",
         "wPlaceholder": "寬",
         "wTooltip": "寬度"
       },
@@ -447,6 +455,10 @@
         "armature": {
           "desc": "骨架",
           "name": "骨架"
+        },
+        "center": {
+          "desc": "中心線",
+          "name": "中心"
         },
         "diagonal": {
           "desc": "對角線",
@@ -777,6 +789,20 @@
       "preserveTimestamps": "將檔案時間戳設為 EXIF 拍攝日期",
       "title": "匯出設定"
     },
+    "border": {
+      "addBorder": "新增邊框",
+      "bases": {
+        "eachEdge": "各自邊長",
+        "longEdge": "長邊",
+        "shortEdge": "短邊"
+      },
+      "basis": "厚度基準",
+      "color": "邊框顏色",
+      "invalidPercent": "請為兩者輸入 0 到 100 之間的數字。",
+      "leftRight": "左右",
+      "percent": "%",
+      "topBottom": "上下"
+    },
     "bytes": {
       "bytes": "位元組",
       "gb": "GB",
@@ -798,7 +824,10 @@
     },
     "file": {
       "quality": "品質",
-      "qualityLossless": "品質（無損）"
+      "qualityLossless": "品質（無損）",
+      "tiffBitDepth": "TIFF 位元深度",
+      "tiffBitDepth16": "16 位元",
+      "tiffBitDepth8": "8 位元"
     },
     "labels": {
       "image": "影像",
@@ -809,6 +838,14 @@
     "metadata": {
       "removeGps": "移除 GPS 資料",
       "saveWithMetadata": "儲存時包含後設資料"
+    },
+    "pad": {
+      "aspectRatio": "寬高比",
+      "backgroundColor": "背景顏色",
+      "invalidRatio": "請為寬度和高度輸入正數。",
+      "padToAspectRatio": "填充至寬高比",
+      "ratioHeight": "寬高比高度",
+      "ratioWidth": "寬高比寬度"
     },
     "resize": {
       "dontEnlarge": "不放大",
@@ -962,6 +999,9 @@
         "clearSearch": "清除搜尋",
         "collapse": "摺疊",
         "expand": "展開",
+        "moreOptions": "選項",
+        "navBack": "後退",
+        "navForward": "前進",
         "sortFolders": "對資料夾排序"
       }
     },
@@ -1081,6 +1121,7 @@
     },
     "thumbnailFit": {
       "fillSquare": "填充正方形",
+      "justified": "瀑布流",
       "originalRatio": "原始比例"
     },
     "thumbnailSize": {
@@ -1263,6 +1304,7 @@
       "methodAi": "NIND（AI - 最適合 RAW）",
       "methodBm3d": "BM3D（傳統 - 所有格式）",
       "methodLabel": "方法",
+      "methodRaw9": "Apple RAW 9 (Neural Engine)",
       "openInEditor": "在編輯器中開啟",
       "original": "原始",
       "panZoomEnabled": "平移和縮放已啟用",
@@ -1450,14 +1492,6 @@
     }
   },
   "settings": {
-    "adjustments": {
-      "chromaticAberration": "色差",
-      "colorCalibration": "顏色校準",
-      "description": "隱藏不常用的調整部分以簡化編輯面板。即使隱藏，您的設定也會被保留和應用。",
-      "grain": "顆粒",
-      "noiseReduction": "降噪",
-      "title": "調整可見性"
-    },
     "categories": {
       "general": "通用",
       "processing": "處理",
@@ -1544,6 +1578,7 @@
       "displayEditIcon": "顯示編輯圖示",
       "displayEditIconDesc": "在已編輯的縮圖上顯示一個小滑桿圖示。",
       "enableFocusMode": "啟用專注模式",
+      "enableNeutralGreyCanvas": "啟用中性灰背景",
       "enableOsTitlebar": "啟用系統標題欄",
       "enableXmpSync": "啟用 XMP 同步",
       "focusMode": "專注模式",
@@ -1554,6 +1589,8 @@
       "fontDesc": "更改應用程式字型。",
       "nativeTitlebar": "原生標題欄",
       "nativeTitlebarDesc": "使用系統預設的視窗標題欄，而非 RapidRAW 的自定義標題欄。",
+      "neutralGreyCanvas": "中性灰畫布",
+      "neutralGreyCanvasDesc": "使用中性灰畫布，以便在不更改應用程式主題的情況下進行更準確的色彩和曝光分級。",
       "poppins": "Poppins",
       "showImageCounts": "顯示影像計數",
       "system": "系統預設",
@@ -1726,6 +1763,8 @@
       },
       "nativeDpi": "以原生 DPI 渲染",
       "preprocessing": {
+        "appleRaw9": "Apple RAW 9 引擎",
+        "appleRaw9Desc": "使用 Apple 的 Core Image RAW 9 解碼器沖洗 RAW 檔案。它在神經網路引擎 (Neural Engine) 上一步完成去馬賽克與降噪。需要 macOS 27 或更高版本以及支援的相機；不支援的檔案將自動使用內建解碼器。比預設解碼器慢。縮圖不受影響。",
         "applyPreprocessing": "對非 RAW 影像應用預處理",
         "applyPreprocessingDesc": "如果啟用，上述基礎顏色降噪和預銳化也將應用於標準格式。",
         "colorNr": "基礎顏色降噪",
@@ -1734,6 +1773,7 @@
         "defaultNonRawTonemapperDesc": "應用於非 RAW 影像（如 JPEG、PNG）的色調映射器。",
         "defaultRawTonemapper": "預設 RAW 色調映射",
         "defaultRawTonemapperDesc": "應用於 RAW 影像的色調映射器。",
+        "enableAppleRaw9": "對 RAW 檔案使用 Apple RAW 9",
         "enablePreprocessingNonRaws": "對非 RAW 影像啟用",
         "enableTonemapperOverride": "啟用色調映射覆蓋",
         "highlightRecovery": "RAW 亮部恢復",

@@ -11,6 +11,7 @@ import HdrModal from './HdrModal';
 import FocusStackModal from './FocusStackModal';
 import NegativeConversionModal from './NegativeConversionModal';
 import DenoiseModal from './DenoiseModal';
+import type { DenoiseMethod } from './DenoiseModal';
 import CreateFolderModal from './CreateFolderModal';
 import RenameFolderModal from './RenameFolderModal';
 import RenameFileModal from './RenameFileModal';
@@ -30,8 +31,8 @@ export interface AppModalsProps {
   handleStartFocusStack: (paths: string[]) => void;
   handleSaveFocusStack: () => Promise<string>;
   refreshImageList: () => Promise<void>;
-  handleApplyDenoise: (intensity: number, method: 'ai' | 'bm3d') => Promise<void>;
-  handleBatchDenoise: (intensity: number, method: 'ai' | 'bm3d', paths: string[]) => Promise<string[]>;
+  handleApplyDenoise: (intensity: number, method: DenoiseMethod) => Promise<void>;
+  handleBatchDenoise: (intensity: number, method: DenoiseMethod, paths: string[]) => Promise<string[]>;
   handleSaveDenoisedImage: () => Promise<string>;
   handleCreateFolder: (folderName: string) => Promise<void>;
   handleRenameFolder: (newName: string) => Promise<void>;

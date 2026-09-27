@@ -10,6 +10,13 @@ import {
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../utils/adjustments';
 import { ColumnWidths } from '../components/panel/MainLibrary';
 
+export interface NavHistoryItem {
+  type: 'folder' | 'album';
+  path: string;
+  albumName?: string;
+  images?: string[];
+}
+
 interface SearchCriteria {
   tags: string[];
   text: string;
@@ -48,12 +55,17 @@ interface LibraryState {
   libraryScrollTop: number;
   listColumnWidths: ColumnWidths;
 
+  // Navigation History
+  navHistory: NavHistoryItem[];
+  navIndex: number;
+
   // Actions
   setLibrary: (updater: Partial<LibraryState> | ((state: LibraryState) => Partial<LibraryState>)) => void;
   clearSelection: () => void;
   setFilterCriteria: (criteria: Partial<FilterCriteria> | ((prev: FilterCriteria) => FilterCriteria)) => void;
   setSearchCriteria: (criteria: Partial<SearchCriteria> | ((prev: SearchCriteria) => SearchCriteria)) => void;
   setSortCriteria: (criteria: Partial<SortCriteria> | ((prev: SortCriteria) => SortCriteria)) => void;
+  pushNavHistory: (item: NavHistoryItem) => void;
 }
 
 export const useLibraryStore = create<LibraryState>((set) => ({
@@ -93,6 +105,9 @@ export const useLibraryStore = create<LibraryState>((set) => ({
     focal: 15,
   },
 
+  navHistory: [],
+  navIndex: -1,
+
   setLibrary: (updater) => set((state) => (typeof updater === 'function' ? updater(state) : updater)),
 
   clearSelection: () => set({ multiSelectedPaths: [], libraryActivePath: null }),
@@ -114,4 +129,14 @@ export const useLibraryStore = create<LibraryState>((set) => ({
       sortCriteria:
         typeof criteria === 'function' ? criteria(state.sortCriteria) : { ...state.sortCriteria, ...criteria },
     })),
+
+  pushNavHistory: (item) =>
+    set((state) => {
+      const current = state.navHistory[state.navIndex];
+      if (current && current.path === item.path && current.type === item.type) return state;
+
+      const newHistory = state.navHistory.slice(0, state.navIndex + 1);
+      newHistory.push(item);
+      return { navHistory: newHistory, navIndex: newHistory.length - 1 };
+    }),
 }));

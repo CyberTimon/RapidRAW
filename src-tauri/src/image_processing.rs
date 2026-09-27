@@ -15,8 +15,8 @@ use std::f32::consts::PI;
 use std::sync::Arc;
 
 pub use crate::gpu_processing::{
-    RenderRequest, get_or_init_gpu_context, process_and_get_dynamic_image,
-    process_and_get_dynamic_image_with_analytics,
+    RenderOutputPrecision, RenderRequest, get_or_init_gpu_context, process_and_get_dynamic_image,
+    process_and_get_dynamic_image_with_analytics, process_and_get_dynamic_image_with_precision,
 };
 use crate::{AppState, mask_generation::MaskDefinition};
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
@@ -2669,9 +2669,9 @@ pub fn remove_raw_artifacts_and_enhance(
                     let (r, g, b) = yc_to_rgb(cy, out_cb, out_cr);
 
                     let o = x * 3;
-                    row[o] = r.clamp(0.0, 1.0);
-                    row[o + 1] = g.clamp(0.0, 1.0);
-                    row[o + 2] = b.clamp(0.0, 1.0);
+                    row[o] = r.max(0.0);
+                    row[o + 1] = g.max(0.0);
+                    row[o + 2] = b.max(0.0);
                 }
             });
     }
@@ -2768,9 +2768,9 @@ fn apply_gentle_detail_enhance(
 
                 let safe_boost = boost * scale.clamp(0.0, 1.0);
 
-                rgb_row[r_idx] = (r + safe_boost).clamp(0.0, 1.0);
-                rgb_row[g_idx] = (g + safe_boost).clamp(0.0, 1.0);
-                rgb_row[b_idx] = (b + safe_boost).clamp(0.0, 1.0);
+                rgb_row[r_idx] = (r + safe_boost).max(0.0);
+                rgb_row[g_idx] = (g + safe_boost).max(0.0);
+                rgb_row[b_idx] = (b + safe_boost).max(0.0);
             }
         });
 }

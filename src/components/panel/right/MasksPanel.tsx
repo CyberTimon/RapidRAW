@@ -33,6 +33,7 @@ import {
   FileEdit,
   FolderOpen,
   Folder as FolderIcon,
+  LayoutList,
   Loader2,
   Minus,
   Plus,
@@ -54,6 +55,7 @@ import EffectsPanel from '../../adjustments/Effects';
 import Waveform from '../editor/Waveform';
 import Resizer from '../../ui/Resizer';
 import { DepthRangePicker } from '../../ui/DepthRangePicker';
+import AdjustmentSectionsSubMenu from './AdjustmentSectionsSubMenu';
 
 import {
   Mask,
@@ -77,6 +79,7 @@ import {
   INITIAL_MASK_CONTAINER,
   MaskContainer,
   ADJUSTMENT_SECTIONS,
+  getVisibleAdjustmentSections,
 } from '../../../utils/adjustments';
 import { useContextMenu } from '../../../context/ContextMenuContext';
 import { OPTION_SEPARATOR, Orientation, Panel } from '../../ui/AppProperties';
@@ -253,7 +256,9 @@ function MasksListRoot({ children, onClick }: { children: React.ReactNode; onCli
 export default function MasksPanel() {
   const { t } = useTranslation();
   const { setAdjustments } = useEditorActions();
-  const { handleGenerateAiDepthMask, handleGenerateAiForegroundMask, handleGenerateAiSkyMask } = useAiMasking();
+  const { handleGenerateAiDepthMask, handleGenerateAiForegroundMask, handleGenerateAiSkyMask, handleCancelAiTask } =
+    useAiMasking();
+
   const { setCustomEscapeHandler, isAdjustmentsPanelVisible } = useUIStore(
     useShallow((state) => {
       const leftVisible = state.uiVisibility.leftPanel;
@@ -271,15 +276,17 @@ export default function MasksPanel() {
       };
     }),
   );
+
   const { appSettings } = useSettingsStore(
     useShallow((state) => ({
       appSettings: state.appSettings,
     })),
   );
 
-  const { aiModelDownloadStatus } = useProcessStore(
+  const { aiModelDownloadStatus, activeAiTasks } = useProcessStore(
     useShallow((state) => ({
       aiModelDownloadStatus: state.aiModelDownloadStatus,
+      activeAiTasks: state.activeAiTasks,
     })),
   );
 
@@ -290,7 +297,6 @@ export default function MasksPanel() {
     brushSettings,
     copiedMask,
     histogram,
-    isGeneratingAiMask,
     selectedImage,
     isWaveformVisible,
     waveform,
@@ -305,7 +311,6 @@ export default function MasksPanel() {
       brushSettings: state.brushSettings,
       copiedMask: state.copiedMask,
       histogram: state.histogram,
-      isGeneratingAiMask: state.isGeneratingAiMask,
       selectedImage: state.selectedImage,
       isWaveformVisible: state.isWaveformVisible,
       waveform: state.waveform,
@@ -345,7 +350,10 @@ export default function MasksPanel() {
   const onSelectContainer = useCallback((id: string | null) => setEditor({ activeMaskContainerId: id }), [setEditor]);
   const onSelectMask = useCallback((id: string | null) => setEditor({ activeMaskId: id }), [setEditor]);
 
-  const [expandedContainers, setExpandedContainers] = useState<Set<string>>(new Set());
+  const [expandedContainers, setExpandedContainers] = useState<Set<string>>(() => {
+    const activeId = useEditorStore.getState().activeMaskContainerId;
+    return new Set(activeId ? [activeId] : []);
+  });
   const [activeDragItem, setActiveDragItem] = useState<DragData | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [tempName, setTempName] = useState('');
@@ -362,29 +370,12 @@ export default function MasksPanel() {
   const [isSettingsPanelEverOpened, setIsSettingsPanelEverOpened] = useState(false);
   const hasPerformedInitialSelection = useRef(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
-  const [analyzingSubMaskId, setAnalyzingSubMaskId] = useState<string | null>(null);
 
   const { showContextMenu } = useContextMenu();
   const { presets } = usePresets(adjustments);
 
   const activeContainer = adjustments.masks?.find((m) => m.id === activeMaskContainerId);
   const activeSubMaskData = activeContainer?.subMasks?.find((sm) => sm.id === activeMaskId);
-  const isAiMask =
-    activeSubMaskData && [Mask.AiSubject, Mask.AiForeground, Mask.AiSky, Mask.AiDepth].includes(activeSubMaskData.type);
-
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    if (isGeneratingAiMask && isAiMask) {
-      timer = setTimeout(() => {
-        setAnalyzingSubMaskId(activeMaskId);
-      }, 200);
-    } else {
-      setAnalyzingSubMaskId(null);
-    }
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
-  }, [isGeneratingAiMask, isAiMask, activeMaskId]);
 
   useEffect(() => {
     if (activeMaskContainerId) {
@@ -453,6 +444,11 @@ export default function MasksPanel() {
   };
 
   const handleResetAllMasks = () => {
+    adjustments.masks?.forEach((m) => {
+      m.subMasks.forEach((sm) => {
+        if (activeAiTasks[sm.id]) handleCancelAiTask(sm.id);
+      });
+    });
     handleDeselect();
     setAdjustments((prev: any) => ({ ...prev, masks: [] }));
   };
@@ -586,7 +582,6 @@ export default function MasksPanel() {
     const container = targetContainerId ? adjustments.masks?.find((m) => m.id === targetContainerId) : null;
     const hasComponents = container && container.subMasks.length > 0;
 
-    // Flattened menu chunks
     const buildFlatMenu = (mode: SubMaskMode) => [
       ...buildMenu(MASK_AI_TYPES, mode),
       { type: OPTION_SEPARATOR },
@@ -598,10 +593,8 @@ export default function MasksPanel() {
     let options: any[];
 
     if (!targetContainerId) {
-      // Creating a completely new mask
       options = buildFlatMenu(SubMaskMode.Additive);
     } else {
-      // Adding a component to an existing mask
       options = buildFlatMenu(SubMaskMode.Additive);
 
       if (hasComponents) {
@@ -639,11 +632,23 @@ export default function MasksPanel() {
     }));
 
   const handleDeleteContainer = (id: string) => {
+    const container = adjustments.masks?.find((m) => m.id === id);
+    if (container) {
+      container.subMasks.forEach((sm: SubMask) => {
+        if (activeAiTasks[sm.id]) {
+          handleCancelAiTask(sm.id);
+        }
+      });
+    }
+
     if (activeMaskContainerId === id) handleDeselect();
     setAdjustments((prev: Adjustments) => ({ ...prev, masks: prev.masks.filter((m) => m.id !== id) }));
   };
 
   const handleDeleteSubMask = (containerId: string, subMaskId: string) => {
+    if (activeAiTasks[subMaskId]) {
+      handleCancelAiTask(subMaskId);
+    }
     if (activeMaskId === subMaskId) onSelectMask(null);
     setAdjustments((prev: Adjustments) => ({
       ...prev,
@@ -1135,6 +1140,7 @@ export default function MasksPanel() {
                           setAdjustments={setAdjustments}
                           activeDragItem={activeDragItem}
                           activeMaskId={activeMaskId}
+                          activeAiTasks={activeAiTasks}
                           onSelectContainer={onSelectContainer}
                           onSelectMask={onSelectMask}
                           updateSubMask={updateSubMask}
@@ -1144,7 +1150,6 @@ export default function MasksPanel() {
                           handlePasteSubMask={handlePasteSubMask}
                           copySubMaskToClipboard={copySubMaskToClipboard}
                           copiedSubMask={copiedSubMask}
-                          analyzingSubMaskId={analyzingSubMaskId}
                           setIsMaskControlHovered={setIsMaskControlHovered}
                           onAddComponent={(e: React.MouseEvent) => handleAddMaskContextMenu(e, container.id)}
                         />
@@ -1197,7 +1202,6 @@ export default function MasksPanel() {
                       updateSubMask={updateSubMask}
                       histogram={histogram}
                       appSettings={appSettings}
-                      isGeneratingAiMask={isGeneratingAiMask}
                       setIsMaskControlHovered={setIsMaskControlHovered}
                       collapsibleState={collapsibleState}
                       setCollapsibleState={setCollapsibleState}
@@ -1316,7 +1320,7 @@ function DraggableGridItem({ maskType, onClick, onRightClick, activeMaskContaine
         onRightClick(event);
       }}
       className={`bg-surface text-text-primary rounded-lg p-2 flex flex-col items-center justify-center gap-2 aspect-square transition-colors
-        ${maskType.disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-card-active active:bg-accent/20'} 
+        ${maskType.disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-card-active active:bg-accent/20'}
         ${isDragging ? 'opacity-50' : ''}`}
       data-tooltip={tooltip}
       whileTap={{ scale: 0.98 }}
@@ -1357,6 +1361,7 @@ function ContainerRow({
   setAdjustments,
   activeDragItem,
   activeMaskId,
+  activeAiTasks,
   onSelectContainer,
   onSelectMask,
   updateSubMask,
@@ -1366,7 +1371,6 @@ function ContainerRow({
   handlePasteSubMask,
   copySubMaskToClipboard,
   copiedSubMask,
-  analyzingSubMaskId,
   setIsMaskControlHovered,
   onAddComponent,
 }: any) {
@@ -1589,6 +1593,7 @@ function ContainerRow({
                   isActive={activeMaskId === subMask.id}
                   parentVisible={container.visible}
                   activeDragItem={activeDragItem}
+                  activeAiTasks={activeAiTasks}
                   onSelect={() => {
                     onSelectContainer(container.id);
                     onSelectMask(subMask.id);
@@ -1600,7 +1605,6 @@ function ContainerRow({
                   handlePaste={() => handlePasteSubMask(container.id, index + 1)}
                   handleCopy={() => copySubMaskToClipboard(subMask)}
                   hasCopiedSubMask={!!copiedSubMask}
-                  analyzingSubMaskId={analyzingSubMaskId}
                   renamingId={renamingId}
                   setRenamingId={setRenamingId}
                   tempName={tempName}
@@ -1651,6 +1655,7 @@ function SubMaskRow({
   containerId,
   isActive,
   parentVisible,
+  activeAiTasks,
   onSelect,
   updateSubMask,
   handleDelete,
@@ -1660,7 +1665,6 @@ function SubMaskRow({
   handleCopy,
   hasCopiedSubMask,
   activeDragItem,
-  analyzingSubMaskId,
   renamingId,
   setRenamingId,
   tempName,
@@ -1686,7 +1690,7 @@ function SubMaskRow({
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isDraggingContainer = activeDragItem?.type === 'Container';
-  const isAnalyzing = subMask.id === analyzingSubMaskId;
+  const isAnalyzing = Boolean(activeAiTasks?.[subMask.id]);
 
   const handleMouseEnter = () => {
     if (hoverTimeoutRef.current) {
@@ -1786,9 +1790,9 @@ function SubMaskRow({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.5 }}
               transition={{ duration: 0.15 }}
-              className="absolute"
+              className="absolute flex items-center justify-center"
             >
-              <Loader2 size={16} className="animate-spin" />
+              <Loader2 size={16} className="animate-spin text-accent" />
             </motion.div>
           ) : showNumber ? (
             <motion.span
@@ -1808,7 +1812,7 @@ function SubMaskRow({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.5 }}
               transition={{ duration: 0.15 }}
-              className="absolute"
+              className="absolute flex items-center justify-center"
             >
               <MaskIcon size={16} />
             </motion.div>
@@ -2099,11 +2103,18 @@ function SettingsPanel({
         label: t('editor.masks.settings.resetSectionSettings', { section: sectionTitle }),
         onClick: handleReset,
       },
+      { type: OPTION_SEPARATOR },
+      {
+        icon: LayoutList,
+        label: t('editor.adjustments.actions.customizePanels'),
+        submenu: [{ customComponent: AdjustmentSectionsSubMenu }],
+      },
     ]);
   };
 
   const sectionVisibility =
     displayContainer.adjustments.sectionVisibility || INITIAL_MASK_ADJUSTMENTS.sectionVisibility;
+  const visibleSections = getVisibleAdjustmentSections(appSettings?.adjustmentLayout);
 
   return (
     <div
@@ -2255,7 +2266,7 @@ function SettingsPanel({
         onMouseLeave={() => setIsMaskControlHovered(false)}
         className="flex flex-col gap-2"
       >
-        {Object.keys(ADJUSTMENT_SECTIONS).map((sectionName) => {
+        {visibleSections.map((sectionName) => {
           const SectionComponent: any = {
             basic: BasicAdjustments,
             curves: CurveGraph,

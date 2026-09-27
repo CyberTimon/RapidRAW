@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 
@@ -18,7 +18,7 @@ pub struct SortCriteria {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct FilterCriteria {
-    pub rating: u8,
+    pub rating: i8,
     pub raw_status: String,
     #[serde(default)]
     pub edited_status: Option<String>,
@@ -70,6 +70,12 @@ pub struct LastFolderState {
 pub struct MyLens {
     pub maker: String,
     pub model: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct CustomAspectRatio {
+    pub width: f64,
+    pub height: f64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -244,6 +250,24 @@ pub struct ExportPreset {
     #[serde(default)]
     pub preserve_folders: Option<bool>,
     #[serde(default)]
+    pub enable_pad: Option<bool>,
+    #[serde(default)]
+    pub pad_ratio_width: Option<f32>,
+    #[serde(default)]
+    pub pad_ratio_height: Option<f32>,
+    #[serde(default)]
+    pub pad_color: Option<String>,
+    #[serde(default)]
+    pub enable_border: Option<bool>,
+    #[serde(default)]
+    pub border_basis: Option<String>,
+    #[serde(default)]
+    pub border_horizontal_percent: Option<f32>,
+    #[serde(default)]
+    pub border_vertical_percent: Option<f32>,
+    #[serde(default)]
+    pub border_color: Option<String>,
+    #[serde(default)]
     pub last_export_path: Option<String>,
     #[serde(default)]
     pub destination_type: Option<String>,
@@ -273,6 +297,15 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             watermark_opacity: 75,
             export_masks: Some(false),
             preserve_folders: Some(false),
+            enable_pad: Some(false),
+            pad_ratio_width: Some(1.0),
+            pad_ratio_height: Some(1.0),
+            pad_color: Some("#ffffff".to_string()),
+            enable_border: Some(false),
+            border_basis: Some("longEdge".to_string()),
+            border_horizontal_percent: Some(2.0),
+            border_vertical_percent: Some(2.0),
+            border_color: Some("#ffffff".to_string()),
             last_export_path: None,
             destination_type: Some("customFolder".to_string()),
             subfolder: Some("".to_string()),
@@ -297,11 +330,32 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             watermark_opacity: 75,
             export_masks: Some(false),
             preserve_folders: Some(false),
+            enable_pad: Some(false),
+            pad_ratio_width: Some(1.0),
+            pad_ratio_height: Some(1.0),
+            pad_color: Some("#ffffff".to_string()),
+            enable_border: Some(false),
+            border_basis: Some("longEdge".to_string()),
+            border_horizontal_percent: Some(2.0),
+            border_vertical_percent: Some(2.0),
+            border_color: Some("#ffffff".to_string()),
             last_export_path: None,
             destination_type: Some("customFolder".to_string()),
             subfolder: Some("".to_string()),
         },
     ]
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct AdjustmentLayout {
+    pub section_order: Vec<String>,
+    pub hidden_sections: Vec<String>,
+    pub open_sections: BTreeMap<String, bool>,
+    pub tool_order: HashMap<String, Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hidden_tools: Option<Vec<String>>,
+    pub collapsed_tools: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -386,18 +440,6 @@ pub fn default_tagging_shortcuts_option() -> Option<Vec<String>> {
     ])
 }
 
-pub fn default_adjustment_visibility() -> HashMap<String, bool> {
-    let mut map = HashMap::new();
-    map.insert("sharpening".to_string(), true);
-    map.insert("presence".to_string(), true);
-    map.insert("noiseReduction".to_string(), true);
-    map.insert("chromaticAberration".to_string(), false);
-    map.insert("vignette".to_string(), true);
-    map.insert("colorCalibration".to_string(), false);
-    map.insert("grain".to_string(), true);
-    map
-}
-
 pub fn default_open_tree_sections() -> Vec<String> {
     vec!["current".to_string()]
 }
@@ -446,8 +488,6 @@ pub struct AppSettings {
     pub thumbnail_size: Option<String>,
     pub thumbnail_aspect_ratio: Option<String>,
     pub ai_provider: Option<String>,
-    #[serde(default = "default_adjustment_visibility")]
-    pub adjustment_visibility: HashMap<String, bool>,
     #[serde(default = "default_open_tree_sections")]
     pub open_tree_sections: Vec<String>,
     #[serde(default)]
@@ -485,6 +525,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub use_wgpu_renderer: Option<bool>,
     #[serde(default)]
+    pub editor_neutral_grey_bg: Option<bool>,
+    #[serde(default)]
     pub canvas_input_mode: Option<String>,
     #[serde(default)]
     pub zoom_speed_multiplier: Option<f32>,
@@ -513,6 +555,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub apply_preprocessing_to_non_raws: Option<bool>,
     #[serde(default)]
+    pub use_apple_raw9: Option<bool>,
+    #[serde(default)]
     pub exif_overlay: Option<String>,
     #[serde(default)]
     pub language: Option<String>,
@@ -536,6 +580,10 @@ pub struct AppSettings {
     pub always_decode_raw_thumbnails: Option<bool>,
     #[serde(default)]
     pub last_import_settings: Option<Value>,
+    #[serde(default)]
+    pub custom_aspect_ratios: Vec<CustomAspectRatio>,
+    #[serde(default)]
+    pub adjustment_layout: AdjustmentLayout,
     #[serde(default)]
     pub workspace: WorkspaceState,
 }
@@ -573,9 +621,8 @@ impl Default for AppSettings {
             thumbnail_size: Some("small".to_string()),
             #[cfg(not(target_os = "android"))]
             thumbnail_size: Some("medium".to_string()),
-            thumbnail_aspect_ratio: Some("cover".to_string()),
+            thumbnail_aspect_ratio: Some("contain".to_string()),
             ai_provider: Some("cpu".to_string()),
-            adjustment_visibility: default_adjustment_visibility(),
             open_tree_sections: default_open_tree_sections(),
             copy_paste_settings: CopyPasteSettings::default(),
             raw_highlight_compression: Some(2.5),
@@ -601,6 +648,7 @@ impl Default for AppSettings {
             use_wgpu_renderer: Some(false),
             #[cfg(not(any(target_os = "linux", target_os = "android")))]
             use_wgpu_renderer: Some(true),
+            editor_neutral_grey_bg: Some(false),
             canvas_input_mode: Some("mouse".to_string()),
             zoom_speed_multiplier: Some(1.0),
             zoom_photo_to_pixel_click: Some(false),
@@ -621,6 +669,7 @@ impl Default for AppSettings {
             raw_preprocessing_color_nr: Some(0.5),
             raw_preprocessing_sharpening: Some(0.35),
             apply_preprocessing_to_non_raws: Some(false),
+            use_apple_raw9: Some(false),
             exif_overlay: Some("off".to_string()),
             language: Some("en".to_string()),
             folder_tree_sort: Some(FolderTreeSort::default()),
@@ -632,6 +681,8 @@ impl Default for AppSettings {
             group_preferred_type: Some("raw".to_string()),
             always_decode_raw_thumbnails: Some(false),
             last_import_settings: None,
+            custom_aspect_ratios: Vec::new(),
+            adjustment_layout: AdjustmentLayout::default(),
             workspace: WorkspaceState::default(),
         }
     }

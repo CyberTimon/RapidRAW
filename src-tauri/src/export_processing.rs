@@ -27,9 +27,9 @@ use crate::image_loader::{
     composite_patches_on_image, load_and_composite, load_base_image_from_bytes,
 };
 use crate::image_processing::{
-    AllAdjustments, Crop, GpuContext, RenderRequest, downscale_f32_image,
+    AllAdjustments, Crop, GpuContext, RenderOutputPrecision, RenderRequest, downscale_f32_image,
     get_all_adjustments_from_json, get_or_init_gpu_context, process_and_get_dynamic_image,
-    resolve_tonemapper_override_from_handle,
+    process_and_get_dynamic_image_with_precision, resolve_tonemapper_override_from_handle,
 };
 use crate::lut_processing::{
     convert_image_to_cube_lut, generate_identity_lut_image, get_or_load_lut,
@@ -41,6 +41,35 @@ use crate::{
     apply_all_transformations, generate_transformed_preview, get_cached_or_generate_mask,
     hydrate_adjustments, load_settings, resolve_warped_image_for_masks,
 };
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[serde(try_from = "u8", into = "u8")]
+pub enum TiffBitDepth {
+    Eight = 8,
+    #[default]
+    Sixteen = 16,
+}
+
+impl TryFrom<u8> for TiffBitDepth {
+    type Error = String;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            8 => Ok(Self::Eight),
+            16 => Ok(Self::Sixteen),
+            _ => Err(format!(
+                "Invalid TIFF bit depth '{}'; expected 8 or 16.",
+                value
+            )),
+        }
+    }
+}
+
+impl From<TiffBitDepth> for u8 {
+    fn from(value: TiffBitDepth) -> Self {
+        value as u8
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -59,11 +88,45 @@ pub struct ResizeOptions {
     pub dont_enlarge: bool,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+#[allow(clippy::enum_variant_names)]
+pub enum BorderBasis {
+    #[default]
+    LongEdge,
+    ShortEdge,
+    EachEdge,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BorderOptions {
+    #[serde(default)]
+    pub basis: BorderBasis,
+    pub horizontal_percent: f32,
+    pub vertical_percent: f32,
+    pub color: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PadOptions {
+    pub ratio_width: f32,
+    pub ratio_height: f32,
+    pub color: String,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ExportSettings {
     pub jpeg_quality: u8,
+    #[serde(default)]
+    pub tiff_bit_depth: TiffBitDepth,
     pub resize: Option<ResizeOptions>,
+    #[serde(default)]
+    pub border: Option<BorderOptions>,
+    #[serde(default)]
+    pub pad: Option<PadOptions>,
     pub keep_metadata: bool,
     #[serde(default)]
     pub preserve_timestamps: bool,
@@ -134,16 +197,10 @@ fn apply_watermark(
 
     let scaled_watermark =
         watermark_img.resize_exact(new_wm_w, new_wm_h, image::imageops::FilterType::Lanczos3);
-    let mut scaled_watermark_rgba = scaled_watermark.to_rgba8();
-
     let opacity_factor = (watermark_settings.opacity / 100.0).clamp(0.0, 1.0);
-    for pixel in scaled_watermark_rgba.pixels_mut() {
-        pixel[3] = (pixel[3] as f32 * opacity_factor) as u8;
-    }
-    let final_watermark = DynamicImage::ImageRgba8(scaled_watermark_rgba);
 
     let spacing_pixels = (base_min_dim * (watermark_settings.spacing / 100.0)) as i64;
-    let (wm_w, wm_h) = final_watermark.dimensions();
+    let (wm_w, wm_h) = scaled_watermark.dimensions();
 
     let x = match watermark_settings.anchor {
         WatermarkAnchor::TopLeft | WatermarkAnchor::CenterLeft | WatermarkAnchor::BottomLeft => {
@@ -169,9 +226,65 @@ fn apply_watermark(
         | WatermarkAnchor::BottomRight => base_h as i64 - wm_h as i64 - spacing_pixels,
     };
 
-    image::imageops::overlay(base_image, &final_watermark, x, y);
+    if matches!(
+        base_image,
+        DynamicImage::ImageRgb16(_) | DynamicImage::ImageRgba16(_)
+    ) {
+        let mut base_rgba = base_image.to_rgba16();
+        let mut watermark_rgba = scaled_watermark.to_rgba16();
+        for pixel in watermark_rgba.pixels_mut() {
+            pixel[3] = (pixel[3] as f32 * opacity_factor).round() as u16;
+        }
+        image::imageops::overlay(&mut base_rgba, &watermark_rgba, x, y);
+        *base_image = DynamicImage::ImageRgba16(base_rgba);
+    } else if matches!(
+        base_image,
+        DynamicImage::ImageRgb32F(_) | DynamicImage::ImageRgba32F(_)
+    ) {
+        let mut base_rgba = base_image.to_rgba32f();
+        let mut watermark_rgba = scaled_watermark.to_rgba32f();
+        for pixel in watermark_rgba.pixels_mut() {
+            pixel[3] *= opacity_factor;
+        }
+        image::imageops::overlay(&mut base_rgba, &watermark_rgba, x, y);
+        *base_image = DynamicImage::ImageRgba32F(base_rgba);
+    } else {
+        let mut base_rgba = base_image.to_rgba8();
+        let mut watermark_rgba = scaled_watermark.to_rgba8();
+        for pixel in watermark_rgba.pixels_mut() {
+            pixel[3] = (pixel[3] as f32 * opacity_factor).round() as u8;
+        }
+        image::imageops::overlay(&mut base_rgba, &watermark_rgba, x, y);
+        *base_image = DynamicImage::ImageRgba8(base_rgba);
+    }
 
     Ok(())
+}
+
+const PAD_RATIO_EPSILON: f64 = 0.001;
+const MAX_PAD_DIMENSION: u32 = 65_535;
+const MAX_BORDER_PERCENT: f64 = 100.0;
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct ExportGeometry {
+    pub canvas_w: u32,
+    pub canvas_h: u32,
+    pub photo_w: u32,
+    pub photo_h: u32,
+    pub offset_x: u32,
+    pub offset_y: u32,
+    pub border_x: u32,
+    pub border_y: u32,
+}
+
+impl ExportGeometry {
+    fn has_border(&self) -> bool {
+        self.border_x > 0 || self.border_y > 0
+    }
+
+    fn is_identity(&self) -> bool {
+        self.canvas_w == self.photo_w && self.canvas_h == self.photo_h
+    }
 }
 
 fn calculate_resize_target(
@@ -205,6 +318,386 @@ fn calculate_resize_target(
     } else {
         let w = (value as f32 * (current_w as f32 / current_h as f32)).round() as u32;
         (w, value)
+    }
+}
+
+fn parse_hex_color(hex: &str) -> Option<[u8; 3]> {
+    let raw = hex.trim().trim_start_matches('#');
+    let normalized: String = match raw.len() {
+        3 => raw.chars().flat_map(|c| [c, c]).collect(),
+        6 => raw.to_string(),
+        8 => raw[..6].to_string(),
+        _ => return None,
+    };
+    Some([
+        u8::from_str_radix(&normalized[0..2], 16).ok()?,
+        u8::from_str_radix(&normalized[2..4], 16).ok()?,
+        u8::from_str_radix(&normalized[4..6], 16).ok()?,
+    ])
+}
+
+fn fill_color(hex: Option<&str>) -> [u8; 3] {
+    hex.and_then(parse_hex_color).unwrap_or([0, 0, 0])
+}
+
+fn resize_target(width: u32, height: u32, resize_opts: Option<&ResizeOptions>) -> (u32, u32) {
+    match resize_opts {
+        Some(opts) => calculate_resize_target(width, height, opts),
+        None => (width, height),
+    }
+}
+
+fn bordered_size(width: u32, height: u32, border_x: u32, border_y: u32) -> (u32, u32) {
+    (
+        width.saturating_add(border_x.saturating_mul(2)),
+        height.saturating_add(border_y.saturating_mul(2)),
+    )
+}
+
+fn exceeds_max_dimension(label: &str, width: u32, height: u32) -> bool {
+    let exceeds = width > MAX_PAD_DIMENSION || height > MAX_PAD_DIMENSION;
+    if exceeds {
+        log::warn!(
+            "{} {}x{} exceeds the maximum supported dimension; skipping.",
+            label,
+            width,
+            height
+        );
+    }
+    exceeds
+}
+
+fn calculate_pad_target(current_w: u32, current_h: u32, pad: &PadOptions) -> Option<(u32, u32)> {
+    let ratio_w = pad.ratio_width as f64;
+    let ratio_h = pad.ratio_height as f64;
+    if !ratio_w.is_finite() || !ratio_h.is_finite() || ratio_w <= 0.0 || ratio_h <= 0.0 {
+        return None;
+    }
+
+    let target_ratio = ratio_w / ratio_h;
+    let original_ratio = current_w as f64 / current_h as f64;
+    if (original_ratio - target_ratio).abs() < PAD_RATIO_EPSILON {
+        return None;
+    }
+
+    let (new_w, new_h) = if original_ratio > target_ratio {
+        (current_w, (current_w as f64 / target_ratio).round() as u32)
+    } else {
+        ((current_h as f64 * target_ratio).round() as u32, current_h)
+    };
+
+    let new_w = new_w.max(current_w);
+    let new_h = new_h.max(current_h);
+
+    if exceeds_max_dimension("Pad target", new_w, new_h)
+        || (new_w == current_w && new_h == current_h)
+    {
+        return None;
+    }
+
+    Some((new_w, new_h))
+}
+
+fn calculate_border_thickness(
+    src_w: u32,
+    src_h: u32,
+    border: &BorderOptions,
+) -> Option<(u32, u32)> {
+    let horizontal = border.horizontal_percent as f64;
+    let vertical = border.vertical_percent as f64;
+    if !horizontal.is_finite() || !vertical.is_finite() {
+        return None;
+    }
+
+    if horizontal < 0.0
+        || vertical < 0.0
+        || horizontal > MAX_BORDER_PERCENT
+        || vertical > MAX_BORDER_PERCENT
+    {
+        log::warn!(
+            "Border percentages {}/{} are outside 0..={}; skipping border.",
+            horizontal,
+            vertical,
+            MAX_BORDER_PERCENT
+        );
+        return None;
+    }
+
+    let (basis_x, basis_y) = match border.basis {
+        BorderBasis::LongEdge => {
+            let edge = src_w.max(src_h) as f64;
+            (edge, edge)
+        }
+        BorderBasis::ShortEdge => {
+            let edge = src_w.min(src_h) as f64;
+            (edge, edge)
+        }
+        BorderBasis::EachEdge => (src_w as f64, src_h as f64),
+    };
+
+    let border_x = (basis_x * horizontal / 100.0).round() as u32;
+    let border_y = (basis_y * vertical / 100.0).round() as u32;
+
+    if border_x == 0 && border_y == 0 {
+        return None;
+    }
+
+    let (bordered_w, bordered_h) = bordered_size(src_w, src_h, border_x, border_y);
+    if exceeds_max_dimension("Bordered size", bordered_w, bordered_h) {
+        return None;
+    }
+
+    Some((border_x, border_y))
+}
+
+fn compute_export_geometry(
+    src_w: u32,
+    src_h: u32,
+    settings: &ExportSettings,
+) -> Option<ExportGeometry> {
+    if src_w == 0 || src_h == 0 {
+        return None;
+    }
+
+    let border = settings
+        .border
+        .as_ref()
+        .and_then(|border| calculate_border_thickness(src_w, src_h, border));
+    let (border_src_x, border_src_y) = border.unwrap_or((0, 0));
+    let (bordered_w, bordered_h) = bordered_size(src_w, src_h, border_src_x, border_src_y);
+
+    let pad_target = settings
+        .pad
+        .as_ref()
+        .and_then(|pad| calculate_pad_target(bordered_w, bordered_h, pad));
+
+    if border.is_none() && pad_target.is_none() {
+        return None;
+    }
+
+    let (canvas_w, canvas_h) = pad_target.unwrap_or((bordered_w, bordered_h));
+
+    Some(compute_fused_geometry(
+        src_w,
+        src_h,
+        border_src_x,
+        border_src_y,
+        canvas_w,
+        canvas_h,
+        settings.resize.as_ref(),
+    ))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn compute_fused_geometry(
+    src_w: u32,
+    src_h: u32,
+    border_src_x: u32,
+    border_src_y: u32,
+    canvas_w: u32,
+    canvas_h: u32,
+    resize_opts: Option<&ResizeOptions>,
+) -> ExportGeometry {
+    let (final_w, final_h) = resize_target(canvas_w, canvas_h, resize_opts);
+    let (final_w, final_h) = (final_w.max(1), final_h.max(1));
+
+    let photo_w =
+        ((src_w as f64 * final_w as f64 / canvas_w as f64).round() as u32).clamp(1, final_w);
+    let photo_h =
+        ((src_h as f64 * final_h as f64 / canvas_h as f64).round() as u32).clamp(1, final_h);
+
+    let border_x = ((border_src_x as f64 * final_w as f64 / canvas_w as f64).round() as u32)
+        .min(final_w.saturating_sub(photo_w) / 2);
+    let border_y = ((border_src_y as f64 * final_h as f64 / canvas_h as f64).round() as u32)
+        .min(final_h.saturating_sub(photo_h) / 2);
+
+    ExportGeometry {
+        canvas_w: final_w,
+        canvas_h: final_h,
+        photo_w,
+        photo_h,
+        offset_x: (final_w - photo_w) / 2,
+        offset_y: (final_h - photo_h) / 2,
+        border_x,
+        border_y,
+    }
+}
+
+fn compute_export_output_size(src_w: u32, src_h: u32, settings: &ExportSettings) -> (u32, u32) {
+    match compute_export_geometry(src_w, src_h, settings) {
+        Some(geometry) => (geometry.canvas_w, geometry.canvas_h),
+        None => resize_target(src_w, src_h, settings.resize.as_ref()),
+    }
+}
+
+trait FillChannel: image::Primitive {
+    fn from_u8(value: u8) -> Self;
+}
+
+impl FillChannel for u8 {
+    fn from_u8(value: u8) -> Self {
+        value
+    }
+}
+
+impl FillChannel for u16 {
+    fn from_u8(value: u8) -> Self {
+        value as u16 * 257
+    }
+}
+
+impl FillChannel for f32 {
+    fn from_u8(value: u8) -> Self {
+        value as f32 / 255.0
+    }
+}
+
+trait SolidFill: image::Pixel + 'static {
+    fn from_rgb8(color: [u8; 3]) -> Self;
+}
+
+impl<T: FillChannel> SolidFill for image::Rgb<T>
+where
+    image::Rgb<T>: image::Pixel<Subpixel = T> + 'static,
+{
+    fn from_rgb8([r, g, b]: [u8; 3]) -> Self {
+        image::Rgb([T::from_u8(r), T::from_u8(g), T::from_u8(b)])
+    }
+}
+
+impl<T: FillChannel> SolidFill for image::Rgba<T>
+where
+    image::Rgba<T>: image::Pixel<Subpixel = T> + 'static,
+{
+    fn from_rgb8([r, g, b]: [u8; 3]) -> Self {
+        image::Rgba([
+            T::from_u8(r),
+            T::from_u8(g),
+            T::from_u8(b),
+            T::DEFAULT_MAX_VALUE,
+        ])
+    }
+}
+
+fn fill_border_frame<P>(
+    canvas: &mut ImageBuffer<P, Vec<P::Subpixel>>,
+    geometry: &ExportGeometry,
+    fill: P,
+) where
+    P: image::Pixel + 'static,
+    P::Subpixel: 'static,
+{
+    let box_x = geometry.offset_x.saturating_sub(geometry.border_x);
+    let box_y = geometry.offset_y.saturating_sub(geometry.border_y);
+    let box_w = geometry
+        .photo_w
+        .saturating_add(geometry.border_x.saturating_mul(2));
+    let below_photo = geometry.offset_y.saturating_add(geometry.photo_h);
+    let right_of_photo = geometry.offset_x.saturating_add(geometry.photo_w);
+
+    let strips = [
+        (box_x, box_y, box_w, geometry.border_y),
+        (box_x, below_photo, box_w, geometry.border_y),
+        (
+            box_x,
+            geometry.offset_y,
+            geometry.border_x,
+            geometry.photo_h,
+        ),
+        (
+            right_of_photo,
+            geometry.offset_y,
+            geometry.border_x,
+            geometry.photo_h,
+        ),
+    ];
+
+    for (x, y, width, height) in strips {
+        let x_end = x.saturating_add(width).min(canvas.width());
+        let y_end = y.saturating_add(height).min(canvas.height());
+        for row in y..y_end {
+            for col in x..x_end {
+                canvas.put_pixel(col, row, fill);
+            }
+        }
+    }
+}
+
+fn place_photo_on_canvas<P>(
+    src: &ImageBuffer<P, Vec<P::Subpixel>>,
+    geometry: &ExportGeometry,
+    outer_fill: P,
+    border_fill: Option<P>,
+) -> ImageBuffer<P, Vec<P::Subpixel>>
+where
+    P: image::Pixel + 'static,
+    P::Subpixel: 'static,
+{
+    let mut canvas = ImageBuffer::from_pixel(geometry.canvas_w, geometry.canvas_h, outer_fill);
+
+    if let Some(fill) = border_fill
+        && geometry.has_border()
+    {
+        fill_border_frame(&mut canvas, geometry, fill);
+    }
+
+    imageops::replace(
+        &mut canvas,
+        src,
+        geometry.offset_x as i64,
+        geometry.offset_y as i64,
+    );
+    canvas
+}
+
+fn compose_image_on_canvas(
+    image: &DynamicImage,
+    geometry: &ExportGeometry,
+    pad_color: [u8; 3],
+    border_color: [u8; 3],
+) -> DynamicImage {
+    fn compose<P: SolidFill>(
+        src: &ImageBuffer<P, Vec<P::Subpixel>>,
+        geometry: &ExportGeometry,
+        pad_color: [u8; 3],
+        border_color: [u8; 3],
+    ) -> ImageBuffer<P, Vec<P::Subpixel>>
+    where
+        P::Subpixel: 'static,
+    {
+        place_photo_on_canvas(
+            src,
+            geometry,
+            P::from_rgb8(pad_color),
+            Some(P::from_rgb8(border_color)),
+        )
+    }
+
+    match image {
+        DynamicImage::ImageRgb8(buffer) => {
+            DynamicImage::ImageRgb8(compose(buffer, geometry, pad_color, border_color))
+        }
+        DynamicImage::ImageRgba8(buffer) => {
+            DynamicImage::ImageRgba8(compose(buffer, geometry, pad_color, border_color))
+        }
+        DynamicImage::ImageRgb16(buffer) => {
+            DynamicImage::ImageRgb16(compose(buffer, geometry, pad_color, border_color))
+        }
+        DynamicImage::ImageRgba16(buffer) => {
+            DynamicImage::ImageRgba16(compose(buffer, geometry, pad_color, border_color))
+        }
+        DynamicImage::ImageRgb32F(buffer) => {
+            DynamicImage::ImageRgb32F(compose(buffer, geometry, pad_color, border_color))
+        }
+        DynamicImage::ImageRgba32F(buffer) => {
+            DynamicImage::ImageRgba32F(compose(buffer, geometry, pad_color, border_color))
+        }
+        other => DynamicImage::ImageRgba8(compose(
+            &other.to_rgba8(),
+            geometry,
+            pad_color,
+            border_color,
+        )),
     }
 }
 
@@ -270,23 +763,69 @@ fn relative_export_dir_for_preserved_folders(
         })
 }
 
-fn apply_export_resize_and_watermark(
+fn apply_export_geometry(
     mut image: DynamicImage,
     export_settings: &ExportSettings,
-) -> Result<DynamicImage, String> {
-    if let Some(resize_opts) = &export_settings.resize {
-        let (current_w, current_h) = image.dimensions();
-        let (target_w, target_h) = calculate_resize_target(current_w, current_h, resize_opts);
+) -> Result<(DynamicImage, ExportGeometry), String> {
+    let (src_w, src_h) = image.dimensions();
 
-        if target_w != current_w || target_h != current_h {
-            image = image.resize(target_w, target_h, imageops::FilterType::Lanczos3);
+    match compute_export_geometry(src_w, src_h, export_settings) {
+        None => {
+            let (target_w, target_h) = resize_target(src_w, src_h, export_settings.resize.as_ref());
+            if target_w != src_w || target_h != src_h {
+                image = image.resize(target_w, target_h, imageops::FilterType::Lanczos3);
+            }
+
+            let (width, height) = image.dimensions();
+            Ok((
+                image,
+                ExportGeometry {
+                    canvas_w: width,
+                    canvas_h: height,
+                    photo_w: width,
+                    photo_h: height,
+                    offset_x: 0,
+                    offset_y: 0,
+                    border_x: 0,
+                    border_y: 0,
+                },
+            ))
+        }
+        Some(geometry) => {
+            if geometry.photo_w != src_w || geometry.photo_h != src_h {
+                image = image.resize_exact(
+                    geometry.photo_w,
+                    geometry.photo_h,
+                    imageops::FilterType::Lanczos3,
+                );
+            }
+
+            let pad_color = fill_color(export_settings.pad.as_ref().map(|pad| pad.color.as_str()));
+            let border_color = fill_color(
+                export_settings
+                    .border
+                    .as_ref()
+                    .map(|border| border.color.as_str()),
+            );
+
+            Ok((
+                compose_image_on_canvas(&image, &geometry, pad_color, border_color),
+                geometry,
+            ))
         }
     }
+}
+
+fn apply_export_geometry_and_watermark(
+    image: DynamicImage,
+    export_settings: &ExportSettings,
+) -> Result<(DynamicImage, ExportGeometry), String> {
+    let (mut image, geometry) = apply_export_geometry(image, export_settings)?;
 
     if let Some(watermark_settings) = &export_settings.watermark {
         apply_watermark(&mut image, watermark_settings)?;
     }
-    Ok(image)
+    Ok((image, geometry))
 }
 
 fn ensure_export_not_cancelled(cancellation_token: &AtomicBool) -> Result<(), String> {
@@ -418,6 +957,7 @@ fn process_image_for_export_pipeline(
     is_raw: bool,
     debug_tag: &str,
     app_handle: &tauri::AppHandle,
+    output_precision: RenderOutputPrecision,
 ) -> Result<DynamicImage, String> {
     let (transformed_image, unscaled_crop_offset) =
         apply_all_transformations(Cow::Borrowed(base_image), js_adjustments);
@@ -452,7 +992,7 @@ fn process_image_for_export_pipeline(
 
     let unique_hash = calculate_full_job_hash(path, js_adjustments);
 
-    process_and_get_dynamic_image(
+    process_and_get_dynamic_image_with_precision(
         context,
         state,
         transformed_image.as_ref(),
@@ -464,7 +1004,21 @@ fn process_image_for_export_pipeline(
             roi: None,
         },
         debug_tag,
+        output_precision,
     )
+}
+
+fn render_output_precision(
+    output_format: &str,
+    export_settings: &ExportSettings,
+) -> RenderOutputPrecision {
+    if matches!(output_format.to_lowercase().as_str(), "tif" | "tiff")
+        && export_settings.tiff_bit_depth == TiffBitDepth::Sixteen
+    {
+        RenderOutputPrecision::SixteenBit
+    } else {
+        RenderOutputPrecision::EightBit
+    }
 }
 
 fn set_timestamps_from_exif(src: &Path, dst: &Path) {
@@ -499,7 +1053,12 @@ fn save_image_with_metadata(
         .unwrap_or("")
         .to_lowercase();
 
-    let mut image_bytes = encode_image_to_bytes(image, &extension, export_settings.jpeg_quality)?;
+    let mut image_bytes = encode_image_to_bytes(
+        image,
+        &extension,
+        export_settings.jpeg_quality,
+        export_settings.tiff_bit_depth,
+    )?;
 
     exif_processing::write_image_with_metadata(
         &mut image_bytes,
@@ -553,6 +1112,7 @@ fn process_image_for_export(
     state: &tauri::State<AppState>,
     is_raw: bool,
     app_handle: &tauri::AppHandle,
+    output_format: &str,
 ) -> Result<DynamicImage, String> {
     let processed_image = process_image_for_export_pipeline(
         path,
@@ -563,9 +1123,10 @@ fn process_image_for_export(
         is_raw,
         "process_image_for_export",
         app_handle,
+        render_output_precision(output_format, export_settings),
     )?;
 
-    apply_export_resize_and_watermark(processed_image, export_settings)
+    apply_export_geometry_and_watermark(processed_image, export_settings).map(|(image, _)| image)
 }
 
 fn build_single_mask_adjustments(all: &AllAdjustments, mask_index: usize) -> AllAdjustments {
@@ -597,6 +1158,7 @@ fn encode_image_to_bytes(
     image: &DynamicImage,
     output_format: &str,
     jpeg_quality: u8,
+    tiff_bit_depth: TiffBitDepth,
 ) -> Result<Vec<u8>, String> {
     let mut image_bytes = Vec::new();
     let mut cursor = Cursor::new(&mut image_bytes);
@@ -661,8 +1223,12 @@ fn encode_image_to_bytes(
                 .write_to(&mut cursor, image::ImageFormat::Png)
                 .map_err(|e| e.to_string())?;
         }
-        "tiff" => {
-            DynamicImage::ImageRgb16(image.to_rgb16())
+        "tif" | "tiff" => {
+            let image_to_encode = match tiff_bit_depth {
+                TiffBitDepth::Eight => DynamicImage::ImageRgb8(image.to_rgb8()),
+                TiffBitDepth::Sixteen => DynamicImage::ImageRgb16(image.to_rgb16()),
+            };
+            image_to_encode
                 .write_to(&mut cursor, image::ImageFormat::Tiff)
                 .map_err(|e| e.to_string())?;
         }
@@ -738,7 +1304,7 @@ fn export_masks_for_image(
             let full_white_mask = ImageBuffer::from_fn(img_w, img_h, |_, _| Luma([255u8]));
             let single_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = vec![full_white_mask];
 
-            let processed = process_and_get_dynamic_image(
+            let processed = process_and_get_dynamic_image_with_precision(
                 context,
                 state,
                 transformed_image.as_ref(),
@@ -750,18 +1316,25 @@ fn export_masks_for_image(
                     roi: None,
                 },
                 "export_mask_image",
+                render_output_precision(extension, export_settings),
             )?;
             ensure_export_not_cancelled(cancellation_token)?;
 
-            let with_options = apply_export_resize_and_watermark(processed, export_settings)?;
-            let (out_w, out_h) = with_options.dimensions();
+            let (with_options, geometry) =
+                apply_export_geometry_and_watermark(processed, export_settings)?;
 
-            let alpha_resized = imageops::resize(
+            let alpha_scaled = imageops::resize(
                 &mask_bitmaps[i],
-                out_w,
-                out_h,
+                geometry.photo_w,
+                geometry.photo_h,
                 imageops::FilterType::Lanczos3,
             );
+
+            let alpha_resized: GrayImage = if geometry.is_identity() {
+                alpha_scaled
+            } else {
+                place_photo_on_canvas(&alpha_scaled, &geometry, Luma([0u8]), None)
+            };
             ensure_export_not_cancelled(cancellation_token)?;
 
             let mask_image_path =
@@ -1192,6 +1765,11 @@ pub(crate) async fn export_images_impl(
                         obj.insert("masks".to_string(), serde_json::json!([]));
                     }
 
+                    let actual_output_format = output_path
+                        .extension()
+                        .and_then(|extension| extension.to_str())
+                        .unwrap_or(output_format.as_str());
+
                     let final_image = process_image_for_export(
                         &source_path_str,
                         &base_image,
@@ -1201,6 +1779,7 @@ pub(crate) async fn export_images_impl(
                         &state,
                         is_raw,
                         &app_handle_clone,
+                        actual_output_format,
                     )?;
                     ensure_export_not_cancelled(&cancellation_token_clone)?;
                     save_image_with_metadata(
@@ -1394,7 +1973,10 @@ pub async fn run_headless_export(
 
     let export_settings = ExportSettings {
         jpeg_quality: session.quality,
+        tiff_bit_depth: session.tiff_bit_depth,
         resize: None,
+        border: None,
+        pad: None,
         keep_metadata: session.keep_metadata,
         preserve_timestamps: true,
         strip_gps: false,
@@ -1576,7 +2158,7 @@ pub async fn estimate_export_sizes(
         let unique_hash =
             calculate_full_job_hash(&loaded_image.path, &adjustments_clone).wrapping_add(1);
 
-        let processed_preview = process_and_get_dynamic_image(
+        let processed_preview = process_and_get_dynamic_image_with_precision(
             &context,
             &state,
             &preview_image,
@@ -1588,12 +2170,14 @@ pub async fn estimate_export_sizes(
                 roi: None,
             },
             "estimate_export_size",
+            render_output_precision(&output_format, &export_settings),
         )?;
 
         let preview_bytes = encode_image_to_bytes(
             &processed_preview,
             &output_format,
             export_settings.jpeg_quality,
+            export_settings.tiff_bit_depth,
         )?;
         let preview_byte_size = preview_bytes.len();
 
@@ -1601,11 +2185,8 @@ pub async fn estimate_export_sizes(
             apply_all_transformations(&loaded_image.image, &adjustments_clone);
         let (full_w, full_h) = transformed_full_res.dimensions();
 
-        let (final_full_w, final_full_h) = if let Some(resize_opts) = &export_settings.resize {
-            calculate_resize_target(full_w, full_h, resize_opts)
-        } else {
-            (full_w, full_h)
-        };
+        let (final_full_w, final_full_h) =
+            compute_export_output_size(full_w, full_h, &export_settings);
 
         let (processed_preview_w, processed_preview_h) = processed_preview.dimensions();
         let pixel_ratio = if processed_preview_w > 0 && processed_preview_h > 0 {
@@ -1714,7 +2295,7 @@ pub async fn estimate_export_sizes(
         let unique_hash =
             calculate_full_job_hash(&source_path_str, &js_adjustments).wrapping_add(1);
 
-        let processed_preview = process_and_get_dynamic_image(
+        let processed_preview = process_and_get_dynamic_image_with_precision(
             &context,
             &state,
             &preview_base,
@@ -1726,23 +2307,22 @@ pub async fn estimate_export_sizes(
                 roi: None,
             },
             "estimate_batch_export_size",
+            render_output_precision(&output_format, &export_settings),
         )?;
 
         let preview_bytes = encode_image_to_bytes(
             &processed_preview,
             &output_format,
             export_settings.jpeg_quality,
+            export_settings.tiff_bit_depth,
         )?;
         let single_image_estimated_size = preview_bytes.len();
 
         let full_w = (shrunk_w as f32 / raw_scale_factor).round() as u32;
         let full_h = (shrunk_h as f32 / raw_scale_factor).round() as u32;
 
-        let (final_full_w, final_full_h) = if let Some(resize_opts) = &export_settings.resize {
-            calculate_resize_target(full_w, full_h, resize_opts)
-        } else {
-            (full_w, full_h)
-        };
+        let (final_full_w, final_full_h) =
+            compute_export_output_size(full_w, full_h, &export_settings);
 
         let (processed_preview_w, processed_preview_h) = processed_preview.dimensions();
         let pixel_ratio = if processed_preview_w > 0 && processed_preview_h > 0 {

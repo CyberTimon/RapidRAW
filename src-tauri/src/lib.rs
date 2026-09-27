@@ -12,6 +12,7 @@ mod ai_processing;
 mod android_integration;
 mod app_settings;
 mod app_state;
+mod apple_raw;
 mod cache_utils;
 mod camera_tethering;
 mod culling;
@@ -165,12 +166,13 @@ pub fn generate_transformed_preview(
             if *hash == transform_hash {
                 (Arc::clone(img), *offset)
             } else {
-                let (arc_img, offset) = compute_full_transformed_res(loaded_image, adjustments)?;
+                let (arc_img, offset) =
+                    compute_full_transformed_res(state, loaded_image, adjustments)?;
                 *cache_lock = Some((transform_hash, Arc::clone(&arc_img), offset));
                 (arc_img, offset)
             }
         } else {
-            let (arc_img, offset) = compute_full_transformed_res(loaded_image, adjustments)?;
+            let (arc_img, offset) = compute_full_transformed_res(state, loaded_image, adjustments)?;
             *cache_lock = Some((transform_hash, Arc::clone(&arc_img), offset));
             (arc_img, offset)
         }
@@ -194,14 +196,51 @@ pub fn generate_transformed_preview(
 }
 
 fn compute_full_transformed_res(
+    state: &tauri::State<AppState>,
     loaded_image: &LoadedImage,
     adjustments: &serde_json::Value,
 ) -> Result<(Arc<DynamicImage>, (f32, f32)), String> {
+    let geo_hash = crate::cache_utils::calculate_patched_warped_hash(adjustments);
+
+    let warped_arc = {
+        let mut cache_lock = state
+            .patched_warped_cache
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+
+        if let Some((hash, img)) = cache_lock.as_ref() {
+            if *hash == geo_hash {
+                Arc::clone(img)
+            } else {
+                let new_img = compute_patched_and_warped(loaded_image, adjustments)?;
+                *cache_lock = Some((geo_hash, Arc::clone(&new_img)));
+                new_img
+            }
+        } else {
+            let new_img = compute_patched_and_warped(loaded_image, adjustments)?;
+            *cache_lock = Some((geo_hash, Arc::clone(&new_img)));
+            new_img
+        }
+    };
+
+    let (transformed_img, offset) = crate::adjustment_utils::apply_spatial_transformations(
+        Cow::Borrowed(warped_arc.as_ref()),
+        adjustments,
+    );
+
+    Ok((Arc::new(transformed_img.into_owned()), offset))
+}
+
+fn compute_patched_and_warped(
+    loaded_image: &LoadedImage,
+    adjustments: &serde_json::Value,
+) -> Result<Arc<DynamicImage>, String> {
     let has_patches = adjustments
         .get("aiPatches")
         .and_then(|v| v.as_array())
         .is_some_and(|a| !a.is_empty());
-    let patched_original_image = if has_patches {
+
+    let patched_image = if has_patches {
         Cow::Owned(
             composite_patches_on_image(&loaded_image.image, adjustments)
                 .map_err(|e| format!("Failed to composite AI patches: {}", e))?,
@@ -210,8 +249,10 @@ fn compute_full_transformed_res(
         Cow::Borrowed(loaded_image.image.as_ref())
     };
 
-    let (transformed_img, offset) = apply_all_transformations(patched_original_image, adjustments);
-    Ok((Arc::new(transformed_img.into_owned()), offset))
+    let warped = apply_geometry_warp(patched_image, adjustments);
+    let blurred = crate::lens_blur::apply_lens_blur(warped, adjustments);
+
+    Ok(Arc::new(blurred.into_owned()))
 }
 
 #[tauri::command]
@@ -1681,6 +1722,10 @@ pub fn run() {
 
     let args: Vec<String> = std::env::args().skip(1).collect();
     let launch_req = parse_launch_args(&args);
+    if let LaunchRequest::InvalidHeadless(error) = &launch_req {
+        eprintln!("Headless export failed: {}", error);
+        std::process::exit(2);
+    }
     let is_headless = matches!(launch_req, LaunchRequest::HeadlessExport(_));
 
     let mut builder = tauri::Builder::default();
@@ -1868,22 +1913,26 @@ pub fn run() {
                 );
             }
 
-            if let LaunchRequest::HeadlessExport(session) = launch_req {
-                let app_handle_clone = app_handle.clone();
-                tauri::async_runtime::spawn(async move {
-                    match crate::export_processing::run_headless_export(session, app_handle_clone.clone()).await {
-                        Ok(_) => {
-                            println!("Headless export completed successfully.");
-                            app_handle_clone.exit(0);
+            match launch_req {
+                LaunchRequest::HeadlessExport(session) => {
+                    let app_handle_clone = app_handle.clone();
+                    tauri::async_runtime::spawn(async move {
+                        match crate::export_processing::run_headless_export(session, app_handle_clone.clone()).await {
+                            Ok(_) => {
+                                println!("Headless export completed successfully.");
+                                app_handle_clone.exit(0);
+                            }
+                            Err(e) => {
+                                eprintln!("Headless export failed: {}", e);
+                                app_handle_clone.exit(1);
+                            }
                         }
-                        Err(e) => {
-                            eprintln!("Headless export failed: {}", e);
-                            app_handle_clone.exit(1);
-                        }
-                    }
-                });
+                    });
 
-                return Ok(());
+                    return Ok(());
+                }
+                LaunchRequest::InvalidHeadless(_) => unreachable!("invalid headless arguments exit before app setup"),
+                _ => {}
             }
 
             start_preview_worker(app_handle.clone());
@@ -2062,6 +2111,7 @@ pub fn run() {
             gpu_processor: Mutex::new(None),
             ai_state: Mutex::new(None),
             ai_init_lock: TokioMutex::new(()),
+            active_ai_tasks: Mutex::new(HashMap::new()),
             export_task_token: Arc::new(Mutex::new(None)),
             hdr_result: Arc::new(Mutex::new(None)),
             panorama_result: Arc::new(Mutex::new(None)),
@@ -2082,6 +2132,7 @@ pub fn run() {
             lens_db: Mutex::new(None),
             load_image_generation: Arc::new(AtomicUsize::new(0)),
             full_warped_cache: Mutex::new(None),
+            patched_warped_cache: Mutex::new(None),
             full_transformed_cache: Mutex::new(None),
             decoded_image_cache: Mutex::new(DecodedImageCache::new(5)),
             thumbnail_manager: ThumbnailManager::new(),
@@ -2126,6 +2177,8 @@ pub fn run() {
             ai_commands::check_ai_connector_status,
             ai_commands::test_ai_connector_connection,
             ai_commands::generate_full_image_depth_map,
+            ai_commands::cancel_ai_task,
+            apple_raw::is_raw9_available,
             inpainting::invoke_generative_replace_with_mask_def,
             inpainting::generate_manual_cleanup_patch,
             inpainting::generate_liquify_patch,

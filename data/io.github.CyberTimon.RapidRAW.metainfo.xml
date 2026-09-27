@@ -38,6 +38,27 @@
   <url type="homepage">https://github.com/CyberTimon/RapidRAW</url>
 
   <releases>
+    <release version="v1.6.4" date="2026-09-17">
+        <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.6.4</url>
+        <description translate="no">
+            <p>New Features</p>
+            <ul>
+                <li>Highlight Recovery: Rebuilt highlight recovery engine capable of reconstructing clipped color channels using remaining channel data, alongside a reworked shader pipeline featuring a true Exposure control and Brightness adjustment.</li>
+                <li>Crop, Pan &amp; Zoom Shortcuts: Added Ctrl + Mouse Wheel to quickly crop in/out and Ctrl + Drag to pan within the crop frame directly on the canvas.</li>
+                <li>Library Navigation: Added an active folder navigation header in the Sources panel to quickly navigate back and forth between directories.</li>
+                <li>Masonry Library Grid: Introduced a masonry thumbnail layout mode and set Original Ratio thumbnail mode as default.</li>
+                <li>Neutral Grey Canvas: Added a toggleable neutral middle-grey canvas background to eliminate optical contrast illusions and color bias while editing.</li>
+            </ul>
+            <p>Core Improvements</p>
+            <ul>
+                <li>Export Subfolders: Added support for exporting directly to the original folder within a custom subfolder.</li>
+                <li>Smoother Vibrance: Overhauled the vibrance algorithm to behave much more smoothly and predictably.</li>
+                <li>Quick Filter State: Expanded/collapsed state is now remembered across sessions.</li>
+                <li>EXIF &amp; Metadata Fixes: Resolved bugs where EXIF data went missing and ensured metadata displays properly inside the Albums view.</li>
+                <li>Stability &amp; Fixes: Fixed backend issues across export routines and EXIF handling for improved stability.</li>
+            </ul>
+        </description>
+    </release>
     <release version="v1.6.3" date="2026-09-03">
         <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.6.3</url>
         <description translate="no">

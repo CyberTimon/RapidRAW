@@ -19,6 +19,7 @@ dist-ssr
 !.vscode/settings.json
 .idea
 .DS_Store
+patch.txt
 *.suo
 *.ntvs*
 *.njsproj

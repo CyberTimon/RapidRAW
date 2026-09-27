@@ -2,9 +2,9 @@
   "adjustments": {
     "basic": {
       "blacks": "黒レベル",
+      "brightness": "明るさ",
       "contrast": "コントラスト",
-      "evShift": "露出補正",
-      "exposure": "露光量",
+      "exposure": "露出",
       "highlights": "ハイライト",
       "mappers": {
         "agx": "AgX",
@@ -296,8 +296,10 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "{{section}}設定をコピー",
+        "customizePanels": "パネルをカスタマイズ",
         "pasteLabel": "{{section}}設定を貼り付け",
         "pasteSettings": "設定を貼り付け",
+        "resetPanelLayout": "デフォルトに戻す",
         "resetSectionSettings": "{{section}}設定をリセット"
       },
       "sections": {
@@ -310,7 +312,9 @@
       "title": "補正",
       "tooltips": {
         "autoAdjust": "画像を自動補正",
+        "hideFromPanel": "パネルに表示しない",
         "resetAdjustments": "補正設定をリセット",
+        "showInPanel": "パネルに表示",
         "toggleAnalytics": "アナリティクス表示の切り替え"
       }
     },
@@ -408,6 +412,7 @@
         "aiModelDownloading": "AIモデルをダウンロード中: ",
         "basicInpaintTooltipDisabled": "生成バックエンドが利用できないか、設定されていません。簡易インペインティングが必要です。",
         "basicInpaintTooltipEnabled": "簡易インペインティングは高速ですが、非生成式です。テキストプロンプトによるAIを使用する場合はチェックを外してください。",
+        "cancelGeneration": "生成をキャンセル",
         "componentPropertiesTitle": "{{name}} のプロパティ",
         "downloading": "ダウンロード中: ",
         "fastInpaintDesc": "周囲のピクセルに基づいて選択範囲を塗りつぶします。",
@@ -430,6 +435,9 @@
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "高さ",
+        "removeTooltip": "保存したアスペクト比を削除",
+        "saveTooltip": "アスペクト比をプリセットとして保存",
+        "savedTooltip": "保存したアスペクト比 {{ratio}}",
         "wPlaceholder": "W",
         "wTooltip": "幅"
       },
@@ -447,6 +455,10 @@
         "armature": {
           "desc": "アーマチュア",
           "name": "アーマチュア"
+        },
+        "center": {
+          "desc": "中央線",
+          "name": "中央"
         },
         "diagonal": {
           "desc": "対角線",
@@ -777,6 +789,20 @@
       "preserveTimestamps": "EXIFの撮影日時からファイルタイムスタンプを設定",
       "title": "書き出し設定"
     },
+    "border": {
+      "addBorder": "枠を追加",
+      "bases": {
+        "eachEdge": "それぞれの辺",
+        "longEdge": "長辺",
+        "shortEdge": "短辺"
+      },
+      "basis": "太さの基準",
+      "color": "枠の色",
+      "invalidPercent": "両方に0から100までの数値を入力してください。",
+      "leftRight": "左右",
+      "percent": "%",
+      "topBottom": "上下"
+    },
     "bytes": {
       "bytes": "バイト",
       "gb": "GB",
@@ -798,7 +824,10 @@
     },
     "file": {
       "quality": "画質",
-      "qualityLossless": "画質 (ロスレス)"
+      "qualityLossless": "画質 (ロスレス)",
+      "tiffBitDepth": "TIFF ビット深度",
+      "tiffBitDepth16": "16 ビット",
+      "tiffBitDepth8": "8 ビット"
     },
     "labels": {
       "image": "画像",
@@ -809,6 +838,14 @@
     "metadata": {
       "removeGps": "GPSデータを削除",
       "saveWithMetadata": "メタデータを含めて保存"
+    },
+    "pad": {
+      "aspectRatio": "アスペクト比",
+      "backgroundColor": "背景色",
+      "invalidRatio": "幅と高さに正の数を入力してください。",
+      "padToAspectRatio": "アスペクト比に合わせて余白を追加",
+      "ratioHeight": "アスペクト比の高さ",
+      "ratioWidth": "アスペクト比の幅"
     },
     "resize": {
       "dontEnlarge": "拡大しない",
@@ -938,7 +975,7 @@
       }
     },
     "folders": {
-      "addFolder": "フォルダを追加",
+      "addFolder": "フォルダーを追加",
       "albumsEmpty": "右クリックでアルバムを作成します。",
       "collapseSection": "{{section}}をたたむ",
       "expandSection": "{{section}}を展開",
@@ -962,6 +999,9 @@
         "clearSearch": "検索をクリア",
         "collapse": "折りたたむ",
         "expand": "展開",
+        "moreOptions": "オプション",
+        "navBack": "戻る",
+        "navForward": "進む",
         "sortFolders": "フォルダーを並べ替え"
       }
     },
@@ -1081,6 +1121,7 @@
     },
     "thumbnailFit": {
       "fillSquare": "正方形にフィット",
+      "justified": "メイソンリー",
       "originalRatio": "オリジナル比率"
     },
     "thumbnailSize": {
@@ -1263,6 +1304,7 @@
       "methodAi": "NIND (AI - RAWに最適)",
       "methodBm3d": "BM3D (従来型 - すべての形式に対応)",
       "methodLabel": "方式",
+      "methodRaw9": "Apple RAW 9 (Neural Engine)",
       "openInEditor": "エディタで開く",
       "original": "オリジナル",
       "panZoomEnabled": "パンとズームが有効",
@@ -1450,14 +1492,6 @@
     }
   },
   "settings": {
-    "adjustments": {
-      "chromaticAberration": "色収差",
-      "colorCalibration": "カラーキャリブレーション",
-      "description": "使わない調整項目を非表示にして、編集パネルをシンプルにすることができます。非表示にしても、設定自体は維持され適用され続けます。",
-      "grain": "粒子",
-      "noiseReduction": "ノイズ低減",
-      "title": "調整項目の表示/非表示"
-    },
     "categories": {
       "general": "一般",
       "processing": "画像処理",
@@ -1544,6 +1578,7 @@
       "displayEditIcon": "編集アイコンを表示",
       "displayEditIconDesc": "編集されたサムネイルに小さなスライダーアイコンを表示します。",
       "enableFocusMode": "フォーカスモードを有効にする",
+      "enableNeutralGreyCanvas": "ニュートラルグレーの背景を有効にする",
       "enableOsTitlebar": "OSのタイトルバーを有効にする",
       "enableXmpSync": "XMP同期を有効にする",
       "focusMode": "フォーカスモード",
@@ -1554,6 +1589,8 @@
       "fontDesc": "アプリケーションのフォントを変更します。",
       "nativeTitlebar": "OS標準のタイトルバー",
       "nativeTitlebarDesc": "RapidRAWカスタムのもの代わりに、システムのデフォルトのウィンドウタイトルバーを使用します。",
+      "neutralGreyCanvas": "ニュートラルグレーのキャンバス",
+      "neutralGreyCanvasDesc": "アプリのテーマを変更せずに、より正確な色と露出のグレーディングを行うために、ニュートラルグレーのキャンバスを使用します。",
       "poppins": "Poppins",
       "showImageCounts": "画像数を表示",
       "system": "システムデフォルト",
@@ -1726,6 +1763,8 @@
       },
       "nativeDpi": "本来の解像度でレンダリング",
       "preprocessing": {
+        "appleRaw9": "Apple RAW 9 エンジン",
+        "appleRaw9Desc": "AppleのCore Image RAW 9デコーダを使用してRAWファイルを現像します。これはNeural Engine上でデモザイク処理とノイズ低減を1ステップで行います。macOS 27以降および対応カメラが必要です。未対応のファイルは自動的に内蔵デコーダを使用します。デフォルトのデコーダより低速です。サムネイルには影響しません。",
         "applyPreprocessing": "RAW以外の画像にも事前処理を適用",
         "applyPreprocessingDesc": "有効にすると、上記のカラーノイズ低減と事前シャープ処理が標準フォーマットの画像にも適用されます。",
         "colorNr": "カラーノイズ低減 (基本)",
@@ -1734,6 +1773,7 @@
         "defaultNonRawTonemapperDesc": "RAW以外の画像 (JPEG, PNGなど) に適用されるトーンマッパーです。",
         "defaultRawTonemapper": "標準トーンマッパー (RAW)",
         "defaultRawTonemapperDesc": "RAW画像に適用される標準のトーンマッパーです。",
+        "enableAppleRaw9": "RAWファイルにApple RAW 9を使用する",
         "enablePreprocessingNonRaws": "RAW以外の画像にも適用",
         "enableTonemapperOverride": "トーンマッパーの上書きを有効化",
         "highlightRecovery": "RAWハイライト再現",

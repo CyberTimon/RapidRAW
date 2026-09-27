@@ -36,6 +36,7 @@ export enum Invokes {
   ApplyAutoAdjustmentsToPaths = 'apply_auto_adjustments_to_paths',
   ApplyDenoising = 'apply_denoising',
   CalculateAutoAdjustments = 'calculate_auto_adjustments',
+  CancelAiTask = 'cancel_ai_task',
   CancelExport = 'cancel_export',
   CheckAIConnectorStatus = 'check_ai_connector_status',
   ClearAllSidecars = 'clear_all_sidecars',
@@ -71,6 +72,7 @@ export enum Invokes {
   ImportFiles = 'import_files',
   InvokeGenerativeReplaseWithMaskDef = 'invoke_generative_replace_with_mask_def',
   IsTetheringSupported = 'is_tethering_supported',
+  IsRaw9Available = 'is_raw9_available',
   ListImagesInDir = 'list_images_in_dir',
   ListImagesRecursive = 'list_images_recursive',
   LoadImage = 'load_image',
@@ -169,6 +171,7 @@ export enum Theme {
 export enum ThumbnailAspectRatio {
   Cover = 'cover',
   Contain = 'contain',
+  Justified = 'justified',
 }
 
 export interface WorkspaceState {
@@ -179,6 +182,11 @@ export interface WorkspaceState {
   panelLayout: Record<PanelRegion, Panel[]>;
   activePanels: Record<PanelRegion, Panel | null>;
   panelSwitcherPlacement: Record<PanelRegion, 'left' | 'right' | 'top' | 'bottom'>;
+}
+
+export interface CustomAspectRatio {
+  width: number;
+  height: number;
 }
 
 export type GroupPreference = 'jpeg' | 'raw';
@@ -210,12 +218,13 @@ export interface AppSettings {
   thumbnailSize?: ThumbnailSize;
   thumbnailAspectRatio?: ThumbnailAspectRatio;
   uiVisibility?: UiVisibility;
-  adjustmentVisibility?: { [key: string]: boolean };
   rawHighlightCompression?: number;
   processingBackend?: string;
   linuxGpuOptimization?: boolean;
   exportPresets?: ExportPreset[];
   myLenses?: any;
+  customAspectRatios?: CustomAspectRatio[];
+  adjustmentLayout?: AdjustmentLayout;
   enableFolderImageCounts?: boolean;
   displayEditIcon?: boolean;
   linearRawMode?: string;
@@ -225,6 +234,7 @@ export interface AppSettings {
   waveformHeight?: number;
   activeWaveformChannel?: string;
   useWgpuRenderer?: boolean;
+  editorNeutralGreyBg?: boolean;
   canvasInputMode?: 'mouse' | 'trackpad';
   zoomSpeedMultiplier?: number;
   zoomPhotoToPixelClick?: boolean;
@@ -386,6 +396,24 @@ export interface UiVisibility {
   filmstrip: boolean;
   leftPanel: boolean;
   rightPanel: boolean;
+  quickFilter?: boolean;
+}
+
+export interface CollapsibleSectionsState {
+  basic: boolean;
+  color: boolean;
+  curves: boolean;
+  details: boolean;
+  effects: boolean;
+}
+
+export interface AdjustmentLayout {
+  collapsedTools?: string[];
+  hiddenSections?: string[];
+  hiddenTools?: string[];
+  openSections?: Partial<CollapsibleSectionsState>;
+  sectionOrder?: string[];
+  toolOrder?: Record<string, string[]>;
 }
 
 export interface WaveformData {

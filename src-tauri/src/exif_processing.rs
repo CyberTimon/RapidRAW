@@ -244,6 +244,32 @@ pub fn load_sidecar(sidecar_path: &Path) -> ImageMetadata {
     meta
 }
 
+pub fn load_sidecar_with_exif(sidecar_path: &Path, source_path: &Path) -> ImageMetadata {
+    let mut meta = load_sidecar(sidecar_path);
+
+    if meta.exif.is_none() {
+        if let Some(cached_exif) = read_rrexif_sidecar(source_path) {
+            meta.exif = Some(cached_exif);
+        } else {
+            let source_path_str = source_path.to_string_lossy();
+            let extracted_exif =
+                if let Ok(mmap) = crate::file_management::read_file_mapped(source_path) {
+                    read_exif_data(&source_path_str, &mmap)
+                } else if let Ok(bytes) = std::fs::read(source_path) {
+                    read_exif_data(&source_path_str, &bytes)
+                } else {
+                    std::collections::HashMap::new()
+                };
+
+            if !extracted_exif.is_empty() {
+                meta.exif = Some(extracted_exif);
+            }
+        }
+    }
+
+    meta
+}
+
 fn to_ur64(val: &exif::Rational) -> uR64 {
     uR64 {
         nominator: val.num,

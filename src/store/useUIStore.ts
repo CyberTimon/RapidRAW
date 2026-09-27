@@ -6,17 +6,11 @@ import {
   CullingSuggestions,
   PanelRegion,
   WorkspaceState,
+  CollapsibleSectionsState,
 } from '../components/ui/AppProperties';
+import { useEditorStore } from './useEditorStore';
 
 export type SwitcherPlacement = 'bottom' | 'right' | 'left' | 'top';
-
-interface CollapsibleSectionsState {
-  basic: boolean;
-  color: boolean;
-  curves: boolean;
-  details: boolean;
-  effects: boolean;
-}
 
 export interface CropSectionsState {
   transform: boolean;
@@ -208,7 +202,7 @@ export function reconcileWorkspace(
   };
 }
 
-interface UIState {
+export interface UIState {
   activeView: string;
   isFullScreen: boolean;
   isWindowFullScreen: boolean;
@@ -272,6 +266,7 @@ interface UIState {
   setCustomEscapeHandler: (handler: (() => void) | null) => void;
   searchFocusRequest: number;
   requestSearchFocus: () => void;
+  toggleFullScreen: () => void;
   resetWorkspaceLayout: (isTetheringSupported?: boolean) => WorkspaceState;
 }
 
@@ -281,7 +276,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   isWindowFullScreen: false,
   isInstantTransition: false,
   isLayoutReady: false,
-  uiVisibility: { filmstrip: true, leftPanel: true, rightPanel: true },
+  uiVisibility: { filmstrip: true, leftPanel: true, rightPanel: true, quickFilter: false },
   isLibraryExportPanelVisible: false,
   isSettingsOpen: false,
 
@@ -493,6 +488,25 @@ export const useUIStore = create<UIState>((set, get) => ({
     if (targetRegion) state.setActivePanel(targetRegion, panelId);
   },
 
+  toggleFullScreen: () => {
+    const { isFullScreen } = get();
+    const { zoom, selectedImage } = useEditorStore.getState();
+
+    const isNotFitToScreen = Math.abs(zoom - 1) > 0.01;
+    set({ isInstantTransition: isNotFitToScreen });
+
+    if (isFullScreen) {
+      set({ isFullScreen: false });
+    } else {
+      if (!selectedImage) return;
+      set({ isFullScreen: true });
+    }
+
+    if (isNotFitToScreen) {
+      setTimeout(() => set({ isInstantTransition: false }), 100);
+    }
+  },
+
   resetWorkspaceLayout: (isTetheringSupported = false) => {
     const defaultWorkspace = reconcileWorkspace(undefined, isTetheringSupported);
     set({
@@ -503,7 +517,7 @@ export const useUIStore = create<UIState>((set, get) => ({
       panelLayout: defaultWorkspace.panelLayout,
       activePanels: defaultWorkspace.activePanels,
       panelSwitcherPlacement: defaultWorkspace.panelSwitcherPlacement,
-      uiVisibility: { filmstrip: true, leftPanel: true, rightPanel: true },
+      uiVisibility: { filmstrip: true, leftPanel: true, rightPanel: true, quickFilter: false },
       activePanel: defaultWorkspace.activePanels.rightTop || null,
       renderedPanel: defaultWorkspace.activePanels.rightTop || null,
     });
