@@ -54,6 +54,7 @@ jobs:
       target: ${{ matrix.target }}
       build-args: ${{ matrix.args }}
       asset-prefix: ${{ matrix.asset-prefix }}
+      upload-artifacts: true
 
   package-build-gate:
     name: Package build gate

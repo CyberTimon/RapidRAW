@@ -14,7 +14,7 @@ Changes added by this fork to RapidRAW. Upstream application changes remain in t
 
 ### Release process
 
-- Build packages for code pull requests and tagged releases, while skipping documentation-only pull requests and duplicate `main` package builds. Stop duplicate MCP runs on `codex/**` branch pushes and require the release tag commit to be on `main`.
+- Build packages for code pull requests and tagged releases. Keep PR build artifacts on the existing PR run for 7 days so they remain downloadable after merge; do not run a second package build on `main`. Skip documentation-only pull requests. Stop duplicate MCP runs on `codex/**` branch pushes and require the release tag commit to be on `main`.
 - Retire Intel Mac packaging for subsequent fork releases. Published 0.4.0 Intel assets remain available; Apple Silicon and Linux x86_64 stay in the release matrix.
 
 ## 0.4.0 — 2026-09-24
