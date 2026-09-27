@@ -16,6 +16,7 @@ interface ProcessState {
   indexingProgress: Progress;
   thumbnails: Record<string, string>;
   mediumThumbnails: Record<string, string>;
+  thumbnailSourceRevisions: Record<string, string | null>;
   thumbnailProgress: Progress;
   previews: Record<string, { url: string; thumbKey: string; timestamp: number }>;
   aiModelDownloadStatus: string | null;
@@ -46,6 +47,7 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
   indexingProgress: { current: 0, total: 0 },
   thumbnails: {},
   mediumThumbnails: {},
+  thumbnailSourceRevisions: {},
   thumbnailProgress: { current: 0, total: 0 },
   previews: {},
   aiModelDownloadStatus: null,

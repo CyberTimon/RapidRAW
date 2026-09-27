@@ -11,7 +11,65 @@ import { debouncedSave } from './useEditorActions';
 import { globalImageCache } from '../utils/ImageLRUCache';
 
 import type { AppNavigationProps } from './useAppNavigation';
-import { PreviewPipeline, preparePreviewAdjustments, interactivePreviewResolution } from '../utils/previewPipeline';
+import {
+  PreviewPipeline,
+  PreviewRefinementScheduler,
+  preparePreviewAdjustments,
+  interactivePreviewResolution,
+  retryMissingPreviewAssets,
+  type PreviewAssetCacheStatus,
+} from '../utils/previewPipeline';
+import {
+  acceptMainPreviewAttempt,
+  invalidatePreviewRevisions,
+  isPreviewSuperseded,
+  latestPreviewRevision,
+  reservePreviewRevision,
+} from '../utils/previewIntent';
+import { clearPreviewDiagnostics, traceJpegUrl, tracePreview } from '../utils/previewDiagnostics';
+
+const DETAIL_QUIET_MS = 150;
+
+interface MainPreviewRequest {
+  adjustments: Adjustments;
+  dragging: boolean;
+  compareOriginal: boolean;
+  targetRes?: number;
+  requestedTargetRes?: number;
+  path: string;
+  session: number;
+  expectedGeneration: number | null;
+  inputRevision: number;
+  tier: 'quick' | 'detail' | 'full';
+  enqueuedAt: number;
+}
+
+interface PreviousMainInput {
+  request: MainPreviewRequest;
+  quality: string | undefined;
+  roi: string;
+  waveformVisible: boolean;
+  waveformChannel: string;
+  quickSettled: boolean;
+  releaseSeen: boolean;
+}
+
+interface SettledEditedFrame {
+  request: MainPreviewRequest;
+  roi: string;
+  settings: ReturnType<typeof useSettingsStore.getState>['appSettings'];
+  rendererWgpu: boolean;
+  url: string | null;
+}
+
+interface ComparisonRestore {
+  frame: SettledEditedFrame | null;
+  adjustments: Adjustments;
+  histogram: ReturnType<typeof useEditorStore.getState>['histogram'];
+  waveform: ReturnType<typeof useEditorStore.getState>['waveform'];
+  waveformVisible: boolean;
+  waveformChannel: string;
+}
 
 export function useImageProcessing(
   transformWrapperRef: AppNavigationProps['refs']['transformWrapperRef'],
@@ -24,6 +82,7 @@ export function useImageProcessing(
 ) {
   const { previewJobIdRef, latestRenderedJobIdRef, currentResRef } = renderRefs;
 
+  const imageSession = useEditorStore((state) => state.imageSession);
   const selectedImage = useEditorStore((state) => state.selectedImage);
   const adjustments = useEditorStore((state) => state.adjustments);
   const previewOverride = useEditorStore((state) => state.previewOverride);
@@ -40,6 +99,19 @@ export function useImageProcessing(
   const appSettings = useSettingsStore((state) => state.appSettings);
   const multiSelectedPaths = useLibraryStore((state) => state.multiSelectedPaths);
 
+  const renderedSessionRef = useRef<number | null>(null);
+  const renderAttemptRef = useRef(0);
+  const lastInputRef = useRef<PreviousMainInput | null>(null);
+  const lastEditedFrameRef = useRef<SettledEditedFrame | null>(null);
+  const comparisonRestoreRef = useRef<ComparisonRestore | null>(null);
+  const comparisonReturnPendingRef = useRef(false);
+  const preallocatedInputRef = useRef<{
+    adjustments: Adjustments;
+    path: string;
+    session: number;
+    expectedGeneration: number | null;
+    inputRevision: number;
+  } | null>(null);
   const lastAnalyticsTimeRef = useRef<number>(0);
   const dragIdleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeWaveformChannelRef = useRef(activeWaveformChannel);
@@ -51,8 +123,14 @@ export function useImageProcessing(
     selectedImagePathRef.current = selectedImage?.path ?? null;
     imageGenerationRef.current += 1;
     pipelineRef.current?.clear();
+    refinementRef.current?.clear();
+    lastInputRef.current = null;
+    lastEditedFrameRef.current = null;
+    comparisonRestoreRef.current = null;
+    comparisonReturnPendingRef.current = false;
+    preallocatedInputRef.current = null;
     uncroppedPipeline.clear();
-  }, [selectedImage?.path]);
+  }, [selectedImage?.path, imageSession]);
 
   const calculateROI = useCallback(() => {
     if (!transformWrapperRef.current) return null;
@@ -111,13 +189,35 @@ export function useImageProcessing(
   }, [baseRenderSize, transformWrapperRef]);
 
   const executeApplyAdjustments = useCallback(
-    async (currentAdjustments: Adjustments, dragging: boolean = false, targetRes?: number) => {
-      const currentPath = selectedImage?.path;
-      if (!currentPath) return;
+    async (request: MainPreviewRequest, isLatest: () => boolean) => {
+      const { path, session, expectedGeneration, inputRevision, tier, compareOriginal } = request;
       const generation = imageGenerationRef.current;
+      const isCurrent = () =>
+        session === useEditorStore.getState().imageSession &&
+        path === useEditorStore.getState().selectedImage?.path &&
+        expectedGeneration === useEditorStore.getState().backendGeneration &&
+        generation === imageGenerationRef.current &&
+        inputRevision === latestPreviewRevision('main') &&
+        isLatest();
+      if (!isCurrent()) return;
+
+      const attempt = ++renderAttemptRef.current;
+      const interactive = request.dragging || tier === 'quick';
+      const trace = (stage: string, durationMs?: number) =>
+        tracePreview({
+          stage,
+          session,
+          generation: expectedGeneration,
+          revision: inputRevision,
+          attempt,
+          tier,
+          durationMs,
+          resolution: request.targetRes,
+        });
+      trace('queue-start', performance.now() - request.enqueuedAt);
 
       let shouldRequestAnalytics = false;
-      if (dragging) {
+      if (interactive) {
         const now = performance.now();
         if (now - lastAnalyticsTimeRef.current > 100) {
           shouldRequestAnalytics = true;
@@ -129,39 +229,113 @@ export function useImageProcessing(
       }
 
       const { patchesSentToBackend } = useEditorStore.getState();
-      const { payload, sentAssets } = preparePreviewAdjustments(currentAdjustments, patchesSentToBackend);
+      const hydrationStart = performance.now();
+      let prepared = preparePreviewAdjustments(request.adjustments, patchesSentToBackend);
+      trace('frontend-payload-ready', performance.now() - hydrationStart);
+      if (!isCurrent()) return;
 
       const jobId = ++previewJobIdRef.current;
-      const roi = calculateROI();
+      const roi = !compareOriginal && renderedSessionRef.current === session ? calculateROI() : null;
 
       try {
-        const buffer: ArrayBuffer = await invoke(Invokes.ApplyAdjustments, {
-          jsAdjustments: payload,
-          isInteractive: dragging,
-          targetResolution: targetRes || null,
-          roi: roi || null,
-          requestAnalytics: shouldRequestAnalytics,
-          computeWaveform: !!isWaveformVisible,
-          activeWaveformChannel: activeWaveformChannelRef.current || null,
-        });
+        const invokeStart = performance.now();
+        const buffer = await retryMissingPreviewAssets(
+          (forceInline) => {
+            if (forceInline) {
+              prepared = preparePreviewAdjustments(request.adjustments, new Set());
+              trace('asset-resend');
+            }
+            return invoke<ArrayBuffer>(Invokes.ApplyAdjustments, {
+              jsAdjustments: prepared.payload,
+              expectedGeneration,
+              inputRevision,
+              renderAttempt: attempt,
+              qualityTier: tier,
+              isInteractive: interactive,
+              compareOriginal,
+              targetResolution: request.targetRes || null,
+              roi: roi || null,
+              requestAnalytics: shouldRequestAnalytics,
+              computeWaveform: !!isWaveformVisible,
+              activeWaveformChannel: activeWaveformChannelRef.current || null,
+            });
+          },
+          isCurrent,
+          (keys) => keys.forEach((key) => patchesSentToBackend.delete(key)),
+        );
+        trace('invoke-return', performance.now() - invokeStart);
 
-        if (currentPath !== selectedImagePathRef.current || generation !== imageGenerationRef.current) return;
-        sentAssets.forEach((id) => patchesSentToBackend.add(id));
+        if (!isCurrent()) return;
+        if (prepared.sentAssets.size) {
+          // A successful render may have used an oversized inline asset that the
+          // native cache deliberately did not retain. Acknowledge only keys
+          // confirmed present, without delaying display on this bookkeeping.
+          void invoke<PreviewAssetCacheStatus>(Invokes.GetPreviewAssetCacheStatus, {
+            keys: [...prepared.sentAssets],
+          })
+            .then(({ retainedKeys }) => {
+              const state = useEditorStore.getState();
+              if (
+                state.imageSession === session &&
+                state.backendGeneration === expectedGeneration &&
+                state.selectedImage?.path === path &&
+                state.patchesSentToBackend === patchesSentToBackend
+              ) {
+                retainedKeys.forEach((key) => patchesSentToBackend.add(key));
+              }
+            })
+            .catch((error) => console.warn('Could not confirm preview asset retention:', error));
+        }
 
         if (buffer && buffer.byteLength > 0 && jobId >= latestRenderedJobIdRef.current) {
+          if (!acceptMainPreviewAttempt(inputRevision, attempt)) return;
+          renderedSessionRef.current = session;
           latestRenderedJobIdRef.current = jobId;
 
           const textDecoder = new TextDecoder();
           const prefix = textDecoder.decode(buffer.slice(0, 11));
           if (prefix === 'WGPU_RENDER') {
+            trace('wgpu-accepted');
             setEditor((state) => {
               if (state.interactivePatch && state.interactivePatch.url) URL.revokeObjectURL(state.interactivePatch.url);
               return { interactivePatch: null };
             });
+            if (!compareOriginal && !interactive) {
+              lastEditedFrameRef.current = {
+                request,
+                roi: JSON.stringify(roi),
+                settings: useSettingsStore.getState().appSettings,
+                rendererWgpu: true,
+                url: null,
+              };
+            }
             return;
           }
 
-          if (dragging) {
+          if (compareOriginal) {
+            // The native renderer encodes this comparison without touching its
+            // displayed WGPU texture. Keep the edited base intact so leaving
+            // Show Original can simply remove this webview overlay.
+            const jpegBuffer = interactive ? buffer.slice(24) : buffer;
+            const url = URL.createObjectURL(new Blob([jpegBuffer], { type: 'image/jpeg' }));
+            if (!isCurrent()) {
+              URL.revokeObjectURL(url);
+              return;
+            }
+            traceJpegUrl(url, {
+              session,
+              generation: expectedGeneration,
+              revision: inputRevision,
+              attempt,
+              tier,
+              resolution: request.targetRes,
+            });
+            setEditor({ comparisonPreviewUrl: url });
+            trace('jpeg-accepted');
+            return;
+          }
+
+          if (interactive) {
             const view = new DataView(buffer);
             const patchX = view.getUint32(0, true);
             const patchY = view.getUint32(4, true);
@@ -173,6 +347,18 @@ export function useImageProcessing(
             const imageBuffer = buffer.slice(24);
             const blob = new Blob([imageBuffer], { type: 'image/jpeg' });
             const url = URL.createObjectURL(blob);
+            if (!isCurrent()) {
+              URL.revokeObjectURL(url);
+              return;
+            }
+            traceJpegUrl(url, {
+              session,
+              generation: expectedGeneration,
+              revision: inputRevision,
+              attempt,
+              tier,
+              resolution: request.targetRes,
+            });
 
             setEditor((state) => {
               const previousPatchUrl = state.interactivePatch?.url;
@@ -191,10 +377,19 @@ export function useImageProcessing(
             const blob = new Blob([buffer], { type: 'image/jpeg' });
             const url = URL.createObjectURL(blob);
 
-            if (currentPath !== selectedImagePathRef.current || jobId < latestRenderedJobIdRef.current) {
+            if (!isCurrent() || path !== selectedImagePathRef.current || jobId < latestRenderedJobIdRef.current) {
               URL.revokeObjectURL(url);
               return;
             }
+            globalImageCache.registerBlobSize(url, blob.size);
+            traceJpegUrl(url, {
+              session,
+              generation: expectedGeneration,
+              revision: inputRevision,
+              attempt,
+              tier,
+              resolution: request.targetRes,
+            });
 
             setEditor((state) => {
               const prevUrl = state.finalPreviewUrl;
@@ -205,22 +400,29 @@ export function useImageProcessing(
                   }
                 }, 250);
               }
-              return { finalPreviewUrl: url };
-            });
-
-            setEditor((state) => {
               const previousPatchUrl = state.interactivePatch?.url;
               if (previousPatchUrl) setTimeout(() => URL.revokeObjectURL(previousPatchUrl), 500);
-              return { interactivePatch: null };
+              return { finalPreviewUrl: url, interactivePatch: null };
             });
+            lastEditedFrameRef.current = {
+              request,
+              roi: JSON.stringify(roi),
+              settings: useSettingsStore.getState().appSettings,
+              rendererWgpu: false,
+              url,
+            };
           }
+          trace('jpeg-accepted');
         }
       } catch (err) {
-        if (currentPath !== selectedImagePathRef.current || generation !== imageGenerationRef.current) return;
-        if (err !== 'Superseded or worker failed') {
-          console.error('Failed to apply adjustments:', err);
+        if (!isCurrent()) return;
+        if (isPreviewSuperseded(err) || err === 'Superseded or worker failed') {
+          trace('superseded');
+          return;
         }
-        if (!dragging) {
+        console.error('Failed to apply adjustments:', err);
+        trace('render-error');
+        if (!interactive) {
           setEditor((state) => {
             if (state.interactivePatch && state.interactivePatch.url) URL.revokeObjectURL(state.interactivePatch.url);
             return { interactivePatch: null };
@@ -228,28 +430,76 @@ export function useImageProcessing(
         }
       }
     },
-    [selectedImage?.path, calculateROI, isWaveformVisible, setEditor, previewJobIdRef, latestRenderedJobIdRef],
+    [calculateROI, isWaveformVisible, setEditor, previewJobIdRef, latestRenderedJobIdRef],
   );
 
   const executeRef = useRef(executeApplyAdjustments);
   executeRef.current = executeApplyAdjustments;
-  const pipelineRef = useRef<PreviewPipeline<{
-    adjustments: Adjustments;
-    dragging: boolean;
-    targetRes?: number;
-    path: string;
-  }> | null>(null);
+  const refinementRef = useRef<PreviewRefinementScheduler<MainPreviewRequest> | null>(null);
+  const pipelineRef = useRef<PreviewPipeline<MainPreviewRequest> | null>(null);
   if (!pipelineRef.current) {
-    pipelineRef.current = new PreviewPipeline(async (request) => {
-      const image = useEditorStore.getState().selectedImage;
-      if (!image?.isReady || request.path !== image.path) return;
-      await executeRef.current(request.adjustments, request.dragging, request.targetRes);
+    pipelineRef.current = new PreviewPipeline(async (request, isLatest) => {
+      const state = useEditorStore.getState();
+      if (
+        !state.selectedImage?.isReady ||
+        request.path !== state.selectedImage.path ||
+        request.session !== state.imageSession ||
+        request.expectedGeneration !== state.backendGeneration ||
+        request.inputRevision !== latestPreviewRevision('main')
+      ) {
+        return;
+      }
+      try {
+        await executeRef.current(request, isLatest);
+      } finally {
+        if (request.tier === 'quick') {
+          const last = lastInputRef.current;
+          if (last?.request === request) last.quickSettled = true;
+          refinementRef.current?.quickCompleted(request);
+        }
+      }
     });
+  }
+  if (!refinementRef.current) {
+    refinementRef.current = new PreviewRefinementScheduler(
+      DETAIL_QUIET_MS,
+      (request) => {
+        const state = useEditorStore.getState();
+        if (
+          state.imageSession !== request.session ||
+          state.backendGeneration !== request.expectedGeneration ||
+          latestPreviewRevision('main') !== request.inputRevision
+        ) {
+          return;
+        }
+        pipelineRef.current?.enqueue({
+          ...request,
+          dragging: false,
+          tier: 'detail',
+          targetRes: request.requestedTargetRes,
+          enqueuedAt: performance.now(),
+        });
+      },
+      (request, durationMs) =>
+        tracePreview({
+          stage: 'detail-quiet-elapsed',
+          session: request.session,
+          generation: request.expectedGeneration,
+          revision: request.inputRevision,
+          attempt: 0,
+          tier: 'detail',
+          durationMs,
+          resolution: request.requestedTargetRes,
+        }),
+    );
   }
 
   useEffect(
     () => () => {
+      invalidatePreviewRevisions(useEditorStore.getState().backendGeneration);
       pipelineRef.current?.clear();
+      refinementRef.current?.clear();
+      clearPreviewDiagnostics();
       selectedImagePathRef.current = null;
       imageGenerationRef.current += 1;
     },
@@ -258,32 +508,196 @@ export function useImageProcessing(
 
   const applyAdjustments = useCallback(
     (currentAdjustments: Adjustments, dragging: boolean = false, targetRes?: number) => {
-      const image = useEditorStore.getState().selectedImage;
+      const state = useEditorStore.getState();
+      const image = state.selectedImage;
       if (!image?.isReady) return;
       const quality = useSettingsStore.getState().appSettings?.livePreviewQuality;
-      pipelineRef.current!.enqueue({
+      const currentRoi = JSON.stringify(renderedSessionRef.current === state.imageSession ? calculateROI() : null);
+      if (comparisonReturnPendingRef.current) {
+        comparisonReturnPendingRef.current = false;
+        const comparison = comparisonRestoreRef.current;
+        comparisonRestoreRef.current = null;
+        const frame = comparison?.frame;
+        if (
+          !dragging &&
+          !state.showOriginal &&
+          !state.previewOverride &&
+          !state.interactivePatch &&
+          comparison?.adjustments === currentAdjustments &&
+          frame?.request.adjustments === currentAdjustments &&
+          frame.request.path === image.path &&
+          frame.request.session === state.imageSession &&
+          frame.request.expectedGeneration === state.backendGeneration &&
+          (frame.request.targetRes === targetRes ||
+            (targetRes !== undefined &&
+              frame.request.targetRes !== undefined &&
+              frame.request.targetRes > targetRes &&
+              frame.request.requestedTargetRes === frame.request.targetRes)) &&
+          frame.roi === currentRoi &&
+          frame.settings === useSettingsStore.getState().appSettings &&
+          (frame.rendererWgpu ? state.hasRenderedFirstFrame : !!frame.url && state.finalPreviewUrl === frame.url) &&
+          comparison.waveformVisible === state.isWaveformVisible &&
+          comparison.waveformChannel === state.activeWaveformChannel
+        ) {
+          const preallocated = preallocatedInputRef.current;
+          const inputRevision =
+            preallocated?.adjustments === currentAdjustments &&
+            preallocated.path === image.path &&
+            preallocated.session === state.imageSession &&
+            preallocated.expectedGeneration === state.backendGeneration
+              ? preallocated.inputRevision
+              : reservePreviewRevision('main', state.backendGeneration);
+          preallocatedInputRef.current = null;
+          lastInputRef.current = {
+            request: {
+              ...frame.request,
+              inputRevision,
+              enqueuedAt: performance.now(),
+            },
+            quality,
+            roi: currentRoi,
+            waveformVisible: state.isWaveformVisible,
+            waveformChannel: state.activeWaveformChannel,
+            quickSettled: true,
+            releaseSeen: true,
+          };
+          setEditor({ histogram: comparison.histogram, waveform: comparison.waveform });
+          tracePreview({
+            stage: 'compare-restore-hit',
+            session: state.imageSession,
+            generation: state.backendGeneration,
+            revision: inputRevision,
+            attempt: 0,
+            tier: 'full',
+            resolution: targetRes,
+          });
+          return;
+        }
+      }
+      const quickResolution = interactivePreviewResolution(targetRes ?? 1920, quality);
+      const needsDetail = !!targetRes && quickResolution < targetRes;
+      const previous = lastInputRef.current;
+      const sameInput =
+        previous?.request.path === image.path &&
+        previous.request.session === state.imageSession &&
+        previous.request.expectedGeneration === state.backendGeneration &&
+        previous.request.adjustments === currentAdjustments &&
+        previous.request.compareOriginal === state.showOriginal &&
+        previous.request.requestedTargetRes === targetRes &&
+        previous.quality === quality &&
+        previous.waveformVisible === state.isWaveformVisible &&
+        previous.waveformChannel === state.activeWaveformChannel &&
+        (previous.roi === currentRoi || previous.roi === 'null');
+
+      if (sameInput && previous) {
+        if (dragging || previous.releaseSeen) return;
+        previous.releaseSeen = true;
+        if (needsDetail) {
+          tracePreview({
+            stage: 'detail-quiet-armed',
+            session: state.imageSession,
+            generation: state.backendGeneration,
+            revision: previous.request.inputRevision,
+            attempt: 0,
+            tier: 'detail',
+            resolution: targetRes,
+          });
+          refinementRef.current?.schedule(previous.request, previous.quickSettled);
+          return;
+        }
+        // An interactive patch cannot replace the settled full-frame base.
+        pipelineRef.current?.enqueue({
+          ...previous.request,
+          dragging: false,
+          tier: 'full',
+          enqueuedAt: performance.now(),
+        });
+        return;
+      }
+
+      refinementRef.current?.clear();
+      const preallocated = preallocatedInputRef.current;
+      const inputRevision =
+        preallocated?.adjustments === currentAdjustments &&
+        preallocated.path === image.path &&
+        preallocated.session === state.imageSession &&
+        preallocated.expectedGeneration === state.backendGeneration
+          ? preallocated.inputRevision
+          : reservePreviewRevision('main', state.backendGeneration);
+      preallocatedInputRef.current = null;
+      const request: MainPreviewRequest = {
         adjustments: currentAdjustments,
         dragging,
-        targetRes: dragging && targetRes ? interactivePreviewResolution(targetRes, quality) : targetRes,
+        compareOriginal: state.showOriginal,
+        targetRes: dragging ? quickResolution : needsDetail ? quickResolution : targetRes,
+        requestedTargetRes: targetRes,
         path: image.path,
+        session: state.imageSession,
+        expectedGeneration: state.backendGeneration,
+        inputRevision,
+        tier: dragging || needsDetail ? 'quick' : 'full',
+        enqueuedAt: performance.now(),
+      };
+      lastInputRef.current = {
+        request,
+        quality,
+        roi: currentRoi,
+        waveformVisible: state.isWaveformVisible,
+        waveformChannel: state.activeWaveformChannel,
+        quickSettled: false,
+        releaseSeen: !dragging,
+      };
+      tracePreview({
+        stage: 'input-enqueued',
+        session: state.imageSession,
+        generation: state.backendGeneration,
+        revision: inputRevision,
+        attempt: 0,
+        tier: request.tier,
+        resolution: targetRes,
       });
+      pipelineRef.current?.enqueue(request);
+      if (needsDetail && !dragging) {
+        tracePreview({
+          stage: 'detail-quiet-armed',
+          session: state.imageSession,
+          generation: state.backendGeneration,
+          revision: inputRevision,
+          attempt: 0,
+          tier: 'detail',
+          resolution: targetRes,
+        });
+        refinementRef.current?.schedule(request, false);
+      }
     },
-    [],
+    [calculateROI],
   );
 
   const uncroppedPipeline = useMemo(
     () =>
-      new PreviewPipeline<{ adjustments: Adjustments; path: string; generation: number }>(async (request) => {
+      new PreviewPipeline<{
+        adjustments: Adjustments;
+        path: string;
+        session: number;
+        expectedGeneration: number | null;
+        inputRevision: number;
+      }>(async (request, isLatest) => {
         const isCurrent = () =>
-          request.path === selectedImagePathRef.current && request.generation === imageGenerationRef.current;
+          request.path === useEditorStore.getState().selectedImage?.path &&
+          request.session === useEditorStore.getState().imageSession &&
+          request.expectedGeneration === useEditorStore.getState().backendGeneration &&
+          request.inputRevision === latestPreviewRevision('uncropped') &&
+          isLatest();
         if (!isCurrent()) return;
         try {
           const dataUrl = await invoke<string>(Invokes.GenerateUncroppedPreview, {
             jsAdjustments: request.adjustments,
+            expectedGeneration: request.expectedGeneration,
+            inputRevision: request.inputRevision,
           });
           if (isCurrent()) useEditorStore.getState().setEditor({ uncroppedAdjustedPreviewUrl: dataUrl });
         } catch (error) {
-          if (isCurrent()) console.error(error);
+          if (isCurrent() && !isPreviewSuperseded(error)) console.error(error);
         }
       }),
     [],
@@ -291,14 +705,72 @@ export function useImageProcessing(
 
   useEffect(() => () => uncroppedPipeline.clear(), [uncroppedPipeline]);
 
+  useEffect(
+    () =>
+      useEditorStore.subscribe((state, previous) => {
+        if (state.selectedImage?.path !== previous.selectedImage?.path) {
+          // Zustand subscribers run during the selection update, before metadata
+          // loading or React effects can delay native source invalidation.
+          invalidatePreviewRevisions(previous.backendGeneration);
+          refinementRef.current?.clear();
+          pipelineRef.current?.clear();
+          uncroppedPipeline.clear();
+          lastInputRef.current = null;
+          lastEditedFrameRef.current = null;
+          comparisonRestoreRef.current = null;
+          comparisonReturnPendingRef.current = false;
+          preallocatedInputRef.current = null;
+          return;
+        }
+        if (!previous.showOriginal && state.showOriginal) {
+          comparisonRestoreRef.current = {
+            frame: lastEditedFrameRef.current,
+            adjustments: previous.adjustments,
+            histogram: previous.histogram,
+            waveform: previous.waveform,
+            waveformVisible: previous.isWaveformVisible,
+            waveformChannel: previous.activeWaveformChannel,
+          };
+          comparisonReturnPendingRef.current = false;
+        } else if (previous.showOriginal && !state.showOriginal) {
+          comparisonReturnPendingRef.current = true;
+        }
+        const renderAdjustments = state.previewOverride ?? state.adjustments;
+        const previousAdjustments = previous.previewOverride ?? previous.adjustments;
+        if (!state.selectedImage?.isReady || renderAdjustments === previousAdjustments) return;
+        const inputRevision = reservePreviewRevision('main', state.backendGeneration);
+        tracePreview({
+          stage: 'input-changed',
+          session: state.imageSession,
+          generation: state.backendGeneration,
+          revision: inputRevision,
+          attempt: 0,
+          tier: 'unknown',
+        });
+        preallocatedInputRef.current = {
+          adjustments: renderAdjustments,
+          path: state.selectedImage.path,
+          session: state.imageSession,
+          expectedGeneration: state.backendGeneration,
+          inputRevision,
+        };
+        refinementRef.current?.clear();
+        pipelineRef.current?.clear();
+      }),
+    [uncroppedPipeline],
+  );
+
   const generateUncroppedPreview = useCallback(
     (currentAdjustments: Adjustments) => {
       const image = useEditorStore.getState().selectedImage;
       if (!image?.isReady) return;
+      const state = useEditorStore.getState();
       uncroppedPipeline.enqueue({
         adjustments: currentAdjustments,
         path: image.path,
-        generation: imageGenerationRef.current,
+        session: state.imageSession,
+        expectedGeneration: state.backendGeneration,
+        inputRevision: reservePreviewRevision('uncropped', state.backendGeneration),
       });
     },
     [uncroppedPipeline],
@@ -457,9 +929,11 @@ export function useImageProcessing(
     isSliderDragging,
     multiSelectedPaths,
     appSettings?.enableLivePreviews,
+    appSettings?.livePreviewQuality,
     appSettings?.copyPasteSettings?.includedAdjustments,
     appSettings?.copyPasteSettings?.autoSync,
     isWaveformVisible,
+    activeWaveformChannel,
   ]);
 
   return {

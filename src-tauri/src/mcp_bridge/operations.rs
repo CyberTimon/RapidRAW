@@ -46,6 +46,7 @@ pub(super) const METHODS: &[&str] = &[
     "analyze",
     "auto_adjust",
     "mask_create",
+    "mask_duplicate",
     "mask_update",
     "mask_remove",
     "mask_generate",
@@ -73,6 +74,32 @@ pub(super) const METHODS: &[&str] = &[
     "denoise",
     "lens_profile",
 ];
+
+fn duplicate_mask_definition(source: &Value, params: &Value) -> Result<(Value, Vec<String>)> {
+    let mut duplicate = source.clone();
+    duplicate["id"] = json!(uuid::Uuid::new_v4().to_string());
+    duplicate["name"] = json!(if params.get("name").is_some() {
+        required(params, "name")?.to_string()
+    } else {
+        format!("{} copy", required(source, "name")?)
+    });
+    if flag(params, "invert", false)? {
+        duplicate["invert"] = json!(!source["invert"].as_bool().unwrap_or(false));
+    }
+    if !flag(params, "copy_adjustments", false)? {
+        duplicate["adjustments"] = json!({});
+    }
+    let submasks = duplicate["subMasks"]
+        .as_array_mut()
+        .ok_or("INVALID_MASK: subMasks must be an array")?;
+    let mut ids = Vec::with_capacity(submasks.len());
+    for submask in submasks {
+        let id = uuid::Uuid::new_v4().to_string();
+        submask["id"] = json!(id);
+        ids.push(id);
+    }
+    Ok((duplicate, ids))
+}
 
 impl Bridge {
     pub async fn dispatch(&mut self, method: &str, params: Value) -> Result<Value> {
@@ -151,12 +178,14 @@ impl Bridge {
                 self.sessions.remove(&id);
                 if self.active.as_deref() == Some(&id) {
                     self.active = None;
-                    let state = self.handle.state::<AppState>();
-                    *state.original_image.lock().unwrap() = None;
-                    *state.cached_preview.lock().unwrap() = None;
-                    *state.full_warped_cache.lock().unwrap() = None;
-                    *state.patched_warped_cache.lock().unwrap() = None;
-                    *state.full_transformed_cache.lock().unwrap() = None;
+                    let handle = self.handle.clone();
+                    let working_path = session.working_path.clone();
+                    tokio::task::spawn_blocking(move || {
+                        let state = handle.state::<AppState>();
+                        clear_closed_session_preview(&state, &working_path);
+                    })
+                    .await
+                    .map_err(|error| format!("Could not close preview session: {error}"))?;
                 }
                 return Ok(
                     json!({"session_id":id,"closed":true,"saved":true,"restore":"Session is available on next bridge startup"}),
@@ -234,7 +263,7 @@ impl Bridge {
                 result["applied"] = json!(true);
                 Ok(result)
             }
-            "mask_create" | "mask_update" | "mask_remove" => {
+            "mask_create" | "mask_duplicate" | "mask_update" | "mask_remove" => {
                 self.mask_edit(&session, method, &params)
             }
             "undo" | "redo" => {
@@ -397,6 +426,25 @@ impl Bridge {
                 .unwrap_or_else(|| json!({}));
             validation::resolve_curve_patch(&mut local, &params["adjustments"]);
             masks.push(json!({"id":mask_id,"name":params["name"].as_str().unwrap_or("Agent mask"),"visible":true,"invert":flag(params,"invert",false)?,"opacity":number(params,"opacity",100.,0.,100.)?,"adjustments":local,"subMasks":[{"id":uuid::Uuid::new_v4().to_string(),"type":kind,"visible":true,"invert":false,"opacity":100,"mode":"additive","parameters":params.get("parameters").cloned().unwrap_or_else(||json!({}))}]}));
+        } else if method == "mask_duplicate" {
+            let source_index = masks
+                .iter()
+                .position(|mask| mask["id"] == mask_id)
+                .ok_or("MASK_NOT_FOUND: Unknown mask id")?;
+            let (duplicate, ids) = duplicate_mask_definition(&masks[source_index], params)?;
+            let new_id = required(&duplicate, "id")?.to_string();
+            submask_ids = ids;
+            masks.insert(source_index + 1, duplicate);
+            let mut result = self.commit(
+                &session.id,
+                adjustments,
+                session.current().metadata.clone(),
+                method,
+            )?;
+            result["source_mask_id"] = json!(mask_id);
+            result["mask_id"] = json!(new_id);
+            result["submask_ids"] = json!(submask_ids);
+            return Ok(result);
         } else {
             let index = masks
                 .iter()
@@ -511,6 +559,41 @@ impl Bridge {
             json!({"ok":failed==0,"total":results.len(),"succeeded":results.len()-failed,"failed":failed,"results":results}),
         )
     }
+}
+
+/// Only clear the bridge's source when it still owns the shared editor state.
+/// The gate excludes active preview readers; advancing the generation under it
+/// invalidates their queued successors before any cache is cleared.
+fn clear_closed_session_preview(state: &AppState, working_path: &str) -> bool {
+    let _session = state
+        .preview_session_gate
+        .write()
+        .unwrap_or_else(|error| error.into_inner());
+    let still_active = state
+        .original_image
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .as_ref()
+        .is_some_and(|image| image.path == working_path);
+    if !still_active {
+        return false;
+    }
+
+    state.begin_preview_generation();
+    crate::mask_generation::clear_component_mask_cache();
+    *state.original_image.lock().unwrap() = None;
+    *state.cached_preview.lock().unwrap() = None;
+    *state.gpu_image_cache.lock().unwrap() = None;
+    *state.full_warped_cache.lock().unwrap() = None;
+    *state.patched_warped_cache.lock().unwrap() = None;
+    *state.full_transformed_cache.lock().unwrap() = None;
+    state.mask_cache.lock().unwrap().clear();
+    state.patch_cache.lock().unwrap().clear();
+    state.geometry_cache.lock().unwrap().clear();
+    *state.denoise_result.lock().unwrap() = None;
+    *state.hdr_result.lock().unwrap() = None;
+    *state.panorama_result.lock().unwrap() = None;
+    true
 }
 
 fn list_images(params: &Value) -> Result<Value> {
@@ -643,6 +726,79 @@ fn interpolate_patch(base: &Value, patch: &mut Value, intensity: f64) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app_state::{LoadedImage, PreviewIdentity, PreviewLane};
+    use image::DynamicImage;
+    use std::collections::HashMap;
+    use std::sync::atomic::Ordering;
+
+    #[test]
+    fn duplicate_parent_preserves_selection_assets_but_gets_independent_ids() {
+        let source = json!({"id":"parent","name":"Subject","visible":true,"invert":false,"adjustments":{"exposure":1},"subMasks":[{"id":"ai","type":"ai-subject","parameters":{"maskDataBase64":"opaque-bitmap"}},{"id":"brush","type":"brush","parameters":{"lines":[]}}]});
+        let (duplicate, ids) =
+            duplicate_mask_definition(&source, &json!({"name":"Environment","invert":true}))
+                .unwrap();
+        assert_ne!(duplicate["id"], source["id"]);
+        assert_eq!(duplicate["name"], "Environment");
+        assert_eq!(duplicate["invert"], true);
+        assert_eq!(duplicate["adjustments"], json!({}));
+        assert_eq!(
+            duplicate["subMasks"][0]["parameters"],
+            source["subMasks"][0]["parameters"]
+        );
+        assert_eq!(ids.len(), 2);
+        assert_ne!(ids[0], ids[1]);
+        assert_ne!(ids[0], "ai");
+        assert_ne!(ids[1], "brush");
+        assert_eq!(source["adjustments"]["exposure"], 1);
+
+        let (graded, _) =
+            duplicate_mask_definition(&source, &json!({"copy_adjustments":true})).unwrap();
+        assert_eq!(graded["adjustments"], source["adjustments"]);
+        assert_eq!(graded["invert"], false);
+    }
+
+    #[test]
+    fn closing_active_source_invalidates_preview_without_clearing_another_source() {
+        let state = AppState::default();
+        let generation = state.begin_preview_generation();
+        let old_preview = PreviewIdentity {
+            generation,
+            lane: PreviewLane::Main,
+            revision: Some(1),
+        };
+        state.register_preview_intent(old_preview).unwrap();
+        *state.original_image.lock().unwrap() = Some(LoadedImage {
+            path: "closed-photo".into(),
+            image: Arc::new(DynamicImage::new_rgb8(2, 2)),
+            is_raw: false,
+        });
+        state.patch_cache.lock().unwrap().insert_group(
+            "patch:old".into(),
+            HashMap::from([("patchData".into(), json!({"color":"old"}))]),
+        );
+
+        assert!(clear_closed_session_preview(&state, "closed-photo"));
+        assert!(state.original_image.lock().unwrap().is_none());
+        assert!(state.patch_cache.lock().unwrap().is_empty());
+        assert!(state.ensure_preview_identity(old_preview).is_err());
+
+        *state.original_image.lock().unwrap() = Some(LoadedImage {
+            path: "other-photo".into(),
+            image: Arc::new(DynamicImage::new_rgb8(2, 2)),
+            is_raw: false,
+        });
+        let current_generation = state.load_image_generation.load(Ordering::SeqCst);
+        assert!(!clear_closed_session_preview(&state, "closed-photo"));
+        assert_eq!(
+            state.load_image_generation.load(Ordering::SeqCst),
+            current_generation
+        );
+        assert_eq!(
+            state.original_image.lock().unwrap().as_ref().unwrap().path,
+            "other-photo"
+        );
+    }
+
     #[test]
     fn disabled_legacy_preset_controls_migrate_with_an_explicit_warning() {
         let mut patch = json!({"exposure":0.4,"enableNegativeConversion":false,"filmBaseColor":"#ff8800","negativeRedBalance":0,"negativeGreenBalance":0,"negativeBlueBalance":0});

@@ -9,9 +9,62 @@ use std::num::NonZero;
 use tauri::Manager;
 use wgpu::util::{DeviceExt, TextureDataOrder};
 
+use crate::app_state::{PreviewCancellation, PreviewIdentity, PreviewLane};
 use crate::image_processing::{AllAdjustments, GpuContext, MAX_MASKS};
 use crate::lut_processing::Lut;
 use crate::{AppState, GpuImageCache};
+
+fn submit_current_preview_display<T>(
+    state: &AppState,
+    identity: Option<PreviewIdentity>,
+    submit: impl FnOnce() -> T,
+) -> Result<T, String> {
+    if let Some(identity) = identity {
+        state.with_current_preview_identity(identity, submit)
+    } else {
+        Ok(submit())
+    }
+}
+
+pub(crate) fn display_frame_matches_generation(
+    frame_generation: Option<usize>,
+    generation: usize,
+) -> bool {
+    frame_generation == Some(generation)
+}
+
+/// Present a neutral frame as soon as a new photo generation begins, before
+/// waiting for the previous generation's session readers to drain.
+pub fn clear_preview_display_for_generation(
+    state: &AppState,
+    generation: usize,
+) -> Result<(), String> {
+    let context = state
+        .gpu_context
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .as_ref()
+        .cloned();
+    let Some(context) = context else {
+        return Ok(());
+    };
+    let identity = PreviewIdentity {
+        generation,
+        lane: PreviewLane::Main,
+        revision: None,
+    };
+    state.with_current_preview_identity(identity, || {
+        let mut display = context
+            .display
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        if let Some(display) = display.as_mut() {
+            display.current_bind_group = None;
+            display.frame_generation = None;
+            display.render(&context.device, &context.queue);
+        }
+    })
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct Roi {
@@ -58,51 +111,52 @@ pub struct WgpuDisplay {
     pub transform_buffer: wgpu::Buffer,
     pub latest_transform: DisplayTransform,
     pub current_bind_group: Option<wgpu::BindGroup>,
+    pub frame_generation: Option<usize>,
 }
 
 impl WgpuDisplay {
     pub fn render(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
-        if let Some(bind_group) = &self.current_bind_group {
-            let output = match self.surface.get_current_texture() {
-                wgpu::CurrentSurfaceTexture::Success(tex)
-                | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
-                wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
-                    self.surface.configure(device, &self.config);
-                    match self.surface.get_current_texture() {
-                        wgpu::CurrentSurfaceTexture::Success(tex)
-                        | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
-                        _ => panic!("Failed to acquire surface texture"),
-                    }
+        let output = match self.surface.get_current_texture() {
+            wgpu::CurrentSurfaceTexture::Success(tex)
+            | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
+            wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
+                self.surface.configure(device, &self.config);
+                match self.surface.get_current_texture() {
+                    wgpu::CurrentSurfaceTexture::Success(tex)
+                    | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
+                    _ => panic!("Failed to acquire surface texture"),
                 }
-                _ => return,
-            };
-            let view = output
-                .texture
-                .create_view(&wgpu::TextureViewDescriptor::default());
-            let mut encoder =
-                device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-            {
-                let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: None,
-                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                        view: &view,
-                        resolve_target: None,
-                        ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(wgpu::Color {
-                                r: self.latest_transform.bg_primary[0] as f64,
-                                g: self.latest_transform.bg_primary[1] as f64,
-                                b: self.latest_transform.bg_primary[2] as f64,
-                                a: self.latest_transform.bg_primary[3] as f64,
-                            }),
-                            store: wgpu::StoreOp::Store,
-                        },
-                        depth_slice: None,
-                    })],
-                    depth_stencil_attachment: None,
-                    timestamp_writes: None,
-                    occlusion_query_set: None,
-                    multiview_mask: NonZero::new(0),
-                });
+            }
+            _ => return,
+        };
+        let view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        let mut encoder =
+            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        {
+            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: self.latest_transform.bg_primary[0] as f64,
+                            g: self.latest_transform.bg_primary[1] as f64,
+                            b: self.latest_transform.bg_primary[2] as f64,
+                            a: self.latest_transform.bg_primary[3] as f64,
+                        }),
+                        store: wgpu::StoreOp::Store,
+                    },
+                    depth_slice: None,
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: NonZero::new(0),
+            });
+            if let Some(bind_group) = &self.current_bind_group {
                 let clip_x1 = self.latest_transform.clip[0].max(0.0);
                 let clip_y1 = self.latest_transform.clip[1].max(0.0);
                 let clip_x2 =
@@ -136,9 +190,9 @@ impl WgpuDisplay {
                     }
                 }
             }
-            queue.submit(Some(encoder.finish()));
-            output.present();
         }
+        queue.submit(Some(encoder.finish()));
+        output.present();
     }
 }
 
@@ -414,6 +468,7 @@ pub fn get_or_init_gpu_context(
             },
             sampler,
             current_bind_group: None,
+            frame_generation: None,
         })
     } else {
         None
@@ -1291,6 +1346,7 @@ impl GpuProcessor {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn run(
         &self,
         input_texture_view: &wgpu::TextureView,
@@ -1299,7 +1355,11 @@ impl GpuProcessor {
         request: RenderRequest,
         output_to_display: bool,
         output_precision: RenderOutputPrecision,
+        cancellation: Option<&PreviewCancellation<'_>>,
     ) -> Result<(RenderedPixels, u32, u32, u32, u32), String> {
+        if let Some(cancel) = cancellation {
+            cancel.check()?;
+        }
         let device = &self.context.device;
         let queue = &self.context.queue;
         let effect_width = if request.adjustments.image_width > 0 {
@@ -1391,6 +1451,9 @@ impl GpuProcessor {
             TextureDataOrder::MipMajor,
             &mask_texture_data,
         );
+        if let Some(cancel) = cancellation {
+            cancel.check()?;
+        }
         let mask_texture_view = mask_texture.create_view(&wgpu::TextureViewDescriptor {
             dimension: Some(wgpu::TextureViewDimension::D2Array),
             ..Default::default()
@@ -1546,6 +1609,9 @@ impl GpuProcessor {
                 cpass.dispatch_workgroups(FLARE_MAP_SIZE / 16, FLARE_MAP_SIZE / 16, 1);
             }
 
+            if let Some(cancel) = cancellation {
+                cancel.check()?;
+            }
             queue.submit(Some(encoder.finish()));
         }
 
@@ -1569,6 +1635,9 @@ impl GpuProcessor {
 
         for tile_y in start_tile_y..end_tile_y {
             for tile_x in start_tile_x..end_tile_x {
+                if let Some(cancel) = cancellation {
+                    cancel.check()?;
+                }
                 let x_start_unclamped = tile_x * TILE_SIZE;
                 let y_start_unclamped = tile_y * TILE_SIZE;
 
@@ -1674,9 +1743,21 @@ impl GpuProcessor {
                 };
 
                 let did_create_sharpness_blur = run_blur(1.0, &self.sharpness_blur_view);
+                if let Some(cancel) = cancellation {
+                    cancel.check()?;
+                }
                 let did_create_tonal_blur = run_blur(3.5, &self.tonal_blur_view);
+                if let Some(cancel) = cancellation {
+                    cancel.check()?;
+                }
                 let did_create_clarity_blur = run_blur(8.0, &self.clarity_blur_view);
+                if let Some(cancel) = cancellation {
+                    cancel.check()?;
+                }
                 let did_create_structure_blur = run_blur(40.0, &self.structure_blur_view);
+                if let Some(cancel) = cancellation {
+                    cancel.check()?;
+                }
 
                 let mut main_encoder = device.create_command_encoder(&Default::default());
 
@@ -1813,6 +1894,9 @@ impl GpuProcessor {
                     );
                 }
 
+                if let Some(cancel) = cancellation {
+                    cancel.check()?;
+                }
                 queue.submit(Some(main_encoder.finish()));
 
                 if !output_to_display {
@@ -1824,6 +1908,9 @@ impl GpuProcessor {
                         input_texture_size,
                         bytes_per_pixel,
                     )?;
+                    if let Some(cancel) = cancellation {
+                        cancel.check()?;
+                    }
 
                     match &mut final_pixels {
                         RenderedPixels::U8(final_pixels) => {
@@ -1964,6 +2051,7 @@ fn render_precision_with_processor(
         request,
         false,
         RenderOutputPrecision::SixteenBit,
+        None,
     )?;
     match pixels {
         RenderedPixels::U16(data) => {
@@ -2210,6 +2298,7 @@ pub fn process_and_get_dynamic_image(
         RenderOutputPrecision::EightBit,
         false,
         None,
+        None,
     )
 }
 
@@ -2232,6 +2321,7 @@ pub fn process_and_get_dynamic_image_with_precision(
         output_precision,
         false,
         None,
+        None,
     )
 }
 
@@ -2245,6 +2335,7 @@ pub fn process_and_get_dynamic_image_with_analytics(
     caller_id: &str,
     output_to_display: bool,
     analytics_config: Option<crate::AnalyticsConfig>,
+    preview_identity: Option<PreviewIdentity>,
 ) -> Result<DynamicImage, String> {
     process_and_get_dynamic_image_inner(
         context,
@@ -2256,6 +2347,7 @@ pub fn process_and_get_dynamic_image_with_analytics(
         RenderOutputPrecision::EightBit,
         output_to_display,
         analytics_config,
+        preview_identity,
     )
 }
 
@@ -2270,8 +2362,13 @@ fn process_and_get_dynamic_image_inner(
     output_precision: RenderOutputPrecision,
     output_to_display: bool,
     analytics_config: Option<crate::AnalyticsConfig>,
+    preview_identity: Option<PreviewIdentity>,
 ) -> Result<DynamicImage, String> {
     let start_time = Instant::now();
+    let cancellation = preview_identity.map(|identity| PreviewCancellation { state, identity });
+    if let Some(cancel) = &cancellation {
+        cancel.check()?;
+    }
     let (width, height) = base_image.dimensions();
     let device = &context.device;
     let queue = &context.queue;
@@ -2296,6 +2393,9 @@ fn process_and_get_dynamic_image_inner(
             guard
         }
     };
+    if let Some(cancel) = &cancellation {
+        cancel.check()?;
+    }
     let mut needs_new_processor = false;
     let new_width = (width + 255) & !255;
     let new_height = (height + 255) & !255;
@@ -2344,6 +2444,9 @@ fn process_and_get_dynamic_image_inner(
             guard
         }
     };
+    if let Some(cancel) = &cancellation {
+        cancel.check()?;
+    }
     let mut needs_new_cache = false;
 
     if let Some(cache) = &*cache_lock {
@@ -2365,6 +2468,9 @@ fn process_and_get_dynamic_image_inner(
         });
 
         let img_rgba_f16 = to_rgba_f16(base_image);
+        if let Some(cancel) = &cancellation {
+            cancel.check()?;
+        }
         let texture_size = wgpu::Extent3d {
             width,
             height,
@@ -2407,7 +2513,11 @@ fn process_and_get_dynamic_image_inner(
         request,
         output_to_display,
         output_precision,
+        cancellation.as_ref(),
     )?;
+    if let Some(cancel) = &cancellation {
+        cancel.check()?;
+    }
 
     let mut final_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
         label: Some("Final Passes Encoder"),
@@ -2494,9 +2604,80 @@ fn process_and_get_dynamic_image_inner(
         submit_final_encoder = true;
     }
 
-    if submit_final_encoder {
-        queue.submit(Some(final_encoder.finish()));
-    }
+    // The working texture may hold obsolete pixels after a superseded tile
+    // run. Only copy it into the displayed texture, submit that copy, and
+    // present while this revision still owns the main lane. The intent lock
+    // makes the final check atomic with the copy/presentation submission;
+    // queued GPU work itself remains ordered on the same queue.
+    let submit_and_display = || {
+        if submit_final_encoder {
+            queue.submit(Some(final_encoder.finish()));
+        }
+
+        if output_to_display
+            && let Some(display) = context
+                .display
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .as_mut()
+        {
+            display.latest_transform.image_size = [width as f32, height as f32];
+            display.latest_transform.texture_size =
+                [processor_state.width as f32, processor_state.height as f32];
+
+            queue.write_buffer(
+                &display.transform_buffer,
+                0,
+                bytemuck::bytes_of(&display.latest_transform),
+            );
+
+            let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &display.bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: display.transform_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::TextureView(
+                            &processor.output_texture_view,
+                        ),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: wgpu::BindingResource::Sampler(&display.sampler),
+                    },
+                ],
+                label: None,
+            });
+            display.current_bind_group = Some(bind_group);
+            display.frame_generation = preview_identity.map(|identity| identity.generation);
+            display.render(device, queue);
+            static REMAINING_PRESENT_TRACES: std::sync::atomic::AtomicUsize =
+                std::sync::atomic::AtomicUsize::new(10_000);
+            if std::env::var_os("RAPIDRAW_PREVIEW_TRACE").as_deref()
+                == Some(std::ffi::OsStr::new("1"))
+                && REMAINING_PRESENT_TRACES
+                    .fetch_update(
+                        std::sync::atomic::Ordering::Relaxed,
+                        std::sync::atomic::Ordering::Relaxed,
+                        |n| n.checked_sub(1),
+                    )
+                    .is_ok()
+            {
+                log::info!(
+                    "[preview_trace] surface_present_called generation={:?} revision={:?} size={}x{} processing_to_submit_ms={:.2}",
+                    preview_identity.map(|identity| identity.generation),
+                    preview_identity.and_then(|identity| identity.revision),
+                    width,
+                    height,
+                    start_time.elapsed().as_secs_f64() * 1000.0,
+                );
+            }
+        }
+    };
+    submit_current_preview_display(state, preview_identity, submit_and_display)?;
 
     if let Some(analytics) = analytics_config {
         if let Some(buffer) = async_readback_buffer {
@@ -2541,6 +2722,10 @@ fn process_and_get_dynamic_image_inner(
                     {
                         let dynamic_img = DynamicImage::ImageRgba8(img_buf);
                         let _ = analytics.sender.send(crate::AnalyticsJob {
+                            generation: analytics.generation,
+                            input_revision: analytics.input_revision,
+                            render_attempt: analytics.render_attempt,
+                            quality_tier: analytics.quality_tier,
                             path: analytics.path,
                             image: std::sync::Arc::new(dynamic_img),
                             compute_waveform: analytics.compute_waveform,
@@ -2558,6 +2743,10 @@ fn process_and_get_dynamic_image_inner(
                     {
                         let dynamic_img = DynamicImage::ImageRgba8(img_buf);
                         let _ = analytics.sender.send(crate::AnalyticsJob {
+                            generation: analytics.generation,
+                            input_revision: analytics.input_revision,
+                            render_attempt: analytics.render_attempt,
+                            quality_tier: analytics.quality_tier,
                             path: analytics.path,
                             image: std::sync::Arc::new(dynamic_img),
                             compute_waveform: analytics.compute_waveform,
@@ -2569,45 +2758,6 @@ fn process_and_get_dynamic_image_inner(
                 log::warn!("Skipping analytics for a high-precision CPU readback");
             }
         }
-    }
-
-    if output_to_display
-        && let Some(display) = context
-            .display
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .as_mut()
-    {
-        display.latest_transform.image_size = [width as f32, height as f32];
-        display.latest_transform.texture_size =
-            [processor_state.width as f32, processor_state.height as f32];
-
-        queue.write_buffer(
-            &display.transform_buffer,
-            0,
-            bytemuck::bytes_of(&display.latest_transform),
-        );
-
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &display.bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: display.transform_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&processor.output_texture_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::Sampler(&display.sampler),
-                },
-            ],
-            label: None,
-        });
-        display.current_bind_group = Some(bind_group);
-        display.render(device, queue);
     }
 
     if skip_readback {
@@ -2648,6 +2798,67 @@ fn process_and_get_dynamic_image_inner(
                 .ok_or("Failed to create 16-bit image buffer from GPU data")?;
             Ok(DynamicImage::ImageRgba16(img_buf))
         }
+    }
+}
+
+#[cfg(test)]
+mod preview_display_tests {
+    use super::*;
+    use crate::app_state::{PREVIEW_SUPERSEDED, PreviewLane};
+
+    #[test]
+    fn superseded_wgpu_copy_and_present_are_never_submitted() {
+        let state = AppState::default();
+        let generation = state.begin_preview_generation();
+        let old = PreviewIdentity {
+            generation,
+            lane: PreviewLane::Main,
+            revision: Some(1),
+        };
+        state.register_preview_intent(old).unwrap();
+        state
+            .register_preview_intent(PreviewIdentity {
+                revision: Some(2),
+                ..old
+            })
+            .unwrap();
+
+        let mut copy_submitted = false;
+        assert_eq!(
+            submit_current_preview_display(&state, Some(old), || copy_submitted = true)
+                .unwrap_err(),
+            PREVIEW_SUPERSEDED
+        );
+        assert!(!copy_submitted);
+    }
+
+    #[test]
+    fn transform_for_old_generation_cannot_redraw_previous_frame() {
+        let state = AppState::default();
+        let old_generation = state.begin_preview_generation();
+        let new_generation = state.begin_preview_generation();
+        let old_identity = PreviewIdentity {
+            generation: old_generation,
+            lane: PreviewLane::Main,
+            revision: None,
+        };
+        let mut transform_submitted = false;
+        assert_eq!(
+            state
+                .with_current_preview_identity(old_identity, || transform_submitted = true)
+                .unwrap_err(),
+            PREVIEW_SUPERSEDED
+        );
+        assert!(!transform_submitted);
+        assert!(!display_frame_matches_generation(
+            Some(old_generation),
+            new_generation
+        ));
+        assert!(!display_frame_matches_generation(None, new_generation));
+        assert!(display_frame_matches_generation(
+            Some(new_generation),
+            new_generation
+        ));
     }
 }
 

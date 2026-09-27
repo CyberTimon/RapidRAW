@@ -33,6 +33,7 @@ export const OPTION_SEPARATOR = 'separator';
 export enum Invokes {
   AddTagForPaths = 'add_tag_for_paths',
   ApplyAdjustments = 'apply_adjustments',
+  GetPreviewAssetCacheStatus = 'get_preview_asset_cache_status',
   ApplyAdjustmentsToPaths = 'apply_adjustments_to_paths',
   ApplyAutoAdjustmentsToPaths = 'apply_auto_adjustments_to_paths',
   ApplyDenoising = 'apply_denoising',
@@ -59,6 +60,7 @@ export enum Invokes {
   GenerateMaskOverlay = 'generate_mask_overlay',
   GeneratePresetPreview = 'generate_preset_preview',
   GenerateUncroppedPreview = 'generate_uncropped_preview',
+  GetSourceRevision = 'get_source_revision',
   GetFolderTree = 'get_folder_tree',
   GetAiConnectorCapabilities = 'get_ai_connector_capabilities',
   GetFolderChildren = 'get_folder_children',
@@ -380,6 +382,9 @@ export interface SelectedImage {
   isRaw: boolean;
   isReady: boolean;
   metadata?: ImageMetadata | null;
+  preserveCachedAdjustments?: boolean;
+  cachedSourceRevision?: string;
+  sourceRevision?: string;
   original_base64?: string;
   path: string;
   thumbnailUrl: string;

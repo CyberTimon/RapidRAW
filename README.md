@@ -407,7 +407,7 @@ The optional AI Connector automatically [matches small repair colour differences
 
 For removal, recolouring, adding objects and lettering, follow the [AI editing workflows](docs/ai-editing-workflows.md). Start with Klein 4B at 1 MP and compare the rendered result before changing models or resolution.
 
-The server exposes **65 MCP tools** over stdio. Local AI operations need their model assets installed. HDR, focus merging, panorama and negative conversion are also exposed, with photographic acceptance limits documented in the [historical capability snapshot](docs/mcp/history/capability-matrix-2026-09.md). The live `rapidraw_capabilities` response defines the available tools and schemas for your build.
+Current source builds expose **66 MCP tools** over stdio. Local AI operations need their model assets installed. HDR, focus merging, panorama and negative conversion are also exposed, with photographic acceptance limits documented in the [historical capability snapshot](docs/mcp/history/capability-matrix-2026-09.md). The live `rapidraw_capabilities` response defines the available tools and schemas for your build.
 
 ## Connect an agent
 
