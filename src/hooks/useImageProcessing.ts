@@ -7,11 +7,12 @@ import { useUIStore } from '../store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { Adjustments, COPYABLE_ADJUSTMENT_KEYS } from '../utils/adjustments';
-import { Invokes, Panel } from '../components/ui/AppProperties';
+import { Invokes, LibraryDisplayMode, Panel } from '../components/ui/AppProperties';
 import { debouncedSave, getOriginalAdjustments } from './useEditorActions';
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { prepareAdjustmentsPayload } from '../utils/backendPayload';
 import { calculateTargetResolution } from '../utils/previewResolution';
+import { useOsPlatform } from './useOsPlatform';
 
 const isWgpuRender = (buffer: ArrayBuffer) => new TextDecoder().decode(buffer.slice(0, 11)) === 'WGPU_RENDER';
 
@@ -53,6 +54,12 @@ export function useImageProcessing(
   const isViewerOpen = useUIStore((state) => state.isViewerOpen);
   const appSettings = useSettingsStore((state) => state.appSettings);
   const multiSelectedPaths = useLibraryStore((state) => state.multiSelectedPaths);
+  const osPlatform = useOsPlatform();
+
+  // Live renders come back as images only without the wgpu renderer, which Linux and Android never use.
+  const rendersToImages = osPlatform === 'linux' || osPlatform === 'android' || appSettings?.useWgpuRenderer === false;
+  const isCullingView =
+    activeView === 'library' && appSettings?.libraryDisplayMode === LibraryDisplayMode.Cull && rendersToImages;
 
   const uncroppedJobIdRef = useRef(0);
   const latestUncroppedJobIdRef = useRef(0);
@@ -173,7 +180,7 @@ export function useImageProcessing(
       const { payload, markSent } = prepareAdjustmentsPayload(currentAdjustments);
 
       const jobId = ++previewJobIdRef.current;
-      const roi = calculateROI();
+      const roi = useUIStore.getState().activeView === 'editor' ? calculateROI() : null;
 
       try {
         const request = invoke<ArrayBuffer>(Invokes.ApplyAdjustments, {
@@ -446,7 +453,7 @@ export function useImageProcessing(
     const renderAdjustments = previewOverride ?? adjustments;
 
     if (activeView !== 'editor') {
-      if (isSliderDragging) return;
+      if (isSliderDragging && !isCullingView) return;
     }
 
     if (isSliderDragging) {
@@ -508,6 +515,7 @@ export function useImageProcessing(
     selectedImage?.path,
     selectedImage?.isReady,
     isSliderDragging,
+    isCullingView,
     multiSelectedPaths,
     appSettings?.enableLivePreviews,
     appSettings?.enableBaselineExposure,
