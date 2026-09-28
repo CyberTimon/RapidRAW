@@ -556,6 +556,7 @@ export default function ColorPanel({
           {isKelvinMode && asShotWhiteBalance && kelvinWhiteBalance ? (
             <>
               <Slider
+                key="kelvinTemperature"
                 defaultValue={asShotWhiteBalance.temperature}
                 label={t('adjustments.color.temperature')}
                 max={MAX_TEMPERATURE}
@@ -569,6 +570,7 @@ export default function ColorPanel({
                 onDragStateChange={onDragStateChange}
               />
               <Slider
+                key="kelvinTint"
                 defaultValue={asShotWhiteBalance.tint}
                 label={t('adjustments.color.tint')}
                 max={MAX_TINT}
@@ -583,6 +585,7 @@ export default function ColorPanel({
           ) : (
             <>
               <Slider
+                key="relativeTemperature"
                 label={t('adjustments.color.temperature')}
                 max={100}
                 min={-100}
@@ -593,6 +596,7 @@ export default function ColorPanel({
                 onDragStateChange={onDragStateChange}
               />
               <Slider
+                key="relativeTint"
                 label={t('adjustments.color.tint')}
                 max={100}
                 min={-100}
