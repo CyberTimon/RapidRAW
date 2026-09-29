@@ -131,3 +131,7 @@ strip = true
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cargo-clippy"))'] }
+
+# Local rawler with DNG LinearRaw proxy decoding (branch dng-proxy-ifd). Drop once merged into the fork.
+[patch."https://github.com/CyberTimon/RapidRAW-DngLab.git"]
+rawler = { path = "../../RapidRAW-DngLab/rawler" }

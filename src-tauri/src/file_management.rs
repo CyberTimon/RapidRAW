@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs;
 use std::hash::{Hash, Hasher};
-use std::io::Cursor;
+use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
@@ -1399,53 +1399,49 @@ pub fn read_file_mapped(path: &Path) -> Result<Mmap, ReadFileError> {
     Ok(mmap)
 }
 
-fn find_embedded_jpeg(exif: &exif::Exif, ifd: exif::In) -> Option<&[u8]> {
-    let offset = exif
-        .get_field(exif::Tag::JPEGInterchangeFormat, ifd)?
-        .value
-        .get_uint(0)? as usize;
-    let len = exif
-        .get_field(exif::Tag::JPEGInterchangeFormatLength, ifd)?
-        .value
-        .get_uint(0)? as usize;
-    exif.buf().get(offset..offset + len)
-}
-
-fn apply_exif_orientation(img: DynamicImage, orientation: u32) -> DynamicImage {
-    match orientation {
-        2 => img.fliph(),
-        3 => img.rotate180(),
-        4 => img.flipv(),
-        5 => img.rotate90().fliph(),
-        6 => img.rotate90(),
-        7 => img.rotate270().fliph(),
-        8 => img.rotate270(),
-        _ => img,
+fn can_use_embedded_preview(
+    adjustments: &serde_json::Value,
+    settings: &AppSettings,
+    file_bytes: &[u8],
+) -> bool {
+    if adjustments.is_null() {
+        return true;
     }
+    let tm = crate::image_processing::resolve_tonemapper_override(settings, true);
+    if crate::image_processing::is_image_edited(adjustments, true, tm)
+        || adjustments["lensBlurEnabled"].as_bool().unwrap_or(false)
+    {
+        return false;
+    }
+    let Ok(crop) = serde_json::from_value::<Crop>(adjustments["crop"].clone()) else {
+        return true;
+    };
+    let Some((w, h, _)) = crate::raw_processing::get_raw_dimensions(file_bytes) else {
+        return false;
+    };
+    let near = |a: f64, b: u32| (a - b as f64).abs() <= b as f64 * 0.01 + 1.0;
+    (near(crop.width, w) && near(crop.height, h)) || (near(crop.width, h) && near(crop.height, w))
 }
 
-fn try_load_embedded_raw_preview(source_path: &Path, target_res: u32) -> Option<DynamicImage> {
-    let mmap = read_file_mapped(source_path).ok()?;
-    let exif = exif_processing::read_exif(&mmap)?;
+fn has_ai_patches(adjustments: &serde_json::Value) -> bool {
+    adjustments["aiPatches"]
+        .as_array()
+        .is_some_and(|patches| !patches.is_empty())
+}
 
-    let (jpeg_bytes, ifd) = find_embedded_jpeg(&exif, exif::In::PRIMARY)
-        .map(|b| (b, exif::In::PRIMARY))
-        .or_else(|| {
-            find_embedded_jpeg(&exif, exif::In::THUMBNAIL).map(|b| (b, exif::In::THUMBNAIL))
-        })?;
-
-    let img = image::load_from_memory_with_format(jpeg_bytes, image::ImageFormat::Jpeg).ok()?;
-
-    if img.width().max(img.height()) < (target_res as f32 * 0.95) as u32 {
+fn thumbnail_proxy_min_dim(file_bytes: &[u8], target_res: u32, crop: Option<&Crop>) -> Option<usize> {
+    let (full_w, full_h, is_linear) = crate::raw_processing::get_raw_dimensions(file_bytes)?;
+    if !is_linear {
         return None;
     }
-
-    let orientation = exif
-        .get_field(exif::Tag::Orientation, ifd)
-        .and_then(|f| f.value.get_uint(0))
-        .unwrap_or(1);
-
-    Some(apply_exif_orientation(img, orientation))
+    let full_max_dim = full_w.max(full_h) as f64;
+    let needed = match crop {
+        Some(c) if c.width > 0.0 && c.height > 0.0 => {
+            target_res as f64 * full_max_dim / c.width.max(c.height)
+        }
+        _ => target_res as f64,
+    };
+    Some(needed.min(full_max_dim).ceil() as usize)
 }
 
 pub fn generate_thumbnail_data(
@@ -1479,11 +1475,20 @@ pub fn generate_thumbnail_data(
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let always_decode_raw = settings.always_decode_raw_thumbnails.unwrap_or(false);
 
-    if is_raw && adjustments.is_null() && preloaded_image.is_none() && !always_decode_raw {
-        let target_res = settings.medium_thumbnail_resolution.unwrap_or(1280);
-        if let Some(preview) = try_load_embedded_raw_preview(&source_path, target_res) {
-            return Ok(preview);
-        }
+    if is_raw
+        && preloaded_image.is_none()
+        && !always_decode_raw
+        && let Ok(mmap) = read_file_mapped(&source_path)
+        && can_use_embedded_preview(&adjustments, &settings, &mmap)
+        && let Some(preview) = image_loader::safe_embedded_preview(
+            &mmap,
+            &source_path_str,
+            Some(settings.medium_thumbnail_resolution.unwrap_or(1280)),
+        )
+        && preview.width().max(preview.height())
+            >= (settings.small_thumbnail_resolution.unwrap_or(480) as f32 * 0.95) as u32
+    {
+        return Ok(preview);
     }
 
     if let (Some(context), Some(meta)) = (gpu_context, metadata)
@@ -1538,9 +1543,7 @@ pub fn generate_thumbnail_data(
                         mmap_guard.as_ref().unwrap()
                     }
                     Err(e) => {
-                        if preloaded_image.is_none() {
-                            log::warn!("Fallback read for {}: {}", source_path_str, e);
-                        }
+                        log::warn!("Fallback read for {}: {}", source_path_str, e);
                         let bytes = fs::read(&source_path).map_err(|io_err| {
                             anyhow::anyhow!(
                                 "Fallback read failed for {}: {}",
@@ -1553,14 +1556,20 @@ pub fn generate_thumbnail_data(
                     }
                 };
 
-                let img = image_loader::load_and_composite(
+                let proxy_min_dim = if is_raw && !has_ai_patches(&adjustments) {
+                    thumbnail_proxy_min_dim(file_slice, target_res, crop_data.as_ref())
+                } else {
+                    None
+                };
+                let base = image_loader::load_base_image_with_proxy(
                     file_slice,
                     &source_path_str,
-                    &adjustments,
                     true,
                     &settings,
                     None,
+                    proxy_min_dim,
                 )?;
+                let img = image_loader::composite_patches_on_image(&base, &adjustments)?;
 
                 if is_raw {
                     raw_scale_factor = crate::raw_processing::get_fast_demosaic_scale_factor(
@@ -1685,8 +1694,9 @@ pub fn generate_thumbnail_data(
             })
             .collect();
 
-        let tm_override = crate::image_processing::resolve_tonemapper_override(&settings, is_raw);
-        let gpu_adjustments = get_all_adjustments_from_json(&meta.adjustments, is_raw, tm_override);
+        let gpu_is_raw = is_raw;
+        let tm_override = crate::image_processing::resolve_tonemapper_override(&settings, gpu_is_raw);
+        let gpu_adjustments = get_all_adjustments_from_json(&meta.adjustments, gpu_is_raw, tm_override);
         let lut_path = meta.adjustments["lutPath"].as_str();
         let lut = lut_path.and_then(|p| {
             let mut cache = state.lut_cache.lock().unwrap();
@@ -1787,6 +1797,29 @@ fn generate_single_thumbnail_and_cache(
     app_handle: &AppHandle,
     settings: &AppSettings,
 ) -> Option<(String, String, u8, bool)> {
+    generate_single_thumbnail_and_cache_with(
+        path_str,
+        thumb_cache_dir,
+        gpu_context,
+        preloaded_image,
+        force_regenerate,
+        app_handle,
+        settings,
+        |_| {},
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn generate_single_thumbnail_and_cache_with(
+    path_str: &str,
+    thumb_cache_dir: &Path,
+    gpu_context: Option<&GpuContext>,
+    preloaded_image: Option<&DynamicImage>,
+    force_regenerate: bool,
+    app_handle: &AppHandle,
+    settings: &AppSettings,
+    before_generate: impl FnOnce(bool),
+) -> Option<(String, String, u8, bool)> {
     let (source_path, sidecar_path) = parse_virtual_path(path_str);
 
     let (rating, is_edited, adjustments_bytes) = if is_cloud_placeholder(&sidecar_path) {
@@ -1831,6 +1864,8 @@ fn generate_single_thumbnail_and_cache(
         return None;
     }
 
+    before_generate(is_edited);
+
     let target_width_small = settings.small_thumbnail_resolution.unwrap_or(480);
     let target_width_medium = settings.medium_thumbnail_resolution.unwrap_or(1280);
 
@@ -1853,11 +1888,37 @@ fn generate_single_thumbnail_and_cache(
     None
 }
 
-fn prefetch_source_file(path_str: &str) {
+const RAW_HEADER_PREFETCH_BYTES: u64 = 8 * 1024 * 1024;
+
+fn prefetch_source_file(path_str: &str, is_edited: bool, always_decode_raw: bool) {
     let (source_path, _) = parse_virtual_path(path_str);
-    if let Ok(mut file) = std::fs::File::open(&source_path) {
-        let _ = std::io::copy(&mut file, &mut std::io::sink());
+    let Ok(mut file) = std::fs::File::open(&source_path) else {
+        return;
+    };
+    let source_path_str = source_path.to_string_lossy().into_owned();
+    if is_raw_file(&source_path_str) {
+        let mut head = Vec::new();
+        if (&mut file)
+            .take(RAW_HEADER_PREFETCH_BYTES)
+            .read_to_end(&mut head)
+            .is_err()
+        {
+            return;
+        }
+        if !is_edited && !always_decode_raw {
+            return;
+        }
+        let is_dng = source_path_str.to_lowercase().ends_with(".dng");
+        let is_linear_dng = is_dng
+            && std::panic::catch_unwind(|| crate::raw_processing::get_raw_dimensions(&head))
+                .ok()
+                .flatten()
+                .is_some_and(|(_, _, is_linear)| is_linear);
+        if is_linear_dng && !always_decode_raw {
+            return;
+        }
     }
+    let _ = std::io::copy(&mut file, &mut std::io::sink());
 }
 
 pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
@@ -1896,12 +1957,10 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
                 let current_settings = load_settings(app_clone.clone()).unwrap_or_default();
 
                 if let Ok(cache_dir) = get_thumb_cache_dir(&app_clone) {
-                    if manager_clone.rotational_disk.load(Ordering::Relaxed) {
-                        let _io_permit = manager_clone.io_gate.lock().unwrap();
-                        prefetch_source_file(&path_to_process);
-                    }
-
-                    let result = generate_single_thumbnail_and_cache(
+                    let always_decode_raw = current_settings
+                        .always_decode_raw_thumbnails
+                        .unwrap_or(false);
+                    let result = generate_single_thumbnail_and_cache_with(
                         &path_to_process,
                         &cache_dir,
                         gpu_context.as_ref(),
@@ -1909,6 +1968,16 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
                         false,
                         &app_clone,
                         &current_settings,
+                        |is_edited| {
+                            if manager_clone.rotational_disk.load(Ordering::Relaxed) {
+                                let _io_permit = manager_clone.io_gate.lock().unwrap();
+                                prefetch_source_file(
+                                    &path_to_process,
+                                    is_edited,
+                                    always_decode_raw,
+                                );
+                            }
+                        },
                     );
 
                     if let Some((small_path, medium_path, rating, is_edited)) = result {
