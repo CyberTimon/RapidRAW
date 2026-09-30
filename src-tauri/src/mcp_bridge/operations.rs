@@ -582,8 +582,8 @@ fn clear_closed_session_preview(state: &AppState, working_path: &str) -> bool {
     state.begin_preview_generation();
     crate::mask_generation::clear_component_mask_cache();
     *state.original_image.lock().unwrap() = None;
-    *state.cached_preview.lock().unwrap() = None;
-    *state.gpu_image_cache.lock().unwrap() = None;
+    state.cached_preview.lock().unwrap().clear();
+    state.gpu_image_cache.lock().unwrap().clear();
     *state.full_warped_cache.lock().unwrap() = None;
     *state.patched_warped_cache.lock().unwrap() = None;
     *state.full_transformed_cache.lock().unwrap() = None;

@@ -548,10 +548,10 @@ pub fn clear_image_caches(state: tauri::State<AppState>) {
         decoded_cache.clear();
     }
     if let Ok(mut gpu_cache) = state.gpu_image_cache.lock() {
-        *gpu_cache = None;
+        gpu_cache.clear();
     }
     if let Ok(mut preview_cache) = state.cached_preview.lock() {
-        *preview_cache = None;
+        preview_cache.clear();
     }
     if let Ok(mut warped_cache) = state.full_warped_cache.lock() {
         *warped_cache = None;

@@ -1790,12 +1790,26 @@ pub fn get_cached_or_generate_mask(
     crop_offset: (f32, f32),
     adjustments: &serde_json::Value,
 ) -> Option<GrayImage> {
-    let key = mask_bitmap_key(def, width, height, scale, crop_offset, adjustments);
+    get_cached_or_generate_mask_with_key(state, def, width, height, scale, crop_offset, adjustments)
+        .1
+}
 
+/// Also returns the cache key that identifies the bitmap's pixels for the
+/// currently loaded image.
+pub fn get_cached_or_generate_mask_with_key(
+    state: &tauri::State<AppState>,
+    def: &MaskDefinition,
+    width: u32,
+    height: u32,
+    scale: f32,
+    crop_offset: (f32, f32),
+    adjustments: &serde_json::Value,
+) -> (u64, Option<GrayImage>) {
+    let key = mask_bitmap_key(def, width, height, scale, crop_offset, adjustments);
     {
         let cached = state.mask_cache.lock().unwrap().get(&key);
         if let Some(img) = cached {
-            return Some((*img).clone());
+            return (key, Some((*img).clone()));
         }
     }
 
@@ -1816,7 +1830,7 @@ pub fn get_cached_or_generate_mask(
         state.mask_cache.lock().unwrap().insert(key, cached_image);
     }
 
-    generated
+    (key, generated)
 }
 
 #[cfg(test)]

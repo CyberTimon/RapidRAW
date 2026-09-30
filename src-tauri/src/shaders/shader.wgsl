@@ -349,19 +349,69 @@ fn interpolate_cubic_hermite(x: f32, p1: Point, p2: Point, m1: f32, m2: f32) -> 
     return h00 * p1.y + h10 * m1 * dx + h01 * p2.y + h11 * m2 * dx;
 }
 
-fn apply_curve(val: f32, points: array<Point, 16>, count: u32) -> f32 {
+// Curves are addressed as `CURVE_*` slots and read in place from the
+// adjustments buffer. Passing a 16-point array by value copies it into
+// per-thread stack memory, which made curves the costliest stage per pixel.
+const CURVE_LUMA: u32 = 0u;
+const CURVE_RED: u32 = 1u;
+const CURVE_GREEN: u32 = 2u;
+const CURVE_BLUE: u32 = 3u;
+
+fn mask_curve_base(mask_index: u32) -> u32 {
+    return 4u * (mask_index + 1u);
+}
+
+fn curve_point(curve: u32, i: u32) -> Point {
+    let channel = curve % 4u;
+    if (curve < 4u) {
+        switch channel {
+            case 0u: { return adjustments.global.luma_curve[i]; }
+            case 1u: { return adjustments.global.red_curve[i]; }
+            case 2u: { return adjustments.global.green_curve[i]; }
+            default: { return adjustments.global.blue_curve[i]; }
+        }
+    }
+    let mask_index = curve / 4u - 1u;
+    switch channel {
+        case 0u: { return adjustments.mask_adjustments[mask_index].luma_curve[i]; }
+        case 1u: { return adjustments.mask_adjustments[mask_index].red_curve[i]; }
+        case 2u: { return adjustments.mask_adjustments[mask_index].green_curve[i]; }
+        default: { return adjustments.mask_adjustments[mask_index].blue_curve[i]; }
+    }
+}
+
+fn curve_count(curve: u32) -> u32 {
+    let channel = curve % 4u;
+    if (curve < 4u) {
+        switch channel {
+            case 0u: { return adjustments.global.luma_curve_count; }
+            case 1u: { return adjustments.global.red_curve_count; }
+            case 2u: { return adjustments.global.green_curve_count; }
+            default: { return adjustments.global.blue_curve_count; }
+        }
+    }
+    let mask_index = curve / 4u - 1u;
+    switch channel {
+        case 0u: { return adjustments.mask_adjustments[mask_index].luma_curve_count; }
+        case 1u: { return adjustments.mask_adjustments[mask_index].red_curve_count; }
+        case 2u: { return adjustments.mask_adjustments[mask_index].green_curve_count; }
+        default: { return adjustments.mask_adjustments[mask_index].blue_curve_count; }
+    }
+}
+
+fn apply_curve(val: f32, curve: u32) -> f32 {
+    let count = curve_count(curve);
     if (count < 2u) { return val; }
-    var local_points = points;
     let x = val * 255.0;
-    if (x <= local_points[0].x) { return local_points[0].y / 255.0; }
-    if (x >= local_points[count - 1u].x) { return local_points[count - 1u].y / 255.0; }
+    if (x <= curve_point(curve, 0u).x) { return curve_point(curve, 0u).y / 255.0; }
+    if (x >= curve_point(curve, count - 1u).x) { return curve_point(curve, count - 1u).y / 255.0; }
     for (var i = 0u; i < 15u; i = i + 1u) {
         if (i >= count - 1u) { break; }
-        let p1 = local_points[i];
-        let p2 = local_points[i + 1u];
+        let p1 = curve_point(curve, i);
+        let p2 = curve_point(curve, i + 1u);
         if (x <= p2.x) {
-            let p0 = local_points[max(0u, i - 1u)];
-            let p3 = local_points[min(count - 1u, i + 2u)];
+            let p0 = curve_point(curve, select(i - 1u, 0u, i == 0u));
+            let p3 = curve_point(curve, min(count - 1u, i + 2u));
             let delta_before = (p1.y - p0.y) / max(0.001, p1.x - p0.x);
             let delta_current = (p2.y - p1.y) / max(0.001, p2.x - p1.x);
             let delta_after = (p3.y - p2.y) / max(0.001, p3.x - p2.x);
@@ -386,7 +436,7 @@ fn apply_curve(val: f32, points: array<Point, 16>, count: u32) -> f32 {
             return clamp(result_y / 255.0, 0.0, 1.0);
         }
     }
-    return local_points[count - 1u].y / 255.0;
+    return curve_point(curve, count - 1u).y / 255.0;
 }
 
 fn apply_tonal_adjustments(
@@ -1455,46 +1505,44 @@ fn no_tonemap(c: vec3<f32>) -> vec3<f32> {
     return c;
 }
 
-fn is_default_curve(points: array<Point, 16>, count: u32) -> bool {
+fn is_default_curve(curve: u32) -> bool {
+    let count = curve_count(curve);
     if (count < 2u) {
         return false;
     }
 
     var is_identity = true;
     for (var i = 0u; i < count; i = i + 1u) {
-        if (abs(points[i].x - points[i].y) > 0.5) {
+        let point = curve_point(curve, i);
+        if (abs(point.x - point.y) > 0.5) {
             is_identity = false;
             break;
         }
     }
 
-    let p0 = points[0];
-    let p_last = points[count - 1u];
+    let p0 = curve_point(curve, 0u);
+    let p_last = curve_point(curve, count - 1u);
     let p0_is_origin = abs(p0.x - 0.0) < 0.1 && abs(p0.y - 0.0) < 0.1;
     let p_last_is_end = abs(p_last.x - 255.0) < 0.1 && abs(p_last.y - 255.0) < 0.1;
 
     return is_identity && p0_is_origin && p_last_is_end;
 }
 
-fn apply_all_curves(
-    color: vec3<f32>,
-    luma_curve: array<Point, 16>, luma_curve_count: u32,
-    red_curve: array<Point, 16>, red_curve_count: u32,
-    green_curve: array<Point, 16>, green_curve_count: u32,
-    blue_curve: array<Point, 16>, blue_curve_count: u32
-) -> vec3<f32> {
-    var r = apply_curve(color.r, luma_curve, luma_curve_count);
-    var g = apply_curve(color.g, luma_curve, luma_curve_count);
-    var b = apply_curve(color.b, luma_curve, luma_curve_count);
+// `base` is CURVE_LUMA for the global curves or `mask_curve_base(i)` for a mask.
+fn apply_all_curves(color: vec3<f32>, base: u32) -> vec3<f32> {
+    let luma = base + CURVE_LUMA;
+    var r = apply_curve(color.r, luma);
+    var g = apply_curve(color.g, luma);
+    var b = apply_curve(color.b, luma);
 
-    if (!is_default_curve(red_curve, red_curve_count)) {
-        r = apply_curve(r, red_curve, red_curve_count);
+    if (!is_default_curve(base + CURVE_RED)) {
+        r = apply_curve(r, base + CURVE_RED);
     }
-    if (!is_default_curve(green_curve, green_curve_count)) {
-        g = apply_curve(g, green_curve, green_curve_count);
+    if (!is_default_curve(base + CURVE_GREEN)) {
+        g = apply_curve(g, base + CURVE_GREEN);
     }
-    if (!is_default_curve(blue_curve, blue_curve_count)) {
-        b = apply_curve(b, blue_curve, blue_curve_count);
+    if (!is_default_curve(base + CURVE_BLUE)) {
+        b = apply_curve(b, base + CURVE_BLUE);
     }
 
     return clamp(vec3<f32>(r, g, b), vec3<f32>(0.0), vec3<f32>(1.0));
@@ -1951,23 +1999,13 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     base_srgb = apply_filmic_exposure(base_srgb, t_brightness);
 
-    var final_rgb = apply_all_curves(base_srgb,
-        adjustments.global.luma_curve, adjustments.global.luma_curve_count,
-        adjustments.global.red_curve, adjustments.global.red_curve_count,
-        adjustments.global.green_curve, adjustments.global.green_curve_count,
-        adjustments.global.blue_curve, adjustments.global.blue_curve_count
-    );
+    var final_rgb = apply_all_curves(base_srgb, CURVE_LUMA);
 
     for (var i = 0u; i < adjustments.mask_count; i = i + 1u) {
         let influence = get_mask_influence(i, absolute_coord);
         if (influence > 0.001) {
             let m = adjustments.mask_adjustments[i];
-            let mask_curved_srgb = apply_all_curves(final_rgb,
-                m.luma_curve, m.luma_curve_count,
-                m.red_curve, m.red_curve_count,
-                m.green_curve, m.green_curve_count,
-                m.blue_curve, m.blue_curve_count
-            );
+            let mask_curved_srgb = apply_all_curves(final_rgb, mask_curve_base(i));
             final_rgb = mix(final_rgb, mask_curved_srgb, influence);
         }
     }

@@ -1802,30 +1802,20 @@ pub async fn estimate_export_sizes(
         hydrate_adjustments(&state, &mut adjustments_clone)?;
 
         let new_transform_hash = calculate_transform_hash(&adjustments_clone);
-        let cached_preview_lock = state.cached_preview.lock().unwrap();
         let preview_dim = settings.editor_preview_resolution.unwrap_or(1920);
+        let cached = state
+            .cached_preview
+            .lock()
+            .unwrap()
+            .get(|cached| {
+                cached.transform_hash == new_transform_hash && cached.preview_dim == preview_dim
+            })
+            .cloned();
 
-        let (preview_image, scale, unscaled_crop_offset) = if let Some(cached) =
-            &*cached_preview_lock
-        {
-            if cached.transform_hash == new_transform_hash && cached.preview_dim == preview_dim {
-                let img = Arc::clone(&cached.image);
-                let s = cached.scale;
-                let offset = cached.unscaled_crop_offset;
-                drop(cached_preview_lock);
-                let owned_img = Arc::try_unwrap(img).unwrap_or_else(|arc| (*arc).clone());
-                (owned_img, s, offset)
-            } else {
-                drop(cached_preview_lock);
-                generate_transformed_preview(
-                    &state,
-                    &loaded_image,
-                    &adjustments_clone,
-                    preview_dim,
-                )?
-            }
+        let (preview_image, scale, unscaled_crop_offset) = if let Some(cached) = cached {
+            let owned_img = Arc::try_unwrap(cached.image).unwrap_or_else(|arc| (*arc).clone());
+            (owned_img, cached.scale, cached.unscaled_crop_offset)
         } else {
-            drop(cached_preview_lock);
             generate_transformed_preview(&state, &loaded_image, &adjustments_clone, preview_dim)?
         };
 

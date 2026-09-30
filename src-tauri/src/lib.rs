@@ -510,35 +510,25 @@ fn process_preview_job(
         _ => (if has_roi { 1.4_f32 } else { 1.0_f32 }, 75_u8),
     };
 
-    let mut cached_preview_lock = state
+    let mut cached_previews = state
         .cached_preview
         .lock()
         .unwrap_or_else(|e| e.into_inner());
-
-    let base_valid = cached_preview_lock
-        .as_ref()
-        .is_some_and(|c| c.transform_hash == new_transform_hash && c.preview_dim == preview_dim);
-    let small_valid = base_valid
-        && cached_preview_lock
-            .as_ref()
-            .is_some_and(|c| c.interactive_divisor == interactive_divisor);
+    let cached = cached_previews
+        .get(|c| c.transform_hash == new_transform_hash && c.preview_dim == preview_dim)
+        .cloned();
+    let base_valid = cached.is_some();
 
     cancellation.check()?;
     let geometry_start = std::time::Instant::now();
 
-    let (final_preview_base, scale_for_gpu, unscaled_crop_offset) = if base_valid {
-        let cached = cached_preview_lock.as_ref().unwrap();
+    let (final_preview_base, scale_for_gpu, unscaled_crop_offset) = if let Some(cached) = &cached {
         (
             Arc::clone(&cached.image),
             cached.scale,
             cached.unscaled_crop_offset,
         )
     } else {
-        *state
-            .gpu_image_cache
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
-
         let (base, scale, offset) =
             generate_transformed_preview(&state, &loaded_image, &adjustments_clone, preview_dim)?;
         (Arc::new(base), scale, offset)
@@ -547,10 +537,12 @@ fn process_preview_job(
     let geometry_duration = geometry_start.elapsed();
     let resize_mask_start = std::time::Instant::now();
 
-    let small_preview_base = if small_valid {
-        Arc::clone(&cached_preview_lock.as_ref().unwrap().small_image)
-    } else {
-        let small = if interactive_divisor > 1.0 {
+    let small_preview_base = match cached
+        .as_ref()
+        .filter(|c| c.interactive_divisor == interactive_divisor)
+    {
+        Some(cached) => Arc::clone(&cached.small_image),
+        None if interactive_divisor > 1.0 => {
             let target_size = (preview_dim as f32 / interactive_divisor) as u32;
             let (w, h) = final_preview_base.dimensions();
             let (small_w, small_h) = if w > h {
@@ -565,33 +557,36 @@ fn process_preview_job(
                 small_w,
                 small_h,
             ))
-        } else {
-            Arc::clone(&final_preview_base)
-        };
-
-        if is_interactive && base_valid {
-            *state
-                .gpu_image_cache
-                .lock()
-                .unwrap_or_else(|e| e.into_inner()) = None;
         }
-
-        small
+        None => Arc::clone(&final_preview_base),
     };
     cancellation.check()?;
 
-    *cached_preview_lock = Some(CachedPreview {
-        image: Arc::clone(&final_preview_base),
-        small_image: Arc::clone(&small_preview_base),
-        transform_hash: new_transform_hash,
-        scale: scale_for_gpu,
-        unscaled_crop_offset,
-        preview_dim,
-        interactive_divisor,
-    });
+    cached_previews.insert(
+        CachedPreview {
+            image: Arc::clone(&final_preview_base),
+            small_image: Arc::clone(&small_preview_base),
+            transform_hash: new_transform_hash,
+            scale: scale_for_gpu,
+            unscaled_crop_offset,
+            preview_dim,
+            interactive_divisor,
+        },
+        |c| c.transform_hash == new_transform_hash && c.preview_dim == preview_dim,
+    );
 
-    drop(cached_preview_lock);
+    drop(cached_previews);
 
+    // A reduced interactive image can share dimensions with a directly
+    // rendered base, so give its GPU texture a distinct cache identity.
+    let gpu_input_hash = if is_interactive && interactive_divisor > 1.0 {
+        let mut hasher = DefaultHasher::new();
+        new_transform_hash.hash(&mut hasher);
+        interactive_divisor.to_bits().hash(&mut hasher);
+        hasher.finish()
+    } else {
+        new_transform_hash
+    };
     let (processing_image, effective_scale, jpeg_quality) = if is_interactive {
         let orig_w = final_preview_base.width() as f32;
         let small_w = small_preview_base.width() as f32;
@@ -623,9 +618,10 @@ fn process_preview_job(
     );
 
     let mut mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = Vec::new();
+    let mut mask_hasher = DefaultHasher::new();
     for def in &mask_definitions {
         cancellation.check()?;
-        if let Some(mask) = get_cached_or_generate_mask(
+        let (key, mask) = crate::mask_generation::get_cached_or_generate_mask_with_key(
             &state,
             def,
             preview_width,
@@ -633,10 +629,13 @@ fn process_preview_job(
             effective_scale,
             scaled_crop_offset,
             &adjustments_clone,
-        ) {
+        );
+        if let Some(mask) = mask {
+            key.hash(&mut mask_hasher);
             mask_bitmaps.push(mask);
         }
     }
+    let mask_key = mask_hasher.finish();
     cancellation.check()?;
     let resize_mask_duration = resize_mask_start.elapsed();
 
@@ -680,7 +679,7 @@ fn process_preview_job(
             &context,
             &state,
             &processing_image,
-            new_transform_hash,
+            gpu_input_hash,
             RenderRequest {
                 adjustments: final_adjustments,
                 mask_bitmaps: &mask_bitmaps,
@@ -691,6 +690,7 @@ fn process_preview_job(
             use_wgpu_renderer && !compare_original,
             analytics_config,
             Some(identity),
+            Some(mask_key),
         )
     });
 
@@ -1247,6 +1247,7 @@ async fn generate_uncropped_preview(
             false,
             None,
             Some(identity),
+            None,
         )?;
         state.ensure_preview_identity(identity)?;
         let (width, height) = processed_image.dimensions();

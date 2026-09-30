@@ -49,12 +49,53 @@ pub struct CachedPreview {
     pub interactive_divisor: f32,
 }
 
+/// Holds the two most recently used entries. The editor alternates between an
+/// interactive and a settled preview size; keeping both avoids rebuilding the
+/// other one on every drag start and release.
+pub struct RecentSlots<T> {
+    entries: VecDeque<T>,
+}
+
+impl<T> Default for RecentSlots<T> {
+    fn default() -> Self {
+        Self {
+            entries: VecDeque::with_capacity(2),
+        }
+    }
+}
+
+impl<T> RecentSlots<T> {
+    const CAPACITY: usize = 2;
+
+    /// Returns the matching entry, marking it most recently used.
+    pub fn get(&mut self, matches: impl Fn(&T) -> bool) -> Option<&T> {
+        let index = self.entries.iter().position(matches)?;
+        let entry = self.entries.remove(index)?;
+        self.entries.push_front(entry);
+        self.entries.front()
+    }
+
+    /// Inserts `entry`, replacing entries it `matches` and evicting the oldest.
+    pub fn insert(&mut self, entry: T, matches: impl Fn(&T) -> bool) -> &T {
+        self.entries.retain(|existing| !matches(existing));
+        self.entries.push_front(entry);
+        self.entries.truncate(Self::CAPACITY);
+        self.entries.front().unwrap()
+    }
+
+    pub fn clear(&mut self) {
+        self.entries.clear();
+    }
+}
+
 pub struct GpuImageCache {
     pub texture: Texture,
     pub texture_view: TextureView,
     pub width: u32,
     pub height: u32,
     pub transform_hash: u64,
+    /// Unique per uploaded texture; keys GPU work derived from its pixels.
+    pub id: u64,
 }
 
 pub struct GpuProcessorState {
@@ -349,9 +390,9 @@ pub struct AppState {
     pub window_setup_complete: AtomicBool,
     pub gpu_crash_flag_path: Mutex<Option<PathBuf>>,
     pub original_image: Mutex<Option<LoadedImage>>,
-    pub cached_preview: Mutex<Option<CachedPreview>>,
+    pub cached_preview: Mutex<RecentSlots<CachedPreview>>,
     pub gpu_context: Mutex<Option<GpuContext>>,
-    pub gpu_image_cache: Mutex<Option<GpuImageCache>>,
+    pub gpu_image_cache: Mutex<RecentSlots<GpuImageCache>>,
     pub gpu_processor: Mutex<Option<GpuProcessorState>>,
     pub ai_state: Mutex<Option<AiState>>,
     pub ai_init_lock: TokioMutex<()>,
@@ -393,9 +434,9 @@ impl Default for AppState {
             window_setup_complete: AtomicBool::new(false),
             gpu_crash_flag_path: Mutex::new(None),
             original_image: Mutex::new(None),
-            cached_preview: Mutex::new(None),
+            cached_preview: Mutex::new(RecentSlots::default()),
             gpu_context: Mutex::new(None),
-            gpu_image_cache: Mutex::new(None),
+            gpu_image_cache: Mutex::new(RecentSlots::default()),
             gpu_processor: Mutex::new(None),
             ai_state: Mutex::new(None),
             ai_init_lock: TokioMutex::new(()),
@@ -786,5 +827,26 @@ mod preview_asset_cache_tests {
         assert!(cache.retained_keys(&["key".into()]).is_empty());
         cache.clear();
         assert!(cache.epoch() > old_epoch);
+    }
+}
+
+#[cfg(test)]
+mod recent_slots_tests {
+    use super::RecentSlots;
+
+    #[test]
+    fn keeps_two_most_recent_and_replaces_matching_entries() {
+        let mut slots = RecentSlots::default();
+        slots.insert((1, "a"), |e| e.0 == 1);
+        slots.insert((2, "b"), |e| e.0 == 2);
+        assert_eq!(slots.get(|e| e.0 == 1), Some(&(1, "a")));
+        // 2 is now least recently used and is evicted by 3.
+        slots.insert((3, "c"), |e| e.0 == 3);
+        assert!(slots.get(|e| e.0 == 2).is_none());
+        slots.insert((1, "a2"), |e| e.0 == 1);
+        assert_eq!(slots.get(|e| e.0 == 1), Some(&(1, "a2")));
+        assert_eq!(slots.get(|e| e.0 == 3), Some(&(3, "c")));
+        slots.clear();
+        assert!(slots.get(|e| e.0 == 3).is_none());
     }
 }
