@@ -1799,7 +1799,13 @@
           "basic": "Bàsic"
         },
         "tonemapperOverride": "Sobreescriptura global del mapejador de tons",
-        "tonemapperOverrideDesc": "Força un mapejador de tons específic globalment per a totes les imatges, amagant l'interruptor del mapejador del tauler d'ajustaments."
+        "tonemapperOverrideDesc": "Força un mapejador de tons específic globalment per a totes les imatges, amagant l'interruptor del mapejador del tauler d'ajustaments.",
+        "whiteBalanceModel": "Model de balanç de blancs",
+        "whiteBalanceModelDesc": "Defineix com els controls de temperatura i matís modifiquen els colors. El mode clàssic escala els canals RGB. CAT16 adapta els colors a la font de llum triada per obtenir resultats més naturals.",
+        "whiteBalanceModelOptions": {
+          "cat16": "CAT16 (adaptació cromàtica)",
+          "legacy": "Clàssic (guany RGB)"
+        }
       },
       "previewRes": "Resolució de la vista prèvia",
       "previewResDesc": "Determina la resolució màxima de la vista prèvia. Valors inferiors milloren significativament el rendiment.",

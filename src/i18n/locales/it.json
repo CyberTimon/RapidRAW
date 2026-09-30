@@ -1832,7 +1832,13 @@
           "basic": "Base"
         },
         "tonemapperOverride": "Sovrascrittura Tonemapper Globale",
-        "tonemapperOverrideDesc": "Forza un tonemapper specifico globalmente per tutte le immagini, nascondendo il selettore del tonemapper dal pannello delle regolazioni."
+        "tonemapperOverrideDesc": "Forza un tonemapper specifico globalmente per tutte le immagini, nascondendo il selettore del tonemapper dal pannello delle regolazioni.",
+        "whiteBalanceModel": "Modello di bilanciamento del bianco",
+        "whiteBalanceModelDesc": "Definisce come i cursori di temperatura e tinta modificano i colori. La modalità classica scala i canali RGB. CAT16 adatta i colori alla sorgente luminosa scelta per risultati più naturali.",
+        "whiteBalanceModelOptions": {
+          "cat16": "CAT16 (adattamento cromatico)",
+          "legacy": "Classico (guadagno RGB)"
+        }
       },
       "previewRes": "Risoluzione Anteprima",
       "previewResDesc": "Determina la risoluzione massima dell'anteprima. Valori inferiori migliorano notevolmente le prestazioni.",

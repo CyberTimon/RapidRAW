@@ -1797,7 +1797,13 @@
           "basic": "기본"
         },
         "tonemapperOverride": "전역 톤매퍼 재정의",
-        "tonemapperOverrideDesc": "모든 이미지에 특정 톤매퍼를 전역으로 강제 적용하고, 조정 패널에서 톤매퍼 전환을 숨깁니다."
+        "tonemapperOverrideDesc": "모든 이미지에 특정 톤매퍼를 전역으로 강제 적용하고, 조정 패널에서 톤매퍼 전환을 숨깁니다.",
+        "whiteBalanceModel": "화이트 밸런스 모델",
+        "whiteBalanceModelDesc": "색온도와 색조 슬라이더가 색을 바꾸는 방식을 정합니다. 기존 방식은 RGB 채널을 조정합니다. CAT16은 선택한 광원에 맞춰 색순응을 적용해 더 자연스러운 결과를 줍니다.",
+        "whiteBalanceModelOptions": {
+          "cat16": "CAT16 (색순응)",
+          "legacy": "기존 (RGB 게인)"
+        }
       },
       "previewRes": "미리보기 해상도",
       "previewResDesc": "미리보기의 최대 해상도를 결정합니다. 값이 낮을수록 성능이 크게 향상됩니다.",

@@ -1799,7 +1799,13 @@
           "basic": "Basic"
         },
         "tonemapperOverride": "Global Tonemapper Override",
-        "tonemapperOverrideDesc": "Force a specific tonemapper globally for all images, hiding the tonemapper switch from the adjustments panel."
+        "tonemapperOverrideDesc": "Force a specific tonemapper globally for all images, hiding the tonemapper switch from the adjustments panel.",
+        "whiteBalanceModel": "White Balance Model",
+        "whiteBalanceModelDesc": "How the Temperature and Tint sliders shift colors. Legacy scales the RGB channels. CAT16 adapts colors to the chosen light source for more natural results.",
+        "whiteBalanceModelOptions": {
+          "cat16": "CAT16 (chromatic adaptation)",
+          "legacy": "Legacy (RGB gain)"
+        }
       },
       "previewRes": "Preview Resolution",
       "previewResDesc": "Determines the maximum resolution of the preview. Lower values significantly improve performance.",

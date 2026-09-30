@@ -1799,7 +1799,13 @@
           "basic": "Standard"
         },
         "tonemapperOverride": "Globaler Tonemapper-Override",
-        "tonemapperOverrideDesc": "Erzwingt einen spezifischen Tonemapper global für alle Bilder."
+        "tonemapperOverrideDesc": "Erzwingt einen spezifischen Tonemapper global für alle Bilder.",
+        "whiteBalanceModel": "Weißabgleich-Modell",
+        "whiteBalanceModelDesc": "Legt fest, wie die Regler für Temperatur und Tonung die Farben verschieben. Klassisch skaliert die RGB-Kanäle. CAT16 passt die Farben an die gewählte Lichtquelle an und liefert natürlichere Ergebnisse.",
+        "whiteBalanceModelOptions": {
+          "cat16": "CAT16 (chromatische Adaption)",
+          "legacy": "Klassisch (RGB-Verstärkung)"
+        }
       },
       "previewRes": "Vorschauauflösung",
       "previewResDesc": "Bestimmt die maximale Auflösung der Vorschau. Niedrigere Werte verbessern die Leistung deutlich.",

@@ -1482,9 +1482,9 @@ pub struct GlobalAdjustments {
     pub tint: f32,
     pub vibrance: f32,
     pub hue: f32,
-    _pad_color1: f32,
-    _pad_color2: f32,
-    _pad_color3: f32,
+    pub white_balance_model: u32,
+    pub white_balance_base_mired: f32,
+    pub white_balance_base_duv: f32,
 
     pub sharpness: f32,
     pub luma_noise_reduction: f32,
@@ -1877,27 +1877,51 @@ fn calculate_agx_matrices() -> (GpuMat3, GpuMat3) {
     )
 }
 
-pub fn resolve_tonemapper_override(settings: &crate::AppSettings, is_raw: bool) -> Option<u32> {
-    if !settings.tonemapper_override_enabled.unwrap_or(false) {
-        return None;
-    }
-    let tm = if is_raw {
-        settings.default_raw_tonemapper.as_deref().unwrap_or("agx")
-    } else {
-        settings
-            .default_non_raw_tonemapper
-            .as_deref()
-            .unwrap_or("basic")
-    };
-    Some(if tm == "agx" { 1 } else { 0 })
+pub const WB_MODEL_LEGACY: u32 = 0;
+pub const WB_MODEL_CAT16: u32 = 1;
+
+// D65 expressed as a point on the Planckian locus (Krystek approximation) plus its offset from it.
+pub const WB_D65_MIRED: f32 = 1.0e6 / 6504.0;
+pub const WB_D65_DUV: f32 = 0.003266;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct RenderOverrides {
+    pub tonemapper: Option<u32>,
+    pub white_balance_model: u32,
 }
 
-pub fn resolve_tonemapper_override_from_handle(
+pub fn resolve_render_overrides(settings: &crate::AppSettings, is_raw: bool) -> RenderOverrides {
+    let tonemapper = if settings.tonemapper_override_enabled.unwrap_or(false) {
+        let tm = if is_raw {
+            settings.default_raw_tonemapper.as_deref().unwrap_or("agx")
+        } else {
+            settings
+                .default_non_raw_tonemapper
+                .as_deref()
+                .unwrap_or("basic")
+        };
+        Some(if tm == "agx" { 1 } else { 0 })
+    } else {
+        None
+    };
+
+    let white_balance_model = match settings.white_balance_model.as_deref() {
+        Some("cat16") => WB_MODEL_CAT16,
+        _ => WB_MODEL_LEGACY,
+    };
+
+    RenderOverrides {
+        tonemapper,
+        white_balance_model,
+    }
+}
+
+pub fn resolve_render_overrides_from_handle(
     app_handle: &tauri::AppHandle,
     is_raw: bool,
-) -> Option<u32> {
+) -> RenderOverrides {
     let settings = crate::app_settings::load_settings(app_handle.clone()).unwrap_or_default();
-    resolve_tonemapper_override(&settings, is_raw)
+    resolve_render_overrides(&settings, is_raw)
 }
 
 pub fn apply_cpu_agx_tonemap(image: &mut DynamicImage) {
@@ -2014,7 +2038,7 @@ pub fn apply_cpu_agx_tonemap(image: &mut DynamicImage) {
 pub fn is_image_edited(
     adj: &serde_json::Value,
     is_raw: bool,
-    tonemapper_override: Option<u32>,
+    render_overrides: RenderOverrides,
 ) -> bool {
     if adj.is_null() || adj.as_object().is_none() {
         return false;
@@ -2076,9 +2100,9 @@ pub fn is_image_edited(
         return true;
     }
 
-    let current_adj = get_all_adjustments_from_json(adj, is_raw, tonemapper_override);
+    let current_adj = get_all_adjustments_from_json(adj, is_raw, render_overrides);
     let default_adj =
-        get_all_adjustments_from_json(&serde_json::json!({}), is_raw, tonemapper_override);
+        get_all_adjustments_from_json(&serde_json::json!({}), is_raw, render_overrides);
 
     bytemuck::bytes_of(&current_adj) != bytemuck::bytes_of(&default_adj)
 }
@@ -2086,7 +2110,7 @@ pub fn is_image_edited(
 fn get_global_adjustments_from_json(
     js_adjustments: &serde_json::Value,
     is_raw: bool,
-    tonemapper_override: Option<u32>,
+    render_overrides: RenderOverrides,
 ) -> GlobalAdjustments {
     let visibility = js_adjustments.get("sectionVisibility");
     let is_visible = |section: &str| -> bool {
@@ -2225,9 +2249,9 @@ fn get_global_adjustments_from_json(
         tint: get_val("color", "tint", SCALES.tint, None),
         vibrance: get_val("color", "vibrance", SCALES.vibrance, None),
         hue: get_val("color", "hue", 1.0, None),
-        _pad_color1: 0.0,
-        _pad_color2: 0.0,
-        _pad_color3: 0.0,
+        white_balance_model: render_overrides.white_balance_model,
+        white_balance_base_mired: WB_D65_MIRED,
+        white_balance_base_duv: WB_D65_DUV,
 
         sharpness: get_val("details", "sharpness", SCALES.sharpness, None),
         luma_noise_reduction: get_val(
@@ -2298,7 +2322,8 @@ fn get_global_adjustments_from_json(
         has_lut,
         lut_intensity,
 
-        tonemapper_mode: tonemapper_override
+        tonemapper_mode: render_overrides
+            .tonemapper
             .unwrap_or_else(|| if tone_mapper == "agx" { 1 } else { 0 }),
         lut_is_scene_referred,
         _pad_lut3: 0.0,
@@ -2514,9 +2539,9 @@ fn get_mask_adjustments_from_json(adj: &serde_json::Value) -> MaskAdjustments {
 pub fn get_all_adjustments_from_json(
     js_adjustments: &serde_json::Value,
     is_raw: bool,
-    tonemapper_override: Option<u32>,
+    render_overrides: RenderOverrides,
 ) -> AllAdjustments {
-    let global = get_global_adjustments_from_json(js_adjustments, is_raw, tonemapper_override);
+    let global = get_global_adjustments_from_json(js_adjustments, is_raw, render_overrides);
     let mut mask_adjustments = [MaskAdjustments::default(); MAX_MASKS];
     let mut mask_count = 0;
 
@@ -3484,4 +3509,147 @@ pub fn calculate_auto_adjustments(
     let results = perform_auto_analysis(&original_image);
 
     Ok(auto_results_to_json(&results))
+}
+
+#[cfg(test)]
+mod white_balance_tests {
+    use super::*;
+    use glam::{DMat3, DVec2, DVec3};
+
+    const XYZ_TO_LMS: [[f64; 3]; 3] = [
+        [0.401288, 0.650173, -0.051461],
+        [-0.250268, 1.204414, 0.045854],
+        [-0.002079, 0.048952, 0.953127],
+    ];
+    const PIPE_TO_LMS: [[f64; 3]; 3] = [
+        [0.302744836, 0.602343787, 0.070446934],
+        [0.153783570, 0.777332809, 0.085366571],
+        [0.027976469, 0.147873282, 0.909136597],
+    ];
+    const LMS_TO_PIPE: [[f64; 3]; 3] = [
+        [5.447027901, -4.215834640, -0.026217257],
+        [-1.078468512, 2.144549340, -0.117801905],
+        [0.007796484, -0.219084108, 1.119912259],
+    ];
+
+    fn mat(rows: [[f64; 3]; 3]) -> DMat3 {
+        DMat3::from_cols_array_2d(&rows).transpose()
+    }
+
+    fn planckian_uv(cct: f64) -> DVec2 {
+        let t2 = cct * cct;
+        let u = (0.860117757 + 1.54118254e-4 * cct + 1.28641212e-7 * t2)
+            / (1.0 + 8.42420235e-4 * cct + 7.08145163e-7 * t2);
+        let v = (0.317398726 + 4.22806245e-5 * cct + 4.20481691e-8 * t2)
+            / (1.0 - 2.89741816e-5 * cct + 1.61456053e-7 * t2);
+        DVec2::new(u, v)
+    }
+
+    fn illuminant_xy(mired: f64, duv: f64) -> DVec2 {
+        let cct = 1.0e6 / mired.clamp(40.0, 600.0);
+        let uv = planckian_uv(cct);
+        let tangent = planckian_uv(cct * 1.01) - uv;
+        let normal = DVec2::new(tangent.y, -tangent.x).normalize();
+        let p = uv + normal * duv;
+        let d = 2.0 * p.x - 8.0 * p.y + 4.0;
+        DVec2::new(3.0 * p.x / d, 2.0 * p.y / d)
+    }
+
+    fn xy_to_xyz(xy: DVec2) -> DVec3 {
+        DVec3::new(xy.x / xy.y, 1.0, (1.0 - xy.x - xy.y) / xy.y)
+    }
+
+    fn cat16(color: DVec3, temp_units: f64, tint_units: f64) -> DVec3 {
+        let base_mired = WB_D65_MIRED as f64;
+        let base_duv = WB_D65_DUV as f64;
+        let source = xy_to_xyz(illuminant_xy(
+            base_mired - temp_units * 150.0,
+            base_duv + tint_units * 0.05,
+        ));
+        let target = xy_to_xyz(illuminant_xy(base_mired, base_duv));
+        let m16 = mat(XYZ_TO_LMS);
+        let gain = (m16 * target) / (m16 * source);
+        mat(LMS_TO_PIPE) * ((mat(PIPE_TO_LMS) * color) * gain)
+    }
+
+    fn pipe_to_xyz() -> DMat3 {
+        let m = primaries_to_xyz_matrix(&PRIMARIES_SRGB, WP_D65);
+        DMat3::from_cols_array(&m.to_cols_array().map(|v| v as f64))
+    }
+
+    #[test]
+    fn shader_matrices_match_pipeline_primaries() {
+        let expected = mat(XYZ_TO_LMS) * pipe_to_xyz();
+        let actual = mat(PIPE_TO_LMS);
+        for (e, a) in expected.to_cols_array().iter().zip(actual.to_cols_array()) {
+            assert!((e - a).abs() < 1e-5, "pipe to LMS mismatch: {e} vs {a}");
+        }
+        let identity = mat(LMS_TO_PIPE) * actual;
+        for (e, a) in DMat3::IDENTITY
+            .to_cols_array()
+            .iter()
+            .zip(identity.to_cols_array())
+        {
+            assert!(
+                (e - a).abs() < 1e-5,
+                "LMS to pipe is not the inverse: {e} vs {a}"
+            );
+        }
+    }
+
+    #[test]
+    fn base_white_is_close_to_d65() {
+        let xy = illuminant_xy(WB_D65_MIRED as f64, WB_D65_DUV as f64);
+        assert!((xy.x - 0.3127).abs() < 1e-4, "x = {}", xy.x);
+        assert!((xy.y - 0.3290).abs() < 1e-4, "y = {}", xy.y);
+    }
+
+    #[test]
+    fn source_white_becomes_neutral() {
+        for (temp, tint) in [(1.0, 0.0), (-1.0, 0.0), (0.0, 0.5), (-0.6, -0.4)] {
+            let base_mired = WB_D65_MIRED as f64;
+            let source = xy_to_xyz(illuminant_xy(
+                base_mired - temp * 150.0,
+                WB_D65_DUV as f64 + tint * 0.05,
+            ));
+            let source_rgb = pipe_to_xyz().inverse() * source;
+            let target_rgb =
+                pipe_to_xyz().inverse() * xy_to_xyz(illuminant_xy(base_mired, WB_D65_DUV as f64));
+            let out = cat16(source_rgb, temp, tint);
+            let ratio = out / target_rgb;
+            assert!(
+                (ratio.x - ratio.y).abs() < 1e-4 && (ratio.z - ratio.y).abs() < 1e-4,
+                "temp {temp}, tint {tint}: {out:?} vs {target_rgb:?}"
+            );
+            assert!((ratio.y - 1.0).abs() < 1e-4, "luminance changed: {ratio:?}");
+        }
+    }
+
+    #[test]
+    fn main_shader_is_valid_wgsl() {
+        use wgpu::naga;
+        let module = naga::front::wgsl::parse_str(include_str!("shaders/shader.wgsl"))
+            .unwrap_or_else(|e| panic!("{}", e.emit_to_string("shader.wgsl")));
+        naga::valid::Validator::new(
+            naga::valid::ValidationFlags::all(),
+            naga::valid::Capabilities::all(),
+        )
+        .validate(&module)
+        .unwrap_or_else(|e| panic!("{:?}", e));
+    }
+
+    #[test]
+    fn slider_direction_matches_legacy() {
+        let grey = DVec3::splat(0.18);
+        let warm = cat16(grey, 0.5, 0.0);
+        assert!(
+            warm.x > warm.z,
+            "warm slider should raise red over blue: {warm:?}"
+        );
+        let magenta = cat16(grey, 0.0, 0.5);
+        assert!(
+            magenta.y < magenta.x && magenta.y < magenta.z,
+            "tint should reduce green: {magenta:?}"
+        );
+    }
 }

@@ -545,6 +545,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub default_non_raw_tonemapper: Option<String>,
     #[serde(default)]
+    pub white_balance_model: Option<String>,
+    #[serde(default)]
     pub enable_focus_mode: Option<bool>,
     #[serde(default)]
     pub enable_tool_focus_mode: Option<bool>,
@@ -664,6 +666,7 @@ impl Default for AppSettings {
             tonemapper_override_enabled: Some(false),
             default_raw_tonemapper: Some("agx".to_string()),
             default_non_raw_tonemapper: Some("basic".to_string()),
+            white_balance_model: Some("legacy".to_string()),
             enable_focus_mode: Some(false),
             enable_tool_focus_mode: Some(false),
             folder_icons: Some(HashMap::new()),

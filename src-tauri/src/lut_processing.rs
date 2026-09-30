@@ -19,7 +19,7 @@ use crate::AppState;
 use crate::cache_utils::calculate_transform_hash;
 use crate::image_processing::{
     RenderRequest, get_all_adjustments_from_json, process_and_get_dynamic_image,
-    resolve_tonemapper_override_from_handle,
+    resolve_render_overrides_from_handle,
 };
 
 #[derive(Debug, Clone)]
@@ -678,7 +678,7 @@ pub fn generate_lut_previews(
     let (base_image, _scale, _offset) =
         crate::generate_transformed_preview(&state, &loaded_image, &base_json, size)?;
 
-    let tm_override = resolve_tonemapper_override_from_handle(&app_handle, is_raw);
+    let render_overrides = resolve_render_overrides_from_handle(&app_handle, is_raw);
     let transform_hash = calculate_transform_hash(&base_json);
 
     let previews = luts
@@ -691,7 +691,7 @@ pub fn generate_lut_previews(
                 "sectionVisibility": { "effects": true }
             });
             let swatch_adjustments =
-                get_all_adjustments_from_json(&swatch_lut_json, is_raw, tm_override);
+                get_all_adjustments_from_json(&swatch_lut_json, is_raw, render_overrides);
 
             let thumb = render_lut_swatch(
                 &context,

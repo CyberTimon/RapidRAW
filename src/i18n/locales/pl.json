@@ -1867,7 +1867,13 @@
           "basic": "Podstawowe"
         },
         "tonemapperOverride": "Globalne nadpisywanie mapowania tonów",
-        "tonemapperOverrideDesc": "Wymusza konkretne mapowanie tonów globalnie dla wszystkich obrazów, ukrywając pole wyboru mapera z panelu edycji."
+        "tonemapperOverrideDesc": "Wymusza konkretne mapowanie tonów globalnie dla wszystkich obrazów, ukrywając pole wyboru mapera z panelu edycji.",
+        "whiteBalanceModel": "Model balansu bieli",
+        "whiteBalanceModelDesc": "Określa, jak suwaki temperatury i odcienia zmieniają kolory. Tryb klasyczny skaluje kanały RGB. CAT16 dostosowuje kolory do wybranego źródła światła, dając bardziej naturalne rezultaty.",
+        "whiteBalanceModelOptions": {
+          "cat16": "CAT16 (adaptacja chromatyczna)",
+          "legacy": "Klasyczny (wzmocnienie RGB)"
+        }
       },
       "previewRes": "Rozdzielczość podglądu",
       "previewResDesc": "Ogranicza maksymalną rozdzielczość podglądu. Niższe wartości zauważalnie poprawiają wydajność.",

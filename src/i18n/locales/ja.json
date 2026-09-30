@@ -1797,7 +1797,13 @@
           "basic": "標準"
         },
         "tonemapperOverride": "グローバルトーンマッパー上書き",
-        "tonemapperOverrideDesc": "すべての画像に対して指定したトーンマッパーを強制適用し、調整パネル内の切り替えスイッチを非表示にします。"
+        "tonemapperOverrideDesc": "すべての画像に対して指定したトーンマッパーを強制適用し、調整パネル内の切り替えスイッチを非表示にします。",
+        "whiteBalanceModel": "ホワイトバランスの方式",
+        "whiteBalanceModelDesc": "色温度と色かぶり補正のスライダーで色を変える方法です。従来方式は RGB の各チャンネルにゲインを掛けます。CAT16 は指定した光源に合わせて色順応させるため、より自然な色になります。",
+        "whiteBalanceModelOptions": {
+          "cat16": "CAT16（色順応）",
+          "legacy": "従来（RGB ゲイン）"
+        }
       },
       "previewRes": "プレビュー解像度",
       "previewResDesc": "メインプレビューの最大解像度を決定します。値を下げるとパフォーマンスが大幅に向上します。",

@@ -1832,7 +1832,13 @@
           "basic": "Standard"
         },
         "tonemapperOverride": "Surcharge globale du mappeur de tons",
-        "tonemapperOverrideDesc": "Forcer un mappeur de tons spécifique de manière globale pour toutes les images, masquant le sélecteur de mappeur de tons dans le panneau des ajustements."
+        "tonemapperOverrideDesc": "Forcer un mappeur de tons spécifique de manière globale pour toutes les images, masquant le sélecteur de mappeur de tons dans le panneau des ajustements.",
+        "whiteBalanceModel": "Modèle de balance des blancs",
+        "whiteBalanceModelDesc": "Définit comment les curseurs de température et de teinte modifient les couleurs. Le mode classique ajuste les canaux RVB. CAT16 adapte les couleurs à la source lumineuse choisie pour un rendu plus naturel.",
+        "whiteBalanceModelOptions": {
+          "cat16": "CAT16 (adaptation chromatique)",
+          "legacy": "Classique (gain RVB)"
+        }
       },
       "previewRes": "Résolution de l'aperçu",
       "previewResDesc": "Détermine la résolution maximale de l'aperçu. Des valeurs plus basses améliorent considérablement les performances.",

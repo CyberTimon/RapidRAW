@@ -43,9 +43,9 @@ struct GlobalAdjustments {
     tint: f32,
     vibrance: f32,
     hue: f32,
-    _pad_color1: f32,
-    _pad_color2: f32,
-    _pad_color3: f32,
+    white_balance_model: u32,
+    white_balance_base_mired: f32,
+    white_balance_base_duv: f32,
 
     sharpness: f32,
     luma_noise_reduction: f32,
@@ -690,6 +690,94 @@ fn apply_white_balance(color: vec3<f32>, temp: f32, tnt: f32) -> vec3<f32> {
     let tint_mult = vec3<f32>(1.0 + tnt * 0.25, 1.0 - tnt * 0.25, 1.0 + tnt * 0.25);
     rgb *= temp_kelvin_mult * tint_mult;
     return rgb;
+}
+
+const CAT16_XYZ_TO_LMS = mat3x3<f32>(
+    vec3<f32>(0.401288, -0.250268, -0.002079),
+    vec3<f32>(0.650173, 1.204414, 0.048952),
+    vec3<f32>(-0.051461, 0.045854, 0.953127),
+);
+const CAT16_PIPE_TO_LMS = mat3x3<f32>(
+    vec3<f32>(0.302744836, 0.153783570, 0.027976469),
+    vec3<f32>(0.602343787, 0.777332809, 0.147873282),
+    vec3<f32>(0.070446934, 0.085366571, 0.909136597),
+);
+const CAT16_LMS_TO_PIPE = mat3x3<f32>(
+    vec3<f32>(5.447027901, -1.078468512, 0.007796484),
+    vec3<f32>(-4.215834640, 2.144549340, -0.219084108),
+    vec3<f32>(-0.026217257, -0.117801905, 1.119912259),
+);
+
+// Slider values arrive divided by SCALES (temperature: 25, tint: 100).
+const WB_TEMP_UNIT: f32 = 4.0;
+const WB_MIRED_PER_UNIT: f32 = 150.0;
+const WB_DUV_PER_UNIT: f32 = 0.05;
+const WB_MIN_MIRED: f32 = 40.0;
+const WB_MAX_MIRED: f32 = 600.0;
+
+const WB_GAMUT_THRESHOLD: f32 = 0.9;
+const WB_GAMUT_LIMIT: f32 = 1.3;
+const WB_GAMUT_POWER: f32 = 1.2;
+
+fn planckian_uv(cct: f32) -> vec2<f32> {
+    let t2 = cct * cct;
+    let u = (0.860117757 + 1.54118254e-4 * cct + 1.28641212e-7 * t2)
+        / (1.0 + 8.42420235e-4 * cct + 7.08145163e-7 * t2);
+    let v = (0.317398726 + 4.22806245e-5 * cct + 4.20481691e-8 * t2)
+        / (1.0 - 2.89741816e-5 * cct + 1.61456053e-7 * t2);
+    return vec2<f32>(u, v);
+}
+
+fn illuminant_xyz(mired: f32, duv: f32) -> vec3<f32> {
+    let cct = 1.0e6 / clamp(mired, WB_MIN_MIRED, WB_MAX_MIRED);
+    let uv = planckian_uv(cct);
+    let tangent = planckian_uv(cct * 1.01) - uv;
+    let normal = normalize(vec2<f32>(tangent.y, -tangent.x));
+    let p = uv + normal * duv;
+    let d = 2.0 * p.x - 8.0 * p.y + 4.0;
+    let x = 3.0 * p.x / d;
+    let y = 2.0 * p.y / d;
+    return vec3<f32>(x / y, 1.0, (1.0 - x - y) / y);
+}
+
+fn compress_gamut_distance(dist: f32) -> f32 {
+    if (dist < WB_GAMUT_THRESHOLD) {
+        return dist;
+    }
+    let range = WB_GAMUT_LIMIT - WB_GAMUT_THRESHOLD;
+    let scale = range / pow(pow((1.0 - WB_GAMUT_THRESHOLD) / range, -WB_GAMUT_POWER) - 1.0, 1.0 / WB_GAMUT_POWER);
+    let n = (dist - WB_GAMUT_THRESHOLD) / scale;
+    return WB_GAMUT_THRESHOLD + scale * n / pow(1.0 + pow(n, WB_GAMUT_POWER), 1.0 / WB_GAMUT_POWER);
+}
+
+fn compress_gamut(color: vec3<f32>) -> vec3<f32> {
+    let achromatic = max(color.r, max(color.g, color.b));
+    if (achromatic <= 0.0) {
+        return color;
+    }
+    let dist = (vec3<f32>(achromatic) - color) / achromatic;
+    let compressed = vec3<f32>(
+        compress_gamut_distance(dist.r),
+        compress_gamut_distance(dist.g),
+        compress_gamut_distance(dist.b),
+    );
+    return vec3<f32>(achromatic) - compressed * achromatic;
+}
+
+fn apply_white_balance_cat16(color: vec3<f32>, temp: f32, tnt: f32) -> vec3<f32> {
+    if (abs(temp) < 0.00001 && abs(tnt) < 0.00001) {
+        return color;
+    }
+    let base_mired = adjustments.global.white_balance_base_mired;
+    let base_duv = adjustments.global.white_balance_base_duv;
+    let source_white = illuminant_xyz(
+        base_mired - (temp / WB_TEMP_UNIT) * WB_MIRED_PER_UNIT,
+        base_duv + tnt * WB_DUV_PER_UNIT,
+    );
+    let target_white = illuminant_xyz(base_mired, base_duv);
+    let gain = (CAT16_XYZ_TO_LMS * target_white) / (CAT16_XYZ_TO_LMS * source_white);
+    let adapted = CAT16_LMS_TO_PIPE * ((CAT16_PIPE_TO_LMS * color) * gain);
+    return compress_gamut(adapted);
 }
 
 fn apply_creative_color(color: vec3<f32>, sat: f32, vib: f32) -> vec3<f32> {
@@ -1859,7 +1947,11 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     }
 
     var composite_rgb_linear = apply_dehaze(processed_rgb, structure_blurred, is_raw, t_dehaze);
-    composite_rgb_linear = apply_white_balance(composite_rgb_linear, t_temperature, t_tint);
+    if (adjustments.global.white_balance_model == 1u) {
+        composite_rgb_linear = apply_white_balance_cat16(composite_rgb_linear, t_temperature, t_tint);
+    } else {
+        composite_rgb_linear = apply_white_balance(composite_rgb_linear, t_temperature, t_tint);
+    }
     composite_rgb_linear = apply_centre_tonal_and_color(composite_rgb_linear, adjustments.global.centre, absolute_coord_i);
     composite_rgb_linear = apply_tonal_adjustments(composite_rgb_linear, tonal_blurred, is_raw, t_contrast, t_shadows, t_whites, t_blacks);
     composite_rgb_linear = apply_highlights_adjustment(composite_rgb_linear, absolute_coord_i, scale, is_raw, t_highlights);

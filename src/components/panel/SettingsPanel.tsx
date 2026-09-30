@@ -589,6 +589,14 @@ export default function SettingsPanel({
     [t],
   );
 
+  const whiteBalanceModelOptions = useMemo<OptionItem<string>[]>(
+    () => [
+      { value: 'legacy', label: t('settings.processing.preprocessing.whiteBalanceModelOptions.legacy') },
+      { value: 'cat16', label: t('settings.processing.preprocessing.whiteBalanceModelOptions.cat16') },
+    ],
+    [t],
+  );
+
   const fontOptions = useMemo<OptionItem<string>[]>(
     () => [
       { value: 'poppins', label: t('settings.general.poppins') },
@@ -2139,6 +2147,18 @@ export default function SettingsPanel({
                           )}
                         </AnimatePresence>
                       </div>
+
+                      <SettingItem
+                        label={t('settings.processing.preprocessing.whiteBalanceModel')}
+                        description={t('settings.processing.preprocessing.whiteBalanceModelDesc')}
+                      >
+                        <Dropdown
+                          onChange={(value: string) => onSettingsChange({ ...appSettings, whiteBalanceModel: value })}
+                          options={whiteBalanceModelOptions}
+                          value={appSettings?.whiteBalanceModel || 'legacy'}
+                          triggerClassName="bg-bg-primary"
+                        />
+                      </SettingItem>
                     </div>
                   </div>
 

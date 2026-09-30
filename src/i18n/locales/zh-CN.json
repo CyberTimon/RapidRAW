@@ -1797,7 +1797,13 @@
           "basic": "基础"
         },
         "tonemapperOverride": "全局色调映射覆盖",
-        "tonemapperOverrideDesc": "为所有图像全局强制使用特定的色调映射器，从调整面板中隐藏色调映射器开关。"
+        "tonemapperOverrideDesc": "为所有图像全局强制使用特定的色调映射器，从调整面板中隐藏色调映射器开关。",
+        "whiteBalanceModel": "白平衡模型",
+        "whiteBalanceModelDesc": "决定色温和色调滑块如何改变颜色。传统模式直接缩放 RGB 通道。CAT16 根据所选光源进行色适应，效果更自然。",
+        "whiteBalanceModelOptions": {
+          "cat16": "CAT16（色适应）",
+          "legacy": "传统（RGB 增益）"
+        }
       },
       "previewRes": "预览分辨率",
       "previewResDesc": "确定预览的最大分辨率。较低的值可显著提高性能。",

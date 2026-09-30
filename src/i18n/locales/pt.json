@@ -1833,7 +1833,13 @@
           "basic": "Básico"
         },
         "tonemapperOverride": "Substituição Global de Mapeador de Tons",
-        "tonemapperOverrideDesc": "Força um mapeador de tons específico globalmente para todas as imagens, ocultando a opção do mapeador de tons do painel de ajustes."
+        "tonemapperOverrideDesc": "Força um mapeador de tons específico globalmente para todas as imagens, ocultando a opção do mapeador de tons do painel de ajustes.",
+        "whiteBalanceModel": "Modelo de balanço de branco",
+        "whiteBalanceModelDesc": "Define como os controles de temperatura e matiz alteram as cores. O modo clássico escala os canais RGB. O CAT16 adapta as cores à fonte de luz escolhida para resultados mais naturais.",
+        "whiteBalanceModelOptions": {
+          "cat16": "CAT16 (adaptação cromática)",
+          "legacy": "Clássico (ganho RGB)"
+        }
       },
       "previewRes": "Resolução da Visualização",
       "previewResDesc": "Determina a resolução máxima da visualização. Valores mais baixos melhoram significativamente o desempenho.",

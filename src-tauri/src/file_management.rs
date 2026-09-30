@@ -104,9 +104,9 @@ fn resolve_image_metadata(
     }
 
     let is_raw = crate::formats::is_raw_file(image_path);
-    let tm_override = crate::image_processing::resolve_tonemapper_override(settings, is_raw);
+    let render_overrides = crate::image_processing::resolve_render_overrides(settings, is_raw);
     let is_edited =
-        crate::image_processing::is_image_edited(&metadata.adjustments, is_raw, tm_override);
+        crate::image_processing::is_image_edited(&metadata.adjustments, is_raw, render_overrides);
     ImageFileMetadata {
         is_edited,
         tags: metadata.tags,
@@ -1685,8 +1685,9 @@ pub fn generate_thumbnail_data(
             })
             .collect();
 
-        let tm_override = crate::image_processing::resolve_tonemapper_override(&settings, is_raw);
-        let gpu_adjustments = get_all_adjustments_from_json(&meta.adjustments, is_raw, tm_override);
+        let render_overrides = crate::image_processing::resolve_render_overrides(&settings, is_raw);
+        let gpu_adjustments =
+            get_all_adjustments_from_json(&meta.adjustments, is_raw, render_overrides);
         let lut_path = meta.adjustments["lutPath"].as_str();
         let lut = lut_path.and_then(|p| {
             let mut cache = state.lut_cache.lock().unwrap();
@@ -1753,8 +1754,8 @@ pub fn generate_thumbnail_data(
     };
 
     if adjustments.is_null() {
-        let tm_override = crate::image_processing::resolve_tonemapper_override(&settings, is_raw);
-        let use_agx = tm_override == Some(1);
+        let render_overrides = crate::image_processing::resolve_render_overrides(&settings, is_raw);
+        let use_agx = render_overrides.tonemapper == Some(1);
 
         if use_agx {
             if !is_raw {
@@ -1800,7 +1801,7 @@ fn generate_single_thumbnail_and_cache(
     } else if let Ok(content) = fs::read_to_string(&sidecar_path) {
         if let Ok(meta) = serde_json::from_str::<ImageMetadata>(&content) {
             let is_raw = crate::formats::is_raw_file(path_str);
-            let tm = crate::image_processing::resolve_tonemapper_override(settings, is_raw);
+            let tm = crate::image_processing::resolve_render_overrides(settings, is_raw);
             (
                 meta.rating,
                 crate::image_processing::is_image_edited(&meta.adjustments, is_raw, tm),
