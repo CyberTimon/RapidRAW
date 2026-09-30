@@ -313,6 +313,13 @@ export const useKeyboardShortcuts = ({
           toggleShowOriginal();
         },
       },
+      toggle_clipping: {
+        shouldFire: (s: ShortcutState) => s.ui.activeView === 'editor' && !!s.editor.selectedImage,
+        execute: (e, s) => {
+          e.preventDefault();
+          s.editor.setEditor((state) => ({ showClipping: !state.showClipping }));
+        },
+      },
       toggle_adjustments: {
         shouldFire: () => true,
         execute: (e, s) => {

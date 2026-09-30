@@ -1871,6 +1871,7 @@
         "toggle_ai": "Basculer le panneau IA",
         "toggle_analytics": "Basculer l'affichage des analyses",
         "toggle_bottom_panel": "Afficher/Masquer la bande de film",
+        "toggle_clipping": "Afficher les avertissements d'écrêtage",
         "toggle_crop": "Basculer Recadrer / Redresser",
         "toggle_crop_panel": "Basculer le panneau de recadrage",
         "toggle_export": "Basculer le panneau d'exportation",

@@ -1824,6 +1824,7 @@
         "toggle_ai": "AI 패널 전환",
         "toggle_analytics": "분석 표시 전환",
         "toggle_bottom_panel": "필름스트립 토글",
+        "toggle_clipping": "클리핑 경고 표시",
         "toggle_crop": "자르기 / 수평 맞추기 전환",
         "toggle_crop_panel": "자르기 패널 전환",
         "toggle_export": "내보내기 패널 전환",

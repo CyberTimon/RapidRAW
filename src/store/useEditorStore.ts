@@ -40,6 +40,8 @@ export interface EditorState {
   uncroppedAdjustedPreviewUrl: string | null;
   interactivePatch: InteractivePatch | null;
   showOriginal: boolean;
+  /** Clipping warnings in the editor preview; a view aid, never saved with the edit. */
+  showClipping: boolean;
 
   // Analytics
   histogram: ChannelConfig | null;
@@ -107,6 +109,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   comparisonPreviewUrl: null,
   uncroppedAdjustedPreviewUrl: null,
   showOriginal: false,
+  showClipping: false,
   histogram: null,
   waveform: null,
   isWaveformVisible: false,

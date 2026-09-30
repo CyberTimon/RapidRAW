@@ -2354,11 +2354,8 @@ fn get_global_adjustments_from_json(
             SCALES.chromatic_aberration,
             None,
         ),
-        show_clipping: if js_adjustments["showClipping"].as_bool().unwrap_or(false) {
-            1
-        } else {
-            0
-        },
+        // A view aid, not part of the edit: only the editor preview enables it.
+        show_clipping: 0,
         is_raw_image: if is_raw { 1 } else { 0 },
         _pad_ca1: 0.0,
 
@@ -3782,5 +3779,22 @@ mod scope_tests {
             [data.red, data.green, data.blue, data.luma]
         };
         assert_eq!(histogram(&rgba), histogram(&rgb));
+    }
+}
+
+#[cfg(test)]
+mod clipping_overlay_tests {
+    use super::get_all_adjustments_from_json;
+
+    /// Thumbnails, exports, and other renders parse saved edits directly; an
+    /// older edit that stored the overlay must not show clipping colors there.
+    #[test]
+    fn saved_clipping_flag_is_ignored_outside_the_editor_preview() {
+        let adjustments = get_all_adjustments_from_json(
+            &serde_json::json!({ "showClipping": true, "exposure": 1.0 }),
+            true,
+            None,
+        );
+        assert_eq!(adjustments.global.show_clipping, 0);
     }
 }

@@ -23,6 +23,7 @@ const {
   interactivePreviewResolution,
   previewMissingAssetKeys,
   retryMissingPreviewAssets,
+  withClippingOverlay,
 } = await import(pathToFileURL(output));
 const drain = () => new Promise((resolve) => setImmediate(resolve));
 
@@ -261,4 +262,19 @@ test('eviction retry is bounded and stale work never resends pixels', async () =
     (actual) => actual === error,
   );
   assert.equal(attempts, 1);
+});
+
+test('clipping overlay is added to preview input without changing the edit', () => {
+  const edit = { exposure: 1 };
+  assert.equal(withClippingOverlay(edit, false), edit);
+  const shown = withClippingOverlay(edit, true);
+  assert.deepEqual(shown, { exposure: 1, showClipping: true });
+  assert.equal(edit.showClipping, undefined);
+  // Stable identity lets unchanged input skip a re-render.
+  assert.equal(withClippingOverlay(edit, true), shown);
+
+  // A stray saved flag cannot enable the overlay while it is switched off.
+  const legacy = { exposure: 1, showClipping: true };
+  assert.equal(withClippingOverlay(legacy, true), legacy);
+  assert.equal(withClippingOverlay(legacy, false).showClipping, false);
 });

@@ -216,3 +216,25 @@ export class PreviewPipeline<T> {
       });
   }
 }
+
+const clippingViews = {
+  on: new WeakMap<Adjustments, Adjustments>(),
+  off: new WeakMap<Adjustments, Adjustments>(),
+};
+
+/**
+ * Returns the adjustments to render with the editor's clipping overlay. The
+ * overlay is view state, so it never enters the saved edit. Results are cached
+ * per input so identity-based preview deduplication still works.
+ */
+export function withClippingOverlay(adjustments: Adjustments, showClipping: boolean): Adjustments {
+  const current = (adjustments as Adjustments & { showClipping?: boolean }).showClipping === true;
+  if (current === showClipping) return adjustments;
+  const views = showClipping ? clippingViews.on : clippingViews.off;
+  let view = views.get(adjustments);
+  if (!view) {
+    view = { ...adjustments, showClipping } as Adjustments;
+    views.set(adjustments, view);
+  }
+  return view;
+}

@@ -96,8 +96,9 @@ test('legacy saved masks receive missing defaults without replacing explicit fal
     ],
   };
   const original = structuredClone(saved);
-  const normalized = normalizeLoadedAdjustments(saved);
+  const normalized = normalizeLoadedAdjustments({ ...saved, showClipping: true });
   assert.equal(normalized.exposure, 1.25);
+  assert.equal('showClipping' in normalized, false, 'the clipping overlay is view state, not part of the edit');
   assert.deepEqual(normalized.masks[0].subMasks[0], {
     id: 'legacy',
     type: 'brush',

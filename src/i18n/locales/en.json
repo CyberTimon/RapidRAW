@@ -1840,6 +1840,7 @@
         "toggle_ai": "Toggle AI panel",
         "toggle_analytics": "Toggle Analytics display",
         "toggle_bottom_panel": "Toggle Filmstrip",
+        "toggle_clipping": "Show clipping warnings",
         "toggle_crop": "Toggle Crop / Straighten",
         "toggle_crop_panel": "Toggle Crop panel",
         "toggle_export": "Toggle Export panel",

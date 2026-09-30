@@ -1824,6 +1824,7 @@
         "toggle_ai": "切换 AI 面板",
         "toggle_analytics": "切换分析显示",
         "toggle_bottom_panel": "切换胶片条",
+        "toggle_clipping": "显示裁剪警告",
         "toggle_crop": "切换裁剪/拉直",
         "toggle_crop_panel": "切换裁剪面板",
         "toggle_export": "切换导出面板",

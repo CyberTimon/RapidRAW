@@ -1824,6 +1824,7 @@
         "toggle_ai": "AIパネルの表示/非表示",
         "toggle_analytics": "アナリティクス表示の表示/非表示",
         "toggle_bottom_panel": "フィルムストリップの表示/非表示",
+        "toggle_clipping": "白とび・黒つぶれ警告を表示",
         "toggle_crop": "切り抜き/角度補正の切り替え",
         "toggle_crop_panel": "切り抜きパネルの表示/非表示",
         "toggle_export": "書き出しパネルの表示/非表示",

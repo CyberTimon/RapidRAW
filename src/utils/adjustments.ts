@@ -249,7 +249,6 @@ export interface Adjustments {
   shadows: number;
   sharpness: number;
   sharpnessThreshold: number;
-  showClipping: boolean;
   structure: number;
   temperature: number;
   tint: number;
@@ -645,7 +644,6 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   shadows: 0,
   sharpness: 0,
   sharpnessThreshold: 15,
-  showClipping: false,
   structure: 0,
   temperature: 0,
   tint: 0,
@@ -749,9 +747,14 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Partial<Adjustment
     subMasks: normalizeSubMasks(patch.subMasks),
   }));
 
+  // Older edits stored the clipping overlay; it is now editor view state.
+  const { showClipping: _viewState, ...savedAdjustments } = loadedAdjustments as Partial<Adjustments> & {
+    showClipping?: unknown;
+  };
+
   return {
     ...INITIAL_ADJUSTMENTS,
-    ...loadedAdjustments,
+    ...savedAdjustments,
     guidedPerspective: {
       enabled: loadedAdjustments.guidedPerspective?.enabled ?? false,
       lines: (() => {

@@ -388,6 +388,7 @@ export default function MasksPanel() {
     waveform,
     activeWaveformChannel,
     waveformHeight,
+    showClipping,
     showPatchMarkers,
     setEditor,
   } = useEditorStore(
@@ -404,6 +405,7 @@ export default function MasksPanel() {
       waveform: state.waveform,
       activeWaveformChannel: state.activeWaveformChannel,
       waveformHeight: state.waveformHeight,
+      showClipping: state.showClipping,
       showPatchMarkers: state.showPatchMarkers ?? true,
       setEditor: state.setEditor,
     })),
@@ -1190,13 +1192,8 @@ export default function MasksPanel() {
                   histogram={histogram}
                   displayMode={activeWaveformChannel || 'luma'}
                   setDisplayMode={setActiveWaveformChannel}
-                  showClipping={adjustments.showClipping || false}
-                  onToggleClipping={() => {
-                    setAdjustments((prev: Adjustments) => ({
-                      ...prev,
-                      showClipping: !prev.showClipping,
-                    }));
-                  }}
+                  showClipping={showClipping}
+                  onToggleClipping={() => setEditor((state) => ({ showClipping: !state.showClipping }))}
                 />
               </div>
               <Resizer direction={Orientation.Horizontal} onMouseDown={handleWaveformResize} />

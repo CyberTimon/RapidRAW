@@ -1870,6 +1870,7 @@
         "toggle_ai": "Alternar tauler d'IA",
         "toggle_analytics": "Alternar visualització d'anàlisi",
         "toggle_bottom_panel": "Commutar la tira d'imatges",
+        "toggle_clipping": "Mostrar advertiments de retall",
         "toggle_crop": "Alternar Retallar / Redreçar",
         "toggle_crop_panel": "Alternar tauler de Retall",
         "toggle_export": "Alternar tauler d'Exportació",

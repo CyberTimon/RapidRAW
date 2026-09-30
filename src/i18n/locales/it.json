@@ -1870,6 +1870,7 @@
         "toggle_ai": "Attiva/Disattiva pannello AI",
         "toggle_analytics": "Attiva/Disattiva visualizzazione Analitiche",
         "toggle_bottom_panel": "Mostra/Nascondi striscia immagini",
+        "toggle_clipping": "Mostra Avvisi di Ritaglio",
         "toggle_crop": "Attiva/Disattiva Ritaglio / Raddrizza",
         "toggle_crop_panel": "Attiva/Disattiva pannello Ritaglio",
         "toggle_export": "Attiva/Disattiva pannello Esportazione",

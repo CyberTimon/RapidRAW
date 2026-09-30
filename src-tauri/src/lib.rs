@@ -642,7 +642,10 @@ fn process_preview_job(
 
     let is_raw = loaded_image.is_raw;
     let tm_override = resolve_tonemapper_override_from_handle(app_handle, is_raw);
-    let final_adjustments = get_all_adjustments_from_json(&adjustments_clone, is_raw, tm_override);
+    let mut final_adjustments =
+        get_all_adjustments_from_json(&adjustments_clone, is_raw, tm_override);
+    final_adjustments.global.show_clipping =
+        u32::from(adjustments_clone["showClipping"].as_bool() == Some(true));
     let lut_path = adjustments_clone["lutPath"].as_str();
     let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
 

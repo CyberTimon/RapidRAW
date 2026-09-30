@@ -17,6 +17,7 @@ import {
   preparePreviewAdjustments,
   interactivePreviewResolution,
   retryMissingPreviewAssets,
+  withClippingOverlay,
   type PreviewAssetCacheStatus,
 } from '../utils/previewPipeline';
 import {
@@ -92,6 +93,7 @@ export function useImageProcessing(
   const baseRenderSize = useEditorStore((state) => state.baseRenderSize);
   const originalSize = useEditorStore((state) => state.originalSize);
   const isSliderDragging = useEditorStore((state) => state.isSliderDragging);
+  const showClipping = useEditorStore((state) => state.showClipping);
   const setEditor = useEditorStore((state) => state.setEditor);
 
   const activeView = useUIStore((state) => state.activeView);
@@ -725,7 +727,7 @@ export function useImageProcessing(
         if (!previous.showOriginal && state.showOriginal) {
           comparisonRestoreRef.current = {
             frame: lastEditedFrameRef.current,
-            adjustments: previous.adjustments,
+            adjustments: withClippingOverlay(previous.adjustments, previous.showClipping),
             histogram: previous.histogram,
             waveform: previous.waveform,
             waveformVisible: previous.isWaveformVisible,
@@ -735,8 +737,11 @@ export function useImageProcessing(
         } else if (previous.showOriginal && !state.showOriginal) {
           comparisonReturnPendingRef.current = true;
         }
-        const renderAdjustments = state.previewOverride ?? state.adjustments;
-        const previousAdjustments = previous.previewOverride ?? previous.adjustments;
+        const renderAdjustments = withClippingOverlay(state.previewOverride ?? state.adjustments, state.showClipping);
+        const previousAdjustments = withClippingOverlay(
+          previous.previewOverride ?? previous.adjustments,
+          previous.showClipping,
+        );
         if (!state.selectedImage?.isReady || renderAdjustments === previousAdjustments) return;
         const inputRevision = reservePreviewRevision('main', state.backendGeneration);
         tracePreview({
@@ -824,8 +829,8 @@ export function useImageProcessing(
       debounce((targetRes: number) => {
         if (targetRes > currentResRef.current) {
           currentResRef.current = targetRes;
-          const { adjustments, previewOverride } = useEditorStore.getState();
-          const renderAdjustments = previewOverride ?? adjustments;
+          const { adjustments, previewOverride, showClipping } = useEditorStore.getState();
+          const renderAdjustments = withClippingOverlay(previewOverride ?? adjustments, showClipping);
           applyAdjustments(renderAdjustments, false, targetRes);
         }
       }, 250),
@@ -865,7 +870,7 @@ export function useImageProcessing(
     if (dragIdleTimer.current) clearTimeout(dragIdleTimer.current);
 
     const targetRes = calculateTargetRes();
-    const renderAdjustments = previewOverride ?? adjustments;
+    const renderAdjustments = withClippingOverlay(previewOverride ?? adjustments, showClipping);
 
     if (activeView !== 'editor') {
       if (isSliderDragging) return;
@@ -934,6 +939,7 @@ export function useImageProcessing(
     appSettings?.copyPasteSettings?.autoSync,
     isWaveformVisible,
     activeWaveformChannel,
+    showClipping,
   ]);
 
   return {

@@ -1870,6 +1870,7 @@
         "toggle_ai": "Alternar panel de IA",
         "toggle_analytics": "Alternar vista de análisis",
         "toggle_bottom_panel": "Alternar tira de imágenes",
+        "toggle_clipping": "Mostrar advertencias de recorte",
         "toggle_crop": "Alternar Recortar / Enderezar",
         "toggle_crop_panel": "Alternar panel de Recorte",
         "toggle_export": "Alternar panel de Exportación",

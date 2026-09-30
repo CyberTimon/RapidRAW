@@ -16,6 +16,7 @@ Changes added by this fork to RapidRAW. Upstream application changes remain in t
 ### Saved edits
 
 - Save edit files (adjustments, ratings, tags, and color labels), metadata sidecars, and existing XMP sidecars when XMP sync is on by writing a temporary file, flushing it to disk, and renaming it over the original. A crash or interrupted save now leaves the previous version intact instead of a truncated file. Replaced sidecars keep their permissions, and symlinked sidecars are updated at their target. Power-loss behavior was not tested.
+- Treat the clipping warning as an editor view setting instead of part of the edit. Toggling it no longer saves the photo, adds an undo step, or carries over when you copy and paste adjustments. The setting is not persisted, stays as set when you switch photos, and applies only to the interactive editor preview. Library thumbnails no longer show clipping colors for edits saved with the warning on. Press J (rebindable in keybind settings) to toggle it.
 
 ### Rendering and export reliability
 

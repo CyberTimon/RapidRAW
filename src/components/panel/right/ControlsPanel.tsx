@@ -57,6 +57,7 @@ export default function Controls() {
     waveform,
     activeWaveformChannel,
     waveformHeight,
+    showClipping,
     setEditor,
   } = useEditorStore(
     useShallow((state) => ({
@@ -69,6 +70,7 @@ export default function Controls() {
       waveform: state.waveform,
       activeWaveformChannel: state.activeWaveformChannel,
       waveformHeight: state.waveformHeight,
+      showClipping: state.showClipping,
       setEditor: state.setEditor,
     })),
   );
@@ -249,13 +251,8 @@ export default function Controls() {
                 histogram={histogram}
                 displayMode={activeWaveformChannel || 'luma'}
                 setDisplayMode={setActiveWaveformChannel}
-                showClipping={adjustments.showClipping || false}
-                onToggleClipping={() => {
-                  setAdjustments((prev: Adjustments) => ({
-                    ...prev,
-                    showClipping: !prev.showClipping,
-                  }));
-                }}
+                showClipping={showClipping}
+                onToggleClipping={() => setEditor((state) => ({ showClipping: !state.showClipping }))}
                 theme={theme}
               />
             </div>
