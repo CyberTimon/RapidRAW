@@ -22,8 +22,8 @@ export default function ExternalControlSection({ appSettings, onSettingsChange }
   const { t } = useTranslation();
   const [status, setStatus] = useState<PublicStatus | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const enabled = Boolean(appSettings?.externalControlEnabled);
-  const port = Number(appSettings?.externalControlPort ?? 17355);
+  const enabled = Boolean(appSettings?.mcpControlEnabled);
+  const port = Number(appSettings?.mcpControlPort ?? 17355);
 
   const refreshStatus = useCallback(async () => {
     try {
@@ -52,18 +52,18 @@ export default function ExternalControlSection({ appSettings, onSettingsChange }
           ),
         );
       }
-      onSettingsChange({ ...appSettings, externalControlEnabled: next });
+      onSettingsChange({ ...appSettings, mcpControlEnabled: next });
       await invoke('external_control_update_settings', { enabled: next, port });
       await refreshStatus();
     } catch (e) {
       toast.error(String(e));
-      onSettingsChange({ ...appSettings, externalControlEnabled: false });
+      onSettingsChange({ ...appSettings, mcpControlEnabled: false });
       await refreshStatus();
     }
   };
 
   const updatePort = async (nextPort: number) => {
-    onSettingsChange({ ...appSettings, externalControlPort: nextPort });
+    onSettingsChange({ ...appSettings, mcpControlPort: nextPort });
     await invoke('external_control_update_settings', { port: nextPort, enabled });
     await refreshStatus();
   };

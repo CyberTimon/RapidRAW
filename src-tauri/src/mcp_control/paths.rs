@@ -129,12 +129,16 @@ pub fn validate_preset_file_path(path: &str) -> Result<PathBuf, ApiErrorBody> {
         ));
     }
 
-    let home = std::env::var_os("HOME").map(PathBuf::from);
+    let home = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .and_then(|h| std::fs::canonicalize(&h).ok().or(Some(h)));
     let under_home = home
         .as_ref()
         .map(|h| canonical.starts_with(h))
         .unwrap_or(false);
-    let under_tmp = canonical.starts_with(std::env::temp_dir());
+    let tmp = std::env::temp_dir();
+    let tmp = std::fs::canonicalize(&tmp).unwrap_or(tmp);
+    let under_tmp = canonical.starts_with(&tmp);
     if !under_home && !under_tmp {
         return Err(ApiErrorBody::new(
             "path_forbidden",
@@ -148,6 +152,15 @@ pub fn validate_preset_file_path(path: &str) -> Result<PathBuf, ApiErrorBody> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use std::io::Write;
+
+    fn settings_with_root(root: &Path) -> AppSettings {
+        let mut s = AppSettings::default();
+        s.root_folders = vec![root.to_string_lossy().into_owned()];
+        s.last_root_path = Some(root.to_string_lossy().into_owned());
+        s
+    }
 
     #[test]
     fn rejects_when_no_library_roots() {
@@ -158,5 +171,67 @@ mod tests {
             "unexpected code: {}",
             err.code
         );
+    }
+
+    #[test]
+    fn rejects_empty_and_relative_paths() {
+        let settings = AppSettings::default();
+        assert_eq!(
+            validate_library_path("", &settings).unwrap_err().code,
+            "invalid_path"
+        );
+        assert_eq!(
+            validate_library_path("relative/photo.dng", &settings)
+                .unwrap_err()
+                .code,
+            "invalid_path"
+        );
+    }
+
+    #[test]
+    fn rejects_null_byte_path() {
+        let settings = AppSettings::default();
+        let err = validate_library_path("/tmp/foo\0bar.dng", &settings).unwrap_err();
+        assert_eq!(err.code, "invalid_path");
+    }
+
+    #[test]
+    fn allows_path_under_configured_root() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let file = dir.path().join("photo.dng");
+        fs::write(&file, b"raw").unwrap();
+        let settings = settings_with_root(dir.path());
+        let got = validate_library_path(file.to_str().unwrap(), &settings).unwrap();
+        assert_eq!(got, fs::canonicalize(&file).unwrap());
+    }
+
+    #[test]
+    fn rejects_path_outside_configured_root() {
+        let allowed = tempfile::tempdir().expect("allowed");
+        let other = tempfile::tempdir().expect("other");
+        let file = other.path().join("photo.dng");
+        fs::write(&file, b"raw").unwrap();
+        let settings = settings_with_root(allowed.path());
+        let err = validate_library_path(file.to_str().unwrap(), &settings).unwrap_err();
+        assert_eq!(err.code, "path_forbidden");
+    }
+
+    #[test]
+    fn validate_preset_file_accepts_json_under_temp() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let file = dir.path().join("demo.json");
+        let mut f = fs::File::create(&file).unwrap();
+        writeln!(f, "{{}}").unwrap();
+        let got = validate_preset_file_path(file.to_str().unwrap()).unwrap();
+        assert_eq!(got, fs::canonicalize(&file).unwrap());
+    }
+
+    #[test]
+    fn validate_preset_file_rejects_bad_extension() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let file = dir.path().join("demo.exe");
+        fs::write(&file, b"x").unwrap();
+        let err = validate_preset_file_path(file.to_str().unwrap()).unwrap_err();
+        assert_eq!(err.code, "invalid_preset");
     }
 }

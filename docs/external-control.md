@@ -17,7 +17,7 @@ MCP client  --stdio-->  rapidraw-mcp  --HTTP Bearer-->  RapidRAW External Contro
 
 | Layer | Role |
 | --- | --- |
-| **HTTP server** (`src-tauri/src/external_control/`) | Axum on `127.0.0.1` only. Off unless enabled. Validates bearer token, paths, body size. |
+| **HTTP server** (`src-tauri/src/mcp_control/`) | Axum on `127.0.0.1` only. Off unless enabled. Validates bearer token, paths, body size. |
 | **Session mirror** | Frontend pushes current image, adjustments, selection, folder via `external_control_push_session`. |
 | **Bridge** | For UI-bound ops: Rust emits Tauri event `external-control-command`; React hook fulfills with `external_control_fulfill_request` (30s timeout). |
 | **rapidraw-mcp** | Thin MCP ↔ HTTP client. No knowledge of React/Zustand/WGPU. |
@@ -42,13 +42,21 @@ See also: [mcp-tools.md](./mcp-tools.md), [mcp-client-examples/](./mcp-client-ex
 ## Security
 
 - **Loopback only** — bind address is always `127.0.0.1`, never `0.0.0.0`.
-- **Disabled by default** — `externalControlEnabled` defaults to `false`.
+- **Disabled by default** — `mcpControlEnabled` defaults to `false`.
 - **Bearer token** — `Authorization: Bearer <token>`. Hash stored in app settings; regenerating invalidates the previous token.
-- **Path allowlist** — file paths must be absolute, canonicalize successfully, and lie under configured library roots (`rootFolders` / `lastRootPath`). Otherwise home-directory-only fallback. Blocks traversal / out-of-library access.
+- **Path allowlist** — file paths must be absolute, canonicalize successfully, and lie under configured library roots (`rootFolders` / `lastRootPath`). No HOME fallback. Blocks traversal / out-of-library access.
 - **Body limit** — 2 MiB request bodies.
 - **Preview caps** — max edge 2048 (default 1024); JPEG payload rejected above ~4 MiB.
 - **No remote network** — API does not proxy arbitrary URLs or run shell commands from the model.
 - **Disable anytime** — uncheck Enable; server shuts down.
+
+## Relation to hardware External Control (#1696)
+
+[#1696](https://github.com/CyberTimon/RapidRAW/pull/1696) proposes a **TCP NDJSON** loopback API (default port `47820`) aimed at dials / Loupedeck / MIDI — high-frequency `adjust`/`step` with slider-like tracking.
+
+This PR keeps a separate **HTTP `/v1`** surface (module `mcp_control`, settings `mcpControl*`, default port `17355`) for agents/MCP (token auth, path allowlist, library/presets/AI/export).
+
+Intentional split so the two can land without clashing names. Happy to later share one enable UI / command layer with two transports if @CyberTimon prefers.
 
 ## Auth and responses
 

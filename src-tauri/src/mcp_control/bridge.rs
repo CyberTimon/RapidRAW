@@ -50,7 +50,7 @@ pub fn new_external_control_state() -> ExternalControlState {
 
 pub fn external_control_state(app: &AppHandle) -> ExternalControlState {
     let state = app.state::<AppState>();
-    Arc::clone(&state.external_control)
+    Arc::clone(&state.mcp_control)
 }
 
 pub fn hash_token(token: &str) -> String {
@@ -66,11 +66,11 @@ fn settings_from_app(app: &AppHandle) -> AppSettings {
 pub fn sync_settings_from_disk(app: &AppHandle, inner: &mut ExternalControlInner) {
     let s = settings_from_app(app);
     inner.settings_snapshot = ExternalControlSettings {
-        enabled: s.external_control_enabled.unwrap_or(false),
-        port: s.external_control_port.unwrap_or(DEFAULT_PORT),
-        token_configured: Some(s.external_control_token_hash.is_some()),
+        enabled: s.mcp_control_enabled.unwrap_or(false),
+        port: s.mcp_control_port.unwrap_or(DEFAULT_PORT),
+        token_configured: Some(s.mcp_control_token_hash.is_some()),
     };
-    inner.token_hash = s.external_control_token_hash.clone();
+    inner.token_hash = s.mcp_control_token_hash.clone();
 }
 
 #[tauri::command]
@@ -106,13 +106,13 @@ pub async fn external_control_update_settings(
 ) -> Result<ExternalControlPublicStatus, String> {
     let mut settings = settings_from_app(&app);
     if let Some(enabled) = input.enabled {
-        settings.external_control_enabled = Some(enabled);
+        settings.mcp_control_enabled = Some(enabled);
     }
     if let Some(port) = input.port {
         if port == 0 {
             return Err("Port must be greater than zero".into());
         }
-        settings.external_control_port = Some(port);
+        settings.mcp_control_port = Some(port);
     }
     save_settings(settings, app.clone()).map_err(|e| e.to_string())?;
     restart_external_control_server(app.clone()).await?;
@@ -126,7 +126,7 @@ pub async fn external_control_generate_token(app: AppHandle) -> Result<String, S
     let hash = hash_token(&token);
 
     let mut settings = settings_from_app(&app);
-    settings.external_control_token_hash = Some(hash.clone());
+    settings.mcp_control_token_hash = Some(hash.clone());
     save_settings(settings, app.clone()).map_err(|e| e.to_string())?;
 
     {
@@ -188,6 +188,12 @@ pub async fn restart_external_control_server(app: AppHandle) -> Result<(), Strin
     }
 
     if enabled {
+        if token_hash.is_none() {
+            return Err(
+                "External control requires a bearer token. Generate one in Settings before enabling."
+                    .into(),
+            );
+        }
         let handle =
             ExternalControlServerHandle::start(app.clone(), ec.clone(), port, token_hash).await?;
         let mut inner = ec.lock().map_err(|e| e.to_string())?;
@@ -266,7 +272,11 @@ pub fn verify_bearer(
     expected_hash: &Option<String>,
 ) -> Result<(), ApiErrorBody> {
     let Some(expected) = expected_hash else {
-        return Ok(());
+        // Fail closed: enabled server must have a token hash configured.
+        return Err(ApiErrorBody::new(
+            "unauthorized",
+            "External control token is not configured",
+        ));
     };
     let Some(provided) = token else {
         return Err(ApiErrorBody::new(
@@ -279,6 +289,42 @@ pub fn verify_bearer(
         return Err(ApiErrorBody::new("unauthorized", "Invalid bearer token"));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hash_token_is_stable_sha256_hex() {
+        let a = hash_token("secret");
+        let b = hash_token("secret");
+        assert_eq!(a, b);
+        assert_eq!(a.len(), 64);
+        assert_ne!(hash_token("secret"), hash_token("other"));
+    }
+
+    #[test]
+    fn verify_bearer_fail_closed_without_configured_hash() {
+        let err = verify_bearer(Some("any"), &None).unwrap_err();
+        assert_eq!(err.code, "unauthorized");
+    }
+
+    #[test]
+    fn verify_bearer_requires_matching_token() {
+        let hash = hash_token("good-token");
+        assert!(verify_bearer(Some("good-token"), &Some(hash.clone())).is_ok());
+        assert_eq!(
+            verify_bearer(None, &Some(hash.clone())).unwrap_err().code,
+            "unauthorized"
+        );
+        assert_eq!(
+            verify_bearer(Some("bad-token"), &Some(hash))
+                .unwrap_err()
+                .code,
+            "unauthorized"
+        );
+    }
 }
 
 pub fn adjustment_schema() -> Value {

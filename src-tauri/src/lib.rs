@@ -19,7 +19,7 @@ mod culling;
 mod denoising;
 mod exif_processing;
 mod export_processing;
-mod external_control;
+mod mcp_control;
 mod file_management;
 mod focus_stacking;
 mod formats;
@@ -1956,7 +1956,7 @@ pub fn run() {
                 let ec_app = app_handle.clone();
                 tauri::async_runtime::spawn(async move {
                     if let Err(e) =
-                        external_control::restart_external_control_server(ec_app).await
+                        mcp_control::restart_external_control_server(ec_app).await
                     {
                         log::warn!("External control server failed to start: {e}");
                     }
@@ -2163,14 +2163,14 @@ pub fn run() {
             disks_cache: Mutex::new(None),
             disks_cache_refreshing: AtomicBool::new(false),
             camera_session: Mutex::new(camera_tethering::CameraSession::new()),
-            external_control: external_control::new_external_control_state(),
+            mcp_control: mcp_control::new_external_control_state(),
         })
         .invoke_handler(tauri::generate_handler![
-            external_control::bridge::external_control_get_public_status,
-            external_control::bridge::external_control_update_settings,
-            external_control::bridge::external_control_generate_token,
-            external_control::bridge::external_control_push_session,
-            external_control::bridge::external_control_fulfill_request,
+            mcp_control::bridge::external_control_get_public_status,
+            mcp_control::bridge::external_control_update_settings,
+            mcp_control::bridge::external_control_generate_token,
+            mcp_control::bridge::external_control_push_session,
+            mcp_control::bridge::external_control_fulfill_request,
             apply_adjustments,
             generate_preview_for_path,
             generate_preset_preview,
