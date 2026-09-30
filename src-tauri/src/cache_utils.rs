@@ -57,6 +57,10 @@ impl SourceRevision {
         })
     }
 
+    pub fn canonical_path(&self) -> &Path {
+        &self.canonical_path
+    }
+
     pub fn token(&self) -> String {
         let mut hasher = blake3::Hasher::new();
         #[cfg(unix)]
@@ -284,7 +288,21 @@ impl<K: PartialEq> MaskBitmapCache<K> {
     }
 }
 
-const DEFAULT_DECODED_CACHE_BYTES: usize = 512 * 1024 * 1024;
+const MIN_DECODED_CACHE_BYTES: usize = 512 * 1024 * 1024;
+const MAX_DECODED_CACHE_BYTES: usize = 4 * 1024 * 1024 * 1024;
+
+/// An eighth of physical memory, within 512 MiB..4 GiB. A decoded 24 MP RAW
+/// holds about 290 MB of f32 pixels, so a 16 GB machine keeps the open photo
+/// and both neighbours.
+fn default_decoded_cache_bytes() -> usize {
+    static BYTES: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+    *BYTES.get_or_init(|| {
+        let mut system = sysinfo::System::new();
+        system.refresh_memory();
+        let eighth = usize::try_from(system.total_memory() / 8).unwrap_or(usize::MAX);
+        eighth.clamp(MIN_DECODED_CACHE_BYTES, MAX_DECODED_CACHE_BYTES)
+    })
+}
 
 struct DecodedImageEntry {
     revision: SourceRevision,
@@ -380,7 +398,7 @@ pub struct DecodedImageCache {
 
 impl DecodedImageCache {
     pub fn new(capacity: usize) -> Self {
-        Self::with_budget(capacity, DEFAULT_DECODED_CACHE_BYTES)
+        Self::with_budget(capacity, default_decoded_cache_bytes())
     }
 
     pub fn with_budget(capacity: usize, max_bytes: usize) -> Self {
@@ -432,11 +450,44 @@ impl DecodedImageCache {
         self.bytes = 0;
     }
 
+    /// Whether `revision` is cached, without counting a lookup or changing
+    /// recency.
+    pub fn contains(&self, revision: &SourceRevision) -> bool {
+        self.items.iter().any(|entry| entry.revision == *revision)
+    }
+
     pub fn insert(
         &mut self,
         revision: SourceRevision,
         image: Arc<DynamicImage>,
         exif: HashMap<String, String>,
+    ) -> bool {
+        self.insert_protecting(revision, image, exif, None)
+    }
+
+    /// Inserts a speculative decode. It is skipped when it cannot fit beside
+    /// `protected` (the photo being edited), which is never evicted for it.
+    pub fn insert_prefetched(
+        &mut self,
+        revision: SourceRevision,
+        image: Arc<DynamicImage>,
+        exif: HashMap<String, String>,
+        protected: Option<&Arc<DynamicImage>>,
+    ) -> bool {
+        let protected_bytes = protected.map_or(0, |image| image.as_bytes().len());
+        if image.as_bytes().len() + protected_bytes > self.max_bytes {
+            self.trace("skip_prefetch");
+            return false;
+        }
+        self.insert_protecting(revision, image, exif, protected)
+    }
+
+    fn insert_protecting(
+        &mut self,
+        revision: SourceRevision,
+        image: Arc<DynamicImage>,
+        exif: HashMap<String, String>,
+        protected: Option<&Arc<DynamicImage>>,
     ) -> bool {
         if let Some(pos) = self
             .items
@@ -462,7 +513,7 @@ impl DecodedImageCache {
             exif_bytes,
         });
         self.refresh_bytes();
-        self.evict_to_budget();
+        self.evict_to_budget_protecting(protected);
         self.trace("insert");
         true
     }
@@ -529,8 +580,18 @@ impl DecodedImageCache {
     }
 
     fn evict_to_budget(&mut self) {
+        self.evict_to_budget_protecting(None);
+    }
+
+    /// Evicts least recently used entries, skipping `protected`.
+    fn evict_to_budget_protecting(&mut self, protected: Option<&Arc<DynamicImage>>) {
         while self.items.len() > self.capacity || self.bytes > self.max_bytes {
-            self.items.remove(0);
+            let Some(oldest) = self.items.iter().position(|entry| {
+                !protected.is_some_and(|protected| Arc::ptr_eq(&entry.image, protected))
+            }) else {
+                break;
+            };
+            self.items.remove(oldest);
             self.evictions += 1;
             self.refresh_bytes();
             self.trace("evict");
@@ -644,6 +705,52 @@ mod tests {
         cache.clear();
         assert_eq!(cache.bytes, 0);
         assert_eq!(held.as_bytes().len(), 48);
+    }
+
+    #[test]
+    fn prefetched_entries_never_evict_the_open_photo() {
+        let folder = tempfile::tempdir().unwrap();
+        let revisions: Vec<_> = (0..3)
+            .map(|index| {
+                let path = folder.path().join(format!("{index}.png"));
+                fs::write(&path, [index]).unwrap();
+                SourceRevision::read(&path).unwrap()
+            })
+            .collect();
+        let image = || Arc::new(DynamicImage::ImageRgb32F(image::Rgb32FImage::new(2, 2)));
+        let mut cache = DecodedImageCache::with_budget(3, 96);
+
+        let open = image();
+        assert!(cache.insert(revisions[0].clone(), Arc::clone(&open), HashMap::new()));
+        assert!(!cache.contains(&revisions[1]));
+        assert!(cache.insert_prefetched(
+            revisions[1].clone(),
+            image(),
+            HashMap::new(),
+            Some(&open)
+        ));
+        assert!(cache.contains(&revisions[1]));
+        // The open photo is least recently used, but the neighbour is evicted.
+        assert!(cache.insert_prefetched(
+            revisions[2].clone(),
+            image(),
+            HashMap::new(),
+            Some(&open)
+        ));
+        assert!(cache.contains(&revisions[0]));
+        assert!(!cache.contains(&revisions[1]));
+        assert!(cache.contains(&revisions[2]));
+
+        // A neighbour that cannot fit beside the open photo is skipped.
+        let mut tight = DecodedImageCache::with_budget(3, 80);
+        assert!(tight.insert(revisions[0].clone(), Arc::clone(&open), HashMap::new()));
+        assert!(!tight.insert_prefetched(
+            revisions[1].clone(),
+            image(),
+            HashMap::new(),
+            Some(&open)
+        ));
+        assert!(tight.contains(&revisions[0]));
     }
 
     #[test]

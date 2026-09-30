@@ -903,6 +903,44 @@ pub fn get_source_revision(path: String) -> Result<String, String> {
     SourceRevision::read(&source_path).map(|revision| revision.token())
 }
 
+/// Decodes a photo's editing source and reads its EXIF. Opening and neighbour
+/// prefetch share this so a prefetched photo is identical to a direct open.
+pub fn decode_source_image(
+    path: &str,
+    settings: &AppSettings,
+    cancel_token: Option<(Arc<AtomicUsize>, usize)>,
+) -> Result<(DynamicImage, HashMap<String, String>), String> {
+    let cancelled = || {
+        cancel_token
+            .as_ref()
+            .is_some_and(|(tracker, generation)| tracker.load(Ordering::SeqCst) != *generation)
+    };
+    if cancelled() {
+        return Err("Load cancelled".to_string());
+    }
+    let decode = |bytes: &[u8]| {
+        if cancelled() {
+            return Err("Load cancelled".to_string());
+        }
+        let img = load_base_image_from_bytes(bytes, path, false, settings, cancel_token.clone())
+            .map_err(|e| e.to_string())?;
+        Ok((img, exif_processing::read_exif_data(path, bytes)))
+    };
+    match read_file_mapped(Path::new(path)) {
+        Ok(mmap) => decode(&mmap),
+        Err(e) => {
+            log::warn!(
+                "Failed to memory-map file '{}': {}. Falling back to standard read.",
+                path,
+                e
+            );
+            let bytes = fs::read(path)
+                .map_err(|io_err| format!("Fallback read failed for {}: {}", path, io_err))?;
+            decode(&bytes)
+        }
+    }
+}
+
 #[tauri::command]
 pub async fn load_image(
     path: String,
@@ -990,11 +1028,34 @@ pub async fn load_image(
 
     let path_clone = source_path_str.clone();
 
-    let cached_data = state
+    let mut cached_data = state
         .decoded_image_cache
         .lock()
         .unwrap()
         .get(&source_revision);
+    if cached_data.is_none() {
+        // Reuse a neighbour prefetch already decoding this photo; otherwise
+        // stop prefetching so this decode has the CPU.
+        let wait_handle = app_handle.clone();
+        let wait_revision = source_revision.clone();
+        let wait_tracker = generation_tracker.clone();
+        let prefetched = tokio::task::spawn_blocking(move || {
+            let state = wait_handle.state::<AppState>();
+            state
+                .prefetch
+                .wait_or_cancel(wait_revision.canonical_path(), || {
+                    wait_tracker.load(Ordering::SeqCst) == my_generation
+                });
+            state
+                .decoded_image_cache
+                .lock()
+                .unwrap()
+                .get(&wait_revision)
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+        cached_data = prefetched;
+    }
 
     let (pristine_arc, exif_data) = if let Some((cached_img, cached_exif)) = cached_data {
         (cached_img, cached_exif)
@@ -1007,55 +1068,7 @@ pub async fn load_image(
         }
 
         let (pristine_img, exif_data_loaded) = tokio::task::spawn_blocking(move || {
-            if generation_tracker.load(Ordering::SeqCst) != my_generation {
-                return Err("Load cancelled".to_string());
-            }
-
-            let result: Result<(DynamicImage, HashMap<String, String>), String> =
-                (|| match read_file_mapped(Path::new(&path_clone)) {
-                    Ok(mmap) => {
-                        if generation_tracker.load(Ordering::SeqCst) != my_generation {
-                            return Err("Load cancelled".to_string());
-                        }
-
-                        let img = load_base_image_from_bytes(
-                            &mmap,
-                            &path_clone,
-                            false,
-                            &settings,
-                            cancel_token.clone(),
-                        )
-                        .map_err(|e| e.to_string())?;
-                        let exif = exif_processing::read_exif_data(&path_clone, &mmap);
-                        Ok((img, exif))
-                    }
-                    Err(e) => {
-                        log::warn!(
-                            "Failed to memory-map file '{}': {}. Falling back to standard read.",
-                            path_clone,
-                            e
-                        );
-                        let bytes = fs::read(&path_clone).map_err(|io_err| {
-                            format!("Fallback read failed for {}: {}", path_clone, io_err)
-                        })?;
-
-                        if generation_tracker.load(Ordering::SeqCst) != my_generation {
-                            return Err("Load cancelled".to_string());
-                        }
-
-                        let img = load_base_image_from_bytes(
-                            &bytes,
-                            &path_clone,
-                            false,
-                            &settings,
-                            cancel_token.clone(),
-                        )
-                        .map_err(|e| e.to_string())?;
-                        let exif = exif_processing::read_exif_data(&path_clone, &bytes);
-                        Ok((img, exif))
-                    }
-                })();
-            result
+            decode_source_image(&path_clone, &settings, cancel_token)
         })
         .await
         .map_err(|e| e.to_string())??;

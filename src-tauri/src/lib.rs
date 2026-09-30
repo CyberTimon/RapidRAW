@@ -48,6 +48,7 @@ mod nonlocal_install;
 mod nonlocal_onnx;
 mod panorama_stitching;
 mod panorama_utils;
+mod prefetch;
 mod preset_converter;
 mod raw_denoise;
 mod raw_processing;
@@ -2518,6 +2519,7 @@ pub fn run() {
             focus_stacking::stitch_focus_stack,
             focus_stacking::save_focus_stack,
             image_loader::load_image,
+            prefetch::prefetch_images,
             image_loader::get_source_revision,
             image_loader::is_image_cached,
             panorama_stitching::stitch_panorama,
