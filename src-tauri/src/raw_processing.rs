@@ -302,13 +302,6 @@ pub fn read_as_shot_white_balance(file_bytes: &[u8]) -> Option<WhiteBalance> {
         return None;
     }
 
-    let color_matrix = raw_image
-        .color_matrix
-        .iter()
-        .find(|(illuminant, _)| **illuminant == Illuminant::D65)
-        .or_else(|| raw_image.color_matrix.iter().next())
-        .map(|(_, matrix)| matrix)?;
-
     let wb_coeffs =
         crate::multi_exposure::neutralize_wb_if_multiexposure(raw_image.wb_coeffs, file_bytes);
     let neutral = if wb_coeffs[0].is_nan() {
@@ -317,6 +310,16 @@ pub fn read_as_shot_white_balance(file_bytes: &[u8]) -> Option<WhiteBalance> {
         wb_coeffs.map(|c| 1.0 / c)
     };
 
+    let matrices = &raw_image.color_matrix;
+    if let (Some(matrix_a), Some(matrix_d65)) =
+        (matrices.get(&Illuminant::A), matrices.get(&Illuminant::D65))
+    {
+        return WhiteBalance::from_dual_illuminant_camera_neutral(matrix_a, matrix_d65, &neutral);
+    }
+
+    let color_matrix = matrices
+        .get(&Illuminant::D65)
+        .or_else(|| matrices.values().next())?;
     WhiteBalance::from_camera_neutral(color_matrix, &neutral)
 }
 

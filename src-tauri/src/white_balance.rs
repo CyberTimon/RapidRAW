@@ -14,6 +14,8 @@ pub const TINT_PER_RELATIVE_UNIT: f64 = 1.5;
 
 const TINT_SCALE: f64 = -3000.0;
 const D65_XY: (f64, f64) = (0.31271, 0.32902);
+const ILLUMINANT_A_TEMPERATURE: f64 = 2856.0;
+const ILLUMINANT_D65_TEMPERATURE: f64 = 6504.0;
 
 const BRADFORD: [[f64; 3]; 3] = [
     [0.8951, 0.2664, -0.1614],
@@ -184,6 +186,35 @@ impl WhiteBalance {
             return None;
         }
         Some(Self::from_xy(xyz[0] / sum, xyz[1] / sum))
+    }
+
+    pub fn from_dual_illuminant_camera_neutral(
+        xyz_to_camera_a: &[f32],
+        xyz_to_camera_d65: &[f32],
+        neutral: &[f32],
+    ) -> Option<Self> {
+        if xyz_to_camera_a.len() != xyz_to_camera_d65.len() {
+            return Self::from_camera_neutral(xyz_to_camera_d65, neutral);
+        }
+
+        let mut estimate = Self::from_camera_neutral(xyz_to_camera_d65, neutral)?;
+        for _ in 0..20 {
+            let weight = ((1.0 / estimate.temperature - 1.0 / ILLUMINANT_D65_TEMPERATURE)
+                / (1.0 / ILLUMINANT_A_TEMPERATURE - 1.0 / ILLUMINANT_D65_TEMPERATURE))
+                .clamp(0.0, 1.0) as f32;
+            let xyz_to_camera: Vec<f32> = xyz_to_camera_a
+                .iter()
+                .zip(xyz_to_camera_d65)
+                .map(|(a, d65)| weight * a + (1.0 - weight) * d65)
+                .collect();
+            let next = Self::from_camera_neutral(&xyz_to_camera, neutral)?;
+            let converged = (next.temperature - estimate.temperature).abs() < 0.1;
+            estimate = next;
+            if converged {
+                break;
+            }
+        }
+        Some(estimate)
     }
 }
 
