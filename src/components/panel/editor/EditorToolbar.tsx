@@ -1,6 +1,6 @@
 import type { Adjustments, MaskAdjustments } from '../../../utils/adjustments';
 import { memo, useState, useEffect, useRef, useMemo } from 'react';
-import { Eye, EyeOff, ArrowLeft, Maximize, Loader2, Undo, Redo } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft, Columns2, Maximize, Loader2, Undo, Redo } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +8,7 @@ import { SelectedImage, GroupingMode } from '../../ui/AppProperties';
 import { IconAperture, IconCalendar, IconClock, IconFocalLength, IconIso, IconShutter } from './ExifIcons';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
+import { useEditorStore } from '../../../store/useEditorStore';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { findGroupVariants, getVariantLabel } from '../../../utils/imageGrouping';
@@ -53,6 +54,8 @@ const EditorToolbar = memo(
     goToAdjustmentsHistoryIndex,
   }: EditorToolbarProps) => {
     const { t } = useTranslation();
+    const splitCompare = useEditorStore((state) => state.splitCompare);
+    const setEditor = useEditorStore((state) => state.setEditor);
     const isAnyLoading = isLoading;
     const [isLoaderVisible, setIsLoaderVisible] = useState(false);
     const [isLoaderMounted, setIsLoaderMounted] = useState(false);
@@ -682,6 +685,20 @@ const EditorToolbar = memo(
             }
           >
             {showOriginal ? <EyeOff size={20} /> : <Eye size={20} />}
+          </button>
+          <button
+            className={clsx(
+              'p-2 rounded-full transition-colors',
+              splitCompare
+                ? 'bg-accent text-button-text hover:bg-accent/90 hover:text-button-text'
+                : 'bg-surface hover:bg-card-active text-text-primary',
+            )}
+            onClick={() => setEditor((state) => ({ splitCompare: !state.splitCompare }))}
+            onKeyDown={handleButtonKeyDown}
+            aria-pressed={splitCompare}
+            data-tooltip={t('editor.toolbar.tooltips.splitCompare')}
+          >
+            <Columns2 size={20} />
           </button>
           <button
             className="bg-surface text-text-primary p-2 rounded-full hover:bg-card-active transition-colors disabled:opacity-50 disabled:cursor-not-allowed relative"

@@ -943,6 +943,11 @@
         "tool": "Outil"
       }
     },
+    "splitCompare": {
+      "after": "Après",
+      "before": "Avant",
+      "divider": "Séparateur avant/après"
+    },
     "surface": {
       "above": "Above",
       "albedo": "Surface Colour",
@@ -1004,6 +1009,7 @@
         "showEdited": "Afficher l'image modifiée (B)",
         "showOriginal": "Afficher l'original (B)",
         "shutterSpeed": "Vitesse d'obturation",
+        "splitCompare": "Vue partagée avant/après",
         "undo": "Annuler (Ctrl+Z) ou Historique (Clic-droit)"
       },
       "vc": "CV"
@@ -1884,6 +1890,7 @@
         "toggle_patch_markers": "Afficher/masquer repères et masque",
         "toggle_presets": "Basculer le panneau des paramètres prédéfinis",
         "toggle_right_panel": "Afficher/Masquer le panneau droit",
+        "toggle_split_compare": "Activer/désactiver la vue partagée avant/après",
         "undo": "Annuler l'ajustement",
         "zoom_100": "Zoomer à 100%",
         "zoom_fit": "Zoomer pour ajuster",

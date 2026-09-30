@@ -943,6 +943,11 @@
         "tool": "Eina"
       }
     },
+    "splitCompare": {
+      "after": "Després",
+      "before": "Abans",
+      "divider": "Divisor abans/després"
+    },
     "surface": {
       "above": "Above",
       "albedo": "Surface Colour",
@@ -1004,6 +1009,7 @@
         "showEdited": "Mostrar editat (B)",
         "showOriginal": "Mostrar original (B)",
         "shutterSpeed": "Velocitat d'obturació",
+        "splitCompare": "Vista dividida abans/després",
         "undo": "Desfer (Ctrl+Z) o Historial (Clic dret)"
       },
       "vc": "CV"
@@ -1883,6 +1889,7 @@
         "toggle_patch_markers": "Mostra/amaga marcadors i màscara",
         "toggle_presets": "Alternar tauler d'Ajustos preestablerts",
         "toggle_right_panel": "Commutar el panell dret",
+        "toggle_split_compare": "Commuta la vista dividida abans/després",
         "undo": "Desfer ajustament",
         "zoom_100": "Apropar al 100%",
         "zoom_fit": "Apropar per ajustar",

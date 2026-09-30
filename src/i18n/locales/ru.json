@@ -970,6 +970,11 @@
         "tool": "Инструмент"
       }
     },
+    "splitCompare": {
+      "after": "После",
+      "before": "До",
+      "divider": "Разделитель до/после"
+    },
     "surface": {
       "above": "Above",
       "albedo": "Surface Colour",
@@ -1031,6 +1036,7 @@
         "showEdited": "Показать измененное (B)",
         "showOriginal": "Показать оригинал (B)",
         "shutterSpeed": "Выдержка",
+        "splitCompare": "Разделённый вид до/после",
         "undo": "Отменить (Ctrl+Z) или история (правый клик)"
       },
       "vc": "ВК"
@@ -1923,6 +1929,7 @@
         "toggle_patch_markers": "Показать/скрыть маркеры и маску",
         "toggle_presets": "Панель пресетов",
         "toggle_right_panel": "Показать/скрыть правую панель",
+        "toggle_split_compare": "Переключить разделённый вид до/после",
         "undo": "Отменить действие",
         "zoom_100": "Масштаб 100%",
         "zoom_fit": "Уместить по размеру окна",

@@ -14,7 +14,8 @@ const stubs = {
     export const useRef = current => ({ current });
     export const useEffect = () => {}; export const useLayoutEffect = () => {};
     export const useCallback = fn => fn;
-    export const useMemo = fn => fn();`,
+    export const useMemo = fn => fn();
+    export const useId = () => ':r0:';`,
   'react/jsx-runtime': `export const Fragment = 'Fragment';
     export const jsx = (type, props) => ({ type, props });
     export const jsxs = jsx;`,
@@ -22,7 +23,8 @@ const stubs = {
     .map((name) => `export const ${name} = '${name}';`)
     .join('\n'),
   'react-image-crop': 'export default () => null;',
-  'lucide-react': 'export const Stamp = () => null, Bandage = Stamp, Spline = Stamp, BrushCleaning = Stamp;',
+  'lucide-react':
+    'export const Stamp = () => null, Bandage = Stamp, Spline = Stamp, BrushCleaning = Stamp, ChevronLeft = Stamp, ChevronRight = Stamp;',
   '@tauri-apps/api/core': 'export const invoke = () => Promise.resolve();',
   '../right/Masks': `export const Mask = { Linear: 'linear', Radial: 'radial', Brush: 'brush', Flow: 'flow', Clone: 'clone', Heal: 'heal', Liquify: 'liquify', Retouch: 'retouch', AiSubject: 'ai-subject', QuickEraser: 'quick-eraser' };
     export const SubMaskMode = { Additive: 'additive', Subtractive: 'subtractive', Intersect: 'intersect' };

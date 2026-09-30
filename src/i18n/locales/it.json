@@ -943,6 +943,11 @@
         "tool": "Strumento"
       }
     },
+    "splitCompare": {
+      "after": "Dopo",
+      "before": "Prima",
+      "divider": "Divisore prima/dopo"
+    },
     "surface": {
       "above": "Above",
       "albedo": "Surface Colour",
@@ -1004,6 +1009,7 @@
         "showEdited": "Mostra Modificata (B)",
         "showOriginal": "Mostra Originale (B)",
         "shutterSpeed": "Tempo di Esposizione",
+        "splitCompare": "Vista divisa prima/dopo",
         "undo": "Annulla (Ctrl+Z) o Cronologia (Tasto destro)"
       },
       "vc": "CV"
@@ -1883,6 +1889,7 @@
         "toggle_patch_markers": "Mostra/nascondi indicatori e maschera",
         "toggle_presets": "Attiva/Disattiva pannello Predefiniti",
         "toggle_right_panel": "Mostra/Nascondi pannello destro",
+        "toggle_split_compare": "Attiva/disattiva vista divisa prima/dopo",
         "undo": "Annulla modifica",
         "zoom_100": "Zoom al 100%",
         "zoom_fit": "Zoom per adattare",

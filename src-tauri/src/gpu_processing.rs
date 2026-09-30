@@ -2607,6 +2607,7 @@ pub fn process_and_get_dynamic_image_with_analytics(
     analytics_config: Option<crate::AnalyticsConfig>,
     preview_identity: Option<PreviewIdentity>,
     mask_key: Option<u64>,
+    retain_input: bool,
 ) -> Result<DynamicImage, String> {
     process_and_get_dynamic_image_inner(
         context,
@@ -2619,7 +2620,7 @@ pub fn process_and_get_dynamic_image_with_analytics(
         output_to_display,
         analytics_config,
         preview_identity,
-        true,
+        retain_input,
         mask_key,
     )
 }

@@ -910,6 +910,11 @@
         "tool": "工具"
       }
     },
+    "splitCompare": {
+      "after": "之后",
+      "before": "之前",
+      "divider": "前后对比分隔线"
+    },
     "surface": {
       "above": "Above",
       "albedo": "Surface Colour",
@@ -971,6 +976,7 @@
         "showEdited": "显示编辑后（B）",
         "showOriginal": "显示原始（B）",
         "shutterSpeed": "快门速度",
+        "splitCompare": "前后对比分屏视图",
         "undo": "撤销（Ctrl+Z）或历史记录（右键单击）"
       },
       "vc": "VC"
@@ -1837,6 +1843,7 @@
         "toggle_patch_markers": "显示/隐藏标记和蒙版",
         "toggle_presets": "切换预设面板",
         "toggle_right_panel": "切换右侧面板",
+        "toggle_split_compare": "切换前后对比分屏视图",
         "undo": "撤销调整",
         "zoom_100": "缩放到 100%",
         "zoom_fit": "缩放以适应",

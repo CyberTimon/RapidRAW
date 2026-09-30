@@ -943,6 +943,11 @@
         "tool": "Herramienta"
       }
     },
+    "splitCompare": {
+      "after": "Después",
+      "before": "Antes",
+      "divider": "Divisor antes/después"
+    },
     "surface": {
       "above": "Above",
       "albedo": "Surface Colour",
@@ -1004,6 +1009,7 @@
         "showEdited": "Mostrar editado (B)",
         "showOriginal": "Mostrar original (B)",
         "shutterSpeed": "Velocidad de obturación",
+        "splitCompare": "Vista dividida antes/después",
         "undo": "Deshacer (Ctrl+Z) o Historial (Clic derecho)"
       },
       "vc": "CV"
@@ -1883,6 +1889,7 @@
         "toggle_patch_markers": "Mostrar/ocultar marcadores y máscara",
         "toggle_presets": "Alternar panel de Ajustes preestablecidos",
         "toggle_right_panel": "Alternar panel derecho",
+        "toggle_split_compare": "Alternar vista dividida antes/después",
         "undo": "Deshacer ajuste",
         "zoom_100": "Hacer zoom al 100%",
         "zoom_fit": "Ajustar al área de visualización",

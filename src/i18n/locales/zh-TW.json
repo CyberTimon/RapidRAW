@@ -910,6 +910,11 @@
         "tool": "工具"
       }
     },
+    "splitCompare": {
+      "after": "之後",
+      "before": "之前",
+      "divider": "前後對比分隔線"
+    },
     "surface": {
       "above": "Above",
       "albedo": "Surface Colour",
@@ -971,6 +976,7 @@
         "showEdited": "顯示編輯後（B）",
         "showOriginal": "顯示原始（B）",
         "shutterSpeed": "快門速度",
+        "splitCompare": "前後對比分割檢視",
         "undo": "復原（Ctrl+Z）或歷史記錄（右鍵單擊）"
       },
       "vc": "VC"
@@ -1837,6 +1843,7 @@
         "toggle_patch_markers": "顯示/隱藏標記和遮罩",
         "toggle_presets": "切換預設面板",
         "toggle_right_panel": "切換右側面板",
+        "toggle_split_compare": "切換前後對比分割檢視",
         "undo": "復原調整",
         "zoom_100": "縮放到 100%",
         "zoom_fit": "縮放以適應",

@@ -15,6 +15,7 @@ import {
   normalizeLoadedAdjustments,
   copyAdjustmentKeys,
   isAdjustmentKey,
+  originalAdjustmentsFor,
 } from '../utils/adjustments';
 import { calculateCenteredCrop } from '../utils/cropUtils';
 import { Invokes, ImageMetadata } from '../components/ui/AppProperties';
@@ -125,35 +126,7 @@ export function useEditorActions() {
       const isShowing = !state.showOriginal;
 
       if (isShowing) {
-        const override = { ...INITIAL_ADJUSTMENTS };
-        const geometryKeys: Array<keyof Adjustments> = [
-          'crop',
-          'rotation',
-          'flipHorizontal',
-          'flipVertical',
-          'orientationSteps',
-          'aspectRatio',
-          'transformDistortion',
-          'transformVertical',
-          'transformHorizontal',
-          'transformRotate',
-          'transformAspect',
-          'transformScale',
-          'transformXOffset',
-          'transformYOffset',
-          'lensDistortionAmount',
-          'lensVignetteAmount',
-          'lensTcaAmount',
-          'lensDistortionParams',
-          'lensMaker',
-          'lensModel',
-          'lensDistortionEnabled',
-          'lensTcaEnabled',
-          'lensVignetteEnabled',
-        ];
-
-        copyAdjustmentKeys(override, state.adjustments, geometryKeys);
-
+        const override = originalAdjustmentsFor(state.adjustments);
         return { showOriginal: true, previewOverride: override };
       } else {
         return { showOriginal: false, previewOverride: null };

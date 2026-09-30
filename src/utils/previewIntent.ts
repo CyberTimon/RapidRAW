@@ -1,8 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
 
-export type PreviewLane = 'main' | 'overlay' | 'uncropped';
+export type PreviewLane = 'main' | 'overlay' | 'uncropped' | 'comparison';
 
-const revisions: Record<PreviewLane, number> = { main: 0, overlay: 0, uncropped: 0 };
+const revisions: Record<PreviewLane, number> = { main: 0, overlay: 0, uncropped: 0, comparison: 0 };
 let acceptedMainAttempt = 0;
 
 export function isPreviewSuperseded(error: unknown) {
@@ -40,4 +40,5 @@ export function invalidatePreviewRevisions(expectedGeneration: number | null) {
   reservePreviewRevision('main', expectedGeneration);
   reservePreviewRevision('overlay', expectedGeneration);
   reservePreviewRevision('uncropped', expectedGeneration);
+  reservePreviewRevision('comparison', expectedGeneration);
 }

@@ -277,7 +277,11 @@ pub enum PreviewLane {
     Main,
     Overlay,
     Uncropped,
+    /// The unedited side of the editor's before/after split view.
+    Comparison,
 }
+
+const PREVIEW_LANES: usize = 4;
 
 impl PreviewLane {
     fn index(self) -> usize {
@@ -285,6 +289,7 @@ impl PreviewLane {
             Self::Main => 0,
             Self::Overlay => 1,
             Self::Uncropped => 2,
+            Self::Comparison => 3,
         }
     }
 }
@@ -297,6 +302,7 @@ impl std::str::FromStr for PreviewLane {
             "main" => Ok(Self::Main),
             "overlay" => Ok(Self::Overlay),
             "uncropped" => Ok(Self::Uncropped),
+            "comparison" => Ok(Self::Comparison),
             _ => Err(format!("Unknown preview lane: {value}")),
         }
     }
@@ -312,7 +318,7 @@ pub struct PreviewIdentity {
 #[derive(Default)]
 struct PreviewIntentState {
     generation: usize,
-    revisions: [u64; 3],
+    revisions: [u64; PREVIEW_LANES],
 }
 
 pub struct PreviewCancellation<'a> {
@@ -490,7 +496,7 @@ impl AppState {
         let generation = self.load_image_generation.fetch_add(1, Ordering::SeqCst) + 1;
         *intents = PreviewIntentState {
             generation,
-            revisions: [0; 3],
+            revisions: [0; PREVIEW_LANES],
         };
         generation
     }
@@ -509,7 +515,7 @@ impl AppState {
         if intents.generation != identity.generation {
             *intents = PreviewIntentState {
                 generation: identity.generation,
-                revisions: [0; 3],
+                revisions: [0; PREVIEW_LANES],
             };
         }
         if let Some(revision) = identity.revision {

@@ -916,6 +916,11 @@
         "tool": "Werkzeug"
       }
     },
+    "splitCompare": {
+      "after": "Nachher",
+      "before": "Vorher",
+      "divider": "Vorher/Nachher-Trenner"
+    },
     "surface": {
       "above": "Above",
       "albedo": "Surface Colour",
@@ -977,6 +982,7 @@
         "showEdited": "Bearbeitet anzeigen (B)",
         "showOriginal": "Original anzeigen (B)",
         "shutterSpeed": "Verschlusszeit",
+        "splitCompare": "Vorher/Nachher-Splitansicht",
         "undo": "Rückgängig (Strg+Z) oder Verlauf (Rechtsklick)"
       },
       "vc": "VK"
@@ -1843,6 +1849,7 @@
         "toggle_patch_markers": "Markierungen und Maske ein-/ausblenden",
         "toggle_presets": "Vorgaben-Panel ein-/ausblenden",
         "toggle_right_panel": "Rechtes Panel ein-/ausblenden",
+        "toggle_split_compare": "Vorher/Nachher-Splitansicht umschalten",
         "undo": "Bearbeitung rückgängig machen",
         "zoom_100": "Auf 100% zoomen",
         "zoom_fit": "Auf Fenstergröße einpassen",

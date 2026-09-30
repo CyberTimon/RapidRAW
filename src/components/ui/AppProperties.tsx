@@ -59,6 +59,7 @@ export enum Invokes {
   GeneratePreviewForPath = 'generate_preview_for_path',
   GenerateMaskOverlay = 'generate_mask_overlay',
   GeneratePresetPreview = 'generate_preset_preview',
+  GenerateComparisonPreview = 'generate_comparison_preview',
   GenerateUncroppedPreview = 'generate_uncropped_preview',
   GetSourceRevision = 'get_source_revision',
   GetFolderTree = 'get_folder_tree',

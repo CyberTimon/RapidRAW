@@ -1039,3 +1039,36 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     Effect.LensBlurMaxFade,
   ],
 };
+
+const ORIGINAL_GEOMETRY_KEYS: Array<keyof Adjustments> = [
+  'crop',
+  'rotation',
+  'flipHorizontal',
+  'flipVertical',
+  'orientationSteps',
+  'aspectRatio',
+  'transformDistortion',
+  'transformVertical',
+  'transformHorizontal',
+  'transformRotate',
+  'transformAspect',
+  'transformScale',
+  'transformXOffset',
+  'transformYOffset',
+  'lensDistortionAmount',
+  'lensVignetteAmount',
+  'lensTcaAmount',
+  'lensDistortionParams',
+  'lensMaker',
+  'lensModel',
+  'lensDistortionEnabled',
+  'lensTcaEnabled',
+  'lensVignetteEnabled',
+];
+
+/** The unedited photo at the edit's framing and lens corrections, for before/after views. */
+export function originalAdjustmentsFor(adjustments: Adjustments): Adjustments {
+  const original = { ...INITIAL_ADJUSTMENTS };
+  copyAdjustmentKeys(original, adjustments, ORIGINAL_GEOMETRY_KEYS);
+  return original;
+}

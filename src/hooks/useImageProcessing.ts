@@ -5,7 +5,12 @@ import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useLibraryStore } from '../store/useLibraryStore';
-import { Adjustments, COPYABLE_ADJUSTMENT_KEYS, copyAdjustmentKeys } from '../utils/adjustments';
+import {
+  Adjustments,
+  COPYABLE_ADJUSTMENT_KEYS,
+  copyAdjustmentKeys,
+  originalAdjustmentsFor,
+} from '../utils/adjustments';
 import { Invokes, Panel } from '../components/ui/AppProperties';
 import { debouncedSave } from './useEditorActions';
 import { globalImageCache } from '../utils/ImageLRUCache';
@@ -132,6 +137,8 @@ export function useImageProcessing(
     comparisonReturnPendingRef.current = false;
     preallocatedInputRef.current = null;
     uncroppedPipeline.clear();
+    comparisonPipeline.clear();
+    comparisonKeyRef.current = null;
   }, [selectedImage?.path, imageSession]);
 
   const calculateROI = useCallback(() => {
@@ -707,6 +714,50 @@ export function useImageProcessing(
 
   useEffect(() => () => uncroppedPipeline.clear(), [uncroppedPipeline]);
 
+  // Renders the unedited side of the before/after split view. It has its own
+  // native lane, so it never supersedes or waits behind edited previews.
+  const comparisonKeyRef = useRef<string | null>(null);
+  const comparisonPipeline = useMemo(
+    () =>
+      new PreviewPipeline<{
+        adjustments: Adjustments;
+        path: string;
+        session: number;
+        expectedGeneration: number | null;
+        inputRevision: number;
+        targetRes: number;
+      }>(async (request, isLatest) => {
+        const isCurrent = () => {
+          const state = useEditorStore.getState();
+          return (
+            state.splitCompare &&
+            request.path === state.selectedImage?.path &&
+            request.session === state.imageSession &&
+            request.expectedGeneration === state.backendGeneration &&
+            request.inputRevision === latestPreviewRevision('comparison') &&
+            isLatest()
+          );
+        };
+        if (!isCurrent()) return;
+        try {
+          const buffer = await invoke<ArrayBuffer>(Invokes.GenerateComparisonPreview, {
+            jsAdjustments: request.adjustments,
+            expectedGeneration: request.expectedGeneration,
+            inputRevision: request.inputRevision,
+            targetResolution: request.targetRes,
+          });
+          if (!isCurrent()) return;
+          const url = URL.createObjectURL(new Blob([buffer], { type: 'image/jpeg' }));
+          useEditorStore.getState().setEditor({ splitComparisonUrl: url });
+        } catch (error) {
+          if (isCurrent() && !isPreviewSuperseded(error)) console.error('Failed to render comparison:', error);
+        }
+      }),
+    [],
+  );
+
+  useEffect(() => () => comparisonPipeline.clear(), [comparisonPipeline]);
+
   useEffect(
     () =>
       useEditorStore.subscribe((state, previous) => {
@@ -717,6 +768,8 @@ export function useImageProcessing(
           refinementRef.current?.clear();
           pipelineRef.current?.clear();
           uncroppedPipeline.clear();
+          comparisonPipeline.clear();
+          comparisonKeyRef.current = null;
           lastInputRef.current = null;
           lastEditedFrameRef.current = null;
           comparisonRestoreRef.current = null;
@@ -762,7 +815,7 @@ export function useImageProcessing(
         refinementRef.current?.clear();
         pipelineRef.current?.clear();
       }),
-    [uncroppedPipeline],
+    [uncroppedPipeline, comparisonPipeline],
   );
 
   const generateUncroppedPreview = useCallback(
@@ -941,6 +994,32 @@ export function useImageProcessing(
     activeWaveformChannel,
     showClipping,
   ]);
+
+  const splitCompare = useEditorStore((state) => state.splitCompare);
+  useEffect(() => {
+    const image = selectedImage;
+    if (!splitCompare || activeView !== 'editor' || !image?.isReady) {
+      comparisonKeyRef.current = null;
+      comparisonPipeline.clear();
+      return;
+    }
+    // Only geometry reaches the unedited side; wait for a drag to settle.
+    if (isSliderDragging) return;
+    const original = originalAdjustmentsFor(adjustments);
+    const targetRes = calculateTargetRes();
+    const state = useEditorStore.getState();
+    const key = JSON.stringify([image.path, state.imageSession, state.backendGeneration, targetRes, original]);
+    if (key === comparisonKeyRef.current) return;
+    comparisonKeyRef.current = key;
+    comparisonPipeline.enqueue({
+      adjustments: original,
+      path: image.path,
+      session: state.imageSession,
+      expectedGeneration: state.backendGeneration,
+      inputRevision: reservePreviewRevision('comparison', state.backendGeneration),
+      targetRes,
+    });
+  }, [splitCompare, activeView, selectedImage, isSliderDragging, adjustments, calculateTargetRes, comparisonPipeline]);
 
   return {
     applyAdjustments,

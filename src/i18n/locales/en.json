@@ -926,6 +926,11 @@
         "tool": "Tool"
       }
     },
+    "splitCompare": {
+      "after": "After",
+      "before": "Before",
+      "divider": "Before/after divider"
+    },
     "surface": {
       "above": "Above",
       "albedo": "Surface Colour",
@@ -987,6 +992,7 @@
         "showEdited": "Show Edited (B)",
         "showOriginal": "Show Original (B)",
         "shutterSpeed": "Shutter Speed",
+        "splitCompare": "Before/after split view",
         "undo": "Undo (Ctrl+Z) or History (Right-click)"
       },
       "vc": "VC"
@@ -1853,6 +1859,7 @@
         "toggle_patch_markers": "Show/hide markers and mask",
         "toggle_presets": "Toggle Presets panel",
         "toggle_right_panel": "Toggle Right Panel",
+        "toggle_split_compare": "Toggle before/after split view",
         "undo": "Undo adjustment",
         "zoom_100": "Zoom to 100%",
         "zoom_fit": "Zoom to fit",

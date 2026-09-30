@@ -28,6 +28,7 @@ Then open the app. Because the beta is not notarized, macOS may still require **
 - **Develop and grade:** exposure, tone mapping, white balance, colour mixer, curves, sharpening, manual noise reduction, lens corrections and geometric transforms.
 - **Make local edits:** brush and gradient masks, colour/luminance ranges, AI selections, depth and local retouching.
 - **Explore looks:** presets, LUTs, grain and creative effects, with adjustable strength.
+- **Compare and check:** a before/after split view with a draggable divider (Y), Show Original (B) and clipping warnings (J). Shortcuts can be changed in the keybind settings.
 - **Organize a library:** folders, albums, virtual copies, ratings, labels, metadata, library filtering and a culling view.
 - **Deliver:** batch processing and export to JPEG, PNG, WebP, AVIF, TIFF, JPEG XL or CUBE LUTs, with the options supported by the selected entry point.
 

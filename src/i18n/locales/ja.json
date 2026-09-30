@@ -910,6 +910,11 @@
         "tool": "ツール"
       }
     },
+    "splitCompare": {
+      "after": "補正後",
+      "before": "補正前",
+      "divider": "補正前後の境界線"
+    },
     "surface": {
       "above": "Above",
       "albedo": "Surface Colour",
@@ -971,6 +976,7 @@
         "showEdited": "編集後を表示 (B)",
         "showOriginal": "オリジナルを表示 (B)",
         "shutterSpeed": "シャッタースピード",
+        "splitCompare": "補正前後の分割表示",
         "undo": "元に戻す (Ctrl+Z) または履歴 (右クリック)"
       },
       "vc": "仮想"
@@ -1837,6 +1843,7 @@
         "toggle_patch_markers": "マーカーとマスクの表示切り替え",
         "toggle_presets": "プリセットパネルの表示/非表示",
         "toggle_right_panel": "右パネルの表示/非表示",
+        "toggle_split_compare": "補正前後の分割表示を切り替え",
         "undo": "操作を元に戻す",
         "zoom_100": "100%ズーム",
         "zoom_fit": "画面に合わせる",

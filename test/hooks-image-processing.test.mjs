@@ -19,7 +19,7 @@ const stubs = {
   '../components/panel/right/Masks':
     'export const SubMaskMode = {Additive:"additive", Subtractive:"subtractive", Intersect:"intersect"};',
   '../components/ui/AppProperties':
-    'export const Panel = {Crop:"crop"}; export const Invokes = {ApplyAdjustments:"apply_adjustments", GenerateUncroppedPreview:"generate_uncropped_preview", ApplyAdjustmentsToPaths:"apply_adjustments_to_paths", GetPreviewAssetCacheStatus:"get_preview_asset_cache_status"};',
+    'export const Panel = {Crop:"crop"}; export const Invokes = {ApplyAdjustments:"apply_adjustments", GenerateUncroppedPreview:"generate_uncropped_preview", GenerateComparisonPreview:"generate_comparison_preview", ApplyAdjustmentsToPaths:"apply_adjustments_to_paths", GetPreviewAssetCacheStatus:"get_preview_asset_cache_status"};',
 };
 for (const name of ['Editor', 'UI', 'Settings', 'Library']) {
   stubs[`../store/use${name}Store`] = `export const use${name}Store = fn => fn(globalThis.__previewTest.${name});
@@ -63,6 +63,7 @@ function environment(t) {
   const state = {
     calls: [],
     uncroppedCalls: [],
+    comparisonCalls: [],
     intents: [],
     retainAssets: true,
     subscribers: new Set(),
@@ -111,6 +112,8 @@ function environment(t) {
         state.intents.push(payload);
         return Promise.resolve();
       }
+      if (command === 'generate_comparison_preview')
+        return new Promise((resolve, reject) => state.comparisonCalls.push({ payload, resolve, reject }));
       if (command === 'generate_uncropped_preview')
         return new Promise((resolve, reject) => state.uncroppedCalls.push({ payload, resolve, reject }));
       if (command === 'get_preview_asset_cache_status')
@@ -617,7 +620,7 @@ test('photo selection invalidates the old generation before metadata or React re
   const invalidation = state.intents.slice(count);
   assert.deepEqual(
     invalidation.map((intent) => intent.lane),
-    ['main', 'overlay', 'uncropped'],
+    ['main', 'overlay', 'uncropped', 'comparison'],
   );
   assert.ok(invalidation.every((intent) => intent.expectedGeneration === 11));
   state.calls[0].reject('PREVIEW_SUPERSEDED');
@@ -639,4 +642,34 @@ test('an adjustment store update signals supersession synchronously and reuses t
   assert.equal(state.calls[1].payload.jsAdjustments.exposure, 1.5);
   state.finish(1);
   await drain();
+});
+
+test('split view renders the unedited side only for geometry changes and ignores superseded results', async (t) => {
+  const state = environment(t);
+  state.Editor.isSliderDragging = false;
+  state.Editor.splitCompare = true;
+  state.Editor.splitComparisonUrl = null;
+  state.Editor.adjustments = { ...state.Editor.adjustments, exposure: 1.5 };
+  state.render();
+  await drain();
+  assert.equal(state.comparisonCalls.length, 1);
+  assert.equal(state.comparisonCalls[0].payload.jsAdjustments.exposure, 0, 'the unedited side ignores tone edits');
+
+  state.Editor.adjustments = { ...state.Editor.adjustments, exposure: 2 };
+  state.render();
+  await drain();
+  assert.equal(state.comparisonCalls.length, 1, 'tone edits do not re-render the unedited side');
+
+  state.Editor.adjustments = { ...state.Editor.adjustments, rotation: 3 };
+  state.render();
+  await drain();
+  state.comparisonCalls[0].resolve(new Uint8Array([1]).buffer);
+  await drain();
+  assert.equal(state.Editor.splitComparisonUrl, null, 'a superseded comparison is discarded');
+  assert.equal(state.comparisonCalls.length, 2);
+  assert.equal(state.comparisonCalls[1].payload.jsAdjustments.rotation, 3);
+  state.comparisonCalls[1].resolve(new Uint8Array([2]).buffer);
+  await drain();
+  assert.match(state.Editor.splitComparisonUrl, /^blob:/);
+  URL.revokeObjectURL(state.Editor.splitComparisonUrl);
 });

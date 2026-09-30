@@ -7,6 +7,7 @@ import 'react-image-crop/dist/ReactCrop.css';
 import { Stage, Layer, Ellipse, Line, Transformer, Group, Circle, Rect, Arrow } from 'react-konva';
 import { PercentCrop, Crop } from 'react-image-crop';
 import { Stamp, Bandage, Spline, BrushCleaning } from 'lucide-react';
+import { SplitCompareDivider, SplitCompareImage } from './SplitCompare';
 import { invoke } from '@tauri-apps/api/core';
 import { Adjustments, AiPatch, Coord, MaskContainer, GuideLine, GuideOrientation } from '../../../utils/adjustments';
 import { Mask, SubMask, SubMaskMode, ToolType } from '../right/Masks';
@@ -1451,6 +1452,9 @@ const ImageCanvas = memo(
   }: ImageCanvasProps) => {
     const isGuidedPerspectiveActive = useEditorStore((state) => state.isGuidedPerspectiveActive);
     const showPatchMarkers = useEditorStore((state) => state.showPatchMarkers ?? true);
+    const splitCompare = useEditorStore((state) => state.splitCompare);
+    const splitComparePosition = useEditorStore((state) => state.splitComparePosition);
+    const splitComparisonUrl = useEditorStore((state) => state.splitComparisonUrl);
     const [draftGuideLine, setDraftGuideLine] = useState<{ p1: Coord; p2: Coord } | null>(null);
     const [localDragLines, setLocalDragLines] = useState<GuideLine[] | null>(null);
 
@@ -3065,6 +3069,7 @@ const ImageCanvas = memo(
 
     const cropPreviewUrl = uncroppedAdjustedPreviewUrl || selectedImage.thumbnailUrl;
     const isShowingOriginal = showOriginal;
+    const isSplitVisible = splitCompare && !showOriginal && !isCropViewVisible;
 
     const currentTarget = finalPreviewUrl || selectedImage.thumbnailUrl;
     const baseIsReady = displayState.base === currentTarget && !displayState.fade;
@@ -3267,7 +3272,24 @@ const ImageCanvas = memo(
                     style={{ imageRendering: isMaxZoom ? 'pixelated' : 'auto' }}
                   />
                 )}
+
+                {isSplitVisible && splitComparisonUrl && (
+                  <SplitCompareImage url={splitComparisonUrl} position={splitComparePosition} pixelated={!!isMaxZoom} />
+                )}
               </svg>
+
+              {isSplitVisible && imageRenderSize.width > 0 && (
+                <SplitCompareDivider
+                  position={splitComparePosition}
+                  scale={transformState.scale}
+                  box={{
+                    left: imageRenderSize.offsetX,
+                    top: imageRenderSize.offsetY,
+                    width: imageRenderSize.width,
+                    height: imageRenderSize.height,
+                  }}
+                />
+              )}
 
               {displayedMaskUrl && showPatchMarkers && (
                 <img
