@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "rapidraw": {
+      "command": "rapidraw-mcp",
+      "args": [],
+      "env": {
+        "RAPIDRAW_API_URL": "http://127.0.0.1:17355",
+        "RAPIDRAW_API_TOKEN": "REPLACE_WITH_TOKEN_FROM_SETTINGS"
+      }
+    }
+  }
+}
