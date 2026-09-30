@@ -4012,6 +4012,25 @@ mod preview_perf_bench {
             }
         }
 
+        for (width, height) in [(1920u32, 1280u32), (3584, 2389)] {
+            let rgba =
+                DynamicImage::ImageRgba8(image::RgbaImage::from_fn(width, height, |x, y| {
+                    image::Rgba([(x % 256) as u8, (y % 256) as u8, ((x + y) % 256) as u8, 255])
+                }));
+            let t = Instant::now();
+            let _ = crate::image_processing::calculate_histogram_from_image(&rgba);
+            let hist_ms = t.elapsed().as_secs_f64() * 1000.0;
+            let t = Instant::now();
+            let _ = crate::image_processing::calculate_waveform_from_image(&rgba, Some("luma"));
+            let luma_ms = t.elapsed().as_secs_f64() * 1000.0;
+            let t = Instant::now();
+            let _ = crate::image_processing::calculate_waveform_from_image(&rgba, None);
+            eprintln!(
+                "{width}x{height}: CPU histogram {hist_ms:.2} ms, luma waveform {luma_ms:.2} ms, all scopes {:.2} ms",
+                t.elapsed().as_secs_f64() * 1000.0
+            );
+        }
+
         let full = source(6000, 4000);
         for target in [3584, 1920] {
             let t = Instant::now();

@@ -2891,6 +2891,27 @@ pub fn calculate_histogram_from_image(image: &DynamicImage) -> Result<HistogramD
                 })
                 .reduce(init_hist, reduce_hist)
         }
+        // Chunks hold 10,000 pixels in both layouts, so every other pixel is
+        // sampled exactly as before.
+        DynamicImage::ImageRgba8(rgba) => rgba
+            .as_raw()
+            .par_chunks(40_000)
+            .fold(init_hist, |mut acc, chunk| {
+                for pixel in chunk.as_chunks::<4>().0.iter().step_by(2) {
+                    let r = pixel[0] as usize;
+                    let g = pixel[1] as usize;
+                    let b = pixel[2] as usize;
+
+                    acc.0[r] += 1;
+                    acc.1[g] += 1;
+                    acc.2[b] += 1;
+
+                    let luma = (r * 218 + g * 732 + b * 74) >> 10;
+                    acc.3[luma.min(255)] += 1;
+                }
+                acc
+            })
+            .reduce(init_hist, reduce_hist),
         _ => {
             let rgb = image.to_rgb8();
             let raw = rgb.as_raw();
@@ -3015,6 +3036,41 @@ pub struct WaveformData {
     pub height: u32,
 }
 
+type ScopeBins = [Vec<u32>; 6];
+
+/// Bins rows in parallel into per-worker counts and sums them, giving the same
+/// counts as a sequential pass.
+fn bin_scope_rows<T: Copy + Sync>(
+    raw: &[T],
+    stride: usize,
+    channels: usize,
+    to_u8: impl Fn(T) -> u8 + Sync,
+    empty: impl Fn() -> ScopeBins + Sync + Send,
+    process: impl Fn(&mut ScopeBins, u8, u8, u8, usize) + Sync,
+) -> ScopeBins {
+    raw.par_chunks(stride * 16)
+        .fold(&empty, |mut bins, rows| {
+            for row in rows.chunks_exact(stride) {
+                for (x, pixel) in row.chunks_exact(channels).enumerate() {
+                    process(
+                        &mut bins,
+                        to_u8(pixel[0]),
+                        to_u8(pixel[1]),
+                        to_u8(pixel[2]),
+                        x,
+                    );
+                }
+            }
+            bins
+        })
+        .reduce(&empty, |mut a, b| {
+            for (a, b) in a.iter_mut().zip(b) {
+                a.iter_mut().zip(b).for_each(|(a, b)| *a += b);
+            }
+            a
+        })
+}
+
 pub fn calculate_waveform_from_image(
     image: &DynamicImage,
     active_channel: Option<&str>,
@@ -3033,17 +3089,6 @@ pub fn calculate_waveform_from_image(
     let do_parade = active_channel.is_none() || active_channel == Some("parade");
     let do_vectorscope = active_channel.is_none() || active_channel == Some("vectorscope");
 
-    let mut red_bins = if do_rgb { vec![0u32; W * H] } else { vec![] };
-    let mut green_bins = if do_rgb { vec![0u32; W * H] } else { vec![] };
-    let mut blue_bins = if do_rgb { vec![0u32; W * H] } else { vec![] };
-    let mut luma_bins = if do_luma { vec![0u32; W * H] } else { vec![] };
-    let mut parade_bins = if do_parade { vec![0u32; W * H] } else { vec![] };
-    let mut vector_bins = if do_vectorscope {
-        vec![0u32; W * H]
-    } else {
-        vec![]
-    };
-
     let x_scale = W as f32 / orig_w as f32;
     let mut x_buckets = vec![0usize; orig_w as usize];
 
@@ -3061,20 +3106,33 @@ pub fn calculate_waveform_from_image(
         }
     }
 
-    let mut process_pixel = |r: u8, g: u8, b: u8, out_x: usize, orig_x: usize| {
+    let bins_for = |enabled: bool| if enabled { vec![0u32; W * H] } else { vec![] };
+    let empty_bins = || {
+        [
+            bins_for(do_rgb),
+            bins_for(do_rgb),
+            bins_for(do_rgb),
+            bins_for(do_luma),
+            bins_for(do_parade),
+            bins_for(do_vectorscope),
+        ]
+    };
+
+    let process_pixel = |bins: &mut ScopeBins, r: u8, g: u8, b: u8, orig_x: usize| {
+        let out_x = x_buckets[orig_x];
         if do_rgb {
-            red_bins[(255 - r as usize) * W + out_x] += 1;
-            green_bins[(255 - g as usize) * W + out_x] += 1;
-            blue_bins[(255 - b as usize) * W + out_x] += 1;
+            bins[0][(255 - r as usize) * W + out_x] += 1;
+            bins[1][(255 - g as usize) * W + out_x] += 1;
+            bins[2][(255 - b as usize) * W + out_x] += 1;
         }
         if do_luma {
             let l = ((r as u32 * 218 + g as u32 * 732 + b as u32 * 74) >> 10).min(255) as usize;
-            luma_bins[(255 - l) * W + out_x] += 1;
+            bins[3][(255 - l) * W + out_x] += 1;
         }
         if do_parade {
-            parade_bins[(255 - r as usize) * W + x_buckets_parade_r[orig_x]] += 1;
-            parade_bins[(255 - g as usize) * W + x_buckets_parade_g[orig_x]] += 1;
-            parade_bins[(255 - b as usize) * W + x_buckets_parade_b[orig_x]] += 1;
+            bins[4][(255 - r as usize) * W + x_buckets_parade_r[orig_x]] += 1;
+            bins[4][(255 - g as usize) * W + x_buckets_parade_g[orig_x]] += 1;
+            bins[4][(255 - b as usize) * W + x_buckets_parade_b[orig_x]] += 1;
         }
         if do_vectorscope {
             let r_f = r as f32;
@@ -3093,41 +3151,44 @@ pub fn calculate_waveform_from_image(
 
             let vx = (cb + 128.0).clamp(0.0, 255.0) as usize;
             let vy = (128.0 - cr).clamp(0.0, 255.0) as usize;
-            vector_bins[vy * W + vx] += 1;
+            bins[5][vy * W + vx] += 1;
         }
     };
 
-    match image {
-        DynamicImage::ImageRgb32F(f32_img) => {
-            let raw = f32_img.as_raw();
-            let stride = orig_w as usize * 3;
-            for y in 0..(orig_h as usize) {
-                let row = y * stride;
-                for (x, &x_bucket) in x_buckets.iter().enumerate() {
-                    let i = row + x * 3;
-                    process_pixel(
-                        (raw[i].clamp(0.0, 1.0) * 255.0) as u8,
-                        (raw[i + 1].clamp(0.0, 1.0) * 255.0) as u8,
-                        (raw[i + 2].clamp(0.0, 1.0) * 255.0) as u8,
-                        x_bucket,
-                        x,
-                    );
-                }
-            }
-        }
-        _ => {
-            let rgb = image.to_rgb8();
-            let raw = rgb.as_raw();
-            let stride = orig_w as usize * 3;
-            for y in 0..(orig_h as usize) {
-                let row = y * stride;
-                for (x, &x_bucket) in x_buckets.iter().enumerate() {
-                    let i = row + x * 3;
-                    process_pixel(raw[i], raw[i + 1], raw[i + 2], x_bucket, x);
-                }
-            }
-        }
-    }
+    let row_len = orig_w as usize;
+    let [
+        red_bins,
+        green_bins,
+        blue_bins,
+        luma_bins,
+        parade_bins,
+        vector_bins,
+    ] = match image {
+        DynamicImage::ImageRgb32F(f32_img) => bin_scope_rows(
+            f32_img.as_raw(),
+            row_len * 3,
+            3,
+            |v| (v.clamp(0.0, 1.0) * 255.0) as u8,
+            empty_bins,
+            process_pixel,
+        ),
+        DynamicImage::ImageRgba8(rgba) => bin_scope_rows(
+            rgba.as_raw(),
+            row_len * 4,
+            4,
+            |v| v,
+            empty_bins,
+            process_pixel,
+        ),
+        _ => bin_scope_rows(
+            image.to_rgb8().as_raw(),
+            row_len * 3,
+            3,
+            |v| v,
+            empty_bins,
+            process_pixel,
+        ),
+    };
 
     let build_lut = |bins: &[u32], do_calc: bool| -> (Vec<u8>, u32) {
         if !do_calc {
@@ -3665,5 +3726,61 @@ mod lens_identity_tests {
             });
             assert!(changed_interior, "{amount} positive control");
         }
+    }
+}
+#[cfg(test)]
+mod scope_tests {
+    use super::*;
+
+    /// RGBA8 previews and f32 sources take dedicated paths; both must match the
+    /// generic RGB8 conversion bin for bin.
+    #[test]
+    fn scope_paths_agree_across_pixel_formats() {
+        let (w, h) = (1037u32, 611u32);
+        let px = |x: u32, y: u32| {
+            [
+                ((x * 7 + y * 3) % 256) as u8,
+                ((x ^ y) % 256) as u8,
+                ((x * y + 11) % 256) as u8,
+            ]
+        };
+        let rgb =
+            DynamicImage::ImageRgb8(image::RgbImage::from_fn(w, h, |x, y| image::Rgb(px(x, y))));
+        let rgba = DynamicImage::ImageRgba8(image::RgbaImage::from_fn(w, h, |x, y| {
+            let [r, g, b] = px(x, y);
+            image::Rgba([r, g, b, 255])
+        }));
+        // Offset by less than one step so f32 truncation lands on the same byte.
+        let linear = DynamicImage::ImageRgb32F(image::Rgb32FImage::from_fn(w, h, |x, y| {
+            image::Rgb(px(x, y).map(|v| (v as f32 + 0.5) / 255.0))
+        }));
+
+        let scopes = |image: &DynamicImage, channel| {
+            let data = calculate_waveform_from_image(image, channel).unwrap();
+            (data.rgb, data.luma, data.parade, data.vectorscope)
+        };
+        for channel in [
+            None,
+            Some("rgb"),
+            Some("luma"),
+            Some("parade"),
+            Some("vectorscope"),
+        ] {
+            let expected = scopes(&rgb, channel);
+            assert!(
+                scopes(&rgba, channel) == expected,
+                "RGBA8 scopes differ for {channel:?}"
+            );
+            assert!(
+                scopes(&linear, channel) == expected,
+                "f32 scopes differ for {channel:?}"
+            );
+        }
+
+        let histogram = |image: &DynamicImage| {
+            let data = calculate_histogram_from_image(image).unwrap();
+            [data.red, data.green, data.blue, data.luma]
+        };
+        assert_eq!(histogram(&rgba), histogram(&rgb));
     }
 }
