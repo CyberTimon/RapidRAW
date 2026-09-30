@@ -209,7 +209,20 @@ fn tags_of_group(metadata: &Metadata, group: ExifTagGroup) -> impl Iterator<Item
         .iter()
         .filter(move |ifd| ifd.get_generic_ifd_nr() == 0 && ifd.get_ifd_type() == group)
         .flat_map(|ifd| ifd.get_tags())
-        .filter(|tag| tag.is_writable() && !is_structural_tag(tag.as_u16()))
+        .filter(|tag| {
+            tag.is_writable() && !is_structural_tag(tag.as_u16()) && !is_jpeg_only_tag(tag.as_u16())
+        })
+}
+
+/// Tags that describe the image the way JPEG does it. TIFF states the same
+/// facts through its own baseline tags, and the Exif specification does not
+/// allow these inside a TIFF, so callers may pass them without harm.
+fn is_jpeg_only_tag(tag: u16) -> bool {
+    matches!(
+        tag,
+        0xA002 // ExifImageWidth
+            | 0xA003 // ExifImageHeight
+    )
 }
 
 /// Converts one `little_exif` tag into the matching TIFF value and writes it.
@@ -227,7 +240,7 @@ fn write_tag<W: Write + Seek>(
             if text.is_empty() {
                 return Ok(false);
             }
-            directory.write_tag(id, text.as_str())
+            directory.write_tag(id, Ascii::from(text.as_str()))
         }
         ExifTagFormat::UNDEF => directory.write_tag(id, Undefined(&bytes)),
         ExifTagFormat::INT8U => directory.write_tag(id, bytes.as_slice()),
@@ -324,6 +337,38 @@ fn ascii_value(bytes: &[u8]) -> String {
         .collect::<String>()
         .trim()
         .to_string()
+}
+
+/// A null-terminated ASCII value, padded to an even length.
+///
+/// TIFF expects every value to start on a word boundary. An odd-length string
+/// pushes everything written after it onto an odd offset, which validators
+/// complain about, so the padding keeps the rest of the file aligned. A
+/// trailing null beyond the first is ignored by readers.
+struct Ascii(Vec<u8>);
+
+impl From<&str> for Ascii {
+    fn from(text: &str) -> Self {
+        let mut bytes = text.as_bytes().to_vec();
+        bytes.push(0);
+        if !bytes.len().is_multiple_of(2) {
+            bytes.push(0);
+        }
+        Ascii(bytes)
+    }
+}
+
+impl TiffValue for Ascii {
+    const BYTE_LEN: u8 = 1;
+    const FIELD_TYPE: Type = Type::ASCII;
+
+    fn count(&self) -> usize {
+        self.0.len()
+    }
+
+    fn data(&self) -> Cow<'_, [u8]> {
+        Cow::Borrowed(&self.0)
+    }
 }
 
 /// A byte string written with EXIF's `UNDEFINED` type, which `tiff` has no
