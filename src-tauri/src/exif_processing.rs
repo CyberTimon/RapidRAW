@@ -1029,6 +1029,9 @@ fn copy_full_exif_from_source(
             continue;
         }
         for tag in ifd.get_tags() {
+            if matches!(tag, ExifTag::ImageWidth(_) | ExifTag::ImageHeight(_)) {
+                continue;
+            }
             metadata.set_tag(tag.clone());
             copied_any = true;
         }
@@ -1221,25 +1224,12 @@ pub fn write_image_with_metadata(
     keep_metadata: bool,
     strip_gps: bool,
 ) -> Result<(), String> {
-    // FIXME: temporary solution until I find a way to write metadata to TIFF
-    if !keep_metadata || output_format.to_lowercase() == "tiff" {
+    preflight_metadata_retention(original_path_str, output_format, keep_metadata)?;
+    if !keep_metadata {
         return Ok(());
     }
 
     let original_path = Path::new(original_path_str);
-    if !original_path.exists() {
-        return Ok(());
-    }
-
-    // Skip TIFF sources to avoid potential tag corruption issues
-    let original_ext = original_path
-        .extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("")
-        .to_lowercase();
-    if original_ext == "tiff" || original_ext == "tif" {
-        return Ok(());
-    }
 
     let file_type = match output_format.to_lowercase().as_str() {
         "jpg" | "jpeg" => FileExtension::JPEG,
@@ -1549,10 +1539,41 @@ pub fn write_image_with_metadata(
         metadata.set_tag(ExifTag::ExifImageHeight(vec![height]));
     }
 
-    if let Err(e) = metadata.write_to_vec(image_bytes, file_type) {
-        log::warn!("Failed to write metadata: {}", e);
-    }
+    metadata
+        .write_to_vec(image_bytes, file_type)
+        .map_err(|e| format!("METADATA_WRITE_FAILED: {e}"))?;
 
+    Ok(())
+}
+
+pub(crate) fn preflight_metadata_retention(
+    original_path_str: &str,
+    output_format: &str,
+    keep_metadata: bool,
+) -> Result<(), String> {
+    if !keep_metadata {
+        return Ok(());
+    }
+    let original_path = Path::new(original_path_str);
+    let source_format = original_path
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let output_format = output_format.to_ascii_lowercase();
+    if !original_path.exists() {
+        return Err(
+            "UNSUPPORTED_METADATA: Source is unavailable; export without capture metadata".into(),
+        );
+    }
+    if matches!(source_format.as_str(), "tif" | "tiff") {
+        return Err("UNSUPPORTED_METADATA: TIFF source metadata retention is unavailable; export without capture metadata".into());
+    }
+    if !matches!(output_format.as_str(), "jpg" | "jpeg" | "png" | "webp") {
+        return Err(format!(
+            "UNSUPPORTED_METADATA: {output_format} output cannot retain capture metadata; export without capture metadata"
+        ));
+    }
     Ok(())
 }
 

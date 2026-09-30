@@ -4,6 +4,12 @@ Changes added by this fork to RapidRAW. Upstream application changes remain in t
 
 ## Unreleased
 
+### Rendering and export reliability
+
+- Fail an ordinary GPU render when image dimensions or aligned texture allocation exceed the device limit, instead of reporting an unprocessed image as a successful render. Final 16-bit TIFF exports use the high-precision render path.
+- Embed and verify an sRGB ICC profile in JPEG, PNG, TIFF, and WebP desktop and CLI exports. Profile labeling is independent of capture-metadata retention and GPS removal.
+- Report unsupported capture-metadata retention requests before writing output, including TIFF inputs or outputs. Remove the ineffective RAW highlight-compression setting without changing RAW development or existing saved edits.
+
 ### MCP mask composition
 
 - Add native parent-mask duplication with fresh IDs, optional inversion, and independent local adjustments. Generated AI subject, depth, and other supported AI components can now join an existing parent in additive, subtractive, or intersect mode. The Node MCP host exposes both operations; installed releases require an updated native bridge and host.

@@ -110,7 +110,6 @@ pub fn load_base_image_from_bytes(
     settings: &AppSettings,
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<DynamicImage> {
-    let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
     let linear_mode = settings.linear_raw_mode.clone();
     let color_nr_setting = settings.raw_preprocessing_color_nr.unwrap_or(0.5);
     let color_nr_amount = if color_nr_setting <= 0.0 {
@@ -133,7 +132,6 @@ pub fn load_base_image_from_bytes(
             crate::raw_processing::develop_raw_image(
                 bytes,
                 use_fast_raw_dev,
-                highlight_compression,
                 linear_mode,
                 cancel_token,
             )

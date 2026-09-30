@@ -246,7 +246,6 @@ export interface AppSettings {
   thumbnailAspectRatio?: ThumbnailAspectRatio;
   uiVisibility?: UiVisibility;
   adjustmentVisibility?: { [key: string]: boolean };
-  rawHighlightCompression?: number;
   processingBackend?: string;
   linuxGpuOptimization?: boolean;
   exportPresets?: ExportPreset[];

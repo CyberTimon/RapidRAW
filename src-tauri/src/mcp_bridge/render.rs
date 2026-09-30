@@ -7,6 +7,7 @@ mod review;
 use super::sessions::{Bridge, Session, atomic_write};
 use super::{Result, flag, number, required, validation};
 use crate::app_state::AppState;
+use crate::delivery::{self, normalize_webp_metadata_header};
 use crate::export_processing::{
     ExportSettings, ResizeMode, ResizeOptions, TiffBitDepth, WatermarkSettings,
     apply_export_resize_and_watermark, calculate_resize_target, encode_image_to_bytes,
@@ -469,7 +470,22 @@ impl Bridge {
         if ![8, 16].contains(&bit_depth) || (bit_depth == 16 && !matches!(format, "png" | "tiff")) {
             return Err("INVALID_ARGUMENT: 16-bit output is supported by PNG and TIFF only; bit_depth must be 8 or 16".into());
         }
-        let settings = export_settings(params, quality)?;
+        let mut settings = export_settings(params, quality)?;
+        let metadata_default_disabled = params.get("keep_metadata").is_none()
+            && crate::exif_processing::preflight_metadata_retention(
+                &session.working_path,
+                format,
+                true,
+            )
+            .is_err();
+        if metadata_default_disabled {
+            settings.keep_metadata = false;
+        }
+        crate::exif_processing::preflight_metadata_retention(
+            &session.working_path,
+            format,
+            settings.keep_metadata,
+        )?;
         let profile_policy = params
             .get("color_profile")
             .map(|v| {
@@ -481,7 +497,7 @@ impl Bridge {
         if !["auto", "srgb", "none"].contains(&profile_policy) {
             return Err("INVALID_ARGUMENT: color_profile must be auto, srgb or none".into());
         }
-        let supports_profile = super::delivery::supports_icc(format);
+        let supports_profile = delivery::supports_icc(format);
         if profile_policy == "srgb" && !supports_profile {
             return Err(format!(
                 "UNSUPPORTED_COLOR_PROFILE: Explicit ICC embedding is unavailable for {format}; use auto for native signalling or none"
@@ -568,6 +584,11 @@ impl Bridge {
             exported_masks.push(json!({"mask_id":id,"image_path":image_path,"alpha_path":alpha_path,"coverage":mask_coverage(&alpha)}));
         }
         let mut warnings = prepared.warnings.clone();
+        if metadata_default_disabled {
+            warnings.push(format!(
+                "Capture metadata is not retained for this {format} export; set keep_metadata=true to request an explicit capability check."
+            ));
+        }
         if settings.keep_metadata && !metadata_applied {
             warnings.push("The native metadata writer could not preserve EXIF for this source/output format; metadata remains in the session sidecar.".to_string());
         }
@@ -582,7 +603,7 @@ impl Bridge {
             "width":image.width(),"height":image.height(),"bytes":bytes.len(),"bit_depth":bit_depth,
             "verified":verified,"source_unchanged":true,"metadata_applied":metadata_applied,"strip_gps":settings.strip_gps,
             "preserve_timestamps":settings.preserve_timestamps,"masks":exported_masks,"warnings":warnings,
-            "color_profile":{"space":"sRGB","policy":profile_policy,"icc_embedded":embed_profile,"icc_verified":if embed_profile {super::delivery::verify_profile(&bytes,format)?}else{false}}}),
+            "color_profile":{"space":"sRGB","policy":profile_policy,"icc_embedded":embed_profile,"icc_verified":if embed_profile {delivery::verify_profile(&bytes,format)?}else{false}}}),
         )
     }
 
@@ -595,8 +616,13 @@ impl Bridge {
         settings: &ExportSettings,
         embed_profile: bool,
     ) -> Result<(Vec<u8>, bool)> {
+        crate::exif_processing::preflight_metadata_retention(
+            &session.working_path,
+            format,
+            settings.keep_metadata,
+        )?;
         let mut bytes = if embed_profile && matches!(format, "png" | "tiff") {
-            super::delivery::encode_profiled_raster(image, format, bit_depth)?
+            delivery::encode_profiled_raster(image, format, bit_depth, false)?
         } else {
             encode_at_depth(image, format, bit_depth, settings.jpeg_quality)?
         };
@@ -613,10 +639,13 @@ impl Bridge {
             settings.strip_gps,
         )?;
         if embed_profile && matches!(format, "jpeg" | "webp") {
-            super::delivery::add_profile(&mut bytes, format)?;
+            delivery::add_profile(&mut bytes, format)?;
         }
         if format == "webp" {
             normalize_webp_metadata_header(&mut bytes, image.dimensions(), false)?;
+        }
+        if delivery::supports_icc(format) {
+            delivery::verify_raster_header(&bytes, format, image.dimensions(), bit_depth)?;
         }
         let (has_metadata, has_gps) = metadata_summary(&bytes, format);
         let metadata_applied = settings.keep_metadata && has_metadata;
@@ -626,7 +655,7 @@ impl Bridge {
                     .into(),
             );
         }
-        if embed_profile && !super::delivery::verify_profile(&bytes, format)? {
+        if embed_profile && !delivery::verify_profile(&bytes, format)? {
             return Err(
                 "EXPORT_VERIFICATION_FAILED: Embedded sRGB ICC profile did not survive encoding"
                     .into(),
@@ -659,92 +688,6 @@ impl Bridge {
         }
         Ok(())
     }
-}
-
-/// little_exif can append EXIF to a simple WebP without declaring the extended
-/// format. Standards-compliant readers then ignore that metadata. Keep every
-/// existing chunk and feature flag; add/repair only its VP8X declaration.
-/// https://developers.google.com/speed/webp/docs/riff_container#extended_file_format
-fn normalize_webp_metadata_header(
-    bytes: &mut Vec<u8>,
-    dimensions: (u32, u32),
-    force_extended: bool,
-) -> Result<()> {
-    let invalid = || "EXPORT_VERIFICATION_FAILED: Invalid WebP RIFF container".to_string();
-    if bytes.len() < 12 || &bytes[..4] != b"RIFF" || &bytes[8..12] != b"WEBP" {
-        return Err(invalid());
-    }
-    if u32::from_le_bytes(bytes[4..8].try_into().unwrap()) as u64 + 8 != bytes.len() as u64 {
-        return Err(invalid());
-    }
-    let (width, height) = dimensions;
-    if width == 0
-        || height == 0
-        || width > 1 << 24
-        || height > 1 << 24
-        || u64::from(width) * u64::from(height) > u64::from(u32::MAX)
-    {
-        return Err("EXPORT_VERIFICATION_FAILED: WebP canvas exceeds format limits".into());
-    }
-    let mut offset = 12;
-    let mut extended = None;
-    let mut flags = 0u8;
-    let mut needs_extended = force_extended;
-    while offset < bytes.len() {
-        if bytes.len() - offset < 8 {
-            return Err(invalid());
-        }
-        let size = u32::from_le_bytes(bytes[offset + 4..offset + 8].try_into().unwrap()) as usize;
-        let start = offset + 8;
-        let end = start.checked_add(size).ok_or_else(invalid)?;
-        let padded = end.checked_add(size & 1).ok_or_else(invalid)?;
-        if padded > bytes.len() || (size & 1 != 0 && bytes[end] != 0) {
-            return Err(invalid());
-        }
-        match &bytes[offset..offset + 4] {
-            b"VP8X" => {
-                if extended.is_some() || offset != 12 || size < 10 {
-                    return Err(invalid());
-                }
-                extended = Some(start);
-                flags |= bytes[start];
-            }
-            b"ICCP" | b"ALPH" | b"EXIF" | b"XMP " | b"ANIM" | b"ANMF" => {
-                needs_extended = true;
-                flags |= match &bytes[offset..offset + 4] {
-                    b"ICCP" => 0x20,
-                    b"ALPH" => 0x10,
-                    b"EXIF" => 0x08,
-                    b"XMP " => 0x04,
-                    _ => 0x02,
-                };
-            }
-            // VP8L carries its alpha flag in bit 28 of the lossless header.
-            b"VP8L" if size >= 5 && bytes[start] == 0x2f => flags |= bytes[start + 4] & 0x10,
-            _ => {}
-        }
-        offset = padded;
-    }
-    // Simple files without metadata or extended features need no new header.
-    if extended.is_none() && !needs_extended {
-        return Ok(());
-    }
-    let header = if let Some(start) = extended {
-        start
-    } else {
-        let mut chunk = [0u8; 18];
-        chunk[..4].copy_from_slice(b"VP8X");
-        chunk[4..8].copy_from_slice(&10u32.to_le_bytes());
-        let riff_size = u32::try_from(bytes.len() - 8 + chunk.len())
-            .map_err(|_| "EXPORT_VERIFICATION_FAILED: WebP file exceeds RIFF size limit")?;
-        bytes.splice(12..12, chunk);
-        bytes[4..8].copy_from_slice(&riff_size.to_le_bytes());
-        20
-    };
-    bytes[header] = flags;
-    bytes[header + 4..header + 7].copy_from_slice(&(width - 1).to_le_bytes()[..3]);
-    bytes[header + 7..header + 10].copy_from_slice(&(height - 1).to_le_bytes()[..3]);
-    Ok(())
 }
 
 fn metadata_summary(bytes: &Vec<u8>, format: &str) -> (bool, bool) {

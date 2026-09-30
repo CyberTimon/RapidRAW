@@ -2,7 +2,6 @@
 //! All image operations reuse RapidRAW's engine; originals are copied, never edited.
 mod advanced;
 mod asset_library;
-mod delivery;
 mod enhance;
 mod geometry_review;
 mod jobs;

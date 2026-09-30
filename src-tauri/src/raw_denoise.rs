@@ -1511,13 +1511,12 @@ mod tests {
             .map(PathBuf::from)
             .unwrap_or(root.path().join("identity.dng"));
         write_dng(&output, &raw, &metadata).unwrap();
-        let a = crate::raw_processing::develop_raw_image(&bytes, false, 3., "auto".into(), None)
+        let a = crate::raw_processing::develop_raw_image(&bytes, false, "auto".into(), None)
             .unwrap()
             .to_rgb32f();
         let b = crate::raw_processing::develop_raw_image(
             &fs::read(&output).unwrap(),
             false,
-            3.,
             "auto".into(),
             None,
         )

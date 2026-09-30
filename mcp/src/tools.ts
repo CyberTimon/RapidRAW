@@ -117,7 +117,12 @@ const exportOptions = {
       'Resize by long edge, short edge, width or height. Cannot be combined with long_edge; enlargement is disabled by default.',
     ),
   bit_depth: z.union([z.literal(8), z.literal(16)]).optional(),
-  keep_metadata: z.boolean().optional(),
+  keep_metadata: z
+    .boolean()
+    .optional()
+    .describe(
+      'Retain capture metadata in JPEG/PNG/WebP from non-TIFF sources. Unsupported requests fail; color_profile controls ICC separately.',
+    ),
   strip_gps: z.boolean().optional(),
   overwrite: z.boolean().optional(),
   preserve_timestamps: z.boolean().optional(),

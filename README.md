@@ -628,6 +628,8 @@ rapidraw export /path/to/photos --output /path/to/output_dir --adjustments /path
 | `--keep-metadata`      | Retain EXIF/capture metadata in exported files                         | `false`           |
 | `--adjustments <path>` | Path to a custom JSON file containing adjustments to override sidecars | _(Auto-detected)_ |
 
+JPEG, PNG, TIFF and WebP exports include a verified sRGB ICC profile, including when capture metadata is omitted. `--keep-metadata` supports JPEG, PNG and WebP output from non-TIFF sources; requesting it for TIFF input or output, AVIF or JXL returns an error. Export without that flag when capture metadata cannot be retained. TIFF defaults to true 16-bit rendering and encoding; `--tiff-bit-depth 8` keeps the 8-bit option.
+
 ## System Requirements
 
 The RapidRAW 0.4.0 fork packages support these minimum operating systems:
