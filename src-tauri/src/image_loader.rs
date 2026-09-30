@@ -412,7 +412,11 @@ fn embedded_preview(bytes: &[u8], min_dim: Option<u32>) -> Option<DynamicImage> 
     })
 }
 
-pub fn safe_embedded_preview(bytes: &[u8], path: &str, min_dim: Option<u32>) -> Option<DynamicImage> {
+pub fn safe_embedded_preview(
+    bytes: &[u8],
+    path: &str,
+    min_dim: Option<u32>,
+) -> Option<DynamicImage> {
     match panic::catch_unwind(panic::AssertUnwindSafe(|| embedded_preview(bytes, min_dim))) {
         Ok(preview) => preview,
         Err(_) => {
@@ -1135,7 +1139,11 @@ mod embedded_preview_tests {
         let jpeg0_off = sub_off + sub_len;
         let jpeg1_off = jpeg0_off + ifd0_jpeg.len() as u32;
 
-        let mut f = if le { b"II*\0".to_vec() } else { b"MM\0*".to_vec() };
+        let mut f = if le {
+            b"II*\0".to_vec()
+        } else {
+            b"MM\0*".to_vec()
+        };
         f.extend_from_slice(&w32(ifd0_off));
         f.extend_from_slice(&w16(4));
         f.extend(entry(274, 3, orientation as u32));
@@ -1161,17 +1169,38 @@ mod embedded_preview_tests {
     fn picks_smallest_preview_meeting_min_dim() {
         for le in [true, false] {
             let f = tiff(le, 1, &jpeg(64, 32), &jpeg(320, 160));
-            assert_eq!(dims(embedded_preview(&f, Some(50))), Some((64, 32)), "le={le}");
-            assert_eq!(dims(embedded_preview(&f, Some(100))), Some((320, 160)), "le={le}");
-            assert_eq!(dims(embedded_preview(&f, Some(5000))), Some((320, 160)), "le={le}");
-            assert_eq!(dims(embedded_preview(&f, None)), Some((320, 160)), "le={le}");
+            assert_eq!(
+                dims(embedded_preview(&f, Some(50))),
+                Some((64, 32)),
+                "le={le}"
+            );
+            assert_eq!(
+                dims(embedded_preview(&f, Some(100))),
+                Some((320, 160)),
+                "le={le}"
+            );
+            assert_eq!(
+                dims(embedded_preview(&f, Some(5000))),
+                Some((320, 160)),
+                "le={le}"
+            );
+            assert_eq!(
+                dims(embedded_preview(&f, None)),
+                Some((320, 160)),
+                "le={le}"
+            );
         }
     }
 
     #[test]
     fn applies_ifd0_orientation_in_both_endians() {
         for le in [true, false] {
-            for (orientation, expected) in [(1, (320, 160)), (3, (320, 160)), (6, (160, 320)), (8, (160, 320))] {
+            for (orientation, expected) in [
+                (1, (320, 160)),
+                (3, (320, 160)),
+                (6, (160, 320)),
+                (8, (160, 320)),
+            ] {
                 let f = tiff(le, orientation, &jpeg(64, 32), &jpeg(320, 160));
                 assert_eq!(
                     dims(embedded_preview(&f, None)),
@@ -1207,7 +1236,8 @@ mod embedded_preview_tests {
         let mut bad_ifd = good.clone();
         bad_ifd[4..8].copy_from_slice(&u32::MAX.to_le_bytes());
         let mut bad_strip = good.clone();
-        bad_strip[8 + 2 + 2 * 12 + 8..8 + 2 + 2 * 12 + 12].copy_from_slice(&(u32::MAX - 4).to_le_bytes());
+        bad_strip[8 + 2 + 2 * 12 + 8..8 + 2 + 2 * 12 + 12]
+            .copy_from_slice(&(u32::MAX - 4).to_le_bytes());
 
         let cases: Vec<(&str, Vec<u8>)> = vec![
             ("empty", vec![]),

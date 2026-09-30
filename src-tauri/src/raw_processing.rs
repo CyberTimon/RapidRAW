@@ -316,7 +316,11 @@ pub fn get_fast_demosaic_scale_factor(
                 .crop_area
                 .map_or(raw_img.width.max(raw_img.height), |r| r.d.w.max(r.d.h))
                 as f32;
-            let ratio = if max_crop > 0.0 { max_comp / max_crop } else { 1.0 };
+            let ratio = if max_crop > 0.0 {
+                max_comp / max_crop
+            } else {
+                1.0
+            };
             return if ratio > 0.97 { 1.0 } else { ratio };
         }
         let max_orig = (raw_img.width as f32).max(raw_img.height as f32);

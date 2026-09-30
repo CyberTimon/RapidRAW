@@ -1429,7 +1429,11 @@ fn has_ai_patches(adjustments: &serde_json::Value) -> bool {
         .is_some_and(|patches| !patches.is_empty())
 }
 
-fn thumbnail_proxy_min_dim(file_bytes: &[u8], target_res: u32, crop: Option<&Crop>) -> Option<usize> {
+fn thumbnail_proxy_min_dim(
+    file_bytes: &[u8],
+    target_res: u32,
+    crop: Option<&Crop>,
+) -> Option<usize> {
     let (full_w, full_h, is_linear) = crate::raw_processing::get_raw_dimensions(file_bytes)?;
     if !is_linear {
         return None;
@@ -1695,8 +1699,10 @@ pub fn generate_thumbnail_data(
             .collect();
 
         let gpu_is_raw = is_raw;
-        let tm_override = crate::image_processing::resolve_tonemapper_override(&settings, gpu_is_raw);
-        let gpu_adjustments = get_all_adjustments_from_json(&meta.adjustments, gpu_is_raw, tm_override);
+        let tm_override =
+            crate::image_processing::resolve_tonemapper_override(&settings, gpu_is_raw);
+        let gpu_adjustments =
+            get_all_adjustments_from_json(&meta.adjustments, gpu_is_raw, tm_override);
         let lut_path = meta.adjustments["lutPath"].as_str();
         let lut = lut_path.and_then(|p| {
             let mut cache = state.lut_cache.lock().unwrap();
