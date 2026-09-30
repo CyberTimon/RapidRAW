@@ -53,6 +53,44 @@ test('real SDK stdio handshake exposes comprehensive strict tools, resources and
   assert.match(diagnostics(), /Native startup diagnostic/);
 });
 
+test('mask duplication and in-parent AI composition are exposed and forwarded', async (t) => {
+  const { client } = await connect(t);
+  const duplicate = await client.callTool({
+    name: 'rapidraw_mask_duplicate',
+    arguments: {
+      session_id: 'test-session',
+      expected_revision: 2,
+      mask_id: 'subject',
+      name: 'Environment',
+      invert: true,
+      copy_adjustments: false,
+    },
+  });
+  assert.ok(!duplicate.isError);
+  assert.equal(duplicate.structuredContent.method, 'mask_duplicate');
+  assert.equal(duplicate.structuredContent.params.invert, true);
+  const generated = await client.callTool({
+    name: 'rapidraw_mask_generate',
+    arguments: {
+      session_id: 'test-session',
+      expected_revision: 2,
+      kind: 'depth',
+      depth_provider: 'marigold',
+      target_mask_id: 'subject',
+      mode: 'intersect',
+      parameters: { minDepth: 65, maxDepth: 100 },
+    },
+  });
+  assert.ok(!generated.isError);
+  assert.equal(generated.structuredContent.params.target_mask_id, 'subject');
+  assert.equal(generated.structuredContent.params.mode, 'intersect');
+  const invalid = await client.callTool({
+    name: 'rapidraw_mask_generate',
+    arguments: { session_id: 'test-session', kind: 'subject', target_mask_id: 'subject', mode: 'union' },
+  });
+  assert.equal(invalid.isError, true);
+});
+
 test('image bytes use MCP content without duplicating base64 in structured data', async (t) => {
   const { client } = await connect(t);
   const result = await client.callTool({

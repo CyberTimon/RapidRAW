@@ -457,8 +457,6 @@ pub struct AppSettings {
     #[serde(default)]
     pub copy_paste_settings: CopyPasteSettings,
     #[serde(default)]
-    pub raw_highlight_compression: Option<f32>,
-    #[serde(default)]
     pub processing_backend: Option<String>,
     #[serde(default)]
     pub linux_gpu_optimization: Option<bool>,
@@ -584,7 +582,6 @@ impl Default for AppSettings {
             adjustment_visibility: default_adjustment_visibility(),
             open_tree_sections: default_open_tree_sections(),
             copy_paste_settings: CopyPasteSettings::default(),
-            raw_highlight_compression: Some(2.5),
             processing_backend: Some("auto".to_string()),
             linux_gpu_optimization: Some(false),
             linux_gpu_optimization_migrated_v1: Some(true),
@@ -746,4 +743,21 @@ pub fn save_settings(settings: AppSettings, app_handle: AppHandle) -> Result<(),
         .unwrap()
         .set_capacity(cache_size);
     Ok(())
+}
+
+#[cfg(test)]
+mod obsolete_preference_tests {
+    use super::*;
+
+    #[test]
+    fn old_highlight_compression_preference_is_ignored_and_other_settings_load() {
+        let mut json = serde_json::to_value(AppSettings::default()).unwrap();
+        json["rawHighlightCompression"] = serde_json::json!(7.5);
+        json["editorPreviewResolution"] = serde_json::json!(1234);
+        let restored: AppSettings = serde_json::from_value(json).unwrap();
+        assert_eq!(restored.editor_preview_resolution, Some(1234));
+        let serialized = serde_json::to_value(restored).unwrap();
+        assert!(serialized.get("rawHighlightCompression").is_none());
+        assert_eq!(serialized["editorPreviewResolution"], 1234);
+    }
 }

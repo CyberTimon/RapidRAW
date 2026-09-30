@@ -15,6 +15,8 @@ use tauri::Manager;
 
 use crate::app_state::AppState;
 use crate::get_cached_full_warped_image;
+use crate::image_processing::{apply_cpu_default_raw_processing, apply_geometry_warp};
+use std::borrow::Cow;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(crate = "serde")]
@@ -1546,8 +1548,84 @@ pub fn generate_mask_bitmap(
     Some(final_mask)
 }
 
+/// Rasterize masks for a supplied composited source, without consulting the
+/// editor's selected image or its shared mask cache. Batch exports and
+/// thumbnails may run while another photo is selected in the editor.
+#[allow(clippy::too_many_arguments)]
+pub fn render_source_mask_bitmaps(
+    definitions: &[MaskDefinition],
+    composited_source: Option<&DynamicImage>,
+    is_raw: bool,
+    adjustments: &Value,
+    width: u32,
+    height: u32,
+    scale: f32,
+    crop_offset: (f32, f32),
+) -> Result<Vec<GrayImage>, String> {
+    render_source_mask_bitmaps_checked(
+        definitions,
+        composited_source,
+        is_raw,
+        adjustments,
+        width,
+        height,
+        scale,
+        crop_offset,
+        || Ok(()),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn render_source_mask_bitmaps_checked(
+    definitions: &[MaskDefinition],
+    composited_source: Option<&DynamicImage>,
+    is_raw: bool,
+    adjustments: &Value,
+    width: u32,
+    height: u32,
+    scale: f32,
+    crop_offset: (f32, f32),
+    mut check_cancelled: impl FnMut() -> Result<(), String>,
+) -> Result<Vec<GrayImage>, String> {
+    check_cancelled()?;
+    let warped_image = if definitions
+        .iter()
+        .any(MaskDefinition::requires_warped_image)
+    {
+        let mut source = composited_source
+            .ok_or("Image-dependent mask requires its own source pixels")?
+            .clone();
+        if is_raw {
+            apply_cpu_default_raw_processing(&mut source);
+        }
+        Some(apply_geometry_warp(Cow::Owned(source), adjustments).into_owned())
+    } else {
+        None
+    };
+
+    let mut bitmaps = Vec::with_capacity(definitions.len());
+    for definition in definitions {
+        check_cancelled()?;
+        if let Some(bitmap) = generate_mask_bitmap(
+            definition,
+            width,
+            height,
+            scale,
+            crop_offset,
+            warped_image.as_ref(),
+        ) {
+            bitmaps.push(bitmap);
+        }
+        check_cancelled()?;
+    }
+    Ok(bitmaps)
+}
+
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn generate_mask_overlay(
+    expected_generation: Option<usize>,
+    input_revision: Option<u64>,
     mask_def: serde_json::Value,
     width: u32,
     height: u32,
@@ -1558,7 +1636,28 @@ pub async fn generate_mask_overlay(
 ) -> Result<String, String> {
     // Rasterization, optional image warping and PNG encoding must not block
     // the window event loop while the photographer pans or zooms.
+    let generation = expected_generation.unwrap_or_else(|| {
+        app_handle
+            .state::<AppState>()
+            .load_image_generation
+            .load(std::sync::atomic::Ordering::SeqCst)
+    });
+    let identity = crate::app_state::PreviewIdentity {
+        generation,
+        lane: crate::app_state::PreviewLane::Overlay,
+        revision: input_revision,
+    };
+    app_handle
+        .state::<AppState>()
+        .register_preview_intent(identity)?;
     tauri::async_runtime::spawn_blocking(move || {
+        let state = app_handle.state::<AppState>();
+        state.ensure_preview_identity(identity)?;
+        let _session = state
+            .preview_session_gate
+            .read()
+            .unwrap_or_else(|e| e.into_inner());
+        state.ensure_preview_identity(identity)?;
         generate_mask_overlay_inner(
             mask_def,
             width,
@@ -1567,12 +1666,14 @@ pub async fn generate_mask_overlay(
             crop_offset,
             js_adjustments,
             app_handle.state::<AppState>(),
+            identity,
         )
     })
     .await
     .map_err(|error| format!("Mask overlay worker failed: {error}"))?
 }
 
+#[allow(clippy::too_many_arguments)]
 fn generate_mask_overlay_inner(
     mut mask_def: serde_json::Value,
     width: u32,
@@ -1581,15 +1682,19 @@ fn generate_mask_overlay_inner(
     crop_offset: (f32, f32),
     mut js_adjustments: Option<serde_json::Value>,
     state: tauri::State<'_, AppState>,
+    identity: crate::app_state::PreviewIdentity,
 ) -> Result<String, String> {
+    state.ensure_preview_identity(identity)?;
     if let Some(ref mut adj) = js_adjustments {
-        crate::adjustment_utils::hydrate_adjustments(&state, adj);
+        crate::adjustment_utils::hydrate_adjustments(&state, adj)?;
     }
+    state.ensure_preview_identity(identity)?;
 
     if let Some(sub_masks) = mask_def.get_mut("subMasks").and_then(|v| v.as_array_mut()) {
         let mut cache = state.patch_cache.lock().unwrap();
-        crate::adjustment_utils::hydrate_sub_masks(sub_masks, &mut cache);
+        crate::adjustment_utils::hydrate_sub_masks(sub_masks, &mut cache)?;
     }
+    state.ensure_preview_identity(identity)?;
 
     let parsed_mask_def: MaskDefinition = serde_json::from_value(mask_def)
         .map_err(|e| format!("Failed to parse hydrated mask_def: {}", e))?;
@@ -1599,6 +1704,7 @@ fn generate_mask_overlay_inner(
     let warped_image = js_adjustments.as_ref().and_then(|adj| {
         resolve_warped_image_for_masks(&state, adj, std::slice::from_ref(&parsed_mask_def))
     });
+    state.ensure_preview_identity(identity)?;
 
     if let Some(gray_mask) = generate_mask_bitmap(
         &parsed_mask_def,
@@ -1608,8 +1714,12 @@ fn generate_mask_overlay_inner(
         scaled_crop_offset,
         warped_image.as_deref(),
     ) {
+        state.ensure_preview_identity(identity)?;
         let mut rgba_mask = RgbaImage::new(width, height);
         for (x, y, pixel) in gray_mask.enumerate_pixels() {
+            if x == 0 && y % 128 == 0 {
+                state.ensure_preview_identity(identity)?;
+            }
             let intensity = pixel[0];
             let alpha = (intensity as f32 * 0.5) as u8;
             rgba_mask.put_pixel(x, y, Rgba([255, 0, 0, alpha]));
@@ -1619,9 +1729,12 @@ fn generate_mask_overlay_inner(
         rgba_mask
             .write_to(&mut buf, ImageFormat::Png)
             .map_err(|e| e.to_string())?;
+        state.ensure_preview_identity(identity)?;
 
         let base64_str = general_purpose::STANDARD.encode(buf.get_ref());
         let data_url = format!("data:image/png;base64,{}", base64_str);
+
+        state.ensure_preview_identity(identity)?;
 
         Ok(data_url)
     } else {
@@ -1848,5 +1961,49 @@ mod composite_cache_tests {
         let key = |a: Value| mask_bitmap_key(&def, 100, 100, 1.0, (0.0, 0.0), &a);
         assert_ne!(key(json!({})), key(json!({"transformScale":1.5})));
         assert_eq!(key(json!({})), key(json!({"exposure":1.5})));
+    }
+
+    #[test]
+    fn source_masks_use_their_own_photo_pixels() {
+        let definition: MaskDefinition = serde_json::from_value(json!({
+            "id": "mask", "name": "Color", "visible": true, "invert": false,
+            "adjustments": {},
+            "subMasks": [{
+                "id": "color", "type": "color", "visible": true,
+                "mode": "additive",
+                "parameters": {"targetX": 1, "targetY": 1, "tolerance": 20, "grow": 0, "feather": 0}
+            }]
+        }))
+        .unwrap();
+        let first = DynamicImage::ImageRgb8(image::RgbImage::from_fn(8, 4, |x, _| {
+            if x < 4 {
+                image::Rgb([255, 0, 0])
+            } else {
+                image::Rgb([0, 0, 255])
+            }
+        }));
+        let second =
+            DynamicImage::ImageRgb8(image::RgbImage::from_pixel(8, 4, image::Rgb([0, 255, 0])));
+        let render = |source: Option<&DynamicImage>| {
+            render_source_mask_bitmaps(
+                std::slice::from_ref(&definition),
+                source,
+                false,
+                &json!({}),
+                8,
+                4,
+                1.0,
+                (0.0, 0.0),
+            )
+        };
+        let first_mask = render(Some(&first)).unwrap().remove(0);
+        let second_mask = render(Some(&second)).unwrap().remove(0);
+        assert_eq!(first_mask.get_pixel(6, 1)[0], 0);
+        assert!(second_mask.get_pixel(6, 1)[0] > 0);
+        assert!(
+            render(None)
+                .unwrap_err()
+                .contains("requires its own source")
+        );
     }
 }

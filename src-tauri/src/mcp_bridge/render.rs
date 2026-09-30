@@ -7,6 +7,7 @@ mod review;
 use super::sessions::{Bridge, Session, atomic_write};
 use super::{Result, flag, number, required, validation};
 use crate::app_state::AppState;
+use crate::delivery::{self, normalize_webp_metadata_header};
 use crate::export_processing::{
     ExportSettings, ResizeMode, ResizeOptions, TiffBitDepth, WatermarkSettings,
     apply_export_resize_and_watermark, calculate_resize_target, encode_image_to_bytes,
@@ -17,7 +18,7 @@ use crate::image_processing::{
     calculate_histogram_from_image, calculate_waveform_from_image, get_all_adjustments_from_json,
     get_or_init_gpu_context, resolve_tonemapper_override_from_handle,
 };
-use crate::mask_generation::{MaskDefinition, generate_mask_bitmap};
+use crate::mask_generation::{MaskDefinition, render_source_mask_bitmaps};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use image::{DynamicImage, GenericImageView, GrayImage, ImageBuffer, ImageFormat, Luma, imageops};
 use serde_json::{Value, json};
@@ -37,6 +38,42 @@ struct Prepared {
     bitmaps: Vec<GrayImage>,
     crop_offset: (f32, f32),
     warnings: Vec<String>,
+}
+
+fn render_mcp_source_masks(
+    masks: &[MaskDefinition],
+    composited_source: &DynamicImage,
+    is_raw: bool,
+    adjustments: &Value,
+    dimensions: (u32, u32),
+    crop_offset: (f32, f32),
+) -> Result<(Vec<GrayImage>, Vec<String>)> {
+    let bitmaps = render_source_mask_bitmaps(
+        masks,
+        Some(composited_source),
+        is_raw,
+        adjustments,
+        dimensions.0,
+        dimensions.1,
+        1.0,
+        crop_offset,
+    )
+    .map_err(|error| format!("MASK_RENDER_FAILED: {error}"))?;
+    if bitmaps.len() != masks.len() {
+        return Err("MASK_RENDER_FAILED: Could not rasterize every visible mask".into());
+    }
+    let warnings = masks
+        .iter()
+        .zip(&bitmaps)
+        .filter(|(_, bitmap)| !bitmap.as_raw().iter().any(|value| *value > 0))
+        .map(|(mask, _)| {
+            format!(
+                "Mask {} ({}) has no coverage in the rendered image; it may lie outside the current crop.",
+                mask.name, mask.id
+            )
+        })
+        .collect();
+    Ok((bitmaps, warnings))
 }
 
 struct Frame {
@@ -97,43 +134,22 @@ impl Bridge {
             crate::image_loader::composite_patches_on_image(&loaded.image, &adjustments)
                 .map_err(|e| format!("PATCH_RENDER_FAILED: {e}"))?;
         let (image, crop_offset) =
-            crate::apply_all_transformations(Cow::Owned(composite), &adjustments);
+            crate::apply_all_transformations(Cow::Borrowed(&composite), &adjustments);
         // Native cropping rounds source pixels; masks use the same sampled origin.
         let crop_offset = (crop_offset.0.round(), crop_offset.1.round());
         let image = image.into_owned();
         let masks = crate::marigold_surface::render_masks(&adjustments);
         let masks: Vec<_> = masks.into_iter().filter(|m| m.visible).collect();
-        // The native cache resolves the active original and geometry. Propagate
-        // failures instead of silently omitting color/luminance masks.
-        let warped = if masks.iter().any(MaskDefinition::requires_warped_image) {
-            Some(crate::get_cached_full_warped_image(&state, &adjustments)?)
-        } else {
-            None
-        };
-        let mut warnings = Vec::new();
-        let bitmaps = masks
-            .iter()
-            .map(|mask| {
-                let bitmap = generate_mask_bitmap(
-                    mask,
-                    image.width(),
-                    image.height(),
-                    1.0,
-                    crop_offset,
-                    warped.as_deref(),
-                )
-                .ok_or_else(|| {
-                    format!(
-                        "MASK_RENDER_FAILED: Could not render mask {} ({})",
-                        mask.name, mask.id
-                    )
-                })?;
-                if !bitmap.as_raw().iter().any(|value| *value > 0) {
-                    warnings.push(format!("Mask {} ({}) has no coverage in the rendered image; it may lie outside the current crop.",mask.name,mask.id));
-                }
-                Ok(bitmap)
-            })
-            .collect::<Result<Vec<_>>>()?;
+        // Bind image-dependent masks to this session's captured photo, even if
+        // the editor switches to another image while the MCP render is running.
+        let (bitmaps, warnings) = render_mcp_source_masks(
+            &masks,
+            &composite,
+            loaded.is_raw,
+            &adjustments,
+            image.dimensions(),
+            crop_offset,
+        )?;
         Ok(Prepared {
             image,
             adjustments,
@@ -454,7 +470,22 @@ impl Bridge {
         if ![8, 16].contains(&bit_depth) || (bit_depth == 16 && !matches!(format, "png" | "tiff")) {
             return Err("INVALID_ARGUMENT: 16-bit output is supported by PNG and TIFF only; bit_depth must be 8 or 16".into());
         }
-        let settings = export_settings(params, quality)?;
+        let mut settings = export_settings(params, quality)?;
+        let metadata_default_disabled = params.get("keep_metadata").is_none()
+            && crate::exif_processing::preflight_metadata_retention(
+                &session.working_path,
+                format,
+                true,
+            )
+            .is_err();
+        if metadata_default_disabled {
+            settings.keep_metadata = false;
+        }
+        crate::exif_processing::preflight_metadata_retention(
+            &session.working_path,
+            format,
+            settings.keep_metadata,
+        )?;
         let profile_policy = params
             .get("color_profile")
             .map(|v| {
@@ -466,7 +497,7 @@ impl Bridge {
         if !["auto", "srgb", "none"].contains(&profile_policy) {
             return Err("INVALID_ARGUMENT: color_profile must be auto, srgb or none".into());
         }
-        let supports_profile = super::delivery::supports_icc(format);
+        let supports_profile = delivery::supports_icc(format);
         if profile_policy == "srgb" && !supports_profile {
             return Err(format!(
                 "UNSUPPORTED_COLOR_PROFILE: Explicit ICC embedding is unavailable for {format}; use auto for native signalling or none"
@@ -553,6 +584,11 @@ impl Bridge {
             exported_masks.push(json!({"mask_id":id,"image_path":image_path,"alpha_path":alpha_path,"coverage":mask_coverage(&alpha)}));
         }
         let mut warnings = prepared.warnings.clone();
+        if metadata_default_disabled {
+            warnings.push(format!(
+                "Capture metadata is not retained for this {format} export; set keep_metadata=true to request an explicit capability check."
+            ));
+        }
         if settings.keep_metadata && !metadata_applied {
             warnings.push("The native metadata writer could not preserve EXIF for this source/output format; metadata remains in the session sidecar.".to_string());
         }
@@ -567,7 +603,7 @@ impl Bridge {
             "width":image.width(),"height":image.height(),"bytes":bytes.len(),"bit_depth":bit_depth,
             "verified":verified,"source_unchanged":true,"metadata_applied":metadata_applied,"strip_gps":settings.strip_gps,
             "preserve_timestamps":settings.preserve_timestamps,"masks":exported_masks,"warnings":warnings,
-            "color_profile":{"space":"sRGB","policy":profile_policy,"icc_embedded":embed_profile,"icc_verified":if embed_profile {super::delivery::verify_profile(&bytes,format)?}else{false}}}),
+            "color_profile":{"space":"sRGB","policy":profile_policy,"icc_embedded":embed_profile,"icc_verified":if embed_profile {delivery::verify_profile(&bytes,format)?}else{false}}}),
         )
     }
 
@@ -580,8 +616,13 @@ impl Bridge {
         settings: &ExportSettings,
         embed_profile: bool,
     ) -> Result<(Vec<u8>, bool)> {
+        crate::exif_processing::preflight_metadata_retention(
+            &session.working_path,
+            format,
+            settings.keep_metadata,
+        )?;
         let mut bytes = if embed_profile && matches!(format, "png" | "tiff") {
-            super::delivery::encode_profiled_raster(image, format, bit_depth)?
+            delivery::encode_profiled_raster(image, format, bit_depth, false)?
         } else {
             encode_at_depth(image, format, bit_depth, settings.jpeg_quality)?
         };
@@ -598,10 +639,13 @@ impl Bridge {
             settings.strip_gps,
         )?;
         if embed_profile && matches!(format, "jpeg" | "webp") {
-            super::delivery::add_profile(&mut bytes, format)?;
+            delivery::add_profile(&mut bytes, format)?;
         }
         if format == "webp" {
             normalize_webp_metadata_header(&mut bytes, image.dimensions(), false)?;
+        }
+        if delivery::supports_icc(format) {
+            delivery::verify_raster_header(&bytes, format, image.dimensions(), bit_depth)?;
         }
         let (has_metadata, has_gps) = metadata_summary(&bytes, format);
         let metadata_applied = settings.keep_metadata && has_metadata;
@@ -611,7 +655,7 @@ impl Bridge {
                     .into(),
             );
         }
-        if embed_profile && !super::delivery::verify_profile(&bytes, format)? {
+        if embed_profile && !delivery::verify_profile(&bytes, format)? {
             return Err(
                 "EXPORT_VERIFICATION_FAILED: Embedded sRGB ICC profile did not survive encoding"
                     .into(),
@@ -644,92 +688,6 @@ impl Bridge {
         }
         Ok(())
     }
-}
-
-/// little_exif can append EXIF to a simple WebP without declaring the extended
-/// format. Standards-compliant readers then ignore that metadata. Keep every
-/// existing chunk and feature flag; add/repair only its VP8X declaration.
-/// https://developers.google.com/speed/webp/docs/riff_container#extended_file_format
-fn normalize_webp_metadata_header(
-    bytes: &mut Vec<u8>,
-    dimensions: (u32, u32),
-    force_extended: bool,
-) -> Result<()> {
-    let invalid = || "EXPORT_VERIFICATION_FAILED: Invalid WebP RIFF container".to_string();
-    if bytes.len() < 12 || &bytes[..4] != b"RIFF" || &bytes[8..12] != b"WEBP" {
-        return Err(invalid());
-    }
-    if u32::from_le_bytes(bytes[4..8].try_into().unwrap()) as u64 + 8 != bytes.len() as u64 {
-        return Err(invalid());
-    }
-    let (width, height) = dimensions;
-    if width == 0
-        || height == 0
-        || width > 1 << 24
-        || height > 1 << 24
-        || u64::from(width) * u64::from(height) > u64::from(u32::MAX)
-    {
-        return Err("EXPORT_VERIFICATION_FAILED: WebP canvas exceeds format limits".into());
-    }
-    let mut offset = 12;
-    let mut extended = None;
-    let mut flags = 0u8;
-    let mut needs_extended = force_extended;
-    while offset < bytes.len() {
-        if bytes.len() - offset < 8 {
-            return Err(invalid());
-        }
-        let size = u32::from_le_bytes(bytes[offset + 4..offset + 8].try_into().unwrap()) as usize;
-        let start = offset + 8;
-        let end = start.checked_add(size).ok_or_else(invalid)?;
-        let padded = end.checked_add(size & 1).ok_or_else(invalid)?;
-        if padded > bytes.len() || (size & 1 != 0 && bytes[end] != 0) {
-            return Err(invalid());
-        }
-        match &bytes[offset..offset + 4] {
-            b"VP8X" => {
-                if extended.is_some() || offset != 12 || size < 10 {
-                    return Err(invalid());
-                }
-                extended = Some(start);
-                flags |= bytes[start];
-            }
-            b"ICCP" | b"ALPH" | b"EXIF" | b"XMP " | b"ANIM" | b"ANMF" => {
-                needs_extended = true;
-                flags |= match &bytes[offset..offset + 4] {
-                    b"ICCP" => 0x20,
-                    b"ALPH" => 0x10,
-                    b"EXIF" => 0x08,
-                    b"XMP " => 0x04,
-                    _ => 0x02,
-                };
-            }
-            // VP8L carries its alpha flag in bit 28 of the lossless header.
-            b"VP8L" if size >= 5 && bytes[start] == 0x2f => flags |= bytes[start + 4] & 0x10,
-            _ => {}
-        }
-        offset = padded;
-    }
-    // Simple files without metadata or extended features need no new header.
-    if extended.is_none() && !needs_extended {
-        return Ok(());
-    }
-    let header = if let Some(start) = extended {
-        start
-    } else {
-        let mut chunk = [0u8; 18];
-        chunk[..4].copy_from_slice(b"VP8X");
-        chunk[4..8].copy_from_slice(&10u32.to_le_bytes());
-        let riff_size = u32::try_from(bytes.len() - 8 + chunk.len())
-            .map_err(|_| "EXPORT_VERIFICATION_FAILED: WebP file exceeds RIFF size limit")?;
-        bytes.splice(12..12, chunk);
-        bytes[4..8].copy_from_slice(&riff_size.to_le_bytes());
-        20
-    };
-    bytes[header] = flags;
-    bytes[header + 4..header + 7].copy_from_slice(&(width - 1).to_le_bytes()[..3]);
-    bytes[header + 7..header + 10].copy_from_slice(&(height - 1).to_le_bytes()[..3]);
-    Ok(())
 }
 
 fn metadata_summary(bytes: &Vec<u8>, format: &str) -> (bool, bool) {
@@ -1258,6 +1216,44 @@ fn reject_source_destination(target: &Path, source: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mcp_source_masks_follow_the_session_photo_when_editor_selection_changes() {
+        let mask: MaskDefinition = serde_json::from_value(json!({
+            "id": "color", "name": "Color", "visible": true, "invert": false,
+            "adjustments": {},
+            "subMasks": [{
+                "id": "sample", "type": "color", "visible": true,
+                "mode": "additive",
+                "parameters": {"targetX": 1, "targetY": 1, "tolerance": 20, "grow": 0, "feather": 0}
+            }]
+        }))
+        .unwrap();
+        let session_photo = DynamicImage::ImageRgb8(image::RgbImage::from_fn(8, 4, |x, _| {
+            if x < 4 {
+                image::Rgb([255, 0, 0])
+            } else {
+                image::Rgb([0, 0, 255])
+            }
+        }));
+        let other_selected_photo =
+            DynamicImage::ImageRgb8(image::RgbImage::from_pixel(8, 4, image::Rgb([0, 255, 0])));
+        let render = |source: &DynamicImage| {
+            render_mcp_source_masks(
+                std::slice::from_ref(&mask),
+                source,
+                false,
+                &json!({}),
+                (8, 4),
+                (0.0, 0.0),
+            )
+            .unwrap()
+            .0
+            .remove(0)
+        };
+        assert_eq!(render(&session_photo).get_pixel(6, 1)[0], 0);
+        assert!(render(&other_selected_photo).get_pixel(6, 1)[0] > 0);
+    }
 
     fn precision_ramp() -> DynamicImage {
         DynamicImage::ImageRgb16(ImageBuffer::from_fn(1025, 2, |x, y| {

@@ -407,7 +407,7 @@ The optional AI Connector automatically [matches small repair colour differences
 
 For removal, recolouring, adding objects and lettering, follow the [AI editing workflows](docs/ai-editing-workflows.md). Start with Klein 4B at 1 MP and compare the rendered result before changing models or resolution.
 
-The server exposes **65 MCP tools** over stdio. Local AI operations need their model assets installed. HDR, focus merging, panorama and negative conversion are also exposed, with photographic acceptance limits documented in the [historical capability snapshot](docs/mcp/history/capability-matrix-2026-09.md). The live `rapidraw_capabilities` response defines the available tools and schemas for your build.
+Current source builds expose **66 MCP tools** over stdio. Local AI operations need their model assets installed. HDR, focus merging, panorama and negative conversion are also exposed, with photographic acceptance limits documented in the [historical capability snapshot](docs/mcp/history/capability-matrix-2026-09.md). The live `rapidraw_capabilities` response defines the available tools and schemas for your build.
 
 ## Connect an agent
 
@@ -627,6 +627,8 @@ rapidraw export /path/to/photos --output /path/to/output_dir --adjustments /path
 | `--tiff-bit-depth <n>` | TIFF channel depth (`8` or `16`)                                       | `16`              |
 | `--keep-metadata`      | Retain EXIF/capture metadata in exported files                         | `false`           |
 | `--adjustments <path>` | Path to a custom JSON file containing adjustments to override sidecars | _(Auto-detected)_ |
+
+JPEG, PNG, TIFF and WebP exports include a verified sRGB ICC profile, including when capture metadata is omitted. `--keep-metadata` supports JPEG, PNG and WebP output from non-TIFF sources; requesting it for TIFF input or output, AVIF or JXL returns an error. Export without that flag when capture metadata cannot be retained. TIFF defaults to true 16-bit rendering and encoding; `--tiff-bit-depth 8` keeps the 8-bit option.
 
 ## System Requirements
 

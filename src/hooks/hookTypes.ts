@@ -14,6 +14,8 @@ export interface PreviousAdjustments {
 }
 
 export interface LoadImageResult {
+  generation: number;
+  source_revision: string;
   width: number;
   height: number;
   is_raw: boolean;

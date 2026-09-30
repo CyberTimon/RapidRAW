@@ -18,6 +18,7 @@ mod cache_utils;
 mod camera_tethering;
 mod color_profiles;
 mod culling;
+mod delivery;
 mod denoising;
 mod exif_processing;
 mod export_processing;
@@ -98,9 +99,7 @@ use crate::image_processing::{
     get_or_init_gpu_context, process_and_get_dynamic_image, resolve_tonemapper_override,
     resolve_tonemapper_override_from_handle, warp_image_geometry,
 };
-use crate::mask_generation::{
-    generate_mask_bitmap, get_cached_or_generate_mask, resolve_warped_image_for_masks,
-};
+use crate::mask_generation::{get_cached_or_generate_mask, resolve_warped_image_for_masks};
 use crate::window_customizer::PinchZoomDisablePlugin;
 pub use adjustment_utils::*;
 pub use android_integration::*;
@@ -151,6 +150,8 @@ struct ImageDimensions {
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WgpuTransformPayload {
+    #[serde(default)]
+    pub expected_generation: Option<usize>,
     pub window_width: f32,
     pub window_height: f32,
     pub x: f32,
@@ -252,24 +253,46 @@ fn compute_patched_and_warped(
     loaded_image: &LoadedImage,
     adjustments: &serde_json::Value,
 ) -> Result<Arc<DynamicImage>, String> {
-    let has_patches = adjustments
-        .get("aiPatches")
-        .and_then(|v| v.as_array())
-        .is_some_and(|a| !a.is_empty());
-
-    let patched_image = if has_patches {
-        Cow::Owned(
-            composite_patches_on_image(&loaded_image.image, adjustments)
-                .map_err(|e| format!("Failed to composite AI patches: {}", e))?,
-        )
-    } else {
-        Cow::Borrowed(loaded_image.image.as_ref())
-    };
+    let patched_image = prepare_patched_preview_image(loaded_image.image.as_ref(), adjustments)?;
 
     let warped = apply_geometry_warp(patched_image, adjustments);
     let blurred = crate::lens_blur::apply_lens_blur(warped, adjustments);
 
     Ok(Arc::new(blurred.into_owned()))
+}
+
+fn prepare_patched_preview_image<'a>(
+    original: &'a DynamicImage,
+    adjustments: &serde_json::Value,
+) -> Result<Cow<'a, DynamicImage>, String> {
+    let has_patches = adjustments
+        .get("aiPatches")
+        .and_then(|v| v.as_array())
+        .is_some_and(|a| !a.is_empty());
+
+    Ok(if has_patches {
+        Cow::Owned(
+            composite_patches_on_image(original, adjustments)
+                .map_err(|e| format!("Failed to composite AI patches: {}", e))?,
+        )
+    } else {
+        Cow::Borrowed(original)
+    })
+}
+
+#[cfg(test)]
+mod preview_patch_preparation_tests {
+    use super::*;
+
+    #[test]
+    fn uncropped_preview_preparation_propagates_invalid_patch_data() {
+        let original = DynamicImage::new_rgb8(2, 2);
+        let adjustments = serde_json::json!({
+            "aiPatches": [{"visible": true, "patchData": {"mask": "not-a-mask"}}]
+        });
+        let error = prepare_patched_preview_image(&original, &adjustments).unwrap_err();
+        assert!(error.contains("Failed to composite AI patches"));
+    }
 }
 
 #[tauri::command]
@@ -355,7 +378,16 @@ pub fn get_cached_full_warped_image(
 async fn update_wgpu_transform(
     payload: WgpuTransformPayload,
     state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
+    let generation = payload
+        .expected_generation
+        .unwrap_or_else(|| state.load_image_generation.load(Ordering::SeqCst));
+    let identity = app_state::PreviewIdentity {
+        generation,
+        lane: app_state::PreviewLane::Main,
+        revision: None,
+    };
     let context = match state
         .gpu_context
         .lock()
@@ -367,32 +399,45 @@ async fn update_wgpu_transform(
     };
 
     tokio::task::spawn_blocking(move || {
-        let mut display_lock = context.display.lock().unwrap_or_else(|e| e.into_inner());
-        if let Some(display) = display_lock.as_mut() {
-            display.latest_transform.rect = [payload.x, payload.y, payload.width, payload.height];
-            display.latest_transform.clip = [
-                payload.clip_x,
-                payload.clip_y,
-                payload.clip_width,
-                payload.clip_height,
-            ];
-            display.latest_transform.window = [payload.window_width, payload.window_height];
-            display.latest_transform.bg_primary = payload.bg_primary;
-            display.latest_transform.bg_secondary = payload.bg_secondary;
-            display.latest_transform.pixelated = if payload.pixelated { 1.0 } else { 0.0 };
+        let state = app_handle.state::<AppState>();
+        match state.with_current_preview_identity(identity, || {
+            let mut display_lock = context.display.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(display) = display_lock.as_mut() {
+                if !crate::gpu_processing::display_frame_matches_generation(
+                    display.frame_generation,
+                    generation,
+                ) {
+                    display.current_bind_group = None;
+                    display.frame_generation = None;
+                }
+                display.latest_transform.rect =
+                    [payload.x, payload.y, payload.width, payload.height];
+                display.latest_transform.clip = [
+                    payload.clip_x,
+                    payload.clip_y,
+                    payload.clip_width,
+                    payload.clip_height,
+                ];
+                display.latest_transform.window = [payload.window_width, payload.window_height];
+                display.latest_transform.bg_primary = payload.bg_primary;
+                display.latest_transform.bg_secondary = payload.bg_secondary;
+                display.latest_transform.pixelated = if payload.pixelated { 1.0 } else { 0.0 };
 
-            context.queue.write_buffer(
-                &display.transform_buffer,
-                0,
-                bytemuck::bytes_of(&display.latest_transform),
-            );
-            display.render(&context.device, &context.queue);
+                context.queue.write_buffer(
+                    &display.transform_buffer,
+                    0,
+                    bytemuck::bytes_of(&display.latest_transform),
+                );
+                display.render(&context.device, &context.queue);
+            }
+        }) {
+            Ok(()) => Ok(()),
+            Err(error) if error == app_state::PREVIEW_SUPERSEDED => Ok(()),
+            Err(error) => Err(error),
         }
     })
     .await
-    .map_err(|e| format!("Task panicked: {}", e))?;
-
-    Ok(())
+    .map_err(|e| format!("Task panicked: {}", e))?
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -400,7 +445,12 @@ fn process_preview_job(
     app_handle: &tauri::AppHandle,
     state: tauri::State<AppState>,
     mut adjustments_json: serde_json::Value,
+    identity: app_state::PreviewIdentity,
+    render_attempt: Option<u64>,
+    quality_tier: Option<&str>,
+    queued_at: std::time::Instant,
     is_interactive: bool,
+    compare_original: bool,
     target_resolution: Option<u32>,
     roi: Option<(f32, f32, f32, f32)>,
     request_analytics: bool,
@@ -408,8 +458,25 @@ fn process_preview_job(
     active_waveform_channel: Option<&str>,
 ) -> Result<Vec<u8>, String> {
     let fn_start = std::time::Instant::now();
+    let queue_wait = fn_start.saturating_duration_since(queued_at);
+    let generation = identity.generation;
+    let cancellation = app_state::PreviewCancellation {
+        state: &state,
+        identity,
+    };
+    cancellation.check()?;
+    let _session = state
+        .preview_session_gate
+        .read()
+        .unwrap_or_else(|e| e.into_inner());
+    cancellation.check()?;
+    let gate_wait = fn_start.elapsed();
     let context = get_or_init_gpu_context(&state, app_handle)?;
-    hydrate_adjustments(&state, &mut adjustments_json);
+    cancellation.check()?;
+    let hydration_start = std::time::Instant::now();
+    hydrate_adjustments(&state, &mut adjustments_json)?;
+    cancellation.check()?;
+    let hydration_duration = hydration_start.elapsed();
     let adjustments_clone = adjustments_json;
 
     let loaded_image_guard = state.original_image.lock().unwrap();
@@ -418,6 +485,7 @@ fn process_preview_job(
         .ok_or("No original image loaded")?
         .clone();
     drop(loaded_image_guard);
+    cancellation.check()?;
 
     let new_transform_hash = calculate_transform_hash(&adjustments_clone);
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
@@ -426,7 +494,12 @@ fn process_preview_job(
     let default_preview_dim = settings.editor_preview_resolution.unwrap_or(1920);
     let preview_dim = target_resolution.unwrap_or(default_preview_dim);
     #[cfg(not(any(target_os = "linux", target_os = "android")))]
-    let use_wgpu_renderer = settings.use_wgpu_renderer.unwrap_or(true);
+    let use_wgpu_renderer = settings.use_wgpu_renderer.unwrap_or(true)
+        && context
+            .display
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .is_some();
     #[cfg(any(target_os = "linux", target_os = "android"))]
     let use_wgpu_renderer = false;
 
@@ -450,6 +523,9 @@ fn process_preview_job(
             .as_ref()
             .is_some_and(|c| c.interactive_divisor == interactive_divisor);
 
+    cancellation.check()?;
+    let geometry_start = std::time::Instant::now();
+
     let (final_preview_base, scale_for_gpu, unscaled_crop_offset) = if base_valid {
         let cached = cached_preview_lock.as_ref().unwrap();
         (
@@ -467,6 +543,9 @@ fn process_preview_job(
             generate_transformed_preview(&state, &loaded_image, &adjustments_clone, preview_dim)?;
         (Arc::new(base), scale, offset)
     };
+    cancellation.check()?;
+    let geometry_duration = geometry_start.elapsed();
+    let resize_mask_start = std::time::Instant::now();
 
     let small_preview_base = if small_valid {
         Arc::clone(&cached_preview_lock.as_ref().unwrap().small_image)
@@ -499,6 +578,7 @@ fn process_preview_job(
 
         small
     };
+    cancellation.check()?;
 
     *cached_preview_lock = Some(CachedPreview {
         image: Arc::clone(&final_preview_base),
@@ -542,20 +622,23 @@ fn process_preview_job(
         unscaled_crop_offset.1 * effective_scale,
     );
 
-    let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
-        .iter()
-        .filter_map(|def| {
-            get_cached_or_generate_mask(
-                &state,
-                def,
-                preview_width,
-                preview_height,
-                effective_scale,
-                scaled_crop_offset,
-                &adjustments_clone,
-            )
-        })
-        .collect();
+    let mut mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = Vec::new();
+    for def in &mask_definitions {
+        cancellation.check()?;
+        if let Some(mask) = get_cached_or_generate_mask(
+            &state,
+            def,
+            preview_width,
+            preview_height,
+            effective_scale,
+            scaled_crop_offset,
+            &adjustments_clone,
+        ) {
+            mask_bitmaps.push(mask);
+        }
+    }
+    cancellation.check()?;
+    let resize_mask_duration = resize_mask_start.elapsed();
 
     let is_raw = loaded_image.is_raw;
     let tm_override = resolve_tonemapper_override_from_handle(app_handle, is_raw);
@@ -577,6 +660,10 @@ fn process_preview_job(
             .unwrap()
             .clone()
             .map(|tx| crate::AnalyticsConfig {
+                generation,
+                input_revision: identity.revision,
+                render_attempt,
+                quality_tier: quality_tier.map(str::to_owned),
                 path: loaded_image.path.clone(),
                 compute_waveform,
                 active_waveform_channel: channel_filter,
@@ -586,7 +673,9 @@ fn process_preview_job(
         None
     };
 
-    let final_processed_image_result =
+    cancellation.check()?;
+    let gpu_start = std::time::Instant::now();
+    let final_processed_image_result = cancellation.run_stage_if_current(|| {
         crate::image_processing::process_and_get_dynamic_image_with_analytics(
             &context,
             &state,
@@ -599,19 +688,41 @@ fn process_preview_job(
                 roi: pixel_roi,
             },
             "apply_adjustments",
-            use_wgpu_renderer,
+            use_wgpu_renderer && !compare_original,
             analytics_config,
-        );
+            Some(identity),
+        )
+    });
 
+    cancellation.check()?;
+    let gpu_duration = gpu_start.elapsed();
     if let Ok(final_processed_image) = final_processed_image_result {
-        if use_wgpu_renderer {
+        if use_wgpu_renderer && !compare_original {
             let _ = context.device.poll(wgpu::PollType::Wait {
                 submission_index: None,
                 timeout: Some(std::time::Duration::from_millis(500)),
             });
-            let _ = app_handle.emit(
-                "wgpu-frame-ready",
-                serde_json::json!({ "path": loaded_image.path }),
+            cancellation.check()?;
+            state.with_current_preview_identity(identity, || {
+                let _ = app_handle.emit(
+                    "wgpu-frame-ready",
+                    serde_json::json!({ "path": loaded_image.path, "generation": generation, "inputRevision": identity.revision, "renderAttempt": render_attempt, "qualityTier": quality_tier }),
+                );
+            })?;
+            trace_preview_job(
+                identity,
+                render_attempt,
+                quality_tier,
+                queue_wait,
+                gate_wait,
+                hydration_duration,
+                geometry_duration,
+                resize_mask_duration,
+                gpu_duration,
+                std::time::Duration::ZERO,
+                preview_width,
+                preview_height,
+                base_valid,
             );
             return Ok(b"WGPU_RENDER".to_vec());
         }
@@ -640,6 +751,22 @@ fn process_preview_job(
 
         match encode_result {
             Ok(jpeg_bytes) => {
+                cancellation.check()?;
+                trace_preview_job(
+                    identity,
+                    render_attempt,
+                    quality_tier,
+                    queue_wait,
+                    gate_wait,
+                    hydration_duration,
+                    geometry_duration,
+                    resize_mask_duration,
+                    gpu_duration,
+                    step_start.elapsed(),
+                    preview_width,
+                    preview_height,
+                    base_valid,
+                );
                 if is_interactive {
                     let (roi_w, roi_h) = final_rgba_image.dimensions();
                     let (rx, ry) = if let Some(r) = pixel_roi {
@@ -664,6 +791,7 @@ fn process_preview_job(
                         step_start.elapsed(),
                         fn_start.elapsed()
                     );
+                    cancellation.check()?;
                     Ok(response)
                 } else {
                     let (width, height) = final_rgba_image.dimensions();
@@ -675,18 +803,93 @@ fn process_preview_job(
                         step_start.elapsed(),
                         fn_start.elapsed()
                     );
+                    cancellation.check()?;
                     Ok(jpeg_bytes)
                 }
             }
             Err(e) => Err(format!("Failed to encode preview: {}", e)),
         }
     } else {
+        let error = final_processed_image_result.unwrap_err();
+        if error == app_state::PREVIEW_SUPERSEDED {
+            return Err(error);
+        }
         log::error!(
-            "[process_preview_job] processing failed after {:.2?}",
-            fn_start.elapsed()
+            "[process_preview_job] processing failed after {:.2?}: {}",
+            fn_start.elapsed(),
+            error
         );
-        Err("Processing failed".to_string())
+        Err(error)
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn trace_preview_job(
+    identity: app_state::PreviewIdentity,
+    render_attempt: Option<u64>,
+    quality_tier: Option<&str>,
+    queue_wait: Duration,
+    gate_wait: Duration,
+    hydration: Duration,
+    geometry: Duration,
+    resize_mask: Duration,
+    gpu: Duration,
+    encode: Duration,
+    width: u32,
+    height: u32,
+    base_cache_hit: bool,
+) {
+    static REMAINING: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(10_000);
+    if std::env::var_os("RAPIDRAW_PREVIEW_TRACE").as_deref() != Some(std::ffi::OsStr::new("1"))
+        || REMAINING
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| n.checked_sub(1))
+            .is_err()
+    {
+        return;
+    }
+    log::info!(
+        "[preview_trace] lane={:?} generation={} revision={:?} attempt={:?} tier={} size={}x{} cache_hit={} queue_ms={:.2} gate_ms={:.2} hydrate_ms={:.2} geometry_ms={:.2} resize_mask_ms={:.2} gpu_ms={:.2} encode_ms={:.2}",
+        identity.lane,
+        identity.generation,
+        identity.revision,
+        render_attempt,
+        quality_tier.unwrap_or("legacy"),
+        width,
+        height,
+        base_cache_hit,
+        queue_wait.as_secs_f64() * 1000.0,
+        gate_wait.as_secs_f64() * 1000.0,
+        hydration.as_secs_f64() * 1000.0,
+        geometry.as_secs_f64() * 1000.0,
+        resize_mask.as_secs_f64() * 1000.0,
+        gpu.as_secs_f64() * 1000.0,
+        encode.as_secs_f64() * 1000.0,
+    );
+}
+
+fn trace_preview_cancellation(
+    identity: app_state::PreviewIdentity,
+    render_attempt: Option<u64>,
+    quality_tier: Option<&str>,
+    elapsed: Duration,
+) {
+    static REMAINING: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(10_000);
+    if std::env::var_os("RAPIDRAW_PREVIEW_TRACE").as_deref() != Some(std::ffi::OsStr::new("1"))
+        || REMAINING
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| n.checked_sub(1))
+            .is_err()
+    {
+        return;
+    }
+    log::info!(
+        "[preview_trace] cancelled lane={:?} generation={} revision={:?} attempt={:?} tier={} elapsed_ms={:.2}",
+        identity.lane,
+        identity.generation,
+        identity.revision,
+        render_attempt,
+        quality_tier.unwrap_or("legacy"),
+        elapsed.as_secs_f64() * 1000.0,
+    );
 }
 
 fn start_analytics_worker(app_handle: tauri::AppHandle) {
@@ -700,7 +903,21 @@ fn start_analytics_worker(app_handle: tauri::AppHandle) {
                 job = latest;
             }
 
+            let state = app_handle.state::<AppState>();
+            let identity = app_state::PreviewIdentity {
+                generation: job.generation,
+                lane: app_state::PreviewLane::Main,
+                revision: job.input_revision,
+            };
+            if state.ensure_preview_identity(identity).is_err() {
+                continue;
+            }
+
             let histogram_data = image_processing::calculate_histogram_from_image(&job.image).ok();
+
+            if state.ensure_preview_identity(identity).is_err() {
+                continue;
+            }
 
             let waveform_data = if job.compute_waveform {
                 image_processing::calculate_waveform_from_image(
@@ -713,14 +930,20 @@ fn start_analytics_worker(app_handle: tauri::AppHandle) {
             };
 
             if histogram_data.is_some() || waveform_data.is_some() {
-                let _ = app_handle.emit(
-                    "analytics-update",
-                    serde_json::json!({
-                        "path": job.path,
-                        "histogram": histogram_data,
-                        "waveform": waveform_data,
-                    }),
-                );
+                let _ = state.with_current_preview_identity(identity, || {
+                    app_handle.emit(
+                        "analytics-update",
+                        serde_json::json!({
+                            "path": job.path,
+                            "generation": job.generation,
+                            "inputRevision": job.input_revision,
+                            "renderAttempt": job.render_attempt,
+                            "qualityTier": job.quality_tier,
+                            "histogram": histogram_data,
+                            "waveform": waveform_data,
+                        }),
+                    )
+                });
             }
         }
     });
@@ -735,16 +958,39 @@ fn start_preview_worker(app_handle: tauri::AppHandle) {
     std::thread::spawn(move || {
         while let Ok(mut job) = rx.recv() {
             while let Ok(latest_job) = rx.try_recv() {
+                trace_preview_cancellation(
+                    app_state::PreviewIdentity {
+                        generation: job.generation,
+                        lane: app_state::PreviewLane::Main,
+                        revision: job.input_revision,
+                    },
+                    job.render_attempt,
+                    job.quality_tier.as_deref(),
+                    job.queued_at.elapsed(),
+                );
+                let _ = job
+                    .responder
+                    .send(Err(app_state::PREVIEW_SUPERSEDED.into()));
                 job = latest_job;
             }
 
             let state = app_handle.state::<AppState>();
             let responder = job.responder;
+            let identity = app_state::PreviewIdentity {
+                generation: job.generation,
+                lane: app_state::PreviewLane::Main,
+                revision: job.input_revision,
+            };
             match process_preview_job(
                 &app_handle,
                 state,
                 job.adjustments,
+                identity,
+                job.render_attempt,
+                job.quality_tier.as_deref(),
+                job.queued_at,
                 job.is_interactive,
+                job.compare_original,
                 job.target_resolution,
                 job.roi,
                 job.request_analytics,
@@ -752,21 +998,70 @@ fn start_preview_worker(app_handle: tauri::AppHandle) {
                 job.active_waveform_channel.as_deref(),
             ) {
                 Ok(bytes) => {
-                    let _ = responder.send(bytes);
+                    let _ = responder.send(Ok(bytes));
                 }
                 Err(e) => {
-                    log::error!("Preview worker error: {}", e);
+                    if e == app_state::PREVIEW_SUPERSEDED {
+                        trace_preview_cancellation(
+                            identity,
+                            job.render_attempt,
+                            job.quality_tier.as_deref(),
+                            job.queued_at.elapsed(),
+                        );
+                    } else {
+                        log::error!("Preview worker error: {}", e);
+                    }
+                    let _ = responder.send(Err(e));
                 }
             }
         }
     });
 }
 
+#[tauri::command]
+async fn set_preview_intent(
+    expected_generation: usize,
+    lane: String,
+    input_revision: u64,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let lane = lane.parse::<app_state::PreviewLane>()?;
+    state.register_preview_intent(app_state::PreviewIdentity {
+        generation: expected_generation,
+        lane,
+        revision: Some(input_revision),
+    })
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PreviewAssetCacheStatus {
+    cache_epoch: u64,
+    retained_keys: Vec<String>,
+}
+
+#[tauri::command]
+fn get_preview_asset_cache_status(
+    keys: Vec<String>,
+    state: tauri::State<AppState>,
+) -> PreviewAssetCacheStatus {
+    let cache = state.patch_cache.lock().unwrap_or_else(|e| e.into_inner());
+    PreviewAssetCacheStatus {
+        cache_epoch: cache.epoch(),
+        retained_keys: cache.retained_keys(&keys),
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
 async fn apply_adjustments(
+    expected_generation: Option<usize>,
+    input_revision: Option<u64>,
+    render_attempt: Option<u64>,
+    quality_tier: Option<String>,
     js_adjustments: serde_json::Value,
     is_interactive: bool,
+    compare_original: bool,
     target_resolution: Option<u32>,
     roi: Option<(f32, f32, f32, f32)>,
     request_analytics: bool,
@@ -775,13 +1070,27 @@ async fn apply_adjustments(
     state: tauri::State<'_, AppState>,
 ) -> Result<Response, String> {
     let (tx, rx) = tokio::sync::oneshot::channel();
+    let generation =
+        expected_generation.unwrap_or_else(|| state.load_image_generation.load(Ordering::SeqCst));
+    let identity = app_state::PreviewIdentity {
+        generation,
+        lane: app_state::PreviewLane::Main,
+        revision: input_revision,
+    };
+    state.register_preview_intent(identity)?;
 
     {
         let tx_guard = state.preview_worker_tx.lock().unwrap();
         if let Some(worker_tx) = tx_guard.as_ref() {
             let job = PreviewJob {
+                generation,
+                input_revision,
+                render_attempt,
+                quality_tier,
+                queued_at: std::time::Instant::now(),
                 adjustments: js_adjustments,
                 is_interactive,
+                compare_original,
                 target_resolution,
                 roi,
                 request_analytics,
@@ -798,30 +1107,49 @@ async fn apply_adjustments(
     }
 
     match rx.await {
-        Ok(bytes) => Ok(Response::new(bytes)),
-        Err(_) => Err("Superseded or worker failed".to_string()),
+        Ok(Ok(bytes)) => Ok(Response::new(bytes)),
+        Ok(Err(error)) => Err(error),
+        Err(_) => Err("Preview worker failed to respond".to_string()),
     }
 }
 
 #[tauri::command]
 async fn generate_uncropped_preview(
+    expected_generation: Option<usize>,
+    input_revision: Option<u64>,
     js_adjustments: serde_json::Value,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<String, String> {
-    let context = get_or_init_gpu_context(&state, &app_handle)?;
-    let mut adjustments_clone = js_adjustments.clone();
-    hydrate_adjustments(&state, &mut adjustments_clone);
-
-    let loaded_image = state
-        .original_image
-        .lock()
-        .unwrap()
-        .clone()
-        .ok_or("No original image loaded")?;
-
+    let generation = expected_generation.unwrap_or_else(|| {
+        state
+            .load_image_generation
+            .load(std::sync::atomic::Ordering::SeqCst)
+    });
+    let identity = app_state::PreviewIdentity {
+        generation,
+        lane: app_state::PreviewLane::Uncropped,
+        revision: input_revision,
+    };
+    state.register_preview_intent(identity)?;
     tokio::task::spawn_blocking(move || {
         let state = app_handle.state::<AppState>();
+        state.ensure_preview_identity(identity)?;
+        let _session = state
+            .preview_session_gate
+            .read()
+            .unwrap_or_else(|e| e.into_inner());
+        state.ensure_preview_identity(identity)?;
+        let context = get_or_init_gpu_context(&state, &app_handle)?;
+        let mut adjustments_clone = js_adjustments;
+        hydrate_adjustments(&state, &mut adjustments_clone)?;
+        state.ensure_preview_identity(identity)?;
+        let loaded_image = state
+            .original_image
+            .lock()
+            .unwrap()
+            .clone()
+            .ok_or("No original image loaded")?;
         let path = loaded_image.path.clone();
         let is_raw = loaded_image.is_raw;
         let visual_hash = calculate_visual_hash(&path, &adjustments_clone);
@@ -831,18 +1159,8 @@ async fn generate_uncropped_preview(
             if let Some(cached) = cache.get(&visual_hash).cloned() {
                 cached
             } else {
-                let has_patches = adjustments_clone
-                    .get("aiPatches")
-                    .and_then(|v| v.as_array())
-                    .is_some_and(|a| !a.is_empty());
-                let patched_image = if has_patches {
-                    Cow::Owned(
-                        composite_patches_on_image(&loaded_image.image, &adjustments_clone)
-                            .unwrap_or_else(|_| loaded_image.image.as_ref().clone()),
-                    )
-                } else {
-                    Cow::Borrowed(loaded_image.image.as_ref())
-                };
+                let patched_image =
+                    prepare_patched_preview_image(loaded_image.image.as_ref(), &adjustments_clone)?;
 
                 let blurred_image =
                     crate::lens_blur::apply_lens_blur(patched_image, &adjustments_clone);
@@ -859,6 +1177,7 @@ async fn generate_uncropped_preview(
                 downscaled
             }
         };
+        state.ensure_preview_identity(identity)?;
 
         let scale_for_gpu = if loaded_image.image.width() > 0 {
             pre_geometry_base.width() as f32 / loaded_image.image.width() as f32
@@ -871,6 +1190,7 @@ async fn generate_uncropped_preview(
         adjusted_params.lens_vignette_amount *= if is_raw { 0.4 } else { 0.8 };
 
         let warped_image = warp_image_geometry(&pre_geometry_base, adjusted_params);
+        state.ensure_preview_identity(identity)?;
         let orientation_steps = adjustments_clone["orientationSteps"].as_u64().unwrap_or(0) as u8;
         let flipped_image = apply_flip(
             apply_coarse_rotation(Cow::Owned(warped_image), orientation_steps),
@@ -880,25 +1200,28 @@ async fn generate_uncropped_preview(
             adjustments_clone["flipVertical"].as_bool().unwrap_or(false),
         )
         .into_owned();
+        state.ensure_preview_identity(identity)?;
 
         let (preview_width, preview_height) = flipped_image.dimensions();
 
         let mask_definitions = crate::marigold_surface::render_masks(&adjustments_clone);
 
-        let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
-            .iter()
-            .filter_map(|def| {
-                get_cached_or_generate_mask(
-                    &state,
-                    def,
-                    preview_width,
-                    preview_height,
-                    scale_for_gpu,
-                    (0.0, 0.0),
-                    &adjustments_clone,
-                )
-            })
-            .collect();
+        let mut mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = Vec::new();
+        for def in &mask_definitions {
+            state.ensure_preview_identity(identity)?;
+            if let Some(mask) = get_cached_or_generate_mask(
+                &state,
+                def,
+                preview_width,
+                preview_height,
+                scale_for_gpu,
+                (0.0, 0.0),
+                &adjustments_clone,
+            ) {
+                mask_bitmaps.push(mask);
+            }
+        }
+        state.ensure_preview_identity(identity)?;
 
         let tm_override = resolve_tonemapper_override_from_handle(&app_handle, is_raw);
         let mut uncropped_adjustments =
@@ -909,7 +1232,7 @@ async fn generate_uncropped_preview(
 
         let full_hash = calculate_full_job_hash(&path, &adjustments_clone);
 
-        if let Ok(processed_image) = process_and_get_dynamic_image(
+        let processed_image = crate::gpu_processing::process_and_get_dynamic_image_with_analytics(
             &context,
             &state,
             &flipped_image,
@@ -921,20 +1244,23 @@ async fn generate_uncropped_preview(
                 roi: None,
             },
             "generate_uncropped_preview",
-        ) {
-            let (width, height) = processed_image.dimensions();
-            let rgb_pixels = processed_image.to_rgb8().into_vec();
+            false,
+            None,
+            Some(identity),
+        )?;
+        state.ensure_preview_identity(identity)?;
+        let (width, height) = processed_image.dimensions();
+        let rgb_pixels = processed_image.to_rgb8().into_vec();
 
-            if let Ok(bytes) = Encoder::new(Preset::BaselineFastest)
-                .quality(80)
-                .encode_rgb(&rgb_pixels, width, height)
-            {
-                let base64_str = general_purpose::STANDARD.encode(&bytes);
-                let data_url = format!("data:image/jpeg;base64,{}", base64_str);
-                return Ok(data_url);
-            }
+        if let Ok(bytes) = Encoder::new(Preset::BaselineFastest)
+            .quality(80)
+            .encode_rgb(&rgb_pixels, width, height)
+        {
+            let base64_str = general_purpose::STANDARD.encode(&bytes);
+            let data_url = format!("data:image/jpeg;base64,{}", base64_str);
+            state.ensure_preview_identity(identity)?;
+            return Ok(data_url);
         }
-
         Err("Failed to process uncropped preview".to_string())
     })
     .await
@@ -960,6 +1286,14 @@ fn generate_preset_preview(
     state: tauri::State<AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<Response, String> {
+    // Preset previews share the editor's geometry caches. Keep a photo switch
+    // from clearing them while an old preset request can still repopulate them.
+    let generation = state.load_image_generation.load(Ordering::SeqCst);
+    let _session = state
+        .preview_session_gate
+        .read()
+        .unwrap_or_else(|error| error.into_inner());
+    crate::app_state::ensure_preview_generation(&state, generation)?;
     let context = get_or_init_gpu_context(&state, &app_handle)?;
 
     let loaded_image = state
@@ -1026,6 +1360,7 @@ fn generate_preset_preview(
         .write_with_encoder(JpegEncoder::new_with_quality(&mut buf, 80))
         .map_err(|e| e.to_string())?;
 
+    crate::app_state::ensure_preview_generation(&state, generation)?;
     Ok(Response::new(buf.into_inner()))
 }
 
@@ -1132,19 +1467,16 @@ async fn generate_all_community_previews(
                 unscaled_crop_offset.1 * base_scale,
             );
 
-            let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
-                .iter()
-                .filter_map(|def| {
-                    generate_mask_bitmap(
-                        def,
-                        img_w,
-                        img_h,
-                        *base_scale,
-                        actual_scaled_crop_offset,
-                        None,
-                    )
-                })
-                .collect();
+            let mask_bitmaps = crate::mask_generation::render_source_mask_bitmaps(
+                &mask_definitions,
+                Some(base_image),
+                *is_raw,
+                &scaled_adjustments,
+                img_w,
+                img_h,
+                *base_scale,
+                actual_scaled_crop_offset,
+            )?;
 
             let tm_override = resolve_tonemapper_override_from_handle(&app_handle, *is_raw);
             let all_adjustments =
@@ -1411,21 +1743,16 @@ async fn generate_preview_for_path(
         let (img_w, img_h) = transformed_image.dimensions();
         let mask_definitions = crate::marigold_surface::render_masks(&js_adjustments);
 
-        let warped_image =
-            resolve_warped_image_for_masks(&state, &js_adjustments, &mask_definitions);
-        let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
-            .iter()
-            .filter_map(|def| {
-                generate_mask_bitmap(
-                    def,
-                    img_w,
-                    img_h,
-                    1.0,
-                    unscaled_crop_offset,
-                    warped_image.as_deref(),
-                )
-            })
-            .collect();
+        let mask_bitmaps = crate::mask_generation::render_source_mask_bitmaps(
+            &mask_definitions,
+            Some(&base_image),
+            is_raw,
+            &js_adjustments,
+            img_w,
+            img_h,
+            1.0,
+            unscaled_crop_offset,
+        )?;
 
         let tm_override = resolve_tonemapper_override(&settings, is_raw);
         let mut all_adjustments =
@@ -2132,6 +2459,9 @@ pub fn run() {
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
             apply_adjustments,
+            set_preview_intent,
+            get_preview_asset_cache_status,
+            cache_utils::get_preview_cache_usage,
             generate_preview_for_path,
             generate_preset_preview,
             generate_uncropped_preview,
@@ -2187,6 +2517,7 @@ pub fn run() {
             focus_stacking::stitch_focus_stack,
             focus_stacking::save_focus_stack,
             image_loader::load_image,
+            image_loader::get_source_revision,
             image_loader::is_image_cached,
             panorama_stitching::stitch_panorama,
             panorama_stitching::save_panorama,

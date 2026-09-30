@@ -254,6 +254,7 @@ export function summarizeOutput(operation: string, data: JsonObject): JsonObject
       'open_photo',
       'set_adjustments',
       'mask_create',
+      'mask_duplicate',
       'mask_update',
       'mask_delete',
       'mask_generate',

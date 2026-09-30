@@ -43,13 +43,13 @@ Missing models do not prevent basic adjustments and geometric masks, but AI oper
 
 ## Capabilities
 
-Every tool starts with `rapidraw_`; the table shows the suffixes. The engine's live `capabilities` response is authoritative for availability and schemas. For interactive editing, begin with `rapidraw_capabilities({"detail":"overview"})`, then request exact schema branches as needed. Unknown schema paths are errors.
+Every tool starts with `rapidraw_`; the table shows the suffixes available in this source checkout. The pinned npm `0.2.0` host above predates `mask_duplicate` and targeted `mask_generate`. Check the connected MCP host's tool list and the native engine's `rapidraw_capabilities` response before using a new operation. For interactive editing, begin with `rapidraw_capabilities({"detail":"overview"})`, then request exact schema branches as needed. Unknown schema paths are errors.
 
 | Area                        | Tools                                                                                                                                                                              |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Discovery and state         | `capabilities`, `list_images`, `open_photo`, `list_sessions`, `get_session`, `close_session`                                                                                       |
 | Editing and review          | `set_adjustments`, `render`, `render_compare`, `inspect_adjustments`, `analyze`, `auto_adjust`, `map_coordinates`, `preflight`, `sample_region`                                    |
-| Selective edits             | `mask_create`, `mask_update`, `mask_remove`, `mask_generate`, `generate_depth`                                                                                                     |
+| Selective edits             | `mask_create`, `mask_duplicate`, `mask_update`, `mask_remove`, `mask_generate`, `generate_depth`                                                                                   |
 | Background processing       | `start_denoise`, `get_job`, `list_jobs`, `cancel_job`, `resume_job`, `start_operation`, `get_operation_job`, `list_operation_jobs`, `cancel_operation_job`, `resume_operation_job` |
 | Local masks and enhancement | `enhancement_models`, `install_enhancement_model`, `enhance`                                                                                                                       |
 | Detail and corrections      | `retouch`, `denoise`, `lens_profile`, `negative_convert`                                                                                                                           |
@@ -62,6 +62,8 @@ Every tool starts with `rapidraw_`; the table shows the suffixes. The engine's l
 Resources: `rapidraw://workflow` (editing/review/delivery workflow), `rapidraw://adjustment-schema` (native schemas and units), `rapidraw://sessions/{session_id}` (current editing state with read-only asset descriptors). The `pro_photo_edit` prompt accepts `path` and optional `intent`; the server does not itself run or pay for a language model.
 
 Current reference guides live under [`docs/mcp/`](https://github.com/sheldonxxxx/RapidRAW/blob/main/docs/mcp/README.md): remote SSH, ONNX CUDA, geometry/review, portable sessions, subject refinement, testing and evidence, and npm-host releasing. Dated acceptance evidence is archived under [`docs/mcp/history/`](https://github.com/sheldonxxxx/RapidRAW/blob/main/docs/mcp/README.md#historical-evidence) and is not the live tool inventory.
+
+This source checkout also supports [native mask composition](../docs/mcp/README.md#mask-composition): duplicate a parent with fresh IDs, or add a generated AI component to an existing parent. These changes are not part of the pinned npm `0.2.0` host above; check both the host's tool list and the native capability response.
 
 ## Example editing loop
 

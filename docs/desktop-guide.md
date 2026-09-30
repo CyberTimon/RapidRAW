@@ -143,6 +143,8 @@ RAPIDRAW_APP=/absolute/RapidRAW/src-tauri/target/release/RapidRAW
 | `--keep-metadata`      | Retain capture metadata                                 | Off                   |
 | `--adjustments <path>` | Native adjustment JSON overriding sidecars              | Use adjacent sidecars |
 
+JPEG, PNG, TIFF and WebP exports carry a verified sRGB ICC profile even when capture metadata is off or GPS is stripped. Capture-metadata retention is supported for JPEG, PNG and WebP output from non-TIFF sources. An unsupported `--keep-metadata` request fails before an output file is written; omit the flag to export without capture metadata. TIFF exports use the requested 8-bit or 16-bit depth, with 16-bit as the default.
+
 Use a separate output location and inspect exported dimensions, metadata and pixels. MCP-only parameters such as `expected_revision`, `long_edge`, `resize` and `color_profile` are not flags of this CLI. For agent-managed originals protection, portable state and structured per-item results, use the [execution skill](../skills/rapidraw-mcp/SKILL.md).
 
 ## Troubleshooting

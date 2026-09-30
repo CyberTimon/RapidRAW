@@ -18,6 +18,7 @@ use tauri::Emitter;
 use tauri::Manager;
 
 use crate::AppState;
+use crate::delivery;
 use crate::exif_processing;
 use crate::file_management::{
     generate_filename_from_template, parse_virtual_path, read_file_mapped,
@@ -34,12 +35,11 @@ use crate::image_processing::{
 use crate::lut_processing::{
     convert_image_to_cube_lut, generate_identity_lut_image, get_or_load_lut,
 };
-use crate::mask_generation::generate_mask_bitmap;
+use crate::mask_generation::{render_source_mask_bitmaps, render_source_mask_bitmaps_checked};
 
 use crate::cache_utils::{calculate_full_job_hash, calculate_transform_hash};
 use crate::{
-    apply_all_transformations, generate_transformed_preview, get_cached_or_generate_mask,
-    hydrate_adjustments, load_settings, resolve_warped_image_for_masks,
+    apply_all_transformations, generate_transformed_preview, hydrate_adjustments, load_settings,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -466,6 +466,36 @@ impl Drop for ExportTaskGuard {
 }
 
 #[allow(clippy::too_many_arguments)]
+fn render_export_source_masks(
+    definitions: &[crate::mask_generation::MaskDefinition],
+    base_image: &DynamicImage,
+    is_raw: bool,
+    adjustments: &Value,
+    width: u32,
+    height: u32,
+    crop_offset: (f32, f32),
+    cancellation_token: Option<&AtomicBool>,
+) -> Result<Vec<GrayImage>, String> {
+    render_source_mask_bitmaps_checked(
+        definitions,
+        Some(base_image),
+        is_raw,
+        adjustments,
+        width,
+        height,
+        1.0,
+        crop_offset,
+        || {
+            if let Some(token) = cancellation_token {
+                ensure_export_not_cancelled(token)
+            } else {
+                Ok(())
+            }
+        },
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
 fn process_image_for_export_pipeline(
     path: &str,
     base_image: &DynamicImage,
@@ -483,44 +513,72 @@ fn process_image_for_export_pipeline(
 
     let mask_definitions = crate::marigold_surface::render_masks(js_adjustments);
 
-    let warped_image = resolve_warped_image_for_masks(state, js_adjustments, &mask_definitions);
-    let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
-        .iter()
-        .filter_map(|def| {
-            generate_mask_bitmap(
-                def,
-                img_w,
-                img_h,
-                1.0,
-                unscaled_crop_offset,
-                warped_image.as_deref(),
-            )
-        })
-        .collect();
+    let mask_bitmaps = render_export_source_masks(
+        &mask_definitions,
+        base_image,
+        is_raw,
+        js_adjustments,
+        img_w,
+        img_h,
+        unscaled_crop_offset,
+        None,
+    )?;
 
     let tm_override = resolve_tonemapper_override_from_handle(app_handle, is_raw);
     let mut all_adjustments = get_all_adjustments_from_json(js_adjustments, is_raw, tm_override);
     all_adjustments.global.show_clipping = 0;
 
     let lut_path = js_adjustments["lutPath"].as_str();
-    let lut = lut_path.and_then(|p| get_or_load_lut(state, p).ok());
+    let lut = lut_path
+        .filter(|path| !path.is_empty())
+        .map(|path| get_or_load_lut(state, path))
+        .transpose()?;
 
     let unique_hash = calculate_full_job_hash(path, js_adjustments);
 
-    process_and_get_dynamic_image_with_precision(
+    let request = RenderRequest {
+        adjustments: all_adjustments,
+        mask_bitmaps: &mask_bitmaps,
+        lut,
+        roi: None,
+    };
+    render_export_request(
         context,
         state,
         transformed_image.as_ref(),
         unique_hash,
-        RenderRequest {
-            adjustments: all_adjustments,
-            mask_bitmaps: &mask_bitmaps,
-            lut,
-            roi: None,
-        },
+        request,
         debug_tag,
         output_precision,
     )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn render_export_request(
+    context: &GpuContext,
+    state: &tauri::State<AppState>,
+    image: &DynamicImage,
+    job_hash: u64,
+    request: RenderRequest,
+    debug_tag: &str,
+    output_precision: RenderOutputPrecision,
+) -> Result<DynamicImage, String> {
+    match output_precision {
+        RenderOutputPrecision::SixteenBit => {
+            crate::gpu_processing::process_and_get_dynamic_image_high_precision(
+                context, image, request,
+            )
+        }
+        RenderOutputPrecision::EightBit => process_and_get_dynamic_image_with_precision(
+            context,
+            state,
+            image,
+            job_hash,
+            request,
+            debug_tag,
+            output_precision,
+        ),
+    }
 }
 
 fn render_output_precision(
@@ -568,12 +626,45 @@ fn save_image_with_metadata(
         .unwrap_or("")
         .to_lowercase();
 
-    let mut image_bytes = encode_image_to_bytes(
-        image,
+    exif_processing::preflight_metadata_retention(
+        source_path_str,
         &extension,
-        export_settings.jpeg_quality,
-        export_settings.tiff_bit_depth,
+        export_settings.keep_metadata,
     )?;
+
+    let format = delivery::canonical_format(&extension);
+    let depth = if format == "tiff" {
+        export_settings.tiff_bit_depth as u32
+    } else if format == "png"
+        && matches!(
+            image.color(),
+            image::ColorType::Rgb16
+                | image::ColorType::Rgba16
+                | image::ColorType::L16
+                | image::ColorType::La16
+                | image::ColorType::Rgb32F
+                | image::ColorType::Rgba32F
+        )
+    {
+        16
+    } else {
+        8
+    };
+
+    let mut image_bytes = if matches!(format, "png" | "tiff") {
+        delivery::encode_profiled_raster(image, format, depth, true)?
+    } else {
+        encode_image_to_bytes(
+            image,
+            &extension,
+            export_settings.jpeg_quality,
+            export_settings.tiff_bit_depth,
+        )?
+    };
+
+    if format == "webp" && export_settings.keep_metadata {
+        delivery::normalize_webp_metadata_header(&mut image_bytes, image.dimensions(), true)?;
+    }
 
     exif_processing::write_image_with_metadata(
         &mut image_bytes,
@@ -582,6 +673,21 @@ fn save_image_with_metadata(
         export_settings.keep_metadata,
         export_settings.strip_gps,
     )?;
+
+    if matches!(format, "jpeg" | "webp") {
+        delivery::add_profile(&mut image_bytes, format)?;
+    }
+    if format == "webp" {
+        delivery::normalize_webp_metadata_header(&mut image_bytes, image.dimensions(), false)?;
+    }
+    if delivery::supports_icc(format) {
+        delivery::verify_raster_header(&image_bytes, format, image.dimensions(), depth)?;
+        if !delivery::verify_profile(&image_bytes, format)? {
+            return Err(
+                "EXPORT_VERIFICATION_FAILED: sRGB ICC profile is missing or changed".into(),
+            );
+        }
+    }
 
     #[cfg(target_os = "android")]
     {
@@ -812,28 +918,26 @@ fn export_masks_for_image(
     let (img_w, img_h) = transformed_image.dimensions();
     let mask_definitions = crate::marigold_surface::render_masks(js_adjustments);
 
-    let warped_image = resolve_warped_image_for_masks(state, js_adjustments, &mask_definitions);
-    let mut mask_bitmaps = Vec::with_capacity(mask_definitions.len());
-    for definition in &mask_definitions {
-        ensure_export_not_cancelled(cancellation_token)?;
-        if let Some(bitmap) = generate_mask_bitmap(
-            definition,
-            img_w,
-            img_h,
-            1.0,
-            unscaled_crop_offset,
-            warped_image.as_deref(),
-        ) {
-            mask_bitmaps.push(bitmap);
-        }
-        ensure_export_not_cancelled(cancellation_token)?;
-    }
+    let mask_bitmaps = render_export_source_masks(
+        &mask_definitions,
+        base_image,
+        is_raw,
+        js_adjustments,
+        img_w,
+        img_h,
+        unscaled_crop_offset,
+        Some(cancellation_token),
+    )?;
+    ensure_export_not_cancelled(cancellation_token)?;
 
     if !mask_bitmaps.is_empty() {
         let tm_override = resolve_tonemapper_override_from_handle(app_handle, is_raw);
         let all_adjustments = get_all_adjustments_from_json(js_adjustments, is_raw, tm_override);
         let lut_path = js_adjustments["lutPath"].as_str();
-        let lut = lut_path.and_then(|p| get_or_load_lut(state, p).ok());
+        let lut = lut_path
+            .filter(|path| !path.is_empty())
+            .map(|path| get_or_load_lut(state, path))
+            .transpose()?;
         let unique_hash = calculate_full_job_hash(source_path_str, js_adjustments);
         let output_dir = output_path_obj.parent().unwrap_or(output_path_obj);
         let stem = output_path_obj
@@ -851,7 +955,7 @@ fn export_masks_for_image(
             let full_white_mask = ImageBuffer::from_fn(img_w, img_h, |_, _| Luma([255u8]));
             let single_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = vec![full_white_mask];
 
-            let processed = process_and_get_dynamic_image_with_precision(
+            let processed = render_export_request(
                 context,
                 state,
                 transformed_image.as_ref(),
@@ -1192,7 +1296,7 @@ pub(crate) async fn export_images_impl(
                     ExportAdjustmentsMode::GlobalOverride(adj) => adj.clone(),
                 };
 
-                hydrate_adjustments(&state, &mut js_adjustments);
+                hydrate_adjustments(&state, &mut js_adjustments)?;
                 let is_raw = is_raw_file(&source_path_str);
                 let original_path = std::path::Path::new(&source_path_str);
                 let file_date = exif_processing::get_creation_date_from_path(original_path);
@@ -1695,7 +1799,7 @@ pub async fn estimate_export_sizes(
             .clone()
             .ok_or("No original image loaded")?;
         let mut adjustments_clone = current_edit_adjustments.clone().unwrap();
-        hydrate_adjustments(&state, &mut adjustments_clone);
+        hydrate_adjustments(&state, &mut adjustments_clone)?;
 
         let new_transform_hash = calculate_transform_hash(&adjustments_clone);
         let cached_preview_lock = state.cached_preview.lock().unwrap();
@@ -1733,20 +1837,22 @@ pub async fn estimate_export_sizes(
             unscaled_crop_offset.1 * scale,
         );
 
-        let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
+        let mask_source = mask_definitions
             .iter()
-            .filter_map(|def| {
-                get_cached_or_generate_mask(
-                    &state,
-                    def,
-                    img_w,
-                    img_h,
-                    scale,
-                    scaled_crop_offset,
-                    &adjustments_clone,
-                )
-            })
-            .collect();
+            .any(crate::mask_generation::MaskDefinition::requires_warped_image)
+            .then(|| composite_patches_on_image(&loaded_image.image, &adjustments_clone))
+            .transpose()
+            .map_err(|error| error.to_string())?;
+        let mask_bitmaps = render_source_mask_bitmaps(
+            &mask_definitions,
+            mask_source.as_ref(),
+            is_raw,
+            &adjustments_clone,
+            img_w,
+            img_h,
+            scale,
+            scaled_crop_offset,
+        )?;
 
         let tm_override = resolve_tonemapper_override_from_handle(&app_handle, is_raw);
         let mut all_adjustments =
@@ -1870,20 +1976,34 @@ pub async fn estimate_export_sizes(
             unscaled_crop_offset.1 * gpu_scale,
         );
 
-        let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
+        let mask_source = if mask_definitions
             .iter()
-            .filter_map(|def| {
-                get_cached_or_generate_mask(
-                    &state,
-                    def,
-                    preview_w,
-                    preview_h,
-                    total_scale,
-                    scaled_crop_offset,
+            .any(crate::mask_generation::MaskDefinition::requires_warped_image)
+        {
+            Some(
+                load_and_composite(
+                    file_data,
+                    &source_path_str,
                     &js_adjustments,
+                    false,
+                    &settings,
+                    None,
                 )
-            })
-            .collect();
+                .map_err(|error| error.to_string())?,
+            )
+        } else {
+            None
+        };
+        let mask_bitmaps = render_source_mask_bitmaps(
+            &mask_definitions,
+            mask_source.as_ref(),
+            is_raw,
+            &js_adjustments,
+            preview_w,
+            preview_h,
+            total_scale,
+            scaled_crop_offset,
+        )?;
 
         let tm_override = resolve_tonemapper_override_from_handle(&app_handle, is_raw);
         let mut all_adjustments =
@@ -1940,4 +2060,296 @@ pub async fn estimate_export_sizes(
     };
 
     Ok(single_image_extrapolated_size * paths.len())
+}
+
+#[cfg(test)]
+mod source_mask_export_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn settings(keep_metadata: bool, strip_gps: bool) -> ExportSettings {
+        ExportSettings {
+            jpeg_quality: 92,
+            tiff_bit_depth: TiffBitDepth::Sixteen,
+            resize: None,
+            keep_metadata,
+            preserve_timestamps: false,
+            strip_gps,
+            filename_template: None,
+            watermark: None,
+            export_masks: false,
+            preserve_folders: false,
+            destination_type: None,
+            subfolder: None,
+        }
+    }
+
+    #[test]
+    fn desktop_export_roundtrips_capture_metadata_gps_and_srgb_profile() {
+        use little_exif::{
+            exif_tag::ExifTag, filetype::FileExtension, metadata::Metadata, rational::uR64,
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("source.jpg");
+        let source_image = DynamicImage::new_rgb8(32, 16);
+        let mut bytes =
+            encode_image_to_bytes(&source_image, "jpeg", 92, TiffBitDepth::Eight).unwrap();
+        let mut metadata = Metadata::new();
+        metadata.set_tag(ExifTag::Copyright("Example author".into()));
+        metadata.set_tag(ExifTag::GPSLatitude(vec![uR64 {
+            nominator: 22,
+            denominator: 1,
+        }]));
+        metadata.set_tag(ExifTag::GPSLatitudeRef("N".into()));
+        metadata
+            .write_to_vec(&mut bytes, FileExtension::JPEG)
+            .unwrap();
+        fs::write(&source, bytes).unwrap();
+        let output_image = DynamicImage::new_rgb8(16, 8);
+        for (name, keep, strip) in [
+            ("kept.jpg", true, false),
+            ("stripped.jpg", true, true),
+            ("off.jpg", false, true),
+        ] {
+            let output = dir.path().join(name);
+            save_image_with_metadata(
+                &output_image,
+                &output,
+                source.to_str().unwrap(),
+                &settings(keep, strip),
+            )
+            .unwrap();
+            let bytes = fs::read(&output).unwrap();
+            assert!(delivery::verify_profile(&bytes, "jpg").unwrap());
+            delivery::verify_raster_header(&bytes, "jpg", (16, 8), 8).unwrap();
+            let exif = exif::Reader::new().read_from_container(&mut Cursor::new(&bytes));
+            if keep {
+                let exif = exif.unwrap();
+                assert!(
+                    exif.get_field(exif::Tag::Copyright, exif::In::PRIMARY)
+                        .is_some()
+                );
+                assert_eq!(
+                    exif.get_field(exif::Tag::GPSLatitude, exif::In::PRIMARY)
+                        .is_some(),
+                    !strip
+                );
+                assert_eq!(
+                    exif.get_field(exif::Tag::Orientation, exif::In::PRIMARY)
+                        .and_then(|field| field.value.get_uint(0)),
+                    Some(1)
+                );
+            } else if let Ok(exif) = exif {
+                assert!(
+                    exif.get_field(exif::Tag::Copyright, exif::In::PRIMARY)
+                        .is_none()
+                );
+                assert!(
+                    exif.get_field(exif::Tag::GPSLatitude, exif::In::PRIMARY)
+                        .is_none()
+                );
+            }
+        }
+        let rejected = dir.path().join("rejected.tif");
+        assert!(
+            save_image_with_metadata(
+                &output_image,
+                &rejected,
+                source.to_str().unwrap(),
+                &settings(true, true),
+            )
+            .unwrap_err()
+            .contains("UNSUPPORTED_METADATA")
+        );
+        assert!(!rejected.exists());
+        let tiff = dir.path().join("without-capture.tif");
+        save_image_with_metadata(
+            &output_image,
+            &tiff,
+            source.to_str().unwrap(),
+            &settings(false, true),
+        )
+        .unwrap();
+        assert!(delivery::verify_profile(&fs::read(&tiff).unwrap(), "tif").unwrap());
+        assert!(
+            exif_processing::preflight_metadata_retention(tiff.to_str().unwrap(), "png", true,)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn sixteen_bit_resize_and_watermark_keep_sub_eight_bit_levels() {
+        let dir = tempfile::tempdir().unwrap();
+        let watermark = dir.path().join("mark.png");
+        DynamicImage::ImageRgba8(image::ImageBuffer::from_pixel(
+            2,
+            2,
+            image::Rgba([255, 0, 0, 255]),
+        ))
+        .save(&watermark)
+        .unwrap();
+        let source = DynamicImage::ImageRgba16(image::ImageBuffer::from_fn(2048, 64, |x, _| {
+            image::Rgba([20000 + x as u16, 30000, 40000, 65535])
+        }));
+        let mut options = settings(false, true);
+        options.resize = Some(ResizeOptions {
+            mode: ResizeMode::Width,
+            value: 1024,
+            dont_enlarge: true,
+        });
+        options.watermark = Some(WatermarkSettings {
+            path: watermark.to_string_lossy().into_owned(),
+            anchor: WatermarkAnchor::TopLeft,
+            scale: 25.0,
+            spacing: 0.0,
+            opacity: 50.0,
+        });
+        let mut baseline_options = options.clone();
+        baseline_options.watermark = None;
+        let baseline = apply_export_resize_and_watermark(source.clone(), &baseline_options)
+            .unwrap()
+            .to_rgba16();
+        let resized = apply_export_resize_and_watermark(source, &options).unwrap();
+        assert_eq!(resized.dimensions(), (1024, 32));
+        assert_eq!(resized.color(), image::ColorType::Rgba16);
+        let watermark_footprint = (8, 8);
+        assert!(watermark_footprint.0 > 0 && watermark_footprint.1 > 0);
+        assert!(watermark_footprint.0 < resized.width());
+        assert!(watermark_footprint.1 < resized.height());
+        let covered = (2, 2);
+        let outside = (watermark_footprint.0 + 2, 2);
+        let composited = resized.to_rgba16();
+        let base_pixel = baseline.get_pixel(covered.0, covered.1);
+        let covered_pixel = composited.get_pixel(covered.0, covered.1);
+        let overlay_alpha = 32768_u32;
+        let expected_red = ((65535 * overlay_alpha
+            + u32::from(base_pixel[0]) * (65535 - overlay_alpha))
+            / 65535) as u16;
+        let expected_green = (u32::from(base_pixel[1]) * (65535 - overlay_alpha) / 65535) as u16;
+        assert_ne!(
+            covered_pixel, base_pixel,
+            "watermark must change covered pixels"
+        );
+        assert!(covered_pixel[0].abs_diff(expected_red) <= 2);
+        assert!(covered_pixel[1].abs_diff(expected_green) <= 2);
+        assert_ne!(
+            composited.get_pixel(watermark_footprint.0 - 1, watermark_footprint.1 - 1),
+            baseline.get_pixel(watermark_footprint.0 - 1, watermark_footprint.1 - 1)
+        );
+        assert_eq!(
+            composited.get_pixel(watermark_footprint.0, watermark_footprint.1 - 1),
+            baseline.get_pixel(watermark_footprint.0, watermark_footprint.1 - 1)
+        );
+        assert_eq!(
+            composited.get_pixel(watermark_footprint.0 - 1, watermark_footprint.1),
+            baseline.get_pixel(watermark_footprint.0 - 1, watermark_footprint.1)
+        );
+        assert_eq!(
+            composited.get_pixel(outside.0, outside.1),
+            baseline.get_pixel(outside.0, outside.1)
+        );
+        let tiff = dir.path().join("gradient.tiff");
+        save_image_with_metadata(&resized, &tiff, "unused", &options).unwrap();
+        let decoded = image::open(&tiff).unwrap();
+        assert_eq!(decoded.color(), image::ColorType::Rgb16);
+        let reopened = decoded.to_rgb16();
+        assert_eq!((reopened.width(), reopened.height()), (1024, 32));
+        for channel in 0..3 {
+            assert_eq!(
+                reopened.get_pixel(covered.0, covered.1)[channel],
+                covered_pixel[channel]
+            );
+            assert_eq!(
+                reopened.get_pixel(outside.0, outside.1)[channel],
+                baseline.get_pixel(outside.0, outside.1)[channel]
+            );
+        }
+        assert!(
+            (0..watermark_footprint.0)
+                .any(|x| !reopened.get_pixel(x, covered.1)[0].is_multiple_of(257)),
+            "composited pixels must retain values beyond eight-bit expansion"
+        );
+        let levels: std::collections::HashSet<u16> =
+            (100..1000).map(|x| reopened.get_pixel(x, 2)[0]).collect();
+        assert!(
+            levels.len() > 256,
+            "only {} ramp levels survived",
+            levels.len()
+        );
+        assert!(
+            levels.iter().any(|level| !level.is_multiple_of(257)),
+            "protected ramp must retain values beyond eight-bit expansion"
+        );
+    }
+
+    #[test]
+    fn desktop_png_webp_and_eight_bit_tiff_verify_profile_and_alpha() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = DynamicImage::ImageRgba8(image::ImageBuffer::from_fn(20, 10, |x, _| {
+            image::Rgba([25, 80, 120, if x < 10 { 90 } else { 255 }])
+        }));
+        let mut options = settings(false, true);
+        options.tiff_bit_depth = TiffBitDepth::Eight;
+        for extension in ["png", "webp", "tif"] {
+            let path = dir.path().join(format!("alpha.{extension}"));
+            save_image_with_metadata(&source, &path, "unused", &options).unwrap();
+            let bytes = fs::read(&path).unwrap();
+            assert!(delivery::verify_profile(&bytes, extension).unwrap());
+            delivery::verify_raster_header(&bytes, extension, (20, 10), 8).unwrap();
+            if extension != "tif" {
+                assert_eq!(
+                    image::load_from_memory(&bytes)
+                        .unwrap()
+                        .to_rgba8()
+                        .get_pixel(0, 0)[3],
+                    90
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn export_source_masks_follow_batch_image_and_keep_cancellation() {
+        let adjustments = json!({
+            "masks": [{
+                "id": "mask", "name": "Color", "visible": true, "invert": false,
+                "adjustments": {},
+                "subMasks": [{
+                    "id": "color", "type": "color", "visible": true,
+                    "mode": "additive",
+                    "parameters": {"targetX": 1, "targetY": 1, "tolerance": 20, "grow": 0, "feather": 0}
+                }]
+            }]
+        });
+        let definitions = crate::marigold_surface::render_masks(&adjustments);
+        let first = DynamicImage::ImageRgb8(image::RgbImage::from_fn(8, 4, |x, _| {
+            if x < 4 {
+                image::Rgb([255, 0, 0])
+            } else {
+                image::Rgb([0, 0, 255])
+            }
+        }));
+        let second =
+            DynamicImage::ImageRgb8(image::RgbImage::from_pixel(8, 4, image::Rgb([0, 255, 0])));
+        let cancellation = AtomicBool::new(false);
+        let render = |source: &DynamicImage| {
+            render_export_source_masks(
+                &definitions,
+                source,
+                false,
+                &adjustments,
+                8,
+                4,
+                (0.0, 0.0),
+                Some(&cancellation),
+            )
+        };
+        let first_mask = render(&first).unwrap().remove(0);
+        let second_mask = render(&second).unwrap().remove(0);
+        assert_eq!(first_mask.get_pixel(6, 1)[0], 0);
+        assert!(second_mask.get_pixel(6, 1)[0] > 0);
+
+        cancellation.store(true, Ordering::SeqCst);
+        assert_eq!(render(&second).unwrap_err(), "Export cancelled");
+    }
 }

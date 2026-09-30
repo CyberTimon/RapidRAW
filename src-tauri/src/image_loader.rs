@@ -1,6 +1,7 @@
 use crate::Cursor;
 use crate::app_settings::{AppSettings, load_settings};
 use crate::app_state::{AppState, LoadedImage};
+use crate::cache_utils::SourceRevision;
 use crate::exif_processing;
 use crate::file_management::{parse_virtual_path, read_file_mapped};
 use crate::formats::is_raw_file;
@@ -27,9 +28,12 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 use std::time::Instant;
+use tauri::Manager;
 
 #[derive(serde::Serialize)]
 pub struct LoadImageResult {
+    pub generation: usize,
+    pub source_revision: String,
     pub width: u32,
     pub height: u32,
     pub metadata: ImageMetadata,
@@ -77,6 +81,28 @@ pub fn load_and_composite(
     composite_patches_on_image(&base_image, adjustments)
 }
 
+/// Fast RAW development can return a half- or quarter-size image. Saved repair
+/// pixels and their offsets remain in full-size source coordinates.
+pub fn load_and_composite_thumbnail(
+    bytes: &[u8],
+    path: &str,
+    adjustments: &Value,
+    settings: &AppSettings,
+) -> Result<(DynamicImage, f32)> {
+    let base_image = load_base_image_from_bytes(bytes, path, true, settings, None)?;
+    let source_scale = if is_raw_file(path) {
+        crate::raw_processing::get_fast_demosaic_scale_factor(
+            bytes,
+            base_image.width(),
+            base_image.height(),
+        )
+    } else {
+        1.0
+    };
+    let composited = composite_patches_on_image_at_scale(&base_image, adjustments, source_scale)?;
+    Ok((composited, source_scale))
+}
+
 pub fn load_base_image_from_bytes(
     bytes: &[u8],
     path_for_ext_check: &str,
@@ -84,7 +110,6 @@ pub fn load_base_image_from_bytes(
     settings: &AppSettings,
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<DynamicImage> {
-    let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
     let linear_mode = settings.linear_raw_mode.clone();
     let color_nr_setting = settings.raw_preprocessing_color_nr.unwrap_or(0.5);
     let color_nr_amount = if color_nr_setting <= 0.0 {
@@ -107,7 +132,6 @@ pub fn load_base_image_from_bytes(
             crate::raw_processing::develop_raw_image(
                 bytes,
                 use_fast_raw_dev,
-                highlight_compression,
                 linear_mode,
                 cancel_token,
             )
@@ -399,6 +423,19 @@ pub fn composite_patches_on_image(
     base_image: &DynamicImage,
     current_adjustments: &Value,
 ) -> Result<DynamicImage> {
+    composite_patches_on_image_at_scale(base_image, current_adjustments, 1.0)
+}
+
+fn composite_patches_on_image_at_scale(
+    base_image: &DynamicImage,
+    current_adjustments: &Value,
+    source_scale: f32,
+) -> Result<DynamicImage> {
+    if !source_scale.is_finite() || source_scale <= 0.0 {
+        return Err(anyhow!("Invalid repair source scale"));
+    }
+    let scaled =
+        |coordinate: u32| -> u32 { ((coordinate as f32 * source_scale).round() as u32).max(1) };
     let patches_val = match current_adjustments.get("aiPatches") {
         Some(val) => val,
         None => return Ok(base_image.clone()),
@@ -419,11 +456,11 @@ pub fn composite_patches_on_image(
             if !is_visible {
                 return false;
             }
+            // A null patch is an unfinished draft. Once patchData is present,
+            // let decoding report malformed or missing pixels to the caller.
             patch_obj
                 .get("patchData")
-                .and_then(|data| data.get("color"))
-                .and_then(|color| color.as_str())
-                .is_some_and(|s| !s.is_empty())
+                .is_some_and(|data| !data.is_null())
         })
         .collect();
 
@@ -445,15 +482,17 @@ pub fn composite_patches_on_image(
         .par_iter()
         .map(|patch_obj| {
             let patch_data = patch_obj.get("patchData").context("Missing patchData")?;
-            let offset_x = patch_data
+            let source_offset_x = patch_data
                 .get("offsetX")
                 .and_then(|v| v.as_u64())
                 .map(|v| v as u32);
-            let offset_y = patch_data
+            let source_offset_y = patch_data
                 .get("offsetY")
                 .and_then(|v| v.as_u64())
                 .map(|v| v as u32);
-            let is_cropped = offset_x.is_some() && offset_y.is_some();
+            let is_cropped = source_offset_x.is_some() && source_offset_y.is_some();
+            let offset_x = source_offset_x.map(|x| (x as f32 * source_scale).round() as u32);
+            let offset_y = source_offset_y.map(|y| (y as f32 * source_scale).round() as u32);
 
             let is_srgb_encoded = patch_data
                 .get("isSrgbEncoded")
@@ -467,7 +506,15 @@ pub fn composite_patches_on_image(
             {
                 let mask_bytes = general_purpose::STANDARD.decode(mask_b64)?;
                 let mask_img = image::load_from_memory(&mask_bytes)?.to_luma8();
-                if !is_cropped && (mask_img.width() != base_w || mask_img.height() != base_h) {
+                if is_cropped && source_scale != 1.0 {
+                    imageops::resize(
+                        &mask_img,
+                        scaled(mask_img.width()),
+                        scaled(mask_img.height()),
+                        imageops::FilterType::Lanczos3,
+                    )
+                } else if !is_cropped && (mask_img.width() != base_w || mask_img.height() != base_h)
+                {
                     imageops::resize(&mask_img, base_w, base_h, imageops::FilterType::Lanczos3)
                 } else {
                     mask_img
@@ -496,9 +543,15 @@ pub fn composite_patches_on_image(
                     (base_w, base_h)
                 };
 
-                let mut gen_mask =
-                    generate_mask_bitmap(&mask_def, trans_w, trans_h, 1.0, (0.0, 0.0), None)
-                        .context("Failed to generate mask from sub_masks for compositing")?;
+                let mut gen_mask = generate_mask_bitmap(
+                    &mask_def,
+                    trans_w,
+                    trans_h,
+                    source_scale,
+                    (0.0, 0.0),
+                    None,
+                )
+                .context("Failed to generate mask from sub_masks for compositing")?;
 
                 gen_mask =
                     crate::image_processing::inverse_transform_mask(gen_mask, current_adjustments);
@@ -507,12 +560,12 @@ pub fn composite_patches_on_image(
                     let w = patch_data
                         .get("width")
                         .and_then(|v| v.as_u64())
-                        .map(|v| v as u32)
+                        .map(|v| scaled(v as u32))
                         .unwrap_or(base_w);
                     let h = patch_data
                         .get("height")
                         .and_then(|v| v.as_u64())
-                        .map(|v| v as u32)
+                        .map(|v| scaled(v as u32))
                         .unwrap_or(base_h);
                     let crop_w = w.min(base_w.saturating_sub(ox));
                     let crop_h = h.min(base_h.saturating_sub(oy));
@@ -529,16 +582,24 @@ pub fn composite_patches_on_image(
             let color_image_u8 = image::load_from_memory(&color_bytes)?.to_rgb8();
 
             let (patch_w, patch_h) = color_image_u8.dimensions();
-            let final_color = if !is_cropped && (base_w != patch_w || base_h != patch_h) {
-                imageops::resize(
-                    &color_image_u8,
-                    base_w,
-                    base_h,
-                    imageops::FilterType::Lanczos3,
-                )
-            } else {
-                color_image_u8
-            };
+            let final_color =
+                if is_cropped && color_image_u8.dimensions() != mask_bitmap.dimensions() {
+                    imageops::resize(
+                        &color_image_u8,
+                        mask_bitmap.width(),
+                        mask_bitmap.height(),
+                        imageops::FilterType::Lanczos3,
+                    )
+                } else if !is_cropped && (base_w != patch_w || base_h != patch_h) {
+                    imageops::resize(
+                        &color_image_u8,
+                        base_w,
+                        base_h,
+                        imageops::FilterType::Lanczos3,
+                    )
+                } else {
+                    color_image_u8
+                };
 
             Ok(DecodedPatch {
                 offset_x,
@@ -823,13 +884,23 @@ pub fn composite_patches_on_image(
 #[tauri::command]
 pub fn is_image_cached(path: String, state: tauri::State<'_, AppState>) -> bool {
     let (source_path, _) = parse_virtual_path(&path);
-    let source_path_str = source_path.to_string_lossy().to_string();
+    let Ok(revision) = SourceRevision::read(&source_path) else {
+        return false;
+    };
     state
         .decoded_image_cache
         .lock()
         .unwrap()
-        .get(&source_path_str)
+        .get(&revision)
         .is_some()
+}
+
+/// A cheap physical-source check for cached editor snapshots. It excludes
+/// sidecars because virtual copies can have different adjustment histories.
+#[tauri::command]
+pub fn get_source_revision(path: String) -> Result<String, String> {
+    let (source_path, _) = parse_virtual_path(&path);
+    SourceRevision::read(&source_path).map(|revision| revision.token())
 }
 
 #[tauri::command]
@@ -838,12 +909,20 @@ pub async fn load_image(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<LoadImageResult, String> {
-    crate::mask_generation::clear_component_mask_cache();
-    let my_generation = state.load_image_generation.fetch_add(1, Ordering::SeqCst) + 1;
+    let my_generation = state.begin_preview_generation();
     let generation_tracker = state.load_image_generation.clone();
     let cancel_token = Some((generation_tracker.clone(), my_generation));
 
-    {
+    let reset_handle = app_handle.clone();
+    tokio::task::spawn_blocking(move || {
+        let state = reset_handle.state::<AppState>();
+        crate::gpu_processing::clear_preview_display_for_generation(&state, my_generation)?;
+        let _session = state
+            .preview_session_gate
+            .write()
+            .unwrap_or_else(|e| e.into_inner());
+        crate::app_state::ensure_preview_generation(&state, my_generation)?;
+        crate::mask_generation::clear_component_mask_cache();
         *state
             .original_image
             .lock()
@@ -894,10 +973,14 @@ pub async fn load_image(
             .panorama_result
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = None;
-    }
+        Ok::<(), String>(())
+    })
+    .await
+    .map_err(|e| e.to_string())??;
 
     let (source_path, sidecar_path) = parse_virtual_path(&path);
     let source_path_str = source_path.to_string_lossy().to_string();
+    let source_revision = SourceRevision::read(&source_path)?;
 
     let metadata: ImageMetadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
@@ -909,7 +992,7 @@ pub async fn load_image(
         .decoded_image_cache
         .lock()
         .unwrap()
-        .get(&source_path_str);
+        .get(&source_revision);
 
     let (pristine_arc, exif_data) = if let Some((cached_img, cached_exif)) = cached_data {
         (cached_img, cached_exif)
@@ -977,8 +1060,14 @@ pub async fn load_image(
 
         let arc_img = Arc::new(pristine_img);
 
+        // A source can be replaced while a RAW decode is in progress. Never
+        // publish or retain pixels decoded from an obsolete file revision.
+        if SourceRevision::read(&source_path)? != source_revision {
+            return Err("Image source changed during load; please try again".to_string());
+        }
+
         state.decoded_image_cache.lock().unwrap().insert(
-            source_path_str.clone(),
+            source_revision.clone(),
             arc_img.clone(),
             exif_data_loaded.clone(),
         );
@@ -998,17 +1087,140 @@ pub async fn load_image(
 
     let (orig_width, orig_height) = pristine_arc.dimensions();
 
-    *state.original_image.lock().unwrap() = Some(LoadedImage {
-        path,
-        image: pristine_arc,
-        is_raw,
-    });
+    {
+        let _session = state
+            .preview_session_gate
+            .write()
+            .unwrap_or_else(|e| e.into_inner());
+        crate::app_state::ensure_preview_generation(&state, my_generation)?;
+        if SourceRevision::read(&source_path)? != source_revision {
+            return Err("Image source changed during load; please try again".to_string());
+        }
+        *state.original_image.lock().unwrap() = Some(LoadedImage {
+            path,
+            image: pristine_arc,
+            is_raw,
+        });
+    }
 
     Ok(LoadImageResult {
+        generation: my_generation,
+        source_revision: source_revision.token(),
         width: orig_width,
         height: orig_height,
         metadata,
         exif: exif_data,
         is_raw,
     })
+}
+
+#[cfg(test)]
+mod preview_patch_validation_tests {
+    use super::*;
+    use image::{GrayImage, RgbImage, Rgba, RgbaImage};
+    use serde_json::json;
+
+    fn png_base64(image: DynamicImage) -> String {
+        let mut bytes = Cursor::new(Vec::new());
+        image.write_to(&mut bytes, image::ImageFormat::Png).unwrap();
+        general_purpose::STANDARD.encode(bytes.into_inner())
+    }
+
+    #[test]
+    fn cropped_repair_uses_source_coordinates_on_fast_thumbnail() {
+        let base = DynamicImage::ImageRgba8(RgbaImage::from_pixel(4, 4, Rgba([0, 0, 0, 255])));
+        let mask = png_base64(DynamicImage::ImageLuma8(GrayImage::from_pixel(
+            2,
+            2,
+            image::Luma([255]),
+        )));
+        let color = png_base64(DynamicImage::ImageRgb8(RgbImage::from_pixel(
+            2,
+            2,
+            image::Rgb([255, 0, 0]),
+        )));
+        let adjustments = json!({"aiPatches": [{
+            "visible": true,
+            "patchData": {"offsetX": 4, "offsetY": 2, "width": 2, "height": 2,
+                "mask": mask, "color": color}
+        }]});
+
+        let thumbnail = composite_patches_on_image_at_scale(&base, &adjustments, 0.5)
+            .unwrap()
+            .to_rgb8();
+        assert_eq!(thumbnail.get_pixel(2, 1).0, [255, 0, 0]);
+        assert_eq!(thumbnail.get_pixel(1, 1).0, [0, 0, 0]);
+        assert_eq!(thumbnail.get_pixel(3, 2).0, [0, 0, 0]);
+    }
+
+    #[test]
+    #[ignore = "Set RAPIDRAW_TEST_PATCHED_RAW and RAPIDRAW_TEST_PATCHED_SIDECAR to real fixtures"]
+    fn patched_raw_thumbnail_stays_inside_scaled_repair_bounds() {
+        let path = std::env::var("RAPIDRAW_TEST_PATCHED_RAW").unwrap();
+        let sidecar = std::env::var("RAPIDRAW_TEST_PATCHED_SIDECAR").unwrap();
+        let bytes = fs::read(&path).unwrap();
+        let metadata: Value = serde_json::from_slice(&fs::read(sidecar).unwrap()).unwrap();
+        let adjustments = &metadata["adjustments"];
+        let patch = adjustments["aiPatches"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|patch| patch["visible"] == true && patch["patchData"]["offsetX"].is_number())
+            .unwrap();
+        let settings = AppSettings::default();
+        let base = load_base_image_from_bytes(&bytes, &path, true, &settings, None).unwrap();
+        let scale = crate::raw_processing::get_fast_demosaic_scale_factor(
+            &bytes,
+            base.width(),
+            base.height(),
+        );
+        assert!(scale < 1.0, "fixture must exercise a scaled RAW thumbnail");
+        let (composited, thumbnail_scale) =
+            load_and_composite_thumbnail(&bytes, &path, adjustments, &settings).unwrap();
+        assert_eq!(thumbnail_scale, scale);
+        let patch_data = &patch["patchData"];
+        let scaled_field = |key: &str| -> u32 {
+            (patch_data[key].as_u64().unwrap() as f32 * scale).round() as u32
+        };
+        let (x0, y0) = (scaled_field("offsetX"), scaled_field("offsetY"));
+        let (x1, y1) = (x0 + scaled_field("width"), y0 + scaled_field("height"));
+        let mut changed_inside = 0;
+        let mut changed_outside = 0;
+        for y in 0..base.height() {
+            for x in 0..base.width() {
+                if base.get_pixel(x, y) == composited.get_pixel(x, y) {
+                    continue;
+                }
+                if (x0..x1).contains(&x) && (y0..y1).contains(&y) {
+                    changed_inside += 1;
+                } else {
+                    changed_outside += 1;
+                }
+            }
+        }
+        assert!(
+            changed_inside > 0,
+            "saved repair must affect its intended area"
+        );
+        assert_eq!(changed_outside, 0, "repair leaked outside scaled bounds");
+        if let Ok(output) = std::env::var("RAPIDRAW_TEST_PATCHED_THUMBNAIL_OUTPUT") {
+            composited.to_rgb8().save(output).unwrap();
+        }
+    }
+
+    #[test]
+    fn visible_malformed_patch_data_fails_instead_of_disappearing() {
+        let original = DynamicImage::new_rgb8(2, 2);
+        let adjustments = json!({"aiPatches": [{"visible": true, "patchData": {"color": ""}}]});
+        assert!(composite_patches_on_image(&original, &adjustments).is_err());
+    }
+
+    #[test]
+    fn null_loading_patch_remains_an_unfinished_draft() {
+        let original = DynamicImage::new_rgb8(2, 2);
+        let adjustments =
+            json!({"aiPatches": [{"visible": true, "isLoading": true, "patchData": null}]});
+        let result = composite_patches_on_image(&original, &adjustments).unwrap();
+        assert_eq!(result.to_rgb8(), original.to_rgb8());
+    }
 }

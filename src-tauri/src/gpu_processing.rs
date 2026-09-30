@@ -9,9 +9,62 @@ use std::num::NonZero;
 use tauri::Manager;
 use wgpu::util::{DeviceExt, TextureDataOrder};
 
+use crate::app_state::{PreviewCancellation, PreviewIdentity, PreviewLane};
 use crate::image_processing::{AllAdjustments, GpuContext, MAX_MASKS};
 use crate::lut_processing::Lut;
 use crate::{AppState, GpuImageCache};
+
+fn submit_current_preview_display<T>(
+    state: &AppState,
+    identity: Option<PreviewIdentity>,
+    submit: impl FnOnce() -> T,
+) -> Result<T, String> {
+    if let Some(identity) = identity {
+        state.with_current_preview_identity(identity, submit)
+    } else {
+        Ok(submit())
+    }
+}
+
+pub(crate) fn display_frame_matches_generation(
+    frame_generation: Option<usize>,
+    generation: usize,
+) -> bool {
+    frame_generation == Some(generation)
+}
+
+/// Present a neutral frame as soon as a new photo generation begins, before
+/// waiting for the previous generation's session readers to drain.
+pub fn clear_preview_display_for_generation(
+    state: &AppState,
+    generation: usize,
+) -> Result<(), String> {
+    let context = state
+        .gpu_context
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .as_ref()
+        .cloned();
+    let Some(context) = context else {
+        return Ok(());
+    };
+    let identity = PreviewIdentity {
+        generation,
+        lane: PreviewLane::Main,
+        revision: None,
+    };
+    state.with_current_preview_identity(identity, || {
+        let mut display = context
+            .display
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        if let Some(display) = display.as_mut() {
+            display.current_bind_group = None;
+            display.frame_generation = None;
+            display.render(&context.device, &context.queue);
+        }
+    })
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct Roi {
@@ -58,51 +111,52 @@ pub struct WgpuDisplay {
     pub transform_buffer: wgpu::Buffer,
     pub latest_transform: DisplayTransform,
     pub current_bind_group: Option<wgpu::BindGroup>,
+    pub frame_generation: Option<usize>,
 }
 
 impl WgpuDisplay {
     pub fn render(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
-        if let Some(bind_group) = &self.current_bind_group {
-            let output = match self.surface.get_current_texture() {
-                wgpu::CurrentSurfaceTexture::Success(tex)
-                | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
-                wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
-                    self.surface.configure(device, &self.config);
-                    match self.surface.get_current_texture() {
-                        wgpu::CurrentSurfaceTexture::Success(tex)
-                        | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
-                        _ => panic!("Failed to acquire surface texture"),
-                    }
+        let output = match self.surface.get_current_texture() {
+            wgpu::CurrentSurfaceTexture::Success(tex)
+            | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
+            wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
+                self.surface.configure(device, &self.config);
+                match self.surface.get_current_texture() {
+                    wgpu::CurrentSurfaceTexture::Success(tex)
+                    | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
+                    _ => panic!("Failed to acquire surface texture"),
                 }
-                _ => return,
-            };
-            let view = output
-                .texture
-                .create_view(&wgpu::TextureViewDescriptor::default());
-            let mut encoder =
-                device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-            {
-                let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: None,
-                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                        view: &view,
-                        resolve_target: None,
-                        ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(wgpu::Color {
-                                r: self.latest_transform.bg_primary[0] as f64,
-                                g: self.latest_transform.bg_primary[1] as f64,
-                                b: self.latest_transform.bg_primary[2] as f64,
-                                a: self.latest_transform.bg_primary[3] as f64,
-                            }),
-                            store: wgpu::StoreOp::Store,
-                        },
-                        depth_slice: None,
-                    })],
-                    depth_stencil_attachment: None,
-                    timestamp_writes: None,
-                    occlusion_query_set: None,
-                    multiview_mask: NonZero::new(0),
-                });
+            }
+            _ => return,
+        };
+        let view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        let mut encoder =
+            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        {
+            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: self.latest_transform.bg_primary[0] as f64,
+                            g: self.latest_transform.bg_primary[1] as f64,
+                            b: self.latest_transform.bg_primary[2] as f64,
+                            a: self.latest_transform.bg_primary[3] as f64,
+                        }),
+                        store: wgpu::StoreOp::Store,
+                    },
+                    depth_slice: None,
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: NonZero::new(0),
+            });
+            if let Some(bind_group) = &self.current_bind_group {
                 let clip_x1 = self.latest_transform.clip[0].max(0.0);
                 let clip_y1 = self.latest_transform.clip[1].max(0.0);
                 let clip_x2 =
@@ -136,9 +190,9 @@ impl WgpuDisplay {
                     }
                 }
             }
-            queue.submit(Some(encoder.finish()));
-            output.present();
         }
+        queue.submit(Some(encoder.finish()));
+        output.present();
     }
 }
 
@@ -414,6 +468,7 @@ pub fn get_or_init_gpu_context(
             },
             sampler,
             current_bind_group: None,
+            frame_generation: None,
         })
     } else {
         None
@@ -440,14 +495,38 @@ fn read_texture_data_roi(
     size: wgpu::Extent3d,
     bytes_per_pixel: u32,
 ) -> Result<Vec<u8>, String> {
-    let unpadded_bytes_per_row = bytes_per_pixel * size.width;
-    let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
-    let padded_bytes_per_row = (unpadded_bytes_per_row + align - 1) & !(align - 1);
-    let output_buffer_size = (padded_bytes_per_row * size.height) as u64;
+    if texture.format().block_copy_size(None) != Some(bytes_per_pixel) {
+        return Err("Readback pixel stride does not match the output texture format".into());
+    }
+    let extent = texture.size();
+    if size.width == 0
+        || size.height == 0
+        || size.depth_or_array_layers != 1
+        || origin
+            .x
+            .checked_add(size.width)
+            .is_none_or(|end| end > extent.width)
+        || origin
+            .y
+            .checked_add(size.height)
+            .is_none_or(|end| end > extent.height)
+        || origin
+            .z
+            .checked_add(1)
+            .is_none_or(|end| end > extent.depth_or_array_layers)
+    {
+        return Err("Readback region exceeds the output texture".into());
+    }
+    let layout = readback_layout(
+        size.width,
+        size.height,
+        bytes_per_pixel,
+        device.limits().max_buffer_size,
+    )?;
 
     let output_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Readback Buffer"),
-        size: output_buffer_size,
+        size: layout.buffer_size,
         usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
         mapped_at_creation: false,
     });
@@ -465,7 +544,7 @@ fn read_texture_data_roi(
             buffer: &output_buffer,
             layout: wgpu::TexelCopyBufferLayout {
                 offset: 0,
-                bytes_per_row: Some(padded_bytes_per_row),
+                bytes_per_row: Some(layout.padded_row),
                 rows_per_image: Some(size.height),
             },
         },
@@ -492,15 +571,76 @@ fn read_texture_data_roi(
     let padded_data = buffer_slice.get_mapped_range().to_vec();
     output_buffer.unmap();
 
-    if padded_bytes_per_row == unpadded_bytes_per_row {
+    if layout.padded_row == layout.row {
         Ok(padded_data)
     } else {
-        let mut unpadded_data = Vec::with_capacity((unpadded_bytes_per_row * size.height) as usize);
-        for chunk in padded_data.chunks(padded_bytes_per_row as usize) {
-            unpadded_data.extend_from_slice(&chunk[..unpadded_bytes_per_row as usize]);
-        }
-        Ok(unpadded_data)
+        remove_readback_padding(&padded_data, layout, size.height)
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct ReadbackLayout {
+    row: u32,
+    padded_row: u32,
+    buffer_size: u64,
+    data_len: usize,
+}
+
+fn readback_layout(
+    width: u32,
+    height: u32,
+    pixel_bytes: u32,
+    max_buffer_size: u64,
+) -> Result<ReadbackLayout, String> {
+    let row = u64::from(width)
+        .checked_mul(u64::from(pixel_bytes))
+        .ok_or("Readback row size overflow")?;
+    let align = u64::from(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT);
+    let padded_row = row
+        .checked_add(align - 1)
+        .ok_or("Readback row alignment overflow")?
+        / align
+        * align;
+    let buffer_size = padded_row
+        .checked_mul(u64::from(height))
+        .ok_or("Readback buffer size overflow")?;
+    let data_len = row
+        .checked_mul(u64::from(height))
+        .and_then(|v| usize::try_from(v).ok())
+        .ok_or("Readback data size overflow")?;
+    if width == 0
+        || height == 0
+        || pixel_bytes == 0
+        || padded_row > u64::from(u32::MAX)
+        || buffer_size > max_buffer_size
+        || usize::try_from(buffer_size).is_err()
+    {
+        return Err("Readback dimensions exceed device or host buffer limits".into());
+    }
+    Ok(ReadbackLayout {
+        row: row as u32,
+        padded_row: padded_row as u32,
+        buffer_size,
+        data_len,
+    })
+}
+
+fn remove_readback_padding(
+    data: &[u8],
+    layout: ReadbackLayout,
+    height: u32,
+) -> Result<Vec<u8>, String> {
+    if data.len() as u64 != layout.buffer_size {
+        return Err("Readback buffer length does not match its layout".into());
+    }
+    let mut result = Vec::with_capacity(layout.data_len);
+    for chunk in data
+        .chunks_exact(layout.padded_row as usize)
+        .take(height as usize)
+    {
+        result.extend_from_slice(&chunk[..layout.row as usize]);
+    }
+    Ok(result)
 }
 
 fn to_rgba_f16(img: &DynamicImage) -> Vec<f16> {
@@ -598,8 +738,15 @@ enum RenderedPixels {
     U16(Vec<u16>),
 }
 
-fn high_precision_shader_source() -> String {
-    include_str!("shaders/shader.wgsl").replace("rgba8unorm, write>", "rgba16float, write>")
+const HIGH_PRECISION_OUTPUT_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba32Float;
+const HIGH_PRECISION_OUTPUT_PIXEL_BYTES: u32 = 16;
+
+fn high_precision_shader_source() -> Result<String, String> {
+    replace_shader_token(
+        include_str!("shaders/shader.wgsl"),
+        "rgba8unorm, write>",
+        "rgba32float, write>",
+    )
 }
 
 const FLARE_MAP_SIZE: u32 = 512;
@@ -1067,7 +1214,7 @@ impl GpuProcessor {
 
         bind_group_layout_entries[1].ty = wgpu::BindingType::StorageTexture {
             access: wgpu::StorageTextureAccess::WriteOnly,
-            format: wgpu::TextureFormat::Rgba16Float,
+            format: HIGH_PRECISION_OUTPUT_FORMAT,
             view_dimension: wgpu::TextureViewDimension::D2,
         };
         let high_precision_bgl =
@@ -1083,7 +1230,7 @@ impl GpuProcessor {
             });
         let high_precision_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("High Precision Image Processing Shader"),
-            source: wgpu::ShaderSource::Wgsl(high_precision_shader_source().into()),
+            source: wgpu::ShaderSource::Wgsl(high_precision_shader_source()?.into()),
         });
         let high_precision_pipeline =
             device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
@@ -1280,7 +1427,7 @@ impl GpuProcessor {
                     mip_level_count: 1,
                     sample_count: 1,
                     dimension: wgpu::TextureDimension::D2,
-                    format: wgpu::TextureFormat::Rgba16Float,
+                    format: HIGH_PRECISION_OUTPUT_FORMAT,
                     usage: wgpu::TextureUsages::TEXTURE_BINDING
                         | wgpu::TextureUsages::STORAGE_BINDING
                         | wgpu::TextureUsages::COPY_SRC,
@@ -1291,6 +1438,7 @@ impl GpuProcessor {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn run(
         &self,
         input_texture_view: &wgpu::TextureView,
@@ -1299,7 +1447,11 @@ impl GpuProcessor {
         request: RenderRequest,
         output_to_display: bool,
         output_precision: RenderOutputPrecision,
+        cancellation: Option<&PreviewCancellation<'_>>,
     ) -> Result<(RenderedPixels, u32, u32, u32, u32), String> {
+        if let Some(cancel) = cancellation {
+            cancel.check()?;
+        }
         let device = &self.context.device;
         let queue = &self.context.queue;
         let effect_width = if request.adjustments.image_width > 0 {
@@ -1338,7 +1490,7 @@ impl GpuProcessor {
                     &self.high_precision_bgl,
                     &high_precision_tile.texture,
                     &high_precision_tile.view,
-                    8,
+                    HIGH_PRECISION_OUTPUT_PIXEL_BYTES,
                 )
             } else {
                 (
@@ -1391,6 +1543,9 @@ impl GpuProcessor {
             TextureDataOrder::MipMajor,
             &mask_texture_data,
         );
+        if let Some(cancel) = cancellation {
+            cancel.check()?;
+        }
         let mask_texture_view = mask_texture.create_view(&wgpu::TextureViewDescriptor {
             dimension: Some(wgpu::TextureViewDimension::D2Array),
             ..Default::default()
@@ -1546,6 +1701,9 @@ impl GpuProcessor {
                 cpass.dispatch_workgroups(FLARE_MAP_SIZE / 16, FLARE_MAP_SIZE / 16, 1);
             }
 
+            if let Some(cancel) = cancellation {
+                cancel.check()?;
+            }
             queue.submit(Some(encoder.finish()));
         }
 
@@ -1555,7 +1713,8 @@ impl GpuProcessor {
         let output_len = if output_to_display {
             0
         } else {
-            (out_width * out_height * 4) as usize
+            usize::try_from(u64::from(out_width) * u64::from(out_height) * 4)
+                .map_err(|_| "Output image exceeds host allocation limits")?
         };
         let mut final_pixels = match output_precision {
             RenderOutputPrecision::EightBit => RenderedPixels::U8(vec![0u8; output_len]),
@@ -1569,6 +1728,9 @@ impl GpuProcessor {
 
         for tile_y in start_tile_y..end_tile_y {
             for tile_x in start_tile_x..end_tile_x {
+                if let Some(cancel) = cancellation {
+                    cancel.check()?;
+                }
                 let x_start_unclamped = tile_x * TILE_SIZE;
                 let y_start_unclamped = tile_y * TILE_SIZE;
 
@@ -1674,9 +1836,21 @@ impl GpuProcessor {
                 };
 
                 let did_create_sharpness_blur = run_blur(1.0, &self.sharpness_blur_view);
+                if let Some(cancel) = cancellation {
+                    cancel.check()?;
+                }
                 let did_create_tonal_blur = run_blur(3.5, &self.tonal_blur_view);
+                if let Some(cancel) = cancellation {
+                    cancel.check()?;
+                }
                 let did_create_clarity_blur = run_blur(8.0, &self.clarity_blur_view);
+                if let Some(cancel) = cancellation {
+                    cancel.check()?;
+                }
                 let did_create_structure_blur = run_blur(40.0, &self.structure_blur_view);
+                if let Some(cancel) = cancellation {
+                    cancel.check()?;
+                }
 
                 let mut main_encoder = device.create_command_encoder(&Default::default());
 
@@ -1813,6 +1987,9 @@ impl GpuProcessor {
                     );
                 }
 
+                if let Some(cancel) = cancellation {
+                    cancel.check()?;
+                }
                 queue.submit(Some(main_encoder.finish()));
 
                 if !output_to_display {
@@ -1824,6 +2001,9 @@ impl GpuProcessor {
                         input_texture_size,
                         bytes_per_pixel,
                     )?;
+                    if let Some(cancel) = cancellation {
+                        cancel.check()?;
+                    }
 
                     match &mut final_pixels {
                         RenderedPixels::U8(final_pixels) => {
@@ -1844,28 +2024,15 @@ impl GpuProcessor {
                             }
                         }
                         RenderedPixels::U16(final_pixels) => {
-                            for row in 0..tile_height {
-                                let final_y = y_start + row - bounds.y;
-                                let final_x = x_start - bounds.x;
-                                let final_row_offset = (final_y * out_width + final_x) as usize * 4;
-                                let source_y = crop_y_start + row;
-                                let source_pixel_offset =
-                                    (source_y * input_width + crop_x_start) as usize;
-
-                                for sample in 0..(tile_width as usize * 4) {
-                                    let source_byte_offset = (source_pixel_offset * 4 + sample) * 2;
-                                    let bits = u16::from_ne_bytes([
-                                        processed_tile_data[source_byte_offset],
-                                        processed_tile_data[source_byte_offset + 1],
-                                    ]);
-                                    let value = f16::from_bits(bits).to_f32();
-                                    final_pixels[final_row_offset + sample] = if value.is_finite() {
-                                        (value.clamp(0.0, 1.0) * u16::MAX as f32).round() as u16
-                                    } else {
-                                        0
-                                    };
-                                }
-                            }
+                            copy_f32_tile_to_u16(
+                                &processed_tile_data,
+                                (input_width, input_height),
+                                (crop_x_start, crop_y_start),
+                                (tile_width, tile_height),
+                                final_pixels,
+                                (out_width, out_height),
+                                (x_start - bounds.x, y_start - bounds.y),
+                            )?;
                         }
                     }
                 }
@@ -1874,6 +2041,58 @@ impl GpuProcessor {
 
         Ok((final_pixels, out_width, out_height, bounds.x, bounds.y))
     }
+}
+
+fn decode_output_f32(bytes: &[u8]) -> u16 {
+    let value = f32::from_ne_bytes(bytes.try_into().expect("one f32 channel"));
+    if value.is_finite() {
+        (value.clamp(0.0, 1.0) * u16::MAX as f32).round() as u16
+    } else {
+        0
+    }
+}
+
+fn copy_f32_tile_to_u16(
+    source: &[u8],
+    source_size: (u32, u32),
+    crop_origin: (u32, u32),
+    crop_size: (u32, u32),
+    destination: &mut [u16],
+    destination_size: (u32, u32),
+    destination_origin: (u32, u32),
+) -> Result<(), String> {
+    let fits = |origin: (u32, u32), size: (u32, u32), extent: (u32, u32)| {
+        origin
+            .0
+            .checked_add(size.0)
+            .is_some_and(|end| end <= extent.0)
+            && origin
+                .1
+                .checked_add(size.1)
+                .is_some_and(|end| end <= extent.1)
+    };
+    let source_samples = u64::from(source_size.0) * u64::from(source_size.1) * 4;
+    let destination_samples = u64::from(destination_size.0) * u64::from(destination_size.1) * 4;
+    if !fits(crop_origin, crop_size, source_size)
+        || !fits(destination_origin, crop_size, destination_size)
+        || source.len() as u64 != source_samples * 4
+        || destination.len() as u64 != destination_samples
+    {
+        return Err("Float32 output tile dimensions or readback length are invalid".into());
+    }
+    for row in 0..crop_size.1 {
+        let source_pixel =
+            u64::from(crop_origin.1 + row) * u64::from(source_size.0) + u64::from(crop_origin.0);
+        let destination_pixel = u64::from(destination_origin.1 + row)
+            * u64::from(destination_size.0)
+            + u64::from(destination_origin.0);
+        for sample in 0..u64::from(crop_size.0) * 4 {
+            let at = ((source_pixel * 4 + sample) * 4) as usize;
+            destination[(destination_pixel * 4 + sample) as usize] =
+                decode_output_f32(&source[at..at + 4]);
+        }
+    }
+    Ok(())
 }
 
 /// Render an export without the preview pipeline's half-float input or 8-bit
@@ -1964,6 +2183,7 @@ fn render_precision_with_processor(
         request,
         false,
         RenderOutputPrecision::SixteenBit,
+        None,
     )?;
     match pixels {
         RenderedPixels::U16(data) => {
@@ -2210,6 +2430,7 @@ pub fn process_and_get_dynamic_image(
         RenderOutputPrecision::EightBit,
         false,
         None,
+        None,
     )
 }
 
@@ -2232,6 +2453,7 @@ pub fn process_and_get_dynamic_image_with_precision(
         output_precision,
         false,
         None,
+        None,
     )
 }
 
@@ -2245,6 +2467,7 @@ pub fn process_and_get_dynamic_image_with_analytics(
     caller_id: &str,
     output_to_display: bool,
     analytics_config: Option<crate::AnalyticsConfig>,
+    preview_identity: Option<PreviewIdentity>,
 ) -> Result<DynamicImage, String> {
     process_and_get_dynamic_image_inner(
         context,
@@ -2256,7 +2479,29 @@ pub fn process_and_get_dynamic_image_with_analytics(
         RenderOutputPrecision::EightBit,
         output_to_display,
         analytics_config,
+        preview_identity,
     )
+}
+
+fn ordinary_texture_extent(
+    width: u32,
+    height: u32,
+    limit: u32,
+    request: &RenderRequest,
+) -> Result<(u32, u32), String> {
+    validate_precision_request(width, height, u32::MAX, request)?;
+    let rounded = |value: u32| value.checked_add(255).map(|v| v & !255);
+    let (Some(rounded_width), Some(rounded_height)) = (rounded(width), rounded(height)) else {
+        return Err(format!(
+            "GPU render cannot process {width}x{height}; maximum texture dimension is {limit}. Use a supported image size or a high-precision tiled final export."
+        ));
+    };
+    if width == 0 || height == 0 || rounded_width > limit || rounded_height > limit {
+        return Err(format!(
+            "GPU render cannot process {width}x{height}; maximum texture dimension is {limit} (including 256-pixel allocation alignment). Use a supported image size or a high-precision tiled final export."
+        ));
+    }
+    Ok((rounded_width, rounded_height))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -2270,22 +2515,19 @@ fn process_and_get_dynamic_image_inner(
     output_precision: RenderOutputPrecision,
     output_to_display: bool,
     analytics_config: Option<crate::AnalyticsConfig>,
+    preview_identity: Option<PreviewIdentity>,
 ) -> Result<DynamicImage, String> {
     let start_time = Instant::now();
+    let cancellation = preview_identity.map(|identity| PreviewCancellation { state, identity });
+    if let Some(cancel) = &cancellation {
+        cancel.check()?;
+    }
     let (width, height) = base_image.dimensions();
     let device = &context.device;
     let queue = &context.queue;
 
     let max_dim = context.limits.max_texture_dimension_2d;
-    if width > max_dim || height > max_dim {
-        log::warn!(
-            "Image dimensions ({}x{}) exceed GPU limits ({}). Bypassing GPU processing and returning unprocessed image to prevent a crash. Try upgrading your GPU :)",
-            width,
-            height,
-            max_dim
-        );
-        return Ok(base_image.clone());
-    }
+    let (new_width, new_height) = ordinary_texture_extent(width, height, max_dim, &request)?;
 
     let mut processor_lock = match state.gpu_processor.lock() {
         Ok(guard) => guard,
@@ -2296,9 +2538,10 @@ fn process_and_get_dynamic_image_inner(
             guard
         }
     };
+    if let Some(cancel) = &cancellation {
+        cancel.check()?;
+    }
     let mut needs_new_processor = false;
-    let new_width = (width + 255) & !255;
-    let new_height = (height + 255) & !255;
 
     if let Some(p) = processor_lock.as_ref() {
         if p.width < width || p.height < height {
@@ -2344,6 +2587,9 @@ fn process_and_get_dynamic_image_inner(
             guard
         }
     };
+    if let Some(cancel) = &cancellation {
+        cancel.check()?;
+    }
     let mut needs_new_cache = false;
 
     if let Some(cache) = &*cache_lock {
@@ -2365,6 +2611,9 @@ fn process_and_get_dynamic_image_inner(
         });
 
         let img_rgba_f16 = to_rgba_f16(base_image);
+        if let Some(cancel) = &cancellation {
+            cancel.check()?;
+        }
         let texture_size = wgpu::Extent3d {
             width,
             height,
@@ -2407,7 +2656,11 @@ fn process_and_get_dynamic_image_inner(
         request,
         output_to_display,
         output_precision,
+        cancellation.as_ref(),
     )?;
+    if let Some(cancel) = &cancellation {
+        cancel.check()?;
+    }
 
     let mut final_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
         label: Some("Final Passes Encoder"),
@@ -2494,9 +2747,80 @@ fn process_and_get_dynamic_image_inner(
         submit_final_encoder = true;
     }
 
-    if submit_final_encoder {
-        queue.submit(Some(final_encoder.finish()));
-    }
+    // The working texture may hold obsolete pixels after a superseded tile
+    // run. Only copy it into the displayed texture, submit that copy, and
+    // present while this revision still owns the main lane. The intent lock
+    // makes the final check atomic with the copy/presentation submission;
+    // queued GPU work itself remains ordered on the same queue.
+    let submit_and_display = || {
+        if submit_final_encoder {
+            queue.submit(Some(final_encoder.finish()));
+        }
+
+        if output_to_display
+            && let Some(display) = context
+                .display
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .as_mut()
+        {
+            display.latest_transform.image_size = [width as f32, height as f32];
+            display.latest_transform.texture_size =
+                [processor_state.width as f32, processor_state.height as f32];
+
+            queue.write_buffer(
+                &display.transform_buffer,
+                0,
+                bytemuck::bytes_of(&display.latest_transform),
+            );
+
+            let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &display.bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: display.transform_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::TextureView(
+                            &processor.output_texture_view,
+                        ),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: wgpu::BindingResource::Sampler(&display.sampler),
+                    },
+                ],
+                label: None,
+            });
+            display.current_bind_group = Some(bind_group);
+            display.frame_generation = preview_identity.map(|identity| identity.generation);
+            display.render(device, queue);
+            static REMAINING_PRESENT_TRACES: std::sync::atomic::AtomicUsize =
+                std::sync::atomic::AtomicUsize::new(10_000);
+            if std::env::var_os("RAPIDRAW_PREVIEW_TRACE").as_deref()
+                == Some(std::ffi::OsStr::new("1"))
+                && REMAINING_PRESENT_TRACES
+                    .fetch_update(
+                        std::sync::atomic::Ordering::Relaxed,
+                        std::sync::atomic::Ordering::Relaxed,
+                        |n| n.checked_sub(1),
+                    )
+                    .is_ok()
+            {
+                log::info!(
+                    "[preview_trace] surface_present_called generation={:?} revision={:?} size={}x{} processing_to_submit_ms={:.2}",
+                    preview_identity.map(|identity| identity.generation),
+                    preview_identity.and_then(|identity| identity.revision),
+                    width,
+                    height,
+                    start_time.elapsed().as_secs_f64() * 1000.0,
+                );
+            }
+        }
+    };
+    submit_current_preview_display(state, preview_identity, submit_and_display)?;
 
     if let Some(analytics) = analytics_config {
         if let Some(buffer) = async_readback_buffer {
@@ -2541,6 +2865,10 @@ fn process_and_get_dynamic_image_inner(
                     {
                         let dynamic_img = DynamicImage::ImageRgba8(img_buf);
                         let _ = analytics.sender.send(crate::AnalyticsJob {
+                            generation: analytics.generation,
+                            input_revision: analytics.input_revision,
+                            render_attempt: analytics.render_attempt,
+                            quality_tier: analytics.quality_tier,
                             path: analytics.path,
                             image: std::sync::Arc::new(dynamic_img),
                             compute_waveform: analytics.compute_waveform,
@@ -2558,6 +2886,10 @@ fn process_and_get_dynamic_image_inner(
                     {
                         let dynamic_img = DynamicImage::ImageRgba8(img_buf);
                         let _ = analytics.sender.send(crate::AnalyticsJob {
+                            generation: analytics.generation,
+                            input_revision: analytics.input_revision,
+                            render_attempt: analytics.render_attempt,
+                            quality_tier: analytics.quality_tier,
                             path: analytics.path,
                             image: std::sync::Arc::new(dynamic_img),
                             compute_waveform: analytics.compute_waveform,
@@ -2569,45 +2901,6 @@ fn process_and_get_dynamic_image_inner(
                 log::warn!("Skipping analytics for a high-precision CPU readback");
             }
         }
-    }
-
-    if output_to_display
-        && let Some(display) = context
-            .display
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .as_mut()
-    {
-        display.latest_transform.image_size = [width as f32, height as f32];
-        display.latest_transform.texture_size =
-            [processor_state.width as f32, processor_state.height as f32];
-
-        queue.write_buffer(
-            &display.transform_buffer,
-            0,
-            bytemuck::bytes_of(&display.latest_transform),
-        );
-
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &display.bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: display.transform_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&processor.output_texture_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::Sampler(&display.sampler),
-                },
-            ],
-            label: None,
-        });
-        display.current_bind_group = Some(bind_group);
-        display.render(device, queue);
     }
 
     if skip_readback {
@@ -2652,8 +2945,84 @@ fn process_and_get_dynamic_image_inner(
 }
 
 #[cfg(test)]
+mod preview_display_tests {
+    use super::*;
+    use crate::app_state::{PREVIEW_SUPERSEDED, PreviewLane};
+
+    #[test]
+    fn superseded_wgpu_copy_and_present_are_never_submitted() {
+        let state = AppState::default();
+        let generation = state.begin_preview_generation();
+        let old = PreviewIdentity {
+            generation,
+            lane: PreviewLane::Main,
+            revision: Some(1),
+        };
+        state.register_preview_intent(old).unwrap();
+        state
+            .register_preview_intent(PreviewIdentity {
+                revision: Some(2),
+                ..old
+            })
+            .unwrap();
+
+        let mut copy_submitted = false;
+        assert_eq!(
+            submit_current_preview_display(&state, Some(old), || copy_submitted = true)
+                .unwrap_err(),
+            PREVIEW_SUPERSEDED
+        );
+        assert!(!copy_submitted);
+    }
+
+    #[test]
+    fn transform_for_old_generation_cannot_redraw_previous_frame() {
+        let state = AppState::default();
+        let old_generation = state.begin_preview_generation();
+        let new_generation = state.begin_preview_generation();
+        let old_identity = PreviewIdentity {
+            generation: old_generation,
+            lane: PreviewLane::Main,
+            revision: None,
+        };
+        let mut transform_submitted = false;
+        assert_eq!(
+            state
+                .with_current_preview_identity(old_identity, || transform_submitted = true)
+                .unwrap_err(),
+            PREVIEW_SUPERSEDED
+        );
+        assert!(!transform_submitted);
+        assert!(!display_frame_matches_generation(
+            Some(old_generation),
+            new_generation
+        ));
+        assert!(!display_frame_matches_generation(None, new_generation));
+        assert!(display_frame_matches_generation(
+            Some(new_generation),
+            new_generation
+        ));
+    }
+}
+
+#[cfg(test)]
 mod precision_tests {
     use super::*;
+
+    #[test]
+    fn ordinary_render_rejects_nonidentity_oversize_and_unaligned_limit() {
+        let mut adjusted = request(None);
+        adjusted.adjustments.global.exposure = 0.75;
+        let error = ordinary_texture_extent(8193, 2, 8192, &adjusted).unwrap_err();
+        assert!(error.contains("8193x2"));
+        assert!(error.contains("8192"));
+        assert_eq!(
+            ordinary_texture_extent(8192, 2, 8192, &adjusted),
+            Ok((8192, 256))
+        );
+        let error = ordinary_texture_extent(8191, 2, 8191, &adjusted).unwrap_err();
+        assert!(error.contains("8191x2"));
+    }
 
     fn request(roi: Option<Roi>) -> RenderRequest<'static> {
         RenderRequest {
@@ -2748,6 +3117,98 @@ mod precision_tests {
         );
     }
 
+    #[test]
+    fn selected_float32_output_contract_and_readback_layout() {
+        let source = high_precision_shader_source().unwrap();
+        assert!(source.contains("rgba32float, write>"));
+        assert!(!source.contains("rgba16float, write>"));
+        assert_eq!(
+            HIGH_PRECISION_OUTPUT_FORMAT,
+            wgpu::TextureFormat::Rgba32Float
+        );
+        assert_eq!(HIGH_PRECISION_OUTPUT_PIXEL_BYTES, 16);
+        assert_eq!(
+            HIGH_PRECISION_OUTPUT_FORMAT.block_copy_size(None),
+            Some(HIGH_PRECISION_OUTPUT_PIXEL_BYTES)
+        );
+        let padded = readback_layout(3, 2, HIGH_PRECISION_OUTPUT_PIXEL_BYTES, 1024).unwrap();
+        assert_eq!(
+            (
+                padded.row,
+                padded.padded_row,
+                padded.buffer_size,
+                padded.data_len
+            ),
+            (48, 256, 512, 96)
+        );
+        let unpadded = readback_layout(16, 2, HIGH_PRECISION_OUTPUT_PIXEL_BYTES, 1024).unwrap();
+        assert_eq!(
+            (unpadded.row, unpadded.padded_row, unpadded.buffer_size),
+            (256, 256, 512)
+        );
+        assert!(readback_layout(u32::MAX, 2, 16, u64::MAX).is_err());
+        assert!(readback_layout(3, 2, 16, 511).is_err());
+        assert!(readback_layout(0, 2, 16, 1024).is_err());
+    }
+
+    #[test]
+    fn float32_readback_padding_channels_offsets_and_finite_policy() {
+        let layout = readback_layout(3, 2, 16, 1024).unwrap();
+        let mut padded = vec![0xee; layout.buffer_size as usize];
+        let values = [
+            [0.0, 0.25, 0.5, 1.0],
+            [1.5, -0.5, f32::NAN, f32::INFINITY],
+            [f32::NEG_INFINITY, 0.125, 0.75, 0.8],
+            [0.1, 0.2, 0.3, 0.4],
+            [0.2, 0.3, 0.4, 0.5],
+            [0.3, 0.4, 0.5, 0.6],
+        ];
+        for (pixel, channels) in values.iter().enumerate() {
+            let row = pixel / 3;
+            let col = pixel % 3;
+            for (channel, value) in channels.iter().enumerate() {
+                let at = row * layout.padded_row as usize + col * 16 + channel * 4;
+                padded[at..at + 4].copy_from_slice(&value.to_ne_bytes());
+            }
+        }
+        let data = remove_readback_padding(&padded, layout, 2).unwrap();
+        assert_eq!(data.len(), 96);
+        let mut output = vec![7u16; 4 * 3 * 4];
+        copy_f32_tile_to_u16(&data, (3, 2), (1, 0), (2, 2), &mut output, (4, 3), (1, 1)).unwrap();
+        assert_eq!(&output[20..24], &[65535, 0, 0, 0]);
+        assert_eq!(&output[24..28], &[0, 8192, 49151, 52428]);
+        assert_eq!(output[0], 7);
+        assert!(
+            copy_f32_tile_to_u16(
+                &data[..95],
+                (3, 2),
+                (0, 0),
+                (1, 1),
+                &mut output,
+                (4, 3),
+                (0, 0)
+            )
+            .is_err()
+        );
+        assert!(remove_readback_padding(&padded[..511], layout, 2).is_err());
+        let direct = (32769f32 / 65535.0 * 65535.0).round() as u16;
+        assert_eq!(
+            decode_output_f32(&(32769f32 / 65535.0).to_ne_bytes()),
+            direct
+        );
+    }
+
+    #[test]
+    fn former_half_float_output_collapses_precision_ramp() {
+        let levels: std::collections::HashSet<u16> = (32768u16..=34822)
+            .map(|value| {
+                let half = f16::from_f32(value as f32 / 65535.0);
+                (half.to_f32() * 65535.0).round() as u16
+            })
+            .collect();
+        assert_eq!(levels.len(), 65);
+    }
+
     /// Run explicitly on a machine with a GPU adapter. This checks actual GPU
     /// shader execution, row padding, tile/ROI assembly and effect bindings.
     #[test]
@@ -2758,6 +3219,7 @@ mod precision_tests {
         let adapter =
             pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default()))
                 .expect("GPU adapter required for precision integration test");
+        eprintln!("precision GPU adapter: {:?}", adapter.get_info());
         let limits = adapter.limits();
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             required_limits: limits.clone(),
@@ -2784,11 +3246,57 @@ mod precision_tests {
             .unwrap()
             .map(|pixel| pixel.0[0])
             .collect();
+        eprintln!(
+            "precision ramp: input first/last={}/{}; output first/last={}/{}; distinct first-row levels={}",
+            input.get_pixel(0, 0)[0],
+            input.get_pixel(2054, 0)[0],
+            output.get_pixel(0, 0)[0],
+            output.get_pixel(2054, 0)[0],
+            levels.len()
+        );
         assert!(
             levels.len() > 1500,
             "Only {} levels survived GPU rendering",
             levels.len()
         );
+        let ramp_maximum = output
+            .pixels()
+            .zip(input.pixels())
+            .map(|(actual, expected)| actual.0[0].abs_diff(expected.0[0]))
+            .max()
+            .unwrap();
+        eprintln!("precision ramp maximum u16 error: {ramp_maximum}");
+        for format in ["png", "tiff"] {
+            let bytes = crate::delivery::encode_profiled_raster(
+                &DynamicImage::ImageRgba16(output.clone()),
+                format,
+                16,
+                format == "png",
+            )
+            .unwrap();
+            crate::delivery::verify_raster_header(&bytes, format, (2055, 3), 16).unwrap();
+            assert!(crate::delivery::verify_profile(&bytes, format).unwrap());
+            let decoded = image::load_from_memory(&bytes).unwrap().to_rgb16();
+            assert_eq!(
+                decoded,
+                DynamicImage::ImageRgba16(output.clone()).to_rgb16()
+            );
+            let encoded_levels: std::collections::HashSet<u16> = decoded
+                .rows()
+                .next()
+                .unwrap()
+                .map(|pixel| pixel.0[0])
+                .collect();
+            assert!(
+                encoded_levels.len() > 1500,
+                "{format} preserved only {} levels",
+                encoded_levels.len()
+            );
+            eprintln!(
+                "GPU {format} roundtrip: {} first-row levels, ICC present",
+                encoded_levels.len()
+            );
+        }
         for (actual, expected) in output.pixels().zip(input.pixels()) {
             assert!(
                 actual.0[0].abs_diff(expected.0[0]) <= 8,
@@ -2857,6 +3365,7 @@ mod precision_tests {
             .map(|(a, b)| a.abs_diff(*b))
             .max()
             .unwrap();
+        eprintln!("streamed spatial maximum u16 difference: {maximum}");
         assert!(
             maximum <= 32,
             "Streamed spatial effect/seam mismatch: {maximum}"
@@ -2893,6 +3402,7 @@ mod precision_tests {
         let adapter =
             pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default()))
                 .expect("GPU adapter required");
+        eprintln!("spatial GPU adapter: {:?}", adapter.get_info());
         let limits = adapter.limits();
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             required_limits: limits.clone(),

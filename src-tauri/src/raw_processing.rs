@@ -15,17 +15,11 @@ use std::sync::{
 pub fn develop_raw_image(
     file_bytes: &[u8],
     fast_demosaic: bool,
-    highlight_compression: f32,
     linear_mode: String,
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<DynamicImage> {
-    let (developed_image, orientation) = develop_internal(
-        file_bytes,
-        fast_demosaic,
-        highlight_compression,
-        linear_mode,
-        cancel_token,
-    )?;
+    let (developed_image, orientation) =
+        develop_internal(file_bytes, fast_demosaic, linear_mode, cancel_token)?;
     Ok(apply_orientation(developed_image, orientation))
 }
 
@@ -129,7 +123,6 @@ fn recover_clipped_pixel(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
 fn develop_internal(
     file_bytes: &[u8],
     fast_demosaic: bool,
-    _highlight_compression: f32,
     linear_mode: String,
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<(DynamicImage, Orientation)> {

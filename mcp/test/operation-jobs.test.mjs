@@ -631,6 +631,33 @@ test('subject refinement guards parent capture then uses imported worker revisio
   assert.deepEqual(done.result.params.exclude_points, args.exclude_points);
 });
 
+test('in-parent AI generation guards capture and uses the imported worker revision', async (t) => {
+  const context = await setup(t);
+  await modelGroup(context, 'masks', { 'encoder.onnx': 'encoder', 'decoder.onnx': 'decoder' });
+  const args = {
+    session_id: 'parent',
+    kind: 'subject',
+    target_mask_id: 'depth-parent',
+    mode: 'intersect',
+    expected_revision: 7,
+    region: { x: 1, y: 2, width: 20, height: 30 },
+  };
+  await assert.rejects(
+    context.manager.dispatch('start_operation', {
+      operation: 'mask_generate',
+      arguments: { ...args, expected_revision: undefined },
+    }),
+    { code: 'INVALID_ARGUMENT' },
+  );
+  const start = await context.manager.dispatch('start_operation', { operation: 'mask_generate', arguments: args });
+  const done = await wait(context.manager, start.job_id);
+  assert.equal(done.status, 'succeeded');
+  assert.equal(context.calls.find((call) => call.method === 'export_session_bundle').params.expected_revision, 7);
+  assert.equal(done.result.params.expected_revision, 11);
+  assert.equal(done.result.params.target_mask_id, 'depth-parent');
+  assert.equal(done.result.params.mode, 'intersect');
+});
+
 test('starting after terminal status waits for prior native process teardown', async (t) => {
   const context = await setup(t, { FAKE_CLOSE_DELAY_MS: '250' });
   const first = await context.manager.dispatch('start_operation', {

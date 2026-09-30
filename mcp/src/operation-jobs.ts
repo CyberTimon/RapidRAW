@@ -362,10 +362,13 @@ export class OperationJobs {
       fail('INVALID_ARGUMENT', 'Enhancement requires expected_revision before capturing its parent snapshot');
     if (
       operation === 'mask_generate' &&
-      args.refine !== undefined &&
+      (args.refine !== undefined || args.target_mask_id !== undefined) &&
       (!Number.isSafeInteger(args.expected_revision) || (args.expected_revision as number) < 0)
     )
-      fail('INVALID_ARGUMENT', 'Refinement requires expected_revision before capturing its parent snapshot');
+      fail(
+        'INVALID_ARGUMENT',
+        'In-parent mask generation requires expected_revision before capturing its parent snapshot',
+      );
     if (operation === 'retouch' && args.mode === 'generative')
       fail(
         'INVALID_ARGUMENT',
@@ -612,11 +615,14 @@ export class OperationJobs {
           ...(job.bundle_sha256 ? { expected_manifest_sha256: job.bundle_sha256 } : {}),
         });
         args.session_id = imported.session_id;
-        if (job.operation === 'enhance' || (job.operation === 'mask_generate' && args.refine !== undefined)) {
+        if (
+          job.operation === 'enhance' ||
+          (job.operation === 'mask_generate' && (args.refine !== undefined || args.target_mask_id !== undefined))
+        ) {
           // The parent revision guarded bundle capture. Refinement now guards
           // this independent imported snapshot, whose revision can differ.
           if (!Number.isSafeInteger(imported.revision) || (imported.revision as number) < 0)
-            fail('INVALID_BUNDLE', 'Imported refinement snapshot lacks its revision');
+            fail('INVALID_BUNDLE', 'Imported mask snapshot lacks its revision');
           args.expected_revision = imported.revision;
         }
       }
