@@ -120,7 +120,7 @@ fn resolve_image_metadata(
         && sync_metadata_from_xmp(image_path, &mut metadata)
         && let Ok(json) = serde_json::to_string_pretty(&metadata)
     {
-        let _ = fs::write(sidecar_path, json);
+        let _ = write_file_atomically(sidecar_path, json);
     }
 
     let is_raw = crate::formats::is_raw_file(image_path);
@@ -1396,6 +1396,44 @@ pub fn is_cloud_placeholder(_path: &Path) -> bool {
     false
 }
 
+/// Replaces `path` so that a crash, power loss, or full disk leaves either the
+/// previous file or the new one, never a truncated edit. The replacement keeps
+/// the existing file's permissions, and a symlink is written through.
+pub fn write_file_atomically(
+    path: impl AsRef<Path>,
+    contents: impl AsRef<[u8]>,
+) -> std::io::Result<()> {
+    use std::io::Write;
+
+    let path = path.as_ref();
+    let target = match fs::symlink_metadata(path) {
+        Ok(meta) if meta.file_type().is_symlink() => fs::canonicalize(path)?,
+        _ => path.to_path_buf(),
+    };
+    let parent = target
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let mut temp = tempfile::Builder::new()
+        .prefix(".rapidraw-")
+        .suffix(".tmp")
+        .tempfile_in(parent)?;
+    temp.write_all(contents.as_ref())?;
+    match fs::metadata(&target) {
+        Ok(existing) => fs::set_permissions(temp.path(), existing.permissions())?,
+        #[cfg(unix)]
+        Err(_) => {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(temp.path(), fs::Permissions::from_mode(0o644))?;
+        }
+        #[cfg(not(unix))]
+        Err(_) => {}
+    }
+    temp.as_file().sync_all()?;
+    temp.persist(&target).map_err(|error| error.error)?;
+    Ok(())
+}
+
 pub fn read_file_mapped(path: &Path) -> Result<Mmap, ReadFileError> {
     if !path.is_file() {
         return Err(ReadFileError::Invalid);
@@ -2666,7 +2704,7 @@ pub fn save_metadata_and_update_thumbnail(
     metadata.adjustments = final_adjustments;
 
     let json_string = serde_json::to_string_pretty(&metadata).map_err(|e| e.to_string())?;
-    std::fs::write(&sidecar_path, json_string).map_err(|e| e.to_string())?;
+    write_file_atomically(&sidecar_path, json_string).map_err(|e| e.to_string())?;
 
     if let Ok(settings) = load_settings(app_handle.clone())
         && settings.enable_xmp_sync.unwrap_or(false)
@@ -2791,7 +2829,7 @@ pub async fn apply_adjustments_to_paths(
             existing_metadata.adjustments = new_adjustments;
 
             if let Ok(json_string) = serde_json::to_string_pretty(&existing_metadata) {
-                let _ = std::fs::write(&sidecar_path, json_string);
+                let _ = write_file_atomically(&sidecar_path, json_string);
             }
 
             if enable_xmp_sync {
@@ -2868,7 +2906,7 @@ pub async fn reset_adjustments_for_paths(
             existing_metadata.adjustments = serde_json::json!({});
 
             if let Ok(json_string) = serde_json::to_string_pretty(&existing_metadata) {
-                let _ = std::fs::write(&sidecar_path, json_string);
+                let _ = write_file_atomically(&sidecar_path, json_string);
             }
 
             if enable_xmp_sync {
@@ -2975,7 +3013,7 @@ pub async fn apply_auto_lens_correction_to_paths(
             );
 
             if let Ok(json_string) = serde_json::to_string_pretty(&existing_metadata) {
-                let _ = std::fs::write(&sidecar_path, json_string);
+                let _ = write_file_atomically(&sidecar_path, json_string);
             }
 
             if enable_xmp_sync {
@@ -3094,7 +3132,7 @@ pub async fn apply_auto_adjustments_to_paths(
                     }
 
                     if let Ok(json_string) = serde_json::to_string_pretty(&existing_metadata) {
-                        let _ = std::fs::write(&sidecar_path, json_string);
+                        let _ = write_file_atomically(&sidecar_path, json_string);
                     }
 
                     if enable_xmp_sync {
@@ -3171,7 +3209,7 @@ pub fn set_color_label_for_paths(
         }
 
         if let Ok(json_string) = serde_json::to_string_pretty(&metadata) {
-            let _ = std::fs::write(&sidecar_path, json_string);
+            let _ = write_file_atomically(&sidecar_path, json_string);
         }
 
         if enable_xmp_sync {
@@ -3201,7 +3239,7 @@ pub fn set_rating_for_paths(
         metadata.rating = rating;
 
         if let Ok(json_string) = serde_json::to_string_pretty(&metadata) {
-            let _ = std::fs::write(&sidecar_path, json_string);
+            let _ = write_file_atomically(&sidecar_path, json_string);
         }
 
         if enable_xmp_sync {
@@ -3225,7 +3263,7 @@ pub fn load_metadata(path: String, app_handle: AppHandle) -> Result<ImageMetadat
         && sync_metadata_from_xmp(&source_path, &mut metadata)
         && let Ok(json) = serde_json::to_string_pretty(&metadata)
     {
-        let _ = fs::write(&sidecar_path, json);
+        let _ = write_file_atomically(&sidecar_path, json);
     }
 
     Ok(metadata)
@@ -4242,7 +4280,7 @@ pub fn create_virtual_copy(
         let default_metadata = ImageMetadata::default();
         let json_string =
             serde_json::to_string_pretty(&default_metadata).map_err(|e| e.to_string())?;
-        fs::write(new_sidecar_path, json_string).map_err(|e| e.to_string())?;
+        write_file_atomically(&new_sidecar_path, json_string).map_err(|e| e.to_string())?;
     }
 
     if let Some(album_id) = target_album_id {
@@ -4472,7 +4510,7 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
             }
         }
 
-        let _ = fs::write(&xmp_file, content);
+        let _ = write_file_atomically(&xmp_file, content);
     }
 }
 
@@ -4761,5 +4799,86 @@ mod lens_aperture_tests {
             );
         }
         assert_eq!(lens_aperture_from_exif(&metadata(None, None)), None);
+    }
+}
+
+#[cfg(test)]
+mod atomic_write_tests {
+    use super::write_file_atomically;
+    use std::fs;
+
+    fn leftover_temp_files(dir: &std::path::Path) -> usize {
+        fs::read_dir(dir)
+            .unwrap()
+            .filter(|entry| {
+                entry
+                    .as_ref()
+                    .unwrap()
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(".rapidraw-")
+            })
+            .count()
+    }
+
+    #[test]
+    fn replaces_contents_and_keeps_permissions() {
+        let dir = tempfile::tempdir().unwrap();
+        let sidecar = dir.path().join("photo.cr3.rrdata");
+        write_file_atomically(&sidecar, "{\"rating\":1}").unwrap();
+        assert_eq!(fs::read_to_string(&sidecar).unwrap(), "{\"rating\":1}");
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(&sidecar).unwrap().permissions().mode() & 0o777,
+                0o644
+            );
+            fs::set_permissions(&sidecar, fs::Permissions::from_mode(0o664)).unwrap();
+        }
+        write_file_atomically(&sidecar, "{\"rating\":5}").unwrap();
+        assert_eq!(fs::read_to_string(&sidecar).unwrap(), "{\"rating\":5}");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(&sidecar).unwrap().permissions().mode() & 0o777,
+                0o664
+            );
+        }
+        assert_eq!(leftover_temp_files(dir.path()), 0);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn writes_through_a_symlinked_sidecar() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("shared.rrdata");
+        let link = dir.path().join("photo.cr3.rrdata");
+        fs::write(&target, "old").unwrap();
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        write_file_atomically(&link, "new").unwrap();
+        assert!(
+            fs::symlink_metadata(&link)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+        assert_eq!(fs::read_to_string(&target).unwrap(), "new");
+    }
+
+    #[test]
+    fn failed_replace_keeps_the_existing_entry() {
+        let dir = tempfile::tempdir().unwrap();
+        // A directory cannot be replaced by a file, so the final rename fails.
+        let occupied = dir.path().join("photo.cr3.rrdata");
+        fs::create_dir(&occupied).unwrap();
+        fs::write(occupied.join("keep"), "kept").unwrap();
+
+        assert!(write_file_atomically(&occupied, "new").is_err());
+        assert_eq!(fs::read_to_string(occupied.join("keep")).unwrap(), "kept");
+        assert_eq!(leftover_temp_files(dir.path()), 0);
     }
 }

@@ -13,6 +13,10 @@ Changes added by this fork to RapidRAW. Upstream application changes remain in t
 - Decode the next and previous photos in the background while you edit, so stepping through a folder skips the RAW decode. On an Apple M4 with 32 MP CR3 files, opening the next photo drops from about 1.6 s to about 0.15 s once its prefetch has finished; stepping earlier reuses the decode in progress and still waits for it. Prefetching runs at low priority, stops when you open another photo or leave the editor, and is skipped if the photo won't fit in the cache beside the open one. The decoded-photo cache now scales with memory (one eighth of RAM, 512 MiB to 4 GiB) instead of a fixed 512 MiB, which held only one such photo. Linux was not measured.
 - Read application settings from memory instead of parsing the settings file for every preview frame. Reproduce the preview timings with `cargo test --lib preview_perf_bench -- --ignored --nocapture` in `src-tauri`.
 
+### Saved edits
+
+- Save edit files (adjustments, ratings, tags, and color labels), metadata sidecars, and existing XMP sidecars when XMP sync is on by writing a temporary file, flushing it to disk, and renaming it over the original. A crash or interrupted save now leaves the previous version intact instead of a truncated file. Replaced sidecars keep their permissions, and symlinked sidecars are updated at their target. Power-loss behavior was not tested.
+
 ### Rendering and export reliability
 
 - Fail an ordinary GPU render when image dimensions or aligned texture allocation exceed the device limit, instead of reporting an unprocessed image as a successful render. Final 16-bit TIFF exports use the high-precision render path.

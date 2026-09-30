@@ -234,7 +234,7 @@ pub fn load_sidecar(sidecar_path: &Path) -> ImageMetadata {
     }
 
     if healed && let Ok(json) = serde_json::to_string_pretty(&meta) {
-        let _ = fs::write(sidecar_path, json);
+        let _ = crate::file_management::write_file_atomically(sidecar_path, json);
         log::info!(
             "Auto-healed bloated sidecar for: {}",
             sidecar_path.display()
@@ -1597,7 +1597,7 @@ fn load_primary_metadata(image_path: &Path) -> ImageMetadata {
 fn save_primary_metadata(image_path: &Path, metadata: &ImageMetadata) -> std::io::Result<()> {
     let primary = get_primary_sidecar_path(image_path);
     let json = serde_json::to_string_pretty(metadata).map_err(std::io::Error::other)?;
-    fs::write(&primary, json)
+    crate::file_management::write_file_atomically(&primary, json)
 }
 
 pub fn read_rrexif_sidecar(image_path: &Path) -> Option<HashMap<String, String>> {
