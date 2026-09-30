@@ -17,6 +17,7 @@ import {
   MAX_TEMPERATURE,
   MAX_TINT,
   MIN_TEMPERATURE,
+  RELATIVE_RANGE,
   resolveWhiteBalance,
   WhiteBalance,
   WhiteBalanceMode,
@@ -466,10 +467,13 @@ export default function ColorPanel({
     setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: parseFloat(value) }));
   };
 
-  const isKelvinMode =
-    !isForMask && !!asShotWhiteBalance && getWhiteBalanceMode(appSettings) === WhiteBalanceMode.Kelvin;
-  const relativeWhiteBalance = getRelativeWhiteBalance(asShotWhiteBalance, adjustments);
-  const kelvinWhiteBalance = asShotWhiteBalance && resolveWhiteBalance(asShotWhiteBalance, adjustments);
+  const kelvinAsShot =
+    !isForMask && getWhiteBalanceMode(appSettings) === WhiteBalanceMode.Kelvin ? asShotWhiteBalance : undefined;
+  const isKelvinMode = !!kelvinAsShot;
+  const displayedWhiteBalance = kelvinAsShot
+    ? resolveWhiteBalance(kelvinAsShot, adjustments)
+    : getRelativeWhiteBalance(asShotWhiteBalance, adjustments);
+  const tintRange = kelvinAsShot ? MAX_TINT : RELATIVE_RANGE;
 
   const toggleWhiteBalanceMode = () => {
     if (appSettings) {
@@ -480,24 +484,18 @@ export default function ColorPanel({
     }
   };
 
-  const handleRelativeWhiteBalanceChange = (key: keyof WhiteBalance, value: number | string) => {
-    setAdjustments((prev: Adjustments) =>
-      prev.whiteBalance
+  const handleWhiteBalanceChange = (key: keyof WhiteBalance, value: number | string) => {
+    setAdjustments((prev: Adjustments) => {
+      if (kelvinAsShot) {
+        return withKelvinWhiteBalance(prev, { ...resolveWhiteBalance(kelvinAsShot, prev), [key]: Number(value) });
+      }
+      return prev.whiteBalance
         ? withRelativeWhiteBalance(prev, {
             ...getRelativeWhiteBalance(asShotWhiteBalance, prev),
             [key]: Number(value),
           })
-        : { ...prev, [key]: Number(value) },
-    );
-  };
-
-  const handleKelvinWhiteBalanceChange = (key: keyof WhiteBalance, value: number | string) => {
-    if (!asShotWhiteBalance) {
-      return;
-    }
-    setAdjustments((prev: Adjustments) =>
-      withKelvinWhiteBalance(prev, { ...resolveWhiteBalance(asShotWhiteBalance, prev), [key]: Number(value) }),
-    );
+        : { ...prev, [key]: Number(value) };
+    });
   };
 
   const handleHslChange = (key: ColorAdjustment, value: string) => {
@@ -553,61 +551,32 @@ export default function ColorPanel({
           order={toolOrder.indexOf('whiteBalance')}
           title={t('adjustments.color.whiteBalance')}
         >
-          {isKelvinMode && asShotWhiteBalance && kelvinWhiteBalance ? (
-            <>
-              <Slider
-                key="kelvinTemperature"
-                defaultValue={asShotWhiteBalance.temperature}
-                label={t('adjustments.color.temperature')}
-                max={MAX_TEMPERATURE}
-                min={MIN_TEMPERATURE}
-                onChange={(e: SliderChangeEvent) => handleKelvinWhiteBalanceChange('temperature', e.target.value)}
-                scale={kelvinSliderScale}
-                step={50}
-                suffix="K"
-                value={kelvinWhiteBalance.temperature}
-                trackClassName="temperature-gradient-track"
-                onDragStateChange={onDragStateChange}
-              />
-              <Slider
-                key="kelvinTint"
-                defaultValue={asShotWhiteBalance.tint}
-                label={t('adjustments.color.tint')}
-                max={MAX_TINT}
-                min={-MAX_TINT}
-                onChange={(e: SliderChangeEvent) => handleKelvinWhiteBalanceChange('tint', e.target.value)}
-                step={1}
-                value={kelvinWhiteBalance.tint}
-                trackClassName="tint-gradient-track"
-                onDragStateChange={onDragStateChange}
-              />
-            </>
-          ) : (
-            <>
-              <Slider
-                key="relativeTemperature"
-                label={t('adjustments.color.temperature')}
-                max={100}
-                min={-100}
-                onChange={(e: SliderChangeEvent) => handleRelativeWhiteBalanceChange('temperature', e.target.value)}
-                step={1}
-                value={relativeWhiteBalance.temperature}
-                trackClassName="temperature-gradient-track"
-                onDragStateChange={onDragStateChange}
-              />
-              <Slider
-                key="relativeTint"
-                label={t('adjustments.color.tint')}
-                max={100}
-                min={-100}
-                onChange={(e: SliderChangeEvent) => handleRelativeWhiteBalanceChange('tint', e.target.value)}
-                step={1}
-                value={relativeWhiteBalance.tint}
-                trackClassName="tint-gradient-track"
-                onDragStateChange={onDragStateChange}
-              />
-            </>
-          )}
+          <Slider
+            key={isKelvinMode ? 'kelvinTemperature' : 'temperature'}
+            defaultValue={kelvinAsShot?.temperature}
+            label={t('adjustments.color.temperature')}
+            max={kelvinAsShot ? MAX_TEMPERATURE : RELATIVE_RANGE}
+            min={kelvinAsShot ? MIN_TEMPERATURE : -RELATIVE_RANGE}
+            onChange={(e: SliderChangeEvent) => handleWhiteBalanceChange('temperature', e.target.value)}
+            scale={kelvinAsShot ? kelvinSliderScale : undefined}
+            step={kelvinAsShot ? 50 : 1}
+            suffix={kelvinAsShot ? 'K' : undefined}
+            value={displayedWhiteBalance.temperature}
+            trackClassName="temperature-gradient-track"
+            onDragStateChange={onDragStateChange}
+          />
+          <Slider
+            key={isKelvinMode ? 'kelvinTint' : 'tint'}
+            defaultValue={kelvinAsShot?.tint}
+            label={t('adjustments.color.tint')}
+            max={tintRange}
+            min={-tintRange}
+            onChange={(e: SliderChangeEvent) => handleWhiteBalanceChange('tint', e.target.value)}
+            step={1}
+            value={displayedWhiteBalance.tint}
+            trackClassName="tint-gradient-track"
+            onDragStateChange={onDragStateChange}
+          />
         </AdjustmentSubSection>
       )}
 

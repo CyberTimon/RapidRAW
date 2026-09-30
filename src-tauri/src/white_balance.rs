@@ -1,5 +1,7 @@
 use crate::file_management::{parse_virtual_path, read_file_mapped};
 use crate::formats::is_raw_file;
+use crate::image_processing::{PRIMARIES_SRGB, WP_D65, primaries_to_xyz_matrix};
+use glam::{DMat3, DVec3, Mat3};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -13,15 +15,12 @@ pub const MIRED_PER_RELATIVE_UNIT: f64 = 1.5;
 pub const TINT_PER_RELATIVE_UNIT: f64 = 1.5;
 
 const TINT_SCALE: f64 = -3000.0;
-const D65_XY: (f64, f64) = (0.31271, 0.32902);
 const ILLUMINANT_A_TEMPERATURE: f64 = 2856.0;
 const ILLUMINANT_D65_TEMPERATURE: f64 = 6504.0;
 
-const BRADFORD: [[f64; 3]; 3] = [
-    [0.8951, 0.2664, -0.1614],
-    [-0.7502, 1.7135, 0.0367],
-    [0.0389, -0.0685, 1.0296],
-];
+const BRADFORD: DMat3 = DMat3::from_cols_array(&[
+    0.8951, -0.7502, 0.0389, 0.2664, 1.7135, -0.0685, -0.1614, 0.0367, 1.0296,
+]);
 
 const ROBERTSON_ISOTHERMS: [[f64; 4]; 31] = [
     [0.0, 0.18006, 0.26352, -0.24341],
@@ -70,7 +69,15 @@ fn isotherm_direction(slope: f64) -> (f64, f64) {
 
 impl WhiteBalance {
     pub fn reference() -> Self {
-        Self::from_xy(D65_XY.0, D65_XY.1)
+        Self::from_xy(WP_D65.x as f64, WP_D65.y as f64)
+    }
+
+    fn from_xyz(xyz: DVec3) -> Option<Self> {
+        let sum = xyz.element_sum();
+        if !sum.is_finite() || sum <= 0.0 || xyz.y <= 0.0 {
+            return None;
+        }
+        Some(Self::from_xy(xyz.x / sum, xyz.y / sum))
     }
 
     pub fn from_xy(x: f64, y: f64) -> Self {
@@ -156,10 +163,9 @@ impl WhiteBalance {
         .clamped()
     }
 
-    fn lms(self) -> [f64; 3] {
+    fn lms(self) -> DVec3 {
         let (x, y) = self.to_xy();
-        let xyz = [x / y, 1.0, (1.0 - x - y) / y];
-        BRADFORD.map(|row| row[0] * xyz[0] + row[1] * xyz[1] + row[2] * xyz[2])
+        BRADFORD * DVec3::new(x / y, 1.0, (1.0 - x - y) / y)
     }
 
     pub fn from_camera_neutral(xyz_to_camera: &[f32], neutral: &[f32]) -> Option<Self> {
@@ -167,25 +173,20 @@ impl WhiteBalance {
         if channels < 3 || neutral.len() < channels {
             return None;
         }
-        let mut normal = [[0.0; 3]; 3];
-        let mut rhs = [0.0; 3];
-        for (row, &n) in xyz_to_camera.as_chunks::<3>().0.iter().zip(neutral) {
-            let r = row.map(|v| v as f64);
-            let n = n as f64;
-            for i in 0..3 {
-                rhs[i] += r[i] * n;
-                for j in 0..3 {
-                    normal[i][j] += r[i] * r[j];
-                }
-            }
-        }
-
-        let xyz = solve_3x3(normal, rhs)?;
-        let sum = xyz[0] + xyz[1] + xyz[2];
-        if !sum.is_finite() || sum <= 0.0 || xyz[1] <= 0.0 {
+        let (normal, rhs) = xyz_to_camera.as_chunks::<3>().0.iter().zip(neutral).fold(
+            (DMat3::ZERO, DVec3::ZERO),
+            |(normal, rhs), (row, &n)| {
+                let r = DVec3::from_array(row.map(f64::from));
+                (
+                    normal + DMat3::from_cols(r * r.x, r * r.y, r * r.z),
+                    rhs + r * n as f64,
+                )
+            },
+        );
+        if normal.determinant().abs() < 1e-12 {
             return None;
         }
-        Some(Self::from_xy(xyz[0] / sum, xyz[1] / sum))
+        Self::from_xyz(normal.inverse() * rhs)
     }
 
     pub fn from_dual_illuminant_camera_neutral(
@@ -218,31 +219,14 @@ impl WhiteBalance {
     }
 }
 
-fn solve_3x3(m: [[f64; 3]; 3], b: [f64; 3]) -> Option<[f64; 3]> {
-    let det = |m: &[[f64; 3]; 3]| {
-        m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
-            - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
-            + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
-    };
-    let d = det(&m);
-    if d.abs() < 1e-12 {
-        return None;
-    }
-    let mut result = [0.0; 3];
-    for (col, value) in result.iter_mut().enumerate() {
-        let mut replaced = m;
-        for row in 0..3 {
-            replaced[row][col] = b[row];
-        }
-        *value = det(&replaced) / d;
-    }
-    Some(result)
+pub fn adaptation_log_gains(current: WhiteBalance, target: WhiteBalance) -> [f32; 3] {
+    (current.lms() / target.lms())
+        .to_array()
+        .map(|gain| gain.ln() as f32)
 }
 
-pub fn adaptation_log_gains(current: WhiteBalance, target: WhiteBalance) -> [f32; 3] {
-    let from = current.lms();
-    let to = target.lms();
-    [0, 1, 2].map(|i| (from[i] / to[i]).ln() as f32)
+pub fn rgb_to_lms() -> Mat3 {
+    (BRADFORD * primaries_to_xyz_matrix(&PRIMARIES_SRGB, WP_D65).as_dmat3()).as_mat3()
 }
 
 pub fn from_adjustments(adjustments: &Value, as_shot: WhiteBalance) -> WhiteBalance {
@@ -258,29 +242,14 @@ pub fn from_adjustments(adjustments: &Value, as_shot: WhiteBalance) -> WhiteBala
 
 #[tauri::command]
 pub fn pick_white_balance(sample: [f64; 3], current: WhiteBalance) -> Option<WhiteBalance> {
-    const SRGB_TO_XYZ: [[f64; 3]; 3] = [
-        [0.4124564, 0.3575761, 0.1804375],
-        [0.2126729, 0.7151522, 0.0721750],
-        [0.0193339, 0.1191920, 0.9503041],
-    ];
-    let to_lms = |rgb: [f64; 3]| {
-        let xyz = SRGB_TO_XYZ.map(|row| row[0] * rgb[0] + row[1] * rgb[1] + row[2] * rgb[2]);
-        BRADFORD.map(|row| row[0] * xyz[0] + row[1] * xyz[1] + row[2] * xyz[2])
-    };
-    let sample_lms = to_lms(sample);
-    let white_lms = to_lms([1.0, 1.0, 1.0]);
-    let current_lms = current.lms();
-    if sample_lms.iter().any(|v| *v <= 0.0) {
+    let rgb_to_lms = rgb_to_lms().as_dmat3();
+    let sample_lms = rgb_to_lms * DVec3::from_array(sample);
+    if sample_lms.min_element() <= 0.0 {
         return None;
     }
-
-    let illuminant_lms = [0, 1, 2].map(|i| current_lms[i] * sample_lms[i] / white_lms[i]);
-    let xyz = solve_3x3(BRADFORD, illuminant_lms)?;
-    let sum = xyz[0] + xyz[1] + xyz[2];
-    if !sum.is_finite() || sum <= 0.0 {
-        return None;
-    }
-    Some(WhiteBalance::from_xy(xyz[0] / sum, xyz[1] / sum).clamped())
+    let white_lms = rgb_to_lms * DVec3::ONE;
+    let illuminant_xyz = BRADFORD.inverse() * (current.lms() * sample_lms / white_lms);
+    WhiteBalance::from_xyz(illuminant_xyz).map(WhiteBalance::clamped)
 }
 
 fn as_shot_cache() -> &'static Mutex<HashMap<String, WhiteBalance>> {

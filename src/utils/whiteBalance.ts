@@ -48,13 +48,13 @@ export const resolveWhiteBalance = (asShot: WhiteBalance, adjustments: WhiteBala
   };
 };
 
+const toRelativeUnits = (value: number) => clamp(Math.round(value), -RELATIVE_RANGE, RELATIVE_RANGE);
+
 export const toRelativeWhiteBalance = (asShot: WhiteBalance, whiteBalance: WhiteBalance): WhiteBalance => ({
-  temperature: clamp(
+  temperature: toRelativeUnits(
     (toMired(asShot.temperature) - toMired(whiteBalance.temperature)) / MIRED_PER_RELATIVE_UNIT,
-    -RELATIVE_RANGE,
-    RELATIVE_RANGE,
   ),
-  tint: clamp((whiteBalance.tint - asShot.tint) / TINT_PER_RELATIVE_UNIT, -RELATIVE_RANGE, RELATIVE_RANGE),
+  tint: toRelativeUnits((whiteBalance.tint - asShot.tint) / TINT_PER_RELATIVE_UNIT),
 });
 
 export const getRelativeWhiteBalance = (

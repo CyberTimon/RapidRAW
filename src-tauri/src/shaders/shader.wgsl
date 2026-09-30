@@ -81,6 +81,8 @@ struct GlobalAdjustments {
     _pad_agx3: f32,
     agx_pipe_to_rendering_matrix: mat3x3<f32>,
     agx_rendering_to_pipe_matrix: mat3x3<f32>,
+    wb_rgb_to_lms_matrix: mat3x3<f32>,
+    wb_lms_to_rgb_matrix: mat3x3<f32>,
 
     _pad_cg1: f32,
     _pad_cg2: f32,
@@ -684,24 +686,15 @@ fn apply_color_calibration(color: vec3<f32>, cal: ColorCalibrationSettings) -> v
     return c;
 }
 
-const RGB_TO_LMS = mat3x3<f32>(
-    vec3<f32>(0.4227253, 0.0556998, 0.0213826),
-    vec3<f32>(0.4913453, 0.9615341, 0.0876419),
-    vec3<f32>(0.0273579, 0.0231838, 0.9805081)
-);
-const LMS_TO_RGB = mat3x3<f32>(
-    vec3<f32>(2.5380445, -0.1460041, -0.0422985),
-    vec3<f32>(-1.2932770, 1.1166483, -0.0716072),
-    vec3<f32>(-0.0402369, -0.0223290, 1.0227527)
-);
-
 fn apply_white_balance(color: vec3<f32>, log_gains: vec3<f32>) -> vec3<f32> {
     if (all(log_gains == vec3<f32>(0.0))) {
         return color;
     }
+    let rgb_to_lms = adjustments.global.wb_rgb_to_lms_matrix;
+    let lms_to_rgb = adjustments.global.wb_lms_to_rgb_matrix;
     let gains = exp(log_gains);
-    let white = LMS_TO_RGB * (gains * (RGB_TO_LMS * vec3<f32>(1.0)));
-    return LMS_TO_RGB * (gains * (RGB_TO_LMS * color)) / get_luma(white);
+    let white = lms_to_rgb * (gains * (rgb_to_lms * vec3<f32>(1.0)));
+    return lms_to_rgb * (gains * (rgb_to_lms * color)) / get_luma(white);
 }
 
 fn apply_creative_color(color: vec3<f32>, sat: f32, vib: f32) -> vec3<f32> {
