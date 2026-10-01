@@ -1602,8 +1602,13 @@
       "title": "General Settings",
       "toolFocusMode": "Tool Focus Mode",
       "toolFocusModeDesc": "Automatically collapses the other tools in a panel when you expand one.",
+      "xmpConflict": "XMP Conflict Handling",
+      "xmpConflictDesc": "How ratings, color labels and tags read from XMP files (including digiKam and darktable IMG.CR2.xmp sidecars) are merged with RapidRAW's own data. These sidecars are only read, never modified.",
+      "xmpConflictFillEmpty": "Only fill missing values",
+      "xmpConflictNewestWins": "Most recently modified file wins",
+      "xmpConflictXmpWins": "XMP always wins",
       "xmpSync": "XMP Metadata Sync",
-      "xmpSyncDesc": "Sync ratings, color labels and tags to standard XMP sidecar files for compatibility with other photo editors."
+      "xmpSyncDesc": "Sync ratings, color labels and tags with standard XMP sidecar files for compatibility with other photo editors. Sidecars from digiKam and darktable (IMG.CR2.xmp) are read too."
     },
     "keybinds": {
       "actions": {

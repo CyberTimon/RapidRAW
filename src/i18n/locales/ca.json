@@ -1602,6 +1602,11 @@
       "title": "Configuració general",
       "toolFocusMode": "Mode de concentració en eines",
       "toolFocusModeDesc": "Replega automàticament les altres eines d'un tauler quan n'amplieu una.",
+      "xmpConflict": "XMP Conflict Handling",
+      "xmpConflictDesc": "How ratings, color labels and tags read from XMP files (including digiKam and darktable IMG.CR2.xmp sidecars) are merged with RapidRAW's own data. These sidecars are only read, never modified.",
+      "xmpConflictFillEmpty": "Only fill missing values",
+      "xmpConflictNewestWins": "Most recently modified file wins",
+      "xmpConflictXmpWins": "XMP always wins",
       "xmpSync": "Sincronització de metadades XMP",
       "xmpSyncDesc": "Sincronitzar puntuacions, etiquetes de color i etiquetes amb fitxers sidecar XMP estàndard per a la compatibilitat amb altres editors de fotos."
     },

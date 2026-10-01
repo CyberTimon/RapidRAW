@@ -1600,6 +1600,11 @@
       "title": "通用设置",
       "toolFocusMode": "工具专注模式",
       "toolFocusModeDesc": "展开某个工具时，自动折叠同一面板中的其他工具。",
+      "xmpConflict": "XMP Conflict Handling",
+      "xmpConflictDesc": "How ratings, color labels and tags read from XMP files (including digiKam and darktable IMG.CR2.xmp sidecars) are merged with RapidRAW's own data. These sidecars are only read, never modified.",
+      "xmpConflictFillEmpty": "Only fill missing values",
+      "xmpConflictNewestWins": "Most recently modified file wins",
+      "xmpConflictXmpWins": "XMP always wins",
       "xmpSync": "XMP 元数据同步",
       "xmpSyncDesc": "将评分、颜色标签和标签同步到标准 XMP 附属文件，以便与其他照片编辑器兼容。"
     },

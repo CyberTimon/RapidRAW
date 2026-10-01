@@ -7,6 +7,7 @@ use serde_json::Value;
 use tauri::{AppHandle, Manager};
 
 use crate::app_state::AppState;
+use crate::xmp_sidecar::XmpConflictPolicy;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -517,6 +518,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub create_xmp_if_missing: Option<bool>,
     #[serde(default)]
+    pub xmp_conflict_policy: Option<XmpConflictPolicy>,
+    #[serde(default)]
     pub is_waveform_visible: Option<bool>,
     #[serde(default)]
     pub waveform_height: Option<u32>,
@@ -641,6 +644,7 @@ impl Default for AppSettings {
             linear_raw_mode: default_linear_raw_mode(),
             enable_xmp_sync: Some(true),
             create_xmp_if_missing: Some(false),
+            xmp_conflict_policy: Some(XmpConflictPolicy::NewestWins),
             is_waveform_visible: Some(false),
             waveform_height: Some(220),
             active_waveform_channel: Some("luma".to_string()),

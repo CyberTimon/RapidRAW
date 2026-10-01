@@ -33,7 +33,7 @@ import Input from '../ui/Input';
 import Slider from '../ui/Slider';
 import { ThemeProps, THEMES, DEFAULT_THEME_ID } from '../../utils/themes';
 import { useTranslation } from 'react-i18next';
-import { Invokes } from '../ui/AppProperties';
+import { AppSettings, Invokes } from '../ui/AppProperties';
 import {
   formatKeyCode,
   KeybindDefinition,
@@ -1133,11 +1133,10 @@ export default function SettingsPanel({
                         <AnimatePresence initial={false}>
                           {(appSettings?.enableXmpSync ?? true) && (
                             <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: 'auto', opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
+                              initial={{ height: 0, opacity: 0, overflow: 'hidden' }}
+                              animate={{ height: 'auto', opacity: 1, transitionEnd: { overflow: 'visible' } }}
+                              exit={{ height: 0, opacity: 0, overflow: 'hidden' }}
                               transition={{ duration: 0.3, ease: 'easeInOut' }}
-                              className="overflow-hidden"
                             >
                               <div className="pl-4 border-l-2 border-border-color ml-1">
                                 <SettingItem
@@ -1151,6 +1150,24 @@ export default function SettingsPanel({
                                     onChange={(checked) =>
                                       onSettingsChange({ ...appSettings, createXmpIfMissing: checked })
                                     }
+                                  />
+                                </SettingItem>
+
+                                <SettingItem
+                                  label={t('settings.general.xmpConflict')}
+                                  description={t('settings.general.xmpConflictDesc')}
+                                >
+                                  <Dropdown
+                                    onChange={(value: AppSettings['xmpConflictPolicy']) =>
+                                      onSettingsChange({ ...appSettings, xmpConflictPolicy: value })
+                                    }
+                                    options={[
+                                      { value: 'fillEmpty', label: t('settings.general.xmpConflictFillEmpty') },
+                                      { value: 'newestWins', label: t('settings.general.xmpConflictNewestWins') },
+                                      { value: 'xmpWins', label: t('settings.general.xmpConflictXmpWins') },
+                                    ]}
+                                    value={appSettings?.xmpConflictPolicy || 'fillEmpty'}
+                                    triggerClassName="bg-bg-primary"
                                   />
                                 </SettingItem>
                               </div>
