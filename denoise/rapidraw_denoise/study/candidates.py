@@ -4,7 +4,8 @@ require_space()
 import json, time
 import numpy as np
 import torch
-from rapidraw_denoise.inference import load_model, transform, inverse_transform
+from rapidraw_denoise.inference import load_model
+from rapidraw_denoise.study.transforms import transform, inverse_transform
 from rapidraw_denoise.raw import sha256
 from .evaluate import extra_metrics
 from .common import ROOT as R, STUDY as S

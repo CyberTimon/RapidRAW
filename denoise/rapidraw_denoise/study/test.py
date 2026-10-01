@@ -3,7 +3,8 @@ from .common import require_space
 require_space()
 from pathlib import Path
 import json, time, numpy as np, torch
-from rapidraw_denoise.inference import load_model, transform, inverse_transform
+from rapidraw_denoise.inference import load_model
+from rapidraw_denoise.study.transforms import transform, inverse_transform
 from rapidraw_denoise.raw import sha256
 from .evaluate import extra_metrics
 from .common import ROOT as R, STUDY as S

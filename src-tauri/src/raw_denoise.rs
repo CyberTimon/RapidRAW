@@ -8,7 +8,7 @@ use crate::{
     denoising::DenoiseControl,
     nonlocal_coreml::{self, COREML_BACKEND_GENERATION, COREML_PACKAGE_SHA},
     nonlocal_onnx::{
-        self, ALGORITHM, BACKEND_GENERATION, NativeConfig, ONNX_MODEL_SHA, SOURCE_CHECKPOINT_SHA,
+        self, ALGORITHM, BACKEND_GENERATION, HALO, NativeConfig, SOURCE_CHECKPOINT_SHA, TILE,
     },
 };
 use anyhow::{Context, Result, bail, ensure};
@@ -293,17 +293,16 @@ fn write_packed_input(path: &Path, values: &[f32]) -> Result<()> {
 /// different hash preimage, so they can never be accepted as native results.
 fn native_onnx_request(
     config: &NativeConfig,
-    packed_height: usize,
-    packed_width: usize,
+    model_sha256: &str,
+    (packed_height, packed_width): (usize, usize),
     input_sha: &str,
     source_sha: &str,
-    ensemble: u32,
     ort_build: &str,
 ) -> Value {
     json!({"protocol":2,"algorithm":ALGORITHM,"backend":BACKEND_GENERATION,
-        "model_sha256":ONNX_MODEL_SHA,"source_checkpoint_sha256":SOURCE_CHECKPOINT_SHA,
+        "model_sha256":model_sha256,"source_checkpoint_sha256":SOURCE_CHECKPOINT_SHA,
         "input_sha256":input_sha,"source_sha256":source_sha,
-        "shape":[4,packed_height,packed_width],"tile":320,"halo":64,"ensemble":ensemble,
+        "shape":[4,packed_height,packed_width],"tile":TILE,"halo":HALO,
         "provider":config.provider_as_str(),
         "device_id":config.device_id_or_null(),
         "graph_optimization":false,"tf32":false,
@@ -377,13 +376,12 @@ fn native_coreml_request(
     packed_width: usize,
     input_sha: &str,
     source_sha: &str,
-    ensemble: u32,
 ) -> Value {
     json!({"protocol":3,"algorithm":ALGORITHM,"backend":COREML_BACKEND_GENERATION,
         "package_sha256":COREML_PACKAGE_SHA,"package_tree_sha256":tree_sha256,
         "source_checkpoint_sha256":SOURCE_CHECKPOINT_SHA,
         "input_sha256":input_sha,"source_sha256":source_sha,
-        "shape":[4,packed_height,packed_width],"tile":320,"halo":64,"ensemble":ensemble,
+        "shape":[4,packed_height,packed_width],"tile":TILE,"halo":HALO,
         "provider":"coreml","compute_units":nonlocal_coreml::COREML_COMPUTE_UNITS,
         "allow_low_precision_accumulation":false,
         "os":nonlocal_coreml::runtime_identity(),
@@ -455,8 +453,8 @@ fn prediction_coreml(
 /// generation provider comes only from the hash-validated receipt (which
 /// `prediction()` already required to equal the fresh request); the noise
 /// profile is recomputed deterministically from the current hash-verified
-/// packed input. No ONNX inference runs here, and timing/disagreement fields
-/// are left absent because they were never persisted.
+/// packed input. No ONNX inference runs here, and the timing field is left
+/// absent because it was never persisted.
 fn cache_hit_provenance(
     request: &Value,
     receipt: &Value,
@@ -511,7 +509,6 @@ fn cache_hit_fragment(
     let profile = nonlocal_onnx::estimate_noise(packed, height, width)?;
     Ok(json!({
         "provider_actual": provider,
-        "ensemble": request["ensemble"].clone(),
         "noise_profile": profile.to_json(),
     }))
 }
@@ -557,10 +554,9 @@ impl Output {
 /// Truthful provenance for a strength/intensity-zero job: no bundle or
 /// provider configuration was consulted and no inference ran, so no backend,
 /// runtime, model/package or cache identity may be claimed.
-fn skipped_provenance(source_sha: &str, quality: &str, packed: &Packed) -> Value {
+fn skipped_provenance(source_sha: &str, packed: &Packed) -> Value {
     json!({"algorithm":ALGORITHM,
         "inference_executed":false,"reason":"intensity-zero",
-        "quality":quality,
         "source_sha256":source_sha,"packed_shape":[4,packed.height,packed.width],"output":"float32-bayer-dng",
         "normalization":"per-CFA black/white; signed noise estimation; unclipped highlights preserved"})
 }
@@ -570,13 +566,8 @@ pub(crate) fn denoise(
     source_sha: &str,
     root: &Path,
     strength: f32,
-    quality: &str,
     control: &DenoiseControl,
 ) -> Result<Output> {
-    ensure!(
-        ["balanced", "maximum"].contains(&quality),
-        "Invalid Nonlocal quality"
-    );
     ensure!(
         strength.is_finite() && (0.0..=1.0).contains(&strength),
         "Invalid Nonlocal strength"
@@ -639,19 +630,19 @@ pub(crate) fn denoise(
                     "compute_units":nonlocal_coreml::COREML_COMPUTE_UNITS,
                     "allow_low_precision_accumulation":false,
                     "os":nonlocal_coreml::runtime_identity(),
-                    "quality":quality,"cache_hit":false,
+                    "cache_hit":false,
                     "source_sha256":source_sha,"packed_shape":[4,packed.height,packed.width],"output":"float32-bayer-dng",
                     "normalization":"per-CFA black/white; signed noise estimation; unclipped highlights preserved"})
             }
             _ => json!({"algorithm":ALGORITHM,"backend":BACKEND_GENERATION,
-                "runtime":"onnxruntime","model_sha256":ONNX_MODEL_SHA,
+                "runtime":"onnxruntime",
                 "source_checkpoint_sha256":SOURCE_CHECKPOINT_SHA,
-                "quality":quality,"cache_hit":false,
+                "cache_hit":false,
                 "source_sha256":source_sha,"packed_shape":[4,packed.height,packed.width],"output":"float32-bayer-dng",
                 "normalization":"per-CFA black/white; signed noise estimation; unclipped highlights preserved"}),
         }
     } else {
-        skipped_provenance(source_sha, quality, &packed)
+        skipped_provenance(source_sha, &packed)
     };
     if strength > 0. {
         let config = configuration_with_models(Some(&models_dir))?;
@@ -667,7 +658,6 @@ pub(crate) fn denoise(
                 packed.width,
                 &hash_file(&input_path)?,
                 source_sha,
-                if quality == "maximum" { 4 } else { 1 },
             );
             let request_bytes = serde_json::to_vec(&request)?;
             let request_sha = hex::encode(Sha256::digest(&request_bytes));
@@ -693,14 +683,12 @@ pub(crate) fn denoise(
                     "NONLOCAL_CACHE_INVALID: Remove this corrupt cache entry before retrying",
                 )?;
                 provenance["provider_actual"] = fragment["provider_actual"].clone();
-                provenance["ensemble"] = fragment["ensemble"].clone();
                 provenance["noise_profile"] = fragment["noise_profile"].clone();
                 hit
             } else {
                 fs::write(directory.path().join("request.json"), &request_bytes)?;
                 control.check().map_err(anyhow::Error::msg)?;
-                // One compiled MLModel per job, reused for all tiles and
-                // passes. macOS only; other platforms fail closed in
+                // One compiled MLModel per job, reused for all tiles. macOS only; other platforms fail closed in
                 // configuration() before reaching here.
                 #[cfg(target_os = "macos")]
                 let outcome: Result<(Vec<f32>, Value)> = (|| {
@@ -713,7 +701,6 @@ pub(crate) fn denoise(
                         &packed.values,
                         packed.height,
                         packed.width,
-                        if quality == "maximum" { 4 } else { 1 },
                         control,
                     )?;
                     control.check().map_err(anyhow::Error::msg)?;
@@ -739,9 +726,6 @@ pub(crate) fn denoise(
                     )?;
                     control.check().map_err(anyhow::Error::msg)?;
                     provenance["noise_profile"] = result.profile.to_json();
-                    provenance["ensemble"] = request["ensemble"].clone();
-                    provenance["disagreement_mean_variance"] =
-                        json!(result.disagreement_mean_variance);
                     provenance["inference_seconds"] = json!(result.elapsed_secs);
                     let staging = tempfile::Builder::new()
                         .prefix("cache-")
@@ -766,6 +750,7 @@ pub(crate) fn denoise(
             blend(&mut raw, &packed, &values, strength)?;
         } else {
             let contract = nonlocal_onnx::validate_bundle(&config.bundle)?;
+            provenance["model_sha256"] = json!(contract.model_sha256);
             provenance["provider_requested"] = json!(config.provider_as_str());
             provenance["graph_optimization"] = json!(false);
             provenance["tf32"] = json!(false);
@@ -774,11 +759,10 @@ pub(crate) fn denoise(
             write_packed_input(&input_path, &packed.values)?;
             let request = native_onnx_request(
                 &config,
-                packed.height,
-                packed.width,
+                &contract.model_sha256,
+                (packed.height, packed.width),
                 &hash_file(&input_path)?,
                 source_sha,
-                if quality == "maximum" { 4 } else { 1 },
                 &nonlocal_onnx::ort_identity(),
             );
             let request_bytes = serde_json::to_vec(&request)?;
@@ -805,13 +789,12 @@ pub(crate) fn denoise(
                     "NONLOCAL_CACHE_INVALID: Remove this corrupt cache entry before retrying",
                 )?;
                 provenance["provider_actual"] = fragment["provider_actual"].clone();
-                provenance["ensemble"] = fragment["ensemble"].clone();
                 provenance["noise_profile"] = fragment["noise_profile"].clone();
                 hit
             } else {
                 fs::write(directory.path().join("request.json"), &request_bytes)?;
                 control.check().map_err(anyhow::Error::msg)?;
-                // One ORT session per job, reused for all tiles and passes.
+                // One ORT session per job, reused for all tiles.
                 let mut backend = nonlocal_onnx::open_backend(&config, &contract)?;
                 provenance["provider_actual"] = json!(backend.provider);
                 let result = nonlocal_onnx::denoise_packed(
@@ -819,7 +802,6 @@ pub(crate) fn denoise(
                     &packed.values,
                     packed.height,
                     packed.width,
-                    if quality == "maximum" { 4 } else { 1 },
                     control,
                 )?;
                 control.check().map_err(anyhow::Error::msg)?;
@@ -827,7 +809,7 @@ pub(crate) fn denoise(
                 write_packed_input(&prediction_path, &result.prediction)?;
                 let receipt = json!({"protocol":2,"algorithm":ALGORITHM,"backend":BACKEND_GENERATION,
                     "shape":[4,packed.height,packed.width],
-                    "input_sha256":request["input_sha256"],"model_sha256":ONNX_MODEL_SHA,
+                    "input_sha256":request["input_sha256"],"model_sha256":request["model_sha256"],
                     "source_checkpoint_sha256":SOURCE_CHECKPOINT_SHA,
                     "request_sha256":request_sha,"prediction_sha256":hash_file(&prediction_path)?,
                     "provider":request["provider"],"device_id":request["device_id"],
@@ -844,8 +826,6 @@ pub(crate) fn denoise(
                 )?;
                 control.check().map_err(anyhow::Error::msg)?;
                 provenance["noise_profile"] = result.profile.to_json();
-                provenance["ensemble"] = request["ensemble"].clone();
-                provenance["disagreement_mean_variance"] = json!(result.disagreement_mean_variance);
                 provenance["inference_seconds"] = json!(result.elapsed_secs);
                 let staging = tempfile::Builder::new()
                     .prefix("cache-")
@@ -877,6 +857,7 @@ pub(crate) fn denoise(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::nonlocal_onnx::ONNX_MODEL_SHA;
     use rawler::{
         CFA,
         decoders::Camera,
@@ -1071,7 +1052,14 @@ mod tests {
             device_id: 0,
             mem_limit_mb: None,
         };
-        let request = native_onnx_request(&config, H, W, "input-sha", "source-sha", 1, "test");
+        let request = native_onnx_request(
+            &config,
+            ONNX_MODEL_SHA,
+            (H, W),
+            "input-sha",
+            "source-sha",
+            "test",
+        );
         let request_sha = hex::encode(Sha256::digest(serde_json::to_vec(&request).unwrap()));
         let root = tempfile::tempdir().unwrap();
         let entry = root.path().join(&request_sha);
@@ -1093,7 +1081,6 @@ mod tests {
         let validated = prediction(&entry, &request, &request_sha, packed.len()).unwrap();
         let fragment = cache_hit_provenance(&request, &validated.1, &packed, H, W).unwrap();
         assert_eq!(fragment["provider_actual"], json!("cpu"));
-        assert_eq!(fragment["ensemble"], json!(1));
         assert_eq!(
             fragment["noise_profile"]["method"],
             json!("stratified-haar-irls-v1")
@@ -1114,7 +1101,23 @@ mod tests {
             json!(SOURCE_CHECKPOINT_SHA)
         );
         assert!(!fragment.get("inference_seconds").is_some());
-        assert!(!fragment.get("disagreement_mean_variance").is_some());
+    }
+    #[test]
+    fn model_hash_is_part_of_native_cache_identity() {
+        // A different graph is arithmetically equivalent at best, never
+        // bit-identical, so its predictions must not share a cache entry.
+        let config = NativeConfig {
+            bundle: PathBuf::from("/bundle"),
+            provider: crate::nonlocal_onnx::Provider::Cuda,
+            device_id: 0,
+            mem_limit_mb: None,
+        };
+        let sha = |model: &str| {
+            let request = native_onnx_request(&config, model, (8, 16), "input", "source", "ort");
+            assert_eq!(request["model_sha256"], json!(model));
+            hex::encode(Sha256::digest(serde_json::to_vec(&request).unwrap()))
+        };
+        assert_ne!(sha(nonlocal_onnx::ONNX_MODEL_SHA), sha("other-model-sha"));
     }
     #[test]
     fn coreml_cache_identity_is_isolated_from_onnx() {
@@ -1126,8 +1129,15 @@ mod tests {
             device_id: 0,
             mem_limit_mb: None,
         };
-        let onnx = native_onnx_request(&config, 8, 16, "input-sha", "source-sha", 1, "test-ort");
-        let coreml = native_coreml_request("tree-sha", 8, 16, "input-sha", "source-sha", 1);
+        let onnx = native_onnx_request(
+            &config,
+            ONNX_MODEL_SHA,
+            (8, 16),
+            "input-sha",
+            "source-sha",
+            "test-ort",
+        );
+        let coreml = native_coreml_request("tree-sha", 8, 16, "input-sha", "source-sha");
         assert_eq!(onnx["protocol"], json!(2));
         assert_eq!(coreml["protocol"], json!(3));
         assert_eq!(onnx["backend"], json!(BACKEND_GENERATION));
@@ -1144,7 +1154,8 @@ mod tests {
         assert_eq!(coreml["compute_units"], json!("all"));
         assert_eq!(coreml["allow_low_precision_accumulation"], json!(false));
         assert!(coreml["os"].as_str().unwrap().starts_with("coreml/"));
-        assert_eq!(coreml["ensemble"], json!(1));
+        assert_eq!(coreml["tile"], json!(320));
+        assert_eq!(coreml["halo"], json!(40));
         // Request bytes (and therefore cache keys) differ across families.
         assert_ne!(
             hex::encode(Sha256::digest(serde_json::to_vec(&onnx).unwrap())),
@@ -1154,7 +1165,7 @@ mod tests {
     #[test]
     fn coreml_cache_rejects_cross_family_and_corrupt_receipts() {
         let root = tempfile::tempdir().unwrap();
-        let request = native_coreml_request("tree-sha", 8, 8, "input-sha", "source-sha", 1);
+        let request = native_coreml_request("tree-sha", 8, 8, "input-sha", "source-sha");
         let request_sha = hex::encode(Sha256::digest(serde_json::to_vec(&request).unwrap()));
         let pixels = root.path().join("prediction.f32");
         fs::write(&pixels, vec![0_u8; 4 * 8 * 8 * 4]).unwrap();
@@ -1235,7 +1246,7 @@ mod tests {
                 }
             }
         }
-        let request = native_coreml_request("tree-sha", H, W, "input-sha", "source-sha", 4);
+        let request = native_coreml_request("tree-sha", H, W, "input-sha", "source-sha");
         let request_sha = hex::encode(Sha256::digest(serde_json::to_vec(&request).unwrap()));
         let root = tempfile::tempdir().unwrap();
         let entry = root.path().join(&request_sha);
@@ -1252,7 +1263,6 @@ mod tests {
         let validated = prediction_coreml(&entry, &request, &request_sha, packed.len()).unwrap();
         let fragment = cache_hit_provenance_coreml(&request, &validated.1, &packed, H, W).unwrap();
         assert_eq!(fragment["provider_actual"], json!("coreml"));
-        assert_eq!(fragment["ensemble"], json!(4));
         assert_eq!(
             fragment["noise_profile"]["method"],
             json!("stratified-haar-irls-v1")
@@ -1274,11 +1284,10 @@ mod tests {
         // zero-strength provenance that cannot claim a backend that never ran.
         let mut raw = fixture("RGGB", 0);
         let packed = prepare(&mut raw).unwrap();
-        let value = skipped_provenance("source-sha", "balanced", &packed);
+        let value = skipped_provenance("source-sha", &packed);
         assert_eq!(value["algorithm"], json!(ALGORITHM));
         assert_eq!(value["inference_executed"], json!(false));
         assert_eq!(value["reason"], json!("intensity-zero"));
-        assert_eq!(value["quality"], json!("balanced"));
         assert_eq!(value["source_sha256"], json!("source-sha"));
         assert_eq!(
             value["packed_shape"],
@@ -1365,7 +1374,14 @@ mod tests {
             device_id: 0,
             mem_limit_mb: None,
         };
-        let request = native_onnx_request(&config, 8, 16, "input-sha", "source-sha", 1, "test");
+        let request = native_onnx_request(
+            &config,
+            ONNX_MODEL_SHA,
+            (8, 16),
+            "input-sha",
+            "source-sha",
+            "test",
+        );
         assert_eq!(request["protocol"], json!(2));
         assert_eq!(request["backend"], json!(BACKEND_GENERATION));
         assert_eq!(request["model_sha256"], json!(ONNX_MODEL_SHA));
@@ -1374,12 +1390,12 @@ mod tests {
             json!(SOURCE_CHECKPOINT_SHA)
         );
         assert_eq!(request["shape"], json!([4, 8, 16]));
+        assert_eq!(request["tile"], json!(320));
+        assert_eq!(request["halo"], json!(40));
         assert_eq!(request["provider"], json!("cpu"));
         assert_eq!(request["device_id"], Value::Null);
         assert_eq!(request["graph_optimization"], json!(false));
         assert_eq!(request["tf32"], json!(false));
-        let max_request = native_onnx_request(&config, 8, 16, "input-sha", "source-sha", 4, "test");
-        assert_eq!(max_request["ensemble"], json!(4));
         // Request bytes must be valid JSON with stable key order for hashing.
         let bytes = serde_json::to_vec(&request).unwrap();
         let parsed: Value = serde_json::from_slice(&bytes).unwrap();
@@ -1432,13 +1448,15 @@ mod tests {
         let input_sha = hash_file(&input_path).unwrap();
         let config = configuration_with_models(None)
             .expect("Set RAPIDRAW_NONLOCAL_BUNDLE (+ provider) to export the production request");
+        let model_sha256 = nonlocal_onnx::validate_bundle(&config.bundle)
+            .unwrap()
+            .model_sha256;
         let request = native_onnx_request(
             &config,
-            packed.height,
-            packed.width,
+            &model_sha256,
+            (packed.height, packed.width),
             &input_sha,
             &source_sha,
-            1,
             &nonlocal_onnx::ort_identity(),
         );
         let request_bytes = serde_json::to_vec(&request).unwrap();
@@ -1462,9 +1480,9 @@ mod tests {
             "white": packed.white,
             "crop_area": crop_before.map(|r| json!({"x": r.p.x, "y": r.p.y, "w": r.d.w, "h": r.d.h})),
             "active_area": active_before.map(|r| json!({"x": r.p.x, "y": r.p.y, "w": r.d.w, "h": r.d.h})),
-            "tile": 320, "halo": 64, "ensemble": 1,
+            "tile": TILE, "halo": HALO,
             "algorithm": ALGORITHM, "backend": BACKEND_GENERATION,
-            "model_sha256": ONNX_MODEL_SHA,
+            "model_sha256": model_sha256,
             "source_checkpoint_sha256": SOURCE_CHECKPOINT_SHA, "protocol": 2,
         });
         fs::write(

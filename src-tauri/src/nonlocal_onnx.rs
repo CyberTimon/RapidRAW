@@ -8,10 +8,9 @@
 //!
 //! The host-side conditioning pipeline ports
 //! `denoise/rapidraw_denoise/pipeline.py` + `noise.py`
-//! (stratified-haar-irls-v1, 320/64 tiling, RGBG order, balanced=e1,
-//! maximum=e4) into Rust. The Python package remains only as a
-//! development/reference oracle and research tooling, never as a
-//! production runtime dependency.
+//! (stratified-haar-irls-v1, 320/40 tiling, RGBG order, one pass per tile)
+//! into Rust. The Python package remains only as a development/reference
+//! oracle and research tooling, never as a production runtime dependency.
 
 use crate::denoising::DenoiseControl;
 use anyhow::{Context, Result, bail, ensure};
@@ -30,9 +29,14 @@ use std::{
     time::Instant,
 };
 
-/// Accepted ONNX bundle model hash (model.onnx, packed sampler, FP32).
+/// Accepted ONNX bundle model hash (`model.onnx`, packed sampler, FP32). It
+/// is the reference export with the zero-bias nodes dropped and every dense
+/// and grouped 1x1 convolution expressed as a MatMul
+/// (`rapidraw_denoise.onnx_rewrite`, version `gemm-1x1-v2`), which passes the
+/// frozen strict-FP32 gates against the reference export. The validated hash
+/// feeds cache identity and provenance.
 pub(crate) const ONNX_MODEL_SHA: &str =
-    "df7f21ddbdfecd0984896a902623f75aa883d25b5f862c49d8c2b3f63a7dd2d9";
+    "ba788a97f247058ea03d14bbf2f289adc8f4666039f27d0d530e6f67d23dd73c";
 /// Pinned source checkpoint lineage the bundle must record.
 pub(crate) const SOURCE_CHECKPOINT_SHA: &str =
     "c16747d852b93a95908792cdbac901f89cca98e35b91ea7db6214de42fbd3cad";
@@ -41,11 +45,9 @@ pub(crate) const BACKEND_GENERATION: &str = "native-onnx-v1";
 pub(crate) const ALGORITHM: &str = "nonlocal-raw-v1";
 
 pub(crate) const TILE: usize = 320;
-pub(crate) const HALO: usize = 64;
+pub(crate) const HALO: usize = 40;
 pub(crate) const CORE: usize = TILE - 2 * HALO;
 const BLOCK: usize = 32;
-const ENSEMBLE_BALANCED: u32 = 1;
-const ENSEMBLE_MAXIMUM: u32 = 4;
 /// Between-tile wall-clock guard, matching the retired worker's 30 minutes.
 /// An active ORT call is not abortable; cancellation lands on tile boundaries.
 const JOB_WALL_LIMIT_SECS: u64 = 1800;
@@ -298,7 +300,7 @@ pub(crate) fn validate_bundle(bundle: &Path) -> Result<BundleContract> {
         manifest_i64(&manifest, "tile")? == TILE as i64
             && manifest_i64(&manifest, "halo")? == HALO as i64
             && manifest_i64(&manifest, "retained_core")? == CORE as i64,
-        "NONLOCAL_BUNDLE_INVALID: tile/halo/retained_core must be 320/64/192"
+        "NONLOCAL_BUNDLE_INVALID: tile/halo/retained_core must be 320/40/240"
     );
     ensure!(
         manifest.get("cfa_order").and_then(|v| v.as_str()) == Some("RGBG"),
@@ -341,11 +343,12 @@ pub(crate) fn validate_bundle(bundle: &Path) -> Result<BundleContract> {
     );
     let actual = hash_file(&model_path)?;
     ensure!(
-        actual == ONNX_MODEL_SHA,
+        actual == recorded,
         "NONLOCAL_BUNDLE_INVALID: model file hash mismatch (modified graph rejected)"
     );
     Ok(BundleContract {
         model_path,
+        model_sha256: actual,
         input_name,
         output_name,
     })
@@ -354,6 +357,8 @@ pub(crate) fn validate_bundle(bundle: &Path) -> Result<BundleContract> {
 #[derive(Debug)]
 pub(crate) struct BundleContract {
     pub model_path: PathBuf,
+    /// Hash of the validated model file; always `ONNX_MODEL_SHA`.
+    pub model_sha256: String,
     pub input_name: String,
     pub output_name: String,
 }
@@ -375,7 +380,7 @@ fn expect_io_type(kind: &str, name: &str, ty: &ValueType, dims: &[usize]) -> Res
     }
 }
 
-/// One ORT session per denoise job, reused for all tiles and ensemble passes.
+/// One ORT session per denoise job, reused for all tiles.
 pub(crate) struct Backend {
     session: Session,
     pub input_name: String,
@@ -880,91 +885,6 @@ pub(crate) fn conditioned_input(
     out
 }
 
-/// Exact Welford update, mirroring pipeline.py:
-///   delta = candidate - mean; mean += delta/(i+1); m2 += delta*(candidate-mean).
-fn welford_update(mean: &mut [f32], m2: &mut [f32], candidate: &[f32], pass: usize) {
-    let denom = pass as f32 + 1.0;
-    for i in 0..mean.len() {
-        let delta = candidate[i] - mean[i];
-        mean[i] += delta / denom;
-        m2[i] += delta * (candidate[i] - mean[i]);
-    }
-}
-/// Rotate CHW counter-clockwise `k` quarter turns, then flip width if asked.
-/// Mirrors `pipeline.transform` (rot90 over (-2,-1), optional `[..., ::-1]`).
-pub(crate) fn transform_chw(
-    src: &[f32],
-    channels: usize,
-    height: usize,
-    width: usize,
-    pass: usize,
-) -> (Vec<f32>, usize, usize) {
-    let mut data = src.to_vec();
-    let (mut h, mut w) = (height, width);
-    for _ in 0..(pass % 4) {
-        let mut next = vec![0f32; data.len()];
-        for c in 0..channels {
-            for y in 0..w {
-                for x in 0..h {
-                    // Counter-clockwise quarter turn: out[y,x] = in[x, W-1-y].
-                    next[(c * w + y) * h + x] = data[(c * h + x) * w + (w - 1 - y)];
-                }
-            }
-        }
-        data = next;
-        std::mem::swap(&mut h, &mut w);
-    }
-    if pass >= 4 {
-        let mut next = vec![0f32; data.len()];
-        for c in 0..channels {
-            for y in 0..h {
-                for x in 0..w {
-                    next[(c * h + y) * w + x] = data[(c * h + y) * w + (w - 1 - x)];
-                }
-            }
-        }
-        data = next;
-    }
-    (data, h, w)
-}
-
-/// Inverse of [`transform_chw`]: unflip, then rotate clockwise.
-pub(crate) fn inverse_transform_chw(
-    src: &[f32],
-    channels: usize,
-    height: usize,
-    width: usize,
-    pass: usize,
-) -> (Vec<f32>, usize, usize) {
-    let mut data = src.to_vec();
-    let (mut h, mut w) = (height, width);
-    if pass >= 4 {
-        let mut next = vec![0f32; data.len()];
-        for c in 0..channels {
-            for y in 0..h {
-                for x in 0..w {
-                    next[(c * h + y) * w + x] = data[(c * h + y) * w + (w - 1 - x)];
-                }
-            }
-        }
-        data = next;
-    }
-    for _ in 0..(pass % 4) {
-        let mut next = vec![0f32; data.len()];
-        for c in 0..channels {
-            for y in 0..w {
-                for x in 0..h {
-                    // Clockwise quarter turn: out[y,x] = in[H-1-x, y].
-                    next[(c * w + y) * h + x] = data[(c * h + (h - 1 - x)) * w + y];
-                }
-            }
-        }
-        data = next;
-        std::mem::swap(&mut h, &mut w);
-    }
-    (data, h, w)
-}
-
 fn reflect_index(p: usize, halo: usize, n: usize, pad_after: usize) -> usize {
     let total = halo + n + pad_after;
     debug_assert!(p < total);
@@ -1010,27 +930,20 @@ pub(crate) struct PackResult {
     /// Denoised [4,H,W] plane-major prediction.
     pub prediction: Vec<f32>,
     pub profile: NoiseProfile,
-    pub disagreement_mean_variance: f64,
     pub elapsed_secs: f64,
 }
 
-/// Full conditioning + tiled native inference + Welford ensemble driver,
-/// shared by the ONNX and direct CoreML backends through [`TilePredictor`].
-/// `packed` is plane-major [4,H,W]; ensemble is 1 (balanced) or 4 (maximum).
-/// Cancellation and the 30-minute wall guard land on tile boundaries: an
-/// active backend prediction is not abortable.
+/// Full conditioning + tiled native inference, shared by the ONNX and direct
+/// CoreML backends through [`TilePredictor`]. `packed` is plane-major
+/// [4,H,W]. Cancellation and the 30-minute wall guard land on tile
+/// boundaries: an active backend prediction is not abortable.
 pub(crate) fn denoise_packed<P: TilePredictor>(
     backend: &mut P,
     packed: &[f32],
     height: usize,
     width: usize,
-    ensemble: u32,
     control: &DenoiseControl,
 ) -> Result<PackResult> {
-    ensure!(
-        ensemble == ENSEMBLE_BALANCED || ensemble == ENSEMBLE_MAXIMUM,
-        "NONLOCAL_ENSEMBLE_INVALID: ensemble must be 1 or 4"
-    );
     ensure!(
         packed.len() == 4 * height * width,
         "NONLOCAL_INPUT_INVALID: packed shape mismatch"
@@ -1039,70 +952,43 @@ pub(crate) fn denoise_packed<P: TilePredictor>(
     control.check().map_err(anyhow::Error::msg)?;
     let profile = estimate_noise(packed, height, width)?;
     let conditioned = conditioned_input(packed, height, width, &profile);
-    let plane = height * width;
-    let mut mean = vec![0f32; 4 * plane];
-    let mut m2 = vec![0f32; 4 * plane];
-    for pass in 0..ensemble as usize {
-        control.check().map_err(anyhow::Error::msg)?;
-        let (rotated, rh, rw) = transform_chw(&conditioned, 8, height, width, pass);
-        let (padded, ph, pw, ny, nx) = reflect_pad(&rotated, 8, rh, rw, TILE, HALO);
-        let total = ny * nx;
-        let mut out = vec![0f32; 4 * rh * rw];
-        for ty in 0..ny {
-            for tx in 0..nx {
-                control.check().map_err(anyhow::Error::msg)?;
-                if started.elapsed().as_secs() > JOB_WALL_LIMIT_SECS {
-                    bail!("NONLOCAL_TIMEOUT: inference exceeded 30 minutes");
-                }
-                let mut tile = vec![0f32; 8 * TILE * TILE];
-                for c in 0..8 {
-                    for y in 0..TILE {
-                        let src_row = &padded[(c * ph + ty * CORE + y) * pw + tx * CORE..][..TILE];
-                        tile[(c * TILE + y) * TILE..(c * TILE + y) * TILE + TILE]
-                            .copy_from_slice(src_row);
-                    }
-                }
-                let pred = backend.predict_tile(&tile)?;
-                let (cy, cx) = (rh - ty * CORE, rw - tx * CORE);
-                let (cy, cx) = (cy.min(CORE), cx.min(CORE));
-                for c in 0..4 {
-                    for y in 0..cy {
-                        let src_row = &pred[(c * TILE + HALO + y) * TILE + HALO..][..cx];
-                        out[((c * rh + ty * CORE + y) * rw + tx * CORE)..][..cx]
-                            .copy_from_slice(src_row);
-                    }
-                }
-                let done = (pass * total + ty * nx + tx + 1) as f32;
-                let all = (ensemble as usize * total) as f32;
-                control.report(0.1 + done / all * 0.8, "Nonlocal inference");
+    let (padded, ph, pw, ny, nx) = reflect_pad(&conditioned, 8, height, width, TILE, HALO);
+    let mut out = vec![0f32; 4 * height * width];
+    for ty in 0..ny {
+        for tx in 0..nx {
+            control.check().map_err(anyhow::Error::msg)?;
+            if started.elapsed().as_secs() > JOB_WALL_LIMIT_SECS {
+                bail!("NONLOCAL_TIMEOUT: inference exceeded 30 minutes");
             }
+            let mut tile = vec![0f32; 8 * TILE * TILE];
+            for c in 0..8 {
+                for y in 0..TILE {
+                    let src_row = &padded[(c * ph + ty * CORE + y) * pw + tx * CORE..][..TILE];
+                    tile[(c * TILE + y) * TILE..(c * TILE + y) * TILE + TILE]
+                        .copy_from_slice(src_row);
+                }
+            }
+            let pred = backend.predict_tile(&tile)?;
+            let (cy, cx) = (height - ty * CORE, width - tx * CORE);
+            let (cy, cx) = (cy.min(CORE), cx.min(CORE));
+            for c in 0..4 {
+                for y in 0..cy {
+                    let src_row = &pred[(c * TILE + HALO + y) * TILE + HALO..][..cx];
+                    out[((c * height + ty * CORE + y) * width + tx * CORE)..][..cx]
+                        .copy_from_slice(src_row);
+                }
+            }
+            let done = (ty * nx + tx + 1) as f32;
+            control.report(0.1 + done / (ny * nx) as f32 * 0.8, "Nonlocal inference");
         }
-        let (candidate, ch, cw) = inverse_transform_chw(&out, 4, rh, rw, pass);
-        ensure!(
-            ch == height && cw == width,
-            "NONLOCAL_SHAPE_INVALID: ensemble pass changed image geometry"
-        );
-        // Exact Welford update (see welford_update).
-        welford_update(&mut mean, &mut m2, &candidate, pass);
-        control.check().map_err(anyhow::Error::msg)?;
-    }
-    let denom = (ensemble as usize - 1).max(1) as f32;
-    let mut disag_sum = 0f64;
-    for v in &m2 {
-        ensure!(
-            v.is_finite(),
-            "NONLOCAL_OUTPUT_INVALID: nonfinite ensemble result"
-        );
-        disag_sum += (*v / denom) as f64;
     }
     ensure!(
-        mean.iter().all(|v| v.is_finite()),
+        out.iter().all(|v| v.is_finite()),
         "NONLOCAL_OUTPUT_INVALID: nonfinite inference result"
     );
     Ok(PackResult {
-        prediction: mean,
+        prediction: out,
         profile,
-        disagreement_mean_variance: disag_sum / m2.len() as f64,
         elapsed_secs: started.elapsed().as_secs_f64(),
     })
 }
@@ -1247,53 +1133,6 @@ mod tests {
     }
 
     #[test]
-    fn rotations_match_numpy_and_roundtrip() {
-        // Oracle values from rapidraw_denoise.pipeline on a seeded (2,5,6).
-        // Here we verify shape preservation, exact spot values from a
-        // fixed input, and lossless roundtrips for all 8 passes.
-        let src: Vec<f32> = (0..2 * 5 * 6).map(|i| i as f32 * 0.25 + 0.125).collect();
-        for pass in 0..8 {
-            let (t, th, tw) = transform_chw(&src, 2, 5, 6, pass);
-            let (b, bh, bw) = inverse_transform_chw(&t, 2, th, tw, pass);
-            assert_eq!((bh, bw), (5, 6));
-            assert_eq!(b, src, "pass {pass} roundtrip must be lossless");
-        }
-        // CCW quarter turn: out[y,x] = in[x, W-1-y].
-        let at = |c: usize, y: usize, x: usize, h: usize, w: usize| (c * h + y) * w + x;
-        let (t1, h1, w1) = transform_chw(&src, 2, 5, 6, 1);
-        assert_eq!((h1, w1), (6, 5));
-        assert_eq!(t1[at(0, 0, 0, 6, 5)], src[at(0, 0, 5, 5, 6)]);
-        assert_eq!(t1[at(1, 5, 4, 6, 5)], src[at(1, 4, 0, 5, 6)]);
-        // Flip pass: out = in reversed along width.
-        let (t4, _, _) = transform_chw(&src, 2, 5, 6, 4);
-        assert_eq!(t4[at(0, 2, 0, 5, 6)], src[at(0, 2, 5, 5, 6)]);
-    }
-
-    #[test]
-    fn welford_matches_reference_arithmetic() {
-        // Oracle: pipeline.py Welford over four candidates.
-        let cands = [
-            vec![1f32, 2., 3., 4.],
-            vec![2., 3., 4., 5.],
-            vec![0., 1., 5., 3.],
-            vec![3., 3., 3., 3.],
-        ];
-        let mut mean = vec![0f32; 4];
-        let mut m2 = vec![0f32; 4];
-        for (i, c) in cands.iter().enumerate() {
-            welford_update(&mut mean, &mut m2, c, i);
-        }
-        for (m, e) in mean.iter().zip([1.5f32, 2.25, 3.75, 3.75]) {
-            assert!((m - e).abs() < 1e-6, "{m} vs {e}");
-        }
-        for (v, e) in m2.iter().zip([5.0f32, 2.75, 2.75, 2.75]) {
-            assert!((v - e).abs() < 1e-5, "{v} vs {e}");
-        }
-        let disag: f64 = m2.iter().map(|v| (*v / 3.0) as f64).sum::<f64>() / 4.0;
-        assert!((disag - 1.1041666269302368).abs() < 1e-6);
-    }
-
-    #[test]
     fn reflect_pad_matches_numpy() {
         // Oracle: np.pad 1ch 5x6 with tile=8 halo=2 -> 12x12.
         let src: Vec<f32> = (0..5 * 6).map(|i| i as f32 * 0.5 + 1.0).collect();
@@ -1413,7 +1252,7 @@ mod tests {
             "manifest_version": 1,
             "checkpoint_pinned_match": true,
             "source_checkpoint_sha256": SOURCE_CHECKPOINT_SHA,
-            "precision": "fp32", "tile": 320, "halo": 64, "retained_core": 192,
+            "precision": "fp32", "tile": 320, "halo": 40, "retained_core": 240,
             "cfa_order": "RGBG",
             "input_name": "raw_with_noise", "input_shape": [1, 8, 320, 320],
             "input_dtype": "float32",
@@ -1431,6 +1270,37 @@ mod tests {
         std::fs::write(root.path().join("manifest.json"), bad.to_string()).unwrap();
         let err = validate_bundle(root.path()).unwrap_err().to_string();
         assert!(err.contains("lineage"), "{err}");
+    }
+
+    #[test]
+    fn bundle_validation_binds_file_to_the_pinned_hash() {
+        let root = tempfile::tempdir().unwrap();
+        let manifest = |sha: &str| {
+            json!({
+                "manifest_version": 1,
+                "checkpoint_pinned_match": true,
+                "source_checkpoint_sha256": SOURCE_CHECKPOINT_SHA,
+                "precision": "fp32", "tile": 320, "halo": 40, "retained_core": 240,
+                "cfa_order": "RGBG",
+                "input_name": "raw_with_noise", "input_shape": [1, 8, 320, 320],
+                "input_dtype": "float32",
+                "output_name": "denoised_raw", "output_shape": [1, 4, 320, 320],
+                "output_dtype": "float32",
+                "model_sha256": sha,
+            })
+            .to_string()
+        };
+        std::fs::write(root.path().join("model.onnx"), b"decoy").unwrap();
+        // A file that is not the pinned bytes never passes, even when the
+        // manifest records the pinned hash.
+        std::fs::write(root.path().join("manifest.json"), manifest(ONNX_MODEL_SHA)).unwrap();
+        let err = validate_bundle(root.path()).unwrap_err().to_string();
+        assert!(err.contains("model file hash mismatch"), "{err}");
+        // A manifest recording the decoy's own hash is still not an accepted model.
+        let decoy = hex::encode(Sha256::digest(b"decoy"));
+        std::fs::write(root.path().join("manifest.json"), manifest(&decoy)).unwrap();
+        let err = validate_bundle(root.path()).unwrap_err().to_string();
+        assert!(err.contains("not the accepted bundle"), "{err}");
     }
 
     #[test]
@@ -1540,5 +1410,64 @@ mod tests {
             assert!((got - want).abs() < 1e-5, "{got} vs {want}");
         }
         let _ = test_control();
+    }
+
+    /// End-to-end tiling check at the production 320/40 geometry: the whole
+    /// conditioning + tiling + stitching driver against a reference produced
+    /// by `rapidraw_denoise.pipeline.denoise_with_predictor` (tile 320, halo
+    /// 40) on the same input through the same bundle on CPU. Input and
+    /// reference are plane-major little-endian f32 `[4,H,W]`; the geometry
+    /// comes from `RAPIDRAW_NONLOCAL_PHOTO_HEIGHT` and `..._WIDTH`. Gates match
+    /// the tile family: no elementwise violation at 1e-4 atol/rtol, MAE <= 1e-5,
+    /// p99 <= 1e-4.
+    #[test]
+    #[ignore = "Requires RAPIDRAW_NONLOCAL_BUNDLE, RAPIDRAW_NONLOCAL_PHOTO_{INPUT,REF,HEIGHT,WIDTH}; runs a full image on CPU"]
+    fn rust_cpu_full_photo_matches_reference_tiling() {
+        let var = |name: &str| std::env::var(name).unwrap_or_else(|_| panic!("Set {name}"));
+        let read_f32 = |path: String| -> Vec<f32> {
+            std::fs::read(path)
+                .unwrap()
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .map(|b| f32::from_le_bytes(*b))
+                .collect()
+        };
+        let bundle = PathBuf::from(var("RAPIDRAW_NONLOCAL_BUNDLE"));
+        let height: usize = var("RAPIDRAW_NONLOCAL_PHOTO_HEIGHT").parse().unwrap();
+        let width: usize = var("RAPIDRAW_NONLOCAL_PHOTO_WIDTH").parse().unwrap();
+        let packed = read_f32(var("RAPIDRAW_NONLOCAL_PHOTO_INPUT"));
+        let reference = read_f32(var("RAPIDRAW_NONLOCAL_PHOTO_REF"));
+        assert_eq!(packed.len(), 4 * height * width);
+        assert_eq!(reference.len(), packed.len());
+        let contract = validate_bundle(&bundle).unwrap();
+        let config = NativeConfig {
+            bundle,
+            provider: Provider::Cpu,
+            device_id: 0,
+            mem_limit_mb: None,
+        };
+        let mut backend = open_backend(&config, &contract).unwrap();
+        let result = denoise_packed(&mut backend, &packed, height, width, &test_control()).unwrap();
+        let mut errors: Vec<f64> = Vec::with_capacity(reference.len());
+        let mut violations = 0usize;
+        for (got, want) in result.prediction.iter().zip(&reference) {
+            let err = (*got as f64 - *want as f64).abs();
+            if err > 1e-4 + 1e-4 * (*want as f64).abs() {
+                violations += 1;
+            }
+            errors.push(err);
+        }
+        let mae = errors.iter().sum::<f64>() / errors.len() as f64;
+        errors.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let p99 = errors[(0.99 * (errors.len() - 1) as f64) as usize];
+        eprintln!(
+            "full-photo parity: max={:e} mae={mae:e} p99={p99:e} violations={violations} tiles_seconds={:.1}",
+            errors[errors.len() - 1],
+            result.elapsed_secs
+        );
+        assert_eq!(violations, 0, "elementwise violations");
+        assert!(mae <= 1e-5, "mae {mae:e}");
+        assert!(p99 <= 1e-4, "p99 {p99:e}");
     }
 }

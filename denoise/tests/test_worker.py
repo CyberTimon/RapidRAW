@@ -6,13 +6,13 @@ from rapidraw_denoise.inference import tiled_apply
 
 def request(**overrides):
     return dict(protocol=1, algorithm=ALGORITHM, model_sha256=CHECKPOINT_SHA256,
-                shape=[4, 128, 256], tile=320, halo=64, ensemble=1) | overrides
+                shape=[4, 128, 256], tile=320, halo=40) | overrides
 
 
 @pytest.mark.parametrize("override", [
     {"shape": [4, 2**64, 16]}, {"shape": [4, 0, 32]}, {"shape": [3, 16, 16]},
-    {"shape": [4, 16., 16]}, {"shape": [4, 7, 32]}, {"ensemble": True},
-    {"ensemble": 8}, {"model_sha256": "wrong"}, {"protocol": 2}, {"halo": 0},
+    {"shape": [4, 16., 16]}, {"shape": [4, 7, 32]},
+    {"model_sha256": "wrong"}, {"protocol": 2}, {"halo": 0}, {"halo": 64},
 ])
 def test_invalid_protocol_fails_before_loading_model(override):
     with pytest.raises(ValueError):

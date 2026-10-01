@@ -161,11 +161,7 @@ impl Bridge {
             .join("sessions")
             .join(&session.id)
             .join("session.json");
-        atomic_write(
-            &path,
-            &serde_json::to_vec_pretty(session).map_err(|e| e.to_string())?,
-            true,
-        )
+        atomic_write(&path, &session_manifest_bytes(session, true)?, true)
     }
     pub fn commit(
         &mut self,
@@ -460,6 +456,82 @@ pub(super) fn validate_metadata(metadata: &Value) -> Result<()> {
     Ok(())
 }
 
+/// Embedded images (AI mask bitmaps) repeat in every history snapshot. The
+/// manifest stores each distinct image once in a hash-keyed table and refers to
+/// it from the snapshots; restore expands them again, so the engine and the
+/// MCP surface still see the original adjustments.
+const BLOB_MIN_LEN: usize = 4096;
+const BLOB_PREFIX: &str = "blob:sha256:";
+
+fn externalize_blobs(value: &mut Value, blobs: &mut BTreeMap<String, String>) {
+    match value {
+        Value::String(text) if text.len() >= BLOB_MIN_LEN && text.starts_with("data:image/") => {
+            use sha2::{Digest, Sha256};
+            let key: String = Sha256::digest(text.as_bytes())
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect();
+            let reference = format!("{BLOB_PREFIX}{key}");
+            let original = std::mem::replace(text, reference);
+            blobs.entry(key).or_insert(original);
+        }
+        Value::Array(items) => items.iter_mut().for_each(|v| externalize_blobs(v, blobs)),
+        Value::Object(map) => map.values_mut().for_each(|v| externalize_blobs(v, blobs)),
+        _ => {}
+    }
+}
+
+fn internalize_blobs(value: &mut Value, blobs: &BTreeMap<String, String>) -> Result<()> {
+    match value {
+        Value::String(text) if text.starts_with(BLOB_PREFIX) => {
+            let key = &text[BLOB_PREFIX.len()..];
+            let original = blobs.get(key).ok_or_else(|| {
+                format!("INVALID_SESSION: Session manifest is missing embedded image {key}")
+            })?;
+            *text = original.clone();
+        }
+        Value::Array(items) => {
+            for item in items {
+                internalize_blobs(item, blobs)?;
+            }
+        }
+        Value::Object(map) => {
+            for item in map.values_mut() {
+                internalize_blobs(item, blobs)?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+/// Serialize a session manifest, storing repeated embedded images once.
+pub(super) fn session_manifest_bytes(session: &Session, pretty: bool) -> Result<Vec<u8>> {
+    let mut value = serde_json::to_value(session).map_err(|e| e.to_string())?;
+    let mut blobs = BTreeMap::new();
+    externalize_blobs(&mut value, &mut blobs);
+    if !blobs.is_empty() {
+        value["blobs"] = serde_json::to_value(blobs).map_err(|e| e.to_string())?;
+    }
+    if pretty {
+        serde_json::to_vec_pretty(&value)
+    } else {
+        serde_json::to_vec(&value)
+    }
+    .map_err(|e| e.to_string())
+}
+
+/// Parse a manifest written with or without the shared image table.
+pub(super) fn session_from_manifest_bytes(bytes: &[u8]) -> std::result::Result<Session, String> {
+    let mut value: Value = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
+    if let Some(table) = value.as_object_mut().and_then(|map| map.remove("blobs")) {
+        let blobs: BTreeMap<String, String> =
+            serde_json::from_value(table).map_err(|e| format!("invalid image table: {e}"))?;
+        internalize_blobs(&mut value, &blobs)?;
+    }
+    serde_json::from_value(value).map_err(|e| e.to_string())
+}
+
 pub(super) fn restore_session(directory: &Path) -> Result<Session> {
     let manifest = directory.join("session.json");
     let file_type = fs::symlink_metadata(&manifest)
@@ -470,7 +542,7 @@ pub(super) fn restore_session(directory: &Path) -> Result<Session> {
             "INVALID_SESSION: Session manifest must be a regular file, not a symlink".into(),
         );
     }
-    let session: Session = serde_json::from_slice(&fs::read(&manifest).map_err(|e| e.to_string())?)
+    let session = session_from_manifest_bytes(&fs::read(&manifest).map_err(|e| e.to_string())?)
         .map_err(|e| format!("INVALID_SESSION: {}: {e}", manifest.display()))?;
     session.validate_restored(directory)?;
     Ok(session)
@@ -538,6 +610,44 @@ mod tests {
         )
         .unwrap();
         (fixture, directory)
+    }
+
+    #[test]
+    fn manifest_stores_repeated_embedded_images_once_and_restores_them() {
+        let bitmap = format!("data:image/png;base64,{}", "A".repeat(BLOB_MIN_LEN));
+        let other = format!("data:image/png;base64,{}", "B".repeat(BLOB_MIN_LEN));
+        let mut before = session();
+        for (index, snapshot) in before.history.iter_mut().enumerate() {
+            snapshot.adjustments = json!({"masks":[{"subMasks":[
+                {"parameters":{"maskDataBase64": bitmap}},
+                {"parameters":{"maskDataBase64": if index == 0 { &bitmap } else { &other }}}
+            ]}], "note": "short data:image/ text stays inline"});
+        }
+        let bytes = session_manifest_bytes(&before, false).unwrap();
+        let text = String::from_utf8(bytes.clone()).unwrap();
+        assert_eq!(text.matches(&bitmap).count(), 1);
+        assert_eq!(text.matches(&other).count(), 1);
+        assert!(text.contains("blob:sha256:"));
+        let after = session_from_manifest_bytes(&bytes).unwrap();
+        for (a, b) in before.history.iter().zip(&after.history) {
+            assert_eq!(a.adjustments, b.adjustments);
+        }
+    }
+
+    #[test]
+    fn manifest_without_image_table_still_restores_and_missing_images_are_rejected() {
+        let before = session();
+        let legacy = serde_json::to_vec(&before).unwrap();
+        assert_eq!(
+            session_from_manifest_bytes(&legacy).unwrap().history.len(),
+            2
+        );
+        let mut value = serde_json::to_value(&before).unwrap();
+        value["history"][0]["adjustments"] =
+            json!({"x": format!("{BLOB_PREFIX}{}", "0".repeat(64))});
+        value["blobs"] = json!({});
+        let error = session_from_manifest_bytes(&serde_json::to_vec(&value).unwrap()).unwrap_err();
+        assert!(error.contains("missing embedded image"));
     }
 
     #[test]

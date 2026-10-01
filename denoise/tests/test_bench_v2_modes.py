@@ -85,7 +85,7 @@ def test_cli_lists_new_modes_and_overrides():
                  "torch-strict", "torch-packed", "torch-refstrict"):
         assert mode in proc.stdout
     for flag in ("--bundle", "--fixtures", "--photo", "--ckpt", "--out",
-                 "--repeats-e1", "--skip-e4"):
+                 "--repeats"):
         assert flag in proc.stdout
 
 

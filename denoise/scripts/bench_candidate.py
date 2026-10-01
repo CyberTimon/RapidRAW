@@ -2,8 +2,7 @@
 
 Benchmarks one ONNX bundle with NumPy-in/NumPy-out timing only: session
 init, 3 warm-up + 10 measured tile runs (np.median / np.quantile-linear
-P95), ensemble-1 xN full assemblies + one ensemble-4 on the representative
-photo. Imports numpy/scipy/onnxruntime only; asserts Torch was never
+P95), then xN full-photo assemblies on the representative photo. Imports numpy/scipy/onnxruntime only; asserts Torch was never
 imported. One process per configuration; env fixed at launch.
 
 Optional benchmark-only ORT profiling (--profile) records a per-node
@@ -15,8 +14,8 @@ summed Node durations from wall time as measured overhead. Profiling is
 opt-in and off by default; it must not change inference numerics.
 
 Usage: bench_candidate.py --bundle DIR --fixtures DIR --out PATH
-       [--provider cuda] [--optimize] [--photo portrait] [--repeats-e1 3]
-       [--skip-e4] [--profile] [--profile-dir DIR]
+       [--provider cuda] [--optimize] [--photo portrait] [--repeats 3]
+       [--profile] [--profile-dir DIR]
        [--prod-cuda] [--cuda-arena ...] [--cuda-cudnn-search ...]
        [--cuda-device-id 0] [--maps-out PATH]
 """
@@ -98,8 +97,7 @@ def main():
                     help="FAST_EXPERIMENTAL only: CUDA TF32 on (labels the run "
                     "experimental; never a strict pass)")
     ap.add_argument("--photo", default="portrait")
-    ap.add_argument("--repeats-e1", type=int, default=3)
-    ap.add_argument("--skip-e4", action="store_true")
+    ap.add_argument("--repeats", type=int, default=3)
     ap.add_argument("--torch-prime", action="store_true",
                     help="Diagnostic only: import torch and touch the CUDA "
                     "context/allocator before session creation (mimics the "
@@ -318,21 +316,14 @@ def main():
               f"nodes={audit['node_events']} "
               f"by_provider={audit['node_events_by_provider']}", flush=True)
 
-    rep["full_e1_wall_s_runs"] = []
-    for r in range(ns.repeats_e1):
+    rep["full_wall_s_runs"] = []
+    for r in range(ns.repeats):
         t1 = time.monotonic()
-        out, _, _ = denoise_with_predictor(photo, pred, profile, 320, 64, 1)
+        out, _ = denoise_with_predictor(photo, pred, profile, 320, 40)
         wall = time.monotonic() - t1
         assert out.shape == photo.shape and np.isfinite(out).all()
-        rep["full_e1_wall_s_runs"].append(wall)
-        print(f"e1 run{r}: wall={wall:.1f}s", flush=True)
-    if not ns.skip_e4:
-        t1 = time.monotonic()
-        out, _, _ = denoise_with_predictor(photo, pred, profile, 320, 64, 4)
-        wall = time.monotonic() - t1
-        assert out.shape == photo.shape and np.isfinite(out).all()
-        rep["full_e4_wall_s"] = wall
-        print(f"e4: wall={wall:.1f}s", flush=True)
+        rep["full_wall_s_runs"].append(wall)
+        print(f"run{r}: wall={wall:.1f}s", flush=True)
     rep["torch_imported_at_end"] = "torch" in sys.modules
     if not ns.torch_prime:
         assert "torch" not in sys.modules, "torch must not be imported on this path"

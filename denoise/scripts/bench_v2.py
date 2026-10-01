@@ -3,7 +3,7 @@
 Usage: bench_v2.py {onnx-cuda,torch-native,torch-native-tf32off,torch-ref,
                     onnx-strict,torch-default,torch-orig,torch-strict,
                     torch-packed,torch-refstrict}
-       [--repeats-e1 N] [--skip-e4]
+       [--repeats N]
        [--bundle DIR] [--fixtures DIR] [--photo NAME] [--ckpt PATH]
        [--out PATH]
 
@@ -12,7 +12,7 @@ keep their historical meanings, paths and defaults exactly; only the
 hard-coded paths grew optional CLI overrides with identical defaults.
 
 New reproducible modes (one fresh process per mode, same portrait
-[4,2327,3491] workload, same 320/64 e1 path):
+[4,2327,3491] workload, same 320/40 path):
 - onnx-strict: ONNX production provider policy (packed bundle, graph opt
   off, device 0, SameAsRequested, HEURISTIC, TF32 off, no fallback) in a
   TORCH-PRELOADED library context (torch is imported before ORT session
@@ -31,8 +31,8 @@ New reproducible modes (one fresh process per mode, same portrait
   in-process (both vendor.sampling and vendor.network entry points), both
   TF32 paths off. Never mutates source/default runtime behavior.
 - torch-refstrict (T_REF): reference sampler rebound explicitly
-  in-process, both TF32 paths off. Tile section always runs; the single e1
-  is skipped with a labeled reason when the tile median is prohibitive.
+  in-process, both TF32 paths off. Tile section always runs; the full
+  photo run is skipped with a labeled reason when the tile median is prohibitive.
 
 Sampler identity is proven behaviorally (native must differ from the
 reference loop bitwise; reference must reproduce it bitwise; packed reports
@@ -49,7 +49,7 @@ counters (reference binding must reproduce the reference loop bitwise;
 native binding must differ from it; missing ext fails loud). Saves ordered
 warm-up + measured samples (median = np.median; P95 = np.quantile linear,
 both documented), session init separately, full-assembly NumPy-in ->
-NumPy-out walls (3x ensemble-1 plus one ensemble-4 unless skipped), and
+NumPy-out walls (3 repeats by default), and
 scoped memory notes (Torch allocator counters on torch runs only; ORT VRAM
 recorded null, never as Torch counters).
 """
@@ -87,7 +87,7 @@ SAMPLER_BINDING = {
     "torch-refstrict": "reference",
 }
 
-# torch-refstrict skips its single e1 above this tile-median threshold.
+# torch-refstrict skips its full-photo run above this tile-median threshold.
 REFSTRICT_TILE_SKIP_MS = 1500.0
 
 
@@ -154,8 +154,7 @@ def expected_probe_equal(binding):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("backend", choices=LEGACY_BACKENDS + NEW_BACKENDS)
-    ap.add_argument("--repeats-e1", type=int, default=3)
-    ap.add_argument("--skip-e4", action="store_true")
+    ap.add_argument("--repeats", type=int, default=3)
     ap.add_argument("--bundle", default=None,
                     help="ONNX bundle dir (default: packed for onnx-strict, "
                     "pinned legacy otherwise)")
@@ -168,9 +167,9 @@ def main():
                     help="Report path (default: /tmp/nlx-bench-v2-BACKEND.json)")
     ns = ap.parse_args()
     backend = ns.backend
-    if backend in NEW_BACKENDS and ns.repeats_e1 < 0:
+    if backend in NEW_BACKENDS and ns.repeats < 0:
         print(json.dumps({"status": "error",
-                          "error": "--repeats-e1 must be >= 0"}),
+                          "error": "--repeats must be >= 0"}),
               file=sys.stderr)
         return 1
 
@@ -309,21 +308,14 @@ def main():
         rep["torch_vram_reserved_B"] = torch.cuda.max_memory_reserved()
     rep["rss_mb"] = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
 
-    rep["full_e1_wall_s_runs"] = []
-    for r in range(ns.repeats_e1):
+    rep["full_wall_s_runs"] = []
+    for r in range(ns.repeats):
         t1 = time.monotonic()
-        out, _, _ = denoise_with_predictor(portrait, pred, profile, 320, 64, 1)
+        out, _ = denoise_with_predictor(portrait, pred, profile, 320, 40)
         wall = time.monotonic() - t1
         assert out.shape == portrait.shape and np.isfinite(out).all()
-        rep["full_e1_wall_s_runs"].append(wall)
-        print(f"{backend} e1 run{r}: wall={wall:.1f}s", flush=True)
-    if not ns.skip_e4:
-        t1 = time.monotonic()
-        out, _, _ = denoise_with_predictor(portrait, pred, profile, 320, 64, 4)
-        wall = time.monotonic() - t1
-        assert out.shape == portrait.shape and np.isfinite(out).all()
-        rep["full_e4_wall_s"] = wall
-        print(f"{backend} e4: wall={wall:.1f}s", flush=True)
+        rep["full_wall_s_runs"].append(wall)
+        print(f"{backend} run{r}: wall={wall:.1f}s", flush=True)
     rep["smi_after"] = smi()
     with open(out_name, "w") as f:
         json.dump(rep, f, indent=2)
@@ -554,21 +546,21 @@ def run_new_mode(ns, out_name, bundle, fx_root):
         rep["torch_vram_reserved_B"] = torch.cuda.max_memory_reserved()
     rep["rss_mb"] = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
 
-    rep["full_e1_wall_s_runs"] = []
+    rep["full_wall_s_runs"] = []
     if backend == "torch-refstrict" and float(np.median(meas)) > \
             REFSTRICT_TILE_SKIP_MS:
-        rep["full_e1_skipped"] = (
+        rep["full_skipped"] = (
             f"tile median {float(np.median(meas)):.0f} ms exceeds "
             f"{REFSTRICT_TILE_SKIP_MS:.0f} ms; tile-only comparison")
     else:
-        for r in range(ns.repeats_e1):
+        for r in range(ns.repeats):
             t1 = time.monotonic()
-            out, _, _ = denoise_with_predictor(photo, pred, profile,
-                                               320, 64, 1)
+            out, _ = denoise_with_predictor(photo, pred, profile,
+                                            320, 40)
             wall = time.monotonic() - t1
             assert out.shape == photo.shape and np.isfinite(out).all()
-            rep["full_e1_wall_s_runs"].append(wall)
-            print(f"{backend} e1 run{r}: wall={wall:.1f}s", flush=True)
+            rep["full_wall_s_runs"].append(wall)
+            print(f"{backend} run{r}: wall={wall:.1f}s", flush=True)
     if backend != "onnx-strict":
         network_mod.deform_neighbourhood = orig_network
         sampling_mod.deform_neighbourhood = orig_sampling

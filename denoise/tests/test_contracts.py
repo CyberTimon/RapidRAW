@@ -2,7 +2,8 @@ import numpy as np
 import pytest
 import torch
 from rapidraw_denoise.raw import cfa_positions, pack, unpack
-from rapidraw_denoise.inference import tiled_apply, transform, inverse_transform
+from rapidraw_denoise.inference import tiled_apply
+from rapidraw_denoise.study.transforms import transform, inverse_transform
 from rapidraw_denoise.noise import estimate_noise, synthesize, NoiseProfile
 from rapidraw_denoise.vendor.nonlocalmf.sampling import reference_sampling
 

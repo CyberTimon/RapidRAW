@@ -1,7 +1,7 @@
 /** Benchmark-only native Nonlocal library A/B runner (one fresh job).
  *
  * Launches one fresh native engine + isolated workspace, opens a fixed RAW,
- * runs a single balanced (e1) nonlocal denoise at a fixed intensity, times
+ * runs a single-pass nonlocal denoise at a fixed intensity, times
  * start→success, captures backend provenance, renders a deterministic PNG,
  * and records the engine's actually-mapped CUDA libraries from /proc maps.
  * Intended for N_S vs N_P comparisons where only process-local library
@@ -121,7 +121,6 @@ try {
   const startedJob = await data('start_denoise', {
     session_id: opened.session_id,
     method: 'nonlocal',
-    quality: 'balanced',
     intensity,
   });
   let state;

@@ -4,10 +4,10 @@ Wraps the .mlpackage in a TilePredictor, runs the shared
 denoise_with_predictor pipeline (same TILE/HALO/CORE contract as the ONNX
 full-photo runs), saves the output, and scores it against a reference
 full-photo array with the frozen full_metrics gates via compare_files.
-One photo/ensemble per invocation; all paths are argv (no hardcodes).
+One photo per invocation; all paths are argv (no hardcodes).
 
 Usage: coreml_fullphoto.py --package DIR --native-dir DIR --fixtures-root DIR
-  --photo portrait --ensemble 1 --reference REF.npy --out OUT.npy [--report JSON]
+  --photo portrait --reference REF.npy --out OUT.npy [--report JSON]
 """
 import argparse
 import json
@@ -15,7 +15,7 @@ import sys
 import time
 from pathlib import Path
 
-TILE, HALO = 320, 64
+TILE, HALO = 320, 40
 
 
 def main():
@@ -24,7 +24,6 @@ def main():
     ap.add_argument("--native-dir", required=True)
     ap.add_argument("--fixtures-root", required=True)
     ap.add_argument("--photo", required=True)
-    ap.add_argument("--ensemble", type=int, choices=(1, 4), default=1)
     ap.add_argument("--reference", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--report", default=None)
@@ -76,13 +75,11 @@ def main():
 
     pred.predict = counting
     t1 = time.monotonic()
-    out, _, _ = denoise_with_predictor(packed, pred, profile, TILE, HALO,
-                                       ns.ensemble)
+    out, _ = denoise_with_predictor(packed, pred, profile, TILE, HALO)
     wall = time.monotonic() - t1
     np.save(ns.out, out)
-    cmp_rec = compare_files(f"coreml-{ns.photo}-e{ns.ensemble}", ns.out,
-                            ns.reference, ensemble=ns.ensemble)
-    rep = {"photo": ns.photo, "ensemble": ns.ensemble,
+    cmp_rec = compare_files(f"coreml-{ns.photo}", ns.out, ns.reference)
+    rep = {"photo": ns.photo,
            "package_sha256": manifest["package_sha256"],
            "load_s": load_s, "wall_s": wall, "tile_calls": calls[0],
            "output_shape": list(out.shape), "comparison": cmp_rec}
@@ -91,7 +88,7 @@ def main():
     m = {k: cmp_rec.get(k) for k in ("pass", "max_abs_err", "mae",
                                             "p99_abs_err", "elementwise_violations",
                                             "consistency_problems")}
-    print(json.dumps({"photo": ns.photo, "ensemble": ns.ensemble,
+    print(json.dumps({"photo": ns.photo,
                       "wall_s": round(wall, 1), "tiles": calls[0],
                       "pass": m.get("pass"),
                       "max_abs_err": m.get("max_abs_err")}, indent=2))

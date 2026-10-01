@@ -36,8 +36,7 @@ def _write_native_dir(tmp_path: Path, h: int = 64, w: int = 64) -> Path:
         "source_sha256": "source",
         "shape": [4, h, w],
         "tile": 320,
-        "halo": 64,
-        "ensemble": 1,
+        "halo": 40,
     }
     (worker_dir / "request.json").write_text(json.dumps(request))
     return worker_dir
@@ -139,7 +138,7 @@ def test_native_transport_roundtrip_is_little_endian(tmp_path):
     raw = (worker_dir / "input.f32").read_bytes()
     request = json.loads((worker_dir / "request.json").read_text())
     assert request["shape"] == [4, 16, 32]
-    assert request["tile"] == 320 and request["halo"] == 64
+    assert request["tile"] == 320 and request["halo"] == 40
     arr = np.fromfile(worker_dir / "input.f32", dtype="<f4").reshape(4, 16, 32)
     assert arr.shape == (4, 16, 32)
     assert np.isfinite(arr).all()

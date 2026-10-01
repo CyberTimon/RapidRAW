@@ -21,7 +21,7 @@ def validate_request(request):
         raise ValueError("Invalid packed RGBG shape")
     if request.get("model_sha256") != CHECKPOINT_SHA256:
         raise ValueError("Unrecognized Nonlocal checkpoint")
-    if type(request.get("ensemble")) is not int or request["ensemble"] not in (1, 4) or request.get("tile") != 320 or request.get("halo") != 64:
+    if request.get("tile") != 320 or request.get("halo") != 40:
         raise ValueError("Unsupported native inference configuration")
     return tuple(shape)
 
@@ -46,13 +46,11 @@ def run(directory, checkpoint):
     from .inference import denoise, load_model
     torch.set_num_threads(4)
     def progress(event):
-        fraction = (event["completed_passes"] + event.get("completed_tiles", 0)
-                    / max(event.get("total_tiles", 1), 1)) / event["total_passes"]
+        fraction = event["completed_tiles"] / max(event["total_tiles"], 1)
         print(json.dumps({"progress": min(fraction, 1), "stage": "Nonlocal RAW tiles"}), flush=True)
     print(json.dumps({"progress": 0, "stage": "Loading Nonlocal CUDA model"}), flush=True)
     model = load_model(checkpoint, "cuda")
-    output, _, info = denoise(packed, model, tile=320, halo=64,
-                              ensemble=request["ensemble"], progress=progress)
+    output, info = denoise(packed, model, tile=320, halo=40, progress=progress)
     if output.shape != shape or not np.isfinite(output).all():
         raise ValueError("Invalid RAW prediction")
     temporary = directory / "prediction.f32.partial"

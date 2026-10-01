@@ -59,14 +59,13 @@ def test_refactored_torch_matches_frozen_original():
     profile = _profile()
     frozen_model = frozen.load_model(LOCAL_CKPT, device="cpu")
     new_model = new_inference.load_model(LOCAL_CKPT, device="cpu")
-    frozen_out, frozen_dis, frozen_info = frozen.denoise(
-        packed, frozen_model, profile, tile=64, halo=16, ensemble=4)
-    new_out, new_dis, new_info = new_inference.denoise(
-        packed, new_model, profile, tile=64, halo=16, ensemble=4)
+    frozen_out, _, frozen_info = frozen.denoise(
+        packed, frozen_model, profile, tile=64, halo=16)
+    new_out, new_info = new_inference.denoise(
+        packed, new_model, profile, tile=64, halo=16)
     assert np.array_equal(new_out, frozen_out), float(
         np.abs(new_out - frozen_out).max())
-    assert np.array_equal(new_dis, frozen_dis)
-    for key in ("tile", "halo", "ensemble", "noise_scale", "parameters"):
+    for key in ("tile", "halo", "noise_scale", "parameters"):
         assert new_info[key] == frozen_info[key], key
     assert new_info["noise_profile"] == frozen_info["noise_profile"]
     assert new_info["device"] == frozen_info["device"] == "cpu"
@@ -75,13 +74,13 @@ def test_refactored_torch_matches_frozen_original():
 @requires_ckpt
 def test_wrappers_preserve_helper_defaults_and_contracts():
     import inspect
-    for fn in ("tiled_apply", "transform", "inverse_transform"):
+    for fn in ("tiled_apply",):
         assert getattr(new_inference, fn) is getattr(
             __import__("rapidraw_denoise.pipeline", fromlist=[fn]), fn)
     sig = inspect.signature(new_inference.denoise)
     assert sig.parameters["tile"].default == 256
-    assert sig.parameters["halo"].default == 64
-    assert sig.parameters["ensemble"].default == 1
+    assert sig.parameters["halo"].default == 40
+    assert "ensemble" not in sig.parameters
 
 
 @requires_bundle

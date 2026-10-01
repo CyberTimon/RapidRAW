@@ -24,24 +24,22 @@ for photo in ["portrait", "landscape", "phone"]:
         open(f"/tmp/nlx-fixtures/{photo}-controlled-fp32/metadata.json")
     )
     profile = NoiseProfile(**meta["noise_profile"])
-    pentry = {"photoshape": list(packed.shape), "passes": {}}
-    for ensemble in (1, 4):
-        events = []
-        t1 = time.monotonic()
-        out, _, info = denoise(
-            packed, model, profile, 320, 64, ensemble,
-            progress=events.append,
-        )
-        wall = time.monotonic() - t1
-        tile_events = [e for e in events if "completed_tiles" in e]
-        np.save(f"/tmp/nlx-fixtures/{photo}-newprod-full-e{ensemble}.npy", out)
-        pentry["passes"][str(ensemble)] = {
-            "wall_seconds": wall,
-            "tile_events": len(tile_events),
-            "inference_elapsed": info["elapsed_seconds"],
-        }
-        print(f"{photo} e{ensemble}: {wall:.1f}s tile_events={len(tile_events)}",
-              flush=True)
+    events = []
+    t1 = time.monotonic()
+    out, info = denoise(
+        packed, model, profile, 320, 40,
+        progress=events.append,
+    )
+    wall = time.monotonic() - t1
+    tile_events = [e for e in events if "completed_tiles" in e]
+    np.save(f"/tmp/nlx-fixtures/{photo}-newprod-full.npy", out)
+    pentry = {
+        "photoshape": list(packed.shape),
+        "wall_seconds": wall,
+        "tile_events": len(tile_events),
+        "inference_elapsed": info["elapsed_seconds"],
+    }
+    print(f"{photo}: {wall:.1f}s tile_events={len(tile_events)}", flush=True)
     report["photos"][photo] = pentry
 with open("/tmp/nlx-newprod-full-report.json", "w") as f:
     json.dump(report, f, indent=2)

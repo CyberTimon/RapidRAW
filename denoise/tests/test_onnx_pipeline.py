@@ -42,10 +42,7 @@ def test_tiling_identity_odd_rectangular():
         assert np.array_equal(pipeline.tiled_apply(a, lambda x: x, tile=32, halo=8), a)
 
 
-def test_transform_inverses_rectangular_and_negative_stride():
-    x = np.arange(4 * 13 * 17).reshape(4, 13, 17)
-    for i in range(8):
-        assert np.array_equal(pipeline.inverse_transform(pipeline.transform(x, i), i), x)
+def test_tiling_handles_negative_stride_views():
     view = np.ascontiguousarray(
         np.random.default_rng(3).normal(size=(8, 40, 40)).astype(np.float32)
     )[:, ::-1, :]
@@ -54,22 +51,19 @@ def test_transform_inverses_rectangular_and_negative_stride():
     assert np.array_equal(out, np.ascontiguousarray(view))
 
 
-def test_four_rotation_ensemble_averages_transforms():
+def test_single_pass_returns_the_tiled_prediction():
     rng = np.random.default_rng(5)
     packed = rng.uniform(-0.05, 0.9, size=(4, 96, 96)).astype(np.float32)
     profile = _profile()
-    mean, _, info = pipeline.denoise_with_predictor(
-        packed, Identity(), profile, tile=64, halo=16, ensemble=4)
-    assert info["ensemble"] == 4
-    # Manual Welford mean of the four inverse-transformed tiled singles.
+    prediction, info = pipeline.denoise_with_predictor(
+        packed, Identity(), profile, tile=64, halo=16)
+    assert "ensemble" not in info and "disagreement_mean_variance" not in info
+    assert info["tile"] == 64 and info["halo"] == 16
     image = np.clip(packed, 0, 1)
     variance = profile.variance(packed)
     conditioned = np.concatenate([image, np.sqrt(np.maximum(variance, 1e-12))])
-    singles = [pipeline.inverse_transform(
-        pipeline.tiled_apply(pipeline.transform(conditioned, i),
-                             lambda t: t[:4], tile=64, halo=16), i)
-        for i in range(4)]
-    np.testing.assert_array_equal(mean, sum(singles) / 4)
+    expected = pipeline.tiled_apply(conditioned, lambda t: t[:4], tile=64, halo=16)
+    np.testing.assert_array_equal(prediction, expected)
 
 
 def test_invalid_inputs_fail_closed():
@@ -78,7 +72,7 @@ def test_invalid_inputs_fail_closed():
                              tile=32, halo=16)
     with pytest.raises(ValueError):
         pipeline.denoise_with_predictor(
-            np.ones((4, 96, 96), np.float32), Identity(), _profile(), ensemble=3)
+            np.ones((4, 96, 96), np.float32), Identity(), _profile(), noise_scale=0)
     with pytest.raises(RuntimeError):
         pipeline.tiled_apply(np.ones((4, 64, 64), np.float32),
                              lambda x: x * np.nan, tile=32, halo=8)
@@ -95,9 +89,7 @@ def test_progress_semantics_preserved():
     events = []
     pipeline.denoise_with_predictor(
         np.random.default_rng(6).uniform(-0.05, 0.9, size=(4, 96, 96)).astype(np.float32),
-        Identity(), _profile(), tile=64, halo=16, ensemble=4,
-        progress=events.append)
-    passes = [e for e in events if set(e) == {"completed_passes", "total_passes"}]
-    assert [e["completed_passes"] for e in passes] == [1, 2, 3, 4]
-    tiles = [e for e in events if "completed_tiles" in e]
-    assert tiles and all(e["total_passes"] == 4 for e in tiles)
+        Identity(), _profile(), tile=64, halo=16, progress=events.append)
+    assert events and all(set(e) == {"completed_tiles", "total_tiles"} for e in events)
+    assert [e["completed_tiles"] for e in events] == list(range(1, len(events) + 1))
+    assert all(e["total_tiles"] == len(events) for e in events)

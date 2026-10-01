@@ -679,7 +679,7 @@ impl Bridge {
             if !manifest.is_file() {
                 continue;
             }
-            let session: Session = serde_json::from_slice(
+            let session = super::sessions::session_from_manifest_bytes(
                 &fs::read(&manifest).map_err(|e| e.to_string())?,
             )
             .map_err(|e| format!("INVALID_SESSION: Cannot verify protected source paths: {e}"))?;

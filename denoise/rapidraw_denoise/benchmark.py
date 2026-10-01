@@ -62,13 +62,13 @@ def main():
             noisy=synthesize(clean,[shot]*4,[read]*4,seed=19000+case_index,row_sigma=row,black_bias=bias)
             oracle=NoiseProfile([shot]*4,[read]*4,[],method="synthetic-oracle-upper-reference")
             estimated=estimate_noise(noisy)
-            variants=[("blind",estimated,False,1)]
-            if a.ablations:variants += [("oracle",oracle,False,1),("pilot",estimated,True,1),("ensemble4",estimated,False,4)]
-            if a.row_ablation:variants += [("row-corrected",estimated,False,1)]
+            variants=[("blind",estimated,False)]
+            if a.ablations:variants += [("oracle",oracle,False),("pilot",estimated,True)]
+            if a.row_ablation:variants += [("row-corrected",estimated,False)]
             base={**case,"corruption":corruption,"noise":{"shot":shot,"read":read,"row_sigma":row,"black_bias":bias},
                   "input":metrics(clean,noisy)}
-            for name,profile,pilot,ensemble in variants:
-                output,_,info=denoise(noisy,model,profile,tile=320,halo=64,pilot=pilot,ensemble=ensemble,row_correction=name=="row-corrected")
+            for name,profile,pilot in variants:
+                output,info=denoise(noisy,model,profile,tile=320,halo=40,pilot=pilot,row_correction=name=="row-corrected")
                 record={**base,"variant":name,"output":metrics(clean,output),"inference":info}
                 records.append(record)
                 artifact=a.output/f'{case["scene"]}-{case["crop"]}-{corruption}-{name}.npz'

@@ -481,34 +481,13 @@ def test_full_comparator_main_rejects_malformed_rows(tmp_path):
 def test_region_masks_grid_lines_are_exact():
     from rapidraw_denoise.compare_full import _grid_lines, region_masks
     lines = sorted(_grid_lines(400))
-    assert lines == (list(range(0, 8)) + list(range(184, 200))
-                     + list(range(376, 400)))
+    assert lines == (list(range(0, 8)) + list(range(232, 248))
+                     + list(range(392, 400)))
     masks = region_masks(400, 400)
     assert masks["outer"].sum() > 0 and masks["seam"].sum() > 0
     assert masks["interior"].sum() > 0
     total = masks["outer"].sum() + masks["seam"].sum() + masks["interior"].sum()
     assert total == 400 * 400  # disjoint complete partition
-
-
-def test_e4_diagnostic_supersets_unrotated_seam_and_labels_extra(tmp_path):
-    from rapidraw_denoise.compare_full import compare_files, region_masks, region_masks_e4
-    rng = np.random.default_rng(7)
-    ref = rng.normal(size=(4, 400, 401)).astype(np.float32)
-    out = (ref.astype("float64") + 1e-7).astype(np.float32)
-    a, r = tmp_path / "a.npy", tmp_path / "r.npy"
-    np.save(a, out)
-    np.save(r, ref)
-    e1 = compare_files("e1", a, r, ensemble=1)
-    e4 = compare_files("e4", a, r, ensemble=4)
-    assert "regions_e4" not in e1
-    assert set(e4["regions_e4"]) == {"outer", "seam", "interior"}
-    m1, m4 = region_masks(400, 401), region_masks_e4(400, 401)
-    assert (m4["seam"] & ~m1["seam"]).any()  # mirrored lines add pixels
-    assert not (m1["seam"] & ~m4["seam"]).any()  # nothing lost
-    assert e4["seam_e4_extra"]["pixels"] > 0
-    assert e4["pass"] == e1["pass"]  # diagnostic has no gate effect
-    with pytest.raises(ValueError, match="ensemble"):
-        compare_files("bad", a, r, ensemble=8)
 
 
 def test_repro_source_imports_no_torch():

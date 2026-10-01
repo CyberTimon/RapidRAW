@@ -106,12 +106,12 @@ try {
   await render(zeroJob.result_session_id, 'zero-strength');
   const rejected = await call(
     'start_denoise',
-    { session_id: parent.session_id, method: 'bm3d', quality: 'maximum' },
+    { session_id: parent.session_id, method: 'nonlocal', quality: 'maximum' },
     true,
   );
   assert.match(JSON.stringify(rejected), /quality/i);
-  // A different quality has a distinct prediction cache. Cancel after CUDA
-  // begins, then restart the same immutable snapshot with resume_job.
+  // Cancel after CUDA begins, then restart the same immutable snapshot with
+  // resume_job.
   let job = await data('start_denoise', {
     session_id: parent.session_id,
     method: 'nonlocal',

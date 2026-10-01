@@ -16,7 +16,7 @@ from rapidraw_denoise.noise import NoiseProfile
 from rapidraw_denoise.onnx_backend import OnnxTilePredictor
 from rapidraw_denoise.pipeline import denoise_with_predictor
 
-TILE, HALO, CORE = 320, 64, 192
+TILE, HALO, CORE = 320, 40, 240
 PHOTOS = ["portrait", "landscape", "phone"]
 
 
@@ -36,7 +36,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--bundle", default="/tmp/nlx-model/bundle-pinned-320-fp32")
     ap.add_argument("--tag", default="onnx",
-                    help="output filename tag: {photo}-{tag}-full-e{1,4}.npy")
+                    help="output filename tag: {photo}-{tag}-full.npy")
     ap.add_argument("--optimize", action="store_true")
     ap.add_argument("--report", default=None)
     ns = ap.parse_args(argv)
@@ -62,39 +62,34 @@ def main(argv=None):
         nx = (w + CORE - 1) // CORE
         pentry = {
             "packed_shape": [4, h, w],
-            "expected_tiles_per_pass": ny * nx,
+            "expected_tiles": ny * nx,
             "source_sha256": meta["source_sha256"],
-            "passes": {},
         }
-        for ensemble in (1, 4):
-            calls = [0]
+        calls = [0]
 
-            orig_predict = predictor.predict
+        orig_predict = predictor.predict
 
-            def counting_predict(tile, _o=orig_predict, _c=calls):
-                _c[0] += 1
-                return _o(tile)
+        def counting_predict(tile, _o=orig_predict, _c=calls):
+            _c[0] += 1
+            return _o(tile)
 
-            predictor.predict = counting_predict
-            t1 = time.monotonic()
-            out, _, info = denoise_with_predictor(
-                packed, predictor, profile, TILE, HALO, ensemble
-            )
-            wall = time.monotonic() - t1
-            predictor.predict = orig_predict
-            np.save(f"/tmp/nlx-fixtures/{photo}-{ns.tag}-full-e{ensemble}.npy", out)
-            pentry["passes"][str(ensemble)] = {
-                "wall_seconds": wall,
-                "actual_tile_calls": calls[0],
-                "expected_tile_calls": ny * nx * ensemble,
-                "output_shape": list(out.shape),
-            }
-            assert calls[0] == ny * nx * ensemble, (calls[0], ny * nx * ensemble)
-            assert out.shape == packed.shape
-            print(
-                f"{photo} e{ensemble}: {wall:.1f}s tiles={calls[0]}",
-                flush=True,
-            )
+        predictor.predict = counting_predict
+        t1 = time.monotonic()
+        out, info = denoise_with_predictor(
+            packed, predictor, profile, TILE, HALO
+        )
+        wall = time.monotonic() - t1
+        predictor.predict = orig_predict
+        np.save(f"/tmp/nlx-fixtures/{photo}-{ns.tag}-full.npy", out)
+        pentry.update({
+            "wall_seconds": wall,
+            "actual_tile_calls": calls[0],
+            "expected_tile_calls": ny * nx,
+            "output_shape": list(out.shape),
+        })
+        assert calls[0] == ny * nx, (calls[0], ny * nx)
+        assert out.shape == packed.shape
+        print(f"{photo}: {wall:.1f}s tiles={calls[0]}", flush=True)
         report["photos"][photo] = pentry
     report_path = ns.report or f"/tmp/nlx-{ns.tag}-full-report.json"
     with open(report_path, "w") as f:

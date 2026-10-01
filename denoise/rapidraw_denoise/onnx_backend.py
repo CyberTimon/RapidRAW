@@ -1,7 +1,7 @@
 """ONNX Runtime tile predictor for the exported Nonlocal reference bundle.
 
 Loads and validates the bundle once per job and reuses one InferenceSession
-across all tiles and ensemble passes. Fail-closed validation order:
+across all tiles. Fail-closed validation order:
 
 1. Bundle files present; manifest version / tile / precision / I/O contract.
 2. Pinned checkpoint lineage (non-zero, pinned-match, equals the pinned SHA).

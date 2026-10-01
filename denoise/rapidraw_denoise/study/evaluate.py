@@ -7,7 +7,8 @@ import numpy as np
 import torch
 from scipy.ndimage import gaussian_filter
 from rapidraw_denoise.raw import sha256
-from rapidraw_denoise.inference import load_model, transform, inverse_transform
+from rapidraw_denoise.inference import load_model
+from rapidraw_denoise.study.transforms import transform, inverse_transform
 from rapidraw_denoise.benchmark import metrics
 from .common import ROOT, STUDY
 

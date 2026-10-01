@@ -86,7 +86,7 @@ Choose a checkpoint and ensemble using validation only. Require positive mean RA
   "checkpoint_sha256": "REPLACE_WITH_ACTUAL_SHA256",
   "ensemble": 4,
   "tile": 320,
-  "halo": 64,
+  "halo": 40,
   "reason": "Replace with the measured validation decision"
 }
 ```
@@ -114,4 +114,4 @@ Held-out scene-balanced RAW PSNR (dB), compared with a single prediction:
 
 Every held-out scene mean improved; individual crops did not all improve. The worst crop changes were -0.130 dB for synthetic noise and -0.041 dB for real pairs. Removing the exact duplicate real-pair crop gives a +0.041 dB scene-balanced change, consistent with the primary result. Edge PSNR also improves on average. These are small gains and do not establish a visibly transformative result or commercial parity.
 
-Eight-transform averaging did not materially improve validation over four rotations. Lowering noise conditioning damaged reconstruction accuracy, and larger tile context changed mean validation PSNR by about 0.00001 dB. These results support retaining the tested 320/64 tile/halo settings and treating four rotations as an optional quality-versus-runtime tradeoff. Full-resolution photographic inspection remains a separate acceptance step; ONNX conversion has not been performed.
+Eight-transform averaging did not materially improve validation over four rotations. Lowering noise conditioning damaged reconstruction accuracy, and larger tile context changed mean validation PSNR by about 0.00001 dB. These results supported the original 320/64 tile/halo settings. Production has since moved to a 40-pixel halo (see the [README](README.md)) and no longer offers four-rotation averaging, which remains available only to this research study. Full-resolution photographic inspection remains a separate acceptance step; ONNX conversion has not been performed.

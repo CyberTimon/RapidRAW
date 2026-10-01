@@ -20,7 +20,7 @@
 //! which natively compiles the `.mlpackage` to `.mlmodelc` and loads one
 //! `MLModel` per denoise job with `MLComputeUnitsAll` and
 //! `allowLowPrecisionAccumulationOnGPU = NO`. The shared Rust
-//! noise/conditioning/tiling/ensemble driver (`nonlocal_onnx::denoise_packed`)
+//! noise/conditioning/tiling driver (`nonlocal_onnx::denoise_packed`)
 //! is reused through the [`nonlocal_onnx::TilePredictor`] contract; no
 //! pipeline arithmetic is duplicated here.
 
@@ -302,8 +302,7 @@ mod ffi {
     }
 }
 
-/// One compiled `MLModel` per denoise job, reused for all tiles and ensemble
-/// passes. The handle is owned by the job worker thread.
+/// One compiled `MLModel` per denoise job, reused for all tiles. The handle is owned by the job worker thread.
 #[cfg(target_os = "macos")]
 pub(crate) struct Backend {
     handle: *mut c_void,
@@ -920,17 +919,16 @@ mod tests {
     }
 
     /// Native Rust/CoreML full-photo parity through the shared
-    /// noise/conditioning/tiling/Welford driver. Requires the exact accepted
-    /// package plus a packed `[4,H,W]` little-endian float32 input and the
-    /// frozen torch reference outputs:
-    /// `RAPIDRAW_NONLOCAL_COREML_BUNDLE`, `RAPIDRAW_NONLOCAL_COREML_PHOTO_INPUT`,
-    /// `RAPIDRAW_NONLOCAL_COREML_PHOTO_REF_E1` and
-    /// `RAPIDRAW_NONLOCAL_COREML_PHOTO_REF_E4` (single-array float32 `.npy`).
+    /// noise/conditioning/tiling driver. Requires the exact accepted package
+    /// plus a packed `[4,H,W]` little-endian float32 input and the frozen
+    /// torch reference output computed with the production 320/40 tiling:
+    /// `RAPIDRAW_NONLOCAL_COREML_BUNDLE`, `RAPIDRAW_NONLOCAL_COREML_PHOTO_INPUT`
+    /// and `RAPIDRAW_NONLOCAL_COREML_PHOTO_REF` (single-array float32 `.npy`).
     /// Gates match the tile family (zero elementwise violations at
     /// 1e-4 atol/rtol, MAE <= 1e-5, p99 <= 1e-4).
     #[test]
     #[cfg(target_os = "macos")]
-    #[ignore = "Requires exact CoreML bundle + full-photo packed input and torch references; runs e1+e4 end to end"]
+    #[ignore = "Requires exact CoreML bundle + full-photo packed input and torch reference; runs end to end"]
     fn accepted_package_full_photo_parity() {
         let bundle = std::path::PathBuf::from(
             std::env::var_os("RAPIDRAW_NONLOCAL_COREML_BUNDLE")
@@ -953,75 +951,65 @@ mod tests {
             cancelled: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             progress: std::sync::Arc::new(|_, _| {}),
         };
-        for (ensemble, var) in [
-            (1u32, "RAPIDRAW_NONLOCAL_COREML_PHOTO_REF_E1"),
-            (4u32, "RAPIDRAW_NONLOCAL_COREML_PHOTO_REF_E4"),
-        ] {
-            let ref_path = std::path::PathBuf::from(
-                std::env::var_os(var)
-                    .unwrap_or_else(|| panic!("Set {var} to the torch reference .npy")),
-            );
-            let (ref_shape, reference) =
-                frozen_fixtures::read_npy(&std::fs::read(&ref_path).expect("reference readable"))
-                    .expect("reference parses");
-            assert_eq!(ref_shape.len(), 3, "reference must be [4,H,W]");
-            let (height, width) = (ref_shape[1], ref_shape[2]);
-            assert_eq!(ref_shape[0], 4);
-            let raw = std::fs::read(&input_path).expect("photo input readable");
-            assert_eq!(
-                raw.len(),
-                4 * height * width * 4,
-                "input size matches reference"
-            );
-            let packed: Vec<f32> = raw
-                .as_chunks::<4>()
-                .0
-                .iter()
-                .map(|b| f32::from_le_bytes(*b))
-                .collect();
-            let started = std::time::Instant::now();
-            let result = crate::nonlocal_onnx::denoise_packed(
-                &mut backend,
-                &packed,
-                height,
-                width,
-                ensemble,
-                &control,
-            )
-            .expect("full-photo inference");
-            let wall_s = started.elapsed().as_secs_f64();
-            assert_eq!(result.prediction.len(), reference.len());
-            let label = format!("coreml-full-e{ensemble}");
-            // Full-array gates, same family as the tile gates.
-            let mut max_abs = 0f64;
-            let mut sum_abs = 0f64;
-            let mut violations = 0usize;
-            let mut abs_dev = Vec::with_capacity(reference.len());
-            for (a, r) in result.prediction.iter().zip(reference.iter()) {
-                assert!(a.is_finite(), "{label}: finite");
-                let err = (*a as f64 - *r as f64).abs();
-                max_abs = max_abs.max(err);
-                sum_abs += err;
-                if err > 1e-4 + 1e-4 * (*r as f64).abs() {
-                    violations += 1;
-                }
-                abs_dev.push(err);
+        let var = "RAPIDRAW_NONLOCAL_COREML_PHOTO_REF";
+        let ref_path = std::path::PathBuf::from(
+            std::env::var_os(var)
+                .unwrap_or_else(|| panic!("Set {var} to the torch reference .npy")),
+        );
+        let (ref_shape, reference) =
+            frozen_fixtures::read_npy(&std::fs::read(&ref_path).expect("reference readable"))
+                .expect("reference parses");
+        assert_eq!(ref_shape.len(), 3, "reference must be [4,H,W]");
+        let (height, width) = (ref_shape[1], ref_shape[2]);
+        assert_eq!(ref_shape[0], 4);
+        let raw = std::fs::read(&input_path).expect("photo input readable");
+        assert_eq!(
+            raw.len(),
+            4 * height * width * 4,
+            "input size matches reference"
+        );
+        let packed: Vec<f32> = raw
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|b| f32::from_le_bytes(*b))
+            .collect();
+        let started = std::time::Instant::now();
+        let result =
+            crate::nonlocal_onnx::denoise_packed(&mut backend, &packed, height, width, &control)
+                .expect("full-photo inference");
+        let wall_s = started.elapsed().as_secs_f64();
+        assert_eq!(result.prediction.len(), reference.len());
+        let label = "coreml-full";
+        // Full-array gates, same family as the tile gates.
+        let mut max_abs = 0f64;
+        let mut sum_abs = 0f64;
+        let mut violations = 0usize;
+        let mut abs_dev = Vec::with_capacity(reference.len());
+        for (a, r) in result.prediction.iter().zip(reference.iter()) {
+            assert!(a.is_finite(), "{label}: finite");
+            let err = (*a as f64 - *r as f64).abs();
+            max_abs = max_abs.max(err);
+            sum_abs += err;
+            if err > 1e-4 + 1e-4 * (*r as f64).abs() {
+                violations += 1;
             }
-            let mae = sum_abs / reference.len() as f64;
-            abs_dev.sort_by(|a, b| a.partial_cmp(b).expect("finite"));
-            let pos = 0.99 * (reference.len() as f64 - 1.0);
-            let lo = pos.floor() as usize;
-            let hi = pos.ceil() as usize;
-            let p99 = abs_dev[lo] + (pos - lo as f64) * (abs_dev[hi] - abs_dev[lo]);
-            eprintln!(
-                "{label}: max={max_abs:e} mae={mae:e} p99={p99:e} violations={violations} \
-                 inference_s={:.1} load_s={:.3} disagreement={:e}",
-                result.elapsed_secs, backend.load_secs, result.disagreement_mean_variance
-            );
-            assert_eq!(violations, 0, "{label}: elementwise violations");
-            assert!(mae <= 1e-5, "{label}: mae {mae:e}");
-            assert!(p99 <= 1e-4, "{label}: p99 {p99:e}");
-            eprintln!("{label}: WALL_S={wall_s:.1}");
+            abs_dev.push(err);
         }
+        let mae = sum_abs / reference.len() as f64;
+        abs_dev.sort_by(|a, b| a.partial_cmp(b).expect("finite"));
+        let pos = 0.99 * (reference.len() as f64 - 1.0);
+        let lo = pos.floor() as usize;
+        let hi = pos.ceil() as usize;
+        let p99 = abs_dev[lo] + (pos - lo as f64) * (abs_dev[hi] - abs_dev[lo]);
+        eprintln!(
+            "{label}: max={max_abs:e} mae={mae:e} p99={p99:e} violations={violations} \
+             inference_s={:.1} load_s={:.3}",
+            result.elapsed_secs, backend.load_secs
+        );
+        assert_eq!(violations, 0, "{label}: elementwise violations");
+        assert!(mae <= 1e-5, "{label}: mae {mae:e}");
+        assert!(p99 <= 1e-4, "{label}: p99 {p99:e}");
+        eprintln!("{label}: WALL_S={wall_s:.1}");
     }
 }

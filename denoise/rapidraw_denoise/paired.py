@@ -90,7 +90,7 @@ def main():
                 size=384;y=int((h-size)*fy)//4*4;x=int((w-size)*fx)//4*4
                 ref=clean[:,y:y+size,x:x+size].copy()
                 obs=noisy[:,y:y+size,x:x+size].copy()
-                out,_,info=denoise(obs,model,profile,tile=320,halo=64)
+                out,info=denoise(obs,model,profile,tile=320,halo=40)
                 normalized=(out-offset)/gain;input_normalized=(obs-offset)/gain
                 record={"scene":entry["scene"],"crop":i,"alignment":alignment,
                     "photometric_gain":gain.ravel().tolist(),"photometric_offset":offset.ravel().tolist(),

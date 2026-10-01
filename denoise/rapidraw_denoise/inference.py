@@ -1,10 +1,9 @@
 """Memory-bounded RAW inference with a frozen photometric noise profile."""
 import torch
-from .pipeline import TilePredictor, denoise_with_predictor, tiled_apply, transform, inverse_transform
+from .pipeline import TilePredictor, denoise_with_predictor, tiled_apply
 from .vendor.nonlocalmf.network import SimpleBlockMatchingUNet
 
-__all__ = ["load_model", "tiled_apply", "transform", "inverse_transform",
-           "denoise", "TorchTilePredictor", "SimpleBlockMatchingUNet"]
+__all__ = ["load_model", "tiled_apply", "denoise", "TorchTilePredictor", "SimpleBlockMatchingUNet"]
 
 
 def load_model(checkpoint, device="cuda"):
@@ -45,5 +44,5 @@ class TorchTilePredictor(TilePredictor):
 
 
 @torch.inference_mode()
-def denoise(packed, model, profile=None, tile=256, halo=64, ensemble=1, noise_scale=1., pilot=False, progress=None, row_correction=False):
-    return denoise_with_predictor(packed, TorchTilePredictor(model), profile, tile, halo, ensemble, noise_scale, pilot, progress, row_correction)
+def denoise(packed, model, profile=None, tile=256, halo=40, noise_scale=1., pilot=False, progress=None, row_correction=False):
+    return denoise_with_predictor(packed, TorchTilePredictor(model), profile, tile, halo, noise_scale, pilot, progress, row_correction)

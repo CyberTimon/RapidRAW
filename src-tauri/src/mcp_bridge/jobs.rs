@@ -47,8 +47,6 @@ struct Job {
     stage: String,
     method: String,
     intensity: f32,
-    #[serde(default = "balanced_quality")]
-    quality: String,
     /// Backend generation that owns unfinished work. Absent on manifests
     /// written before the native ONNX switch; serde default keeps those
     /// manifests listable, and resume rejects them explicitly below.
@@ -58,9 +56,6 @@ struct Job {
     result_session_id: String,
     error: Option<String>,
     attempt: u32,
-}
-fn balanced_quality() -> String {
-    "balanced".into()
 }
 fn legacy_backend_generation() -> String {
     String::new()
@@ -88,7 +83,7 @@ impl Job {
             "Completed results persist without polling. After process interruption, resume_job restarts computation from the captured input; partial tiles are not checkpoints."
         };
         json!({"job_id":self.job_id,"status":self.status,"progress_percent":self.progress_percent,"stage":self.stage,
-            "method":self.method,"intensity":self.intensity,"quality":self.quality,"backend":self.backend,"parent_session_id":self.input.id,"parent_revision":self.input.revision,
+            "method":self.method,"intensity":self.intensity,"backend":self.backend,"parent_session_id":self.input.id,"parent_revision":self.input.revision,
             "result_session_id":if self.status==Status::Succeeded { Some(&self.result_session_id) } else { None },
             "error":self.error,"attempt":self.attempt,"recoverable":recoverable,
             "recovery":recovery})
@@ -182,8 +177,6 @@ impl Jobs {
             job.input
                 .validate_restored(&root.join("sessions").join(&job.input.id))?;
             if !["ai", "bm3d", "nonlocal"].contains(&job.method.as_str())
-                || !["balanced", "maximum"].contains(&job.quality.as_str())
-                || (job.method != "nonlocal" && job.quality != "balanced")
                 || !job.intensity.is_finite()
                 || !(0.0..=100.0).contains(&job.intensity)
             {
@@ -382,7 +375,7 @@ impl Jobs {
         control.check()?;
         atomic_write(
             &directory.join("session.json"),
-            &serde_json::to_vec_pretty(&result).map_err(|e| e.to_string())?,
+            &super::sessions::session_manifest_bytes(&result, true)?,
             false,
         )?;
         entry.job.status = Status::Succeeded;
@@ -416,7 +409,7 @@ impl Jobs {
             object.remove("mcpSourceDomain");
         }
         metadata["derivedFrom"] = json!({"session_id":job.input.id,"revision":job.input.revision,"job_id":job.job_id,
-            "operation":"denoise","method":"nonlocal","intensity":job.intensity,"quality":job.quality,
+            "operation":"denoise","method":"nonlocal","intensity":job.intensity,
             "source_domain_preserved":true,"nonlocal":output.provenance});
         let source_sha256 = crate::raw_denoise::hash_file(&derived).map_err(|e| e.to_string())?;
         let result = Session {
@@ -442,7 +435,7 @@ impl Jobs {
         control.check()?;
         atomic_write(
             &directory.join("session.json"),
-            &serde_json::to_vec_pretty(&result).map_err(|e| e.to_string())?,
+            &super::sessions::session_manifest_bytes(&result, true)?,
             false,
         )?;
         entry.job.status = Status::Succeeded;
@@ -523,22 +516,6 @@ impl Bridge {
             if !["ai", "bm3d", "nonlocal"].contains(&method) {
                 return Err("INVALID_ARGUMENT: method must be ai, bm3d or nonlocal".into());
             }
-            let quality = params
-                .get("quality")
-                .map(|v| {
-                    v.as_str()
-                        .ok_or("INVALID_ARGUMENT: quality must be a string")
-                })
-                .transpose()?
-                .unwrap_or("balanced");
-            if !["balanced", "maximum"].contains(&quality)
-                || (method != "nonlocal" && params.get("quality").is_some())
-            {
-                return Err(
-                    "INVALID_ARGUMENT: quality is balanced or maximum and applies only to nonlocal"
-                        .into(),
-                );
-            }
             Job {
                 job_id: uuid::Uuid::new_v4().to_string(),
                 status: Status::Running,
@@ -552,7 +529,6 @@ impl Bridge {
                     0.0,
                     100.0,
                 )? as f32,
-                quality: quality.into(),
                 backend: if method == "nonlocal" {
                     nonlocal_generation_for_new_job()
                 } else {
@@ -641,7 +617,6 @@ impl Bridge {
                                 &job.input.source_sha256,
                                 &jobs.root,
                                 job.intensity / 100.,
-                                &job.quality,
                                 &control,
                             )
                             .map_err(|e| format!("{e:#}"))?;
@@ -743,7 +718,6 @@ mod tests {
             stage: "AI tiles".into(),
             method: "bm3d".into(),
             intensity: 50.0,
-            quality: balanced_quality(),
             backend: String::new(),
             input,
             result_session_id: uuid::Uuid::new_v4().to_string(),

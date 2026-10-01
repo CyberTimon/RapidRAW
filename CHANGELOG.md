@@ -28,9 +28,21 @@ Changes added by this fork to RapidRAW. Upstream application changes remain in t
 - Embed and verify an sRGB ICC profile in JPEG, PNG, TIFF, and WebP desktop and CLI exports. Profile labeling is independent of capture-metadata retention and GPS removal.
 - Report unsupported capture-metadata retention requests before writing output, including TIFF inputs or outputs. Remove the ineffective RAW highlight-compression setting without changing RAW development or existing saved edits.
 
+### Nonlocal denoise speed
+
+- Cut Nonlocal model time about 4× on NVIDIA CUDA. On an RTX 5060 Ti with the shipped settings (TF32 and graph optimization off), a 32.5 MP photograph drops from an estimated 91 s to an estimated 23 s of model time (tile count × measured per-tile time; RAW decoding, noise estimation and DNG writing excluded). Two changes combine:
+  - The ONNX model is derived from the previous export by `python -m rapidraw_denoise.onnx_rewrite`. It keeps every weight and the FP32 precision, drops the all-zero convolution biases, and runs the 1×1 convolutions (20 dense, 10 grouped) as matrix multiplications, taking a 320×320 tile from 370 ms to 153 ms. It passes the same frozen fixture gates as the previous model on all 18 fixture tiles, on CUDA and on CPU.
+  - Shrink the tile halo from 64 to 40 pixels, so a 32.5 MP photograph needs 150 tiles instead of 247 (39% fewer, which also shortens CoreML runs; that was not timed end to end). Against the previous halo, 99.9% of pixels in 8-bit test renders of three photographs differ by at most 0.71 of 255 levels (worst pixel 6.8). The largest difference to a converged reference over nine test crops is 0.031 of the noise level. With the noise level halved (a research setting; Intensity does not do this), differences are larger: 99.9% within 2.2 levels.
+- Reinstall the Nonlocal model with `install_model kind=nonlocal`. This release accepts only the new model (a single pinned hash; 320 px tiles, 40 px halo, 240 px core), and a model installed by an earlier release is rejected with reinstall instructions. Cached predictions from earlier versions are not reused. Job records and the prediction cache record which model ran. The CoreML package is unchanged and uses the new halo; its per-tile time is unchanged, and full-photograph CoreML parity was last measured with the previous halo.
+- Remove the Maximum quality option. Nonlocal always denoises each tile in one pass; four-rotation averaging gained only about 0.04 to 0.06 dB in the patch study at four times the cost. Requests that pass `quality` to `start_denoise` are rejected by the MCP host's schema validation, and the research CLI and Python pipeline no longer take `--ensemble`.
+
 ### MCP mask composition
 
 - Add native parent-mask duplication with fresh IDs, optional inversion, and independent local adjustments. Generated AI subject, depth, and other supported AI components can now join an existing parent in additive, subtractive, or intersect mode. The Node MCP host exposes both operations; installed releases require an updated native bridge and host.
+
+### MCP session storage
+
+- Store each distinct embedded mask image once in a session's manifest instead of repeating it in every history snapshot. Sessions with many AI mask edits shrink from tens or hundreds of megabytes to a few, and previously saved sessions still load. A manifest written by this version cannot be read by an older native bridge.
 
 ### Preview reliability
 

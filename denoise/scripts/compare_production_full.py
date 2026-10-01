@@ -1,9 +1,8 @@
 """Production-policy recompute: refactored vs original production full-photo.
 
-Re-measures the six saved production full predictions with the hardened
+Re-measures the three saved production full predictions with the hardened
 comparator (no inference rerun): refactored-assembly vs original-CUDA
-production reference, frozen gates, exact expected identities, ensemble-4
-diagnostics. Production TF32 policy failures are preserved as failures;
+production reference, frozen gates and exact expected identities. Production TF32 policy failures are preserved as failures;
 this driver never loosens gates or promotes defaults.
 
 Usage: compare_production_full.py [--fixtures DIR] [--report PATH]
@@ -18,8 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from rapidraw_denoise.compare_full import compare_files  # noqa: E402
 
 PHOTOS = ("portrait", "landscape", "phone")
-ENSEMBLES = (1, 4)
-EXPECTED = [f"{p}-newprod-e{e}" for p in PHOTOS for e in ENSEMBLES]
+EXPECTED = [f"{p}-newprod" for p in PHOTOS]
 
 
 def main(argv=None):
@@ -36,18 +34,17 @@ def main(argv=None):
     try:
         out = []
         for photo in PHOTOS:
-            for ensemble in ENSEMBLES:
-                name = f"{photo}-newprod-e{ensemble}"
-                act = (Path(args.fixtures) / f"{photo}-newprod-full-e{ensemble}.npy")
-                ref = (Path(args.fixtures) / f"{photo}-production-cuda"
-                       / f"full-ensemble-{ensemble}.npy")
-                for p, what in ((act, "refactored assembly"), (ref, "production reference")):
-                    if not p.is_file() or p.stat().st_size == 0:
-                        raise FileNotFoundError(f"{name}: {what} missing: {p}")
-                out.append(compare_files(name, act, ref, ensemble=ensemble))
+            name = f"{photo}-newprod"
+            act = Path(args.fixtures) / f"{photo}-newprod-full.npy"
+            ref = (Path(args.fixtures) / f"{photo}-production-cuda"
+                   / "full-prediction.npy")
+            for p, what in ((act, "refactored assembly"), (ref, "production reference")):
+                if not p.is_file() or p.stat().st_size == 0:
+                    raise FileNotFoundError(f"{name}: {what} missing: {p}")
+            out.append(compare_files(name, act, ref))
         names = [e["comparison"] for e in out]
         if sorted(names) != sorted(EXPECTED):
-            raise ValueError(f"case identities != expected six: {names}")
+            raise ValueError(f"case identities != expected three: {names}")
         report = {"status": "pass" if all(e["pass"] for e in out) else "fail",
                   "expected_cases": EXPECTED,
                   "note": "production-policy comparison (CUDA TF32 production "

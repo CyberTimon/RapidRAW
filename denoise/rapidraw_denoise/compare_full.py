@@ -7,11 +7,6 @@ adds file verification (ORIGINAL float32 dtype checked before any cast,
 errors and exit codes:
 0 = all pass, 2 = gate failures, 1 = tool/invalid error (saved as JSON).
 
-For ensemble-4 comparisons (``--ensemble 4``), an additional diagnostic
-``regions_e4`` entry unions the inverse-mapped tile-boundary lines of all
-four rotation passes (diagnostic attribution only; tiling, thresholds and
-pass/fail gates are unchanged), plus stats over the newly attributed seam
-pixels (``seam_e4_extra``).
 """
 import hashlib
 import json
@@ -22,8 +17,10 @@ import numpy as np
 
 from .metrics import full_metrics, load_float32_array, require_case_set
 
-CORE = 192
-OUTER_BAND = 64
+TILE = 320
+HALO = 40
+CORE = TILE - 2 * HALO
+OUTER_BAND = HALO
 SEAM_HALF_WIDTH = 8
 
 
@@ -64,44 +61,7 @@ def region_masks(h, w):
     return {"outer": outer, "seam": seam, "interior": interior}
 
 
-def region_masks_e4(h, w):
-    """Diagnostic seam mask unioning all four rotation-pass boundaries.
-
-    Pass ``i`` tiles ``rot90(conditioned, i)``; stitch lines at multiples of
-    CORE in pass coordinates map back through the inverse rotation. For odd
-    dimensions the mirrored lines (H-1-p, W-1-q) differ from the unrotated
-    grid, which the plain mask would misclassify as interior. Diagnostic
-    only: same outer band, same construction rule per pass.
-    """
-    rows = set(_grid_lines(h)) | {h - 1 - p for p in _grid_lines(h)}
-    cols = set(_grid_lines(w)) | {w - 1 - q for q in _grid_lines(w)}
-    rows = sorted(r for r in rows if 0 <= r < h)
-    cols = sorted(c for c in cols if 0 <= c < w)
-    yy, xx = np.mgrid[0:h, 0:w]
-    outer = ((yy < OUTER_BAND) | (yy >= h - OUTER_BAND)
-             | (xx < OUTER_BAND) | (xx >= w - OUTER_BAND))
-    seam_y = np.zeros(h, bool)
-    seam_y[rows] = True
-    seam_x = np.zeros(w, bool)
-    seam_x[cols] = True
-    seam = (seam_y[:, None] | seam_x[None, :]) & ~outer
-    interior = ~(outer | seam)
-    return {"outer": outer, "seam": seam, "interior": interior}
-
-
-def _region_stats(ae, masks):
-    stats = {}
-    for rname, mask in masks.items():
-        sub = ae[:, mask]
-        stats[rname] = {
-            "max": float(sub.max()),
-            "mean": float(sub.mean()),
-            "pixels": int(sub.size),
-        }
-    return stats
-
-
-def compare_files(name, actual_path, ref_path, ensemble=1):
+def compare_files(name, actual_path, ref_path):
     actual_path, ref_path = Path(actual_path), Path(ref_path)
     record = {"comparison": name,
               "actual": {"path": str(actual_path),
@@ -122,38 +82,18 @@ def compare_files(name, actual_path, ref_path, ensemble=1):
     entry.update(record)
     # Regions form a disjoint complete partition; order for readability.
     entry["regions"] = {k: entry["regions"][k] for k in ("outer", "seam", "interior")}
-    if ensemble == 4:
-        masks4 = region_masks_e4(h, w)
-        ae = np.abs(actual.astype("float64") - ref.astype("float64"))
-        entry["regions_e4"] = _region_stats(ae, masks4)
-        extra = masks4["seam"] & ~masks["seam"]
-        sub = ae[:, extra]
-        entry["seam_e4_extra"] = {
-            "note": "pixels attributed to seam only by the 4-pass diagnostic "
-                    "mask (inverse-mapped rotation boundaries); diagnostic, "
-                    "no gate effect",
-            "max": float(sub.max()),
-            "mean": float(sub.mean()),
-            "pixels": int(sub.size),
-        }
-    elif ensemble != 1:
-        raise ValueError(f"ensemble must be 1 or 4, got {ensemble}")
     return entry
 
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     # Usage: compare_full.py PAIRS_JSON OUTPUT_JSON [--expect-cases a,b,...]
-    #        [--ensemble {1,4}]
-    positional, expected, ensemble = [], None, 1
+    positional, expected = [], None
     i = 0
     while i < len(argv):
         tok = argv[i]
         if tok == "--expect-cases" and i + 1 < len(argv):
             expected = [c for c in argv[i + 1].split(",") if c]
-            i += 2
-        elif tok == "--ensemble" and i + 1 < len(argv):
-            ensemble = int(argv[i + 1])
             i += 2
         elif tok.startswith("--"):
             print(json.dumps({"status": "error",
@@ -166,7 +106,7 @@ def main(argv=None):
     if len(positional) != 2:
         print(json.dumps({"status": "error",
                           "error": "usage: compare_full.py PAIRS_JSON OUTPUT_JSON "
-                                   "[--expect-cases a,b,...] [--ensemble {1,4}]"}),
+                                   "[--expect-cases a,b,...]"}),
               file=sys.stderr)
         return 1
     pairs_path, output_path = Path(positional[0]), Path(positional[1])
@@ -178,7 +118,7 @@ def main(argv=None):
     try:
         pairs = require_case_set(json.loads(pairs_path.read_text()),
                                  expected, label=str(pairs_path))
-        out = [compare_files(name, a, r, ensemble) for name, a, r in pairs]
+        out = [compare_files(name, a, r) for name, a, r in pairs]
     except Exception as exc:  # invalid inputs reject the report
         error = {"status": "error", "error": f"{type(exc).__name__}: {exc}",
                  "pairs": str(pairs_path)}

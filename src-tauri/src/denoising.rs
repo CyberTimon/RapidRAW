@@ -451,8 +451,8 @@ fn restore_denoise_source(
 /// float Bayer DNG is developed through the normal RAW pipeline below, so the
 /// caller must still apply the default RAW processing for RAW sources.
 /// Strength blends inside the RAW domain; no sRGB blending happens here.
-/// Uses balanced quality; the model bundle must already be installed
-/// (missing bundles fail with `MODEL_NOT_INSTALLED`).
+/// The model bundle must already be installed (missing bundles fail with
+/// `MODEL_NOT_INSTALLED`).
 fn run_nonlocal_denoise(
     path_str: &str,
     file_bytes: &[u8],
@@ -478,15 +478,9 @@ fn run_nonlocal_denoise(
             );
         }),
     };
-    let output = crate::raw_denoise::denoise(
-        Path::new(path_str),
-        &source_sha,
-        &root,
-        intensity,
-        "balanced",
-        &control,
-    )
-    .map_err(|e| format!("{e:#}"))?;
+    let output =
+        crate::raw_denoise::denoise(Path::new(path_str), &source_sha, &root, intensity, &control)
+            .map_err(|e| format!("{e:#}"))?;
     let dng_path = output.path();
     let dng_bytes = fs::read(&dng_path).map_err(|e| e.to_string())?;
     load_base_image_from_bytes(

@@ -18,8 +18,7 @@ def main():
     p.add_argument("--checkpoint",required=True,type=Path)
     p.add_argument("--device",choices=["cuda","cpu"],default="cuda")
     p.add_argument("--tile",type=int,default=256)
-    p.add_argument("--halo",type=int,default=64)
-    p.add_argument("--ensemble",type=int,choices=[1,4,8],default=1)
+    p.add_argument("--halo",type=int,default=40)
     p.add_argument("--pilot",action="store_true")
     p.add_argument("--noise-scale",type=float,default=1.)
     p.add_argument("--noise-profile",type=Path)
@@ -40,7 +39,7 @@ def main():
     if args.noise_profile:
         profile=NoiseProfile(**json.loads(args.noise_profile.read_text()))
     model=load_model(args.checkpoint,args.device)
-    candidate,disagreement,info=denoise(frame.packed,model,profile,args.tile,args.halo,args.ensemble,args.noise_scale,args.pilot,
+    candidate,info=denoise(frame.packed,model,profile,args.tile,args.halo,args.noise_scale,args.pilot,
                                        progress=lambda x: print(json.dumps(x),flush=True))
     info.update(source_metadata)
     info.update({"checkpoint_sha256":sha256(args.checkpoint),"status":"experimental; commercial parity unverified",
@@ -49,7 +48,6 @@ def main():
     temporary=Path(tempfile.mkdtemp(prefix=".denoise-",dir=args.output.parent))
     try:
         np.save(temporary/"denoised-raw.npy",candidate,allow_pickle=False)
-        np.save(temporary/"transform-disagreement.npy",disagreement,allow_pickle=False)
         for name,planes in [("original",None),("denoised",candidate)]:
             rgb=frame.render(planes)
             save_render(temporary/f"{name}.tiff",rgb)

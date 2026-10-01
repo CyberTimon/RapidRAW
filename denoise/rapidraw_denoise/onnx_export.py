@@ -30,6 +30,7 @@ import numpy as np
 
 PINNED_CHECKPOINT_SHA256 = "c16747d852b93a95908792cdbac901f89cca98e35b91ea7db6214de42fbd3cad"
 PRODUCTION_TILE = 320
+HALO = 40
 INPUT_NAME = "raw_with_noise"
 OUTPUT_NAME = "denoised_raw"
 
@@ -301,8 +302,8 @@ def main(argv: list[str] | None = None) -> int:
                                           "signal clipped [0,1]; noise sqrt(max(var,1e-12))",
                 "pipeline_revision": "inference.py@tiled_apply+denoise (shared; unmodified)",
                 "tile": args.tile,
-                "halo": 64,
-                "retained_core": 192,
+                "halo": HALO,
+                "retained_core": args.tile - 2 * HALO,
                 "sampler_implementation": sampler_label,
                 "precision": "fp32",
                 "opset_imports": opsets,

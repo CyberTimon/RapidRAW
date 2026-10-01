@@ -24,11 +24,11 @@ packed = np.random.default_rng(9).uniform(-0.05, 0.9, size=(4, 96, 96)).astype(
 
 fm = frozen.load_model(CKPT, device="cpu")
 nm = new.load_model(CKPT, device="cpu")
-fo, _, fi = frozen.denoise(packed, fm, profile, tile=64, halo=16, ensemble=4)
-no, _, ni = new.denoise(packed, nm, profile, tile=64, halo=16, ensemble=4)
+fo, _, fi = frozen.denoise(packed, fm, profile, tile=64, halo=16)
+no, ni = new.denoise(packed, nm, profile, tile=64, halo=16)
 print("bitwise equal:", np.array_equal(no, fo))
 print("max abs diff:", float(np.abs(no.astype("float64") - fo.astype("float64")).max()))
-for key in ("tile", "halo", "ensemble", "noise_scale", "parameters", "device"):
+for key in ("tile", "halo", "noise_scale", "parameters", "device"):
     assert ni[key] == fi[key], key
 assert ni["noise_profile"] == fi["noise_profile"]
 print("info keys match")

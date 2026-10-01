@@ -3,7 +3,8 @@ from .common import require_space
 require_space()
 import json, time, numpy as np, torch
 from .evaluate import extra_metrics
-from rapidraw_denoise.inference import load_model, transform, inverse_transform
+from rapidraw_denoise.inference import load_model
+from rapidraw_denoise.study.transforms import transform, inverse_transform
 from .common import ROOT, STUDY as S
 
 out = S / "validation-phase"

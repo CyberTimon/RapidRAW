@@ -26,12 +26,12 @@ use std::{
 /// Public Hugging Face model repository carrying the runtime artifacts.
 pub(crate) const HUB_REPO: &str = "sheldonxxxx/RapidRAW-Nonlocal-Denoise";
 /// Immutable Hub commit the application downloads from (never `main`).
-pub(crate) const HUB_REVISION: &str = "2c17892faf67b0511fd9debe2e59cb3cd75a850f";
+pub(crate) const HUB_REVISION: &str = "af6bf36ca55591d103e465200efc4f13b7112a7b";
 /// Human release tag pointing at [`HUB_REVISION`]; informational only.
-pub(crate) const HUB_TAG: &str = "nonlocal-v1";
+pub(crate) const HUB_TAG: &str = "nonlocal-v2";
 /// Hard-pinned SHA-256 of `distribution.json` at [`HUB_REVISION`].
 pub(crate) const DISTRIBUTION_SHA256: &str =
-    "de9dddc3e4d2dfbcb55227479da4cb073430f707445fc00cc38b822970600bb5";
+    "91311f274f504ad98e26aad2178349e922bb44d9b793816029340411f1648bb1";
 pub(crate) const DISTRIBUTION_PATH: &str = "distribution.json";
 pub(crate) const MAX_DISTRIBUTION_BYTES: u64 = 1024 * 1024;
 /// Per-file sanity cap (~6x the largest accepted artifact).
@@ -986,6 +986,30 @@ mod tests {
             assert_eq!(out.len(), 4 * 320 * 320);
             assert!(out.iter().all(|v| v.is_finite()));
         }
+    }
+
+    /// End-to-end install of the ONNX bundle from the pinned Hub revision into
+    /// a temporary workspace, then validate and status from the installed path.
+    /// Requires public network access to huggingface.co.
+    #[test]
+    #[ignore = "Downloads the ~86MB ONNX bundle from the pinned Hub revision"]
+    fn install_onnx_from_hub_into_temp_workspace() {
+        if std::env::var_os("RAPIDRAW_NONLOCAL_BUNDLE").is_some() {
+            eprintln!("SKIP: RAPIDRAW_NONLOCAL_BUNDLE is set in this environment");
+            return;
+        }
+        let models = tempfile::tempdir().unwrap();
+        let report = block_on(install(models.path(), Provider::Cpu)).unwrap();
+        assert_eq!(report["installed"], json!(true));
+        assert_eq!(report["backend"], json!("native-onnx-v1"));
+        assert_eq!(report["hub_revision"], json!(HUB_REVISION));
+        let (bundle, via_env) = resolve_bundle(Some(models.path()), Provider::Cpu).unwrap();
+        assert!(!via_env);
+        assert_eq!(bundle, install_dir(models.path(), Provider::Cpu));
+        validate_resolved_bundle(Provider::Cpu, &bundle).unwrap();
+        let status = status_for(models.path(), Provider::Cpu);
+        assert_eq!(status["ready"], json!(true));
+        assert_eq!(status["provider_requested"], json!("cpu"));
     }
 
     #[test]

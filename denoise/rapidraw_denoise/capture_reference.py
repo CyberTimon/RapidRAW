@@ -26,7 +26,7 @@ import numpy as np
 
 PINNED_CHECKPOINT_SHA256 = "c16747d852b93a95908792cdbac901f89cca98e35b91ea7db6214de42fbd3cad"
 NATIVE_TILE = 320
-NATIVE_HALO = 64
+NATIVE_HALO = 40
 NATIVE_CORE = NATIVE_TILE - 2 * NATIVE_HALO
 
 
@@ -124,7 +124,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
                    "The actual digest is recorded and the label is suffixed; output "
                    "must never be presented as pinned-checkpoint acceptance.")
     p.add_argument("--skip-full", action="store_true",
-                   help="Skip full-photo ensemble assembly (e.g. 32 MP CPU inference "
+                   help="Skip full-photo assembly (e.g. 32 MP CPU inference "
                    "impractical). Tile fixtures are still captured; the report records "
                    "the skip. Full-photo gates remain pending.")
     return p
@@ -156,7 +156,7 @@ def main(argv: list[str] | None = None) -> int:
         from rapidraw_denoise.worker import validate_request, CHECKPOINT_SHA256
         shape = validate_request(request)
         if tuple(shape[1:]) and (request.get("tile") != NATIVE_TILE or request.get("halo") != NATIVE_HALO):
-            raise ValueError("Native worker contract requires tile 320 / halo 64")
+            raise ValueError("Native worker contract requires tile 320 / halo 40")
         checkpoint_sha = sha256_file(checkpoint)
         if checkpoint_sha != CHECKPOINT_SHA256 or checkpoint_sha != PINNED_CHECKPOINT_SHA256:
             if not args.allow_unpinned_checkpoint:
@@ -279,13 +279,13 @@ def main(argv: list[str] | None = None) -> int:
             hnd.remove()
         captured_blocks = block_io.get("_captured", {})
 
-        # Full assembled predictions for both native quality settings when
-        # hardware permits (ensemble 1 and 4). Uses the shared denoise path.
+        # Full assembled prediction when hardware permits. Uses the shared
+        # denoise path.
         # --skip-full records the skip explicitly; tile fixtures (the parity
         # inputs) are still captured and full-photo gates remain pending.
         from rapidraw_denoise.inference import denoise
-        full_predictions: dict[str, np.ndarray] = {}
-        full_infos: dict[str, dict] = {}
+        full_prediction: np.ndarray | None = None
+        full_info: dict | None = None
         full_skipped_reason: str | None = None
         if args.skip_full:
             full_skipped_reason = (
@@ -293,15 +293,14 @@ def main(argv: list[str] | None = None) -> int:
                 "impractical); full-photo assembly gates remain pending"
             )
         else:
-            for ensemble in (1, 4):
-                out, _dis, info = denoise(
-                    packed, model, profile, NATIVE_TILE, NATIVE_HALO,
-                    ensemble, args.noise_scale,
-                )
-                if out.shape != shape or not np.isfinite(out).all():
-                    raise ValueError(f"Invalid full prediction for ensemble {ensemble}")
-                full_predictions[str(ensemble)] = out.astype(np.float32)
-                full_infos[str(ensemble)] = info
+            out, info = denoise(
+                packed, model, profile, NATIVE_TILE, NATIVE_HALO,
+                args.noise_scale,
+            )
+            if out.shape != shape or not np.isfinite(out).all():
+                raise ValueError("Invalid full prediction")
+            full_prediction = out.astype(np.float32)
+            full_info = info
 
         # Publish to a temp dir then atomically rename (never overwrite).
         import tempfile, shutil
@@ -317,8 +316,8 @@ def main(argv: list[str] | None = None) -> int:
                     origin_y=np.int64(y),
                     origin_x=np.int64(x),
                 )
-            for ensemble, arr in full_predictions.items():
-                np.save(tmp / f"full-ensemble-{ensemble}.npy", arr, allow_pickle=False)
+            if full_prediction is not None:
+                np.save(tmp / "full-prediction.npy", full_prediction, allow_pickle=False)
             if captured_blocks:
                 (tmp / "blocks").mkdir()
                 for key, val in captured_blocks.items():
@@ -356,7 +355,7 @@ def main(argv: list[str] | None = None) -> int:
                 "tile_input_dtype": "float32",
                 "tile_output_shape": [1, 4, NATIVE_TILE, NATIVE_TILE],
                 "tile_output_dtype": "float32",
-                "full_infos": full_infos,
+                "full_info": full_info,
                 "full_skipped_reason": full_skipped_reason,
                 "block_io_shapes": {
                     k: {"features": v["features_shape"], "offsets": v["offsets_shape"]}
