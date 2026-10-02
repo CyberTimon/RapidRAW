@@ -258,6 +258,7 @@ export interface AppSettings {
   groupEditedFiles?: boolean;
   groupPreferredType?: GroupPreference; // legacy
   alwaysDecodeRawThumbnails?: boolean;
+  lastImportSettings?: ImportSettings;
   workspace?: WorkspaceState;
 }
 
@@ -332,6 +333,16 @@ export interface Preset {
   includeMasks?: boolean;
   includeCropTransform?: boolean;
   presetType?: 'tool' | 'style';
+}
+
+export interface ImportSettings {
+  filenameTemplate: string;
+  organizeByDate: boolean;
+  dateFolderFormat: string;
+  deleteAfterImport: boolean;
+  applyAutoAdjustments?: boolean;
+  presetId?: string | null;
+  presetAdjustments?: Partial<Adjustments> | null;
 }
 
 export interface Progress {

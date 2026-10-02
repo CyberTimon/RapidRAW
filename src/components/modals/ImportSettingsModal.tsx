@@ -1,26 +1,56 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { invoke } from '@tauri-apps/api/core';
 import Switch from '../ui/Switch';
+import Dropdown from '../ui/Dropdown';
 import { FILENAME_VARIABLES } from '../ui/ExportImportProperties';
 import Text from '../ui/Text';
+import { ImportSettings, Invokes, Preset } from '../ui/AppProperties';
+import { Adjustments } from '../../utils/adjustments';
+import { UserPreset } from '../../hooks/usePresets';
 import { TextVariants } from '../../types/typography';
+
+interface FlatPreset {
+  id: string;
+  name: string;
+  adjustments: Partial<Adjustments>;
+}
 
 interface ImportSettingsModalProps {
   fileCount: number;
+  initialSettings?: ImportSettings | null;
   isOpen: boolean;
   onClose(): void;
-  onSave(settings: any): void;
+  onSave(settings: ImportSettings): void;
 }
 
-export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave }: ImportSettingsModalProps) {
+const DEFAULTS: ImportSettings = {
+  filenameTemplate: '{original_filename}',
+  organizeByDate: false,
+  dateFolderFormat: 'YYYY/MM-DD',
+  deleteAfterImport: false,
+  applyAutoAdjustments: false,
+  presetId: null,
+};
+
+export default function ImportSettingsModal({
+  fileCount,
+  initialSettings,
+  isOpen,
+  onClose,
+  onSave,
+}: ImportSettingsModalProps) {
   const { t } = useTranslation();
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
 
-  const [filenameTemplate, setFilenameTemplate] = useState('{original_filename}');
-  const [organizeByDate, setOrganizeByDate] = useState(false);
-  const [dateFolderFormat, setDateFolderFormat] = useState('YYYY/MM-DD');
-  const [deleteAfterImport, setDeleteAfterImport] = useState(false);
+  const [filenameTemplate, setFilenameTemplate] = useState(DEFAULTS.filenameTemplate);
+  const [organizeByDate, setOrganizeByDate] = useState(DEFAULTS.organizeByDate);
+  const [dateFolderFormat, setDateFolderFormat] = useState(DEFAULTS.dateFolderFormat);
+  const [deleteAfterImport, setDeleteAfterImport] = useState(DEFAULTS.deleteAfterImport);
+  const [applyAutoAdjustments, setApplyAutoAdjustments] = useState(!!DEFAULTS.applyAutoAdjustments);
+  const [presetId, setPresetId] = useState<string | null>(DEFAULTS.presetId ?? null);
+  const [presets, setPresets] = useState<Array<FlatPreset>>([]);
   const filenameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -37,6 +67,48 @@ export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    const s = { ...DEFAULTS, ...(initialSettings || {}) };
+    setFilenameTemplate(s.filenameTemplate || DEFAULTS.filenameTemplate);
+    setOrganizeByDate(!!s.organizeByDate);
+    setDateFolderFormat(s.dateFolderFormat || DEFAULTS.dateFolderFormat);
+    setDeleteAfterImport(!!s.deleteAfterImport);
+    setApplyAutoAdjustments(!!s.applyAutoAdjustments);
+    setPresetId(s.presetId ?? null);
+  }, [isOpen, initialSettings]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    invoke<Array<UserPreset>>(Invokes.LoadPresets)
+      .then((loaded) => {
+        const flat: Array<FlatPreset> = [];
+        for (const item of loaded || []) {
+          if (item?.preset) {
+            flat.push(item.preset);
+          } else if (item?.folder) {
+            for (const child of (item.folder.children as Array<Preset>) || []) {
+              flat.push({ id: child.id, adjustments: child.adjustments, name: `${item.folder.name} / ${child.name}` });
+            }
+          }
+        }
+        setPresets(flat);
+      })
+      .catch((err) => console.error('Failed to load presets for import:', err));
+  }, [isOpen]);
+
+  const presetOptions = useMemo(
+    () => [
+      { label: t('modals.importSettings.presetNone'), value: '' },
+      ...presets.map((p) => ({ label: p.name, value: p.id })),
+    ],
+    [presets, t],
+  );
+
   const handleSave = useCallback(() => {
     let finalFilenameTemplate = filenameTemplate;
     if (
@@ -47,14 +119,30 @@ export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave
       finalFilenameTemplate = `${filenameTemplate}_{sequence}`;
     }
 
+    const selectedPreset = presetId ? presets.find((p) => p.id === presetId) : null;
+
     onSave({
       filenameTemplate: finalFilenameTemplate,
       organizeByDate,
       dateFolderFormat,
       deleteAfterImport,
+      applyAutoAdjustments,
+      presetId: selectedPreset ? selectedPreset.id : null,
+      presetAdjustments: selectedPreset ? selectedPreset.adjustments : null,
     });
     onClose();
-  }, [onSave, onClose, filenameTemplate, organizeByDate, dateFolderFormat, deleteAfterImport, fileCount]);
+  }, [
+    onSave,
+    onClose,
+    filenameTemplate,
+    organizeByDate,
+    dateFolderFormat,
+    deleteAfterImport,
+    applyAutoAdjustments,
+    presetId,
+    presets,
+    fileCount,
+  ]);
 
   const handleKeyDown = useCallback(
     (e: any) => {
@@ -108,7 +196,7 @@ export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave
           {t('modals.importSettings.title')}
         </Text>
 
-        <div className="space-y-8 text-sm">
+        <div className="space-y-8 text-sm max-h-[70vh] overflow-y-auto pr-1">
           <div>
             <Text variant={TextVariants.heading} className="block mb-2">
               {t('modals.importSettings.fileNaming')}
@@ -156,6 +244,33 @@ export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave
                   value={dateFolderFormat}
                 />
               </div>
+            )}
+          </div>
+
+          <div>
+            <Text variant={TextVariants.heading} className="block mb-2">
+              {t('modals.importSettings.editsOnImport')}
+            </Text>
+            <Switch
+              checked={applyAutoAdjustments}
+              label={t('modals.importSettings.applyAutoAdjustments')}
+              onChange={setApplyAutoAdjustments}
+            />
+            <div className="mt-3">
+              <Text variant={TextVariants.label} className="block mb-1">
+                {t('modals.importSettings.applyPreset')}
+              </Text>
+              <Dropdown
+                options={presetOptions}
+                value={presetId ?? ''}
+                onChange={(v) => setPresetId(v ? String(v) : null)}
+                placeholder={t('modals.importSettings.presetNone')}
+              />
+            </div>
+            {(applyAutoAdjustments || presetId) && (
+              <Text variant={TextVariants.small} className="mt-2">
+                {t('modals.importSettings.editsOnImportHint')}
+              </Text>
             )}
           </div>
 
