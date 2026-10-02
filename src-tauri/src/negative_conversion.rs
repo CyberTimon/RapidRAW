@@ -331,10 +331,12 @@ pub async fn convert_negatives(
             let filename = format!("{}_Positive.tiff", stem);
             let out_path = parent.join(&filename);
 
-            processed
-                .to_rgb16()
-                .save(&out_path)
-                .map_err(|e| format!("Failed to save {}: {}", filename, e))?;
+            crate::exif_processing::save_converted_image(
+                &image::DynamicImage::ImageRgb16(processed.to_rgb16()),
+                &out_path,
+                &real_path,
+            )
+            .map_err(|e| format!("Failed to save {}: {}", filename, e))?;
 
             let _ = crate::exif_processing::write_rrexif_sidecar(&real_path, &out_path);
             results.push(out_path.to_string_lossy().to_string());
