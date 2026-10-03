@@ -1182,15 +1182,16 @@ pub fn apply_cpu_default_raw_processing(image: &mut DynamicImage) {
     *image = DynamicImage::ImageRgb32F(f32_image);
 }
 
+fn srgb_channel_to_linear(c: f32) -> f32 {
+    if c <= 0.04045 {
+        c / 12.92
+    } else {
+        ((c + 0.055) / 1.055).powf(2.4)
+    }
+}
+
 pub fn apply_srgb_to_linear(mut image: DynamicImage) -> DynamicImage {
-    let to_linear = |x: f32| -> f32 {
-        let x = x.max(0.0);
-        if x <= 0.04045 {
-            x / 12.92
-        } else {
-            ((x + 0.055) / 1.055).powf(2.4)
-        }
-    };
+    let to_linear = |x: f32| -> f32 { srgb_channel_to_linear(x.max(0.0)) };
 
     match &mut image {
         DynamicImage::ImageRgb32F(img) => {
@@ -3504,14 +3505,6 @@ pub struct WhiteBalanceSample {
 }
 
 const MAX_WB_SAMPLES: f64 = 262_144.0;
-
-fn srgb_channel_to_linear(c: f32) -> f32 {
-    if c <= 0.04045 {
-        c / 12.92
-    } else {
-        ((c + 0.055) / 1.055).powf(2.4)
-    }
-}
 
 fn read_linear_rgb(image: &DynamicImage, x: u32, y: u32, is_raw: bool) -> Option<[f32; 3]> {
     let rgb = match image {

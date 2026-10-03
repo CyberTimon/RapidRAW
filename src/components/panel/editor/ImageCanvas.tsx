@@ -128,6 +128,39 @@ const linearToSrgb8 = (value: number) => {
   return Math.round(encoded * 255);
 };
 
+interface WbSampleOutlineProps {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  zoomScale: number;
+  dashed?: boolean;
+}
+
+const WbSampleOutline = ({ x, y, width, height, zoomScale, dashed = false }: WbSampleOutlineProps) => (
+  <>
+    <Rect
+      x={x}
+      y={y}
+      width={width}
+      height={height}
+      stroke="rgba(0, 0, 0, 0.6)"
+      strokeWidth={3 / zoomScale}
+      listening={false}
+    />
+    <Rect
+      x={x}
+      y={y}
+      width={width}
+      height={height}
+      stroke="#ffffff"
+      strokeWidth={1.5 / zoomScale}
+      dash={dashed ? [4 / zoomScale, 4 / zoomScale] : undefined}
+      listening={false}
+    />
+  </>
+);
+
 function multiply3x3(a: number[], b: number[]): number[] {
   if (!a || !b) return IDENTITY_3X3;
   const out = [0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -3460,49 +3493,23 @@ const ImageCanvas = memo(
                         />
                       )}
                       {isWbPickerActive && wbBox && (
-                        <>
-                          <Rect
-                            x={Math.min(wbBox.start.x, wbBox.end.x)}
-                            y={Math.min(wbBox.start.y, wbBox.end.y)}
-                            width={Math.max(0.1, Math.abs(wbBox.end.x - wbBox.start.x))}
-                            height={Math.max(0.1, Math.abs(wbBox.end.y - wbBox.start.y))}
-                            stroke="rgba(0, 0, 0, 0.6)"
-                            strokeWidth={3 / effectiveZoomScale}
-                            listening={false}
-                          />
-                          <Rect
-                            x={Math.min(wbBox.start.x, wbBox.end.x)}
-                            y={Math.min(wbBox.start.y, wbBox.end.y)}
-                            width={Math.max(0.1, Math.abs(wbBox.end.x - wbBox.start.x))}
-                            height={Math.max(0.1, Math.abs(wbBox.end.y - wbBox.start.y))}
-                            stroke="#ffffff"
-                            strokeWidth={1.5 / effectiveZoomScale}
-                            dash={[4 / effectiveZoomScale, 4 / effectiveZoomScale]}
-                            listening={false}
-                          />
-                        </>
+                        <WbSampleOutline
+                          x={Math.min(wbBox.start.x, wbBox.end.x)}
+                          y={Math.min(wbBox.start.y, wbBox.end.y)}
+                          width={Math.max(0.1, Math.abs(wbBox.end.x - wbBox.start.x))}
+                          height={Math.max(0.1, Math.abs(wbBox.end.y - wbBox.start.y))}
+                          zoomScale={effectiveZoomScale}
+                          dashed
+                        />
                       )}
                       {isWbPickerActive && wbHover.visible && !wbBox && (
-                        <>
-                          <Rect
-                            x={wbHover.x - wbSquareStage / 2}
-                            y={wbHover.y - wbSquareStage / 2}
-                            width={wbSquareStage}
-                            height={wbSquareStage}
-                            stroke="rgba(0, 0, 0, 0.6)"
-                            strokeWidth={3 / effectiveZoomScale}
-                            listening={false}
-                          />
-                          <Rect
-                            x={wbHover.x - wbSquareStage / 2}
-                            y={wbHover.y - wbSquareStage / 2}
-                            width={wbSquareStage}
-                            height={wbSquareStage}
-                            stroke="#ffffff"
-                            strokeWidth={1.5 / effectiveZoomScale}
-                            listening={false}
-                          />
-                        </>
+                        <WbSampleOutline
+                          x={wbHover.x - wbSquareStage / 2}
+                          y={wbHover.y - wbSquareStage / 2}
+                          width={wbSquareStage}
+                          height={wbSquareStage}
+                          zoomScale={effectiveZoomScale}
+                        />
                       )}
                       {isBrushActive &&
                         cursorPreview.visible &&
