@@ -7,10 +7,52 @@ import { useUIStore } from '../store/useUIStore';
 import { Invokes, ImageFile, AlbumItem, Album, AlbumGroup } from '../components/ui/AppProperties';
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { computeSortedLibrary } from './useSortedLibrary';
+import { computeSortedLibrary, matchesFilter } from './useSortedLibrary';
 import { expandGroupedPaths } from '../utils/imageGrouping';
 
 export function useLibraryActions(handleImageSelect?: (path: string, openInEditor?: boolean) => void) {
+  const advanceIfActiveDropsOut = useCallback(
+    (pathsToUpdate: string[], willActiveDropOut: (activeImage: ImageFile) => boolean) => {
+      const activeView = useUIStore.getState().activeView;
+      const activePath =
+        activeView === 'editor'
+          ? useEditorStore.getState().selectedImage?.path
+          : useLibraryStore.getState().libraryActivePath;
+
+      if (!activePath || !pathsToUpdate.includes(activePath)) return;
+
+      const libraryState = useLibraryStore.getState();
+      const activeImage = libraryState.imageList.find((img) => img.path === activePath);
+      if (!activeImage || !willActiveDropOut(activeImage)) return;
+
+      const sortedImageList = computeSortedLibrary(libraryState, useSettingsStore.getState());
+      const affectedIndices = pathsToUpdate
+        .map((p) => sortedImageList.findIndex((img) => img.path === p))
+        .filter((idx) => idx !== -1);
+      if (affectedIndices.length === 0) return;
+
+      const firstIndex = Math.min(...affectedIndices);
+      const skipSet = new Set(pathsToUpdate);
+      const nextCandidate =
+        sortedImageList.slice(firstIndex).find((img) => !skipSet.has(img.path)) ??
+        sortedImageList.slice(0, firstIndex).reverse().find((img) => !skipSet.has(img.path));
+
+      if (nextCandidate) {
+        useLibraryStore.getState().setLibrary({
+          libraryActivePath: nextCandidate.path,
+          multiSelectedPaths: [nextCandidate.path],
+        });
+        handleImageSelect?.(nextCandidate.path, activeView === 'editor');
+      } else {
+        useLibraryStore.getState().setLibrary({
+          libraryActivePath: null,
+          multiSelectedPaths: [],
+        });
+      }
+    },
+    [handleImageSelect],
+  );
+
   const handleRate = useCallback((newRating: number, paths?: string[]) => {
     const { multiSelectedPaths, imageList, imageRatings, setLibrary } = useLibraryStore.getState();
     const { selectedImage } = useEditorStore.getState();
@@ -24,6 +66,11 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
 
     const currentRating = imageRatings[selectedPaths[0]] || 0;
     const finalRating = newRating === currentRating ? 0 : newRating;
+
+    advanceIfActiveDropsOut(pathsToRate, (activeImg) => {
+      const { filterCriteria, imageRatings } = useLibraryStore.getState();
+      return !matchesFilter(activeImg, filterCriteria, { ...imageRatings, [activeImg.path]: finalRating });
+    });
 
     setLibrary((state) => {
       const newRatings = { ...state.imageRatings };
@@ -59,6 +106,13 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
     }
     const finalColor = color !== null && color === currentColor ? null : color;
 
+    advanceIfActiveDropsOut(pathsToUpdate, (activeImg) => {
+      const { filterCriteria, imageRatings } = useLibraryStore.getState();
+      const otherTags = (activeImg.tags || []).filter((t) => !t.startsWith('color:'));
+      const simulatedTags = finalColor ? [...otherTags, `color:${finalColor}`] : otherTags;
+      return !matchesFilter({ ...activeImg, tags: simulatedTags }, filterCriteria, imageRatings);
+    });
+
     try {
       await invoke(Invokes.SetColorLabelForPaths, { paths: pathsToUpdate, color: finalColor });
       setLibrary((state) => ({
@@ -81,6 +135,14 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
     const groupingMode = useSettingsStore.getState().appSettings?.grouping ?? 'off';
     const pathsToUpdate = expandGroupedPaths(imageList, changedPaths, groupingMode);
 
+    advanceIfActiveDropsOut(pathsToUpdate, (activeImg) => {
+      const { filterCriteria, imageRatings } = useLibraryStore.getState();
+      const colorTags = (activeImg.tags || []).filter((t) => t.startsWith('color:'));
+      const prefixedNewTags = newTags.map((t) => (t.isUser ? `user:${t.tag}` : t.tag));
+      const simulatedTags = [...colorTags, ...prefixedNewTags].sort();
+      return !matchesFilter({ ...activeImg, tags: simulatedTags }, filterCriteria, imageRatings);
+    });
+
     useLibraryStore.getState().setLibrary((state) => ({
       imageList: state.imageList.map((image) => {
         if (pathsToUpdate.includes(image.path)) {
@@ -92,7 +154,7 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
         return image;
       }),
     }));
-  }, []);
+  }, [advanceIfActiveDropsOut]);
 
   const handleUpdateExif = useCallback(async (paths: Array<string> | undefined, updates: Record<string, string>) => {
     const { multiSelectedPaths, imageList, setLibrary } = useLibraryStore.getState();
