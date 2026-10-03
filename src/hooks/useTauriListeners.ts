@@ -35,6 +35,13 @@ export function useTauriListeners({
   useEffect(() => {
     let isEffectActive = true;
 
+    const refreshAfterExport = () => {
+      refs.current.refreshAllFolderTrees();
+      if (useLibraryStore.getState().currentFolderPath) {
+        refs.current.refreshImageList();
+      }
+    };
+
     const flushThumbnailBatch = () => {
       flushHandle.current = null;
       if (!isEffectActive) return;
@@ -161,20 +168,28 @@ export function useTauriListeners({
         if (isEffectActive) useProcessStore.getState().setExportState({ progress: event.payload });
       }),
       listen('export-complete', () => {
-        if (isEffectActive) useProcessStore.getState().setExportState({ status: Status.Success });
+        if (isEffectActive) {
+          useProcessStore.getState().setExportState({ status: Status.Success });
+          refreshAfterExport();
+        }
       }),
       listen('export-error', (event: any) => {
-        if (isEffectActive)
+        if (isEffectActive) {
           useProcessStore.getState().setExportState({
             status: Status.Error,
             errorMessage: typeof event.payload === 'string' ? event.payload : 'Unknown error',
           });
+          refreshAfterExport();
+        }
       }),
       listen('export-cancelling', () => {
         if (isEffectActive) useProcessStore.getState().setExportState({ status: Status.Cancelling });
       }),
       listen('export-cancelled', () => {
-        if (isEffectActive) useProcessStore.getState().setExportState({ status: Status.Cancelled });
+        if (isEffectActive) {
+          useProcessStore.getState().setExportState({ status: Status.Cancelled });
+          refreshAfterExport();
+        }
       }),
       listen('import-start', (event: any) => {
         if (isEffectActive)
