@@ -176,6 +176,10 @@
       "red": "빨강",
       "yellow": "노랑"
     },
+    "dialogs": {
+      "importXmpAdjustmentsTitle": "Import XMP Adjustments",
+      "xmpSidecar": "XMP Sidecar"
+    },
     "editor": {
       "autoAdjust": "이미지 자동 조정",
       "autoLensCorrection": "자동 렌즈 교정",
@@ -189,6 +193,7 @@
       "editImage": "이미지 편집",
       "exportImage": "이미지 내보내기",
       "frameImage": "이미지 프레임",
+      "importXmpAdjustments": "Import XMP Adjustments",
       "mergeHdr": "HDR로 병합",
       "noLabel": "레이블 없음",
       "noRating": "평점 없음",
@@ -210,6 +215,7 @@
       "copyHere_other": "여기에 이미지 {{count}}개 복사",
       "deleteFolder": "폴더 삭제",
       "importImages": "이미지 가져오기",
+      "importMatchingXmpSidecars": "Import XMP Adjustments",
       "moveHere_one": "여기로 이미지 이동",
       "moveHere_other": "여기로 이미지 {{count}}개 이동",
       "newFolder": "새 폴더",
@@ -262,6 +268,7 @@
       "duplicateImage": "이미지 복제",
       "exportImage_one": "이미지 내보내기",
       "exportImage_other": "이미지 {{count}}개 내보내기",
+      "importXmpAdjustments": "Import XMP Adjustments",
       "noAlbums": "사용 가능한 앨범 없음",
       "pasteAdjustments_one": "조정값 붙여넣기",
       "pasteAdjustments_other": "이미지 {{count}}개에 조정값 붙여넣기",
@@ -275,6 +282,15 @@
       "showExplorer": "파일 탐색기에서 표시",
       "virtualCopy": "가상 복사본"
     },
+    "xmpImportReport": {
+      "available": "XMP import report: {{unchanged}} unchanged, {{failed}} failed. Click to view details.",
+      "copied": "Import report copied.",
+      "copy": "Copy Report",
+      "failed": "Failed ({{total}})",
+      "folder": "Folder: {{folder}}",
+      "title": "XMP Import Report",
+      "unchanged": "Not imported — no supported changes ({{total}})"
+    },
     "toasts": {
       "couldNotShowExplorer": "탐색기에서 파일을 표시할 수 없습니다: {{err}}",
       "couldNotShowFolder": "폴더를 표시할 수 없습니다: {{err}}",
@@ -286,10 +302,18 @@
       "failedDelete": "삭제하지 못했습니다: {{err}}",
       "failedDeleteFolder": "폴더를 삭제하지 못했습니다: {{err}}",
       "failedDuplicate": "파일을 복제하지 못했습니다: {{err}}",
+      "failedImportMatchingXmpSidecars": "Failed to import matching XMP sidecars: {{err}}",
+      "failedImportXmpAdjustments": "Failed to import XMP adjustments: {{err}}",
+      "failedMatchingXmpSidecars_other": "Matching XMP sidecars failed to import: {{count}}.",
       "failedMove": "파일을 이동하지 못했습니다: {{err}}",
       "failedMoveError": "이동하지 못했습니다: {{err}}",
       "failedMoveInvalid": "이동하지 못했습니다: 대상 그룹을 찾을 수 없거나 유효하지 않습니다.",
-      "failedRemoveImages": "이미지를 제거하지 못했습니다: {{err}}"
+      "failedRemoveImages": "이미지를 제거하지 못했습니다: {{err}}",
+      "importedMatchingXmpSidecars_other": "Imported matching XMP sidecars: {{count}}.",
+      "importedXmpAdjustments": "Imported XMP adjustments.",
+      "importingMatchingXmpSidecars": "Importing matching XMP sidecars…",
+      "noMatchingXmpSidecars": "No matching XMP sidecars found.",
+      "unchangedMatchingXmpSidecars": "Skipped matching XMP sidecars with no importable changes: {{count}}."
     }
   },
   "editor": {
