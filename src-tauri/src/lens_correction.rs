@@ -893,3 +893,47 @@ pub fn resolve_lens_params(
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn load_test_db() -> LensDatabase {
+        let mut combined_db = LensDatabase {
+            cameras: Vec::new(),
+            lenses: Vec::new(),
+        };
+        let db_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("lensfun_db");
+        for entry in WalkDir::new(db_dir)
+            .into_iter()
+            .filter_map(Result::ok)
+            .filter(|e| e.path().extension().is_some_and(|ext| ext == "xml"))
+        {
+            let xml_content = fs::read_to_string(entry.path()).expect("failed to read lensfun XML");
+            let mut db: LensDatabase =
+                quick_xml::de::from_str(&xml_content).expect("failed to parse lensfun XML");
+            combined_db.cameras.append(&mut db.cameras);
+            combined_db.lenses.append(&mut db.lenses);
+        }
+        combined_db
+    }
+
+    #[test]
+    fn fixed_lens_compact_resolves_via_camera_mount() {
+        let db = load_test_db();
+
+        // A Sony RX10 IV RAW leaves EXIF LensModel empty (no interchangeable lens),
+        // so autodetection must fall back to the camera model -> mount -> lens lookup.
+        let result = find_lens_by_camera_mount(&db, "Sony", "DSC-RX10M4");
+        let lens = result.expect("expected a lens match for the Sony RX10 IV via its camera mount");
+        let (maker, model) = lens_result(&db, lens);
+        assert_eq!(maker, "Sony");
+        assert!(
+            model.contains("RX10"),
+            "expected the shared RX10 III/IV lens profile, got {model:?}"
+        );
+
+        let unknown = find_lens_by_camera_mount(&db, "Sony", "Not A Real Camera");
+        assert!(unknown.is_none());
+    }
+}

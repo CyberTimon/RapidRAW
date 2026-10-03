@@ -410,6 +410,13 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
         });
         setLibrary({ imageRatings: initialRatings });
 
+        if (files.length > 0 && appSettings?.autoApplyLensCorrection) {
+          const paths = files.map((f: ImageFile) => f.path);
+          invoke(Invokes.AutoApplyLensCorrectionToPaths, { paths }).catch((err) => {
+            console.error('Failed to auto-apply lens correction:', err);
+          });
+        }
+
         await loadExifForImages(files, path, sortCriteria.key, setLibrary);
 
         if (!preserveEditor) {

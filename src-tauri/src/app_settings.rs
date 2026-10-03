@@ -586,6 +586,8 @@ pub struct AppSettings {
     pub adjustment_layout: AdjustmentLayout,
     #[serde(default)]
     pub workspace: WorkspaceState,
+    #[serde(default)]
+    pub auto_apply_lens_correction: Option<bool>,
 }
 
 impl Default for AppSettings {
@@ -684,6 +686,7 @@ impl Default for AppSettings {
             custom_aspect_ratios: Vec::new(),
             adjustment_layout: AdjustmentLayout::default(),
             workspace: WorkspaceState::default(),
+            auto_apply_lens_correction: Some(false),
         }
     }
 }
