@@ -131,3 +131,7 @@ strip = true
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cargo-clippy"))'] }
+
+# rawler with fast preview paths (DNG proxies, CR3/ORF previews). Drop once merged into the fork.
+[patch."https://github.com/CyberTimon/RapidRAW-DngLab.git"]
+rawler = { git = "https://github.com/SebastianEggli/RapidRAW-DngLab.git", branch = "dng-proxy-ifd" }

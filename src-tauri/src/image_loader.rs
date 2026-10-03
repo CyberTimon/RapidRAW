@@ -84,6 +84,24 @@ pub fn load_base_image_from_bytes(
     settings: &AppSettings,
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<DynamicImage> {
+    load_base_image_with_proxy(
+        bytes,
+        path_for_ext_check,
+        use_fast_raw_dev,
+        settings,
+        cancel_token,
+        None,
+    )
+}
+
+pub fn load_base_image_with_proxy(
+    bytes: &[u8],
+    path_for_ext_check: &str,
+    use_fast_raw_dev: bool,
+    settings: &AppSettings,
+    cancel_token: Option<(Arc<AtomicUsize>, usize)>,
+    proxy_min_dim: Option<usize>,
+) -> Result<DynamicImage> {
     let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
     let linear_mode = settings.linear_raw_mode.clone();
     let color_nr_setting = settings.raw_preprocessing_color_nr.unwrap_or(0.5);
@@ -134,6 +152,7 @@ pub fn load_base_image_from_bytes(
                 highlight_compression,
                 linear_mode,
                 cancel_token,
+                proxy_min_dim,
             )
         }) {
             Ok(Ok(mut image)) => {
@@ -233,7 +252,9 @@ fn classify_raw_develop_error(path: &str, err: anyhow::Error) -> anyhow::Error {
     err
 }
 
-fn largest_tiff_jpeg_preview(buf: &[u8]) -> Option<DynamicImage> {
+type TiffJpegPreviews = (Vec<(u64, u64)>, Option<u16>);
+
+fn tiff_jpeg_previews(buf: &[u8]) -> Option<TiffJpegPreviews> {
     let le = match buf.get(..4)? {
         [0x49, 0x49, 0x2A, 0x00] => true,
         [0x4D, 0x4D, 0x00, 0x2A] => false,
@@ -257,7 +278,9 @@ fn largest_tiff_jpeg_preview(buf: &[u8]) -> Option<DynamicImage> {
     };
 
     let mut candidates: Vec<(u64, u64)> = Vec::new();
-    let mut queue: Vec<u64> = vec![rd32(4)?];
+    let root_ifd = rd32(4)?;
+    let mut orientation = None;
+    let mut queue: Vec<u64> = vec![root_ifd];
     let mut seen = HashMap::new();
 
     while let Some(ifd) = queue.pop() {
@@ -274,10 +297,15 @@ fn largest_tiff_jpeg_preview(buf: &[u8]) -> Option<DynamicImage> {
 
         for i in 0..n {
             let e = ifd as usize + 2 + (i as usize) * 12;
-            let (Some(tag), Some(count), Some(val)) = (rd16(e), rd32(e + 4), rd32(e + 8)) else {
+            let (Some(tag), Some(typ), Some(count)) = (rd16(e), rd16(e + 2), rd32(e + 4)) else {
+                continue;
+            };
+            // A SHORT is left-aligned in the value field; reading it as LONG breaks big-endian files.
+            let Some(val) = (if typ == 3 { rd16(e + 8) } else { rd32(e + 8) }) else {
                 continue;
             };
             match tag {
+                274 if ifd == root_ifd => orientation = Some(val as u16),
                 259 => compression = val,
                 273 if count == 1 => strip = Some((val, strip.map_or(0, |s| s.1))),
                 279 if count == 1 => strip = strip.map(|s| (s.0, val)).or(Some((0, val))),
@@ -313,48 +341,83 @@ fn largest_tiff_jpeg_preview(buf: &[u8]) -> Option<DynamicImage> {
         }
     }
 
-    candidates.sort_by_key(|&(_, len)| std::cmp::Reverse(len));
-
-    for (off, len) in candidates {
-        if let Some(bytes) = buf.get(off as usize..(off + len) as usize)
-            && let Ok(img) = image::load_from_memory_with_format(bytes, image::ImageFormat::Jpeg)
-        {
-            return Some(img);
-        }
-    }
-
-    None
+    Some((candidates, orientation))
 }
 
-fn embedded_preview_fallback(bytes: &[u8], path: &str) -> Option<DynamicImage> {
-    let img = match largest_tiff_jpeg_preview(bytes) {
-        Some(img) => img,
-        None => rawler::analyze::extract_preview_pixels(
-            path,
-            &rawler::decoders::RawDecodeParams::default(),
-        )
-        .ok()?,
-    };
+fn preview_max_dim(img: &DynamicImage) -> u32 {
+    img.width().max(img.height())
+}
 
-    let orientation = ExifReader::new()
-        .read_from_container(&mut Cursor::new(bytes))
-        .ok()
-        .and_then(|exif| {
-            exif.get_field(Tag::Orientation, exif::In::PRIMARY)?
-                .value
-                .get_uint(0)
-        });
+fn preview_rank(max_dim: u32, min_dim: Option<u32>) -> (bool, i64) {
+    match min_dim {
+        Some(min) if max_dim >= min => (false, max_dim as i64),
+        _ => (true, -(max_dim as i64)),
+    }
+}
+
+fn tiff_jpeg_preview(
+    buf: &[u8],
+    candidates: &[(u64, u64)],
+    min_dim: Option<u32>,
+) -> Option<DynamicImage> {
+    let mut sized: Vec<(u32, &[u8])> = candidates
+        .iter()
+        .filter_map(|&(off, len)| {
+            let bytes = buf.get(off as usize..(off + len) as usize)?;
+            let (w, h) = ImageReader::with_format(Cursor::new(bytes), image::ImageFormat::Jpeg)
+                .into_dimensions()
+                .ok()?;
+            Some((w.max(h), bytes))
+        })
+        .collect();
+    sized.sort_by_key(|&(max_dim, _)| preview_rank(max_dim, min_dim));
+
+    sized.into_iter().find_map(|(_, bytes)| {
+        image::load_from_memory_with_format(bytes, image::ImageFormat::Jpeg).ok()
+    })
+}
+
+fn rawler_preview(bytes: &[u8], min_dim: Option<u32>) -> Option<(DynamicImage, Option<u16>)> {
+    crate::raw_processing::with_raw_source(bytes, |source| {
+        let decoder = rawler::get_decoder(source).ok()?;
+        let params = rawler::decoders::RawDecodeParams::default();
+        let orientation = decoder
+            .raw_metadata(source, &params)
+            .ok()
+            .and_then(|m| m.exif.orientation);
+        let preview = decoder.preview_image(source, &params).ok().flatten();
+        let img = match (preview, min_dim) {
+            (Some(p), Some(min)) if preview_max_dim(&p) >= min => p,
+            (preview, _) => decoder
+                .full_image(source, &params)
+                .ok()
+                .flatten()
+                .into_iter()
+                .chain(preview)
+                .min_by_key(|img| preview_rank(preview_max_dim(img), min_dim))?,
+        };
+        Some((img, orientation))
+    })
+}
+
+fn embedded_preview(bytes: &[u8], min_dim: Option<u32>) -> Option<DynamicImage> {
+    let tiff_preview = tiff_jpeg_previews(bytes).and_then(|(candidates, orientation)| {
+        Some((tiff_jpeg_preview(bytes, &candidates, min_dim)?, orientation))
+    });
+    let (img, orientation) = tiff_preview.or_else(|| rawler_preview(bytes, min_dim))?;
 
     Some(match orientation {
-        Some(o) if o > 1 => apply_orientation(img, Orientation::from_u16(o as u16)),
+        Some(o) if o > 1 => apply_orientation(img, Orientation::from_u16(o)),
         _ => img,
     })
 }
 
-fn safe_embedded_preview_fallback(bytes: &[u8], path: &str) -> Option<DynamicImage> {
-    match panic::catch_unwind(panic::AssertUnwindSafe(|| {
-        embedded_preview_fallback(bytes, path)
-    })) {
+pub fn safe_embedded_preview(
+    bytes: &[u8],
+    path: &str,
+    min_dim: Option<u32>,
+) -> Option<DynamicImage> {
+    match panic::catch_unwind(panic::AssertUnwindSafe(|| embedded_preview(bytes, min_dim))) {
         Ok(preview) => preview,
         Err(_) => {
             log::warn!("Embedded RAW preview extraction panicked for '{}'", path);
@@ -363,7 +426,11 @@ fn safe_embedded_preview_fallback(bytes: &[u8], path: &str) -> Option<DynamicIma
     }
 }
 
-fn linearize_embedded_preview(preview: DynamicImage) -> DynamicImage {
+pub fn safe_embedded_preview_fallback(bytes: &[u8], path: &str) -> Option<DynamicImage> {
+    safe_embedded_preview(bytes, path, None)
+}
+
+pub fn linearize_embedded_preview(preview: DynamicImage) -> DynamicImage {
     let preview = DynamicImage::ImageRgb32F(preview.to_rgb32f());
     let mut linear_preview = apply_srgb_to_linear(preview).into_rgb32f();
     for pixel in linear_preview.pixels_mut() {
@@ -1034,4 +1101,158 @@ pub async fn load_image(
         exif: exif_data,
         is_raw,
     })
+}
+
+#[cfg(test)]
+mod embedded_preview_tests {
+    use super::*;
+
+    fn jpeg(w: u32, h: u32) -> Vec<u8> {
+        let img = image::RgbImage::from_pixel(w, h, image::Rgb([200, 100, 50]));
+        let mut out = Vec::new();
+        image::codecs::jpeg::JpegEncoder::new(&mut out)
+            .encode_image(&img)
+            .unwrap();
+        out
+    }
+
+    fn tiff(le: bool, orientation: u16, ifd0_jpeg: &[u8], sub_jpeg: &[u8]) -> Vec<u8> {
+        let w16 = |v: u16| if le { v.to_le_bytes() } else { v.to_be_bytes() };
+        let w32 = |v: u32| if le { v.to_le_bytes() } else { v.to_be_bytes() };
+        let entry = |tag: u16, typ: u16, val: u32| {
+            let mut e = Vec::new();
+            e.extend_from_slice(&w16(tag));
+            e.extend_from_slice(&w16(typ));
+            e.extend_from_slice(&w32(1));
+            if typ == 3 {
+                e.extend_from_slice(&w16(val as u16));
+                e.extend_from_slice(&[0, 0]);
+            } else {
+                e.extend_from_slice(&w32(val));
+            }
+            e
+        };
+        let ifd0_off = 8u32;
+        let ifd0_len = 2 + 4 * 12 + 4;
+        let sub_off = ifd0_off + ifd0_len;
+        let sub_len = 2 + 3 * 12 + 4;
+        let jpeg0_off = sub_off + sub_len;
+        let jpeg1_off = jpeg0_off + ifd0_jpeg.len() as u32;
+
+        let mut f = if le {
+            b"II*\0".to_vec()
+        } else {
+            b"MM\0*".to_vec()
+        };
+        f.extend_from_slice(&w32(ifd0_off));
+        f.extend_from_slice(&w16(4));
+        f.extend(entry(274, 3, orientation as u32));
+        f.extend(entry(330, 4, sub_off));
+        f.extend(entry(513, 4, jpeg0_off));
+        f.extend(entry(514, 4, ifd0_jpeg.len() as u32));
+        f.extend_from_slice(&w32(0));
+        f.extend_from_slice(&w16(3));
+        f.extend(entry(259, 3, 6));
+        f.extend(entry(273, 4, jpeg1_off));
+        f.extend(entry(279, 4, sub_jpeg.len() as u32));
+        f.extend_from_slice(&w32(0));
+        f.extend_from_slice(ifd0_jpeg);
+        f.extend_from_slice(sub_jpeg);
+        f
+    }
+
+    fn dims(img: Option<DynamicImage>) -> Option<(u32, u32)> {
+        img.map(|i| (i.width(), i.height()))
+    }
+
+    #[test]
+    fn picks_smallest_preview_meeting_min_dim() {
+        for le in [true, false] {
+            let f = tiff(le, 1, &jpeg(64, 32), &jpeg(320, 160));
+            assert_eq!(
+                dims(embedded_preview(&f, Some(50))),
+                Some((64, 32)),
+                "le={le}"
+            );
+            assert_eq!(
+                dims(embedded_preview(&f, Some(100))),
+                Some((320, 160)),
+                "le={le}"
+            );
+            assert_eq!(
+                dims(embedded_preview(&f, Some(5000))),
+                Some((320, 160)),
+                "le={le}"
+            );
+            assert_eq!(
+                dims(embedded_preview(&f, None)),
+                Some((320, 160)),
+                "le={le}"
+            );
+        }
+    }
+
+    #[test]
+    fn applies_ifd0_orientation_in_both_endians() {
+        for le in [true, false] {
+            for (orientation, expected) in [
+                (1, (320, 160)),
+                (3, (320, 160)),
+                (6, (160, 320)),
+                (8, (160, 320)),
+            ] {
+                let f = tiff(le, orientation, &jpeg(64, 32), &jpeg(320, 160));
+                assert_eq!(
+                    dims(embedded_preview(&f, None)),
+                    Some(expected),
+                    "le={le} orientation={orientation}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn skips_candidates_that_are_not_jpegs() {
+        let f = tiff(true, 1, &jpeg(64, 32), &[0x42; 4000]);
+        assert_eq!(dims(embedded_preview(&f, Some(100))), Some((64, 32)));
+    }
+
+    #[test]
+    fn truncated_jpeg_still_decodes_leniently() {
+        let large = jpeg(320, 160);
+        let f = tiff(true, 1, &jpeg(64, 32), &large[..large.len() / 3]);
+        assert_eq!(dims(embedded_preview(&f, Some(100))), Some((320, 160)));
+    }
+
+    #[test]
+    fn malformed_tiffs_do_not_panic() {
+        let good = tiff(true, 6, &jpeg(64, 32), &jpeg(320, 160));
+        let mut self_loop = good.clone();
+        let next_ptr = 8 + 2 + 4 * 12;
+        self_loop[next_ptr..next_ptr + 4].copy_from_slice(&8u32.to_le_bytes());
+        self_loop[8 + 2 + 12 + 8..8 + 2 + 12 + 12].copy_from_slice(&8u32.to_le_bytes());
+        let mut huge_count = good.clone();
+        huge_count[8..10].copy_from_slice(&u16::MAX.to_le_bytes());
+        let mut bad_ifd = good.clone();
+        bad_ifd[4..8].copy_from_slice(&u32::MAX.to_le_bytes());
+        let mut bad_strip = good.clone();
+        bad_strip[8 + 2 + 2 * 12 + 8..8 + 2 + 2 * 12 + 12]
+            .copy_from_slice(&(u32::MAX - 4).to_le_bytes());
+
+        let cases: Vec<(&str, Vec<u8>)> = vec![
+            ("empty", vec![]),
+            ("magic only", b"II*\0".to_vec()),
+            ("ifd past eof", bad_ifd),
+            ("ifd loops", self_loop),
+            ("entry count past eof", huge_count),
+            ("jpeg offset past eof", bad_strip),
+            ("truncated", good[..good.len() / 2].to_vec()),
+            ("not a raw", b"this is not an image at all".to_vec()),
+            ("plain jpeg", jpeg(64, 32)),
+        ];
+        for (name, case) in cases {
+            let result = panic::catch_unwind(|| embedded_preview(&case, Some(100)));
+            assert!(result.is_ok(), "{name} panicked");
+        }
+    }
 }
