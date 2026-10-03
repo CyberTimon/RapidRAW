@@ -188,6 +188,9 @@
       "denoise": "Reduir soroll de la imatge",
       "editImage": "Editar imatge",
       "exportImage": "Exportar imatge",
+      "flag": "Marca",
+      "flagPick": "Seleccionada",
+      "flagReject": "Rebutjada",
       "frameImage": "Emmarcar imatge",
       "mergeHdr": "Fusionar a HDR",
       "noLabel": "Sense etiqueta",
@@ -201,7 +204,8 @@
       "resetAdjustments": "Restablir ajustaments",
       "stitchPanorama": "Unir panorama",
       "tagging": "Etiquetatge",
-      "undo": "Desfer"
+      "undo": "Desfer",
+      "unflagged": "Sense marca"
     },
     "folders": {
       "changeIcon": "Canviar icona",
@@ -224,6 +228,7 @@
     "library": {
       "addCopiedToAlbum_one": "Afegir imatge copiada a l'àlbum",
       "addCopiedToAlbum_other": "Afegir {{count}} imatges copiades a l'àlbum",
+      "deleteRejected": "Eliminar les imatges rebutjades",
       "refreshView": "Actualitzar vista"
     },
     "merge": {
@@ -958,6 +963,12 @@
         "editedOnly": "Només editades",
         "uneditedOnly": "Només no editades"
       },
+      "flag": {
+        "all": "Totes les imatges",
+        "excludeRejected": "Amaga les rebutjades",
+        "picked": "Seleccionada",
+        "rejected": "Rebutjada"
+      },
       "noMatch": "No s'ha trobat cap imatge que coincideixi amb el vostre filtre.",
       "rating": {
         "all": "Mostrar-les totes",
@@ -1039,6 +1050,7 @@
         "filterByColorLabel": "Filtrar per etiqueta de color",
         "filterByEdited": "Filtrar per estat d'edició",
         "filterByFileType": "Filtrar per tipus de fitxer",
+        "filterByFlag": "Filtrar per marca",
         "filterByRating": "Filtrar per puntuació",
         "groupEditedFiles": "Incloure fitxers editats als grups",
         "groupIgnoreMetadata": "Ignorar dates EXIF no coincidents",
@@ -1072,11 +1084,23 @@
       "expandFolder": "Expandir carpeta",
       "imagesCount_one": "1 imatge",
       "imagesCount_other": "{{count}} imatges",
+      "rejected": "Rebutjada",
       "tooltipAperture": "Obertura",
       "tooltipFocalLength": "Distància focal",
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "Velocitat d'obturació",
       "tooltipVirtualCopy": "Còpia virtual"
+    },
+    "reject": {
+      "deleteConfirm": "Eliminar les rebutjades",
+      "deleteMessage_many": "Segur que voleu eliminar {{count}} imatges rebutjades? Es mouran a la paperera.",
+      "deleteMessage_one": "Segur que voleu eliminar {{count}} imatge rebutjada? Es mourà a la paperera.",
+      "deleteMessage_other": "Segur que voleu eliminar {{count}} imatges rebutjades? Es mouran a la paperera.",
+      "deleteTitle": "Eliminar les imatges rebutjades",
+      "noneToDelete": "No hi ha imatges rebutjades per eliminar.",
+      "virtualCopiesWarning_many": "També s'eliminaran {{count}} còpies virtuals no rebutjades perquè els seus originals estan rebutjats.",
+      "virtualCopiesWarning_one": "També s'eliminarà {{count}} còpia virtual no rebutjada perquè el seu original està rebutjat.",
+      "virtualCopiesWarning_other": "També s'eliminaran {{count}} còpies virtuals no rebutjades perquè els seus originals estan rebutjats."
     },
     "search": {
       "noResults": "No s'han trobat resultats",
@@ -1260,7 +1284,7 @@
     "culling": {
       "actionDelete": "Moure a la paperera",
       "actionRateZero": "Establir puntuació a 1 estrella",
-      "actionReject": "Marcar com a rebutjada (Etiqueta vermella)",
+      "actionReject": "Marcar com a rebutjada",
       "applyButton_one": "Aplicar a 1 imatge",
       "applyButton_other": "Aplicar a {{count}} imatges",
       "bestImage": "Millor imatge",
@@ -1619,6 +1643,7 @@
         "copy_files": "Copiar els fitxers seleccionats",
         "copy_image_path": "Copiar camí de les imatges seleccionades",
         "cycle_zoom": "Alternar zoom (Ajustar, 2x Ajustar, 100%)",
+        "delete_rejected": "Eliminar els fitxers rebutjats",
         "delete_selected": "Eliminar els fitxers seleccionats",
         "focus_search": "Enfocar camp de cerca",
         "open_image": "Obrir la imatge seleccionada",
@@ -1651,9 +1676,12 @@
         "toggle_library_exif": "Alternar superposició EXIF",
         "toggle_masks": "Alternar tauler de Màscares",
         "toggle_metadata": "Alternar tauler de Metadades",
+        "toggle_pick": "Commuta la marca de seleccionada",
         "toggle_presets": "Alternar tauler d'Ajustos preestablerts",
+        "toggle_reject": "Commuta la marca de rebutjada",
         "toggle_right_panel": "Commutar el panell dret",
         "undo": "Desfer ajustament",
+        "unflag": "Treure la marca",
         "zoom_100": "Apropar al 100%",
         "zoom_fit": "Apropar per ajustar",
         "zoom_in": "Apropar",
@@ -1991,6 +2019,10 @@
         "virtualCopy": "Còpia virtual"
       },
       "virtualCopyAbbreviation": "CV"
+    },
+    "flags": {
+      "togglePick": "Commuta la selecció",
+      "toggleReject": "Commuta el rebuig"
     },
     "imagePicker": {
       "clearImage": "Esborrar imatge",

@@ -188,6 +188,9 @@
       "denoise": "ノイズ低減を実行",
       "editImage": "画像を編集",
       "exportImage": "画像を書き出し",
+      "flag": "フラグ",
+      "flagPick": "採用",
+      "flagReject": "除外",
       "frameImage": "画像にフレームを追加",
       "mergeHdr": "HDRに統合",
       "noLabel": "ラベルなし",
@@ -201,7 +204,8 @@
       "resetAdjustments": "補正設定をリセット",
       "stitchPanorama": "パノラマ写真を作成",
       "tagging": "タグ付け",
-      "undo": "元に戻す"
+      "undo": "元に戻す",
+      "unflagged": "フラグなし"
     },
     "folders": {
       "changeIcon": "アイコンを変更",
@@ -224,6 +228,7 @@
     "library": {
       "addCopiedToAlbum_one": "コピーした画像をアルバムに追加",
       "addCopiedToAlbum_other": "コピーした {{count}} 枚の画像をアルバムに追加",
+      "deleteRejected": "除外した画像を削除",
       "refreshView": "表示を更新"
     },
     "merge": {
@@ -956,6 +961,12 @@
         "editedOnly": "編集済みのみ",
         "uneditedOnly": "未編集のみ"
       },
+      "flag": {
+        "all": "すべての画像",
+        "excludeRejected": "除外を非表示",
+        "picked": "採用",
+        "rejected": "除外"
+      },
       "noMatch": "フィルターに一致する画像が見つかりません。",
       "rating": {
         "all": "すべて表示",
@@ -1037,6 +1048,7 @@
         "filterByColorLabel": "カラーラベルでフィルター",
         "filterByEdited": "編集状態でフィルター",
         "filterByFileType": "ファイル形式でフィルター",
+        "filterByFlag": "フラグでフィルター",
         "filterByRating": "評価でフィルター",
         "groupEditedFiles": "Include edited files in groups",
         "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
@@ -1070,11 +1082,21 @@
       "expandFolder": "フォルダを展開",
       "imagesCount_one": "1 枚の画像",
       "imagesCount_other": "{{count}} 枚の画像",
+      "rejected": "除外",
       "tooltipAperture": "絞り値",
       "tooltipFocalLength": "焦点距離",
       "tooltipIso": "ISO感度",
       "tooltipShutterSpeed": "シャッタースピード",
       "tooltipVirtualCopy": "仮想コピー"
+    },
+    "reject": {
+      "deleteConfirm": "除外した画像を削除",
+      "deleteMessage_one": "除外した画像 {{count}} 枚を削除してもよろしいですか？ゴミ箱に移動されます。",
+      "deleteMessage_other": "除外した画像 {{count}} 枚を削除してもよろしいですか？ゴミ箱に移動されます。",
+      "deleteTitle": "除外した画像を削除",
+      "noneToDelete": "削除する除外画像はありません。",
+      "virtualCopiesWarning_one": "元画像が除外されているため、除外されていない仮想コピー {{count}} 件も削除されます。",
+      "virtualCopiesWarning_other": "元画像が除外されているため、除外されていない仮想コピー {{count}} 件も削除されます。"
     },
     "search": {
       "noResults": "結果が見つかりません",
@@ -1258,7 +1280,7 @@
     "culling": {
       "actionDelete": "ゴミ箱に移動",
       "actionRateZero": "評価を星1に設定",
-      "actionReject": "除外としてマーク (赤ラベル)",
+      "actionReject": "除外としてマーク",
       "applyButton_one": "1 枚の画像に適用",
       "applyButton_other": "{{count}} 枚の画像に適用",
       "bestImage": "ベスト画像",
@@ -1617,6 +1639,7 @@
         "copy_files": "選択したファイルをコピー",
         "copy_image_path": "選択した画像のパスをコピー",
         "cycle_zoom": "ズームの切り替え (全体表示、2倍拡大、100%)",
+        "delete_rejected": "除外したファイルを削除",
         "delete_selected": "選択したファイルを削除",
         "focus_search": "検索フィールドにフォーカス",
         "open_image": "選択した画像を開く",
@@ -1649,9 +1672,12 @@
         "toggle_library_exif": "EXIF重ね合わせ表示の表示/非表示",
         "toggle_masks": "マスクパネルの表示/非表示",
         "toggle_metadata": "メタデータパネルの表示/非表示",
+        "toggle_pick": "採用フラグを切り替え",
         "toggle_presets": "プリセットパネルの表示/非表示",
+        "toggle_reject": "除外フラグを切り替え",
         "toggle_right_panel": "右パネルの表示/非表示",
         "undo": "操作を元に戻す",
+        "unflag": "フラグを解除",
         "zoom_100": "100%ズーム",
         "zoom_fit": "画面に合わせる",
         "zoom_in": "ズームイン",
@@ -1989,6 +2015,10 @@
         "virtualCopy": "仮想コピー"
       },
       "virtualCopyAbbreviation": "仮想"
+    },
+    "flags": {
+      "togglePick": "採用を切り替え",
+      "toggleReject": "除外を切り替え"
     },
     "imagePicker": {
       "clearImage": "画像をクリア",

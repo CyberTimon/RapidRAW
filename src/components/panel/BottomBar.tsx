@@ -6,10 +6,12 @@ import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 
 import Filmstrip from './Filmstrip';
-import { GLOBAL_KEYS, ImageFile, SelectedImage, ThumbnailAspectRatio } from '../ui/AppProperties';
+import { GLOBAL_KEYS, ImageFile, ImageFlag, SelectedImage, ThumbnailAspectRatio } from '../ui/AppProperties';
+import FlagToggles from '../ui/FlagToggles';
 import Text from '../ui/Text';
 import { useEditorStore } from '../../store/useEditorStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
+import { useLibraryActions } from '../../hooks/useLibraryActions';
 import { useUIStore } from '../../store/useUIStore';
 import { COLOR_LABELS } from '../../utils/adjustments';
 
@@ -26,6 +28,7 @@ interface BottomBarProps {
   isPasted: boolean;
   isPasteDisabled: boolean;
   isRatingDisabled?: boolean;
+  flag?: ImageFlag | null;
   isResetDisabled?: boolean;
   isResizing?: boolean;
   multiSelectedPaths?: Array<string>;
@@ -68,7 +71,7 @@ const StarRating = ({ rating, onRate, disabled }: StarRatingProps) => {
             className="disabled:cursor-not-allowed"
             disabled={disabled}
             key={starValue}
-            onClick={() => !disabled && onRate(starValue === rating ? 0 : starValue)}
+            onClick={() => !disabled && onRate(starValue)}
             data-tooltip={
               disabled
                 ? t('ui.bottomBar.tooltips.selectToRate')
@@ -128,6 +131,7 @@ export default function BottomBar({
   isPasted,
   isPasteDisabled,
   isRatingDisabled = false,
+  flag = null,
   isResizing,
   multiSelectedPaths = [],
   onClearSelection,
@@ -149,6 +153,7 @@ export default function BottomBar({
   totalImages,
 }: BottomBarProps) {
   const { t } = useTranslation();
+  const { handleToggleFlag } = useLibraryActions();
 
   const { isInstantTransition, uiVisibility, setUI } = useUIStore(
     useShallow((state) => ({
@@ -375,6 +380,12 @@ export default function BottomBar({
       >
         <div className="flex items-center gap-4">
           <StarRating rating={rating} onRate={onRate} disabled={isRatingDisabled} />
+          <FlagToggles
+            flag={flag}
+            onToggle={(option) => handleToggleFlag(option)}
+            inactiveClassName="text-text-secondary hover:text-accent"
+            disabled={isRatingDisabled}
+          />
           <div className="h-5 w-px bg-surface"></div>
           <div className="flex items-center gap-2">
             <button

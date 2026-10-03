@@ -3,7 +3,8 @@ import { Image as ImageIcon, Star, SlidersHorizontal } from 'lucide-react';
 import clsx from 'clsx';
 import { Grid, useGridCallbackRef } from 'react-window';
 import { useTranslation } from 'react-i18next';
-import { ImageFile, SelectedImage, ThumbnailAspectRatio, GroupingMode } from '../ui/AppProperties';
+import { ImageFile, ImageFlag, SelectedImage, ThumbnailAspectRatio, GroupingMode } from '../ui/AppProperties';
+import FlagBadges from '../ui/FlagBadges';
 import { Color, COLOR_LABELS } from '../../utils/adjustments';
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
@@ -79,7 +80,7 @@ const FilmstripThumbnail = memo(
 
     const isInitialLoad = useRef(true);
 
-    const { path, tags, is_edited: isEdited } = imageFile;
+    const { path, tags, is_edited: isEdited, flag } = imageFile;
 
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
       id: `filmstrip-image-${path}`,
@@ -95,8 +96,9 @@ const FilmstripThumbnail = memo(
 
     const hasEditIcon = !!showEditIcon;
     const hasColorLabel = !!colorLabel;
-    const hasRating = rating > 0;
-    const hasAnyOverlay = hasEditIcon || hasColorLabel || hasRating;
+    const isRejected = flag === ImageFlag.Reject;
+    const hasRating = rating > 0 && !isRejected;
+    const hasAnyOverlay = hasEditIcon || hasColorLabel || hasRating || !!flag;
 
     const cleanPath = path.split('?')[0];
     const filename = cleanPath.split(/[\\/]/).pop() || '';
@@ -194,7 +196,12 @@ const FilmstripThumbnail = memo(
         data-tooltip={truncatedTitle}
       >
         {layers.length > 0 ? (
-          <div className="absolute inset-0 w-full h-full">
+          <div
+            className={clsx(
+              'absolute inset-0 w-full h-full transition-opacity duration-200',
+              isRejected && 'opacity-40 group-hover:opacity-100',
+            )}
+          >
             {layers.map((layer) => (
               <div
                 key={layer.id}
@@ -277,6 +284,8 @@ const FilmstripThumbnail = memo(
               </Text>
               <Star size={12} className="text-white fill-white" />
             </div>
+
+            <FlagBadges flag={flag} hasPrecedingBadge={hasEditIcon || hasColorLabel || hasRating} />
           </div>
         </div>
 

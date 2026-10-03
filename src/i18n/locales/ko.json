@@ -188,6 +188,9 @@
       "denoise": "이미지 노이즈 제거",
       "editImage": "이미지 편집",
       "exportImage": "이미지 내보내기",
+      "flag": "플래그",
+      "flagPick": "선택됨",
+      "flagReject": "거부됨",
       "frameImage": "이미지 프레임",
       "mergeHdr": "HDR로 병합",
       "noLabel": "레이블 없음",
@@ -201,7 +204,8 @@
       "resetAdjustments": "조정값 초기화",
       "stitchPanorama": "파노라마 스티칭",
       "tagging": "태그 지정",
-      "undo": "실행 취소"
+      "undo": "실행 취소",
+      "unflagged": "플래그 없음"
     },
     "folders": {
       "changeIcon": "아이콘 변경",
@@ -224,6 +228,7 @@
     "library": {
       "addCopiedToAlbum_one": "복사한 이미지를 앨범에 추가",
       "addCopiedToAlbum_other": "복사한 이미지 {{count}}개를 앨범에 추가",
+      "deleteRejected": "거부된 이미지 삭제",
       "refreshView": "보기 새로고침"
     },
     "merge": {
@@ -956,6 +961,12 @@
         "editedOnly": "편집된 항목만",
         "uneditedOnly": "편집되지 않은 항목만"
       },
+      "flag": {
+        "all": "모든 이미지",
+        "excludeRejected": "거부됨 숨기기",
+        "picked": "선택됨",
+        "rejected": "거부됨"
+      },
       "noMatch": "필터와 일치하는 이미지를 찾을 수 없습니다.",
       "rating": {
         "all": "모두 표시",
@@ -1037,6 +1048,7 @@
         "filterByColorLabel": "색상 레이블로 필터링",
         "filterByEdited": "편집 상태로 필터링",
         "filterByFileType": "파일 유형으로 필터링",
+        "filterByFlag": "플래그로 필터링",
         "filterByRating": "평점으로 필터링",
         "groupEditedFiles": "Include edited files in groups",
         "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
@@ -1070,11 +1082,21 @@
       "expandFolder": "폴더 펼치기",
       "imagesCount_one": "이미지 1개",
       "imagesCount_other": "이미지 {{count}}개",
+      "rejected": "거부됨",
       "tooltipAperture": "조리개",
       "tooltipFocalLength": "초점 거리",
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "셔터 속도",
       "tooltipVirtualCopy": "가상 복사본"
+    },
+    "reject": {
+      "deleteConfirm": "거부된 항목 삭제",
+      "deleteMessage_one": "거부된 이미지 {{count}}개를 삭제하시겠습니까? 휴지통으로 이동됩니다.",
+      "deleteMessage_other": "거부된 이미지 {{count}}개를 삭제하시겠습니까? 휴지통으로 이동됩니다.",
+      "deleteTitle": "거부된 이미지 삭제",
+      "noneToDelete": "삭제할 거부된 이미지가 없습니다.",
+      "virtualCopiesWarning_one": "원본이 거부되었기 때문에 거부되지 않은 가상 복사본 {{count}}개도 삭제됩니다.",
+      "virtualCopiesWarning_other": "원본이 거부되었기 때문에 거부되지 않은 가상 복사본 {{count}}개도 삭제됩니다."
     },
     "search": {
       "noResults": "결과를 찾을 수 없습니다",
@@ -1258,7 +1280,7 @@
     "culling": {
       "actionDelete": "휴지통으로 이동",
       "actionRateZero": "평점을 1점으로 설정",
-      "actionReject": "거부됨으로 표시 (빨간 레이블)",
+      "actionReject": "거부됨으로 표시",
       "applyButton_one": "이미지 1개에 적용",
       "applyButton_other": "이미지 {{count}}개에 적용",
       "bestImage": "최고의 이미지",
@@ -1617,6 +1639,7 @@
         "copy_files": "선택한 파일 복사",
         "copy_image_path": "선택한 이미지의 경로 복사",
         "cycle_zoom": "확대/축소 순환 (맞춤, 2배 맞춤, 100%)",
+        "delete_rejected": "거부된 파일 삭제",
         "delete_selected": "선택한 파일 삭제",
         "focus_search": "검색창에 포커스",
         "open_image": "선택한 이미지 열기",
@@ -1649,9 +1672,12 @@
         "toggle_library_exif": "EXIF 오버레이 전환",
         "toggle_masks": "마스크 패널 전환",
         "toggle_metadata": "메타데이터 패널 전환",
+        "toggle_pick": "선택 플래그 전환",
         "toggle_presets": "프리셋 패널 전환",
+        "toggle_reject": "거부 플래그 전환",
         "toggle_right_panel": "오른쪽 패널 토글",
         "undo": "조정 실행 취소",
+        "unflag": "플래그 해제",
         "zoom_100": "100%로 확대/축소",
         "zoom_fit": "맞춤으로 확대/축소",
         "zoom_in": "확대",
@@ -1989,6 +2015,10 @@
         "virtualCopy": "가상 복사본"
       },
       "virtualCopyAbbreviation": "VC"
+    },
+    "flags": {
+      "togglePick": "선택 전환",
+      "toggleReject": "거부 전환"
     },
     "imagePicker": {
       "clearImage": "이미지 지우기",

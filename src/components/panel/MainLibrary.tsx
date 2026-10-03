@@ -31,6 +31,7 @@ import {
   ThumbnailAspectRatio,
   RawStatus,
   EditedStatus,
+  FlagStatus,
   LibraryDisplayMode,
 } from '../ui/AppProperties';
 import { GroupBadgeInfo, GroupId } from '../../utils/imageGrouping';
@@ -211,6 +212,16 @@ export default function MainLibrary(props: MainLibraryProps) {
       { key: EditedStatus.All, label: t('library.filters.edited.all') },
       { key: EditedStatus.EditedOnly, label: t('library.filters.edited.editedOnly') },
       { key: EditedStatus.UneditedOnly, label: t('library.filters.edited.uneditedOnly') },
+    ],
+    [t],
+  );
+
+  const translatedFlagStatusOptions = useMemo(
+    () => [
+      { key: FlagStatus.All, label: t('library.filters.flag.all') },
+      { key: FlagStatus.Picked, label: t('library.filters.flag.picked') },
+      { key: FlagStatus.ExcludeRejected, label: t('library.filters.flag.excludeRejected') },
+      { key: FlagStatus.Rejected, label: t('library.filters.flag.rejected') },
     ],
     [t],
   );
@@ -583,6 +594,7 @@ export default function MainLibrary(props: MainLibraryProps) {
               ratingFilterOptions={translatedRatingFilterOptions}
               rawStatusOptions={translatedRawStatusOptions}
               editedStatusOptions={translatedEditedStatusOptions}
+              flagStatusOptions={translatedFlagStatusOptions}
               sortOptions={translatedSortOptions}
             />
             {!props.isAndroid && (

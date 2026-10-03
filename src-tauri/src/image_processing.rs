@@ -49,10 +49,30 @@ impl<'a> IntoCowImage<'a> for &'a std::sync::Arc<DynamicImage> {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ImageFlag {
+    Pick,
+    Reject,
+}
+
+fn deserialize_image_flag<'de, D>(deserializer: D) -> Result<Option<ImageFlag>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Ok(serde_json::from_value(Value::deserialize(deserializer)?).unwrap_or(None))
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ImageMetadata {
     pub version: u32,
     pub rating: u8,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_image_flag",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub flag: Option<ImageFlag>,
     pub adjustments: Value,
     #[serde(default)]
     pub tags: Option<Vec<String>>,
@@ -65,6 +85,7 @@ impl Default for ImageMetadata {
         ImageMetadata {
             version: 1,
             rating: 0,
+            flag: None,
             adjustments: Value::Null,
             tags: None,
             exif: None,

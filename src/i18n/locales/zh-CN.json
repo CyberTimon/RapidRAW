@@ -188,6 +188,9 @@
       "denoise": "降噪图像",
       "editImage": "编辑图像",
       "exportImage": "导出图像",
+      "flag": "标记",
+      "flagPick": "留用",
+      "flagReject": "已拒绝",
       "frameImage": "装裱图像",
       "mergeHdr": "合并为 HDR",
       "noLabel": "无标签",
@@ -201,7 +204,8 @@
       "resetAdjustments": "重置调整",
       "stitchPanorama": "拼接全景图",
       "tagging": "标签",
-      "undo": "撤销"
+      "undo": "撤销",
+      "unflagged": "无标记"
     },
     "folders": {
       "changeIcon": "更换图标",
@@ -224,6 +228,7 @@
     "library": {
       "addCopiedToAlbum_one": "将复制的图像添加到相册",
       "addCopiedToAlbum_other": "将 {{count}} 张复制的图像添加到相册",
+      "deleteRejected": "删除已拒绝的图像",
       "refreshView": "刷新视图"
     },
     "merge": {
@@ -956,6 +961,12 @@
         "editedOnly": "仅已编辑",
         "uneditedOnly": "仅未编辑"
       },
+      "flag": {
+        "all": "所有图像",
+        "excludeRejected": "隐藏已拒绝",
+        "picked": "留用",
+        "rejected": "已拒绝"
+      },
       "noMatch": "未找到匹配过滤条件的图像。",
       "rating": {
         "all": "显示全部",
@@ -1037,6 +1048,7 @@
         "filterByColorLabel": "按颜色标签过滤",
         "filterByEdited": "按编辑状态过滤",
         "filterByFileType": "按文件类型过滤",
+        "filterByFlag": "按标记过滤",
         "filterByRating": "按评分过滤",
         "groupEditedFiles": "Include edited files in groups",
         "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
@@ -1070,11 +1082,21 @@
       "expandFolder": "展开文件夹",
       "imagesCount_one": "1 张图像",
       "imagesCount_other": "{{count}} 张图像",
+      "rejected": "已拒绝",
       "tooltipAperture": "光圈",
       "tooltipFocalLength": "焦距",
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "快门速度",
       "tooltipVirtualCopy": "虚拟副本"
+    },
+    "reject": {
+      "deleteConfirm": "删除已拒绝",
+      "deleteMessage_one": "确定要删除 {{count}} 张已拒绝的图像吗？它们将被移至回收站。",
+      "deleteMessage_other": "确定要删除 {{count}} 张已拒绝的图像吗？它们将被移至回收站。",
+      "deleteTitle": "删除已拒绝的图像",
+      "noneToDelete": "没有可删除的已拒绝图像。",
+      "virtualCopiesWarning_one": "由于原始图像已被拒绝，{{count}} 个未被拒绝的虚拟副本也将被删除。",
+      "virtualCopiesWarning_other": "由于原始图像已被拒绝，{{count}} 个未被拒绝的虚拟副本也将被删除。"
     },
     "search": {
       "noResults": "未找到结果",
@@ -1258,7 +1280,7 @@
     "culling": {
       "actionDelete": "移至回收站",
       "actionRateZero": "将评分设为 1 星",
-      "actionReject": "标记为已拒绝（红色标签）",
+      "actionReject": "标记为已拒绝",
       "applyButton_one": "应用到 1 张图像",
       "applyButton_other": "应用到 {{count}} 张图像",
       "bestImage": "最佳图像",
@@ -1617,6 +1639,7 @@
         "copy_files": "复制选中的文件",
         "copy_image_path": "复制所选图片的路径",
         "cycle_zoom": "循环缩放（适应、2倍适应、100%）",
+        "delete_rejected": "删除已拒绝的文件",
         "delete_selected": "删除选中的文件",
         "focus_search": "聚焦搜索框",
         "open_image": "打开选中的图像",
@@ -1649,9 +1672,12 @@
         "toggle_library_exif": "切换 EXIF 叠加",
         "toggle_masks": "切换蒙版面板",
         "toggle_metadata": "切换元数据面板",
+        "toggle_pick": "切换留用标记",
         "toggle_presets": "切换预设面板",
+        "toggle_reject": "切换拒绝标记",
         "toggle_right_panel": "切换右侧面板",
         "undo": "撤销调整",
+        "unflag": "取消标记",
         "zoom_100": "缩放到 100%",
         "zoom_fit": "缩放以适应",
         "zoom_in": "放大",
@@ -1989,6 +2015,10 @@
         "virtualCopy": "虚拟副本"
       },
       "virtualCopyAbbreviation": "VC"
+    },
+    "flags": {
+      "togglePick": "切换留用",
+      "toggleReject": "切换拒绝"
     },
     "imagePicker": {
       "clearImage": "清除图像",

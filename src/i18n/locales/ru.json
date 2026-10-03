@@ -188,6 +188,9 @@
       "denoise": "Шумоподавление",
       "editImage": "Редактировать изображение",
       "exportImage": "Экспортировать изображение",
+      "flag": "Отметка",
+      "flagPick": "Выбрано",
+      "flagReject": "Отклонено",
       "frameImage": "Добавить рамку",
       "mergeHdr": "Объединить в HDR",
       "noLabel": "Без метки",
@@ -203,7 +206,8 @@
       "resetAdjustments": "Сбросить настройки",
       "stitchPanorama": "Сшить панораму",
       "tagging": "Теги",
-      "undo": "Отменить"
+      "undo": "Отменить",
+      "unflagged": "Без отметки"
     },
     "folders": {
       "changeIcon": "Изменить значок",
@@ -232,6 +236,7 @@
       "addCopiedToAlbum_many": "Добавить {{count}} скопированных изображений в альбом",
       "addCopiedToAlbum_one": "Добавить скопированное изображение в альбом",
       "addCopiedToAlbum_other": "Добавить {{count}} скопированных изображений в альбом",
+      "deleteRejected": "Удалить отклоненные снимки",
       "refreshView": "Обновить вид"
     },
     "merge": {
@@ -1004,6 +1009,12 @@
         "editedOnly": "Только измененные",
         "uneditedOnly": "Только исходные"
       },
+      "flag": {
+        "all": "Все изображения",
+        "excludeRejected": "Скрыть отклоненные",
+        "picked": "Выбрано",
+        "rejected": "Отклонено"
+      },
       "noMatch": "Нет изображений, соответствующих фильтру.",
       "rating": {
         "all": "Показать все",
@@ -1085,6 +1096,7 @@
         "filterByColorLabel": "Фильтр по цвету",
         "filterByEdited": "Фильтр по редактированию",
         "filterByFileType": "Фильтр по формату",
+        "filterByFlag": "Фильтр по отметке",
         "filterByRating": "Фильтр по рейтингу",
         "groupEditedFiles": "Include edited files in groups",
         "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
@@ -1120,11 +1132,25 @@
       "imagesCount_many": "{{count}} изображений",
       "imagesCount_one": "1 изображение",
       "imagesCount_other": "{{count}} изображений",
+      "rejected": "Отклонено",
       "tooltipAperture": "Диафрагма",
       "tooltipFocalLength": "Фокусное расстояние",
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "Выдержка",
       "tooltipVirtualCopy": "Виртуальная копия"
+    },
+    "reject": {
+      "deleteConfirm": "Удалить отклоненные",
+      "deleteMessage_few": "Удалить {{count}} отклоненных снимка? Они будут перемещены в корзину.",
+      "deleteMessage_many": "Удалить {{count}} отклоненных снимков? Они будут перемещены в корзину.",
+      "deleteMessage_one": "Удалить {{count}} отклоненный снимок? Он будет перемещен в корзину.",
+      "deleteMessage_other": "Удалить {{count}} отклоненных снимков? Они будут перемещены в корзину.",
+      "deleteTitle": "Удалить отклоненные снимки",
+      "noneToDelete": "Нет отклоненных снимков для удаления.",
+      "virtualCopiesWarning_few": "Также будут удалены {{count}} неотклоненные виртуальные копии, так как их оригиналы отклонены.",
+      "virtualCopiesWarning_many": "Также будут удалены {{count}} неотклоненных виртуальных копий, так как их оригиналы отклонены.",
+      "virtualCopiesWarning_one": "Также будет удалена {{count}} неотклоненная виртуальная копия, так как ее оригинал отклонен.",
+      "virtualCopiesWarning_other": "Также будут удалены {{count}} неотклоненных виртуальных копий, так как их оригиналы отклонены."
     },
     "search": {
       "noResults": "Результатов не найдено",
@@ -1308,7 +1334,7 @@
     "culling": {
       "actionDelete": "Переместить в корзину",
       "actionRateZero": "Установить оценку 1 звезда",
-      "actionReject": "Пометить как отклоненное (красная метка)",
+      "actionReject": "Пометить как отклоненное",
       "applyButton_few": "Применить к {{count}} изображениям",
       "applyButton_many": "Применить к {{count}} изображениям",
       "applyButton_one": "Применить к 1 изображению",
@@ -1687,6 +1713,7 @@
         "copy_files": "Копировать выбранные файлы",
         "copy_image_path": "Копировать путь к выбранным изображениям",
         "cycle_zoom": "Режимы масштаба (По экрану, 2x, 100%)",
+        "delete_rejected": "Удалить отклоненные файлы",
         "delete_selected": "Удалить выбранные файлы",
         "focus_search": "Перейти к полю поиска",
         "open_image": "Открыть выбранное изображение",
@@ -1719,9 +1746,12 @@
         "toggle_library_exif": "Информация EXIF поверх сетки",
         "toggle_masks": "Панель масок",
         "toggle_metadata": "Панель метаданных",
+        "toggle_pick": "Переключить отметку «выбрано»",
         "toggle_presets": "Панель пресетов",
+        "toggle_reject": "Переключить отметку «отклонено»",
         "toggle_right_panel": "Показать/скрыть правую панель",
         "undo": "Отменить действие",
+        "unflag": "Снять отметку",
         "zoom_100": "Масштаб 100%",
         "zoom_fit": "Уместить по размеру окна",
         "zoom_in": "Приблизить",
@@ -2061,6 +2091,10 @@
         "virtualCopy": "Виртуальная копия"
       },
       "virtualCopyAbbreviation": "ВК"
+    },
+    "flags": {
+      "togglePick": "Переключить выбор",
+      "toggleReject": "Переключить отклонение"
     },
     "imagePicker": {
       "clearImage": "Очистить изображение",

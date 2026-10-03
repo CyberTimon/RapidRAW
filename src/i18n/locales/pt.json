@@ -188,6 +188,9 @@
       "denoise": "Reduzir Ruído da Imagem",
       "editImage": "Editar Imagem",
       "exportImage": "Exportar Imagem",
+      "flag": "Marca",
+      "flagPick": "Escolhida",
+      "flagReject": "Rejeitada",
       "frameImage": "Emoldurar Imagem",
       "mergeHdr": "Mesclar para HDR",
       "noLabel": "Sem Rótulo",
@@ -202,7 +205,8 @@
       "resetAdjustments": "Redefinir Ajustes",
       "stitchPanorama": "Montar Panorama",
       "tagging": "Etiquetas",
-      "undo": "Desfazer"
+      "undo": "Desfazer",
+      "unflagged": "Sem marca"
     },
     "folders": {
       "changeIcon": "Alterar Ícone",
@@ -228,6 +232,7 @@
       "addCopiedToAlbum_many": "Adicionar {{count}} imagens copiadas ao álbum",
       "addCopiedToAlbum_one": "Adicionar imagem copiada ao álbum",
       "addCopiedToAlbum_other": "Adicionar {{count}} imagens copiadas ao álbum",
+      "deleteRejected": "Excluir imagens rejeitadas",
       "refreshView": "Atualizar Exibição"
     },
     "merge": {
@@ -981,6 +986,12 @@
         "editedOnly": "Apenas Editadas",
         "uneditedOnly": "Apenas Não Editadas"
       },
+      "flag": {
+        "all": "Todas as Imagens",
+        "excludeRejected": "Ocultar Rejeitadas",
+        "picked": "Escolhida",
+        "rejected": "Rejeitada"
+      },
       "noMatch": "Nenhuma imagem encontrada que corresponda ao seu filtro.",
       "rating": {
         "all": "Mostrar Tudo",
@@ -1062,6 +1073,7 @@
         "filterByColorLabel": "Filtrar por Rótulo de Cor",
         "filterByEdited": "Filtrar por Status de Edição",
         "filterByFileType": "Filtrar por Tipo de Arquivo",
+        "filterByFlag": "Filtrar por Marca",
         "filterByRating": "Filtrar por Avaliação",
         "groupEditedFiles": "Include edited files in groups",
         "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
@@ -1096,11 +1108,23 @@
       "imagesCount_many": "{{count}} imagens",
       "imagesCount_one": "1 imagem",
       "imagesCount_other": "{{count}} imagens",
+      "rejected": "Rejeitada",
       "tooltipAperture": "Abertura",
       "tooltipFocalLength": "Distância Focal",
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "Velocidade do Obturador",
       "tooltipVirtualCopy": "Cópia Virtual"
+    },
+    "reject": {
+      "deleteConfirm": "Excluir Rejeitadas",
+      "deleteMessage_many": "Tem certeza de que deseja excluir {{count}} imagens rejeitadas? Elas serão movidas para a lixeira.",
+      "deleteMessage_one": "Tem certeza de que deseja excluir {{count}} imagem rejeitada? Ela será movida para a lixeira.",
+      "deleteMessage_other": "Tem certeza de que deseja excluir {{count}} imagens rejeitadas? Elas serão movidas para a lixeira.",
+      "deleteTitle": "Excluir imagens rejeitadas",
+      "noneToDelete": "Não há imagens rejeitadas para excluir.",
+      "virtualCopiesWarning_many": "{{count}} cópias virtuais não rejeitadas também serão excluídas porque seus originais estão rejeitados.",
+      "virtualCopiesWarning_one": "{{count}} cópia virtual não rejeitada também será excluída porque seu original está rejeitado.",
+      "virtualCopiesWarning_other": "{{count}} cópias virtuais não rejeitadas também serão excluídas porque seus originais estão rejeitados."
     },
     "search": {
       "noResults": "Nenhum Resultado Encontrado",
@@ -1284,7 +1308,7 @@
     "culling": {
       "actionDelete": "Mover para a Lixeira",
       "actionRateZero": "Definir Avaliação para 1 Estrela",
-      "actionReject": "Marcar como Rejeitado (Rótulo Vermelho)",
+      "actionReject": "Marcar como Rejeitado",
       "applyButton_many": "Aplicar a {{count}} imagens",
       "applyButton_one": "Aplicar a 1 imagem",
       "applyButton_other": "Aplicar a {{count}} imagens",
@@ -1653,6 +1677,7 @@
         "copy_files": "Copiar arquivo(s) selecionado(s)",
         "copy_image_path": "Copiar o caminho da(s) imagem(ns) selecionada(s)",
         "cycle_zoom": "Alternar zoom (Caber, 2x Caber, 100%)",
+        "delete_rejected": "Excluir arquivo(s) rejeitado(s)",
         "delete_selected": "Excluir arquivo(s) selecionado(s)",
         "focus_search": "Focar o campo de pesquisa",
         "open_image": "Abrir imagem selecionada",
@@ -1685,9 +1710,12 @@
         "toggle_library_exif": "Alternar sobreposição EXIF",
         "toggle_masks": "Alternar painel de Máscaras",
         "toggle_metadata": "Alternar painel de Metadados",
+        "toggle_pick": "Alternar marca de Escolhida",
         "toggle_presets": "Alternar painel de Predefinições",
+        "toggle_reject": "Alternar marca de Rejeitado",
         "toggle_right_panel": "Alternar painel direito",
         "undo": "Desfazer ajuste",
+        "unflag": "Remover marca",
         "zoom_100": "Zoom para 100%",
         "zoom_fit": "Zoom para caber",
         "zoom_in": "Mais zoom",
@@ -2026,6 +2054,10 @@
         "virtualCopy": "Cópia Virtual"
       },
       "virtualCopyAbbreviation": "CV"
+    },
+    "flags": {
+      "togglePick": "Alternar escolha",
+      "toggleReject": "Alternar rejeição"
     },
     "imagePicker": {
       "clearImage": "Limpar Imagem",

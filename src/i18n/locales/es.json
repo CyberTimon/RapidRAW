@@ -188,6 +188,9 @@
       "denoise": "Reducir ruido de imagen",
       "editImage": "Editar imagen",
       "exportImage": "Exportar imagen",
+      "flag": "Marca",
+      "flagPick": "Elegida",
+      "flagReject": "Rechazada",
       "frameImage": "Enmarcar imagen",
       "mergeHdr": "Combinar en HDR",
       "noLabel": "Sin etiqueta",
@@ -202,7 +205,8 @@
       "resetAdjustments": "Restablecer ajustes",
       "stitchPanorama": "Unir panorama",
       "tagging": "Etiquetado",
-      "undo": "Deshacer"
+      "undo": "Deshacer",
+      "unflagged": "Sin marca"
     },
     "folders": {
       "changeIcon": "Cambiar icono",
@@ -228,6 +232,7 @@
       "addCopiedToAlbum_many": "Agregar {{count}} imágenes copiadas al álbum",
       "addCopiedToAlbum_one": "Agregar imagen copiada al álbum",
       "addCopiedToAlbum_other": "Agregar {{count}} imágenes copiadas al álbum",
+      "deleteRejected": "Eliminar imágenes rechazadas",
       "refreshView": "Actualizar vista"
     },
     "merge": {
@@ -981,6 +986,12 @@
         "editedOnly": "Solo editadas",
         "uneditedOnly": "Solo sin editar"
       },
+      "flag": {
+        "all": "Todas las imágenes",
+        "excludeRejected": "Ocultar rechazadas",
+        "picked": "Elegida",
+        "rejected": "Rechazada"
+      },
       "noMatch": "No se encontraron imágenes que coincidan con tu filtro.",
       "rating": {
         "all": "Mostrar todas",
@@ -1062,6 +1073,7 @@
         "filterByColorLabel": "Filtrar por etiqueta de color",
         "filterByEdited": "Filtrar por estado de edición",
         "filterByFileType": "Filtrar por tipo de archivo",
+        "filterByFlag": "Filtrar por marca",
         "filterByRating": "Filtrar por puntuación",
         "groupEditedFiles": "Include edited files in groups",
         "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
@@ -1096,11 +1108,23 @@
       "imagesCount_many": "{{count}} imágenes",
       "imagesCount_one": "1 imagen",
       "imagesCount_other": "{{count}} imágenes",
+      "rejected": "Rechazada",
       "tooltipAperture": "Apertura",
       "tooltipFocalLength": "Distancia focal",
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "Velocidad de obturación",
       "tooltipVirtualCopy": "Copia virtual"
+    },
+    "reject": {
+      "deleteConfirm": "Eliminar rechazadas",
+      "deleteMessage_many": "¿Seguro que quieres eliminar {{count}} imágenes rechazadas? Se moverán a la papelera.",
+      "deleteMessage_one": "¿Seguro que quieres eliminar {{count}} imagen rechazada? Se moverá a la papelera.",
+      "deleteMessage_other": "¿Seguro que quieres eliminar {{count}} imágenes rechazadas? Se moverán a la papelera.",
+      "deleteTitle": "Eliminar imágenes rechazadas",
+      "noneToDelete": "No hay imágenes rechazadas para eliminar.",
+      "virtualCopiesWarning_many": "También se eliminarán {{count}} copias virtuales no rechazadas porque sus originales están rechazados.",
+      "virtualCopiesWarning_one": "También se eliminará {{count}} copia virtual no rechazada porque su original está rechazado.",
+      "virtualCopiesWarning_other": "También se eliminarán {{count}} copias virtuales no rechazadas porque sus originales están rechazados."
     },
     "search": {
       "noResults": "No se encontraron resultados",
@@ -1284,7 +1308,7 @@
     "culling": {
       "actionDelete": "Mover a la papelera",
       "actionRateZero": "Establecer puntuación a 1 estrella",
-      "actionReject": "Marcar como rechazada (Etiqueta roja)",
+      "actionReject": "Marcar como rechazada",
       "applyButton_many": "Aplicar a {{count}} imágenes",
       "applyButton_one": "Aplicar a 1 imagen",
       "applyButton_other": "Aplicar a {{count}} imágenes",
@@ -1652,6 +1676,7 @@
         "copy_files": "Copiar archivo(s) seleccionado(s)",
         "copy_image_path": "Copiar la ruta de la(s) imagen(es) seleccionada(s)",
         "cycle_zoom": "Alternar zoom (Ajustar, 2x Ajustar, 100%)",
+        "delete_rejected": "Eliminar archivo(s) rechazado(s)",
         "delete_selected": "Eliminar archivo(s) seleccionado(s)",
         "focus_search": "Enfocar el campo de búsqueda",
         "open_image": "Abrir imagen seleccionada",
@@ -1684,9 +1709,12 @@
         "toggle_library_exif": "Alternar superposición EXIF",
         "toggle_masks": "Alternar panel de Máscaras",
         "toggle_metadata": "Alternar panel de Metadatos",
+        "toggle_pick": "Alternar marca de elegida",
         "toggle_presets": "Alternar panel de Ajustes preestablecidos",
+        "toggle_reject": "Alternar marca de rechazada",
         "toggle_right_panel": "Alternar panel derecho",
         "undo": "Deshacer ajuste",
+        "unflag": "Quitar marca",
         "zoom_100": "Hacer zoom al 100%",
         "zoom_fit": "Ajustar al área de visualización",
         "zoom_in": "Acercar",
@@ -2025,6 +2053,10 @@
         "virtualCopy": "Copia virtual"
       },
       "virtualCopyAbbreviation": "CV"
+    },
+    "flags": {
+      "togglePick": "Alternar elegida",
+      "toggleReject": "Alternar rechazo"
     },
     "imagePicker": {
       "clearImage": "Borrar imagen",

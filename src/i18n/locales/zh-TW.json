@@ -188,6 +188,9 @@
       "denoise": "降噪影像",
       "editImage": "編輯影像",
       "exportImage": "匯出影像",
+      "flag": "標記",
+      "flagPick": "留用",
+      "flagReject": "已拒絕",
       "frameImage": "裝裱影像",
       "mergeHdr": "合併為 HDR",
       "noLabel": "無標籤",
@@ -201,7 +204,8 @@
       "resetAdjustments": "重置調整",
       "stitchPanorama": "拼接全景圖",
       "tagging": "標籤",
-      "undo": "復原"
+      "undo": "復原",
+      "unflagged": "無標記"
     },
     "folders": {
       "changeIcon": "更換圖示",
@@ -224,6 +228,7 @@
     "library": {
       "addCopiedToAlbum_one": "將複製的影像新增到相簿",
       "addCopiedToAlbum_other": "將 {{count}} 張複製的影像新增到相簿",
+      "deleteRejected": "刪除已拒絕的影像",
       "refreshView": "重新整理檢視"
     },
     "merge": {
@@ -956,6 +961,12 @@
         "editedOnly": "僅已編輯",
         "uneditedOnly": "僅未編輯"
       },
+      "flag": {
+        "all": "所有影像",
+        "excludeRejected": "隱藏已拒絕",
+        "picked": "留用",
+        "rejected": "已拒絕"
+      },
       "noMatch": "未找到匹配過濾條件的影像。",
       "rating": {
         "all": "顯示全部",
@@ -1037,6 +1048,7 @@
         "filterByColorLabel": "按顏色標籤過濾",
         "filterByEdited": "按編輯狀態過濾",
         "filterByFileType": "按檔案型別過濾",
+        "filterByFlag": "按標記過濾",
         "filterByRating": "按評分過濾",
         "groupEditedFiles": "Include edited files in groups",
         "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
@@ -1070,11 +1082,21 @@
       "expandFolder": "展開資料夾",
       "imagesCount_one": "1 張影像",
       "imagesCount_other": "{{count}} 張影像",
+      "rejected": "已拒絕",
       "tooltipAperture": "光圈",
       "tooltipFocalLength": "焦距",
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "快門速度",
       "tooltipVirtualCopy": "虛擬副本"
+    },
+    "reject": {
+      "deleteConfirm": "刪除已拒絕",
+      "deleteMessage_one": "確定要刪除 {{count}} 張已拒絕的影像嗎？它們將被移至資源回收筒。",
+      "deleteMessage_other": "確定要刪除 {{count}} 張已拒絕的影像嗎？它們將被移至資源回收筒。",
+      "deleteTitle": "刪除已拒絕的影像",
+      "noneToDelete": "沒有可刪除的已拒絕影像。",
+      "virtualCopiesWarning_one": "由於原始影像已被拒絕，{{count}} 個未被拒絕的虛擬副本也將被刪除。",
+      "virtualCopiesWarning_other": "由於原始影像已被拒絕，{{count}} 個未被拒絕的虛擬副本也將被刪除。"
     },
     "search": {
       "noResults": "未找到結果",
@@ -1258,7 +1280,7 @@
     "culling": {
       "actionDelete": "移至垃圾桶",
       "actionRateZero": "將評分設為 1 星",
-      "actionReject": "標記為已拒絕（紅色標籤）",
+      "actionReject": "標記為已拒絕",
       "applyButton_one": "應用到 1 張影像",
       "applyButton_other": "應用到 {{count}} 張影像",
       "bestImage": "最佳影像",
@@ -1617,6 +1639,7 @@
         "copy_files": "複製選中的檔案",
         "copy_image_path": "複製所選圖片的路徑",
         "cycle_zoom": "迴圈縮放（適應、2倍適應、100%）",
+        "delete_rejected": "刪除已拒絕的檔案",
         "delete_selected": "刪除選中的檔案",
         "focus_search": "聚焦搜尋框",
         "open_image": "開啟選中的影像",
@@ -1649,9 +1672,12 @@
         "toggle_library_exif": "切換 EXIF 疊加",
         "toggle_masks": "切換遮色片面板",
         "toggle_metadata": "切換後設資料面板",
+        "toggle_pick": "切換留用標記",
         "toggle_presets": "切換預設面板",
+        "toggle_reject": "切換拒絕標記",
         "toggle_right_panel": "切換右側面板",
         "undo": "復原調整",
+        "unflag": "取消標記",
         "zoom_100": "縮放到 100%",
         "zoom_fit": "縮放以適應",
         "zoom_in": "放大",
@@ -1989,6 +2015,10 @@
         "virtualCopy": "虛擬副本"
       },
       "virtualCopyAbbreviation": "VC"
+    },
+    "flags": {
+      "togglePick": "切換留用",
+      "toggleReject": "切換拒絕"
     },
     "imagePicker": {
       "clearImage": "清除影像",
