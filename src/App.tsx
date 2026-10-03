@@ -53,6 +53,7 @@ import { useAppContextMenus } from './hooks/useAppContextMenus';
 import { useSortedLibrary } from './hooks/useSortedLibrary';
 import { useAppNavigation } from './hooks/useAppNavigation';
 import { useExternalEditSession } from './hooks/useExternalEditSession';
+import { useExternalControlBridge } from './hooks/useExternalControlBridge';
 import ExternalEditBar from './components/ui/ExternalEditBar';
 import { Status } from './components/ui/ExportImportProperties';
 
@@ -360,6 +361,8 @@ function App() {
     isFinishing: isExternalEditFinishing,
     finishExternalEdit,
   } = useExternalEditSession(handleImageSelect);
+
+  useExternalControlBridge(handleImageSelect);
 
   const {
     handleRate,

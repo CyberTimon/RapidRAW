@@ -19,6 +19,7 @@ mod culling;
 mod denoising;
 mod exif_processing;
 mod export_processing;
+mod mcp_control;
 mod file_management;
 mod focus_stacking;
 mod formats;
@@ -1032,8 +1033,7 @@ fn generate_preset_preview(
     Ok(Response::new(buf.into_inner()))
 }
 
-#[tauri::command]
-async fn fetch_community_presets() -> Result<Vec<CommunityPreset>, String> {
+pub(crate) async fn fetch_community_presets_impl() -> Result<Vec<CommunityPreset>, String> {
     let client = reqwest::Client::new();
     let url = "https://raw.githubusercontent.com/CyberTimon/RapidRAW-Presets/main/manifest.json";
 
@@ -1054,6 +1054,11 @@ async fn fetch_community_presets() -> Result<Vec<CommunityPreset>, String> {
         .map_err(|e| format!("Failed to parse manifest.json: {}", e))?;
 
     Ok(presets)
+}
+
+#[tauri::command]
+async fn fetch_community_presets() -> Result<Vec<CommunityPreset>, String> {
+    fetch_community_presets_impl().await
 }
 
 #[tauri::command]
@@ -1369,12 +1374,11 @@ async fn save_collage(base64_data: String, first_path_str: String) -> Result<Str
     Ok(output_path.to_string_lossy().to_string())
 }
 
-#[tauri::command]
-async fn generate_preview_for_path(
+pub(crate) async fn generate_preview_bytes_for_path(
     path: String,
     js_adjustments: Value,
     app_handle: tauri::AppHandle,
-) -> Result<Response, String> {
+) -> Result<Vec<u8>, String> {
     tokio::task::spawn_blocking(move || {
         let state = app_handle.state::<AppState>();
         let context = get_or_init_gpu_context(&state, &app_handle)?;
@@ -1461,15 +1465,23 @@ async fn generate_preview_for_path(
         let (width, height) = final_image.dimensions();
         let rgb_pixels = final_image.to_rgb8().into_vec();
 
-        let bytes = Encoder::new(Preset::BaselineFastest)
+        Encoder::new(Preset::BaselineFastest)
             .quality(92)
             .encode_rgb(&rgb_pixels, width, height)
-            .map_err(|e| format!("Failed to encode with mozjpeg-rs: {}", e))?;
-
-        Ok(Response::new(bytes))
+            .map_err(|e| format!("Failed to encode with mozjpeg-rs: {}", e))
     })
     .await
     .map_err(|e| format!("Task execution failed: {}", e))?
+}
+
+#[tauri::command]
+async fn generate_preview_for_path(
+    path: String,
+    js_adjustments: Value,
+    app_handle: tauri::AppHandle,
+) -> Result<Response, String> {
+    let bytes = generate_preview_bytes_for_path(path, js_adjustments, app_handle).await?;
+    Ok(Response::new(bytes))
 }
 
 fn setup_logging(app_handle: &tauri::AppHandle) {
@@ -1961,6 +1973,17 @@ pub fn run() {
             start_analytics_worker(app_handle.clone());
             file_management::start_thumbnail_workers(app_handle.clone());
             file_management::start_metadata_workers(app_handle.clone());
+
+            {
+                let ec_app = app_handle.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(e) =
+                        mcp_control::restart_external_control_server(ec_app).await
+                    {
+                        log::warn!("External control server failed to start: {e}");
+                    }
+                });
+            }
             jxl_oxide::integration::register_image_decoding_hook();
 
             let window_cfg = app.config().app.windows.first().unwrap().clone();
@@ -2162,8 +2185,14 @@ pub fn run() {
             disks_cache: Mutex::new(None),
             disks_cache_refreshing: AtomicBool::new(false),
             camera_session: Mutex::new(camera_tethering::CameraSession::new()),
+            mcp_control: mcp_control::new_external_control_state(),
         })
         .invoke_handler(tauri::generate_handler![
+            mcp_control::bridge::external_control_get_public_status,
+            mcp_control::bridge::external_control_update_settings,
+            mcp_control::bridge::external_control_generate_token,
+            mcp_control::bridge::external_control_push_session,
+            mcp_control::bridge::external_control_fulfill_request,
             apply_adjustments,
             generate_preview_for_path,
             generate_preset_preview,

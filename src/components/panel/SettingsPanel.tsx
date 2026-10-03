@@ -18,7 +18,9 @@ import {
   Image as ImageIcon,
   Mouse,
   Touchpad,
+  Plug,
 } from 'lucide-react';
+import ExternalControlSection from './settings/ExternalControlSection';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { relaunch } from '@tauri-apps/plugin-process';
@@ -543,6 +545,7 @@ export default function SettingsPanel({
       { id: 'general', label: t('settings.categories.general'), icon: SlidersHorizontal },
       { id: 'processing', label: t('settings.categories.processing'), icon: Cpu },
       { id: 'shortcuts', label: t('settings.categories.shortcuts'), icon: Keyboard },
+      { id: 'external-control', label: t('settings.categories.externalControl', 'External Control / MCP'), icon: Plug },
     ],
     [t],
   );
@@ -2494,6 +2497,24 @@ export default function SettingsPanel({
                         </Button>
                       </div>
                     </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {activeCategory === 'external-control' && (
+                <motion.div
+                  key="external-control"
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-10"
+                >
+                  <div className="p-6 bg-surface rounded-xl shadow-md">
+                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-4">
+                      {t('settings.externalControl.title', 'External Control / MCP')}
+                    </Text>
+                    <ExternalControlSection appSettings={appSettings} onSettingsChange={onSettingsChange} />
                   </div>
                 </motion.div>
               )}
