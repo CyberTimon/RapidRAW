@@ -39,13 +39,13 @@ struct GlobalAdjustments {
     whites: f32,
     blacks: f32,
     saturation: f32,
-    temperature: f32,
-    tint: f32,
     vibrance: f32,
     hue: f32,
+    wb_log_gain_l: f32,
+    wb_log_gain_m: f32,
+    wb_log_gain_s: f32,
     _pad_color1: f32,
     _pad_color2: f32,
-    _pad_color3: f32,
 
     sharpness: f32,
     luma_noise_reduction: f32,
@@ -81,6 +81,8 @@ struct GlobalAdjustments {
     _pad_agx3: f32,
     agx_pipe_to_rendering_matrix: mat3x3<f32>,
     agx_rendering_to_pipe_matrix: mat3x3<f32>,
+    wb_rgb_to_lms_matrix: mat3x3<f32>,
+    wb_lms_to_rgb_matrix: mat3x3<f32>,
 
     _pad_cg1: f32,
     _pad_cg2: f32,
@@ -126,8 +128,6 @@ struct MaskAdjustments {
     whites: f32,
     blacks: f32,
     saturation: f32,
-    temperature: f32,
-    tint: f32,
     vibrance: f32,
 
     sharpness: f32,
@@ -143,8 +143,10 @@ struct MaskAdjustments {
     sharpness_threshold: f32,
 
     hue: f32,
-    _pad_cg1: f32,
-    _pad_cg2: f32,
+    wb_log_gain_l: f32,
+    wb_log_gain_m: f32,
+    wb_log_gain_s: f32,
+    _pad_wb: f32,
     color_grading_shadows: ColorGradeSettings,
     color_grading_midtones: ColorGradeSettings,
     color_grading_highlights: ColorGradeSettings,
@@ -684,12 +686,15 @@ fn apply_color_calibration(color: vec3<f32>, cal: ColorCalibrationSettings) -> v
     return c;
 }
 
-fn apply_white_balance(color: vec3<f32>, temp: f32, tnt: f32) -> vec3<f32> {
-    var rgb = color;
-    let temp_kelvin_mult = vec3<f32>(1.0 + temp * 0.2, 1.0 + temp * 0.05, 1.0 - temp * 0.2);
-    let tint_mult = vec3<f32>(1.0 + tnt * 0.25, 1.0 - tnt * 0.25, 1.0 + tnt * 0.25);
-    rgb *= temp_kelvin_mult * tint_mult;
-    return rgb;
+fn apply_white_balance(color: vec3<f32>, log_gains: vec3<f32>) -> vec3<f32> {
+    if (all(log_gains == vec3<f32>(0.0))) {
+        return color;
+    }
+    let rgb_to_lms = adjustments.global.wb_rgb_to_lms_matrix;
+    let lms_to_rgb = adjustments.global.wb_lms_to_rgb_matrix;
+    let gains = exp(log_gains);
+    let white = lms_to_rgb * (gains * (rgb_to_lms * vec3<f32>(1.0)));
+    return lms_to_rgb * (gains * (rgb_to_lms * color)) / get_luma(white);
 }
 
 fn apply_creative_color(color: vec3<f32>, sat: f32, vib: f32) -> vec3<f32> {
@@ -1734,8 +1739,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     var t_whites = adjustments.global.whites;
     var t_blacks = adjustments.global.blacks;
     var t_saturation = adjustments.global.saturation;
-    var t_temperature = adjustments.global.temperature;
-    var t_tint = adjustments.global.tint;
+    var t_wb_log_gains = vec3<f32>(adjustments.global.wb_log_gain_l, adjustments.global.wb_log_gain_m, adjustments.global.wb_log_gain_s);
     var t_vibrance = adjustments.global.vibrance;
     var t_luma_nr = adjustments.global.luma_noise_reduction;
     var t_color_nr = adjustments.global.color_noise_reduction;
@@ -1772,8 +1776,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             t_blacks += m.blacks * influence;
 
             t_saturation += m.saturation * influence;
-            t_temperature += m.temperature * influence;
-            t_tint += m.tint * influence;
+            t_wb_log_gains += vec3<f32>(m.wb_log_gain_l, m.wb_log_gain_m, m.wb_log_gain_s) * influence;
             t_vibrance += m.vibrance * influence;
 
             t_luma_nr += m.luma_noise_reduction * influence;
@@ -1859,7 +1862,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     }
 
     var composite_rgb_linear = apply_dehaze(processed_rgb, structure_blurred, is_raw, t_dehaze);
-    composite_rgb_linear = apply_white_balance(composite_rgb_linear, t_temperature, t_tint);
+    composite_rgb_linear = apply_white_balance(composite_rgb_linear, t_wb_log_gains);
     composite_rgb_linear = apply_centre_tonal_and_color(composite_rgb_linear, adjustments.global.centre, absolute_coord_i);
     composite_rgb_linear = apply_tonal_adjustments(composite_rgb_linear, tonal_blurred, is_raw, t_contrast, t_shadows, t_whites, t_blacks);
     composite_rgb_linear = apply_highlights_adjustment(composite_rgb_linear, absolute_coord_i, scale, is_raw, t_highlights);

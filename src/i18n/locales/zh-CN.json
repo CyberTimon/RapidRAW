@@ -43,6 +43,7 @@
         "shadows": "阴影"
       },
       "hue": "色相",
+      "kelvinModeTooltip": "以开尔文显示色温",
       "localHue": "局部色调",
       "luminance": "亮度",
       "mixerColors": {

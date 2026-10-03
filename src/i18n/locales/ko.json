@@ -43,6 +43,7 @@
         "shadows": "섀도우"
       },
       "hue": "색조",
+      "kelvinModeTooltip": "색온도를 켈빈으로 표시",
       "localHue": "지역 색조",
       "luminance": "휘도",
       "mixerColors": {

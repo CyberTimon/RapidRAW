@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::file_management::Preset;
+use crate::white_balance::{MIRED_PER_RELATIVE_UNIT, TINT_PER_RELATIVE_UNIT};
 
 #[derive(Copy, Clone, Debug)]
 enum Num {
@@ -165,12 +166,11 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
 
     if let Some(adjusted_k) = get_attr_as_f64(&attrs, "Temperature") {
         const AS_SHOT_DEFAULT: f64 = 5500.0;
-        const MAX_MIRED_SHIFT: f64 = 150.0;
         let as_shot_k = get_attr_as_f64(&attrs, "AsShotTemperature").unwrap_or(AS_SHOT_DEFAULT);
         let mired_adjusted = 1_000_000.0 / adjusted_k;
         let mired_as_shot = 1_000_000.0 / as_shot_k;
         let mired_delta = mired_adjusted - mired_as_shot;
-        let temp_value = (-mired_delta / MAX_MIRED_SHIFT) * 100.0;
+        let temp_value = -mired_delta / MIRED_PER_RELATIVE_UNIT;
         adjustments.insert(
             "temperature".to_string(),
             json!(temp_value.clamp(-100.0, 100.0)),
@@ -178,7 +178,7 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
     }
 
     if let Some(tint_val) = get_attr_as_f64(&attrs, "Tint") {
-        let scaled_tint = (tint_val / 150.0) * 100.0;
+        let scaled_tint = tint_val / TINT_PER_RELATIVE_UNIT;
         adjustments.insert("tint".to_string(), json!(scaled_tint.clamp(-100.0, 100.0)));
     }
 

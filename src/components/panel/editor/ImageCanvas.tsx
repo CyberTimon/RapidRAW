@@ -7,7 +7,7 @@ import { Stamp, Bandage, Spline, BrushCleaning } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { Adjustments, AiPatch, Coord, MaskContainer, GuideLine, GuideOrientation } from '../../../utils/adjustments';
 import { Mask, SubMask, SubMaskMode, ToolType } from '../right/Masks';
-import { AppSettings, BrushSettings, SelectedImage } from '../../ui/AppProperties';
+import { AppSettings, BrushSettings, Invokes, SelectedImage } from '../../ui/AppProperties';
 import { RenderSize } from '../../../hooks/useImageRenderSize';
 import { useOsPlatform } from '../../../hooks/useOsPlatform';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +16,15 @@ import type { OverlayMode } from '../right/CropPanel';
 import CompositionOverlays from './overlays/CompositionOverlays';
 import { calculateStraightenAngle } from '../../../utils/cropUtils';
 import { toast } from 'react-toastify';
+import {
+  getWhiteBalanceMode,
+  resolveWhiteBalance,
+  toRelativeWhiteBalance,
+  WhiteBalance,
+  WhiteBalanceMode,
+  withKelvinWhiteBalance,
+  withRelativeWhiteBalance,
+} from '../../../utils/whiteBalance';
 
 interface CursorPreview {
   visible: boolean;
@@ -2045,7 +2054,8 @@ const ImageCanvas = memo(
     const handleWbClick = useCallback(
       (e: any) => {
         const sampleUrl = selectedImage?.thumbnailUrl || finalPreviewUrl;
-        if (!isWbPickerActive || !sampleUrl || !onWbPicked) return;
+        const asShot = selectedImage?.asShotWhiteBalance;
+        if (!isWbPickerActive || !sampleUrl || !onWbPicked || !asShot) return;
 
         const stage = e.target.getStage();
         const pointerPos = getCanvasPointer(stage);
@@ -2063,7 +2073,7 @@ const ImageCanvas = memo(
         img.crossOrigin = 'Anonymous';
         img.src = sampleUrl;
 
-        img.onload = () => {
+        img.onload = async () => {
           const radius = 5;
           const side = radius * 2 + 1;
 
@@ -2110,22 +2120,18 @@ const ImageCanvas = memo(
           const avgG = gTotal / count;
           const avgB = bTotal / count;
 
-          const linR = Math.pow(avgR / 255.0, 2.2);
-          const linG = Math.pow(avgG / 255.0, 2.2);
-          const linB = Math.pow(avgB / 255.0, 2.2);
+          const sample = [avgR, avgG, avgB].map((c) => Math.pow(c / 255.0, 2.2));
+          const picked: WhiteBalance | null = await invoke(Invokes.PickWhiteBalance, {
+            sample,
+            current: resolveWhiteBalance(asShot, adjustments),
+          });
+          if (!picked) return;
 
-          const sumRB = linR + linB;
-          const deltaTemp = sumRB > 0.0001 ? ((linB - linR) / sumRB) * 125.0 : 0;
-
-          const linM = sumRB / 2.0;
-          const sumGM = linG + linM;
-          const deltaTint = sumGM > 0.0001 ? ((linG - linM) / sumGM) * 400.0 : 0;
-
-          setAdjustments((prev: Adjustments) => ({
-            ...prev,
-            temperature: Math.max(-100, Math.min(100, deltaTemp)),
-            tint: Math.max(-100, Math.min(100, deltaTint)),
-          }));
+          setAdjustments((prev: Adjustments) =>
+            getWhiteBalanceMode(appSettings) === WhiteBalanceMode.Kelvin
+              ? withKelvinWhiteBalance(prev, picked)
+              : withRelativeWhiteBalance(prev, toRelativeWhiteBalance(asShot, picked)),
+          );
 
           onWbPicked();
         };
@@ -2133,6 +2139,9 @@ const ImageCanvas = memo(
       [
         isWbPickerActive,
         selectedImage?.thumbnailUrl,
+        selectedImage?.asShotWhiteBalance,
+        adjustments,
+        appSettings,
         finalPreviewUrl,
         imageRenderSize,
         onWbPicked,

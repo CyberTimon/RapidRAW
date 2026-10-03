@@ -41,6 +41,7 @@ use crate::lut_processing::{
 use crate::mask_generation::{MaskDefinition, build_warped_image_for_masks, generate_mask_bitmap};
 
 use crate::cache_utils::{calculate_full_job_hash, calculate_transform_hash};
+use crate::white_balance::as_shot_white_balance;
 use crate::{
     apply_all_transformations, generate_transformed_preview, get_cached_or_generate_mask,
     hydrate_adjustments, load_settings,
@@ -989,7 +990,12 @@ fn process_image_for_export_pipeline(
         .collect();
 
     let tm_override = resolve_tonemapper_override_from_handle(app_handle, is_raw);
-    let mut all_adjustments = get_all_adjustments_from_json(js_adjustments, is_raw, tm_override);
+    let mut all_adjustments = get_all_adjustments_from_json(
+        js_adjustments,
+        is_raw,
+        as_shot_white_balance(path),
+        tm_override,
+    );
     all_adjustments.global.show_clipping = 0;
 
     let lut_path = js_adjustments["lutPath"].as_str();
@@ -1300,7 +1306,12 @@ fn export_masks_for_image(
 
     if !mask_bitmaps.is_empty() {
         let tm_override = resolve_tonemapper_override_from_handle(app_handle, is_raw);
-        let all_adjustments = get_all_adjustments_from_json(js_adjustments, is_raw, tm_override);
+        let all_adjustments = get_all_adjustments_from_json(
+            js_adjustments,
+            is_raw,
+            as_shot_white_balance(source_path_str),
+            tm_override,
+        );
         let lut_path = js_adjustments["lutPath"].as_str();
         let lut = lut_path.and_then(|p| get_or_load_lut(state, p).ok());
         let unique_hash = calculate_full_job_hash(source_path_str, js_adjustments);
@@ -1405,7 +1416,12 @@ fn export_adjustments_as_lut(
     let identity_image = generate_identity_lut_image(lut_size);
 
     let tm_override = resolve_tonemapper_override_from_handle(app_handle, false);
-    let mut all_adjustments = get_all_adjustments_from_json(js_adjustments, false, tm_override);
+    let mut all_adjustments = get_all_adjustments_from_json(
+        js_adjustments,
+        false,
+        as_shot_white_balance(source_path_str),
+        tm_override,
+    );
 
     all_adjustments.global.show_clipping = 0;
     all_adjustments.global.vignette_amount = 0.0;
@@ -2162,8 +2178,12 @@ pub async fn estimate_export_sizes(
             .collect();
 
         let tm_override = resolve_tonemapper_override_from_handle(&app_handle, is_raw);
-        let mut all_adjustments =
-            get_all_adjustments_from_json(&adjustments_clone, is_raw, tm_override);
+        let mut all_adjustments = get_all_adjustments_from_json(
+            &adjustments_clone,
+            is_raw,
+            loaded_image.as_shot_white_balance,
+            tm_override,
+        );
         all_adjustments.global.show_clipping = 0;
 
         let lut = adjustments_clone["lutPath"]
@@ -2300,8 +2320,12 @@ pub async fn estimate_export_sizes(
             .collect();
 
         let tm_override = resolve_tonemapper_override_from_handle(&app_handle, is_raw);
-        let mut all_adjustments =
-            get_all_adjustments_from_json(&js_adjustments, is_raw, tm_override);
+        let mut all_adjustments = get_all_adjustments_from_json(
+            &js_adjustments,
+            is_raw,
+            as_shot_white_balance(&source_path_str),
+            tm_override,
+        );
         all_adjustments.global.show_clipping = 0;
 
         let lut = js_adjustments["lutPath"]

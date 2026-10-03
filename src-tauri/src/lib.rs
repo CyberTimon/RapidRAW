@@ -41,6 +41,7 @@ mod preset_converter;
 mod raw_processing;
 mod tagging;
 mod tagging_utils;
+mod white_balance;
 mod window_customizer;
 
 use std::collections::{HashMap, hash_map::DefaultHasher};
@@ -89,6 +90,7 @@ use crate::mask_generation::{
     MaskDefinition, build_full_warped_image, build_warped_image_for_masks, generate_mask_bitmap,
     get_cached_or_generate_mask, resolve_warped_image_for_masks,
 };
+use crate::white_balance::WhiteBalance;
 use crate::window_customizer::PinchZoomDisablePlugin;
 pub use adjustment_utils::*;
 pub use android_integration::*;
@@ -554,7 +556,12 @@ fn process_preview_job(
 
     let is_raw = loaded_image.is_raw;
     let tm_override = resolve_tonemapper_override_from_handle(app_handle, is_raw);
-    let final_adjustments = get_all_adjustments_from_json(&adjustments_clone, is_raw, tm_override);
+    let final_adjustments = get_all_adjustments_from_json(
+        &adjustments_clone,
+        is_raw,
+        loaded_image.as_shot_white_balance,
+        tm_override,
+    );
     let lut_path = adjustments_clone["lutPath"].as_str();
     let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
 
@@ -900,8 +907,12 @@ async fn generate_uncropped_preview(
             .collect();
 
         let tm_override = resolve_tonemapper_override_from_handle(&app_handle, is_raw);
-        let mut uncropped_adjustments =
-            get_all_adjustments_from_json(&adjustments_clone, is_raw, tm_override);
+        let mut uncropped_adjustments = get_all_adjustments_from_json(
+            &adjustments_clone,
+            is_raw,
+            loaded_image.as_shot_white_balance,
+            tm_override,
+        );
         uncropped_adjustments.global.show_clipping = 0;
         let lut_path = adjustments_clone["lutPath"].as_str();
         let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
@@ -1004,7 +1015,12 @@ fn generate_preset_preview(
         .collect();
 
     let tm_override = resolve_tonemapper_override_from_handle(&app_handle, is_raw);
-    let mut all_adjustments = get_all_adjustments_from_json(&js_adjustments, is_raw, tm_override);
+    let mut all_adjustments = get_all_adjustments_from_json(
+        &js_adjustments,
+        is_raw,
+        loaded_image.as_shot_white_balance,
+        tm_override,
+    );
     all_adjustments.global.show_clipping = 0;
     let lut_path = js_adjustments["lutPath"].as_str();
     let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
@@ -1071,7 +1087,7 @@ async fn generate_all_community_previews(
 
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
 
-    let mut base_thumbnails: Vec<(DynamicImage, bool, f32)> = Vec::new();
+    let mut base_thumbnails: Vec<(DynamicImage, bool, WhiteBalance, f32)> = Vec::new();
     for image_path in image_paths.iter() {
         let (source_path, _) = parse_virtual_path(image_path);
         let source_path_str = source_path.to_string_lossy().to_string();
@@ -1095,7 +1111,12 @@ async fn generate_all_community_previews(
             (original_image, 1.0)
         };
 
-        base_thumbnails.push((base_image, is_raw, base_scale));
+        base_thumbnails.push((
+            base_image,
+            is_raw,
+            white_balance::as_shot_white_balance(&source_path_str),
+            base_scale,
+        ));
     }
 
     for preset in presets.iter() {
@@ -1106,7 +1127,9 @@ async fn generate_all_community_previews(
         preset.name.hash(&mut preset_hasher);
         let preset_hash = preset_hasher.finish();
 
-        for (i, (base_image, is_raw, base_scale)) in base_thumbnails.iter().enumerate() {
+        for (i, (base_image, is_raw, as_shot_white_balance, base_scale)) in
+            base_thumbnails.iter().enumerate()
+        {
             let mut scaled_adjustments = js_adjustments.clone();
             if let Some(crop_val) = scaled_adjustments.get_mut("crop")
                 && let Ok(c) = serde_json::from_value::<Crop>(crop_val.clone())
@@ -1153,8 +1176,12 @@ async fn generate_all_community_previews(
                 .collect();
 
             let tm_override = resolve_tonemapper_override_from_handle(&app_handle, *is_raw);
-            let all_adjustments =
-                get_all_adjustments_from_json(&scaled_adjustments, *is_raw, tm_override);
+            let all_adjustments = get_all_adjustments_from_json(
+                &scaled_adjustments,
+                *is_raw,
+                *as_shot_white_balance,
+                tm_override,
+            );
             let lut_path = js_adjustments["lutPath"].as_str();
             let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
 
@@ -1437,8 +1464,12 @@ async fn generate_preview_for_path(
             .collect();
 
         let tm_override = resolve_tonemapper_override(&settings, is_raw);
-        let mut all_adjustments =
-            get_all_adjustments_from_json(&js_adjustments, is_raw, tm_override);
+        let mut all_adjustments = get_all_adjustments_from_json(
+            &js_adjustments,
+            is_raw,
+            white_balance::as_shot_white_balance(&source_path_str),
+            tm_override,
+        );
         all_adjustments.global.show_clipping = 0;
         let lut_path = js_adjustments["lutPath"].as_str();
         let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
@@ -2211,6 +2242,7 @@ pub fn run() {
             focus_stacking::stitch_focus_stack,
             focus_stacking::save_focus_stack,
             image_loader::load_image,
+            white_balance::pick_white_balance,
             image_loader::is_image_cached,
             panorama_stitching::stitch_panorama,
             panorama_stitching::save_panorama,
