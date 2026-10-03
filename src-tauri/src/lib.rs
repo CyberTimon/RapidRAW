@@ -5,6 +5,23 @@ use mimalloc::MiMalloc;
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
+// Like println!/eprintln!, but ignores write errors: when stdout/stderr is a
+// closed pipe (e.g. `RapidRAW export ... | head`), println! panics, which
+// left headless exports hanging.
+macro_rules! cli_println {
+    ($($arg:tt)*) => {{
+        use std::io::Write as _;
+        let _ = writeln!(std::io::stdout(), $($arg)*);
+    }};
+}
+
+macro_rules! cli_eprintln {
+    ($($arg:tt)*) => {{
+        use std::io::Write as _;
+        let _ = writeln!(std::io::stderr(), $($arg)*);
+    }};
+}
+
 mod adjustment_utils;
 mod ai_commands;
 mod ai_connector;
@@ -1485,7 +1502,11 @@ fn setup_logging(app_handle: &tauri::AppHandle) {
             ))
         })
         .level(level)
-        .chain(std::io::stderr());
+        // fern panics when a stderr write fails (e.g. output piped into `head`),
+        // and the panic hook below logs again, which aborts the process.
+        .chain(fern::Output::call(|record| {
+            let _ = writeln!(std::io::stderr(), "{}", record.args());
+        }));
 
     if let Some(file) = log_file {
         dispatch = dispatch.chain(file);
@@ -1892,7 +1913,7 @@ pub fn run() {
                     };
                     let ort_library_path = resource_path.join(ort_library_name);
                     std::env::set_var("ORT_DYLIB_PATH", &ort_library_path);
-                    println!("Set ORT_DYLIB_PATH to: {}", ort_library_path.display());
+                    cli_println!("Set ORT_DYLIB_PATH to: {}", ort_library_path.display());
                 }
             }
 
@@ -1919,11 +1940,11 @@ pub fn run() {
                     tauri::async_runtime::spawn(async move {
                         match crate::export_processing::run_headless_export(session, app_handle_clone.clone()).await {
                             Ok(_) => {
-                                println!("Headless export completed successfully.");
+                                cli_println!("Headless export completed successfully.");
                                 app_handle_clone.exit(0);
                             }
                             Err(e) => {
-                                eprintln!("Headless export failed: {}", e);
+                                cli_eprintln!("Headless export failed: {}", e);
                                 app_handle_clone.exit(1);
                             }
                         }

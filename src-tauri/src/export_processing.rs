@@ -1932,7 +1932,7 @@ pub async fn run_headless_export(
     session: crate::launch_request::HeadlessExportSession,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    println!("Starting headless export...");
+    cli_println!("Starting headless export...");
     let state = app_handle.state::<crate::AppState>();
 
     let source_path = std::path::Path::new(&session.source);
@@ -1969,7 +1969,7 @@ pub async fn run_headless_export(
             .map_err(|e| format!("Failed to create output directory: {}", e))?;
     }
 
-    println!("Found {} images to export. Processing...", paths.len());
+    cli_println!("Found {} images to export. Processing...", paths.len());
 
     let export_settings = ExportSettings {
         jpeg_quality: session.quality,
@@ -1995,7 +1995,7 @@ pub async fn run_headless_export(
         let json: serde_json::Value = serde_json::from_str(&content)
             .map_err(|e| format!("Failed to parse adjustments JSON: {}", e))?;
         custom_adjustments = Some(json);
-        println!(
+        cli_println!(
             "Loaded custom adjustments to override sidecars from: {}",
             adj_path
         );
