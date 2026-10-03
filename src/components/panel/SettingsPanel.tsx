@@ -1098,6 +1098,7 @@ export default function SettingsPanel({
                             { value: 'es', label: 'Español' },
                             { value: 'fr', label: 'Français' },
                             { value: 'it', label: 'Italiano' },
+                            { value: 'nl', label: 'Nederlands' },
                             { value: 'pl', label: 'Polski' },
                             { value: 'pt', label: 'Português' },
                             { value: 'ru', label: 'Русский' },
@@ -1204,6 +1205,18 @@ export default function SettingsPanel({
                           id="focus-mode-toggle"
                           label={t('settings.general.enableFocusMode')}
                           onChange={(checked) => onSettingsChange({ ...appSettings, enableFocusMode: checked })}
+                        />
+                      </SettingItem>
+
+                      <SettingItem
+                        label={t('settings.general.toolFocusMode')}
+                        description={t('settings.general.toolFocusModeDesc')}
+                      >
+                        <Switch
+                          checked={appSettings?.enableToolFocusMode ?? false}
+                          id="tool-focus-mode-toggle"
+                          label={t('settings.general.enableToolFocusMode')}
+                          onChange={(checked) => onSettingsChange({ ...appSettings, enableToolFocusMode: checked })}
                         />
                       </SettingItem>
 

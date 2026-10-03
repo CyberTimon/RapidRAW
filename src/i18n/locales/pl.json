@@ -1650,6 +1650,7 @@
       "enableFocusMode": "Włącz Tryb skupienia",
       "enableNeutralGreyCanvas": "Włącz neutralne szare tło",
       "enableOsTitlebar": "Włącz systemowy pasek tytułu",
+      "enableToolFocusMode": "Włącz Tryb skupienia na narzędziach",
       "enableXmpSync": "Włącz synchronizację XMP",
       "focusMode": "Tryb skupienia",
       "focusModeDesc": "Pomaga się skupić, automatycznie zamykając inne panele, gdy otwierasz nowy.",
@@ -1667,6 +1668,8 @@
       "theme": "Motyw",
       "themeDesc": "Zmień wygląd aplikacji.",
       "title": "Ustawienia ogólne",
+      "toolFocusMode": "Tryb skupienia na narzędziach",
+      "toolFocusModeDesc": "Automatycznie zwija inne narzędzia w panelu, gdy rozwijasz jedno z nich.",
       "xmpSync": "Synchronizacja metadanych XMP",
       "xmpSyncDesc": "Synchronizuj oceny, etykiety kolorów i tagi do standardowych plików XMP w celu zachowania kompatybilności z innymi edytorami zdjęć."
     },

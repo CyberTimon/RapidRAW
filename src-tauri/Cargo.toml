@@ -14,7 +14,7 @@ default = []
 tethering = ["dep:gphoto2"]
 
 [dependencies]
-tauri = { version = "2.11", features = [ "macos-private-api", "rustls-tls", "protocol-asset" ] }
+tauri = { version = "2.12", features = [ "macos-private-api", "rustls-tls", "protocol-asset" ] }
 tauri-plugin-dialog = "2.7.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

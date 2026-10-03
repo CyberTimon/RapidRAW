@@ -1580,6 +1580,7 @@
       "enableFocusMode": "フォーカスモードを有効にする",
       "enableNeutralGreyCanvas": "ニュートラルグレーの背景を有効にする",
       "enableOsTitlebar": "OSのタイトルバーを有効にする",
+      "enableToolFocusMode": "ツールフォーカスモードを有効にする",
       "enableXmpSync": "XMP同期を有効にする",
       "focusMode": "フォーカスモード",
       "focusModeDesc": "新しいパネルを開いたときに他のパネルを自動的に閉じることで、編集作業に集中できるようにします。",
@@ -1597,6 +1598,8 @@
       "theme": "テーマ",
       "themeDesc": "アプリケーションのテーマ（外観）を変更します。",
       "title": "全般設定",
+      "toolFocusMode": "ツールフォーカスモード",
+      "toolFocusModeDesc": "ツールを展開すると、同じパネル内の他のツールを自動的に折りたたみます。",
       "xmpSync": "XMPメタデータ同期",
       "xmpSyncDesc": "他の写真編集ソフトとの互換性のために、評価、カラーラベル、タグを標準のXMPサイドカーファイルと同期します。"
     },

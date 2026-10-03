@@ -1615,6 +1615,7 @@
       "enableFocusMode": "Abilita Modalità Focus",
       "enableNeutralGreyCanvas": "Abilita sfondo grigio neutro",
       "enableOsTitlebar": "Abilita Barra del Titolo di Sistema",
+      "enableToolFocusMode": "Abilita Modalità Focus Strumenti",
       "enableXmpSync": "Abilita Sincronizzazione XMP",
       "focusMode": "Modalità Focus",
       "focusModeDesc": "Ti aiuta a concentrarti chiudendo automaticamente gli altri pannelli quando ne apri uno nuovo.",
@@ -1632,6 +1633,8 @@
       "theme": "Tema",
       "themeDesc": "Cambia l'aspetto e l'interfaccia dell'applicazione.",
       "title": "Impostazioni Generali",
+      "toolFocusMode": "Modalità Focus Strumenti",
+      "toolFocusModeDesc": "Comprime automaticamente gli altri strumenti di un pannello quando ne espandi uno.",
       "xmpSync": "Sincronizzazione Metadati XMP",
       "xmpSyncDesc": "Sincronizza valutazioni, etichette colore e tag nei file sidecar XMP standard per la compatibilità con altri editor fotografici."
     },

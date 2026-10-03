@@ -1582,6 +1582,7 @@
       "enableFocusMode": "Activar mode de concentració",
       "enableNeutralGreyCanvas": "Activa el fons gris neutre",
       "enableOsTitlebar": "Activar barra de títol del SO",
+      "enableToolFocusMode": "Activar mode de concentració en eines",
       "enableXmpSync": "Activar sincronització XMP",
       "focusMode": "Mode de concentració",
       "focusModeDesc": "Us ajuda a concentrar-vos tancant automàticament altres taulers quan n'obriu un de nou.",
@@ -1599,6 +1600,8 @@
       "theme": "Tema",
       "themeDesc": "Canvia l'aspecte de l'aplicació.",
       "title": "Configuració general",
+      "toolFocusMode": "Mode de concentració en eines",
+      "toolFocusModeDesc": "Replega automàticament les altres eines d'un tauler quan n'amplieu una.",
       "xmpSync": "Sincronització de metadades XMP",
       "xmpSyncDesc": "Sincronitzar puntuacions, etiquetes de color i etiquetes amb fitxers sidecar XMP estàndard per a la compatibilitat amb altres editors de fotos."
     },

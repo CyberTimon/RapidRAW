@@ -1005,8 +1005,8 @@ export const ADJUSTMENT_SECTION_TOOLS: Record<string, Array<AdjustmentSectionToo
   ],
 };
 
+export const getAdjustmentSectionToolIds = (section: string): string[] =>
+  (ADJUSTMENT_SECTION_TOOLS[section] ?? []).map((tool) => tool.id);
+
 export const getAdjustmentToolOrder = (section: string, toolOrder?: Record<string, string[]>): string[] =>
-  reconcileOrder(
-    (ADJUSTMENT_SECTION_TOOLS[section] ?? []).map((tool) => tool.id),
-    toolOrder?.[section],
-  );
+  reconcileOrder(getAdjustmentSectionToolIds(section), toolOrder?.[section]);

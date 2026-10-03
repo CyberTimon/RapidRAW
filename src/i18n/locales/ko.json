@@ -1580,6 +1580,7 @@
       "enableFocusMode": "집중 모드 활성화",
       "enableNeutralGreyCanvas": "뉴트럴 그레이 배경 활성화",
       "enableOsTitlebar": "OS 제목 표시줄 활성화",
+      "enableToolFocusMode": "도구 집중 모드 활성화",
       "enableXmpSync": "XMP 동기화 활성화",
       "focusMode": "집중 모드",
       "focusModeDesc": "새 패널을 열 때 다른 패널을 자동으로 닫아 집중할 수 있도록 도와줍니다.",
@@ -1597,6 +1598,8 @@
       "theme": "테마",
       "themeDesc": "애플리케이션의 모양과 느낌을 변경합니다.",
       "title": "일반 설정",
+      "toolFocusMode": "도구 집중 모드",
+      "toolFocusModeDesc": "도구를 펼치면 같은 패널의 다른 도구를 자동으로 접습니다.",
       "xmpSync": "XMP 메타데이터 동기화",
       "xmpSyncDesc": "다른 사진 편집기와의 호환성을 위해 평점, 색상 레이블, 태그를 표준 XMP 사이드카 파일에 동기화합니다."
     },

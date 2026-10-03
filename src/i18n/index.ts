@@ -14,6 +14,7 @@ import ja from './locales/ja.json';
 import ko from './locales/ko.json';
 import ru from './locales/ru.json';
 import ca from './locales/ca.json';
+import nl from './locales/nl.json';
 
 i18n.use(initReactI18next).init({
   resources: {
@@ -30,6 +31,7 @@ i18n.use(initReactI18next).init({
     ko: { translation: ko },
     ru: { translation: ru },
     ca: { translation: ca },
+    nl: { translation: nl },
   },
   lng: 'en',
   fallbackLng: 'en',

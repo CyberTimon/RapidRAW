@@ -1583,6 +1583,7 @@
       "enableFocusMode": "Enable Focus Mode",
       "enableNeutralGreyCanvas": "Enable Neutral Grey Background",
       "enableOsTitlebar": "Enable OS Titlebar",
+      "enableToolFocusMode": "Enable Tool Focus Mode",
       "enableXmpSync": "Enable XMP Sync",
       "focusMode": "Focus Mode",
       "focusModeDesc": "Helps you focus by automatically closing other panels when you open a new one.",
@@ -1600,6 +1601,8 @@
       "theme": "Theme",
       "themeDesc": "Change the look and feel of the application.",
       "title": "General Settings",
+      "toolFocusMode": "Tool Focus Mode",
+      "toolFocusModeDesc": "Automatically collapses the other tools in a panel when you expand one.",
       "xmpSync": "XMP Metadata Sync",
       "xmpSyncDesc": "Sync ratings, color labels and tags to standard XMP sidecar files for compatibility with other photo editors."
     },

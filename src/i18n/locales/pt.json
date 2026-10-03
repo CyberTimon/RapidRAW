@@ -1616,6 +1616,7 @@
       "enableFocusMode": "Ativar Modo de Foco",
       "enableNeutralGreyCanvas": "Ativar fundo cinza neutro",
       "enableOsTitlebar": "Ativar Barra de Título do SO",
+      "enableToolFocusMode": "Ativar Modo de Foco em Ferramentas",
       "enableXmpSync": "Ativar Sincronização XMP",
       "focusMode": "Modo de Foco",
       "focusModeDesc": "Ajuda você a se concentrar fechando automaticamente outros painéis quando você abre um novo.",
@@ -1633,6 +1634,8 @@
       "theme": "Tema",
       "themeDesc": "Altere a aparência do aplicativo.",
       "title": "Configurações Gerais",
+      "toolFocusMode": "Modo de Foco em Ferramentas",
+      "toolFocusModeDesc": "Recolhe automaticamente as outras ferramentas de um painel quando você expande uma.",
       "xmpSync": "Sincronização de Metadados XMP",
       "xmpSyncDesc": "Sincronize avaliações, rótulos de cores e etiquetas em arquivos sidecar XMP padrão para compatibilidade com outros editores de fotos."
     },

@@ -1582,6 +1582,7 @@
       "enableFocusMode": "Fokusmodus aktivieren",
       "enableNeutralGreyCanvas": "Neutralgrauen Hintergrund aktivieren",
       "enableOsTitlebar": "OS-Titelleiste aktivieren",
+      "enableToolFocusMode": "Werkzeug-Fokusmodus aktivieren",
       "enableXmpSync": "XMP-Sync aktivieren",
       "focusMode": "Fokusmodus",
       "focusModeDesc": "Hilft beim Fokussieren, indem andere Panels automatisch geschlossen werden, wenn Sie ein neues öffnen.",
@@ -1599,6 +1600,8 @@
       "theme": "Design",
       "themeDesc": "Ändern Sie das Aussehen und Gefühl der Anwendung.",
       "title": "Allgemeine Einstellungen",
+      "toolFocusMode": "Werkzeug-Fokusmodus",
+      "toolFocusModeDesc": "Klappt automatisch die anderen Werkzeuge eines Panels ein, wenn Sie eines aufklappen.",
       "xmpSync": "XMP-Metadaten-Sync",
       "xmpSyncDesc": "Synchronisieren Sie Bewertungen, Farbmarkierungen und Tags in Standard-XMP-Filialdateien für Kompatibilität mit anderen Foto-Editoren."
     },

@@ -1615,6 +1615,7 @@
       "enableFocusMode": "Activer le mode de concentration",
       "enableNeutralGreyCanvas": "Activer le fond gris neutre",
       "enableOsTitlebar": "Activer la barre de titre de l'OS",
+      "enableToolFocusMode": "Activer le mode de concentration sur les outils",
       "enableXmpSync": "Activer la synchronisation XMP",
       "focusMode": "Mode de concentration",
       "focusModeDesc": "Vous aide à vous concentrer en fermant automatiquement les autres panneaux lorsque vous en ouvrez un nouveau.",
@@ -1632,6 +1633,8 @@
       "theme": "Thème",
       "themeDesc": "Modifier l'apparence et l'ergonomie de l'application.",
       "title": "Paramètres généraux",
+      "toolFocusMode": "Mode de concentration sur les outils",
+      "toolFocusModeDesc": "Replie automatiquement les autres outils d'un panneau lorsque vous en déployez un.",
       "xmpSync": "Synchronisation des métadonnées XMP",
       "xmpSyncDesc": "Synchroniser les notes, les étiquettes de couleur et les tags vers des fichiers annexes XMP standard pour la compatibilité avec d'autres éditeurs de photos."
     },

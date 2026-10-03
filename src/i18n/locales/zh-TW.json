@@ -1580,6 +1580,7 @@
       "enableFocusMode": "啟用專注模式",
       "enableNeutralGreyCanvas": "啟用中性灰背景",
       "enableOsTitlebar": "啟用系統標題欄",
+      "enableToolFocusMode": "啟用工具專注模式",
       "enableXmpSync": "啟用 XMP 同步",
       "focusMode": "專注模式",
       "focusModeDesc": "在您開啟新面板時自動關閉其他面板，幫助您保持專注。",
@@ -1597,6 +1598,8 @@
       "theme": "主題",
       "themeDesc": "更改應用程式的外觀和風格。",
       "title": "通用設定",
+      "toolFocusMode": "工具專注模式",
+      "toolFocusModeDesc": "展開某個工具時，自動收合同一面板中的其他工具。",
       "xmpSync": "XMP 後設資料同步",
       "xmpSyncDesc": "將評分、顏色標籤和標籤同步到標準 XMP 附屬檔案，以便與其他照片編輯器相容。"
     },
