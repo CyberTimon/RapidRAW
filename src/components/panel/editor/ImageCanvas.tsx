@@ -3555,9 +3555,11 @@ const ImageCanvas = memo(
                 <span className="text-text-secondary">
                   R {wbSwatchRgb[0]} G {wbSwatchRgb[1]} B {wbSwatchRgb[2]}
                 </span>
-                <span>
-                  {t('adjustments.color.temperature')} {Math.round(wbSample.temperature)} ·{' '}
-                  {t('adjustments.color.tint')} {Math.round(wbSample.tint)}
+                <span className="flex gap-1">
+                  <span>{t('adjustments.color.temperature')}</span>
+                  <span>{Math.round(wbSample.temperature)}</span>
+                  <span className="ml-1">{t('adjustments.color.tint')}</span>
+                  <span>{Math.round(wbSample.tint)}</span>
                 </span>
               </div>
             </div>
