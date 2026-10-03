@@ -13,6 +13,8 @@ use std::path::PathBuf;
 #[cfg(target_os = "android")]
 static INIT_NDK_CONTEXT: std::sync::Once = std::sync::Once::new();
 #[cfg(target_os = "android")]
+static APP_CONTEXT: std::sync::OnceLock<jni::objects::GlobalRef> = std::sync::OnceLock::new();
+#[cfg(target_os = "android")]
 static INIT_RUSTLS_PLATFORM_VERIFIER: std::sync::Once = std::sync::Once::new();
 
 #[cfg(target_os = "android")]
@@ -21,10 +23,31 @@ pub fn initialize_android(window: &tauri::WebviewWindow) {
         webview.jni_handle().exec(|env, context, _webview| {
             if let Ok(vm) = env.get_java_vm() {
                 let vm_ptr = vm.get_java_vm_pointer() as *mut std::ffi::c_void;
-                let context_ptr = context.as_raw() as *mut std::ffi::c_void;
 
-                INIT_NDK_CONTEXT.call_once(|| unsafe {
-                    ndk_context::initialize_android_context(vm_ptr, context_ptr);
+                INIT_NDK_CONTEXT.call_once(|| {
+                    // `context` is wry's global reference to the activity, which wry deletes
+                    // when the activity is recreated. ndk-context keeps the raw pointer for the
+                    // life of the process, so give it our own reference to the Application context.
+                    let app_context = env
+                        .call_method(
+                            context,
+                            "getApplicationContext",
+                            "()Landroid/content/Context;",
+                            &[],
+                        )
+                        .and_then(|v| v.l())
+                        .and_then(|app| env.new_global_ref(app));
+                    let global = match app_context {
+                        Ok(global) => global,
+                        Err(e) => {
+                            clear_pending_android_exception(env);
+                            log::error!("Failed to get the Android application context: {}", e);
+                            return;
+                        }
+                    };
+                    let context_ptr = global.as_obj().as_raw() as *mut std::ffi::c_void;
+                    let _ = APP_CONTEXT.set(global);
+                    unsafe { ndk_context::initialize_android_context(vm_ptr, context_ptr) };
                     log::info!("Successfully initialized ndk-context on Android.");
                 });
             }
