@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { RawStatus, EditedStatus, SortDirection, ImageFile, GroupingMode } from '../components/ui/AppProperties';
+import { RawStatus, EditedStatus, SortDirection, ImageFile, GroupingMode, FilterCriteria } from '../components/ui/AppProperties';
 import { buildImageGroups, GroupBadgeInfo, GroupId } from '../utils/imageGrouping';
 
 export const ADVANCED_QUERY_REGEX =
@@ -46,35 +46,6 @@ function computeGroupedLibrary(libraryState: any, settingsState: any): GroupedLi
 
   const groupingMode: GroupingMode = appSettings?.grouping ?? 'off';
   const isGroupingActive = groupingMode !== 'off';
-
-  const matchesFilter = (image: ImageFile): boolean => {
-    if (filterCriteria.rating !== 0) {
-      const rating = imageRatings[image.path] || 0;
-      if (filterCriteria.rating === -1 && rating !== 0) return false;
-      if (filterCriteria.rating === 5 && rating !== 5) return false;
-      if (filterCriteria.rating > 0 && filterCriteria.rating < 5 && rating < filterCriteria.rating) return false;
-    }
-
-    if (filterCriteria.rawStatus && filterCriteria.rawStatus !== RawStatus.All) {
-      if (filterCriteria.rawStatus === RawStatus.RawOnly && !image.is_raw) return false;
-      if (filterCriteria.rawStatus === RawStatus.NonRawOnly && image.is_raw) return false;
-    }
-
-    if (filterCriteria.editedStatus && filterCriteria.editedStatus !== EditedStatus.All) {
-      if (filterCriteria.editedStatus === EditedStatus.EditedOnly && !image.is_edited) return false;
-      if (filterCriteria.editedStatus === EditedStatus.UneditedOnly && image.is_edited) return false;
-    }
-
-    if (filterCriteria.colors && filterCriteria.colors.length > 0) {
-      const imageColor = (image.tags || []).find((tag: string) => tag.startsWith('color:'))?.substring(6);
-      const hasMatchingColor = imageColor && filterCriteria.colors.includes(imageColor);
-      const matchesNone = !imageColor && filterCriteria.colors.includes('none');
-
-      if (!hasMatchingColor && !matchesNone) return false;
-    }
-
-    return true;
-  };
 
   const { tags: searchTags, text: searchText, mode: searchMode } = searchCriteria;
   const lowerCaseSearchText = searchText.trim().toLowerCase();
@@ -188,7 +159,7 @@ function computeGroupedLibrary(libraryState: any, settingsState: any): GroupedLi
     }
   }
 
-  const filteredList = processedList.filter((image: ImageFile) => matchesFilter(image));
+  const filteredList = processedList.filter((image: ImageFile) => matchesFilter(image, filterCriteria, imageRatings));
 
   const filteredBySearch = !isSearchActive
     ? filteredList
@@ -260,6 +231,39 @@ function computeGroupedLibrary(libraryState: any, settingsState: any): GroupedLi
     : null;
 
   return { displayList: list, badges };
+}
+
+export function matchesFilter(
+  image: ImageFile,
+  filterCriteria: FilterCriteria,
+  imageRatings: Record<string, number>
+): boolean {
+  if (filterCriteria.rating !== 0) {
+    const rating = imageRatings[image.path] || 0;
+    if (filterCriteria.rating === -1 && rating !== 0) return false;
+    if (filterCriteria.rating === 5 && rating !== 5) return false;
+    if (filterCriteria.rating > 0 && filterCriteria.rating < 5 && rating < filterCriteria.rating) return false;
+  }
+
+  if (filterCriteria.rawStatus && filterCriteria.rawStatus !== RawStatus.All) {
+    if (filterCriteria.rawStatus === RawStatus.RawOnly && !image.is_raw) return false;
+    if (filterCriteria.rawStatus === RawStatus.NonRawOnly && image.is_raw) return false;
+  }
+
+  if (filterCriteria.editedStatus && filterCriteria.editedStatus !== EditedStatus.All) {
+    if (filterCriteria.editedStatus === EditedStatus.EditedOnly && !image.is_edited) return false;
+    if (filterCriteria.editedStatus === EditedStatus.UneditedOnly && image.is_edited) return false;
+  }
+
+  if (filterCriteria.colors && filterCriteria.colors.length > 0) {
+    const imageColor = (image.tags || []).find((tag: string) => tag.startsWith('color:'))?.substring(6);
+    const hasMatchingColor = imageColor && filterCriteria.colors.includes(imageColor);
+    const matchesNone = !imageColor && filterCriteria.colors.includes('none');
+
+    if (!hasMatchingColor && !matchesNone) return false;
+  }
+
+  return true;
 }
 
 export function computeSortedLibrary(libraryState: any, settingsState: any): ImageFile[] {
