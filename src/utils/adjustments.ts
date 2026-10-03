@@ -385,6 +385,8 @@ export interface SectionVisibility {
   basic: boolean;
   curves: boolean;
   color: boolean;
+  colorGrading: boolean;
+  colorMixer: boolean;
   details: boolean;
   effects: boolean;
 }
@@ -490,6 +492,8 @@ export const INITIAL_MASK_ADJUSTMENTS: MaskAdjustments = {
     basic: true,
     curves: true,
     color: true,
+    colorGrading: true,
+    colorMixer: true,
     details: true,
     effects: true,
   },
@@ -587,6 +591,8 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
     basic: true,
     curves: true,
     color: true,
+    colorGrading: true,
+    colorMixer: true,
     details: true,
     effects: true,
   },
@@ -1007,6 +1013,16 @@ export const ADJUSTMENT_SECTION_TOOLS: Record<string, Array<AdjustmentSectionToo
 
 export const getAdjustmentSectionToolIds = (section: string): string[] =>
   (ADJUSTMENT_SECTION_TOOLS[section] ?? []).map((tool) => tool.id);
+
+export const showSectionAndTools = (visibility: SectionVisibility, section: string): SectionVisibility => ({
+  ...visibility,
+  ...Object.fromEntries(
+    getAdjustmentSectionToolIds(section)
+      .filter((id) => id in visibility)
+      .map((id) => [id, true]),
+  ),
+  [section]: true,
+});
 
 export const getAdjustmentToolOrder = (section: string, toolOrder?: Record<string, string[]>): string[] =>
   reconcileOrder(getAdjustmentSectionToolIds(section), toolOrder?.[section]);
