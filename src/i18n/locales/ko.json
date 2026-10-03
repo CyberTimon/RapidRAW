@@ -1600,6 +1600,11 @@
       "title": "일반 설정",
       "toolFocusMode": "도구 집중 모드",
       "toolFocusModeDesc": "도구를 펼치면 같은 패널의 다른 도구를 자동으로 접습니다.",
+      "xmpConflict": "XMP Conflict Handling",
+      "xmpConflictDesc": "How ratings, color labels and tags read from XMP files (including digiKam and darktable IMG.CR2.xmp sidecars) are merged with RapidRAW's own data. These sidecars are only read, never modified.",
+      "xmpConflictFillEmpty": "Only fill missing values",
+      "xmpConflictNewestWins": "Most recently modified file wins",
+      "xmpConflictXmpWins": "XMP always wins",
       "xmpSync": "XMP 메타데이터 동기화",
       "xmpSyncDesc": "다른 사진 편집기와의 호환성을 위해 평점, 색상 레이블, 태그를 표준 XMP 사이드카 파일에 동기화합니다."
     },

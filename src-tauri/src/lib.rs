@@ -42,6 +42,7 @@ mod raw_processing;
 mod tagging;
 mod tagging_utils;
 mod window_customizer;
+mod xmp_sidecar;
 
 use std::collections::{HashMap, hash_map::DefaultHasher};
 use std::fs;

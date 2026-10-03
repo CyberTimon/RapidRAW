@@ -230,6 +230,7 @@ export interface AppSettings {
   linearRawMode?: string;
   enableXmpSync?: boolean;
   createXmpIfMissing?: boolean;
+  xmpConflictPolicy?: 'fillEmpty' | 'newestWins' | 'xmpWins';
   isWaveformVisible?: boolean;
   waveformHeight?: number;
   activeWaveformChannel?: string;

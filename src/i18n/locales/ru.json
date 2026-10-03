@@ -1670,6 +1670,11 @@
       "title": "Общие настройки",
       "toolFocusMode": "Фокусный режим инструментов",
       "toolFocusModeDesc": "Автоматически сворачивает остальные инструменты панели при разворачивании одного из них.",
+      "xmpConflict": "XMP Conflict Handling",
+      "xmpConflictDesc": "How ratings, color labels and tags read from XMP files (including digiKam and darktable IMG.CR2.xmp sidecars) are merged with RapidRAW's own data. These sidecars are only read, never modified.",
+      "xmpConflictFillEmpty": "Only fill missing values",
+      "xmpConflictNewestWins": "Most recently modified file wins",
+      "xmpConflictXmpWins": "XMP always wins",
       "xmpSync": "Синхронизация метаданных XMP",
       "xmpSyncDesc": "Записывать рейтинги, цветовые метки и теги в стандартные файлы сопутствующих данных XMP для совместимости с другими фоторедакторами."
     },
