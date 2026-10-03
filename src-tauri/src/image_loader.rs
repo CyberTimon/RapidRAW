@@ -138,6 +138,7 @@ pub fn load_base_image_from_bytes(
         }) {
             Ok(Ok(mut image)) => {
                 if !use_fast_raw_dev && (color_nr_amount > 0.0 || sharpening_amount > 0.0) {
+                    let _span = crate::perf_trace::span("decode.enhance_total");
                     let start = Instant::now();
                     remove_raw_artifacts_and_enhance(
                         &mut image,

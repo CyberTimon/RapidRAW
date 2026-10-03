@@ -920,6 +920,8 @@ rapidraw export /path/to/photos --output /path/to/output_dir --adjustments /path
 | `--keep-metadata`      | Retain EXIF/capture metadata in exported files                         | `false`           |
 | `--adjustments <path>` | Path to a custom JSON file containing adjustments to override sidecars | _(Auto-detected)_ |
 
+For development, `rapidraw bench <image>` measures the image processing pipeline without opening the GUI and prints per-stage timings. See [bench/README.md](bench/README.md) for its options and for comparing two builds.
+
 ## System Requirements
 
 RapidRAW is built to be lightweight and cross-platform. The minimum (tested) requirements are:

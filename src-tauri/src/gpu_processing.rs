@@ -225,6 +225,16 @@ pub fn get_or_init_gpu_context(
         format!("Failed to find a wgpu adapter: {}", e)
     })?;
 
+    let adapter_info = adapter.get_info();
+    log::info!(
+        "Using GPU adapter: {} ({:?}, {:?}, driver: {} {})",
+        adapter_info.name,
+        adapter_info.backend,
+        adapter_info.device_type,
+        adapter_info.driver,
+        adapter_info.driver_info
+    );
+
     let mut required_features = wgpu::Features::empty();
     if adapter
         .features()
@@ -426,6 +436,7 @@ pub fn get_or_init_gpu_context(
         device: Arc::new(device),
         queue: Arc::new(queue),
         limits,
+        adapter_info,
         display: Arc::new(std::sync::Mutex::new(display_opt)),
     };
     *context_lock = Some(new_context.clone());
@@ -503,9 +514,34 @@ fn read_texture_data_roi(
     }
 }
 
-fn to_rgba_f16(img: &DynamicImage) -> Vec<f16> {
-    let rgba_f32 = img.to_rgba32f();
-    rgba_f32.into_raw().into_iter().map(f16::from_f32).collect()
+fn to_rgba_f16(img: &DynamicImage) -> Vec<[f16; 4]> {
+    use rayon::prelude::*;
+    let pixel = |r: f32, g: f32, b: f32, a: f32| {
+        [
+            f16::from_f32(r),
+            f16::from_f32(g),
+            f16::from_f32(b),
+            f16::from_f32(a),
+        ]
+    };
+    match img {
+        DynamicImage::ImageRgba32F(rgba) => rgba
+            .as_raw()
+            .par_chunks_exact(4)
+            .map(|p| pixel(p[0], p[1], p[2], p[3]))
+            .collect(),
+        DynamicImage::ImageRgb32F(rgb) => rgb
+            .as_raw()
+            .par_chunks_exact(3)
+            .map(|p| pixel(p[0], p[1], p[2], 1.0))
+            .collect(),
+        other => other
+            .to_rgba32f()
+            .as_raw()
+            .par_chunks_exact(4)
+            .map(|p| pixel(p[0], p[1], p[2], p[3]))
+            .collect(),
+    }
 }
 
 #[repr(C)]
@@ -1234,6 +1270,7 @@ impl GpuProcessor {
         });
         let out_width = bounds.width;
         let out_height = bounds.height;
+        let mask_lut_span = crate::perf_trace::span("gpu.mask_lut_upload");
         let mask_layer_count = request.mask_bitmaps.len().clamp(2, MAX_MASKS) as u32;
         let full_texture_size = wgpu::Extent3d {
             width,
@@ -1315,8 +1352,12 @@ impl GpuProcessor {
             (self.dummy_lut_view.clone(), self.dummy_lut_sampler.clone())
         };
 
+        mask_lut_span.gpu_sync(device);
+        drop(mask_lut_span);
+
         let adjustments = request.adjustments;
         if adjustments.global.flare_amount > 0.0 {
+            let _flare_span = crate::perf_trace::span("gpu.flare");
             let mut encoder = device.create_command_encoder(&Default::default());
 
             let aspect_ratio = if height > 0 {
@@ -1468,6 +1509,7 @@ impl GpuProcessor {
                     if radius == 0 {
                         return false;
                     }
+                    let blur_span = crate::perf_trace::span("gpu.blur_passes");
 
                     let params = BlurParams {
                         radius,
@@ -1536,6 +1578,7 @@ impl GpuProcessor {
                     }
 
                     queue.submit(Some(blur_encoder.finish()));
+                    blur_span.gpu_sync(device);
                     true
                 };
 
@@ -1544,6 +1587,7 @@ impl GpuProcessor {
                 let did_create_clarity_blur = run_blur(8.0, &self.clarity_blur_view);
                 let did_create_structure_blur = run_blur(40.0, &self.structure_blur_view);
 
+                let main_span = crate::perf_trace::span("gpu.main_kernel");
                 let mut main_encoder = device.create_command_encoder(&Default::default());
 
                 let mut tile_adjustments = adjustments;
@@ -1680,8 +1724,11 @@ impl GpuProcessor {
                 }
 
                 queue.submit(Some(main_encoder.finish()));
+                main_span.gpu_sync(device);
+                drop(main_span);
 
                 if !output_to_display {
+                    let readback_span = crate::perf_trace::span("gpu.readback_tile");
                     let processed_tile_data = read_texture_data_roi(
                         device,
                         queue,
@@ -1691,6 +1738,8 @@ impl GpuProcessor {
                         bytes_per_pixel,
                     )?;
 
+                    drop(readback_span);
+                    let _copy_span = crate::perf_trace::span("gpu.tile_copy_cpu");
                     match &mut final_pixels {
                         RenderedPixels::U8(final_pixels) => {
                             for row in 0..tile_height {
@@ -1837,6 +1886,7 @@ fn process_and_get_dynamic_image_inner(
         return Ok(base_image.clone());
     }
 
+    let lock_span = crate::perf_trace::span("gpu.wait_processor_lock");
     let mut processor_lock = match state.gpu_processor.lock() {
         Ok(guard) => guard,
         Err(poisoned) => {
@@ -1846,6 +1896,7 @@ fn process_and_get_dynamic_image_inner(
             guard
         }
     };
+    drop(lock_span);
     let mut needs_new_processor = false;
     let new_width = (width + 255) & !255;
     let new_height = (height + 255) & !255;
@@ -1873,6 +1924,7 @@ fn process_and_get_dynamic_image_inner(
             timeout: Some(std::time::Duration::from_millis(500)),
         });
 
+        let _span = crate::perf_trace::span("gpu.create_processor");
         let new_processor = GpuProcessor::new(context.clone(), new_width, new_height)?;
 
         *processor_lock = Some(crate::GpuProcessorState {
@@ -1914,7 +1966,10 @@ fn process_and_get_dynamic_image_inner(
             timeout: Some(std::time::Duration::from_millis(500)),
         });
 
+        let convert_span = crate::perf_trace::span("gpu.upload_convert_f16");
         let img_rgba_f16 = to_rgba_f16(base_image);
+        drop(convert_span);
+        let upload_span = crate::perf_trace::span("gpu.upload_texture");
         let texture_size = wgpu::Extent3d {
             width,
             height,
@@ -1936,6 +1991,8 @@ fn process_and_get_dynamic_image_inner(
             bytemuck::cast_slice(&img_rgba_f16),
         );
         let texture_view = texture.create_view(&Default::default());
+        upload_span.gpu_sync(device);
+        drop(upload_span);
 
         *cache_lock = Some(GpuImageCache {
             texture,
@@ -2198,5 +2255,63 @@ fn process_and_get_dynamic_image_inner(
                 .ok_or("Failed to create 16-bit image buffer from GPU data")?;
             Ok(DynamicImage::ImageRgba16(img_buf))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_support::sample_values;
+    use image::{ImageBuffer, Luma, Rgb};
+
+    const W: u32 = 29;
+    const H: u32 = 31;
+
+    fn serial_reference(img: &DynamicImage) -> Vec<f16> {
+        img.to_rgba32f()
+            .into_raw()
+            .into_iter()
+            .map(f16::from_f32)
+            .collect()
+    }
+
+    fn assert_same_bits(img: &DynamicImage) {
+        let expected: Vec<u16> = serial_reference(img).iter().map(|v| v.to_bits()).collect();
+        let actual: Vec<u16> = to_rgba_f16(img)
+            .iter()
+            .flatten()
+            .map(|v| v.to_bits())
+            .collect();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn to_rgba_f16_matches_serial_conversion_for_rgba_f32() {
+        let values = sample_values((W * H * 4) as usize);
+        assert_same_bits(&DynamicImage::ImageRgba32F(
+            ImageBuffer::from_raw(W, H, values).unwrap(),
+        ));
+    }
+
+    #[test]
+    fn to_rgba_f16_matches_serial_conversion_for_rgb_f32() {
+        let values = sample_values((W * H * 3) as usize);
+        assert_same_bits(&DynamicImage::ImageRgb32F(
+            ImageBuffer::from_raw(W, H, values).unwrap(),
+        ));
+    }
+
+    #[test]
+    fn to_rgba_f16_matches_serial_conversion_for_integer_formats() {
+        assert_same_bits(&DynamicImage::ImageRgb8(ImageBuffer::from_fn(
+            W,
+            H,
+            |x, y| Rgb([(x * 5) as u8, (y * 9) as u8, 200]),
+        )));
+        assert_same_bits(&DynamicImage::ImageLuma16(ImageBuffer::from_fn(
+            W,
+            H,
+            |x, y| Luma([(x * y * 71) as u16]),
+        )));
     }
 }
