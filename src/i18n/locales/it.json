@@ -491,7 +491,7 @@
     "crop": {
       "aspectRatioHeading": "Proporzioni",
       "autoStraightenFailed": "Raddrizzamento automatico non riuscito: {{error}}",
-      "autoStraightenNoHorizon": "Nessun orizzonte chiaro trovato",
+      "autoStraightenNoLines": "Nessuna linea retta trovata per raddrizzare",
       "custom": {
         "hPlaceholder": "A",
         "hTooltip": "Altezza",
@@ -1704,7 +1704,7 @@
     },
     "keybinds": {
       "actions": {
-        "auto_straighten": "Raddrizza automaticamente (livella l'orizzonte)",
+        "auto_straighten": "Raddrizza automaticamente",
         "brush_size_down": "Riduci dimensione pennello",
         "brush_size_up": "Aumenta dimensione pennello",
         "color_label_blue": "Etichetta colore: Blu",

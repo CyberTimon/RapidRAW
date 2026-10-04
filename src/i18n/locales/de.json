@@ -471,7 +471,7 @@
     "crop": {
       "aspectRatioHeading": "Seitenverhältnis",
       "autoStraightenFailed": "Automatisches Ausrichten fehlgeschlagen: {{error}}",
-      "autoStraightenNoHorizon": "Kein klarer Horizont gefunden",
+      "autoStraightenNoLines": "Keine geraden Linien zum Ausrichten gefunden",
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Höhe",
@@ -1669,7 +1669,7 @@
     },
     "keybinds": {
       "actions": {
-        "auto_straighten": "Automatisch ausrichten (Horizont begradigen)",
+        "auto_straighten": "Automatisch ausrichten",
         "brush_size_down": "Pinselgröße verringern",
         "brush_size_up": "Pinselgröße erhöhen",
         "color_label_blue": "Farbmarkierung: Blau",

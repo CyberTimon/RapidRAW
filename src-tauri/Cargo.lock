@@ -34,6 +34,7 @@ dependencies = [
  "libc",
  "little_exif",
  "log",
+ "lsdetect",
  "memmap2",
  "mimalloc",
  "mozjpeg-rs",
@@ -3725,6 +3726,15 @@ name = "lru-slab"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "112b39cec0b298b6c1999fee3e31427f74f676e4cb9879ed1a121b43661a4154"
+
+[[package]]
+name = "lsdetect"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "042f46bce4d9622bb7243bb1d18cac317d1df7891d5f648b96590aed3d773e6f"
+dependencies = [
+ "rayon",
+]
 
 [[package]]
 name = "macro_rules_attribute"

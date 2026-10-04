@@ -469,7 +469,7 @@
     "crop": {
       "aspectRatioHeading": "アスペクト比",
       "autoStraightenFailed": "自動角度補正に失敗しました: {{error}}",
-      "autoStraightenNoHorizon": "はっきりした水平線が見つかりません",
+      "autoStraightenNoLines": "補正に使える直線が見つかりません",
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "高さ",
@@ -1667,7 +1667,7 @@
     },
     "keybinds": {
       "actions": {
-        "auto_straighten": "自動角度補正（水平線を水平に）",
+        "auto_straighten": "自動角度補正",
         "brush_size_down": "ブラシサイズを縮小",
         "brush_size_up": "ブラシサイズを拡大",
         "color_label_blue": "カラーラベル: ブルー",

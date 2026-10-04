@@ -491,7 +491,7 @@
     "crop": {
       "aspectRatioHeading": "Proporção de Tela",
       "autoStraightenFailed": "Falha ao endireitar automaticamente: {{error}}",
-      "autoStraightenNoHorizon": "Nenhum horizonte nítido encontrado",
+      "autoStraightenNoLines": "Nenhuma linha reta encontrada para endireitar",
       "custom": {
         "hPlaceholder": "A",
         "hTooltip": "Altura",
@@ -1705,7 +1705,7 @@
     },
     "keybinds": {
       "actions": {
-        "auto_straighten": "Endireitar automaticamente (nivelar horizonte)",
+        "auto_straighten": "Endireitar automaticamente",
         "brush_size_down": "Diminuir tamanho do pincel",
         "brush_size_up": "Aumentar tamanho do pincel",
         "color_label_blue": "Rótulo de cor: Azul",

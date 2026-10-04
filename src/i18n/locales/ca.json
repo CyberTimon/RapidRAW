@@ -471,7 +471,7 @@
     "crop": {
       "aspectRatioHeading": "Relació d'aspecte",
       "autoStraightenFailed": "No s'ha pogut redreçar automàticament: {{error}}",
-      "autoStraightenNoHorizon": "No s'ha trobat cap horitzó clar",
+      "autoStraightenNoLines": "No s'han trobat línies rectes per redreçar",
       "custom": {
         "hPlaceholder": "Al",
         "hTooltip": "Alçada",
@@ -1671,7 +1671,7 @@
     },
     "keybinds": {
       "actions": {
-        "auto_straighten": "Redreçar automàticament (anivellar l'horitzó)",
+        "auto_straighten": "Redreçar automàticament",
         "brush_size_down": "Reduir mida del pinzell",
         "brush_size_up": "Augmentar mida del pinzell",
         "color_label_blue": "Etiqueta de color: Blau",

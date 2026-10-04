@@ -95,7 +95,7 @@ export function useEditorActions() {
       const rotation: number | null = await invoke(Invokes.CalculateAutoStraighten, { jsAdjustments: adjustments });
       if (useEditorStore.getState().selectedImage?.path !== selectedImage.path) return;
       if (rotation === null) {
-        toast.info(t('editor.crop.autoStraightenNoHorizon'));
+        toast.info(t('editor.crop.autoStraightenNoLines'));
         return;
       }
       setEditor({ liveRotation: null, isStraightenActive: false });

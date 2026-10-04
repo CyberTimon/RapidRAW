@@ -469,7 +469,7 @@
     "crop": {
       "aspectRatioHeading": "종횡비",
       "autoStraightenFailed": "자동 수평 맞추기 실패: {{error}}",
-      "autoStraightenNoHorizon": "뚜렷한 수평선을 찾을 수 없습니다",
+      "autoStraightenNoLines": "수평을 맞출 직선을 찾을 수 없습니다",
       "custom": {
         "hPlaceholder": "높이",
         "hTooltip": "높이",
@@ -1667,7 +1667,7 @@
     },
     "keybinds": {
       "actions": {
-        "auto_straighten": "자동 수평 맞추기 (수평선 정렬)",
+        "auto_straighten": "자동 수평 맞추기",
         "brush_size_down": "브러시 크기 줄이기",
         "brush_size_up": "브러시 크기 늘리기",
         "color_label_blue": "색상 레이블: 파랑",

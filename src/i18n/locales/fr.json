@@ -491,7 +491,7 @@
     "crop": {
       "aspectRatioHeading": "Rapport d'aspect",
       "autoStraightenFailed": "Échec du redressement automatique : {{error}}",
-      "autoStraightenNoHorizon": "Aucun horizon net n'a été trouvé",
+      "autoStraightenNoLines": "Aucune ligne droite trouvée pour redresser",
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Hauteur",
@@ -1704,7 +1704,7 @@
     },
     "keybinds": {
       "actions": {
-        "auto_straighten": "Redresser automatiquement (niveler l'horizon)",
+        "auto_straighten": "Redresser automatiquement",
         "brush_size_down": "Diminuer la taille du pinceau",
         "brush_size_up": "Augmenter la taille du pinceau",
         "color_label_blue": "Étiquette de couleur : Bleu",

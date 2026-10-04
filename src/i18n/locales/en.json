@@ -471,7 +471,7 @@
     "crop": {
       "aspectRatioHeading": "Aspect Ratio",
       "autoStraightenFailed": "Auto straighten failed: {{error}}",
-      "autoStraightenNoHorizon": "No clear horizon found",
+      "autoStraightenNoLines": "No straight lines found to level from",
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Height",
@@ -1669,7 +1669,7 @@
     },
     "keybinds": {
       "actions": {
-        "auto_straighten": "Auto straighten (level horizon)",
+        "auto_straighten": "Auto straighten",
         "brush_size_down": "Decrease brush size",
         "brush_size_up": "Increase brush size",
         "color_label_blue": "Color label: Blue",
