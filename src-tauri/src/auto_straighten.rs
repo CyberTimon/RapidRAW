@@ -1,4 +1,5 @@
 use crate::AppState;
+use crate::guided_perspective::{cross, unit_norm};
 use crate::image_processing::{apply_coarse_rotation, apply_flip, downscale_f32_image};
 use crate::mask_generation::build_full_warped_image;
 use image::GrayImage;
@@ -11,24 +12,15 @@ const MIN_VANISHING_DISTANCE: f64 = 5.0;
 const MIN_CLASS_LINES: usize = 3;
 const MIN_CLASS_LENGTH_FRACTION: f64 = 0.25;
 const MAX_ROTATION_DEGREES: f64 = 10.0;
-const RANSAC_TUNING_ROUNDS: usize = 5;
-const RANSAC_TUNING_RUNS: usize = 50;
-const RANSAC_RUNS: usize = 400;
-const RANSAC_ELIMINATION_RATIO: f64 = 0.6;
+const MAX_CANDIDATE_LINES: usize = 60;
+const TUNING_ROUNDS: usize = 5;
+const ELIMINATION_RATIO: f64 = 0.6;
 
 struct LineSegment {
     line: [f64; 3],
     deviation: f64,
     length: f64,
     vertical: bool,
-}
-
-fn cross(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
-    [
-        a[1] * b[2] - a[2] * b[1],
-        a[2] * b[0] - a[0] * b[2],
-        a[0] * b[1] - a[1] * b[0],
-    ]
 }
 
 fn dot(a: [f64; 3], b: [f64; 3]) -> f64 {
@@ -66,27 +58,9 @@ fn detect_segments(gray: &GrayImage) -> Vec<LineSegment> {
         .collect()
 }
 
-struct Xorshift(u64);
-
-impl Xorshift {
-    fn below(&mut self, bound: usize) -> usize {
-        self.0 ^= self.0 << 13;
-        self.0 ^= self.0 >> 7;
-        self.0 ^= self.0 << 17;
-        (self.0 % bound as u64) as usize
-    }
-
-    fn pair(&mut self, bound: usize) -> (usize, usize) {
-        let first = self.below(bound);
-        let second = (first + 1 + self.below(bound - 1)) % bound;
-        (first, second)
-    }
-}
-
 fn vanishing_point(a: &LineSegment, b: &LineSegment, width: f64, height: f64) -> Option<[f64; 3]> {
     let point = cross(a.line, b.line);
-    let norm = dot(point, point).sqrt();
-    if norm < 1e-12 {
+    if point.iter().all(|component| component.abs() < 1e-12) {
         return None;
     }
     if point[2].abs() > 1e-12 {
@@ -95,7 +69,25 @@ fn vanishing_point(a: &LineSegment, b: &LineSegment, width: f64, height: f64) ->
             return None;
         }
     }
-    Some([point[0] / norm, point[1] / norm, point[2] / norm])
+    Some(unit_norm(point))
+}
+
+fn candidate_points(
+    lines: &[&LineSegment],
+    width: f64,
+    height: f64,
+) -> Vec<(usize, usize, [f64; 3])> {
+    let mut longest: Vec<usize> = (0..lines.len()).collect();
+    longest.sort_by(|&a, &b| lines[b].length.total_cmp(&lines[a].length));
+    longest.truncate(MAX_CANDIDATE_LINES);
+    longest
+        .iter()
+        .enumerate()
+        .flat_map(|(n, &i)| longest[n + 1..].iter().map(move |&j| (i, j)))
+        .filter_map(|(i, j)| {
+            vanishing_point(lines[i], lines[j], width, height).map(|point| (i, j, point))
+        })
+        .collect()
 }
 
 fn vanishing_consensus(
@@ -104,33 +96,28 @@ fn vanishing_consensus(
     height: f64,
 ) -> (Vec<bool>, Option<[f64; 3]>) {
     let count = lines.len();
-    if count < MIN_CLASS_LINES {
+    let candidates = candidate_points(lines, width, height);
+    if count < MIN_CLASS_LINES || candidates.is_empty() {
         return (vec![false; count], None);
     }
     let total_length: f64 = lines.iter().map(|line| line.length).sum();
-    let mut rng = Xorshift(0x9E37_79B9_7F4A_7C15);
     let mut epsilon = 1e-2f64;
     let mut step = 1.0f64;
 
-    for _ in 0..RANSAC_TUNING_ROUNDS {
-        let (mut eliminated, mut valid) = (0usize, 0usize);
-        for _ in 0..RANSAC_TUNING_RUNS {
-            let (i, j) = rng.pair(count);
-            let Some(point) = vanishing_point(lines[i], lines[j], width, height) else {
-                continue;
-            };
-            valid += 1;
-            eliminated += (0..count)
-                .filter(|&k| k != i && k != j && dot(point, lines[k].line).abs() >= epsilon)
-                .count();
-        }
-        if valid > 0 {
-            let ratio = eliminated as f64 / (count * valid) as f64;
-            if ratio < RANSAC_ELIMINATION_RATIO {
-                epsilon = 10f64.powf(epsilon.log10() - step);
-            } else if ratio > RANSAC_ELIMINATION_RATIO {
-                epsilon = 10f64.powf(epsilon.log10() + step);
-            }
+    for _ in 0..TUNING_ROUNDS {
+        let eliminated: usize = candidates
+            .iter()
+            .map(|&(i, j, point)| {
+                (0..count)
+                    .filter(|&k| k != i && k != j && dot(point, lines[k].line).abs() >= epsilon)
+                    .count()
+            })
+            .sum();
+        let ratio = eliminated as f64 / (count * candidates.len()) as f64;
+        if ratio < ELIMINATION_RATIO {
+            epsilon = 10f64.powf(epsilon.log10() - step);
+        } else if ratio > ELIMINATION_RATIO {
+            epsilon = 10f64.powf(epsilon.log10() + step);
         }
         step /= 2.0;
     }
@@ -138,11 +125,7 @@ fn vanishing_consensus(
     let mut best_quality = 0.0;
     let mut best_inliers = vec![false; count];
     let mut best_point = None;
-    for _ in 0..RANSAC_RUNS {
-        let (i, j) = rng.pair(count);
-        let Some(point) = vanishing_point(lines[i], lines[j], width, height) else {
-            continue;
-        };
+    for &(i, j, point) in &candidates {
         let mut quality = 0.0;
         let inliers: Vec<bool> = (0..count)
             .map(|k| {
@@ -168,7 +151,6 @@ fn vanishing_consensus(
     }
     (best_inliers, best_point)
 }
-
 fn trusted_lines(
     segments: &[LineSegment],
     vertical: bool,
