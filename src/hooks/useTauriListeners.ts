@@ -35,13 +35,6 @@ export function useTauriListeners({
   useEffect(() => {
     let isEffectActive = true;
 
-    const refreshAfterExport = () => {
-      refs.current.refreshAllFolderTrees();
-      if (useLibraryStore.getState().currentFolderPath) {
-        refs.current.refreshImageList();
-      }
-    };
-
     const flushThumbnailBatch = () => {
       flushHandle.current = null;
       if (!isEffectActive) return;
@@ -167,10 +160,14 @@ export function useTauriListeners({
       listen('batch-export-progress', (event: any) => {
         if (isEffectActive) useProcessStore.getState().setExportState({ progress: event.payload });
       }),
-      listen('export-complete', () => {
+      listen<string[]>('export-complete', (event) => {
         if (isEffectActive) {
           useProcessStore.getState().setExportState({ status: Status.Success });
-          refreshAfterExport();
+          const currentPath = useLibraryStore.getState().currentFolderPath;
+          if (currentPath && event.payload.includes(currentPath)) {
+            refs.current.refreshAllFolderTrees();
+            refs.current.refreshImageList();
+          }
         }
       }),
       listen('export-error', (event: any) => {
@@ -179,7 +176,6 @@ export function useTauriListeners({
             status: Status.Error,
             errorMessage: typeof event.payload === 'string' ? event.payload : 'Unknown error',
           });
-          refreshAfterExport();
         }
       }),
       listen('export-cancelling', () => {
@@ -188,7 +184,6 @@ export function useTauriListeners({
       listen('export-cancelled', () => {
         if (isEffectActive) {
           useProcessStore.getState().setExportState({ status: Status.Cancelled });
-          refreshAfterExport();
         }
       }),
       listen('import-start', (event: any) => {

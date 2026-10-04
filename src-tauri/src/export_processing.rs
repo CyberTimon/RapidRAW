@@ -1447,6 +1447,18 @@ fn export_adjustments_as_lut(
     Ok(cube_lut)
 }
 
+fn completed_export_folders(results: &[Result<PathBuf, String>]) -> Vec<String> {
+    let mut folders: Vec<_> = results
+        .iter()
+        .filter_map(|result| result.as_ref().ok())
+        .filter_map(|path| path.parent())
+        .map(|folder| folder.to_string_lossy().into_owned())
+        .collect();
+    folders.sort();
+    folders.dedup();
+    folders
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn export_images_impl(
     paths: Vec<String>,
@@ -1697,7 +1709,7 @@ pub(crate) async fn export_images_impl(
                     used.insert(output_path.clone());
                 }
 
-                let result: Result<(), String> = (|| {
+                let result: Result<PathBuf, String> = (|| {
                     if extension == "cube" {
                         let cube_bytes = export_adjustments_as_lut(
                             &js_adjustments,
@@ -1723,7 +1735,7 @@ pub(crate) async fn export_images_impl(
                         #[cfg(not(target_os = "android"))]
                         fs::write(&output_path, cube_bytes).map_err(|e| e.to_string())?;
                         ensure_export_not_cancelled(&cancellation_token_clone)?;
-                        return Ok(());
+                        return Ok(output_path);
                     }
 
                     let loaded_image = if is_current_edit {
@@ -1823,7 +1835,7 @@ pub(crate) async fn export_images_impl(
                         )?;
                     }
 
-                    Ok(())
+                    Ok(output_path)
                 })();
 
                 if !cancellation_token_clone.load(Ordering::SeqCst) {
@@ -1858,6 +1870,7 @@ pub(crate) async fn export_images_impl(
             }
         }
 
+        let output_folders = completed_export_folders(&results);
         let errors: Vec<String> = results.into_iter().filter_map(Result::err).collect();
         let error_count = errors.len();
         let export_state = app_handle.state::<AppState>();
@@ -1888,7 +1901,7 @@ pub(crate) async fn export_images_impl(
                         "batch-export-progress",
                         serde_json::json!({ "current": total_paths, "total": total_paths, "path": "" }),
                     );
-                    let _ = app_handle.emit("export-complete", ());
+                    let _ = app_handle.emit("export-complete", &output_folders);
                 }
             },
         );
@@ -2351,4 +2364,24 @@ pub async fn estimate_export_sizes(
     };
 
     Ok(single_image_extrapolated_size * paths.len())
+}
+
+#[cfg(test)]
+mod export_folder_tests {
+    use super::*;
+
+    #[test]
+    fn reports_only_completed_destination_folders_once() {
+        let results = vec![
+            Ok(PathBuf::from("exports/scene-a/first.tiff")),
+            Ok(PathBuf::from("exports/scene-a/second.tiff")),
+            Err("Export failed".into()),
+            Ok(PathBuf::from("photos/edited.cube")),
+        ];
+        assert_eq!(
+            completed_export_folders(&results),
+            vec!["exports/scene-a", "photos"]
+        );
+        assert!(completed_export_folders(&[Err("Export cancelled".into())]).is_empty());
+    }
 }
