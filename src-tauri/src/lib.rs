@@ -2323,6 +2323,7 @@ pub fn run() {
 				tauri::RunEvent::Opened { urls } => {
 				    if let Some(url) = urls.first()
 				        && let Ok(path) = url.to_file_path()
+				        && let path = std::fs::canonicalize(&path).unwrap_or(path)
 				        && let Some(path_str) = path.to_str()
 				    {
 				        let state = app_handle.state::<AppState>();

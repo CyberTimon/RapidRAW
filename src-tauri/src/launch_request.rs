@@ -158,11 +158,21 @@ pub fn parse_launch_args(args: &[String]) -> LaunchRequest {
         }
         (Some(source), None) => LaunchRequest::OpenFile(source),
         _ => match plain {
-            Some(path) if PathBuf::from(&path).is_dir() => LaunchRequest::OpenFolder(path),
+            Some(path) if PathBuf::from(&path).is_dir() => {
+                LaunchRequest::OpenFolder(canonical_folder_path(path))
+            }
             Some(path) => LaunchRequest::OpenFile(path),
             None => LaunchRequest::None,
         },
     }
+}
+
+/// Путь папки без симлинков и лишних разделителей (иначе та же папка добавится в корни дважды).
+pub fn canonical_folder_path(path: String) -> String {
+    std::fs::canonicalize(&path)
+        .ok()
+        .and_then(|p| p.to_str().map(str::to_string))
+        .unwrap_or(path)
 }
 
 fn emit_path_open(app_handle: &tauri::AppHandle, event: &str, path: PathBuf) {

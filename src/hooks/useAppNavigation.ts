@@ -511,12 +511,37 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
   const handleOpenFolderPath = useCallback(
     async (selectedPath: string) => {
       const { appSettings, handleSettingsChange } = useSettingsStore.getState();
-      const { rootPaths, folderTrees, setLibrary } = useLibraryStore.getState();
+      const { setLibrary } = useLibraryStore.getState();
+      let { rootPaths, folderTrees } = useLibraryStore.getState();
 
       try {
-        const existingRoot = rootPaths.find(
-          (root) => selectedPath === root || selectedPath.startsWith(`${root}${selectedPath.includes('/') ? '/' : '\\'}`),
-        );
+        const showImageCounts =
+          appSettings?.enableFolderImageCounts || appSettings?.folderTreeSort?.key === 'imageCount';
+
+        // На холодном старте стор библиотеки ещё пуст: берём корни из настроек, а не затираем их.
+        if (rootPaths.length === 0 && appSettings?.rootFolders?.length) {
+          rootPaths = appSettings.rootFolders;
+          setLibrary({ rootPaths, expandedFolders: new Set(rootPaths), isTreeLoading: true });
+          try {
+            folderTrees = await invoke(Invokes.GetPinnedFolderTrees, {
+              paths: rootPaths,
+              expandedFolders: rootPaths,
+              showImageCounts,
+            });
+            setLibrary({ folderTrees });
+          } catch (err) {
+            console.error('Failed to load folder trees:', err);
+          } finally {
+            setLibrary({ isTreeLoading: false });
+          }
+        }
+
+        const normalizePath = (p: string) => p.replace(/[\\/]+$/, '');
+        const targetPath = normalizePath(selectedPath);
+        const existingRoot = rootPaths.find((root) => {
+          const base = normalizePath(root);
+          return targetPath === base || targetPath.startsWith(`${base}/`) || targetPath.startsWith(`${base}\\`);
+        });
         if (!existingRoot) {
           const newRootPaths = [...rootPaths, selectedPath];
           setLibrary({ rootPaths: newRootPaths });
@@ -530,8 +555,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
             const newTree = await invoke(Invokes.GetFolderTree, {
               path: selectedPath,
               expandedFolders: [selectedPath],
-              showImageCounts:
-                appSettings?.enableFolderImageCounts || appSettings?.folderTreeSort?.key === 'imageCount',
+              showImageCounts,
             });
             setLibrary({ folderTrees: [...folderTrees, newTree] });
           } finally {
