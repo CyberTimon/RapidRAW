@@ -209,6 +209,7 @@
     "editor": {
       "autoAdjust": "Автонастройка изображения",
       "autoLensCorrection": "Автокоррекция объектива",
+      "autoStraighten": "Автовыравнивание",
       "cancel": "Отмена",
       "colorLabel": "Цветовая метка",
       "confirmReset": "Подтвердить сброс",
@@ -288,6 +289,10 @@
       "autoAdjust_other": "Автонастройка изображений",
       "autoLensCorrection_one": "Автокоррекция объектива",
       "autoLensCorrection_other": "Автокоррекция объектива",
+      "autoStraighten_few": "Автовыравнивание изображений",
+      "autoStraighten_many": "Автовыравнивание изображений",
+      "autoStraighten_one": "Автовыравнивание изображения",
+      "autoStraighten_other": "Автовыравнивание изображений",
       "collage_few": "Создать коллаж",
       "collage_many": "Создать коллаж",
       "collage_one": "Добавить рамку",

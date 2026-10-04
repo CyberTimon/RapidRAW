@@ -1,8 +1,10 @@
 use crate::AppState;
+use crate::formats::is_raw_file;
 use crate::guided_perspective::{cross, unit_norm};
-use crate::image_processing::{apply_coarse_rotation, apply_flip, downscale_f32_image};
+use crate::image_processing::{Crop, apply_coarse_rotation, apply_flip, downscale_f32_image};
 use crate::mask_generation::build_full_warped_image;
-use image::GrayImage;
+use image::{DynamicImage, GrayImage};
+use serde_json::{Value, json};
 
 const ANALYSIS_MAX_DIM: u32 = 1024;
 const LSD_SCALE: f64 = 0.8;
@@ -223,11 +225,148 @@ fn detect_rotation(gray: &GrayImage) -> Option<f32> {
     (rotation.abs() <= MAX_ROTATION_DEGREES).then_some(rotation as f32)
 }
 
+fn rotation_for_image(image: &DynamicImage, is_raw: bool, adjustments: &Value) -> Option<f64> {
+    let proxy = downscale_f32_image(image, ANALYSIS_MAX_DIM, ANALYSIS_MAX_DIM);
+    let warped = build_full_warped_image(&proxy, is_raw, adjustments);
+    let oriented = apply_coarse_rotation(
+        warped,
+        adjustments["orientationSteps"].as_u64().unwrap_or(0) as u8,
+    );
+    let flipped = apply_flip(
+        oriented,
+        adjustments["flipHorizontal"].as_bool().unwrap_or(false),
+        adjustments["flipVertical"].as_bool().unwrap_or(false),
+    );
+    detect_rotation(&flipped.to_luma8()).map(|rotation| (rotation as f64 * 10.0).round() / 10.0)
+}
+
+fn crop_within_bounds(crop: &Crop, width: f64, height: f64, rotation: f64) -> bool {
+    let (sin, cos) = (-rotation).to_radians().sin_cos();
+    let (cx, cy) = (width / 2.0, height / 2.0);
+    [
+        (crop.x, crop.y),
+        (crop.x + crop.width, crop.y),
+        (crop.x, crop.y + crop.height),
+        (crop.x + crop.width, crop.y + crop.height),
+    ]
+    .iter()
+    .all(|&(x, y)| {
+        let rx = cos * (x - cx) - sin * (y - cy) + cx;
+        let ry = sin * (x - cx) + cos * (y - cy) + cy;
+        (-1.0..=width + 1.0).contains(&rx) && (-1.0..=height + 1.0).contains(&ry)
+    })
+}
+
+fn centered_crop(width: f64, height: f64, aspect_ratio: f64, rotation: f64) -> Crop {
+    let (sin, cos) = (rotation.abs() % 180.0).to_radians().sin_cos();
+    let crop_height = (height / (aspect_ratio * sin + cos)).min(width / (aspect_ratio * cos + sin));
+    let crop_width = aspect_ratio * crop_height;
+    Crop {
+        x: ((width - crop_width) / 2.0).round(),
+        y: ((height - crop_height) / 2.0).round(),
+        width: crop_width.round(),
+        height: crop_height.round(),
+    }
+}
+
+fn crop_for_rotation(
+    width: f64,
+    height: f64,
+    aspect_ratio: Option<f64>,
+    rotation: f64,
+    current: Option<Crop>,
+    rotation_delta: f64,
+) -> Crop {
+    let aspect_ratio = aspect_ratio
+        .filter(|ratio| *ratio > 0.0)
+        .unwrap_or(width / height);
+    let Some(current) = current else {
+        return centered_crop(width, height, aspect_ratio, rotation);
+    };
+
+    let (sin, cos) = rotation_delta.to_radians().sin_cos();
+    let (px, py) = (
+        current.x + current.width / 2.0 - width / 2.0,
+        current.y + current.height / 2.0 - height / 2.0,
+    );
+    let followed = Crop {
+        x: (width / 2.0 + px * cos - py * sin - current.width / 2.0).round(),
+        y: (height / 2.0 + px * sin + py * cos - current.height / 2.0).round(),
+        ..current
+    };
+    if crop_within_bounds(&followed, width, height, rotation) {
+        return followed;
+    }
+
+    let (center_x, center_y) = (
+        followed.x + followed.width / 2.0,
+        followed.y + followed.height / 2.0,
+    );
+    let scaled = |scale: f64| Crop {
+        x: center_x - followed.width * scale / 2.0,
+        y: center_y - followed.height * scale / 2.0,
+        width: followed.width * scale,
+        height: followed.height * scale,
+    };
+    let (mut low, mut high) = (0.1, 1.0);
+    let mut best = followed;
+    for _ in 0..12 {
+        let mid = (low + high) / 2.0;
+        let candidate = scaled(mid);
+        if crop_within_bounds(&candidate, width, height, rotation) {
+            best = candidate;
+            low = mid;
+        } else {
+            high = mid;
+        }
+    }
+    if low < 0.15 {
+        return centered_crop(width, height, aspect_ratio, rotation);
+    }
+    Crop {
+        x: best.x.ceil(),
+        y: best.y.ceil(),
+        width: best.width.floor(),
+        height: best.height.floor(),
+    }
+}
+
+pub fn straighten_adjustments(image: &DynamicImage, source_path: &str, adjustments: &mut Value) {
+    let Some(rotation) = rotation_for_image(image, is_raw_file(source_path), adjustments) else {
+        return;
+    };
+
+    let (image_width, image_height) = (image.width() as f64, image.height() as f64);
+    let (width, height) = match adjustments["orientationSteps"].as_u64().unwrap_or(0) {
+        1 | 3 => (image_height, image_width),
+        _ => (image_width, image_height),
+    };
+    let previous_rotation = adjustments["rotation"].as_f64().unwrap_or(0.0);
+    let current_crop: Option<Crop> = serde_json::from_value(adjustments["crop"].clone()).ok();
+    let crop = crop_for_rotation(
+        width,
+        height,
+        adjustments["aspectRatio"].as_f64(),
+        rotation,
+        current_crop,
+        rotation - previous_rotation,
+    );
+
+    adjustments["rotation"] = json!(rotation);
+    adjustments["crop"] = json!({
+        "unit": "px",
+        "x": crop.x,
+        "y": crop.y,
+        "width": crop.width,
+        "height": crop.height,
+    });
+}
+
 #[tauri::command]
 pub fn calculate_auto_straighten(
-    js_adjustments: serde_json::Value,
+    js_adjustments: Value,
     state: tauri::State<AppState>,
-) -> Result<Option<f32>, String> {
+) -> Result<Option<f64>, String> {
     let (image, is_raw) = {
         let guard = state.original_image.lock().unwrap();
         let loaded = guard
@@ -235,22 +374,8 @@ pub fn calculate_auto_straighten(
             .ok_or("No image loaded for auto straighten")?;
         (loaded.image.clone(), loaded.is_raw)
     };
-
-    let proxy = downscale_f32_image(&image, ANALYSIS_MAX_DIM, ANALYSIS_MAX_DIM);
-    let warped = build_full_warped_image(&proxy, is_raw, &js_adjustments);
-    let oriented = apply_coarse_rotation(
-        warped,
-        js_adjustments["orientationSteps"].as_u64().unwrap_or(0) as u8,
-    );
-    let flipped = apply_flip(
-        oriented,
-        js_adjustments["flipHorizontal"].as_bool().unwrap_or(false),
-        js_adjustments["flipVertical"].as_bool().unwrap_or(false),
-    );
-
-    Ok(detect_rotation(&flipped.to_luma8()))
+    Ok(rotation_for_image(&image, is_raw, &js_adjustments))
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -348,6 +473,42 @@ mod tests {
                 .fold(f32::MAX, f32::min)
         });
         assert!(detect_rotation(&fan).is_none());
+    }
+
+    #[test]
+    fn missing_crop_becomes_centered_crop_inside_rotation() {
+        let crop = crop_for_rotation(6000.0, 4000.0, None, 3.0, None, 3.0);
+        assert!(crop_within_bounds(&crop, 6000.0, 4000.0, 3.0));
+        assert!((crop.width / crop.height - 1.5).abs() < 0.01);
+        assert!((crop.x + crop.width / 2.0 - 3000.0).abs() <= 1.0);
+    }
+
+    #[test]
+    fn crop_that_still_fits_is_kept() {
+        let small = Crop {
+            x: 2000.0,
+            y: 1500.0,
+            width: 2000.0,
+            height: 1000.0,
+        };
+        let crop = crop_for_rotation(6000.0, 4000.0, None, 2.0, Some(small), 2.0);
+        assert_eq!(
+            (crop.x, crop.y, crop.width, crop.height),
+            (2000.0, 1500.0, 2000.0, 1000.0)
+        );
+    }
+
+    #[test]
+    fn full_frame_crop_shrinks_to_fit_rotation() {
+        let full = Crop {
+            x: 0.0,
+            y: 0.0,
+            width: 6000.0,
+            height: 4000.0,
+        };
+        let crop = crop_for_rotation(6000.0, 4000.0, None, -5.0, Some(full), -5.0);
+        assert!(crop_within_bounds(&crop, 6000.0, 4000.0, -5.0));
+        assert!(crop.width < 6000.0 && crop.width > 4000.0);
     }
 
     #[test]

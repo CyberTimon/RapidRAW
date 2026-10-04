@@ -209,6 +209,7 @@
     "editor": {
       "autoAdjust": "이미지 자동 조정",
       "autoLensCorrection": "자동 렌즈 교정",
+      "autoStraighten": "자동 수평 맞추기",
       "cancel": "취소",
       "colorLabel": "색상 레이블",
       "confirmReset": "초기화 확인",
@@ -278,6 +279,8 @@
       "autoAdjust_other": "이미지 자동 조정",
       "autoLensCorrection_one": "자동 렌즈 교정",
       "autoLensCorrection_other": "자동 렌즈 교정",
+      "autoStraighten_one": "이미지 자동 수평 맞추기",
+      "autoStraighten_other": "이미지 자동 수평 맞추기",
       "collage_one": "이미지 프레임",
       "collage_other": "콜라주 만들기",
       "confirmDelete": "삭제 확인",

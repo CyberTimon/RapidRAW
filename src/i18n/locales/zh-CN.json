@@ -209,6 +209,7 @@
     "editor": {
       "autoAdjust": "自动调整图像",
       "autoLensCorrection": "自动镜头校正",
+      "autoStraighten": "自动拉直",
       "cancel": "取消",
       "colorLabel": "颜色标签",
       "confirmReset": "确认重置",
@@ -278,6 +279,8 @@
       "autoAdjust_other": "自动调整图像",
       "autoLensCorrection_one": "自动镜头校正",
       "autoLensCorrection_other": "自动镜头校正",
+      "autoStraighten_one": "自动拉直图像",
+      "autoStraighten_other": "自动拉直图像",
       "collage_one": "装裱图像",
       "collage_other": "创建拼贴画",
       "confirmDelete": "确认删除",

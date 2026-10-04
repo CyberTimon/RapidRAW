@@ -2905,11 +2905,15 @@ pub async fn apply_auto_lens_correction_to_paths(
     Ok(())
 }
 
-#[tauri::command]
-pub async fn apply_auto_adjustments_to_paths(
+const FULL_DECODE_WORKER_THREADS: usize = 2;
+
+fn update_sidecars_from_images(
     paths: Vec<String>,
     app_handle: AppHandle,
-) -> Result<(), String> {
+    operation: &'static str,
+    fast_decode: bool,
+    update: impl Fn(&DynamicImage, &str, &mut Value) + Send + Sync + 'static,
+) {
     let state = app_handle.state::<AppState>();
     add_to_thumbnail_queue(&state, paths.len(), &app_handle);
 
@@ -2935,7 +2939,7 @@ pub async fn apply_auto_adjustments_to_paths(
 
         let gpu_context = gpu_processing::get_or_init_gpu_context(&state, &app_handle).ok();
 
-        paths.par_iter().for_each(|path| {
+        let process = |path: &String| {
             let loaded_image: Option<DynamicImage> = (|| -> Result<DynamicImage, String> {
                 let (source_path, sidecar_path) = parse_virtual_path(path);
                 let source_path_str = source_path.to_string_lossy().to_string();
@@ -2944,14 +2948,11 @@ pub async fn apply_auto_adjustments_to_paths(
                 let image = image_loader::load_base_image_from_bytes(
                     &file_bytes,
                     &source_path_str,
-                    true,
+                    fast_decode,
                     &settings,
                     None,
                 )
                 .map_err(|e| e.to_string())?;
-
-                let auto_results = perform_auto_analysis(&image);
-                let auto_adjustments_json = auto_results_to_json(&auto_results);
 
                 let mut existing_metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
@@ -2959,28 +2960,7 @@ pub async fn apply_auto_adjustments_to_paths(
                     existing_metadata.adjustments = serde_json::json!({});
                 }
 
-                if let (Some(existing_map), Some(auto_map)) = (
-                    existing_metadata.adjustments.as_object_mut(),
-                    auto_adjustments_json.as_object(),
-                ) {
-                    for (k, v) in auto_map {
-                        if k == "sectionVisibility" {
-                            if let Some(existing_vis_val) = existing_map.get_mut(k) {
-                                if let (Some(existing_vis), Some(auto_vis)) =
-                                    (existing_vis_val.as_object_mut(), v.as_object())
-                                {
-                                    for (vis_k, vis_v) in auto_vis {
-                                        existing_vis.insert(vis_k.clone(), vis_v.clone());
-                                    }
-                                }
-                            } else {
-                                existing_map.insert(k.clone(), v.clone());
-                            }
-                        } else {
-                            existing_map.insert(k.clone(), v.clone());
-                        }
-                    }
-                }
+                update(&image, &source_path_str, &mut existing_metadata.adjustments);
 
                 if let Ok(json_string) = serde_json::to_string_pretty(&existing_metadata) {
                     let _ = std::fs::write(&sidecar_path, json_string);
@@ -2991,7 +2971,7 @@ pub async fn apply_auto_adjustments_to_paths(
                 }
                 Ok(image)
             })()
-            .map_err(|e| eprintln!("Failed to apply auto adjustments to {}: {}", path, e))
+            .map_err(|e| eprintln!("Failed to apply {} to {}: {}", operation, path, e))
             .ok();
 
             let result = generate_single_thumbnail_and_cache(
@@ -3016,12 +2996,77 @@ pub async fn apply_auto_adjustments_to_paths(
             }
 
             increment_thumbnail_progress(&state, &app_handle);
-        });
+        };
+
+        if fast_decode {
+            paths.par_iter().for_each(process);
+        } else if let Ok(pool) = rayon::ThreadPoolBuilder::new()
+            .num_threads(FULL_DECODE_WORKER_THREADS)
+            .build()
+        {
+            pool.install(|| paths.par_iter().for_each(process));
+        } else {
+            paths.iter().for_each(process);
+        }
     });
+}
+#[tauri::command]
+pub async fn apply_auto_adjustments_to_paths(
+    paths: Vec<String>,
+    app_handle: AppHandle,
+) -> Result<(), String> {
+    update_sidecars_from_images(
+        paths,
+        app_handle,
+        "auto adjustments",
+        true,
+        |image, _, adjustments| {
+            let auto_results = perform_auto_analysis(image);
+            let auto_adjustments_json = auto_results_to_json(&auto_results);
+
+            if let (Some(existing_map), Some(auto_map)) = (
+                adjustments.as_object_mut(),
+                auto_adjustments_json.as_object(),
+            ) {
+                for (k, v) in auto_map {
+                    if k == "sectionVisibility" {
+                        if let Some(existing_vis_val) = existing_map.get_mut(k) {
+                            if let (Some(existing_vis), Some(auto_vis)) =
+                                (existing_vis_val.as_object_mut(), v.as_object())
+                            {
+                                for (vis_k, vis_v) in auto_vis {
+                                    existing_vis.insert(vis_k.clone(), vis_v.clone());
+                                }
+                            }
+                        } else {
+                            existing_map.insert(k.clone(), v.clone());
+                        }
+                    } else {
+                        existing_map.insert(k.clone(), v.clone());
+                    }
+                }
+            }
+        },
+    );
 
     Ok(())
 }
 
+#[tauri::command]
+pub async fn apply_auto_straighten_to_paths(
+    paths: Vec<String>,
+    app_handle: AppHandle,
+) -> Result<(), String> {
+    update_sidecars_from_images(
+        paths,
+        app_handle,
+        "auto straighten",
+        false,
+        crate::auto_straighten::straighten_adjustments,
+    );
+
+    Ok(())
+}
 fn update_metadata_for_paths(
     paths: &[String],
     app_handle: &AppHandle,

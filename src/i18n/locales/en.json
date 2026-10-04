@@ -209,6 +209,7 @@
     "editor": {
       "autoAdjust": "Auto Adjust Image",
       "autoLensCorrection": "Auto Lens Correction",
+      "autoStraighten": "Auto Straighten",
       "cancel": "Cancel",
       "colorLabel": "Color Label",
       "confirmReset": "Confirm Reset",
@@ -278,6 +279,8 @@
       "autoAdjust_other": "Auto Adjust Images",
       "autoLensCorrection_one": "Auto Lens Correction",
       "autoLensCorrection_other": "Auto Lens Correction",
+      "autoStraighten_one": "Auto Straighten Image",
+      "autoStraighten_other": "Auto Straighten Images",
       "collage_one": "Frame Image",
       "collage_other": "Create Collage",
       "confirmDelete": "Confirm Delete",

@@ -209,6 +209,7 @@
     "editor": {
       "autoAdjust": "Ajuste automático de imagen",
       "autoLensCorrection": "Corrección de lente automática",
+      "autoStraighten": "Enderezar automáticamente",
       "cancel": "Cancelar",
       "colorLabel": "Etiqueta de color",
       "confirmReset": "Confirmar restablecimiento",
@@ -283,6 +284,9 @@
       "autoAdjust_other": "Ajuste automático de imágenes",
       "autoLensCorrection_one": "Corrección de lente automática",
       "autoLensCorrection_other": "Corrección de lente automática",
+      "autoStraighten_many": "Enderezar imágenes automáticamente",
+      "autoStraighten_one": "Enderezar imagen automáticamente",
+      "autoStraighten_other": "Enderezar imágenes automáticamente",
       "collage_many": "Crear collage",
       "collage_one": "Enmarcar imagen",
       "collage_other": "Crear collage",
