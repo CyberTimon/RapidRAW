@@ -1,13 +1,16 @@
 use crate::AppState;
 use crate::image_processing::{apply_coarse_rotation, apply_flip, downscale_f32_image};
 use crate::mask_generation::build_full_warped_image;
+use image::imageops::{self, FilterType};
 use image::{GrayImage, ImageBuffer, Luma};
 use imageproc::filter::gaussian_blur_f32;
 use imageproc::gradients::{horizontal_sobel, vertical_sobel};
 use rayon::prelude::*;
 
 const ANALYSIS_MAX_DIM: u32 = 1024;
+const COARSE_MAX_DIM: u32 = 256;
 const MAX_TILT_DEGREES: f32 = 15.0;
+const REFINE_HALF_RANGE_DEGREES: f32 = 1.5;
 const ANGLE_STEP_DEGREES: f32 = 0.1;
 const ORIENTATION_TOLERANCE_DEGREES: f32 = 2.0;
 const TENSOR_SIGMA: f32 = 2.0;
@@ -117,29 +120,32 @@ fn projection_profile(samples: &[EdgeSample], tilt: f32, width: u32, height: u32
     }
 }
 
-fn detect_horizon_rotation(gray: &GrayImage) -> Option<f32> {
+fn search_angles(gray: &GrayImage, center: f32, half_range: f32) -> Vec<AngleProfile> {
     let (width, height) = gray.dimensions();
     let mut samples = collect_edge_samples(gray);
-    if samples.is_empty() {
-        return None;
-    }
     samples.sort_unstable_by(|a, b| a.tilt.total_cmp(&b.tilt));
 
-    let steps = (MAX_TILT_DEGREES / ANGLE_STEP_DEGREES).round() as i32;
-    let profiles: Vec<AngleProfile> = (-steps..=steps)
+    let steps = (half_range / ANGLE_STEP_DEGREES).round() as i32;
+    (-steps..=steps)
         .into_par_iter()
-        .map(|step| projection_profile(&samples, step as f32 * ANGLE_STEP_DEGREES, width, height))
-        .collect();
+        .map(|step| {
+            projection_profile(
+                &samples,
+                center + step as f32 * ANGLE_STEP_DEGREES,
+                width,
+                height,
+            )
+        })
+        .collect()
+}
 
+fn find_peak(profiles: &[AngleProfile]) -> Option<(usize, f32)> {
     let best = profiles
         .iter()
         .enumerate()
         .max_by(|a, b| a.1.score.total_cmp(&b.1.score))?
         .0;
-    if best == 0 || best == profiles.len() - 1 {
-        return None;
-    }
-    if (profiles[best].support as f32) < width as f32 * MIN_LINE_FRACTION {
+    if best == 0 || best == profiles.len() - 1 || profiles[best].score <= 0.0 {
         return None;
     }
 
@@ -155,7 +161,35 @@ fn detect_horizon_rotation(gray: &GrayImage) -> Option<f32> {
         0.0
     };
 
-    Some(-(profiles[best].tilt + offset * ANGLE_STEP_DEGREES))
+    Some((best, profiles[best].tilt + offset * ANGLE_STEP_DEGREES))
+}
+
+fn confident_peak(gray: &GrayImage) -> Option<(f32, f32)> {
+    let profiles = search_angles(gray, 0.0, MAX_TILT_DEGREES);
+    let (best, tilt) = find_peak(&profiles)?;
+    let min_support = gray.width() as f32 * MIN_LINE_FRACTION;
+    (profiles[best].support as f32 >= min_support).then_some((profiles[best].tilt, tilt))
+}
+
+fn detect_horizon_rotation(gray: &GrayImage) -> Option<f32> {
+    if let Some((_, tilt)) = confident_peak(gray) {
+        return Some(-tilt);
+    }
+
+    let (width, height) = gray.dimensions();
+    let scale = (COARSE_MAX_DIM as f32 / width.max(height) as f32).min(1.0);
+    let coarse = imageops::resize(
+        gray,
+        ((width as f32 * scale).round() as u32).max(1),
+        ((height as f32 * scale).round() as u32).max(1),
+        FilterType::Triangle,
+    );
+    let (coarse_center, coarse_tilt) = confident_peak(&coarse)?;
+
+    let fine_profiles = search_angles(gray, coarse_center, REFINE_HALF_RANGE_DEGREES);
+    let tilt = find_peak(&fine_profiles).map_or(coarse_tilt, |(_, tilt)| tilt);
+
+    Some(-tilt)
 }
 
 #[tauri::command]
@@ -250,6 +284,20 @@ mod tests {
             Border::Constant(Luma([200])),
         );
         assert_rotation(detect_horizon_rotation(&corrected), 0.0);
+    }
+
+    #[test]
+    fn levels_soft_horizon_behind_texture() {
+        let slope = 2.5f32.to_radians().tan();
+        let noise = noise_image();
+        let scene = GrayImage::from_fn(WIDTH, HEIGHT, |x, y| {
+            let horizon = HEIGHT as f32 * 0.5 + (x as f32 - WIDTH as f32 / 2.0) * slope;
+            let ground = ((y as f32 - horizon) / 40.0 + 0.5).clamp(0.0, 1.0);
+            let texture = (noise.get_pixel(x, y)[0] as f32 - 128.0) * 0.35;
+            Luma([(190.0 - 110.0 * ground + texture).clamp(0.0, 255.0) as u8])
+        });
+        assert!(confident_peak(&scene).is_none());
+        assert_rotation(detect_horizon_rotation(&scene), -2.5);
     }
 
     #[test]
