@@ -1,7 +1,8 @@
 use crate::AppState;
+use crate::adjustment_utils::apply_orientation_and_flip;
 use crate::formats::is_raw_file;
 use crate::guided_perspective::{cross, unit_norm};
-use crate::image_processing::{Crop, apply_coarse_rotation, apply_flip, downscale_f32_image};
+use crate::image_processing::{Crop, downscale_f32_image};
 use crate::mask_generation::build_full_warped_image;
 use image::{DynamicImage, GrayImage};
 use serde_json::{Value, json};
@@ -17,6 +18,7 @@ const MAX_ROTATION_DEGREES: f64 = 10.0;
 const MAX_CANDIDATE_LINES: usize = 60;
 const TUNING_ROUNDS: usize = 5;
 const ELIMINATION_RATIO: f64 = 0.6;
+const NEAR_ZERO: f64 = 1e-12;
 
 struct LineSegment {
     line: [f64; 3],
@@ -62,10 +64,10 @@ fn detect_segments(gray: &GrayImage) -> Vec<LineSegment> {
 
 fn vanishing_point(a: &LineSegment, b: &LineSegment, width: f64, height: f64) -> Option<[f64; 3]> {
     let point = cross(a.line, b.line);
-    if point.iter().all(|component| component.abs() < 1e-12) {
+    if point.iter().all(|component| component.abs() < NEAR_ZERO) {
         return None;
     }
-    if point[2].abs() > 1e-12 {
+    if point[2].abs() > NEAR_ZERO {
         let (x, y) = (point[0] / point[2], point[1] / point[2]);
         if (0.0..=width).contains(&x) && (0.0..=height).contains(&y) {
             return None;
@@ -153,6 +155,7 @@ fn vanishing_consensus(
     }
     (best_inliers, best_point)
 }
+
 fn trusted_lines(
     segments: &[LineSegment],
     vertical: bool,
@@ -170,7 +173,7 @@ fn trusted_lines(
         .filter_map(|(segment, keep)| keep.then_some(segment))
         .collect();
     let far = point.is_some_and(|p| {
-        p[2].abs() < 1e-12
+        p[2].abs() < NEAR_ZERO
             || (p[0] / p[2] - width / 2.0).hypot(p[1] / p[2] - height / 2.0)
                 >= MIN_VANISHING_DISTANCE * width.hypot(height)
     });
@@ -213,7 +216,7 @@ fn fit_rotation(lines: &[&LineSegment]) -> f64 {
     -0.5 * sin_sum.atan2(cos_sum).to_degrees()
 }
 
-fn detect_rotation(gray: &GrayImage) -> Option<f32> {
+fn detect_rotation(gray: &GrayImage) -> Option<f64> {
     let (width, height) = (gray.width() as f64, gray.height() as f64);
     let segments = detect_segments(gray);
     let mut selected = trusted_lines(&segments, true, width, height);
@@ -222,22 +225,14 @@ fn detect_rotation(gray: &GrayImage) -> Option<f32> {
         return None;
     }
     let rotation = fit_rotation(&selected);
-    (rotation.abs() <= MAX_ROTATION_DEGREES).then_some(rotation as f32)
+    (rotation.abs() <= MAX_ROTATION_DEGREES).then_some(rotation)
 }
 
 fn rotation_for_image(image: &DynamicImage, is_raw: bool, adjustments: &Value) -> Option<f64> {
     let proxy = downscale_f32_image(image, ANALYSIS_MAX_DIM, ANALYSIS_MAX_DIM);
     let warped = build_full_warped_image(&proxy, is_raw, adjustments);
-    let oriented = apply_coarse_rotation(
-        warped,
-        adjustments["orientationSteps"].as_u64().unwrap_or(0) as u8,
-    );
-    let flipped = apply_flip(
-        oriented,
-        adjustments["flipHorizontal"].as_bool().unwrap_or(false),
-        adjustments["flipVertical"].as_bool().unwrap_or(false),
-    );
-    detect_rotation(&flipped.to_luma8()).map(|rotation| (rotation as f64 * 10.0).round() / 10.0)
+    let oriented = apply_orientation_and_flip(warped, adjustments);
+    detect_rotation(&oriented.to_luma8()).map(|rotation| (rotation * 10.0).round() / 10.0)
 }
 
 fn crop_within_bounds(crop: &Crop, width: f64, height: f64, rotation: f64) -> bool {
@@ -376,6 +371,7 @@ pub fn calculate_auto_straighten(
     };
     Ok(rotation_for_image(&image, is_raw, &js_adjustments))
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -410,16 +406,16 @@ mod tests {
         })
     }
 
-    fn rotated(scene: &GrayImage, degrees: f32) -> GrayImage {
+    fn rotated(scene: &GrayImage, degrees: f64) -> GrayImage {
         rotate_about_center(
             scene,
-            degrees.to_radians(),
+            degrees.to_radians() as f32,
             Interpolation::Bilinear,
             Border::Constant(Luma([200])),
         )
     }
 
-    fn assert_rotation(detected: Option<f32>, expected: f32) {
+    fn assert_rotation(detected: Option<f64>, expected: f64) {
         let rotation = detected.expect("no rotation detected");
         assert!(
             (rotation - expected).abs() < 0.2,
