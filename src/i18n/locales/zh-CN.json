@@ -176,6 +176,10 @@
       "red": "红色",
       "yellow": "黄色"
     },
+    "dialogs": {
+      "importXmpAdjustmentsTitle": "Import XMP Adjustments",
+      "xmpSidecar": "XMP Sidecar"
+    },
     "editor": {
       "autoAdjust": "自动调整图像",
       "autoLensCorrection": "自动镜头校正",
@@ -189,6 +193,7 @@
       "editImage": "编辑图像",
       "exportImage": "导出图像",
       "frameImage": "装裱图像",
+      "importXmpAdjustments": "Import XMP Adjustments",
       "mergeHdr": "合并为 HDR",
       "noLabel": "无标签",
       "noRating": "无评分",
@@ -210,6 +215,7 @@
       "copyHere_other": "复制 {{count}} 张图像至此",
       "deleteFolder": "删除文件夹",
       "importImages": "导入图像",
+      "importMatchingXmpSidecars": "Import XMP Adjustments",
       "moveHere_one": "移动图像至此",
       "moveHere_other": "移动 {{count}} 张图像至此",
       "newFolder": "新建文件夹",
@@ -262,6 +268,7 @@
       "duplicateImage": "复制图像",
       "exportImage_one": "导出图像",
       "exportImage_other": "导出 {{count}} 张图像",
+      "importXmpAdjustments": "Import XMP Adjustments",
       "noAlbums": "无可用相册",
       "pasteAdjustments_one": "粘贴调整",
       "pasteAdjustments_other": "粘贴调整到 {{count}} 张图像",
@@ -275,6 +282,15 @@
       "showExplorer": "在文件资源管理器中显示",
       "virtualCopy": "虚拟副本"
     },
+    "xmpImportReport": {
+      "available": "XMP import report: {{unchanged}} unchanged, {{failed}} failed. Click to view details.",
+      "copied": "Import report copied.",
+      "copy": "Copy Report",
+      "failed": "Failed ({{total}})",
+      "folder": "Folder: {{folder}}",
+      "title": "XMP Import Report",
+      "unchanged": "Not imported — no supported changes ({{total}})"
+    },
     "toasts": {
       "couldNotShowExplorer": "无法在文件资源管理器中显示文件：{{err}}",
       "couldNotShowFolder": "无法显示文件夹：{{err}}",
@@ -286,10 +302,18 @@
       "failedDelete": "删除失败：{{err}}",
       "failedDeleteFolder": "删除文件夹失败：{{err}}",
       "failedDuplicate": "复制文件失败：{{err}}",
+      "failedImportMatchingXmpSidecars": "Failed to import matching XMP sidecars: {{err}}",
+      "failedImportXmpAdjustments": "Failed to import XMP adjustments: {{err}}",
+      "failedMatchingXmpSidecars_other": "Matching XMP sidecars failed to import: {{count}}.",
       "failedMove": "移动文件失败：{{err}}",
       "failedMoveError": "移动失败：{{err}}",
       "failedMoveInvalid": "移动失败：未找到目标组或目标组无效。",
-      "failedRemoveImages": "移除图像失败：{{err}}"
+      "failedRemoveImages": "移除图像失败：{{err}}",
+      "importedMatchingXmpSidecars_other": "Imported matching XMP sidecars: {{count}}.",
+      "importedXmpAdjustments": "Imported XMP adjustments.",
+      "importingMatchingXmpSidecars": "Importing matching XMP sidecars…",
+      "noMatchingXmpSidecars": "No matching XMP sidecars found.",
+      "unchangedMatchingXmpSidecars": "Skipped matching XMP sidecars with no importable changes: {{count}}."
     }
   },
   "editor": {
