@@ -424,7 +424,7 @@ export default function MasksPanel() {
       } else if (activeMaskId) onSelectMask(null);
       else if (activeMaskContainerId) onSelectContainer(null);
     };
-    if (activeMaskContainerId || renamingId) setCustomEscapeHandler(() => handler);
+    if (activeMaskContainerId || renamingId) setCustomEscapeHandler(handler);
     else setCustomEscapeHandler(null);
     return () => setCustomEscapeHandler(null);
   }, [activeMaskContainerId, activeMaskId, renamingId, onSelectContainer, onSelectMask, setCustomEscapeHandler]);

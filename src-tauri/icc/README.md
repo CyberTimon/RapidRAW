@@ -1,0 +1,1 @@
+`sRGB-v2-magic.icc` is from [saucecontrol/Compact-ICC-Profiles](https://github.com/saucecontrol/Compact-ICC-Profiles) (commit abb1b6f), licensed CC0-1.0. It's a 736-byte sRGB IEC 61966-2-1 profile (description "sRGB"), embedded in exported images so color-managed apps and print services read them as sRGB.

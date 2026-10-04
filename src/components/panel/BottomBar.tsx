@@ -6,10 +6,20 @@ import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 
 import Filmstrip from './Filmstrip';
-import { GLOBAL_KEYS, ImageFile, SelectedImage, ThumbnailAspectRatio } from '../ui/AppProperties';
+import {
+  GLOBAL_KEYS,
+  ImageFile,
+  ImageFlag,
+  FlagStatus,
+  SelectedImage,
+  ThumbnailAspectRatio,
+} from '../ui/AppProperties';
+import { FLAG_ICONS } from '../../utils/imageFlags';
+import FlagToggles from '../ui/FlagToggles';
 import Text from '../ui/Text';
 import { useEditorStore } from '../../store/useEditorStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
+import { useLibraryActions } from '../../hooks/useLibraryActions';
 import { useUIStore } from '../../store/useUIStore';
 import { COLOR_LABELS } from '../../utils/adjustments';
 
@@ -26,6 +36,7 @@ interface BottomBarProps {
   isPasted: boolean;
   isPasteDisabled: boolean;
   isRatingDisabled?: boolean;
+  flag?: ImageFlag | null;
   isResetDisabled?: boolean;
   isResizing?: boolean;
   multiSelectedPaths?: Array<string>;
@@ -68,7 +79,7 @@ const StarRating = ({ rating, onRate, disabled }: StarRatingProps) => {
             className="disabled:cursor-not-allowed"
             disabled={disabled}
             key={starValue}
-            onClick={() => !disabled && onRate(starValue === rating ? 0 : starValue)}
+            onClick={() => !disabled && onRate(starValue)}
             data-tooltip={
               disabled
                 ? t('ui.bottomBar.tooltips.selectToRate')
@@ -128,6 +139,7 @@ export default function BottomBar({
   isPasted,
   isPasteDisabled,
   isRatingDisabled = false,
+  flag = null,
   isResizing,
   multiSelectedPaths = [],
   onClearSelection,
@@ -149,6 +161,13 @@ export default function BottomBar({
   totalImages,
 }: BottomBarProps) {
   const { t } = useTranslation();
+  const { handleToggleFlag } = useLibraryActions();
+  const handleToggleFlagFilter = (status: FlagStatus) => {
+    setFilterCriteria((prev) => ({
+      ...prev,
+      flagStatus: prev.flagStatus === status ? FlagStatus.All : status,
+    }));
+  };
 
   const { isInstantTransition, uiVisibility, setUI } = useUIStore(
     useShallow((state) => ({
@@ -375,6 +394,12 @@ export default function BottomBar({
       >
         <div className="flex items-center gap-4">
           <StarRating rating={rating} onRate={onRate} disabled={isRatingDisabled} />
+          <FlagToggles
+            flag={flag}
+            onToggle={(option) => handleToggleFlag(option)}
+            inactiveClassName="text-text-secondary hover:text-accent"
+            disabled={isRatingDisabled}
+          />
           <div className="h-5 w-px bg-surface"></div>
           <div className="flex items-center gap-2">
             <button
@@ -474,10 +499,12 @@ export default function BottomBar({
             <div
               className={clsx(
                 'flex items-center transition-all duration-300 ease-in-out overflow-hidden',
-                isFilterExpanded ? 'max-w-100 opacity-100 pr-2 ml-1' : 'max-w-0 opacity-0 pr-0 ml-0',
+                // Increased max-w so stars + flags + colors all fit without clipping
+                isFilterExpanded ? 'max-w-xl opacity-100 pr-2 ml-1' : 'max-w-0 opacity-0 pr-0 ml-0',
               )}
             >
               <div className="flex items-center gap-3 whitespace-nowrap">
+                {/* 1. Star Rating Filter */}
                 <div className="flex items-center gap-0.5">
                   {[1, 2, 3, 4, 5].map((starValue) => {
                     const isFilled = filterCriteria.rating > 0 && starValue <= filterCriteria.rating;
@@ -502,6 +529,50 @@ export default function BottomBar({
                       </button>
                     );
                   })}
+                </div>
+
+                <div className="h-4 w-px bg-border-color"></div>
+
+                <div className="flex items-center gap-1.5">
+                  {(() => {
+                    const PickIcon = FLAG_ICONS[ImageFlag.Pick];
+                    const isPickedActive = filterCriteria.flagStatus === FlagStatus.Picked;
+                    return (
+                      <button
+                        className="focus:outline-none transition-transform active:scale-95 hover:scale-110"
+                        onClick={() => handleToggleFlagFilter(FlagStatus.Picked)}
+                        data-tooltip={t('library.filters.flag.picked')}
+                      >
+                        <PickIcon
+                          size={16}
+                          className={clsx(
+                            'transition-colors duration-150',
+                            isPickedActive ? 'text-accent fill-accent' : 'text-text-secondary hover:text-accent',
+                          )}
+                        />
+                      </button>
+                    );
+                  })()}
+
+                  {(() => {
+                    const RejectIcon = FLAG_ICONS[ImageFlag.Reject];
+                    const isRejectActive = filterCriteria.flagStatus === FlagStatus.Rejected;
+                    return (
+                      <button
+                        className="focus:outline-none transition-transform active:scale-95 hover:scale-110"
+                        onClick={() => handleToggleFlagFilter(FlagStatus.Rejected)}
+                        data-tooltip={t('library.filters.flag.rejected')}
+                      >
+                        <RejectIcon
+                          size={16}
+                          className={clsx(
+                            'transition-colors duration-150',
+                            isRejectActive ? 'text-accent' : 'text-text-secondary hover:text-accent',
+                          )}
+                        />
+                      </button>
+                    );
+                  })()}
                 </div>
 
                 <div className="h-4 w-px bg-border-color"></div>

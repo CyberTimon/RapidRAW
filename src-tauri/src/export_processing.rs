@@ -7,7 +7,11 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use image::codecs::jpeg::JpegEncoder;
-use image::{DynamicImage, GenericImageView, GrayImage, ImageBuffer, ImageFormat, Luma, imageops};
+use image::codecs::png::PngEncoder;
+use image::{
+    DynamicImage, GenericImageView, GrayImage, ImageBuffer, ImageEncoder, ImageFormat, Luma,
+    imageops,
+};
 use jxl_encoder::{
     LosslessConfig, LossyConfig, PixelLayout,
     api::{calibrated_jxl_quality, quality_to_distance},
@@ -34,12 +38,12 @@ use crate::image_processing::{
 use crate::lut_processing::{
     convert_image_to_cube_lut, generate_identity_lut_image, get_or_load_lut,
 };
-use crate::mask_generation::{MaskDefinition, generate_mask_bitmap};
+use crate::mask_generation::{MaskDefinition, build_warped_image_for_masks, generate_mask_bitmap};
 
 use crate::cache_utils::{calculate_full_job_hash, calculate_transform_hash};
 use crate::{
     apply_all_transformations, generate_transformed_preview, get_cached_or_generate_mask,
-    hydrate_adjustments, load_settings, resolve_warped_image_for_masks,
+    hydrate_adjustments, load_settings,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -968,7 +972,8 @@ fn process_image_for_export_pipeline(
         .and_then(|m| serde_json::from_value(m.clone()).ok())
         .unwrap_or_default();
 
-    let warped_image = resolve_warped_image_for_masks(state, js_adjustments, &mask_definitions);
+    let warped_image =
+        build_warped_image_for_masks(base_image, is_raw, js_adjustments, &mask_definitions);
     let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
         .iter()
         .filter_map(|def| {
@@ -1154,6 +1159,9 @@ fn encode_grayscale_to_png(bitmap: &GrayImage) -> Result<Vec<u8>, String> {
     Ok(buf)
 }
 
+/// Exports are sRGB-encoded; tagging them lets color-managed apps read them correctly.
+const SRGB_ICC_PROFILE: &[u8] = include_bytes!("../icc/sRGB-v2-magic.icc");
+
 fn encode_image_to_bytes(
     image: &DynamicImage,
     output_format: &str,
@@ -1207,7 +1215,10 @@ fn encode_image_to_bytes(
         }
         "jpg" | "jpeg" => {
             let rgb_image = image.to_rgb8();
-            let encoder = JpegEncoder::new_with_quality(&mut cursor, jpeg_quality);
+            let mut encoder = JpegEncoder::new_with_quality(&mut cursor, jpeg_quality);
+            encoder
+                .set_icc_profile(SRGB_ICC_PROFILE.to_vec())
+                .map_err(|e| e.to_string())?;
             rgb_image
                 .write_with_encoder(encoder)
                 .map_err(|e| e.to_string())?;
@@ -1219,8 +1230,12 @@ fn encode_image_to_bytes(
                 image.clone()
             };
 
+            let mut encoder = PngEncoder::new(&mut cursor);
+            encoder
+                .set_icc_profile(SRGB_ICC_PROFILE.to_vec())
+                .map_err(|e| e.to_string())?;
             image_to_encode
-                .write_to(&mut cursor, image::ImageFormat::Png)
+                .write_with_encoder(encoder)
                 .map_err(|e| e.to_string())?;
         }
         "tif" | "tiff" => {
@@ -1265,7 +1280,8 @@ fn export_masks_for_image(
         .and_then(|m| serde_json::from_value(m.clone()).ok())
         .unwrap_or_default();
 
-    let warped_image = resolve_warped_image_for_masks(state, js_adjustments, &mask_definitions);
+    let warped_image =
+        build_warped_image_for_masks(base_image, is_raw, js_adjustments, &mask_definitions);
     let mut mask_bitmaps = Vec::with_capacity(mask_definitions.len());
     for definition in &mask_definitions {
         ensure_export_not_cancelled(cancellation_token)?;
@@ -1710,26 +1726,23 @@ pub(crate) async fn export_images_impl(
                         return Ok(());
                     }
 
-                    let base_image = if is_current_edit {
-                        match crate::get_original_image(&state) {
-                            Ok((orig_data_arc, _)) => {
-                                composite_patches_on_image(&orig_data_arc, &js_adjustments)
-                                    .map_err(|e| format!("Failed to composite AI patches: {}", e))?
-                            }
-                            Err(_) => {
-                                let bytes =
-                                    fs::read(&source_path_str).map_err(|e| e.to_string())?;
-                                load_and_composite(
-                                    &bytes,
-                                    &source_path_str,
-                                    &js_adjustments,
-                                    false,
-                                    &settings,
-                                    None,
-                                )
-                                .map_err(|e| format!("Failed to load fallback image: {}", e))?
-                            }
-                        }
+                    let loaded_image = if is_current_edit {
+                        state
+                            .original_image
+                            .lock()
+                            .unwrap_or_else(|e| e.into_inner())
+                            .clone()
+                            .filter(|loaded| {
+                                parse_virtual_path(&loaded.path).0
+                                    == parse_virtual_path(&source_path_str).0
+                            })
+                    } else {
+                        None
+                    };
+
+                    let base_image = if let Some(loaded_image) = loaded_image {
+                        composite_patches_on_image(&loaded_image.image, &js_adjustments)
+                            .map_err(|e| format!("Failed to composite AI patches: {}", e))?
                     } else {
                         match read_file_mapped(Path::new(&source_path_str)) {
                             Ok(mmap) => load_and_composite(
@@ -1932,7 +1945,7 @@ pub async fn run_headless_export(
     session: crate::launch_request::HeadlessExportSession,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    println!("Starting headless export...");
+    cli_println!("Starting headless export...");
     let state = app_handle.state::<crate::AppState>();
 
     let source_path = std::path::Path::new(&session.source);
@@ -1969,7 +1982,7 @@ pub async fn run_headless_export(
             .map_err(|e| format!("Failed to create output directory: {}", e))?;
     }
 
-    println!("Found {} images to export. Processing...", paths.len());
+    cli_println!("Found {} images to export. Processing...", paths.len());
 
     let export_settings = ExportSettings {
         jpeg_quality: session.quality,
@@ -1995,7 +2008,7 @@ pub async fn run_headless_export(
         let json: serde_json::Value = serde_json::from_str(&content)
             .map_err(|e| format!("Failed to parse adjustments JSON: {}", e))?;
         custom_adjustments = Some(json);
-        println!(
+        cli_println!(
             "Loaded custom adjustments to override sidecars from: {}",
             adj_path
         );
@@ -2137,6 +2150,7 @@ pub async fn estimate_export_sizes(
             .filter_map(|def| {
                 get_cached_or_generate_mask(
                     &state,
+                    &loaded_image.path,
                     def,
                     img_w,
                     img_h,
@@ -2274,6 +2288,7 @@ pub async fn estimate_export_sizes(
             .filter_map(|def| {
                 get_cached_or_generate_mask(
                     &state,
+                    &source_path_str,
                     def,
                     preview_w,
                     preview_h,

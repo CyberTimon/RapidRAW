@@ -188,6 +188,9 @@
       "denoise": "Odszum obraz",
       "editImage": "Edytuj obraz",
       "exportImage": "Eksportuj obraz",
+      "flag": "Oznaczenie",
+      "flagPick": "Wybrane",
+      "flagReject": "Odrzucone",
       "frameImage": "Dodaj ramkę do obrazu",
       "mergeHdr": "Scal do HDR",
       "noLabel": "Brak etykiety",
@@ -203,7 +206,8 @@
       "resetAdjustments": "Resetuj ustawienia",
       "stitchPanorama": "Złóż panoramę",
       "tagging": "Tagowanie",
-      "undo": "Cofnij"
+      "undo": "Cofnij",
+      "unflagged": "Bez oznaczenia"
     },
     "folders": {
       "changeIcon": "Zmień ikonę",
@@ -232,6 +236,7 @@
       "addCopiedToAlbum_many": "Dodaj {{count}} skopiowanych obrazów do albumu",
       "addCopiedToAlbum_one": "Dodaj skopiowany obraz do albumu",
       "addCopiedToAlbum_other": "Dodaj {{count}} skopiowanych obrazów do albumu",
+      "deleteRejected": "Usuń odrzucone obrazy",
       "refreshView": "Odśwież widok"
     },
     "merge": {
@@ -1004,6 +1009,12 @@
         "editedOnly": "Tylko edytowane",
         "uneditedOnly": "Tylko nieedytowane"
       },
+      "flag": {
+        "all": "Wszystkie obrazy",
+        "excludeRejected": "Ukryj odrzucone",
+        "picked": "Wybrane",
+        "rejected": "Odrzucone"
+      },
       "noMatch": "Nie znaleziono obrazów pasujących do twojego filtra.",
       "rating": {
         "all": "Pokaż wszystko",
@@ -1085,6 +1096,7 @@
         "filterByColorLabel": "Filtruj według Etykiety koloru",
         "filterByEdited": "Filtruj według Statusu edycji",
         "filterByFileType": "Filtruj według Typu pliku",
+        "filterByFlag": "Filtruj według Oznaczenia",
         "filterByRating": "Filtruj według Oceny",
         "groupEditedFiles": "Include edited files in groups",
         "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
@@ -1120,11 +1132,25 @@
       "imagesCount_many": "{{count}} obrazów",
       "imagesCount_one": "1 obraz",
       "imagesCount_other": "{{count}} obrazów",
+      "rejected": "Odrzucone",
       "tooltipAperture": "Przysłona",
       "tooltipFocalLength": "Ogniskowa",
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "Czas otwarcia migawki",
       "tooltipVirtualCopy": "Kopia wirtualna"
+    },
+    "reject": {
+      "deleteConfirm": "Usuń odrzucone",
+      "deleteMessage_few": "Czy na pewno usunąć {{count}} odrzucone obrazy? Zostaną przeniesione do kosza.",
+      "deleteMessage_many": "Czy na pewno usunąć {{count}} odrzuconych obrazów? Zostaną przeniesione do kosza.",
+      "deleteMessage_one": "Czy na pewno usunąć {{count}} odrzucony obraz? Zostanie przeniesiony do kosza.",
+      "deleteMessage_other": "Czy na pewno usunąć {{count}} odrzuconych obrazów? Zostaną przeniesione do kosza.",
+      "deleteTitle": "Usuń odrzucone obrazy",
+      "noneToDelete": "Brak odrzuconych obrazów do usunięcia.",
+      "virtualCopiesWarning_few": "Zostaną też usunięte {{count}} nieodrzucone kopie wirtualne, ponieważ ich oryginały są odrzucone.",
+      "virtualCopiesWarning_many": "Zostanie też usuniętych {{count}} nieodrzuconych kopii wirtualnych, ponieważ ich oryginały są odrzucone.",
+      "virtualCopiesWarning_one": "Zostanie też usunięta {{count}} nieodrzucona kopia wirtualna, ponieważ jej oryginał jest odrzucony.",
+      "virtualCopiesWarning_other": "Zostanie też usuniętych {{count}} nieodrzuconych kopii wirtualnych, ponieważ ich oryginały są odrzucone."
     },
     "search": {
       "noResults": "Nie znaleziono wyników",
@@ -1308,7 +1334,7 @@
     "culling": {
       "actionDelete": "Przenieś do kosza",
       "actionRateZero": "Ustaw ocenę na 1 Gwiazdkę",
-      "actionReject": "Oznacz jako odrzucone (Czerwona etykieta)",
+      "actionReject": "Oznacz jako odrzucone",
       "applyButton_few": "Zastosuj dla {{count}} obrazów",
       "applyButton_many": "Zastosuj dla {{count}} obrazów",
       "applyButton_one": "Zastosuj dla 1 obrazu",
@@ -1687,6 +1713,7 @@
         "copy_files": "Skopiuj wybrane pliki",
         "copy_image_path": "Kopiuj ścieżkę wybranych zdjęć",
         "cycle_zoom": "Przełącz przybliżenie (Dopasuj, 2x Dopasuj, 100%)",
+        "delete_rejected": "Usuń odrzucone pliki",
         "delete_selected": "Usuń wybrane pliki",
         "focus_search": "Przejdź do pola wyszukiwania",
         "open_image": "Otwórz wybrany obraz",
@@ -1719,9 +1746,12 @@
         "toggle_library_exif": "Przełącz nakładkę EXIF",
         "toggle_masks": "Przełącz panel Maski",
         "toggle_metadata": "Przełącz panel Metadane",
+        "toggle_pick": "Przełącz oznaczenie wybrania",
         "toggle_presets": "Przełącz panel Presety",
+        "toggle_reject": "Przełącz oznaczenie odrzucenia",
         "toggle_right_panel": "Przełącz prawy panel",
         "undo": "Cofnij korektę",
+        "unflag": "Usuń oznaczenie",
         "zoom_100": "Powiększ do 100%",
         "zoom_fit": "Dopasuj do ekranu",
         "zoom_in": "Przybliż",
@@ -2061,6 +2091,10 @@
         "virtualCopy": "Kopia wirtualna"
       },
       "virtualCopyAbbreviation": "VC"
+    },
+    "flags": {
+      "togglePick": "Przełącz wybranie",
+      "toggleReject": "Przełącz odrzucenie"
     },
     "imagePicker": {
       "clearImage": "Wyczyść obraz",
