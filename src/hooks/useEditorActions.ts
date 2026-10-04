@@ -30,6 +30,19 @@ export const debouncedSave = debounce((path: string, adjustmentsToSave: Adjustme
   });
 }, 300);
 
+const waitForImageReady = (path: string) =>
+  new Promise<boolean>((resolve) => {
+    const unsubscribe = useEditorStore.subscribe((state) => {
+      if (state.selectedImage?.path !== path) {
+        unsubscribe();
+        resolve(false);
+      } else if (state.selectedImage.isReady) {
+        unsubscribe();
+        resolve(true);
+      }
+    });
+  });
+
 export function useEditorActions() {
   const { t } = useTranslation();
   const setEditor = useEditorStore((s) => s.setEditor);
@@ -88,11 +101,14 @@ export function useEditorActions() {
   }, [setAdjustments]);
 
   const handleAutoStraighten = useCallback(async () => {
-    const { selectedImage, adjustments, isAutoStraightening } = useEditorStore.getState();
-    if (!selectedImage?.isReady || isAutoStraightening) return;
+    const { selectedImage, isAutoStraightening } = useEditorStore.getState();
+    if (!selectedImage || isAutoStraightening) return;
     setEditor({ isAutoStraightening: true });
     try {
-      const rotation: number | null = await invoke(Invokes.CalculateAutoStraighten, { jsAdjustments: adjustments });
+      if (!selectedImage.isReady && !(await waitForImageReady(selectedImage.path))) return;
+      const rotation: number | null = await invoke(Invokes.CalculateAutoStraighten, {
+        jsAdjustments: useEditorStore.getState().adjustments,
+      });
       if (useEditorStore.getState().selectedImage?.path !== selectedImage.path) return;
       if (rotation === null) {
         toast.info(t('editor.crop.autoStraightenNoLines'));
