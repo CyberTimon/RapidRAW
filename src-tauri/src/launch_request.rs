@@ -28,6 +28,7 @@ pub struct HeadlessExportSession {
 pub enum LaunchRequest {
     None,
     OpenFile(String),
+    OpenFolder(String),
     EditSession(ExternalEditSession),
     HeadlessExport(HeadlessExportSession),
     InvalidHeadless(String),
@@ -37,6 +38,7 @@ pub enum LaunchRequest {
 #[serde(rename_all = "camelCase")]
 pub struct LaunchPayload {
     pub open_with_file: Option<String>,
+    pub open_with_folder: Option<String>,
     pub edit_session: Option<ExternalEditSession>,
 }
 
@@ -156,17 +158,18 @@ pub fn parse_launch_args(args: &[String]) -> LaunchRequest {
         }
         (Some(source), None) => LaunchRequest::OpenFile(source),
         _ => match plain {
+            Some(path) if PathBuf::from(&path).is_dir() => LaunchRequest::OpenFolder(path),
             Some(path) => LaunchRequest::OpenFile(path),
             None => LaunchRequest::None,
         },
     }
 }
 
-fn handle_file_open(app_handle: &tauri::AppHandle, path: PathBuf) {
+fn emit_path_open(app_handle: &tauri::AppHandle, event: &str, path: PathBuf) {
     if let Some(path_str) = path.to_str()
-        && let Err(e) = app_handle.emit("open-with-file", path_str)
+        && let Err(e) = app_handle.emit(event, path_str)
     {
-        log::error!("Failed to emit open-with-file event: {}", e);
+        log::error!("Failed to emit {} event: {}", event, e);
     }
 }
 
@@ -178,7 +181,10 @@ pub fn emit_launch_request(app_handle: &tauri::AppHandle, request: LaunchRequest
             }
         }
         LaunchRequest::OpenFile(path) => {
-            handle_file_open(app_handle, PathBuf::from(path));
+            emit_path_open(app_handle, "open-with-file", PathBuf::from(path));
+        }
+        LaunchRequest::OpenFolder(path) => {
+            emit_path_open(app_handle, "open-with-folder", PathBuf::from(path));
         }
         LaunchRequest::HeadlessExport(_) => {
             cli_println!(

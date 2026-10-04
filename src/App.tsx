@@ -347,6 +347,7 @@ function App() {
     handleSelectSubfolder,
     handleSelectAlbum,
     handleOpenFolder,
+    handleOpenFolderPath,
     handleNavBack,
     handleNavForward,
     handleContinueSession,
@@ -360,6 +361,13 @@ function App() {
     isFinishing: isExternalEditFinishing,
     finishExternalEdit,
   } = useExternalEditSession(handleImageSelect);
+
+  const initialFolderToOpen = useProcessStore((state) => state.initialFolderToOpen);
+  useEffect(() => {
+    if (!initialFolderToOpen) return;
+    useProcessStore.getState().setProcess({ initialFolderToOpen: null });
+    handleOpenFolderPath(initialFolderToOpen);
+  }, [initialFolderToOpen, handleOpenFolderPath]);
 
   const {
     handleRate,
