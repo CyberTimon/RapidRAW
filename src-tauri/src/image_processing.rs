@@ -3559,14 +3559,19 @@ mod white_balance_tests {
         DVec3::new(xy.x / xy.y, 1.0, (1.0 - xy.x - xy.y) / xy.y)
     }
 
+    fn mired_shift(temp_units: f64) -> f64 {
+        150.0 * (temp_units + temp_units.powi(3))
+    }
+
     fn cat16(color: DVec3, temp_units: f64, tint_units: f64) -> DVec3 {
         let base_mired = WB_D65_MIRED as f64;
         let base_duv = WB_D65_DUV as f64;
+        let shift = mired_shift(temp_units);
         let source = xy_to_xyz(illuminant_xy(
-            base_mired - temp_units * 150.0,
+            base_mired + (-shift).max(0.0),
             base_duv + tint_units * 0.05,
         ));
-        let target = xy_to_xyz(illuminant_xy(base_mired, base_duv));
+        let target = xy_to_xyz(illuminant_xy(base_mired + shift.max(0.0), base_duv));
         let m16 = mat(XYZ_TO_LMS);
         let gain = (m16 * target) / (m16 * source);
         mat(LMS_TO_PIPE) * ((mat(PIPE_TO_LMS) * color) * gain)
@@ -3606,10 +3611,10 @@ mod white_balance_tests {
 
     #[test]
     fn source_white_becomes_neutral() {
-        for (temp, tint) in [(1.0, 0.0), (-1.0, 0.0), (0.0, 0.5), (-0.6, -0.4)] {
+        for (temp, tint) in [(-1.0, 0.0), (-0.3, 0.0), (0.0, 0.5), (-0.6, -0.4)] {
             let base_mired = WB_D65_MIRED as f64;
             let source = xy_to_xyz(illuminant_xy(
-                base_mired - temp * 150.0,
+                base_mired - mired_shift(temp),
                 WB_D65_DUV as f64 + tint * 0.05,
             ));
             let source_rgb = pipe_to_xyz().inverse() * source;
@@ -3636,6 +3641,19 @@ mod white_balance_tests {
         )
         .validate(&module)
         .unwrap_or_else(|e| panic!("{:?}", e));
+    }
+
+    #[test]
+    fn warm_slider_inverts_cool_slider() {
+        let color = DVec3::new(0.4, 0.25, 0.1);
+        for temp in [0.2, 0.7, 1.0] {
+            let round_trip = cat16(cat16(color, -temp, 0.0), temp, 0.0);
+            assert!(
+                (round_trip - color).abs().max_element() < 1e-6,
+                "temp {temp}: {round_trip:?} vs {color:?}"
+            );
+        }
+        assert!((mired_shift(1.0) - 300.0).abs() < 1e-9);
     }
 
     #[test]

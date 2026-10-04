@@ -711,6 +711,7 @@ const CAT16_LMS_TO_PIPE = mat3x3<f32>(
 // Slider values arrive divided by SCALES (temperature: 25, tint: 100).
 const WB_TEMP_UNIT: f32 = 4.0;
 const WB_MIRED_PER_UNIT: f32 = 150.0;
+const WB_MIRED_CUBIC: f32 = 1.0;
 const WB_DUV_PER_UNIT: f32 = 0.05;
 const WB_MIN_MIRED: f32 = 40.0;
 const WB_MAX_MIRED: f32 = 600.0;
@@ -770,11 +771,10 @@ fn apply_white_balance_cat16(color: vec3<f32>, temp: f32, tnt: f32) -> vec3<f32>
     }
     let base_mired = adjustments.global.white_balance_base_mired;
     let base_duv = adjustments.global.white_balance_base_duv;
-    let source_white = illuminant_xyz(
-        base_mired - (temp / WB_TEMP_UNIT) * WB_MIRED_PER_UNIT,
-        base_duv + tnt * WB_DUV_PER_UNIT,
-    );
-    let target_white = illuminant_xyz(base_mired, base_duv);
+    let t = temp / WB_TEMP_UNIT;
+    let shift = WB_MIRED_PER_UNIT * (t + WB_MIRED_CUBIC * t * t * t);
+    let source_white = illuminant_xyz(base_mired + max(-shift, 0.0), base_duv + tnt * WB_DUV_PER_UNIT);
+    let target_white = illuminant_xyz(base_mired + max(shift, 0.0), base_duv);
     let gain = (CAT16_XYZ_TO_LMS * target_white) / (CAT16_XYZ_TO_LMS * source_white);
     let adapted = CAT16_LMS_TO_PIPE * ((CAT16_PIPE_TO_LMS * color) * gain);
     return compress_gamut(adapted);
