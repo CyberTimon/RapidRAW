@@ -468,6 +468,8 @@
     },
     "crop": {
       "aspectRatioHeading": "寬高比",
+      "autoStraightenFailed": "自動拉直失敗：{{error}}",
+      "autoStraightenNoHorizon": "找不到清晰的地平線",
       "custom": {
         "hPlaceholder": "高",
         "hTooltip": "高度",
@@ -567,6 +569,7 @@
       "rotationHeading": "旋轉",
       "title": "裁剪與變換",
       "tooltips": {
+        "autoStraighten": "自動拉直（Shift+S）",
         "compositionOverlay": "構圖疊加",
         "flipHoriz": "水平翻轉影像",
         "flipVert": "垂直翻轉影像",
@@ -1664,6 +1667,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "自動拉直（校平地平線）",
         "brush_size_down": "減小畫筆大小",
         "brush_size_up": "增大畫筆大小",
         "color_label_blue": "顏色標籤：藍色",

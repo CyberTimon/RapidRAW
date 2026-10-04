@@ -470,6 +470,8 @@
     },
     "crop": {
       "aspectRatioHeading": "Aspect Ratio",
+      "autoStraightenFailed": "Auto straighten failed: {{error}}",
+      "autoStraightenNoHorizon": "No clear horizon found",
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Height",
@@ -569,6 +571,7 @@
       "rotationHeading": "Rotation",
       "title": "Crop & Transform",
       "tooltips": {
+        "autoStraighten": "Auto Straighten (Shift+S)",
         "compositionOverlay": "Composition Overlay",
         "flipHoriz": "Flip image horizontally",
         "flipVert": "Flip image vertically",
@@ -1666,6 +1669,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "Auto straighten (level horizon)",
         "brush_size_down": "Decrease brush size",
         "brush_size_up": "Increase brush size",
         "color_label_blue": "Color label: Blue",

@@ -510,6 +510,8 @@
     },
     "crop": {
       "aspectRatioHeading": "Proporcje",
+      "autoStraightenFailed": "Automatyczne prostowanie nie powiodło się: {{error}}",
+      "autoStraightenNoHorizon": "Nie znaleziono wyraźnego horyzontu",
       "custom": {
         "hPlaceholder": "Wys.",
         "hTooltip": "Wysokość",
@@ -609,6 +611,7 @@
       "rotationHeading": "Obrót",
       "title": "Kadrowanie i Przekształcanie",
       "tooltips": {
+        "autoStraighten": "Automatyczne prostowanie (Shift+S)",
         "compositionOverlay": "Nakładka kompozycji",
         "flipHoriz": "Przerzuć obraz w poziomie",
         "flipVert": "Przerzuć obraz w pionie",
@@ -1738,6 +1741,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "Automatyczne prostowanie (poziomowanie horyzontu)",
         "brush_size_down": "Zmniejsz rozmiar pędzla",
         "brush_size_up": "Zwiększ rozmiar pędzla",
         "color_label_blue": "Etykieta koloru: Niebieski",

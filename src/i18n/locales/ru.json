@@ -510,6 +510,8 @@
     },
     "crop": {
       "aspectRatioHeading": "Соотношение сторон",
+      "autoStraightenFailed": "Не удалось выровнять автоматически: {{error}}",
+      "autoStraightenNoHorizon": "Чёткий горизонт не найден",
       "custom": {
         "hPlaceholder": "В",
         "hTooltip": "Высота",
@@ -609,6 +611,7 @@
       "rotationHeading": "Вращение",
       "title": "Обрезка и трансформация",
       "tooltips": {
+        "autoStraighten": "Автовыравнивание горизонта (Shift+S)",
         "compositionOverlay": "Сетка композиции",
         "flipHoriz": "Отразить горизонтально",
         "flipVert": "Отразить вертикально",
@@ -1738,6 +1741,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "Автовыравнивание горизонта",
         "brush_size_down": "Уменьшить размер кисти",
         "brush_size_up": "Увеличить размер кисти",
         "color_label_blue": "Цветовая метка: Синий",
