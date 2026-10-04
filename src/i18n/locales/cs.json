@@ -208,6 +208,7 @@
     "editor": {
       "autoAdjust": "Automaticky upravit",
       "autoLensCorrection": "Auto korekce objektivu",
+      "autoStraighten": "Automaticky vyrovnat",
       "cancel": "Zrušit",
       "colorLabel": "Barevný štítek",
       "confirmReset": "Potvrďte reset",
@@ -277,6 +278,10 @@
       "autoAdjust_other": "Automaticky upravit",
       "autoLensCorrection_one": "Auto korekce objektivu",
       "autoLensCorrection_other": "Auto korekce objektivu",
+      "autoStraighten_few": "Automaticky vyrovnat snímky",
+      "autoStraighten_many": "Automaticky vyrovnat snímky",
+      "autoStraighten_one": "Automaticky vyrovnat snímek",
+      "autoStraighten_other": "Automaticky vyrovnat snímky",
       "collage_one": "Zarámovat snímek",
       "collage_other": "Vytvořit koláž",
       "confirmDelete": "Potvrdit smazání",
@@ -469,6 +474,8 @@
     },
     "crop": {
       "aspectRatioHeading": "Poměr stran",
+      "autoStraightenFailed": "Automatické vyrovnání selhalo: {{error}}",
+      "autoStraightenNoLines": "Nenalezeny žádné rovné čáry k vyrovnání",
       "custom": {
         "hPlaceholder": "V",
         "hTooltip": "Výška",
@@ -568,6 +575,7 @@
       "rotationHeading": "Otáčení",
       "title": "Oříznout a transformovat",
       "tooltips": {
+        "autoStraighten": "Automatické vyrovnání (Shift+S)",
         "compositionOverlay": "Překryvná kompozice",
         "flipHoriz": "Překlopit snímek vodorovně",
         "flipVert": "Překlopit snímek svisle",
@@ -1665,6 +1673,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "Automatické vyrovnání",
         "brush_size_down": "Zmenšit velikost štětce",
         "brush_size_up": "Zvětšit velikost štětce",
         "color_label_blue": "Barevný štítek: Modrá",
