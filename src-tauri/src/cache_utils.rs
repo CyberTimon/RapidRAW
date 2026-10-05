@@ -96,13 +96,15 @@ fn hash_relight(
             "relightIntensity",
             "relightX",
             "relightY",
-            "relightHeight",
+            "relightDepth",
             "relightAmbient",
             "relightSoftness",
             "relightSpecular",
             "relightRange",
             "relightColor",
             "relightNormalMap",
+            "relightDepthMap",
+            "relightDepthScale",
         ];
 
         for key in relight_keys {

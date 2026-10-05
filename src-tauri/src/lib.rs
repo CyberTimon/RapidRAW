@@ -2180,7 +2180,7 @@ pub fn run() {
             ai_commands::check_ai_connector_status,
             ai_commands::test_ai_connector_connection,
             ai_commands::generate_full_image_depth_map,
-            ai_commands::generate_full_image_normal_map,
+            ai_commands::generate_relight_maps,
             ai_commands::cancel_ai_task,
             apple_raw::is_raw9_available,
             inpainting::invoke_generative_replace_with_mask_def,

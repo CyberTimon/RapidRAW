@@ -178,10 +178,14 @@ export default function EffectsPanel({
   const handleGenerateRelightNormalMap = async () => {
     setIsGeneratingNormal(true);
     try {
-      const b64: string = await invoke('generate_full_image_normal_map', { jsAdjustments: adjustments });
+      const maps: { normalMap: string; depthMap: string; depthScale: number } = await invoke('generate_relight_maps', {
+        jsAdjustments: adjustments,
+      });
       setAdjustments((prev: Partial<Adjustments>) => ({
         ...prev,
-        relightNormalMap: b64,
+        relightNormalMap: maps.normalMap,
+        relightDepthMap: maps.depthMap,
+        relightDepthScale: maps.depthScale,
       }));
     } catch (e: any) {
       toast.error(`Failed to generate normal map: ${e}`);
@@ -227,7 +231,7 @@ export default function EffectsPanel({
 
   const handleRelightToggle = (enabled: boolean) => {
     handleAdjustmentChange(Effect.RelightEnabled, enabled);
-    if (enabled && !adjustments.relightNormalMap) {
+    if (enabled && (!adjustments.relightNormalMap || !adjustments.relightDepthMap)) {
       handleGenerateRelightNormalMap();
     }
   };
@@ -432,15 +436,14 @@ export default function EffectsPanel({
                         />
 
                         <Slider
-                          label={t('adjustments.effects.relightHeight')}
+                          label={t('adjustments.effects.relightDepth')}
                           max={100}
-                          min={0}
+                          min={-100}
                           defaultValue={30}
-                          onChange={(e: any) => handleAdjustmentChange(Effect.RelightHeight, e.target.value)}
+                          onChange={(e: any) => handleAdjustmentChange(Effect.RelightDepth, e.target.value)}
                           step={1}
-                          value={adjustments.relightHeight ?? 30}
+                          value={adjustments.relightDepth ?? 30}
                           onDragStateChange={onDragStateChange}
-                          fillOrigin="min"
                         />
 
                         <Slider

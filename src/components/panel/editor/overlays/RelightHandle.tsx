@@ -13,6 +13,7 @@ interface RelightHandleProps {
 }
 
 const HANDLE_SIZE = 30;
+const WHEEL_DEPTH_STEP = 4;
 
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 
@@ -35,6 +36,25 @@ export default function RelightHandle({
     },
     [],
   );
+
+  // The editor zooms with a native wheel listener, so this has to be native too to get in first.
+  useEffect(() => {
+    const handle = handleRef.current;
+    if (!handle) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const step = e.deltaY < 0 ? WHEEL_DEPTH_STEP : -WHEEL_DEPTH_STEP;
+      setAdjustments((prev: Adjustments) => ({
+        ...prev,
+        relightDepth: Math.max(-100, Math.min(100, (prev.relightDepth ?? 30) + step)),
+      }));
+    };
+
+    handle.addEventListener('wheel', handleWheel, { passive: false });
+    return () => handle.removeEventListener('wheel', handleWheel);
+  }, [setAdjustments]);
 
   const commitUv = useCallback(
     (uv: Coord) => {
@@ -101,6 +121,10 @@ export default function RelightHandle({
   const uv = dragUv ?? { x: adjustments.relightX ?? 0.3, y: adjustments.relightY ?? 0.3 };
   const display = relightUvToDisplay(uv, geometry);
   const color = adjustments.relightColor || '#ffffff';
+  const depth = Math.max(-100, Math.min(100, adjustments.relightDepth ?? 30));
+  // Closer lights look bigger; a light behind the subject gets a dashed outline.
+  const depthScale = 0.7 + 0.6 * ((depth + 100) / 200);
+  const isBehind = depth < 0;
 
   return (
     <div
@@ -120,12 +144,13 @@ export default function RelightHandle({
         top: display.y * imageRenderSize.scale + imageRenderSize.offsetY,
         width: HANDLE_SIZE,
         height: HANDLE_SIZE,
-        transform: `translate(-50%, -50%) scale(${inverseScale})`,
+        transform: `translate(-50%, -50%) scale(${inverseScale * depthScale})`,
         transformOrigin: 'center',
         cursor: dragUv ? 'grabbing' : 'grab',
         touchAction: 'none',
         background: `radial-gradient(circle at 35% 30%, #ffffff 0%, ${color} 38%, color-mix(in srgb, ${color} 45%, #000000) 100%)`,
-        border: '1.5px solid rgba(255, 255, 255, 0.9)',
+        border: `1.5px ${isBehind ? 'dashed' : 'solid'} rgba(255, 255, 255, 0.9)`,
+        opacity: isBehind ? 0.75 : 1,
         boxShadow: `0 0 0 1px rgba(0, 0, 0, 0.45), 0 0 14px 4px color-mix(in srgb, ${color} 55%, transparent), 0 2px 6px rgba(0, 0, 0, 0.5)`,
       }}
     />

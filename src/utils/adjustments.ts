@@ -100,13 +100,15 @@ export enum Effect {
   RelightIntensity = 'relightIntensity',
   RelightX = 'relightX',
   RelightY = 'relightY',
-  RelightHeight = 'relightHeight',
+  RelightDepth = 'relightDepth',
   RelightRange = 'relightRange',
   RelightAmbient = 'relightAmbient',
   RelightSoftness = 'relightSoftness',
   RelightSpecular = 'relightSpecular',
   RelightColor = 'relightColor',
   RelightNormalMap = 'relightNormalMap',
+  RelightDepthMap = 'relightDepthMap',
+  RelightDepthScale = 'relightDepthScale',
 }
 
 export enum CreativeAdjustment {
@@ -256,8 +258,10 @@ export interface Adjustments {
   orientationSteps: number;
   relightAmbient: number;
   relightColor: string;
+  relightDepth: number;
+  relightDepthMap: string | null;
+  relightDepthScale: number;
   relightEnabled: boolean;
-  relightHeight: number;
   relightIntensity: number;
   relightNormalMap: string | null;
   relightRange: number;
@@ -605,8 +609,10 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   orientationSteps: 0,
   relightAmbient: 80,
   relightColor: '#ffffff',
+  relightDepth: 30,
+  relightDepthMap: null,
+  relightDepthScale: 0,
   relightEnabled: false,
-  relightHeight: 30,
   relightIntensity: 50,
   relightNormalMap: null,
   relightRange: 60,
@@ -763,8 +769,10 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     lensBlurMinFade: loadedAdjustments.lensBlurMinFade ?? INITIAL_ADJUSTMENTS.lensBlurMinFade,
     relightAmbient: loadedAdjustments.relightAmbient ?? INITIAL_ADJUSTMENTS.relightAmbient,
     relightColor: loadedAdjustments.relightColor ?? INITIAL_ADJUSTMENTS.relightColor,
+    relightDepth: loadedAdjustments.relightDepth ?? INITIAL_ADJUSTMENTS.relightDepth,
+    relightDepthMap: loadedAdjustments.relightDepthMap ?? INITIAL_ADJUSTMENTS.relightDepthMap,
+    relightDepthScale: loadedAdjustments.relightDepthScale ?? INITIAL_ADJUSTMENTS.relightDepthScale,
     relightEnabled: loadedAdjustments.relightEnabled ?? INITIAL_ADJUSTMENTS.relightEnabled,
-    relightHeight: loadedAdjustments.relightHeight ?? INITIAL_ADJUSTMENTS.relightHeight,
     relightIntensity: loadedAdjustments.relightIntensity ?? INITIAL_ADJUSTMENTS.relightIntensity,
     relightNormalMap: loadedAdjustments.relightNormalMap ?? INITIAL_ADJUSTMENTS.relightNormalMap,
     relightRange: loadedAdjustments.relightRange ?? INITIAL_ADJUSTMENTS.relightRange,
@@ -1000,13 +1008,15 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     Effect.RelightIntensity,
     Effect.RelightX,
     Effect.RelightY,
-    Effect.RelightHeight,
+    Effect.RelightDepth,
     Effect.RelightRange,
     Effect.RelightAmbient,
     Effect.RelightSoftness,
     Effect.RelightSpecular,
     Effect.RelightColor,
     Effect.RelightNormalMap,
+    Effect.RelightDepthMap,
+    Effect.RelightDepthScale,
   ],
 };
 
