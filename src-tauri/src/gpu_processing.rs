@@ -432,6 +432,40 @@ pub fn get_or_init_gpu_context(
     Ok(new_context)
 }
 
+// Vulkan drivers can return VK_TIMEOUT well before the requested timeout, and wgpu's
+// Vulkan backend passes that straight through, so keep waiting until the deadline passes.
+fn wait_for_gpu(device: &wgpu::Device, timeout: std::time::Duration) -> Result<(), String> {
+    let start = Instant::now();
+    let mut early_timeouts = 0u32;
+    loop {
+        match device.poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: Some(timeout.saturating_sub(start.elapsed())),
+        }) {
+            Ok(_) => return Ok(()),
+            Err(wgpu::PollError::Timeout) if start.elapsed() < timeout => {
+                early_timeouts += 1;
+                if early_timeouts == 1 {
+                    log::warn!(
+                        "GPU wait timed out early after {} ms of {} s, waiting on",
+                        start.elapsed().as_millis(),
+                        timeout.as_secs()
+                    );
+                }
+                std::thread::sleep(std::time::Duration::from_millis(2));
+            }
+            Err(e) => {
+                return Err(format!(
+                    "{} (after {:.1} s, {} early timeouts)",
+                    e,
+                    start.elapsed().as_secs_f64(),
+                    early_timeouts
+                ));
+            }
+        }
+    }
+}
+
 fn read_texture_data_roi(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -478,11 +512,7 @@ fn read_texture_data_roi(
     buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
         let _ = tx.send(result);
     });
-    device
-        .poll(wgpu::PollType::Wait {
-            submission_index: None,
-            timeout: Some(std::time::Duration::from_secs(60)),
-        })
+    wait_for_gpu(device, std::time::Duration::from_secs(60))
         .map_err(|e| format!("Failed while polling mapped GPU buffer: {}", e))?;
     let map_result = rx
         .recv()
@@ -2458,10 +2488,7 @@ fn process_and_get_dynamic_image_inner(
                     let _ = tx.send(result);
                 });
 
-                if let Err(e) = device_clone.poll(wgpu::PollType::Wait {
-                    submission_index: None,
-                    timeout: Some(std::time::Duration::from_secs(60)),
-                }) {
+                if let Err(e) = wait_for_gpu(&device_clone, std::time::Duration::from_secs(60)) {
                     log::error!("Async analytics readback poll failed: {}", e);
                     return;
                 }
