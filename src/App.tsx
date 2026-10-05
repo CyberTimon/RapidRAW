@@ -31,6 +31,7 @@ import CropPanel from './components/panel/right/CropPanel';
 import MasksPanel from './components/panel/right/MasksPanel';
 import AIPanel from './components/panel/right/AIPanel';
 import PresetsPanel from './components/panel/right/PresetsPanel';
+import RelightPanel from './components/panel/right/RelightPanel';
 import TetheringPanel from './components/panel/right/TetheringPanel';
 
 import EditorView from './components/views/EditorView';
@@ -744,6 +745,8 @@ function App() {
           return <AIPanel />;
         case Panel.Presets:
           return <PresetsPanel onNavigateToCommunity={() => setUI({ activeView: 'community' })} />;
+        case Panel.Relight:
+          return <RelightPanel />;
         case Panel.Tethering:
           return <TetheringPanel onLibraryRefresh={handleLibraryRefresh} onImageSelect={handleImageSelect} />;
         default:

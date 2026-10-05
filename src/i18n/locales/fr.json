@@ -808,6 +808,7 @@
         "inpaint": "Inpainting",
         "masks": "Masques",
         "presets": "Paramètres prédéfinis",
+        "relight": "Rééclairage",
         "tethering": "Prise de vue connectée"
       }
     },

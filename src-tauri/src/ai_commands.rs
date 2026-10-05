@@ -346,40 +346,46 @@ pub async fn generate_relight_maps(
     })
 }
 
-const RELIGHT_PREVIEW_MAX_SIZE: u32 = 2560;
-
 /// Normal map as the relight pass uses it, laid out like the edited image (orientation,
 /// rotation and crop applied) so it can be shown on top of it.
 #[tauri::command]
 pub async fn generate_relight_normal_preview(
     js_adjustments: serde_json::Value,
     state: tauri::State<'_, AppState>,
-) -> Result<String, String> {
+) -> Result<tauri::ipc::Response, String> {
     let warped_image = crate::get_cached_full_warped_image(&state, &js_adjustments)?;
 
     let normals = crate::relight::render_normal_preview(warped_image.as_ref(), &js_adjustments)
         .ok_or_else(|| "No normal map available".to_string())?;
 
-    let (transformed, _) = crate::adjustment_utils::apply_spatial_transformations(
+    // The preview is smaller than the image, so the crop (stored in full-size pixels) has to
+    // shrink with it.
+    let scale = normals.width() as f64 / warped_image.width().max(1) as f64;
+    let mut layout = serde_json::json!({
+        "orientationSteps": js_adjustments["orientationSteps"],
+        "rotation": js_adjustments["rotation"],
+        "flipHorizontal": js_adjustments["flipHorizontal"],
+        "flipVertical": js_adjustments["flipVertical"],
+        "crop": js_adjustments["crop"],
+    });
+    if let Some(crop) = layout["crop"].as_object_mut() {
+        for key in ["x", "y", "width", "height"] {
+            if let Some(value) = crop.get(key).and_then(|v| v.as_f64()) {
+                crop.insert(key.to_string(), serde_json::json!(value * scale));
+            }
+        }
+    }
+
+    let (preview, _) = crate::adjustment_utils::apply_spatial_transformations(
         image::DynamicImage::ImageRgb8(normals),
-        &js_adjustments,
+        &layout,
     );
-    let preview = if transformed.width().max(transformed.height()) > RELIGHT_PREVIEW_MAX_SIZE {
-        transformed.resize(
-            RELIGHT_PREVIEW_MAX_SIZE,
-            RELIGHT_PREVIEW_MAX_SIZE,
-            image::imageops::FilterType::Triangle,
-        )
-    } else {
-        transformed.into_owned()
-    };
 
     let mut buf = Cursor::new(Vec::new());
-    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buf, 92)
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buf, 90)
         .encode_image(&preview.to_rgb8())
         .map_err(|e| e.to_string())?;
-    let base64_str = general_purpose::STANDARD.encode(buf.get_ref());
-    Ok(format!("data:image/jpeg;base64,{}", base64_str))
+    Ok(tauri::ipc::Response::new(buf.into_inner()))
 }
 
 #[allow(clippy::too_many_arguments)]

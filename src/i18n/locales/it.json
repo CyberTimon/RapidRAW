@@ -808,6 +808,7 @@
         "inpaint": "Inpainting",
         "masks": "Maschere",
         "presets": "Predefiniti",
+        "relight": "Reilluminazione",
         "tethering": "Acquisizione diretta"
       }
     },

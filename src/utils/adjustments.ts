@@ -1041,16 +1041,6 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     Effect.LensBlurMaxDepth,
     Effect.LensBlurMinFade,
     Effect.LensBlurMaxFade,
-    Effect.RelightEnabled,
-    Effect.RelightLights,
-    Effect.RelightAmbient,
-    Effect.RelightSoftness,
-    Effect.RelightSpecular,
-    Effect.RelightNormalMap,
-    Effect.RelightQuality,
-    Effect.RelightDepthMap,
-    Effect.RelightDepthScale,
-    Effect.RelightDetail,
   ],
 };
 
@@ -1098,7 +1088,6 @@ export const ADJUSTMENT_SECTION_TOOLS: Record<string, Array<AdjustmentSectionToo
   effects: [
     { id: 'creative', label: 'adjustments.effects.creative' },
     { id: 'lensBlur', label: 'adjustments.effects.lensBlur' },
-    { id: 'relight', label: 'adjustments.effects.relight' },
     { id: 'lut', label: 'adjustments.effects.lut' },
     { id: 'vignette', label: 'adjustments.effects.vignette' },
     { id: 'grain', label: 'adjustments.effects.grain' },

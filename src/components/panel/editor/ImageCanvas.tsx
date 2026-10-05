@@ -15,7 +15,7 @@ import {
   RelightLight,
 } from '../../../utils/adjustments';
 import { Mask, SubMask, SubMaskMode, ToolType } from '../right/Masks';
-import { AppSettings, BrushSettings, SelectedImage } from '../../ui/AppProperties';
+import { AppSettings, BrushSettings, Panel, SelectedImage } from '../../ui/AppProperties';
 import { RenderSize } from '../../../hooks/useImageRenderSize';
 import { useOsPlatform } from '../../../hooks/useOsPlatform';
 import { useTranslation } from 'react-i18next';
@@ -1675,7 +1675,7 @@ const ImageCanvas = memo(
         : activeCrop.y
       : 0;
 
-    const isEffectsSectionOpen = useUIStore((state) => state.collapsibleSectionsState.effects);
+    const isRelightPanelActive = useUIStore((state) => Object.values(state.activePanels).includes(Panel.Relight));
     const activeRotation =
       liveRotation !== null && liveRotation !== undefined ? liveRotation : adjustments.rotation || 0;
     const relightGeometry = useMemo<RelightGeometry>(
@@ -1718,8 +1718,7 @@ const ImageCanvas = memo(
     const isRelightHandleVisible =
       !!adjustments.relightEnabled &&
       !!adjustments.relightNormalMap &&
-      adjustments.sectionVisibility?.effects !== false &&
-      isEffectsSectionOpen &&
+      isRelightPanelActive &&
       !isCropping &&
       !isMasking &&
       !isAiEditing &&
@@ -1744,27 +1743,39 @@ const ImageCanvas = memo(
       adjustments.orientationSteps,
     ]);
 
+    const showRelightNormalPreview = useCallback((url: string | null) => {
+      setRelightNormalPreviewUrl((previous) => {
+        if (previous) URL.revokeObjectURL(previous);
+        return url;
+      });
+    }, []);
+
+    useEffect(() => () => showRelightNormalPreview(null), [showRelightNormalPreview]);
+
     useEffect(() => {
       const request = ++relightNormalPreviewRequest.current;
       if (!isRelightNormalMapVisible) {
-        setRelightNormalPreviewUrl(null);
+        showRelightNormalPreview(null);
         return;
       }
 
-      // Wait for the detail slider to settle: each render covers the full-size image.
+      // A short pause so that dragging the detail slider does not queue a render per step.
       const timeout = window.setTimeout(async () => {
         try {
-          const url: string = await invoke('generate_relight_normal_preview', {
-            jsAdjustments: relightPreviewAdjustmentsRef.current,
-          });
-          if (request === relightNormalPreviewRequest.current) setRelightNormalPreviewUrl(url);
+          // Masks, patches and LUT data play no part here and only make the request heavier.
+          const payload: Record<string, unknown> = { ...relightPreviewAdjustmentsRef.current };
+          for (const key of ['masks', 'aiPatches', 'lutData', 'lensBlurDepthMap']) delete payload[key];
+
+          const bytes: ArrayBuffer = await invoke('generate_relight_normal_preview', { jsAdjustments: payload });
+          if (request !== relightNormalPreviewRequest.current) return;
+          showRelightNormalPreview(URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: 'image/jpeg' })));
         } catch (e) {
           if (request === relightNormalPreviewRequest.current) {
-            setRelightNormalPreviewUrl(null);
+            showRelightNormalPreview(null);
             toast.error(`Failed to render normal map: ${e}`);
           }
         }
-      }, 150);
+      }, 40);
       return () => window.clearTimeout(timeout);
     }, [
       isRelightNormalMapVisible,
@@ -1773,6 +1784,7 @@ const ImageCanvas = memo(
       adjustments.relightDepthScale,
       adjustments.relightDetail,
       relightPreviewLayoutKey,
+      showRelightNormalPreview,
     ]);
 
     const effectiveZoomScale = transformState.scale > 0 ? transformState.scale : 1;

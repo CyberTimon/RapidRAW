@@ -785,6 +785,7 @@
         "inpaint": "修复",
         "masks": "蒙版",
         "presets": "预设",
+        "relight": "重新打光",
         "tethering": "联机拍摄"
       }
     },

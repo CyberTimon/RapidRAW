@@ -53,6 +53,12 @@ impl SurfaceMaps {
 // last result is kept around while the light is being moved.
 static SURFACE_MAPS_CACHE: Mutex<Option<(blake3::Hash, Arc<SurfaceMaps>)>> = Mutex::new(None);
 
+// The on-screen normal map view keeps its own, smaller maps so that looking at it never
+// evicts the full-size ones the relight pass is using.
+const PREVIEW_MAX_SIZE: u32 = 2048;
+type PreviewMaps = (blake3::Hash, (u32, u32), Arc<SurfaceMaps>);
+static PREVIEW_MAPS_CACHE: Mutex<Option<PreviewMaps>> = Mutex::new(None);
+
 struct Light {
     // Position as a fraction of the image width / height.
     x: f32,
@@ -80,13 +86,7 @@ pub fn apply_relight<'a>(
     image: Cow<'a, DynamicImage>,
     adjustments: &serde_json::Value,
 ) -> Cow<'a, DynamicImage> {
-    let effects_visible = adjustments
-        .get("sectionVisibility")
-        .and_then(|v| v.get("effects"))
-        .and_then(|s| s.as_bool())
-        .unwrap_or(true);
-
-    if !adjustments["relightEnabled"].as_bool().unwrap_or(false) || !effects_visible {
+    if !adjustments["relightEnabled"].as_bool().unwrap_or(false) {
         return image;
     }
 
@@ -114,20 +114,83 @@ pub fn apply_relight<'a>(
     Cow::Owned(DynamicImage::ImageRgb32F(out))
 }
 
-/// Renders the normal map that the relight pass actually uses for `image` (scaled up,
-/// snapped to the photo's edges and with the detail amount applied), for inspection.
+/// Renders the normal map for inspection: scaled up, snapped to the photo's edges and with
+/// the detail amount applied, like the relight pass does. It works on a reduced copy of the
+/// image, which is plenty for the screen and several times faster than the full size.
 pub fn render_normal_preview(
     image: &DynamicImage,
     adjustments: &serde_json::Value,
 ) -> Option<image::RgbImage> {
-    let (w, h) = image.dimensions();
-    if w < 2 || h < 2 {
+    let normal_b64 = adjustments["relightNormalMap"].as_str().unwrap_or("");
+    if normal_b64.is_empty() || image.width() < 2 || image.height() < 2 {
         return None;
     }
+    let depth_b64 = adjustments["relightDepthMap"].as_str().unwrap_or("");
+    let depth_scale = adjustments["relightDepthScale"].as_f64().unwrap_or(0.0) as f32;
 
-    let source = image.to_rgb32f();
-    let maps = cached_surface_maps(&source, adjustments)?;
-    drop(source);
+    // Keyed on the full-size image so that a hit does not even need the reduced copy.
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(&image.width().to_le_bytes());
+    hasher.update(&image.height().to_le_bytes());
+    hasher.update(&depth_scale.to_le_bytes());
+    hasher.update(&(normal_b64.len() as u64).to_le_bytes());
+    hasher.update(normal_b64.as_bytes());
+    hasher.update(depth_b64.as_bytes());
+    let bytes = image.as_bytes();
+    let step = (bytes.len() / 4096).max(1);
+    for chunk in bytes.chunks(16).step_by(step.div_ceil(16)) {
+        hasher.update(chunk);
+    }
+    let cache_key = hasher.finalize();
+
+    let cached = PREVIEW_MAPS_CACHE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_ref()
+        .filter(|(key, _, _)| *key == cache_key)
+        .map(|(_, size, maps)| (*size, Arc::clone(maps)));
+
+    let ((w, h), maps) = match cached {
+        Some(cached) => cached,
+        None => {
+            let start = std::time::Instant::now();
+            let small = if image.width().max(image.height()) > PREVIEW_MAX_SIZE {
+                image
+                    .thumbnail(PREVIEW_MAX_SIZE, PREVIEW_MAX_SIZE)
+                    .to_rgb32f()
+            } else {
+                image.to_rgb32f()
+            };
+            let size = small.dimensions();
+
+            let normal_map = decode_data_url(normal_b64)?.into_rgba8();
+            if normal_map.width() < 2 || normal_map.height() < 2 {
+                return None;
+            }
+            let depth_map = decode_data_url(depth_b64)
+                .map(|img| img.into_luma16())
+                .filter(|depth| depth.dimensions() == normal_map.dimensions());
+
+            let refine = size.0 >= MIN_REFINE_SIZE && size.1 >= MIN_REFINE_SIZE;
+            let maps = Arc::new(build_surface_maps(
+                &small,
+                &normal_map,
+                depth_map.as_ref(),
+                depth_scale,
+                refine,
+            ));
+            log::info!(
+                "relight preview maps ({}x{}) built in {:.2?}",
+                size.0,
+                size.1,
+                start.elapsed()
+            );
+
+            *PREVIEW_MAPS_CACHE.lock().unwrap_or_else(|e| e.into_inner()) =
+                Some((cache_key, size, Arc::clone(&maps)));
+            (size, maps)
+        }
+    };
 
     let detail = read_params(adjustments, false).detail;
     // Areas without geometry (sky) are shown dark instead of as a made-up normal.
@@ -835,6 +898,30 @@ mod tests {
         assert!(solid[2] > 250 && (solid[0] as i32 - 128).abs() <= 2);
         assert_eq!(empty.unwrap().get_pixel(3, 3).0, [32, 32, 32]);
         assert!(render_normal_preview(&image, &json!({})).is_none());
+    }
+
+    #[test]
+    fn normal_preview_is_rendered_from_a_reduced_copy_of_large_images() {
+        let image = DynamicImage::ImageRgb32F(Rgb32FImage::from_pixel(4096, 1024, Rgb([0.5; 3])));
+        let mut buf = std::io::Cursor::new(Vec::new());
+        DynamicImage::ImageRgba8(flat_normal_map([200, 128, 220], 255))
+            .write_to(&mut buf, image::ImageFormat::Png)
+            .unwrap();
+        let adjustments = json!({
+            "relightNormalMap": format!("data:image/png;base64,{}", BASE64.encode(buf.get_ref())),
+        });
+
+        let preview = render_normal_preview(&image, &adjustments).unwrap();
+        assert_eq!(preview.dimensions(), (2048, 512));
+        let px = preview.get_pixel(1000, 200).0;
+        assert!(
+            px[0] > 180 && px[2] > 200,
+            "unexpected normal colour {px:?}"
+        );
+
+        // A second request for the same image is served from the cached maps.
+        let again = render_normal_preview(&image, &adjustments).unwrap();
+        assert_eq!(preview, again);
     }
 
     #[test]

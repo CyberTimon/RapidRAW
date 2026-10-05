@@ -785,6 +785,7 @@
         "inpaint": "修復",
         "masks": "遮色片",
         "presets": "預設",
+        "relight": "重新打光",
         "tethering": "連線拍攝"
       }
     },

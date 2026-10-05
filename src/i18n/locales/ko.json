@@ -785,6 +785,7 @@
         "inpaint": "인페인팅",
         "masks": "마스크",
         "presets": "프리셋",
+        "relight": "재조명",
         "tethering": "테더링"
       }
     },

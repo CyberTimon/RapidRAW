@@ -808,6 +808,7 @@
         "inpaint": "Preencher",
         "masks": "Máscaras",
         "presets": "Predefinições",
+        "relight": "Reiluminar",
         "tethering": "Captura Conectada (Tethering)"
       }
     },

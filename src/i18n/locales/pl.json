@@ -829,6 +829,7 @@
         "inpaint": "Inpaint",
         "masks": "Maski",
         "presets": "Presety",
+        "relight": "Ponowne oświetlenie",
         "tethering": "Tethering (Połączenie przewodowe)"
       }
     },

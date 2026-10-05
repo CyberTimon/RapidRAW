@@ -133,6 +133,7 @@ export enum Panel {
   Masks = 'masks',
   Metadata = 'metadata',
   Presets = 'presets',
+  Relight = 'relight',
   FolderTree = 'folderTree',
   Tethering = 'tethering',
 }
