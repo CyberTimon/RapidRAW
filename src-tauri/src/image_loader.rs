@@ -3,7 +3,7 @@ use crate::app_settings::{AppSettings, load_settings};
 use crate::app_state::{AppState, LoadedImage};
 use crate::exif_processing;
 use crate::file_management::{parse_virtual_path, read_file_mapped};
-use crate::formats::is_raw_file;
+use crate::formats::{has_non_raw_image_signature, is_raw_file};
 use crate::image_processing::ImageMetadata;
 use crate::image_processing::{
     apply_orientation, apply_srgb_to_linear, remove_raw_artifacts_and_enhance,
@@ -104,10 +104,16 @@ pub fn load_base_image_from_bytes(
         bytes,
     );
 
-    if is_raw_file(path_for_ext_check)
-        && !use_fast_raw_dev
-        && settings.use_apple_raw9.unwrap_or(false)
-    {
+    let mut decode_as_raw = is_raw_file(path_for_ext_check);
+    if decode_as_raw && has_non_raw_image_signature(bytes) {
+        log::info!(
+            "'{}' has a RAW extension but contains a standard image, decoding it as such",
+            path_for_ext_check
+        );
+        decode_as_raw = false;
+    }
+
+    if decode_as_raw && !use_fast_raw_dev && settings.use_apple_raw9.unwrap_or(false) {
         if let Some((tracker, generation)) = &cancel_token
             && tracker.load(Ordering::SeqCst) != *generation
         {
@@ -128,7 +134,7 @@ pub fn load_base_image_from_bytes(
         }
     }
 
-    if is_raw_file(path_for_ext_check) {
+    if decode_as_raw {
         match panic::catch_unwind(move || {
             crate::raw_processing::develop_raw_image(
                 bytes,
