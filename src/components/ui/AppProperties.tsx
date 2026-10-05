@@ -263,6 +263,8 @@ export interface AppSettings {
   groupPreferredType?: GroupPreference; // legacy
   alwaysDecodeRawThumbnails?: boolean;
   workspace?: WorkspaceState;
+  mcpControlEnabled?: boolean;
+  mcpControlPort?: number;
 }
 
 export interface BrushSettings {

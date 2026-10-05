@@ -68,6 +68,8 @@ libc = "0.2.189"
 rgb = "0.8.53"
 imgref = "1.12.2"
 sysinfo = "0.39.6"
+axum = "0.8"
+tower-http = { version = "0.6", features = ["limit"] }
 
 [target.'cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))'.dependencies]
 trash = "5.2.6"

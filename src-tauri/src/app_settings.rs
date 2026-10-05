@@ -600,6 +600,13 @@ pub struct AppSettings {
     pub adjustment_layout: AdjustmentLayout,
     #[serde(default)]
     pub workspace: WorkspaceState,
+    /// MCP / agent HTTP control (distinct from hardware TCP control in #1696).
+    #[serde(default, alias = "externalControlEnabled")]
+    pub mcp_control_enabled: Option<bool>,
+    #[serde(default, alias = "externalControlPort")]
+    pub mcp_control_port: Option<u16>,
+    #[serde(default, alias = "externalControlTokenHash")]
+    pub mcp_control_token_hash: Option<String>,
 }
 
 impl Default for AppSettings {
@@ -699,6 +706,9 @@ impl Default for AppSettings {
             custom_aspect_ratios: Vec::new(),
             adjustment_layout: AdjustmentLayout::default(),
             workspace: WorkspaceState::default(),
+            mcp_control_enabled: Some(false),
+            mcp_control_port: Some(17355),
+            mcp_control_token_hash: None,
         }
     }
 }
