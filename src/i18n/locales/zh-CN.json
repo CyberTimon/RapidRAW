@@ -43,6 +43,7 @@
         "shadows": "阴影"
       },
       "hue": "色相",
+      "kelvinModeTooltip": "以开尔文显示色温",
       "localHue": "局部色调",
       "luminance": "亮度",
       "mixerColors": {
@@ -188,6 +189,9 @@
       "denoise": "降噪图像",
       "editImage": "编辑图像",
       "exportImage": "导出图像",
+      "flag": "标记",
+      "flagPick": "留用",
+      "flagReject": "已拒绝",
       "frameImage": "装裱图像",
       "mergeHdr": "合并为 HDR",
       "noLabel": "无标签",
@@ -201,7 +205,8 @@
       "resetAdjustments": "重置调整",
       "stitchPanorama": "拼接全景图",
       "tagging": "标签",
-      "undo": "撤销"
+      "undo": "撤销",
+      "unflagged": "无标记"
     },
     "folders": {
       "changeIcon": "更换图标",
@@ -224,6 +229,7 @@
     "library": {
       "addCopiedToAlbum_one": "将复制的图像添加到相册",
       "addCopiedToAlbum_other": "将 {{count}} 张复制的图像添加到相册",
+      "deleteRejected": "删除已拒绝的图像",
       "refreshView": "刷新视图"
     },
     "merge": {
@@ -296,8 +302,10 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "复制 {{section}} 设置",
+        "customizePanels": "自定义面板",
         "pasteLabel": "粘贴 {{section}} 设置",
         "pasteSettings": "粘贴设置",
+        "resetPanelLayout": "重置为默认值",
         "resetSectionSettings": "重置 {{section}} 设置"
       },
       "sections": {
@@ -310,7 +318,9 @@
       "title": "调整",
       "tooltips": {
         "autoAdjust": "自动调整图像",
+        "hideFromPanel": "在面板中隐藏",
         "resetAdjustments": "重置调整",
+        "showInPanel": "在面板中显示",
         "toggleAnalytics": "切换分析显示"
       }
     },
@@ -408,6 +418,7 @@
         "aiModelDownloading": "AI 模型下载中：",
         "basicInpaintTooltipDisabled": "生成式后端不可用或未配置。需要基础图像修复。",
         "basicInpaintTooltipEnabled": "基础图像修复更快但不具备生成式能力。取消勾选以使用生成式 AI 并输入文本提示。",
+        "cancelGeneration": "取消生成",
         "componentPropertiesTitle": "{{name}} 属性",
         "downloading": "下载中：",
         "fastInpaintDesc": "基于周围像素填充选区。",
@@ -430,6 +441,9 @@
       "custom": {
         "hPlaceholder": "高",
         "hTooltip": "高度",
+        "removeTooltip": "删除已保存的宽高比",
+        "saveTooltip": "将宽高比保存为预设",
+        "savedTooltip": "已保存的宽高比 {{ratio}}",
         "wPlaceholder": "宽",
         "wTooltip": "宽度"
       },
@@ -447,6 +461,10 @@
         "armature": {
           "desc": "骨架",
           "name": "骨架"
+        },
+        "center": {
+          "desc": "中心线",
+          "name": "中心"
         },
         "diagonal": {
           "desc": "对角线",
@@ -777,6 +795,20 @@
       "preserveTimestamps": "将文件时间戳设为 EXIF 拍摄日期",
       "title": "导出设置"
     },
+    "border": {
+      "addBorder": "添加边框",
+      "bases": {
+        "eachEdge": "各自边长",
+        "longEdge": "长边",
+        "shortEdge": "短边"
+      },
+      "basis": "厚度基准",
+      "color": "边框颜色",
+      "invalidPercent": "请为两者输入 0 到 100 之间的数字。",
+      "leftRight": "左右",
+      "percent": "%",
+      "topBottom": "上下"
+    },
     "bytes": {
       "bytes": "字节",
       "gb": "GB",
@@ -812,6 +844,14 @@
     "metadata": {
       "removeGps": "移除 GPS 数据",
       "saveWithMetadata": "保存时包含元数据"
+    },
+    "pad": {
+      "aspectRatio": "宽高比",
+      "backgroundColor": "背景颜色",
+      "invalidRatio": "请为宽度和高度输入正数。",
+      "padToAspectRatio": "填充至宽高比",
+      "ratioHeight": "宽高比高度",
+      "ratioWidth": "宽高比宽度"
     },
     "resize": {
       "dontEnlarge": "不放大",
@@ -922,6 +962,12 @@
         "editedOnly": "仅已编辑",
         "uneditedOnly": "仅未编辑"
       },
+      "flag": {
+        "all": "所有图像",
+        "excludeRejected": "隐藏已拒绝",
+        "picked": "留用",
+        "rejected": "已拒绝"
+      },
       "noMatch": "未找到匹配过滤条件的图像。",
       "rating": {
         "all": "显示全部",
@@ -1003,6 +1049,7 @@
         "filterByColorLabel": "按颜色标签过滤",
         "filterByEdited": "按编辑状态过滤",
         "filterByFileType": "按文件类型过滤",
+        "filterByFlag": "按标记过滤",
         "filterByRating": "按评分过滤",
         "groupEditedFiles": "Include edited files in groups",
         "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
@@ -1036,11 +1083,21 @@
       "expandFolder": "展开文件夹",
       "imagesCount_one": "1 张图像",
       "imagesCount_other": "{{count}} 张图像",
+      "rejected": "已拒绝",
       "tooltipAperture": "光圈",
       "tooltipFocalLength": "焦距",
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "快门速度",
       "tooltipVirtualCopy": "虚拟副本"
+    },
+    "reject": {
+      "deleteConfirm": "删除已拒绝",
+      "deleteMessage_one": "确定要删除 {{count}} 张已拒绝的图像吗？它们将被移至回收站。",
+      "deleteMessage_other": "确定要删除 {{count}} 张已拒绝的图像吗？它们将被移至回收站。",
+      "deleteTitle": "删除已拒绝的图像",
+      "noneToDelete": "没有可删除的已拒绝图像。",
+      "virtualCopiesWarning_one": "由于原始图像已被拒绝，{{count}} 个未被拒绝的虚拟副本也将被删除。",
+      "virtualCopiesWarning_other": "由于原始图像已被拒绝，{{count}} 个未被拒绝的虚拟副本也将被删除。"
     },
     "search": {
       "noResults": "未找到结果",
@@ -1224,7 +1281,7 @@
     "culling": {
       "actionDelete": "移至回收站",
       "actionRateZero": "将评分设为 1 星",
-      "actionReject": "标记为已拒绝（红色标签）",
+      "actionReject": "标记为已拒绝",
       "applyButton_one": "应用到 1 张图像",
       "applyButton_other": "应用到 {{count}} 张图像",
       "bestImage": "最佳图像",
@@ -1270,6 +1327,7 @@
       "methodAi": "NIND（AI - 最适合 RAW）",
       "methodBm3d": "BM3D（传统 - 所有格式）",
       "methodLabel": "方法",
+      "methodRaw9": "Apple RAW 9 (Neural Engine)",
       "openInEditor": "在编辑器中打开",
       "original": "原始",
       "panZoomEnabled": "平移和缩放已启用",
@@ -1457,14 +1515,6 @@
     }
   },
   "settings": {
-    "adjustments": {
-      "chromaticAberration": "色差",
-      "colorCalibration": "颜色校准",
-      "description": "隐藏不常用的调整部分以简化编辑面板。即使隐藏，您的设置也会被保留和应用。",
-      "grain": "颗粒",
-      "noiseReduction": "降噪",
-      "title": "调整可见性"
-    },
     "categories": {
       "general": "通用",
       "processing": "处理",
@@ -1553,6 +1603,7 @@
       "enableFocusMode": "启用专注模式",
       "enableNeutralGreyCanvas": "启用中性灰背景",
       "enableOsTitlebar": "启用系统标题栏",
+      "enableToolFocusMode": "启用工具专注模式",
       "enableXmpSync": "启用 XMP 同步",
       "focusMode": "专注模式",
       "focusModeDesc": "在您打开新面板时自动关闭其他面板，帮助您保持专注。",
@@ -1570,6 +1621,8 @@
       "theme": "主题",
       "themeDesc": "更改应用程序的外观和风格。",
       "title": "通用设置",
+      "toolFocusMode": "工具专注模式",
+      "toolFocusModeDesc": "展开某个工具时，自动折叠同一面板中的其他工具。",
       "xmpSync": "XMP 元数据同步",
       "xmpSyncDesc": "将评分、颜色标签和标签同步到标准 XMP 附属文件，以便与其他照片编辑器兼容。"
     },
@@ -1587,6 +1640,7 @@
         "copy_files": "复制选中的文件",
         "copy_image_path": "复制所选图片的路径",
         "cycle_zoom": "循环缩放（适应、2倍适应、100%）",
+        "delete_rejected": "删除已拒绝的文件",
         "delete_selected": "删除选中的文件",
         "focus_search": "聚焦搜索框",
         "open_image": "打开选中的图像",
@@ -1619,9 +1673,12 @@
         "toggle_library_exif": "切换 EXIF 叠加",
         "toggle_masks": "切换蒙版面板",
         "toggle_metadata": "切换元数据面板",
+        "toggle_pick": "切换留用标记",
         "toggle_presets": "切换预设面板",
+        "toggle_reject": "切换拒绝标记",
         "toggle_right_panel": "切换右侧面板",
         "undo": "撤销调整",
+        "unflag": "取消标记",
         "zoom_100": "缩放到 100%",
         "zoom_fit": "缩放以适应",
         "zoom_in": "放大",
@@ -1736,6 +1793,8 @@
       },
       "nativeDpi": "以原生 DPI 渲染",
       "preprocessing": {
+        "appleRaw9": "Apple RAW 9 引擎",
+        "appleRaw9Desc": "使用 Apple 的 Core Image RAW 9 解码器冲洗 RAW 文件。它在神经网络引擎 (Neural Engine) 上一步完成去马赛克和降噪。需要 macOS 27 或更高版本以及支持的相机；不支持的文件将自动使用内置解码器。比默认解码器慢。缩略图不受影响。",
         "applyPreprocessing": "对非 RAW 图像应用预处理",
         "applyPreprocessingDesc": "如果启用，上述基础颜色降噪和预锐化也将应用于标准格式。",
         "colorNr": "基础颜色降噪",
@@ -1744,6 +1803,7 @@
         "defaultNonRawTonemapperDesc": "应用于非 RAW 图像（如 JPEG、PNG）的色调映射器。",
         "defaultRawTonemapper": "默认 RAW 色调映射",
         "defaultRawTonemapperDesc": "应用于 RAW 图像的色调映射器。",
+        "enableAppleRaw9": "对 RAW 文件使用 Apple RAW 9",
         "enablePreprocessingNonRaws": "对非 RAW 图像启用",
         "enableTonemapperOverride": "启用色调映射覆盖",
         "highlightRecovery": "RAW 高光恢复",
@@ -1956,6 +2016,10 @@
         "virtualCopy": "虚拟副本"
       },
       "virtualCopyAbbreviation": "VC"
+    },
+    "flags": {
+      "togglePick": "切换留用",
+      "toggleReject": "切换拒绝"
     },
     "imagePicker": {
       "clearImage": "清除图像",

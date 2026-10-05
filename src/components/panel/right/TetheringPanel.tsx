@@ -221,6 +221,7 @@ export default function TetheringPanel({ onLibraryRefresh, onImageSelect }: Teth
     'goldenSpiral',
     'phiGrid',
     'armature',
+    'center',
   ];
   const [overlayIndex, setOverlayIndex] = useState(0);
   const activeOverlay = OVERLAYS[overlayIndex];

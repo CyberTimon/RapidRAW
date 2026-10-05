@@ -9,6 +9,7 @@ use crate::image_processing::{
     apply_orientation, apply_srgb_to_linear, remove_raw_artifacts_and_enhance,
 };
 use crate::mask_generation::{MaskDefinition, SubMask, generate_mask_bitmap};
+use crate::white_balance::WhiteBalance;
 use anyhow::{Context, Result, anyhow};
 use base64::{Engine as _, engine::general_purpose};
 use exif::{Reader as ExifReader, Tag};
@@ -35,6 +36,7 @@ pub struct LoadImageResult {
     pub metadata: ImageMetadata,
     pub exif: HashMap<String, String>,
     pub is_raw: bool,
+    pub as_shot_white_balance: WhiteBalance,
 }
 
 #[derive(Deserialize)]
@@ -101,6 +103,30 @@ pub fn load_base_image_from_bytes(
         path_for_ext_check,
         bytes,
     );
+
+    if is_raw_file(path_for_ext_check)
+        && !use_fast_raw_dev
+        && settings.use_apple_raw9.unwrap_or(false)
+    {
+        if let Some((tracker, generation)) = &cancel_token
+            && tracker.load(Ordering::SeqCst) != *generation
+        {
+            return Err(anyhow!("Load cancelled"));
+        }
+
+        match crate::apple_raw::develop_raw9(
+            bytes,
+            path_for_ext_check,
+            &crate::apple_raw::Raw9Options::for_loading(),
+        ) {
+            Ok(image) => return Ok(image),
+            Err(e) => log::warn!(
+                "Apple RAW 9 unavailable for '{}', falling back to rawler: {}",
+                path_for_ext_check,
+                e
+            ),
+        }
+    }
 
     if is_raw_file(path_for_ext_check) {
         match panic::catch_unwind(move || {
@@ -302,14 +328,9 @@ fn largest_tiff_jpeg_preview(buf: &[u8]) -> Option<DynamicImage> {
     None
 }
 
-fn embedded_preview_fallback(bytes: &[u8], path: &str) -> Option<DynamicImage> {
-    let img = match largest_tiff_jpeg_preview(bytes) {
-        Some(img) => img,
-        None => rawler::analyze::extract_preview_pixels(
-            path,
-            &rawler::decoders::RawDecodeParams::default(),
-        )
-        .ok()?,
+fn embedded_preview_fallback(bytes: &[u8]) -> Option<DynamicImage> {
+    let Some(img) = largest_tiff_jpeg_preview(bytes) else {
+        return crate::raw_processing::extract_embedded_preview(bytes);
     };
 
     let orientation = ExifReader::new()
@@ -327,10 +348,8 @@ fn embedded_preview_fallback(bytes: &[u8], path: &str) -> Option<DynamicImage> {
     })
 }
 
-fn safe_embedded_preview_fallback(bytes: &[u8], path: &str) -> Option<DynamicImage> {
-    match panic::catch_unwind(panic::AssertUnwindSafe(|| {
-        embedded_preview_fallback(bytes, path)
-    })) {
+pub fn safe_embedded_preview_fallback(bytes: &[u8], path: &str) -> Option<DynamicImage> {
+    match panic::catch_unwind(panic::AssertUnwindSafe(|| embedded_preview_fallback(bytes))) {
         Ok(preview) => preview,
         Err(_) => {
             log::warn!("Embedded RAW preview extraction panicked for '{}'", path);
@@ -996,11 +1015,13 @@ pub async fn load_image(
     }
 
     let (orig_width, orig_height) = pristine_arc.dimensions();
+    let as_shot_white_balance = crate::white_balance::as_shot_white_balance(&source_path_str);
 
     *state.original_image.lock().unwrap() = Some(LoadedImage {
         path,
         image: pristine_arc,
         is_raw,
+        as_shot_white_balance,
     });
 
     Ok(LoadImageResult {
@@ -1009,5 +1030,6 @@ pub async fn load_image(
         metadata,
         exif: exif_data,
         is_raw,
+        as_shot_white_balance,
     })
 }

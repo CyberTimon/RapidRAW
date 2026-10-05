@@ -1,7 +1,15 @@
 import { useMemo } from 'react';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { RawStatus, EditedStatus, SortDirection, ImageFile, GroupingMode } from '../components/ui/AppProperties';
+import {
+  RawStatus,
+  EditedStatus,
+  FlagStatus,
+  ImageFlag,
+  SortDirection,
+  ImageFile,
+  GroupingMode,
+} from '../components/ui/AppProperties';
 import { buildImageGroups, GroupBadgeInfo, GroupId } from '../utils/imageGrouping';
 
 export const ADVANCED_QUERY_REGEX =
@@ -63,6 +71,12 @@ function computeGroupedLibrary(libraryState: any, settingsState: any): GroupedLi
     if (filterCriteria.editedStatus && filterCriteria.editedStatus !== EditedStatus.All) {
       if (filterCriteria.editedStatus === EditedStatus.EditedOnly && !image.is_edited) return false;
       if (filterCriteria.editedStatus === EditedStatus.UneditedOnly && image.is_edited) return false;
+    }
+
+    if (filterCriteria.flagStatus && filterCriteria.flagStatus !== FlagStatus.All) {
+      if (filterCriteria.flagStatus === FlagStatus.Picked && image.flag !== ImageFlag.Pick) return false;
+      if (filterCriteria.flagStatus === FlagStatus.ExcludeRejected && image.flag === ImageFlag.Reject) return false;
+      if (filterCriteria.flagStatus === FlagStatus.Rejected && image.flag !== ImageFlag.Reject) return false;
     }
 
     if (filterCriteria.colors && filterCriteria.colors.length > 0) {
@@ -169,12 +183,12 @@ function computeGroupedLibrary(libraryState: any, settingsState: any): GroupedLi
     return tagsMatch && textMatch;
   };
 
-  let processedList = imageList;
+  let processedList = imageList.filter((image: ImageFile) => matchesFilter(image));
   let searchMatchingGroupIds: Set<string> | null = null;
 
   if (isGroupingActive) {
     const groupEditedFiles = appSettings?.groupEditedFiles ?? true;
-    const groupingResult = buildImageGroups(imageList, groupingMode, groupEditedFiles);
+    const groupingResult = buildImageGroups(processedList, groupingMode, groupEditedFiles);
     processedList = groupingResult.displayList;
 
     if (isSearchActive) {
@@ -188,16 +202,17 @@ function computeGroupedLibrary(libraryState: any, settingsState: any): GroupedLi
     }
   }
 
-  const filteredList = processedList.filter((image: ImageFile) => matchesFilter(image));
-
   const filteredBySearch = !isSearchActive
-    ? filteredList
-    : filteredList.filter((image: ImageFile) => {
+    ? processedList
+    : processedList.filter((image: ImageFile) => {
         if (searchMatchingGroupIds && image.group_id && searchMatchingGroupIds.has(image.group_id)) return true;
         return matchesSearch(image);
       });
 
   const list = [...filteredBySearch];
+
+  const getRatingSortValue = (image: ImageFile) =>
+    image.flag === ImageFlag.Reject ? -1 : imageRatings[image.path] || 0;
 
   list.sort((a, b) => {
     const { key, order } = sortCriteria;
@@ -233,7 +248,7 @@ function computeGroupedLibrary(libraryState: any, settingsState: any): GroupedLi
         comparison = a.modified - b.modified;
         break;
       case 'rating':
-        comparison = (imageRatings[a.path] || 0) - (imageRatings[b.path] || 0);
+        comparison = getRatingSortValue(a) - getRatingSortValue(b);
         break;
       case 'edited':
         comparison = a.is_edited === b.is_edited ? 0 : a.is_edited ? 1 : -1;

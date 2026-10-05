@@ -43,6 +43,7 @@
         "shadows": "シャドウ"
       },
       "hue": "色相",
+      "kelvinModeTooltip": "色温度をケルビンで表示",
       "localHue": "ローカル色相",
       "luminance": "輝度",
       "mixerColors": {
@@ -188,6 +189,9 @@
       "denoise": "ノイズ低減を実行",
       "editImage": "画像を編集",
       "exportImage": "画像を書き出し",
+      "flag": "フラグ",
+      "flagPick": "採用",
+      "flagReject": "除外",
       "frameImage": "画像にフレームを追加",
       "mergeHdr": "HDRに統合",
       "noLabel": "ラベルなし",
@@ -201,7 +205,8 @@
       "resetAdjustments": "補正設定をリセット",
       "stitchPanorama": "パノラマ写真を作成",
       "tagging": "タグ付け",
-      "undo": "元に戻す"
+      "undo": "元に戻す",
+      "unflagged": "フラグなし"
     },
     "folders": {
       "changeIcon": "アイコンを変更",
@@ -224,6 +229,7 @@
     "library": {
       "addCopiedToAlbum_one": "コピーした画像をアルバムに追加",
       "addCopiedToAlbum_other": "コピーした {{count}} 枚の画像をアルバムに追加",
+      "deleteRejected": "除外した画像を削除",
       "refreshView": "表示を更新"
     },
     "merge": {
@@ -296,8 +302,10 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "{{section}}設定をコピー",
+        "customizePanels": "パネルをカスタマイズ",
         "pasteLabel": "{{section}}設定を貼り付け",
         "pasteSettings": "設定を貼り付け",
+        "resetPanelLayout": "デフォルトに戻す",
         "resetSectionSettings": "{{section}}設定をリセット"
       },
       "sections": {
@@ -310,7 +318,9 @@
       "title": "補正",
       "tooltips": {
         "autoAdjust": "画像を自動補正",
+        "hideFromPanel": "パネルに表示しない",
         "resetAdjustments": "補正設定をリセット",
+        "showInPanel": "パネルに表示",
         "toggleAnalytics": "アナリティクス表示の切り替え"
       }
     },
@@ -408,6 +418,7 @@
         "aiModelDownloading": "AIモデルをダウンロード中: ",
         "basicInpaintTooltipDisabled": "生成バックエンドが利用できないか、設定されていません。簡易インペインティングが必要です。",
         "basicInpaintTooltipEnabled": "簡易インペインティングは高速ですが、非生成式です。テキストプロンプトによるAIを使用する場合はチェックを外してください。",
+        "cancelGeneration": "生成をキャンセル",
         "componentPropertiesTitle": "{{name}} のプロパティ",
         "downloading": "ダウンロード中: ",
         "fastInpaintDesc": "周囲のピクセルに基づいて選択範囲を塗りつぶします。",
@@ -430,6 +441,9 @@
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "高さ",
+        "removeTooltip": "保存したアスペクト比を削除",
+        "saveTooltip": "アスペクト比をプリセットとして保存",
+        "savedTooltip": "保存したアスペクト比 {{ratio}}",
         "wPlaceholder": "W",
         "wTooltip": "幅"
       },
@@ -447,6 +461,10 @@
         "armature": {
           "desc": "アーマチュア",
           "name": "アーマチュア"
+        },
+        "center": {
+          "desc": "中央線",
+          "name": "中央"
         },
         "diagonal": {
           "desc": "対角線",
@@ -777,6 +795,20 @@
       "preserveTimestamps": "EXIFの撮影日時からファイルタイムスタンプを設定",
       "title": "書き出し設定"
     },
+    "border": {
+      "addBorder": "枠を追加",
+      "bases": {
+        "eachEdge": "それぞれの辺",
+        "longEdge": "長辺",
+        "shortEdge": "短辺"
+      },
+      "basis": "太さの基準",
+      "color": "枠の色",
+      "invalidPercent": "両方に0から100までの数値を入力してください。",
+      "leftRight": "左右",
+      "percent": "%",
+      "topBottom": "上下"
+    },
     "bytes": {
       "bytes": "バイト",
       "gb": "GB",
@@ -812,6 +844,14 @@
     "metadata": {
       "removeGps": "GPSデータを削除",
       "saveWithMetadata": "メタデータを含めて保存"
+    },
+    "pad": {
+      "aspectRatio": "アスペクト比",
+      "backgroundColor": "背景色",
+      "invalidRatio": "幅と高さに正の数を入力してください。",
+      "padToAspectRatio": "アスペクト比に合わせて余白を追加",
+      "ratioHeight": "アスペクト比の高さ",
+      "ratioWidth": "アスペクト比の幅"
     },
     "resize": {
       "dontEnlarge": "拡大しない",
@@ -922,6 +962,12 @@
         "editedOnly": "編集済みのみ",
         "uneditedOnly": "未編集のみ"
       },
+      "flag": {
+        "all": "すべての画像",
+        "excludeRejected": "除外を非表示",
+        "picked": "採用",
+        "rejected": "除外"
+      },
       "noMatch": "フィルターに一致する画像が見つかりません。",
       "rating": {
         "all": "すべて表示",
@@ -1003,6 +1049,7 @@
         "filterByColorLabel": "カラーラベルでフィルター",
         "filterByEdited": "編集状態でフィルター",
         "filterByFileType": "ファイル形式でフィルター",
+        "filterByFlag": "フラグでフィルター",
         "filterByRating": "評価でフィルター",
         "groupEditedFiles": "Include edited files in groups",
         "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
@@ -1036,11 +1083,21 @@
       "expandFolder": "フォルダを展開",
       "imagesCount_one": "1 枚の画像",
       "imagesCount_other": "{{count}} 枚の画像",
+      "rejected": "除外",
       "tooltipAperture": "絞り値",
       "tooltipFocalLength": "焦点距離",
       "tooltipIso": "ISO感度",
       "tooltipShutterSpeed": "シャッタースピード",
       "tooltipVirtualCopy": "仮想コピー"
+    },
+    "reject": {
+      "deleteConfirm": "除外した画像を削除",
+      "deleteMessage_one": "除外した画像 {{count}} 枚を削除してもよろしいですか？ゴミ箱に移動されます。",
+      "deleteMessage_other": "除外した画像 {{count}} 枚を削除してもよろしいですか？ゴミ箱に移動されます。",
+      "deleteTitle": "除外した画像を削除",
+      "noneToDelete": "削除する除外画像はありません。",
+      "virtualCopiesWarning_one": "元画像が除外されているため、除外されていない仮想コピー {{count}} 件も削除されます。",
+      "virtualCopiesWarning_other": "元画像が除外されているため、除外されていない仮想コピー {{count}} 件も削除されます。"
     },
     "search": {
       "noResults": "結果が見つかりません",
@@ -1224,7 +1281,7 @@
     "culling": {
       "actionDelete": "ゴミ箱に移動",
       "actionRateZero": "評価を星1に設定",
-      "actionReject": "除外としてマーク (赤ラベル)",
+      "actionReject": "除外としてマーク",
       "applyButton_one": "1 枚の画像に適用",
       "applyButton_other": "{{count}} 枚の画像に適用",
       "bestImage": "ベスト画像",
@@ -1270,6 +1327,7 @@
       "methodAi": "NIND (AI - RAWに最適)",
       "methodBm3d": "BM3D (従来型 - すべての形式に対応)",
       "methodLabel": "方式",
+      "methodRaw9": "Apple RAW 9 (Neural Engine)",
       "openInEditor": "エディタで開く",
       "original": "オリジナル",
       "panZoomEnabled": "パンとズームが有効",
@@ -1457,14 +1515,6 @@
     }
   },
   "settings": {
-    "adjustments": {
-      "chromaticAberration": "色収差",
-      "colorCalibration": "カラーキャリブレーション",
-      "description": "使わない調整項目を非表示にして、編集パネルをシンプルにすることができます。非表示にしても、設定自体は維持され適用され続けます。",
-      "grain": "粒子",
-      "noiseReduction": "ノイズ低減",
-      "title": "調整項目の表示/非表示"
-    },
     "categories": {
       "general": "一般",
       "processing": "画像処理",
@@ -1553,6 +1603,7 @@
       "enableFocusMode": "フォーカスモードを有効にする",
       "enableNeutralGreyCanvas": "ニュートラルグレーの背景を有効にする",
       "enableOsTitlebar": "OSのタイトルバーを有効にする",
+      "enableToolFocusMode": "ツールフォーカスモードを有効にする",
       "enableXmpSync": "XMP同期を有効にする",
       "focusMode": "フォーカスモード",
       "focusModeDesc": "新しいパネルを開いたときに他のパネルを自動的に閉じることで、編集作業に集中できるようにします。",
@@ -1570,6 +1621,8 @@
       "theme": "テーマ",
       "themeDesc": "アプリケーションのテーマ（外観）を変更します。",
       "title": "全般設定",
+      "toolFocusMode": "ツールフォーカスモード",
+      "toolFocusModeDesc": "ツールを展開すると、同じパネル内の他のツールを自動的に折りたたみます。",
       "xmpSync": "XMPメタデータ同期",
       "xmpSyncDesc": "他の写真編集ソフトとの互換性のために、評価、カラーラベル、タグを標準のXMPサイドカーファイルと同期します。"
     },
@@ -1587,6 +1640,7 @@
         "copy_files": "選択したファイルをコピー",
         "copy_image_path": "選択した画像のパスをコピー",
         "cycle_zoom": "ズームの切り替え (全体表示、2倍拡大、100%)",
+        "delete_rejected": "除外したファイルを削除",
         "delete_selected": "選択したファイルを削除",
         "focus_search": "検索フィールドにフォーカス",
         "open_image": "選択した画像を開く",
@@ -1619,9 +1673,12 @@
         "toggle_library_exif": "EXIF重ね合わせ表示の表示/非表示",
         "toggle_masks": "マスクパネルの表示/非表示",
         "toggle_metadata": "メタデータパネルの表示/非表示",
+        "toggle_pick": "採用フラグを切り替え",
         "toggle_presets": "プリセットパネルの表示/非表示",
+        "toggle_reject": "除外フラグを切り替え",
         "toggle_right_panel": "右パネルの表示/非表示",
         "undo": "操作を元に戻す",
+        "unflag": "フラグを解除",
         "zoom_100": "100%ズーム",
         "zoom_fit": "画面に合わせる",
         "zoom_in": "ズームイン",
@@ -1736,6 +1793,8 @@
       },
       "nativeDpi": "本来の解像度でレンダリング",
       "preprocessing": {
+        "appleRaw9": "Apple RAW 9 エンジン",
+        "appleRaw9Desc": "AppleのCore Image RAW 9デコーダを使用してRAWファイルを現像します。これはNeural Engine上でデモザイク処理とノイズ低減を1ステップで行います。macOS 27以降および対応カメラが必要です。未対応のファイルは自動的に内蔵デコーダを使用します。デフォルトのデコーダより低速です。サムネイルには影響しません。",
         "applyPreprocessing": "RAW以外の画像にも事前処理を適用",
         "applyPreprocessingDesc": "有効にすると、上記のカラーノイズ低減と事前シャープ処理が標準フォーマットの画像にも適用されます。",
         "colorNr": "カラーノイズ低減 (基本)",
@@ -1744,6 +1803,7 @@
         "defaultNonRawTonemapperDesc": "RAW以外の画像 (JPEG, PNGなど) に適用されるトーンマッパーです。",
         "defaultRawTonemapper": "標準トーンマッパー (RAW)",
         "defaultRawTonemapperDesc": "RAW画像に適用される標準のトーンマッパーです。",
+        "enableAppleRaw9": "RAWファイルにApple RAW 9を使用する",
         "enablePreprocessingNonRaws": "RAW以外の画像にも適用",
         "enableTonemapperOverride": "トーンマッパーの上書きを有効化",
         "highlightRecovery": "RAWハイライト再現",
@@ -1956,6 +2016,10 @@
         "virtualCopy": "仮想コピー"
       },
       "virtualCopyAbbreviation": "仮想"
+    },
+    "flags": {
+      "togglePick": "採用を切り替え",
+      "toggleReject": "除外を切り替え"
     },
     "imagePicker": {
       "clearImage": "画像をクリア",

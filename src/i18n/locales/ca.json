@@ -43,6 +43,7 @@
         "shadows": "Ombres"
       },
       "hue": "To",
+      "kelvinModeTooltip": "Mostra la temperatura en Kelvin",
       "localHue": "To local",
       "luminance": "Luminància",
       "mixerColors": {
@@ -188,6 +189,9 @@
       "denoise": "Reduir soroll de la imatge",
       "editImage": "Editar imatge",
       "exportImage": "Exportar imatge",
+      "flag": "Marca",
+      "flagPick": "Seleccionada",
+      "flagReject": "Rebutjada",
       "frameImage": "Emmarcar imatge",
       "mergeHdr": "Fusionar a HDR",
       "noLabel": "Sense etiqueta",
@@ -201,7 +205,8 @@
       "resetAdjustments": "Restablir ajustaments",
       "stitchPanorama": "Unir panorama",
       "tagging": "Etiquetatge",
-      "undo": "Desfer"
+      "undo": "Desfer",
+      "unflagged": "Sense marca"
     },
     "folders": {
       "changeIcon": "Canviar icona",
@@ -224,6 +229,7 @@
     "library": {
       "addCopiedToAlbum_one": "Afegir imatge copiada a l'àlbum",
       "addCopiedToAlbum_other": "Afegir {{count}} imatges copiades a l'àlbum",
+      "deleteRejected": "Eliminar les imatges rebutjades",
       "refreshView": "Actualitzar vista"
     },
     "merge": {
@@ -296,8 +302,10 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "Copiar ajustaments de {{section}}",
+        "customizePanels": "Personalitzar taulers",
         "pasteLabel": "Enganxar ajustaments de {{section}}",
         "pasteSettings": "Enganxar ajustaments",
+        "resetPanelLayout": "Restablir per defecte",
         "resetSectionSettings": "Restablir ajustaments de {{section}}"
       },
       "sections": {
@@ -310,7 +318,9 @@
       "title": "Ajustaments",
       "tooltips": {
         "autoAdjust": "Ajustament automàtic de la imatge",
+        "hideFromPanel": "Ocultar del tauler",
         "resetAdjustments": "Restablir ajustaments",
+        "showInPanel": "Mostrar al tauler",
         "toggleAnalytics": "Alternar visualització d'anàlisi"
       }
     },
@@ -410,6 +420,7 @@
         "aiModelDownloading": "S'està baixant el model d'IA: ",
         "basicInpaintTooltipDisabled": "Rerefons generatiu no disponible o no configurat. Es requereix l'inpainting bàsic.",
         "basicInpaintTooltipEnabled": "L'inpainting bàsic és més ràpid però no és generatiu. Desmarqueu per utilitzar l'IA generativa amb una indicació de text.",
+        "cancelGeneration": "Cancel·lar generació",
         "componentPropertiesTitle": "Propietats de {{name}}",
         "downloading": "S'està baixant: ",
         "fastInpaintDesc": "Omplir la selecció basant-se en els píxels del voltant.",
@@ -432,6 +443,9 @@
       "custom": {
         "hPlaceholder": "Al",
         "hTooltip": "Alçada",
+        "removeTooltip": "Elimina la relació d'aspecte desada",
+        "saveTooltip": "Desa la relació d'aspecte com a predefinit",
+        "savedTooltip": "Relació d'aspecte desada {{ratio}}",
         "wPlaceholder": "Am",
         "wTooltip": "Amplada"
       },
@@ -449,6 +463,10 @@
         "armature": {
           "desc": "Armadura",
           "name": "Armadura"
+        },
+        "center": {
+          "desc": "Línies centrals",
+          "name": "Centre"
         },
         "diagonal": {
           "desc": "Línies diagonals",
@@ -779,6 +797,20 @@
       "preserveTimestamps": "Establir les marques de temps dels fitxers des de la data de captura EXIF",
       "title": "Configuració d'exportació"
     },
+    "border": {
+      "addBorder": "Afegeix una vora",
+      "bases": {
+        "eachEdge": "Cada vora respectiva",
+        "longEdge": "Vora llarga",
+        "shortEdge": "Vora curta"
+      },
+      "basis": "Base del gruix",
+      "color": "Color de la vora",
+      "invalidPercent": "Introduïu un nombre entre 0 i 100 per a tots dos.",
+      "leftRight": "Esquerra i dreta",
+      "percent": "%",
+      "topBottom": "A dalt i a baix"
+    },
     "bytes": {
       "bytes": "Bytes",
       "gb": "GB",
@@ -814,6 +846,14 @@
     "metadata": {
       "removeGps": "Eliminar dades GPS",
       "saveWithMetadata": "Desar amb metadades"
+    },
+    "pad": {
+      "aspectRatio": "Relació d'aspecte",
+      "backgroundColor": "Color de fons",
+      "invalidRatio": "Introduïu un nombre positiu per a l'amplada i l'alçada.",
+      "padToAspectRatio": "Ampliar a la relació d'aspecte",
+      "ratioHeight": "Alçada de la relació d'aspecte",
+      "ratioWidth": "Amplada de la relació d'aspecte"
     },
     "resize": {
       "dontEnlarge": "No ampliar",
@@ -924,6 +964,12 @@
         "editedOnly": "Només editades",
         "uneditedOnly": "Només no editades"
       },
+      "flag": {
+        "all": "Totes les imatges",
+        "excludeRejected": "Amaga les rebutjades",
+        "picked": "Seleccionada",
+        "rejected": "Rebutjada"
+      },
       "noMatch": "No s'ha trobat cap imatge que coincideixi amb el vostre filtre.",
       "rating": {
         "all": "Mostrar-les totes",
@@ -1005,6 +1051,7 @@
         "filterByColorLabel": "Filtrar per etiqueta de color",
         "filterByEdited": "Filtrar per estat d'edició",
         "filterByFileType": "Filtrar per tipus de fitxer",
+        "filterByFlag": "Filtrar per marca",
         "filterByRating": "Filtrar per puntuació",
         "groupEditedFiles": "Incloure fitxers editats als grups",
         "groupIgnoreMetadata": "Ignorar dates EXIF no coincidents",
@@ -1038,11 +1085,23 @@
       "expandFolder": "Expandir carpeta",
       "imagesCount_one": "1 imatge",
       "imagesCount_other": "{{count}} imatges",
+      "rejected": "Rebutjada",
       "tooltipAperture": "Obertura",
       "tooltipFocalLength": "Distància focal",
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "Velocitat d'obturació",
       "tooltipVirtualCopy": "Còpia virtual"
+    },
+    "reject": {
+      "deleteConfirm": "Eliminar les rebutjades",
+      "deleteMessage_many": "Segur que voleu eliminar {{count}} imatges rebutjades? Es mouran a la paperera.",
+      "deleteMessage_one": "Segur que voleu eliminar {{count}} imatge rebutjada? Es mourà a la paperera.",
+      "deleteMessage_other": "Segur que voleu eliminar {{count}} imatges rebutjades? Es mouran a la paperera.",
+      "deleteTitle": "Eliminar les imatges rebutjades",
+      "noneToDelete": "No hi ha imatges rebutjades per eliminar.",
+      "virtualCopiesWarning_many": "També s'eliminaran {{count}} còpies virtuals no rebutjades perquè els seus originals estan rebutjats.",
+      "virtualCopiesWarning_one": "També s'eliminarà {{count}} còpia virtual no rebutjada perquè el seu original està rebutjat.",
+      "virtualCopiesWarning_other": "També s'eliminaran {{count}} còpies virtuals no rebutjades perquè els seus originals estan rebutjats."
     },
     "search": {
       "noResults": "No s'han trobat resultats",
@@ -1226,7 +1285,7 @@
     "culling": {
       "actionDelete": "Moure a la paperera",
       "actionRateZero": "Establir puntuació a 1 estrella",
-      "actionReject": "Marcar com a rebutjada (Etiqueta vermella)",
+      "actionReject": "Marcar com a rebutjada",
       "applyButton_one": "Aplicar a 1 imatge",
       "applyButton_other": "Aplicar a {{count}} imatges",
       "bestImage": "Millor imatge",
@@ -1272,6 +1331,7 @@
       "methodAi": "NIND (IA - Millor per a RAW)",
       "methodBm3d": "BM3D (Tradicional - Tots els formats)",
       "methodLabel": "Mètode",
+      "methodRaw9": "Apple RAW 9 (Neural Engine)",
       "openInEditor": "Obrir a l'editor",
       "original": "Original",
       "panZoomEnabled": "Desplaçament i zoom activats",
@@ -1459,14 +1519,6 @@
     }
   },
   "settings": {
-    "adjustments": {
-      "chromaticAberration": "Aberració cromàtica",
-      "colorCalibration": "Calibratge de color",
-      "description": "Oculteu les seccions d'ajust que no utilitzeu sovint per simplificar el tauler d'edició. La vostra configuració es conservarà i s'aplicarà fins i tot quan estigui oculta.",
-      "grain": "Gra",
-      "noiseReduction": "Reducció de soroll",
-      "title": "Visibilitat dels ajustaments"
-    },
     "categories": {
       "general": "General",
       "processing": "Processament",
@@ -1555,6 +1607,7 @@
       "enableFocusMode": "Activar mode de concentració",
       "enableNeutralGreyCanvas": "Activa el fons gris neutre",
       "enableOsTitlebar": "Activar barra de títol del SO",
+      "enableToolFocusMode": "Activar mode de concentració en eines",
       "enableXmpSync": "Activar sincronització XMP",
       "focusMode": "Mode de concentració",
       "focusModeDesc": "Us ajuda a concentrar-vos tancant automàticament altres taulers quan n'obriu un de nou.",
@@ -1572,6 +1625,8 @@
       "theme": "Tema",
       "themeDesc": "Canvia l'aspecte de l'aplicació.",
       "title": "Configuració general",
+      "toolFocusMode": "Mode de concentració en eines",
+      "toolFocusModeDesc": "Replega automàticament les altres eines d'un tauler quan n'amplieu una.",
       "xmpSync": "Sincronització de metadades XMP",
       "xmpSyncDesc": "Sincronitzar puntuacions, etiquetes de color i etiquetes amb fitxers sidecar XMP estàndard per a la compatibilitat amb altres editors de fotos."
     },
@@ -1589,6 +1644,7 @@
         "copy_files": "Copiar els fitxers seleccionats",
         "copy_image_path": "Copiar camí de les imatges seleccionades",
         "cycle_zoom": "Alternar zoom (Ajustar, 2x Ajustar, 100%)",
+        "delete_rejected": "Eliminar els fitxers rebutjats",
         "delete_selected": "Eliminar els fitxers seleccionats",
         "focus_search": "Enfocar camp de cerca",
         "open_image": "Obrir la imatge seleccionada",
@@ -1621,9 +1677,12 @@
         "toggle_library_exif": "Alternar superposició EXIF",
         "toggle_masks": "Alternar tauler de Màscares",
         "toggle_metadata": "Alternar tauler de Metadades",
+        "toggle_pick": "Commuta la marca de seleccionada",
         "toggle_presets": "Alternar tauler d'Ajustos preestablerts",
+        "toggle_reject": "Commuta la marca de rebutjada",
         "toggle_right_panel": "Commutar el panell dret",
         "undo": "Desfer ajustament",
+        "unflag": "Treure la marca",
         "zoom_100": "Apropar al 100%",
         "zoom_fit": "Apropar per ajustar",
         "zoom_in": "Apropar",
@@ -1738,6 +1797,8 @@
       },
       "nativeDpi": "Renderitzar a la DPI nativa",
       "preprocessing": {
+        "appleRaw9": "Motor Apple RAW 9",
+        "appleRaw9Desc": "Revela els fitxers RAW amb el descodificador RAW 9 de Core Image d'Apple, que realitza el procés de demosaic i reducció de soroll en un sol pas al Neural Engine. Requereix macOS 27 o posterior i una càmera compatible; els fitxers no compatibles utilitzen automàticament el descodificador integrat. Més lent que el descodificador per defecte. Les miniatures no es veuen afectades.",
         "applyPreprocessing": "Aplicar preprocessament als No-RAW",
         "applyPreprocessingDesc": "Si està activat, la reducció del soroll de color base i la pre-nitidesa esmentades abans també s'aplicaran als formats estàndard.",
         "colorNr": "Reducció de soroll de color base",
@@ -1746,6 +1807,7 @@
         "defaultNonRawTonemapperDesc": "El mapejador de tons a aplicar a les imatges que no són RAW (p. ex., JPEG, PNG).",
         "defaultRawTonemapper": "Mapejador de tons predeterminat RAW",
         "defaultRawTonemapperDesc": "El mapejador de tons a aplicar a les imatges RAW.",
+        "enableAppleRaw9": "Utilitza Apple RAW 9 per als fitxers RAW",
         "enablePreprocessingNonRaws": "Activar per a No-RAW",
         "enableTonemapperOverride": "Activar la sobreescriptura del mapejador de tons",
         "highlightRecovery": "Recuperació de llums altes RAW",
@@ -1958,6 +2020,10 @@
         "virtualCopy": "Còpia virtual"
       },
       "virtualCopyAbbreviation": "CV"
+    },
+    "flags": {
+      "togglePick": "Commuta la selecció",
+      "toggleReject": "Commuta el rebuig"
     },
     "imagePicker": {
       "clearImage": "Esborrar imatge",

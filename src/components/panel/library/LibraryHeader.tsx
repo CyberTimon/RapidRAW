@@ -19,6 +19,7 @@ import {
   FilterCriteria,
   RawStatus,
   EditedStatus,
+  FlagStatus,
   LibraryViewMode,
   SortCriteria,
   SortDirection,
@@ -486,6 +487,7 @@ interface ViewOptionsDropdownProps {
   ratingFilterOptions: Array<{ value: number; label: string }>;
   rawStatusOptions: Array<{ key: RawStatus; label: string }>;
   editedStatusOptions: Array<{ key: EditedStatus; label: string }>;
+  flagStatusOptions: Array<{ key: FlagStatus; label: string }>;
   sortOptions: Array<{ key: string; label: string; disabled?: boolean }>;
 }
 
@@ -502,6 +504,7 @@ export function ViewOptionsDropdown({
   ratingFilterOptions,
   rawStatusOptions,
   editedStatusOptions,
+  flagStatusOptions,
   sortOptions,
 }: ViewOptionsDropdownProps) {
   const { t } = useTranslation();
@@ -528,6 +531,7 @@ export function ViewOptionsDropdown({
     filterCriteria.rating !== 0 ||
     (filterCriteria.rawStatus && filterCriteria.rawStatus !== RawStatus.All) ||
     (filterCriteria.editedStatus && filterCriteria.editedStatus !== EditedStatus.All) ||
+    (filterCriteria.flagStatus && filterCriteria.flagStatus !== FlagStatus.All) ||
     (filterCriteria.colors && filterCriteria.colors.length > 0);
 
   const [lastClickedColor, setLastClickedColor] = useState<string | null>(null);
@@ -709,6 +713,19 @@ export function ViewOptionsDropdown({
                 options={editedStatusOptions.map((o) => ({ id: o.key, label: o.label }))}
                 value={filterCriteria.editedStatus || EditedStatus.All}
                 onChange={(val) => setFilterCriteria((prev: FilterCriteria) => ({ ...prev, editedStatus: val }))}
+              />
+            </div>
+          </div>
+
+          <div>
+            <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-1 uppercase">
+              {t('library.header.viewOptions.filterByFlag')}
+            </Text>
+            <div className="px-3 mt-1">
+              <SegmentedSwitch
+                options={flagStatusOptions.map((o) => ({ id: o.key, label: o.label }))}
+                value={filterCriteria.flagStatus || FlagStatus.All}
+                onChange={(val) => setFilterCriteria((prev: FilterCriteria) => ({ ...prev, flagStatus: val }))}
               />
             </div>
           </div>

@@ -2,6 +2,9 @@ import { useCallback, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import {
   Aperture,
+  Ban,
+  Flag,
+  FlagOff,
   Check,
   ClipboardPaste,
   Copy,
@@ -53,7 +56,16 @@ import { useLibraryStore } from '../store/useLibraryStore';
 import { useProcessStore } from '../store/useProcessStore';
 import { useUIStore } from '../store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { Invokes, Option, OPTION_SEPARATOR, Panel, AlbumItem, Album, AlbumGroup } from '../components/ui/AppProperties';
+import {
+  Invokes,
+  ImageFlag,
+  Option,
+  OPTION_SEPARATOR,
+  Panel,
+  AlbumItem,
+  Album,
+  AlbumGroup,
+} from '../components/ui/AppProperties';
 import { Color, COLOR_LABELS, INITIAL_ADJUSTMENTS, normalizeLoadedAdjustments } from '../utils/adjustments';
 import TaggingSubMenu from '../context/TaggingSubMenu';
 import { useEditorActions } from './useEditorActions';
@@ -69,6 +81,7 @@ export interface UseAppContextMenusProps {
   refreshAllFolderTrees: () => Promise<void>;
   refreshImageList: () => Promise<void>;
   executeDelete: (paths: string[], options: any) => Promise<void>;
+  handleDeleteRejected: () => void;
   handleTogglePinFolder: (path: string) => Promise<void>;
 }
 
@@ -83,7 +96,24 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
     handleCopyAdjustments,
     handlePasteAdjustments,
   } = useEditorActions();
-  const { handleRate, handleSetColorLabel, handleTagsChanged } = useLibraryActions();
+  const { handleRate, handleSetFlag, handleSetColorLabel, handleTagsChanged } = useLibraryActions();
+
+  const buildFlagMenu = useCallback(
+    (paths?: string[]) => ({
+      label: t('contextMenus.editor.flag'),
+      icon: Flag,
+      submenu: [
+        { label: t('contextMenus.editor.flagPick'), icon: Flag, onClick: () => handleSetFlag(ImageFlag.Pick, paths) },
+        {
+          label: t('contextMenus.editor.flagReject'),
+          icon: Ban,
+          onClick: () => handleSetFlag(ImageFlag.Reject, paths),
+        },
+        { label: t('contextMenus.editor.unflagged'), icon: FlagOff, onClick: () => handleSetFlag(null, paths) },
+      ],
+    }),
+    [handleSetFlag, t],
+  );
 
   const albumIcons = useMemo(
     () => [
@@ -274,6 +304,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
             onClick: () => handleRate(rating),
           })),
         },
+        buildFlagMenu(),
         {
           label: t('contextMenus.editor.colorLabel'),
           icon: Palette,
@@ -333,6 +364,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
       handlePasteAdjustments,
       handleAutoAdjustments,
       handleRate,
+      buildFlagMenu,
       handleSetColorLabel,
       handleTagsChanged,
       showContextMenu,
@@ -739,6 +771,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
             onClick: () => handleRate(rating, finalSelection),
           })),
         },
+        buildFlagMenu(finalSelection),
         {
           label: t('contextMenus.editor.colorLabel'),
           icon: Palette,
@@ -824,6 +857,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
       handleCopyAdjustments,
       handlePasteAdjustments,
       handleRate,
+      buildFlagMenu,
       handleSetColorLabel,
       handleTagsChanged,
       handleResetAdjustments,
@@ -1294,7 +1328,7 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
       event.stopPropagation();
 
       const { copiedFilePaths, setProcess } = useProcessStore.getState();
-      const { currentFolderPath, activeAlbumId, setLibrary } = useLibraryStore.getState();
+      const { currentFolderPath, activeAlbumId, imageList, setLibrary } = useLibraryStore.getState();
 
       const numCopied = copiedFilePaths.length;
       const copyPastedLabel = t('contextMenus.folders.copyHere', { count: numCopied });
@@ -1368,6 +1402,14 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
           label: t('contextMenus.folders.importImages'),
           onClick: () => props.handleImportClick(currentFolderPath as string),
           disabled: !currentFolderPath || isAlbumView,
+        },
+        { type: OPTION_SEPARATOR },
+        {
+          icon: Trash2,
+          label: t('contextMenus.library.deleteRejected'),
+          isDestructive: true,
+          disabled: !imageList.some((image) => image.flag === ImageFlag.Reject),
+          onClick: props.handleDeleteRejected,
         },
       ];
 

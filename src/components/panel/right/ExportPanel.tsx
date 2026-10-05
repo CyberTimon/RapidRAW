@@ -11,6 +11,7 @@ import Dropdown from '../../ui/Dropdown';
 import Slider from '../../ui/Slider';
 import ImagePicker from '../../ui/ImagePicker';
 import {
+  BorderBasis,
   ExportPreset,
   ExportSettings,
   FileFormat,
@@ -41,6 +42,114 @@ interface ExportPanelProps {
   rootPaths: string[];
   isVisible?: boolean;
   onClose?: () => void;
+}
+
+const MAX_PAD_RATIO = 1000;
+
+function parseRatio(value: string): number | null {
+  const parsed = Number(value.trim().replace(',', '.'));
+  return Number.isFinite(parsed) && parsed > 0 && parsed <= MAX_PAD_RATIO ? parsed : null;
+}
+
+const MAX_BORDER_PERCENT = 100;
+
+function parsePercent(value: string): number | null {
+  const parsed = Number(value.trim().replace(',', '.'));
+  return Number.isFinite(parsed) && parsed >= 0 && parsed <= MAX_BORDER_PERCENT ? parsed : null;
+}
+
+function normalizeHexColor(value: string): string | null {
+  const trimmed = value.trim();
+  const hex = trimmed.startsWith('#') ? trimmed.slice(1) : trimmed;
+  return /^[0-9a-fA-F]{6}$/.test(hex) ? `#${hex.toLowerCase()}` : null;
+}
+
+interface ParsedTextField<T> {
+  text: string;
+  parsed: T | null;
+  handleChange: (text: string) => void;
+  resetText: () => void;
+}
+
+function useParsedTextField<T>(
+  value: T,
+  onValidChange: (value: T) => void,
+  parse: (text: string) => T | null,
+): ParsedTextField<T> {
+  const [text, setText] = useState<string>(String(value));
+
+  useEffect(() => {
+    setText(String(value));
+  }, [value]);
+
+  const handleChange = (next: string) => {
+    setText(next);
+    const parsed = parse(next);
+    if (parsed !== null) onValidChange(parsed);
+  };
+
+  return { text, parsed: parse(text), handleChange, resetText: () => setText(String(value)) };
+}
+
+interface ValidatedNumberInputProps {
+  ariaLabel: string;
+  disabled: boolean;
+  field: ParsedTextField<number>;
+  max?: number;
+}
+
+function ValidatedNumberInput({ ariaLabel, disabled, field, max }: ValidatedNumberInputProps) {
+  return (
+    <input
+      aria-label={ariaLabel}
+      className={`w-20 bg-surface text-center rounded-md p-2 border focus:ring-accent text-text-secondary focus:text-text-primary ${
+        field.parsed === null ? 'border-red-500' : 'border-surface focus:border-accent'
+      }`}
+      disabled={disabled}
+      max={max}
+      min="0"
+      onChange={(e) => field.handleChange(e.target.value)}
+      step="any"
+      type="number"
+      value={field.text}
+    />
+  );
+}
+
+interface ColorFieldProps {
+  color: string;
+  disabled: boolean;
+  field: ParsedTextField<string>;
+  label: string;
+  onColorChange: (color: string) => void;
+}
+
+function ColorField({ color, disabled, field, label, onColorChange }: ColorFieldProps) {
+  return (
+    <div>
+      <Text variant={TextVariants.label} className="mb-2 block">
+        {label}
+      </Text>
+      <div className="flex items-center gap-2 bg-surface p-2 rounded-md">
+        <input
+          aria-label={label}
+          className="w-8 h-8 p-0 border-none rounded-sm cursor-pointer bg-transparent"
+          disabled={disabled}
+          onChange={(e) => onColorChange(e.target.value)}
+          type="color"
+          value={color}
+        />
+        <input
+          className="w-full bg-bg-primary text-center rounded-md p-1 border border-surface focus:border-accent focus:ring-accent"
+          disabled={disabled}
+          onBlur={field.resetText}
+          onChange={(e) => field.handleChange(e.target.value)}
+          type="text"
+          value={field.text}
+        />
+      </div>
+    </div>
+  );
 }
 
 interface SectionProps {
@@ -197,6 +306,15 @@ export default function ExportPanel({
     [t],
   );
 
+  const borderBasisOptions = useMemo(
+    () => [
+      { label: t('export.border.bases.longEdge'), value: BorderBasis.LongEdge },
+      { label: t('export.border.bases.shortEdge'), value: BorderBasis.ShortEdge },
+      { label: t('export.border.bases.eachEdge'), value: BorderBasis.EachEdge },
+    ],
+    [t],
+  );
+
   const tiffBitDepthOptions = useMemo(
     () => [
       { label: t('export.file.tiffBitDepth8'), value: '8' },
@@ -220,6 +338,24 @@ export default function ExportPanel({
     setResizeValue,
     dontEnlarge,
     setDontEnlarge,
+    enablePad,
+    setEnablePad,
+    padRatioWidth,
+    setPadRatioWidth,
+    padRatioHeight,
+    setPadRatioHeight,
+    padColor,
+    setPadColor,
+    enableBorder,
+    setEnableBorder,
+    borderBasis,
+    setBorderBasis,
+    borderHorizontalPercent,
+    setBorderHorizontalPercent,
+    borderVerticalPercent,
+    setBorderVerticalPercent,
+    borderColor,
+    setBorderColor,
     keepMetadata,
     setKeepMetadata,
     preserveTimestamps,
@@ -283,6 +419,35 @@ export default function ExportPanel({
     },
     [appSettings, currentSettingsObject, onSettingsChange],
   );
+
+  const padRatioWidthField = useParsedTextField(padRatioWidth, setPadRatioWidth, parseRatio);
+  const padRatioHeightField = useParsedTextField(padRatioHeight, setPadRatioHeight, parseRatio);
+  const padColorField = useParsedTextField(padColor, setPadColor, normalizeHexColor);
+
+  const padRatioWidthValue = padRatioWidthField.parsed;
+  const padRatioHeightValue = padRatioHeightField.parsed;
+  const isPadValid = !enablePad || (padRatioWidthValue !== null && padRatioHeightValue !== null);
+  const padSettings =
+    enablePad && padRatioWidthValue !== null && padRatioHeightValue !== null
+      ? { ratioWidth: padRatioWidthValue, ratioHeight: padRatioHeightValue, color: padColor }
+      : null;
+
+  const borderHorizontalField = useParsedTextField(borderHorizontalPercent, setBorderHorizontalPercent, parsePercent);
+  const borderVerticalField = useParsedTextField(borderVerticalPercent, setBorderVerticalPercent, parsePercent);
+  const borderColorField = useParsedTextField(borderColor, setBorderColor, normalizeHexColor);
+
+  const borderHorizontalValue = borderHorizontalField.parsed;
+  const borderVerticalValue = borderVerticalField.parsed;
+  const isBorderValid = !enableBorder || (borderHorizontalValue !== null && borderVerticalValue !== null);
+  const borderSettings =
+    enableBorder && borderHorizontalValue !== null && borderVerticalValue !== null
+      ? {
+          basis: borderBasis,
+          horizontalPercent: borderHorizontalValue,
+          verticalPercent: borderVerticalValue,
+          color: borderColor,
+        }
+      : null;
 
   const [estimatedSize, setEstimatedSize] = useState<number | null>(null);
   const [isEstimating, setIsEstimating] = useState<boolean>(false);
@@ -400,6 +565,8 @@ export default function ExportPanel({
       destinationType,
       subfolder,
       resize: enableResize ? { mode: resizeMode, value: resizeValue, dontEnlarge } : null,
+      border: borderSettings,
+      pad: padSettings,
       stripGps,
       exportMasks: exportMasks,
       watermark:
@@ -443,6 +610,15 @@ export default function ExportPanel({
     resizeMode,
     resizeValue,
     dontEnlarge,
+    enablePad,
+    padRatioWidthField.text,
+    padRatioHeightField.text,
+    padColor,
+    enableBorder,
+    borderBasis,
+    borderHorizontalField.text,
+    borderVerticalField.text,
+    borderColor,
     keepMetadata,
     preserveTimestamps,
     stripGps,
@@ -486,6 +662,8 @@ export default function ExportPanel({
       destinationType,
       subfolder,
       resize: enableResize ? { mode: resizeMode, value: resizeValue, dontEnlarge } : null,
+      border: borderSettings,
+      pad: padSettings,
       stripGps,
       exportMasks: exportMasks,
       watermark:
@@ -590,7 +768,7 @@ export default function ExportPanel({
     }
   };
 
-  const canExport = numImages > 0;
+  const canExport = numImages > 0 && isPadValid && isBorderValid;
   const isLut = fileFormat === FileFormats.Cube;
   const itemLabel = isLut ? t('export.labels.lut') : t('export.labels.image');
   const itemLabelPlural = isLut ? t('export.labels.lut_plural') : t('export.labels.image_plural');
@@ -720,6 +898,104 @@ export default function ExportPanel({
             {fileFormat !== FileFormats.Cube && (
               <>
                 <Section title={t('export.sections.imageSizing')}>
+                  <Switch
+                    label={t('export.border.addBorder')}
+                    checked={enableBorder}
+                    onChange={setEnableBorder}
+                    disabled={isExporting}
+                    trackClassName="bg-surface"
+                  />
+                  {enableBorder && (
+                    <div className="space-y-4 pl-2 border-l-2 border-surface">
+                      <div>
+                        <Text variant={TextVariants.label} className="mb-2 block">
+                          {t('export.border.basis')}
+                        </Text>
+                        <Dropdown
+                          options={borderBasisOptions}
+                          value={borderBasis}
+                          onChange={setBorderBasis}
+                          disabled={isExporting}
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Text variant={TextVariants.label} className="flex-1">
+                          {t('export.border.leftRight')}
+                        </Text>
+                        <ValidatedNumberInput
+                          ariaLabel={t('export.border.leftRight')}
+                          disabled={isExporting}
+                          field={borderHorizontalField}
+                          max={MAX_BORDER_PERCENT}
+                        />
+                        <Text variant={TextVariants.label}>{t('export.border.percent')}</Text>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Text variant={TextVariants.label} className="flex-1">
+                          {t('export.border.topBottom')}
+                        </Text>
+                        <ValidatedNumberInput
+                          ariaLabel={t('export.border.topBottom')}
+                          disabled={isExporting}
+                          field={borderVerticalField}
+                          max={MAX_BORDER_PERCENT}
+                        />
+                        <Text variant={TextVariants.label}>{t('export.border.percent')}</Text>
+                      </div>
+                      {!isBorderValid && (
+                        <Text variant={TextVariants.label} className="text-red-500">
+                          {t('export.border.invalidPercent')}
+                        </Text>
+                      )}
+                      <ColorField
+                        color={borderColor}
+                        disabled={isExporting}
+                        field={borderColorField}
+                        label={t('export.border.color')}
+                        onColorChange={setBorderColor}
+                      />
+                    </div>
+                  )}
+                  <Switch
+                    label={t('export.pad.padToAspectRatio')}
+                    checked={enablePad}
+                    onChange={setEnablePad}
+                    disabled={isExporting}
+                    trackClassName="bg-surface"
+                  />
+                  {enablePad && (
+                    <div className="space-y-4 pl-2 border-l-2 border-surface">
+                      <div className="flex items-center gap-2">
+                        <Text variant={TextVariants.label} className="flex-1">
+                          {t('export.pad.aspectRatio')}
+                        </Text>
+                        <ValidatedNumberInput
+                          ariaLabel={t('export.pad.ratioWidth')}
+                          disabled={isExporting}
+                          field={padRatioWidthField}
+                        />
+                        <Text variant={TextVariants.label}>:</Text>
+                        <ValidatedNumberInput
+                          ariaLabel={t('export.pad.ratioHeight')}
+                          disabled={isExporting}
+                          field={padRatioHeightField}
+                        />
+                      </div>
+                      {!isPadValid && (
+                        <Text variant={TextVariants.label} className="text-red-500">
+                          {t('export.pad.invalidRatio')}
+                        </Text>
+                      )}
+                      <ColorField
+                        color={padColor}
+                        disabled={isExporting}
+                        field={padColorField}
+                        label={t('export.pad.backgroundColor')}
+                        onColorChange={setPadColor}
+                      />
+                    </div>
+                  )}
                   <Switch
                     label={t('export.resize.resizeToFit')}
                     checked={enableResize}
@@ -952,9 +1228,9 @@ export default function ExportPanel({
           className="w-full"
         >
           <Button
-            className={`group rounded-md h-11 w-full flex items-center text-md font-bold! justify-center ${
+            className={`group rounded-md h-11 w-full flex items-center text-md font-bold! justify-center transition-colors ${
               status === Status.Exporting
-                ? 'bg-red-600/80 hover:bg-red-600 text-white'
+                ? 'bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 shadow-none'
                 : status === Status.Cancelling
                   ? 'bg-yellow-500/20 text-yellow-400 shadow-none'
                   : status === Status.Success
@@ -978,7 +1254,7 @@ export default function ExportPanel({
                     : t('export.status.exporting')}
                 </span>
                 <span className="hidden items-center group-hover:flex">
-                  <Ban size={18} className="mr-2" />
+                  <X size={18} className="mr-2" />
                   {t('export.status.cancelExport')}
                 </span>
               </>

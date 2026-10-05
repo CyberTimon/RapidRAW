@@ -43,6 +43,7 @@
         "shadows": "Ombres"
       },
       "hue": "Teinte",
+      "kelvinModeTooltip": "Afficher la température en Kelvin",
       "localHue": "Teinte locale",
       "luminance": "Luminance",
       "mixerColors": {
@@ -188,6 +189,9 @@
       "denoise": "Débruiter l'image",
       "editImage": "Modifier l'image",
       "exportImage": "Exporter l'image",
+      "flag": "Marquage",
+      "flagPick": "Retenue",
+      "flagReject": "Rejetée",
       "frameImage": "Encadrer l'image",
       "mergeHdr": "Fusionner en HDR",
       "noLabel": "Aucune étiquette",
@@ -202,7 +206,8 @@
       "resetAdjustments": "Réinitialiser les ajustements",
       "stitchPanorama": "Assembler le panorama",
       "tagging": "Marquage",
-      "undo": "Annuler"
+      "undo": "Annuler",
+      "unflagged": "Non marquée"
     },
     "folders": {
       "changeIcon": "Changer l'icône",
@@ -228,6 +233,7 @@
       "addCopiedToAlbum_many": "Ajouter {{count}} images copiées à l'album",
       "addCopiedToAlbum_one": "Ajouter l'image copiée à l'album",
       "addCopiedToAlbum_other": "Ajouter {{count}} images copiées à l'album",
+      "deleteRejected": "Supprimer les images rejetées",
       "refreshView": "Actualiser l'affichage"
     },
     "merge": {
@@ -312,8 +318,10 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "Copier les paramètres de la section {{section}}",
+        "customizePanels": "Personnaliser les panneaux",
         "pasteLabel": "Coller les paramètres de la section {{section}}",
         "pasteSettings": "Coller les paramètres",
+        "resetPanelLayout": "Réinitialiser par défaut",
         "resetSectionSettings": "Réinitialiser les paramètres de la section {{section}}"
       },
       "sections": {
@@ -326,7 +334,9 @@
       "title": "Ajustements",
       "tooltips": {
         "autoAdjust": "Ajustement auto de l'image",
+        "hideFromPanel": "Masquer du panneau",
         "resetAdjustments": "Réinitialiser les ajustements",
+        "showInPanel": "Afficher dans le panneau",
         "toggleAnalytics": "Basculer l'affichage des analyses"
       }
     },
@@ -430,6 +440,7 @@
         "aiModelDownloading": "Téléchargement du modèle IA : ",
         "basicInpaintTooltipDisabled": "Moteur génératif non disponible ou non configuré. L'inpainting simple est requis.",
         "basicInpaintTooltipEnabled": "L'inpainting simple est plus rapide mais non génératif. Décochez pour utiliser l'IA générative avec un prompt texte.",
+        "cancelGeneration": "Annuler la génération",
         "componentPropertiesTitle": "Propriétés de {{name}}",
         "downloading": "Téléchargement : ",
         "fastInpaintDesc": "Remplir la sélection en fonction des pixels environnants.",
@@ -452,6 +463,9 @@
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Hauteur",
+        "removeTooltip": "Supprimer le rapport d'aspect enregistré",
+        "saveTooltip": "Enregistrer le rapport d'aspect comme préréglage",
+        "savedTooltip": "Rapport d'aspect enregistré {{ratio}}",
         "wPlaceholder": "L",
         "wTooltip": "Largeur"
       },
@@ -469,6 +483,10 @@
         "armature": {
           "desc": "Armature",
           "name": "Armature"
+        },
+        "center": {
+          "desc": "Lignes centrales",
+          "name": "Centre"
         },
         "diagonal": {
           "desc": "Lignes diagonales",
@@ -800,6 +818,20 @@
       "preserveTimestamps": "Définir l'horodatage des fichiers à partir de la date de prise de vue EXIF",
       "title": "Paramètres d'exportation"
     },
+    "border": {
+      "addBorder": "Ajouter une bordure",
+      "bases": {
+        "eachEdge": "Chaque bord respectif",
+        "longEdge": "Bord long",
+        "shortEdge": "Bord court"
+      },
+      "basis": "Base de l'épaisseur",
+      "color": "Couleur de la bordure",
+      "invalidPercent": "Saisissez un nombre entre 0 et 100 pour les deux.",
+      "leftRight": "Gauche et droite",
+      "percent": "%",
+      "topBottom": "Haut et bas"
+    },
     "bytes": {
       "bytes": "Octets",
       "gb": "Go",
@@ -836,6 +868,14 @@
     "metadata": {
       "removeGps": "Supprimer les données GPS",
       "saveWithMetadata": "Enregistrer avec les métadonnées"
+    },
+    "pad": {
+      "aspectRatio": "Rapport d'aspect",
+      "backgroundColor": "Couleur d'arrière-plan",
+      "invalidRatio": "Saisissez un nombre positif pour la largeur et la hauteur.",
+      "padToAspectRatio": "Étendre au rapport d'aspect",
+      "ratioHeight": "Hauteur du rapport d'aspect",
+      "ratioWidth": "Largeur du rapport d'aspect"
     },
     "resize": {
       "dontEnlarge": "Ne pas agrandir",
@@ -947,6 +987,12 @@
         "editedOnly": "Uniquement les images modifiées",
         "uneditedOnly": "Uniquement les images non modifiées"
       },
+      "flag": {
+        "all": "Toutes les images",
+        "excludeRejected": "Masquer les rejetées",
+        "picked": "Retenue",
+        "rejected": "Rejetée"
+      },
       "noMatch": "Aucune image ne correspond à votre filtre.",
       "rating": {
         "all": "Tout afficher",
@@ -1028,6 +1074,7 @@
         "filterByColorLabel": "Filtrer par étiquette de couleur",
         "filterByEdited": "Filtrer par statut de modification",
         "filterByFileType": "Filtrer par type de fichier",
+        "filterByFlag": "Filtrer par marquage",
         "filterByRating": "Filtrer par note",
         "groupEditedFiles": "Include edited files in groups",
         "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
@@ -1062,11 +1109,23 @@
       "imagesCount_many": "{{count}} images",
       "imagesCount_one": "1 image",
       "imagesCount_other": "{{count}} images",
+      "rejected": "Rejetée",
       "tooltipAperture": "Ouverture",
       "tooltipFocalLength": "Longueur focale",
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "Vitesse d'obturation",
       "tooltipVirtualCopy": "Copie virtuelle"
+    },
+    "reject": {
+      "deleteConfirm": "Supprimer les rejetées",
+      "deleteMessage_many": "Voulez-vous vraiment supprimer {{count}} images rejetées ? Elles seront déplacées dans la corbeille.",
+      "deleteMessage_one": "Voulez-vous vraiment supprimer {{count}} image rejetée ? Elle sera déplacée dans la corbeille.",
+      "deleteMessage_other": "Voulez-vous vraiment supprimer {{count}} images rejetées ? Elles seront déplacées dans la corbeille.",
+      "deleteTitle": "Supprimer les images rejetées",
+      "noneToDelete": "Aucune image rejetée à supprimer.",
+      "virtualCopiesWarning_many": "{{count}} copies virtuelles non rejetées seront aussi supprimées, car leurs originaux sont rejetés.",
+      "virtualCopiesWarning_one": "{{count}} copie virtuelle non rejetée sera aussi supprimée, car son original est rejeté.",
+      "virtualCopiesWarning_other": "{{count}} copies virtuelles non rejetées seront aussi supprimées, car leurs originaux sont rejetés."
     },
     "search": {
       "noResults": "Aucun résultat trouvé",
@@ -1250,7 +1309,7 @@
     "culling": {
       "actionDelete": "Mettre à la corbeille",
       "actionRateZero": "Définir la note sur 1 étoile",
-      "actionReject": "Marquer comme rejeté (Étiquette rouge)",
+      "actionReject": "Marquer comme rejeté",
       "applyButton_many": "Appliquer à {{count}} images",
       "applyButton_one": "Appliquer à 1 image",
       "applyButton_other": "Appliquer à {{count}} images",
@@ -1298,6 +1357,7 @@
       "methodAi": "NIND (IA - Meilleur pour RAW)",
       "methodBm3d": "BM3D (Traditionnel - Tous formats)",
       "methodLabel": "Méthode",
+      "methodRaw9": "Apple RAW 9 (Neural Engine)",
       "openInEditor": "Ouvrir dans l'éditeur",
       "original": "Original",
       "panZoomEnabled": "Panoramique & Zoom activés",
@@ -1489,14 +1549,6 @@
     }
   },
   "settings": {
-    "adjustments": {
-      "chromaticAberration": "Aberration chromatique",
-      "colorCalibration": "Étalonnage des couleurs",
-      "description": "Masquez les sections d'ajustement que vous n'utilisez pas souvent pour simplifier le panneau de retouche. Vos paramètres seront conservés et appliqués même s'ils sont masqués.",
-      "grain": "Grain",
-      "noiseReduction": "Réduction du bruit",
-      "title": "Visibilité des ajustements"
-    },
     "categories": {
       "general": "Général",
       "processing": "Traitement",
@@ -1588,6 +1640,7 @@
       "enableFocusMode": "Activer le mode de concentration",
       "enableNeutralGreyCanvas": "Activer le fond gris neutre",
       "enableOsTitlebar": "Activer la barre de titre de l'OS",
+      "enableToolFocusMode": "Activer le mode de concentration sur les outils",
       "enableXmpSync": "Activer la synchronisation XMP",
       "focusMode": "Mode de concentration",
       "focusModeDesc": "Vous aide à vous concentrer en fermant automatiquement les autres panneaux lorsque vous en ouvrez un nouveau.",
@@ -1605,6 +1658,8 @@
       "theme": "Thème",
       "themeDesc": "Modifier l'apparence et l'ergonomie de l'application.",
       "title": "Paramètres généraux",
+      "toolFocusMode": "Mode de concentration sur les outils",
+      "toolFocusModeDesc": "Replie automatiquement les autres outils d'un panneau lorsque vous en déployez un.",
       "xmpSync": "Synchronisation des métadonnées XMP",
       "xmpSyncDesc": "Synchroniser les notes, les étiquettes de couleur et les tags vers des fichiers annexes XMP standard pour la compatibilité avec d'autres éditeurs de photos."
     },
@@ -1622,6 +1677,7 @@
         "copy_files": "Copier le(s) fichier(s) sélectionné(s)",
         "copy_image_path": "Copier le chemin de la ou des images sélectionnées",
         "cycle_zoom": "Faire défiler le zoom (Ajuster, 2x Ajuster, 100%)",
+        "delete_rejected": "Supprimer le(s) fichier(s) rejeté(s)",
         "delete_selected": "Supprimer le(s) fichier(s) sélectionné(s)",
         "focus_search": "Activer le champ de recherche",
         "open_image": "Ouvrir l'image sélectionnée",
@@ -1654,9 +1710,12 @@
         "toggle_library_exif": "Basculer la superposition EXIF",
         "toggle_masks": "Basculer le panneau des masques",
         "toggle_metadata": "Basculer le panneau des métadonnées",
+        "toggle_pick": "Basculer le marquage retenu",
         "toggle_presets": "Basculer le panneau des paramètres prédéfinis",
+        "toggle_reject": "Basculer le marquage rejeté",
         "toggle_right_panel": "Afficher/Masquer le panneau droit",
         "undo": "Annuler l'ajustement",
+        "unflag": "Retirer le marquage",
         "zoom_100": "Zoomer à 100%",
         "zoom_fit": "Zoomer pour ajuster",
         "zoom_in": "Zoom avant",
@@ -1771,6 +1830,8 @@
       },
       "nativeDpi": "Rendre à la DPI native",
       "preprocessing": {
+        "appleRaw9": "Moteur Apple RAW 9",
+        "appleRaw9Desc": "Développe les fichiers RAW avec le décodeur RAW 9 de Core Image d'Apple, qui effectue le dématriçage et la réduction de bruit en une seule étape sur le Neural Engine. Nécessite macOS 27 ou ultérieur et un appareil photo pris en charge ; les fichiers non pris en charge utilisent automatiquement le décodeur intégré. Plus lent que le décodeur par défaut. Les miniatures ne sont pas affectées.",
         "applyPreprocessing": "Appliquer le prétraitement aux Non-RAW",
         "applyPreprocessingDesc": "Si activé, la réduction du bruit colorimétrique de base et la pré-accentuation ci-dessus seront également appliquées aux formats standard.",
         "colorNr": "Réduction du bruit colorimétrique de base",
@@ -1779,6 +1840,7 @@
         "defaultNonRawTonemapperDesc": "Le mappeur de tons à appliquer aux images non-RAW (ex. JPEG, PNG).",
         "defaultRawTonemapper": "Mappeur de tons par défaut (RAW)",
         "defaultRawTonemapperDesc": "Le mappeur de tons à appliquer aux images RAW.",
+        "enableAppleRaw9": "Utiliser Apple RAW 9 pour les fichiers RAW",
         "enablePreprocessingNonRaws": "Activer pour les Non-RAW",
         "enableTonemapperOverride": "Activer la surcharge du mappeur de tons",
         "highlightRecovery": "Récupération des hautes lumières RAW",
@@ -1992,6 +2054,10 @@
         "virtualCopy": "Copie virtuelle"
       },
       "virtualCopyAbbreviation": "CV"
+    },
+    "flags": {
+      "togglePick": "Basculer retenue",
+      "toggleReject": "Basculer le rejet"
     },
     "imagePicker": {
       "clearImage": "Effacer l'image",

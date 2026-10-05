@@ -13,6 +13,7 @@ import {
   isCropWithinBounds,
   calculateStraightenAngle,
   calculateAutoCropForRotation,
+  fitCropTowards,
   moveCropInsideBounds,
   zoomCrop,
 } from '../../utils/cropUtils';
@@ -151,6 +152,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const [crop, setCrop] = useState<Crop | null>(null);
   const prevCropParams = useRef<any>(null);
   const lastValidCropRef = useRef<PercentCrop | null>(null);
+  const cropResizeStartRef = useRef<PercentCrop | null>(null);
 
   const [isMaskHovered, setIsMaskHovered] = useState(false);
   const [isMaskTouchInteracting, setIsMaskTouchInteracting] = useState(false);
@@ -279,6 +281,19 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
+    };
+  }, []);
+
+  useEffect(() => {
+    const clearCropResizeStart = () => {
+      cropResizeStartRef.current = null;
+    };
+
+    window.addEventListener('pointerup', clearCropResizeStart);
+    window.addEventListener('pointercancel', clearCropResizeStart);
+    return () => {
+      window.removeEventListener('pointerup', clearCropResizeStart);
+      window.removeEventListener('pointercancel', clearCropResizeStart);
     };
   }, []);
 
@@ -858,6 +873,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     (e: React.PointerEvent<HTMLDivElement>) => {
       wasPanningDisabledOnDown.current = isPanningDisabled;
 
+      const isCropHandle = isCropping && e.button === 0 && !!(e.target as HTMLElement).closest('[data-ord]');
+      cropResizeStartRef.current = isCropHandle ? lastValidCropRef.current : null;
+
       if (e.pointerType === 'mouse' && e.button === 0 && e.shiftKey && !isBrushActive && !isCropping) {
         if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
         if (physicsFrameId.current) cancelAnimationFrame(physicsFrameId.current);
@@ -891,6 +909,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
           }));
 
           setEditor({ liveRotation: null, isSliderDragging: false });
+          cropResizeStartRef.current = null;
           return;
         }
 
@@ -1914,6 +1933,31 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         width: (pc.width / 100) * W,
         height: (pc.height / 100) * H,
       });
+
+      const resizeStart = cropResizeStartRef.current;
+      if (resizeStart && isCtrlPressedRef.current) {
+        const width = 2 * percentCrop.width - resizeStart.width;
+        const height = 2 * percentCrop.height - resizeStart.height;
+        if (width < minPctW || height < minPctH) {
+          return;
+        }
+
+        const centered: PercentCrop = {
+          unit: '%',
+          x: resizeStart.x + resizeStart.width / 2 - width / 2,
+          y: resizeStart.y + resizeStart.height / 2 - height / 2,
+          width,
+          height,
+        };
+
+        const nextCrop = fitCropTowards(resizeStart, centered, (candidate) =>
+          checkCropValid(toPixel(candidate), W, H, rotation),
+        );
+
+        setCrop(nextCrop);
+        lastValidCropRef.current = nextCrop;
+        return;
+      }
 
       if (checkCropValid(toPixel(percentCrop), W, H, rotation)) {
         setCrop(percentCrop);

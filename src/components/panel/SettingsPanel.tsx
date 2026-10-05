@@ -36,6 +36,7 @@ import { useTranslation } from 'react-i18next';
 import { Invokes } from '../ui/AppProperties';
 import {
   formatKeyCode,
+  getDefaultCombo,
   KeybindDefinition,
   KEYBIND_DEFINITIONS,
   KEYBIND_SECTIONS,
@@ -44,6 +45,7 @@ import {
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { useOsPlatform } from '../../hooks/useOsPlatform';
+import { useCloudUsage } from '../../hooks/useCloudUsage';
 import { open } from '@tauri-apps/plugin-shell';
 import { RotateCcw } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
@@ -104,16 +106,6 @@ interface MyLens {
 }
 
 const EXECUTE_TIMEOUT = 3000;
-
-const adjustmentVisibilityDefaults = {
-  sharpening: true,
-  presence: true,
-  noiseReduction: true,
-  chromaticAberration: false,
-  vignette: true,
-  colorCalibration: false,
-  grain: true,
-};
 
 const resolutions: OptionItem<number>[] = [
   { value: 720, label: '720px' },
@@ -177,7 +169,8 @@ const KeybindRow = ({
     return () => window.removeEventListener('keydown', handler, { capture: true });
   }, [recording, def.action, onSave, onStartRecording]);
 
-  const displayCombo = currentCombo !== undefined ? (currentCombo.length ? currentCombo : null) : def.defaultCombo;
+  const displayCombo =
+    currentCombo !== undefined ? (currentCombo.length ? currentCombo : null) : getDefaultCombo(def, osPlatform);
 
   return (
     <div className="flex justify-between items-center py-2">
@@ -275,7 +268,7 @@ const AiProviderSwitch = ({ selectedProvider, onProviderChange }: AiProviderSwit
     () => [
       { id: 'cpu', label: t('settings.processing.ai.providers.cpu'), icon: Cpu },
       { id: 'ai-connector', label: t('settings.processing.ai.providers.aiConnector'), icon: Server },
-      //{ id: 'cloud', label: t('settings.processing.ai.providers.cloud'), icon: Cloud },
+      { id: 'cloud', label: t('settings.processing.ai.providers.cloud'), icon: Cloud },
     ],
     [t],
   );
@@ -315,30 +308,9 @@ const AiProviderSwitch = ({ selectedProvider, onProviderChange }: AiProviderSwit
 
 const CloudDashboard = () => {
   const { user } = useUser();
-  const { getToken } = useAuth();
   const { signOut } = useClerk();
-  const [usage, setUsage] = useState<{ requests: number; limit: number; month: string } | null>(null);
   const { t } = useTranslation();
-
-  useEffect(() => {
-    const fetchUsage = async () => {
-      try {
-        const token = await getToken();
-        if (!token) return;
-        const res = await fetch('http://127.0.0.1:5000/usage', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          setUsage(await res.json());
-        }
-      } catch (e) {
-        console.error('Failed to fetch cloud usage', e);
-      }
-    };
-    fetchUsage();
-  }, [getToken]);
-
-  const isPro = user?.publicMetadata?.plan === 'pro';
+  const { cloudUsage, isPro } = useCloudUsage();
 
   return (
     <div className="space-y-4">
@@ -378,15 +350,15 @@ const CloudDashboard = () => {
             <Text variant={TextVariants.label}>{t('settings.processing.ai.cloud.signedIn.usage')}</Text>
             <Text variant={TextVariants.small}>
               {t('settings.processing.ai.cloud.signedIn.usageStats', {
-                requests: usage?.requests ?? 0,
-                limit: usage?.limit ?? 500,
+                requests: cloudUsage?.requests ?? 0,
+                limit: cloudUsage?.limit ?? 200,
               })}
             </Text>
           </div>
           <div className="w-full bg-bg-primary rounded-full h-2">
             <div
               className="bg-accent h-2 rounded-full transition-all duration-500"
-              style={{ width: `${Math.min(100, ((usage?.requests ?? 0) / (usage?.limit ?? 500)) * 100)}%` }}
+              style={{ width: `${Math.min(100, ((cloudUsage?.requests ?? 0) / (cloudUsage?.limit ?? 200)) * 100)}%` }}
             />
           </div>
         </div>
@@ -559,6 +531,7 @@ export default function SettingsPanel({
     rawPreprocessingColorNr: appSettings?.rawPreprocessingColorNr ?? 0.5,
     rawPreprocessingSharpening: appSettings?.rawPreprocessingSharpening ?? 0.35,
     applyPreprocessingToNonRaws: appSettings?.applyPreprocessingToNonRaws ?? false,
+    useAppleRaw9: appSettings?.useAppleRaw9 ?? false,
   });
   const [restartRequired, setRestartRequired] = useState(false);
   const [activeCategory, setActiveCategory] = useState('general');
@@ -667,6 +640,7 @@ export default function SettingsPanel({
       rawPreprocessingColorNr: appSettings?.rawPreprocessingColorNr ?? 0.5,
       rawPreprocessingSharpening: appSettings?.rawPreprocessingSharpening ?? 0.35,
       applyPreprocessingToNonRaws: appSettings?.applyPreprocessingToNonRaws ?? false,
+      useAppleRaw9: appSettings?.useAppleRaw9 ?? false,
     });
     setRestartRequired(false);
   }, [appSettings]);
@@ -706,7 +680,8 @@ export default function SettingsPanel({
         key === 'rawHighlightCompression' ||
         key === 'rawPreprocessingColorNr' ||
         key === 'rawPreprocessingSharpening' ||
-        key === 'applyPreprocessingToNonRaws'
+        key === 'applyPreprocessingToNonRaws' ||
+        key === 'useAppleRaw9'
       ) {
         await invoke('clear_image_caches');
       }
@@ -1022,7 +997,11 @@ export default function SettingsPanel({
     const userKb = appSettings?.keybinds || {};
     for (const def of KEYBIND_DEFINITIONS) {
       const userCombo = userKb[def.action];
-      const effective = userCombo?.length ? userCombo : userCombo === undefined ? def.defaultCombo : null;
+      const effective = userCombo?.length
+        ? userCombo
+        : userCombo === undefined
+          ? getDefaultCombo(def, osPlatform)
+          : null;
       if (!effective) continue;
       const key = effective.join('+');
       if (!map.has(key)) map.set(key, new Set());
@@ -1033,7 +1012,7 @@ export default function SettingsPanel({
       if (actions.size > 1) actions.forEach((k) => keys.add(k));
     }
     return keys;
-  }, [appSettings?.keybinds]);
+  }, [appSettings?.keybinds, osPlatform]);
 
   return (
     <>
@@ -1125,11 +1104,13 @@ export default function SettingsPanel({
                             { value: 'es', label: 'Español' },
                             { value: 'fr', label: 'Français' },
                             { value: 'it', label: 'Italiano' },
+                            { value: 'nl', label: 'Nederlands' },
                             { value: 'pl', label: 'Polski' },
                             { value: 'pt', label: 'Português' },
                             { value: 'ru', label: 'Русский' },
                             { value: 'ja', label: '日本語' },
                             { value: 'ko', label: '한국어' },
+                            { value: 'cs', label: 'Čeština' },
                             { value: 'zh-CN', label: '简体中文' },
                             { value: 'zh-TW', label: '繁體中文' },
                           ]}
@@ -1234,6 +1215,18 @@ export default function SettingsPanel({
                         />
                       </SettingItem>
 
+                      <SettingItem
+                        label={t('settings.general.toolFocusMode')}
+                        description={t('settings.general.toolFocusModeDesc')}
+                      >
+                        <Switch
+                          checked={appSettings?.enableToolFocusMode ?? false}
+                          id="tool-focus-mode-toggle"
+                          label={t('settings.general.enableToolFocusMode')}
+                          onChange={(checked) => onSettingsChange({ ...appSettings, enableToolFocusMode: checked })}
+                        />
+                      </SettingItem>
+
                       <SettingItem label={t('settings.general.font')} description={t('settings.general.fontDesc')}>
                         <Dropdown
                           onChange={(value: any) => onSettingsChange({ ...appSettings, fontFamily: value })}
@@ -1259,67 +1252,6 @@ export default function SettingsPanel({
                           />
                         </SettingItem>
                       )}
-                    </div>
-                  </div>
-
-                  <div className="p-6 bg-surface rounded-xl shadow-md">
-                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
-                      {t('settings.adjustments.title')}
-                    </Text>
-                    <Text className="mb-4">{t('settings.adjustments.description')}</Text>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                      <Switch
-                        label={t('settings.adjustments.chromaticAberration')}
-                        checked={appSettings?.adjustmentVisibility?.chromaticAberration ?? false}
-                        onChange={(checked) =>
-                          onSettingsChange({
-                            ...appSettings,
-                            adjustmentVisibility: {
-                              ...(appSettings?.adjustmentVisibility || adjustmentVisibilityDefaults),
-                              chromaticAberration: checked,
-                            },
-                          })
-                        }
-                      />
-                      <Switch
-                        label={t('settings.adjustments.grain')}
-                        checked={appSettings?.adjustmentVisibility?.grain ?? true}
-                        onChange={(checked) =>
-                          onSettingsChange({
-                            ...appSettings,
-                            adjustmentVisibility: {
-                              ...(appSettings?.adjustmentVisibility || adjustmentVisibilityDefaults),
-                              grain: checked,
-                            },
-                          })
-                        }
-                      />
-                      <Switch
-                        label={t('settings.adjustments.colorCalibration')}
-                        checked={appSettings?.adjustmentVisibility?.colorCalibration ?? true}
-                        onChange={(checked) =>
-                          onSettingsChange({
-                            ...appSettings,
-                            adjustmentVisibility: {
-                              ...(appSettings?.adjustmentVisibility || adjustmentVisibilityDefaults),
-                              colorCalibration: checked,
-                            },
-                          })
-                        }
-                      />
-                      <Switch
-                        label={t('settings.adjustments.noiseReduction')}
-                        checked={appSettings?.adjustmentVisibility?.noiseReduction ?? true}
-                        onChange={(checked) =>
-                          onSettingsChange({
-                            ...appSettings,
-                            adjustmentVisibility: {
-                              ...(appSettings?.adjustmentVisibility || adjustmentVisibilityDefaults),
-                              noiseReduction: checked,
-                            },
-                          })
-                        }
-                      />
                     </div>
                   </div>
 
@@ -2133,6 +2065,20 @@ export default function SettingsPanel({
                         />
                       </SettingItem>
 
+                      {osPlatform === 'macos' && (
+                        <SettingItem
+                          label={t('settings.processing.preprocessing.appleRaw9')}
+                          description={t('settings.processing.preprocessing.appleRaw9Desc')}
+                        >
+                          <Switch
+                            checked={processingSettings.useAppleRaw9}
+                            id="apple-raw9-toggle"
+                            label={t('settings.processing.preprocessing.enableAppleRaw9')}
+                            onChange={(checked) => handleProcessingSettingChange('useAppleRaw9', checked)}
+                          />
+                        </SettingItem>
+                      )}
+
                       <SettingItem
                         label={t('settings.processing.preprocessing.linearRaw')}
                         description={t('settings.processing.preprocessing.linearRawDesc')}
@@ -2370,7 +2316,7 @@ export default function SettingsPanel({
                                     <Text variant={TextVariants.small}>
                                       {t('settings.processing.ai.cloud.signedOut.noAccount')}{' '}
                                       <button
-                                        onClick={() => open('https://www.getrapidraw.com/dashboard')}
+                                        onClick={() => open('https://www.getrapidraw.com/cloud')}
                                         className="text-accent hover:underline focus:outline-none"
                                       >
                                         {t('settings.processing.ai.cloud.signedOut.signup')}

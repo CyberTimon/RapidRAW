@@ -43,6 +43,7 @@
         "shadows": "Shadows"
       },
       "hue": "Hue",
+      "kelvinModeTooltip": "Show temperature in Kelvin",
       "localHue": "Local Hue",
       "luminance": "Luminance",
       "mixerColors": {
@@ -188,6 +189,9 @@
       "denoise": "Denoise Image",
       "editImage": "Edit Image",
       "exportImage": "Export Image",
+      "flag": "Flag",
+      "flagPick": "Picked",
+      "flagReject": "Rejected",
       "frameImage": "Frame Image",
       "mergeHdr": "Merge to HDR",
       "noLabel": "No Label",
@@ -201,7 +205,8 @@
       "resetAdjustments": "Reset Adjustments",
       "stitchPanorama": "Stitch Panorama",
       "tagging": "Tagging",
-      "undo": "Undo"
+      "undo": "Undo",
+      "unflagged": "Unflagged"
     },
     "folders": {
       "changeIcon": "Change Icon",
@@ -224,6 +229,7 @@
     "library": {
       "addCopiedToAlbum_one": "Add copied image to album",
       "addCopiedToAlbum_other": "Add {{count}} copied images to album",
+      "deleteRejected": "Delete Rejected Images",
       "refreshView": "Refresh View"
     },
     "merge": {
@@ -296,8 +302,10 @@
     "adjustments": {
       "actions": {
         "copySectionSettings": "Copy {{section}} Settings",
+        "customizePanels": "Customize Panels",
         "pasteLabel": "Paste {{section}} Settings",
         "pasteSettings": "Paste Settings",
+        "resetPanelLayout": "Reset to Default",
         "resetSectionSettings": "Reset {{section}} Settings"
       },
       "sections": {
@@ -310,7 +318,9 @@
       "title": "Adjustments",
       "tooltips": {
         "autoAdjust": "Auto Adjust Image",
+        "hideFromPanel": "Hide from Panel",
         "resetAdjustments": "Reset Adjustments",
+        "showInPanel": "Show in Panel",
         "toggleAnalytics": "Toggle Analytics Display"
       }
     },
@@ -410,6 +420,7 @@
         "aiModelDownloading": "AI Model Downloading: ",
         "basicInpaintTooltipDisabled": "Generative backend not available or not configured. Basic inpainting is required.",
         "basicInpaintTooltipEnabled": "Basic inpainting is quicker but not generative. Uncheck to use Generative AI with a text prompt.",
+        "cancelGeneration": "Cancel Generation",
         "componentPropertiesTitle": "{{name}} Properties",
         "downloading": "Downloading: ",
         "fastInpaintDesc": "Fill selection based on surrounding pixels.",
@@ -432,6 +443,9 @@
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Height",
+        "removeTooltip": "Remove saved aspect ratio",
+        "saveTooltip": "Save aspect ratio as preset",
+        "savedTooltip": "Saved aspect ratio {{ratio}}",
         "wPlaceholder": "W",
         "wTooltip": "Width"
       },
@@ -449,6 +463,10 @@
         "armature": {
           "desc": "Armature",
           "name": "Armature"
+        },
+        "center": {
+          "desc": "Center Lines",
+          "name": "Center"
         },
         "diagonal": {
           "desc": "Diagonal Lines",
@@ -779,6 +797,20 @@
       "preserveTimestamps": "Set File Timestamps from EXIF Capture Date",
       "title": "Export Settings"
     },
+    "border": {
+      "addBorder": "Add Border",
+      "bases": {
+        "eachEdge": "Each Respective Edge",
+        "longEdge": "Longest Edge",
+        "shortEdge": "Shortest Edge"
+      },
+      "basis": "Thickness Basis",
+      "color": "Border Color",
+      "invalidPercent": "Enter a number between 0 and 100 for both.",
+      "leftRight": "Left & Right",
+      "percent": "%",
+      "topBottom": "Top & Bottom"
+    },
     "bytes": {
       "bytes": "Bytes",
       "gb": "GB",
@@ -814,6 +846,14 @@
     "metadata": {
       "removeGps": "Remove GPS Data",
       "saveWithMetadata": "Save with Metadata"
+    },
+    "pad": {
+      "aspectRatio": "Aspect Ratio",
+      "backgroundColor": "Background Color",
+      "invalidRatio": "Enter a positive number for both width and height.",
+      "padToAspectRatio": "Pad to Aspect Ratio",
+      "ratioHeight": "Aspect ratio height",
+      "ratioWidth": "Aspect ratio width"
     },
     "resize": {
       "dontEnlarge": "Don't Enlarge",
@@ -924,6 +964,12 @@
         "editedOnly": "Edited Only",
         "uneditedOnly": "Unedited Only"
       },
+      "flag": {
+        "all": "All Images",
+        "excludeRejected": "Hide Rejected",
+        "picked": "Picked",
+        "rejected": "Rejected"
+      },
       "noMatch": "No images found that match your filter.",
       "rating": {
         "all": "Show All",
@@ -1005,6 +1051,7 @@
         "filterByColorLabel": "Filter by Color Label",
         "filterByEdited": "Filter by Edit Status",
         "filterByFileType": "Filter by File Type",
+        "filterByFlag": "Filter by Flag",
         "filterByRating": "Filter by Rating",
         "groupEditedFiles": "Include edited files in groups",
         "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
@@ -1038,11 +1085,21 @@
       "expandFolder": "Expand Folder",
       "imagesCount_one": "1 image",
       "imagesCount_other": "{{count}} images",
+      "rejected": "Rejected",
       "tooltipAperture": "Aperture",
       "tooltipFocalLength": "Focal Length",
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "Shutter Speed",
       "tooltipVirtualCopy": "Virtual Copy"
+    },
+    "reject": {
+      "deleteConfirm": "Delete Rejected",
+      "deleteMessage_one": "Are you sure you want to delete {{count}} rejected image? It will be moved to the trash.",
+      "deleteMessage_other": "Are you sure you want to delete {{count}} rejected images? They will be moved to the trash.",
+      "deleteTitle": "Delete Rejected Images",
+      "noneToDelete": "There are no rejected images to delete.",
+      "virtualCopiesWarning_one": "{{count}} virtual copy that is not rejected will also be deleted because its original is rejected.",
+      "virtualCopiesWarning_other": "{{count}} virtual copies that are not rejected will also be deleted because their originals are rejected."
     },
     "search": {
       "noResults": "No Results Found",
@@ -1226,7 +1283,7 @@
     "culling": {
       "actionDelete": "Move to Trash",
       "actionRateZero": "Set Rating to 1 Stars",
-      "actionReject": "Mark as Rejected (Red Label)",
+      "actionReject": "Mark as Rejected",
       "applyButton_one": "Apply to 1 image",
       "applyButton_other": "Apply to {{count}} images",
       "bestImage": "Best Image",
@@ -1272,6 +1329,7 @@
       "methodAi": "NIND (AI - Best for RAW)",
       "methodBm3d": "BM3D (Traditional - All formats)",
       "methodLabel": "Method",
+      "methodRaw9": "Apple RAW 9 (Neural Engine)",
       "openInEditor": "Open in Editor",
       "original": "Original",
       "panZoomEnabled": "Pan & Zoom enabled",
@@ -1459,14 +1517,6 @@
     }
   },
   "settings": {
-    "adjustments": {
-      "chromaticAberration": "Chromatic Aberration",
-      "colorCalibration": "Color Calibration",
-      "description": "Hide adjustment sections you don't use often to simplify the editing panel. Your settings will be preserved and applied even when hidden.",
-      "grain": "Grain",
-      "noiseReduction": "Noise Reduction",
-      "title": "Adjustments Visibility"
-    },
     "categories": {
       "general": "General",
       "processing": "Processing",
@@ -1555,6 +1605,7 @@
       "enableFocusMode": "Enable Focus Mode",
       "enableNeutralGreyCanvas": "Enable Neutral Grey Background",
       "enableOsTitlebar": "Enable OS Titlebar",
+      "enableToolFocusMode": "Enable Tool Focus Mode",
       "enableXmpSync": "Enable XMP Sync",
       "focusMode": "Focus Mode",
       "focusModeDesc": "Helps you focus by automatically closing other panels when you open a new one.",
@@ -1572,6 +1623,8 @@
       "theme": "Theme",
       "themeDesc": "Change the look and feel of the application.",
       "title": "General Settings",
+      "toolFocusMode": "Tool Focus Mode",
+      "toolFocusModeDesc": "Automatically collapses the other tools in a panel when you expand one.",
       "xmpSync": "XMP Metadata Sync",
       "xmpSyncDesc": "Sync ratings, color labels and tags to standard XMP sidecar files for compatibility with other photo editors."
     },
@@ -1589,6 +1642,7 @@
         "copy_files": "Copy selected file(s)",
         "copy_image_path": "Copy path of selected image(s)",
         "cycle_zoom": "Cycle zoom (Fit, 2x Fit, 100%)",
+        "delete_rejected": "Delete rejected file(s)",
         "delete_selected": "Delete selected file(s)",
         "focus_search": "Focus search field",
         "open_image": "Open selected image",
@@ -1621,9 +1675,12 @@
         "toggle_library_exif": "Toggle EXIF overlay",
         "toggle_masks": "Toggle Masks panel",
         "toggle_metadata": "Toggle Metadata panel",
+        "toggle_pick": "Toggle pick flag",
         "toggle_presets": "Toggle Presets panel",
+        "toggle_reject": "Toggle reject flag",
         "toggle_right_panel": "Toggle Right Panel",
         "undo": "Undo adjustment",
+        "unflag": "Remove flag",
         "zoom_100": "Zoom to 100%",
         "zoom_fit": "Zoom to fit",
         "zoom_in": "Zoom in",
@@ -1738,6 +1795,8 @@
       },
       "nativeDpi": "Render at native DPI",
       "preprocessing": {
+        "appleRaw9": "Apple RAW 9 Engine",
+        "appleRaw9Desc": "Develop RAW files with Apple's Core Image RAW 9 decoder, which demosaics and denoises in one step on the Neural Engine. Requires macOS 27 or later and a supported camera; unsupported files automatically use the built-in decoder. Slower than the default decoder. Thumbnails are not affected.",
         "applyPreprocessing": "Apply Preprocessing to Non-RAWs",
         "applyPreprocessingDesc": "If enabled, the base color noise reduction and pre-sharpening above will also be applied to standard formats.",
         "colorNr": "Base Color Noise Reduction",
@@ -1746,6 +1805,7 @@
         "defaultNonRawTonemapperDesc": "The tonemapper to apply to non-RAW images (e.g., JPEG, PNG).",
         "defaultRawTonemapper": "Default RAW Tonemapper",
         "defaultRawTonemapperDesc": "The tonemapper to apply to RAW images.",
+        "enableAppleRaw9": "Use Apple RAW 9 for RAW files",
         "enablePreprocessingNonRaws": "Enable for Non-RAWs",
         "enableTonemapperOverride": "Enable Tonemapper Override",
         "highlightRecovery": "RAW Highlight Recovery",
@@ -1958,6 +2018,10 @@
         "virtualCopy": "Virtual Copy"
       },
       "virtualCopyAbbreviation": "VC"
+    },
+    "flags": {
+      "togglePick": "Toggle Pick",
+      "toggleReject": "Toggle Reject"
     },
     "imagePicker": {
       "clearImage": "Clear Image",

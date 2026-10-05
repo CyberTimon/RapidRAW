@@ -3,109 +3,121 @@ from pathlib import Path
 
 LOCALES_DIR = Path("./locales")
 
-# Translations for the new Exposure (formerly EV Shift) and Brightness (formerly Exposure) keys
 TRANSLATIONS = {
     "ca": {
-        "adjustments": {
-            "basic": {
-                "exposure": "Exposició",
-                "brightness": "Brillantor"
+        "editor": {
+            "ai": {
+                "settings": {
+                    "cancelGeneration": "Cancel·lar generació"
+                }
             }
         }
     },
     "de": {
-        "adjustments": {
-            "basic": {
-                "exposure": "Belichtung",
-                "brightness": "Helligkeit"
+        "editor": {
+            "ai": {
+                "settings": {
+                    "cancelGeneration": "Generierung abbrechen"
+                }
             }
         }
     },
     "en": {
-        "adjustments": {
-            "basic": {
-                "exposure": "Exposure",
-                "brightness": "Brightness"
+        "editor": {
+            "ai": {
+                "settings": {
+                    "cancelGeneration": "Cancel Generation"
+                }
             }
         }
     },
     "es": {
-        "adjustments": {
-            "basic": {
-                "exposure": "Exposición",
-                "brightness": "Brillo"
+        "editor": {
+            "ai": {
+                "settings": {
+                    "cancelGeneration": "Cancelar generación"
+                }
             }
         }
     },
     "fr": {
-        "adjustments": {
-            "basic": {
-                "exposure": "Exposition",
-                "brightness": "Luminosité"
+        "editor": {
+            "ai": {
+                "settings": {
+                    "cancelGeneration": "Annuler la génération"
+                }
             }
         }
     },
     "it": {
-        "adjustments": {
-            "basic": {
-                "exposure": "Esposizione",
-                "brightness": "Luminosità"
+        "editor": {
+            "ai": {
+                "settings": {
+                    "cancelGeneration": "Annulla generazione"
+                }
             }
         }
     },
     "ja": {
-        "adjustments": {
-            "basic": {
-                "exposure": "露出",
-                "brightness": "明るさ"
+        "editor": {
+            "ai": {
+                "settings": {
+                    "cancelGeneration": "生成をキャンセル"
+                }
             }
         }
     },
     "ko": {
-        "adjustments": {
-            "basic": {
-                "exposure": "노출",
-                "brightness": "밝기"
+        "editor": {
+            "ai": {
+                "settings": {
+                    "cancelGeneration": "생성 취소"
+                }
             }
         }
     },
     "pl": {
-        "adjustments": {
-            "basic": {
-                "exposure": "Ekspozycja",
-                "brightness": "Jasność"
+        "editor": {
+            "ai": {
+                "settings": {
+                    "cancelGeneration": "Anuluj generowanie"
+                }
             }
         }
     },
     "pt": {
-        "adjustments": {
-            "basic": {
-                "exposure": "Exposição",
-                "brightness": "Brilho"
+        "editor": {
+            "ai": {
+                "settings": {
+                    "cancelGeneration": "Cancelar geração"
+                }
             }
         }
     },
     "ru": {
-        "adjustments": {
-            "basic": {
-                "exposure": "Экспозиция",
-                "brightness": "Яркость"
+        "editor": {
+            "ai": {
+                "settings": {
+                    "cancelGeneration": "Отменить генерацию"
+                }
             }
         }
     },
     "zh-CN": {
-        "adjustments": {
-            "basic": {
-                "exposure": "曝光",
-                "brightness": "亮度"
+        "editor": {
+            "ai": {
+                "settings": {
+                    "cancelGeneration": "取消生成"
+                }
             }
         }
     },
     "zh-TW": {
-        "adjustments": {
-            "basic": {
-                "exposure": "曝光",
-                "brightness": "亮度"
+        "editor": {
+            "ai": {
+                "settings": {
+                    "cancelGeneration": "取消生成"
+                }
             }
         }
     }
@@ -140,13 +152,6 @@ def update_json_file(file_path: Path, trans: dict):
         print(f"Error parsing JSON in {file_path.name}. Skipping.")
         return
 
-    # Remove the deprecated evShift key if it exists
-    try:
-        if "evShift" in data.get("adjustments", {}).get("basic", {}):
-            del data["adjustments"]["basic"]["evShift"]
-    except Exception:
-        pass
-
     deep_merge(data, trans)
 
     sorted_data = sort_dict_recursively(data)
@@ -162,7 +167,7 @@ def main():
         print(f"Error: Locales directory '{LOCALES_DIR}' does not exist.")
         return
 
-    print("Starting translation updates for Exposure and Brightness keys...")
+    print("Starting translation updates for Cancel Generation...")
     for lang, trans in TRANSLATIONS.items():
         file_path = LOCALES_DIR / f"{lang}.json"
         update_json_file(file_path, trans)
