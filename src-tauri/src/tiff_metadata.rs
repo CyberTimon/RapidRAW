@@ -81,12 +81,14 @@ pub fn is_structural_tag(tag: u16) -> bool {
 }
 
 /// Encodes `image` as a TIFF with `metadata` written into the IFDs it belongs
-/// in. Passing `None` produces a TIFF without any metadata, which is what
-/// export does when the user turns metadata off.
+/// in, and `icc_profile` tagged in the main IFD. Passing `None` for the
+/// metadata produces a TIFF without any, which is what export does when the
+/// user turns metadata off.
 pub fn encode_tiff_with_metadata(
     image: &DynamicImage,
     samples: TiffSamples,
     metadata: Option<&Metadata>,
+    icc_profile: Option<&[u8]>,
 ) -> Result<Vec<u8>, String> {
     let (width, height) = image.dimensions();
     let mut buffer = Cursor::new(Vec::new());
@@ -104,7 +106,13 @@ pub fn encode_tiff_with_metadata(
             let mut image_encoder = encoder
                 .new_image::<RGB8>(width, height)
                 .map_err(|e| format!("Failed to start TIFF image: {}", e))?;
-            write_main_ifd(image_encoder.encoder(), metadata, exif_ifd, gps_ifd)?;
+            write_main_ifd(
+                image_encoder.encoder(),
+                metadata,
+                exif_ifd,
+                gps_ifd,
+                icc_profile,
+            )?;
             image_encoder
                 .write_data(pixels.as_raw())
                 .map_err(|e| format!("Failed to write TIFF pixel data: {}", e))?;
@@ -114,7 +122,13 @@ pub fn encode_tiff_with_metadata(
             let mut image_encoder = encoder
                 .new_image::<RGB16>(width, height)
                 .map_err(|e| format!("Failed to start TIFF image: {}", e))?;
-            write_main_ifd(image_encoder.encoder(), metadata, exif_ifd, gps_ifd)?;
+            write_main_ifd(
+                image_encoder.encoder(),
+                metadata,
+                exif_ifd,
+                gps_ifd,
+                icc_profile,
+            )?;
             image_encoder
                 .write_data(pixels.as_raw())
                 .map_err(|e| format!("Failed to write TIFF pixel data: {}", e))?;
@@ -124,7 +138,13 @@ pub fn encode_tiff_with_metadata(
             let mut image_encoder = encoder
                 .new_image::<RGB32Float>(width, height)
                 .map_err(|e| format!("Failed to start TIFF image: {}", e))?;
-            write_main_ifd(image_encoder.encoder(), metadata, exif_ifd, gps_ifd)?;
+            write_main_ifd(
+                image_encoder.encoder(),
+                metadata,
+                exif_ifd,
+                gps_ifd,
+                icc_profile,
+            )?;
             image_encoder
                 .write_data(pixels.as_raw())
                 .map_err(|e| format!("Failed to write TIFF pixel data: {}", e))?;
@@ -177,7 +197,17 @@ fn write_main_ifd<W: Write + Seek>(
     metadata: Option<&Metadata>,
     exif_ifd: Option<u32>,
     gps_ifd: Option<u32>,
+    icc_profile: Option<&[u8]>,
 ) -> Result<(), String> {
+    // The colour profile belongs in the main IFD, with the `UNDEFINED` type the
+    // TIFF specification asks for. Exports are sRGB, so tagging them lets
+    // colour-managed applications show them correctly.
+    if let Some(profile) = icc_profile {
+        directory
+            .write_tag(Tag::IccProfile, Undefined(profile))
+            .map_err(|e| format!("Failed to write ICC profile: {}", e))?;
+    }
+
     if let Some(offset) = exif_ifd {
         directory
             .write_tag(Tag::Unknown(TAG_EXIF_IFD), offset)

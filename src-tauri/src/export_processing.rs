@@ -1179,7 +1179,7 @@ fn encode_grayscale_to_png(bitmap: &GrayImage) -> Result<Vec<u8>, String> {
 }
 
 /// Exports are sRGB-encoded; tagging them lets color-managed apps read them correctly.
-const SRGB_ICC_PROFILE: &[u8] = include_bytes!("../icc/sRGB-v2-magic.icc");
+pub(crate) const SRGB_ICC_PROFILE: &[u8] = include_bytes!("../icc/sRGB-v2-magic.icc");
 
 fn encode_image_to_bytes(
     image: &DynamicImage,
@@ -1266,7 +1266,12 @@ fn encode_image_to_bytes(
                 TiffBitDepth::Eight => TiffSamples::Eight,
                 TiffBitDepth::Sixteen => TiffSamples::Sixteen,
             };
-            return encode_tiff_with_metadata(image, samples, tiff_metadata);
+            return encode_tiff_with_metadata(
+                image,
+                samples,
+                tiff_metadata,
+                Some(SRGB_ICC_PROFILE),
+            );
         }
         "avif" => {
             image

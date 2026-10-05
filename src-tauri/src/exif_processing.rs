@@ -1742,7 +1742,12 @@ pub fn save_converted_image(
                 }
                 _ => crate::tiff_metadata::TiffSamples::Eight,
             };
-            crate::tiff_metadata::encode_tiff_with_metadata(image, samples, metadata.as_ref())?
+            crate::tiff_metadata::encode_tiff_with_metadata(
+                image,
+                samples,
+                metadata.as_ref(),
+                Some(crate::export_processing::SRGB_ICC_PROFILE),
+            )?
         }
         "png" => {
             let mut bytes = Vec::new();
