@@ -93,15 +93,16 @@ fn hash_relight(
 
     if relight_enabled {
         let relight_keys = [
+            "relightLights",
             "relightIntensity",
             "relightX",
             "relightY",
             "relightDepth",
+            "relightRange",
+            "relightColor",
             "relightAmbient",
             "relightSoftness",
             "relightSpecular",
-            "relightRange",
-            "relightColor",
             "relightNormalMap",
             "relightDepthMap",
             "relightDepthScale",

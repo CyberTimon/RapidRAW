@@ -5,7 +5,15 @@ import { Stage, Layer, Ellipse, Line, Transformer, Group, Circle, Rect, Arrow } 
 import { PercentCrop, Crop } from 'react-image-crop';
 import { Stamp, Bandage, Spline, BrushCleaning } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
-import { Adjustments, AiPatch, Coord, MaskContainer, GuideLine, GuideOrientation } from '../../../utils/adjustments';
+import {
+  Adjustments,
+  AiPatch,
+  Coord,
+  MaskContainer,
+  GuideLine,
+  GuideOrientation,
+  RelightLight,
+} from '../../../utils/adjustments';
 import { Mask, SubMask, SubMaskMode, ToolType } from '../right/Masks';
 import { AppSettings, BrushSettings, SelectedImage } from '../../ui/AppProperties';
 import { RenderSize } from '../../../hooks/useImageRenderSize';
@@ -1692,6 +1700,21 @@ const ImageCanvas = memo(
         cropY,
       ],
     );
+    const relightLights = adjustments.relightLights ?? [];
+    const activeRelightLightId = useEditorStore((state) => state.activeRelightLightId);
+    const setEditor = useEditorStore((state) => state.setEditor);
+    const handleRelightLightSelect = useCallback((id: string) => setEditor({ activeRelightLightId: id }), [setEditor]);
+    const handleRelightLightChange = useCallback(
+      (id: string, changes: Partial<RelightLight>) => {
+        setAdjustments((prev: Adjustments) => ({
+          ...prev,
+          relightLights: (prev.relightLights ?? []).map((light) =>
+            light.id === id ? { ...light, ...changes } : light,
+          ),
+        }));
+      },
+      [setAdjustments],
+    );
     const isRelightHandleVisible =
       !!adjustments.relightEnabled &&
       !!adjustments.relightNormalMap &&
@@ -3195,15 +3218,19 @@ const ImageCanvas = memo(
             </div>
 
             <div className="absolute inset-0 pointer-events-none z-50">
-              {isRelightHandleVisible && (
-                <RelightHandle
-                  adjustments={adjustments}
-                  geometry={relightGeometry}
-                  imageRenderSize={imageRenderSize}
-                  inverseScale={1 / maxSafeScale}
-                  setAdjustments={setAdjustments}
-                />
-              )}
+              {isRelightHandleVisible &&
+                relightLights.map((light) => (
+                  <RelightHandle
+                    key={light.id}
+                    light={light}
+                    isActive={relightLights.length > 1 && (activeRelightLightId ?? relightLights[0].id) === light.id}
+                    geometry={relightGeometry}
+                    imageRenderSize={imageRenderSize}
+                    inverseScale={1 / maxSafeScale}
+                    onSelect={handleRelightLightSelect}
+                    onChange={handleRelightLightChange}
+                  />
+                ))}
 
               {!isDrawing.current &&
                 directPatchMarkers.map((m) => {

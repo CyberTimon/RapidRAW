@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'react-toastify';
-import { Loader2, Circle, Hexagon, Octagon, Aperture } from 'lucide-react';
+import { Loader2, Circle, Hexagon, Octagon, Aperture, Plus, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import Slider from '../ui/Slider';
@@ -14,6 +14,9 @@ import {
   CreativeAdjustment,
   getAdjustmentToolOrder,
   getHiddenAdjustmentTools,
+  RelightLight,
+  DEFAULT_RELIGHT_LIGHT,
+  MAX_RELIGHT_LIGHTS,
 } from '../../utils/adjustments';
 import LUTControl from '../ui/LUTControl';
 import { AppSettings } from '../ui/AppProperties';
@@ -23,6 +26,10 @@ import { TextVariants } from '../../types/typography';
 import { DepthRangePicker } from '../ui/DepthRangePicker';
 import { useProcessStore } from '../../store/useProcessStore';
 import { RELIGHT_TEMPERATURE_PRESETS, kelvinToHex } from '../../utils/relightUtils';
+import { useEditorStore } from '../../store/useEditorStore';
+import { v4 as uuidv4 } from 'uuid';
+
+const NEW_RELIGHT_LIGHT_TEMPERATURES = [5600, 3200, 8000, 2700, 10000, 4000];
 
 interface EffectsPanelProps {
   adjustments: Adjustments;
@@ -223,10 +230,51 @@ export default function EffectsPanel({
     }
   };
 
-  const relightColor = (adjustments.relightColor || '#ffffff').toLowerCase();
+  const relightLights = adjustments.relightLights ?? [];
+  const activeRelightLightId = useEditorStore((state) => state.activeRelightLightId);
+  const setEditor = useEditorStore((state) => state.setEditor);
+  const activeRelightLight = relightLights.find((light) => light.id === activeRelightLightId) ?? relightLights[0];
+  const relightColor = (activeRelightLight?.color || '#ffffff').toLowerCase();
+
+  const updateActiveRelightLight = (changes: Partial<RelightLight>) => {
+    if (!activeRelightLight) return;
+    const id = activeRelightLight.id;
+    setAdjustments((prev: Partial<Adjustments>) => ({
+      ...prev,
+      relightLights: (prev.relightLights ?? []).map((light) => (light.id === id ? { ...light, ...changes } : light)),
+    }));
+  };
 
   const handleRelightColorChange = (color: string) => {
-    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, relightColor: color.toLowerCase() }));
+    updateActiveRelightLight({ color: color.toLowerCase() });
+  };
+
+  const handleAddRelightLight = () => {
+    if (relightLights.length >= MAX_RELIGHT_LIGHTS) return;
+    // Each new light starts somewhere else and with another tint, so it is easy to tell apart.
+    const index = relightLights.length;
+    const light: RelightLight = {
+      ...DEFAULT_RELIGHT_LIGHT,
+      id: uuidv4(),
+      x: [0.7, 0.5, 0.3, 0.7, 0.5][index % 5],
+      y: [0.3, 0.7, 0.7, 0.7, 0.2][index % 5],
+      color: kelvinToHex(NEW_RELIGHT_LIGHT_TEMPERATURES[index % NEW_RELIGHT_LIGHT_TEMPERATURES.length]),
+    };
+    setAdjustments((prev: Partial<Adjustments>) => ({
+      ...prev,
+      relightLights: [...(prev.relightLights ?? []), light],
+    }));
+    setEditor({ activeRelightLightId: light.id });
+  };
+
+  const handleRemoveRelightLight = () => {
+    if (!activeRelightLight || relightLights.length <= 1) return;
+    const id = activeRelightLight.id;
+    setAdjustments((prev: Partial<Adjustments>) => ({
+      ...prev,
+      relightLights: (prev.relightLights ?? []).filter((light) => light.id !== id),
+    }));
+    setEditor({ activeRelightLightId: null });
   };
 
   const handleRelightToggle = (enabled: boolean) => {
@@ -423,14 +471,54 @@ export default function EffectsPanel({
                       </div>
                     ) : (
                       <>
+                        <div className="flex flex-col gap-2">
+                          <Text variant={TextVariants.label} className="text-text-secondary select-none">
+                            {t('adjustments.effects.relightLights')}
+                          </Text>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {relightLights.map((light) => (
+                              <button
+                                key={light.id}
+                                onClick={() => setEditor({ activeRelightLightId: light.id })}
+                                className={clsx(
+                                  'w-7 h-7 rounded-full border-2 transition-transform hover:scale-110',
+                                  light.id === activeRelightLight?.id ? 'border-accent' : 'border-surface',
+                                )}
+                                style={{
+                                  background: `radial-gradient(circle at 35% 30%, #ffffff 0%, ${light.color} 45%, color-mix(in srgb, ${light.color} 45%, #000000) 100%)`,
+                                  WebkitTapHighlightColor: 'transparent',
+                                }}
+                              />
+                            ))}
+                            {relightLights.length < MAX_RELIGHT_LIGHTS && (
+                              <button
+                                onClick={handleAddRelightLight}
+                                data-tooltip={t('adjustments.effects.relightAddLight')}
+                                className="w-7 h-7 rounded-full flex items-center justify-center bg-bg-primary text-text-secondary hover:text-text-primary hover:bg-surface transition-colors"
+                              >
+                                <Plus size={14} />
+                              </button>
+                            )}
+                            {relightLights.length > 1 && (
+                              <button
+                                onClick={handleRemoveRelightLight}
+                                data-tooltip={t('adjustments.effects.relightRemoveLight')}
+                                className="w-7 h-7 ml-auto rounded-full flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-surface transition-colors"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
                         <Slider
                           label={t('adjustments.effects.relightIntensity')}
                           max={100}
                           min={0}
                           defaultValue={50}
-                          onChange={(e: any) => handleAdjustmentChange(Effect.RelightIntensity, e.target.value)}
+                          onChange={(e: any) => updateActiveRelightLight({ intensity: parseInt(e.target.value, 10) })}
                           step={1}
-                          value={adjustments.relightIntensity ?? 50}
+                          value={activeRelightLight?.intensity ?? 50}
                           onDragStateChange={onDragStateChange}
                           fillOrigin="min"
                         />
@@ -440,9 +528,9 @@ export default function EffectsPanel({
                           max={100}
                           min={-100}
                           defaultValue={30}
-                          onChange={(e: any) => handleAdjustmentChange(Effect.RelightDepth, e.target.value)}
+                          onChange={(e: any) => updateActiveRelightLight({ depth: parseInt(e.target.value, 10) })}
                           step={1}
-                          value={adjustments.relightDepth ?? 30}
+                          value={activeRelightLight?.depth ?? 30}
                           onDragStateChange={onDragStateChange}
                         />
 
@@ -451,45 +539,9 @@ export default function EffectsPanel({
                           max={100}
                           min={0}
                           defaultValue={60}
-                          onChange={(e: any) => handleAdjustmentChange(Effect.RelightRange, e.target.value)}
+                          onChange={(e: any) => updateActiveRelightLight({ range: parseInt(e.target.value, 10) })}
                           step={1}
-                          value={adjustments.relightRange ?? 60}
-                          onDragStateChange={onDragStateChange}
-                          fillOrigin="min"
-                        />
-
-                        <Slider
-                          label={t('adjustments.effects.relightAmbient')}
-                          max={100}
-                          min={0}
-                          defaultValue={80}
-                          onChange={(e: any) => handleAdjustmentChange(Effect.RelightAmbient, e.target.value)}
-                          step={1}
-                          value={adjustments.relightAmbient ?? 80}
-                          onDragStateChange={onDragStateChange}
-                          fillOrigin="min"
-                        />
-
-                        <Slider
-                          label={t('adjustments.effects.relightSoftness')}
-                          max={100}
-                          min={0}
-                          defaultValue={30}
-                          onChange={(e: any) => handleAdjustmentChange(Effect.RelightSoftness, e.target.value)}
-                          step={1}
-                          value={adjustments.relightSoftness ?? 30}
-                          onDragStateChange={onDragStateChange}
-                          fillOrigin="min"
-                        />
-
-                        <Slider
-                          label={t('adjustments.effects.relightSpecular')}
-                          max={100}
-                          min={0}
-                          defaultValue={0}
-                          onChange={(e: any) => handleAdjustmentChange(Effect.RelightSpecular, e.target.value)}
-                          step={1}
-                          value={adjustments.relightSpecular ?? 0}
+                          value={activeRelightLight?.range ?? 60}
                           onDragStateChange={onDragStateChange}
                           fillOrigin="min"
                         />
@@ -534,6 +586,42 @@ export default function EffectsPanel({
                             </Text>
                           </label>
                         </div>
+
+                        <Slider
+                          label={t('adjustments.effects.relightAmbient')}
+                          max={100}
+                          min={0}
+                          defaultValue={80}
+                          onChange={(e: any) => handleAdjustmentChange(Effect.RelightAmbient, e.target.value)}
+                          step={1}
+                          value={adjustments.relightAmbient ?? 80}
+                          onDragStateChange={onDragStateChange}
+                          fillOrigin="min"
+                        />
+
+                        <Slider
+                          label={t('adjustments.effects.relightSoftness')}
+                          max={100}
+                          min={0}
+                          defaultValue={30}
+                          onChange={(e: any) => handleAdjustmentChange(Effect.RelightSoftness, e.target.value)}
+                          step={1}
+                          value={adjustments.relightSoftness ?? 30}
+                          onDragStateChange={onDragStateChange}
+                          fillOrigin="min"
+                        />
+
+                        <Slider
+                          label={t('adjustments.effects.relightSpecular')}
+                          max={100}
+                          min={0}
+                          defaultValue={0}
+                          onChange={(e: any) => handleAdjustmentChange(Effect.RelightSpecular, e.target.value)}
+                          step={1}
+                          value={adjustments.relightSpecular ?? 0}
+                          onDragStateChange={onDragStateChange}
+                          fillOrigin="min"
+                        />
 
                         {adjustments.relightNormalMap && (
                           <img

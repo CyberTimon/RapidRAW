@@ -12,6 +12,7 @@ const MAX_FRONT_DISTANCE: f32 = 1.5;
 
 // Below this size there is nothing to gain from snapping the maps to the image edges.
 const MIN_REFINE_SIZE: u32 = 64;
+const MAX_LIGHTS: usize = 8;
 
 type DepthMap = ImageBuffer<Luma<u16>, Vec<u16>>;
 
@@ -26,19 +27,23 @@ struct SurfaceMaps {
 // last result is kept around while the light is being moved.
 static SURFACE_MAPS_CACHE: Mutex<Option<(blake3::Hash, Arc<SurfaceMaps>)>> = Mutex::new(None);
 
-struct RelightParams {
-    // Light position as a fraction of the image width / height.
-    light_x: f32,
-    light_y: f32,
-    // Light depth in units of the longest image side: 0 is the nearest surface,
-    // positive values move towards the viewer and negative values go into the scene.
-    light_z: f32,
-    // Depth covered by the full range of the depth map, in the same units.
-    depth_scale: f32,
+struct Light {
+    // Position as a fraction of the image width / height.
+    x: f32,
+    y: f32,
+    // Depth in units of the longest image side: 0 is the nearest surface, positive values
+    // move towards the viewer and negative values go into the scene.
+    z: f32,
     // Falloff radius, in units of the longest image side.
     radius: f32,
-    light_color: [f32; 3],
+    color: [f32; 3],
     intensity: f32,
+}
+
+struct RelightParams {
+    lights: Vec<Light>,
+    // Depth covered by the full range of the depth map, in units of the longest image side.
+    depth_scale: f32,
     ambient: f32,
     wrap: f32,
     specular: f32,
@@ -410,10 +415,32 @@ fn parse_light_color(hex: &str) -> [f32; 3] {
     color.map(|c| c / norm)
 }
 
+fn read_light(light: &serde_json::Value, depth_scale: f32) -> Light {
+    let num = |key: &str, default: f64| light[key].as_f64().unwrap_or(default) as f32;
+
+    let range = (num("range", 60.0) / 100.0).clamp(0.0, 1.0);
+
+    // Forwards the light moves linearly away from the scene. Backwards it eases in, so
+    // small moves place it just behind the subject even when the background is far away.
+    let depth = (num("depth", 30.0) / 100.0).clamp(-1.0, 1.0);
+    let z = if depth >= 0.0 {
+        0.02 + depth * MAX_FRONT_DISTANCE
+    } else {
+        0.02 - depth * depth * depth_scale.clamp(0.5, 10.0)
+    };
+
+    Light {
+        x: num("x", 0.3),
+        y: num("y", 0.3),
+        z,
+        radius: 0.1 + 1.9 * range * range,
+        color: parse_light_color(light["color"].as_str().unwrap_or("#ffffff")),
+        intensity: (num("intensity", 50.0) / 100.0).clamp(0.0, 1.0) * 2.0,
+    }
+}
+
 fn read_params(adjustments: &serde_json::Value, has_depth_map: bool) -> RelightParams {
     let num = |key: &str, default: f64| adjustments[key].as_f64().unwrap_or(default) as f32;
-
-    let range = (num("relightRange", 60.0) / 100.0).clamp(0.0, 1.0);
 
     let depth_scale = if has_depth_map {
         num("relightDepthScale", 0.0).max(0.0)
@@ -421,23 +448,29 @@ fn read_params(adjustments: &serde_json::Value, has_depth_map: bool) -> RelightP
         0.0
     };
 
-    // Forwards the light moves linearly away from the scene. Backwards it eases in, so
-    // small moves place it just behind the subject even when the background is far away.
-    let depth = (num("relightDepth", 30.0) / 100.0).clamp(-1.0, 1.0);
-    let light_z = if depth >= 0.0 {
-        0.02 + depth * MAX_FRONT_DISTANCE
-    } else {
-        0.02 - depth * depth * depth_scale.clamp(0.5, 10.0)
+    let lights = match adjustments["relightLights"].as_array() {
+        Some(lights) => lights
+            .iter()
+            .take(MAX_LIGHTS)
+            .map(|light| read_light(light, depth_scale))
+            .collect(),
+        // Edits saved before multiple lights existed describe a single light at the top level.
+        None => vec![read_light(
+            &serde_json::json!({
+                "x": adjustments["relightX"],
+                "y": adjustments["relightY"],
+                "depth": adjustments["relightDepth"],
+                "range": adjustments["relightRange"],
+                "color": adjustments["relightColor"],
+                "intensity": adjustments["relightIntensity"],
+            }),
+            depth_scale,
+        )],
     };
 
     RelightParams {
-        light_x: num("relightX", 0.3),
-        light_y: num("relightY", 0.3),
-        light_z,
+        lights,
         depth_scale,
-        radius: 0.1 + 1.9 * range * range,
-        light_color: parse_light_color(adjustments["relightColor"].as_str().unwrap_or("#ffffff")),
-        intensity: (num("relightIntensity", 50.0) / 100.0).clamp(0.0, 1.0) * 2.0,
         ambient: (num("relightAmbient", 80.0) / 100.0).clamp(0.0, 1.0),
         wrap: (num("relightSoftness", 30.0) / 100.0).clamp(0.0, 1.0),
         specular: (num("relightSpecular", 0.0) / 100.0).clamp(0.0, 1.0),
@@ -450,18 +483,28 @@ fn relight_in_place(image: &mut Rgb32FImage, maps: &SurfaceMaps, p: &RelightPara
 
     let depth_to_z = -p.depth_scale / 65535.0;
     let inv_long_side = 1.0 / w.max(h) as f32;
-    let light_px = p.light_x * w as f32;
-    let light_py = p.light_y * h as f32;
-    let inv_radius_sq = 1.0 / (p.radius * p.radius);
+
+    // Per light: position in pixels, depth and inverse squared falloff radius.
+    let lights: Vec<(f32, f32, f32, f32, &Light)> = p
+        .lights
+        .iter()
+        .filter(|light| light.intensity > 0.0)
+        .map(|light| {
+            (
+                light.x * w as f32,
+                light.y * h as f32,
+                light.z,
+                1.0 / (light.radius * light.radius),
+                light,
+            )
+        })
+        .collect();
 
     image
         .as_mut()
         .par_chunks_exact_mut(w * 3)
         .enumerate()
         .for_each(|(y, row)| {
-            // Image rows grow downwards while the normal map uses Y up.
-            let ly = -(light_py - (y as f32 + 0.5)) * inv_long_side;
-
             for (x, px) in row.chunks_exact_mut(3).enumerate() {
                 let i = y * w + x;
 
@@ -476,31 +519,41 @@ fn relight_in_place(image: &mut Rgb32FImage, maps: &SurfaceMaps, p: &RelightPara
                     n[1] as f32 / 127.0,
                     n[2] as f32 / 127.0,
                 );
+                let surface_z = maps.depth[i] as f32 * depth_to_z;
 
-                let lx = (light_px - (x as f32 + 0.5)) * inv_long_side;
-                let lz = p.light_z - maps.depth[i] as f32 * depth_to_z;
-                let dist_sq = lx * lx + ly * ly + lz * lz;
-                let inv_l_len = 1.0 / dist_sq.sqrt().max(1e-6);
-                let (dx, dy, dz) = (lx * inv_l_len, ly * inv_l_len, lz * inv_l_len);
+                let mut lit = [0.0f32; 3];
+                for (light_px, light_py, light_z, inv_radius_sq, light) in &lights {
+                    let lx = (light_px - (x as f32 + 0.5)) * inv_long_side;
+                    // Image rows grow downwards while the normal map uses Y up.
+                    let ly = -(light_py - (y as f32 + 0.5)) * inv_long_side;
+                    let lz = light_z - surface_z;
+                    let dist_sq = lx * lx + ly * ly + lz * lz;
+                    let inv_l_len = 1.0 / dist_sq.sqrt().max(1e-6);
+                    let (dx, dy, dz) = (lx * inv_l_len, ly * inv_l_len, lz * inv_l_len);
 
-                let attenuation = 1.0 / (1.0 + dist_sq * inv_radius_sq);
+                    let attenuation = 1.0 / (1.0 + dist_sq * inv_radius_sq);
 
-                let n_dot_l = nx * dx + ny * dy + nz * dz;
-                let diffuse = ((n_dot_l + p.wrap) / (1.0 + p.wrap)).max(0.0);
+                    let n_dot_l = nx * dx + ny * dy + nz * dz;
+                    let diffuse = ((n_dot_l + p.wrap) / (1.0 + p.wrap)).max(0.0);
 
-                let spec = if p.specular > 0.0 && n_dot_l > 0.0 {
-                    // Half vector between the light and the viewer (0, 0, 1).
-                    let hz = dz + 1.0;
-                    let inv_h_len = 1.0 / (dx * dx + dy * dy + hz * hz).sqrt().max(1e-6);
-                    let n_dot_h = (nx * dx + ny * dy + nz * hz) * inv_h_len;
-                    n_dot_h.max(0.0).powf(SPECULAR_POWER) * p.specular
-                } else {
-                    0.0
-                };
+                    let spec = if p.specular > 0.0 && n_dot_l > 0.0 {
+                        // Half vector between the light and the viewer (0, 0, 1).
+                        let hz = dz + 1.0;
+                        let inv_h_len = 1.0 / (dx * dx + dy * dy + hz * hz).sqrt().max(1e-6);
+                        let n_dot_h = (nx * dx + ny * dy + nz * hz) * inv_h_len;
+                        n_dot_h.max(0.0).powf(SPECULAR_POWER) * p.specular
+                    } else {
+                        0.0
+                    };
 
-                let lit = p.intensity * attenuation * (diffuse + spec);
+                    let amount = light.intensity * attenuation * (diffuse + spec);
+                    for c in 0..3 {
+                        lit[c] += amount * light.color[c];
+                    }
+                }
+
                 for c in 0..3 {
-                    let gain = p.ambient + lit * p.light_color[c];
+                    let gain = p.ambient + lit[c];
                     px[c] *= 1.0 + (gain - 1.0) * coverage;
                 }
             }
@@ -656,6 +709,30 @@ mod tests {
 
         assert_eq!(plain.normals, refined.normals);
         assert_eq!(plain.depth, refined.depth);
+    }
+
+    #[test]
+    fn several_lights_add_up_with_their_own_colors() {
+        let normal_map = flat_normal_map([128, 128, 255], 255);
+        let red = json!({ "x": 0.0, "y": 0.5, "color": "#ff0000", "range": 20 });
+        let blue = json!({ "x": 1.0, "y": 0.5, "color": "#0000ff", "range": 20 });
+        let both = json!({ "relightLights": [red, blue] });
+
+        let near_red = relit_pixel(both.clone(), &normal_map, 0);
+        let near_blue = relit_pixel(both.clone(), &normal_map, 7);
+        assert!(near_red[0] > near_red[2]);
+        assert!(near_blue[2] > near_blue[0]);
+
+        let only_red = relit_pixel(json!({ "relightLights": [red] }), &normal_map, 0);
+        assert!(near_red[2] > only_red[2]);
+    }
+
+    #[test]
+    fn no_lights_leaves_only_the_ambient_level() {
+        let adjustments = json!({ "relightLights": [], "relightAmbient": 50 });
+        let lit = relit_pixel(adjustments, &flat_normal_map([128, 128, 255], 255), 3);
+
+        assert_eq!(lit, [0.25; 3]);
     }
 
     #[test]

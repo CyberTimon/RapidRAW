@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Adjustments, Coord } from '../../../../utils/adjustments';
+import { Coord, RelightLight } from '../../../../utils/adjustments';
 import { RenderSize } from '../../../../hooks/useImageRenderSize';
 import { RelightGeometry, relightDisplayToUv, relightUvToDisplay } from '../../../../utils/relightUtils';
 
 interface RelightHandleProps {
-  adjustments: Adjustments;
+  light: RelightLight;
+  isActive: boolean;
   geometry: RelightGeometry;
   imageRenderSize: RenderSize;
   inverseScale: number;
-  setAdjustments(fn: (prev: Adjustments) => Adjustments): void;
+  onSelect(id: string): void;
+  onChange(id: string, changes: Partial<RelightLight>): void;
 }
 
 const HANDLE_SIZE = 30;
@@ -18,17 +20,22 @@ const WHEEL_DEPTH_STEP = 4;
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 
 export default function RelightHandle({
-  adjustments,
+  light,
+  isActive,
   geometry,
   imageRenderSize,
   inverseScale,
-  setAdjustments,
+  onSelect,
+  onChange,
 }: RelightHandleProps) {
   const { t } = useTranslation();
   const handleRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<number | null>(null);
   const pendingUvRef = useRef<Coord | null>(null);
+  const depthRef = useRef(light.depth);
   const [dragUv, setDragUv] = useState<Coord | null>(null);
+
+  depthRef.current = light.depth;
 
   useEffect(
     () => () => {
@@ -46,15 +53,15 @@ export default function RelightHandle({
       e.preventDefault();
       e.stopPropagation();
       const step = e.deltaY < 0 ? WHEEL_DEPTH_STEP : -WHEEL_DEPTH_STEP;
-      setAdjustments((prev: Adjustments) => ({
-        ...prev,
-        relightDepth: Math.max(-100, Math.min(100, (prev.relightDepth ?? 30) + step)),
-      }));
+      const depth = Math.max(-100, Math.min(100, depthRef.current + step));
+      depthRef.current = depth;
+      onSelect(light.id);
+      onChange(light.id, { depth });
     };
 
     handle.addEventListener('wheel', handleWheel, { passive: false });
     return () => handle.removeEventListener('wheel', handleWheel);
-  }, [setAdjustments]);
+  }, [light.id, onSelect, onChange]);
 
   const commitUv = useCallback(
     (uv: Coord) => {
@@ -64,10 +71,10 @@ export default function RelightHandle({
         frameRef.current = null;
         const next = pendingUvRef.current;
         if (!next) return;
-        setAdjustments((prev: Adjustments) => ({ ...prev, relightX: next.x, relightY: next.y }));
+        onChange(light.id, { x: next.x, y: next.y });
       });
     },
-    [setAdjustments],
+    [light.id, onChange],
   );
 
   const pointerToUv = useCallback(
@@ -97,7 +104,8 @@ export default function RelightHandle({
     e.stopPropagation();
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
-    setDragUv({ x: adjustments.relightX ?? 0.3, y: adjustments.relightY ?? 0.3 });
+    onSelect(light.id);
+    setDragUv({ x: light.x, y: light.y });
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -118,13 +126,14 @@ export default function RelightHandle({
     setDragUv(null);
   };
 
-  const uv = dragUv ?? { x: adjustments.relightX ?? 0.3, y: adjustments.relightY ?? 0.3 };
+  const uv = dragUv ?? { x: light.x, y: light.y };
   const display = relightUvToDisplay(uv, geometry);
-  const color = adjustments.relightColor || '#ffffff';
-  const depth = Math.max(-100, Math.min(100, adjustments.relightDepth ?? 30));
+  const color = light.color || '#ffffff';
+  const depth = Math.max(-100, Math.min(100, light.depth));
   // Closer lights look bigger; a light behind the subject gets a dashed outline.
   const depthScale = 0.7 + 0.6 * ((depth + 100) / 200);
   const isBehind = depth < 0;
+  const outline = isActive ? '0 0 0 2.5px var(--color-accent, #ffffff), ' : '';
 
   return (
     <div
@@ -148,10 +157,11 @@ export default function RelightHandle({
         transformOrigin: 'center',
         cursor: dragUv ? 'grabbing' : 'grab',
         touchAction: 'none',
+        zIndex: isActive ? 1 : 0,
         background: `radial-gradient(circle at 35% 30%, #ffffff 0%, ${color} 38%, color-mix(in srgb, ${color} 45%, #000000) 100%)`,
         border: `1.5px ${isBehind ? 'dashed' : 'solid'} rgba(255, 255, 255, 0.9)`,
         opacity: isBehind ? 0.75 : 1,
-        boxShadow: `0 0 0 1px rgba(0, 0, 0, 0.45), 0 0 14px 4px color-mix(in srgb, ${color} 55%, transparent), 0 2px 6px rgba(0, 0, 0, 0.5)`,
+        boxShadow: `${outline}0 0 0 1px rgba(0, 0, 0, 0.45), 0 0 14px 4px color-mix(in srgb, ${color} 55%, transparent), 0 2px 6px rgba(0, 0, 0, 0.5)`,
       }}
     />
   );
