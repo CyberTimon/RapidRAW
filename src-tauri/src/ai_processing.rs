@@ -60,9 +60,42 @@ const DEPTH_FILENAME: &str = "depth_anything_v2_vits.onnx";
 const DEPTH_INPUT_SIZE: u32 = 518;
 const DEPTH_SHA256: &str = "d2b11a11c1d4a12b47608fa65a17ee9a4c605b55ee1730c8e3b526304f2562be";
 
-const NORMAL_URL: &str = "https://huggingface.co/Ruicheng/moge-2-vits-normal-onnx/resolve/e50ffda41565591092adea54c6ac83d6212e1e23/model.onnx?download=true";
-const NORMAL_FILENAME: &str = "moge2_vits_normal.onnx";
-const NORMAL_SHA256: &str = "24eacb5dc7a2c54c7bc98f7de085ffbed79ad006ea5b664c2c2cdc02ff3a52f0";
+/// MoGe-2 checkpoints used for the relight maps. Both take the same inputs and return the
+/// same outputs; the large one resolves much finer geometry but is far heavier.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum NormalModelQuality {
+    #[default]
+    Standard,
+    High,
+}
+
+struct NormalModelSpec {
+    url: &'static str,
+    filename: &'static str,
+    sha256: &'static str,
+    name: &'static str,
+}
+
+impl NormalModelQuality {
+    fn spec(self) -> NormalModelSpec {
+        match self {
+            Self::Standard => NormalModelSpec {
+                url: "https://huggingface.co/Ruicheng/moge-2-vits-normal-onnx/resolve/e50ffda41565591092adea54c6ac83d6212e1e23/model.onnx?download=true",
+                filename: "moge2_vits_normal.onnx",
+                sha256: "24eacb5dc7a2c54c7bc98f7de085ffbed79ad006ea5b664c2c2cdc02ff3a52f0",
+                name: "Normal Map Model",
+            },
+            Self::High => NormalModelSpec {
+                url: "https://huggingface.co/Ruicheng/moge-2-vitl-normal-onnx/resolve/1c02388b024dd34da413e1a934d7a941785f1460/model.onnx?download=true",
+                filename: "moge2_vitl_normal.onnx",
+                sha256: "afbc4ccc3450298f3afb35b90f015f4c4f552dea21dc6470d5f7b78b77e2d751",
+                name: "Normal Map Model (High Quality, 1.3 GB)",
+            },
+        }
+    }
+}
+
 const NORMAL_MAX_SIZE: u32 = 1024;
 const NORMAL_NUM_TOKENS: i64 = 3600;
 
@@ -98,7 +131,8 @@ pub struct AiState {
     pub denoise_model: Option<Arc<Mutex<Session>>>,
     pub clip_models: Option<Arc<ClipModels>>,
     pub lama_model: Option<Arc<Mutex<Session>>>,
-    pub normal_model: Option<Arc<Mutex<Session>>>,
+    // Only one checkpoint is kept loaded: the large one alone takes well over 1 GB of RAM.
+    pub normal_model: Option<(NormalModelQuality, Arc<Mutex<Session>>)>,
     pub embeddings: Option<ImageEmbeddings>,
     pub depth_map: Option<CachedDepthMap>,
 }
@@ -321,13 +355,8 @@ fn get_models_dir(app_handle: &tauri::AppHandle) -> Result<PathBuf> {
     Ok(models_dir)
 }
 
-fn persist_downloaded_asset(dest: &Path, bytes: &[u8]) -> Result<()> {
-    if bytes.is_empty() {
-        return Err(anyhow::anyhow!(
-            "Downloaded asset for {} was empty",
-            dest.display()
-        ));
-    }
+async fn download_model(url: &str, dest: &Path) -> Result<()> {
+    let mut response = reqwest::get(url).await?.error_for_status()?;
 
     let parent = dest.parent().ok_or_else(|| {
         anyhow::anyhow!(
@@ -343,10 +372,29 @@ fn persist_downloaded_asset(dest: &Path, bytes: &[u8]) -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("Invalid downloaded asset path {}", dest.display()))?;
     let tmp_path = dest.with_file_name(format!(".{}.download", file_name));
 
-    {
+    // Written in chunks so that large models never have to fit in memory.
+    let mut total_bytes = 0usize;
+    let write_result: Result<()> = async {
         let mut file = fs::File::create(&tmp_path)?;
-        file.write_all(bytes)?;
+        while let Some(chunk) = response.chunk().await? {
+            file.write_all(&chunk)?;
+            total_bytes += chunk.len();
+        }
         file.sync_all()?;
+        Ok(())
+    }
+    .await;
+
+    if let Err(error) = write_result {
+        let _ = fs::remove_file(&tmp_path);
+        return Err(error);
+    }
+    if total_bytes == 0 {
+        let _ = fs::remove_file(&tmp_path);
+        return Err(anyhow::anyhow!(
+            "Downloaded asset for {} was empty",
+            dest.display()
+        ));
     }
 
     fs::rename(&tmp_path, dest).or_else(|rename_error| -> std::io::Result<()> {
@@ -359,12 +407,6 @@ fn persist_downloaded_asset(dest: &Path, bytes: &[u8]) -> Result<()> {
         }
     })?;
     Ok(())
-}
-
-async fn download_model(url: &str, dest: &Path) -> Result<()> {
-    let response = reqwest::get(url).await?.error_for_status()?;
-    let bytes = response.bytes().await?;
-    persist_downloaded_asset(dest, &bytes)
 }
 
 fn verify_sha256(path: &Path, expected_hash: &str) -> Result<bool> {
@@ -765,40 +807,47 @@ pub async fn get_or_init_normal_model(
     app_handle: &tauri::AppHandle,
     ai_state_mutex: &Mutex<Option<AiState>>,
     ai_init_lock: &TokioMutex<()>,
+    quality: NormalModelQuality,
 ) -> Result<Arc<Mutex<Session>>> {
-    if let Some(normal_model) = ai_state_mutex
-        .lock()
-        .unwrap()
-        .as_ref()
-        .and_then(|state| state.normal_model.clone())
-    {
+    let loaded_model = || {
+        ai_state_mutex
+            .lock()
+            .unwrap()
+            .as_ref()
+            .and_then(|state| state.normal_model.clone())
+            .filter(|(loaded_quality, _)| *loaded_quality == quality)
+            .map(|(_, model)| model)
+    };
+
+    if let Some(normal_model) = loaded_model() {
         return Ok(normal_model);
     }
 
     let _guard = ai_init_lock.lock().await;
 
-    if let Some(normal_model) = ai_state_mutex
-        .lock()
-        .unwrap()
-        .as_ref()
-        .and_then(|state| state.normal_model.clone())
-    {
+    if let Some(normal_model) = loaded_model() {
         return Ok(normal_model);
     }
 
+    let spec = quality.spec();
     let models_dir = get_models_dir(app_handle)?;
     download_and_verify_model(
         app_handle,
         &models_dir,
-        NORMAL_FILENAME,
-        NORMAL_URL,
-        NORMAL_SHA256,
-        "Normal Map Model",
+        spec.filename,
+        spec.url,
+        spec.sha256,
+        spec.name,
     )
     .await?;
 
+    // Free the other checkpoint before loading this one.
+    if let Some(state) = ai_state_mutex.lock().unwrap().as_mut() {
+        state.normal_model = None;
+    }
+
     let _ = ort::init().with_name("AI-Normal").commit();
-    let model_path = models_dir.join(NORMAL_FILENAME);
+    let model_path = models_dir.join(spec.filename);
     let session = Session::builder()?.commit_from_file(model_path)?;
     let normal_model = Arc::new(Mutex::new(session));
 
@@ -806,14 +855,14 @@ pub async fn get_or_init_normal_model(
 
     let mut ai_state_lock = ai_state_mutex.lock().unwrap();
     if let Some(state) = ai_state_lock.as_mut() {
-        state.normal_model = Some(normal_model.clone());
+        state.normal_model = Some((quality, normal_model.clone()));
     } else {
         *ai_state_lock = Some(AiState {
             models: None,
             denoise_model: None,
             clip_models: None,
             lama_model: None,
-            normal_model: Some(normal_model.clone()),
+            normal_model: Some((quality, normal_model.clone())),
             embeddings: None,
             depth_map: None,
         });

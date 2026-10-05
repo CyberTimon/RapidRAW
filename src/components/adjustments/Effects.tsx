@@ -15,6 +15,7 @@ import {
   getAdjustmentToolOrder,
   getHiddenAdjustmentTools,
   RelightLight,
+  RelightQuality,
   DEFAULT_RELIGHT_LIGHT,
   MAX_RELIGHT_LIGHTS,
 } from '../../utils/adjustments';
@@ -182,15 +183,19 @@ export default function EffectsPanel({
     }
   };
 
-  const handleGenerateRelightNormalMap = async () => {
+  const relightQuality: RelightQuality = adjustments.relightQuality ?? 'standard';
+
+  const handleGenerateRelightNormalMap = async (quality: RelightQuality = relightQuality) => {
     setIsGeneratingNormal(true);
     try {
       const maps: { normalMap: string; depthMap: string; depthScale: number } = await invoke('generate_relight_maps', {
         jsAdjustments: adjustments,
+        quality,
       });
       setAdjustments((prev: Partial<Adjustments>) => ({
         ...prev,
         relightNormalMap: maps.normalMap,
+        relightQuality: quality,
         relightDepthMap: maps.depthMap,
         relightDepthScale: maps.depthScale,
       }));
@@ -233,6 +238,7 @@ export default function EffectsPanel({
   const relightLights = adjustments.relightLights ?? [];
   const activeRelightLightId = useEditorStore((state) => state.activeRelightLightId);
   const setEditor = useEditorStore((state) => state.setEditor);
+  const showRelightNormalMap = useEditorStore((state) => state.showRelightNormalMap);
   const activeRelightLight = relightLights.find((light) => light.id === activeRelightLightId) ?? relightLights[0];
   const relightColor = (activeRelightLight?.color || '#ffffff').toLowerCase();
 
@@ -623,6 +629,26 @@ export default function EffectsPanel({
                           fillOrigin="min"
                         />
 
+                        <Slider
+                          label={t('adjustments.effects.relightDetail')}
+                          max={100}
+                          min={0}
+                          defaultValue={30}
+                          onChange={(e: any) => handleAdjustmentChange(Effect.RelightDetail, e.target.value)}
+                          step={1}
+                          value={adjustments.relightDetail ?? 30}
+                          onDragStateChange={onDragStateChange}
+                          fillOrigin="min"
+                        />
+
+                        {adjustments.relightNormalMap && (
+                          <Switch
+                            label={t('adjustments.effects.relightShowNormalMap')}
+                            checked={showRelightNormalMap}
+                            onChange={(checked: boolean) => setEditor({ showRelightNormalMap: checked })}
+                          />
+                        )}
+
                         {adjustments.relightNormalMap && (
                           <img
                             src={adjustments.relightNormalMap}
@@ -632,7 +658,34 @@ export default function EffectsPanel({
                           />
                         )}
 
-                        <Button className="w-full" onClick={handleGenerateRelightNormalMap}>
+                        <div className="flex flex-col gap-2">
+                          <Text variant={TextVariants.label} className="text-text-secondary select-none">
+                            {t('adjustments.effects.relightQuality')}
+                          </Text>
+                          <div className="grid grid-cols-2 gap-1 p-1 bg-bg-primary rounded-md">
+                            {(['standard', 'high'] as const).map((quality) => (
+                              <button
+                                key={quality}
+                                onClick={() => quality !== relightQuality && handleGenerateRelightNormalMap(quality)}
+                                data-tooltip={
+                                  quality === 'high' ? t('adjustments.effects.relightQualityHighTooltip') : undefined
+                                }
+                                className={clsx(
+                                  'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+                                  quality === relightQuality
+                                    ? 'bg-accent text-button-text'
+                                    : 'text-text-secondary hover:text-text-primary hover:bg-surface',
+                                )}
+                              >
+                                {quality === 'high'
+                                  ? t('adjustments.effects.relightQualityHigh')
+                                  : t('adjustments.effects.relightQualityStandard')}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <Button className="w-full" onClick={() => handleGenerateRelightNormalMap()}>
                           {adjustments.relightNormalMap
                             ? t('adjustments.effects.relightRegenerateNormalMap')
                             : t('adjustments.effects.relightGenerateNormalMap')}

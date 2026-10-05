@@ -321,6 +321,7 @@ fn encode_png_data_url(image: &image::DynamicImage) -> Result<String, String> {
 #[tauri::command]
 pub async fn generate_relight_maps(
     js_adjustments: serde_json::Value,
+    quality: Option<crate::ai_processing::NormalModelQuality>,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<RelightMapsPayload, String> {
@@ -328,6 +329,7 @@ pub async fn generate_relight_maps(
         &app_handle,
         &state.ai_state,
         &state.ai_init_lock,
+        quality.unwrap_or_default(),
     )
     .await
     .map_err(|e| e.to_string())?;
@@ -342,6 +344,42 @@ pub async fn generate_relight_maps(
         depth_map: encode_png_data_url(&image::DynamicImage::ImageLuma16(maps.depth))?,
         depth_scale: maps.depth_scale,
     })
+}
+
+const RELIGHT_PREVIEW_MAX_SIZE: u32 = 2560;
+
+/// Normal map as the relight pass uses it, laid out like the edited image (orientation,
+/// rotation and crop applied) so it can be shown on top of it.
+#[tauri::command]
+pub async fn generate_relight_normal_preview(
+    js_adjustments: serde_json::Value,
+    state: tauri::State<'_, AppState>,
+) -> Result<String, String> {
+    let warped_image = crate::get_cached_full_warped_image(&state, &js_adjustments)?;
+
+    let normals = crate::relight::render_normal_preview(warped_image.as_ref(), &js_adjustments)
+        .ok_or_else(|| "No normal map available".to_string())?;
+
+    let (transformed, _) = crate::adjustment_utils::apply_spatial_transformations(
+        image::DynamicImage::ImageRgb8(normals),
+        &js_adjustments,
+    );
+    let preview = if transformed.width().max(transformed.height()) > RELIGHT_PREVIEW_MAX_SIZE {
+        transformed.resize(
+            RELIGHT_PREVIEW_MAX_SIZE,
+            RELIGHT_PREVIEW_MAX_SIZE,
+            image::imageops::FilterType::Triangle,
+        )
+    } else {
+        transformed.into_owned()
+    };
+
+    let mut buf = Cursor::new(Vec::new());
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buf, 92)
+        .encode_image(&preview.to_rgb8())
+        .map_err(|e| e.to_string())?;
+    let base64_str = general_purpose::STANDARD.encode(buf.get_ref());
+    Ok(format!("data:image/jpeg;base64,{}", base64_str))
 }
 
 #[allow(clippy::too_many_arguments)]

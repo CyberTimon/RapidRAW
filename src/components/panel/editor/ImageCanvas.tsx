@@ -1728,6 +1728,53 @@ const ImageCanvas = memo(
       relightGeometry.imageWidth > 0 &&
       imageRenderSize.width > 0;
 
+    // Normal map view: the backend renders the map exactly as the relight pass uses it,
+    // already laid out like the edited image, so it can simply cover the photo.
+    const showRelightNormalMap = useEditorStore((state) => state.showRelightNormalMap);
+    const isRelightNormalMapVisible = isRelightHandleVisible && showRelightNormalMap;
+    const [relightNormalPreviewUrl, setRelightNormalPreviewUrl] = useState<string | null>(null);
+    const relightNormalPreviewRequest = useRef(0);
+    const relightPreviewAdjustmentsRef = useRef(adjustments);
+    relightPreviewAdjustmentsRef.current = adjustments;
+    const relightPreviewLayoutKey = JSON.stringify([
+      adjustments.crop,
+      adjustments.rotation,
+      adjustments.flipHorizontal,
+      adjustments.flipVertical,
+      adjustments.orientationSteps,
+    ]);
+
+    useEffect(() => {
+      const request = ++relightNormalPreviewRequest.current;
+      if (!isRelightNormalMapVisible) {
+        setRelightNormalPreviewUrl(null);
+        return;
+      }
+
+      // Wait for the detail slider to settle: each render covers the full-size image.
+      const timeout = window.setTimeout(async () => {
+        try {
+          const url: string = await invoke('generate_relight_normal_preview', {
+            jsAdjustments: relightPreviewAdjustmentsRef.current,
+          });
+          if (request === relightNormalPreviewRequest.current) setRelightNormalPreviewUrl(url);
+        } catch (e) {
+          if (request === relightNormalPreviewRequest.current) {
+            setRelightNormalPreviewUrl(null);
+            toast.error(`Failed to render normal map: ${e}`);
+          }
+        }
+      }, 150);
+      return () => window.clearTimeout(timeout);
+    }, [
+      isRelightNormalMapVisible,
+      adjustments.relightNormalMap,
+      adjustments.relightDepthMap,
+      adjustments.relightDepthScale,
+      adjustments.relightDetail,
+      relightPreviewLayoutKey,
+    ]);
+
     const effectiveZoomScale = transformState.scale > 0 ? transformState.scale : 1;
     const brushStageSize = (brushSettings?.size ?? 0) / effectiveZoomScale;
     const brushImageSpaceSize = brushStageSize / (imageRenderSize.scale || 1);
@@ -3197,6 +3244,23 @@ const ImageCanvas = memo(
                   />
                 )}
               </svg>
+
+              {isRelightNormalMapVisible && relightNormalPreviewUrl && (
+                <img
+                  alt={t('adjustments.effects.relightNormalMap')}
+                  className="absolute pointer-events-none"
+                  draggable={false}
+                  src={relightNormalPreviewUrl}
+                  style={{
+                    height: `${imageRenderSize.height}px`,
+                    left: `${imageRenderSize.offsetX}px`,
+                    top: `${imageRenderSize.offsetY}px`,
+                    width: `${imageRenderSize.width}px`,
+                    imageRendering: isMaxZoom ? 'pixelated' : 'auto',
+                    zIndex: 3,
+                  }}
+                />
+              )}
 
               {displayedMaskUrl && (
                 <img

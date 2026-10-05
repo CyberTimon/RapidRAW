@@ -13,6 +13,8 @@ const MAX_FRONT_DISTANCE: f32 = 1.5;
 // Below this size there is nothing to gain from snapping the maps to the image edges.
 const MIN_REFINE_SIZE: u32 = 64;
 const MAX_LIGHTS: usize = 8;
+// Brightness slope to surface tilt, for a detail amount of 100.
+const DETAIL_GAIN: f32 = 2.0;
 
 type DepthMap = ImageBuffer<Luma<u16>, Vec<u16>>;
 
@@ -21,6 +23,30 @@ struct SurfaceMaps {
     normals: Vec<[i8; 3]>,
     coverage: Vec<u8>,
     depth: Vec<u16>,
+    // Fine relief (hair, pores, fabric) read from the photo's own texture, as an X / Y tilt
+    // to add to the normal. The AI maps are too coarse to carry it.
+    detail: Vec<[i8; 2]>,
+}
+
+impl SurfaceMaps {
+    #[inline(always)]
+    fn normal(&self, i: usize, detail_strength: f32) -> (f32, f32, f32) {
+        let n = self.normals[i];
+        let (nx, ny, nz) = (
+            n[0] as f32 / 127.0,
+            n[1] as f32 / 127.0,
+            n[2] as f32 / 127.0,
+        );
+        if detail_strength <= 0.0 {
+            return (nx, ny, nz);
+        }
+
+        let d = self.detail[i];
+        let nx = nx + d[0] as f32 / 127.0 * detail_strength;
+        let ny = ny + d[1] as f32 / 127.0 * detail_strength;
+        let inv_len = 1.0 / (nx * nx + ny * ny + nz * nz).sqrt().max(1e-6);
+        (nx * inv_len, ny * inv_len, nz * inv_len)
+    }
 }
 
 // Building the maps only depends on the photo and the AI maps, never on the light, so the
@@ -47,6 +73,7 @@ struct RelightParams {
     ambient: f32,
     wrap: f32,
     specular: f32,
+    detail: f32,
 }
 
 pub fn apply_relight<'a>(
@@ -63,11 +90,6 @@ pub fn apply_relight<'a>(
         return image;
     }
 
-    let normal_b64 = adjustments["relightNormalMap"].as_str().unwrap_or("");
-    if normal_b64.is_empty() {
-        return image;
-    }
-
     let (w, h) = image.dimensions();
     if w < 2 || h < 2 {
         return image;
@@ -76,9 +98,65 @@ pub fn apply_relight<'a>(
     let start = std::time::Instant::now();
     let mut out = image.as_ref().to_rgb32f();
 
+    let Some(maps) = cached_surface_maps(&out, adjustments) else {
+        return image;
+    };
+
+    let has_depth_map = !adjustments["relightDepthMap"]
+        .as_str()
+        .unwrap_or("")
+        .is_empty();
+    let params = read_params(adjustments, has_depth_map);
+    relight_in_place(&mut out, &maps, &params);
+
+    log::info!("relight ({}x{}) took {:.2?}", w, h, start.elapsed());
+
+    Cow::Owned(DynamicImage::ImageRgb32F(out))
+}
+
+/// Renders the normal map that the relight pass actually uses for `image` (scaled up,
+/// snapped to the photo's edges and with the detail amount applied), for inspection.
+pub fn render_normal_preview(
+    image: &DynamicImage,
+    adjustments: &serde_json::Value,
+) -> Option<image::RgbImage> {
+    let (w, h) = image.dimensions();
+    if w < 2 || h < 2 {
+        return None;
+    }
+
+    let source = image.to_rgb32f();
+    let maps = cached_surface_maps(&source, adjustments)?;
+    drop(source);
+
+    let detail = read_params(adjustments, false).detail;
+    // Areas without geometry (sky) are shown dark instead of as a made-up normal.
+    const EMPTY: f32 = 32.0;
+
+    let mut raw = vec![0u8; w as usize * h as usize * 3];
+    raw.par_chunks_exact_mut(3).enumerate().for_each(|(i, px)| {
+        let (nx, ny, nz) = maps.normal(i, detail);
+        let coverage = maps.coverage[i] as f32 / 255.0;
+        for (c, n) in [nx, ny, nz].into_iter().enumerate() {
+            let packed = (n * 0.5 + 0.5).clamp(0.0, 1.0) * 255.0;
+            px[c] = (EMPTY + (packed - EMPTY) * coverage).round() as u8;
+        }
+    });
+
+    image::RgbImage::from_raw(w, h, raw)
+}
+
+fn cached_surface_maps(
+    image: &Rgb32FImage,
+    adjustments: &serde_json::Value,
+) -> Option<Arc<SurfaceMaps>> {
+    let normal_b64 = adjustments["relightNormalMap"].as_str().unwrap_or("");
+    if normal_b64.is_empty() {
+        return None;
+    }
     let depth_b64 = adjustments["relightDepthMap"].as_str().unwrap_or("");
     let depth_scale = adjustments["relightDepthScale"].as_f64().unwrap_or(0.0) as f32;
-    let cache_key = surface_maps_key(&out, normal_b64, depth_b64, depth_scale);
+    let cache_key = surface_maps_key(image, normal_b64, depth_b64, depth_scale);
 
     let cached = SURFACE_MAPS_CACHE
         .lock()
@@ -86,47 +164,38 @@ pub fn apply_relight<'a>(
         .as_ref()
         .filter(|(key, _)| *key == cache_key)
         .map(|(_, maps)| Arc::clone(maps));
+    if cached.is_some() {
+        return cached;
+    }
 
-    let maps = match cached {
-        Some(maps) => maps,
-        None => {
-            let Some(normal_map) = decode_data_url(normal_b64).map(|img| img.into_rgba8()) else {
-                return image;
-            };
-            if normal_map.width() < 2 || normal_map.height() < 2 {
-                return image;
-            }
-            let depth_map = decode_data_url(depth_b64)
-                .map(|img| img.into_luma16())
-                .filter(|depth| depth.dimensions() == normal_map.dimensions());
+    let start = std::time::Instant::now();
+    let normal_map = decode_data_url(normal_b64)?.into_rgba8();
+    if normal_map.width() < 2 || normal_map.height() < 2 {
+        return None;
+    }
+    let depth_map = decode_data_url(depth_b64)
+        .map(|img| img.into_luma16())
+        .filter(|depth| depth.dimensions() == normal_map.dimensions());
 
-            let refine = w >= MIN_REFINE_SIZE && h >= MIN_REFINE_SIZE;
-            let maps = Arc::new(build_surface_maps(
-                &out,
-                &normal_map,
-                depth_map.as_ref(),
-                depth_scale,
-                refine,
-            ));
-            log::info!(
-                "relight maps ({}x{}) built in {:.2?}",
-                w,
-                h,
-                start.elapsed()
-            );
+    let (w, h) = image.dimensions();
+    let refine = w >= MIN_REFINE_SIZE && h >= MIN_REFINE_SIZE;
+    let maps = Arc::new(build_surface_maps(
+        image,
+        &normal_map,
+        depth_map.as_ref(),
+        depth_scale,
+        refine,
+    ));
+    log::info!(
+        "relight maps ({}x{}) built in {:.2?}",
+        w,
+        h,
+        start.elapsed()
+    );
 
-            *SURFACE_MAPS_CACHE.lock().unwrap_or_else(|e| e.into_inner()) =
-                Some((cache_key, Arc::clone(&maps)));
-            maps
-        }
-    };
-
-    let params = read_params(adjustments, !depth_b64.is_empty());
-    relight_in_place(&mut out, &maps, &params);
-
-    log::info!("relight ({}x{}) took {:.2?}", w, h, start.elapsed());
-
-    Cow::Owned(DynamicImage::ImageRgb32F(out))
+    *SURFACE_MAPS_CACHE.lock().unwrap_or_else(|e| e.into_inner()) =
+        Some((cache_key, Arc::clone(&maps)));
+    Some(maps)
 }
 
 fn decode_data_url(data_url: &str) -> Option<DynamicImage> {
@@ -311,79 +380,115 @@ fn build_surface_maps(
     let mut normals = vec![[0i8; 3]; w * h];
     let mut coverage = vec![0u8; w * h];
     let mut depth = vec![0u16; w * h];
+    let mut detail = vec![[0i8; 2]; w * h];
+
+    // A feature that is one pixel wide in a small render spans several pixels in a large
+    // one, so slopes are measured against a fixed reference size.
+    let detail_gain = DETAIL_GAIN * w.max(h) as f32 / 1000.0;
 
     normals
         .par_chunks_exact_mut(w)
         .zip(coverage.par_chunks_exact_mut(w))
         .zip(depth.par_chunks_exact_mut(w))
+        .zip(detail.par_chunks_exact_mut(w))
         .enumerate()
-        .for_each(|(y, ((normal_row, coverage_row), depth_row))| {
-            let ty = &y_taps[y];
-            let (r0, r1) = (ty.i0 * gw, ty.i1 * gw);
+        .for_each(
+            |(y, (((normal_row, coverage_row), depth_row), detail_row))| {
+                let ty = &y_taps[y];
+                let (r0, r1) = (ty.i0 * gw, ty.i1 * gw);
 
-            for x in 0..w {
-                let tx = &x_taps[x];
-                let (i00, i10, i01, i11) = (r0 + tx.i0, r0 + tx.i1, r1 + tx.i0, r1 + tx.i1);
-                let bilerp = |v00: f32, v10: f32, v01: f32, v11: f32| {
-                    let top = v00 + (v10 - v00) * tx.t;
-                    let bot = v01 + (v11 - v01) * tx.t;
-                    top + (bot - top) * ty.t
-                };
+                for x in 0..w {
+                    let tx = &x_taps[x];
+                    let (i00, i10, i01, i11) = (r0 + tx.i0, r0 + tx.i1, r1 + tx.i0, r1 + tx.i1);
+                    let bilerp = |v00: f32, v10: f32, v01: f32, v11: f32| {
+                        let top = v00 + (v10 - v00) * tx.t;
+                        let bot = v01 + (v11 - v01) * tx.t;
+                        top + (bot - top) * ty.t
+                    };
 
-                let mut values = [0.0f32; 5];
-                for (c, value) in values.iter_mut().enumerate() {
-                    let plane = &planes[c];
-                    *value = bilerp(plane[i00], plane[i10], plane[i01], plane[i11]);
-                }
+                    let mut values = [0.0f32; 5];
+                    for (c, value) in values.iter_mut().enumerate() {
+                        let plane = &planes[c];
+                        *value = bilerp(plane[i00], plane[i10], plane[i01], plane[i11]);
+                    }
 
-                if refine {
-                    let weight = bilerp(
-                        edge_weight[i00],
-                        edge_weight[i10],
-                        edge_weight[i01],
-                        edge_weight[i11],
-                    );
-                    if weight > 1e-3 {
-                        let luma = luma_full[y * w + x];
-                        for (c, value) in values.iter_mut().enumerate() {
-                            let model = &models[c];
-                            let m = |k: usize| {
-                                bilerp(
-                                    model[i00 * 4 + k],
-                                    model[i10 * 4 + k],
-                                    model[i01 * 4 + k],
-                                    model[i11 * 4 + k],
-                                )
-                            };
-                            let mut guided = (m(0) * luma + m(1)).clamp(m(2), m(3)).clamp(0.0, 1.0);
-                            if c == 3 {
-                                // Coverage is a matte: push it back towards solid / empty so the
-                                // photo's texture does not leak into it as a halo.
-                                guided = smoothstep(0.25, 0.75, guided);
+                    if refine {
+                        let weight = bilerp(
+                            edge_weight[i00],
+                            edge_weight[i10],
+                            edge_weight[i01],
+                            edge_weight[i11],
+                        );
+
+                        // Treat brightness as height and take its slope (Sobel). A silhouette is
+                        // a change of object rather than relief, so it is left out.
+                        let (xl, xr) = (x.saturating_sub(1), (x + 1).min(w - 1));
+                        let (yu, yd) = (y.saturating_sub(1) * w, (y + 1).min(h - 1) * w);
+                        let yc = y * w;
+                        let l = |row: usize, col: usize| luma_full[row + col];
+                        let slope_x = (l(yu, xr) + 2.0 * l(yc, xr) + l(yd, xr)
+                            - l(yu, xl)
+                            - 2.0 * l(yc, xl)
+                            - l(yd, xl))
+                            * 0.125;
+                        let slope_y = (l(yd, xl) + 2.0 * l(yd, x) + l(yd, xr)
+                            - l(yu, xl)
+                            - 2.0 * l(yu, x)
+                            - l(yu, xr))
+                            * 0.125;
+                        // The surface leans away from the uphill direction; image Y points down.
+                        let tilt_x = -slope_x * detail_gain;
+                        let tilt_y = slope_y * detail_gain;
+                        let soft_clip = (1.0 - weight).max(0.0)
+                            / (1.0 + (tilt_x * tilt_x + tilt_y * tilt_y).sqrt());
+                        detail_row[x] = [
+                            (tilt_x * soft_clip * 127.0).round() as i8,
+                            (tilt_y * soft_clip * 127.0).round() as i8,
+                        ];
+                        if weight > 1e-3 {
+                            let luma = luma_full[y * w + x];
+                            for (c, value) in values.iter_mut().enumerate() {
+                                let model = &models[c];
+                                let m = |k: usize| {
+                                    bilerp(
+                                        model[i00 * 4 + k],
+                                        model[i10 * 4 + k],
+                                        model[i01 * 4 + k],
+                                        model[i11 * 4 + k],
+                                    )
+                                };
+                                let mut guided =
+                                    (m(0) * luma + m(1)).clamp(m(2), m(3)).clamp(0.0, 1.0);
+                                if c == 3 {
+                                    // Coverage is a matte: push it back towards solid / empty so the
+                                    // photo's texture does not leak into it as a halo.
+                                    guided = smoothstep(0.25, 0.75, guided);
+                                }
+                                *value += (guided - *value) * weight;
                             }
-                            *value += (guided - *value) * weight;
                         }
                     }
-                }
 
-                let nx = values[0] * 2.0 - 1.0;
-                let ny = values[1] * 2.0 - 1.0;
-                let nz = values[2] * 2.0 - 1.0;
-                let scale = 127.0 / (nx * nx + ny * ny + nz * nz).sqrt().max(1e-6);
-                normal_row[x] = [
-                    (nx * scale).round() as i8,
-                    (ny * scale).round() as i8,
-                    (nz * scale).round() as i8,
-                ];
-                coverage_row[x] = (values[3].clamp(0.0, 1.0) * 255.0).round() as u8;
-                depth_row[x] = (values[4].clamp(0.0, 1.0) * 65535.0).round() as u16;
-            }
-        });
+                    let nx = values[0] * 2.0 - 1.0;
+                    let ny = values[1] * 2.0 - 1.0;
+                    let nz = values[2] * 2.0 - 1.0;
+                    let scale = 127.0 / (nx * nx + ny * ny + nz * nz).sqrt().max(1e-6);
+                    normal_row[x] = [
+                        (nx * scale).round() as i8,
+                        (ny * scale).round() as i8,
+                        (nz * scale).round() as i8,
+                    ];
+                    coverage_row[x] = (values[3].clamp(0.0, 1.0) * 255.0).round() as u8;
+                    depth_row[x] = (values[4].clamp(0.0, 1.0) * 65535.0).round() as u16;
+                }
+            },
+        );
 
     SurfaceMaps {
         normals,
         coverage,
         depth,
+        detail,
     }
 }
 
@@ -474,6 +579,7 @@ fn read_params(adjustments: &serde_json::Value, has_depth_map: bool) -> RelightP
         ambient: (num("relightAmbient", 80.0) / 100.0).clamp(0.0, 1.0),
         wrap: (num("relightSoftness", 30.0) / 100.0).clamp(0.0, 1.0),
         specular: (num("relightSpecular", 0.0) / 100.0).clamp(0.0, 1.0),
+        detail: (num("relightDetail", 30.0) / 100.0).clamp(0.0, 1.0) * 2.0,
     }
 }
 
@@ -513,12 +619,7 @@ fn relight_in_place(image: &mut Rgb32FImage, maps: &SurfaceMaps, p: &RelightPara
                     continue;
                 }
 
-                let n = maps.normals[i];
-                let (nx, ny, nz) = (
-                    n[0] as f32 / 127.0,
-                    n[1] as f32 / 127.0,
-                    n[2] as f32 / 127.0,
-                );
+                let (nx, ny, nz) = maps.normal(i, p.detail);
                 let surface_z = maps.depth[i] as f32 * depth_to_z;
 
                 let mut lit = [0.0f32; 3];
@@ -692,6 +793,48 @@ mod tests {
 
         assert!(soft > 0.0);
         assert!(refined > soft * 1.5, "refined {refined} vs bilinear {soft}");
+    }
+
+    #[test]
+    fn detail_tilts_the_surface_along_the_photo_texture() {
+        // A bright ridge down the middle of a flat, camera-facing surface.
+        let image = Rgb32FImage::from_fn(1000, 64, |x, _| {
+            let v = 0.2 + 0.6 * (-((x as f32 - 500.0) / 6.0).powi(2)).exp();
+            Rgb([v, v, v])
+        });
+        let normal_map = RgbaImage::from_pixel(16, 16, Rgba([128, 128, 255, 255]));
+        let maps = build_surface_maps(&image, &normal_map, None, 0.0, true);
+        let row = 32 * 1000;
+
+        // Left of the ridge the surface climbs to the right, so it faces left; and vice versa.
+        let (left_nx, _, _) = maps.normal(row + 494, 1.0);
+        let (right_nx, _, _) = maps.normal(row + 506, 1.0);
+        assert!(left_nx < -0.05, "left side nx {left_nx}");
+        assert!(right_nx > 0.05, "right side nx {right_nx}");
+
+        // Without detail the AI normal is used as is.
+        let (plain_nx, _, plain_nz) = maps.normal(row + 494, 0.0);
+        assert!(plain_nx.abs() < 0.02 && plain_nz > 0.98);
+    }
+
+    #[test]
+    fn normal_preview_shows_normals_and_darkens_empty_areas() {
+        let image = DynamicImage::ImageRgb32F(Rgb32FImage::from_pixel(8, 8, Rgb([0.5, 0.5, 0.5])));
+        let encode = |alpha: u8| {
+            let mut buf = std::io::Cursor::new(Vec::new());
+            DynamicImage::ImageRgba8(flat_normal_map([128, 128, 255], alpha))
+                .write_to(&mut buf, image::ImageFormat::Png)
+                .unwrap();
+            format!("data:image/png;base64,{}", BASE64.encode(buf.get_ref()))
+        };
+
+        let solid = render_normal_preview(&image, &json!({ "relightNormalMap": encode(255) }));
+        let empty = render_normal_preview(&image, &json!({ "relightNormalMap": encode(0) }));
+
+        let solid = solid.unwrap().get_pixel(3, 3).0;
+        assert!(solid[2] > 250 && (solid[0] as i32 - 128).abs() <= 2);
+        assert_eq!(empty.unwrap().get_pixel(3, 3).0, [32, 32, 32]);
+        assert!(render_normal_preview(&image, &json!({})).is_none());
     }
 
     #[test]

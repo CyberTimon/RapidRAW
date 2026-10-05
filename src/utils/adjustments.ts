@@ -102,8 +102,10 @@ export enum Effect {
   RelightSoftness = 'relightSoftness',
   RelightSpecular = 'relightSpecular',
   RelightNormalMap = 'relightNormalMap',
+  RelightQuality = 'relightQuality',
   RelightDepthMap = 'relightDepthMap',
   RelightDepthScale = 'relightDepthScale',
+  RelightDetail = 'relightDetail',
 }
 
 export enum CreativeAdjustment {
@@ -254,9 +256,11 @@ export interface Adjustments {
   relightAmbient: number;
   relightDepthMap: string | null;
   relightDepthScale: number;
+  relightDetail: number;
   relightEnabled: boolean;
   relightLights: Array<RelightLight>;
   relightNormalMap: string | null;
+  relightQuality: RelightQuality;
   relightSoftness: number;
   relightSpecular: number;
   rotation: number;
@@ -542,6 +546,9 @@ export interface RelightLight {
 
 export const MAX_RELIGHT_LIGHTS = 6;
 
+// Which AI model generated the relight maps: the high quality one is a 1.3 GB download.
+export type RelightQuality = 'standard' | 'high';
+
 export const DEFAULT_RELIGHT_LIGHT: RelightLight = {
   id: 'light-1',
   x: 0.3,
@@ -646,9 +653,11 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   relightAmbient: 80,
   relightDepthMap: null,
   relightDepthScale: 0,
+  relightDetail: 30,
   relightEnabled: false,
   relightLights: [{ ...DEFAULT_RELIGHT_LIGHT }],
   relightNormalMap: null,
+  relightQuality: 'standard',
   relightSoftness: 30,
   relightSpecular: 0,
   rotation: 0,
@@ -801,9 +810,11 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     relightAmbient: loadedAdjustments.relightAmbient ?? INITIAL_ADJUSTMENTS.relightAmbient,
     relightDepthMap: loadedAdjustments.relightDepthMap ?? INITIAL_ADJUSTMENTS.relightDepthMap,
     relightDepthScale: loadedAdjustments.relightDepthScale ?? INITIAL_ADJUSTMENTS.relightDepthScale,
+    relightDetail: loadedAdjustments.relightDetail ?? INITIAL_ADJUSTMENTS.relightDetail,
     relightEnabled: loadedAdjustments.relightEnabled ?? INITIAL_ADJUSTMENTS.relightEnabled,
     relightLights: normalizeRelightLights(loadedAdjustments),
     relightNormalMap: loadedAdjustments.relightNormalMap ?? INITIAL_ADJUSTMENTS.relightNormalMap,
+    relightQuality: loadedAdjustments.relightQuality ?? INITIAL_ADJUSTMENTS.relightQuality,
     relightSoftness: loadedAdjustments.relightSoftness ?? INITIAL_ADJUSTMENTS.relightSoftness,
     relightSpecular: loadedAdjustments.relightSpecular ?? INITIAL_ADJUSTMENTS.relightSpecular,
     lensCorrectionMode: loadedAdjustments.lensCorrectionMode || 'manual',
@@ -1036,8 +1047,10 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     Effect.RelightSoftness,
     Effect.RelightSpecular,
     Effect.RelightNormalMap,
+    Effect.RelightQuality,
     Effect.RelightDepthMap,
     Effect.RelightDepthScale,
+    Effect.RelightDetail,
   ],
 };
 

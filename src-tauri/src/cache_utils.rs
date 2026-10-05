@@ -103,6 +103,7 @@ fn hash_relight(
             "relightAmbient",
             "relightSoftness",
             "relightSpecular",
+            "relightDetail",
             "relightNormalMap",
             "relightDepthMap",
             "relightDepthScale",
