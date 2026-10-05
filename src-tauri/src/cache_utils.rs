@@ -77,7 +77,41 @@ pub fn calculate_patched_warped_hash(adjustments: &serde_json::Value) -> u64 {
         }
     }
 
+    hash_relight(adjustments, effects_visible, &mut hasher);
+
     hasher.finish()
+}
+
+fn hash_relight(
+    adjustments: &serde_json::Value,
+    effects_visible: bool,
+    hasher: &mut DefaultHasher,
+) {
+    let relight_enabled =
+        effects_visible && adjustments["relightEnabled"].as_bool().unwrap_or(false);
+    relight_enabled.hash(hasher);
+
+    if relight_enabled {
+        let relight_keys = [
+            "relightIntensity",
+            "relightX",
+            "relightY",
+            "relightHeight",
+            "relightAmbient",
+            "relightSoftness",
+            "relightSpecular",
+            "relightRange",
+            "relightColor",
+            "relightNormalMap",
+        ];
+
+        for key in relight_keys {
+            if let Some(val) = adjustments.get(key) {
+                key.hash(hasher);
+                val.to_string().hash(hasher);
+            }
+        }
+    }
 }
 
 pub fn calculate_thumbnail_base_hash(adjustments: &serde_json::Value) -> u64 {
@@ -165,6 +199,8 @@ pub fn calculate_transform_hash(adjustments: &serde_json::Value) -> u64 {
             val.as_str().unwrap_or("").len().hash(&mut hasher);
         }
     }
+
+    hash_relight(adjustments, effects_visible, &mut hasher);
 
     if let Some(crop_val) = adjustments.get("crop")
         && !crop_val.is_null()

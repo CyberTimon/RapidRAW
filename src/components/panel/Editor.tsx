@@ -871,7 +871,10 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      wasPanningDisabledOnDown.current = isPanningDisabled;
+      // This runs in the capture phase, so the light handle cannot stop it by itself.
+      const isRelightHandle = !!(e.target as HTMLElement).closest('[data-relight-handle]');
+      wasPanningDisabledOnDown.current = isPanningDisabled || isRelightHandle;
+      if (isRelightHandle) return;
 
       const isCropHandle = isCropping && e.button === 0 && !!(e.target as HTMLElement).closest('[data-ord]');
       cropResizeStartRef.current = isCropHandle ? lastValidCropRef.current : null;

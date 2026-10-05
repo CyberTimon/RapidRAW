@@ -1,0 +1,133 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Adjustments, Coord } from '../../../../utils/adjustments';
+import { RenderSize } from '../../../../hooks/useImageRenderSize';
+import { RelightGeometry, relightDisplayToUv, relightUvToDisplay } from '../../../../utils/relightUtils';
+
+interface RelightHandleProps {
+  adjustments: Adjustments;
+  geometry: RelightGeometry;
+  imageRenderSize: RenderSize;
+  inverseScale: number;
+  setAdjustments(fn: (prev: Adjustments) => Adjustments): void;
+}
+
+const HANDLE_SIZE = 30;
+
+const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+
+export default function RelightHandle({
+  adjustments,
+  geometry,
+  imageRenderSize,
+  inverseScale,
+  setAdjustments,
+}: RelightHandleProps) {
+  const { t } = useTranslation();
+  const handleRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<number | null>(null);
+  const pendingUvRef = useRef<Coord | null>(null);
+  const [dragUv, setDragUv] = useState<Coord | null>(null);
+
+  useEffect(
+    () => () => {
+      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+    },
+    [],
+  );
+
+  const commitUv = useCallback(
+    (uv: Coord) => {
+      pendingUvRef.current = uv;
+      if (frameRef.current !== null) return;
+      frameRef.current = requestAnimationFrame(() => {
+        frameRef.current = null;
+        const next = pendingUvRef.current;
+        if (!next) return;
+        setAdjustments((prev: Adjustments) => ({ ...prev, relightX: next.x, relightY: next.y }));
+      });
+    },
+    [setAdjustments],
+  );
+
+  const pointerToUv = useCallback(
+    (clientX: number, clientY: number): Coord | null => {
+      const container = handleRef.current?.parentElement;
+      if (!container || !container.offsetWidth || !imageRenderSize.scale) return null;
+
+      // The container sits inside the zoom/pan transform, so undo its on-screen scale.
+      const rect = container.getBoundingClientRect();
+      const zoom = rect.width / container.offsetWidth || 1;
+      const localX = (clientX - rect.left) / zoom;
+      const localY = (clientY - rect.top) / zoom;
+
+      const uv = relightDisplayToUv(
+        {
+          x: (localX - imageRenderSize.offsetX) / imageRenderSize.scale,
+          y: (localY - imageRenderSize.offsetY) / imageRenderSize.scale,
+        },
+        geometry,
+      );
+      return { x: clamp01(uv.x), y: clamp01(uv.y) };
+    },
+    [geometry, imageRenderSize],
+  );
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDragUv({ x: adjustments.relightX ?? 0.3, y: adjustments.relightY ?? 0.3 });
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragUv) return;
+    e.stopPropagation();
+    const uv = pointerToUv(e.clientX, e.clientY);
+    if (!uv) return;
+    setDragUv(uv);
+    commitUv(uv);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragUv) return;
+    e.stopPropagation();
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    setDragUv(null);
+  };
+
+  const uv = dragUv ?? { x: adjustments.relightX ?? 0.3, y: adjustments.relightY ?? 0.3 };
+  const display = relightUvToDisplay(uv, geometry);
+  const color = adjustments.relightColor || '#ffffff';
+
+  return (
+    <div
+      ref={handleRef}
+      className="absolute pointer-events-auto rounded-full"
+      data-relight-handle
+      data-tooltip={dragUv ? undefined : t('adjustments.effects.relightDragLight')}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      onMouseDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        left: display.x * imageRenderSize.scale + imageRenderSize.offsetX,
+        top: display.y * imageRenderSize.scale + imageRenderSize.offsetY,
+        width: HANDLE_SIZE,
+        height: HANDLE_SIZE,
+        transform: `translate(-50%, -50%) scale(${inverseScale})`,
+        transformOrigin: 'center',
+        cursor: dragUv ? 'grabbing' : 'grab',
+        touchAction: 'none',
+        background: `radial-gradient(circle at 35% 30%, #ffffff 0%, ${color} 38%, color-mix(in srgb, ${color} 45%, #000000) 100%)`,
+        border: '1.5px solid rgba(255, 255, 255, 0.9)',
+        boxShadow: `0 0 0 1px rgba(0, 0, 0, 0.45), 0 0 14px 4px color-mix(in srgb, ${color} 55%, transparent), 0 2px 6px rgba(0, 0, 0, 0.5)`,
+      }}
+    />
+  );
+}

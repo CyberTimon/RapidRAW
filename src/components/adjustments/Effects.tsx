@@ -7,7 +7,14 @@ import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import Slider from '../ui/Slider';
 import Switch from '../ui/Switch';
-import { Adjustments, Effect, CreativeAdjustment, getAdjustmentToolOrder, getHiddenAdjustmentTools } from '../../utils/adjustments';
+import Button from '../ui/Button';
+import {
+  Adjustments,
+  Effect,
+  CreativeAdjustment,
+  getAdjustmentToolOrder,
+  getHiddenAdjustmentTools,
+} from '../../utils/adjustments';
 import LUTControl from '../ui/LUTControl';
 import { AppSettings } from '../ui/AppProperties';
 import Text from '../ui/Text';
@@ -15,6 +22,7 @@ import AdjustmentSubSection from './AdjustmentSubSection';
 import { TextVariants } from '../../types/typography';
 import { DepthRangePicker } from '../ui/DepthRangePicker';
 import { useProcessStore } from '../../store/useProcessStore';
+import { RELIGHT_TEMPERATURE_PRESETS, kelvinToHex } from '../../utils/relightUtils';
 
 interface EffectsPanelProps {
   adjustments: Adjustments;
@@ -148,6 +156,7 @@ export default function EffectsPanel({
 }: EffectsPanelProps) {
   const { t } = useTranslation();
   const [isGeneratingDepth, setIsGeneratingDepth] = useState(false);
+  const [isGeneratingNormal, setIsGeneratingNormal] = useState(false);
   const aiModelDownloadStatus = useProcessStore((state) => state.aiModelDownloadStatus);
 
   const handleGenerateLensBlurDepthMap = async () => {
@@ -163,6 +172,22 @@ export default function EffectsPanel({
       setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, lensBlurEnabled: false }));
     } finally {
       setIsGeneratingDepth(false);
+    }
+  };
+
+  const handleGenerateRelightNormalMap = async () => {
+    setIsGeneratingNormal(true);
+    try {
+      const b64: string = await invoke('generate_full_image_normal_map', { jsAdjustments: adjustments });
+      setAdjustments((prev: Partial<Adjustments>) => ({
+        ...prev,
+        relightNormalMap: b64,
+      }));
+    } catch (e: any) {
+      toast.error(`Failed to generate normal map: ${e}`);
+      setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, relightEnabled: false }));
+    } finally {
+      setIsGeneratingNormal(false);
     }
   };
 
@@ -191,6 +216,19 @@ export default function EffectsPanel({
     handleAdjustmentChange(Effect.LensBlurEnabled, enabled);
     if (enabled && !adjustments.lensBlurDepthMap) {
       handleGenerateLensBlurDepthMap();
+    }
+  };
+
+  const relightColor = (adjustments.relightColor || '#ffffff').toLowerCase();
+
+  const handleRelightColorChange = (color: string) => {
+    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, relightColor: color.toLowerCase() }));
+  };
+
+  const handleRelightToggle = (enabled: boolean) => {
+    handleAdjustmentChange(Effect.RelightEnabled, enabled);
+    if (enabled && !adjustments.relightNormalMap) {
+      handleGenerateRelightNormalMap();
     }
   };
 
@@ -336,6 +374,178 @@ export default function EffectsPanel({
                           }}
                           onDragStateChange={onDragStateChange}
                         />
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </AdjustmentSubSection>
+          )}
+
+          {!hiddenTools.includes('relight') && (
+            <AdjustmentSubSection
+              id="relight"
+              order={toolOrder.indexOf('relight')}
+              title={t('adjustments.effects.relight')}
+            >
+              <Switch
+                label={t('adjustments.effects.relight')}
+                checked={!!adjustments.relightEnabled}
+                onChange={handleRelightToggle}
+              />
+
+              <div
+                className={`grid transition-all duration-300 ease-in-out ${
+                  adjustments.relightEnabled ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+                }`}
+              >
+                <div className="overflow-hidden">
+                  <div className="space-y-4 pt-4 pb-1">
+                    {isGeneratingNormal ? (
+                      <div className="flex flex-col items-center justify-center gap-1 p-4 text-text-secondary text-center">
+                        <div className="flex items-center gap-2">
+                          <Loader2 size={16} className="animate-spin shrink-0" />
+                          <Text variant={TextVariants.label}>
+                            {aiModelDownloadStatus
+                              ? t('editor.masks.settings.aiModelDownloading')
+                              : t('editor.ai.generatingNormalMap')}
+                          </Text>
+                        </div>
+                        {aiModelDownloadStatus && (
+                          <Text variant={TextVariants.small} className="text-accent">
+                            {aiModelDownloadStatus}
+                          </Text>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        <Slider
+                          label={t('adjustments.effects.relightIntensity')}
+                          max={100}
+                          min={0}
+                          defaultValue={50}
+                          onChange={(e: any) => handleAdjustmentChange(Effect.RelightIntensity, e.target.value)}
+                          step={1}
+                          value={adjustments.relightIntensity ?? 50}
+                          onDragStateChange={onDragStateChange}
+                          fillOrigin="min"
+                        />
+
+                        <Slider
+                          label={t('adjustments.effects.relightHeight')}
+                          max={100}
+                          min={0}
+                          defaultValue={30}
+                          onChange={(e: any) => handleAdjustmentChange(Effect.RelightHeight, e.target.value)}
+                          step={1}
+                          value={adjustments.relightHeight ?? 30}
+                          onDragStateChange={onDragStateChange}
+                          fillOrigin="min"
+                        />
+
+                        <Slider
+                          label={t('adjustments.effects.relightRange')}
+                          max={100}
+                          min={0}
+                          defaultValue={60}
+                          onChange={(e: any) => handleAdjustmentChange(Effect.RelightRange, e.target.value)}
+                          step={1}
+                          value={adjustments.relightRange ?? 60}
+                          onDragStateChange={onDragStateChange}
+                          fillOrigin="min"
+                        />
+
+                        <Slider
+                          label={t('adjustments.effects.relightAmbient')}
+                          max={100}
+                          min={0}
+                          defaultValue={80}
+                          onChange={(e: any) => handleAdjustmentChange(Effect.RelightAmbient, e.target.value)}
+                          step={1}
+                          value={adjustments.relightAmbient ?? 80}
+                          onDragStateChange={onDragStateChange}
+                          fillOrigin="min"
+                        />
+
+                        <Slider
+                          label={t('adjustments.effects.relightSoftness')}
+                          max={100}
+                          min={0}
+                          defaultValue={30}
+                          onChange={(e: any) => handleAdjustmentChange(Effect.RelightSoftness, e.target.value)}
+                          step={1}
+                          value={adjustments.relightSoftness ?? 30}
+                          onDragStateChange={onDragStateChange}
+                          fillOrigin="min"
+                        />
+
+                        <Slider
+                          label={t('adjustments.effects.relightSpecular')}
+                          max={100}
+                          min={0}
+                          defaultValue={0}
+                          onChange={(e: any) => handleAdjustmentChange(Effect.RelightSpecular, e.target.value)}
+                          step={1}
+                          value={adjustments.relightSpecular ?? 0}
+                          onDragStateChange={onDragStateChange}
+                          fillOrigin="min"
+                        />
+
+                        <div className="flex flex-col gap-2">
+                          <Text variant={TextVariants.label} className="text-text-secondary select-none">
+                            {t('adjustments.effects.relightColor')}
+                          </Text>
+                          <div className="grid grid-cols-4 gap-1">
+                            {RELIGHT_TEMPERATURE_PRESETS.map((kelvin) => {
+                              const presetColor = kelvinToHex(kelvin);
+                              return (
+                                <button
+                                  key={kelvin}
+                                  onClick={() => handleRelightColorChange(presetColor)}
+                                  className={clsx(
+                                    'h-7 rounded-md border-2 text-xs font-medium text-black/70 transition-colors',
+                                    relightColor === presetColor
+                                      ? 'border-accent'
+                                      : 'border-transparent hover:border-text-secondary',
+                                  )}
+                                  style={{ backgroundColor: presetColor, WebkitTapHighlightColor: 'transparent' }}
+                                >
+                                  {`${kelvin}K`}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <label className="flex items-center gap-2 bg-bg-primary p-2 rounded-md cursor-pointer">
+                            <input
+                              aria-label={t('adjustments.effects.relightCustomColor')}
+                              className="w-8 h-8 p-0 border-none rounded-sm cursor-pointer bg-transparent"
+                              onChange={(e) => handleRelightColorChange(e.target.value)}
+                              type="color"
+                              value={relightColor}
+                            />
+                            <Text variant={TextVariants.label} className="text-text-secondary select-none">
+                              {t('adjustments.effects.relightCustomColor')}
+                            </Text>
+                            <Text variant={TextVariants.small} className="ml-auto uppercase text-text-secondary">
+                              {relightColor}
+                            </Text>
+                          </label>
+                        </div>
+
+                        {adjustments.relightNormalMap && (
+                          <img
+                            src={adjustments.relightNormalMap}
+                            alt={t('adjustments.effects.relightNormalMap')}
+                            className="w-full rounded-md bg-bg-primary"
+                            draggable={false}
+                          />
+                        )}
+
+                        <Button className="w-full" onClick={handleGenerateRelightNormalMap}>
+                          {adjustments.relightNormalMap
+                            ? t('adjustments.effects.relightRegenerateNormalMap')
+                            : t('adjustments.effects.relightGenerateNormalMap')}
+                        </Button>
                       </>
                     )}
                   </div>

@@ -96,6 +96,17 @@ export enum Effect {
   LensBlurMaxDepth = 'lensBlurMaxDepth',
   LensBlurMinFade = 'lensBlurMinFade',
   LensBlurMaxFade = 'lensBlurMaxFade',
+  RelightEnabled = 'relightEnabled',
+  RelightIntensity = 'relightIntensity',
+  RelightX = 'relightX',
+  RelightY = 'relightY',
+  RelightHeight = 'relightHeight',
+  RelightRange = 'relightRange',
+  RelightAmbient = 'relightAmbient',
+  RelightSoftness = 'relightSoftness',
+  RelightSpecular = 'relightSpecular',
+  RelightColor = 'relightColor',
+  RelightNormalMap = 'relightNormalMap',
 }
 
 export enum CreativeAdjustment {
@@ -243,6 +254,17 @@ export interface Adjustments {
   lutIsSceneReferred?: boolean;
   masks: Array<MaskContainer>;
   orientationSteps: number;
+  relightAmbient: number;
+  relightColor: string;
+  relightEnabled: boolean;
+  relightHeight: number;
+  relightIntensity: number;
+  relightNormalMap: string | null;
+  relightRange: number;
+  relightSoftness: number;
+  relightSpecular: number;
+  relightX: number;
+  relightY: number;
   rotation: number;
   saturation: number;
   sectionVisibility: SectionVisibility;
@@ -581,6 +603,17 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   lutIsSceneReferred: false,
   masks: [],
   orientationSteps: 0,
+  relightAmbient: 80,
+  relightColor: '#ffffff',
+  relightEnabled: false,
+  relightHeight: 30,
+  relightIntensity: 50,
+  relightNormalMap: null,
+  relightRange: 60,
+  relightSoftness: 30,
+  relightSpecular: 0,
+  relightX: 0.3,
+  relightY: 0.3,
   rotation: 0,
   saturation: 0,
   sectionVisibility: {
@@ -728,6 +761,17 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     lensBlurMaxFade: loadedAdjustments.lensBlurMaxFade ?? INITIAL_ADJUSTMENTS.lensBlurMaxFade,
     lensBlurMinDepth: loadedAdjustments.lensBlurMinDepth ?? INITIAL_ADJUSTMENTS.lensBlurMinDepth,
     lensBlurMinFade: loadedAdjustments.lensBlurMinFade ?? INITIAL_ADJUSTMENTS.lensBlurMinFade,
+    relightAmbient: loadedAdjustments.relightAmbient ?? INITIAL_ADJUSTMENTS.relightAmbient,
+    relightColor: loadedAdjustments.relightColor ?? INITIAL_ADJUSTMENTS.relightColor,
+    relightEnabled: loadedAdjustments.relightEnabled ?? INITIAL_ADJUSTMENTS.relightEnabled,
+    relightHeight: loadedAdjustments.relightHeight ?? INITIAL_ADJUSTMENTS.relightHeight,
+    relightIntensity: loadedAdjustments.relightIntensity ?? INITIAL_ADJUSTMENTS.relightIntensity,
+    relightNormalMap: loadedAdjustments.relightNormalMap ?? INITIAL_ADJUSTMENTS.relightNormalMap,
+    relightRange: loadedAdjustments.relightRange ?? INITIAL_ADJUSTMENTS.relightRange,
+    relightSoftness: loadedAdjustments.relightSoftness ?? INITIAL_ADJUSTMENTS.relightSoftness,
+    relightSpecular: loadedAdjustments.relightSpecular ?? INITIAL_ADJUSTMENTS.relightSpecular,
+    relightX: loadedAdjustments.relightX ?? INITIAL_ADJUSTMENTS.relightX,
+    relightY: loadedAdjustments.relightY ?? INITIAL_ADJUSTMENTS.relightY,
     lensCorrectionMode: loadedAdjustments.lensCorrectionMode || 'manual',
     lensMaker: loadedAdjustments.lensMaker ?? INITIAL_ADJUSTMENTS.lensMaker,
     lensModel: loadedAdjustments.lensModel ?? INITIAL_ADJUSTMENTS.lensModel,
@@ -952,6 +996,17 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     Effect.LensBlurMaxDepth,
     Effect.LensBlurMinFade,
     Effect.LensBlurMaxFade,
+    Effect.RelightEnabled,
+    Effect.RelightIntensity,
+    Effect.RelightX,
+    Effect.RelightY,
+    Effect.RelightHeight,
+    Effect.RelightRange,
+    Effect.RelightAmbient,
+    Effect.RelightSoftness,
+    Effect.RelightSpecular,
+    Effect.RelightColor,
+    Effect.RelightNormalMap,
   ],
 };
 
@@ -999,6 +1054,7 @@ export const ADJUSTMENT_SECTION_TOOLS: Record<string, Array<AdjustmentSectionToo
   effects: [
     { id: 'creative', label: 'adjustments.effects.creative' },
     { id: 'lensBlur', label: 'adjustments.effects.lensBlur' },
+    { id: 'relight', label: 'adjustments.effects.relight' },
     { id: 'lut', label: 'adjustments.effects.lut' },
     { id: 'vignette', label: 'adjustments.effects.vignette' },
     { id: 'grain', label: 'adjustments.effects.grain' },

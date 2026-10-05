@@ -12,10 +12,13 @@ import { RenderSize } from '../../../hooks/useImageRenderSize';
 import { useOsPlatform } from '../../../hooks/useOsPlatform';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../../store/useEditorStore';
+import { useUIStore } from '../../../store/useUIStore';
 import type { OverlayMode } from '../right/CropPanel';
 import CompositionOverlays from './overlays/CompositionOverlays';
+import RelightHandle from './overlays/RelightHandle';
 import { calculateStraightenAngle } from '../../../utils/cropUtils';
 import { toast } from 'react-toastify';
+import { RelightGeometry } from '../../../utils/relightUtils';
 
 interface CursorPreview {
   visible: boolean;
@@ -1664,6 +1667,44 @@ const ImageCanvas = memo(
         : activeCrop.y
       : 0;
 
+    const isEffectsSectionOpen = useUIStore((state) => state.collapsibleSectionsState.effects);
+    const activeRotation =
+      liveRotation !== null && liveRotation !== undefined ? liveRotation : adjustments.rotation || 0;
+    const relightGeometry = useMemo<RelightGeometry>(
+      () => ({
+        imageWidth: selectedImage.width || 0,
+        imageHeight: selectedImage.height || 0,
+        orientationSteps: adjustments.orientationSteps || 0,
+        flipHorizontal: !!adjustments.flipHorizontal,
+        flipVertical: !!adjustments.flipVertical,
+        rotation: activeRotation,
+        cropX,
+        cropY,
+      }),
+      [
+        selectedImage.width,
+        selectedImage.height,
+        adjustments.orientationSteps,
+        adjustments.flipHorizontal,
+        adjustments.flipVertical,
+        activeRotation,
+        cropX,
+        cropY,
+      ],
+    );
+    const isRelightHandleVisible =
+      !!adjustments.relightEnabled &&
+      !!adjustments.relightNormalMap &&
+      adjustments.sectionVisibility?.effects !== false &&
+      isEffectsSectionOpen &&
+      !isCropping &&
+      !isMasking &&
+      !isAiEditing &&
+      !isWbPickerActive &&
+      !showOriginal &&
+      relightGeometry.imageWidth > 0 &&
+      imageRenderSize.width > 0;
+
     const effectiveZoomScale = transformState.scale > 0 ? transformState.scale : 1;
     const brushStageSize = (brushSettings?.size ?? 0) / effectiveZoomScale;
     const brushImageSpaceSize = brushStageSize / (imageRenderSize.scale || 1);
@@ -3154,6 +3195,16 @@ const ImageCanvas = memo(
             </div>
 
             <div className="absolute inset-0 pointer-events-none z-50">
+              {isRelightHandleVisible && (
+                <RelightHandle
+                  adjustments={adjustments}
+                  geometry={relightGeometry}
+                  imageRenderSize={imageRenderSize}
+                  inverseScale={1 / maxSafeScale}
+                  setAdjustments={setAdjustments}
+                />
+              )}
+
               {!isDrawing.current &&
                 directPatchMarkers.map((m) => {
                   const left = (m.cx - cropX) * imageRenderSize.scale + imageRenderSize.offsetX;
