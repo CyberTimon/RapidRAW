@@ -57,12 +57,15 @@ export default function RelightPanel() {
 
   const relightQuality: RelightQuality = adjustments.relightQuality ?? 'standard';
 
-  const handleGenerateRelightNormalMap = async (quality: RelightQuality = relightQuality) => {
+  // Maps are saved per image and quality, so this only runs the model when there is no
+  // saved copy yet, or when `force` asks for a fresh one.
+  const handleGenerateRelightNormalMap = async (quality: RelightQuality = relightQuality, force = false) => {
     setIsGeneratingNormal(true);
     try {
       const maps: { normalMap: string; depthMap: string; depthScale: number } = await invoke('generate_relight_maps', {
         jsAdjustments: adjustments,
         quality,
+        force,
       });
       setAdjustments((prev: Adjustments) => ({
         ...prev,
@@ -399,7 +402,7 @@ export default function RelightPanel() {
                         </div>
                       </div>
 
-                      <Button className="w-full" onClick={() => handleGenerateRelightNormalMap()}>
+                      <Button className="w-full" onClick={() => handleGenerateRelightNormalMap(relightQuality, true)}>
                         {adjustments.relightNormalMap
                           ? t('adjustments.effects.relightRegenerateNormalMap')
                           : t('adjustments.effects.relightGenerateNormalMap')}

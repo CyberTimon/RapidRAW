@@ -301,7 +301,7 @@ pub async fn generate_full_image_depth_map(
     Ok(format!("data:image/png;base64,{}", base64_str))
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RelightMapsPayload {
     normal_map: String,
@@ -318,18 +318,113 @@ fn encode_png_data_url(image: &image::DynamicImage) -> Result<String, String> {
     Ok(format!("data:image/png;base64,{}", base64_str))
 }
 
+// Generated maps are kept on disk, one file per image, geometry and model quality, so that
+// switching quality back and forth or reopening a photo does not run the model again.
+const RELIGHT_MAPS_CACHE_VERSION: &str = "v1";
+const RELIGHT_MAPS_CACHE_MAX_FILES: usize = 60;
+
+fn relight_maps_cache_file(
+    cache_dir: &std::path::Path,
+    image_path: &str,
+    js_adjustments: &serde_json::Value,
+    quality: crate::ai_processing::NormalModelQuality,
+) -> std::path::PathBuf {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(RELIGHT_MAPS_CACHE_VERSION.as_bytes());
+    hasher.update(image_path.as_bytes());
+    hasher.update(format!("{:?}", quality).as_bytes());
+    hasher.update(&crate::cache_utils::calculate_geometry_hash(js_adjustments).to_le_bytes());
+
+    // A file that was replaced on disk must not reuse the maps of the old one.
+    let (source_path, _) = crate::file_management::parse_virtual_path(image_path);
+    if let Ok(metadata) = std::fs::metadata(&source_path) {
+        hasher.update(&metadata.len().to_le_bytes());
+        if let Ok(elapsed) = metadata.modified().and_then(|m| {
+            m.duration_since(std::time::UNIX_EPOCH)
+                .map_err(std::io::Error::other)
+        }) {
+            hasher.update(&elapsed.as_nanos().to_le_bytes());
+        }
+    }
+
+    cache_dir.join(format!("{}.json", hasher.finalize().to_hex()))
+}
+
+fn read_relight_maps_cache(file: &std::path::Path) -> Option<RelightMapsPayload> {
+    let bytes = std::fs::read(file).ok()?;
+    serde_json::from_slice(&bytes).ok()
+}
+
+fn write_relight_maps_cache(
+    file: &std::path::Path,
+    maps: &RelightMapsPayload,
+) -> Result<(), String> {
+    let dir = file.parent().ok_or("Invalid relight cache path")?;
+    std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+
+    // Written next to the target and renamed, so a crash never leaves half a file behind.
+    let tmp = file.with_extension("tmp");
+    std::fs::write(&tmp, serde_json::to_vec(maps).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    std::fs::rename(&tmp, file).map_err(|e| e.to_string())?;
+
+    // Drop the least recently written maps once there are too many.
+    let mut entries: Vec<(std::time::SystemTime, std::path::PathBuf)> = std::fs::read_dir(dir)
+        .map_err(|e| e.to_string())?
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "json"))
+        .filter_map(|entry| Some((entry.metadata().ok()?.modified().ok()?, entry.path())))
+        .collect();
+    if entries.len() > RELIGHT_MAPS_CACHE_MAX_FILES {
+        entries.sort();
+        for (_, path) in &entries[..entries.len() - RELIGHT_MAPS_CACHE_MAX_FILES] {
+            let _ = std::fs::remove_file(path);
+        }
+    }
+    Ok(())
+}
+
+/// Returns the relight maps for the open image, generating them only when there is no saved
+/// copy for this image and quality (or when `force` asks for a fresh run).
 #[tauri::command]
 pub async fn generate_relight_maps(
     js_adjustments: serde_json::Value,
     quality: Option<crate::ai_processing::NormalModelQuality>,
+    force: Option<bool>,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<RelightMapsPayload, String> {
+    use tauri::Manager;
+
+    let quality = quality.unwrap_or_default();
+    let image_path = state
+        .original_image
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map(|loaded| loaded.path.clone())
+        .ok_or("No original image loaded")?;
+
+    let cache_file = app_handle.path().app_cache_dir().ok().map(|dir| {
+        relight_maps_cache_file(
+            &dir.join("relight_maps"),
+            &image_path,
+            &js_adjustments,
+            quality,
+        )
+    });
+
+    if !force.unwrap_or(false)
+        && let Some(maps) = cache_file.as_deref().and_then(read_relight_maps_cache)
+    {
+        return Ok(maps);
+    }
+
     let normal_model = crate::ai_processing::get_or_init_normal_model(
         &app_handle,
         &state.ai_state,
         &state.ai_init_lock,
-        quality.unwrap_or_default(),
+        quality,
     )
     .await
     .map_err(|e| e.to_string())?;
@@ -339,11 +434,23 @@ pub async fn generate_relight_maps(
     let maps = crate::ai_processing::run_normal_model(warped_image.as_ref(), &normal_model)
         .map_err(|e| e.to_string())?;
 
-    Ok(RelightMapsPayload {
+    let payload = RelightMapsPayload {
         normal_map: encode_png_data_url(&image::DynamicImage::ImageRgba8(maps.normal))?,
         depth_map: encode_png_data_url(&image::DynamicImage::ImageLuma16(maps.depth))?,
         depth_scale: maps.depth_scale,
-    })
+    };
+
+    if let Some(file) = &cache_file
+        && let Err(error) = write_relight_maps_cache(file, &payload)
+    {
+        log::warn!(
+            "Could not save relight maps to {}: {}",
+            file.display(),
+            error
+        );
+    }
+
+    Ok(payload)
 }
 
 /// Normal map as the relight pass uses it, laid out like the edited image (orientation,
@@ -649,5 +756,83 @@ pub async fn test_ai_connector_connection(address: String) -> Result<(), String>
         Ok(true) => Ok(()),
         Ok(false) => Err("Server reachable but returned bad health status".to_string()),
         Err(e) => Err(e.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod relight_maps_cache_tests {
+    use super::*;
+    use crate::ai_processing::NormalModelQuality;
+    use serde_json::json;
+
+    fn payload(tag: &str) -> RelightMapsPayload {
+        RelightMapsPayload {
+            normal_map: format!("normal-{tag}"),
+            depth_map: format!("depth-{tag}"),
+            depth_scale: 1.5,
+        }
+    }
+
+    #[test]
+    fn saved_maps_are_read_back() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = relight_maps_cache_file(
+            dir.path(),
+            "photo.raw",
+            &json!({}),
+            NormalModelQuality::High,
+        );
+
+        assert_eq!(read_relight_maps_cache(&file), None);
+        write_relight_maps_cache(&file, &payload("a")).unwrap();
+        assert_eq!(read_relight_maps_cache(&file), Some(payload("a")));
+    }
+
+    #[test]
+    fn each_image_quality_and_geometry_gets_its_own_file() {
+        let dir = std::path::Path::new("cache");
+        let base =
+            relight_maps_cache_file(dir, "photo.raw", &json!({}), NormalModelQuality::Standard);
+
+        let same = relight_maps_cache_file(
+            dir,
+            "photo.raw",
+            &json!({ "exposure": 2 }),
+            NormalModelQuality::Standard,
+        );
+        let other_quality =
+            relight_maps_cache_file(dir, "photo.raw", &json!({}), NormalModelQuality::High);
+        let other_image =
+            relight_maps_cache_file(dir, "other.raw", &json!({}), NormalModelQuality::Standard);
+        let other_geometry = relight_maps_cache_file(
+            dir,
+            "photo.raw",
+            &json!({ "transformRotate": 5 }),
+            NormalModelQuality::Standard,
+        );
+
+        assert_eq!(base, same);
+        assert_ne!(base, other_quality);
+        assert_ne!(base, other_image);
+        assert_ne!(base, other_geometry);
+    }
+
+    #[test]
+    fn oldest_maps_are_dropped_when_the_cache_is_full() {
+        let dir = tempfile::tempdir().unwrap();
+        for i in 0..RELIGHT_MAPS_CACHE_MAX_FILES + 3 {
+            let file = dir.path().join(format!("{i:04}.json"));
+            write_relight_maps_cache(&file, &payload("x")).unwrap();
+            let stamp = filetime::FileTime::from_unix_time(1_700_000_000 + i as i64, 0);
+            filetime::set_file_mtime(&file, stamp).unwrap();
+        }
+        // One more write triggers the clean-up with every timestamp in place.
+        let newest = dir.path().join("newest.json");
+        write_relight_maps_cache(&newest, &payload("x")).unwrap();
+
+        let remaining = std::fs::read_dir(dir.path()).unwrap().count();
+        assert_eq!(remaining, RELIGHT_MAPS_CACHE_MAX_FILES);
+        assert!(!dir.path().join("0000.json").exists());
+        assert!(newest.exists());
     }
 }

@@ -357,6 +357,30 @@ fn local_deviation(plane: &[f32], w: usize, h: usize, radius: usize) -> Vec<f32>
         .collect()
 }
 
+/// How well the photo explains a plane around each pixel: the squared correlation between
+/// the two, from 0 (unrelated) to 1 (the photo's edges are the plane's edges).
+fn guide_agreement(guide: &[f32], plane: &[f32], w: usize, h: usize, radius: usize) -> Vec<f32> {
+    let blurred = |values: Vec<f32>| {
+        let mut values = values;
+        dof_box_filter(&mut values, w, h, 1, radius);
+        values
+    };
+    let mean_i = blurred(guide.to_vec());
+    let mean_p = blurred(plane.to_vec());
+    let mean_ii = blurred(guide.iter().map(|v| v * v).collect());
+    let mean_pp = blurred(plane.iter().map(|v| v * v).collect());
+    let mean_ip = blurred(guide.iter().zip(plane).map(|(i, p)| i * p).collect());
+
+    (0..w * h)
+        .map(|k| {
+            let cov = mean_ip[k] - mean_i[k] * mean_p[k];
+            let var_i = (mean_ii[k] - mean_i[k] * mean_i[k]).max(0.0);
+            let var_p = (mean_pp[k] - mean_p[k] * mean_p[k]).max(0.0);
+            (cov * cov / (var_i * var_p + 1e-9)).min(1.0)
+        })
+        .collect()
+}
+
 /// Scales the AI maps up to the image. With `refine`, silhouettes (hair, object outlines)
 /// are snapped to the edges of the photo instead of being left as a soft blur, while the
 /// inside of each surface keeps the detail the model predicted.
@@ -404,25 +428,26 @@ fn build_surface_maps(
 
         let radius = ((gw.max(gh) as f32) * 0.015).round().max(2.0) as usize;
 
-        // Only trust the photo's edges where the geometry really breaks: a depth jump or the
-        // border of the valid area. Elsewhere the filter would just blur the normals.
-        let coverage_dev = local_deviation(&planes[3], gw, gh, radius);
+        // Only trust the photo's edges where the geometry really breaks (a depth jump or the
+        // border of the valid area) and the photo actually shows that break. Anywhere else
+        // the filter has nothing to follow and would just smear the maps.
         let has_depth = depth_map.is_some() && depth_scale > 0.0;
-        let other_dev = if has_depth {
-            local_deviation(&planes[4], gw, gh, radius)
-        } else {
-            local_deviation(&planes[2], gw, gh, radius)
-        };
-        let mut edge_weight: Vec<f32> = coverage_dev
-            .iter()
-            .zip(&other_dev)
-            .map(|(cov, other)| {
-                let geometry = if has_depth {
-                    smoothstep(0.01, 0.06, other * depth_scale)
+        let geometry_plane = if has_depth { &planes[4] } else { &planes[2] };
+        let coverage_dev = local_deviation(&planes[3], gw, gh, radius);
+        let geometry_dev = local_deviation(geometry_plane, gw, gh, radius);
+        let coverage_agreement = guide_agreement(&guide, &planes[3], gw, gh, radius);
+        let geometry_agreement = guide_agreement(&guide, geometry_plane, gw, gh, radius);
+
+        let mut edge_weight: Vec<f32> = (0..gw * gh)
+            .map(|k| {
+                let geometry_edge = if has_depth {
+                    smoothstep(0.01, 0.06, geometry_dev[k] * depth_scale)
                 } else {
-                    smoothstep(0.05, 0.2, *other)
+                    smoothstep(0.05, 0.2, geometry_dev[k])
                 };
-                smoothstep(0.05, 0.25, *cov).max(geometry)
+                let coverage_edge = smoothstep(0.05, 0.25, coverage_dev[k]);
+                (coverage_edge * smoothstep(0.25, 0.6, coverage_agreement[k]))
+                    .max(geometry_edge * smoothstep(0.25, 0.6, geometry_agreement[k]))
             })
             .collect();
         dof_box_filter(&mut edge_weight, gw, gh, 1, (radius / 2).max(1));
@@ -922,6 +947,38 @@ mod tests {
         // A second request for the same image is served from the cached maps.
         let again = render_normal_preview(&image, &adjustments).unwrap();
         assert_eq!(preview, again);
+    }
+
+    #[test]
+    fn refinement_leaves_edges_alone_when_the_photo_does_not_show_them() {
+        // The geometry has a hard edge (depth and normal change at the middle), but the photo
+        // is evenly lit noise there, so it gives no hint about where that edge really is.
+        let image = Rgb32FImage::from_fn(512, 128, |x, y| {
+            let v = 0.4 + 0.1 * (((x * 7 + y * 13) % 11) as f32 / 11.0);
+            Rgb([v, v, v])
+        });
+        let normal_map = RgbaImage::from_fn(256, 64, |x, _| {
+            if x < 128 {
+                Rgba([60, 128, 230, 255])
+            } else {
+                Rgba([200, 128, 230, 255])
+            }
+        });
+        let depth_map =
+            DepthMap::from_fn(256, 64, |x, _| Luma([if x < 128 { 0 } else { u16::MAX }]));
+
+        let plain = build_surface_maps(&image, &normal_map, Some(&depth_map), 2.0, false);
+        let refined = build_surface_maps(&image, &normal_map, Some(&depth_map), 2.0, true);
+
+        // Guessing would smear the edge over a wide band; it has to stay as sharp as it was.
+        let row = 64 * 512;
+        for x in 236..276 {
+            let (a, b) = (plain.normals[row + x], refined.normals[row + x]);
+            assert!(
+                (a[0] as i32 - b[0] as i32).abs() <= 6,
+                "normal at x={x} changed from {a:?} to {b:?}"
+            );
+        }
     }
 
     #[test]
