@@ -46,6 +46,8 @@ interface EditorState {
 
   // Interaction State
   isSliderDragging: boolean;
+  activeRelightLightId: string | null;
+  showRelightNormalMap: boolean;
   zoom: number;
   displaySize: ImageDimensions;
   previewSize: ImageDimensions;
@@ -105,6 +107,8 @@ export const useEditorStore = create<EditorState>((set) => ({
   waveformHeight: 220,
 
   isSliderDragging: false,
+  activeRelightLightId: null,
+  showRelightNormalMap: false,
   interactivePatch: null,
   activeMaskContainerId: null,
   activeMaskId: null,

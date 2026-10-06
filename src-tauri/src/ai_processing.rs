@@ -60,6 +60,45 @@ const DEPTH_FILENAME: &str = "depth_anything_v2_vits.onnx";
 const DEPTH_INPUT_SIZE: u32 = 518;
 const DEPTH_SHA256: &str = "d2b11a11c1d4a12b47608fa65a17ee9a4c605b55ee1730c8e3b526304f2562be";
 
+/// MoGe-2 checkpoints used for the relight maps. Both take the same inputs and return the
+/// same outputs; the large one resolves much finer geometry but is far heavier.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum NormalModelQuality {
+    #[default]
+    Standard,
+    High,
+}
+
+struct NormalModelSpec {
+    url: &'static str,
+    filename: &'static str,
+    sha256: &'static str,
+    name: &'static str,
+}
+
+impl NormalModelQuality {
+    fn spec(self) -> NormalModelSpec {
+        match self {
+            Self::Standard => NormalModelSpec {
+                url: "https://huggingface.co/Ruicheng/moge-2-vits-normal-onnx/resolve/e50ffda41565591092adea54c6ac83d6212e1e23/model.onnx?download=true",
+                filename: "moge2_vits_normal.onnx",
+                sha256: "24eacb5dc7a2c54c7bc98f7de085ffbed79ad006ea5b664c2c2cdc02ff3a52f0",
+                name: "Normal Map Model",
+            },
+            Self::High => NormalModelSpec {
+                url: "https://huggingface.co/Ruicheng/moge-2-vitl-normal-onnx/resolve/1c02388b024dd34da413e1a934d7a941785f1460/model.onnx?download=true",
+                filename: "moge2_vitl_normal.onnx",
+                sha256: "afbc4ccc3450298f3afb35b90f015f4c4f552dea21dc6470d5f7b78b77e2d751",
+                name: "Normal Map Model (High Quality, 1.3 GB)",
+            },
+        }
+    }
+}
+
+const NORMAL_MAX_SIZE: u32 = 1024;
+const NORMAL_NUM_TOKENS: i64 = 3600;
+
 pub struct AiModels {
     pub sam_encoder: Mutex<Session>,
     pub sam_decoder: Mutex<Session>,
@@ -92,6 +131,8 @@ pub struct AiState {
     pub denoise_model: Option<Arc<Mutex<Session>>>,
     pub clip_models: Option<Arc<ClipModels>>,
     pub lama_model: Option<Arc<Mutex<Session>>>,
+    // Only one checkpoint is kept loaded: the large one alone takes well over 1 GB of RAM.
+    pub normal_model: Option<(NormalModelQuality, Arc<Mutex<Session>>)>,
     pub embeddings: Option<ImageEmbeddings>,
     pub depth_map: Option<CachedDepthMap>,
 }
@@ -314,13 +355,8 @@ fn get_models_dir(app_handle: &tauri::AppHandle) -> Result<PathBuf> {
     Ok(models_dir)
 }
 
-fn persist_downloaded_asset(dest: &Path, bytes: &[u8]) -> Result<()> {
-    if bytes.is_empty() {
-        return Err(anyhow::anyhow!(
-            "Downloaded asset for {} was empty",
-            dest.display()
-        ));
-    }
+async fn download_model(url: &str, dest: &Path) -> Result<()> {
+    let mut response = reqwest::get(url).await?.error_for_status()?;
 
     let parent = dest.parent().ok_or_else(|| {
         anyhow::anyhow!(
@@ -336,10 +372,29 @@ fn persist_downloaded_asset(dest: &Path, bytes: &[u8]) -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("Invalid downloaded asset path {}", dest.display()))?;
     let tmp_path = dest.with_file_name(format!(".{}.download", file_name));
 
-    {
+    // Written in chunks so that large models never have to fit in memory.
+    let mut total_bytes = 0usize;
+    let write_result: Result<()> = async {
         let mut file = fs::File::create(&tmp_path)?;
-        file.write_all(bytes)?;
+        while let Some(chunk) = response.chunk().await? {
+            file.write_all(&chunk)?;
+            total_bytes += chunk.len();
+        }
         file.sync_all()?;
+        Ok(())
+    }
+    .await;
+
+    if let Err(error) = write_result {
+        let _ = fs::remove_file(&tmp_path);
+        return Err(error);
+    }
+    if total_bytes == 0 {
+        let _ = fs::remove_file(&tmp_path);
+        return Err(anyhow::anyhow!(
+            "Downloaded asset for {} was empty",
+            dest.display()
+        ));
     }
 
     fs::rename(&tmp_path, dest).or_else(|rename_error| -> std::io::Result<()> {
@@ -352,12 +407,6 @@ fn persist_downloaded_asset(dest: &Path, bytes: &[u8]) -> Result<()> {
         }
     })?;
     Ok(())
-}
-
-async fn download_model(url: &str, dest: &Path) -> Result<()> {
-    let response = reqwest::get(url).await?.error_for_status()?;
-    let bytes = response.bytes().await?;
-    persist_downloaded_asset(dest, &bytes)
 }
 
 fn verify_sha256(path: &Path, expected_hash: &str) -> Result<bool> {
@@ -550,6 +599,7 @@ pub async fn get_or_init_ai_models(
             denoise_model: None,
             clip_models: None,
             lama_model: None,
+            normal_model: None,
             embeddings: None,
             depth_map: None,
         });
@@ -610,6 +660,7 @@ pub async fn get_or_init_denoise_model(
             denoise_model: Some(denoise_model.clone()),
             clip_models: None,
             lama_model: None,
+            normal_model: None,
             embeddings: None,
             depth_map: None,
         });
@@ -682,6 +733,7 @@ pub async fn get_or_init_clip_models(
             denoise_model: None,
             clip_models: Some(clip_models.clone()),
             lama_model: None,
+            normal_model: None,
             embeddings: None,
             depth_map: None,
         });
@@ -742,12 +794,81 @@ pub async fn get_or_init_lama_model(
             denoise_model: None,
             clip_models: None,
             lama_model: Some(lama_model.clone()),
+            normal_model: None,
             embeddings: None,
             depth_map: None,
         });
     }
 
     Ok(lama_model)
+}
+
+pub async fn get_or_init_normal_model(
+    app_handle: &tauri::AppHandle,
+    ai_state_mutex: &Mutex<Option<AiState>>,
+    ai_init_lock: &TokioMutex<()>,
+    quality: NormalModelQuality,
+) -> Result<Arc<Mutex<Session>>> {
+    let loaded_model = || {
+        ai_state_mutex
+            .lock()
+            .unwrap()
+            .as_ref()
+            .and_then(|state| state.normal_model.clone())
+            .filter(|(loaded_quality, _)| *loaded_quality == quality)
+            .map(|(_, model)| model)
+    };
+
+    if let Some(normal_model) = loaded_model() {
+        return Ok(normal_model);
+    }
+
+    let _guard = ai_init_lock.lock().await;
+
+    if let Some(normal_model) = loaded_model() {
+        return Ok(normal_model);
+    }
+
+    let spec = quality.spec();
+    let models_dir = get_models_dir(app_handle)?;
+    download_and_verify_model(
+        app_handle,
+        &models_dir,
+        spec.filename,
+        spec.url,
+        spec.sha256,
+        spec.name,
+    )
+    .await?;
+
+    // Free the other checkpoint before loading this one.
+    if let Some(state) = ai_state_mutex.lock().unwrap().as_mut() {
+        state.normal_model = None;
+    }
+
+    let _ = ort::init().with_name("AI-Normal").commit();
+    let model_path = models_dir.join(spec.filename);
+    let session = Session::builder()?.commit_from_file(model_path)?;
+    let normal_model = Arc::new(Mutex::new(session));
+
+    crate::register_exit_handler();
+
+    let mut ai_state_lock = ai_state_mutex.lock().unwrap();
+    if let Some(state) = ai_state_lock.as_mut() {
+        state.normal_model = Some((quality, normal_model.clone()));
+    } else {
+        *ai_state_lock = Some(AiState {
+            models: None,
+            denoise_model: None,
+            clip_models: None,
+            lama_model: None,
+            normal_model: Some((quality, normal_model.clone())),
+            embeddings: None,
+            depth_map: None,
+        });
+    }
+
+    Ok(normal_model)
 }
 
 #[derive(Clone, Copy)]
@@ -1684,6 +1805,167 @@ pub fn run_depth_anything_model(
     Ok(depth_map)
 }
 
+pub struct RelightMaps {
+    /// RGB = camera-space normal (X right, Y up, Z towards the viewer) packed as n * 0.5 + 0.5,
+    /// A = surface validity (0 where there is no geometry, e.g. sky).
+    pub normal: RgbaImage,
+    /// Distance from the nearest surface, 0 = nearest and 65535 = farthest.
+    pub depth: ImageBuffer<Luma<u16>, Vec<u16>>,
+    /// Depth covered by the full range of `depth`, in units of the longest image side.
+    pub depth_scale: f32,
+}
+
+/// Turns the model's camera-space point map into a depth map whose scale matches
+/// the image plane, so a light can be placed in front of or behind the subject.
+fn build_depth_map(points: &[f32], mask: &[f32], w: usize, h: usize) -> (Vec<u16>, f32) {
+    let long_side = w.max(h) as f32;
+
+    let mut depths = Vec::with_capacity(w * h);
+    // Least squares fit of X = s * Z * x_norm, where s is the sensor size over the focal length.
+    let mut fit_num = 0.0f64;
+    let mut fit_den = 0.0f64;
+
+    for (i, (point, m)) in points.as_chunks::<3>().0.iter().zip(mask).enumerate() {
+        let z = point[2];
+        if *m < 0.5 || !z.is_finite() || z <= 0.0 || !point[0].is_finite() || !point[1].is_finite()
+        {
+            continue;
+        }
+        depths.push(z);
+
+        let xn = ((i % w) as f32 + 0.5 - w as f32 * 0.5) / long_side;
+        let yn = ((i / w) as f32 + 0.5 - h as f32 * 0.5) / long_side;
+        fit_num += (point[0] * z * xn + point[1] * z * yn) as f64;
+        fit_den += ((z * xn) * (z * xn) + (z * yn) * (z * yn)) as f64;
+    }
+
+    if depths.len() < 16 {
+        return (vec![0; w * h], 0.0);
+    }
+
+    depths.sort_unstable_by(|a, b| a.total_cmp(b));
+    let percentile = |p: f32| depths[((depths.len() - 1) as f32 * p) as usize];
+    let near = percentile(0.005);
+    let far = percentile(0.995);
+    let reference = percentile(0.5);
+    let range = far - near;
+
+    if range <= 1e-6 || reference <= 1e-6 {
+        return (vec![0; w * h], 0.0);
+    }
+
+    let sensor_over_focal = (fit_num / fit_den.max(1e-12)) as f32;
+    let sensor_over_focal = if sensor_over_focal.is_finite() && sensor_over_focal > 0.05 {
+        sensor_over_focal
+    } else {
+        1.0
+    };
+
+    let depth_data = points
+        .as_chunks::<3>()
+        .0
+        .iter()
+        .zip(mask)
+        .map(|(point, m)| {
+            let z = point[2];
+            if *m < 0.5 || !z.is_finite() {
+                u16::MAX
+            } else {
+                (((z - near) / range).clamp(0.0, 1.0) * 65535.0).round() as u16
+            }
+        })
+        .collect();
+
+    (depth_data, range / (sensor_over_focal * reference))
+}
+
+/// Runs MoGe-2 and returns the normal and depth maps used for relighting.
+pub fn run_normal_model(
+    image: &DynamicImage,
+    normal_session: &Mutex<Session>,
+) -> Result<RelightMaps> {
+    let resized_image = if image.width().max(image.height()) > NORMAL_MAX_SIZE {
+        image.resize(NORMAL_MAX_SIZE, NORMAL_MAX_SIZE, FilterType::Triangle)
+    } else {
+        image.clone()
+    };
+    let (resized_w, resized_h) = resized_image.dimensions();
+    let resized_rgb = resized_image.into_rgb8();
+    let raw_pixels = resized_rgb.as_raw();
+
+    let rw = resized_w as usize;
+    let rh = resized_h as usize;
+
+    let mut input_tensor: Array<f32, _> = Array::zeros((1, 3, rh, rw));
+    for y in 0..rh {
+        for x in 0..rw {
+            let idx = (y * rw + x) * 3;
+            input_tensor[[0, 0, y, x]] = raw_pixels[idx] as f32 / 255.0;
+            input_tensor[[0, 1, y, x]] = raw_pixels[idx + 1] as f32 / 255.0;
+            input_tensor[[0, 2, y, x]] = raw_pixels[idx + 2] as f32 / 255.0;
+        }
+    }
+
+    let t_image = Tensor::from_array(input_tensor.into_dyn())?;
+    let t_num_tokens = Tensor::from_array(ndarray::arr0(NORMAL_NUM_TOKENS))?;
+
+    let mut session = normal_session.lock().unwrap();
+    let outputs = session.run(ort::inputs![
+        "image" => t_image,
+        "num_tokens" => t_num_tokens,
+    ])?;
+
+    let normal_tensor = outputs["normal"].try_extract_array::<f32>()?;
+    let mask_tensor = outputs["mask"].try_extract_array::<f32>()?;
+    let points_tensor = outputs["points"].try_extract_array::<f32>()?;
+
+    if normal_tensor.shape() != [1, rh, rw, 3]
+        || mask_tensor.shape() != [1, rh, rw]
+        || points_tensor.shape() != [1, rh, rw, 3]
+    {
+        return Err(anyhow::anyhow!(
+            "Unexpected normal model output shape: {:?} / {:?} / {:?}",
+            normal_tensor.shape(),
+            mask_tensor.shape(),
+            points_tensor.shape()
+        ));
+    }
+
+    let normals = normal_tensor.as_standard_layout();
+    let normals = normals.as_slice().unwrap();
+    let mask = mask_tensor.as_standard_layout();
+    let mask = mask.as_slice().unwrap();
+
+    let pack = |v: f32| ((v * 0.5 + 0.5).clamp(0.0, 1.0) * 255.0).round() as u8;
+
+    let mut normal_data = Vec::with_capacity(rw * rh * 4);
+    for (n, m) in normals.as_chunks::<3>().0.iter().zip(mask) {
+        // The model outputs OpenCV camera space (Y down, Z away from the viewer).
+        let (nx, ny, nz) = (n[0], -n[1], -n[2]);
+        let len = (nx * nx + ny * ny + nz * nz).sqrt();
+        if len.is_finite() && len > 1e-6 {
+            normal_data.extend_from_slice(&[pack(nx / len), pack(ny / len), pack(nz / len)]);
+        } else {
+            normal_data.extend_from_slice(&[128, 128, 255]);
+        }
+        normal_data.push((m.clamp(0.0, 1.0) * 255.0).round() as u8);
+    }
+
+    let normal = RgbaImage::from_raw(resized_w, resized_h, normal_data)
+        .ok_or_else(|| anyhow::anyhow!("Failed to create normal map from model output"))?;
+
+    let points = points_tensor.as_standard_layout();
+    let (depth_data, depth_scale) = build_depth_map(points.as_slice().unwrap(), mask, rw, rh);
+    let depth = ImageBuffer::from_raw(resized_w, resized_h, depth_data)
+        .ok_or_else(|| anyhow::anyhow!("Failed to create depth map from model output"))?;
+
+    Ok(RelightMaps {
+        normal,
+        depth,
+        depth_scale,
+    })
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AiSubjectMaskParameters {
@@ -1756,4 +2038,43 @@ pub struct AiDepthMaskParameters {
     pub flip_vertical: Option<bool>,
     #[serde(default)]
     pub orientation_steps: Option<u8>,
+}
+
+#[cfg(test)]
+mod relight_map_tests {
+    use super::build_depth_map;
+
+    #[test]
+    fn depth_map_spans_nearest_to_farthest_and_matches_image_scale() {
+        // A 32x32 view with a 90 degree field of view (sensor / focal = 2) of a plane
+        // tilted so that depth grows from 2 on the left to 4 on the right.
+        let (w, h) = (32usize, 32usize);
+        let mut points = Vec::new();
+        for y in 0..h {
+            for x in 0..w {
+                let z = 2.0 + 2.0 * x as f32 / (w - 1) as f32;
+                let xn = (x as f32 + 0.5 - 16.0) / 32.0;
+                let yn = (y as f32 + 0.5 - 16.0) / 32.0;
+                points.extend_from_slice(&[2.0 * z * xn, 2.0 * z * yn, z]);
+            }
+        }
+        let mask = vec![1.0f32; w * h];
+
+        let (depth, scale) = build_depth_map(&points, &mask, w, h);
+
+        assert!(depth[0] < 1000);
+        assert!(depth[w - 1] > 64000);
+        assert!(depth[w / 2] > depth[w / 4]);
+        // Depth range ~2 over an image that is 2 * 3 = 6 units wide at the median depth.
+        assert!((scale - 2.0 / 6.0).abs() < 0.03, "scale was {scale}");
+    }
+
+    #[test]
+    fn image_without_geometry_has_no_depth() {
+        let points = [[0.0f32, 0.0, 1.0]; 64].concat();
+        let (depth, scale) = build_depth_map(&points, &[0.0; 64], 8, 8);
+
+        assert_eq!(scale, 0.0);
+        assert!(depth.iter().all(|d| *d == 0));
+    }
 }

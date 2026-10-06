@@ -5,15 +5,25 @@ import { Stage, Layer, Ellipse, Line, Transformer, Group, Circle, Rect, Arrow } 
 import { PercentCrop, Crop } from 'react-image-crop';
 import { Stamp, Bandage, Spline, BrushCleaning } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
-import { Adjustments, AiPatch, Coord, MaskContainer, GuideLine, GuideOrientation } from '../../../utils/adjustments';
+import {
+  Adjustments,
+  AiPatch,
+  Coord,
+  MaskContainer,
+  GuideLine,
+  GuideOrientation,
+  RelightLight,
+} from '../../../utils/adjustments';
 import { Mask, SubMask, SubMaskMode, ToolType } from '../right/Masks';
-import { AppSettings, BrushSettings, Invokes, SelectedImage } from '../../ui/AppProperties';
+import { AppSettings, BrushSettings, Invokes, Panel, SelectedImage } from '../../ui/AppProperties';
 import { RenderSize } from '../../../hooks/useImageRenderSize';
 import { useOsPlatform } from '../../../hooks/useOsPlatform';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../../store/useEditorStore';
+import { useUIStore } from '../../../store/useUIStore';
 import type { OverlayMode } from '../right/CropPanel';
 import CompositionOverlays from './overlays/CompositionOverlays';
+import RelightHandle from './overlays/RelightHandle';
 import { calculateStraightenAngle } from '../../../utils/cropUtils';
 import { toast } from 'react-toastify';
 import {
@@ -23,6 +33,7 @@ import {
   withKelvinWhiteBalance,
   withRelativeWhiteBalance,
 } from '../../../utils/whiteBalance';
+import { RelightGeometry } from '../../../utils/relightUtils';
 
 interface CursorPreview {
   visible: boolean;
@@ -1739,6 +1750,118 @@ const ImageCanvas = memo(
         : activeCrop.y
       : 0;
 
+    const isRelightPanelActive = useUIStore((state) => Object.values(state.activePanels).includes(Panel.Relight));
+    const activeRotation =
+      liveRotation !== null && liveRotation !== undefined ? liveRotation : adjustments.rotation || 0;
+    const relightGeometry = useMemo<RelightGeometry>(
+      () => ({
+        imageWidth: selectedImage.width || 0,
+        imageHeight: selectedImage.height || 0,
+        orientationSteps: adjustments.orientationSteps || 0,
+        flipHorizontal: !!adjustments.flipHorizontal,
+        flipVertical: !!adjustments.flipVertical,
+        rotation: activeRotation,
+        cropX,
+        cropY,
+      }),
+      [
+        selectedImage.width,
+        selectedImage.height,
+        adjustments.orientationSteps,
+        adjustments.flipHorizontal,
+        adjustments.flipVertical,
+        activeRotation,
+        cropX,
+        cropY,
+      ],
+    );
+    const relightLights = adjustments.relightLights ?? [];
+    const activeRelightLightId = useEditorStore((state) => state.activeRelightLightId);
+    const setEditor = useEditorStore((state) => state.setEditor);
+    const handleRelightLightSelect = useCallback((id: string) => setEditor({ activeRelightLightId: id }), [setEditor]);
+    const handleRelightLightChange = useCallback(
+      (id: string, changes: Partial<RelightLight>) => {
+        setAdjustments((prev: Adjustments) => ({
+          ...prev,
+          relightLights: (prev.relightLights ?? []).map((light) =>
+            light.id === id ? { ...light, ...changes } : light,
+          ),
+        }));
+      },
+      [setAdjustments],
+    );
+    const isRelightHandleVisible =
+      !!adjustments.relightEnabled &&
+      !!adjustments.relightNormalMap &&
+      isRelightPanelActive &&
+      !isCropping &&
+      !isMasking &&
+      !isAiEditing &&
+      !isWbPickerActive &&
+      !showOriginal &&
+      relightGeometry.imageWidth > 0 &&
+      imageRenderSize.width > 0;
+
+    // Normal map view: the backend renders the map exactly as the relight pass uses it,
+    // already laid out like the edited image, so it can simply cover the photo.
+    const showRelightNormalMap = useEditorStore((state) => state.showRelightNormalMap);
+    const isRelightNormalMapVisible = isRelightHandleVisible && showRelightNormalMap;
+    const [relightNormalPreviewUrl, setRelightNormalPreviewUrl] = useState<string | null>(null);
+    const relightNormalPreviewRequest = useRef(0);
+    const relightPreviewAdjustmentsRef = useRef(adjustments);
+    relightPreviewAdjustmentsRef.current = adjustments;
+    const relightPreviewLayoutKey = JSON.stringify([
+      adjustments.crop,
+      adjustments.rotation,
+      adjustments.flipHorizontal,
+      adjustments.flipVertical,
+      adjustments.orientationSteps,
+    ]);
+
+    const showRelightNormalPreview = useCallback((url: string | null) => {
+      setRelightNormalPreviewUrl((previous) => {
+        if (previous) URL.revokeObjectURL(previous);
+        return url;
+      });
+    }, []);
+
+    useEffect(() => () => showRelightNormalPreview(null), [showRelightNormalPreview]);
+
+    useEffect(() => {
+      const request = ++relightNormalPreviewRequest.current;
+      if (!isRelightNormalMapVisible) {
+        showRelightNormalPreview(null);
+        return;
+      }
+
+      // A short pause so that dragging the detail slider does not queue a render per step.
+      const timeout = window.setTimeout(async () => {
+        try {
+          // Masks, patches and LUT data play no part here and only make the request heavier.
+          const payload: Record<string, unknown> = { ...relightPreviewAdjustmentsRef.current };
+          for (const key of ['masks', 'aiPatches', 'lutData', 'lensBlurDepthMap']) delete payload[key];
+
+          const bytes: ArrayBuffer = await invoke('generate_relight_normal_preview', { jsAdjustments: payload });
+          if (request !== relightNormalPreviewRequest.current) return;
+          showRelightNormalPreview(URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: 'image/jpeg' })));
+        } catch (e) {
+          if (request === relightNormalPreviewRequest.current) {
+            showRelightNormalPreview(null);
+            toast.error(`Failed to render normal map: ${e}`);
+          }
+        }
+      }, 40);
+      return () => window.clearTimeout(timeout);
+    }, [
+      isRelightNormalMapVisible,
+      adjustments.relightNormalMap,
+      adjustments.relightDepthMap,
+      adjustments.relightDepthScale,
+      adjustments.relightDetail,
+      relightPreviewLayoutKey,
+      showRelightNormalPreview,
+    ]);
+
     const effectiveZoomScale = transformState.scale > 0 ? transformState.scale : 1;
     const brushStageSize = (brushSettings?.size ?? 0) / effectiveZoomScale;
     const brushImageSpaceSize = brushStageSize / (imageRenderSize.scale || 1);
@@ -3320,6 +3443,23 @@ const ImageCanvas = memo(
                 )}
               </svg>
 
+              {isRelightNormalMapVisible && relightNormalPreviewUrl && (
+                <img
+                  alt={t('adjustments.effects.relightNormalMap')}
+                  className="absolute pointer-events-none"
+                  draggable={false}
+                  src={relightNormalPreviewUrl}
+                  style={{
+                    height: `${imageRenderSize.height}px`,
+                    left: `${imageRenderSize.offsetX}px`,
+                    top: `${imageRenderSize.offsetY}px`,
+                    width: `${imageRenderSize.width}px`,
+                    imageRendering: isMaxZoom ? 'pixelated' : 'auto',
+                    zIndex: 3,
+                  }}
+                />
+              )}
+
               {displayedMaskUrl && (
                 <img
                   alt="Mask Overlay"
@@ -3340,6 +3480,20 @@ const ImageCanvas = memo(
             </div>
 
             <div className="absolute inset-0 pointer-events-none z-50">
+              {isRelightHandleVisible &&
+                relightLights.map((light) => (
+                  <RelightHandle
+                    key={light.id}
+                    light={light}
+                    isActive={relightLights.length > 1 && (activeRelightLightId ?? relightLights[0].id) === light.id}
+                    geometry={relightGeometry}
+                    imageRenderSize={imageRenderSize}
+                    inverseScale={1 / maxSafeScale}
+                    onSelect={handleRelightLightSelect}
+                    onChange={handleRelightLightChange}
+                  />
+                ))}
+
               {!isDrawing.current &&
                 directPatchMarkers.map((m) => {
                   const left = (m.cx - cropX) * imageRenderSize.scale + imageRenderSize.offsetX;

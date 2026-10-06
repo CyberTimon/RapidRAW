@@ -98,6 +98,16 @@ export enum Effect {
   LensBlurMaxDepth = 'lensBlurMaxDepth',
   LensBlurMinFade = 'lensBlurMinFade',
   LensBlurMaxFade = 'lensBlurMaxFade',
+  RelightEnabled = 'relightEnabled',
+  RelightLights = 'relightLights',
+  RelightAmbient = 'relightAmbient',
+  RelightSoftness = 'relightSoftness',
+  RelightSpecular = 'relightSpecular',
+  RelightNormalMap = 'relightNormalMap',
+  RelightQuality = 'relightQuality',
+  RelightDepthMap = 'relightDepthMap',
+  RelightDepthScale = 'relightDepthScale',
+  RelightDetail = 'relightDetail',
 }
 
 export enum CreativeAdjustment {
@@ -245,6 +255,16 @@ export interface Adjustments {
   lutIsSceneReferred?: boolean;
   masks: Array<MaskContainer>;
   orientationSteps: number;
+  relightAmbient: number;
+  relightDepthMap: string | null;
+  relightDepthScale: number;
+  relightDetail: number;
+  relightEnabled: boolean;
+  relightLights: Array<RelightLight>;
+  relightNormalMap: string | null;
+  relightQuality: RelightQuality;
+  relightSoftness: number;
+  relightSpecular: number;
   rotation: number;
   saturation: number;
   sectionVisibility: SectionVisibility;
@@ -515,6 +535,55 @@ export const INITIAL_MASK_CONTAINER: MaskContainer = {
   visible: true,
 };
 
+export interface RelightLight {
+  id: string;
+  // Position as a fraction of the image before orientation, flip, rotation and crop.
+  x: number;
+  y: number;
+  // -100 (far behind the subject) to 100 (close to the camera).
+  depth: number;
+  intensity: number;
+  range: number;
+  color: string;
+}
+
+export const MAX_RELIGHT_LIGHTS = 6;
+
+// Which AI model generated the relight maps: the high quality one is a 1.3 GB download.
+export type RelightQuality = 'standard' | 'high';
+
+export const DEFAULT_RELIGHT_LIGHT: RelightLight = {
+  id: 'light-1',
+  x: 0.3,
+  y: 0.3,
+  depth: 30,
+  intensity: 50,
+  range: 60,
+  color: '#ffffff',
+};
+
+// Edits saved before multiple lights existed describe a single light at the top level.
+const normalizeRelightLights = (loaded: any): Array<RelightLight> => {
+  if (Array.isArray(loaded.relightLights)) {
+    return loaded.relightLights.map((light: Partial<RelightLight>, index: number) => ({
+      ...DEFAULT_RELIGHT_LIGHT,
+      ...light,
+      id: light.id || `light-${index + 1}`,
+    }));
+  }
+  return [
+    {
+      ...DEFAULT_RELIGHT_LIGHT,
+      x: loaded.relightX ?? DEFAULT_RELIGHT_LIGHT.x,
+      y: loaded.relightY ?? DEFAULT_RELIGHT_LIGHT.y,
+      depth: loaded.relightDepth ?? DEFAULT_RELIGHT_LIGHT.depth,
+      intensity: loaded.relightIntensity ?? DEFAULT_RELIGHT_LIGHT.intensity,
+      range: loaded.relightRange ?? DEFAULT_RELIGHT_LIGHT.range,
+      color: loaded.relightColor ?? DEFAULT_RELIGHT_LIGHT.color,
+    },
+  ];
+};
+
 export const INITIAL_ADJUSTMENTS: Adjustments = {
   aiPatches: [],
   aspectRatio: null,
@@ -584,6 +653,16 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   lutIsSceneReferred: false,
   masks: [],
   orientationSteps: 0,
+  relightAmbient: 80,
+  relightDepthMap: null,
+  relightDepthScale: 0,
+  relightDetail: 30,
+  relightEnabled: false,
+  relightLights: [{ ...DEFAULT_RELIGHT_LIGHT }],
+  relightNormalMap: null,
+  relightQuality: 'standard',
+  relightSoftness: 30,
+  relightSpecular: 0,
   rotation: 0,
   saturation: 0,
   sectionVisibility: {
@@ -732,6 +811,16 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     lensBlurMaxFade: loadedAdjustments.lensBlurMaxFade ?? INITIAL_ADJUSTMENTS.lensBlurMaxFade,
     lensBlurMinDepth: loadedAdjustments.lensBlurMinDepth ?? INITIAL_ADJUSTMENTS.lensBlurMinDepth,
     lensBlurMinFade: loadedAdjustments.lensBlurMinFade ?? INITIAL_ADJUSTMENTS.lensBlurMinFade,
+    relightAmbient: loadedAdjustments.relightAmbient ?? INITIAL_ADJUSTMENTS.relightAmbient,
+    relightDepthMap: loadedAdjustments.relightDepthMap ?? INITIAL_ADJUSTMENTS.relightDepthMap,
+    relightDepthScale: loadedAdjustments.relightDepthScale ?? INITIAL_ADJUSTMENTS.relightDepthScale,
+    relightDetail: loadedAdjustments.relightDetail ?? INITIAL_ADJUSTMENTS.relightDetail,
+    relightEnabled: loadedAdjustments.relightEnabled ?? INITIAL_ADJUSTMENTS.relightEnabled,
+    relightLights: normalizeRelightLights(loadedAdjustments),
+    relightNormalMap: loadedAdjustments.relightNormalMap ?? INITIAL_ADJUSTMENTS.relightNormalMap,
+    relightQuality: loadedAdjustments.relightQuality ?? INITIAL_ADJUSTMENTS.relightQuality,
+    relightSoftness: loadedAdjustments.relightSoftness ?? INITIAL_ADJUSTMENTS.relightSoftness,
+    relightSpecular: loadedAdjustments.relightSpecular ?? INITIAL_ADJUSTMENTS.relightSpecular,
     lensCorrectionMode: loadedAdjustments.lensCorrectionMode || 'manual',
     lensMaker: loadedAdjustments.lensMaker ?? INITIAL_ADJUSTMENTS.lensMaker,
     lensModel: loadedAdjustments.lensModel ?? INITIAL_ADJUSTMENTS.lensModel,

@@ -134,15 +134,16 @@ fn depth_to_signed_coc(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn build_coc_field(
-    src: &Rgb32FImage,
-    depth: &image::GrayImage,
-    min_depth: f32,
-    max_depth: f32,
-    min_fade: f32,
-    max_fade: f32,
-    max_radius: f32,
-) -> Vec<f32> {
+/// Edge guide for joint upsampling: a lightly smoothed luma plane at full resolution
+/// plus a copy downscaled so that its longest side is at most 1024 px.
+pub(crate) struct LumaGuide {
+    pub luma_full: Vec<f32>,
+    pub guide: Vec<f32>,
+    pub gw: usize,
+    pub gh: usize,
+}
+
+pub(crate) fn build_luma_guide(src: &Rgb32FImage) -> LumaGuide {
     let w = src.width() as usize;
     let h = src.height() as usize;
     let raw = src.as_raw();
@@ -196,6 +197,33 @@ fn build_coc_field(
             }
         });
 
+    LumaGuide {
+        luma_full,
+        guide,
+        gw,
+        gh,
+    }
+}
+
+fn build_coc_field(
+    src: &Rgb32FImage,
+    depth: &image::GrayImage,
+    min_depth: f32,
+    max_depth: f32,
+    min_fade: f32,
+    max_fade: f32,
+    max_radius: f32,
+) -> Vec<f32> {
+    let w = src.width() as usize;
+    let h = src.height() as usize;
+
+    let LumaGuide {
+        luma_full,
+        guide,
+        gw,
+        gh,
+    } = build_luma_guide(src);
+
     let depth_small = dof_depth_to_f32(depth, gw, gh);
     let radius = ((gw.max(gh) as f32) * 0.015).round().max(2.0) as usize;
     let packed = build_guided_model(&guide, &depth_small, gw, gh, radius);
@@ -243,7 +271,14 @@ fn build_coc_field(
     coc
 }
 
-fn build_guided_model(guide: &[f32], p: &[f32], w: usize, h: usize, radius: usize) -> Vec<f32> {
+/// Returns, per pixel, the local linear model `a * guide + b` and the `[lo, hi]` band it must stay in.
+pub(crate) fn build_guided_model(
+    guide: &[f32],
+    p: &[f32],
+    w: usize,
+    h: usize,
+    radius: usize,
+) -> Vec<f32> {
     let n = w * h;
     let eps = 4.0e-3f32;
 
@@ -881,7 +916,7 @@ fn blur_layer_bokeh(
     out
 }
 
-fn dof_box_filter(buf: &mut [f32], w: usize, h: usize, ch: usize, radius: usize) {
+pub(crate) fn dof_box_filter(buf: &mut [f32], w: usize, h: usize, ch: usize, radius: usize) {
     if radius == 0 || w < 2 || h < 2 {
         return;
     }
