@@ -8,9 +8,13 @@ bridge, a test script) drive RapidRAW's develop sliders live and fire editor act
 * TCP, **loopback only**: `127.0.0.1:47820` by default.
 * Newline-delimited JSON (one UTF-8 JSON object per `\n`-terminated line), both directions.
 * Any number of clients may connect. Every client receives every outbound message.
+* Off by default. Enable it in `settings.json` (below).
 * No authentication: the socket is bound to loopback, which is the trust boundary.
+* Every non-empty line must be a JSON object. The first line that is not (invalid JSON, an
+  array, a bare value, or an HTTP request line) closes the connection. This stops a web page
+  from smuggling commands in the body of a request sent to the loopback port.
 
-Configuration, in RapidRAW's `settings.json` (both optional):
+Configuration, in RapidRAW's `settings.json`:
 
 ```json
 { "enableExternalControl": true, "externalControlPort": 47820 }

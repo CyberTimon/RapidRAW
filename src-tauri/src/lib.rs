@@ -1890,7 +1890,7 @@ pub fn run() {
             start_preview_worker(app_handle.clone());
             start_analytics_worker(app_handle.clone());
             {
-                let enabled = settings.enable_external_control.unwrap_or(true);
+                let enabled = settings.enable_external_control.unwrap_or(false);
                 let port = std::env::var("RAPIDRAW_CONTROL_PORT")
                     .ok()
                     .and_then(|v| v.parse::<u16>().ok())

@@ -94,6 +94,25 @@ pub fn start(app_handle: AppHandle, port: u16) {
     });
 }
 
+#[derive(Debug, PartialEq)]
+enum Inbound {
+    Skip,
+    Message(Value),
+    Reject(String),
+}
+
+fn parse_line(line: &str) -> Inbound {
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+        return Inbound::Skip;
+    }
+    match serde_json::from_str::<Value>(trimmed) {
+        Ok(value) if value.is_object() => Inbound::Message(value),
+        Ok(_) => Inbound::Reject("message is not a JSON object".to_string()),
+        Err(e) => Inbound::Reject(format!("invalid JSON: {}", e)),
+    }
+}
+
 fn emit_client_count(app_handle: &AppHandle, count: usize) {
     let _ = app_handle.emit(CLIENTS_EVENT, count);
 }
@@ -147,42 +166,32 @@ async fn handle_client(app_handle: AppHandle, stream: TcpStream) {
                 log::warn!("External control: oversized message, closing client");
                 break;
             }
-            Ok(_) => {
-                let trimmed = line.trim();
-                if trimmed.is_empty() {
-                    continue;
+            Ok(_) => match parse_line(&line) {
+                Inbound::Skip => continue,
+                Inbound::Reject(reason) => {
+                    log::warn!("External control: {}, closing client", reason);
+                    break;
                 }
-                match serde_json::from_str::<Value>(trimmed) {
-                    Ok(msg) => {
-                        if msg.get("type").and_then(Value::as_str) == Some("ping") {
-                            let mut pong = json!({ "type": "pong" });
-                            if let Some(r) = msg.get("ref") {
-                                pong["ref"] = r.clone();
-                            }
-                            state.broadcast(pong.to_string());
-                            continue;
+                Inbound::Message(msg) => {
+                    if msg.get("type").and_then(Value::as_str) == Some("ping") {
+                        let mut pong = json!({ "type": "pong" });
+                        if let Some(r) = msg.get("ref") {
+                            pong["ref"] = r.clone();
                         }
-                        let mut msg = msg;
-                        if let Some(obj) = msg.as_object_mut() {
-                            let seq = state.seq.fetch_add(1, Ordering::SeqCst) + 1;
-                            obj.insert("_seq".to_string(), json!(seq));
-                        }
-                        let target = EventTarget::webview_window(MAIN_WINDOW_LABEL);
-                        if let Err(e) = app_handle.emit_to(target, COMMAND_EVENT, msg) {
-                            log::warn!("External control: failed to emit command: {}", e);
-                        }
+                        state.broadcast(pong.to_string());
+                        continue;
                     }
-                    Err(e) => {
-                        state.broadcast(
-                            json!({
-                                "type": "error",
-                                "message": format!("invalid JSON: {}", e),
-                            })
-                            .to_string(),
-                        );
+                    let mut msg = msg;
+                    if let Some(obj) = msg.as_object_mut() {
+                        let seq = state.seq.fetch_add(1, Ordering::SeqCst) + 1;
+                        obj.insert("_seq".to_string(), json!(seq));
+                    }
+                    let target = EventTarget::webview_window(MAIN_WINDOW_LABEL);
+                    if let Err(e) = app_handle.emit_to(target, COMMAND_EVENT, msg) {
+                        log::warn!("External control: failed to emit command: {}", e);
                     }
                 }
-            }
+            },
             Err(e) => {
                 log::debug!("External control: read error: {}", e);
                 break;
@@ -234,5 +243,57 @@ pub fn external_control_status(state: tauri::State<ExternalControlState>) -> Ext
         port,
         clients: state.clients.load(Ordering::SeqCst),
         protocol: PROTOCOL_VERSION,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn first_outcome(input: &str) -> Inbound {
+        input
+            .split_inclusive('\n')
+            .map(parse_line)
+            .find(|o| *o != Inbound::Skip)
+            .unwrap_or(Inbound::Skip)
+    }
+
+    #[test]
+    fn accepts_json_objects() {
+        assert!(matches!(
+            parse_line("{\"type\":\"step\",\"param\":\"exposure\",\"ticks\":1}\n"),
+            Inbound::Message(_)
+        ));
+        assert!(matches!(parse_line("{\"type\":\"ping\"}\r\n"), Inbound::Message(_)));
+    }
+
+    #[test]
+    fn skips_blank_lines() {
+        assert_eq!(parse_line("\n"), Inbound::Skip);
+        assert_eq!(parse_line("   \r\n"), Inbound::Skip);
+    }
+
+    #[test]
+    fn rejects_non_objects() {
+        assert!(matches!(parse_line("[1,2]\n"), Inbound::Reject(_)));
+        assert!(matches!(parse_line("42\n"), Inbound::Reject(_)));
+        assert!(matches!(parse_line("\"step\"\n"), Inbound::Reject(_)));
+    }
+
+    #[test]
+    fn rejects_http_request_before_smuggled_body() {
+        let request = "POST / HTTP/1.1\r\n\
+Host: 127.0.0.1:47820\r\n\
+Content-Type: text/plain\r\n\
+Content-Length: 41\r\n\
+\r\n\
+{\"type\":\"action\",\"id\":\"select_all\"}\n";
+        assert!(matches!(first_outcome(request), Inbound::Reject(_)));
+    }
+
+    #[test]
+    fn rejects_get_request() {
+        let request = "GET /?x={\"type\":\"reset\"} HTTP/1.1\r\nHost: localhost\r\n\r\n";
+        assert!(matches!(first_outcome(request), Inbound::Reject(_)));
     }
 }
