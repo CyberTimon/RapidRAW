@@ -699,7 +699,7 @@ fn relight_in_place(image: &mut Rgb32FImage, maps: &SurfaceMaps, p: &RelightPara
         .par_chunks_exact_mut(w * 3)
         .enumerate()
         .for_each(|(y, row)| {
-            for (x, px) in row.chunks_exact_mut(3).enumerate() {
+            for (x, px) in row.as_chunks_mut::<3>().0.iter_mut().enumerate() {
                 let i = y * w + x;
 
                 let coverage = maps.coverage[i] as f32 / 255.0;
@@ -736,8 +736,8 @@ fn relight_in_place(image: &mut Rgb32FImage, maps: &SurfaceMaps, p: &RelightPara
                     };
 
                     let amount = light.intensity * attenuation * (diffuse + spec);
-                    for c in 0..3 {
-                        lit[c] += amount * light.color[c];
+                    for (l, color) in lit.iter_mut().zip(&light.color) {
+                        *l += amount * color;
                     }
                 }
 

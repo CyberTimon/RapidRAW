@@ -1825,7 +1825,7 @@ fn build_depth_map(points: &[f32], mask: &[f32], w: usize, h: usize) -> (Vec<u16
     let mut fit_num = 0.0f64;
     let mut fit_den = 0.0f64;
 
-    for (i, (point, m)) in points.chunks_exact(3).zip(mask).enumerate() {
+    for (i, (point, m)) in points.as_chunks::<3>().0.iter().zip(mask).enumerate() {
         let z = point[2];
         if *m < 0.5 || !z.is_finite() || z <= 0.0 || !point[0].is_finite() || !point[1].is_finite()
         {
@@ -1862,7 +1862,9 @@ fn build_depth_map(points: &[f32], mask: &[f32], w: usize, h: usize) -> (Vec<u16
     };
 
     let depth_data = points
-        .chunks_exact(3)
+        .as_chunks::<3>()
+        .0
+        .iter()
         .zip(mask)
         .map(|(point, m)| {
             let z = point[2];
@@ -1937,7 +1939,7 @@ pub fn run_normal_model(
     let pack = |v: f32| ((v * 0.5 + 0.5).clamp(0.0, 1.0) * 255.0).round() as u8;
 
     let mut normal_data = Vec::with_capacity(rw * rh * 4);
-    for (n, m) in normals.chunks_exact(3).zip(mask) {
+    for (n, m) in normals.as_chunks::<3>().0.iter().zip(mask) {
         // The model outputs OpenCV camera space (Y down, Z away from the viewer).
         let (nx, ny, nz) = (n[0], -n[1], -n[2]);
         let len = (nx * nx + ny * ny + nz * nz).sqrt();
