@@ -229,7 +229,7 @@ fn compute_transformed_preview(
     loaded_image: &LoadedImage,
     adjustments: &serde_json::Value,
     preview_dim: u32,
-) -> Result<(Arc<DynamicImage>, f32, (f32, f32)), String> {
+) -> Result<TransformedPreview, String> {
     let mut hasher = DefaultHasher::new();
     loaded_image.path.hash(&mut hasher);
     calculate_geometry_hash(adjustments).hash(&mut hasher);

@@ -214,6 +214,7 @@ impl MetadataManager {
 
 pub type ThumbnailGeometryEntry = (u64, Arc<DynamicImage>, f32);
 pub type TransformedImageCache = (u64, Arc<DynamicImage>, f32, (f32, f32));
+pub type TransformedPreview = (Arc<DynamicImage>, f32, (f32, f32));
 
 pub struct AppState {
     pub window_setup_complete: AtomicBool,

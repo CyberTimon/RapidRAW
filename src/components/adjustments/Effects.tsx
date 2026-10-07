@@ -472,7 +472,7 @@ export default function EffectsPanel({
                     }`}
                   >
                     <div className="overflow-hidden">
-                      <div className="space-y-4 mt-4 mb-1 pl-2 border-l-2 border-card-active">
+                      <div className="space-y-4 mt-4 mb-1 pl-2 border-l-2 border-card-active" data-relight-lights>
                         {isGeneratingNormals ? (
                           <div className="flex flex-col items-center justify-center gap-1 p-4 text-text-secondary text-center">
                             <div className="flex items-center gap-2">
@@ -545,7 +545,7 @@ export default function EffectsPanel({
                               />
                             )}
 
-                            <div className="p-3 rounded-md bg-bg-primary space-y-4" data-relight-lights>
+                            <div className="p-3 rounded-md bg-bg-primary space-y-4">
                               <div className="flex flex-wrap items-center gap-3 px-1">
                                 {relightLights.map((light, index) => (
                                   <div
