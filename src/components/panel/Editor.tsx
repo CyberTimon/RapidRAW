@@ -27,6 +27,7 @@ import { useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useAiMasking } from '../../hooks/useAiMasking';
 import { useEditorActions } from '../../hooks/useEditorActions';
+import { MIN_ZOOM_PERCENT } from '../../utils/zoom';
 
 const parseRgb = (rgbStr: string): [number, number, number, number] => {
   const match = rgbStr.match(/[\d.]+/g);
@@ -416,7 +417,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
     const scaleFor100Percent = 1 / imageRenderSize.scale;
 
-    const minScale = (0.1 / dpr) * scaleFor100Percent;
+    const minScale = (MIN_ZOOM_PERCENT / dpr) * scaleFor100Percent;
     const maxScale = (2.0 / dpr) * scaleFor100Percent;
 
     return {

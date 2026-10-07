@@ -9,6 +9,7 @@ import { useUIStore } from '../store/useUIStore';
 import { useProcessStore } from '../store/useProcessStore';
 import { useEditorActions } from './useEditorActions';
 import { useLibraryActions } from './useLibraryActions';
+import { MIN_ZOOM_PERCENT } from '../utils/zoom';
 
 interface KeyboardShortcutsProps {
   sortedImageList: Array<ImageFile>;
@@ -186,7 +187,8 @@ export const useKeyboardShortcuts = ({
             s.editor.originalSize?.width > 0 && s.editor.displaySize?.width > 0
               ? (s.editor.displaySize.width * dpr) / s.editor.originalSize.width
               : 1.0;
-          handleZoomChange(Math.min(currentPercent + 0.1, 2.0));
+          // Below 20%, fixed 10% steps would overshoot, so step proportionally
+          handleZoomChange(Math.min(currentPercent < 0.2 ? currentPercent * 1.2 : currentPercent + 0.1, 2.0));
         },
       },
       zoom_out_step: {
@@ -198,7 +200,9 @@ export const useKeyboardShortcuts = ({
             s.editor.originalSize?.width > 0 && s.editor.displaySize?.width > 0
               ? (s.editor.displaySize.width * dpr) / s.editor.originalSize.width
               : 1.0;
-          handleZoomChange(Math.max(currentPercent - 0.1, 0.1));
+          handleZoomChange(
+            Math.max(currentPercent < 0.2 ? currentPercent / 1.2 : currentPercent - 0.1, MIN_ZOOM_PERCENT),
+          );
         },
       },
       cycle_zoom: {
@@ -253,7 +257,7 @@ export const useKeyboardShortcuts = ({
             s.editor.originalSize?.width > 0 && s.editor.displaySize?.width > 0
               ? (s.editor.displaySize.width * dpr) / s.editor.originalSize.width
               : 1.0;
-          handleZoomChange(Math.max(currentPercent / 1.2, 0.1));
+          handleZoomChange(Math.max(currentPercent / 1.2, MIN_ZOOM_PERCENT));
         },
       },
       zoom_fit: {

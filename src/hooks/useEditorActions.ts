@@ -17,6 +17,7 @@ import {
 import { calculateCenteredCrop } from '../utils/cropUtils';
 import { Invokes } from '../components/ui/AppProperties';
 import { globalImageCache } from '../utils/ImageLRUCache';
+import { MIN_ZOOM_PERCENT } from '../utils/zoom';
 
 export const debouncedSetHistory = debounce((newAdj: Adjustments) => {
   useEditorStore.getState().pushHistory(newAdj);
@@ -378,7 +379,7 @@ export function useEditorActions() {
       targetZoomPercent = zoomValue / dpr;
     }
 
-    targetZoomPercent = Math.max(0.1 / dpr, Math.min(2.0, targetZoomPercent));
+    targetZoomPercent = Math.max(MIN_ZOOM_PERCENT / dpr, Math.min(2.0, targetZoomPercent));
 
     let transformZoom = 1.0;
     if (

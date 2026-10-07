@@ -23,6 +23,7 @@ import { useLibraryStore } from '../../store/useLibraryStore';
 import { useLibraryActions } from '../../hooks/useLibraryActions';
 import { useUIStore } from '../../store/useUIStore';
 import { COLOR_LABELS } from '../../utils/adjustments';
+import { MIN_ZOOM_PERCENT } from '../../utils/zoom';
 
 interface BottomBarProps {
   filmstripHeight?: number;
@@ -336,7 +337,7 @@ export default function BottomBar({
     const value = parseFloat(percentInputValue);
     if (!isNaN(value)) {
       const originalPercent = value / 100;
-      const clampedPercent = Math.max(0.1, Math.min(2.0, originalPercent));
+      const clampedPercent = Math.max(MIN_ZOOM_PERCENT, Math.min(2.0, originalPercent));
       onZoomChange(clampedPercent);
     }
     setIsEditingPercent(false);
@@ -664,9 +665,9 @@ export default function BottomBar({
                   <div className="absolute top-1/2 left-0 w-full h-1.5 -translate-y-1/2 bg-surface rounded-full pointer-events-none" />
                   <input
                     type="range"
-                    min={0.1}
+                    min={MIN_ZOOM_PERCENT}
                     max={2.0}
-                    step="0.05"
+                    step="0.01"
                     value={latchedSliderValue}
                     onChange={handleSliderChange}
                     onKeyDown={handleZoomKeyDown}
