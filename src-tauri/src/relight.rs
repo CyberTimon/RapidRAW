@@ -346,7 +346,7 @@ pub fn apply_relight<'a>(
                     let strength = get("intensity", 60.0).max(0.0) / 100.0 * 4.0 / luma.max(1e-3);
                     let radius = 0.05 + get("radius", 30.0) / 100.0 * 1.45;
                     let angle = get("angle", 135.0).to_radians();
-                    let elevation = get("elevation", 60.0).clamp(0.0, 90.0).to_radians();
+                    let elevation = get("elevation", 60.0).clamp(-180.0, 180.0).to_radians();
                     let (plane_x, plane_y) = (
                         angle.cos() * elevation.cos(),
                         -angle.sin() * elevation.cos(),
