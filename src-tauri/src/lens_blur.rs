@@ -1,4 +1,3 @@
-use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use image::{DynamicImage, GenericImageView, Rgb32FImage};
 use rayon::prelude::*;
 use std::borrow::Cow;
@@ -36,17 +35,9 @@ pub fn apply_lens_blur<'a>(
         return image;
     }
 
-    let b64_data = match depth_b64.find(',') {
-        Some(idx) => &depth_b64[idx + 1..],
-        None => depth_b64,
-    };
-    let decoded = match BASE64.decode(b64_data) {
-        Ok(b) => b,
-        Err(_) => return image,
-    };
-    let depth_map = match image::load_from_memory(&decoded) {
-        Ok(img) => img.into_luma8(),
-        Err(_) => return image,
+    let depth_map = match crate::effect_maps::resolve_luma_map(depth_b64, adjustments) {
+        Some(map) => map,
+        None => return image,
     };
     if depth_map.width() < 2 || depth_map.height() < 2 {
         return image;

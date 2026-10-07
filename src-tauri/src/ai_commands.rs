@@ -272,7 +272,6 @@ pub async fn generate_ai_depth_mask(
 
 #[tauri::command]
 pub async fn generate_full_image_depth_map(
-    js_adjustments: serde_json::Value,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<String, String> {
@@ -284,26 +283,21 @@ pub async fn generate_full_image_depth_map(
     .await
     .map_err(|e| e.to_string())?;
 
-    let warped_image = crate::get_cached_full_warped_image(&state, &js_adjustments)?;
+    let loaded_image = get_loaded_image(&state)?;
+    let source_image =
+        crate::mask_generation::build_full_source_image(&loaded_image.image, loaded_image.is_raw);
 
     let depth_img = crate::ai_processing::run_depth_anything_model(
-        warped_image.as_ref(),
+        source_image.as_ref(),
         &models.depth_anything,
     )
     .map_err(|e| e.to_string())?;
 
-    let mut buf = std::io::Cursor::new(Vec::new());
-    depth_img
-        .write_to(&mut buf, image::ImageFormat::Png)
-        .map_err(|e| e.to_string())?;
-    let base64_str = base64::engine::general_purpose::STANDARD.encode(buf.get_ref());
-
-    Ok(format!("data:image/png;base64,{}", base64_str))
+    crate::effect_maps::encode_source_space_map(&image::DynamicImage::ImageLuma8(depth_img))
 }
 
 #[tauri::command]
 pub async fn generate_relight_normal_map(
-    js_adjustments: serde_json::Value,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<String, String> {
@@ -315,19 +309,24 @@ pub async fn generate_relight_normal_map(
     .await
     .map_err(|e| e.to_string())?;
 
-    let warped_image = crate::get_cached_full_warped_image(&state, &js_adjustments)?;
+    let loaded_image = get_loaded_image(&state)?;
+    let source_image =
+        crate::mask_generation::build_full_source_image(&loaded_image.image, loaded_image.is_raw);
 
     let normal_img =
-        crate::ai_processing::run_normal_model(warped_image.as_ref(), normal_model.as_ref())
+        crate::ai_processing::run_normal_model(source_image.as_ref(), normal_model.as_ref())
             .map_err(|e| e.to_string())?;
 
-    let mut buf = std::io::Cursor::new(Vec::new());
-    normal_img
-        .write_to(&mut buf, image::ImageFormat::Png)
-        .map_err(|e| e.to_string())?;
-    let base64_str = base64::engine::general_purpose::STANDARD.encode(buf.get_ref());
+    crate::effect_maps::encode_source_space_map(&image::DynamicImage::ImageRgba8(normal_img))
+}
 
-    Ok(format!("data:image/png;base64,{}", base64_str))
+fn get_loaded_image(state: &tauri::State<'_, AppState>) -> Result<crate::LoadedImage, String> {
+    state
+        .original_image
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+        .ok_or_else(|| "No original image loaded".to_string())
 }
 
 #[allow(clippy::too_many_arguments)]

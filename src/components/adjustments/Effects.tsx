@@ -173,7 +173,7 @@ export default function EffectsPanel({
   const handleGenerateLensBlurDepthMap = async () => {
     setIsGeneratingDepth(true);
     try {
-      const b64: string = await invoke('generate_full_image_depth_map', { jsAdjustments: adjustments });
+      const b64: string = await invoke('generate_full_image_depth_map');
       setAdjustments((prev: Partial<Adjustments>) => ({
         ...prev,
         lensBlurDepthMap: b64,
@@ -189,7 +189,7 @@ export default function EffectsPanel({
   const handleGenerateRelightNormalMap = async () => {
     setIsGeneratingNormals(true);
     try {
-      const b64: string = await invoke('generate_relight_normal_map', { jsAdjustments: adjustments });
+      const b64: string = await invoke('generate_relight_normal_map');
       setAdjustments((prev: Partial<Adjustments>) => ({
         ...prev,
         relightNormalMap: b64,
@@ -205,7 +205,7 @@ export default function EffectsPanel({
   const handleGenerateFogDepthMap = async () => {
     setIsGeneratingFogDepth(true);
     try {
-      const b64: string = await invoke('generate_full_image_depth_map', { jsAdjustments: adjustments });
+      const b64: string = await invoke('generate_full_image_depth_map');
       setAdjustments((prev: Partial<Adjustments>) => ({
         ...prev,
         fogDepthMap: b64,

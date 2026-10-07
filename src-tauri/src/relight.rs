@@ -1,4 +1,3 @@
-use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use image::{DynamicImage, GenericImageView};
 use rayon::prelude::*;
 use std::borrow::Cow;
@@ -325,7 +324,7 @@ pub fn apply_relight<'a>(
 
     let cache_key = {
         let mut hasher = DefaultHasher::new();
-        normal_b64.hash(&mut hasher);
+        crate::effect_maps::effect_map_key(normal_b64, adjustments).hash(&mut hasher);
         (w, h).hash(&mut hasher);
         let raw = out.as_raw();
         for value in raw.iter().step_by((raw.len() / 4096).max(1)) {
@@ -344,16 +343,8 @@ pub fn apply_relight<'a>(
     let mut cache = match cached {
         Some(cache) => cache,
         None => {
-            let b64_data = match normal_b64.find(',') {
-                Some(idx) => &normal_b64[idx + 1..],
-                None => normal_b64,
-            };
-            let normal_map = match BASE64
-                .decode(b64_data)
-                .ok()
-                .and_then(|decoded| image::load_from_memory(&decoded).ok())
-            {
-                Some(img) => img.into_rgba8(),
+            let normal_map = match crate::effect_maps::resolve_rgba_map(normal_b64, adjustments) {
+                Some(map) => map,
                 None => return Cow::Owned(DynamicImage::ImageRgb32F(out)),
             };
             let (nw, nh) = (normal_map.width() as usize, normal_map.height() as usize);

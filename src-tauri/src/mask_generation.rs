@@ -1458,16 +1458,20 @@ pub fn resolve_warped_image_for_masks(
     }
 }
 
+pub fn build_full_source_image(base_image: &DynamicImage, is_raw: bool) -> Cow<'_, DynamicImage> {
+    let mut image = Cow::Borrowed(base_image);
+    if is_raw {
+        apply_cpu_default_raw_processing(image.to_mut());
+    }
+    image
+}
+
 pub fn build_full_warped_image<'a>(
     base_image: &'a DynamicImage,
     is_raw: bool,
     adjustments: &serde_json::Value,
 ) -> Cow<'a, DynamicImage> {
-    let mut image = Cow::Borrowed(base_image);
-    if is_raw {
-        apply_cpu_default_raw_processing(image.to_mut());
-    }
-    apply_geometry_warp(image, adjustments)
+    apply_geometry_warp(build_full_source_image(base_image, is_raw), adjustments)
 }
 
 pub fn build_warped_image_for_masks<'a>(
