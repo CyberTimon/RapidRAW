@@ -60,6 +60,24 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 <details>
 <summary><strong>Recent Changes</strong></summary>
 
+- **2026-10-06:** Added AI-free mode, rewritten whites adjustment, and improved shadow and highlight recovery with mid-scale detail reinjection
+- **2026-10-05:** Implemented log-space guided filter for edge-aware adjustments and integrated cloud API
+- **2026-10-04:** Added Kelvin white balance mode with area sampling, fine adjust mode for curves, pick/reject quick filters, and improved export presets
+- **2026-10-03:** Embed sRGB ICC profiles in exports, calculate HSL hue in perceptual color space & improve lens EXIF detection
+- **2026-10-02:** Added Dutch language support and improved continuous RAW magenta highlight correction
+- **2026-09-29:** Optimize GPU texture uploads to reduce memory overhead and avoid unnecessary buffer copies
+- **2026-09-28:** Added Tool Focus mode to isolate and expand only active adjustment tools
+- **2026-09-27:** Tone curves now display inactive channels as colored overlay curves and reference markers
+- **2026-09-25:** Streamline adjustment panel customization and improve default tool visibility
+- **2026-09-23:** Added borders and aspect ratio padding to export options, plus reorderable and collapsible adjustment sections
+
+<details>
+<summary><strong>Expand further</strong></summary>
+
+- **2026-09-22:** Added Apple RAW 9 decoding/denoising support and custom savable crop aspect ratios
+- **2026-09-21:** Implemented cancellable AI tasks with real-time UI tracking and backend preparation for cloud inpainting
+- **2026-09-20:** Center-anchored crop resizing when holding Ctrl/Cmd on crop handles
+- **2026-09-19:** Added center mark composition guide overlay to the crop tool
 - **2026-09-17:** Rewrite vibrance & local contrast preserving highlights adjustment
 - **2026-09-16:** Add highlights color reconstruction & improve exposure shader
 - **2026-09-14:** Add neutral grey canvas toggle
@@ -70,10 +88,6 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 - **2026-09-06:** Support exporting to original folder with subfolder
 - **2026-09-03:** Rewrite Wayland/Nvidia workaround
 - **2026-09-02:** Refactor crop panel & integrate transform/lens correction directly into main canvas
-
-<details>
-<summary><strong>Expand further</strong></summary>
-
 - **2026-09-01:** Implemented guided perspective correction thanks to @hogar1977
 - **2026-09-01:** Add context menu option to auto apply lens correction
 - **2026-08-31:** New edge-aware filter for ai masks, improved sharpening & mobile UI improvements
@@ -348,7 +362,7 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 - [Key Features](#key-features)
 - [Supported Formats, Lenses & Languages](#supported-formats-lenses--languages)
 - [Current Priorities](#current-priorities)
-- [AI Roadmap](#ai-roadmap)
+- [AI Strategy](#ai-strategy)
 - [Initial Development Log](#initial-development-log)
 - [Getting Started](#getting-started)
 - [Camera Tethering](#camera-tethering)
@@ -637,14 +651,16 @@ RapidRAW supports automatic lens profile detection, distortion, transverse chrom
 <details>
 <summary><strong>Supported Languages</strong></summary>
 
-RapidRAW is fully translated into the following 13 languages:
+RapidRAW is fully translated into the following 15 languages:
 
 - 🇬🇧 **English**
 - 🇪🇸 **Català**
+- 🇨🇿 **Čeština**
 - 🇩🇪 **Deutsch**
 - 🇪🇸 **Español**
 - 🇫🇷 **Français**
 - 🇮🇹 **Italiano**
+- 🇳🇱 **Nederlands**
 - 🇵🇱 **Polski**
 - 🇵🇹 **Português**
 - 🇷🇺 **Русский**
@@ -664,48 +680,59 @@ Here is an outlook on what is actively being developed and planned for the comin
 - **Cloud AI Inpainting:** Launching the optional cloud generative AI integration to deliver high-quality object removal and generative replace without requiring local ComfyUI setups or heavy GPU hardware.
 - **Performance & Algorithm Refinements:** Further optimizing processing speed on older GPU architectures, refining Fujifilm X-Trans sensor demosaicing algorithms, and expanding UI responsiveness on mobile/Android devices.
 
-## AI Roadmap
+## AI Strategy
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/inpainting.gif" alt="RapidRAW AI Inpainting" width="100%">
 </p>
 
-I've designed RapidRAW's AI features with flexibility in mind. You have three ways to use them, giving you the choice between fast local tools, powerful self-hosting, and simple cloud convenience.
+I've designed RapidRAW's AI architecture with absolute flexibility, privacy, and user choice in mind. Whether you want a purely traditional RAW workflow without any neural networks, fast local automation, powerful self-hosting, or simple cloud convenience, you have four distinct ways to use RapidRAW:
 
 ### 1. Built-in AI Tools (Local & Free)
 
-These features are integrated directly into RapidRAW and run entirely on your computer. They are fast, free, and require no setup from you.
+These features are integrated directly into RapidRAW and run entirely on your local machine using your CPU or GPU. They are fast, completely private, free, and require zero setup:
 
-- **AI Masking:** Instantly detect and mask subjects, skies, and foregrounds.
-- **Automatic Tagging:** The image library is automatically tagged with keywords using a local CLIP model, making your photos easy to search.
-- **Simple Generative Replace:** A basic, CPU-based inpainting tool for removing small distractions.
+- **AI Masking:** Instantly detect and mask subjects, skies, foregrounds, and depth maps (powered by SAM 2, U-2-Net, and Depth Anything V2).
+- **Automatic Tagging:** The image library is automatically indexed with keywords using a local CLIP model for effortless search.
+- **Simple Generative Replace:** A lightweight, CPU-based inpainting tool (via LaMa) for removing sensor dust, blemishes, and small distractions.
 
 ### 2. Self-Hosted Integration with ComfyUI (Local & Free)
 
-For users with a capable GPU who want maximum control, RapidRAW can connect to your own local [ComfyUI](https://github.com/comfyanonymous/ComfyUI) server. This is managed by the [**RapidRAW-AI-Connector**](https://github.com/CyberTimon/RapidRAW-AI-Connector), a lightweight middleware that bridges RapidRAW and ComfyUI. Its purpose is to manage image caching, workflow injection, and AI coordination.
+For users with a capable GPU who want maximum control over generative features, RapidRAW connects directly to your local [ComfyUI](https://github.com/comfyanonymous/ComfyUI) server through the [**RapidRAW-AI-Connector**](https://github.com/CyberTimon/RapidRAW-AI-Connector).
 
-**Why this approach?** This new architecture makes generative edits much more efficient. Instead of sending the entire high-resolution image for every single change, the AI Connector intelligently caches it. The full image is sent only once; for every subsequent edit, only the tiny mask and text are transferred. This makes the process significantly faster and more responsive.
+**Why this approach?** The AI Connector acts as a high-performance middleware that handles image caching, workflow injection, and coordination. Instead of transferring the entire high-resolution image for every edit, the full image is cached once; subsequent generative tweaks transfer only the tiny mask and prompt.
 
-This setup gives you the best of both worlds: a highly efficient workflow while retaining full control to use your own hardware and any custom Diffusion models or workflows you choose.
-
-- **Full Control:** Use your own hardware and any custom Diffusion model or workflow you choose.
-- **Cost-Free Power:** Utilise your existing hardware for advanced generative edits at no extra cost.
-- **Custom Workflow Selection:** Import your own ComfyUI workflows and use your custom nodes.
+- **Full Control:** Use your own local hardware and any custom Diffusion model or checkpoint.
+- **Cost-Free Power:** Utilize your existing GPU for heavy generative edits without subscriptions.
+- **Custom Workflow Selection:** Import your own ComfyUI node graphs and workflows into RapidRAW-AI-Connector.
 
 ### 3. Optional Cloud Service (Subscription)
 
-To be clear, **I won't lock features behind a paywall.** All of RapidRAW's functionality is available for free if you use the built-in tools or self-host.
+To be clear: **core software functionality is never locked behind a paywall.** All features remain free if you use built-in tools or choose to self-host.
 
-However, I realize that not everyone has the powerful hardware or technical desire to set up and maintain their own ComfyUI server. For those who want a simpler solution, I will be offering an optional **$TBD/month subscription**.
+However, not everyone has access to a powerful GPU or wants the technical overhead of configuring and maintaining a local ComfyUI server. For users who prefer seamless convenience, RapidRAW offers an optional **$TBD/month cloud subscription**:
 
-This is purely a **convenience service**. It provides the **same high-quality results** as a self-hosted setup without any of the hassle - just log in, and it works. Subscribing is also the best way to support the project and help me dedicate more time to its development.
+- **Turnkey Setup:** No local server or model weights to download. Just log in and run high-end inpainting/generative tools immediately.
+- **Support Indie Development:** Subscribing is the best way to directly fund continuous development, updates, and maintenance.
 
-| Feature      | Built-in AI (Free)             | Self-Hosted (ComfyUI)               | Optional Cloud Service |
-| ------------ | ------------------------------ | ----------------------------------- | ---------------------- |
-| **Cost**     | Free, included                 | Free (requires your own hardware)   | $TBD / month           |
-| **Setup**    | None                           | Manual ComfyUI / AI Connector setup | None (Just log in)     |
-| **Use Case** | Everyday workflow acceleration | Full control for technical users    | Maximum convenience    |
-| **Status**   | **Available**                  | **Available**                       | Coming Soon            |
+### 4. AI-Free Mode (Local & Distraction-Free)
+
+For purists, contest photographers, or those with ethical or privacy-related objections to AI tools, RapidRAW can function as a **purely traditional, non-AI RAW editor** with a single toggle in **Settings → General**:
+
+- **Decluttered UI:** All AI-related buttons, generative patch menus, AI selection tabs, and AI-driven lens blur tools are hidden from the interface.
+- **Algorithmic Fallbacks:** Features like Denoise automatically fall back to classic algorithmic filters (such as BM3D) and disable neural-based models.
+- **Non-Destructive Compatibility:** Any existing AI masks or edits in previously edited sidecar files (`.rrdata`) will still render faithfully without breaking your library.
+
+---
+
+### Strategy Comparison
+
+| Feature      | Built-in AI (Free)             | Self-Hosted (ComfyUI)               | Optional Cloud Service  | AI-Free Mode                            |
+| :----------- | :----------------------------- | :---------------------------------- | :---------------------- | :-------------------------------------- |
+| **Cost**     | Free, included                 | Free (requires your own GPU)        | $TBD / month            | Free, included                          |
+| **Setup**    | None                           | Manual ComfyUI / AI Connector setup | None (Just log in)      | Single switch in Settings               |
+| **Privacy**  | 100% Local execution           | 100% Local / Self-hosted            | Processed via Cloud API | 100% Local (Zero AI execution)          |
+| **Use Case** | Everyday workflow acceleration | Maximum control for power users     | Maximum convenience     | Traditional editing & contest workflows |
 
 ## Initial Development Log
 

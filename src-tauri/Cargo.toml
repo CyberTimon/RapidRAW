@@ -14,6 +14,9 @@ default = []
 tethering = ["dep:gphoto2"]
 
 [dependencies]
+# Kept at "2.11" (not "2.12") so the Android CI job can pin the tauri stack back to
+# 2.11.5 with `cargo update --precise`; Cargo.lock keeps every other platform on
+# 2.12.1. See "Pin tauri stack to 2.11 (Android)" in .github/workflows/build.yml.
 tauri = { version = "2.11", features = [ "macos-private-api", "rustls-tls", "protocol-asset" ] }
 tauri-plugin-dialog = "2.7.2"
 serde = { version = "1.0", features = ["derive"] }
@@ -68,11 +71,16 @@ libc = "0.2.189"
 rgb = "0.8.53"
 imgref = "1.12.2"
 sysinfo = "0.39.6"
+# Lower bounds (not "2.8.0"/"2.5.0") so the Android CI job can pin these back
+# alongside tauri 2.11.5; Cargo.lock keeps desktop on 2.8.0/2.5.0.
+tauri-plugin-http = "2.7"
+tauri-plugin-store = "2.4"
 
 [target.'cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))'.dependencies]
 trash = "5.2.6"
 tauri-plugin-single-instance = "2.4.3"
 reqwest = { version = "0.13", default-features = false, features = ["json", "multipart", "rustls"] }
+tauri-plugin-clerk = "0.1.1"
 
 [target.'cfg(any(target_os = "macos", target_os = "linux"))'.dependencies]
 gphoto2 = { git = "https://github.com/CyberTimon/libgphoto2-rs", optional = true }

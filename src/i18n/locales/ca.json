@@ -43,6 +43,7 @@
         "shadows": "Ombres"
       },
       "hue": "To",
+      "kelvinModeTooltip": "Mostra la temperatura en Kelvin",
       "localHue": "To local",
       "luminance": "Luminància",
       "mixerColors": {
@@ -119,6 +120,11 @@
       "bokehShape": "Forma del bokeh",
       "creative": "Creatiu",
       "feather": "Esvaïment",
+      "fog": "Boira",
+      "fogDensity": "Densitat",
+      "fogHeight": "Boira baixa",
+      "fogStart": "Inici",
+      "fogVariation": "Variació",
       "glow": "Resplendor",
       "grain": "Gra",
       "halation": "Halació",
@@ -128,30 +134,32 @@
       "lut": "LUT",
       "midpoint": "Punt mitjà",
       "relight": "Reil·luminar",
-      "relightAddLight": "Afegeix una llum",
+      "relightAddLight": "Afegeix llum",
       "relightAmbient": "Ambient",
+      "relightAngle": "Angle",
       "relightColor": "Color de la llum",
-      "relightCustomColor": "Color personalitzat",
+      "relightCone": "Con",
       "relightDepth": "Profunditat",
-      "relightDetail": "Detall",
-      "relightDragLight": "Arrossega per moure la llum, fes servir la roda per acostar-la o allunyar-la",
-      "relightGenerateNormalMap": "Genera el mapa de normals",
+      "relightElevation": "Elevació",
+      "relightFalloff": "Atenuació",
+      "relightHint": "Afegeix o selecciona una llum i fes clic o arrossega a la imatge per col·locar-la.",
       "relightIntensity": "Intensitat",
-      "relightLights": "Llums",
-      "relightNormalMap": "Mapa de normals",
-      "relightQuality": "Qualitat del mapa",
-      "relightQualityHigh": "Alta",
-      "relightQualityHighTooltip": "Mapes més nítids i detallats. Baixa un model d'1,3 GB la primera vegada i triga unes tres vegades més.",
-      "relightQualityStandard": "Estàndard",
-      "relightRange": "Abast",
-      "relightRegenerateNormalMap": "Regenera el mapa de normals",
-      "relightRemoveLight": "Elimina la llum seleccionada",
-      "relightShowNormalMap": "Mostra el mapa de normals a la imatge",
+      "relightLight": "Llum {{index}}",
+      "relightRemoveLight": "Elimina la llum",
+      "relightShadows": "Ombres",
+      "relightShadowSoftness": "Suavitat de les ombres",
+      "relightShine": "Brillantor",
       "relightSoftness": "Suavitat",
-      "relightSpecular": "Especular",
+      "relightType": "Tipus de llum",
+      "relightTypes": {
+        "directional": "Direccional",
+        "point": "Puntual",
+        "spot": "Focus"
+      },
       "roughness": "Rugositat",
       "roundness": "Rodonesa",
       "size": "Mida",
+      "spatial": "Espacial",
       "vignette": "Vinyetatge"
     }
   },
@@ -210,6 +218,9 @@
       "denoise": "Reduir soroll de la imatge",
       "editImage": "Editar imatge",
       "exportImage": "Exportar imatge",
+      "flag": "Marca",
+      "flagPick": "Seleccionada",
+      "flagReject": "Rebutjada",
       "frameImage": "Emmarcar imatge",
       "mergeHdr": "Fusionar a HDR",
       "noLabel": "Sense etiqueta",
@@ -223,7 +234,8 @@
       "resetAdjustments": "Restablir ajustaments",
       "stitchPanorama": "Unir panorama",
       "tagging": "Etiquetatge",
-      "undo": "Desfer"
+      "undo": "Desfer",
+      "unflagged": "Sense marca"
     },
     "folders": {
       "changeIcon": "Canviar icona",
@@ -246,6 +258,7 @@
     "library": {
       "addCopiedToAlbum_one": "Afegir imatge copiada a l'àlbum",
       "addCopiedToAlbum_other": "Afegir {{count}} imatges copiades a l'àlbum",
+      "deleteRejected": "Eliminar les imatges rebutjades",
       "refreshView": "Actualitzar vista"
     },
     "merge": {
@@ -393,7 +406,7 @@
       "editSettingsTitle": "Configuració d'edició",
       "editsTitle": "Edicions",
       "generatingDepthMap": "S'està calculant el mapa de profunditat d'IA...",
-      "generatingNormalMap": "S'està calculant el mapa de normals d'IA...",
+      "generatingNormalMap": "Calculant el mapa de normals IA...",
       "generativeEditTitle": "Edició generativa",
       "inpaintingTitle": "Inpainting",
       "liquify": {
@@ -787,7 +800,6 @@
         "inpaint": "Inpainting",
         "masks": "Màscares",
         "presets": "Ajustos preestablerts",
-        "relight": "Reil·luminar",
         "tethering": "Captura connectada"
       }
     },
@@ -982,9 +994,16 @@
         "editedOnly": "Només editades",
         "uneditedOnly": "Només no editades"
       },
+      "flag": {
+        "all": "Totes les imatges",
+        "excludeRejected": "Amaga les rebutjades",
+        "picked": "Seleccionada",
+        "rejected": "Rebutjada"
+      },
       "noMatch": "No s'ha trobat cap imatge que coincideixi amb el vostre filtre.",
       "rating": {
         "all": "Mostrar-les totes",
+        "andDownSuffix": "i inferior",
         "andUpSuffix": "i superior",
         "fiveOnly": "Només 5",
         "fourAndUp": "4 i superior",
@@ -1063,7 +1082,13 @@
         "filterByColorLabel": "Filtrar per etiqueta de color",
         "filterByEdited": "Filtrar per estat d'edició",
         "filterByFileType": "Filtrar per tipus de fitxer",
+        "filterByFlag": "Filtrar per marca",
         "filterByRating": "Filtrar per puntuació",
+        "ratingOperator": {
+          "eq": "Exactament aquesta puntuació",
+          "gte": "Aquesta puntuació o superior",
+          "lte": "Aquesta puntuació o inferior"
+        },
         "groupEditedFiles": "Incloure fitxers editats als grups",
         "groupIgnoreMetadata": "Ignorar dates EXIF no coincidents",
         "groupOff": "Desactivat",
@@ -1096,11 +1121,23 @@
       "expandFolder": "Expandir carpeta",
       "imagesCount_one": "1 imatge",
       "imagesCount_other": "{{count}} imatges",
+      "rejected": "Rebutjada",
       "tooltipAperture": "Obertura",
       "tooltipFocalLength": "Distància focal",
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "Velocitat d'obturació",
       "tooltipVirtualCopy": "Còpia virtual"
+    },
+    "reject": {
+      "deleteConfirm": "Eliminar les rebutjades",
+      "deleteMessage_many": "Segur que voleu eliminar {{count}} imatges rebutjades? Es mouran a la paperera.",
+      "deleteMessage_one": "Segur que voleu eliminar {{count}} imatge rebutjada? Es mourà a la paperera.",
+      "deleteMessage_other": "Segur que voleu eliminar {{count}} imatges rebutjades? Es mouran a la paperera.",
+      "deleteTitle": "Eliminar les imatges rebutjades",
+      "noneToDelete": "No hi ha imatges rebutjades per eliminar.",
+      "virtualCopiesWarning_many": "També s'eliminaran {{count}} còpies virtuals no rebutjades perquè els seus originals estan rebutjats.",
+      "virtualCopiesWarning_one": "També s'eliminarà {{count}} còpia virtual no rebutjada perquè el seu original està rebutjat.",
+      "virtualCopiesWarning_other": "També s'eliminaran {{count}} còpies virtuals no rebutjades perquè els seus originals estan rebutjats."
     },
     "search": {
       "noResults": "No s'han trobat resultats",
@@ -1284,7 +1321,7 @@
     "culling": {
       "actionDelete": "Moure a la paperera",
       "actionRateZero": "Establir puntuació a 1 estrella",
-      "actionReject": "Marcar com a rebutjada (Etiqueta vermella)",
+      "actionReject": "Marcar com a rebutjada",
       "applyButton_one": "Aplicar a 1 imatge",
       "applyButton_other": "Aplicar a {{count}} imatges",
       "bestImage": "Millor imatge",
@@ -1606,6 +1643,7 @@
       "enableFocusMode": "Activar mode de concentració",
       "enableNeutralGreyCanvas": "Activa el fons gris neutre",
       "enableOsTitlebar": "Activar barra de títol del SO",
+      "enableToolFocusMode": "Activar mode de concentració en eines",
       "enableXmpSync": "Activar sincronització XMP",
       "focusMode": "Mode de concentració",
       "focusModeDesc": "Us ajuda a concentrar-vos tancant automàticament altres taulers quan n'obriu un de nou.",
@@ -1623,6 +1661,8 @@
       "theme": "Tema",
       "themeDesc": "Canvia l'aspecte de l'aplicació.",
       "title": "Configuració general",
+      "toolFocusMode": "Mode de concentració en eines",
+      "toolFocusModeDesc": "Replega automàticament les altres eines d'un tauler quan n'amplieu una.",
       "xmpSync": "Sincronització de metadades XMP",
       "xmpSyncDesc": "Sincronitzar puntuacions, etiquetes de color i etiquetes amb fitxers sidecar XMP estàndard per a la compatibilitat amb altres editors de fotos."
     },
@@ -1640,6 +1680,7 @@
         "copy_files": "Copiar els fitxers seleccionats",
         "copy_image_path": "Copiar camí de les imatges seleccionades",
         "cycle_zoom": "Alternar zoom (Ajustar, 2x Ajustar, 100%)",
+        "delete_rejected": "Eliminar els fitxers rebutjats",
         "delete_selected": "Eliminar els fitxers seleccionats",
         "focus_search": "Enfocar camp de cerca",
         "open_image": "Obrir la imatge seleccionada",
@@ -1672,9 +1713,12 @@
         "toggle_library_exif": "Alternar superposició EXIF",
         "toggle_masks": "Alternar tauler de Màscares",
         "toggle_metadata": "Alternar tauler de Metadades",
+        "toggle_pick": "Commuta la marca de seleccionada",
         "toggle_presets": "Alternar tauler d'Ajustos preestablerts",
+        "toggle_reject": "Commuta la marca de rebutjada",
         "toggle_right_panel": "Commutar el panell dret",
         "undo": "Desfer ajustament",
+        "unflag": "Treure la marca",
         "zoom_100": "Apropar al 100%",
         "zoom_fit": "Apropar per ajustar",
         "zoom_in": "Apropar",
@@ -1724,6 +1768,11 @@
             "upgradeBtn": "Actualitzar al lloc web",
             "upgradeDesc": "Per utilitzar les funcions de la IA al núvol, us cal una subscripció al núvol."
           },
+          "statuses": {
+            "connecting": "Connectant…",
+            "retry": "Tornar a intentar la connexió",
+            "unsupported": "L'inici de sessió al núvol actualment només està disponible a l'escriptori."
+          },
           "title": "Servei al núvol"
         },
         "connector": {
@@ -1746,9 +1795,17 @@
           "feature3": "Substitució generativa simple per CPU",
           "title": "IA integrada (CPU)"
         },
+        "aiFree": {
+          "description": "Desactiva totes les funcions d'IA. Tots els controls relacionats amb la IA s'oculten de la interfície perquè RapidRAW funcioni com un editor RAW purament tradicional.",
+          "feature1": "Sense màscares d'IA, desenfocament de lent ni edicions generatives a la interfície",
+          "feature2": "Les edicions d'IA existents es continuen mostrant amb normalitat",
+          "feature3": "Una interfície més neta i enfocada",
+          "title": "Sense IA"
+        },
         "description": "L'IA de RapidRAW està dissenyada per ser flexible. Trieu el vostre flux de treball ideal, des d'eines locals ràpides fins a un autoallotjament potent.",
         "providers": {
           "aiConnector": "AI Connector",
+          "aiFree": "Sense IA",
           "cloud": "Núvol",
           "cpu": "CPU"
         },
@@ -2012,6 +2069,10 @@
         "virtualCopy": "Còpia virtual"
       },
       "virtualCopyAbbreviation": "CV"
+    },
+    "flags": {
+      "togglePick": "Commuta la selecció",
+      "toggleReject": "Commuta el rebuig"
     },
     "imagePicker": {
       "clearImage": "Esborrar imatge",

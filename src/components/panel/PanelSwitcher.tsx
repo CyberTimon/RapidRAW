@@ -10,7 +10,6 @@ import {
   Layers,
   Paintbrush,
   SwatchBook,
-  Lightbulb,
   FileInput,
   Camera,
   Folder as FolderIcon,
@@ -26,7 +25,6 @@ export const PANEL_ICONS: Record<Panel, LucideIcon> = {
   [Panel.Masks]: Layers,
   [Panel.Ai]: Paintbrush,
   [Panel.Presets]: SwatchBook,
-  [Panel.Relight]: Lightbulb,
   [Panel.Export]: FileInput,
   [Panel.FolderTree]: FolderIcon,
   [Panel.Tethering]: Camera,
@@ -39,7 +37,6 @@ const PANEL_TITLES: Record<Panel, string> = {
   [Panel.Masks]: 'editor.switcher.tooltips.masks',
   [Panel.Ai]: 'editor.switcher.tooltips.inpaint',
   [Panel.Presets]: 'editor.switcher.tooltips.presets',
-  [Panel.Relight]: 'editor.switcher.tooltips.relight',
   [Panel.Export]: 'editor.switcher.tooltips.export',
   [Panel.FolderTree]: 'library.folders.sourcesTitle',
   [Panel.Tethering]: 'editor.switcher.tooltips.tethering',
@@ -259,7 +256,6 @@ export function MobilePanelSwitcher({
     Panel.Masks,
     Panel.Ai,
     Panel.Presets,
-    Panel.Relight,
     Panel.Export,
   ];
 

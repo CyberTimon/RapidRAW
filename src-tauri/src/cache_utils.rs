@@ -77,40 +77,54 @@ pub fn calculate_patched_warped_hash(adjustments: &serde_json::Value) -> u64 {
         }
     }
 
-    hash_relight(adjustments, &mut hasher);
-
-    hasher.finish()
-}
-
-fn hash_relight(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) {
-    let relight_enabled = adjustments["relightEnabled"].as_bool().unwrap_or(false);
-    relight_enabled.hash(hasher);
+    let relight_enabled =
+        effects_visible && adjustments["relightEnabled"].as_bool().unwrap_or(false);
+    relight_enabled.hash(&mut hasher);
 
     if relight_enabled {
         let relight_keys = [
             "relightLights",
-            "relightIntensity",
-            "relightX",
-            "relightY",
-            "relightDepth",
-            "relightRange",
-            "relightColor",
             "relightAmbient",
             "relightSoftness",
-            "relightSpecular",
-            "relightDetail",
+            "relightShine",
+            "relightShadows",
+            "relightShadowSoftness",
             "relightNormalMap",
-            "relightDepthMap",
-            "relightDepthScale",
         ];
 
         for key in relight_keys {
             if let Some(val) = adjustments.get(key) {
-                key.hash(hasher);
-                val.to_string().hash(hasher);
+                key.hash(&mut hasher);
+                val.to_string().hash(&mut hasher);
             }
         }
     }
+
+    let fog_enabled = effects_visible && adjustments["fogEnabled"].as_bool().unwrap_or(false);
+    fog_enabled.hash(&mut hasher);
+
+    if fog_enabled {
+        let fog_keys = [
+            "fogAmount",
+            "fogStart",
+            "fogDensity",
+            "fogHeight",
+            "fogVariation",
+            "fogGlow",
+            "fogTemperature",
+            "fogTint",
+            "fogDepthMap",
+        ];
+
+        for key in fog_keys {
+            if let Some(val) = adjustments.get(key) {
+                key.hash(&mut hasher);
+                val.to_string().hash(&mut hasher);
+            }
+        }
+    }
+
+    hasher.finish()
 }
 
 pub fn calculate_thumbnail_base_hash(adjustments: &serde_json::Value) -> u64 {
@@ -199,7 +213,48 @@ pub fn calculate_transform_hash(adjustments: &serde_json::Value) -> u64 {
         }
     }
 
-    hash_relight(adjustments, &mut hasher);
+    let relight_enabled =
+        effects_visible && adjustments["relightEnabled"].as_bool().unwrap_or(false);
+    relight_enabled.hash(&mut hasher);
+    if relight_enabled {
+        for key in [
+            "relightLights",
+            "relightAmbient",
+            "relightSoftness",
+            "relightShine",
+            "relightShadows",
+            "relightShadowSoftness",
+        ] {
+            if let Some(val) = adjustments.get(key) {
+                val.to_string().hash(&mut hasher);
+            }
+        }
+        if let Some(val) = adjustments.get("relightNormalMap") {
+            val.as_str().unwrap_or("").len().hash(&mut hasher);
+        }
+    }
+
+    let fog_enabled = effects_visible && adjustments["fogEnabled"].as_bool().unwrap_or(false);
+    fog_enabled.hash(&mut hasher);
+    if fog_enabled {
+        for key in [
+            "fogAmount",
+            "fogStart",
+            "fogDensity",
+            "fogHeight",
+            "fogVariation",
+            "fogGlow",
+            "fogTemperature",
+            "fogTint",
+        ] {
+            if let Some(val) = adjustments.get(key) {
+                val.to_string().hash(&mut hasher);
+            }
+        }
+        if let Some(val) = adjustments.get("fogDepthMap") {
+            val.as_str().unwrap_or("").len().hash(&mut hasher);
+        }
+    }
 
     if let Some(crop_val) = adjustments.get("crop")
         && !crop_val.is_null()

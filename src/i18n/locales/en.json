@@ -43,6 +43,7 @@
         "shadows": "Shadows"
       },
       "hue": "Hue",
+      "kelvinModeTooltip": "Show temperature in Kelvin",
       "localHue": "Local Hue",
       "luminance": "Luminance",
       "mixerColors": {
@@ -119,6 +120,11 @@
       "bokehShape": "Bokeh Shape",
       "creative": "Creative",
       "feather": "Feather",
+      "fog": "Fog",
+      "fogDensity": "Density",
+      "fogHeight": "Ground Fog",
+      "fogStart": "Start",
+      "fogVariation": "Variation",
       "glow": "Glow",
       "grain": "Grain",
       "halation": "Halation",
@@ -128,30 +134,32 @@
       "lut": "LUT",
       "midpoint": "Midpoint",
       "relight": "Relight",
-      "relightAddLight": "Add light",
+      "relightAddLight": "Add Light",
       "relightAmbient": "Ambient",
+      "relightAngle": "Angle",
       "relightColor": "Light Color",
-      "relightCustomColor": "Custom Color",
+      "relightCone": "Cone",
       "relightDepth": "Depth",
-      "relightDetail": "Detail",
-      "relightDragLight": "Drag to move the light, scroll to move it closer or farther",
-      "relightGenerateNormalMap": "Generate Normal Map",
+      "relightElevation": "Elevation",
+      "relightFalloff": "Falloff",
+      "relightHint": "Add or select a light, then click or drag on the image to position it.",
       "relightIntensity": "Intensity",
-      "relightLights": "Lights",
-      "relightNormalMap": "Normal Map",
-      "relightQuality": "Map Quality",
-      "relightQualityHigh": "High",
-      "relightQualityHighTooltip": "Sharper, more detailed maps. Downloads a 1.3 GB model the first time and takes about three times longer.",
-      "relightQualityStandard": "Standard",
-      "relightRange": "Range",
-      "relightRegenerateNormalMap": "Regenerate Normal Map",
-      "relightRemoveLight": "Remove selected light",
-      "relightShowNormalMap": "Show normal map on image",
+      "relightLight": "Light {{index}}",
+      "relightRemoveLight": "Remove Light",
+      "relightShadowSoftness": "Shadow Softness",
+      "relightShadows": "Shadows",
+      "relightShine": "Shine",
       "relightSoftness": "Softness",
-      "relightSpecular": "Specular",
+      "relightType": "Light Type",
+      "relightTypes": {
+        "directional": "Directional",
+        "point": "Point",
+        "spot": "Spot"
+      },
       "roughness": "Roughness",
       "roundness": "Roundness",
       "size": "Size",
+      "spatial": "Spatial",
       "vignette": "Vignette"
     }
   },
@@ -210,6 +218,9 @@
       "denoise": "Denoise Image",
       "editImage": "Edit Image",
       "exportImage": "Export Image",
+      "flag": "Flag",
+      "flagPick": "Picked",
+      "flagReject": "Rejected",
       "frameImage": "Frame Image",
       "mergeHdr": "Merge to HDR",
       "noLabel": "No Label",
@@ -223,7 +234,8 @@
       "resetAdjustments": "Reset Adjustments",
       "stitchPanorama": "Stitch Panorama",
       "tagging": "Tagging",
-      "undo": "Undo"
+      "undo": "Undo",
+      "unflagged": "Unflagged"
     },
     "folders": {
       "changeIcon": "Change Icon",
@@ -246,6 +258,7 @@
     "library": {
       "addCopiedToAlbum_one": "Add copied image to album",
       "addCopiedToAlbum_other": "Add {{count}} copied images to album",
+      "deleteRejected": "Delete Rejected Images",
       "refreshView": "Refresh View"
     },
     "merge": {
@@ -787,7 +800,6 @@
         "inpaint": "Inpaint",
         "masks": "Masks",
         "presets": "Presets",
-        "relight": "Relight",
         "tethering": "Tethering"
       }
     },
@@ -982,9 +994,16 @@
         "editedOnly": "Edited Only",
         "uneditedOnly": "Unedited Only"
       },
+      "flag": {
+        "all": "All Images",
+        "excludeRejected": "Hide Rejected",
+        "picked": "Picked",
+        "rejected": "Rejected"
+      },
       "noMatch": "No images found that match your filter.",
       "rating": {
         "all": "Show All",
+        "andDownSuffix": "& down",
         "andUpSuffix": "& up",
         "fiveOnly": "5 only",
         "fourAndUp": "4 & up",
@@ -1063,7 +1082,13 @@
         "filterByColorLabel": "Filter by Color Label",
         "filterByEdited": "Filter by Edit Status",
         "filterByFileType": "Filter by File Type",
+        "filterByFlag": "Filter by Flag",
         "filterByRating": "Filter by Rating",
+        "ratingOperator": {
+          "eq": "Exactly this rating",
+          "gte": "This rating or higher",
+          "lte": "This rating or lower"
+        },
         "groupEditedFiles": "Include edited files in groups",
         "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
         "groupOff": "Off",
@@ -1096,11 +1121,21 @@
       "expandFolder": "Expand Folder",
       "imagesCount_one": "1 image",
       "imagesCount_other": "{{count}} images",
+      "rejected": "Rejected",
       "tooltipAperture": "Aperture",
       "tooltipFocalLength": "Focal Length",
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "Shutter Speed",
       "tooltipVirtualCopy": "Virtual Copy"
+    },
+    "reject": {
+      "deleteConfirm": "Delete Rejected",
+      "deleteMessage_one": "Are you sure you want to delete {{count}} rejected image? It will be moved to the trash.",
+      "deleteMessage_other": "Are you sure you want to delete {{count}} rejected images? They will be moved to the trash.",
+      "deleteTitle": "Delete Rejected Images",
+      "noneToDelete": "There are no rejected images to delete.",
+      "virtualCopiesWarning_one": "{{count}} virtual copy that is not rejected will also be deleted because its original is rejected.",
+      "virtualCopiesWarning_other": "{{count}} virtual copies that are not rejected will also be deleted because their originals are rejected."
     },
     "search": {
       "noResults": "No Results Found",
@@ -1284,7 +1319,7 @@
     "culling": {
       "actionDelete": "Move to Trash",
       "actionRateZero": "Set Rating to 1 Stars",
-      "actionReject": "Mark as Rejected (Red Label)",
+      "actionReject": "Mark as Rejected",
       "applyButton_one": "Apply to 1 image",
       "applyButton_other": "Apply to {{count}} images",
       "bestImage": "Best Image",
@@ -1606,6 +1641,7 @@
       "enableFocusMode": "Enable Focus Mode",
       "enableNeutralGreyCanvas": "Enable Neutral Grey Background",
       "enableOsTitlebar": "Enable OS Titlebar",
+      "enableToolFocusMode": "Enable Tool Focus Mode",
       "enableXmpSync": "Enable XMP Sync",
       "focusMode": "Focus Mode",
       "focusModeDesc": "Helps you focus by automatically closing other panels when you open a new one.",
@@ -1623,6 +1659,8 @@
       "theme": "Theme",
       "themeDesc": "Change the look and feel of the application.",
       "title": "General Settings",
+      "toolFocusMode": "Tool Focus Mode",
+      "toolFocusModeDesc": "Automatically collapses the other tools in a panel when you expand one.",
       "xmpSync": "XMP Metadata Sync",
       "xmpSyncDesc": "Sync ratings, color labels and tags to standard XMP sidecar files for compatibility with other photo editors."
     },
@@ -1640,6 +1678,7 @@
         "copy_files": "Copy selected file(s)",
         "copy_image_path": "Copy path of selected image(s)",
         "cycle_zoom": "Cycle zoom (Fit, 2x Fit, 100%)",
+        "delete_rejected": "Delete rejected file(s)",
         "delete_selected": "Delete selected file(s)",
         "focus_search": "Focus search field",
         "open_image": "Open selected image",
@@ -1672,9 +1711,12 @@
         "toggle_library_exif": "Toggle EXIF overlay",
         "toggle_masks": "Toggle Masks panel",
         "toggle_metadata": "Toggle Metadata panel",
+        "toggle_pick": "Toggle pick flag",
         "toggle_presets": "Toggle Presets panel",
+        "toggle_reject": "Toggle reject flag",
         "toggle_right_panel": "Toggle Right Panel",
         "undo": "Undo adjustment",
+        "unflag": "Remove flag",
         "zoom_100": "Zoom to 100%",
         "zoom_fit": "Zoom to fit",
         "zoom_in": "Zoom in",
@@ -1724,6 +1766,11 @@
             "upgradeBtn": "Upgrade on Website",
             "upgradeDesc": "To use Cloud AI features, you need a Cloud subscription."
           },
+          "statuses": {
+            "connecting": "Connecting…",
+            "retry": "Retry connection",
+            "unsupported": "Cloud sign-in is currently only available on desktop."
+          },
           "title": "Cloud Service"
         },
         "connector": {
@@ -1746,9 +1793,17 @@
           "feature3": "Simple CPU-based Generative Replace",
           "title": "Built-in AI (CPU)"
         },
+        "aiFree": {
+          "description": "Turn off every AI feature. All AI-related controls are hidden from the interface so RapidRAW works as a purely traditional RAW editor.",
+          "feature1": "No AI masks, lens blur or generative edits in the UI",
+          "feature2": "Existing AI edits still render normally",
+          "feature3": "A cleaner, more focused interface",
+          "title": "AI-Free"
+        },
         "description": "RapidRAW's AI is built for flexibility. Choose your ideal workflow, from fast local tools to powerful self-hosting.",
         "providers": {
           "aiConnector": "AI Connector",
+          "aiFree": "AI-Free",
           "cloud": "Cloud",
           "cpu": "CPU"
         },
@@ -2012,6 +2067,10 @@
         "virtualCopy": "Virtual Copy"
       },
       "virtualCopyAbbreviation": "VC"
+    },
+    "flags": {
+      "togglePick": "Toggle Pick",
+      "toggleReject": "Toggle Reject"
     },
     "imagePicker": {
       "clearImage": "Clear Image",

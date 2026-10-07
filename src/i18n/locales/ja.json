@@ -43,6 +43,7 @@
         "shadows": "シャドウ"
       },
       "hue": "色相",
+      "kelvinModeTooltip": "色温度をケルビンで表示",
       "localHue": "ローカル色相",
       "luminance": "輝度",
       "mixerColors": {
@@ -119,6 +120,11 @@
       "bokehShape": "ボケの形状",
       "creative": "クリエイティブ",
       "feather": "ぼかし",
+      "fog": "霧",
+      "fogDensity": "濃度",
+      "fogHeight": "地表霧",
+      "fogStart": "開始距離",
+      "fogVariation": "ばらつき",
       "glow": "グロー",
       "grain": "粒子",
       "halation": "ハレーション",
@@ -130,28 +136,30 @@
       "relight": "リライト",
       "relightAddLight": "ライトを追加",
       "relightAmbient": "環境光",
+      "relightAngle": "角度",
       "relightColor": "ライトの色",
-      "relightCustomColor": "カスタムカラー",
+      "relightCone": "コーン",
       "relightDepth": "奥行き",
-      "relightDetail": "ディテール",
-      "relightDragLight": "ドラッグでライトを移動、スクロールで前後に移動",
-      "relightGenerateNormalMap": "法線マップを生成",
+      "relightElevation": "仰角",
+      "relightFalloff": "減衰",
+      "relightHint": "ライトを追加または選択し、画像上をクリックまたはドラッグして配置します。",
       "relightIntensity": "強度",
-      "relightLights": "ライト",
-      "relightNormalMap": "法線マップ",
-      "relightQuality": "マップ品質",
-      "relightQualityHigh": "高",
-      "relightQualityHighTooltip": "よりシャープで詳細なマップ。初回は1.3GBのモデルをダウンロードし、約3倍の時間がかかります。",
-      "relightQualityStandard": "標準",
-      "relightRange": "範囲",
-      "relightRegenerateNormalMap": "法線マップを再生成",
-      "relightRemoveLight": "選択したライトを削除",
-      "relightShowNormalMap": "画像上に法線マップを表示",
+      "relightLight": "ライト {{index}}",
+      "relightRemoveLight": "ライトを削除",
+      "relightShadows": "影",
+      "relightShadowSoftness": "影の柔らかさ",
+      "relightShine": "光沢",
       "relightSoftness": "柔らかさ",
-      "relightSpecular": "スペキュラ",
+      "relightType": "ライトの種類",
+      "relightTypes": {
+        "directional": "平行光",
+        "point": "点光源",
+        "spot": "スポットライト"
+      },
       "roughness": "粗さ",
       "roundness": "丸み",
       "size": "サイズ",
+      "spatial": "空間",
       "vignette": "周辺光量補正"
     }
   },
@@ -210,6 +218,9 @@
       "denoise": "ノイズ低減を実行",
       "editImage": "画像を編集",
       "exportImage": "画像を書き出し",
+      "flag": "フラグ",
+      "flagPick": "採用",
+      "flagReject": "除外",
       "frameImage": "画像にフレームを追加",
       "mergeHdr": "HDRに統合",
       "noLabel": "ラベルなし",
@@ -223,7 +234,8 @@
       "resetAdjustments": "補正設定をリセット",
       "stitchPanorama": "パノラマ写真を作成",
       "tagging": "タグ付け",
-      "undo": "元に戻す"
+      "undo": "元に戻す",
+      "unflagged": "フラグなし"
     },
     "folders": {
       "changeIcon": "アイコンを変更",
@@ -246,6 +258,7 @@
     "library": {
       "addCopiedToAlbum_one": "コピーした画像をアルバムに追加",
       "addCopiedToAlbum_other": "コピーした {{count}} 枚の画像をアルバムに追加",
+      "deleteRejected": "除外した画像を削除",
       "refreshView": "表示を更新"
     },
     "merge": {
@@ -785,7 +798,6 @@
         "inpaint": "インペイント",
         "masks": "マスク",
         "presets": "プリセット",
-        "relight": "リライト",
         "tethering": "テザー撮影"
       }
     },
@@ -980,9 +992,16 @@
         "editedOnly": "編集済みのみ",
         "uneditedOnly": "未編集のみ"
       },
+      "flag": {
+        "all": "すべての画像",
+        "excludeRejected": "除外を非表示",
+        "picked": "採用",
+        "rejected": "除外"
+      },
       "noMatch": "フィルターに一致する画像が見つかりません。",
       "rating": {
         "all": "すべて表示",
+        "andDownSuffix": "以下",
         "andUpSuffix": "以上",
         "fiveOnly": "5のみ",
         "fourAndUp": "4以上",
@@ -1061,7 +1080,13 @@
         "filterByColorLabel": "カラーラベルでフィルター",
         "filterByEdited": "編集状態でフィルター",
         "filterByFileType": "ファイル形式でフィルター",
+        "filterByFlag": "フラグでフィルター",
         "filterByRating": "評価でフィルター",
+        "ratingOperator": {
+          "eq": "この評価のみ",
+          "gte": "この評価以上",
+          "lte": "この評価以下"
+        },
         "groupEditedFiles": "Include edited files in groups",
         "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
         "groupOff": "Off",
@@ -1094,11 +1119,21 @@
       "expandFolder": "フォルダを展開",
       "imagesCount_one": "1 枚の画像",
       "imagesCount_other": "{{count}} 枚の画像",
+      "rejected": "除外",
       "tooltipAperture": "絞り値",
       "tooltipFocalLength": "焦点距離",
       "tooltipIso": "ISO感度",
       "tooltipShutterSpeed": "シャッタースピード",
       "tooltipVirtualCopy": "仮想コピー"
+    },
+    "reject": {
+      "deleteConfirm": "除外した画像を削除",
+      "deleteMessage_one": "除外した画像 {{count}} 枚を削除してもよろしいですか？ゴミ箱に移動されます。",
+      "deleteMessage_other": "除外した画像 {{count}} 枚を削除してもよろしいですか？ゴミ箱に移動されます。",
+      "deleteTitle": "除外した画像を削除",
+      "noneToDelete": "削除する除外画像はありません。",
+      "virtualCopiesWarning_one": "元画像が除外されているため、除外されていない仮想コピー {{count}} 件も削除されます。",
+      "virtualCopiesWarning_other": "元画像が除外されているため、除外されていない仮想コピー {{count}} 件も削除されます。"
     },
     "search": {
       "noResults": "結果が見つかりません",
@@ -1282,7 +1317,7 @@
     "culling": {
       "actionDelete": "ゴミ箱に移動",
       "actionRateZero": "評価を星1に設定",
-      "actionReject": "除外としてマーク (赤ラベル)",
+      "actionReject": "除外としてマーク",
       "applyButton_one": "1 枚の画像に適用",
       "applyButton_other": "{{count}} 枚の画像に適用",
       "bestImage": "ベスト画像",
@@ -1604,6 +1639,7 @@
       "enableFocusMode": "フォーカスモードを有効にする",
       "enableNeutralGreyCanvas": "ニュートラルグレーの背景を有効にする",
       "enableOsTitlebar": "OSのタイトルバーを有効にする",
+      "enableToolFocusMode": "ツールフォーカスモードを有効にする",
       "enableXmpSync": "XMP同期を有効にする",
       "focusMode": "フォーカスモード",
       "focusModeDesc": "新しいパネルを開いたときに他のパネルを自動的に閉じることで、編集作業に集中できるようにします。",
@@ -1621,6 +1657,8 @@
       "theme": "テーマ",
       "themeDesc": "アプリケーションのテーマ（外観）を変更します。",
       "title": "全般設定",
+      "toolFocusMode": "ツールフォーカスモード",
+      "toolFocusModeDesc": "ツールを展開すると、同じパネル内の他のツールを自動的に折りたたみます。",
       "xmpSync": "XMPメタデータ同期",
       "xmpSyncDesc": "他の写真編集ソフトとの互換性のために、評価、カラーラベル、タグを標準のXMPサイドカーファイルと同期します。"
     },
@@ -1638,6 +1676,7 @@
         "copy_files": "選択したファイルをコピー",
         "copy_image_path": "選択した画像のパスをコピー",
         "cycle_zoom": "ズームの切り替え (全体表示、2倍拡大、100%)",
+        "delete_rejected": "除外したファイルを削除",
         "delete_selected": "選択したファイルを削除",
         "focus_search": "検索フィールドにフォーカス",
         "open_image": "選択した画像を開く",
@@ -1670,9 +1709,12 @@
         "toggle_library_exif": "EXIF重ね合わせ表示の表示/非表示",
         "toggle_masks": "マスクパネルの表示/非表示",
         "toggle_metadata": "メタデータパネルの表示/非表示",
+        "toggle_pick": "採用フラグを切り替え",
         "toggle_presets": "プリセットパネルの表示/非表示",
+        "toggle_reject": "除外フラグを切り替え",
         "toggle_right_panel": "右パネルの表示/非表示",
         "undo": "操作を元に戻す",
+        "unflag": "フラグを解除",
         "zoom_100": "100%ズーム",
         "zoom_fit": "画面に合わせる",
         "zoom_in": "ズームイン",
@@ -1722,6 +1764,11 @@
             "upgradeBtn": "Webサイトでアップグレード",
             "upgradeDesc": "クラウドAI機能を使用するには、クラウドサブスクリプションへの加入が必要です。"
           },
+          "statuses": {
+            "connecting": "接続中…",
+            "retry": "接続を再試行",
+            "unsupported": "クラウドへのサインインは現在、デスクトップでのみ利用可能です。"
+          },
           "title": "クラウドサービス"
         },
         "connector": {
@@ -1744,9 +1791,17 @@
           "feature3": "CPUベースの簡易生成塗りつぶし",
           "title": "内蔵AI (CPU)"
         },
+        "aiFree": {
+          "description": "すべてのAI機能をオフにします。AI関連のコントロールはすべてインターフェースから非表示になり、RapidRAWは純粋な従来型のRAWエディターとして動作します。",
+          "feature1": "AIマスク、レンズぼかし、生成編集をUIに表示しません",
+          "feature2": "既存のAI編集は引き続き通常どおり反映されます",
+          "feature3": "よりすっきりとした集中しやすいインターフェース",
+          "title": "AIなし"
+        },
         "description": "RapidRAWのAIは、優れた柔軟性を備えています。高速なローカル処理から本格的なセルフホストまで、最適なワークフローを選択してください。",
         "providers": {
           "aiConnector": "AI Connector",
+          "aiFree": "AIなし",
           "cloud": "クラウド",
           "cpu": "CPU"
         },
@@ -2010,6 +2065,10 @@
         "virtualCopy": "仮想コピー"
       },
       "virtualCopyAbbreviation": "仮想"
+    },
+    "flags": {
+      "togglePick": "採用を切り替え",
+      "toggleReject": "除外を切り替え"
     },
     "imagePicker": {
       "clearImage": "画像をクリア",

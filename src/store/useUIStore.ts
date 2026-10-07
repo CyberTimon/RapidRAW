@@ -93,7 +93,6 @@ const ALL_PANELS: Panel[] = [
   Panel.Masks,
   Panel.Ai,
   Panel.Presets,
-  Panel.Relight,
 ];
 
 const DEFAULT_PANEL_DEFAULT_REGIONS: Record<Panel, PanelRegion> = {
@@ -106,7 +105,6 @@ const DEFAULT_PANEL_DEFAULT_REGIONS: Record<Panel, PanelRegion> = {
   [Panel.Masks]: 'rightTop',
   [Panel.Ai]: 'rightTop',
   [Panel.Presets]: 'rightTop',
-  [Panel.Relight]: 'rightTop',
 };
 
 export const DEFAULT_PANEL_WIDTH = 350;
@@ -127,7 +125,7 @@ export function reconcileWorkspace(
     panelLayout: {
       leftTop: [Panel.Metadata, Panel.FolderTree, Panel.Export, ...(isTetheringSupported ? [Panel.Tethering] : [])],
       leftBottom: [],
-      rightTop: [Panel.Adjustments, Panel.Crop, Panel.Masks, Panel.Ai, Panel.Presets, Panel.Relight],
+      rightTop: [Panel.Adjustments, Panel.Crop, Panel.Masks, Panel.Ai, Panel.Presets],
       rightBottom: [],
     },
     activePanels: {
@@ -266,6 +264,8 @@ export interface UIState {
   setPanel: (panel: Panel | null) => void;
   customEscapeHandler: (() => void) | null;
   setCustomEscapeHandler: (handler: (() => void) | null) => void;
+  imageSelectHandler: ((path: string, openInEditor?: boolean) => void) | null;
+  setImageSelectHandler: (handler: ((path: string, openInEditor?: boolean) => void) | null) => void;
   searchFocusRequest: number;
   requestSearchFocus: () => void;
   toggleFullScreen: () => void;
@@ -292,7 +292,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   panelLayout: {
     leftTop: [Panel.Metadata, Panel.FolderTree, Panel.Export],
     leftBottom: [],
-    rightTop: [Panel.Adjustments, Panel.Crop, Panel.Masks, Panel.Ai, Panel.Presets, Panel.Relight],
+    rightTop: [Panel.Adjustments, Panel.Crop, Panel.Masks, Panel.Ai, Panel.Presets],
     rightBottom: [],
   },
   activePanels: {
@@ -528,6 +528,8 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   customEscapeHandler: null,
   setCustomEscapeHandler: (handler) => set({ customEscapeHandler: handler }),
+  imageSelectHandler: null,
+  setImageSelectHandler: (handler) => set({ imageSelectHandler: handler }),
   searchFocusRequest: 0,
   requestSearchFocus: () => set((state) => ({ searchFocusRequest: state.searchFocusRequest + 1 })),
 }));

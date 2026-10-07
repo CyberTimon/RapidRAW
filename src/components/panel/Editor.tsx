@@ -109,6 +109,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const overlayRotation = useEditorStore((s) => s.overlayRotation);
   const isStraightenActive = useEditorStore((s) => s.isStraightenActive);
   const isWbPickerActive = useEditorStore((s) => s.isWbPickerActive);
+  const isRelightPickerActive = useEditorStore((s) => s.isRelightPickerActive);
   const liveRotation = useEditorStore((s) => s.liveRotation);
   const brushSettings = useEditorStore((s) => s.brushSettings);
   const activeMaskContainerId = useEditorStore((s) => s.activeMaskContainerId);
@@ -728,7 +729,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         activeSubMask?.type === Mask.Color ||
         activeSubMask?.type === Mask.Luminance ||
         activeSubMask?.parameters?.isInitialDraw)) ||
-    isWbPickerActive;
+    isWbPickerActive ||
+    isRelightPickerActive;
 
   useEffect(() => {
     const container = imageContainerRef.current;
@@ -871,10 +873,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      // This runs in the capture phase, so the light handle cannot stop it by itself.
-      const isRelightHandle = !!(e.target as HTMLElement).closest('[data-relight-handle]');
-      wasPanningDisabledOnDown.current = isPanningDisabled || isRelightHandle;
-      if (isRelightHandle) return;
+      wasPanningDisabledOnDown.current = isPanningDisabled;
 
       const isCropHandle = isCropping && e.button === 0 && !!(e.target as HTMLElement).closest('[data-ord]');
       cropResizeStartRef.current = isCropHandle ? lastValidCropRef.current : null;

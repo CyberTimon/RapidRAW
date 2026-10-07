@@ -2,6 +2,7 @@ import { Crop } from 'react-image-crop';
 import { v4 as uuidv4 } from 'uuid';
 import { SubMask, SubMaskMode } from '../components/panel/right/Masks';
 import type { AdjustmentLayout, AppSettings } from '../components/ui/AppProperties';
+import type { WhiteBalance } from './whiteBalance';
 
 export enum ActiveChannel {
   Blue = 'blue',
@@ -49,6 +50,7 @@ export enum ColorAdjustment {
   Temperature = 'temperature',
   Tint = 'tint',
   Vibrance = 'vibrance',
+  WhiteBalance = 'whiteBalance',
 }
 
 export enum ColorGrading {
@@ -97,16 +99,71 @@ export enum Effect {
   LensBlurMinFade = 'lensBlurMinFade',
   LensBlurMaxFade = 'lensBlurMaxFade',
   RelightEnabled = 'relightEnabled',
+  RelightNormalMap = 'relightNormalMap',
   RelightLights = 'relightLights',
   RelightAmbient = 'relightAmbient',
   RelightSoftness = 'relightSoftness',
-  RelightSpecular = 'relightSpecular',
-  RelightNormalMap = 'relightNormalMap',
-  RelightQuality = 'relightQuality',
-  RelightDepthMap = 'relightDepthMap',
-  RelightDepthScale = 'relightDepthScale',
-  RelightDetail = 'relightDetail',
+  RelightShine = 'relightShine',
+  RelightShadows = 'relightShadows',
+  RelightShadowSoftness = 'relightShadowSoftness',
+  FogEnabled = 'fogEnabled',
+  FogDepthMap = 'fogDepthMap',
+  FogAmount = 'fogAmount',
+  FogStart = 'fogStart',
+  FogDensity = 'fogDensity',
+  FogHeight = 'fogHeight',
+  FogVariation = 'fogVariation',
+  FogGlow = 'fogGlow',
+  FogTemperature = 'fogTemperature',
+  FogTint = 'fogTint',
 }
+
+export interface RelightLight {
+  id: string;
+  type: 'point' | 'spot' | 'directional';
+  x: number;
+  y: number;
+  depth: number;
+  intensity: number;
+  radius: number;
+  angle: number;
+  elevation: number;
+  cone: number;
+  feather: number;
+  temperature: number;
+  tint: number;
+  color: string;
+}
+
+export const createRelightLight = (x: number, y: number): RelightLight => ({
+  id: uuidv4(),
+  type: 'point',
+  x,
+  y,
+  depth: 0,
+  intensity: 60,
+  radius: 30,
+  angle: 135,
+  elevation: 60,
+  cone: 40,
+  feather: 50,
+  temperature: 0,
+  tint: 0,
+  color: '#ffffff',
+});
+
+export const getRelightLightColor = (light: RelightLight): string => {
+  const hex = parseInt((light.color || '#ffffff').slice(1), 16);
+  const t = light.temperature / 100;
+  const m = light.tint / 100;
+  const rgb = [
+    (((hex >> 16) & 255) / 255) * (1 + 0.45 * t + 0.15 * m),
+    (((hex >> 8) & 255) / 255) * (1 - 0.35 * m),
+    ((hex & 255) / 255) * (1 - 0.45 * t + 0.15 * m),
+  ].map((c) => Math.max(0, c));
+  const peak = Math.max(...rgb, 1e-3);
+  return `rgb(${rgb.map((c) => Math.round((c / peak) * 255)).join(', ')})`;
+};
 
 export enum CreativeAdjustment {
   GlowAmount = 'glowAmount',
@@ -224,6 +281,24 @@ export interface Adjustments {
   lensBlurMaxFade: number;
   lensBlurMinDepth: number;
   lensBlurMinFade: number;
+  relightEnabled: boolean;
+  relightNormalMap: string | null;
+  relightLights: Array<RelightLight>;
+  relightAmbient: number;
+  relightSoftness: number;
+  relightShine: number;
+  relightShadows: boolean;
+  relightShadowSoftness: number;
+  fogEnabled: boolean;
+  fogDepthMap: string | null;
+  fogAmount: number;
+  fogStart: number;
+  fogDensity: number;
+  fogHeight: number;
+  fogVariation: number;
+  fogGlow: number;
+  fogTemperature: number;
+  fogTint: number;
   lensCorrectionMode: 'auto' | 'manual';
   lensDistortionAmount: number;
   lensVignetteAmount: number;
@@ -253,16 +328,6 @@ export interface Adjustments {
   lutIsSceneReferred?: boolean;
   masks: Array<MaskContainer>;
   orientationSteps: number;
-  relightAmbient: number;
-  relightDepthMap: string | null;
-  relightDepthScale: number;
-  relightDetail: number;
-  relightEnabled: boolean;
-  relightLights: Array<RelightLight>;
-  relightNormalMap: string | null;
-  relightQuality: RelightQuality;
-  relightSoftness: number;
-  relightSpecular: number;
   rotation: number;
   saturation: number;
   sectionVisibility: SectionVisibility;
@@ -287,6 +352,7 @@ export interface Adjustments {
   vignetteFeather: number;
   vignetteMidpoint: number;
   vignetteRoundness: number;
+  whiteBalance: WhiteBalance | null;
   whites: number;
 }
 
@@ -532,55 +598,6 @@ export const INITIAL_MASK_CONTAINER: MaskContainer = {
   visible: true,
 };
 
-export interface RelightLight {
-  id: string;
-  // Position as a fraction of the image before orientation, flip, rotation and crop.
-  x: number;
-  y: number;
-  // -100 (far behind the subject) to 100 (close to the camera).
-  depth: number;
-  intensity: number;
-  range: number;
-  color: string;
-}
-
-export const MAX_RELIGHT_LIGHTS = 6;
-
-// Which AI model generated the relight maps: the high quality one is a 1.3 GB download.
-export type RelightQuality = 'standard' | 'high';
-
-export const DEFAULT_RELIGHT_LIGHT: RelightLight = {
-  id: 'light-1',
-  x: 0.3,
-  y: 0.3,
-  depth: 30,
-  intensity: 50,
-  range: 60,
-  color: '#ffffff',
-};
-
-// Edits saved before multiple lights existed describe a single light at the top level.
-const normalizeRelightLights = (loaded: any): Array<RelightLight> => {
-  if (Array.isArray(loaded.relightLights)) {
-    return loaded.relightLights.map((light: Partial<RelightLight>, index: number) => ({
-      ...DEFAULT_RELIGHT_LIGHT,
-      ...light,
-      id: light.id || `light-${index + 1}`,
-    }));
-  }
-  return [
-    {
-      ...DEFAULT_RELIGHT_LIGHT,
-      x: loaded.relightX ?? DEFAULT_RELIGHT_LIGHT.x,
-      y: loaded.relightY ?? DEFAULT_RELIGHT_LIGHT.y,
-      depth: loaded.relightDepth ?? DEFAULT_RELIGHT_LIGHT.depth,
-      intensity: loaded.relightIntensity ?? DEFAULT_RELIGHT_LIGHT.intensity,
-      range: loaded.relightRange ?? DEFAULT_RELIGHT_LIGHT.range,
-      color: loaded.relightColor ?? DEFAULT_RELIGHT_LIGHT.color,
-    },
-  ];
-};
-
 export const INITIAL_ADJUSTMENTS: Adjustments = {
   aiPatches: [],
   aspectRatio: null,
@@ -631,6 +648,24 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   lensBlurMaxFade: 20,
   lensBlurMinDepth: 20,
   lensBlurMinFade: 20,
+  relightEnabled: false,
+  relightNormalMap: null,
+  relightLights: [],
+  relightAmbient: 0,
+  relightSoftness: 25,
+  relightShine: 0,
+  relightShadows: false,
+  relightShadowSoftness: 15,
+  fogEnabled: false,
+  fogDepthMap: null,
+  fogAmount: 50,
+  fogStart: 0,
+  fogDensity: 50,
+  fogHeight: 0,
+  fogVariation: 25,
+  fogGlow: 25,
+  fogTemperature: 0,
+  fogTint: 0,
   lensCorrectionMode: 'manual',
   lensDistortionAmount: 100,
   lensVignetteAmount: 100,
@@ -650,16 +685,6 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   lutIsSceneReferred: false,
   masks: [],
   orientationSteps: 0,
-  relightAmbient: 80,
-  relightDepthMap: null,
-  relightDepthScale: 0,
-  relightDetail: 30,
-  relightEnabled: false,
-  relightLights: [{ ...DEFAULT_RELIGHT_LIGHT }],
-  relightNormalMap: null,
-  relightQuality: 'standard',
-  relightSoftness: 30,
-  relightSpecular: 0,
   rotation: 0,
   saturation: 0,
   sectionVisibility: {
@@ -690,6 +715,7 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   vignetteFeather: 50,
   vignetteMidpoint: 50,
   vignetteRoundness: 0,
+  whiteBalance: null,
   whites: 0,
 };
 
@@ -807,16 +833,26 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     lensBlurMaxFade: loadedAdjustments.lensBlurMaxFade ?? INITIAL_ADJUSTMENTS.lensBlurMaxFade,
     lensBlurMinDepth: loadedAdjustments.lensBlurMinDepth ?? INITIAL_ADJUSTMENTS.lensBlurMinDepth,
     lensBlurMinFade: loadedAdjustments.lensBlurMinFade ?? INITIAL_ADJUSTMENTS.lensBlurMinFade,
-    relightAmbient: loadedAdjustments.relightAmbient ?? INITIAL_ADJUSTMENTS.relightAmbient,
-    relightDepthMap: loadedAdjustments.relightDepthMap ?? INITIAL_ADJUSTMENTS.relightDepthMap,
-    relightDepthScale: loadedAdjustments.relightDepthScale ?? INITIAL_ADJUSTMENTS.relightDepthScale,
-    relightDetail: loadedAdjustments.relightDetail ?? INITIAL_ADJUSTMENTS.relightDetail,
     relightEnabled: loadedAdjustments.relightEnabled ?? INITIAL_ADJUSTMENTS.relightEnabled,
-    relightLights: normalizeRelightLights(loadedAdjustments),
     relightNormalMap: loadedAdjustments.relightNormalMap ?? INITIAL_ADJUSTMENTS.relightNormalMap,
-    relightQuality: loadedAdjustments.relightQuality ?? INITIAL_ADJUSTMENTS.relightQuality,
+    relightLights: (loadedAdjustments.relightLights ?? INITIAL_ADJUSTMENTS.relightLights).map(
+      (light: RelightLight) => ({ ...createRelightLight(light.x, light.y), ...light }),
+    ),
+    relightAmbient: loadedAdjustments.relightAmbient ?? INITIAL_ADJUSTMENTS.relightAmbient,
     relightSoftness: loadedAdjustments.relightSoftness ?? INITIAL_ADJUSTMENTS.relightSoftness,
-    relightSpecular: loadedAdjustments.relightSpecular ?? INITIAL_ADJUSTMENTS.relightSpecular,
+    relightShine: loadedAdjustments.relightShine ?? INITIAL_ADJUSTMENTS.relightShine,
+    relightShadows: loadedAdjustments.relightShadows ?? INITIAL_ADJUSTMENTS.relightShadows,
+    relightShadowSoftness: loadedAdjustments.relightShadowSoftness ?? INITIAL_ADJUSTMENTS.relightShadowSoftness,
+    fogEnabled: loadedAdjustments.fogEnabled ?? INITIAL_ADJUSTMENTS.fogEnabled,
+    fogDepthMap: loadedAdjustments.fogDepthMap ?? INITIAL_ADJUSTMENTS.fogDepthMap,
+    fogAmount: loadedAdjustments.fogAmount ?? INITIAL_ADJUSTMENTS.fogAmount,
+    fogStart: loadedAdjustments.fogStart ?? INITIAL_ADJUSTMENTS.fogStart,
+    fogDensity: loadedAdjustments.fogDensity ?? INITIAL_ADJUSTMENTS.fogDensity,
+    fogHeight: loadedAdjustments.fogHeight ?? INITIAL_ADJUSTMENTS.fogHeight,
+    fogVariation: loadedAdjustments.fogVariation ?? INITIAL_ADJUSTMENTS.fogVariation,
+    fogGlow: loadedAdjustments.fogGlow ?? INITIAL_ADJUSTMENTS.fogGlow,
+    fogTemperature: loadedAdjustments.fogTemperature ?? INITIAL_ADJUSTMENTS.fogTemperature,
+    fogTint: loadedAdjustments.fogTint ?? INITIAL_ADJUSTMENTS.fogTint,
     lensCorrectionMode: loadedAdjustments.lensCorrectionMode || 'manual',
     lensMaker: loadedAdjustments.lensMaker ?? INITIAL_ADJUSTMENTS.lensMaker,
     lensModel: loadedAdjustments.lensModel ?? INITIAL_ADJUSTMENTS.lensModel,
@@ -882,7 +918,10 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
     },
   ],
   color: [
-    { label: 'modals.copyPaste.groups.whiteBalance', keys: [ColorAdjustment.Temperature, ColorAdjustment.Tint] },
+    {
+      label: 'modals.copyPaste.groups.whiteBalance',
+      keys: [ColorAdjustment.Temperature, ColorAdjustment.Tint, ColorAdjustment.WhiteBalance],
+    },
     { label: 'modals.copyPaste.groups.presence', keys: [ColorAdjustment.Saturation, ColorAdjustment.Vibrance] },
     {
       label: 'modals.copyPaste.groups.hueShift',
@@ -998,6 +1037,7 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     ColorAdjustment.Saturation,
     ColorAdjustment.Temperature,
     ColorAdjustment.Tint,
+    ColorAdjustment.WhiteBalance,
     ColorAdjustment.Vibrance,
     ColorAdjustment.Hsl,
     ColorAdjustment.ColorGrading,
@@ -1041,6 +1081,24 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     Effect.LensBlurMaxDepth,
     Effect.LensBlurMinFade,
     Effect.LensBlurMaxFade,
+    Effect.RelightEnabled,
+    Effect.RelightNormalMap,
+    Effect.RelightLights,
+    Effect.RelightAmbient,
+    Effect.RelightSoftness,
+    Effect.RelightShine,
+    Effect.RelightShadows,
+    Effect.RelightShadowSoftness,
+    Effect.FogEnabled,
+    Effect.FogDepthMap,
+    Effect.FogAmount,
+    Effect.FogStart,
+    Effect.FogDensity,
+    Effect.FogHeight,
+    Effect.FogVariation,
+    Effect.FogGlow,
+    Effect.FogTemperature,
+    Effect.FogTint,
   ],
 };
 
@@ -1087,15 +1145,15 @@ export const ADJUSTMENT_SECTION_TOOLS: Record<string, Array<AdjustmentSectionToo
   ],
   effects: [
     { id: 'creative', label: 'adjustments.effects.creative' },
-    { id: 'lensBlur', label: 'adjustments.effects.lensBlur' },
+    { id: 'spatial', label: 'adjustments.effects.spatial' },
     { id: 'lut', label: 'adjustments.effects.lut' },
     { id: 'vignette', label: 'adjustments.effects.vignette' },
     { id: 'grain', label: 'adjustments.effects.grain' },
   ],
 };
 
+export const getAdjustmentSectionToolIds = (section: string): string[] =>
+  (ADJUSTMENT_SECTION_TOOLS[section] ?? []).map((tool) => tool.id);
+
 export const getAdjustmentToolOrder = (section: string, toolOrder?: Record<string, string[]>): string[] =>
-  reconcileOrder(
-    (ADJUSTMENT_SECTION_TOOLS[section] ?? []).map((tool) => tool.id),
-    toolOrder?.[section],
-  );
+  reconcileOrder(getAdjustmentSectionToolIds(section), toolOrder?.[section]);

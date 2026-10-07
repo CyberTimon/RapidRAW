@@ -6,7 +6,7 @@ import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useCollapsibleHeight } from '../../hooks/useCollapsibleHeight';
-import { withAdjustmentLayout } from '../../utils/adjustments';
+import { ADJUSTMENT_SECTION_TOOLS, getAdjustmentSectionToolIds, withAdjustmentLayout } from '../../utils/adjustments';
 
 interface AdjustmentSubSectionProps {
   actions?: ReactNode;
@@ -32,9 +32,16 @@ export default function AdjustmentSubSection({ actions, children, id, order, tit
     if (!appSettings) {
       return;
     }
+    const siblingTools = appSettings.enableToolFocusMode
+      ? (Object.keys(ADJUSTMENT_SECTION_TOOLS)
+          .map(getAdjustmentSectionToolIds)
+          .find((tools) => tools.includes(id)) ?? [])
+      : [];
     handleSettingsChange(
       withAdjustmentLayout(appSettings, {
-        collapsedTools: isCollapsed ? collapsedTools.filter((tool) => tool !== id) : [...collapsedTools, id],
+        collapsedTools: isCollapsed
+          ? [...new Set([...collapsedTools, ...siblingTools])].filter((tool) => tool !== id)
+          : [...collapsedTools, id],
       }),
     );
   };

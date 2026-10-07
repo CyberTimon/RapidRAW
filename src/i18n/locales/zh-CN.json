@@ -43,6 +43,7 @@
         "shadows": "阴影"
       },
       "hue": "色相",
+      "kelvinModeTooltip": "以开尔文显示色温",
       "localHue": "局部色调",
       "luminance": "亮度",
       "mixerColors": {
@@ -119,6 +120,11 @@
       "bokehShape": "散景形状",
       "creative": "创意",
       "feather": "羽化",
+      "fog": "雾",
+      "fogDensity": "密度",
+      "fogHeight": "地面雾",
+      "fogStart": "起始距离",
+      "fogVariation": "变化",
       "glow": "发光",
       "grain": "颗粒",
       "halation": "光晕",
@@ -130,28 +136,30 @@
       "relight": "重新打光",
       "relightAddLight": "添加灯光",
       "relightAmbient": "环境光",
+      "relightAngle": "角度",
       "relightColor": "灯光颜色",
-      "relightCustomColor": "自定义颜色",
+      "relightCone": "光锥",
       "relightDepth": "深度",
-      "relightDetail": "细节",
-      "relightDragLight": "拖动以移动灯光，滚动以前后移动",
-      "relightGenerateNormalMap": "生成法线贴图",
+      "relightElevation": "仰角",
+      "relightFalloff": "衰减",
+      "relightHint": "添加或选择一个灯光，然后在图像上点击或拖动以放置。",
       "relightIntensity": "强度",
-      "relightLights": "灯光",
-      "relightNormalMap": "法线贴图",
-      "relightQuality": "贴图质量",
-      "relightQualityHigh": "高",
-      "relightQualityHighTooltip": "更清晰、更细致的贴图。首次使用会下载 1.3 GB 的模型，耗时约为三倍。",
-      "relightQualityStandard": "标准",
-      "relightRange": "范围",
-      "relightRegenerateNormalMap": "重新生成法线贴图",
-      "relightRemoveLight": "移除所选灯光",
-      "relightShowNormalMap": "在图像上显示法线贴图",
+      "relightLight": "灯光 {{index}}",
+      "relightRemoveLight": "移除灯光",
+      "relightShadows": "阴影",
+      "relightShadowSoftness": "阴影柔和度",
+      "relightShine": "光泽",
       "relightSoftness": "柔和度",
-      "relightSpecular": "高光",
+      "relightType": "灯光类型",
+      "relightTypes": {
+        "directional": "平行光",
+        "point": "点光源",
+        "spot": "聚光灯"
+      },
       "roughness": "粗糙度",
       "roundness": "圆度",
       "size": "大小",
+      "spatial": "空间",
       "vignette": "暗角"
     }
   },
@@ -210,6 +218,9 @@
       "denoise": "降噪图像",
       "editImage": "编辑图像",
       "exportImage": "导出图像",
+      "flag": "标记",
+      "flagPick": "留用",
+      "flagReject": "已拒绝",
       "frameImage": "装裱图像",
       "mergeHdr": "合并为 HDR",
       "noLabel": "无标签",
@@ -223,7 +234,8 @@
       "resetAdjustments": "重置调整",
       "stitchPanorama": "拼接全景图",
       "tagging": "标签",
-      "undo": "撤销"
+      "undo": "撤销",
+      "unflagged": "无标记"
     },
     "folders": {
       "changeIcon": "更换图标",
@@ -246,6 +258,7 @@
     "library": {
       "addCopiedToAlbum_one": "将复制的图像添加到相册",
       "addCopiedToAlbum_other": "将 {{count}} 张复制的图像添加到相册",
+      "deleteRejected": "删除已拒绝的图像",
       "refreshView": "刷新视图"
     },
     "merge": {
@@ -785,7 +798,6 @@
         "inpaint": "修复",
         "masks": "蒙版",
         "presets": "预设",
-        "relight": "重新打光",
         "tethering": "联机拍摄"
       }
     },
@@ -980,9 +992,16 @@
         "editedOnly": "仅已编辑",
         "uneditedOnly": "仅未编辑"
       },
+      "flag": {
+        "all": "所有图像",
+        "excludeRejected": "隐藏已拒绝",
+        "picked": "留用",
+        "rejected": "已拒绝"
+      },
       "noMatch": "未找到匹配过滤条件的图像。",
       "rating": {
         "all": "显示全部",
+        "andDownSuffix": "及以下",
         "andUpSuffix": "及以上",
         "fiveOnly": "仅 5 星",
         "fourAndUp": "4 星及以上",
@@ -1061,7 +1080,13 @@
         "filterByColorLabel": "按颜色标签过滤",
         "filterByEdited": "按编辑状态过滤",
         "filterByFileType": "按文件类型过滤",
+        "filterByFlag": "按标记过滤",
         "filterByRating": "按评分过滤",
+        "ratingOperator": {
+          "eq": "仅此评分",
+          "gte": "此评分及以上",
+          "lte": "此评分及以下"
+        },
         "groupEditedFiles": "Include edited files in groups",
         "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
         "groupOff": "Off",
@@ -1094,11 +1119,21 @@
       "expandFolder": "展开文件夹",
       "imagesCount_one": "1 张图像",
       "imagesCount_other": "{{count}} 张图像",
+      "rejected": "已拒绝",
       "tooltipAperture": "光圈",
       "tooltipFocalLength": "焦距",
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "快门速度",
       "tooltipVirtualCopy": "虚拟副本"
+    },
+    "reject": {
+      "deleteConfirm": "删除已拒绝",
+      "deleteMessage_one": "确定要删除 {{count}} 张已拒绝的图像吗？它们将被移至回收站。",
+      "deleteMessage_other": "确定要删除 {{count}} 张已拒绝的图像吗？它们将被移至回收站。",
+      "deleteTitle": "删除已拒绝的图像",
+      "noneToDelete": "没有可删除的已拒绝图像。",
+      "virtualCopiesWarning_one": "由于原始图像已被拒绝，{{count}} 个未被拒绝的虚拟副本也将被删除。",
+      "virtualCopiesWarning_other": "由于原始图像已被拒绝，{{count}} 个未被拒绝的虚拟副本也将被删除。"
     },
     "search": {
       "noResults": "未找到结果",
@@ -1282,7 +1317,7 @@
     "culling": {
       "actionDelete": "移至回收站",
       "actionRateZero": "将评分设为 1 星",
-      "actionReject": "标记为已拒绝（红色标签）",
+      "actionReject": "标记为已拒绝",
       "applyButton_one": "应用到 1 张图像",
       "applyButton_other": "应用到 {{count}} 张图像",
       "bestImage": "最佳图像",
@@ -1604,6 +1639,7 @@
       "enableFocusMode": "启用专注模式",
       "enableNeutralGreyCanvas": "启用中性灰背景",
       "enableOsTitlebar": "启用系统标题栏",
+      "enableToolFocusMode": "启用工具专注模式",
       "enableXmpSync": "启用 XMP 同步",
       "focusMode": "专注模式",
       "focusModeDesc": "在您打开新面板时自动关闭其他面板，帮助您保持专注。",
@@ -1621,6 +1657,8 @@
       "theme": "主题",
       "themeDesc": "更改应用程序的外观和风格。",
       "title": "通用设置",
+      "toolFocusMode": "工具专注模式",
+      "toolFocusModeDesc": "展开某个工具时，自动折叠同一面板中的其他工具。",
       "xmpSync": "XMP 元数据同步",
       "xmpSyncDesc": "将评分、颜色标签和标签同步到标准 XMP 附属文件，以便与其他照片编辑器兼容。"
     },
@@ -1638,6 +1676,7 @@
         "copy_files": "复制选中的文件",
         "copy_image_path": "复制所选图片的路径",
         "cycle_zoom": "循环缩放（适应、2倍适应、100%）",
+        "delete_rejected": "删除已拒绝的文件",
         "delete_selected": "删除选中的文件",
         "focus_search": "聚焦搜索框",
         "open_image": "打开选中的图像",
@@ -1670,9 +1709,12 @@
         "toggle_library_exif": "切换 EXIF 叠加",
         "toggle_masks": "切换蒙版面板",
         "toggle_metadata": "切换元数据面板",
+        "toggle_pick": "切换留用标记",
         "toggle_presets": "切换预设面板",
+        "toggle_reject": "切换拒绝标记",
         "toggle_right_panel": "切换右侧面板",
         "undo": "撤销调整",
+        "unflag": "取消标记",
         "zoom_100": "缩放到 100%",
         "zoom_fit": "缩放以适应",
         "zoom_in": "放大",
@@ -1722,6 +1764,11 @@
             "upgradeBtn": "在网站上升级",
             "upgradeDesc": "要使用云端 AI 功能，您需要订阅云端服务。"
           },
+          "statuses": {
+            "connecting": "正在连接…",
+            "retry": "重试连接",
+            "unsupported": "云端登录目前仅在桌面设备上可用。"
+          },
           "title": "云端服务"
         },
         "connector": {
@@ -1744,9 +1791,17 @@
           "feature3": "简单的 CPU 生成式替换",
           "title": "内置 AI（CPU）"
         },
+        "aiFree": {
+          "description": "关闭所有 AI 功能。所有与 AI 相关的控件都会从界面中隐藏，RapidRAW 将作为纯传统的 RAW 编辑器运行。",
+          "feature1": "界面中不显示 AI 蒙版、镜头模糊或生成式编辑",
+          "feature2": "现有的 AI 编辑仍会正常渲染",
+          "feature3": "更简洁、更专注的界面",
+          "title": "无 AI"
+        },
         "description": "RapidRAW 的 AI 专为灵活性而设计。选择您理想的工作流程，从快速的本地工具到强大的自托管。",
         "providers": {
           "aiConnector": "AI 连接器",
+          "aiFree": "无 AI",
           "cloud": "云端",
           "cpu": "CPU"
         },
@@ -2010,6 +2065,10 @@
         "virtualCopy": "虚拟副本"
       },
       "virtualCopyAbbreviation": "VC"
+    },
+    "flags": {
+      "togglePick": "切换留用",
+      "toggleReject": "切换拒绝"
     },
     "imagePicker": {
       "clearImage": "清除图像",

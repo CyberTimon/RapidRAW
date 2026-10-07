@@ -43,6 +43,7 @@
         "shadows": "Sombras"
       },
       "hue": "Tono",
+      "kelvinModeTooltip": "Mostrar la temperatura en Kelvin",
       "localHue": "Tono local",
       "luminance": "Luminancia",
       "mixerColors": {
@@ -119,6 +120,11 @@
       "bokehShape": "Forma del bokeh",
       "creative": "Creativo",
       "feather": "Desvanecimiento",
+      "fog": "Niebla",
+      "fogDensity": "Densidad",
+      "fogHeight": "Niebla baja",
+      "fogStart": "Inicio",
+      "fogVariation": "Variación",
       "glow": "Resplandor",
       "grain": "Grano",
       "halation": "Halación",
@@ -130,28 +136,30 @@
       "relight": "Reiluminar",
       "relightAddLight": "Añadir luz",
       "relightAmbient": "Ambiente",
+      "relightAngle": "Ángulo",
       "relightColor": "Color de la luz",
-      "relightCustomColor": "Color personalizado",
+      "relightCone": "Cono",
       "relightDepth": "Profundidad",
-      "relightDetail": "Detalle",
-      "relightDragLight": "Arrastra para mover la luz, usa la rueda para acercarla o alejarla",
-      "relightGenerateNormalMap": "Generar mapa de normales",
+      "relightElevation": "Elevación",
+      "relightFalloff": "Atenuación",
+      "relightHint": "Añade o selecciona una luz y haz clic o arrastra en la imagen para colocarla.",
       "relightIntensity": "Intensidad",
-      "relightLights": "Luces",
-      "relightNormalMap": "Mapa de normales",
-      "relightQuality": "Calidad del mapa",
-      "relightQualityHigh": "Alta",
-      "relightQualityHighTooltip": "Mapas más nítidos y detallados. Descarga un modelo de 1,3 GB la primera vez y tarda unas tres veces más.",
-      "relightQualityStandard": "Estándar",
-      "relightRange": "Alcance",
-      "relightRegenerateNormalMap": "Regenerar mapa de normales",
-      "relightRemoveLight": "Quitar la luz seleccionada",
-      "relightShowNormalMap": "Ver mapa de normales en la imagen",
+      "relightLight": "Luz {{index}}",
+      "relightRemoveLight": "Eliminar luz",
+      "relightShadows": "Sombras",
+      "relightShadowSoftness": "Suavidad de sombras",
+      "relightShine": "Brillo",
       "relightSoftness": "Suavidad",
-      "relightSpecular": "Especular",
+      "relightType": "Tipo de luz",
+      "relightTypes": {
+        "directional": "Direccional",
+        "point": "Puntual",
+        "spot": "Foco"
+      },
       "roughness": "Rugosidad",
       "roundness": "Redondez",
       "size": "Tamaño",
+      "spatial": "Espacial",
       "vignette": "Viñeteado"
     }
   },
@@ -210,6 +218,9 @@
       "denoise": "Reducir ruido de imagen",
       "editImage": "Editar imagen",
       "exportImage": "Exportar imagen",
+      "flag": "Marca",
+      "flagPick": "Elegida",
+      "flagReject": "Rechazada",
       "frameImage": "Enmarcar imagen",
       "mergeHdr": "Combinar en HDR",
       "noLabel": "Sin etiqueta",
@@ -224,7 +235,8 @@
       "resetAdjustments": "Restablecer ajustes",
       "stitchPanorama": "Unir panorama",
       "tagging": "Etiquetado",
-      "undo": "Deshacer"
+      "undo": "Deshacer",
+      "unflagged": "Sin marca"
     },
     "folders": {
       "changeIcon": "Cambiar icono",
@@ -250,6 +262,7 @@
       "addCopiedToAlbum_many": "Agregar {{count}} imágenes copiadas al álbum",
       "addCopiedToAlbum_one": "Agregar imagen copiada al álbum",
       "addCopiedToAlbum_other": "Agregar {{count}} imágenes copiadas al álbum",
+      "deleteRejected": "Eliminar imágenes rechazadas",
       "refreshView": "Actualizar vista"
     },
     "merge": {
@@ -808,7 +821,6 @@
         "inpaint": "Inpainting",
         "masks": "Máscaras",
         "presets": "Ajustes preestablecidos",
-        "relight": "Reiluminar",
         "tethering": "Captura conectada"
       }
     },
@@ -1005,9 +1017,16 @@
         "editedOnly": "Solo editadas",
         "uneditedOnly": "Solo sin editar"
       },
+      "flag": {
+        "all": "Todas las imágenes",
+        "excludeRejected": "Ocultar rechazadas",
+        "picked": "Elegida",
+        "rejected": "Rechazada"
+      },
       "noMatch": "No se encontraron imágenes que coincidan con tu filtro.",
       "rating": {
         "all": "Mostrar todas",
+        "andDownSuffix": "e inferior",
         "andUpSuffix": "y superior",
         "fiveOnly": "Solo 5",
         "fourAndUp": "4 y superior",
@@ -1086,7 +1105,13 @@
         "filterByColorLabel": "Filtrar por etiqueta de color",
         "filterByEdited": "Filtrar por estado de edición",
         "filterByFileType": "Filtrar por tipo de archivo",
+        "filterByFlag": "Filtrar por marca",
         "filterByRating": "Filtrar por puntuación",
+        "ratingOperator": {
+          "eq": "Exactamente esta puntuación",
+          "gte": "Esta puntuación o superior",
+          "lte": "Esta puntuación o inferior"
+        },
         "groupEditedFiles": "Include edited files in groups",
         "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
         "groupOff": "Off",
@@ -1120,11 +1145,23 @@
       "imagesCount_many": "{{count}} imágenes",
       "imagesCount_one": "1 imagen",
       "imagesCount_other": "{{count}} imágenes",
+      "rejected": "Rechazada",
       "tooltipAperture": "Apertura",
       "tooltipFocalLength": "Distancia focal",
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "Velocidad de obturación",
       "tooltipVirtualCopy": "Copia virtual"
+    },
+    "reject": {
+      "deleteConfirm": "Eliminar rechazadas",
+      "deleteMessage_many": "¿Seguro que quieres eliminar {{count}} imágenes rechazadas? Se moverán a la papelera.",
+      "deleteMessage_one": "¿Seguro que quieres eliminar {{count}} imagen rechazada? Se moverá a la papelera.",
+      "deleteMessage_other": "¿Seguro que quieres eliminar {{count}} imágenes rechazadas? Se moverán a la papelera.",
+      "deleteTitle": "Eliminar imágenes rechazadas",
+      "noneToDelete": "No hay imágenes rechazadas para eliminar.",
+      "virtualCopiesWarning_many": "También se eliminarán {{count}} copias virtuales no rechazadas porque sus originales están rechazados.",
+      "virtualCopiesWarning_one": "También se eliminará {{count}} copia virtual no rechazada porque su original está rechazado.",
+      "virtualCopiesWarning_other": "También se eliminarán {{count}} copias virtuales no rechazadas porque sus originales están rechazados."
     },
     "search": {
       "noResults": "No se encontraron resultados",
@@ -1308,7 +1345,7 @@
     "culling": {
       "actionDelete": "Mover a la papelera",
       "actionRateZero": "Establecer puntuación a 1 estrella",
-      "actionReject": "Marcar como rechazada (Etiqueta roja)",
+      "actionReject": "Marcar como rechazada",
       "applyButton_many": "Aplicar a {{count}} imágenes",
       "applyButton_one": "Aplicar a 1 imagen",
       "applyButton_other": "Aplicar a {{count}} imágenes",
@@ -1639,6 +1676,7 @@
       "enableFocusMode": "Activar modo de enfoque",
       "enableNeutralGreyCanvas": "Activar fondo gris neutro",
       "enableOsTitlebar": "Activar barra de título del SO",
+      "enableToolFocusMode": "Activar modo de enfoque de herramientas",
       "enableXmpSync": "Activar sincronización XMP",
       "focusMode": "Modo de enfoque",
       "focusModeDesc": "Te ayuda a concentrarte cerrando automáticamente otros paneles cuando abres uno nuevo.",
@@ -1656,6 +1694,8 @@
       "theme": "Tema",
       "themeDesc": "Cambia el aspecto y la sensación visual de la aplicación.",
       "title": "Ajustes generales",
+      "toolFocusMode": "Modo de enfoque de herramientas",
+      "toolFocusModeDesc": "Contrae automáticamente las demás herramientas de un panel cuando expandes una.",
       "xmpSync": "Sincronización de metadatos XMP",
       "xmpSyncDesc": "Sincroniza puntuaciones, etiquetas de color y etiquetas a archivos sidecar XMP estándar para compatibilidad con otros editores de fotos."
     },
@@ -1673,6 +1713,7 @@
         "copy_files": "Copiar archivo(s) seleccionado(s)",
         "copy_image_path": "Copiar la ruta de la(s) imagen(es) seleccionada(s)",
         "cycle_zoom": "Alternar zoom (Ajustar, 2x Ajustar, 100%)",
+        "delete_rejected": "Eliminar archivo(s) rechazado(s)",
         "delete_selected": "Eliminar archivo(s) seleccionado(s)",
         "focus_search": "Enfocar el campo de búsqueda",
         "open_image": "Abrir imagen seleccionada",
@@ -1705,9 +1746,12 @@
         "toggle_library_exif": "Alternar superposición EXIF",
         "toggle_masks": "Alternar panel de Máscaras",
         "toggle_metadata": "Alternar panel de Metadatos",
+        "toggle_pick": "Alternar marca de elegida",
         "toggle_presets": "Alternar panel de Ajustes preestablecidos",
+        "toggle_reject": "Alternar marca de rechazada",
         "toggle_right_panel": "Alternar panel derecho",
         "undo": "Deshacer ajuste",
+        "unflag": "Quitar marca",
         "zoom_100": "Hacer zoom al 100%",
         "zoom_fit": "Ajustar al área de visualización",
         "zoom_in": "Acercar",
@@ -1757,6 +1801,11 @@
             "upgradeBtn": "Mejorar en la web",
             "upgradeDesc": "Para usar las funciones de IA en la nube, necesitas una suscripción Cloud."
           },
+          "statuses": {
+            "connecting": "Conectando…",
+            "retry": "Reintentar conexión",
+            "unsupported": "El inicio de sesión en la nube actualmente solo está disponible en escritorio."
+          },
           "title": "Servicio en la nube"
         },
         "connector": {
@@ -1779,9 +1828,17 @@
           "feature3": "Relleno generativo simple basado en CPU",
           "title": "IA integrada (CPU)"
         },
+        "aiFree": {
+          "description": "Desactiva todas las funciones de IA. Todos los controles relacionados con la IA se ocultan de la interfaz para que RapidRAW funcione como un editor RAW puramente tradicional.",
+          "feature1": "Sin máscaras de IA, desenfoque de lente ni ediciones generativas en la interfaz",
+          "feature2": "Las ediciones de IA existentes se siguen mostrando con normalidad",
+          "feature3": "Una interfaz más limpia y enfocada",
+          "title": "Sin IA"
+        },
         "description": "La IA de RapidRAW está diseñada para la flexibilidad. Elige tu flujo de trabajo ideal, desde herramientas locales rápidas hasta un potente autoalojamiento.",
         "providers": {
           "aiConnector": "AI Connector",
+          "aiFree": "Sin IA",
           "cloud": "Nube",
           "cpu": "CPU"
         },
@@ -2046,6 +2103,10 @@
         "virtualCopy": "Copia virtual"
       },
       "virtualCopyAbbreviation": "CV"
+    },
+    "flags": {
+      "togglePick": "Alternar elegida",
+      "toggleReject": "Alternar rechazo"
     },
     "imagePicker": {
       "clearImage": "Borrar imagen",

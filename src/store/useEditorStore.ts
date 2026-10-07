@@ -51,8 +51,6 @@ interface EditorState {
 
   // Interaction State
   isSliderDragging: boolean;
-  activeRelightLightId: string | null;
-  showRelightNormalMap: boolean;
   zoom: number;
   displaySize: ImageDimensions;
   previewSize: ImageDimensions;
@@ -65,6 +63,8 @@ interface EditorState {
   overlayRotation: number;
   isStraightenActive: boolean;
   isWbPickerActive: boolean;
+  isRelightPickerActive: boolean;
+  activeRelightLightId: string | null;
   isGuidedPerspectiveActive: boolean;
   liveRotation: number | null;
   brushSettings: BrushSettings | null;
@@ -116,8 +116,6 @@ export const useEditorStore = create<EditorState>((set) => ({
   waveformHeight: 220,
 
   isSliderDragging: false,
-  activeRelightLightId: null,
-  showRelightNormalMap: false,
   interactivePatch: null,
   activeMaskContainerId: null,
   activeMaskId: null,
@@ -135,6 +133,8 @@ export const useEditorStore = create<EditorState>((set) => ({
   overlayRotation: 0,
   isStraightenActive: false,
   isWbPickerActive: false,
+  isRelightPickerActive: false,
+  activeRelightLightId: null,
   isGuidedPerspectiveActive: false,
   liveRotation: null,
 

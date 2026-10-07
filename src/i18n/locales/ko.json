@@ -43,6 +43,7 @@
         "shadows": "섀도우"
       },
       "hue": "색조",
+      "kelvinModeTooltip": "색온도를 켈빈으로 표시",
       "localHue": "지역 색조",
       "luminance": "휘도",
       "mixerColors": {
@@ -119,6 +120,11 @@
       "bokehShape": "보케 모양",
       "creative": "크리에이티브",
       "feather": "페더",
+      "fog": "안개",
+      "fogDensity": "밀도",
+      "fogHeight": "지면 안개",
+      "fogStart": "시작 거리",
+      "fogVariation": "변화",
       "glow": "글로우",
       "grain": "그레인",
       "halation": "헐레이션",
@@ -127,31 +133,33 @@
       "lightFlares": "빛 번짐",
       "lut": "LUT",
       "midpoint": "중간점",
-      "relight": "재조명",
+      "relight": "리라이팅",
       "relightAddLight": "조명 추가",
       "relightAmbient": "주변광",
+      "relightAngle": "각도",
       "relightColor": "조명 색상",
-      "relightCustomColor": "사용자 지정 색상",
+      "relightCone": "원뿔",
       "relightDepth": "깊이",
-      "relightDetail": "디테일",
-      "relightDragLight": "드래그하여 조명 이동, 스크롤하여 앞뒤로 이동",
-      "relightGenerateNormalMap": "노멀 맵 생성",
+      "relightElevation": "고도",
+      "relightFalloff": "감쇠",
+      "relightHint": "조명을 추가하거나 선택한 다음 이미지를 클릭하거나 드래그하여 위치를 지정하세요.",
       "relightIntensity": "강도",
-      "relightLights": "조명",
-      "relightNormalMap": "노멀 맵",
-      "relightQuality": "맵 품질",
-      "relightQualityHigh": "높음",
-      "relightQualityHighTooltip": "더 선명하고 세밀한 맵. 처음에는 1.3GB 모델을 다운로드하며 약 3배 더 오래 걸립니다.",
-      "relightQualityStandard": "표준",
-      "relightRange": "범위",
-      "relightRegenerateNormalMap": "노멀 맵 다시 생성",
-      "relightRemoveLight": "선택한 조명 제거",
-      "relightShowNormalMap": "이미지에 노멀 맵 표시",
+      "relightLight": "조명 {{index}}",
+      "relightRemoveLight": "조명 제거",
+      "relightShadows": "그림자",
+      "relightShadowSoftness": "그림자 부드러움",
+      "relightShine": "광택",
       "relightSoftness": "부드러움",
-      "relightSpecular": "스페큘러",
+      "relightType": "조명 유형",
+      "relightTypes": {
+        "directional": "방향광",
+        "point": "점광원",
+        "spot": "스포트라이트"
+      },
       "roughness": "거칠기",
       "roundness": "둥글기",
       "size": "크기",
+      "spatial": "공간",
       "vignette": "비네트"
     }
   },
@@ -210,6 +218,9 @@
       "denoise": "이미지 노이즈 제거",
       "editImage": "이미지 편집",
       "exportImage": "이미지 내보내기",
+      "flag": "플래그",
+      "flagPick": "선택됨",
+      "flagReject": "거부됨",
       "frameImage": "이미지 프레임",
       "mergeHdr": "HDR로 병합",
       "noLabel": "레이블 없음",
@@ -223,7 +234,8 @@
       "resetAdjustments": "조정값 초기화",
       "stitchPanorama": "파노라마 스티칭",
       "tagging": "태그 지정",
-      "undo": "실행 취소"
+      "undo": "실행 취소",
+      "unflagged": "플래그 없음"
     },
     "folders": {
       "changeIcon": "아이콘 변경",
@@ -246,6 +258,7 @@
     "library": {
       "addCopiedToAlbum_one": "복사한 이미지를 앨범에 추가",
       "addCopiedToAlbum_other": "복사한 이미지 {{count}}개를 앨범에 추가",
+      "deleteRejected": "거부된 이미지 삭제",
       "refreshView": "보기 새로고침"
     },
     "merge": {
@@ -785,7 +798,6 @@
         "inpaint": "인페인팅",
         "masks": "마스크",
         "presets": "프리셋",
-        "relight": "재조명",
         "tethering": "테더링"
       }
     },
@@ -980,9 +992,16 @@
         "editedOnly": "편집된 항목만",
         "uneditedOnly": "편집되지 않은 항목만"
       },
+      "flag": {
+        "all": "모든 이미지",
+        "excludeRejected": "거부됨 숨기기",
+        "picked": "선택됨",
+        "rejected": "거부됨"
+      },
       "noMatch": "필터와 일치하는 이미지를 찾을 수 없습니다.",
       "rating": {
         "all": "모두 표시",
+        "andDownSuffix": "이하",
         "andUpSuffix": "이상",
         "fiveOnly": "5점만",
         "fourAndUp": "4점 이상",
@@ -1061,7 +1080,13 @@
         "filterByColorLabel": "색상 레이블로 필터링",
         "filterByEdited": "편집 상태로 필터링",
         "filterByFileType": "파일 유형으로 필터링",
+        "filterByFlag": "플래그로 필터링",
         "filterByRating": "평점으로 필터링",
+        "ratingOperator": {
+          "eq": "정확히 이 평점",
+          "gte": "이 평점 이상",
+          "lte": "이 평점 이하"
+        },
         "groupEditedFiles": "Include edited files in groups",
         "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
         "groupOff": "Off",
@@ -1094,11 +1119,21 @@
       "expandFolder": "폴더 펼치기",
       "imagesCount_one": "이미지 1개",
       "imagesCount_other": "이미지 {{count}}개",
+      "rejected": "거부됨",
       "tooltipAperture": "조리개",
       "tooltipFocalLength": "초점 거리",
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "셔터 속도",
       "tooltipVirtualCopy": "가상 복사본"
+    },
+    "reject": {
+      "deleteConfirm": "거부된 항목 삭제",
+      "deleteMessage_one": "거부된 이미지 {{count}}개를 삭제하시겠습니까? 휴지통으로 이동됩니다.",
+      "deleteMessage_other": "거부된 이미지 {{count}}개를 삭제하시겠습니까? 휴지통으로 이동됩니다.",
+      "deleteTitle": "거부된 이미지 삭제",
+      "noneToDelete": "삭제할 거부된 이미지가 없습니다.",
+      "virtualCopiesWarning_one": "원본이 거부되었기 때문에 거부되지 않은 가상 복사본 {{count}}개도 삭제됩니다.",
+      "virtualCopiesWarning_other": "원본이 거부되었기 때문에 거부되지 않은 가상 복사본 {{count}}개도 삭제됩니다."
     },
     "search": {
       "noResults": "결과를 찾을 수 없습니다",
@@ -1282,7 +1317,7 @@
     "culling": {
       "actionDelete": "휴지통으로 이동",
       "actionRateZero": "평점을 1점으로 설정",
-      "actionReject": "거부됨으로 표시 (빨간 레이블)",
+      "actionReject": "거부됨으로 표시",
       "applyButton_one": "이미지 1개에 적용",
       "applyButton_other": "이미지 {{count}}개에 적용",
       "bestImage": "최고의 이미지",
@@ -1604,6 +1639,7 @@
       "enableFocusMode": "집중 모드 활성화",
       "enableNeutralGreyCanvas": "뉴트럴 그레이 배경 활성화",
       "enableOsTitlebar": "OS 제목 표시줄 활성화",
+      "enableToolFocusMode": "도구 집중 모드 활성화",
       "enableXmpSync": "XMP 동기화 활성화",
       "focusMode": "집중 모드",
       "focusModeDesc": "새 패널을 열 때 다른 패널을 자동으로 닫아 집중할 수 있도록 도와줍니다.",
@@ -1621,6 +1657,8 @@
       "theme": "테마",
       "themeDesc": "애플리케이션의 모양과 느낌을 변경합니다.",
       "title": "일반 설정",
+      "toolFocusMode": "도구 집중 모드",
+      "toolFocusModeDesc": "도구를 펼치면 같은 패널의 다른 도구를 자동으로 접습니다.",
       "xmpSync": "XMP 메타데이터 동기화",
       "xmpSyncDesc": "다른 사진 편집기와의 호환성을 위해 평점, 색상 레이블, 태그를 표준 XMP 사이드카 파일에 동기화합니다."
     },
@@ -1638,6 +1676,7 @@
         "copy_files": "선택한 파일 복사",
         "copy_image_path": "선택한 이미지의 경로 복사",
         "cycle_zoom": "확대/축소 순환 (맞춤, 2배 맞춤, 100%)",
+        "delete_rejected": "거부된 파일 삭제",
         "delete_selected": "선택한 파일 삭제",
         "focus_search": "검색창에 포커스",
         "open_image": "선택한 이미지 열기",
@@ -1670,9 +1709,12 @@
         "toggle_library_exif": "EXIF 오버레이 전환",
         "toggle_masks": "마스크 패널 전환",
         "toggle_metadata": "메타데이터 패널 전환",
+        "toggle_pick": "선택 플래그 전환",
         "toggle_presets": "프리셋 패널 전환",
+        "toggle_reject": "거부 플래그 전환",
         "toggle_right_panel": "오른쪽 패널 토글",
         "undo": "조정 실행 취소",
+        "unflag": "플래그 해제",
         "zoom_100": "100%로 확대/축소",
         "zoom_fit": "맞춤으로 확대/축소",
         "zoom_in": "확대",
@@ -1722,6 +1764,11 @@
             "upgradeBtn": "웹사이트에서 업그레이드",
             "upgradeDesc": "클라우드 AI 기능을 사용하려면 클라우드 구독이 필요합니다."
           },
+          "statuses": {
+            "connecting": "연결 중…",
+            "retry": "연결 재시도",
+            "unsupported": "클라우드 로그인은 현재 데스크톱에서만 사용할 수 있습니다."
+          },
           "title": "클라우드 서비스"
         },
         "connector": {
@@ -1744,9 +1791,17 @@
           "feature3": "간단한 CPU 기반 생성형 교체",
           "title": "내장 AI (CPU)"
         },
+        "aiFree": {
+          "description": "모든 AI 기능을 끕니다. AI 관련 컨트롤이 모두 인터페이스에서 숨겨져 RapidRAW가 순수한 기존 방식의 RAW 편집기로 작동합니다.",
+          "feature1": "UI에 AI 마스크, 렌즈 블러, 생성형 편집이 표시되지 않음",
+          "feature2": "기존 AI 편집은 계속 정상적으로 적용됨",
+          "feature3": "더 깔끔하고 집중하기 좋은 인터페이스",
+          "title": "AI 없음"
+        },
         "description": "RapidRAW의 AI는 유연성을 위해 설계되었습니다. 빠른 로컬 도구부터 강력한 셀프 호스팅까지, 이상적인 워크플로를 선택하세요.",
         "providers": {
           "aiConnector": "AI 커넥터",
+          "aiFree": "AI 없음",
           "cloud": "클라우드",
           "cpu": "CPU"
         },
@@ -2010,6 +2065,10 @@
         "virtualCopy": "가상 복사본"
       },
       "virtualCopyAbbreviation": "VC"
+    },
+    "flags": {
+      "togglePick": "선택 전환",
+      "toggleReject": "거부 전환"
     },
     "imagePicker": {
       "clearImage": "이미지 지우기",

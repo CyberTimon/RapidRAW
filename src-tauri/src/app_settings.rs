@@ -18,12 +18,16 @@ pub struct SortCriteria {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct FilterCriteria {
-    pub rating: u8,
+    pub rating: i8,
     pub raw_status: String,
     #[serde(default)]
     pub edited_status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub flag_status: Option<String>,
     #[serde(default)]
     pub colors: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rating_operator: Option<String>,
 }
 
 impl Default for FilterCriteria {
@@ -32,7 +36,9 @@ impl Default for FilterCriteria {
             rating: 0,
             raw_status: "all".to_string(),
             edited_status: Some("all".to_string()),
+            flag_status: None,
             colors: Vec::new(),
+            rating_operator: None,
         }
     }
 }
@@ -101,6 +107,7 @@ pub fn all_available_adjustments() -> HashSet<String> {
         "toneMapper",
         "temperature",
         "tint",
+        "whiteBalance",
         "saturation",
         "vibrance",
         "hsl",
@@ -273,6 +280,10 @@ pub struct ExportPreset {
     pub destination_type: Option<String>,
     #[serde(default)]
     pub subfolder: Option<String>,
+    #[serde(default)]
+    pub tiff_bit_depth: Option<u8>,
+    #[serde(default)]
+    pub preserve_timestamps: Option<bool>,
 }
 
 pub fn default_export_presets() -> Vec<ExportPreset> {
@@ -309,6 +320,8 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             last_export_path: None,
             destination_type: Some("customFolder".to_string()),
             subfolder: Some("".to_string()),
+            tiff_bit_depth: Some(16),
+            preserve_timestamps: Some(false),
         },
         ExportPreset {
             id: "default-fast".to_string(),
@@ -342,6 +355,8 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             last_export_path: None,
             destination_type: Some("customFolder".to_string()),
             subfolder: Some("".to_string()),
+            tiff_bit_depth: Some(16),
+            preserve_timestamps: Some(false),
         },
     ]
 }
@@ -528,6 +543,8 @@ pub struct AppSettings {
     pub editor_neutral_grey_bg: Option<bool>,
     #[serde(default)]
     pub canvas_input_mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub white_balance_mode: Option<String>,
     #[serde(default)]
     pub zoom_speed_multiplier: Option<f32>,
     #[serde(default)]
@@ -546,6 +563,8 @@ pub struct AppSettings {
     pub default_non_raw_tonemapper: Option<String>,
     #[serde(default)]
     pub enable_focus_mode: Option<bool>,
+    #[serde(default)]
+    pub enable_tool_focus_mode: Option<bool>,
     #[serde(default)]
     pub folder_icons: Option<HashMap<String, String>>,
     #[serde(default)]
@@ -648,6 +667,7 @@ impl Default for AppSettings {
             use_wgpu_renderer: Some(true),
             editor_neutral_grey_bg: Some(false),
             canvas_input_mode: Some("mouse".to_string()),
+            white_balance_mode: None,
             zoom_speed_multiplier: Some(1.0),
             zoom_photo_to_pixel_click: Some(false),
             keybinds: HashMap::new(),
@@ -663,6 +683,7 @@ impl Default for AppSettings {
             default_raw_tonemapper: Some("agx".to_string()),
             default_non_raw_tonemapper: Some("basic".to_string()),
             enable_focus_mode: Some(false),
+            enable_tool_focus_mode: Some(false),
             folder_icons: Some(HashMap::new()),
             raw_preprocessing_color_nr: Some(0.5),
             raw_preprocessing_sharpening: Some(0.35),
