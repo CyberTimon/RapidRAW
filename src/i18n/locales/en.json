@@ -946,6 +946,41 @@
       "watermarkImage": "Watermark Image"
     }
   },
+  "immich": {
+    "section": {
+      "empty": "No albums on the server.",
+      "error": "Immich is not reachable.",
+      "loading": "Loading albums…",
+      "refresh": "Refresh albums",
+      "timeline": "Timeline",
+      "title": "Immich"
+    },
+    "settings": {
+      "apiKey": "API key",
+      "apiKeyDesc": "Create one in Immich under Account Settings → API Keys. It needs to read albums, assets, stacks and the timeline, and to download originals.",
+      "cacheDir": "Cache folder",
+      "cacheDirDefault": "Default",
+      "cacheDirDesc": "Where downloaded originals are kept.",
+      "cacheLimit": "Cache size (GB)",
+      "cacheLimitDesc": "Downloaded originals beyond this size are removed, oldest first. Edits are not affected.",
+      "cacheTitle": "Cache",
+      "category": "Immich",
+      "connected": "Connected as {{user}} (Immich {{version}})",
+      "connectionTitle": "Immich",
+      "description": "Browse the photos of your Immich server in the library and edit them directly. Originals are downloaded when you open them; edits are kept on this computer.",
+      "keyInFile": "Stored in a file only you can read: no credential store is available. On KDE, turn on the Secret Service interface in the KDE Wallet settings and save again.",
+      "keyInStore": "Stored in the system's credential store.",
+      "save": "Save",
+      "saved": "Saved.",
+      "serverUrl": "Server address",
+      "serverUrlDesc": "The address you open Immich with in the browser.",
+      "test": "Test connection",
+      "working": "Working…"
+    },
+    "toasts": {
+      "downloadFailed": "Could not download from Immich: {{error}}"
+    }
+  },
   "library": {
     "community": {
       "actionSave": "Save",

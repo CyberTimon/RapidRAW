@@ -603,6 +603,8 @@ pub struct AppSettings {
     pub adjustment_layout: AdjustmentLayout,
     #[serde(default)]
     pub workspace: WorkspaceState,
+    #[serde(default)]
+    pub immich: crate::immich::ImmichSettings,
 }
 
 impl Default for AppSettings {
@@ -702,6 +704,7 @@ impl Default for AppSettings {
             custom_aspect_ratios: Vec::new(),
             adjustment_layout: AdjustmentLayout::default(),
             workspace: WorkspaceState::default(),
+            immich: crate::immich::ImmichSettings::default(),
         }
     }
 }
@@ -796,6 +799,7 @@ pub fn save_settings(settings: AppSettings, app_handle: AppHandle) -> Result<(),
     let path = get_settings_path(&app_handle)?;
     let json_string = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
     fs::write(path, json_string).map_err(|e| e.to_string())?;
+    crate::immich::apply_settings(&settings.immich);
 
     let state = app_handle.state::<AppState>();
     let cache_size = settings.image_cache_size.unwrap_or(5) as usize;

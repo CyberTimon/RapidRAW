@@ -946,6 +946,41 @@
       "watermarkImage": "Wasserzeichen-Bild"
     }
   },
+  "immich": {
+    "section": {
+      "empty": "Keine Alben auf dem Server.",
+      "error": "Immich ist nicht erreichbar.",
+      "loading": "Alben werden geladen…",
+      "refresh": "Alben aktualisieren",
+      "timeline": "Zeitleiste",
+      "title": "Immich"
+    },
+    "settings": {
+      "apiKey": "API-Schlüssel",
+      "apiKeyDesc": "In Immich unter Kontoeinstellungen → API-Schlüssel anlegen. Er muss Alben, Assets, Stapel und die Zeitleiste lesen und Originale herunterladen dürfen.",
+      "cacheDir": "Cache-Ordner",
+      "cacheDirDefault": "Standard",
+      "cacheDirDesc": "Wo heruntergeladene Originale liegen.",
+      "cacheLimit": "Cache-Größe (GB)",
+      "cacheLimitDesc": "Heruntergeladene Originale über dieser Größe werden entfernt, älteste zuerst. Bearbeitungen bleiben erhalten.",
+      "cacheTitle": "Cache",
+      "category": "Immich",
+      "connected": "Verbunden als {{user}} (Immich {{version}})",
+      "connectionTitle": "Immich",
+      "description": "Zeigt die Fotos deines Immich-Servers in der Bibliothek, damit du sie direkt bearbeiten kannst. Originale werden beim Öffnen heruntergeladen; Bearbeitungen bleiben auf diesem Rechner.",
+      "keyInFile": "In einer Datei gespeichert, die nur du lesen kannst: Es ist kein Schlüsselbund erreichbar. Unter KDE in den Einstellungen der KDE-Brieftasche die Secret-Service-Schnittstelle einschalten und erneut speichern.",
+      "keyInStore": "Im Schlüsselbund des Systems gespeichert.",
+      "save": "Speichern",
+      "saved": "Gespeichert.",
+      "serverUrl": "Serveradresse",
+      "serverUrlDesc": "Die Adresse, unter der du Immich im Browser öffnest.",
+      "test": "Verbindung testen",
+      "working": "Einen Moment…"
+    },
+    "toasts": {
+      "downloadFailed": "Download aus Immich fehlgeschlagen: {{error}}"
+    }
+  },
   "library": {
     "community": {
       "actionSave": "Speichern",

@@ -46,6 +46,7 @@ mod guided_perspective;
 mod hdr_deghosting;
 mod image_loader;
 mod image_processing;
+mod immich;
 mod inpainting;
 mod launch_request;
 mod lens_blur;
@@ -2455,6 +2456,12 @@ pub fn run() {
             camera_tethering::tether_get_preview,
             camera_tethering::tether_autofocus,
             guided_perspective::calculate_guided_perspective,
+            immich::commands::immich_get_api_key,
+            immich::commands::immich_set_api_key,
+            immich::commands::immich_test_connection,
+            immich::commands::immich_list_albums,
+            immich::commands::immich_get_images,
+            immich::commands::immich_timeline,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

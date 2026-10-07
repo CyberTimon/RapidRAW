@@ -1939,6 +1939,7 @@ pub async fn export_images(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
+    crate::immich::ensure_local_all(&app_handle, &paths).await?;
     export_images_impl(
         paths,
         output_folder_or_file,
