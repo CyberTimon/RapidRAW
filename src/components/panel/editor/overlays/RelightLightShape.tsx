@@ -9,7 +9,6 @@ interface Point {
 
 type Vec3 = [number, number, number];
 
-// Canvas-space images of the relight engine's x and y unit vectors (one unit = the image's long side).
 export interface RelightBasis {
   ex: Point;
   ey: Point;
@@ -36,9 +35,6 @@ const DIRECTIONAL_RAYS = 6;
 const toRad = (deg: number) => (deg * Math.PI) / 180;
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-// Direction the light travels, matching relight.rs: +z points into the scene, so a negative elevation aims
-// back at the viewer. A spot's angle is where the beam points, a directional light's angle is where the
-// light comes from.
 const getAim = (type: RelightLight['type'], angle: number, elevation: number): Vec3 => {
   const a = toRad(angle);
   const e = toRad(clamp(elevation, -180, 180));
@@ -112,7 +108,6 @@ export default function RelightLightShape({
   const isSpot = light.type === 'spot';
   const aim = getAim(light.type, light.angle, light.elevation);
   const planar = Math.hypot(aim[0], aim[1]);
-  // u, v span the plane perpendicular to the aim; u stays in the image plane so sin(t) > 0 faces the viewer.
   const u: Vec3 = planar > 1e-4 ? [aim[1] / planar, -aim[0] / planar, 0] : [1, 0, 0];
   const v: Vec3 = [-aim[2] * u[1], aim[2] * u[0], aim[0] * u[1] - aim[1] * u[0]];
 
@@ -159,7 +154,6 @@ export default function RelightLightShape({
     const by = (ex.x * wy - ex.y * wx) / det / aimLength;
     const length = Math.hypot(bx, by);
     const sign = isSpot ? 1 : -1;
-    // The projection cannot tell front from back, so a drag stays in the hemisphere the light already faces.
     const depth = (aim[2] < 0 ? -1 : 1) * Math.sqrt(1 - Math.min(1, length) ** 2);
     const elevation = Math.round((Math.asin(depth) * 180) / Math.PI);
     const angle =
@@ -173,7 +167,6 @@ export default function RelightLightShape({
 
   const sides: number[][] = [];
   if (isSpot) {
-    // The apex projects inside the base ellipse once the view axis falls within the cone.
     if (Math.abs(aim[2]) >= Math.cos(halfAngle) - 1e-3) {
       for (let i = 0; i < 4; i++) {
         const p = ringPoint(ringDist, ringRadius, (i * Math.PI) / 2);
