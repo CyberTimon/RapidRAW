@@ -212,6 +212,8 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
         activeAiPatchContainerId: null,
         activeAiSubMaskId: null,
         isWbPickerActive: false,
+        isRelightPickerActive: false,
+        activeRelightLightId: null,
         previewOverride: null,
       });
 

@@ -526,6 +526,7 @@ function App() {
   useEffect(() => {
     setEditor({
       isWbPickerActive: false,
+      isRelightPickerActive: false,
       isStraightenActive: false,
       isGuidedPerspectiveActive: false,
       activeMaskId: null,

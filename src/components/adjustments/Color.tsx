@@ -51,7 +51,7 @@ interface ColorSwatchProps {
   onClick: (name: string) => void;
 }
 
-const ColorSwatch = ({ color, name, isActive, ariaLabel, onClick }: ColorSwatchProps) => {
+export const ColorSwatch = ({ color, name, isActive, ariaLabel, onClick }: ColorSwatchProps) => {
   const [isPressed, setIsPressed] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 

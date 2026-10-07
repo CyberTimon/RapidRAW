@@ -881,7 +881,7 @@ fn blur_layer_bokeh(
     out
 }
 
-fn dof_box_filter(buf: &mut [f32], w: usize, h: usize, ch: usize, radius: usize) {
+pub(crate) fn dof_box_filter(buf: &mut [f32], w: usize, h: usize, ch: usize, radius: usize) {
     if radius == 0 || w < 2 || h < 2 {
         return;
     }

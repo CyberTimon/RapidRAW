@@ -56,6 +56,7 @@ mod panorama_stitching;
 mod panorama_utils;
 mod preset_converter;
 mod raw_processing;
+mod relight;
 mod tagging;
 mod tagging_utils;
 mod white_balance;
@@ -269,7 +270,8 @@ fn compute_patched_and_warped(
     };
 
     let warped = apply_geometry_warp(patched_image, adjustments);
-    let blurred = crate::lens_blur::apply_lens_blur(warped, adjustments);
+    let relit = crate::relight::apply_relight(warped, adjustments);
+    let blurred = crate::lens_blur::apply_lens_blur(relit, adjustments);
 
     Ok(Arc::new(blurred.into_owned()))
 }
@@ -863,8 +865,9 @@ async fn generate_uncropped_preview(
                     Cow::Borrowed(loaded_image.image.as_ref())
                 };
 
+                let relit_image = crate::relight::apply_relight(patched_image, &adjustments_clone);
                 let blurred_image =
-                    crate::lens_blur::apply_lens_blur(patched_image, &adjustments_clone);
+                    crate::lens_blur::apply_lens_blur(relit_image, &adjustments_clone);
 
                 let settings = load_settings(app_handle.clone()).unwrap_or_default();
                 let target_dim = (settings.editor_preview_resolution.unwrap_or(1920) as f32) as u32;
@@ -2279,6 +2282,7 @@ pub fn run() {
             ai_commands::check_ai_connector_status,
             ai_commands::test_ai_connector_connection,
             ai_commands::generate_full_image_depth_map,
+            ai_commands::generate_relight_normal_map,
             ai_commands::cancel_ai_task,
             apple_raw::is_raw9_available,
             inpainting::invoke_generative_replace_with_mask_def,

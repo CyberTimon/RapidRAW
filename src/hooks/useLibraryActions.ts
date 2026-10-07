@@ -49,6 +49,8 @@ export const clearLibrarySelection = () => {
     activeAiPatchContainerId: null,
     activeAiSubMaskId: null,
     isWbPickerActive: false,
+    isRelightPickerActive: false,
+    activeRelightLightId: null,
   });
 };
 
