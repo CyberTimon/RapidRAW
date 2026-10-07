@@ -1,4 +1,3 @@
-use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use image::{DynamicImage, GenericImageView};
 use rayon::prelude::*;
 use std::borrow::Cow;
@@ -116,16 +115,8 @@ pub fn apply_fog<'a>(
     let flip_horizontal = adjustments["flipHorizontal"].as_bool().unwrap_or(false);
     let flip_vertical = adjustments["flipVertical"].as_bool().unwrap_or(false);
 
-    let b64_data = match depth_b64.find(',') {
-        Some(idx) => &depth_b64[idx + 1..],
-        None => depth_b64,
-    };
-    let depth_map = match BASE64
-        .decode(b64_data)
-        .ok()
-        .and_then(|decoded| image::load_from_memory(&decoded).ok())
-    {
-        Some(img) => img.into_luma8(),
+    let depth_map = match crate::effect_maps::resolve_luma_map(depth_b64, adjustments) {
+        Some(map) => map,
         None => return image,
     };
     let (dw, dh) = (depth_map.width() as usize, depth_map.height() as usize);

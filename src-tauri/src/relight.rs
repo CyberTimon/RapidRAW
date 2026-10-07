@@ -1,4 +1,3 @@
-use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use image::{DynamicImage, GenericImageView};
 use rayon::prelude::*;
 use std::borrow::Cow;
@@ -12,7 +11,8 @@ struct RelightCache {
     nw: usize,
     nh: usize,
     surface_models: Arc<Vec<(Vec<f32>, Vec<f32>)>>,
-    shadow_inputs: Option<Arc<(Vec<f32>, Vec<f32>)>>,
+    shadow_inputs: Option<Arc<ShadowInputs>>,
+    shadow_models: Vec<(u64, Arc<GuidedModel>)>,
 }
 
 static RELIGHT_CACHE: Mutex<Option<RelightCache>> = Mutex::new(None);
@@ -116,6 +116,30 @@ pub(crate) fn build_relight_guide(
     guide
 }
 
+pub(crate) struct GuideStats {
+    radius: usize,
+    mean_i: Vec<f32>,
+    var_i: Vec<f32>,
+}
+
+impl GuideStats {
+    pub(crate) fn new(guide: &[f32], w: usize, h: usize, radius: usize) -> Self {
+        let mut mean_i = guide.to_vec();
+        crate::lens_blur::dof_box_filter(&mut mean_i, w, h, 1, radius);
+        let mut var_i: Vec<f32> = guide.iter().map(|g| g * g).collect();
+        crate::lens_blur::dof_box_filter(&mut var_i, w, h, 1, radius);
+        var_i
+            .par_iter_mut()
+            .zip(mean_i.par_iter())
+            .for_each(|(v, m)| *v = (*v - m * m).max(0.0));
+        Self {
+            radius,
+            mean_i,
+            var_i,
+        }
+    }
+}
+
 pub(crate) fn build_guided_model(
     guide: &[f32],
     p: &[f32],
@@ -124,30 +148,66 @@ pub(crate) fn build_guided_model(
     radius: usize,
     eps: f32,
 ) -> (Vec<f32>, Vec<f32>) {
+    let stats = GuideStats::new(guide, w, h, radius);
+    build_guided_model_with(&stats, guide, p, w, h, eps)
+}
+
+pub(crate) fn build_guided_model_with(
+    stats: &GuideStats,
+    guide: &[f32],
+    p: &[f32],
+    w: usize,
+    h: usize,
+    eps: f32,
+) -> (Vec<f32>, Vec<f32>) {
     let box_mean = |mut buf: Vec<f32>| {
-        crate::lens_blur::dof_box_filter(&mut buf, w, h, 1, radius);
+        crate::lens_blur::dof_box_filter(&mut buf, w, h, 1, stats.radius);
         buf
     };
 
-    let mean_i = box_mean(guide.to_vec());
     let mean_p = box_mean(p.to_vec());
-    let corr_ii = box_mean(guide.iter().map(|g| g * g).collect());
     let corr_ip = box_mean(guide.iter().zip(p).map(|(g, q)| g * q).collect());
 
     let (a, b): (Vec<f32>, Vec<f32>) = (0..w * h)
         .into_par_iter()
         .map(|i| {
-            let var = (corr_ii[i] - mean_i[i] * mean_i[i]).max(0.0);
-            let a = (corr_ip[i] - mean_i[i] * mean_p[i]) / (var + eps);
-            (a, mean_p[i] - a * mean_i[i])
+            let mean_i = stats.mean_i[i];
+            let a = (corr_ip[i] - mean_i * mean_p[i]) / (stats.var_i[i] + eps);
+            (a, mean_p[i] - a * mean_i)
         })
         .unzip();
 
     (box_mean(a), box_mean(b))
 }
 
+struct ShadowInputs {
+    guide: Vec<f32>,
+    depth: Vec<f32>,
+    depth_range: [f32; 2],
+    stats: GuideStats,
+}
+
+type GuidedModel = (Vec<f32>, Vec<f32>);
+
+fn shadow_key(light: &RelightLight, shadow_softness: f32) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    shadow_softness.to_bits().hash(&mut hasher);
+    match light.kind {
+        RelightKind::Directional { dir } => {
+            0u8.hash(&mut hasher);
+            dir.map(f32::to_bits).hash(&mut hasher);
+        }
+        _ => {
+            1u8.hash(&mut hasher);
+            light.pos.map(f32::to_bits).hash(&mut hasher);
+        }
+    }
+    hasher.finish()
+}
+
 fn build_shadow_map(
     depth: &[f32],
+    depth_range: [f32; 2],
     sw: usize,
     sh: usize,
     aspect: [f32; 2],
@@ -155,19 +215,19 @@ fn build_shadow_map(
     shadow_softness: f32,
 ) -> Vec<f32> {
     let mut shadow = vec![1.0f32; sw * sh];
+    let (swf, shf) = (sw as f32, sh as f32);
+    let z_lo = depth_range[0] + 0.01;
+    let z_hi = depth_range[1] + 0.3;
 
     shadow
         .par_chunks_exact_mut(sw)
         .enumerate()
         .for_each(|(y, row)| {
-            let v = (y as f32 + 0.5) / sh as f32;
+            let v = (y as f32 + 0.5) / shf;
+            let depth_row = &depth[y * sw..(y + 1) * sw];
             for (x, out) in row.iter_mut().enumerate() {
-                let u = (x as f32 + 0.5) / sw as f32;
-                let p = [
-                    (u - 0.5) * aspect[0],
-                    (v - 0.5) * aspect[1],
-                    depth[y * sw + x],
-                ];
+                let u = (x as f32 + 0.5) / swf;
+                let p = [(u - 0.5) * aspect[0], (v - 0.5) * aspect[1], depth_row[x]];
                 let ray = match light.kind {
                     RelightKind::Directional { dir } => {
                         let planar = (dir[0] * dir[0] + dir[1] * dir[1]).sqrt();
@@ -181,19 +241,29 @@ fn build_shadow_map(
                     ],
                 };
 
+                let (fx0, fy0) = (u * swf, v * shf);
+                let (dx, dy) = (ray[0] / aspect[0] * swf, ray[1] / aspect[1] * shf);
+                let rising = ray[2] >= 0.0;
+
                 let jitter = (52.982_918
                     * (0.067_110_56 * x as f32 + 0.005_837_15 * y as f32).fract())
                 .fract();
                 let mut occlusion = 0.0f32;
                 for k in 1..=64 {
-                    let t = (k as f32 - jitter) / 64.0;
-                    let su = (p[0] + ray[0] * t) / aspect[0] + 0.5;
-                    let sv = (p[1] + ray[1] * t) / aspect[1] + 0.5;
-                    if !(0.0..1.0).contains(&su) || !(0.0..1.0).contains(&sv) {
+                    let t = (k as f32 - jitter) * (1.0 / 64.0);
+                    let fx = fx0 + dx * t;
+                    let fy = fy0 + dy * t;
+                    if !(0.0..swf).contains(&fx) || !(0.0..shf).contains(&fy) {
                         break;
                     }
-                    let scene = depth[(sv * sh as f32) as usize * sw + (su * sw as f32) as usize];
-                    let diff = p[2] + ray[2] * t - scene;
+                    let rz = p[2] + ray[2] * t;
+                    if (rising && rz >= z_hi) || (!rising && rz <= z_lo) {
+                        break;
+                    }
+                    let diff = rz - depth[fy as usize * sw + fx as usize];
+                    if diff <= 0.01 || diff >= 0.3 {
+                        continue;
+                    }
                     occlusion = occlusion.max(
                         relight_smoothstep(0.01, 0.04, diff)
                             * (1.0 - relight_smoothstep(0.15, 0.3, diff)),
@@ -276,7 +346,7 @@ pub fn apply_relight<'a>(
                     let strength = get("intensity", 60.0).max(0.0) / 100.0 * 4.0 / luma.max(1e-3);
                     let radius = 0.05 + get("radius", 30.0) / 100.0 * 1.45;
                     let angle = get("angle", 135.0).to_radians();
-                    let elevation = get("elevation", 60.0).clamp(0.0, 90.0).to_radians();
+                    let elevation = get("elevation", 60.0).clamp(-180.0, 180.0).to_radians();
                     let (plane_x, plane_y) = (
                         angle.cos() * elevation.cos(),
                         -angle.sin() * elevation.cos(),
@@ -325,7 +395,7 @@ pub fn apply_relight<'a>(
 
     let cache_key = {
         let mut hasher = DefaultHasher::new();
-        normal_b64.hash(&mut hasher);
+        crate::effect_maps::effect_map_key(normal_b64, adjustments).hash(&mut hasher);
         (w, h).hash(&mut hasher);
         let raw = out.as_raw();
         for value in raw.iter().step_by((raw.len() / 4096).max(1)) {
@@ -344,16 +414,8 @@ pub fn apply_relight<'a>(
     let mut cache = match cached {
         Some(cache) => cache,
         None => {
-            let b64_data = match normal_b64.find(',') {
-                Some(idx) => &normal_b64[idx + 1..],
-                None => normal_b64,
-            };
-            let normal_map = match BASE64
-                .decode(b64_data)
-                .ok()
-                .and_then(|decoded| image::load_from_memory(&decoded).ok())
-            {
-                Some(img) => img.into_rgba8(),
+            let normal_map = match crate::effect_maps::resolve_rgba_map(normal_b64, adjustments) {
+                Some(map) => map,
                 None => return Cow::Owned(DynamicImage::ImageRgb32F(out)),
             };
             let (nw, nh) = (normal_map.width() as usize, normal_map.height() as usize);
@@ -384,6 +446,7 @@ pub fn apply_relight<'a>(
                 nh,
                 surface_models: Arc::new(surface_models),
                 shadow_inputs: None,
+                shadow_models: Vec::new(),
             }
         }
     };
@@ -408,33 +471,59 @@ pub fn apply_relight<'a>(
                     .clamp(0.0, 1.0)
             })
             .collect();
-        cache.shadow_inputs = Some(Arc::new((shadow_guide, depth)));
+        let depth_range = depth
+            .par_iter()
+            .fold(
+                || [f32::INFINITY, f32::NEG_INFINITY],
+                |[lo, hi], &d| [lo.min(d), hi.max(d)],
+            )
+            .reduce(
+                || [f32::INFINITY, f32::NEG_INFINITY],
+                |a, b| [a[0].min(b[0]), a[1].max(b[1])],
+            );
+        let shadow_radius = ((sw.max(sh) as f32 * 0.003).round() as usize).max(2);
+        let stats = GuideStats::new(&shadow_guide, sw, sh, shadow_radius);
+        cache.shadow_inputs = Some(Arc::new(ShadowInputs {
+            guide: shadow_guide,
+            depth,
+            depth_range,
+            stats,
+        }));
     }
 
-    *RELIGHT_CACHE.lock().unwrap_or_else(|e| e.into_inner()) = Some(cache.clone());
-
-    let surface_models = &cache.surface_models;
-    let shadow_models: Vec<(Vec<f32>, Vec<f32>)> = match &cache.shadow_inputs {
+    let shadow_models: Vec<Arc<GuidedModel>> = match &cache.shadow_inputs {
         Some(inputs) if shadows_enabled => {
-            let (shadow_guide, depth) = inputs.as_ref();
-            let shadow_radius = ((sw.max(sh) as f32 * 0.003).round() as usize).max(2);
-            lights
+            let models: Vec<(u64, Arc<GuidedModel>)> = lights
                 .iter()
                 .map(|light| {
+                    let key = shadow_key(light, shadow_softness);
+                    if let Some((_, model)) = cache.shadow_models.iter().find(|(k, _)| *k == key) {
+                        return (key, model.clone());
+                    }
                     let shadow = build_shadow_map(
-                        depth,
+                        &inputs.depth,
+                        inputs.depth_range,
                         sw,
                         sh,
                         [aspect_x, aspect_y],
                         light,
                         shadow_softness,
                     );
-                    build_guided_model(shadow_guide, &shadow, sw, sh, shadow_radius, eps)
+                    let model =
+                        build_guided_model_with(&inputs.stats, &inputs.guide, &shadow, sw, sh, eps);
+                    (key, Arc::new(model))
                 })
-                .collect()
+                .collect();
+            let shadow_models = models.iter().map(|(_, m)| m.clone()).collect();
+            cache.shadow_models = models;
+            shadow_models
         }
         _ => Vec::new(),
     };
+
+    *RELIGHT_CACHE.lock().unwrap_or_else(|e| e.into_inner()) = Some(cache.clone());
+
+    let surface_models = &cache.surface_models;
 
     let ambient_gain = (ambient / 50.0).exp2();
 

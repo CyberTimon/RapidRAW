@@ -878,14 +878,7 @@ pub async fn load_image(
             .full_warped_cache
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = None;
-        *state
-            .full_transformed_cache
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
-        *state
-            .patched_warped_cache
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
+        crate::cache_utils::clear_preview_stage_caches(&state);
 
         state
             .mask_cache

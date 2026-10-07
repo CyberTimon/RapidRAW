@@ -173,7 +173,7 @@ export default function EffectsPanel({
   const handleGenerateLensBlurDepthMap = async () => {
     setIsGeneratingDepth(true);
     try {
-      const b64: string = await invoke('generate_full_image_depth_map', { jsAdjustments: adjustments });
+      const b64: string = await invoke('generate_full_image_depth_map');
       setAdjustments((prev: Partial<Adjustments>) => ({
         ...prev,
         lensBlurDepthMap: b64,
@@ -189,7 +189,7 @@ export default function EffectsPanel({
   const handleGenerateRelightNormalMap = async () => {
     setIsGeneratingNormals(true);
     try {
-      const b64: string = await invoke('generate_relight_normal_map', { jsAdjustments: adjustments });
+      const b64: string = await invoke('generate_relight_normal_map');
       setAdjustments((prev: Partial<Adjustments>) => ({
         ...prev,
         relightNormalMap: b64,
@@ -205,7 +205,7 @@ export default function EffectsPanel({
   const handleGenerateFogDepthMap = async () => {
     setIsGeneratingFogDepth(true);
     try {
-      const b64: string = await invoke('generate_full_image_depth_map', { jsAdjustments: adjustments });
+      const b64: string = await invoke('generate_full_image_depth_map');
       setAdjustments((prev: Partial<Adjustments>) => ({
         ...prev,
         fogDepthMap: b64,
@@ -472,7 +472,7 @@ export default function EffectsPanel({
                     }`}
                   >
                     <div className="overflow-hidden">
-                      <div className="space-y-4 mt-4 mb-1 pl-2 border-l-2 border-card-active">
+                      <div className="space-y-4 mt-4 mb-1 pl-2 border-l-2 border-card-active" data-relight-lights>
                         {isGeneratingNormals ? (
                           <div className="flex flex-col items-center justify-center gap-1 p-4 text-text-secondary text-center">
                             <div className="flex items-center gap-2">
@@ -545,7 +545,7 @@ export default function EffectsPanel({
                               />
                             )}
 
-                            <div className="p-3 rounded-md bg-bg-primary space-y-4" data-relight-lights>
+                            <div className="p-3 rounded-md bg-bg-primary space-y-4">
                               <div className="flex flex-wrap items-center gap-3 px-1">
                                 {relightLights.map((light, index) => (
                                   <div
@@ -670,8 +670,8 @@ export default function EffectsPanel({
 
                                       <Slider
                                         label={t('adjustments.effects.relightElevation')}
-                                        max={90}
-                                        min={0}
+                                        max={180}
+                                        min={-180}
                                         defaultValue={60}
                                         onChange={(e: any) =>
                                           handleLightChange('elevation', parseInt(e.target.value, 10))
@@ -680,7 +680,6 @@ export default function EffectsPanel({
                                         suffix="°"
                                         value={activeLight.elevation}
                                         onDragStateChange={onDragStateChange}
-                                        fillOrigin="min"
                                       />
                                     </>
                                   )}

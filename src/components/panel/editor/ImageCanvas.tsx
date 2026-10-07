@@ -14,7 +14,6 @@ import {
   GuideOrientation,
   RelightLight,
   createRelightLight,
-  getRelightLightColor,
 } from '../../../utils/adjustments';
 import { Mask, SubMask, SubMaskMode, ToolType } from '../right/Masks';
 import { AppSettings, BrushSettings, Invokes, SelectedImage } from '../../ui/AppProperties';
@@ -24,6 +23,7 @@ import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../../store/useEditorStore';
 import type { OverlayMode } from '../right/CropPanel';
 import CompositionOverlays from './overlays/CompositionOverlays';
+import RelightLightShape, { RelightBasis } from './overlays/RelightLightShape';
 import { calculateStraightenAngle } from '../../../utils/cropUtils';
 import { toast } from 'react-toastify';
 import {
@@ -2199,6 +2199,40 @@ const ImageCanvas = memo(
       [mapCanvasPointToUv, setAdjustments],
     );
 
+    const aimRelightLight = useCallback(
+      (id: string, angle: number, elevation: number) => {
+        setAdjustments((prev: Adjustments) => ({
+          ...prev,
+          relightLights: (prev.relightLights || []).map((l: RelightLight) =>
+            l.id === id ? { ...l, angle, elevation } : l,
+          ),
+        }));
+      },
+      [setAdjustments],
+    );
+
+    const relightBasis = useMemo((): RelightBasis => {
+      const width = selectedImage?.width || 1920;
+      const height = selectedImage?.height || 1080;
+      const longSide = Math.max(width, height);
+      const step = 0.01;
+      const origin = mapRelightUvToCanvas({ x: 0.5, y: 0.5 });
+      const px = mapRelightUvToCanvas({ x: 0.5 + (step * longSide) / width, y: 0.5 });
+      const py = mapRelightUvToCanvas({ x: 0.5, y: 0.5 + (step * longSide) / height });
+      return {
+        ex: { x: (px.x - origin.x) / step, y: (px.y - origin.y) / step },
+        ey: { x: (py.x - origin.x) / step, y: (py.y - origin.y) / step },
+      };
+    }, [mapRelightUvToCanvas, selectedImage?.width, selectedImage?.height]);
+
+    const showRelightLights =
+      isRelightPickerActive ||
+      (!!adjustments.relightEnabled &&
+        (adjustments.relightLights?.length ?? 0) > 0 &&
+        !isCropping &&
+        !isMasking &&
+        !isAiEditing);
+
     useEffect(() => {
       if (!isRelightPickerActive) return;
 
@@ -3507,7 +3541,7 @@ const ImageCanvas = memo(
             </div>
           </div>
 
-          {(isMasking || isAiEditing || isWbPickerActive || isRelightPickerActive) && (
+          {(isMasking || isAiEditing || isWbPickerActive || showRelightLights) && (
             <div
               style={{
                 position: 'absolute',
@@ -3627,36 +3661,23 @@ const ImageCanvas = memo(
                           zoomScale={effectiveZoomScale}
                         />
                       )}
-                      {isRelightPickerActive &&
-                        (adjustments.relightLights || [])
-                          .filter((light: RelightLight) => light.type !== 'directional')
-                          .map((light: RelightLight) => {
-                            const pos = mapRelightUvToCanvas(light);
-                            return (
-                              <Circle
-                                key={light.id}
-                                x={pos.x}
-                                y={pos.y}
-                                radius={(6 + (100 - light.depth) * 0.06) / effectiveZoomScale}
-                                fill={getRelightLightColor(light)}
-                                stroke={light.id === activeRelightLightId ? '#0ea5e9' : 'white'}
-                                strokeWidth={2 / effectiveZoomScale}
-                                shadowColor="black"
-                                shadowBlur={4}
-                                shadowOpacity={0.6}
-                                draggable
-                                onMouseDown={() => setEditor({ activeRelightLightId: light.id })}
-                                onTouchStart={() => setEditor({ activeRelightLightId: light.id })}
-                                onDragStart={() => setEditor({ isSliderDragging: true })}
-                                onDragEnd={() => setEditor({ isSliderDragging: false })}
-                                onDragMove={(e: any) =>
-                                  moveRelightLight(light.id, { x: e.target.x(), y: e.target.y() })
-                                }
-                                onMouseEnter={(e: any) => (e.target.getStage().container().style.cursor = 'move')}
-                                onMouseLeave={(e: any) => (e.target.getStage().container().style.cursor = '')}
-                              />
-                            );
-                          })}
+                      {showRelightLights &&
+                        (adjustments.relightLights || []).map((light: RelightLight) => (
+                          <RelightLightShape
+                            key={light.id}
+                            light={light}
+                            pos={mapRelightUvToCanvas(light)}
+                            basis={relightBasis}
+                            zoomScale={effectiveZoomScale}
+                            isActive={light.id === activeRelightLightId}
+                            onSelect={() => setEditor({ activeRelightLightId: light.id })}
+                            onMove={(pos) => moveRelightLight(light.id, pos)}
+                            onAim={(angle, elevation) => aimRelightLight(light.id, angle, elevation)}
+                            onDragStateChange={(isDragging) => setEditor({ isSliderDragging: isDragging })}
+                            onHoverChange={setIsMaskHovered}
+                            onTouchInteraction={() => setIsMaskTouchInteracting(true)}
+                          />
+                        ))}
                       {isBrushActive &&
                         cursorPreview.visible &&
                         (!isCloneOrHealActive ||
