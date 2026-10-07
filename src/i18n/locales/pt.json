@@ -120,6 +120,11 @@
       "bokehShape": "Forma do bokeh",
       "creative": "Criativo",
       "feather": "Difusão",
+      "fog": "Névoa",
+      "fogDensity": "Densidade",
+      "fogHeight": "Névoa rasteira",
+      "fogStart": "Início",
+      "fogVariation": "Variação",
       "glow": "Brilho",
       "grain": "Granulação",
       "halation": "Halo",
@@ -154,6 +159,7 @@
       "roughness": "Rugosidade",
       "roundness": "Arredondamento",
       "size": "Tamanho",
+      "spatial": "Espacial",
       "vignette": "Vinheta"
     }
   },

@@ -1593,7 +1593,8 @@ pub fn generate_thumbnail_data(
                 apply_geometry_warp(Cow::Borrowed(&composite_image), &meta.adjustments);
 
             let relit_image = crate::relight::apply_relight(warped_image, &meta.adjustments);
-            let blurred_image = crate::lens_blur::apply_lens_blur(relit_image, &meta.adjustments);
+            let fogged_image = crate::fog::apply_fog(relit_image, &meta.adjustments);
+            let blurred_image = crate::lens_blur::apply_lens_blur(fogged_image, &meta.adjustments);
 
             let orientation_steps =
                 meta.adjustments["orientationSteps"].as_u64().unwrap_or(0) as u8;

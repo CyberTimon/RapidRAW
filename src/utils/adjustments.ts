@@ -106,6 +106,16 @@ export enum Effect {
   RelightShine = 'relightShine',
   RelightShadows = 'relightShadows',
   RelightShadowSoftness = 'relightShadowSoftness',
+  FogEnabled = 'fogEnabled',
+  FogDepthMap = 'fogDepthMap',
+  FogAmount = 'fogAmount',
+  FogStart = 'fogStart',
+  FogDensity = 'fogDensity',
+  FogHeight = 'fogHeight',
+  FogVariation = 'fogVariation',
+  FogGlow = 'fogGlow',
+  FogTemperature = 'fogTemperature',
+  FogTint = 'fogTint',
 }
 
 export interface RelightLight {
@@ -279,6 +289,16 @@ export interface Adjustments {
   relightShine: number;
   relightShadows: boolean;
   relightShadowSoftness: number;
+  fogEnabled: boolean;
+  fogDepthMap: string | null;
+  fogAmount: number;
+  fogStart: number;
+  fogDensity: number;
+  fogHeight: number;
+  fogVariation: number;
+  fogGlow: number;
+  fogTemperature: number;
+  fogTint: number;
   lensCorrectionMode: 'auto' | 'manual';
   lensDistortionAmount: number;
   lensVignetteAmount: number;
@@ -636,6 +656,16 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   relightShine: 0,
   relightShadows: false,
   relightShadowSoftness: 15,
+  fogEnabled: false,
+  fogDepthMap: null,
+  fogAmount: 50,
+  fogStart: 0,
+  fogDensity: 50,
+  fogHeight: 0,
+  fogVariation: 25,
+  fogGlow: 25,
+  fogTemperature: 0,
+  fogTint: 0,
   lensCorrectionMode: 'manual',
   lensDistortionAmount: 100,
   lensVignetteAmount: 100,
@@ -813,6 +843,16 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     relightShine: loadedAdjustments.relightShine ?? INITIAL_ADJUSTMENTS.relightShine,
     relightShadows: loadedAdjustments.relightShadows ?? INITIAL_ADJUSTMENTS.relightShadows,
     relightShadowSoftness: loadedAdjustments.relightShadowSoftness ?? INITIAL_ADJUSTMENTS.relightShadowSoftness,
+    fogEnabled: loadedAdjustments.fogEnabled ?? INITIAL_ADJUSTMENTS.fogEnabled,
+    fogDepthMap: loadedAdjustments.fogDepthMap ?? INITIAL_ADJUSTMENTS.fogDepthMap,
+    fogAmount: loadedAdjustments.fogAmount ?? INITIAL_ADJUSTMENTS.fogAmount,
+    fogStart: loadedAdjustments.fogStart ?? INITIAL_ADJUSTMENTS.fogStart,
+    fogDensity: loadedAdjustments.fogDensity ?? INITIAL_ADJUSTMENTS.fogDensity,
+    fogHeight: loadedAdjustments.fogHeight ?? INITIAL_ADJUSTMENTS.fogHeight,
+    fogVariation: loadedAdjustments.fogVariation ?? INITIAL_ADJUSTMENTS.fogVariation,
+    fogGlow: loadedAdjustments.fogGlow ?? INITIAL_ADJUSTMENTS.fogGlow,
+    fogTemperature: loadedAdjustments.fogTemperature ?? INITIAL_ADJUSTMENTS.fogTemperature,
+    fogTint: loadedAdjustments.fogTint ?? INITIAL_ADJUSTMENTS.fogTint,
     lensCorrectionMode: loadedAdjustments.lensCorrectionMode || 'manual',
     lensMaker: loadedAdjustments.lensMaker ?? INITIAL_ADJUSTMENTS.lensMaker,
     lensModel: loadedAdjustments.lensModel ?? INITIAL_ADJUSTMENTS.lensModel,
@@ -1049,6 +1089,16 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     Effect.RelightShine,
     Effect.RelightShadows,
     Effect.RelightShadowSoftness,
+    Effect.FogEnabled,
+    Effect.FogDepthMap,
+    Effect.FogAmount,
+    Effect.FogStart,
+    Effect.FogDensity,
+    Effect.FogHeight,
+    Effect.FogVariation,
+    Effect.FogGlow,
+    Effect.FogTemperature,
+    Effect.FogTint,
   ],
 };
 
@@ -1095,8 +1145,7 @@ export const ADJUSTMENT_SECTION_TOOLS: Record<string, Array<AdjustmentSectionToo
   ],
   effects: [
     { id: 'creative', label: 'adjustments.effects.creative' },
-    { id: 'lensBlur', label: 'adjustments.effects.lensBlur' },
-    { id: 'relight', label: 'adjustments.effects.relight' },
+    { id: 'spatial', label: 'adjustments.effects.spatial' },
     { id: 'lut', label: 'adjustments.effects.lut' },
     { id: 'vignette', label: 'adjustments.effects.vignette' },
     { id: 'grain', label: 'adjustments.effects.grain' },

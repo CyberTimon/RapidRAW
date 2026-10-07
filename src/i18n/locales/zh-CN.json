@@ -120,6 +120,11 @@
       "bokehShape": "散景形状",
       "creative": "创意",
       "feather": "羽化",
+      "fog": "雾",
+      "fogDensity": "密度",
+      "fogHeight": "地面雾",
+      "fogStart": "起始距离",
+      "fogVariation": "变化",
       "glow": "发光",
       "grain": "颗粒",
       "halation": "光晕",
@@ -154,6 +159,7 @@
       "roughness": "粗糙度",
       "roundness": "圆度",
       "size": "大小",
+      "spatial": "空间",
       "vignette": "暗角"
     }
   },

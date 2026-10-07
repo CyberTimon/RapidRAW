@@ -38,6 +38,7 @@ mod exif_processing;
 mod export_processing;
 mod file_management;
 mod focus_stacking;
+mod fog;
 mod formats;
 mod gpu_processing;
 mod guided_perspective;
@@ -271,7 +272,8 @@ fn compute_patched_and_warped(
 
     let warped = apply_geometry_warp(patched_image, adjustments);
     let relit = crate::relight::apply_relight(warped, adjustments);
-    let blurred = crate::lens_blur::apply_lens_blur(relit, adjustments);
+    let fogged = crate::fog::apply_fog(relit, adjustments);
+    let blurred = crate::lens_blur::apply_lens_blur(fogged, adjustments);
 
     Ok(Arc::new(blurred.into_owned()))
 }
@@ -866,8 +868,9 @@ async fn generate_uncropped_preview(
                 };
 
                 let relit_image = crate::relight::apply_relight(patched_image, &adjustments_clone);
+                let fogged_image = crate::fog::apply_fog(relit_image, &adjustments_clone);
                 let blurred_image =
-                    crate::lens_blur::apply_lens_blur(relit_image, &adjustments_clone);
+                    crate::lens_blur::apply_lens_blur(fogged_image, &adjustments_clone);
 
                 let settings = load_settings(app_handle.clone()).unwrap_or_default();
                 let target_dim = (settings.editor_preview_resolution.unwrap_or(1920) as f32) as u32;

@@ -43,11 +43,11 @@ fn relight_smoothstep(e0: f32, e1: f32, x: f32) -> f32 {
 }
 
 #[inline(always)]
-fn relight_luma(r: f32, g: f32, b: f32) -> f32 {
+pub(crate) fn relight_luma(r: f32, g: f32, b: f32) -> f32 {
     (0.2126 * r + 0.7152 * g + 0.0722 * b).max(0.0).sqrt()
 }
 
-struct RelightTap {
+pub(crate) struct RelightTap {
     i00: usize,
     i10: usize,
     i01: usize,
@@ -58,7 +58,7 @@ struct RelightTap {
 
 impl RelightTap {
     #[inline(always)]
-    fn new(u: f32, v: f32, w: usize, h: usize) -> Self {
+    pub(crate) fn new(u: f32, v: f32, w: usize, h: usize) -> Self {
         let fx = (u * w as f32 - 0.5).clamp(0.0, (w - 1) as f32);
         let fy = (v * h as f32 - 0.5).clamp(0.0, (h - 1) as f32);
         let (x0, y0) = (fx.floor() as usize, fy.floor() as usize);
@@ -74,19 +74,25 @@ impl RelightTap {
     }
 
     #[inline(always)]
-    fn sample(&self, buf: &[f32]) -> f32 {
+    pub(crate) fn sample(&self, buf: &[f32]) -> f32 {
         let top = buf[self.i00] + (buf[self.i10] - buf[self.i00]) * self.wx;
         let bot = buf[self.i01] + (buf[self.i11] - buf[self.i01]) * self.wx;
         top + (bot - top) * self.wy
     }
 
     #[inline(always)]
-    fn guided(&self, model: &(Vec<f32>, Vec<f32>), guide: f32) -> f32 {
+    pub(crate) fn guided(&self, model: &(Vec<f32>, Vec<f32>), guide: f32) -> f32 {
         self.sample(&model.0) * guide + self.sample(&model.1)
     }
 }
 
-fn build_relight_guide(raw: &[f32], w: usize, h: usize, dw: usize, dh: usize) -> Vec<f32> {
+pub(crate) fn build_relight_guide(
+    raw: &[f32],
+    w: usize,
+    h: usize,
+    dw: usize,
+    dh: usize,
+) -> Vec<f32> {
     let mut guide = vec![0.0f32; dw * dh];
     guide
         .par_chunks_exact_mut(dw)
@@ -110,7 +116,7 @@ fn build_relight_guide(raw: &[f32], w: usize, h: usize, dw: usize, dh: usize) ->
     guide
 }
 
-fn build_guided_model(
+pub(crate) fn build_guided_model(
     guide: &[f32],
     p: &[f32],
     w: usize,

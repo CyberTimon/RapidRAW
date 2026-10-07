@@ -120,6 +120,11 @@
       "bokehShape": "Kształt bokeh",
       "creative": "Kreatywne",
       "feather": "Wtapianie",
+      "fog": "Mgła",
+      "fogDensity": "Gęstość",
+      "fogHeight": "Mgła przyziemna",
+      "fogStart": "Początek",
+      "fogVariation": "Zmienność",
       "glow": "Poświata",
       "grain": "Ziarno",
       "halation": "Halacja",
@@ -154,6 +159,7 @@
       "roughness": "Szorstkość",
       "roundness": "Zaokrąglenie",
       "size": "Rozmiar",
+      "spatial": "Przestrzenne",
       "vignette": "Winieta"
     }
   },

@@ -120,6 +120,11 @@
       "bokehShape": "보케 모양",
       "creative": "크리에이티브",
       "feather": "페더",
+      "fog": "안개",
+      "fogDensity": "밀도",
+      "fogHeight": "지면 안개",
+      "fogStart": "시작 거리",
+      "fogVariation": "변화",
       "glow": "글로우",
       "grain": "그레인",
       "halation": "헐레이션",
@@ -154,6 +159,7 @@
       "roughness": "거칠기",
       "roundness": "둥글기",
       "size": "크기",
+      "spatial": "공간",
       "vignette": "비네트"
     }
   },

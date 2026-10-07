@@ -119,6 +119,11 @@
       "bokehShape": "Tvar bokehu",
       "creative": "Kreativní",
       "feather": "Prolnutí",
+      "fog": "Mlha",
+      "fogDensity": "Hustota",
+      "fogHeight": "Přízemní mlha",
+      "fogStart": "Začátek",
+      "fogVariation": "Variabilita",
       "glow": "Záře",
       "grain": "Zrno",
       "halation": "Halace",
@@ -153,6 +158,7 @@
       "roughness": "Drsnost",
       "roundness": "Kulatost",
       "size": "Velikost",
+      "spatial": "Prostorové",
       "vignette": "Viněta"
     }
   },
