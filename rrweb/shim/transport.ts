@@ -24,10 +24,13 @@ let backoff = 250;
 // that gets no answer either, a new connection. Sent calls that are safe to repeat (opening a photo, previews,
 // listings, reads) go to the new connection, the others fail.
 const IDLE_MS = 5000;
-const STALL_MS = 12000;
+const STALL_MS = 25000; // a browser that uploads a folder over a slow uplink can be slow to answer
 const RETRY = /^(load_|list_|get_|read_|generate_)|^(apply_adjustments|update_thumbnail_queue)$|^__rr_(progress|thumbs|thumbs_summary|view|ping|home|share_caps|share_list|share_have)$/;
 let lastRecv = 0;
 let pingAt = 0;
+// last event received: after a reconnect the relay replays the ones missed meanwhile (relay.mjs: broadcast)
+let lastSeq = 0;
+let lastBoot = '';
 // connection state for the UI (rrweb/files/network.ts: badge "Reconnecting…")
 let online = true; // while the first connection opens, the badge doesn't report a break
 const stateFns = new Set<(online: boolean) => void>();
@@ -69,7 +72,7 @@ setInterval(() => {
 }, 2000);
 
 function connect() {
-  const sock = new WebSocket(url);
+  const sock = new WebSocket(lastSeq ? `${url}?seq=${lastSeq}&boot=${encodeURIComponent(lastBoot)}` : url);
   ws = sock;
   sock.binaryType = 'arraybuffer';
   sock.onopen = () => {
@@ -91,6 +94,7 @@ function connect() {
     }
     const msg = JSON.parse(m.data);
     if (msg.event !== undefined) {
+      if (typeof msg.seq === 'number') { lastSeq = msg.seq; lastBoot = msg.boot ?? ''; }
       handlers.get(msg.event)?.forEach((h) => h(msg.payload));
       return;
     }

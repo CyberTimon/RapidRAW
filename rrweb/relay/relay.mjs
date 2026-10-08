@@ -203,7 +203,7 @@ const wssRfs = new WebSocketServer({ noServer: true, perMessageDeflate: false, m
 const upgrade = (bridgeOnly) => (req, sock, head) => {
   const p = new URL(req.url, 'http://x').pathname;
   if (p === '/bridge' && isLoopback(req.socket.remoteAddress)) wssBridge.handleUpgrade(req, sock, head, (ws) => wssBridge.emit('connection', ws));
-  else if (p === '/ipc' && !bridgeOnly && authed(req) && sameOrigin(req)) wssClient.handleUpgrade(req, sock, head, (ws) => wssClient.emit('connection', ws));
+  else if (p === '/ipc' && !bridgeOnly && authed(req) && sameOrigin(req)) wssClient.handleUpgrade(req, sock, head, (ws) => wssClient.emit('connection', ws, req));
   else if (p === '/rfs' && !bridgeOnly && authed(req) && sameOrigin(req)) {
     const id = new URL(req.url, 'http://x').searchParams.get('id');
     wssRfs.handleUpgrade(req, sock, head, (ws) => remote.attach(ws, id));
@@ -230,22 +230,47 @@ if (PORT !== BRIDGE_PORT) {
 // A WebSocket without an 'error' listener throws (invalid frame, connection cut through a tunnel) and takes the
 // whole relay down
 const quiet = (ws, what) => ws.on('error', (e) => console.warn(`[relay] ${what}: ${e.message}`));
-// Tunnels and proxies (Cloudflare: 100 s) close an idle WebSocket. A connection that dies silently (TCP without
-// any answer, e.g. Wi-Fi or a filter on the computer) would otherwise hang around for minutes: whoever doesn't
-// answer a ping is dropped
+// Tunnels and proxies (Cloudflare: 100 s) close an idle WebSocket, so it is pinged. A connection that dies silently
+// (TCP without any answer, e.g. Wi-Fi or a filter on the computer) would otherwise hang around for many minutes: one
+// that answers nothing for CLIENT_SILENT is dropped. Generous, because a browser that uploads a folder over a slow
+// uplink can be late with its answers for a while; the browser detects a dead connection itself (shim/transport.ts).
+const CLIENT_SILENT = 90000;
 const keepalive = (ws, what) => {
-  let alive = true;
-  const ok = () => { alive = true; };
+  let heard = Date.now();
+  const ok = () => { heard = Date.now(); };
   ws.on('pong', ok);
   ws.on('message', ok);
   const t = setInterval(() => {
     if (ws.readyState !== 1) return;
-    if (!alive) { console.warn(`[relay] ${what} not responding, closing the connection`); ws.terminate(); return; }
-    alive = false;
+    if (Date.now() - heard > CLIENT_SILENT) { console.warn(`[relay] ${what} not responding, closing the connection`); ws.terminate(); return; }
     ws.ping();
-  }, 15000);
+  }, 20000);
   ws.on('close', () => clearInterval(t));
 };
+
+// Events from RapidRAW go to every browser tab. A tab that loses its connection reconnects and says which event it
+// got last (?seq=…&boot=…); the relay replays what it missed from the last EVENT_KEEP ms, so e.g. thumbnails that
+// finished meanwhile don't stay "loading". boot changes when the relay restarts (then all kept events are replayed).
+const EVENT_KEEP = 120000;
+const BOOT = Math.random().toString(36).slice(2, 8);
+const recentEvents = []; // [seq, at, json]
+let eventSeq = 0;
+function broadcast(msg) {
+  msg.seq = ++eventSeq;
+  msg.boot = BOOT;
+  const s = JSON.stringify(msg);
+  const now = Date.now();
+  recentEvents.push([eventSeq, now, s]);
+  while (recentEvents.length > 5000 || now - recentEvents[0][1] > EVENT_KEEP) recentEvents.shift();
+  clients.forEach((c) => c.send(s));
+}
+function replay(ws, req) {
+  const q = new URL(req?.url ?? '/', 'http://x').searchParams;
+  const last = Number(q.get('seq')) || 0;
+  if (!last) return; // a new tab: nothing missed
+  const from = q.get('boot') === BOOT ? last : 0;
+  for (const [n, , s] of recentEvents) if (n > from) ws.send(s);
+}
 
 wssBridge.on('connection', (ws) => {
   if (bridge) bridge.close();
@@ -288,8 +313,7 @@ wssBridge.on('connection', (ws) => {
           msg.payload = p;
         }
       }
-      const s = JSON.stringify(msg);
-      clients.forEach((c) => c.send(s));
+      broadcast(msg);
       return;
     }
     const f = inflight.get(msg.id); inflight.delete(msg.id);
@@ -311,6 +335,7 @@ wssClient.on('connection', (ws, req) => {
   clients.add(ws);
   quiet(ws, 'client');
   keepalive(ws, 'client');
+  replay(ws, req);
   console.log(`[relay] client +1 (${clients.size})`);
   ws.on('message', async (data) => {
     let id, cmd, args;
