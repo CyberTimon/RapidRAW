@@ -3,14 +3,14 @@ use crate::app_state::AppState;
 use crate::file_management::parse_virtual_path;
 use crate::formats::is_raw_file;
 use crate::image_loader::load_base_image_from_bytes;
-use crate::image_processing::apply_cpu_default_raw_processing;
+use crate::image_processing::{apply_cpu_default_raw_processing, apply_orientation};
 use base64::{Engine as _, engine::general_purpose};
 use image::{DynamicImage, GenericImageView, ImageFormat, Rgb, Rgb32FImage};
 use rayon::prelude::*;
 use std::cmp::Ordering;
 use std::fs;
 use std::io::Cursor;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering as AtomicOrdering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter};
@@ -48,6 +48,51 @@ impl Bm3dParams {
     }
 }
 
+pub enum DenoiseOutput {
+    Image(DynamicImage),
+    LinearDng(Vec<u8>),
+}
+
+fn save_denoise_output(
+    output: DenoiseOutput,
+    source_path: &Path,
+    is_raw: bool,
+) -> Result<PathBuf, String> {
+    let parent_dir = source_path
+        .parent()
+        .ok_or_else(|| "Could not determine parent directory.".to_string())?;
+    let stem = source_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("denoised");
+
+    match output {
+        DenoiseOutput::LinearDng(bytes) => {
+            let output_path = parent_dir.join(format!("{}_Denoised.dng", stem));
+            fs::write(&output_path, bytes).map_err(|e| format!("Failed to save image: {}", e))?;
+            Ok(output_path)
+        }
+        DenoiseOutput::Image(image) => {
+            let (output_filename, image_to_save) = if is_raw {
+                (
+                    format!("{}_Denoised.tiff", stem),
+                    DynamicImage::ImageRgb16(image.to_rgb16()),
+                )
+            } else {
+                (
+                    format!("{}_Denoised.png", stem),
+                    DynamicImage::ImageRgb8(image.to_rgb8()),
+                )
+            };
+            let output_path = parent_dir.join(output_filename);
+            image_to_save
+                .save(&output_path)
+                .map_err(|e| format!("Failed to save image: {}", e))?;
+            Ok(output_path)
+        }
+    }
+}
+
 #[tauri::command]
 pub async fn apply_denoising(
     path: String,
@@ -75,8 +120,8 @@ pub async fn apply_denoising(
 
     tokio::task::spawn_blocking(move || {
         match denoise_image(path_str, intensity, method, app_handle.clone(), ai_session) {
-            Ok((image, _)) => {
-                *denoise_result_handle.lock().unwrap() = Some(image);
+            Ok(output) => {
+                *denoise_result_handle.lock().unwrap() = Some(output);
             }
             Err(e) => {
                 let _ = app_handle.emit("denoise-error", e);
@@ -131,34 +176,18 @@ pub async fn batch_denoise_images(
                 app_handle.clone(),
                 ai_session.clone(),
             ) {
-                Ok((image, _)) => {
+                Ok(output) => {
                     let is_raw = crate::formats::is_raw_file(&real_path);
-                    let parent_dir = source_path.parent().unwrap_or(std::path::Path::new(""));
-                    let stem = source_path
-                        .file_stem()
-                        .unwrap_or_default()
-                        .to_string_lossy();
-
-                    let (output_filename, image_to_save) = if is_raw {
-                        (
-                            format!("{}_Denoised.tiff", stem),
-                            DynamicImage::ImageRgb16(image.to_rgb16()),
-                        )
-                    } else {
-                        (
-                            format!("{}_Denoised.png", stem),
-                            DynamicImage::ImageRgb8(image.to_rgb8()),
-                        )
+                    let output_path = match save_denoise_output(output, &source_path, is_raw) {
+                        Ok(path) => path,
+                        Err(e) => {
+                            let _ = app_handle.emit(
+                                "denoise-error",
+                                format!("Failed to save {}: {}", real_path, e),
+                            );
+                            continue;
+                        }
                     };
-
-                    let output_path = parent_dir.join(output_filename);
-                    if let Err(e) = image_to_save.save(&output_path) {
-                        let _ = app_handle.emit(
-                            "denoise-error",
-                            format!("Failed to save {}: {}", real_path, e),
-                        );
-                        continue;
-                    }
 
                     let _ = crate::exif_processing::write_rrexif_sidecar(&real_path, &output_path);
 
@@ -203,30 +232,7 @@ pub async fn save_denoised_image(
 
     let (first_path, source_sidecar_path) =
         crate::file_management::parse_virtual_path(&original_path_str);
-    let parent_dir = first_path
-        .parent()
-        .ok_or_else(|| "Could not determine parent directory.".to_string())?;
-    let stem = first_path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("denoised");
-
-    let (output_filename, image_to_save): (String, DynamicImage) = if is_raw {
-        let filename = format!("{}_Denoised.tiff", stem);
-        (
-            filename,
-            DynamicImage::ImageRgb16(denoised_image.to_rgb16()),
-        )
-    } else {
-        let filename = format!("{}_Denoised.png", stem);
-        (filename, DynamicImage::ImageRgb8(denoised_image.to_rgb8()))
-    };
-
-    let output_path = parent_dir.join(output_filename);
-
-    image_to_save
-        .save(&output_path)
-        .map_err(|e| format!("Failed to save image: {}", e))?;
+    let output_path = save_denoise_output(denoised_image, &first_path, is_raw)?;
 
     let (real_path, _) = crate::file_management::parse_virtual_path(&original_path_str);
     let _ =
@@ -300,7 +306,7 @@ fn denoise_image(
     method: String,
     app_handle: AppHandle,
     ai_session: Option<Arc<Mutex<ort::session::Session>>>,
-) -> Result<(DynamicImage, String), String> {
+) -> Result<DenoiseOutput, String> {
     let path = Path::new(&path_str);
     if !path.exists() {
         return Err("File not found".to_string());
@@ -318,16 +324,35 @@ fn denoise_image(
         original_settings.use_apple_raw9 = Some(false);
     }
 
-    let dynamic_img =
-        load_base_image_from_bytes(&file_bytes, &path_str, false, &original_settings, None)
-            .map_err(|e| e.to_string())?;
+    let linear_frame = if is_raw && method != "raw9" {
+        crate::raw_processing::develop_linear_frame(&file_bytes).unwrap_or_else(|e| {
+            log::warn!("Linear DNG output unavailable for {}: {}", path_str, e);
+            None
+        })
+    } else {
+        None
+    };
 
-    let rgb_img_for_denoiser = dynamic_img.to_rgb32f();
+    let mut loaded_image = if linear_frame.is_none() {
+        Some(
+            load_base_image_from_bytes(&file_bytes, &path_str, false, &original_settings, None)
+                .map_err(|e| e.to_string())?
+                .to_rgb32f(),
+        )
+    } else {
+        None
+    };
+
+    let rgb_img_for_denoiser: &Rgb32FImage = match (&linear_frame, &loaded_image) {
+        (Some(frame), _) => &frame.image,
+        (None, Some(image)) => image,
+        (None, None) => return Err("Failed to load image".to_string()),
+    };
 
     let mut out_dynamic = if method == "ai" {
         let session_arc = ai_session.ok_or_else(|| "AI Session not provided".to_string())?;
         crate::ai_processing::run_ai_denoise(
-            &rgb_img_for_denoiser,
+            rgb_img_for_denoiser,
             intensity,
             &session_arc,
             &app_handle,
@@ -341,72 +366,133 @@ fn denoise_image(
         crate::apple_raw::denoise_raw9(&file_bytes, &path_str, intensity)
             .map_err(|e| e.to_string())?
     } else {
-        run_bm3d(&rgb_img_for_denoiser, intensity, &app_handle)?
+        run_bm3d(rgb_img_for_denoiser, intensity, &app_handle)?
     };
-
-    if is_raw {
-        apply_cpu_default_raw_processing(&mut out_dynamic);
-    }
 
     let _ = app_handle.emit("denoise-progress", "Finalizing data...");
-    let _ = app_handle.emit("denoise-progress", "Generating previews...");
 
-    let (width, height) = out_dynamic.dimensions();
-    let (new_width, new_height) = if width > height {
-        if width > 4000 {
-            (4000, (4000.0 * height as f32 / width as f32).round() as u32)
-        } else {
-            (width, height)
+    let (output, denoised_preview, original_preview) = if let Some(frame) = &linear_frame {
+        let mut denoised = out_dynamic.into_rgb32f();
+        restore_highlights(&mut denoised, &frame.image);
+
+        let _ = app_handle.emit("denoise-progress", "Generating previews...");
+        let flat_preview = render_linear_preview(&denoised);
+        let _ = app_handle.emit("denoise-progress", "Encoding DNG...");
+        let dng = crate::raw_processing::encode_linear_dng(frame, &denoised, &flat_preview)
+            .map_err(|e| format!("Failed to encode DNG: {}", e))?;
+        drop(denoised);
+
+        (
+            DenoiseOutput::LinearDng(dng),
+            apply_orientation(flat_preview, frame.orientation),
+            apply_orientation(render_linear_preview(&frame.image), frame.orientation),
+        )
+    } else {
+        if is_raw {
+            apply_cpu_default_raw_processing(&mut out_dynamic);
         }
-    } else {
-        if height > 4000 {
-            ((4000.0 * width as f32 / height as f32).round() as u32, 4000)
-        } else {
-            (width, height)
+
+        let _ = app_handle.emit("denoise-progress", "Generating previews...");
+        let denoised_preview = resize_for_preview(&out_dynamic);
+
+        let mut original_dynamic = DynamicImage::ImageRgb32F(
+            loaded_image
+                .take()
+                .ok_or_else(|| "Failed to load image".to_string())?,
+        );
+        if is_raw {
+            apply_cpu_default_raw_processing(&mut original_dynamic);
         }
+        let original_preview = resize_for_preview(&original_dynamic);
+
+        (
+            DenoiseOutput::Image(out_dynamic),
+            denoised_preview,
+            original_preview,
+        )
     };
-
-    let denoised_preview = if new_width != width {
-        out_dynamic.resize(new_width, new_height, image::imageops::FilterType::Lanczos3)
-    } else {
-        out_dynamic.clone()
-    };
-
-    let mut buf_denoised = Cursor::new(Vec::new());
-    denoised_preview
-        .to_rgb8()
-        .write_to(&mut buf_denoised, ImageFormat::Png)
-        .map_err(|e| format!("Failed to encode preview: {}", e))?;
-    let base64_str_denoised = general_purpose::STANDARD.encode(buf_denoised.get_ref());
-    let data_url_denoised = format!("data:image/png;base64,{}", base64_str_denoised);
-
-    let mut original_dynamic = DynamicImage::ImageRgb32F(rgb_img_for_denoiser);
-
-    if is_raw {
-        apply_cpu_default_raw_processing(&mut original_dynamic);
-    }
-    let original_preview = if new_width != width {
-        original_dynamic.resize(new_width, new_height, image::imageops::FilterType::Lanczos3)
-    } else {
-        original_dynamic
-    };
-
-    let mut buf_orig = Cursor::new(Vec::new());
-    original_preview
-        .to_rgb8()
-        .write_to(&mut buf_orig, ImageFormat::Png)
-        .map_err(|e| format!("Failed to encode original preview: {}", e))?;
-    let base64_str_orig = general_purpose::STANDARD.encode(buf_orig.get_ref());
-    let data_url_orig = format!("data:image/png;base64,{}", base64_str_orig);
 
     let payload = serde_json::json!({
-        "denoised": data_url_denoised,
-        "original": data_url_orig
+        "denoised": encode_preview(&denoised_preview)?,
+        "original": encode_preview(&original_preview)?
     });
 
     let _ = app_handle.emit("denoise-complete", &payload);
 
-    Ok((out_dynamic, data_url_denoised))
+    Ok(output)
+}
+
+const PREVIEW_MAX_SIDE: u32 = 4000;
+
+fn preview_dimensions(width: u32, height: u32) -> (u32, u32) {
+    if width >= height && width > PREVIEW_MAX_SIDE {
+        let scaled = PREVIEW_MAX_SIDE as f32 * height as f32 / width as f32;
+        (PREVIEW_MAX_SIDE, scaled.round() as u32)
+    } else if height > width && height > PREVIEW_MAX_SIDE {
+        let scaled = PREVIEW_MAX_SIDE as f32 * width as f32 / height as f32;
+        (scaled.round() as u32, PREVIEW_MAX_SIDE)
+    } else {
+        (width, height)
+    }
+}
+
+fn resize_for_preview(image: &DynamicImage) -> DynamicImage {
+    let (width, height) = image.dimensions();
+    let (new_width, new_height) = preview_dimensions(width, height);
+    if new_width != width {
+        image.resize(new_width, new_height, image::imageops::FilterType::Lanczos3)
+    } else {
+        image.clone()
+    }
+}
+
+fn render_linear_preview(image: &Rgb32FImage) -> DynamicImage {
+    let (width, height) = image.dimensions();
+    let (new_width, new_height) = preview_dimensions(width, height);
+    let mut preview = if new_width != width {
+        image::imageops::resize(
+            image,
+            new_width,
+            new_height,
+            image::imageops::FilterType::Lanczos3,
+        )
+    } else {
+        image.clone()
+    };
+    preview.par_iter_mut().for_each(|c| *c = c.max(0.0));
+
+    let mut preview = DynamicImage::ImageRgb32F(preview);
+    apply_cpu_default_raw_processing(&mut preview);
+    preview
+}
+
+fn encode_preview(preview: &DynamicImage) -> Result<String, String> {
+    let mut buffer = Cursor::new(Vec::new());
+    preview
+        .to_rgb8()
+        .write_to(&mut buffer, ImageFormat::Png)
+        .map_err(|e| format!("Failed to encode preview: {}", e))?;
+    Ok(format!(
+        "data:image/png;base64,{}",
+        general_purpose::STANDARD.encode(buffer.get_ref())
+    ))
+}
+
+fn restore_highlights(denoised: &mut Rgb32FImage, original: &Rgb32FImage) {
+    const KNEE_START: f32 = 0.85;
+    const KNEE_END: f32 = 1.0;
+
+    denoised
+        .par_chunks_mut(3)
+        .zip(original.par_chunks(3))
+        .for_each(|(out, source)| {
+            let peak = source[0].max(source[1]).max(source[2]);
+            let t = ((peak - KNEE_START) / (KNEE_END - KNEE_START)).clamp(0.0, 1.0);
+            let weight = t * t * (3.0 - 2.0 * t);
+            for c in 0..3 {
+                out[c] += (source[c] - out[c]) * weight;
+            }
+        });
 }
 
 fn rgb_to_ycbcr(r: &[f32], g: &[f32], b: &[f32]) -> (Vec<f32>, Vec<f32>, Vec<f32>) {
