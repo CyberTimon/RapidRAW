@@ -97,6 +97,9 @@
     },
     "details": {
       "aiDenoise": "KI-Entrauschen",
+      "aiDenoiseAmount": "Stärke (KI)",
+      "aiDenoiseColor": "Farbrauschen (KI)",
+      "aiDenoiseDetail": "Detailwiederherstellung",
       "aiDenoiseGenerate": "KI-Entrauschen erzeugen",
       "aiDenoiseGenerating": "Wird erzeugt...",
       "aiDenoiseRawOnly": "Nur für RAW-Dateien verfügbar",

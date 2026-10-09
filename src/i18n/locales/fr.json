@@ -97,6 +97,9 @@
     },
     "details": {
       "aiDenoise": "Débruitage IA",
+      "aiDenoiseAmount": "Quantité (IA)",
+      "aiDenoiseColor": "Bruit de couleur (IA)",
+      "aiDenoiseDetail": "Récupération des détails",
       "aiDenoiseGenerate": "Générer le débruitage IA",
       "aiDenoiseGenerating": "Génération...",
       "aiDenoiseRawOnly": "Disponible uniquement pour les fichiers RAW",

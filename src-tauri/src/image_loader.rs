@@ -74,14 +74,26 @@ pub fn load_and_composite(
     settings: &AppSettings,
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<DynamicImage> {
-    if !use_fast_raw_dev
-        && let Some(denoised) = crate::denoising::denoised_base(path, adjustments, None)
+    let denoised = if use_fast_raw_dev {
+        None
+    } else {
+        crate::denoising::denoised_base(path, adjustments, None)
+    };
+    let blend = crate::denoising::DenoiseBlend::from_adjustments(adjustments);
+    if let Some(denoised) = &denoised
+        && blend.is_full()
     {
-        return composite_patches_on_image(&denoised, adjustments);
+        return composite_patches_on_image(denoised, adjustments);
     }
 
     let base_image =
         load_base_image_from_bytes(base_image, path, use_fast_raw_dev, settings, cancel_token)?;
+    if let Some(denoised) = denoised
+        && denoised.dimensions() == base_image.dimensions()
+    {
+        let blended = crate::denoising::blend_denoised(&Arc::new(base_image), &denoised, blend);
+        return composite_patches_on_image(&blended, adjustments);
+    }
     composite_patches_on_image(&base_image, adjustments)
 }
 

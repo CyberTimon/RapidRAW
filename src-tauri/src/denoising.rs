@@ -1125,10 +1125,41 @@ const AI_DENOISE_TILE_QUALITY: f32 = 0.5;
 
 type DenoiseLayerEntry = (String, Arc<DynamicImage>);
 
+#[derive(Clone, Copy, PartialEq)]
+pub struct DenoiseBlend {
+    luma: f32,
+    color: f32,
+    detail: f32,
+}
+
+impl DenoiseBlend {
+    pub fn from_adjustments(adjustments: &serde_json::Value) -> Self {
+        let read = |key: &str, default: f64| {
+            (adjustments
+                .get(key)
+                .and_then(|v| v.as_f64())
+                .unwrap_or(default)
+                / 100.0)
+                .clamp(0.0, 1.0) as f32
+        };
+        Self {
+            luma: read("aiDenoiseAmount", 100.0),
+            color: read("aiDenoiseColor", 100.0),
+            detail: read("aiDenoiseDetail", 0.0),
+        }
+    }
+
+    pub fn is_full(&self) -> bool {
+        self.luma >= 1.0 && self.color >= 1.0 && self.detail <= 0.0
+    }
+}
+
 struct ActiveDenoiseLayer {
     path: String,
     pristine: Arc<DynamicImage>,
     denoised: Arc<DynamicImage>,
+    applied: Arc<DynamicImage>,
+    blend: DenoiseBlend,
 }
 
 static DENOISE_LAYER_APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
@@ -1207,7 +1238,7 @@ fn restore_pristine_base(state: &AppState) {
             .unwrap_or_else(|e| e.into_inner());
         if let Some(loaded) = guard.as_mut()
             && loaded.path == active.path
-            && Arc::ptr_eq(&loaded.image, &active.denoised)
+            && Arc::ptr_eq(&loaded.image, &active.applied)
         {
             loaded.image = active.pristine;
             restored = true;
@@ -1227,6 +1258,94 @@ fn clear_denoise_layer_caches(state: &AppState) {
     clear_base_image_caches(state);
 }
 
+const DETAIL_EDGE_LOW: f32 = 0.004;
+const DETAIL_EDGE_HIGH: f32 = 0.03;
+
+fn float_pixels(image: &DynamicImage) -> Option<(&[f32], usize)> {
+    match image {
+        DynamicImage::ImageRgb32F(buffer) => Some((buffer.as_raw().as_slice(), 3)),
+        DynamicImage::ImageRgba32F(buffer) => Some((buffer.as_raw().as_slice(), 4)),
+        _ => None,
+    }
+}
+
+pub fn blend_denoised(
+    pristine: &Arc<DynamicImage>,
+    denoised: &Arc<DynamicImage>,
+    blend: DenoiseBlend,
+) -> Arc<DynamicImage> {
+    if blend.is_full() || pristine.dimensions() != denoised.dimensions() {
+        return Arc::clone(denoised);
+    }
+    let (Some((source_raw, source_channels)), Some((clean_raw, channels))) =
+        (float_pixels(pristine), float_pixels(denoised))
+    else {
+        return Arc::clone(denoised);
+    };
+    if source_channels != channels {
+        return Arc::clone(denoised);
+    }
+
+    let (image_width, image_height) = denoised.dimensions();
+    let (width, height) = (image_width as usize, image_height as usize);
+    let perceptual_luma = |x: usize, y: usize| {
+        let i = (y * width + x) * channels;
+        (0.2126 * clean_raw[i] + 0.7152 * clean_raw[i + 1] + 0.0722 * clean_raw[i + 2])
+            .max(0.0)
+            .sqrt()
+    };
+
+    let mut output = clean_raw.to_vec();
+    output
+        .par_chunks_mut(width * channels)
+        .zip(source_raw.par_chunks(width * channels))
+        .enumerate()
+        .for_each(|(y, (out_row, source_row))| {
+            for x in 0..width {
+                let edge = if blend.detail > 0.0 {
+                    let (x0, x1) = (x.saturating_sub(1), (x + 1).min(width - 1));
+                    let (y0, y1) = (y.saturating_sub(1), (y + 1).min(height - 1));
+                    let dx = perceptual_luma(x1, y) - perceptual_luma(x0, y);
+                    let dy = perceptual_luma(x, y1) - perceptual_luma(x, y0);
+                    let gradient = (dx * dx + dy * dy).sqrt();
+                    let t = ((gradient - DETAIL_EDGE_LOW) / (DETAIL_EDGE_HIGH - DETAIL_EDGE_LOW))
+                        .clamp(0.0, 1.0);
+                    t * t * (3.0 - 2.0 * t)
+                } else {
+                    0.0
+                };
+
+                let i = x * channels;
+                let residual = [
+                    source_row[i] - out_row[i],
+                    source_row[i + 1] - out_row[i + 1],
+                    source_row[i + 2] - out_row[i + 2],
+                ];
+                let residual_luma =
+                    0.2126 * residual[0] + 0.7152 * residual[1] + 0.0722 * residual[2];
+                let keep_luma =
+                    ((1.0 - blend.luma) + blend.luma * blend.detail * edge).clamp(0.0, 1.0);
+                let keep_color = 1.0 - blend.color;
+
+                for c in 0..3 {
+                    out_row[i + c] +=
+                        keep_luma * residual_luma + keep_color * (residual[c] - residual_luma);
+                }
+            }
+        });
+
+    let blended = if channels == 3 {
+        Rgb32FImage::from_raw(image_width, image_height, output).map(DynamicImage::ImageRgb32F)
+    } else {
+        image::Rgba32FImage::from_raw(image_width, image_height, output)
+            .map(DynamicImage::ImageRgba32F)
+    };
+    match blended {
+        Some(image) => Arc::new(image),
+        None => Arc::clone(denoised),
+    }
+}
+
 pub fn sync_denoised_base(state: &AppState, adjustments: &serde_json::Value) {
     let Some((path, current)) = state
         .original_image
@@ -1238,30 +1357,46 @@ pub fn sync_denoised_base(state: &AppState, adjustments: &serde_json::Value) {
         return;
     };
 
-    let is_active = ACTIVE_DENOISE_LAYER
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .as_ref()
-        .is_some_and(|active| active.path == path && Arc::ptr_eq(&active.denoised, &current));
+    let blend = DenoiseBlend::from_adjustments(adjustments);
     let wants_denoised = ai_denoise_enabled(adjustments);
 
-    if !is_active {
-        ACTIVE_DENOISE_LAYER
+    let active_sources = {
+        let mut active_lock = ACTIVE_DENOISE_LAYER
             .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .take();
-    }
-    if wants_denoised == is_active {
-        return;
-    }
-    if !wants_denoised {
-        restore_pristine_base(state);
-        return;
-    }
-
-    let Some(denoised) = denoised_base(&path, adjustments, Some(current.dimensions())) else {
-        return;
+            .unwrap_or_else(|e| e.into_inner());
+        let is_active = active_lock
+            .as_ref()
+            .is_some_and(|active| active.path == path && Arc::ptr_eq(&active.applied, &current));
+        if !is_active {
+            active_lock.take();
+        }
+        active_lock.as_ref().map(|active| {
+            (
+                Arc::clone(&active.pristine),
+                Arc::clone(&active.denoised),
+                active.blend,
+            )
+        })
     };
+
+    let (pristine, denoised) = match (wants_denoised, active_sources) {
+        (false, None) => return,
+        (false, Some(_)) => {
+            restore_pristine_base(state);
+            return;
+        }
+        (true, Some((_, _, active_blend))) if active_blend == blend => return,
+        (true, Some((pristine, denoised, _))) => (pristine, denoised),
+        (true, None) => {
+            let Some(denoised) = denoised_base(&path, adjustments, Some(current.dimensions()))
+            else {
+                return;
+            };
+            (Arc::clone(&current), denoised)
+        }
+    };
+
+    let applied = blend_denoised(&pristine, &denoised, blend);
 
     let mut swapped = false;
     {
@@ -1273,7 +1408,7 @@ pub fn sync_denoised_base(state: &AppState, adjustments: &serde_json::Value) {
             && loaded.path == path
             && Arc::ptr_eq(&loaded.image, &current)
         {
-            loaded.image = Arc::clone(&denoised);
+            loaded.image = Arc::clone(&applied);
             swapped = true;
         }
     }
@@ -1283,8 +1418,10 @@ pub fn sync_denoised_base(state: &AppState, adjustments: &serde_json::Value) {
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = Some(ActiveDenoiseLayer {
             path,
-            pristine: current,
+            pristine,
             denoised,
+            applied,
+            blend,
         });
         clear_base_image_caches(state);
     }

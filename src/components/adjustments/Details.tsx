@@ -258,6 +258,43 @@ export default function DetailsPanel({
                   </span>
                 </button>
               )}
+              {hasDenoiseLayer && adjustments.aiDenoiseEnabled && (
+                <>
+                  <Slider
+                    label={t('adjustments.details.aiDenoiseAmount')}
+                    max={100}
+                    min={0}
+                    onChange={(e: any) => handleAdjustmentChange('aiDenoiseAmount', e.target.value)}
+                    step={1}
+                    value={adjustments.aiDenoiseAmount ?? 100}
+                    defaultValue={100}
+                    fillOrigin="min"
+                    onDragStateChange={onDragStateChange}
+                  />
+                  <Slider
+                    label={t('adjustments.details.aiDenoiseColor')}
+                    max={100}
+                    min={0}
+                    onChange={(e: any) => handleAdjustmentChange('aiDenoiseColor', e.target.value)}
+                    step={1}
+                    value={adjustments.aiDenoiseColor ?? 100}
+                    defaultValue={100}
+                    fillOrigin="min"
+                    onDragStateChange={onDragStateChange}
+                  />
+                  <Slider
+                    label={t('adjustments.details.aiDenoiseDetail')}
+                    max={100}
+                    min={0}
+                    onChange={(e: any) => handleAdjustmentChange('aiDenoiseDetail', e.target.value)}
+                    step={1}
+                    value={adjustments.aiDenoiseDetail ?? 0}
+                    defaultValue={0}
+                    fillOrigin="min"
+                    onDragStateChange={onDragStateChange}
+                  />
+                </>
+              )}
               {denoiseError && (
                 <Text variant={TextVariants.small} color={TextColors.error}>
                   {denoiseError}
