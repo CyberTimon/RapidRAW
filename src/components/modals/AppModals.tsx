@@ -11,6 +11,7 @@ import HdrModal from './HdrModal';
 import FocusStackModal from './FocusStackModal';
 import NegativeConversionModal from './NegativeConversionModal';
 import DenoiseModal from './DenoiseModal';
+import UpscaleModal from './UpscaleModal';
 import type { DenoiseMethod } from './DenoiseModal';
 import CreateFolderModal from './CreateFolderModal';
 import RenameFolderModal from './RenameFolderModal';
@@ -33,6 +34,7 @@ export interface AppModalsProps {
   refreshImageList: () => Promise<void>;
   handleApplyDenoise: (intensity: number, method: DenoiseMethod) => Promise<void>;
   handleBatchDenoise: (intensity: number, method: DenoiseMethod, paths: string[]) => Promise<string[]>;
+  handleRemoteUpscale: (scale: number) => Promise<void>;
   handleSaveDenoisedImage: () => Promise<string>;
   handleCreateFolder: (folderName: string) => Promise<void>;
   handleRenameFolder: (newName: string) => Promise<void>;
@@ -74,6 +76,7 @@ export default function AppModals(props: AppModalsProps) {
     focusStackModalState,
     negativeModalState,
     denoiseModalState,
+    upscaleModalState,
     cullingModalState,
     collageModalState,
     setUI,
@@ -97,6 +100,7 @@ export default function AppModals(props: AppModalsProps) {
       focusStackModalState: state.focusStackModalState,
       negativeModalState: state.negativeModalState,
       denoiseModalState: state.denoiseModalState,
+      upscaleModalState: state.upscaleModalState,
       cullingModalState: state.cullingModalState,
       collageModalState: state.collageModalState,
       setUI: state.setUI,
@@ -274,6 +278,17 @@ export default function AppModals(props: AppModalsProps) {
               (selectedImage?.path === denoiseModalState.targetPaths[0] ? finalPreviewUrl : null)
             : null
         }
+      />
+      <UpscaleModal
+        isOpen={upscaleModalState.isOpen}
+        onClose={() => setUI((state) => ({ upscaleModalState: { ...state.upscaleModalState, isOpen: false } }))}
+        onUpscale={props.handleRemoteUpscale}
+        onOpenFile={props.handleImageSelect}
+        error={upscaleModalState.error}
+        isProcessing={upscaleModalState.isProcessing}
+        percent={upscaleModalState.percent}
+        results={upscaleModalState.results}
+        targetPaths={upscaleModalState.targetPaths}
       />
       <CreateFolderModal
         isOpen={isCreateFolderModalOpen}

@@ -34,6 +34,7 @@ import {
   Gauge,
   Layers,
   Grip,
+  Maximize2,
   Film,
   Home,
   Plane,
@@ -260,6 +261,24 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
                     targetPaths: [selectedImage.path],
                     progressMessage: null,
                     isRaw: selectedImage?.isRaw || false,
+                  },
+                });
+              },
+            },
+            {
+              label: t('contextMenus.editor.aiUpscale'),
+              icon: Maximize2,
+              onClick: () => {
+                setUI({
+                  upscaleModalState: {
+                    isOpen: true,
+                    isProcessing: false,
+                    error: null,
+                    targetPaths: [selectedImage.path],
+                    scale: 2,
+                    percent: 0,
+                    progressPath: null,
+                    results: [],
                   },
                 });
               },
@@ -621,6 +640,25 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
                     targetPaths: finalSelection,
                     progressMessage: null,
                     isRaw: selectedImage?.isRaw || false,
+                  },
+                });
+              },
+            },
+            {
+              label: t('contextMenus.editor.aiUpscale'),
+              icon: Maximize2,
+              disabled: finalSelection.length === 0,
+              onClick: () => {
+                setUI({
+                  upscaleModalState: {
+                    isOpen: true,
+                    isProcessing: false,
+                    error: null,
+                    targetPaths: finalSelection,
+                    scale: 2,
+                    percent: 0,
+                    progressPath: null,
+                    results: [],
                   },
                 });
               },

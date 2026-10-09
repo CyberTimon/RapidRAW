@@ -9,8 +9,8 @@ use image::{DynamicImage, GenericImageView, ImageFormat, Rgb, Rgb32FImage};
 use rayon::prelude::*;
 use std::cmp::Ordering;
 use std::fs;
-use std::io::Cursor;
-use std::path::Path;
+use std::io::{Cursor, Write};
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering as AtomicOrdering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter};
@@ -71,10 +71,12 @@ pub async fn apply_denoising(
         ai_session = Some(session);
     }
 
+    let cancel_token = crate::app_state::AiTaskGuard::new(&state.active_ai_tasks, "denoise".to_string());
+    let cancel_flag = cancel_token.token.clone();
     let denoise_result_handle = state.denoise_result.clone();
 
     tokio::task::spawn_blocking(move || {
-        match denoise_image(path_str, intensity, method, app_handle.clone(), ai_session) {
+        match denoise_image(path_str, intensity, method, app_handle.clone(), ai_session, Some(cancel_flag)) {
             Ok((image, _)) => {
                 *denoise_result_handle.lock().unwrap() = Some(image);
             }
@@ -84,7 +86,9 @@ pub async fn apply_denoising(
         }
     })
     .await
-    .map_err(|e| format!("Denoising task failed: {}", e))
+    .map_err(|e| format!("Denoising task failed: {}", e))?;
+    drop(cancel_token);
+    Ok(())
 }
 
 #[tauri::command]
@@ -107,10 +111,16 @@ pub async fn batch_denoise_images(
         ai_session = Some(session);
     }
 
-    tokio::task::spawn_blocking(move || {
+    let cancel_token = crate::app_state::AiTaskGuard::new(&state.active_ai_tasks, "denoise-batch".to_string());
+    let cancel_flag = cancel_token.token.clone();
+
+    let results = tokio::task::spawn_blocking(move || {
         let mut results = Vec::new();
 
         for (i, path_str) in paths.iter().enumerate() {
+            if cancel_flag.is_cancelled() {
+                break;
+            }
             let _ = app_handle.emit(
                 "denoise-batch-progress",
                 serde_json::json!({
@@ -120,7 +130,7 @@ pub async fn batch_denoise_images(
                 }),
             );
 
-            let (source_path, source_sidecar_path) =
+            let (source_path, _) =
                 crate::file_management::parse_virtual_path(path_str);
             let real_path = source_path.to_string_lossy().to_string();
 
@@ -130,6 +140,7 @@ pub async fn batch_denoise_images(
                 method.clone(),
                 app_handle.clone(),
                 ai_session.clone(),
+                Some(cancel_flag.clone()),
             ) {
                 Ok((image, _)) => {
                     let is_raw = crate::formats::is_raw_file(&real_path);
@@ -139,40 +150,20 @@ pub async fn batch_denoise_images(
                         .unwrap_or_default()
                         .to_string_lossy();
 
-                    let (output_filename, image_to_save) = if is_raw {
-                        (
-                            format!("{}_Denoised.tiff", stem),
-                            DynamicImage::ImageRgb16(image.to_rgb16()),
-                        )
-                    } else {
-                        (
-                            format!("{}_Denoised.png", stem),
-                            DynamicImage::ImageRgb8(image.to_rgb8()),
-                        )
-                    };
-
-                    let output_path = parent_dir.join(output_filename);
-                    if let Err(e) = image_to_save.save(&output_path) {
-                        let _ = app_handle.emit(
-                            "denoise-error",
-                            format!("Failed to save {}: {}", real_path, e),
-                        );
-                        continue;
-                    }
-
-                    let _ = crate::exif_processing::write_rrexif_sidecar(&real_path, &output_path);
-
-                    if source_sidecar_path.exists()
-                        && let Some(output_path_str) = output_path.to_str()
-                    {
-                        let (_, dest_sidecar_path) =
-                            crate::file_management::parse_virtual_path(output_path_str);
-                        if let Err(e) = std::fs::copy(&source_sidecar_path, &dest_sidecar_path) {
-                            log::warn!("Failed to copy sidecar file for denoised image: {}", e);
+                    let output_suffix = if is_raw { "_Denoised.tiff" } else { "_Denoised.png" };
+                    match save_derived_image(&image, is_raw, parent_dir, &stem, output_suffix) {
+                        Ok(output_path) => {
+                            let _ =
+                                crate::exif_processing::write_rrexif_sidecar(&real_path, &output_path);
+                            results.push(output_path.to_string_lossy().to_string());
+                        }
+                        Err(e) => {
+                            let _ = app_handle.emit(
+                                "denoise-error",
+                                format!("Failed to save {}: {}", real_path, e),
+                            );
                         }
                     }
-
-                    results.push(output_path.to_string_lossy().to_string());
                 }
                 Err(e) => {
                     let _ = app_handle.emit(
@@ -186,7 +177,78 @@ pub async fn batch_denoise_images(
         Ok(results)
     })
     .await
-    .map_err(|e| format!("Batch denoising task failed: {}", e))?
+    .map_err(|e| format!("Batch denoising task failed: {}", e))?;
+    drop(cancel_token);
+    results
+}
+
+/// Publishes a complete derivative without overwriting existing files or copying sidecar edits.
+fn save_derived_image(
+    image: &DynamicImage,
+    is_raw: bool,
+    dir: &Path,
+    stem: &str,
+    suffix: &str,
+) -> Result<PathBuf, String> {
+    let bytes = if is_raw {
+        crate::export_processing::encode_image_to_bytes(
+            image,
+            "tiff",
+            100,
+            crate::export_processing::TiffBitDepth::Sixteen,
+        )?
+    } else {
+        crate::export_processing::encode_image_to_bytes(
+            &DynamicImage::ImageRgb8(image.to_rgb8()),
+            "png",
+            100,
+            crate::export_processing::TiffBitDepth::Eight,
+        )?
+    };
+    let mut file = tempfile::NamedTempFile::new_in(dir).map_err(|e| e.to_string())?;
+    file.write_all(&bytes).map_err(|e| e.to_string())?;
+    file.as_file().sync_all().map_err(|e| e.to_string())?;
+    let suffix_path = Path::new(suffix);
+    let tag = suffix_path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+    let ext = suffix_path.extension().and_then(|e| e.to_str());
+    let mut n = 0u64;
+    loop {
+        let name = match (ext, n) {
+            (Some(ext), 0) => format!("{stem}{tag}.{ext}"),
+            (Some(ext), n) => format!("{stem}{tag}-{n}.{ext}"),
+            (None, 0) => format!("{stem}{tag}"),
+            (None, n) => format!("{stem}{tag}-{n}"),
+        };
+        let candidate = dir.join(name);
+        match file.persist_noclobber(&candidate) {
+            Ok(_) => return Ok(candidate),
+            Err(e) if e.error.kind() == std::io::ErrorKind::AlreadyExists => {
+                file = e.file;
+                n += 1;
+            }
+            Err(e) => return Err(e.error.to_string()),
+        }
+    }
+}
+
+#[cfg(test)]
+mod derivative_tests {
+    use super::*;
+
+    #[test]
+    fn repeated_saves_preserve_existing_files_and_extensions() {
+        let dir = tempfile::tempdir().unwrap();
+        let original = dir.path().join("photo_Denoised.tiff");
+        fs::write(&original, b"existing photo").unwrap();
+        let image = DynamicImage::ImageRgb16(image::ImageBuffer::from_pixel(2, 2, Rgb([1234, 32768, 60000])));
+        let first = save_derived_image(&image, true, dir.path(), "photo", "_Denoised.tiff").unwrap();
+        let second = save_derived_image(&image, true, dir.path(), "photo", "_Denoised.tiff").unwrap();
+        assert_eq!(fs::read(original).unwrap(), b"existing photo");
+        assert_eq!(first.file_name().unwrap(), "photo_Denoised-1.tiff");
+        assert_eq!(second.file_name().unwrap(), "photo_Denoised-2.tiff");
+        assert_eq!(image::open(first).unwrap().to_rgb16(), image.to_rgb16());
+        assert_eq!(image::open(second).unwrap().to_rgb16(), image.to_rgb16());
+    }
 }
 
 #[tauri::command]
@@ -201,7 +263,7 @@ pub async fn save_denoised_image(
 
     let is_raw = crate::formats::is_raw_file(&original_path_str);
 
-    let (first_path, source_sidecar_path) =
+    let (first_path, _) =
         crate::file_management::parse_virtual_path(&original_path_str);
     let parent_dir = first_path
         .parent()
@@ -211,37 +273,193 @@ pub async fn save_denoised_image(
         .and_then(|s| s.to_str())
         .unwrap_or("denoised");
 
-    let (output_filename, image_to_save): (String, DynamicImage) = if is_raw {
-        let filename = format!("{}_Denoised.tiff", stem);
-        (
-            filename,
-            DynamicImage::ImageRgb16(denoised_image.to_rgb16()),
-        )
-    } else {
-        let filename = format!("{}_Denoised.png", stem);
-        (filename, DynamicImage::ImageRgb8(denoised_image.to_rgb8()))
-    };
-
-    let output_path = parent_dir.join(output_filename);
-
-    image_to_save
-        .save(&output_path)
-        .map_err(|e| format!("Failed to save image: {}", e))?;
+    let output_suffix = if is_raw { "_Denoised.tiff" } else { "_Denoised.png" };
+    let output_path = save_derived_image(&denoised_image, is_raw, parent_dir, stem, output_suffix)?;
 
     let (real_path, _) = crate::file_management::parse_virtual_path(&original_path_str);
     let _ =
         crate::exif_processing::write_rrexif_sidecar(&real_path.to_string_lossy(), &output_path);
 
-    if source_sidecar_path.exists()
-        && let Some(output_path_str) = output_path.to_str()
-    {
-        let (_, dest_sidecar_path) = crate::file_management::parse_virtual_path(output_path_str);
-        if let Err(e) = std::fs::copy(&source_sidecar_path, &dest_sidecar_path) {
-            log::warn!("Failed to copy sidecar file for denoised image: {}", e);
-        }
-    }
-
     Ok(output_path.to_string_lossy().to_string())
+}
+
+const EXPORT_FIRST_MESSAGE: &str =
+    "AI upscale works on finished exported images only (16-bit TIFF, PNG, JPEG). \
+     This file is a RAW or still has unbaked edits — export your edits to a \
+     16-bit sRGB TIFF first, then upscale that file.";
+
+fn remote_upscale_file(
+    path_str: &str,
+    scale: u32,
+    settings: &crate::app_settings::AppSettings,
+    cancel_flag: Option<Arc<crate::app_state::AiTaskToken>>,
+    app_handle: &AppHandle,
+) -> Result<String, String> {
+    let path = Path::new(path_str);
+    if !path.exists() {
+        return Err("File not found".to_string());
+    }
+    let want_x4 = match scale {
+        2 => false,
+        4 => true,
+        _ => return Err(format!("Unsupported upscale factor {scale} (2 or 4)")),
+    };
+    // RAW sources and sidecar-carrying files (unbaked edits) must be baked
+    // through a normal export first; upscaling anything else would invent a
+    // second render pipeline.
+    if is_raw_file(path_str) {
+        return Err(EXPORT_FIRST_MESSAGE.to_string());
+    }
+    let (source_path, sidecar_path) = parse_virtual_path(path_str);
+    if sidecar_path.exists() {
+        return Err(EXPORT_FIRST_MESSAGE.to_string());
+    }
+    let _ = app_handle.emit(
+        "upscale-progress",
+        serde_json::json!({ "path": path_str, "percent": 0, "stage": "loading" }),
+    );
+
+    let file_bytes = fs::read(path).map_err(|e| e.to_string())?;
+    // Finished pixels exactly as exported; image::open keeps 16-bit depth.
+    let img = image::load_from_memory(&file_bytes)
+        .map_err(|e| format!("Not a readable exported image: {e}"))?;
+    let rgb = img.to_rgb32f();
+
+    let endpoint = settings
+        .remote_ai_endpoint
+        .clone()
+        .unwrap_or_else(|| crate::remote_ai::DEFAULT_ENDPOINT.to_string());
+    let was_cancelled = || cancel_flag.as_ref().is_some_and(|t| t.is_cancelled());
+    let path_for_events = path_str.to_string();
+    let upscaled = crate::remote_raw::upscale_remote(
+        &rgb,
+        &endpoint,
+        want_x4,
+        &was_cancelled,
+        &mut |fraction| {
+            let _ = app_handle.emit(
+                "upscale-progress",
+                serde_json::json!({
+                    "path": path_for_events,
+                    "percent": ((fraction * 100.0) as u32),
+                    "stage": "upscaling",
+                }),
+            );
+        },
+    )
+    .map_err(|e| e.to_string())?;
+
+    let stem = source_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("upscaled");
+    let output_path = save_derived_image(
+        &DynamicImage::ImageRgb32F(upscaled),
+        true,
+        source_path.parent().unwrap_or(Path::new("")),
+        stem,
+        &format!("_Upscaled_x{scale}.tiff"),
+    )?;
+
+    let _ = crate::exif_processing::write_rrexif_sidecar(path_str, &output_path);
+    Ok(output_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub async fn apply_remote_upscale(
+    path: String,
+    scale: u32,
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<String, String> {
+    let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let cancel_token =
+        crate::app_state::AiTaskGuard::new(&state.active_ai_tasks, "remote-upscale".to_string());
+    let cancel_flag = cancel_token.token.clone();
+    let handle_for_task = app_handle.clone();
+    let output = tokio::task::spawn_blocking(move || {
+        remote_upscale_file(&path, scale, &settings, Some(cancel_flag), &handle_for_task)
+    })
+    .await
+    .map_err(|e| format!("Upscale task failed: {e}"))?;
+    let output = output?;
+    let _ = app_handle.emit("upscale-complete", serde_json::json!({ "paths": [output] }));
+    drop(cancel_token);
+    Ok(output)
+}
+
+#[tauri::command]
+pub async fn batch_remote_upscale(
+    paths: Vec<String>,
+    scale: u32,
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<String>, String> {
+    let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let cancel_token = crate::app_state::AiTaskGuard::new(
+        &state.active_ai_tasks,
+        "remote-upscale-batch".to_string(),
+    );
+    let cancel_flag = cancel_token.token.clone();
+    let handle_for_task = app_handle.clone();
+    let results = tokio::task::spawn_blocking(move || {
+        let mut results = Vec::new();
+        for (i, path) in paths.iter().enumerate() {
+            if cancel_flag.is_cancelled() {
+                break;
+            }
+            let _ = handle_for_task.emit(
+                "upscale-batch-progress",
+                serde_json::json!({ "current": i + 1, "total": paths.len(), "path": path }),
+            );
+            match remote_upscale_file(path, scale, &settings, Some(cancel_flag.clone()), &handle_for_task) {
+                Ok(out) => results.push(out),
+                Err(e) => {
+                    let _ = handle_for_task.emit(
+                        "upscale-error",
+                        serde_json::json!({ "path": path, "error": e }),
+                    );
+                }
+            }
+        }
+        Ok::<Vec<String>, String>(results)
+    })
+    .await
+    .map_err(|e| format!("Batch upscale task failed: {e}"))??;
+    let _ = app_handle.emit("upscale-complete", serde_json::json!({ "paths": results }));
+    drop(cancel_token);
+    Ok(results)
+}
+
+#[tauri::command]
+pub async fn test_remote_ai_connection(
+    app_handle: tauri::AppHandle,
+    address: Option<String>,
+) -> Result<String, String> {
+    let endpoint = match address {
+        Some(a) => a,
+        None => load_settings(app_handle)
+            .unwrap_or_default()
+            .remote_ai_endpoint
+            .unwrap_or_else(|| crate::remote_ai::DEFAULT_ENDPOINT.to_string()),
+    };
+    tokio::task::spawn_blocking(move || {
+        let model = crate::remote_ai::RemoteModel::connect_load(
+            &endpoint,
+            crate::remote_ai::MODEL_RAW_DENOISE,
+            crate::remote_ai::MODEL_RAW_DENOISE_FILE,
+        )
+        .map_err(|e| e.to_string())?;
+        Ok(format!(
+            "{}, {} loaded (in {:?}, out {:?})",
+            model.provider,
+            crate::remote_ai::MODEL_RAW_DENOISE,
+            model.inputs.first().map(|i| i.shape.clone()),
+            model.outputs.first().map(|o| o.shape.clone()),
+        ))
+    })
+    .await
+    .map_err(|e| format!("Remote AI test failed: {e}"))?
 }
 
 fn run_bm3d(
@@ -300,6 +518,7 @@ fn denoise_image(
     method: String,
     app_handle: AppHandle,
     ai_session: Option<Arc<Mutex<ort::session::Session>>>,
+    cancel_flag: Option<Arc<crate::app_state::AiTaskToken>>,
 ) -> Result<(DynamicImage, String), String> {
     let path = Path::new(&path_str);
     if !path.exists() {
@@ -318,13 +537,73 @@ fn denoise_image(
         original_settings.use_apple_raw9 = Some(false);
     }
 
+    let was_cancelled = || cancel_flag.as_ref().is_some_and(|t| t.is_cancelled());
+    if was_cancelled() {
+        return Err("Task cancelled".to_string());
+    }
+
+    // Remote sensor RAW denoise works on the CFA before demosaic and then
+    // develops the denoised sensor data through the standard pipeline.
+    let remote_sensor_result = (|| -> Result<Option<DynamicImage>, String> {
+        if method != "remote-raw" {
+            return Ok(None);
+        }
+        if !is_raw {
+            return Err("Sensor RAW denoising only works on RAW files.".to_string());
+        }
+        let _ = app_handle.emit("denoise-progress", "Decoding sensor data...");
+        let (raw_image, cfa, orientation) =
+            crate::remote_raw::decode_raw_cfa(&file_bytes).map_err(|e| e.to_string())?;
+        let endpoint = settings
+            .remote_ai_endpoint
+            .clone()
+            .unwrap_or_else(|| crate::remote_ai::DEFAULT_ENDPOINT.to_string());
+        let mut last_pct = 0u32;
+        let denoised_cfa = crate::remote_raw::denoise_bayer_remote(
+            &raw_image,
+            &cfa,
+            &endpoint,
+            intensity,
+            &was_cancelled,
+            &mut |fraction| {
+                let pct = (fraction * 100.0) as u32;
+                if pct > last_pct {
+                    last_pct = pct;
+                    let _ = app_handle.emit(
+                        "denoise-progress",
+                        format!("Sensor denoising (remote)… {}%", pct),
+                    );
+                }
+            },
+        )
+        .map_err(|e| e.to_string())?;
+
+        let _ = app_handle.emit("denoise-progress", "Developing denoised sensor data...");
+        let mut denoised_raw = raw_image;
+        denoised_raw.data = rawler::RawImageData::Float(denoised_cfa);
+        let developed = crate::raw_processing::develop_decoded_raw(
+            denoised_raw,
+            &file_bytes,
+            false,
+            settings.linear_raw_mode.clone(),
+            None,
+        )
+        .map_err(|e| e.to_string())?;
+        Ok(Some(crate::image_processing::apply_orientation(
+            developed,
+            orientation,
+        )))
+    })()?;
+
     let dynamic_img =
         load_base_image_from_bytes(&file_bytes, &path_str, false, &original_settings, None)
             .map_err(|e| e.to_string())?;
 
     let rgb_img_for_denoiser = dynamic_img.to_rgb32f();
 
-    let mut out_dynamic = if method == "ai" {
+    let mut out_dynamic = if let Some(developed) = remote_sensor_result {
+        developed
+    } else if method == "ai" {
         let session_arc = ai_session.ok_or_else(|| "AI Session not provided".to_string())?;
         crate::ai_processing::run_ai_denoise(
             &rgb_img_for_denoiser,

@@ -437,6 +437,10 @@ impl Default for WorkspaceState {
     }
 }
 
+pub fn default_remote_ai_endpoint() -> Option<String> {
+    Some(crate::remote_ai::DEFAULT_ENDPOINT.to_string())
+}
+
 pub fn default_linear_raw_mode() -> String {
     "auto".to_string()
 }
@@ -490,6 +494,8 @@ pub struct AppSettings {
     pub decorations: Option<bool>,
     #[serde(alias = "comfyuiAddress")]
     pub ai_connector_address: Option<String>,
+    #[serde(default = "default_remote_ai_endpoint")]
+    pub remote_ai_endpoint: Option<String>,
     pub last_folder_state: Option<LastFolderState>,
     pub ui_visibility: Option<Value>,
     pub enable_ai_tagging: Option<bool>,
@@ -627,6 +633,7 @@ impl Default for AppSettings {
             font_family: None,
             decorations: Some(false),
             ai_connector_address: None,
+            remote_ai_endpoint: default_remote_ai_endpoint(),
             last_folder_state: None,
             ui_visibility: None,
             enable_ai_tagging: Some(false),

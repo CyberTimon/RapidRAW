@@ -567,6 +567,14 @@ export default function SettingsPanel({
 
   const [aiProvider, setAiProvider] = useState(appSettings?.aiProvider || 'cpu');
   const [aiConnectorAddress, setAiConnectorAddress] = useState<string>(appSettings?.aiConnectorAddress || '');
+  const [remoteAiEndpoint, setRemoteAiEndpoint] = useState<string>(
+    appSettings?.remoteAiEndpoint || '127.0.0.1:8794',
+  );
+  const [remoteAiTest, setRemoteAiTest] = useState<{ message: string; success: boolean | null; testing: boolean }>({
+    message: '',
+    success: null,
+    testing: false,
+  });
   const [newShortcut, setNewShortcut] = useState('');
   const [newAiTag, setNewAiTag] = useState('');
 
@@ -685,6 +693,9 @@ export default function SettingsPanel({
   useEffect(() => {
     if (appSettings?.aiConnectorAddress !== aiConnectorAddress) {
       setAiConnectorAddress(appSettings?.aiConnectorAddress || '');
+    }
+    if (appSettings?.remoteAiEndpoint && appSettings.remoteAiEndpoint !== remoteAiEndpoint) {
+      setRemoteAiEndpoint(appSettings.remoteAiEndpoint);
     }
     if (appSettings?.aiProvider !== aiProvider) {
       setAiProvider(appSettings?.aiProvider || 'cpu');
@@ -994,6 +1005,21 @@ export default function SettingsPanel({
       console.error('AI Connector connection test failed:', err);
     } finally {
       setTimeout(() => setTestStatus({ testing: false, message: '', success: null }), EXECUTE_TIMEOUT);
+    }
+  };
+
+  const handleTestRemoteAi = async () => {
+    if (!remoteAiEndpoint) {
+      return;
+    }
+    setRemoteAiTest({ testing: true, message: t('settings.processing.ai.remote.testing'), success: null });
+    try {
+      const info: string = await invoke(Invokes.TestRemoteAiConnection, { address: remoteAiEndpoint });
+      setRemoteAiTest({ testing: false, message: info, success: true });
+    } catch (err) {
+      setRemoteAiTest({ testing: false, message: String(err), success: false });
+    } finally {
+      setTimeout(() => setRemoteAiTest({ testing: false, message: '', success: null }), EXECUTE_TIMEOUT);
     }
   };
 
@@ -1427,6 +1453,44 @@ export default function SettingsPanel({
                             </div>
                           </motion.div>
                         )}
+
+                        <SettingItem
+                          label={t('settings.processing.ai.remote.title')}
+                          description={t('settings.processing.ai.remote.description')}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Input
+                              className="grow"
+                              id="remote-ai-endpoint"
+                              onBlur={() => onSettingsChange({ ...appSettings, remoteAiEndpoint })}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRemoteAiEndpoint(e.target.value)}
+                              onKeyDown={(e: React.KeyboardEvent) => e.stopPropagation()}
+                              placeholder="127.0.0.1:8794"
+                              type="text"
+                              value={remoteAiEndpoint}
+                              bgClassName="bg-bg-primary"
+                            />
+                            <Button
+                              className="w-32"
+                              disabled={remoteAiTest.testing || !remoteAiEndpoint}
+                              onClick={handleTestRemoteAi}
+                            >
+                              {remoteAiTest.testing
+                                ? t('settings.processing.ai.remote.testing')
+                                : t('settings.processing.ai.remote.test')}
+                            </Button>
+                          </div>
+                          {remoteAiTest.message && (
+                            <Text
+                              color={remoteAiTest.success ? TextColors.success : TextColors.error}
+                              className="mt-2 flex items-center gap-2"
+                            >
+                              {remoteAiTest.success === true && <Wifi size={16} />}
+                              {remoteAiTest.success === false && <WifiOff size={16} />}
+                              {remoteAiTest.message}
+                            </Text>
+                          )}
+                        </SettingItem>
 
                         {aiProvider === 'cloud' && (
                           <motion.div

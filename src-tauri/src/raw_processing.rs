@@ -153,9 +153,33 @@ fn develop_internal(
     let decoder = rawler::get_decoder(&source)?;
 
     check_cancel()?;
-    let mut raw_image: RawImage = decoder.raw_image(&source, &RawDecodeParams::default(), false)?;
+    let raw_image: RawImage = decoder.raw_image(&source, &RawDecodeParams::default(), false)?;
 
     let orientation = metadata_orientation(decoder.as_ref(), &source)?;
+
+    let developed = develop_decoded_raw(raw_image, file_bytes, fast_demosaic, linear_mode, cancel_token)?;
+    Ok((developed, orientation))
+}
+
+/// Develop an already-decoded raw image through RapidRAW's standard
+/// pipeline (white-level rescale, optional calibration, demosaic; no
+/// sRGB encode). Shared by the normal develop path and the remote
+/// sensor-denoise path, which swaps in a denoised CFA before this call.
+pub(crate) fn develop_decoded_raw(
+    mut raw_image: RawImage,
+    file_bytes: &[u8],
+    fast_demosaic: bool,
+    linear_mode: String,
+    cancel_token: Option<(Arc<AtomicUsize>, usize)>,
+) -> Result<DynamicImage> {
+    let check_cancel = || -> Result<()> {
+        if let Some((tracker, generation)) = &cancel_token
+            && tracker.load(Ordering::SeqCst) != *generation
+        {
+            return Err(anyhow!("Load cancelled"));
+        }
+        Ok(())
+    };
 
     let is_linear_format = is_linear_raw_format(&raw_image);
 
@@ -288,7 +312,7 @@ fn develop_internal(
         }
     };
 
-    Ok((dynamic_image, orientation))
+    Ok(dynamic_image)
 }
 
 pub fn read_as_shot_white_balance(file_bytes: &[u8]) -> Option<WhiteBalance> {

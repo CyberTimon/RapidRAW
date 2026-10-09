@@ -58,6 +58,8 @@ mod panorama_stitching;
 mod panorama_utils;
 mod preset_converter;
 mod raw_processing;
+mod remote_ai;
+mod remote_raw;
 mod relight;
 mod tagging;
 mod tagging_utils;
@@ -2379,6 +2381,9 @@ pub fn run() {
             denoising::apply_denoising,
             denoising::batch_denoise_images,
             denoising::save_denoised_image,
+            denoising::apply_remote_upscale,
+            denoising::batch_remote_upscale,
+            denoising::test_remote_ai_connection,
             focus_stacking::stitch_focus_stack,
             focus_stacking::save_focus_stack,
             image_loader::load_image,

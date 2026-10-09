@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 
 use image::codecs::jpeg::JpegEncoder;
 use image::codecs::png::PngEncoder;
+use image::codecs::tiff::TiffEncoder;
 use image::{
     DynamicImage, GenericImageView, GrayImage, ImageBuffer, ImageEncoder, ImageFormat, Luma,
     imageops,
@@ -1168,7 +1169,7 @@ fn encode_grayscale_to_png(bitmap: &GrayImage) -> Result<Vec<u8>, String> {
 /// Exports are sRGB-encoded; tagging them lets color-managed apps read them correctly.
 const SRGB_ICC_PROFILE: &[u8] = include_bytes!("../icc/sRGB-v2-magic.icc");
 
-fn encode_image_to_bytes(
+pub(crate) fn encode_image_to_bytes(
     image: &DynamicImage,
     output_format: &str,
     jpeg_quality: u8,
@@ -1249,8 +1250,12 @@ fn encode_image_to_bytes(
                 TiffBitDepth::Eight => DynamicImage::ImageRgb8(image.to_rgb8()),
                 TiffBitDepth::Sixteen => DynamicImage::ImageRgb16(image.to_rgb16()),
             };
+            let mut encoder = TiffEncoder::new(&mut cursor);
+            encoder
+                .set_icc_profile(SRGB_ICC_PROFILE.to_vec())
+                .map_err(|e| e.to_string())?;
             image_to_encode
-                .write_to(&mut cursor, image::ImageFormat::Tiff)
+                .write_with_encoder(encoder)
                 .map_err(|e| e.to_string())?;
         }
         "avif" => {
@@ -2375,4 +2380,28 @@ pub async fn estimate_export_sizes(
     };
 
     Ok(single_image_extrapolated_size * paths.len())
+}
+
+#[cfg(test)]
+mod export_color_tests {
+    use super::*;
+    use image::{ImageDecoder, codecs::tiff::TiffDecoder};
+
+    #[test]
+    fn tiff_preserves_profile_and_requested_precision() {
+        let pixels = ImageBuffer::<image::Rgb<u16>, Vec<u16>>::from_raw(
+            2, 1, vec![1, 258, 65534, 12345, 32768, 65535],
+        ).unwrap();
+        let original = DynamicImage::ImageRgb16(pixels.clone());
+        for depth in [TiffBitDepth::Eight, TiffBitDepth::Sixteen] {
+            let bytes = encode_image_to_bytes(&original, "tiff", 95, depth).unwrap();
+            let mut decoder = TiffDecoder::new(Cursor::new(&bytes)).unwrap();
+            assert_eq!(decoder.icc_profile().unwrap().as_deref(), Some(SRGB_ICC_PROFILE));
+            let decoded = image::load_from_memory_with_format(&bytes, ImageFormat::Tiff).unwrap();
+            match depth {
+                TiffBitDepth::Eight => assert_eq!(decoded.into_rgb8(), original.to_rgb8()),
+                TiffBitDepth::Sixteen => assert_eq!(decoded.into_rgb16(), pixels),
+            }
+        }
+    }
 }

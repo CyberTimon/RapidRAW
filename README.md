@@ -60,6 +60,7 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 <details>
 <summary><strong>Recent Changes</strong></summary>
 
+- **2026-10-08 (fork):** Added remote Bayer RAW denoising, finished-export 2×/4× upscaling, and ICC-tagged 16-bit TIFF derivatives. Remote AI uses a loopback SSH tunnel to a compatible CUDA worker; originals remain unchanged. Export edited images as 16-bit sRGB TIFF before upscaling.
 - **2026-10-06:** Added AI-free mode, rewritten whites adjustment, and improved shadow and highlight recovery with mid-scale detail reinjection
 - **2026-10-05:** Implemented log-space guided filter for edge-aware adjustments and integrated cloud API
 - **2026-10-04:** Added Kelvin white balance mode with area sampling, fine adjust mode for curves, pick/reject quick filters, and improved export presets

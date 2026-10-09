@@ -432,6 +432,7 @@ function App() {
     handleSaveHdr,
     handleApplyDenoise,
     handleBatchDenoise,
+    handleRemoteUpscale,
     handleSaveDenoisedImage,
     handleSaveCollage,
     handleStartFocusStack,
@@ -1035,6 +1036,7 @@ function App() {
           refreshImageList={handleLibraryRefresh}
           handleApplyDenoise={handleApplyDenoise}
           handleBatchDenoise={handleBatchDenoise}
+          handleRemoteUpscale={handleRemoteUpscale}
           handleSaveDenoisedImage={handleSaveDenoisedImage}
           handleCreateFolder={handleCreateFolder}
           handleRenameFolder={handleRenameFolder}

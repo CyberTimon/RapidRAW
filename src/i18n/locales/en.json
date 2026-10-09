@@ -235,7 +235,8 @@
       "stitchPanorama": "Stitch Panorama",
       "tagging": "Tagging",
       "undo": "Undo",
-      "unflagged": "Unflagged"
+      "unflagged": "Unflagged",
+      "aiUpscale": "AI Upscale (Remote GPU)"
     },
     "folders": {
       "changeIcon": "Change Icon",
@@ -1376,7 +1377,8 @@
       "speedNotice": "This may take a few minutes depending on image size and selected method.",
       "strengthLabel": "Strength",
       "titleBatch": "Denoise Images",
-      "titleSingle": "Denoise Image"
+      "titleSingle": "Denoise Image",
+      "methodRemoteRaw": "Sensor RAW (Remote GPU)"
     },
     "focusStack": {
       "cancel": "Cancel",
@@ -1550,6 +1552,19 @@
       "yAxis": "Y Axis",
       "zoomInTooltip": "Zoom In",
       "zoomOutTooltip": "Zoom Out"
+    },
+    "upscale": {
+      "titleSingle": "AI Upscale",
+      "titleBatch": "AI Upscale Images",
+      "description": "Super-resolve the rendered image with RealPLKSR on a remote GPU (2× or 4×), preserving colors and detail.",
+      "scaleLabel": "Scale Factor",
+      "processing": "Upscaling on remote GPU...",
+      "percentText": "{{percent}}%",
+      "doneText": "Saved {{count}} upscaled image(s) at {{scale}}.",
+      "targetCount": "{{count}} image(s) will be upscaled and saved as 16-bit TIFF.",
+      "speedNotice": "This runs on the configured remote AI GPU and may take a while for large images.",
+      "close": "Close",
+      "start": "Upscale {{scale}}"
     }
   },
   "settings": {
@@ -1807,7 +1822,13 @@
           "cloud": "Cloud",
           "cpu": "CPU"
         },
-        "title": "Generative AI"
+        "title": "Generative AI",
+        "remote": {
+          "title": "Remote AI (Sensor RAW Denoise / Upscale)",
+          "description": "Loopback endpoint of the SSH-tunnelled ONNX worker (HOST:PORT, loopback only). Used by the 'Sensor RAW' denoise method and AI upscale.",
+          "test": "Test",
+          "testing": "Testing..."
+        }
       },
       "alwaysDecodeRaw": "Always Decode RAW",
       "alwaysDecodeRawDesc": "Force full RAW decoding for thumbnails instead of using embedded JPEG previews. Enable this if your thumbnails look different in color or contrast compared to the opened image.",

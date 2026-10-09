@@ -177,6 +177,41 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
     return savedPath;
   }, [refreshImageList]);
 
+  const handleRemoteUpscale = useCallback(
+    async (scale: number) => {
+      const { upscaleModalState } = useUIStore.getState();
+      if (upscaleModalState.targetPaths.length === 0) return;
+      const single = upscaleModalState.targetPaths.length === 1;
+      setUI((state) => ({
+        upscaleModalState: { ...state.upscaleModalState, isProcessing: true, error: null, percent: 0, results: [] },
+      }));
+      try {
+        let results: string[];
+        if (single) {
+          const out = await invoke<string>(Invokes.ApplyRemoteUpscale, {
+            path: upscaleModalState.targetPaths[0],
+            scale,
+          });
+          results = [out];
+        } else {
+          results = await invoke<string[]>(Invokes.BatchRemoteUpscale, {
+            paths: upscaleModalState.targetPaths,
+            scale,
+          });
+        }
+        await refreshImageList();
+        setUI((state) => ({
+          upscaleModalState: { ...state.upscaleModalState, isProcessing: false, percent: 100, results },
+        }));
+      } catch (err) {
+        setUI((state) => ({
+          upscaleModalState: { ...state.upscaleModalState, isProcessing: false, error: String(err) },
+        }));
+      }
+    },
+    [refreshImageList, setUI],
+  );
+
   const handleSaveCollage = useCallback(
     async (base64Data: string, firstPath: string): Promise<string> => {
       try {
@@ -198,6 +233,7 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
     handleSaveHdr,
     handleApplyDenoise,
     handleBatchDenoise,
+    handleRemoteUpscale,
     handleSaveDenoisedImage,
     handleSaveCollage,
     handleStartFocusStack,

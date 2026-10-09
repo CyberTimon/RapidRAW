@@ -75,6 +75,17 @@ interface NegativeConversionModalState {
   targetPaths: Array<string>;
 }
 
+interface UpscaleModalState {
+  isOpen: boolean;
+  isProcessing: boolean;
+  error: string | null;
+  targetPaths: string[];
+  scale: number;
+  percent: number;
+  progressPath: string | null;
+  results: string[];
+}
+
 interface CullingModalState {
   isOpen: boolean;
   suggestions: CullingSuggestions | null;
@@ -257,6 +268,7 @@ export interface UIState {
   hdrModalState: HdrModalState;
   negativeModalState: NegativeConversionModalState;
   denoiseModalState: DenoiseModalState;
+  upscaleModalState: UpscaleModalState;
   cullingModalState: CullingModalState;
   collageModalState: CollageModalState;
 
@@ -369,6 +381,16 @@ export const useUIStore = create<UIState>((set, get) => ({
     targetPaths: [],
     progressMessage: null,
     isRaw: false,
+  },
+  upscaleModalState: {
+    isOpen: false,
+    isProcessing: false,
+    error: null,
+    targetPaths: [],
+    scale: 2,
+    percent: 0,
+    progressPath: null,
+    results: [],
   },
   cullingModalState: { isOpen: false, suggestions: null, progress: null, error: null, pathsToCull: [] },
   collageModalState: { isOpen: false, sourceImages: [] },
