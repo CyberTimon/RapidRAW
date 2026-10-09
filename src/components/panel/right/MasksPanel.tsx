@@ -2024,11 +2024,11 @@ function SettingsPanel({
     });
   };
 
-  const handleToggleVisibility = (sectionName: string) => {
+  const handleToggleVisibility = (id: string) => {
     if (!isActive) return;
     const cur = container.adjustments;
     updateContainer(container.id, {
-      adjustments: { ...cur, activeTools: toggleToolActive(getActiveTools(cur), sectionName) },
+      adjustments: { ...cur, activeTools: toggleToolActive(getActiveTools(cur), id) },
     });
   };
 

@@ -1130,6 +1130,12 @@ export const ADJUSTMENT_SECTION_TOOLS: Record<string, Array<AdjustmentSectionToo
   ],
 };
 
+export const ALL_ADJUSTMENT_TOOLS = Object.values(ADJUSTMENT_SECTION_TOOLS).flat();
+
+export const ADJUSTMENT_TOOLS_BY_ID: Record<string, AdjustmentSectionTool> = Object.fromEntries(
+  ALL_ADJUSTMENT_TOOLS.map((tool) => [tool.id, tool]),
+);
+
 export const getAdjustmentSectionToolIds = (section: string): string[] =>
   (ADJUSTMENT_SECTION_TOOLS[section] ?? []).map((tool) => tool.id);
 
@@ -1139,9 +1145,7 @@ const getToolIds = (id: string): Array<string> => {
   if (sectionTools) {
     return sectionTools.flatMap(expand);
   }
-  const tool = Object.values(ADJUSTMENT_SECTION_TOOLS)
-    .flat()
-    .find((sectionTool) => sectionTool.id === id);
+  const tool = ADJUSTMENT_TOOLS_BY_ID[id];
   return tool ? expand(tool) : [id];
 };
 

@@ -2154,13 +2154,10 @@ pub fn is_tool_active(adjustments: &serde_json::Value, tool: &str) -> bool {
             .get(tool)
             .and_then(|active| active.as_bool())
             .unwrap_or(true),
-        None => {
-            is_section_visible(adjustments, tool)
-                && LEGACY_SECTION_TOOLS
-                    .iter()
-                    .find(|(_, tools)| tools.contains(&tool))
-                    .is_none_or(|(section, _)| is_section_visible(adjustments, section))
-        }
+        None => LEGACY_SECTION_TOOLS
+            .iter()
+            .find(|(_, tools)| tools.contains(&tool))
+            .is_none_or(|(section, _)| is_section_visible(adjustments, section)),
     }
 }
 

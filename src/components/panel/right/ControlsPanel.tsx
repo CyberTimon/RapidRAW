@@ -106,10 +106,10 @@ export default function Controls() {
     [setUI],
   );
 
-  const handleToggleVisibility = (sectionName: string) => {
+  const handleToggleVisibility = (id: string) => {
     setAdjustments((prev: Adjustments) => ({
       ...prev,
-      activeTools: toggleToolActive(getActiveTools(prev), sectionName),
+      activeTools: toggleToolActive(getActiveTools(prev), id),
     }));
   };
 
