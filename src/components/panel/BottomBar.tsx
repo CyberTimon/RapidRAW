@@ -23,6 +23,8 @@ import { useLibraryStore } from '../../store/useLibraryStore';
 import { useLibraryActions } from '../../hooks/useLibraryActions';
 import { useUIStore } from '../../store/useUIStore';
 import { COLOR_LABELS } from '../../utils/adjustments';
+import { MAX_ZOOM_PERCENT, MIN_ZOOM_PERCENT, clampZoomPercent, percentFromTransform } from '../../utils/zoom';
+import { useDevicePixelRatio } from '../../hooks/useDevicePixelRatio';
 
 interface BottomBarProps {
   filmstripHeight?: number;
@@ -208,12 +210,13 @@ export default function BottomBar({
       uiVisibility: { ...s.uiVisibility, filmstrip: !s.uiVisibility.filmstrip },
     }));
 
-  const { displaySize, originalSize } = useEditorStore(
+  const { displaySize, baseRenderSize } = useEditorStore(
     useShallow((state) => ({
       displaySize: state.displaySize,
-      originalSize: state.originalSize,
+      baseRenderSize: state.baseRenderSize,
     })),
   );
+  const dpr = useDevicePixelRatio();
 
   const [isEditingPercent, setIsEditingPercent] = useState(false);
   const [percentInputValue, setPercentInputValue] = useState('');
@@ -222,10 +225,10 @@ export default function BottomBar({
 
   const percentInputRef = useRef<HTMLInputElement>(null);
   const [isZoomLabelHovered, setIsZoomLabelHovered] = useState(false);
-  const isZoomReady = !isLoading && originalSize && originalSize.width > 0 && displaySize && displaySize.width > 0;
+  const isZoomReady = !isLoading && baseRenderSize.renderScale > 0 && baseRenderSize.width > 0 && displaySize.width > 0;
 
   const currentOriginalPercent = isZoomReady
-    ? (displaySize.width * (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)) / originalSize.width
+    ? percentFromTransform(baseRenderSize.renderScale, displaySize.width / baseRenderSize.width, dpr)
     : 1.0;
 
   const [latchedSliderValue, setLatchedSliderValue] = useState(1.0);
@@ -336,8 +339,7 @@ export default function BottomBar({
     const value = parseFloat(percentInputValue);
     if (!isNaN(value)) {
       const originalPercent = value / 100;
-      const clampedPercent = Math.max(0.1, Math.min(2.0, originalPercent));
-      onZoomChange(clampedPercent);
+      onZoomChange(clampZoomPercent(originalPercent));
     }
     setIsEditingPercent(false);
     setPercentInputValue('');
@@ -664,9 +666,9 @@ export default function BottomBar({
                   <div className="absolute top-1/2 left-0 w-full h-1.5 -translate-y-1/2 bg-surface rounded-full pointer-events-none" />
                   <input
                     type="range"
-                    min={0.1}
-                    max={2.0}
-                    step="0.05"
+                    min={MIN_ZOOM_PERCENT}
+                    max={MAX_ZOOM_PERCENT}
+                    step="0.01"
                     value={latchedSliderValue}
                     onChange={handleSliderChange}
                     onKeyDown={handleZoomKeyDown}
