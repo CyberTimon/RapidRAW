@@ -1,16 +1,23 @@
 use crate::image_processing::apply_orientation;
 use crate::white_balance::WhiteBalance;
 use anyhow::{Result, anyhow};
-use image::{DynamicImage, ImageBuffer, Rgba};
+use image::{DynamicImage, ImageBuffer, Rgb32FImage, Rgba};
 use rawler::{
-    decoders::{Decoder, Orientation, RawDecodeParams},
+    decoders::{Decoder, Orientation, RawDecodeParams, RawMetadata},
+    dng::{
+        CropMode, DNG_VERSION_V1_4, DngCompression, DngPhotometricConversion, writer::DngWriter,
+    },
     imgop::{
         develop::{DemosaicAlgorithm, Intermediate, ProcessingStep, RawDevelop},
-        xyz::Illuminant,
+        matrix::{multiply, normalize},
+        xyz::{Illuminant, SRGB_TO_XYZ_D65},
     },
-    rawimage::{RawImage, RawPhotometricInterpretation},
+    rawimage::{BlackLevel, RawImage, RawImageData, RawPhotometricInterpretation, WhiteLevel},
     rawsource::RawSource,
+    tags::{ExifTag, TiffCommonTag},
 };
+use rayon::prelude::*;
+use std::io::Cursor;
 use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
@@ -344,4 +351,203 @@ pub fn get_fast_demosaic_scale_factor(
         }
     }
     1.0
+}
+
+const DNG_MAX_HEADROOM: f32 = 4.0;
+
+pub struct LinearRawFrame {
+    pub image: Rgb32FImage,
+    pub orientation: Orientation,
+    raw_image: RawImage,
+    metadata: RawMetadata,
+    rgb_to_cam: [[f32; 3]; 3],
+    wb: [f32; 3],
+}
+
+pub fn develop_linear_frame(file_bytes: &[u8]) -> Result<Option<LinearRawFrame>> {
+    let source = RawSource::new_from_slice(file_bytes);
+    let decoder = rawler::get_decoder(&source)?;
+    let params = RawDecodeParams::default();
+    let mut raw_image: RawImage = decoder.raw_image(&source, &params, false)?;
+    let metadata = decoder.raw_metadata(&source, &params)?;
+    let orientation = metadata
+        .exif
+        .orientation
+        .map(Orientation::from_u16)
+        .unwrap_or(Orientation::Normal);
+
+    if !matches!(raw_image.photometric, RawPhotometricInterpretation::Cfa(_)) {
+        return Ok(None);
+    }
+
+    raw_image.wb_coeffs =
+        crate::multi_exposure::neutralize_wb_if_multiexposure(raw_image.wb_coeffs, file_bytes);
+    let wb = [
+        raw_image.wb_coeffs[0],
+        raw_image.wb_coeffs[1],
+        raw_image.wb_coeffs[2],
+    ];
+    if wb.iter().any(|c| !c.is_finite() || *c <= 0.0) {
+        return Ok(None);
+    }
+
+    if !raw_image.color_matrix.contains_key(&Illuminant::D65) {
+        let Some(illuminant) = raw_image.color_matrix.keys().min().copied() else {
+            return Ok(None);
+        };
+        raw_image.color_matrix.retain(|key, _| *key == illuminant);
+    }
+    let Some(color_matrix) = raw_image
+        .color_matrix
+        .get(&Illuminant::D65)
+        .or_else(|| raw_image.color_matrix.values().next())
+    else {
+        return Ok(None);
+    };
+    if color_matrix.len() != 9 {
+        return Ok(None);
+    }
+    let mut xyz_to_cam = [[0.0f32; 3]; 3];
+    for (i, row) in xyz_to_cam.iter_mut().enumerate() {
+        row.copy_from_slice(&color_matrix[i * 3..i * 3 + 3]);
+    }
+    let rgb_to_cam = normalize(multiply(&xyz_to_cam, &SRGB_TO_XYZ_D65));
+
+    let original_white_level = raw_image
+        .whitelevel
+        .0
+        .first()
+        .cloned()
+        .unwrap_or(u16::MAX as u32) as f32;
+    let original_black_level = raw_image
+        .blacklevel
+        .levels
+        .first()
+        .map(|r| r.as_f32())
+        .unwrap_or(0.0);
+    let denominator = (original_white_level - original_black_level).max(1.0);
+    let rescale_factor = (u32::MAX as f32 - original_black_level) / denominator;
+
+    let mut scaled_raw = raw_image.clone();
+    for level in scaled_raw.whitelevel.0.iter_mut() {
+        *level = u32::MAX;
+    }
+    let mut developer = RawDevelop::default();
+    developer.steps.retain(|&step| step != ProcessingStep::SRgb);
+    let Intermediate::ThreeColor(pixels) = developer.develop_intermediate(&scaled_raw)? else {
+        return Ok(None);
+    };
+    drop(scaled_raw);
+
+    let dim = pixels.dim();
+    let mut data = vec![0.0f32; dim.w * dim.h * 3];
+    data.par_chunks_mut(3)
+        .zip(pixels.data.par_iter())
+        .for_each(|(out, p)| {
+            for c in 0..3 {
+                let value = p[c] * rescale_factor;
+                out[c] = if value.is_finite() {
+                    value.max(0.0)
+                } else {
+                    0.0
+                };
+            }
+        });
+    let image = Rgb32FImage::from_raw(dim.w as u32, dim.h as u32, data)
+        .ok_or_else(|| anyhow!("Failed to build linear frame buffer"))?;
+
+    raw_image.data = RawImageData::Integer(Vec::new());
+
+    Ok(Some(LinearRawFrame {
+        image,
+        orientation,
+        raw_image,
+        metadata,
+        rgb_to_cam,
+        wb,
+    }))
+}
+
+pub fn encode_linear_dng(
+    frame: &LinearRawFrame,
+    image: &Rgb32FImage,
+    preview: &DynamicImage,
+) -> Result<Vec<u8>> {
+    let (width, height) = (image.width() as usize, image.height() as usize);
+    let matrix = frame.rgb_to_cam;
+    let wb = frame.wb;
+
+    let to_camera = |rgb: &[f32], c: usize| {
+        (matrix[c][0] * rgb[0] + matrix[c][1] * rgb[1] + matrix[c][2] * rgb[2]) / wb[c]
+    };
+
+    let peak = image
+        .as_raw()
+        .par_chunks(3)
+        .map(|rgb| {
+            to_camera(rgb, 0)
+                .max(to_camera(rgb, 1))
+                .max(to_camera(rgb, 2))
+        })
+        .reduce(|| 1.0f32, f32::max);
+    let headroom = if peak.is_finite() {
+        peak.clamp(1.0, DNG_MAX_HEADROOM)
+    } else {
+        1.0
+    };
+    let white_level = (u16::MAX as f32 / headroom).floor();
+
+    let mut data = vec![0u16; width * height * 3];
+    data.par_chunks_mut(3)
+        .zip(image.as_raw().par_chunks(3))
+        .for_each(|(out, rgb)| {
+            for (c, sample) in out.iter_mut().enumerate() {
+                let value = (to_camera(rgb, c) * white_level).round();
+                *sample = value.clamp(0.0, u16::MAX as f32) as u16;
+            }
+        });
+
+    let mut raw_image = frame.raw_image.clone();
+    raw_image.width = width;
+    raw_image.height = height;
+    raw_image.cpp = 3;
+    raw_image.bps = 16;
+    raw_image.photometric = RawPhotometricInterpretation::LinearRaw;
+    raw_image.whitelevel = WhiteLevel::new(vec![white_level as u32; 3]);
+    raw_image.blacklevel = BlackLevel::zero(1, 1, 3);
+    raw_image.active_area = None;
+    raw_image.crop_area = None;
+    raw_image.blackareas.clear();
+    raw_image.data = RawImageData::Integer(data);
+
+    let mut buffer = Cursor::new(Vec::new());
+    let mut dng = DngWriter::new(&mut buffer, DNG_VERSION_V1_4)?;
+
+    let mut raw = dng.subframe(0);
+    raw.raw_image(
+        &raw_image,
+        CropMode::None,
+        DngCompression::Lossless,
+        DngPhotometricConversion::Original,
+        1,
+    )?;
+    raw.finalize()?;
+    drop(raw_image);
+
+    let mut preview_frame = dng.subframe(1);
+    preview_frame.preview(preview, 0.85)?;
+    preview_frame.finalize()?;
+    dng.thumbnail(preview)?;
+
+    dng.load_base_tags(&frame.raw_image)?;
+    dng.load_metadata(&frame.metadata)?;
+    if !dng.root_ifd().contains(ExifTag::Orientation) {
+        dng.root_ifd_mut()
+            .add_tag(ExifTag::Orientation, frame.orientation.to_u16());
+    }
+    dng.root_ifd_mut()
+        .add_tag(TiffCommonTag::Software, "RapidRAW");
+    dng.close()?;
+
+    Ok(buffer.into_inner())
 }

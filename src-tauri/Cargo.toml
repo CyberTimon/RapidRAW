@@ -113,6 +113,10 @@ rustls-platform-verifier = "0.7"
 reqwest = { version = "0.13", default-features = false, features = ["json", "multipart", "rustls"] }
 include_dir = "0.7.4"
 
+[target.'cfg(target_os = "windows")'.dependencies]
+ort = { version = "=2.0.0-rc.10", features = ["directml"] }
+libloading = "0.8"
+
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "0.18.2"
 webkit2gtk = "=2.0.2"
@@ -123,6 +127,7 @@ tauri-build = { version = "2.6", features = [] }
 sha2 = "0.11"
 reqwest = { version = "0.13", default-features = false, features = ["blocking", "rustls"] }
 hex = "0.4"
+zip = { version = "9.0.0", default-features = false, features = ["deflate"] }
 
 [profile.dev]
 opt-level = 2

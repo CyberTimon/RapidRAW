@@ -2040,6 +2040,17 @@ pub fn run() {
                         #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
                         { "libonnxruntime.so" }
                     };
+                    #[cfg(target_os = "windows")]
+                    {
+                        let directml_path = resource_path.join("DirectML.dll");
+                        if directml_path.exists() {
+                            match libloading::Library::new(&directml_path) {
+                                Ok(library) => std::mem::forget(library),
+                                Err(e) => cli_println!("Failed to preload DirectML: {}", e),
+                            }
+                        }
+                    }
+
                     let ort_library_path = resource_path.join(ort_library_name);
                     std::env::set_var("ORT_DYLIB_PATH", &ort_library_path);
                     cli_println!("Set ORT_DYLIB_PATH to: {}", ort_library_path.display());
