@@ -97,6 +97,9 @@
     },
     "details": {
       "aiDenoise": "Reducció de soroll amb IA",
+      "aiDenoiseAmount": "Quantitat (IA)",
+      "aiDenoiseColor": "Soroll de color (IA)",
+      "aiDenoiseDetail": "Recuperació de detall",
       "aiDenoiseGenerate": "Generar reducció de soroll amb IA",
       "aiDenoiseGenerating": "Generant...",
       "aiDenoiseRawOnly": "Només disponible per a fitxers RAW",

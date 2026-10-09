@@ -97,6 +97,9 @@
     },
     "details": {
       "aiDenoise": "Reducción de ruido con IA",
+      "aiDenoiseAmount": "Cantidad (IA)",
+      "aiDenoiseColor": "Ruido de color (IA)",
+      "aiDenoiseDetail": "Recuperación de detalle",
       "aiDenoiseGenerate": "Generar reducción de ruido con IA",
       "aiDenoiseGenerating": "Generando...",
       "aiDenoiseRawOnly": "Solo disponible para archivos RAW",

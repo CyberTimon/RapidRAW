@@ -97,6 +97,9 @@
     },
     "details": {
       "aiDenoise": "ИИ-шумоподавление",
+      "aiDenoiseAmount": "Степень (ИИ)",
+      "aiDenoiseColor": "Цветовой шум (ИИ)",
+      "aiDenoiseDetail": "Восстановление деталей",
       "aiDenoiseGenerate": "Создать ИИ-шумоподавление",
       "aiDenoiseGenerating": "Создание...",
       "aiDenoiseRawOnly": "Доступно только для файлов RAW",

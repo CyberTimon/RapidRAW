@@ -97,6 +97,9 @@
     },
     "details": {
       "aiDenoise": "AI 降噪",
+      "aiDenoiseAmount": "總量 (AI)",
+      "aiDenoiseColor": "顏色雜訊 (AI)",
+      "aiDenoiseDetail": "細節復原",
       "aiDenoiseGenerate": "產生 AI 降噪",
       "aiDenoiseGenerating": "正在產生...",
       "aiDenoiseRawOnly": "僅適用於 RAW 檔案",

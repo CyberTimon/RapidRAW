@@ -97,6 +97,9 @@
     },
     "details": {
       "aiDenoise": "AI Denoise",
+      "aiDenoiseAmount": "Amount (AI)",
+      "aiDenoiseColor": "Color Noise (AI)",
+      "aiDenoiseDetail": "Detail Recovery",
       "aiDenoiseGenerate": "Generate AI Denoise",
       "aiDenoiseGenerating": "Generating...",
       "aiDenoiseRawOnly": "Only available for RAW files",

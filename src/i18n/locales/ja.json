@@ -97,6 +97,9 @@
     },
     "details": {
       "aiDenoise": "AIノイズ低減",
+      "aiDenoiseAmount": "適用量 (AI)",
+      "aiDenoiseColor": "カラーノイズ (AI)",
+      "aiDenoiseDetail": "ディテールの復元",
       "aiDenoiseGenerate": "AIノイズ低減を生成",
       "aiDenoiseGenerating": "生成中...",
       "aiDenoiseRawOnly": "RAWファイルでのみ利用できます",
