@@ -367,6 +367,7 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 - [Getting Started](#getting-started)
 - [Camera Tethering](#camera-tethering)
 - [Command Line Interface (CLI)](#command-line-interface-cli)
+- [Companion Apps & Ecosystem](#companion-apps--ecosystem)
 - [System Requirements](#system-requirements)
 - [Contributing](#contributing)
 - [Special Thanks](#special-thanks)
@@ -946,6 +947,15 @@ rapidraw export /path/to/photos --output /path/to/output_dir --adjustments /path
 | `--tiff-bit-depth <n>` | TIFF channel depth (`8` or `16`)                                       | `16`              |
 | `--keep-metadata`      | Retain EXIF/capture metadata in exported files                         | `false`           |
 | `--adjustments <path>` | Path to a custom JSON file containing adjustments to override sidecars | _(Auto-detected)_ |
+
+## Companion Apps & Ecosystem
+
+The community has created dedicated standalone companion tools designed to integrate directly with RapidRAW's non-destructive editing workflow and `.rrdata` sidecars:
+
+- **[RapidTimelapse](https://github.com/crispin81/RapidTimelapse)** by [@crispin81](https://github.com/crispin81): An LRTimelapse-style keyframe ramping and deflicker utility. Edit key turning-point frames in RapidRAW, mark them with 5 stars, and RapidTimelapse will smoothly calculate and write interpolated adjustments straight to intermediate `.rrdata` sidecars.
+- **[RapidReady](https://github.com/on370/rapidready)** by [@on370](https://github.com/on370) ([Website](https://rapidready.de/)): A high-speed digital asset manager (DAM), ingest, and culling tool. It offers zero-latency browsing through instant embedded preview extraction, Difference-of-Gradients focus peaking, GPS geotagging, virtual albums, and bidirectional rating and metadata synchronization with RapidRAW.
+
+> Developed a tool, script, or workflow integration for RapidRAW? Please open a pull request to have it listed here!
 
 ## System Requirements
 
