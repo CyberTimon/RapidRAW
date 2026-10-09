@@ -96,6 +96,11 @@
       "resetPoint": "Punktkurve ({{channel}}) zurücksetzen"
     },
     "details": {
+      "aiDenoise": "KI-Entrauschen",
+      "aiDenoiseGenerate": "KI-Entrauschen erzeugen",
+      "aiDenoiseGenerating": "Wird erzeugt...",
+      "aiDenoiseRawOnly": "Nur für RAW-Dateien verfügbar",
+      "aiDenoiseRemove": "KI-Entrauschen entfernen",
       "blueYellow": "Blau/Gelb",
       "centre": "Zentriert",
       "chromaticAberration": "Chromatische Aberration",

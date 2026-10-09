@@ -96,6 +96,11 @@
       "resetPoint": "Restablir corba de punts de {{channel}}"
     },
     "details": {
+      "aiDenoise": "Reducció de soroll amb IA",
+      "aiDenoiseGenerate": "Generar reducció de soroll amb IA",
+      "aiDenoiseGenerating": "Generant...",
+      "aiDenoiseRawOnly": "Només disponible per a fitxers RAW",
+      "aiDenoiseRemove": "Eliminar la reducció de soroll amb IA",
       "blueYellow": "Blau/Groc",
       "centre": "Centre",
       "chromaticAberration": "Aberració cromàtica",

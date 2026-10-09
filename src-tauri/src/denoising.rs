@@ -12,8 +12,9 @@ use std::fs;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering as AtomicOrdering};
-use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Emitter};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::UNIX_EPOCH;
+use tauri::{AppHandle, Emitter, Manager};
 
 struct ProgressReporter<'a> {
     counter: &'a Arc<AtomicUsize>,
@@ -1116,4 +1117,340 @@ fn gaussian_blur_1ch(data: &[f32], width: usize, height: usize, sigma: f32) -> V
     }
 
     out
+}
+
+const AI_DENOISE_FLAG: &str = "aiDenoiseEnabled";
+const AI_DENOISE_LAYER_DIR: &str = "denoise_layers";
+const AI_DENOISE_TILE_QUALITY: f32 = 0.5;
+
+type DenoiseLayerEntry = (String, Arc<DynamicImage>);
+
+struct ActiveDenoiseLayer {
+    path: String,
+    pristine: Arc<DynamicImage>,
+    denoised: Arc<DynamicImage>,
+}
+
+static DENOISE_LAYER_APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
+static DENOISE_LAYER_MEMORY: Mutex<Option<DenoiseLayerEntry>> = Mutex::new(None);
+static ACTIVE_DENOISE_LAYER: Mutex<Option<ActiveDenoiseLayer>> = Mutex::new(None);
+
+pub fn init_ai_denoise_layers(app_handle: &AppHandle) {
+    let _ = DENOISE_LAYER_APP_HANDLE.set(app_handle.clone());
+}
+
+pub fn ai_denoise_enabled(adjustments: &serde_json::Value) -> bool {
+    adjustments
+        .get(AI_DENOISE_FLAG)
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+}
+
+fn denoise_layer_path(app_handle: &AppHandle, source_path: &Path) -> Option<PathBuf> {
+    let metadata = fs::metadata(source_path).ok()?;
+    let modified = metadata
+        .modified()
+        .ok()?
+        .duration_since(UNIX_EPOCH)
+        .ok()?
+        .as_secs();
+
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(source_path.to_string_lossy().as_bytes());
+    hasher.update(&metadata.len().to_le_bytes());
+    hasher.update(&modified.to_le_bytes());
+    let key = hasher.finalize().to_hex();
+
+    let dir = app_handle
+        .path()
+        .app_cache_dir()
+        .ok()?
+        .join(AI_DENOISE_LAYER_DIR);
+    Some(dir.join(format!("{}.dng", &key[..32])))
+}
+
+fn clear_base_image_caches(state: &AppState) {
+    *state
+        .cached_preview
+        .lock()
+        .unwrap_or_else(|e| e.into_inner()) = None;
+    *state
+        .gpu_image_cache
+        .lock()
+        .unwrap_or_else(|e| e.into_inner()) = None;
+    *state
+        .full_warped_cache
+        .lock()
+        .unwrap_or_else(|e| e.into_inner()) = None;
+    crate::cache_utils::clear_preview_stage_caches(state);
+    state
+        .geometry_cache
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clear();
+}
+
+fn restore_pristine_base(state: &AppState) {
+    let active = ACTIVE_DENOISE_LAYER
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .take();
+    let Some(active) = active else {
+        return;
+    };
+
+    let mut restored = false;
+    {
+        let mut guard = state
+            .original_image
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        if let Some(loaded) = guard.as_mut()
+            && loaded.path == active.path
+            && Arc::ptr_eq(&loaded.image, &active.denoised)
+        {
+            loaded.image = active.pristine;
+            restored = true;
+        }
+    }
+    if restored {
+        log::info!("AI denoise layer disabled for {}", active.path);
+        clear_base_image_caches(state);
+    }
+}
+
+fn clear_denoise_layer_caches(state: &AppState) {
+    restore_pristine_base(state);
+    *DENOISE_LAYER_MEMORY
+        .lock()
+        .unwrap_or_else(|e| e.into_inner()) = None;
+    clear_base_image_caches(state);
+}
+
+pub fn sync_denoised_base(state: &AppState, adjustments: &serde_json::Value) {
+    let Some((path, current)) = state
+        .original_image
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_ref()
+        .map(|loaded| (loaded.path.clone(), Arc::clone(&loaded.image)))
+    else {
+        return;
+    };
+
+    let is_active = ACTIVE_DENOISE_LAYER
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_ref()
+        .is_some_and(|active| active.path == path && Arc::ptr_eq(&active.denoised, &current));
+    let wants_denoised = ai_denoise_enabled(adjustments);
+
+    if !is_active {
+        ACTIVE_DENOISE_LAYER
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .take();
+    }
+    if wants_denoised == is_active {
+        return;
+    }
+    if !wants_denoised {
+        restore_pristine_base(state);
+        return;
+    }
+
+    let Some(denoised) = denoised_base(&path, adjustments, Some(current.dimensions())) else {
+        return;
+    };
+
+    let mut swapped = false;
+    {
+        let mut guard = state
+            .original_image
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        if let Some(loaded) = guard.as_mut()
+            && loaded.path == path
+            && Arc::ptr_eq(&loaded.image, &current)
+        {
+            loaded.image = Arc::clone(&denoised);
+            swapped = true;
+        }
+    }
+    if swapped {
+        log::info!("AI denoise layer applied to {}", path);
+        *ACTIVE_DENOISE_LAYER
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(ActiveDenoiseLayer {
+            path,
+            pristine: current,
+            denoised,
+        });
+        clear_base_image_caches(state);
+    }
+}
+
+pub fn denoised_base(
+    source_path: &str,
+    adjustments: &serde_json::Value,
+    expected_dimensions: Option<(u32, u32)>,
+) -> Option<Arc<DynamicImage>> {
+    if !ai_denoise_enabled(adjustments) {
+        return None;
+    }
+
+    let app_handle = DENOISE_LAYER_APP_HANDLE.get()?;
+    let (real_path, _) = parse_virtual_path(source_path);
+    let layer_path = denoise_layer_path(app_handle, &real_path)?;
+    if !layer_path.exists() {
+        return None;
+    }
+
+    let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let (color_nr_amount, sharpening_amount) =
+        crate::image_loader::raw_preprocessing_amounts(&settings);
+    let memory_key = format!(
+        "{}|{}|{}",
+        layer_path.display(),
+        color_nr_amount,
+        sharpening_amount
+    );
+
+    let cached = DENOISE_LAYER_MEMORY
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_ref()
+        .filter(|(key, _)| *key == memory_key)
+        .map(|(_, image)| Arc::clone(image));
+
+    let image = match cached {
+        Some(image) => image,
+        None => {
+            let bytes = fs::read(&layer_path).ok()?;
+            let mut image = match crate::raw_processing::develop_raw_image(
+                &bytes,
+                false,
+                settings.raw_highlight_compression.unwrap_or(2.5),
+                "auto".to_string(),
+                None,
+            ) {
+                Ok(image) => image,
+                Err(e) => {
+                    log::warn!("Failed to load AI denoise layer for {}: {}", source_path, e);
+                    return None;
+                }
+            };
+            if color_nr_amount > 0.0 || sharpening_amount > 0.0 {
+                crate::image_processing::remove_raw_artifacts_and_enhance(
+                    &mut image,
+                    color_nr_amount,
+                    sharpening_amount,
+                );
+            }
+            let image = Arc::new(image);
+            *DENOISE_LAYER_MEMORY
+                .lock()
+                .unwrap_or_else(|e| e.into_inner()) = Some((memory_key, Arc::clone(&image)));
+            image
+        }
+    };
+
+    if expected_dimensions.is_some_and(|dimensions| dimensions != image.dimensions()) {
+        log::warn!(
+            "AI denoise layer for {} has mismatched dimensions",
+            source_path
+        );
+        return None;
+    }
+
+    Some(image)
+}
+
+fn write_ai_denoise_layer(
+    source_path: &Path,
+    layer_path: &Path,
+    app_handle: &AppHandle,
+    session: &Mutex<ort::session::Session>,
+) -> Result<(), String> {
+    let _ = app_handle.emit("denoise-progress", "Loading image...");
+    let file_bytes = fs::read(source_path).map_err(|e| e.to_string())?;
+    let frame = crate::raw_processing::develop_linear_frame(&file_bytes)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| {
+            "AI denoise is only available for Bayer and X-Trans RAW files.".to_string()
+        })?;
+    drop(file_bytes);
+
+    let mut denoised = crate::ai_processing::run_ai_denoise(
+        &frame.image,
+        AI_DENOISE_TILE_QUALITY,
+        session,
+        app_handle,
+    )
+    .map_err(|e| e.to_string())?
+    .into_rgb32f();
+    restore_highlights(&mut denoised, &frame.image);
+
+    let _ = app_handle.emit("denoise-progress", "Finalizing data...");
+    let preview = render_linear_preview(&denoised);
+    let dng = crate::raw_processing::encode_linear_dng(&frame, &denoised, &preview)
+        .map_err(|e| format!("Failed to encode AI denoise layer: {}", e))?;
+
+    if let Some(parent) = layer_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    let temp_path = layer_path.with_extension("tmp");
+    fs::write(&temp_path, dng).map_err(|e| e.to_string())?;
+    fs::rename(&temp_path, layer_path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn generate_ai_denoise_layer(
+    path: String,
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let (source_path, _) = parse_virtual_path(&path);
+    let layer_path = denoise_layer_path(&app_handle, &source_path)
+        .ok_or_else(|| "Could not resolve the AI denoise layer location.".to_string())?;
+
+    let session = crate::ai_processing::get_or_init_denoise_model(
+        &app_handle,
+        &state.ai_state,
+        &state.ai_init_lock,
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let task_handle = app_handle.clone();
+    tokio::task::spawn_blocking(move || {
+        write_ai_denoise_layer(&source_path, &layer_path, &task_handle, &session)
+    })
+    .await
+    .map_err(|e| format!("AI denoise task failed: {}", e))??;
+
+    clear_denoise_layer_caches(&state);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_ai_denoise_layer_status(path: String, app_handle: tauri::AppHandle) -> bool {
+    let (source_path, _) = parse_virtual_path(&path);
+    denoise_layer_path(&app_handle, &source_path).is_some_and(|layer_path| layer_path.exists())
+}
+
+#[tauri::command]
+pub fn delete_ai_denoise_layer(
+    path: String,
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let (source_path, _) = parse_virtual_path(&path);
+    if let Some(layer_path) = denoise_layer_path(&app_handle, &source_path)
+        && layer_path.exists()
+    {
+        fs::remove_file(&layer_path).map_err(|e| e.to_string())?;
+    }
+    clear_denoise_layer_caches(&state);
+    Ok(())
 }
