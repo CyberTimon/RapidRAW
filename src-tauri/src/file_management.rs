@@ -2959,23 +2959,22 @@ pub async fn apply_auto_adjustments_to_paths(
                     existing_metadata.adjustments = serde_json::json!({});
                 }
 
+                let mut active_tools =
+                    crate::image_processing::active_tools(&existing_metadata.adjustments);
+
                 if let (Some(existing_map), Some(auto_map)) = (
                     existing_metadata.adjustments.as_object_mut(),
                     auto_adjustments_json.as_object(),
                 ) {
                     for (k, v) in auto_map {
-                        if k == "sectionVisibility" {
-                            if let Some(existing_vis_val) = existing_map.get_mut(k) {
-                                if let (Some(existing_vis), Some(auto_vis)) =
-                                    (existing_vis_val.as_object_mut(), v.as_object())
-                                {
-                                    for (vis_k, vis_v) in auto_vis {
-                                        existing_vis.insert(vis_k.clone(), vis_v.clone());
-                                    }
-                                }
-                            } else {
-                                existing_map.insert(k.clone(), v.clone());
+                        if k == "activeTools" {
+                            if let Some(auto_tools) = v.as_object() {
+                                active_tools.extend(auto_tools.clone());
                             }
+                            existing_map.insert(
+                                k.clone(),
+                                serde_json::Value::Object(std::mem::take(&mut active_tools)),
+                            );
                         } else {
                             existing_map.insert(k.clone(), v.clone());
                         }

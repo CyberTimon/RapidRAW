@@ -222,7 +222,7 @@ const EditorToolbar = memo(
           colorCalibration: 'Color Calibration',
           toneMapper: 'Tone Mapper',
           showClipping: 'Show Clipping',
-          sectionVisibility: 'Section Visibility',
+          activeTools: 'Tool Visibility',
           flareAmount: 'Flare Amount',
           glowAmount: 'Glow Amount',
           halationAmount: 'Halation Amount',
