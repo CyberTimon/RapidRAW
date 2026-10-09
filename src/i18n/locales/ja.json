@@ -96,6 +96,11 @@
       "resetPoint": "{{channel}} ポイントカーブをリセット"
     },
     "details": {
+      "aiDenoise": "AIノイズ低減",
+      "aiDenoiseGenerate": "AIノイズ低減を生成",
+      "aiDenoiseGenerating": "生成中...",
+      "aiDenoiseRawOnly": "RAWファイルでのみ利用できます",
+      "aiDenoiseRemove": "AIノイズ低減を削除",
       "blueYellow": "ブルー/イエロー",
       "centre": "中央",
       "chromaticAberration": "色収差",

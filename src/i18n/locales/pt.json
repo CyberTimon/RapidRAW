@@ -96,6 +96,11 @@
       "resetPoint": "Redefinir Curva de Pontos {{channel}}"
     },
     "details": {
+      "aiDenoise": "Redução de ruído com IA",
+      "aiDenoiseGenerate": "Gerar redução de ruído com IA",
+      "aiDenoiseGenerating": "Gerando...",
+      "aiDenoiseRawOnly": "Disponível apenas para arquivos RAW",
+      "aiDenoiseRemove": "Remover a redução de ruído com IA",
       "blueYellow": "Azul/Amarelo",
       "centre": "Centro",
       "chromaticAberration": "Aberração Cromática",

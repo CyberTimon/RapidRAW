@@ -96,6 +96,11 @@
       "resetPoint": "{{channel}} 포인트 커브 초기화"
     },
     "details": {
+      "aiDenoise": "AI 노이즈 제거",
+      "aiDenoiseGenerate": "AI 노이즈 제거 생성",
+      "aiDenoiseGenerating": "생성 중...",
+      "aiDenoiseRawOnly": "RAW 파일에서만 사용할 수 있습니다",
+      "aiDenoiseRemove": "AI 노이즈 제거 삭제",
       "blueYellow": "파랑/노랑",
       "centre": "중앙",
       "chromaticAberration": "색수차",

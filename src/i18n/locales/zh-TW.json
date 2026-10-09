@@ -96,6 +96,11 @@
       "resetPoint": "重置 {{channel}} 點曲線"
     },
     "details": {
+      "aiDenoise": "AI 降噪",
+      "aiDenoiseGenerate": "產生 AI 降噪",
+      "aiDenoiseGenerating": "正在產生...",
+      "aiDenoiseRawOnly": "僅適用於 RAW 檔案",
+      "aiDenoiseRemove": "移除 AI 降噪",
       "blueYellow": "藍/黃",
       "centre": "置中",
       "chromaticAberration": "色差",
