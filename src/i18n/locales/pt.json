@@ -209,6 +209,7 @@
     "editor": {
       "autoAdjust": "Ajuste Automático",
       "autoLensCorrection": "Correção automática de lente",
+      "autoStraighten": "Endireitar automaticamente",
       "cancel": "Cancelar",
       "colorLabel": "Rótulo de Cor",
       "confirmReset": "Confirmar Redefinição",
@@ -283,6 +284,9 @@
       "autoAdjust_other": "Ajustar Imagens Automaticamente",
       "autoLensCorrection_one": "Correção automática de lente",
       "autoLensCorrection_other": "Correção automática de lente",
+      "autoStraighten_many": "Endireitar imagens automaticamente",
+      "autoStraighten_one": "Endireitar imagem automaticamente",
+      "autoStraighten_other": "Endireitar imagens automaticamente",
       "collage_many": "Criar Colagem",
       "collage_one": "Emoldurar Imagem",
       "collage_other": "Criar Colagem",
@@ -490,6 +494,8 @@
     },
     "crop": {
       "aspectRatioHeading": "Proporção de Tela",
+      "autoStraightenFailed": "Falha ao endireitar automaticamente: {{error}}",
+      "autoStraightenNoLines": "Nenhuma linha reta encontrada para endireitar",
       "custom": {
         "hPlaceholder": "A",
         "hTooltip": "Altura",
@@ -589,6 +595,7 @@
       "rotationHeading": "Rotação",
       "title": "Cortar e Transformar",
       "tooltips": {
+        "autoStraighten": "Endireitar automaticamente (Shift+S)",
         "compositionOverlay": "Sobreposição de Composição",
         "flipHoriz": "Inverter imagem horizontalmente",
         "flipVert": "Inverter imagem verticalmente",
@@ -1704,6 +1711,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "Endireitar automaticamente",
         "brush_size_down": "Diminuir tamanho do pincel",
         "brush_size_up": "Aumentar tamanho do pincel",
         "color_label_blue": "Rótulo de cor: Azul",

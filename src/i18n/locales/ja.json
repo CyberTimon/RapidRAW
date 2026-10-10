@@ -209,6 +209,7 @@
     "editor": {
       "autoAdjust": "画像を自動補正",
       "autoLensCorrection": "自動レンズ補正",
+      "autoStraighten": "自動角度補正",
       "cancel": "キャンセル",
       "colorLabel": "カラーラベル",
       "confirmReset": "リセットを確認",
@@ -278,6 +279,8 @@
       "autoAdjust_other": "画像を自動補正",
       "autoLensCorrection_one": "自動レンズ補正",
       "autoLensCorrection_other": "自動レンズ補正",
+      "autoStraighten_one": "画像を自動角度補正",
+      "autoStraighten_other": "画像を自動角度補正",
       "collage_one": "画像にフレームを追加",
       "collage_other": "コラージュを作成",
       "confirmDelete": "削除を確認",
@@ -468,6 +471,8 @@
     },
     "crop": {
       "aspectRatioHeading": "アスペクト比",
+      "autoStraightenFailed": "自動角度補正に失敗しました: {{error}}",
+      "autoStraightenNoLines": "補正に使える直線が見つかりません",
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "高さ",
@@ -567,6 +572,7 @@
       "rotationHeading": "回転",
       "title": "切り抜きと変形",
       "tooltips": {
+        "autoStraighten": "自動角度補正（Shift+S）",
         "compositionOverlay": "構図ガイド",
         "flipHoriz": "画像を水平方向に反転",
         "flipVert": "画像を垂直方向に反転",
@@ -1666,6 +1672,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "自動角度補正",
         "brush_size_down": "ブラシサイズを縮小",
         "brush_size_up": "ブラシサイズを拡大",
         "color_label_blue": "カラーラベル: ブルー",

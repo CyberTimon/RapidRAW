@@ -40,7 +40,7 @@ pub struct GuidedResultJson {
 const EPS_INF: f64 = 1e-9;
 const EPS_DEG: f64 = 1e-9;
 
-fn unit_norm(v: [f64; 3]) -> [f64; 3] {
+pub(crate) fn unit_norm(v: [f64; 3]) -> [f64; 3] {
     let n = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
     if n < EPS_INF {
         v
@@ -49,7 +49,7 @@ fn unit_norm(v: [f64; 3]) -> [f64; 3] {
     }
 }
 
-fn cross(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
+pub(crate) fn cross(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
     [
         a[1] * b[2] - a[2] * b[1],
         a[2] * b[0] - a[0] * b[2],

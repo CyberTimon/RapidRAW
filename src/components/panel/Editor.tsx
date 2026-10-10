@@ -26,7 +26,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useAiMasking } from '../../hooks/useAiMasking';
-import { useEditorActions } from '../../hooks/useEditorActions';
+import { useEditorActions, withRotation } from '../../hooks/useEditorActions';
 
 const parseRgb = (rgbStr: string): [number, number, number, number] => {
   const match = rgbStr.match(/[\d.]+/g);
@@ -327,27 +327,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
   const handleStraighten = useCallback(
     (angleCorrection: number) => {
-      setAdjustments((prev: Adjustments) => {
-        const newRotation = (prev.rotation || 0) + angleCorrection;
-        const newCrop =
-          selectedImage?.width && selectedImage?.height
-            ? calculateAutoCropForRotation(
-                selectedImage.width,
-                selectedImage.height,
-                prev.orientationSteps || 0,
-                prev.aspectRatio,
-                newRotation,
-                prev.crop,
-                angleCorrection,
-              )
-            : prev.crop;
-
-        return {
-          ...prev,
-          rotation: newRotation,
-          crop: newCrop,
-        };
-      });
+      setAdjustments((prev: Adjustments) => withRotation(prev, selectedImage, (prev.rotation || 0) + angleCorrection));
       setEditor({ isStraightenActive: false });
     },
     [selectedImage, setAdjustments, setEditor],

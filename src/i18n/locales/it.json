@@ -209,6 +209,7 @@
     "editor": {
       "autoAdjust": "Regolazione Automatica Immagine",
       "autoLensCorrection": "Correzione automatica obiettivo",
+      "autoStraighten": "Raddrizza automaticamente",
       "cancel": "Annulla",
       "colorLabel": "Etichetta Colore",
       "confirmReset": "Conferma Ripristino",
@@ -283,6 +284,9 @@
       "autoAdjust_other": "Regolazione Automatica Immagini",
       "autoLensCorrection_one": "Correzione automatica obiettivo",
       "autoLensCorrection_other": "Correzione automatica obiettivo",
+      "autoStraighten_many": "Raddrizza immagini automaticamente",
+      "autoStraighten_one": "Raddrizza immagine automaticamente",
+      "autoStraighten_other": "Raddrizza immagini automaticamente",
       "collage_many": "Crea Collage",
       "collage_one": "Incornicia Immagine",
       "collage_other": "Crea Collage",
@@ -490,6 +494,8 @@
     },
     "crop": {
       "aspectRatioHeading": "Proporzioni",
+      "autoStraightenFailed": "Raddrizzamento automatico non riuscito: {{error}}",
+      "autoStraightenNoLines": "Nessuna linea retta trovata per raddrizzare",
       "custom": {
         "hPlaceholder": "A",
         "hTooltip": "Altezza",
@@ -589,6 +595,7 @@
       "rotationHeading": "Rotazione",
       "title": "Ritaglio e Trasformazione",
       "tooltips": {
+        "autoStraighten": "Raddrizza automaticamente (Shift+S)",
         "compositionOverlay": "Sovrapposizione Composizione",
         "flipHoriz": "Rifletti immagine orizzontalmente",
         "flipVert": "Rifletti immagine verticalmente",
@@ -1703,6 +1710,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "Raddrizza automaticamente",
         "brush_size_down": "Riduci dimensione pennello",
         "brush_size_up": "Aumenta dimensione pennello",
         "color_label_blue": "Etichetta colore: Blu",

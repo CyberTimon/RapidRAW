@@ -209,6 +209,7 @@
     "editor": {
       "autoAdjust": "Bild autom. anpassen",
       "autoLensCorrection": "Autom. Objektivkorrektur",
+      "autoStraighten": "Automatisch ausrichten",
       "cancel": "Abbrechen",
       "colorLabel": "Farbmarkierung",
       "confirmReset": "Zurücksetzen bestätigen",
@@ -278,6 +279,8 @@
       "autoAdjust_other": "Bilder autom. anpassen",
       "autoLensCorrection_one": "Autom. Objektivkorrektur",
       "autoLensCorrection_other": "Autom. Objektivkorrektur",
+      "autoStraighten_one": "Bild automatisch ausrichten",
+      "autoStraighten_other": "Bilder automatisch ausrichten",
       "collage_one": "Bild rahmen",
       "collage_other": "Collage erstellen",
       "confirmDelete": "Löschen bestätigen",
@@ -470,6 +473,8 @@
     },
     "crop": {
       "aspectRatioHeading": "Seitenverhältnis",
+      "autoStraightenFailed": "Automatisches Ausrichten fehlgeschlagen: {{error}}",
+      "autoStraightenNoLines": "Keine geraden Linien zum Ausrichten gefunden",
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Höhe",
@@ -569,6 +574,7 @@
       "rotationHeading": "Drehung",
       "title": "Zuschnitt & Form",
       "tooltips": {
+        "autoStraighten": "Automatisch ausrichten (Shift+S)",
         "compositionOverlay": "Kompositions-Überlagerung",
         "flipHoriz": "Bild horizontal spiegeln",
         "flipVert": "Bild vertikal spiegeln",
@@ -1668,6 +1674,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "Automatisch ausrichten",
         "brush_size_down": "Pinselgröße verringern",
         "brush_size_up": "Pinselgröße erhöhen",
         "color_label_blue": "Farbmarkierung: Blau",

@@ -312,6 +312,12 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     section: 'editing',
   },
   {
+    action: 'auto_straighten',
+    description: 'settings.keybinds.actions.auto_straighten',
+    defaultCombo: ['shift', 'KeyS'],
+    section: 'editing',
+  },
+  {
     action: 'brush_size_up',
     description: 'settings.keybinds.actions.brush_size_up',
     defaultCombo: ['ctrl', 'ArrowUp'],

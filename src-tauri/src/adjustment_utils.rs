@@ -90,17 +90,25 @@ pub fn hydrate_adjustments(state: &tauri::State<AppState>, adjustments: &mut ser
     }
 }
 
-pub fn apply_spatial_transformations<'a, I: IntoCowImage<'a>>(
+pub fn apply_orientation_and_flip<'a, I: IntoCowImage<'a>>(
     image: I,
     adjustments: &serde_json::Value,
-) -> (Cow<'a, DynamicImage>, (f32, f32)) {
+) -> Cow<'a, DynamicImage> {
     let orientation_steps = adjustments["orientationSteps"].as_u64().unwrap_or(0) as u8;
-    let rotation_degrees = adjustments["rotation"].as_f64().unwrap_or(0.0) as f32;
     let flip_horizontal = adjustments["flipHorizontal"].as_bool().unwrap_or(false);
     let flip_vertical = adjustments["flipVertical"].as_bool().unwrap_or(false);
 
     let coarse_rotated_image = apply_coarse_rotation(image.into_cow(), orientation_steps);
-    let flipped_image = apply_flip(coarse_rotated_image, flip_horizontal, flip_vertical);
+    apply_flip(coarse_rotated_image, flip_horizontal, flip_vertical)
+}
+
+pub fn apply_spatial_transformations<'a, I: IntoCowImage<'a>>(
+    image: I,
+    adjustments: &serde_json::Value,
+) -> (Cow<'a, DynamicImage>, (f32, f32)) {
+    let rotation_degrees = adjustments["rotation"].as_f64().unwrap_or(0.0) as f32;
+
+    let flipped_image = apply_orientation_and_flip(image, adjustments);
     let rotated_image = apply_rotation(flipped_image, rotation_degrees);
 
     let crop_data: Option<Crop> = serde_json::from_value(adjustments["crop"].clone()).ok();

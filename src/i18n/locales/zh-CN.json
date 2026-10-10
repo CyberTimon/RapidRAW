@@ -209,6 +209,7 @@
     "editor": {
       "autoAdjust": "自动调整图像",
       "autoLensCorrection": "自动镜头校正",
+      "autoStraighten": "自动拉直",
       "cancel": "取消",
       "colorLabel": "颜色标签",
       "confirmReset": "确认重置",
@@ -278,6 +279,8 @@
       "autoAdjust_other": "自动调整图像",
       "autoLensCorrection_one": "自动镜头校正",
       "autoLensCorrection_other": "自动镜头校正",
+      "autoStraighten_one": "自动拉直图像",
+      "autoStraighten_other": "自动拉直图像",
       "collage_one": "装裱图像",
       "collage_other": "创建拼贴画",
       "confirmDelete": "确认删除",
@@ -468,6 +471,8 @@
     },
     "crop": {
       "aspectRatioHeading": "宽高比",
+      "autoStraightenFailed": "自动拉直失败：{{error}}",
+      "autoStraightenNoLines": "未找到可用于拉直的直线",
       "custom": {
         "hPlaceholder": "高",
         "hTooltip": "高度",
@@ -567,6 +572,7 @@
       "rotationHeading": "旋转",
       "title": "裁剪与变换",
       "tooltips": {
+        "autoStraighten": "自动拉直（Shift+S）",
         "compositionOverlay": "构图叠加",
         "flipHoriz": "水平翻转图像",
         "flipVert": "垂直翻转图像",
@@ -1666,6 +1672,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "自动拉直",
         "brush_size_down": "减小画笔大小",
         "brush_size_up": "增大画笔大小",
         "color_label_blue": "颜色标签：蓝色",

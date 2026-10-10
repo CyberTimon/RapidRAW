@@ -30,6 +30,7 @@ mod android_integration;
 mod app_settings;
 mod app_state;
 mod apple_raw;
+mod auto_straighten;
 mod cache_utils;
 mod camera_tethering;
 mod culling;
@@ -2390,6 +2391,8 @@ pub fn run() {
             export_processing::estimate_export_sizes,
             image_processing::calculate_auto_adjustments,
             image_processing::sample_white_balance,
+            auto_straighten::calculate_auto_straighten,
+            file_management::apply_auto_straighten_to_paths,
             mask_generation::generate_mask_overlay,
             file_management::update_exif_fields,
             file_management::get_supported_file_types,

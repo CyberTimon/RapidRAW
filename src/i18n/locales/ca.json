@@ -209,6 +209,7 @@
     "editor": {
       "autoAdjust": "Ajustament automàtic",
       "autoLensCorrection": "Correcció d'objectiu automàtica",
+      "autoStraighten": "Redreçar automàticament",
       "cancel": "Cancel·lar",
       "colorLabel": "Etiqueta de color",
       "confirmReset": "Confirmar restabliment",
@@ -278,6 +279,9 @@
       "autoAdjust_other": "Ajustament automàtic de les imatges",
       "autoLensCorrection_one": "Correcció d'objectiu automàtica",
       "autoLensCorrection_other": "Correcció d'objectiu automàtica",
+      "autoStraighten_many": "Redreçar automàticament les imatges",
+      "autoStraighten_one": "Redreçar automàticament la imatge",
+      "autoStraighten_other": "Redreçar automàticament les imatges",
       "collage_one": "Emmarcar imatge",
       "collage_other": "Crear collage",
       "confirmDelete": "Confirmar eliminació",
@@ -470,6 +474,8 @@
     },
     "crop": {
       "aspectRatioHeading": "Relació d'aspecte",
+      "autoStraightenFailed": "No s'ha pogut redreçar automàticament: {{error}}",
+      "autoStraightenNoLines": "No s'han trobat línies rectes per redreçar",
       "custom": {
         "hPlaceholder": "Al",
         "hTooltip": "Alçada",
@@ -569,6 +575,7 @@
       "rotationHeading": "Rotació",
       "title": "Retallar i transformar",
       "tooltips": {
+        "autoStraighten": "Redreçar automàticament (Maj+S)",
         "compositionOverlay": "Superposició de composició",
         "flipHoriz": "Capgirar la imatge horitzontalment",
         "flipVert": "Capgirar la imatge verticalment",
@@ -1670,6 +1677,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "Redreçar automàticament",
         "brush_size_down": "Reduir mida del pinzell",
         "brush_size_up": "Augmentar mida del pinzell",
         "color_label_blue": "Etiqueta de color: Blau",

@@ -209,6 +209,7 @@
     "editor": {
       "autoAdjust": "이미지 자동 조정",
       "autoLensCorrection": "자동 렌즈 교정",
+      "autoStraighten": "자동 수평 맞추기",
       "cancel": "취소",
       "colorLabel": "색상 레이블",
       "confirmReset": "초기화 확인",
@@ -278,6 +279,8 @@
       "autoAdjust_other": "이미지 자동 조정",
       "autoLensCorrection_one": "자동 렌즈 교정",
       "autoLensCorrection_other": "자동 렌즈 교정",
+      "autoStraighten_one": "이미지 자동 수평 맞추기",
+      "autoStraighten_other": "이미지 자동 수평 맞추기",
       "collage_one": "이미지 프레임",
       "collage_other": "콜라주 만들기",
       "confirmDelete": "삭제 확인",
@@ -468,6 +471,8 @@
     },
     "crop": {
       "aspectRatioHeading": "종횡비",
+      "autoStraightenFailed": "자동 수평 맞추기 실패: {{error}}",
+      "autoStraightenNoLines": "수평을 맞출 직선을 찾을 수 없습니다",
       "custom": {
         "hPlaceholder": "높이",
         "hTooltip": "높이",
@@ -567,6 +572,7 @@
       "rotationHeading": "회전",
       "title": "자르기 및 변형",
       "tooltips": {
+        "autoStraighten": "자동 수평 맞추기 (Shift+S)",
         "compositionOverlay": "구도 오버레이",
         "flipHoriz": "이미지를 좌우로 반전",
         "flipVert": "이미지를 상하로 반전",
@@ -1666,6 +1672,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "자동 수평 맞추기",
         "brush_size_down": "브러시 크기 줄이기",
         "brush_size_up": "브러시 크기 늘리기",
         "color_label_blue": "색상 레이블: 파랑",

@@ -209,6 +209,7 @@
     "editor": {
       "autoAdjust": "Auto-korekta obrazu",
       "autoLensCorrection": "Automatyczna korekcja obiektywu",
+      "autoStraighten": "Automatyczne prostowanie",
       "cancel": "Anuluj",
       "colorLabel": "Etykieta koloru",
       "confirmReset": "Potwierdź reset",
@@ -288,6 +289,10 @@
       "autoAdjust_other": "Auto-korekta obrazów",
       "autoLensCorrection_one": "Automatyczna korekcja obiektywu",
       "autoLensCorrection_other": "Automatyczna korekcja obiektywu",
+      "autoStraighten_few": "Automatyczne prostowanie obrazów",
+      "autoStraighten_many": "Automatyczne prostowanie obrazów",
+      "autoStraighten_one": "Automatyczne prostowanie obrazu",
+      "autoStraighten_other": "Automatyczne prostowanie obrazów",
       "collage_few": "Dodaj ramki do obrazów",
       "collage_many": "Utwórz kolaż z {{count}} obrazów",
       "collage_one": "Dodaj ramkę do obrazu",
@@ -510,6 +515,8 @@
     },
     "crop": {
       "aspectRatioHeading": "Proporcje",
+      "autoStraightenFailed": "Automatyczne prostowanie nie powiodło się: {{error}}",
+      "autoStraightenNoLines": "Nie znaleziono prostych linii do wyprostowania",
       "custom": {
         "hPlaceholder": "Wys.",
         "hTooltip": "Wysokość",
@@ -609,6 +616,7 @@
       "rotationHeading": "Obrót",
       "title": "Kadrowanie i Przekształcanie",
       "tooltips": {
+        "autoStraighten": "Automatyczne prostowanie (Shift+S)",
         "compositionOverlay": "Nakładka kompozycji",
         "flipHoriz": "Przerzuć obraz w poziomie",
         "flipVert": "Przerzuć obraz w pionie",
@@ -1740,6 +1748,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "Automatyczne prostowanie",
         "brush_size_down": "Zmniejsz rozmiar pędzla",
         "brush_size_up": "Zwiększ rozmiar pędzla",
         "color_label_blue": "Etykieta koloru: Niebieski",

@@ -25,6 +25,7 @@ import {
   Info,
   Ban,
   Save,
+  Wand2,
 } from 'lucide-react';
 import { useTranslation, Trans } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
@@ -98,10 +99,11 @@ export default function CropPanel() {
   const selectedImage = useEditorStore((s) => s.selectedImage);
   const adjustments = useEditorStore((s) => s.adjustments);
   const isStraightenActive = useEditorStore((s) => s.isStraightenActive);
+  const isAutoStraightening = useEditorStore((s) => s.isAutoStraightening);
   const isGuidedPerspectiveActive = useEditorStore((s) => s.isGuidedPerspectiveActive);
   const activeOverlay = useEditorStore((s) => s.overlayMode);
   const setEditor = useEditorStore((s) => s.setEditor);
-  const { setAdjustments, handleRotate } = useEditorActions();
+  const { setAdjustments, handleRotate, handleAutoStraighten } = useEditorActions();
 
   const [customW, setCustomW] = useState('');
   const [customH, setCustomH] = useState('');
@@ -1000,6 +1002,14 @@ export default function CropPanel() {
                         data-tooltip={t('editor.crop.tooltips.straighten')}
                       >
                         <Ruler size={14} />
+                      </button>
+                      <button
+                        onClick={handleAutoStraighten}
+                        className="p-1.5 rounded-md text-text-secondary transition-colors cursor-pointer hover:bg-card-active hover:text-text-primary disabled:cursor-wait"
+                        data-tooltip={t('editor.crop.tooltips.autoStraighten')}
+                        disabled={isAutoStraightening}
+                      >
+                        {isAutoStraightening ? <Loader size={14} className="animate-spin" /> : <Wand2 size={14} />}
                       </button>
                       <button
                         className="p-1.5 rounded-md text-text-secondary transition-colors cursor-pointer hover:bg-card-active hover:text-text-primary"

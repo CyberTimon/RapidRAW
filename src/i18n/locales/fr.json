@@ -209,6 +209,7 @@
     "editor": {
       "autoAdjust": "Ajustement auto de l'image",
       "autoLensCorrection": "Correction d'objectif automatique",
+      "autoStraighten": "Redresser automatiquement",
       "cancel": "Annuler",
       "colorLabel": "Étiquette de couleur",
       "confirmReset": "Confirmer la réinitialisation",
@@ -283,6 +284,9 @@
       "autoAdjust_other": "Ajustement auto des images",
       "autoLensCorrection_one": "Correction d'objectif automatique",
       "autoLensCorrection_other": "Corrections d'objectif automatiques",
+      "autoStraighten_many": "Redresser les images automatiquement",
+      "autoStraighten_one": "Redresser l'image automatiquement",
+      "autoStraighten_other": "Redresser les images automatiquement",
       "collage_many": "Créer un collage",
       "collage_one": "Encadrer l'image",
       "collage_other": "Créer un collage",
@@ -490,6 +494,8 @@
     },
     "crop": {
       "aspectRatioHeading": "Rapport d'aspect",
+      "autoStraightenFailed": "Échec du redressement automatique : {{error}}",
+      "autoStraightenNoLines": "Aucune ligne droite trouvée pour redresser",
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Hauteur",
@@ -589,6 +595,7 @@
       "rotationHeading": "Rotation",
       "title": "Recadrage & Transformation",
       "tooltips": {
+        "autoStraighten": "Redresser automatiquement (Maj+S)",
         "compositionOverlay": "Superposition de composition",
         "flipHoriz": "Retourner l'image horizontalement",
         "flipVert": "Retourner l'image verticalement",
@@ -1703,6 +1710,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "Redresser automatiquement",
         "brush_size_down": "Diminuer la taille du pinceau",
         "brush_size_up": "Augmenter la taille du pinceau",
         "color_label_blue": "Étiquette de couleur : Bleu",

@@ -209,6 +209,7 @@
     "editor": {
       "autoAdjust": "Auto Adjust Image",
       "autoLensCorrection": "Auto Lens Correction",
+      "autoStraighten": "Auto Straighten",
       "cancel": "Cancel",
       "colorLabel": "Color Label",
       "confirmReset": "Confirm Reset",
@@ -278,6 +279,8 @@
       "autoAdjust_other": "Auto Adjust Images",
       "autoLensCorrection_one": "Auto Lens Correction",
       "autoLensCorrection_other": "Auto Lens Correction",
+      "autoStraighten_one": "Auto Straighten Image",
+      "autoStraighten_other": "Auto Straighten Images",
       "collage_one": "Frame Image",
       "collage_other": "Create Collage",
       "confirmDelete": "Confirm Delete",
@@ -470,6 +473,8 @@
     },
     "crop": {
       "aspectRatioHeading": "Aspect Ratio",
+      "autoStraightenFailed": "Auto straighten failed: {{error}}",
+      "autoStraightenNoLines": "No straight lines found to level from",
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Height",
@@ -569,6 +574,7 @@
       "rotationHeading": "Rotation",
       "title": "Crop & Transform",
       "tooltips": {
+        "autoStraighten": "Auto Straighten (Shift+S)",
         "compositionOverlay": "Composition Overlay",
         "flipHoriz": "Flip image horizontally",
         "flipVert": "Flip image vertically",
@@ -1668,6 +1674,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "Auto straighten",
         "brush_size_down": "Decrease brush size",
         "brush_size_up": "Increase brush size",
         "color_label_blue": "Color label: Blue",
