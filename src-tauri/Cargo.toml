@@ -75,6 +75,14 @@ sysinfo = "0.39.6"
 # alongside tauri 2.11.5; Cargo.lock keeps desktop on 2.8.0/2.5.0.
 tauri-plugin-http = "2.7"
 tauri-plugin-store = "2.4"
+# Native OS HEVC decoders only. backend-rust stays off for patent reasons.
+heic = { git = "https://github.com/imazen/heic.git", rev = "dbf35c02b349f108e06f99a7f459b7e6a5299173", default-features = false, features = [
+    "backend-videotoolbox",
+    "backend-mediafoundation",
+    "backend-d3d11va",
+    "backend-vaapi",
+    "backend-mediacodec",
+] }
 
 [target.'cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))'.dependencies]
 trash = "5.2.6"

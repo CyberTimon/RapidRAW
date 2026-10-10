@@ -76,7 +76,10 @@ pub const NON_RAW_EXTENSIONS: &[&str] = &[
     "tga", "ico", "dds", // Graphics & Icons
     "qoi", "ff", // Simple/Specialist formats
     "pnm", "pbm", "pgm", "ppm", "pam", // Netpbm family
+    "heic", "heif",
 ];
+
+const HEIC_EXTENSIONS: &[&str] = &["heic", "heif"];
 
 pub fn is_raw_file<P: AsRef<Path>>(path: P) -> bool {
     let ext = match path.as_ref().extension().and_then(|s| s.to_str()) {
@@ -87,6 +90,17 @@ pub fn is_raw_file<P: AsRef<Path>>(path: P) -> bool {
     RAW_EXTENSIONS
         .iter()
         .any(|(raw_ext, _)| raw_ext.eq_ignore_ascii_case(ext))
+}
+
+pub fn is_heic_file<P: AsRef<Path>>(path: P) -> bool {
+    let ext = match path.as_ref().extension().and_then(|s| s.to_str()) {
+        Some(e) => e,
+        None => return false,
+    };
+
+    HEIC_EXTENSIONS
+        .iter()
+        .any(|heic_ext| heic_ext.eq_ignore_ascii_case(ext))
 }
 
 pub fn is_supported_image_file<P: AsRef<Path>>(path: P) -> bool {

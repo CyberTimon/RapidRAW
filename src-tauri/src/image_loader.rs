@@ -3,7 +3,7 @@ use crate::app_settings::{AppSettings, load_settings};
 use crate::app_state::{AppState, LoadedImage};
 use crate::exif_processing;
 use crate::file_management::{parse_virtual_path, read_file_mapped};
-use crate::formats::is_raw_file;
+use crate::formats::{is_heic_file, is_raw_file};
 use crate::image_processing::ImageMetadata;
 use crate::image_processing::{
     apply_orientation, apply_srgb_to_linear, remove_raw_artifacts_and_enhance,
@@ -198,7 +198,11 @@ pub fn load_base_image_from_bytes(
             }
         }
     } else {
-        let mut image = load_image_with_orientation(bytes, cancel_token)?;
+        let mut image = if is_heic_file(path_for_ext_check) {
+            crate::heic_processing::decode_heic(bytes, cancel_token)?
+        } else {
+            load_image_with_orientation(bytes, cancel_token)?
+        };
 
         if apply_to_non_raws
             && !use_fast_raw_dev
