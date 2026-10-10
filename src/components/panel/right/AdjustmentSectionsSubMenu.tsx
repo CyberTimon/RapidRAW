@@ -9,7 +9,7 @@ import { AdjustmentLayout } from '../../ui/AppProperties';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import {
   ADJUSTMENT_SECTIONS,
-  ADJUSTMENT_SECTION_TOOLS,
+  ADJUSTMENT_TOOLS_BY_ID,
   AdjustmentSectionTool,
   DEFAULT_HIDDEN_ADJUSTMENT_TOOLS,
   getAdjustmentSectionOrder,
@@ -51,9 +51,6 @@ interface SectionRowProps {
   section: string;
   toolOrder: string[];
 }
-
-const ALL_TOOLS = Object.values(ADJUSTMENT_SECTION_TOOLS).flat();
-const TOOLS_BY_ID = Object.fromEntries(ALL_TOOLS.map((tool) => [tool.id, tool]));
 
 const toggleId = (ids: string[], id: string) => (ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id]);
 
@@ -187,7 +184,7 @@ function SectionRow({
               key={tool}
               onDragEnd={tools.handleDragEnd}
               onToggle={() => onToggleTool(tool)}
-              tool={TOOLS_BY_ID[tool]}
+              tool={ADJUSTMENT_TOOLS_BY_ID[tool]}
             />
           ))}
         </Reorder.Group>
