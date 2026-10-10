@@ -74,6 +74,7 @@ dependencies = [
  "tauri-plugin-store",
  "tauri-plugin-wayland-nvidia-quirk",
  "tempfile",
+ "tiff",
  "tokenizers",
  "tokio",
  "trash",
