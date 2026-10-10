@@ -3958,9 +3958,12 @@ pub fn generate_filename_from_template(
         width = total.to_string().len().max(1)
     );
     let local_date = file_date.with_timezone(&chrono::Local);
+    let stem_prefix = stem.trim_end_matches(|c: char| c.is_ascii_digit());
+    let filename_number = &stem[stem_prefix.len()..];
 
     let mut result = template.to_string();
     result = result.replace("{original_filename}", stem);
+    result = result.replace("{original_filename_number}", filename_number);
     result = result.replace("{sequence}", &sequence_str);
     result = result.replace("{YYYY}", &local_date.format("%Y").to_string());
     result = result.replace("{MM}", &local_date.format("%m").to_string());
@@ -4014,6 +4017,15 @@ pub fn rename_files(
         if new_path.exists() && new_path != original_path {
             return Err(format!(
                 "A file with the name {} already exists.",
+                new_path.display()
+            ));
+        }
+
+        if operations.iter().any(|(other_original, other_new)| {
+            *other_new == new_path && *other_original != original_path
+        }) {
+            return Err(format!(
+                "More than one file would be renamed to {}.",
                 new_path.display()
             ));
         }
