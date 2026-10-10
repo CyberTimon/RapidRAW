@@ -12,7 +12,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { Invokes } from '../ui/AppProperties';
 import { useSettingsStore } from '../../store/useSettingsStore';
 
-export type DenoiseMethod = 'ai' | 'bm3d' | 'raw9';
+export type DenoiseMethod = 'ai_nind' | 'ai_rr' | 'bm3d' | 'raw9';
 
 const defaultIntensityFor = (m: DenoiseMethod) => (m === 'bm3d' ? 15 : 50);
 
@@ -248,7 +248,8 @@ export default function DenoiseModal({
 
   const methodOptions = useMemo<Array<{ label: string; value: DenoiseMethod; disabled?: boolean }>>(
     () => [
-      { label: t('modals.denoise.methodAi'), value: 'ai', disabled: isAiFree },
+      { label: t('modals.denoise.methodAi'), value: 'ai_nind', disabled:isAiFree },
+      { label: t('modals.denoise.methodAiRr'), value: 'ai_rr', disabled:isAiFree },
       { label: t('modals.denoise.methodBm3d'), value: 'bm3d' },
       ...(raw9Available ? [{ label: t('modals.denoise.methodRaw9'), value: 'raw9' as const }] : []),
     ],
