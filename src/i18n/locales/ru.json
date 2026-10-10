@@ -43,6 +43,7 @@
         "shadows": "Тени"
       },
       "hue": "Цветовой тон",
+      "kelvinModeTooltip": "Показывать температуру в кельвинах",
       "localHue": "Локальный оттенок",
       "luminance": "Светимость",
       "mixerColors": {
@@ -119,6 +120,11 @@
       "bokehShape": "Форма боке",
       "creative": "Творчество",
       "feather": "Растушевка",
+      "fog": "Туман",
+      "fogDensity": "Плотность",
+      "fogHeight": "Приземный туман",
+      "fogStart": "Начало",
+      "fogVariation": "Неоднородность",
       "glow": "Свечение",
       "grain": "Зернистость",
       "halation": "Ореол",
@@ -127,9 +133,33 @@
       "lightFlares": "Блики",
       "lut": "LUT",
       "midpoint": "Средняя точка",
+      "relight": "Переосвещение",
+      "relightAddLight": "Добавить свет",
+      "relightAmbient": "Окружающий свет",
+      "relightAngle": "Угол",
+      "relightColor": "Цвет света",
+      "relightCone": "Конус",
+      "relightDepth": "Глубина",
+      "relightElevation": "Высота",
+      "relightFalloff": "Затухание",
+      "relightHint": "Добавьте или выберите источник света, затем щёлкните или перетащите на изображении, чтобы разместить его.",
+      "relightIntensity": "Интенсивность",
+      "relightLight": "Свет {{index}}",
+      "relightRemoveLight": "Удалить свет",
+      "relightShadows": "Тени",
+      "relightShadowSoftness": "Мягкость теней",
+      "relightShine": "Блеск",
+      "relightSoftness": "Мягкость",
+      "relightType": "Тип света",
+      "relightTypes": {
+        "directional": "Направленный",
+        "point": "Точечный",
+        "spot": "Прожектор"
+      },
       "roughness": "Шероховатость",
       "roundness": "Округлость",
       "size": "Размер",
+      "spatial": "Пространственные",
       "vignette": "Виньетирование"
     }
   },
@@ -408,6 +438,7 @@
       "editSettingsTitle": "Настройки редактирования",
       "editsTitle": "Правки",
       "generatingDepthMap": "Расчет карты глубины ИИ...",
+      "generatingNormalMap": "Вычисление ИИ-карты нормалей...",
       "generativeEditTitle": "Генеративное редактирование",
       "inpaintingTitle": "Восстановление",
       "liquify": {
@@ -1018,6 +1049,7 @@
       "noMatch": "Нет изображений, соответствующих фильтру.",
       "rating": {
         "all": "Показать все",
+        "andDownSuffix": "и ниже",
         "andUpSuffix": "и выше",
         "fiveOnly": "Только 5",
         "fourAndUp": "4 и выше",
@@ -1098,6 +1130,11 @@
         "filterByFileType": "Фильтр по формату",
         "filterByFlag": "Фильтр по отметке",
         "filterByRating": "Фильтр по рейтингу",
+        "ratingOperator": {
+          "eq": "Ровно этот рейтинг",
+          "gte": "Этот рейтинг и выше",
+          "lte": "Этот рейтинг и ниже"
+        },
         "groupEditedFiles": "Include edited files in groups",
         "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
         "groupOff": "Off",
@@ -1801,6 +1838,11 @@
             "upgradeBtn": "Приобрести подписку на сайте",
             "upgradeDesc": "Чтобы использовать облачные ИИ-функции, необходима активная подписка."
           },
+          "statuses": {
+            "connecting": "Подключение…",
+            "retry": "Повторить попытку подключения",
+            "unsupported": "Вход в облако в настоящее время доступен только на ПК."
+          },
           "title": "Облачный сервис"
         },
         "connector": {
@@ -1823,9 +1865,17 @@
           "feature3": "Базовая генеративная замена силами процессора",
           "title": "Встроенный ИИ (CPU)"
         },
+        "aiFree": {
+          "description": "Отключает все функции ИИ. Все элементы управления, связанные с ИИ, скрываются из интерфейса, и RapidRAW работает как исключительно традиционный RAW-редактор.",
+          "feature1": "Никаких ИИ-масок, размытия объектива и генеративных правок в интерфейсе",
+          "feature2": "Уже существующие ИИ-правки по-прежнему отображаются как обычно",
+          "feature3": "Более чистый и сосредоточенный интерфейс",
+          "title": "Без ИИ"
+        },
         "description": "Возможности ИИ в RapidRAW спроектированы с упором на гибкость. Выберите оптимальный режим вычислений: от локальных инструментов до высокопроизводительного ИИ-сервера.",
         "providers": {
           "aiConnector": "AI Connector",
+          "aiFree": "Без ИИ",
           "cloud": "Облако",
           "cpu": "Процессор"
         },

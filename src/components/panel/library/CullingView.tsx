@@ -74,7 +74,7 @@ function CullingPreview({
   setShowInfoBar: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
   const { t } = useTranslation();
-  const thumbUrl = useProcessStore((s) => s.thumbnails[image.path]);
+  const thumbUrl = useProcessStore((s) => s.mediumThumbnails[image.path] || s.thumbnails[image.path]);
   const initialPreview = useProcessStore((s) => s.previews[image.path]);
   const setPreview = useProcessStore((s) => s.setPreview);
   const safeThumbKey = thumbUrl || '';

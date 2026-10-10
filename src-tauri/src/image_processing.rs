@@ -1,5 +1,6 @@
 use crate::gpu_processing::WgpuDisplay;
 use crate::guided_perspective::{GuideLine, compute_guided_homography, count_valid_lines};
+use crate::white_balance::{self, WhiteBalance};
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat3, Vec2, Vec3};
 use image::{DynamicImage, GenericImageView, Rgb32FImage, Rgba};
@@ -1203,15 +1204,16 @@ pub fn apply_cpu_default_raw_processing(image: &mut DynamicImage) {
     *image = DynamicImage::ImageRgb32F(f32_image);
 }
 
+fn srgb_channel_to_linear(c: f32) -> f32 {
+    if c <= 0.04045 {
+        c / 12.92
+    } else {
+        ((c + 0.055) / 1.055).powf(2.4)
+    }
+}
+
 pub fn apply_srgb_to_linear(mut image: DynamicImage) -> DynamicImage {
-    let to_linear = |x: f32| -> f32 {
-        let x = x.max(0.0);
-        if x <= 0.04045 {
-            x / 12.92
-        } else {
-            ((x + 0.055) / 1.055).powf(2.4)
-        }
-    };
+    let to_linear = |x: f32| -> f32 { srgb_channel_to_linear(x.max(0.0)) };
 
     match &mut image {
         DynamicImage::ImageRgb32F(img) => {
@@ -1499,13 +1501,13 @@ pub struct GlobalAdjustments {
     pub whites: f32,
     pub blacks: f32,
     pub saturation: f32,
-    pub temperature: f32,
-    pub tint: f32,
     pub vibrance: f32,
     pub hue: f32,
+    pub wb_log_gain_l: f32,
+    pub wb_log_gain_m: f32,
+    pub wb_log_gain_s: f32,
     _pad_color1: f32,
     _pad_color2: f32,
-    _pad_color3: f32,
 
     pub sharpness: f32,
     pub luma_noise_reduction: f32,
@@ -1541,6 +1543,8 @@ pub struct GlobalAdjustments {
     _pad_agx3: f32,
     pub agx_pipe_to_rendering_matrix: GpuMat3,
     pub agx_rendering_to_pipe_matrix: GpuMat3,
+    pub wb_rgb_to_lms_matrix: GpuMat3,
+    pub wb_lms_to_rgb_matrix: GpuMat3,
 
     _pad_cg1: f32,
     _pad_cg2: f32,
@@ -1588,8 +1592,6 @@ pub struct MaskAdjustments {
     pub whites: f32,
     pub blacks: f32,
     pub saturation: f32,
-    pub temperature: f32,
-    pub tint: f32,
     pub vibrance: f32,
 
     pub sharpness: f32,
@@ -1605,8 +1607,10 @@ pub struct MaskAdjustments {
     pub sharpness_threshold: f32,
 
     pub hue: f32,
-    _pad_cg1: f32,
-    _pad_cg2: f32,
+    pub wb_log_gain_l: f32,
+    pub wb_log_gain_m: f32,
+    pub wb_log_gain_s: f32,
+    _pad_wb: f32,
     pub color_grading_shadows: ColorGradeSettings,
     pub color_grading_midtones: ColorGradeSettings,
     pub color_grading_highlights: ColorGradeSettings,
@@ -1653,8 +1657,6 @@ struct AdjustmentScales {
     whites: f32,
     blacks: f32,
     saturation: f32,
-    temperature: f32,
-    tint: f32,
     vibrance: f32,
 
     sharpness: f32,
@@ -1699,11 +1701,9 @@ const SCALES: AdjustmentScales = AdjustmentScales {
     contrast: 100.0,
     highlights: 120.0,
     shadows: 120.0,
-    whites: 30.0,
+    whites: 40.0,
     blacks: 40.0,
     saturation: 100.0,
-    temperature: 25.0,
-    tint: 100.0,
     vibrance: 100.0,
 
     sharpness: 50.0,
@@ -1801,8 +1801,8 @@ fn convert_points_to_aligned(frontend_points: Vec<serde_json::Value>) -> [Point;
     aligned_points
 }
 
-const WP_D65: Vec2 = Vec2::new(0.3127, 0.3290);
-const PRIMARIES_SRGB: [Vec2; 3] = [
+pub(crate) const WP_D65: Vec2 = Vec2::new(0.3127, 0.3290);
+pub(crate) const PRIMARIES_SRGB: [Vec2; 3] = [
     Vec2::new(0.64, 0.33),
     Vec2::new(0.30, 0.60),
     Vec2::new(0.15, 0.06),
@@ -1821,7 +1821,7 @@ fn xy_to_xyz(xy: Vec2) -> Vec3 {
     }
 }
 
-fn primaries_to_xyz_matrix(primaries: &[Vec2; 3], white_point: Vec2) -> Mat3 {
+pub(crate) fn primaries_to_xyz_matrix(primaries: &[Vec2; 3], white_point: Vec2) -> Mat3 {
     let r_xyz = xy_to_xyz(primaries[0]);
     let g_xyz = xy_to_xyz(primaries[1]);
     let b_xyz = xy_to_xyz(primaries[2]);
@@ -2097,25 +2097,33 @@ pub fn is_image_edited(
         return true;
     }
 
-    let current_adj = get_all_adjustments_from_json(adj, is_raw, tonemapper_override);
-    let default_adj =
-        get_all_adjustments_from_json(&serde_json::json!({}), is_raw, tonemapper_override);
+    let reference = WhiteBalance::reference();
+    let current_adj = get_all_adjustments_from_json(adj, is_raw, reference, tonemapper_override);
+    let default_adj = get_all_adjustments_from_json(
+        &serde_json::json!({}),
+        is_raw,
+        reference,
+        tonemapper_override,
+    );
 
     bytemuck::bytes_of(&current_adj) != bytemuck::bytes_of(&default_adj)
+}
+
+fn is_section_visible(adjustments: &serde_json::Value, section: &str) -> bool {
+    adjustments
+        .get("sectionVisibility")
+        .and_then(|v| v.get(section))
+        .and_then(|s| s.as_bool())
+        .unwrap_or(true)
 }
 
 fn get_global_adjustments_from_json(
     js_adjustments: &serde_json::Value,
     is_raw: bool,
+    white_balance_gains: [f32; 3],
     tonemapper_override: Option<u32>,
 ) -> GlobalAdjustments {
-    let visibility = js_adjustments.get("sectionVisibility");
-    let is_visible = |section: &str| -> bool {
-        visibility
-            .and_then(|v| v.get(section))
-            .and_then(|s| s.as_bool())
-            .unwrap_or(true)
-    };
+    let is_visible = |section: &str| is_section_visible(js_adjustments, section);
 
     let get_val = |section: &str, key: &str, scale: f32, default: Option<f64>| -> f32 {
         if is_visible(section) {
@@ -2210,6 +2218,7 @@ fn get_global_adjustments_from_json(
 
     let tone_mapper = js_adjustments["toneMapper"].as_str().unwrap_or("basic");
     let (pipe_to_rendering, rendering_to_pipe) = calculate_agx_matrices();
+    let rgb_to_lms = white_balance::rgb_to_lms();
 
     let (has_lut, lut_intensity, lut_is_scene_referred) = if is_visible("effects") {
         (
@@ -2242,13 +2251,13 @@ fn get_global_adjustments_from_json(
         blacks: get_val("basic", "blacks", SCALES.blacks, None),
 
         saturation: get_val("color", "saturation", SCALES.saturation, None),
-        temperature: get_val("color", "temperature", SCALES.temperature, None),
-        tint: get_val("color", "tint", SCALES.tint, None),
         vibrance: get_val("color", "vibrance", SCALES.vibrance, None),
         hue: get_val("color", "hue", 1.0, None),
+        wb_log_gain_l: white_balance_gains[0],
+        wb_log_gain_m: white_balance_gains[1],
+        wb_log_gain_s: white_balance_gains[2],
         _pad_color1: 0.0,
         _pad_color2: 0.0,
-        _pad_color3: 0.0,
 
         sharpness: get_val("details", "sharpness", SCALES.sharpness, None),
         luma_noise_reduction: get_val(
@@ -2331,6 +2340,8 @@ fn get_global_adjustments_from_json(
         _pad_agx3: 0.0,
         agx_pipe_to_rendering_matrix: pipe_to_rendering,
         agx_rendering_to_pipe_matrix: rendering_to_pipe,
+        wb_rgb_to_lms_matrix: mat3_to_gpu_mat3(rgb_to_lms),
+        wb_lms_to_rgb_matrix: mat3_to_gpu_mat3(rgb_to_lms.inverse()),
 
         _pad_cg1: 0.0,
         _pad_cg2: 0.0,
@@ -2401,18 +2412,15 @@ fn get_global_adjustments_from_json(
     }
 }
 
-fn get_mask_adjustments_from_json(adj: &serde_json::Value) -> MaskAdjustments {
+fn get_mask_adjustments_from_json(
+    adj: &serde_json::Value,
+    global_white_balance: WhiteBalance,
+) -> MaskAdjustments {
     if adj.is_null() {
         return MaskAdjustments::default();
     }
 
-    let visibility = adj.get("sectionVisibility");
-    let is_visible = |section: &str| -> bool {
-        visibility
-            .and_then(|v| v.get(section))
-            .and_then(|s| s.as_bool())
-            .unwrap_or(true)
-    };
+    let is_visible = |section: &str| is_section_visible(adj, section);
 
     let get_val = |section: &str, key: &str, scale: f32| -> f32 {
         if is_visible(section) {
@@ -2444,6 +2452,17 @@ fn get_mask_adjustments_from_json(adj: &serde_json::Value) -> MaskAdjustments {
         Vec::new()
     };
     let cg_obj = adj.get("colorGrading").cloned().unwrap_or_default();
+    let [wb_log_gain_l, wb_log_gain_m, wb_log_gain_s] = if is_visible("color") {
+        white_balance::adaptation_log_gains(
+            global_white_balance,
+            global_white_balance.shifted(
+                adj["temperature"].as_f64().unwrap_or(0.0),
+                adj["tint"].as_f64().unwrap_or(0.0),
+            ),
+        )
+    } else {
+        [0.0; 3]
+    };
 
     MaskAdjustments {
         exposure: get_val("basic", "exposure", SCALES.exposure),
@@ -2455,8 +2474,6 @@ fn get_mask_adjustments_from_json(adj: &serde_json::Value) -> MaskAdjustments {
         blacks: get_val("basic", "blacks", SCALES.blacks),
 
         saturation: get_val("color", "saturation", SCALES.saturation),
-        temperature: get_val("color", "temperature", SCALES.temperature),
-        tint: get_val("color", "tint", SCALES.tint),
         vibrance: get_val("color", "vibrance", SCALES.vibrance),
 
         sharpness: get_val("details", "sharpness", SCALES.sharpness),
@@ -2477,8 +2494,10 @@ fn get_mask_adjustments_from_json(adj: &serde_json::Value) -> MaskAdjustments {
         sharpness_threshold: get_val("details", "sharpnessThreshold", SCALES.sharpness_threshold),
 
         hue: get_val("color", "hue", 1.0),
-        _pad_cg1: 0.0,
-        _pad_cg2: 0.0,
+        wb_log_gain_l,
+        wb_log_gain_m,
+        wb_log_gain_s,
+        _pad_wb: 0.0,
         color_grading_shadows: if is_visible("color") {
             parse_color_grade_settings(&cg_obj["shadows"])
         } else {
@@ -2535,9 +2554,20 @@ fn get_mask_adjustments_from_json(adj: &serde_json::Value) -> MaskAdjustments {
 pub fn get_all_adjustments_from_json(
     js_adjustments: &serde_json::Value,
     is_raw: bool,
+    as_shot_white_balance: WhiteBalance,
     tonemapper_override: Option<u32>,
 ) -> AllAdjustments {
-    let global = get_global_adjustments_from_json(js_adjustments, is_raw, tonemapper_override);
+    let target_white_balance = if is_section_visible(js_adjustments, "color") {
+        white_balance::from_adjustments(js_adjustments, as_shot_white_balance)
+    } else {
+        as_shot_white_balance
+    };
+    let global = get_global_adjustments_from_json(
+        js_adjustments,
+        is_raw,
+        white_balance::adaptation_log_gains(as_shot_white_balance, target_white_balance),
+        tonemapper_override,
+    );
     let mut mask_adjustments = [MaskAdjustments::default(); MAX_MASKS];
     let mut mask_count = 0;
 
@@ -2552,7 +2582,8 @@ pub fn get_all_adjustments_from_json(
         .enumerate()
         .take(MAX_MASKS)
     {
-        mask_adjustments[i] = get_mask_adjustments_from_json(&mask_def.adjustments);
+        mask_adjustments[i] =
+            get_mask_adjustments_from_json(&mask_def.adjustments, target_white_balance);
         mask_count += 1;
     }
 
@@ -3505,4 +3536,175 @@ pub fn calculate_auto_adjustments(
     let results = perform_auto_analysis(&original_image);
 
     Ok(auto_results_to_json(&results))
+}
+
+#[derive(Deserialize, Clone, Copy)]
+pub struct UvPoint {
+    pub x: f64,
+    pub y: f64,
+}
+
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct WhiteBalanceSample {
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+    pub temperature: f32,
+    pub tint: f32,
+    pub count: u32,
+}
+
+const MAX_WB_SAMPLES: f64 = 262_144.0;
+
+fn read_linear_rgb(image: &DynamicImage, x: u32, y: u32, is_raw: bool) -> Option<[f32; 3]> {
+    let rgb = match image {
+        DynamicImage::ImageRgb32F(buf) => {
+            let p = buf.get_pixel(x, y);
+            [p[0], p[1], p[2]]
+        }
+        DynamicImage::ImageRgba32F(buf) => {
+            let p = buf.get_pixel(x, y);
+            [p[0], p[1], p[2]]
+        }
+        _ => {
+            let p = image.crop_imm(x, y, 1, 1).to_rgb32f();
+            let p = p.get_pixel(0, 0);
+            [p[0], p[1], p[2]]
+        }
+    };
+
+    if rgb.iter().any(|c| !c.is_finite()) {
+        return None;
+    }
+
+    let rgb = rgb.map(|c| c.max(0.0));
+    if is_raw {
+        Some(rgb)
+    } else {
+        Some(rgb.map(srgb_channel_to_linear))
+    }
+}
+
+fn point_in_convex_quad(px: f64, py: f64, quad: &[(f64, f64)]) -> bool {
+    let mut has_pos = false;
+    let mut has_neg = false;
+    for i in 0..quad.len() {
+        let (ax, ay) = quad[i];
+        let (bx, by) = quad[(i + 1) % quad.len()];
+        let cross = (bx - ax) * (py - ay) - (by - ay) * (px - ax);
+        if cross > 0.0 {
+            has_pos = true;
+        } else if cross < 0.0 {
+            has_neg = true;
+        }
+        if has_pos && has_neg {
+            return false;
+        }
+    }
+    true
+}
+
+fn compute_white_balance_sample(
+    image: &DynamicImage,
+    is_raw: bool,
+    as_shot: WhiteBalance,
+    corners: &[UvPoint],
+) -> Result<WhiteBalanceSample, String> {
+    if corners.len() < 3 {
+        return Err("At least three corners are required".to_string());
+    }
+
+    let (width, height) = image.dimensions();
+    if width == 0 || height == 0 {
+        return Err("Image is empty".to_string());
+    }
+
+    let quad: Vec<(f64, f64)> = corners
+        .iter()
+        .map(|c| (c.x * width as f64, c.y * height as f64))
+        .collect();
+
+    if quad.iter().any(|(x, y)| !x.is_finite() || !y.is_finite()) {
+        return Err("Invalid sample corners".to_string());
+    }
+
+    let min_x = quad.iter().map(|p| p.0).fold(f64::INFINITY, f64::min);
+    let max_x = quad.iter().map(|p| p.0).fold(f64::NEG_INFINITY, f64::max);
+    let min_y = quad.iter().map(|p| p.1).fold(f64::INFINITY, f64::min);
+    let max_y = quad.iter().map(|p| p.1).fold(f64::NEG_INFINITY, f64::max);
+
+    let start_x = min_x.floor().clamp(0.0, width as f64) as u32;
+    let end_x = max_x.ceil().clamp(0.0, width as f64) as u32;
+    let start_y = min_y.floor().clamp(0.0, height as f64) as u32;
+    let end_y = max_y.ceil().clamp(0.0, height as f64) as u32;
+
+    let area = (end_x.saturating_sub(start_x) as f64) * (end_y.saturating_sub(start_y) as f64);
+    let stride = ((area / MAX_WB_SAMPLES).sqrt().ceil() as usize).max(1);
+
+    let mut sum = [0.0f64; 3];
+    let mut count: u32 = 0;
+
+    for y in (start_y..end_y).step_by(stride) {
+        for x in (start_x..end_x).step_by(stride) {
+            if !point_in_convex_quad(x as f64 + 0.5, y as f64 + 0.5, &quad) {
+                continue;
+            }
+            if let Some(rgb) = read_linear_rgb(image, x, y, is_raw) {
+                sum[0] += rgb[0] as f64;
+                sum[1] += rgb[1] as f64;
+                sum[2] += rgb[2] as f64;
+                count += 1;
+            }
+        }
+    }
+
+    if count == 0 {
+        let cx = quad.iter().map(|p| p.0).sum::<f64>() / quad.len() as f64;
+        let cy = quad.iter().map(|p| p.1).sum::<f64>() / quad.len() as f64;
+        let x = (cx.floor().max(0.0) as u32).min(width - 1);
+        let y = (cy.floor().max(0.0) as u32).min(height - 1);
+        let rgb = read_linear_rgb(image, x, y, is_raw).ok_or("Sampled pixel is invalid")?;
+        sum = [rgb[0] as f64, rgb[1] as f64, rgb[2] as f64];
+        count = 1;
+    }
+
+    let r = (sum[0] / count as f64) as f32;
+    let g = (sum[1] / count as f64) as f32;
+    let b = (sum[2] / count as f64) as f32;
+    let picked = white_balance::pick_white_balance([r as f64, g as f64, b as f64], as_shot)
+        .unwrap_or(as_shot);
+
+    Ok(WhiteBalanceSample {
+        r,
+        g,
+        b,
+        temperature: picked.temperature as f32,
+        tint: picked.tint as f32,
+        count,
+    })
+}
+
+#[tauri::command]
+pub async fn sample_white_balance(
+    corners: Vec<UvPoint>,
+    state: tauri::State<'_, AppState>,
+) -> Result<WhiteBalanceSample, String> {
+    let loaded_image = state
+        .original_image
+        .lock()
+        .unwrap()
+        .clone()
+        .ok_or("No original image loaded")?;
+
+    tokio::task::spawn_blocking(move || {
+        compute_white_balance_sample(
+            &loaded_image.image,
+            loaded_image.is_raw,
+            loaded_image.as_shot_white_balance,
+            &corners,
+        )
+    })
+    .await
+    .map_err(|e| format!("Task execution failed: {}", e))?
 }

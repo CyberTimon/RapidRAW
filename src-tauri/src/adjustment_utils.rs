@@ -120,7 +120,9 @@ pub fn apply_all_transformations<'a, I: IntoCowImage<'a>>(
     let image = image.into_cow();
 
     let warped_image = apply_geometry_warp(image, adjustments);
-    let blurred_image = crate::lens_blur::apply_lens_blur(warped_image, adjustments);
+    let relit_image = crate::relight::apply_relight(warped_image, adjustments);
+    let fogged_image = crate::fog::apply_fog(relit_image, adjustments);
+    let blurred_image = crate::lens_blur::apply_lens_blur(fogged_image, adjustments);
 
     let (cropped_image, unscaled_crop_offset) =
         apply_spatial_transformations(blurred_image, adjustments);

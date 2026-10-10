@@ -85,7 +85,7 @@ export default function Controls() {
   );
 
   const toggleWbPicker = useCallback(
-    () => setEditor((state) => ({ isWbPickerActive: !state.isWbPickerActive })),
+    () => setEditor((state) => ({ isWbPickerActive: !state.isWbPickerActive, isRelightPickerActive: false })),
     [setEditor],
   );
 
@@ -318,6 +318,7 @@ export default function Controls() {
                     handleLutSelect={handleLutSelect}
                     onLutHover={setLutPreviewOverride}
                     appSettings={appSettings}
+                    asShotWhiteBalance={selectedImage.asShotWhiteBalance}
                     isWbPickerActive={isWbPickerActive}
                     toggleWbPicker={toggleWbPicker}
                     onDragStateChange={onDragStateChange}

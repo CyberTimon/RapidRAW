@@ -43,6 +43,7 @@
         "shadows": "Ombres"
       },
       "hue": "To",
+      "kelvinModeTooltip": "Mostra la temperatura en Kelvin",
       "localHue": "To local",
       "luminance": "Luminància",
       "mixerColors": {
@@ -119,6 +120,11 @@
       "bokehShape": "Forma del bokeh",
       "creative": "Creatiu",
       "feather": "Esvaïment",
+      "fog": "Boira",
+      "fogDensity": "Densitat",
+      "fogHeight": "Boira baixa",
+      "fogStart": "Inici",
+      "fogVariation": "Variació",
       "glow": "Resplendor",
       "grain": "Gra",
       "halation": "Halació",
@@ -127,9 +133,33 @@
       "lightFlares": "Esclats de llum",
       "lut": "LUT",
       "midpoint": "Punt mitjà",
+      "relight": "Reil·luminar",
+      "relightAddLight": "Afegeix llum",
+      "relightAmbient": "Ambient",
+      "relightAngle": "Angle",
+      "relightColor": "Color de la llum",
+      "relightCone": "Con",
+      "relightDepth": "Profunditat",
+      "relightElevation": "Elevació",
+      "relightFalloff": "Atenuació",
+      "relightHint": "Afegeix o selecciona una llum i fes clic o arrossega a la imatge per col·locar-la.",
+      "relightIntensity": "Intensitat",
+      "relightLight": "Llum {{index}}",
+      "relightRemoveLight": "Elimina la llum",
+      "relightShadows": "Ombres",
+      "relightShadowSoftness": "Suavitat de les ombres",
+      "relightShine": "Brillantor",
+      "relightSoftness": "Suavitat",
+      "relightType": "Tipus de llum",
+      "relightTypes": {
+        "directional": "Direccional",
+        "point": "Puntual",
+        "spot": "Focus"
+      },
       "roughness": "Rugositat",
       "roundness": "Rodonesa",
       "size": "Mida",
+      "spatial": "Espacial",
       "vignette": "Vinyetatge"
     }
   },
@@ -376,6 +406,7 @@
       "editSettingsTitle": "Configuració d'edició",
       "editsTitle": "Edicions",
       "generatingDepthMap": "S'està calculant el mapa de profunditat d'IA...",
+      "generatingNormalMap": "Calculant el mapa de normals IA...",
       "generativeEditTitle": "Edició generativa",
       "inpaintingTitle": "Inpainting",
       "liquify": {
@@ -972,6 +1003,7 @@
       "noMatch": "No s'ha trobat cap imatge que coincideixi amb el vostre filtre.",
       "rating": {
         "all": "Mostrar-les totes",
+        "andDownSuffix": "i inferior",
         "andUpSuffix": "i superior",
         "fiveOnly": "Només 5",
         "fourAndUp": "4 i superior",
@@ -1052,6 +1084,11 @@
         "filterByFileType": "Filtrar per tipus de fitxer",
         "filterByFlag": "Filtrar per marca",
         "filterByRating": "Filtrar per puntuació",
+        "ratingOperator": {
+          "eq": "Exactament aquesta puntuació",
+          "gte": "Aquesta puntuació o superior",
+          "lte": "Aquesta puntuació o inferior"
+        },
         "groupEditedFiles": "Incloure fitxers editats als grups",
         "groupIgnoreMetadata": "Ignorar dates EXIF no coincidents",
         "groupOff": "Desactivat",
@@ -1731,6 +1768,11 @@
             "upgradeBtn": "Actualitzar al lloc web",
             "upgradeDesc": "Per utilitzar les funcions de la IA al núvol, us cal una subscripció al núvol."
           },
+          "statuses": {
+            "connecting": "Connectant…",
+            "retry": "Tornar a intentar la connexió",
+            "unsupported": "L'inici de sessió al núvol actualment només està disponible a l'escriptori."
+          },
           "title": "Servei al núvol"
         },
         "connector": {
@@ -1753,9 +1795,17 @@
           "feature3": "Substitució generativa simple per CPU",
           "title": "IA integrada (CPU)"
         },
+        "aiFree": {
+          "description": "Desactiva totes les funcions d'IA. Tots els controls relacionats amb la IA s'oculten de la interfície perquè RapidRAW funcioni com un editor RAW purament tradicional.",
+          "feature1": "Sense màscares d'IA, desenfocament de lent ni edicions generatives a la interfície",
+          "feature2": "Les edicions d'IA existents es continuen mostrant amb normalitat",
+          "feature3": "Una interfície més neta i enfocada",
+          "title": "Sense IA"
+        },
         "description": "L'IA de RapidRAW està dissenyada per ser flexible. Trieu el vostre flux de treball ideal, des d'eines locals ràpides fins a un autoallotjament potent.",
         "providers": {
           "aiConnector": "AI Connector",
+          "aiFree": "Sense IA",
           "cloud": "Núvol",
           "cpu": "CPU"
         },

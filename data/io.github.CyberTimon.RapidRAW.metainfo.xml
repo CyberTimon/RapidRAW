@@ -38,6 +38,34 @@
   <url type="homepage">https://github.com/CyberTimon/RapidRAW</url>
 
   <releases>
+    <release version="v1.6.5" date="2026-10-06">
+        <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.6.5</url>
+        <description translate="no">
+            <p>New Features</p>
+            <ul>
+                <li>Kelvin White Balance &amp; Area Sampling: Reads camera-recorded RAW white balance with Kelvin-accurate temperature adjustments, interactive area sampling, and live canvas preview cards.</li>
+                <li>Guided Filter: Replaced standard blurs with an edge-aware filtering pipeline across clarity, structure, dehaze, shadows, and highlights to eliminate halos and preserve micro-textures.</li>
+                <li>Rewritten Whites Slider: Applies smooth targeted curves that brighten the upper tonal range while reinjecting micro-textures to prevent blown-out, flat highlights.</li>
+                <li>Pick &amp; Reject Flags: Speed up culling workflows using dedicated shortcuts and badges, with automatic dimming and batch deletion options for rejected files.</li>
+                <li>RapidRAW Cloud: Optional remote GPU generative cleanups without local hardware setup, processing brush patches securely without RAW files leaving the device.</li>
+                <li>AI-Free Mode: Single-switch mode that hides all generative buttons, AI masks, and neural tools for a distraction-free, contest-compliant workspace.</li>
+                <li>Reorderable Adjustment Panels: Fully modular sidebar allowing dragging, reordering, collapsing, and hiding of individual tools.</li>
+                <li>Savable Aspect Ratios: Custom crop ratios can now be permanently saved as reusable presets.</li>
+            </ul>
+            <p>Core Improvements</p>
+            <ul>
+                <li>Precision Tone Curves: Added a fine-adjust mode alongside colored overlay curves and reference markers for inactive channels.</li>
+                <li>Crop Upgrades: Added Ctrl/Cmd center-anchor resizing and center mark alignment guides.</li>
+                <li>Export Additions: Added border framing and aspect ratio padding, embedded sRGB ICC profiles, and refreshed presets.</li>
+                <li>AI Controls &amp; Progress: Added real-time progress tracking in the interface and the ability to cancel running AI tasks.</li>
+                <li>Color &amp; Metadata Fixes: Enhanced lens EXIF parsing and corrected continuous RAW magenta highlight roll-off.</li>
+                <li>Localization: Added full Dutch translation.</li>
+                <li>Stability &amp; Bug Fixes: General bug fixes, performance optimizations, and backend polish.</li>
+            </ul>
+            <p>Important Note for Upgrading Users</p>
+            <p>Due to the new camera-accurate Kelvin white balance engine and updated tint shaders, existing edits may look slightly different (shifting more magenta or greenish). It is recommended to complete active shoots before upgrading.</p>
+        </description>
+    </release>
     <release version="v1.6.4" date="2026-09-17">
         <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.6.4</url>
         <description translate="no">

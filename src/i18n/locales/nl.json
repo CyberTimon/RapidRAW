@@ -1,4 +1,4 @@
-﻿{
+{
   "adjustments": {
     "basic": {
       "blacks": "Zwarttinten",
@@ -15,7 +15,7 @@
       "reset": "Opnieuw instellen",
       "shadows": "Schaduwen",
       "toneMapper": "Toonmapping",
-      "whites": "Wittinten"   
+      "whites": "Wittinten"
     },
     "color": {
       "ariaSelectColor": "Selecteer {{name}} kleur",
@@ -119,6 +119,11 @@
       "bokehShape": "Bokehvorm",
       "creative": "Creatief",
       "feather": "Randvervaging",
+      "fog": "Mist",
+      "fogDensity": "Dichtheid",
+      "fogHeight": "Grondmist",
+      "fogStart": "Begin",
+      "fogVariation": "Variatie",
       "glow": "Gloed",
       "grain": "Korrel",
       "halation": "Halatie",
@@ -127,9 +132,33 @@
       "lightFlares": "Lensflare",
       "lut": "LUT",
       "midpoint": "Middelpunt",
+      "relight": "Herbelichten",
+      "relightAddLight": "Licht toevoegen",
+      "relightAmbient": "Omgevingslicht",
+      "relightAngle": "Hoek",
+      "relightColor": "Lichtkleur",
+      "relightCone": "Kegel",
+      "relightDepth": "Diepte",
+      "relightElevation": "Elevatie",
+      "relightFalloff": "Afname",
+      "relightHint": "Voeg een licht toe of selecteer er een en klik of sleep in de afbeelding om het te plaatsen.",
+      "relightIntensity": "Intensiteit",
+      "relightLight": "Licht {{index}}",
+      "relightRemoveLight": "Licht verwijderen",
+      "relightShadows": "Schaduwen",
+      "relightShadowSoftness": "Schaduwzachtheid",
+      "relightShine": "Glans",
+      "relightSoftness": "Zachtheid",
+      "relightType": "Lichttype",
+      "relightTypes": {
+        "directional": "Gericht",
+        "point": "Punt",
+        "spot": "Spot"
+      },
       "roughness": "Ruwheid",
       "roundness": "Rondheid",
       "size": "Grootte",
+      "spatial": "Ruimtelijk",
       "vignette": "Vignet"
     }
   },
@@ -177,8 +206,8 @@
       "yellow": "Geel"
     },
     "editor": {
-      "autoAdjust": "Afbeelding automatisch aanpassen",
-      "autoLensCorrection": "Automatische lenscorrectie",
+      "autoAdjust": "Autom. aanpassen",
+      "autoLensCorrection": "Autom. lenscorrectie",
       "cancel": "Annuleren",
       "colorLabel": "Kleurlabel",
       "confirmReset": "Herstellen bevestigen",
@@ -239,10 +268,10 @@
     },
     "thumbnail": {
       "addToAlbum": "Aan album toevoegen",
-      "autoAdjust_one": "Afbeelding automatisch aanpassen",
-      "autoAdjust_other": "Afbeeldingen automatisch aanpassen",
-      "autoLensCorrection_one": "Automatische lenscorrectie",
-      "autoLensCorrection_other": "Automatische lenscorrectie",
+      "autoAdjust_one": "Autom. aanpassen",
+      "autoAdjust_other": "Autom. aanpassen",
+      "autoLensCorrection_one": "Autom. lenscorrectie",
+      "autoLensCorrection_other": "Autom. lenscorrectie",
       "collage_one": "Afbeelding inkaderen",
       "collage_other": "Collage maken",
       "confirmDelete": "Verwijderen bevestigen",
@@ -257,8 +286,8 @@
       "deleteImage_one": "Afbeelding verwijderen",
       "deleteImage_other": "{{count}} afbeeldingen verwijderen",
       "deleteSelected": "Alleen geselecteerde verwijderen",
-      "denoise_one": "Ruis verwijderen uit afbeelding",
-      "denoise_other": "Ruis verwijderen uit afbeeldingen",
+      "denoise_one": "Foto ontruisen",
+      "denoise_other": "Foto's ontruisen",
       "duplicateImage": "Afbeelding dupliceren",
       "exportImage_one": "Afbeelding exporteren",
       "exportImage_other": "{{count}} afbeeldingen exporteren",
@@ -371,6 +400,7 @@
       "editSettingsTitle": "Bewerkingsinstellingen",
       "editsTitle": "Bewerkingen",
       "generatingDepthMap": "AI-dieptekaart berekenen...",
+      "generatingNormalMap": "AI-normaalkaart berekenen...",
       "generativeEditTitle": "Generatieve bewerking",
       "inpaintingTitle": "Inpainting",
       "liquify": {
@@ -961,6 +991,7 @@
       "noMatch": "Geen afbeeldingen gevonden die overeenkomen met uw filter.",
       "rating": {
         "all": "Alles weergeven",
+        "andDownSuffix": "& lager",
         "andUpSuffix": "& hoger",
         "fiveOnly": "Alleen 5",
         "fourAndUp": "4 & hoger",
@@ -1040,6 +1071,11 @@
         "filterByEdited": "Filteren op bewerkingsstatus",
         "filterByFileType": "Filteren op bestandstype",
         "filterByRating": "Filteren op beoordeling",
+        "ratingOperator": {
+          "eq": "Precies deze beoordeling",
+          "gte": "Deze beoordeling of hoger",
+          "lte": "Deze beoordeling of lager"
+        },
         "groupEditedFiles": "Bewerkte bestanden in groepen opnemen",
         "groupIgnoreMetadata": "Niet-overeenkomende EXIF-datums negeren",
         "groupOff": "Uit",
@@ -1292,7 +1328,7 @@
     "denoise": {
       "batchProgressText": "Ruis verwijderen {{current}} van {{total}}...",
       "btnBatchDenoise": "Batch ruisonderdrukking & opslaan",
-      "btnRetry": "Opnieuw proberen",
+      "btnRetry": "Opnieuw",
       "btnSave": "Opslaan",
       "btnStart": "Starten",
       "cancel": "Annuleren",
@@ -1316,8 +1352,8 @@
       "saveSuccess": "Afbeelding succesvol opgeslagen!",
       "speedNotice": "Dit kan enkele minuten duren afhankelijk van de afbeeldingsgrootte en geselecteerde methode.",
       "strengthLabel": "Sterkte",
-      "titleBatch": "Ruis verwijderen uit afbeeldingen",
-      "titleSingle": "Ruis verwijderen uit afbeelding"
+      "titleBatch": "Ruis verwijderen uit foto's",
+      "titleSingle": "Ruis verwijderen uit foto"
     },
     "focusStack": {
       "cancel": "Annuleren",
@@ -1347,7 +1383,7 @@
       "initializing": "Initialiseren...",
       "merging": "HDR samenvoegen",
       "openInEditor": "Openen in editor",
-      "retry": "Opnieuw proberen",
+      "retry": "Opnieuw",
       "save": "Opslaan",
       "savedSuccess": "HDR succesvol opgeslagen!",
       "speedNotice": "Dit kan enkele minuten duren afhankelijk van het aantal en de grootte van uw belichtingen.",
@@ -1434,7 +1470,7 @@
       "failed": "Panorama mislukt",
       "initializing": "Initialiseren...",
       "openInEditor": "Openen in editor",
-      "retry": "Opnieuw proberen",
+      "retry": "Opnieuw",
       "save": "Opslaan",
       "savedSuccess": "Panorama succesvol opgeslagen!",
       "speedNotice": "Dit kan enkele minuten duren afhankelijk van het aantal en de grootte van afbeeldingen.",
@@ -1582,7 +1618,7 @@
       "enableFocusMode": "Focusmodus inschakelen",
       "enableNeutralGreyCanvas": "Neutrale grijze achtergrond inschakelen",
       "enableOsTitlebar": "OS-titelbalk inschakelen",
-      "enableToolFocusMode": "Toolfocusmodus inschakelen",      
+      "enableToolFocusMode": "Toolfocusmodus inschakelen",
       "enableXmpSync": "XMP-synchronisatie inschakelen",
       "focusMode": "Focusmodus",
       "focusModeDesc": "Helpt u te concentreren door andere panelen automatisch te sluiten wanneer u een nieuw paneel opent.",
@@ -1703,6 +1739,11 @@
             "upgradeBtn": "Upgraden op website",
             "upgradeDesc": "Om Cloud AI-functies te gebruiken heeft u een cloudabonnement nodig."
           },
+          "statuses": {
+            "connecting": "Verbinden…",
+            "retry": "Verbinding opnieuw proberen",
+            "unsupported": "Aanmelden bij de cloud is momenteel alleen beschikbaar op desktop."
+          },
           "title": "Cloudservice"
         },
         "connector": {
@@ -1725,9 +1766,17 @@
           "feature3": "Eenvoudige CPU-gebaseerde generatieve vervanging",
           "title": "Ingebouwde AI (CPU)"
         },
+        "aiFree": {
+          "description": "Schakelt alle AI-functies uit. Alle AI-gerelateerde bedieningselementen worden verborgen, zodat RapidRAW werkt als een puur traditionele RAW-editor.",
+          "feature1": "Geen AI-maskers, lensonscherpte of generatieve bewerkingen in de interface",
+          "feature2": "Bestaande AI-bewerkingen worden nog gewoon weergegeven",
+          "feature3": "Een overzichtelijkere, meer gerichte interface",
+          "title": "Zonder AI"
+        },
         "description": "De AI van RapidRAW is gebouwd voor flexibiliteit. Kies uw ideale workflow, van snelle lokale tools tot krachtige zelfhosting.",
         "providers": {
           "aiConnector": "AI-verbinding",
+          "aiFree": "Zonder AI",
           "cloud": "Cloud",
           "cpu": "CPU"
         },

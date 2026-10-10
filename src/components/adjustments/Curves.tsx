@@ -234,6 +234,13 @@ function convertParametricToPoints(settings: ParametricCurveSettings): Array<Coo
   return buildParametricPoints(settings);
 }
 
+const FINE_ADJUSTMENT_MULTIPLIER = 0.2;
+const POINT_HIT_RADIUS_PX = 12;
+const MIN_POINT_GAP_X = 1;
+
+const hasFineAdjustmentModifier = (event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) =>
+  'shiftKey' in event && (event.shiftKey || event.altKey);
+
 export default function CurveGraph({
   adjustments,
   setAdjustments,
@@ -261,6 +268,10 @@ export default function CurveGraph({
 
   const parametricCurves = adjustments?.parametricCurve || DEFAULT_PARAMETRIC_CURVE;
   const parametricCurvesRef = useRef(parametricCurves);
+
+  const lastPointerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const accumulatedPointRef = useRef<Coord>({ x: 0, y: 0 });
+  const accumulatedSplitRef = useRef<number>(0);
 
   useEffect(() => {
     parametricCurvesRef.current = parametricCurves;
@@ -345,17 +356,28 @@ export default function CurveGraph({
 
   useEffect(() => {
     const handleMove = (e: any) => {
+      if (e.touches && e.touches.length === 0) return;
+
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      const isFineAdjust = hasFineAdjustmentModifier(e);
+      const multiplier = isFineAdjust ? FINE_ADJUSTMENT_MULTIPLIER : 1;
+
+      const deltaClientX = clientX - lastPointerRef.current.x;
+      const deltaClientY = clientY - lastPointerRef.current.y;
+      lastPointerRef.current = { x: clientX, y: clientY };
+
       if (isParametricMode && draggingSplitKey) {
         const container = splitterContainerRef.current;
         if (!container) return;
 
         const rect = container.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const rawX = ((clientX - rect.left) / rect.width) * 100;
+        const deltaPercent = (deltaClientX / rect.width) * 100 * multiplier;
+
+        accumulatedSplitRef.current = Math.max(0, Math.min(100, accumulatedSplitRef.current + deltaPercent));
+        let nextValue = accumulatedSplitRef.current;
 
         const minGap = 10;
-        let nextValue = Math.max(0, Math.min(100, rawX));
-
         const currentSettings =
           localParametricSettingsRef.current || parametricCurvesRef.current[activeChannelRef.current];
 
@@ -367,10 +389,11 @@ export default function CurveGraph({
           nextValue = Math.max(currentSettings.split2 + minGap, Math.min(nextValue, 90));
         }
 
+        accumulatedSplitRef.current = nextValue;
+
         const newSettings = { ...currentSettings, [draggingSplitKey]: nextValue };
         localParametricSettingsRef.current = newSettings;
         setLocalParametricSettings(newSettings);
-
         updateParametricValue(draggingSplitKey, nextValue);
 
         if (e.cancelable) e.preventDefault();
@@ -385,24 +408,31 @@ export default function CurveGraph({
         const svg = svgRef.current;
         if (!svg) return;
 
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
         const rect = svg.getBoundingClientRect();
-        let x = Math.max(0, Math.min(255, ((clientX - rect.left) / rect.width) * 255));
-        const y = Math.max(0, Math.min(255, 255 - ((clientY - rect.top) / rect.height) * 255));
+        const deltaX = (deltaClientX / rect.width) * 255 * multiplier;
+        const deltaY = (-deltaClientY / rect.height) * 255 * multiplier;
 
-        const newPoints = [...currentPoints];
-        const SNAP_THRESHOLD = 5;
-        if (x < SNAP_THRESHOLD) x = 0;
-        if (x > 255 - SNAP_THRESHOLD) x = 255;
+        accumulatedPointRef.current.x = Math.max(0, Math.min(255, accumulatedPointRef.current.x + deltaX));
+        accumulatedPointRef.current.y = Math.max(0, Math.min(255, accumulatedPointRef.current.y + deltaY));
 
         const prevX = index > 0 ? currentPoints[index - 1].x : 0;
         const nextX = index < currentPoints.length - 1 ? currentPoints[index + 1].x : 255;
         const minX = index === 0 ? 0 : prevX + 0.01;
         const maxX = index === currentPoints.length - 1 ? 255 : nextX - 0.01;
 
-        x = Math.max(minX, Math.min(maxX, x));
+        accumulatedPointRef.current.x = Math.max(minX, Math.min(maxX, accumulatedPointRef.current.x));
+
+        let x = accumulatedPointRef.current.x;
+        const y = accumulatedPointRef.current.y;
+
+        if (!isFineAdjust) {
+          const SNAP_THRESHOLD = 5;
+          if (x < SNAP_THRESHOLD) x = 0;
+          if (x > 255 - SNAP_THRESHOLD) x = 255;
+          x = Math.max(minX, Math.min(maxX, x));
+        }
+
+        const newPoints = [...currentPoints];
         newPoints[index] = { x, y };
 
         localPointsRef.current = newPoints;
@@ -470,6 +500,12 @@ export default function CurveGraph({
     if (!e.touches) e.preventDefault();
     e.stopPropagation();
 
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+    lastPointerRef.current = { x: clientX, y: clientY };
+    accumulatedPointRef.current = { ...activePoints[index] };
+
     onDragStateChange?.(true);
     setLocalPoints(activePoints);
     localPointsRef.current = activePoints;
@@ -494,18 +530,41 @@ export default function CurveGraph({
 
   const handleContainerStart = (e: any) => {
     if (isParametricMode || (!e.touches && e.button !== 0) || e.target.tagName === 'circle') return;
-    onDragStateChange?.(true);
 
     const svg = svgRef.current;
     if (!svg) return;
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     const rect = svg.getBoundingClientRect();
+
+    let nearestIndex = -1;
+    let nearestDistance = Infinity;
+    activePoints.forEach((p: Coord, i: number) => {
+      const px = rect.left + (p.x / 255) * rect.width;
+      const py = rect.top + ((255 - p.y) / 255) * rect.height;
+      const distance = Math.hypot(clientX - px, clientY - py);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = i;
+      }
+    });
+    if (nearestIndex !== -1 && nearestDistance <= POINT_HIT_RADIUS_PX) {
+      handlePointStart(e, nearestIndex);
+      return;
+    }
+
     const x = Math.max(0, Math.min(255, ((clientX - rect.left) / rect.width) * 255));
     const y = Math.max(0, Math.min(255, 255 - ((clientY - rect.top) / rect.height) * 255));
 
+    if (activePoints.some((p: Coord) => Math.abs(p.x - x) < MIN_POINT_GAP_X)) return;
+
+    onDragStateChange?.(true);
+
     const newPoints = [...activePoints, { x, y }].sort((a: Coord, b: Coord) => a.x - b.x);
     const newPointIndex = newPoints.findIndex((p: Coord) => p.x === x && p.y === y);
+
+    lastPointerRef.current = { x: clientX, y: clientY };
+    accumulatedPointRef.current = { x, y };
 
     setLocalPoints(newPoints);
     localPointsRef.current = newPoints;
@@ -951,12 +1010,16 @@ export default function CurveGraph({
                         onMouseDown={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
+                          lastPointerRef.current = { x: e.clientX, y: e.clientY };
+                          accumulatedSplitRef.current = activeParametricSettings[key];
                           localParametricSettingsRef.current = { ...activeParametricSettings };
                           setDraggingSplitKey(key);
                         }}
                         onTouchStart={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
+                          lastPointerRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                          accumulatedSplitRef.current = activeParametricSettings[key];
                           localParametricSettingsRef.current = { ...activeParametricSettings };
                           setDraggingSplitKey(key);
                         }}

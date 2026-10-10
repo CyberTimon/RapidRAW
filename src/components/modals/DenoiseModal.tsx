@@ -10,6 +10,7 @@ import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { Invokes } from '../ui/AppProperties';
+import { useSettingsStore } from '../../store/useSettingsStore';
 
 export type DenoiseMethod = 'ai_nind' | 'ai_rr' | 'bm3d' | 'raw9';
 
@@ -231,6 +232,7 @@ export default function DenoiseModal({
   targetPaths,
 }: DenoiseModalProps) {
   const { t } = useTranslation();
+  const isAiFree = useSettingsStore((s) => s.appSettings?.aiProvider === 'ai-free');
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
   const [intensity, setIntensity] = useState<number>(15);
@@ -244,14 +246,14 @@ export default function DenoiseModal({
 
   const targetPathsKey = targetPaths.join('\n');
 
-  const methodOptions = useMemo<Array<{ label: string; value: DenoiseMethod }>>(
+  const methodOptions = useMemo<Array<{ label: string; value: DenoiseMethod; disabled?: boolean }>>(
     () => [
-      { label: t('modals.denoise.methodAi'), value: 'ai_nind' },
-      { label: t('modals.denoise.methodAiRr'), value: 'ai_rr' },
+      { label: t('modals.denoise.methodAi'), value: 'ai_nind', disabled:isAiFree },
+      { label: t('modals.denoise.methodAiRr'), value: 'ai_rr', disabled:isAiFree },
       { label: t('modals.denoise.methodBm3d'), value: 'bm3d' },
       ...(raw9Available ? [{ label: t('modals.denoise.methodRaw9'), value: 'raw9' as const }] : []),
     ],
-    [t, raw9Available],
+    [t, raw9Available, isAiFree],
   );
 
   useEffect(() => {
@@ -284,11 +286,11 @@ export default function DenoiseModal({
 
   useEffect(() => {
     if (method === 'raw9' && !raw9Available) {
-      const fallback: DenoiseMethod = isRaw ? 'ai' : 'bm3d';
+      const fallback: DenoiseMethod = isRaw && !isAiFree ? 'ai' : 'bm3d';
       setMethod(fallback);
       setIntensity(defaultIntensityFor(fallback));
     }
-  }, [method, raw9Available, isRaw]);
+  }, [method, raw9Available, isRaw, isAiFree]);
 
   const currentStatusText =
     isBatch && batchProgress
@@ -299,8 +301,9 @@ export default function DenoiseModal({
 
   useEffect(() => {
     if (isOpen) {
-      setMethod(isRaw ? 'ai' : 'bm3d');
-      setIntensity(isRaw ? 50 : 15);
+      const useAi = isRaw && !isAiFree;
+      setMethod(useAi ? 'ai' : 'bm3d');
+      setIntensity(useAi ? 50 : 15);
       setIsMounted(true);
       const timer = setTimeout(() => setShow(true), 10);
       return () => clearTimeout(timer);
@@ -314,7 +317,7 @@ export default function DenoiseModal({
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [isOpen, isRaw]);
+  }, [isOpen, isRaw, isAiFree]);
 
   const handleClose = useCallback(() => {
     if (isSaving) return;

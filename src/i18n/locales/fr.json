@@ -43,6 +43,7 @@
         "shadows": "Ombres"
       },
       "hue": "Teinte",
+      "kelvinModeTooltip": "Afficher la température en Kelvin",
       "localHue": "Teinte locale",
       "luminance": "Luminance",
       "mixerColors": {
@@ -119,6 +120,11 @@
       "bokehShape": "Forme du bokeh",
       "creative": "Créatif",
       "feather": "Contour progressif",
+      "fog": "Brouillard",
+      "fogDensity": "Densité",
+      "fogHeight": "Brouillard au sol",
+      "fogStart": "Début",
+      "fogVariation": "Variation",
       "glow": "Lueur",
       "grain": "Grain",
       "halation": "Halo",
@@ -127,9 +133,33 @@
       "lightFlares": "Reflets",
       "lut": "LUT",
       "midpoint": "Point médian",
+      "relight": "Rééclairage",
+      "relightAddLight": "Ajouter une lumière",
+      "relightAmbient": "Ambiance",
+      "relightAngle": "Angle",
+      "relightColor": "Couleur de la lumière",
+      "relightCone": "Cône",
+      "relightDepth": "Profondeur",
+      "relightElevation": "Élévation",
+      "relightFalloff": "Atténuation",
+      "relightHint": "Ajoutez ou sélectionnez une lumière, puis cliquez ou faites glisser sur l'image pour la positionner.",
+      "relightIntensity": "Intensité",
+      "relightLight": "Lumière {{index}}",
+      "relightRemoveLight": "Supprimer la lumière",
+      "relightShadows": "Ombres",
+      "relightShadowSoftness": "Douceur des ombres",
+      "relightShine": "Brillance",
+      "relightSoftness": "Douceur",
+      "relightType": "Type de lumière",
+      "relightTypes": {
+        "directional": "Directionnelle",
+        "point": "Ponctuelle",
+        "spot": "Projecteur"
+      },
       "roughness": "Rugosité",
       "roundness": "Arrondi",
       "size": "Taille",
+      "spatial": "Spatial",
       "vignette": "Vignettage"
     }
   },
@@ -392,6 +422,7 @@
       "editSettingsTitle": "Paramètres de retouche",
       "editsTitle": "Retouches",
       "generatingDepthMap": "Calcul de la carte de profondeur IA...",
+      "generatingNormalMap": "Calcul de la carte des normales IA...",
       "generativeEditTitle": "Édition générative",
       "inpaintingTitle": "Inpainting",
       "liquify": {
@@ -995,6 +1026,7 @@
       "noMatch": "Aucune image ne correspond à votre filtre.",
       "rating": {
         "all": "Tout afficher",
+        "andDownSuffix": "& moins",
         "andUpSuffix": "& plus",
         "fiveOnly": "5 uniquement",
         "fourAndUp": "4 & plus",
@@ -1075,6 +1107,11 @@
         "filterByFileType": "Filtrer par type de fichier",
         "filterByFlag": "Filtrer par marquage",
         "filterByRating": "Filtrer par note",
+        "ratingOperator": {
+          "eq": "Exactement cette note",
+          "gte": "Cette note ou plus",
+          "lte": "Cette note ou moins"
+        },
         "groupEditedFiles": "Include edited files in groups",
         "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
         "groupOff": "Off",
@@ -1764,6 +1801,11 @@
             "upgradeBtn": "Mettre à niveau sur le site",
             "upgradeDesc": "Pour utiliser les fonctionnalités de l'IA Cloud, vous avez besoin d'un abonnement Cloud."
           },
+          "statuses": {
+            "connecting": "Connexion…",
+            "retry": "Réessayer la connexion",
+            "unsupported": "La connexion au cloud n'est actuellement disponible que sur ordinateur."
+          },
           "title": "Service Cloud"
         },
         "connector": {
@@ -1786,9 +1828,17 @@
           "feature3": "Remplacement génératif basique par CPU",
           "title": "IA intégrée (CPU)"
         },
+        "aiFree": {
+          "description": "Désactive toutes les fonctions d'IA. Toutes les commandes liées à l'IA sont masquées de l'interface afin que RapidRAW fonctionne comme un éditeur RAW purement traditionnel.",
+          "feature1": "Aucun masque IA, flou d'objectif ni retouche générative dans l'interface",
+          "feature2": "Les retouches IA existantes s'affichent toujours normalement",
+          "feature3": "Une interface plus épurée et plus ciblée",
+          "title": "Sans IA"
+        },
         "description": "L'IA de RapidRAW est conçue pour être flexible. Choisissez votre workflow idéal, des outils locaux rapides aux puissantes options d'auto-hébergement.",
         "providers": {
           "aiConnector": "AI Connector",
+          "aiFree": "Sans IA",
           "cloud": "Cloud",
           "cpu": "CPU"
         },

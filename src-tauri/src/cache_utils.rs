@@ -26,12 +26,128 @@ pub const GEOMETRY_KEYS: &[&str] = &[
     "guidedPerspective",
 ];
 
+fn hash_ai_patches(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) {
+    if let Some(patches_val) = adjustments.get("aiPatches")
+        && let Some(patches_arr) = patches_val.as_array()
+    {
+        patches_arr.len().hash(hasher);
+
+        for patch in patches_arr {
+            if let Some(id) = patch.get("id").and_then(|v| v.as_str()) {
+                id.hash(hasher);
+            }
+
+            let is_visible = patch
+                .get("visible")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(true);
+            is_visible.hash(hasher);
+
+            if let Some(patch_data) = patch.get("patchData") {
+                let color_len = patch_data
+                    .get("color")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .len();
+                color_len.hash(hasher);
+
+                let mask_len = patch_data
+                    .get("mask")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .len();
+                mask_len.hash(hasher);
+            } else {
+                let data_len = patch
+                    .get("patchDataBase64")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .len();
+                data_len.hash(hasher);
+            }
+
+            if let Some(sub_masks_val) = patch.get("subMasks") {
+                sub_masks_val.to_string().hash(hasher);
+            }
+
+            let invert = patch
+                .get("invert")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            invert.hash(hasher);
+        }
+    }
+}
+
+fn hash_orientation(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) {
+    adjustments["orientationSteps"]
+        .as_u64()
+        .unwrap_or(0)
+        .hash(hasher);
+    adjustments["rotation"]
+        .as_f64()
+        .unwrap_or(0.0)
+        .to_bits()
+        .hash(hasher);
+    adjustments["flipHorizontal"]
+        .as_bool()
+        .unwrap_or(false)
+        .hash(hasher);
+    adjustments["flipVertical"]
+        .as_bool()
+        .unwrap_or(false)
+        .hash(hasher);
+}
+
+fn hash_effect_keys(adjustments: &serde_json::Value, keys: &[&str], hasher: &mut DefaultHasher) {
+    for key in keys {
+        if let Some(val) = adjustments.get(*key) {
+            key.hash(hasher);
+            match val.as_str() {
+                Some(s) => s.hash(hasher),
+                None => val.to_string().hash(hasher),
+            }
+        }
+    }
+}
+
+pub fn calculate_patch_hash(adjustments: &serde_json::Value) -> u64 {
+    let mut hasher = DefaultHasher::new();
+
+    hash_ai_patches(adjustments, &mut hasher);
+
+    let uses_generated_masks = adjustments
+        .get("aiPatches")
+        .and_then(|v| v.as_array())
+        .is_some_and(|patches| {
+            patches.iter().any(|patch| {
+                patch
+                    .get("patchData")
+                    .and_then(|data| data.get("mask"))
+                    .and_then(|mask| mask.as_str())
+                    .is_none_or(|mask| mask.is_empty())
+            })
+        });
+    uses_generated_masks.hash(&mut hasher);
+
+    if uses_generated_masks {
+        hash_orientation(adjustments, &mut hasher);
+
+        for key in GEOMETRY_KEYS {
+            if let Some(val) = adjustments.get(key) {
+                key.hash(&mut hasher);
+                val.to_string().hash(&mut hasher);
+            }
+        }
+    }
+
+    hasher.finish()
+}
+
 pub fn calculate_geometry_hash(adjustments: &serde_json::Value) -> u64 {
     let mut hasher = DefaultHasher::new();
 
-    if let Some(patches) = adjustments.get("aiPatches") {
-        patches.to_string().hash(&mut hasher);
-    }
+    calculate_patch_hash(adjustments).hash(&mut hasher);
 
     for key in GEOMETRY_KEYS {
         if let Some(val) = adjustments.get(key) {
@@ -47,6 +163,13 @@ pub fn calculate_patched_warped_hash(adjustments: &serde_json::Value) -> u64 {
     let mut hasher = DefaultHasher::new();
 
     calculate_geometry_hash(adjustments).hash(&mut hasher);
+    calculate_effects_hash(adjustments).hash(&mut hasher);
+
+    hasher.finish()
+}
+
+pub fn calculate_effects_hash(adjustments: &serde_json::Value) -> u64 {
+    let mut hasher = DefaultHasher::new();
 
     let effects_visible = adjustments
         .get("sectionVisibility")
@@ -58,23 +181,62 @@ pub fn calculate_patched_warped_hash(adjustments: &serde_json::Value) -> u64 {
     blur_enabled.hash(&mut hasher);
 
     if blur_enabled {
-        let blur_keys = [
-            "lensBlurAmount",
-            "lensBlurDiffusion",
-            "lensBlurShape",
-            "lensBlurMinDepth",
-            "lensBlurMaxDepth",
-            "lensBlurMinFade",
-            "lensBlurMaxFade",
-            "lensBlurDepthMap",
-        ];
+        hash_effect_keys(
+            adjustments,
+            &[
+                "lensBlurAmount",
+                "lensBlurDiffusion",
+                "lensBlurShape",
+                "lensBlurMinDepth",
+                "lensBlurMaxDepth",
+                "lensBlurMinFade",
+                "lensBlurMaxFade",
+                "lensBlurDepthMap",
+            ],
+            &mut hasher,
+        );
+    }
 
-        for key in blur_keys {
-            if let Some(val) = adjustments.get(key) {
-                key.hash(&mut hasher);
-                val.to_string().hash(&mut hasher);
-            }
-        }
+    let relight_enabled =
+        effects_visible && adjustments["relightEnabled"].as_bool().unwrap_or(false);
+    relight_enabled.hash(&mut hasher);
+
+    if relight_enabled {
+        hash_effect_keys(
+            adjustments,
+            &[
+                "relightLights",
+                "relightAmbient",
+                "relightSoftness",
+                "relightShine",
+                "relightShadows",
+                "relightShadowSoftness",
+                "relightNormalMap",
+            ],
+            &mut hasher,
+        );
+    }
+
+    let fog_enabled = effects_visible && adjustments["fogEnabled"].as_bool().unwrap_or(false);
+    fog_enabled.hash(&mut hasher);
+
+    if fog_enabled {
+        hash_effect_keys(
+            adjustments,
+            &[
+                "fogAmount",
+                "fogStart",
+                "fogDensity",
+                "fogHeight",
+                "fogVariation",
+                "fogGlow",
+                "fogTemperature",
+                "fogTint",
+                "fogDepthMap",
+            ],
+            &mut hasher,
+        );
+        hash_orientation(adjustments, &mut hasher);
     }
 
     hasher.finish()
@@ -166,6 +328,49 @@ pub fn calculate_transform_hash(adjustments: &serde_json::Value) -> u64 {
         }
     }
 
+    let relight_enabled =
+        effects_visible && adjustments["relightEnabled"].as_bool().unwrap_or(false);
+    relight_enabled.hash(&mut hasher);
+    if relight_enabled {
+        for key in [
+            "relightLights",
+            "relightAmbient",
+            "relightSoftness",
+            "relightShine",
+            "relightShadows",
+            "relightShadowSoftness",
+        ] {
+            if let Some(val) = adjustments.get(key) {
+                val.to_string().hash(&mut hasher);
+            }
+        }
+        if let Some(val) = adjustments.get("relightNormalMap") {
+            val.as_str().unwrap_or("").len().hash(&mut hasher);
+        }
+    }
+
+    let fog_enabled = effects_visible && adjustments["fogEnabled"].as_bool().unwrap_or(false);
+    fog_enabled.hash(&mut hasher);
+    if fog_enabled {
+        for key in [
+            "fogAmount",
+            "fogStart",
+            "fogDensity",
+            "fogHeight",
+            "fogVariation",
+            "fogGlow",
+            "fogTemperature",
+            "fogTint",
+        ] {
+            if let Some(val) = adjustments.get(key) {
+                val.to_string().hash(&mut hasher);
+            }
+        }
+        if let Some(val) = adjustments.get("fogDepthMap") {
+            val.as_str().unwrap_or("").len().hash(&mut hasher);
+        }
+    }
+
     if let Some(crop_val) = adjustments.get("crop")
         && !crop_val.is_null()
     {
@@ -179,56 +384,7 @@ pub fn calculate_transform_hash(adjustments: &serde_json::Value) -> u64 {
         }
     }
 
-    if let Some(patches_val) = adjustments.get("aiPatches")
-        && let Some(patches_arr) = patches_val.as_array()
-    {
-        patches_arr.len().hash(&mut hasher);
-
-        for patch in patches_arr {
-            if let Some(id) = patch.get("id").and_then(|v| v.as_str()) {
-                id.hash(&mut hasher);
-            }
-
-            let is_visible = patch
-                .get("visible")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(true);
-            is_visible.hash(&mut hasher);
-
-            if let Some(patch_data) = patch.get("patchData") {
-                let color_len = patch_data
-                    .get("color")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .len();
-                color_len.hash(&mut hasher);
-
-                let mask_len = patch_data
-                    .get("mask")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .len();
-                mask_len.hash(&mut hasher);
-            } else {
-                let data_len = patch
-                    .get("patchDataBase64")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .len();
-                data_len.hash(&mut hasher);
-            }
-
-            if let Some(sub_masks_val) = patch.get("subMasks") {
-                sub_masks_val.to_string().hash(&mut hasher);
-            }
-
-            let invert = patch
-                .get("invert")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false);
-            invert.hash(&mut hasher);
-        }
-    }
+    hash_ai_patches(adjustments, &mut hasher);
 
     hasher.finish()
 }
@@ -290,6 +446,29 @@ impl DecodedImageCache {
     }
 }
 
+pub fn clear_preview_stage_caches(state: &AppState) {
+    *state
+        .patched_cache
+        .lock()
+        .unwrap_or_else(|e| e.into_inner()) = None;
+    *state
+        .patched_warped_cache
+        .lock()
+        .unwrap_or_else(|e| e.into_inner()) = None;
+    *state
+        .working_cache
+        .lock()
+        .unwrap_or_else(|e| e.into_inner()) = None;
+    *state
+        .effects_cache
+        .lock()
+        .unwrap_or_else(|e| e.into_inner()) = None;
+    *state
+        .full_transformed_cache
+        .lock()
+        .unwrap_or_else(|e| e.into_inner()) = None;
+}
+
 #[tauri::command]
 pub fn clear_image_caches(state: tauri::State<AppState>) {
     if let Ok(mut decoded_cache) = state.decoded_image_cache.lock() {
@@ -304,12 +483,7 @@ pub fn clear_image_caches(state: tauri::State<AppState>) {
     if let Ok(mut warped_cache) = state.full_warped_cache.lock() {
         *warped_cache = None;
     }
-    if let Ok(mut patched_warped_cache) = state.patched_warped_cache.lock() {
-        *patched_warped_cache = None;
-    }
-    if let Ok(mut transformed_cache) = state.full_transformed_cache.lock() {
-        *transformed_cache = None;
-    }
+    clear_preview_stage_caches(&state);
 }
 
 #[tauri::command]

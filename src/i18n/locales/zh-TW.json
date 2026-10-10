@@ -43,6 +43,7 @@
         "shadows": "陰影"
       },
       "hue": "色相",
+      "kelvinModeTooltip": "以克耳文顯示色溫",
       "localHue": "局部色調",
       "luminance": "亮度",
       "mixerColors": {
@@ -119,6 +120,11 @@
       "bokehShape": "散景形狀",
       "creative": "創意",
       "feather": "羽化",
+      "fog": "霧",
+      "fogDensity": "密度",
+      "fogHeight": "地面霧",
+      "fogStart": "起始距離",
+      "fogVariation": "變化",
       "glow": "發光",
       "grain": "顆粒",
       "halation": "光暈",
@@ -127,9 +133,33 @@
       "lightFlares": "光線耀斑",
       "lut": "LUT",
       "midpoint": "中點",
+      "relight": "重新打光",
+      "relightAddLight": "新增燈光",
+      "relightAmbient": "環境光",
+      "relightAngle": "角度",
+      "relightColor": "燈光顏色",
+      "relightCone": "光錐",
+      "relightDepth": "深度",
+      "relightElevation": "仰角",
+      "relightFalloff": "衰減",
+      "relightHint": "新增或選取一個燈光，然後在影像上點擊或拖曳以放置。",
+      "relightIntensity": "強度",
+      "relightLight": "燈光 {{index}}",
+      "relightRemoveLight": "移除燈光",
+      "relightShadows": "陰影",
+      "relightShadowSoftness": "陰影柔和度",
+      "relightShine": "光澤",
+      "relightSoftness": "柔和度",
+      "relightType": "燈光類型",
+      "relightTypes": {
+        "directional": "平行光",
+        "point": "點光源",
+        "spot": "聚光燈"
+      },
       "roughness": "粗糙度",
       "roundness": "圓度",
       "size": "大小",
+      "spatial": "空間",
       "vignette": "暗角"
     }
   },
@@ -376,6 +406,7 @@
       "editSettingsTitle": "編輯設定",
       "editsTitle": "編輯",
       "generatingDepthMap": "正在計算 AI 深度圖...",
+      "generatingNormalMap": "正在計算 AI 法線貼圖...",
       "generativeEditTitle": "生成式編輯",
       "inpaintingTitle": "影像修復",
       "liquify": {
@@ -970,6 +1001,7 @@
       "noMatch": "未找到匹配過濾條件的影像。",
       "rating": {
         "all": "顯示全部",
+        "andDownSuffix": "及以下",
         "andUpSuffix": "及以上",
         "fiveOnly": "僅 5 星",
         "fourAndUp": "4 星及以上",
@@ -1050,6 +1082,11 @@
         "filterByFileType": "按檔案型別過濾",
         "filterByFlag": "按標記過濾",
         "filterByRating": "按評分過濾",
+        "ratingOperator": {
+          "eq": "僅此評分",
+          "gte": "此評分及以上",
+          "lte": "此評分及以下"
+        },
         "groupEditedFiles": "Include edited files in groups",
         "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
         "groupOff": "Off",
@@ -1727,6 +1764,11 @@
             "upgradeBtn": "在網站上升級",
             "upgradeDesc": "要使用雲端 AI 功能，您需要訂閱雲端服務。"
           },
+          "statuses": {
+            "connecting": "連線中…",
+            "retry": "重試連線",
+            "unsupported": "雲端登入目前僅在桌面裝置上可用。"
+          },
           "title": "雲端服務"
         },
         "connector": {
@@ -1749,9 +1791,17 @@
           "feature3": "簡單的 CPU 生成式替換",
           "title": "內建 AI（CPU）"
         },
+        "aiFree": {
+          "description": "關閉所有 AI 功能。所有與 AI 相關的控制項都會從介面中隱藏，RapidRAW 將作為純傳統的 RAW 編輯器運作。",
+          "feature1": "介面中不顯示 AI 遮色片、鏡頭模糊或生成式編輯",
+          "feature2": "現有的 AI 編輯仍會正常呈現",
+          "feature3": "更簡潔、更專注的介面",
+          "title": "無 AI"
+        },
         "description": "RapidRAW 的 AI 專為靈活性而設計。選擇您理想的工作流程，從快速的本地工具到強大的自託管。",
         "providers": {
           "aiConnector": "AI 聯結器",
+          "aiFree": "無 AI",
           "cloud": "雲端",
           "cpu": "CPU"
         },
