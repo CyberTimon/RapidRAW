@@ -7,6 +7,12 @@ import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 
+function normalizeFolderPath(path: string): string {
+  const isWindowsPath = /^[a-z]:[\\/]/i.test(path) || path.startsWith('\\\\') || path.startsWith('//');
+  const normalized = isWindowsPath ? path.replace(/\\/g, '/').toLowerCase() : path;
+  return normalized.replace(/\/+$/, '') || '/';
+}
+
 interface TauriListenerProps {
   refreshAllFolderTrees: () => void;
   handleSelectSubfolder: (path: string, isNewRoot?: boolean, preloadedImages?: any[], expandParents?: boolean) => void;
@@ -160,21 +166,35 @@ export function useTauriListeners({
       listen('batch-export-progress', (event: any) => {
         if (isEffectActive) useProcessStore.getState().setExportState({ progress: event.payload });
       }),
+      listen<string[]>('export-outputs', (event) => {
+        if (!isEffectActive) return;
+        const currentPath = useLibraryStore.getState().currentFolderPath;
+        if (
+          currentPath &&
+          event.payload.some((path) => normalizeFolderPath(path) === normalizeFolderPath(currentPath))
+        ) {
+          refs.current.refreshAllFolderTrees();
+          refs.current.refreshImageList();
+        }
+      }),
       listen('export-complete', () => {
         if (isEffectActive) useProcessStore.getState().setExportState({ status: Status.Success });
       }),
       listen('export-error', (event: any) => {
-        if (isEffectActive)
+        if (isEffectActive) {
           useProcessStore.getState().setExportState({
             status: Status.Error,
             errorMessage: typeof event.payload === 'string' ? event.payload : 'Unknown error',
           });
+        }
       }),
       listen('export-cancelling', () => {
         if (isEffectActive) useProcessStore.getState().setExportState({ status: Status.Cancelling });
       }),
       listen('export-cancelled', () => {
-        if (isEffectActive) useProcessStore.getState().setExportState({ status: Status.Cancelled });
+        if (isEffectActive) {
+          useProcessStore.getState().setExportState({ status: Status.Cancelled });
+        }
       }),
       listen('import-start', (event: any) => {
         if (isEffectActive)

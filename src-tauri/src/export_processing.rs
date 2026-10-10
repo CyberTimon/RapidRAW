@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::fs;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
@@ -1463,6 +1463,15 @@ fn export_adjustments_as_lut(
     Ok(cube_lut)
 }
 
+fn record_export_folder(path: &Path, folders: &Mutex<BTreeSet<String>>) {
+    if let Some(parent) = path.parent() {
+        folders
+            .lock()
+            .unwrap()
+            .insert(parent.to_string_lossy().into_owned());
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn export_images_impl(
     paths: Vec<String>,
@@ -1562,6 +1571,7 @@ pub(crate) async fn export_images_impl(
         }
 
         let used_paths = Arc::new(Mutex::new(std::collections::HashSet::new()));
+        let output_folders = Arc::new(Mutex::new(BTreeSet::new()));
         let semaphore = Arc::new(tokio::sync::Semaphore::new(num_threads));
         let mut join_handles = Vec::new();
 
@@ -1586,6 +1596,7 @@ pub(crate) async fn export_images_impl(
             let cancellation_token_clone = Arc::clone(&cancellation_token);
             let adjustments_mode = adjustments_mode.clone();
             let used_paths_clone = Arc::clone(&used_paths);
+            let output_folders_clone = Arc::clone(&output_folders);
 
             let handle = tokio::task::spawn_blocking(move || {
                 ensure_export_not_cancelled(&cancellation_token_clone)?;
@@ -1738,6 +1749,7 @@ pub(crate) async fn export_images_impl(
                         }
                         #[cfg(not(target_os = "android"))]
                         fs::write(&output_path, cube_bytes).map_err(|e| e.to_string())?;
+                        record_export_folder(&output_path, &output_folders_clone);
                         ensure_export_not_cancelled(&cancellation_token_clone)?;
                         return Ok(());
                     }
@@ -1817,6 +1829,7 @@ pub(crate) async fn export_images_impl(
                         &source_path_str,
                         &export_settings,
                     )?;
+                    record_export_folder(&output_path, &output_folders_clone);
                     ensure_export_not_cancelled(&cancellation_token_clone)?;
 
                     if export_settings.preserve_timestamps {
@@ -1881,6 +1894,10 @@ pub(crate) async fn export_images_impl(
             &export_state.export_task_token,
             &cancellation_token,
             |cancelled| {
+                let folders: Vec<_> = output_folders.lock().unwrap().iter().cloned().collect();
+                if !folders.is_empty() {
+                    let _ = app_handle.emit("export-outputs", &folders);
+                }
                 if cancelled {
                     log::info!("Batch export cancelled and worker cleanup completed");
                     let _ = app_handle.emit("export-cancelled", ());
@@ -2375,4 +2392,29 @@ pub async fn estimate_export_sizes(
     };
 
     Ok(single_image_extrapolated_size * paths.len())
+}
+
+#[cfg(test)]
+mod export_folder_tests {
+    use super::*;
+
+    #[test]
+    fn deduplicates_written_output_folders() {
+        let folders = Mutex::new(BTreeSet::new());
+        for path in [
+            "exports/scene-a/first.tiff",
+            "exports/scene-a/second.tiff",
+            "photos/edited.cube",
+        ] {
+            record_export_folder(Path::new(path), &folders);
+        }
+        assert_eq!(
+            folders
+                .into_inner()
+                .unwrap()
+                .into_iter()
+                .collect::<Vec<_>>(),
+            vec!["exports/scene-a", "photos"]
+        );
+    }
 }
