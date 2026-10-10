@@ -297,6 +297,25 @@ pub struct ImageFile {
     group_id: Option<String>,
 }
 
+impl ImageFile {
+    pub fn placeholder(path: String, modified: u64) -> Self {
+        let is_raw = crate::formats::is_raw_file(&path);
+        Self {
+            path,
+            modified,
+            is_edited: false,
+            rating: 0,
+            flag: None,
+            tags: None,
+            exif: None,
+            is_virtual_copy: false,
+            is_cloud_placeholder: true,
+            is_raw,
+            group_id: None,
+        }
+    }
+}
+
 fn make_group_key(source_path: &Path) -> String {
     let parent = source_path.parent().unwrap_or(Path::new(""));
     let stem = source_path.file_stem().unwrap_or_default();
@@ -1373,6 +1392,10 @@ pub fn is_cloud_placeholder(path: &Path) -> bool {
     use std::os::unix::ffi::OsStrExt;
     const SF_DATALESS: u32 = 0x4000_0000;
 
+    if crate::immich::is_placeholder(path) {
+        return true;
+    }
+
     let c_path = match std::ffi::CString::new(path.as_os_str().as_bytes()) {
         Ok(p) => p,
         Err(_) => return false,
@@ -1383,8 +1406,8 @@ pub fn is_cloud_placeholder(path: &Path) -> bool {
 }
 
 #[cfg(not(target_os = "macos"))]
-pub fn is_cloud_placeholder(_path: &Path) -> bool {
-    false
+pub fn is_cloud_placeholder(path: &Path) -> bool {
+    crate::immich::is_placeholder(path)
 }
 
 pub fn read_file_mapped(path: &Path) -> Result<Mmap, ReadFileError> {
@@ -1837,6 +1860,12 @@ fn generate_single_thumbnail_and_cache(
     } else {
         (0, false, Vec::new())
     };
+
+    if let Some(remote) =
+        crate::immich::placeholder_thumbnail(app_handle, path_str, thumb_cache_dir)
+    {
+        return remote.map(|(small, medium)| (small, medium, rating, is_edited));
+    }
 
     let cache_hash = compute_thumbnail_cache_hash(path_str, &adjustments_bytes)?;
 
