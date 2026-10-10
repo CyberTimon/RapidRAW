@@ -96,6 +96,14 @@
       "resetPoint": "Resetuj krzywą punktową ({{channel}})"
     },
     "details": {
+      "aiDenoise": "Odszumianie AI",
+      "aiDenoiseAmount": "Ilość (AI)",
+      "aiDenoiseColor": "Szum kolorów (AI)",
+      "aiDenoiseDetail": "Odzyskiwanie szczegółów",
+      "aiDenoiseGenerate": "Generuj odszumianie AI",
+      "aiDenoiseGenerating": "Generowanie...",
+      "aiDenoiseRawOnly": "Dostępne tylko dla plików RAW",
+      "aiDenoiseRemove": "Usuń odszumianie AI",
       "blueYellow": "Niebieski/Żółty",
       "centre": "Środek",
       "chromaticAberration": "Aberracja chromatyczna",

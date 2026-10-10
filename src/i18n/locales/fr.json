@@ -96,6 +96,14 @@
       "resetPoint": "Réinitialiser la courbe à points {{channel}}"
     },
     "details": {
+      "aiDenoise": "Débruitage IA",
+      "aiDenoiseAmount": "Quantité (IA)",
+      "aiDenoiseColor": "Bruit de couleur (IA)",
+      "aiDenoiseDetail": "Récupération des détails",
+      "aiDenoiseGenerate": "Générer le débruitage IA",
+      "aiDenoiseGenerating": "Génération...",
+      "aiDenoiseRawOnly": "Disponible uniquement pour les fichiers RAW",
+      "aiDenoiseRemove": "Supprimer le débruitage IA",
       "blueYellow": "Bleu/Jaune",
       "centre": "Centre",
       "chromaticAberration": "Aberration chromatique",

@@ -95,6 +95,14 @@
       "resetPoint": "{{channel}} puntcurve herstellen"
     },
     "details": {
+      "aiDenoise": "AI-ruisonderdrukking",
+      "aiDenoiseAmount": "Hoeveelheid (AI)",
+      "aiDenoiseColor": "Kleurruis (AI)",
+      "aiDenoiseDetail": "Detailherstel",
+      "aiDenoiseGenerate": "AI-ruisonderdrukking genereren",
+      "aiDenoiseGenerating": "Genereren...",
+      "aiDenoiseRawOnly": "Alleen beschikbaar voor RAW-bestanden",
+      "aiDenoiseRemove": "AI-ruisonderdrukking verwijderen",
       "blueYellow": "Blauw/Geel",
       "centre": "Centrum",
       "chromaticAberration": "Chromatische aberratie",
