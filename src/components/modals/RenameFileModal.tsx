@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FILENAME_VARIABLES } from '../ui/ExportImportProperties';
+import { FILENAME_VARIABLES, isUniqueFilenameTemplate } from '../ui/ExportImportProperties';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
 
@@ -48,14 +48,10 @@ export default function RenameFileModal({ filesToRename, isOpen, onClose, onSave
   const handleSave = useCallback(() => {
     const trimmed = nameTemplate.trim();
     if (trimmed) {
-      let finalTemplate = trimmed;
-      if (!isSingleFile && !finalTemplate.includes('{sequence}') && !finalTemplate.includes('{original_filename}')) {
-        finalTemplate = `${finalTemplate}_{sequence}`;
-      }
-      onSave(finalTemplate);
+      onSave(trimmed);
       onClose();
     }
-  }, [nameTemplate, onSave, onClose, isSingleFile]);
+  }, [nameTemplate, onSave, onClose]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -141,6 +137,11 @@ export default function RenameFileModal({ filesToRename, isOpen, onClose, onSave
                   </button>
                 ))}
               </div>
+            )}
+            {!isSingleFile && !isUniqueFilenameTemplate(nameTemplate) && (
+              <Text variant={TextVariants.small} className="mt-2">
+                {t('modals.renameFile.notUniqueWarning')}
+              </Text>
             )}
           </div>
         </div>

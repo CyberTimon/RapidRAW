@@ -22,6 +22,7 @@ export const FILE_FORMATS: Array<FileFormat> = [
 
 export const FILENAME_VARIABLES: Array<string> = [
   '{original_filename}',
+  '{original_filename_number}',
   '{sequence}',
   '{YYYY}',
   '{MM}',
@@ -29,6 +30,11 @@ export const FILENAME_VARIABLES: Array<string> = [
   '{hh}',
   '{mm}',
 ];
+
+const UNIQUE_FILENAME_VARIABLES: Array<string> = ['{original_filename}', '{original_filename_number}', '{sequence}'];
+
+export const isUniqueFilenameTemplate = (template: string): boolean =>
+  UNIQUE_FILENAME_VARIABLES.some((variable) => template.includes(variable));
 
 export type TiffBitDepth = 8 | 16;
 
