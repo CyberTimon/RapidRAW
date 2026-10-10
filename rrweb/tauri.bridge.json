@@ -1,0 +1,12 @@
+{
+  "productName": "RapidRAW Web Bridge",
+  "mainBinaryName": "rapidraw-web-bridge",
+  "identifier": "io.github.CyberTimon.RapidRAW.Web",
+  "build": {
+    "beforeBuildCommand": "node rrweb/gen-events.mjs && npx vite build --config rrweb/vite.bridge.config.mjs",
+    "frontendDist": "../rrweb/dist-bridge"
+  },
+  "bundle": {
+    "fileAssociations": []
+  }
+}

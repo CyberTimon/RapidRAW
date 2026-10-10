@@ -1,0 +1,9 @@
+dist-web/
+dist-bridge/
+relay/node_modules/
+bridge/events.ts
+bundle/bin/
+bundle/tauri.bundle.json
+fuse/target/
+fuse/x86_64/
+fuse/aarch64/
