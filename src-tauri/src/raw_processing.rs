@@ -3,13 +3,15 @@ use crate::white_balance::WhiteBalance;
 use anyhow::{Result, anyhow};
 use image::{DynamicImage, ImageBuffer, Rgba};
 use rawler::{
-    decoders::{Decoder, Orientation, RawDecodeParams},
+    decoders::{Decoder, FormatHint, Orientation, RawDecodeParams, WellKnownIFD},
+    formats::tiff::Value,
     imgop::{
         develop::{DemosaicAlgorithm, Intermediate, ProcessingStep, RawDevelop},
         xyz::Illuminant,
     },
-    rawimage::{RawImage, RawPhotometricInterpretation},
+    rawimage::{RawImage, RawImageData, RawPhotometricInterpretation},
     rawsource::RawSource,
+    tags::DngTag,
 };
 use std::sync::{
     Arc,
@@ -57,6 +59,129 @@ fn is_linear_raw_format(raw_image: &RawImage) -> bool {
     matches!(
         raw_image.photometric,
         RawPhotometricInterpretation::LinearRaw
+    )
+}
+
+fn apply_black_level_delta_v_to_data(
+    data: &mut RawImageData,
+    width: usize,
+    height: usize,
+    cpp: usize,
+    delta_start_row: usize,
+    deltas: &[f32],
+) -> bool {
+    let Some(row_width) = width.checked_mul(cpp) else {
+        return false;
+    };
+    let Some(expected_len) = row_width.checked_mul(height) else {
+        return false;
+    };
+    if row_width == 0
+        || deltas.is_empty()
+        || deltas.iter().any(|delta| !delta.is_finite())
+    {
+        return false;
+    }
+    let Some(delta_end_row) = delta_start_row.checked_add(deltas.len()) else {
+        return false;
+    };
+    if deltas.len() != 1 && delta_end_row > height {
+        return false;
+    }
+
+    match data {
+        RawImageData::Integer(pixels) if pixels.len() == expected_len => {
+            for (row, row_pixels) in pixels.chunks_exact_mut(row_width).enumerate() {
+                let delta = if deltas.len() == 1 {
+                    deltas[0]
+                } else if (delta_start_row..delta_end_row).contains(&row) {
+                    deltas[row - delta_start_row]
+                } else {
+                    continue;
+                };
+                for pixel in row_pixels {
+                    *pixel = (*pixel as f32 - delta)
+                        .round()
+                        .clamp(0.0, u16::MAX as f32) as u16;
+                }
+            }
+        }
+        RawImageData::Float(pixels) if pixels.len() == expected_len => {
+            for (row, row_pixels) in pixels.chunks_exact_mut(row_width).enumerate() {
+                let delta = if deltas.len() == 1 {
+                    deltas[0]
+                } else if (delta_start_row..delta_end_row).contains(&row) {
+                    deltas[row - delta_start_row]
+                } else {
+                    continue;
+                };
+                for pixel in row_pixels {
+                    *pixel = (*pixel - delta).max(0.0);
+                }
+            }
+        }
+        _ => return false,
+    }
+
+    true
+}
+
+fn apply_dng_black_level_delta_v(raw_image: &mut RawImage, decoder: &dyn Decoder) -> bool {
+    if decoder.format_hint() != FormatHint::DNG
+        || !matches!(
+            &raw_image.photometric,
+            RawPhotometricInterpretation::Cfa(_)
+        )
+    {
+        return false;
+    }
+
+    let Ok(Some(raw_ifd)) = decoder.ifd(WellKnownIFD::Raw) else {
+        return false;
+    };
+    let Some(entry) = raw_ifd.get_entry(DngTag::BlackLevelDeltaV) else {
+        return false;
+    };
+    let value = &entry.value;
+    if !matches!(
+        value,
+        Value::Rational(_) | Value::SRational(_) | Value::Float(_) | Value::Double(_)
+    ) {
+        return false;
+    }
+
+    let mut deltas = Vec::with_capacity(value.count());
+    for index in 0..value.count() {
+        let Ok(Some(delta)) = value.get_f32(index) else {
+            return false;
+        };
+        deltas.push(delta);
+    }
+
+    let delta_start_row = if deltas.len() == 1 || deltas.len() == raw_image.height {
+        0
+    } else {
+        let Some(active_area) = raw_ifd.get_entry(DngTag::ActiveArea) else {
+            return false;
+        };
+        if active_area.value.count() < 4 {
+            return false;
+        }
+        let top = active_area.value.force_usize(0);
+        let bottom = active_area.value.force_usize(2);
+        if bottom.checked_sub(top) != Some(deltas.len()) {
+            return false;
+        }
+        top
+    };
+
+    apply_black_level_delta_v_to_data(
+        &mut raw_image.data,
+        raw_image.width,
+        raw_image.height,
+        raw_image.cpp,
+        delta_start_row,
+        &deltas,
     )
 }
 
@@ -154,6 +279,10 @@ fn develop_internal(
 
     check_cancel()?;
     let mut raw_image: RawImage = decoder.raw_image(&source, &RawDecodeParams::default(), false)?;
+
+    if apply_dng_black_level_delta_v(&mut raw_image, decoder.as_ref()) {
+        log::debug!("Applied DNG BlackLevelDeltaV correction");
+    }
 
     let orientation = metadata_orientation(decoder.as_ref(), &source)?;
 
@@ -345,3 +474,4 @@ pub fn get_fast_demosaic_scale_factor(
     }
     1.0
 }
+
