@@ -1835,9 +1835,13 @@ fn frontend_ready(
     }
 
     let open_with_file = state.initial_file_path.lock().unwrap().take();
+    let open_with_folder = state.initial_folder_path.lock().unwrap().take();
     let edit_session = state.pending_edit_session.lock().unwrap().take();
     if let Some(path) = &open_with_file {
         log::info!("Frontend is ready, returning initial path: {}", path);
+    }
+    if let Some(path) = &open_with_folder {
+        log::info!("Frontend is ready, returning initial folder: {}", path);
     }
     if let Some(session) = &edit_session {
         log::info!(
@@ -1847,6 +1851,7 @@ fn frontend_ready(
     }
     Ok(LaunchPayload {
         open_with_file,
+        open_with_folder,
         edit_session,
     })
 }
@@ -1959,6 +1964,10 @@ pub fn run() {
                     LaunchRequest::OpenFile(path) => {
                         log::info!("Initial open: Storing path {} for later.", path);
                         *state.initial_file_path.lock().unwrap() = Some(path);
+                    }
+                    LaunchRequest::OpenFolder(path) => {
+                        log::info!("Initial open: Storing folder {} for later.", path);
+                        *state.initial_folder_path.lock().unwrap() = Some(path);
                     }
                     _ => {}
                 }
@@ -2309,6 +2318,7 @@ pub fn run() {
             indexing_task_handle: Mutex::new(None),
             lut_cache: Mutex::new(HashMap::new()),
             initial_file_path: Mutex::new(None),
+            initial_folder_path: Mutex::new(None),
             pending_edit_session: Mutex::new(None),
             thumbnail_cancellation_token: Arc::new(AtomicBool::new(false)),
             thumbnail_progress: Mutex::new(ThumbnailProgressTracker { total: 0, completed: 0 }),
@@ -2464,6 +2474,7 @@ pub fn run() {
 				tauri::RunEvent::Opened { urls } => {
 				    if let Some(url) = urls.first()
 				        && let Ok(path) = url.to_file_path()
+				        && let path = std::fs::canonicalize(&path).unwrap_or(path)
 				        && let Some(path_str) = path.to_str()
 				    {
 				        let state = app_handle.state::<AppState>();
@@ -2482,11 +2493,18 @@ pub fn run() {
 
 				            emit_launch_request(
 				                app_handle,
-				                LaunchRequest::OpenFile(path_str.to_string()),
+				                if path.is_dir() {
+					                    LaunchRequest::OpenFolder(path_str.to_string())
+					                } else {
+					                    LaunchRequest::OpenFile(path_str.to_string())
+					                },
 				            );
 				        } else {
-				            *state.initial_file_path.lock().unwrap() =
-				                Some(path_str.to_string());
+				            if path.is_dir() {
+					                *state.initial_folder_path.lock().unwrap() = Some(path_str.to_string());
+					            } else {
+					                *state.initial_file_path.lock().unwrap() = Some(path_str.to_string());
+					            }
 
 				            log::info!(
 				                "macOS initial open: Stored path {} for later.",

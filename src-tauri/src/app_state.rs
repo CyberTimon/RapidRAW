@@ -235,6 +235,7 @@ pub struct AppState {
     pub indexing_task_handle: Mutex<Option<JoinHandle<()>>>,
     pub lut_cache: Mutex<HashMap<String, Arc<Lut>>>,
     pub initial_file_path: Mutex<Option<String>>,
+    pub initial_folder_path: Mutex<Option<String>>,
     pub pending_edit_session: Mutex<Option<ExternalEditSession>>,
     pub thumbnail_cancellation_token: Arc<AtomicBool>,
     pub thumbnail_progress: Mutex<ThumbnailProgressTracker>,

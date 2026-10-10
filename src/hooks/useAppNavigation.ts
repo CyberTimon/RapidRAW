@@ -521,24 +521,41 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
     }
   }, [handleSelectSubfolder, handleSelectAlbum]);
 
-  const handleOpenFolder = useCallback(async () => {
-    const { osPlatform, appSettings, handleSettingsChange } = useSettingsStore.getState();
-    const { rootPaths, folderTrees, setLibrary } = useLibraryStore.getState();
-    const isAndroid = osPlatform === 'android';
+  const handleOpenFolderPath = useCallback(
+    async (selectedPath: string) => {
+      const { appSettings, handleSettingsChange } = useSettingsStore.getState();
+      const { setLibrary } = useLibraryStore.getState();
+      let { rootPaths, folderTrees } = useLibraryStore.getState();
 
-    try {
-      let selectedPath = '';
-      if (isAndroid) {
-        selectedPath = await invoke<string>(Invokes.GetOrCreateInternalLibraryRoot);
-      } else {
-        const selected = await open({ directory: true, multiple: false, defaultPath: await homeDir() });
-        if (typeof selected === 'string') {
-          selectedPath = selected;
+      try {
+        const showImageCounts =
+          appSettings?.enableFolderImageCounts || appSettings?.folderTreeSort?.key === 'imageCount';
+
+        // На холодном старте стор библиотеки ещё пуст: берём корни из настроек, а не затираем их.
+        if (rootPaths.length === 0 && appSettings?.rootFolders?.length) {
+          rootPaths = appSettings.rootFolders;
+          setLibrary({ rootPaths, expandedFolders: new Set(rootPaths), isTreeLoading: true });
+          try {
+            folderTrees = await invoke(Invokes.GetPinnedFolderTrees, {
+              paths: rootPaths,
+              expandedFolders: rootPaths,
+              showImageCounts,
+            });
+            setLibrary({ folderTrees });
+          } catch (err) {
+            console.error('Failed to load folder trees:', err);
+          } finally {
+            setLibrary({ isTreeLoading: false });
+          }
         }
-      }
 
-      if (selectedPath) {
-        if (!rootPaths.includes(selectedPath)) {
+        const normalizePath = (p: string) => p.replace(/[\\/]+$/, '');
+        const targetPath = normalizePath(selectedPath);
+        const existingRoot = rootPaths.find((root) => {
+          const base = normalizePath(root);
+          return targetPath === base || targetPath.startsWith(`${base}/`) || targetPath.startsWith(`${base}\\`);
+        });
+        if (!existingRoot) {
           const newRootPaths = [...rootPaths, selectedPath];
           setLibrary({ rootPaths: newRootPaths });
 
@@ -551,23 +568,38 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
             const newTree = await invoke(Invokes.GetFolderTree, {
               path: selectedPath,
               expandedFolders: [selectedPath],
-              showImageCounts:
-                appSettings?.enableFolderImageCounts || appSettings?.folderTreeSort?.key === 'imageCount',
+              showImageCounts,
             });
             setLibrary({ folderTrees: [...folderTrees, newTree] });
-          } catch (e) {
-            toast.error(`Failed to load folder tree: ${e}`);
           } finally {
             setLibrary({ isTreeLoading: false });
           }
+          await handleSelectSubfolder(selectedPath, true);
+        } else {
+          await handleSelectSubfolder(selectedPath, false);
         }
-        await handleSelectSubfolder(selectedPath, true);
+      } catch (err) {
+        console.error('Failed to open folder:', err);
+        toast.error('Failed to open the requested folder.');
       }
+    },
+    [handleSelectSubfolder],
+  );
+
+  const handleOpenFolder = useCallback(async () => {
+    const { osPlatform } = useSettingsStore.getState();
+    const isAndroid = osPlatform === 'android';
+
+    try {
+      const selectedPath = isAndroid
+        ? await invoke<string>(Invokes.GetOrCreateInternalLibraryRoot)
+        : await open({ directory: true, multiple: false, defaultPath: await homeDir() });
+      if (typeof selectedPath === 'string') await handleOpenFolderPath(selectedPath);
     } catch (err) {
       console.error(isAndroid ? 'Failed to open Android library root:' : 'Failed to open directory dialog:', err);
       toast.error(isAndroid ? 'Failed to open library.' : 'Failed to open folder selection dialog.');
     }
-  }, [handleSelectSubfolder]);
+  }, [handleOpenFolderPath]);
 
   const handleContinueSession = () => {
     const restore = async () => {
@@ -678,6 +710,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
     handleSelectSubfolder,
     handleSelectAlbum,
     handleOpenFolder,
+    handleOpenFolderPath,
     handleNavBack,
     handleNavForward,
     handleContinueSession,
