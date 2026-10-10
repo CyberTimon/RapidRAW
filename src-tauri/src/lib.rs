@@ -506,6 +506,7 @@ fn process_preview_job(
     let context = get_or_init_gpu_context(&state, app_handle)?;
     hydrate_adjustments(&state, &mut adjustments_json);
     let adjustments_clone = adjustments_json;
+    crate::denoising::sync_denoised_base(&state, &adjustments_clone);
 
     let loaded_image_guard = state.original_image.lock().unwrap();
     let loaded_image = loaded_image_guard
@@ -2040,6 +2041,17 @@ pub fn run() {
                         #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
                         { "libonnxruntime.so" }
                     };
+                    #[cfg(target_os = "windows")]
+                    {
+                        let directml_path = resource_path.join("DirectML.dll");
+                        if directml_path.exists() {
+                            match libloading::Library::new(&directml_path) {
+                                Ok(library) => std::mem::forget(library),
+                                Err(e) => cli_println!("Failed to preload DirectML: {}", e),
+                            }
+                        }
+                    }
+
                     let ort_library_path = resource_path.join(ort_library_name);
                     std::env::set_var("ORT_DYLIB_PATH", &ort_library_path);
                     cli_println!("Set ORT_DYLIB_PATH to: {}", ort_library_path.display());
@@ -2287,6 +2299,7 @@ pub fn run() {
                 });
             }
 
+            crate::denoising::init_ai_denoise_layers(&app_handle);
             crate::register_exit_handler();
             Ok(())
         })
@@ -2379,6 +2392,9 @@ pub fn run() {
             denoising::apply_denoising,
             denoising::batch_denoise_images,
             denoising::save_denoised_image,
+            denoising::generate_ai_denoise_layer,
+            denoising::get_ai_denoise_layer_status,
+            denoising::delete_ai_denoise_layer,
             focus_stacking::stitch_focus_stack,
             focus_stacking::save_focus_stack,
             image_loader::load_image,

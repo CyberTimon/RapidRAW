@@ -241,6 +241,10 @@ export interface ParametricCurve {
 
 export interface Adjustments {
   [index: string]: any;
+  aiDenoiseAmount: number;
+  aiDenoiseColor: number;
+  aiDenoiseDetail: number;
+  aiDenoiseEnabled: boolean;
   aiPatches: Array<AiPatch>;
   aspectRatio: number | null;
   blacks: number;
@@ -599,6 +603,10 @@ export const INITIAL_MASK_CONTAINER: MaskContainer = {
 };
 
 export const INITIAL_ADJUSTMENTS: Adjustments = {
+  aiDenoiseAmount: 100,
+  aiDenoiseColor: 100,
+  aiDenoiseDetail: 0,
+  aiDenoiseEnabled: false,
   aiPatches: [],
   aspectRatio: null,
   blacks: 0,
@@ -828,6 +836,10 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     lensBlurDiffusion: loadedAdjustments.lensBlurDiffusion ?? INITIAL_ADJUSTMENTS.lensBlurDiffusion,
     lensBlurShape: loadedAdjustments.lensBlurShape ?? INITIAL_ADJUSTMENTS.lensBlurShape,
     lensBlurDepthMap: loadedAdjustments.lensBlurDepthMap ?? INITIAL_ADJUSTMENTS.lensBlurDepthMap,
+    aiDenoiseAmount: loadedAdjustments.aiDenoiseAmount ?? INITIAL_ADJUSTMENTS.aiDenoiseAmount,
+    aiDenoiseColor: loadedAdjustments.aiDenoiseColor ?? INITIAL_ADJUSTMENTS.aiDenoiseColor,
+    aiDenoiseDetail: loadedAdjustments.aiDenoiseDetail ?? INITIAL_ADJUSTMENTS.aiDenoiseDetail,
+    aiDenoiseEnabled: loadedAdjustments.aiDenoiseEnabled ?? INITIAL_ADJUSTMENTS.aiDenoiseEnabled,
     lensBlurEnabled: loadedAdjustments.lensBlurEnabled ?? INITIAL_ADJUSTMENTS.lensBlurEnabled,
     lensBlurMaxDepth: loadedAdjustments.lensBlurMaxDepth ?? INITIAL_ADJUSTMENTS.lensBlurMaxDepth,
     lensBlurMaxFade: loadedAdjustments.lensBlurMaxFade ?? INITIAL_ADJUSTMENTS.lensBlurMaxFade,
