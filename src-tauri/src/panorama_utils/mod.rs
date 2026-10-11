@@ -1,2 +1,15 @@
+pub mod camera;
+pub mod features;
+pub mod geom;
+pub mod linalg;
+pub mod log;
+pub mod memory;
+pub mod overlay;
 pub mod processing;
+pub mod ram;
+pub mod ransac;
+pub mod raster;
+pub mod session;
+pub mod spill;
+pub mod stitch;
 pub mod stitching;

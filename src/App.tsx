@@ -438,6 +438,8 @@ function App() {
 
   const {
     handleStartPanorama,
+    handleReprojectPanorama,
+    handleCancelPanorama,
     handleSavePanorama,
     handleStartHdr,
     handleSaveHdr,
@@ -1055,6 +1057,8 @@ function App() {
           handleImageSelect={handleImageSelect}
           handleSavePanorama={handleSavePanorama}
           handleStartPanorama={handleStartPanorama}
+          handleReprojectPanorama={handleReprojectPanorama}
+          handleCancelPanorama={handleCancelPanorama}
           handleStartFocusStack={handleStartFocusStack}
           handleSaveFocusStack={handleSaveFocusStack}
           handleSaveHdr={handleSaveHdr}
