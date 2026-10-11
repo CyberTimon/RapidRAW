@@ -112,6 +112,9 @@ const Slider = ({
     }
     return getFraction(scale.toPosition(defaultValue), minPosition, maxPosition) * 100;
   }, [fillOrigin, defaultValue, scale, minPosition, maxPosition]);
+  const fillLo = Math.max(0, Math.min(fillPercentage, originPercentage));
+  const fillHi = Math.min(100, Math.max(fillPercentage, originPercentage));
+  const fillSpan = Math.max(0, fillHi - fillLo) / 100;
 
   const stepStr = String(step);
   const decimalPlaces = stepStr.includes('.') ? stepStr.split('.')[1].length : 0;
@@ -612,17 +615,20 @@ const Slider = ({
         </div>
       </div>
 
-      <div className="relative w-full h-5">
+      <div className="relative w-full min-w-0 max-w-full h-5">
+        {/* The thumb travels an inset range (half its width at each end). The track and fill use
+            that same span, so the minimum value sits at the left end of the bar. */}
         <div
-          className={`absolute top-1/2 left-0 w-full h-1.5 -translate-y-1/2 rounded-full pointer-events-none ${
+          className={`absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full pointer-events-none ${
             trackClassName || 'bg-card-active'
           }`}
+          style={{ left: '0.5rem', right: '0.5rem' }}
         />
         <div
           className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full pointer-events-none bg-accent/25"
           style={{
-            left: `${Math.min(fillPercentage, originPercentage)}%`,
-            width: `${Math.abs(fillPercentage - originPercentage)}%`,
+            left: `calc(0.5rem + (100% - 1rem) * ${fillLo / 100})`,
+            width: `calc((100% - 1rem) * ${fillSpan})`,
           }}
         />
         {markers?.map(({ color, value: markerValue }, index) => (
@@ -637,7 +643,7 @@ const Slider = ({
         ))}
         <input
           ref={rangeInputRef}
-          className={`absolute top-1/2 left-0 w-full h-7 -translate-y-1/2 appearance-none bg-transparent cursor-pointer m-0 p-0 slider-input z-10 ${
+          className={`absolute top-1/2 left-0 w-full min-w-0 max-w-full h-7 -translate-y-1/2 appearance-none bg-transparent cursor-pointer m-0 p-0 slider-input z-10 ${
             isDragging ? 'slider-thumb-active' : ''
           } ${disabled ? 'cursor-not-allowed' : ''}`}
           style={{ margin: 0, touchAction: isDragging ? 'none' : 'pan-y' }}

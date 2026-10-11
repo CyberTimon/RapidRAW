@@ -8,44 +8,106 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
   const setUI = useUIStore((state) => state.setUI);
 
   const handleStartPanorama = useCallback(
-    (paths: string[]) => {
+    (
+      paths: string[],
+      options: { cropFactor: number; focal35: number; estimateIntrinsics: boolean; scale: 'full' | 'half' },
+    ) => {
       setUI((state) => ({
         panoramaModalState: {
           ...state.panoramaModalState,
           isProcessing: true,
           error: null,
           finalImageBase64: null,
+          overlayBase64: null,
+          winnerMapBase64: null,
+          dropped: [],
           progressMessage: 'Starting panorama process...',
         },
       }));
-      invoke(Invokes.StitchPanorama, { paths }).catch((err) => {
-        setUI((state) => ({
-          panoramaModalState: { ...state.panoramaModalState, isProcessing: false, error: String(err) },
-        }));
+      invoke(Invokes.StitchPanorama, { paths, ...options }).catch((err) => {
+        setUI((state) => {
+          if (!state.panoramaModalState.isOpen) return state;
+          return {
+            panoramaModalState: { ...state.panoramaModalState, isProcessing: false, error: String(err) },
+          };
+        });
       });
     },
     [setUI],
   );
 
-  const handleSavePanorama = useCallback(async (): Promise<string> => {
-    const { panoramaModalState } = useUIStore.getState();
-    if (panoramaModalState.stitchingSourcePaths.length === 0) {
-      const err = 'Source paths for panorama not found.';
-      setUI((state) => ({ panoramaModalState: { ...state.panoramaModalState, error: err } }));
-      throw new Error(err);
-    }
-    try {
-      const savedPath: string = await invoke(Invokes.SavePanorama, {
-        firstPathStr: panoramaModalState.stitchingSourcePaths[0],
+  const handleReprojectPanorama = useCallback(
+    (projection: string) => {
+      setUI((state) => ({
+        panoramaModalState: {
+          ...state.panoramaModalState,
+          isProcessing: true,
+          selectedProjection: projection,
+          progressMessage: 'Reprojecting preview...',
+        },
+      }));
+      invoke(Invokes.ReprojectPanorama, { projection }).catch((err) => {
+        setUI((state) => {
+          if (!state.panoramaModalState.isOpen) return state;
+          return {
+            panoramaModalState: { ...state.panoramaModalState, isProcessing: false, error: String(err) },
+          };
+        });
       });
-      await refreshImageList();
-      return savedPath;
-    } catch (err) {
-      console.error('Failed to save panorama:', err);
-      setUI((state) => ({ panoramaModalState: { ...state.panoramaModalState, error: String(err) } }));
-      throw err;
-    }
-  }, [refreshImageList, setUI]);
+    },
+    [setUI],
+  );
+
+  const handleCancelPanorama = useCallback(() => {
+    invoke(Invokes.CancelPanorama).catch(() => {});
+  }, []);
+
+  const handleSavePanorama = useCallback(
+    async (crop?: { x: number; y: number; width: number; height: number } | null): Promise<string> => {
+      const { panoramaModalState } = useUIStore.getState();
+      if (panoramaModalState.stitchingSourcePaths.length === 0) {
+        const err = 'Source paths for panorama not found.';
+        setUI((state) => ({ panoramaModalState: { ...state.panoramaModalState, error: err } }));
+        throw new Error(err);
+      }
+      try {
+        setUI((state) => ({
+          panoramaModalState: {
+            ...state.panoramaModalState,
+            saveProgressPercent: 0,
+            saveProgressMessage: 'Starting save...',
+            error: null,
+          },
+        }));
+        const savedPath: string = await invoke(Invokes.SavePanorama, {
+          firstPathStr: panoramaModalState.stitchingSourcePaths[0],
+          crop: crop ?? panoramaModalState.crop,
+          quality: panoramaModalState.quality,
+        });
+        await refreshImageList();
+        setUI((state) => ({
+          panoramaModalState: {
+            ...state.panoramaModalState,
+            saveProgressPercent: null,
+            saveProgressMessage: null,
+          },
+        }));
+        return savedPath;
+      } catch (err) {
+        console.error('Failed to save panorama:', err);
+        setUI((state) => ({
+          panoramaModalState: {
+            ...state.panoramaModalState,
+            error: String(err),
+            saveProgressPercent: null,
+            saveProgressMessage: null,
+          },
+        }));
+        throw err;
+      }
+    },
+    [refreshImageList, setUI],
+  );
 
   const handleStartFocusStack = useCallback(
     (paths: string[]) => {
@@ -193,6 +255,8 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
 
   return {
     handleStartPanorama,
+    handleReprojectPanorama,
+    handleCancelPanorama,
     handleSavePanorama,
     handleStartHdr,
     handleSaveHdr,
