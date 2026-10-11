@@ -7,20 +7,11 @@ use rand::prelude::*;
 use rand::rng;
 use rayon::prelude::*;
 
-const MAX_PROCESSING_DIMENSION: u32 = 1600;
-const FAST_THRESHOLD: u8 = 15;
-const NON_MAXIMA_SUPPRESSION_RADIUS: f32 = 15.0;
 const BRIEF_PATCH_SIZE: u32 = 32;
 const MATCH_RATIO_THRESHOLD: f32 = 0.8;
 const RANSAC_ITERATIONS: usize = 2500;
 const RANSAC_INLIER_THRESHOLD: f64 = 5.0;
 pub const MIN_INLIERS_FOR_CONNECTION: usize = 15;
-const LOW_DETAIL_WINDOW_RADIUS: u32 = 16;
-const LOW_DETAIL_VARIANCE_THRESHOLD: f64 = 60.0;
-
-pub fn calculate_downscale_dimensions(width: u32, height: u32) -> (u32, u32, f64) {
-    calculate_downscale_dimensions_capped(width, height, MAX_PROCESSING_DIMENSION)
-}
 
 pub fn calculate_downscale_dimensions_capped(
     width: u32,
@@ -60,15 +51,6 @@ pub fn normalize_grayscale(img: &GrayImage) -> GrayImage {
         let stretched = ((value - minimum) as f32 / span * 255.0).round();
         Luma([stretched as u8])
     })
-}
-
-pub fn find_features(img: &GrayImage, brief_pairs: &[(Point2<i32>, Point2<i32>)]) -> Vec<Feature> {
-    find_features_tuned(
-        img,
-        brief_pairs,
-        FAST_THRESHOLD,
-        NON_MAXIMA_SUPPRESSION_RADIUS,
-    )
 }
 
 pub fn find_features_tuned(
@@ -132,7 +114,6 @@ pub fn generate_brief_pairs() -> Vec<(Point2<i32>, Point2<i32>)> {
         Ok(dist) => dist,
         Err(e) => panic!("Failed to create uniform distribution: {}", e),
     };
-
     (0..BRIEF_DESCRIPTOR_SIZE)
         .map(|_| {
             (
@@ -225,7 +206,6 @@ pub fn find_homography_ransac(
     let mut rng = rng();
     let mut best_h: Option<Matrix3<f64>> = None;
     let mut best_inliers: Vec<Match> = Vec::new();
-
     let points: Vec<(Point2<f64>, Point2<f64>)> = matches
         .iter()
         .map(|m| {
@@ -237,13 +217,10 @@ pub fn find_homography_ransac(
             )
         })
         .collect();
-
     if points.len() < 4 {
         return None;
     }
-
     let ransac_inlier_threshold_sq = RANSAC_INLIER_THRESHOLD.powi(2);
-
     for _ in 0..RANSAC_ITERATIONS {
         let sample_indices: Vec<usize> = (0..points.len()).collect();
         let sample_indices = sample_indices
@@ -253,10 +230,8 @@ pub fn find_homography_ransac(
         if sample_indices.len() < 4 {
             continue;
         }
-
         let sample_points: Vec<(Point2<f64>, Point2<f64>)> =
             sample_indices.iter().map(|&i| points[i]).collect();
-
         if are_points_collinear(sample_points[0].0, sample_points[1].0, sample_points[2].0)
             || are_points_collinear(sample_points[0].0, sample_points[1].0, sample_points[3].0)
             || are_points_collinear(sample_points[0].0, sample_points[2].0, sample_points[3].0)
@@ -264,7 +239,6 @@ pub fn find_homography_ransac(
         {
             continue;
         }
-
         if let Some(h) = compute_homography(&sample_points) {
             let current_inliers: Vec<Match> = matches
                 .par_iter()
@@ -289,14 +263,12 @@ pub fn find_homography_ransac(
                     }
                 })
                 .collect();
-
             if current_inliers.len() > best_inliers.len() {
                 best_inliers = current_inliers;
                 best_h = Some(h);
             }
         }
     }
-
     if best_inliers.len() >= MIN_INLIERS_FOR_CONNECTION {
         Some((best_h.unwrap(), best_inliers))
     } else {
@@ -352,100 +324,4 @@ fn convert_gray_u8_to_f32(img: &GrayImage) -> ImageBuffer<Luma<f32>, Vec<f32>> {
     ImageBuffer::from_fn(width, height, |x, y| {
         Luma([img.get_pixel(x, y)[0] as f32 / 255.0])
     })
-}
-
-fn build_integral_images(gray: &GrayImage) -> (Vec<u64>, Vec<u128>) {
-    let (width, height) = gray.dimensions();
-    let mut sat = vec![0u64; (width * height) as usize];
-    let mut sat_sq = vec![0u128; (width * height) as usize];
-
-    for y in 0..height {
-        let mut row_sum = 0u64;
-        let mut row_sum_sq = 0u128;
-        for x in 0..width {
-            let pixel_val = gray.get_pixel(x, y)[0] as u64;
-            let pixel_val_sq = pixel_val as u128 * pixel_val as u128;
-            row_sum += pixel_val;
-            row_sum_sq += pixel_val_sq;
-
-            let idx = (y * width + x) as usize;
-            let above_idx = if y > 0 {
-                ((y - 1) * width + x) as usize
-            } else {
-                usize::MAX
-            };
-
-            sat[idx] = row_sum
-                + if above_idx != usize::MAX {
-                    sat[above_idx]
-                } else {
-                    0
-                };
-            sat_sq[idx] = row_sum_sq
-                + if above_idx != usize::MAX {
-                    sat_sq[above_idx]
-                } else {
-                    0
-                };
-        }
-    }
-    (sat, sat_sq)
-}
-
-pub fn generate_low_detail_mask(gray_full: &GrayImage) -> GrayImage {
-    println!("    - Generating low-detail mask...");
-    let (width, height) = gray_full.dimensions();
-    let mut mask = GrayImage::new(width, height);
-    let (sat, sat_sq) = build_integral_images(gray_full);
-    let r = LOW_DETAIL_WINDOW_RADIUS as i32;
-
-    let get_sat_val = |s: &Vec<u64>, x: i32, y: i32| -> u64 {
-        if x < 0 || y < 0 {
-            0
-        } else {
-            s[(y as u32 * width + x as u32) as usize]
-        }
-    };
-    let get_sat_sq_val = |s: &Vec<u128>, x: i32, y: i32| -> u128 {
-        if x < 0 || y < 0 {
-            0
-        } else {
-            s[(y as u32 * width + x as u32) as usize]
-        }
-    };
-
-    mask.par_chunks_mut(width as usize)
-        .enumerate()
-        .for_each(|(y, row)| {
-            for x in 0..width as i32 {
-                let x1 = x - r - 1;
-                let y1 = y as i32 - r - 1;
-                let x2 = (x + r).min(width as i32 - 1);
-                let y2 = (y as i32 + r).min(height as i32 - 1);
-
-                let n_x = (x2 - (x1 + 1) + 1) as f64;
-                let n_y = (y2 - (y1 + 1) + 1) as f64;
-                let n = n_x * n_y;
-                if n < 1.0 {
-                    continue;
-                }
-
-                let sum = get_sat_val(&sat, x2, y2) + get_sat_val(&sat, x1, y1)
-                    - get_sat_val(&sat, x2, y1)
-                    - get_sat_val(&sat, x1, y2);
-                let sum_sq = get_sat_sq_val(&sat_sq, x2, y2) + get_sat_sq_val(&sat_sq, x1, y1)
-                    - get_sat_sq_val(&sat_sq, x2, y1)
-                    - get_sat_sq_val(&sat_sq, x1, y2);
-
-                let mean = sum as f64 / n;
-                let variance = (sum_sq as f64 / n) - mean.powi(2);
-
-                if variance < LOW_DETAIL_VARIANCE_THRESHOLD {
-                    row[x as usize] = 255;
-                } else {
-                    row[x as usize] = 0;
-                }
-            }
-        });
-    mask
 }

@@ -152,6 +152,30 @@
 }
 
 @layer components {
+  /* WebKitGTK still paints the native groove outside the input box after
+     `appearance: none`, which is how the panorama slider crossed onto the preview. */
+  .slider-input {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .slider-input::-webkit-slider-runnable-track {
+    -webkit-appearance: none;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    height: 0.375rem;
+  }
+
+  .slider-input::-moz-range-track {
+    background: transparent;
+    border: none;
+    height: 0.375rem;
+  }
+
   .slider-input::-webkit-slider-thumb {
     @apply h-4 w-4 appearance-none rounded-full bg-accent;
     transition:

@@ -54,8 +54,8 @@ mod lut_processing;
 mod mask_generation;
 mod multi_exposure;
 mod negative_conversion;
-mod panorama_stitching;
-mod panorama_utils;
+pub mod panorama_stitching;
+pub mod panorama_utils;
 mod preset_converter;
 mod raw_processing;
 mod relight;
@@ -1642,10 +1642,22 @@ fn setup_logging(app_handle: &tauri::AppHandle) {
             ))
         })
         .level(level)
+        .filter(|metadata| {
+            let target = metadata.target();
+            let skip_target = target.contains("wgpu_hal")
+                || target.contains("glow")
+                || target.ends_with("::egl")
+                || target.contains("khronos_egl");
+            !skip_target
+        })
         // fern panics when a stderr write fails (e.g. output piped into `head`),
         // and the panic hook below logs again, which aborts the process.
         .chain(fern::Output::call(|record| {
-            let _ = writeln!(std::io::stderr(), "{}", record.args());
+            let text = record.args().to_string();
+            if text.contains("eglSwapInterval") || text.contains("eglSwapBuffers") {
+                return;
+            }
+            let _ = writeln!(std::io::stderr(), "{text}");
         }));
 
     if let Some(file) = log_file {
@@ -2303,7 +2315,8 @@ pub fn run() {
             active_ai_tasks: Mutex::new(HashMap::new()),
             export_task_token: Arc::new(Mutex::new(None)),
             hdr_result: Arc::new(Mutex::new(None)),
-            panorama_result: Arc::new(Mutex::new(None)),
+            panorama_session: Arc::new(Mutex::new(None)),
+            panorama_stop: Arc::new(Mutex::new(Arc::new(AtomicBool::new(false)))),
             focus_stack_result: Arc::new(Mutex::new(None)),
             denoise_result: Arc::new(Mutex::new(None)),
             indexing_task_handle: Mutex::new(None),
@@ -2384,6 +2397,8 @@ pub fn run() {
             image_loader::load_image,
             image_loader::is_image_cached,
             panorama_stitching::stitch_panorama,
+            panorama_stitching::reproject_panorama,
+            panorama_stitching::cancel_panorama,
             panorama_stitching::save_panorama,
             export_processing::export_images,
             export_processing::cancel_export,

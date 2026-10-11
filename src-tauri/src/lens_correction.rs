@@ -148,17 +148,17 @@ pub struct MultiName {
     value: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone, Copy, Debug)]
 pub struct LensDistortionParams {
-    k1: f64,
-    k2: f64,
-    k3: f64,
-    model: u32,
-    tca_vr: f64,
-    tca_vb: f64,
-    vig_k1: f64,
-    vig_k2: f64,
-    vig_k3: f64,
+    pub k1: f64,
+    pub k2: f64,
+    pub k3: f64,
+    pub model: u32,
+    pub tca_vr: f64,
+    pub tca_vb: f64,
+    pub vig_k1: f64,
+    pub vig_k2: f64,
+    pub vig_k3: f64,
 }
 
 fn strip_maker_prefix(name: &str, maker: &str) -> String {
@@ -182,7 +182,7 @@ fn pick_name(names: &[MultiName], fallback: &str) -> String {
         .unwrap_or_else(|| fallback.to_string())
 }
 
-fn any_name_matches(names: &[MultiName], needle: &str) -> bool {
+pub fn any_name_matches(names: &[MultiName], needle: &str) -> bool {
     names
         .iter()
         .any(|n| n.value.trim().eq_ignore_ascii_case(needle))
@@ -550,6 +550,43 @@ fn lenses_for_maker<'a>(db: &'a LensDatabase, maker: &str) -> Vec<&'a Lens> {
         .collect()
 }
 
+pub(crate) fn load_lensfun_db_from_dir(resource_path: &std::path::Path) -> LensDatabase {
+    let mut combined_db = LensDatabase {
+        cameras: Vec::new(),
+        lenses: Vec::new(),
+    };
+    if !resource_path.exists() {
+        log::error!("Lensfun DB directory not found at: {:?}", resource_path);
+        return combined_db;
+    }
+    for entry in WalkDir::new(resource_path)
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "xml"))
+    {
+        let path = entry.path();
+        log::info!("Processing file: {:?}", path);
+        match fs::read_to_string(path) {
+            Ok(xml_content) => match quick_xml::de::from_str::<LensDatabase>(&xml_content) {
+                Ok(mut db) => {
+                    combined_db.cameras.append(&mut db.cameras);
+                    combined_db.lenses.append(&mut db.lenses);
+                }
+                Err(e) => {
+                    log::error!("Failed to parse Lensfun XML file {:?}: {}", path, e);
+                }
+            },
+            Err(e) => log::error!("Failed to read Lensfun XML file {:?}: {}", path, e),
+        }
+    }
+    log::info!(
+        "Loaded {} lenses and {} cameras from Lensfun database.",
+        combined_db.lenses.len(),
+        combined_db.cameras.len()
+    );
+    combined_db
+}
+
 pub fn load_lensfun_db(app_handle: &tauri::AppHandle) -> LensDatabase {
     let mut combined_db = LensDatabase {
         cameras: Vec::new(),
@@ -594,27 +631,7 @@ pub fn load_lensfun_db(app_handle: &tauri::AppHandle) -> LensDatabase {
             log::error!("Lensfun DB directory not found at: {:?}", resource_path);
             return combined_db;
         }
-
-        for entry in WalkDir::new(resource_path)
-            .into_iter()
-            .filter_map(Result::ok)
-            .filter(|e| e.path().extension().is_some_and(|ext| ext == "xml"))
-        {
-            let path = entry.path();
-            log::info!("Processing file: {:?}", path);
-            match fs::read_to_string(path) {
-                Ok(xml_content) => match quick_xml::de::from_str::<LensDatabase>(&xml_content) {
-                    Ok(mut db) => {
-                        combined_db.cameras.append(&mut db.cameras);
-                        combined_db.lenses.append(&mut db.lenses);
-                    }
-                    Err(e) => {
-                        log::error!("Failed to parse Lensfun XML file {:?}: {}", path, e);
-                    }
-                },
-                Err(e) => log::error!("Failed to read Lensfun XML file {:?}: {}", path, e),
-            }
-        }
+        combined_db = load_lensfun_db_from_dir(&resource_path);
     }
 
     log::info!(

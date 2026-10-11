@@ -42,3 +42,22 @@ src-tauri/libs/
 
 # bench/replay.js result dumps
 bench/out/
+
+# Local panorama test inputs and rendered outputs.
+/temporary_pano/
+
+# Lean panorama prototype: source and run logs stay in git.
+# Build output, scratch frames, seam pixel dumps, and images do not.
+/lean_pano_proto/target/
+/lean_pano_proto/tmp/
+/lean_pano_proto/**/__pycache__/
+/lean_pano_proto/**/*.png
+/lean_pano_proto/**/*.jpg
+/lean_pano_proto/**/*.jpeg
+/lean_pano_proto/**/*.tif
+/lean_pano_proto/**/*.tiff
+/lean_pano_proto/**/*.f32
+/lean_pano_proto/**/*.u8
+/lean_pano_proto/**/seams.txt
+!/lean_pano_proto/**/*.log
+!/lean_pano_proto/*.log
