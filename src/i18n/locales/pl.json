@@ -992,6 +992,41 @@
       "watermarkImage": "Obraz znaku wodnego"
     }
   },
+  "immich": {
+    "section": {
+      "empty": "Brak albumów na serwerze.",
+      "error": "Immich jest niedostępny.",
+      "loading": "Wczytywanie albumów…",
+      "refresh": "Odśwież albumy",
+      "timeline": "Oś czasu",
+      "title": "Immich"
+    },
+    "settings": {
+      "apiKey": "Klucz API",
+      "apiKeyDesc": "Utwórz go w Immich w Ustawieniach konta → Klucze API. Musi mieć uprawnienia do odczytu albumów, zasobów i osi czasu oraz do pobierania oryginałów.",
+      "cacheDir": "Folder pamięci podręcznej",
+      "cacheDirDefault": "Domyślny",
+      "cacheDirDesc": "Miejsce przechowywania pobranych oryginałów.",
+      "cacheLimit": "Rozmiar pamięci podręcznej (GB)",
+      "cacheLimitDesc": "Pobrane oryginały ponad ten rozmiar są usuwane, zaczynając od najstarszych. Edycje pozostają bez zmian.",
+      "cacheTitle": "Pamięć podręczna",
+      "category": "Immich",
+      "connected": "Połączono jako {{user}} (Immich {{version}})",
+      "connectionTitle": "Immich",
+      "description": "Przeglądaj zdjęcia z serwera Immich w bibliotece i edytuj je bezpośrednio. Oryginały są pobierane przy otwarciu; edycje pozostają na tym komputerze.",
+      "keyInFile": "Zapisano w pliku, który możesz odczytać tylko Ty: brak dostępnego magazynu poświadczeń. W KDE włącz interfejs Secret Service w ustawieniach Portfela KDE i zapisz ponownie.",
+      "keyInStore": "Zapisano w systemowym magazynie poświadczeń.",
+      "save": "Zapisz",
+      "saved": "Zapisano.",
+      "serverUrl": "Adres serwera",
+      "serverUrlDesc": "Adres, pod którym otwierasz Immich w przeglądarce.",
+      "test": "Testuj połączenie",
+      "working": "Przetwarzanie…"
+    },
+    "toasts": {
+      "downloadFailed": "Nie udało się pobrać z Immich: {{error}}"
+    }
+  },
   "library": {
     "community": {
       "actionSave": "Zapisz",

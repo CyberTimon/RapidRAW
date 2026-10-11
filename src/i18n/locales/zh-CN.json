@@ -944,6 +944,41 @@
       "watermarkImage": "水印图像"
     }
   },
+  "immich": {
+    "section": {
+      "empty": "服务器上没有相册。",
+      "error": "无法连接到 Immich。",
+      "loading": "正在加载相册…",
+      "refresh": "刷新相册",
+      "timeline": "时间线",
+      "title": "Immich"
+    },
+    "settings": {
+      "apiKey": "API 密钥",
+      "apiKeyDesc": "在 Immich 的“帐户设置 → API 密钥”中创建。它需要能够读取相册、资源和时间线，并下载原始文件。",
+      "cacheDir": "缓存文件夹",
+      "cacheDirDefault": "默认",
+      "cacheDirDesc": "已下载原始文件的存放位置。",
+      "cacheLimit": "缓存大小 (GB)",
+      "cacheLimitDesc": "超过此大小时，将从最旧的开始删除已下载的原始文件。编辑内容不受影响。",
+      "cacheTitle": "缓存",
+      "category": "Immich",
+      "connected": "已以 {{user}} 身份连接 (Immich {{version}})",
+      "connectionTitle": "Immich",
+      "description": "在图库中浏览 Immich 服务器上的照片并直接编辑。原始文件会在打开时下载；编辑内容保存在这台电脑上。",
+      "keyInFile": "已保存在仅你可读取的文件中：没有可用的凭据存储。在 KDE 中，请在 KDE 钱包设置里启用 Secret Service 接口，然后重新保存。",
+      "keyInStore": "已保存在系统凭据存储中。",
+      "save": "保存",
+      "saved": "已保存。",
+      "serverUrl": "服务器地址",
+      "serverUrlDesc": "你在浏览器中打开 Immich 时使用的地址。",
+      "test": "测试连接",
+      "working": "处理中…"
+    },
+    "toasts": {
+      "downloadFailed": "无法从 Immich 下载：{{error}}"
+    }
+  },
   "library": {
     "community": {
       "actionSave": "保存",

@@ -944,6 +944,41 @@
       "watermarkImage": "ウォーターマーク画像"
     }
   },
+  "immich": {
+    "section": {
+      "empty": "サーバーにアルバムがありません。",
+      "error": "Immich に接続できません。",
+      "loading": "アルバムを読み込み中…",
+      "refresh": "アルバムを更新",
+      "timeline": "タイムライン",
+      "title": "Immich"
+    },
+    "settings": {
+      "apiKey": "API キー",
+      "apiKeyDesc": "Immich の「アカウント設定 → API キー」で作成してください。アルバム、アセット、タイムラインの読み取りとオリジナルのダウンロードの権限が必要です。",
+      "cacheDir": "キャッシュフォルダー",
+      "cacheDirDefault": "デフォルト",
+      "cacheDirDesc": "ダウンロードしたオリジナルの保存先です。",
+      "cacheLimit": "キャッシュサイズ (GB)",
+      "cacheLimitDesc": "このサイズを超えると、ダウンロードしたオリジナルが古いものから削除されます。編集内容には影響しません。",
+      "cacheTitle": "キャッシュ",
+      "category": "Immich",
+      "connected": "{{user}} として接続しました (Immich {{version}})",
+      "connectionTitle": "Immich",
+      "description": "Immich サーバーの写真をライブラリで閲覧し、そのまま編集できます。オリジナルは開いたときにダウンロードされ、編集内容はこのコンピューターに保存されます。",
+      "keyInFile": "本人だけが読めるファイルに保存されています。利用できる資格情報ストアがありません。KDE の場合は、KDE ウォレットの設定で Secret Service インターフェースを有効にしてから、もう一度保存してください。",
+      "keyInStore": "システムの資格情報ストアに保存されています。",
+      "save": "保存",
+      "saved": "保存しました。",
+      "serverUrl": "サーバーアドレス",
+      "serverUrlDesc": "ブラウザーで Immich を開くときのアドレスです。",
+      "test": "接続をテスト",
+      "working": "処理中…"
+    },
+    "toasts": {
+      "downloadFailed": "Immich からダウンロードできませんでした: {{error}}"
+    }
+  },
   "library": {
     "community": {
       "actionSave": "保存",

@@ -957,7 +957,7 @@
     },
     "settings": {
       "apiKey": "API key",
-      "apiKeyDesc": "Create one in Immich under Account Settings → API Keys. It needs to read albums, assets, stacks and the timeline, and to download originals.",
+      "apiKeyDesc": "Create one in Immich under Account Settings → API Keys. It needs to read albums, assets and the timeline, and to download originals.",
       "cacheDir": "Cache folder",
       "cacheDirDefault": "Default",
       "cacheDirDesc": "Where downloaded originals are kept.",

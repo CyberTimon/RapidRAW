@@ -946,6 +946,41 @@
       "watermarkImage": "Imatge de la marca d'aigua"
     }
   },
+  "immich": {
+    "section": {
+      "empty": "No hi ha àlbums al servidor.",
+      "error": "No es pot accedir a Immich.",
+      "loading": "Carregant àlbums…",
+      "refresh": "Actualitza els àlbums",
+      "timeline": "Cronologia",
+      "title": "Immich"
+    },
+    "settings": {
+      "apiKey": "Clau d'API",
+      "apiKeyDesc": "Crea'n una a Immich a Configuració del compte → Claus d'API. Ha de poder llegir àlbums, elements i la cronologia, i descarregar originals.",
+      "cacheDir": "Carpeta de memòria cau",
+      "cacheDirDefault": "Per defecte",
+      "cacheDirDesc": "On es guarden els originals descarregats.",
+      "cacheLimit": "Mida de la memòria cau (GB)",
+      "cacheLimitDesc": "Els originals descarregats que superin aquesta mida s'eliminen, començant pels més antics. Les edicions no es veuen afectades.",
+      "cacheTitle": "Memòria cau",
+      "category": "Immich",
+      "connected": "Connectat com a {{user}} (Immich {{version}})",
+      "connectionTitle": "Immich",
+      "description": "Explora les fotos del teu servidor Immich a la biblioteca i edita-les directament. Els originals es descarreguen quan els obres; les edicions es guarden en aquest ordinador.",
+      "keyInFile": "Desada en un fitxer que només tu pots llegir: no hi ha cap magatzem de credencials disponible. A KDE, activa la interfície Secret Service a la configuració de KDE Wallet i torna a desar.",
+      "keyInStore": "Desada al magatzem de credencials del sistema.",
+      "save": "Desa",
+      "saved": "Desat.",
+      "serverUrl": "Adreça del servidor",
+      "serverUrlDesc": "L'adreça amb què obres Immich al navegador.",
+      "test": "Prova la connexió",
+      "working": "Treballant…"
+    },
+    "toasts": {
+      "downloadFailed": "No s'ha pogut descarregar d'Immich: {{error}}"
+    }
+  },
   "library": {
     "community": {
       "actionSave": "Desar",

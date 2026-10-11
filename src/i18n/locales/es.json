@@ -969,6 +969,41 @@
       "watermarkImage": "Imagen de la marca de agua"
     }
   },
+  "immich": {
+    "section": {
+      "empty": "No hay álbumes en el servidor.",
+      "error": "No se puede acceder a Immich.",
+      "loading": "Cargando álbumes…",
+      "refresh": "Actualizar álbumes",
+      "timeline": "Cronología",
+      "title": "Immich"
+    },
+    "settings": {
+      "apiKey": "Clave de API",
+      "apiKeyDesc": "Crea una en Immich en Configuración de la cuenta → Claves de API. Debe poder leer álbumes, elementos y la cronología, y descargar originales.",
+      "cacheDir": "Carpeta de caché",
+      "cacheDirDefault": "Predeterminada",
+      "cacheDirDesc": "Dónde se guardan los originales descargados.",
+      "cacheLimit": "Tamaño de la caché (GB)",
+      "cacheLimitDesc": "Los originales descargados que superen este tamaño se eliminan, empezando por los más antiguos. Las ediciones no se ven afectadas.",
+      "cacheTitle": "Caché",
+      "category": "Immich",
+      "connected": "Conectado como {{user}} (Immich {{version}})",
+      "connectionTitle": "Immich",
+      "description": "Explora las fotos de tu servidor Immich en la biblioteca y edítalas directamente. Los originales se descargan al abrirlos; las ediciones se guardan en este equipo.",
+      "keyInFile": "Guardada en un archivo que solo tú puedes leer: no hay ningún almacén de credenciales disponible. En KDE, activa la interfaz Secret Service en la configuración de KDE Wallet y vuelve a guardar.",
+      "keyInStore": "Guardada en el almacén de credenciales del sistema.",
+      "save": "Guardar",
+      "saved": "Guardado.",
+      "serverUrl": "Dirección del servidor",
+      "serverUrlDesc": "La dirección con la que abres Immich en el navegador.",
+      "test": "Probar conexión",
+      "working": "Procesando…"
+    },
+    "toasts": {
+      "downloadFailed": "No se pudo descargar de Immich: {{error}}"
+    }
+  },
   "library": {
     "community": {
       "actionSave": "Guardar",

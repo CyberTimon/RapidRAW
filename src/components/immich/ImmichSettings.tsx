@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle2, FileLock, Lock, PlugZap, Save, XCircle } from 'lucide-react';
+import { Check, FileLock, Lock, Wifi, WifiOff } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Text from '../ui/Text';
@@ -149,15 +149,15 @@ export default function ImmichSettings() {
           )}
         </Item>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <Button className="bg-surface" onClick={testConnection} disabled={isBusy || !hasCredentials}>
-            <PlugZap size={16} />
-            {t('immich.settings.test')}
-          </Button>
-          <Button onClick={saveConnection} disabled={isBusy || !connectionChanged}>
-            <Save size={16} />
-            {t('immich.settings.save')}
-          </Button>
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button className="min-w-32" onClick={testConnection} disabled={isBusy || !hasCredentials}>
+              {isBusy ? t('immich.settings.working') : t('immich.settings.test')}
+            </Button>
+            <Button className="min-w-32" onClick={saveConnection} disabled={isBusy || !connectionChanged}>
+              {t('immich.settings.save')}
+            </Button>
+          </div>
           <StatusLine status={status} />
         </div>
       </Card>
@@ -190,31 +190,21 @@ export default function ImmichSettings() {
 function StatusLine({ status }: { status: Status }) {
   const { t } = useTranslation();
 
-  switch (status.kind) {
-    case 'busy':
-      return <Text variant={TextVariants.small}>{t('immich.settings.working')}</Text>;
-    case 'connected':
-      return (
-        <Text variant={TextVariants.small} className="flex items-center gap-1.5">
-          <CheckCircle2 size={14} className="text-green-500" />
-          {t('immich.settings.connected', { user: status.info.userName, version: status.info.version })}
-        </Text>
-      );
-    case 'saved':
-      return (
-        <Text variant={TextVariants.small} className="flex items-center gap-1.5">
-          <CheckCircle2 size={14} className="text-green-500" />
-          {t('immich.settings.saved')}
-        </Text>
-      );
-    case 'error':
-      return (
-        <Text variant={TextVariants.small} className="flex items-center gap-1.5 break-all">
-          <XCircle size={14} className="text-red-500 shrink-0" />
-          {status.message}
-        </Text>
-      );
-    default:
-      return null;
-  }
+  if (status.kind === 'idle' || status.kind === 'busy') return null;
+  const success = status.kind !== 'error';
+  const message =
+    status.kind === 'connected'
+      ? t('immich.settings.connected', { user: status.info.userName, version: status.info.version })
+      : status.kind === 'saved'
+        ? t('immich.settings.saved')
+        : status.message;
+
+  return (
+    <Text color={success ? TextColors.success : TextColors.error} className="mt-2 flex items-center gap-2 break-all">
+      {status.kind === 'connected' && <Wifi size={16} className="shrink-0" />}
+      {status.kind === 'saved' && <Check size={16} className="shrink-0" />}
+      {status.kind === 'error' && <WifiOff size={16} className="shrink-0" />}
+      {message}
+    </Text>
+  );
 }

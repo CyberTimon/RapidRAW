@@ -969,6 +969,41 @@
       "watermarkImage": "Immagine Filigrana"
     }
   },
+  "immich": {
+    "section": {
+      "empty": "Nessun album sul server.",
+      "error": "Immich non è raggiungibile.",
+      "loading": "Caricamento album…",
+      "refresh": "Aggiorna album",
+      "timeline": "Cronologia",
+      "title": "Immich"
+    },
+    "settings": {
+      "apiKey": "Chiave API",
+      "apiKeyDesc": "Creane una in Immich in Impostazioni account → Chiavi API. Deve poter leggere album, risorse e cronologia, e scaricare gli originali.",
+      "cacheDir": "Cartella cache",
+      "cacheDirDefault": "Predefinita",
+      "cacheDirDesc": "Dove vengono conservati gli originali scaricati.",
+      "cacheLimit": "Dimensione cache (GB)",
+      "cacheLimitDesc": "Gli originali scaricati oltre questa dimensione vengono rimossi, a partire dai più vecchi. Le modifiche non vengono toccate.",
+      "cacheTitle": "Cache",
+      "category": "Immich",
+      "connected": "Connesso come {{user}} (Immich {{version}})",
+      "connectionTitle": "Immich",
+      "description": "Sfoglia le foto del tuo server Immich nella libreria e modificale direttamente. Gli originali vengono scaricati quando li apri; le modifiche restano su questo computer.",
+      "keyInFile": "Salvata in un file leggibile solo da te: nessun archivio di credenziali disponibile. Su KDE, attiva l'interfaccia Secret Service nelle impostazioni di KDE Wallet e salva di nuovo.",
+      "keyInStore": "Salvata nell'archivio delle credenziali di sistema.",
+      "save": "Salva",
+      "saved": "Salvato.",
+      "serverUrl": "Indirizzo del server",
+      "serverUrlDesc": "L'indirizzo con cui apri Immich nel browser.",
+      "test": "Verifica connessione",
+      "working": "Elaborazione…"
+    },
+    "toasts": {
+      "downloadFailed": "Impossibile scaricare da Immich: {{error}}"
+    }
+  },
   "library": {
     "community": {
       "actionSave": "Salva",

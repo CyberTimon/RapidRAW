@@ -969,6 +969,41 @@
       "watermarkImage": "Image en filigrane"
     }
   },
+  "immich": {
+    "section": {
+      "empty": "Aucun album sur le serveur.",
+      "error": "Immich est injoignable.",
+      "loading": "Chargement des albums…",
+      "refresh": "Actualiser les albums",
+      "timeline": "Chronologie",
+      "title": "Immich"
+    },
+    "settings": {
+      "apiKey": "Clé d'API",
+      "apiKeyDesc": "Créez-en une dans Immich sous Paramètres du compte → Clés d'API. Elle doit pouvoir lire les albums, les éléments et la chronologie, et télécharger les originaux.",
+      "cacheDir": "Dossier du cache",
+      "cacheDirDefault": "Par défaut",
+      "cacheDirDesc": "Emplacement des originaux téléchargés.",
+      "cacheLimit": "Taille du cache (Go)",
+      "cacheLimitDesc": "Au-delà de cette taille, les originaux téléchargés sont supprimés, en commençant par les plus anciens. Les retouches ne sont pas concernées.",
+      "cacheTitle": "Cache",
+      "category": "Immich",
+      "connected": "Connecté en tant que {{user}} (Immich {{version}})",
+      "connectionTitle": "Immich",
+      "description": "Parcourez les photos de votre serveur Immich dans la bibliothèque et retouchez-les directement. Les originaux sont téléchargés à l'ouverture ; les retouches restent sur cet ordinateur.",
+      "keyInFile": "Enregistrée dans un fichier lisible par vous seul : aucun gestionnaire d'identifiants n'est disponible. Sous KDE, activez l'interface Secret Service dans les paramètres de KDE Wallet, puis enregistrez à nouveau.",
+      "keyInStore": "Enregistrée dans le gestionnaire d'identifiants du système.",
+      "save": "Enregistrer",
+      "saved": "Enregistré.",
+      "serverUrl": "Adresse du serveur",
+      "serverUrlDesc": "L'adresse avec laquelle vous ouvrez Immich dans le navigateur.",
+      "test": "Tester la connexion",
+      "working": "En cours…"
+    },
+    "toasts": {
+      "downloadFailed": "Échec du téléchargement depuis Immich : {{error}}"
+    }
+  },
   "library": {
     "community": {
       "actionSave": "Enregistrer",

@@ -957,7 +957,7 @@
     },
     "settings": {
       "apiKey": "API-Schlüssel",
-      "apiKeyDesc": "In Immich unter Kontoeinstellungen → API-Schlüssel anlegen. Er muss Alben, Assets, Stapel und die Zeitleiste lesen und Originale herunterladen dürfen.",
+      "apiKeyDesc": "In Immich unter Kontoeinstellungen → API-Schlüssel anlegen. Er muss Alben, Assets und die Zeitleiste lesen und Originale herunterladen dürfen.",
       "cacheDir": "Cache-Ordner",
       "cacheDirDefault": "Standard",
       "cacheDirDesc": "Wo heruntergeladene Originale liegen.",

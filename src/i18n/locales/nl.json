@@ -940,6 +940,41 @@
       "watermarkImage": "Watermarkafbeelding"
     }
   },
+  "immich": {
+    "section": {
+      "empty": "Geen albums op de server.",
+      "error": "Immich is niet bereikbaar.",
+      "loading": "Albums laden…",
+      "refresh": "Albums vernieuwen",
+      "timeline": "Tijdlijn",
+      "title": "Immich"
+    },
+    "settings": {
+      "apiKey": "API-sleutel",
+      "apiKeyDesc": "Maak er een aan in Immich onder Accountinstellingen → API-sleutels. Deze moet albums, items en de tijdlijn kunnen lezen en originelen kunnen downloaden.",
+      "cacheDir": "Cachemap",
+      "cacheDirDefault": "Standaard",
+      "cacheDirDesc": "Waar gedownloade originelen worden bewaard.",
+      "cacheLimit": "Cachegrootte (GB)",
+      "cacheLimitDesc": "Gedownloade originelen boven deze grootte worden verwijderd, oudste eerst. Bewerkingen blijven behouden.",
+      "cacheTitle": "Cache",
+      "category": "Immich",
+      "connected": "Verbonden als {{user}} (Immich {{version}})",
+      "connectionTitle": "Immich",
+      "description": "Blader door de foto's van je Immich-server in de bibliotheek en bewerk ze direct. Originelen worden gedownload als je ze opent; bewerkingen blijven op deze computer.",
+      "keyInFile": "Opgeslagen in een bestand dat alleen jij kunt lezen: er is geen sleutelopslag beschikbaar. Zet in KDE de Secret Service-interface aan in de instellingen van KDE Wallet en sla opnieuw op.",
+      "keyInStore": "Opgeslagen in de sleutelopslag van het systeem.",
+      "save": "Opslaan",
+      "saved": "Opgeslagen.",
+      "serverUrl": "Serveradres",
+      "serverUrlDesc": "Het adres waarmee je Immich in de browser opent.",
+      "test": "Verbinding testen",
+      "working": "Bezig…"
+    },
+    "toasts": {
+      "downloadFailed": "Downloaden van Immich mislukt: {{error}}"
+    }
+  },
   "library": {
     "community": {
       "actionSave": "Opslaan",
