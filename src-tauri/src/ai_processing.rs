@@ -60,6 +60,12 @@ const DEPTH_FILENAME: &str = "depth_anything_v2_vits.onnx";
 const DEPTH_INPUT_SIZE: u32 = 518;
 const DEPTH_SHA256: &str = "d2b11a11c1d4a12b47608fa65a17ee9a4c605b55ee1730c8e3b526304f2562be";
 
+const NORMAL_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/moge-2-vits-normal-onnx.onnx?download=true";
+const NORMAL_FILENAME: &str = "moge-2-vits-normal-onnx.onnx";
+const NORMAL_MAX_SIZE: u32 = 768;
+const NORMAL_NUM_TOKENS: i64 = 2500;
+const NORMAL_SHA256: &str = "24eacb5dc7a2c54c7bc98f7de085ffbed79ad006ea5b664c2c2cdc02ff3a52f0";
+
 pub struct AiModels {
     pub sam_encoder: Mutex<Session>,
     pub sam_decoder: Mutex<Session>,
@@ -92,6 +98,7 @@ pub struct AiState {
     pub denoise_model: Option<Arc<Mutex<Session>>>,
     pub clip_models: Option<Arc<ClipModels>>,
     pub lama_model: Option<Arc<Mutex<Session>>>,
+    pub normal_model: Option<Arc<Mutex<Session>>>,
     pub embeddings: Option<ImageEmbeddings>,
     pub depth_map: Option<CachedDepthMap>,
 }
@@ -550,6 +557,7 @@ pub async fn get_or_init_ai_models(
             denoise_model: None,
             clip_models: None,
             lama_model: None,
+            normal_model: None,
             embeddings: None,
             depth_map: None,
         });
@@ -610,6 +618,7 @@ pub async fn get_or_init_denoise_model(
             denoise_model: Some(denoise_model.clone()),
             clip_models: None,
             lama_model: None,
+            normal_model: None,
             embeddings: None,
             depth_map: None,
         });
@@ -682,6 +691,7 @@ pub async fn get_or_init_clip_models(
             denoise_model: None,
             clip_models: Some(clip_models.clone()),
             lama_model: None,
+            normal_model: None,
             embeddings: None,
             depth_map: None,
         });
@@ -742,12 +752,74 @@ pub async fn get_or_init_lama_model(
             denoise_model: None,
             clip_models: None,
             lama_model: Some(lama_model.clone()),
+            normal_model: None,
             embeddings: None,
             depth_map: None,
         });
     }
 
     Ok(lama_model)
+}
+
+pub async fn get_or_init_normal_model(
+    app_handle: &tauri::AppHandle,
+    ai_state_mutex: &Mutex<Option<AiState>>,
+    ai_init_lock: &TokioMutex<()>,
+) -> Result<Arc<Mutex<Session>>> {
+    if let Some(normal_model) = ai_state_mutex
+        .lock()
+        .unwrap()
+        .as_ref()
+        .and_then(|state| state.normal_model.clone())
+    {
+        return Ok(normal_model);
+    }
+
+    let _guard = ai_init_lock.lock().await;
+
+    if let Some(normal_model) = ai_state_mutex
+        .lock()
+        .unwrap()
+        .as_ref()
+        .and_then(|state| state.normal_model.clone())
+    {
+        return Ok(normal_model);
+    }
+
+    let models_dir = get_models_dir(app_handle)?;
+    download_and_verify_model(
+        app_handle,
+        &models_dir,
+        NORMAL_FILENAME,
+        NORMAL_URL,
+        NORMAL_SHA256,
+        "Normal Model",
+    )
+    .await?;
+
+    let _ = ort::init().with_name("AI-Normal").commit();
+    let model_path = models_dir.join(NORMAL_FILENAME);
+    let session = Session::builder()?.commit_from_file(model_path)?;
+    let normal_model = Arc::new(Mutex::new(session));
+
+    crate::register_exit_handler();
+
+    let mut ai_state_lock = ai_state_mutex.lock().unwrap();
+    if let Some(state) = ai_state_lock.as_mut() {
+        state.normal_model = Some(normal_model.clone());
+    } else {
+        *ai_state_lock = Some(AiState {
+            models: None,
+            denoise_model: None,
+            clip_models: None,
+            lama_model: None,
+            normal_model: Some(normal_model.clone()),
+            embeddings: None,
+            depth_map: None,
+        });
+    }
+
+    Ok(normal_model)
 }
 
 #[derive(Clone, Copy)]
@@ -1682,6 +1754,120 @@ pub fn run_depth_anything_model(
         .ok_or_else(|| anyhow::anyhow!("Failed to create mask from Depth output"))?;
 
     Ok(depth_map)
+}
+
+fn build_normal_depth(points: &[f32], mask: &[f32]) -> Vec<u8> {
+    let valid = |point: &[f32; 3], m: f32| {
+        m >= 0.5 && point.iter().all(|v| v.is_finite()) && point[2] > 0.0
+    };
+
+    let mut depths: Vec<f32> = points
+        .as_chunks::<3>()
+        .0
+        .iter()
+        .zip(mask)
+        .filter(|(point, m)| valid(point, **m))
+        .map(|(point, _)| point[2])
+        .collect();
+
+    if depths.len() < 16 {
+        return vec![255; mask.len()];
+    }
+
+    depths.sort_unstable_by(|a, b| a.total_cmp(b));
+    let percentile = |p: f32| depths[((depths.len() - 1) as f32 * p) as usize];
+    let near = percentile(0.005);
+    let range = (percentile(0.995) - near).max(1e-6);
+
+    points
+        .as_chunks::<3>()
+        .0
+        .iter()
+        .zip(mask)
+        .map(|(point, m)| {
+            if valid(point, *m) {
+                (((point[2] - near) / range).clamp(0.0, 1.0) * 255.0).round() as u8
+            } else {
+                255
+            }
+        })
+        .collect()
+}
+
+pub fn run_normal_model(
+    image: &DynamicImage,
+    normal_session: &Mutex<Session>,
+) -> Result<RgbaImage> {
+    let resized_image = if image.width().max(image.height()) > NORMAL_MAX_SIZE {
+        image.resize(NORMAL_MAX_SIZE, NORMAL_MAX_SIZE, FilterType::Triangle)
+    } else {
+        image.clone()
+    };
+    let (resized_w, resized_h) = resized_image.dimensions();
+    let resized_rgb = resized_image.into_rgb8();
+    let raw_pixels = resized_rgb.as_raw();
+
+    let rw = resized_w as usize;
+    let rh = resized_h as usize;
+
+    let mut input_tensor: Array<f32, _> = Array::zeros((1, 3, rh, rw));
+    for y in 0..rh {
+        for x in 0..rw {
+            let idx = (y * rw + x) * 3;
+            input_tensor[[0, 0, y, x]] = raw_pixels[idx] as f32 / 255.0;
+            input_tensor[[0, 1, y, x]] = raw_pixels[idx + 1] as f32 / 255.0;
+            input_tensor[[0, 2, y, x]] = raw_pixels[idx + 2] as f32 / 255.0;
+        }
+    }
+
+    let t_image = Tensor::from_array(input_tensor.into_dyn())?;
+    let t_num_tokens = Tensor::from_array(ndarray::arr0(NORMAL_NUM_TOKENS))?;
+
+    let mut session = normal_session.lock().unwrap();
+    let outputs = session.run(ort::inputs![
+        "image" => t_image,
+        "num_tokens" => t_num_tokens,
+    ])?;
+
+    let normal_tensor = outputs["normal"].try_extract_array::<f32>()?;
+    let mask_tensor = outputs["mask"].try_extract_array::<f32>()?;
+    let points_tensor = outputs["points"].try_extract_array::<f32>()?;
+
+    if normal_tensor.shape() != [1, rh, rw, 3]
+        || mask_tensor.shape() != [1, rh, rw]
+        || points_tensor.shape() != [1, rh, rw, 3]
+    {
+        return Err(anyhow::anyhow!(
+            "Unexpected normal model output shape: {:?} / {:?} / {:?}",
+            normal_tensor.shape(),
+            mask_tensor.shape(),
+            points_tensor.shape()
+        ));
+    }
+
+    let normals = normal_tensor.as_standard_layout();
+    let normals = normals.as_slice().unwrap();
+    let mask = mask_tensor.as_standard_layout();
+    let mask = mask.as_slice().unwrap();
+    let points = points_tensor.as_standard_layout();
+    let depth = build_normal_depth(points.as_slice().unwrap(), mask);
+
+    let pack = |v: f32| ((v * 0.5 + 0.5).clamp(0.0, 1.0) * 255.0).round() as u8;
+
+    let mut normal_data = Vec::with_capacity(rw * rh * 4);
+    for (n, d) in normals.as_chunks::<3>().0.iter().zip(depth) {
+        let (nx, ny, nz) = (n[0], -n[1], -n[2]);
+        let len = (nx * nx + ny * ny + nz * nz).sqrt();
+        if len.is_finite() && len > 1e-6 {
+            normal_data.extend_from_slice(&[pack(nx / len), pack(ny / len), pack(nz / len)]);
+        } else {
+            normal_data.extend_from_slice(&[128, 128, 255]);
+        }
+        normal_data.push(d);
+    }
+
+    RgbaImage::from_raw(resized_w, resized_h, normal_data)
+        .ok_or_else(|| anyhow::anyhow!("Failed to create normal map from model output"))
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

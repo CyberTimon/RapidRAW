@@ -11,6 +11,7 @@ import {
   ImageFile,
   ImageFlag,
   FlagStatus,
+  RATING_OPERATORS,
   SelectedImage,
   ThumbnailAspectRatio,
 } from '../ui/AppProperties';
@@ -250,6 +251,7 @@ export default function BottomBar({
       setFilterCriteria: state.setFilterCriteria,
     })),
   );
+  const ratingOp = RATING_OPERATORS[filterCriteria.ratingOperator ?? 'gte'];
 
   const allColors = [...COLOR_LABELS, { name: 'none', color: '#9ca3af' }];
   const currentHeight = filmstripHeight ?? 120;
@@ -511,6 +513,7 @@ export default function BottomBar({
                     return (
                       <button
                         key={`qf-star-${starValue}`}
+                        data-tooltip={`${starValue} ${t(ratingOp.suffixKey)}`}
                         onClick={() =>
                           setFilterCriteria((prev) => ({
                             ...prev,
@@ -529,6 +532,18 @@ export default function BottomBar({
                       </button>
                     );
                   })}
+                  {(() => {
+                    const op = ratingOp;
+                    return (
+                      <button
+                        onClick={() => setFilterCriteria((prev) => ({ ...prev, ratingOperator: op.next }))}
+                        data-tooltip={t(op.labelKey)}
+                        className="ml-1 w-5 h-5 flex items-center justify-center rounded text-sm font-semibold text-text-secondary hover:text-text-primary focus:outline-none"
+                      >
+                        {op.symbol}
+                      </button>
+                    );
+                  })()}
                 </div>
 
                 <div className="h-4 w-px bg-border-color"></div>

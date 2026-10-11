@@ -15,7 +15,7 @@
       "reset": "Opnieuw instellen",
       "shadows": "Schaduwen",
       "toneMapper": "Toonmapping",
-      "whites": "Wittinten"   
+      "whites": "Wittinten"
     },
     "color": {
       "ariaSelectColor": "Selecteer {{name}} kleur",
@@ -119,6 +119,11 @@
       "bokehShape": "Bokehvorm",
       "creative": "Creatief",
       "feather": "Randvervaging",
+      "fog": "Mist",
+      "fogDensity": "Dichtheid",
+      "fogHeight": "Grondmist",
+      "fogStart": "Begin",
+      "fogVariation": "Variatie",
       "glow": "Gloed",
       "grain": "Korrel",
       "halation": "Halatie",
@@ -127,9 +132,33 @@
       "lightFlares": "Lensflare",
       "lut": "LUT",
       "midpoint": "Middelpunt",
+      "relight": "Herbelichten",
+      "relightAddLight": "Licht toevoegen",
+      "relightAmbient": "Omgevingslicht",
+      "relightAngle": "Hoek",
+      "relightColor": "Lichtkleur",
+      "relightCone": "Kegel",
+      "relightDepth": "Diepte",
+      "relightElevation": "Elevatie",
+      "relightFalloff": "Afname",
+      "relightHint": "Voeg een licht toe of selecteer er een en klik of sleep in de afbeelding om het te plaatsen.",
+      "relightIntensity": "Intensiteit",
+      "relightLight": "Licht {{index}}",
+      "relightRemoveLight": "Licht verwijderen",
+      "relightShadows": "Schaduwen",
+      "relightShadowSoftness": "Schaduwzachtheid",
+      "relightShine": "Glans",
+      "relightSoftness": "Zachtheid",
+      "relightType": "Lichttype",
+      "relightTypes": {
+        "directional": "Gericht",
+        "point": "Punt",
+        "spot": "Spot"
+      },
       "roughness": "Ruwheid",
       "roundness": "Rondheid",
       "size": "Grootte",
+      "spatial": "Ruimtelijk",
       "vignette": "Vignet"
     }
   },
@@ -371,6 +400,7 @@
       "editSettingsTitle": "Bewerkingsinstellingen",
       "editsTitle": "Bewerkingen",
       "generatingDepthMap": "AI-dieptekaart berekenen...",
+      "generatingNormalMap": "AI-normaalkaart berekenen...",
       "generativeEditTitle": "Generatieve bewerking",
       "inpaintingTitle": "Inpainting",
       "liquify": {
@@ -961,6 +991,7 @@
       "noMatch": "Geen afbeeldingen gevonden die overeenkomen met uw filter.",
       "rating": {
         "all": "Alles weergeven",
+        "andDownSuffix": "& lager",
         "andUpSuffix": "& hoger",
         "fiveOnly": "Alleen 5",
         "fourAndUp": "4 & hoger",
@@ -1040,6 +1071,11 @@
         "filterByEdited": "Filteren op bewerkingsstatus",
         "filterByFileType": "Filteren op bestandstype",
         "filterByRating": "Filteren op beoordeling",
+        "ratingOperator": {
+          "eq": "Precies deze beoordeling",
+          "gte": "Deze beoordeling of hoger",
+          "lte": "Deze beoordeling of lager"
+        },
         "groupEditedFiles": "Bewerkte bestanden in groepen opnemen",
         "groupIgnoreMetadata": "Niet-overeenkomende EXIF-datums negeren",
         "groupOff": "Uit",
@@ -1362,6 +1398,7 @@
       "deleteWarning": "Bestanden worden verplaatst naar de systeemprullenbak.",
       "fileNaming": "Bestandsnaamgeving",
       "folderOrganization": "Maporganisatie",
+      "notUniqueWarning": "Zonder {original_filename}, {original_filename_number} of {sequence} kunnen bestanden dezelfde naam krijgen. Die bestanden worden niet geïmporteerd.",
       "organizeByDate": "Ordenen in submappen op datum",
       "sourceFiles": "Bronbestanden",
       "startImport": "Import starten",
@@ -1449,6 +1486,7 @@
       "cancel": "Annuleren",
       "fileNamingTemplate": "Bestandsnaamsjabloon",
       "newName": "Nieuwe naam",
+      "notUniqueWarning": "Zonder {original_filename}, {original_filename_number} of {sequence} kunnen bestanden dezelfde naam krijgen. Dan wordt er niets hernoemd.",
       "save": "Opslaan",
       "titleMultiple": "{{count}} afbeeldingen hernoemen",
       "titleMultiple_one": "{{count}} afbeelding hernoemen",
@@ -1582,7 +1620,7 @@
       "enableFocusMode": "Focusmodus inschakelen",
       "enableNeutralGreyCanvas": "Neutrale grijze achtergrond inschakelen",
       "enableOsTitlebar": "OS-titelbalk inschakelen",
-      "enableToolFocusMode": "Toolfocusmodus inschakelen",      
+      "enableToolFocusMode": "Toolfocusmodus inschakelen",
       "enableXmpSync": "XMP-synchronisatie inschakelen",
       "focusMode": "Focusmodus",
       "focusModeDesc": "Helpt u te concentreren door andere panelen automatisch te sluiten wanneer u een nieuw paneel opent.",
@@ -1703,6 +1741,11 @@
             "upgradeBtn": "Upgraden op website",
             "upgradeDesc": "Om Cloud AI-functies te gebruiken heeft u een cloudabonnement nodig."
           },
+          "statuses": {
+            "connecting": "Verbinden…",
+            "retry": "Verbinding opnieuw proberen",
+            "unsupported": "Aanmelden bij de cloud is momenteel alleen beschikbaar op desktop."
+          },
           "title": "Cloudservice"
         },
         "connector": {
@@ -1725,9 +1768,17 @@
           "feature3": "Eenvoudige CPU-gebaseerde generatieve vervanging",
           "title": "Ingebouwde AI (CPU)"
         },
+        "aiFree": {
+          "description": "Schakelt alle AI-functies uit. Alle AI-gerelateerde bedieningselementen worden verborgen, zodat RapidRAW werkt als een puur traditionele RAW-editor.",
+          "feature1": "Geen AI-maskers, lensonscherpte of generatieve bewerkingen in de interface",
+          "feature2": "Bestaande AI-bewerkingen worden nog gewoon weergegeven",
+          "feature3": "Een overzichtelijkere, meer gerichte interface",
+          "title": "Zonder AI"
+        },
         "description": "De AI van RapidRAW is gebouwd voor flexibiliteit. Kies uw ideale workflow, van snelle lokale tools tot krachtige zelfhosting.",
         "providers": {
           "aiConnector": "AI-verbinding",
+          "aiFree": "Zonder AI",
           "cloud": "Cloud",
           "cpu": "CPU"
         },

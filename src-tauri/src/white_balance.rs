@@ -247,7 +247,6 @@ pub fn from_adjustments(adjustments: &Value, as_shot: WhiteBalance) -> WhiteBala
         )
 }
 
-#[tauri::command]
 pub fn pick_white_balance(sample: [f64; 3], current: WhiteBalance) -> Option<WhiteBalance> {
     let rgb_to_lms = rgb_to_lms().as_dmat3();
     let sample_lms = rgb_to_lms * DVec3::from_array(sample);

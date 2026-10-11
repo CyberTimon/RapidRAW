@@ -119,6 +119,11 @@
       "bokehShape": "Tvar bokehu",
       "creative": "Kreativní",
       "feather": "Prolnutí",
+      "fog": "Mlha",
+      "fogDensity": "Hustota",
+      "fogHeight": "Přízemní mlha",
+      "fogStart": "Začátek",
+      "fogVariation": "Variabilita",
       "glow": "Záře",
       "grain": "Zrno",
       "halation": "Halace",
@@ -127,9 +132,33 @@
       "lightFlares": "Světelné záblesky",
       "lut": "LUT",
       "midpoint": "Střed",
+      "relight": "Přesvětlení",
+      "relightAddLight": "Přidat světlo",
+      "relightAmbient": "Okolní světlo",
+      "relightAngle": "Úhel",
+      "relightColor": "Barva světla",
+      "relightCone": "Kužel",
+      "relightDepth": "Hloubka",
+      "relightElevation": "Výška",
+      "relightFalloff": "Útlum",
+      "relightHint": "Přidejte nebo vyberte světlo a klikněte nebo táhněte v obrázku pro jeho umístění.",
+      "relightIntensity": "Intenzita",
+      "relightLight": "Světlo {{index}}",
+      "relightRemoveLight": "Odebrat světlo",
+      "relightShadows": "Stíny",
+      "relightShadowSoftness": "Měkkost stínů",
+      "relightShine": "Lesk",
+      "relightSoftness": "Měkkost",
+      "relightType": "Typ světla",
+      "relightTypes": {
+        "directional": "Směrové",
+        "point": "Bodové",
+        "spot": "Reflektor"
+      },
       "roughness": "Drsnost",
       "roundness": "Kulatost",
       "size": "Velikost",
+      "spatial": "Prostorové",
       "vignette": "Viněta"
     }
   },
@@ -376,6 +405,7 @@
       "editSettingsTitle": "Upravit nastavení",
       "editsTitle": "Úpravy",
       "generatingDepthMap": "Výpočet hloubkové mapy AI…",
+      "generatingNormalMap": "Výpočet AI mapy normál...",
       "generativeEditTitle": "Generativní úprava",
       "inpaintingTitle": "AI retuš",
       "liquify": {
@@ -703,8 +733,8 @@
       "organization": {
         "addTagPlaceholder": "Přidat značku...",
         "colorLabel": "Barevný štítek",
-        "none": "Žádný",
         "noTags": "Žádné značky",
+        "none": "Žádný",
         "rating": "Hodnocení",
         "ratingLabels": "Hodnocení a štítky",
         "tags": "Značky",
@@ -972,6 +1002,7 @@
       "noMatch": "Nebyly nalezeny žádné snímky, které by odpovídaly vašemu filtru.",
       "rating": {
         "all": "Zobrazit vše",
+        "andDownSuffix": "& dolů",
         "andUpSuffix": "& nahoru",
         "fiveOnly": "pouze 5",
         "fourAndUp": "4 a výše",
@@ -1052,6 +1083,11 @@
         "filterByFileType": "Filtrovat podle typu souboru",
         "filterByFlag": "Filtrovat podle příznaku",
         "filterByRating": "Filtrovat podle hodnocení",
+        "ratingOperator": {
+          "eq": "Přesně toto hodnocení",
+          "gte": "Toto hodnocení nebo vyšší",
+          "lte": "Toto hodnocení nebo nižší"
+        },
         "groupEditedFiles": "Zahrnout upravené soubory do skupin",
         "groupIgnoreMetadata": "Ignorovat neshodná data EXIF",
         "groupOff": "Vypnuto",
@@ -1384,6 +1420,7 @@
       "deleteWarning": "Soubory budou přesunuty do koše systému.",
       "fileNaming": "Pojmenování souborů",
       "folderOrganization": "Organizace složek",
+      "notUniqueWarning": "Bez {original_filename}, {original_filename_number} nebo {sequence} mohou soubory dostat stejný název. Takové soubory se neimportují.",
       "organizeByDate": "Uspořádejte do podsložek podle data",
       "sourceFiles": "Zdrojové soubory",
       "startImport": "Spustit import",
@@ -1471,6 +1508,7 @@
       "cancel": "Zrušit",
       "fileNamingTemplate": "Šablona pojmenování souborů",
       "newName": "Nové jméno",
+      "notUniqueWarning": "Bez {original_filename}, {original_filename_number} nebo {sequence} mohou soubory dostat stejný název. Pak se nic nepřejmenuje.",
       "save": "Uložit",
       "titleMultiple": "Přejmenovat {{count}} snímky",
       "titleMultiple_one": "Přejmenovat {{count}} snímek",
@@ -1729,6 +1767,11 @@
             "upgradeBtn": "Upgrade na webu",
             "upgradeDesc": "Chcete-li používat funkce Cloud AI, potřebujete cloudové předplatné."
           },
+          "statuses": {
+            "connecting": "Připojování…",
+            "retry": "Opakovat připojení",
+            "unsupported": "Přihlášení do cloudu je momentálně k dispozici pouze na počítači."
+          },
           "title": "Cloudová služba"
         },
         "connector": {
@@ -1751,9 +1794,17 @@
           "feature3": "Jednoduchá generativní výměna založená na CPU",
           "title": "Vestavěná AI (CPU)"
         },
+        "aiFree": {
+          "description": "Vypne všechny funkce AI. Všechny ovládací prvky související s AI jsou v rozhraní skryty, takže RapidRAW funguje jako čistě tradiční editor RAW.",
+          "feature1": "Žádné AI masky, rozostření objektivu ani generativní úpravy v rozhraní",
+          "feature2": "Stávající AI úpravy se nadále zobrazují normálně",
+          "feature3": "Přehlednější a soustředěnější rozhraní",
+          "title": "Bez AI"
+        },
         "description": "AI v RapidRAW je vytvořena pro flexibilitu. Vyberte si ideální pracovní postup, od rychlých místních nástrojů po výkonný vlastní hosting.",
         "providers": {
           "aiConnector": "AI konektor",
+          "aiFree": "Bez AI",
           "cloud": "Cloud",
           "cpu": "CPU"
         },
@@ -1859,8 +1910,8 @@
     "tagging": {
       "addCustomPlaceholder": "Přidat vlastní značky AI (oddělené čárkami)...",
       "addCustomTooltip": "Přidejte značku AI",
-      "addShortcutsPlaceholder": "Přidat zkratky (oddělené čárkami)...",
       "addShortcutTooltip": "Přidat zkratku",
+      "addShortcutsPlaceholder": "Přidat zkratky (oddělené čárkami)...",
       "aiTagging": "AI značkování",
       "aiTaggingDesc": "Umožňuje automatické označování snímků pomocí modelu AI (CLIP). Tím se stáhne další model a ovlivní to výkon při procházení složek. Značky se používají k vyhledávání ve složce.",
       "amount": "Počet",

@@ -120,6 +120,11 @@
       "bokehShape": "ボケの形状",
       "creative": "クリエイティブ",
       "feather": "ぼかし",
+      "fog": "霧",
+      "fogDensity": "濃度",
+      "fogHeight": "地表霧",
+      "fogStart": "開始距離",
+      "fogVariation": "ばらつき",
       "glow": "グロー",
       "grain": "粒子",
       "halation": "ハレーション",
@@ -128,9 +133,33 @@
       "lightFlares": "ライトフレア",
       "lut": "LUT",
       "midpoint": "中間点",
+      "relight": "リライト",
+      "relightAddLight": "ライトを追加",
+      "relightAmbient": "環境光",
+      "relightAngle": "角度",
+      "relightColor": "ライトの色",
+      "relightCone": "コーン",
+      "relightDepth": "奥行き",
+      "relightElevation": "仰角",
+      "relightFalloff": "減衰",
+      "relightHint": "ライトを追加または選択し、画像上をクリックまたはドラッグして配置します。",
+      "relightIntensity": "強度",
+      "relightLight": "ライト {{index}}",
+      "relightRemoveLight": "ライトを削除",
+      "relightShadows": "影",
+      "relightShadowSoftness": "影の柔らかさ",
+      "relightShine": "光沢",
+      "relightSoftness": "柔らかさ",
+      "relightType": "ライトの種類",
+      "relightTypes": {
+        "directional": "平行光",
+        "point": "点光源",
+        "spot": "スポットライト"
+      },
       "roughness": "粗さ",
       "roundness": "丸み",
       "size": "サイズ",
+      "spatial": "空間",
       "vignette": "周辺光量補正"
     }
   },
@@ -377,6 +406,7 @@
       "editSettingsTitle": "編集設定",
       "editsTitle": "編集一覧",
       "generatingDepthMap": "AI深度マップを計算中...",
+      "generatingNormalMap": "AI法線マップを計算中...",
       "generativeEditTitle": "生成編集",
       "inpaintingTitle": "インペインティング",
       "liquify": {
@@ -971,6 +1001,7 @@
       "noMatch": "フィルターに一致する画像が見つかりません。",
       "rating": {
         "all": "すべて表示",
+        "andDownSuffix": "以下",
         "andUpSuffix": "以上",
         "fiveOnly": "5のみ",
         "fourAndUp": "4以上",
@@ -1051,6 +1082,11 @@
         "filterByFileType": "ファイル形式でフィルター",
         "filterByFlag": "フラグでフィルター",
         "filterByRating": "評価でフィルター",
+        "ratingOperator": {
+          "eq": "この評価のみ",
+          "gte": "この評価以上",
+          "lte": "この評価以下"
+        },
         "groupEditedFiles": "Include edited files in groups",
         "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
         "groupOff": "Off",
@@ -1383,6 +1419,7 @@
       "deleteWarning": "ファイルはシステムのゴミ箱に移動されます。",
       "fileNaming": "ファイル名の命名",
       "folderOrganization": "フォルダ構成",
+      "notUniqueWarning": "{original_filename}、{original_filename_number}、{sequence} のいずれも含まれない場合、ファイル名が重複することがあります。重複したファイルはインポートされません。",
       "organizeByDate": "日付ごとにサブフォルダに整理する",
       "sourceFiles": "ソースファイル",
       "startImport": "インポートを開始",
@@ -1470,6 +1507,7 @@
       "cancel": "キャンセル",
       "fileNamingTemplate": "ファイル命名テンプレート",
       "newName": "新しい名前",
+      "notUniqueWarning": "{original_filename}、{original_filename_number}、{sequence} のいずれも含まれない場合、ファイル名が重複することがあります。その場合、名前は一切変更されません。",
       "save": "保存",
       "titleMultiple": "{{count}} 件の画像名を変更",
       "titleMultiple_one": "{{count}} 件の画像名を変更",
@@ -1728,6 +1766,11 @@
             "upgradeBtn": "Webサイトでアップグレード",
             "upgradeDesc": "クラウドAI機能を使用するには、クラウドサブスクリプションへの加入が必要です。"
           },
+          "statuses": {
+            "connecting": "接続中…",
+            "retry": "接続を再試行",
+            "unsupported": "クラウドへのサインインは現在、デスクトップでのみ利用可能です。"
+          },
           "title": "クラウドサービス"
         },
         "connector": {
@@ -1750,9 +1793,17 @@
           "feature3": "CPUベースの簡易生成塗りつぶし",
           "title": "内蔵AI (CPU)"
         },
+        "aiFree": {
+          "description": "すべてのAI機能をオフにします。AI関連のコントロールはすべてインターフェースから非表示になり、RapidRAWは純粋な従来型のRAWエディターとして動作します。",
+          "feature1": "AIマスク、レンズぼかし、生成編集をUIに表示しません",
+          "feature2": "既存のAI編集は引き続き通常どおり反映されます",
+          "feature3": "よりすっきりとした集中しやすいインターフェース",
+          "title": "AIなし"
+        },
         "description": "RapidRAWのAIは、優れた柔軟性を備えています。高速なローカル処理から本格的なセルフホストまで、最適なワークフローを選択してください。",
         "providers": {
           "aiConnector": "AI Connector",
+          "aiFree": "AIなし",
           "cloud": "クラウド",
           "cpu": "CPU"
         },

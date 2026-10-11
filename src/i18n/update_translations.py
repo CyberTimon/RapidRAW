@@ -5,118 +5,226 @@ LOCALES_DIR = Path("./locales")
 
 TRANSLATIONS = {
     "ca": {
-        "editor": {
-            "ai": {
-                "settings": {
-                    "cancelGeneration": "Cancel·lar generació"
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Connectant…",
+                            "retry": "Tornar a intentar la connexió",
+                            "unsupported": "L'inici de sessió al núvol actualment només està disponible a l'escriptori."
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "cs": {
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Připojování…",
+                            "retry": "Opakovat připojení",
+                            "unsupported": "Přihlášení do cloudu je momentálně k dispozici pouze na počítači."
+                        }
+                    }
                 }
             }
         }
     },
     "de": {
-        "editor": {
-            "ai": {
-                "settings": {
-                    "cancelGeneration": "Generierung abbrechen"
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Verbinden…",
+                            "retry": "Verbindung erneut versuchen",
+                            "unsupported": "Die Cloud-Anmeldung ist derzeit nur auf dem Desktop verfügbar."
+                        }
+                    }
                 }
             }
         }
     },
     "en": {
-        "editor": {
-            "ai": {
-                "settings": {
-                    "cancelGeneration": "Cancel Generation"
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Connecting…",
+                            "retry": "Retry connection",
+                            "unsupported": "Cloud sign-in is currently only available on desktop."
+                        }
+                    }
                 }
             }
         }
     },
     "es": {
-        "editor": {
-            "ai": {
-                "settings": {
-                    "cancelGeneration": "Cancelar generación"
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Conectando…",
+                            "retry": "Reintentar conexión",
+                            "unsupported": "El inicio de sesión en la nube actualmente solo está disponible en escritorio."
+                        }
+                    }
                 }
             }
         }
     },
     "fr": {
-        "editor": {
-            "ai": {
-                "settings": {
-                    "cancelGeneration": "Annuler la génération"
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Connexion…",
+                            "retry": "Réessayer la connexion",
+                            "unsupported": "La connexion au cloud n'est actuellement disponible que sur ordinateur."
+                        }
+                    }
                 }
             }
         }
     },
     "it": {
-        "editor": {
-            "ai": {
-                "settings": {
-                    "cancelGeneration": "Annulla generazione"
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Connessione in corso…",
+                            "retry": "Riprova connessione",
+                            "unsupported": "L'accesso al cloud è attualmente disponibile solo su desktop."
+                        }
+                    }
                 }
             }
         }
     },
     "ja": {
-        "editor": {
-            "ai": {
-                "settings": {
-                    "cancelGeneration": "生成をキャンセル"
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "接続中…",
+                            "retry": "接続を再試行",
+                            "unsupported": "クラウドへのサインインは現在、デスクトップでのみ利用可能です。"
+                        }
+                    }
                 }
             }
         }
     },
     "ko": {
-        "editor": {
-            "ai": {
-                "settings": {
-                    "cancelGeneration": "생성 취소"
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "연결 중…",
+                            "retry": "연결 재시도",
+                            "unsupported": "클라우드 로그인은 현재 데스크톱에서만 사용할 수 있습니다."
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "nl": {
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Verbinden…",
+                            "retry": "Verbinding opnieuw proberen",
+                            "unsupported": "Aanmelden bij de cloud is momenteel alleen beschikbaar op desktop."
+                        }
+                    }
                 }
             }
         }
     },
     "pl": {
-        "editor": {
-            "ai": {
-                "settings": {
-                    "cancelGeneration": "Anuluj generowanie"
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Łączenie…",
+                            "retry": "Ponów próbę połączenia",
+                            "unsupported": "Logowanie w chmurze jest obecnie dostępne tylko na komputerach."
+                        }
+                    }
                 }
             }
         }
     },
     "pt": {
-        "editor": {
-            "ai": {
-                "settings": {
-                    "cancelGeneration": "Cancelar geração"
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Conectando…",
+                            "retry": "Tentar conexão novamente",
+                            "unsupported": "O login na nuvem está atualmente disponível apenas no desktop."
+                        }
+                    }
                 }
             }
         }
     },
     "ru": {
-        "editor": {
-            "ai": {
-                "settings": {
-                    "cancelGeneration": "Отменить генерацию"
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Подключение…",
+                            "retry": "Повторить попытку подключения",
+                            "unsupported": "Вход в облако в настоящее время доступен только на ПК."
+                        }
+                    }
                 }
             }
         }
     },
     "zh-CN": {
-        "editor": {
-            "ai": {
-                "settings": {
-                    "cancelGeneration": "取消生成"
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "正在连接…",
+                            "retry": "重试连接",
+                            "unsupported": "云端登录目前仅在桌面设备上可用。"
+                        }
+                    }
                 }
             }
         }
     },
     "zh-TW": {
-        "editor": {
-            "ai": {
-                "settings": {
-                    "cancelGeneration": "取消生成"
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "連線中…",
+                            "retry": "重試連線",
+                            "unsupported": "雲端登入目前僅在桌面裝置上可用。"
+                        }
+                    }
                 }
             }
         }
@@ -167,7 +275,7 @@ def main():
         print(f"Error: Locales directory '{LOCALES_DIR}' does not exist.")
         return
 
-    print("Starting translation updates for Cancel Generation...")
+    print("Starting translation updates for Cloud Statuses...")
     for lang, trans in TRANSLATIONS.items():
         file_path = LOCALES_DIR / f"{lang}.json"
         update_json_file(file_path, trans)

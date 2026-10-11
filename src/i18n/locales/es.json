@@ -120,6 +120,11 @@
       "bokehShape": "Forma del bokeh",
       "creative": "Creativo",
       "feather": "Desvanecimiento",
+      "fog": "Niebla",
+      "fogDensity": "Densidad",
+      "fogHeight": "Niebla baja",
+      "fogStart": "Inicio",
+      "fogVariation": "Variación",
       "glow": "Resplandor",
       "grain": "Grano",
       "halation": "Halación",
@@ -128,9 +133,33 @@
       "lightFlares": "Destellos de luz",
       "lut": "LUT",
       "midpoint": "Punto medio",
+      "relight": "Reiluminar",
+      "relightAddLight": "Añadir luz",
+      "relightAmbient": "Ambiente",
+      "relightAngle": "Ángulo",
+      "relightColor": "Color de la luz",
+      "relightCone": "Cono",
+      "relightDepth": "Profundidad",
+      "relightElevation": "Elevación",
+      "relightFalloff": "Atenuación",
+      "relightHint": "Añade o selecciona una luz y haz clic o arrastra en la imagen para colocarla.",
+      "relightIntensity": "Intensidad",
+      "relightLight": "Luz {{index}}",
+      "relightRemoveLight": "Eliminar luz",
+      "relightShadows": "Sombras",
+      "relightShadowSoftness": "Suavidad de sombras",
+      "relightShine": "Brillo",
+      "relightSoftness": "Suavidad",
+      "relightType": "Tipo de luz",
+      "relightTypes": {
+        "directional": "Direccional",
+        "point": "Puntual",
+        "spot": "Foco"
+      },
       "roughness": "Rugosidad",
       "roundness": "Redondez",
       "size": "Tamaño",
+      "spatial": "Espacial",
       "vignette": "Viñeteado"
     }
   },
@@ -393,6 +422,7 @@
       "editSettingsTitle": "Ajustes de edición",
       "editsTitle": "Ediciones",
       "generatingDepthMap": "Calculando mapa de profundidad IA...",
+      "generatingNormalMap": "Calculando mapa de normales IA...",
       "generativeEditTitle": "Edición generativa",
       "inpaintingTitle": "Inpainting",
       "liquify": {
@@ -996,6 +1026,7 @@
       "noMatch": "No se encontraron imágenes que coincidan con tu filtro.",
       "rating": {
         "all": "Mostrar todas",
+        "andDownSuffix": "e inferior",
         "andUpSuffix": "y superior",
         "fiveOnly": "Solo 5",
         "fourAndUp": "4 y superior",
@@ -1076,6 +1107,11 @@
         "filterByFileType": "Filtrar por tipo de archivo",
         "filterByFlag": "Filtrar por marca",
         "filterByRating": "Filtrar por puntuación",
+        "ratingOperator": {
+          "eq": "Exactamente esta puntuación",
+          "gte": "Esta puntuación o superior",
+          "lte": "Esta puntuación o inferior"
+        },
         "groupEditedFiles": "Include edited files in groups",
         "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
         "groupOff": "Off",
@@ -1414,6 +1450,7 @@
       "deleteWarning": "Los archivos se moverán a la papelera del sistema.",
       "fileNaming": "Nomenclatura de archivos",
       "folderOrganization": "Organización de carpetas",
+      "notUniqueWarning": "Sin {original_filename}, {original_filename_number} o {sequence}, varios archivos pueden recibir el mismo nombre. Esos archivos no se importan.",
       "organizeByDate": "Organizar en subcarpetas por fecha",
       "sourceFiles": "Archivos de origen",
       "startImport": "Iniciar importación",
@@ -1503,6 +1540,7 @@
       "cancel": "Cancelar",
       "fileNamingTemplate": "Plantilla de nombre de archivo",
       "newName": "Nuevo nombre",
+      "notUniqueWarning": "Sin {original_filename}, {original_filename_number} o {sequence}, varios archivos pueden recibir el mismo nombre. En ese caso no se renombra nada.",
       "save": "Guardar",
       "titleMultiple": "Renombrar {{count}} imágenes",
       "titleMultiple_many": "Renombrar {{count}} imágenes",
@@ -1765,6 +1803,11 @@
             "upgradeBtn": "Mejorar en la web",
             "upgradeDesc": "Para usar las funciones de IA en la nube, necesitas una suscripción Cloud."
           },
+          "statuses": {
+            "connecting": "Conectando…",
+            "retry": "Reintentar conexión",
+            "unsupported": "El inicio de sesión en la nube actualmente solo está disponible en escritorio."
+          },
           "title": "Servicio en la nube"
         },
         "connector": {
@@ -1787,9 +1830,17 @@
           "feature3": "Relleno generativo simple basado en CPU",
           "title": "IA integrada (CPU)"
         },
+        "aiFree": {
+          "description": "Desactiva todas las funciones de IA. Todos los controles relacionados con la IA se ocultan de la interfaz para que RapidRAW funcione como un editor RAW puramente tradicional.",
+          "feature1": "Sin máscaras de IA, desenfoque de lente ni ediciones generativas en la interfaz",
+          "feature2": "Las ediciones de IA existentes se siguen mostrando con normalidad",
+          "feature3": "Una interfaz más limpia y enfocada",
+          "title": "Sin IA"
+        },
         "description": "La IA de RapidRAW está diseñada para la flexibilidad. Elige tu flujo de trabajo ideal, desde herramientas locales rápidas hasta un potente autoalojamiento.",
         "providers": {
           "aiConnector": "AI Connector",
+          "aiFree": "Sin IA",
           "cloud": "Nube",
           "cpu": "CPU"
         },

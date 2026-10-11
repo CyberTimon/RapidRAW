@@ -235,6 +235,8 @@ function convertParametricToPoints(settings: ParametricCurveSettings): Array<Coo
 }
 
 const FINE_ADJUSTMENT_MULTIPLIER = 0.2;
+const POINT_HIT_RADIUS_PX = 12;
+const MIN_POINT_GAP_X = 1;
 
 const hasFineAdjustmentModifier = (event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) =>
   'shiftKey' in event && (event.shiftKey || event.altKey);
@@ -413,24 +415,22 @@ export default function CurveGraph({
         accumulatedPointRef.current.x = Math.max(0, Math.min(255, accumulatedPointRef.current.x + deltaX));
         accumulatedPointRef.current.y = Math.max(0, Math.min(255, accumulatedPointRef.current.y + deltaY));
 
-        let x = accumulatedPointRef.current.x;
-        let y = accumulatedPointRef.current.y;
-
-        if (!isFineAdjust) {
-          const SNAP_THRESHOLD = 5;
-          if (x < SNAP_THRESHOLD) x = 0;
-          if (x > 255 - SNAP_THRESHOLD) x = 255;
-        }
-
         const prevX = index > 0 ? currentPoints[index - 1].x : 0;
         const nextX = index < currentPoints.length - 1 ? currentPoints[index + 1].x : 255;
         const minX = index === 0 ? 0 : prevX + 0.01;
         const maxX = index === currentPoints.length - 1 ? 255 : nextX - 0.01;
 
-        x = Math.max(minX, Math.min(maxX, x));
+        accumulatedPointRef.current.x = Math.max(minX, Math.min(maxX, accumulatedPointRef.current.x));
 
-        accumulatedPointRef.current.x = x;
-        accumulatedPointRef.current.y = y;
+        let x = accumulatedPointRef.current.x;
+        const y = accumulatedPointRef.current.y;
+
+        if (!isFineAdjust) {
+          const SNAP_THRESHOLD = 5;
+          if (x < SNAP_THRESHOLD) x = 0;
+          if (x > 255 - SNAP_THRESHOLD) x = 255;
+          x = Math.max(minX, Math.min(maxX, x));
+        }
 
         const newPoints = [...currentPoints];
         newPoints[index] = { x, y };
@@ -530,15 +530,35 @@ export default function CurveGraph({
 
   const handleContainerStart = (e: any) => {
     if (isParametricMode || (!e.touches && e.button !== 0) || e.target.tagName === 'circle') return;
-    onDragStateChange?.(true);
 
     const svg = svgRef.current;
     if (!svg) return;
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     const rect = svg.getBoundingClientRect();
+
+    let nearestIndex = -1;
+    let nearestDistance = Infinity;
+    activePoints.forEach((p: Coord, i: number) => {
+      const px = rect.left + (p.x / 255) * rect.width;
+      const py = rect.top + ((255 - p.y) / 255) * rect.height;
+      const distance = Math.hypot(clientX - px, clientY - py);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = i;
+      }
+    });
+    if (nearestIndex !== -1 && nearestDistance <= POINT_HIT_RADIUS_PX) {
+      handlePointStart(e, nearestIndex);
+      return;
+    }
+
     const x = Math.max(0, Math.min(255, ((clientX - rect.left) / rect.width) * 255));
     const y = Math.max(0, Math.min(255, 255 - ((clientY - rect.top) / rect.height) * 255));
+
+    if (activePoints.some((p: Coord) => Math.abs(p.x - x) < MIN_POINT_GAP_X)) return;
+
+    onDragStateChange?.(true);
 
     const newPoints = [...activePoints, { x, y }].sort((a: Coord, b: Coord) => a.x - b.x);
     const newPointIndex = newPoints.findIndex((p: Coord) => p.x === x && p.y === y);
@@ -990,12 +1010,16 @@ export default function CurveGraph({
                         onMouseDown={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
+                          lastPointerRef.current = { x: e.clientX, y: e.clientY };
+                          accumulatedSplitRef.current = activeParametricSettings[key];
                           localParametricSettingsRef.current = { ...activeParametricSettings };
                           setDraggingSplitKey(key);
                         }}
                         onTouchStart={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
+                          lastPointerRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                          accumulatedSplitRef.current = activeParametricSettings[key];
                           localParametricSettingsRef.current = { ...activeParametricSettings };
                           setDraggingSplitKey(key);
                         }}

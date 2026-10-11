@@ -535,7 +535,7 @@ pub async fn invoke_generative_replace_with_mask_def(
             dst_chunk[3] = 255;
         }
 
-        let base_url = "http://127.0.0.1:5000";
+        let base_url = "https://www.getrapidraw.com/api";
 
         let dyn_src_crop = DynamicImage::ImageRgba8(final_src_crop);
         let dyn_rgba_mask = DynamicImage::ImageRgba8(rgba_mask);
