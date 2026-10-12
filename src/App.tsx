@@ -963,6 +963,7 @@ function App() {
                       handleCopyAdjustments={handleCopyAdjustments}
                       handlePasteAdjustments={handlePasteAdjustments}
                       handleRate={handleRate}
+                      handleSetFlag={handleSetFlag}
                       handleZoomChange={handleZoomChange}
                       handlePanelSelect={handlePanelSelect}
                       requestThumbnails={requestThumbnails}

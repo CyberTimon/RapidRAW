@@ -19,8 +19,9 @@ import {
 } from '../../utils/cropUtils';
 import EditorToolbar from './editor/EditorToolbar';
 import ImageCanvas from './editor/ImageCanvas';
+import CullingPill, { type CullingPillMode } from './editor/CullingPill';
 import { Mask, SubMask } from './right/Masks';
-import { Panel, TransformState, Invokes } from '../ui/AppProperties';
+import { Panel, TransformState, Invokes, ImageFlag } from '../ui/AppProperties';
 import { useEditorStore } from '../../store/useEditorStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUIStore } from '../../store/useUIStore';
@@ -29,6 +30,7 @@ import { useProcessStore } from '../../store/useProcessStore';
 import { useAiMasking } from '../../hooks/useAiMasking';
 import { useEditorActions } from '../../hooks/useEditorActions';
 import type { ImageNavigationDirection } from '../../utils/imageNavigation';
+import { getImageFlag } from '../../utils/imageFlags';
 
 const parseRgb = (rgbStr: string): [number, number, number, number] => {
   const match = rgbStr.match(/[\d.]+/g);
@@ -86,7 +88,17 @@ interface EditorProps {
   onImageSelect?(path: string, event?: any): void;
   onNavigateImage?(direction: ImageNavigationDirection): void;
   getNeighborImagePath?(direction: ImageNavigationDirection): string | null;
+  onRate?(rating: number, path: string): void;
+  onSetFlag?(flag: ImageFlag | null, path: string): void;
   transformWrapperRef: any;
+}
+
+interface SwipeCull {
+  mode: CullingPillMode;
+  path: string;
+  start: number;
+  value: number;
+  step: number;
 }
 
 interface SwipeGesture {
@@ -97,6 +109,7 @@ interface SwipeGesture {
   baseY: number;
   scale: number;
   engaged: boolean;
+  cull: SwipeCull | null;
   offset: number;
   samples: Array<{ x: number; t: number }>;
   prevPath: string | null;
@@ -129,6 +142,24 @@ const SWIPE_COMMIT_MAX_DURATION_MS = 300;
 const SWIPE_HANDOFF_MIN_MS = 200;
 const SWIPE_HANDOFF_MAX_MS = 1200;
 const SWIPE_HANDOFF_FADE_MS = 180;
+const CULL_RATING_STEP_RATIO = 0.3 / 5;
+const CULL_RATING_STEP_MIN_PX = 14;
+const CULL_RATING_STEP_MAX_PX = 26;
+const CULL_FLAG_STEP_RATIO = 0.15;
+const CULL_FLAG_STEP_MIN_PX = 40;
+const CULL_FLAG_STEP_MAX_PX = 70;
+const CULL_PILL_HIDE_DELAY_MS = 350;
+const CULL_PILL_FADE_MS = 150;
+
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+
+const vibrateTick = () => {
+  try {
+    navigator.vibrate?.(8);
+  } catch {
+    // Vibration is optional; ignore platforms that block it.
+  }
+};
 
 const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 
@@ -144,6 +175,8 @@ export default function Editor({
   onImageSelect,
   onNavigateImage,
   getNeighborImagePath,
+  onRate,
+  onSetFlag,
   transformWrapperRef,
 }: EditorProps) {
   const appSettings = useSettingsStore((s) => s.appSettings);
@@ -262,6 +295,10 @@ export default function Editor({
   const swipeHandoffArrivedAtRef = useRef<number | null>(null);
   const [swipeNeighbors, setSwipeNeighbors] = useState<SwipeNeighbors | null>(null);
   const [swipeHandoff, setSwipeHandoff] = useState<SwipeHandoff | null>(null);
+  const [cullingPill, setCullingPill] = useState<{ mode: CullingPillMode; value: number; visible: boolean } | null>(
+    null,
+  );
+  const cullingPillTimeoutRef = useRef<number | null>(null);
 
   const prevRenderState = useRef({
     containerLeft: 0,
@@ -980,9 +1017,29 @@ export default function Editor({
   useEffect(
     () => () => {
       if (swipeFrameId.current) cancelAnimationFrame(swipeFrameId.current);
+      if (cullingPillTimeoutRef.current) clearTimeout(cullingPillTimeoutRef.current);
     },
     [],
   );
+
+  const showCullingPill = useCallback((mode: CullingPillMode, value: number) => {
+    if (cullingPillTimeoutRef.current) {
+      clearTimeout(cullingPillTimeoutRef.current);
+      cullingPillTimeoutRef.current = null;
+    }
+    setCullingPill({ mode, value, visible: true });
+  }, []);
+
+  const hideCullingPill = useCallback((delay: number) => {
+    if (cullingPillTimeoutRef.current) clearTimeout(cullingPillTimeoutRef.current);
+    cullingPillTimeoutRef.current = window.setTimeout(() => {
+      setCullingPill((prev) => (prev ? { ...prev, visible: false } : prev));
+      cullingPillTimeoutRef.current = window.setTimeout(() => {
+        cullingPillTimeoutRef.current = null;
+        setCullingPill(null);
+      }, CULL_PILL_FADE_MS);
+    }, delay);
+  }, []);
 
   // Once the incoming image is selected, recentre the real canvas under the thumbnail.
   useLayoutEffect(() => {
@@ -1025,7 +1082,7 @@ export default function Editor({
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (isSwipeLockedRef.current || swipeRef.current?.engaged) return;
+      if (isSwipeLockedRef.current || swipeRef.current?.engaged || swipeRef.current?.cull) return;
 
       wasPanningDisabledOnDown.current = isPanningDisabled;
 
@@ -1113,6 +1170,7 @@ export default function Editor({
               baseY: positionY,
               scale: currentScale,
               engaged: false,
+              cull: null,
               offset: 0,
               samples: [],
               prevPath: null,
@@ -1149,12 +1207,13 @@ export default function Editor({
       applyTransform(swipe.baseX, swipe.baseY, swipe.scale);
       setSwipeNeighbors(null);
     }
+    if (swipe?.cull) hideCullingPill(0);
     lastPanPos.current = null;
     lastPinch.current = null;
     panVelocityHistory.current = [];
     mouseDownPos.current = null;
     setIsPanningState(false);
-  }, [isPanningDisabled, applyTransform]);
+  }, [isPanningDisabled, applyTransform, hideCullingPill]);
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -1205,11 +1264,56 @@ export default function Editor({
         const dx = e.clientX - swipe.startX;
         const dy = e.clientY - swipe.startY;
 
+        if (swipe.cull) {
+          const cull = swipe.cull;
+          const steps = Math.round(-dy / cull.step);
+          const value = cull.mode === 'rate' ? clamp(cull.start + steps, 0, 5) : clamp(cull.start + steps, -1, 1);
+          if (value !== cull.value) {
+            cull.value = value;
+            showCullingPill(cull.mode, value);
+            vibrateTick();
+          }
+          return;
+        }
+
         if (!swipe.engaged) {
           const absDx = Math.abs(dx);
           const absDy = Math.abs(dy);
           if (transformStateRef.current.scale > SWIPE_FIT_SCALE_MAX || isPanningDisabled) {
             swipeRef.current = null;
+          } else if (absDy > SWIPE_ENGAGE_PX && absDy > absDx * SWIPE_HORIZONTAL_DOMINANCE) {
+            const rect = imageContainerRef.current?.getBoundingClientRect();
+            const path = selectedImage?.path;
+            const mode: CullingPillMode | null =
+              rect && path ? (swipe.startX - rect.left < rect.width / 2 ? 'rate' : 'flag') : null;
+
+            if (!rect || !path || !mode || (mode === 'rate' && !onRate) || (mode === 'flag' && !onSetFlag)) {
+              swipeRef.current = null;
+            } else {
+              const { imageList, imageRatings } = useLibraryStore.getState();
+              const currentFlag = getImageFlag(imageList, path);
+              const start =
+                mode === 'rate'
+                  ? currentFlag === ImageFlag.Reject
+                    ? 0
+                    : clamp(imageRatings[path] || 0, 0, 5)
+                  : currentFlag === ImageFlag.Pick
+                    ? 1
+                    : currentFlag === ImageFlag.Reject
+                      ? -1
+                      : 0;
+              const step =
+                mode === 'rate'
+                  ? clamp(rect.height * CULL_RATING_STEP_RATIO, CULL_RATING_STEP_MIN_PX, CULL_RATING_STEP_MAX_PX)
+                  : clamp(rect.height * CULL_FLAG_STEP_RATIO, CULL_FLAG_STEP_MIN_PX, CULL_FLAG_STEP_MAX_PX);
+
+              swipe.cull = { mode, path, start, value: start, step };
+              // Measure from the engagement point so the threshold distance doesn't count as a step.
+              swipe.startY = e.clientY;
+              panVelocityHistory.current = [];
+              showCullingPill(mode, start);
+            }
+            return;
           } else if (absDy > SWIPE_ENGAGE_PX && absDy >= absDx) {
             swipeRef.current = null;
           } else if (absDx > SWIPE_ENGAGE_PX && absDx > absDy * SWIPE_HORIZONTAL_DOMINANCE) {
@@ -1309,6 +1413,9 @@ export default function Editor({
       getNeighborImagePath,
       onNavigateImage,
       setSwipeOffset,
+      onRate,
+      onSetFlag,
+      showCullingPill,
     ],
   );
 
@@ -1364,6 +1471,21 @@ export default function Editor({
 
         const swipe = swipeRef.current;
         swipeRef.current = null;
+        if (swipe?.cull) {
+          const cull = swipe.cull;
+          panVelocityHistory.current = [];
+          if (e.type === 'pointerup' && cull.value !== cull.start) {
+            if (cull.mode === 'rate') {
+              onRate?.(cull.value, cull.path);
+            } else {
+              onSetFlag?.(cull.value === 1 ? ImageFlag.Pick : cull.value === -1 ? ImageFlag.Reject : null, cull.path);
+            }
+            hideCullingPill(CULL_PILL_HIDE_DELAY_MS);
+          } else {
+            hideCullingPill(0);
+          }
+          return;
+        }
         if (swipe?.engaged && e.pointerId === swipe.pointerId) {
           panVelocityHistory.current = [];
           const containerWidth = imageContainerRef.current?.clientWidth ?? 0;
@@ -1450,7 +1572,17 @@ export default function Editor({
         }
       }
     },
-    [getTransformBounds, startPhysicsLoop, handleStraighten, onNavigateImage, applyTransform, animateSwipeOffset],
+    [
+      getTransformBounds,
+      startPhysicsLoop,
+      handleStraighten,
+      onNavigateImage,
+      applyTransform,
+      animateSwipeOffset,
+      onRate,
+      onSetFlag,
+      hideCullingPill,
+    ],
   );
 
   const handleClick = useCallback(
@@ -2723,6 +2855,7 @@ export default function Editor({
             )}
           </div>
         )}
+        {cullingPill && <CullingPill mode={cullingPill.mode} value={cullingPill.value} visible={cullingPill.visible} />}
         {straightenDragLine && (
           <svg className="absolute inset-0 pointer-events-none z-[100]" style={{ width: '100%', height: '100%' }}>
             <line
