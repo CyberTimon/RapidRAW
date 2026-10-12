@@ -66,6 +66,14 @@ where
     Ok(serde_json::from_value(Value::deserialize(deserializer)?).unwrap_or(None))
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportRecord {
+    pub fingerprint: String,
+    #[serde(default, alias = "exported_at")]
+    pub exported_at: String,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ImageMetadata {
     pub version: u32,
@@ -81,6 +89,10 @@ pub struct ImageMetadata {
     pub tags: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exif: Option<std::collections::HashMap<String, String>>,
+    #[serde(default, alias = "lastModified", skip_serializing_if = "Option::is_none")]
+    pub last_modified: Option<String>,
+    #[serde(default, alias = "lastExports", skip_serializing_if = "Option::is_none")]
+    pub last_exports: Option<std::collections::HashMap<String, ExportRecord>>,
 }
 
 impl Default for ImageMetadata {
@@ -92,6 +104,8 @@ impl Default for ImageMetadata {
             adjustments: Value::Null,
             tags: None,
             exif: None,
+            last_modified: None,
+            last_exports: None,
         }
     }
 }

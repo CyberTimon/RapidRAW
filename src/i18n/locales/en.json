@@ -848,6 +848,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "conflict": {
+      "createUnique": "Create unique (_1, _2)",
+      "label": "On conflict",
+      "overwrite": "Overwrite",
+      "overwriteIfChanged": "Overwrite if changed",
+      "skip": "Skip"
+    },
     "destination": {
       "customFolder": "Custom folder",
       "originalFolder": "Original image folder",
@@ -906,9 +913,13 @@
       "watermark": "Watermark"
     },
     "status": {
+      "allSkipped": "All skipped ({{count}})",
+      "allSkippedSingle": "Skipped (unchanged)",
       "cancelExport": "Cancel Export",
       "cancelled": "Export cancelled",
       "cancelling": "Cancelling export…",
+      "detailAllSkipped": "{{count}} of {{total}} images skipped (unchanged)",
+      "detailWithSkipped": "{{exported}} exported, {{skipped}} skipped (unchanged)",
       "estimatedAverageSize": " ({{size}} avg)",
       "estimatedSize": "Estimated file size: ~{{size}}",
       "estimatedTotalSize": "Estimated total size: ~{{size}}",
@@ -922,7 +933,11 @@
       "failed": "Export failed",
       "noImageSelected": "No image selected for export.",
       "noImagesSelected": "No images selected.",
-      "success": "Export successful!"
+      "success": "Export successful!",
+      "successWithSkipped": "{{exported}} exported, {{skipped}} skipped",
+      "toastAllSkipped": "All {{count}} images were skipped (unchanged).",
+      "toastAllSkippedSingle": "Image was skipped (unchanged).",
+      "toastWithSkipped": "Export completed: {{exported}} exported, {{skipped}} skipped."
     },
     "title": "Export",
     "watermark": {

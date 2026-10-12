@@ -13,6 +13,7 @@ import ImagePicker from '../../ui/ImagePicker';
 import ColorField, { normalizeHexColor, ParsedTextField, useParsedTextField } from '../../ui/ColorField';
 import {
   BorderBasis,
+  ConflictAction,
   ExportPreset,
   ExportSettings,
   FileFormat,
@@ -255,6 +256,16 @@ export default function ExportPanel({
     [t],
   );
 
+  const onConflictOptions = useMemo(
+    () => [
+      { label: t('export.conflict.createUnique'), value: ConflictAction.CreateUnique },
+      { label: t('export.conflict.overwrite'), value: ConflictAction.Overwrite },
+      { label: t('export.conflict.overwriteIfChanged'), value: ConflictAction.OverwriteIfChanged },
+      { label: t('export.conflict.skip'), value: ConflictAction.Skip },
+    ],
+    [t],
+  );
+
   const {
     fileFormat,
     setFileFormat,
@@ -318,6 +329,8 @@ export default function ExportPanel({
     setDestinationType,
     subfolder,
     setSubfolder,
+    onConflict,
+    setOnConflict,
   } = useExportSettings();
 
   const adjustmentsRef = useRef(useEditorStore.getState().adjustments);
@@ -391,7 +404,7 @@ export default function ExportPanel({
   const activePanels = useUIStore((state) => state.activePanels);
   const isPanelReallyActive = Object.values(activePanels).includes(Panel.Export);
 
-  const { status, progress, errorMessage } = exportState;
+  const { status, progress, errorMessage, exportedCount, skippedCount, totalCount } = exportState;
   const isExporting = [Status.Exporting, Status.Cancelling].includes(status);
   const isCancelling = status === Status.Cancelling;
   const isLibraryContext = !!onClose;
@@ -496,6 +509,7 @@ export default function ExportPanel({
       preserveFolders,
       destinationType,
       subfolder,
+      onConflict,
       resize: enableResize ? { mode: resizeMode, value: resizeValue, dontEnlarge } : null,
       border: borderSettings,
       pad: padSettings,
@@ -593,6 +607,7 @@ export default function ExportPanel({
       preserveFolders,
       destinationType,
       subfolder,
+      onConflict,
       resize: enableResize ? { mode: resizeMode, value: resizeValue, dontEnlarge } : null,
       border: borderSettings,
       pad: padSettings,
@@ -665,7 +680,14 @@ export default function ExportPanel({
           }
         }
 
-        setExportState({ status: Status.Exporting, progress: { current: 0, total: numImages }, errorMessage: '' });
+        setExportState({
+          status: Status.Exporting,
+          progress: { current: 0, total: numImages },
+          errorMessage: '',
+          exportedCount: undefined,
+          skippedCount: undefined,
+          totalCount: undefined,
+        });
         await invoke(Invokes.ExportImages, {
           paths: pathsToExport,
           outputFolderOrFile: outputFolderOrFile,
@@ -799,6 +821,19 @@ export default function ExportPanel({
                     />
                   </div>
                 )}
+
+                <div className="pt-1">
+                  <Text variant={TextVariants.label} className="mb-2 block">
+                    {t('export.conflict.label')}
+                  </Text>
+                  <Dropdown
+                    options={onConflictOptions}
+                    value={onConflict}
+                    onChange={(val) => setOnConflict(val as ConflictAction)}
+                    disabled={isExporting}
+                    className="w-full"
+                  />
+                </div>
               </div>
             </Section>
 
@@ -1142,7 +1177,17 @@ export default function ExportPanel({
 
       <div className="p-3 border-t border-surface shrink-0 space-y-2">
         <Text as="div" variant={TextVariants.small} color={TextColors.primary} className="text-center">
-          {isEstimating ? (
+          {status === Status.Success && skippedCount && skippedCount > 0 ? (
+            <span className={exportedCount === 0 ? 'text-amber-400 font-medium' : 'text-emerald-400 font-medium'}>
+              {exportedCount === 0
+                ? t('export.status.detailAllSkipped', { count: skippedCount, total: totalCount || skippedCount })
+                : t('export.status.detailWithSkipped', {
+                    exported: exportedCount,
+                    skipped: skippedCount,
+                    total: totalCount || ((exportedCount || 0) + skippedCount),
+                  })}
+            </span>
+          ) : isEstimating ? (
             <span className="italic">{t('export.status.estimatingSize')}</span>
           ) : estimatedSize !== null ? (
             <span>
@@ -1166,7 +1211,9 @@ export default function ExportPanel({
                 : status === Status.Cancelling
                   ? 'bg-yellow-500/20 text-yellow-400 shadow-none'
                   : status === Status.Success
-                    ? 'bg-green-500/70 text-white shadow-none'
+                    ? skippedCount && skippedCount > 0 && exportedCount === 0
+                      ? 'bg-amber-500/80 hover:bg-amber-500/90 text-white shadow-none'
+                      : 'bg-green-500/70 text-white shadow-none'
                     : status === Status.Error
                       ? 'bg-red-500/20 text-red-400 shadow-none'
                       : status === Status.Cancelled
@@ -1196,7 +1243,14 @@ export default function ExportPanel({
               </>
             ) : status === Status.Success ? (
               <>
-                <CheckCircle size={18} className="mr-2" /> {t('export.status.success')}
+                <CheckCircle size={18} className="mr-2" />
+                {skippedCount && skippedCount > 0
+                  ? exportedCount === 0
+                    ? skippedCount === 1
+                      ? t('export.status.allSkippedSingle')
+                      : t('export.status.allSkipped', { count: skippedCount })
+                    : t('export.status.successWithSkipped', { exported: exportedCount, skipped: skippedCount })
+                  : t('export.status.success')}
               </>
             ) : status === Status.Error ? (
               <>
