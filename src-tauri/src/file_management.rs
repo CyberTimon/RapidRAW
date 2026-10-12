@@ -2714,6 +2714,7 @@ pub fn save_metadata_and_update_thumbnail(
                 lens_db.as_deref(),
             );
             metadata.adjustments = final_adjustments;
+            metadata.last_modified = Some(chrono::Utc::now().to_rfc3339());
         })
         .map_err(|e| e.to_string())?;
 
@@ -2723,7 +2724,6 @@ pub fn save_metadata_and_update_thumbnail(
     {
         crate::ai_jobs::resolve(&app_handle, std::slice::from_ref(&path));
     }
-
     if let Ok(settings) = load_settings(app_handle.clone())
         && settings.enable_xmp_sync.unwrap_or(false)
     {

@@ -32,8 +32,8 @@ use crate::file_management::{
 use crate::formats::is_raw_file;
 use crate::image_loader::{load_and_composite, load_base_image_from_bytes, prepare_base_image_cow};
 use crate::image_processing::{
-    AllAdjustments, Crop, GpuContext, RenderOptions, RenderOutputPrecision, RenderRequest,
-    downscale_f32_image, get_all_adjustments_from_json, get_or_init_gpu_context,
+    AllAdjustments, Crop, ExportRecord, GpuContext, RenderOptions, RenderOutputPrecision,
+    RenderRequest, downscale_f32_image, get_all_adjustments_from_json, get_or_init_gpu_context,
     process_and_get_dynamic_image, process_and_get_dynamic_image_with_precision,
     resolve_render_options_from_handle,
 };
@@ -123,6 +123,16 @@ pub struct PadOptions {
     pub color: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum ConflictAction {
+    #[default]
+    CreateUnique,
+    Overwrite,
+    OverwriteIfChanged,
+    Skip,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ExportSettings {
@@ -150,6 +160,8 @@ pub struct ExportSettings {
     pub subfolder: Option<String>,
     #[serde(default)]
     pub dpi: Option<u16>,
+    #[serde(default)]
+    pub on_conflict: ConflictAction,
 }
 
 #[derive(Clone)]
@@ -1620,6 +1632,86 @@ fn export_adjustments_as_lut(
     Ok(cube_lut)
 }
 
+fn compute_export_fingerprint(
+    source_path: &Path,
+    source_mtime: u64,
+    adjustments: &serde_json::Value,
+    output_format: &str,
+    export_settings: &ExportSettings,
+) -> String {
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct FingerprintPayload<'a> {
+        source_path: &'a str,
+        source_mtime: u64,
+        adjustments: &'a serde_json::Value,
+        output_format: &'a str,
+        jpeg_quality: u8,
+        tiff_bit_depth: TiffBitDepth,
+        dpi: Option<u16>,
+        resize: &'a Option<ResizeOptions>,
+        border: &'a Option<BorderOptions>,
+        pad: &'a Option<PadOptions>,
+        watermark: &'a Option<WatermarkSettings>,
+        keep_metadata: bool,
+        preserve_timestamps: bool,
+        strip_gps: bool,
+        export_masks: bool,
+    }
+
+    let payload = FingerprintPayload {
+        source_path: &source_path.to_string_lossy(),
+        source_mtime,
+        adjustments,
+        output_format,
+        jpeg_quality: export_settings.jpeg_quality,
+        tiff_bit_depth: export_settings.tiff_bit_depth,
+        dpi: export_settings.dpi,
+        resize: &export_settings.resize,
+        border: &export_settings.border,
+        pad: &export_settings.pad,
+        watermark: &export_settings.watermark,
+        keep_metadata: export_settings.keep_metadata,
+        preserve_timestamps: export_settings.preserve_timestamps,
+        strip_gps: export_settings.strip_gps,
+        export_masks: export_settings.export_masks,
+    };
+
+    let serialized = serde_json::to_vec(&payload).unwrap_or_default();
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(&serialized);
+    hasher.finalize().to_hex().to_string()
+}
+
+fn update_sidecar_export_record(
+    sidecar_path: &Path,
+    dest_path_str: &str,
+    fingerprint: &str,
+    current_adjustments: Option<&serde_json::Value>,
+) {
+    let mut meta = crate::exif_processing::load_sidecar(sidecar_path);
+    if let Some(adj) = current_adjustments {
+        meta.adjustments = adj.clone();
+    }
+    let record = ExportRecord {
+        fingerprint: fingerprint.to_string(),
+        exported_at: chrono::Utc::now().to_rfc3339(),
+    };
+    let mut exports = meta.last_exports.unwrap_or_default();
+    exports.insert(dest_path_str.to_string(), record);
+    meta.last_exports = Some(exports);
+
+    if let Ok(json_string) = serde_json::to_string_pretty(&meta) {
+        if let Err(e) = std::fs::write(sidecar_path, json_string) {
+            log::warn!(
+                "Failed to update export record in sidecar {}: {}",
+                sidecar_path.display(),
+                e
+            );
+        }
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn export_images_impl(
     paths: Vec<String>,
@@ -1658,6 +1750,7 @@ pub(crate) async fn export_images_impl(
 
     let context = Arc::new(context);
     let progress_counter = Arc::new(AtomicUsize::new(0));
+    let skipped_counter = Arc::new(AtomicUsize::new(0));
 
     let available_cores = std::thread::available_parallelism()
         .map(|n| n.get())
@@ -1746,6 +1839,7 @@ pub(crate) async fn export_images_impl(
             let app_handle_clone = app_handle.clone();
             let context_clone = Arc::clone(&context);
             let progress_counter_clone = Arc::clone(&progress_counter);
+            let skipped_counter_clone = Arc::clone(&skipped_counter);
             let output_folder_path = output_folder_path.to_path_buf();
             let base_origin_folders = base_origin_folders.clone();
             let export_settings = export_settings.clone();
@@ -1879,6 +1973,23 @@ pub(crate) async fn export_images_impl(
 
                 let extension = output_format.to_lowercase();
 
+                let source_mtime = fs::metadata(&source_path)
+                    .ok()
+                    .and_then(|m| m.modified().ok())
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|d| d.as_millis() as u64)
+                    .unwrap_or(0);
+
+                let current_fingerprint = compute_export_fingerprint(
+                    &source_path,
+                    source_mtime,
+                    &js_adjustments,
+                    &output_format,
+                    &export_settings,
+                );
+
+                let mut should_skip = false;
+
                 if !(is_explicit_file_path && total_paths == 1) {
                     let mut used = used_paths_clone.lock().unwrap();
                     let parent_dir = output_path
@@ -1887,16 +1998,85 @@ pub(crate) async fn export_images_impl(
                         .to_path_buf();
                     let mut counter = 1;
 
-                    while output_path.exists() || used.contains(&output_path) {
-                        let incremented_filename =
-                            format!("{}_{}.{}", new_stem, counter, extension);
-                        output_path = parent_dir.join(&incremented_filename);
-                        counter += 1;
+                    match export_settings.on_conflict {
+                        ConflictAction::CreateUnique => {
+                            while output_path.exists() || used.contains(&output_path) {
+                                let incremented_filename =
+                                    format!("{}_{}.{}", new_stem, counter, extension);
+                                output_path = parent_dir.join(&incremented_filename);
+                                counter += 1;
+                            }
+                            used.insert(output_path.clone());
+                        }
+                        ConflictAction::Overwrite => {
+                            while used.contains(&output_path) {
+                                let incremented_filename =
+                                    format!("{}_{}.{}", new_stem, counter, extension);
+                                output_path = parent_dir.join(&incremented_filename);
+                                counter += 1;
+                            }
+                            used.insert(output_path.clone());
+                        }
+                        ConflictAction::Skip => {
+                            while used.contains(&output_path) {
+                                let incremented_filename =
+                                    format!("{}_{}.{}", new_stem, counter, extension);
+                                output_path = parent_dir.join(&incremented_filename);
+                                counter += 1;
+                            }
+                            if output_path.exists() {
+                                should_skip = true;
+                            }
+                            used.insert(output_path.clone());
+                        }
+                        ConflictAction::OverwriteIfChanged => {
+                            while used.contains(&output_path) {
+                                let incremented_filename =
+                                    format!("{}_{}.{}", new_stem, counter, extension);
+                                output_path = parent_dir.join(&incremented_filename);
+                                counter += 1;
+                            }
+                            if output_path.exists() {
+                                let sidecar_meta =
+                                    crate::exif_processing::load_sidecar(&sidecar_path);
+                                let output_key = output_path.to_string_lossy().to_string();
+                                if let Some(exports) = &sidecar_meta.last_exports {
+                                    if let Some(record) = exports.get(&output_key) {
+                                        if record.fingerprint == current_fingerprint {
+                                            should_skip = true;
+                                        }
+                                    }
+                                }
+                            }
+                            used.insert(output_path.clone());
+                        }
                     }
-                    used.insert(output_path.clone());
+                } else if output_path.exists() {
+                    match export_settings.on_conflict {
+                        ConflictAction::Skip => {
+                            should_skip = true;
+                        }
+                        ConflictAction::OverwriteIfChanged => {
+                            let sidecar_meta = crate::exif_processing::load_sidecar(&sidecar_path);
+                            let output_key = output_path.to_string_lossy().to_string();
+                            if let Some(exports) = &sidecar_meta.last_exports {
+                                if let Some(record) = exports.get(&output_key) {
+                                    if record.fingerprint == current_fingerprint {
+                                        should_skip = true;
+                                    }
+                                }
+                            }
+                        }
+                        ConflictAction::CreateUnique | ConflictAction::Overwrite => {}
+                    }
                 }
 
                 let result: Result<(), String> = (|| {
+                    if should_skip {
+                        skipped_counter_clone.fetch_add(1, Ordering::SeqCst);
+                        return Ok(());
+                    }
+
                     if extension == "cube" {
                         let cube_bytes = export_adjustments_as_lut(
                             &js_adjustments,
@@ -1921,6 +2101,16 @@ pub(crate) async fn export_images_impl(
                         }
                         #[cfg(not(target_os = "android"))]
                         fs::write(&output_path, cube_bytes).map_err(|e| e.to_string())?;
+                        update_sidecar_export_record(
+                            &sidecar_path,
+                            &output_path.to_string_lossy(),
+                            &current_fingerprint,
+                            if is_current_edit {
+                                Some(&js_adjustments)
+                            } else {
+                                None
+                            },
+                        );
                         ensure_export_not_cancelled(&cancellation_token_clone)?;
                         return Ok(());
                     }
@@ -2060,7 +2250,19 @@ pub(crate) async fn export_images_impl(
                         )?;
                     }
 
-                    crate::immich::on_exported(&app_handle_clone, &source_path_str, &output_path)
+                    crate::immich::on_exported(&app_handle_clone, &source_path_str, &output_path)?;
+                    update_sidecar_export_record(
+                        &sidecar_path,
+                        &output_path.to_string_lossy(),
+                        &current_fingerprint,
+                        if is_current_edit {
+                            Some(&js_adjustments)
+                        } else {
+                            None
+                        },
+                    );
+
+                    Ok(())
                 })();
 
                 if !cancellation_token_clone.load(Ordering::SeqCst) {
@@ -2071,7 +2273,8 @@ pub(crate) async fn export_images_impl(
                         serde_json::json!({
                             "current": current_progress,
                             "total": total_paths,
-                            "path": &image_path_str
+                            "path": &image_path_str,
+                            "skipped": skipped_counter_clone.load(Ordering::SeqCst),
                         }),
                     );
                 }
@@ -2097,6 +2300,8 @@ pub(crate) async fn export_images_impl(
 
         let errors: Vec<String> = results.into_iter().filter_map(Result::err).collect();
         let error_count = errors.len();
+        let skipped_count = skipped_counter.load(Ordering::SeqCst);
+        let exported_count = total_paths.saturating_sub(error_count + skipped_count);
         let export_state = app_handle.state::<AppState>();
         let finalized = finish_export_task(
             &export_state.export_task_token,
@@ -2123,9 +2328,22 @@ pub(crate) async fn export_images_impl(
                 } else if error_count == 0 {
                     let _ = app_handle.emit(
                         "batch-export-progress",
-                        serde_json::json!({ "current": total_paths, "total": total_paths, "path": "" }),
+                        serde_json::json!({
+                            "current": total_paths,
+                            "total": total_paths,
+                            "path": "",
+                            "skipped": skipped_count,
+                        }),
                     );
-                    let _ = app_handle.emit("export-complete", ());
+                    let _ = app_handle.emit(
+                        "export-complete",
+                        serde_json::json!({
+                            "total": total_paths,
+                            "exported": exported_count,
+                            "skipped": skipped_count,
+                            "errors": error_count,
+                        }),
+                    );
                 }
             },
         );
@@ -2238,6 +2456,7 @@ pub async fn run_headless_export(
         destination_type: None,
         subfolder: None,
         dpi: None,
+        on_conflict: ConflictAction::default(),
     };
 
     let mut custom_adjustments = None;
