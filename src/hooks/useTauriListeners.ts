@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { toast } from 'react-toastify';
 import { listen } from '@tauri-apps/api/event';
 import { Channel, convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { toast } from 'react-toastify';
