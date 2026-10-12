@@ -62,6 +62,7 @@ import { useProductivityActions } from './hooks/useProductivityActions';
 
 import { useAppInitialization } from './hooks/useAppInitialization';
 import { useAndroidBackHandler } from './hooks/useAndroidBackHandler';
+import { getAdjacentImagePath, type ImageNavigationDirection } from './utils/imageNavigation';
 import './i18n';
 
 import {
@@ -381,6 +382,21 @@ function App() {
   }, [handleImageSelect]);
 
   const { displayList: sortedImageList, badges: groupBadgeInfo } = useSortedLibrary();
+
+  const handleNavigateImage = useCallback(
+    (direction: ImageNavigationDirection) => {
+      const currentPath = useEditorStore.getState().selectedImage?.path;
+      const path = getAdjacentImagePath(sortedImageList, currentPath, direction);
+      if (path && path !== currentPath) handleImageSelect(path, true);
+    },
+    [sortedImageList, handleImageSelect],
+  );
+
+  const getNeighborImagePath = useCallback(
+    (direction: ImageNavigationDirection) =>
+      getAdjacentImagePath(sortedImageList, useEditorStore.getState().selectedImage?.path, direction),
+    [sortedImageList],
+  );
 
   const handleLibraryRefresh = useCallback(async () => {
     if (currentFolderPath) {
@@ -941,6 +957,8 @@ function App() {
                       handleThumbnailContextMenu={handleThumbnailContextMenu}
                       handleMainLibraryContextMenu={handleMainLibraryContextMenu}
                       handleImageClick={handleImageClick}
+                      handleNavigateImage={handleNavigateImage}
+                      getNeighborImagePath={getNeighborImagePath}
                       handleClearSelection={handleClearSelection}
                       handleCopyAdjustments={handleCopyAdjustments}
                       handlePasteAdjustments={handlePasteAdjustments}

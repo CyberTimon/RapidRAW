@@ -13,6 +13,7 @@ import { useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useProcessStore } from '../../store/useProcessStore';
 import { getImageFlag } from '../../utils/imageFlags';
+import type { ImageNavigationDirection } from '../../utils/imageNavigation';
 
 import { ImageFile, Orientation, Panel, ThumbnailAspectRatio } from '../ui/AppProperties';
 
@@ -32,6 +33,8 @@ interface EditorViewProps {
   handleThumbnailContextMenu: (...args: any) => void;
   handleMainLibraryContextMenu?: (...args: any) => void;
   handleImageClick: (...args: any) => void;
+  handleNavigateImage?: (direction: ImageNavigationDirection) => void;
+  getNeighborImagePath?: (direction: ImageNavigationDirection) => string | null;
   handleClearSelection: () => void;
   handleCopyAdjustments: () => void;
   handlePasteAdjustments: () => void;
@@ -58,6 +61,8 @@ export default function EditorView({
   handleThumbnailContextMenu,
   handleMainLibraryContextMenu,
   handleImageClick,
+  handleNavigateImage,
+  getNeighborImagePath,
   handleClearSelection,
   handleCopyAdjustments,
   handlePasteAdjustments,
@@ -105,6 +110,8 @@ export default function EditorView({
       onBackToLibrary={handleBackToLibrary}
       onContextMenu={handleEditorContextMenu}
       onImageSelect={handleImageClick}
+      onNavigateImage={handleNavigateImage}
+      getNeighborImagePath={getNeighborImagePath}
       transformWrapperRef={transformWrapperRef}
     />
   );
