@@ -1540,12 +1540,15 @@ fn update_sidecar_export_record(
     meta.last_exports = Some(exports);
 
     if let Ok(json_string) = serde_json::to_string_pretty(&meta) {
-        if let Err(e) = std::fs::write(sidecar_path, json_string) {
-            log::warn!(
-                "Failed to update export record in sidecar {}: {}",
-                sidecar_path.display(),
-                e
-            );
+        match std::fs::write(sidecar_path, json_string) {
+            Ok(()) => {}
+            Err(e) => {
+                log::warn!(
+                    "Failed to update export record in sidecar {}: {}",
+                    sidecar_path.display(),
+                    e
+                );
+            }
         }
     }
 }
@@ -1855,12 +1858,13 @@ pub(crate) async fn export_images_impl(
                                 let sidecar_meta =
                                     crate::exif_processing::load_sidecar(&sidecar_path);
                                 let output_key = output_path.to_string_lossy().to_string();
-                                if let Some(exports) = &sidecar_meta.last_exports {
-                                    if let Some(record) = exports.get(&output_key) {
-                                        if record.fingerprint == current_fingerprint {
-                                            should_skip = true;
-                                        }
-                                    }
+                                if sidecar_meta
+                                    .last_exports
+                                    .as_ref()
+                                    .and_then(|exports| exports.get(&output_key))
+                                    .is_some_and(|record| record.fingerprint == current_fingerprint)
+                                {
+                                    should_skip = true;
                                 }
                             }
                             used.insert(output_path.clone());
@@ -1874,12 +1878,13 @@ pub(crate) async fn export_images_impl(
                         ConflictAction::OverwriteIfChanged => {
                             let sidecar_meta = crate::exif_processing::load_sidecar(&sidecar_path);
                             let output_key = output_path.to_string_lossy().to_string();
-                            if let Some(exports) = &sidecar_meta.last_exports {
-                                if let Some(record) = exports.get(&output_key) {
-                                    if record.fingerprint == current_fingerprint {
-                                        should_skip = true;
-                                    }
-                                }
+                            if sidecar_meta
+                                .last_exports
+                                .as_ref()
+                                .and_then(|exports| exports.get(&output_key))
+                                .is_some_and(|record| record.fingerprint == current_fingerprint)
+                            {
+                                should_skip = true;
                             }
                         }
                         ConflictAction::CreateUnique | ConflictAction::Overwrite => {}

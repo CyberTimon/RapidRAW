@@ -89,9 +89,17 @@ pub struct ImageMetadata {
     pub tags: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exif: Option<std::collections::HashMap<String, String>>,
-    #[serde(default, alias = "lastModified", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        alias = "lastModified",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub last_modified: Option<String>,
-    #[serde(default, alias = "lastExports", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        alias = "lastExports",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub last_exports: Option<std::collections::HashMap<String, ExportRecord>>,
 }
 
