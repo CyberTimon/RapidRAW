@@ -10,8 +10,9 @@ use rawler::{
         Dim2, Point, Rect,
         develop::{DemosaicAlgorithm, Intermediate, ProcessingStep, RawDevelop},
         matrix::{multiply, normalize, pseudo_inverse},
-        xyz::{Illuminant, SRGB_TO_XYZ_D65},
+        xyz::{FlatColorMatrix, Illuminant, SRGB_TO_XYZ_D65},
     },
+    pixarray::Color2D,
     rawimage::{RawImage, RawPhotometricInterpretation},
     rawsource::RawSource,
 };
@@ -136,6 +137,134 @@ fn recover_clipped_pixel(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
     (cur_r, cur_g, cur_b)
 }
 
+fn primary_color_matrix(raw_image: &RawImage) -> Option<&FlatColorMatrix> {
+    let matrices = &raw_image.color_matrix;
+    matrices
+        .get(&Illuminant::D65)
+        .or_else(|| matrices.values().next())
+}
+
+struct GamutCompression {
+    threshold: f32,
+    scale: f32,
+}
+
+impl GamutCompression {
+    const THRESHOLD: f32 = 0.8;
+    const POWER: f32 = 1.2;
+
+    fn new(limit: f32) -> Option<Self> {
+        if limit <= 1.0 {
+            return None;
+        }
+        let threshold = Self::THRESHOLD;
+        let span = limit - threshold;
+        let scale =
+            span / (((1.0 - threshold) / span).powf(-Self::POWER) - 1.0).powf(1.0 / Self::POWER);
+        Some(Self { threshold, scale })
+    }
+
+    #[inline]
+    fn compress(&self, distance: f32) -> f32 {
+        if distance <= self.threshold {
+            return distance;
+        }
+        let excess = distance - self.threshold;
+        self.threshold
+            + excess / (1.0 + (excess / self.scale).powf(Self::POWER)).powf(1.0 / Self::POWER)
+    }
+}
+
+struct CameraToSrgb {
+    matrix: [[f32; 4]; 3],
+    compression: [Option<GamutCompression>; 3],
+}
+
+impl CameraToSrgb {
+    fn new(raw_image: &RawImage) -> Option<Self> {
+        let color_matrix = primary_color_matrix(raw_image)?;
+        let channels = color_matrix.len() / 3;
+        if color_matrix.len() % 3 != 0 || !(3..=4).contains(&channels) {
+            return None;
+        }
+
+        let mut xyz_to_camera = [[0.0f32; 3]; 4];
+        for (row, values) in xyz_to_camera
+            .iter_mut()
+            .zip(color_matrix.as_chunks::<3>().0)
+        {
+            *row = *values;
+        }
+        let srgb_to_camera = normalize(multiply(&xyz_to_camera, &SRGB_TO_XYZ_D65));
+        let mut matrix = pseudo_inverse(srgb_to_camera);
+
+        let wb = if raw_image.wb_coeffs[0].is_nan() {
+            [1.0; 4]
+        } else {
+            raw_image.wb_coeffs
+        };
+        for row in matrix.iter_mut() {
+            for (value, gain) in row.iter_mut().zip(wb).take(channels) {
+                *value *= gain;
+            }
+        }
+
+        let mut limits = [0.0f32; 3];
+        for channel in 0..channels {
+            let primary = matrix.map(|row| row[channel]);
+            let peak = primary[0].max(primary[1]).max(primary[2]);
+            if peak > 0.0 {
+                for (limit, value) in limits.iter_mut().zip(primary) {
+                    *limit = limit.max((peak - value) / peak);
+                }
+            }
+        }
+
+        Some(Self {
+            matrix,
+            compression: limits.map(GamutCompression::new),
+        })
+    }
+
+    #[inline]
+    fn pixel<const N: usize>(&self, camera: &[f32; N]) -> [f32; 3] {
+        let mut rgb = self
+            .matrix
+            .map(|row| row.iter().zip(camera).map(|(m, c)| m * c).sum::<f32>());
+        let achromatic = rgb[0].max(rgb[1]).max(rgb[2]);
+        if achromatic <= 0.0 {
+            return [0.0; 3];
+        }
+        for (value, compression) in rgb.iter_mut().zip(&self.compression) {
+            if let Some(compression) = compression {
+                let distance = (achromatic - *value) / achromatic;
+                *value = achromatic - compression.compress(distance) * achromatic;
+            }
+        }
+        rgb
+    }
+
+    fn convert_pixels<const N: usize>(&self, pixels: &Color2D<f32, N>) -> Color2D<f32, 3> {
+        Color2D::new_with(
+            pixels.data.par_iter().map(|p| self.pixel(p)).collect(),
+            pixels.width,
+            pixels.height,
+        )
+    }
+
+    fn apply(&self, intermediate: Intermediate) -> Intermediate {
+        match intermediate {
+            Intermediate::ThreeColor(pixels) => {
+                Intermediate::ThreeColor(self.convert_pixels(&pixels))
+            }
+            Intermediate::FourColor(pixels) => {
+                Intermediate::ThreeColor(self.convert_pixels(&pixels))
+            }
+            monochrome => monochrome,
+        }
+    }
+}
+
 fn develop_internal(
     file_bytes: &[u8],
     fast_demosaic: bool,
@@ -188,32 +317,33 @@ fn develop_internal(
         *level = u32::MAX;
     }
 
-    let calibration = (!is_linear_format)
-        .then(|| camera_calibration(&raw_image))
-        .flatten();
-
     let mut developer = RawDevelop::default();
-    if calibration.is_some() {
-        developer.steps.retain(|&step| {
-            step != ProcessingStep::Calibrate && step != ProcessingStep::CropDefault
-        });
-    }
+    developer
+        .steps
+        .retain(|&step| step != ProcessingStep::SRgb && step != ProcessingStep::Calibrate);
 
     if is_linear_format {
-        developer.steps.retain(|&step| {
-            step != ProcessingStep::SRgb
-                && step != ProcessingStep::Demosaic
-                && (apply_calibration || step != ProcessingStep::Calibrate)
-        });
+        developer
+            .steps
+            .retain(|&step| step != ProcessingStep::Demosaic);
     } else if fast_demosaic {
         developer.demosaic_algorithm = DemosaicAlgorithm::Speed;
-        developer.steps.retain(|&step| step != ProcessingStep::SRgb);
-    } else {
-        developer.steps.retain(|&step| step != ProcessingStep::SRgb);
     }
 
     raw_image.wb_coeffs =
         crate::multi_exposure::neutralize_wb_if_multiexposure(raw_image.wb_coeffs, file_bytes);
+
+    let camera_to_srgb = (apply_calibration || !is_linear_format)
+        .then(|| CameraToSrgb::new(&raw_image))
+        .flatten();
+    let cfa_balance = (!is_linear_format && camera_to_srgb.is_some())
+        .then(|| cfa_white_balance(&raw_image))
+        .flatten();
+    if cfa_balance.is_some() {
+        developer
+            .steps
+            .retain(|&step| step != ProcessingStep::CropDefault);
+    }
 
     check_cancel()?;
     let mut developed_intermediate = developer.develop_intermediate(&raw_image)?;
@@ -221,6 +351,13 @@ fn develop_internal(
     let (crop_area, active_area, raw_dim) =
         (raw_image.crop_area, raw_image.active_area, raw_image.dim());
     drop(raw_image);
+
+    if cfa_balance.is_none()
+        && let Some(camera_to_srgb) = &camera_to_srgb
+    {
+        check_cancel()?;
+        developed_intermediate = camera_to_srgb.apply(developed_intermediate);
+    }
 
     let denominator = (original_white_level - original_black_level).max(1.0);
     let rescale_factor = (u32::MAX as f32 - original_black_level) / denominator;
@@ -250,8 +387,9 @@ fn develop_internal(
                 *p = linear_val.clamp(0.0, clamp_limit);
             });
         }
-        Intermediate::ThreeColor(pixels) if calibration.is_some() => {
-            let (cam_to_rgb, wb) = calibration.unwrap();
+        Intermediate::ThreeColor(pixels) if cfa_balance.is_some() => {
+            let wb = cfa_balance.unwrap();
+            let camera_to_srgb = camera_to_srgb.as_ref().unwrap();
             let crop = default_crop(crop_area, active_area, raw_dim, pixels.dim());
             let region = Region {
                 stride: pixels.width,
@@ -280,10 +418,13 @@ fn develop_internal(
             highlight_reconstruction::reconstruct_highlights(&mut pixels.data, region, clips);
             check_cancel()?;
 
+            let neutral = wb.map(|c| 1.0 / c);
             let data = &pixels.data;
             let image = oriented_rgb32f(region.width, region.height, orientation, |x, y| {
                 let [r, g, b] = data[(region.y + y) * region.stride + region.x + x];
-                cam_to_rgb.map(|m| (m[0] * r + m[1] * g + m[2] * b).clamp(0.0, clamp_limit))
+                camera_to_srgb
+                    .pixel(&[r * neutral[0], g * neutral[1], b * neutral[2]])
+                    .map(|value| value.clamp(0.0, clamp_limit))
             });
             return Ok((DynamicImage::ImageRgb32F(image), Orientation::Normal));
         }
@@ -364,39 +505,22 @@ fn default_crop(
     }
 }
 
-fn camera_calibration(raw_image: &RawImage) -> Option<([[f32; 3]; 3], [f32; 3])> {
+fn cfa_white_balance(raw_image: &RawImage) -> Option<[f32; 3]> {
     let RawPhotometricInterpretation::Cfa(config) = &raw_image.photometric else {
         return None;
     };
     if raw_image.cpp != 1 || !config.cfa.is_rgb() || config.cfa.unique_colors() != 3 {
         return None;
     }
-
-    let (_, color_matrix) = raw_image
-        .color_matrix
-        .iter()
-        .find(|(illuminant, _)| **illuminant == Illuminant::D65)
-        .or_else(|| raw_image.color_matrix.iter().next())?;
-    if color_matrix.len() < 9 || color_matrix.len() % 3 != 0 {
-        return None;
-    }
-
-    let mut xyz_to_cam = [[0.0f32; 3]; 3];
-    for (i, row) in xyz_to_cam.iter_mut().enumerate() {
-        row.copy_from_slice(&color_matrix[i * 3..i * 3 + 3]);
-    }
-    let cam_to_rgb = pseudo_inverse(normalize(multiply(&xyz_to_cam, &SRGB_TO_XYZ_D65)));
-
-    let wb = if raw_image.wb_coeffs[0].is_nan() {
-        [1.0; 3]
+    if raw_image.wb_coeffs[0].is_nan() {
+        Some([1.0; 3])
     } else {
-        [
+        Some([
             raw_image.wb_coeffs[0],
             raw_image.wb_coeffs[1],
             raw_image.wb_coeffs[2],
-        ]
-    };
-    Some((cam_to_rgb, wb))
+        ])
+    }
 }
 
 pub fn read_as_shot(file_bytes: &[u8]) -> Option<AsShot> {
@@ -433,10 +557,7 @@ fn as_shot_white_balance(raw_image: &RawImage, file_bytes: &[u8]) -> Option<Whit
         return WhiteBalance::from_dual_illuminant_camera_neutral(matrix_a, matrix_d65, &neutral);
     }
 
-    let color_matrix = matrices
-        .get(&Illuminant::D65)
-        .or_else(|| matrices.values().next())?;
-    WhiteBalance::from_camera_neutral(color_matrix, &neutral)
+    WhiteBalance::from_camera_neutral(primary_color_matrix(raw_image)?, &neutral)
 }
 
 fn rgb_pixels_to_rgb(
