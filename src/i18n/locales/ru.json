@@ -96,6 +96,14 @@
       "resetPoint": "Сбросить точечную кривую {{channel}}"
     },
     "details": {
+      "aiDenoise": "ИИ-шумоподавление",
+      "aiDenoiseAmount": "Степень (ИИ)",
+      "aiDenoiseColor": "Цветовой шум (ИИ)",
+      "aiDenoiseDetail": "Восстановление деталей",
+      "aiDenoiseGenerate": "Создать ИИ-шумоподавление",
+      "aiDenoiseGenerating": "Создание...",
+      "aiDenoiseRawOnly": "Доступно только для файлов RAW",
+      "aiDenoiseRemove": "Удалить ИИ-шумоподавление",
       "blueYellow": "Синий/Желтый",
       "centre": "Центр",
       "chromaticAberration": "Хроматическая аберрация",

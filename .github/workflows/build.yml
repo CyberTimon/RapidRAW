@@ -35,9 +35,14 @@ on:
         required: false
         type: string
         default: ''
+      android-signing:
+        required: false
+        type: string
+        default: ''
 
 jobs:
   build:
+    if: ${{ inputs.mobile != 'android' || inputs.android-signing != 'false' }}
     runs-on: ${{ inputs.platform }}
     steps:
       - name: Checkout repository

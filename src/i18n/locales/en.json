@@ -96,6 +96,14 @@
       "resetPoint": "Reset {{channel}} Point Curve"
     },
     "details": {
+      "aiDenoise": "AI Denoise",
+      "aiDenoiseAmount": "Amount (AI)",
+      "aiDenoiseColor": "Color Noise (AI)",
+      "aiDenoiseDetail": "Detail Recovery",
+      "aiDenoiseGenerate": "Generate AI Denoise",
+      "aiDenoiseGenerating": "Generating...",
+      "aiDenoiseRawOnly": "Only available for RAW files",
+      "aiDenoiseRemove": "Remove AI denoise",
       "blueYellow": "Blue/Yellow",
       "centre": "Centré",
       "chromaticAberration": "Chromatic Aberration",

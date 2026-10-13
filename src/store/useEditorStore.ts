@@ -1,10 +1,15 @@
 import { create } from 'zustand';
 import { Adjustments, INITIAL_ADJUSTMENTS, MaskContainer, AiPatch } from '../utils/adjustments';
-import { SelectedImage, WaveformData, BrushSettings } from '../components/ui/AppProperties';
+import { SelectedImage, WaveformData, BrushSettings, Preset } from '../components/ui/AppProperties';
 import { ChannelConfig } from '../components/adjustments/Curves';
 import { ImageDimensions } from '../hooks/useImageRenderSize';
 import { ToolType } from '../components/panel/right/Masks';
 import { OverlayMode } from '../components/panel/right/CropPanel';
+
+export interface ActivePresetState {
+  preset: Preset;
+  intensity: number;
+}
 
 interface InteractivePatch {
   url: string;
@@ -81,6 +86,10 @@ interface EditorState {
   copiedMask: MaskContainer | null;
   copiedAdjustments: Adjustments | null;
 
+  // Presets State
+  activePresets: ActivePresetState[];
+  presetBaseAdjustments: Adjustments | null;
+
   // Actions
   setEditor: (updater: Partial<EditorState> | ((state: EditorState) => Partial<EditorState>)) => void;
   pushHistory: (newAdjustments: Adjustments) => void;
@@ -134,6 +143,9 @@ export const useEditorStore = create<EditorState>((set) => ({
   brushSettings: { size: 50, feather: 50, tool: ToolType.Brush },
   copiedAdjustments: null,
 
+  activePresets: [],
+  presetBaseAdjustments: null,
+
   isGeneratingAiMask: false,
   isAIConnectorConnected: false,
   isGeneratingAi: false,
@@ -174,6 +186,8 @@ export const useEditorStore = create<EditorState>((set) => ({
       history: [initialState],
       historyIndex: 0,
       adjustments: initialState,
+      activePresets: [],
+      presetBaseAdjustments: null,
     }),
 
   goToHistoryIndex: (index) =>
