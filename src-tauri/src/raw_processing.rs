@@ -9,8 +9,7 @@ use rawler::{
     imgop::{
         Dim2, Point, Rect,
         develop::{DemosaicAlgorithm, Intermediate, ProcessingStep, RawDevelop},
-        matrix::{multiply, normalize, pseudo_inverse},
-        xyz::{FlatColorMatrix, Illuminant, SRGB_TO_XYZ_D65},
+        xyz::{FlatColorMatrix, Illuminant},
     },
     pixarray::Color2D,
     rawimage::{RawImage, RawPhotometricInterpretation},
@@ -182,36 +181,21 @@ struct CameraToSrgb {
 
 impl CameraToSrgb {
     fn new(raw_image: &RawImage) -> Option<Self> {
-        let color_matrix = primary_color_matrix(raw_image)?;
-        let channels = color_matrix.len() / 3;
-        if color_matrix.len() % 3 != 0 || !(3..=4).contains(&channels) {
+        let color_matrix = as_shot_color(raw_image)
+            .map(|(_, color_matrix)| color_matrix)
+            .or_else(|| primary_color_matrix(raw_image).cloned())?;
+        if color_matrix.len() % 3 != 0 || color_matrix.len() > 12 {
             return None;
         }
+        let primaries =
+            crate::white_balance::camera_to_srgb(&color_matrix, &camera_neutral(raw_image))?;
 
-        let mut xyz_to_camera = [[0.0f32; 3]; 4];
-        for (row, values) in xyz_to_camera
-            .iter_mut()
-            .zip(color_matrix.as_chunks::<3>().0)
-        {
-            *row = *values;
-        }
-        let srgb_to_camera = normalize(multiply(&xyz_to_camera, &SRGB_TO_XYZ_D65));
-        let mut matrix = pseudo_inverse(srgb_to_camera);
-
-        let wb = if raw_image.wb_coeffs[0].is_nan() {
-            [1.0; 4]
-        } else {
-            raw_image.wb_coeffs
-        };
-        for row in matrix.iter_mut() {
-            for (value, gain) in row.iter_mut().zip(wb).take(channels) {
-                *value *= gain;
-            }
-        }
-
+        let mut matrix = [[0.0f32; 4]; 3];
         let mut limits = [0.0f32; 3];
-        for channel in 0..channels {
-            let primary = matrix.map(|row| row[channel]);
+        for (channel, primary) in primaries.iter().enumerate() {
+            for (row, value) in matrix.iter_mut().zip(primary) {
+                row[channel] = *value;
+            }
             let peak = primary[0].max(primary[1]).max(primary[2]);
             if peak > 0.0 {
                 for (limit, value) in limits.iter_mut().zip(primary) {
@@ -526,29 +510,34 @@ fn cfa_white_balance(raw_image: &RawImage) -> Option<[f32; 3]> {
 pub fn read_as_shot(file_bytes: &[u8]) -> Option<AsShot> {
     let source = RawSource::new_from_slice(file_bytes);
     let decoder = rawler::get_decoder(&source).ok()?;
-    let raw_image = decoder
+    let mut raw_image = decoder
         .raw_image(&source, &RawDecodeParams::default(), true)
         .ok()?;
+    raw_image.wb_coeffs =
+        crate::multi_exposure::neutralize_wb_if_multiexposure(raw_image.wb_coeffs, file_bytes);
     let is_monochrome = raw_image.cpp == 1
         && !matches!(raw_image.photometric, RawPhotometricInterpretation::Cfa(_));
 
     Some(AsShot {
         white_balance: (!is_monochrome)
-            .then(|| as_shot_white_balance(&raw_image, file_bytes))
+            .then(|| as_shot_color(&raw_image))
             .flatten()
+            .map(|(white_balance, _)| white_balance)
             .unwrap_or_else(WhiteBalance::reference),
         exposure: crate::baseline_exposure::read(decoder.as_ref(), file_bytes, is_monochrome),
     })
 }
 
-fn as_shot_white_balance(raw_image: &RawImage, file_bytes: &[u8]) -> Option<WhiteBalance> {
-    let wb_coeffs =
-        crate::multi_exposure::neutralize_wb_if_multiexposure(raw_image.wb_coeffs, file_bytes);
-    let neutral = if wb_coeffs[0].is_nan() {
+fn camera_neutral(raw_image: &RawImage) -> [f32; 4] {
+    if raw_image.wb_coeffs[0].is_nan() {
         [1.0; 4]
     } else {
-        wb_coeffs.map(|c| 1.0 / c)
-    };
+        raw_image.wb_coeffs.map(|c| 1.0 / c)
+    }
+}
+
+fn as_shot_color(raw_image: &RawImage) -> Option<(WhiteBalance, FlatColorMatrix)> {
+    let neutral = camera_neutral(raw_image);
 
     let matrices = &raw_image.color_matrix;
     if let (Some(matrix_a), Some(matrix_d65)) =
@@ -557,7 +546,9 @@ fn as_shot_white_balance(raw_image: &RawImage, file_bytes: &[u8]) -> Option<Whit
         return WhiteBalance::from_dual_illuminant_camera_neutral(matrix_a, matrix_d65, &neutral);
     }
 
-    WhiteBalance::from_camera_neutral(primary_color_matrix(raw_image)?, &neutral)
+    let color_matrix = primary_color_matrix(raw_image)?;
+    WhiteBalance::from_camera_neutral(color_matrix, &neutral)
+        .map(|white_balance| (white_balance, color_matrix.clone()))
 }
 
 fn rgb_pixels_to_rgb(
