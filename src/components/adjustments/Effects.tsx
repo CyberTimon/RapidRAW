@@ -170,53 +170,64 @@ export default function EffectsPanel({
   const activeRelightLightId = useEditorStore((state) => state.activeRelightLightId);
   const setEditor = useEditorStore((state) => state.setEditor);
 
-  const handleGenerateLensBlurDepthMap = async () => {
-    setIsGeneratingDepth(true);
+  const mapRequests = useRef(new Map<string, symbol>());
+
+  useEffect(() => {
+    const requests = mapRequests.current;
+    const unsubscribe = useEditorStore.subscribe((state, previous) => {
+      if (
+        state.selectedImage?.path !== previous.selectedImage?.path ||
+        state.selectedImage?.isReady !== previous.selectedImage?.isReady
+      ) {
+        requests.clear();
+        setIsGeneratingDepth(false);
+        setIsGeneratingNormals(false);
+        setIsGeneratingFogDepth(false);
+      }
+    });
+    return () => {
+      unsubscribe();
+      requests.clear();
+    };
+  }, []);
+
+  const generateMap = async (
+    mapKey: 'lensBlurDepthMap' | 'relightNormalMap' | 'fogDepthMap',
+    enabledKey: 'lensBlurEnabled' | 'relightEnabled' | 'fogEnabled',
+    command: 'generate_full_image_depth_map' | 'generate_relight_normal_map',
+    setGenerating: (value: boolean) => void,
+    label: string,
+  ) => {
+    const selectedImage = useEditorStore.getState().selectedImage;
+    if (!selectedImage?.isReady) return;
+    const imagePath = selectedImage.path;
+    const request = Symbol();
+    mapRequests.current.set(mapKey, request);
+    const isCurrent = () =>
+      mapRequests.current.get(mapKey) === request && useEditorStore.getState().selectedImage?.path === imagePath;
+    setGenerating(true);
     try {
-      const b64: string = await invoke('generate_full_image_depth_map');
-      setAdjustments((prev: Partial<Adjustments>) => ({
-        ...prev,
-        lensBlurDepthMap: b64,
-      }));
-    } catch (e: any) {
-      toast.error(`Failed to generate depth map: ${e}`);
-      setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, lensBlurEnabled: false }));
+      const result = await invoke<{ imagePath: string; dataUrl: string }>(command, { imagePath });
+      if (!isCurrent() || result.imagePath !== imagePath) return;
+      setAdjustments((prev) => (isCurrent() ? { ...prev, [mapKey]: result.dataUrl } : prev));
+    } catch (e: unknown) {
+      if (!isCurrent()) return;
+      toast.error(`Failed to generate ${label} map: ${e}`);
+      setAdjustments((prev) => (isCurrent() ? { ...prev, [enabledKey]: false } : prev));
     } finally {
-      setIsGeneratingDepth(false);
+      if (isCurrent()) {
+        mapRequests.current.delete(mapKey);
+        setGenerating(false);
+      }
     }
   };
 
-  const handleGenerateRelightNormalMap = async () => {
-    setIsGeneratingNormals(true);
-    try {
-      const b64: string = await invoke('generate_relight_normal_map');
-      setAdjustments((prev: Partial<Adjustments>) => ({
-        ...prev,
-        relightNormalMap: b64,
-      }));
-    } catch (e: any) {
-      toast.error(`Failed to generate normal map: ${e}`);
-      setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, relightEnabled: false }));
-    } finally {
-      setIsGeneratingNormals(false);
-    }
-  };
-
-  const handleGenerateFogDepthMap = async () => {
-    setIsGeneratingFogDepth(true);
-    try {
-      const b64: string = await invoke('generate_full_image_depth_map');
-      setAdjustments((prev: Partial<Adjustments>) => ({
-        ...prev,
-        fogDepthMap: b64,
-      }));
-    } catch (e: any) {
-      toast.error(`Failed to generate depth map: ${e}`);
-      setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, fogEnabled: false }));
-    } finally {
-      setIsGeneratingFogDepth(false);
-    }
-  };
+  const handleGenerateLensBlurDepthMap = () =>
+    generateMap('lensBlurDepthMap', 'lensBlurEnabled', 'generate_full_image_depth_map', setIsGeneratingDepth, 'depth');
+  const handleGenerateRelightNormalMap = () =>
+    generateMap('relightNormalMap', 'relightEnabled', 'generate_relight_normal_map', setIsGeneratingNormals, 'normal');
+  const handleGenerateFogDepthMap = () =>
+    generateMap('fogDepthMap', 'fogEnabled', 'generate_full_image_depth_map', setIsGeneratingFogDepth, 'depth');
 
   const handleAdjustmentChange = (key: string, value: any) => {
     const numericValue = typeof value === 'boolean' ? value : parseInt(value, 10);
