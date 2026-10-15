@@ -1,0 +1,34 @@
+minimum_pre_commit_version: '2.20.0'
+
+repos:
+  - repo: local
+    hooks:
+      - id: js-format
+        name: Prettier
+        entry: npm run format
+        language: system
+        pass_filenames: false
+        files: \.(js|ts|tsx|css|scss|json|md|html)$
+
+      - id: js-lint-fix
+        name: ESLint
+        entry: npm run lint:fix
+        language: system
+        pass_filenames: false
+        files: \.(js|ts|tsx)$
+
+  - repo: local
+    hooks:
+      - id: rust-fmt
+        name: cargo fmt
+        entry: cargo fmt --manifest-path src-tauri/Cargo.toml -p RapidRAW
+        language: system
+        pass_filenames: false
+        files: ^src\-tauri/
+
+      - id: rust-clippy
+        name: cargo clippy
+        entry: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+        language: system
+        pass_filenames: false
+        files: ^src\-tauri/
