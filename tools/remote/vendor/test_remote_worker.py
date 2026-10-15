@@ -121,10 +121,19 @@ class TestDescriptors(unittest.TestCase):
                                          'outputs': [tensor()]}, 0)
 
     def test_bad_rank(self):
-        for shape in ((), tuple(range(9))):
+        # () is a valid scalar since the rank-0 extension; 9 stays too many
+        for shape in (tuple(range(9)),):
             with self.assertRaises(rw.ProtocolError):
                 rw.validate_run_request(
                     {'inputs': [tensor(shape=shape)], 'outputs': [tensor()]}, 0)
+
+    def test_scalar_rank0_descriptors(self):
+        # rapidraw extension: shape [] with bytes == elemsize is a scalar
+        inputs, outputs = rw.validate_run_request(
+            {'inputs': [{'type': 5, 'shape': [], 'bytes': 8}],
+             'outputs': [{'type': 1, 'shape': [], 'bytes': 0}]}, 0)
+        self.assertEqual(inputs[0]['shape'], [])
+        self.assertEqual(outputs[0]['bytes'], 0)
 
     def test_bad_dims(self):
         for dim in (0, -1, '2', True, 1.5, None):
@@ -312,9 +321,12 @@ class TestDynamicOutputs(unittest.TestCase):
                 self.req([tensor()], [{'type': 1, 'shape': [1, dim], 'bytes': 0}])
 
     def test_dynamic_bad_rank(self):
-        for shape in ((), tuple(range(9))):
+        for shape in (tuple(range(9)),):
             with self.assertRaises(rw.ProtocolError):
                 self.req([tensor()], [{'type': 1, 'shape': list(shape), 'bytes': 0}])
+
+    def test_dynamic_scalar_output_ok(self):
+        self.req([tensor()], [{'type': 1, 'shape': [], 'bytes': 0}])
 
     def test_negative_bytes_rejected(self):
         with self.assertRaises(rw.ProtocolError):

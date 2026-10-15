@@ -97,32 +97,25 @@ pub enum AiTensor {
 }
 
 /// One model input: optional name (required for named multi-input
-/// models), concrete shape and payload. `scalar` feeds a rank-0 tensor to
-/// local ORT while sending shape `[1]` over the wire (wire v1 has no
-/// rank-0 descriptors).
+/// models), concrete shape and payload. An empty shape is a rank-0
+/// scalar (rapidraw wire extension); e.g. MoGe's `num_tokens`.
 pub struct AiInput {
     pub name: Option<&'static str>,
     pub shape: Vec<i64>,
     pub data: AiTensor,
-    pub scalar: bool,
 }
 
 impl AiInput {
     pub fn f32(name: Option<&'static str>, shape: &[i64], data: Vec<f32>) -> Self {
-        Self { name, shape: shape.to_vec(), data: AiTensor::F32(data), scalar: false }
+        Self { name, shape: shape.to_vec(), data: AiTensor::F32(data) }
     }
 
     pub fn u8(name: Option<&'static str>, shape: &[i64], data: Vec<u8>) -> Self {
-        Self { name, shape: shape.to_vec(), data: AiTensor::U8(data), scalar: false }
+        Self { name, shape: shape.to_vec(), data: AiTensor::U8(data) }
     }
 
     pub fn i64(name: Option<&'static str>, shape: &[i64], data: Vec<i64>) -> Self {
-        Self { name, shape: shape.to_vec(), data: AiTensor::I64(data), scalar: false }
-    }
-
-    /// Scalar (rank-0) i64 input, e.g. MoGe's `num_tokens`.
-    pub fn i64_scalar(name: Option<&'static str>, value: i64) -> Self {
-        Self { name, shape: vec![1], data: AiTensor::I64(vec![value]), scalar: true }
+        Self { name, shape: shape.to_vec(), data: AiTensor::I64(data) }
     }
 }
 
@@ -134,8 +127,9 @@ impl AiBackend {
                 let mut named: Vec<(String, ort::value::Value)> = Vec::new();
                 let mut unnamed: Vec<ort::session::SessionInputValue> = Vec::new();
                 for input in inputs {
-                    let value = AiBackend::local_tensor(&input)?;
-                    match input.name {
+                    let name = input.name;
+                    let value = AiBackend::local_tensor(input)?;
+                    match name {
                         Some(name) => named.push((name.to_string(), value)),
                         None => unnamed.push(value.into()),
                     }
@@ -145,10 +139,15 @@ impl AiBackend {
                 } else {
                     sess.run(&unnamed[..])?
                 };
+                let names: Vec<Option<String>> = outputs
+                    .keys()
+                    .map(|k| (!k.is_empty()).then(|| k.to_string()))
+                    .collect();
                 (0..outputs.len())
                     .map(|i| {
                         let arr = outputs[i].try_extract_array::<f32>()?;
                         Ok(crate::remote_ai::RunOutput {
+                            name: names.get(i).cloned().flatten(),
                             shape: arr.shape().iter().map(|&d| d as i64).collect(),
                             data: arr.iter().copied().collect(),
                         })
@@ -157,8 +156,8 @@ impl AiBackend {
             }
             AiBackend::Remote(slot) => {
                 let tensors = inputs
-                    .iter()
-                    .map(|input| match &input.data {
+                    .into_iter()
+                    .map(|input| match input.data {
                         AiTensor::F32(data) => crate::remote_ai::TensorIn::f32(&input.shape, data),
                         AiTensor::U8(data) => crate::remote_ai::TensorIn::u8(&input.shape, data),
                         AiTensor::I64(data) => crate::remote_ai::TensorIn::i64(&input.shape, data),
@@ -169,25 +168,19 @@ impl AiBackend {
         }
     }
 
-    fn local_tensor(input: &AiInput) -> Result<ort::value::Value> {
-        let owned_shape: Vec<usize> = input.shape.iter().map(|&d| d as usize).collect();
-        let shape_dyn = ndarray::IxDyn(&owned_shape);
-        let value = match (&input.data, input.scalar) {
-            (AiTensor::F32(data), _) => {
-                Tensor::from_array(Array::from_shape_vec(shape_dyn, data.clone())?)?.into_dyn()
+    fn local_tensor(input: AiInput) -> Result<ort::value::Value> {
+        // An empty shape yields a true rank-0 ndarray scalar.
+        let shape_dyn = ndarray::IxDyn(&input.shape.iter().map(|&d| d as usize).collect::<Vec<_>>());
+        let value = match input.data {
+            AiTensor::F32(data) => {
+                Tensor::from_array(Array::from_shape_vec(shape_dyn, data)?)?.into_dyn()
             }
-            (AiTensor::U8(data), _) => {
-                Tensor::from_array(Array::from_shape_vec(shape_dyn, data.clone())?)?.into_dyn()
+            AiTensor::U8(data) => {
+                Tensor::from_array(Array::from_shape_vec(shape_dyn, data)?)?.into_dyn()
             }
-            (AiTensor::I64(data), false) => {
-                Tensor::from_array(Array::from_shape_vec(shape_dyn, data.clone())?)?.into_dyn()
+            AiTensor::I64(data) => {
+                Tensor::from_array(Array::from_shape_vec(shape_dyn, data)?)?.into_dyn()
             }
-            // Rank-0 feed for scalar inputs: wire v1 cannot express rank 0,
-            // so only the local backend sees the true tensor rank.
-            (AiTensor::I64(data), true) => Tensor::from_array(ndarray::arr0(
-                data.first().copied().ok_or_else(|| anyhow::anyhow!("empty scalar input"))?,
-            ))?
-            .into_dyn(),
         };
         Ok(value)
     }
@@ -221,6 +214,9 @@ pub struct CachedDepthMap {
 }
 
 pub struct AiState {
+    /// Mode (None = local, Some(endpoint)) these backends were built
+    /// under; a mismatch invalidates every cached session on next use.
+    pub mode_key: Option<String>,
     pub models: Option<Arc<AiModels>>,
     pub denoise_model: Option<Arc<AiBackend>>,
     pub clip_models: Option<Arc<ClipModels>>,
@@ -589,6 +585,50 @@ fn configured_remote_endpoint(app_handle: &tauri::AppHandle) -> Option<String> {
 /// Connect every mask-model to the worker over its own persistent
 /// connection. Touches no local model files, runs no downloads and never
 /// initialises ORT: when this fails, the caller fails closed.
+/// Returns true when the cached state was built for `mode`. On a mode
+/// change every cached backend is dropped (dropping a remote slot closes
+/// its socket and releases the worker-side model).
+fn apply_mode_key(state: &mut Option<AiState>, mode: &Option<String>) -> bool {
+    match state {
+        Some(ai) if ai.mode_key == *mode => true,
+        Some(ai) => {
+            log::info!("AI mode changed; invalidating cached model sessions");
+            ai.mode_key = mode.clone();
+            ai.models = None;
+            ai.denoise_model = None;
+            ai.clip_models = None;
+            ai.lama_model = None;
+            ai.normal_model = None;
+            false
+        }
+        None => false,
+    }
+}
+
+/// Rejects a backend built under a stale mode snapshot: if the setting
+/// changed while a model was downloading/loading, the freshly built
+/// backend is discarded and the next call rebuilds for the new mode.
+/// Never returns a local backend after remote was enabled mid-init.
+fn ensure_mode_stable(current: Option<String>, snapshot: &Option<String>) -> Result<()> {
+    if current != *snapshot {
+        return Err(anyhow::anyhow!(
+            "AI mode setting changed during model init; the next attempt builds for the new mode"
+        ));
+    }
+    Ok(())
+}
+
+/// Cached-handle lookup for `mode` that first invalidates on a change.
+fn cached_model<T: Clone>(
+    ai_state_mutex: &Mutex<Option<AiState>>,
+    mode: &Option<String>,
+    pick: impl Fn(&AiState) -> Option<T>,
+) -> Option<T> {
+    let mut lock = ai_state_mutex.lock().unwrap();
+    apply_mode_key(&mut lock, mode);
+    lock.as_ref().and_then(pick)
+}
+
 /// Sessions are created lazily on first use and bounded by the shared
 /// pool (at most [`crate::remote_ai::REMOTE_POOL_CAP`] live worker
 /// connections), so this never touches the network or local weights.
@@ -616,33 +656,27 @@ pub async fn get_or_init_ai_models(
     ai_state_mutex: &Mutex<Option<AiState>>,
     ai_init_lock: &TokioMutex<()>,
 ) -> Result<Arc<AiModels>> {
-    if let Some(models) = ai_state_mutex
-        .lock()
-        .unwrap()
-        .as_ref()
-        .and_then(|state| state.models.clone())
-    {
+    let mode = configured_remote_endpoint(app_handle);
+    if let Some(models) = cached_model(ai_state_mutex, &mode, |s| s.models.clone()) {
         return Ok(models);
     }
 
     let _guard = ai_init_lock.lock().await;
 
-    if let Some(models) = ai_state_mutex
-        .lock()
-        .unwrap()
-        .as_ref()
-        .and_then(|state| state.models.clone())
-    {
+    if let Some(models) = cached_model(ai_state_mutex, &mode, |s| s.models.clone()) {
         return Ok(models);
     }
 
     if let Some(endpoint) = configured_remote_endpoint(app_handle) {
         let models = Arc::new(init_remote_ai_models(&endpoint)?);
+        ensure_mode_stable(configured_remote_endpoint(app_handle), &mode)?;
         let mut ai_state_lock = ai_state_mutex.lock().unwrap();
         if let Some(state) = ai_state_lock.as_mut() {
             state.models = Some(models.clone());
+            state.mode_key = mode.clone();
         } else {
             *ai_state_lock = Some(AiState {
+                mode_key: mode.clone(),
                 models: Some(models.clone()),
                 denoise_model: None,
                 clip_models: None,
@@ -721,11 +755,14 @@ pub async fn get_or_init_ai_models(
         depth_anything: AiBackend::Local(SyncMutex::new(depth_anything)),
     });
 
+    ensure_mode_stable(configured_remote_endpoint(app_handle), &mode)?;
     let mut ai_state_lock = ai_state_mutex.lock().unwrap();
     if let Some(state) = ai_state_lock.as_mut() {
         state.models = Some(models.clone());
+        state.mode_key = mode.clone();
     } else {
         *ai_state_lock = Some(AiState {
+            mode_key: mode.clone(),
             models: Some(models.clone()),
             denoise_model: None,
             clip_models: None,
@@ -744,23 +781,14 @@ pub async fn get_or_init_denoise_model(
     ai_state_mutex: &Mutex<Option<AiState>>,
     ai_init_lock: &TokioMutex<()>,
 ) -> Result<Arc<AiBackend>> {
-    if let Some(denoise_model) = ai_state_mutex
-        .lock()
-        .unwrap()
-        .as_ref()
-        .and_then(|state| state.denoise_model.clone())
-    {
+    let mode = configured_remote_endpoint(app_handle);
+    if let Some(denoise_model) = cached_model(ai_state_mutex, &mode, |s| s.denoise_model.clone()) {
         return Ok(denoise_model);
     }
 
     let _guard = ai_init_lock.lock().await;
 
-    if let Some(denoise_model) = ai_state_mutex
-        .lock()
-        .unwrap()
-        .as_ref()
-        .and_then(|state| state.denoise_model.clone())
-    {
+    if let Some(denoise_model) = cached_model(ai_state_mutex, &mode, |s| s.denoise_model.clone()) {
         return Ok(denoise_model);
     }
 
@@ -786,11 +814,14 @@ pub async fn get_or_init_denoise_model(
 
     crate::register_exit_handler();
 
+    ensure_mode_stable(configured_remote_endpoint(app_handle), &mode)?;
     let mut ai_state_lock = ai_state_mutex.lock().unwrap();
     if let Some(state) = ai_state_lock.as_mut() {
         state.denoise_model = Some(denoise_model.clone());
+        state.mode_key = mode.clone();
     } else {
         *ai_state_lock = Some(AiState {
+            mode_key: mode.clone(),
             models: None,
             denoise_model: Some(denoise_model.clone()),
             clip_models: None,
@@ -809,23 +840,14 @@ pub async fn get_or_init_clip_models(
     ai_state_mutex: &Mutex<Option<AiState>>,
     ai_init_lock: &TokioMutex<()>,
 ) -> Result<Arc<ClipModels>> {
-    if let Some(clip_models) = ai_state_mutex
-        .lock()
-        .unwrap()
-        .as_ref()
-        .and_then(|state| state.clip_models.clone())
-    {
+    let mode = configured_remote_endpoint(app_handle);
+    if let Some(clip_models) = cached_model(ai_state_mutex, &mode, |s| s.clip_models.clone()) {
         return Ok(clip_models);
     }
 
     let _guard = ai_init_lock.lock().await;
 
-    if let Some(clip_models) = ai_state_mutex
-        .lock()
-        .unwrap()
-        .as_ref()
-        .and_then(|state| state.clip_models.clone())
-    {
+    if let Some(clip_models) = cached_model(ai_state_mutex, &mode, |s| s.clip_models.clone()) {
         return Ok(clip_models);
     }
 
@@ -866,11 +888,14 @@ pub async fn get_or_init_clip_models(
 
     let clip_models = Arc::new(ClipModels { model, tokenizer });
 
+    ensure_mode_stable(configured_remote_endpoint(app_handle), &mode)?;
     let mut ai_state_lock = ai_state_mutex.lock().unwrap();
     if let Some(state) = ai_state_lock.as_mut() {
         state.clip_models = Some(clip_models.clone());
+        state.mode_key = mode.clone();
     } else {
         *ai_state_lock = Some(AiState {
+            mode_key: mode.clone(),
             models: None,
             denoise_model: None,
             clip_models: Some(clip_models.clone()),
@@ -889,23 +914,14 @@ pub async fn get_or_init_lama_model(
     ai_state_mutex: &Mutex<Option<AiState>>,
     ai_init_lock: &TokioMutex<()>,
 ) -> Result<Arc<AiBackend>> {
-    if let Some(lama_model) = ai_state_mutex
-        .lock()
-        .unwrap()
-        .as_ref()
-        .and_then(|state| state.lama_model.clone())
-    {
+    let mode = configured_remote_endpoint(app_handle);
+    if let Some(lama_model) = cached_model(ai_state_mutex, &mode, |s| s.lama_model.clone()) {
         return Ok(lama_model);
     }
 
     let _guard = ai_init_lock.lock().await;
 
-    if let Some(lama_model) = ai_state_mutex
-        .lock()
-        .unwrap()
-        .as_ref()
-        .and_then(|state| state.lama_model.clone())
-    {
+    if let Some(lama_model) = cached_model(ai_state_mutex, &mode, |s| s.lama_model.clone()) {
         return Ok(lama_model);
     }
 
@@ -931,11 +947,14 @@ pub async fn get_or_init_lama_model(
 
     crate::register_exit_handler();
 
+    ensure_mode_stable(configured_remote_endpoint(app_handle), &mode)?;
     let mut ai_state_lock = ai_state_mutex.lock().unwrap();
     if let Some(state) = ai_state_lock.as_mut() {
         state.lama_model = Some(lama_model.clone());
+        state.mode_key = mode.clone();
     } else {
         *ai_state_lock = Some(AiState {
+            mode_key: mode.clone(),
             models: None,
             denoise_model: None,
             clip_models: None,
@@ -954,23 +973,14 @@ pub async fn get_or_init_normal_model(
     ai_state_mutex: &Mutex<Option<AiState>>,
     ai_init_lock: &TokioMutex<()>,
 ) -> Result<Arc<AiBackend>> {
-    if let Some(normal_model) = ai_state_mutex
-        .lock()
-        .unwrap()
-        .as_ref()
-        .and_then(|state| state.normal_model.clone())
-    {
+    let mode = configured_remote_endpoint(app_handle);
+    if let Some(normal_model) = cached_model(ai_state_mutex, &mode, |s| s.normal_model.clone()) {
         return Ok(normal_model);
     }
 
     let _guard = ai_init_lock.lock().await;
 
-    if let Some(normal_model) = ai_state_mutex
-        .lock()
-        .unwrap()
-        .as_ref()
-        .and_then(|state| state.normal_model.clone())
-    {
+    if let Some(normal_model) = cached_model(ai_state_mutex, &mode, |s| s.normal_model.clone()) {
         return Ok(normal_model);
     }
 
@@ -996,11 +1006,14 @@ pub async fn get_or_init_normal_model(
 
     crate::register_exit_handler();
 
+    ensure_mode_stable(configured_remote_endpoint(app_handle), &mode)?;
     let mut ai_state_lock = ai_state_mutex.lock().unwrap();
     if let Some(state) = ai_state_lock.as_mut() {
         state.normal_model = Some(normal_model.clone());
+        state.mode_key = mode.clone();
     } else {
         *ai_state_lock = Some(AiState {
+            mode_key: mode.clone(),
             models: None,
             denoise_model: None,
             clip_models: None,
@@ -2064,19 +2077,20 @@ pub fn run_normal_model(
             &[1, 3, rh as i64, rw as i64],
             input_tensor.as_standard_layout().into_owned().as_slice().unwrap().to_vec(),
         ),
-        // Wire v1 cannot carry rank-0 tensors, so the scalar rides as [1]
-        // remotely; the local backend feeds a true rank-0 tensor.
-        AiInput::i64_scalar(Some("num_tokens"), NORMAL_NUM_TOKENS),
+        // Rank-0 scalar over the rapidraw wire extension (shape []).
+        AiInput::i64(Some("num_tokens"), &[], vec![NORMAL_NUM_TOKENS]),
     ])?;
-    if outputs.len() < 3 {
-        return Err(anyhow::anyhow!(
-            "Unexpected normal model outputs: {} tensors",
-            outputs.len()
-        ));
-    }
-    let normal_tensor = &outputs[0];
-    let mask_tensor = &outputs[1];
-    let points_tensor = &outputs[2];
+    // The model declares outputs as points, normal, mask, scale — select
+    // by declared name, never by position.
+    let by_name = |wanted: &str| -> Result<&crate::remote_ai::RunOutput> {
+        outputs
+            .iter()
+            .find(|o| o.name.as_deref() == Some(wanted))
+            .ok_or_else(|| anyhow::anyhow!("normal model did not return '{wanted}'"))
+    };
+    let normal_tensor = by_name("normal")?;
+    let mask_tensor = by_name("mask")?;
+    let points_tensor = by_name("points")?;
 
     if normal_tensor.shape != [1, rh as i64, rw as i64, 3]
         || mask_tensor.shape != [1, rh as i64, rw as i64]
@@ -2227,10 +2241,47 @@ mod remote_tests {
     }
 
     #[test]
+    fn mode_change_invalidates_every_cached_session() {
+        let mut state = Some(AiState {
+            mode_key: None,
+            models: None,
+            denoise_model: Some(Arc::new(AiBackend::Remote(
+                crate::remote_ai::SHARED_POOL.slot("127.0.0.1:1", "m", "f.onnx", false),
+            ))),
+            clip_models: None,
+            lama_model: None,
+            normal_model: None,
+            embeddings: None,
+            depth_map: None,
+        });
+        // same mode: cached handle survives
+        assert!(apply_mode_key(&mut state, &None));
+        assert!(state.as_ref().unwrap().denoise_model.is_some());
+        // changed mode: all cached backends drop, key restamped
+        let remote = Some("127.0.0.1:8794".to_string());
+        assert!(!apply_mode_key(&mut state, &remote));
+        assert!(state.as_ref().unwrap().denoise_model.is_none());
+        assert_eq!(state.as_ref().unwrap().mode_key, remote);
+        // subsequent lookups are stable
+        assert!(apply_mode_key(&mut state, &remote));
+    }
+
+    #[test]
+    fn settings_change_during_init_discards_the_built_backend() {
+        // init started local (snapshot None), remote enabled mid-load
+        assert!(ensure_mode_stable(Some("127.0.0.1:8794".into()), &None).is_err());
+        // unchanged settings: backend may be stored
+        assert!(ensure_mode_stable(None, &None).is_ok());
+        assert!(ensure_mode_stable(Some("127.0.0.1:8794".into()), &Some("127.0.0.1:8794".into())).is_ok());
+        // endpoint edit mid-load is equally rejected
+        assert!(ensure_mode_stable(Some("127.0.0.1:18794".into()), &Some("127.0.0.1:8794".into())).is_err());
+    }
+
+    #[test]
     fn remote_slot_run_fails_closed_on_dead_endpoint() {
         let pool = RemotePool::new(1);
         let slot = pool.slot("127.0.0.1:1", REMOTE_MODEL_U2NET, U2NETP_FILENAME, false);
-        let err = slot.run(&[crate::remote_ai::TensorIn::f32(&[1, 2], &[0.0, 0.0]).unwrap()]);
+        let err = slot.run(&[crate::remote_ai::TensorIn::f32(&[1, 2], vec![0.0, 0.0]).unwrap()]);
         assert!(err.is_err());
     }
 
@@ -2297,8 +2348,7 @@ mod remote_tests {
 
     #[test]
     fn remote_pool_evicts_lru_and_reconnects_within_worker_capacity() {
-        // cap 2: A,B live; C evicts A; D evicts B; A again evicts C —
-        // exactly 5 load connections for 6 runs.
+        // A,B fill the pool; C,D evict them; A must reconnect.
         let expected = vec![
             ("mA".to_string(), "fa.onnx".to_string()),
             ("mB".to_string(), "fb.onnx".to_string()),
@@ -2313,15 +2363,14 @@ mod remote_tests {
         let b = pool.slot(&endpoint, "mB", "fb.onnx", false);
         let c = pool.slot(&endpoint, "mC", "fc.onnx", false);
         let d = pool.slot(&endpoint, "mD", "fd.onnx", false);
-        let input = || vec![crate::remote_ai::TensorIn::f32(&[1, 2], &[0.5, -0.5]).unwrap()];
+        let input = || vec![crate::remote_ai::TensorIn::f32(&[1, 2], vec![0.5, -0.5]).unwrap()];
         assert_eq!(a.run(&input()).unwrap()[0].data[0], 1.0);
         assert_eq!(b.run(&input()).unwrap()[0].data[0], 2.0);
         assert_eq!(c.run(&input()).unwrap()[0].data[0], 3.0); // evicts A
         assert_eq!(d.run(&input()).unwrap()[0].data[0], 4.0); // evicts B
         assert_eq!(a.run(&input()).unwrap()[0].data[0], 5.0); // reconnects, evicts C
+        server.join().unwrap();
         assert_eq!(served.load(Ordering::SeqCst), 5);
-        // Live sessions stay bounded: at most 2 sockets were ever open.
-        drop(server);
     }
 
     /// Remote inpainting must never mutate the caller's image or mask:

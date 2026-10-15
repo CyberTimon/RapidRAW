@@ -21,7 +21,7 @@ PROTOCOL_VERSION = 1
 MAX_JSON = 64 * 1024
 MAX_MESSAGE = 512 * 1024 * 1024
 MAX_TENSORS = 16
-MIN_RANK, MAX_RANK = 1, 8
+MIN_RANK, MAX_RANK = 0, 8  # rank-0 scalars (rapidraw extension)
 CONNECTION_TIMEOUT = 300
 MAX_CONNECTIONS = 4
 DEFAULT_PORT = 8794
@@ -85,7 +85,7 @@ def validate_tensor_desc(desc, where, allow_dynamic=False):
         raise ProtocolError(f'{where}: unknown dtype {dtype!r}')
     shape = desc.get('shape')
     if not isinstance(shape, list) or not MIN_RANK <= len(shape) <= MAX_RANK:
-        raise ProtocolError(f'{where}: rank must be {MIN_RANK}..{MAX_RANK}')
+        raise ProtocolError(f'{where}: rank must be {MIN_RANK}..{MAX_RANK}')  # 0 = scalar
     for dim in shape:
         if isinstance(dim, bool) or not isinstance(dim, int) or dim == 0 \
                 or (dim < 0 and not (allow_dynamic and dim == -1)):

@@ -35,7 +35,9 @@ const PROTOCOL_VERSION: i64 = 1;
 const MAX_JSON: usize = 64 * 1024;
 const MAX_BYTES: u64 = (512 << 20) as u64;
 const MAX_IO: usize = 16;
-const MIN_RANK: usize = 1;
+/// 0 = scalar tensor (rapidraw protocol extension, coordinated with the
+/// vendored worker patch in tools/remote/vendor).
+const MIN_RANK: usize = 0;
 const MAX_RANK: usize = 8;
 const TIMEOUT: Duration = Duration::from_secs(300);
 
@@ -390,16 +392,19 @@ fn check_ok(frame: &Value) -> Result<()> {
     }
 }
 
-/// One inference result: f32 data plus the worker's concrete output shape.
+/// One inference result: f32 data plus the worker's concrete output shape
+/// and the model's declared output name (positions align with the load
+/// metadata on the wire; names matter for multi-output models).
 pub struct RunOutput {
+    pub name: Option<String>,
     pub data: Vec<f32>,
     pub shape: Vec<i64>,
 }
 
 impl RunOutput {
     /// Decode a non-float output that the caller does not consume.
-    fn opaque(shape: Vec<i64>) -> Self {
-        Self { data: Vec::new(), shape }
+    fn opaque(name: Option<String>, shape: Vec<i64>) -> Self {
+        Self { name, data: Vec::new(), shape }
     }
 }
 
@@ -434,7 +439,9 @@ impl TensorIn {
         Ok(Self { dtype, shape: shape.to_vec(), data })
     }
 
-    pub fn f32(shape: &[i64], values: &[f32]) -> Result<Self> {
+    /// Consumes the caller's buffer; u8 payloads are moved verbatim and
+    /// float/int payloads are encoded once, never cloned.
+    pub fn f32(shape: &[i64], values: Vec<f32>) -> Result<Self> {
         let mut data = Vec::with_capacity(values.len() * 4);
         for v in values {
             data.extend_from_slice(&v.to_le_bytes());
@@ -442,11 +449,11 @@ impl TensorIn {
         Self::build(shape, DType::F32, data)
     }
 
-    pub fn u8(shape: &[i64], values: &[u8]) -> Result<Self> {
-        Self::build(shape, DType::U8, values.to_vec())
+    pub fn u8(shape: &[i64], values: Vec<u8>) -> Result<Self> {
+        Self::build(shape, DType::U8, values)
     }
 
-    pub fn i64(shape: &[i64], values: &[i64]) -> Result<Self> {
+    pub fn i64(shape: &[i64], values: Vec<i64>) -> Result<Self> {
         let mut data = Vec::with_capacity(values.len() * 8);
         for v in values {
             data.extend_from_slice(&v.to_le_bytes());
@@ -564,9 +571,8 @@ impl RemoteModel {
             .outputs
             .iter()
             .map(|o| {
-                if o.shape.is_empty() {
-                    bail!("rank-0 output cannot be expressed on wire v1");
-                }
+                // Rank-0 (scalar) outputs request an empty-shape dynamic
+                // descriptor; the worker replies with shape [] and exact bytes.
                 Ok(json!({
                     "type": o.dtype as i64,
                     "shape": vec![-1i64; o.shape.len()],
@@ -600,13 +606,14 @@ impl RemoteModel {
             bail!("run response has {} outputs, expected {}", outs.len(), self.outputs.len());
         }
         let mut results = Vec::with_capacity(outs.len());
-        for out in outs {
+        for (i, out) in outs.into_iter().enumerate() {
             let elems = out.elems()?;
             let raw_bytes = elems * out.dtype.elem_size();
             if raw_bytes > MAX_BYTES {
                 bail!("output payload {raw_bytes} exceeds {MAX_BYTES}");
             }
             let raw = recv_exact(&mut self.stream, raw_bytes as usize)?;
+            let name = self.outputs.get(i).and_then(|d| d.name.clone());
             let data: Vec<f32> = match out.dtype {
                 DType::F32 => raw
                     .chunks_exact(4)
@@ -617,14 +624,14 @@ impl RemoteModel {
                     .map(|c| half_to_f32(u16::from_le_bytes([c[0], c[1]])))
                     .collect(),
                 _ => {
-                    results.push(RunOutput::opaque(out.shape));
+                    results.push(RunOutput::opaque(name, out.shape));
                     continue;
                 }
             };
             if data.len() != elems as usize {
                 bail!("payload yielded {} elements, expected {elems}", data.len());
             }
-            results.push(RunOutput { data, shape: out.shape });
+            results.push(RunOutput { name, data, shape: out.shape });
         }
         Ok(results)
     }
@@ -641,7 +648,7 @@ impl RemoteModel {
                 self.outputs[0].shape.len()
             );
         }
-        let input = [TensorIn::f32(input_shape, input)?];
+        let input = [TensorIn::f32(input_shape, input.to_vec())?];
         Ok(self.run_typed(&input)?.pop().ok_or_else(|| anyhow!("worker returned no outputs"))?)
     }
 }
@@ -723,6 +730,67 @@ mod tests {
         assert!(TensorDesc::parse(&json!({"type": 7, "shape": [1]}), false, false).is_err());
         // missing name where required
         assert!(TensorDesc::parse(&json!({"type": 1, "shape": [1]}), true, true).is_err());
+        // rank-0 scalar: accepted with an exact byte count, dynamic with 0
+        assert!(TensorDesc::parse(&json!({"type": 5, "shape": [], "bytes": 8}), false, false).is_ok());
+        assert!(TensorDesc::parse(&json!({"type": 5, "shape": [], "bytes": 0}), true, false).is_ok());
+        assert!(TensorDesc::parse(&json!({"type": 5, "shape": [], "bytes": 4}), false, false).is_err());
+    }
+
+    /// Rank-0 scalar regression (rapidraw wire extension): a scalar input
+    /// rides as {"shape": [], "bytes": elemsize} and a scalar output is
+    /// requested as a dynamic empty-shape descriptor.
+    #[test]
+    fn scalar_rank0_round_trip() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = std::thread::spawn(move || {
+            let (mut sock, _) = listener.accept().unwrap();
+            sock.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
+            let _ = read_frame(&mut sock);
+            let mut resp = Vec::new();
+            write_frame(
+                &mut resp,
+                &json!({
+                    "ok": true,
+                    "inputs": [
+                        {"name": "image", "type": 1, "shape": [1, 1, 2, 2]},
+                        {"name": "num_tokens", "type": 5, "shape": []},
+                    ],
+                    "outputs": [{"name": "count", "type": 1, "shape": []}],
+                    "provider": "CUDAExecutionProvider",
+                }),
+            );
+            sock.write_all(&resp).unwrap();
+
+            let (run, _) = read_frame(&mut sock);
+            let ins = run["inputs"].as_array().unwrap();
+            assert_eq!(ins[1], json!({"type": 5, "shape": [], "bytes": 8}));
+            let outs = run["outputs"].as_array().unwrap();
+            assert_eq!(outs[0], json!({"type": 1, "shape": [], "bytes": 0}));
+            let mut payload = vec![0u8; 16 + 8];
+            sock.read_exact(&mut payload).unwrap();
+            // scalar i64 payload sits after the 4x4 f32 image
+            assert_eq!(&payload[16..24], &2500i64.to_le_bytes());
+            let mut out = Vec::new();
+            write_frame(
+                &mut out,
+                &json!({"ok": true, "outputs": [{"type": 1, "shape": [], "bytes": 4}]}),
+            );
+            out.extend_from_slice(&7.5f32.to_le_bytes());
+            sock.write_all(&out).unwrap();
+        });
+
+        let mut model =
+            RemoteModel::connect_load(&format!("127.0.0.1:{port}"), "m", "model.onnx").unwrap();
+        let outs = model
+            .run_typed(&[
+                TensorIn::f32(&[1, 1, 2, 2], vec![0.0; 4]).unwrap(),
+                TensorIn::i64(&[], vec![2500]).unwrap(),
+            ])
+            .unwrap();
+        server.join().unwrap();
+        assert_eq!(outs[0].shape, Vec::<i64>::new());
+        assert_eq!(outs[0].data, vec![7.5]);
     }
 
     #[test]
@@ -949,9 +1017,9 @@ mod tests {
             RemoteModel::connect_load(&format!("127.0.0.1:{port}"), "m", "model.onnx").unwrap();
         let outs = model
             .run_typed(&[
-                TensorIn::f32(&[1, 2], &[0.25, -0.75]).unwrap(),
-                TensorIn::u8(&[4], &[9, 8, 7, 6]).unwrap(),
-                TensorIn::i64(&[3], &[5, 6, 7]).unwrap(),
+                TensorIn::f32(&[1, 2], vec![0.25, -0.75]).unwrap(),
+                TensorIn::u8(&[4], vec![9, 8, 7, 6]).unwrap(),
+                TensorIn::i64(&[3], vec![5, 6, 7]).unwrap(),
             ])
             .unwrap();
         server.join().unwrap();
@@ -987,9 +1055,9 @@ mod tests {
         // wrong arity fails before any frame is written
         assert!(model.run_typed(&[]).is_err());
         // wrong dtype fails before any frame is written
-        assert!(model.run_typed(&[TensorIn::u8(&[1, 2], &[0, 0]).unwrap()]).is_err());
+        assert!(model.run_typed(&[TensorIn::u8(&[1, 2], vec![0, 0]).unwrap()]).is_err());
         // payload/shape mismatch is rejected at construction, before any frame
-        assert!(TensorIn::f32(&[1, 2], &[1.0]).is_err());
+        assert!(TensorIn::f32(&[1, 2], vec![1.0]).is_err());
     }
 
     #[test]
@@ -1060,12 +1128,42 @@ mod tests {
         let in_shape = vec![1, 3, 320, 320];
         let input = vec![0.5f32; in_shape.iter().product::<i64>() as usize];
         let outs = slot
-            .run(&[TensorIn::f32(&in_shape, &input).unwrap()])
+            .run(&[TensorIn::f32(&in_shape, input).unwrap()])
             .unwrap_or_else(|e| panic!("worker must load {model}/{file} on an explicit CPU session: {e}"));
         let out = &outs[0];
         assert!(!out.shape.is_empty());
         assert_eq!(out.data.len(), out.shape.iter().product::<i64>() as usize);
         assert!(out.data.iter().all(|v| v.is_finite()));
         println!("smoke ok: out shape {:?}", out.shape);
+    }
+
+    /// Real MoGe normal-model inference through the actual app path
+    /// (`run_normal_model` + pool slot), including the rank-0 scalar
+    /// `num_tokens` input. Ignored by default:
+    ///
+    /// ```sh
+    /// RAPIDRAW_REMOTE_SMOKE_ENDPOINT=127.0.0.1:8794 \
+    ///   cargo test --lib live_worker_normal_smoke -- --ignored --nocapture
+    /// ```
+    #[test]
+    #[ignore = "needs a worker with the rapidraw-normal pack provisioned"]
+    fn live_worker_normal_smoke() {
+        let endpoint =
+            std::env::var("RAPIDRAW_REMOTE_SMOKE_ENDPOINT").unwrap_or_else(|_| DEFAULT_ENDPOINT.into());
+        let slot = SHARED_POOL.slot(
+            &endpoint,
+            crate::ai_processing::REMOTE_MODEL_NORMAL,
+            "moge-2-vits-normal-onnx.onnx",
+            true,
+        );
+        // 64x64 synthetic image keeps the CPU run cheap; the model path is
+        // otherwise identical to production.
+        let img = image::DynamicImage::ImageRgb8(image::RgbImage::from_fn(64, 64, |x, y| {
+            image::Rgb([x as u8 * 4, y as u8 * 4, 128])
+        }));
+        let normals = crate::ai_processing::run_normal_model(&img, &crate::ai_processing::AiBackend::Remote(slot))
+            .expect("normal model must run end to end");
+        assert_eq!(normals.dimensions(), (64, 64));
+        println!("normal smoke ok: {}x{}", normals.width(), normals.height());
     }
 }
