@@ -48,6 +48,7 @@ dependencies = [
  "objc2-foundation",
  "once_cell",
  "ort",
+ "parking_lot",
  "pollster",
  "quick-xml 0.41.0",
  "rand 0.10.2",

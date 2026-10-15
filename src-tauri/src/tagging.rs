@@ -2,15 +2,13 @@ use anyhow::Result;
 use futures::stream::{self, StreamExt};
 use image::{DynamicImage, imageops::FilterType};
 use ndarray::{Array, Axis};
-use ort::session::Session;
-use ort::value::Tensor;
+use tokenizers::Tokenizer;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager, State};
-use tokenizers::Tokenizer;
 use tokio::task::JoinHandle;
 use walkdir::WalkDir;
 
@@ -144,7 +142,7 @@ pub fn extract_color_tags(image: &DynamicImage) -> Vec<String> {
 
 pub fn generate_tags_with_clip(
     image: &DynamicImage,
-    clip_session_mutex: &Mutex<Session>,
+    clip_session: &crate::ai_processing::AiBackend,
     tokenizer: &Tokenizer,
     custom_tags: Option<Vec<String>>,
     max_tags: usize,
@@ -191,22 +189,39 @@ pub fn generate_tags_with_clip(
     let mask_array = Array::from_shape_vec((text_inputs.len(), max_len), mask_data)?;
 
     let image_input_dyn = image_input.into_dyn();
-    let ids_array_dyn = ids_array.into_dyn();
-    let mask_array_dyn = mask_array.into_dyn();
 
-    let image_layout = image_input_dyn.as_standard_layout();
-    let ids_layout = ids_array_dyn.as_standard_layout();
-    let mask_layout = mask_array_dyn.as_standard_layout();
+    // CLIP model input order: input_ids, pixel_values, attention_mask.
+    let outputs = clip_session.run(vec![
+        crate::ai_processing::AiInput::i64(
+            None,
+            &[
+                text_inputs.len() as i64,
+                max_len as i64,
+            ],
+            ids_array.as_slice().unwrap().to_vec(),
+        ),
+        crate::ai_processing::AiInput::f32(
+            None,
+            &image_input_dyn.shape().iter().map(|&d| d as i64).collect::<Vec<_>>(),
+            image_input_dyn.as_standard_layout().into_owned().as_slice().unwrap().to_vec(),
+        ),
+        crate::ai_processing::AiInput::i64(
+            None,
+            &[
+                text_inputs.len() as i64,
+                max_len as i64,
+            ],
+            mask_array.as_slice().unwrap().to_vec(),
+        ),
+    ])?;
 
-    let image_val = Tensor::from_array(image_layout.into_owned())?;
-    let ids_val = Tensor::from_array(ids_layout.into_owned())?;
-    let mask_val = Tensor::from_array(mask_layout.into_owned())?;
-
-    let mut clip_session = clip_session_mutex.lock().unwrap();
-    let outputs = clip_session.run(ort::inputs![ids_val, image_val, mask_val])?;
-
-    let logits_dyn = outputs[0].try_extract_array::<f32>()?.to_owned();
-    let logits = logits_dyn.into_dimensionality::<ndarray::Dim<[usize; 2]>>()?;
+    let logits_out = outputs
+        .first()
+        .ok_or_else(|| anyhow::anyhow!("CLIP model returned no outputs"))?;
+    let logits = ndarray::Array2::from_shape_vec(
+        (logits_out.shape[0] as usize, logits_out.shape[1] as usize),
+        logits_out.data.clone(),
+    )?;
     let probs = softmax(&logits);
 
     let confidence_threshold = 0.005;

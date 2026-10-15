@@ -200,6 +200,8 @@ export type GroupingMode = 'off' | GroupPreference;
 
 export interface AppSettings {
   aiConnectorAddress?: string;
+  remoteAiEndpoint?: string;
+  remoteAiEnabled?: boolean;
   aiProvider?: string;
   decorations?: any;
   editorPreviewResolution?: number;

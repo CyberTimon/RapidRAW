@@ -11,6 +11,7 @@ use image::{
 use ndarray::{Array, Array4, IxDyn};
 use ort::session::Session;
 use ort::value::Tensor;
+use parking_lot::Mutex as SyncMutex;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -66,16 +67,142 @@ const NORMAL_MAX_SIZE: u32 = 768;
 const NORMAL_NUM_TOKENS: i64 = 2500;
 const NORMAL_SHA256: &str = "24eacb5dc7a2c54c7bc98f7de085ffbed79ad006ea5b664c2c2cdc02ff3a52f0";
 
+/// Model pack ids on the remote worker (directories under the worker's
+/// models root; each id must match its config.json `id`). Provisioned by
+/// `tools/remote/provision_models.py` from the same pinned downloads as
+/// the local client.
+pub const REMOTE_MODEL_SAM: &str = "rapidraw-sam";
+pub const REMOTE_MODEL_U2NET: &str = "rapidraw-u2net";
+pub const REMOTE_MODEL_SKYSEG: &str = "rapidraw-skyseg";
+pub const REMOTE_MODEL_DEPTH: &str = "rapidraw-depth";
+pub const REMOTE_MODEL_DENOISE: &str = "rapidraw-denoise";
+pub const REMOTE_MODEL_CLIP: &str = "rapidraw-clip";
+pub const REMOTE_MODEL_LAMA: &str = "rapidraw-lama";
+pub const REMOTE_MODEL_NORMAL: &str = "rapidraw-normal";
+
+/// One inference model, either a local ORT session or a persistent remote
+/// worker connection (darktable wire protocol v1). The smallest boundary
+/// shared by every model: `run` takes typed tensors and returns f32
+/// outputs with the worker's/model's concrete shapes.
+pub enum AiBackend {
+    Local(SyncMutex<Session>),
+    Remote(crate::remote_ai::RemoteSlot),
+}
+
+/// Typed tensor payload for [`AiBackend::run`].
+pub enum AiTensor {
+    F32(Vec<f32>),
+    U8(Vec<u8>),
+    I64(Vec<i64>),
+}
+
+/// One model input: optional name (required for named multi-input
+/// models), concrete shape and payload. `scalar` feeds a rank-0 tensor to
+/// local ORT while sending shape `[1]` over the wire (wire v1 has no
+/// rank-0 descriptors).
+pub struct AiInput {
+    pub name: Option<&'static str>,
+    pub shape: Vec<i64>,
+    pub data: AiTensor,
+    pub scalar: bool,
+}
+
+impl AiInput {
+    pub fn f32(name: Option<&'static str>, shape: &[i64], data: Vec<f32>) -> Self {
+        Self { name, shape: shape.to_vec(), data: AiTensor::F32(data), scalar: false }
+    }
+
+    pub fn u8(name: Option<&'static str>, shape: &[i64], data: Vec<u8>) -> Self {
+        Self { name, shape: shape.to_vec(), data: AiTensor::U8(data), scalar: false }
+    }
+
+    pub fn i64(name: Option<&'static str>, shape: &[i64], data: Vec<i64>) -> Self {
+        Self { name, shape: shape.to_vec(), data: AiTensor::I64(data), scalar: false }
+    }
+
+    /// Scalar (rank-0) i64 input, e.g. MoGe's `num_tokens`.
+    pub fn i64_scalar(name: Option<&'static str>, value: i64) -> Self {
+        Self { name, shape: vec![1], data: AiTensor::I64(vec![value]), scalar: true }
+    }
+}
+
+impl AiBackend {
+    pub fn run(&self, inputs: Vec<AiInput>) -> Result<Vec<crate::remote_ai::RunOutput>> {
+        match self {
+            AiBackend::Local(session) => {
+                let mut sess = session.lock();
+                let mut named: Vec<(String, ort::value::Value)> = Vec::new();
+                let mut unnamed: Vec<ort::session::SessionInputValue> = Vec::new();
+                for input in inputs {
+                    let value = AiBackend::local_tensor(&input)?;
+                    match input.name {
+                        Some(name) => named.push((name.to_string(), value)),
+                        None => unnamed.push(value.into()),
+                    }
+                }
+                let outputs = if !named.is_empty() {
+                    sess.run(named)?
+                } else {
+                    sess.run(&unnamed[..])?
+                };
+                (0..outputs.len())
+                    .map(|i| {
+                        let arr = outputs[i].try_extract_array::<f32>()?;
+                        Ok(crate::remote_ai::RunOutput {
+                            shape: arr.shape().iter().map(|&d| d as i64).collect(),
+                            data: arr.iter().copied().collect(),
+                        })
+                    })
+                    .collect()
+            }
+            AiBackend::Remote(slot) => {
+                let tensors = inputs
+                    .iter()
+                    .map(|input| match &input.data {
+                        AiTensor::F32(data) => crate::remote_ai::TensorIn::f32(&input.shape, data),
+                        AiTensor::U8(data) => crate::remote_ai::TensorIn::u8(&input.shape, data),
+                        AiTensor::I64(data) => crate::remote_ai::TensorIn::i64(&input.shape, data),
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                slot.run(&tensors)
+            }
+        }
+    }
+
+    fn local_tensor(input: &AiInput) -> Result<ort::value::Value> {
+        let owned_shape: Vec<usize> = input.shape.iter().map(|&d| d as usize).collect();
+        let shape_dyn = ndarray::IxDyn(&owned_shape);
+        let value = match (&input.data, input.scalar) {
+            (AiTensor::F32(data), _) => {
+                Tensor::from_array(Array::from_shape_vec(shape_dyn, data.clone())?)?.into_dyn()
+            }
+            (AiTensor::U8(data), _) => {
+                Tensor::from_array(Array::from_shape_vec(shape_dyn, data.clone())?)?.into_dyn()
+            }
+            (AiTensor::I64(data), false) => {
+                Tensor::from_array(Array::from_shape_vec(shape_dyn, data.clone())?)?.into_dyn()
+            }
+            // Rank-0 feed for scalar inputs: wire v1 cannot express rank 0,
+            // so only the local backend sees the true tensor rank.
+            (AiTensor::I64(data), true) => Tensor::from_array(ndarray::arr0(
+                data.first().copied().ok_or_else(|| anyhow::anyhow!("empty scalar input"))?,
+            ))?
+            .into_dyn(),
+        };
+        Ok(value)
+    }
+}
+
 pub struct AiModels {
-    pub sam_encoder: Mutex<Session>,
-    pub sam_decoder: Mutex<Session>,
-    pub u2netp: Mutex<Session>,
-    pub sky_seg: Mutex<Session>,
-    pub depth_anything: Mutex<Session>,
+    pub sam_encoder: AiBackend,
+    pub sam_decoder: AiBackend,
+    pub u2netp: AiBackend,
+    pub sky_seg: AiBackend,
+    pub depth_anything: AiBackend,
 }
 
 pub struct ClipModels {
-    pub model: Mutex<Session>,
+    pub model: Arc<AiBackend>,
     pub tokenizer: Tokenizer,
 }
 
@@ -95,10 +222,10 @@ pub struct CachedDepthMap {
 
 pub struct AiState {
     pub models: Option<Arc<AiModels>>,
-    pub denoise_model: Option<Arc<Mutex<Session>>>,
+    pub denoise_model: Option<Arc<AiBackend>>,
     pub clip_models: Option<Arc<ClipModels>>,
-    pub lama_model: Option<Arc<Mutex<Session>>>,
-    pub normal_model: Option<Arc<Mutex<Session>>>,
+    pub lama_model: Option<Arc<AiBackend>>,
+    pub normal_model: Option<Arc<AiBackend>>,
     pub embeddings: Option<ImageEmbeddings>,
     pub depth_map: Option<CachedDepthMap>,
 }
@@ -451,6 +578,39 @@ async fn download_and_verify_model(
     Ok(())
 }
 
+/// Configured remote endpoint for AI inference, honouring the opt-in
+/// switch. `None` keeps the fully local path.
+fn configured_remote_endpoint(app_handle: &tauri::AppHandle) -> Option<String> {
+    crate::app_settings::remote_ai_endpoint_if_enabled(
+        &crate::app_settings::load_settings(app_handle.clone()).unwrap_or_default(),
+    )
+}
+
+/// Connect every mask-model to the worker over its own persistent
+/// connection. Touches no local model files, runs no downloads and never
+/// initialises ORT: when this fails, the caller fails closed.
+/// Sessions are created lazily on first use and bounded by the shared
+/// pool (at most [`crate::remote_ai::REMOTE_POOL_CAP`] live worker
+/// connections), so this never touches the network or local weights.
+pub fn init_remote_ai_models(endpoint: &str) -> Result<AiModels> {
+    let pool = &crate::remote_ai::SHARED_POOL;
+    let slot = |model: &str, file: &str| AiBackend::Remote(pool.slot(endpoint, model, file, false));
+    Ok(AiModels {
+        sam_encoder: slot(REMOTE_MODEL_SAM, ENCODER_FILENAME),
+        sam_decoder: slot(REMOTE_MODEL_SAM, DECODER_FILENAME),
+        u2netp: slot(REMOTE_MODEL_U2NET, U2NETP_FILENAME),
+        sky_seg: slot(REMOTE_MODEL_SKYSEG, SKYSEG_FILENAME),
+        depth_anything: slot(REMOTE_MODEL_DEPTH, DEPTH_FILENAME),
+    })
+}
+
+/// Remote single-model backends for denoise / CLIP / LaMa / normals.
+fn init_remote_single_model(endpoint: &str, model: &str, file: &str) -> Result<Arc<AiBackend>> {
+    Ok(Arc::new(AiBackend::Remote(
+        crate::remote_ai::SHARED_POOL.slot(endpoint, model, file, false),
+    )))
+}
+
 pub async fn get_or_init_ai_models(
     app_handle: &tauri::AppHandle,
     ai_state_mutex: &Mutex<Option<AiState>>,
@@ -473,6 +633,25 @@ pub async fn get_or_init_ai_models(
         .as_ref()
         .and_then(|state| state.models.clone())
     {
+        return Ok(models);
+    }
+
+    if let Some(endpoint) = configured_remote_endpoint(app_handle) {
+        let models = Arc::new(init_remote_ai_models(&endpoint)?);
+        let mut ai_state_lock = ai_state_mutex.lock().unwrap();
+        if let Some(state) = ai_state_lock.as_mut() {
+            state.models = Some(models.clone());
+        } else {
+            *ai_state_lock = Some(AiState {
+                models: Some(models.clone()),
+                denoise_model: None,
+                clip_models: None,
+                lama_model: None,
+                normal_model: None,
+                embeddings: None,
+                depth_map: None,
+            });
+        }
         return Ok(models);
     }
 
@@ -526,26 +705,20 @@ pub async fn get_or_init_ai_models(
 
     let _ = ort::init().with_name("AI").commit();
 
-    let encoder_path = models_dir.join(ENCODER_FILENAME);
-    let decoder_path = models_dir.join(DECODER_FILENAME);
-    let u2netp_path = models_dir.join(U2NETP_FILENAME);
-    let sky_seg_path = models_dir.join(SKYSEG_FILENAME);
-    let depth_path = models_dir.join(DEPTH_FILENAME);
-
-    let sam_encoder = Session::builder()?.commit_from_file(encoder_path)?;
-    let sam_decoder = Session::builder()?.commit_from_file(decoder_path)?;
-    let u2netp = Session::builder()?.commit_from_file(u2netp_path)?;
-    let sky_seg = Session::builder()?.commit_from_file(sky_seg_path)?;
-    let depth_anything = Session::builder()?.commit_from_file(depth_path)?;
+    let sam_encoder = Session::builder()?.commit_from_file(models_dir.join(ENCODER_FILENAME))?;
+    let sam_decoder = Session::builder()?.commit_from_file(models_dir.join(DECODER_FILENAME))?;
+    let u2netp = Session::builder()?.commit_from_file(models_dir.join(U2NETP_FILENAME))?;
+    let sky_seg = Session::builder()?.commit_from_file(models_dir.join(SKYSEG_FILENAME))?;
+    let depth_anything = Session::builder()?.commit_from_file(models_dir.join(DEPTH_FILENAME))?;
 
     crate::register_exit_handler();
 
     let models = Arc::new(AiModels {
-        sam_encoder: Mutex::new(sam_encoder),
-        sam_decoder: Mutex::new(sam_decoder),
-        u2netp: Mutex::new(u2netp),
-        sky_seg: Mutex::new(sky_seg),
-        depth_anything: Mutex::new(depth_anything),
+        sam_encoder: AiBackend::Local(SyncMutex::new(sam_encoder)),
+        sam_decoder: AiBackend::Local(SyncMutex::new(sam_decoder)),
+        u2netp: AiBackend::Local(SyncMutex::new(u2netp)),
+        sky_seg: AiBackend::Local(SyncMutex::new(sky_seg)),
+        depth_anything: AiBackend::Local(SyncMutex::new(depth_anything)),
     });
 
     let mut ai_state_lock = ai_state_mutex.lock().unwrap();
@@ -570,7 +743,7 @@ pub async fn get_or_init_denoise_model(
     app_handle: &tauri::AppHandle,
     ai_state_mutex: &Mutex<Option<AiState>>,
     ai_init_lock: &TokioMutex<()>,
-) -> Result<Arc<Mutex<Session>>> {
+) -> Result<Arc<AiBackend>> {
     if let Some(denoise_model) = ai_state_mutex
         .lock()
         .unwrap()
@@ -591,21 +764,25 @@ pub async fn get_or_init_denoise_model(
         return Ok(denoise_model);
     }
 
-    let models_dir = get_models_dir(app_handle)?;
-    download_and_verify_model(
-        app_handle,
-        &models_dir,
-        DENOISE_FILENAME,
-        DENOISE_URL,
-        DENOISE_SHA256,
-        "NIND Denoise Model",
-    )
-    .await?;
+    let denoise_model = if let Some(endpoint) = configured_remote_endpoint(app_handle) {
+        init_remote_single_model(&endpoint, REMOTE_MODEL_DENOISE, DENOISE_FILENAME)?
+    } else {
+        let models_dir = get_models_dir(app_handle)?;
+        download_and_verify_model(
+            app_handle,
+            &models_dir,
+            DENOISE_FILENAME,
+            DENOISE_URL,
+            DENOISE_SHA256,
+            "NIND Denoise Model",
+        )
+        .await?;
 
-    let _ = ort::init().with_name("AI-Denoise").commit();
-    let model_path = models_dir.join(DENOISE_FILENAME);
-    let session = Session::builder()?.commit_from_file(model_path)?;
-    let denoise_model = Arc::new(Mutex::new(session));
+        let _ = ort::init().with_name("AI-Denoise").commit();
+        let model_path = models_dir.join(DENOISE_FILENAME);
+        let session = Session::builder()?.commit_from_file(model_path)?;
+        Arc::new(AiBackend::Local(SyncMutex::new(session)))
+    };
 
     crate::register_exit_handler();
 
@@ -652,18 +829,9 @@ pub async fn get_or_init_clip_models(
         return Ok(clip_models);
     }
 
+    // The tokenizer stays a local asset in both modes; only the vision
+    // model weights move to the worker when remote is configured.
     let models_dir = get_models_dir(app_handle)?;
-
-    download_and_verify_model(
-        app_handle,
-        &models_dir,
-        CLIP_MODEL_FILENAME,
-        CLIP_MODEL_URL,
-        CLIP_MODEL_SHA256,
-        "CLIP Model",
-    )
-    .await?;
-
     let clip_tokenizer_path = models_dir.join(CLIP_TOKENIZER_FILENAME);
     if !clip_tokenizer_path.exists() {
         let _ = app_handle.emit("ai-model-download-start", "CLIP Tokenizer");
@@ -671,12 +839,28 @@ pub async fn get_or_init_clip_models(
         let _ = app_handle.emit("ai-model-download-finish", "CLIP Tokenizer");
         download_result?;
     }
-
-    let _ = ort::init().with_name("AI-Tagging").commit();
-    let clip_model_path = models_dir.join(CLIP_MODEL_FILENAME);
-    let model = Mutex::new(Session::builder()?.commit_from_file(clip_model_path)?);
     let tokenizer =
         Tokenizer::from_file(clip_tokenizer_path).map_err(|e| anyhow::anyhow!(e.to_string()))?;
+
+    let model = if let Some(endpoint) = configured_remote_endpoint(app_handle) {
+        init_remote_single_model(&endpoint, REMOTE_MODEL_CLIP, CLIP_MODEL_FILENAME)?
+    } else {
+        download_and_verify_model(
+            app_handle,
+            &models_dir,
+            CLIP_MODEL_FILENAME,
+            CLIP_MODEL_URL,
+            CLIP_MODEL_SHA256,
+            "CLIP Model",
+        )
+        .await?;
+
+        let _ = ort::init().with_name("AI-Tagging").commit();
+        let clip_model_path = models_dir.join(CLIP_MODEL_FILENAME);
+        Arc::new(AiBackend::Local(SyncMutex::new(
+            Session::builder()?.commit_from_file(clip_model_path)?,
+        )))
+    };
 
     crate::register_exit_handler();
 
@@ -704,7 +888,7 @@ pub async fn get_or_init_lama_model(
     app_handle: &tauri::AppHandle,
     ai_state_mutex: &Mutex<Option<AiState>>,
     ai_init_lock: &TokioMutex<()>,
-) -> Result<Arc<Mutex<Session>>> {
+) -> Result<Arc<AiBackend>> {
     if let Some(lama_model) = ai_state_mutex
         .lock()
         .unwrap()
@@ -725,21 +909,25 @@ pub async fn get_or_init_lama_model(
         return Ok(lama_model);
     }
 
-    let models_dir = get_models_dir(app_handle)?;
-    download_and_verify_model(
-        app_handle,
-        &models_dir,
-        LAMA_FILENAME,
-        LAMA_URL,
-        LAMA_SHA256,
-        "Inpainting Model",
-    )
-    .await?;
+    let lama_model = if let Some(endpoint) = configured_remote_endpoint(app_handle) {
+        init_remote_single_model(&endpoint, REMOTE_MODEL_LAMA, LAMA_FILENAME)?
+    } else {
+        let models_dir = get_models_dir(app_handle)?;
+        download_and_verify_model(
+            app_handle,
+            &models_dir,
+            LAMA_FILENAME,
+            LAMA_URL,
+            LAMA_SHA256,
+            "Inpainting Model",
+        )
+        .await?;
 
-    let _ = ort::init().with_name("AI-Inpainting").commit();
-    let model_path = models_dir.join(LAMA_FILENAME);
-    let session = Session::builder()?.commit_from_file(model_path)?;
-    let lama_model = Arc::new(Mutex::new(session));
+        let _ = ort::init().with_name("AI-Inpainting").commit();
+        let model_path = models_dir.join(LAMA_FILENAME);
+        let session = Session::builder()?.commit_from_file(model_path)?;
+        Arc::new(AiBackend::Local(SyncMutex::new(session)))
+    };
 
     crate::register_exit_handler();
 
@@ -765,7 +953,7 @@ pub async fn get_or_init_normal_model(
     app_handle: &tauri::AppHandle,
     ai_state_mutex: &Mutex<Option<AiState>>,
     ai_init_lock: &TokioMutex<()>,
-) -> Result<Arc<Mutex<Session>>> {
+) -> Result<Arc<AiBackend>> {
     if let Some(normal_model) = ai_state_mutex
         .lock()
         .unwrap()
@@ -786,21 +974,25 @@ pub async fn get_or_init_normal_model(
         return Ok(normal_model);
     }
 
-    let models_dir = get_models_dir(app_handle)?;
-    download_and_verify_model(
-        app_handle,
-        &models_dir,
-        NORMAL_FILENAME,
-        NORMAL_URL,
-        NORMAL_SHA256,
-        "Normal Model",
-    )
-    .await?;
+    let normal_model = if let Some(endpoint) = configured_remote_endpoint(app_handle) {
+        init_remote_single_model(&endpoint, REMOTE_MODEL_NORMAL, NORMAL_FILENAME)?
+    } else {
+        let models_dir = get_models_dir(app_handle)?;
+        download_and_verify_model(
+            app_handle,
+            &models_dir,
+            NORMAL_FILENAME,
+            NORMAL_URL,
+            NORMAL_SHA256,
+            "Normal Model",
+        )
+        .await?;
 
-    let _ = ort::init().with_name("AI-Normal").commit();
-    let model_path = models_dir.join(NORMAL_FILENAME);
-    let session = Session::builder()?.commit_from_file(model_path)?;
-    let normal_model = Arc::new(Mutex::new(session));
+        let _ = ort::init().with_name("AI-Normal").commit();
+        let model_path = models_dir.join(NORMAL_FILENAME);
+        let session = Session::builder()?.commit_from_file(model_path)?;
+        Arc::new(AiBackend::Local(SyncMutex::new(session)))
+    };
 
     crate::register_exit_handler();
 
@@ -950,7 +1142,7 @@ fn apply_seamless(tile: &mut Array4<f32>, blend: &SeamlessBlend) {
 
 fn run_native_denoise(
     img: &Rgb32FImage,
-    session: &Mutex<Session>,
+    session: &AiBackend,
     accumulator: &mut [f32],
     width: usize,
     height: usize,
@@ -978,16 +1170,20 @@ fn run_native_denoise(
         }
 
         let crop = extract_tile_mirror(img, x0, y0, params.cs);
-        let input_values = crop.as_standard_layout().to_owned();
-        let t_input = Tensor::from_array(input_values)?;
-
-        let out = {
-            let mut sess = session.lock().unwrap();
-            let outputs = sess.run(ort::inputs![t_input])?;
-            let arr = outputs[0].try_extract_array::<f32>()?.to_owned();
-            arr.into_dimensionality::<ndarray::Ix4>()
-                .map_err(|e| anyhow::anyhow!("Unexpected output shape: {}", e))?
-        };
+        let outputs = session.run(vec![AiInput::f32(
+            None,
+            &[1, 3, params.cs as i64, params.cs as i64],
+            crop.as_standard_layout().into_owned().as_slice().unwrap().to_vec(),
+        )])?;
+        let mut tile = Array::from_shape_vec(
+            (1, 3, params.cs, params.cs),
+            outputs
+                .first()
+                .ok_or_else(|| anyhow::anyhow!("denoise model returned no outputs"))?
+                .data
+                .clone(),
+        )
+        .map_err(|e| anyhow::anyhow!("Unexpected output shape: {}", e))?;
 
         let x1pad = (0i32).max(x0 + params.cs as i32 - w) as usize;
         let y1pad = (0i32).max(y0 + params.cs as i32 - h) as usize;
@@ -998,7 +1194,6 @@ fn run_native_denoise(
         let absx0 = (x0 + params.pad as i32).max(0) as usize;
         let absy0 = (y0 + params.pad as i32).max(0) as usize;
 
-        let mut tile = out;
         apply_seamless(
             &mut tile,
             &SeamlessBlend {
@@ -1046,7 +1241,7 @@ fn accumulator_to_rgb32f(acc: &[f32], width: u32, height: u32) -> Rgb32FImage {
 pub fn run_ai_denoise(
     rgb_img: &Rgb32FImage,
     intensity: f32,
-    session: &Mutex<Session>,
+    session: &AiBackend,
     app_handle: &tauri::AppHandle,
 ) -> Result<DynamicImage> {
     let (width, height) = rgb_img.dimensions();
@@ -1071,7 +1266,7 @@ pub fn run_ai_denoise(
 pub fn run_lama_inpainting(
     image: &DynamicImage,
     mask: &GrayImage,
-    lama_session: &Mutex<Session>,
+    lama_session: &AiBackend,
 ) -> Result<RgbaImage> {
     let (w, h) = image.dimensions();
 
@@ -1156,13 +1351,27 @@ pub fn run_lama_inpainting(
         }
     }
 
-    let t_img = Tensor::from_array(img_tensor.into_dyn().as_standard_layout().into_owned())?;
-    let t_msk = Tensor::from_array(msk_tensor.into_dyn().as_standard_layout().into_owned())?;
-
     let output_tensor = {
-        let mut session = lama_session.lock().unwrap();
-        let outputs = session.run(ort::inputs!["image" => t_img, "mask" => t_msk])?;
-        outputs[0].try_extract_array::<f32>()?.to_owned()
+        let outputs = lama_session.run(vec![
+            AiInput::f32(
+                Some("image"),
+                &[1, 3, tensor_dim as i64, tensor_dim as i64],
+                img_tensor.as_standard_layout().into_owned().as_slice().unwrap().to_vec(),
+            ),
+            AiInput::f32(
+                Some("mask"),
+                &[1, 1, tensor_dim as i64, tensor_dim as i64],
+                msk_tensor.as_standard_layout().into_owned().as_slice().unwrap().to_vec(),
+            ),
+        ])?;
+        let out = outputs
+            .first()
+            .ok_or_else(|| anyhow::anyhow!("inpainting model returned no outputs"))?;
+        Array::from_shape_vec(
+            out.shape.iter().map(|&d| d as usize).collect::<Vec<_>>(),
+            out.data.clone(),
+        )
+        .map_err(|e| anyhow::anyhow!("Unexpected output shape: {}", e))?
     };
 
     let mut result_inf = RgbaImage::new(fw, fh);
@@ -1207,7 +1416,7 @@ pub fn run_lama_inpainting(
 
 pub fn generate_image_embeddings(
     image: &DynamicImage,
-    encoder: &Mutex<Session>,
+    encoder: &AiBackend,
 ) -> Result<ImageEmbeddings> {
     let (orig_width, orig_height) = image.dimensions();
 
@@ -1235,12 +1444,18 @@ pub fn generate_image_embeddings(
     }
 
     let input_tensor_dyn = input_tensor.into_dyn();
-    let input_values = input_tensor_dyn.as_standard_layout();
-    let input_tensor_ort = Tensor::from_array(input_values.into_owned())?;
-    let mut session = encoder.lock().unwrap();
-    let outputs = session.run(ort::inputs![input_tensor_ort])?;
-
-    let embeddings = outputs[0].try_extract_array::<f32>()?.to_owned();
+    let outputs = encoder.run(vec![AiInput::u8(
+        None,
+        &[1, 3, SAM_INPUT_SIZE as i64, SAM_INPUT_SIZE as i64],
+        input_tensor_dyn.as_standard_layout().into_owned().as_slice().unwrap().to_vec(),
+    )])?;
+    let out = outputs
+        .first()
+        .ok_or_else(|| anyhow::anyhow!("SAM encoder returned no outputs"))?;
+    let embeddings = Array::from_shape_vec(
+        out.shape.iter().map(|&d| d as usize).collect::<Vec<_>>(),
+        out.data.clone(),
+    )?;
 
     Ok(ImageEmbeddings {
         path_hash: "".to_string(),
@@ -1250,7 +1465,7 @@ pub fn generate_image_embeddings(
 }
 
 pub fn run_sam_decoder(
-    decoder: &Mutex<Session>,
+    decoder: &AiBackend,
     embeddings: &ImageEmbeddings,
     start_point: (f64, f64),
     end_point: (f64, f64),
@@ -1287,8 +1502,7 @@ pub fn run_sam_decoder(
     let mut mask_input = Array::zeros((1, 1, 256, 256)).into_dyn();
     let mut has_mask_input = 0.0f32;
 
-    let orig_im_size =
-        Array::from_shape_vec((2,), vec![orig_height as f32, orig_width as f32])?.into_dyn();
+    let orig_im_size_flat: Vec<f32> = vec![orig_height as f32, orig_width as f32];
 
     let mut final_mask_data: Vec<u8> = Vec::new();
     let mut final_w = 0;
@@ -1302,37 +1516,43 @@ pub fn run_sam_decoder(
         let coords_array = Array::from_shape_vec((1, pc_len, 2), coords_flat)?.into_dyn();
         let labels_array = Array::from_shape_vec((1, pl_len), point_labels.clone())?.into_dyn();
 
-        let t_embeddings = Tensor::from_array(
-            embeddings
-                .embeddings
-                .clone()
-                .as_standard_layout()
-                .into_owned(),
-        )?;
-        let t_point_coords = Tensor::from_array(coords_array.as_standard_layout().into_owned())?;
-        let t_point_labels = Tensor::from_array(labels_array.as_standard_layout().into_owned())?;
-        let t_mask_input =
-            Tensor::from_array(mask_input.clone().as_standard_layout().into_owned())?;
-        let t_has_mask = Tensor::from_array(
-            Array::from_elem((1,), has_mask_input)
-                .into_dyn()
-                .as_standard_layout()
-                .into_owned(),
-        )?;
-        let t_orig_im_size =
-            Tensor::from_array(orig_im_size.clone().as_standard_layout().into_owned())?;
-
         let mask_tensor = {
-            let mut session = decoder.lock().unwrap();
-            let outputs = session.run(ort::inputs![
-                t_embeddings,
-                t_point_coords,
-                t_point_labels,
-                t_mask_input,
-                t_has_mask,
-                t_orig_im_size
+            let outputs = decoder.run(vec![
+                AiInput::f32(
+                    None,
+                    &[1, 256, 64, 64],
+                    embeddings
+                        .embeddings
+                        .as_standard_layout()
+                        .into_owned()
+                        .as_slice().unwrap().to_vec(),
+                ),
+                AiInput::f32(
+                    None,
+                    &[1, pc_len as i64, 2],
+                    coords_array.as_standard_layout().into_owned().as_slice().unwrap().to_vec(),
+                ),
+                AiInput::f32(
+                    None,
+                    &[1, pl_len as i64],
+                    labels_array.as_standard_layout().into_owned().as_slice().unwrap().to_vec(),
+                ),
+                AiInput::f32(
+                    None,
+                    &[1, 1, 256, 256],
+                    mask_input.as_standard_layout().into_owned().as_slice().unwrap().to_vec(),
+                ),
+                AiInput::f32(None, &[1], vec![has_mask_input]),
+                AiInput::f32(None, &[2], orig_im_size_flat.clone()),
             ])?;
-            outputs[0].try_extract_array::<f32>()?.to_owned()
+            let out = outputs
+                .first()
+                .ok_or_else(|| anyhow::anyhow!("SAM decoder returned no outputs"))?;
+            Array::from_shape_vec(
+                out.shape.iter().map(|&d| d as usize).collect::<Vec<_>>(),
+                out.data.clone(),
+            )
+            .map_err(|e| anyhow::anyhow!("Unexpected mask shape: {}", e))?
         };
 
         let mask_dims = mask_tensor.shape();
@@ -1513,7 +1733,7 @@ pub fn run_sam_decoder(
 
 pub fn run_sky_seg_model(
     image: &DynamicImage,
-    sky_seg_session: &Mutex<Session>,
+    sky_seg_session: &AiBackend,
 ) -> Result<GrayImage> {
     let (orig_width, orig_height) = image.dimensions();
 
@@ -1550,16 +1770,22 @@ pub fn run_sky_seg_model(
     }
 
     let input_tensor_dyn = input_tensor.into_dyn();
-    let t_input = Tensor::from_array(input_tensor_dyn.as_standard_layout().into_owned())?;
-
-    let mut session = sky_seg_session.lock().unwrap();
-    let outputs = session.run(ort::inputs![t_input])?;
-    let output_tensor = outputs[0].try_extract_array::<f32>()?.to_owned();
-    let out_slice = output_tensor.as_slice().unwrap();
+    let out_slice = {
+        let outputs = sky_seg_session.run(vec![AiInput::f32(
+            None,
+            &[1, 3, SKYSEG_INPUT_SIZE as i64, SKYSEG_INPUT_SIZE as i64],
+            input_tensor_dyn.as_standard_layout().into_owned().as_slice().unwrap().to_vec(),
+        )])?;
+        outputs
+            .first()
+            .ok_or_else(|| anyhow::anyhow!("sky segmentation model returned no outputs"))?
+            .data
+            .clone()
+    };
 
     let mut min_val = f32::MAX;
     let mut max_val = f32::MIN;
-    for &v in out_slice {
+    for &v in out_slice.iter() {
         min_val = min_val.min(v);
         max_val = max_val.max(v);
     }
@@ -1594,7 +1820,7 @@ pub fn run_sky_seg_model(
 
 pub fn run_u2netp_model(
     image: &DynamicImage,
-    u2netp_session: &Mutex<Session>,
+    u2netp_session: &AiBackend,
 ) -> Result<GrayImage> {
     let (orig_width, orig_height) = image.dimensions();
 
@@ -1631,16 +1857,22 @@ pub fn run_u2netp_model(
     }
 
     let input_tensor_dyn = input_tensor.into_dyn();
-    let t_input = Tensor::from_array(input_tensor_dyn.as_standard_layout().into_owned())?;
-
-    let mut session = u2netp_session.lock().unwrap();
-    let outputs = session.run(ort::inputs![t_input])?;
-    let output_tensor = outputs[0].try_extract_array::<f32>()?.to_owned();
-    let out_slice = output_tensor.as_slice().unwrap();
+    let out_slice = {
+        let outputs = u2netp_session.run(vec![AiInput::f32(
+            None,
+            &[1, 3, U2NETP_INPUT_SIZE as i64, U2NETP_INPUT_SIZE as i64],
+            input_tensor_dyn.as_standard_layout().into_owned().as_slice().unwrap().to_vec(),
+        )])?;
+        outputs
+            .first()
+            .ok_or_else(|| anyhow::anyhow!("foreground model returned no outputs"))?
+            .data
+            .clone()
+    };
 
     let mut min_val = f32::MAX;
     let mut max_val = f32::MIN;
-    for &v in out_slice {
+    for &v in out_slice.iter() {
         min_val = min_val.min(v);
         max_val = max_val.max(v);
     }
@@ -1675,7 +1907,7 @@ pub fn run_u2netp_model(
 
 pub fn run_depth_anything_model(
     image: &DynamicImage,
-    depth_session: &Mutex<Session>,
+    depth_session: &AiBackend,
 ) -> Result<GrayImage> {
     let resized_image = image.resize(DEPTH_INPUT_SIZE, DEPTH_INPUT_SIZE, FilterType::Triangle);
     let (resized_w, resized_h) = resized_image.dimensions();
@@ -1710,12 +1942,18 @@ pub fn run_depth_anything_model(
     }
 
     let input_tensor_dyn = input_tensor.into_dyn();
-    let t_input = Tensor::from_array(input_tensor_dyn.as_standard_layout().into_owned())?;
-
-    let mut session = depth_session.lock().unwrap();
-    let outputs = session.run(ort::inputs![t_input])?;
-    let output_tensor = outputs[0].try_extract_array::<f32>()?.to_owned();
-    let out_slice = output_tensor.as_slice().unwrap();
+    let out_slice = {
+        let outputs = depth_session.run(vec![AiInput::f32(
+            None,
+            &[1, 3, DEPTH_INPUT_SIZE as i64, DEPTH_INPUT_SIZE as i64],
+            input_tensor_dyn.as_standard_layout().into_owned().as_slice().unwrap().to_vec(),
+        )])?;
+        outputs
+            .first()
+            .ok_or_else(|| anyhow::anyhow!("depth model returned no outputs"))?
+            .data
+            .clone()
+    };
 
     let usize_size = DEPTH_INPUT_SIZE as usize;
 
@@ -1796,7 +2034,7 @@ fn build_normal_depth(points: &[f32], mask: &[f32]) -> Vec<u8> {
 
 pub fn run_normal_model(
     image: &DynamicImage,
-    normal_session: &Mutex<Session>,
+    normal_session: &AiBackend,
 ) -> Result<RgbaImage> {
     let resized_image = if image.width().max(image.height()) > NORMAL_MAX_SIZE {
         image.resize(NORMAL_MAX_SIZE, NORMAL_MAX_SIZE, FilterType::Triangle)
@@ -1820,37 +2058,41 @@ pub fn run_normal_model(
         }
     }
 
-    let t_image = Tensor::from_array(input_tensor.into_dyn())?;
-    let t_num_tokens = Tensor::from_array(ndarray::arr0(NORMAL_NUM_TOKENS))?;
-
-    let mut session = normal_session.lock().unwrap();
-    let outputs = session.run(ort::inputs![
-        "image" => t_image,
-        "num_tokens" => t_num_tokens,
+    let outputs = normal_session.run(vec![
+        AiInput::f32(
+            Some("image"),
+            &[1, 3, rh as i64, rw as i64],
+            input_tensor.as_standard_layout().into_owned().as_slice().unwrap().to_vec(),
+        ),
+        // Wire v1 cannot carry rank-0 tensors, so the scalar rides as [1]
+        // remotely; the local backend feeds a true rank-0 tensor.
+        AiInput::i64_scalar(Some("num_tokens"), NORMAL_NUM_TOKENS),
     ])?;
+    if outputs.len() < 3 {
+        return Err(anyhow::anyhow!(
+            "Unexpected normal model outputs: {} tensors",
+            outputs.len()
+        ));
+    }
+    let normal_tensor = &outputs[0];
+    let mask_tensor = &outputs[1];
+    let points_tensor = &outputs[2];
 
-    let normal_tensor = outputs["normal"].try_extract_array::<f32>()?;
-    let mask_tensor = outputs["mask"].try_extract_array::<f32>()?;
-    let points_tensor = outputs["points"].try_extract_array::<f32>()?;
-
-    if normal_tensor.shape() != [1, rh, rw, 3]
-        || mask_tensor.shape() != [1, rh, rw]
-        || points_tensor.shape() != [1, rh, rw, 3]
+    if normal_tensor.shape != [1, rh as i64, rw as i64, 3]
+        || mask_tensor.shape != [1, rh as i64, rw as i64]
+        || points_tensor.shape != [1, rh as i64, rw as i64, 3]
     {
         return Err(anyhow::anyhow!(
             "Unexpected normal model output shape: {:?} / {:?} / {:?}",
-            normal_tensor.shape(),
-            mask_tensor.shape(),
-            points_tensor.shape()
+            normal_tensor.shape,
+            mask_tensor.shape,
+            points_tensor.shape
         ));
     }
 
-    let normals = normal_tensor.as_standard_layout();
-    let normals = normals.as_slice().unwrap();
-    let mask = mask_tensor.as_standard_layout();
-    let mask = mask.as_slice().unwrap();
-    let points = points_tensor.as_standard_layout();
-    let depth = build_normal_depth(points.as_slice().unwrap(), mask);
+    let normals = &normal_tensor.data;
+    let mask = &mask_tensor.data;
+    let depth = build_normal_depth(&points_tensor.data, mask);
 
     let pack = |v: f32| ((v * 0.5 + 0.5).clamp(0.0, 1.0) * 255.0).round() as u8;
 
@@ -1942,4 +2184,230 @@ pub struct AiDepthMaskParameters {
     pub flip_vertical: Option<bool>,
     #[serde(default)]
     pub orientation_steps: Option<u8>,
+}
+
+#[cfg(test)]
+mod remote_tests {
+    use super::*;
+    use crate::remote_ai::RemotePool;
+    use serde_json::{json, Value};
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    fn write_frame(buf: &mut Vec<u8>, value: &Value) {
+        let data = serde_json::to_vec(value).unwrap();
+        buf.extend_from_slice(&(data.len() as u32).to_be_bytes());
+        buf.extend_from_slice(&data);
+    }
+
+    fn read_frame<R: Read>(r: &mut R) -> Value {
+        let mut hdr = [0u8; 4];
+        r.read_exact(&mut hdr).unwrap();
+        let len = u32::from_be_bytes(hdr) as usize;
+        let mut raw = vec![0u8; len];
+        r.read_exact(&mut raw).unwrap();
+        serde_json::from_slice(&raw).unwrap()
+    }
+
+    #[test]
+    fn remote_init_is_lazy_and_never_touches_network_or_local_files() {
+        // Nothing listens on port 1 and no models dir exists — init must
+        // succeed anyway because connections happen lazily on first run.
+        let models = init_remote_ai_models("127.0.0.1:1").unwrap();
+        for backend in [
+            &models.sam_encoder,
+            &models.sam_decoder,
+            &models.u2netp,
+            &models.sky_seg,
+            &models.depth_anything,
+        ] {
+            assert!(matches!(backend, AiBackend::Remote(_)));
+        }
+    }
+
+    #[test]
+    fn remote_slot_run_fails_closed_on_dead_endpoint() {
+        let pool = RemotePool::new(1);
+        let slot = pool.slot("127.0.0.1:1", REMOTE_MODEL_U2NET, U2NETP_FILENAME, false);
+        let err = slot.run(&[crate::remote_ai::TensorIn::f32(&[1, 2], &[0.0, 0.0]).unwrap()]);
+        assert!(err.is_err());
+    }
+
+    /// Mock worker accepting sequential connections, each expecting a
+    /// (model, file) load followed by one typed run; the reply value marks
+    /// the connection index. Reports the number of connections accepted.
+    fn spawn_load_run_server(expected: Vec<(String, String)>) -> (std::thread::JoinHandle<()>, Arc<AtomicUsize>) {
+        let served = Arc::new(AtomicUsize::new(0));
+        let served_inner = served.clone();
+        let handle = std::thread::spawn(move || {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let port = listener.local_addr().unwrap().port();
+            PORT_8888.store(port as usize, Ordering::SeqCst);
+            READY_8888.store(1, Ordering::SeqCst);
+            for (i, (model, file)) in expected.into_iter().enumerate() {
+                let (mut sock, _) = listener.accept().unwrap();
+                sock.set_read_timeout(Some(std::time::Duration::from_secs(10)))
+                    .unwrap();
+                let load = read_frame(&mut sock);
+                assert_eq!(load["op"], "load");
+                assert_eq!(load["model"], model);
+                assert_eq!(load["file"], file);
+                let mut resp = Vec::new();
+                write_frame(
+                    &mut resp,
+                    &json!({"ok": true,
+                            "inputs": [{"name": "io", "type": 1, "shape": [1, 2]}],
+                            "outputs": [{"name": "out", "type": 1, "shape": [1, 2]}],
+                            "provider": "CUDAExecutionProvider"}),
+                );
+                sock.write_all(&resp).unwrap();
+
+                let run = read_frame(&mut sock);
+                assert_eq!(run["inputs"][0]["shape"], json!([1, 2]));
+                let mut payload = vec![0u8; 8];
+                sock.read_exact(&mut payload).unwrap();
+                let mut out = Vec::new();
+                write_frame(
+                    &mut out,
+                    &json!({"ok": true, "outputs": [{"type": 1, "shape": [1, 2], "bytes": 8}]}),
+                );
+                let marker = i as f32 + 1.0;
+                out.extend_from_slice(&marker.to_le_bytes());
+                out.extend_from_slice(&0.0f32.to_le_bytes());
+                sock.write_all(&out).unwrap();
+                served_inner.store(i + 1, Ordering::SeqCst);
+            }
+        });
+        (handle, served)
+    }
+
+    static PORT_8888: AtomicUsize = AtomicUsize::new(0);
+    static READY_8888: AtomicUsize = AtomicUsize::new(0);
+
+    fn wait_port_8888() -> String {
+        for _ in 0..200 {
+            if READY_8888.load(Ordering::SeqCst) == 1 {
+                return format!("127.0.0.1:{}", PORT_8888.load(Ordering::SeqCst));
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        panic!("mock worker never became ready");
+    }
+
+    #[test]
+    fn remote_pool_evicts_lru_and_reconnects_within_worker_capacity() {
+        // cap 2: A,B live; C evicts A; D evicts B; A again evicts C —
+        // exactly 5 load connections for 6 runs.
+        let expected = vec![
+            ("mA".to_string(), "fa.onnx".to_string()),
+            ("mB".to_string(), "fb.onnx".to_string()),
+            ("mC".to_string(), "fc.onnx".to_string()),
+            ("mD".to_string(), "fd.onnx".to_string()),
+            ("mA".to_string(), "fa.onnx".to_string()),
+        ];
+        let (server, served) = spawn_load_run_server(expected);
+        let endpoint = wait_port_8888();
+        let pool = RemotePool::new(2);
+        let a = pool.slot(&endpoint, "mA", "fa.onnx", false);
+        let b = pool.slot(&endpoint, "mB", "fb.onnx", false);
+        let c = pool.slot(&endpoint, "mC", "fc.onnx", false);
+        let d = pool.slot(&endpoint, "mD", "fd.onnx", false);
+        let input = || vec![crate::remote_ai::TensorIn::f32(&[1, 2], &[0.5, -0.5]).unwrap()];
+        assert_eq!(a.run(&input()).unwrap()[0].data[0], 1.0);
+        assert_eq!(b.run(&input()).unwrap()[0].data[0], 2.0);
+        assert_eq!(c.run(&input()).unwrap()[0].data[0], 3.0); // evicts A
+        assert_eq!(d.run(&input()).unwrap()[0].data[0], 4.0); // evicts B
+        assert_eq!(a.run(&input()).unwrap()[0].data[0], 5.0); // reconnects, evicts C
+        assert_eq!(served.load(Ordering::SeqCst), 5);
+        // Live sessions stay bounded: at most 2 sockets were ever open.
+        drop(server);
+    }
+
+    /// Remote inpainting must never mutate the caller's image or mask:
+    /// originals are read-only references and the blend lands in a fresh
+    /// buffer. Backed by a scripted worker echoing a plausible output.
+    #[test]
+    fn remote_lama_preserves_source_image_and_mask() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = std::thread::spawn(move || {
+            let (mut sock, _) = listener.accept().unwrap();
+            sock.set_read_timeout(Some(std::time::Duration::from_secs(10))).unwrap();
+            let load = read_frame(&mut sock);
+            assert_eq!(load["model"], REMOTE_MODEL_LAMA);
+            let mut resp = Vec::new();
+            write_frame(
+                &mut resp,
+                &json!({
+                    "ok": true,
+                    "inputs": [
+                        {"name": "image", "type": 1, "shape": [1, 3, -1, -1]},
+                        {"name": "mask", "type": 1, "shape": [1, 1, -1, -1]},
+                    ],
+                    "outputs": [{"name": "output", "type": 1, "shape": [1, 3, -1, -1]}],
+                    "provider": "CUDAExecutionProvider",
+                }),
+            );
+            sock.write_all(&resp).unwrap();
+
+            let run = read_frame(&mut sock);
+            let t = run["inputs"][0]["shape"][2].as_i64().unwrap() as usize;
+            assert_eq!(run["inputs"][1]["shape"][2].as_i64().unwrap(), t as i64);
+            let mut payload = vec![0u8; 4 * 4 * t * t];
+            sock.read_exact(&mut payload).unwrap();
+            let mut out = Vec::new();
+            write_frame(
+                &mut out,
+                &json!({"ok": true, "outputs": [{"type": 1, "shape": [1, 3, t, t], "bytes": 4 * 3 * t * t}]}),
+            );
+            // deterministic inpainted tile as NCHW planes on the model's
+            // 0..255 output range: green inside, red border
+            for c in 0..3 {
+                for _y in 0..t {
+                    for _x in 0..t {
+                        let v = match c {
+                            1 => 255.0f32,
+                            _ => 0.0f32,
+                        };
+                        out.extend_from_slice(&v.to_le_bytes());
+                    }
+                }
+            }
+            sock.write_all(&out).unwrap();
+        });
+
+        let pool = RemotePool::new(1);
+        let slot = pool.slot(&format!("127.0.0.1:{port}"), REMOTE_MODEL_LAMA, LAMA_FILENAME, false);
+        let lama = AiBackend::Remote(slot);
+
+        let w = 12u32;
+        let h = 12u32;
+        let img = DynamicImage::ImageRgba8(image::RgbaImage::from_pixel(
+            w,
+            h,
+            image::Rgba([200, 100, 50, 255]),
+        ));
+        let mut mask = GrayImage::from_pixel(w, h, Luma([0]));
+        for y in 4..8 {
+            for x in 4..8 {
+                mask.put_pixel(x, y, Luma([255]));
+            }
+        }
+        let img_before = img.to_rgba8();
+        let mask_before = mask.clone();
+
+        let result = run_lama_inpainting(&img, &mask, &lama).unwrap();
+        server.join().unwrap();
+
+        // source buffers are untouched
+        assert_eq!(img.to_rgba8().as_raw(), img_before.as_raw());
+        assert_eq!(mask.as_raw(), mask_before.as_raw());
+        // the masked hole picked up the worker's green fill
+        let px = result.get_pixel(5, 5);
+        assert_eq!((px[0], px[1], px[2]), (0, 255, 0));
+        // unmasked area keeps the original pixels
+        let px = result.get_pixel(1, 1);
+        assert_eq!((px[0], px[1], px[2]), (200, 100, 50));
+    }
 }

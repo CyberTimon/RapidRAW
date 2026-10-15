@@ -16,9 +16,12 @@
 //! being read.
 
 use anyhow::{anyhow, bail, Result};
+use parking_lot::Mutex as SyncMutex;
 use serde_json::{json, Value};
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, LazyLock, Weak};
 use std::time::Duration;
 
 pub const DEFAULT_ENDPOINT: &str = "127.0.0.1:8794";
@@ -168,6 +171,173 @@ pub fn parse_endpoint(spec: &str) -> Result<SocketAddr> {
     Ok(addr)
 }
 
+/// The worker accepts at most 4 concurrent model connections, each held
+/// for the socket's lifetime. RapidRAW has nine AI models, so remote
+/// backends share one pool that keeps at most this many live sessions,
+/// evicting the least-recently-used one (dropping the socket releases the
+/// worker-side model). One slot of headroom stays for the transient
+/// sensor-RAW/upscale connections.
+pub const REMOTE_POOL_CAP: usize = 3;
+
+struct SlotInner {
+    /// `None` = evicted; the next run reconnects lazily.
+    state: SyncMutex<Option<RemoteModel>>,
+    last_used: AtomicU64,
+}
+
+/// One lazily-connected model session owned by the shared pool. `cpu`
+/// requests an explicit CPU session on the wire (a request, never a
+/// fallback); GPU sessions refuse a CPU provider client-side.
+pub struct RemoteSlot {
+    pool: Arc<RemotePool>,
+    endpoint: String,
+    model: String,
+    file: String,
+    cpu: bool,
+    inner: Arc<SlotInner>,
+}
+
+/// Bounds live worker connections across every AI model.
+pub struct RemotePool {
+    cap: usize,
+    /// Serialises reconnects so the live count never overshoots the cap.
+    connect_lock: SyncMutex<()>,
+    slots: SyncMutex<Vec<Weak<SlotInner>>>,
+    tick: AtomicU64,
+}
+
+
+impl RemotePool {
+    pub fn new(cap: usize) -> Arc<Self> {
+        Arc::new(Self {
+            cap,
+            connect_lock: SyncMutex::new(()),
+            slots: SyncMutex::new(Vec::new()),
+            tick: AtomicU64::new(1),
+        })
+    }
+
+    pub fn slot(self: &Arc<Self>, endpoint: &str, model: &str, file: &str, cpu: bool) -> RemoteSlot {
+        let inner = Arc::new(SlotInner {
+            state: SyncMutex::new(None),
+            last_used: AtomicU64::new(0),
+        });
+        self.slots.lock().push(Arc::downgrade(&inner));
+        RemoteSlot {
+            pool: self.clone(),
+            endpoint: endpoint.to_string(),
+            model: model.to_string(),
+            file: file.to_string(),
+            cpu,
+            inner,
+        }
+    }
+
+    fn bump(&self, slot: &SlotInner) {
+        slot.last_used
+            .store(self.tick.fetch_add(1, Ordering::SeqCst), Ordering::SeqCst);
+    }
+
+    fn candidates_excluding(&self, keep: Option<&Arc<SlotInner>>) -> Vec<(u64, Arc<SlotInner>)> {
+        self.slots
+            .lock()
+            .iter()
+            .filter_map(Weak::upgrade)
+            .filter(|s| keep.is_none_or(|k| !Arc::ptr_eq(s, k)))
+            .map(|s| (s.last_used.load(Ordering::SeqCst), s))
+            .collect()
+    }
+
+    fn live_count_excluding(&self, keep: &Arc<SlotInner>) -> usize {
+        self.slots
+            .lock()
+            .iter()
+            .filter_map(Weak::upgrade)
+            .filter(|s| !Arc::ptr_eq(s, keep))
+            .filter(|s| match s.state.try_lock() {
+                Some(g) => g.is_some(),
+                None => true, // locked == inference in flight == live
+            })
+            .count()
+    }
+
+    /// Drop the least-recently-used live session (never `keep`).
+    fn evict_one_excluding(&self, keep: &Arc<SlotInner>) -> Result<()> {
+        let mut candidates = self.candidates_excluding(Some(keep));
+        candidates.sort_by_key(|(t, _)| *t);
+        // Prefer unlocked victims so an in-flight inference is never yanked.
+        for (_, cand) in &candidates {
+            if let Some(mut st) = cand.state.try_lock() {
+                if st.is_some() {
+                    *st = None;
+                    return Ok(());
+                }
+            }
+        }
+        // Everything is busy or empty: wait on the oldest live slot.
+        for (_, cand) in &candidates {
+            let mut st = cand.state.lock();
+            if st.is_some() {
+                *st = None;
+                return Ok(());
+            }
+        }
+        bail!("no live remote session available to evict");
+    }
+
+    fn run_slot(
+        &self,
+        keep: &Arc<SlotInner>,
+        endpoint: &str,
+        model: &str,
+        file: &str,
+        cpu: bool,
+        inputs: &[TensorIn],
+    ) -> Result<Vec<RunOutput>> {
+        // Fast path: live session, no pool coordination.
+        let mut st = keep.state.lock();
+        if let Some(m) = st.as_mut() {
+            self.bump(keep);
+            return m.run_typed(inputs);
+        }
+        drop(st);
+
+        // Reconnect path: serialise so the cap is never exceeded.
+        let _guard = self.connect_lock.lock();
+        let mut st = keep.state.lock();
+        if let Some(m) = st.as_mut() {
+            // Another thread reconnected meanwhile.
+            self.bump(keep);
+            return m.run_typed(inputs);
+        }
+        while self.live_count_excluding(keep) >= self.cap {
+            self.evict_one_excluding(keep)?;
+        }
+        let mut m = RemoteModel::connect_load_with_opts(endpoint, model, file, cpu)?;
+        let out = m.run_typed(inputs)?;
+        *st = Some(m);
+        self.bump(keep);
+        Ok(out)
+    }
+}
+
+/// Process-wide pool for the app's AI model sessions.
+pub static SHARED_POOL: LazyLock<Arc<RemotePool>> =
+    LazyLock::new(|| RemotePool::new(REMOTE_POOL_CAP));
+
+impl RemoteSlot {
+    pub fn run(&self, inputs: &[TensorIn]) -> Result<Vec<RunOutput>> {
+        self.pool.run_slot(
+            &self.inner,
+            &self.endpoint,
+            &self.model,
+            &self.file,
+            self.cpu,
+            inputs,
+        )
+    }
+}
+
 /// A model loaded on the remote worker over one dedicated connection.
 #[derive(Debug)]
 pub struct RemoteModel {
@@ -226,10 +396,77 @@ pub struct RunOutput {
     pub shape: Vec<i64>,
 }
 
+impl RunOutput {
+    /// Decode a non-float output that the caller does not consume.
+    fn opaque(shape: Vec<i64>) -> Self {
+        Self { data: Vec::new(), shape }
+    }
+}
+
+/// One concrete input tensor for a typed `run` call.
+#[derive(Debug, Clone)]
+pub struct TensorIn {
+    pub dtype: DType,
+    pub shape: Vec<i64>,
+    /// Little-endian payload, exactly shape-product × elem-size bytes.
+    pub data: Vec<u8>,
+}
+
+fn checked_payload(shape: &[i64], dtype: DType, len: usize, what: &str) -> Result<()> {
+    let elems = shape.iter().try_fold(1u64, |a, &d| {
+        if d <= 0 {
+            bail!("{what}: dim {d} must be concrete");
+        }
+        a.checked_mul(d as u64).ok_or_else(|| anyhow!("{what}: shape overflow"))
+    })?;
+    if (elems * dtype.elem_size()) as usize != len {
+        bail!("{what}: payload {len} bytes != shape product {elems} × {}", dtype.elem_size());
+    }
+    if len as u64 > MAX_BYTES {
+        bail!("{what}: payload {len} exceeds {MAX_BYTES}");
+    }
+    Ok(())
+}
+
+impl TensorIn {
+    fn build(shape: &[i64], dtype: DType, data: Vec<u8>) -> Result<Self> {
+        checked_payload(shape, dtype, data.len(), "input tensor")?;
+        Ok(Self { dtype, shape: shape.to_vec(), data })
+    }
+
+    pub fn f32(shape: &[i64], values: &[f32]) -> Result<Self> {
+        let mut data = Vec::with_capacity(values.len() * 4);
+        for v in values {
+            data.extend_from_slice(&v.to_le_bytes());
+        }
+        Self::build(shape, DType::F32, data)
+    }
+
+    pub fn u8(shape: &[i64], values: &[u8]) -> Result<Self> {
+        Self::build(shape, DType::U8, values.to_vec())
+    }
+
+    pub fn i64(shape: &[i64], values: &[i64]) -> Result<Self> {
+        let mut data = Vec::with_capacity(values.len() * 8);
+        for v in values {
+            data.extend_from_slice(&v.to_le_bytes());
+        }
+        Self::build(shape, DType::I64, data)
+    }
+}
+
 impl RemoteModel {
-    /// Connect to a loopback worker and load `model/file`. No fallback on
-    /// failure: the error is returned and nothing local is attempted.
+    /// Connect to a loopback worker and load `model/file` on the GPU.
+    /// No fallback on failure: the error is returned and nothing local
+    /// is attempted.
     pub fn connect_load(endpoint: &str, model: &str, file: &str) -> Result<Self> {
+        Self::connect_load_with_opts(endpoint, model, file, false)
+    }
+
+    /// Load with an explicit CPU session (`cpu:true` on the wire — the
+    /// protocol treats this as a request, never a fallback). Used by the
+    /// live smoke to share a busy GPU host fairly.
+    pub fn connect_load_with_opts(endpoint: &str, model: &str, file: &str, cpu: bool) -> Result<Self> {
         if model.is_empty() || model.contains('/') || model.contains("..") {
             bail!("model id must be a directory basename: '{model}'");
         }
@@ -254,7 +491,7 @@ impl RemoteModel {
                 "model": model,
                 "file": file,
                 "opt": 0,
-                "cpu": false,
+                "cpu": cpu,
                 "overrides": [],
             }),
         )?;
@@ -275,95 +512,137 @@ impl RemoteModel {
             .and_then(Value::as_str)
             .unwrap_or("unknown")
             .to_string();
-        if provider != "CUDAExecutionProvider" {
-            bail!("remote worker loaded {model} on {provider}; CUDA required, refusing");
+        // Fail closed: a GPU request must never surface a CPU session. The
+        // worker itself disables fallback, so this only trips on a
+        // misconfigured host. Explicit `cpu:true` requests are honoured.
+        if !cpu && provider == "CPUExecutionProvider" {
+            bail!("remote worker loaded {model} on CPU after a GPU request; refusing");
         }
         log::info!("remote AI: loaded {model}/{file} on {provider}");
         Ok(Self { stream, inputs, outputs, provider })
     }
 
-    /// Run one inference round trip. The output buffer is allocated from the
+    /// Run one inference round trip with typed multi-input/output
+    /// descriptors (wire protocol v1, `dt_ai_dtype_t`). Inputs are sent in
+    /// model input order; every model output is requested as a dynamic
+    /// (worker-allocated) descriptor of the model's own dtype and decoded
+    /// to f32 when float. The output buffers are allocated from the
     /// worker's concrete response shape after full descriptor validation.
-    pub fn run(&mut self, input: &[f32], input_shape: &[i64], out_rank: usize) -> Result<RunOutput> {
-        if self.inputs.len() != 1 || self.outputs.len() != 1 {
-            bail!("remote model must have exactly one input and one output");
+    pub fn run_typed(&mut self, inputs: &[TensorIn]) -> Result<Vec<RunOutput>> {
+        if inputs.len() != self.inputs.len() {
+            bail!(
+                "model takes {} inputs, got {}",
+                self.inputs.len(),
+                inputs.len()
+            );
         }
-        let in_elems: u64 = input_shape
+        let mut descs = Vec::with_capacity(inputs.len());
+        for (i, t) in inputs.iter().enumerate() {
+            // The worker casts float32<->float16 and nothing else, so an
+            // f16 model input may be fed an f32 payload; every other
+            // dtype must match the model exactly.
+            let compatible = self.inputs[i].dtype == t.dtype
+                || (self.inputs[i].dtype == DType::F16 && t.dtype == DType::F32);
+            if !compatible {
+                bail!(
+                    "input {} is {:?} on the model, got {:?}",
+                    i,
+                    self.inputs[i].dtype,
+                    t.dtype
+                );
+            }
+            descs.push(json!({
+                "type": t.dtype as i64,
+                "shape": t.shape,
+                "bytes": t.data.len(),
+            }));
+        }
+        if descs.is_empty() || descs.len() > MAX_IO {
+            bail!("input count {} outside 1..{MAX_IO}", descs.len());
+        }
+        let out_reqs: Vec<Value> = self
+            .outputs
             .iter()
-            .try_fold(1u64, |a, &d| {
-                if d <= 0 {
-                    bail!("input dim {d} must be concrete");
+            .map(|o| {
+                if o.shape.is_empty() {
+                    bail!("rank-0 output cannot be expressed on wire v1");
                 }
-                a.checked_mul(d as u64).ok_or_else(|| anyhow!("shape overflow"))
-            })?;
-        if in_elems as usize != input.len() {
-            bail!("input len {} != shape product {in_elems}", input.len());
-        }
-        let in_bytes = in_elems * 4;
-        if in_bytes > MAX_BYTES {
-            bail!("input payload {in_bytes} exceeds {MAX_BYTES}");
-        }
+                Ok(json!({
+                    "type": o.dtype as i64,
+                    "shape": vec![-1i64; o.shape.len()],
+                    "bytes": 0,
+                }))
+            })
+            .collect::<Result<_>>()?;
 
         send_frame(
             &mut self.stream,
             &json!({
                 "v": PROTOCOL_VERSION,
                 "op": "run",
-                "inputs": [{
-                    "type": DType::F32 as i64,
-                    "shape": input_shape,
-                    "bytes": in_bytes,
-                }],
-                "outputs": [{
-                    "type": DType::F32 as i64,
-                    "shape": vec![-1i64; out_rank],
-                    "bytes": 0,
-                }],
+                "inputs": descs,
+                "outputs": out_reqs,
             }),
         )?;
-
-        let mut payload = Vec::with_capacity(input.len() * 4);
-        for v in input {
-            payload.extend_from_slice(&v.to_le_bytes());
+        for t in inputs {
+            self.stream.write_all(&t.data)?;
         }
-        self.stream.write_all(&payload)?;
         self.stream.flush()?;
 
         let resp = recv_frame(&mut self.stream)?;
         check_ok(&resp)?;
-        let mut outs = parse_desc_array(
+        let outs = parse_desc_array(
             resp.get("outputs").ok_or_else(|| anyhow!("run response without outputs"))?,
             false,
             false,
         )?;
-        if outs.len() != 1 {
-            bail!("run response has {} outputs, expected 1", outs.len());
+        if outs.len() != self.outputs.len() {
+            bail!("run response has {} outputs, expected {}", outs.len(), self.outputs.len());
         }
-        let out = outs.pop().unwrap();
-        if !matches!(out.dtype, DType::F32 | DType::F16) {
-            bail!("model delivers non-float output dtype {:?}", out.dtype);
+        let mut results = Vec::with_capacity(outs.len());
+        for out in outs {
+            let elems = out.elems()?;
+            let raw_bytes = elems * out.dtype.elem_size();
+            if raw_bytes > MAX_BYTES {
+                bail!("output payload {raw_bytes} exceeds {MAX_BYTES}");
+            }
+            let raw = recv_exact(&mut self.stream, raw_bytes as usize)?;
+            let data: Vec<f32> = match out.dtype {
+                DType::F32 => raw
+                    .chunks_exact(4)
+                    .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+                    .collect(),
+                DType::F16 => raw
+                    .chunks_exact(2)
+                    .map(|c| half_to_f32(u16::from_le_bytes([c[0], c[1]])))
+                    .collect(),
+                _ => {
+                    results.push(RunOutput::opaque(out.shape));
+                    continue;
+                }
+            };
+            if data.len() != elems as usize {
+                bail!("payload yielded {} elements, expected {elems}", data.len());
+            }
+            results.push(RunOutput { data, shape: out.shape });
         }
-        let elems = out.elems()?;
-        let raw_bytes = elems * out.dtype.elem_size();
-        if raw_bytes > MAX_BYTES {
-            bail!("output payload {raw_bytes} exceeds {MAX_BYTES}");
+        Ok(results)
+    }
+
+    /// Single f32 tensor convenience wrapper kept for the sensor RAW
+    /// denoise / upscale paths.
+    pub fn run(&mut self, input: &[f32], input_shape: &[i64], out_rank: usize) -> Result<RunOutput> {
+        if self.outputs.len() != 1 {
+            bail!("single-tensor run needs exactly one model output, has {}", self.outputs.len());
         }
-        let raw = recv_exact(&mut self.stream, raw_bytes as usize)?;
-        let data: Vec<f32> = match out.dtype {
-            DType::F32 => raw
-                .chunks_exact(4)
-                .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
-                .collect(),
-            DType::F16 => raw
-                .chunks_exact(2)
-                .map(|c| half_to_f32(u16::from_le_bytes([c[0], c[1]])))
-                .collect(),
-            _ => unreachable!("dtype filtered above"),
-        };
-        if data.len() != elems as usize {
-            bail!("payload yielded {} elements, expected {elems}", data.len());
+        if out_rank != self.outputs[0].shape.len() {
+            bail!(
+                "model output rank is {}, caller declared {out_rank}",
+                self.outputs[0].shape.len()
+            );
         }
-        Ok(RunOutput { data, shape: out.shape })
+        let input = [TensorIn::f32(input_shape, input)?];
+        Ok(self.run_typed(&input)?.pop().ok_or_else(|| anyhow!("worker returned no outputs"))?)
     }
 }
 
@@ -420,7 +699,7 @@ mod tests {
         assert!(parse_endpoint("127.5.6.7:1").is_ok());
         assert!(parse_endpoint("[::1]:8794").is_ok());
         assert!(parse_endpoint("localhost:8794").is_err()); // non-numeric host
-        assert!(parse_endpoint("100.96.93.15:8794").is_err()); // tailscale, not loopback
+        assert!(parse_endpoint("198.51.100.10:8794").is_err()); // routed subnet, not loopback
         assert!(parse_endpoint("192.168.1.10:8794").is_err());
         assert!(parse_endpoint("::1:8794").is_err()); // ambiguous, unparseable
         assert!(parse_endpoint("").is_err());
@@ -569,9 +848,10 @@ mod tests {
             );
             sock.write_all(&resp).unwrap();
             let (run, _) = read_frame(&mut sock);
-            // client must declare f32 on the wire for both directions
+            // client declares f32 on the wire for inputs, the model's own
+            // f16 dtype for outputs (no worker-side cast needed)
             assert_eq!(run["inputs"][0]["type"], 1);
-            assert_eq!(run["outputs"][0]["type"], 1);
+            assert_eq!(run["outputs"][0]["type"], 10);
             let mut payload = vec![0u8; 16];
             sock.read_exact(&mut payload).unwrap();
             let mut out = Vec::new();
@@ -595,5 +875,197 @@ mod tests {
         assert_eq!(out.data[1], -2.0);
         assert_eq!(out.data[2], 0.25);
         assert!(out.data[3].is_infinite());
+    }
+
+    /// Typed multi-input (f32 + u8 + i64) and multi-output (f32 + f16)
+    /// round trip: frame descriptors, concatenated payload order and f16
+    /// decode are all exercised in one pass.
+    #[test]
+    fn typed_multi_io_round_trip() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = std::thread::spawn(move || {
+            let (mut sock, _) = listener.accept().unwrap();
+            sock.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
+            let (load, _) = read_frame(&mut sock);
+            assert_eq!(load["cpu"], false);
+            let mut resp = Vec::new();
+            write_frame(
+                &mut resp,
+                &json!({
+                    "ok": true,
+                    "inputs": [
+                        {"name": "image", "type": 1, "shape": [1, 2]},
+                        {"name": "pixels", "type": 2, "shape": [4]},
+                        {"name": "ids", "type": 5, "shape": [3]},
+                    ],
+                    "outputs": [
+                        {"name": "out_f32", "type": 1, "shape": [1, 2]},
+                        {"name": "out_f16", "type": 10, "shape": [2]},
+                        {"name": "out_i64", "type": 5, "shape": [1]},
+                    ],
+                    "provider": "CUDAExecutionProvider",
+                }),
+            );
+            sock.write_all(&resp).unwrap();
+
+            let (run, _) = read_frame(&mut sock);
+            let ins = run["inputs"].as_array().unwrap();
+            assert_eq!(ins[0], json!({"type": 1, "shape": [1, 2], "bytes": 8}));
+            assert_eq!(ins[1], json!({"type": 2, "shape": [4], "bytes": 4}));
+            assert_eq!(ins[2], json!({"type": 5, "shape": [3], "bytes": 24}));
+            let outs = run["outputs"].as_array().unwrap();
+            assert_eq!(outs[0], json!({"type": 1, "shape": [-1, -1], "bytes": 0}));
+            assert_eq!(outs[1], json!({"type": 10, "shape": [-1], "bytes": 0}));
+            assert_eq!(outs[2], json!({"type": 5, "shape": [-1], "bytes": 0}));
+            // payloads arrive in descriptor order
+            let mut all = vec![0u8; 8 + 4 + 24];
+            sock.read_exact(&mut all).unwrap();
+            assert_eq!(&all[8..12], &[9u8, 8, 7, 6]);
+            let ids: Vec<i64> = all[12..36]
+                .chunks_exact(8)
+                .map(|c| i64::from_le_bytes(c.try_into().unwrap()))
+                .collect();
+            assert_eq!(ids, vec![5, 6, 7]);
+
+            let mut out = Vec::new();
+            write_frame(
+                &mut out,
+                &json!({"ok": true, "outputs": [
+                    {"type": 1, "shape": [1, 2], "bytes": 8},
+                    {"type": 10, "shape": [2], "bytes": 4},
+                    {"type": 5, "shape": [1], "bytes": 8},
+                ]}),
+            );
+            out.extend_from_slice(&1.5f32.to_le_bytes());
+            out.extend_from_slice(&(-2.5f32).to_le_bytes());
+            out.extend_from_slice(&0x3C00u16.to_le_bytes()); // 1.0
+            out.extend_from_slice(&0xC000u16.to_le_bytes()); // -2.0
+            out.extend_from_slice(&42i64.to_le_bytes());
+            sock.write_all(&out).unwrap();
+        });
+
+        let mut model =
+            RemoteModel::connect_load(&format!("127.0.0.1:{port}"), "m", "model.onnx").unwrap();
+        let outs = model
+            .run_typed(&[
+                TensorIn::f32(&[1, 2], &[0.25, -0.75]).unwrap(),
+                TensorIn::u8(&[4], &[9, 8, 7, 6]).unwrap(),
+                TensorIn::i64(&[3], &[5, 6, 7]).unwrap(),
+            ])
+            .unwrap();
+        server.join().unwrap();
+        assert_eq!(outs[0].data, vec![1.5, -2.5]);
+        assert_eq!(outs[1].data, vec![1.0, -2.0]);
+        // non-float outputs are returned opaque (shape only)
+        assert_eq!(outs[2].shape, vec![1]);
+        assert!(outs[2].data.is_empty());
+    }
+
+    #[test]
+    fn input_count_and_dtype_mismatch_fail_before_send() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = std::thread::spawn(move || {
+            let (mut sock, _) = listener.accept().unwrap();
+            let _ = read_frame(&mut sock);
+            let mut resp = Vec::new();
+            write_frame(
+                &mut resp,
+                &json!({
+                    "ok": true,
+                    "inputs": [{"name": "image", "type": 1, "shape": [1, 2]}],
+                    "outputs": [{"name": "out", "type": 1, "shape": [1, 2]}],
+                    "provider": "CUDAExecutionProvider",
+                }),
+            );
+            sock.write_all(&resp).unwrap();
+        });
+        let mut model =
+            RemoteModel::connect_load(&format!("127.0.0.1:{port}"), "m", "model.onnx").unwrap();
+        server.join().unwrap();
+        // wrong arity fails before any frame is written
+        assert!(model.run_typed(&[]).is_err());
+        // wrong dtype fails before any frame is written
+        assert!(model.run_typed(&[TensorIn::u8(&[1, 2], &[0, 0]).unwrap()]).is_err());
+        // payload/shape mismatch is rejected at construction, before any frame
+        assert!(TensorIn::f32(&[1, 2], &[1.0]).is_err());
+    }
+
+    #[test]
+    fn explicit_cpu_load_is_honoured_but_gpu_request_refuses_cpu_session() {
+        for (cpu, provider, ok) in [
+            (true, "CPUExecutionProvider", true),
+            (false, "CPUExecutionProvider", false),
+            (false, "CUDAExecutionProvider", true),
+            (false, "CoreMLExecutionProvider", true),
+        ] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let port = listener.local_addr().unwrap().port();
+            let server = std::thread::spawn(move || {
+                let (mut sock, _) = listener.accept().unwrap();
+                let (load, _) = read_frame(&mut sock);
+                assert_eq!(load["cpu"], cpu);
+                let mut resp = Vec::new();
+                write_frame(
+                    &mut resp,
+                    &json!({
+                        "ok": true,
+                        "inputs": [{"name": "input", "type": 1, "shape": [1]}],
+                        "outputs": [{"name": "output", "type": 1, "shape": [1]}],
+                        "provider": provider,
+                    }),
+                );
+                sock.write_all(&resp).unwrap();
+            });
+            let res = RemoteModel::connect_load_with_opts(
+                &format!("127.0.0.1:{port}"),
+                "m",
+                "model.onnx",
+                cpu,
+            );
+            server.join().unwrap();
+            assert_eq!(res.is_ok(), ok, "cpu={cpu} provider={provider}: {res:?}");
+        }
+    }
+
+    #[test]
+    fn unreachable_endpoint_fails_closed() {
+        // port 1 on loopback: nothing listens, connect must fail and no
+        // local fallback exists by construction
+        let err = RemoteModel::connect_load("127.0.0.1:1", "m", "model.onnx").unwrap_err();
+        assert!(!err.to_string().is_empty());
+    }
+
+    /// Real worker smoke for the typed client path, on an explicitly
+    /// requested CPU session (no GPU contention). Ignored by default:
+    ///
+    /// ```sh
+    /// RAPIDRAW_REMOTE_SMOKE_ENDPOINT=127.0.0.1:18794 \
+    ///   cargo test --lib live_worker_typed_smoke -- --ignored --nocapture
+    /// ```
+    ///
+    /// Optional: RAPIDRAW_SMOKE_MODEL / RAPIDRAW_SMOKE_FILE select a
+    /// different provisioned pack (default: upscale-realplksr/model_x2.onnx).
+    #[test]
+    #[ignore = "needs the tunnelled worker; run explicitly per doc comment"]
+    fn live_worker_typed_smoke() {
+        let endpoint =
+            std::env::var("RAPIDRAW_REMOTE_SMOKE_ENDPOINT").unwrap_or_else(|_| DEFAULT_ENDPOINT.into());
+        let model = std::env::var("RAPIDRAW_SMOKE_MODEL").unwrap_or_else(|_| MODEL_UPSCALE.into());
+        let file = std::env::var("RAPIDRAW_SMOKE_FILE").unwrap_or_else(|_| MODEL_UPSCALE_X2_FILE.into());
+        // Exercise the app path: shared pool slot with lazy connect and
+        // LRU eviction, not a bare RemoteModel.
+        let slot = SHARED_POOL.slot(&endpoint, &model, &file, true);
+        let in_shape = vec![1, 3, 320, 320];
+        let input = vec![0.5f32; in_shape.iter().product::<i64>() as usize];
+        let outs = slot
+            .run(&[TensorIn::f32(&in_shape, &input).unwrap()])
+            .unwrap_or_else(|e| panic!("worker must load {model}/{file} on an explicit CPU session: {e}"));
+        let out = &outs[0];
+        assert!(!out.shape.is_empty());
+        assert_eq!(out.data.len(), out.shape.iter().product::<i64>() as usize);
+        assert!(out.data.iter().all(|v| v.is_finite()));
+        println!("smoke ok: out shape {:?}", out.shape);
     }
 }

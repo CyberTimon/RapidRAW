@@ -1824,8 +1824,10 @@
         },
         "title": "Generative AI",
         "remote": {
-          "title": "Remote AI (Sensor RAW Denoise / Upscale)",
-          "description": "Loopback endpoint of the SSH-tunnelled ONNX worker (HOST:PORT, loopback only). Used by the 'Sensor RAW' denoise method and AI upscale.",
+          "enable": "Run all AI remotely",
+          "enableDesc": "Route every AI model (masks, tagging, denoise, inpaint, depth, normals) to the GPU worker instead of this machine. Requires the endpoint below; nothing is downloaded or run locally while enabled.",
+          "title": "Remote AI Endpoint",
+          "description": "Loopback endpoint of the SSH-tunnelled ONNX worker (HOST:PORT, loopback only). Used for sensor RAW denoise, AI upscale, and — when enabled above — all AI features.",
           "test": "Test",
           "testing": "Testing..."
         }

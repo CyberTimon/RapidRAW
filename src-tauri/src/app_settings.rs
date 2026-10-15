@@ -441,6 +441,23 @@ pub fn default_remote_ai_endpoint() -> Option<String> {
     Some(crate::remote_ai::DEFAULT_ENDPOINT.to_string())
 }
 
+/// Remote-only AI is opt-in: existing installs keep local inference and
+/// model downloads until this flag is set. When enabled together with the
+/// endpoint, every AI model resolves over the wire and local ORT sessions
+/// and model downloads are skipped entirely.
+pub fn remote_ai_endpoint_if_enabled(settings: &AppSettings) -> Option<String> {
+    if settings.remote_ai_enabled != Some(true) {
+        return None;
+    }
+    match settings.remote_ai_endpoint.as_deref() {
+        Some(ep) if !ep.trim().is_empty() => Some(ep.trim().to_string()),
+        _ => {
+            log::warn!("remote AI enabled but endpoint empty; running locally");
+            None
+        }
+    }
+}
+
 pub fn default_linear_raw_mode() -> String {
     "auto".to_string()
 }
@@ -496,6 +513,8 @@ pub struct AppSettings {
     pub ai_connector_address: Option<String>,
     #[serde(default = "default_remote_ai_endpoint")]
     pub remote_ai_endpoint: Option<String>,
+    #[serde(default)]
+    pub remote_ai_enabled: Option<bool>,
     pub last_folder_state: Option<LastFolderState>,
     pub ui_visibility: Option<Value>,
     pub enable_ai_tagging: Option<bool>,
@@ -634,6 +653,7 @@ impl Default for AppSettings {
             decorations: Some(false),
             ai_connector_address: None,
             remote_ai_endpoint: default_remote_ai_endpoint(),
+            remote_ai_enabled: None,
             last_folder_state: None,
             ui_visibility: None,
             enable_ai_tagging: Some(false),

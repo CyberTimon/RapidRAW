@@ -1455,6 +1455,20 @@ export default function SettingsPanel({
                         )}
 
                         <SettingItem
+                          label={t('settings.processing.ai.remote.enable')}
+                          description={t('settings.processing.ai.remote.enableDesc')}
+                        >
+                          <Switch
+                            checked={appSettings?.remoteAiEnabled ?? false}
+                            id="remote-ai-enabled-toggle"
+                            label={t('settings.processing.ai.remote.enable')}
+                            onChange={(checked) =>
+                              onSettingsChange({ ...appSettings, remoteAiEnabled: checked })
+                            }
+                          />
+                        </SettingItem>
+
+                        <SettingItem
                           label={t('settings.processing.ai.remote.title')}
                           description={t('settings.processing.ai.remote.description')}
                         >
