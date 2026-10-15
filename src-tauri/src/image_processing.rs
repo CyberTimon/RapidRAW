@@ -2279,7 +2279,7 @@ pub fn resolve_tonemapper_override(settings: &crate::AppSettings, is_raw: bool) 
     Some(if tm == "agx" { 1 } else { 0 })
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct RenderOptions {
     pub tonemapper_override: Option<u32>,
     pub non_raw_tonemapper_override: Option<u32>,
