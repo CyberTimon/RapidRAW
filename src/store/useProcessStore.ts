@@ -99,6 +99,9 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
             status: Status.Idle,
             errorMessage: '',
             progress: { current: 0, total: 0 },
+            exportedCount: undefined,
+            skippedCount: undefined,
+            totalCount: undefined,
           },
         }));
       }, 5000);

@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'react-toastify';
 import { listen } from '@tauri-apps/api/event';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { Status } from '../components/ui/ExportImportProperties';
@@ -20,6 +22,7 @@ export function useTauriListeners({
   refreshImageList,
   markGenerated,
 }: TauriListenerProps) {
+  const { t } = useTranslation();
   const refs = useRef({ refreshAllFolderTrees, handleSelectSubfolder, refreshImageList, markGenerated });
 
   useEffect(() => {
@@ -160,8 +163,41 @@ export function useTauriListeners({
       listen('batch-export-progress', (event: any) => {
         if (isEffectActive) useProcessStore.getState().setExportState({ progress: event.payload });
       }),
-      listen('export-complete', () => {
-        if (isEffectActive) useProcessStore.getState().setExportState({ status: Status.Success });
+      listen('export-complete', (event: any) => {
+        if (isEffectActive) {
+          const payload = event.payload;
+          const exported = typeof payload?.exported === 'number' ? payload.exported : undefined;
+          const skipped = typeof payload?.skipped === 'number' ? payload.skipped : undefined;
+          const total = typeof payload?.total === 'number' ? payload.total : undefined;
+
+          useProcessStore.getState().setExportState({
+            status: Status.Success,
+            exportedCount: exported,
+            skippedCount: skipped,
+            totalCount: total,
+          });
+
+          if (skipped !== undefined && skipped > 0) {
+            if (exported === 0) {
+              const msg =
+                skipped === 1
+                  ? t('export.status.toastAllSkippedSingle', 'Image was skipped (unchanged).')
+                  : t('export.status.toastAllSkipped', {
+                      count: skipped,
+                      defaultValue: `All ${skipped} images were skipped (unchanged).`,
+                    });
+              toast.info(msg);
+            } else {
+              toast.info(
+                t('export.status.toastWithSkipped', {
+                  exported,
+                  skipped,
+                  defaultValue: `Export completed: ${exported} exported, ${skipped} skipped.`,
+                }),
+              );
+            }
+          }
+        }
       }),
       listen('export-error', (event: any) => {
         if (isEffectActive)
