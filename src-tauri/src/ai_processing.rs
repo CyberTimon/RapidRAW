@@ -49,6 +49,14 @@ const CLIP_MODEL_SHA256: &str = "57879bb1c23cdeb350d23569dd251ed4b740a96d747c529
 const DENOISE_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/nind_denoise_utnet_684.onnx?download=true";
 const DENOISE_FILENAME: &str = "nind_denoise_utnet_684.onnx";
 const DENOISE_SHA256: &str = "ee3586279d514df557ff3f7dec6df37fafc51ba5d3a3435b2cc9ac2d9017e7fe";
+#[cfg(target_os = "windows")]
+const DENOISE_INPUT_NAME: &str = "input";
+#[cfg(target_os = "windows")]
+const DENOISE_PRE_CROP_NAME: &str = "conv2d_9";
+#[cfg(target_os = "windows")]
+const DENOISE_GPU_OUTPUT_NAME: &str = "denoised";
+#[cfg(target_os = "windows")]
+const DENOISE_CROP: i64 = 2;
 
 const LAMA_URL: &str =
     "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/lama_fp16.onnx?download=true";
@@ -566,6 +574,104 @@ pub async fn get_or_init_ai_models(
     Ok(models)
 }
 
+#[cfg(target_os = "windows")]
+fn build_gpu_denoise_session(model_path: &Path) -> Result<Session> {
+    use ort::editor::{Graph, Model, Node, Opset, Outlet};
+    use ort::execution_providers::DirectMLExecutionProvider;
+    use ort::memory::Allocator;
+    use ort::tensor::{Shape, SymbolicDimensions, TensorElementType};
+    use ort::value::ValueType;
+
+    let tile = TILE_BALANCED.cs;
+    let outlet = |name: &str| {
+        Outlet::new(
+            name,
+            &ValueType::Tensor {
+                ty: TensorElementType::Float32,
+                shape: Shape::new([1, 3, tile as i64, tile as i64]),
+                dimension_symbols: SymbolicDimensions::empty(4),
+            },
+        )
+    };
+    let index_tensor = |values: [i64; 2]| -> Result<Tensor<i64>> {
+        let mut tensor = Tensor::<i64>::new(&Allocator::default(), [2usize])?;
+        tensor.extract_tensor_mut().1.copy_from_slice(&values);
+        Ok(tensor)
+    };
+
+    let mut editable = Session::builder()?
+        .with_memory_pattern(false)?
+        .with_parallel_execution(false)?
+        .with_execution_providers([DirectMLExecutionProvider::default()
+            .build()
+            .error_on_failure()])?
+        .edit_from_file(model_path)?;
+
+    let mut graph = Graph::new()?;
+    graph.set_inputs([outlet(DENOISE_INPUT_NAME)?])?;
+    graph.set_outputs([outlet(DENOISE_GPU_OUTPUT_NAME)?])?;
+    graph.add_initializer(
+        "crop_starts",
+        index_tensor([DENOISE_CROP, DENOISE_CROP])?,
+        false,
+    )?;
+    graph.add_initializer(
+        "crop_ends",
+        index_tensor([-DENOISE_CROP, -DENOISE_CROP])?,
+        false,
+    )?;
+    graph.add_initializer("crop_axes", index_tensor([2, 3])?, false)?;
+    graph.add_node(Node::new(
+        "Slice",
+        "",
+        "crop",
+        [
+            DENOISE_PRE_CROP_NAME,
+            "crop_starts",
+            "crop_ends",
+            "crop_axes",
+        ],
+        [DENOISE_GPU_OUTPUT_NAME],
+        [],
+    )?)?;
+    let mut crop_model = Model::new(Vec::<Opset>::new())?;
+    crop_model.add_graph(graph)?;
+    editable.apply_model(&crop_model)?;
+
+    let mut session = editable.into_session()?;
+    for output in &mut session.outputs {
+        output.name = DENOISE_GPU_OUTPUT_NAME.to_string();
+    }
+
+    let probe = Tensor::from_array(Array4::<f32>::from_elem((1, 3, tile, tile), 0.5))?;
+    let mean = {
+        let outputs = session.run(ort::inputs![probe])?;
+        let values = outputs[0].try_extract_array::<f32>()?;
+        values.iter().sum::<f32>() / values.len().max(1) as f32
+    };
+    if !(0.25..0.75).contains(&mean) {
+        return Err(anyhow::anyhow!(
+            "GPU denoise self-check failed (mean {})",
+            mean
+        ));
+    }
+
+    Ok(session)
+}
+
+fn load_denoise_session(model_path: &Path) -> Result<Session> {
+    #[cfg(target_os = "windows")]
+    match build_gpu_denoise_session(model_path) {
+        Ok(session) => {
+            log::info!("NIND denoise model running on GPU (DirectML)");
+            return Ok(session);
+        }
+        Err(e) => log::warn!("GPU denoise unavailable, falling back to CPU: {}", e),
+    }
+
+    Ok(Session::builder()?.commit_from_file(model_path)?)
+}
+
 pub async fn get_or_init_denoise_model(
     app_handle: &tauri::AppHandle,
     ai_state_mutex: &Mutex<Option<AiState>>,
@@ -604,7 +710,7 @@ pub async fn get_or_init_denoise_model(
 
     let _ = ort::init().with_name("AI-Denoise").commit();
     let model_path = models_dir.join(DENOISE_FILENAME);
-    let session = Session::builder()?.commit_from_file(model_path)?;
+    let session = load_denoise_session(&model_path)?;
     let denoise_model = Arc::new(Mutex::new(session));
 
     crate::register_exit_handler();

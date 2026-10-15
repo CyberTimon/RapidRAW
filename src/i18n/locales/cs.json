@@ -95,6 +95,14 @@
       "resetPoint": "Resetovat bodovou křivku ({{channel}})"
     },
     "details": {
+      "aiDenoise": "AI odšumění",
+      "aiDenoiseAmount": "Míra (AI)",
+      "aiDenoiseColor": "Barevný šum (AI)",
+      "aiDenoiseDetail": "Obnovení detailů",
+      "aiDenoiseGenerate": "Vygenerovat AI odšumění",
+      "aiDenoiseGenerating": "Generování...",
+      "aiDenoiseRawOnly": "Dostupné pouze pro soubory RAW",
+      "aiDenoiseRemove": "Odstranit AI odšumění",
       "blueYellow": "Modrá/Žlutá",
       "centre": "Střed",
       "chromaticAberration": "Chromatická aberace",

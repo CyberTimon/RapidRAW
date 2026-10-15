@@ -96,6 +96,14 @@
       "resetPoint": "Ripristina Curva per Punti {{channel}}"
     },
     "details": {
+      "aiDenoise": "Riduzione rumore IA",
+      "aiDenoiseAmount": "Quantità (IA)",
+      "aiDenoiseColor": "Rumore colore (IA)",
+      "aiDenoiseDetail": "Recupero dettagli",
+      "aiDenoiseGenerate": "Genera riduzione rumore IA",
+      "aiDenoiseGenerating": "Generazione...",
+      "aiDenoiseRawOnly": "Disponibile solo per i file RAW",
+      "aiDenoiseRemove": "Rimuovi riduzione rumore IA",
       "blueYellow": "Blu/Giallo",
       "centre": "Centro",
       "chromaticAberration": "Aberrazione Cromatica",

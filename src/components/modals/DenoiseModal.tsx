@@ -233,6 +233,7 @@ export default function DenoiseModal({
 }: DenoiseModalProps) {
   const { t } = useTranslation();
   const isAiFree = useSettingsStore((s) => s.appSettings?.aiProvider === 'ai-free');
+  const hasGpuDenoise = useSettingsStore((s) => s.osPlatform === 'windows');
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
   const [intensity, setIntensity] = useState<number>(15);
@@ -450,7 +451,7 @@ export default function DenoiseModal({
 
               <Text
                 variant={TextVariants.small}
-                data-tooltip={t('modals.denoise.gpuWarningTooltip')}
+                data-tooltip={hasGpuDenoise ? undefined : t('modals.denoise.gpuWarningTooltip')}
                 className="mt-6 text-center max-w-xs opacity-60"
               >
                 {t('modals.denoise.speedNotice')}
