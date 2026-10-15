@@ -518,9 +518,11 @@ const Slider = ({
     if (disabled) return;
 
     if (e.key === 'Enter') {
+      e.stopPropagation();
       handleInputCommit();
       e.currentTarget.blur();
     } else if (e.key === 'Escape') {
+      e.stopPropagation();
       setInputValue(String(value));
       setIsEditing(false);
       e.currentTarget.blur();
