@@ -119,6 +119,7 @@ export enum Invokes {
   ReleaseOriginalPreview = 'release_original_preview',
   OpenViewerWindow = 'open_viewer_window',
   CloseViewerWindow = 'close_viewer_window',
+  SetViewerView = 'set_viewer_view',
   GetViewerInfo = 'get_viewer_info',
   GetViewerFrame = 'get_viewer_frame',
   UpdateExifFields = 'update_exif_fields',
