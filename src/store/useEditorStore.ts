@@ -19,6 +19,8 @@ interface BaseRenderSize extends ImageDimensions {
   containerWidth: number;
   offsetX: number;
   offsetY: number;
+  // CSS px per image px when fitted (transform scale 1)
+  renderScale: number;
 }
 
 interface EditorState {
@@ -116,7 +118,15 @@ export const useEditorStore = create<EditorState>((set) => ({
   zoom: 1,
   displaySize: { width: 0, height: 0 },
   previewSize: { width: 0, height: 0 },
-  baseRenderSize: { width: 0, height: 0, offsetX: 0, offsetY: 0, containerWidth: 0, containerHeight: 0 },
+  baseRenderSize: {
+    width: 0,
+    height: 0,
+    offsetX: 0,
+    offsetY: 0,
+    containerWidth: 0,
+    containerHeight: 0,
+    renderScale: 0,
+  },
   originalSize: { width: 0, height: 0 },
 
   isRotationActive: false,
