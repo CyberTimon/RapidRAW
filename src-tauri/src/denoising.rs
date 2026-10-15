@@ -60,14 +60,24 @@ pub async fn apply_denoising(
     let path_str = source_path.to_string_lossy().to_string();
 
     let mut ai_session = None;
-    if method == "ai" {
-        let session = crate::ai_processing::get_or_init_denoise_model(
-            &app_handle,
-            &state.ai_state,
-            &state.ai_init_lock,
-        )
-        .await
-        .map_err(|e| e.to_string())?;
+    if method.starts_with("ai") {
+        let session = if method == "ai_rr" {
+            crate::ai_processing::get_or_init_denoise_model_rr(
+                &app_handle,
+                &state.ai_state,
+                &state.ai_init_lock,
+            )
+            .await
+            .map_err(|e| e.to_string())?
+        } else {
+            crate::ai_processing::get_or_init_denoise_model_nind(
+                &app_handle,
+                &state.ai_state,
+                &state.ai_init_lock,
+            )
+            .await
+            .map_err(|e| e.to_string())?
+        };
         ai_session = Some(session);
     }
 
@@ -96,14 +106,24 @@ pub async fn batch_denoise_images(
     state: tauri::State<'_, AppState>,
 ) -> Result<Vec<String>, String> {
     let mut ai_session = None;
-    if method == "ai" {
-        let session = crate::ai_processing::get_or_init_denoise_model(
-            &app_handle,
-            &state.ai_state,
-            &state.ai_init_lock,
-        )
-        .await
-        .map_err(|e| e.to_string())?;
+    if method.starts_with("ai") {
+        let session = if method == "ai_rr" {
+            crate::ai_processing::get_or_init_denoise_model_rr(
+                &app_handle,
+                &state.ai_state,
+                &state.ai_init_lock,
+            )
+            .await
+            .map_err(|e| e.to_string())?
+        } else {
+            crate::ai_processing::get_or_init_denoise_model_nind(
+                &app_handle,
+                &state.ai_state,
+                &state.ai_init_lock,
+            )
+            .await
+            .map_err(|e| e.to_string())?
+        };
         ai_session = Some(session);
     }
 
@@ -324,13 +344,14 @@ fn denoise_image(
 
     let rgb_img_for_denoiser = dynamic_img.to_rgb32f();
 
-    let mut out_dynamic = if method == "ai" {
+    let mut out_dynamic = if method.starts_with("ai") {
         let session_arc = ai_session.ok_or_else(|| "AI Session not provided".to_string())?;
         crate::ai_processing::run_ai_denoise(
             &rgb_img_for_denoiser,
             intensity,
             &session_arc,
             &app_handle,
+            &method,
         )
         .map_err(|e| e.to_string())?
     } else if method == "raw9" {
