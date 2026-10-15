@@ -62,6 +62,7 @@ interface EditorState {
   activeRelightLightId: string | null;
   isGuidedPerspectiveActive: boolean;
   liveRotation: number | null;
+  liveCropPixels: { width: number; height: number } | null;
   brushSettings: BrushSettings | null;
 
   // Masks & AI
@@ -128,6 +129,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   activeRelightLightId: null,
   isGuidedPerspectiveActive: false,
   liveRotation: null,
+  liveCropPixels: null,
 
   copiedSectionAdjustments: null,
   copiedMask: null,
