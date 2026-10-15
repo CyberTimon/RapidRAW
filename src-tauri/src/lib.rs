@@ -492,11 +492,10 @@ fn process_preview_job(
     request_analytics: bool,
     compute_waveform: bool,
     active_waveform_channel: Option<&str>,
+    target: PreviewTarget,
 ) -> Result<Vec<u8>, String> {
     let fn_start = std::time::Instant::now();
     let context = get_or_init_gpu_context(&state, app_handle)?;
-    hydrate_adjustments(&state, &mut adjustments_json);
-    let adjustments_clone = adjustments_json;
 
     let loaded_image_guard = state.original_image.lock().unwrap();
     let loaded_image = loaded_image_guard
@@ -505,8 +504,27 @@ fn process_preview_job(
         .clone();
     drop(loaded_image_guard);
 
-    let new_transform_hash = calculate_transform_hash(&adjustments_clone);
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let is_raw = loaded_image.is_raw;
+    let render = resolve_render_options(&settings, is_raw);
+    let content = FrameContent {
+        job_hash: calculate_full_job_hash(&loaded_image.path, &adjustments_json),
+        render,
+    };
+    if target == PreviewTarget::Editor {
+        viewer_window::record_editor_source(
+            app_handle,
+            &loaded_image.path,
+            &adjustments_json,
+            content,
+            is_interactive,
+        );
+    }
+
+    hydrate_adjustments(&state, &mut adjustments_json);
+    let adjustments_clone = adjustments_json;
+
+    let new_transform_hash = calculate_transform_hash(&adjustments_clone);
     let live_quality = settings.live_preview_quality.as_deref().unwrap_or("high");
 
     let default_preview_dim = settings.editor_preview_resolution.unwrap_or(1920);
@@ -519,9 +537,14 @@ fn process_preview_job(
         "performance" => (if has_roi { 1.8_f32 } else { 1.5_f32 }, 65_u8),
         _ => (if has_roi { 1.4_f32 } else { 1.0_f32 }, 75_u8),
     };
+    let interactive_divisor = match target {
+        PreviewTarget::Editor => interactive_divisor,
+        PreviewTarget::Viewer => 1.0,
+    };
+    let small_preview_dim = (preview_dim as f32 / interactive_divisor) as u32;
 
     let mut cached_preview_lock = state
-        .cached_preview
+        .cached_preview_for(target)
         .lock()
         .unwrap_or_else(|e| e.into_inner());
 
@@ -542,7 +565,7 @@ fn process_preview_job(
         )
     } else {
         *state
-            .gpu_image_cache
+            .gpu_image_cache_for(target)
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = None;
 
@@ -555,14 +578,13 @@ fn process_preview_job(
         Arc::clone(&cached_preview_lock.as_ref().unwrap().small_image)
     } else {
         let small = if interactive_divisor > 1.0 {
-            let target_size = (preview_dim as f32 / interactive_divisor) as u32;
             let (w, h) = final_preview_base.dimensions();
             let (small_w, small_h) = if w > h {
                 let ratio = h as f32 / w as f32;
-                (target_size, (target_size as f32 * ratio) as u32)
+                (small_preview_dim, (small_preview_dim as f32 * ratio) as u32)
             } else {
                 let ratio = w as f32 / h as f32;
-                ((target_size as f32 * ratio) as u32, target_size)
+                ((small_preview_dim as f32 * ratio) as u32, small_preview_dim)
             };
             Arc::new(image_processing::downscale_f32_image(
                 &final_preview_base,
@@ -575,7 +597,7 @@ fn process_preview_job(
 
         if is_interactive && base_valid {
             *state
-                .gpu_image_cache
+                .gpu_image_cache_for(target)
                 .lock()
                 .unwrap_or_else(|e| e.into_inner()) = None;
         }
@@ -594,6 +616,21 @@ fn process_preview_job(
     });
 
     drop(cached_preview_lock);
+
+    if target == PreviewTarget::Editor {
+        viewer_window::sync_viewer_image(
+            app_handle,
+            &loaded_image.path,
+            final_preview_base.dimensions(),
+            scale_for_gpu,
+        );
+    }
+
+    let frame_resolution = if is_interactive {
+        small_preview_dim
+    } else {
+        preview_dim
+    };
 
     let (processing_image, effective_scale, jpeg_quality) = if is_interactive {
         let orig_w = final_preview_base.width() as f32;
@@ -644,8 +681,6 @@ fn process_preview_job(
         })
         .collect();
 
-    let is_raw = loaded_image.is_raw;
-    let render = resolve_render_options_from_handle(app_handle, is_raw);
     let final_adjustments =
         get_all_adjustments_from_json(&adjustments_clone, is_raw, loaded_image.as_shot, render);
     let lut_path = adjustments_clone["lutPath"].as_str();
@@ -674,6 +709,18 @@ fn process_preview_job(
         None
     };
 
+    let to_viewer = match target {
+        PreviewTarget::Viewer => true,
+        PreviewTarget::Editor => {
+            pixel_roi.is_none()
+                && viewer_window::accepts_editor_frame(app_handle, &content, frame_resolution)
+        }
+    };
+    let caller_id = match target {
+        PreviewTarget::Editor => "apply_adjustments",
+        PreviewTarget::Viewer => "viewer_preview",
+    };
+
     let final_processed_image_result =
         crate::image_processing::process_and_get_dynamic_image_with_analytics(
             &context,
@@ -686,13 +733,23 @@ fn process_preview_job(
                 lut,
                 roi: pixel_roi,
             },
-            "apply_adjustments",
-            use_wgpu_renderer,
+            caller_id,
+            use_wgpu_renderer.then_some(gpu_processing::DisplayOutput { target, to_viewer }),
             analytics_config,
         );
 
+    let deliver_to_viewer = |jpeg_bytes: Option<&[u8]>| {
+        if to_viewer {
+            viewer_window::record_viewer_frame(app_handle, content, frame_resolution, jpeg_bytes);
+        }
+        target == PreviewTarget::Viewer
+    };
+
     if let Ok(final_processed_image) = final_processed_image_result {
         if use_wgpu_renderer {
+            if deliver_to_viewer(None) {
+                return Ok(Vec::new());
+            }
             let _ = context.device.poll(wgpu::PollType::Wait {
                 submission_index: None,
                 timeout: Some(std::time::Duration::from_millis(500)),
@@ -728,6 +785,9 @@ fn process_preview_job(
 
         match encode_result {
             Ok(jpeg_bytes) => {
+                if deliver_to_viewer(Some(&jpeg_bytes)) {
+                    return Ok(Vec::new());
+                }
                 if is_interactive {
                     let (roi_w, roi_h) = final_rgba_image.dimensions();
                     let (rx, ry) = if let Some(r) = pixel_roi {
@@ -754,7 +814,6 @@ fn process_preview_job(
                     );
                     Ok(response)
                 } else {
-                    viewer_window::publish_viewer_frame(app_handle, &jpeg_bytes);
                     let (width, height) = final_rgba_image.dimensions();
                     log::info!(
                         "[process_preview_job] full {}x{} q={} encode in {:.2?}, total {:.2?}",
@@ -815,37 +874,84 @@ fn start_analytics_worker(app_handle: tauri::AppHandle) {
     });
 }
 
+fn run_editor_job(app_handle: &tauri::AppHandle, job: PreviewJob) {
+    let state = app_handle.state::<AppState>();
+    let responder = job.responder;
+    match process_preview_job(
+        app_handle,
+        state,
+        job.adjustments,
+        job.is_interactive,
+        job.target_resolution,
+        job.roi,
+        job.request_analytics,
+        job.compute_waveform,
+        job.active_waveform_channel.as_deref(),
+        PreviewTarget::Editor,
+    ) {
+        Ok(bytes) => {
+            let _ = responder.send(bytes);
+            if !job.is_interactive {
+                viewer_window::schedule_viewer_render(app_handle);
+            }
+        }
+        Err(e) => {
+            log::error!("Preview worker error: {}", e);
+        }
+    }
+}
+
+fn run_viewer_job(app_handle: &tauri::AppHandle) {
+    let Some((adjustments, target_resolution)) = viewer_window::pending_viewer_render(app_handle)
+    else {
+        return;
+    };
+    if let Err(e) = process_preview_job(
+        app_handle,
+        app_handle.state::<AppState>(),
+        adjustments,
+        false,
+        Some(target_resolution),
+        None,
+        false,
+        false,
+        None,
+        PreviewTarget::Viewer,
+    ) {
+        log::error!("Viewer preview error: {}", e);
+    }
+}
+
 fn start_preview_worker(app_handle: tauri::AppHandle) {
     let state = app_handle.state::<AppState>();
-    let (tx, rx): (Sender<PreviewJob>, Receiver<PreviewJob>) = mpsc::channel();
+    let (tx, rx): (Sender<PreviewTask>, Receiver<PreviewTask>) = mpsc::channel();
 
     *state.preview_worker_tx.lock().unwrap() = Some(tx);
 
     std::thread::spawn(move || {
-        while let Ok(mut job) = rx.recv() {
-            while let Ok(latest_job) = rx.try_recv() {
-                job = latest_job;
+        let mut viewer_pending = false;
+        loop {
+            let first = if viewer_pending {
+                rx.try_recv().ok()
+            } else {
+                match rx.recv() {
+                    Ok(task) => Some(task),
+                    Err(_) => break,
+                }
+            };
+
+            let mut editor_job = None;
+            for task in first.into_iter().chain(rx.try_iter()) {
+                match task {
+                    PreviewTask::Editor(job) => editor_job = Some(job),
+                    PreviewTask::Viewer => viewer_pending = true,
+                }
             }
 
-            let state = app_handle.state::<AppState>();
-            let responder = job.responder;
-            match process_preview_job(
-                &app_handle,
-                state,
-                job.adjustments,
-                job.is_interactive,
-                job.target_resolution,
-                job.roi,
-                job.request_analytics,
-                job.compute_waveform,
-                job.active_waveform_channel.as_deref(),
-            ) {
-                Ok(bytes) => {
-                    let _ = responder.send(bytes);
-                }
-                Err(e) => {
-                    log::error!("Preview worker error: {}", e);
-                }
+            if let Some(job) = editor_job {
+                run_editor_job(&app_handle, job);
+            } else if std::mem::take(&mut viewer_pending) {
+                run_viewer_job(&app_handle);
             }
         }
     });
@@ -879,7 +985,7 @@ async fn apply_adjustments(
                 responder: tx,
             };
             worker_tx
-                .send(job)
+                .send(PreviewTask::Editor(job))
                 .map_err(|e| format!("Failed to send to preview worker: {}", e))?;
         } else {
             return Err("Preview worker not running".to_string());
@@ -2275,8 +2381,10 @@ pub fn run() {
             gpu_crash_flag_path: Mutex::new(None),
             original_image: Mutex::new(None),
             cached_preview: Mutex::new(None),
+            viewer_cached_preview: Mutex::new(None),
             gpu_context: Mutex::new(None),
             gpu_image_cache: Mutex::new(None),
+            viewer_gpu_image_cache: Mutex::new(None),
             gpu_processor: Mutex::new(None),
             ai_state: Mutex::new(None),
             ai_init_lock: TokioMutex::new(()),
@@ -2314,7 +2422,7 @@ pub fn run() {
             camera_session: Mutex::new(camera_tethering::CameraSession::new()),
             viewer: Mutex::new(ViewerState {
                 background: gpu_processing::DisplayTransform::default().bg_secondary,
-                frame: None,
+                session: ViewerSession::default(),
             }),
         })
         .invoke_handler(tauri::generate_handler![
@@ -2341,6 +2449,7 @@ pub fn run() {
             update_wgpu_transform,
             viewer_window::open_viewer_window,
             viewer_window::close_viewer_window,
+            viewer_window::set_viewer_view,
             viewer_window::get_viewer_info,
             viewer_window::get_viewer_frame,
             android_integration::resolve_android_content_uri_name,
