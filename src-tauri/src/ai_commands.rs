@@ -8,8 +8,8 @@ use image::{GrayImage, ImageFormat};
 use crate::ai_connector;
 use crate::ai_processing::{
     AiDepthMaskParameters, AiForegroundMaskParameters, AiSkyMaskParameters,
-    AiSubjectMaskParameters, CachedDepthMap, generate_image_embeddings, get_or_init_ai_models,
-    run_depth_anything_model, run_sam_decoder, run_sky_seg_model, run_u2netp_model,
+    AiSubjectMaskParameters, CachedDepthMap, generate_sam3_image_embeddings,
+    get_or_init_ai_models, run_depth_anything3_model, run_sam3_decoder, run_sam3_text_mask,
 };
 use crate::app_settings::load_settings;
 use crate::app_state::{AiTaskGuard, AppState};
@@ -69,8 +69,14 @@ pub async fn generate_ai_foreground_mask(
         return Err("Task cancelled".to_string());
     }
 
-    let full_mask_image =
-        run_u2netp_model(warped_image.as_ref(), &models.u2netp).map_err(|e| e.to_string())?;
+    let full_mask_image = run_sam3_text_mask(
+        warped_image.as_ref(),
+        "object",
+        &models.sam3_image_encoder,
+        &models.sam3_text_encoder,
+        &models.sam3_decoder,
+        &models.sam3_tokenizer,
+    ).map_err(|e| e.to_string())?;
 
     if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
         return Err("Task cancelled".to_string());
@@ -122,8 +128,14 @@ pub async fn generate_ai_sky_mask(
         return Err("Task cancelled".to_string());
     }
 
-    let full_mask_image =
-        run_sky_seg_model(warped_image.as_ref(), &models.sky_seg).map_err(|e| e.to_string())?;
+    let full_mask_image = run_sam3_text_mask(
+        warped_image.as_ref(),
+        "sky",
+        &models.sam3_image_encoder,
+        &models.sam3_text_encoder,
+        &models.sam3_decoder,
+        &models.sam3_tokenizer,
+    ).map_err(|e| e.to_string())?;
 
     if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
         return Err("Task cancelled".to_string());
@@ -205,7 +217,7 @@ pub async fn generate_ai_depth_mask(
                 }
 
                 let depth_img =
-                    run_depth_anything_model(warped_image.as_ref(), &models.depth_anything)
+                    run_depth_anything3_model(warped_image.as_ref(), &models.depth_anything)
                         .map_err(|e| e.to_string())?;
 
                 let new_cache = CachedDepthMap {
@@ -392,7 +404,7 @@ pub async fn generate_ai_subject_mask(
             } else {
                 drop(ai_state_lock);
                 let mut new_embeddings =
-                    generate_image_embeddings(warped_image.as_ref(), &models.sam_encoder)
+                    generate_sam3_image_embeddings(warped_image.as_ref(), &models.sam3_image_encoder)
                         .map_err(|e| e.to_string())?;
 
                 new_embeddings.path_hash = path_hash.clone();
@@ -493,16 +505,16 @@ pub async fn generate_ai_subject_mask(
     let unrotated_start_point = (min_x, min_y);
     let unrotated_end_point = (max_x, max_y);
 
-    let mask_bitmap = run_sam_decoder(
-        &models.sam_decoder,
+    // The previous SAM API's optional edge-refinement switch is retained for
+    // saved command compatibility; SAM 3 currently returns its own decoder mask.
+    let _ = skip_refinement;
+    let mask_bitmap = run_sam3_decoder(
         &embeddings,
-        unrotated_start_point,
-        unrotated_end_point,
-        if skip_refinement.unwrap_or(false) {
-            None
-        } else {
-            Some(warped_image.as_ref())
-        },
+        "object",
+        Some((unrotated_start_point, unrotated_end_point)),
+        &models.sam3_text_encoder,
+        &models.sam3_decoder,
+        &models.sam3_tokenizer,
     )
     .map_err(|e| e.to_string())?;
 
