@@ -1246,14 +1246,14 @@ pub fn generate_sam3_image_embeddings(
     }
 
     let mut features = Vec::with_capacity(4);
-    let mut output_iter = outputs.into_iter();
-    for _ in 0..4 {
-        let output = output_iter
-            .next()
-            .ok_or_else(|| anyhow::anyhow!("SAM 3 vision encoder returned too few features"))?;
-        // Session::run already gives owned output values. Keep those values alive
-        // in the image cache so the decoder can reuse them without a copy.
-        features.push(Arc::new(output));
+    for index in 0..4 {
+        // Upgrade the session-owned output view so cached features outlive this
+        // inference call and can be safely reused by the prompt decoder.
+        let owned = outputs[index]
+            .view()
+            .try_upgrade()
+            .map_err(|_| anyhow::anyhow!("Failed to retain SAM 3 image feature {index}"))?;
+        features.push(Arc::new(owned));
     }
 
     Ok(Sam3ImageEmbeddings {
