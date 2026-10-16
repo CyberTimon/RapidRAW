@@ -1563,6 +1563,9 @@
       "shortcuts": "Steuerung"
     },
     "controls": {
+      "cropGestures": "Zuschnitt-Steuerung mit Strg",
+      "cropGesturesDesc": "Außerhalb des Zuschnitt-Werkzeugs erlauben",
+      "cropGesturesInfo": "Strg + Scrollen ändert die Größe des Zuschnitts, Strg + Ziehen verschiebt ihn im Bild und Strg + Doppelklick setzt ihn zurück. Ist dies ausgeschaltet, funktionieren diese Gesten nur im Zuschnitt-Werkzeug.",
       "keyboardTitle": "Tastatursteuerung",
       "modes": {
         "mouse": "Maus",

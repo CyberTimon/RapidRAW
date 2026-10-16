@@ -1596,6 +1596,9 @@
       "shortcuts": "Controles"
     },
     "controls": {
+      "cropGestures": "Controles de corte com Ctrl",
+      "cropGesturesDesc": "Permitir fora da ferramenta de corte",
+      "cropGesturesInfo": "Ctrl + roda redimensiona o corte, Ctrl + arrastar move-o dentro do quadro e Ctrl + duplo clique redefine-o. Quando desativado, estes gestos só funcionam na ferramenta de corte.",
       "keyboardTitle": "Controles de Teclado",
       "modes": {
         "mouse": "Mouse",

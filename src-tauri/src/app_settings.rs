@@ -551,6 +551,8 @@ pub struct AppSettings {
     pub editor_neutral_grey_bg: Option<bool>,
     #[serde(default)]
     pub canvas_input_mode: Option<String>,
+    #[serde(default)]
+    pub crop_controls_outside_crop_tool: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub white_balance_mode: Option<String>,
     #[serde(default)]
@@ -681,6 +683,7 @@ impl Default for AppSettings {
             use_wgpu_renderer: Some(true),
             editor_neutral_grey_bg: Some(false),
             canvas_input_mode: Some("mouse".to_string()),
+            crop_controls_outside_crop_tool: Some(true),
             white_balance_mode: None,
             zoom_speed_multiplier: Some(1.0),
             zoom_photo_to_pixel_click: Some(false),

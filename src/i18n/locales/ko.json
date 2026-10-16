@@ -1561,6 +1561,9 @@
       "shortcuts": "컨트롤"
     },
     "controls": {
+      "cropGestures": "Ctrl 자르기 조작",
+      "cropGesturesDesc": "자르기 도구 밖에서도 허용",
+      "cropGesturesInfo": "Ctrl + 스크롤로 자르기 영역의 크기를 조절하고, Ctrl + 드래그로 이미지 안에서 이동하며, Ctrl + 더블 클릭으로 초기화합니다. 끄면 이 동작들은 자르기 도구에서만 사용할 수 있습니다.",
       "keyboardTitle": "키보드 컨트롤",
       "modes": {
         "mouse": "마우스",

@@ -1563,6 +1563,9 @@
       "shortcuts": "Controls"
     },
     "controls": {
+      "cropGestures": "Ctrl Crop Controls",
+      "cropGesturesDesc": "Allow outside the crop tool",
+      "cropGesturesInfo": "Ctrl + scroll resizes the crop, Ctrl + drag moves it inside the frame and Ctrl + double-click resets it. When this is off, these gestures only work inside the crop tool.",
       "keyboardTitle": "Keyboard Controls",
       "modes": {
         "mouse": "Mouse",

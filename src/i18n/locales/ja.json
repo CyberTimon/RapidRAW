@@ -1561,6 +1561,9 @@
       "shortcuts": "操作設定"
     },
     "controls": {
+      "cropGestures": "Ctrl による切り抜き操作",
+      "cropGesturesDesc": "切り抜きツール以外でも有効にする",
+      "cropGesturesInfo": "Ctrl + スクロールで切り抜きのサイズを変更し、Ctrl + ドラッグで画像内を移動、Ctrl + ダブルクリックでリセットします。オフにすると、これらの操作は切り抜きツール内でのみ有効になります。",
       "keyboardTitle": "キーボードショートカット",
       "modes": {
         "mouse": "マウス",
