@@ -1994,7 +1994,7 @@ export default function SettingsPanel({
                               : 'resolution unavailable'}
                             {' '}at {displayResolution.scaleFactor.toFixed(2)}× scaling.
                           </Text>
-                          <Text variant={TextVariants.small} color={TextColors.muted}>
+                          <Text variant={TextVariants.small} color={TextColors.secondary}>
                             The matching preview-size option is offered below when available. Resolution detection does not identify an ICC profile; monitor color management remains controlled by the operating system and the active display profile.
                           </Text>
                         </div>
