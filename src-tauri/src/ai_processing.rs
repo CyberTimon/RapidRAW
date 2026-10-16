@@ -8,9 +8,9 @@ use image::imageops::{self, FilterType};
 use image::{
     DynamicImage, GenericImageView, GrayImage, ImageBuffer, Luma, Rgb, Rgb32FImage, Rgba, RgbaImage,
 };
-use ndarray::{Array, Array4, IxDyn};
+use ndarray::{Array, Array4};
 use ort::session::Session;
-use ort::value::Tensor;
+use ort::value::{DynValue, Tensor};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -19,25 +19,24 @@ use tauri::Manager;
 use tokenizers::Tokenizer;
 use tokio::sync::Mutex as TokioMutex;
 
-const ENCODER_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/sam_vit_b_01ec64_encoder.onnx?download=true";
-const DECODER_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/sam_vit_b_01ec64_decoder.onnx?download=true";
-const ENCODER_FILENAME: &str = "sam_vit_b_01ec64_encoder.onnx";
-const DECODER_FILENAME: &str = "sam_vit_b_01ec64_decoder.onnx";
-const SAM_INPUT_SIZE: u32 = 1024;
-const ENCODER_SHA256: &str = "16ab73d9c824886f0de2938c19df22fb9ec3deebfd0de58e65177e479213d7d1";
-const DECODER_SHA256: &str = "85d0d672cf5b7fe763edcde429e5533e62f674af4b15c7d688b7673b0ef00bf7";
+const SAM3_IMAGE_URL: &str = "https://github.com/jamjamjon/assets/releases/download/sam3/vision-encoder-q4f16.onnx";
+const SAM3_IMAGE_FILENAME: &str = "vision-encoder-q4f16.onnx";
+const SAM3_IMAGE_SHA256: &str = "9c00c5db8739f4c0cd0158a916f0e9755e0240bb35abca2934ab308e72cb2d6e";
 
-const U2NETP_URL: &str =
-    "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/u2net.onnx?download=true";
-const U2NETP_FILENAME: &str = "u2net.onnx";
-const U2NETP_INPUT_SIZE: u32 = 320;
-const U2NETP_SHA256: &str = "8d10d2f3bb75ae3b6d527c77944fc5e7dcd94b29809d47a739a7a728a912b491";
+const SAM3_TEXT_URL: &str = "https://github.com/jamjamjon/assets/releases/download/sam3/text-encoder-q4f16.onnx";
+const SAM3_TEXT_FILENAME: &str = "text-encoder-q4f16.onnx";
+const SAM3_TEXT_SHA256: &str = "639ba5a9991b012d3290fbba27eb8dbcebdc86ed9f747572d7bea1678317d8d1";
 
-const SKYSEG_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/skyseg-u2net.onnx?download=true";
-const SKYSEG_FILENAME: &str = "skyseg_u2net.onnx";
-const SKYSEG_LEGACY_FILENAME: &str = "skyseg-u2net.onnx";
-const SKYSEG_INPUT_SIZE: u32 = 320;
-const SKYSEG_SHA256: &str = "ab9c34c64c3d821220a2886a4a06da4642ffa14d5b30e8d5339056a089aa1d39";
+const SAM3_DECODER_URL: &str = "https://github.com/jamjamjon/assets/releases/download/sam3/geo-encoder-mask-decoder-q4f16.onnx";
+const SAM3_DECODER_FILENAME: &str = "geo-encoder-mask-decoder-q4f16.onnx";
+const SAM3_DECODER_SHA256: &str = "e7eb624ba212f1e3f67a3e8000b79860b82fbe9dfaefab6e7816cf8f466c2bfd";
+
+const SAM3_TOKENIZER_URL: &str = "https://github.com/jamjamjon/assets/releases/download/sam3/tokenizer.json";
+const SAM3_TOKENIZER_FILENAME: &str = "sam3-tokenizer.json";
+const SAM3_TOKENIZER_SHA256: &str = "6d9109cc838977f3ca94a379eec36aecc7c807e1785cd729660ca2fc0171fb35";
+const SAM3_INPUT_SIZE: u32 = 1008;
+const SAM3_TEXT_LENGTH: usize = 32;
+const SAM3_PAD_TOKEN_ID: i64 = 49407;
 
 const CLIP_MODEL_URL: &str =
     "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/clip_model.onnx?download=true";
@@ -55,10 +54,10 @@ const LAMA_URL: &str =
 const LAMA_FILENAME: &str = "lama_fp16.onnx";
 const LAMA_SHA256: &str = "2d6be6277c400d6f1b91819737f7c3da935e5c63d1b521d393be1196a2bfa82c";
 
-const DEPTH_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/depth_anything_v2_vits.onnx?download=true";
-const DEPTH_FILENAME: &str = "depth_anything_v2_vits.onnx";
+const DEPTH_URL: &str = "https://huggingface.co/zerochocobo/DepthAnything3_ONNX/resolve/main/da3_small.onnx?download=true";
+const DEPTH_FILENAME: &str = "depth_anything_v3_small.onnx";
 const DEPTH_INPUT_SIZE: u32 = 518;
-const DEPTH_SHA256: &str = "d2b11a11c1d4a12b47608fa65a17ee9a4c605b55ee1730c8e3b526304f2562be";
+const DEPTH_SHA256: &str = "d659ca25f1c665d5c064a64294d5fd0303e456aa94bf224a7777d9682cac7a39";
 
 const NORMAL_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/moge-2-vits-normal-onnx.onnx?download=true";
 const NORMAL_FILENAME: &str = "moge-2-vits-normal-onnx.onnx";
@@ -67,11 +66,10 @@ const NORMAL_NUM_TOKENS: i64 = 2500;
 const NORMAL_SHA256: &str = "24eacb5dc7a2c54c7bc98f7de085ffbed79ad006ea5b664c2c2cdc02ff3a52f0";
 
 pub struct AiModels {
-    pub sam_encoder: Mutex<Session>,
-    pub sam_decoder: Mutex<Session>,
-    pub u2netp: Mutex<Session>,
-    pub sky_seg: Mutex<Session>,
-    pub depth_anything: Mutex<Session>,
+    pub sam3_image_encoder: Mutex<Session>,
+    pub sam3_text_encoder: Mutex<Session>,
+    pub sam3_decoder: Mutex<Session>,
+    pub sam3_tokenizer: Tokenizer,
 }
 
 pub struct ClipModels {
@@ -80,9 +78,9 @@ pub struct ClipModels {
 }
 
 #[derive(Clone)]
-pub struct ImageEmbeddings {
+pub struct Sam3ImageEmbeddings {
     pub path_hash: String,
-    pub embeddings: Array<f32, IxDyn>,
+    pub features: Vec<Arc<DynValue>>,
     pub original_size: (u32, u32),
 }
 
@@ -99,8 +97,9 @@ pub struct AiState {
     pub clip_models: Option<Arc<ClipModels>>,
     pub lama_model: Option<Arc<Mutex<Session>>>,
     pub normal_model: Option<Arc<Mutex<Session>>>,
-    pub embeddings: Option<ImageEmbeddings>,
+    pub embeddings: Option<Sam3ImageEmbeddings>,
     pub depth_map: Option<CachedDepthMap>,
+    pub depth_anything3_model: Option<Arc<Mutex<Session>>>,
 }
 
 fn edt_1d(f: &mut [f32], v: &mut [usize], z: &mut [f32], d: &mut [f32]) {
@@ -321,50 +320,52 @@ fn get_models_dir(app_handle: &tauri::AppHandle) -> Result<PathBuf> {
     Ok(models_dir)
 }
 
-fn persist_downloaded_asset(dest: &Path, bytes: &[u8]) -> Result<()> {
-    if bytes.is_empty() {
-        return Err(anyhow::anyhow!(
-            "Downloaded asset for {} was empty",
-            dest.display()
-        ));
+/// Remove only known legacy model-weight filenames after their replacements have
+/// loaded successfully. This avoids retaining hundreds of megabytes of stale
+/// legacy SAM ViT-B/SAM-v1-style, U²-Net/skyseg, and Depth Anything V2 assets without touching any user photographs.
+fn remove_obsolete_model_assets(models_dir: &Path, filenames: &[&str]) {
+    for filename in filenames {
+        let path = models_dir.join(filename);
+        if path.is_file() {
+            if let Err(error) = fs::remove_file(&path) {
+                eprintln!("Could not remove obsolete AI model {}: {}", path.display(), error);
+            }
+        }
     }
+}
 
-    let parent = dest.parent().ok_or_else(|| {
-        anyhow::anyhow!(
-            "Cannot determine parent directory for downloaded asset {}",
-            dest.display()
-        )
-    })?;
+async fn download_model(url: &str, dest: &Path) -> Result<()> {
+    use tokio::io::AsyncWriteExt as _;
+
+    let mut response = reqwest::get(url).await?.error_for_status()?;
+    let parent = dest.parent().ok_or_else(|| anyhow::anyhow!(
+        "Cannot determine parent directory for downloaded asset {}",
+        dest.display()
+    ))?;
     fs::create_dir_all(parent)?;
 
-    let file_name = dest
-        .file_name()
-        .and_then(|name| name.to_str())
+    let file_name = dest.file_name().and_then(|name| name.to_str())
         .ok_or_else(|| anyhow::anyhow!("Invalid downloaded asset path {}", dest.display()))?;
-    let tmp_path = dest.with_file_name(format!(".{}.download", file_name));
+    let temp_path = dest.with_file_name(format!(".{file_name}.download"));
+    let mut file = tokio::fs::File::create(&temp_path).await?;
 
-    {
-        let mut file = fs::File::create(&tmp_path)?;
-        file.write_all(bytes)?;
-        file.sync_all()?;
+    while let Some(chunk) = response.chunk().await? {
+        file.write_all(&chunk).await?;
     }
+    file.flush().await?;
+    file.sync_all().await?;
+    drop(file);
 
-    fs::rename(&tmp_path, dest).or_else(|rename_error| -> std::io::Result<()> {
+    fs::rename(&temp_path, dest).or_else(|rename_error| -> std::io::Result<()> {
         if dest.exists() {
             fs::remove_file(dest)?;
-            fs::rename(&tmp_path, dest)?;
+            fs::rename(&temp_path, dest)?;
             Ok(())
         } else {
             Err(rename_error)
         }
     })?;
     Ok(())
-}
-
-async fn download_model(url: &str, dest: &Path) -> Result<()> {
-    let response = reqwest::get(url).await?.error_for_status()?;
-    let bytes = response.bytes().await?;
-    persist_downloaded_asset(dest, &bytes)
 }
 
 fn verify_sha256(path: &Path, expected_hash: &str) -> Result<bool> {
@@ -386,32 +387,6 @@ fn verify_sha256(path: &Path, expected_hash: &str) -> Result<bool> {
     Ok(hex_hash == expected_hash)
 }
 
-fn promote_legacy_model_filename(
-    models_dir: &Path,
-    expected_filename: &str,
-    legacy_filename: &str,
-    expected_hash: &str,
-) -> Result<()> {
-    let expected_path = models_dir.join(expected_filename);
-    if expected_path.exists() {
-        return Ok(());
-    }
-
-    let legacy_path = models_dir.join(legacy_filename);
-    if !legacy_path.exists() || !verify_sha256(&legacy_path, expected_hash)? {
-        return Ok(());
-    }
-
-    fs::rename(&legacy_path, &expected_path).or_else(|rename_error| -> std::io::Result<()> {
-        if expected_path.exists() {
-            Ok(())
-        } else {
-            Err(rename_error)
-        }
-    })?;
-    Ok(())
-}
-
 async fn download_and_verify_model(
     app_handle: &tauri::AppHandle,
     models_dir: &Path,
@@ -421,14 +396,6 @@ async fn download_and_verify_model(
     model_name: &str,
 ) -> Result<()> {
     let dest_path = models_dir.join(filename);
-    if filename == SKYSEG_FILENAME {
-        promote_legacy_model_filename(
-            models_dir,
-            SKYSEG_FILENAME,
-            SKYSEG_LEGACY_FILENAME,
-            SKYSEG_SHA256,
-        )?;
-    }
     let is_valid = verify_sha256(&dest_path, expected_hash)?;
 
     if !is_valid {
@@ -478,75 +445,47 @@ pub async fn get_or_init_ai_models(
 
     let models_dir = get_models_dir(app_handle)?;
 
-    download_and_verify_model(
-        app_handle,
-        &models_dir,
-        ENCODER_FILENAME,
-        ENCODER_URL,
-        ENCODER_SHA256,
-        "SAM Encoder",
-    )
-    .await?;
-    download_and_verify_model(
-        app_handle,
-        &models_dir,
-        DECODER_FILENAME,
-        DECODER_URL,
-        DECODER_SHA256,
-        "SAM Decoder",
-    )
-    .await?;
-    download_and_verify_model(
-        app_handle,
-        &models_dir,
-        U2NETP_FILENAME,
-        U2NETP_URL,
-        U2NETP_SHA256,
-        "Foreground Model",
-    )
-    .await?;
-    download_and_verify_model(
-        app_handle,
-        &models_dir,
-        SKYSEG_FILENAME,
-        SKYSEG_URL,
-        SKYSEG_SHA256,
-        "Sky Model",
-    )
-    .await?;
-    download_and_verify_model(
-        app_handle,
-        &models_dir,
-        DEPTH_FILENAME,
-        DEPTH_URL,
-        DEPTH_SHA256,
-        "Depth Model",
-    )
-    .await?;
+    // Keep model weights outside the application bundle. Streamed downloads and
+    // SHA-256 verification avoid both a huge binary and a duplicate RAM copy.
+    for (filename, url, hash, label) in [
+        (SAM3_IMAGE_FILENAME, SAM3_IMAGE_URL, SAM3_IMAGE_SHA256, "SAM 3 vision encoder"),
+        (SAM3_TEXT_FILENAME, SAM3_TEXT_URL, SAM3_TEXT_SHA256, "SAM 3 text encoder"),
+        (SAM3_DECODER_FILENAME, SAM3_DECODER_URL, SAM3_DECODER_SHA256, "SAM 3 decoder"),
+        (SAM3_TOKENIZER_FILENAME, SAM3_TOKENIZER_URL, SAM3_TOKENIZER_SHA256, "SAM 3 tokenizer"),
+    ] {
+        download_and_verify_model(app_handle, &models_dir, filename, url, hash, label).await?;
+    }
 
     let _ = ort::init().with_name("AI").commit();
 
-    let encoder_path = models_dir.join(ENCODER_FILENAME);
-    let decoder_path = models_dir.join(DECODER_FILENAME);
-    let u2netp_path = models_dir.join(U2NETP_FILENAME);
-    let sky_seg_path = models_dir.join(SKYSEG_FILENAME);
-    let depth_path = models_dir.join(DEPTH_FILENAME);
-
-    let sam_encoder = Session::builder()?.commit_from_file(encoder_path)?;
-    let sam_decoder = Session::builder()?.commit_from_file(decoder_path)?;
-    let u2netp = Session::builder()?.commit_from_file(u2netp_path)?;
-    let sky_seg = Session::builder()?.commit_from_file(sky_seg_path)?;
-    let depth_anything = Session::builder()?.commit_from_file(depth_path)?;
+    let sam3_image_encoder = Session::builder()?
+        .commit_from_file(models_dir.join(SAM3_IMAGE_FILENAME))?;
+    let sam3_text_encoder = Session::builder()?
+        .commit_from_file(models_dir.join(SAM3_TEXT_FILENAME))?;
+    let sam3_decoder = Session::builder()?
+        .commit_from_file(models_dir.join(SAM3_DECODER_FILENAME))?;
+    let sam3_tokenizer = Tokenizer::from_file(models_dir.join(SAM3_TOKENIZER_FILENAME))
+        .map_err(|e| anyhow::anyhow!("Failed to load SAM 3 tokenizer: {e}"))?;
 
     crate::register_exit_handler();
 
     let models = Arc::new(AiModels {
-        sam_encoder: Mutex::new(sam_encoder),
-        sam_decoder: Mutex::new(sam_decoder),
-        u2netp: Mutex::new(u2netp),
-        sky_seg: Mutex::new(sky_seg),
-        depth_anything: Mutex::new(depth_anything),
+        sam3_image_encoder: Mutex::new(sam3_image_encoder),
+        sam3_text_encoder: Mutex::new(sam3_text_encoder),
+        sam3_decoder: Mutex::new(sam3_decoder),
+        sam3_tokenizer,
     });
+
+    remove_obsolete_model_assets(
+        &models_dir,
+        &[
+            "sam_vit_b_01ec64_encoder.onnx",
+            "sam_vit_b_01ec64_decoder.onnx",
+            "u2net.onnx",
+            "skyseg_u2net.onnx",
+            "skyseg-u2net.onnx",
+        ],
+    );
 
     let mut ai_state_lock = ai_state_mutex.lock().unwrap();
     if let Some(state) = ai_state_lock.as_mut() {
@@ -560,10 +499,75 @@ pub async fn get_or_init_ai_models(
             normal_model: None,
             embeddings: None,
             depth_map: None,
+            depth_anything3_model: None,
         });
     }
 
     Ok(models)
+}
+
+pub async fn get_or_init_depth_anything3_model(
+    app_handle: &tauri::AppHandle,
+    ai_state_mutex: &Mutex<Option<AiState>>,
+    ai_init_lock: &TokioMutex<()>,
+) -> Result<Arc<Mutex<Session>>> {
+    if let Some(model) = ai_state_mutex
+        .lock()
+        .unwrap()
+        .as_ref()
+        .and_then(|state| state.depth_anything3_model.clone())
+    {
+        return Ok(model);
+    }
+
+    let _guard = ai_init_lock.lock().await;
+
+    if let Some(model) = ai_state_mutex
+        .lock()
+        .unwrap()
+        .as_ref()
+        .and_then(|state| state.depth_anything3_model.clone())
+    {
+        return Ok(model);
+    }
+
+    let models_dir = get_models_dir(app_handle)?;
+    download_and_verify_model(
+        app_handle,
+        &models_dir,
+        DEPTH_FILENAME,
+        DEPTH_URL,
+        DEPTH_SHA256,
+        "Depth Anything 3 Small",
+    )
+    .await?;
+
+    // Depth can be the first AI feature used in a fresh session, so initialize
+    // ONNX Runtime here instead of relying on a segmentation model having run.
+    let _ = ort::init().with_name("AI-Depth").commit();
+    let session = Session::builder()?.commit_from_file(models_dir.join(DEPTH_FILENAME))?;
+    let model = Arc::new(Mutex::new(session));
+
+    crate::register_exit_handler();
+    remove_obsolete_model_assets(&models_dir, &["depth_anything_v2_vits.onnx"]);
+
+    let mut state_lock = ai_state_mutex.lock().unwrap();
+    if let Some(state) = state_lock.as_mut() {
+        state.depth_anything3_model = Some(Arc::clone(&model));
+    } else {
+        *state_lock = Some(AiState {
+            models: None,
+            denoise_model: None,
+            clip_models: None,
+            lama_model: None,
+            normal_model: None,
+            embeddings: None,
+            depth_map: None,
+            depth_anything3_model: Some(Arc::clone(&model)),
+        });
+    }
+
+    Ok(model)
 }
 
 pub async fn get_or_init_denoise_model(
@@ -621,6 +625,7 @@ pub async fn get_or_init_denoise_model(
             normal_model: None,
             embeddings: None,
             depth_map: None,
+            depth_anything3_model: None,
         });
     }
 
@@ -694,6 +699,7 @@ pub async fn get_or_init_clip_models(
             normal_model: None,
             embeddings: None,
             depth_map: None,
+            depth_anything3_model: None,
         });
     }
 
@@ -755,6 +761,7 @@ pub async fn get_or_init_lama_model(
             normal_model: None,
             embeddings: None,
             depth_map: None,
+            depth_anything3_model: None,
         });
     }
 
@@ -816,6 +823,7 @@ pub async fn get_or_init_normal_model(
             normal_model: Some(normal_model.clone()),
             embeddings: None,
             depth_map: None,
+            depth_anything3_model: None,
         });
     }
 
@@ -1205,555 +1213,353 @@ pub fn run_lama_inpainting(
     Ok(final_image)
 }
 
-pub fn generate_image_embeddings(
+pub fn generate_sam3_image_embeddings(
     image: &DynamicImage,
     encoder: &Mutex<Session>,
-) -> Result<ImageEmbeddings> {
-    let (orig_width, orig_height) = image.dimensions();
-
-    let long_side = orig_width.max(orig_height) as f32;
-    let scale = SAM_INPUT_SIZE as f32 / long_side;
-    let new_width = (orig_width as f32 * scale).round() as u32;
-    let new_height = (orig_height as f32 * scale).round() as u32;
-
-    let resized_image = image.resize(new_width, new_height, FilterType::Triangle);
-    let rgb_image = resized_image.into_rgb8();
-    let (actual_width, actual_height) = rgb_image.dimensions();
-    let raw_pixels = rgb_image.as_raw();
-
-    let mut input_tensor: Array<u8, _> =
-        Array::zeros((1, 3, SAM_INPUT_SIZE as usize, SAM_INPUT_SIZE as usize));
-
-    let w_usize = actual_width as usize;
-    for y in 0..(actual_height as usize) {
-        for x in 0..w_usize {
-            let idx = (y * w_usize + x) * 3;
-            input_tensor[[0, 0, y, x]] = raw_pixels[idx];
-            input_tensor[[0, 1, y, x]] = raw_pixels[idx + 1];
-            input_tensor[[0, 2, y, x]] = raw_pixels[idx + 2];
-        }
+) -> Result<Sam3ImageEmbeddings> {
+    let (original_width, original_height) = image.dimensions();
+    if original_width == 0 || original_height == 0 {
+        anyhow::bail!("Cannot segment an empty image");
     }
 
-    let input_tensor_dyn = input_tensor.into_dyn();
-    let input_values = input_tensor_dyn.as_standard_layout();
-    let input_tensor_ort = Tensor::from_array(input_values.into_owned())?;
+    // SAM 3 ONNX export expects an RGB NCHW tensor normalized to [-1, 1].
+    // Keep one image per call to cap activation memory on 16 GB machines.
+    let resized = image.resize_exact(
+        SAM3_INPUT_SIZE,
+        SAM3_INPUT_SIZE,
+        FilterType::Triangle,
+    ).into_rgb8();
+    let raw = resized.as_raw();
+    let area = (SAM3_INPUT_SIZE as usize) * (SAM3_INPUT_SIZE as usize);
+    let mut chw = Vec::with_capacity(area * 3);
+    for channel in 0..3 {
+        for pixel in raw.chunks_exact(3) {
+            chw.push(pixel[channel] as f32 / 127.5 - 1.0);
+        }
+    }
+    let input = Array::from_shape_vec(
+        (1, 3, SAM3_INPUT_SIZE as usize, SAM3_INPUT_SIZE as usize),
+        chw,
+    )?;
+    let input = Tensor::from_array(input)?;
+
     let mut session = encoder.lock().unwrap();
-    let outputs = session.run(ort::inputs![input_tensor_ort])?;
+    let outputs = session.run(ort::inputs!["images" => input])?;
+    if outputs.len() < 4 {
+        anyhow::bail!("SAM 3 vision encoder returned {} outputs; expected 4", outputs.len());
+    }
 
-    let embeddings = outputs[0].try_extract_array::<f32>()?.to_owned();
+    let mut features = Vec::with_capacity(4);
+    for index in 0..4 {
+        // Upgrade the session-owned output view so cached features outlive this
+        // inference call and can be safely reused by the prompt decoder.
+        let owned = outputs[index]
+            .view()
+            .try_upgrade()
+            .map_err(|_| anyhow::anyhow!("Failed to retain SAM 3 image feature {index}"))?;
+        features.push(Arc::new(owned));
+    }
 
-    Ok(ImageEmbeddings {
-        path_hash: "".to_string(),
-        embeddings: embeddings.into_dyn(),
-        original_size: (orig_width, orig_height),
+    Ok(Sam3ImageEmbeddings {
+        path_hash: String::new(),
+        features,
+        original_size: (original_width, original_height),
     })
 }
 
-pub fn run_sam_decoder(
+fn encode_sam3_text(
+    prompt: &str,
+    tokenizer: &Tokenizer,
+    text_encoder: &Mutex<Session>,
+) -> Result<(Arc<DynValue>, Arc<DynValue>)> {
+    let encoded = tokenizer.encode(prompt, true)
+        .map_err(|e| anyhow::anyhow!("SAM 3 tokenization failed: {e}"))?;
+    let ids = encoded.get_ids();
+    let mask = encoded.get_attention_mask();
+
+    let mut input_ids = vec![SAM3_PAD_TOKEN_ID; SAM3_TEXT_LENGTH];
+    let mut attention_mask = vec![0_i64; SAM3_TEXT_LENGTH];
+    let copied = if ids.len() > SAM3_TEXT_LENGTH { SAM3_TEXT_LENGTH - 1 } else { ids.len() };
+    for index in 0..copied {
+        input_ids[index] = ids[index] as i64;
+        attention_mask[index] = mask.get(index).copied().unwrap_or(1) as i64;
+    }
+    // When truncation was necessary, reserve the final slot for CLIP's end token.
+    if ids.len() > SAM3_TEXT_LENGTH {
+        input_ids[SAM3_TEXT_LENGTH - 1] = SAM3_PAD_TOKEN_ID;
+        attention_mask[SAM3_TEXT_LENGTH - 1] = 1;
+    }
+
+    let ids_tensor = Tensor::from_array(Array::from_shape_vec((1, SAM3_TEXT_LENGTH), input_ids)?)?;
+    let mask_tensor = Tensor::from_array(Array::from_shape_vec((1, SAM3_TEXT_LENGTH), attention_mask)?)?;
+
+    let mut session = text_encoder.lock().unwrap();
+    let outputs = session.run(ort::inputs![
+        "input_ids" => ids_tensor,
+        "attention_mask" => mask_tensor
+    ])?;
+    if outputs.len() < 2 {
+        anyhow::bail!("SAM 3 text encoder returned {} outputs; expected 2", outputs.len());
+    }
+
+    let features = outputs[0]
+        .view()
+        .try_upgrade()
+        .map_err(|_| anyhow::anyhow!("Failed to retain SAM 3 text features"))?;
+    let mask = outputs[1]
+        .view()
+        .try_upgrade()
+        .map_err(|_| anyhow::anyhow!("Failed to retain SAM 3 text attention mask"))?;
+
+    Ok((Arc::new(features), Arc::new(mask)))
+}
+
+fn sam3_sigmoid(value: f32) -> f32 {
+    1.0 / (1.0 + (-value.clamp(-80.0, 80.0)).exp())
+}
+
+pub fn run_sam3_decoder(
+    embeddings: &Sam3ImageEmbeddings,
+    text_prompt: &str,
+    geometry: Option<((f64, f64), (f64, f64))>,
+    text_encoder: &Mutex<Session>,
     decoder: &Mutex<Session>,
-    embeddings: &ImageEmbeddings,
-    start_point: (f64, f64),
-    end_point: (f64, f64),
-    original_image: Option<&DynamicImage>,
+    tokenizer: &Tokenizer,
 ) -> Result<GrayImage> {
     let (orig_width, orig_height) = embeddings.original_size;
-    let long_side = orig_width.max(orig_height) as f64;
-    let scale = SAM_INPUT_SIZE as f64 / long_side;
+    if embeddings.features.len() != 4 {
+        anyhow::bail!("SAM 3 image embeddings are incomplete");
+    }
 
-    let iters = 2;
-
-    let is_point =
-        (start_point.0 - end_point.0).abs() < 1e-6 && (start_point.1 - end_point.1).abs() < 1e-6;
-    let mut point_coords = Vec::new();
-    let mut point_labels = Vec::new();
-
-    if is_point {
-        point_coords.push((
-            (start_point.0 * scale) as f32,
-            (start_point.1 * scale) as f32,
-        ));
-        point_labels.push(1.0f32);
+    let (box_values, label_value, normalized_box) = if let Some((start, end)) = geometry {
+        let width = orig_width.max(1) as f64;
+        let height = orig_height.max(1) as f64;
+        let mut x1 = start.0.min(end.0).clamp(0.0, width);
+        let mut y1 = start.1.min(end.1).clamp(0.0, height);
+        let mut x2 = start.0.max(end.0).clamp(0.0, width);
+        let mut y2 = start.1.max(end.1).clamp(0.0, height);
+        let is_point = (x2 - x1).abs() < 1.0 && (y2 - y1).abs() < 1.0;
+        if is_point {
+            let cx = (x1 / width).clamp(0.0, 1.0);
+            let cy = (y1 / height).clamp(0.0, 1.0);
+            let box_width = 0.01_f64;
+            let box_height = 0.01_f64;
+            x1 = (cx - box_width / 2.0).max(0.0);
+            y1 = (cy - box_height / 2.0).max(0.0);
+            x2 = (cx + box_width / 2.0).min(1.0);
+            y2 = (cy + box_height / 2.0).min(1.0);
+            let box_values = vec![
+                ((x1 + x2) / 2.0) as f32,
+                ((y1 + y2) / 2.0) as f32,
+                (x2 - x1) as f32,
+                (y2 - y1) as f32,
+            ];
+            (box_values.clone(), 1_i64, Some((box_values, true)))
+        } else {
+            let nx1 = (x1 / width).clamp(0.0, 1.0);
+            let ny1 = (y1 / height).clamp(0.0, 1.0);
+            let nx2 = (x2 / width).clamp(0.0, 1.0);
+            let ny2 = (y2 / height).clamp(0.0, 1.0);
+            let values = vec![
+                ((nx1 + nx2) / 2.0) as f32,
+                ((ny1 + ny2) / 2.0) as f32,
+                (nx2 - nx1) as f32,
+                (ny2 - ny1) as f32,
+            ];
+            (values.clone(), 1_i64, Some((values, false)))
+        }
     } else {
-        let x1 = (start_point.0.min(end_point.0) * scale) as f32;
-        let y1 = (start_point.1.min(end_point.1) * scale) as f32;
-        let x2 = (start_point.0.max(end_point.0) * scale) as f32;
-        let y2 = (start_point.1.max(end_point.1) * scale) as f32;
-        point_coords.push((x1, y1));
-        point_coords.push((x2, y2));
-        point_labels.push(2.0f32);
-        point_labels.push(3.0f32);
+        (vec![0.0_f32, 0.0, 0.0, 0.0], -10_i64, None)
+    };
+
+    let boxes = Tensor::from_array(Array::from_shape_vec((1, 1, 4), box_values)?)?;
+    let labels = Tensor::from_array(Array::from_shape_vec((1, 1), vec![label_value])?)?;
+    let (text_features, text_mask) = encode_sam3_text(text_prompt, tokenizer, text_encoder)?;
+
+    let mut session = decoder.lock().unwrap();
+    let outputs = session.run(ort::inputs![
+        "fpn_feat_0" => embeddings.features[0].as_ref(),
+        "fpn_feat_1" => embeddings.features[1].as_ref(),
+        "fpn_feat_2" => embeddings.features[2].as_ref(),
+        "fpn_pos_2" => embeddings.features[3].as_ref(),
+        "text_features" => text_features.as_ref(),
+        "text_mask" => text_mask.as_ref(),
+        "input_boxes" => boxes,
+        "input_boxes_labels" => labels
+    ])?;
+    if outputs.len() < 4 {
+        anyhow::bail!("SAM 3 decoder returned {} outputs; expected 4", outputs.len());
     }
 
-    let mut mask_input = Array::zeros((1, 1, 256, 256)).into_dyn();
-    let mut has_mask_input = 0.0f32;
+    let pred_masks = outputs[0].try_extract_array::<f32>()?.to_owned();
+    let pred_boxes = outputs[1].try_extract_array::<f32>()?.to_owned();
+    let pred_logits = outputs[2].try_extract_array::<f32>()?.to_owned();
+    let presence_logits = outputs[3].try_extract_array::<f32>()?.to_owned();
 
-    let orig_im_size =
-        Array::from_shape_vec((2,), vec![orig_height as f32, orig_width as f32])?.into_dyn();
-
-    let mut final_mask_data: Vec<u8> = Vec::new();
-    let mut final_w = 0;
-    let mut final_h = 0;
-
-    for i in 0..iters {
-        let pc_len = point_coords.len();
-        let pl_len = point_labels.len();
-
-        let coords_flat: Vec<f32> = point_coords.iter().flat_map(|&(x, y)| vec![x, y]).collect();
-        let coords_array = Array::from_shape_vec((1, pc_len, 2), coords_flat)?.into_dyn();
-        let labels_array = Array::from_shape_vec((1, pl_len), point_labels.clone())?.into_dyn();
-
-        let t_embeddings = Tensor::from_array(
-            embeddings
-                .embeddings
-                .clone()
-                .as_standard_layout()
-                .into_owned(),
-        )?;
-        let t_point_coords = Tensor::from_array(coords_array.as_standard_layout().into_owned())?;
-        let t_point_labels = Tensor::from_array(labels_array.as_standard_layout().into_owned())?;
-        let t_mask_input =
-            Tensor::from_array(mask_input.clone().as_standard_layout().into_owned())?;
-        let t_has_mask = Tensor::from_array(
-            Array::from_elem((1,), has_mask_input)
-                .into_dyn()
-                .as_standard_layout()
-                .into_owned(),
-        )?;
-        let t_orig_im_size =
-            Tensor::from_array(orig_im_size.clone().as_standard_layout().into_owned())?;
-
-        let mask_tensor = {
-            let mut session = decoder.lock().unwrap();
-            let outputs = session.run(ort::inputs![
-                t_embeddings,
-                t_point_coords,
-                t_point_labels,
-                t_mask_input,
-                t_has_mask,
-                t_orig_im_size
-            ])?;
-            outputs[0].try_extract_array::<f32>()?.to_owned()
-        };
-
-        let mask_dims = mask_tensor.shape();
-        let h = mask_dims[2];
-        let w = mask_dims[3];
-        let area = h * w;
-
-        let mask_slice = mask_tensor.as_slice().unwrap();
-        let first_mask_slice = &mask_slice[0..area];
-
-        if i == iters - 1 {
-            final_mask_data = first_mask_slice
-                .iter()
-                .map(|&val| if val > 0.0 { 255 } else { 0 })
-                .collect();
-            final_w = w;
-            final_h = h;
-            break;
-        }
-
-        let mut binary_mask = vec![false; area];
-        let mut mask_area = 0.0;
-        let mut min_x = w;
-        let mut min_y = h;
-        let mut max_x = 0;
-        let mut max_y = 0;
-
-        for (idx, &val) in first_mask_slice.iter().enumerate() {
-            if val > 0.0 {
-                binary_mask[idx] = true;
-                let x = idx % w;
-                let y = idx / w;
-                min_x = min_x.min(x);
-                max_x = max_x.max(x);
-                min_y = min_y.min(y);
-                max_y = max_y.max(y);
-                mask_area += 1.0;
-            }
-        }
-
-        if mask_area == 0.0 || min_x > max_x {
-            final_mask_data = first_mask_slice
-                .iter()
-                .map(|&val| if val > 0.0 { 255 } else { 0 })
-                .collect();
-            final_w = w;
-            final_h = h;
-            break;
-        }
-
-        let dt_in = edt_2d(&binary_mask, w, h);
-        let mut max_in = 0.0;
-        let mut pos_idx = 0;
-        for (idx, &v) in dt_in.iter().enumerate() {
-            if v > max_in {
-                max_in = v;
-                pos_idx = idx;
-            }
-        }
-        let pos_y = pos_idx / w;
-        let pos_x = pos_idx % w;
-
-        let mut rev_mask = vec![false; area];
-        for (idx, is_true) in binary_mask.iter().enumerate() {
-            rev_mask[idx] = !is_true;
-        }
-        let mut dt_out = edt_2d(&rev_mask, w, h);
-
-        for y in 0..h {
-            for x in 0..w {
-                if x < min_x || x > max_x || y < min_y || y > max_y {
-                    dt_out[y * w + x] = 0.0;
-                }
-            }
-        }
-
-        let mut max_out = 0.0;
-        let mut neg_idx = 0;
-        for (idx, &v) in dt_out.iter().enumerate() {
-            if v > max_out {
-                max_out = v;
-                neg_idx = idx;
-            }
-        }
-        let neg_y = neg_idx / w;
-        let neg_x = neg_idx % w;
-
-        point_coords.clear();
-        point_labels.clear();
-
-        point_coords.push(((pos_x as f64 * scale) as f32, (pos_y as f64 * scale) as f32));
-        point_labels.push(1.0);
-        point_coords.push(((neg_x as f64 * scale) as f32, (neg_y as f64 * scale) as f32));
-        point_labels.push(0.0);
-        point_coords.push(((min_x as f64 * scale) as f32, (min_y as f64 * scale) as f32));
-        point_labels.push(2.0);
-        point_coords.push(((max_x as f64 * scale) as f32, (max_y as f64 * scale) as f32));
-        point_labels.push(3.0);
-
-        let mut gaus_dt = vec![0.0f32; area];
-        let variance = (mask_area / 4.0_f32).max(1.0_f32);
-        for (idx, &is_true) in binary_mask.iter().enumerate() {
-            if is_true {
-                let diff = dt_in[idx] - max_in;
-                gaus_dt[idx] = (-(diff * diff) / variance).exp();
-            }
-        }
-
-        let mask_f32_vec: Vec<f32> = first_mask_slice
-            .iter()
-            .map(|&v| if v > 0.0 { 15.0 } else { -15.0 })
-            .collect();
-
-        let img_mask_f32 =
-            ImageBuffer::<Luma<f32>, Vec<f32>>::from_raw(w as u32, h as u32, mask_f32_vec).unwrap();
-        let img_gaus_f32 =
-            ImageBuffer::<Luma<f32>, Vec<f32>>::from_raw(w as u32, h as u32, gaus_dt).unwrap();
-
-        let resized_mask = imageops::resize(&img_mask_f32, 256, 256, FilterType::Triangle);
-        let resized_gaus = imageops::resize(&img_gaus_f32, 256, 256, FilterType::Triangle);
-
-        let rm_raw = resized_mask.as_raw();
-        let rg_raw = resized_gaus.as_raw();
-        let mut mask_input_flat = vec![0.0f32; 256 * 256];
-
-        for i in 0..(256 * 256) {
-            let m_val = rm_raw[i];
-            let mut g_val = rg_raw[i];
-            if g_val <= 0.0 {
-                g_val = 1.0;
-            }
-            mask_input_flat[i] = m_val * g_val;
-        }
-
-        mask_input = Array::from_shape_vec((1, 1, 256, 256), mask_input_flat)
-            .unwrap()
-            .into_dyn();
-        has_mask_input = 1.0;
+    let mask_shape = pred_masks.shape();
+    let (count, mask_height, mask_width) = match mask_shape {
+        [1, n, h, w] => (*n, *h, *w),
+        [n, h, w] => (*n, *h, *w),
+        _ => anyhow::bail!("Unexpected SAM 3 mask tensor shape: {mask_shape:?}"),
+    };
+    if count == 0 || mask_height == 0 || mask_width == 0 {
+        return Ok(GrayImage::new(orig_width, orig_height));
     }
+    let mask_values = pred_masks.as_slice().ok_or_else(|| anyhow::anyhow!("Non-contiguous SAM 3 masks"))?;
+    let score_values = pred_logits.as_slice().ok_or_else(|| anyhow::anyhow!("Non-contiguous SAM 3 scores"))?;
+    let box_values = pred_boxes.as_slice().ok_or_else(|| anyhow::anyhow!("Non-contiguous SAM 3 boxes"))?;
+    let presence = presence_logits.as_slice().and_then(|v| v.first()).copied().unwrap_or(0.0);
+    let presence_score = sam3_sigmoid(presence);
+    let mask_area = mask_height * mask_width;
 
-    let gray_mask = GrayImage::from_raw(final_w as u32, final_h as u32, final_mask_data)
-        .ok_or_else(|| anyhow::anyhow!("Failed to create mask image from raw data"))?;
-
-    if let Some(img) = original_image {
-        let (orig_width, orig_height) = img.dimensions();
-        let guide_hr = img.to_luma8();
-
-        let long_edge = orig_width.max(orig_height) as f32;
-        let radius = (long_edge * 0.0075).clamp(8.0, 24.0);
-
-        let resized_coarse_mask =
-            image::imageops::resize(&gray_mask, orig_width, orig_height, FilterType::Triangle);
-
-        let feathered_coarse_mask = image::imageops::blur(&resized_coarse_mask, radius / 3.0);
-
-        let mut refined_mask =
-            fast_guided_filter(&guide_hr, &feathered_coarse_mask, radius as usize, 0.01);
-
-        for p in refined_mask.pixels_mut() {
-            let v = p[0] as f32 / 255.0;
-            p[0] = (((v - 0.03) / 0.94).clamp(0.0, 1.0) * 255.0).round() as u8;
+    let mut best_index = None;
+    let mut best_rank = f32::NEG_INFINITY;
+    for index in 0..count.min(score_values.len()) {
+        let score = sam3_sigmoid(score_values[index]) * presence_score;
+        if score < 0.15 {
+            continue;
         }
-
-        Ok(refined_mask)
-    } else {
-        let feathered_mask = image::imageops::blur(&gray_mask, 2.0);
-        let (orig_width, orig_height) = embeddings.original_size;
-        let final_mask = image::imageops::resize(
-            &feathered_mask,
-            orig_width,
-            orig_height,
-            FilterType::Triangle,
-        );
-
-        Ok(final_mask)
+        let mut rank = score;
+        if let Some((box_norm, is_point)) = normalized_box.as_ref() {
+            if *is_point {
+                let cx = box_norm[0].clamp(0.0, 1.0);
+                let cy = box_norm[1].clamp(0.0, 1.0);
+                let px = ((cx * mask_width as f32).floor() as usize).min(mask_width - 1);
+                let py = ((cy * mask_height as f32).floor() as usize).min(mask_height - 1);
+                let value = mask_values[index * mask_area + py * mask_width + px];
+                if value > 0.0 { rank += 2.0; }
+            } else if box_values.len() >= index * 4 + 4 {
+                // The chosen usls export converts the model's internal cxcywh
+                // predictions to normalized XYXY in the ONNX graph itself.
+                let p = &box_values[index * 4..index * 4 + 4];
+                let px1 = box_norm[0] - box_norm[2] / 2.0;
+                let py1 = box_norm[1] - box_norm[3] / 2.0;
+                let px2 = box_norm[0] + box_norm[2] / 2.0;
+                let py2 = box_norm[1] + box_norm[3] / 2.0;
+                let x1 = p[0].max(px1);
+                let y1 = p[1].max(py1);
+                let x2 = p[2].min(px2);
+                let y2 = p[3].min(py2);
+                let intersection = (x2 - x1).max(0.0) * (y2 - y1).max(0.0);
+                let area_a = (p[2] - p[0]).max(0.0) * (p[3] - p[1]).max(0.0);
+                let area_b = (px2 - px1).max(0.0) * (py2 - py1).max(0.0);
+                let union = area_a + area_b - intersection;
+                if union > 0.0 { rank += 1.5 * intersection / union; }
+            }
+        }
+        if rank > best_rank {
+            best_rank = rank;
+            best_index = Some(index);
+        }
     }
+    let Some(best_index) = best_index else {
+        return Ok(GrayImage::new(orig_width, orig_height));
+    };
+
+    // Only upscale the winning mask. Keep logits until after resizing, matching
+    // the selected export's reference post-processing and avoiding hundreds of
+    // unnecessary full-resolution proposals on large photographs.
+    let offset = best_index * mask_area;
+    let low_res = ImageBuffer::<Luma<f32>, Vec<f32>>::from_raw(
+        mask_width as u32,
+        mask_height as u32,
+        mask_values[offset..offset + mask_area].to_vec(),
+    ).ok_or_else(|| anyhow::anyhow!("Invalid SAM 3 mask dimensions"))?;
+    let resized = imageops::resize(&low_res, orig_width, orig_height, FilterType::Triangle);
+    let binary = resized.as_raw().iter()
+        .map(|&logit| if sam3_sigmoid(logit) >= 0.5 { 255 } else { 0 })
+        .collect();
+    GrayImage::from_raw(orig_width, orig_height, binary)
+        .ok_or_else(|| anyhow::anyhow!("Failed to create full-resolution SAM 3 mask"))
 }
 
-pub fn run_sky_seg_model(
+pub fn run_sam3_text_mask(
     image: &DynamicImage,
-    sky_seg_session: &Mutex<Session>,
+    text_prompt: &str,
+    image_encoder: &Mutex<Session>,
+    text_encoder: &Mutex<Session>,
+    decoder: &Mutex<Session>,
+    tokenizer: &Tokenizer,
 ) -> Result<GrayImage> {
-    let (orig_width, orig_height) = image.dimensions();
-
-    let resized_image = image.resize(SKYSEG_INPUT_SIZE, SKYSEG_INPUT_SIZE, FilterType::Triangle);
-    let (resized_w, resized_h) = resized_image.dimensions();
-    let resized_rgb = resized_image.into_rgb8();
-    let raw_pixels = resized_rgb.as_raw();
-
-    let paste_x = ((SKYSEG_INPUT_SIZE - resized_w) / 2) as usize;
-    let paste_y = ((SKYSEG_INPUT_SIZE - resized_h) / 2) as usize;
-
-    let mut input_tensor: Array<f32, _> =
-        Array::zeros((1, 3, SKYSEG_INPUT_SIZE as usize, SKYSEG_INPUT_SIZE as usize));
-
-    let mean = [0.485, 0.456, 0.406];
-    let std = [0.229, 0.224, 0.225];
-
-    let rw = resized_w as usize;
-    let rh = resized_h as usize;
-
-    for y in 0..rh {
-        for x in 0..rw {
-            let idx = (y * rw + x) * 3;
-            let dest_y = y + paste_y;
-            let dest_x = x + paste_x;
-
-            input_tensor[[0, 0, dest_y, dest_x]] =
-                (raw_pixels[idx] as f32 / 255.0 - mean[0]) / std[0];
-            input_tensor[[0, 1, dest_y, dest_x]] =
-                (raw_pixels[idx + 1] as f32 / 255.0 - mean[1]) / std[1];
-            input_tensor[[0, 2, dest_y, dest_x]] =
-                (raw_pixels[idx + 2] as f32 / 255.0 - mean[2]) / std[2];
-        }
-    }
-
-    let input_tensor_dyn = input_tensor.into_dyn();
-    let t_input = Tensor::from_array(input_tensor_dyn.as_standard_layout().into_owned())?;
-
-    let mut session = sky_seg_session.lock().unwrap();
-    let outputs = session.run(ort::inputs![t_input])?;
-    let output_tensor = outputs[0].try_extract_array::<f32>()?.to_owned();
-    let out_slice = output_tensor.as_slice().unwrap();
-
-    let mut min_val = f32::MAX;
-    let mut max_val = f32::MIN;
-    for &v in out_slice {
-        min_val = min_val.min(v);
-        max_val = max_val.max(v);
-    }
-
-    let range = max_val - min_val;
-    let scale = if range > 1e-6 { 255.0 / range } else { 0.0 };
-
-    let usize_size = SKYSEG_INPUT_SIZE as usize;
-    let mut cropped_mask_data = Vec::with_capacity(rw * rh);
-
-    for y in 0..rh {
-        let src_y = y + paste_y;
-        for x in 0..rw {
-            let src_x = x + paste_x;
-            let val = out_slice[src_y * usize_size + src_x];
-            let pixel = if range > 1e-6 {
-                ((val - min_val) * scale) as u8
-            } else {
-                0
-            };
-            cropped_mask_data.push(pixel);
-        }
-    }
-
-    let cropped_mask = GrayImage::from_raw(resized_w, resized_h, cropped_mask_data)
-        .ok_or_else(|| anyhow::anyhow!("Failed to create mask from Sky Segmentation output"))?;
-
-    let final_mask = imageops::resize(&cropped_mask, orig_width, orig_height, FilterType::Triangle);
-
-    Ok(final_mask)
+    let embeddings = generate_sam3_image_embeddings(image, image_encoder)?;
+    run_sam3_decoder(&embeddings, text_prompt, None, text_encoder, decoder, tokenizer)
 }
 
-pub fn run_u2netp_model(
-    image: &DynamicImage,
-    u2netp_session: &Mutex<Session>,
-) -> Result<GrayImage> {
-    let (orig_width, orig_height) = image.dimensions();
-
-    let resized_image = image.resize(U2NETP_INPUT_SIZE, U2NETP_INPUT_SIZE, FilterType::Triangle);
-    let (resized_w, resized_h) = resized_image.dimensions();
-    let resized_rgb = resized_image.into_rgb8();
-    let raw_pixels = resized_rgb.as_raw();
-
-    let paste_x = ((U2NETP_INPUT_SIZE - resized_w) / 2) as usize;
-    let paste_y = ((U2NETP_INPUT_SIZE - resized_h) / 2) as usize;
-
-    let mut input_tensor: Array<f32, _> =
-        Array::zeros((1, 3, U2NETP_INPUT_SIZE as usize, U2NETP_INPUT_SIZE as usize));
-
-    let mean = [0.485, 0.456, 0.406];
-    let std = [0.229, 0.224, 0.225];
-
-    let rw = resized_w as usize;
-    let rh = resized_h as usize;
-
-    for y in 0..rh {
-        for x in 0..rw {
-            let idx = (y * rw + x) * 3;
-            let dest_y = y + paste_y;
-            let dest_x = x + paste_x;
-
-            input_tensor[[0, 0, dest_y, dest_x]] =
-                (raw_pixels[idx] as f32 / 255.0 - mean[0]) / std[0];
-            input_tensor[[0, 1, dest_y, dest_x]] =
-                (raw_pixels[idx + 1] as f32 / 255.0 - mean[1]) / std[1];
-            input_tensor[[0, 2, dest_y, dest_x]] =
-                (raw_pixels[idx + 2] as f32 / 255.0 - mean[2]) / std[2];
-        }
-    }
-
-    let input_tensor_dyn = input_tensor.into_dyn();
-    let t_input = Tensor::from_array(input_tensor_dyn.as_standard_layout().into_owned())?;
-
-    let mut session = u2netp_session.lock().unwrap();
-    let outputs = session.run(ort::inputs![t_input])?;
-    let output_tensor = outputs[0].try_extract_array::<f32>()?.to_owned();
-    let out_slice = output_tensor.as_slice().unwrap();
-
-    let mut min_val = f32::MAX;
-    let mut max_val = f32::MIN;
-    for &v in out_slice {
-        min_val = min_val.min(v);
-        max_val = max_val.max(v);
-    }
-
-    let range = max_val - min_val;
-    let scale = if range > 1e-6 { 255.0 / range } else { 0.0 };
-
-    let usize_size = U2NETP_INPUT_SIZE as usize;
-    let mut cropped_mask_data = Vec::with_capacity(rw * rh);
-
-    for y in 0..rh {
-        let src_y = y + paste_y;
-        for x in 0..rw {
-            let src_x = x + paste_x;
-            let val = out_slice[src_y * usize_size + src_x];
-            let pixel = if range > 1e-6 {
-                ((val - min_val) * scale) as u8
-            } else {
-                0
-            };
-            cropped_mask_data.push(pixel);
-        }
-    }
-
-    let cropped_mask = GrayImage::from_raw(resized_w, resized_h, cropped_mask_data)
-        .ok_or_else(|| anyhow::anyhow!("Failed to create mask from U-2-Netp output"))?;
-
-    let final_mask = imageops::resize(&cropped_mask, orig_width, orig_height, FilterType::Triangle);
-
-    Ok(final_mask)
-}
-
-pub fn run_depth_anything_model(
+pub fn run_depth_anything3_model(
     image: &DynamicImage,
     depth_session: &Mutex<Session>,
 ) -> Result<GrayImage> {
-    let resized_image = image.resize(DEPTH_INPUT_SIZE, DEPTH_INPUT_SIZE, FilterType::Triangle);
-    let (resized_w, resized_h) = resized_image.dimensions();
-    let resized_rgb = resized_image.into_rgb8();
-    let raw_pixels = resized_rgb.as_raw();
-
-    let paste_x = ((DEPTH_INPUT_SIZE - resized_w) / 2) as usize;
-    let paste_y = ((DEPTH_INPUT_SIZE - resized_h) / 2) as usize;
-
-    let mut input_tensor: Array<f32, _> =
-        Array::zeros((1, 3, DEPTH_INPUT_SIZE as usize, DEPTH_INPUT_SIZE as usize));
-
-    let mean = [0.485, 0.456, 0.406];
-    let std = [0.229, 0.224, 0.225];
-
-    let rw = resized_w as usize;
-    let rh = resized_h as usize;
-
-    for y in 0..rh {
-        for x in 0..rw {
-            let idx = (y * rw + x) * 3;
-            let dest_y = y + paste_y;
-            let dest_x = x + paste_x;
-
-            input_tensor[[0, 0, dest_y, dest_x]] =
-                (raw_pixels[idx] as f32 / 255.0 - mean[0]) / std[0];
-            input_tensor[[0, 1, dest_y, dest_x]] =
-                (raw_pixels[idx + 1] as f32 / 255.0 - mean[1]) / std[1];
-            input_tensor[[0, 2, dest_y, dest_x]] =
-                (raw_pixels[idx + 2] as f32 / 255.0 - mean[2]) / std[2];
-        }
+    let (original_width, original_height) = image.dimensions();
+    if original_width == 0 || original_height == 0 {
+        anyhow::bail!("Cannot estimate depth for an empty image");
     }
 
-    let input_tensor_dyn = input_tensor.into_dyn();
-    let t_input = Tensor::from_array(input_tensor_dyn.as_standard_layout().into_owned())?;
+    // Preserve the photograph's aspect ratio and pad the unused area. This
+    // matches the previous depth pipeline and avoids geometry distortion.
+    let resized = image.resize(DEPTH_INPUT_SIZE, DEPTH_INPUT_SIZE, FilterType::Triangle).into_rgb8();
+    let (resized_width, resized_height) = resized.dimensions();
+    let raw = resized.as_raw();
+    let square_size = DEPTH_INPUT_SIZE as usize;
+    let area = square_size * square_size;
+    let paste_x = ((DEPTH_INPUT_SIZE - resized_width) / 2) as usize;
+    let paste_y = ((DEPTH_INPUT_SIZE - resized_height) / 2) as usize;
+    let mean = [0.485_f32, 0.456, 0.406];
+    let std = [0.229_f32, 0.224, 0.225];
+    let mut chw = vec![0.0_f32; area * 3];
+    for y in 0..resized_height as usize {
+        for x in 0..resized_width as usize {
+            let src = (y * resized_width as usize + x) * 3;
+            let dst = (y + paste_y) * square_size + (x + paste_x);
+            for channel in 0..3 {
+                chw[channel * area + dst] =
+                    (raw[src + channel] as f32 / 255.0 - mean[channel]) / std[channel];
+            }
+        }
+    }
+    let input = Tensor::from_array(Array::from_shape_vec(
+        (1, 3, square_size, square_size),
+        chw,
+    )?)?;
 
     let mut session = depth_session.lock().unwrap();
-    let outputs = session.run(ort::inputs![t_input])?;
-    let output_tensor = outputs[0].try_extract_array::<f32>()?.to_owned();
-    let out_slice = output_tensor.as_slice().unwrap();
-
-    let usize_size = DEPTH_INPUT_SIZE as usize;
-
-    let mut min_val = f32::MAX;
-    let mut max_val = f32::MIN;
-    for y in 0..rh {
-        let src_y = y + paste_y;
-        for x in 0..rw {
-            let src_x = x + paste_x;
-            let val = out_slice[src_y * usize_size + src_x];
-            min_val = min_val.min(val);
-            max_val = max_val.max(val);
-        }
+    let outputs = session.run(ort::inputs!["image" => input])?;
+    if outputs.is_empty() {
+        anyhow::bail!("Depth Anything 3 returned no output tensors");
+    }
+    let depth = outputs[0].try_extract_array::<f32>()?.to_owned();
+    let values = depth.as_slice().ok_or_else(|| anyhow::anyhow!("Non-contiguous DA3 output"))?;
+    if values.len() < area {
+        anyhow::bail!("Depth Anything 3 returned too few depth values: {}", values.len());
     }
 
-    let range = max_val - min_val;
-    let scale = if range > 1e-6 { 255.0 / range } else { 0.0 };
+    let plane = match depth.shape() {
+        [1, h, w] if *h == square_size && *w == square_size => &values[..area],
+        [1, 1, h, w] if *h == square_size && *w == square_size => &values[..area],
+        [h, w] if *h == square_size && *w == square_size => &values[..area],
+        shape => anyhow::bail!("Unexpected Depth Anything 3 output shape: {shape:?}"),
+    };
 
-    let mut cropped_depth_data = Vec::with_capacity(rw * rh);
-
-    for y in 0..rh {
-        let src_y = y + paste_y;
-        for x in 0..rw {
-            let src_x = x + paste_x;
-            let val = out_slice[src_y * usize_size + src_x];
-            let pixel = if range > 1e-6 {
-                ((val - min_val) * scale) as u8
-            } else {
-                0
-            };
-            cropped_depth_data.push(pixel);
-        }
+    let mut valid = Vec::with_capacity(resized_width as usize * resized_height as usize);
+    for y in 0..resized_height as usize {
+        let row = (y + paste_y) * square_size + paste_x;
+        valid.extend_from_slice(&plane[row..row + resized_width as usize]);
     }
-
-    let depth_map = GrayImage::from_raw(resized_w, resized_h, cropped_depth_data)
-        .ok_or_else(|| anyhow::anyhow!("Failed to create mask from Depth output"))?;
-
-    Ok(depth_map)
+    let (min_value, max_value) = valid.iter().copied().filter(|v| v.is_finite())
+        .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), value| {
+            (lo.min(value), hi.max(value))
+        });
+    if !min_value.is_finite() || !max_value.is_finite() || max_value - min_value <= f32::EPSILON {
+        anyhow::bail!("Depth Anything 3 returned an invalid or constant depth map");
+    }
+    // DA3's relative-depth convention is smaller = nearer. Invert the
+    // normalized output to keep the older editor's near-brighter mask behavior.
+    let scale = 255.0 / (max_value - min_value);
+    let normalized = valid.iter().map(|&value| {
+        if value.is_finite() { (255.0 - (value - min_value) * scale).clamp(0.0, 255.0) as u8 } else { 0 }
+    }).collect::<Vec<u8>>();
+    let low_res = GrayImage::from_raw(resized_width, resized_height, normalized)
+        .ok_or_else(|| anyhow::anyhow!("Failed to create DA3 depth image"))?;
+    Ok(imageops::resize(&low_res, original_width, original_height, FilterType::Triangle))
 }
 
 fn build_normal_depth(points: &[f32], mask: &[f32]) -> Vec<u8> {

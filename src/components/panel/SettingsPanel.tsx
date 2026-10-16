@@ -111,6 +111,22 @@ interface MyLens {
 const EXECUTE_TIMEOUT = 3000;
 const DEFAULT_BASELINE_EXPOSURE = 0.7;
 
+interface DisplayResolutionInfo {
+  width: number;
+  height: number;
+  scaleFactor: number;
+}
+
+const readDisplayResolution = (): DisplayResolutionInfo => {
+  if (typeof window === 'undefined') return { width: 0, height: 0, scaleFactor: 1 };
+  const scaleFactor = window.devicePixelRatio || 1;
+  return {
+    width: Math.round((window.screen?.width || window.innerWidth) * scaleFactor),
+    height: Math.round((window.screen?.height || window.innerHeight) * scaleFactor),
+    scaleFactor,
+  };
+};
+
 const resolutions: OptionItem<number>[] = [
   { value: 720, label: '720px' },
   { value: 1280, label: '1280px' },
@@ -605,6 +621,7 @@ export default function SettingsPanel({
   const [logPathLoading, setLogPathLoading] = useState(true);
   const [logPathError, setLogPathError] = useState(false);
   const [dpr, setDpr] = useState(() => (typeof window !== 'undefined' ? window.devicePixelRatio : 1));
+  const [displayResolution, setDisplayResolution] = useState<DisplayResolutionInfo>(readDisplayResolution);
 
   const settingCategories = useMemo(
     () => [
@@ -623,6 +640,17 @@ export default function SettingsPanel({
     ],
     [t],
   );
+
+  const displayResolutionOptions = useMemo<OptionItem<number>[]>(() => {
+    const maxDimension = Math.max(displayResolution.width, displayResolution.height);
+    if (!Number.isFinite(maxDimension) || maxDimension <= 0) return resolutions;
+
+    const detected = Math.max(720, Math.min(16384, Math.round(maxDimension)));
+    if (resolutions.some((option) => option.value === detected)) return resolutions;
+    return [...resolutions, { value: detected, label: `${detected}px (detected display)` }].sort(
+      (a, b) => a.value - b.value,
+    );
+  }, [displayResolution.width, displayResolution.height]);
 
   const filteredBackendOptions = useMemo<OptionItem<string>[]>(() => {
     const rawOptions = [
@@ -668,7 +696,10 @@ export default function SettingsPanel({
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const updateDpr = () => setDpr(window.devicePixelRatio);
+    const updateDpr = () => {
+      setDpr(window.devicePixelRatio);
+      setDisplayResolution(readDisplayResolution());
+    };
 
     const mediaQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
     mediaQuery.addEventListener('change', updateDpr);
@@ -1956,6 +1987,18 @@ export default function SettingsPanel({
                           onModeChange={handlePreviewModeChange}
                         />
 
+                        <div className="mt-3 rounded-lg border border-border-color px-3 py-2 space-y-1">
+                          <Text variant={TextVariants.small}>
+                            Detected display: {displayResolution.width > 0 && displayResolution.height > 0
+                              ? `${displayResolution.width} × ${displayResolution.height} px`
+                              : 'resolution unavailable'}
+                            {' '}at {displayResolution.scaleFactor.toFixed(2)}× scaling.
+                          </Text>
+                          <Text variant={TextVariants.small} color={TextColors.secondary}>
+                            The matching preview-size option is offered below when available. Resolution detection does not identify an ICC profile; monitor color management remains controlled by the operating system and the active display profile.
+                          </Text>
+                        </div>
+
                         <div className="mt-3">
                           <AnimatePresence mode="wait">
                             {!(appSettings?.enableZoomHifi ?? true) ? (
@@ -1978,7 +2021,7 @@ export default function SettingsPanel({
                                       onChange={(value: any) =>
                                         handleProcessingSettingChange('editorPreviewResolution', value)
                                       }
-                                      options={resolutions}
+                                      options={displayResolutionOptions}
                                       value={processingSettings.editorPreviewResolution}
                                       triggerClassName="bg-bg-primary"
                                     />
@@ -2005,7 +2048,7 @@ export default function SettingsPanel({
                                       onChange={(value: any) =>
                                         handleProcessingSettingChange('editorPreviewResolution', value)
                                       }
-                                      options={resolutions}
+                                      options={displayResolutionOptions}
                                       value={processingSettings.editorPreviewResolution}
                                       triggerClassName="bg-bg-primary"
                                     />
