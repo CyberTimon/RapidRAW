@@ -70,7 +70,6 @@ pub struct AiModels {
     pub sam3_text_encoder: Mutex<Session>,
     pub sam3_decoder: Mutex<Session>,
     pub sam3_tokenizer: Tokenizer,
-    pub depth_anything: Mutex<Session>,
 }
 
 pub struct ClipModels {
@@ -100,6 +99,7 @@ pub struct AiState {
     pub normal_model: Option<Arc<Mutex<Session>>>,
     pub embeddings: Option<Sam3ImageEmbeddings>,
     pub depth_map: Option<CachedDepthMap>,
+    pub depth_anything3_model: Option<Arc<Mutex<Session>>>,
 }
 
 fn edt_1d(f: &mut [f32], v: &mut [usize], z: &mut [f32], d: &mut [f32]) {
@@ -438,7 +438,6 @@ pub async fn get_or_init_ai_models(
         (SAM3_TEXT_FILENAME, SAM3_TEXT_URL, SAM3_TEXT_SHA256, "SAM 3 text encoder"),
         (SAM3_DECODER_FILENAME, SAM3_DECODER_URL, SAM3_DECODER_SHA256, "SAM 3 decoder"),
         (SAM3_TOKENIZER_FILENAME, SAM3_TOKENIZER_URL, SAM3_TOKENIZER_SHA256, "SAM 3 tokenizer"),
-        (DEPTH_FILENAME, DEPTH_URL, DEPTH_SHA256, "Depth Anything 3 Small"),
     ] {
         download_and_verify_model(app_handle, &models_dir, filename, url, hash, label).await?;
     }
@@ -451,8 +450,6 @@ pub async fn get_or_init_ai_models(
         .commit_from_file(models_dir.join(SAM3_TEXT_FILENAME))?;
     let sam3_decoder = Session::builder()?
         .commit_from_file(models_dir.join(SAM3_DECODER_FILENAME))?;
-    let depth_anything = Session::builder()?
-        .commit_from_file(models_dir.join(DEPTH_FILENAME))?;
     let sam3_tokenizer = Tokenizer::from_file(models_dir.join(SAM3_TOKENIZER_FILENAME))
         .map_err(|e| anyhow::anyhow!("Failed to load SAM 3 tokenizer: {e}"))?;
 
@@ -463,7 +460,6 @@ pub async fn get_or_init_ai_models(
         sam3_text_encoder: Mutex::new(sam3_text_encoder),
         sam3_decoder: Mutex::new(sam3_decoder),
         sam3_tokenizer,
-        depth_anything: Mutex::new(depth_anything),
     });
 
     let mut ai_state_lock = ai_state_mutex.lock().unwrap();
@@ -478,10 +474,69 @@ pub async fn get_or_init_ai_models(
             normal_model: None,
             embeddings: None,
             depth_map: None,
+            depth_anything3_model: None,
         });
     }
 
     Ok(models)
+}
+
+pub async fn get_or_init_depth_anything3_model(
+    app_handle: &tauri::AppHandle,
+    ai_state_mutex: &Mutex<Option<AiState>>,
+    ai_init_lock: &TokioMutex<()>,
+) -> Result<Arc<Mutex<Session>>> {
+    if let Some(model) = ai_state_mutex
+        .lock()
+        .unwrap()
+        .as_ref()
+        .and_then(|state| state.depth_anything3_model.clone())
+    {
+        return Ok(model);
+    }
+
+    let _guard = ai_init_lock.lock().await;
+
+    if let Some(model) = ai_state_mutex
+        .lock()
+        .unwrap()
+        .as_ref()
+        .and_then(|state| state.depth_anything3_model.clone())
+    {
+        return Ok(model);
+    }
+
+    let models_dir = get_models_dir(app_handle)?;
+    download_and_verify_model(
+        app_handle,
+        &models_dir,
+        DEPTH_FILENAME,
+        DEPTH_URL,
+        DEPTH_SHA256,
+        "Depth Anything 3 Small",
+    )
+    .await?;
+
+    let session = Session::builder()?.commit_from_file(models_dir.join(DEPTH_FILENAME))?;
+    let model = Arc::new(Mutex::new(session));
+
+    let mut state_lock = ai_state_mutex.lock().unwrap();
+    if let Some(state) = state_lock.as_mut() {
+        state.depth_anything3_model = Some(Arc::clone(&model));
+    } else {
+        *state_lock = Some(AiState {
+            models: None,
+            denoise_model: None,
+            clip_models: None,
+            lama_model: None,
+            normal_model: None,
+            embeddings: None,
+            depth_map: None,
+            depth_anything3_model: Some(Arc::clone(&model)),
+        });
+    }
+
+    Ok(model)
 }
 
 pub async fn get_or_init_denoise_model(
@@ -539,6 +594,7 @@ pub async fn get_or_init_denoise_model(
             normal_model: None,
             embeddings: None,
             depth_map: None,
+            depth_anything3_model: None,
         });
     }
 
@@ -612,6 +668,7 @@ pub async fn get_or_init_clip_models(
             normal_model: None,
             embeddings: None,
             depth_map: None,
+            depth_anything3_model: None,
         });
     }
 
@@ -673,6 +730,7 @@ pub async fn get_or_init_lama_model(
             normal_model: None,
             embeddings: None,
             depth_map: None,
+            depth_anything3_model: None,
         });
     }
 
@@ -734,6 +792,7 @@ pub async fn get_or_init_normal_model(
             normal_model: Some(normal_model.clone()),
             embeddings: None,
             depth_map: None,
+            depth_anything3_model: None,
         });
     }
 
@@ -1328,19 +1387,19 @@ pub fn run_sam3_decoder(
                 let value = mask_values[index * mask_area + py * mask_width + px];
                 if value > 0.0 { rank += 2.0; }
             } else if box_values.len() >= index * 4 + 4 {
+                // The exported SAM 3 decoder returns normalized XYXY boxes.
                 let p = &box_values[index * 4..index * 4 + 4];
-                let (cx, cy, bw, bh) = (p[0], p[1], p[2], p[3]);
                 let px1 = box_norm[0] - box_norm[2] / 2.0;
                 let py1 = box_norm[1] - box_norm[3] / 2.0;
                 let px2 = box_norm[0] + box_norm[2] / 2.0;
                 let py2 = box_norm[1] + box_norm[3] / 2.0;
-                let x1 = (cx - bw / 2.0).max(px1);
-                let y1 = (cy - bh / 2.0).max(py1);
-                let x2 = (cx + bw / 2.0).min(px2);
-                let y2 = (cy + bh / 2.0).min(py2);
+                let x1 = p[0].max(px1);
+                let y1 = p[1].max(py1);
+                let x2 = p[2].min(px2);
+                let y2 = p[3].min(py2);
                 let intersection = (x2 - x1).max(0.0) * (y2 - y1).max(0.0);
-                let area_a = bw.max(0.0) * bh.max(0.0);
-                let area_b = box_norm[2].max(0.0) * box_norm[3].max(0.0);
+                let area_a = (p[2] - p[0]).max(0.0) * (p[3] - p[1]).max(0.0);
+                let area_b = (px2 - px1).max(0.0) * (py2 - py1).max(0.0);
                 let union = area_a + area_b - intersection;
                 if union > 0.0 { rank += 1.5 * intersection / union; }
             }
