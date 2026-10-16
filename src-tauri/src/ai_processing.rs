@@ -17,7 +17,6 @@ use sha2::{Digest, Sha256};
 use tauri::Emitter;
 use tauri::Manager;
 use tokenizers::Tokenizer;
-use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex as TokioMutex;
 
 const SAM3_IMAGE_URL: &str = "https://github.com/jamjamjon/assets/releases/download/sam3/vision-encoder-q4f16.onnx";

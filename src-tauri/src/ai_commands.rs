@@ -239,7 +239,7 @@ pub async fn generate_ai_depth_mask(
                 return Err("Task cancelled".to_string());
             }
 
-            let depth_img = run_depth_anything_model(warped_image.as_ref(), &models.depth_anything)
+            let depth_img = run_depth_anything3_model(warped_image.as_ref(), &models.depth_anything)
                 .map_err(|e| e.to_string())?;
 
             let new_cache = CachedDepthMap {
@@ -299,7 +299,7 @@ pub async fn generate_full_image_depth_map(
     let source_image =
         crate::mask_generation::build_full_source_image(&loaded_image.image, loaded_image.is_raw);
 
-    let depth_img = crate::ai_processing::run_depth_anything_model(
+    let depth_img = crate::ai_processing::run_depth_anything3_model(
         source_image.as_ref(),
         &models.depth_anything,
     )
@@ -417,7 +417,7 @@ pub async fn generate_ai_subject_mask(
         } else {
             drop(ai_state_lock);
             let mut new_embeddings =
-                generate_image_embeddings(warped_image.as_ref(), &models.sam_encoder)
+                generate_sam3_image_embeddings(warped_image.as_ref(), &models.sam3_image_encoder)
                     .map_err(|e| e.to_string())?;
 
             new_embeddings.path_hash = path_hash.clone();
@@ -573,7 +573,7 @@ pub async fn precompute_ai_subject_mask(
     }
 
     let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
-    let mut new_embeddings = generate_image_embeddings(warped_image.as_ref(), &models.sam_encoder)
+    let mut new_embeddings = generate_sam3_image_embeddings(warped_image.as_ref(), &models.sam3_image_encoder)
         .map_err(|e| e.to_string())?;
 
     new_embeddings.path_hash = path_hash.clone();
