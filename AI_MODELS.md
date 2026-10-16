@@ -17,6 +17,8 @@ The chosen SAM 3 ONNX files come from the [SAM 3 ONNX export release](https://gi
 - WGPU remains the independent interactive-preview renderer. This model change does not remove or bypass it.
 - Each SAM 3 call processes one image, caches the image embeddings, and only upsamples the winning mask. That keeps peak memory lower than upscaling every SAM 3 proposal.
 - SAM 3 is still a large model. Its Q4F16 exports reduce disk/RAM requirements, but first use downloads roughly 700 MB of assets and larger photographs consume additional activation memory. 16 GB RAM is a practical target, not a guarantee for every driver, OS, and source image.
+- Downloads are lazy and feature-specific: segmentation downloads roughly 590 MB of SAM 3 ONNX weights, while depth estimation downloads the separate ~101 MB DA3 Small file. Using only one feature does not download the other model family.
+- When the replacement model has loaded successfully, known obsolete model files (SAM 2, U²-Net/skyseg, Depth Anything V2) are deleted from RapidRAW's private model cache to avoid wasting disk space. User images and other files are not touched.
 - The main app binary size and model-download size are separate budgets. A 20 MB app target does not mean a 20 MB AI model.
 
 ## Licensing

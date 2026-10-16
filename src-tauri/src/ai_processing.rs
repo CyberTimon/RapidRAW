@@ -8,7 +8,7 @@ use image::imageops::{self, FilterType};
 use image::{
     DynamicImage, GenericImageView, GrayImage, ImageBuffer, Luma, Rgb, Rgb32FImage, Rgba, RgbaImage,
 };
-use ndarray::{Array, Array4, IxDyn};
+use ndarray::{Array, Array4};
 use ort::session::Session;
 use ort::value::{DynValue, Tensor};
 use rayon::prelude::*;
@@ -320,6 +320,20 @@ fn get_models_dir(app_handle: &tauri::AppHandle) -> Result<PathBuf> {
     Ok(models_dir)
 }
 
+/// Remove only known legacy model-weight filenames after their replacements have
+/// loaded successfully. This avoids retaining hundreds of megabytes of stale
+/// SAM 2/U²-Net/Depth Anything V2 assets without touching any user photographs.
+fn remove_obsolete_model_assets(models_dir: &Path, filenames: &[&str]) {
+    for filename in filenames {
+        let path = models_dir.join(filename);
+        if path.is_file() {
+            if let Err(error) = fs::remove_file(&path) {
+                eprintln!("Could not remove obsolete AI model {}: {}", path.display(), error);
+            }
+        }
+    }
+}
+
 async fn download_model(url: &str, dest: &Path) -> Result<()> {
     use tokio::io::AsyncWriteExt as _;
 
@@ -462,6 +476,17 @@ pub async fn get_or_init_ai_models(
         sam3_tokenizer,
     });
 
+    remove_obsolete_model_assets(
+        &models_dir,
+        &[
+            "sam_vit_b_01ec64_encoder.onnx",
+            "sam_vit_b_01ec64_decoder.onnx",
+            "u2net.onnx",
+            "skyseg_u2net.onnx",
+            "skyseg-u2net.onnx",
+        ],
+    );
+
     let mut ai_state_lock = ai_state_mutex.lock().unwrap();
     if let Some(state) = ai_state_lock.as_mut() {
         state.models = Some(models.clone());
@@ -519,6 +544,8 @@ pub async fn get_or_init_depth_anything3_model(
 
     let session = Session::builder()?.commit_from_file(models_dir.join(DEPTH_FILENAME))?;
     let model = Arc::new(Mutex::new(session));
+
+    remove_obsolete_model_assets(&models_dir, &["depth_anything_v2_vits.onnx"]);
 
     let mut state_lock = ai_state_mutex.lock().unwrap();
     if let Some(state) = state_lock.as_mut() {
