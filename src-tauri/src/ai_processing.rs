@@ -1419,18 +1419,20 @@ pub fn run_sam3_decoder(
                 let value = mask_values[index * mask_area + py * mask_width + px];
                 if value > 0.0 { rank += 2.0; }
             } else if box_values.len() >= index * 4 + 4 {
-                // The exported SAM 3 decoder returns normalized XYXY boxes.
+                // Raw SAM 3 decoder boxes are normalized center-x, center-y,
+                // width, height. Convert to XYXY before comparing with the prompt.
                 let p = &box_values[index * 4..index * 4 + 4];
+                let (cx, cy, bw, bh) = (p[0], p[1], p[2].max(0.0), p[3].max(0.0));
                 let px1 = box_norm[0] - box_norm[2] / 2.0;
                 let py1 = box_norm[1] - box_norm[3] / 2.0;
                 let px2 = box_norm[0] + box_norm[2] / 2.0;
                 let py2 = box_norm[1] + box_norm[3] / 2.0;
-                let x1 = p[0].max(px1);
-                let y1 = p[1].max(py1);
-                let x2 = p[2].min(px2);
-                let y2 = p[3].min(py2);
+                let x1 = (cx - bw / 2.0).max(px1);
+                let y1 = (cy - bh / 2.0).max(py1);
+                let x2 = (cx + bw / 2.0).min(px2);
+                let y2 = (cy + bh / 2.0).min(py2);
                 let intersection = (x2 - x1).max(0.0) * (y2 - y1).max(0.0);
-                let area_a = (p[2] - p[0]).max(0.0) * (p[3] - p[1]).max(0.0);
+                let area_a = bw * bh;
                 let area_b = (px2 - px1).max(0.0) * (py2 - py1).max(0.0);
                 let union = area_a + area_b - intersection;
                 if union > 0.0 { rank += 1.5 * intersection / union; }
