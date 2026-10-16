@@ -44,7 +44,7 @@ fn hash_ai_patches(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) 
             is_visible.hash(hasher);
 
             if let Some(patch_data) = patch.get("patchData") {
-                patch_data.to_string().hash(hasher);
+                patch_data.hash(hasher);
             } else {
                 patch["patchDataBase64"].as_str().unwrap_or("").hash(hasher);
             }
