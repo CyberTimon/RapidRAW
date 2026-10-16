@@ -1246,9 +1246,14 @@ pub fn generate_sam3_image_embeddings(
     }
 
     let mut features = Vec::with_capacity(4);
-    for index in 0..4 {
-        let owned = outputs[index].view().try_upgrade()?;
-        features.push(Arc::new(owned));
+    let mut output_iter = outputs.into_iter();
+    for _ in 0..4 {
+        let output = output_iter
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("SAM 3 vision encoder returned too few features"))?;
+        // Session::run already gives owned output values. Keep those values alive
+        // in the image cache so the decoder can reuse them without a copy.
+        features.push(Arc::new(output));
     }
 
     Ok(Sam3ImageEmbeddings {
@@ -1477,24 +1482,30 @@ pub fn run_depth_anything3_model(
         anyhow::bail!("Cannot estimate depth for an empty image");
     }
 
-    // DA3-Small ONNX expects square RGB ImageNet-normalized NCHW input.
-    let resized = image.resize_exact(
-        DEPTH_INPUT_SIZE,
-        DEPTH_INPUT_SIZE,
-        FilterType::Triangle,
-    ).into_rgb8();
+    // Preserve the photograph's aspect ratio and pad the unused area. This
+    // matches the previous depth pipeline and avoids geometry distortion.
+    let resized = image.resize(DEPTH_INPUT_SIZE, DEPTH_INPUT_SIZE, FilterType::Triangle).into_rgb8();
+    let (resized_width, resized_height) = resized.dimensions();
     let raw = resized.as_raw();
-    let area = (DEPTH_INPUT_SIZE as usize) * (DEPTH_INPUT_SIZE as usize);
+    let square_size = DEPTH_INPUT_SIZE as usize;
+    let area = square_size * square_size;
+    let paste_x = ((DEPTH_INPUT_SIZE - resized_width) / 2) as usize;
+    let paste_y = ((DEPTH_INPUT_SIZE - resized_height) / 2) as usize;
     let mean = [0.485_f32, 0.456, 0.406];
     let std = [0.229_f32, 0.224, 0.225];
-    let mut chw = Vec::with_capacity(area * 3);
-    for channel in 0..3 {
-        for pixel in raw.chunks_exact(3) {
-            chw.push((pixel[channel] as f32 / 255.0 - mean[channel]) / std[channel]);
+    let mut chw = vec![0.0_f32; area * 3];
+    for y in 0..resized_height as usize {
+        for x in 0..resized_width as usize {
+            let src = (y * resized_width as usize + x) * 3;
+            let dst = (y + paste_y) * square_size + (x + paste_x);
+            for channel in 0..3 {
+                chw[channel * area + dst] =
+                    (raw[src + channel] as f32 / 255.0 - mean[channel]) / std[channel];
+            }
         }
     }
     let input = Tensor::from_array(Array::from_shape_vec(
-        (1, 3, DEPTH_INPUT_SIZE as usize, DEPTH_INPUT_SIZE as usize),
+        (1, 3, square_size, square_size),
         chw,
     )?)?;
 
@@ -1509,7 +1520,18 @@ pub fn run_depth_anything3_model(
         anyhow::bail!("Depth Anything 3 returned too few depth values: {}", values.len());
     }
 
-    let valid = &values[..area];
+    let plane = match depth.shape() {
+        [1, h, w] if *h == square_size && *w == square_size => &values[..area],
+        [1, 1, h, w] if *h == square_size && *w == square_size => &values[..area],
+        [h, w] if *h == square_size && *w == square_size => &values[..area],
+        shape => anyhow::bail!("Unexpected Depth Anything 3 output shape: {shape:?}"),
+    };
+
+    let mut valid = Vec::with_capacity(resized_width as usize * resized_height as usize);
+    for y in 0..resized_height as usize {
+        let row = (y + paste_y) * square_size + paste_x;
+        valid.extend_from_slice(&plane[row..row + resized_width as usize]);
+    }
     let (min_value, max_value) = valid.iter().copied().filter(|v| v.is_finite())
         .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), value| {
             (lo.min(value), hi.max(value))
@@ -1517,11 +1539,13 @@ pub fn run_depth_anything3_model(
     if !min_value.is_finite() || !max_value.is_finite() || max_value - min_value <= f32::EPSILON {
         anyhow::bail!("Depth Anything 3 returned an invalid or constant depth map");
     }
+    // DA3's relative-depth convention is smaller = nearer. Invert the
+    // normalized output to keep the older editor's near-brighter mask behavior.
     let scale = 255.0 / (max_value - min_value);
     let normalized = valid.iter().map(|&value| {
-        if value.is_finite() { ((value - min_value) * scale).clamp(0.0, 255.0) as u8 } else { 0 }
+        if value.is_finite() { (255.0 - (value - min_value) * scale).clamp(0.0, 255.0) as u8 } else { 0 }
     }).collect::<Vec<u8>>();
-    let low_res = GrayImage::from_raw(DEPTH_INPUT_SIZE, DEPTH_INPUT_SIZE, normalized)
+    let low_res = GrayImage::from_raw(resized_width, resized_height, normalized)
         .ok_or_else(|| anyhow::anyhow!("Failed to create DA3 depth image"))?;
     Ok(imageops::resize(&low_res, original_width, original_height, FilterType::Triangle))
 }
