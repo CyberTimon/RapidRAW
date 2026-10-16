@@ -10,12 +10,66 @@ use crate::ai_processing::{
     AiDepthMaskParameters, AiForegroundMaskParameters, AiSkyMaskParameters,
     AiSubjectMaskParameters, CachedDepthMap, generate_sam3_image_embeddings,
     get_or_init_ai_models, get_or_init_depth_anything3_model, run_depth_anything3_model,
-    run_sam3_decoder, run_sam3_text_mask,
+    run_sam3_decoder,
 };
 use crate::app_settings::load_settings;
 use crate::app_state::{AiTaskGuard, AppState};
 use crate::cache_utils::GEOMETRY_KEYS;
 use crate::get_cached_full_warped_image;
+
+fn sam3_embedding_hash(path: &str, js_adjustments: &serde_json::Value) -> String {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(path.as_bytes());
+    let mut geo_hasher = DefaultHasher::new();
+    for key in GEOMETRY_KEYS {
+        if let Some(value) = js_adjustments.get(key) {
+            key.hash(&mut geo_hasher);
+            value.to_string().hash(&mut geo_hasher);
+        }
+    }
+    hasher.update(&geo_hasher.finish().to_le_bytes());
+    hasher.finalize().to_hex().to_string()
+}
+
+/// Reuse SAM 3's large image-encoder outputs across different text/box prompts.
+/// The cache key includes the source path and all geometry-affecting adjustments.
+fn get_or_generate_sam3_embeddings(
+    ai_state_mutex: &std::sync::Mutex<Option<crate::ai_processing::AiState>>,
+    image: &image::DynamicImage,
+    models: &crate::ai_processing::AiModels,
+    path_hash: &str,
+) -> Result<crate::ai_processing::Sam3ImageEmbeddings, String> {
+    {
+        let state_lock = ai_state_mutex.lock().map_err(|e| e.to_string())?;
+        if let Some(cached) = state_lock
+            .as_ref()
+            .and_then(|state| state.embeddings.as_ref())
+            .filter(|cached| cached.path_hash == path_hash)
+        {
+            return Ok(cached.clone());
+        }
+    }
+
+    let mut embeddings = generate_sam3_image_embeddings(image, &models.sam3_image_encoder)
+        .map_err(|e| e.to_string())?;
+    embeddings.path_hash = path_hash.to_owned();
+
+    let mut state_lock = ai_state_mutex.lock().map_err(|e| e.to_string())?;
+    let state = state_lock
+        .as_mut()
+        .ok_or_else(|| "AI model state was not initialized".to_string())?;
+    // Another prompt may have populated the same cache key while this call was
+    // encoding. Prefer the cached output and avoid replacing identical data.
+    if let Some(cached) = state
+        .embeddings
+        .as_ref()
+        .filter(|cached| cached.path_hash == path_hash)
+    {
+        return Ok(cached.clone());
+    }
+    state.embeddings = Some(embeddings.clone());
+    Ok(embeddings)
+}
 
 #[tauri::command]
 pub fn cancel_ai_task(task_id: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
@@ -70,10 +124,18 @@ pub async fn generate_ai_foreground_mask(
         return Err("Task cancelled".to_string());
     }
 
-    let full_mask_image = run_sam3_text_mask(
+    let loaded_image = get_loaded_image(&state)?;
+    let path_hash = sam3_embedding_hash(&loaded_image.path, &js_adjustments);
+    let embeddings = get_or_generate_sam3_embeddings(
+        &state.ai_state,
         warped_image.as_ref(),
+        models.as_ref(),
+        &path_hash,
+    )?;
+    let full_mask_image = run_sam3_decoder(
+        &embeddings,
         "object",
-        &models.sam3_image_encoder,
+        None,
         &models.sam3_text_encoder,
         &models.sam3_decoder,
         &models.sam3_tokenizer,
@@ -129,10 +191,18 @@ pub async fn generate_ai_sky_mask(
         return Err("Task cancelled".to_string());
     }
 
-    let full_mask_image = run_sam3_text_mask(
+    let loaded_image = get_loaded_image(&state)?;
+    let path_hash = sam3_embedding_hash(&loaded_image.path, &js_adjustments);
+    let embeddings = get_or_generate_sam3_embeddings(
+        &state.ai_state,
         warped_image.as_ref(),
+        models.as_ref(),
+        &path_hash,
+    )?;
+    let full_mask_image = run_sam3_decoder(
+        &embeddings,
         "sky",
-        &models.sam3_image_encoder,
+        None,
         &models.sam3_text_encoder,
         &models.sam3_decoder,
         &models.sam3_tokenizer,
@@ -372,21 +442,11 @@ pub async fn generate_ai_subject_mask(
         .await
         .map_err(|e| e.to_string())?;
 
-    let path_hash = {
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(path.as_bytes());
-        let mut geo_hasher = DefaultHasher::new();
-        for key in GEOMETRY_KEYS {
-            if let Some(val) = js_adjustments.get(key) {
-                key.hash(&mut geo_hasher);
-                val.to_string().hash(&mut geo_hasher);
-            }
-        }
-        hasher.update(&geo_hasher.finish().to_le_bytes());
-        hasher.finalize().to_hex().to_string()
-    };
+    let path_hash = sam3_embedding_hash(&path, &js_adjustments);
 
     if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
+        return Err("Task cancelled".to_string());
+    }    if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
         return Err("Task cancelled".to_string());
     }
 
@@ -396,42 +456,16 @@ pub async fn generate_ai_subject_mask(
         return Err("Task cancelled".to_string());
     }
 
-    let embeddings = {
-        let mut ai_state_lock = state.ai_state.lock().unwrap();
-        let ai_state = ai_state_lock.as_mut().unwrap();
-
-        if let Some(cached_embeddings) = &ai_state.embeddings {
-            if cached_embeddings.path_hash == path_hash {
-                cached_embeddings.clone()
-            } else {
-                drop(ai_state_lock);
-                let mut new_embeddings =
-                    generate_sam3_image_embeddings(warped_image.as_ref(), &models.sam3_image_encoder)
-                        .map_err(|e| e.to_string())?;
-
-                new_embeddings.path_hash = path_hash.clone();
-
-                let mut ai_state_lock = state.ai_state.lock().unwrap();
-                let ai_state = ai_state_lock.as_mut().unwrap();
-                ai_state.embeddings = Some(new_embeddings.clone());
-                new_embeddings
-            }
-        } else {
-            drop(ai_state_lock);
-            let mut new_embeddings =
-                generate_sam3_image_embeddings(warped_image.as_ref(), &models.sam3_image_encoder)
-                    .map_err(|e| e.to_string())?;
-
-            new_embeddings.path_hash = path_hash.clone();
-
-            let mut ai_state_lock = state.ai_state.lock().unwrap();
-            let ai_state = ai_state_lock.as_mut().unwrap();
-            ai_state.embeddings = Some(new_embeddings.clone());
-            new_embeddings
-        }
-    };
+    let embeddings = get_or_generate_sam3_embeddings(
+        &state.ai_state,
+        warped_image.as_ref(),
+        models.as_ref(),
+        &path_hash,
+    )?;
 
     if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
+        return Err("Task cancelled".to_string());
+    }    if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
         return Err("Task cancelled".to_string());
     }
 
@@ -550,40 +584,15 @@ pub async fn precompute_ai_subject_mask(
         .await
         .map_err(|e| e.to_string())?;
 
-    let path_hash = {
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(path.as_bytes());
-        let mut geo_hasher = DefaultHasher::new();
-        for key in GEOMETRY_KEYS {
-            if let Some(val) = js_adjustments.get(key) {
-                key.hash(&mut geo_hasher);
-                val.to_string().hash(&mut geo_hasher);
-            }
-        }
-        hasher.update(&geo_hasher.finish().to_le_bytes());
-        hasher.finalize().to_hex().to_string()
-    };
-
-    {
-        let ai_state_lock = state.ai_state.lock().unwrap();
-        if let Some(ai_state) = ai_state_lock.as_ref()
-            && let Some(cached_embeddings) = &ai_state.embeddings
-            && cached_embeddings.path_hash == path_hash
-        {
-            return Ok(());
-        }
-    }
+    let path_hash = sam3_embedding_hash(&path, &js_adjustments);
 
     let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
-    let mut new_embeddings = generate_sam3_image_embeddings(warped_image.as_ref(), &models.sam3_image_encoder)
-        .map_err(|e| e.to_string())?;
-
-    new_embeddings.path_hash = path_hash.clone();
-
-    let mut ai_state_lock = state.ai_state.lock().unwrap();
-    if let Some(ai_state) = ai_state_lock.as_mut() {
-        ai_state.embeddings = Some(new_embeddings);
-    }
+    let _ = get_or_generate_sam3_embeddings(
+        &state.ai_state,
+        warped_image.as_ref(),
+        models.as_ref(),
+        &path_hash,
+    )?;
 
     Ok(())
 }
