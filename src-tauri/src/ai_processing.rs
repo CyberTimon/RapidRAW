@@ -1452,18 +1452,19 @@ pub fn run_sam3_decoder(
         return Ok(GrayImage::new(orig_width, orig_height));
     };
 
-    // Only upscale the winning mask. Upscaling all 200 proposals would multiply
-    // memory use on large photographs without improving the chosen result.
+    // Only upscale the winning mask. Keep logits until after resizing, matching
+    // the selected export's reference post-processing and avoiding hundreds of
+    // unnecessary full-resolution proposals on large photographs.
     let offset = best_index * mask_area;
-    let probabilities: Vec<f32> = mask_values[offset..offset + mask_area]
-        .iter().map(|&v| sam3_sigmoid(v)).collect();
     let low_res = ImageBuffer::<Luma<f32>, Vec<f32>>::from_raw(
         mask_width as u32,
         mask_height as u32,
-        probabilities,
+        mask_values[offset..offset + mask_area].to_vec(),
     ).ok_or_else(|| anyhow::anyhow!("Invalid SAM 3 mask dimensions"))?;
     let resized = imageops::resize(&low_res, orig_width, orig_height, FilterType::Triangle);
-    let binary = resized.as_raw().iter().map(|&value| if value >= 0.5 { 255 } else { 0 }).collect();
+    let binary = resized.as_raw().iter()
+        .map(|&logit| if sam3_sigmoid(logit) >= 0.5 { 255 } else { 0 })
+        .collect();
     GrayImage::from_raw(orig_width, orig_height, binary)
         .ok_or_else(|| anyhow::anyhow!("Failed to create full-resolution SAM 3 mask"))
 }
