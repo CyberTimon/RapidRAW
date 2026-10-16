@@ -238,6 +238,8 @@ export type GroupingMode = 'off' | GroupPreference;
 export type CompareView = 'off' | 'vertical' | 'horizontal' | 'sideBySide';
 export type CompareMode = 'toggle' | Exclude<CompareView, 'off'>;
 
+export const DEFAULT_CROP_CONTROLS_OUTSIDE_CROP_TOOL = true;
+
 export interface AppSettings {
   aiCacheLimitGb?: number;
   aiMapsCacheLimitGb?: number;
@@ -291,6 +293,7 @@ export interface AppSettings {
   editorNeutralGreyBg?: boolean;
   canvasInputMode?: 'mouse' | 'trackpad';
   compareMode?: CompareMode;
+  cropControlsOutsideCropTool?: boolean;
   whiteBalanceMode?: WhiteBalanceMode;
   zoomSpeedMultiplier?: number;
   zoomPhotoToPixelClick?: boolean;

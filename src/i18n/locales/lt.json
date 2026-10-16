@@ -1906,6 +1906,9 @@
       "shortcuts": "Valdymas"
     },
     "controls": {
+      "cropGestures": "Ctrl kadravimo valdikliai",
+      "cropGesturesDesc": "Leisti už kadravimo įrankio ribų",
+      "cropGesturesInfo": "Ctrl + slinkimas keičia kadravimo sritį, Ctrl + tempimas perkelia ją paveikslo viduje, o Ctrl + dvigubas spustelėjimas ją atstato. Kai tai išjungta, šie judesiai veikia tik kadravimo įrankyje.",
       "keyboardTitle": "Klaviatūros valdymas",
       "modes": {
         "mouse": "Pelė",
