@@ -542,9 +542,13 @@ pub async fn get_or_init_depth_anything3_model(
     )
     .await?;
 
+    // Depth can be the first AI feature used in a fresh session, so initialize
+    // ONNX Runtime here instead of relying on a segmentation model having run.
+    let _ = ort::init().with_name("AI-Depth").commit();
     let session = Session::builder()?.commit_from_file(models_dir.join(DEPTH_FILENAME))?;
     let model = Arc::new(Mutex::new(session));
 
+    crate::register_exit_handler();
     remove_obsolete_model_assets(&models_dir, &["depth_anything_v2_vits.onnx"]);
 
     let mut state_lock = ai_state_mutex.lock().unwrap();
