@@ -235,6 +235,8 @@ export interface AppSettings {
   linearRawMode?: string;
   enableXmpSync?: boolean;
   createXmpIfMissing?: boolean;
+  enableExternalControl?: boolean;
+  externalControlPort?: number;
   isWaveformVisible?: boolean;
   waveformHeight?: number;
   activeWaveformChannel?: string;
