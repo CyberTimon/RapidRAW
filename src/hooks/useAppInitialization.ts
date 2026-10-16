@@ -269,6 +269,8 @@ export const useAppInitialization = ({
           .then((launch: any) => {
             if (launch?.editSession) {
               useProcessStore.getState().setProcess({ externalEditSession: launch.editSession });
+            } else if (launch?.openWithFolder) {
+              useProcessStore.getState().setProcess({ initialFolderToOpen: launch.openWithFolder });
             } else if (launch?.openWithFile) {
               useProcessStore.getState().setProcess({ initialFileToOpen: launch.openWithFile });
             }

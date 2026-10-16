@@ -89,6 +89,9 @@ export function useTauriListeners({
       listen('open-with-file', (event: any) => {
         if (isEffectActive) useProcessStore.getState().setProcess({ initialFileToOpen: event.payload as string });
       }),
+      listen('open-with-folder', (event: any) => {
+        if (isEffectActive) useProcessStore.getState().setProcess({ initialFolderToOpen: event.payload as string });
+      }),
       listen('external-edit-session', (event: any) => {
         if (isEffectActive) useProcessStore.getState().setProcess({ externalEditSession: event.payload });
       }),
