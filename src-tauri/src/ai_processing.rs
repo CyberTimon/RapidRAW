@@ -322,7 +322,7 @@ fn get_models_dir(app_handle: &tauri::AppHandle) -> Result<PathBuf> {
 
 /// Remove only known legacy model-weight filenames after their replacements have
 /// loaded successfully. This avoids retaining hundreds of megabytes of stale
-/// SAM 2/U²-Net/Depth Anything V2 assets without touching any user photographs.
+/// legacy SAM ViT-B/SAM-v1-style, U²-Net/skyseg, and Depth Anything V2 assets without touching any user photographs.
 fn remove_obsolete_model_assets(models_dir: &Path, filenames: &[&str]) {
     for filename in filenames {
         let path = models_dir.join(filename);
