@@ -446,8 +446,6 @@ pub async fn generate_ai_subject_mask(
 
     if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
         return Err("Task cancelled".to_string());
-    }    if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
-        return Err("Task cancelled".to_string());
     }
 
     let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
@@ -464,8 +462,6 @@ pub async fn generate_ai_subject_mask(
     )?;
 
     if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
-        return Err("Task cancelled".to_string());
-    }    if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
         return Err("Task cancelled".to_string());
     }
 
