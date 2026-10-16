@@ -111,6 +111,20 @@ interface MyLens {
 const EXECUTE_TIMEOUT = 3000;
 const DEFAULT_BASELINE_EXPOSURE = 0.7;
 
+interface DisplayColorInfo {
+  platform: string;
+  iccProfilePath: string | null;
+  iccStatus: string;
+  cpuName: string;
+  logicalCpuCount: number;
+  gpuName: string | null;
+  gpuBackend: string | null;
+  gpuDeviceType: string | null;
+  gpuStatus: string;
+  optimizationProfile: string;
+  note: string;
+}
+
 interface DisplayResolutionInfo {
   width: number;
   height: number;
@@ -622,6 +636,9 @@ export default function SettingsPanel({
   const [logPathError, setLogPathError] = useState(false);
   const [dpr, setDpr] = useState(() => (typeof window !== 'undefined' ? window.devicePixelRatio : 1));
   const [displayResolution, setDisplayResolution] = useState<DisplayResolutionInfo>(readDisplayResolution);
+  const [displayColorInfo, setDisplayColorInfo] = useState<DisplayColorInfo | null>(null);
+  const [displayColorInfoError, setDisplayColorInfoError] = useState<string>('');
+  const [displayColorInfoLoading, setDisplayColorInfoLoading] = useState(false);
 
   const settingCategories = useMemo(
     () => [
@@ -710,6 +727,16 @@ export default function SettingsPanel({
       mediaQuery.removeEventListener('change', updateDpr);
       window.removeEventListener('resize', updateDpr);
     };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setDisplayColorInfoLoading(true);
+    invoke<DisplayColorInfo>('get_display_color_info')
+      .then((info) => { if (!cancelled) setDisplayColorInfo(info); })
+      .catch((error) => { if (!cancelled) setDisplayColorInfoError(String(error)); })
+      .finally(() => { if (!cancelled) setDisplayColorInfoLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
   const customAiTags = Array.from(new Set<string>(appSettings?.customAiTags || []));
@@ -1995,8 +2022,39 @@ export default function SettingsPanel({
                             {' '}at {displayResolution.scaleFactor.toFixed(2)}× scaling.
                           </Text>
                           <Text variant={TextVariants.small} color={TextColors.secondary}>
-                            The matching preview-size option is offered below when available. Resolution detection does not identify an ICC profile; monitor color management remains controlled by the operating system and the active display profile.
+                            The matching preview-size option is offered below when available.
                           </Text>
+                        </div>
+
+                        <div className="mt-3 rounded-lg border border-border-color px-3 py-3 space-y-2">
+                          <Text variant={TextVariants.heading}>Display color and hardware</Text>
+                          <Text variant={TextVariants.small}>
+                            {displayColorInfoLoading ? 'Detecting display profile and graphics adapter…' :
+                              displayColorInfoError || displayColorInfo?.iccStatus || 'Display information unavailable.'}
+                          </Text>
+                          {displayColorInfo?.iccProfilePath && (
+                            <Text variant={TextVariants.small}>ICC profile: {displayColorInfo.iccProfilePath}</Text>
+                          )}
+                          {displayColorInfo && (
+                            <>
+                              <Text variant={TextVariants.small}>CPU: {displayColorInfo.cpuName} ({displayColorInfo.logicalCpuCount} logical threads)</Text>
+                              <Text variant={TextVariants.small}>GPU: {displayColorInfo.gpuName || 'Not detected'}{displayColorInfo.gpuBackend ? ` · ${displayColorInfo.gpuBackend}` : ''}{displayColorInfo.gpuDeviceType ? ` · ${displayColorInfo.gpuDeviceType}` : ''}</Text>
+                              <Text variant={TextVariants.small}>Performance profile: {displayColorInfo.optimizationProfile}</Text>
+                              <Text variant={TextVariants.small} color={TextColors.secondary}>{displayColorInfo.note}</Text>
+                            </>
+                          )}
+                          <button
+                            type="button"
+                            className="text-sm text-accent hover:underline"
+                            onClick={() => {
+                              setDisplayColorInfoError('');
+                              setDisplayColorInfoLoading(true);
+                              invoke<DisplayColorInfo>('get_display_color_info')
+                                .then(setDisplayColorInfo)
+                                .catch((error) => setDisplayColorInfoError(String(error)))
+                                .finally(() => setDisplayColorInfoLoading(false));
+                            }}
+                          >Refresh detection</button>
                         </div>
 
                         <div className="mt-3">
