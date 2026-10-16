@@ -19,6 +19,7 @@ The chosen SAM 3 ONNX files come from the [SAM 3 ONNX export release](https://gi
 - SAM 3 is still a large model. Its Q4F16 exports reduce disk/RAM requirements, but first use downloads roughly 700 MB of assets and larger photographs consume additional activation memory. 16 GB RAM is a practical target, not a guarantee for every driver, OS, and source image.
 - Downloads are lazy and feature-specific: segmentation downloads roughly 590 MB of SAM 3 ONNX weights, while depth estimation downloads the separate ~101 MB DA3 Small file. Using only one feature does not download the other model family.
 - When the replacement model has loaded successfully, known obsolete model files from RapidRAW's prior SAM ViT-B/SAM-v1 encoder-decoder pipeline, U²-Net/skyseg, and Depth Anything V2 are deleted from RapidRAW's private model cache to avoid wasting disk space. User images and other files are not touched.
+- The existing release profile already uses one codegen unit, link-time optimization (LTO), and symbol stripping. The replacement model weights remain external to the executable, so they do not inflate the binary. Actual executable and installer sizes still need to be measured from platform builds; a 20 MB whole-installer guarantee is not realistic to make from source alone because Tauri, native dependencies, WebView packaging, and bundled resources vary by platform.
 - The main app binary size and model-download size are separate budgets. A 20 MB app target does not mean a 20 MB AI model.
 
 ## Licensing
