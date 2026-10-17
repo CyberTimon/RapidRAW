@@ -12,6 +12,7 @@ use rawler::{
     rawimage::{RawImage, RawPhotometricInterpretation},
     rawsource::RawSource,
 };
+use rayon::prelude::*;
 use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
@@ -227,7 +228,7 @@ fn develop_internal(
 
     match &mut developed_intermediate {
         Intermediate::Monochrome(pixels) => {
-            pixels.data.iter_mut().for_each(|p| {
+            pixels.data.par_iter_mut().for_each(|p| {
                 let mut linear_val = *p * rescale_factor;
                 if is_linear_format && apply_ungamma {
                     linear_val = srgb_to_linear(linear_val.max(0.0));
@@ -236,7 +237,7 @@ fn develop_internal(
             });
         }
         Intermediate::ThreeColor(pixels) => {
-            pixels.data.iter_mut().for_each(|p| {
+            pixels.data.par_iter_mut().for_each(|p| {
                 let mut r = (p[0] * rescale_factor).max(0.0);
                 let mut g = (p[1] * rescale_factor).max(0.0);
                 let mut b = (p[2] * rescale_factor).max(0.0);
@@ -255,7 +256,7 @@ fn develop_internal(
             });
         }
         Intermediate::FourColor(pixels) => {
-            pixels.data.iter_mut().for_each(|p| {
+            pixels.data.par_iter_mut().for_each(|p| {
                 p.iter_mut().for_each(|c| {
                     let mut linear_val = *c * rescale_factor;
                     if is_linear_format && apply_ungamma {
@@ -271,18 +272,10 @@ fn develop_internal(
 
     let dynamic_image = match developed_intermediate {
         Intermediate::ThreeColor(pixels) => {
-            let buffer = ImageBuffer::<Rgba<f32>, _>::from_fn(width, height, |x, y| {
-                let p = pixels.data[(y * width + x) as usize];
-                Rgba([p[0], p[1], p[2], 1.0])
-            });
-            DynamicImage::ImageRgba32F(buffer)
+            DynamicImage::ImageRgba32F(rgb_pixels_to_rgba(&pixels.data, width, height)?)
         }
         Intermediate::Monochrome(pixels) => {
-            let buffer = ImageBuffer::<Rgba<f32>, _>::from_fn(width, height, |x, y| {
-                let p = pixels.data[(y * width + x) as usize];
-                Rgba([p, p, p, 1.0])
-            });
-            DynamicImage::ImageRgba32F(buffer)
+            DynamicImage::ImageRgba32F(mono_pixels_to_rgba(&pixels.data, width, height)?)
         }
         _ => {
             return Err(anyhow!("Unsupported intermediate format for conversion"));
@@ -330,6 +323,32 @@ fn as_shot_white_balance(raw_image: &RawImage, file_bytes: &[u8]) -> Option<Whit
         .get(&Illuminant::D65)
         .or_else(|| matrices.values().next())?;
     WhiteBalance::from_camera_neutral(color_matrix, &neutral)
+}
+
+fn rgb_pixels_to_rgba(
+    data: &[[f32; 3]],
+    width: u32,
+    height: u32,
+) -> Result<ImageBuffer<Rgba<f32>, Vec<f32>>> {
+    let mut rgba = vec![0.0f32; data.len() * 4];
+    rgba.par_chunks_exact_mut(4)
+        .zip(data.par_iter())
+        .for_each(|(dst, p)| dst.copy_from_slice(&[p[0], p[1], p[2], 1.0]));
+    ImageBuffer::from_raw(width, height, rgba)
+        .ok_or_else(|| anyhow!("Developed image size does not match its dimensions"))
+}
+
+fn mono_pixels_to_rgba(
+    data: &[f32],
+    width: u32,
+    height: u32,
+) -> Result<ImageBuffer<Rgba<f32>, Vec<f32>>> {
+    let mut rgba = vec![0.0f32; data.len() * 4];
+    rgba.par_chunks_exact_mut(4)
+        .zip(data.par_iter())
+        .for_each(|(dst, &p)| dst.copy_from_slice(&[p, p, p, 1.0]));
+    ImageBuffer::from_raw(width, height, rgba)
+        .ok_or_else(|| anyhow!("Developed image size does not match its dimensions"))
 }
 
 pub fn get_fast_demosaic_scale_factor(
