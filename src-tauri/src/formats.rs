@@ -1,4 +1,9 @@
+use rawler::formats::tiff::IFD;
+use rawler::tags::TiffCommonTag;
 use std::convert::AsRef;
+use std::fs::File;
+use std::io::BufReader;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::Path;
 
 pub const RAW_EXTENSIONS: &[(&str, &str)] = &[
@@ -78,6 +83,8 @@ pub const NON_RAW_EXTENSIONS: &[&str] = &[
     "pnm", "pbm", "pgm", "ppm", "pam", // Netpbm family
 ];
 
+const RAW_TIFF_EXTENSIONS: &[&str] = &["tif", "tiff"];
+
 pub fn is_raw_file<P: AsRef<Path>>(path: P) -> bool {
     let ext = match path.as_ref().extension().and_then(|s| s.to_str()) {
         Some(e) => e,
@@ -87,6 +94,30 @@ pub fn is_raw_file<P: AsRef<Path>>(path: P) -> bool {
     RAW_EXTENSIONS
         .iter()
         .any(|(raw_ext, _)| raw_ext.eq_ignore_ascii_case(ext))
+        || (RAW_TIFF_EXTENSIONS
+            .iter()
+            .any(|tiff_ext| tiff_ext.eq_ignore_ascii_case(ext))
+            && is_canon_tiff_raw(path.as_ref()))
+}
+
+fn is_canon_tiff_raw(path: &Path) -> bool {
+    let Ok(file) = File::open(path) else {
+        return false;
+    };
+    let mut reader = BufReader::new(file);
+    catch_unwind(AssertUnwindSafe(|| {
+        let Ok(root) = IFD::new_root(&mut reader, 0) else {
+            return false;
+        };
+        let is_canon = root
+            .get_entry(TiffCommonTag::Make)
+            .and_then(|entry| entry.value.as_string())
+            .is_some_and(|make| make.starts_with("Canon"));
+        is_canon
+            && crate::baseline_exposure::makernote(&root, &mut reader)
+                .is_some_and(|makernote| makernote.has_entry(TiffCommonTag::Cr2OldOffset))
+    }))
+    .unwrap_or(false)
 }
 
 pub fn is_supported_image_file<P: AsRef<Path>>(path: P) -> bool {
