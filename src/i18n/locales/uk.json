@@ -276,6 +276,7 @@
       "autoLensCorrection": "Автокорекція об'єктива",
       "autoStraighten": "Автовирівнювання",
       "cancel": "Скасувати",
+      "closeViewer": "Закрити друге вікно",
       "colorLabel": "Колірна мітка",
       "confirmReset": "Підтвердити скидання",
       "convertBlackWhite": "Перетворити на чорно-біле",
@@ -292,6 +293,7 @@
       "mergeHdr": "Об'єднати в HDR",
       "noLabel": "Без мітки",
       "noRating": "Без оцінки",
+      "openViewer": "Відкрити в другому вікні",
       "pasteAdjustments": "Вставити коригування",
       "productivity": "Продуктивність",
       "rating": "Оцінка",
@@ -955,15 +957,21 @@
       "tooltips": {
         "aperture": "Діафрагма",
         "backToLibrary": "Назад до бібліотеки",
+        "closeViewer": "Закрити друге вікно",
         "compare": "До / після (B) або режими (правий клік)",
         "focalLength": "Фокусна відстань",
         "fullscreen": "Повноекранний режим (F)",
         "iso": "ISO",
+        "openViewer": "Відкрити в другому вікні",
         "redo": "Повторити (Ctrl+Y) або історія (правий клік)",
         "shutterSpeed": "Витримка",
         "undo": "Скасувати (Ctrl+Z) або історія (правий клік)"
       },
       "vc": "ВК"
+    },
+    "viewer": {
+      "openFailed": "Не вдалося відкрити друге вікно: {{error}}",
+      "windowTitle": "Переглядач RapidRAW"
     }
   },
   "export": {
@@ -2001,6 +2009,7 @@
         "toggle_presets": "Показати/сховати панель пресетів",
         "toggle_reject": "Перемкнути позначку «відхилено»",
         "toggle_right_panel": "Показати/сховати праву панель",
+        "toggle_viewer_window": "Перемкнути друге вікно",
         "undo": "Скасувати коригування",
         "unflag": "Зняти позначку",
         "zoom_100": "Масштаб 100%",

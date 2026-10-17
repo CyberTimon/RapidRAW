@@ -7,6 +7,7 @@ import {
   Loader2,
   LucideIcon,
   Maximize,
+  MonitorUp,
   Redo,
   SquareSplitHorizontal,
   SquareSplitVertical,
@@ -21,6 +22,7 @@ import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
+import { useUIStore } from '../../../store/useUIStore';
 import { findGroupVariants, getVariantLabel } from '../../../utils/imageGrouping';
 
 const COMPARE_MODES = [
@@ -29,6 +31,14 @@ const COMPARE_MODES = [
   { mode: 'horizontal', icon: SquareSplitVertical, label: 'editor.compare.horizontal' },
   { mode: 'sideBySide', icon: Columns2, label: 'editor.compare.sideBySide' },
 ] as const satisfies ReadonlyArray<{ mode: CompareMode; icon: LucideIcon; label: string }>;
+
+const toggleButtonClass = (isActive: boolean) =>
+  clsx(
+    'p-2 rounded-full transition-colors',
+    isActive
+      ? 'bg-accent text-button-text hover:bg-accent/90 hover:text-button-text'
+      : 'bg-surface hover:bg-card-active text-text-primary',
+  );
 
 interface CompareButtonProps {
   compareMode: CompareMode;
@@ -50,12 +60,7 @@ function CompareButton({ compareMode, isComparing, onKeyDown, onSelectMode, onTo
   return (
     <div className="relative" ref={containerRef}>
       <button
-        className={clsx(
-          'p-2 rounded-full transition-colors',
-          isComparing
-            ? 'bg-accent text-button-text hover:bg-accent/90 hover:text-button-text'
-            : 'bg-surface hover:bg-card-active text-text-primary',
-        )}
+        className={toggleButtonClass(isComparing)}
         onClick={onToggle}
         onKeyDown={onKeyDown}
         onContextMenu={(e) => {
@@ -147,6 +152,8 @@ const EditorToolbar = memo(
     const [displayedResolution, setDisplayedResolution] = useState('');
 
     const imageList = useLibraryStore((s) => s.imageList);
+    const isViewerOpen = useUIStore((s) => s.isViewerOpen);
+    const toggleViewerWindow = useUIStore((s) => s.toggleViewerWindow);
     const groupingMode: GroupingMode = useSettingsStore((s) => s.appSettings?.grouping) ?? 'off';
 
     const variantOptions = useMemo(() => {
@@ -714,6 +721,18 @@ const EditorToolbar = memo(
               <Maximize size={20} />
             </div>
           </button>
+          {!isAndroid && (
+            <button
+              className={toggleButtonClass(isViewerOpen)}
+              onClick={toggleViewerWindow}
+              onKeyDown={handleButtonKeyDown}
+              data-tooltip={
+                isViewerOpen ? t('editor.toolbar.tooltips.closeViewer') : t('editor.toolbar.tooltips.openViewer')
+              }
+            >
+              <MonitorUp size={20} />
+            </button>
+          )}
         </div>
       </div>
     );
