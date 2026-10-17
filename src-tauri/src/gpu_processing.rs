@@ -5,13 +5,12 @@ use half::f16;
 use image::{DynamicImage, GenericImageView, ImageBuffer, Luma, Rgba};
 use std::num::NonZero;
 
-#[cfg(not(any(target_os = "android", target_os = "linux")))]
 use tauri::Manager;
 use wgpu::util::{DeviceExt, TextureDataOrder};
 
 use crate::image_processing::{AllAdjustments, GpuContext, MAX_MASKS, MaskAdjustments};
 use crate::lut_processing::Lut;
-use crate::{AppState, GpuImageCache};
+use crate::{AppState, GpuImageCache, PreviewTarget};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Roi {
@@ -49,6 +48,53 @@ pub struct DisplayTransform {
     pub bg_secondary: [f32; 4],
 }
 
+impl Default for DisplayTransform {
+    fn default() -> Self {
+        Self {
+            rect: [0.0, 0.0, 100.0, 100.0],
+            clip: [0.0, 0.0, 10000.0, 10000.0],
+            window: [1280.0, 720.0],
+            image_size: [100.0, 100.0],
+            texture_size: [100.0, 100.0],
+            pixelated: 0.0,
+            _pad: 0.0,
+            bg_primary: [24.0 / 255.0, 24.0 / 255.0, 24.0 / 255.0, 1.0],
+            bg_secondary: [35.0 / 255.0, 35.0 / 255.0, 35.0 / 255.0, 1.0],
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, serde::Deserialize)]
+pub struct DisplayView {
+    pub zoom: f32,
+    pub center: [f32; 2],
+}
+
+impl Default for DisplayView {
+    fn default() -> Self {
+        Self {
+            zoom: 1.0,
+            center: [0.5, 0.5],
+        }
+    }
+}
+
+pub struct DisplayFrame {
+    texture: wgpu::Texture,
+    view: wgpu::TextureView,
+    capacity: [u32; 2],
+}
+
+#[derive(Clone, Copy)]
+pub struct DisplayOutput {
+    pub target: PreviewTarget,
+    pub to_viewer: bool,
+}
+
+pub fn align_texture_dimension(value: u32) -> u32 {
+    (value + 255) & !255
+}
+
 pub struct WgpuDisplay {
     pub surface: wgpu::Surface<'static>,
     pub config: wgpu::SurfaceConfiguration,
@@ -58,51 +104,207 @@ pub struct WgpuDisplay {
     pub transform_buffer: wgpu::Buffer,
     pub latest_transform: DisplayTransform,
     pub current_bind_group: Option<wgpu::BindGroup>,
+    pub standalone: bool,
+    pub view: DisplayView,
+    pub frame: Option<DisplayFrame>,
 }
 
 impl WgpuDisplay {
-    pub fn render(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
-        if let Some(bind_group) = &self.current_bind_group {
-            let output = match self.surface.get_current_texture() {
-                wgpu::CurrentSurfaceTexture::Success(tex)
-                | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
-                wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
-                    self.surface.configure(device, &self.config);
-                    match self.surface.get_current_texture() {
-                        wgpu::CurrentSurfaceTexture::Success(tex)
-                        | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
-                        _ => panic!("Failed to acquire surface texture"),
-                    }
+    pub fn show_texture(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        view: &wgpu::TextureView,
+        image_size: [f32; 2],
+        texture_size: [f32; 2],
+    ) {
+        self.latest_transform.image_size = image_size;
+        self.latest_transform.texture_size = texture_size;
+        self.place_image();
+        self.current_bind_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &self.bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: self.transform_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Sampler(&self.sampler),
+                },
+            ],
+            label: None,
+        }));
+        self.flush(device, queue);
+    }
+
+    pub fn show_frame(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        source: &wgpu::Texture,
+        size: [u32; 2],
+        max_dimension: u32,
+    ) {
+        let area = |dims: [u32; 2]| dims[0] as u64 * dims[1] as u64;
+        let reusable = self.frame.as_ref().is_some_and(|frame| {
+            frame.capacity[0] >= size[0]
+                && frame.capacity[1] >= size[1]
+                && area(frame.capacity) <= 4 * area(size)
+        });
+        if !reusable {
+            let capacity = size.map(|dim| align_texture_dimension(dim).min(max_dimension));
+            let texture = device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("Viewer Frame Texture"),
+                size: wgpu::Extent3d {
+                    width: capacity[0],
+                    height: capacity[1],
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            });
+            let view = texture.create_view(&Default::default());
+            self.frame = Some(DisplayFrame {
+                texture,
+                view,
+                capacity,
+            });
+        }
+        let Some(frame) = &self.frame else {
+            return;
+        };
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Viewer Frame Copy"),
+        });
+        encoder.copy_texture_to_texture(
+            source.as_image_copy(),
+            frame.texture.as_image_copy(),
+            wgpu::Extent3d {
+                width: size[0],
+                height: size[1],
+                depth_or_array_layers: 1,
+            },
+        );
+        queue.submit(Some(encoder.finish()));
+        let view = frame.view.clone();
+        let capacity = frame.capacity;
+        self.show_texture(
+            device,
+            queue,
+            &view,
+            size.map(|dim| dim as f32),
+            capacity.map(|dim| dim as f32),
+        );
+    }
+
+    pub fn set_view(&mut self, view: DisplayView) {
+        self.view = view;
+        self.place_image();
+    }
+
+    pub fn set_background(&mut self, color: [f32; 4]) {
+        self.latest_transform.bg_primary = color;
+        self.latest_transform.bg_secondary = color;
+    }
+
+    pub fn resize(&mut self, device: &wgpu::Device, size: tauri::PhysicalSize<u32>) {
+        let width = size.width.max(1);
+        let height = size.height.max(1);
+        if width != self.config.width || height != self.config.height {
+            self.config.width = width;
+            self.config.height = height;
+            self.surface.configure(device, &self.config);
+        }
+        self.place_image();
+    }
+
+    pub fn flush(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+        queue.write_buffer(
+            &self.transform_buffer,
+            0,
+            bytemuck::bytes_of(&self.latest_transform),
+        );
+        self.render(device, queue);
+    }
+
+    fn place_image(&mut self) {
+        if !self.standalone {
+            return;
+        }
+        let surface_w = self.config.width as f32;
+        let surface_h = self.config.height as f32;
+        let [image_w, image_h] = self.latest_transform.image_size;
+        let scale = if image_w > 0.0 && image_h > 0.0 {
+            (surface_w / image_w).min(surface_h / image_h) * self.view.zoom
+        } else {
+            0.0
+        };
+        let placed_w = image_w * scale;
+        let placed_h = image_h * scale;
+        self.latest_transform.rect = [
+            (surface_w / 2.0 - self.view.center[0] * placed_w).round(),
+            (surface_h / 2.0 - self.view.center[1] * placed_h).round(),
+            placed_w,
+            placed_h,
+        ];
+        self.latest_transform.clip = [0.0, 0.0, surface_w, surface_h];
+        self.latest_transform.window = [surface_w, surface_h];
+    }
+
+    fn render(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+        if self.current_bind_group.is_none() && !self.standalone {
+            return;
+        }
+        let output = match self.surface.get_current_texture() {
+            wgpu::CurrentSurfaceTexture::Success(tex)
+            | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
+            wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
+                self.surface.configure(device, &self.config);
+                match self.surface.get_current_texture() {
+                    wgpu::CurrentSurfaceTexture::Success(tex)
+                    | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
+                    _ => return,
                 }
-                _ => return,
-            };
-            let view = output
-                .texture
-                .create_view(&wgpu::TextureViewDescriptor::default());
-            let mut encoder =
-                device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-            {
-                let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: None,
-                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                        view: &view,
-                        resolve_target: None,
-                        ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(wgpu::Color {
-                                r: self.latest_transform.bg_primary[0] as f64,
-                                g: self.latest_transform.bg_primary[1] as f64,
-                                b: self.latest_transform.bg_primary[2] as f64,
-                                a: self.latest_transform.bg_primary[3] as f64,
-                            }),
-                            store: wgpu::StoreOp::Store,
-                        },
-                        depth_slice: None,
-                    })],
-                    depth_stencil_attachment: None,
-                    timestamp_writes: None,
-                    occlusion_query_set: None,
-                    multiview_mask: NonZero::new(0),
-                });
+            }
+            _ => return,
+        };
+        let view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        let mut encoder =
+            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        {
+            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: self.latest_transform.bg_primary[0] as f64,
+                            g: self.latest_transform.bg_primary[1] as f64,
+                            b: self.latest_transform.bg_primary[2] as f64,
+                            a: self.latest_transform.bg_primary[3] as f64,
+                        }),
+                        store: wgpu::StoreOp::Store,
+                    },
+                    depth_slice: None,
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: NonZero::new(0),
+            });
+            if let Some(bind_group) = &self.current_bind_group {
                 let clip_x1 = self.latest_transform.clip[0].max(0.0);
                 let clip_y1 = self.latest_transform.clip[1].max(0.0);
                 let clip_x2 =
@@ -136,9 +338,224 @@ impl WgpuDisplay {
                     }
                 }
             }
-            queue.submit(Some(encoder.finish()));
-            output.present();
         }
+        queue.submit(Some(encoder.finish()));
+        output.present();
+    }
+}
+
+#[cfg(not(any(target_os = "android", target_os = "linux")))]
+pub fn build_wgpu_display(
+    surface: wgpu::Surface<'static>,
+    adapter: &wgpu::Adapter,
+    device: &wgpu::Device,
+    size: tauri::PhysicalSize<u32>,
+    standalone: bool,
+) -> Result<WgpuDisplay, String> {
+    let swapchain_caps = surface.get_capabilities(adapter);
+    let swapchain_format = swapchain_caps
+        .formats
+        .iter()
+        .copied()
+        .find(|f| !f.is_srgb())
+        .or_else(|| swapchain_caps.formats.first().copied())
+        .ok_or("Surface is not supported by the GPU adapter")?;
+
+    let alpha_mode = if cfg!(target_os = "windows")
+        && swapchain_caps
+            .alpha_modes
+            .contains(&wgpu::CompositeAlphaMode::Opaque)
+    {
+        wgpu::CompositeAlphaMode::Opaque
+    } else if swapchain_caps
+        .alpha_modes
+        .contains(&wgpu::CompositeAlphaMode::PreMultiplied)
+    {
+        wgpu::CompositeAlphaMode::PreMultiplied
+    } else if swapchain_caps
+        .alpha_modes
+        .contains(&wgpu::CompositeAlphaMode::PostMultiplied)
+    {
+        wgpu::CompositeAlphaMode::PostMultiplied
+    } else {
+        swapchain_caps.alpha_modes[0]
+    };
+
+    let present_mode = if standalone
+        && swapchain_caps
+            .present_modes
+            .contains(&wgpu::PresentMode::Mailbox)
+    {
+        wgpu::PresentMode::Mailbox
+    } else {
+        wgpu::PresentMode::Fifo
+    };
+
+    let config = wgpu::SurfaceConfiguration {
+        width: size.width.max(1),
+        height: size.height.max(1),
+        format: swapchain_format,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+        present_mode,
+        alpha_mode,
+        view_formats: vec![],
+        desired_maximum_frame_latency: 2,
+    };
+    surface.configure(device, &config);
+
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("Display Shader"),
+        source: wgpu::ShaderSource::Wgsl(include_str!("shaders/display.wgsl").into()),
+    });
+
+    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("Display BGL"),
+        entries: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                count: None,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                count: None,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    multisampled: false,
+                },
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 2,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                count: None,
+                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+            },
+        ],
+    });
+
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("Display Pipeline Layout"),
+        bind_group_layouts: &[Some(&bind_group_layout)],
+        immediate_size: 0,
+    });
+
+    let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some("Display Pipeline"),
+        layout: Some(&pipeline_layout),
+        vertex: wgpu::VertexState {
+            module: &shader,
+            entry_point: Some("vs_main"),
+            buffers: &[],
+            compilation_options: Default::default(),
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: &shader,
+            entry_point: Some("fs_main"),
+            targets: &[Some(wgpu::ColorTargetState {
+                format: swapchain_format,
+                blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+            compilation_options: Default::default(),
+        }),
+        primitive: wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleStrip,
+            ..Default::default()
+        },
+        depth_stencil: None,
+        multisample: wgpu::MultisampleState::default(),
+        multiview_mask: NonZero::new(0),
+        cache: None,
+    });
+
+    let transform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("Transform Buffer"),
+        size: std::mem::size_of::<DisplayTransform>() as u64,
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+
+    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+        label: Some("Display Sampler"),
+        address_mode_u: wgpu::AddressMode::ClampToEdge,
+        address_mode_v: wgpu::AddressMode::ClampToEdge,
+        mag_filter: wgpu::FilterMode::Linear,
+        min_filter: wgpu::FilterMode::Linear,
+        ..Default::default()
+    });
+
+    Ok(WgpuDisplay {
+        surface,
+        config,
+        pipeline,
+        bind_group_layout,
+        transform_buffer,
+        latest_transform: DisplayTransform::default(),
+        sampler,
+        current_bind_group: None,
+        standalone,
+        view: DisplayView::default(),
+        frame: None,
+    })
+}
+
+#[cfg(not(any(target_os = "android", target_os = "linux")))]
+pub fn create_window_surface(
+    instance: &wgpu::Instance,
+    window: &tauri::WebviewWindow,
+) -> Result<wgpu::Surface<'static>, String> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    let instance = instance.clone();
+    let target = window.clone();
+    window
+        .run_on_main_thread(move || {
+            let _ = tx.send(instance.create_surface(target).map_err(|e| e.to_string()));
+        })
+        .map_err(|e| e.to_string())?;
+    rx.recv().map_err(|e| e.to_string())?
+}
+
+pub fn current_gpu_context(state: &AppState) -> Option<GpuContext> {
+    state
+        .gpu_context
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+}
+
+pub fn resize_display(window: &tauri::Window, size: tauri::PhysicalSize<u32>) {
+    update_display_size(window, size, false);
+}
+
+pub fn redraw_display(window: &tauri::Window, size: tauri::PhysicalSize<u32>) {
+    update_display_size(window, size, true);
+}
+
+fn update_display_size(window: &tauri::Window, size: tauri::PhysicalSize<u32>, wait: bool) {
+    let Some(ctx) = current_gpu_context(&window.state::<AppState>()) else {
+        return;
+    };
+    let Some(display) = ctx.display_for_label(window.label()) else {
+        return;
+    };
+    let mut lock = if wait {
+        display.lock().unwrap_or_else(|e| e.into_inner())
+    } else {
+        match display.try_lock() {
+            Ok(lock) => lock,
+            Err(_) => return,
+        }
+    };
+    if let Some(display) = lock.as_mut() {
+        display.resize(&ctx.device, size);
+        display.flush(&ctx.device, &ctx.queue);
     }
 }
 
@@ -185,9 +602,7 @@ pub fn get_or_init_gpu_context(
     #[cfg(not(any(target_os = "android", target_os = "linux")))]
     let surface_opt = {
         let settings = crate::app_settings::load_settings(app_handle.clone()).unwrap_or_default();
-        let use_wgpu_renderer = settings.use_wgpu_renderer.unwrap_or(true);
-
-        if use_wgpu_renderer {
+        if settings.wgpu_renderer_enabled() {
             if let Some(window) = app_handle.get_webview_window("main") {
                 match instance.create_surface(window) {
                     Ok(surface) => Some(surface),
@@ -263,158 +678,10 @@ pub fn get_or_init_gpu_context(
         let window = app_handle
             .get_webview_window("main")
             .ok_or("Failed to get main window")?;
-
-        let swapchain_caps = surface.get_capabilities(&adapter);
-        let swapchain_format = swapchain_caps
-            .formats
-            .iter()
-            .copied()
-            .find(|f| !f.is_srgb())
-            .unwrap_or(swapchain_caps.formats[0]);
-
-        let alpha_mode = if cfg!(target_os = "windows")
-            && swapchain_caps
-                .alpha_modes
-                .contains(&wgpu::CompositeAlphaMode::Opaque)
-        {
-            wgpu::CompositeAlphaMode::Opaque
-        } else if swapchain_caps
-            .alpha_modes
-            .contains(&wgpu::CompositeAlphaMode::PreMultiplied)
-        {
-            wgpu::CompositeAlphaMode::PreMultiplied
-        } else if swapchain_caps
-            .alpha_modes
-            .contains(&wgpu::CompositeAlphaMode::PostMultiplied)
-        {
-            wgpu::CompositeAlphaMode::PostMultiplied
-        } else {
-            swapchain_caps.alpha_modes[0]
-        };
-
         let size = window
             .inner_size()
             .unwrap_or(tauri::PhysicalSize::new(1280, 720));
-        let config = wgpu::SurfaceConfiguration {
-            width: size.width.max(1),
-            height: size.height.max(1),
-            format: swapchain_format,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            present_mode: wgpu::PresentMode::Fifo,
-            alpha_mode,
-            view_formats: vec![],
-            desired_maximum_frame_latency: 2,
-        };
-        surface.configure(&device, &config);
-
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Display Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/display.wgsl").into()),
-        });
-
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Display BGL"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    count: None,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    count: None,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    count: None,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                },
-            ],
-        });
-
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Display Pipeline Layout"),
-            bind_group_layouts: &[Some(&bind_group_layout)],
-            immediate_size: 0,
-        });
-
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Display Pipeline"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                buffers: &[],
-                compilation_options: Default::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: swapchain_format,
-                    blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: Default::default(),
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleStrip,
-                ..Default::default()
-            },
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
-            multiview_mask: NonZero::new(0),
-            cache: None,
-        });
-
-        let transform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Transform Buffer"),
-            size: std::mem::size_of::<DisplayTransform>() as u64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("Display Sampler"),
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            ..Default::default()
-        });
-
-        Some(WgpuDisplay {
-            surface,
-            config,
-            pipeline,
-            bind_group_layout,
-            transform_buffer,
-            latest_transform: DisplayTransform {
-                rect: [0.0, 0.0, 100.0, 100.0],
-                clip: [0.0, 0.0, 10000.0, 10000.0],
-                window: [1280.0, 720.0],
-                image_size: [100.0, 100.0],
-                texture_size: [100.0, 100.0],
-                pixelated: 0.0,
-                _pad: 0.0,
-                bg_primary: [24.0 / 255.0, 24.0 / 255.0, 24.0 / 255.0, 1.0],
-                bg_secondary: [35.0 / 255.0, 35.0 / 255.0, 35.0 / 255.0, 1.0],
-            },
-            sampler,
-            current_bind_group: None,
-        })
+        Some(build_wgpu_display(surface, &adapter, &device, size, false)?)
     } else {
         None
     };
@@ -423,10 +690,13 @@ pub fn get_or_init_gpu_context(
     let display_opt = None;
 
     let new_context = GpuContext {
+        instance,
+        adapter,
         device: Arc::new(device),
         queue: Arc::new(queue),
         limits,
         display: Arc::new(std::sync::Mutex::new(display_opt)),
+        viewer_display: Arc::new(std::sync::Mutex::new(None)),
     };
     *context_lock = Some(new_context.clone());
     Ok(new_context)
@@ -2142,7 +2412,7 @@ pub fn process_and_get_dynamic_image(
         request,
         caller_id,
         RenderOutputPrecision::EightBit,
-        false,
+        None,
         None,
     )
 }
@@ -2164,7 +2434,7 @@ pub fn process_and_get_dynamic_image_with_precision(
         request,
         caller_id,
         output_precision,
-        false,
+        None,
         None,
     )
 }
@@ -2177,7 +2447,7 @@ pub fn process_and_get_dynamic_image_with_analytics(
     transform_hash: u64,
     request: RenderRequest,
     caller_id: &str,
-    output_to_display: bool,
+    display_output: Option<DisplayOutput>,
     analytics_config: Option<crate::AnalyticsConfig>,
 ) -> Result<DynamicImage, String> {
     process_and_get_dynamic_image_inner(
@@ -2188,7 +2458,7 @@ pub fn process_and_get_dynamic_image_with_analytics(
         request,
         caller_id,
         RenderOutputPrecision::EightBit,
-        output_to_display,
+        display_output,
         analytics_config,
     )
 }
@@ -2202,7 +2472,7 @@ fn process_and_get_dynamic_image_inner(
     request: RenderRequest,
     caller_id: &str,
     output_precision: RenderOutputPrecision,
-    output_to_display: bool,
+    display_output: Option<DisplayOutput>,
     analytics_config: Option<crate::AnalyticsConfig>,
 ) -> Result<DynamicImage, String> {
     let start_time = Instant::now();
@@ -2231,8 +2501,8 @@ fn process_and_get_dynamic_image_inner(
         }
     };
     let mut needs_new_processor = false;
-    let new_width = (width + 255) & !255;
-    let new_height = (height + 255) & !255;
+    let new_width = align_texture_dimension(width);
+    let new_height = align_texture_dimension(height);
 
     if let Some(p) = processor_lock.as_ref() {
         if p.width < width || p.height < height {
@@ -2269,7 +2539,8 @@ fn process_and_get_dynamic_image_inner(
     let processor_state = processor_lock.as_ref().unwrap();
     let processor = &processor_state.processor;
 
-    let mut cache_lock = match state.gpu_image_cache.lock() {
+    let cache_target = display_output.map_or(PreviewTarget::Editor, |output| output.target);
+    let mut cache_lock = match state.gpu_image_cache_for(cache_target).lock() {
         Ok(guard) => guard,
         Err(poisoned) => {
             log::warn!("GPU image cache lock was poisoned. Resetting to self-heal.");
@@ -2342,7 +2613,7 @@ fn process_and_get_dynamic_image_inner(
 
     let cache = cache_lock.as_ref().unwrap();
 
-    let skip_readback = output_to_display;
+    let skip_readback = display_output.is_some();
 
     let (processed_pixels, out_w, out_h, out_x, out_y) = processor.run(
         &cache.texture_view,
@@ -2351,7 +2622,7 @@ fn process_and_get_dynamic_image_inner(
         cache.width,
         cache.height,
         request,
-        output_to_display,
+        skip_readback,
         output_precision,
     )?;
 
@@ -2409,7 +2680,8 @@ fn process_and_get_dynamic_image_inner(
         submit_final_encoder = true;
     }
 
-    if output_to_display {
+    let to_editor = display_output.is_some_and(|output| output.target == PreviewTarget::Editor);
+    if to_editor {
         final_encoder.copy_texture_to_texture(
             wgpu::TexelCopyTextureInfo {
                 texture: &processor.working_texture,
@@ -2517,43 +2789,36 @@ fn process_and_get_dynamic_image_inner(
         }
     }
 
-    if output_to_display
+    if to_editor
         && let Some(display) = context
             .display
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .as_mut()
     {
-        display.latest_transform.image_size = [width as f32, height as f32];
-        display.latest_transform.texture_size =
-            [processor_state.width as f32, processor_state.height as f32];
-
-        queue.write_buffer(
-            &display.transform_buffer,
-            0,
-            bytemuck::bytes_of(&display.latest_transform),
+        display.show_texture(
+            device,
+            queue,
+            &processor.output_texture_view,
+            [width as f32, height as f32],
+            [processor_state.width as f32, processor_state.height as f32],
         );
+    }
 
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &display.bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: display.transform_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&processor.output_texture_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::Sampler(&display.sampler),
-                },
-            ],
-            label: None,
-        });
-        display.current_bind_group = Some(bind_group);
-        display.render(device, queue);
+    if display_output.is_some_and(|output| output.to_viewer)
+        && let Some(display) = context
+            .viewer_display
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_mut()
+    {
+        display.show_frame(
+            device,
+            queue,
+            &processor.working_texture,
+            [width, height],
+            context.limits.max_texture_dimension_2d,
+        );
     }
 
     if skip_readback {

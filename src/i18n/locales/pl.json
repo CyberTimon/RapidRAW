@@ -211,6 +211,7 @@
       "autoLensCorrection": "Automatyczna korekcja obiektywu",
       "autoStraighten": "Automatyczne prostowanie",
       "cancel": "Anuluj",
+      "closeViewer": "Zamknij drugie okno",
       "colorLabel": "Etykieta koloru",
       "confirmReset": "Potwierdź reset",
       "convertNegative": "Konwertuj negatyw",
@@ -226,6 +227,7 @@
       "mergeHdr": "Scal do HDR",
       "noLabel": "Brak etykiety",
       "noRating": "Brak oceny",
+      "openViewer": "Otwórz w drugim oknie",
       "pasteAdjustments": "Wklej ustawienia",
       "productivity": "Produktywność",
       "rating": "Ocena",
@@ -858,9 +860,11 @@
       "tooltips": {
         "aperture": "Przysłona",
         "backToLibrary": "Wróć do biblioteki",
+        "closeViewer": "Zamknij drugie okno",
         "focalLength": "Ogniskowa",
         "fullscreen": "Przełącz pełny ekran (F)",
         "iso": "ISO",
+        "openViewer": "Otwórz w drugim oknie",
         "redo": "Ponów (Ctrl+Y) lub Historia (Prawy przycisk)",
         "showEdited": "Pokaż po edycji (B)",
         "showOriginal": "Pokaż oryginał (B)",
@@ -868,6 +872,10 @@
         "undo": "Cofnij (Ctrl+Z) lub Historia (Prawy przycisk)"
       },
       "vc": "VC"
+    },
+    "viewer": {
+      "openFailed": "Nie można otworzyć drugiego okna: {{error}}",
+      "windowTitle": "Przeglądarka RapidRAW"
     }
   },
   "export": {
@@ -1805,6 +1813,7 @@
         "toggle_presets": "Przełącz panel Presety",
         "toggle_reject": "Przełącz oznaczenie odrzucenia",
         "toggle_right_panel": "Przełącz prawy panel",
+        "toggle_viewer_window": "Przełącz drugie okno",
         "undo": "Cofnij korektę",
         "unflag": "Usuń oznaczenie",
         "zoom_100": "Powiększ do 100%",

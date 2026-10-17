@@ -48,6 +48,7 @@ import {
   Album as AlbumIcon,
   PencilSparkles,
   Wand2,
+  MonitorUp,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
@@ -204,8 +205,8 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
 
       const { selectedImage, history, historyIndex, undo, redo, resetHistory, copiedAdjustments, setEditor } =
         useEditorStore.getState();
-      const { appSettings } = useSettingsStore.getState();
-      const { setPanel, setUI } = useUIStore.getState();
+      const { appSettings, osPlatform } = useSettingsStore.getState();
+      const { setPanel, setUI, isViewerOpen, toggleViewerWindow } = useUIStore.getState();
 
       if (!selectedImage) return;
 
@@ -219,6 +220,15 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
           icon: FileInput,
           onClick: () => setPanel(Panel.Export),
         },
+        ...(osPlatform !== 'android'
+          ? [
+              {
+                label: isViewerOpen ? t('contextMenus.editor.closeViewer') : t('contextMenus.editor.openViewer'),
+                icon: MonitorUp,
+                onClick: toggleViewerWindow,
+              },
+            ]
+          : []),
         { type: OPTION_SEPARATOR },
         { label: t('contextMenus.editor.undo'), icon: Undo, onClick: undo, disabled: !canUndo },
         { label: t('contextMenus.editor.redo'), icon: Redo, onClick: redo, disabled: !canRedo },

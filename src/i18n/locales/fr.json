@@ -211,6 +211,7 @@
       "autoLensCorrection": "Correction d'objectif automatique",
       "autoStraighten": "Redresser automatiquement",
       "cancel": "Annuler",
+      "closeViewer": "Fermer la seconde fenêtre",
       "colorLabel": "Étiquette de couleur",
       "confirmReset": "Confirmer la réinitialisation",
       "convertNegative": "Convertir le négatif",
@@ -226,6 +227,7 @@
       "mergeHdr": "Fusionner en HDR",
       "noLabel": "Aucune étiquette",
       "noRating": "Aucune note",
+      "openViewer": "Ouvrir dans une seconde fenêtre",
       "pasteAdjustments": "Coller les ajustements",
       "productivity": "Productivité",
       "rating": "Note",
@@ -836,9 +838,11 @@
       "tooltips": {
         "aperture": "Ouverture",
         "backToLibrary": "Retour à la bibliothèque",
+        "closeViewer": "Fermer la seconde fenêtre",
         "focalLength": "Longueur focale",
         "fullscreen": "Basculer en plein écran (F)",
         "iso": "ISO",
+        "openViewer": "Ouvrir dans une seconde fenêtre",
         "redo": "Rétablir (Ctrl+Y) ou Historique (Clic-droit)",
         "showEdited": "Afficher l'image modifiée (B)",
         "showOriginal": "Afficher l'original (B)",
@@ -846,6 +850,10 @@
         "undo": "Annuler (Ctrl+Z) ou Historique (Clic-droit)"
       },
       "vc": "CV"
+    },
+    "viewer": {
+      "openFailed": "Impossible d'ouvrir la seconde fenêtre : {{error}}",
+      "windowTitle": "Visionneuse RapidRAW"
     }
   },
   "export": {
@@ -1767,6 +1775,7 @@
         "toggle_presets": "Basculer le panneau des paramètres prédéfinis",
         "toggle_reject": "Basculer le marquage rejeté",
         "toggle_right_panel": "Afficher/Masquer le panneau droit",
+        "toggle_viewer_window": "Basculer la seconde fenêtre",
         "undo": "Annuler l'ajustement",
         "unflag": "Retirer le marquage",
         "zoom_100": "Zoomer à 100%",

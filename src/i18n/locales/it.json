@@ -211,6 +211,7 @@
       "autoLensCorrection": "Correzione automatica obiettivo",
       "autoStraighten": "Raddrizza automaticamente",
       "cancel": "Annulla",
+      "closeViewer": "Chiudi la seconda finestra",
       "colorLabel": "Etichetta Colore",
       "confirmReset": "Conferma Ripristino",
       "convertNegative": "Converti Negativo",
@@ -226,6 +227,7 @@
       "mergeHdr": "Unisci in HDR",
       "noLabel": "Nessuna Etichetta",
       "noRating": "Nessuna Valutazione",
+      "openViewer": "Apri in una seconda finestra",
       "pasteAdjustments": "Incolla Regolazioni",
       "productivity": "Produttività",
       "rating": "Valutazione",
@@ -838,9 +840,11 @@
       "tooltips": {
         "aperture": "Apertura",
         "backToLibrary": "Torna alla Libreria",
+        "closeViewer": "Chiudi la seconda finestra",
         "focalLength": "Lunghezza Focale",
         "fullscreen": "Attiva/Disattiva Schermo Intero (F)",
         "iso": "ISO",
+        "openViewer": "Apri in una seconda finestra",
         "redo": "Ripeti (Ctrl+Y) o Cronologia (Tasto destro)",
         "showEdited": "Mostra Modificata (B)",
         "showOriginal": "Mostra Originale (B)",
@@ -848,6 +852,10 @@
         "undo": "Annulla (Ctrl+Z) o Cronologia (Tasto destro)"
       },
       "vc": "CV"
+    },
+    "viewer": {
+      "openFailed": "Impossibile aprire la seconda finestra: {{error}}",
+      "windowTitle": "Visualizzatore RapidRAW"
     }
   },
   "export": {
@@ -1770,6 +1778,7 @@
         "toggle_presets": "Attiva/Disattiva pannello Predefiniti",
         "toggle_reject": "Attiva/disattiva flag Rifiutata",
         "toggle_right_panel": "Mostra/Nascondi pannello destro",
+        "toggle_viewer_window": "Attiva/disattiva seconda finestra",
         "undo": "Annulla modifica",
         "unflag": "Rimuovi flag",
         "zoom_100": "Zoom al 100%",
