@@ -20,7 +20,7 @@ import {
 import EditorToolbar from './editor/EditorToolbar';
 import ImageCanvas from './editor/ImageCanvas';
 import { Mask, SubMask } from './right/Masks';
-import { Panel, TransformState, Invokes } from '../ui/AppProperties';
+import { Panel, TransformState, Invokes, DEFAULT_CROP_CONTROLS_OUTSIDE_CROP_TOOL } from '../ui/AppProperties';
 import { useEditorStore } from '../../store/useEditorStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUIStore } from '../../store/useUIStore';
@@ -346,6 +346,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   }, [isFullScreen]);
 
   const isCropping = activePanel === Panel.Crop;
+  const cropControlsOutsideCropTool =
+    appSettings?.cropControlsOutsideCropTool ?? DEFAULT_CROP_CONTROLS_OUTSIDE_CROP_TOOL;
+  const cropControlsAllowed = isCropping || cropControlsOutsideCropTool;
   const isMasking = activePanel === Panel.Masks;
   const isAiEditing = activePanel === Panel.Ai;
 
@@ -703,7 +706,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
       if (physicsFrameId.current) cancelAnimationFrame(physicsFrameId.current);
 
-      if (isCtrlPressedRef.current && selectedImage) {
+      if (cropControlsAllowed && isCtrlPressedRef.current && selectedImage) {
         const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
         const scaleFactor = delta > 0 ? 1.05 : 0.95;
         const orientationSteps = adjustments.orientationSteps || 0;
@@ -825,6 +828,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     appSettings?.canvasInputMode,
     appSettings?.zoomSpeedMultiplier,
     selectedImage,
+    cropControlsAllowed,
     adjustments.orientationSteps,
     adjustments.rotation,
     adjustments.aspectRatio,
@@ -855,6 +859,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       }
 
       if (e.pointerType === 'mouse' && e.button === 0 && (e.ctrlKey || e.metaKey) && !isBrushActive) {
+        if (!cropControlsAllowed) return;
+
         if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
         if (physicsFrameId.current) cancelAnimationFrame(physicsFrameId.current);
 
@@ -2223,7 +2229,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   let cursorStyle = 'default';
   if ((isShiftPressed && !isCropping) || straightenDragLine) {
     cursorStyle = 'crosshair';
-  } else if (isCtrlPressed && !isBrushActive && !isCropping) {
+  } else if (isCtrlPressed && !isBrushActive && !isCropping && cropControlsOutsideCropTool) {
     cursorStyle = isCropPanningRef.current ? 'grabbing' : 'move';
   } else if (isPanningState && isMiddleMousePanning.current) {
     cursorStyle = 'grabbing';

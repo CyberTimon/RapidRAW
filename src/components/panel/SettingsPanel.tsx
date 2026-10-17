@@ -36,7 +36,7 @@ import Input from '../ui/Input';
 import Slider from '../ui/Slider';
 import { ThemeProps, THEMES, DEFAULT_THEME_ID } from '../../utils/themes';
 import { useTranslation } from 'react-i18next';
-import { Invokes } from '../ui/AppProperties';
+import { DEFAULT_CROP_CONTROLS_OUTSIDE_CROP_TOOL, Invokes } from '../ui/AppProperties';
 import {
   formatKeyCode,
   getDefaultCombo,
@@ -2585,6 +2585,19 @@ export default function SettingsPanel({
                           label={t('settings.controls.zoomClickDesc')}
                           onChange={(checked) => {
                             onSettingsChange({ ...appSettings, zoomPhotoToPixelClick: checked });
+                          }}
+                        />
+                      </SettingItem>
+                      <SettingItem
+                        label={t('settings.controls.cropGestures')}
+                        description={t('settings.controls.cropGesturesInfo')}
+                      >
+                        <Switch
+                          checked={appSettings?.cropControlsOutsideCropTool ?? DEFAULT_CROP_CONTROLS_OUTSIDE_CROP_TOOL}
+                          id="crop-controls-outside-crop-tool"
+                          label={t('settings.controls.cropGesturesDesc')}
+                          onChange={(checked) => {
+                            onSettingsChange({ ...appSettings, cropControlsOutsideCropTool: checked });
                           }}
                         />
                       </SettingItem>

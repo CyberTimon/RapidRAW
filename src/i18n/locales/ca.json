@@ -1577,6 +1577,9 @@
       "shortcuts": "Controls"
     },
     "controls": {
+      "cropGestures": "Controls de retall amb Ctrl",
+      "cropGesturesDesc": "Permetre fora de l'eina de retall",
+      "cropGesturesInfo": "Ctrl + desplaçament redimensiona el retall, Ctrl + arrossegar el mou dins del marc i Ctrl + doble clic el restableix. Si ho desactiveu, aquests gestos només funcionen dins de l'eina de retall.",
       "keyboardTitle": "Controls de teclat",
       "modes": {
         "mouse": "Ratolí",

@@ -197,6 +197,8 @@ export interface CustomAspectRatio {
 export type GroupPreference = 'jpeg' | 'raw';
 export type GroupingMode = 'off' | GroupPreference;
 
+export const DEFAULT_CROP_CONTROLS_OUTSIDE_CROP_TOOL = true;
+
 export interface AppSettings {
   aiConnectorAddress?: string;
   aiProvider?: string;
@@ -241,6 +243,7 @@ export interface AppSettings {
   useWgpuRenderer?: boolean;
   editorNeutralGreyBg?: boolean;
   canvasInputMode?: 'mouse' | 'trackpad';
+  cropControlsOutsideCropTool?: boolean;
   whiteBalanceMode?: WhiteBalanceMode;
   zoomSpeedMultiplier?: number;
   zoomPhotoToPixelClick?: boolean;

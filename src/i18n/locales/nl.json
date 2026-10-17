@@ -1551,6 +1551,9 @@
       "shortcuts": "Besturing"
     },
     "controls": {
+      "cropGestures": "Bijsnijd-besturing met Ctrl",
+      "cropGesturesDesc": "Toestaan buiten het bijsnijd-gereedschap",
+      "cropGesturesInfo": "Ctrl + scrollen wijzigt de grootte van het bijsnijden, Ctrl + slepen verplaatst het binnen het beeld en Ctrl + dubbelklikken herstelt het. Staat dit uit, dan werken deze handelingen alleen in het bijsnijd-gereedschap.",
       "keyboardTitle": "Toetsenbordbesturing",
       "modes": {
         "mouse": "Muis",

@@ -1642,6 +1642,9 @@
       "shortcuts": "Sterowanie"
     },
     "controls": {
+      "cropGestures": "Sterowanie kadrowaniem z Ctrl",
+      "cropGesturesDesc": "Zezwalaj poza narzędziem kadrowania",
+      "cropGesturesInfo": "Ctrl + kółko zmienia rozmiar kadru, Ctrl + przeciąganie przesuwa go w obrazie, a Ctrl + podwójne kliknięcie resetuje. Wyłączenie ogranicza te gesty do narzędzia kadrowania.",
       "keyboardTitle": "Sterowanie klawiaturą",
       "modes": {
         "mouse": "Mysz",

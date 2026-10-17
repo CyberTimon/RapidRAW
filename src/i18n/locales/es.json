@@ -1607,6 +1607,9 @@
       "shortcuts": "Controles"
     },
     "controls": {
+      "cropGestures": "Controles de recorte con Ctrl",
+      "cropGesturesDesc": "Permitir fuera de la herramienta de recorte",
+      "cropGesturesInfo": "Ctrl + rueda cambia el tamaño del recorte, Ctrl + arrastrar lo mueve dentro del marco y Ctrl + doble clic lo restablece. Si está desactivado, estos gestos solo funcionan en la herramienta de recorte.",
       "keyboardTitle": "Controles del teclado",
       "modes": {
         "mouse": "Ratón",

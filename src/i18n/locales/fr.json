@@ -1607,6 +1607,9 @@
       "shortcuts": "Contrôles"
     },
     "controls": {
+      "cropGestures": "Contrôles de recadrage avec Ctrl",
+      "cropGesturesDesc": "Autoriser hors de l'outil de recadrage",
+      "cropGesturesInfo": "Ctrl + molette redimensionne le recadrage, Ctrl + glisser le déplace dans le cadre et Ctrl + double-clic le réinitialise. Si cette option est désactivée, ces raccourcis ne fonctionnent que dans l'outil de recadrage.",
       "keyboardTitle": "Contrôles au clavier",
       "modes": {
         "mouse": "Souris",

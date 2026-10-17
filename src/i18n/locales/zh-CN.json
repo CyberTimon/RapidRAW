@@ -1572,6 +1572,9 @@
       "shortcuts": "控制"
     },
     "controls": {
+      "cropGestures": "Ctrl 裁剪操作",
+      "cropGesturesDesc": "允许在裁剪工具之外使用",
+      "cropGesturesInfo": "Ctrl + 滚轮可调整裁剪范围大小，Ctrl + 拖动可在画面内移动，Ctrl + 双击可重置。关闭后，这些操作仅在裁剪工具内生效。",
       "keyboardTitle": "键盘控制",
       "modes": {
         "mouse": "鼠标",
