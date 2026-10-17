@@ -209,6 +209,7 @@
     "editor": {
       "autoAdjust": "Ajustement auto de l'image",
       "autoLensCorrection": "Correction d'objectif automatique",
+      "autoStraighten": "Redresser automatiquement",
       "cancel": "Annuler",
       "colorLabel": "Étiquette de couleur",
       "confirmReset": "Confirmer la réinitialisation",
@@ -283,6 +284,9 @@
       "autoAdjust_other": "Ajustement auto des images",
       "autoLensCorrection_one": "Correction d'objectif automatique",
       "autoLensCorrection_other": "Corrections d'objectif automatiques",
+      "autoStraighten_many": "Redresser les images automatiquement",
+      "autoStraighten_one": "Redresser l'image automatiquement",
+      "autoStraighten_other": "Redresser les images automatiquement",
       "collage_many": "Créer un collage",
       "collage_one": "Encadrer l'image",
       "collage_other": "Créer un collage",
@@ -490,6 +494,8 @@
     },
     "crop": {
       "aspectRatioHeading": "Rapport d'aspect",
+      "autoStraightenFailed": "Échec du redressement automatique : {{error}}",
+      "autoStraightenNoLines": "Aucune ligne droite trouvée pour redresser",
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Hauteur",
@@ -589,6 +595,7 @@
       "rotationHeading": "Rotation",
       "title": "Recadrage & Transformation",
       "tooltips": {
+        "autoStraighten": "Redresser automatiquement (Maj+S)",
         "compositionOverlay": "Superposition de composition",
         "flipHoriz": "Retourner l'image horizontalement",
         "flipVert": "Retourner l'image verticalement",
@@ -883,8 +890,10 @@
       "selectFolderTitle_other": "Sélectionner le dossier pour exporter {{count}} images"
     },
     "file": {
+      "dpi": "PPP",
       "quality": "Qualité",
       "qualityLossless": "Qualité (Sans perte)",
+      "resolution": "Résolution",
       "tiffBitDepth": "Profondeur de bits TIFF",
       "tiffBitDepth16": "16 bits",
       "tiffBitDepth8": "8 bits"
@@ -1086,6 +1095,8 @@
       }
     },
     "header": {
+      "cancel": "Annuler",
+      "deselectAll": "Tout désélectionner",
       "search": {
         "addFilterOrSearch": "Ajouter un filtre ou rechercher...",
         "indexingImages": "Indexation des images...",
@@ -1097,6 +1108,8 @@
         "tooltipClearSearch": "Effacer la recherche",
         "tooltipSearchFilter": "Rechercher ou Filtrer"
       },
+      "selectAll": "Tout sélectionner",
+      "selectItems": "Sélectionner des éléments",
       "title": "Bibliothèque",
       "viewOptions": {
         "currentFolder": "Dossier actuel",
@@ -1220,7 +1233,8 @@
     "tooltips": {
       "communityPresets": "Paramètres prédéfinis de la communauté",
       "goHome": "Aller à l'accueil",
-      "importImages": "Importer des images"
+      "importImages": "Importer des images",
+      "select": "Sélectionner"
     }
   },
   "masks": {
@@ -1703,6 +1717,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "Redresser automatiquement",
         "brush_size_down": "Diminuer la taille du pinceau",
         "brush_size_up": "Augmenter la taille du pinceau",
         "color_label_blue": "Étiquette de couleur : Bleu",
@@ -1885,6 +1900,10 @@
         "appleRaw9Desc": "Développe les fichiers RAW avec le décodeur RAW 9 de Core Image d'Apple, qui effectue le dématriçage et la réduction de bruit en une seule étape sur le Neural Engine. Nécessite macOS 27 ou ultérieur et un appareil photo pris en charge ; les fichiers non pris en charge utilisent automatiquement le décodeur intégré. Plus lent que le décodeur par défaut. Les miniatures ne sont pas affectées.",
         "applyPreprocessing": "Appliquer le prétraitement aux Non-RAW",
         "applyPreprocessingDesc": "Si activé, la réduction du bruit colorimétrique de base et la pré-accentuation ci-dessus seront également appliquées aux formats standard.",
+        "baselineExposure": "Exposition de base",
+        "baselineExposureAmount": "Valeur de base",
+        "baselineExposureAmountDesc": "Exposition ajoutée aux fichiers RAW. darktable utilise +0,7 IL.",
+        "baselineExposureDesc": "Éclaircit tous les fichiers RAW d'une valeur fixe, comme le réglage par défaut de darktable en mode relatif à la scène, plus la balise DNG BaselineExposure si elle est présente. Les images retouchées avant l'ajout de cette option ne sont pas modifiées.",
         "colorNr": "Réduction du bruit colorimétrique de base",
         "colorNrDesc": "Applique un filtre bilatéral croisé tôt dans le traitement pour éliminer le bruit de chrominance. Valeur plus élevée = Réduction plus forte.",
         "defaultNonRawTonemapper": "Mappeur de tons par défaut (Non-RAW)",
@@ -1892,8 +1911,12 @@
         "defaultRawTonemapper": "Mappeur de tons par défaut (RAW)",
         "defaultRawTonemapperDesc": "Le mappeur de tons à appliquer aux images RAW.",
         "enableAppleRaw9": "Utiliser Apple RAW 9 pour les fichiers RAW",
+        "enableBaselineExposure": "Appliquer l'exposition de base aux fichiers RAW",
+        "enableHighlightPreservation": "Compenser les modes de préservation des hautes lumières de l'appareil",
         "enablePreprocessingNonRaws": "Activer pour les Non-RAW",
         "enableTonemapperOverride": "Activer la surcharge du mappeur de tons",
+        "highlightPreservation": "Compensation de la préservation des hautes lumières",
+        "highlightPreservationDesc": "Rétablit l'exposition retenue par l'appareil dans les modes de préservation des hautes lumières, lue dans le fichier RAW (Fujifilm DR200/DR400, Priorité hautes lumières et Correction auto de luminosité Canon, D-Lighting actif Nikon, gradation Olympus, extension de plage dynamique Pentax). Les images retouchées avant l'ajout de cette option ne sont pas modifiées.",
         "highlightRecovery": "Récupération des hautes lumières RAW",
         "highlightRecoveryDesc": "Contrôle la quantité de détails récupérés des hautes lumières écrêtées dans les fichiers RAW. Des valeurs plus élevées récupèrent plus de détails mais peuvent introduire des artefacts violets.",
         "linearOptions": {

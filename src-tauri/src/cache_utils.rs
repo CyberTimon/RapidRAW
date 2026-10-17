@@ -171,13 +171,8 @@ pub fn calculate_patched_warped_hash(adjustments: &serde_json::Value) -> u64 {
 pub fn calculate_effects_hash(adjustments: &serde_json::Value) -> u64 {
     let mut hasher = DefaultHasher::new();
 
-    let effects_visible = adjustments
-        .get("sectionVisibility")
-        .and_then(|v| v.get("effects"))
-        .and_then(|s| s.as_bool())
-        .unwrap_or(true);
-
-    let blur_enabled = effects_visible && adjustments["lensBlurEnabled"].as_bool().unwrap_or(false);
+    let blur_enabled =
+        crate::image_processing::is_effect_enabled(adjustments, "lensBlur", "lensBlurEnabled");
     blur_enabled.hash(&mut hasher);
 
     if blur_enabled {
@@ -198,7 +193,7 @@ pub fn calculate_effects_hash(adjustments: &serde_json::Value) -> u64 {
     }
 
     let relight_enabled =
-        effects_visible && adjustments["relightEnabled"].as_bool().unwrap_or(false);
+        crate::image_processing::is_effect_enabled(adjustments, "relight", "relightEnabled");
     relight_enabled.hash(&mut hasher);
 
     if relight_enabled {
@@ -217,7 +212,7 @@ pub fn calculate_effects_hash(adjustments: &serde_json::Value) -> u64 {
         );
     }
 
-    let fog_enabled = effects_visible && adjustments["fogEnabled"].as_bool().unwrap_or(false);
+    let fog_enabled = crate::image_processing::is_effect_enabled(adjustments, "fog", "fogEnabled");
     fog_enabled.hash(&mut hasher);
 
     if fog_enabled {
@@ -293,13 +288,8 @@ pub fn calculate_transform_hash(adjustments: &serde_json::Value) -> u64 {
     let flip_v = adjustments["flipVertical"].as_bool().unwrap_or(false);
     flip_v.hash(&mut hasher);
 
-    let effects_visible = adjustments
-        .get("sectionVisibility")
-        .and_then(|v| v.get("effects"))
-        .and_then(|s| s.as_bool())
-        .unwrap_or(true);
-
-    let blur_enabled = effects_visible && adjustments["lensBlurEnabled"].as_bool().unwrap_or(false);
+    let blur_enabled =
+        crate::image_processing::is_effect_enabled(adjustments, "lensBlur", "lensBlurEnabled");
     blur_enabled.hash(&mut hasher);
     if blur_enabled {
         if let Some(val) = adjustments.get("lensBlurAmount") {
@@ -329,7 +319,7 @@ pub fn calculate_transform_hash(adjustments: &serde_json::Value) -> u64 {
     }
 
     let relight_enabled =
-        effects_visible && adjustments["relightEnabled"].as_bool().unwrap_or(false);
+        crate::image_processing::is_effect_enabled(adjustments, "relight", "relightEnabled");
     relight_enabled.hash(&mut hasher);
     if relight_enabled {
         for key in [
@@ -349,7 +339,7 @@ pub fn calculate_transform_hash(adjustments: &serde_json::Value) -> u64 {
         }
     }
 
-    let fog_enabled = effects_visible && adjustments["fogEnabled"].as_bool().unwrap_or(false);
+    let fog_enabled = crate::image_processing::is_effect_enabled(adjustments, "fog", "fogEnabled");
     fog_enabled.hash(&mut hasher);
     if fog_enabled {
         for key in [

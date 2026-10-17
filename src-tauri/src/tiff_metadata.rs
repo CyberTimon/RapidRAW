@@ -23,7 +23,7 @@ use std::borrow::Cow;
 use std::io::{Cursor, Seek, Write};
 use tiff::encoder::colortype::{RGB8, RGB16, RGB32Float};
 use tiff::encoder::{DirectoryEncoder, Rational, SRational, TiffEncoder, TiffValue};
-use tiff::tags::{Tag, Type};
+use tiff::tags::{ResolutionUnit, Tag, Type};
 
 /// Sample format of the TIFF to write. Exports pick eight or sixteen bit,
 /// panorama stitching and HDR merging keep their float data.
@@ -81,14 +81,16 @@ pub fn is_structural_tag(tag: u16) -> bool {
 }
 
 /// Encodes `image` as a TIFF with `metadata` written into the IFDs it belongs
-/// in, and `icc_profile` tagged in the main IFD. Passing `None` for the
-/// metadata produces a TIFF without any, which is what export does when the
-/// user turns metadata off.
+/// in, `icc_profile` tagged in the main IFD, and `dpi` recorded as the image
+/// resolution for print exports. Passing `None` for the metadata produces a
+/// TIFF without any, which is what export does when the user turns metadata
+/// off.
 pub fn encode_tiff_with_metadata(
     image: &DynamicImage,
     samples: TiffSamples,
     metadata: Option<&Metadata>,
     icc_profile: Option<&[u8]>,
+    dpi: Option<u16>,
 ) -> Result<Vec<u8>, String> {
     let (width, height) = image.dimensions();
     let mut buffer = Cursor::new(Vec::new());
@@ -113,6 +115,7 @@ pub fn encode_tiff_with_metadata(
                 gps_ifd,
                 icc_profile,
             )?;
+            set_resolution(&mut image_encoder, dpi);
             image_encoder
                 .write_data(pixels.as_raw())
                 .map_err(|e| format!("Failed to write TIFF pixel data: {}", e))?;
@@ -129,6 +132,7 @@ pub fn encode_tiff_with_metadata(
                 gps_ifd,
                 icc_profile,
             )?;
+            set_resolution(&mut image_encoder, dpi);
             image_encoder
                 .write_data(pixels.as_raw())
                 .map_err(|e| format!("Failed to write TIFF pixel data: {}", e))?;
@@ -145,6 +149,7 @@ pub fn encode_tiff_with_metadata(
                 gps_ifd,
                 icc_profile,
             )?;
+            set_resolution(&mut image_encoder, dpi);
             image_encoder
                 .write_data(pixels.as_raw())
                 .map_err(|e| format!("Failed to write TIFF pixel data: {}", e))?;
@@ -416,5 +421,22 @@ impl TiffValue for Undefined<'_> {
 
     fn data(&self) -> Cow<'_, [u8]> {
         Cow::Borrowed(self.0)
+    }
+}
+
+/// Records the export's DPI as the image resolution. The encoder writes its own
+/// placeholder resolution otherwise, which says nothing about print size.
+fn set_resolution<W: Write + Seek, C: tiff::encoder::colortype::ColorType>(
+    image_encoder: &mut tiff::encoder::ImageEncoder<'_, W, C, tiff::encoder::TiffKindStandard>,
+    dpi: Option<u16>,
+) {
+    if let Some(dpi) = dpi {
+        image_encoder.resolution(
+            ResolutionUnit::Inch,
+            Rational {
+                n: dpi.into(),
+                d: 1,
+            },
+        );
     }
 }

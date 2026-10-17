@@ -1,12 +1,7 @@
-use crate::file_management::{parse_virtual_path, read_file_mapped};
-use crate::formats::is_raw_file;
 use crate::image_processing::{PRIMARIES_SRGB, WP_D65, primaries_to_xyz_matrix};
 use glam::{DMat3, DVec3, Mat3};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
-use std::path::Path;
-use std::sync::{Mutex, OnceLock};
 
 pub const MIN_TEMPERATURE: f64 = 2000.0;
 pub const MAX_TEMPERATURE: f64 = 50000.0;
@@ -256,31 +251,4 @@ pub fn pick_white_balance(sample: [f64; 3], current: WhiteBalance) -> Option<Whi
     let white_lms = rgb_to_lms * DVec3::ONE;
     let illuminant_xyz = BRADFORD.inverse() * (current.lms() * sample_lms / white_lms);
     WhiteBalance::from_xyz(illuminant_xyz).map(WhiteBalance::clamped)
-}
-
-fn as_shot_cache() -> &'static Mutex<HashMap<String, WhiteBalance>> {
-    static CACHE: OnceLock<Mutex<HashMap<String, WhiteBalance>>> = OnceLock::new();
-    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
-}
-
-pub fn as_shot_white_balance(path: &str) -> WhiteBalance {
-    let (source_path, _) = parse_virtual_path(path);
-    let source_path = source_path.to_string_lossy().to_string();
-    if !is_raw_file(&source_path) {
-        return WhiteBalance::reference();
-    }
-    if let Some(cached) = as_shot_cache().lock().unwrap().get(&source_path) {
-        return *cached;
-    }
-
-    let white_balance = read_file_mapped(Path::new(&source_path))
-        .ok()
-        .and_then(|mmap| crate::raw_processing::read_as_shot_white_balance(&mmap))
-        .unwrap_or_else(WhiteBalance::reference);
-
-    as_shot_cache()
-        .lock()
-        .unwrap()
-        .insert(source_path, white_balance);
-    white_balance
 }

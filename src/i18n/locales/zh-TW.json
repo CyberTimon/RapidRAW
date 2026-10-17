@@ -209,6 +209,7 @@
     "editor": {
       "autoAdjust": "自動調整影像",
       "autoLensCorrection": "自動鏡頭校正",
+      "autoStraighten": "自動拉直",
       "cancel": "取消",
       "colorLabel": "顏色標籤",
       "confirmReset": "確認重置",
@@ -278,6 +279,8 @@
       "autoAdjust_other": "自動調整影像",
       "autoLensCorrection_one": "自動鏡頭校正",
       "autoLensCorrection_other": "自動鏡頭校正",
+      "autoStraighten_one": "自動拉直影像",
+      "autoStraighten_other": "自動拉直影像",
       "collage_one": "裝裱影像",
       "collage_other": "建立拼貼畫",
       "confirmDelete": "確認刪除",
@@ -468,6 +471,8 @@
     },
     "crop": {
       "aspectRatioHeading": "寬高比",
+      "autoStraightenFailed": "自動拉直失敗：{{error}}",
+      "autoStraightenNoLines": "找不到可用於拉直的直線",
       "custom": {
         "hPlaceholder": "高",
         "hTooltip": "高度",
@@ -567,6 +572,7 @@
       "rotationHeading": "旋轉",
       "title": "裁剪與變換",
       "tooltips": {
+        "autoStraighten": "自動拉直（Shift+S）",
         "compositionOverlay": "構圖疊加",
         "flipHoriz": "水平翻轉影像",
         "flipVert": "垂直翻轉影像",
@@ -859,8 +865,10 @@
       "selectFolderTitle_other": "選擇資料夾以匯出 {{count}} 張影像"
     },
     "file": {
+      "dpi": "DPI",
       "quality": "品質",
       "qualityLossless": "品質（無損）",
+      "resolution": "解析度",
       "tiffBitDepth": "TIFF 位元深度",
       "tiffBitDepth16": "16 位元",
       "tiffBitDepth8": "8 位元"
@@ -1061,6 +1069,8 @@
       }
     },
     "header": {
+      "cancel": "取消",
+      "deselectAll": "取消全選",
       "search": {
         "addFilterOrSearch": "新增過濾或搜尋...",
         "indexingImages": "索引影像中...",
@@ -1072,6 +1082,8 @@
         "tooltipClearSearch": "清除搜尋",
         "tooltipSearchFilter": "搜尋或過濾"
       },
+      "selectAll": "全選",
+      "selectItems": "選擇項目",
       "title": "相簿",
       "viewOptions": {
         "currentFolder": "當前資料夾",
@@ -1192,7 +1204,8 @@
     "tooltips": {
       "communityPresets": "社群預設",
       "goHome": "返回首頁",
-      "importImages": "匯入影像"
+      "importImages": "匯入影像",
+      "select": "選擇"
     }
   },
   "masks": {
@@ -1666,6 +1679,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "自動拉直",
         "brush_size_down": "減小畫筆大小",
         "brush_size_up": "增大畫筆大小",
         "color_label_blue": "顏色標籤：藍色",
@@ -1848,6 +1862,10 @@
         "appleRaw9Desc": "使用 Apple 的 Core Image RAW 9 解碼器沖洗 RAW 檔案。它在神經網路引擎 (Neural Engine) 上一步完成去馬賽克與降噪。需要 macOS 27 或更高版本以及支援的相機；不支援的檔案將自動使用內建解碼器。比預設解碼器慢。縮圖不受影響。",
         "applyPreprocessing": "對非 RAW 影像應用預處理",
         "applyPreprocessingDesc": "如果啟用，上述基礎顏色降噪和預銳化也將應用於標準格式。",
+        "baselineExposure": "基礎曝光",
+        "baselineExposureAmount": "基礎量",
+        "baselineExposureAmountDesc": "加到 RAW 檔案的曝光量。darktable 使用 +0.7 EV。",
+        "baselineExposureDesc": "將所有 RAW 檔案提亮一個固定值（與 darktable 場景參考模式的預設值相同），如有 DNG BaselineExposure 標籤也會一併加上。在此選項推出之前編輯的影像不受影響。",
         "colorNr": "基礎顏色降噪",
         "colorNrDesc": "在管線早期應用交叉雙邊濾波器以去除彩色噪點。值越高 = 降噪越強。",
         "defaultNonRawTonemapper": "預設非 RAW 色調映射",
@@ -1855,8 +1873,12 @@
         "defaultRawTonemapper": "預設 RAW 色調映射",
         "defaultRawTonemapperDesc": "應用於 RAW 影像的色調映射器。",
         "enableAppleRaw9": "對 RAW 檔案使用 Apple RAW 9",
+        "enableBaselineExposure": "對 RAW 檔案套用基礎曝光",
+        "enableHighlightPreservation": "補償相機的高光保護模式",
         "enablePreprocessingNonRaws": "對非 RAW 影像啟用",
         "enableTonemapperOverride": "啟用色調映射覆蓋",
+        "highlightPreservation": "高光保護補償",
+        "highlightPreservationDesc": "從 RAW 檔案讀取相機在高光保護模式下保留的曝光並予以恢復（富士 DR200/DR400、Canon 高光色調優先與自動亮度優化、Nikon 動態 D-Lighting、Olympus 層次、Pentax 動態範圍擴展）。在此選項推出之前編輯的影像不受影響。",
         "highlightRecovery": "RAW 亮部恢復",
         "highlightRecoveryDesc": "控制從 RAW 檔案的裁剪亮部中恢復細節的程度。較高的值可恢復更多細節，但可能引入紫色偽影。",
         "linearOptions": {

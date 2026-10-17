@@ -209,6 +209,7 @@
     "editor": {
       "autoAdjust": "画像を自動補正",
       "autoLensCorrection": "自動レンズ補正",
+      "autoStraighten": "自動角度補正",
       "cancel": "キャンセル",
       "colorLabel": "カラーラベル",
       "confirmReset": "リセットを確認",
@@ -278,6 +279,8 @@
       "autoAdjust_other": "画像を自動補正",
       "autoLensCorrection_one": "自動レンズ補正",
       "autoLensCorrection_other": "自動レンズ補正",
+      "autoStraighten_one": "画像を自動角度補正",
+      "autoStraighten_other": "画像を自動角度補正",
       "collage_one": "画像にフレームを追加",
       "collage_other": "コラージュを作成",
       "confirmDelete": "削除を確認",
@@ -468,6 +471,8 @@
     },
     "crop": {
       "aspectRatioHeading": "アスペクト比",
+      "autoStraightenFailed": "自動角度補正に失敗しました: {{error}}",
+      "autoStraightenNoLines": "補正に使える直線が見つかりません",
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "高さ",
@@ -567,6 +572,7 @@
       "rotationHeading": "回転",
       "title": "切り抜きと変形",
       "tooltips": {
+        "autoStraighten": "自動角度補正（Shift+S）",
         "compositionOverlay": "構図ガイド",
         "flipHoriz": "画像を水平方向に反転",
         "flipVert": "画像を垂直方向に反転",
@@ -859,8 +865,10 @@
       "selectFolderTitle_other": "{{count}} 枚の画像を書き出すフォルダを選択"
     },
     "file": {
+      "dpi": "DPI",
       "quality": "画質",
       "qualityLossless": "画質 (ロスレス)",
+      "resolution": "解像度",
       "tiffBitDepth": "TIFF ビット深度",
       "tiffBitDepth16": "16 ビット",
       "tiffBitDepth8": "8 ビット"
@@ -1061,6 +1069,8 @@
       }
     },
     "header": {
+      "cancel": "キャンセル",
+      "deselectAll": "すべての選択を解除",
       "search": {
         "addFilterOrSearch": "フィルターまたは検索を追加...",
         "indexingImages": "画像をインデックス中...",
@@ -1072,6 +1082,8 @@
         "tooltipClearSearch": "検索をクリア",
         "tooltipSearchFilter": "検索またはフィルター"
       },
+      "selectAll": "すべて選択",
+      "selectItems": "項目を選択",
       "title": "ライブラリ",
       "viewOptions": {
         "currentFolder": "現在のフォルダ",
@@ -1192,7 +1204,8 @@
     "tooltips": {
       "communityPresets": "コミュニティプリセット",
       "goHome": "ホームへ移動",
-      "importImages": "画像をインポート"
+      "importImages": "画像をインポート",
+      "select": "選択"
     }
   },
   "masks": {
@@ -1666,6 +1679,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "自動角度補正",
         "brush_size_down": "ブラシサイズを縮小",
         "brush_size_up": "ブラシサイズを拡大",
         "color_label_blue": "カラーラベル: ブルー",
@@ -1848,6 +1862,10 @@
         "appleRaw9Desc": "AppleのCore Image RAW 9デコーダを使用してRAWファイルを現像します。これはNeural Engine上でデモザイク処理とノイズ低減を1ステップで行います。macOS 27以降および対応カメラが必要です。未対応のファイルは自動的に内蔵デコーダを使用します。デフォルトのデコーダより低速です。サムネイルには影響しません。",
         "applyPreprocessing": "RAW以外の画像にも事前処理を適用",
         "applyPreprocessingDesc": "有効にすると、上記のカラーノイズ低減と事前シャープ処理が標準フォーマットの画像にも適用されます。",
+        "baselineExposure": "ベース露出",
+        "baselineExposureAmount": "ベース量",
+        "baselineExposureAmountDesc": "RAWファイルに加える露出量です。darktableは+0.7 EVを使用します。",
+        "baselineExposureDesc": "すべてのRAWファイルを一定量明るくします（darktableのシーンリファード既定値と同様）。DNGのBaselineExposureタグがある場合はその値も加えます。このオプションの追加前に編集した画像には影響しません。",
         "colorNr": "カラーノイズ低減 (基本)",
         "colorNrDesc": "パイプラインの初期段階でクロスバイラテラルフィルタを適用し、カラーノイズを除去します。値が大きいほど効果が強まります。",
         "defaultNonRawTonemapper": "標準トーンマッパー (RAW以外)",
@@ -1855,8 +1873,12 @@
         "defaultRawTonemapper": "標準トーンマッパー (RAW)",
         "defaultRawTonemapperDesc": "RAW画像に適用される標準のトーンマッパーです。",
         "enableAppleRaw9": "RAWファイルにApple RAW 9を使用する",
+        "enableBaselineExposure": "RAWファイルにベース露出を適用",
+        "enableHighlightPreservation": "カメラのハイライト保護モードを補正",
         "enablePreprocessingNonRaws": "RAW以外の画像にも適用",
         "enableTonemapperOverride": "トーンマッパーの上書きを有効化",
+        "highlightPreservation": "ハイライト保護の補正",
+        "highlightPreservationDesc": "ハイライト保護モードでカメラが抑えた露出を、RAWファイルから読み取って補います（富士フイルム DR200/DR400、キヤノン 高輝度側・階調優先とオートライティングオプティマイザ、ニコン アクティブD-ライティング、オリンパス 階調、ペンタックス Dレンジ補正）。このオプションの追加前に編集した画像には影響しません。",
         "highlightRecovery": "RAWハイライト再現",
         "highlightRecoveryDesc": "RAWファイルで白とびしたハイライトから再現する情報のレベルを設定します。値を高くするとディテールが戻りますが、紫色のアーティファクトが発生する場合があります。",
         "linearOptions": {

@@ -1,3 +1,4 @@
+use crate::as_shot::AsShot;
 use crate::image_processing::apply_orientation;
 use crate::white_balance::WhiteBalance;
 use anyhow::{Result, anyhow};
@@ -291,17 +292,25 @@ fn develop_internal(
     Ok((dynamic_image, orientation))
 }
 
-pub fn read_as_shot_white_balance(file_bytes: &[u8]) -> Option<WhiteBalance> {
+pub fn read_as_shot(file_bytes: &[u8]) -> Option<AsShot> {
     let source = RawSource::new_from_slice(file_bytes);
     let decoder = rawler::get_decoder(&source).ok()?;
     let raw_image = decoder
         .raw_image(&source, &RawDecodeParams::default(), true)
         .ok()?;
-    if raw_image.cpp == 1 && !matches!(raw_image.photometric, RawPhotometricInterpretation::Cfa(_))
-    {
-        return None;
-    }
+    let is_monochrome = raw_image.cpp == 1
+        && !matches!(raw_image.photometric, RawPhotometricInterpretation::Cfa(_));
 
+    Some(AsShot {
+        white_balance: (!is_monochrome)
+            .then(|| as_shot_white_balance(&raw_image, file_bytes))
+            .flatten()
+            .unwrap_or_else(WhiteBalance::reference),
+        exposure: crate::baseline_exposure::read(decoder.as_ref(), file_bytes, is_monochrome),
+    })
+}
+
+fn as_shot_white_balance(raw_image: &RawImage, file_bytes: &[u8]) -> Option<WhiteBalance> {
     let wb_coeffs =
         crate::multi_exposure::neutralize_wb_if_multiexposure(raw_image.wb_coeffs, file_bytes);
     let neutral = if wb_coeffs[0].is_nan() {

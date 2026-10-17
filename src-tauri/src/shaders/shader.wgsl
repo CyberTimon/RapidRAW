@@ -44,8 +44,8 @@ struct GlobalAdjustments {
     wb_log_gain_l: f32,
     wb_log_gain_m: f32,
     wb_log_gain_s: f32,
-    _pad_color1: f32,
-    _pad_color2: f32,
+    centre_x: f32,
+    centre_y: f32,
 
     sharpness: f32,
     luma_noise_reduction: f32,
@@ -72,8 +72,8 @@ struct GlobalAdjustments {
     lut_intensity: f32,
     tonemapper_mode: u32,
     lut_is_scene_referred: u32,
-    _pad_lut3: f32,
-    _pad_lut4: f32,
+    vignette_center_x: f32,
+    vignette_center_y: f32,
     _pad_lut5: f32,
 
     _pad_agx1: f32,
@@ -863,7 +863,7 @@ fn shape_detail_gf(d: f32) -> f32 {
     return shape_detail(d, select(GF_DETAIL_SIGMA, GF_BRIGHT_SIGMA, d > 0.0));
 }
 
-fn centre_clarity_strength(centre_amount: f32, coords_i: vec2<i32>) -> f32 {
+fn centre_clarity_strength(centre_amount: f32, centre_pos: vec2<f32>, coords_i: vec2<i32>) -> f32 {
     if (centre_amount == 0.0) {
         return 0.0;
     }
@@ -872,7 +872,7 @@ fn centre_clarity_strength(centre_amount: f32, coords_i: vec2<i32>) -> f32 {
     let midpoint = 0.4;
     let feather = 0.375;
     let aspect = full_dims_f.y / full_dims_f.x;
-    let uv_centered = (coord_f / full_dims_f - 0.5) * 2.0;
+    let uv_centered = (coord_f / full_dims_f - centre_pos) * 2.0;
     let d = length(uv_centered * vec2<f32>(1.0, aspect)) * 0.5;
     let vignette_mask = smoothstep(midpoint - feather, midpoint + feather, d);
     let centre_mask = 1.0 - vignette_mask;
@@ -1042,6 +1042,7 @@ fn apply_sharpen(
 fn apply_centre_tonal_and_color(
     color_in: vec3<f32>,
     centre_amount: f32,
+    centre_pos: vec2<f32>,
     coords_i: vec2<i32>
 ) -> vec3<f32> {
     if (centre_amount == 0.0) {
@@ -1052,7 +1053,7 @@ fn apply_centre_tonal_and_color(
     let midpoint = 0.4;
     let feather = 0.375;
     let aspect = full_dims_f.y / full_dims_f.x;
-    let uv_centered = (coord_f / full_dims_f - 0.5) * 2.0;
+    let uv_centered = (coord_f / full_dims_f - centre_pos) * 2.0;
     let d = length(uv_centered * vec2<f32>(1.0, aspect)) * 0.5;
     let vignette_mask = smoothstep(midpoint - feather, midpoint + feather, d);
     let centre_mask = 1.0 - vignette_mask;
@@ -1804,7 +1805,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         lc_gate *= 1.0 - smoothstep(0.9, 1.0, gf_luma);
     }
 
-    let clarity_total = t_clarity + centre_clarity_strength(adjustments.global.centre, absolute_coord_i);
+    let clarity_total = t_clarity + centre_clarity_strength(adjustments.global.centre, vec2<f32>(adjustments.global.centre_x, adjustments.global.centre_y), absolute_coord_i);
     let structure_smooth = clamp(-t_structure, 0.0, 1.0);
     let clarity_overlap = select(1.0, 1.0 - structure_smooth, clarity_total < 0.0);
     let clarity_term = shape_detail_gf(detail_clarity)
@@ -1853,7 +1854,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     var composite_rgb_linear = apply_dehaze(processed_rgb, structure_blurred, dehaze_dark, is_raw, t_dehaze);
     composite_rgb_linear = apply_white_balance(composite_rgb_linear, t_wb_log_gains);
-    composite_rgb_linear = apply_centre_tonal_and_color(composite_rgb_linear, adjustments.global.centre, absolute_coord_i);
+    composite_rgb_linear = apply_centre_tonal_and_color(composite_rgb_linear, adjustments.global.centre, vec2<f32>(adjustments.global.centre_x, adjustments.global.centre_y), absolute_coord_i);
     var tonal_log_detail = 0.0;
     var tonal_mid_detail = 0.0;
     if (t_shadows != 0.0 || t_blacks != 0.0 || t_highlights != 0.0 || t_whites != 0.0) {
@@ -1898,7 +1899,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         let v_round = 1.0 - adjustments.global.vignette_roundness;
         let v_feather = adjustments.global.vignette_feather * 0.5;
         let aspect = full_dims_f.y / full_dims_f.x;
-        let uv_centered = (coord_f / full_dims_f - 0.5) * 2.0;
+        let v_center = vec2<f32>(adjustments.global.vignette_center_x, adjustments.global.vignette_center_y);
+        let uv_centered = (coord_f / full_dims_f - v_center) * 2.0;
         let uv_round = sign(uv_centered) * pow(abs(uv_centered), vec2<f32>(v_round, v_round));
         let d = length(uv_round * vec2<f32>(1.0, aspect)) * 0.5;
         let vignette_mask = smoothstep(v_mid - v_feather, v_mid + v_feather, d);

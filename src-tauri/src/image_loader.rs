@@ -1,12 +1,14 @@
 use crate::Cursor;
 use crate::app_settings::{AppSettings, load_settings};
 use crate::app_state::{AppState, LoadedImage};
+use crate::baseline_exposure::BaselineOptions;
 use crate::exif_processing;
 use crate::file_management::{parse_virtual_path, read_file_mapped};
 use crate::formats::is_raw_file;
 use crate::image_processing::ImageMetadata;
 use crate::image_processing::{
-    apply_orientation, apply_srgb_to_linear, remove_raw_artifacts_and_enhance,
+    apply_orientation, apply_srgb_to_linear, effective_baseline_exposure,
+    remove_raw_artifacts_and_enhance,
 };
 use crate::mask_generation::{MaskDefinition, SubMask, generate_mask_bitmap};
 use crate::white_balance::WhiteBalance;
@@ -913,6 +915,7 @@ pub async fn load_image(
     let metadata: ImageMetadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let baseline_options = BaselineOptions::from_settings(&settings);
 
     let path_clone = source_path_str.clone();
 
@@ -1008,13 +1011,22 @@ pub async fn load_image(
     }
 
     let (orig_width, orig_height) = pristine_arc.dimensions();
-    let as_shot_white_balance = crate::white_balance::as_shot_white_balance(&source_path_str);
+    let as_shot = crate::as_shot::as_shot(&source_path_str);
+    if is_raw {
+        log::info!(
+            "Baseline exposure for '{}': {:+.2} EV (DNG baseline {:+.2} EV, highlight preservation {:+.2} EV)",
+            source_path_str,
+            effective_baseline_exposure(&metadata.adjustments, as_shot, baseline_options),
+            as_shot.exposure.dng_baseline,
+            as_shot.exposure.highlight_preservation
+        );
+    }
 
     *state.original_image.lock().unwrap() = Some(LoadedImage {
         path,
         image: pristine_arc,
         is_raw,
-        as_shot_white_balance,
+        as_shot,
     });
 
     Ok(LoadImageResult {
@@ -1023,6 +1035,6 @@ pub async fn load_image(
         metadata,
         exif: exif_data,
         is_raw,
-        as_shot_white_balance,
+        as_shot_white_balance: as_shot.white_balance,
     })
 }

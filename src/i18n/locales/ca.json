@@ -209,6 +209,7 @@
     "editor": {
       "autoAdjust": "Ajustament automàtic",
       "autoLensCorrection": "Correcció d'objectiu automàtica",
+      "autoStraighten": "Redreçar automàticament",
       "cancel": "Cancel·lar",
       "colorLabel": "Etiqueta de color",
       "confirmReset": "Confirmar restabliment",
@@ -278,6 +279,9 @@
       "autoAdjust_other": "Ajustament automàtic de les imatges",
       "autoLensCorrection_one": "Correcció d'objectiu automàtica",
       "autoLensCorrection_other": "Correcció d'objectiu automàtica",
+      "autoStraighten_many": "Redreçar automàticament les imatges",
+      "autoStraighten_one": "Redreçar automàticament la imatge",
+      "autoStraighten_other": "Redreçar automàticament les imatges",
       "collage_one": "Emmarcar imatge",
       "collage_other": "Crear collage",
       "confirmDelete": "Confirmar eliminació",
@@ -470,6 +474,8 @@
     },
     "crop": {
       "aspectRatioHeading": "Relació d'aspecte",
+      "autoStraightenFailed": "No s'ha pogut redreçar automàticament: {{error}}",
+      "autoStraightenNoLines": "No s'han trobat línies rectes per redreçar",
       "custom": {
         "hPlaceholder": "Al",
         "hTooltip": "Alçada",
@@ -569,6 +575,7 @@
       "rotationHeading": "Rotació",
       "title": "Retallar i transformar",
       "tooltips": {
+        "autoStraighten": "Redreçar automàticament (Maj+S)",
         "compositionOverlay": "Superposició de composició",
         "flipHoriz": "Capgirar la imatge horitzontalment",
         "flipVert": "Capgirar la imatge verticalment",
@@ -861,8 +868,10 @@
       "selectFolderTitle_other": "Seleccioneu la carpeta per exportar {{count}} imatges"
     },
     "file": {
+      "dpi": "PPP",
       "quality": "Qualitat",
       "qualityLossless": "Qualitat (Sense pèrdua)",
+      "resolution": "Resolució",
       "tiffBitDepth": "Profunditat de bits TIFF",
       "tiffBitDepth16": "16 bits",
       "tiffBitDepth8": "8 bits"
@@ -1063,6 +1072,8 @@
       }
     },
     "header": {
+      "cancel": "Cancel·lar",
+      "deselectAll": "Desseleccionar-ho tot",
       "search": {
         "addFilterOrSearch": "Afegir filtre o cercar...",
         "indexingImages": "S'estan indexant les imatges...",
@@ -1074,6 +1085,8 @@
         "tooltipClearSearch": "Netejar cerca",
         "tooltipSearchFilter": "Cercar o Filtrar"
       },
+      "selectAll": "Seleccionar-ho tot",
+      "selectItems": "Seleccionar elements",
       "title": "Biblioteca",
       "viewOptions": {
         "currentFolder": "Carpeta actual",
@@ -1196,7 +1209,8 @@
     "tooltips": {
       "communityPresets": "Ajustos preestablerts de la comunitat",
       "goHome": "Anar a l'inici",
-      "importImages": "Importar imatges"
+      "importImages": "Importar imatges",
+      "select": "Seleccionar"
     }
   },
   "masks": {
@@ -1670,6 +1684,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "Redreçar automàticament",
         "brush_size_down": "Reduir mida del pinzell",
         "brush_size_up": "Augmentar mida del pinzell",
         "color_label_blue": "Etiqueta de color: Blau",
@@ -1852,6 +1867,10 @@
         "appleRaw9Desc": "Revela els fitxers RAW amb el descodificador RAW 9 de Core Image d'Apple, que realitza el procés de demosaic i reducció de soroll en un sol pas al Neural Engine. Requereix macOS 27 o posterior i una càmera compatible; els fitxers no compatibles utilitzen automàticament el descodificador integrat. Més lent que el descodificador per defecte. Les miniatures no es veuen afectades.",
         "applyPreprocessing": "Aplicar preprocessament als No-RAW",
         "applyPreprocessingDesc": "Si està activat, la reducció del soroll de color base i la pre-nitidesa esmentades abans també s'aplicaran als formats estàndard.",
+        "baselineExposure": "Exposició base",
+        "baselineExposureAmount": "Quantitat base",
+        "baselineExposureAmountDesc": "Exposició afegida als fitxers RAW. darktable utilitza +0,7 EV.",
+        "baselineExposureDesc": "Aclareix tots els fitxers RAW en una quantitat fixa, com el valor per defecte de darktable en mode referit a l'escena, més l'etiqueta DNG BaselineExposure si n'hi ha. Les imatges editades abans que existís aquesta opció no es veuen afectades.",
         "colorNr": "Reducció de soroll de color base",
         "colorNrDesc": "Aplica un filtre bilateral creuat d'hora a la canonada per eliminar el soroll de croma. Valor més alt = Més reducció.",
         "defaultNonRawTonemapper": "Mapejador de tons predeterminat No-RAW",
@@ -1859,8 +1878,12 @@
         "defaultRawTonemapper": "Mapejador de tons predeterminat RAW",
         "defaultRawTonemapperDesc": "El mapejador de tons a aplicar a les imatges RAW.",
         "enableAppleRaw9": "Utilitza Apple RAW 9 per als fitxers RAW",
+        "enableBaselineExposure": "Aplica l'exposició base als fitxers RAW",
+        "enableHighlightPreservation": "Compensa els modes de preservació de llums de la càmera",
         "enablePreprocessingNonRaws": "Activar per a No-RAW",
         "enableTonemapperOverride": "Activar la sobreescriptura del mapejador de tons",
+        "highlightPreservation": "Compensació de la preservació de llums",
+        "highlightPreservationDesc": "Restaura l'exposició que la càmera ha reservat en els modes de preservació de les llums, llegida del fitxer RAW (Fujifilm DR200/DR400, Prioritat de to de les llums i Optimitzador automàtic de la il·luminació de Canon, D-Lighting actiu de Nikon, gradació d'Olympus, expansió de rang dinàmic de Pentax). Les imatges editades abans que existís aquesta opció no es veuen afectades.",
         "highlightRecovery": "Recuperació de llums altes RAW",
         "highlightRecoveryDesc": "Controla la quantitat de detalls que es recuperen de les llums altes retallades als fitxers RAW. Valors més alts recuperen més detalls però poden introduir artefactes de color porpra.",
         "linearOptions": {

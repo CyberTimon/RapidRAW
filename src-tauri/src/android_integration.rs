@@ -16,10 +16,27 @@ static INIT_NDK_CONTEXT: std::sync::Once = std::sync::Once::new();
 static INIT_RUSTLS_PLATFORM_VERIFIER: std::sync::Once = std::sync::Once::new();
 
 #[cfg(target_os = "android")]
+fn ndk_context_is_initialized() -> bool {
+    // tao 0.37+ initializes ndk-context in its Android `onCreate` glue (with the
+    // application context) before `main` runs; tao 0.35 (the Android CI pin) does
+    // not. `ndk-context` 0.1.x has no `get_or_init`, and `android_context()`
+    // panics when the context is unset, so probe with `catch_unwind`. A no-op
+    // panic hook is installed for the duration of the probe so the app's real
+    // hook doesn't log a scary `PANIC!` line on every startup.
+    let previous_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(|_| {}));
+    let initialized = std::panic::catch_unwind(ndk_context::android_context).is_ok();
+    std::panic::set_hook(previous_hook);
+    initialized
+}
+
+#[cfg(target_os = "android")]
 pub fn initialize_android(window: &tauri::WebviewWindow) {
     let _ = window.with_webview(|webview| {
         webview.jni_handle().exec(|env, context, _webview| {
-            if let Ok(vm) = env.get_java_vm() {
+            if ndk_context_is_initialized() {
+                log::info!("ndk-context already initialized by tao; skipping re-init.");
+            } else if let Ok(vm) = env.get_java_vm() {
                 let vm_ptr = vm.get_java_vm_pointer() as *mut std::ffi::c_void;
                 let context_ptr = context.as_raw() as *mut std::ffi::c_void;
 

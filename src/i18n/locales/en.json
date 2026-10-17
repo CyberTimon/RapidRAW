@@ -209,6 +209,7 @@
     "editor": {
       "autoAdjust": "Auto Adjust Image",
       "autoLensCorrection": "Auto Lens Correction",
+      "autoStraighten": "Auto Straighten",
       "cancel": "Cancel",
       "colorLabel": "Color Label",
       "confirmReset": "Confirm Reset",
@@ -278,6 +279,8 @@
       "autoAdjust_other": "Auto Adjust Images",
       "autoLensCorrection_one": "Auto Lens Correction",
       "autoLensCorrection_other": "Auto Lens Correction",
+      "autoStraighten_one": "Auto Straighten Image",
+      "autoStraighten_other": "Auto Straighten Images",
       "collage_one": "Frame Image",
       "collage_other": "Create Collage",
       "confirmDelete": "Confirm Delete",
@@ -470,6 +473,8 @@
     },
     "crop": {
       "aspectRatioHeading": "Aspect Ratio",
+      "autoStraightenFailed": "Auto straighten failed: {{error}}",
+      "autoStraightenNoLines": "No straight lines found to level from",
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Height",
@@ -569,6 +574,7 @@
       "rotationHeading": "Rotation",
       "title": "Crop & Transform",
       "tooltips": {
+        "autoStraighten": "Auto Straighten (Shift+S)",
         "compositionOverlay": "Composition Overlay",
         "flipHoriz": "Flip image horizontally",
         "flipVert": "Flip image vertically",
@@ -861,8 +867,10 @@
       "selectFolderTitle_other": "Select Folder to Export {{count}} Images"
     },
     "file": {
+      "dpi": "DPI",
       "quality": "Quality",
       "qualityLossless": "Quality (Lossless)",
+      "resolution": "Resolution",
       "tiffBitDepth": "TIFF bit depth",
       "tiffBitDepth16": "16-bit",
       "tiffBitDepth8": "8-bit"
@@ -1063,6 +1071,8 @@
       }
     },
     "header": {
+      "cancel": "Cancel",
+      "deselectAll": "Deselect All",
       "search": {
         "addFilterOrSearch": "Add filter or search...",
         "indexingImages": "Indexing Images...",
@@ -1074,6 +1084,8 @@
         "tooltipClearSearch": "Clear search",
         "tooltipSearchFilter": "Search or Filter"
       },
+      "selectAll": "Select All",
+      "selectItems": "Select items",
       "title": "Library",
       "viewOptions": {
         "currentFolder": "Current Folder",
@@ -1194,7 +1206,8 @@
     "tooltips": {
       "communityPresets": "Community Presets",
       "goHome": "Go to Home",
-      "importImages": "Import Images"
+      "importImages": "Import Images",
+      "select": "Select"
     }
   },
   "masks": {
@@ -1668,6 +1681,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "Auto straighten",
         "brush_size_down": "Decrease brush size",
         "brush_size_up": "Increase brush size",
         "color_label_blue": "Color label: Blue",
@@ -1850,6 +1864,10 @@
         "appleRaw9Desc": "Develop RAW files with Apple's Core Image RAW 9 decoder, which demosaics and denoises in one step on the Neural Engine. Requires macOS 27 or later and a supported camera; unsupported files automatically use the built-in decoder. Slower than the default decoder. Thumbnails are not affected.",
         "applyPreprocessing": "Apply Preprocessing to Non-RAWs",
         "applyPreprocessingDesc": "If enabled, the base color noise reduction and pre-sharpening above will also be applied to standard formats.",
+        "baselineExposure": "Baseline Exposure",
+        "baselineExposureAmount": "Baseline Amount",
+        "baselineExposureAmountDesc": "Exposure added to RAW files. darktable uses +0.7 EV.",
+        "baselineExposureDesc": "Brightens every RAW file by a fixed amount, like darktable's scene-referred default, plus the DNG BaselineExposure tag when present. Images edited before this option existed are not affected.",
         "colorNr": "Base Color Noise Reduction",
         "colorNrDesc": "Applies a cross-bilateral filter early in the pipeline to remove chroma noise. Higher value = Stronger NR.",
         "defaultNonRawTonemapper": "Default Non-RAW Tonemapper",
@@ -1857,8 +1875,12 @@
         "defaultRawTonemapper": "Default RAW Tonemapper",
         "defaultRawTonemapperDesc": "The tonemapper to apply to RAW images.",
         "enableAppleRaw9": "Use Apple RAW 9 for RAW files",
+        "enableBaselineExposure": "Apply baseline exposure to RAW files",
+        "enableHighlightPreservation": "Compensate highlight-preserving camera modes",
         "enablePreprocessingNonRaws": "Enable for Non-RAWs",
         "enableTonemapperOverride": "Enable Tonemapper Override",
+        "highlightPreservation": "Highlight Preservation Compensation",
+        "highlightPreservationDesc": "Restores the exposure the camera held back in highlight-preserving modes, read from the RAW file (Fujifilm DR200/DR400, Canon Highlight Tone Priority and Auto Lighting Optimizer, Nikon Active D-Lighting, Olympus gradation, Pentax DR expansion). Images edited before this option existed are not affected.",
         "highlightRecovery": "RAW Highlight Recovery",
         "highlightRecoveryDesc": "Controls how much detail is recovered from clipped highlights in RAW files. Higher values recover more detail but can introduce purple artefacts.",
         "linearOptions": {

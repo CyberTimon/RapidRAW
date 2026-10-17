@@ -38,6 +38,9 @@ export const isUniqueFilenameTemplate = (template: string): boolean =>
 
 export type TiffBitDepth = 8 | 16;
 
+export const DEFAULT_EXPORT_DPI = 300;
+export const MAX_EXPORT_DPI = 65535;
+
 export interface ExportSettings {
   filenameTemplate: string | null;
   jpegQuality: number;
@@ -66,6 +69,7 @@ export interface ExportSettings {
   preserveFolders?: boolean;
   destinationType?: string;
   subfolder?: string;
+  dpi?: number;
 }
 
 export enum BorderBasis {
@@ -129,6 +133,7 @@ export interface ExportPreset {
   fileFormat: string;
   jpegQuality: number;
   tiffBitDepth?: TiffBitDepth;
+  dpi?: number;
   enableResize: boolean;
   resizeMode: string;
   resizeValue: number;
