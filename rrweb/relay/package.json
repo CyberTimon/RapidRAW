@@ -1,0 +1,2 @@
+{ "name": "rrweb-relay", "private": true, "type": "module",
+  "dependencies": { "ws": "^8.18.0", "yazl": "^3.3.1" } }

@@ -1,0 +1,24 @@
+[package]
+name = "rrweb-fuse"
+version = "0.2.0"
+edition = "2024"
+publish = false
+description = "RapidRAW Web: a folder on the browsing computer as a disk on the server (Linux: FUSE, Windows: WinFsp); the relay answers the operations"
+license = "AGPL-3.0-only"
+
+[dependencies]
+serde_json = "1"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+fuser = { version = "0.18", default-features = false }   # without libfuse: mounted through fusermount3
+
+[target.'cfg(windows)'.dependencies]
+winfsp = { version = "0.13", default-features = false }  # the WinFsp DLL is loaded from its installation (src/windows.rs)
+windows = { version = "0.61", features = [
+    "Win32_Foundation", "Win32_Security", "Win32_Security_Authorization",
+    "Win32_System_LibraryLoader", "Win32_System_Registry",
+] }
+
+[profile.release]
+lto = true
+strip = true
