@@ -209,6 +209,7 @@
     "editor": {
       "autoAdjust": "Ajuste automático de imagen",
       "autoLensCorrection": "Corrección de lente automática",
+      "autoStraighten": "Enderezar automáticamente",
       "cancel": "Cancelar",
       "colorLabel": "Etiqueta de color",
       "confirmReset": "Confirmar restablecimiento",
@@ -283,6 +284,9 @@
       "autoAdjust_other": "Ajuste automático de imágenes",
       "autoLensCorrection_one": "Corrección de lente automática",
       "autoLensCorrection_other": "Corrección de lente automática",
+      "autoStraighten_many": "Enderezar imágenes automáticamente",
+      "autoStraighten_one": "Enderezar imagen automáticamente",
+      "autoStraighten_other": "Enderezar imágenes automáticamente",
       "collage_many": "Crear collage",
       "collage_one": "Enmarcar imagen",
       "collage_other": "Crear collage",
@@ -490,6 +494,8 @@
     },
     "crop": {
       "aspectRatioHeading": "Relación de aspecto",
+      "autoStraightenFailed": "Error al enderezar automáticamente: {{error}}",
+      "autoStraightenNoLines": "No se encontraron líneas rectas para enderezar",
       "custom": {
         "hPlaceholder": "Al",
         "hTooltip": "Altura",
@@ -589,6 +595,7 @@
       "rotationHeading": "Rotación",
       "title": "Recortar y transformar",
       "tooltips": {
+        "autoStraighten": "Enderezar automáticamente (Shift+S)",
         "compositionOverlay": "Superposición de composición",
         "flipHoriz": "Voltear imagen horizontalmente",
         "flipVert": "Voltear imagen verticalmente",
@@ -883,8 +890,10 @@
       "selectFolderTitle_other": "Seleccionar carpeta para exportar {{count}} imágenes"
     },
     "file": {
+      "dpi": "PPP",
       "quality": "Calidad",
       "qualityLossless": "Calidad (Sin pérdida)",
+      "resolution": "Resolución",
       "tiffBitDepth": "Profundidad de bits TIFF",
       "tiffBitDepth16": "16 bits",
       "tiffBitDepth8": "8 bits"
@@ -1086,6 +1095,8 @@
       }
     },
     "header": {
+      "cancel": "Cancelar",
+      "deselectAll": "Deseleccionar todo",
       "search": {
         "addFilterOrSearch": "Añadir filtro o buscar...",
         "indexingImages": "Indexando imágenes...",
@@ -1097,6 +1108,8 @@
         "tooltipClearSearch": "Borrar búsqueda",
         "tooltipSearchFilter": "Buscar o Filtrar"
       },
+      "selectAll": "Seleccionar todo",
+      "selectItems": "Seleccionar elementos",
       "title": "Biblioteca",
       "viewOptions": {
         "currentFolder": "Carpeta actual",
@@ -1220,7 +1233,8 @@
     "tooltips": {
       "communityPresets": "Ajustes de la comunidad",
       "goHome": "Ir al Inicio",
-      "importImages": "Importar imágenes"
+      "importImages": "Importar imágenes",
+      "select": "Seleccionar"
     }
   },
   "masks": {
@@ -1703,6 +1717,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "Enderezar automáticamente",
         "brush_size_down": "Reducir tamaño del pincel",
         "brush_size_up": "Aumentar tamaño del pincel",
         "color_label_blue": "Etiqueta de color: Azul",

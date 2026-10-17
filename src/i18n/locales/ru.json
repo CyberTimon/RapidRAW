@@ -209,6 +209,7 @@
     "editor": {
       "autoAdjust": "Автонастройка изображения",
       "autoLensCorrection": "Автокоррекция объектива",
+      "autoStraighten": "Автовыравнивание",
       "cancel": "Отмена",
       "colorLabel": "Цветовая метка",
       "confirmReset": "Подтвердить сброс",
@@ -288,6 +289,10 @@
       "autoAdjust_other": "Автонастройка изображений",
       "autoLensCorrection_one": "Автокоррекция объектива",
       "autoLensCorrection_other": "Автокоррекция объектива",
+      "autoStraighten_few": "Автовыравнивание изображений",
+      "autoStraighten_many": "Автовыравнивание изображений",
+      "autoStraighten_one": "Автовыравнивание изображения",
+      "autoStraighten_other": "Автовыравнивание изображений",
       "collage_few": "Создать коллаж",
       "collage_many": "Создать коллаж",
       "collage_one": "Добавить рамку",
@@ -510,6 +515,8 @@
     },
     "crop": {
       "aspectRatioHeading": "Соотношение сторон",
+      "autoStraightenFailed": "Не удалось выровнять автоматически: {{error}}",
+      "autoStraightenNoLines": "Не найдено прямых линий для выравнивания",
       "custom": {
         "hPlaceholder": "В",
         "hTooltip": "Высота",
@@ -609,6 +616,7 @@
       "rotationHeading": "Вращение",
       "title": "Обрезка и трансформация",
       "tooltips": {
+        "autoStraighten": "Автовыравнивание (Shift+S)",
         "compositionOverlay": "Сетка композиции",
         "flipHoriz": "Отразить горизонтально",
         "flipVert": "Отразить вертикально",
@@ -905,8 +913,10 @@
       "selectFolderTitle_other": "Выберите папку для экспорта {{count}} изображений"
     },
     "file": {
+      "dpi": "DPI",
       "quality": "Качество",
       "qualityLossless": "Качество (без потерь)",
+      "resolution": "Разрешение",
       "tiffBitDepth": "Глубина цвета TIFF",
       "tiffBitDepth16": "16 бит",
       "tiffBitDepth8": "8 бит"
@@ -1109,6 +1119,8 @@
       }
     },
     "header": {
+      "cancel": "Отмена",
+      "deselectAll": "Снять выделение со всех",
       "search": {
         "addFilterOrSearch": "Добавить фильтр или найти...",
         "indexingImages": "Индексация изображений...",
@@ -1120,6 +1132,8 @@
         "tooltipClearSearch": "Очистить поиск",
         "tooltipSearchFilter": "Поиск или фильтрация"
       },
+      "selectAll": "Выбрать все",
+      "selectItems": "Выбрать элементы",
       "title": "Библиотека",
       "viewOptions": {
         "currentFolder": "Текущая папка",
@@ -1246,7 +1260,8 @@
     "tooltips": {
       "communityPresets": "Пресеты сообщества",
       "goHome": "На главную",
-      "importImages": "Импортировать изображения"
+      "importImages": "Импортировать изображения",
+      "select": "Выбрать"
     }
   },
   "masks": {
@@ -1740,6 +1755,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "Автовыравнивание",
         "brush_size_down": "Уменьшить размер кисти",
         "brush_size_up": "Увеличить размер кисти",
         "color_label_blue": "Цветовая метка: Синий",

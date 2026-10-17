@@ -208,6 +208,7 @@
     "editor": {
       "autoAdjust": "Autom. aanpassen",
       "autoLensCorrection": "Autom. lenscorrectie",
+      "autoStraighten": "Automatisch rechtzetten",
       "cancel": "Annuleren",
       "colorLabel": "Kleurlabel",
       "confirmReset": "Herstellen bevestigen",
@@ -272,6 +273,8 @@
       "autoAdjust_other": "Autom. aanpassen",
       "autoLensCorrection_one": "Autom. lenscorrectie",
       "autoLensCorrection_other": "Autom. lenscorrectie",
+      "autoStraighten_one": "Afbeelding automatisch rechtzetten",
+      "autoStraighten_other": "Afbeeldingen automatisch rechtzetten",
       "collage_one": "Afbeelding inkaderen",
       "collage_other": "Collage maken",
       "confirmDelete": "Verwijderen bevestigen",
@@ -464,6 +467,8 @@
     },
     "crop": {
       "aspectRatioHeading": "Beeldverhouding",
+      "autoStraightenFailed": "Automatisch rechtzetten mislukt: {{error}}",
+      "autoStraightenNoLines": "Geen rechte lijnen gevonden om recht te zetten",
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Hoogte",
@@ -563,6 +568,7 @@
       "rotationHeading": "Rotatie",
       "title": "Bijsnijden & transformeren",
       "tooltips": {
+        "autoStraighten": "Automatisch rechtzetten (Shift+S)",
         "compositionOverlay": "Compositie-overlay",
         "flipHoriz": "Afbeelding horizontaal spiegelen",
         "flipVert": "Afbeelding verticaal spiegelen",
@@ -855,8 +861,10 @@
       "selectFolderTitle_other": "Map selecteren om {{count}} afbeeldingen te exporteren"
     },
     "file": {
+      "dpi": "DPI",
       "quality": "Kwaliteit",
       "qualityLossless": "Kwaliteit (verliesvrij)",
+      "resolution": "Resolutie",
       "tiffBitDepth": "TIFF-bitdiepte",
       "tiffBitDepth16": "16-bit",
       "tiffBitDepth8": "8-bit"
@@ -1051,6 +1059,8 @@
       }
     },
     "header": {
+      "cancel": "Annuleren",
+      "deselectAll": "Alles deselecteren",
       "search": {
         "addFilterOrSearch": "Filter toevoegen of zoeken...",
         "indexingImages": "Afbeeldingen indexeren...",
@@ -1062,6 +1072,8 @@
         "tooltipClearSearch": "Zoekopdracht wissen",
         "tooltipSearchFilter": "Zoeken of filteren"
       },
+      "selectAll": "Alles selecteren",
+      "selectItems": "Items selecteren",
       "title": "Bibliotheek",
       "viewOptions": {
         "currentFolder": "Huidige map",
@@ -1171,7 +1183,8 @@
     "tooltips": {
       "communityPresets": "Community-voorinstellingen",
       "goHome": "Naar startpagina",
-      "importImages": "Afbeeldingen importeren"
+      "importImages": "Afbeeldingen importeren",
+      "select": "Selecteren"
     }
   },
   "masks": {
@@ -1645,6 +1658,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "Automatisch rechtzetten",
         "brush_size_down": "Penseelgrootte verkleinen",
         "brush_size_up": "Penseelgrootte vergroten",
         "color_label_blue": "Kleurlabel: blauw",

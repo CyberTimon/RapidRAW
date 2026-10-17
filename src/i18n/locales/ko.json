@@ -209,6 +209,7 @@
     "editor": {
       "autoAdjust": "이미지 자동 조정",
       "autoLensCorrection": "자동 렌즈 교정",
+      "autoStraighten": "자동 수평 맞추기",
       "cancel": "취소",
       "colorLabel": "색상 레이블",
       "confirmReset": "초기화 확인",
@@ -278,6 +279,8 @@
       "autoAdjust_other": "이미지 자동 조정",
       "autoLensCorrection_one": "자동 렌즈 교정",
       "autoLensCorrection_other": "자동 렌즈 교정",
+      "autoStraighten_one": "이미지 자동 수평 맞추기",
+      "autoStraighten_other": "이미지 자동 수평 맞추기",
       "collage_one": "이미지 프레임",
       "collage_other": "콜라주 만들기",
       "confirmDelete": "삭제 확인",
@@ -468,6 +471,8 @@
     },
     "crop": {
       "aspectRatioHeading": "종횡비",
+      "autoStraightenFailed": "자동 수평 맞추기 실패: {{error}}",
+      "autoStraightenNoLines": "수평을 맞출 직선을 찾을 수 없습니다",
       "custom": {
         "hPlaceholder": "높이",
         "hTooltip": "높이",
@@ -567,6 +572,7 @@
       "rotationHeading": "회전",
       "title": "자르기 및 변형",
       "tooltips": {
+        "autoStraighten": "자동 수평 맞추기 (Shift+S)",
         "compositionOverlay": "구도 오버레이",
         "flipHoriz": "이미지를 좌우로 반전",
         "flipVert": "이미지를 상하로 반전",
@@ -859,8 +865,10 @@
       "selectFolderTitle_other": "이미지 {{count}}개를 내보낼 폴더 선택"
     },
     "file": {
+      "dpi": "DPI",
       "quality": "품질",
       "qualityLossless": "품질 (무손실)",
+      "resolution": "해상도",
       "tiffBitDepth": "TIFF 비트 심도",
       "tiffBitDepth16": "16비트",
       "tiffBitDepth8": "8비트"
@@ -1061,6 +1069,8 @@
       }
     },
     "header": {
+      "cancel": "취소",
+      "deselectAll": "모두 선택 해제",
       "search": {
         "addFilterOrSearch": "필터 추가 또는 검색...",
         "indexingImages": "이미지 색인 중...",
@@ -1072,6 +1082,8 @@
         "tooltipClearSearch": "검색 지우기",
         "tooltipSearchFilter": "검색 또는 필터"
       },
+      "selectAll": "모두 선택",
+      "selectItems": "항목 선택",
       "title": "라이브러리",
       "viewOptions": {
         "currentFolder": "현재 폴더",
@@ -1192,7 +1204,8 @@
     "tooltips": {
       "communityPresets": "커뮤니티 프리셋",
       "goHome": "홈으로 이동",
-      "importImages": "이미지 가져오기"
+      "importImages": "이미지 가져오기",
+      "select": "선택"
     }
   },
   "masks": {
@@ -1666,6 +1679,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "자동 수평 맞추기",
         "brush_size_down": "브러시 크기 줄이기",
         "brush_size_up": "브러시 크기 늘리기",
         "color_label_blue": "색상 레이블: 파랑",

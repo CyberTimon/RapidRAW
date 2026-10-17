@@ -1,8 +1,14 @@
 import { useTranslation } from 'react-i18next';
 import Slider from '../ui/Slider';
-import { Adjustments, DetailsAdjustment, getAdjustmentToolOrder, getHiddenAdjustmentTools } from '../../utils/adjustments';
+import {
+  Adjustments,
+  DetailsAdjustment,
+  getAdjustmentToolOrder,
+  getHiddenAdjustmentTools,
+} from '../../utils/adjustments';
 import { AppSettings } from '../ui/AppProperties';
 import AdjustmentSubSection from './AdjustmentSubSection';
+import { useEditorStore } from '../../store/useEditorStore';
 
 interface DetailsPanelProps {
   adjustments: Adjustments;
@@ -20,6 +26,7 @@ export default function DetailsPanel({
   onDragStateChange,
 }: DetailsPanelProps) {
   const { t } = useTranslation();
+  const setEditor = useEditorStore((state) => state.setEditor);
 
   const handleAdjustmentChange = (key: string, value: string) => {
     const numericValue = parseInt(value, 10);
@@ -96,15 +103,22 @@ export default function DetailsPanel({
             onDragStateChange={onDragStateChange}
           />
           {!isForMask && (
-            <Slider
-              label={t('adjustments.details.centre')}
-              max={100}
-              min={-100}
-              onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Centré, e.target.value)}
-              step={1}
-              value={adjustments.centré}
-              onDragStateChange={onDragStateChange}
-            />
+            <div
+              data-center-marker-controls="centre"
+              onPointerDown={() =>
+                setEditor({ activeCenterMarker: 'centre', isRelightPickerActive: false, isWbPickerActive: false })
+              }
+            >
+              <Slider
+                label={t('adjustments.details.centre')}
+                max={100}
+                min={-100}
+                onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Centré, e.target.value)}
+                step={1}
+                value={adjustments.centré}
+                onDragStateChange={onDragStateChange}
+              />
+            </div>
           )}
         </AdjustmentSubSection>
       )}

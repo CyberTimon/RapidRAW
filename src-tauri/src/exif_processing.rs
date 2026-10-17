@@ -279,6 +279,77 @@ pub fn load_sidecar_with_exif(sidecar_path: &Path, source_path: &Path) -> ImageM
     meta
 }
 
+pub static SIDECAR_LAYOUT_LOCK: Mutex<()> = Mutex::new(());
+
+pub fn write_sidecar(
+    sidecar_path: &Path,
+    source_path: &Path,
+    metadata: &ImageMetadata,
+) -> std::io::Result<()> {
+    if is_default_sidecar(sidecar_path, source_path, metadata) {
+        let _layout = SIDECAR_LAYOUT_LOCK.lock().unwrap();
+        if !has_virtual_copy_sidecars(source_path) {
+            return match fs::remove_file(sidecar_path) {
+                Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e),
+                _ => Ok(()),
+            };
+        }
+    }
+
+    let json = serde_json::to_string_pretty(metadata).map_err(std::io::Error::other)?;
+    fs::write(sidecar_path, json)
+}
+
+fn has_virtual_copy_sidecars(source_path: &Path) -> bool {
+    let (Some(parent), Some(file_name)) = (source_path.parent(), source_path.file_name()) else {
+        return true;
+    };
+    let file_name = file_name.to_string_lossy();
+
+    let Ok(entries) = fs::read_dir(parent) else {
+        return true;
+    };
+    entries.filter_map(Result::ok).any(|entry| {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        matches!(
+            file_management::parse_sidecar_name(&name),
+            Some((source, Some(_))) if source == file_name
+        )
+    })
+}
+
+fn is_default_sidecar(sidecar_path: &Path, source_path: &Path, metadata: &ImageMetadata) -> bool {
+    if sidecar_path != get_primary_sidecar_path(source_path) {
+        return false;
+    }
+    if metadata.rating != 0
+        || metadata.flag.is_some()
+        || metadata.tags.as_ref().is_some_and(|tags| !tags.is_empty())
+        || !crate::image_processing::is_default_adjustments(&metadata.adjustments)
+    {
+        return false;
+    }
+
+    let Some(sidecar_exif) = &metadata.exif else {
+        return true;
+    };
+
+    if file_management::is_cloud_placeholder(source_path) {
+        return false;
+    }
+    let source_path_str = source_path.to_string_lossy();
+    let file_exif = if let Ok(mmap) = file_management::read_file_mapped(source_path) {
+        read_exif_data_from_bytes(&source_path_str, &mmap)
+    } else if let Ok(bytes) = fs::read(source_path) {
+        read_exif_data_from_bytes(&source_path_str, &bytes)
+    } else {
+        return false;
+    };
+
+    !file_exif.is_empty() && &file_exif == sidecar_exif
+}
+
 fn to_ur64(val: &exif::Rational) -> uR64 {
     uR64 {
         nominator: val.num,
@@ -1145,6 +1216,15 @@ fn apply_exif_from_rawler(metadata: &mut Metadata, meta: &RawMetadata) {
     if let Some(dt) = &exif.create_date {
         metadata.set_tag(ExifTag::CreateDate(dt.clone()));
     }
+    if let Some(offset) = &exif.offset_time_original {
+        metadata.set_tag(ExifTag::OffsetTimeOriginal(offset.clone()));
+    }
+    if let Some(offset) = &exif.offset_time_digitized {
+        metadata.set_tag(ExifTag::OffsetTimeDigitized(offset.clone()));
+    }
+    if let Some(sub_sec) = &exif.sub_sec_time_original {
+        metadata.set_tag(ExifTag::SubSecTimeOriginal(sub_sec.clone()));
+    }
     if let Some(lens_make) = &exif.lens_make {
         metadata.set_tag(ExifTag::LensMake(lens_make.clone()));
     }
@@ -1288,6 +1368,7 @@ pub fn write_image_with_metadata(
     keep_metadata: bool,
     strip_gps: bool,
     xmp: &ExportXmp,
+    dpi: Option<u16>,
 ) -> Result<(), String> {
     // FIXME: temporary solution until I find a way to write metadata to TIFF
     if !keep_metadata || output_format.to_lowercase() == "tiff" {
@@ -1307,7 +1388,7 @@ pub fn write_image_with_metadata(
     if file_type == FileExtension::WEBP {
         convert_webp_to_extended(image_bytes);
     }
-    write_exif_metadata(image_bytes, original_path_str, file_type, strip_gps)?;
+    write_exif_metadata(image_bytes, original_path_str, file_type, strip_gps, dpi)?;
     embed_xmp(image_bytes, original_path_str, file_type, strip_gps, xmp);
 
     Ok(())
@@ -1318,6 +1399,7 @@ fn write_exif_metadata(
     original_path_str: &str,
     file_type: FileExtension,
     strip_gps: bool,
+    dpi: Option<u16>,
 ) -> Result<(), String> {
     let original_path = Path::new(original_path_str);
     if !original_path.exists() {
@@ -1569,6 +1651,16 @@ fn write_exif_metadata(
         metadata.set_tag(ExifTag::ComponentsConfiguration(vec![1, 2, 3, 0]));
     }
 
+    if let Some(dpi) = dpi {
+        let resolution = vec![uR64 {
+            nominator: dpi.into(),
+            denominator: 1,
+        }];
+        metadata.set_tag(ExifTag::XResolution(resolution.clone()));
+        metadata.set_tag(ExifTag::YResolution(resolution));
+        metadata.set_tag(ExifTag::ResolutionUnit(vec![2u16]));
+    }
+
     if let Ok(reader) =
         image::ImageReader::new(Cursor::new(image_bytes.as_slice())).with_guessed_format()
         && let Ok((width, height)) = reader.into_dimensions()
@@ -1803,22 +1895,26 @@ fn embed_jpeg_xmp(image_bytes: &mut Vec<u8>, packet: &str) {
 }
 
 fn embed_png_xmp(image_bytes: &mut Vec<u8>, packet: &str) {
+    let mut data = b"XML:com.adobe.xmp\0\0\0\0\0".to_vec();
+    data.extend_from_slice(packet.as_bytes());
+    insert_png_chunk(image_bytes, b"iTXt", &data);
+}
+
+pub fn insert_png_chunk(image_bytes: &mut Vec<u8>, chunk_type: &[u8; 4], data: &[u8]) {
     const IHDR_END: usize = 33;
 
     if image_bytes.len() < IHDR_END || &image_bytes[12..16] != b"IHDR" {
         return;
     }
 
-    let mut data = b"XML:com.adobe.xmp\0\0\0\0\0".to_vec();
-    data.extend_from_slice(packet.as_bytes());
     let mut crc = crc32fast::Hasher::new();
-    crc.update(b"iTXt");
-    crc.update(&data);
+    crc.update(chunk_type);
+    crc.update(data);
 
     let mut chunk = Vec::with_capacity(data.len() + 12);
     chunk.extend_from_slice(&(data.len() as u32).to_be_bytes());
-    chunk.extend_from_slice(b"iTXt");
-    chunk.extend_from_slice(&data);
+    chunk.extend_from_slice(chunk_type);
+    chunk.extend_from_slice(data);
     chunk.extend_from_slice(&crc.finalize().to_be_bytes());
     image_bytes.splice(IHDR_END..IHDR_END, chunk);
 }

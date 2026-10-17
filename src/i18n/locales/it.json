@@ -209,6 +209,7 @@
     "editor": {
       "autoAdjust": "Regolazione Automatica Immagine",
       "autoLensCorrection": "Correzione automatica obiettivo",
+      "autoStraighten": "Raddrizza automaticamente",
       "cancel": "Annulla",
       "colorLabel": "Etichetta Colore",
       "confirmReset": "Conferma Ripristino",
@@ -284,6 +285,9 @@
       "autoLensCorrection_one": "Correzione automatica obiettivo",
       "autoLensCorrection_other": "Correzione automatica obiettivo",
       "autoLensCorrection_many": "Correzione automatica obiettivo",
+      "autoStraighten_many": "Raddrizza immagini automaticamente",
+      "autoStraighten_one": "Raddrizza immagine automaticamente",
+      "autoStraighten_other": "Raddrizza immagini automaticamente",
       "collage_many": "Crea Collage",
       "collage_one": "Incornicia Immagine",
       "collage_other": "Crea Collage",
@@ -492,6 +496,8 @@
     },
     "crop": {
       "aspectRatioHeading": "Proporzioni",
+      "autoStraightenFailed": "Raddrizzamento automatico non riuscito: {{error}}",
+      "autoStraightenNoLines": "Nessuna linea retta trovata per raddrizzare",
       "custom": {
         "hPlaceholder": "A",
         "hTooltip": "Altezza",
@@ -591,6 +597,7 @@
       "rotationHeading": "Rotazione",
       "title": "Ritaglio e Trasformazione",
       "tooltips": {
+        "autoStraighten": "Raddrizza automaticamente (Shift+S)",
         "compositionOverlay": "Sovrapposizione Composizione",
         "flipHoriz": "Rifletti immagine orizzontalmente",
         "flipVert": "Rifletti immagine verticalmente",
@@ -885,8 +892,10 @@
       "selectFolderTitle_other": "Seleziona Cartella per Esportare {{count}} Immagini"
     },
     "file": {
+      "dpi": "DPI",
       "quality": "Qualità",
       "qualityLossless": "Qualità (Senza Perdita)",
+      "resolution": "Risoluzione",
       "tiffBitDepth": "Profondità bit TIFF",
       "tiffBitDepth16": "16 bit",
       "tiffBitDepth8": "8 bit"
@@ -1088,6 +1097,8 @@
       }
     },
     "header": {
+      "cancel": "Annulla",
+      "deselectAll": "Deseleziona Tutto",
       "search": {
         "addFilterOrSearch": "Aggiungi filtro o cerca...",
         "indexingImages": "Indicizzazione Immagini...",
@@ -1099,6 +1110,8 @@
         "tooltipClearSearch": "Cancella ricerca",
         "tooltipSearchFilter": "Cerca o Filtra"
       },
+      "selectAll": "Seleziona Tutto",
+      "selectItems": "Seleziona elementi",
       "title": "Libreria",
       "viewOptions": {
         "currentFolder": "Cartella Corrente",
@@ -1222,7 +1235,8 @@
     "tooltips": {
       "communityPresets": "Predefiniti della Community",
       "goHome": "Torna alla Home page",
-      "importImages": "Importa Immagini"
+      "importImages": "Importa Immagini",
+      "select": "Seleziona"
     }
   },
   "masks": {
@@ -1706,6 +1720,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "Raddrizza automaticamente",
         "brush_size_down": "Riduci dimensione pennello",
         "brush_size_up": "Aumenta dimensione pennello",
         "color_label_blue": "Etichetta colore: Blu",
