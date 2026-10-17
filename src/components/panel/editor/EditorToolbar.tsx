@@ -1,5 +1,5 @@
 import { memo, useState, useEffect, useRef, useMemo } from 'react';
-import { Eye, EyeOff, ArrowLeft, Maximize, Loader2, Undo, Redo } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft, Maximize, Loader2, Undo, Redo, MonitorUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +9,7 @@ import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
+import { useUIStore } from '../../../store/useUIStore';
 import { findGroupVariants, getVariantLabel } from '../../../utils/imageGrouping';
 
 interface EditorToolbarProps {
@@ -30,6 +31,14 @@ interface EditorToolbarProps {
   adjustmentsHistoryIndex: number;
   goToAdjustmentsHistoryIndex(index: number): void;
 }
+
+const toggleButtonClass = (isActive: boolean) =>
+  clsx(
+    'p-2 rounded-full transition-colors',
+    isActive
+      ? 'bg-accent text-button-text hover:bg-accent/90 hover:text-button-text'
+      : 'bg-surface hover:bg-card-active text-text-primary',
+  );
 
 const EditorToolbar = memo(
   ({
@@ -68,6 +77,8 @@ const EditorToolbar = memo(
     const [displayedResolution, setDisplayedResolution] = useState('');
 
     const imageList = useLibraryStore((s) => s.imageList);
+    const isViewerOpen = useUIStore((s) => s.isViewerOpen);
+    const toggleViewerWindow = useUIStore((s) => s.toggleViewerWindow);
     const groupingMode: GroupingMode = useSettingsStore((s) => s.appSettings?.grouping) ?? 'off';
 
     const variantOptions = useMemo(() => {
@@ -672,12 +683,7 @@ const EditorToolbar = memo(
           </div>
 
           <button
-            className={clsx(
-              'p-2 rounded-full transition-colors',
-              showOriginal
-                ? 'bg-accent text-button-text hover:bg-accent/90 hover:text-button-text'
-                : 'bg-surface hover:bg-card-active text-text-primary',
-            )}
+            className={toggleButtonClass(showOriginal)}
             onClick={onToggleShowOriginal}
             onKeyDown={handleButtonKeyDown}
             data-tooltip={
@@ -696,6 +702,18 @@ const EditorToolbar = memo(
               <Maximize size={20} />
             </div>
           </button>
+          {!isAndroid && (
+            <button
+              className={toggleButtonClass(isViewerOpen)}
+              onClick={toggleViewerWindow}
+              onKeyDown={handleButtonKeyDown}
+              data-tooltip={
+                isViewerOpen ? t('editor.toolbar.tooltips.closeViewer') : t('editor.toolbar.tooltips.openViewer')
+              }
+            >
+              <MonitorUp size={20} />
+            </button>
+          )}
         </div>
       </div>
     );

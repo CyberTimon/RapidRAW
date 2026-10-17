@@ -2781,10 +2781,26 @@ pub fn get_all_adjustments_from_json(
 
 #[derive(Clone)]
 pub struct GpuContext {
+    pub instance: wgpu::Instance,
+    pub adapter: wgpu::Adapter,
     pub device: Arc<wgpu::Device>,
     pub queue: Arc<wgpu::Queue>,
     pub limits: wgpu::Limits,
     pub display: Arc<std::sync::Mutex<Option<WgpuDisplay>>>,
+    pub viewer_display: Arc<std::sync::Mutex<Option<WgpuDisplay>>>,
+}
+
+impl GpuContext {
+    pub fn display_for_label(
+        &self,
+        label: &str,
+    ) -> Option<&Arc<std::sync::Mutex<Option<WgpuDisplay>>>> {
+        match label {
+            "main" => Some(&self.display),
+            crate::viewer_window::VIEWER_LABEL => Some(&self.viewer_display),
+            _ => None,
+        }
+    }
 }
 
 #[inline(always)]

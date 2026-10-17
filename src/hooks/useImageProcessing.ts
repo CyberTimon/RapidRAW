@@ -35,6 +35,7 @@ export function useImageProcessing(
 
   const activeView = useUIStore((state) => state.activeView);
   const activePanel = useUIStore((state) => state.activePanel);
+  const isViewerOpen = useUIStore((state) => state.isViewerOpen);
   const appSettings = useSettingsStore((state) => state.appSettings);
   const multiSelectedPaths = useLibraryStore((state) => state.multiSelectedPaths);
 
@@ -389,6 +390,13 @@ export function useImageProcessing(
       }, 50),
     [applyAdjustments, currentResRef],
   );
+
+  useEffect(() => {
+    const editor = useEditorStore.getState();
+    if (isViewerOpen && editor.selectedImage?.isReady) {
+      applyAdjustments(editor.previewOverride ?? editor.adjustments, false, currentResRef.current);
+    }
+  }, [isViewerOpen, applyAdjustments, currentResRef]);
 
   useEffect(() => {
     if (activeView === 'editor' && selectedImage?.isReady && displaySize.width > 0 && !isSliderDragging) {
