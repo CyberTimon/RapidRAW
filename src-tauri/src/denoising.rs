@@ -152,7 +152,11 @@ pub async fn batch_denoise_images(
                     };
 
                     let output_path = parent_dir.join(output_filename);
-                    if let Err(e) = image_to_save.save(&output_path) {
+                    if let Err(e) = crate::exif_processing::save_converted_image(
+                        &image_to_save,
+                        &output_path,
+                        &real_path,
+                    ) {
                         let _ = app_handle.emit(
                             "denoise-error",
                             format!("Failed to save {}: {}", real_path, e),
@@ -224,11 +228,14 @@ pub async fn save_denoised_image(
 
     let output_path = parent_dir.join(output_filename);
 
-    image_to_save
-        .save(&output_path)
-        .map_err(|e| format!("Failed to save image: {}", e))?;
-
     let (real_path, _) = crate::file_management::parse_virtual_path(&original_path_str);
+
+    crate::exif_processing::save_converted_image(
+        &image_to_save,
+        &output_path,
+        &real_path.to_string_lossy(),
+    )?;
+
     let _ =
         crate::exif_processing::write_rrexif_sidecar(&real_path.to_string_lossy(), &output_path);
 
