@@ -33,8 +33,12 @@ fn session(app_handle: &AppHandle) -> Result<Arc<Session>, String> {
         return Ok(session.clone());
     }
     let settings = config::load(app_handle);
-    let api_key = config::load_api_key(app_handle).api_key;
-    if settings.server_url.trim().is_empty() || api_key.is_empty() {
+    let api_key = if settings.server_url.trim().is_empty() {
+        String::new()
+    } else {
+        config::load_api_key(app_handle).api_key
+    };
+    if api_key.is_empty() {
         return Err("Immich is not set up yet. Add the server in Settings → Immich.".to_string());
     }
     let client = Arc::new(ImmichClient::new(&settings.server_url, &api_key)?);

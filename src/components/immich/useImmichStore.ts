@@ -29,9 +29,9 @@ export const useImmichStore = create<ImmichState>((set, get) => ({
 
   refresh: async () => {
     try {
-      const serverUrl = useSettingsStore.getState().appSettings?.immich?.serverUrl ?? '';
-      const { apiKey } = await getImmichApiKey();
-      const isConfigured = !!serverUrl.trim() && !!apiKey.trim();
+      const serverUrl = useSettingsStore.getState().appSettings?.immich?.serverUrl?.trim() ?? '';
+      const apiKey = serverUrl ? (await getImmichApiKey()).apiKey : '';
+      const isConfigured = !!serverUrl && !!apiKey.trim();
       set({ isConfigured, ...(isConfigured ? {} : { albums: [], error: null }) });
       if (isConfigured) await get().loadAlbums();
     } catch (err) {
