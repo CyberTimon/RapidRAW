@@ -104,6 +104,11 @@ pub struct WindowState {
     pub fullscreen: bool,
 }
 
+pub struct ViewerState {
+    pub background: [f32; 4],
+    pub frame: Option<Vec<u8>>,
+}
+
 #[derive(Clone)]
 pub struct LoadedImage {
     pub path: String,
@@ -269,4 +274,5 @@ pub struct AppState {
     pub disks_cache: Mutex<Option<Disks>>,
     pub disks_cache_refreshing: AtomicBool,
     pub camera_session: Mutex<CameraSession>,
+    pub viewer: Mutex<ViewerState>,
 }

@@ -226,6 +226,7 @@
       "autoLensCorrection": "Autom. lenscorrectie",
       "autoStraighten": "Automatisch rechtzetten",
       "cancel": "Annuleren",
+      "closeViewer": "Tweede venster sluiten",
       "colorLabel": "Kleurlabel",
       "confirmReset": "Herstellen bevestigen",
       "convertNegative": "Negatief omzetten",
@@ -238,6 +239,7 @@
       "mergeHdr": "Samenvoegen naar HDR",
       "noLabel": "Geen label",
       "noRating": "Geen beoordeling",
+      "openViewer": "Openen in tweede venster",
       "pasteAdjustments": "Aanpassingen plakken",
       "productivity": "Productiviteit",
       "rating": "Beoordeling",
@@ -846,15 +848,21 @@
       "tooltips": {
         "aperture": "Diafragma",
         "backToLibrary": "Terug naar bibliotheek",
+        "closeViewer": "Tweede venster sluiten",
         "compare": "Voor / na (B) of modi (rechtsklik)",
         "focalLength": "Brandpuntsafstand",
         "fullscreen": "Volledig scherm aan/uit (F)",
         "iso": "ISO",
+        "openViewer": "Openen in tweede venster",
         "redo": "Opnieuw (Ctrl+Y) of geschiedenis (rechtermuisknop)",
         "shutterSpeed": "Sluitertijd",
         "undo": "Ongedaan maken (Ctrl+Z) of geschiedenis (rechtermuisknop)"
       },
       "vc": "VK"
+    },
+    "viewer": {
+      "openFailed": "Kan het tweede venster niet openen: {{error}}",
+      "windowTitle": "RapidRAW-viewer"
     }
   },
   "export": {
@@ -1752,6 +1760,7 @@
         "toggle_metadata": "Metadatapaneel aan/uit",
         "toggle_presets": "Voorinstellingspaneel aan/uit",
         "toggle_right_panel": "Rechterpaneel aan/uit",
+        "toggle_viewer_window": "Tweede venster in-/uitschakelen",
         "undo": "Aanpassing ongedaan maken",
         "zoom_100": "Zoomen naar 100%",
         "zoom_fit": "Zoomen om te passen",

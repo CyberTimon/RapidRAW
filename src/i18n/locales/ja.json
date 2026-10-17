@@ -227,6 +227,7 @@
       "autoLensCorrection": "自動レンズ補正",
       "autoStraighten": "自動角度補正",
       "cancel": "キャンセル",
+      "closeViewer": "セカンドウィンドウを閉じる",
       "colorLabel": "カラーラベル",
       "confirmReset": "リセットを確認",
       "convertNegative": "ネガ反転",
@@ -242,6 +243,7 @@
       "mergeHdr": "HDRに統合",
       "noLabel": "ラベルなし",
       "noRating": "評価なし",
+      "openViewer": "セカンドウィンドウで開く",
       "pasteAdjustments": "補正設定を貼り付け",
       "productivity": "生産性",
       "rating": "評価",
@@ -850,15 +852,21 @@
       "tooltips": {
         "aperture": "絞り値",
         "backToLibrary": "ライブラリに戻る",
+        "closeViewer": "セカンドウィンドウを閉じる",
         "compare": "補正前 / 補正後 (B) またはモード (右クリック)",
         "focalLength": "焦点距離",
         "fullscreen": "全画面表示切り替え (F)",
         "iso": "ISO感度",
+        "openViewer": "セカンドウィンドウで開く",
         "redo": "やり直し (Ctrl+Y) または履歴 (右クリック)",
         "shutterSpeed": "シャッタースピード",
         "undo": "元に戻す (Ctrl+Z) または履歴 (右クリック)"
       },
       "vc": "仮想"
+    },
+    "viewer": {
+      "openFailed": "セカンドウィンドウを開けませんでした: {{error}}",
+      "windowTitle": "RapidRAW ビューアー"
     }
   },
   "export": {
@@ -1774,6 +1782,7 @@
         "toggle_presets": "プリセットパネルの表示/非表示",
         "toggle_reject": "除外フラグを切り替え",
         "toggle_right_panel": "右パネルの表示/非表示",
+        "toggle_viewer_window": "セカンドウィンドウの切り替え",
         "undo": "操作を元に戻す",
         "unflag": "フラグを解除",
         "zoom_100": "100%ズーム",

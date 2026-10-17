@@ -66,6 +66,7 @@ mod raw_processing;
 mod relight;
 mod tagging;
 mod tagging_utils;
+mod viewer_window;
 mod white_balance;
 mod window_customizer;
 
@@ -536,15 +537,12 @@ pub fn get_cached_full_warped_image_for_path(
 async fn update_wgpu_transform(
     payload: WgpuTransformPayload,
     state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    let context = match state
-        .gpu_context
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .as_ref()
-    {
-        Some(c) => c.clone(),
-        None => return Ok(()),
+    viewer_window::set_viewer_background(&app_handle, payload.bg_secondary);
+
+    let Some(context) = gpu_processing::current_gpu_context(&state) else {
+        return Ok(());
     };
 
     tokio::task::spawn_blocking(move || {
@@ -564,13 +562,7 @@ async fn update_wgpu_transform(
             display.latest_transform.split_origin = payload.split_origin;
             display.latest_transform.split_normal = payload.split_normal;
             display.latest_transform.split_offset = payload.split_offset;
-
-            context.queue.write_buffer(
-                &display.transform_buffer,
-                0,
-                bytemuck::bytes_of(&display.latest_transform),
-            );
-            display.render(&context.device, &context.queue);
+            display.flush(&context.device, &context.queue);
         }
     })
     .await
@@ -639,10 +631,7 @@ fn process_preview_job(
 
     let default_preview_dim = settings.editor_preview_resolution.unwrap_or(1920);
     let preview_dim = target_resolution.unwrap_or(default_preview_dim);
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
-    let use_wgpu_renderer = settings.use_wgpu_renderer.unwrap_or(true);
-    #[cfg(any(target_os = "linux", target_os = "android"))]
-    let use_wgpu_renderer = false;
+    let use_wgpu_renderer = settings.wgpu_renderer_enabled();
 
     let has_roi = roi.is_some();
     let (interactive_divisor, interactive_quality) = match live_quality {
@@ -895,6 +884,7 @@ fn process_preview_job(
                     );
                     Ok(response)
                 } else {
+                    viewer_window::publish_viewer_frame(app_handle, &jpeg_bytes);
                     let (width, height) = final_rgba_image.dimensions();
                     log::info!(
                         "[process_preview_job] full {}x{} q={} encode in {:.2?}, total {:.2?}",
@@ -1886,6 +1876,9 @@ fn frontend_log(level: String, message: String) -> Result<(), String> {
     Ok(())
 }
 
+const MAIN_WINDOW_STATE_FILE: &str = "window_state.json";
+const MAIN_WINDOW_MIN_SIZE: (f64, f64) = (800.0, 600.0);
+
 #[derive(Clone, Copy, Debug)]
 struct MonitorBounds {
     x: i32,
@@ -1921,13 +1914,31 @@ fn available_monitor_bounds(_window: &tauri::WebviewWindow) -> Vec<MonitorBounds
     Vec::new()
 }
 
+#[cfg(not(target_os = "android"))]
+fn read_window_state(app_handle: &tauri::AppHandle, file_name: &str) -> Option<WindowState> {
+    let path = app_handle.path().app_config_dir().ok()?.join(file_name);
+    let contents = std::fs::read_to_string(path).ok()?;
+    serde_json::from_str(&contents).ok()
+}
+
+#[cfg(not(target_os = "android"))]
+fn write_window_state(app_handle: &tauri::AppHandle, file_name: &str, state: &WindowState) {
+    if let Ok(config_dir) = app_handle.path().app_config_dir() {
+        let _ = std::fs::create_dir_all(&config_dir);
+        if let Ok(json) = serde_json::to_string(state) {
+            let _ = std::fs::write(config_dir.join(file_name), json);
+        }
+    }
+}
+
 fn saved_window_state_is_usable(
     state: &WindowState,
     monitors: &[MonitorBounds],
     scale_factor: f64,
+    min_logical_size: (f64, f64),
 ) -> bool {
-    let min_w = (800.0 * scale_factor) as u32;
-    let min_h = (600.0 * scale_factor) as u32;
+    let min_w = (min_logical_size.0 * scale_factor) as u32;
+    let min_h = (min_logical_size.1 * scale_factor) as u32;
 
     if state.width < min_w || state.height < min_h {
         return false;
@@ -1977,15 +1988,11 @@ fn frontend_ready(
         let _ = (&app_handle, is_first_run);
 
         #[cfg(any(windows, target_os = "linux"))]
-        if is_first_run && let Ok(config_dir) = app_handle.path().app_config_dir() {
-            let path = config_dir.join("window_state.json");
-
-            if let Ok(contents) = std::fs::read_to_string(&path)
-                && let Ok(saved_state) = serde_json::from_str::<WindowState>(&contents)
-            {
-                should_maximize = saved_state.maximized;
-                should_fullscreen = saved_state.fullscreen;
-            }
+        if is_first_run
+            && let Some(saved_state) = read_window_state(&app_handle, MAIN_WINDOW_STATE_FILE)
+        {
+            should_maximize = saved_state.maximized;
+            should_fullscreen = saved_state.fullscreen;
         }
 
         if let Err(e) = window.show() {
@@ -2088,16 +2095,20 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_http::init())
         .plugin(PinchZoomDisablePlugin)
-        .on_window_event(|window, event| if let tauri::WindowEvent::Resized(size) = event {
-            let state = window.state::<AppState>();
-            if let Some(ctx) = state.gpu_context.lock().unwrap().as_ref()
-                && let Ok(mut display_lock) = ctx.display.try_lock()
-                    && let Some(display) = display_lock.as_mut() {
-                        display.config.width = size.width.max(1);
-                        display.config.height = size.height.max(1);
-                        display.surface.configure(&ctx.device, &display.config);
-                        display.render(&ctx.device, &ctx.queue);
-                    }
+        .on_window_event(|window, event| match event {
+            tauri::WindowEvent::Resized(size) => {
+                gpu_processing::resize_display(window, *size);
+                if window.label() == viewer_window::VIEWER_LABEL {
+                    viewer_window::handle_viewer_resized(window, *size);
+                }
+            }
+            tauri::WindowEvent::CloseRequested { api, .. } => {
+                viewer_window::handle_close_requested(window, api)
+            }
+            tauri::WindowEvent::Destroyed if window.label() == viewer_window::VIEWER_LABEL => {
+                viewer_window::handle_viewer_destroyed(window.app_handle())
+            }
+            _ => {}
         })
         .setup(move |app| {
             #[cfg(feature = "tethering")]
@@ -2311,29 +2322,24 @@ pub fn run() {
                 let mut initial_normal_rect = (default_w, default_h, 100i32, 100i32);
                 let mut state_loaded = false;
 
-                if let Ok(config_dir) = app.path().app_config_dir() {
-                    let path = config_dir.join("window_state.json");
-                    if let Ok(contents) = std::fs::read_to_string(&path)
-                        && let Ok(state) = serde_json::from_str::<WindowState>(&contents)
-                    {
-                        let monitor_bounds = available_monitor_bounds(&window);
-                        let monitor_size = window.current_monitor().ok().flatten().map(|m| *m.size());
+                if let Some(state) = read_window_state(app.handle(), MAIN_WINDOW_STATE_FILE) {
+                    let monitor_bounds = available_monitor_bounds(&window);
+                    let monitor_size = window.current_monitor().ok().flatten().map(|m| *m.size());
 
-                        let is_maximized_size = monitor_size.map(|m| {
-                            state.width >= m.width.saturating_sub(60) && state.height >= m.height.saturating_sub(60)
-                        }).unwrap_or(false);
+                    let is_maximized_size = monitor_size.map(|m| {
+                        state.width >= m.width.saturating_sub(60) && state.height >= m.height.saturating_sub(60)
+                    }).unwrap_or(false);
 
-                        if saved_window_state_is_usable(&state, &monitor_bounds, scale) && !is_maximized_size {
-                            initial_normal_rect = (state.width, state.height, state.x, state.y);
-                            state_loaded = true;
+                    if saved_window_state_is_usable(&state, &monitor_bounds, scale, MAIN_WINDOW_MIN_SIZE) && !is_maximized_size {
+                        initial_normal_rect = (state.width, state.height, state.x, state.y);
+                        state_loaded = true;
 
-                            let _ = window.set_size(tauri::Size::Physical(
-                                tauri::PhysicalSize::new(state.width, state.height),
-                            ));
-                            let _ = window.set_position(tauri::Position::Physical(
-                                tauri::PhysicalPosition::new(state.x, state.y),
-                            ));
-                        }
+                        let _ = window.set_size(tauri::Size::Physical(
+                            tauri::PhysicalSize::new(state.width, state.height),
+                        ));
+                        let _ = window.set_position(tauri::Position::Physical(
+                            tauri::PhysicalPosition::new(state.x, state.y),
+                        ));
                     }
                 }
 
@@ -2341,8 +2347,8 @@ pub fn run() {
                     let (mut w, mut h) = (1280.0_f64, 720.0_f64);
                     if let Some(m) = window.current_monitor().ok().flatten() {
                         let ms = m.size().to_logical::<f64>(m.scale_factor());
-                        w = w.min(ms.width - 80.0).max(800.0);
-                        h = h.min(ms.height - 120.0).max(600.0);
+                        w = w.min(ms.width - 80.0).max(MAIN_WINDOW_MIN_SIZE.0);
+                        h = h.min(ms.height - 120.0).max(MAIN_WINDOW_MIN_SIZE.1);
                     }
 
                     let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize::new(w, h)));
@@ -2381,14 +2387,8 @@ pub fn run() {
                             lock.take()
                         };
 
-                        if let Some(state) = state_to_save
-                            && let Ok(config_dir) = app_handle_for_saver.path().app_config_dir()
-                        {
-                            let path = config_dir.join("window_state.json");
-                            let _ = std::fs::create_dir_all(&config_dir);
-                            if let Ok(json) = serde_json::to_string(&state) {
-                                let _ = std::fs::write(&path, json);
-                            }
+                        if let Some(state) = state_to_save {
+                            write_window_state(&app_handle_for_saver, MAIN_WINDOW_STATE_FILE, &state);
                         }
                     }
                 });
@@ -2423,8 +2423,8 @@ pub fn run() {
                                 .unwrap_or((0, 0));
 
                             let event_scale = window_for_handler.scale_factor().unwrap_or(1.0);
-                            let min_w = (800.0 * event_scale) as u32;
-                            let min_h = (600.0 * event_scale) as u32;
+                            let min_w = (MAIN_WINDOW_MIN_SIZE.0 * event_scale) as u32;
+                            let min_h = (MAIN_WINDOW_MIN_SIZE.1 * event_scale) as u32;
 
                             let is_maximize_in_progress = window_for_handler
                                 .current_monitor()
@@ -2511,6 +2511,10 @@ pub fn run() {
             disks_cache: Mutex::new(None),
             disks_cache_refreshing: AtomicBool::new(false),
             camera_session: Mutex::new(camera_tethering::CameraSession::new()),
+            viewer: Mutex::new(ViewerState {
+                background: gpu_processing::DisplayTransform::default().bg_secondary,
+                frame: None,
+            }),
         })
         .invoke_handler(tauri::generate_handler![
             apply_adjustments,
@@ -2536,6 +2540,10 @@ pub fn run() {
             cancel_thumbnail_generation,
             update_wgpu_transform,
             release_original_preview,
+            viewer_window::open_viewer_window,
+            viewer_window::close_viewer_window,
+            viewer_window::get_viewer_info,
+            viewer_window::get_viewer_frame,
             android_integration::resolve_android_content_uri_name,
             cache_utils::clear_session_caches,
             cache_utils::clear_image_caches,

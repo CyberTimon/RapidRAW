@@ -227,6 +227,7 @@
       "autoLensCorrection": "Автокоррекция объектива",
       "autoStraighten": "Автовыравнивание",
       "cancel": "Отмена",
+      "closeViewer": "Закрыть второе окно",
       "colorLabel": "Цветовая метка",
       "confirmReset": "Подтвердить сброс",
       "convertNegative": "Преобразовать негатив",
@@ -242,6 +243,7 @@
       "mergeHdr": "Объединить в HDR",
       "noLabel": "Без метки",
       "noRating": "Без рейтинга",
+      "openViewer": "Открыть во втором окне",
       "pasteAdjustments": "Вставить настройки",
       "productivity": "Продуктивность",
       "rating": "Рейтинг",
@@ -896,15 +898,21 @@
       "tooltips": {
         "aperture": "Диафрагма",
         "backToLibrary": "Назад в библиотеку",
+        "closeViewer": "Закрыть второе окно",
         "compare": "До / После (B) или режимы (правый клик)",
         "focalLength": "Фокусное расстояние",
         "fullscreen": "Полноэкранный режим (F)",
         "iso": "ISO",
+        "openViewer": "Открыть во втором окне",
         "redo": "Повторить (Ctrl+Y) или история (правый клик)",
         "shutterSpeed": "Выдержка",
         "undo": "Отменить (Ctrl+Z) или история (правый клик)"
       },
       "vc": "ВК"
+    },
+    "viewer": {
+      "openFailed": "Не удалось открыть второе окно: {{error}}",
+      "windowTitle": "Просмотр RapidRAW"
     }
   },
   "export": {
@@ -1854,6 +1862,7 @@
         "toggle_presets": "Панель пресетов",
         "toggle_reject": "Переключить отметку «отклонено»",
         "toggle_right_panel": "Показать/скрыть правую панель",
+        "toggle_viewer_window": "Переключить второе окно",
         "undo": "Отменить действие",
         "unflag": "Снять отметку",
         "zoom_100": "Масштаб 100%",

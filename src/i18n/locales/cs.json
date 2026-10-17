@@ -226,6 +226,7 @@
       "autoLensCorrection": "Auto korekce objektivu",
       "autoStraighten": "Automaticky vyrovnat",
       "cancel": "Zrušit",
+      "closeViewer": "Zavřít druhé okno",
       "colorLabel": "Barevný štítek",
       "confirmReset": "Potvrďte reset",
       "convertNegative": "Převést negativ",
@@ -241,6 +242,7 @@
       "mergeHdr": "Sloučit do HDR",
       "noLabel": "Žádný štítek",
       "noRating": "Žádné hodnocení",
+      "openViewer": "Otevřít ve druhém okně",
       "pasteAdjustments": "Vložit úpravy",
       "productivity": "Produktivita",
       "rating": "Hodnocení",
@@ -853,15 +855,21 @@
       "tooltips": {
         "aperture": "Clona",
         "backToLibrary": "Zpět do Knihovny",
+        "closeViewer": "Zavřít druhé okno",
         "compare": "Před / po (B) nebo režimy (pravé tlačítko)",
         "focalLength": "Ohnisková vzdálenost",
         "fullscreen": "Přepnout na celou obrazovku (F)",
         "iso": "ISO",
+        "openViewer": "Otevřít ve druhém okně",
         "redo": "Znovu (Ctrl+Y) nebo Historie (kliknutí pravým tlačítkem)",
         "shutterSpeed": "Rychlost závěrky",
         "undo": "Zpět (Ctrl+Z) nebo Historie (kliknutí pravým tlačítkem)"
       },
       "vc": "VC"
+    },
+    "viewer": {
+      "openFailed": "Druhé okno nelze otevřít: {{error}}",
+      "windowTitle": "Prohlížeč RapidRAW"
     }
   },
   "export": {
@@ -1783,6 +1791,7 @@
         "toggle_presets": "Přepnout panel předvolby",
         "toggle_reject": "Přepnout odmítnutí",
         "toggle_right_panel": "Přepnout pravý panel",
+        "toggle_viewer_window": "Přepnout druhé okno",
         "undo": "Zrušit úpravu",
         "unflag": "Odebrat příznak",
         "zoom_100": "Přiblížit na 100 %",
