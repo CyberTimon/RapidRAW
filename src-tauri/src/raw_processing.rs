@@ -311,6 +311,15 @@ pub fn read_as_shot(file_bytes: &[u8]) -> Option<AsShot> {
 }
 
 fn as_shot_white_balance(raw_image: &RawImage, file_bytes: &[u8]) -> Option<WhiteBalance> {
+    // Sony lossless M/S RGB is already balanced; unity gains are not a camera neutral.
+    if raw_image.make.eq_ignore_ascii_case("SONY")
+        && raw_image.cpp == 3
+        && is_linear_raw_format(raw_image)
+        && raw_image.wb_coeffs[..3] == [1.0; 3]
+    {
+        return None;
+    }
+
     let wb_coeffs =
         crate::multi_exposure::neutralize_wb_if_multiexposure(raw_image.wb_coeffs, file_bytes);
     let neutral = if wb_coeffs[0].is_nan() {
