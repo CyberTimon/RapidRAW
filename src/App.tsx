@@ -77,6 +77,8 @@ import {
 
 import ImageProcessingManager from './components/managers/ImageProcessingManager';
 import ImageLoaderManager from './components/managers/ImageLoaderManager';
+import { isImmichAlbumId } from './components/immich/immichApi';
+import { useImmichEvents } from './components/immich/useImmichEvents';
 
 const insertChildrenIntoTree = (node: any, targetPath: string, newChildren: any[]): any => {
   if (!node) return null;
@@ -399,6 +401,8 @@ function App() {
           };
           const album = findObj(albumTree);
           if (album) await handleSelectAlbum(album.id, album.name, album.images, true);
+          else if (isImmichAlbumId(activeAlbumId))
+            await handleSelectAlbum(activeAlbumId, currentFolderPath.slice('Album: '.length), [], true);
         }
       } else {
         await handleSelectSubfolder(currentFolderPath, false, undefined, false, true);
@@ -456,6 +460,8 @@ function App() {
     handleDeleteRejected,
     handleTogglePinFolder,
   });
+
+  useImmichEvents();
 
   useTauriListeners({
     refreshAllFolderTrees,

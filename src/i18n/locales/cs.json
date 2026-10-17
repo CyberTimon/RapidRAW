@@ -955,6 +955,41 @@
       "watermarkImage": "Obrázek vodoznaku"
     }
   },
+  "immich": {
+    "section": {
+      "empty": "Na serveru nejsou žádná alba.",
+      "error": "Immich není dostupný.",
+      "loading": "Načítání alb…",
+      "refresh": "Obnovit alba",
+      "timeline": "Časová osa",
+      "title": "Immich"
+    },
+    "settings": {
+      "apiKey": "API klíč",
+      "apiKeyDesc": "Vytvořte jej v Immichi v Nastavení účtu → API klíče. Musí mít oprávnění číst alba, položky a časovou osu a stahovat originály.",
+      "cacheDir": "Složka mezipaměti",
+      "cacheDirDefault": "Výchozí",
+      "cacheDirDesc": "Kde se ukládají stažené originály.",
+      "cacheLimit": "Velikost mezipaměti (GB)",
+      "cacheLimitDesc": "Stažené originály nad tuto velikost se odstraňují, nejstarší jako první. Úpravy tím nejsou dotčeny.",
+      "cacheTitle": "Mezipaměť",
+      "category": "Immich",
+      "connected": "Připojeno jako {{user}} (Immich {{version}})",
+      "connectionTitle": "Immich",
+      "description": "Procházejte fotky ze svého serveru Immich v knihovně a upravujte je přímo. Originály se stahují při otevření; úpravy zůstávají v tomto počítači.",
+      "keyInFile": "Uloženo v souboru, který můžete číst jen vy: není k dispozici žádné úložiště přihlašovacích údajů. V KDE zapněte rozhraní Secret Service v nastavení KDE Wallet a uložte znovu.",
+      "keyInStore": "Uloženo v systémovém úložišti přihlašovacích údajů.",
+      "save": "Uložit",
+      "saved": "Uloženo.",
+      "serverUrl": "Adresa serveru",
+      "serverUrlDesc": "Adresa, pod kterou otevíráte Immich v prohlížeči.",
+      "test": "Otestovat připojení",
+      "working": "Pracuji…"
+    },
+    "toasts": {
+      "downloadFailed": "Stažení z Immiche se nezdařilo: {{error}}"
+    }
+  },
   "library": {
     "community": {
       "actionSave": "Uložit",
