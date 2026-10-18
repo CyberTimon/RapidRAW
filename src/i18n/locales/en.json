@@ -1071,6 +1071,8 @@
       }
     },
     "header": {
+      "cancel": "Cancel",
+      "deselectAll": "Deselect All",
       "search": {
         "addFilterOrSearch": "Add filter or search...",
         "indexingImages": "Indexing Images...",
@@ -1082,6 +1084,8 @@
         "tooltipClearSearch": "Clear search",
         "tooltipSearchFilter": "Search or Filter"
       },
+      "selectAll": "Select All",
+      "selectItems": "Select items",
       "title": "Library",
       "viewOptions": {
         "currentFolder": "Current Folder",
@@ -1202,7 +1206,8 @@
     "tooltips": {
       "communityPresets": "Community Presets",
       "goHome": "Go to Home",
-      "importImages": "Import Images"
+      "importImages": "Import Images",
+      "select": "Select"
     }
   },
   "masks": {

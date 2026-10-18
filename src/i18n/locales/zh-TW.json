@@ -1069,6 +1069,8 @@
       }
     },
     "header": {
+      "cancel": "取消",
+      "deselectAll": "取消全選",
       "search": {
         "addFilterOrSearch": "新增過濾或搜尋...",
         "indexingImages": "索引影像中...",
@@ -1080,6 +1082,8 @@
         "tooltipClearSearch": "清除搜尋",
         "tooltipSearchFilter": "搜尋或過濾"
       },
+      "selectAll": "全選",
+      "selectItems": "選擇項目",
       "title": "相簿",
       "viewOptions": {
         "currentFolder": "當前資料夾",
@@ -1200,7 +1204,8 @@
     "tooltips": {
       "communityPresets": "社群預設",
       "goHome": "返回首頁",
-      "importImages": "匯入影像"
+      "importImages": "匯入影像",
+      "select": "選擇"
     }
   },
   "masks": {

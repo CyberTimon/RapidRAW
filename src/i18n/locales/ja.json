@@ -1069,6 +1069,8 @@
       }
     },
     "header": {
+      "cancel": "キャンセル",
+      "deselectAll": "すべての選択を解除",
       "search": {
         "addFilterOrSearch": "フィルターまたは検索を追加...",
         "indexingImages": "画像をインデックス中...",
@@ -1080,6 +1082,8 @@
         "tooltipClearSearch": "検索をクリア",
         "tooltipSearchFilter": "検索またはフィルター"
       },
+      "selectAll": "すべて選択",
+      "selectItems": "項目を選択",
       "title": "ライブラリ",
       "viewOptions": {
         "currentFolder": "現在のフォルダ",
@@ -1200,7 +1204,8 @@
     "tooltips": {
       "communityPresets": "コミュニティプリセット",
       "goHome": "ホームへ移動",
-      "importImages": "画像をインポート"
+      "importImages": "画像をインポート",
+      "select": "選択"
     }
   },
   "masks": {

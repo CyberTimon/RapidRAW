@@ -1069,6 +1069,8 @@
       }
     },
     "header": {
+      "cancel": "取消",
+      "deselectAll": "取消全选",
       "search": {
         "addFilterOrSearch": "添加过滤或搜索...",
         "indexingImages": "索引图像中...",
@@ -1080,6 +1082,8 @@
         "tooltipClearSearch": "清除搜索",
         "tooltipSearchFilter": "搜索或过滤"
       },
+      "selectAll": "全选",
+      "selectItems": "选择项目",
       "title": "图库",
       "viewOptions": {
         "currentFolder": "当前文件夹",
@@ -1200,7 +1204,8 @@
     "tooltips": {
       "communityPresets": "社区预设",
       "goHome": "返回首页",
-      "importImages": "导入图像"
+      "importImages": "导入图像",
+      "select": "选择"
     }
   },
   "masks": {

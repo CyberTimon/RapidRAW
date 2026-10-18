@@ -1072,6 +1072,8 @@
       }
     },
     "header": {
+      "cancel": "Cancel·lar",
+      "deselectAll": "Desseleccionar-ho tot",
       "search": {
         "addFilterOrSearch": "Afegir filtre o cercar...",
         "indexingImages": "S'estan indexant les imatges...",
@@ -1083,6 +1085,8 @@
         "tooltipClearSearch": "Netejar cerca",
         "tooltipSearchFilter": "Cercar o Filtrar"
       },
+      "selectAll": "Seleccionar-ho tot",
+      "selectItems": "Seleccionar elements",
       "title": "Biblioteca",
       "viewOptions": {
         "currentFolder": "Carpeta actual",
@@ -1205,7 +1209,8 @@
     "tooltips": {
       "communityPresets": "Ajustos preestablerts de la comunitat",
       "goHome": "Anar a l'inici",
-      "importImages": "Importar imatges"
+      "importImages": "Importar imatges",
+      "select": "Seleccionar"
     }
   },
   "masks": {

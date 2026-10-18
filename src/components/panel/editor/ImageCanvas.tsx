@@ -25,7 +25,8 @@ import { isPanelVisible, useUIStore } from '../../../store/useUIStore';
 import type { OverlayMode } from '../right/CropPanel';
 import CompositionOverlays from './overlays/CompositionOverlays';
 import RelightLightShape, { RelightBasis } from './overlays/RelightLightShape';
-import { calculateStraightenAngle } from '../../../utils/cropUtils';
+import CenterMarkerShape, { CENTER_MARKERS } from './overlays/CenterMarkerShape';
+import { calculateStraightenAngle, resolveAspectRatio } from '../../../utils/cropUtils';
 import { toast } from 'react-toastify';
 import {
   getWhiteBalanceMode,
@@ -1476,6 +1477,13 @@ const ImageCanvas = memo(
     const isGuidedPerspectiveActive = useEditorStore((state) => state.isGuidedPerspectiveActive);
     const isRelightPickerActive = useEditorStore((state) => state.isRelightPickerActive);
     const activeRelightLightId = useEditorStore((state) => state.activeRelightLightId);
+    const activeCenterMarker = useEditorStore((state) => state.activeCenterMarker);
+    const isCenterMarkerSectionOpen = useUIStore(
+      (state) =>
+        !!activeCenterMarker &&
+        isPanelVisible(state, Panel.Adjustments) &&
+        state.collapsibleSectionsState[CENTER_MARKERS[activeCenterMarker].section],
+    );
     const isRelightToolOpen = useUIStore(
       (state) => isPanelVisible(state, Panel.Adjustments) && state.collapsibleSectionsState.effects,
     );
@@ -2249,6 +2257,57 @@ const ImageCanvas = memo(
       window.addEventListener('pointerdown', handlePointerDown, true);
       return () => window.removeEventListener('pointerdown', handlePointerDown, true);
     }, [isRelightPickerActive, setEditor]);
+
+    const centerMarkerConfig = activeCenterMarker ? CENTER_MARKERS[activeCenterMarker] : null;
+
+    const showCenterMarker =
+      !!centerMarkerConfig && isCenterMarkerSectionOpen && !isMasking && !isAiEditing && !isCropping && !showOriginal;
+
+    const centerMarkerPos = useMemo((): Coord => {
+      if (!centerMarkerConfig) return { x: 0, y: 0 };
+      const [keyX, keyY] = centerMarkerConfig.keys;
+      return {
+        x: ((adjustments[keyX] as number | undefined) ?? 0.5) * imageRenderSize.width,
+        y: ((adjustments[keyY] as number | undefined) ?? 0.5) * imageRenderSize.height,
+      };
+    }, [centerMarkerConfig, adjustments, imageRenderSize.width, imageRenderSize.height]);
+
+    const setCenterMarker = useCallback(
+      (pos: Coord | null) => {
+        if (!centerMarkerConfig || !imageRenderSize.width || !imageRenderSize.height) return;
+        const [keyX, keyY] = centerMarkerConfig.keys;
+        const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+        setAdjustments((prev: Adjustments) => ({
+          ...prev,
+          [keyX]: pos ? clamp01(pos.x / imageRenderSize.width) : 0.5,
+          [keyY]: pos ? clamp01(pos.y / imageRenderSize.height) : 0.5,
+        }));
+      },
+      [centerMarkerConfig, imageRenderSize.width, imageRenderSize.height, setAdjustments],
+    );
+
+    useEffect(() => {
+      if (activeCenterMarker && !isCenterMarkerSectionOpen) {
+        setEditor({ activeCenterMarker: null });
+      }
+    }, [activeCenterMarker, isCenterMarkerSectionOpen, setEditor]);
+
+    useEffect(() => {
+      if (!activeCenterMarker) return;
+
+      const handlePointerDown = (e: PointerEvent) => {
+        const target = e.target as HTMLElement;
+        if (
+          target.closest('.konvajs-content') ||
+          target.closest(`[data-center-marker-controls="${activeCenterMarker}"]`)
+        )
+          return;
+        setEditor({ activeCenterMarker: null });
+      };
+
+      window.addEventListener('pointerdown', handlePointerDown, true);
+      return () => window.removeEventListener('pointerdown', handlePointerDown, true);
+    }, [activeCenterMarker, setEditor]);
 
     const getWbCorners = useCallback(
       (x0: number, y0: number, x1: number, y1: number): Coord[] => {
@@ -3545,170 +3604,186 @@ const ImageCanvas = memo(
             </div>
           </div>
 
-          {(isMasking || isAiEditing || isWbPickerActive || showRelightLights) && stageWidth > 0 && stageHeight > 0 && (
-            <div
-              style={{
-                position: 'absolute',
-                top: stageTop,
-                left: stageLeft,
-                transformOrigin: '0 0',
-                transform: `scale(${1 / maxSafeScale})`,
-                width: stageWidth * maxSafeScale,
-                height: stageHeight * maxSafeScale,
-                zIndex: 4,
-                touchAction: 'none',
-                userSelect: 'none',
-                opacity: isShowingOriginal ? 0 : 1,
-                transition: 'opacity 150ms ease-in-out',
-                ...getEdgeFadeStyle(128),
-              }}
-            >
-              <Stage
-                width={stageWidth * maxSafeScale}
-                height={stageHeight * maxSafeScale}
-                onMouseDown={handleStart}
-                onTouchStart={handleStart}
-                onMouseEnter={handleMouseEnter}
-                onMouseLeave={handleMouseLeave}
-                onMouseMove={handleMove}
-                onTouchMove={handleMove}
-                onMouseUp={handleUp}
-                onTouchEnd={handleUp}
+          {(isMasking || isAiEditing || isWbPickerActive || showRelightLights || showCenterMarker) &&
+            stageWidth > 0 &&
+            stageHeight > 0 && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: stageTop,
+                  left: stageLeft,
+                  transformOrigin: '0 0',
+                  transform: `scale(${1 / maxSafeScale})`,
+                  width: stageWidth * maxSafeScale,
+                  height: stageHeight * maxSafeScale,
+                  zIndex: 4,
+                  touchAction: 'none',
+                  userSelect: 'none',
+                  opacity: isShowingOriginal ? 0 : 1,
+                  transition: 'opacity 150ms ease-in-out',
+                  ...getEdgeFadeStyle(128),
+                }}
               >
-                <Layer listening={!showOriginal}>
-                  <Group scaleX={maxSafeScale} scaleY={maxSafeScale}>
-                    <Group x={groupOffsetX} y={groupOffsetY}>
-                      {(isMasking || isAiEditing) &&
-                        activeContainer &&
-                        sortedSubMasks.map((subMask: SubMask) => {
-                          const activeId = isMasking ? activeMaskId : activeAiSubMaskId;
-                          const renderSubMask =
-                            subMask.id === activeId && localInitialDrawParams
-                              ? { ...subMask, parameters: localInitialDrawParams }
-                              : subMask;
+                <Stage
+                  width={stageWidth * maxSafeScale}
+                  height={stageHeight * maxSafeScale}
+                  onMouseDown={handleStart}
+                  onTouchStart={handleStart}
+                  onMouseEnter={handleMouseEnter}
+                  onMouseLeave={handleMouseLeave}
+                  onMouseMove={handleMove}
+                  onTouchMove={handleMove}
+                  onMouseUp={handleUp}
+                  onTouchEnd={handleUp}
+                >
+                  <Layer listening={!showOriginal}>
+                    <Group scaleX={maxSafeScale} scaleY={maxSafeScale}>
+                      <Group x={groupOffsetX} y={groupOffsetY}>
+                        {(isMasking || isAiEditing) &&
+                          activeContainer &&
+                          sortedSubMasks.map((subMask: SubMask) => {
+                            const activeId = isMasking ? activeMaskId : activeAiSubMaskId;
+                            const renderSubMask =
+                              subMask.id === activeId && localInitialDrawParams
+                                ? { ...subMask, parameters: localInitialDrawParams }
+                                : subMask;
 
-                          const isDirectPatch =
-                            renderSubMask.type === Mask.Clone ||
-                            renderSubMask.type === Mask.Heal ||
-                            renderSubMask.type === Mask.Liquify ||
-                            renderSubMask.type === Mask.Retouch;
+                            const isDirectPatch =
+                              renderSubMask.type === Mask.Clone ||
+                              renderSubMask.type === Mask.Heal ||
+                              renderSubMask.type === Mask.Liquify ||
+                              renderSubMask.type === Mask.Retouch;
 
-                          const isThisSubMaskActive = renderSubMask.id === activeId;
-                          const isActivelyDrawingThis = isThisSubMaskActive && isDrawing.current;
-                          const isHoveringThisMarker = hoveredMarkerId === renderSubMask.id;
+                            const isThisSubMaskActive = renderSubMask.id === activeId;
+                            const isActivelyDrawingThis = isThisSubMaskActive && isDrawing.current;
+                            const isHoveringThisMarker = hoveredMarkerId === renderSubMask.id;
 
-                          let showBrushStrokes = true;
-                          if (isDirectPatch) {
-                            showBrushStrokes =
-                              isActivelyDrawingThis ||
-                              isHoveringThisMarker ||
-                              (isThisSubMaskActive && isMaskControlHovered) ||
-                              (isThisSubMaskActive &&
-                                (renderSubMask.type === Mask.Liquify || renderSubMask.type === Mask.Retouch));
-                          }
+                            let showBrushStrokes = true;
+                            if (isDirectPatch) {
+                              showBrushStrokes =
+                                isActivelyDrawingThis ||
+                                isHoveringThisMarker ||
+                                (isThisSubMaskActive && isMaskControlHovered) ||
+                                (isThisSubMaskActive &&
+                                  (renderSubMask.type === Mask.Liquify || renderSubMask.type === Mask.Retouch));
+                            }
 
-                          return (
-                            <MaskOverlay
-                              adjustments={adjustments}
-                              imageHeight={effectiveImageDimensions.height}
-                              imageWidth={effectiveImageDimensions.width}
-                              isSelected={renderSubMask.id === activeId}
-                              isToolActive={isToolActive}
-                              showBrushStrokes={showBrushStrokes}
-                              key={renderSubMask.id}
-                              onMaskInteractionEnd={handleMaskInteractionEnd}
-                              onMaskInteractionStart={handleMaskInteractionStart}
-                              onMaskMouseEnter={() => !isToolActive && setIsMaskHovered(true)}
-                              onMaskMouseLeave={() => !isToolActive && setIsMaskHovered(false)}
-                              onPreviewUpdate={handlePreviewUpdate}
-                              onSelect={() =>
-                                isMasking ? onSelectMask(renderSubMask.id) : onSelectAiSubMask(renderSubMask.id)
-                              }
-                              onUpdate={updateSubMask}
-                              scale={imageRenderSize.scale}
-                              subMask={renderSubMask}
-                              offsetX={groupOffsetX}
-                              offsetY={groupOffsetY}
-                              stageScale={maxSafeScale}
-                            />
-                          );
-                        })}
+                            return (
+                              <MaskOverlay
+                                adjustments={adjustments}
+                                imageHeight={effectiveImageDimensions.height}
+                                imageWidth={effectiveImageDimensions.width}
+                                isSelected={renderSubMask.id === activeId}
+                                isToolActive={isToolActive}
+                                showBrushStrokes={showBrushStrokes}
+                                key={renderSubMask.id}
+                                onMaskInteractionEnd={handleMaskInteractionEnd}
+                                onMaskInteractionStart={handleMaskInteractionStart}
+                                onMaskMouseEnter={() => !isToolActive && setIsMaskHovered(true)}
+                                onMaskMouseLeave={() => !isToolActive && setIsMaskHovered(false)}
+                                onPreviewUpdate={handlePreviewUpdate}
+                                onSelect={() =>
+                                  isMasking ? onSelectMask(renderSubMask.id) : onSelectAiSubMask(renderSubMask.id)
+                                }
+                                onUpdate={updateSubMask}
+                                scale={imageRenderSize.scale}
+                                subMask={renderSubMask}
+                                offsetX={groupOffsetX}
+                                offsetY={groupOffsetY}
+                                stageScale={maxSafeScale}
+                              />
+                            );
+                          })}
 
-                      {previewBox && (
-                        <Rect
-                          x={Math.min(previewBox.start.x, previewBox.end.x)}
-                          y={Math.min(previewBox.start.y, previewBox.end.y)}
-                          width={Math.max(0.1, Math.abs(previewBox.end.x - previewBox.start.x))}
-                          height={Math.max(0.1, Math.abs(previewBox.end.y - previewBox.start.y))}
-                          stroke="#0ea5e9"
-                          strokeWidth={2}
-                          dash={[4, 4]}
-                          listening={false}
-                        />
-                      )}
-                      {isWbPickerActive && wbBox && (
-                        <WbSampleOutline
-                          x={Math.min(wbBox.start.x, wbBox.end.x)}
-                          y={Math.min(wbBox.start.y, wbBox.end.y)}
-                          width={Math.max(0.1, Math.abs(wbBox.end.x - wbBox.start.x))}
-                          height={Math.max(0.1, Math.abs(wbBox.end.y - wbBox.start.y))}
-                          zoomScale={effectiveZoomScale}
-                          dashed
-                        />
-                      )}
-                      {isWbPickerActive && wbHover.visible && !wbBox && (
-                        <WbSampleOutline
-                          x={wbHover.x - wbSquareStage / 2}
-                          y={wbHover.y - wbSquareStage / 2}
-                          width={wbSquareStage}
-                          height={wbSquareStage}
-                          zoomScale={effectiveZoomScale}
-                        />
-                      )}
-                      {showRelightLights &&
-                        (adjustments.relightLights || []).map((light: RelightLight) => (
-                          <RelightLightShape
-                            key={light.id}
-                            light={light}
-                            pos={mapRelightUvToCanvas(light)}
-                            basis={relightBasis}
+                        {previewBox && (
+                          <Rect
+                            x={Math.min(previewBox.start.x, previewBox.end.x)}
+                            y={Math.min(previewBox.start.y, previewBox.end.y)}
+                            width={Math.max(0.1, Math.abs(previewBox.end.x - previewBox.start.x))}
+                            height={Math.max(0.1, Math.abs(previewBox.end.y - previewBox.start.y))}
+                            stroke="#0ea5e9"
+                            strokeWidth={2}
+                            dash={[4, 4]}
+                            listening={false}
+                          />
+                        )}
+                        {isWbPickerActive && wbBox && (
+                          <WbSampleOutline
+                            x={Math.min(wbBox.start.x, wbBox.end.x)}
+                            y={Math.min(wbBox.start.y, wbBox.end.y)}
+                            width={Math.max(0.1, Math.abs(wbBox.end.x - wbBox.start.x))}
+                            height={Math.max(0.1, Math.abs(wbBox.end.y - wbBox.start.y))}
                             zoomScale={effectiveZoomScale}
-                            isActive={light.id === activeRelightLightId}
-                            onSelect={() => setEditor({ activeRelightLightId: light.id })}
-                            onMove={(pos) => moveRelightLight(light.id, pos)}
-                            onAim={(angle, elevation) => aimRelightLight(light.id, angle, elevation)}
+                            dashed
+                          />
+                        )}
+                        {isWbPickerActive && wbHover.visible && !wbBox && (
+                          <WbSampleOutline
+                            x={wbHover.x - wbSquareStage / 2}
+                            y={wbHover.y - wbSquareStage / 2}
+                            width={wbSquareStage}
+                            height={wbSquareStage}
+                            zoomScale={effectiveZoomScale}
+                          />
+                        )}
+                        {showRelightLights &&
+                          (adjustments.relightLights || []).map((light: RelightLight) => (
+                            <RelightLightShape
+                              key={light.id}
+                              light={light}
+                              pos={mapRelightUvToCanvas(light)}
+                              basis={relightBasis}
+                              zoomScale={effectiveZoomScale}
+                              isActive={light.id === activeRelightLightId}
+                              onSelect={() => setEditor({ activeRelightLightId: light.id })}
+                              onMove={(pos) => moveRelightLight(light.id, pos)}
+                              onAim={(angle, elevation) => aimRelightLight(light.id, angle, elevation)}
+                              onDragStateChange={(isDragging) => setEditor({ isSliderDragging: isDragging })}
+                              onHoverChange={setIsMaskHovered}
+                              onTouchInteraction={() => setIsMaskTouchInteracting(true)}
+                            />
+                          ))}
+                        {showCenterMarker && centerMarkerConfig && (
+                          <CenterMarkerShape
+                            pos={centerMarkerPos}
+                            imageWidth={imageRenderSize.width}
+                            imageHeight={imageRenderSize.height}
+                            {...centerMarkerConfig.getContour(adjustments)}
+                            zoomScale={effectiveZoomScale}
+                            onMove={setCenterMarker}
+                            onReset={() => setCenterMarker(null)}
                             onDragStateChange={(isDragging) => setEditor({ isSliderDragging: isDragging })}
                             onHoverChange={setIsMaskHovered}
                             onTouchInteraction={() => setIsMaskTouchInteracting(true)}
                           />
-                        ))}
-                      {isBrushActive &&
-                        cursorPreview.visible &&
-                        (!isCloneOrHealActive ||
-                          (activeSubMask?.parameters?.sourceX !== undefined && !isCtrlPressed)) && (
-                          <Circle
-                            {...(brushCursorPreview.colorStops
-                              ? {
-                                  fillRadialGradientColorStops: brushCursorPreview.colorStops,
-                                  fillRadialGradientEndPoint: { x: 0, y: 0 },
-                                  fillRadialGradientEndRadius: brushCursorPreview.radius,
-                                  fillRadialGradientStartPoint: { x: 0, y: 0 },
-                                  fillRadialGradientStartRadius: 0,
-                                }
-                              : { fill: brushCursorPreview.fill })}
-                            listening={false}
-                            perfectDrawEnabled={false}
-                            radius={brushCursorPreview.radius}
-                            x={cursorPreview.x}
-                            y={cursorPreview.y}
-                          />
                         )}
+                        {isBrushActive &&
+                          cursorPreview.visible &&
+                          (!isCloneOrHealActive ||
+                            (activeSubMask?.parameters?.sourceX !== undefined && !isCtrlPressed)) && (
+                            <Circle
+                              {...(brushCursorPreview.colorStops
+                                ? {
+                                    fillRadialGradientColorStops: brushCursorPreview.colorStops,
+                                    fillRadialGradientEndPoint: { x: 0, y: 0 },
+                                    fillRadialGradientEndRadius: brushCursorPreview.radius,
+                                    fillRadialGradientStartPoint: { x: 0, y: 0 },
+                                    fillRadialGradientStartRadius: 0,
+                                  }
+                                : { fill: brushCursorPreview.fill })}
+                              listening={false}
+                              perfectDrawEnabled={false}
+                              radius={brushCursorPreview.radius}
+                              x={cursorPreview.x}
+                              y={cursorPreview.y}
+                            />
+                          )}
+                      </Group>
                     </Group>
-                  </Group>
-                </Layer>
-              </Stage>
-            </div>
-          )}
+                  </Layer>
+                </Stage>
+              </div>
+            )}
 
           {wbSwatchAnchor && wbSample && (
             <div
@@ -3772,7 +3847,10 @@ const ImageCanvas = memo(
               }}
             >
               <ReactCrop
-                aspect={adjustments.aspectRatio ?? undefined}
+                aspect={
+                  resolveAspectRatio(adjustments.aspectRatio, selectedImage, adjustments.orientationSteps || 0) ??
+                  undefined
+                }
                 crop={crop ?? undefined}
                 onChange={setCrop}
                 onComplete={handleCropComplete}

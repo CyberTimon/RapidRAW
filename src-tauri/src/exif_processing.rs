@@ -279,6 +279,77 @@ pub fn load_sidecar_with_exif(sidecar_path: &Path, source_path: &Path) -> ImageM
     meta
 }
 
+pub static SIDECAR_LAYOUT_LOCK: Mutex<()> = Mutex::new(());
+
+pub fn write_sidecar(
+    sidecar_path: &Path,
+    source_path: &Path,
+    metadata: &ImageMetadata,
+) -> std::io::Result<()> {
+    if is_default_sidecar(sidecar_path, source_path, metadata) {
+        let _layout = SIDECAR_LAYOUT_LOCK.lock().unwrap();
+        if !has_virtual_copy_sidecars(source_path) {
+            return match fs::remove_file(sidecar_path) {
+                Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e),
+                _ => Ok(()),
+            };
+        }
+    }
+
+    let json = serde_json::to_string_pretty(metadata).map_err(std::io::Error::other)?;
+    fs::write(sidecar_path, json)
+}
+
+fn has_virtual_copy_sidecars(source_path: &Path) -> bool {
+    let (Some(parent), Some(file_name)) = (source_path.parent(), source_path.file_name()) else {
+        return true;
+    };
+    let file_name = file_name.to_string_lossy();
+
+    let Ok(entries) = fs::read_dir(parent) else {
+        return true;
+    };
+    entries.filter_map(Result::ok).any(|entry| {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        matches!(
+            file_management::parse_sidecar_name(&name),
+            Some((source, Some(_))) if source == file_name
+        )
+    })
+}
+
+fn is_default_sidecar(sidecar_path: &Path, source_path: &Path, metadata: &ImageMetadata) -> bool {
+    if sidecar_path != get_primary_sidecar_path(source_path) {
+        return false;
+    }
+    if metadata.rating != 0
+        || metadata.flag.is_some()
+        || metadata.tags.as_ref().is_some_and(|tags| !tags.is_empty())
+        || !crate::image_processing::is_default_adjustments(&metadata.adjustments)
+    {
+        return false;
+    }
+
+    let Some(sidecar_exif) = &metadata.exif else {
+        return true;
+    };
+
+    if file_management::is_cloud_placeholder(source_path) {
+        return false;
+    }
+    let source_path_str = source_path.to_string_lossy();
+    let file_exif = if let Ok(mmap) = file_management::read_file_mapped(source_path) {
+        read_exif_data_from_bytes(&source_path_str, &mmap)
+    } else if let Ok(bytes) = fs::read(source_path) {
+        read_exif_data_from_bytes(&source_path_str, &bytes)
+    } else {
+        return false;
+    };
+
+    !file_exif.is_empty() && &file_exif == sidecar_exif
+}
+
 fn to_ur64(val: &exif::Rational) -> uR64 {
     uR64 {
         nominator: val.num,

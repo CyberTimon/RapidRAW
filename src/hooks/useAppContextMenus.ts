@@ -352,14 +352,11 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
               icon: Check,
               isDestructive: true,
               onClick: () => {
-                const originalAspectRatio =
-                  selectedImage.width && selectedImage.height ? selectedImage.width / selectedImage.height : null;
                 resetHistory({
                   ...INITIAL_ADJUSTMENTS,
-                  aspectRatio: originalAspectRatio,
                   aiPatches: [],
                 });
-                setEditor({ adjustments: { ...INITIAL_ADJUSTMENTS, aspectRatio: originalAspectRatio, aiPatches: [] } });
+                setEditor({ adjustments: { ...INITIAL_ADJUSTMENTS, aiPatches: [] } });
               },
             },
           ],

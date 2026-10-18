@@ -15,7 +15,7 @@ use serde_json::Value;
 use serde_json::json;
 use std::borrow::Cow;
 use std::f32::consts::PI;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 pub use crate::gpu_processing::{
     RenderOutputPrecision, RenderRequest, get_or_init_gpu_context, process_and_get_dynamic_image,
@@ -108,6 +108,63 @@ pub fn default_adjustments() -> Value {
     let mut adjustments = json!({});
     mark_baseline_exposure(&mut adjustments);
     adjustments
+}
+
+fn default_adjustment_values() -> Option<&'static serde_json::Map<String, Value>> {
+    static DEFAULTS: OnceLock<Option<serde_json::Map<String, Value>>> = OnceLock::new();
+    DEFAULTS
+        .get_or_init(|| {
+            serde_json::from_str(include_str!("../../src/utils/defaultAdjustments.json"))
+                .map_err(|e| log::error!("Failed to parse defaultAdjustments.json: {}", e))
+                .ok()
+        })
+        .as_ref()
+}
+
+fn json_values_equal(a: &Value, b: &Value) -> bool {
+    match (a, b) {
+        (Value::Number(x), Value::Number(y)) => x.as_f64() == y.as_f64(),
+        (Value::Array(x), Value::Array(y)) => {
+            x.len() == y.len() && x.iter().zip(y).all(|(x, y)| json_values_equal(x, y))
+        }
+        (Value::Object(x), Value::Object(y)) => {
+            x.len() == y.len()
+                && x.iter()
+                    .all(|(key, x)| y.get(key).is_some_and(|y| json_values_equal(x, y)))
+        }
+        _ => a == b,
+    }
+}
+
+fn is_null_or_all_true(value: &Value) -> bool {
+    match value {
+        Value::Null => true,
+        Value::Object(map) => map.values().all(|v| v.as_bool() == Some(true)),
+        _ => false,
+    }
+}
+
+pub fn is_default_adjustments(adjustments: &Value) -> bool {
+    let map = match adjustments {
+        Value::Null => return true,
+        Value::Object(map) => map,
+        _ => return false,
+    };
+    let Some(defaults) = default_adjustment_values() else {
+        return false;
+    };
+
+    if map.get(BASELINE_EXPOSURE_KEY).and_then(Value::as_bool) != Some(true) {
+        return false;
+    }
+
+    map.iter().all(|(key, value)| match key.as_str() {
+        BASELINE_EXPOSURE_KEY => true,
+        "activeTools" => is_null_or_all_true(value),
+        _ => defaults
+            .get(key)
+            .is_some_and(|default| json_values_equal(value, default)),
+    })
 }
 
 fn uses_baseline_exposure(adjustments: &Value) -> bool {
@@ -1540,8 +1597,8 @@ pub struct GlobalAdjustments {
     pub wb_log_gain_l: f32,
     pub wb_log_gain_m: f32,
     pub wb_log_gain_s: f32,
-    _pad_color1: f32,
-    _pad_color2: f32,
+    pub centre_x: f32,
+    pub centre_y: f32,
 
     pub sharpness: f32,
     pub luma_noise_reduction: f32,
@@ -1568,8 +1625,8 @@ pub struct GlobalAdjustments {
     pub lut_intensity: f32,
     pub tonemapper_mode: u32,
     pub lut_is_scene_referred: u32,
-    _pad_lut3: f32,
-    _pad_lut4: f32,
+    pub vignette_center_x: f32,
+    pub vignette_center_y: f32,
     _pad_lut5: f32,
 
     _pad_agx1: f32,
@@ -2369,8 +2426,8 @@ fn get_global_adjustments_from_json(
         wb_log_gain_l: white_balance_gains[0],
         wb_log_gain_m: white_balance_gains[1],
         wb_log_gain_s: white_balance_gains[2],
-        _pad_color1: 0.0,
-        _pad_color2: 0.0,
+        centre_x: get_val("presence", "centréX", 1.0, Some(0.5)),
+        centre_y: get_val("presence", "centréY", 1.0, Some(0.5)),
 
         sharpness: get_val("sharpening", "sharpness", SCALES.sharpness, None),
         luma_noise_reduction: get_val(
@@ -2444,8 +2501,8 @@ fn get_global_adjustments_from_json(
         tonemapper_mode: tonemapper_override
             .unwrap_or_else(|| if tone_mapper == "agx" { 1 } else { 0 }),
         lut_is_scene_referred,
-        _pad_lut3: 0.0,
-        _pad_lut4: 0.0,
+        vignette_center_x: get_val("vignette", "vignetteCenterX", 1.0, Some(0.5)),
+        vignette_center_y: get_val("vignette", "vignetteCenterY", 1.0, Some(0.5)),
         _pad_lut5: 0.0,
 
         _pad_agx1: 0.0,

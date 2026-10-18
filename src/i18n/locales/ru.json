@@ -1119,6 +1119,8 @@
       }
     },
     "header": {
+      "cancel": "Отмена",
+      "deselectAll": "Снять выделение со всех",
       "search": {
         "addFilterOrSearch": "Добавить фильтр или найти...",
         "indexingImages": "Индексация изображений...",
@@ -1130,6 +1132,8 @@
         "tooltipClearSearch": "Очистить поиск",
         "tooltipSearchFilter": "Поиск или фильтрация"
       },
+      "selectAll": "Выбрать все",
+      "selectItems": "Выбрать элементы",
       "title": "Библиотека",
       "viewOptions": {
         "currentFolder": "Текущая папка",
@@ -1256,7 +1260,8 @@
     "tooltips": {
       "communityPresets": "Пресеты сообщества",
       "goHome": "На главную",
-      "importImages": "Импортировать изображения"
+      "importImages": "Импортировать изображения",
+      "select": "Выбрать"
     }
   },
   "masks": {

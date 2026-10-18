@@ -6,6 +6,8 @@ import { ImageDimensions } from '../hooks/useImageRenderSize';
 import { ToolType } from '../components/panel/right/Masks';
 import { OverlayMode } from '../components/panel/right/CropPanel';
 
+export type CenterMarker = 'vignette' | 'centre';
+
 interface InteractivePatch {
   url: string;
   normX: number;
@@ -61,6 +63,7 @@ interface EditorState {
   isWbPickerActive: boolean;
   isRelightPickerActive: boolean;
   activeRelightLightId: string | null;
+  activeCenterMarker: CenterMarker | null;
   isGuidedPerspectiveActive: boolean;
   liveRotation: number | null;
   brushSettings: BrushSettings | null;
@@ -128,6 +131,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   isWbPickerActive: false,
   isRelightPickerActive: false,
   activeRelightLightId: null,
+  activeCenterMarker: null,
   isGuidedPerspectiveActive: false,
   liveRotation: null,
 

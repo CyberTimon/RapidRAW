@@ -1059,6 +1059,8 @@
       }
     },
     "header": {
+      "cancel": "Annuleren",
+      "deselectAll": "Alles deselecteren",
       "search": {
         "addFilterOrSearch": "Filter toevoegen of zoeken...",
         "indexingImages": "Afbeeldingen indexeren...",
@@ -1070,6 +1072,8 @@
         "tooltipClearSearch": "Zoekopdracht wissen",
         "tooltipSearchFilter": "Zoeken of filteren"
       },
+      "selectAll": "Alles selecteren",
+      "selectItems": "Items selecteren",
       "title": "Bibliotheek",
       "viewOptions": {
         "currentFolder": "Huidige map",
@@ -1179,7 +1183,8 @@
     "tooltips": {
       "communityPresets": "Community-voorinstellingen",
       "goHome": "Naar startpagina",
-      "importImages": "Afbeeldingen importeren"
+      "importImages": "Afbeeldingen importeren",
+      "select": "Selecteren"
     }
   },
   "masks": {
