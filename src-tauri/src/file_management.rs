@@ -130,7 +130,10 @@ fn resolve_image_metadata(
         ImageMetadata::default()
     };
 
-    if enable_xmp_sync && sync_metadata_from_xmp(image_path, &mut metadata) {
+    if enable_xmp_sync
+        && !is_virtual_copy(sidecar_path, image_path)
+        && sync_metadata_from_xmp(image_path, &mut metadata)
+    {
         let _ = crate::exif_processing::update_sidecar(sidecar_path, image_path, |current| {
             sync_metadata_from_xmp(image_path, current);
         });
@@ -2728,7 +2731,7 @@ pub fn save_metadata_and_update_thumbnail(
         && settings.enable_xmp_sync.unwrap_or(false)
     {
         let create_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
-        sync_metadata_to_xmp(&source_path, &metadata, create_if_missing);
+        sync_metadata_to_xmp(&sidecar_path, &source_path, &metadata, create_if_missing);
     }
 
     let loaded_image_lock = state.original_image.lock().unwrap();
@@ -2923,7 +2926,12 @@ fn update_sidecars_and_thumbnails(
                         resolved_ai.lock().unwrap().push(path.clone());
                     }
                     if enable_xmp_sync {
-                        sync_metadata_to_xmp(&source_path, &metadata, create_xmp_if_missing);
+                        sync_metadata_to_xmp(
+                            &sidecar_path,
+                            &source_path,
+                            &metadata,
+                            create_xmp_if_missing,
+                        );
                     }
                 }
                 Err(e) => log::error!("Failed to update sidecar for {}: {}", path, e),
@@ -3116,7 +3124,12 @@ async fn update_sidecars_from_images(
                 .map_err(|e| e.to_string())?;
 
                 if enable_xmp_sync {
-                    sync_metadata_to_xmp(&source_path, &updated_metadata, create_xmp_if_missing);
+                    sync_metadata_to_xmp(
+                        &sidecar_path,
+                        &source_path,
+                        &updated_metadata,
+                        create_xmp_if_missing,
+                    );
                 }
                 Ok(image)
             })()
@@ -3241,7 +3254,12 @@ fn update_metadata_for_paths(
 
         match crate::exif_processing::update_sidecar(&sidecar_path, &source_path, &update) {
             Ok(metadata) if enable_xmp_sync => {
-                sync_metadata_to_xmp(&source_path, &metadata, create_xmp_if_missing);
+                sync_metadata_to_xmp(
+                    &sidecar_path,
+                    &source_path,
+                    &metadata,
+                    create_xmp_if_missing,
+                );
             }
             Ok(_) => {}
             Err(e) => log::error!("Failed to update sidecar for {}: {}", path, e),
@@ -3314,7 +3332,10 @@ pub async fn load_metadata(path: String, app_handle: AppHandle) -> Result<ImageM
         let (source_path, sidecar_path) = parse_virtual_path(&path);
         let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
-        if enable_xmp_sync && sync_metadata_from_xmp(&source_path, &mut metadata) {
+        if enable_xmp_sync
+            && !is_virtual_copy(&sidecar_path, &source_path)
+            && sync_metadata_from_xmp(&source_path, &mut metadata)
+        {
             let _ =
                 crate::exif_processing::update_sidecar(&sidecar_path, &source_path, |current| {
                     sync_metadata_from_xmp(&source_path, current);
@@ -4592,7 +4613,20 @@ pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create_if_missing: bool) {
+pub(crate) fn is_virtual_copy(sidecar_path: &Path, source_path: &Path) -> bool {
+    sidecar_path != crate::exif_processing::get_primary_sidecar_path(source_path)
+}
+
+pub fn sync_metadata_to_xmp(
+    sidecar_path: &Path,
+    source_path: &Path,
+    metadata: &ImageMetadata,
+    create_if_missing: bool,
+) {
+    if is_virtual_copy(sidecar_path, source_path) {
+        return;
+    }
+
     let xmp_path = source_path.with_extension("xmp");
     let xmp_path_upper = source_path.with_extension("XMP");
 
