@@ -825,5 +825,9 @@ pub fn save_settings(settings: AppSettings, app_handle: AppHandle) -> Result<(),
         .lock()
         .unwrap()
         .set_capacity(cache_size);
+
+    if !settings.enable_ai_tagging.unwrap_or(false) {
+        crate::tagging::cancel_background_indexing(&app_handle);
+    }
     Ok(())
 }

@@ -150,7 +150,7 @@ export function useTauriListeners({
         if (isEffectActive) useProcessStore.getState().setProcess({ indexingProgress: event.payload });
       }),
       listen('indexing-finished', () => {
-        if (isEffectActive) {
+        if (isEffectActive && useProcessStore.getState().isIndexing) {
           useProcessStore.getState().setProcess({ isIndexing: false, indexingProgress: { current: 0, total: 0 } });
           const currentPath = useLibraryStore.getState().currentFolderPath;
           if (currentPath) {
