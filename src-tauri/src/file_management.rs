@@ -100,7 +100,10 @@ fn resolve_image_metadata(
 ) -> ImageFileMetadata {
     let mut metadata = crate::exif_processing::load_sidecar(sidecar_path);
 
-    if enable_xmp_sync && sync_metadata_from_xmp(image_path, &mut metadata) {
+    if enable_xmp_sync
+        && !is_virtual_copy(sidecar_path, image_path)
+        && sync_metadata_from_xmp(image_path, &mut metadata)
+    {
         let _ = crate::exif_processing::write_sidecar(sidecar_path, image_path, &metadata);
     }
 
@@ -2583,7 +2586,7 @@ pub fn save_metadata_and_update_thumbnail(
         && settings.enable_xmp_sync.unwrap_or(false)
     {
         let create_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
-        sync_metadata_to_xmp(&source_path, &metadata, create_if_missing);
+        sync_metadata_to_xmp(&sidecar_path, &source_path, &metadata, create_if_missing);
     }
 
     let loaded_image_lock = state.original_image.lock().unwrap();
@@ -2704,7 +2707,12 @@ pub async fn apply_adjustments_to_paths(
             );
 
             if enable_xmp_sync {
-                sync_metadata_to_xmp(&source_path, &existing_metadata, create_xmp_if_missing);
+                sync_metadata_to_xmp(
+                    &sidecar_path,
+                    &source_path,
+                    &existing_metadata,
+                    create_xmp_if_missing,
+                );
             }
         });
 
@@ -2741,7 +2749,12 @@ pub async fn reset_adjustments_for_paths(
             );
 
             if enable_xmp_sync {
-                sync_metadata_to_xmp(&source_path, &existing_metadata, create_xmp_if_missing);
+                sync_metadata_to_xmp(
+                    &sidecar_path,
+                    &source_path,
+                    &existing_metadata,
+                    create_xmp_if_missing,
+                );
             }
         });
 
@@ -2845,7 +2858,12 @@ pub async fn apply_auto_lens_correction_to_paths(
             );
 
             if enable_xmp_sync {
-                sync_metadata_to_xmp(&source_path, &existing_metadata, create_xmp_if_missing);
+                sync_metadata_to_xmp(
+                    &sidecar_path,
+                    &source_path,
+                    &existing_metadata,
+                    create_xmp_if_missing,
+                );
             }
         });
     })
@@ -2929,7 +2947,12 @@ async fn update_sidecars_from_images(
                 );
 
                 if enable_xmp_sync {
-                    sync_metadata_to_xmp(&source_path, &existing_metadata, create_xmp_if_missing);
+                    sync_metadata_to_xmp(
+                        &sidecar_path,
+                        &source_path,
+                        &existing_metadata,
+                        create_xmp_if_missing,
+                    );
                 }
                 Ok(image)
             })()
@@ -3056,7 +3079,12 @@ fn update_metadata_for_paths(
         let _ = crate::exif_processing::write_sidecar(&sidecar_path, &source_path, &metadata);
 
         if enable_xmp_sync {
-            sync_metadata_to_xmp(&source_path, &metadata, create_xmp_if_missing);
+            sync_metadata_to_xmp(
+                &sidecar_path,
+                &source_path,
+                &metadata,
+                create_xmp_if_missing,
+            );
         }
     });
 }
@@ -3122,7 +3150,10 @@ pub fn load_metadata(path: String, app_handle: AppHandle) -> Result<ImageMetadat
     let (source_path, sidecar_path) = parse_virtual_path(&path);
     let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
-    if enable_xmp_sync && sync_metadata_from_xmp(&source_path, &mut metadata) {
+    if enable_xmp_sync
+        && !is_virtual_copy(&sidecar_path, &source_path)
+        && sync_metadata_from_xmp(&source_path, &mut metadata)
+    {
         let _ = crate::exif_processing::write_sidecar(&sidecar_path, &source_path, &metadata);
     }
 
@@ -4359,7 +4390,20 @@ pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create_if_missing: bool) {
+pub(crate) fn is_virtual_copy(sidecar_path: &Path, source_path: &Path) -> bool {
+    sidecar_path != crate::exif_processing::get_primary_sidecar_path(source_path)
+}
+
+pub fn sync_metadata_to_xmp(
+    sidecar_path: &Path,
+    source_path: &Path,
+    metadata: &ImageMetadata,
+    create_if_missing: bool,
+) {
+    if is_virtual_copy(sidecar_path, source_path) {
+        return;
+    }
+
     let xmp_path = source_path.with_extension("xmp");
     let xmp_path_upper = source_path.with_extension("XMP");
 
