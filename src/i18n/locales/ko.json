@@ -812,10 +812,12 @@
       }
     },
     "toolbar": {
+      "embeddedPreview": "내장 JPEG",
       "switchToVariant": "Switch to {{label}}",
       "tooltips": {
         "aperture": "조리개",
         "backToLibrary": "라이브러리로 돌아가기",
+        "embeddedPreview": "내장 JPEG 미리보기를 편집 중: RAW 디코딩 실패",
         "focalLength": "초점 거리",
         "fullscreen": "전체 화면 전환 (F)",
         "iso": "ISO",

@@ -812,10 +812,12 @@
       }
     },
     "toolbar": {
+      "embeddedPreview": "内嵌 JPEG",
       "switchToVariant": "Switch to {{label}}",
       "tooltips": {
         "aperture": "光圈",
         "backToLibrary": "返回图库",
+        "embeddedPreview": "正在编辑内嵌的 JPEG 预览：RAW 解码失败",
         "focalLength": "焦距",
         "fullscreen": "切换全屏（F）",
         "iso": "ISO",

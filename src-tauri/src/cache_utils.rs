@@ -469,7 +469,7 @@ impl CachedImage {
 
 pub struct DecodedImageCache {
     capacity: usize,
-    items: Vec<(String, CachedImage, HashMap<String, String>)>,
+    items: Vec<(String, CachedImage, HashMap<String, String>, bool)>,
 }
 
 impl DecodedImageCache {
@@ -486,21 +486,28 @@ impl DecodedImageCache {
     }
 
     pub fn contains(&self, path: &str) -> bool {
-        self.items.iter().any(|(p, _, _)| p == path)
+        self.items.iter().any(|(p, _, _, _)| p == path)
     }
 
-    pub fn get(&mut self, path: &str) -> Option<(Arc<DynamicImage>, HashMap<String, String>)> {
-        let pos = self.items.iter().position(|(p, _, _)| p == path)?;
-        let (path, cached, exif) = self.items.remove(pos);
+    pub fn get(
+        &mut self,
+        path: &str,
+    ) -> Option<(Arc<DynamicImage>, HashMap<String, String>, bool)> {
+        let pos = self.items.iter().position(|(p, _, _, _)| p == path)?;
+        let (path, cached, exif, used_embedded_preview) = self.items.remove(pos);
         let image = cached.expand();
         drop(cached);
-        self.items
-            .push((path, CachedImage::Full(Arc::clone(&image)), exif.clone()));
-        Some((image, exif))
+        self.items.push((
+            path,
+            CachedImage::Full(Arc::clone(&image)),
+            exif.clone(),
+            used_embedded_preview,
+        ));
+        Some((image, exif, used_embedded_preview))
     }
 
     pub fn compact_except(&mut self, keep_path: &str) {
-        if let Some(pos) = self.items.iter().position(|(p, _, _)| p == keep_path) {
+        if let Some(pos) = self.items.iter().position(|(p, _, _, _)| p == keep_path) {
             let item = self.items.remove(pos);
             self.items.push(item);
         }
@@ -522,11 +529,13 @@ impl DecodedImageCache {
         path: String,
         image: Arc<DynamicImage>,
         exif: HashMap<String, String>,
+        used_embedded_preview: bool,
     ) {
-        if let Some(pos) = self.items.iter().position(|(p, _, _)| *p == path) {
+        if let Some(pos) = self.items.iter().position(|(p, _, _, _)| *p == path) {
             self.items.remove(pos);
         }
-        self.items.push((path, CachedImage::Full(image), exif));
+        self.items
+            .push((path, CachedImage::Full(image), exif, used_embedded_preview));
         self.evict();
     }
 
@@ -538,7 +547,7 @@ impl DecodedImageCache {
             && self
                 .items
                 .iter()
-                .map(|(_, c, _)| c.byte_size())
+                .map(|(_, c, _, _)| c.byte_size())
                 .sum::<usize>()
                 > *DECODED_CACHE_BUDGET_BYTES
         {

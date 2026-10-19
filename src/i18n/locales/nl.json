@@ -808,10 +808,12 @@
       }
     },
     "toolbar": {
+      "embeddedPreview": "Ingesloten JPEG",
       "switchToVariant": "Overschakelen naar {{label}}",
       "tooltips": {
         "aperture": "Diafragma",
         "backToLibrary": "Terug naar bibliotheek",
+        "embeddedPreview": "Ingesloten JPEG-voorbeeld wordt bewerkt: RAW-decodering mislukt",
         "focalLength": "Brandpuntsafstand",
         "fullscreen": "Volledig scherm aan/uit (F)",
         "iso": "ISO",

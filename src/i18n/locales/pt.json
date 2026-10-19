@@ -836,10 +836,12 @@
       }
     },
     "toolbar": {
+      "embeddedPreview": "JPEG incorporado",
       "switchToVariant": "Switch to {{label}}",
       "tooltips": {
         "aperture": "Abertura",
         "backToLibrary": "Voltar para a Biblioteca",
+        "embeddedPreview": "Editando a pré-visualização JPEG incorporada: falha na decodificação RAW",
         "focalLength": "Distância Focal",
         "fullscreen": "Alternar Tela Cheia (F)",
         "iso": "ISO",

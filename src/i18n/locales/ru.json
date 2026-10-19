@@ -858,10 +858,12 @@
       }
     },
     "toolbar": {
+      "embeddedPreview": "Встроенный JPEG",
       "switchToVariant": "Switch to {{label}}",
       "tooltips": {
         "aperture": "Диафрагма",
         "backToLibrary": "Назад в библиотеку",
+        "embeddedPreview": "Редактируется встроенное JPEG-превью: не удалось декодировать RAW",
         "focalLength": "Фокусное расстояние",
         "fullscreen": "Полноэкранный режим (F)",
         "iso": "ISO",
