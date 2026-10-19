@@ -49,6 +49,7 @@ export default function LUTControl({
   const { showContextMenu } = useContextMenu();
   const selectedImagePath = useEditorStore((state) => state.selectedImage?.path ?? null);
   const isImageReady = useEditorStore((state) => state.selectedImage?.isReady ?? false);
+  const { isAndroid } = useOsPlatform();
 
   const [isExpanded, setIsExpanded] = useState(false);
   const [entries, setEntries] = useState<LutEntry[]>([]);
@@ -141,8 +142,6 @@ export default function LUTControl({
 
   const handleImport = async () => {
     try {
-      const { isAndroid } = useOsPlatform();
-
       const selected = await open({
         multiple: true,
         filters: isAndroid

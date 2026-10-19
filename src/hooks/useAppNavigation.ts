@@ -550,9 +550,8 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
 
   const handleOpenFolder = useCallback(async () => {
     const { appSettings, handleSettingsChange } = useSettingsStore.getState();
-    const { osPlatform } = useOsPlatform();
     const { rootPaths, folderTrees, setLibrary } = useLibraryStore.getState();
-    const isAndroid = osPlatform === 'android';
+    const { isAndroid } = useOsPlatform();
 
     try {
       let selectedPath = '';
