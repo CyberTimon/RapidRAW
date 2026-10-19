@@ -22,6 +22,7 @@ import {
 import { calculateAutoCropForRotation, calculateCenteredCrop } from '../utils/cropUtils';
 import { Invokes, SelectedImage } from '../components/ui/AppProperties';
 import { globalImageCache } from '../utils/ImageLRUCache';
+import { useOsPlatform } from './useOsPlatform';
 
 export const debouncedSetHistory = debounce((newAdj: Adjustments) => {
   useEditorStore.getState().pushHistory(newAdj);
@@ -212,7 +213,7 @@ export function useEditorActions() {
 
   const handleLutSelect = useCallback(
     async (path: string, isBuiltIn: boolean = false) => {
-      const isAndroid = useSettingsStore.getState().osPlatform === 'android';
+      const { isAndroid } = useOsPlatform();
       try {
         const result: { size: number } = await invoke('load_and_parse_lut', { path });
         const name =

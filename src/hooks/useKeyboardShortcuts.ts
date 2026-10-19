@@ -9,6 +9,7 @@ import { useUIStore } from '../store/useUIStore';
 import { useProcessStore } from '../store/useProcessStore';
 import { useEditorActions } from './useEditorActions';
 import { useLibraryActions } from './useLibraryActions';
+import { useOsPlatform } from './useOsPlatform';
 
 const getParentFolder = (path: string) => {
   const physicalPath = path.split('?vc=')[0];
@@ -42,6 +43,8 @@ export const useKeyboardShortcuts = ({
     useEditorActions();
   const { handleRate, handleSetFlag, handleToggleFlag, handleSetColorLabel } = useLibraryActions();
 
+  const { osPlatform } = useOsPlatform();
+
   const sortedListRef = useRef(sortedImageList);
   useEffect(() => {
     sortedListRef.current = sortedImageList;
@@ -71,7 +74,8 @@ export const useKeyboardShortcuts = ({
     type ShortcutState = ReturnType<typeof getStoreState>;
 
     const comboMap = new Map<string, string>();
-    const { appSettings, osPlatform } = useSettingsStore.getState();
+    const { appSettings } = useSettingsStore.getState();
+
     const keybinds = appSettings?.keybinds;
 
     for (const def of KEYBIND_DEFINITIONS) {
@@ -715,7 +719,7 @@ export const useKeyboardShortcuts = ({
         }
       }
 
-      const normalized = normalizeCombo(event, state.settings.osPlatform);
+      const normalized = normalizeCombo(event, osPlatform);
       const action = comboMap.get(normalized.join('+'));
 
       if (action) {

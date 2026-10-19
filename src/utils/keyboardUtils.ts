@@ -1,3 +1,5 @@
+import { Platform } from '@tauri-apps/plugin-os';
+
 export interface KeybindDefinition {
   action: string;
   description: string;
@@ -370,7 +372,7 @@ const symMap: Record<string, string> = {
   PrintScreen: 'PrtSc',
 };
 
-export function getDefaultCombo(def: KeybindDefinition, osPlatform?: string): string[] {
+export function getDefaultCombo(def: KeybindDefinition, osPlatform?: Platform): string[] {
   return (osPlatform === 'macos' && def.macDefaultCombo) || def.defaultCombo;
 }
 
@@ -390,7 +392,7 @@ const punctuationCodes: Record<string, string> = {
   '\\': 'Backslash',
 };
 
-export function normalizeCombo(event: KeyboardEvent, osPlatform?: string): string[] {
+export function normalizeCombo(event: KeyboardEvent, osPlatform?: Platform): string[] {
   if (event.isComposing || event.key === 'Dead' || event.key === 'Process') return [];
   const isMacDelete = osPlatform === 'macos' && event.code === 'Backspace' && (event.ctrlKey || event.metaKey);
   const parts: string[] = [];
@@ -436,7 +438,7 @@ function isValidShortcutKey(code: string): boolean {
   return code in symMap;
 }
 
-export function formatKeyCode(key: string, osPlatform: string): string {
+export function formatKeyCode(key: string, osPlatform: Platform): string {
   if (key === 'ctrl') return osPlatform === 'macos' ? '⌘' : 'Ctrl';
   if (key === 'shift') return 'Shift';
   if (key === 'alt') return osPlatform === 'macos' ? '⌥' : 'Alt';

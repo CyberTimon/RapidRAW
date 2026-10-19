@@ -1,7 +1,7 @@
 import { useCallback, useState, useEffect } from 'react';
-import { platform } from '@tauri-apps/plugin-os';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Minus, Square, X } from 'lucide-react';
+import { useOsPlatform } from '../hooks/useOsPlatform';
 
 const RestoreDownIcon = ({ size = 14, className = '' }) => (
   <svg
@@ -21,23 +21,10 @@ const RestoreDownIcon = ({ size = 14, className = '' }) => (
 );
 
 export default function TitleBar() {
-  const [osPlatform, setOsPlatform] = useState('');
   const [isMaximized, setIsMaximized] = useState(false);
+  const { osPlatform, isMac, isLinux, isWindows, isMobile } = useOsPlatform();
 
   const appWindow = getCurrentWindow();
-
-  useEffect(() => {
-    const getPlatform = async () => {
-      try {
-        const p = platform();
-        setOsPlatform(p);
-      } catch (error) {
-        console.error('Failed to get platform:', error);
-        setOsPlatform('windows');
-      }
-    };
-    getPlatform();
-  }, []);
 
   useEffect(() => {
     const updateMaximizedState = async () => {
@@ -68,7 +55,7 @@ export default function TitleBar() {
 
   const handleMaximize = useCallback(async () => {
     try {
-      if (osPlatform === 'macos') {
+      if (isMac) {
         const isFullscreen = await appWindow.isFullscreen();
         appWindow.setFullscreen(!isFullscreen);
       } else {
@@ -79,10 +66,6 @@ export default function TitleBar() {
     }
   }, [osPlatform, appWindow]);
 
-  const isMac = osPlatform === 'macos';
-  const isLinux = osPlatform === 'linux';
-  const isWindows = osPlatform === 'windows';
-  const isMobile = osPlatform === 'android';
   if (!osPlatform || isMobile) {
     return null;
   }

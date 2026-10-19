@@ -10,6 +10,7 @@ import { useProcessStore } from '../store/useProcessStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { ImageFlag, Invokes } from '../components/ui/AppProperties';
 import { Status } from '../components/ui/ExportImportProperties';
+import { useOsPlatform } from './useOsPlatform';
 
 export function useFileOperations(
   refreshImageList: () => Promise<void>,
@@ -323,9 +324,9 @@ export function useFileOperations(
 
   const handleImportClick = useCallback(
     async (targetPath: string) => {
-      const { supportedTypes, osPlatform } = useSettingsStore.getState();
+      const { supportedTypes } = useSettingsStore.getState();
+      const { isAndroid } = useOsPlatform();
       const { setUI } = useUIStore.getState();
-      const isAndroid = osPlatform === 'android';
 
       try {
         const nonRaw = supportedTypes?.nonRaw || [];

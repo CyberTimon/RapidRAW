@@ -53,6 +53,7 @@ import { open } from '@tauri-apps/plugin-shell';
 import { RotateCcw } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
 import { formatBytes } from '../../utils/formatBytes';
+import { Platform } from '@tauri-apps/plugin-os';
 
 interface ConfirmModalState {
   confirmText: string;
@@ -77,7 +78,7 @@ interface DataActionItemProps {
 interface KeybindRowProps {
   def: KeybindDefinition;
   currentCombo?: string[];
-  osPlatform: string;
+  osPlatform: Platform;
   onSave: (action: string, combo: string[]) => void;
   recordingAction: string | null;
   onStartRecording: (action: string) => void;
@@ -583,7 +584,10 @@ export default function SettingsPanel({
   const [isResettingLayout, setIsResettingLayout] = useState(false);
   const [layoutResetMessage, setLayoutResetMessage] = useState('');
 
-  const osPlatform = useOsPlatform();
+  const { osPlatform, isLinux, isAndroid, isMac, isWindows } = useOsPlatform();
+
+  const fallbackUseWgpuRenderer = !(isLinux || isAndroid);
+
   const [processingSettings, setProcessingSettings] = useState({
     editorPreviewResolution: appSettings?.editorPreviewResolution || 1920,
     smallThumbnailResolution: appSettings?.smallThumbnailResolution || 480,
@@ -594,8 +598,7 @@ export default function SettingsPanel({
     linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
     highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
     useFullDpiRendering: appSettings?.useFullDpiRendering ?? false,
-    useWgpuRenderer:
-      appSettings?.useWgpuRenderer ?? (osPlatform === 'linux' || osPlatform === 'android' ? false : true),
+    useWgpuRenderer: appSettings?.useWgpuRenderer ?? fallbackUseWgpuRenderer,
     thumbnailWorkerThreads: appSettings?.thumbnailWorkerThreads ?? 4,
     imageCacheSize: appSettings?.imageCacheSize ?? 5,
     rawPreprocessingColorNr: appSettings?.rawPreprocessingColorNr ?? 0.5,
@@ -637,8 +640,8 @@ export default function SettingsPanel({
       { value: 'gl', label: t('settings.processing.backends.gl') },
     ];
     return rawOptions.filter((opt) => {
-      if (opt.value === 'metal' && osPlatform !== 'macos') return false;
-      if (opt.value === 'dx12' && osPlatform === 'macos') return false;
+      if (opt.value === 'metal' && !isMac) return false;
+      if (opt.value === 'dx12' && isMac) return false;
       return true;
     });
   }, [t, osPlatform]);
@@ -2212,16 +2215,16 @@ export default function SettingsPanel({
                       <SettingItem
                         label={t('settings.processing.wgpu')}
                         description={
-                          osPlatform === 'linux'
+                          isLinux
                             ? t('settings.processing.wgpuDescLinux')
-                            : osPlatform === 'android'
+                            : isAndroid
                               ? t('settings.processing.wgpuDescAndroid')
                               : t('settings.processing.wgpuDescRecommended')
                         }
                       >
                         <Switch
                           checked={processingSettings.useWgpuRenderer}
-                          disabled={osPlatform === 'linux' || osPlatform === 'android'}
+                          disabled={isLinux || isAndroid}
                           id="wgpu-renderer-toggle"
                           label={t('settings.processing.wgpuLabel')}
                           onChange={(checked) => handleProcessingSettingChange('useWgpuRenderer', checked)}
@@ -2246,7 +2249,7 @@ export default function SettingsPanel({
                         />
                       </SettingItem>
 
-                      {osPlatform !== 'macos' && osPlatform !== 'windows' && (
+                      {!isMac && !isWindows && (
                         <SettingItem
                           label={t('settings.processing.linuxCompat')}
                           description={t('settings.processing.linuxCompatDesc')}
@@ -2351,7 +2354,7 @@ export default function SettingsPanel({
                         />
                       </SettingItem>
 
-                      {osPlatform === 'macos' && (
+                      {isMac && (
                         <SettingItem
                           label={t('settings.processing.preprocessing.appleRaw9')}
                           description={t('settings.processing.preprocessing.appleRaw9Desc')}

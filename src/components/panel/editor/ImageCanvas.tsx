@@ -1537,7 +1537,7 @@ const ImageCanvas = memo(
 
     const isWgpuActive = appSettings?.useWgpuRenderer !== false && selectedImage?.isReady && hasRenderedFirstFrame;
     const { t } = useTranslation();
-    const osPlatform = useOsPlatform();
+    const { osPlatform } = useOsPlatform();
     const modifierKey = osPlatform === 'macos' ? 'Cmd' : 'Ctrl';
 
     const directPatchStateRef = useRef({
