@@ -9,6 +9,7 @@ import { getReopenedPanelWidth, useUIStore } from '../store/useUIStore';
 import { useProcessStore } from '../store/useProcessStore';
 import { applyCrop, cancelCrop, useEditorActions } from './useEditorActions';
 import { useLibraryActions } from './useLibraryActions';
+import { useOsPlatform } from './useOsPlatform';
 
 const SPEED_EDIT_IMAGE_DIRECTIONS: Record<string, number> = { KeyQ: -1, KeyE: 1 };
 const NON_TEXT_INPUT_TYPES = new Set(['checkbox', 'radio', 'range', 'button', 'submit', 'reset', 'color', 'file']);
@@ -51,6 +52,8 @@ export const useKeyboardShortcuts = ({
   } = useEditorActions();
   const { handleRate, handleSetFlag, handleToggleFlag, handleSetColorLabel } = useLibraryActions();
 
+  const { osPlatform, isAndroid, isMac } = useOsPlatform();
+
   const sortedListRef = useRef(sortedImageList);
   useEffect(() => {
     sortedListRef.current = sortedImageList;
@@ -80,7 +83,8 @@ export const useKeyboardShortcuts = ({
     type ShortcutState = ReturnType<typeof getStoreState>;
 
     const comboMap = new Map<string, string>();
-    const { appSettings, osPlatform } = useSettingsStore.getState();
+    const { appSettings } = useSettingsStore.getState();
+
     const keybinds = appSettings?.keybinds;
 
     for (const def of KEYBIND_DEFINITIONS) {
@@ -327,7 +331,7 @@ export const useKeyboardShortcuts = ({
         },
       },
       toggle_viewer_window: {
-        shouldFire: (s: ShortcutState) => s.settings.osPlatform !== 'android',
+        shouldFire: () => !isAndroid,
         execute: (e: KeyboardEvent, s: ShortcutState) => {
           e.preventDefault();
           s.ui.toggleViewerWindow();
@@ -637,10 +641,10 @@ export const useKeyboardShortcuts = ({
         match: (e: KeyboardEvent, s: ShortcutState) =>
           s.editor.isSpeedEditActive &&
           !!s.editor.selectedImage &&
-          (normalizeCombo(e, s.settings.osPlatform).at(-1) ?? '') in SPEED_EDIT_IMAGE_DIRECTIONS,
+          (normalizeCombo(e, osPlatform).at(-1) ?? '') in SPEED_EDIT_IMAGE_DIRECTIONS,
         execute: (e: KeyboardEvent, s: ShortcutState) => {
           e.preventDefault();
-          selectAdjacentImage(s, SPEED_EDIT_IMAGE_DIRECTIONS[normalizeCombo(e, s.settings.osPlatform).at(-1)!]);
+          selectAdjacentImage(s, SPEED_EDIT_IMAGE_DIRECTIONS[normalizeCombo(e, osPlatform).at(-1)!]);
         },
       },
       {
@@ -661,7 +665,7 @@ export const useKeyboardShortcuts = ({
       },
       {
         match: (e: KeyboardEvent, s: any) => {
-          const isDeleteKey = s.settings.osPlatform === 'macos' ? e.code === 'Backspace' : e.code === 'Delete';
+          const isDeleteKey = isMac ? e.code === 'Backspace' : e.code === 'Delete';
           return isDeleteKey && (!!s.editor.activeMaskContainerId || !!s.editor.activeAiPatchContainerId);
         },
         execute: (e: KeyboardEvent, s: any) => {
@@ -777,7 +781,7 @@ export const useKeyboardShortcuts = ({
         }
       }
 
-      const normalized = normalizeCombo(event, state.settings.osPlatform);
+      const normalized = normalizeCombo(event, osPlatform);
       const action = comboMap.get(normalized.join('+'));
 
       if (action) {
@@ -812,5 +816,8 @@ export const useKeyboardShortcuts = ({
     handleToggleFlag,
     handleSetColorLabel,
     toggleCompare,
+    osPlatform,
+    isAndroid,
+    isMac,
   ]);
 };

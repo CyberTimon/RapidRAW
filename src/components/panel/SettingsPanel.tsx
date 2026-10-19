@@ -60,6 +60,7 @@ import { open } from '@tauri-apps/plugin-shell';
 import ImmichSettings from '../immich/ImmichSettings';
 import DataManagementSettings from './settings/DataManagementSettings';
 import EditInAppsSettings from './settings/EditInAppsSettings';
+import { Platform } from '@tauri-apps/plugin-os';
 
 interface ConfirmModalState {
   confirmText: string;
@@ -73,7 +74,7 @@ interface ConfirmModalState {
 interface KeybindRowProps {
   def: KeybindDefinition;
   currentCombo?: string[];
-  osPlatform: string;
+  osPlatform: Platform;
   onSave: (action: string, combo: string[]) => void;
   recordingAction: string | null;
   onStartRecording: (action: string) => void;
@@ -281,7 +282,7 @@ const SPEED_EDIT_GESTURES = [
 interface SpeedEditKeyProps {
   code: string;
   label: string | null;
-  osPlatform: string;
+  osPlatform: Platform;
 }
 
 const SpeedEditKey = ({ code, label, osPlatform }: SpeedEditKeyProps) => {
@@ -305,7 +306,7 @@ const SpeedEditKey = ({ code, label, osPlatform }: SpeedEditKeyProps) => {
   );
 };
 
-const MiniKey = ({ code, osPlatform }: { code: string; osPlatform: string }) => (
+const MiniKey = ({ code, osPlatform }: { code: string; osPlatform: Platform }) => (
   <kbd className="px-1.5 py-0.5 rounded-sm border border-border-color bg-bg-primary font-sans text-[10px] font-semibold">
     {formatKeyCode(code, osPlatform)}
   </kbd>
@@ -620,7 +621,10 @@ export default function SettingsPanel({
   const [tempLensMaker, setTempLensMaker] = useState<string>('');
   const [tempLensModel, setTempLensModel] = useState<string>('');
 
-  const osPlatform = useOsPlatform();
+  const { osPlatform, isLinux, isAndroid, isMac, isWindows } = useOsPlatform();
+
+  const fallbackUseWgpuRenderer = !(isLinux || isAndroid);
+
   const [isWgpuSupported, setIsWgpuSupported] = useState(true);
   useEffect(() => {
     invoke<boolean>(Invokes.IsWgpuRendererSupported)
@@ -637,8 +641,7 @@ export default function SettingsPanel({
     linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
     highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
     useFullDpiRendering: appSettings?.useFullDpiRendering ?? false,
-    useWgpuRenderer:
-      appSettings?.useWgpuRenderer ?? (osPlatform === 'linux' || osPlatform === 'android' ? false : true),
+    useWgpuRenderer: appSettings?.useWgpuRenderer ?? fallbackUseWgpuRenderer,
     thumbnailWorkerThreads: appSettings?.thumbnailWorkerThreads ?? 4,
     imageCacheSize: appSettings?.imageCacheSize ?? 5,
     rawPreprocessingColorNr: appSettings?.rawPreprocessingColorNr ?? 0.5,
@@ -684,8 +687,8 @@ export default function SettingsPanel({
       { value: 'gl', label: t('settings.processing.backends.gl') },
     ];
     return rawOptions.filter((opt) => {
-      if (opt.value === 'metal' && osPlatform !== 'macos') return false;
-      if (opt.value === 'dx12' && osPlatform === 'macos') return false;
+      if (opt.value === 'metal' && !isMac) return false;
+      if (opt.value === 'dx12' && isMac) return false;
       return true;
     });
   }, [t, osPlatform]);
@@ -753,8 +756,7 @@ export default function SettingsPanel({
       linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
       highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
       useFullDpiRendering: appSettings?.useFullDpiRendering ?? false,
-      useWgpuRenderer:
-        appSettings?.useWgpuRenderer ?? (osPlatform === 'linux' || osPlatform === 'android' ? false : true),
+      useWgpuRenderer: appSettings?.useWgpuRenderer ?? fallbackUseWgpuRenderer,
       thumbnailWorkerThreads: appSettings?.thumbnailWorkerThreads ?? 4,
       imageCacheSize: appSettings?.imageCacheSize ?? 5,
       rawPreprocessingColorNr: appSettings?.rawPreprocessingColorNr ?? 0.5,
@@ -1191,7 +1193,7 @@ export default function SettingsPanel({
                         />
                       </SettingItem>
 
-                      {osPlatform === 'linux' && (
+                      {isLinux && (
                         <SettingItem
                           label={t('settings.general.nativeTitlebar')}
                           description={t('settings.general.nativeTitlebarDesc')}
@@ -1235,7 +1237,7 @@ export default function SettingsPanel({
                               <li>{t('settings.processing.ai.cpu.feature2')}</li>
                               <li>{t('settings.processing.ai.cpu.feature3')}</li>
                             </Text>
-                            {(osPlatform === 'windows' || osPlatform === 'macos') && (
+                            {(isWindows || isMac) && (
                               <div className="mt-8">
                                 <SettingItem
                                   label={t('settings.processing.ai.cpu.gpuAcceleration')}
@@ -2039,9 +2041,9 @@ export default function SettingsPanel({
                       <SettingItem
                         label={t('settings.processing.wgpu')}
                         description={
-                          osPlatform === 'android'
+                          isAndroid
                             ? t('settings.processing.wgpuDescAndroid')
-                            : osPlatform === 'linux'
+                            : isLinux
                               ? isWgpuSupported
                                 ? t('settings.processing.wgpuDescLinuxExperimental')
                                 : t('settings.processing.wgpuDescLinuxX11')
@@ -2050,7 +2052,7 @@ export default function SettingsPanel({
                       >
                         <Switch
                           checked={processingSettings.useWgpuRenderer}
-                          disabled={osPlatform === 'android' || !isWgpuSupported}
+                          disabled={isAndroid || !isWgpuSupported}
                           id="wgpu-renderer-toggle"
                           label={t('settings.processing.wgpuLabel')}
                           onChange={(checked) => handleProcessingSettingChange('useWgpuRenderer', checked)}
@@ -2075,7 +2077,7 @@ export default function SettingsPanel({
                         />
                       </SettingItem>
 
-                      {osPlatform !== 'macos' && osPlatform !== 'windows' && (
+                      {!isMac && !isWindows && (
                         <SettingItem
                           label={t('settings.processing.linuxCompat')}
                           description={t('settings.processing.linuxCompatDesc')}
@@ -2284,7 +2286,7 @@ export default function SettingsPanel({
                         />
                       </SettingItem>
 
-                      {osPlatform === 'macos' && (
+                      {isMac && (
                         <SettingItem
                           label={t('settings.processing.preprocessing.appleRaw9')}
                           description={t('settings.processing.preprocessing.appleRaw9Desc')}

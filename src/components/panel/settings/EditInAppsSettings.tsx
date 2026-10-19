@@ -20,7 +20,7 @@ const patchAt = (apps: EditInApp[], index: number, patch: Partial<EditInApp>) =>
 
 export default function EditInAppsSettings({ appSettings, onSettingsChange }: EditInAppsSettingsProps) {
   const { t } = useTranslation();
-  const osPlatform = useOsPlatform();
+  const { isWindows } = useOsPlatform();
   const [apps, setApps] = useState<EditInApp[]>(appSettings?.editInApps ?? []);
 
   useEffect(() => {
@@ -57,8 +57,7 @@ export default function EditInAppsSettings({ appSettings, onSettingsChange }: Ed
   const pickExecutable = async () => {
     const selected = await openDialog({
       multiple: false,
-      filters:
-        osPlatform === 'windows' ? [{ name: t('settings.processing.editIn.executable'), extensions: ['exe'] }] : [],
+      filters: isWindows ? [{ name: t('settings.processing.editIn.executable'), extensions: ['exe'] }] : [],
     });
     return typeof selected === 'string' ? selected : null;
   };

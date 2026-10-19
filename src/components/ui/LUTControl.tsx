@@ -8,7 +8,7 @@ import { useContextMenu } from '../../context/ContextMenuContext';
 import { toast } from 'react-toastify';
 import Slider from './Slider';
 import { useEditorStore } from '../../store/useEditorStore';
-import { useSettingsStore } from '../../store/useSettingsStore';
+import { useOsPlatform } from '../../hooks/useOsPlatform';
 
 interface LutEntry {
   name: string;
@@ -141,8 +141,7 @@ export default function LUTControl({
 
   const handleImport = async () => {
     try {
-      const { osPlatform } = useSettingsStore.getState();
-      const isAndroid = osPlatform === 'android';
+      const { isAndroid } = useOsPlatform();
 
       const selected = await open({
         multiple: true,
