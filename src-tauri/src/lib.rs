@@ -523,6 +523,7 @@ fn process_preview_job(
     is_interactive: bool,
     target_resolution: Option<u32>,
     roi: Option<(f32, f32, f32, f32)>,
+    region_only: bool,
     request_analytics: bool,
     compute_waveform: bool,
     active_waveform_channel: Option<&str>,
@@ -552,6 +553,12 @@ fn process_preview_job(
     #[cfg(any(target_os = "linux", target_os = "android"))]
     let use_wgpu_renderer = false;
 
+    let (preview_cache, gpu_image_cache) = if region_only {
+        (&state.region_cached_preview, &state.region_gpu_image_cache)
+    } else {
+        (&state.cached_preview, &state.gpu_image_cache)
+    };
+
     let has_roi = roi.is_some();
     let (interactive_divisor, interactive_quality) = match live_quality {
         "full" => (1.0_f32, 85_u8),
@@ -559,14 +566,13 @@ fn process_preview_job(
         _ => (if has_roi { 1.4_f32 } else { 1.0_f32 }, 75_u8),
     };
 
-    let mut cached_preview_lock = state
-        .cached_preview
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let mut cached_preview_lock = preview_cache.lock().unwrap_or_else(|e| e.into_inner());
 
-    let base_valid = cached_preview_lock
-        .as_ref()
-        .is_some_and(|c| c.transform_hash == new_transform_hash && c.preview_dim == preview_dim);
+    let base_valid = cached_preview_lock.as_ref().is_some_and(|c| {
+        c.image_path == loaded_image.path
+            && c.transform_hash == new_transform_hash
+            && c.preview_dim == preview_dim
+    });
     let small_valid = base_valid
         && cached_preview_lock
             .as_ref()
@@ -580,10 +586,7 @@ fn process_preview_job(
             cached.unscaled_crop_offset,
         )
     } else {
-        *state
-            .gpu_image_cache
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
+        *gpu_image_cache.lock().unwrap_or_else(|e| e.into_inner()) = None;
 
         generate_transformed_preview(&state, &loaded_image, &adjustments_clone, preview_dim)?
     };
@@ -591,7 +594,7 @@ fn process_preview_job(
     let small_preview_base = if small_valid {
         Arc::clone(&cached_preview_lock.as_ref().unwrap().small_image)
     } else {
-        let small = if interactive_divisor > 1.0 {
+        let small = if interactive_divisor > 1.0 && !region_only {
             let target_size = (preview_dim as f32 / interactive_divisor) as u32;
             let (w, h) = final_preview_base.dimensions();
             let (small_w, small_h) = if w > h {
@@ -611,16 +614,14 @@ fn process_preview_job(
         };
 
         if is_interactive && base_valid {
-            *state
-                .gpu_image_cache
-                .lock()
-                .unwrap_or_else(|e| e.into_inner()) = None;
+            *gpu_image_cache.lock().unwrap_or_else(|e| e.into_inner()) = None;
         }
 
         small
     };
 
     *cached_preview_lock = Some(CachedPreview {
+        image_path: loaded_image.path.clone(),
         image: Arc::clone(&final_preview_base),
         small_image: Arc::clone(&small_preview_base),
         transform_hash: new_transform_hash,
@@ -644,7 +645,7 @@ fn process_preview_job(
 
     let (preview_width, preview_height) = processing_image.dimensions();
 
-    let pixel_roi = if is_interactive {
+    let pixel_roi = if is_interactive || region_only {
         roi.map(|(nx, ny, nw, nh)| crate::gpu_processing::Roi {
             x: (nx * preview_width as f32).round() as u32,
             y: (ny * preview_height as f32).round() as u32,
@@ -688,7 +689,7 @@ fn process_preview_job(
     let lut_path = adjustments_clone["lutPath"].as_str();
     let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
 
-    let wants_analytics = !(is_interactive && pixel_roi.is_some()) && request_analytics;
+    let wants_analytics = pixel_roi.is_none() && request_analytics;
     let channel_filter = if is_interactive {
         active_waveform_channel.map(|s| s.to_string())
     } else {
@@ -715,6 +716,7 @@ fn process_preview_job(
         crate::image_processing::process_and_get_dynamic_image_with_analytics(
             &context,
             &state,
+            gpu_image_cache,
             &processing_image,
             new_transform_hash,
             RenderRequest {
@@ -765,7 +767,7 @@ fn process_preview_job(
 
         match encode_result {
             Ok(jpeg_bytes) => {
-                if is_interactive {
+                if is_interactive || region_only {
                     let (roi_w, roi_h) = final_rgba_image.dimensions();
                     let (rx, ry) = if let Some(r) = pixel_roi {
                         (r.x, r.y)
@@ -783,7 +785,8 @@ fn process_preview_job(
                     response.extend_from_slice(&jpeg_bytes);
 
                     log::info!(
-                        "[process_preview_job] interactive ROI {}x{} encode in {:.2?}, total {:.2?}",
+                        "[process_preview_job] {} ROI {}x{} encode in {:.2?}, total {:.2?}",
+                        if region_only { "region" } else { "interactive" },
                         roi_w,
                         roi_h,
                         step_start.elapsed(),
@@ -853,9 +856,14 @@ fn start_analytics_worker(app_handle: tauri::AppHandle) {
 
 fn start_preview_worker(app_handle: tauri::AppHandle) {
     let state = app_handle.state::<AppState>();
-    let (tx, rx): (Sender<PreviewJob>, Receiver<PreviewJob>) = mpsc::channel();
+    *state.preview_worker_tx.lock().unwrap() =
+        Some(spawn_preview_worker(app_handle.clone(), false));
+    *state.region_preview_worker_tx.lock().unwrap() =
+        Some(spawn_preview_worker(app_handle.clone(), true));
+}
 
-    *state.preview_worker_tx.lock().unwrap() = Some(tx);
+fn spawn_preview_worker(app_handle: tauri::AppHandle, region_only: bool) -> Sender<PreviewJob> {
+    let (tx, rx): (Sender<PreviewJob>, Receiver<PreviewJob>) = mpsc::channel();
 
     std::thread::spawn(move || {
         while let Ok(mut job) = rx.recv() {
@@ -872,6 +880,7 @@ fn start_preview_worker(app_handle: tauri::AppHandle) {
                 job.is_interactive,
                 job.target_resolution,
                 job.roi,
+                region_only,
                 job.request_analytics,
                 job.compute_waveform,
                 job.active_waveform_channel.as_deref(),
@@ -885,6 +894,8 @@ fn start_preview_worker(app_handle: tauri::AppHandle) {
             }
         }
     });
+
+    tx
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -894,6 +905,7 @@ async fn apply_adjustments(
     is_interactive: bool,
     target_resolution: Option<u32>,
     roi: Option<(f32, f32, f32, f32)>,
+    region_only: Option<bool>,
     request_analytics: bool,
     compute_waveform: bool,
     active_waveform_channel: Option<String>,
@@ -902,7 +914,12 @@ async fn apply_adjustments(
     let (tx, rx) = tokio::sync::oneshot::channel();
 
     {
-        let tx_guard = state.preview_worker_tx.lock().unwrap();
+        let worker_slot = if region_only.unwrap_or(false) {
+            &state.region_preview_worker_tx
+        } else {
+            &state.preview_worker_tx
+        };
+        let tx_guard = worker_slot.lock().unwrap();
         if let Some(worker_tx) = tx_guard.as_ref() {
             let job = PreviewJob {
                 adjustments: js_adjustments,
@@ -2303,6 +2320,8 @@ pub fn run() {
             cached_preview: Mutex::new(None),
             gpu_context: Mutex::new(None),
             gpu_image_cache: Mutex::new(None),
+            region_cached_preview: Mutex::new(None),
+            region_gpu_image_cache: Mutex::new(None),
             gpu_processor: Mutex::new(None),
             ai_state: Mutex::new(None),
             ai_init_lock: TokioMutex::new(()),
@@ -2319,6 +2338,7 @@ pub fn run() {
             thumbnail_cancellation_token: Arc::new(AtomicBool::new(false)),
             thumbnail_progress: Mutex::new(ThumbnailProgressTracker { total: 0, completed: 0 }),
             preview_worker_tx: Mutex::new(None),
+            region_preview_worker_tx: Mutex::new(None),
             analytics_worker_tx: Mutex::new(None),
             mask_cache: Mutex::new(HashMap::new()),
             patch_cache: Mutex::new(HashMap::new()),

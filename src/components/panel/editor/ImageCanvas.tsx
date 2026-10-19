@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import ReactCrop from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { Stage, Layer, Ellipse, Line, Transformer, Group, Circle, Rect, Arrow } from 'react-konva';
@@ -20,7 +21,7 @@ import { AppSettings, BrushSettings, Invokes, Panel, SelectedImage } from '../..
 import { RenderSize } from '../../../hooks/useImageRenderSize';
 import { useOsPlatform } from '../../../hooks/useOsPlatform';
 import { useTranslation } from 'react-i18next';
-import { useEditorStore } from '../../../store/useEditorStore';
+import { useEditorStore, SharpRegion } from '../../../store/useEditorStore';
 import { isPanelVisible, useUIStore } from '../../../store/useUIStore';
 import type { OverlayMode } from '../right/CropPanel';
 import CompositionOverlays from './overlays/CompositionOverlays';
@@ -96,6 +97,8 @@ interface ImageCanvasProps {
   liveRotation?: number | null;
   transformState: { scale: number; positionX: number; positionY: number };
   hasRenderedFirstFrame: boolean;
+  sharpLayerContainer?: HTMLDivElement | null;
+  sharpRegion?: SharpRegion | null;
 }
 
 interface MaskOverlayProps {
@@ -1471,6 +1474,8 @@ const ImageCanvas = memo(
     liveRotation,
     transformState,
     hasRenderedFirstFrame,
+    sharpLayerContainer,
+    sharpRegion,
   }: ImageCanvasProps) => {
     const interactivePatch = useEditorStore((state) => state.interactivePatch);
     const isGuidedPerspectiveActive = useEditorStore((state) => state.isGuidedPerspectiveActive);
@@ -1599,6 +1604,33 @@ const ImageCanvas = memo(
 
     const maxDimension = Math.max(stageWidth, stageHeight, 1);
     const maxSafeScale = Math.max(1, Math.min(settledScale, 4092 / maxDimension));
+
+    // Draws the zoomed preview at its laid-out size, outside the scaled content.
+    const [sharpLoadedSrc, setSharpLoadedSrc] = useState<string | null>(null);
+    const isSharpLayerActive =
+      !!sharpLayerContainer &&
+      !!finalPreviewUrl &&
+      !isWgpuActive &&
+      !isCropViewVisible &&
+      !isSliderDragging &&
+      imageRenderSize.width > 0 &&
+      transformState.scale > 1.01 &&
+      settledScale === transformState.scale;
+    const isBaseHiddenBySharpLayer = isSharpLayerActive && sharpLoadedSrc !== null;
+    const [loadedSharpRegion, setLoadedSharpRegion] = useState<SharpRegion | null>(null);
+    const isSharpRegionCurrent = (region: SharpRegion | null | undefined): region is SharpRegion =>
+      !!region && region.path === selectedImage.path && region.adjustments === adjustments && !showOriginal;
+
+    useEffect(() => {
+      if (isSharpLayerActive) return;
+      setSharpLoadedSrc(null);
+      setLoadedSharpRegion(null);
+    }, [isSharpLayerActive]);
+
+    useEffect(() => {
+      setSharpLoadedSrc(null);
+      setLoadedSharpRegion(null);
+    }, [selectedImage.path]);
 
     const getCanvasPointer = useCallback(
       (stage: any) => {
@@ -3430,8 +3462,65 @@ const ImageCanvas = memo(
             ? 0
             : 1;
 
+    const sharpLayerStyle: React.CSSProperties = {
+      position: 'absolute',
+      left: transformState.positionX + imageRenderSize.offsetX * transformState.scale,
+      top: transformState.positionY + imageRenderSize.offsetY * transformState.scale,
+      width: imageRenderSize.width * transformState.scale,
+      height: imageRenderSize.height * transformState.scale,
+      maxWidth: 'none',
+      imageRendering: isMaxZoom ? 'pixelated' : 'auto',
+    };
+    const sharpLayerSources =
+      sharpLoadedSrc && sharpLoadedSrc !== finalPreviewUrl ? [sharpLoadedSrc, finalPreviewUrl] : [finalPreviewUrl];
+    const sharpRegions = [loadedSharpRegion, sharpRegion]
+      .filter(isSharpRegionCurrent)
+      .filter((region, index, regions) => regions.findIndex((other) => other.url === region.url) === index);
+    const sharpRegionStyle = (region: SharpRegion): React.CSSProperties => ({
+      ...sharpLayerStyle,
+      left: (sharpLayerStyle.left as number) + region.normX * (sharpLayerStyle.width as number),
+      top: (sharpLayerStyle.top as number) + region.normY * (sharpLayerStyle.height as number),
+      width: region.normW * (sharpLayerStyle.width as number),
+      height: region.normH * (sharpLayerStyle.height as number),
+      opacity: region === sharpRegion && loadedSharpRegion !== sharpRegion ? 0 : 1,
+    });
+
     return (
       <div className="relative" style={{ width: '100%', height: '100%', cursor: effectiveCursor }}>
+        {isSharpLayerActive &&
+          sharpLayerContainer &&
+          createPortal(
+            <>
+              {sharpLayerSources.map((src) => (
+                <img
+                  key={src}
+                  alt=""
+                  src={src ?? undefined}
+                  draggable={false}
+                  onLoad={() => {
+                    if (src === finalPreviewUrl) setSharpLoadedSrc(src);
+                  }}
+                  style={{
+                    ...sharpLayerStyle,
+                    opacity: src === finalPreviewUrl && sharpLoadedSrc !== finalPreviewUrl ? 0 : 1,
+                  }}
+                />
+              ))}
+              {sharpRegions.map((region) => (
+                <img
+                  key={region.url}
+                  alt=""
+                  src={region.url}
+                  draggable={false}
+                  onLoad={() => {
+                    if (region === sharpRegion) setLoadedSharpRegion(region);
+                  }}
+                  style={sharpRegionStyle(region)}
+                />
+              ))}
+            </>,
+            sharpLayerContainer,
+          )}
         <div
           className="absolute inset-0 w-full h-full transition-opacity duration-200 flex items-center justify-center"
           style={{
@@ -3469,7 +3558,7 @@ const ImageCanvas = memo(
                       }
                 }
               >
-                {displayState.base && !isWgpuActive && (
+                {displayState.base && !isWgpuActive && !isBaseHiddenBySharpLayer && (
                   <image
                     href={displayState.base}
                     x="0"
@@ -3480,7 +3569,7 @@ const ImageCanvas = memo(
                   />
                 )}
 
-                {displayState.fade && !isWgpuActive && (
+                {displayState.fade && !isWgpuActive && !isBaseHiddenBySharpLayer && (
                   <image
                     href={displayState.fade}
                     x="0"
@@ -3495,7 +3584,7 @@ const ImageCanvas = memo(
                   />
                 )}
 
-                {visiblePatch && !isWgpuActive && (
+                {visiblePatch && !isWgpuActive && !isBaseHiddenBySharpLayer && (
                   <image
                     href={visiblePatch.url}
                     x={`${visiblePatch.normX * 100}%`}

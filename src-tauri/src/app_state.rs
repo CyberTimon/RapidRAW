@@ -114,6 +114,7 @@ pub struct LoadedImage {
 
 #[derive(Clone)]
 pub struct CachedPreview {
+    pub image_path: String,
     pub image: Arc<DynamicImage>,
     pub small_image: Arc<DynamicImage>,
     pub transform_hash: u64,
@@ -267,6 +268,8 @@ pub struct AppState {
     pub cached_preview: Mutex<Option<CachedPreview>>,
     pub gpu_context: Mutex<Option<GpuContext>>,
     pub gpu_image_cache: Mutex<Option<GpuImageCache>>,
+    pub region_cached_preview: Mutex<Option<CachedPreview>>,
+    pub region_gpu_image_cache: Mutex<Option<GpuImageCache>>,
     pub gpu_processor: Mutex<Option<GpuProcessorState>>,
     pub ai_state: Mutex<Option<AiState>>,
     pub ai_init_lock: TokioMutex<()>,
@@ -283,6 +286,7 @@ pub struct AppState {
     pub thumbnail_cancellation_token: Arc<AtomicBool>,
     pub thumbnail_progress: Mutex<ThumbnailProgressTracker>,
     pub preview_worker_tx: Mutex<Option<Sender<PreviewJob>>>,
+    pub region_preview_worker_tx: Mutex<Option<Sender<PreviewJob>>>,
     pub analytics_worker_tx: Mutex<Option<Sender<AnalyticsJob>>>,
     pub mask_cache: Mutex<HashMap<u64, GrayImage>>,
     pub patch_cache: Mutex<HashMap<String, serde_json::Value>>,

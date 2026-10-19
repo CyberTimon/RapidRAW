@@ -12,6 +12,39 @@ import { debouncedSave } from './useEditorActions';
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { prepareAdjustmentsPayload } from '../utils/backendPayload';
 
+const SHARP_REGION_MIN_RESOLUTION_FRACTION = 0.6;
+const SHARP_REGION_MARGIN = 0.15;
+const SHARP_REGION_REVOKE_DELAY_MS = 1000;
+const PATCH_HEADER_BYTES = 24;
+
+type NormalisedRegion = [number, number, number, number];
+
+function expandRegion([x, y, w, h]: NormalisedRegion, margin: number): NormalisedRegion {
+  const left = Math.max(0, x - w * margin);
+  const top = Math.max(0, y - h * margin);
+  const right = Math.min(1, x + w * (1 + margin));
+  const bottom = Math.min(1, y + h * (1 + margin));
+  return [left, top, right - left, bottom - top];
+}
+
+function decodePatchResponse(buffer: ArrayBuffer) {
+  const view = new DataView(buffer);
+  const patchX = view.getUint32(0, true);
+  const patchY = view.getUint32(4, true);
+  const patchW = view.getUint32(8, true);
+  const patchH = view.getUint32(12, true);
+  const fullW = view.getUint32(16, true);
+  const fullH = view.getUint32(20, true);
+  const blob = new Blob([buffer.slice(PATCH_HEADER_BYTES)], { type: 'image/jpeg' });
+  return {
+    url: URL.createObjectURL(blob),
+    normX: patchX / fullW,
+    normY: patchY / fullH,
+    normW: patchW / fullW,
+    normH: patchH / fullH,
+  };
+}
+
 export function useImageProcessing(
   transformWrapperRef: any,
   prevAdjustmentsRef: React.RefObject<any>,
@@ -161,30 +194,12 @@ export function useImageProcessing(
           }
 
           if (dragging) {
-            const view = new DataView(buffer);
-            const patchX = view.getUint32(0, true);
-            const patchY = view.getUint32(4, true);
-            const patchW = view.getUint32(8, true);
-            const patchH = view.getUint32(12, true);
-            const fullW = view.getUint32(16, true);
-            const fullH = view.getUint32(20, true);
-
-            const imageBuffer = buffer.slice(24);
-            const blob = new Blob([imageBuffer], { type: 'image/jpeg' });
-            const url = URL.createObjectURL(blob);
+            const patch = decodePatchResponse(buffer);
 
             setEditor((state) => {
               if (state.interactivePatch && state.interactivePatch.url)
                 setTimeout(() => URL.revokeObjectURL(state.interactivePatch.url), 100);
-              return {
-                interactivePatch: {
-                  url,
-                  normX: patchX / fullW,
-                  normY: patchY / fullH,
-                  normW: patchW / fullW,
-                  normH: patchH / fullH,
-                },
-              };
+              return { interactivePatch: patch };
             });
           } else {
             const blob = new Blob([buffer], { type: 'image/jpeg' });
@@ -316,42 +331,118 @@ export function useImageProcessing(
     }
   }, [activeView, adjustments, activePanel, selectedImage?.isReady, generateUncroppedPreview]);
 
-  const calculateTargetRes = useCallback(() => {
-    const baseTargetRes = appSettings?.editorPreviewResolution || 1920;
-    if (!(appSettings?.enableZoomHifi ?? true) || displaySize.width === 0) {
-      return baseTargetRes;
-    }
-
-    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-    const sharpnessFactor = 1.25;
-    const zoomMultiplier = appSettings?.highResZoomMultiplier || 1.0;
-    const effectiveDpr = appSettings?.useFullDpiRendering ? dpr : 1;
-
-    let targetRes = Math.max(displaySize.width, displaySize.height) * effectiveDpr * sharpnessFactor * zoomMultiplier;
-    targetRes = Math.max(targetRes, 512);
-
-    if (originalSize && originalSize.width > 0 && originalSize.height > 0) {
-      const origMax = Math.max(originalSize.width, originalSize.height);
-      targetRes = Math.min(targetRes, origMax);
-      if (targetRes >= origMax * 0.8) {
-        targetRes = origMax;
+  const calculateTargetRes = useCallback(
+    (displayLongEdge?: number) => {
+      const baseTargetRes = appSettings?.editorPreviewResolution || 1920;
+      if (!(appSettings?.enableZoomHifi ?? true) || displaySize.width === 0) {
+        return baseTargetRes;
       }
-    }
 
-    if (originalSize && targetRes !== Math.max(originalSize.width, originalSize.height)) {
-      targetRes = Math.ceil(targetRes / 256) * 256;
-    }
+      const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+      const sharpnessFactor = 1.25;
+      const zoomMultiplier = appSettings?.highResZoomMultiplier || 1.0;
+      const effectiveDpr = appSettings?.useFullDpiRendering ? dpr : 1;
 
-    return Math.round(targetRes);
-  }, [
-    appSettings?.enableZoomHifi,
-    appSettings?.editorPreviewResolution,
-    appSettings?.highResZoomMultiplier,
-    appSettings?.useFullDpiRendering,
-    displaySize.width,
-    displaySize.height,
-    originalSize,
-  ]);
+      const longEdge = displayLongEdge ?? Math.max(displaySize.width, displaySize.height);
+      let targetRes = longEdge * effectiveDpr * sharpnessFactor * zoomMultiplier;
+      targetRes = Math.max(targetRes, 512);
+
+      if (originalSize && originalSize.width > 0 && originalSize.height > 0) {
+        const origMax = Math.max(originalSize.width, originalSize.height);
+        targetRes = Math.min(targetRes, origMax);
+        if (targetRes >= origMax * 0.8) {
+          targetRes = origMax;
+        }
+      }
+
+      if (originalSize && targetRes !== Math.max(originalSize.width, originalSize.height)) {
+        targetRes = Math.ceil(targetRes / 256) * 256;
+      }
+
+      return Math.round(targetRes);
+    },
+    [
+      appSettings?.enableZoomHifi,
+      appSettings?.editorPreviewResolution,
+      appSettings?.highResZoomMultiplier,
+      appSettings?.useFullDpiRendering,
+      displaySize.width,
+      displaySize.height,
+      originalSize,
+    ],
+  );
+
+  const isSharpRegionMode = useCallback(() => {
+    if (appSettings?.useWgpuRenderer !== false) return false;
+    if (!(appSettings?.enableZoomHifi ?? true)) return false;
+    if (!originalSize.width || !originalSize.height) return false;
+    const origMax = Math.max(originalSize.width, originalSize.height);
+    return calculateTargetRes() >= origMax * SHARP_REGION_MIN_RESOLUTION_FRACTION;
+  }, [appSettings?.useWgpuRenderer, appSettings?.enableZoomHifi, originalSize, calculateTargetRes]);
+
+  const calculateWholeFrameRes = useCallback(() => {
+    if (!isSharpRegionMode()) return calculateTargetRes();
+    return calculateTargetRes(Math.max(baseRenderSize.width, baseRenderSize.height));
+  }, [isSharpRegionMode, calculateTargetRes, baseRenderSize]);
+
+  const sharpRegionJobIdRef = useRef(0);
+
+  const requestSharpRegion = useCallback(
+    async (renderAdjustments: Adjustments) => {
+      const path = selectedImagePathRef.current;
+      const visibleRegion = calculateROI();
+      if (!path || !visibleRegion || !originalSize.width || !originalSize.height) return;
+
+      const jobId = ++sharpRegionJobIdRef.current;
+      const { payload, markSent } = prepareAdjustmentsPayload(renderAdjustments);
+
+      try {
+        const buffer: ArrayBuffer = await invoke(Invokes.ApplyAdjustments, {
+          jsAdjustments: payload,
+          isInteractive: false,
+          targetResolution: Math.max(originalSize.width, originalSize.height),
+          roi: expandRegion(visibleRegion, SHARP_REGION_MARGIN),
+          regionOnly: true,
+          requestAnalytics: false,
+          computeWaveform: false,
+          activeWaveformChannel: null,
+        });
+        markSent();
+        if (jobId !== sharpRegionJobIdRef.current || path !== selectedImagePathRef.current) return;
+        if (!buffer || buffer.byteLength <= PATCH_HEADER_BYTES) return;
+
+        const region = { ...decodePatchResponse(buffer), path, adjustments: renderAdjustments };
+        setEditor((state) => {
+          const previousUrl = state.sharpRegion?.url;
+          if (previousUrl) setTimeout(() => URL.revokeObjectURL(previousUrl), SHARP_REGION_REVOKE_DELAY_MS);
+          return { sharpRegion: region };
+        });
+      } catch (err) {
+        if (err !== 'Superseded or worker failed') {
+          console.error('Failed to render sharp region:', err);
+        }
+      }
+    },
+    [calculateROI, originalSize, setEditor],
+  );
+
+  const settledTransform = useEditorStore((state) => state.settledTransform);
+
+  useEffect(() => {
+    if (activeView !== 'editor' || !selectedImage?.isReady || isSliderDragging) return;
+    if (!isSharpRegionMode()) return;
+    const { adjustments, previewOverride } = useEditorStore.getState();
+    requestSharpRegion(previewOverride ?? adjustments);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settledTransform, selectedImage?.isReady]);
+
+  useEffect(() => {
+    setEditor((state) => {
+      const previousUrl = state.sharpRegion?.url;
+      if (previousUrl) setTimeout(() => URL.revokeObjectURL(previousUrl), SHARP_REGION_REVOKE_DELAY_MS);
+      return { sharpRegion: null };
+    });
+  }, [selectedImage?.path, setEditor]);
 
   const requestHiFiZoom = useMemo(
     () =>
@@ -368,7 +459,7 @@ export function useImageProcessing(
 
   useEffect(() => {
     if (activeView === 'editor' && selectedImage?.isReady && displaySize.width > 0 && !isSliderDragging) {
-      let baseRes = calculateTargetRes();
+      let baseRes = calculateWholeFrameRes();
       if (originalSize.width > 0 && originalSize.height > 0) {
         const maxRes = Math.max(originalSize.width, originalSize.height);
         if (baseRes > maxRes) baseRes = maxRes;
@@ -387,7 +478,7 @@ export function useImageProcessing(
     activeView,
     displaySize.width,
     displaySize.height,
-    calculateTargetRes,
+    calculateWholeFrameRes,
     selectedImage?.isReady,
     isSliderDragging,
     requestHiFiZoom,
@@ -399,7 +490,7 @@ export function useImageProcessing(
 
     if (dragIdleTimer.current) clearTimeout(dragIdleTimer.current);
 
-    const targetRes = calculateTargetRes();
+    const targetRes = calculateWholeFrameRes();
     const renderAdjustments = previewOverride ?? adjustments;
 
     if (activeView !== 'editor') {
@@ -415,6 +506,7 @@ export function useImageProcessing(
         currentResRef.current = targetRes;
 
         applyAdjustments(renderAdjustments, false, targetRes);
+        if (activeView === 'editor' && isSharpRegionMode()) requestSharpRegion(renderAdjustments);
 
         if (previewOverride) return;
 

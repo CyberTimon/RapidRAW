@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { Adjustments, INITIAL_ADJUSTMENTS, MaskContainer, AiPatch } from '../utils/adjustments';
-import { SelectedImage, WaveformData, BrushSettings } from '../components/ui/AppProperties';
+import { SelectedImage, WaveformData, BrushSettings, TransformState } from '../components/ui/AppProperties';
 import { ChannelConfig } from '../components/adjustments/Curves';
 import { ImageDimensions } from '../hooks/useImageRenderSize';
 import { ToolType } from '../components/panel/right/Masks';
@@ -14,6 +14,11 @@ interface InteractivePatch {
   normY: number;
   normW: number;
   normH: number;
+}
+
+export interface SharpRegion extends InteractivePatch {
+  path: string;
+  adjustments: Adjustments;
 }
 
 interface BaseRenderSize extends ImageDimensions {
@@ -37,6 +42,7 @@ interface EditorState {
   finalPreviewUrl: string | null;
   uncroppedAdjustedPreviewUrl: string | null;
   interactivePatch: InteractivePatch | null;
+  sharpRegion: SharpRegion | null;
   showOriginal: boolean;
 
   // Analytics
@@ -49,6 +55,7 @@ interface EditorState {
   // Interaction State
   isSliderDragging: boolean;
   zoom: number;
+  settledTransform: TransformState | null;
   displaySize: ImageDimensions;
   previewSize: ImageDimensions;
   baseRenderSize: BaseRenderSize;
@@ -112,7 +119,9 @@ export const useEditorStore = create<EditorState>((set) => ({
   waveformHeight: 220,
 
   isSliderDragging: false,
+  settledTransform: null,
   interactivePatch: null,
+  sharpRegion: null,
   activeMaskContainerId: null,
   activeMaskId: null,
   activeAiPatchContainerId: null,
