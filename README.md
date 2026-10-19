@@ -1035,7 +1035,7 @@ A huge thank you to the following projects and tools that were very important in
 - **[LaMa](https://github.com/advimman/lama):** For the powerful & simple image inpainting model, which enables content-aware fill and object removal.
 - **[SAM 3.1](https://github.com/facebookresearch/sam3):** For providing the foundation model used for the AI subject detection capabilities.
 - **[U-2-Net](https://github.com/xuebinqin/U-2-Net):** For providing the robust architecture used for the AI sky and foreground detection capabilities.
-- **[Depth Anything V2](https://github.com/ByteDance-Seed/depth-anything-3):** For the powerful monocular depth estimation model that enables the AI depth masking capabilities.
+- **[Depth Anything V3](https://github.com/ByteDance-Seed/depth-anything-3):** For the powerful monocular depth estimation model that enables the AI depth masking capabilities.
 - **[nind-denoise](https://github.com/trougnouf/nind-denoise):** For providing AI models that power the AI noise reduction capabilities in RapidRAW.
 - **[NegPy](https://github.com/marcinz606/NegPy):** For the inspiration behind the negative conversion logic, particularly the mathematical approach to film inversion using characteristic curves.
 - **[pixls.us](https://discuss.pixls.us/):** For being an incredible community full of knowledgeable people who offered inspiration, advice, and ideas.
