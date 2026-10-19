@@ -95,6 +95,8 @@
       "resetPoint": "Resetovat bodovou křivku ({{channel}})"
     },
     "details": {
+      "aiDenoise": "AI odšumění",
+      "aiDenoiseDetail": "Detail",
       "blueYellow": "Modrá/Žlutá",
       "centre": "Střed",
       "chromaticAberration": "Chromatická aberace",
@@ -139,6 +141,7 @@
       "relightColor": "Barva světla",
       "relightCone": "Kužel",
       "relightDepth": "Hloubka",
+      "relightDuplicateLight": "Duplikovat světlo",
       "relightElevation": "Výška",
       "relightFalloff": "Útlum",
       "relightHint": "Přidejte nebo vyberte světlo a klikněte nebo táhněte v obrázku pro jeho umístění.",
@@ -406,6 +409,7 @@
       },
       "createNewTitle": "Vytvořit novou generativní úpravu",
       "createNewTooltip": "Vytvořit novou {{name}} úpravu",
+      "denoising": "Probíhá AI odšumění...",
       "dropzoneText": "Přetažením sem vytvoříte novou úpravu",
       "editSettingsTitle": "Upravit nastavení",
       "editsTitle": "Úpravy",
@@ -1594,6 +1598,9 @@
       "zoomDesc": "Upravte, jak rychle se plátno přibližuje a oddaluje pomocí rolovacího kolečka nebo gesta sevření."
     },
     "data": {
+      "clearAiDenoise": "Vymazat mezipaměť AI odšumění",
+      "clearAiDenoiseButton": "Vymazat",
+      "clearAiDenoiseDesc": "Smaže uložené výsledky AI odšumění ({{size}}). Snímky se zapnutým AI odšuměním jej při dalším otevření přepočítají.",
       "clearSidecars": "Vymazat všechny sidecar soubory",
       "clearSidecarsButton": "Vymazat",
       "clearSidecarsDesc": "Tím smažete všechny soubory .rrdata (obsahující vaše úpravy) ve vašich kořenových složkách:",
@@ -1605,6 +1612,7 @@
       "logsButton": "Otevřít",
       "logsDesc": "Zobrazit soubor protokolu aplikace pro řešení potíží. Protokol se nachází v:",
       "modals": {
+        "aiDenoiseMessage": "Opravdu chcete vymazat mezipaměť AI odšumění?\n\nSnímky se zapnutým AI odšuměním bude nutné znovu odšumět, což může trvat několik minut na snímek.",
         "aiMessage": "Opravdu chcete odstranit všechny značky generované AI ze všech snímků ve všech aktivních kořenových složkách?\n\nUživatelem přidané značky tím nebudou dotčeny. Tuto akci nelze vrátit.",
         "allMessage": "Opravdu chcete odstranit všechny značky generované umělou inteligencí i přidané uživatelem ze všech snímků ve všech aktivních kořenových složkách?\n\nTuto akci nelze vrátit.",
         "cacheMessage": "Opravdu chcete vymazat mezipaměť miniatur?\n\nVšechny miniatury bude nutné znovu vygenerovat, což může u velkých složek trvat dlouho.",
@@ -1627,6 +1635,7 @@
       "resetLayoutDesc": "Obnovit ukotvení panelů, postranní rozdělovače, výšky a přepínače panelů na výchozí rozložení.",
       "resetLayoutTitle": "Obnovit rozložení pracovní plochy",
       "statuses": {
+        "aiDenoiseSuccess": "Mezipaměť AI odšumění byla úspěšně vymazána.",
         "aiSuccess": "{{count}} souborů aktualizováno. Značky AI odstraněny.",
         "aiSuccess_one": "{{count}} soubor aktualizován. Značky AI odstraněny.",
         "aiSuccess_other": "{{count}} souborů aktualizováno. Značky AI odstraněny.",
@@ -1635,6 +1644,7 @@
         "allSuccess_other": "{{count}} souborů aktualizováno. Odstraněny všechny značky kromě barevných.",
         "cacheSuccess": "Mezipaměť miniatur byla úspěšně vymazána.",
         "clearingAi": "Mazání značek AI ze všech sidecar souborů...",
+        "clearingAiDenoise": "Mazání mezipaměti AI odšumění...",
         "clearingAll": "Mazání všech značek ze sidecar souborů...",
         "clearingCache": "Mazání mezipaměti miniatur...",
         "deleting": "Mazání sidecar souborů, čekejte prosím...",

@@ -22,6 +22,7 @@ macro_rules! cli_eprintln {
 mod adjustment_utils;
 mod ai_commands;
 mod ai_connector;
+mod ai_denoise;
 mod ai_processing;
 mod android_integration;
 mod app_settings;
@@ -339,14 +340,19 @@ fn compute_patched_and_warped(
             .get("aiPatches")
             .and_then(|v| v.as_array())
             .is_some_and(|a| !a.is_empty());
+        let denoised = crate::ai_denoise::apply_ai_denoise(
+            &loaded_image.image,
+            &loaded_image.path,
+            adjustments,
+        );
 
-        if has_patches {
-            Ok(Arc::new(
-                composite_patches_on_image(&loaded_image.image, adjustments)
+        match (denoised, has_patches) {
+            (base, true) => Ok(Arc::new(
+                composite_patches_on_image(&base, adjustments)
                     .map_err(|e| format!("Failed to composite AI patches: {}", e))?,
-            ))
-        } else {
-            Ok(Arc::clone(&loaded_image.image))
+            )),
+            (Cow::Owned(img), false) => Ok(Arc::new(img)),
+            (Cow::Borrowed(_), false) => Ok(Arc::clone(&loaded_image.image)),
         }
     })?;
 
@@ -512,6 +518,8 @@ fn process_preview_job(
         .ok_or("No original image loaded")?
         .clone();
     drop(loaded_image_guard);
+
+    crate::ai_denoise::ensure_generated(app_handle, &loaded_image, &adjustments_clone);
 
     let new_transform_hash = calculate_transform_hash(&adjustments_clone);
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
@@ -934,13 +942,18 @@ async fn generate_uncropped_preview(
                     .get("aiPatches")
                     .and_then(|v| v.as_array())
                     .is_some_and(|a| !a.is_empty());
+                let denoised = crate::ai_denoise::apply_ai_denoise(
+                    &loaded_image.image,
+                    &loaded_image.path,
+                    &adjustments_clone,
+                );
                 let patched_image = if has_patches {
                     Cow::Owned(
-                        composite_patches_on_image(&loaded_image.image, &adjustments_clone)
-                            .unwrap_or_else(|_| loaded_image.image.as_ref().clone()),
+                        composite_patches_on_image(&denoised, &adjustments_clone)
+                            .unwrap_or_else(|_| denoised.as_ref().clone()),
                     )
                 } else {
-                    Cow::Borrowed(loaded_image.image.as_ref())
+                    denoised
                 };
 
                 let relit_image = crate::relight::apply_relight(patched_image, &adjustments_clone);
@@ -1946,6 +1959,7 @@ pub fn run() {
             let app_handle = app.handle().clone();
 
             if let Ok(cache_dir) = app_handle.path().app_cache_dir() {
+                crate::ai_denoise::initialize_cache_dir(cache_dir.clone());
                 crate::exif_processing::initialize_cache_dir(cache_dir);
             }
 
@@ -2350,6 +2364,8 @@ pub fn run() {
             ai_commands::test_ai_connector_connection,
             ai_commands::generate_full_image_depth_map,
             ai_commands::generate_relight_normal_map,
+            ai_denoise::get_ai_denoise_cache_size,
+            ai_denoise::clear_ai_denoise_cache,
             ai_commands::cancel_ai_task,
             apple_raw::is_raw9_available,
             inpainting::invoke_generative_replace_with_mask_def,

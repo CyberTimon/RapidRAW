@@ -96,6 +96,8 @@
       "resetPoint": "Restablecer curva de puntos de {{channel}}"
     },
     "details": {
+      "aiDenoise": "Reducción de ruido IA",
+      "aiDenoiseDetail": "Detalle",
       "blueYellow": "Azul/Amarillo",
       "centre": "Centro",
       "chromaticAberration": "Aberración cromática",
@@ -140,6 +142,7 @@
       "relightColor": "Color de la luz",
       "relightCone": "Cono",
       "relightDepth": "Profundidad",
+      "relightDuplicateLight": "Duplicar luz",
       "relightElevation": "Elevación",
       "relightFalloff": "Atenuación",
       "relightHint": "Añade o selecciona una luz y haz clic o arrastra en la imagen para colocarla.",
@@ -422,6 +425,7 @@
       },
       "createNewTitle": "Crear nueva edición generativa",
       "createNewTooltip": "Crear nueva edición {{name}}",
+      "denoising": "Ejecutando reducción de ruido IA...",
       "dropzoneText": "Suelta aquí para crear una nueva edición",
       "editSettingsTitle": "Ajustes de edición",
       "editsTitle": "Ediciones",
@@ -1626,6 +1630,9 @@
       "zoomDesc": "Ajusta qué tan rápido se acerca y aleja el lienzo al usar la rueda de desplazamiento o el gesto de pellizcar."
     },
     "data": {
+      "clearAiDenoise": "Borrar caché de reducción de ruido IA",
+      "clearAiDenoiseButton": "Borrar",
+      "clearAiDenoiseDesc": "Elimina los resultados guardados de la reducción de ruido IA ({{size}}). Las imágenes con la reducción de ruido IA activada la recalcularán la próxima vez que se abran.",
       "clearSidecars": "Borrar todos los archivos sidecar",
       "clearSidecarsButton": "Borrar",
       "clearSidecarsDesc": "Esto eliminará todos los archivos .rrdata (que contienen tus ediciones) dentro de tus carpetas raíz:",
@@ -1637,6 +1644,7 @@
       "logsButton": "Abrir",
       "logsDesc": "Consulta el archivo de registro de la aplicación para solucionar problemas. El registro se encuentra en:",
       "modals": {
+        "aiDenoiseMessage": "¿Seguro que quieres borrar la caché de reducción de ruido IA?\n\nLas imágenes con la reducción de ruido IA activada tendrán que procesarse de nuevo, lo que puede tardar varios minutos por imagen.",
         "aiMessage": "¿Estás seguro de que quieres eliminar todas las etiquetas generadas por IA de todas las imágenes en todas las carpetas raíz activas?\n\nEsto no afectará a las etiquetas añadidas por el usuario. Esta acción no se puede deshacer.",
         "allMessage": "¿Estás seguro de que quieres eliminar todas las etiquetas generadas por IA y las añadidas por el usuario de todas las imágenes en todas las carpetas raíz activas?\n\nEsta acción no se puede deshacer.",
         "cacheMessage": "¿Estás seguro de que quieres borrar la caché de miniaturas?\n\nTodas las miniaturas tendrán que regenerarse, lo que puede ser lento para carpetas grandes.",
@@ -1659,6 +1667,7 @@
       "resetLayoutDesc": "Restaura los paneles acoplados, los divisores laterales, las alturas y los selectores de paneles a su disposición predeterminada.",
       "resetLayoutTitle": "Restablecer el diseño del espacio de trabajo",
       "statuses": {
+        "aiDenoiseSuccess": "Caché de reducción de ruido IA borrada correctamente.",
         "aiSuccess": "{{count}} archivos actualizados. Etiquetas de IA eliminadas.",
         "aiSuccess_many": "{{count}} archivos actualizados. Etiquetas de IA eliminadas.",
         "aiSuccess_one": "{{count}} archivo actualizado. Etiquetas de IA eliminadas.",
@@ -1669,6 +1678,7 @@
         "allSuccess_other": "{{count}} archivos actualizados. Todas las etiquetas sin color eliminadas.",
         "cacheSuccess": "Caché de miniaturas borrada con éxito.",
         "clearingAi": "Borrando etiquetas de IA de todos los archivos sidecar...",
+        "clearingAiDenoise": "Borrando la caché de reducción de ruido IA...",
         "clearingAll": "Borrando todas las etiquetas de los archivos sidecar...",
         "clearingCache": "Borrando caché de miniaturas...",
         "deleting": "Eliminando archivos sidecar, por favor espera...",

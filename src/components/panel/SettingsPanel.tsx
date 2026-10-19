@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import {
   ArrowLeft,
   Cloud,
@@ -52,6 +52,7 @@ import { useCloudUsage } from '../../hooks/useCloudUsage';
 import { open } from '@tauri-apps/plugin-shell';
 import { RotateCcw } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
+import { formatBytes } from '../../utils/formatBytes';
 
 interface ConfirmModalState {
   confirmText: string;
@@ -566,6 +567,9 @@ export default function SettingsPanel({
   const [clearMessage, setClearMessage] = useState('');
   const [isClearingCache, setIsClearingCache] = useState(false);
   const [cacheClearMessage, setCacheClearMessage] = useState('');
+  const [aiDenoiseCacheSize, setAiDenoiseCacheSize] = useState<number | null>(null);
+  const [isClearingAiDenoiseCache, setIsClearingAiDenoiseCache] = useState(false);
+  const [aiDenoiseCacheMessage, setAiDenoiseCacheMessage] = useState('');
   const [isClearingAiTags, setIsClearingAiTags] = useState(false);
   const [aiTagsClearMessage, setAiTagsClearMessage] = useState('');
   const [isClearingTags, setIsClearingTags] = useState(false);
@@ -761,6 +765,14 @@ export default function SettingsPanel({
   useEffect(() => {
     invoke<string[]>('get_lensfun_makers').then(setLensMakers).catch(console.error);
   }, []);
+
+  const refreshAiDenoiseCacheSize = useCallback(() => {
+    invoke<number>(Invokes.GetAiDenoiseCacheSize).then(setAiDenoiseCacheSize).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (activeCategory === 'processing') refreshAiDenoiseCacheSize();
+  }, [activeCategory, refreshAiDenoiseCacheSize]);
 
   const handleProcessingSettingChange = async (key: string, value: any) => {
     setProcessingSettings((prev) => ({ ...prev, [key]: value }));
@@ -1011,6 +1023,35 @@ export default function SettingsPanel({
       isOpen: true,
       message: t('settings.data.modals.cacheMessage'),
       onConfirm: executeClearCache,
+      title: t('settings.data.modals.confirmCacheTitle'),
+    });
+  };
+
+  const executeClearAiDenoiseCache = async () => {
+    setIsClearingAiDenoiseCache(true);
+    setAiDenoiseCacheMessage(t('settings.data.statuses.clearingAiDenoise'));
+    try {
+      await invoke(Invokes.ClearAiDenoiseCache);
+      setAiDenoiseCacheMessage(t('settings.data.statuses.aiDenoiseSuccess'));
+    } catch (err: any) {
+      console.error('Failed to clear AI denoise cache:', err);
+      setAiDenoiseCacheMessage(`Error: ${err}`);
+    } finally {
+      refreshAiDenoiseCacheSize();
+      setTimeout(() => {
+        setIsClearingAiDenoiseCache(false);
+        setAiDenoiseCacheMessage('');
+      }, EXECUTE_TIMEOUT);
+    }
+  };
+
+  const handleClearAiDenoiseCache = () => {
+    setConfirmModalState({
+      confirmText: t('settings.data.modals.confirmClearCache'),
+      confirmVariant: 'destructive',
+      isOpen: true,
+      message: t('settings.data.modals.aiDenoiseMessage'),
+      onConfirm: executeClearAiDenoiseCache,
       title: t('settings.data.modals.confirmCacheTitle'),
     });
   };
@@ -2545,6 +2586,19 @@ export default function SettingsPanel({
                         isProcessing={isClearingCache}
                         message={cacheClearMessage}
                         title={t('settings.data.clearThumbnail')}
+                      />
+
+                      <DataActionItem
+                        buttonAction={handleClearAiDenoiseCache}
+                        buttonText={t('settings.data.clearAiDenoiseButton')}
+                        description={t('settings.data.clearAiDenoiseDesc', {
+                          size: aiDenoiseCacheSize === null ? '…' : formatBytes(aiDenoiseCacheSize, t),
+                        })}
+                        disabled={!aiDenoiseCacheSize}
+                        icon={<Trash2 size={16} className="mr-2" />}
+                        isProcessing={isClearingAiDenoiseCache}
+                        message={aiDenoiseCacheMessage}
+                        title={t('settings.data.clearAiDenoise')}
                       />
 
                       <DataActionItem

@@ -96,6 +96,8 @@
       "resetPoint": "重置 {{channel}} 点曲线"
     },
     "details": {
+      "aiDenoise": "AI 降噪",
+      "aiDenoiseDetail": "细节",
       "blueYellow": "蓝/黄",
       "centre": "居中",
       "chromaticAberration": "色差",
@@ -140,6 +142,7 @@
       "relightColor": "灯光颜色",
       "relightCone": "光锥",
       "relightDepth": "深度",
+      "relightDuplicateLight": "复制灯光",
       "relightElevation": "仰角",
       "relightFalloff": "衰减",
       "relightHint": "添加或选择一个灯光，然后在图像上点击或拖动以放置。",
@@ -405,6 +408,7 @@
       },
       "createNewTitle": "创建新的生成式编辑",
       "createNewTooltip": "创建新的 {{name}} 编辑",
+      "denoising": "正在进行 AI 降噪...",
       "dropzoneText": "拖放到此处以创建新编辑",
       "editSettingsTitle": "编辑设置",
       "editsTitle": "编辑",
@@ -1591,6 +1595,9 @@
       "zoomDesc": "调整使用滚轮或捏合手势时画布缩放的速度。"
     },
     "data": {
+      "clearAiDenoise": "清除 AI 降噪缓存",
+      "clearAiDenoiseButton": "清除",
+      "clearAiDenoiseDesc": "删除已缓存的 AI 降噪结果（{{size}}）。启用了 AI 降噪的图像会在下次打开时重新计算。",
       "clearSidecars": "清除所有附属文件",
       "clearSidecarsButton": "清除",
       "clearSidecarsDesc": "这将删除您的根文件夹中的所有 .rrdata 文件（包含您的编辑数据）：",
@@ -1602,6 +1609,7 @@
       "logsButton": "打开",
       "logsDesc": "查看应用程序的日志文件以进行故障排除。日志文件位于：",
       "modals": {
+        "aiDenoiseMessage": "确定要清除 AI 降噪缓存吗？\n\n启用了 AI 降噪的图像需要重新降噪，每张图像可能需要几分钟。",
         "aiMessage": "您确定要从所有活动根文件夹中的所有图像中移除所有 AI 生成的标签吗？\n\n这不会影响用户添加的标签。此操作无法撤销。",
         "allMessage": "您确定要从所有活动根文件夹中的所有图像中移除所有 AI 生成和用户添加的标签吗？\n\n此操作无法撤销。",
         "cacheMessage": "您确定要清除缩略图缓存吗？\n\n所有缩略图将需要重新生成，对于大型文件夹可能会很慢。",
@@ -1624,6 +1632,7 @@
       "resetLayoutDesc": "将面板停靠区、侧边分割条、高度和面板切换器恢复为默认布局。",
       "resetLayoutTitle": "重置工作区布局",
       "statuses": {
+        "aiDenoiseSuccess": "AI 降噪缓存已成功清除。",
         "aiSuccess": "{{count}} 个文件已更新。AI 标签已移除。",
         "aiSuccess_one": "{{count}} 个文件已更新。AI 标签已移除。",
         "aiSuccess_other": "{{count}} 个文件已更新。AI 标签已移除。",
@@ -1632,6 +1641,7 @@
         "allSuccess_other": "{{count}} 个文件已更新。所有非颜色标签已移除。",
         "cacheSuccess": "缩略图缓存已成功清除。",
         "clearingAi": "正在从所有附属文件中清除 AI 标签...",
+        "clearingAiDenoise": "正在清除 AI 降噪缓存...",
         "clearingAll": "正在从附属文件中清除所有标签...",
         "clearingCache": "正在清除缩略图缓存...",
         "deleting": "正在删除附属文件，请稍候...",

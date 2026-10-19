@@ -96,6 +96,8 @@
       "resetPoint": "Resetuj krzywą punktową ({{channel}})"
     },
     "details": {
+      "aiDenoise": "Odszumianie AI",
+      "aiDenoiseDetail": "Szczegóły",
       "blueYellow": "Niebieski/Żółty",
       "centre": "Środek",
       "chromaticAberration": "Aberracja chromatyczna",
@@ -140,6 +142,7 @@
       "relightColor": "Kolor światła",
       "relightCone": "Stożek",
       "relightDepth": "Głębia",
+      "relightDuplicateLight": "Duplikuj światło",
       "relightElevation": "Wysokość",
       "relightFalloff": "Spadek",
       "relightHint": "Dodaj lub wybierz światło, a następnie kliknij lub przeciągnij na obrazie, aby je umieścić.",
@@ -439,6 +442,7 @@
       },
       "createNewTitle": "Utwórz nową edycję generatywną",
       "createNewTooltip": "Utwórz nową edycję {{name}}",
+      "denoising": "Trwa odszumianie AI...",
       "dropzoneText": "Upuść tutaj, aby utworzyć nową edycję",
       "editSettingsTitle": "Ustawienia edycji",
       "editsTitle": "Edycje",
@@ -1661,6 +1665,9 @@
       "zoomDesc": "Dostosuj, jak szybko płótno się powiększa i pomniejsza przy użyciu kółka myszy lub gestu szczypania."
     },
     "data": {
+      "clearAiDenoise": "Wyczyść pamięć podręczną odszumiania AI",
+      "clearAiDenoiseButton": "Wyczyść",
+      "clearAiDenoiseDesc": "Usuwa zapisane wyniki odszumiania AI ({{size}}). Zdjęcia z włączonym odszumianiem AI przeliczą je przy następnym otwarciu.",
       "clearSidecars": "Wyczyść wszystkie pliki poboczne (Sidecar)",
       "clearSidecarsButton": "Wyczyść",
       "clearSidecarsDesc": "Ta opcja usunie wszystkie pliki .rrdata (zawierające twoje zmiany) wewnątrz twoich folderów głównych:",
@@ -1672,6 +1679,7 @@
       "logsButton": "Otwórz",
       "logsDesc": "Zobacz plik dziennika aplikacji w celu rozwiązywania problemów. Plik znajduje się w:",
       "modals": {
+        "aiDenoiseMessage": "Czy na pewno chcesz wyczyścić pamięć podręczną odszumiania AI?\n\nZdjęcia z włączonym odszumianiem AI trzeba będzie odszumić ponownie, co może zająć kilka minut na zdjęcie.",
         "aiMessage": "Czy na pewno chcesz usunąć wszystkie tagi generowane przez AI z wszystkich obrazów we wszystkich aktywnych folderach głównych?\n\nTo nie wpłynie na tagi dodane przez użytkownika. Tej akcji nie można cofnąć.",
         "allMessage": "Czy na pewno chcesz usunąć wszystkie tagi generowane przez AI i dodane przez użytkownika z wszystkich obrazów we wszystkich aktywnych folderach głównych?\n\nTej akcji nie można cofnąć.",
         "cacheMessage": "Czy na pewno chcesz wyczyścić pamięć podręczną miniatur?\n\nWszystkie miniatury będą musiały zostać wygenerowane ponownie, co może zająć dużo czasu przy dużych folderach.",
@@ -1694,6 +1702,7 @@
       "resetLayoutDesc": "Przywraca domyślny układ paneli, podziałów bocznych, wysokości oraz przełączników paneli.",
       "resetLayoutTitle": "Zresetuj układ obszaru roboczego",
       "statuses": {
+        "aiDenoiseSuccess": "Pamięć podręczna odszumiania AI została wyczyszczona.",
         "aiSuccess": "Zaktualizowano {{count}} plików. Tagi AI usunięte.",
         "aiSuccess_few": "Zaktualizowano {{count}} pliki. Tagi AI usunięte.",
         "aiSuccess_many": "Zaktualizowano {{count}} plików. Tagi AI usunięte.",
@@ -1706,6 +1715,7 @@
         "allSuccess_other": "Zaktualizowano {{count}} plików. Wszystkie tagi bezkolorowe usunięte.",
         "cacheSuccess": "Pamięć podręczna miniatur została wyczyszczona pomyślnie.",
         "clearingAi": "Usuwanie tagów AI ze wszystkich plików sidecar...",
+        "clearingAiDenoise": "Czyszczenie pamięci podręcznej odszumiania AI...",
         "clearingAll": "Usuwanie wszystkich tagów z plików sidecar...",
         "clearingCache": "Czyszczenie pamięci podręcznej miniatur...",
         "deleting": "Usuwanie plików sidecar, proszę czekać...",

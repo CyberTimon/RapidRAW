@@ -96,6 +96,8 @@
       "resetPoint": "{{channel}} 포인트 커브 초기화"
     },
     "details": {
+      "aiDenoise": "AI 노이즈 제거",
+      "aiDenoiseDetail": "디테일",
       "blueYellow": "파랑/노랑",
       "centre": "중앙",
       "chromaticAberration": "색수차",
@@ -140,6 +142,7 @@
       "relightColor": "조명 색상",
       "relightCone": "원뿔",
       "relightDepth": "깊이",
+      "relightDuplicateLight": "조명 복제",
       "relightElevation": "고도",
       "relightFalloff": "감쇠",
       "relightHint": "조명을 추가하거나 선택한 다음 이미지를 클릭하거나 드래그하여 위치를 지정하세요.",
@@ -405,6 +408,7 @@
       },
       "createNewTitle": "새 생성형 편집 만들기",
       "createNewTooltip": "새 {{name}} 편집 만들기",
+      "denoising": "AI 노이즈 제거 실행 중...",
       "dropzoneText": "여기에 놓아 새 편집을 만드세요",
       "editSettingsTitle": "편집 설정",
       "editsTitle": "편집",
@@ -1591,6 +1595,9 @@
       "zoomDesc": "스크롤 휠이나 핀치 제스처를 사용할 때 캔버스가 확대/축소되는 속도를 조정합니다."
     },
     "data": {
+      "clearAiDenoise": "AI 노이즈 제거 캐시 지우기",
+      "clearAiDenoiseButton": "지우기",
+      "clearAiDenoiseDesc": "캐시된 AI 노이즈 제거 결과({{size}})를 삭제합니다. AI 노이즈 제거가 켜진 이미지는 다음에 열 때 다시 계산됩니다.",
       "clearSidecars": "모든 사이드카 파일 지우기",
       "clearSidecarsButton": "지우기",
       "clearSidecarsDesc": "루트 폴더 내의 모든 .rrdata 파일(편집 내용 포함)이 삭제됩니다:",
@@ -1602,6 +1609,7 @@
       "logsButton": "열기",
       "logsDesc": "문제 해결을 위해 애플리케이션 로그 파일을 봅니다. 로그 위치:",
       "modals": {
+        "aiDenoiseMessage": "AI 노이즈 제거 캐시를 지우시겠습니까?\n\nAI 노이즈 제거가 켜진 이미지는 다시 처리해야 하며, 이미지당 몇 분이 걸릴 수 있습니다.",
         "aiMessage": "모든 활성 루트 폴더의 모든 이미지에서 AI가 생성한 태그를 모두 제거하시겠습니까?\n\n사용자가 추가한 태그에는 영향을 주지 않습니다. 이 작업은 취소할 수 없습니다.",
         "allMessage": "모든 활성 루트 폴더의 모든 이미지에서 AI가 생성한 태그와 사용자가 추가한 태그를 모두 제거하시겠습니까?\n\n이 작업은 취소할 수 없습니다.",
         "cacheMessage": "썸네일 캐시를 지우시겠습니까?\n\n모든 썸네일을 다시 생성해야 하며, 대용량 폴더의 경우 느릴 수 있습니다.",
@@ -1624,6 +1632,7 @@
       "resetLayoutDesc": "패널 도크, 측면 분할기, 높이 및 패널 전환기를 기본 레이아웃으로 복원합니다.",
       "resetLayoutTitle": "작업 공간 레이아웃 초기화",
       "statuses": {
+        "aiDenoiseSuccess": "AI 노이즈 제거 캐시를 지웠습니다.",
         "aiSuccess": "{{count}}개 파일이 업데이트되었습니다. AI 태그가 제거되었습니다.",
         "aiSuccess_one": "{{count}}개 파일이 업데이트되었습니다. AI 태그가 제거되었습니다.",
         "aiSuccess_other": "{{count}}개 파일이 업데이트되었습니다. AI 태그가 제거되었습니다.",
@@ -1632,6 +1641,7 @@
         "allSuccess_other": "{{count}}개 파일이 업데이트되었습니다. 색상을 제외한 모든 태그가 제거되었습니다.",
         "cacheSuccess": "썸네일 캐시가 성공적으로 지워졌습니다.",
         "clearingAi": "모든 사이드카 파일에서 AI 태그를 지우는 중...",
+        "clearingAiDenoise": "AI 노이즈 제거 캐시를 지우는 중...",
         "clearingAll": "사이드카 파일에서 모든 태그를 지우는 중...",
         "clearingCache": "썸네일 캐시를 지우는 중...",
         "deleting": "사이드카 파일을 삭제하는 중입니다. 잠시 기다려 주세요...",

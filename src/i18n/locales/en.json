@@ -96,6 +96,8 @@
       "resetPoint": "Reset {{channel}} Point Curve"
     },
     "details": {
+      "aiDenoise": "AI Denoise",
+      "aiDenoiseDetail": "Detail",
       "blueYellow": "Blue/Yellow",
       "centre": "Centré",
       "chromaticAberration": "Chromatic Aberration",
@@ -140,6 +142,7 @@
       "relightColor": "Light Color",
       "relightCone": "Cone",
       "relightDepth": "Depth",
+      "relightDuplicateLight": "Duplicate Light",
       "relightElevation": "Elevation",
       "relightFalloff": "Falloff",
       "relightHint": "Add or select a light, then click or drag on the image to position it.",
@@ -405,6 +408,7 @@
       },
       "createNewTitle": "Create New Generative Edit",
       "createNewTooltip": "Create New {{name}} Edit",
+      "denoising": "Running AI Denoise...",
       "dropzoneText": "Drop here to create a new edit",
       "editSettingsTitle": "Edit Settings",
       "editsTitle": "Edits",
@@ -1593,6 +1597,9 @@
       "zoomDesc": "Adjust how fast the canvas zooms in and out when using the scroll wheel or pinch gesture."
     },
     "data": {
+      "clearAiDenoise": "Clear AI Denoise Cache",
+      "clearAiDenoiseButton": "Clear",
+      "clearAiDenoiseDesc": "Deletes the cached AI Denoise results ({{size}}). Images with AI Denoise enabled recalculate it the next time they are opened.",
       "clearSidecars": "Clear All Sidecar Files",
       "clearSidecarsButton": "Clear",
       "clearSidecarsDesc": "This will delete all .rrdata files (containing your edits) within your root folders:",
@@ -1604,6 +1611,7 @@
       "logsButton": "Open",
       "logsDesc": "View the application's log file for troubleshooting. The log is located at:",
       "modals": {
+        "aiDenoiseMessage": "Are you sure you want to clear the AI Denoise cache?\n\nImages with AI Denoise enabled will need to be denoised again, which can take several minutes per image.",
         "aiMessage": "Are you sure you want to remove all AI-generated tags from all images in all active root folders?\n\nThis will not affect user-added tags. This action cannot be undone.",
         "allMessage": "Are you sure you want to remove all AI-generated and user-added tags from all images in all active root folders?\n\nThis action cannot be undone.",
         "cacheMessage": "Are you sure you want to clear the thumbnail cache?\n\nAll thumbnails will need to be regenerated, which may be slow for large folders.",
@@ -1626,6 +1634,7 @@
       "resetLayoutDesc": "Restore panel docks, side splitters, heights, and panel switchers to the default layout.",
       "resetLayoutTitle": "Reset Workspace Layout",
       "statuses": {
+        "aiDenoiseSuccess": "AI Denoise cache cleared successfully.",
         "aiSuccess": "{{count}} files updated. AI tags removed.",
         "aiSuccess_one": "{{count}} file updated. AI tags removed.",
         "aiSuccess_other": "{{count}} files updated. AI tags removed.",
@@ -1634,6 +1643,7 @@
         "allSuccess_other": "{{count}} files updated. All non-color tags removed.",
         "cacheSuccess": "Thumbnail cache cleared successfully.",
         "clearingAi": "Clearing AI tags from all sidecar files...",
+        "clearingAiDenoise": "Clearing AI Denoise cache...",
         "clearingAll": "Clearing all tags from sidecar files...",
         "clearingCache": "Clearing thumbnail cache...",
         "deleting": "Deleting sidecar files, please wait...",

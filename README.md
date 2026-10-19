@@ -60,7 +60,20 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 <details>
 <summary><strong>Recent Changes</strong></summary>
 
+- **2026-10-18:** Added non-destructive AI denoise with disk caching and seamless tile blending, updated Lensfun database, and optimized Linux RAW preview pipelines
+- **2026-10-17:** Added movable on-canvas center controls for vignette and centré adjustments, touch multi-selection mode for Android, and cleaned default-only sidecar file handling
+- **2026-10-16:** Parallelized RAW post-processing and pixel format conversion for faster image rendering
+- **2026-10-15:** Added auto-straighten powered by horizon and line segment detection, and added DPI settings for print exports
+- **2026-10-13:** Added individual visibility toggles to every adjustment tool in the editor panel
+- **2026-10-12:** Added optional RAW baseline exposure and highlight preservation compensation
+- **2026-10-11:** Embed keywords, ratings, and color labels as standard XMP metadata during export, alongside improved RAW EXIF writing
+- **2026-10-10:** Added `{original_filename_number}` token support to library batch renaming
+- **2026-10-07:** Added 3D Relight effect with surface normal generation and on-canvas aiming shapes, alongside new Atmospheric Fog adjustment and staged preview caches
 - **2026-10-06:** Added AI-free mode, rewritten whites adjustment, and improved shadow and highlight recovery with mid-scale detail reinjection
+
+<details>
+<summary><strong>Expand further</strong></summary>
+
 - **2026-10-05:** Implemented log-space guided filter for edge-aware adjustments and integrated cloud API
 - **2026-10-04:** Added Kelvin white balance mode with area sampling, fine adjust mode for curves, pick/reject quick filters, and improved export presets
 - **2026-10-03:** Embed sRGB ICC profiles in exports, calculate HSL hue in perceptual color space & improve lens EXIF detection
@@ -70,10 +83,6 @@ RapidRAW is still in active development and isn't yet as polished as mature tool
 - **2026-09-27:** Tone curves now display inactive channels as colored overlay curves and reference markers
 - **2026-09-25:** Streamline adjustment panel customization and improve default tool visibility
 - **2026-09-23:** Added borders and aspect ratio padding to export options, plus reorderable and collapsible adjustment sections
-
-<details>
-<summary><strong>Expand further</strong></summary>
-
 - **2026-09-22:** Added Apple RAW 9 decoding/denoising support and custom savable crop aspect ratios
 - **2026-09-21:** Implemented cancellable AI tasks with real-time UI tracking and backend preparation for cloud inpainting
 - **2026-09-20:** Center-anchored crop resizing when holding Ctrl/Cmd on crop handles
