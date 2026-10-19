@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import {
   ArrowLeft,
   Cloud,
@@ -52,6 +52,7 @@ import { useCloudUsage } from '../../hooks/useCloudUsage';
 import { open } from '@tauri-apps/plugin-shell';
 import { RotateCcw } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
+import { formatBytes } from '../../utils/formatBytes';
 
 interface ConfirmModalState {
   confirmText: string;
@@ -109,6 +110,7 @@ interface MyLens {
 }
 
 const EXECUTE_TIMEOUT = 3000;
+const DEFAULT_BASELINE_EXPOSURE = 0.7;
 
 const resolutions: OptionItem<number>[] = [
   { value: 720, label: '720px' },
@@ -549,6 +551,9 @@ export default function SettingsPanel({
   const [clearMessage, setClearMessage] = useState('');
   const [isClearingCache, setIsClearingCache] = useState(false);
   const [cacheClearMessage, setCacheClearMessage] = useState('');
+  const [aiDenoiseCacheSize, setAiDenoiseCacheSize] = useState<number | null>(null);
+  const [isClearingAiDenoiseCache, setIsClearingAiDenoiseCache] = useState(false);
+  const [aiDenoiseCacheMessage, setAiDenoiseCacheMessage] = useState('');
   const [isClearingAiTags, setIsClearingAiTags] = useState(false);
   const [aiTagsClearMessage, setAiTagsClearMessage] = useState('');
   const [isClearingTags, setIsClearingTags] = useState(false);
@@ -584,6 +589,7 @@ export default function SettingsPanel({
     smallThumbnailResolution: appSettings?.smallThumbnailResolution || 480,
     mediumThumbnailResolution: appSettings?.mediumThumbnailResolution || 1280,
     rawHighlightCompression: appSettings?.rawHighlightCompression ?? 2.5,
+    baselineExposure: appSettings?.baselineExposure ?? DEFAULT_BASELINE_EXPOSURE,
     processingBackend: appSettings?.processingBackend || 'auto',
     linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
     highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
@@ -694,6 +700,7 @@ export default function SettingsPanel({
       smallThumbnailResolution: appSettings?.smallThumbnailResolution || 480,
       mediumThumbnailResolution: appSettings?.mediumThumbnailResolution || 1280,
       rawHighlightCompression: appSettings?.rawHighlightCompression ?? 2.5,
+      baselineExposure: appSettings?.baselineExposure ?? DEFAULT_BASELINE_EXPOSURE,
       processingBackend: appSettings?.processingBackend || 'auto',
       linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
       highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
@@ -727,6 +734,14 @@ export default function SettingsPanel({
   useEffect(() => {
     invoke<string[]>('get_lensfun_makers').then(setLensMakers).catch(console.error);
   }, []);
+
+  const refreshAiDenoiseCacheSize = useCallback(() => {
+    invoke<number>(Invokes.GetAiDenoiseCacheSize).then(setAiDenoiseCacheSize).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (activeCategory === 'processing') refreshAiDenoiseCacheSize();
+  }, [activeCategory, refreshAiDenoiseCacheSize]);
 
   const handleProcessingSettingChange = async (key: string, value: any) => {
     setProcessingSettings((prev) => ({ ...prev, [key]: value }));
@@ -977,6 +992,35 @@ export default function SettingsPanel({
       isOpen: true,
       message: t('settings.data.modals.cacheMessage'),
       onConfirm: executeClearCache,
+      title: t('settings.data.modals.confirmCacheTitle'),
+    });
+  };
+
+  const executeClearAiDenoiseCache = async () => {
+    setIsClearingAiDenoiseCache(true);
+    setAiDenoiseCacheMessage(t('settings.data.statuses.clearingAiDenoise'));
+    try {
+      await invoke(Invokes.ClearAiDenoiseCache);
+      setAiDenoiseCacheMessage(t('settings.data.statuses.aiDenoiseSuccess'));
+    } catch (err: any) {
+      console.error('Failed to clear AI denoise cache:', err);
+      setAiDenoiseCacheMessage(`Error: ${err}`);
+    } finally {
+      refreshAiDenoiseCacheSize();
+      setTimeout(() => {
+        setIsClearingAiDenoiseCache(false);
+        setAiDenoiseCacheMessage('');
+      }, EXECUTE_TIMEOUT);
+    }
+  };
+
+  const handleClearAiDenoiseCache = () => {
+    setConfirmModalState({
+      confirmText: t('settings.data.modals.confirmClearCache'),
+      confirmVariant: 'destructive',
+      isOpen: true,
+      message: t('settings.data.modals.aiDenoiseMessage'),
+      onConfirm: executeClearAiDenoiseCache,
       title: t('settings.data.modals.confirmCacheTitle'),
     });
   };
@@ -2335,6 +2379,68 @@ export default function SettingsPanel({
 
                       <div className="space-y-4">
                         <SettingItem
+                          label={t('settings.processing.preprocessing.baselineExposure')}
+                          description={t('settings.processing.preprocessing.baselineExposureDesc')}
+                        >
+                          <Switch
+                            checked={appSettings?.enableBaselineExposure ?? false}
+                            id="baseline-exposure-toggle"
+                            label={t('settings.processing.preprocessing.enableBaselineExposure')}
+                            onChange={(checked) =>
+                              onSettingsChange({ ...appSettings, enableBaselineExposure: checked })
+                            }
+                          />
+                        </SettingItem>
+
+                        <AnimatePresence>
+                          {(appSettings?.enableBaselineExposure ?? false) && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.3, ease: 'easeInOut' }}
+                            >
+                              <div className="pl-4 border-l-2 border-border-color ml-1 space-y-3">
+                                <SettingItem
+                                  label={t('settings.processing.preprocessing.baselineExposureAmount')}
+                                  description={t('settings.processing.preprocessing.baselineExposureAmountDesc')}
+                                >
+                                  <Slider
+                                    label={t('settings.tagging.amount')}
+                                    min={0}
+                                    max={2}
+                                    step={0.05}
+                                    value={processingSettings.baselineExposure}
+                                    defaultValue={DEFAULT_BASELINE_EXPOSURE}
+                                    onChange={(e) =>
+                                      handleProcessingSettingChange('baselineExposure', Number(e.target.value))
+                                    }
+                                    fillOrigin="min"
+                                    suffix=" EV"
+                                  />
+                                </SettingItem>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
+                      <SettingItem
+                        label={t('settings.processing.preprocessing.highlightPreservation')}
+                        description={t('settings.processing.preprocessing.highlightPreservationDesc')}
+                      >
+                        <Switch
+                          checked={appSettings?.compensateHighlightPreservation ?? true}
+                          id="highlight-preservation-toggle"
+                          label={t('settings.processing.preprocessing.enableHighlightPreservation')}
+                          onChange={(checked) =>
+                            onSettingsChange({ ...appSettings, compensateHighlightPreservation: checked })
+                          }
+                        />
+                      </SettingItem>
+
+                      <div className="space-y-4">
+                        <SettingItem
                           label={t('settings.processing.preprocessing.tonemapperOverride')}
                           description={t('settings.processing.preprocessing.tonemapperOverrideDesc')}
                         >
@@ -2437,6 +2543,19 @@ export default function SettingsPanel({
                         isProcessing={isClearingCache}
                         message={cacheClearMessage}
                         title={t('settings.data.clearThumbnail')}
+                      />
+
+                      <DataActionItem
+                        buttonAction={handleClearAiDenoiseCache}
+                        buttonText={t('settings.data.clearAiDenoiseButton')}
+                        description={t('settings.data.clearAiDenoiseDesc', {
+                          size: aiDenoiseCacheSize === null ? '…' : formatBytes(aiDenoiseCacheSize, t),
+                        })}
+                        disabled={!aiDenoiseCacheSize}
+                        icon={<Trash2 size={16} className="mr-2" />}
+                        isProcessing={isClearingAiDenoiseCache}
+                        message={aiDenoiseCacheMessage}
+                        title={t('settings.data.clearAiDenoise')}
                       />
 
                       <DataActionItem

@@ -95,6 +95,8 @@
       "resetPoint": "{{channel}} puntcurve herstellen"
     },
     "details": {
+      "aiDenoise": "AI-ruisonderdrukking",
+      "aiDenoiseDetail": "Detail",
       "blueYellow": "Blauw/Geel",
       "centre": "Centrum",
       "chromaticAberration": "Chromatische aberratie",
@@ -139,6 +141,7 @@
       "relightColor": "Lichtkleur",
       "relightCone": "Kegel",
       "relightDepth": "Diepte",
+      "relightDuplicateLight": "Licht dupliceren",
       "relightElevation": "Elevatie",
       "relightFalloff": "Afname",
       "relightHint": "Voeg een licht toe of selecteer er een en klik of sleep in de afbeelding om het te plaatsen.",
@@ -208,6 +211,7 @@
     "editor": {
       "autoAdjust": "Autom. aanpassen",
       "autoLensCorrection": "Autom. lenscorrectie",
+      "autoStraighten": "Automatisch rechtzetten",
       "cancel": "Annuleren",
       "colorLabel": "Kleurlabel",
       "confirmReset": "Herstellen bevestigen",
@@ -272,6 +276,8 @@
       "autoAdjust_other": "Autom. aanpassen",
       "autoLensCorrection_one": "Autom. lenscorrectie",
       "autoLensCorrection_other": "Autom. lenscorrectie",
+      "autoStraighten_one": "Afbeelding automatisch rechtzetten",
+      "autoStraighten_other": "Afbeeldingen automatisch rechtzetten",
       "collage_one": "Afbeelding inkaderen",
       "collage_other": "Collage maken",
       "confirmDelete": "Verwijderen bevestigen",
@@ -396,6 +402,7 @@
       },
       "createNewTitle": "Nieuwe generatieve bewerking maken",
       "createNewTooltip": "Nieuwe {{name}} bewerking maken",
+      "denoising": "AI-ruisonderdrukking wordt uitgevoerd...",
       "dropzoneText": "Hier neerzetten om een nieuwe bewerking te maken",
       "editSettingsTitle": "Bewerkingsinstellingen",
       "editsTitle": "Bewerkingen",
@@ -464,6 +471,8 @@
     },
     "crop": {
       "aspectRatioHeading": "Beeldverhouding",
+      "autoStraightenFailed": "Automatisch rechtzetten mislukt: {{error}}",
+      "autoStraightenNoLines": "Geen rechte lijnen gevonden om recht te zetten",
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Hoogte",
@@ -563,6 +572,7 @@
       "rotationHeading": "Rotatie",
       "title": "Bijsnijden & transformeren",
       "tooltips": {
+        "autoStraighten": "Automatisch rechtzetten (Shift+S)",
         "compositionOverlay": "Compositie-overlay",
         "flipHoriz": "Afbeelding horizontaal spiegelen",
         "flipVert": "Afbeelding verticaal spiegelen",
@@ -855,8 +865,10 @@
       "selectFolderTitle_other": "Map selecteren om {{count}} afbeeldingen te exporteren"
     },
     "file": {
+      "dpi": "DPI",
       "quality": "Kwaliteit",
       "qualityLossless": "Kwaliteit (verliesvrij)",
+      "resolution": "Resolutie",
       "tiffBitDepth": "TIFF-bitdiepte",
       "tiffBitDepth16": "16-bit",
       "tiffBitDepth8": "8-bit"
@@ -1051,6 +1063,8 @@
       }
     },
     "header": {
+      "cancel": "Annuleren",
+      "deselectAll": "Alles deselecteren",
       "search": {
         "addFilterOrSearch": "Filter toevoegen of zoeken...",
         "indexingImages": "Afbeeldingen indexeren...",
@@ -1062,6 +1076,8 @@
         "tooltipClearSearch": "Zoekopdracht wissen",
         "tooltipSearchFilter": "Zoeken of filteren"
       },
+      "selectAll": "Alles selecteren",
+      "selectItems": "Items selecteren",
       "title": "Bibliotheek",
       "viewOptions": {
         "currentFolder": "Huidige map",
@@ -1171,7 +1187,8 @@
     "tooltips": {
       "communityPresets": "Community-voorinstellingen",
       "goHome": "Naar startpagina",
-      "importImages": "Afbeeldingen importeren"
+      "importImages": "Afbeeldingen importeren",
+      "select": "Selecteren"
     }
   },
   "masks": {
@@ -1557,6 +1574,9 @@
       "zoomDesc": "Pas aan hoe snel het canvas in- en uitzoomt bij gebruik van het scrollwiel of knijpgebaar."
     },
     "data": {
+      "clearAiDenoise": "AI-ruisonderdrukkingscache wissen",
+      "clearAiDenoiseButton": "Wissen",
+      "clearAiDenoiseDesc": "Verwijdert de opgeslagen AI-ruisonderdrukkingsresultaten ({{size}}). Afbeeldingen met AI-ruisonderdrukking ingeschakeld berekenen deze opnieuw wanneer ze de volgende keer worden geopend.",
       "clearSidecars": "Alle sidecar-bestanden wissen",
       "clearSidecarsButton": "Wissen",
       "clearSidecarsDesc": "Dit verwijdert alle .rrdata-bestanden (met uw bewerkingen) in uw hoofdmappen:",
@@ -1568,6 +1588,7 @@
       "logsButton": "Openen",
       "logsDesc": "Bekijk het logboekbestand van de toepassing voor probleemoplossing. Het logboek bevindt zich op:",
       "modals": {
+        "aiDenoiseMessage": "Weet je zeker dat je de AI-ruisonderdrukkingscache wilt wissen?\n\nAfbeeldingen met AI-ruisonderdrukking ingeschakeld moeten opnieuw worden verwerkt, wat per afbeelding enkele minuten kan duren.",
         "aiMessage": "Weet u zeker dat u alle door AI gegenereerde tags van alle afbeeldingen in alle actieve hoofdmappen wilt verwijderen?\n\nDit heeft geen invloed op door gebruikers toegevoegde tags. Deze actie kan niet ongedaan worden gemaakt.",
         "allMessage": "Weet u zeker dat u alle door AI gegenereerde en door gebruikers toegevoegde tags van alle afbeeldingen in alle actieve hoofdmappen wilt verwijderen?\n\nDeze actie kan niet ongedaan worden gemaakt.",
         "cacheMessage": "Weet u zeker dat u de miniatuurcache wilt wissen?\n\nAlle miniaturen moeten opnieuw worden gegenereerd, wat langzaam kan zijn voor grote mappen.",
@@ -1590,6 +1611,7 @@
       "resetLayoutDesc": "Paneeldocks, zijsplitsers, hoogtes en paneelschakelaars terugzetten naar de standaardindeling.",
       "resetLayoutTitle": "Werkruimte-indeling herstellen",
       "statuses": {
+        "aiDenoiseSuccess": "AI-ruisonderdrukkingscache succesvol gewist.",
         "aiSuccess": "{{count}} bestanden bijgewerkt. AI-tags verwijderd.",
         "aiSuccess_one": "{{count}} bestand bijgewerkt. AI-tags verwijderd.",
         "aiSuccess_other": "{{count}} bestanden bijgewerkt. AI-tags verwijderd.",
@@ -1598,6 +1620,7 @@
         "allSuccess_other": "{{count}} bestanden bijgewerkt. Alle niet-kleur-tags verwijderd.",
         "cacheSuccess": "Miniatuurcache succesvol gewist.",
         "clearingAi": "AI-tags wissen uit alle sidecar-bestanden...",
+        "clearingAiDenoise": "AI-ruisonderdrukkingscache wordt gewist...",
         "clearingAll": "Alle tags wissen uit sidecar-bestanden...",
         "clearingCache": "Miniatuurcache wissen...",
         "deleting": "Sidecar-bestanden verwijderen, even geduld...",
@@ -1645,6 +1668,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "Automatisch rechtzetten",
         "brush_size_down": "Penseelgrootte verkleinen",
         "brush_size_up": "Penseelgrootte vergroten",
         "color_label_blue": "Kleurlabel: blauw",
@@ -1823,6 +1847,10 @@
         "appleRaw9Desc": "RAW-bestanden ontwikkelen met Apple's Core Image RAW 9-decoder, die demosaïcering en ruisonderdrukking in één stap uitvoert op de Neural Engine. Vereist macOS 27 of hoger en een ondersteunde camera; niet-ondersteunde bestanden gebruiken automatisch de ingebouwde decoder. Langzamer dan de standaarddecoder. Miniaturen worden niet beïnvloed.",
         "applyPreprocessing": "Voorverwerking toepassen op niet-RAW-bestanden",
         "applyPreprocessingDesc": "Als ingeschakeld, wordt de basiskleurruisonderdrukking en voorverscherping hierboven ook toegepast op standaardformaten.",
+        "baselineExposure": "Basisbelichting",
+        "baselineExposureAmount": "Basiswaarde",
+        "baselineExposureAmountDesc": "Belichting die aan RAW-bestanden wordt toegevoegd. darktable gebruikt +0,7 EV.",
+        "baselineExposureDesc": "Maakt alle RAW-bestanden een vaste hoeveelheid lichter, zoals de scene-referred standaard van darktable, plus de DNG-tag BaselineExposure als die aanwezig is. Afbeeldingen die vóór deze optie zijn bewerkt, veranderen niet.",
         "colorNr": "Basis kleurruisonderdrukking",
         "colorNrDesc": "Past een cross-bilateraal filter vroeg in de pijplijn toe om chroominantieruis te verwijderen. Hogere waarde = Sterkere ruisonderdrukking.",
         "defaultNonRawTonemapper": "Standaard niet-RAW-toonmapping",
@@ -1830,8 +1858,12 @@
         "defaultRawTonemapper": "Standaard RAW-toonmapping",
         "defaultRawTonemapperDesc": "De toonmapping die wordt toegepast op RAW-afbeeldingen.",
         "enableAppleRaw9": "Apple RAW 9 gebruiken voor RAW-bestanden",
+        "enableBaselineExposure": "Basisbelichting toepassen op RAW-bestanden",
+        "enableHighlightPreservation": "Cameramodi voor bescherming van hoge lichten compenseren",
         "enablePreprocessingNonRaws": "Inschakelen voor niet-RAW-bestanden",
         "enableTonemapperOverride": "Toonmappingoverride inschakelen",
+        "highlightPreservation": "Compensatie voor bescherming van hoge lichten",
+        "highlightPreservationDesc": "Herstelt de belichting die de camera inhield in modi die de hoge lichten beschermen, uitgelezen uit het RAW-bestand (Fujifilm DR200/DR400, Canon Prioriteit hoge lichten en Auto Lighting Optimizer, Nikon Actieve D-Lighting, Olympus gradatie, Pentax DR-uitbreiding). Afbeeldingen die vóór deze optie zijn bewerkt, veranderen niet.",
         "highlightRecovery": "RAW-hooglichtenherstel",
         "highlightRecoveryDesc": "Bepaalt hoeveel detail wordt hersteld van uitgeknipte hooglichten in RAW-bestanden. Hogere waarden herstellen meer detail maar kunnen paarse artefacten introduceren.",
         "linearOptions": {

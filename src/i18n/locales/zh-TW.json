@@ -96,6 +96,8 @@
       "resetPoint": "重置 {{channel}} 點曲線"
     },
     "details": {
+      "aiDenoise": "AI 降噪",
+      "aiDenoiseDetail": "細節",
       "blueYellow": "藍/黃",
       "centre": "置中",
       "chromaticAberration": "色差",
@@ -140,6 +142,7 @@
       "relightColor": "燈光顏色",
       "relightCone": "光錐",
       "relightDepth": "深度",
+      "relightDuplicateLight": "複製燈光",
       "relightElevation": "仰角",
       "relightFalloff": "衰減",
       "relightHint": "新增或選取一個燈光，然後在影像上點擊或拖曳以放置。",
@@ -209,6 +212,7 @@
     "editor": {
       "autoAdjust": "自動調整影像",
       "autoLensCorrection": "自動鏡頭校正",
+      "autoStraighten": "自動拉直",
       "cancel": "取消",
       "colorLabel": "顏色標籤",
       "confirmReset": "確認重置",
@@ -278,6 +282,8 @@
       "autoAdjust_other": "自動調整影像",
       "autoLensCorrection_one": "自動鏡頭校正",
       "autoLensCorrection_other": "自動鏡頭校正",
+      "autoStraighten_one": "自動拉直影像",
+      "autoStraighten_other": "自動拉直影像",
       "collage_one": "裝裱影像",
       "collage_other": "建立拼貼畫",
       "confirmDelete": "確認刪除",
@@ -402,6 +408,7 @@
       },
       "createNewTitle": "建立新的生成式編輯",
       "createNewTooltip": "建立新的 {{name}} 編輯",
+      "denoising": "正在進行 AI 降噪...",
       "dropzoneText": "拖放到此處以建立新編輯",
       "editSettingsTitle": "編輯設定",
       "editsTitle": "編輯",
@@ -468,6 +475,8 @@
     },
     "crop": {
       "aspectRatioHeading": "寬高比",
+      "autoStraightenFailed": "自動拉直失敗：{{error}}",
+      "autoStraightenNoLines": "找不到可用於拉直的直線",
       "custom": {
         "hPlaceholder": "高",
         "hTooltip": "高度",
@@ -567,6 +576,7 @@
       "rotationHeading": "旋轉",
       "title": "裁剪與變換",
       "tooltips": {
+        "autoStraighten": "自動拉直（Shift+S）",
         "compositionOverlay": "構圖疊加",
         "flipHoriz": "水平翻轉影像",
         "flipVert": "垂直翻轉影像",
@@ -859,8 +869,10 @@
       "selectFolderTitle_other": "選擇資料夾以匯出 {{count}} 張影像"
     },
     "file": {
+      "dpi": "DPI",
       "quality": "品質",
       "qualityLossless": "品質（無損）",
+      "resolution": "解析度",
       "tiffBitDepth": "TIFF 位元深度",
       "tiffBitDepth16": "16 位元",
       "tiffBitDepth8": "8 位元"
@@ -1061,6 +1073,8 @@
       }
     },
     "header": {
+      "cancel": "取消",
+      "deselectAll": "取消全選",
       "search": {
         "addFilterOrSearch": "新增過濾或搜尋...",
         "indexingImages": "索引影像中...",
@@ -1072,6 +1086,8 @@
         "tooltipClearSearch": "清除搜尋",
         "tooltipSearchFilter": "搜尋或過濾"
       },
+      "selectAll": "全選",
+      "selectItems": "選擇項目",
       "title": "相簿",
       "viewOptions": {
         "currentFolder": "當前資料夾",
@@ -1192,7 +1208,8 @@
     "tooltips": {
       "communityPresets": "社群預設",
       "goHome": "返回首頁",
-      "importImages": "匯入影像"
+      "importImages": "匯入影像",
+      "select": "選擇"
     }
   },
   "masks": {
@@ -1578,6 +1595,9 @@
       "zoomDesc": "調整使用滾輪或捏合手勢時畫布縮放的速度。"
     },
     "data": {
+      "clearAiDenoise": "清除 AI 降噪快取",
+      "clearAiDenoiseButton": "清除",
+      "clearAiDenoiseDesc": "刪除已快取的 AI 降噪結果（{{size}}）。啟用 AI 降噪的影像會在下次開啟時重新計算。",
       "clearSidecars": "清除所有附屬檔案",
       "clearSidecarsButton": "清除",
       "clearSidecarsDesc": "這將刪除您的根資料夾中的所有 .rrdata 檔案（包含您的編輯資料）：",
@@ -1589,6 +1609,7 @@
       "logsButton": "開啟",
       "logsDesc": "檢視應用程式的日誌檔案以進行故障排除。日誌檔案位於：",
       "modals": {
+        "aiDenoiseMessage": "確定要清除 AI 降噪快取嗎？\n\n啟用 AI 降噪的影像需要重新降噪，每張影像可能需要數分鐘。",
         "aiMessage": "您確定要從所有活動根資料夾中的所有影像中移除所有 AI 生成的標籤嗎？\n\n這不會影響使用者新增的標籤。此操作無法復原。",
         "allMessage": "您確定要從所有活動根資料夾中的所有影像中移除所有 AI 生成和使用者新增的標籤嗎？\n\n此操作無法復原。",
         "cacheMessage": "您確定要清除縮圖快取嗎？\n\n所有縮圖將需要重新生成，對於大型資料夾可能會很慢。",
@@ -1611,6 +1632,7 @@
       "resetLayoutDesc": "將面板停靠區、側邊分割條、高度和面板切換器還原為預設的版面配置。",
       "resetLayoutTitle": "重設工作區版面配置",
       "statuses": {
+        "aiDenoiseSuccess": "AI 降噪快取已成功清除。",
         "aiSuccess": "{{count}} 個檔案已更新。AI 標籤已移除。",
         "aiSuccess_one": "{{count}} 個檔案已更新。AI 標籤已移除。",
         "aiSuccess_other": "{{count}} 個檔案已更新。AI 標籤已移除。",
@@ -1619,6 +1641,7 @@
         "allSuccess_other": "{{count}} 個檔案已更新。所有非顏色標籤已移除。",
         "cacheSuccess": "縮圖快取已成功清除。",
         "clearingAi": "正在從所有附屬檔案中清除 AI 標籤...",
+        "clearingAiDenoise": "正在清除 AI 降噪快取...",
         "clearingAll": "正在從附屬檔案中清除所有標籤...",
         "clearingCache": "正在清除縮圖快取...",
         "deleting": "正在刪除附屬檔案，請稍候...",
@@ -1666,6 +1689,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "自動拉直",
         "brush_size_down": "減小畫筆大小",
         "brush_size_up": "增大畫筆大小",
         "color_label_blue": "顏色標籤：藍色",
@@ -1848,6 +1872,10 @@
         "appleRaw9Desc": "使用 Apple 的 Core Image RAW 9 解碼器沖洗 RAW 檔案。它在神經網路引擎 (Neural Engine) 上一步完成去馬賽克與降噪。需要 macOS 27 或更高版本以及支援的相機；不支援的檔案將自動使用內建解碼器。比預設解碼器慢。縮圖不受影響。",
         "applyPreprocessing": "對非 RAW 影像應用預處理",
         "applyPreprocessingDesc": "如果啟用，上述基礎顏色降噪和預銳化也將應用於標準格式。",
+        "baselineExposure": "基礎曝光",
+        "baselineExposureAmount": "基礎量",
+        "baselineExposureAmountDesc": "加到 RAW 檔案的曝光量。darktable 使用 +0.7 EV。",
+        "baselineExposureDesc": "將所有 RAW 檔案提亮一個固定值（與 darktable 場景參考模式的預設值相同），如有 DNG BaselineExposure 標籤也會一併加上。在此選項推出之前編輯的影像不受影響。",
         "colorNr": "基礎顏色降噪",
         "colorNrDesc": "在管線早期應用交叉雙邊濾波器以去除彩色噪點。值越高 = 降噪越強。",
         "defaultNonRawTonemapper": "預設非 RAW 色調映射",
@@ -1855,8 +1883,12 @@
         "defaultRawTonemapper": "預設 RAW 色調映射",
         "defaultRawTonemapperDesc": "應用於 RAW 影像的色調映射器。",
         "enableAppleRaw9": "對 RAW 檔案使用 Apple RAW 9",
+        "enableBaselineExposure": "對 RAW 檔案套用基礎曝光",
+        "enableHighlightPreservation": "補償相機的高光保護模式",
         "enablePreprocessingNonRaws": "對非 RAW 影像啟用",
         "enableTonemapperOverride": "啟用色調映射覆蓋",
+        "highlightPreservation": "高光保護補償",
+        "highlightPreservationDesc": "從 RAW 檔案讀取相機在高光保護模式下保留的曝光並予以恢復（富士 DR200/DR400、Canon 高光色調優先與自動亮度優化、Nikon 動態 D-Lighting、Olympus 層次、Pentax 動態範圍擴展）。在此選項推出之前編輯的影像不受影響。",
         "highlightRecovery": "RAW 亮部恢復",
         "highlightRecoveryDesc": "控制從 RAW 檔案的裁剪亮部中恢復細節的程度。較高的值可恢復更多細節，但可能引入紫色偽影。",
         "linearOptions": {

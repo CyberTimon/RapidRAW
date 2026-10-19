@@ -38,6 +38,31 @@
   <url type="homepage">https://github.com/CyberTimon/RapidRAW</url>
 
   <releases>
+    <release version="v1.6.6" date="2026-10-18">
+        <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.6.6</url>
+        <description translate="no">
+            <p>New Features</p>
+            <ul>
+                <li>Spatial Effects &amp; 2.5D Relighting: Real-time depth and normal map estimation enabling dynamic point, spot, and directional lights, ray-traced shadows, and volumetric ground fog.</li>
+                <li>Non-Destructive AI Denoise: Integrated directly into the primary editing pipeline inside the Details panel, preserving dynamic range without creating bloated intermediate TIFF files.</li>
+                <li>Auto Straighten: Level crooked photos automatically with a single click or Shift + S shortcut, analyzing image geometry and structural lines with batch library support.</li>
+                <li>Custom Vignette &amp; Centré Focal Point: Drag-and-drop on-canvas focal pin with real-time contour overlays for off-center subject framing.</li>
+                <li>Granular Tool Visibility: Dedicated toggles on each individual adjustment tool to preview edits in isolation without resetting sliders.</li>
+                <li>RAW Baseline Exposure &amp; Highlight Bias: Configurable baseline exposure compensation and automatic recovery for camera highlight protection modes (Fuji DR, Canon HTP, Nikon ADL).</li>
+            </ul>
+            <p>Core Improvements</p>
+            <ul>
+                <li>Export DPI Settings: Added customizable DPI controls in the export modal for print preparation.</li>
+                <li>Standardized Metadata Writing: Embed keywords, ratings, and color labels into standard XMP sidecars alongside improved RAW EXIF handling.</li>
+                <li>Android Touch Multi-Selection: Added touch selection mode to easily manage, rate, and batch edit photo sets.</li>
+                <li>Batch Renaming Tokens: Added {original_filename_number} token to preserve in-camera frame sequence numbering.</li>
+                <li>Updated Lens Database: Integrated the latest Lensfun profiles for newly released lenses.</li>
+                <li>Cleaner Sidecar Storage: Prevented writing empty, default-only .rrdata files to image directories.</li>
+                <li>Staged Preview Caching: Reduced preview lag and canvas flicker during rapid slider adjustments.</li>
+                <li>Stability &amp; Bug Fixes: General performance improvements and bug squashing across rendering backends.</li>
+            </ul>
+        </description>
+    </release>
     <release version="v1.6.5" date="2026-10-06">
         <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.6.5</url>
         <description translate="no">

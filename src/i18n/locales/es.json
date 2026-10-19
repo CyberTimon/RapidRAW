@@ -96,6 +96,8 @@
       "resetPoint": "Restablecer curva de puntos de {{channel}}"
     },
     "details": {
+      "aiDenoise": "Reducción de ruido IA",
+      "aiDenoiseDetail": "Detalle",
       "blueYellow": "Azul/Amarillo",
       "centre": "Centro",
       "chromaticAberration": "Aberración cromática",
@@ -140,6 +142,7 @@
       "relightColor": "Color de la luz",
       "relightCone": "Cono",
       "relightDepth": "Profundidad",
+      "relightDuplicateLight": "Duplicar luz",
       "relightElevation": "Elevación",
       "relightFalloff": "Atenuación",
       "relightHint": "Añade o selecciona una luz y haz clic o arrastra en la imagen para colocarla.",
@@ -209,6 +212,7 @@
     "editor": {
       "autoAdjust": "Ajuste automático de imagen",
       "autoLensCorrection": "Corrección de lente automática",
+      "autoStraighten": "Enderezar automáticamente",
       "cancel": "Cancelar",
       "colorLabel": "Etiqueta de color",
       "confirmReset": "Confirmar restablecimiento",
@@ -283,6 +287,9 @@
       "autoAdjust_other": "Ajuste automático de imágenes",
       "autoLensCorrection_one": "Corrección de lente automática",
       "autoLensCorrection_other": "Corrección de lente automática",
+      "autoStraighten_many": "Enderezar imágenes automáticamente",
+      "autoStraighten_one": "Enderezar imagen automáticamente",
+      "autoStraighten_other": "Enderezar imágenes automáticamente",
       "collage_many": "Crear collage",
       "collage_one": "Enmarcar imagen",
       "collage_other": "Crear collage",
@@ -418,6 +425,7 @@
       },
       "createNewTitle": "Crear nueva edición generativa",
       "createNewTooltip": "Crear nueva edición {{name}}",
+      "denoising": "Ejecutando reducción de ruido IA...",
       "dropzoneText": "Suelta aquí para crear una nueva edición",
       "editSettingsTitle": "Ajustes de edición",
       "editsTitle": "Ediciones",
@@ -490,6 +498,8 @@
     },
     "crop": {
       "aspectRatioHeading": "Relación de aspecto",
+      "autoStraightenFailed": "Error al enderezar automáticamente: {{error}}",
+      "autoStraightenNoLines": "No se encontraron líneas rectas para enderezar",
       "custom": {
         "hPlaceholder": "Al",
         "hTooltip": "Altura",
@@ -589,6 +599,7 @@
       "rotationHeading": "Rotación",
       "title": "Recortar y transformar",
       "tooltips": {
+        "autoStraighten": "Enderezar automáticamente (Shift+S)",
         "compositionOverlay": "Superposición de composición",
         "flipHoriz": "Voltear imagen horizontalmente",
         "flipVert": "Voltear imagen verticalmente",
@@ -883,8 +894,10 @@
       "selectFolderTitle_other": "Seleccionar carpeta para exportar {{count}} imágenes"
     },
     "file": {
+      "dpi": "PPP",
       "quality": "Calidad",
       "qualityLossless": "Calidad (Sin pérdida)",
+      "resolution": "Resolución",
       "tiffBitDepth": "Profundidad de bits TIFF",
       "tiffBitDepth16": "16 bits",
       "tiffBitDepth8": "8 bits"
@@ -1086,6 +1099,8 @@
       }
     },
     "header": {
+      "cancel": "Cancelar",
+      "deselectAll": "Deseleccionar todo",
       "search": {
         "addFilterOrSearch": "Añadir filtro o buscar...",
         "indexingImages": "Indexando imágenes...",
@@ -1097,6 +1112,8 @@
         "tooltipClearSearch": "Borrar búsqueda",
         "tooltipSearchFilter": "Buscar o Filtrar"
       },
+      "selectAll": "Seleccionar todo",
+      "selectItems": "Seleccionar elementos",
       "title": "Biblioteca",
       "viewOptions": {
         "currentFolder": "Carpeta actual",
@@ -1220,7 +1237,8 @@
     "tooltips": {
       "communityPresets": "Ajustes de la comunidad",
       "goHome": "Ir al Inicio",
-      "importImages": "Importar imágenes"
+      "importImages": "Importar imágenes",
+      "select": "Seleccionar"
     }
   },
   "masks": {
@@ -1612,6 +1630,9 @@
       "zoomDesc": "Ajusta qué tan rápido se acerca y aleja el lienzo al usar la rueda de desplazamiento o el gesto de pellizcar."
     },
     "data": {
+      "clearAiDenoise": "Borrar caché de reducción de ruido IA",
+      "clearAiDenoiseButton": "Borrar",
+      "clearAiDenoiseDesc": "Elimina los resultados guardados de la reducción de ruido IA ({{size}}). Las imágenes con la reducción de ruido IA activada la recalcularán la próxima vez que se abran.",
       "clearSidecars": "Borrar todos los archivos sidecar",
       "clearSidecarsButton": "Borrar",
       "clearSidecarsDesc": "Esto eliminará todos los archivos .rrdata (que contienen tus ediciones) dentro de tus carpetas raíz:",
@@ -1623,6 +1644,7 @@
       "logsButton": "Abrir",
       "logsDesc": "Consulta el archivo de registro de la aplicación para solucionar problemas. El registro se encuentra en:",
       "modals": {
+        "aiDenoiseMessage": "¿Seguro que quieres borrar la caché de reducción de ruido IA?\n\nLas imágenes con la reducción de ruido IA activada tendrán que procesarse de nuevo, lo que puede tardar varios minutos por imagen.",
         "aiMessage": "¿Estás seguro de que quieres eliminar todas las etiquetas generadas por IA de todas las imágenes en todas las carpetas raíz activas?\n\nEsto no afectará a las etiquetas añadidas por el usuario. Esta acción no se puede deshacer.",
         "allMessage": "¿Estás seguro de que quieres eliminar todas las etiquetas generadas por IA y las añadidas por el usuario de todas las imágenes en todas las carpetas raíz activas?\n\nEsta acción no se puede deshacer.",
         "cacheMessage": "¿Estás seguro de que quieres borrar la caché de miniaturas?\n\nTodas las miniaturas tendrán que regenerarse, lo que puede ser lento para carpetas grandes.",
@@ -1645,6 +1667,7 @@
       "resetLayoutDesc": "Restaura los paneles acoplados, los divisores laterales, las alturas y los selectores de paneles a su disposición predeterminada.",
       "resetLayoutTitle": "Restablecer el diseño del espacio de trabajo",
       "statuses": {
+        "aiDenoiseSuccess": "Caché de reducción de ruido IA borrada correctamente.",
         "aiSuccess": "{{count}} archivos actualizados. Etiquetas de IA eliminadas.",
         "aiSuccess_many": "{{count}} archivos actualizados. Etiquetas de IA eliminadas.",
         "aiSuccess_one": "{{count}} archivo actualizado. Etiquetas de IA eliminadas.",
@@ -1655,6 +1678,7 @@
         "allSuccess_other": "{{count}} archivos actualizados. Todas las etiquetas sin color eliminadas.",
         "cacheSuccess": "Caché de miniaturas borrada con éxito.",
         "clearingAi": "Borrando etiquetas de IA de todos los archivos sidecar...",
+        "clearingAiDenoise": "Borrando la caché de reducción de ruido IA...",
         "clearingAll": "Borrando todas las etiquetas de los archivos sidecar...",
         "clearingCache": "Borrando caché de miniaturas...",
         "deleting": "Eliminando archivos sidecar, por favor espera...",
@@ -1703,6 +1727,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "Enderezar automáticamente",
         "brush_size_down": "Reducir tamaño del pincel",
         "brush_size_up": "Aumentar tamaño del pincel",
         "color_label_blue": "Etiqueta de color: Azul",
@@ -1885,6 +1910,10 @@
         "appleRaw9Desc": "Revela archivos RAW con el decodificador RAW 9 de Core Image de Apple, que realiza el interpolado cromático y reduce el ruido en un solo paso en el Neural Engine. Requiere macOS 27 o posterior y una cámara compatible; los archivos no compatibles usan automáticamente el decodificador integrado. Más lento que el decodificador predeterminado. Las miniaturas no se ven afectadas.",
         "applyPreprocessing": "Aplicar preprocesamiento a los no RAW",
         "applyPreprocessingDesc": "Si está activado, la reducción base del ruido de color y el preenfoque mencionados arriba también se aplicarán a los formatos estándar.",
+        "baselineExposure": "Exposición base",
+        "baselineExposureAmount": "Cantidad base",
+        "baselineExposureAmountDesc": "Exposición añadida a los archivos RAW. darktable usa +0,7 EV.",
+        "baselineExposureDesc": "Aclara todos los archivos RAW en una cantidad fija, como el valor predeterminado de darktable en modo referido a la escena, más la etiqueta DNG BaselineExposure si existe. Las imágenes editadas antes de que existiera esta opción no se ven afectadas.",
         "colorNr": "Reducción base del ruido de color",
         "colorNrDesc": "Aplica un filtro bilateral cruzado temprano en el pipeline para eliminar el ruido de croma. Valor más alto = mayor reducción.",
         "defaultNonRawTonemapper": "Mapeador de tonos predeterminado no RAW",
@@ -1892,8 +1921,12 @@
         "defaultRawTonemapper": "Mapeador de tonos predeterminado RAW",
         "defaultRawTonemapperDesc": "El mapeador de tonos a aplicar a las imágenes RAW.",
         "enableAppleRaw9": "Usar Apple RAW 9 para archivos RAW",
+        "enableBaselineExposure": "Aplicar exposición base a los archivos RAW",
+        "enableHighlightPreservation": "Compensar los modos de protección de altas luces de la cámara",
         "enablePreprocessingNonRaws": "Activar para no RAW",
         "enableTonemapperOverride": "Activar anulación del mapeador de tonos",
+        "highlightPreservation": "Compensación de protección de altas luces",
+        "highlightPreservationDesc": "Restaura la exposición que la cámara reservó en los modos de protección de altas luces, leída del archivo RAW (Fujifilm DR200/DR400, Prioridad a tonos altas luces y Auto Lighting Optimizer de Canon, D-Lighting activo de Nikon, gradación de Olympus, expansión de rango dinámico de Pentax). Las imágenes editadas antes de que existiera esta opción no se ven afectadas.",
         "highlightRecovery": "Recuperación de altas luces RAW",
         "highlightRecoveryDesc": "Controla cuánto detalle se recupera de las luces recortadas en los archivos RAW. Valores más altos recuperan más detalle pero pueden introducir artefactos morados.",
         "linearOptions": {

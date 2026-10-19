@@ -255,6 +255,14 @@
         <cropfactor>1</cropfactor>
     </camera>
 
+	<camera>
+        <maker>Canon</maker>
+        <model>Canon EOS R8 Mark II</model>
+        <model lang="en">EOS R8 Mark II</model>
+        <mount>Canon RF</mount>
+        <cropfactor>1</cropfactor>
+    </camera>
+
     <lens>
         <maker>Canon</maker>
         <model>Canon EF-M 18-55mm f/3.5-5.6 IS STM</model>
@@ -2673,6 +2681,18 @@
             <distortion model="ptlens" focal="121" a="0.0030628" b="0.00149" c="0.0094275"/>
             <distortion model="ptlens" focal="162" a="0.0102741" b="-0.0259521" c="0.0435937"/>
             <distortion model="ptlens" focal="210" a="-0.0034996" b="0.0211619" c="-0.0103389"/>
+        </calibration>
+    </lens>
+
+	<lens>
+        <maker>Canon</maker>
+        <model>Canon RF 50mm F1.4 L VCM</model>
+        <mount>Canon RF</mount>
+        <cropfactor>1.0</cropfactor>
+        <calibration>
+            <!-- Taken with Canon EOS R6 -->
+            <distortion model="ptlens" focal="50" a="0.0058287" b="-0.0147653" c="0.0165857"/>
+            <tca model="poly3" focal="50" vr="1.0000725" vb="1.0000139"/>
         </calibration>
     </lens>
 

@@ -96,6 +96,8 @@
       "resetPoint": "{{channel}} ポイントカーブをリセット"
     },
     "details": {
+      "aiDenoise": "AIノイズ除去",
+      "aiDenoiseDetail": "ディテール",
       "blueYellow": "ブルー/イエロー",
       "centre": "中央",
       "chromaticAberration": "色収差",
@@ -140,6 +142,7 @@
       "relightColor": "ライトの色",
       "relightCone": "コーン",
       "relightDepth": "奥行き",
+      "relightDuplicateLight": "ライトを複製",
       "relightElevation": "仰角",
       "relightFalloff": "減衰",
       "relightHint": "ライトを追加または選択し、画像上をクリックまたはドラッグして配置します。",
@@ -209,6 +212,7 @@
     "editor": {
       "autoAdjust": "画像を自動補正",
       "autoLensCorrection": "自動レンズ補正",
+      "autoStraighten": "自動角度補正",
       "cancel": "キャンセル",
       "colorLabel": "カラーラベル",
       "confirmReset": "リセットを確認",
@@ -278,6 +282,8 @@
       "autoAdjust_other": "画像を自動補正",
       "autoLensCorrection_one": "自動レンズ補正",
       "autoLensCorrection_other": "自動レンズ補正",
+      "autoStraighten_one": "画像を自動角度補正",
+      "autoStraighten_other": "画像を自動角度補正",
       "collage_one": "画像にフレームを追加",
       "collage_other": "コラージュを作成",
       "confirmDelete": "削除を確認",
@@ -402,6 +408,7 @@
       },
       "createNewTitle": "新しい生成編集を作成",
       "createNewTooltip": "新しい {{name}} 編集を作成",
+      "denoising": "AIノイズ除去を実行中...",
       "dropzoneText": "ここにドロップして新しい編集を作成",
       "editSettingsTitle": "編集設定",
       "editsTitle": "編集一覧",
@@ -468,6 +475,8 @@
     },
     "crop": {
       "aspectRatioHeading": "アスペクト比",
+      "autoStraightenFailed": "自動角度補正に失敗しました: {{error}}",
+      "autoStraightenNoLines": "補正に使える直線が見つかりません",
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "高さ",
@@ -567,6 +576,7 @@
       "rotationHeading": "回転",
       "title": "切り抜きと変形",
       "tooltips": {
+        "autoStraighten": "自動角度補正（Shift+S）",
         "compositionOverlay": "構図ガイド",
         "flipHoriz": "画像を水平方向に反転",
         "flipVert": "画像を垂直方向に反転",
@@ -859,8 +869,10 @@
       "selectFolderTitle_other": "{{count}} 枚の画像を書き出すフォルダを選択"
     },
     "file": {
+      "dpi": "DPI",
       "quality": "画質",
       "qualityLossless": "画質 (ロスレス)",
+      "resolution": "解像度",
       "tiffBitDepth": "TIFF ビット深度",
       "tiffBitDepth16": "16 ビット",
       "tiffBitDepth8": "8 ビット"
@@ -1061,6 +1073,8 @@
       }
     },
     "header": {
+      "cancel": "キャンセル",
+      "deselectAll": "すべての選択を解除",
       "search": {
         "addFilterOrSearch": "フィルターまたは検索を追加...",
         "indexingImages": "画像をインデックス中...",
@@ -1072,6 +1086,8 @@
         "tooltipClearSearch": "検索をクリア",
         "tooltipSearchFilter": "検索またはフィルター"
       },
+      "selectAll": "すべて選択",
+      "selectItems": "項目を選択",
       "title": "ライブラリ",
       "viewOptions": {
         "currentFolder": "現在のフォルダ",
@@ -1192,7 +1208,8 @@
     "tooltips": {
       "communityPresets": "コミュニティプリセット",
       "goHome": "ホームへ移動",
-      "importImages": "画像をインポート"
+      "importImages": "画像をインポート",
+      "select": "選択"
     }
   },
   "masks": {
@@ -1578,6 +1595,9 @@
       "zoomDesc": "スクロールホイールやピンチジェスチャを使用したときのズーム速度を調整します。"
     },
     "data": {
+      "clearAiDenoise": "AIノイズ除去キャッシュを消去",
+      "clearAiDenoiseButton": "消去",
+      "clearAiDenoiseDesc": "キャッシュされたAIノイズ除去の結果（{{size}}）を削除します。AIノイズ除去が有効な画像は、次に開いたときに再計算されます。",
       "clearSidecars": "すべてのサイドカーファイルを削除",
       "clearSidecarsButton": "削除",
       "clearSidecarsDesc": "ルートフォルダ内のすべての .rrdata ファイル（編集内容が含まれるファイル）を削除します:",
@@ -1589,6 +1609,7 @@
       "logsButton": "開く",
       "logsDesc": "トラブルシューティングのためにアプリのログファイルを表示します。ログの場所:",
       "modals": {
+        "aiDenoiseMessage": "AIノイズ除去キャッシュを消去してもよろしいですか？\n\nAIノイズ除去が有効な画像は再度処理する必要があり、1枚あたり数分かかる場合があります。",
         "aiMessage": "本当にすべてのアクティブなルートフォルダ内の画像から、AI生成されたタグをすべて削除しますか？\n\n手動で追加したタグには影響しません。この操作は取り消せません。",
         "allMessage": "本当にすべてのアクティブなルートフォルダ内の画像から、AI生成および手動追加されたタグをすべて削除しますか？\n\nこの操作は取り消せません。",
         "cacheMessage": "本当にサムネイルキャッシュを削除しますか？\n\nすべてのサムネイルが再生成されるため、大きなフォルダでは時間がかかる場合があります。",
@@ -1611,6 +1632,7 @@
       "resetLayoutDesc": "パネルのドック、サイドスプリッター、高さ、パネル切り替えボタンをデフォルトの配置に復元します。",
       "resetLayoutTitle": "ワークスペースレイアウトのリセット",
       "statuses": {
+        "aiDenoiseSuccess": "AIノイズ除去キャッシュを消去しました。",
         "aiSuccess": "{{count}} 件のファイルを更新しました。AIタグを削除しました。",
         "aiSuccess_one": "{{count}} 件のファイルを更新しました。AIタグを削除しました。",
         "aiSuccess_other": "{{count}} 件のファイルを更新しました。AIタグを削除しました。",
@@ -1619,6 +1641,7 @@
         "allSuccess_other": "{{count}} 件のファイルを更新しました。カラーラベル以外のタグをすべて削除しました。",
         "cacheSuccess": "サムネイルキャッシュを正常に削除しました。",
         "clearingAi": "すべてのサイドカーファイルからAIタグを削除中...",
+        "clearingAiDenoise": "AIノイズ除去キャッシュを消去中...",
         "clearingAll": "サイドカーファイルからすべてのタグを削除中...",
         "clearingCache": "サムネイルキャッシュを削除中...",
         "deleting": "サイドカーファイルを削除しています。しばらくお待ちください...",
@@ -1666,6 +1689,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "自動角度補正",
         "brush_size_down": "ブラシサイズを縮小",
         "brush_size_up": "ブラシサイズを拡大",
         "color_label_blue": "カラーラベル: ブルー",
@@ -1848,6 +1872,10 @@
         "appleRaw9Desc": "AppleのCore Image RAW 9デコーダを使用してRAWファイルを現像します。これはNeural Engine上でデモザイク処理とノイズ低減を1ステップで行います。macOS 27以降および対応カメラが必要です。未対応のファイルは自動的に内蔵デコーダを使用します。デフォルトのデコーダより低速です。サムネイルには影響しません。",
         "applyPreprocessing": "RAW以外の画像にも事前処理を適用",
         "applyPreprocessingDesc": "有効にすると、上記のカラーノイズ低減と事前シャープ処理が標準フォーマットの画像にも適用されます。",
+        "baselineExposure": "ベース露出",
+        "baselineExposureAmount": "ベース量",
+        "baselineExposureAmountDesc": "RAWファイルに加える露出量です。darktableは+0.7 EVを使用します。",
+        "baselineExposureDesc": "すべてのRAWファイルを一定量明るくします（darktableのシーンリファード既定値と同様）。DNGのBaselineExposureタグがある場合はその値も加えます。このオプションの追加前に編集した画像には影響しません。",
         "colorNr": "カラーノイズ低減 (基本)",
         "colorNrDesc": "パイプラインの初期段階でクロスバイラテラルフィルタを適用し、カラーノイズを除去します。値が大きいほど効果が強まります。",
         "defaultNonRawTonemapper": "標準トーンマッパー (RAW以外)",
@@ -1855,8 +1883,12 @@
         "defaultRawTonemapper": "標準トーンマッパー (RAW)",
         "defaultRawTonemapperDesc": "RAW画像に適用される標準のトーンマッパーです。",
         "enableAppleRaw9": "RAWファイルにApple RAW 9を使用する",
+        "enableBaselineExposure": "RAWファイルにベース露出を適用",
+        "enableHighlightPreservation": "カメラのハイライト保護モードを補正",
         "enablePreprocessingNonRaws": "RAW以外の画像にも適用",
         "enableTonemapperOverride": "トーンマッパーの上書きを有効化",
+        "highlightPreservation": "ハイライト保護の補正",
+        "highlightPreservationDesc": "ハイライト保護モードでカメラが抑えた露出を、RAWファイルから読み取って補います（富士フイルム DR200/DR400、キヤノン 高輝度側・階調優先とオートライティングオプティマイザ、ニコン アクティブD-ライティング、オリンパス 階調、ペンタックス Dレンジ補正）。このオプションの追加前に編集した画像には影響しません。",
         "highlightRecovery": "RAWハイライト再現",
         "highlightRecoveryDesc": "RAWファイルで白とびしたハイライトから再現する情報のレベルを設定します。値を高くするとディテールが戻りますが、紫色のアーティファクトが発生する場合があります。",
         "linearOptions": {

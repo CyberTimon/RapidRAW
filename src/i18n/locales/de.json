@@ -96,6 +96,8 @@
       "resetPoint": "Punktkurve ({{channel}}) zurücksetzen"
     },
     "details": {
+      "aiDenoise": "KI-Entrauschen",
+      "aiDenoiseDetail": "Details",
       "blueYellow": "Blau/Gelb",
       "centre": "Zentriert",
       "chromaticAberration": "Chromatische Aberration",
@@ -140,6 +142,7 @@
       "relightColor": "Lichtfarbe",
       "relightCone": "Kegel",
       "relightDepth": "Tiefe",
+      "relightDuplicateLight": "Licht duplizieren",
       "relightElevation": "Höhe",
       "relightFalloff": "Abfall",
       "relightHint": "Füge ein Licht hinzu oder wähle eines aus und klicke oder ziehe im Bild, um es zu platzieren.",
@@ -209,6 +212,7 @@
     "editor": {
       "autoAdjust": "Bild autom. anpassen",
       "autoLensCorrection": "Autom. Objektivkorrektur",
+      "autoStraighten": "Automatisch ausrichten",
       "cancel": "Abbrechen",
       "colorLabel": "Farbmarkierung",
       "confirmReset": "Zurücksetzen bestätigen",
@@ -278,6 +282,8 @@
       "autoAdjust_other": "Bilder autom. anpassen",
       "autoLensCorrection_one": "Autom. Objektivkorrektur",
       "autoLensCorrection_other": "Autom. Objektivkorrektur",
+      "autoStraighten_one": "Bild automatisch ausrichten",
+      "autoStraighten_other": "Bilder automatisch ausrichten",
       "collage_one": "Bild rahmen",
       "collage_other": "Collage erstellen",
       "confirmDelete": "Löschen bestätigen",
@@ -402,6 +408,7 @@
       },
       "createNewTitle": "Neue generative Bearbeitung erstellen",
       "createNewTooltip": "Neue {{name}}-Bearbeitung erstellen",
+      "denoising": "KI-Entrauschen läuft...",
       "dropzoneText": "Hier ablegen, um eine neue Bearbeitung zu erstellen",
       "editSettingsTitle": "Bearbeitungseinstellungen",
       "editsTitle": "Bearbeitungen",
@@ -470,6 +477,8 @@
     },
     "crop": {
       "aspectRatioHeading": "Seitenverhältnis",
+      "autoStraightenFailed": "Automatisches Ausrichten fehlgeschlagen: {{error}}",
+      "autoStraightenNoLines": "Keine geraden Linien zum Ausrichten gefunden",
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Höhe",
@@ -569,6 +578,7 @@
       "rotationHeading": "Drehung",
       "title": "Zuschnitt & Form",
       "tooltips": {
+        "autoStraighten": "Automatisch ausrichten (Shift+S)",
         "compositionOverlay": "Kompositions-Überlagerung",
         "flipHoriz": "Bild horizontal spiegeln",
         "flipVert": "Bild vertikal spiegeln",
@@ -861,8 +871,10 @@
       "selectFolderTitle_other": "Ordner zum Exportieren von {{count}} Bildern auswählen"
     },
     "file": {
+      "dpi": "DPI",
       "quality": "Qualität",
       "qualityLossless": "Qualität (Verlustfrei)",
+      "resolution": "Auflösung",
       "tiffBitDepth": "TIFF-Bittiefe",
       "tiffBitDepth16": "16 Bit",
       "tiffBitDepth8": "8 Bit"
@@ -1063,6 +1075,8 @@
       }
     },
     "header": {
+      "cancel": "Abbrechen",
+      "deselectAll": "Alle abwählen",
       "search": {
         "addFilterOrSearch": "Filter oder Suche hinzufügen...",
         "indexingImages": "Bilder werden indiziert...",
@@ -1074,6 +1088,8 @@
         "tooltipClearSearch": "Suche löschen",
         "tooltipSearchFilter": "Suchen oder Filtern"
       },
+      "selectAll": "Alle auswählen",
+      "selectItems": "Bilder auswählen",
       "title": "Bibliothek",
       "viewOptions": {
         "currentFolder": "Aktueller Ordner",
@@ -1194,7 +1210,8 @@
     "tooltips": {
       "communityPresets": "Community-Vorgaben",
       "goHome": "Zur Startseite",
-      "importImages": "Bilder importieren"
+      "importImages": "Bilder importieren",
+      "select": "Auswählen"
     }
   },
   "masks": {
@@ -1580,6 +1597,9 @@
       "zoomDesc": "Passen Sie an, wie schnell das Bild beim Scrollen oder Kneifen zoomt."
     },
     "data": {
+      "clearAiDenoise": "KI-Entrauschen-Cache leeren",
+      "clearAiDenoiseButton": "Leeren",
+      "clearAiDenoiseDesc": "Löscht die zwischengespeicherten KI-Entrauschen-Ergebnisse ({{size}}). Bilder mit aktiviertem KI-Entrauschen berechnen es beim nächsten Öffnen neu.",
       "clearSidecars": "Alle Filialdateien löschen",
       "clearSidecarsButton": "Löschen",
       "clearSidecarsDesc": "Dies löscht alle .rrdata-Dateien (die Ihre Bearbeitungen enthalten) in Ihren Stammordnern:",
@@ -1591,6 +1611,7 @@
       "logsButton": "Öffnen",
       "logsDesc": "Zeigen Sie die Protokolldatei der Anwendung zur Fehlerbehebung an. Das Protokoll befindet sich unter:",
       "modals": {
+        "aiDenoiseMessage": "Möchtest du den KI-Entrauschen-Cache wirklich leeren?\n\nBilder mit aktiviertem KI-Entrauschen müssen erneut entrauscht werden, was pro Bild mehrere Minuten dauern kann.",
         "aiMessage": "Sind Sie sicher, dass Sie alle KI-generierten Tags von allen Bildern in allen aktiven Stammordnern entfernen möchten?\n\nBenutzerdefinierte Tags sind nicht betroffen. Diese Aktion kann nicht rückgängig gemacht werden.",
         "allMessage": "Sind Sie sicher, dass Sie alle KI-generierten und benutzerdefinierten Tags von allen Bildern in allen aktiven Stammordnern entfernen möchten?\n\nDiese Aktion kann nicht rückgängig gemacht werden.",
         "cacheMessage": "Sind Sie sicher, dass Sie den Miniaturbild-Cache löschen möchten?\n\nAlle Miniaturbilder müssen neu generiert werden, was bei großen Ordnern dauern kann.",
@@ -1613,6 +1634,7 @@
       "resetLayoutDesc": "Setzt Panel-Docks, seitliche Teiler, Höhen und Panel-Umschalter auf das Standard-Layout zurück.",
       "resetLayoutTitle": "Arbeitsbereich-Layout zurücksetzen",
       "statuses": {
+        "aiDenoiseSuccess": "KI-Entrauschen-Cache erfolgreich geleert.",
         "aiSuccess": "{{count}} Dateien aktualisiert. KI-Tags entfernt.",
         "aiSuccess_one": "{{count}} Datei aktualisiert. KI-Tags entfernt.",
         "aiSuccess_other": "{{count}} Dateien aktualisiert. KI-Tags entfernt.",
@@ -1621,6 +1643,7 @@
         "allSuccess_other": "{{count}} Dateien aktualisiert. Alle nicht-farbigen Tags entfernt.",
         "cacheSuccess": "Miniaturbild-Cache erfolgreich gelöscht.",
         "clearingAi": "KI-Tags aus allen Filialdateien löschen...",
+        "clearingAiDenoise": "KI-Entrauschen-Cache wird geleert...",
         "clearingAll": "Alle Tags aus Filialdateien löschen...",
         "clearingCache": "Miniaturbild-Cache löschen...",
         "deleting": "Filialdateien werden gelöscht, bitte warten...",
@@ -1668,6 +1691,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "Automatisch ausrichten",
         "brush_size_down": "Pinselgröße verringern",
         "brush_size_up": "Pinselgröße erhöhen",
         "color_label_blue": "Farbmarkierung: Blau",
@@ -1850,6 +1874,10 @@
         "appleRaw9Desc": "Entwickelt RAW-Dateien mit Apples Core-Image-Decoder RAW 9, der Demosaicing und Entrauschen in einem Schritt auf der Neural Engine ausführt. Erfordert macOS 27 oder neuer und eine unterstützte Kamera; nicht unterstützte Dateien verwenden automatisch den integrierten Decoder. Langsamer als der Standard-Decoder. Vorschaubilder sind nicht betroffen.",
         "applyPreprocessing": "Vorverarbeitung auf Nicht-RAWs anwenden",
         "applyPreprocessingDesc": "Wenn aktiviert, wird die Rauschreduzierung und Vorschärfung auch auf Standardformate angewendet.",
+        "baselineExposure": "Basisbelichtung",
+        "baselineExposureAmount": "Basiswert",
+        "baselineExposureAmountDesc": "Belichtung, die zu RAW-Dateien addiert wird. darktable verwendet +0,7 LW.",
+        "baselineExposureDesc": "Hellt alle RAW-Dateien um einen festen Wert auf, wie die szenenbezogene Voreinstellung von darktable, zuzüglich des DNG-Tags BaselineExposure, falls vorhanden. Bilder, die vor Einführung dieser Option bearbeitet wurden, sind nicht betroffen.",
         "colorNr": "Basis-Farbrauschreduzierung",
         "colorNrDesc": "Wendet früh in der Pipeline einen Filter an, um Farbrauschen zu entfernen. Höherer Wert = Stärkere Reduzierung.",
         "defaultNonRawTonemapper": "Standard-Tonemapper (Nicht-RAW)",
@@ -1857,8 +1885,12 @@
         "defaultRawTonemapper": "Standard-Tonemapper (RAW)",
         "defaultRawTonemapperDesc": "Der Tonemapper für RAW-Bilder.",
         "enableAppleRaw9": "Apple RAW 9 für RAW-Dateien verwenden",
+        "enableBaselineExposure": "Basisbelichtung auf RAW-Dateien anwenden",
+        "enableHighlightPreservation": "Lichterschutz-Modi der Kamera ausgleichen",
         "enablePreprocessingNonRaws": "Für Nicht-RAWs aktivieren",
         "enableTonemapperOverride": "Tonemapper-Override aktivieren",
+        "highlightPreservation": "Ausgleich der Lichterschutz-Modi",
+        "highlightPreservationDesc": "Stellt die Belichtung wieder her, die die Kamera in Modi zum Schutz der Lichter zurückgehalten hat, ausgelesen aus der RAW-Datei (Fujifilm DR200/DR400, Canon Tonwert Priorität und Automatische Belichtungsoptimierung, Nikon Active D-Lighting, Olympus Gradation, Pentax Dynamikbereichserweiterung). Bilder, die vor Einführung dieser Option bearbeitet wurden, sind nicht betroffen.",
         "highlightRecovery": "RAW-Lichterwiederherstellung",
         "highlightRecoveryDesc": "Steuert, wie viele Details aus beschnittenen Lichtern wiederhergestellt werden. Höhere Werte stellen mehr her, können aber rosa Artefakte einführen.",
         "linearOptions": {

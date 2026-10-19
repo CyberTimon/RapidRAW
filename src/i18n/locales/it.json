@@ -14,7 +14,7 @@
       },
       "reset": "Ripristina",
       "shadows": "Ombre",
-      "toneMapper": "Tone Mapper",
+      "toneMapper": "Mappatura tonale",
       "whites": "Bianchi"
     },
     "color": {
@@ -96,6 +96,8 @@
       "resetPoint": "Ripristina Curva per Punti {{channel}}"
     },
     "details": {
+      "aiDenoise": "Riduzione rumore IA",
+      "aiDenoiseDetail": "Dettaglio",
       "blueYellow": "Blu/Giallo",
       "centre": "Centro",
       "chromaticAberration": "Aberrazione Cromatica",
@@ -140,6 +142,7 @@
       "relightColor": "Colore luce",
       "relightCone": "Cono",
       "relightDepth": "Profondità",
+      "relightDuplicateLight": "Duplica luce",
       "relightElevation": "Elevazione",
       "relightFalloff": "Attenuazione",
       "relightHint": "Aggiungi o seleziona una luce, poi clicca o trascina sull'immagine per posizionarla.",
@@ -209,6 +212,7 @@
     "editor": {
       "autoAdjust": "Regolazione Automatica Immagine",
       "autoLensCorrection": "Correzione automatica obiettivo",
+      "autoStraighten": "Raddrizza automaticamente",
       "cancel": "Annulla",
       "colorLabel": "Etichetta Colore",
       "confirmReset": "Conferma Ripristino",
@@ -234,7 +238,7 @@
       "redo": "Ripeti",
       "resetAdjustments": "Ripristina Regolazioni",
       "stitchPanorama": "Unisci Panorama",
-      "tagging": "Tagging",
+      "tagging": "Tag",
       "undo": "Annulla",
       "unflagged": "Senza flag"
     },
@@ -283,6 +287,10 @@
       "autoAdjust_other": "Regolazione Automatica Immagini",
       "autoLensCorrection_one": "Correzione automatica obiettivo",
       "autoLensCorrection_other": "Correzione automatica obiettivo",
+      "autoLensCorrection_many": "Correzione automatica obiettivo",
+      "autoStraighten_many": "Raddrizza immagini automaticamente",
+      "autoStraighten_one": "Raddrizza immagine automaticamente",
+      "autoStraighten_other": "Raddrizza immagini automaticamente",
       "collage_many": "Crea Collage",
       "collage_one": "Incornicia Immagine",
       "collage_other": "Crea Collage",
@@ -418,6 +426,7 @@
       },
       "createNewTitle": "Crea Nuova Modifica Generativa",
       "createNewTooltip": "Crea Nuova Modifica {{name}}",
+      "denoising": "Riduzione rumore IA in corso...",
       "dropzoneText": "Rilascia qui per creare una nuova modifica",
       "editSettingsTitle": "Impostazioni Modifica",
       "editsTitle": "Modifiche",
@@ -457,6 +466,7 @@
         "heal_other": "Ripara {{count}}",
         "invertedName": "{{name}} Invertita",
         "liquify": "Fluidifica {{count}}",
+        "liquify_many": "Fluidifica {{count}}",
         "liquify_one": "Fluidifica {{count}}",
         "liquify_other": "Fluidifica {{count}}",
         "quickErase": "Cancellazione Rapida {{count}}",
@@ -490,6 +500,8 @@
     },
     "crop": {
       "aspectRatioHeading": "Proporzioni",
+      "autoStraightenFailed": "Raddrizzamento automatico non riuscito: {{error}}",
+      "autoStraightenNoLines": "Nessuna linea retta trovata per raddrizzare",
       "custom": {
         "hPlaceholder": "A",
         "hTooltip": "Altezza",
@@ -589,6 +601,7 @@
       "rotationHeading": "Rotazione",
       "title": "Ritaglio e Trasformazione",
       "tooltips": {
+        "autoStraighten": "Raddrizza automaticamente (Shift+S)",
         "compositionOverlay": "Sovrapposizione Composizione",
         "flipHoriz": "Rifletti immagine orizzontalmente",
         "flipVert": "Rifletti immagine verticalmente",
@@ -825,7 +838,7 @@
       }
     },
     "toolbar": {
-      "switchToVariant": "Switch to {{label}}",
+      "switchToVariant": "Passa a {{label}}",
       "tooltips": {
         "aperture": "Apertura",
         "backToLibrary": "Torna alla Libreria",
@@ -883,8 +896,10 @@
       "selectFolderTitle_other": "Seleziona Cartella per Esportare {{count}} Immagini"
     },
     "file": {
+      "dpi": "DPI",
       "quality": "Qualità",
       "qualityLossless": "Qualità (Senza Perdita)",
+      "resolution": "Risoluzione",
       "tiffBitDepth": "Profondità bit TIFF",
       "tiffBitDepth16": "16 bit",
       "tiffBitDepth8": "8 bit"
@@ -1086,6 +1101,8 @@
       }
     },
     "header": {
+      "cancel": "Annulla",
+      "deselectAll": "Deseleziona Tutto",
       "search": {
         "addFilterOrSearch": "Aggiungi filtro o cerca...",
         "indexingImages": "Indicizzazione Immagini...",
@@ -1097,6 +1114,8 @@
         "tooltipClearSearch": "Cancella ricerca",
         "tooltipSearchFilter": "Cerca o Filtra"
       },
+      "selectAll": "Seleziona Tutto",
+      "selectItems": "Seleziona elementi",
       "title": "Libreria",
       "viewOptions": {
         "currentFolder": "Cartella Corrente",
@@ -1112,12 +1131,12 @@
           "gte": "Questa valutazione o superiore",
           "lte": "Questa valutazione o inferiore"
         },
-        "groupEditedFiles": "Include edited files in groups",
-        "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
-        "groupOff": "Off",
-        "groupPreferJpeg": "Prefer JPEG",
-        "groupPreferRaw": "Prefer RAW",
-        "groupRawJpeg": "Group RAW + JPEG",
+        "groupEditedFiles": "Includi i file modificati nei gruppi",
+        "groupIgnoreMetadata": "Ignora le date EXIF non coincidenti",
+        "groupOff": "Disattivato",
+        "groupPreferJpeg": "Preferisci il JPEG",
+        "groupPreferRaw": "Preferisci il RAW",
+        "groupRawJpeg": "Raggruppa RAW + JPEG",
         "metadataAlways": "Sempre",
         "metadataHover": "Al passaggio del mouse",
         "metadataOff": "Spento",
@@ -1220,7 +1239,8 @@
     "tooltips": {
       "communityPresets": "Predefiniti della Community",
       "goHome": "Torna alla Home page",
-      "importImages": "Importa Immagini"
+      "importImages": "Importa Immagini",
+      "select": "Seleziona"
     }
   },
   "masks": {
@@ -1413,6 +1433,7 @@
       "description": "Combina più immagini con diverse distanze di messa a fuoco in un'unica immagine perfettamente nitida.",
       "descriptionWithCount_one": "Combina {{count}} immagine con diverse distanze di messa a fuoco in un'unica immagine perfettamente nitida.",
       "descriptionWithCount_other": "Combina {{count}} immagini con diverse distanze di messa a fuoco in un'unica immagine perfettamente nitida.",
+      "descriptionWithCount_many": "Combina {{count}} immagini con diverse distanze di messa a fuoco in un'unica immagine perfettamente nitida.",
       "failed": "Focus Stacking non riuscito",
       "initializing": "Inizializzazione...",
       "openInEditor": "Apri nell'editor",
@@ -1612,6 +1633,9 @@
       "zoomDesc": "Regola la velocità dello zoom dell'area di lavoro quando utilizzi la rotellina di scorrimento o il gesto del pizzico."
     },
     "data": {
+      "clearAiDenoise": "Svuota cache riduzione rumore IA",
+      "clearAiDenoiseButton": "Svuota",
+      "clearAiDenoiseDesc": "Elimina i risultati salvati della riduzione rumore IA ({{size}}). Le immagini con la riduzione rumore IA attiva la ricalcoleranno alla prossima apertura.",
       "clearSidecars": "Cancella Tutti i File Sidecar",
       "clearSidecarsButton": "Cancella",
       "clearSidecarsDesc": "Questo eliminerà tutti i file .rrdata (contenenti le tue modifiche) all'interno delle cartelle principali:",
@@ -1623,6 +1647,7 @@
       "logsButton": "Apri",
       "logsDesc": "Visualizza il file di log dell'applicazione per la risoluzione dei problemi. Il log si trova in:",
       "modals": {
+        "aiDenoiseMessage": "Vuoi davvero svuotare la cache della riduzione rumore IA?\n\nLe immagini con la riduzione rumore IA attiva dovranno essere elaborate di nuovo, operazione che può richiedere diversi minuti per immagine.",
         "aiMessage": "Sei sicuro di voler rimuovere tutti i tag generati dall'AI da tutte le immagini in tutte le cartelle principali attive?\n\nQuesto non influirà sui tag aggiunti dall'utente. Questa azione non può essere annullata.",
         "allMessage": "Sei sicuro di voler rimuovere tutti i tag generati dall'AI e aggiunti dall'utente da tutte le immagini in tutte le cartelle principali attive?\n\nQuesta azione non può essere annullata.",
         "cacheMessage": "Sei sicuro di voler cancellare la cache delle miniature?\n\nTutte le miniature dovranno essere rigenerate, operazione che potrebbe essere lenta per le cartelle di grandi dimensioni.",
@@ -1645,6 +1670,7 @@
       "resetLayoutDesc": "Ripristina i pannelli ancorati, i divisori laterali, le altezze e i selettori dei pannelli al layout predefinito.",
       "resetLayoutTitle": "Ripristina layout spazio di lavoro",
       "statuses": {
+        "aiDenoiseSuccess": "Cache della riduzione rumore IA svuotata correttamente.",
         "aiSuccess": "{{count}} file aggiornati. Tag AI rimossi.",
         "aiSuccess_many": "{{count}} file aggiornati. Tag AI rimossi.",
         "aiSuccess_one": "{{count}} file aggiornato. Tag AI rimossi.",
@@ -1655,6 +1681,7 @@
         "allSuccess_other": "{{count}} file aggiornati. Tutti i tag non colore rimossi.",
         "cacheSuccess": "Cache miniature cancellata con successo.",
         "clearingAi": "Rimozione dei tag AI da tutti i file sidecar...",
+        "clearingAiDenoise": "Svuotamento della cache della riduzione rumore IA...",
         "clearingAll": "Rimozione di tutti i tag dai file sidecar...",
         "clearingCache": "Cancellazione cache miniature...",
         "deleting": "Eliminazione dei file sidecar, attendere...",
@@ -1703,6 +1730,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "Raddrizza automaticamente",
         "brush_size_down": "Riduci dimensione pennello",
         "brush_size_up": "Aumenta dimensione pennello",
         "color_label_blue": "Etichetta colore: Blu",
@@ -1885,6 +1913,10 @@
         "appleRaw9Desc": "Sviluppa i file RAW con il decodificatore RAW 9 di Core Image di Apple, che esegue la demosaicizzazione e la riduzione del rumore in un solo passaggio sul Neural Engine. Richiede macOS 27 o successivo e una fotocamera supportata; i file non supportati utilizzano automaticamente il decodificatore integrato. Più lento del decodificatore predefinito. Le miniature non ne sono influenzate.",
         "applyPreprocessing": "Applica Pre-elaborazione a File non RAW",
         "applyPreprocessingDesc": "Se abilitato, la riduzione del rumore cromatico di base e la pre-nitidezza indicate sopra verranno applicate anche ai formati standard.",
+        "baselineExposure": "Esposizione di base",
+        "baselineExposureAmount": "Valore di base",
+        "baselineExposureAmountDesc": "Esposizione aggiunta ai file RAW. darktable usa +0,7 EV.",
+        "baselineExposureDesc": "Schiarisce tutti i file RAW di un valore fisso, come l'impostazione predefinita di darktable in modalità scene-referred, più il tag DNG BaselineExposure se presente. Le immagini modificate prima dell'introduzione di questa opzione non cambiano.",
         "colorNr": "Riduzione Rumore Cromatico di Base",
         "colorNrDesc": "Applica un filtro bilaterale incrociato all'inizio del processo per rimuovere il rumore cromatico. Valore più alto = Riduzione Rumore (NR) più forte.",
         "defaultNonRawTonemapper": "Tonemapper Predefinito per Non-RAW",
@@ -1892,8 +1924,12 @@
         "defaultRawTonemapper": "Tonemapper Predefinito per RAW",
         "defaultRawTonemapperDesc": "Il tonemapper da applicare alle immagini RAW.",
         "enableAppleRaw9": "Usa Apple RAW 9 per i file RAW",
+        "enableBaselineExposure": "Applica l'esposizione di base ai file RAW",
+        "enableHighlightPreservation": "Compensa le modalità di protezione delle alte luci della fotocamera",
         "enablePreprocessingNonRaws": "Abilita per Non-RAW",
         "enableTonemapperOverride": "Abilita Sovrascrittura Tonemapper",
+        "highlightPreservation": "Compensazione della protezione delle alte luci",
+        "highlightPreservationDesc": "Ripristina l'esposizione trattenuta dalla fotocamera nelle modalità di protezione delle alte luci, letta dal file RAW (Fujifilm DR200/DR400, Priorità tonalità chiare e Auto Lighting Optimizer Canon, D-Lighting attivo Nikon, gradazione Olympus, espansione della gamma dinamica Pentax). Le immagini modificate prima dell'introduzione di questa opzione non cambiano.",
         "highlightRecovery": "Recupero Luci RAW",
         "highlightRecoveryDesc": "Controlla quanti dettagli vengono recuperati dalle luci bruciate nei file RAW. Valori più alti recuperano più dettagli ma possono introdurre artefatti viola.",
         "linearOptions": {
@@ -1969,7 +2005,7 @@
       "removeShortcutTooltip": "Rimuovi scorciatoia \"{{shortcut}}\"",
       "shortcuts": "Scorciatoie Tagging",
       "shortcutsDesc": "Una lista di tag che appariranno come scorciatoie nel menu contestuale del tagging.",
-      "title": "Tagging"
+      "title": "Tag"
     },
     "thanks": {
       "description": "Un enorme grazie ai seguenti progetti che sono stati molto importanti nello sviluppo di RapidRAW:",

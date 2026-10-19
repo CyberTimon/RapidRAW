@@ -261,18 +261,6 @@ export default function LibraryGrid(props: any) {
   const isClickSelectionRef = useRef(false);
   const clickTimerRef = useRef<any>(null);
 
-  const handleImageClick = useCallback(
-    (path: string, e: any) => {
-      isClickSelectionRef.current = true;
-      if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
-      clickTimerRef.current = setTimeout(() => {
-        isClickSelectionRef.current = false;
-      }, 300);
-      onImageClick?.(path, e);
-    },
-    [onImageClick],
-  );
-
   const handleImageDoubleClick = useCallback(
     (path: string) => {
       isClickSelectionRef.current = true;
@@ -509,6 +497,28 @@ export default function LibraryGrid(props: any) {
     ratioMapVersion,
   ]);
 
+  const visibleImagePaths = useMemo(
+    () =>
+      gridData
+        ? gridData.rows.flatMap((row) =>
+            row.type === 'images' ? row.images.map((image: ImageFile) => image.path) : [],
+          )
+        : [],
+    [gridData],
+  );
+
+  const handleImageClick = useCallback(
+    (path: string, e: any) => {
+      isClickSelectionRef.current = true;
+      if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = setTimeout(() => {
+        isClickSelectionRef.current = false;
+      }, 300);
+      onImageClick?.(path, e, visibleImagePaths);
+    },
+    [onImageClick, visibleImagePaths],
+  );
+
   useEffect(() => {
     if (!listHandle?.element || !gridData) return;
 
@@ -631,6 +641,7 @@ export default function LibraryGrid(props: any) {
       onToggleRecursiveFolder: handleToggleRecursiveFolder,
       groupBadgeInfo,
       onAspectRatioLoaded: handleAspectRatioLoaded,
+      selectionModeActive: props.selectionModeActive,
     };
   }, [
     gridData,
@@ -639,6 +650,7 @@ export default function LibraryGrid(props: any) {
     onContextMenu,
     handleImageClick,
     handleImageDoubleClick,
+    props.selectionModeActive,
     thumbnailAspectRatio,
     handleImageLoad,
     imageRatings,
@@ -655,7 +667,7 @@ export default function LibraryGrid(props: any) {
       <div
         ref={libraryContainerRef}
         className="flex-1 w-full min-h-0 overflow-hidden"
-        onClick={props.onClearSelection}
+        onClick={props.selectionModeActive ? undefined : props.onClearSelection}
         onContextMenu={props.onEmptyAreaContextMenu}
       />
     );
@@ -679,7 +691,7 @@ export default function LibraryGrid(props: any) {
     <div
       ref={libraryContainerRef}
       className="flex-1 w-full min-h-0 overflow-hidden"
-      onClick={props.onClearSelection}
+      onClick={props.selectionModeActive ? undefined : props.onClearSelection}
       onContextMenu={props.onEmptyAreaContextMenu}
     >
       <div className="flex flex-col w-full h-full min-h-0">

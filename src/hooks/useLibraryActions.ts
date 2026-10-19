@@ -4,7 +4,15 @@ import { toast } from 'react-toastify';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
-import { Invokes, ImageFile, ImageFlag, AlbumItem, Album, AlbumGroup } from '../components/ui/AppProperties';
+import {
+  Invokes,
+  ImageFile,
+  ImageFlag,
+  LibraryViewMode,
+  AlbumItem,
+  Album,
+  AlbumGroup,
+} from '../components/ui/AppProperties';
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { computeSortedLibrary } from './useSortedLibrary';
@@ -51,6 +59,7 @@ export const clearLibrarySelection = () => {
     isWbPickerActive: false,
     isRelightPickerActive: false,
     activeRelightLightId: null,
+    activeCenterMarker: null,
   });
 };
 
@@ -278,6 +287,7 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
         onSimpleClick(p: string, isAlreadySelected: boolean): void;
         updateLibraryActivePath: boolean;
         shiftAnchor: string | null;
+        visibleImagePaths?: string[];
       },
     ) => {
       const libraryState = useLibraryStore.getState();
@@ -289,14 +299,19 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
       const isAlreadySelected = multiSelectedPaths.includes(path);
 
       if (shiftKey && shiftAnchor) {
-        const sortedImageList = computeSortedLibrary(libraryState, useSettingsStore.getState());
-        const anchorIndex = sortedImageList.findIndex((f) => f.path === shiftAnchor);
-        const currentIndex = sortedImageList.findIndex((f) => f.path === path);
+        const settings = useSettingsStore.getState();
+        // Recursive ranges follow the rendered folder order and omit collapsed sections.
+        const visibleRangePaths =
+          settings.appSettings?.libraryViewMode === LibraryViewMode.Recursive ? options.visibleImagePaths : undefined;
+        const rangePaths = visibleRangePaths ?? computeSortedLibrary(libraryState, settings).map((image) => image.path);
+        const anchorIndex = rangePaths.indexOf(shiftAnchor);
+        const currentIndex = rangePaths.indexOf(path);
 
-        if (anchorIndex !== -1 && currentIndex !== -1) {
-          const start = Math.min(anchorIndex, currentIndex);
-          const end = Math.max(anchorIndex, currentIndex);
-          const range = sortedImageList.slice(start, end + 1).map((f) => f.path);
+        if (currentIndex !== -1 && (anchorIndex !== -1 || visibleRangePaths !== undefined)) {
+          // A hidden anchor becomes a one-item range, resetting the anchor to this click.
+          const start = anchorIndex === -1 ? currentIndex : Math.min(anchorIndex, currentIndex);
+          const end = anchorIndex === -1 ? currentIndex : Math.max(anchorIndex, currentIndex);
+          const range = rangePaths.slice(start, end + 1);
           const baseSelection = isCtrlPressed ? multiSelectedPaths : [];
           const newSelection = Array.from(new Set([...baseSelection, ...range]));
 
@@ -325,11 +340,12 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
   );
 
   const handleLibraryImageSingleClick = useCallback(
-    (path: string, event: any) => {
+    (path: string, event: any, visibleImagePaths?: string[]) => {
       const { selectionAnchorPath, libraryActivePath, setLibrary } = useLibraryStore.getState();
       handleMultiSelectClick(path, event, {
         shiftAnchor: selectionAnchorPath ?? libraryActivePath,
         updateLibraryActivePath: true,
+        visibleImagePaths,
         onSimpleClick: (p: string, isAlreadySelected: boolean) => {
           if (isAlreadySelected) {
             setLibrary({ libraryActivePath: p, selectionAnchorPath: p });
@@ -346,7 +362,7 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
   );
 
   const handleImageClick = useCallback(
-    (path: string, event: any) => {
+    (path: string, event: any, visibleImagePaths?: string[]) => {
       const { selectionAnchorPath, libraryActivePath, setLibrary } = useLibraryStore.getState();
       const { selectedImage } = useEditorStore.getState();
       const inEditor = !!selectedImage;
@@ -354,6 +370,7 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
       handleMultiSelectClick(path, event, {
         shiftAnchor: selectionAnchorPath ?? (inEditor ? selectedImage.path : libraryActivePath),
         updateLibraryActivePath: !inEditor,
+        visibleImagePaths,
         onSimpleClick: (p: string, isAlreadySelected: boolean) => {
           if (!isAlreadySelected) {
             setLibrary({ multiSelectedPaths: [p] });

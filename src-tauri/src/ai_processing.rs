@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use anyhow::Result;
 use image::imageops::{self, FilterType};
 use image::{
-    DynamicImage, GenericImageView, GrayImage, ImageBuffer, Luma, Rgb, Rgb32FImage, Rgba, RgbaImage,
+    DynamicImage, GenericImageView, GrayImage, ImageBuffer, Luma, Rgb32FImage, Rgba, RgbaImage,
 };
 use ndarray::{Array, Array4, IxDyn};
 use ort::session::Session;
@@ -825,25 +825,25 @@ pub async fn get_or_init_normal_model(
 #[derive(Clone, Copy)]
 struct TileParams {
     cs: usize,
-    ucs: usize,
+    margin: usize,
     overlap: usize,
-    pad: usize,
 }
 
-impl TileParams {
-    const fn new(cs: usize, ucs: usize, overlap: usize) -> Self {
-        Self {
-            cs,
-            ucs,
-            overlap,
-            pad: (cs - ucs) / 2,
-        }
-    }
-}
-
-const TILE_BALANCED: TileParams = TileParams::new(504, 480, 6);
-const TILE_FASTER: TileParams = TileParams::new(504, 504, 0);
-const TILE_HIGHER_QUALITY: TileParams = TileParams::new(504, 448, 12);
+const TILE_FASTER: TileParams = TileParams {
+    cs: 504,
+    margin: 8,
+    overlap: 32,
+};
+const TILE_BALANCED: TileParams = TileParams {
+    cs: 504,
+    margin: 12,
+    overlap: 64,
+};
+const TILE_HIGHER_QUALITY: TileParams = TileParams {
+    cs: 504,
+    margin: 16,
+    overlap: 128,
+};
 
 fn select_tile_params(quality_0_1: f32) -> TileParams {
     let q = quality_0_1.clamp(0.0, 1.0);
@@ -883,189 +883,111 @@ fn extract_tile_mirror(img: &Rgb32FImage, x0: i32, y0: i32, cs: usize) -> Array4
     arr
 }
 
-struct SeamlessBlend {
-    ud0: usize,
-    ud1: usize,
-    ud2: usize,
-    ud3: usize,
-    absx0: usize,
-    absy0: usize,
-    fswidth: usize,
-    fsheight: usize,
-    overlap: usize,
+fn tile_origins(len: usize, params: TileParams) -> Vec<i32> {
+    let valid = params.cs - 2 * params.margin;
+    let step = (valid - params.overlap).max(1);
+    let mut origins = Vec::new();
+    let mut start = 0;
+    loop {
+        origins.push(start as i32 - params.margin as i32);
+        if start + valid >= len {
+            break;
+        }
+        start += step;
+    }
+    origins
 }
 
-fn apply_seamless(tile: &mut Array4<f32>, blend: &SeamlessBlend) {
-    let SeamlessBlend {
-        ud0,
-        ud1,
-        ud2,
-        ud3,
-        absx0,
-        absy0,
-        fswidth,
-        fsheight,
-        overlap,
-    } = *blend;
-    let ol = overlap;
-    if absx0 > 0 {
-        for c in 0..3 {
-            for y in ud1..ud3 {
-                for x in ud0..(ud0 + ol).min(ud2) {
-                    tile[[0, c, y, x]] *= 0.5;
-                }
-            }
-        }
-    }
-    if absy0 > 0 {
-        for c in 0..3 {
-            for y in ud1..(ud1 + ol).min(ud3) {
-                for x in ud0..ud2 {
-                    tile[[0, c, y, x]] *= 0.5;
-                }
-            }
-        }
-    }
-    if absx0 + (ud2 - ud0) < fswidth && ol > 0 {
-        let right_start = (ud2 as i32 - ol as i32).max(ud0 as i32) as usize;
-        for c in 0..3 {
-            for y in ud1..ud3 {
-                for x in right_start..ud2 {
-                    tile[[0, c, y, x]] *= 0.5;
-                }
-            }
-        }
-    }
-    if absy0 + (ud3 - ud1) < fsheight && ol > 0 {
-        let bottom_start = (ud3 as i32 - ol as i32).max(ud1 as i32) as usize;
-        for c in 0..3 {
-            for y in bottom_start..ud3 {
-                for x in ud0..ud2 {
-                    tile[[0, c, y, x]] *= 0.5;
-                }
-            }
-        }
-    }
+fn tile_blend_weights(params: TileParams) -> Vec<f32> {
+    let valid = params.cs - 2 * params.margin;
+    let ramp = |d: usize| ((d as f32 + 0.5) / params.overlap.max(1) as f32).min(1.0);
+    (0..valid)
+        .map(|i| {
+            let t = ramp(i).min(ramp(valid - 1 - i));
+            t * t * (3.0 - 2.0 * t)
+        })
+        .collect()
 }
 
 fn run_native_denoise(
     img: &Rgb32FImage,
     session: &Mutex<Session>,
-    accumulator: &mut [f32],
-    width: usize,
-    height: usize,
-    app_handle: &tauri::AppHandle,
     params: TileParams,
-) -> Result<()> {
-    let w = width as i32;
-    let h = height as i32;
-    let step = params.ucs.saturating_sub(params.overlap).max(1);
-    let iperhl = (width.saturating_sub(params.ucs) as f64 / step as f64).ceil() as usize;
-    let ipervl = (height.saturating_sub(params.ucs) as f64 / step as f64).ceil() as usize;
-    let total = (iperhl + 1) * (ipervl + 1);
+    on_progress: &dyn Fn(f32),
+) -> Result<Rgb32FImage> {
+    let (width, height) = (img.width() as usize, img.height() as usize);
+    let valid = params.cs - 2 * params.margin;
+    let weights = tile_blend_weights(params);
+    let xs = tile_origins(width, params);
+    let ys = tile_origins(height, params);
+    let total = xs.len() * ys.len();
 
-    for i in 0..total {
-        let yi = i / (iperhl + 1);
-        let xi = i % (iperhl + 1);
-        let x0 =
-            params.ucs as i32 * xi as i32 - params.overlap as i32 * xi as i32 - params.pad as i32;
-        let y0 =
-            params.ucs as i32 * yi as i32 - params.overlap as i32 * yi as i32 - params.pad as i32;
+    let mut accumulator = vec![0.0f32; width * height * 3];
+    let mut weight_sum = vec![0.0f32; width * height];
 
-        if i % 10 == 0 {
-            let pct = (i as f32 / total as f32) * 100.0;
-            let _ = app_handle.emit("denoise-progress", format!("Denoising… {:.0}%", pct));
-        }
+    for (i, (&y0, &x0)) in ys
+        .iter()
+        .flat_map(|y| xs.iter().map(move |x| (y, x)))
+        .enumerate()
+    {
+        on_progress(i as f32 / total as f32);
 
         let crop = extract_tile_mirror(img, x0, y0, params.cs);
-        let input_values = crop.as_standard_layout().to_owned();
-        let t_input = Tensor::from_array(input_values)?;
+        let t_input = Tensor::from_array(crop.as_standard_layout().to_owned())?;
 
-        let out = {
+        let tile = {
             let mut sess = session.lock().unwrap();
             let outputs = sess.run(ort::inputs![t_input])?;
-            let arr = outputs[0].try_extract_array::<f32>()?.to_owned();
-            arr.into_dimensionality::<ndarray::Ix4>()
+            outputs[0]
+                .try_extract_array::<f32>()?
+                .to_owned()
+                .into_dimensionality::<ndarray::Ix4>()
                 .map_err(|e| anyhow::anyhow!("Unexpected output shape: {}", e))?
         };
 
-        let x1pad = (0i32).max(x0 + params.cs as i32 - w) as usize;
-        let y1pad = (0i32).max(y0 + params.cs as i32 - h) as usize;
-        let ud0 = params.pad;
-        let ud1 = params.pad;
-        let ud2 = params.cs - params.pad.max(x1pad);
-        let ud3 = params.cs - params.pad.max(y1pad);
-        let absx0 = (x0 + params.pad as i32).max(0) as usize;
-        let absy0 = (y0 + params.pad as i32).max(0) as usize;
-
-        let mut tile = out;
-        apply_seamless(
-            &mut tile,
-            &SeamlessBlend {
-                ud0,
-                ud1,
-                ud2,
-                ud3,
-                absx0,
-                absy0,
-                fswidth: width,
-                fsheight: height,
-                overlap: params.overlap,
-            },
-        );
-
-        for cy in 0..(ud3 - ud1) {
-            for cx in 0..(ud2 - ud0) {
-                let gx = absx0 + cx;
-                let gy = absy0 + cy;
-                if gx < width && gy < height {
-                    let base = (gy * width + gx) * 3;
-                    accumulator[base] += tile[[0, 0, ud1 + cy, ud0 + cx]].clamp(0.0, 1.0);
-                    accumulator[base + 1] += tile[[0, 1, ud1 + cy, ud0 + cx]].clamp(0.0, 1.0);
-                    accumulator[base + 2] += tile[[0, 2, ud1 + cy, ud0 + cx]].clamp(0.0, 1.0);
+        for ty in 0..valid {
+            let gy = y0 + (params.margin + ty) as i32;
+            if gy < 0 || gy >= height as i32 {
+                continue;
+            }
+            for tx in 0..valid {
+                let gx = x0 + (params.margin + tx) as i32;
+                if gx < 0 || gx >= width as i32 {
+                    continue;
                 }
+                let w = weights[ty] * weights[tx];
+                let idx = gy as usize * width + gx as usize;
+                for c in 0..3 {
+                    let v = tile[[0, c, params.margin + ty, params.margin + tx]].clamp(0.0, 1.0);
+                    accumulator[idx * 3 + c] += v * w;
+                }
+                weight_sum[idx] += w;
             }
         }
     }
-    Ok(())
-}
 
-fn accumulator_to_rgb32f(acc: &[f32], width: u32, height: u32) -> Rgb32FImage {
-    let mut out = Rgb32FImage::new(width, height);
-    for (i, p) in out.pixels_mut().enumerate() {
-        let i3 = i * 3;
-        *p = Rgb([
-            acc[i3].clamp(0.0, 1.0),
-            acc[i3 + 1].clamp(0.0, 1.0),
-            acc[i3 + 2].clamp(0.0, 1.0),
-        ]);
-    }
-    out
+    let mut out = Rgb32FImage::new(width as u32, height as u32);
+    out.par_chunks_exact_mut(3)
+        .zip(accumulator.par_chunks_exact(3))
+        .zip(weight_sum.par_iter())
+        .for_each(|((px, acc), &w)| {
+            let inv = if w > 0.0 { 1.0 / w } else { 0.0 };
+            for c in 0..3 {
+                px[c] = (acc[c] * inv).clamp(0.0, 1.0);
+            }
+        });
+    Ok(out)
 }
 
 pub fn run_ai_denoise(
     rgb_img: &Rgb32FImage,
     intensity: f32,
     session: &Mutex<Session>,
-    app_handle: &tauri::AppHandle,
+    on_progress: &dyn Fn(f32),
 ) -> Result<DynamicImage> {
-    let (width, height) = rgb_img.dimensions();
     let params = select_tile_params(intensity);
-
-    let _ = app_handle.emit("denoise-progress", "Denoising (AI NIND)...");
-    let mut accumulator = vec![0.0f32; width as usize * height as usize * 3];
-    run_native_denoise(
-        rgb_img,
-        session,
-        &mut accumulator,
-        width as usize,
-        height as usize,
-        app_handle,
-        params,
-    )?;
-
-    let out_img_buffer = accumulator_to_rgb32f(&accumulator, width, height);
-    Ok(DynamicImage::ImageRgb32F(out_img_buffer))
+    let out = run_native_denoise(rgb_img, session, params, on_progress)?;
+    Ok(DynamicImage::ImageRgb32F(out))
 }
 
 pub fn run_lama_inpainting(
