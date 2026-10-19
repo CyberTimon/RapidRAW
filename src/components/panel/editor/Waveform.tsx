@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { AlertOctagon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -53,7 +53,7 @@ const modeButtons = [
   },
 ];
 
-const HistogramView = ({ histogram }: { histogram: any }) => {
+const HistogramView = memo(({ histogram }: { histogram: any }) => {
   if (!histogram || !histogram.red || !histogram.green || !histogram.blue) return null;
 
   const redMax = Math.max(...(histogram.red || [0]));
@@ -101,7 +101,7 @@ const HistogramView = ({ histogram }: { histogram: any }) => {
       })}
     </svg>
   );
-};
+});
 
 const FakeHistogramLoader = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -448,7 +448,7 @@ const FakeWaveformLoader = ({ mode }: { mode: string }) => {
   );
 };
 
-export default function Waveform({
+function Waveform({
   waveformData,
   histogram,
   displayMode,
@@ -646,3 +646,5 @@ export default function Waveform({
     </div>
   );
 }
+
+export default memo(Waveform);

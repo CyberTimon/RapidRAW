@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import Slider, { SliderChangeEvent } from '../ui/Slider';
@@ -14,6 +15,7 @@ import { AppSettings } from '../ui/AppProperties';
 import AdjustmentSubSection from './AdjustmentSubSection';
 import { useEditorStore } from '../../store/useEditorStore';
 import { useProcessStore } from '../../store/useProcessStore';
+import { areSectionPropsEqual } from '../../utils/adjustments';
 
 interface DetailsPanelProps {
   adjustments: Adjustments;
@@ -23,7 +25,7 @@ interface DetailsPanelProps {
   onDragStateChange?: (isDragging: boolean) => void;
 }
 
-export default function DetailsPanel({
+function DetailsPanel({
   adjustments,
   setAdjustments,
   appSettings,
@@ -248,3 +250,5 @@ export default function DetailsPanel({
     </div>
   );
 }
+
+export default memo(DetailsPanel, areSectionPropsEqual('details'));

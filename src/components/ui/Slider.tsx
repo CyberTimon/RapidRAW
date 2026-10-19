@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GLOBAL_KEYS } from './AppProperties';
 
@@ -92,6 +92,11 @@ const Slider = ({
   const suppressTouchChangeRef = useRef(false);
   const isWheelActivelyChangingRef = useRef(false);
   const wheelTimeoutRef = useRef<number | undefined>(undefined);
+  const dragFrameRef = useRef<number | undefined>(undefined);
+  const pendingDragValueRef = useRef<number | null>(null);
+  const lastEmittedValueRef = useRef<number | null>(null);
+  const isDraggingRef = useRef(false);
+  const hasReportedDragStateRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -137,10 +142,27 @@ const Slider = ({
 
   const onDragStateChangeRef = useRef(onDragStateChange);
   onDragStateChangeRef.current = onDragStateChange;
+  isDraggingRef.current = isDragging;
 
   useEffect(() => {
+    if (!hasReportedDragStateRef.current && !isDragging) return;
+    hasReportedDragStateRef.current = true;
     onDragStateChangeRef.current(isDragging);
   }, [isDragging]);
+
+  useEffect(() => {
+    return () => {
+      if (dragFrameRef.current !== undefined) {
+        cancelAnimationFrame(dragFrameRef.current);
+      }
+      if (isDraggingRef.current) {
+        onDragStateChangeRef.current(false);
+      }
+    };
+  }, []);
+
+  const wheelStateRef = useRef({ disabled, value, min, max, step, decimalPlaces });
+  wheelStateRef.current = { disabled, value, min, max, step, decimalPlaces };
 
   useEffect(() => {
     if (!disabled) return;
@@ -170,6 +192,7 @@ const Slider = ({
     if (!sliderElement) return;
 
     const handleWheel = (event: WheelEvent) => {
+      const { disabled, value, min, max, step, decimalPlaces } = wheelStateRef.current;
       if (disabled || !event.shiftKey) {
         return;
       }
@@ -198,7 +221,7 @@ const Slider = ({
             value: clampedValue,
           },
         };
-        onChange(syntheticEvent);
+        onChangeRef.current(syntheticEvent);
       }
     };
 
@@ -207,7 +230,7 @@ const Slider = ({
     return () => {
       sliderElement.removeEventListener('wheel', handleWheel);
     };
-  }, [disabled, value, min, max, step, onChange, decimalPlaces]);
+  }, []);
 
   // Handle Dragging
   useEffect(() => {
@@ -216,6 +239,18 @@ const Slider = ({
     const inputEl = rangeInputRef.current;
     if (!inputEl) return;
     const sliderWidth = inputEl.getBoundingClientRect().width || 1;
+
+    const flushDragValue = () => {
+      dragFrameRef.current = undefined;
+      const nextValue = pendingDragValueRef.current;
+      pendingDragValueRef.current = null;
+      if (nextValue === null || nextValue === lastEmittedValueRef.current) return;
+
+      lastEmittedValueRef.current = nextValue;
+      setDisplayValue(nextValue);
+      setInputValue(String(nextValue));
+      onChangeRef.current({ target: { value: nextValue } });
+    };
 
     const handlePointerMove = (e: MouseEvent | TouchEvent) => {
       let clientX: number;
@@ -247,14 +282,17 @@ const Slider = ({
         lastPointerXRef.current = clientX;
       }
 
-      const snappedValue = snapToStepRef.current(scaleRef.current.fromPosition(accumulatedValueRef.current));
-
-      setDisplayValue(snappedValue);
-      setInputValue(String(snappedValue));
-      onChangeRef.current({ target: { value: snappedValue } });
+      pendingDragValueRef.current = snapToStepRef.current(scaleRef.current.fromPosition(accumulatedValueRef.current));
+      if (dragFrameRef.current === undefined) {
+        dragFrameRef.current = requestAnimationFrame(flushDragValue);
+      }
     };
 
     const handlePointerUp = () => {
+      if (dragFrameRef.current !== undefined) {
+        cancelAnimationFrame(dragFrameRef.current);
+      }
+      flushDragValue();
       lastUpTime.current = Date.now();
       pendingTouchRef.current = null;
       suppressTouchChangeRef.current = false;
@@ -271,6 +309,11 @@ const Slider = ({
     window.addEventListener('touchcancel', handlePointerUp);
 
     return () => {
+      if (dragFrameRef.current !== undefined) {
+        cancelAnimationFrame(dragFrameRef.current);
+        dragFrameRef.current = undefined;
+      }
+      pendingDragValueRef.current = null;
       window.removeEventListener('mousemove', handlePointerMove);
       window.removeEventListener('mouseup', handlePointerUp);
       window.removeEventListener('touchmove', handlePointerMove);
@@ -383,6 +426,7 @@ const Slider = ({
 
     accumulatedValueRef.current = rawPosition;
     lastPointerXRef.current = e.clientX;
+    lastEmittedValueRef.current = snappedValue;
 
     setIsDragging(true);
     setDisplayValue(snappedValue);
@@ -448,6 +492,7 @@ const Slider = ({
 
     accumulatedValueRef.current = rawPosition;
     lastPointerXRef.current = touch.clientX;
+    lastEmittedValueRef.current = snappedValue;
     pendingTouchRef.current = null;
 
     if (e.cancelable) {
@@ -660,4 +705,4 @@ const Slider = ({
   );
 };
 
-export default Slider;
+export default memo(Slider);

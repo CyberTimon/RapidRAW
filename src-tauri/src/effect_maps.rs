@@ -1,9 +1,10 @@
 use crate::cache_utils::GEOMETRY_KEYS;
 use crate::image_processing::{
-    get_geometry_params_from_json, is_geometry_identity, warp_image_geometry,
+    GeometryParams, get_geometry_params_from_json, is_geometry_identity, warp_image_geometry,
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
-use image::{DynamicImage, GrayImage, Luma, Rgba, RgbaImage};
+use image::{DynamicImage, GrayImage, Luma, Rgb, Rgb32FImage, Rgba, RgbaImage};
+use rayon::prelude::*;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
@@ -80,28 +81,94 @@ pub fn resolve_rgba_map(data_url: &str, adjustments: &serde_json::Value) -> Opti
             let warped_alpha =
                 warp_effect_map(&DynamicImage::ImageLuma8(alpha), adjustments).into_luma8();
 
-            Some(RgbaImage::from_fn(
-                warped_rgb.width(),
-                warped_rgb.height(),
-                |x, y| {
-                    let [r, g, b] = warped_rgb.get_pixel(x, y).0;
-                    Rgba([r, g, b, warped_alpha.get_pixel(x, y)[0]])
-                },
-            ))
+            let (width, height) = warped_rgb.dimensions();
+            let rotations = local_warp_rotations(width, height, adjustments);
+
+            Some(RgbaImage::from_fn(width, height, |x, y| {
+                let [r, g, b] = warped_rgb.get_pixel(x, y).0;
+                let (r, g) = match &rotations {
+                    Some(rotations) => rotate_normal(r, g, rotations[(y * width + x) as usize]),
+                    None => (r, g),
+                };
+                Rgba([r, g, b, warped_alpha.get_pixel(x, y)[0]])
+            }))
         },
     )
 }
 
-fn warp_effect_map(map: &DynamicImage, adjustments: &serde_json::Value) -> DynamicImage {
+fn effect_map_geometry_params(adjustments: &serde_json::Value) -> GeometryParams {
     let mut params = get_geometry_params_from_json(adjustments);
     params.lens_vignette_enabled = false;
     params.lens_tca_enabled = false;
+    params
+}
+
+fn warp_effect_map(map: &DynamicImage, adjustments: &serde_json::Value) -> DynamicImage {
+    let params = effect_map_geometry_params(adjustments);
 
     if is_geometry_identity(&params) {
         map.clone()
     } else {
         warp_image_geometry(map, params)
     }
+}
+
+fn local_warp_rotations(
+    width: u32,
+    height: u32,
+    adjustments: &serde_json::Value,
+) -> Option<Vec<(f32, f32)>> {
+    let params = effect_map_geometry_params(adjustments);
+    if is_geometry_identity(&params) {
+        return None;
+    }
+
+    let coords = Rgb32FImage::from_fn(width, height, |x, y| Rgb([x as f32, y as f32, 1.0]));
+    let warped = warp_image_geometry(&DynamicImage::ImageRgb32F(coords), params).into_rgb32f();
+    let (w, h) = (width as usize, height as usize);
+    let src = warped.as_raw();
+    let source_at = |x: usize, y: usize| {
+        let i = (y * w + x) * 3;
+        [src[i], src[i + 1], src[i + 2]]
+    };
+
+    Some(
+        (0..w * h)
+            .into_par_iter()
+            .map(|i| {
+                let (x, y) = (i % w, i / w);
+                let (x0, x1) = (x.saturating_sub(1), (x + 1).min(w - 1));
+                let (y0, y1) = (y.saturating_sub(1), (y + 1).min(h - 1));
+                if x0 == x1 || y0 == y1 {
+                    return (1.0, 0.0);
+                }
+
+                let (left, right) = (source_at(x0, y), source_at(x1, y));
+                let (top, bottom) = (source_at(x, y0), source_at(x, y1));
+                if [left, right, top, bottom].iter().any(|p| p[2] < 0.999) {
+                    return (1.0, 0.0);
+                }
+
+                let (dx, dy) = ((x1 - x0) as f32, (y1 - y0) as f32);
+                let k00 = (right[0] - left[0]) / dx;
+                let k10 = (right[1] - left[1]) / dx;
+                let k01 = (bottom[0] - top[0]) / dy;
+                let k11 = (bottom[1] - top[1]) / dy;
+
+                let (sin, cos) = (-(k10 - k01).atan2(k00 + k11)).sin_cos();
+                (cos, sin)
+            })
+            .collect(),
+    )
+}
+
+fn rotate_normal(r: u8, g: u8, (cos, sin): (f32, f32)) -> (u8, u8) {
+    let nx = r as f32 / 127.5 - 1.0;
+    let ny = 1.0 - g as f32 / 127.5;
+    let rotated_x = cos * nx - sin * ny;
+    let rotated_y = sin * nx + cos * ny;
+    let pack = |v: f32| ((v + 1.0) * 127.5).round().clamp(0.0, 255.0) as u8;
+    (pack(rotated_x), pack(-rotated_y))
 }
 
 fn decode_data_url(data_url: &str) -> Option<DynamicImage> {

@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
+use std::sync::{LazyLock, Mutex};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -745,9 +746,25 @@ pub fn is_tethering_supported() -> bool {
     cfg!(feature = "tethering")
 }
 
+static SETTINGS_CACHE: LazyLock<Mutex<Option<AppSettings>>> = LazyLock::new(|| Mutex::new(None));
+
+fn settings_cache() -> std::sync::MutexGuard<'static, Option<AppSettings>> {
+    SETTINGS_CACHE.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 #[tauri::command]
 pub fn load_settings(app_handle: AppHandle) -> Result<AppSettings, String> {
-    let path = get_settings_path(&app_handle)?;
+    if let Some(settings) = settings_cache().as_ref() {
+        return Ok(settings.clone());
+    }
+
+    let settings = read_settings_from_disk(&app_handle)?;
+    *settings_cache() = Some(settings.clone());
+    Ok(settings)
+}
+
+fn read_settings_from_disk(app_handle: &AppHandle) -> Result<AppSettings, String> {
+    let path = get_settings_path(app_handle)?;
 
     let mut settings: AppSettings = if path.exists() {
         let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
@@ -817,6 +834,7 @@ pub fn save_settings(settings: AppSettings, app_handle: AppHandle) -> Result<(),
     let path = get_settings_path(&app_handle)?;
     let json_string = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
     fs::write(path, json_string).map_err(|e| e.to_string())?;
+    *settings_cache() = None;
 
     let state = app_handle.state::<AppState>();
     let cache_size = settings.image_cache_size.unwrap_or(5) as usize;

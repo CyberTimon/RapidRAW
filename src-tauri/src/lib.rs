@@ -95,7 +95,6 @@ use tokio::sync::Mutex as TokioMutex;
 
 use crate::cache_utils::{
     DecodedImageCache, calculate_full_job_hash, calculate_geometry_hash, calculate_transform_hash,
-    calculate_visual_hash,
 };
 use crate::file_management::{parse_virtual_path, read_file_mapped};
 use crate::formats::is_raw_file;
@@ -104,12 +103,13 @@ use crate::image_loader::{composite_patches_on_image, load_and_composite};
 use crate::image_processing::{
     Crop, RenderRequest, apply_coarse_rotation, apply_flip, apply_geometry_warp,
     apply_linear_to_srgb, downscale_f32_image, get_all_adjustments_from_json,
-    get_or_init_gpu_context, process_and_get_dynamic_image, resolve_render_options,
-    resolve_render_options_from_handle, warp_image_geometry,
+    get_geometry_params_from_json, get_or_init_gpu_context, is_geometry_identity,
+    process_and_get_dynamic_image, resolve_render_options, resolve_render_options_from_handle,
+    warp_image_geometry,
 };
 use crate::mask_generation::{
-    MaskDefinition, build_full_warped_image, build_warped_image_for_masks, generate_mask_bitmap,
-    get_cached_or_generate_mask, resolve_warped_image_for_masks,
+    MaskDefinition, build_full_warped_image_rgb8, build_warped_image_for_masks,
+    generate_mask_bitmap, get_cached_or_generate_mask, resolve_warped_image_for_masks,
 };
 use crate::window_customizer::PinchZoomDisablePlugin;
 pub use adjustment_utils::*;
@@ -135,6 +135,8 @@ pub fn register_exit_handler() {
 
 #[cfg(not(target_os = "macos"))]
 pub fn register_exit_handler() {}
+
+const GEOMETRY_PREVIEW_SUPERSAMPLE: f64 = 2.0;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CommunityPreset {
@@ -176,7 +178,7 @@ pub fn generate_transformed_preview(
     loaded_image: &LoadedImage,
     adjustments: &serde_json::Value,
     preview_dim: u32,
-) -> Result<(DynamicImage, f32, (f32, f32)), String> {
+) -> Result<TransformedPreview, String> {
     let mut hasher = DefaultHasher::new();
     loaded_image.path.hash(&mut hasher);
     calculate_transform_hash(adjustments).hash(&mut hasher);
@@ -191,7 +193,7 @@ pub fn generate_transformed_preview(
     if let Some((hash, img, scale, offset)) = cache_lock.as_ref()
         && *hash == cache_key
     {
-        return Ok(((**img).clone(), *scale, *offset));
+        return Ok((Arc::clone(img), *scale, *offset));
     }
 
     let (preview, scale_for_gpu, unscaled_crop_offset) =
@@ -203,7 +205,7 @@ pub fn generate_transformed_preview(
         unscaled_crop_offset,
     ));
 
-    Ok(((*preview).clone(), scale_for_gpu, unscaled_crop_offset))
+    Ok((preview, scale_for_gpu, unscaled_crop_offset))
 }
 
 fn get_or_compute_stage(
@@ -219,6 +221,7 @@ fn get_or_compute_stage(
         return Ok(Arc::clone(img));
     }
 
+    *cache_lock = None;
     let img = compute()?;
     *cache_lock = Some((key, Arc::clone(&img)));
     Ok(img)
@@ -232,19 +235,19 @@ fn compute_transformed_preview(
 ) -> Result<TransformedPreview, String> {
     let mut hasher = DefaultHasher::new();
     loaded_image.path.hash(&mut hasher);
-    calculate_geometry_hash(adjustments).hash(&mut hasher);
-    let warped_key = hasher.finish();
+    crate::cache_utils::calculate_patch_hash(adjustments).hash(&mut hasher);
+    let patched_key = hasher.finish();
 
-    let warped = get_or_compute_stage(&state.patched_warped_cache, warped_key, || {
-        compute_patched_and_warped(state, loaded_image, adjustments)
+    let patched = get_or_compute_stage(&state.patched_cache, patched_key, || {
+        compute_patched(loaded_image, adjustments)
     })?;
 
-    let (warped_w, warped_h) = warped.dimensions();
+    let (full_w_px, full_h_px) = patched.dimensions();
     let orientation_steps = adjustments["orientationSteps"].as_u64().unwrap_or(0);
     let (oriented_w, oriented_h) = if orientation_steps % 2 == 1 {
-        (warped_h as f64, warped_w as f64)
+        (full_h_px as f64, full_w_px as f64)
     } else {
-        (warped_w as f64, warped_h as f64)
+        (full_w_px as f64, full_h_px as f64)
     };
 
     let crop: Option<Crop> = serde_json::from_value(adjustments["crop"].clone()).ok();
@@ -259,38 +262,70 @@ fn compute_transformed_preview(
         .unwrap_or((oriented_w, oriented_h));
 
     let target_scale = (preview_dim as f64 / full_w.max(full_h)).min(1.0);
+    let target_w = ((full_w_px as f64 * target_scale).round() as u32).max(1);
+    let target_h = ((full_h_px as f64 * target_scale).round() as u32).max(1);
 
-    let working = if target_scale < 1.0 {
-        let working_w = ((warped_w as f64 * target_scale).round() as u32).max(1);
-        let working_h = ((warped_h as f64 * target_scale).round() as u32).max(1);
+    let has_geometry = !is_geometry_identity(&get_geometry_params_from_json(adjustments));
+    let working_target_scale = if has_geometry {
+        (target_scale * GEOMETRY_PREVIEW_SUPERSAMPLE).min(1.0)
+    } else {
+        target_scale
+    };
+
+    let working = if working_target_scale < 1.0 {
+        let working_w = ((full_w_px as f64 * working_target_scale).round() as u32).max(1);
+        let working_h = ((full_h_px as f64 * working_target_scale).round() as u32).max(1);
 
         let mut hasher = DefaultHasher::new();
-        warped_key.hash(&mut hasher);
+        patched_key.hash(&mut hasher);
         (working_w, working_h).hash(&mut hasher);
 
         get_or_compute_stage(&state.working_cache, hasher.finish(), || {
-            Ok(Arc::new(downscale_f32_image(&warped, working_w, working_h)))
+            Ok(Arc::new(downscale_f32_image(
+                &patched, working_w, working_h,
+            )))
         })?
     } else {
-        Arc::clone(&warped)
+        Arc::clone(&patched)
     };
+    drop(patched);
 
-    let working_scale = working.width() as f64 / warped_w.max(1) as f64;
+    let mut hasher = DefaultHasher::new();
+    loaded_image.path.hash(&mut hasher);
+    calculate_geometry_hash(adjustments).hash(&mut hasher);
+    working.dimensions().hash(&mut hasher);
+    (target_w, target_h).hash(&mut hasher);
+    let warped_key = hasher.finish();
+
+    let warped = get_or_compute_stage(&state.warped_cache, warped_key, || {
+        Ok(
+            match apply_geometry_warp(Cow::Borrowed(working.as_ref()), adjustments) {
+                Cow::Borrowed(_) => Arc::clone(&working),
+                Cow::Owned(img) if img.width() > target_w => {
+                    Arc::new(downscale_f32_image(&img, target_w, target_h))
+                }
+                Cow::Owned(img) => Arc::new(img),
+            },
+        )
+    })?;
+    drop(working);
+
+    let working_scale = warped.width() as f64 / full_w_px.max(1) as f64;
 
     let mut hasher = DefaultHasher::new();
     warped_key.hash(&mut hasher);
-    working.dimensions().hash(&mut hasher);
     crate::cache_utils::calculate_effects_hash(adjustments).hash(&mut hasher);
 
     let effected = get_or_compute_stage(&state.effects_cache, hasher.finish(), || {
-        let relit = crate::relight::apply_relight(Cow::Borrowed(working.as_ref()), adjustments);
+        let relit = crate::relight::apply_relight(Cow::Borrowed(warped.as_ref()), adjustments);
         let fogged = crate::fog::apply_fog(relit, adjustments);
         let blurred = crate::lens_blur::apply_lens_blur(fogged, adjustments);
         Ok(match blurred {
-            Cow::Borrowed(_) => Arc::clone(&working),
+            Cow::Borrowed(_) => Arc::clone(&warped),
             Cow::Owned(img) => Arc::new(img),
         })
     })?;
+    drop(warped);
 
     let max_dim = preview_dim as f64;
     let spatial_adjustments = serde_json::json!({
@@ -326,42 +361,25 @@ fn compute_transformed_preview(
     Ok((preview, scale_for_gpu, unscaled_crop_offset))
 }
 
-fn compute_patched_and_warped(
-    state: &tauri::State<AppState>,
+fn compute_patched(
     loaded_image: &LoadedImage,
     adjustments: &serde_json::Value,
 ) -> Result<Arc<DynamicImage>, String> {
-    let mut hasher = DefaultHasher::new();
-    loaded_image.path.hash(&mut hasher);
-    crate::cache_utils::calculate_patch_hash(adjustments).hash(&mut hasher);
+    let has_patches = adjustments
+        .get("aiPatches")
+        .and_then(|v| v.as_array())
+        .is_some_and(|a| !a.is_empty());
+    let denoised =
+        crate::ai_denoise::apply_ai_denoise(&loaded_image.image, &loaded_image.path, adjustments);
 
-    let patched = get_or_compute_stage(&state.patched_cache, hasher.finish(), || {
-        let has_patches = adjustments
-            .get("aiPatches")
-            .and_then(|v| v.as_array())
-            .is_some_and(|a| !a.is_empty());
-        let denoised = crate::ai_denoise::apply_ai_denoise(
-            &loaded_image.image,
-            &loaded_image.path,
-            adjustments,
-        );
-
-        match (denoised, has_patches) {
-            (base, true) => Ok(Arc::new(
-                composite_patches_on_image(&base, adjustments)
-                    .map_err(|e| format!("Failed to composite AI patches: {}", e))?,
-            )),
-            (Cow::Owned(img), false) => Ok(Arc::new(img)),
-            (Cow::Borrowed(_), false) => Ok(Arc::clone(&loaded_image.image)),
-        }
-    })?;
-
-    Ok(
-        match apply_geometry_warp(Cow::Borrowed(patched.as_ref()), adjustments) {
-            Cow::Borrowed(_) => Arc::clone(&patched),
-            Cow::Owned(img) => Arc::new(img),
-        },
-    )
+    match (denoised, has_patches) {
+        (base, true) => Ok(Arc::new(
+            composite_patches_on_image(&base, adjustments)
+                .map_err(|e| format!("Failed to composite AI patches: {}", e))?,
+        )),
+        (Cow::Owned(img), false) => Ok(Arc::new(img)),
+        (Cow::Borrowed(_), false) => Ok(Arc::clone(&loaded_image.image)),
+    }
 }
 
 #[tauri::command]
@@ -424,7 +442,7 @@ pub fn get_cached_full_warped_image_for_path(
     let cache_key = hasher.finish();
 
     {
-        let cache_lock = state
+        let mut cache_lock = state
             .full_warped_cache
             .lock()
             .unwrap_or_else(|e| e.into_inner());
@@ -433,12 +451,14 @@ pub fn get_cached_full_warped_image_for_path(
         {
             return Ok(Arc::clone(img));
         }
+        *cache_lock = None;
     }
 
-    let warped_arc = Arc::new(
-        build_full_warped_image(&loaded_image.image, loaded_image.is_raw, js_adjustments)
-            .into_owned(),
-    );
+    let warped_arc = Arc::new(build_full_warped_image_rgb8(
+        &loaded_image.image,
+        loaded_image.is_raw,
+        js_adjustments,
+    ));
 
     {
         let mut cache_lock = state
@@ -565,9 +585,7 @@ fn process_preview_job(
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = None;
 
-        let (base, scale, offset) =
-            generate_transformed_preview(&state, &loaded_image, &adjustments_clone, preview_dim)?;
-        (Arc::new(base), scale, offset)
+        generate_transformed_preview(&state, &loaded_image, &adjustments_clone, preview_dim)?
     };
 
     let small_preview_base = if small_valid {
@@ -807,11 +825,11 @@ fn start_analytics_worker(app_handle: tauri::AppHandle) {
                 job = latest;
             }
 
-            let histogram_data = image_processing::calculate_histogram_from_image(&job.image).ok();
+            let histogram_data = image_processing::calculate_histogram(&job.frame).ok();
 
             let waveform_data = if job.compute_waveform {
-                image_processing::calculate_waveform_from_image(
-                    &job.image,
+                image_processing::calculate_waveform(
+                    &job.frame,
                     job.active_waveform_channel.as_deref(),
                 )
                 .ok()
@@ -915,7 +933,7 @@ async fn generate_uncropped_preview(
     js_adjustments: serde_json::Value,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
-) -> Result<String, String> {
+) -> Result<Response, String> {
     let context = get_or_init_gpu_context(&state, &app_handle)?;
     let mut adjustments_clone = js_adjustments.clone();
     hydrate_adjustments(&state, &mut adjustments_clone);
@@ -931,46 +949,42 @@ async fn generate_uncropped_preview(
         let state = app_handle.state::<AppState>();
         let path = loaded_image.path.clone();
         let is_raw = loaded_image.is_raw;
-        let visual_hash = calculate_visual_hash(&path, &adjustments_clone);
+        let settings = load_settings(app_handle.clone()).unwrap_or_default();
+        let target_dim = settings.editor_preview_resolution.unwrap_or(1920);
 
-        let pre_geometry_base = {
-            let mut cache = state.geometry_cache.lock().unwrap();
-            if let Some(cached) = cache.get(&visual_hash).cloned() {
-                cached
-            } else {
-                let has_patches = adjustments_clone
-                    .get("aiPatches")
-                    .and_then(|v| v.as_array())
-                    .is_some_and(|a| !a.is_empty());
-                let denoised = crate::ai_denoise::apply_ai_denoise(
-                    &loaded_image.image,
-                    &loaded_image.path,
-                    &adjustments_clone,
-                );
-                let patched_image = if has_patches {
-                    Cow::Owned(
-                        composite_patches_on_image(&denoised, &adjustments_clone)
-                            .unwrap_or_else(|_| denoised.as_ref().clone()),
-                    )
-                } else {
-                    denoised
-                };
+        let mut hasher = DefaultHasher::new();
+        path.hash(&mut hasher);
+        crate::cache_utils::calculate_patch_hash(&adjustments_clone).hash(&mut hasher);
+        let patched_key = hasher.finish();
 
-                let relit_image = crate::relight::apply_relight(patched_image, &adjustments_clone);
+        let mut hasher = DefaultHasher::new();
+        patched_key.hash(&mut hasher);
+        crate::cache_utils::calculate_effects_hash(&adjustments_clone).hash(&mut hasher);
+        target_dim.hash(&mut hasher);
+        let base_key = hasher.finish();
+
+        let cached_base = state.geometry_cache.lock().unwrap().get(&base_key).cloned();
+        let pre_geometry_base = match cached_base {
+            Some(cached) => cached,
+            None => {
+                let patched = get_or_compute_stage(&state.patched_cache, patched_key, || {
+                    compute_patched(&loaded_image, &adjustments_clone)
+                })?;
+                let downscaled = downscale_f32_image(&patched, target_dim, target_dim);
+                drop(patched);
+
+                let relit_image =
+                    crate::relight::apply_relight(Cow::Owned(downscaled), &adjustments_clone);
                 let fogged_image = crate::fog::apply_fog(relit_image, &adjustments_clone);
-                let blurred_image =
-                    crate::lens_blur::apply_lens_blur(fogged_image, &adjustments_clone);
+                let base = crate::lens_blur::apply_lens_blur(fogged_image, &adjustments_clone)
+                    .into_owned();
 
-                let settings = load_settings(app_handle.clone()).unwrap_or_default();
-                let target_dim = (settings.editor_preview_resolution.unwrap_or(1920) as f32) as u32;
-
-                let downscaled = downscale_f32_image(&blurred_image, target_dim, target_dim);
-
-                if cache.len() > 5 {
+                let mut cache = state.geometry_cache.lock().unwrap();
+                if cache.len() > 2 {
                     cache.clear();
                 }
-                cache.insert(visual_hash, downscaled.clone());
-                downscaled
+                cache.insert(base_key, base.clone());
+                base
             }
         };
 
@@ -1047,9 +1061,7 @@ async fn generate_uncropped_preview(
                 .quality(80)
                 .encode_rgb(&rgb_pixels, width, height)
             {
-                let base64_str = general_purpose::STANDARD.encode(&bytes);
-                let data_url = format!("data:image/jpeg;base64,{}", base64_str);
-                return Ok(data_url);
+                return Ok(Response::new(bytes));
             }
         }
 
@@ -2316,7 +2328,7 @@ pub fn run() {
             load_image_generation: Arc::new(AtomicUsize::new(0)),
             full_warped_cache: Mutex::new(None),
             patched_cache: Mutex::new(None),
-            patched_warped_cache: Mutex::new(None),
+            warped_cache: Mutex::new(None),
             working_cache: Mutex::new(None),
             effects_cache: Mutex::new(None),
             full_transformed_cache: Mutex::new(None),

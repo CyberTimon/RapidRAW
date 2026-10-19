@@ -2,7 +2,7 @@ use crate::as_shot::AsShot;
 use crate::image_processing::apply_orientation;
 use crate::white_balance::WhiteBalance;
 use anyhow::{Result, anyhow};
-use image::{DynamicImage, ImageBuffer, Rgba};
+use image::{DynamicImage, ImageBuffer, Rgb};
 use rawler::{
     decoders::{Decoder, Orientation, RawDecodeParams},
     imgop::{
@@ -272,10 +272,10 @@ fn develop_internal(
 
     let dynamic_image = match developed_intermediate {
         Intermediate::ThreeColor(pixels) => {
-            DynamicImage::ImageRgba32F(rgb_pixels_to_rgba(&pixels.data, width, height)?)
+            DynamicImage::ImageRgb32F(rgb_pixels_to_rgb(pixels.data, width, height)?)
         }
         Intermediate::Monochrome(pixels) => {
-            DynamicImage::ImageRgba32F(mono_pixels_to_rgba(&pixels.data, width, height)?)
+            DynamicImage::ImageRgb32F(mono_pixels_to_rgb(&pixels.data, width, height)?)
         }
         _ => {
             return Err(anyhow!("Unsupported intermediate format for conversion"));
@@ -325,29 +325,25 @@ fn as_shot_white_balance(raw_image: &RawImage, file_bytes: &[u8]) -> Option<Whit
     WhiteBalance::from_camera_neutral(color_matrix, &neutral)
 }
 
-fn rgb_pixels_to_rgba(
-    data: &[[f32; 3]],
+fn rgb_pixels_to_rgb(
+    data: Vec<[f32; 3]>,
     width: u32,
     height: u32,
-) -> Result<ImageBuffer<Rgba<f32>, Vec<f32>>> {
-    let mut rgba = vec![0.0f32; data.len() * 4];
-    rgba.par_chunks_exact_mut(4)
-        .zip(data.par_iter())
-        .for_each(|(dst, p)| dst.copy_from_slice(&[p[0], p[1], p[2], 1.0]));
-    ImageBuffer::from_raw(width, height, rgba)
+) -> Result<ImageBuffer<Rgb<f32>, Vec<f32>>> {
+    ImageBuffer::from_raw(width, height, data.into_flattened())
         .ok_or_else(|| anyhow!("Developed image size does not match its dimensions"))
 }
 
-fn mono_pixels_to_rgba(
+fn mono_pixels_to_rgb(
     data: &[f32],
     width: u32,
     height: u32,
-) -> Result<ImageBuffer<Rgba<f32>, Vec<f32>>> {
-    let mut rgba = vec![0.0f32; data.len() * 4];
-    rgba.par_chunks_exact_mut(4)
+) -> Result<ImageBuffer<Rgb<f32>, Vec<f32>>> {
+    let mut rgb = vec![0.0f32; data.len() * 3];
+    rgb.par_chunks_exact_mut(3)
         .zip(data.par_iter())
-        .for_each(|(dst, &p)| dst.copy_from_slice(&[p, p, p, 1.0]));
-    ImageBuffer::from_raw(width, height, rgba)
+        .for_each(|(dst, &p)| dst.fill(p));
+    ImageBuffer::from_raw(width, height, rgb)
         .ok_or_else(|| anyhow!("Developed image size does not match its dimensions"))
 }
 

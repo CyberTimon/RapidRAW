@@ -9,7 +9,9 @@ use std::num::NonZero;
 use tauri::Manager;
 use wgpu::util::{DeviceExt, TextureDataOrder};
 
-use crate::image_processing::{AllAdjustments, GpuContext, MAX_MASKS, MaskAdjustments};
+use crate::image_processing::{
+    AllAdjustments, AnalyticsFrame, AnalyticsPixels, GpuContext, MAX_MASKS, MaskAdjustments,
+};
 use crate::lut_processing::Lut;
 use crate::{AppState, GpuImageCache};
 
@@ -552,6 +554,10 @@ struct BlurParams {
     _pad3: u32,
 }
 
+const BLUR_H_GROUP_WIDTH: u32 = 256;
+const BLUR_V_GROUP_SIZE: (u32, u32) = (8, 64);
+const DIRECT_BLUR_MAX_RADIUS: u32 = 8;
+
 const GF_SHORT_EDGE: u32 = 1080;
 const GF_CLARITY_RADIUS: f32 = 8.0;
 const GF_STRUCTURE_RADIUS: f32 = 40.0;
@@ -588,6 +594,8 @@ pub struct GpuProcessor {
     blur_bgl: wgpu::BindGroupLayout,
     h_blur_pipeline: wgpu::ComputePipeline,
     v_blur_pipeline: wgpu::ComputePipeline,
+    h_blur_direct_pipeline: wgpu::ComputePipeline,
+    v_blur_direct_pipeline: wgpu::ComputePipeline,
     blur_params_buffer: wgpu::Buffer,
 
     flare_bgl_0: wgpu::BindGroupLayout,
@@ -722,6 +730,26 @@ impl GpuProcessor {
             compilation_options: Default::default(),
             cache: None,
         });
+
+        let h_blur_direct_pipeline =
+            device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("Horizontal Direct Blur Pipeline"),
+                layout: Some(&blur_pipeline_layout),
+                module: &blur_shader_module,
+                entry_point: Some("horizontal_blur_direct"),
+                compilation_options: Default::default(),
+                cache: None,
+            });
+
+        let v_blur_direct_pipeline =
+            device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("Vertical Direct Blur Pipeline"),
+                layout: Some(&blur_pipeline_layout),
+                module: &blur_shader_module,
+                entry_point: Some("vertical_blur_direct"),
+                compilation_options: Default::default(),
+                cache: None,
+            });
 
         let blur_params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Blur Params Buffer"),
@@ -1250,6 +1278,8 @@ impl GpuProcessor {
             blur_bgl,
             h_blur_pipeline,
             v_blur_pipeline,
+            h_blur_direct_pipeline,
+            v_blur_direct_pipeline,
             blur_params_buffer,
             flare_bgl_0,
             flare_bgl_1,
@@ -1866,11 +1896,21 @@ impl GpuProcessor {
                         ],
                     });
 
+                    let direct = radius <= DIRECT_BLUR_MAX_RADIUS;
+
                     {
                         let mut cpass = blur_encoder.begin_compute_pass(&Default::default());
-                        cpass.set_pipeline(&self.h_blur_pipeline);
+                        cpass.set_pipeline(if direct {
+                            &self.h_blur_direct_pipeline
+                        } else {
+                            &self.h_blur_pipeline
+                        });
                         cpass.set_bind_group(0, &h_blur_bg, &[]);
-                        cpass.dispatch_workgroups(input_width.div_ceil(256), input_height, 1);
+                        cpass.dispatch_workgroups(
+                            input_width.div_ceil(BLUR_H_GROUP_WIDTH),
+                            input_height,
+                            1,
+                        );
                     }
 
                     let v_blur_bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -1894,9 +1934,18 @@ impl GpuProcessor {
 
                     {
                         let mut cpass = blur_encoder.begin_compute_pass(&Default::default());
-                        cpass.set_pipeline(&self.v_blur_pipeline);
                         cpass.set_bind_group(0, &v_blur_bg, &[]);
-                        cpass.dispatch_workgroups(input_width, input_height.div_ceil(256), 1);
+                        if direct {
+                            cpass.set_pipeline(&self.v_blur_direct_pipeline);
+                            cpass.dispatch_workgroups(input_width, input_height.div_ceil(256), 1);
+                        } else {
+                            cpass.set_pipeline(&self.v_blur_pipeline);
+                            cpass.dispatch_workgroups(
+                                input_width.div_ceil(BLUR_V_GROUP_SIZE.0),
+                                input_height.div_ceil(BLUR_V_GROUP_SIZE.1),
+                                1,
+                            );
+                        }
                     }
 
                     queue.submit(Some(blur_encoder.finish()));
@@ -2374,7 +2423,6 @@ fn process_and_get_dynamic_image_inner(
 
     let mut async_readback_buffer: Option<wgpu::Buffer> = None;
     let mut async_padded_bpr: u32 = 0;
-    let mut async_unpadded_bpr: u32 = 0;
 
     if analytics_config.is_some() && skip_readback {
         let unpadded_bytes_per_row = 4 * out_w;
@@ -2417,7 +2465,6 @@ fn process_and_get_dynamic_image_inner(
 
         async_readback_buffer = Some(output_buffer);
         async_padded_bpr = padded_bytes_per_row;
-        async_unpadded_bpr = unpadded_bytes_per_row;
         submit_final_encoder = true;
     }
 
@@ -2452,15 +2499,11 @@ fn process_and_get_dynamic_image_inner(
         submit_final_encoder = true;
     }
 
-    if submit_final_encoder {
-        queue.submit(Some(final_encoder.finish()));
-    }
+    let final_submission = submit_final_encoder.then(|| queue.submit(Some(final_encoder.finish())));
 
     if let Some(analytics) = analytics_config {
-        if let Some(buffer) = async_readback_buffer {
-            let output_buffer: wgpu::Buffer = buffer;
+        if let (Some(output_buffer), Some(submission)) = (async_readback_buffer, final_submission) {
             let padded_bytes_per_row: u32 = async_padded_bpr;
-            let unpadded_bytes_per_row: u32 = async_unpadded_bpr;
             let device_clone = context.device.clone();
 
             std::thread::spawn(move || {
@@ -2472,7 +2515,7 @@ fn process_and_get_dynamic_image_inner(
                 });
 
                 if let Err(e) = device_clone.poll(wgpu::PollType::Wait {
-                    submission_index: None,
+                    submission_index: Some(submission),
                     timeout: Some(std::time::Duration::from_secs(60)),
                 }) {
                     log::error!("Async analytics readback poll failed: {}", e);
@@ -2480,48 +2523,31 @@ fn process_and_get_dynamic_image_inner(
                 }
 
                 if let Ok(Ok(())) = rx.recv() {
-                    let padded_data = buffer_slice.get_mapped_range().to_vec();
-                    output_buffer.unmap();
-
-                    let mut unpadded_data =
-                        Vec::with_capacity((unpadded_bytes_per_row * out_h) as usize);
-                    if padded_bytes_per_row == unpadded_bytes_per_row {
-                        unpadded_data = padded_data;
-                    } else {
-                        for chunk in padded_data.chunks(padded_bytes_per_row as usize) {
-                            unpadded_data
-                                .extend_from_slice(&chunk[..unpadded_bytes_per_row as usize]);
-                        }
-                    }
-
-                    if let Some(img_buf) =
-                        ImageBuffer::<Rgba<u8>, _>::from_raw(out_w, out_h, unpadded_data)
-                    {
-                        let dynamic_img = DynamicImage::ImageRgba8(img_buf);
-                        let _ = analytics.sender.send(crate::AnalyticsJob {
-                            path: analytics.path,
-                            image: std::sync::Arc::new(dynamic_img),
-                            compute_waveform: analytics.compute_waveform,
-                            active_waveform_channel: analytics.active_waveform_channel,
-                        });
-                    }
+                    let _ = analytics.sender.send(crate::AnalyticsJob {
+                        path: analytics.path,
+                        frame: AnalyticsFrame {
+                            data: AnalyticsPixels::Mapped(buffer_slice.get_mapped_range()),
+                            width: out_w,
+                            height: out_h,
+                            row_stride: padded_bytes_per_row as usize,
+                        },
+                        compute_waveform: analytics.compute_waveform,
+                        active_waveform_channel: analytics.active_waveform_channel,
+                    });
                 }
             });
         } else {
             if let RenderedPixels::U8(pixels) = &processed_pixels {
-                let pixels_clone = pixels.clone();
-                std::thread::spawn(move || {
-                    if let Some(img_buf) =
-                        ImageBuffer::<Rgba<u8>, _>::from_raw(out_w, out_h, pixels_clone)
-                    {
-                        let dynamic_img = DynamicImage::ImageRgba8(img_buf);
-                        let _ = analytics.sender.send(crate::AnalyticsJob {
-                            path: analytics.path,
-                            image: std::sync::Arc::new(dynamic_img),
-                            compute_waveform: analytics.compute_waveform,
-                            active_waveform_channel: analytics.active_waveform_channel,
-                        });
-                    }
+                let _ = analytics.sender.send(crate::AnalyticsJob {
+                    path: analytics.path,
+                    frame: AnalyticsFrame {
+                        data: AnalyticsPixels::Owned(pixels.clone()),
+                        width: out_w,
+                        height: out_h,
+                        row_stride: out_w as usize * 4,
+                    },
+                    compute_waveform: analytics.compute_waveform,
+                    active_waveform_channel: analytics.active_waveform_channel,
                 });
             } else {
                 log::warn!("Skipping analytics for a high-precision CPU readback");

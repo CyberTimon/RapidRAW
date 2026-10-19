@@ -865,8 +865,7 @@ pub fn is_image_cached(path: String, state: tauri::State<'_, AppState>) -> bool 
         .decoded_image_cache
         .lock()
         .unwrap()
-        .get(&source_path_str)
-        .is_some()
+        .contains(&source_path_str)
 }
 
 #[tauri::command]
@@ -935,11 +934,11 @@ pub async fn load_image(
 
     let path_clone = source_path_str.clone();
 
-    let cached_data = state
-        .decoded_image_cache
-        .lock()
-        .unwrap()
-        .get(&source_path_str);
+    let cached_data = {
+        let mut decoded_cache = state.decoded_image_cache.lock().unwrap();
+        decoded_cache.compact_except(&source_path_str);
+        decoded_cache.get(&source_path_str)
+    };
 
     let (pristine_arc, exif_data) = if let Some((cached_img, cached_exif)) = cached_data {
         (cached_img, cached_exif)

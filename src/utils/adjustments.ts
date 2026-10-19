@@ -995,6 +995,56 @@ export const ADJUSTMENT_SECTIONS: Sections = {
   ],
 };
 
+const SECTION_KEY_OWNERS: Record<string, string> = Object.fromEntries(
+  Object.entries(ADJUSTMENT_SECTIONS).flatMap(([section, keys]) => keys.map((key) => [key, section])),
+);
+
+export const areSectionPropsEqual =
+  (section: string) =>
+  (prev: Record<string, unknown>, next: Record<string, unknown>): boolean => {
+    const propKeys = new Set([...Object.keys(prev), ...Object.keys(next)]);
+    for (const key of propKeys) {
+      if (key !== 'adjustments' && !Object.is(prev[key], next[key])) return false;
+    }
+
+    const prevAdjustments = prev.adjustments as Record<string, unknown> | undefined;
+    const nextAdjustments = next.adjustments as Record<string, unknown> | undefined;
+    if (prevAdjustments === nextAdjustments) return true;
+    if (!prevAdjustments || !nextAdjustments) return false;
+
+    const adjustmentKeys = new Set([...Object.keys(prevAdjustments), ...Object.keys(nextAdjustments)]);
+    for (const key of adjustmentKeys) {
+      if (Object.is(prevAdjustments[key], nextAdjustments[key])) continue;
+      const owner = SECTION_KEY_OWNERS[key];
+      if (owner === undefined || owner === section) return false;
+    }
+    return true;
+  };
+
+const CANVAS_ADJUSTMENT_KEYS = new Set([
+  'vignetteCenterX',
+  'vignetteCenterY',
+  'vignetteMidpoint',
+  'vignetteRoundness',
+  'centréX',
+  'centréY',
+  'relightLights',
+]);
+
+const TONAL_ADJUSTMENT_KEYS = new Set(
+  Object.keys(SECTION_KEY_OWNERS).filter((key) => !CANVAS_ADJUSTMENT_KEYS.has(key)),
+);
+
+export const omitTonalAdjustments = (adjustments: Adjustments): Adjustments => {
+  const result: Record<string, unknown> = {};
+  for (const key in adjustments) {
+    if (!TONAL_ADJUSTMENT_KEYS.has(key)) {
+      result[key] = (adjustments as unknown as Record<string, unknown>)[key];
+    }
+  }
+  return result as unknown as Adjustments;
+};
+
 const reconcileOrder = (defaultOrder: string[], order: string[] = []): string[] => {
   const savedOrder = order.filter((id, index) => defaultOrder.includes(id) && order.indexOf(id) === index);
   return [...savedOrder, ...defaultOrder.filter((id) => !savedOrder.includes(id))];

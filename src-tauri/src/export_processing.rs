@@ -2185,8 +2185,7 @@ pub async fn estimate_export_sizes(
                 let s = cached.scale;
                 let offset = cached.unscaled_crop_offset;
                 drop(cached_preview_lock);
-                let owned_img = Arc::try_unwrap(img).unwrap_or_else(|arc| (*arc).clone());
-                (owned_img, s, offset)
+                (img, s, offset)
             } else {
                 drop(cached_preview_lock);
                 generate_transformed_preview(
@@ -2258,9 +2257,11 @@ pub async fn estimate_export_sizes(
             encode_image_to_bytes(&processed_preview, &output_format, &export_settings)?;
         let preview_byte_size = preview_bytes.len();
 
-        let (transformed_full_res, _) =
-            apply_all_transformations(&loaded_image.image, &adjustments_clone);
-        let (full_w, full_h) = transformed_full_res.dimensions();
+        let (full_w, full_h) = crate::adjustment_utils::transformed_dimensions(
+            loaded_image.image.width(),
+            loaded_image.image.height(),
+            &adjustments_clone,
+        );
 
         let (final_full_w, final_full_h) =
             compute_export_output_size(full_w, full_h, &export_settings);
