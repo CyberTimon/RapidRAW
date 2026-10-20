@@ -892,6 +892,14 @@ pub async fn load_image(
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = None;
         *state
+            .region_cached_preview
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = None;
+        *state
+            .region_gpu_image_cache
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = None;
+        *state
             .full_warped_cache
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = None;

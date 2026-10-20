@@ -106,6 +106,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const adjustmentsHistory = useEditorStore((s) => s.history);
   const adjustmentsHistoryIndex = useEditorStore((s) => s.historyIndex);
   const finalPreviewUrl = useEditorStore((s) => s.finalPreviewUrl);
+  const sharpRegion = useEditorStore((s) => s.sharpRegion);
   const uncroppedAdjustedPreviewUrl = useEditorStore((s) => s.uncroppedAdjustedPreviewUrl);
   const showOriginal = useEditorStore((s) => s.showOriginal);
   const isSliderDragging = useEditorStore((s) => s.isSliderDragging);
@@ -162,6 +163,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const [sharpLayerContainer, setSharpLayerContainer] = useState<HTMLDivElement | null>(null);
   const transformStateRef = useRef<TransformState>(transformState);
   transformStateRef.current = transformState;
   const [isPanningState, setIsPanningState] = useState(false);
@@ -309,7 +311,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
   const handleZoomed = useCallback(
     (state: TransformState) => {
-      setEditor({ zoom: state.scale });
+      setEditor({ zoom: state.scale, settledTransform: state });
     },
     [setEditor],
   );
@@ -2330,6 +2332,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
           </div>
         )}
 
+        <div ref={setSharpLayerContainer} className="absolute inset-0 overflow-hidden pointer-events-none" />
+
         <div
           ref={contentRef}
           className="w-full h-full flex items-center justify-center origin-top-left"
@@ -2383,6 +2387,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
             liveRotation={liveRotation}
             transformState={transformState}
             hasRenderedFirstFrame={hasRenderedFirstFrame}
+            sharpLayerContainer={sharpLayerContainer}
+            sharpRegion={sharpRegion}
           />
         </div>
         {straightenDragLine && (

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use half::f16;
@@ -2198,6 +2198,7 @@ pub fn process_and_get_dynamic_image(
     process_and_get_dynamic_image_inner(
         context,
         state,
+        &state.gpu_image_cache,
         base_image,
         transform_hash,
         request,
@@ -2220,6 +2221,7 @@ pub fn process_and_get_dynamic_image_with_precision(
     process_and_get_dynamic_image_inner(
         context,
         state,
+        &state.gpu_image_cache,
         base_image,
         transform_hash,
         request,
@@ -2234,6 +2236,7 @@ pub fn process_and_get_dynamic_image_with_precision(
 pub fn process_and_get_dynamic_image_with_analytics(
     context: &GpuContext,
     state: &tauri::State<AppState>,
+    gpu_image_cache: &Mutex<Option<GpuImageCache>>,
     base_image: &DynamicImage,
     transform_hash: u64,
     request: RenderRequest,
@@ -2244,6 +2247,7 @@ pub fn process_and_get_dynamic_image_with_analytics(
     process_and_get_dynamic_image_inner(
         context,
         state,
+        gpu_image_cache,
         base_image,
         transform_hash,
         request,
@@ -2258,6 +2262,7 @@ pub fn process_and_get_dynamic_image_with_analytics(
 fn process_and_get_dynamic_image_inner(
     context: &GpuContext,
     state: &tauri::State<AppState>,
+    gpu_image_cache: &Mutex<Option<GpuImageCache>>,
     base_image: &DynamicImage,
     transform_hash: u64,
     request: RenderRequest,
@@ -2330,7 +2335,7 @@ fn process_and_get_dynamic_image_inner(
     let processor_state = processor_lock.as_ref().unwrap();
     let processor = &processor_state.processor;
 
-    let mut cache_lock = match state.gpu_image_cache.lock() {
+    let mut cache_lock = match gpu_image_cache.lock() {
         Ok(guard) => guard,
         Err(poisoned) => {
             log::warn!("GPU image cache lock was poisoned. Resetting to self-heal.");
