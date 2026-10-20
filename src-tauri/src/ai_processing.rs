@@ -479,11 +479,20 @@ pub async fn get_or_init_ai_models(
     remove_obsolete_model_assets(
         &models_dir,
         &[
+            // SAM ViT-B / SAM v1 exports used by older RapidRAW builds.
             "sam_vit_b_01ec64_encoder.onnx",
             "sam_vit_b_01ec64_decoder.onnx",
+            "sam_vit_b_encoder.onnx",
+            "sam_vit_b_decoder.onnx",
+            "sam_encoder.onnx",
+            "sam_decoder.onnx",
+            // U²-Net and SkySeg variants used by older builds.
             "u2net.onnx",
+            "u2netp.onnx",
+            "u2net_portrait.onnx",
             "skyseg_u2net.onnx",
             "skyseg-u2net.onnx",
+            "skyseg.onnx",
         ],
     );
 
