@@ -478,12 +478,9 @@ pub async fn get_or_init_ai_models(
 
     let _ = ort::init().with_name("AI").commit();
 
-    let sam3_image_encoder = Session::builder()?
-        .commit_from_file(models_dir.join(SAM3_IMAGE_FILENAME))?;
-    let sam3_text_encoder = Session::builder()?
-        .commit_from_file(models_dir.join(SAM3_TEXT_FILENAME))?;
-    let sam3_decoder = Session::builder()?
-        .commit_from_file(models_dir.join(SAM3_DECODER_FILENAME))?;
+    let sam3_image_encoder = load_ai_session(models_dir.join(SAM3_IMAGE_FILENAME))?;
+    let sam3_text_encoder = load_ai_session(models_dir.join(SAM3_TEXT_FILENAME))?;
+    let sam3_decoder = load_ai_session(models_dir.join(SAM3_DECODER_FILENAME))?;
     let sam3_tokenizer = Tokenizer::from_file(models_dir.join(SAM3_TOKENIZER_FILENAME))
         .map_err(|e| anyhow::anyhow!("Failed to load SAM 3 tokenizer: {e}"))?;
 
@@ -845,7 +842,7 @@ pub async fn get_or_init_normal_model(
 
     let _ = ort::init().with_name("AI-Normal").commit();
     let model_path = models_dir.join(NORMAL_FILENAME);
-    let session = Session::builder()?.commit_from_file(model_path)?;
+    let session = load_ai_session(model_path)?;
     let normal_model = Arc::new(Mutex::new(session));
 
     crate::register_exit_handler();
