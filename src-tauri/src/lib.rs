@@ -35,6 +35,7 @@ mod cache_utils;
 mod camera_tethering;
 mod culling;
 mod denoising;
+mod display_color;
 mod effect_maps;
 mod exif_processing;
 mod export_processing;
@@ -2340,6 +2341,7 @@ pub fn run() {
             camera_session: Mutex::new(camera_tethering::CameraSession::new()),
         })
         .invoke_handler(tauri::generate_handler![
+            display_color::get_display_color_info,
             apply_adjustments,
             generate_preview_for_path,
             generate_preset_preview,
