@@ -1119,7 +1119,9 @@
       "loading": "Wczytywanie albumów…",
       "refresh": "Odśwież albumy",
       "timeline": "Oś czasu",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "Bez albumu",
+      "unassignedHint": "Przeciągnij tu zdjęcia, aby przesłać je bez dodawania do albumu."
     },
     "settings": {
       "apiKey": "Klucz API",

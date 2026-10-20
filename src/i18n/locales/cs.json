@@ -1119,7 +1119,9 @@
       "loading": "Načítání alb…",
       "refresh": "Obnovit alba",
       "timeline": "Časová osa",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "Bez alba",
+      "unassignedHint": "Přetáhněte sem obrázky a nahrajte je bez přidání do alba."
     },
     "settings": {
       "apiKey": "API klíč",

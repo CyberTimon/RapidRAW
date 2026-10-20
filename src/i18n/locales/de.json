@@ -1067,7 +1067,9 @@
       "loading": "Alben werden geladen…",
       "refresh": "Alben aktualisieren",
       "timeline": "Zeitleiste",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "Ohne Album",
+      "unassignedHint": "Bilder hierher ziehen, um sie ohne Album hochzuladen."
     },
     "settings": {
       "apiKey": "API-Schlüssel",

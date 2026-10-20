@@ -1093,7 +1093,9 @@
       "loading": "Chargement des albums…",
       "refresh": "Actualiser les albums",
       "timeline": "Chronologie",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "Sans album",
+      "unassignedHint": "Déposez des images ici pour les envoyer sans les ajouter à un album."
     },
     "settings": {
       "apiKey": "Clé d'API",

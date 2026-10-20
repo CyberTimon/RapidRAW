@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { ImageFile } from '../ui/AppProperties';
 
 export const IMMICH_ALBUM_PREFIX = 'immich:';
+export const IMMICH_UNASSIGNED_ID = `${IMMICH_ALBUM_PREFIX}unassigned`;
 const FILTER_MARKER = '?';
 
 export const isImmichAlbumId = (albumId: string | null | undefined): albumId is string =>
@@ -67,6 +68,7 @@ export interface ImmichConnectionInfo {
 
 export interface ImmichFilter {
   albumId?: string | null;
+  notInAlbum?: boolean;
   takenFrom?: string | null;
   takenUntil?: string | null;
 }
@@ -76,6 +78,7 @@ export const filterToAlbumId = (filter: ImmichFilter) =>
 
 export const albumIdToFilter = (albumId: string): ImmichFilter => {
   const rest = albumId.slice(IMMICH_ALBUM_PREFIX.length);
+  if (rest === 'unassigned') return { notInAlbum: true };
   if (rest.startsWith(FILTER_MARKER)) {
     try {
       return JSON.parse(rest.slice(FILTER_MARKER.length));
@@ -89,7 +92,7 @@ export const albumIdToFilter = (albumId: string): ImmichFilter => {
 export const immichAlbumOf = (albumId: string | null | undefined) => {
   if (!isImmichAlbumId(albumId)) return null;
   const rest = albumId.slice(IMMICH_ALBUM_PREFIX.length);
-  return rest.startsWith(FILTER_MARKER) ? null : rest;
+  return rest.startsWith(FILTER_MARKER) || rest === 'unassigned' ? null : rest;
 };
 
 export const removeFromImmichAlbum = (albumId: string, paths: string[]) =>

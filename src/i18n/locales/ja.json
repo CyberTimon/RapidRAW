@@ -1064,7 +1064,9 @@
       "loading": "アルバムを読み込み中…",
       "refresh": "アルバムを更新",
       "timeline": "タイムライン",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "アルバムなし",
+      "unassignedHint": "ここに画像をドロップすると、アルバムに追加せずにアップロードします。"
     },
     "settings": {
       "apiKey": "API キー",

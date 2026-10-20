@@ -1064,7 +1064,9 @@
       "loading": "正在加载相册…",
       "refresh": "刷新相册",
       "timeline": "时间线",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "不在任何相册中",
+      "unassignedHint": "将图像拖到这里即可上传，但不加入任何相册。"
     },
     "settings": {
       "apiKey": "API 密钥",

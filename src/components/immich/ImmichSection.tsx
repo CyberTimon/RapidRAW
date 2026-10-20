@@ -1,12 +1,12 @@
 import { ReactNode, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import clsx from 'clsx';
-import { Album as AlbumIcon, CloudOff, CloudUpload, RefreshCw, Users } from 'lucide-react';
+import { Album as AlbumIcon, CloudOff, CloudUpload, Inbox, RefreshCw, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import Text from '../ui/Text';
 import { TextVariants, TextWeights } from '../../types/typography';
-import { toImmichAlbumId } from './immichApi';
+import { IMMICH_UNASSIGNED_ID, toImmichAlbumId } from './immichApi';
 import ImmichRow from './ImmichRow';
 import ImmichTimeline from './ImmichTimeline';
 import { useImmichStore } from './useImmichStore';
@@ -77,6 +77,14 @@ export default function ImmichSection({
               {!query && (
                 <>
                   <ImmichTimeline selectedAlbumId={selectedAlbumId} onSelectAlbum={onSelectAlbum} />
+                  <ImmichRow
+                    icon={Inbox}
+                    label={t('immich.section.unassigned')}
+                    dropId={IMMICH_UNASSIGNED_ID}
+                    isSelected={selectedAlbumId === IMMICH_UNASSIGNED_ID}
+                    onSelect={() => onSelectAlbum(IMMICH_UNASSIGNED_ID, t('immich.section.unassigned'), [])}
+                    tooltip={t('immich.section.unassignedHint')}
+                  />
                   <div className="my-1 mx-2 h-px bg-surface" />
                 </>
               )}

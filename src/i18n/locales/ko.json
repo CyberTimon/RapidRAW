@@ -1064,7 +1064,9 @@
       "loading": "앨범 불러오는 중…",
       "refresh": "앨범 새로고침",
       "timeline": "타임라인",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "앨범 없음",
+      "unassignedHint": "이미지를 여기에 놓으면 앨범에 추가하지 않고 업로드합니다."
     },
     "settings": {
       "apiKey": "API 키",

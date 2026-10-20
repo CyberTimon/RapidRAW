@@ -1067,7 +1067,9 @@
       "loading": "Albums laden…",
       "refresh": "Albums vernieuwen",
       "timeline": "Tijdlijn",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "Zonder album",
+      "unassignedHint": "Sleep afbeeldingen hierheen om ze te uploaden zonder ze aan een album toe te voegen."
     },
     "settings": {
       "apiKey": "API-sleutel",

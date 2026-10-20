@@ -1093,7 +1093,9 @@
       "loading": "A carregar álbuns…",
       "refresh": "Atualizar álbuns",
       "timeline": "Cronologia",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "Sem álbum",
+      "unassignedHint": "Arraste imagens para aqui para as enviar sem as adicionar a um álbum."
     },
     "settings": {
       "apiKey": "Chave de API",

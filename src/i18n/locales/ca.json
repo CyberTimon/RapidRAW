@@ -1093,7 +1093,9 @@
       "loading": "Carregant àlbums…",
       "refresh": "Actualitza els àlbums",
       "timeline": "Cronologia",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "Sense àlbum",
+      "unassignedHint": "Arrossega imatges aquí per pujar-les sense afegir-les a cap àlbum."
     },
     "settings": {
       "apiKey": "Clau d'API",

@@ -1119,7 +1119,9 @@
       "loading": "Загрузка альбомов…",
       "refresh": "Обновить альбомы",
       "timeline": "Хронология",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "Без альбома",
+      "unassignedHint": "Перетащите сюда изображения, чтобы загрузить их без добавления в альбом."
     },
     "settings": {
       "apiKey": "API-ключ",

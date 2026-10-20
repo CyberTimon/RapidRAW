@@ -1067,7 +1067,9 @@
       "loading": "Loading albums…",
       "refresh": "Refresh albums",
       "timeline": "Timeline",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "In no album",
+      "unassignedHint": "Drop images here to upload them without adding them to an album."
     },
     "settings": {
       "apiKey": "API key",
