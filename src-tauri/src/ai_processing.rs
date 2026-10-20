@@ -65,6 +65,56 @@ const NORMAL_MAX_SIZE: u32 = 768;
 const NORMAL_NUM_TOKENS: i64 = 2500;
 const NORMAL_SHA256: &str = "24eacb5dc7a2c54c7bc98f7de085ffbed79ad006ea5b664c2c2cdc02ff3a52f0";
 
+/// Build an ONNX Runtime session with platform-specific accelerators first.
+/// Execution providers are hints, not guarantees: driver/runtime initialization can
+/// fail even when the crate feature is present. Retry with CPU-only in that case.
+fn load_ai_session(path: impl AsRef<Path>) -> Result<Session> {
+    let path = path.as_ref();
+
+    #[cfg(target_os = "windows")]
+    {
+        let accelerated = Session::builder().and_then(|builder| {
+            builder.with_execution_providers([
+                // Prefer CUDA for NVIDIA, then DirectML for Intel/AMD/NVIDIA.
+                ort::ep::CUDA::default().build(),
+                ort::ep::DirectML::default().build(),
+                ort::ep::CPU::default().build(),
+            ])
+        }).and_then(|builder| builder.commit_from_file(path));
+
+        match accelerated {
+            Ok(session) => return Ok(session),
+            Err(error) => {
+                eprintln!("GPU AI providers unavailable; retrying with CPU: {error}");
+            }
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let accelerated = Session::builder().and_then(|builder| {
+            builder.with_execution_providers([
+                // CoreML may dispatch eligible operators to Apple GPU / Neural Engine.
+                ort::ep::CoreML::default().build(),
+                ort::ep::CPU::default().build(),
+            ])
+        }).and_then(|builder| builder.commit_from_file(path));
+
+        match accelerated {
+            Ok(session) => return Ok(session),
+            Err(error) => {
+                eprintln!("CoreML AI provider unavailable; retrying with CPU: {error}");
+            }
+        }
+    }
+
+    // Linux and other targets remain CPU-only by design. This is also the
+    // recovery path if a platform accelerator fails to initialize.
+    Ok(Session::builder()?
+        .with_execution_providers([ort::ep::CPU::default().build()])?
+        .commit_from_file(path)?)
+}
+
 pub struct AiModels {
     pub sam3_image_encoder: Mutex<Session>,
     pub sam3_text_encoder: Mutex<Session>,
@@ -458,12 +508,9 @@ pub async fn get_or_init_ai_models(
 
     let _ = ort::init().with_name("AI").commit();
 
-    let sam3_image_encoder = Session::builder()?
-        .commit_from_file(models_dir.join(SAM3_IMAGE_FILENAME))?;
-    let sam3_text_encoder = Session::builder()?
-        .commit_from_file(models_dir.join(SAM3_TEXT_FILENAME))?;
-    let sam3_decoder = Session::builder()?
-        .commit_from_file(models_dir.join(SAM3_DECODER_FILENAME))?;
+    let sam3_image_encoder = load_ai_session(models_dir.join(SAM3_IMAGE_FILENAME))?;
+    let sam3_text_encoder = load_ai_session(models_dir.join(SAM3_TEXT_FILENAME))?;
+    let sam3_decoder = load_ai_session(models_dir.join(SAM3_DECODER_FILENAME))?;
     let sam3_tokenizer = Tokenizer::from_file(models_dir.join(SAM3_TOKENIZER_FILENAME))
         .map_err(|e| anyhow::anyhow!("Failed to load SAM 3 tokenizer: {e}"))?;
 
@@ -479,11 +526,20 @@ pub async fn get_or_init_ai_models(
     remove_obsolete_model_assets(
         &models_dir,
         &[
+            // SAM ViT-B / SAM v1 exports used by older RapidRAW builds.
             "sam_vit_b_01ec64_encoder.onnx",
             "sam_vit_b_01ec64_decoder.onnx",
+            "sam_vit_b_encoder.onnx",
+            "sam_vit_b_decoder.onnx",
+            "sam_encoder.onnx",
+            "sam_decoder.onnx",
+            // U²-Net and SkySeg variants used by older builds.
             "u2net.onnx",
+            "u2netp.onnx",
+            "u2net_portrait.onnx",
             "skyseg_u2net.onnx",
             "skyseg-u2net.onnx",
+            "skyseg.onnx",
         ],
     );
 
@@ -545,11 +601,21 @@ pub async fn get_or_init_depth_anything3_model(
     // Depth can be the first AI feature used in a fresh session, so initialize
     // ONNX Runtime here instead of relying on a segmentation model having run.
     let _ = ort::init().with_name("AI-Depth").commit();
-    let session = Session::builder()?.commit_from_file(models_dir.join(DEPTH_FILENAME))?;
+    let session = load_ai_session(models_dir.join(DEPTH_FILENAME))?;
     let model = Arc::new(Mutex::new(session));
 
     crate::register_exit_handler();
-    remove_obsolete_model_assets(&models_dir, &["depth_anything_v2_vits.onnx"]);
+    remove_obsolete_model_assets(
+        &models_dir,
+        &[
+            "depth_anything_v2_vits.onnx",
+            "depth_anything_v2_vitb.onnx",
+            "depth_anything_v2_vitl.onnx",
+            "depth_anything_v2_small.onnx",
+            "depth_anything_v2_base.onnx",
+            "depth_anything_v2_large.onnx",
+        ],
+    );
 
     let mut state_lock = ai_state_mutex.lock().unwrap();
     if let Some(state) = state_lock.as_mut() {
@@ -608,7 +674,7 @@ pub async fn get_or_init_denoise_model(
 
     let _ = ort::init().with_name("AI-Denoise").commit();
     let model_path = models_dir.join(DENOISE_FILENAME);
-    let session = Session::builder()?.commit_from_file(model_path)?;
+    let session = load_ai_session(model_path)?;
     let denoise_model = Arc::new(Mutex::new(session));
 
     crate::register_exit_handler();
@@ -679,7 +745,7 @@ pub async fn get_or_init_clip_models(
 
     let _ = ort::init().with_name("AI-Tagging").commit();
     let clip_model_path = models_dir.join(CLIP_MODEL_FILENAME);
-    let model = Mutex::new(Session::builder()?.commit_from_file(clip_model_path)?);
+    let model = Mutex::new(load_ai_session(clip_model_path)?);
     let tokenizer =
         Tokenizer::from_file(clip_tokenizer_path).map_err(|e| anyhow::anyhow!(e.to_string()))?;
 
@@ -744,7 +810,7 @@ pub async fn get_or_init_lama_model(
 
     let _ = ort::init().with_name("AI-Inpainting").commit();
     let model_path = models_dir.join(LAMA_FILENAME);
-    let session = Session::builder()?.commit_from_file(model_path)?;
+    let session = load_ai_session(model_path)?;
     let lama_model = Arc::new(Mutex::new(session));
 
     crate::register_exit_handler();
@@ -806,7 +872,7 @@ pub async fn get_or_init_normal_model(
 
     let _ = ort::init().with_name("AI-Normal").commit();
     let model_path = models_dir.join(NORMAL_FILENAME);
-    let session = Session::builder()?.commit_from_file(model_path)?;
+    let session = load_ai_session(model_path)?;
     let normal_model = Arc::new(Mutex::new(session));
 
     crate::register_exit_handler();

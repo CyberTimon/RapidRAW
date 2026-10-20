@@ -35,6 +35,7 @@ mod cache_utils;
 mod camera_tethering;
 mod culling;
 mod denoising;
+mod display_profile;
 mod display_color;
 mod effect_maps;
 mod exif_processing;
@@ -2367,6 +2368,7 @@ pub fn run() {
             cache_utils::clear_session_caches,
             cache_utils::clear_image_caches,
             app_settings::load_settings,
+            display_profile::get_display_icc_profile,
             app_settings::save_settings,
             app_settings::is_tethering_supported,
             ai_commands::generate_ai_subject_mask,
