@@ -1268,7 +1268,9 @@ pub fn generate_sam3_image_embeddings(
     )?;
     let input = Tensor::from_array(input)?;
 
-    let mut session = encoder.lock().unwrap();
+    let mut session = encoder
+        .lock()
+        .map_err(|_| anyhow::anyhow!("SAM 3 image encoder lock was poisoned"))?;
     let outputs = session.run(ort::inputs!["images" => input])?;
     if outputs.len() < 4 {
         anyhow::bail!("SAM 3 vision encoder returned {} outputs; expected 4", outputs.len());
@@ -1297,6 +1299,9 @@ fn encode_sam3_text(
     tokenizer: &Tokenizer,
     text_encoder: &Mutex<Session>,
 ) -> Result<(Arc<DynValue>, Arc<DynValue>)> {
+    if prompt.trim().is_empty() {
+        anyhow::bail!("SAM 3 text prompt cannot be empty");
+    }
     let encoded = tokenizer.encode(prompt, true)
         .map_err(|e| anyhow::anyhow!("SAM 3 tokenization failed: {e}"))?;
     let ids = encoded.get_ids();
@@ -1318,7 +1323,9 @@ fn encode_sam3_text(
     let ids_tensor = Tensor::from_array(Array::from_shape_vec((1, SAM3_TEXT_LENGTH), input_ids)?)?;
     let mask_tensor = Tensor::from_array(Array::from_shape_vec((1, SAM3_TEXT_LENGTH), attention_mask)?)?;
 
-    let mut session = text_encoder.lock().unwrap();
+    let mut session = text_encoder
+        .lock()
+        .map_err(|_| anyhow::anyhow!("SAM 3 text encoder lock was poisoned"))?;
     let outputs = session.run(ort::inputs![
         "input_ids" => ids_tensor,
         "attention_mask" => mask_tensor
@@ -1401,7 +1408,9 @@ pub fn run_sam3_decoder(
     let labels = Tensor::from_array(Array::from_shape_vec((1, 1), vec![label_value])?)?;
     let (text_features, text_mask) = encode_sam3_text(text_prompt, tokenizer, text_encoder)?;
 
-    let mut session = decoder.lock().unwrap();
+    let mut session = decoder
+        .lock()
+        .map_err(|_| anyhow::anyhow!("SAM 3 decoder lock was poisoned"))?;
     let outputs = session.run(ort::inputs![
         "fpn_feat_0" => embeddings.features[0].as_ref(),
         "fpn_feat_1" => embeddings.features[1].as_ref(),
@@ -1433,7 +1442,24 @@ pub fn run_sam3_decoder(
     let mask_values = pred_masks.as_slice().ok_or_else(|| anyhow::anyhow!("Non-contiguous SAM 3 masks"))?;
     let score_values = pred_logits.as_slice().ok_or_else(|| anyhow::anyhow!("Non-contiguous SAM 3 scores"))?;
     let box_values = pred_boxes.as_slice().ok_or_else(|| anyhow::anyhow!("Non-contiguous SAM 3 boxes"))?;
-    let presence = presence_logits.as_slice().and_then(|v| v.first()).copied().unwrap_or(0.0);
+    let expected_mask_values = count.checked_mul(mask_height).and_then(|v| v.checked_mul(mask_width))
+        .ok_or_else(|| anyhow::anyhow!("SAM 3 mask dimensions overflow"))?;
+    if mask_values.len() < expected_mask_values {
+        anyhow::bail!(
+            "SAM 3 mask tensor contains {} values; expected at least {}",
+            mask_values.len(),
+            expected_mask_values
+        );
+    }
+    if score_values.len() < count {
+        anyhow::bail!(
+            "SAM 3 score tensor contains {} values for {} masks",
+            score_values.len(),
+            count
+        );
+    }
+    let presence = presence_logits.as_slice().and_then(|v| v.first()).copied()
+        .ok_or_else(|| anyhow::anyhow!("SAM 3 presence output is empty or non-contiguous"))?;
     let presence_score = sam3_sigmoid(presence);
     let mask_area = mask_height * mask_width;
 
@@ -1546,7 +1572,9 @@ pub fn run_depth_anything3_model(
         chw,
     )?)?;
 
-    let mut session = depth_session.lock().unwrap();
+    let mut session = depth_session
+        .lock()
+        .map_err(|_| anyhow::anyhow!("Depth Anything 3 model lock was poisoned"))?;
     let outputs = session.run(ort::inputs!["image" => input])?;
     if outputs.is_empty() {
         anyhow::bail!("Depth Anything 3 returned no output tensors");
@@ -1654,7 +1682,9 @@ pub fn run_normal_model(
     let t_image = Tensor::from_array(input_tensor.into_dyn())?;
     let t_num_tokens = Tensor::from_array(ndarray::arr0(NORMAL_NUM_TOKENS))?;
 
-    let mut session = normal_session.lock().unwrap();
+    let mut session = normal_session
+        .lock()
+        .map_err(|_| anyhow::anyhow!("Normal model lock was poisoned"))?;
     let outputs = session.run(ort::inputs![
         "image" => t_image,
         "num_tokens" => t_num_tokens,
