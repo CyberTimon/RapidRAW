@@ -66,28 +66,53 @@ const NORMAL_NUM_TOKENS: i64 = 2500;
 const NORMAL_SHA256: &str = "24eacb5dc7a2c54c7bc98f7de085ffbed79ad006ea5b664c2c2cdc02ff3a52f0";
 
 /// Build an ONNX Runtime session with platform-specific accelerators first.
-/// ONNX Runtime keeps CPU execution as its implicit fallback when an EP cannot
-/// register or does not support an operator in a graph.
+/// Execution providers are hints, not guarantees: driver/runtime initialization can
+/// fail even when the crate feature is present. Retry with CPU-only in that case.
 fn load_ai_session(path: impl AsRef<Path>) -> Result<Session> {
-    let builder = Session::builder()?;
+    let path = path.as_ref();
 
     #[cfg(target_os = "windows")]
-    let builder = builder.with_execution_providers([
-        // NVIDIA CUDA first; DirectML covers Intel, AMD, and NVIDIA GPUs when
-        // CUDA is unavailable; CPU is the deterministic final fallback.
-        ort::ep::CUDA::default().build(),
-        ort::ep::DirectML::default().build(),
-        ort::ep::CPU::default().build(),
-    ])?;
+    {
+        let accelerated = Session::builder().and_then(|builder| {
+            builder.with_execution_providers([
+                // Prefer CUDA for NVIDIA, then DirectML for Intel/AMD/NVIDIA.
+                ort::ep::CUDA::default().build(),
+                ort::ep::DirectML::default().build(),
+                ort::ep::CPU::default().build(),
+            ])
+        }).and_then(|builder| builder.commit_from_file(path));
+
+        match accelerated {
+            Ok(session) => return Ok(session),
+            Err(error) => {
+                eprintln!("GPU AI providers unavailable; retrying with CPU: {error}");
+            }
+        }
+    }
 
     #[cfg(target_os = "macos")]
-    let builder = builder.with_execution_providers([
-        // CoreML can dispatch to Apple GPU / Neural Engine; keep CPU as fallback.
-        ort::ep::CoreML::default().build(),
-        ort::ep::CPU::default().build(),
-    ])?;
+    {
+        let accelerated = Session::builder().and_then(|builder| {
+            builder.with_execution_providers([
+                // CoreML may dispatch eligible operators to Apple GPU / Neural Engine.
+                ort::ep::CoreML::default().build(),
+                ort::ep::CPU::default().build(),
+            ])
+        }).and_then(|builder| builder.commit_from_file(path));
 
-    Ok(builder.commit_from_file(path)?)
+        match accelerated {
+            Ok(session) => return Ok(session),
+            Err(error) => {
+                eprintln!("CoreML AI provider unavailable; retrying with CPU: {error}");
+            }
+        }
+    }
+
+    // Linux and other targets remain CPU-only by design. This is also the
+    // recovery path if a platform accelerator fails to initialize.
+    Ok(Session::builder()?
+        .with_execution_providers([ort::ep::CPU::default().build()])?
+        .commit_from_file(path)?)
 }
 
 pub struct AiModels {
