@@ -28,6 +28,7 @@ interface ProcessState {
   isCopied: boolean;
   isPasted: boolean;
   initialFileToOpen: string | null;
+  initialFolderToOpen: string | null;
   externalEditSession: ExternalEditSession | null;
   activeAiTasks: Record<string, AiTask>;
 
@@ -62,6 +63,7 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
   isCopied: false,
   isPasted: false,
   initialFileToOpen: null,
+  initialFolderToOpen: null,
   externalEditSession: null,
   activeAiTasks: {},
 
