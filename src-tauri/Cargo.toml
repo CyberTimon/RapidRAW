@@ -35,8 +35,7 @@ uuid = { version = "1.25", features = ["v4", "serde"] }
 walkdir = "2.5.0"
 imageproc = "0.27.0"
 lsdetect = "0.3.0"
-# Enable hardware provider bindings; session creation selects platform providers with CPU fallback.
-ort = { version = "=2.0.0-rc.10", features = ["ndarray", "load-dynamic", "cuda", "directml", "coreml"] }
+ort = { version = "=2.0.0-rc.10", features = ["ndarray", "load-dynamic"] }
 ndarray = "0.16"
 tauri-plugin-process = "2.3.1"
 tauri-plugin-os = "2.3.2"
@@ -85,7 +84,11 @@ tauri-plugin-clerk = "0.1.1"
 [target.'cfg(any(target_os = "macos", target_os = "linux"))'.dependencies]
 gphoto2 = { git = "https://github.com/CyberTimon/libgphoto2-rs", optional = true }
 
+[target.'cfg(target_os = "windows")'.dependencies]
+ort = { version = "=2.0.0-rc.10", features = ["ndarray", "load-dynamic", "cuda", "directml"] }
+
 [target.'cfg(target_os = "macos")'.dependencies]
+ort = { version = "=2.0.0-rc.10", features = ["ndarray", "load-dynamic", "coreml"] }
 objc = "0.2"
 objc2 = "0.6"
 objc2-foundation = { version = "0.3.2", features = [
