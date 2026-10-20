@@ -154,7 +154,7 @@ pub struct PreviewJob {
 
 pub struct AnalyticsJob {
     pub path: String,
-    pub image: Arc<DynamicImage>,
+    pub frame: crate::image_processing::AnalyticsFrame,
     pub compute_waveform: bool,
     pub active_waveform_channel: Option<String>,
 }

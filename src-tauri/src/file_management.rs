@@ -1384,7 +1384,8 @@ pub fn read_file_mapped(path: &Path) -> Result<Mmap, ReadFileError> {
         return Err(ReadFileError::Empty);
     }
     let file = fs::File::open(path).map_err(ReadFileError::Io)?;
-    if file.try_lock_shared().is_err() {
+    // Filesystems that cannot lock, such as the Flatpak document portal, are mapped unlocked.
+    if let Err(fs::TryLockError::WouldBlock) = file.try_lock_shared() {
         return Err(ReadFileError::Locked);
     }
     let mmap = unsafe {
