@@ -73,13 +73,18 @@ fn load_ai_session(path: impl AsRef<Path>) -> Result<Session> {
 
     #[cfg(target_os = "windows")]
     let builder = builder.with_execution_providers([
+        // NVIDIA CUDA first; DirectML covers Intel, AMD, and NVIDIA GPUs when
+        // CUDA is unavailable; CPU is the deterministic final fallback.
         ort::ep::CUDA::default().build(),
         ort::ep::DirectML::default().build(),
+        ort::ep::CPU::default().build(),
     ])?;
 
     #[cfg(target_os = "macos")]
     let builder = builder.with_execution_providers([
+        // CoreML can dispatch to Apple GPU / Neural Engine; keep CPU as fallback.
         ort::ep::CoreML::default().build(),
+        ort::ep::CPU::default().build(),
     ])?;
 
     builder.commit_from_file(path).map_err(Into::into)
