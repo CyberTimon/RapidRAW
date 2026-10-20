@@ -1145,6 +1145,9 @@
       "downloadFailed": "Не удалось загрузить из Immich: {{error}}",
       "editsConflict": "{{fileName}} также редактировался на другом компьютере. Ваши правки остаются, а другая версия сохранена как виртуальная копия.",
       "offline": "Immich недоступен. Ваши правки хранятся здесь и будут отправлены, как только он снова станет доступен.",
+      "transferFailed": "Не добавлено в Immich: {{number}} ({{error}})",
+      "transferred": "Добавлено в Immich: {{number}}",
+      "transferring": "Добавление в Immich… {{current}}/{{total}}",
       "trashFailed": "Не удалось переместить в корзину Immich: {{error}}",
       "uploaded": "Загружено в Immich: {{number}}"
     }

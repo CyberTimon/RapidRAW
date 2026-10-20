@@ -148,6 +148,78 @@ async fn upload_export(
     Ok(())
 }
 
+const ALBUM_PREFIX: &str = "immich:";
+
+pub fn add_to_album(
+    app_handle: &AppHandle,
+    album_id: &str,
+    paths: &[String],
+) -> Option<Result<(), String>> {
+    let target = album_id.strip_prefix(ALBUM_PREFIX)?;
+    let album = uuid::Uuid::parse_str(target)
+        .ok()
+        .map(|_| target.to_string());
+    let session = match session(app_handle) {
+        Ok(session) => session,
+        Err(e) => return Some(Err(e)),
+    };
+    let app_handle = app_handle.clone();
+    let paths = paths.to_vec();
+    tauri::async_runtime::spawn(async move {
+        let total = paths.len();
+        let mut ids = Vec::new();
+        let mut failed = Vec::new();
+        for (index, path) in paths.iter().enumerate() {
+            let _ = app_handle.emit(
+                "immich-transfer",
+                json!({ "state": "progress", "current": index, "total": total }),
+            );
+            match asset_for(&app_handle, &session, path).await {
+                Ok(id) => ids.push(id),
+                Err(e) => {
+                    log::error!("Could not add {path} to Immich: {e}");
+                    failed.push(e);
+                }
+            }
+        }
+        if let Some(album) = &album
+            && !ids.is_empty()
+            && let Err(e) = session.client.add_to_album(album, &ids).await
+        {
+            failed.push(e);
+        }
+        let _ = app_handle.emit(
+            "immich-transfer",
+            json!({
+                "state": "done",
+                "added": ids.len(),
+                "failed": failed.len(),
+                "error": failed.first(),
+            }),
+        );
+        let _ = app_handle.emit("immich-library-changed", json!({}));
+    });
+    Some(Ok(()))
+}
+
+async fn asset_for(
+    app_handle: &AppHandle,
+    session: &Session,
+    path: &str,
+) -> Result<String, String> {
+    let (source, _) = crate::file_management::parse_virtual_path(path);
+    if let Some(entry) = registry::get(&source) {
+        return Ok(entry.listed_asset_id);
+    }
+    if path.contains("?vc=") || !source.is_file() {
+        return Err(format!(
+            "{} is not a file that can be uploaded",
+            source.display()
+        ));
+    }
+    upload_original(app_handle, session, &source).await
+}
+
 async fn upload_original(
     app_handle: &AppHandle,
     session: &Session,

@@ -1090,6 +1090,9 @@
       "downloadFailed": "无法从 Immich 下载：{{error}}",
       "editsConflict": "{{fileName}} 也在另一台电脑上被编辑过。你的编辑内容会保留，另一个版本已保存为虚拟副本。",
       "offline": "无法连接到 Immich。你的编辑内容会保留在这里，并在恢复连接后发送。",
+      "transferFailed": "未能添加到 Immich：{{number}}（{{error}}）",
+      "transferred": "已添加到 Immich：{{number}}",
+      "transferring": "正在添加到 Immich… {{current}}/{{total}}",
       "trashFailed": "无法移至 Immich 回收站：{{error}}",
       "uploaded": "已上传到 Immich：{{number}}"
     }

@@ -1119,6 +1119,9 @@
       "downloadFailed": "Não foi possível transferir do Immich: {{error}}",
       "editsConflict": "{{fileName}} também foi editada noutro computador. As suas edições mantêm-se e a outra versão é guardada como cópia virtual.",
       "offline": "O Immich não está acessível. As suas edições ficam guardadas aqui e serão enviadas assim que voltar a estar disponível.",
+      "transferFailed": "Não adicionadas ao Immich: {{number}} ({{error}})",
+      "transferred": "Adicionadas ao Immich: {{number}}",
+      "transferring": "A adicionar ao Immich… {{current}}/{{total}}",
       "trashFailed": "Não foi possível mover para o lixo do Immich: {{error}}",
       "uploaded": "Enviadas para o Immich: {{number}}"
     }

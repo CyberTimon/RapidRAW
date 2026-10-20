@@ -1090,6 +1090,9 @@
       "downloadFailed": "Immich からダウンロードできませんでした: {{error}}",
       "editsConflict": "{{fileName}} は別のコンピューターでも編集されています。あなたの編集内容はそのまま残り、もう一方のバージョンは仮想コピーとして保存されます。",
       "offline": "Immich に接続できません。編集内容はここに保持され、接続が戻りしだい送信されます。",
+      "transferFailed": "Immich に追加できませんでした: {{number}} ({{error}})",
+      "transferred": "Immich に追加しました: {{number}}",
+      "transferring": "Immich に追加中… {{current}}/{{total}}",
       "trashFailed": "Immich のゴミ箱に移動できませんでした: {{error}}",
       "uploaded": "Immich にアップロードしました: {{number}}"
     }

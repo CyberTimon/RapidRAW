@@ -1119,6 +1119,9 @@
       "downloadFailed": "Échec du téléchargement depuis Immich : {{error}}",
       "editsConflict": "{{fileName}} a aussi été retouchée sur un autre ordinateur. Vos retouches sont conservées et l'autre version est gardée comme copie virtuelle.",
       "offline": "Immich est injoignable. Vos retouches sont conservées ici et seront envoyées dès son retour.",
+      "transferFailed": "Non ajoutées à Immich : {{number}} ({{error}})",
+      "transferred": "Ajoutées à Immich : {{number}}",
+      "transferring": "Ajout à Immich… {{current}}/{{total}}",
       "trashFailed": "Impossible de déplacer vers la corbeille d'Immich : {{error}}",
       "uploaded": "Envoyées vers Immich : {{number}}"
     }

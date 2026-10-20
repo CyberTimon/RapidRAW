@@ -1090,6 +1090,9 @@
       "downloadFailed": "Immich에서 다운로드하지 못했습니다: {{error}}",
       "editsConflict": "{{fileName}}이(가) 다른 컴퓨터에서도 편집되었습니다. 내 편집 내용은 유지되고, 다른 버전은 가상 사본으로 보관됩니다.",
       "offline": "Immich에 연결할 수 없습니다. 편집 내용은 여기에 보관되며 다시 연결되면 전송됩니다.",
+      "transferFailed": "Immich에 추가하지 못함: {{number}} ({{error}})",
+      "transferred": "Immich에 추가됨: {{number}}",
+      "transferring": "Immich에 추가하는 중… {{current}}/{{total}}",
       "trashFailed": "Immich 휴지통으로 이동하지 못했습니다: {{error}}",
       "uploaded": "Immich에 업로드됨: {{number}}"
     }

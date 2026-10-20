@@ -1145,6 +1145,9 @@
       "downloadFailed": "Stažení z Immiche se nezdařilo: {{error}}",
       "editsConflict": "{{fileName}} byl upraven také na jiném počítači. Vaše úpravy zůstávají a druhá verze je uložena jako virtuální kopie.",
       "offline": "Immich není dostupný. Vaše úpravy zůstávají zde a odešlou se, jakmile bude opět dostupný.",
+      "transferFailed": "Nepřidáno do Immiche: {{number}} ({{error}})",
+      "transferred": "Přidáno do Immiche: {{number}}",
+      "transferring": "Přidávání do Immiche… {{current}}/{{total}}",
       "trashFailed": "Přesun do koše Immiche se nezdařil: {{error}}",
       "uploaded": "Nahráno do Immiche: {{number}}"
     }
