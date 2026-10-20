@@ -5,13 +5,13 @@ use ndarray::{Array, Axis};
 use ort::session::Session;
 use ort::value::Tensor;
 use rayon::prelude::*;
+use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokenizers::Tokenizer;
-use tokio::task::JoinHandle;
 use walkdir::WalkDir;
 
 use crate::file_management::{self, parse_virtual_path};
@@ -259,16 +259,41 @@ fn limit_tags(
     final_tags
 }
 
+pub fn cancel_background_indexing(app_handle: &AppHandle) -> u64 {
+    let state = app_handle.state::<AppState>();
+    let mut run_id = state.indexing_run_id.lock().unwrap();
+    *run_id += 1;
+    let _ = app_handle.emit("indexing-finished", ());
+    *run_id
+}
+
+fn is_current_indexing_run(app_handle: &AppHandle, run_id: u64) -> bool {
+    let state = app_handle.state::<AppState>();
+    *state.indexing_run_id.lock().unwrap() == run_id
+}
+
+fn emit_if_current_indexing_run<S: Serialize + Clone>(
+    app_handle: &AppHandle,
+    run_id: u64,
+    event: &str,
+    payload: S,
+) -> bool {
+    let state = app_handle.state::<AppState>();
+    let current_run_id = state.indexing_run_id.lock().unwrap();
+    if *current_run_id != run_id {
+        return false;
+    }
+    let _ = app_handle.emit(event, payload);
+    true
+}
+
 #[tauri::command]
 pub async fn start_background_indexing(
     folder_path: String,
     app_handle: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    if let Some(handle) = state.indexing_task_handle.lock().unwrap().take() {
-        println!("Cancelling previous indexing task.");
-        handle.abort();
-    }
+    let run_id = cancel_background_indexing(&app_handle);
 
     let settings = crate::load_settings(app_handle.clone())?;
     if !settings.enable_ai_tagging.unwrap_or(false) {
@@ -289,8 +314,10 @@ pub async fn start_background_indexing(
 
     let app_handle_clone = app_handle.clone();
 
-    let task: JoinHandle<()> = tokio::spawn(async move {
-        let _ = app_handle_clone.emit("indexing-started", ());
+    tokio::spawn(async move {
+        if !emit_if_current_indexing_run(&app_handle_clone, run_id, "indexing-started", ()) {
+            return;
+        }
         println!("Starting background indexing for: {}", folder_path);
         println!(
             "Using {} concurrent threads for AI tagging.",
@@ -313,11 +340,7 @@ pub async fn start_background_indexing(
                 eprintln!("Failed to read directory '{}': {}", folder_path, e);
                 let _ = app_handle_clone
                     .emit("indexing-error", format!("Failed to read directory: {}", e));
-                *app_handle_clone
-                    .state::<AppState>()
-                    .indexing_task_handle
-                    .lock()
-                    .unwrap() = None;
+                emit_if_current_indexing_run(&app_handle_clone, run_id, "indexing-finished", ());
                 return;
             }
         };
@@ -340,6 +363,10 @@ pub async fn start_background_indexing(
                 let tags_inner = Arc::clone(&custom_ai_tags_shared);
 
                 async move {
+                    if !is_current_indexing_run(&app_handle_inner, run_id) {
+                        return;
+                    }
+
                     let path_str = path.to_string_lossy().to_string();
                     let (source_path, sidecar_path) = parse_virtual_path(&path_str);
 
@@ -399,7 +426,9 @@ pub async fn start_background_indexing(
 
                     let mut count = processed_count_inner.lock().unwrap();
                     *count += 1;
-                    let _ = app_handle_inner.emit(
+                    emit_if_current_indexing_run(
+                        &app_handle_inner,
+                        run_id,
                         "indexing-progress",
                         serde_json::json!({
                             "current": *count,
@@ -411,16 +440,8 @@ pub async fn start_background_indexing(
             .await;
 
         println!("Background indexing finished for: {}", folder_path);
-        let _ = app_handle_clone.emit("indexing-finished", ());
-
-        *app_handle_clone
-            .state::<AppState>()
-            .indexing_task_handle
-            .lock()
-            .unwrap() = None;
+        emit_if_current_indexing_run(&app_handle_clone, run_id, "indexing-finished", ());
     });
-
-    *state.indexing_task_handle.lock().unwrap() = Some(task);
 
     Ok(())
 }
