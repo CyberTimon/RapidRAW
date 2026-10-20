@@ -1010,14 +1010,29 @@ fn run_native_denoise(
         let t_input = Tensor::from_array(crop.as_standard_layout().to_owned())?;
 
         let tile = {
-            let mut sess = session.lock().unwrap();
+            let mut sess = session
+                .lock()
+                .map_err(|_| anyhow::anyhow!("Denoise model lock was poisoned"))?;
             let outputs = sess.run(ort::inputs![t_input])?;
-            outputs[0]
+            let output = outputs
+                .get("output")
+                .or_else(|| outputs.get("out"))
+                .unwrap_or(&outputs[0]);
+            output
                 .try_extract_array::<f32>()?
                 .to_owned()
                 .into_dimensionality::<ndarray::Ix4>()
-                .map_err(|e| anyhow::anyhow!("Unexpected output shape: {}", e))?
+                .map_err(|e| anyhow::anyhow!("Unexpected denoise output shape: {}", e))?
         };
+
+        if tile.shape() != [1, 3, params.cs, params.cs] {
+            anyhow::bail!(
+                "Unexpected denoise tile dimensions: {:?}; expected [1, 3, {}, {}]",
+                tile.shape(),
+                params.cs,
+                params.cs
+            );
+        }
 
         for ty in 0..valid {
             let gy = y0 + (params.margin + ty) as i32;
