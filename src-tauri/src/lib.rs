@@ -35,11 +35,8 @@ mod cache_utils;
 mod camera_tethering;
 mod culling;
 mod denoising;
- feat/ai-backends-icc-detection
 mod display_profile;
-=======
 mod display_color;
-main
 mod effect_maps;
 mod exif_processing;
 mod export_processing;
