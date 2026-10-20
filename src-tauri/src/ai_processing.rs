@@ -1014,11 +1014,10 @@ fn run_native_denoise(
                 .lock()
                 .map_err(|_| anyhow::anyhow!("Denoise model lock was poisoned"))?;
             let outputs = sess.run(ort::inputs![t_input])?;
-            let output = outputs
-                .get("output")
-                .or_else(|| outputs.get("out"))
-                .unwrap_or(&outputs[0]);
-            output
+            if outputs.is_empty() {
+                anyhow::bail!("Denoise model returned no output tensors");
+            }
+            outputs[0]
                 .try_extract_array::<f32>()?
                 .to_owned()
                 .into_dimensionality::<ndarray::Ix4>()
