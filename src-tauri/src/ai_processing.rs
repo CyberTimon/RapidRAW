@@ -87,7 +87,7 @@ fn load_ai_session(path: impl AsRef<Path>) -> Result<Session> {
         ort::ep::CPU::default().build(),
     ])?;
 
-    builder.commit_from_file(path).map_err(Into::into)
+    Ok(builder.commit_from_file(path)?)
 }
 
 pub struct AiModels {
