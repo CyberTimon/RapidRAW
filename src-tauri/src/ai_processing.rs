@@ -1084,6 +1084,16 @@ pub fn run_lama_inpainting(
     lama_session: &Mutex<Session>,
 ) -> Result<RgbaImage> {
     let (w, h) = image.dimensions();
+    if w == 0 || h == 0 {
+        anyhow::bail!("Cannot inpaint an empty image");
+    }
+    if mask.dimensions() != (w, h) {
+        anyhow::bail!(
+            "Inpainting mask dimensions {:?} do not match image dimensions {:?}",
+            mask.dimensions(),
+            (w, h)
+        );
+    }
 
     let (mut min_x, mut min_y) = (w, h);
     let (mut max_x, mut max_y) = (0u32, 0u32);
@@ -1170,8 +1180,13 @@ pub fn run_lama_inpainting(
     let t_msk = Tensor::from_array(msk_tensor.into_dyn().as_standard_layout().into_owned())?;
 
     let output_tensor = {
-        let mut session = lama_session.lock().unwrap();
+        let mut session = lama_session
+            .lock()
+            .map_err(|_| anyhow::anyhow!("LaMa model lock was poisoned"))?;
         let outputs = session.run(ort::inputs!["image" => t_img, "mask" => t_msk])?;
+        if outputs.is_empty() {
+            anyhow::bail!("LaMa model returned no output tensors");
+        }
         outputs[0].try_extract_array::<f32>()?.to_owned()
     };
 
