@@ -558,7 +558,17 @@ pub async fn get_or_init_depth_anything3_model(
     let model = Arc::new(Mutex::new(session));
 
     crate::register_exit_handler();
-    remove_obsolete_model_assets(&models_dir, &["depth_anything_v2_vits.onnx"]);
+    remove_obsolete_model_assets(
+        &models_dir,
+        &[
+            "depth_anything_v2_vits.onnx",
+            "depth_anything_v2_vitb.onnx",
+            "depth_anything_v2_vitl.onnx",
+            "depth_anything_v2_small.onnx",
+            "depth_anything_v2_base.onnx",
+            "depth_anything_v2_large.onnx",
+        ],
+    );
 
     let mut state_lock = ai_state_mutex.lock().unwrap();
     if let Some(state) = state_lock.as_mut() {
