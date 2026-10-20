@@ -1190,6 +1190,14 @@ pub fn run_lama_inpainting(
         outputs[0].try_extract_array::<f32>()?.to_owned()
     };
 
+    let output_shape = output_tensor.shape();
+    match output_shape {
+        [1, 3, out_h, out_w] if *out_h >= fh as usize && *out_w >= fw as usize => {}
+        shape => anyhow::bail!(
+            "Unexpected LaMa output shape {shape:?}; expected [1, 3, H, W] covering {fh}x{fw}"
+        ),
+    }
+
     let mut result_inf = RgbaImage::new(fw, fh);
     for y in 0..fh {
         for x in 0..fw {
