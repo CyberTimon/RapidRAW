@@ -47,6 +47,8 @@ export interface ImmichAlbum {
   albumName: string;
   assetCount: number;
   albumThumbnailAssetId: string | null;
+  startDate: string | null;
+  endDate: string | null;
   shared: boolean;
 }
 

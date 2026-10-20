@@ -5,8 +5,10 @@ import { Album as AlbumIcon, CloudOff, CloudUpload, Inbox, RefreshCw, Users } fr
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import Text from '../ui/Text';
+import { FolderTreeSort, SortDirection } from '../ui/AppProperties';
+import { useSettingsStore } from '../../store/useSettingsStore';
 import { TextVariants, TextWeights } from '../../types/typography';
-import { IMMICH_UNASSIGNED_ID, toImmichAlbumId } from './immichApi';
+import { IMMICH_UNASSIGNED_ID, ImmichAlbum, toImmichAlbumId } from './immichApi';
 import ImmichRow from './ImmichRow';
 import ImmichTimeline from './ImmichTimeline';
 import { useImmichStore } from './useImmichStore';
@@ -19,6 +21,16 @@ interface ImmichSectionProps {
   selectedAlbumId: string | null;
   showImageCounts: boolean;
 }
+
+const sortAlbums = (albums: ImmichAlbum[], sort: FolderTreeSort): ImmichAlbum[] =>
+  [...albums].sort((a, b) => {
+    let comparison = 0;
+    if (sort.key === 'name') comparison = a.albumName.localeCompare(b.albumName);
+    else if (sort.key === 'created') comparison = (a.startDate || '').localeCompare(b.startDate || '');
+    else if (sort.key === 'modified') comparison = (a.endDate || '').localeCompare(b.endDate || '');
+    else if (sort.key === 'imageCount') comparison = a.assetCount - b.assetCount;
+    return sort.order === SortDirection.Ascending ? comparison : -comparison;
+  });
 
 export default function ImmichSection({
   header,
@@ -39,11 +51,13 @@ export default function ImmichSection({
       loadAlbums: state.loadAlbums,
     })),
   );
+  const sort = useSettingsStore((state) => state.appSettings?.folderTreeSort);
+
   const query = searchQuery.trim().toLowerCase();
-  const visibleAlbums = useMemo(
-    () => (query ? albums.filter((a) => a.albumName.toLowerCase().includes(query)) : albums),
-    [albums, query],
-  );
+  const visibleAlbums = useMemo(() => {
+    const matching = query ? albums.filter((a) => a.albumName.toLowerCase().includes(query)) : albums;
+    return sortAlbums(matching, sort || { key: 'name', order: SortDirection.Ascending });
+  }, [albums, query, sort]);
 
   if (!isConfigured || (query && visibleAlbums.length === 0)) {
     return null;

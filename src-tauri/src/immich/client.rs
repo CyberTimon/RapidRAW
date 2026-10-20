@@ -31,6 +31,10 @@ pub struct Album {
     #[serde(default)]
     pub album_thumbnail_asset_id: Option<String>,
     #[serde(default)]
+    pub start_date: Option<String>,
+    #[serde(default)]
+    pub end_date: Option<String>,
+    #[serde(default)]
     pub shared: bool,
 }
 
