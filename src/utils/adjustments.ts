@@ -25,6 +25,12 @@ export enum PasteMode {
   Replace = 'replace',
 }
 
+export enum AutoAdjustMode {
+  Subtle = 'subtle',
+  Normal = 'normal',
+  Strong = 'strong',
+}
+
 export interface CopyPasteSettings {
   mode: PasteMode;
   includedAdjustments: Array<string>;
@@ -64,6 +70,9 @@ export enum ColorGrading {
 }
 
 export enum DetailsAdjustment {
+  AiDenoiseAmount = 'aiDenoiseAmount',
+  AiDenoiseDetail = 'aiDenoiseDetail',
+  AiDenoiseEnabled = 'aiDenoiseEnabled',
   Clarity = 'clarity',
   Dehaze = 'dehaze',
   Structure = 'structure',
@@ -72,6 +81,12 @@ export enum DetailsAdjustment {
   CentréY = 'centréY',
   ColorNoiseReduction = 'colorNoiseReduction',
   LumaNoiseReduction = 'lumaNoiseReduction',
+  NegativeBlueWeight = 'negativeBlueWeight',
+  NegativeContrast = 'negativeContrast',
+  NegativeConversionEnabled = 'negativeConversionEnabled',
+  NegativeExposure = 'negativeExposure',
+  NegativeGreenWeight = 'negativeGreenWeight',
+  NegativeRedWeight = 'negativeRedWeight',
   Sharpness = 'sharpness',
   SharpnessThreshold = 'sharpnessThreshold',
   ChromaticAberrationRedCyan = 'chromaticAberrationRedCyan',
@@ -247,6 +262,9 @@ export interface ParametricCurve {
 export interface Adjustments {
   activeTools: ActiveTools;
   [index: string]: any;
+  aiDenoiseAmount: number;
+  aiDenoiseDetail: number;
+  aiDenoiseEnabled: boolean;
   aiPatches: Array<AiPatch>;
   aspectRatio: number | null;
   baselineExposure: boolean;
@@ -336,6 +354,12 @@ export interface Adjustments {
   lutSize?: number;
   lutIsSceneReferred?: boolean;
   masks: Array<MaskContainer>;
+  negativeBlueWeight: number;
+  negativeContrast: number;
+  negativeConversionEnabled: boolean;
+  negativeExposure: number;
+  negativeGreenWeight: number;
+  negativeRedWeight: number;
   orientationSteps: number;
   rotation: number;
   saturation: number;
@@ -826,6 +850,17 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
       label: 'modals.copyPaste.groups.chromaticAberration',
       keys: [DetailsAdjustment.ChromaticAberrationRedCyan, DetailsAdjustment.ChromaticAberrationBlueYellow],
     },
+    {
+      label: 'modals.copyPaste.groups.negativeConversion',
+      keys: [
+        DetailsAdjustment.NegativeConversionEnabled,
+        DetailsAdjustment.NegativeRedWeight,
+        DetailsAdjustment.NegativeGreenWeight,
+        DetailsAdjustment.NegativeBlueWeight,
+        DetailsAdjustment.NegativeExposure,
+        DetailsAdjustment.NegativeContrast,
+      ],
+    },
   ],
   effects: [
     {
@@ -935,8 +970,17 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     DetailsAdjustment.SharpnessThreshold,
     DetailsAdjustment.LumaNoiseReduction,
     DetailsAdjustment.ColorNoiseReduction,
+    DetailsAdjustment.AiDenoiseEnabled,
+    DetailsAdjustment.AiDenoiseAmount,
+    DetailsAdjustment.AiDenoiseDetail,
     DetailsAdjustment.ChromaticAberrationRedCyan,
     DetailsAdjustment.ChromaticAberrationBlueYellow,
+    DetailsAdjustment.NegativeConversionEnabled,
+    DetailsAdjustment.NegativeRedWeight,
+    DetailsAdjustment.NegativeGreenWeight,
+    DetailsAdjustment.NegativeBlueWeight,
+    DetailsAdjustment.NegativeExposure,
+    DetailsAdjustment.NegativeContrast,
   ],
   effects: [
     CreativeAdjustment.GlowAmount,
@@ -986,6 +1030,56 @@ export const ADJUSTMENT_SECTIONS: Sections = {
   ],
 };
 
+const SECTION_KEY_OWNERS: Record<string, string> = Object.fromEntries(
+  Object.entries(ADJUSTMENT_SECTIONS).flatMap(([section, keys]) => keys.map((key) => [key, section])),
+);
+
+export const areSectionPropsEqual =
+  (section: string) =>
+  (prev: Record<string, unknown>, next: Record<string, unknown>): boolean => {
+    const propKeys = new Set([...Object.keys(prev), ...Object.keys(next)]);
+    for (const key of propKeys) {
+      if (key !== 'adjustments' && !Object.is(prev[key], next[key])) return false;
+    }
+
+    const prevAdjustments = prev.adjustments as Record<string, unknown> | undefined;
+    const nextAdjustments = next.adjustments as Record<string, unknown> | undefined;
+    if (prevAdjustments === nextAdjustments) return true;
+    if (!prevAdjustments || !nextAdjustments) return false;
+
+    const adjustmentKeys = new Set([...Object.keys(prevAdjustments), ...Object.keys(nextAdjustments)]);
+    for (const key of adjustmentKeys) {
+      if (Object.is(prevAdjustments[key], nextAdjustments[key])) continue;
+      const owner = SECTION_KEY_OWNERS[key];
+      if (owner === undefined || owner === section) return false;
+    }
+    return true;
+  };
+
+const CANVAS_ADJUSTMENT_KEYS = new Set([
+  'vignetteCenterX',
+  'vignetteCenterY',
+  'vignetteMidpoint',
+  'vignetteRoundness',
+  'centréX',
+  'centréY',
+  'relightLights',
+]);
+
+const TONAL_ADJUSTMENT_KEYS = new Set(
+  Object.keys(SECTION_KEY_OWNERS).filter((key) => !CANVAS_ADJUSTMENT_KEYS.has(key)),
+);
+
+export const omitTonalAdjustments = (adjustments: Adjustments): Adjustments => {
+  const result: Record<string, unknown> = {};
+  for (const key in adjustments) {
+    if (!TONAL_ADJUSTMENT_KEYS.has(key)) {
+      result[key] = (adjustments as unknown as Record<string, unknown>)[key];
+    }
+  }
+  return result as unknown as Adjustments;
+};
+
 const reconcileOrder = (defaultOrder: string[], order: string[] = []): string[] => {
   const savedOrder = order.filter((id, index) => defaultOrder.includes(id) && order.indexOf(id) === index);
   return [...savedOrder, ...defaultOrder.filter((id) => !savedOrder.includes(id))];
@@ -1027,6 +1121,7 @@ export const ADJUSTMENT_SECTION_TOOLS: Record<string, Array<AdjustmentSectionToo
     { id: 'presence', label: 'adjustments.details.presence' },
     { id: 'noiseReduction', label: 'adjustments.details.noiseReduction' },
     { id: 'chromaticAberration', label: 'adjustments.details.chromaticAberration' },
+    { id: 'negativeConversion', label: 'adjustments.details.negativeConversion' },
   ],
   effects: [
     { id: 'creative', label: 'adjustments.effects.creative' },

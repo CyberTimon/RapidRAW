@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RotateCcw, Copy, ClipboardPaste, Spline, Settings2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +16,7 @@ import { useContextMenu } from '../../context/ContextMenuContext';
 import Text from '../ui/Text';
 import Slider from '../ui/Slider';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
+import { areSectionPropsEqual } from '../../utils/adjustments';
 
 let curveClipboard: Array<Coord> | null = null;
 let parametricClipboard: any = null;
@@ -241,13 +242,7 @@ const MIN_POINT_GAP_X = 1;
 const hasFineAdjustmentModifier = (event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) =>
   'shiftKey' in event && (event.shiftKey || event.altKey);
 
-export default function CurveGraph({
-  adjustments,
-  setAdjustments,
-  histogram,
-  theme,
-  onDragStateChange,
-}: CurveGraphProps) {
+function CurveGraph({ adjustments, setAdjustments, histogram, theme, onDragStateChange }: CurveGraphProps) {
   const { t } = useTranslation();
   const { showContextMenu } = useContextMenu();
   const [curveMode, setCurveMode] = useState<'point' | 'parametric'>(adjustments.curveMode || 'point');
@@ -494,6 +489,8 @@ export default function CurveGraph({
     : (localPoints ?? adjustments?.curves?.[activeChannel]);
 
   const { color, data: histogramData } = channelConfig[activeChannel];
+  const histogramPath = useMemo(() => getHistogramPath(histogramData), [histogramData]);
+  const zeroHistogramPath = useMemo(() => getZeroHistogramPath(histogramData), [histogramData]);
 
   const handlePointStart = (e: any, index: number) => {
     if (isParametricMode || e.button === 2) return;
@@ -884,14 +881,14 @@ export default function CurveGraph({
                 <motion.path
                   key={activeChannel}
                   fill={color}
-                  initial={{ d: getZeroHistogramPath(histogramData), opacity: 0 }}
+                  initial={{ d: zeroHistogramPath, opacity: 0 }}
                   animate={{
-                    d: getHistogramPath(histogramData),
+                    d: histogramPath,
                     opacity: histogramOpacity,
                     transition: { d: { duration: 0.5, ease: [0.22, 1, 0.36, 1] }, opacity: { duration: 1 } },
                   }}
                   exit={{
-                    d: getZeroHistogramPath(histogramData),
+                    d: zeroHistogramPath,
                     opacity: 0,
                     transition: { d: { duration: 0.3, ease: [0.55, 0, 0.78, 0.34] }, opacity: { duration: 1 } },
                   }}
@@ -1114,3 +1111,5 @@ export default function CurveGraph({
     </div>
   );
 }
+
+export default memo(CurveGraph, areSectionPropsEqual('curves'));

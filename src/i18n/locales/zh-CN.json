@@ -96,13 +96,22 @@
       "resetPoint": "重置 {{channel}} 点曲线"
     },
     "details": {
+      "aiDenoise": "AI 降噪",
+      "aiDenoiseDetail": "细节",
       "blueYellow": "蓝/黄",
       "centre": "居中",
       "chromaticAberration": "色差",
       "clarity": "清晰度",
       "color": "颜色",
+      "convertNegative": "转换负片",
       "dehaze": "去雾",
       "luminance": "亮度",
+      "negativeBlue": "蓝色",
+      "negativeContrast": "相纸等级",
+      "negativeConversion": "负片转换",
+      "negativeExposure": "冲印曝光",
+      "negativeGreen": "绿色",
+      "negativeRed": "红色",
       "noiseReduction": "降噪",
       "presence": "质感",
       "redCyan": "红/青",
@@ -140,6 +149,7 @@
       "relightColor": "灯光颜色",
       "relightCone": "光锥",
       "relightDepth": "深度",
+      "relightDuplicateLight": "复制灯光",
       "relightElevation": "仰角",
       "relightFalloff": "衰减",
       "relightHint": "添加或选择一个灯光，然后在图像上点击或拖动以放置。",
@@ -196,6 +206,11 @@
       "renameAlbum": "重命名相册",
       "renameGroup": "重命名组",
       "rootDir": "根目录"
+    },
+    "autoAdjustModes": {
+      "normal": "标准",
+      "strong": "强",
+      "subtle": "轻微"
     },
     "colors": {
       "blue": "蓝色",
@@ -405,6 +420,7 @@
       },
       "createNewTitle": "创建新的生成式编辑",
       "createNewTooltip": "创建新的 {{name}} 编辑",
+      "denoising": "正在进行 AI 降噪...",
       "dropzoneText": "拖放到此处以创建新编辑",
       "editSettingsTitle": "编辑设置",
       "editsTitle": "编辑",
@@ -1298,6 +1314,7 @@
         "lensCorrection": "镜头校正",
         "lut": "LUT",
         "masks": "蒙版",
+        "negativeConversion": "负片转换",
         "noiseReduction": "降噪",
         "presence": "质感",
         "sharpness": "锐度",
@@ -1471,30 +1488,6 @@
       "zoomInTooltip": "放大",
       "zoomOutTooltip": "缩小"
     },
-    "negativeConversion": {
-      "blueWeight": "蓝色（黄色）",
-      "cancel": "取消",
-      "colorTiming": "色彩时机",
-      "compareTooltip": "按住以查看原始",
-      "contrast": "对比度（分级）",
-      "convertAndSave": "转换并保存",
-      "convertAndSaveAll": "转换并保存全部（{{count}}）",
-      "convertAndSaveAll_one": "转换并保存全部（{{count}}）",
-      "convertAndSaveAll_other": "转换并保存全部（{{count}}）",
-      "converting": "转换中",
-      "convertingProgress": "转换中 {{current}}/{{total}}",
-      "exposure": "曝光",
-      "greenWeight": "绿色（洋红）",
-      "noticeText": "反转逻辑受 <0>NegPy</0>（作者 marcinz606，<1>GPL-3.0</1>）启发。",
-      "originalLabel": "原始负片",
-      "printGrade": "打印分级",
-      "redWeight": "红色（青色）",
-      "resetTooltip": "重置",
-      "resetViewTooltip": "重置视图",
-      "title": "负片转换",
-      "zoomInTooltip": "放大",
-      "zoomOutTooltip": "缩小"
-    },
     "panorama": {
       "cancel": "取消",
       "close": "关闭",
@@ -1591,6 +1584,9 @@
       "zoomDesc": "调整使用滚轮或捏合手势时画布缩放的速度。"
     },
     "data": {
+      "clearAiDenoise": "清除 AI 降噪缓存",
+      "clearAiDenoiseButton": "清除",
+      "clearAiDenoiseDesc": "删除已缓存的 AI 降噪结果（{{size}}）。启用了 AI 降噪的图像会在下次打开时重新计算。",
       "clearSidecars": "清除所有附属文件",
       "clearSidecarsButton": "清除",
       "clearSidecarsDesc": "这将删除您的根文件夹中的所有 .rrdata 文件（包含您的编辑数据）：",
@@ -1602,6 +1598,7 @@
       "logsButton": "打开",
       "logsDesc": "查看应用程序的日志文件以进行故障排除。日志文件位于：",
       "modals": {
+        "aiDenoiseMessage": "确定要清除 AI 降噪缓存吗？\n\n启用了 AI 降噪的图像需要重新降噪，每张图像可能需要几分钟。",
         "aiMessage": "您确定要从所有活动根文件夹中的所有图像中移除所有 AI 生成的标签吗？\n\n这不会影响用户添加的标签。此操作无法撤销。",
         "allMessage": "您确定要从所有活动根文件夹中的所有图像中移除所有 AI 生成和用户添加的标签吗？\n\n此操作无法撤销。",
         "cacheMessage": "您确定要清除缩略图缓存吗？\n\n所有缩略图将需要重新生成，对于大型文件夹可能会很慢。",
@@ -1624,6 +1621,7 @@
       "resetLayoutDesc": "将面板停靠区、侧边分割条、高度和面板切换器恢复为默认布局。",
       "resetLayoutTitle": "重置工作区布局",
       "statuses": {
+        "aiDenoiseSuccess": "AI 降噪缓存已成功清除。",
         "aiSuccess": "{{count}} 个文件已更新。AI 标签已移除。",
         "aiSuccess_one": "{{count}} 个文件已更新。AI 标签已移除。",
         "aiSuccess_other": "{{count}} 个文件已更新。AI 标签已移除。",
@@ -1632,6 +1630,7 @@
         "allSuccess_other": "{{count}} 个文件已更新。所有非颜色标签已移除。",
         "cacheSuccess": "缩略图缓存已成功清除。",
         "clearingAi": "正在从所有附属文件中清除 AI 标签...",
+        "clearingAiDenoise": "正在清除 AI 降噪缓存...",
         "clearingAll": "正在从附属文件中清除所有标签...",
         "clearingCache": "正在清除缩略图缓存...",
         "deleting": "正在删除附属文件，请稍候...",
@@ -1760,6 +1759,16 @@
       "title": "我的镜头"
     },
     "processing": {
+      "advanced": {
+        "heading": "高级",
+        "headingDesc": "缩略图、缓存和导出的性能调整。默认值适合大多数用户。",
+        "title": "高级设置",
+        "auto": "自动",
+        "exportThreads": "并行导出",
+        "exportThreadsDesc": "同时导出的图像数量。“自动”会根据你的 CPU 选择合适的值。如果大型导出失败或显卡显存较小，请调低。",
+        "exportMemoryLimit": "导出内存上限",
+        "exportMemoryLimitDesc": "批量导出可使用的空闲内存比例。调低可在大型导出期间保持其他应用流畅。"
+      },
       "ai": {
         "cloud": {
           "description": "对于那些想要更简单解决方案的用户，可选订阅提供与自托管相同的高质量结果，无需任何麻烦。这是最方便的选择，也是支持本项目的最佳方式。",
@@ -1903,7 +1912,6 @@
       "previewResDesc": "确定预览的最大分辨率。较低的值可显著提高性能。",
       "previewStrategy": "预览渲染策略",
       "qualities": {
-        "full": "全分辨率",
         "high": "高质量",
         "performance": "性能优先"
       },

@@ -96,13 +96,22 @@
       "resetPoint": "{{channel}} ポイントカーブをリセット"
     },
     "details": {
+      "aiDenoise": "AIノイズ除去",
+      "aiDenoiseDetail": "ディテール",
       "blueYellow": "ブルー/イエロー",
       "centre": "中央",
       "chromaticAberration": "色収差",
       "clarity": "明瞭度",
       "color": "カラー",
+      "convertNegative": "ネガを反転",
       "dehaze": "かすみの除去",
       "luminance": "輝度",
+      "negativeBlue": "ブルー",
+      "negativeContrast": "印画紙の号数",
+      "negativeConversion": "ネガ変換",
+      "negativeExposure": "プリント露光",
+      "negativeGreen": "グリーン",
+      "negativeRed": "レッド",
       "noiseReduction": "ノイズ低減",
       "presence": "外観",
       "redCyan": "レッド/シアン",
@@ -140,6 +149,7 @@
       "relightColor": "ライトの色",
       "relightCone": "コーン",
       "relightDepth": "奥行き",
+      "relightDuplicateLight": "ライトを複製",
       "relightElevation": "仰角",
       "relightFalloff": "減衰",
       "relightHint": "ライトを追加または選択し、画像上をクリックまたはドラッグして配置します。",
@@ -196,6 +206,11 @@
       "renameAlbum": "アルバム名を変更",
       "renameGroup": "グループ名を変更",
       "rootDir": "ルートディレクトリ"
+    },
+    "autoAdjustModes": {
+      "normal": "標準",
+      "strong": "強",
+      "subtle": "弱"
     },
     "colors": {
       "blue": "ブルー",
@@ -405,6 +420,7 @@
       },
       "createNewTitle": "新しい生成編集を作成",
       "createNewTooltip": "新しい {{name}} 編集を作成",
+      "denoising": "AIノイズ除去を実行中...",
       "dropzoneText": "ここにドロップして新しい編集を作成",
       "editSettingsTitle": "編集設定",
       "editsTitle": "編集一覧",
@@ -1298,6 +1314,7 @@
         "lensCorrection": "レンズ補正",
         "lut": "LUT",
         "masks": "マスク",
+        "negativeConversion": "ネガ変換",
         "noiseReduction": "ノイズ低減",
         "presence": "外観",
         "sharpness": "シャープネス",
@@ -1471,30 +1488,6 @@
       "zoomInTooltip": "拡大",
       "zoomOutTooltip": "縮小"
     },
-    "negativeConversion": {
-      "blueWeight": "ブルー (イエロー)",
-      "cancel": "キャンセル",
-      "colorTiming": "カラータイミング",
-      "compareTooltip": "長押しでオリジナルを表示",
-      "contrast": "コントラスト (グレード)",
-      "convertAndSave": "変換して保存",
-      "convertAndSaveAll": "すべて変換して保存 ({{count}})",
-      "convertAndSaveAll_one": "すべて変換して保存 ({{count}})",
-      "convertAndSaveAll_other": "すべて変換して保存 ({{count}})",
-      "converting": "変換中",
-      "convertingProgress": "変換中 {{current}}/{{total}}",
-      "exposure": "露光量",
-      "greenWeight": "グリーン (マゼンタ)",
-      "noticeText": "反転処理は marcinz606 氏が作成した <0>NegPy</0> (<1>GPL-3.0</1>) のアルゴリズムに着想を得ています。",
-      "originalLabel": "オリジナルのネガ",
-      "printGrade": "プリントグレード",
-      "redWeight": "レッド (シアン)",
-      "resetTooltip": "リセット",
-      "resetViewTooltip": "表示をリセット",
-      "title": "ネガ反転",
-      "zoomInTooltip": "拡大",
-      "zoomOutTooltip": "縮小"
-    },
     "panorama": {
       "cancel": "キャンセル",
       "close": "閉じる",
@@ -1591,6 +1584,9 @@
       "zoomDesc": "スクロールホイールやピンチジェスチャを使用したときのズーム速度を調整します。"
     },
     "data": {
+      "clearAiDenoise": "AIノイズ除去キャッシュを消去",
+      "clearAiDenoiseButton": "消去",
+      "clearAiDenoiseDesc": "キャッシュされたAIノイズ除去の結果（{{size}}）を削除します。AIノイズ除去が有効な画像は、次に開いたときに再計算されます。",
       "clearSidecars": "すべてのサイドカーファイルを削除",
       "clearSidecarsButton": "削除",
       "clearSidecarsDesc": "ルートフォルダ内のすべての .rrdata ファイル（編集内容が含まれるファイル）を削除します:",
@@ -1602,6 +1598,7 @@
       "logsButton": "開く",
       "logsDesc": "トラブルシューティングのためにアプリのログファイルを表示します。ログの場所:",
       "modals": {
+        "aiDenoiseMessage": "AIノイズ除去キャッシュを消去してもよろしいですか？\n\nAIノイズ除去が有効な画像は再度処理する必要があり、1枚あたり数分かかる場合があります。",
         "aiMessage": "本当にすべてのアクティブなルートフォルダ内の画像から、AI生成されたタグをすべて削除しますか？\n\n手動で追加したタグには影響しません。この操作は取り消せません。",
         "allMessage": "本当にすべてのアクティブなルートフォルダ内の画像から、AI生成および手動追加されたタグをすべて削除しますか？\n\nこの操作は取り消せません。",
         "cacheMessage": "本当にサムネイルキャッシュを削除しますか？\n\nすべてのサムネイルが再生成されるため、大きなフォルダでは時間がかかる場合があります。",
@@ -1624,6 +1621,7 @@
       "resetLayoutDesc": "パネルのドック、サイドスプリッター、高さ、パネル切り替えボタンをデフォルトの配置に復元します。",
       "resetLayoutTitle": "ワークスペースレイアウトのリセット",
       "statuses": {
+        "aiDenoiseSuccess": "AIノイズ除去キャッシュを消去しました。",
         "aiSuccess": "{{count}} 件のファイルを更新しました。AIタグを削除しました。",
         "aiSuccess_one": "{{count}} 件のファイルを更新しました。AIタグを削除しました。",
         "aiSuccess_other": "{{count}} 件のファイルを更新しました。AIタグを削除しました。",
@@ -1632,6 +1630,7 @@
         "allSuccess_other": "{{count}} 件のファイルを更新しました。カラーラベル以外のタグをすべて削除しました。",
         "cacheSuccess": "サムネイルキャッシュを正常に削除しました。",
         "clearingAi": "すべてのサイドカーファイルからAIタグを削除中...",
+        "clearingAiDenoise": "AIノイズ除去キャッシュを消去中...",
         "clearingAll": "サイドカーファイルからすべてのタグを削除中...",
         "clearingCache": "サムネイルキャッシュを削除中...",
         "deleting": "サイドカーファイルを削除しています。しばらくお待ちください...",
@@ -1760,6 +1759,16 @@
       "title": "マイレンズ"
     },
     "processing": {
+      "advanced": {
+        "heading": "詳細",
+        "headingDesc": "サムネイル、キャッシュ、書き出しのパフォーマンス調整です。ほとんどの場合は既定値のままで問題ありません。",
+        "title": "詳細設定",
+        "auto": "自動",
+        "exportThreads": "並列書き出し",
+        "exportThreadsDesc": "同時に書き出す画像の数です。自動では CPU に合わせて値を選びます。大きな書き出しが失敗する場合や GPU のメモリが少ない場合は下げてください。",
+        "exportMemoryLimit": "書き出しメモリ上限",
+        "exportMemoryLimitDesc": "一括書き出しが使用できる空きメモリの割合です。大きな書き出し中も他のアプリを快適に使いたい場合は下げてください。"
+      },
       "ai": {
         "cloud": {
           "description": "手軽さを求める方には、セルフホストの手間をかけずに高品質な結果を得られる、オプションのサブスクリプションをおすすめします。最も便利かつプロジェクト開発への貢献につながる方法です。",
@@ -1903,7 +1912,6 @@
       "previewResDesc": "メインプレビューの最大解像度を決定します。値を下げるとパフォーマンスが大幅に向上します。",
       "previewStrategy": "プレビューレンダリング方式",
       "qualities": {
-        "full": "フル解像度",
         "high": "高画質",
         "performance": "パフォーマンス優先"
       },

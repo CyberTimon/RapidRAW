@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use anyhow::Result;
 use image::imageops::{self, FilterType};
 use image::{
-    DynamicImage, GenericImageView, GrayImage, ImageBuffer, Luma, Rgb, Rgb32FImage, Rgba, RgbaImage,
+    DynamicImage, GenericImageView, GrayImage, ImageBuffer, Luma, Rgb32FImage, Rgba, RgbaImage,
 };
 use ndarray::{Array, Array4, IxDyn};
 use ort::session::Session;
@@ -66,12 +66,62 @@ const NORMAL_MAX_SIZE: u32 = 768;
 const NORMAL_NUM_TOKENS: i64 = 2500;
 const NORMAL_SHA256: &str = "24eacb5dc7a2c54c7bc98f7de085ffbed79ad006ea5b664c2c2cdc02ff3a52f0";
 
+type SharedSession = Arc<Mutex<Session>>;
+
 pub struct AiModels {
-    pub sam_encoder: Mutex<Session>,
-    pub sam_decoder: Mutex<Session>,
-    pub u2netp: Mutex<Session>,
-    pub sky_seg: Mutex<Session>,
-    pub depth_anything: Mutex<Session>,
+    models_dir: PathBuf,
+    sam_encoder: Mutex<Option<SharedSession>>,
+    sam_decoder: Mutex<Option<SharedSession>>,
+    u2netp: Mutex<Option<SharedSession>>,
+    sky_seg: Mutex<Option<SharedSession>>,
+    depth_anything: Mutex<Option<SharedSession>>,
+}
+
+impl AiModels {
+    fn session(
+        &self,
+        slot: &Mutex<Option<SharedSession>>,
+        filename: &str,
+    ) -> Result<SharedSession> {
+        let mut slot = slot.lock().unwrap();
+        if let Some(session) = slot.as_ref() {
+            return Ok(Arc::clone(session));
+        }
+        let session = Arc::new(Mutex::new(one_shot_session(
+            &self.models_dir.join(filename),
+        )?));
+        *slot = Some(Arc::clone(&session));
+        Ok(session)
+    }
+
+    pub fn sam_encoder(&self) -> Result<SharedSession> {
+        self.session(&self.sam_encoder, ENCODER_FILENAME)
+    }
+
+    pub fn sam_decoder(&self) -> Result<SharedSession> {
+        self.session(&self.sam_decoder, DECODER_FILENAME)
+    }
+
+    pub fn u2netp(&self) -> Result<SharedSession> {
+        self.session(&self.u2netp, U2NETP_FILENAME)
+    }
+
+    pub fn sky_seg(&self) -> Result<SharedSession> {
+        self.session(&self.sky_seg, SKYSEG_FILENAME)
+    }
+
+    pub fn depth_anything(&self) -> Result<SharedSession> {
+        self.session(&self.depth_anything, DEPTH_FILENAME)
+    }
+}
+
+fn one_shot_session(model_path: &Path) -> Result<Session> {
+    Ok(Session::builder()?
+        .with_execution_providers([ort::execution_providers::CPUExecutionProvider::default()
+            .with_arena_allocator(false)
+            .build()])?
+        .with_memory_pattern(false)?
+        .commit_from_file(model_path)?)
 }
 
 pub struct ClipModels {
@@ -226,7 +276,11 @@ pub fn fast_guided_filter(
     let h = lr_h as usize;
     let area = w * h;
 
-    let guide_lr = imageops::resize(guide_hr, lr_w, lr_h, FilterType::Triangle);
+    let guide_lr = if (lr_w, lr_h) == (hr_w, hr_h) {
+        std::borrow::Cow::Borrowed(guide_hr)
+    } else {
+        std::borrow::Cow::Owned(imageops::resize(guide_hr, lr_w, lr_h, FilterType::Triangle))
+    };
 
     let mut i_lr = vec![0.0; area];
     let mut p_lr = vec![0.0; area];
@@ -251,29 +305,27 @@ pub fn fast_guided_filter(
             *ii_out = i_val * i_val;
         });
 
+    drop(guide_lr);
+
     let mut temp1 = vec![0.0; area];
     let mut temp2 = vec![0.0; area];
 
-    let mut mean_i = vec![0.0; area];
-    let mut mean_p = vec![0.0; area];
-    let mut mean_ip = vec![0.0; area];
-    let mut mean_ii = vec![0.0; area];
-
-    box_filter_opt(&i_lr, &mut mean_i, &mut temp1, &mut temp2, w, h, r);
-    box_filter_opt(&p_lr, &mut mean_p, &mut temp1, &mut temp2, w, h, r);
-    box_filter_opt(&ip_lr, &mut mean_ip, &mut temp1, &mut temp2, w, h, r);
-    box_filter_opt(&ii_lr, &mut mean_ii, &mut temp1, &mut temp2, w, h, r);
-
-    let mut a = vec![0.0; area];
-    let mut b = vec![0.0; area];
+    let box_filter = |src: Vec<f32>, temp1: &mut [f32], temp2: &mut [f32]| {
+        let mut mean = vec![0.0; area];
+        box_filter_opt(&src, &mut mean, temp1, temp2, w, h, r);
+        mean
+    };
+    let mean_i = box_filter(i_lr, &mut temp1, &mut temp2);
+    let mean_p = box_filter(p_lr, &mut temp1, &mut temp2);
+    let mut a = box_filter(ip_lr, &mut temp1, &mut temp2);
+    let mut b = box_filter(ii_lr, &mut temp1, &mut temp2);
 
     a.par_iter_mut()
         .zip(b.par_iter_mut())
         .zip(mean_i.par_iter())
         .zip(mean_p.par_iter())
-        .zip(mean_ip.par_iter())
-        .zip(mean_ii.par_iter())
-        .for_each(|(((((a_out, b_out), &m_i), &m_p), &m_ip), &m_ii)| {
+        .for_each(|(((a_out, b_out), &m_i), &m_p)| {
+            let (m_ip, m_ii) = (*a_out, *b_out);
             let cov_ip = m_ip - m_i * m_p;
             let var_i = m_ii - m_i * m_i;
             let a_val = cov_ip / (var_i + eps);
@@ -281,20 +333,23 @@ pub fn fast_guided_filter(
             *b_out = m_p - a_val * m_i;
         });
 
-    let mut mean_a = vec![0.0; area];
-    let mut mean_b = vec![0.0; area];
-
+    let (mut mean_a, mut mean_b) = (mean_i, mean_p);
     box_filter_opt(&a, &mut mean_a, &mut temp1, &mut temp2, w, h, r);
     box_filter_opt(&b, &mut mean_b, &mut temp1, &mut temp2, w, h, r);
+    drop((a, b, temp1, temp2));
 
     let mean_a_img = ImageBuffer::<Luma<f32>, Vec<f32>>::from_raw(lr_w, lr_h, mean_a).unwrap();
     let mean_b_img = ImageBuffer::<Luma<f32>, Vec<f32>>::from_raw(lr_w, lr_h, mean_b).unwrap();
 
-    let mean_a_hr = imageops::resize(&mean_a_img, hr_w, hr_h, FilterType::Triangle);
-    let mean_b_hr = imageops::resize(&mean_b_img, hr_w, hr_h, FilterType::Triangle);
-
-    let mean_a_hr_raw = mean_a_hr.as_raw();
-    let mean_b_hr_raw = mean_b_hr.as_raw();
+    let upscale = |img: ImageBuffer<Luma<f32>, Vec<f32>>| {
+        if (lr_w, lr_h) == (hr_w, hr_h) {
+            img.into_raw()
+        } else {
+            imageops::resize(&img, hr_w, hr_h, FilterType::Triangle).into_raw()
+        }
+    };
+    let mean_a_hr_raw = upscale(mean_a_img);
+    let mean_b_hr_raw = upscale(mean_b_img);
     let guide_hr_raw = guide_hr.as_raw();
 
     let mut final_mask_raw = vec![0u8; (hr_w * hr_h) as usize];
@@ -526,26 +581,15 @@ pub async fn get_or_init_ai_models(
 
     let _ = ort::init().with_name("AI").commit();
 
-    let encoder_path = models_dir.join(ENCODER_FILENAME);
-    let decoder_path = models_dir.join(DECODER_FILENAME);
-    let u2netp_path = models_dir.join(U2NETP_FILENAME);
-    let sky_seg_path = models_dir.join(SKYSEG_FILENAME);
-    let depth_path = models_dir.join(DEPTH_FILENAME);
-
-    let sam_encoder = Session::builder()?.commit_from_file(encoder_path)?;
-    let sam_decoder = Session::builder()?.commit_from_file(decoder_path)?;
-    let u2netp = Session::builder()?.commit_from_file(u2netp_path)?;
-    let sky_seg = Session::builder()?.commit_from_file(sky_seg_path)?;
-    let depth_anything = Session::builder()?.commit_from_file(depth_path)?;
-
     crate::register_exit_handler();
 
     let models = Arc::new(AiModels {
-        sam_encoder: Mutex::new(sam_encoder),
-        sam_decoder: Mutex::new(sam_decoder),
-        u2netp: Mutex::new(u2netp),
-        sky_seg: Mutex::new(sky_seg),
-        depth_anything: Mutex::new(depth_anything),
+        models_dir,
+        sam_encoder: Mutex::new(None),
+        sam_decoder: Mutex::new(None),
+        u2netp: Mutex::new(None),
+        sky_seg: Mutex::new(None),
+        depth_anything: Mutex::new(None),
     });
 
     let mut ai_state_lock = ai_state_mutex.lock().unwrap();
@@ -738,7 +782,7 @@ pub async fn get_or_init_lama_model(
 
     let _ = ort::init().with_name("AI-Inpainting").commit();
     let model_path = models_dir.join(LAMA_FILENAME);
-    let session = Session::builder()?.commit_from_file(model_path)?;
+    let session = one_shot_session(&model_path)?;
     let lama_model = Arc::new(Mutex::new(session));
 
     crate::register_exit_handler();
@@ -799,7 +843,7 @@ pub async fn get_or_init_normal_model(
 
     let _ = ort::init().with_name("AI-Normal").commit();
     let model_path = models_dir.join(NORMAL_FILENAME);
-    let session = Session::builder()?.commit_from_file(model_path)?;
+    let session = one_shot_session(&model_path)?;
     let normal_model = Arc::new(Mutex::new(session));
 
     crate::register_exit_handler();
@@ -825,25 +869,25 @@ pub async fn get_or_init_normal_model(
 #[derive(Clone, Copy)]
 struct TileParams {
     cs: usize,
-    ucs: usize,
+    margin: usize,
     overlap: usize,
-    pad: usize,
 }
 
-impl TileParams {
-    const fn new(cs: usize, ucs: usize, overlap: usize) -> Self {
-        Self {
-            cs,
-            ucs,
-            overlap,
-            pad: (cs - ucs) / 2,
-        }
-    }
-}
-
-const TILE_BALANCED: TileParams = TileParams::new(504, 480, 6);
-const TILE_FASTER: TileParams = TileParams::new(504, 504, 0);
-const TILE_HIGHER_QUALITY: TileParams = TileParams::new(504, 448, 12);
+const TILE_FASTER: TileParams = TileParams {
+    cs: 504,
+    margin: 8,
+    overlap: 32,
+};
+const TILE_BALANCED: TileParams = TileParams {
+    cs: 504,
+    margin: 12,
+    overlap: 64,
+};
+const TILE_HIGHER_QUALITY: TileParams = TileParams {
+    cs: 504,
+    margin: 16,
+    overlap: 128,
+};
 
 fn select_tile_params(quality_0_1: f32) -> TileParams {
     let q = quality_0_1.clamp(0.0, 1.0);
@@ -883,196 +927,118 @@ fn extract_tile_mirror(img: &Rgb32FImage, x0: i32, y0: i32, cs: usize) -> Array4
     arr
 }
 
-struct SeamlessBlend {
-    ud0: usize,
-    ud1: usize,
-    ud2: usize,
-    ud3: usize,
-    absx0: usize,
-    absy0: usize,
-    fswidth: usize,
-    fsheight: usize,
-    overlap: usize,
+fn tile_origins(len: usize, params: TileParams) -> Vec<i32> {
+    let valid = params.cs - 2 * params.margin;
+    let step = (valid - params.overlap).max(1);
+    let mut origins = Vec::new();
+    let mut start = 0;
+    loop {
+        origins.push(start as i32 - params.margin as i32);
+        if start + valid >= len {
+            break;
+        }
+        start += step;
+    }
+    origins
 }
 
-fn apply_seamless(tile: &mut Array4<f32>, blend: &SeamlessBlend) {
-    let SeamlessBlend {
-        ud0,
-        ud1,
-        ud2,
-        ud3,
-        absx0,
-        absy0,
-        fswidth,
-        fsheight,
-        overlap,
-    } = *blend;
-    let ol = overlap;
-    if absx0 > 0 {
-        for c in 0..3 {
-            for y in ud1..ud3 {
-                for x in ud0..(ud0 + ol).min(ud2) {
-                    tile[[0, c, y, x]] *= 0.5;
-                }
-            }
-        }
-    }
-    if absy0 > 0 {
-        for c in 0..3 {
-            for y in ud1..(ud1 + ol).min(ud3) {
-                for x in ud0..ud2 {
-                    tile[[0, c, y, x]] *= 0.5;
-                }
-            }
-        }
-    }
-    if absx0 + (ud2 - ud0) < fswidth && ol > 0 {
-        let right_start = (ud2 as i32 - ol as i32).max(ud0 as i32) as usize;
-        for c in 0..3 {
-            for y in ud1..ud3 {
-                for x in right_start..ud2 {
-                    tile[[0, c, y, x]] *= 0.5;
-                }
-            }
-        }
-    }
-    if absy0 + (ud3 - ud1) < fsheight && ol > 0 {
-        let bottom_start = (ud3 as i32 - ol as i32).max(ud1 as i32) as usize;
-        for c in 0..3 {
-            for y in bottom_start..ud3 {
-                for x in ud0..ud2 {
-                    tile[[0, c, y, x]] *= 0.5;
-                }
-            }
-        }
-    }
+fn tile_blend_weights(params: TileParams) -> Vec<f32> {
+    let valid = params.cs - 2 * params.margin;
+    let ramp = |d: usize| ((d as f32 + 0.5) / params.overlap.max(1) as f32).min(1.0);
+    (0..valid)
+        .map(|i| {
+            let t = ramp(i).min(ramp(valid - 1 - i));
+            t * t * (3.0 - 2.0 * t)
+        })
+        .collect()
 }
 
 fn run_native_denoise(
     img: &Rgb32FImage,
     session: &Mutex<Session>,
-    accumulator: &mut [f32],
-    width: usize,
-    height: usize,
-    app_handle: &tauri::AppHandle,
     params: TileParams,
-) -> Result<()> {
-    let w = width as i32;
-    let h = height as i32;
-    let step = params.ucs.saturating_sub(params.overlap).max(1);
-    let iperhl = (width.saturating_sub(params.ucs) as f64 / step as f64).ceil() as usize;
-    let ipervl = (height.saturating_sub(params.ucs) as f64 / step as f64).ceil() as usize;
-    let total = (iperhl + 1) * (ipervl + 1);
+    on_progress: &dyn Fn(f32),
+) -> Result<Rgb32FImage> {
+    let (width, height) = (img.width() as usize, img.height() as usize);
+    let valid = params.cs - 2 * params.margin;
+    let weights = tile_blend_weights(params);
+    let xs = tile_origins(width, params);
+    let ys = tile_origins(height, params);
+    let total = xs.len() * ys.len();
 
-    for i in 0..total {
-        let yi = i / (iperhl + 1);
-        let xi = i % (iperhl + 1);
-        let x0 =
-            params.ucs as i32 * xi as i32 - params.overlap as i32 * xi as i32 - params.pad as i32;
-        let y0 =
-            params.ucs as i32 * yi as i32 - params.overlap as i32 * yi as i32 - params.pad as i32;
+    let mut accumulator = vec![0.0f32; width * height * 3];
+    let mut weight_sum = vec![0.0f32; width * height];
 
-        if i % 10 == 0 {
-            let pct = (i as f32 / total as f32) * 100.0;
-            let _ = app_handle.emit("denoise-progress", format!("Denoising… {:.0}%", pct));
-        }
+    for (i, (&y0, &x0)) in ys
+        .iter()
+        .flat_map(|y| xs.iter().map(move |x| (y, x)))
+        .enumerate()
+    {
+        on_progress(i as f32 / total as f32);
 
         let crop = extract_tile_mirror(img, x0, y0, params.cs);
-        let input_values = crop.as_standard_layout().to_owned();
-        let t_input = Tensor::from_array(input_values)?;
+        let t_input = Tensor::from_array(crop.as_standard_layout().to_owned())?;
 
-        let out = {
+        let tile = {
             let mut sess = session.lock().unwrap();
             let outputs = sess.run(ort::inputs![t_input])?;
-            let arr = outputs[0].try_extract_array::<f32>()?.to_owned();
-            arr.into_dimensionality::<ndarray::Ix4>()
+            outputs[0]
+                .try_extract_array::<f32>()?
+                .to_owned()
+                .into_dimensionality::<ndarray::Ix4>()
                 .map_err(|e| anyhow::anyhow!("Unexpected output shape: {}", e))?
         };
 
-        let x1pad = (0i32).max(x0 + params.cs as i32 - w) as usize;
-        let y1pad = (0i32).max(y0 + params.cs as i32 - h) as usize;
-        let ud0 = params.pad;
-        let ud1 = params.pad;
-        let ud2 = params.cs - params.pad.max(x1pad);
-        let ud3 = params.cs - params.pad.max(y1pad);
-        let absx0 = (x0 + params.pad as i32).max(0) as usize;
-        let absy0 = (y0 + params.pad as i32).max(0) as usize;
-
-        let mut tile = out;
-        apply_seamless(
-            &mut tile,
-            &SeamlessBlend {
-                ud0,
-                ud1,
-                ud2,
-                ud3,
-                absx0,
-                absy0,
-                fswidth: width,
-                fsheight: height,
-                overlap: params.overlap,
-            },
-        );
-
-        for cy in 0..(ud3 - ud1) {
-            for cx in 0..(ud2 - ud0) {
-                let gx = absx0 + cx;
-                let gy = absy0 + cy;
-                if gx < width && gy < height {
-                    let base = (gy * width + gx) * 3;
-                    accumulator[base] += tile[[0, 0, ud1 + cy, ud0 + cx]].clamp(0.0, 1.0);
-                    accumulator[base + 1] += tile[[0, 1, ud1 + cy, ud0 + cx]].clamp(0.0, 1.0);
-                    accumulator[base + 2] += tile[[0, 2, ud1 + cy, ud0 + cx]].clamp(0.0, 1.0);
+        for ty in 0..valid {
+            let gy = y0 + (params.margin + ty) as i32;
+            if gy < 0 || gy >= height as i32 {
+                continue;
+            }
+            for tx in 0..valid {
+                let gx = x0 + (params.margin + tx) as i32;
+                if gx < 0 || gx >= width as i32 {
+                    continue;
                 }
+                let w = weights[ty] * weights[tx];
+                let idx = gy as usize * width + gx as usize;
+                for c in 0..3 {
+                    let v = tile[[0, c, params.margin + ty, params.margin + tx]].clamp(0.0, 1.0);
+                    accumulator[idx * 3 + c] += v * w;
+                }
+                weight_sum[idx] += w;
             }
         }
     }
-    Ok(())
-}
 
-fn accumulator_to_rgb32f(acc: &[f32], width: u32, height: u32) -> Rgb32FImage {
-    let mut out = Rgb32FImage::new(width, height);
-    for (i, p) in out.pixels_mut().enumerate() {
-        let i3 = i * 3;
-        *p = Rgb([
-            acc[i3].clamp(0.0, 1.0),
-            acc[i3 + 1].clamp(0.0, 1.0),
-            acc[i3 + 2].clamp(0.0, 1.0),
-        ]);
-    }
-    out
+    let mut out = Rgb32FImage::new(width as u32, height as u32);
+    out.par_chunks_exact_mut(3)
+        .zip(accumulator.par_chunks_exact(3))
+        .zip(weight_sum.par_iter())
+        .for_each(|((px, acc), &w)| {
+            let inv = if w > 0.0 { 1.0 / w } else { 0.0 };
+            for c in 0..3 {
+                px[c] = (acc[c] * inv).clamp(0.0, 1.0);
+            }
+        });
+    Ok(out)
 }
 
 pub fn run_ai_denoise(
     rgb_img: &Rgb32FImage,
     intensity: f32,
     session: &Mutex<Session>,
-    app_handle: &tauri::AppHandle,
+    on_progress: &dyn Fn(f32),
 ) -> Result<DynamicImage> {
-    let (width, height) = rgb_img.dimensions();
     let params = select_tile_params(intensity);
-
-    let _ = app_handle.emit("denoise-progress", "Denoising (AI NIND)...");
-    let mut accumulator = vec![0.0f32; width as usize * height as usize * 3];
-    run_native_denoise(
-        rgb_img,
-        session,
-        &mut accumulator,
-        width as usize,
-        height as usize,
-        app_handle,
-        params,
-    )?;
-
-    let out_img_buffer = accumulator_to_rgb32f(&accumulator, width, height);
-    Ok(DynamicImage::ImageRgb32F(out_img_buffer))
+    let out = run_native_denoise(rgb_img, session, params, on_progress)?;
+    Ok(DynamicImage::ImageRgb32F(out))
 }
 
 pub fn run_lama_inpainting(
     image: &DynamicImage,
     mask: &GrayImage,
     lama_session: &Mutex<Session>,
-) -> Result<RgbaImage> {
+) -> Result<(RgbaImage, u32, u32)> {
     let (w, h) = image.dimensions();
 
     let (mut min_x, mut min_y) = (w, h);
@@ -1090,7 +1056,7 @@ pub fn run_lama_inpainting(
     }
 
     if !has_mask {
-        return Ok(image.to_rgba8());
+        return Ok((image.to_rgba8(), 0, 0));
     }
 
     let mask_w = max_x - min_x + 1;
@@ -1107,9 +1073,7 @@ pub fn run_lama_inpainting(
     let crop_w = x1 - x0 + 1;
     let crop_h = y1 - y0 + 1;
 
-    let rgba = image.to_rgba8();
-
-    let cropped_img = imageops::crop_imm(&rgba, x0, y0, crop_w, crop_h).to_image();
+    let cropped_img = image.crop_imm(x0, y0, crop_w, crop_h).to_rgba8();
     let cropped_mask = imageops::crop_imm(mask, x0, y0, crop_w, crop_h).to_image();
 
     let max_dim_limit: u32 = 768;
@@ -1181,7 +1145,7 @@ pub fn run_lama_inpainting(
         result_inf
     };
 
-    let mut final_image = image.to_rgba8();
+    let mut final_crop = cropped_img;
 
     for y in 0..crop_h {
         for x in 0..crop_w {
@@ -1189,20 +1153,18 @@ pub fn run_lama_inpainting(
             if m > 0 {
                 let alpha = m as f32 / 255.0;
                 let p = result_crop.get_pixel(x, y);
-                let gx = x0 + x;
-                let gy = y0 + y;
-                let orig = final_image.get_pixel(gx, gy);
+                let orig = final_crop.get_pixel(x, y);
 
                 let r = (p[0] as f32 * alpha + orig[0] as f32 * (1.0 - alpha)) as u8;
                 let g = (p[1] as f32 * alpha + orig[1] as f32 * (1.0 - alpha)) as u8;
                 let b = (p[2] as f32 * alpha + orig[2] as f32 * (1.0 - alpha)) as u8;
 
-                final_image.put_pixel(gx, gy, Rgba([r, g, b, 255]));
+                final_crop.put_pixel(x, y, Rgba([r, g, b, 255]));
             }
         }
     }
 
-    Ok(final_image)
+    Ok((final_crop, x0, y0))
 }
 
 pub fn generate_image_embeddings(

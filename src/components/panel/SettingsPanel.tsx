@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import {
   ArrowLeft,
   Cloud,
@@ -19,6 +19,9 @@ import {
   Image as ImageIcon,
   Mouse,
   Touchpad,
+  ChevronDown,
+  ChevronRight,
+  Settings as SettingsIcon,
 } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -52,6 +55,7 @@ import { useCloudUsage } from '../../hooks/useCloudUsage';
 import { open } from '@tauri-apps/plugin-shell';
 import { RotateCcw } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
+import { formatBytes } from '../../utils/formatBytes';
 
 interface ConfirmModalState {
   confirmText: string;
@@ -125,6 +129,13 @@ const smallThumbnailResolutions: OptionItem<number>[] = [
   { value: 480, label: '480px' },
   { value: 640, label: '640px' },
   { value: 720, label: '720px' },
+];
+
+const exportMemoryLimits: OptionItem<number>[] = [
+  { value: 50, label: '50%' },
+  { value: 65, label: '65%' },
+  { value: 80, label: '80%' },
+  { value: 90, label: '90%' },
 ];
 
 const mediumThumbnailResolutions: OptionItem<number>[] = [
@@ -550,6 +561,9 @@ export default function SettingsPanel({
   const [clearMessage, setClearMessage] = useState('');
   const [isClearingCache, setIsClearingCache] = useState(false);
   const [cacheClearMessage, setCacheClearMessage] = useState('');
+  const [aiDenoiseCacheSize, setAiDenoiseCacheSize] = useState<number | null>(null);
+  const [isClearingAiDenoiseCache, setIsClearingAiDenoiseCache] = useState(false);
+  const [aiDenoiseCacheMessage, setAiDenoiseCacheMessage] = useState('');
   const [isClearingAiTags, setIsClearingAiTags] = useState(false);
   const [aiTagsClearMessage, setAiTagsClearMessage] = useState('');
   const [isClearingTags, setIsClearingTags] = useState(false);
@@ -564,6 +578,7 @@ export default function SettingsPanel({
   });
   const [testStatus, setTestStatus] = useState<TestStatus>({ message: '', success: null, testing: false });
   const [hasInteractedWithLivePreview, setHasInteractedWithLivePreview] = useState(false);
+  const [isAdvancedProcessingExpanded, setIsAdvancedProcessingExpanded] = useState(false);
   const [recordingAction, setRecordingAction] = useState<string | null>(null);
 
   const [aiProvider, setAiProvider] = useState(appSettings?.aiProvider || 'cpu');
@@ -615,9 +630,16 @@ export default function SettingsPanel({
     [t],
   );
 
+  const exportWorkerThreadOptions = useMemo<OptionItem<number>[]>(
+    () => [
+      { value: 0, label: t('settings.processing.advanced.auto') },
+      ...[1, 2, 3, 4, 6, 8].map((threads) => ({ value: threads, label: String(threads) })),
+    ],
+    [t],
+  );
+
   const livePreviewQualityOptions = useMemo<OptionItem<string>[]>(
     () => [
-      { value: 'full', label: t('settings.processing.qualities.full') },
       { value: 'high', label: t('settings.processing.qualities.high') },
       { value: 'performance', label: t('settings.processing.qualities.performance') },
     ],
@@ -730,6 +752,14 @@ export default function SettingsPanel({
   useEffect(() => {
     invoke<string[]>('get_lensfun_makers').then(setLensMakers).catch(console.error);
   }, []);
+
+  const refreshAiDenoiseCacheSize = useCallback(() => {
+    invoke<number>(Invokes.GetAiDenoiseCacheSize).then(setAiDenoiseCacheSize).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (activeCategory === 'processing') refreshAiDenoiseCacheSize();
+  }, [activeCategory, refreshAiDenoiseCacheSize]);
 
   const handleProcessingSettingChange = async (key: string, value: any) => {
     setProcessingSettings((prev) => ({ ...prev, [key]: value }));
@@ -980,6 +1010,35 @@ export default function SettingsPanel({
       isOpen: true,
       message: t('settings.data.modals.cacheMessage'),
       onConfirm: executeClearCache,
+      title: t('settings.data.modals.confirmCacheTitle'),
+    });
+  };
+
+  const executeClearAiDenoiseCache = async () => {
+    setIsClearingAiDenoiseCache(true);
+    setAiDenoiseCacheMessage(t('settings.data.statuses.clearingAiDenoise'));
+    try {
+      await invoke(Invokes.ClearAiDenoiseCache);
+      setAiDenoiseCacheMessage(t('settings.data.statuses.aiDenoiseSuccess'));
+    } catch (err: any) {
+      console.error('Failed to clear AI denoise cache:', err);
+      setAiDenoiseCacheMessage(`Error: ${err}`);
+    } finally {
+      refreshAiDenoiseCacheSize();
+      setTimeout(() => {
+        setIsClearingAiDenoiseCache(false);
+        setAiDenoiseCacheMessage('');
+      }, EXECUTE_TIMEOUT);
+    }
+  };
+
+  const handleClearAiDenoiseCache = () => {
+    setConfirmModalState({
+      confirmText: t('settings.data.modals.confirmClearCache'),
+      confirmVariant: 'destructive',
+      isOpen: true,
+      message: t('settings.data.modals.aiDenoiseMessage'),
+      onConfirm: executeClearAiDenoiseCache,
       title: t('settings.data.modals.confirmCacheTitle'),
     });
   };
@@ -2084,7 +2143,7 @@ export default function SettingsPanel({
                                       onSettingsChange({ ...appSettings, livePreviewQuality: value })
                                     }
                                     options={livePreviewQualityOptions}
-                                    value={appSettings?.livePreviewQuality || 'high'}
+                                    value={appSettings?.livePreviewQuality === 'performance' ? 'performance' : 'high'}
                                     triggerClassName="bg-bg-primary"
                                   />
                                 </SettingItem>
@@ -2129,42 +2188,6 @@ export default function SettingsPanel({
                           onChange={(checked) => {
                             onSettingsChange({ ...appSettings, alwaysDecodeRawThumbnails: checked });
                           }}
-                        />
-                      </SettingItem>
-
-                      <SettingItem
-                        label={t('settings.processing.workerThreads')}
-                        description={t('settings.processing.workerThreadsDesc')}
-                      >
-                        <Slider
-                          label={t('settings.processing.threads')}
-                          min={2}
-                          max={10}
-                          step={1}
-                          value={processingSettings.thumbnailWorkerThreads}
-                          defaultValue={4}
-                          onChange={(e: any) =>
-                            handleProcessingSettingChange('thumbnailWorkerThreads', parseInt(e.target.value))
-                          }
-                          fillOrigin="min"
-                        />
-                      </SettingItem>
-
-                      <SettingItem
-                        label={t('settings.processing.imageCache')}
-                        description={t('settings.processing.imageCacheDesc')}
-                      >
-                        <Slider
-                          label={t('settings.processing.images')}
-                          min={2}
-                          max={10}
-                          step={1}
-                          value={processingSettings.imageCacheSize}
-                          defaultValue={5}
-                          onChange={(e: any) =>
-                            handleProcessingSettingChange('imageCacheSize', parseInt(e.target.value))
-                          }
-                          fillOrigin="min"
                         />
                       </SettingItem>
 
@@ -2218,6 +2241,110 @@ export default function SettingsPanel({
                           />
                         </SettingItem>
                       )}
+
+                      <SettingItem
+                        label={t('settings.processing.advanced.heading')}
+                        description={t('settings.processing.advanced.headingDesc')}
+                      >
+                        <div className="bg-bg-primary rounded-xl overflow-hidden">
+                          <button
+                            onClick={() => setIsAdvancedProcessingExpanded((expanded) => !expanded)}
+                            className="w-full flex items-center justify-between p-3.5 hover:bg-card-active transition-colors"
+                          >
+                            <Text
+                              as="span"
+                              variant={TextVariants.label}
+                              color={TextColors.primary}
+                              className="flex items-center gap-2"
+                            >
+                              <SettingsIcon size={16} /> {t('settings.processing.advanced.title')}
+                            </Text>
+                            <Text color={TextColors.secondary}>
+                              {isAdvancedProcessingExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                            </Text>
+                          </button>
+                          <AnimatePresence initial={false}>
+                            {isAdvancedProcessingExpanded && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+                                className="overflow-hidden"
+                              >
+                                <div className="px-4 pb-4 pt-4 border-t border-surface/50 space-y-8">
+                                  <SettingItem
+                                    label={t('settings.processing.workerThreads')}
+                                    description={t('settings.processing.workerThreadsDesc')}
+                                  >
+                                    <Slider
+                                      label={t('settings.processing.threads')}
+                                      min={2}
+                                      max={10}
+                                      step={1}
+                                      value={processingSettings.thumbnailWorkerThreads}
+                                      defaultValue={4}
+                                      onChange={(e: any) =>
+                                        handleProcessingSettingChange(
+                                          'thumbnailWorkerThreads',
+                                          parseInt(e.target.value),
+                                        )
+                                      }
+                                      fillOrigin="min"
+                                    />
+                                  </SettingItem>
+
+                                  <SettingItem
+                                    label={t('settings.processing.imageCache')}
+                                    description={t('settings.processing.imageCacheDesc')}
+                                  >
+                                    <Slider
+                                      label={t('settings.processing.images')}
+                                      min={2}
+                                      max={10}
+                                      step={1}
+                                      value={processingSettings.imageCacheSize}
+                                      defaultValue={5}
+                                      onChange={(e: any) =>
+                                        handleProcessingSettingChange('imageCacheSize', parseInt(e.target.value))
+                                      }
+                                      fillOrigin="min"
+                                    />
+                                  </SettingItem>
+
+                                  <SettingItem
+                                    label={t('settings.processing.advanced.exportThreads')}
+                                    description={t('settings.processing.advanced.exportThreadsDesc')}
+                                  >
+                                    <Dropdown
+                                      onChange={(value: any) =>
+                                        onSettingsChange({ ...appSettings, exportWorkerThreads: value })
+                                      }
+                                      options={exportWorkerThreadOptions}
+                                      value={appSettings?.exportWorkerThreads ?? 0}
+                                      triggerClassName="bg-surface"
+                                    />
+                                  </SettingItem>
+
+                                  <SettingItem
+                                    label={t('settings.processing.advanced.exportMemoryLimit')}
+                                    description={t('settings.processing.advanced.exportMemoryLimitDesc')}
+                                  >
+                                    <Dropdown
+                                      onChange={(value: any) =>
+                                        onSettingsChange({ ...appSettings, exportMemoryLimit: value })
+                                      }
+                                      options={exportMemoryLimits}
+                                      value={appSettings?.exportMemoryLimit ?? 80}
+                                      triggerClassName="bg-surface"
+                                    />
+                                  </SettingItem>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      </SettingItem>
 
                       {restartRequired && (
                         <>
@@ -2502,6 +2629,19 @@ export default function SettingsPanel({
                         isProcessing={isClearingCache}
                         message={cacheClearMessage}
                         title={t('settings.data.clearThumbnail')}
+                      />
+
+                      <DataActionItem
+                        buttonAction={handleClearAiDenoiseCache}
+                        buttonText={t('settings.data.clearAiDenoiseButton')}
+                        description={t('settings.data.clearAiDenoiseDesc', {
+                          size: aiDenoiseCacheSize === null ? '…' : formatBytes(aiDenoiseCacheSize, t),
+                        })}
+                        disabled={!aiDenoiseCacheSize}
+                        icon={<Trash2 size={16} className="mr-2" />}
+                        isProcessing={isClearingAiDenoiseCache}
+                        message={aiDenoiseCacheMessage}
+                        title={t('settings.data.clearAiDenoise')}
                       />
 
                       <DataActionItem

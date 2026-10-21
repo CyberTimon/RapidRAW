@@ -1,9 +1,12 @@
 use crate::AppState;
-use image::DynamicImage;
+use half::f16;
+use half::slice::HalfFloatSliceExt;
+use image::{DynamicImage, GenericImageView, Rgb32FImage, Rgba32FImage};
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 pub const GEOMETRY_KEYS: &[&str] = &[
     "transformDistortion",
@@ -43,13 +46,30 @@ fn hash_ai_patches(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) 
                 .unwrap_or(true);
             is_visible.hash(hasher);
 
-            if let Some(patch_data) = patch.get("patchData") {
-                patch_data.hash(hasher);
-            } else {
-                patch["patchDataBase64"].as_str().unwrap_or("").hash(hasher);
-            }
+            let mask_from_sub_masks = if let Some(patch_data) = patch.get("patchData") {
+                let color = patch_data
+                    .get("color")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                color.hash(hasher);
 
-            if let Some(sub_masks_val) = patch.get("subMasks") {
+                let mask = patch_data
+                    .get("mask")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                mask.hash(hasher);
+
+                !color.is_empty() && mask.is_empty()
+            } else {
+                let data = patch
+                    .get("patchDataBase64")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                data.hash(hasher);
+                true
+            };
+
+            if mask_from_sub_masks && let Some(sub_masks_val) = patch.get("subMasks") {
                 sub_masks_val.to_string().hash(hasher);
             }
 
@@ -59,6 +79,23 @@ fn hash_ai_patches(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) 
                 .unwrap_or(false);
             invert.hash(hasher);
         }
+    }
+}
+
+fn hash_ai_denoise(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) {
+    let enabled = crate::ai_denoise::is_enabled(adjustments);
+    enabled.hash(hasher);
+    if enabled {
+        hash_effect_keys(adjustments, &["aiDenoiseAmount", "aiDenoiseDetail"], hasher);
+        crate::ai_denoise::cache_epoch().hash(hasher);
+    }
+}
+
+fn hash_negative_conversion(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) {
+    let enabled = crate::negative_conversion::is_enabled(adjustments);
+    enabled.hash(hasher);
+    if enabled {
+        hash_effect_keys(adjustments, crate::negative_conversion::PARAM_KEYS, hasher);
     }
 }
 
@@ -98,6 +135,8 @@ pub fn calculate_patch_hash(adjustments: &serde_json::Value) -> u64 {
     let mut hasher = DefaultHasher::new();
 
     hash_ai_patches(adjustments, &mut hasher);
+    hash_ai_denoise(adjustments, &mut hasher);
+    hash_negative_conversion(adjustments, &mut hasher);
 
     let uses_generated_masks = adjustments
         .get("aiPatches")
@@ -233,29 +272,6 @@ pub fn calculate_thumbnail_base_hash(adjustments: &serde_json::Value) -> u64 {
     hasher.finish()
 }
 
-pub fn calculate_visual_hash(path: &str, adjustments: &serde_json::Value) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    path.hash(&mut hasher);
-
-    if let Some(obj) = adjustments.as_object() {
-        for (key, value) in obj {
-            if GEOMETRY_KEYS.contains(&key.as_str()) {
-                continue;
-            }
-
-            match key.as_str() {
-                "crop" | "rotation" | "orientationSteps" | "flipHorizontal" | "flipVertical" => (),
-                _ => {
-                    key.hash(&mut hasher);
-                    value.to_string().hash(&mut hasher);
-                }
-            }
-        }
-    }
-
-    hasher.finish()
-}
-
 pub fn calculate_transform_hash(adjustments: &serde_json::Value) -> u64 {
     let mut hasher = DefaultHasher::new();
 
@@ -287,6 +303,8 @@ pub fn calculate_transform_hash(adjustments: &serde_json::Value) -> u64 {
     }
 
     hash_ai_patches(adjustments, &mut hasher);
+    hash_ai_denoise(adjustments, &mut hasher);
+    hash_negative_conversion(adjustments, &mut hasher);
 
     hasher.finish()
 }
@@ -298,9 +316,99 @@ pub fn calculate_full_job_hash(path: &str, adjustments: &serde_json::Value) -> u
     hasher.finish()
 }
 
+const HALF_CONVERSION_CHUNK: usize = 64 * 1024;
+
+static DECODED_CACHE_BUDGET_BYTES: LazyLock<usize> = LazyLock::new(|| {
+    let mut sys = sysinfo::System::new();
+    sys.refresh_memory();
+    let total = sys.total_memory() as usize;
+    if total > 0 {
+        total / 5
+    } else {
+        2 * 1024 * 1024 * 1024
+    }
+});
+
+enum CachedImage {
+    Full(Arc<DynamicImage>),
+    Half {
+        width: u32,
+        height: u32,
+        channels: usize,
+        data: Vec<f16>,
+    },
+}
+
+impl CachedImage {
+    fn byte_size(&self) -> usize {
+        match self {
+            CachedImage::Full(image) => image.as_bytes().len(),
+            CachedImage::Half { data, .. } => data.len() * std::mem::size_of::<f16>(),
+        }
+    }
+
+    fn compact(self) -> Self {
+        let CachedImage::Full(image) = self else {
+            return self;
+        };
+        if Arc::strong_count(&image) > 1 {
+            return CachedImage::Full(image);
+        }
+
+        let (width, height) = image.dimensions();
+        let (channels, raw) = match image.as_ref() {
+            DynamicImage::ImageRgb32F(buffer) => (3, buffer.as_raw()),
+            DynamicImage::ImageRgba32F(buffer) => (4, buffer.as_raw()),
+            _ => return CachedImage::Full(image),
+        };
+
+        let mut data = vec![f16::ZERO; raw.len()];
+        data.par_chunks_mut(HALF_CONVERSION_CHUNK)
+            .zip(raw.par_chunks(HALF_CONVERSION_CHUNK))
+            .for_each(|(dst, src)| dst.convert_from_f32_slice(src));
+
+        CachedImage::Half {
+            width,
+            height,
+            channels,
+            data,
+        }
+    }
+
+    fn expand(&self) -> Arc<DynamicImage> {
+        match self {
+            CachedImage::Full(image) => Arc::clone(image),
+            CachedImage::Half {
+                width,
+                height,
+                channels,
+                data,
+            } => {
+                let mut raw = vec![0.0f32; data.len()];
+                raw.par_chunks_mut(HALF_CONVERSION_CHUNK)
+                    .zip(data.par_chunks(HALF_CONVERSION_CHUNK))
+                    .for_each(|(dst, src)| src.convert_to_f32_slice(dst));
+
+                let image = if *channels == 4 {
+                    DynamicImage::ImageRgba32F(
+                        Rgba32FImage::from_raw(*width, *height, raw)
+                            .expect("RGBA buffer matches image dimensions"),
+                    )
+                } else {
+                    DynamicImage::ImageRgb32F(
+                        Rgb32FImage::from_raw(*width, *height, raw)
+                            .expect("RGB buffer matches image dimensions"),
+                    )
+                };
+                Arc::new(image)
+            }
+        }
+    }
+}
+
 pub struct DecodedImageCache {
     capacity: usize,
-    items: Vec<(String, Arc<DynamicImage>, HashMap<String, String>)>,
+    items: Vec<(String, CachedImage, HashMap<String, String>)>,
 }
 
 impl DecodedImageCache {
@@ -313,20 +421,35 @@ impl DecodedImageCache {
 
     pub fn set_capacity(&mut self, capacity: usize) {
         self.capacity = capacity;
-        while self.items.len() > self.capacity {
-            self.items.remove(0);
-        }
+        self.evict();
+    }
+
+    pub fn contains(&self, path: &str) -> bool {
+        self.items.iter().any(|(p, _, _)| p == path)
     }
 
     pub fn get(&mut self, path: &str) -> Option<(Arc<DynamicImage>, HashMap<String, String>)> {
-        if let Some(pos) = self.items.iter().position(|(p, _, _)| p == path) {
+        let pos = self.items.iter().position(|(p, _, _)| p == path)?;
+        let (path, cached, exif) = self.items.remove(pos);
+        let image = cached.expand();
+        drop(cached);
+        self.items
+            .push((path, CachedImage::Full(Arc::clone(&image)), exif.clone()));
+        Some((image, exif))
+    }
+
+    pub fn compact_except(&mut self, keep_path: &str) {
+        if let Some(pos) = self.items.iter().position(|(p, _, _)| p == keep_path) {
             let item = self.items.remove(pos);
-            let result = (item.1.clone(), item.2.clone());
             self.items.push(item);
-            Some(result)
-        } else {
-            None
         }
+        for item in self.items.iter_mut() {
+            if item.0 != keep_path {
+                let cached = std::mem::replace(&mut item.1, CachedImage::Full(Arc::default()));
+                item.1 = cached.compact();
+            }
+        }
+        self.evict();
     }
 
     pub fn clear(&mut self) {
@@ -341,10 +464,25 @@ impl DecodedImageCache {
     ) {
         if let Some(pos) = self.items.iter().position(|(p, _, _)| *p == path) {
             self.items.remove(pos);
-        } else if self.items.len() >= self.capacity {
+        }
+        self.items.push((path, CachedImage::Full(image), exif));
+        self.evict();
+    }
+
+    fn evict(&mut self) {
+        while self.items.len() > self.capacity.max(1) {
             self.items.remove(0);
         }
-        self.items.push((path, image, exif));
+        while self.items.len() > 1
+            && self
+                .items
+                .iter()
+                .map(|(_, c, _)| c.byte_size())
+                .sum::<usize>()
+                > *DECODED_CACHE_BUDGET_BYTES
+        {
+            self.items.remove(0);
+        }
     }
 }
 
@@ -353,10 +491,7 @@ pub fn clear_preview_stage_caches(state: &AppState) {
         .patched_cache
         .lock()
         .unwrap_or_else(|e| e.into_inner()) = None;
-    *state
-        .patched_warped_cache
-        .lock()
-        .unwrap_or_else(|e| e.into_inner()) = None;
+    *state.warped_cache.lock().unwrap_or_else(|e| e.into_inner()) = None;
     *state
         .working_cache
         .lock()
