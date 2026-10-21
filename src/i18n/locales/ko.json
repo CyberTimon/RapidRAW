@@ -103,8 +103,15 @@
       "chromaticAberration": "색수차",
       "clarity": "명료도",
       "color": "색상",
+      "convertNegative": "네거티브 반전",
       "dehaze": "디헤이즈",
       "luminance": "휘도",
+      "negativeBlue": "파랑",
+      "negativeContrast": "인화지 호수",
+      "negativeConversion": "네거티브 변환",
+      "negativeExposure": "인화 노출",
+      "negativeGreen": "초록",
+      "negativeRed": "빨강",
       "noiseReduction": "노이즈 감소",
       "presence": "외관",
       "redCyan": "빨강/시안",
@@ -199,6 +206,11 @@
       "renameAlbum": "앨범 이름 변경",
       "renameGroup": "그룹 이름 변경",
       "rootDir": "루트 디렉터리"
+    },
+    "autoAdjustModes": {
+      "normal": "보통",
+      "strong": "강하게",
+      "subtle": "약하게"
     },
     "colors": {
       "blue": "파랑",
@@ -1302,6 +1314,7 @@
         "lensCorrection": "렌즈 보정",
         "lut": "LUT",
         "masks": "마스크",
+        "negativeConversion": "네거티브 변환",
         "noiseReduction": "노이즈 감소",
         "presence": "외관",
         "sharpness": "선명도",
@@ -1472,30 +1485,6 @@
       "title": "렌즈 보정",
       "vignetting": "비네팅",
       "waitingAutoDetect": "자동 감지 대기 중...",
-      "zoomInTooltip": "확대",
-      "zoomOutTooltip": "축소"
-    },
-    "negativeConversion": {
-      "blueWeight": "파랑 (노랑)",
-      "cancel": "취소",
-      "colorTiming": "컬러 타이밍",
-      "compareTooltip": "길게 눌러 원본 보기",
-      "contrast": "대비 (그레이드)",
-      "convertAndSave": "변환 및 저장",
-      "convertAndSaveAll": "모두 변환 및 저장 ({{count}})",
-      "convertAndSaveAll_one": "모두 변환 및 저장 ({{count}})",
-      "convertAndSaveAll_other": "모두 변환 및 저장 ({{count}})",
-      "converting": "변환 중",
-      "convertingProgress": "변환 중 {{current}}/{{total}}",
-      "exposure": "노출",
-      "greenWeight": "초록 (마젠타)",
-      "noticeText": "반전 로직은 marcinz606이 제작한 <0>NegPy</0>(<1>GPL-3.0</1>)에서 영감을 받았습니다.",
-      "originalLabel": "원본 네거티브",
-      "printGrade": "프린트 그레이드",
-      "redWeight": "빨강 (시안)",
-      "resetTooltip": "초기화",
-      "resetViewTooltip": "보기 초기화",
-      "title": "네거티브 변환",
       "zoomInTooltip": "확대",
       "zoomOutTooltip": "축소"
     },
@@ -1770,6 +1759,16 @@
       "title": "내 렌즈"
     },
     "processing": {
+      "advanced": {
+        "heading": "고급",
+        "headingDesc": "썸네일, 캐시, 내보내기 성능을 조정합니다. 대부분의 사용자는 기본값으로 충분합니다.",
+        "title": "고급 설정",
+        "auto": "자동",
+        "exportThreads": "병렬 내보내기",
+        "exportThreadsDesc": "동시에 내보내는 이미지 수입니다. 자동은 CPU에 맞는 값을 선택합니다. 큰 내보내기가 실패하거나 GPU 메모리가 적다면 낮추세요.",
+        "exportMemoryLimit": "내보내기 메모리 한도",
+        "exportMemoryLimitDesc": "일괄 내보내기가 사용할 수 있는 여유 RAM의 비율입니다. 큰 내보내기 중에도 다른 앱이 원활하게 동작하도록 하려면 낮추세요."
+      },
       "ai": {
         "cloud": {
           "description": "더 간단한 솔루션을 원하는 사용자를 위해, 선택적 구독은 번거로움 없이 셀프 호스팅과 동일한 고품질 결과를 제공합니다. 가장 편리한 옵션이며 프로젝트를 지원하는 가장 좋은 방법입니다.",
@@ -1913,7 +1912,6 @@
       "previewResDesc": "미리보기의 최대 해상도를 결정합니다. 값이 낮을수록 성능이 크게 향상됩니다.",
       "previewStrategy": "미리보기 렌더링 전략",
       "qualities": {
-        "full": "전체 해상도",
         "high": "고품질",
         "performance": "성능"
       },

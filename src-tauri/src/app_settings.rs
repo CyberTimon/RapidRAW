@@ -127,6 +127,12 @@ pub fn all_available_adjustments() -> HashSet<String> {
         "colorNoiseReduction",
         "chromaticAberrationRedCyan",
         "chromaticAberrationBlueYellow",
+        "negativeConversionEnabled",
+        "negativeRedWeight",
+        "negativeGreenWeight",
+        "negativeBlueWeight",
+        "negativeExposure",
+        "negativeContrast",
         "vignetteAmount",
         "vignetteFeather",
         "vignetteMidpoint",
@@ -569,6 +575,10 @@ pub struct AppSettings {
     #[serde(default)]
     pub image_cache_size: Option<u32>,
     #[serde(default)]
+    pub export_worker_threads: Option<u32>,
+    #[serde(default)]
+    pub export_memory_limit: Option<u32>,
+    #[serde(default)]
     pub enable_baseline_exposure: bool,
     #[serde(default = "default_baseline_exposure")]
     pub baseline_exposure: f32,
@@ -698,6 +708,8 @@ impl Default for AppSettings {
             image_cache_size: Some(2),
             #[cfg(not(target_os = "android"))]
             image_cache_size: Some(5),
+            export_worker_threads: None,
+            export_memory_limit: None,
             enable_baseline_exposure: false,
             baseline_exposure: default_baseline_exposure(),
             compensate_highlight_preservation: default_compensate_highlight_preservation(),

@@ -27,7 +27,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useUIStore } from '../../../store/useUIStore';
-import { useEditorActions } from '../../../hooks/useEditorActions';
+import { buildAutoAdjustModeOptions, useEditorActions } from '../../../hooks/useEditorActions';
 import { useWaveformControls } from '../../../hooks/useWaveformControls';
 
 function AdjustmentSectionContent(props: {
@@ -141,6 +141,12 @@ export default function Controls() {
     }));
   };
 
+  const handleAutoAdjustContextMenu = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    showContextMenu(event.clientX, event.clientY, buildAutoAdjustModeOptions(t, handleAutoAdjustments));
+  };
+
   const handleToggleSection = (section: string) => {
     setCollapsibleState((prev: any) => {
       const isOpening = !prev[section];
@@ -238,7 +244,8 @@ export default function Controls() {
           <button
             className="p-2 rounded-full hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             disabled={!selectedImage}
-            onClick={handleAutoAdjustments}
+            onClick={() => handleAutoAdjustments()}
+            onContextMenu={handleAutoAdjustContextMenu}
             data-tooltip={t('editor.adjustments.tooltips.autoAdjust')}
           >
             <PencilSparkles size={18} />

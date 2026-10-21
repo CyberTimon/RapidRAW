@@ -47,6 +47,7 @@ mod formats;
 mod gpu_processing;
 mod guided_perspective;
 mod hdr_deghosting;
+mod highlight_reconstruction;
 mod image_loader;
 mod image_processing;
 mod inpainting;
@@ -55,6 +56,7 @@ mod lens_blur;
 mod lens_correction;
 mod lut_processing;
 mod mask_generation;
+mod memory_budget;
 mod multi_exposure;
 mod negative_conversion;
 mod panorama_stitching;
@@ -101,7 +103,7 @@ use crate::cache_utils::{
 use crate::file_management::{parse_virtual_path, read_file_mapped};
 use crate::formats::is_raw_file;
 use crate::hdr_deghosting::{align_hdr_frames, assert_uniform_dimensions, load_hdr_frames};
-use crate::image_loader::{composite_patches_on_image, load_and_composite};
+use crate::image_loader::{load_and_composite, prepare_base_image_cow};
 use crate::image_processing::{
     Crop, RenderRequest, apply_coarse_rotation, apply_flip, apply_geometry_warp,
     apply_linear_to_srgb, downscale_f32_image, get_all_adjustments_from_json,
@@ -111,7 +113,7 @@ use crate::image_processing::{
 };
 use crate::mask_generation::{
     MaskDefinition, build_full_warped_image_rgb8, build_warped_image_for_masks,
-    generate_mask_bitmap, get_cached_or_generate_mask, resolve_warped_image_for_masks,
+    generate_mask_bitmap, get_cached_or_generate_masks, resolve_warped_image_for_masks,
 };
 use crate::window_customizer::PinchZoomDisablePlugin;
 pub use adjustment_utils::*;
@@ -198,6 +200,7 @@ pub fn generate_transformed_preview(
         return Ok((Arc::clone(img), *scale, *offset));
     }
 
+    *cache_lock = None;
     let (preview, scale_for_gpu, unscaled_crop_offset) =
         compute_transformed_preview(state, loaded_image, adjustments, preview_dim)?;
     *cache_lock = Some((
@@ -235,10 +238,7 @@ fn compute_transformed_preview(
     adjustments: &serde_json::Value,
     preview_dim: u32,
 ) -> Result<TransformedPreview, String> {
-    let mut hasher = DefaultHasher::new();
-    loaded_image.path.hash(&mut hasher);
-    crate::cache_utils::calculate_patch_hash(adjustments).hash(&mut hasher);
-    let patched_key = hasher.finish();
+    let patched_key = patched_cache_key(&loaded_image.path, adjustments);
 
     let patched = get_or_compute_stage(&state.patched_cache, patched_key, || {
         compute_patched(loaded_image, adjustments)
@@ -288,6 +288,10 @@ fn compute_transformed_preview(
             )))
         })?
     } else {
+        *state
+            .working_cache
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = None;
         Arc::clone(&patched)
     };
     drop(patched);
@@ -363,24 +367,47 @@ fn compute_transformed_preview(
     Ok((preview, scale_for_gpu, unscaled_crop_offset))
 }
 
+fn patched_cache_key(path: &str, adjustments: &serde_json::Value) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    path.hash(&mut hasher);
+    crate::cache_utils::calculate_patch_hash(adjustments).hash(&mut hasher);
+    hasher.finish()
+}
+
+pub fn cached_patched_image(
+    state: &AppState,
+    base_image: &DynamicImage,
+    adjustments: &serde_json::Value,
+) -> Option<Arc<DynamicImage>> {
+    let loaded_image = state
+        .original_image
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()?;
+    if !std::ptr::eq(&*loaded_image.image, base_image) {
+        return None;
+    }
+
+    let key = patched_cache_key(&loaded_image.path, adjustments);
+    let cache = state
+        .patched_cache
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    match cache.as_ref() {
+        Some((hash, image)) if *hash == key => Some(Arc::clone(image)),
+        _ => None,
+    }
+}
+
 fn compute_patched(
     loaded_image: &LoadedImage,
     adjustments: &serde_json::Value,
 ) -> Result<Arc<DynamicImage>, String> {
-    let has_patches = adjustments
-        .get("aiPatches")
-        .and_then(|v| v.as_array())
-        .is_some_and(|a| !a.is_empty());
-    let denoised =
-        crate::ai_denoise::apply_ai_denoise(&loaded_image.image, &loaded_image.path, adjustments);
-
-    match (denoised, has_patches) {
-        (base, true) => Ok(Arc::new(
-            composite_patches_on_image(&base, adjustments)
-                .map_err(|e| format!("Failed to composite AI patches: {}", e))?,
-        )),
-        (Cow::Owned(img), false) => Ok(Arc::new(img)),
-        (Cow::Borrowed(_), false) => Ok(Arc::clone(&loaded_image.image)),
+    match prepare_base_image_cow(&loaded_image.image, &loaded_image.path, adjustments)
+        .map_err(|e| format!("Failed to composite AI patches: {}", e))?
+    {
+        Cow::Owned(img) => Ok(Arc::new(img)),
+        Cow::Borrowed(_) => Ok(Arc::clone(&loaded_image.image)),
     }
 }
 
@@ -443,32 +470,47 @@ pub fn get_cached_full_warped_image_for_path(
     calculate_geometry_hash(js_adjustments).hash(&mut hasher);
     let cache_key = hasher.finish();
 
-    {
+    let cached = || {
         let mut cache_lock = state
             .full_warped_cache
             .lock()
             .unwrap_or_else(|e| e.into_inner());
-        if let Some((hash, img)) = cache_lock.as_ref()
-            && *hash == cache_key
-        {
-            return Ok(Arc::clone(img));
+        match cache_lock.as_ref() {
+            Some((hash, img)) if *hash == cache_key => Some(Arc::clone(img)),
+            _ => {
+                *cache_lock = None;
+                None
+            }
         }
-        *cache_lock = None;
+    };
+
+    if let Some(img) = cached() {
+        return Ok(img);
     }
 
+    let _build_guard = rayon::current_thread_index().is_none().then(|| {
+        state
+            .full_warped_build_lock
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+    });
+    if let Some(img) = cached() {
+        return Ok(img);
+    }
+
+    let source = crate::negative_conversion::apply_negative_conversion(
+        Cow::Borrowed(loaded_image.image.as_ref()),
+        js_adjustments,
+    );
     let warped_arc = Arc::new(build_full_warped_image_rgb8(
-        &loaded_image.image,
-        loaded_image.is_raw,
+        &source,
+        crate::negative_conversion::effective_is_raw(loaded_image.is_raw, js_adjustments),
         js_adjustments,
     ));
-
-    {
-        let mut cache_lock = state
-            .full_warped_cache
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        *cache_lock = Some((cache_key, Arc::clone(&warped_arc)));
-    }
+    *state
+        .full_warped_cache
+        .lock()
+        .unwrap_or_else(|e| e.into_inner()) = Some((cache_key, Arc::clone(&warped_arc)));
 
     Ok(warped_arc)
 }
@@ -534,6 +576,7 @@ fn process_preview_job(
     hydrate_adjustments(&state, &mut adjustments_json);
     let adjustments_clone = adjustments_json;
 
+    let image_generation = state.load_image_generation.load(Ordering::SeqCst);
     let loaded_image_guard = state.original_image.lock().unwrap();
     let loaded_image = loaded_image_guard
         .as_ref()
@@ -556,9 +599,8 @@ fn process_preview_job(
 
     let has_roi = roi.is_some();
     let (interactive_divisor, interactive_quality) = match live_quality {
-        "full" => (1.0_f32, 85_u8),
-        "performance" => (if has_roi { 1.8_f32 } else { 1.5_f32 }, 65_u8),
-        _ => (if has_roi { 1.4_f32 } else { 1.0_f32 }, 75_u8),
+        "performance" => (if has_roi { 1.4_f32 } else { 1.2_f32 }, 75_u8),
+        _ => (1.0_f32, 85_u8),
     };
 
     let mut cached_preview_lock = state
@@ -582,6 +624,7 @@ fn process_preview_job(
             cached.unscaled_crop_offset,
         )
     } else {
+        *cached_preview_lock = None;
         *state
             .gpu_image_cache
             .lock()
@@ -667,21 +710,16 @@ fn process_preview_job(
         unscaled_crop_offset.1 * effective_scale,
     );
 
-    let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
-        .iter()
-        .filter_map(|def| {
-            get_cached_or_generate_mask(
-                &state,
-                &loaded_image.path,
-                def,
-                preview_width,
-                preview_height,
-                effective_scale,
-                scaled_crop_offset,
-                &adjustments_clone,
-            )
-        })
-        .collect();
+    let masks = get_cached_or_generate_masks(
+        &state,
+        &loaded_image.path,
+        &mask_definitions,
+        preview_width,
+        preview_height,
+        effective_scale,
+        scaled_crop_offset,
+        &adjustments_clone,
+    );
 
     let is_raw = loaded_image.is_raw;
     let render = resolve_render_options_from_handle(app_handle, is_raw);
@@ -713,6 +751,13 @@ fn process_preview_job(
         None
     };
 
+    if use_wgpu_renderer {
+        let _ = context.device.poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: Some(std::time::Duration::from_millis(500)),
+        });
+    }
+
     let final_processed_image_result =
         crate::image_processing::process_and_get_dynamic_image_with_analytics(
             &context,
@@ -721,7 +766,8 @@ fn process_preview_job(
             new_transform_hash,
             RenderRequest {
                 adjustments: final_adjustments,
-                mask_bitmaps: &mask_bitmaps,
+                mask_bitmaps: &masks.bitmaps,
+                mask_cache_key: Some(masks.cache_key ^ image_generation as u64),
                 lut,
                 roi: pixel_roi,
             },
@@ -732,10 +778,16 @@ fn process_preview_job(
 
     if let Ok(final_processed_image) = final_processed_image_result {
         if use_wgpu_renderer {
-            let _ = context.device.poll(wgpu::PollType::Wait {
-                submission_index: None,
-                timeout: Some(std::time::Duration::from_millis(500)),
-            });
+            if state
+                .wgpu_presented_generation
+                .swap(image_generation, Ordering::SeqCst)
+                != image_generation
+            {
+                let _ = context.device.poll(wgpu::PollType::Wait {
+                    submission_index: None,
+                    timeout: Some(std::time::Duration::from_millis(500)),
+                });
+            }
             let _ = app_handle.emit(
                 "wgpu-frame-ready",
                 serde_json::json!({ "path": loaded_image.path }),
@@ -1018,21 +1070,17 @@ async fn generate_uncropped_preview(
             .and_then(|m| serde_json::from_value(m.clone()).ok())
             .unwrap_or_default();
 
-        let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
-            .iter()
-            .filter_map(|def| {
-                get_cached_or_generate_mask(
-                    &state,
-                    &path,
-                    def,
-                    preview_width,
-                    preview_height,
-                    scale_for_gpu,
-                    (0.0, 0.0),
-                    &adjustments_clone,
-                )
-            })
-            .collect();
+        let mask_bitmaps = get_cached_or_generate_masks(
+            &state,
+            &path,
+            &mask_definitions,
+            preview_width,
+            preview_height,
+            scale_for_gpu,
+            (0.0, 0.0),
+            &adjustments_clone,
+        )
+        .bitmaps;
 
         let render = resolve_render_options_from_handle(&app_handle, is_raw);
         let mut uncropped_adjustments =
@@ -1051,6 +1099,7 @@ async fn generate_uncropped_preview(
             RenderRequest {
                 adjustments: uncropped_adjustments,
                 mask_bitmaps: &mask_bitmaps,
+                mask_cache_key: None,
                 lut,
                 roi: None,
             },
@@ -1120,21 +1169,17 @@ fn generate_preset_preview(
         unscaled_crop_offset.1 * scale_for_gpu,
     );
 
-    let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
-        .iter()
-        .filter_map(|def| {
-            get_cached_or_generate_mask(
-                &state,
-                &loaded_image.path,
-                def,
-                img_w,
-                img_h,
-                scale_for_gpu,
-                scaled_crop_offset,
-                &js_adjustments,
-            )
-        })
-        .collect();
+    let mask_bitmaps = get_cached_or_generate_masks(
+        &state,
+        &loaded_image.path,
+        &mask_definitions,
+        img_w,
+        img_h,
+        scale_for_gpu,
+        scaled_crop_offset,
+        &js_adjustments,
+    )
+    .bitmaps;
 
     let render = resolve_render_options_from_handle(&app_handle, is_raw);
     let mut all_adjustments =
@@ -1151,6 +1196,7 @@ fn generate_preset_preview(
         RenderRequest {
             adjustments: all_adjustments,
             mask_bitmaps: &mask_bitmaps,
+            mask_cache_key: None,
             lut,
             roi: None,
         },
@@ -1259,8 +1305,13 @@ async fn generate_all_community_previews(
                 .unwrap_or(serde_json::Value::Null);
             }
 
-            let (transformed_image, _scaled_crop_offset) =
-                crate::apply_all_transformations(Cow::Borrowed(base_image), &scaled_adjustments);
+            let (transformed_image, _scaled_crop_offset) = crate::apply_all_transformations(
+                crate::negative_conversion::apply_negative_conversion(
+                    Cow::Borrowed(base_image),
+                    &scaled_adjustments,
+                ),
+                &scaled_adjustments,
+            );
             let (img_w, img_h) = transformed_image.dimensions();
 
             let mask_definitions: Vec<MaskDefinition> = scaled_adjustments
@@ -1307,6 +1358,7 @@ async fn generate_all_community_previews(
                 RenderRequest {
                     adjustments: all_adjustments,
                     mask_bitmaps: &mask_bitmaps,
+                    mask_cache_key: None,
                     lut,
                     roi: None,
                 },
@@ -1595,6 +1647,7 @@ async fn generate_preview_for_path(
             RenderRequest {
                 adjustments: all_adjustments,
                 mask_bitmaps: &mask_bitmaps,
+                mask_cache_key: None,
                 lut,
                 roi: None,
             },
@@ -2329,6 +2382,8 @@ pub fn run() {
             lens_db: Mutex::new(None),
             load_image_generation: Arc::new(AtomicUsize::new(0)),
             full_warped_cache: Mutex::new(None),
+            full_warped_build_lock: Mutex::new(()),
+            wgpu_presented_generation: AtomicUsize::new(usize::MAX),
             patched_cache: Mutex::new(None),
             warped_cache: Mutex::new(None),
             working_cache: Mutex::new(None),
@@ -2336,6 +2391,7 @@ pub fn run() {
             full_transformed_cache: Mutex::new(None),
             decoded_image_cache: Mutex::new(DecodedImageCache::new(5)),
             thumbnail_manager: ThumbnailManager::new(),
+            memory_budget: crate::memory_budget::MemoryBudget::from_total_ram(0.6),
             metadata_manager: MetadataManager::new(),
             disks_cache: Mutex::new(None),
             disks_cache_refreshing: AtomicBool::new(false),
@@ -2459,8 +2515,6 @@ pub fn run() {
             lens_correction::get_lensfun_lenses_for_maker,
             lens_correction::autodetect_lens,
             lens_correction::get_lens_distortion_params,
-            negative_conversion::preview_negative_conversion,
-            negative_conversion::convert_negatives,
             camera_tethering::tether_list_cameras,
             camera_tethering::tether_connect,
             camera_tethering::tether_get_settings,

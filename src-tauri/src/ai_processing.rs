@@ -147,6 +147,62 @@ pub struct AiModels {
     pub sam3_text_encoder: Mutex<Session>,
     pub sam3_decoder: Mutex<Session>,
     pub sam3_tokenizer: Tokenizer,
+type SharedSession = Arc<Mutex<Session>>;
+
+pub struct AiModels {
+    models_dir: PathBuf,
+    sam_encoder: Mutex<Option<SharedSession>>,
+    sam_decoder: Mutex<Option<SharedSession>>,
+    u2netp: Mutex<Option<SharedSession>>,
+    sky_seg: Mutex<Option<SharedSession>>,
+    depth_anything: Mutex<Option<SharedSession>>,
+}
+
+impl AiModels {
+    fn session(
+        &self,
+        slot: &Mutex<Option<SharedSession>>,
+        filename: &str,
+    ) -> Result<SharedSession> {
+        let mut slot = slot.lock().unwrap();
+        if let Some(session) = slot.as_ref() {
+            return Ok(Arc::clone(session));
+        }
+        let session = Arc::new(Mutex::new(one_shot_session(
+            &self.models_dir.join(filename),
+        )?));
+        *slot = Some(Arc::clone(&session));
+        Ok(session)
+    }
+
+    pub fn sam_encoder(&self) -> Result<SharedSession> {
+        self.session(&self.sam_encoder, ENCODER_FILENAME)
+    }
+
+    pub fn sam_decoder(&self) -> Result<SharedSession> {
+        self.session(&self.sam_decoder, DECODER_FILENAME)
+    }
+
+    pub fn u2netp(&self) -> Result<SharedSession> {
+        self.session(&self.u2netp, U2NETP_FILENAME)
+    }
+
+    pub fn sky_seg(&self) -> Result<SharedSession> {
+        self.session(&self.sky_seg, SKYSEG_FILENAME)
+    }
+
+    pub fn depth_anything(&self) -> Result<SharedSession> {
+        self.session(&self.depth_anything, DEPTH_FILENAME)
+    }
+}
+
+fn one_shot_session(model_path: &Path) -> Result<Session> {
+    Ok(Session::builder()?
+        .with_execution_providers([ort::execution_providers::CPUExecutionProvider::default()
+            .with_arena_allocator(false)
+            .build()])?
+        .with_memory_pattern(false)?
+        .commit_from_file(model_path)?)
 }
 
 impl AiModels {
@@ -330,7 +386,11 @@ pub fn fast_guided_filter(
     let h = lr_h as usize;
     let area = w * h;
 
-    let guide_lr = imageops::resize(guide_hr, lr_w, lr_h, FilterType::Triangle);
+    let guide_lr = if (lr_w, lr_h) == (hr_w, hr_h) {
+        std::borrow::Cow::Borrowed(guide_hr)
+    } else {
+        std::borrow::Cow::Owned(imageops::resize(guide_hr, lr_w, lr_h, FilterType::Triangle))
+    };
 
     let mut i_lr = vec![0.0; area];
     let mut p_lr = vec![0.0; area];
@@ -355,29 +415,27 @@ pub fn fast_guided_filter(
             *ii_out = i_val * i_val;
         });
 
+    drop(guide_lr);
+
     let mut temp1 = vec![0.0; area];
     let mut temp2 = vec![0.0; area];
 
-    let mut mean_i = vec![0.0; area];
-    let mut mean_p = vec![0.0; area];
-    let mut mean_ip = vec![0.0; area];
-    let mut mean_ii = vec![0.0; area];
-
-    box_filter_opt(&i_lr, &mut mean_i, &mut temp1, &mut temp2, w, h, r);
-    box_filter_opt(&p_lr, &mut mean_p, &mut temp1, &mut temp2, w, h, r);
-    box_filter_opt(&ip_lr, &mut mean_ip, &mut temp1, &mut temp2, w, h, r);
-    box_filter_opt(&ii_lr, &mut mean_ii, &mut temp1, &mut temp2, w, h, r);
-
-    let mut a = vec![0.0; area];
-    let mut b = vec![0.0; area];
+    let box_filter = |src: Vec<f32>, temp1: &mut [f32], temp2: &mut [f32]| {
+        let mut mean = vec![0.0; area];
+        box_filter_opt(&src, &mut mean, temp1, temp2, w, h, r);
+        mean
+    };
+    let mean_i = box_filter(i_lr, &mut temp1, &mut temp2);
+    let mean_p = box_filter(p_lr, &mut temp1, &mut temp2);
+    let mut a = box_filter(ip_lr, &mut temp1, &mut temp2);
+    let mut b = box_filter(ii_lr, &mut temp1, &mut temp2);
 
     a.par_iter_mut()
         .zip(b.par_iter_mut())
         .zip(mean_i.par_iter())
         .zip(mean_p.par_iter())
-        .zip(mean_ip.par_iter())
-        .zip(mean_ii.par_iter())
-        .for_each(|(((((a_out, b_out), &m_i), &m_p), &m_ip), &m_ii)| {
+        .for_each(|(((a_out, b_out), &m_i), &m_p)| {
+            let (m_ip, m_ii) = (*a_out, *b_out);
             let cov_ip = m_ip - m_i * m_p;
             let var_i = m_ii - m_i * m_i;
             let a_val = cov_ip / (var_i + eps);
@@ -385,20 +443,23 @@ pub fn fast_guided_filter(
             *b_out = m_p - a_val * m_i;
         });
 
-    let mut mean_a = vec![0.0; area];
-    let mut mean_b = vec![0.0; area];
-
+    let (mut mean_a, mut mean_b) = (mean_i, mean_p);
     box_filter_opt(&a, &mut mean_a, &mut temp1, &mut temp2, w, h, r);
     box_filter_opt(&b, &mut mean_b, &mut temp1, &mut temp2, w, h, r);
+    drop((a, b, temp1, temp2));
 
     let mean_a_img = ImageBuffer::<Luma<f32>, Vec<f32>>::from_raw(lr_w, lr_h, mean_a).unwrap();
     let mean_b_img = ImageBuffer::<Luma<f32>, Vec<f32>>::from_raw(lr_w, lr_h, mean_b).unwrap();
 
-    let mean_a_hr = imageops::resize(&mean_a_img, hr_w, hr_h, FilterType::Triangle);
-    let mean_b_hr = imageops::resize(&mean_b_img, hr_w, hr_h, FilterType::Triangle);
-
-    let mean_a_hr_raw = mean_a_hr.as_raw();
-    let mean_b_hr_raw = mean_b_hr.as_raw();
+    let upscale = |img: ImageBuffer<Luma<f32>, Vec<f32>>| {
+        if (lr_w, lr_h) == (hr_w, hr_h) {
+            img.into_raw()
+        } else {
+            imageops::resize(&img, hr_w, hr_h, FilterType::Triangle).into_raw()
+        }
+    };
+    let mean_a_hr_raw = upscale(mean_a_img);
+    let mean_b_hr_raw = upscale(mean_b_img);
     let guide_hr_raw = guide_hr.as_raw();
 
     let mut final_mask_raw = vec![0u8; (hr_w * hr_h) as usize];
@@ -577,6 +638,15 @@ pub async fn get_or_init_ai_models(
         sam3_text_encoder: Mutex::new(sam3_text_encoder),
         sam3_decoder: Mutex::new(sam3_decoder),
         sam3_tokenizer,
+    crate::register_exit_handler();
+
+    let models = Arc::new(AiModels {
+        models_dir,
+        sam_encoder: Mutex::new(None),
+        sam_decoder: Mutex::new(None),
+        u2netp: Mutex::new(None),
+        sky_seg: Mutex::new(None),
+        depth_anything: Mutex::new(None),
     });
 
     remove_obsolete_model_assets(
@@ -867,6 +937,7 @@ pub async fn get_or_init_lama_model(
     let _ = ort::init().with_name("AI-Inpainting").commit();
     let model_path = models_dir.join(LAMA_FILENAME);
     let session = load_ai_session(model_path)?;
+    let session = one_shot_session(&model_path)?;
     let lama_model = Arc::new(Mutex::new(session));
 
     crate::register_exit_handler();
@@ -929,6 +1000,7 @@ pub async fn get_or_init_normal_model(
     let _ = ort::init().with_name("AI-Normal").commit();
     let model_path = models_dir.join(NORMAL_FILENAME);
     let session = load_ai_session(model_path)?;
+    let session = one_shot_session(&model_path)?;
     let normal_model = Arc::new(Mutex::new(session));
 
     crate::register_exit_handler();
@@ -1138,7 +1210,7 @@ pub fn run_lama_inpainting(
     image: &DynamicImage,
     mask: &GrayImage,
     lama_session: &Mutex<Session>,
-) -> Result<RgbaImage> {
+) -> Result<(RgbaImage, u32, u32)> {
     let (w, h) = image.dimensions();
     if w == 0 || h == 0 {
         anyhow::bail!("Cannot inpaint an empty image");
@@ -1166,7 +1238,7 @@ pub fn run_lama_inpainting(
     }
 
     if !has_mask {
-        return Ok(image.to_rgba8());
+        return Ok((image.to_rgba8(), 0, 0));
     }
 
     let mask_w = max_x - min_x + 1;
@@ -1183,9 +1255,7 @@ pub fn run_lama_inpainting(
     let crop_w = x1 - x0 + 1;
     let crop_h = y1 - y0 + 1;
 
-    let rgba = image.to_rgba8();
-
-    let cropped_img = imageops::crop_imm(&rgba, x0, y0, crop_w, crop_h).to_image();
+    let cropped_img = image.crop_imm(x0, y0, crop_w, crop_h).to_rgba8();
     let cropped_mask = imageops::crop_imm(mask, x0, y0, crop_w, crop_h).to_image();
 
     let max_dim_limit: u32 = 768;
@@ -1270,7 +1340,7 @@ pub fn run_lama_inpainting(
         result_inf
     };
 
-    let mut final_image = image.to_rgba8();
+    let mut final_crop = cropped_img;
 
     for y in 0..crop_h {
         for x in 0..crop_w {
@@ -1278,20 +1348,18 @@ pub fn run_lama_inpainting(
             if m > 0 {
                 let alpha = m as f32 / 255.0;
                 let p = result_crop.get_pixel(x, y);
-                let gx = x0 + x;
-                let gy = y0 + y;
-                let orig = final_image.get_pixel(gx, gy);
+                let orig = final_crop.get_pixel(x, y);
 
                 let r = (p[0] as f32 * alpha + orig[0] as f32 * (1.0 - alpha)) as u8;
                 let g = (p[1] as f32 * alpha + orig[1] as f32 * (1.0 - alpha)) as u8;
                 let b = (p[2] as f32 * alpha + orig[2] as f32 * (1.0 - alpha)) as u8;
 
-                final_image.put_pixel(gx, gy, Rgba([r, g, b, 255]));
+                final_crop.put_pixel(x, y, Rgba([r, g, b, 255]));
             }
         }
     }
 
-    Ok(final_image)
+    Ok((final_crop, x0, y0))
 }
 
 pub fn generate_sam3_image_embeddings(

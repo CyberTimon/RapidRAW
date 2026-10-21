@@ -639,6 +639,7 @@ fn render_lut_swatch(
         RenderRequest {
             adjustments,
             mask_bitmaps: &[],
+            mask_cache_key: None,
             lut: Some(lut),
             roi: None,
         },

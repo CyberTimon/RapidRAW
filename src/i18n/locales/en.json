@@ -103,8 +103,15 @@
       "chromaticAberration": "Chromatic Aberration",
       "clarity": "Clarity",
       "color": "Color",
+      "convertNegative": "Convert Negative",
       "dehaze": "Dehaze",
       "luminance": "Luminance",
+      "negativeBlue": "Blue",
+      "negativeContrast": "Print Grade",
+      "negativeConversion": "Negative Conversion",
+      "negativeExposure": "Print Exposure",
+      "negativeGreen": "Green",
+      "negativeRed": "Red",
       "noiseReduction": "Noise Reduction",
       "presence": "Presence",
       "redCyan": "Red/Cyan",
@@ -199,6 +206,11 @@
       "renameAlbum": "Rename Album",
       "renameGroup": "Rename Group",
       "rootDir": "Root Directory"
+    },
+    "autoAdjustModes": {
+      "normal": "Normal",
+      "strong": "Strong",
+      "subtle": "Subtle"
     },
     "colors": {
       "blue": "Blue",
@@ -1304,6 +1316,7 @@
         "lensCorrection": "Lens Correction",
         "lut": "LUT",
         "masks": "Masks",
+        "negativeConversion": "Negative Conversion",
         "noiseReduction": "Noise Reduction",
         "presence": "Presence",
         "sharpness": "Sharpness",
@@ -1474,30 +1487,6 @@
       "title": "Lens Correction",
       "vignetting": "Vignetting",
       "waitingAutoDetect": "Waiting for Auto-Detect...",
-      "zoomInTooltip": "Zoom In",
-      "zoomOutTooltip": "Zoom Out"
-    },
-    "negativeConversion": {
-      "blueWeight": "Blue (Yellow)",
-      "cancel": "Cancel",
-      "colorTiming": "Color Timing",
-      "compareTooltip": "Hold to View Original",
-      "contrast": "Contrast (Grade)",
-      "convertAndSave": "Convert & Save",
-      "convertAndSaveAll": "Convert & Save All ({{count}})",
-      "convertAndSaveAll_one": "Convert & Save All ({{count}})",
-      "convertAndSaveAll_other": "Convert & Save All ({{count}})",
-      "converting": "Converting",
-      "convertingProgress": "Converting {{current}}/{{total}}",
-      "exposure": "Exposure",
-      "greenWeight": "Green (Magenta)",
-      "noticeText": "Inversion logic inspired by <0>NegPy</0> created by marcinz606 (<1>GPL-3.0</1>).",
-      "originalLabel": "Original Negative",
-      "printGrade": "Print Grade",
-      "redWeight": "Red (Cyan)",
-      "resetTooltip": "Reset",
-      "resetViewTooltip": "Reset View",
-      "title": "Negative Conversion",
       "zoomInTooltip": "Zoom In",
       "zoomOutTooltip": "Zoom Out"
     },
@@ -1772,6 +1761,16 @@
       "title": "My Lenses"
     },
     "processing": {
+      "advanced": {
+        "heading": "Advanced",
+        "headingDesc": "Performance tuning for thumbnails, caching and exports. The defaults work well for most users.",
+        "title": "Advanced Settings",
+        "auto": "Auto",
+        "exportThreads": "Parallel Exports",
+        "exportThreadsDesc": "Number of images exported at the same time. Auto picks a value based on your CPU. Lower it if large exports fail or your GPU has little memory.",
+        "exportMemoryLimit": "Export Memory Limit",
+        "exportMemoryLimitDesc": "Share of free RAM that batch exports may use. Lower it to keep other apps responsive during large exports."
+      },
       "ai": {
         "cloud": {
           "description": "For those who want a simpler solution, an optional subscription provides the same high-quality results as self-hosting without any hassle. This is the most convenient option and the best way to support the project.",
@@ -1915,7 +1914,6 @@
       "previewResDesc": "Determines the maximum resolution of the preview. Lower values significantly improve performance.",
       "previewStrategy": "Preview Rendering Strategy",
       "qualities": {
-        "full": "Full Resolution",
         "high": "High Quality",
         "performance": "Performance"
       },

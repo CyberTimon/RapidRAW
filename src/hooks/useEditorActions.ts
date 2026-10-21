@@ -3,6 +3,8 @@ import { invoke } from '@tauri-apps/api/core';
 import debounce from 'lodash.debounce';
 import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
+import { TFunction } from 'i18next';
+import { SignalHigh, SignalLow, SignalMedium } from 'lucide-react';
 import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
@@ -10,6 +12,7 @@ import { useProcessStore } from '../store/useProcessStore';
 import { useUIStore } from '../store/useUIStore';
 import {
   Adjustments,
+  AutoAdjustMode,
   INITIAL_ADJUSTMENTS,
   COPYABLE_ADJUSTMENT_KEYS,
   PasteMode,
@@ -20,7 +23,7 @@ import {
   setToolActive,
 } from '../utils/adjustments';
 import { calculateAutoCropForRotation, calculateCenteredCrop } from '../utils/cropUtils';
-import { Invokes, SelectedImage } from '../components/ui/AppProperties';
+import { Invokes, Option, SelectedImage } from '../components/ui/AppProperties';
 import { globalImageCache } from '../utils/ImageLRUCache';
 
 export const debouncedSetHistory = debounce((newAdj: Adjustments) => {
@@ -33,6 +36,19 @@ export const debouncedSave = debounce((path: string, adjustmentsToSave: Adjustme
     toast.error(`Failed to save changes: ${err}`);
   });
 }, 300);
+
+const AUTO_ADJUST_MODE_ICONS: Record<AutoAdjustMode, any> = {
+  [AutoAdjustMode.Subtle]: SignalLow,
+  [AutoAdjustMode.Normal]: SignalMedium,
+  [AutoAdjustMode.Strong]: SignalHigh,
+};
+
+export const buildAutoAdjustModeOptions = (t: TFunction, onSelect: (mode: AutoAdjustMode) => void): Option[] =>
+  Object.values(AutoAdjustMode).map((mode) => ({
+    label: t(`contextMenus.autoAdjustModes.${mode}`),
+    icon: AUTO_ADJUST_MODE_ICONS[mode],
+    onClick: () => onSelect(mode),
+  }));
 
 const waitForImageReady = (path: string) =>
   new Promise<boolean>((resolve) => {
@@ -125,22 +141,26 @@ export function useEditorActions() {
     [setAdjustments],
   );
 
-  const handleAutoAdjustments = useCallback(async () => {
-    const selectedImage = useEditorStore.getState().selectedImage;
-    if (!selectedImage?.isReady) return;
-    try {
-      const autoAdjustments: Adjustments = await invoke(Invokes.CalculateAutoAdjustments, {
-        jsAdjustments: useEditorStore.getState().adjustments,
-      });
-      setAdjustments((prev: Adjustments) => ({
-        ...prev,
-        ...autoAdjustments,
-        activeTools: mergeActiveTools(prev, autoAdjustments),
-      }));
-    } catch (err) {
-      toast.error(`Failed to apply auto adjustments: ${err}`);
-    }
-  }, [setAdjustments]);
+  const handleAutoAdjustments = useCallback(
+    async (mode: AutoAdjustMode = AutoAdjustMode.Normal) => {
+      const selectedImage = useEditorStore.getState().selectedImage;
+      if (!selectedImage?.isReady) return;
+      try {
+        const autoAdjustments: Adjustments = await invoke(Invokes.CalculateAutoAdjustments, {
+          jsAdjustments: useEditorStore.getState().adjustments,
+          mode,
+        });
+        setAdjustments((prev: Adjustments) => ({
+          ...prev,
+          ...autoAdjustments,
+          activeTools: mergeActiveTools(prev, autoAdjustments),
+        }));
+      } catch (err) {
+        toast.error(`Failed to apply auto adjustments: ${err}`);
+      }
+    },
+    [setAdjustments],
+  );
 
   const handleAutoStraighten = useCallback(async () => {
     const { selectedImage, isAutoStraightening } = useEditorStore.getState();
@@ -318,6 +338,23 @@ export function useEditorActions() {
     [handleAutoStraighten, t],
   );
 
+  const handleConvertNegatives = useCallback(
+    (paths: string[]) => {
+      const { selectedImage } = useEditorStore.getState();
+      const editingPath = useUIStore.getState().activeView === 'editor' ? selectedImage?.path : undefined;
+      const batchPaths = paths.filter((path) => path !== editingPath);
+      if (batchPaths.length < paths.length) {
+        setAdjustments((prev: Adjustments) => ({ ...prev, negativeConversionEnabled: true }));
+      }
+      if (batchPaths.length === 0) return;
+      batchPaths.forEach((p) => globalImageCache.delete(p));
+      invoke(Invokes.ApplyAdjustmentsToPaths, { paths: batchPaths, adjustments: { negativeConversionEnabled: true } })
+        .then(() => reloadAdjustmentsForPaths(batchPaths))
+        .catch((err) => toast.error(`Failed to convert negatives: ${err}`));
+    },
+    [setAdjustments],
+  );
+
   const handleCopyAdjustments = useCallback(async (pathOrEvent?: string | any) => {
     const pathOverride = typeof pathOrEvent === 'string' ? pathOrEvent : undefined;
     const { selectedImage, adjustments } = useEditorStore.getState();
@@ -484,6 +521,7 @@ export function useEditorActions() {
     setLutPreviewOverride,
     handleResetAdjustments,
     handleAutoLensCorrection,
+    handleConvertNegatives,
     handleCopyAdjustments,
     handlePasteAdjustments,
     handleZoomChange,

@@ -102,8 +102,15 @@
       "chromaticAberration": "Chromatická aberace",
       "clarity": "Zřetelnost",
       "color": "Barva",
+      "convertNegative": "Převést negativ",
       "dehaze": "Odmlžení",
       "luminance": "Jas",
+      "negativeBlue": "Modrá",
+      "negativeContrast": "Gradace papíru",
+      "negativeConversion": "Převod negativu",
+      "negativeExposure": "Expozice zvětšeniny",
+      "negativeGreen": "Zelená",
+      "negativeRed": "Červená",
       "noiseReduction": "Redukce šumu",
       "presence": "Prezence",
       "redCyan": "Červená/Azurová",
@@ -198,6 +205,11 @@
       "renameAlbum": "Přejmenovat album",
       "renameGroup": "Přejmenovat skupinu",
       "rootDir": "Kořenový adresář"
+    },
+    "autoAdjustModes": {
+      "normal": "Normální",
+      "strong": "Silné",
+      "subtle": "Jemné"
     },
     "colors": {
       "blue": "Modrá",
@@ -1305,6 +1317,7 @@
         "lensCorrection": "Korekce objektivu",
         "lut": "LUT",
         "masks": "Masky",
+        "negativeConversion": "Převod negativu",
         "noiseReduction": "Redukce šumu",
         "presence": "Prezence",
         "sharpness": "Ostrost",
@@ -1475,30 +1488,6 @@
       "title": "Korekce objektivu",
       "vignetting": "Vinětace",
       "waitingAutoDetect": "Čekání na automatickou detekci...",
-      "zoomInTooltip": "Přiblížit",
-      "zoomOutTooltip": "Oddálit"
-    },
-    "negativeConversion": {
-      "blueWeight": "Modrá (žlutá)",
-      "cancel": "Zrušit",
-      "colorTiming": "Barevné tónování",
-      "compareTooltip": "Podržením zobrazíte originál",
-      "contrast": "Kontrast (stupeň)",
-      "convertAndSave": "Převést a uložit",
-      "convertAndSaveAll": "Převést a uložit vše ({{count}})",
-      "convertAndSaveAll_one": "Převést a uložit vše ({{count}})",
-      "convertAndSaveAll_other": "Převést a uložit vše ({{count}})",
-      "converting": "Konverze",
-      "convertingProgress": "Konverze {{current}}/{{total}}",
-      "exposure": "Expozice",
-      "greenWeight": "Zelená (purpurová)",
-      "noticeText": "Inverzní logika inspirovaná <0>NegPy</0> vytvořil marcinz606 (<1>GPL-3.0</1>).",
-      "originalLabel": "Původní negativ",
-      "printGrade": "Stupeň kontrastu",
-      "redWeight": "Červená (azurová)",
-      "resetTooltip": "Resetovat",
-      "resetViewTooltip": "Obnovit zobrazení",
-      "title": "Negativní konverze",
       "zoomInTooltip": "Přiblížit",
       "zoomOutTooltip": "Oddálit"
     },
@@ -1773,6 +1762,16 @@
       "title": "Moje objektivy"
     },
     "processing": {
+      "advanced": {
+        "heading": "Pokročilé",
+        "headingDesc": "Ladění výkonu náhledů, mezipaměti a exportů. Výchozí hodnoty vyhovují většině uživatelů.",
+        "title": "Pokročilá nastavení",
+        "auto": "Automaticky",
+        "exportThreads": "Paralelní exporty",
+        "exportThreadsDesc": "Počet obrázků exportovaných současně. Automaticky zvolí hodnotu podle procesoru. Snižte ji, pokud velké exporty selhávají nebo má grafická karta málo paměti.",
+        "exportMemoryLimit": "Limit paměti pro export",
+        "exportMemoryLimitDesc": "Podíl volné paměti RAM, který mohou dávkové exporty využít. Snižte jej, aby ostatní aplikace zůstaly při velkých exportech svižné."
+      },
       "ai": {
         "cloud": {
           "description": "Pro ty, kteří chtějí jednodušší řešení, poskytuje volitelné předplatné stejně vysoce kvalitní výsledky jako vlastní hosting bez jakýchkoli starostí. Je to nejpohodlnější možnost a nejlepší způsob, jak podpořit projekt.",
@@ -1916,7 +1915,6 @@
       "previewResDesc": "Určuje maximální rozlišení náhledu. Nižší hodnoty výrazně zlepšují výkon.",
       "previewStrategy": "Náhled strategie vykreslování",
       "qualities": {
-        "full": "Plné rozlišení",
         "high": "Vysoká kvalita",
         "performance": "Výkon"
       },

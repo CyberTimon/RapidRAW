@@ -103,8 +103,15 @@
       "chromaticAberration": "Aberracja chromatyczna",
       "clarity": "Przejrzystość",
       "color": "Kolor",
+      "convertNegative": "Konwertuj negatyw",
       "dehaze": "Usuwanie mgły",
       "luminance": "Luminancja",
+      "negativeBlue": "Niebieski",
+      "negativeContrast": "Gradacja papieru",
+      "negativeConversion": "Konwersja negatywu",
+      "negativeExposure": "Naświetlanie odbitki",
+      "negativeGreen": "Zielony",
+      "negativeRed": "Czerwony",
       "noiseReduction": "Redukcja szumu",
       "presence": "Prezencja",
       "redCyan": "Czerwony/Cyjan",
@@ -199,6 +206,11 @@
       "renameAlbum": "Zmień nazwę albumu",
       "renameGroup": "Zmień nazwę grupy",
       "rootDir": "Katalog główny"
+    },
+    "autoAdjustModes": {
+      "normal": "Normalne",
+      "strong": "Mocne",
+      "subtle": "Subtelne"
     },
     "colors": {
       "blue": "Niebieski",
@@ -1358,6 +1370,7 @@
         "lensCorrection": "Korekcja obiektywu",
         "lut": "LUT",
         "masks": "Maski",
+        "negativeConversion": "Konwersja negatywu",
         "noiseReduction": "Redukcja szumu",
         "presence": "Prezencja",
         "sharpness": "Ostrość",
@@ -1536,32 +1549,6 @@
       "title": "Korekcja obiektywu",
       "vignetting": "Winietowanie",
       "waitingAutoDetect": "Oczekiwanie na automatyczne wykrycie...",
-      "zoomInTooltip": "Przybliż",
-      "zoomOutTooltip": "Oddal"
-    },
-    "negativeConversion": {
-      "blueWeight": "Niebieski (Żółty)",
-      "cancel": "Anuluj",
-      "colorTiming": "Korekcja barwna (Color Timing)",
-      "compareTooltip": "Przytrzymaj, aby zobaczyć oryginał",
-      "contrast": "Kontrast (Gradacja)",
-      "convertAndSave": "Konwertuj i Zapisz",
-      "convertAndSaveAll": "Konwertuj i Zapisz Wszystkie ({{count}})",
-      "convertAndSaveAll_few": "Konwertuj i Zapisz Wszystkie ({{count}})",
-      "convertAndSaveAll_many": "Konwertuj i Zapisz Wszystkie ({{count}})",
-      "convertAndSaveAll_one": "Konwertuj i Zapisz Wszystkie ({{count}})",
-      "convertAndSaveAll_other": "Konwertuj i Zapisz Wszystkie ({{count}})",
-      "converting": "Konwertowanie",
-      "convertingProgress": "Konwertowanie {{current}}/{{total}}",
-      "exposure": "Ekspozycja",
-      "greenWeight": "Zielony (Magenta)",
-      "noticeText": "Logika inwersji inspirowana przez projekt <0>NegPy</0> stworzony przez marcinz606 (<1>GPL-3.0</1>).",
-      "originalLabel": "Oryginalny Negatyw",
-      "printGrade": "Stopień wydruku",
-      "redWeight": "Czerwony (Cyjan)",
-      "resetTooltip": "Resetuj",
-      "resetViewTooltip": "Resetuj widok",
-      "title": "Konwersja negatywu",
       "zoomInTooltip": "Przybliż",
       "zoomOutTooltip": "Oddal"
     },
@@ -1846,6 +1833,16 @@
       "title": "Moje obiektywy"
     },
     "processing": {
+      "advanced": {
+        "heading": "Zaawansowane",
+        "headingDesc": "Dostrajanie wydajności miniatur, pamięci podręcznej i eksportu. Wartości domyślne sprawdzą się u większości użytkowników.",
+        "title": "Ustawienia zaawansowane",
+        "auto": "Automatycznie",
+        "exportThreads": "Eksporty równoległe",
+        "exportThreadsDesc": "Liczba obrazów eksportowanych jednocześnie. Automatycznie dobiera wartość do procesora. Zmniejsz ją, jeśli duże eksporty się nie udają lub karta graficzna ma mało pamięci.",
+        "exportMemoryLimit": "Limit pamięci eksportu",
+        "exportMemoryLimitDesc": "Część wolnej pamięci RAM, z której mogą korzystać eksporty wsadowe. Zmniejsz ją, aby inne aplikacje działały płynnie podczas dużych eksportów."
+      },
       "ai": {
         "cloud": {
           "description": "Dla osób szukających prostego rozwiązania, opcjonalna subskrypcja dostarcza tych samych wysokiej jakości wyników co własny serwer bez żadnych problemów. To najwygodniejsza opcja i najlepszy sposób na wsparcie projektu.",
@@ -1989,7 +1986,6 @@
       "previewResDesc": "Ogranicza maksymalną rozdzielczość podglądu. Niższe wartości zauważalnie poprawiają wydajność.",
       "previewStrategy": "Strategia renderowania podglądu",
       "qualities": {
-        "full": "Pełna rozdzielczość",
         "high": "Wysoka jakość",
         "performance": "Wydajność"
       },

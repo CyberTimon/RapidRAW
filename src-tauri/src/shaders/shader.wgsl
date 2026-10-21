@@ -230,6 +230,23 @@ const GF_NOISE_LO: f32 = 0.0;
 const GF_NOISE_HI: f32 = 0.01;
 
 override HIGH_PRECISION_OUTPUT: u32 = 0u;
+override FEATURES: u32 = 0xFFFFFFFFu;
+
+const F_NOISE_REDUCTION: u32 = 1u;
+const F_HSL: u32 = 2u;
+const F_MASKS: u32 = 4u;
+const F_SHARPEN: u32 = 8u;
+const F_DEHAZE: u32 = 16u;
+const F_GLOW_HALATION_FLARE: u32 = 32u;
+const F_GRAIN: u32 = 64u;
+const F_VIGNETTE: u32 = 128u;
+const F_LUT: u32 = 256u;
+const F_CA: u32 = 512u;
+const F_AGX: u32 = 1024u;
+
+fn has_feature(f: u32) -> bool {
+    return (FEATURES & f) != 0u;
+}
 
 const LUMA_COEFF = vec3<f32>(0.2126, 0.7152, 0.0722);
 
@@ -570,11 +587,15 @@ fn apply_highlights_adjustment(
 
     let luma_base = pixel_luma * exp2(-local_log_detail);
     let detail_ratio = pixel_luma / max(luma_base, 1e-4);
+    let orig_log_detail = log2(max(detail_ratio, 1e-4));
 
     let safe_detail = clamp(detail_ratio, 0.65, 1.55);
 
     let log_detail = log2(safe_detail);
     let soft_log_detail = log_detail / (1.0 + abs(log_detail) * 0.40);
+
+    let k_abs = min(abs(highlights_adj), 1.0);
+    let detail_ramp = k_abs * (2.0 - k_abs);
 
     var target_luma: f32 = pixel_luma;
 
@@ -584,12 +605,13 @@ fn apply_highlights_adjustment(
 
         let compression_strength = k * 2.2;
         let compressed_delta = delta_base / (1.0 + compression_strength * (delta_base / (1.0 + delta_base * 0.35)));
-        let target_base = l_pivot + compressed_delta;
+        let target_base = luma_base + (compressed_delta - delta_base);
 
         let neg_soft_detail = local_log_detail / (1.0 + abs(local_log_detail) * 0.80);
         let restoration_gain = 1.0 + k * 0.3;
         let structure_gain = shape_detail(mid_log_detail, GF_REINJECT_SIGMA) * k * 0.6;
-        let recovered_detail = exp2(neg_soft_detail * restoration_gain + structure_gain);
+        let recovered_log = mix(orig_log_detail, neg_soft_detail * restoration_gain, detail_ramp);
+        let recovered_detail = exp2(recovered_log + structure_gain);
 
         let recovered_target = target_base * recovered_detail;
 
@@ -600,9 +622,10 @@ fn apply_highlights_adjustment(
         let boost = highlights_adj * 0.70;
         let delta_base = max(luma_base - l_pivot, 0.0);
         let boosted_delta = delta_base * (1.0 + boost / (1.0 + delta_base * 0.25));
-        let target_base = l_pivot + boosted_delta;
+        let target_base = luma_base + (boosted_delta - delta_base);
 
-        let detail_boost = exp2(soft_log_detail * (1.0 + highlights_adj * 0.20));
+        let boosted_log = mix(orig_log_detail, soft_log_detail * (1.0 + highlights_adj * 0.20), detail_ramp);
+        let detail_boost = exp2(boosted_log);
         let boosted_target = target_base * detail_boost;
 
         let blend = smoothstep(l_pivot, l_pivot + 0.22, pixel_luma);
@@ -1781,7 +1804,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let ca_rc = adjustments.global.chromatic_aberration_red_cyan;
     let ca_by = adjustments.global.chromatic_aberration_blue_yellow;
     var color_from_texture = textureLoad(input_texture, absolute_coord, 0).rgb;
-    if (abs(ca_rc) > 0.000001 || abs(ca_by) > 0.000001) {
+    if (has_feature(F_CA) && (abs(ca_rc) > 0.000001 || abs(ca_by) > 0.000001)) {
         color_from_texture = apply_ca_correction(absolute_coord, ca_rc, ca_by);
     }
     let original_alpha = textureLoad(input_texture, absolute_coord, 0).a;
@@ -1825,7 +1848,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     var h6_h = adjustments.global.hsl[6].hue; var h6_s = adjustments.global.hsl[6].saturation; var h6_l = adjustments.global.hsl[6].luminance;
     var h7_h = adjustments.global.hsl[7].hue; var h7_s = adjustments.global.hsl[7].saturation; var h7_l = adjustments.global.hsl[7].luminance;
 
-    for (var i = 0u; i < adjustments.mask_count; i = i + 1u) {
+    for (var i = 0u; has_feature(F_MASKS) && i < adjustments.mask_count; i = i + 1u) {
         let influence = get_mask_influence(i, absolute_coord);
         if (influence > 0.001) {
             let m = adjustments.mask_adjustments[i];
@@ -1872,10 +1895,12 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         HslColor(h6_h, h6_s, h6_l, 0.0), HslColor(h7_h, h7_s, h7_l, 0.0)
     );
 
-    initial_linear_rgb = apply_noise_reduction(
-        initial_linear_rgb, absolute_coord_i,
-        t_luma_nr, t_color_nr, scale, is_raw
-    );
+    if (has_feature(F_NOISE_REDUCTION)) {
+        initial_linear_rgb = apply_noise_reduction(
+            initial_linear_rgb, absolute_coord_i,
+            t_luma_nr, t_color_nr, scale, is_raw
+        );
+    }
 
     let sharpness_blurred = textureLoad(sharpness_blur_texture, id.xy, 0).rgb;
     let tonal_blurred = textureLoad(tonal_blur_texture, id.xy, 0).rgb;
@@ -1884,11 +1909,13 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     var locally_contrasted_rgb = initial_linear_rgb;
 
-    locally_contrasted_rgb = apply_sharpen(
-        locally_contrasted_rgb,
-        sharpness_blurred, tonal_blurred,
-        absolute_coord_i, t_sharpness, t_sharp_thresh, is_raw
-    );
+    if (has_feature(F_SHARPEN)) {
+        locally_contrasted_rgb = apply_sharpen(
+            locally_contrasted_rgb,
+            sharpness_blurred, tonal_blurred,
+            absolute_coord_i, t_sharpness, t_sharp_thresh, is_raw
+        );
+    }
 
     let gf = sample_gf_coeffs(absolute_coord);
     let gf_luma = max(get_luma(max(locally_contrasted_rgb, vec3<f32>(0.0))), GF_LUMA_FLOOR);
@@ -1920,19 +1947,19 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     var processed_rgb = apply_linear_exposure(locally_contrasted_rgb, t_exposure);
 
-    if (t_glow > 0.0) {
+    if (has_feature(F_GLOW_HALATION_FLARE) && t_glow > 0.0) {
         processed_rgb = apply_glow_bloom(
             processed_rgb, structure_blurred, t_glow, is_raw,
             t_exposure, t_brightness, t_contrast, t_whites
         );
     }
-    if (t_halation > 0.0) {
+    if (has_feature(F_GLOW_HALATION_FLARE) && t_halation > 0.0) {
         processed_rgb = apply_halation(
             processed_rgb, clarity_blurred, t_halation, is_raw,
             t_exposure, t_brightness, t_contrast, t_whites
         );
     }
-    if (t_flare > 0.0) {
+    if (has_feature(F_GLOW_HALATION_FLARE) && t_flare > 0.0) {
         let uv = vec2<f32>(absolute_coord) / full_dims;
         var flare_color = textureSampleLevel(flare_texture, flare_sampler, uv, 0.0).rgb;
         flare_color *= 1.4;
@@ -1948,11 +1975,14 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         processed_rgb += flare_color * t_flare * protection;
     }
 
-    var dehaze_dark = 0.0;
-    if (t_dehaze > 0.0) {
-        dehaze_dark = refined_dark_channel(absolute_coord, is_raw);
+    var composite_rgb_linear = processed_rgb;
+    if (has_feature(F_DEHAZE)) {
+        var dehaze_dark = 0.0;
+        if (t_dehaze > 0.0) {
+            dehaze_dark = refined_dark_channel(absolute_coord, is_raw);
+        }
+        composite_rgb_linear = apply_dehaze(processed_rgb, structure_blurred, dehaze_dark, is_raw, t_dehaze);
     }
-    var composite_rgb_linear = apply_dehaze(processed_rgb, structure_blurred, dehaze_dark, is_raw, t_dehaze);
     composite_rgb_linear = apply_white_balance(composite_rgb_linear, t_wb_log_gains);
     composite_rgb_linear = apply_centre_tonal_and_color(composite_rgb_linear, adjustments.global.centre, vec2<f32>(adjustments.global.centre_x, adjustments.global.centre_y), absolute_coord_i);
     var tonal_log_detail = 0.0;
@@ -1965,7 +1995,9 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     composite_rgb_linear = apply_tonal_adjustments(composite_rgb_linear, tonal_log_detail, tonal_mid_detail, is_raw, t_contrast, t_shadows, t_whites, t_blacks);
     composite_rgb_linear = apply_highlights_adjustment(composite_rgb_linear, tonal_log_detail, tonal_mid_detail, is_raw, t_highlights);
     composite_rgb_linear = apply_color_calibration(composite_rgb_linear, adjustments.global.color_calibration);
-    composite_rgb_linear = apply_hsl_panel(composite_rgb_linear, final_hsl, absolute_coord_i);
+    if (has_feature(F_HSL)) {
+        composite_rgb_linear = apply_hsl_panel(composite_rgb_linear, final_hsl, absolute_coord_i);
+    }
     composite_rgb_linear = apply_hue_shift(composite_rgb_linear, t_hue);
     composite_rgb_linear = apply_creative_color(composite_rgb_linear, t_saturation, t_vibrance);
 
@@ -1979,7 +2011,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         adjustments.global.color_grading_balance
     );
 
-    for (var i = 0u; i < adjustments.mask_count; i = i + 1u) {
+    for (var i = 0u; has_feature(F_MASKS) && i < adjustments.mask_count; i = i + 1u) {
         let influence = get_mask_influence(i, absolute_coord);
         if (influence > 0.001) {
             let m = adjustments.mask_adjustments[i];
@@ -1991,7 +2023,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         }
     }
 
-    if (adjustments.global.vignette_amount != 0.0) {
+    if (has_feature(F_VIGNETTE) && adjustments.global.vignette_amount != 0.0) {
         let full_dims_f = vec2<f32>(textureDimensions(input_texture));
         let coord_f = vec2<f32>(absolute_coord);
         let v_amount = adjustments.global.vignette_amount;
@@ -2012,7 +2044,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     }
 
     var default_tonemapped: vec3<f32>;
-    if (adjustments.global.tonemapper_mode == 1u) {
+    if (has_feature(F_AGX) && adjustments.global.tonemapper_mode == 1u) {
         default_tonemapped = agx_full_transform(composite_rgb_linear);
     } else if (is_raw == 1u) {
         var srgb_emulated = linear_to_srgb(composite_rgb_linear);
@@ -2025,7 +2057,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         default_tonemapped = linear_to_srgb(composite_rgb_linear);
     }
     var base_srgb: vec3<f32>;
-    let is_scene_lut = (adjustments.global.has_lut == 1u && adjustments.global.lut_is_scene_referred == 1u);
+    let is_scene_lut = (has_feature(F_LUT) && adjustments.global.has_lut == 1u && adjustments.global.lut_is_scene_referred == 1u);
 
     if (is_scene_lut) {
         let vlog_encoded = linear_to_vlog(composite_rgb_linear);
@@ -2039,7 +2071,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     var final_rgb = apply_all_curves(base_srgb, CURVE_SRC_GLOBAL);
 
-    for (var i = 0u; i < adjustments.mask_count; i = i + 1u) {
+    for (var i = 0u; has_feature(F_MASKS) && i < adjustments.mask_count; i = i + 1u) {
         let influence = get_mask_influence(i, absolute_coord);
         if (influence > 0.001) {
             let mask_curved_srgb = apply_all_curves(final_rgb, i);
@@ -2047,12 +2079,12 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         }
     }
 
-    if (adjustments.global.has_lut == 1u && adjustments.global.lut_is_scene_referred == 0u) {
+    if (has_feature(F_LUT) && adjustments.global.has_lut == 1u && adjustments.global.lut_is_scene_referred == 0u) {
         let lut_color = sample_lut_tetrahedral(final_rgb);
         final_rgb = mix(final_rgb, lut_color, adjustments.global.lut_intensity);
     }
 
-    if (adjustments.global.grain_amount > 0.0) {
+    if (has_feature(F_GRAIN) && adjustments.global.grain_amount > 0.0) {
         let coord = vec2<f32>(absolute_coord_i);
         let amount = adjustments.global.grain_amount * 0.5;
         let grain_frequency = (1.0 / max(adjustments.global.grain_size, 0.1)) / scale;

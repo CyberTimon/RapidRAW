@@ -103,8 +103,15 @@
       "chromaticAberration": "色収差",
       "clarity": "明瞭度",
       "color": "カラー",
+      "convertNegative": "ネガを反転",
       "dehaze": "かすみの除去",
       "luminance": "輝度",
+      "negativeBlue": "ブルー",
+      "negativeContrast": "印画紙の号数",
+      "negativeConversion": "ネガ変換",
+      "negativeExposure": "プリント露光",
+      "negativeGreen": "グリーン",
+      "negativeRed": "レッド",
       "noiseReduction": "ノイズ低減",
       "presence": "外観",
       "redCyan": "レッド/シアン",
@@ -199,6 +206,11 @@
       "renameAlbum": "アルバム名を変更",
       "renameGroup": "グループ名を変更",
       "rootDir": "ルートディレクトリ"
+    },
+    "autoAdjustModes": {
+      "normal": "標準",
+      "strong": "強",
+      "subtle": "弱"
     },
     "colors": {
       "blue": "ブルー",
@@ -1302,6 +1314,7 @@
         "lensCorrection": "レンズ補正",
         "lut": "LUT",
         "masks": "マスク",
+        "negativeConversion": "ネガ変換",
         "noiseReduction": "ノイズ低減",
         "presence": "外観",
         "sharpness": "シャープネス",
@@ -1472,30 +1485,6 @@
       "title": "レンズ補正",
       "vignetting": "周辺光量",
       "waitingAutoDetect": "自動検出を待機中...",
-      "zoomInTooltip": "拡大",
-      "zoomOutTooltip": "縮小"
-    },
-    "negativeConversion": {
-      "blueWeight": "ブルー (イエロー)",
-      "cancel": "キャンセル",
-      "colorTiming": "カラータイミング",
-      "compareTooltip": "長押しでオリジナルを表示",
-      "contrast": "コントラスト (グレード)",
-      "convertAndSave": "変換して保存",
-      "convertAndSaveAll": "すべて変換して保存 ({{count}})",
-      "convertAndSaveAll_one": "すべて変換して保存 ({{count}})",
-      "convertAndSaveAll_other": "すべて変換して保存 ({{count}})",
-      "converting": "変換中",
-      "convertingProgress": "変換中 {{current}}/{{total}}",
-      "exposure": "露光量",
-      "greenWeight": "グリーン (マゼンタ)",
-      "noticeText": "反転処理は marcinz606 氏が作成した <0>NegPy</0> (<1>GPL-3.0</1>) のアルゴリズムに着想を得ています。",
-      "originalLabel": "オリジナルのネガ",
-      "printGrade": "プリントグレード",
-      "redWeight": "レッド (シアン)",
-      "resetTooltip": "リセット",
-      "resetViewTooltip": "表示をリセット",
-      "title": "ネガ反転",
       "zoomInTooltip": "拡大",
       "zoomOutTooltip": "縮小"
     },
@@ -1770,6 +1759,16 @@
       "title": "マイレンズ"
     },
     "processing": {
+      "advanced": {
+        "heading": "詳細",
+        "headingDesc": "サムネイル、キャッシュ、書き出しのパフォーマンス調整です。ほとんどの場合は既定値のままで問題ありません。",
+        "title": "詳細設定",
+        "auto": "自動",
+        "exportThreads": "並列書き出し",
+        "exportThreadsDesc": "同時に書き出す画像の数です。自動では CPU に合わせて値を選びます。大きな書き出しが失敗する場合や GPU のメモリが少ない場合は下げてください。",
+        "exportMemoryLimit": "書き出しメモリ上限",
+        "exportMemoryLimitDesc": "一括書き出しが使用できる空きメモリの割合です。大きな書き出し中も他のアプリを快適に使いたい場合は下げてください。"
+      },
       "ai": {
         "cloud": {
           "description": "手軽さを求める方には、セルフホストの手間をかけずに高品質な結果を得られる、オプションのサブスクリプションをおすすめします。最も便利かつプロジェクト開発への貢献につながる方法です。",
@@ -1913,7 +1912,6 @@
       "previewResDesc": "メインプレビューの最大解像度を決定します。値を下げるとパフォーマンスが大幅に向上します。",
       "previewStrategy": "プレビューレンダリング方式",
       "qualities": {
-        "full": "フル解像度",
         "high": "高画質",
         "performance": "パフォーマンス優先"
       },

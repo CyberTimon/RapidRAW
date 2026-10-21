@@ -44,6 +44,10 @@ function DetailsPanel({
     setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: numericValue }));
   };
 
+  const handleFloatAdjustmentChange = (key: string, value: string) => {
+    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: parseFloat(value) }));
+  };
+
   const isAiFree = appSettings?.aiProvider === 'ai-free';
   const hiddenTools = getHiddenAdjustmentTools(appSettings?.adjustmentLayout);
   const toolOrder = getAdjustmentToolOrder('details', appSettings?.adjustmentLayout?.toolOrder);
@@ -245,6 +249,86 @@ function DetailsPanel({
             value={adjustments.chromaticAberrationBlueYellow}
             onDragStateChange={onDragStateChange}
           />
+        </AdjustmentSubSection>
+      )}
+
+      {!isForMask && !hiddenTools.includes('negativeConversion') && (
+        <AdjustmentSubSection
+          id="negativeConversion"
+          order={toolOrder.indexOf('negativeConversion')}
+          title={t('adjustments.details.negativeConversion')}
+        >
+          <SpatialEffect
+            enabled={!!adjustments.negativeConversionEnabled}
+            label={t('adjustments.details.convertNegative')}
+            onToggle={(enabled: boolean) =>
+              setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, negativeConversionEnabled: enabled }))
+            }
+          >
+            <Slider
+              label={t('adjustments.details.negativeRed')}
+              max={2}
+              min={0.5}
+              defaultValue={1}
+              onChange={(e: SliderChangeEvent) =>
+                handleFloatAdjustmentChange(DetailsAdjustment.NegativeRedWeight, String(e.target.value))
+              }
+              step={0.01}
+              value={adjustments.negativeRedWeight ?? 1}
+              onDragStateChange={onDragStateChange}
+              fillOrigin="min"
+            />
+            <Slider
+              label={t('adjustments.details.negativeGreen')}
+              max={2}
+              min={0.5}
+              defaultValue={1}
+              onChange={(e: SliderChangeEvent) =>
+                handleFloatAdjustmentChange(DetailsAdjustment.NegativeGreenWeight, String(e.target.value))
+              }
+              step={0.01}
+              value={adjustments.negativeGreenWeight ?? 1}
+              onDragStateChange={onDragStateChange}
+              fillOrigin="min"
+            />
+            <Slider
+              label={t('adjustments.details.negativeBlue')}
+              max={2}
+              min={0.5}
+              defaultValue={1}
+              onChange={(e: SliderChangeEvent) =>
+                handleFloatAdjustmentChange(DetailsAdjustment.NegativeBlueWeight, String(e.target.value))
+              }
+              step={0.01}
+              value={adjustments.negativeBlueWeight ?? 1}
+              onDragStateChange={onDragStateChange}
+              fillOrigin="min"
+            />
+            <Slider
+              label={t('adjustments.details.negativeExposure')}
+              max={2}
+              min={-2}
+              onChange={(e: SliderChangeEvent) =>
+                handleFloatAdjustmentChange(DetailsAdjustment.NegativeExposure, String(e.target.value))
+              }
+              step={0.05}
+              value={adjustments.negativeExposure ?? 0}
+              onDragStateChange={onDragStateChange}
+            />
+            <Slider
+              label={t('adjustments.details.negativeContrast')}
+              max={2.5}
+              min={0.5}
+              defaultValue={1}
+              onChange={(e: SliderChangeEvent) =>
+                handleFloatAdjustmentChange(DetailsAdjustment.NegativeContrast, String(e.target.value))
+              }
+              step={0.05}
+              value={adjustments.negativeContrast ?? 1}
+              onDragStateChange={onDragStateChange}
+              fillOrigin="min"
+            />
+          </SpatialEffect>
         </AdjustmentSubSection>
       )}
     </div>

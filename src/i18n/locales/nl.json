@@ -102,8 +102,15 @@
       "chromaticAberration": "Chromatische aberratie",
       "clarity": "Lokaal contrast",
       "color": "Kleur",
+      "convertNegative": "Negatief omzetten",
       "dehaze": "Nevel verwijderen",
       "luminance": "Luminantie",
+      "negativeBlue": "Blauw",
+      "negativeContrast": "Papiergradatie",
+      "negativeConversion": "Negatiefconversie",
+      "negativeExposure": "Afdrukbelichting",
+      "negativeGreen": "Groen",
+      "negativeRed": "Rood",
       "noiseReduction": "Ruisonderdrukking",
       "presence": "Presentie",
       "redCyan": "Rood/Cyaan",
@@ -198,6 +205,11 @@
       "renameAlbum": "Album hernoemen",
       "renameGroup": "Groep hernoemen",
       "rootDir": "Hoofdmap"
+    },
+    "autoAdjustModes": {
+      "normal": "Normaal",
+      "strong": "Sterk",
+      "subtle": "Subtiel"
     },
     "colors": {
       "blue": "Blauw",
@@ -1281,6 +1293,7 @@
         "lensCorrection": "Lenscorrectie",
         "lut": "LUT",
         "masks": "Maskers",
+        "negativeConversion": "Negatiefconversie",
         "noiseReduction": "Ruisonderdrukking",
         "presence": "Presentie",
         "sharpness": "Scherpte",
@@ -1451,30 +1464,6 @@
       "title": "Lenscorrectie",
       "vignetting": "Vignettering",
       "waitingAutoDetect": "Wachten op automatische detectie...",
-      "zoomInTooltip": "Inzoomen",
-      "zoomOutTooltip": "Uitzoomen"
-    },
-    "negativeConversion": {
-      "blueWeight": "Blauw (geel)",
-      "cancel": "Annuleren",
-      "colorTiming": "Kleurtiming",
-      "compareTooltip": "Vasthouden om origineel te bekijken",
-      "contrast": "Contrast (gradatie)",
-      "convertAndSave": "Omzetten & opslaan",
-      "convertAndSaveAll": "Alles omzetten & opslaan ({{count}})",
-      "convertAndSaveAll_one": "Alles omzetten & opslaan ({{count}})",
-      "convertAndSaveAll_other": "Alles omzetten & opslaan ({{count}})",
-      "converting": "Omzetten",
-      "convertingProgress": "Omzetten {{current}}/{{total}}",
-      "exposure": "Belichting",
-      "greenWeight": "Groen (magenta)",
-      "noticeText": "Inversielogica geïnspireerd door <0>NegPy</0> gemaakt door marcinz606 (<1>GPL-3.0</1>).",
-      "originalLabel": "Origineel negatief",
-      "printGrade": "Afdrukgradatie",
-      "redWeight": "Rood (cyaan)",
-      "resetTooltip": "Herstellen",
-      "resetViewTooltip": "Weergave herstellen",
-      "title": "Negatief omzetten",
       "zoomInTooltip": "Inzoomen",
       "zoomOutTooltip": "Uitzoomen"
     },
@@ -1745,6 +1734,16 @@
       "title": "Mijn lenzen"
     },
     "processing": {
+      "advanced": {
+        "heading": "Geavanceerd",
+        "headingDesc": "Prestatie-instellingen voor miniaturen, cache en exports. De standaardwaarden werken voor de meeste gebruikers.",
+        "title": "Geavanceerde instellingen",
+        "auto": "Automatisch",
+        "exportThreads": "Parallelle exports",
+        "exportThreadsDesc": "Aantal afbeeldingen dat tegelijk wordt geëxporteerd. Automatisch kiest een waarde op basis van je CPU. Verlaag dit als grote exports mislukken of je GPU weinig geheugen heeft.",
+        "exportMemoryLimit": "Geheugenlimiet voor exports",
+        "exportMemoryLimitDesc": "Deel van het vrije RAM dat batch-exports mogen gebruiken. Verlaag dit om andere apps responsief te houden tijdens grote exports."
+      },
       "ai": {
         "cloud": {
           "description": "Voor wie een eenvoudigere oplossing wil, biedt een optioneel abonnement dezelfde hoogwaardige resultaten als zelfhosting zonder gedoe. Dit is de meest handige optie en de beste manier om het project te ondersteunen.",
@@ -1888,7 +1887,6 @@
       "previewResDesc": "Bepaalt de maximale resolutie van het voorbeeld. Lagere waarden verbeteren de prestaties aanzienlijk.",
       "previewStrategy": "Voorbeeldrenderstrategie",
       "qualities": {
-        "full": "Volledige resolutie",
         "high": "Hoge kwaliteit",
         "performance": "Prestaties"
       },

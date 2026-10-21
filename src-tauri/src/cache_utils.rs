@@ -46,7 +46,7 @@ fn hash_ai_patches(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) 
                 .unwrap_or(true);
             is_visible.hash(hasher);
 
-            if let Some(patch_data) = patch.get("patchData") {
+            let mask_from_sub_masks = if let Some(patch_data) = patch.get("patchData") {
                 let color_len = patch_data
                     .get("color")
                     .and_then(|v| v.as_str())
@@ -60,6 +60,8 @@ fn hash_ai_patches(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) 
                     .unwrap_or("")
                     .len();
                 mask_len.hash(hasher);
+
+                color_len > 0 && mask_len == 0
             } else {
                 let data_len = patch
                     .get("patchDataBase64")
@@ -67,9 +69,10 @@ fn hash_ai_patches(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) 
                     .unwrap_or("")
                     .len();
                 data_len.hash(hasher);
-            }
+                true
+            };
 
-            if let Some(sub_masks_val) = patch.get("subMasks") {
+            if mask_from_sub_masks && let Some(sub_masks_val) = patch.get("subMasks") {
                 sub_masks_val.to_string().hash(hasher);
             }
 
@@ -88,6 +91,14 @@ fn hash_ai_denoise(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) 
     if enabled {
         hash_effect_keys(adjustments, &["aiDenoiseAmount", "aiDenoiseDetail"], hasher);
         crate::ai_denoise::cache_epoch().hash(hasher);
+    }
+}
+
+fn hash_negative_conversion(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) {
+    let enabled = crate::negative_conversion::is_enabled(adjustments);
+    enabled.hash(hasher);
+    if enabled {
+        hash_effect_keys(adjustments, crate::negative_conversion::PARAM_KEYS, hasher);
     }
 }
 
@@ -128,6 +139,7 @@ pub fn calculate_patch_hash(adjustments: &serde_json::Value) -> u64 {
 
     hash_ai_patches(adjustments, &mut hasher);
     hash_ai_denoise(adjustments, &mut hasher);
+    hash_negative_conversion(adjustments, &mut hasher);
 
     let uses_generated_masks = adjustments
         .get("aiPatches")
@@ -366,6 +378,7 @@ pub fn calculate_transform_hash(adjustments: &serde_json::Value) -> u64 {
 
     hash_ai_patches(adjustments, &mut hasher);
     hash_ai_denoise(adjustments, &mut hasher);
+    hash_negative_conversion(adjustments, &mut hasher);
 
     hasher.finish()
 }
