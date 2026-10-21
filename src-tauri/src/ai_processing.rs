@@ -100,6 +100,27 @@ fn load_ai_session(path: impl AsRef<Path>) -> Result<Session> {
             }
         }
 
+        // OpenVINO can target Intel integrated/discrete GPUs and Core Ultra
+        // NPUs, and can fall back to Intel CPU execution. AUTO prefers an
+        // available accelerator while preserving CPU compatibility.
+        let openvino = Session::builder()
+            .and_then(|builder| {
+                builder.with_execution_providers([
+                    ort::ep::OpenVINO::default()
+                        .with_device_type("AUTO:GPU,NPU,CPU")
+                        .build()
+                        .error_on_failure()
+                ])
+            })
+            .and_then(|builder| builder.commit_from_file(path));
+
+        match openvino {
+            Ok(session) => return Ok(session),
+            Err(error) => {
+                eprintln!("OpenVINO AI provider unavailable; trying DirectML: {error}");
+            }
+        }
+
         // DirectML requires sequential execution and memory-pattern
         // optimization to be disabled.
         let directml = Session::builder()
@@ -143,6 +164,27 @@ fn load_ai_session(path: impl AsRef<Path>) -> Result<Session> {
 
     #[cfg(target_os = "linux")]
     {
+        // Intel OpenVINO AUTO can dispatch across Intel GPU/NPU/CPU hardware.
+        // It is optional at runtime: absent libraries or unsupported devices
+        // fall through to the cross-vendor WebGPU and NVIDIA CUDA paths.
+        let openvino = Session::builder()
+            .and_then(|builder| {
+                builder.with_execution_providers([
+                    ort::ep::OpenVINO::default()
+                        .with_device_type("AUTO:GPU,NPU,CPU")
+                        .build()
+                        .error_on_failure()
+                ])
+            })
+            .and_then(|builder| builder.commit_from_file(path));
+
+        match openvino {
+            Ok(session) => return Ok(session),
+            Err(error) => {
+                eprintln!("OpenVINO AI provider unavailable; trying WebGPU: {error}");
+            }
+        }
+
         // WebGPU is the cross-vendor option for Vulkan/D3D/Metal-class GPUs,
         // including many Intel and AMD integrated GPUs. The provider and its
         // helper libraries may be unavailable on a particular package/driver,
