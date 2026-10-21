@@ -87,6 +87,7 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
                   isRaw: loadImageResult.is_raw,
                   isReady: true,
                   metadata: loadImageResult.metadata,
+                  usedEmbeddedPreview: loadImageResult.used_embedded_preview,
                   width: loadImageResult.width,
                 },
               };

@@ -40,6 +40,7 @@ pub struct LoadImageResult {
     pub exif: HashMap<String, String>,
     pub is_raw: bool,
     pub as_shot_white_balance: WhiteBalance,
+    pub used_embedded_preview: bool,
 }
 
 #[derive(Deserialize)]
@@ -110,6 +111,23 @@ pub fn load_base_image_from_bytes(
     settings: &AppSettings,
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<DynamicImage> {
+    load_base_image_with_fallback_flag(
+        bytes,
+        path_for_ext_check,
+        use_fast_raw_dev,
+        settings,
+        cancel_token,
+    )
+    .map(|(image, _)| image)
+}
+
+fn load_base_image_with_fallback_flag(
+    bytes: &[u8],
+    path_for_ext_check: &str,
+    use_fast_raw_dev: bool,
+    settings: &AppSettings,
+    cancel_token: Option<(Arc<AtomicUsize>, usize)>,
+) -> Result<(DynamicImage, bool)> {
     let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
     let linear_mode = settings.linear_raw_mode.clone();
     let color_nr_setting = settings.raw_preprocessing_color_nr.unwrap_or(0.5);
@@ -143,7 +161,7 @@ pub fn load_base_image_from_bytes(
             path_for_ext_check,
             &crate::apple_raw::Raw9Options::for_loading(),
         ) {
-            Ok(image) => return Ok(image),
+            Ok(image) => return Ok((image, false)),
             Err(e) => log::warn!(
                 "Apple RAW 9 unavailable for '{}', falling back to rawler: {}",
                 path_for_ext_check,
@@ -177,7 +195,7 @@ pub fn load_base_image_from_bytes(
                         duration
                     );
                 }
-                Ok(image)
+                Ok((image, false))
             }
             Ok(Err(e)) => {
                 let classified = classify_raw_develop_error(path_for_ext_check, e);
@@ -199,7 +217,7 @@ pub fn load_base_image_from_bytes(
                         preview.height()
                     );
 
-                    return Ok(linearize_embedded_preview(preview));
+                    return Ok((linearize_embedded_preview(preview), true));
                 }
                 Err(classified)
             }
@@ -213,7 +231,7 @@ pub fn load_base_image_from_bytes(
                         preview.height()
                     );
 
-                    return Ok(linearize_embedded_preview(preview));
+                    return Ok((linearize_embedded_preview(preview), true));
                 }
                 Err(anyhow!(
                     "Failed to process RAW file: {}",
@@ -238,7 +256,7 @@ pub fn load_base_image_from_bytes(
             );
         }
 
-        Ok(image)
+        Ok((image, false))
     }
 }
 
@@ -946,8 +964,8 @@ pub async fn load_image(
         decoded_cache.get(&source_path_str)
     };
 
-    let (pristine_arc, exif_data) = if let Some((cached_img, cached_exif)) = cached_data {
-        (cached_img, cached_exif)
+    let (pristine_arc, exif_data, used_embedded_preview) = if let Some(cached) = cached_data {
+        cached
     } else {
         if crate::file_management::is_cloud_placeholder(&source_path) {
             return Err(format!(
@@ -956,19 +974,19 @@ pub async fn load_image(
             ));
         }
 
-        let (pristine_img, exif_data_loaded) = tokio::task::spawn_blocking(move || {
+        let (pristine_img, exif_data_loaded, used_preview) = tokio::task::spawn_blocking(move || {
             if generation_tracker.load(Ordering::SeqCst) != my_generation {
                 return Err("Load cancelled".to_string());
             }
 
-            let result: Result<(DynamicImage, HashMap<String, String>), String> =
+            let result: Result<(DynamicImage, HashMap<String, String>, bool), String> =
                 (|| match read_file_mapped(Path::new(&path_clone)) {
                     Ok(mmap) => {
                         if generation_tracker.load(Ordering::SeqCst) != my_generation {
                             return Err("Load cancelled".to_string());
                         }
 
-                        let img = load_base_image_from_bytes(
+                        let (img, used_preview) = load_base_image_with_fallback_flag(
                             &mmap,
                             &path_clone,
                             false,
@@ -977,7 +995,7 @@ pub async fn load_image(
                         )
                         .map_err(|e| e.to_string())?;
                         let exif = exif_processing::read_exif_data(&path_clone, &mmap);
-                        Ok((img, exif))
+                        Ok((img, exif, used_preview))
                     }
                     Err(e) => {
                         log::warn!(
@@ -993,7 +1011,7 @@ pub async fn load_image(
                             return Err("Load cancelled".to_string());
                         }
 
-                        let img = load_base_image_from_bytes(
+                        let (img, used_preview) = load_base_image_with_fallback_flag(
                             &bytes,
                             &path_clone,
                             false,
@@ -1002,7 +1020,7 @@ pub async fn load_image(
                         )
                         .map_err(|e| e.to_string())?;
                         let exif = exif_processing::read_exif_data(&path_clone, &bytes);
-                        Ok((img, exif))
+                        Ok((img, exif, used_preview))
                     }
                 })();
             result
@@ -1016,9 +1034,10 @@ pub async fn load_image(
             source_path_str.clone(),
             arc_img.clone(),
             exif_data_loaded.clone(),
+            used_preview,
         );
 
-        (arc_img, exif_data_loaded)
+        (arc_img, exif_data_loaded, used_preview)
     };
 
     if state.load_image_generation.load(Ordering::SeqCst) != my_generation {
@@ -1059,5 +1078,6 @@ pub async fn load_image(
         exif: exif_data,
         is_raw,
         as_shot_white_balance: as_shot.white_balance,
+        used_embedded_preview,
     })
 }

@@ -848,10 +848,12 @@
       }
     },
     "toolbar": {
+      "embeddedPreview": "JPEG incrustado",
       "switchToVariant": "Switch to {{label}}",
       "tooltips": {
         "aperture": "Apertura",
         "backToLibrary": "Volver a la Biblioteca",
+        "embeddedPreview": "Editando la vista previa JPEG incrustada: falló la decodificación RAW",
         "focalLength": "Distancia focal",
         "fullscreen": "Alternar pantalla completa (F)",
         "iso": "ISO",

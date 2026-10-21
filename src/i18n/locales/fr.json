@@ -848,10 +848,12 @@
       }
     },
     "toolbar": {
+      "embeddedPreview": "JPEG intégré",
       "switchToVariant": "Switch to {{label}}",
       "tooltips": {
         "aperture": "Ouverture",
         "backToLibrary": "Retour à la bibliothèque",
+        "embeddedPreview": "Modification de l'aperçu JPEG intégré : échec du décodage RAW",
         "focalLength": "Longueur focale",
         "fullscreen": "Basculer en plein écran (F)",
         "iso": "ISO",

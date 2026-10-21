@@ -850,10 +850,12 @@
       }
     },
     "toolbar": {
+      "embeddedPreview": "JPEG incorporato",
       "switchToVariant": "Passa a {{label}}",
       "tooltips": {
         "aperture": "Apertura",
         "backToLibrary": "Torna alla Libreria",
+        "embeddedPreview": "Stai modificando l'anteprima JPEG incorporata: decodifica RAW non riuscita",
         "focalLength": "Lunghezza Focale",
         "fullscreen": "Attiva/Disattiva Schermo Intero (F)",
         "iso": "ISO",

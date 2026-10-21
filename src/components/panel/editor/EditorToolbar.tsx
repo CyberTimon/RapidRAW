@@ -1,5 +1,5 @@
 import { memo, useState, useEffect, useRef, useMemo } from 'react';
-import { Eye, EyeOff, ArrowLeft, Maximize, Loader2, Undo, Redo } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft, Maximize, Loader2, Undo, Redo, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
@@ -437,6 +437,16 @@ const EditorToolbar = memo(
                     <span>-{vcId}</span>
                   </div>
                 </Text>
+              )}
+
+              {selectedImage.usedEmbeddedPreview && (
+                <div
+                  className="ml-2 shrink-0 bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full flex items-center gap-1 text-[11px] font-bold whitespace-nowrap cursor-default"
+                  data-tooltip={t('editor.toolbar.tooltips.embeddedPreview')}
+                >
+                  <AlertTriangle size={12} />
+                  <span>{t('editor.toolbar.embeddedPreview')}</span>
+                </div>
               )}
 
               {variantOptions.length > 0 && (

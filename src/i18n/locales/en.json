@@ -826,10 +826,12 @@
       }
     },
     "toolbar": {
+      "embeddedPreview": "Embedded JPEG",
       "switchToVariant": "Switch to {{label}}",
       "tooltips": {
         "aperture": "Aperture",
         "backToLibrary": "Back to Library",
+        "embeddedPreview": "Editing the embedded JPEG preview: RAW decoding failed",
         "focalLength": "Focal Length",
         "fullscreen": "Toggle Fullscreen (F)",
         "iso": "ISO",

@@ -415,6 +415,7 @@ export interface SelectedImage {
   original_base64?: string;
   path: string;
   thumbnailUrl: string;
+  usedEmbeddedPreview?: boolean;
   width: number;
 }
 

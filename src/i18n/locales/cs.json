@@ -827,10 +827,12 @@
       }
     },
     "toolbar": {
+      "embeddedPreview": "Vložený JPEG",
       "switchToVariant": "Přepnout na {{label}}",
       "tooltips": {
         "aperture": "Clona",
         "backToLibrary": "Zpět do Knihovny",
+        "embeddedPreview": "Upravujete vložený náhled JPEG: dekódování RAW selhalo",
         "focalLength": "Ohnisková vzdálenost",
         "fullscreen": "Přepnout na celou obrazovku (F)",
         "iso": "ISO",
