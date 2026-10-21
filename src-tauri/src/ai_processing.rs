@@ -65,6 +65,13 @@ const NORMAL_MAX_SIZE: u32 = 768;
 const NORMAL_NUM_TOKENS: i64 = 2500;
 const NORMAL_SHA256: &str = "24eacb5dc7a2c54c7bc98f7de085ffbed79ad006ea5b664c2c2cdc02ff3a52f0";
 
+/// Build a CPU-only ONNX Runtime session for inference-time recovery.
+fn load_ai_session_cpu(path: impl AsRef<Path>) -> Result<Session> {
+    Ok(Session::builder()?
+        .with_execution_providers([ort::ep::CPU::default().build()])?
+        .commit_from_file(path)?)
+}
+
 /// Build an ONNX Runtime session with platform-specific accelerators first.
 /// Execution providers are hints, not guarantees: driver/runtime initialization can
 /// fail even when the crate feature is present. Retry with CPU-only in that case.
@@ -73,19 +80,38 @@ fn load_ai_session(path: impl AsRef<Path>) -> Result<Session> {
 
     #[cfg(target_os = "windows")]
     {
-        let accelerated = Session::builder().and_then(|builder| {
-            builder.with_execution_providers([
-                // Prefer CUDA for NVIDIA, then DirectML for Intel/AMD/NVIDIA.
-                ort::ep::CUDA::default().build(),
-                ort::ep::DirectML::default().build(),
-                ort::ep::CPU::default().build(),
-            ])
-        }).and_then(|builder| builder.commit_from_file(path));
+        // Try providers independently. If CUDA registration fails, do not let
+        // that prevent DirectML from being attempted on Intel/AMD GPUs.
+        let cuda = Session::builder()
+            .and_then(|builder| {
+                builder.with_execution_providers([ort::ep::CUDA::default().build()])
+            })
+            .and_then(|builder| builder.commit_from_file(path));
 
-        match accelerated {
+        match cuda {
             Ok(session) => return Ok(session),
             Err(error) => {
-                eprintln!("GPU AI providers unavailable; retrying with CPU: {error}");
+                eprintln!("CUDA AI provider unavailable; trying DirectML: {error}");
+            }
+        }
+
+        // DirectML requires sequential execution and memory-pattern
+        // optimization to be disabled. Without these settings ORT can reject
+        // DirectML and quietly leave the model running on the CPU.
+        let directml = Session::builder()
+            .and_then(|builder| builder.with_memory_pattern(false))
+            .and_then(|builder| {
+                builder.with_execution_mode(ort::session::builder::ExecutionMode::Sequential)
+            })
+            .and_then(|builder| {
+                builder.with_execution_providers([ort::ep::DirectML::default().build()])
+            })
+            .and_then(|builder| builder.commit_from_file(path));
+
+        match directml {
+            Ok(session) => return Ok(session),
+            Err(error) => {
+                eprintln!("DirectML AI provider unavailable; retrying with CPU: {error}");
             }
         }
     }
@@ -116,6 +142,7 @@ fn load_ai_session(path: impl AsRef<Path>) -> Result<Session> {
 }
 
 pub struct AiModels {
+    models_dir: PathBuf,
     pub sam3_image_encoder: Mutex<Session>,
     pub sam3_text_encoder: Mutex<Session>,
     pub sam3_decoder: Mutex<Session>,
@@ -176,6 +203,34 @@ fn one_shot_session(model_path: &Path) -> Result<Session> {
             .build()])?
         .with_memory_pattern(false)?
         .commit_from_file(model_path)?)
+}
+
+impl AiModels {
+    /// Recreate all SAM 3 sessions with CPU-only execution if a GPU provider
+    /// accepts session creation but fails when executing a real inference.
+    pub fn force_sam3_cpu(&self) -> Result<()> {
+        let image = load_ai_session_cpu(self.models_dir.join(SAM3_IMAGE_FILENAME))?;
+        let text = load_ai_session_cpu(self.models_dir.join(SAM3_TEXT_FILENAME))?;
+        let decoder = load_ai_session_cpu(self.models_dir.join(SAM3_DECODER_FILENAME))?;
+
+        // Lock in a stable order so concurrent requests cannot observe a
+        // partially replaced encoder/decoder set.
+        let mut image_slot = self.sam3_image_encoder
+            .lock()
+            .map_err(|_| anyhow::anyhow!("SAM 3 image encoder lock was poisoned"))?;
+        let mut text_slot = self.sam3_text_encoder
+            .lock()
+            .map_err(|_| anyhow::anyhow!("SAM 3 text encoder lock was poisoned"))?;
+        let mut decoder_slot = self.sam3_decoder
+            .lock()
+            .map_err(|_| anyhow::anyhow!("SAM 3 decoder lock was poisoned"))?;
+
+        *image_slot = image;
+        *text_slot = text;
+        *decoder_slot = decoder;
+        eprintln!("SAM 3 switched to CPU-only inference after an accelerated inference failure.");
+        Ok(())
+    }
 }
 
 pub struct ClipModels {
@@ -578,6 +633,7 @@ pub async fn get_or_init_ai_models(
     crate::register_exit_handler();
 
     let models = Arc::new(AiModels {
+        models_dir: models_dir.clone(),
         sam3_image_encoder: Mutex::new(sam3_image_encoder),
         sam3_text_encoder: Mutex::new(sam3_text_encoder),
         sam3_decoder: Mutex::new(sam3_decoder),
@@ -1082,14 +1138,28 @@ fn run_native_denoise(
         let t_input = Tensor::from_array(crop.as_standard_layout().to_owned())?;
 
         let tile = {
-            let mut sess = session.lock().unwrap();
+            let mut sess = session
+                .lock()
+                .map_err(|_| anyhow::anyhow!("Denoise model lock was poisoned"))?;
             let outputs = sess.run(ort::inputs![t_input])?;
+            if outputs.is_empty() {
+                anyhow::bail!("Denoise model returned no output tensors");
+            }
             outputs[0]
                 .try_extract_array::<f32>()?
                 .to_owned()
                 .into_dimensionality::<ndarray::Ix4>()
-                .map_err(|e| anyhow::anyhow!("Unexpected output shape: {}", e))?
+                .map_err(|e| anyhow::anyhow!("Unexpected denoise output shape: {}", e))?
         };
+
+        if tile.shape() != [1, 3, params.cs, params.cs] {
+            anyhow::bail!(
+                "Unexpected denoise tile dimensions: {:?}; expected [1, 3, {}, {}]",
+                tile.shape(),
+                params.cs,
+                params.cs
+            );
+        }
 
         for ty in 0..valid {
             let gy = y0 + (params.margin + ty) as i32;
@@ -1142,6 +1212,16 @@ pub fn run_lama_inpainting(
     lama_session: &Mutex<Session>,
 ) -> Result<(RgbaImage, u32, u32)> {
     let (w, h) = image.dimensions();
+    if w == 0 || h == 0 {
+        anyhow::bail!("Cannot inpaint an empty image");
+    }
+    if mask.dimensions() != (w, h) {
+        anyhow::bail!(
+            "Inpainting mask dimensions {:?} do not match image dimensions {:?}",
+            mask.dimensions(),
+            (w, h)
+        );
+    }
 
     let (mut min_x, mut min_y) = (w, h);
     let (mut max_x, mut max_y) = (0u32, 0u32);
@@ -1226,10 +1306,23 @@ pub fn run_lama_inpainting(
     let t_msk = Tensor::from_array(msk_tensor.into_dyn().as_standard_layout().into_owned())?;
 
     let output_tensor = {
-        let mut session = lama_session.lock().unwrap();
+        let mut session = lama_session
+            .lock()
+            .map_err(|_| anyhow::anyhow!("LaMa model lock was poisoned"))?;
         let outputs = session.run(ort::inputs!["image" => t_img, "mask" => t_msk])?;
+        if outputs.is_empty() {
+            anyhow::bail!("LaMa model returned no output tensors");
+        }
         outputs[0].try_extract_array::<f32>()?.to_owned()
     };
+
+    let output_shape = output_tensor.shape();
+    match output_shape {
+        [1, 3, out_h, out_w] if *out_h >= fh as usize && *out_w >= fw as usize => {}
+        shape => anyhow::bail!(
+            "Unexpected LaMa output shape {shape:?}; expected [1, 3, H, W] covering {fh}x{fw}"
+        ),
+    }
 
     let mut result_inf = RgbaImage::new(fw, fh);
     for y in 0..fh {
@@ -1299,7 +1392,9 @@ pub fn generate_sam3_image_embeddings(
     )?;
     let input = Tensor::from_array(input)?;
 
-    let mut session = encoder.lock().unwrap();
+    let mut session = encoder
+        .lock()
+        .map_err(|_| anyhow::anyhow!("SAM 3 image encoder lock was poisoned"))?;
     let outputs = session.run(ort::inputs!["images" => input])?;
     if outputs.len() < 4 {
         anyhow::bail!("SAM 3 vision encoder returned {} outputs; expected 4", outputs.len());
@@ -1328,6 +1423,9 @@ fn encode_sam3_text(
     tokenizer: &Tokenizer,
     text_encoder: &Mutex<Session>,
 ) -> Result<(Arc<DynValue>, Arc<DynValue>)> {
+    if prompt.trim().is_empty() {
+        anyhow::bail!("SAM 3 text prompt cannot be empty");
+    }
     let encoded = tokenizer.encode(prompt, true)
         .map_err(|e| anyhow::anyhow!("SAM 3 tokenization failed: {e}"))?;
     let ids = encoded.get_ids();
@@ -1349,7 +1447,9 @@ fn encode_sam3_text(
     let ids_tensor = Tensor::from_array(Array::from_shape_vec((1, SAM3_TEXT_LENGTH), input_ids)?)?;
     let mask_tensor = Tensor::from_array(Array::from_shape_vec((1, SAM3_TEXT_LENGTH), attention_mask)?)?;
 
-    let mut session = text_encoder.lock().unwrap();
+    let mut session = text_encoder
+        .lock()
+        .map_err(|_| anyhow::anyhow!("SAM 3 text encoder lock was poisoned"))?;
     let outputs = session.run(ort::inputs![
         "input_ids" => ids_tensor,
         "attention_mask" => mask_tensor
@@ -1432,7 +1532,9 @@ pub fn run_sam3_decoder(
     let labels = Tensor::from_array(Array::from_shape_vec((1, 1), vec![label_value])?)?;
     let (text_features, text_mask) = encode_sam3_text(text_prompt, tokenizer, text_encoder)?;
 
-    let mut session = decoder.lock().unwrap();
+    let mut session = decoder
+        .lock()
+        .map_err(|_| anyhow::anyhow!("SAM 3 decoder lock was poisoned"))?;
     let outputs = session.run(ort::inputs![
         "fpn_feat_0" => embeddings.features[0].as_ref(),
         "fpn_feat_1" => embeddings.features[1].as_ref(),
@@ -1464,7 +1566,24 @@ pub fn run_sam3_decoder(
     let mask_values = pred_masks.as_slice().ok_or_else(|| anyhow::anyhow!("Non-contiguous SAM 3 masks"))?;
     let score_values = pred_logits.as_slice().ok_or_else(|| anyhow::anyhow!("Non-contiguous SAM 3 scores"))?;
     let box_values = pred_boxes.as_slice().ok_or_else(|| anyhow::anyhow!("Non-contiguous SAM 3 boxes"))?;
-    let presence = presence_logits.as_slice().and_then(|v| v.first()).copied().unwrap_or(0.0);
+    let expected_mask_values = count.checked_mul(mask_height).and_then(|v| v.checked_mul(mask_width))
+        .ok_or_else(|| anyhow::anyhow!("SAM 3 mask dimensions overflow"))?;
+    if mask_values.len() < expected_mask_values {
+        anyhow::bail!(
+            "SAM 3 mask tensor contains {} values; expected at least {}",
+            mask_values.len(),
+            expected_mask_values
+        );
+    }
+    if score_values.len() < count {
+        anyhow::bail!(
+            "SAM 3 score tensor contains {} values for {} masks",
+            score_values.len(),
+            count
+        );
+    }
+    let presence = presence_logits.as_slice().and_then(|v| v.first()).copied()
+        .ok_or_else(|| anyhow::anyhow!("SAM 3 presence output is empty or non-contiguous"))?;
     let presence_score = sam3_sigmoid(presence);
     let mask_area = mask_height * mask_width;
 
@@ -1577,7 +1696,9 @@ pub fn run_depth_anything3_model(
         chw,
     )?)?;
 
-    let mut session = depth_session.lock().unwrap();
+    let mut session = depth_session
+        .lock()
+        .map_err(|_| anyhow::anyhow!("Depth Anything 3 model lock was poisoned"))?;
     let outputs = session.run(ort::inputs!["image" => input])?;
     if outputs.is_empty() {
         anyhow::bail!("Depth Anything 3 returned no output tensors");
@@ -1685,7 +1806,9 @@ pub fn run_normal_model(
     let t_image = Tensor::from_array(input_tensor.into_dyn())?;
     let t_num_tokens = Tensor::from_array(ndarray::arr0(NORMAL_NUM_TOKENS))?;
 
-    let mut session = normal_session.lock().unwrap();
+    let mut session = normal_session
+        .lock()
+        .map_err(|_| anyhow::anyhow!("Normal model lock was poisoned"))?;
     let outputs = session.run(ort::inputs![
         "image" => t_image,
         "num_tokens" => t_num_tokens,
