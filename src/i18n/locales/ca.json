@@ -103,8 +103,15 @@
       "chromaticAberration": "Aberració cromàtica",
       "clarity": "Claredat",
       "color": "Color",
+      "convertNegative": "Convertir negatiu",
       "dehaze": "Eliminar boira",
       "luminance": "Luminància",
+      "negativeBlue": "Blau",
+      "negativeContrast": "Grau del paper",
+      "negativeConversion": "Conversió de negatiu",
+      "negativeExposure": "Exposició de còpia",
+      "negativeGreen": "Verd",
+      "negativeRed": "Vermell",
       "noiseReduction": "Reducció de soroll",
       "presence": "Presència",
       "redCyan": "Vermell/Cian",
@@ -199,6 +206,11 @@
       "renameAlbum": "Reanomenar àlbum",
       "renameGroup": "Reanomenar grup",
       "rootDir": "Directori arrel"
+    },
+    "autoAdjustModes": {
+      "normal": "Normal",
+      "strong": "Intens",
+      "subtle": "Subtil"
     },
     "colors": {
       "blue": "Blau",
@@ -1307,6 +1319,7 @@
         "lensCorrection": "Correcció de l'objectiu",
         "lut": "LUT",
         "masks": "Màscares",
+        "negativeConversion": "Conversió de negatiu",
         "noiseReduction": "Reducció de soroll",
         "presence": "Presència",
         "sharpness": "Nitidesa",
@@ -1477,30 +1490,6 @@
       "title": "Correcció de l'objectiu",
       "vignetting": "Vinyetatge",
       "waitingAutoDetect": "S'està esperant l'autodetecció...",
-      "zoomInTooltip": "Apropar",
-      "zoomOutTooltip": "Allunyar"
-    },
-    "negativeConversion": {
-      "blueWeight": "Blau (Groc)",
-      "cancel": "Cancel·lar",
-      "colorTiming": "Sincronització de color",
-      "compareTooltip": "Mantingueu premut per veure l'original",
-      "contrast": "Contrast (Grau)",
-      "convertAndSave": "Convertir i desar",
-      "convertAndSaveAll": "Convertir i desar-ho tot ({{count}})",
-      "convertAndSaveAll_one": "Convertir i desar-ho tot ({{count}})",
-      "convertAndSaveAll_other": "Convertir i desar-ho tot ({{count}})",
-      "converting": "S'està convertint",
-      "convertingProgress": "Convertint {{current}}/{{total}}",
-      "exposure": "Exposició",
-      "greenWeight": "Verd (Magenta)",
-      "noticeText": "Lògica d'inversion inspirada per <0>NegPy</0> creat per marcinz606 (<1>GPL-3.0</1>).",
-      "originalLabel": "Negatiu original",
-      "printGrade": "Grau d'impressió",
-      "redWeight": "Vermell (Cian)",
-      "resetTooltip": "Restablir",
-      "resetViewTooltip": "Restablir visualització",
-      "title": "Conversió de negatiu",
       "zoomInTooltip": "Apropar",
       "zoomOutTooltip": "Allunyar"
     },
@@ -1775,6 +1764,16 @@
       "title": "Els meus objectius"
     },
     "processing": {
+      "advanced": {
+        "heading": "Avançat",
+        "headingDesc": "Ajustos de rendiment per a miniatures, memòria cau i exportacions. Els valors predeterminats funcionen bé per a la majoria.",
+        "title": "Configuració avançada",
+        "auto": "Automàtic",
+        "exportThreads": "Exportacions en paral·lel",
+        "exportThreadsDesc": "Nombre d'imatges que s'exporten alhora. Automàtic tria un valor segons la CPU. Redueix-lo si les exportacions grans fallen o la GPU té poca memòria.",
+        "exportMemoryLimit": "Límit de memòria d'exportació",
+        "exportMemoryLimitDesc": "Part de la RAM lliure que poden fer servir les exportacions per lots. Redueix-la perquè les altres aplicacions continuïn responent durant exportacions grans."
+      },
       "ai": {
         "cloud": {
           "description": "Per a aquells que desitgin una solució més senzilla, una subscripció opcional ofereix els mateixos resultats d'alta qualitat que l'autoallotjament sense cap molèstia. Aquesta és l'opció més convenient i la millor manera de donar suport al projecte.",
@@ -1918,7 +1917,6 @@
       "previewResDesc": "Determina la resolució màxima de la vista prèvia. Valors inferiors milloren significativament el rendiment.",
       "previewStrategy": "Estratègia de renderització de la vista prèvia",
       "qualities": {
-        "full": "Resolució completa",
         "high": "Alta qualitat",
         "performance": "Rendiment"
       },

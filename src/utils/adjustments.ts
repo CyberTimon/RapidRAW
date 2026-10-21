@@ -25,6 +25,12 @@ export enum PasteMode {
   Replace = 'replace',
 }
 
+export enum AutoAdjustMode {
+  Subtle = 'subtle',
+  Normal = 'normal',
+  Strong = 'strong',
+}
+
 export interface CopyPasteSettings {
   mode: PasteMode;
   includedAdjustments: Array<string>;
@@ -75,6 +81,12 @@ export enum DetailsAdjustment {
   CentréY = 'centréY',
   ColorNoiseReduction = 'colorNoiseReduction',
   LumaNoiseReduction = 'lumaNoiseReduction',
+  NegativeBlueWeight = 'negativeBlueWeight',
+  NegativeContrast = 'negativeContrast',
+  NegativeConversionEnabled = 'negativeConversionEnabled',
+  NegativeExposure = 'negativeExposure',
+  NegativeGreenWeight = 'negativeGreenWeight',
+  NegativeRedWeight = 'negativeRedWeight',
   Sharpness = 'sharpness',
   SharpnessThreshold = 'sharpnessThreshold',
   ChromaticAberrationRedCyan = 'chromaticAberrationRedCyan',
@@ -342,6 +354,12 @@ export interface Adjustments {
   lutSize?: number;
   lutIsSceneReferred?: boolean;
   masks: Array<MaskContainer>;
+  negativeBlueWeight: number;
+  negativeContrast: number;
+  negativeConversionEnabled: boolean;
+  negativeExposure: number;
+  negativeGreenWeight: number;
+  negativeRedWeight: number;
   orientationSteps: number;
   rotation: number;
   saturation: number;
@@ -832,6 +850,17 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
       label: 'modals.copyPaste.groups.chromaticAberration',
       keys: [DetailsAdjustment.ChromaticAberrationRedCyan, DetailsAdjustment.ChromaticAberrationBlueYellow],
     },
+    {
+      label: 'modals.copyPaste.groups.negativeConversion',
+      keys: [
+        DetailsAdjustment.NegativeConversionEnabled,
+        DetailsAdjustment.NegativeRedWeight,
+        DetailsAdjustment.NegativeGreenWeight,
+        DetailsAdjustment.NegativeBlueWeight,
+        DetailsAdjustment.NegativeExposure,
+        DetailsAdjustment.NegativeContrast,
+      ],
+    },
   ],
   effects: [
     {
@@ -946,6 +975,12 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     DetailsAdjustment.AiDenoiseDetail,
     DetailsAdjustment.ChromaticAberrationRedCyan,
     DetailsAdjustment.ChromaticAberrationBlueYellow,
+    DetailsAdjustment.NegativeConversionEnabled,
+    DetailsAdjustment.NegativeRedWeight,
+    DetailsAdjustment.NegativeGreenWeight,
+    DetailsAdjustment.NegativeBlueWeight,
+    DetailsAdjustment.NegativeExposure,
+    DetailsAdjustment.NegativeContrast,
   ],
   effects: [
     CreativeAdjustment.GlowAmount,
@@ -1086,6 +1121,7 @@ export const ADJUSTMENT_SECTION_TOOLS: Record<string, Array<AdjustmentSectionToo
     { id: 'presence', label: 'adjustments.details.presence' },
     { id: 'noiseReduction', label: 'adjustments.details.noiseReduction' },
     { id: 'chromaticAberration', label: 'adjustments.details.chromaticAberration' },
+    { id: 'negativeConversion', label: 'adjustments.details.negativeConversion' },
   ],
   effects: [
     { id: 'creative', label: 'adjustments.effects.creative' },

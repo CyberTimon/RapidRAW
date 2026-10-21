@@ -179,10 +179,11 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
 
     try {
       await invoke(Invokes.SetColorLabelForPaths, { paths: pathsToUpdate, color: finalColor });
+      const pathSet = new Set(pathsToUpdate);
       applyWithAutoAdvance(pathsToUpdate, () =>
         setLibrary((state) => ({
           imageList: state.imageList.map((image: ImageFile) => {
-            if (pathsToUpdate.includes(image.path)) {
+            if (pathSet.has(image.path)) {
               const otherTags = (image.tags || []).filter((tag: string) => !tag.startsWith('color:'));
               const newTags = finalColor ? [...otherTags, `color:${finalColor}`] : otherTags;
               return { ...image, tags: newTags };
@@ -200,11 +201,12 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
     const { imageList } = useLibraryStore.getState();
     const groupingMode = useSettingsStore.getState().appSettings?.grouping ?? 'off';
     const pathsToUpdate = expandGroupedPaths(imageList, changedPaths, groupingMode);
+    const pathSet = new Set(pathsToUpdate);
 
     applyWithAutoAdvance(pathsToUpdate, () =>
       useLibraryStore.getState().setLibrary((state) => ({
         imageList: state.imageList.map((image) => {
-          if (pathsToUpdate.includes(image.path)) {
+          if (pathSet.has(image.path)) {
             const colorTags = (image.tags || []).filter((t) => t.startsWith('color:'));
             const prefixedNewTags = newTags.map((t) => (t.isUser ? `user:${t.tag}` : t.tag));
             const finalTags = [...colorTags, ...prefixedNewTags].sort();

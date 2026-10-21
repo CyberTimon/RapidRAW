@@ -103,8 +103,15 @@
       "chromaticAberration": "Aberrazione Cromatica",
       "clarity": "Chiarezza",
       "color": "Colore",
+      "convertNegative": "Converti Negativo",
       "dehaze": "Rimuovi Foschia",
       "luminance": "Luminanza",
+      "negativeBlue": "Blu",
+      "negativeContrast": "Gradazione della carta",
+      "negativeConversion": "Conversione Negativo",
+      "negativeExposure": "Esposizione di stampa",
+      "negativeGreen": "Verde",
+      "negativeRed": "Rosso",
       "noiseReduction": "Riduzione Rumore",
       "presence": "Presenza",
       "redCyan": "Rosso/Ciano",
@@ -199,6 +206,11 @@
       "renameAlbum": "Rinomina Album",
       "renameGroup": "Rinomina Gruppo",
       "rootDir": "Cartella Principale"
+    },
+    "autoAdjustModes": {
+      "normal": "Normale",
+      "strong": "Forte",
+      "subtle": "Leggero"
     },
     "colors": {
       "blue": "Blu",
@@ -1333,6 +1345,7 @@
         "lensCorrection": "Correzione Obiettivo",
         "lut": "LUT",
         "masks": "Maschere",
+        "negativeConversion": "Conversione Negativo",
         "noiseReduction": "Riduzione Rumore",
         "presence": "Presenza",
         "sharpness": "Nitidezza",
@@ -1507,31 +1520,6 @@
       "title": "Correzione Obiettivo",
       "vignetting": "Vignettatura",
       "waitingAutoDetect": "In attesa del Rilevamento Automatico...",
-      "zoomInTooltip": "Ingrandisci",
-      "zoomOutTooltip": "Riduci"
-    },
-    "negativeConversion": {
-      "blueWeight": "Blu (Giallo)",
-      "cancel": "Annulla",
-      "colorTiming": "Color Timing",
-      "compareTooltip": "Tieni premuto per visualizzare l'originale",
-      "contrast": "Contrasto (Grade)",
-      "convertAndSave": "Converti e Salva",
-      "convertAndSaveAll": "Converti e Salva Tutti ({{count}})",
-      "convertAndSaveAll_many": "Converti e Salva Tutti ({{count}})",
-      "convertAndSaveAll_one": "Converti e Salva Tutti ({{count}})",
-      "convertAndSaveAll_other": "Converti e Salva Tutti ({{count}})",
-      "converting": "Conversione in corso",
-      "convertingProgress": "Conversione {{current}}/{{total}}",
-      "exposure": "Esposizione",
-      "greenWeight": "Verde (Magenta)",
-      "noticeText": "Logica di inversione ispirata a <0>NegPy</0> creata da marcinz606 (<1>GPL-3.0</1>).",
-      "originalLabel": "Negativo Originale",
-      "printGrade": "Print Grade",
-      "redWeight": "Rosso (Ciano)",
-      "resetTooltip": "Ripristina",
-      "resetViewTooltip": "Ripristina Visualizzazione",
-      "title": "Conversione Negativo",
       "zoomInTooltip": "Ingrandisci",
       "zoomOutTooltip": "Riduci"
     },
@@ -1811,6 +1799,16 @@
       "title": "I Miei Obiettivi"
     },
     "processing": {
+      "advanced": {
+        "heading": "Avanzate",
+        "headingDesc": "Ottimizzazione delle prestazioni per miniature, cache ed esportazioni. I valori predefiniti vanno bene per la maggior parte degli utenti.",
+        "title": "Impostazioni avanzate",
+        "auto": "Automatico",
+        "exportThreads": "Esportazioni parallele",
+        "exportThreadsDesc": "Numero di immagini esportate contemporaneamente. Automatico sceglie un valore in base alla CPU. Riducilo se le esportazioni grandi non riescono o se la GPU ha poca memoria.",
+        "exportMemoryLimit": "Limite di memoria per l'esportazione",
+        "exportMemoryLimitDesc": "Quota della RAM libera che le esportazioni in batch possono usare. Riducila per mantenere reattive le altre app durante le esportazioni grandi."
+      },
       "ai": {
         "cloud": {
           "description": "Per coloro che desiderano una soluzione più semplice, un abbonamento opzionale fornisce gli stessi risultati di alta qualità del self-hosting senza alcun fastidio. Questa è l'opzione più comoda e il modo migliore per supportare il progetto.",
@@ -1954,7 +1952,6 @@
       "previewResDesc": "Determina la risoluzione massima dell'anteprima. Valori inferiori migliorano notevolmente le prestazioni.",
       "previewStrategy": "Strategia Rendering Anteprima",
       "qualities": {
-        "full": "Piena Risoluzione",
         "high": "Alta Qualità",
         "performance": "Prestazioni"
       },

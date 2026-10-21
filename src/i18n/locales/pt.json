@@ -103,8 +103,15 @@
       "chromaticAberration": "Aberração Cromática",
       "clarity": "Claridade",
       "color": "Cor",
+      "convertNegative": "Converter Negativo",
       "dehaze": "Desembaçar",
       "luminance": "Luminância",
+      "negativeBlue": "Azul",
+      "negativeContrast": "Grau do papel",
+      "negativeConversion": "Conversão de Negativo",
+      "negativeExposure": "Exposição da cópia",
+      "negativeGreen": "Verde",
+      "negativeRed": "Vermelho",
       "noiseReduction": "Redução de Ruído",
       "presence": "Presença",
       "redCyan": "Vermelho/Ciano",
@@ -199,6 +206,11 @@
       "renameAlbum": "Renomear Álbum",
       "renameGroup": "Renomear Grupo",
       "rootDir": "Diretório Raiz"
+    },
+    "autoAdjustModes": {
+      "normal": "Normal",
+      "strong": "Forte",
+      "subtle": "Sutil"
     },
     "colors": {
       "blue": "Azul",
@@ -1331,6 +1343,7 @@
         "lensCorrection": "Correção de Lente",
         "lut": "LUT",
         "masks": "Máscaras",
+        "negativeConversion": "Conversão de Negativo",
         "noiseReduction": "Redução de Ruído",
         "presence": "Presença",
         "sharpness": "Nitidez",
@@ -1505,31 +1518,6 @@
       "title": "Correção de Lente",
       "vignetting": "Vinheta",
       "waitingAutoDetect": "Aguardando Detecção Automática...",
-      "zoomInTooltip": "Mais Zoom",
-      "zoomOutTooltip": "Menos Zoom"
-    },
-    "negativeConversion": {
-      "blueWeight": "Azul (Amarelo)",
-      "cancel": "Cancelar",
-      "colorTiming": "Ajuste de Cores",
-      "compareTooltip": "Segure para Ver Original",
-      "contrast": "Contraste (Grau)",
-      "convertAndSave": "Converter e Salvar",
-      "convertAndSaveAll": "Converter e Salvar Todos ({{count}})",
-      "convertAndSaveAll_many": "Converter e Salvar Todos ({{count}})",
-      "convertAndSaveAll_one": "Converter e Salvar Todos ({{count}})",
-      "convertAndSaveAll_other": "Converter e Salvar Todos ({{count}})",
-      "converting": "Convertendo",
-      "convertingProgress": "Convertendo {{current}}/{{total}}",
-      "exposure": "Exposição",
-      "greenWeight": "Verde (Magenta)",
-      "noticeText": "Lógica de inversão inspirada pelo <0>NegPy</0> criado por marcinz606 (<1>GPL-3.0</1>).",
-      "originalLabel": "Negativo Original",
-      "printGrade": "Nível de Impressão",
-      "redWeight": "Vermelho (Ciano)",
-      "resetTooltip": "Redefinir",
-      "resetViewTooltip": "Redefinir Visualização",
-      "title": "Conversão de Negativo",
       "zoomInTooltip": "Mais Zoom",
       "zoomOutTooltip": "Menos Zoom"
     },
@@ -1809,6 +1797,16 @@
       "title": "Minhas Lentes"
     },
     "processing": {
+      "advanced": {
+        "heading": "Avançado",
+        "headingDesc": "Ajustes de desempenho para miniaturas, cache e exportações. Os valores padrão funcionam bem para a maioria dos usuários.",
+        "title": "Configurações avançadas",
+        "auto": "Automático",
+        "exportThreads": "Exportações paralelas",
+        "exportThreadsDesc": "Número de imagens exportadas ao mesmo tempo. Automático escolhe um valor com base no seu processador. Reduza se exportações grandes falharem ou se sua GPU tiver pouca memória.",
+        "exportMemoryLimit": "Limite de memória da exportação",
+        "exportMemoryLimitDesc": "Parcela da RAM livre que as exportações em lote podem usar. Reduza para manter outros aplicativos responsivos durante exportações grandes."
+      },
       "ai": {
         "cloud": {
           "description": "Para aqueles que desejam uma solução mais simples, uma assinatura opcional oferece os mesmos resultados de alta qualidade da hospedagem própria, sem nenhum trabalho. Esta é a opção mais conveniente e a melhor maneira de apoiar o projeto.",
@@ -1952,7 +1950,6 @@
       "previewResDesc": "Determina a resolução máxima da visualização. Valores mais baixos melhoram significativamente o desempenho.",
       "previewStrategy": "Estratégia de Renderização de Visualização",
       "qualities": {
-        "full": "Resolução Total",
         "high": "Alta Qualidade",
         "performance": "Desempenho"
       },

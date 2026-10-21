@@ -103,8 +103,15 @@
       "chromaticAberration": "色差",
       "clarity": "清晰度",
       "color": "顏色",
+      "convertNegative": "轉換負片",
       "dehaze": "去朦朧",
       "luminance": "亮度",
+      "negativeBlue": "藍色",
+      "negativeContrast": "相紙等級",
+      "negativeConversion": "負片轉換",
+      "negativeExposure": "沖印曝光",
+      "negativeGreen": "綠色",
+      "negativeRed": "紅色",
       "noiseReduction": "降噪",
       "presence": "質感",
       "redCyan": "紅/青",
@@ -199,6 +206,11 @@
       "renameAlbum": "重新命名相簿",
       "renameGroup": "重新命名組",
       "rootDir": "根目錄"
+    },
+    "autoAdjustModes": {
+      "normal": "標準",
+      "strong": "強",
+      "subtle": "輕微"
     },
     "colors": {
       "blue": "藍色",
@@ -1302,6 +1314,7 @@
         "lensCorrection": "鏡頭校正",
         "lut": "LUT",
         "masks": "遮色片",
+        "negativeConversion": "負片轉換",
         "noiseReduction": "降噪",
         "presence": "質感",
         "sharpness": "銳度",
@@ -1472,30 +1485,6 @@
       "title": "鏡頭校正",
       "vignetting": "暗角",
       "waitingAutoDetect": "等待自動檢測...",
-      "zoomInTooltip": "放大",
-      "zoomOutTooltip": "縮小"
-    },
-    "negativeConversion": {
-      "blueWeight": "藍色（黃色）",
-      "cancel": "取消",
-      "colorTiming": "色彩時機",
-      "compareTooltip": "按住以檢視原始",
-      "contrast": "對比（分級）",
-      "convertAndSave": "轉換並儲存",
-      "convertAndSaveAll": "轉換並儲存全部（{{count}}）",
-      "convertAndSaveAll_one": "轉換並儲存全部（{{count}}）",
-      "convertAndSaveAll_other": "轉換並儲存全部（{{count}}）",
-      "converting": "轉換中",
-      "convertingProgress": "轉換中 {{current}}/{{total}}",
-      "exposure": "曝光",
-      "greenWeight": "綠色（洋紅）",
-      "noticeText": "反轉邏輯受 <0>NegPy</0>（作者 marcinz606，<1>GPL-3.0</1>）啟發。",
-      "originalLabel": "原始負片",
-      "printGrade": "列印分級",
-      "redWeight": "紅色（青色）",
-      "resetTooltip": "重置",
-      "resetViewTooltip": "重置檢視",
-      "title": "負片轉換",
       "zoomInTooltip": "放大",
       "zoomOutTooltip": "縮小"
     },
@@ -1770,6 +1759,16 @@
       "title": "我的鏡頭"
     },
     "processing": {
+      "advanced": {
+        "heading": "進階",
+        "headingDesc": "縮圖、快取與匯出的效能調整。預設值適合大多數使用者。",
+        "title": "進階設定",
+        "auto": "自動",
+        "exportThreads": "並行匯出",
+        "exportThreadsDesc": "同時匯出的影像數量。「自動」會依據你的 CPU 選擇合適的值。如果大型匯出失敗或顯示卡記憶體較少，請調低。",
+        "exportMemoryLimit": "匯出記憶體上限",
+        "exportMemoryLimitDesc": "批次匯出可使用的可用記憶體比例。調低可在大型匯出期間讓其他應用程式保持流暢。"
+      },
       "ai": {
         "cloud": {
           "description": "對於那些想要更簡單解決方案的使用者，可選訂閱提供與自託管相同的高品質結果，無需任何麻煩。這是最方便的選擇，也是支援本專案的最佳方式。",
@@ -1913,7 +1912,6 @@
       "previewResDesc": "確定預覽的最大解析度。較低的值可顯著提高效能。",
       "previewStrategy": "預覽渲染策略",
       "qualities": {
-        "full": "全解析度",
         "high": "高品質",
         "performance": "效能優先"
       },

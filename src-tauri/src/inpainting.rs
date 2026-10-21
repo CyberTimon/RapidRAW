@@ -9,7 +9,7 @@ use crate::ai_connector;
 use crate::ai_processing;
 use crate::app_settings::load_settings;
 use crate::app_state::AppState;
-use crate::image_loader::composite_patches_on_image;
+use crate::image_loader::prepare_base_image_cow;
 use crate::image_processing::apply_linear_to_srgb;
 use crate::mask_generation::{AiPatchDefinition, MaskDefinition, generate_mask_bitmap};
 use crate::resolve_warped_image_for_masks;
@@ -27,14 +27,24 @@ fn prepare_source_image(
         patches.retain(|p| p.get("id").and_then(|id| id.as_str()) != Some(patch_id));
     }
 
-    let is_raw = {
-        let guard = state.original_image.lock().unwrap();
-        guard.as_ref().map(|img| img.is_raw).unwrap_or(false)
-    };
+    let loaded_image = state
+        .original_image
+        .lock()
+        .unwrap()
+        .clone()
+        .ok_or("No original image loaded")?;
+    let is_raw = crate::negative_conversion::effective_is_raw(
+        loaded_image.is_raw,
+        &source_image_adjustments,
+    );
 
-    let (base_image, _) = crate::get_original_image(state)?;
-    let composited = composite_patches_on_image(&base_image, &source_image_adjustments)
-        .map_err(|e| format!("Failed to prepare source image: {}", e))?;
+    let composited = prepare_base_image_cow(
+        &loaded_image.image,
+        &loaded_image.path,
+        &source_image_adjustments,
+    )
+    .map_err(|e| format!("Failed to prepare source image: {}", e))?
+    .into_owned();
 
     let source_image = if is_raw {
         apply_linear_to_srgb(composited)
@@ -284,7 +294,7 @@ pub async fn generate_manual_cleanup_patch(
             }
         }
 
-        let mut omega_coords = Vec::with_capacity(bw * bh);
+        let mut omega_coords = Vec::new();
 
         for y in 1..(bh - 1) {
             for x in 1..(bw - 1) {
@@ -441,7 +451,7 @@ pub async fn invoke_generative_replace_with_mask_def(
         return Err("Task cancelled".to_string());
     }
 
-    let patch_rgba = if use_fast_inpaint {
+    let (final_patch, patch_x, patch_y) = if use_fast_inpaint {
         let lama_model = ai_processing::get_or_init_lama_model(
             &app_handle,
             &state.ai_state,
@@ -571,15 +581,10 @@ pub async fn invoke_generative_replace_with_mask_def(
             generated_ai_patch_rgba
         };
 
-        let mut full_canvas = RgbaImage::new(img_w, img_h);
-        image::imageops::overlay(
-            &mut full_canvas,
-            &restored_ai_patch,
-            padded_min_x as i64,
-            padded_min_y as i64,
-        );
+        let mut patch_canvas = RgbaImage::new(crop_w, crop_h);
+        image::imageops::overlay(&mut patch_canvas, &restored_ai_patch, 0, 0);
 
-        full_canvas
+        (patch_canvas, padded_min_x as u32, padded_min_y as u32)
     } else if settings.ai_provider.as_deref() == Some("ai-connector")
         && let Some(address) = settings.ai_connector_address
     {
@@ -607,7 +612,7 @@ pub async fn invoke_generative_replace_with_mask_def(
             None,
         );
 
-        if let Some(token) = cancel_flag.as_ref() {
+        let inpainted = if let Some(token) = cancel_flag.as_ref() {
             tokio::select! {
                 res = inpaint_fut => res.map_err(|e| e.to_string())?,
                 _ = token.wait_for_cancel() => {
@@ -616,7 +621,18 @@ pub async fn invoke_generative_replace_with_mask_def(
             }
         } else {
             inpaint_fut.await.map_err(|e| e.to_string())?
-        }
+        };
+        let inpainted = if inpainted.dimensions() != (img_w, img_h) {
+            image::imageops::resize(
+                &inpainted,
+                img_w,
+                img_h,
+                image::imageops::FilterType::Lanczos3,
+            )
+        } else {
+            inpainted
+        };
+        (inpainted, 0, 0)
     } else {
         return Err(
             "No generative backend configured or connection invalid. Please check your AI settings."
@@ -627,18 +643,6 @@ pub async fn invoke_generative_replace_with_mask_def(
     if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
         return Err("Task cancelled".to_string());
     }
-
-    let (patch_w, patch_h) = patch_rgba.dimensions();
-    let final_patch = if patch_w != img_w || patch_h != img_h {
-        image::imageops::resize(
-            &patch_rgba,
-            img_w,
-            img_h,
-            image::imageops::FilterType::Lanczos3,
-        )
-    } else {
-        patch_rgba.clone()
-    };
 
     let min_x_u32 = min_x as u32;
     let min_y_u32 = min_y as u32;
@@ -657,7 +661,10 @@ pub async fn invoke_generative_replace_with_mask_def(
             let out_y = px_y - min_y_u32;
 
             let px = if mask_value > 0 {
-                *final_patch.get_pixel(px_x, px_y)
+                final_patch
+                    .get_pixel_checked(px_x.wrapping_sub(patch_x), px_y.wrapping_sub(patch_y))
+                    .copied()
+                    .unwrap_or(image::Rgba([0, 0, 0, 0]))
             } else {
                 source_image.get_pixel(px_x, px_y)
             };
@@ -740,7 +747,7 @@ pub async fn generate_liquify_patch(
     let (source_dynamic, is_raw) =
         prepare_source_image(&patch_definition.id, &current_adjustments, &state)?;
     let (img_w, img_h) = source_dynamic.dimensions();
-    let source_image = source_dynamic.to_rgb8();
+    let source_image = source_dynamic.into_rgb8();
 
     let mut all_points = Vec::new();
 
@@ -1130,7 +1137,7 @@ pub async fn generate_retouch_patch(
     let (source_dynamic, is_raw) =
         prepare_source_image(&patch_definition.id, &current_adjustments, &state)?;
     let (img_w, img_h) = source_dynamic.dimensions();
-    let source_image = source_dynamic.to_rgb8();
+    let source_image = source_dynamic.into_rgb8();
 
     let mut min_x = img_w as f32;
     let mut min_y = img_h as f32;

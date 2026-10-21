@@ -456,9 +456,10 @@ async fn generate(
             let settings =
                 crate::app_settings::load_settings(thumbnail_handle.clone()).unwrap_or_default();
             crate::file_management::regenerate_thumbnails(
-                &[loaded_path],
+                std::iter::once(loaded_path),
                 &thumbnail_handle,
                 &settings,
+                true,
             );
         });
     }

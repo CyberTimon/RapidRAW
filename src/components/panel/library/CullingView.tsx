@@ -33,6 +33,8 @@ import { COLOR_LABELS, Color } from '../../../utils/adjustments';
 import { expandGroupedPaths } from '../../../utils/imageGrouping';
 import { IconAperture, IconFocalLength, IconIso, IconShutter } from '../editor/ExifIcons';
 
+const NOOP = () => {};
+
 interface SyncViewport {
   isActive: boolean;
   zoom: number;
@@ -963,18 +965,21 @@ const Row = React.memo(
   }: any) => {
     const image: ImageFile = imageList[index];
     const isSelected = multiSelectedPaths.includes(image.path);
+    const imagePath = image?.path;
+    const isCloudPlaceholder = !!image?.is_cloud_placeholder;
 
     useEffect(() => {
       if (!image || !queueThumbnailRequest) return;
       queueThumbnailRequest(image.path);
-
-      if (image.is_cloud_placeholder) {
-        const interval = setInterval(() => {
-          queueThumbnailRequest(image.path);
-        }, 5000);
-        return () => clearInterval(interval);
-      }
     }, [image, queueThumbnailRequest]);
+
+    useEffect(() => {
+      if (!imagePath || !isCloudPlaceholder || !queueThumbnailRequest) return;
+      const interval = setInterval(() => {
+        queueThumbnailRequest(imagePath);
+      }, 5000);
+      return () => clearInterval(interval);
+    }, [imagePath, isCloudPlaceholder, queueThumbnailRequest]);
 
     return (
       <div style={style} className="p-2 box-border">
@@ -984,10 +989,10 @@ const Row = React.memo(
             isSelected={isSelected}
             isActive={activePath === image.path}
             isForcedHover={hoveredCullingPath === image.path}
-            onImageClick={(path: string, e: any) => onImageClick(path, e)}
+            onImageClick={onImageClick}
             onContextMenu={onContextMenu}
             onImageDoubleClick={onImageDoubleClick}
-            onLoad={() => {}}
+            onLoad={NOOP}
             rating={imageRatings?.[image.path] || 0}
             flag={image.flag}
             tags={image.tags}
@@ -1100,6 +1105,15 @@ export default function CullingView(props: any) {
       }
     },
     [onRequestThumbnails],
+  );
+
+  useEffect(
+    () => () => {
+      if (requestTimeoutRef.current) clearTimeout(requestTimeoutRef.current);
+      requestTimeoutRef.current = null;
+      requestQueueRef.current.clear();
+    },
+    [],
   );
 
   useEffect(() => {

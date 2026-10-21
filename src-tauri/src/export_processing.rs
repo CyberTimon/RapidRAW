@@ -30,7 +30,7 @@ use crate::file_management::{
     generate_filename_from_template, parse_virtual_path, read_file_mapped,
 };
 use crate::formats::is_raw_file;
-use crate::image_loader::{load_and_composite, load_base_image_from_bytes, prepare_base_image};
+use crate::image_loader::{load_and_composite, load_base_image_from_bytes, prepare_base_image_cow};
 use crate::image_processing::{
     AllAdjustments, Crop, GpuContext, RenderOptions, RenderOutputPrecision, RenderRequest,
     downscale_f32_image, get_all_adjustments_from_json, get_or_init_gpu_context,
@@ -45,7 +45,7 @@ use crate::mask_generation::{MaskDefinition, build_warped_image_for_masks, gener
 use crate::as_shot::as_shot;
 use crate::cache_utils::{calculate_full_job_hash, calculate_transform_hash};
 use crate::{
-    apply_all_transformations, generate_transformed_preview, get_cached_or_generate_mask,
+    apply_all_transformations, generate_transformed_preview, get_cached_or_generate_masks,
     hydrate_adjustments, load_settings,
 };
 
@@ -185,12 +185,86 @@ pub struct WatermarkSettings {
     pub opacity: f32,
 }
 
+struct WatermarkCacheEntry {
+    path: String,
+    modified: Option<std::time::SystemTime>,
+    len: Option<u64>,
+    image: Arc<DynamicImage>,
+    scaled: Option<((u32, u32), Arc<DynamicImage>)>,
+}
+
+static WATERMARK_CACHE: Mutex<Option<WatermarkCacheEntry>> = Mutex::new(None);
+
+struct WatermarkCacheGuard;
+
+impl Drop for WatermarkCacheGuard {
+    fn drop(&mut self) {
+        *WATERMARK_CACHE.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    }
+}
+
+fn load_watermark_image(path: &str) -> Result<Arc<DynamicImage>, String> {
+    let metadata = fs::metadata(path).ok();
+    let modified = metadata.as_ref().and_then(|m| m.modified().ok());
+    let len = metadata.as_ref().map(|m| m.len());
+    let mut cache = WATERMARK_CACHE.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(entry) = cache.as_ref()
+        && entry.path == path
+        && entry.modified.is_some()
+        && entry.modified == modified
+        && entry.len == len
+    {
+        return Ok(Arc::clone(&entry.image));
+    }
+    let image =
+        Arc::new(image::open(path).map_err(|e| format!("Failed to open watermark image: {}", e))?);
+    *cache = Some(WatermarkCacheEntry {
+        path: path.to_string(),
+        modified,
+        len,
+        image: Arc::clone(&image),
+        scaled: None,
+    });
+    Ok(image)
+}
+
+fn scaled_watermark_image(
+    path: &str,
+    watermark_img: &Arc<DynamicImage>,
+    new_wm_w: u32,
+    new_wm_h: u32,
+) -> Arc<DynamicImage> {
+    {
+        let cache = WATERMARK_CACHE.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(entry) = cache.as_ref()
+            && entry.path == path
+            && Arc::ptr_eq(&entry.image, watermark_img)
+            && let Some((size, scaled)) = &entry.scaled
+            && *size == (new_wm_w, new_wm_h)
+        {
+            return Arc::clone(scaled);
+        }
+    }
+    let scaled = Arc::new(watermark_img.resize_exact(
+        new_wm_w,
+        new_wm_h,
+        image::imageops::FilterType::Lanczos3,
+    ));
+    let mut cache = WATERMARK_CACHE.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(entry) = cache.as_mut()
+        && entry.path == path
+        && Arc::ptr_eq(&entry.image, watermark_img)
+    {
+        entry.scaled = Some(((new_wm_w, new_wm_h), Arc::clone(&scaled)));
+    }
+    scaled
+}
+
 fn apply_watermark(
     base_image: &mut DynamicImage,
     watermark_settings: &WatermarkSettings,
 ) -> Result<(), String> {
-    let watermark_img = image::open(&watermark_settings.path)
-        .map_err(|e| format!("Failed to open watermark image: {}", e))?;
+    let watermark_img = load_watermark_image(&watermark_settings.path)?;
 
     let (base_w, base_h) = base_image.dimensions();
     let base_min_dim = base_w.min(base_h) as f32;
@@ -205,7 +279,7 @@ fn apply_watermark(
     }
 
     let scaled_watermark =
-        watermark_img.resize_exact(new_wm_w, new_wm_h, image::imageops::FilterType::Lanczos3);
+        scaled_watermark_image(&watermark_settings.path, &watermark_img, new_wm_w, new_wm_h);
     let opacity_factor = (watermark_settings.opacity / 100.0).clamp(0.0, 1.0);
 
     let spacing_pixels = (base_min_dim * (watermark_settings.spacing / 100.0)) as i64;
@@ -258,13 +332,17 @@ fn apply_watermark(
         image::imageops::overlay(&mut base_rgba, &watermark_rgba, x, y);
         *base_image = DynamicImage::ImageRgba32F(base_rgba);
     } else {
-        let mut base_rgba = base_image.to_rgba8();
         let mut watermark_rgba = scaled_watermark.to_rgba8();
         for pixel in watermark_rgba.pixels_mut() {
             pixel[3] = (pixel[3] as f32 * opacity_factor).round() as u8;
         }
-        image::imageops::overlay(&mut base_rgba, &watermark_rgba, x, y);
-        *base_image = DynamicImage::ImageRgba8(base_rgba);
+        if let DynamicImage::ImageRgba8(base_rgba) = base_image {
+            image::imageops::overlay(base_rgba, &watermark_rgba, x, y);
+        } else {
+            let mut base_rgba = base_image.to_rgba8();
+            image::imageops::overlay(&mut base_rgba, &watermark_rgba, x, y);
+            *base_image = DynamicImage::ImageRgba8(base_rgba);
+        }
     }
 
     Ok(())
@@ -837,6 +915,27 @@ fn apply_export_geometry_and_watermark(
     Ok((image, geometry))
 }
 
+const FALLBACK_EXPORT_MEMORY: u64 = 4 * 1024 * 1024 * 1024;
+
+fn estimate_export_memory(
+    source_path: &str,
+    is_raw: bool,
+    loaded_dimensions: Option<(u32, u32)>,
+    mask_count: usize,
+) -> u64 {
+    let pixels = loaded_dimensions
+        .map(|(w, h)| w as u64 * h as u64)
+        .or_else(|| crate::memory_budget::image_pixel_count(Path::new(source_path), is_raw));
+
+    let Some(pixels) = pixels else {
+        return FALLBACK_EXPORT_MEMORY;
+    };
+
+    let bytes_per_pixel = if is_raw { 48 } else { 40 }
+        + 6 * mask_count.min(crate::image_processing::MAX_MASKS) as u64;
+    pixels * bytes_per_pixel
+}
+
 fn ensure_export_not_cancelled(cancellation_token: &AtomicBool) -> Result<(), String> {
     if cancellation_token.load(Ordering::SeqCst) {
         Err("Export cancelled".to_string())
@@ -1011,6 +1110,7 @@ fn process_image_for_export_pipeline(
         RenderRequest {
             adjustments: all_adjustments,
             mask_bitmaps: &mask_bitmaps,
+            mask_cache_key: None,
             lut,
             roi: None,
         },
@@ -1217,7 +1317,9 @@ fn encode_image_to_bytes(
             return Ok(webp_mem.to_vec());
         }
         "jpg" | "jpeg" => {
-            let rgb_image = image.to_rgb8();
+            let rgb_image = image
+                .as_rgb8()
+                .map_or_else(|| Cow::Owned(image.to_rgb8()), Cow::Borrowed);
             let mut encoder = JpegEncoder::new_with_quality(&mut cursor, jpeg_quality);
             encoder
                 .set_icc_profile(SRGB_ICC_PROFILE.to_vec())
@@ -1230,10 +1332,12 @@ fn encode_image_to_bytes(
                 .map_err(|e| e.to_string())?;
         }
         "png" => {
+            let converted;
             let image_to_encode = if image.as_rgb32f().is_some() {
-                DynamicImage::ImageRgb16(image.to_rgb16())
+                converted = DynamicImage::ImageRgb16(image.to_rgb16());
+                &converted
             } else {
-                image.clone()
+                image
             };
 
             let mut encoder = PngEncoder::new(&mut cursor);
@@ -1255,14 +1359,20 @@ fn encode_image_to_bytes(
                     &mut encoder,
                     width,
                     height,
-                    image.to_rgb8().as_raw(),
+                    image
+                        .as_rgb8()
+                        .map_or_else(|| Cow::Owned(image.to_rgb8()), Cow::Borrowed)
+                        .as_raw(),
                     export_settings.dpi,
                 )?,
                 TiffBitDepth::Sixteen => write_tiff::<colortype::RGB16, _>(
                     &mut encoder,
                     width,
                     height,
-                    image.to_rgb16().as_raw(),
+                    image
+                        .as_rgb16()
+                        .map_or_else(|| Cow::Owned(image.to_rgb16()), Cow::Borrowed)
+                        .as_raw(),
                     export_settings.dpi,
                 )?,
             }
@@ -1384,6 +1494,7 @@ fn export_masks_for_image(
                 RenderRequest {
                     adjustments: single_adjustments,
                     mask_bitmaps: &single_bitmaps,
+                    mask_cache_key: None,
                     lut: lut.clone(),
                     roi: None,
                 },
@@ -1496,6 +1607,7 @@ fn export_adjustments_as_lut(
         RenderRequest {
             adjustments: all_adjustments,
             mask_bitmaps: &[],
+            mask_cache_key: None,
             lut,
             roi: None,
         },
@@ -1522,6 +1634,7 @@ pub(crate) async fn export_images_impl(
     completion_tx: Option<tokio::sync::oneshot::Sender<Result<(), usize>>>,
 ) -> Result<(), String> {
     let cancellation_token = register_export_task(&state.export_task_token)?;
+    *WATERMARK_CACHE.lock().unwrap_or_else(|e| e.into_inner()) = None;
     let task_guard = ExportTaskGuard::with_app_handle(
         Arc::clone(&state.export_task_token),
         Arc::clone(&cancellation_token),
@@ -1553,23 +1666,33 @@ pub(crate) async fn export_images_impl(
     let mut sys = sysinfo::System::new();
     sys.refresh_memory();
 
-    let available_ram_gb = sys.available_memory() as f64 / 1024.0 / 1024.0 / 1024.0;
-    let ram_based_limit = (available_ram_gb / 4.0).floor() as usize;
+    let app_settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let memory_limit = app_settings.export_memory_limit.unwrap_or(80).clamp(25, 95);
+
+    let available_ram = sys.available_memory();
+    let available_ram_gb = available_ram as f64 / 1024.0 / 1024.0 / 1024.0;
+    let memory_budget = crate::memory_budget::MemoryBudget::new(
+        (available_ram as f64 * memory_limit as f64 / 100.0) as u64,
+    );
 
     let num_threads = if paths.len() == 1 {
         1
     } else {
-        available_cores.min(ram_based_limit).clamp(1, 4)
+        match app_settings.export_worker_threads {
+            Some(threads) if threads > 0 => (threads as usize).clamp(1, 8),
+            _ => available_cores.clamp(1, 4),
+        }
     };
 
     log::info!(
-        "Batch Export: {} cores, {:.1} GB free RAM -> {} threads",
+        "Batch Export: {} cores, {:.1} GB free RAM -> up to {} threads",
         available_cores,
         available_ram_gb,
         num_threads
     );
 
     let _export_task = tokio::spawn(async move {
+        let _watermark_cache_guard = WatermarkCacheGuard;
         let _task_guard = task_guard;
         let output_folder_path = std::path::Path::new(&output_folder_or_file);
         let total_paths = paths.len();
@@ -1631,6 +1754,7 @@ pub(crate) async fn export_images_impl(
             let cancellation_token_clone = Arc::clone(&cancellation_token);
             let adjustments_mode = adjustments_mode.clone();
             let used_paths_clone = Arc::clone(&used_paths);
+            let memory_budget = Arc::clone(&memory_budget);
 
             let handle = tokio::task::spawn_blocking(move || {
                 ensure_export_not_cancelled(&cancellation_token_clone)?;
@@ -1804,11 +1928,41 @@ pub(crate) async fn export_images_impl(
                         None
                     };
 
-                    let base_image = if let Some(loaded_image) = loaded_image {
-                        prepare_base_image(&loaded_image.image, &loaded_image.path, &js_adjustments)
-                            .map_err(|e| format!("Failed to composite AI patches: {}", e))?
+                    let estimated_memory = estimate_export_memory(
+                        &source_path_str,
+                        is_raw,
+                        loaded_image
+                            .as_ref()
+                            .map(|loaded| (loaded.image.width(), loaded.image.height())),
+                        js_adjustments["masks"].as_array().map_or(0, |m| m.len()),
+                    );
+                    let Some(_export_reservation) =
+                        memory_budget.reserve(estimated_memory, Some(&cancellation_token_clone))
+                    else {
+                        return Err("Export cancelled".to_string());
+                    };
+                    let Some(_app_reservation) = state
+                        .memory_budget
+                        .reserve(estimated_memory, Some(&cancellation_token_clone))
+                    else {
+                        return Err("Export cancelled".to_string());
+                    };
+
+                    let cached_patched = loaded_image.as_ref().and_then(|loaded_image| {
+                        crate::cached_patched_image(&state, &loaded_image.image, &js_adjustments)
+                    });
+
+                    let base_image: Cow<DynamicImage> = if let Some(patched) = &cached_patched {
+                        Cow::Borrowed(patched)
+                    } else if let Some(loaded_image) = &loaded_image {
+                        prepare_base_image_cow(
+                            &loaded_image.image,
+                            &loaded_image.path,
+                            &js_adjustments,
+                        )
+                        .map_err(|e| format!("Failed to composite AI patches: {}", e))?
                     } else {
-                        match read_file_mapped(Path::new(&source_path_str)) {
+                        Cow::Owned(match read_file_mapped(Path::new(&source_path_str)) {
                             Ok(mmap) => load_and_composite(
                                 &mmap,
                                 &source_path_str,
@@ -1831,8 +1985,9 @@ pub(crate) async fn export_images_impl(
                                 )
                                 .map_err(|e| format!("Failed to load from bytes: {}", e))?
                             }
-                        }
+                        })
                     };
+                    let mut base_image = Some(base_image);
                     ensure_export_not_cancelled(&cancellation_token_clone)?;
 
                     let mut main_export_adjustments = js_adjustments.clone();
@@ -1849,7 +2004,7 @@ pub(crate) async fn export_images_impl(
 
                     let final_image = process_image_for_export(
                         &source_path_str,
-                        &base_image,
+                        base_image.as_ref().unwrap(),
                         &main_export_adjustments,
                         &export_settings,
                         &context_clone,
@@ -1858,6 +2013,9 @@ pub(crate) async fn export_images_impl(
                         &app_handle_clone,
                         actual_output_format,
                     )?;
+                    if !export_settings.export_masks {
+                        base_image = None;
+                    }
                     ensure_export_not_cancelled(&cancellation_token_clone)?;
                     save_image_with_metadata(
                         &final_image,
@@ -1873,9 +2031,11 @@ pub(crate) async fn export_images_impl(
                     }
                     ensure_export_not_cancelled(&cancellation_token_clone)?;
 
-                    if export_settings.export_masks {
+                    if export_settings.export_masks
+                        && let Some(base_image) = &base_image
+                    {
                         export_masks_for_image(
-                            &base_image,
+                            base_image,
                             &js_adjustments,
                             &export_settings,
                             &output_path,
@@ -2211,21 +2371,17 @@ pub async fn estimate_export_sizes(
             unscaled_crop_offset.1 * scale,
         );
 
-        let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
-            .iter()
-            .filter_map(|def| {
-                get_cached_or_generate_mask(
-                    &state,
-                    &loaded_image.path,
-                    def,
-                    img_w,
-                    img_h,
-                    scale,
-                    scaled_crop_offset,
-                    &adjustments_clone,
-                )
-            })
-            .collect();
+        let mask_bitmaps = get_cached_or_generate_masks(
+            &state,
+            &loaded_image.path,
+            &mask_definitions,
+            img_w,
+            img_h,
+            scale,
+            scaled_crop_offset,
+            &adjustments_clone,
+        )
+        .bitmaps;
 
         let render = resolve_render_options_from_handle(&app_handle, is_raw);
         let mut all_adjustments =
@@ -2246,6 +2402,7 @@ pub async fn estimate_export_sizes(
             RenderRequest {
                 adjustments: all_adjustments,
                 mask_bitmaps: &mask_bitmaps,
+                mask_cache_key: None,
                 lut,
                 roi: None,
             },
@@ -2347,21 +2504,17 @@ pub async fn estimate_export_sizes(
             unscaled_crop_offset.1 * gpu_scale,
         );
 
-        let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
-            .iter()
-            .filter_map(|def| {
-                get_cached_or_generate_mask(
-                    &state,
-                    &source_path_str,
-                    def,
-                    preview_w,
-                    preview_h,
-                    total_scale,
-                    scaled_crop_offset,
-                    &js_adjustments,
-                )
-            })
-            .collect();
+        let mask_bitmaps = get_cached_or_generate_masks(
+            &state,
+            &source_path_str,
+            &mask_definitions,
+            preview_w,
+            preview_h,
+            total_scale,
+            scaled_crop_offset,
+            &js_adjustments,
+        )
+        .bitmaps;
 
         let render = resolve_render_options_from_handle(&app_handle, is_raw);
         let mut all_adjustments = get_all_adjustments_from_json(
@@ -2386,6 +2539,7 @@ pub async fn estimate_export_sizes(
             RenderRequest {
                 adjustments: all_adjustments,
                 mask_bitmaps: &mask_bitmaps,
+                mask_cache_key: None,
                 lut,
                 roi: None,
             },

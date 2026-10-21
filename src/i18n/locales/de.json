@@ -103,8 +103,15 @@
       "chromaticAberration": "Chromatische Aberration",
       "clarity": "Klarheit",
       "color": "Farbe",
+      "convertNegative": "Negativ umwandeln",
       "dehaze": "Dunst entfernen",
       "luminance": "Luminanz",
+      "negativeBlue": "Blau",
+      "negativeContrast": "Papiergradation",
+      "negativeConversion": "Negativumwandlung",
+      "negativeExposure": "Abzugsbelichtung",
+      "negativeGreen": "Grün",
+      "negativeRed": "Rot",
       "noiseReduction": "Rauschreduzierung",
       "presence": "Präsenz",
       "redCyan": "Rot/Cyan",
@@ -199,6 +206,11 @@
       "renameAlbum": "Album umbenennen",
       "renameGroup": "Gruppe umbenennen",
       "rootDir": "Stammverzeichnis"
+    },
+    "autoAdjustModes": {
+      "normal": "Normal",
+      "strong": "Stark",
+      "subtle": "Dezent"
     },
     "colors": {
       "blue": "Blau",
@@ -1304,6 +1316,7 @@
         "lensCorrection": "Objektivkorrektur",
         "lut": "LUT",
         "masks": "Masken",
+        "negativeConversion": "Negativumwandlung",
         "noiseReduction": "Rauschreduzierung",
         "presence": "Präsenz",
         "sharpness": "Schärfe",
@@ -1474,30 +1487,6 @@
       "title": "Objektivkorrektur",
       "vignetting": "Vignettierung",
       "waitingAutoDetect": "Warten auf Auto-Erkennung...",
-      "zoomInTooltip": "Vergrößern",
-      "zoomOutTooltip": "Verkleinern"
-    },
-    "negativeConversion": {
-      "blueWeight": "Blau (Gelb)",
-      "cancel": "Abbrechen",
-      "colorTiming": "Color Timing",
-      "compareTooltip": "Halten um Original zu sehen",
-      "contrast": "Kontrast (Grade)",
-      "convertAndSave": "Umwandeln & Speichern",
-      "convertAndSaveAll": "Alle umwandeln & speichern ({{count}})",
-      "convertAndSaveAll_one": "Alle umwandeln & speichern ({{count}})",
-      "convertAndSaveAll_other": "Alle umwandeln & speichern ({{count}})",
-      "converting": "Wird umgewandelt",
-      "convertingProgress": "Wird umgewandelt {{current}}/{{total}}",
-      "exposure": "Belichtung",
-      "greenWeight": "Grün (Magenta)",
-      "noticeText": "Inversionslogik inspiriert von <0>NegPy</0> erstellt von marcinz606 (<1>GPL-3.0</1>).",
-      "originalLabel": "Original Negativ",
-      "printGrade": "Print Grade",
-      "redWeight": "Rot (Cyan)",
-      "resetTooltip": "Zurücksetzen",
-      "resetViewTooltip": "Ansicht zurücksetzen",
-      "title": "Negativumwandlung",
       "zoomInTooltip": "Vergrößern",
       "zoomOutTooltip": "Verkleinern"
     },
@@ -1772,6 +1761,16 @@
       "title": "Meine Objektive"
     },
     "processing": {
+      "advanced": {
+        "heading": "Erweitert",
+        "headingDesc": "Leistungsoptimierung für Vorschaubilder, Cache und Exporte. Die Standardwerte passen für die meisten Nutzer.",
+        "title": "Erweiterte Einstellungen",
+        "auto": "Automatisch",
+        "exportThreads": "Parallele Exporte",
+        "exportThreadsDesc": "Anzahl der gleichzeitig exportierten Bilder. Automatisch wählt einen Wert passend zu deiner CPU. Verringere ihn, wenn große Exporte fehlschlagen oder deine GPU wenig Speicher hat.",
+        "exportMemoryLimit": "Speicherlimit für Exporte",
+        "exportMemoryLimitDesc": "Anteil des freien Arbeitsspeichers, den Stapelexporte nutzen dürfen. Verringere ihn, damit andere Apps bei großen Exporten flüssig bleiben."
+      },
       "ai": {
         "cloud": {
           "description": "Für diejenigen, die eine einfachere Lösung wünschen, bietet ein optionales Abonnement die gleichen hochwertigen Ergebnisse wie das Selbst-Hosting ohne den Aufwand. Dies ist die bequemste Option und der beste Weg, das Projekt zu unterstützen.",
@@ -1915,7 +1914,6 @@
       "previewResDesc": "Bestimmt die maximale Auflösung der Vorschau. Niedrigere Werte verbessern die Leistung deutlich.",
       "previewStrategy": "Strategie für Vorschau-Rendering",
       "qualities": {
-        "full": "Volle Auflösung",
         "high": "Hohe Qualität",
         "performance": "Leistung"
       },
