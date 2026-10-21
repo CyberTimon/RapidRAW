@@ -595,15 +595,6 @@ pub async fn get_or_init_ai_models(
         sam3_text_encoder: Mutex::new(sam3_text_encoder),
         sam3_decoder: Mutex::new(sam3_decoder),
         sam3_tokenizer,
-    crate::register_exit_handler();
-
-    let models = Arc::new(AiModels {
-        models_dir,
-        sam_encoder: Mutex::new(None),
-        sam_decoder: Mutex::new(None),
-        u2netp: Mutex::new(None),
-        sky_seg: Mutex::new(None),
-        depth_anything: Mutex::new(None),
     });
 
     remove_obsolete_model_assets(
