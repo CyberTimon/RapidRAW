@@ -96,13 +96,22 @@
       "resetPoint": "重置 {{channel}} 點曲線"
     },
     "details": {
+      "aiDenoise": "AI 降噪",
+      "aiDenoiseDetail": "細節",
       "blueYellow": "藍/黃",
       "centre": "置中",
       "chromaticAberration": "色差",
       "clarity": "清晰度",
       "color": "顏色",
+      "convertNegative": "轉換負片",
       "dehaze": "去朦朧",
       "luminance": "亮度",
+      "negativeBlue": "藍色",
+      "negativeContrast": "相紙等級",
+      "negativeConversion": "負片轉換",
+      "negativeExposure": "沖印曝光",
+      "negativeGreen": "綠色",
+      "negativeRed": "紅色",
       "noiseReduction": "降噪",
       "presence": "質感",
       "redCyan": "紅/青",
@@ -140,6 +149,7 @@
       "relightColor": "燈光顏色",
       "relightCone": "光錐",
       "relightDepth": "深度",
+      "relightDuplicateLight": "複製燈光",
       "relightElevation": "仰角",
       "relightFalloff": "衰減",
       "relightHint": "新增或選取一個燈光，然後在影像上點擊或拖曳以放置。",
@@ -197,6 +207,11 @@
       "renameGroup": "重新命名組",
       "rootDir": "根目錄"
     },
+    "autoAdjustModes": {
+      "normal": "標準",
+      "strong": "強",
+      "subtle": "輕微"
+    },
     "colors": {
       "blue": "藍色",
       "green": "綠色",
@@ -209,6 +224,7 @@
     "editor": {
       "autoAdjust": "自動調整影像",
       "autoLensCorrection": "自動鏡頭校正",
+      "autoStraighten": "自動拉直",
       "cancel": "取消",
       "colorLabel": "顏色標籤",
       "confirmReset": "確認重置",
@@ -278,6 +294,8 @@
       "autoAdjust_other": "自動調整影像",
       "autoLensCorrection_one": "自動鏡頭校正",
       "autoLensCorrection_other": "自動鏡頭校正",
+      "autoStraighten_one": "自動拉直影像",
+      "autoStraighten_other": "自動拉直影像",
       "collage_one": "裝裱影像",
       "collage_other": "建立拼貼畫",
       "confirmDelete": "確認刪除",
@@ -402,6 +420,7 @@
       },
       "createNewTitle": "建立新的生成式編輯",
       "createNewTooltip": "建立新的 {{name}} 編輯",
+      "denoising": "正在進行 AI 降噪...",
       "dropzoneText": "拖放到此處以建立新編輯",
       "editSettingsTitle": "編輯設定",
       "editsTitle": "編輯",
@@ -468,6 +487,8 @@
     },
     "crop": {
       "aspectRatioHeading": "寬高比",
+      "autoStraightenFailed": "自動拉直失敗：{{error}}",
+      "autoStraightenNoLines": "找不到可用於拉直的直線",
       "custom": {
         "hPlaceholder": "高",
         "hTooltip": "高度",
@@ -567,6 +588,7 @@
       "rotationHeading": "旋轉",
       "title": "裁剪與變換",
       "tooltips": {
+        "autoStraighten": "自動拉直（Shift+S）",
         "compositionOverlay": "構圖疊加",
         "flipHoriz": "水平翻轉影像",
         "flipVert": "垂直翻轉影像",
@@ -859,8 +881,10 @@
       "selectFolderTitle_other": "選擇資料夾以匯出 {{count}} 張影像"
     },
     "file": {
+      "dpi": "DPI",
       "quality": "品質",
       "qualityLossless": "品質（無損）",
+      "resolution": "解析度",
       "tiffBitDepth": "TIFF 位元深度",
       "tiffBitDepth16": "16 位元",
       "tiffBitDepth8": "8 位元"
@@ -1061,6 +1085,8 @@
       }
     },
     "header": {
+      "cancel": "取消",
+      "deselectAll": "取消全選",
       "search": {
         "addFilterOrSearch": "新增過濾或搜尋...",
         "indexingImages": "索引影像中...",
@@ -1072,6 +1098,8 @@
         "tooltipClearSearch": "清除搜尋",
         "tooltipSearchFilter": "搜尋或過濾"
       },
+      "selectAll": "全選",
+      "selectItems": "選擇項目",
       "title": "相簿",
       "viewOptions": {
         "currentFolder": "當前資料夾",
@@ -1192,7 +1220,8 @@
     "tooltips": {
       "communityPresets": "社群預設",
       "goHome": "返回首頁",
-      "importImages": "匯入影像"
+      "importImages": "匯入影像",
+      "select": "選擇"
     }
   },
   "masks": {
@@ -1285,6 +1314,7 @@
         "lensCorrection": "鏡頭校正",
         "lut": "LUT",
         "masks": "遮色片",
+        "negativeConversion": "負片轉換",
         "noiseReduction": "降噪",
         "presence": "質感",
         "sharpness": "銳度",
@@ -1458,30 +1488,6 @@
       "zoomInTooltip": "放大",
       "zoomOutTooltip": "縮小"
     },
-    "negativeConversion": {
-      "blueWeight": "藍色（黃色）",
-      "cancel": "取消",
-      "colorTiming": "色彩時機",
-      "compareTooltip": "按住以檢視原始",
-      "contrast": "對比（分級）",
-      "convertAndSave": "轉換並儲存",
-      "convertAndSaveAll": "轉換並儲存全部（{{count}}）",
-      "convertAndSaveAll_one": "轉換並儲存全部（{{count}}）",
-      "convertAndSaveAll_other": "轉換並儲存全部（{{count}}）",
-      "converting": "轉換中",
-      "convertingProgress": "轉換中 {{current}}/{{total}}",
-      "exposure": "曝光",
-      "greenWeight": "綠色（洋紅）",
-      "noticeText": "反轉邏輯受 <0>NegPy</0>（作者 marcinz606，<1>GPL-3.0</1>）啟發。",
-      "originalLabel": "原始負片",
-      "printGrade": "列印分級",
-      "redWeight": "紅色（青色）",
-      "resetTooltip": "重置",
-      "resetViewTooltip": "重置檢視",
-      "title": "負片轉換",
-      "zoomInTooltip": "放大",
-      "zoomOutTooltip": "縮小"
-    },
     "panorama": {
       "cancel": "取消",
       "close": "關閉",
@@ -1578,6 +1584,9 @@
       "zoomDesc": "調整使用滾輪或捏合手勢時畫布縮放的速度。"
     },
     "data": {
+      "clearAiDenoise": "清除 AI 降噪快取",
+      "clearAiDenoiseButton": "清除",
+      "clearAiDenoiseDesc": "刪除已快取的 AI 降噪結果（{{size}}）。啟用 AI 降噪的影像會在下次開啟時重新計算。",
       "clearSidecars": "清除所有附屬檔案",
       "clearSidecarsButton": "清除",
       "clearSidecarsDesc": "這將刪除您的根資料夾中的所有 .rrdata 檔案（包含您的編輯資料）：",
@@ -1589,6 +1598,7 @@
       "logsButton": "開啟",
       "logsDesc": "檢視應用程式的日誌檔案以進行故障排除。日誌檔案位於：",
       "modals": {
+        "aiDenoiseMessage": "確定要清除 AI 降噪快取嗎？\n\n啟用 AI 降噪的影像需要重新降噪，每張影像可能需要數分鐘。",
         "aiMessage": "您確定要從所有活動根資料夾中的所有影像中移除所有 AI 生成的標籤嗎？\n\n這不會影響使用者新增的標籤。此操作無法復原。",
         "allMessage": "您確定要從所有活動根資料夾中的所有影像中移除所有 AI 生成和使用者新增的標籤嗎？\n\n此操作無法復原。",
         "cacheMessage": "您確定要清除縮圖快取嗎？\n\n所有縮圖將需要重新生成，對於大型資料夾可能會很慢。",
@@ -1611,6 +1621,7 @@
       "resetLayoutDesc": "將面板停靠區、側邊分割條、高度和面板切換器還原為預設的版面配置。",
       "resetLayoutTitle": "重設工作區版面配置",
       "statuses": {
+        "aiDenoiseSuccess": "AI 降噪快取已成功清除。",
         "aiSuccess": "{{count}} 個檔案已更新。AI 標籤已移除。",
         "aiSuccess_one": "{{count}} 個檔案已更新。AI 標籤已移除。",
         "aiSuccess_other": "{{count}} 個檔案已更新。AI 標籤已移除。",
@@ -1619,6 +1630,7 @@
         "allSuccess_other": "{{count}} 個檔案已更新。所有非顏色標籤已移除。",
         "cacheSuccess": "縮圖快取已成功清除。",
         "clearingAi": "正在從所有附屬檔案中清除 AI 標籤...",
+        "clearingAiDenoise": "正在清除 AI 降噪快取...",
         "clearingAll": "正在從附屬檔案中清除所有標籤...",
         "clearingCache": "正在清除縮圖快取...",
         "deleting": "正在刪除附屬檔案，請稍候...",
@@ -1666,6 +1678,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "自動拉直",
         "brush_size_down": "減小畫筆大小",
         "brush_size_up": "增大畫筆大小",
         "color_label_blue": "顏色標籤：藍色",
@@ -1746,6 +1759,16 @@
       "title": "我的鏡頭"
     },
     "processing": {
+      "advanced": {
+        "heading": "進階",
+        "headingDesc": "縮圖、快取與匯出的效能調整。預設值適合大多數使用者。",
+        "title": "進階設定",
+        "auto": "自動",
+        "exportThreads": "並行匯出",
+        "exportThreadsDesc": "同時匯出的影像數量。「自動」會依據你的 CPU 選擇合適的值。如果大型匯出失敗或顯示卡記憶體較少，請調低。",
+        "exportMemoryLimit": "匯出記憶體上限",
+        "exportMemoryLimitDesc": "批次匯出可使用的可用記憶體比例。調低可在大型匯出期間讓其他應用程式保持流暢。"
+      },
       "ai": {
         "cloud": {
           "description": "對於那些想要更簡單解決方案的使用者，可選訂閱提供與自託管相同的高品質結果，無需任何麻煩。這是最方便的選擇，也是支援本專案的最佳方式。",
@@ -1889,7 +1912,6 @@
       "previewResDesc": "確定預覽的最大解析度。較低的值可顯著提高效能。",
       "previewStrategy": "預覽渲染策略",
       "qualities": {
-        "full": "全解析度",
         "high": "高品質",
         "performance": "效能優先"
       },

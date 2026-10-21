@@ -307,6 +307,14 @@
 
     <camera>
         <maker>Panasonic</maker>
+        <model>DC-L10</model>
+        <!-- Same lens as LX100 -->
+        <mount>panasonicDMCLX100</mount>
+        <cropfactor>2.21</cropfactor>
+    </camera>
+
+    <camera>
+        <maker>Panasonic</maker>
         <model>DMC-FZ1000</model>
         <mount>panasonicFZ1000</mount>
         <cropfactor>2.73</cropfactor>
@@ -546,6 +554,22 @@
         <maker>Panasonic</maker>
         <model>DC-TZ202</model>
         <!-- Regional version of ZS200 -->
+        <mount>panasonicZS200</mount>
+        <cropfactor>2.73</cropfactor>
+    </camera>
+
+    <camera>
+        <maker>Panasonic</maker>
+        <model>DC-ZS300</model>
+        <!-- North American version of TZ300 -->
+        <mount>panasonicZS200</mount>
+        <cropfactor>2.73</cropfactor>
+    </camera>
+
+    <camera>
+        <maker>Panasonic</maker>
+        <model>DC-TZ300</model>
+        <!-- International version of ZS300 -->
         <mount>panasonicZS200</mount>
         <cropfactor>2.73</cropfactor>
     </camera>

@@ -95,13 +95,22 @@
       "resetPoint": "Resetovat bodovou křivku ({{channel}})"
     },
     "details": {
+      "aiDenoise": "AI odšumění",
+      "aiDenoiseDetail": "Detail",
       "blueYellow": "Modrá/Žlutá",
       "centre": "Střed",
       "chromaticAberration": "Chromatická aberace",
       "clarity": "Zřetelnost",
       "color": "Barva",
+      "convertNegative": "Převést negativ",
       "dehaze": "Odmlžení",
       "luminance": "Jas",
+      "negativeBlue": "Modrá",
+      "negativeContrast": "Gradace papíru",
+      "negativeConversion": "Převod negativu",
+      "negativeExposure": "Expozice zvětšeniny",
+      "negativeGreen": "Zelená",
+      "negativeRed": "Červená",
       "noiseReduction": "Redukce šumu",
       "presence": "Prezence",
       "redCyan": "Červená/Azurová",
@@ -139,6 +148,7 @@
       "relightColor": "Barva světla",
       "relightCone": "Kužel",
       "relightDepth": "Hloubka",
+      "relightDuplicateLight": "Duplikovat světlo",
       "relightElevation": "Výška",
       "relightFalloff": "Útlum",
       "relightHint": "Přidejte nebo vyberte světlo a klikněte nebo táhněte v obrázku pro jeho umístění.",
@@ -196,6 +206,11 @@
       "renameGroup": "Přejmenovat skupinu",
       "rootDir": "Kořenový adresář"
     },
+    "autoAdjustModes": {
+      "normal": "Normální",
+      "strong": "Silné",
+      "subtle": "Jemné"
+    },
     "colors": {
       "blue": "Modrá",
       "green": "Zelená",
@@ -208,6 +223,7 @@
     "editor": {
       "autoAdjust": "Automaticky upravit",
       "autoLensCorrection": "Auto korekce objektivu",
+      "autoStraighten": "Automaticky vyrovnat",
       "cancel": "Zrušit",
       "colorLabel": "Barevný štítek",
       "confirmReset": "Potvrďte reset",
@@ -277,6 +293,10 @@
       "autoAdjust_other": "Automaticky upravit",
       "autoLensCorrection_one": "Auto korekce objektivu",
       "autoLensCorrection_other": "Auto korekce objektivu",
+      "autoStraighten_few": "Automaticky vyrovnat snímky",
+      "autoStraighten_many": "Automaticky vyrovnat snímky",
+      "autoStraighten_one": "Automaticky vyrovnat snímek",
+      "autoStraighten_other": "Automaticky vyrovnat snímky",
       "collage_one": "Zarámovat snímek",
       "collage_other": "Vytvořit koláž",
       "confirmDelete": "Potvrdit smazání",
@@ -401,6 +421,7 @@
       },
       "createNewTitle": "Vytvořit novou generativní úpravu",
       "createNewTooltip": "Vytvořit novou {{name}} úpravu",
+      "denoising": "Probíhá AI odšumění...",
       "dropzoneText": "Přetažením sem vytvoříte novou úpravu",
       "editSettingsTitle": "Upravit nastavení",
       "editsTitle": "Úpravy",
@@ -469,6 +490,8 @@
     },
     "crop": {
       "aspectRatioHeading": "Poměr stran",
+      "autoStraightenFailed": "Automatické vyrovnání selhalo: {{error}}",
+      "autoStraightenNoLines": "Nenalezeny žádné rovné čáry k vyrovnání",
       "custom": {
         "hPlaceholder": "V",
         "hTooltip": "Výška",
@@ -568,6 +591,7 @@
       "rotationHeading": "Otáčení",
       "title": "Oříznout a transformovat",
       "tooltips": {
+        "autoStraighten": "Automatické vyrovnání (Shift+S)",
         "compositionOverlay": "Překryvná kompozice",
         "flipHoriz": "Překlopit snímek vodorovně",
         "flipVert": "Překlopit snímek svisle",
@@ -860,8 +884,10 @@
       "selectFolderTitle_other": "Vyberte složku pro export {{count}} fotografií"
     },
     "file": {
+      "dpi": "DPI",
       "quality": "Kvalita",
       "qualityLossless": "Kvalita (bezeztrátová)",
+      "resolution": "Rozlišení",
       "tiffBitDepth": "Bitová hloubka TIFF",
       "tiffBitDepth16": "16bitová",
       "tiffBitDepth8": "8bitová"
@@ -1062,6 +1088,8 @@
       }
     },
     "header": {
+      "cancel": "Zrušit",
+      "deselectAll": "Odznačit vše",
       "search": {
         "addFilterOrSearch": "Přidat filtr nebo hledat...",
         "indexingImages": "Indexování snímků...",
@@ -1073,6 +1101,8 @@
         "tooltipClearSearch": "Vymazat vyhledávání",
         "tooltipSearchFilter": "Hledat nebo filtrovat"
       },
+      "selectAll": "Vybrat vše",
+      "selectItems": "Vybrat položky",
       "title": "Knihovna",
       "viewOptions": {
         "currentFolder": "Aktuální složka",
@@ -1193,7 +1223,8 @@
     "tooltips": {
       "communityPresets": "Presety komunity",
       "goHome": "Přejít na domovskou stránku",
-      "importImages": "Import snímků"
+      "importImages": "Import snímků",
+      "select": "Vybrat"
     }
   },
   "masks": {
@@ -1286,6 +1317,7 @@
         "lensCorrection": "Korekce objektivu",
         "lut": "LUT",
         "masks": "Masky",
+        "negativeConversion": "Převod negativu",
         "noiseReduction": "Redukce šumu",
         "presence": "Prezence",
         "sharpness": "Ostrost",
@@ -1459,30 +1491,6 @@
       "zoomInTooltip": "Přiblížit",
       "zoomOutTooltip": "Oddálit"
     },
-    "negativeConversion": {
-      "blueWeight": "Modrá (žlutá)",
-      "cancel": "Zrušit",
-      "colorTiming": "Barevné tónování",
-      "compareTooltip": "Podržením zobrazíte originál",
-      "contrast": "Kontrast (stupeň)",
-      "convertAndSave": "Převést a uložit",
-      "convertAndSaveAll": "Převést a uložit vše ({{count}})",
-      "convertAndSaveAll_one": "Převést a uložit vše ({{count}})",
-      "convertAndSaveAll_other": "Převést a uložit vše ({{count}})",
-      "converting": "Konverze",
-      "convertingProgress": "Konverze {{current}}/{{total}}",
-      "exposure": "Expozice",
-      "greenWeight": "Zelená (purpurová)",
-      "noticeText": "Inverzní logika inspirovaná <0>NegPy</0> vytvořil marcinz606 (<1>GPL-3.0</1>).",
-      "originalLabel": "Původní negativ",
-      "printGrade": "Stupeň kontrastu",
-      "redWeight": "Červená (azurová)",
-      "resetTooltip": "Resetovat",
-      "resetViewTooltip": "Obnovit zobrazení",
-      "title": "Negativní konverze",
-      "zoomInTooltip": "Přiblížit",
-      "zoomOutTooltip": "Oddálit"
-    },
     "panorama": {
       "cancel": "Zrušit",
       "close": "Zavřít",
@@ -1579,6 +1587,9 @@
       "zoomDesc": "Upravte, jak rychle se plátno přibližuje a oddaluje pomocí rolovacího kolečka nebo gesta sevření."
     },
     "data": {
+      "clearAiDenoise": "Vymazat mezipaměť AI odšumění",
+      "clearAiDenoiseButton": "Vymazat",
+      "clearAiDenoiseDesc": "Smaže uložené výsledky AI odšumění ({{size}}). Snímky se zapnutým AI odšuměním jej při dalším otevření přepočítají.",
       "clearSidecars": "Vymazat všechny sidecar soubory",
       "clearSidecarsButton": "Vymazat",
       "clearSidecarsDesc": "Tím smažete všechny soubory .rrdata (obsahující vaše úpravy) ve vašich kořenových složkách:",
@@ -1590,6 +1601,7 @@
       "logsButton": "Otevřít",
       "logsDesc": "Zobrazit soubor protokolu aplikace pro řešení potíží. Protokol se nachází v:",
       "modals": {
+        "aiDenoiseMessage": "Opravdu chcete vymazat mezipaměť AI odšumění?\n\nSnímky se zapnutým AI odšuměním bude nutné znovu odšumět, což může trvat několik minut na snímek.",
         "aiMessage": "Opravdu chcete odstranit všechny značky generované AI ze všech snímků ve všech aktivních kořenových složkách?\n\nUživatelem přidané značky tím nebudou dotčeny. Tuto akci nelze vrátit.",
         "allMessage": "Opravdu chcete odstranit všechny značky generované umělou inteligencí i přidané uživatelem ze všech snímků ve všech aktivních kořenových složkách?\n\nTuto akci nelze vrátit.",
         "cacheMessage": "Opravdu chcete vymazat mezipaměť miniatur?\n\nVšechny miniatury bude nutné znovu vygenerovat, což může u velkých složek trvat dlouho.",
@@ -1612,6 +1624,7 @@
       "resetLayoutDesc": "Obnovit ukotvení panelů, postranní rozdělovače, výšky a přepínače panelů na výchozí rozložení.",
       "resetLayoutTitle": "Obnovit rozložení pracovní plochy",
       "statuses": {
+        "aiDenoiseSuccess": "Mezipaměť AI odšumění byla úspěšně vymazána.",
         "aiSuccess": "{{count}} souborů aktualizováno. Značky AI odstraněny.",
         "aiSuccess_one": "{{count}} soubor aktualizován. Značky AI odstraněny.",
         "aiSuccess_other": "{{count}} souborů aktualizováno. Značky AI odstraněny.",
@@ -1620,6 +1633,7 @@
         "allSuccess_other": "{{count}} souborů aktualizováno. Odstraněny všechny značky kromě barevných.",
         "cacheSuccess": "Mezipaměť miniatur byla úspěšně vymazána.",
         "clearingAi": "Mazání značek AI ze všech sidecar souborů...",
+        "clearingAiDenoise": "Mazání mezipaměti AI odšumění...",
         "clearingAll": "Mazání všech značek ze sidecar souborů...",
         "clearingCache": "Mazání mezipaměti miniatur...",
         "deleting": "Mazání sidecar souborů, čekejte prosím...",
@@ -1667,6 +1681,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "Automatické vyrovnání",
         "brush_size_down": "Zmenšit velikost štětce",
         "brush_size_up": "Zvětšit velikost štětce",
         "color_label_blue": "Barevný štítek: Modrá",
@@ -1747,6 +1762,16 @@
       "title": "Moje objektivy"
     },
     "processing": {
+      "advanced": {
+        "heading": "Pokročilé",
+        "headingDesc": "Ladění výkonu náhledů, mezipaměti a exportů. Výchozí hodnoty vyhovují většině uživatelů.",
+        "title": "Pokročilá nastavení",
+        "auto": "Automaticky",
+        "exportThreads": "Paralelní exporty",
+        "exportThreadsDesc": "Počet obrázků exportovaných současně. Automaticky zvolí hodnotu podle procesoru. Snižte ji, pokud velké exporty selhávají nebo má grafická karta málo paměti.",
+        "exportMemoryLimit": "Limit paměti pro export",
+        "exportMemoryLimitDesc": "Podíl volné paměti RAM, který mohou dávkové exporty využít. Snižte jej, aby ostatní aplikace zůstaly při velkých exportech svižné."
+      },
       "ai": {
         "cloud": {
           "description": "Pro ty, kteří chtějí jednodušší řešení, poskytuje volitelné předplatné stejně vysoce kvalitní výsledky jako vlastní hosting bez jakýchkoli starostí. Je to nejpohodlnější možnost a nejlepší způsob, jak podpořit projekt.",
@@ -1890,7 +1915,6 @@
       "previewResDesc": "Určuje maximální rozlišení náhledu. Nižší hodnoty výrazně zlepšují výkon.",
       "previewStrategy": "Náhled strategie vykreslování",
       "qualities": {
-        "full": "Plné rozlišení",
         "high": "Vysoká kvalita",
         "performance": "Výkon"
       },

@@ -43,6 +43,14 @@
         <cropfactor>2</cropfactor>
     </camera>
 
+    <camera>
+        <maker>OM Digital Solutions</maker>
+        <maker lang="en">OM System</maker>
+        <model>PEN</model>
+        <mount>Micro 4/3 System</mount>
+        <cropfactor>2</cropfactor>
+    </camera>
+
     <lens>
         <!-- Copy of Olympus M.Zuiko Digital ED 12-100mm f/4.0 IS Pro (same optic) -->
         <maker>OM Digital Solutions</maker>

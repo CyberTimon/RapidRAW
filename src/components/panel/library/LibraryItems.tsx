@@ -21,7 +21,11 @@ import { TextColors, TextVariants, TextWeights, TEXT_COLOR_KEYS } from '../../..
 import { ColumnWidths } from '../MainLibrary';
 import { useProcessStore } from '../../../store/useProcessStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
+import { useLibraryStore } from '../../../store/useLibraryStore';
 import { IconAperture, IconFocalLength, IconIso, IconShutter } from '../editor/ExifIcons';
+
+const LIST_DATE_FORMAT = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+const LIST_TIME_FORMAT = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit' });
 
 interface ImageLayer {
   id: string;
@@ -36,6 +40,7 @@ const ThumbnailComponent = ({
   onContextMenu,
   onImageClick,
   onImageDoubleClick,
+  selectionModeActive,
   onLoad,
   path,
   rating,
@@ -180,11 +185,40 @@ const ThumbnailComponent = ({
       data-bench-id="thumbnail"
       onClick={(e: any) => {
         e.stopPropagation();
-        onImageClick(path, e);
+        if (selectionModeActive) {
+          const state = useLibraryStore.getState();
+          const newSet = new Set(state.multiSelectedPaths);
+          if (newSet.has(path)) newSet.delete(path);
+          else newSet.add(path);
+          const newArr = Array.from(newSet);
+          state.setLibrary({ multiSelectedPaths: newArr });
+        } else {
+          onImageClick(path, e);
+        }
       }}
       onContextMenu={(e: any) => onContextMenu(e, path)}
       onDoubleClick={() => onImageDoubleClick(path)}
     >
+      {selectionModeActive && (
+        <div
+          className={clsx(
+            'absolute top-2 left-2 z-20 w-6 h-6 rounded-full border-2 flex items-center justify-center pointer-events-none',
+            isSelected ? 'bg-accent border-white' : 'bg-black/40 border-white/60',
+          )}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={clsx('w-4 h-4', isSelected ? 'block text-button-text' : 'hidden')}
+          >
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+      )}
       <div
         className={clsx(
           'relative w-full flex-1 min-h-0 z-0 bg-surface transition-opacity duration-200',
@@ -482,6 +516,7 @@ const ListItemComponent = ({
   onContextMenu,
   onImageClick,
   onImageDoubleClick,
+  selectionModeActive,
   onLoad,
   path,
   rating,
@@ -607,10 +642,11 @@ const ListItemComponent = ({
   const isRejected = flag === ImageFlag.Reject;
 
   const dateObj = new Date(modified > 1e11 ? modified : modified * 1000);
-  const dateStr =
-    dateObj.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) +
-    ' ' +
-    dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const dateStr = Number.isNaN(dateObj.getTime())
+    ? dateObj.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) +
+      ' ' +
+      dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : LIST_DATE_FORMAT.format(dateObj) + ' ' + LIST_TIME_FORMAT.format(dateObj);
 
   let roundingClass = 'rounded-md';
   if (isSelected || isActive) {
@@ -640,11 +676,42 @@ const ListItemComponent = ({
       className={`flex items-center w-full h-full cursor-pointer transition-all duration-150 ${borderClass} ${roundingClass} ${stateClass} ${isDragging ? 'opacity-50 ring-2 ring-accent z-50' : ''}`}
       onClick={(e: any) => {
         e.stopPropagation();
-        onImageClick(path, e);
+        if (selectionModeActive) {
+          const state = useLibraryStore.getState();
+          const newSet = new Set(state.multiSelectedPaths);
+          if (newSet.has(path)) newSet.delete(path);
+          else newSet.add(path);
+          const newArr = Array.from(newSet);
+          state.setLibrary({ multiSelectedPaths: newArr });
+        } else {
+          onImageClick(path, e);
+        }
       }}
       onContextMenu={(e: any) => onContextMenu(e, path)}
       onDoubleClick={() => onImageDoubleClick(path)}
     >
+      {selectionModeActive && (
+        <div className="flex items-center justify-center w-8 h-full shrink-0">
+          <div
+            className={clsx(
+              'w-5 h-5 rounded-full border-2 flex items-center justify-center',
+              isSelected ? 'bg-accent border-white' : 'bg-black/20 border-white/60',
+            )}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={3}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={clsx('w-3 h-3', isSelected ? 'block text-button-text' : 'hidden')}
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
+        </div>
+      )}
       <div
         style={{ width: getW('thumbnail') }}
         className="flex items-center justify-center p-1.5 h-full overflow-hidden"
@@ -808,6 +875,7 @@ const RowComponent = ({
   onContextMenu,
   onImageClick,
   onImageDoubleClick,
+  selectionModeActive,
   thumbnailAspectRatio,
   onImageLoad,
   imageRatings,
@@ -832,18 +900,26 @@ const RowComponent = ({
     row.images.forEach((img: ImageFile) => {
       queueThumbnailRequest(img.path);
     });
+  }, [row, queueThumbnailRequest]);
 
-    const cloudPaths = row.images
-      .filter((img: ImageFile) => img.is_cloud_placeholder)
-      .map((img: ImageFile) => img.path);
-    if (cloudPaths.length === 0) return;
+  const cloudPathsKey =
+    row && row.type === 'images'
+      ? row.images
+          .filter((img: ImageFile) => img.is_cloud_placeholder)
+          .map((img: ImageFile) => img.path)
+          .join('\n')
+      : '';
+
+  useEffect(() => {
+    if (!cloudPathsKey) return;
+    const cloudPaths = cloudPathsKey.split('\n');
 
     const interval = setInterval(() => {
       cloudPaths.forEach((path: string) => queueThumbnailRequest(path));
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [row, queueThumbnailRequest]);
+  }, [cloudPathsKey, queueThumbnailRequest]);
 
   if (row.type === 'footer') return null;
   const shiftedStyle = {
@@ -946,6 +1022,7 @@ const RowComponent = ({
                 onContextMenu={onContextMenu}
                 onImageClick={onImageClick}
                 onImageDoubleClick={onImageDoubleClick}
+                selectionModeActive={selectionModeActive}
                 onLoad={onImageLoad}
                 path={imageFile.path}
                 rating={imageRatings?.[imageFile.path] || 0}
@@ -966,6 +1043,7 @@ const RowComponent = ({
                 onContextMenu={onContextMenu}
                 onImageClick={onImageClick}
                 onImageDoubleClick={onImageDoubleClick}
+                selectionModeActive={selectionModeActive}
                 onLoad={onImageLoad}
                 path={imageFile.path}
                 rating={imageRatings?.[imageFile.path] || 0}

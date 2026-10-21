@@ -96,13 +96,22 @@
       "resetPoint": "Resetuj krzywą punktową ({{channel}})"
     },
     "details": {
+      "aiDenoise": "Odszumianie AI",
+      "aiDenoiseDetail": "Szczegóły",
       "blueYellow": "Niebieski/Żółty",
       "centre": "Środek",
       "chromaticAberration": "Aberracja chromatyczna",
       "clarity": "Przejrzystość",
       "color": "Kolor",
+      "convertNegative": "Konwertuj negatyw",
       "dehaze": "Usuwanie mgły",
       "luminance": "Luminancja",
+      "negativeBlue": "Niebieski",
+      "negativeContrast": "Gradacja papieru",
+      "negativeConversion": "Konwersja negatywu",
+      "negativeExposure": "Naświetlanie odbitki",
+      "negativeGreen": "Zielony",
+      "negativeRed": "Czerwony",
       "noiseReduction": "Redukcja szumu",
       "presence": "Prezencja",
       "redCyan": "Czerwony/Cyjan",
@@ -140,6 +149,7 @@
       "relightColor": "Kolor światła",
       "relightCone": "Stożek",
       "relightDepth": "Głębia",
+      "relightDuplicateLight": "Duplikuj światło",
       "relightElevation": "Wysokość",
       "relightFalloff": "Spadek",
       "relightHint": "Dodaj lub wybierz światło, a następnie kliknij lub przeciągnij na obrazie, aby je umieścić.",
@@ -197,6 +207,11 @@
       "renameGroup": "Zmień nazwę grupy",
       "rootDir": "Katalog główny"
     },
+    "autoAdjustModes": {
+      "normal": "Normalne",
+      "strong": "Mocne",
+      "subtle": "Subtelne"
+    },
     "colors": {
       "blue": "Niebieski",
       "green": "Zielony",
@@ -209,6 +224,7 @@
     "editor": {
       "autoAdjust": "Auto-korekta obrazu",
       "autoLensCorrection": "Automatyczna korekcja obiektywu",
+      "autoStraighten": "Automatyczne prostowanie",
       "cancel": "Anuluj",
       "colorLabel": "Etykieta koloru",
       "confirmReset": "Potwierdź reset",
@@ -288,6 +304,10 @@
       "autoAdjust_other": "Auto-korekta obrazów",
       "autoLensCorrection_one": "Automatyczna korekcja obiektywu",
       "autoLensCorrection_other": "Automatyczna korekcja obiektywu",
+      "autoStraighten_few": "Automatyczne prostowanie obrazów",
+      "autoStraighten_many": "Automatyczne prostowanie obrazów",
+      "autoStraighten_one": "Automatyczne prostowanie obrazu",
+      "autoStraighten_other": "Automatyczne prostowanie obrazów",
       "collage_few": "Dodaj ramki do obrazów",
       "collage_many": "Utwórz kolaż z {{count}} obrazów",
       "collage_one": "Dodaj ramkę do obrazu",
@@ -434,6 +454,7 @@
       },
       "createNewTitle": "Utwórz nową edycję generatywną",
       "createNewTooltip": "Utwórz nową edycję {{name}}",
+      "denoising": "Trwa odszumianie AI...",
       "dropzoneText": "Upuść tutaj, aby utworzyć nową edycję",
       "editSettingsTitle": "Ustawienia edycji",
       "editsTitle": "Edycje",
@@ -510,6 +531,8 @@
     },
     "crop": {
       "aspectRatioHeading": "Proporcje",
+      "autoStraightenFailed": "Automatyczne prostowanie nie powiodło się: {{error}}",
+      "autoStraightenNoLines": "Nie znaleziono prostych linii do wyprostowania",
       "custom": {
         "hPlaceholder": "Wys.",
         "hTooltip": "Wysokość",
@@ -609,6 +632,7 @@
       "rotationHeading": "Obrót",
       "title": "Kadrowanie i Przekształcanie",
       "tooltips": {
+        "autoStraighten": "Automatyczne prostowanie (Shift+S)",
         "compositionOverlay": "Nakładka kompozycji",
         "flipHoriz": "Przerzuć obraz w poziomie",
         "flipVert": "Przerzuć obraz w pionie",
@@ -905,8 +929,10 @@
       "selectFolderTitle_other": "Wybierz folder do eksportu {{count}} obrazów"
     },
     "file": {
+      "dpi": "DPI",
       "quality": "Jakość",
       "qualityLossless": "Jakość (Bezstratna)",
+      "resolution": "Rozdzielczość",
       "tiffBitDepth": "Głębia bitowa TIFF",
       "tiffBitDepth16": "16 bitów",
       "tiffBitDepth8": "8 bitów"
@@ -1109,6 +1135,8 @@
       }
     },
     "header": {
+      "cancel": "Anuluj",
+      "deselectAll": "Odznacz wszystko",
       "search": {
         "addFilterOrSearch": "Dodaj filtr lub wyszukaj...",
         "indexingImages": "Indeksowanie obrazów...",
@@ -1120,6 +1148,8 @@
         "tooltipClearSearch": "Wyczyść wyszukiwanie",
         "tooltipSearchFilter": "Wyszukaj lub Filtruj"
       },
+      "selectAll": "Zaznacz wszystko",
+      "selectItems": "Zaznacz elementy",
       "title": "Biblioteka",
       "viewOptions": {
         "currentFolder": "Bieżący folder",
@@ -1246,7 +1276,8 @@
     "tooltips": {
       "communityPresets": "Presety społeczności",
       "goHome": "Przejdź do strony głównej",
-      "importImages": "Importuj obrazy"
+      "importImages": "Importuj obrazy",
+      "select": "Zaznacz"
     }
   },
   "masks": {
@@ -1339,6 +1370,7 @@
         "lensCorrection": "Korekcja obiektywu",
         "lut": "LUT",
         "masks": "Maski",
+        "negativeConversion": "Konwersja negatywu",
         "noiseReduction": "Redukcja szumu",
         "presence": "Prezencja",
         "sharpness": "Ostrość",
@@ -1520,32 +1552,6 @@
       "zoomInTooltip": "Przybliż",
       "zoomOutTooltip": "Oddal"
     },
-    "negativeConversion": {
-      "blueWeight": "Niebieski (Żółty)",
-      "cancel": "Anuluj",
-      "colorTiming": "Korekcja barwna (Color Timing)",
-      "compareTooltip": "Przytrzymaj, aby zobaczyć oryginał",
-      "contrast": "Kontrast (Gradacja)",
-      "convertAndSave": "Konwertuj i Zapisz",
-      "convertAndSaveAll": "Konwertuj i Zapisz Wszystkie ({{count}})",
-      "convertAndSaveAll_few": "Konwertuj i Zapisz Wszystkie ({{count}})",
-      "convertAndSaveAll_many": "Konwertuj i Zapisz Wszystkie ({{count}})",
-      "convertAndSaveAll_one": "Konwertuj i Zapisz Wszystkie ({{count}})",
-      "convertAndSaveAll_other": "Konwertuj i Zapisz Wszystkie ({{count}})",
-      "converting": "Konwertowanie",
-      "convertingProgress": "Konwertowanie {{current}}/{{total}}",
-      "exposure": "Ekspozycja",
-      "greenWeight": "Zielony (Magenta)",
-      "noticeText": "Logika inwersji inspirowana przez projekt <0>NegPy</0> stworzony przez marcinz606 (<1>GPL-3.0</1>).",
-      "originalLabel": "Oryginalny Negatyw",
-      "printGrade": "Stopień wydruku",
-      "redWeight": "Czerwony (Cyjan)",
-      "resetTooltip": "Resetuj",
-      "resetViewTooltip": "Resetuj widok",
-      "title": "Konwersja negatywu",
-      "zoomInTooltip": "Przybliż",
-      "zoomOutTooltip": "Oddal"
-    },
     "panorama": {
       "cancel": "Anuluj",
       "close": "Zamknij",
@@ -1646,6 +1652,9 @@
       "zoomDesc": "Dostosuj, jak szybko płótno się powiększa i pomniejsza przy użyciu kółka myszy lub gestu szczypania."
     },
     "data": {
+      "clearAiDenoise": "Wyczyść pamięć podręczną odszumiania AI",
+      "clearAiDenoiseButton": "Wyczyść",
+      "clearAiDenoiseDesc": "Usuwa zapisane wyniki odszumiania AI ({{size}}). Zdjęcia z włączonym odszumianiem AI przeliczą je przy następnym otwarciu.",
       "clearSidecars": "Wyczyść wszystkie pliki poboczne (Sidecar)",
       "clearSidecarsButton": "Wyczyść",
       "clearSidecarsDesc": "Ta opcja usunie wszystkie pliki .rrdata (zawierające twoje zmiany) wewnątrz twoich folderów głównych:",
@@ -1657,6 +1666,7 @@
       "logsButton": "Otwórz",
       "logsDesc": "Zobacz plik dziennika aplikacji w celu rozwiązywania problemów. Plik znajduje się w:",
       "modals": {
+        "aiDenoiseMessage": "Czy na pewno chcesz wyczyścić pamięć podręczną odszumiania AI?\n\nZdjęcia z włączonym odszumianiem AI trzeba będzie odszumić ponownie, co może zająć kilka minut na zdjęcie.",
         "aiMessage": "Czy na pewno chcesz usunąć wszystkie tagi generowane przez AI z wszystkich obrazów we wszystkich aktywnych folderach głównych?\n\nTo nie wpłynie na tagi dodane przez użytkownika. Tej akcji nie można cofnąć.",
         "allMessage": "Czy na pewno chcesz usunąć wszystkie tagi generowane przez AI i dodane przez użytkownika z wszystkich obrazów we wszystkich aktywnych folderach głównych?\n\nTej akcji nie można cofnąć.",
         "cacheMessage": "Czy na pewno chcesz wyczyścić pamięć podręczną miniatur?\n\nWszystkie miniatury będą musiały zostać wygenerowane ponownie, co może zająć dużo czasu przy dużych folderach.",
@@ -1679,6 +1689,7 @@
       "resetLayoutDesc": "Przywraca domyślny układ paneli, podziałów bocznych, wysokości oraz przełączników paneli.",
       "resetLayoutTitle": "Zresetuj układ obszaru roboczego",
       "statuses": {
+        "aiDenoiseSuccess": "Pamięć podręczna odszumiania AI została wyczyszczona.",
         "aiSuccess": "Zaktualizowano {{count}} plików. Tagi AI usunięte.",
         "aiSuccess_few": "Zaktualizowano {{count}} pliki. Tagi AI usunięte.",
         "aiSuccess_many": "Zaktualizowano {{count}} plików. Tagi AI usunięte.",
@@ -1691,6 +1702,7 @@
         "allSuccess_other": "Zaktualizowano {{count}} plików. Wszystkie tagi bezkolorowe usunięte.",
         "cacheSuccess": "Pamięć podręczna miniatur została wyczyszczona pomyślnie.",
         "clearingAi": "Usuwanie tagów AI ze wszystkich plików sidecar...",
+        "clearingAiDenoise": "Czyszczenie pamięci podręcznej odszumiania AI...",
         "clearingAll": "Usuwanie wszystkich tagów z plików sidecar...",
         "clearingCache": "Czyszczenie pamięci podręcznej miniatur...",
         "deleting": "Usuwanie plików sidecar, proszę czekać...",
@@ -1740,6 +1752,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "Automatyczne prostowanie",
         "brush_size_down": "Zmniejsz rozmiar pędzla",
         "brush_size_up": "Zwiększ rozmiar pędzla",
         "color_label_blue": "Etykieta koloru: Niebieski",
@@ -1820,6 +1833,16 @@
       "title": "Moje obiektywy"
     },
     "processing": {
+      "advanced": {
+        "heading": "Zaawansowane",
+        "headingDesc": "Dostrajanie wydajności miniatur, pamięci podręcznej i eksportu. Wartości domyślne sprawdzą się u większości użytkowników.",
+        "title": "Ustawienia zaawansowane",
+        "auto": "Automatycznie",
+        "exportThreads": "Eksporty równoległe",
+        "exportThreadsDesc": "Liczba obrazów eksportowanych jednocześnie. Automatycznie dobiera wartość do procesora. Zmniejsz ją, jeśli duże eksporty się nie udają lub karta graficzna ma mało pamięci.",
+        "exportMemoryLimit": "Limit pamięci eksportu",
+        "exportMemoryLimitDesc": "Część wolnej pamięci RAM, z której mogą korzystać eksporty wsadowe. Zmniejsz ją, aby inne aplikacje działały płynnie podczas dużych eksportów."
+      },
       "ai": {
         "cloud": {
           "description": "Dla osób szukających prostego rozwiązania, opcjonalna subskrypcja dostarcza tych samych wysokiej jakości wyników co własny serwer bez żadnych problemów. To najwygodniejsza opcja i najlepszy sposób na wsparcie projektu.",
@@ -1963,7 +1986,6 @@
       "previewResDesc": "Ogranicza maksymalną rozdzielczość podglądu. Niższe wartości zauważalnie poprawiają wydajność.",
       "previewStrategy": "Strategia renderowania podglądu",
       "qualities": {
-        "full": "Pełna rozdzielczość",
         "high": "Wysoka jakość",
         "performance": "Wydajność"
       },

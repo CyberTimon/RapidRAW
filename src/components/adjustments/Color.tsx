@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, memo } from 'react';
 import { Pipette, Sliders } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -25,6 +25,7 @@ import {
   withRelativeWhiteBalance,
 } from '../../utils/whiteBalance';
 import { TextColors, TextWeights } from '../../types/typography';
+import { areSectionPropsEqual } from '../../utils/adjustments';
 
 interface ColorProps {
   color: string;
@@ -407,7 +408,7 @@ const ColorCalibrationPanel = ({ adjustments, setAdjustments, onDragStateChange 
   );
 };
 
-export default function ColorPanel({
+function ColorPanel({
   adjustments,
   setAdjustments,
   appSettings,
@@ -707,3 +708,5 @@ export default function ColorPanel({
     </div>
   );
 }
+
+export default memo(ColorPanel, areSectionPropsEqual('color'));

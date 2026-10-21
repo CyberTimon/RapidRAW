@@ -66,17 +66,17 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
   activeAiTasks: {},
 
   setProcess: (updater) => {
+    let nextState: Partial<ProcessState> = {};
     set((prev) => {
-      const nextState = typeof updater === 'function' ? updater(prev) : updater;
-      return { ...prev, ...nextState };
+      nextState = typeof updater === 'function' ? updater(prev) : updater;
+      return nextState;
     });
 
-    const state = get();
-    if (state.isCopied) {
+    if (nextState.isCopied) {
       clearTimeout(copyTimeout);
       copyTimeout = setTimeout(() => set({ isCopied: false }), 1000);
     }
-    if (state.isPasted) {
+    if (nextState.isPasted) {
       clearTimeout(pasteTimeout);
       pasteTimeout = setTimeout(() => set({ isPasted: false }), 1000);
     }

@@ -188,7 +188,6 @@ const mixAdjustments = (presetObj: any, intensity: number, initialObj: any = INI
   const fraction = intensity / 100;
 
   if (fraction === 1) return { ...presetObj };
-  if (fraction === 0) return { ...initialObj };
 
   const result: any = {};
   const keys = Object.keys(presetObj);
@@ -198,7 +197,9 @@ const mixAdjustments = (presetObj: any, intensity: number, initialObj: any = INI
     const presetVal = presetObj[key];
     const initialVal = initialObj[key] !== undefined ? initialObj[key] : (INITIAL_ADJUSTMENTS as any)[key];
 
-    if (typeof presetVal === 'number') {
+    if (fraction === 0) {
+      result[key] = initialVal;
+    } else if (typeof presetVal === 'number') {
       result[key] = typeof initialVal === 'number' ? initialVal + (presetVal - initialVal) * fraction : presetVal;
     } else if (Array.isArray(presetVal)) {
       if (!Array.isArray(initialVal)) {
