@@ -73,19 +73,38 @@ fn load_ai_session(path: impl AsRef<Path>) -> Result<Session> {
 
     #[cfg(target_os = "windows")]
     {
-        let accelerated = Session::builder().and_then(|builder| {
-            builder.with_execution_providers([
-                // Prefer CUDA for NVIDIA, then DirectML for Intel/AMD/NVIDIA.
-                ort::ep::CUDA::default().build(),
-                ort::ep::DirectML::default().build(),
-                ort::ep::CPU::default().build(),
-            ])
-        }).and_then(|builder| builder.commit_from_file(path));
+        // Try providers independently. If CUDA registration fails, do not let
+        // that prevent DirectML from being attempted on Intel/AMD GPUs.
+        let cuda = Session::builder()
+            .and_then(|builder| {
+                builder.with_execution_providers([ort::ep::CUDA::default().build()])
+            })
+            .and_then(|builder| builder.commit_from_file(path));
 
-        match accelerated {
+        match cuda {
             Ok(session) => return Ok(session),
             Err(error) => {
-                eprintln!("GPU AI providers unavailable; retrying with CPU: {error}");
+                eprintln!("CUDA AI provider unavailable; trying DirectML: {error}");
+            }
+        }
+
+        // DirectML requires sequential execution and memory-pattern
+        // optimization to be disabled. Without these settings ORT can reject
+        // DirectML and quietly leave the model running on the CPU.
+        let directml = Session::builder()
+            .and_then(|builder| builder.with_memory_pattern(false))
+            .and_then(|builder| {
+                builder.with_execution_mode(ort::session::builder::ExecutionMode::Sequential)
+            })
+            .and_then(|builder| {
+                builder.with_execution_providers([ort::ep::DirectML::default().build()])
+            })
+            .and_then(|builder| builder.commit_from_file(path));
+
+        match directml {
+            Ok(session) => return Ok(session),
+            Err(error) => {
+                eprintln!("DirectML AI provider unavailable; retrying with CPU: {error}");
             }
         }
     }
