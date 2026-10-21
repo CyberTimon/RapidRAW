@@ -68,6 +68,13 @@ const NORMAL_SHA256: &str = "24eacb5dc7a2c54c7bc98f7de085ffbed79ad006ea5b664c2c2
 /// Build an ONNX Runtime session with platform-specific accelerators first.
 /// Execution providers are hints, not guarantees: driver/runtime initialization can
 /// fail even when the crate feature is present. Retry with CPU-only in that case.
+/// Build a CPU-only ONNX Runtime session for inference-time recovery.
+fn load_ai_session_cpu(path: impl AsRef<Path>) -> Result<Session> {
+    Ok(Session::builder()?
+        .with_execution_providers([ort::ep::CPU::default().build()])?
+        .commit_from_file(path)?)
+}
+
 fn load_ai_session(path: impl AsRef<Path>) -> Result<Session> {
     let path = path.as_ref();
 
@@ -135,10 +142,39 @@ fn load_ai_session(path: impl AsRef<Path>) -> Result<Session> {
 }
 
 pub struct AiModels {
+    models_dir: PathBuf,
     pub sam3_image_encoder: Mutex<Session>,
     pub sam3_text_encoder: Mutex<Session>,
     pub sam3_decoder: Mutex<Session>,
     pub sam3_tokenizer: Tokenizer,
+}
+
+impl AiModels {
+    /// Recreate all SAM 3 sessions with CPU-only execution if a GPU provider
+    /// accepts session creation but fails when executing a real inference.
+    pub fn force_sam3_cpu(&self) -> Result<()> {
+        let image = load_ai_session_cpu(self.models_dir.join(SAM3_IMAGE_FILENAME))?;
+        let text = load_ai_session_cpu(self.models_dir.join(SAM3_TEXT_FILENAME))?;
+        let decoder = load_ai_session_cpu(self.models_dir.join(SAM3_DECODER_FILENAME))?;
+
+        // Lock in a stable order so concurrent requests cannot observe a
+        // partially replaced encoder/decoder set.
+        let mut image_slot = self.sam3_image_encoder
+            .lock()
+            .map_err(|_| anyhow::anyhow!("SAM 3 image encoder lock was poisoned"))?;
+        let mut text_slot = self.sam3_text_encoder
+            .lock()
+            .map_err(|_| anyhow::anyhow!("SAM 3 text encoder lock was poisoned"))?;
+        let mut decoder_slot = self.sam3_decoder
+            .lock()
+            .map_err(|_| anyhow::anyhow!("SAM 3 decoder lock was poisoned"))?;
+
+        *image_slot = image;
+        *text_slot = text;
+        *decoder_slot = decoder;
+        eprintln!("SAM 3 switched to CPU-only inference after an accelerated inference failure.");
+        Ok(())
+    }
 }
 
 pub struct ClipModels {
@@ -536,6 +572,7 @@ pub async fn get_or_init_ai_models(
     crate::register_exit_handler();
 
     let models = Arc::new(AiModels {
+        models_dir: models_dir.clone(),
         sam3_image_encoder: Mutex::new(sam3_image_encoder),
         sam3_text_encoder: Mutex::new(sam3_text_encoder),
         sam3_decoder: Mutex::new(sam3_decoder),
