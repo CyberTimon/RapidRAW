@@ -281,12 +281,21 @@ pub async fn generate_ai_depth_mask(
     })
 }
 
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GeneratedImageMap {
+    pub image_path: String,
+    pub data_url: String,
+}
+
 #[tauri::command]
 pub async fn generate_full_image_depth_map(
+    image_path: String,
     js_adjustments: serde_json::Value,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
-) -> Result<String, String> {
+) -> Result<GeneratedImageMap, String> {
+    let loaded_image = get_map_source(&state, &image_path)?;
     let models = crate::ai_processing::get_or_init_ai_models(
         &app_handle,
         &state.ai_state,
@@ -295,7 +304,6 @@ pub async fn generate_full_image_depth_map(
     .await
     .map_err(|e| e.to_string())?;
 
-    let loaded_image = get_loaded_image(&state)?;
     let source_image = crate::mask_generation::build_converted_source_image(
         &loaded_image.image,
         loaded_image.is_raw,
@@ -308,15 +316,22 @@ pub async fn generate_full_image_depth_map(
     )
     .map_err(|e| e.to_string())?;
 
-    crate::effect_maps::encode_source_space_map(&image::DynamicImage::ImageLuma8(depth_img))
+    Ok(GeneratedImageMap {
+        image_path: loaded_image.path,
+        data_url: crate::effect_maps::encode_source_space_map(&image::DynamicImage::ImageLuma8(
+            depth_img,
+        ))?,
+    })
 }
 
 #[tauri::command]
 pub async fn generate_relight_normal_map(
+    image_path: String,
     js_adjustments: serde_json::Value,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
-) -> Result<String, String> {
+) -> Result<GeneratedImageMap, String> {
+    let loaded_image = get_map_source(&state, &image_path)?;
     let normal_model = crate::ai_processing::get_or_init_normal_model(
         &app_handle,
         &state.ai_state,
@@ -325,7 +340,6 @@ pub async fn generate_relight_normal_map(
     .await
     .map_err(|e| e.to_string())?;
 
-    let loaded_image = get_loaded_image(&state)?;
     let source_image = crate::mask_generation::build_converted_source_image(
         &loaded_image.image,
         loaded_image.is_raw,
@@ -336,16 +350,34 @@ pub async fn generate_relight_normal_map(
         crate::ai_processing::run_normal_model(source_image.as_ref(), normal_model.as_ref())
             .map_err(|e| e.to_string())?;
 
-    crate::effect_maps::encode_source_space_map(&image::DynamicImage::ImageRgba8(normal_img))
+    Ok(GeneratedImageMap {
+        image_path: loaded_image.path,
+        data_url: crate::effect_maps::encode_source_space_map(&image::DynamicImage::ImageRgba8(
+            normal_img,
+        ))?,
+    })
 }
 
-fn get_loaded_image(state: &tauri::State<'_, AppState>) -> Result<crate::LoadedImage, String> {
-    state
+fn get_map_source(
+    state: &tauri::State<'_, AppState>,
+    image_path: &str,
+) -> Result<crate::LoadedImage, String> {
+    let loaded_image = state
         .original_image
         .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .clone()
-        .ok_or_else(|| "No original image loaded".to_string())
+        .unwrap_or_else(|e| e.into_inner());
+    capture_map_source(loaded_image.as_ref(), image_path)
+}
+
+fn capture_map_source(
+    loaded_image: Option<&crate::LoadedImage>,
+    image_path: &str,
+) -> Result<crate::LoadedImage, String> {
+    let image = loaded_image.ok_or("No original image loaded")?;
+    if image.path != image_path {
+        return Err("Effect map source is no longer the loaded image".to_string());
+    }
+    Ok(image.clone())
 }
 
 #[allow(clippy::too_many_arguments)]
