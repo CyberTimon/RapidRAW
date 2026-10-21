@@ -8,9 +8,9 @@ use image::{GrayImage, ImageFormat};
 use crate::ai_connector;
 use crate::ai_processing::{
     AiDepthMaskParameters, AiForegroundMaskParameters, AiSkyMaskParameters,
-    AiSubjectMaskParameters, CachedDepthMap, generate_sam3_image_embeddings,
-    get_or_init_ai_models, get_or_init_depth_anything3_model, run_depth_anything3_model,
-    run_sam3_decoder,
+    AiSubjectMaskParameters, AiModels, CachedDepthMap, Sam3ImageEmbeddings,
+    generate_sam3_image_embeddings, get_or_init_ai_models, get_or_init_depth_anything3_model,
+    run_depth_anything3_model, run_sam3_decoder,
 };
 use crate::app_settings::load_settings;
 use crate::app_state::{AiTaskGuard, AppState};
@@ -50,8 +50,18 @@ fn get_or_generate_sam3_embeddings(
         }
     }
 
-    let mut embeddings = generate_sam3_image_embeddings(image, &models.sam3_image_encoder)
-        .map_err(|e| e.to_string())?;
+    let mut embeddings = match generate_sam3_image_embeddings(image, &models.sam3_image_encoder) {
+        Ok(embeddings) => embeddings,
+        Err(accelerated_error) => {
+            eprintln!("SAM 3 image encoder failed; retrying with CPU-only sessions: {accelerated_error}");
+            models.force_sam3_cpu().map_err(|cpu_setup_error| {
+                format!("SAM 3 inference failed ({accelerated_error}); CPU fallback could not initialize: {cpu_setup_error}")
+            })?;
+            generate_sam3_image_embeddings(image, &models.sam3_image_encoder).map_err(|cpu_error| {
+                format!("SAM 3 inference failed with accelerated providers ({accelerated_error}) and CPU fallback ({cpu_error})")
+            })?
+        }
+    };
     embeddings.path_hash = path_hash.to_owned();
 
     let mut state_lock = ai_state_mutex.lock().map_err(|e| e.to_string())?;
@@ -69,6 +79,44 @@ fn get_or_generate_sam3_embeddings(
     }
     state.embeddings = Some(embeddings.clone());
     Ok(embeddings)
+}
+
+
+/// Retry SAM 3 decoder inference with CPU-only sessions if an accelerated
+/// provider fails after successful session creation.
+fn run_sam3_decoder_with_fallback(
+    models: &AiModels,
+    embeddings: &Sam3ImageEmbeddings,
+    prompt: &str,
+    geometry: Option<((f64, f64), (f64, f64))>,
+) -> Result<GrayImage, String> {
+    match run_sam3_decoder(
+        embeddings,
+        prompt,
+        geometry,
+        &models.sam3_text_encoder,
+        &models.sam3_decoder,
+        &models.sam3_tokenizer,
+    ) {
+        Ok(mask) => Ok(mask),
+        Err(accelerated_error) => {
+            eprintln!("SAM 3 decoder failed; retrying with CPU-only sessions: {accelerated_error}");
+            models.force_sam3_cpu().map_err(|cpu_setup_error| {
+                format!("SAM 3 decoder failed ({accelerated_error}); CPU fallback could not initialize: {cpu_setup_error}")
+            })?;
+            run_sam3_decoder(
+                embeddings,
+                prompt,
+                geometry,
+                &models.sam3_text_encoder,
+                &models.sam3_decoder,
+                &models.sam3_tokenizer,
+            )
+            .map_err(|cpu_error| {
+                format!("SAM 3 decoder failed with accelerated providers ({accelerated_error}) and CPU fallback ({cpu_error})")
+            })
+        }
+    }
 }
 
 #[tauri::command]
@@ -132,14 +180,12 @@ pub async fn generate_ai_foreground_mask(
         models.as_ref(),
         &path_hash,
     )?;
-    let full_mask_image = run_sam3_decoder(
+    let full_mask_image = run_sam3_decoder_with_fallback(
+        models.as_ref(),
         &embeddings,
         "object",
         None,
-        &models.sam3_text_encoder,
-        &models.sam3_decoder,
-        &models.sam3_tokenizer,
-    ).map_err(|e| e.to_string())?;
+    )?;
 
     if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
         return Err("Task cancelled".to_string());
@@ -199,14 +245,12 @@ pub async fn generate_ai_sky_mask(
         models.as_ref(),
         &path_hash,
     )?;
-    let full_mask_image = run_sam3_decoder(
+    let full_mask_image = run_sam3_decoder_with_fallback(
+        models.as_ref(),
         &embeddings,
         "sky",
         None,
-        &models.sam3_text_encoder,
-        &models.sam3_decoder,
-        &models.sam3_tokenizer,
-    ).map_err(|e| e.to_string())?;
+    )?;
 
     if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
         return Err("Task cancelled".to_string());
@@ -540,15 +584,12 @@ pub async fn generate_ai_subject_mask(
     // The previous SAM API's optional edge-refinement switch is retained for
     // saved command compatibility; SAM 3 currently returns its own decoder mask.
     let _ = skip_refinement;
-    let mask_bitmap = run_sam3_decoder(
+    let mask_bitmap = run_sam3_decoder_with_fallback(
+        models.as_ref(),
         &embeddings,
         "object",
         Some((unrotated_start_point, unrotated_end_point)),
-        &models.sam3_text_encoder,
-        &models.sam3_decoder,
-        &models.sam3_tokenizer,
-    )
-    .map_err(|e| e.to_string())?;
+    )?;
 
     if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
         return Err("Task cancelled".to_string());
