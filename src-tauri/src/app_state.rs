@@ -13,6 +13,7 @@ use tokio::task::JoinHandle;
 use wgpu::{Texture, TextureView};
 
 use crate::ai_processing::AiState;
+use crate::as_shot::AsShot;
 use crate::cache_utils::DecodedImageCache;
 use crate::camera_tethering::CameraSession;
 use crate::gpu_processing::GpuProcessor;
@@ -108,6 +109,7 @@ pub struct LoadedImage {
     pub path: String,
     pub image: Arc<DynamicImage>,
     pub is_raw: bool,
+    pub as_shot: AsShot,
 }
 
 #[derive(Clone)]
@@ -122,11 +124,19 @@ pub struct CachedPreview {
 }
 
 pub struct GpuImageCache {
+    pub entries: Vec<GpuImageEntry>,
+}
+
+pub struct GpuImageEntry {
     pub texture: Texture,
     pub texture_view: TextureView,
+    pub gf_coeffs_view: TextureView,
+    pub gf_dehaze_view: TextureView,
+    pub is_raw: u32,
     pub width: u32,
     pub height: u32,
     pub transform_hash: u64,
+    pub source: (usize, usize),
 }
 
 pub struct GpuProcessorState {
@@ -148,7 +158,7 @@ pub struct PreviewJob {
 
 pub struct AnalyticsJob {
     pub path: String,
-    pub image: Arc<DynamicImage>,
+    pub frame: crate::image_processing::AnalyticsFrame,
     pub compute_waveform: bool,
     pub active_waveform_channel: Option<String>,
 }
@@ -208,7 +218,8 @@ impl MetadataManager {
 }
 
 pub type ThumbnailGeometryEntry = (u64, Arc<DynamicImage>, f32);
-pub type TransformedImageCache = (u64, Arc<DynamicImage>, (f32, f32));
+pub type TransformedImageCache = (u64, Arc<DynamicImage>, f32, (f32, f32));
+pub type TransformedPreview = (Arc<DynamicImage>, f32, (f32, f32));
 
 pub struct AppState {
     pub window_setup_complete: AtomicBool,
@@ -240,11 +251,17 @@ pub struct AppState {
     pub thumbnail_geometry_cache: Mutex<HashMap<String, ThumbnailGeometryEntry>>,
     pub lens_db: Mutex<Option<Arc<LensDatabase>>>,
     pub load_image_generation: Arc<AtomicUsize>,
+    pub wgpu_presented_generation: AtomicUsize,
     pub full_warped_cache: Mutex<Option<(u64, Arc<DynamicImage>)>>,
-    pub patched_warped_cache: Mutex<Option<(u64, Arc<DynamicImage>)>>,
+    pub full_warped_build_lock: Mutex<()>,
+    pub patched_cache: Mutex<Option<(u64, Arc<DynamicImage>)>>,
+    pub warped_cache: Mutex<Option<(u64, Arc<DynamicImage>)>>,
+    pub working_cache: Mutex<Option<(u64, Arc<DynamicImage>)>>,
+    pub effects_cache: Mutex<Option<(u64, Arc<DynamicImage>)>>,
     pub full_transformed_cache: Mutex<Option<TransformedImageCache>>,
     pub decoded_image_cache: Mutex<DecodedImageCache>,
     pub thumbnail_manager: Arc<ThumbnailManager>,
+    pub memory_budget: Arc<crate::memory_budget::MemoryBudget>,
     pub metadata_manager: Arc<MetadataManager>,
     pub disks_cache: Mutex<Option<Disks>>,
     pub disks_cache_refreshing: AtomicBool,

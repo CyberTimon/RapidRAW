@@ -43,6 +43,7 @@
         "shadows": "陰影"
       },
       "hue": "色相",
+      "kelvinModeTooltip": "以克耳文顯示色溫",
       "localHue": "局部色調",
       "luminance": "亮度",
       "mixerColors": {
@@ -95,13 +96,22 @@
       "resetPoint": "重置 {{channel}} 點曲線"
     },
     "details": {
+      "aiDenoise": "AI 降噪",
+      "aiDenoiseDetail": "細節",
       "blueYellow": "藍/黃",
       "centre": "置中",
       "chromaticAberration": "色差",
       "clarity": "清晰度",
       "color": "顏色",
+      "convertNegative": "轉換負片",
       "dehaze": "去朦朧",
       "luminance": "亮度",
+      "negativeBlue": "藍色",
+      "negativeContrast": "相紙等級",
+      "negativeConversion": "負片轉換",
+      "negativeExposure": "沖印曝光",
+      "negativeGreen": "綠色",
+      "negativeRed": "紅色",
       "noiseReduction": "降噪",
       "presence": "質感",
       "redCyan": "紅/青",
@@ -119,6 +129,11 @@
       "bokehShape": "散景形狀",
       "creative": "創意",
       "feather": "羽化",
+      "fog": "霧",
+      "fogDensity": "密度",
+      "fogHeight": "地面霧",
+      "fogStart": "起始距離",
+      "fogVariation": "變化",
       "glow": "發光",
       "grain": "顆粒",
       "halation": "光暈",
@@ -127,9 +142,34 @@
       "lightFlares": "光線耀斑",
       "lut": "LUT",
       "midpoint": "中點",
+      "relight": "重新打光",
+      "relightAddLight": "新增燈光",
+      "relightAmbient": "環境光",
+      "relightAngle": "角度",
+      "relightColor": "燈光顏色",
+      "relightCone": "光錐",
+      "relightDepth": "深度",
+      "relightDuplicateLight": "複製燈光",
+      "relightElevation": "仰角",
+      "relightFalloff": "衰減",
+      "relightHint": "新增或選取一個燈光，然後在影像上點擊或拖曳以放置。",
+      "relightIntensity": "強度",
+      "relightLight": "燈光 {{index}}",
+      "relightRemoveLight": "移除燈光",
+      "relightShadows": "陰影",
+      "relightShadowSoftness": "陰影柔和度",
+      "relightShine": "光澤",
+      "relightSoftness": "柔和度",
+      "relightType": "燈光類型",
+      "relightTypes": {
+        "directional": "平行光",
+        "point": "點光源",
+        "spot": "聚光燈"
+      },
       "roughness": "粗糙度",
       "roundness": "圓度",
       "size": "大小",
+      "spatial": "空間",
       "vignette": "暗角"
     }
   },
@@ -167,6 +207,11 @@
       "renameGroup": "重新命名組",
       "rootDir": "根目錄"
     },
+    "autoAdjustModes": {
+      "normal": "標準",
+      "strong": "強",
+      "subtle": "輕微"
+    },
     "colors": {
       "blue": "藍色",
       "green": "綠色",
@@ -179,6 +224,7 @@
     "editor": {
       "autoAdjust": "自動調整影像",
       "autoLensCorrection": "自動鏡頭校正",
+      "autoStraighten": "自動拉直",
       "cancel": "取消",
       "colorLabel": "顏色標籤",
       "confirmReset": "確認重置",
@@ -188,6 +234,9 @@
       "denoise": "降噪影像",
       "editImage": "編輯影像",
       "exportImage": "匯出影像",
+      "flag": "標記",
+      "flagPick": "留用",
+      "flagReject": "已拒絕",
       "frameImage": "裝裱影像",
       "mergeHdr": "合併為 HDR",
       "noLabel": "無標籤",
@@ -201,7 +250,8 @@
       "resetAdjustments": "重置調整",
       "stitchPanorama": "拼接全景圖",
       "tagging": "標籤",
-      "undo": "復原"
+      "undo": "復原",
+      "unflagged": "無標記"
     },
     "folders": {
       "changeIcon": "更換圖示",
@@ -224,6 +274,7 @@
     "library": {
       "addCopiedToAlbum_one": "將複製的影像新增到相簿",
       "addCopiedToAlbum_other": "將 {{count}} 張複製的影像新增到相簿",
+      "deleteRejected": "刪除已拒絕的影像",
       "refreshView": "重新整理檢視"
     },
     "merge": {
@@ -243,6 +294,8 @@
       "autoAdjust_other": "自動調整影像",
       "autoLensCorrection_one": "自動鏡頭校正",
       "autoLensCorrection_other": "自動鏡頭校正",
+      "autoStraighten_one": "自動拉直影像",
+      "autoStraighten_other": "自動拉直影像",
       "collage_one": "裝裱影像",
       "collage_other": "建立拼貼畫",
       "confirmDelete": "確認刪除",
@@ -367,10 +420,12 @@
       },
       "createNewTitle": "建立新的生成式編輯",
       "createNewTooltip": "建立新的 {{name}} 編輯",
+      "denoising": "正在進行 AI 降噪...",
       "dropzoneText": "拖放到此處以建立新編輯",
       "editSettingsTitle": "編輯設定",
       "editsTitle": "編輯",
       "generatingDepthMap": "正在計算 AI 深度圖...",
+      "generatingNormalMap": "正在計算 AI 法線貼圖...",
       "generativeEditTitle": "生成式編輯",
       "inpaintingTitle": "影像修復",
       "liquify": {
@@ -432,6 +487,8 @@
     },
     "crop": {
       "aspectRatioHeading": "寬高比",
+      "autoStraightenFailed": "自動拉直失敗：{{error}}",
+      "autoStraightenNoLines": "找不到可用於拉直的直線",
       "custom": {
         "hPlaceholder": "高",
         "hTooltip": "高度",
@@ -531,6 +588,7 @@
       "rotationHeading": "旋轉",
       "title": "裁剪與變換",
       "tooltips": {
+        "autoStraighten": "自動拉直（Shift+S）",
         "compositionOverlay": "構圖疊加",
         "flipHoriz": "水平翻轉影像",
         "flipVert": "垂直翻轉影像",
@@ -823,8 +881,10 @@
       "selectFolderTitle_other": "選擇資料夾以匯出 {{count}} 張影像"
     },
     "file": {
+      "dpi": "DPI",
       "quality": "品質",
       "qualityLossless": "品質（無損）",
+      "resolution": "解析度",
       "tiffBitDepth": "TIFF 位元深度",
       "tiffBitDepth16": "16 位元",
       "tiffBitDepth8": "8 位元"
@@ -956,9 +1016,16 @@
         "editedOnly": "僅已編輯",
         "uneditedOnly": "僅未編輯"
       },
+      "flag": {
+        "all": "所有影像",
+        "excludeRejected": "隱藏已拒絕",
+        "picked": "留用",
+        "rejected": "已拒絕"
+      },
       "noMatch": "未找到匹配過濾條件的影像。",
       "rating": {
         "all": "顯示全部",
+        "andDownSuffix": "及以下",
         "andUpSuffix": "及以上",
         "fiveOnly": "僅 5 星",
         "fourAndUp": "4 星及以上",
@@ -1018,6 +1085,8 @@
       }
     },
     "header": {
+      "cancel": "取消",
+      "deselectAll": "取消全選",
       "search": {
         "addFilterOrSearch": "新增過濾或搜尋...",
         "indexingImages": "索引影像中...",
@@ -1029,6 +1098,8 @@
         "tooltipClearSearch": "清除搜尋",
         "tooltipSearchFilter": "搜尋或過濾"
       },
+      "selectAll": "全選",
+      "selectItems": "選擇項目",
       "title": "相簿",
       "viewOptions": {
         "currentFolder": "當前資料夾",
@@ -1037,7 +1108,13 @@
         "filterByColorLabel": "按顏色標籤過濾",
         "filterByEdited": "按編輯狀態過濾",
         "filterByFileType": "按檔案型別過濾",
+        "filterByFlag": "按標記過濾",
         "filterByRating": "按評分過濾",
+        "ratingOperator": {
+          "eq": "僅此評分",
+          "gte": "此評分及以上",
+          "lte": "此評分及以下"
+        },
         "groupEditedFiles": "Include edited files in groups",
         "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
         "groupOff": "Off",
@@ -1070,11 +1147,21 @@
       "expandFolder": "展開資料夾",
       "imagesCount_one": "1 張影像",
       "imagesCount_other": "{{count}} 張影像",
+      "rejected": "已拒絕",
       "tooltipAperture": "光圈",
       "tooltipFocalLength": "焦距",
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "快門速度",
       "tooltipVirtualCopy": "虛擬副本"
+    },
+    "reject": {
+      "deleteConfirm": "刪除已拒絕",
+      "deleteMessage_one": "確定要刪除 {{count}} 張已拒絕的影像嗎？它們將被移至資源回收筒。",
+      "deleteMessage_other": "確定要刪除 {{count}} 張已拒絕的影像嗎？它們將被移至資源回收筒。",
+      "deleteTitle": "刪除已拒絕的影像",
+      "noneToDelete": "沒有可刪除的已拒絕影像。",
+      "virtualCopiesWarning_one": "由於原始影像已被拒絕，{{count}} 個未被拒絕的虛擬副本也將被刪除。",
+      "virtualCopiesWarning_other": "由於原始影像已被拒絕，{{count}} 個未被拒絕的虛擬副本也將被刪除。"
     },
     "search": {
       "noResults": "未找到結果",
@@ -1133,7 +1220,8 @@
     "tooltips": {
       "communityPresets": "社群預設",
       "goHome": "返回首頁",
-      "importImages": "匯入影像"
+      "importImages": "匯入影像",
+      "select": "選擇"
     }
   },
   "masks": {
@@ -1226,6 +1314,7 @@
         "lensCorrection": "鏡頭校正",
         "lut": "LUT",
         "masks": "遮色片",
+        "negativeConversion": "負片轉換",
         "noiseReduction": "降噪",
         "presence": "質感",
         "sharpness": "銳度",
@@ -1258,7 +1347,7 @@
     "culling": {
       "actionDelete": "移至垃圾桶",
       "actionRateZero": "將評分設為 1 星",
-      "actionReject": "標記為已拒絕（紅色標籤）",
+      "actionReject": "標記為已拒絕",
       "applyButton_one": "應用到 1 張影像",
       "applyButton_other": "應用到 {{count}} 張影像",
       "bestImage": "最佳影像",
@@ -1360,6 +1449,7 @@
       "deleteWarning": "檔案將被移至垃圾桶。",
       "fileNaming": "檔案命名",
       "folderOrganization": "資料夾組織",
+      "notUniqueWarning": "如果不包含 {original_filename}、{original_filename_number} 或 {sequence}，檔案可能會重名。重名的檔案不會被匯入。",
       "organizeByDate": "按日期組織到子資料夾",
       "sourceFiles": "原始檔",
       "startImport": "開始匯入",
@@ -1398,30 +1488,6 @@
       "zoomInTooltip": "放大",
       "zoomOutTooltip": "縮小"
     },
-    "negativeConversion": {
-      "blueWeight": "藍色（黃色）",
-      "cancel": "取消",
-      "colorTiming": "色彩時機",
-      "compareTooltip": "按住以檢視原始",
-      "contrast": "對比（分級）",
-      "convertAndSave": "轉換並儲存",
-      "convertAndSaveAll": "轉換並儲存全部（{{count}}）",
-      "convertAndSaveAll_one": "轉換並儲存全部（{{count}}）",
-      "convertAndSaveAll_other": "轉換並儲存全部（{{count}}）",
-      "converting": "轉換中",
-      "convertingProgress": "轉換中 {{current}}/{{total}}",
-      "exposure": "曝光",
-      "greenWeight": "綠色（洋紅）",
-      "noticeText": "反轉邏輯受 <0>NegPy</0>（作者 marcinz606，<1>GPL-3.0</1>）啟發。",
-      "originalLabel": "原始負片",
-      "printGrade": "列印分級",
-      "redWeight": "紅色（青色）",
-      "resetTooltip": "重置",
-      "resetViewTooltip": "重置檢視",
-      "title": "負片轉換",
-      "zoomInTooltip": "放大",
-      "zoomOutTooltip": "縮小"
-    },
     "panorama": {
       "cancel": "取消",
       "close": "關閉",
@@ -1447,6 +1513,7 @@
       "cancel": "取消",
       "fileNamingTemplate": "檔案命名模板",
       "newName": "新名稱",
+      "notUniqueWarning": "如果不包含 {original_filename}、{original_filename_number} 或 {sequence}，檔案可能會重名。此時不會重新命名任何檔案。",
       "save": "儲存",
       "titleMultiple": "重新命名 {{count}} 張影像",
       "titleMultiple_one": "重新命名 {{count}} 張影像",
@@ -1517,6 +1584,9 @@
       "zoomDesc": "調整使用滾輪或捏合手勢時畫布縮放的速度。"
     },
     "data": {
+      "clearAiDenoise": "清除 AI 降噪快取",
+      "clearAiDenoiseButton": "清除",
+      "clearAiDenoiseDesc": "刪除已快取的 AI 降噪結果（{{size}}）。啟用 AI 降噪的影像會在下次開啟時重新計算。",
       "clearSidecars": "清除所有附屬檔案",
       "clearSidecarsButton": "清除",
       "clearSidecarsDesc": "這將刪除您的根資料夾中的所有 .rrdata 檔案（包含您的編輯資料）：",
@@ -1528,6 +1598,7 @@
       "logsButton": "開啟",
       "logsDesc": "檢視應用程式的日誌檔案以進行故障排除。日誌檔案位於：",
       "modals": {
+        "aiDenoiseMessage": "確定要清除 AI 降噪快取嗎？\n\n啟用 AI 降噪的影像需要重新降噪，每張影像可能需要數分鐘。",
         "aiMessage": "您確定要從所有活動根資料夾中的所有影像中移除所有 AI 生成的標籤嗎？\n\n這不會影響使用者新增的標籤。此操作無法復原。",
         "allMessage": "您確定要從所有活動根資料夾中的所有影像中移除所有 AI 生成和使用者新增的標籤嗎？\n\n此操作無法復原。",
         "cacheMessage": "您確定要清除縮圖快取嗎？\n\n所有縮圖將需要重新生成，對於大型資料夾可能會很慢。",
@@ -1550,6 +1621,7 @@
       "resetLayoutDesc": "將面板停靠區、側邊分割條、高度和面板切換器還原為預設的版面配置。",
       "resetLayoutTitle": "重設工作區版面配置",
       "statuses": {
+        "aiDenoiseSuccess": "AI 降噪快取已成功清除。",
         "aiSuccess": "{{count}} 個檔案已更新。AI 標籤已移除。",
         "aiSuccess_one": "{{count}} 個檔案已更新。AI 標籤已移除。",
         "aiSuccess_other": "{{count}} 個檔案已更新。AI 標籤已移除。",
@@ -1558,6 +1630,7 @@
         "allSuccess_other": "{{count}} 個檔案已更新。所有非顏色標籤已移除。",
         "cacheSuccess": "縮圖快取已成功清除。",
         "clearingAi": "正在從所有附屬檔案中清除 AI 標籤...",
+        "clearingAiDenoise": "正在清除 AI 降噪快取...",
         "clearingAll": "正在從附屬檔案中清除所有標籤...",
         "clearingCache": "正在清除縮圖快取...",
         "deleting": "正在刪除附屬檔案，請稍候...",
@@ -1605,6 +1678,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "自動拉直",
         "brush_size_down": "減小畫筆大小",
         "brush_size_up": "增大畫筆大小",
         "color_label_blue": "顏色標籤：藍色",
@@ -1617,6 +1691,7 @@
         "copy_files": "複製選中的檔案",
         "copy_image_path": "複製所選圖片的路徑",
         "cycle_zoom": "迴圈縮放（適應、2倍適應、100%）",
+        "delete_rejected": "刪除已拒絕的檔案",
         "delete_selected": "刪除選中的檔案",
         "focus_search": "聚焦搜尋框",
         "open_image": "開啟選中的影像",
@@ -1649,9 +1724,12 @@
         "toggle_library_exif": "切換 EXIF 疊加",
         "toggle_masks": "切換遮色片面板",
         "toggle_metadata": "切換後設資料面板",
+        "toggle_pick": "切換留用標記",
         "toggle_presets": "切換預設面板",
+        "toggle_reject": "切換拒絕標記",
         "toggle_right_panel": "切換右側面板",
         "undo": "復原調整",
+        "unflag": "取消標記",
         "zoom_100": "縮放到 100%",
         "zoom_fit": "縮放以適應",
         "zoom_in": "放大",
@@ -1681,6 +1759,16 @@
       "title": "我的鏡頭"
     },
     "processing": {
+      "advanced": {
+        "heading": "進階",
+        "headingDesc": "縮圖、快取與匯出的效能調整。預設值適合大多數使用者。",
+        "title": "進階設定",
+        "auto": "自動",
+        "exportThreads": "並行匯出",
+        "exportThreadsDesc": "同時匯出的影像數量。「自動」會依據你的 CPU 選擇合適的值。如果大型匯出失敗或顯示卡記憶體較少，請調低。",
+        "exportMemoryLimit": "匯出記憶體上限",
+        "exportMemoryLimitDesc": "批次匯出可使用的可用記憶體比例。調低可在大型匯出期間讓其他應用程式保持流暢。"
+      },
       "ai": {
         "cloud": {
           "description": "對於那些想要更簡單解決方案的使用者，可選訂閱提供與自託管相同的高品質結果，無需任何麻煩。這是最方便的選擇，也是支援本專案的最佳方式。",
@@ -1700,6 +1788,11 @@
             "signup": "在網站上註冊",
             "upgradeBtn": "在網站上升級",
             "upgradeDesc": "要使用雲端 AI 功能，您需要訂閱雲端服務。"
+          },
+          "statuses": {
+            "connecting": "連線中…",
+            "retry": "重試連線",
+            "unsupported": "雲端登入目前僅在桌面裝置上可用。"
           },
           "title": "雲端服務"
         },
@@ -1723,9 +1816,17 @@
           "feature3": "簡單的 CPU 生成式替換",
           "title": "內建 AI（CPU）"
         },
+        "aiFree": {
+          "description": "關閉所有 AI 功能。所有與 AI 相關的控制項都會從介面中隱藏，RapidRAW 將作為純傳統的 RAW 編輯器運作。",
+          "feature1": "介面中不顯示 AI 遮色片、鏡頭模糊或生成式編輯",
+          "feature2": "現有的 AI 編輯仍會正常呈現",
+          "feature3": "更簡潔、更專注的介面",
+          "title": "無 AI"
+        },
         "description": "RapidRAW 的 AI 專為靈活性而設計。選擇您理想的工作流程，從快速的本地工具到強大的自託管。",
         "providers": {
           "aiConnector": "AI 聯結器",
+          "aiFree": "無 AI",
           "cloud": "雲端",
           "cpu": "CPU"
         },
@@ -1770,6 +1871,10 @@
         "appleRaw9Desc": "使用 Apple 的 Core Image RAW 9 解碼器沖洗 RAW 檔案。它在神經網路引擎 (Neural Engine) 上一步完成去馬賽克與降噪。需要 macOS 27 或更高版本以及支援的相機；不支援的檔案將自動使用內建解碼器。比預設解碼器慢。縮圖不受影響。",
         "applyPreprocessing": "對非 RAW 影像應用預處理",
         "applyPreprocessingDesc": "如果啟用，上述基礎顏色降噪和預銳化也將應用於標準格式。",
+        "baselineExposure": "基礎曝光",
+        "baselineExposureAmount": "基礎量",
+        "baselineExposureAmountDesc": "加到 RAW 檔案的曝光量。darktable 使用 +0.7 EV。",
+        "baselineExposureDesc": "將所有 RAW 檔案提亮一個固定值（與 darktable 場景參考模式的預設值相同），如有 DNG BaselineExposure 標籤也會一併加上。在此選項推出之前編輯的影像不受影響。",
         "colorNr": "基礎顏色降噪",
         "colorNrDesc": "在管線早期應用交叉雙邊濾波器以去除彩色噪點。值越高 = 降噪越強。",
         "defaultNonRawTonemapper": "預設非 RAW 色調映射",
@@ -1777,8 +1882,12 @@
         "defaultRawTonemapper": "預設 RAW 色調映射",
         "defaultRawTonemapperDesc": "應用於 RAW 影像的色調映射器。",
         "enableAppleRaw9": "對 RAW 檔案使用 Apple RAW 9",
+        "enableBaselineExposure": "對 RAW 檔案套用基礎曝光",
+        "enableHighlightPreservation": "補償相機的高光保護模式",
         "enablePreprocessingNonRaws": "對非 RAW 影像啟用",
         "enableTonemapperOverride": "啟用色調映射覆蓋",
+        "highlightPreservation": "高光保護補償",
+        "highlightPreservationDesc": "從 RAW 檔案讀取相機在高光保護模式下保留的曝光並予以恢復（富士 DR200/DR400、Canon 高光色調優先與自動亮度優化、Nikon 動態 D-Lighting、Olympus 層次、Pentax 動態範圍擴展）。在此選項推出之前編輯的影像不受影響。",
         "highlightRecovery": "RAW 亮部恢復",
         "highlightRecoveryDesc": "控制從 RAW 檔案的裁剪亮部中恢復細節的程度。較高的值可恢復更多細節，但可能引入紫色偽影。",
         "linearOptions": {
@@ -1803,7 +1912,6 @@
       "previewResDesc": "確定預覽的最大解析度。較低的值可顯著提高效能。",
       "previewStrategy": "預覽渲染策略",
       "qualities": {
-        "full": "全解析度",
         "high": "高品質",
         "performance": "效能優先"
       },
@@ -1989,6 +2097,10 @@
         "virtualCopy": "虛擬副本"
       },
       "virtualCopyAbbreviation": "VC"
+    },
+    "flags": {
+      "togglePick": "切換留用",
+      "toggleReject": "切換拒絕"
     },
     "imagePicker": {
       "clearImage": "清除影像",

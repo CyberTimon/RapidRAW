@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import {
   ArrowLeft,
   Cloud,
   Cpu,
+  Unplug,
   ExternalLink as ExternalLinkIcon,
   Server,
   Info,
@@ -18,13 +19,18 @@ import {
   Image as ImageIcon,
   Mouse,
   Touchpad,
+  ChevronDown,
+  ChevronRight,
+  Settings as SettingsIcon,
 } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import clsx from 'clsx';
-import { Show, SignIn, useUser, useAuth, useClerk } from '@clerk/react';
+import { ClerkProvider, SignIn, useClerk } from '@clerk/react';
+import { useShallow } from 'zustand/react/shallow';
+import { useCloudStore } from '../../store/useCloudStore';
 import Button from '../ui/Button';
 import ConfirmModal from '../modals/ConfirmModal';
 import Dropdown, { OptionItem } from '../ui/Dropdown';
@@ -36,6 +42,7 @@ import { useTranslation } from 'react-i18next';
 import { Invokes } from '../ui/AppProperties';
 import {
   formatKeyCode,
+  getDefaultCombo,
   KeybindDefinition,
   KEYBIND_DEFINITIONS,
   KEYBIND_SECTIONS,
@@ -48,6 +55,7 @@ import { useCloudUsage } from '../../hooks/useCloudUsage';
 import { open } from '@tauri-apps/plugin-shell';
 import { RotateCcw } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
+import { formatBytes } from '../../utils/formatBytes';
 
 interface ConfirmModalState {
   confirmText: string;
@@ -105,6 +113,7 @@ interface MyLens {
 }
 
 const EXECUTE_TIMEOUT = 3000;
+const DEFAULT_BASELINE_EXPOSURE = 0.7;
 
 const resolutions: OptionItem<number>[] = [
   { value: 720, label: '720px' },
@@ -120,6 +129,13 @@ const smallThumbnailResolutions: OptionItem<number>[] = [
   { value: 480, label: '480px' },
   { value: 640, label: '640px' },
   { value: 720, label: '720px' },
+];
+
+const exportMemoryLimits: OptionItem<number>[] = [
+  { value: 50, label: '50%' },
+  { value: 65, label: '65%' },
+  { value: 80, label: '80%' },
+  { value: 90, label: '90%' },
 ];
 
 const mediumThumbnailResolutions: OptionItem<number>[] = [
@@ -168,7 +184,8 @@ const KeybindRow = ({
     return () => window.removeEventListener('keydown', handler, { capture: true });
   }, [recording, def.action, onSave, onStartRecording]);
 
-  const displayCombo = currentCombo !== undefined ? (currentCombo.length ? currentCombo : null) : def.defaultCombo;
+  const displayCombo =
+    currentCombo !== undefined ? (currentCombo.length ? currentCombo : null) : getDefaultCombo(def, osPlatform);
 
   return (
     <div className="flex justify-between items-center py-2">
@@ -267,6 +284,7 @@ const AiProviderSwitch = ({ selectedProvider, onProviderChange }: AiProviderSwit
       { id: 'cpu', label: t('settings.processing.ai.providers.cpu'), icon: Cpu },
       { id: 'ai-connector', label: t('settings.processing.ai.providers.aiConnector'), icon: Server },
       { id: 'cloud', label: t('settings.processing.ai.providers.cloud'), icon: Cloud },
+      { id: 'ai-free', label: t('settings.processing.ai.providers.aiFree'), icon: Unplug },
     ],
     [t],
   );
@@ -304,35 +322,90 @@ const AiProviderSwitch = ({ selectedProvider, onProviderChange }: AiProviderSwit
   );
 };
 
+const signInAppearance = {
+  variables: {
+    colorBackground: 'transparent',
+    colorInput: 'transparent',
+    colorForeground: 'inherit',
+    colorInputForeground: 'inherit',
+    colorPrimaryForeground: 'inherit',
+    colorBorder: 'transparent',
+    colorShadow: 'none',
+    colorNeutral: 'inherit',
+  },
+  elements: {
+    rootBox: '',
+    cardBox: '!shadow-none !m-0 !p-0 !rounded-none',
+    card: '!bg-transparent !border-none !shadow-none !py-0 !px-1 !rounded-none',
+    header: '!hidden',
+    formFieldLabel: '!text-base !font-semibold !text-text-primary !block !mb-2',
+    formFieldAction: '!text-text-secondary hover:!text-text-primary !transition-colors !no-underline hover:!underline',
+    formFieldInput:
+      '!bg-bg-primary !border !border-border-color !text-text-primary focus:!border-accent focus:!ring-1 focus:!ring-accent !rounded-md !px-3 !py-2',
+    formButtonPrimary:
+      '!bg-accent !text-button-text hover:!bg-accent/90 !shadow-none !transition-colors !rounded-md !mt-4 !py-2',
+    footer: '!bg-transparent !p-0 !mt-4 opacity-50 hover:opacity-100 transition-opacity',
+    footerAction: '!hidden',
+    identityPreview: '!bg-bg-primary !border !border-border-color !rounded-md !mb-4',
+    identityPreviewText: '!text-text-primary !font-medium',
+    identityPreviewEditButtonIcon: '!text-text-secondary hover:!text-text-primary !transition-colors',
+  },
+};
+
+const SignInWhenReady = () => {
+  const clerk = useClerk();
+  const [, forceRender] = useReducer((n: number) => n + 1, 0);
+
+  useEffect(() => {
+    if (clerk.loaded) {
+      forceRender();
+      return;
+    }
+    const id = window.setInterval(() => {
+      if (clerk.loaded) {
+        window.clearInterval(id);
+        forceRender();
+      }
+    }, 50);
+    return () => window.clearInterval(id);
+  }, [clerk]);
+
+  return <SignIn routing="hash" fallbackRedirectUrl="/" forceRedirectUrl="/" appearance={signInAppearance} />;
+};
+
 const CloudDashboard = () => {
-  const { user } = useUser();
-  const { signOut } = useClerk();
+  const user = useCloudStore((s) => s.user);
+  const signOut = useCloudStore((s) => s.signOut);
   const { t } = useTranslation();
   const { cloudUsage, isPro } = useCloudUsage();
 
+  const quietButtonClass =
+    'bg-transparent text-text-secondary hover:text-text-primary hover:bg-surface border-none shadow-none';
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between border-b border-border-color pb-4">
-        <div className="flex items-center gap-3">
-          <div>
-            <Text variant={TextVariants.heading}>{user?.fullName || user?.primaryEmailAddress?.emailAddress}</Text>
-            <Text variant={TextVariants.small} color={isPro ? TextColors.success : TextColors.error}>
-              {isPro
-                ? t('settings.processing.ai.cloud.signedIn.active')
-                : t('settings.processing.ai.cloud.signedIn.inactive')}
-            </Text>
-          </div>
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <Text variant={TextVariants.heading} className="truncate">
+            {user?.fullName || user?.primaryEmailAddress?.emailAddress}
+          </Text>
+          <Text variant={TextVariants.small} color={isPro ? TextColors.success : TextColors.error}>
+            {isPro
+              ? t('settings.processing.ai.cloud.signedIn.active')
+              : t('settings.processing.ai.cloud.signedIn.inactive')}
+          </Text>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-1 shrink-0">
           <Button
             variant="ghost"
-            className="bg-transparent text-text-secondary hover:text-text-primary hover:bg-surface border-none shadow-none"
+            className={quietButtonClass}
             onClick={() => open('https://www.getrapidraw.com/dashboard')}
           >
             {t('settings.processing.ai.cloud.signedIn.manage')} <ExternalLinkIcon size={14} className="ml-1" />
           </Button>
           <Button
             variant="ghost"
+            className={quietButtonClass}
             onClick={async () => {
               await signOut();
             }}
@@ -361,12 +434,15 @@ const CloudDashboard = () => {
           </div>
         </div>
       ) : (
-        <div className="bg-red-900/10 border border-red-500/50 p-4 rounded-md text-center">
-          <Text className="mb-3">{t('settings.processing.ai.cloud.signedOut.upgradeDesc')}</Text>
-          <Button onClick={() => open('https://www.getrapidraw.com/cloud')}>
+        <Text variant={TextVariants.small}>
+          {t('settings.processing.ai.cloud.signedOut.upgradeDesc')}{' '}
+          <button
+            onClick={() => open('https://www.getrapidraw.com/cloud')}
+            className="text-accent hover:underline focus:outline-none"
+          >
             {t('settings.processing.ai.cloud.signedOut.upgradeBtn')}
-          </Button>
-        </div>
+          </button>
+        </Text>
       )}
     </div>
   );
@@ -477,12 +553,17 @@ export default function SettingsPanel({
   onSettingsChange,
   rootPaths,
 }: SettingsPanelProps) {
-  const { user: _user } = useUser();
+  const { authStatus, clerk, user, initAuth } = useCloudStore(
+    useShallow((s) => ({ authStatus: s.authStatus, clerk: s.clerk, user: s.user, initAuth: s.initAuth })),
+  );
   const { t } = useTranslation();
   const [isClearing, setIsClearing] = useState(false);
   const [clearMessage, setClearMessage] = useState('');
   const [isClearingCache, setIsClearingCache] = useState(false);
   const [cacheClearMessage, setCacheClearMessage] = useState('');
+  const [aiDenoiseCacheSize, setAiDenoiseCacheSize] = useState<number | null>(null);
+  const [isClearingAiDenoiseCache, setIsClearingAiDenoiseCache] = useState(false);
+  const [aiDenoiseCacheMessage, setAiDenoiseCacheMessage] = useState('');
   const [isClearingAiTags, setIsClearingAiTags] = useState(false);
   const [aiTagsClearMessage, setAiTagsClearMessage] = useState('');
   const [isClearingTags, setIsClearingTags] = useState(false);
@@ -497,6 +578,7 @@ export default function SettingsPanel({
   });
   const [testStatus, setTestStatus] = useState<TestStatus>({ message: '', success: null, testing: false });
   const [hasInteractedWithLivePreview, setHasInteractedWithLivePreview] = useState(false);
+  const [isAdvancedProcessingExpanded, setIsAdvancedProcessingExpanded] = useState(false);
   const [recordingAction, setRecordingAction] = useState<string | null>(null);
 
   const [aiProvider, setAiProvider] = useState(appSettings?.aiProvider || 'cpu');
@@ -518,6 +600,7 @@ export default function SettingsPanel({
     smallThumbnailResolution: appSettings?.smallThumbnailResolution || 480,
     mediumThumbnailResolution: appSettings?.mediumThumbnailResolution || 1280,
     rawHighlightCompression: appSettings?.rawHighlightCompression ?? 2.5,
+    baselineExposure: appSettings?.baselineExposure ?? DEFAULT_BASELINE_EXPOSURE,
     processingBackend: appSettings?.processingBackend || 'auto',
     linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
     highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
@@ -547,9 +630,16 @@ export default function SettingsPanel({
     [t],
   );
 
+  const exportWorkerThreadOptions = useMemo<OptionItem<number>[]>(
+    () => [
+      { value: 0, label: t('settings.processing.advanced.auto') },
+      ...[1, 2, 3, 4, 6, 8].map((threads) => ({ value: threads, label: String(threads) })),
+    ],
+    [t],
+  );
+
   const livePreviewQualityOptions = useMemo<OptionItem<string>[]>(
     () => [
-      { value: 'full', label: t('settings.processing.qualities.full') },
       { value: 'high', label: t('settings.processing.qualities.high') },
       { value: 'performance', label: t('settings.processing.qualities.performance') },
     ],
@@ -628,6 +718,7 @@ export default function SettingsPanel({
       smallThumbnailResolution: appSettings?.smallThumbnailResolution || 480,
       mediumThumbnailResolution: appSettings?.mediumThumbnailResolution || 1280,
       rawHighlightCompression: appSettings?.rawHighlightCompression ?? 2.5,
+      baselineExposure: appSettings?.baselineExposure ?? DEFAULT_BASELINE_EXPOSURE,
       processingBackend: appSettings?.processingBackend || 'auto',
       linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
       highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
@@ -661,6 +752,14 @@ export default function SettingsPanel({
   useEffect(() => {
     invoke<string[]>('get_lensfun_makers').then(setLensMakers).catch(console.error);
   }, []);
+
+  const refreshAiDenoiseCacheSize = useCallback(() => {
+    invoke<number>(Invokes.GetAiDenoiseCacheSize).then(setAiDenoiseCacheSize).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (activeCategory === 'processing') refreshAiDenoiseCacheSize();
+  }, [activeCategory, refreshAiDenoiseCacheSize]);
 
   const handleProcessingSettingChange = async (key: string, value: any) => {
     setProcessingSettings((prev) => ({ ...prev, [key]: value }));
@@ -915,6 +1014,35 @@ export default function SettingsPanel({
     });
   };
 
+  const executeClearAiDenoiseCache = async () => {
+    setIsClearingAiDenoiseCache(true);
+    setAiDenoiseCacheMessage(t('settings.data.statuses.clearingAiDenoise'));
+    try {
+      await invoke(Invokes.ClearAiDenoiseCache);
+      setAiDenoiseCacheMessage(t('settings.data.statuses.aiDenoiseSuccess'));
+    } catch (err: any) {
+      console.error('Failed to clear AI denoise cache:', err);
+      setAiDenoiseCacheMessage(`Error: ${err}`);
+    } finally {
+      refreshAiDenoiseCacheSize();
+      setTimeout(() => {
+        setIsClearingAiDenoiseCache(false);
+        setAiDenoiseCacheMessage('');
+      }, EXECUTE_TIMEOUT);
+    }
+  };
+
+  const handleClearAiDenoiseCache = () => {
+    setConfirmModalState({
+      confirmText: t('settings.data.modals.confirmClearCache'),
+      confirmVariant: 'destructive',
+      isOpen: true,
+      message: t('settings.data.modals.aiDenoiseMessage'),
+      onConfirm: executeClearAiDenoiseCache,
+      title: t('settings.data.modals.confirmCacheTitle'),
+    });
+  };
+
   const handleTestConnection = async () => {
     if (!aiConnectorAddress) {
       return;
@@ -995,7 +1123,11 @@ export default function SettingsPanel({
     const userKb = appSettings?.keybinds || {};
     for (const def of KEYBIND_DEFINITIONS) {
       const userCombo = userKb[def.action];
-      const effective = userCombo?.length ? userCombo : userCombo === undefined ? def.defaultCombo : null;
+      const effective = userCombo?.length
+        ? userCombo
+        : userCombo === undefined
+          ? getDefaultCombo(def, osPlatform)
+          : null;
       if (!effective) continue;
       const key = effective.join('+');
       if (!map.has(key)) map.set(key, new Set());
@@ -1006,7 +1138,7 @@ export default function SettingsPanel({
       if (actions.size > 1) actions.forEach((k) => keys.add(k));
     }
     return keys;
-  }, [appSettings?.keybinds]);
+  }, [appSettings?.keybinds, osPlatform]);
 
   return (
     <>
@@ -1104,6 +1236,7 @@ export default function SettingsPanel({
                             { value: 'ru', label: 'Русский' },
                             { value: 'ja', label: '日本語' },
                             { value: 'ko', label: '한국어' },
+                            { value: 'cs', label: 'Čeština' },
                             { value: 'zh-CN', label: '简体中文' },
                             { value: 'zh-TW', label: '繁體中文' },
                           ]}
@@ -1245,6 +1378,184 @@ export default function SettingsPanel({
                           />
                         </SettingItem>
                       )}
+                    </div>
+                  </div>
+
+                  <div className="p-6 bg-surface rounded-xl shadow-md">
+                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
+                      {t('settings.processing.ai.title')}
+                    </Text>
+                    <Text className="mb-4">{t('settings.processing.ai.description')}</Text>
+
+                    <AiProviderSwitch selectedProvider={aiProvider} onProviderChange={handleProviderChange} />
+
+                    <div className="mt-8">
+                      <AnimatePresence mode="wait">
+                        {aiProvider === 'cpu' && (
+                          <motion.div
+                            key="cpu"
+                            initial={{ opacity: 0, x: 10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -10 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <Text variant={TextVariants.heading}>{t('settings.processing.ai.cpu.title')}</Text>
+                            <Text className="mt-1">{t('settings.processing.ai.cpu.description')}</Text>
+                            <Text as="ul" className="mt-3 space-y-1 list-disc list-inside">
+                              <li>{t('settings.processing.ai.cpu.feature1')}</li>
+                              <li>{t('settings.processing.ai.cpu.feature2')}</li>
+                              <li>{t('settings.processing.ai.cpu.feature3')}</li>
+                            </Text>
+                          </motion.div>
+                        )}
+
+                        {aiProvider === 'ai-free' && (
+                          <motion.div
+                            key="ai-free"
+                            initial={{ opacity: 0, x: 10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -10 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <Text variant={TextVariants.heading}>{t('settings.processing.ai.aiFree.title')}</Text>
+                            <Text className="mt-1">{t('settings.processing.ai.aiFree.description')}</Text>
+                            <Text as="ul" className="mt-3 space-y-1 list-disc list-inside">
+                              <li>{t('settings.processing.ai.aiFree.feature1')}</li>
+                              <li>{t('settings.processing.ai.aiFree.feature2')}</li>
+                              <li>{t('settings.processing.ai.aiFree.feature3')}</li>
+                            </Text>
+                          </motion.div>
+                        )}
+
+                        {aiProvider === 'ai-connector' && (
+                          <motion.div
+                            key="ai-connector"
+                            initial={{ opacity: 0, x: 10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -10 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <div className="space-y-8">
+                              <div>
+                                <Text variant={TextVariants.heading}>
+                                  {t('settings.processing.ai.connector.title')}
+                                </Text>
+                                <Text className="mt-1">{t('settings.processing.ai.connector.description')}</Text>
+                                <Text as="ul" className="mt-3 space-y-1 list-disc list-inside">
+                                  <li>{t('settings.processing.ai.connector.feature1')}</li>
+                                  <li>{t('settings.processing.ai.connector.feature2')}</li>
+                                  <li>{t('settings.processing.ai.connector.feature3')}</li>
+                                </Text>
+                              </div>
+                              <SettingItem
+                                label={t('settings.processing.ai.connector.address')}
+                                description={t('settings.processing.ai.connector.addressDesc')}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    className="grow"
+                                    id="ai-connector-address"
+                                    onBlur={() =>
+                                      onSettingsChange({ ...appSettings, aiConnectorAddress: aiConnectorAddress })
+                                    }
+                                    onChange={(e: any) => setAiConnectorAddress(e.target.value)}
+                                    onKeyDown={(e: any) => e.stopPropagation()}
+                                    placeholder="127.0.0.1:8188"
+                                    type="text"
+                                    value={aiConnectorAddress}
+                                    bgClassName="bg-bg-primary"
+                                  />
+                                  <Button
+                                    className="w-32"
+                                    disabled={testStatus.testing || !aiConnectorAddress}
+                                    onClick={handleTestConnection}
+                                  >
+                                    {testStatus.testing
+                                      ? t('settings.processing.ai.connector.testing')
+                                      : t('settings.processing.ai.connector.test')}
+                                  </Button>
+                                </div>
+                                {testStatus.message && (
+                                  <Text
+                                    color={testStatus.success ? TextColors.success : TextColors.error}
+                                    className="mt-2 flex items-center gap-2"
+                                  >
+                                    {testStatus.success === true && <Wifi size={16} />}
+                                    {testStatus.success === false && <WifiOff size={16} />}
+                                    {testStatus.message}
+                                  </Text>
+                                )}
+                              </SettingItem>
+                            </div>
+                          </motion.div>
+                        )}
+
+                        {aiProvider === 'cloud' && (
+                          <motion.div
+                            key="cloud"
+                            initial={{ opacity: 0, x: 10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -10 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <Text variant={TextVariants.heading}>{t('settings.processing.ai.cloud.title')}</Text>
+                            <Text className="mt-1">{t('settings.processing.ai.cloud.description')}</Text>
+                            <Text as="ul" className="mt-3 space-y-1 list-disc list-inside">
+                              <li>{t('settings.processing.ai.cloud.feature1')}</li>
+                              <li>{t('settings.processing.ai.cloud.feature2')}</li>
+                              <li>{t('settings.processing.ai.cloud.feature3')}</li>
+                            </Text>
+
+                            <div className="mt-8">
+                              {authStatus === 'ready' && user && (
+                                <div className="p-6 bg-bg-primary rounded-xl border border-border-color shadow-inner">
+                                  <CloudDashboard />
+                                </div>
+                              )}
+
+                              {authStatus === 'ready' && !user && clerk && (
+                                <div className="w-full max-w-md">
+                                  <ClerkProvider
+                                    Clerk={clerk}
+                                    publishableKey={clerk.publishableKey}
+                                    routerPush={() => {}}
+                                    routerReplace={() => {}}
+                                  >
+                                    <SignInWhenReady />
+                                  </ClerkProvider>
+                                  <div className="mt-6">
+                                    <Text variant={TextVariants.small}>
+                                      {t('settings.processing.ai.cloud.signedOut.noAccount')}{' '}
+                                      <button
+                                        onClick={() => open('https://www.getrapidraw.com/cloud')}
+                                        className="text-accent hover:underline focus:outline-none"
+                                      >
+                                        {t('settings.processing.ai.cloud.signedOut.signup')}
+                                      </button>
+                                    </Text>
+                                  </div>
+                                </div>
+                              )}
+
+                              {(authStatus === 'idle' || authStatus === 'loading') && (
+                                <Text variant={TextVariants.small}>
+                                  {t('settings.processing.ai.cloud.statuses.connecting')}
+                                </Text>
+                              )}
+
+                              {authStatus === 'unsupported' && (
+                                <Text variant={TextVariants.small}>
+                                  {t('settings.processing.ai.cloud.statuses.unsupported')}
+                                </Text>
+                              )}
+
+                              {authStatus === 'unavailable' && (
+                                <Button onClick={initAuth}>{t('settings.processing.ai.cloud.statuses.retry')}</Button>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   </div>
 
@@ -1832,7 +2143,7 @@ export default function SettingsPanel({
                                       onSettingsChange({ ...appSettings, livePreviewQuality: value })
                                     }
                                     options={livePreviewQualityOptions}
-                                    value={appSettings?.livePreviewQuality || 'high'}
+                                    value={appSettings?.livePreviewQuality === 'performance' ? 'performance' : 'high'}
                                     triggerClassName="bg-bg-primary"
                                   />
                                 </SettingItem>
@@ -1877,42 +2188,6 @@ export default function SettingsPanel({
                           onChange={(checked) => {
                             onSettingsChange({ ...appSettings, alwaysDecodeRawThumbnails: checked });
                           }}
-                        />
-                      </SettingItem>
-
-                      <SettingItem
-                        label={t('settings.processing.workerThreads')}
-                        description={t('settings.processing.workerThreadsDesc')}
-                      >
-                        <Slider
-                          label={t('settings.processing.threads')}
-                          min={2}
-                          max={10}
-                          step={1}
-                          value={processingSettings.thumbnailWorkerThreads}
-                          defaultValue={4}
-                          onChange={(e: any) =>
-                            handleProcessingSettingChange('thumbnailWorkerThreads', parseInt(e.target.value))
-                          }
-                          fillOrigin="min"
-                        />
-                      </SettingItem>
-
-                      <SettingItem
-                        label={t('settings.processing.imageCache')}
-                        description={t('settings.processing.imageCacheDesc')}
-                      >
-                        <Slider
-                          label={t('settings.processing.images')}
-                          min={2}
-                          max={10}
-                          step={1}
-                          value={processingSettings.imageCacheSize}
-                          defaultValue={5}
-                          onChange={(e: any) =>
-                            handleProcessingSettingChange('imageCacheSize', parseInt(e.target.value))
-                          }
-                          fillOrigin="min"
                         />
                       </SettingItem>
 
@@ -1966,6 +2241,110 @@ export default function SettingsPanel({
                           />
                         </SettingItem>
                       )}
+
+                      <SettingItem
+                        label={t('settings.processing.advanced.heading')}
+                        description={t('settings.processing.advanced.headingDesc')}
+                      >
+                        <div className="bg-bg-primary rounded-xl overflow-hidden">
+                          <button
+                            onClick={() => setIsAdvancedProcessingExpanded((expanded) => !expanded)}
+                            className="w-full flex items-center justify-between p-3.5 hover:bg-card-active transition-colors"
+                          >
+                            <Text
+                              as="span"
+                              variant={TextVariants.label}
+                              color={TextColors.primary}
+                              className="flex items-center gap-2"
+                            >
+                              <SettingsIcon size={16} /> {t('settings.processing.advanced.title')}
+                            </Text>
+                            <Text color={TextColors.secondary}>
+                              {isAdvancedProcessingExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                            </Text>
+                          </button>
+                          <AnimatePresence initial={false}>
+                            {isAdvancedProcessingExpanded && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+                                className="overflow-hidden"
+                              >
+                                <div className="px-4 pb-4 pt-4 border-t border-surface/50 space-y-8">
+                                  <SettingItem
+                                    label={t('settings.processing.workerThreads')}
+                                    description={t('settings.processing.workerThreadsDesc')}
+                                  >
+                                    <Slider
+                                      label={t('settings.processing.threads')}
+                                      min={2}
+                                      max={10}
+                                      step={1}
+                                      value={processingSettings.thumbnailWorkerThreads}
+                                      defaultValue={4}
+                                      onChange={(e: any) =>
+                                        handleProcessingSettingChange(
+                                          'thumbnailWorkerThreads',
+                                          parseInt(e.target.value),
+                                        )
+                                      }
+                                      fillOrigin="min"
+                                    />
+                                  </SettingItem>
+
+                                  <SettingItem
+                                    label={t('settings.processing.imageCache')}
+                                    description={t('settings.processing.imageCacheDesc')}
+                                  >
+                                    <Slider
+                                      label={t('settings.processing.images')}
+                                      min={2}
+                                      max={10}
+                                      step={1}
+                                      value={processingSettings.imageCacheSize}
+                                      defaultValue={5}
+                                      onChange={(e: any) =>
+                                        handleProcessingSettingChange('imageCacheSize', parseInt(e.target.value))
+                                      }
+                                      fillOrigin="min"
+                                    />
+                                  </SettingItem>
+
+                                  <SettingItem
+                                    label={t('settings.processing.advanced.exportThreads')}
+                                    description={t('settings.processing.advanced.exportThreadsDesc')}
+                                  >
+                                    <Dropdown
+                                      onChange={(value: any) =>
+                                        onSettingsChange({ ...appSettings, exportWorkerThreads: value })
+                                      }
+                                      options={exportWorkerThreadOptions}
+                                      value={appSettings?.exportWorkerThreads ?? 0}
+                                      triggerClassName="bg-surface"
+                                    />
+                                  </SettingItem>
+
+                                  <SettingItem
+                                    label={t('settings.processing.advanced.exportMemoryLimit')}
+                                    description={t('settings.processing.advanced.exportMemoryLimitDesc')}
+                                  >
+                                    <Dropdown
+                                      onChange={(value: any) =>
+                                        onSettingsChange({ ...appSettings, exportMemoryLimit: value })
+                                      }
+                                      options={exportMemoryLimits}
+                                      value={appSettings?.exportMemoryLimit ?? 80}
+                                      triggerClassName="bg-surface"
+                                    />
+                                  </SettingItem>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      </SettingItem>
 
                       {restartRequired && (
                         <>
@@ -2086,6 +2465,68 @@ export default function SettingsPanel({
 
                       <div className="space-y-4">
                         <SettingItem
+                          label={t('settings.processing.preprocessing.baselineExposure')}
+                          description={t('settings.processing.preprocessing.baselineExposureDesc')}
+                        >
+                          <Switch
+                            checked={appSettings?.enableBaselineExposure ?? false}
+                            id="baseline-exposure-toggle"
+                            label={t('settings.processing.preprocessing.enableBaselineExposure')}
+                            onChange={(checked) =>
+                              onSettingsChange({ ...appSettings, enableBaselineExposure: checked })
+                            }
+                          />
+                        </SettingItem>
+
+                        <AnimatePresence>
+                          {(appSettings?.enableBaselineExposure ?? false) && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.3, ease: 'easeInOut' }}
+                            >
+                              <div className="pl-4 border-l-2 border-border-color ml-1 space-y-3">
+                                <SettingItem
+                                  label={t('settings.processing.preprocessing.baselineExposureAmount')}
+                                  description={t('settings.processing.preprocessing.baselineExposureAmountDesc')}
+                                >
+                                  <Slider
+                                    label={t('settings.tagging.amount')}
+                                    min={0}
+                                    max={2}
+                                    step={0.05}
+                                    value={processingSettings.baselineExposure}
+                                    defaultValue={DEFAULT_BASELINE_EXPOSURE}
+                                    onChange={(e) =>
+                                      handleProcessingSettingChange('baselineExposure', Number(e.target.value))
+                                    }
+                                    fillOrigin="min"
+                                    suffix=" EV"
+                                  />
+                                </SettingItem>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
+                      <SettingItem
+                        label={t('settings.processing.preprocessing.highlightPreservation')}
+                        description={t('settings.processing.preprocessing.highlightPreservationDesc')}
+                      >
+                        <Switch
+                          checked={appSettings?.compensateHighlightPreservation ?? true}
+                          id="highlight-preservation-toggle"
+                          label={t('settings.processing.preprocessing.enableHighlightPreservation')}
+                          onChange={(checked) =>
+                            onSettingsChange({ ...appSettings, compensateHighlightPreservation: checked })
+                          }
+                        />
+                      </SettingItem>
+
+                      <div className="space-y-4">
+                        <SettingItem
                           label={t('settings.processing.preprocessing.tonemapperOverride')}
                           description={t('settings.processing.preprocessing.tonemapperOverrideDesc')}
                         >
@@ -2145,188 +2586,6 @@ export default function SettingsPanel({
 
                   <div className="p-6 bg-surface rounded-xl shadow-md">
                     <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
-                      {t('settings.processing.ai.title')}
-                    </Text>
-                    <Text className="mb-4">{t('settings.processing.ai.description')}</Text>
-
-                    <AiProviderSwitch selectedProvider={aiProvider} onProviderChange={handleProviderChange} />
-
-                    <div className="mt-8">
-                      <AnimatePresence mode="wait">
-                        {aiProvider === 'cpu' && (
-                          <motion.div
-                            key="cpu"
-                            initial={{ opacity: 0, x: 10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -10 }}
-                            transition={{ duration: 0.2 }}
-                          >
-                            <Text variant={TextVariants.heading}>{t('settings.processing.ai.cpu.title')}</Text>
-                            <Text className="mt-1">{t('settings.processing.ai.cpu.description')}</Text>
-                            <Text as="ul" className="mt-3 space-y-1 list-disc list-inside">
-                              <li>{t('settings.processing.ai.cpu.feature1')}</li>
-                              <li>{t('settings.processing.ai.cpu.feature2')}</li>
-                              <li>{t('settings.processing.ai.cpu.feature3')}</li>
-                            </Text>
-                          </motion.div>
-                        )}
-
-                        {aiProvider === 'ai-connector' && (
-                          <motion.div
-                            key="ai-connector"
-                            initial={{ opacity: 0, x: 10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -10 }}
-                            transition={{ duration: 0.2 }}
-                          >
-                            <div className="space-y-8">
-                              <div>
-                                <Text variant={TextVariants.heading}>
-                                  {t('settings.processing.ai.connector.title')}
-                                </Text>
-                                <Text className="mt-1">{t('settings.processing.ai.connector.description')}</Text>
-                                <Text as="ul" className="mt-3 space-y-1 list-disc list-inside">
-                                  <li>{t('settings.processing.ai.connector.feature1')}</li>
-                                  <li>{t('settings.processing.ai.connector.feature2')}</li>
-                                  <li>{t('settings.processing.ai.connector.feature3')}</li>
-                                </Text>
-                              </div>
-                              <SettingItem
-                                label={t('settings.processing.ai.connector.address')}
-                                description={t('settings.processing.ai.connector.addressDesc')}
-                              >
-                                <div className="flex items-center gap-2">
-                                  <Input
-                                    className="grow"
-                                    id="ai-connector-address"
-                                    onBlur={() =>
-                                      onSettingsChange({ ...appSettings, aiConnectorAddress: aiConnectorAddress })
-                                    }
-                                    onChange={(e: any) => setAiConnectorAddress(e.target.value)}
-                                    onKeyDown={(e: any) => e.stopPropagation()}
-                                    placeholder="127.0.0.1:8188"
-                                    type="text"
-                                    value={aiConnectorAddress}
-                                    bgClassName="bg-bg-primary"
-                                  />
-                                  <Button
-                                    className="w-32"
-                                    disabled={testStatus.testing || !aiConnectorAddress}
-                                    onClick={handleTestConnection}
-                                  >
-                                    {testStatus.testing
-                                      ? t('settings.processing.ai.connector.testing')
-                                      : t('settings.processing.ai.connector.test')}
-                                  </Button>
-                                </div>
-                                {testStatus.message && (
-                                  <Text
-                                    color={testStatus.success ? TextColors.success : TextColors.error}
-                                    className="mt-2 flex items-center gap-2"
-                                  >
-                                    {testStatus.success === true && <Wifi size={16} />}
-                                    {testStatus.success === false && <WifiOff size={16} />}
-                                    {testStatus.message}
-                                  </Text>
-                                )}
-                              </SettingItem>
-                            </div>
-                          </motion.div>
-                        )}
-
-                        {aiProvider === 'cloud' && (
-                          <motion.div
-                            key="cloud"
-                            initial={{ opacity: 0, x: 10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -10 }}
-                            transition={{ duration: 0.2 }}
-                          >
-                            <Text variant={TextVariants.heading}>{t('settings.processing.ai.cloud.title')}</Text>
-                            <Text className="mt-1">{t('settings.processing.ai.cloud.description')}</Text>
-                            <Text as="ul" className="mt-3 space-y-1 list-disc list-inside">
-                              <li>{t('settings.processing.ai.cloud.feature1')}</li>
-                              <li>{t('settings.processing.ai.cloud.feature2')}</li>
-                              <li>{t('settings.processing.ai.cloud.feature3')}</li>
-                            </Text>
-
-                            <div className="mt-8">
-                              <Show when="signed-in">
-                                <div className="p-6 bg-bg-primary rounded-xl border border-border-color shadow-inner">
-                                  <CloudDashboard />
-                                </div>
-                              </Show>
-                              <Show when="signed-out">
-                                <div className="w-full max-w-md">
-                                  <SignIn
-                                    routing="hash"
-                                    fallbackRedirectUrl="/"
-                                    forceRedirectUrl="/"
-                                    appearance={{
-                                      variables: {
-                                        colorBackground: 'transparent',
-                                        colorInput: 'transparent',
-                                        colorForeground: 'inherit',
-                                        colorInputForeground: 'inherit',
-                                        colorPrimaryForeground: 'inherit',
-                                        colorBorder: 'transparent',
-                                        colorShadow: 'none',
-                                        colorNeutral: 'inherit',
-                                      },
-                                      elements: {
-                                        rootBox: '',
-
-                                        cardBox: '!shadow-none !m-0 !p-0 !rounded-none',
-
-                                        card: '!bg-transparent !border-none !shadow-none !py-0 !px-1 !rounded-none',
-
-                                        header: '!hidden',
-
-                                        formFieldLabel: '!text-base !font-semibold !text-text-primary !block !mb-2',
-
-                                        formFieldAction:
-                                          '!text-text-secondary hover:!text-text-primary !transition-colors !no-underline hover:!underline',
-
-                                        formFieldInput:
-                                          '!bg-bg-primary !border !border-border-color !text-text-primary focus:!border-accent focus:!ring-1 focus:!ring-accent !rounded-md !px-3 !py-2',
-
-                                        formButtonPrimary:
-                                          '!bg-accent !text-button-text hover:!bg-accent/90 !shadow-none !transition-colors !rounded-md !mt-4 !py-2',
-
-                                        footer:
-                                          '!bg-transparent !p-0 !mt-4 opacity-50 hover:opacity-100 transition-opacity',
-                                        footerAction: '!hidden',
-
-                                        identityPreview:
-                                          '!bg-bg-primary !border !border-border-color !rounded-md !mb-4',
-                                        identityPreviewText: '!text-text-primary !font-medium',
-                                        identityPreviewEditButtonIcon:
-                                          '!text-text-secondary hover:!text-text-primary !transition-colors',
-                                      },
-                                    }}
-                                  />
-                                  <div className="mt-6">
-                                    <Text variant={TextVariants.small}>
-                                      {t('settings.processing.ai.cloud.signedOut.noAccount')}{' '}
-                                      <button
-                                        onClick={() => open('https://www.getrapidraw.com/cloud')}
-                                        className="text-accent hover:underline focus:outline-none"
-                                      >
-                                        {t('settings.processing.ai.cloud.signedOut.signup')}
-                                      </button>
-                                    </Text>
-                                  </div>
-                                </div>
-                              </Show>
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  </div>
-
-                  <div className="p-6 bg-surface rounded-xl shadow-md">
-                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-8">
                       {t('settings.data.title')}
                     </Text>
                     <div className="space-y-8">
@@ -2370,6 +2629,19 @@ export default function SettingsPanel({
                         isProcessing={isClearingCache}
                         message={cacheClearMessage}
                         title={t('settings.data.clearThumbnail')}
+                      />
+
+                      <DataActionItem
+                        buttonAction={handleClearAiDenoiseCache}
+                        buttonText={t('settings.data.clearAiDenoiseButton')}
+                        description={t('settings.data.clearAiDenoiseDesc', {
+                          size: aiDenoiseCacheSize === null ? '…' : formatBytes(aiDenoiseCacheSize, t),
+                        })}
+                        disabled={!aiDenoiseCacheSize}
+                        icon={<Trash2 size={16} className="mr-2" />}
+                        isProcessing={isClearingAiDenoiseCache}
+                        message={aiDenoiseCacheMessage}
+                        title={t('settings.data.clearAiDenoise')}
                       />
 
                       <DataActionItem

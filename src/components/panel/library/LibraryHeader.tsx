@@ -19,10 +19,12 @@ import {
   FilterCriteria,
   RawStatus,
   EditedStatus,
+  FlagStatus,
   LibraryViewMode,
   SortCriteria,
   SortDirection,
   ExifOverlay,
+  RATING_OPERATORS,
   GroupingMode,
   ThumbnailSize,
   ThumbnailAspectRatio,
@@ -143,7 +145,8 @@ const SegmentedSwitch = ({ options, value, onChange }: SegmentedSwitchProps) => 
   );
 };
 
-const RatingSegmentedSwitch = ({ rating, onChange, ratingFilterOptions }: any) => {
+const RatingSegmentedSwitch = ({ rating, onChange, ratingFilterOptions, operator, onOperatorChange }: any) => {
+  const { t } = useTranslation();
   const [bubbleStyle, setBubbleStyle] = useState({});
   const isInitialAnimation = useRef(true);
 
@@ -167,73 +170,84 @@ const RatingSegmentedSwitch = ({ rating, onChange, ratingFilterOptions }: any) =
     }
   }, [activeIndex]);
 
+  const op = RATING_OPERATORS[operator as keyof typeof RATING_OPERATORS] ?? RATING_OPERATORS.gte;
+
   return (
-    <div className="w-full bg-bg-primary p-1 rounded-md">
-      <div className="relative flex w-full">
-        <motion.div
-          className="absolute top-0 bottom-0 left-0 z-0 bg-card-active shadow-xs"
-          style={{ borderRadius: 6 }}
-          animate={bubbleStyle}
-          initial={false}
-          transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
-        />
+    <div className="flex w-full items-stretch gap-1">
+      <div className="flex-1 min-w-0 bg-bg-primary p-1 rounded-md">
+        <div className="relative flex w-full">
+          <motion.div
+            className="absolute top-0 bottom-0 left-0 z-0 bg-card-active shadow-xs"
+            style={{ borderRadius: 6 }}
+            animate={bubbleStyle}
+            initial={false}
+            transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+          />
 
-        <button
-          onClick={() => onChange(0)}
-          className={clsx(
-            'relative flex-1 flex items-center justify-center px-1 py-1.5 text-xs rounded-md transition-colors truncate',
-            activeIndex === 0 ? 'text-text-primary font-semibold' : 'text-text-secondary hover:text-text-primary',
-          )}
-        >
-          <span className="relative z-10">{ratingFilterOptions.find((o: any) => o.value === 0)?.label || 'All'}</span>
-        </button>
+          <button
+            onClick={() => onChange(0)}
+            className={clsx(
+              'relative flex-1 flex items-center justify-center px-1 py-1.5 text-xs rounded-md transition-colors truncate',
+              activeIndex === 0 ? 'text-text-primary font-semibold' : 'text-text-secondary hover:text-text-primary',
+            )}
+          >
+            <span className="relative z-10">{ratingFilterOptions.find((o: any) => o.value === 0)?.label || 'All'}</span>
+          </button>
 
-        <button
-          onClick={() => onChange(-1)}
-          className={clsx(
-            'relative flex-1 flex items-center justify-center px-1 py-1.5 text-xs rounded-md transition-colors truncate',
-            activeIndex === 1 ? 'text-text-primary font-semibold' : 'text-text-secondary hover:text-text-primary',
-          )}
-        >
-          <span className="relative z-10">
-            {ratingFilterOptions.find((o: any) => o.value === -1)?.label || 'Unrated'}
-          </span>
-        </button>
+          <button
+            onClick={() => onChange(-1)}
+            className={clsx(
+              'relative flex-1 flex items-center justify-center px-1 py-1.5 text-xs rounded-md transition-colors truncate',
+              activeIndex === 1 ? 'text-text-primary font-semibold' : 'text-text-secondary hover:text-text-primary',
+            )}
+          >
+            <span className="relative z-10">
+              {ratingFilterOptions.find((o: any) => o.value === -1)?.label || 'Unrated'}
+            </span>
+          </button>
 
-        <div
-          className={clsx(
-            'relative flex-1 flex items-center justify-center gap-0.5 px-1 py-1.5 transition-colors',
-            activeIndex === 2 ? 'text-text-primary' : 'text-text-secondary',
-          )}
-        >
-          <div className="flex items-center z-10">
-            {[...Array(5)].map((_, index) => {
-              const starValue = index + 1;
-              const isFilled = rating > 0 && starValue <= rating;
-              const optionLabel = ratingFilterOptions.find((o: any) => o.value === starValue)?.label;
+          <div
+            className={clsx(
+              'relative flex-1 flex items-center justify-center gap-0.5 px-1 py-1.5 transition-colors',
+              activeIndex === 2 ? 'text-text-primary' : 'text-text-secondary',
+            )}
+          >
+            <div className="flex items-center z-10">
+              {[...Array(5)].map((_, index) => {
+                const starValue = index + 1;
+                const isFilled = rating > 0 && starValue <= rating;
+                const optionLabel = `${starValue} ${t(op.suffixKey)}`;
 
-              return (
-                <button
-                  key={starValue}
-                  data-tooltip={optionLabel}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onChange(rating === starValue ? 0 : starValue);
-                  }}
-                  className="focus:outline-hidden transition-transform hover:scale-110 flex items-center justify-center p-0.5"
-                >
-                  <StarIcon
-                    size={14}
-                    className={`transition-colors duration-150 ${
-                      isFilled ? 'text-accent fill-accent' : 'text-text-secondary hover:text-accent'
-                    }`}
-                  />
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={starValue}
+                    data-tooltip={optionLabel}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onChange(rating === starValue ? 0 : starValue);
+                    }}
+                    className="focus:outline-hidden transition-transform hover:scale-110 flex items-center justify-center p-0.5"
+                  >
+                    <StarIcon
+                      size={14}
+                      className={`transition-colors duration-150 ${
+                        isFilled ? 'text-accent fill-accent' : 'text-text-secondary hover:text-accent'
+                      }`}
+                    />
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
+      <button
+        onClick={() => onOperatorChange(op.next)}
+        data-tooltip={t(op.labelKey)}
+        className="w-8 shrink-0 flex items-center justify-center rounded-md bg-bg-primary text-sm font-semibold text-text-primary hover:bg-card-active transition-colors"
+      >
+        {op.symbol}
+      </button>
     </div>
   );
 };
@@ -486,6 +500,7 @@ interface ViewOptionsDropdownProps {
   ratingFilterOptions: Array<{ value: number; label: string }>;
   rawStatusOptions: Array<{ key: RawStatus; label: string }>;
   editedStatusOptions: Array<{ key: EditedStatus; label: string }>;
+  flagStatusOptions: Array<{ key: FlagStatus; label: string }>;
   sortOptions: Array<{ key: string; label: string; disabled?: boolean }>;
 }
 
@@ -502,6 +517,7 @@ export function ViewOptionsDropdown({
   ratingFilterOptions,
   rawStatusOptions,
   editedStatusOptions,
+  flagStatusOptions,
   sortOptions,
 }: ViewOptionsDropdownProps) {
   const { t } = useTranslation();
@@ -528,6 +544,7 @@ export function ViewOptionsDropdown({
     filterCriteria.rating !== 0 ||
     (filterCriteria.rawStatus && filterCriteria.rawStatus !== RawStatus.All) ||
     (filterCriteria.editedStatus && filterCriteria.editedStatus !== EditedStatus.All) ||
+    (filterCriteria.flagStatus && filterCriteria.flagStatus !== FlagStatus.All) ||
     (filterCriteria.colors && filterCriteria.colors.length > 0);
 
   const [lastClickedColor, setLastClickedColor] = useState<string | null>(null);
@@ -681,6 +698,10 @@ export function ViewOptionsDropdown({
             <div className="px-3 mt-1">
               <RatingSegmentedSwitch
                 rating={filterCriteria.rating}
+                operator={filterCriteria.ratingOperator ?? 'gte'}
+                onOperatorChange={(op: 'gte' | 'eq' | 'lte') =>
+                  setFilterCriteria((prev: FilterCriteria) => ({ ...prev, ratingOperator: op }))
+                }
                 onChange={(val: number) => setFilterCriteria((prev: FilterCriteria) => ({ ...prev, rating: val }))}
                 ratingFilterOptions={ratingFilterOptions}
               />
@@ -709,6 +730,19 @@ export function ViewOptionsDropdown({
                 options={editedStatusOptions.map((o) => ({ id: o.key, label: o.label }))}
                 value={filterCriteria.editedStatus || EditedStatus.All}
                 onChange={(val) => setFilterCriteria((prev: FilterCriteria) => ({ ...prev, editedStatus: val }))}
+              />
+            </div>
+          </div>
+
+          <div>
+            <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-3 py-1 uppercase">
+              {t('library.header.viewOptions.filterByFlag')}
+            </Text>
+            <div className="px-3 mt-1">
+              <SegmentedSwitch
+                options={flagStatusOptions.map((o) => ({ id: o.key, label: o.label }))}
+                value={filterCriteria.flagStatus || FlagStatus.All}
+                onChange={(val) => setFilterCriteria((prev: FilterCriteria) => ({ ...prev, flagStatus: val }))}
               />
             </div>
           </div>

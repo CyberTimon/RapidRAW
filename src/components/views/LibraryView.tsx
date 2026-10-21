@@ -12,6 +12,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 
 import { ImageFile, LibraryViewMode, ThumbnailAspectRatio, ThumbnailSize } from '../ui/AppProperties';
 import { GroupBadgeInfo, GroupId } from '../../utils/imageGrouping';
+import { getImageFlag } from '../../utils/imageFlags';
 
 interface LibraryViewProps {
   sortedImageList: ImageFile[];
@@ -190,6 +191,7 @@ export default function LibraryView({
             onRate={handleRate}
             onReset={() => handleResetAdjustments()}
             rating={imageRatings[libraryActivePath || ''] || 0}
+            flag={getImageFlag(imageList, libraryActivePath)}
             thumbnailAspectRatio={thumbnailAspectRatio}
             totalImages={imageList.length}
           />

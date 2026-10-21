@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
+  Ban,
+  Flag,
   Image as ImageIcon,
   Folder,
   FolderOpen,
@@ -12,13 +14,18 @@ import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { useDraggable } from '@dnd-kit/core';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
-import { ThumbnailAspectRatio, ImageFile, ExifOverlay } from '../../ui/AppProperties';
+import FlagBadges from '../../ui/FlagBadges';
+import { ThumbnailAspectRatio, ImageFile, ImageFlag, ExifOverlay } from '../../ui/AppProperties';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights, TEXT_COLOR_KEYS } from '../../../types/typography';
 import { ColumnWidths } from '../MainLibrary';
 import { useProcessStore } from '../../../store/useProcessStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
+import { useLibraryStore } from '../../../store/useLibraryStore';
 import { IconAperture, IconFocalLength, IconIso, IconShutter } from '../editor/ExifIcons';
+
+const LIST_DATE_FORMAT = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+const LIST_TIME_FORMAT = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit' });
 
 interface ImageLayer {
   id: string;
@@ -33,9 +40,11 @@ const ThumbnailComponent = ({
   onContextMenu,
   onImageClick,
   onImageDoubleClick,
+  selectionModeActive,
   onLoad,
   path,
   rating,
+  flag,
   tags,
   aspectRatio: thumbnailAspectRatio,
   isEdited,
@@ -159,9 +168,10 @@ const ThumbnailComponent = ({
 
   const hasEditIcon = !!showEditIcon;
   const hasColorLabel = !!colorLabel;
-  const hasRating = rating > 0;
+  const isRejected = flag === ImageFlag.Reject;
+  const hasRating = rating > 0 && !isRejected;
   const hasGroupBadge = !!groupBadgeLabel;
-  const hasAnyOverlay = hasEditIcon || hasColorLabel || hasRating || hasGroupBadge;
+  const hasAnyOverlay = hasEditIcon || hasColorLabel || hasRating || !!flag || hasGroupBadge;
 
   return (
     <div
@@ -175,12 +185,46 @@ const ThumbnailComponent = ({
       data-bench-id="thumbnail"
       onClick={(e: any) => {
         e.stopPropagation();
-        onImageClick(path, e);
+        if (selectionModeActive) {
+          const state = useLibraryStore.getState();
+          const newSet = new Set(state.multiSelectedPaths);
+          if (newSet.has(path)) newSet.delete(path);
+          else newSet.add(path);
+          const newArr = Array.from(newSet);
+          state.setLibrary({ multiSelectedPaths: newArr });
+        } else {
+          onImageClick(path, e);
+        }
       }}
       onContextMenu={(e: any) => onContextMenu(e, path)}
       onDoubleClick={() => onImageDoubleClick(path)}
     >
-      <div className="relative w-full flex-1 min-h-0 z-0 bg-surface">
+      {selectionModeActive && (
+        <div
+          className={clsx(
+            'absolute top-2 left-2 z-20 w-6 h-6 rounded-full border-2 flex items-center justify-center pointer-events-none',
+            isSelected ? 'bg-accent border-white' : 'bg-black/40 border-white/60',
+          )}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={clsx('w-4 h-4', isSelected ? 'block text-button-text' : 'hidden')}
+          >
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+      )}
+      <div
+        className={clsx(
+          'relative w-full flex-1 min-h-0 z-0 bg-surface transition-opacity duration-200',
+          isRejected && !isForcedHover && 'opacity-40 group-hover:opacity-100',
+        )}
+      >
         {layers.length > 0 && (
           <div className="absolute inset-0 w-full h-full">
             {layers.map((layer) => (
@@ -292,11 +336,13 @@ const ThumbnailComponent = ({
             <StarIcon size={12} className="text-white fill-white" />
           </div>
 
+          <FlagBadges flag={flag} hasPrecedingBadge={hasEditIcon || hasColorLabel || hasRating} />
+
           <div
             className={clsx(
               'flex items-center shrink-0 transition-all duration-200 ease-out overflow-hidden',
               hasGroupBadge ? 'max-w-4 opacity-100 scale-100' : 'max-w-0 opacity-0 scale-75 pointer-events-none',
-              hasGroupBadge && (hasEditIcon || hasColorLabel || hasRating) ? 'ml-1.5' : 'ml-0',
+              hasGroupBadge && (hasEditIcon || hasColorLabel || hasRating || !!flag) ? 'ml-1.5' : 'ml-0',
             )}
             data-tooltip={groupBadgeLabel}
           >
@@ -470,9 +516,11 @@ const ListItemComponent = ({
   onContextMenu,
   onImageClick,
   onImageDoubleClick,
+  selectionModeActive,
   onLoad,
   path,
   rating,
+  flag,
   tags,
   modified,
   aspectRatio: thumbnailAspectRatio,
@@ -591,12 +639,14 @@ const ListItemComponent = ({
 
   const colorTag = tags?.find((t: string) => t.startsWith('color:'))?.substring(6);
   const colorLabel = COLOR_LABELS.find((c: Color) => c.name === colorTag);
+  const isRejected = flag === ImageFlag.Reject;
 
   const dateObj = new Date(modified > 1e11 ? modified : modified * 1000);
-  const dateStr =
-    dateObj.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) +
-    ' ' +
-    dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const dateStr = Number.isNaN(dateObj.getTime())
+    ? dateObj.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) +
+      ' ' +
+      dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : LIST_DATE_FORMAT.format(dateObj) + ' ' + LIST_TIME_FORMAT.format(dateObj);
 
   let roundingClass = 'rounded-md';
   if (isSelected || isActive) {
@@ -626,16 +676,52 @@ const ListItemComponent = ({
       className={`flex items-center w-full h-full cursor-pointer transition-all duration-150 ${borderClass} ${roundingClass} ${stateClass} ${isDragging ? 'opacity-50 ring-2 ring-accent z-50' : ''}`}
       onClick={(e: any) => {
         e.stopPropagation();
-        onImageClick(path, e);
+        if (selectionModeActive) {
+          const state = useLibraryStore.getState();
+          const newSet = new Set(state.multiSelectedPaths);
+          if (newSet.has(path)) newSet.delete(path);
+          else newSet.add(path);
+          const newArr = Array.from(newSet);
+          state.setLibrary({ multiSelectedPaths: newArr });
+        } else {
+          onImageClick(path, e);
+        }
       }}
       onContextMenu={(e: any) => onContextMenu(e, path)}
       onDoubleClick={() => onImageDoubleClick(path)}
     >
+      {selectionModeActive && (
+        <div className="flex items-center justify-center w-8 h-full shrink-0">
+          <div
+            className={clsx(
+              'w-5 h-5 rounded-full border-2 flex items-center justify-center',
+              isSelected ? 'bg-accent border-white' : 'bg-black/20 border-white/60',
+            )}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={3}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={clsx('w-3 h-3', isSelected ? 'block text-button-text' : 'hidden')}
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
+        </div>
+      )}
       <div
         style={{ width: getW('thumbnail') }}
         className="flex items-center justify-center p-1.5 h-full overflow-hidden"
       >
-        <div className="w-full h-full relative overflow-hidden rounded-sm bg-surface flex items-center justify-center">
+        <div
+          className={clsx(
+            'w-full h-full relative overflow-hidden rounded-sm bg-surface flex items-center justify-center',
+            isRejected && 'opacity-40',
+          )}
+        >
           {layers.length > 0 && (
             <div className="absolute inset-0 w-full h-full flex items-center justify-center">
               {layers.map((layer) => (
@@ -711,12 +797,24 @@ const ListItemComponent = ({
       </div>
 
       <div style={{ width: getW('rating') }} className="flex items-center px-3 h-full overflow-hidden">
-        {rating > 0 && (
+        {isRejected ? (
           <div className="flex items-center gap-1">
-            <StarIcon size={12} className="text-accent fill-accent" />
-            <Text variant={TextVariants.small} color={TextColors.primary} weight={TextWeights.medium}>
-              {rating}
+            <Ban size={12} className="text-text-secondary" />
+            <Text variant={TextVariants.small} color={TextColors.secondary} className="truncate">
+              {t('library.items.rejected')}
             </Text>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1">
+            {flag === ImageFlag.Pick && <Flag size={12} className="text-accent fill-accent" />}
+            {rating > 0 && (
+              <>
+                <StarIcon size={12} className="text-accent fill-accent" />
+                <Text variant={TextVariants.small} color={TextColors.primary} weight={TextWeights.medium}>
+                  {rating}
+                </Text>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -777,6 +875,7 @@ const RowComponent = ({
   onContextMenu,
   onImageClick,
   onImageDoubleClick,
+  selectionModeActive,
   thumbnailAspectRatio,
   onImageLoad,
   imageRatings,
@@ -801,18 +900,26 @@ const RowComponent = ({
     row.images.forEach((img: ImageFile) => {
       queueThumbnailRequest(img.path);
     });
+  }, [row, queueThumbnailRequest]);
 
-    const cloudPaths = row.images
-      .filter((img: ImageFile) => img.is_cloud_placeholder)
-      .map((img: ImageFile) => img.path);
-    if (cloudPaths.length === 0) return;
+  const cloudPathsKey =
+    row && row.type === 'images'
+      ? row.images
+          .filter((img: ImageFile) => img.is_cloud_placeholder)
+          .map((img: ImageFile) => img.path)
+          .join('\n')
+      : '';
+
+  useEffect(() => {
+    if (!cloudPathsKey) return;
+    const cloudPaths = cloudPathsKey.split('\n');
 
     const interval = setInterval(() => {
       cloudPaths.forEach((path: string) => queueThumbnailRequest(path));
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [row, queueThumbnailRequest]);
+  }, [cloudPathsKey, queueThumbnailRequest]);
 
   if (row.type === 'footer') return null;
   const shiftedStyle = {
@@ -915,9 +1022,11 @@ const RowComponent = ({
                 onContextMenu={onContextMenu}
                 onImageClick={onImageClick}
                 onImageDoubleClick={onImageDoubleClick}
+                selectionModeActive={selectionModeActive}
                 onLoad={onImageLoad}
                 path={imageFile.path}
                 rating={imageRatings?.[imageFile.path] || 0}
+                flag={imageFile.flag}
                 tags={imageFile.tags}
                 exif={imageFile.exif}
                 aspectRatio={thumbnailAspectRatio}
@@ -934,9 +1043,11 @@ const RowComponent = ({
                 onContextMenu={onContextMenu}
                 onImageClick={onImageClick}
                 onImageDoubleClick={onImageDoubleClick}
+                selectionModeActive={selectionModeActive}
                 onLoad={onImageLoad}
                 path={imageFile.path}
                 rating={imageRatings?.[imageFile.path] || 0}
+                flag={imageFile.flag}
                 tags={imageFile.tags}
                 exif={imageFile.exif}
                 isEdited={imageFile.is_edited}

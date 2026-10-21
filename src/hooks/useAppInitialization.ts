@@ -14,6 +14,7 @@ import {
   LibraryViewMode,
   RawStatus,
   EditedStatus,
+  FlagStatus,
   Theme,
   ThumbnailSize,
   ThumbnailAspectRatio,
@@ -183,6 +184,7 @@ export const useAppInitialization = ({
             ...settings.filterCriteria,
             rawStatus: settings.filterCriteria.rawStatus || RawStatus.All,
             editedStatus: settings.filterCriteria.editedStatus || EditedStatus.All,
+            flagStatus: settings.filterCriteria.flagStatus || FlagStatus.All,
             colors: settings.filterCriteria.colors || [],
           }));
         }

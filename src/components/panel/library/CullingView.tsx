@@ -19,7 +19,9 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import { Invokes, ImageFile, ThumbnailAspectRatio } from '../../ui/AppProperties';
+import { Invokes, ImageFile, ImageFlag, ThumbnailAspectRatio } from '../../ui/AppProperties';
+import FlagToggles from '../../ui/FlagToggles';
+import FlagBadges from '../../ui/FlagBadges';
 import { Thumbnail } from './LibraryItems';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
@@ -30,6 +32,8 @@ import { useLibraryActions } from '../../../hooks/useLibraryActions';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
 import { expandGroupedPaths } from '../../../utils/imageGrouping';
 import { IconAperture, IconFocalLength, IconIso, IconShutter } from '../editor/ExifIcons';
+
+const NOOP = () => {};
 
 interface SyncViewport {
   isActive: boolean;
@@ -72,7 +76,7 @@ function CullingPreview({
   setShowInfoBar: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
   const { t } = useTranslation();
-  const thumbUrl = useProcessStore((s) => s.thumbnails[image.path]);
+  const thumbUrl = useProcessStore((s) => s.mediumThumbnails[image.path] || s.thumbnails[image.path]);
   const initialPreview = useProcessStore((s) => s.previews[image.path]);
   const setPreview = useProcessStore((s) => s.setPreview);
   const safeThumbKey = thumbUrl || '';
@@ -92,7 +96,7 @@ function CullingPreview({
   const panRef = useRef(pan);
   const [tagInputValue, setTagInputValue] = useState('');
   const [fitScale, setFitScale] = useState<number | null>(null);
-  const { handleRate, handleSetColorLabel, handleTagsChanged } = useLibraryActions();
+  const { handleRate, handleToggleFlag, handleSetColorLabel, handleTagsChanged } = useLibraryActions();
   const USER_TAG_PREFIX = 'user:';
   const getPathsToUpdate = () =>
     expandGroupedPaths(
@@ -111,7 +115,8 @@ function CullingPreview({
 
   const displayEditIcon = useSettingsStore((s) => s.appSettings?.displayEditIcon ?? true);
   const showEditIcon = image.is_edited && displayEditIcon;
-  const hasAnyOverlay = showEditIcon || !!colorLabel || rating > 0;
+  const hasRating = rating > 0 && image.flag !== ImageFlag.Reject;
+  const hasAnyOverlay = showEditIcon || !!colorLabel || hasRating || !!image.flag;
 
   const currentTags = useMemo(() => {
     return (image.tags || [])
@@ -681,6 +686,12 @@ function CullingPreview({
                     />
                   </button>
                 ))}
+                <div className="w-px h-4 bg-white/20 mx-1" />
+                <FlagToggles
+                  flag={image.flag}
+                  onToggle={(flag) => handleToggleFlag(flag, [image.path])}
+                  inactiveClassName="text-white/30 hover:text-white/80"
+                />
               </div>
             </div>
 
@@ -831,7 +842,7 @@ function CullingPreview({
               </div>
             )}
 
-            {rating > 0 && (
+            {hasRating && (
               <div className={clsx('flex items-center gap-0.5 shrink-0', (showEditIcon || colorLabel) && 'ml-1.5')}>
                 <Text variant={TextVariants.small} color={TextColors.white}>
                   {rating}
@@ -839,6 +850,8 @@ function CullingPreview({
                 <StarIcon size={12} className="text-white fill-white" />
               </div>
             )}
+
+            <FlagBadges flag={image.flag} hasPrecedingBadge={!!showEditIcon || !!colorLabel || hasRating} />
           </div>
         )}
 
@@ -952,18 +965,21 @@ const Row = React.memo(
   }: any) => {
     const image: ImageFile = imageList[index];
     const isSelected = multiSelectedPaths.includes(image.path);
+    const imagePath = image?.path;
+    const isCloudPlaceholder = !!image?.is_cloud_placeholder;
 
     useEffect(() => {
       if (!image || !queueThumbnailRequest) return;
       queueThumbnailRequest(image.path);
-
-      if (image.is_cloud_placeholder) {
-        const interval = setInterval(() => {
-          queueThumbnailRequest(image.path);
-        }, 5000);
-        return () => clearInterval(interval);
-      }
     }, [image, queueThumbnailRequest]);
+
+    useEffect(() => {
+      if (!imagePath || !isCloudPlaceholder || !queueThumbnailRequest) return;
+      const interval = setInterval(() => {
+        queueThumbnailRequest(imagePath);
+      }, 5000);
+      return () => clearInterval(interval);
+    }, [imagePath, isCloudPlaceholder, queueThumbnailRequest]);
 
     return (
       <div style={style} className="p-2 box-border">
@@ -973,11 +989,12 @@ const Row = React.memo(
             isSelected={isSelected}
             isActive={activePath === image.path}
             isForcedHover={hoveredCullingPath === image.path}
-            onImageClick={(path: string, e: any) => onImageClick(path, e)}
+            onImageClick={onImageClick}
             onContextMenu={onContextMenu}
             onImageDoubleClick={onImageDoubleClick}
-            onLoad={() => {}}
+            onLoad={NOOP}
             rating={imageRatings?.[image.path] || 0}
+            flag={image.flag}
             tags={image.tags}
             exif={image.exif}
             isEdited={image.is_edited}
@@ -1088,6 +1105,15 @@ export default function CullingView(props: any) {
       }
     },
     [onRequestThumbnails],
+  );
+
+  useEffect(
+    () => () => {
+      if (requestTimeoutRef.current) clearTimeout(requestTimeoutRef.current);
+      requestTimeoutRef.current = null;
+      requestQueueRef.current.clear();
+    },
+    [],
   );
 
   useEffect(() => {

@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GLOBAL_KEYS } from './AppProperties';
 
-type SliderChangeEvent =
+export type SliderChangeEvent =
   | React.ChangeEvent<HTMLInputElement>
   | {
       target: {
@@ -15,6 +15,16 @@ export interface SliderMarker {
   value: number;
 }
 
+export interface SliderScale {
+  fromPosition(position: number): number;
+  toPosition(value: number): number;
+}
+
+const LINEAR_SCALE: SliderScale = {
+  fromPosition: (position) => position,
+  toPosition: (value) => value,
+};
+
 interface SliderProps {
   defaultValue?: number;
   disabled?: boolean;
@@ -25,6 +35,7 @@ interface SliderProps {
   onChange(event: SliderChangeEvent): void;
   onDragStateChange?(state: boolean): void;
   onPointerUp?(): void;
+  scale?: SliderScale;
   step: number;
   value: number;
   trackClassName?: string;
@@ -52,6 +63,7 @@ const Slider = ({
   onChange,
   onDragStateChange = () => {},
   onPointerUp,
+  scale = LINEAR_SCALE,
   step = 1,
   value,
   trackClassName,
@@ -75,11 +87,16 @@ const Slider = ({
     startX: number;
     startY: number;
     latestX: number;
-    startValue: number;
+    startPosition: number;
   } | null>(null);
   const suppressTouchChangeRef = useRef(false);
   const isWheelActivelyChangingRef = useRef(false);
   const wheelTimeoutRef = useRef<number | undefined>(undefined);
+  const dragFrameRef = useRef<number | undefined>(undefined);
+  const pendingDragValueRef = useRef<number | null>(null);
+  const lastEmittedValueRef = useRef<number | null>(null);
+  const isDraggingRef = useRef(false);
+  const hasReportedDragStateRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -89,13 +106,17 @@ const Slider = ({
     };
   }, []);
 
-  const fillPercentage = getFraction(displayValue, min, max) * 100;
+  const minPosition = scale.toPosition(min);
+  const maxPosition = scale.toPosition(max);
+  const getPositionFraction = (val: number) => getFraction(scale.toPosition(val), minPosition, maxPosition);
+
+  const fillPercentage = getPositionFraction(displayValue) * 100;
   const originPercentage = useMemo(() => {
     if (fillOrigin === 'min') {
       return 0;
     }
-    return getFraction(defaultValue, min, max) * 100;
-  }, [fillOrigin, defaultValue, min, max]);
+    return getFraction(scale.toPosition(defaultValue), minPosition, maxPosition) * 100;
+  }, [fillOrigin, defaultValue, scale, minPosition, maxPosition]);
 
   const stepStr = String(step);
   const decimalPlaces = stepStr.includes('.') ? stepStr.split('.')[1].length : 0;
@@ -111,18 +132,37 @@ const Slider = ({
 
   const onChangeRef = useRef(onChange);
   const snapToStepRef = useRef(snapToStep);
-  const rangeRef = useRef({ min, max });
+  const rangeRef = useRef({ min: minPosition, max: maxPosition });
+  const scaleRef = useRef(scale);
 
   onChangeRef.current = onChange;
   snapToStepRef.current = snapToStep;
-  rangeRef.current = { min, max };
+  rangeRef.current = { min: minPosition, max: maxPosition };
+  scaleRef.current = scale;
 
   const onDragStateChangeRef = useRef(onDragStateChange);
   onDragStateChangeRef.current = onDragStateChange;
+  isDraggingRef.current = isDragging;
 
   useEffect(() => {
+    if (!hasReportedDragStateRef.current && !isDragging) return;
+    hasReportedDragStateRef.current = true;
     onDragStateChangeRef.current(isDragging);
   }, [isDragging]);
+
+  useEffect(() => {
+    return () => {
+      if (dragFrameRef.current !== undefined) {
+        cancelAnimationFrame(dragFrameRef.current);
+      }
+      if (isDraggingRef.current) {
+        onDragStateChangeRef.current(false);
+      }
+    };
+  }, []);
+
+  const wheelStateRef = useRef({ disabled, value, min, max, step, decimalPlaces });
+  wheelStateRef.current = { disabled, value, min, max, step, decimalPlaces };
 
   useEffect(() => {
     if (!disabled) return;
@@ -152,6 +192,7 @@ const Slider = ({
     if (!sliderElement) return;
 
     const handleWheel = (event: WheelEvent) => {
+      const { disabled, value, min, max, step, decimalPlaces } = wheelStateRef.current;
       if (disabled || !event.shiftKey) {
         return;
       }
@@ -180,7 +221,7 @@ const Slider = ({
             value: clampedValue,
           },
         };
-        onChange(syntheticEvent);
+        onChangeRef.current(syntheticEvent);
       }
     };
 
@@ -189,7 +230,7 @@ const Slider = ({
     return () => {
       sliderElement.removeEventListener('wheel', handleWheel);
     };
-  }, [disabled, value, min, max, step, onChange, decimalPlaces]);
+  }, []);
 
   // Handle Dragging
   useEffect(() => {
@@ -198,6 +239,18 @@ const Slider = ({
     const inputEl = rangeInputRef.current;
     if (!inputEl) return;
     const sliderWidth = inputEl.getBoundingClientRect().width || 1;
+
+    const flushDragValue = () => {
+      dragFrameRef.current = undefined;
+      const nextValue = pendingDragValueRef.current;
+      pendingDragValueRef.current = null;
+      if (nextValue === null || nextValue === lastEmittedValueRef.current) return;
+
+      lastEmittedValueRef.current = nextValue;
+      setDisplayValue(nextValue);
+      setInputValue(String(nextValue));
+      onChangeRef.current({ target: { value: nextValue } });
+    };
 
     const handlePointerMove = (e: MouseEvent | TouchEvent) => {
       let clientX: number;
@@ -229,14 +282,17 @@ const Slider = ({
         lastPointerXRef.current = clientX;
       }
 
-      const snappedValue = snapToStepRef.current(accumulatedValueRef.current);
-
-      setDisplayValue(snappedValue);
-      setInputValue(String(snappedValue));
-      onChangeRef.current({ target: { value: snappedValue } });
+      pendingDragValueRef.current = snapToStepRef.current(scaleRef.current.fromPosition(accumulatedValueRef.current));
+      if (dragFrameRef.current === undefined) {
+        dragFrameRef.current = requestAnimationFrame(flushDragValue);
+      }
     };
 
     const handlePointerUp = () => {
+      if (dragFrameRef.current !== undefined) {
+        cancelAnimationFrame(dragFrameRef.current);
+      }
+      flushDragValue();
       lastUpTime.current = Date.now();
       pendingTouchRef.current = null;
       suppressTouchChangeRef.current = false;
@@ -253,6 +309,11 @@ const Slider = ({
     window.addEventListener('touchcancel', handlePointerUp);
 
     return () => {
+      if (dragFrameRef.current !== undefined) {
+        cancelAnimationFrame(dragFrameRef.current);
+        dragFrameRef.current = undefined;
+      }
+      pendingDragValueRef.current = null;
       window.removeEventListener('mousemove', handlePointerMove);
       window.removeEventListener('mouseup', handlePointerUp);
       window.removeEventListener('touchmove', handlePointerMove);
@@ -341,10 +402,11 @@ const Slider = ({
     }
 
     if (!isDragging) {
-      const numVal = Number(e.target.value);
+      const numVal =
+        scale === LINEAR_SCALE ? Number(e.target.value) : snapToStep(scale.fromPosition(Number(e.target.value)));
       setDisplayValue(numVal);
       setInputValue(String(numVal));
-      onChange(e);
+      onChange(scale === LINEAR_SCALE ? e : { target: { value: numVal } });
     }
   };
 
@@ -359,11 +421,12 @@ const Slider = ({
 
     const rect = e.currentTarget.getBoundingClientRect();
     const fraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const rawValue = min + fraction * (max - min);
-    const snappedValue = snapToStep(rawValue);
+    const rawPosition = minPosition + fraction * (maxPosition - minPosition);
+    const snappedValue = snapToStep(scale.fromPosition(rawPosition));
 
-    accumulatedValueRef.current = rawValue;
+    accumulatedValueRef.current = rawPosition;
     lastPointerXRef.current = e.clientX;
+    lastEmittedValueRef.current = snappedValue;
 
     setIsDragging(true);
     setDisplayValue(snappedValue);
@@ -383,7 +446,7 @@ const Slider = ({
     if (!inputEl) return;
 
     const rect = inputEl.getBoundingClientRect();
-    const thumbX = rect.left + Math.max(0, Math.min(1, getFraction(displayValue, min, max))) * rect.width;
+    const thumbX = rect.left + Math.max(0, Math.min(1, getPositionFraction(displayValue))) * rect.width;
 
     if (Math.abs(touch.clientX - thumbX) > TOUCH_THUMB_HIT_RADIUS_PX) {
       pendingTouchRef.current = null;
@@ -394,7 +457,7 @@ const Slider = ({
       startX: touch.clientX,
       startY: touch.clientY,
       latestX: touch.clientX,
-      startValue: displayValue,
+      startPosition: scale.toPosition(displayValue),
     };
   };
 
@@ -424,11 +487,12 @@ const Slider = ({
 
     const rect = inputEl.getBoundingClientRect();
     const multiplier = hasFineAdjustmentModifier(e) ? FINE_ADJUSTMENT_MULTIPLIER : 1;
-    const rawValue = pendingTouch.startValue + (deltaX / rect.width) * (max - min) * multiplier;
-    const snappedValue = snapToStep(rawValue);
+    const rawPosition = pendingTouch.startPosition + (deltaX / rect.width) * (maxPosition - minPosition) * multiplier;
+    const snappedValue = snapToStep(scale.fromPosition(rawPosition));
 
-    accumulatedValueRef.current = rawValue;
+    accumulatedValueRef.current = rawPosition;
     lastPointerXRef.current = touch.clientX;
+    lastEmittedValueRef.current = snappedValue;
     pendingTouchRef.current = null;
 
     if (e.cancelable) {
@@ -564,7 +628,7 @@ const Slider = ({
             </span>
           )}
         </div>
-        <div className="w-12 text-right">
+        <div className="w-14 text-right shrink-0">
           {isEditing ? (
             <input
               className="w-full text-sm text-right bg-card-active border border-gray-500 rounded-sm px-1 py-0 outline-none focus:ring-1 focus:ring-blue-500 text-text-primary"
@@ -581,13 +645,13 @@ const Slider = ({
             />
           ) : (
             <span
-              className={`text-sm text-text-primary w-full text-right select-none ${disabled ? '' : 'cursor-text'}`}
+              className={`text-sm text-text-primary w-full text-right select-none whitespace-nowrap ${disabled ? '' : 'cursor-text'}`}
               onClick={disabled ? undefined : handleValueClick}
               onDoubleClick={disabled ? undefined : handleReset}
               data-tooltip={disabled ? undefined : t('ui.slider.clickToEdit')}
             >
               {decimalPlaces > 0 && numericValue === 0 ? '0' : numericValue.toFixed(decimalPlaces)}
-              {suffix && <span className="text-[10px] align-top inline-block mt-0.5 ml-0.5">{suffix}</span>}
+              {suffix && <span className="text-[10px] align-top inline ml-0.5">{suffix}</span>}
             </span>
           )}
         </div>
@@ -612,7 +676,7 @@ const Slider = ({
             key={index}
             style={{
               backgroundColor: color,
-              left: `calc(8px + (100% - 16px) * ${Math.max(0, Math.min(1, getFraction(markerValue, min, max)))})`,
+              left: `calc(8px + (100% - 16px) * ${Math.max(0, Math.min(1, getPositionFraction(markerValue)))})`,
             }}
           />
         ))}
@@ -622,8 +686,8 @@ const Slider = ({
             isDragging ? 'slider-thumb-active' : ''
           } ${disabled ? 'cursor-not-allowed' : ''}`}
           style={{ margin: 0, touchAction: isDragging ? 'none' : 'pan-y' }}
-          max={String(max)}
-          min={String(min)}
+          max={String(maxPosition)}
+          min={String(minPosition)}
           onChange={handleChange}
           onDoubleClick={handleReset}
           onKeyDown={handleRangeKeyDown}
@@ -632,13 +696,13 @@ const Slider = ({
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
           onTouchCancel={handleTouchEnd}
-          step={String(step)}
+          step={scale === LINEAR_SCALE ? String(step) : 'any'}
           type="range"
-          value={displayValue}
+          value={scale.toPosition(displayValue)}
         />
       </div>
     </div>
   );
 };
 
-export default Slider;
+export default memo(Slider);

@@ -220,32 +220,43 @@ pub fn generate_tags_with_clip(
     }
 
     scored_tags.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-    let initial_tags: Vec<String> = scored_tags
-        .into_iter()
-        .take(max_tags)
-        .map(|(tag, _)| tag)
-        .collect();
+    let ranked_tags: Vec<String> = scored_tags.into_iter().map(|(tag, _)| tag).collect();
 
-    let mut final_tags_set: HashSet<String> = initial_tags.iter().cloned().collect();
+    let color_tags = if is_custom {
+        Vec::new()
+    } else {
+        extract_color_tags(image)
+    };
 
-    if !is_custom {
-        let color_tags = extract_color_tags(image);
-        for color_tag in color_tags {
-            final_tags_set.insert(color_tag);
+    Ok(limit_tags(&ranked_tags, !is_custom, color_tags, max_tags))
+}
+
+fn limit_tags(
+    ranked_tags: &[String],
+    add_parents: bool,
+    color_tags: Vec<String>,
+    max_tags: usize,
+) -> Vec<String> {
+    let mut final_tags: Vec<String> = Vec::new();
+    let mut add_tag = |tag: &str| {
+        if final_tags.len() < max_tags && !final_tags.iter().any(|t| t == tag) {
+            final_tags.push(tag.to_string());
         }
+    };
 
-        for tag in &initial_tags {
-            if let Some(parents) = TAG_HIERARCHY.get(tag.as_str()) {
-                for &parent in parents {
-                    final_tags_set.insert(parent.to_string());
-                }
+    for tag in ranked_tags {
+        add_tag(tag);
+        if add_parents && let Some(parents) = TAG_HIERARCHY.get(tag.as_str()) {
+            for parent in parents {
+                add_tag(parent);
             }
         }
     }
+    for color_tag in &color_tags {
+        add_tag(color_tag);
+    }
 
-    let final_tags = final_tags_set.into_iter().collect();
-
-    Ok(final_tags)
+    final_tags
 }
 
 #[tauri::command]
@@ -330,7 +341,7 @@ pub async fn start_background_indexing(
 
                 async move {
                     let path_str = path.to_string_lossy().to_string();
-                    let (_, sidecar_path) = parse_virtual_path(&path_str);
+                    let (source_path, sidecar_path) = parse_virtual_path(&path_str);
 
                     let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
@@ -370,10 +381,11 @@ pub async fn start_background_indexing(
 
                                     metadata.tags = Some(final_tags);
 
-                                    if let Ok(json_string) = serde_json::to_string_pretty(&metadata)
-                                    {
-                                        let _ = fs::write(sidecar_path, json_string);
-                                    }
+                                    let _ = crate::exif_processing::write_sidecar(
+                                        &sidecar_path,
+                                        &source_path,
+                                        &metadata,
+                                    );
                                 }
                             }
                             Err(e) => {
@@ -434,8 +446,8 @@ fn modify_tags_for_path(
         metadata.tags = Some(tags);
     }
 
-    let json_string = serde_json::to_string_pretty(&metadata).map_err(|e| e.to_string())?;
-    fs::write(&sidecar_path, json_string).map_err(|e| e.to_string())?;
+    crate::exif_processing::write_sidecar(&sidecar_path, &source_path, &metadata)
+        .map_err(|e| e.to_string())?;
 
     if let Ok(settings) = crate::load_settings(app_handle.clone())
         && settings.enable_xmp_sync.unwrap_or(false)
@@ -485,18 +497,7 @@ pub fn remove_tag_for_paths(
 
 fn rrdata_source_path(rrdata: &Path) -> Option<PathBuf> {
     let name = rrdata.file_name()?.to_str()?;
-    let base = name.strip_suffix(".rrdata")?;
-
-    let source_filename = if base.len() >= 7 && base.as_bytes()[base.len() - 7] == b'.' {
-        let id = &base[base.len() - 6..];
-        if id.chars().all(|c| c.is_ascii_hexdigit()) {
-            &base[..base.len() - 7]
-        } else {
-            base
-        }
-    } else {
-        base
-    };
+    let (source_filename, _) = crate::file_management::parse_sidecar_name(name)?;
 
     Some(rrdata.with_file_name(source_filename))
 }
@@ -512,6 +513,19 @@ fn sync_xmp_for_rrdata(
     }
     if let Some(source_path) = rrdata_source_path(rrdata_path) {
         file_management::sync_metadata_to_xmp(&source_path, metadata, create_xmp_if_missing);
+    }
+}
+
+fn write_rrdata(rrdata_path: &Path, metadata: &ImageMetadata) -> std::io::Result<()> {
+    match rrdata_source_path(rrdata_path) {
+        Some(source_path) => {
+            crate::exif_processing::write_sidecar(rrdata_path, &source_path, metadata)
+        }
+        None => {
+            let json_string =
+                serde_json::to_string_pretty(metadata).map_err(std::io::Error::other)?;
+            fs::write(rrdata_path, json_string)
+        }
     }
 }
 
@@ -546,9 +560,7 @@ pub fn clear_ai_tags(root_path: String, app_handle: AppHandle) -> Result<usize, 
                 if tags.is_empty() {
                     metadata.tags = None;
                 }
-                if let Ok(json_string) = serde_json::to_string_pretty(&metadata)
-                    && fs::write(path, json_string).is_ok()
-                {
+                if write_rrdata(path, &metadata).is_ok() {
                     updated_count += 1;
                     sync_xmp_for_rrdata(path, &metadata, enable_xmp_sync, create_xmp_if_missing);
                 }
@@ -587,9 +599,7 @@ pub fn clear_all_tags(root_path: String, app_handle: AppHandle) -> Result<usize,
                 if tags.is_empty() {
                     metadata.tags = None;
                 }
-                if let Ok(json_string) = serde_json::to_string_pretty(&metadata)
-                    && fs::write(path, json_string).is_ok()
-                {
+                if write_rrdata(path, &metadata).is_ok() {
                     updated_count += 1;
                     sync_xmp_for_rrdata(path, &metadata, enable_xmp_sync, create_xmp_if_missing);
                 }

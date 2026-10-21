@@ -10,6 +10,7 @@ import Button from '../../ui/Button';
 import Dropdown from '../../ui/Dropdown';
 import Slider from '../../ui/Slider';
 import ImagePicker from '../../ui/ImagePicker';
+import ColorField, { normalizeHexColor, ParsedTextField, useParsedTextField } from '../../ui/ColorField';
 import {
   BorderBasis,
   ExportPreset,
@@ -20,6 +21,7 @@ import {
   Status,
   ExportState,
   FileFormats,
+  MAX_EXPORT_DPI,
   TiffBitDepth,
   WatermarkAnchor,
 } from '../../ui/ExportImportProperties';
@@ -31,6 +33,7 @@ import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useUIStore } from '../../../store/useUIStore';
+import { formatBytes } from '../../../utils/formatBytes';
 
 interface ExportPanelProps {
   exportState: ExportState;
@@ -58,37 +61,9 @@ function parsePercent(value: string): number | null {
   return Number.isFinite(parsed) && parsed >= 0 && parsed <= MAX_BORDER_PERCENT ? parsed : null;
 }
 
-function normalizeHexColor(value: string): string | null {
-  const trimmed = value.trim();
-  const hex = trimmed.startsWith('#') ? trimmed.slice(1) : trimmed;
-  return /^[0-9a-fA-F]{6}$/.test(hex) ? `#${hex.toLowerCase()}` : null;
-}
-
-interface ParsedTextField<T> {
-  text: string;
-  parsed: T | null;
-  handleChange: (text: string) => void;
-  resetText: () => void;
-}
-
-function useParsedTextField<T>(
-  value: T,
-  onValidChange: (value: T) => void,
-  parse: (text: string) => T | null,
-): ParsedTextField<T> {
-  const [text, setText] = useState<string>(String(value));
-
-  useEffect(() => {
-    setText(String(value));
-  }, [value]);
-
-  const handleChange = (next: string) => {
-    setText(next);
-    const parsed = parse(next);
-    if (parsed !== null) onValidChange(parsed);
-  };
-
-  return { text, parsed: parse(text), handleChange, resetText: () => setText(String(value)) };
+function parseDpi(value: string): number | null {
+  const parsed = Number(value.trim());
+  return Number.isInteger(parsed) && parsed > 0 && parsed <= MAX_EXPORT_DPI ? parsed : null;
 }
 
 interface ValidatedNumberInputProps {
@@ -113,42 +88,6 @@ function ValidatedNumberInput({ ariaLabel, disabled, field, max }: ValidatedNumb
       type="number"
       value={field.text}
     />
-  );
-}
-
-interface ColorFieldProps {
-  color: string;
-  disabled: boolean;
-  field: ParsedTextField<string>;
-  label: string;
-  onColorChange: (color: string) => void;
-}
-
-function ColorField({ color, disabled, field, label, onColorChange }: ColorFieldProps) {
-  return (
-    <div>
-      <Text variant={TextVariants.label} className="mb-2 block">
-        {label}
-      </Text>
-      <div className="flex items-center gap-2 bg-surface p-2 rounded-md">
-        <input
-          aria-label={label}
-          className="w-8 h-8 p-0 border-none rounded-sm cursor-pointer bg-transparent"
-          disabled={disabled}
-          onChange={(e) => onColorChange(e.target.value)}
-          type="color"
-          value={color}
-        />
-        <input
-          className="w-full bg-bg-primary text-center rounded-md p-1 border border-surface focus:border-accent focus:ring-accent"
-          disabled={disabled}
-          onBlur={field.resetText}
-          onChange={(e) => field.handleChange(e.target.value)}
-          type="text"
-          value={field.text}
-        />
-      </div>
-    </div>
   );
 }
 
@@ -268,21 +207,6 @@ function WatermarkPreview({
   );
 }
 
-const formatBytes = (bytes: number, t: any, decimals = 2) => {
-  if (!+bytes) return `0 ${t('export.bytes.bytes')}`;
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = [
-    t('export.bytes.bytes'),
-    t('export.bytes.kb'),
-    t('export.bytes.mb'),
-    t('export.bytes.gb'),
-    t('export.bytes.tb'),
-  ];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
-};
-
 export default function ExportPanel({
   exportState,
   multiSelectedPaths,
@@ -330,6 +254,8 @@ export default function ExportPanel({
     setJpegQuality,
     tiffBitDepth,
     setTiffBitDepth,
+    dpi,
+    setDpi,
     enableResize,
     setEnableResize,
     resizeMode,
@@ -431,6 +357,8 @@ export default function ExportPanel({
     enablePad && padRatioWidthValue !== null && padRatioHeightValue !== null
       ? { ratioWidth: padRatioWidthValue, ratioHeight: padRatioHeightValue, color: padColor }
       : null;
+
+  const dpiField = useParsedTextField(dpi, setDpi, parseDpi);
 
   const borderHorizontalField = useParsedTextField(borderHorizontalPercent, setBorderHorizontalPercent, parsePercent);
   const borderVerticalField = useParsedTextField(borderVerticalPercent, setBorderVerticalPercent, parsePercent);
@@ -676,6 +604,7 @@ export default function ExportPanel({
               opacity: watermarkOpacity,
             }
           : null,
+      dpi,
     };
 
     const lastExportPath = appSettings?.exportPresets?.find((p) => p.id === '__last_used__')?.lastExportPath;
@@ -1034,7 +963,7 @@ export default function ExportPanel({
                   )}
                 </Section>
 
-                {fileFormat == FileFormats.Jpeg && (
+                {[FileFormats.Jpeg, FileFormats.Png, FileFormats.Webp].includes(fileFormat as FileFormats) && (
                   <Section title={t('export.sections.metadata')}>
                     <Switch
                       checked={keepMetadata}
@@ -1186,6 +1115,20 @@ export default function ExportPanel({
                               disabled={isExporting}
                             />
                           </>
+                        )}
+                        {[FileFormats.Jpeg, FileFormats.Png, FileFormats.Tiff].includes(fileFormat as FileFormats) && (
+                          <div className="flex items-center gap-2">
+                            <Text variant={TextVariants.label} className="flex-1">
+                              {t('export.file.resolution')}
+                            </Text>
+                            <ValidatedNumberInput
+                              ariaLabel={t('export.file.resolution')}
+                              disabled={isExporting}
+                              field={dpiField}
+                              max={MAX_EXPORT_DPI}
+                            />
+                            <Text variant={TextVariants.label}>{t('export.file.dpi')}</Text>
+                          </div>
                         )}
                       </div>
                     </motion.div>
