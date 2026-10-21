@@ -65,9 +65,6 @@ const NORMAL_MAX_SIZE: u32 = 768;
 const NORMAL_NUM_TOKENS: i64 = 2500;
 const NORMAL_SHA256: &str = "24eacb5dc7a2c54c7bc98f7de085ffbed79ad006ea5b664c2c2cdc02ff3a52f0";
 
-/// Build an ONNX Runtime session with platform-specific accelerators first.
-/// Execution providers are hints, not guarantees: driver/runtime initialization can
-/// fail even when the crate feature is present. Retry with CPU-only in that case.
 /// Build a CPU-only ONNX Runtime session for inference-time recovery.
 fn load_ai_session_cpu(path: impl AsRef<Path>) -> Result<Session> {
     Ok(Session::builder()?
@@ -75,6 +72,9 @@ fn load_ai_session_cpu(path: impl AsRef<Path>) -> Result<Session> {
         .commit_from_file(path)?)
 }
 
+/// Build an ONNX Runtime session with platform-specific accelerators first.
+/// Execution providers are hints, not guarantees: driver/runtime initialization can
+/// fail even when the crate feature is present. Retry with CPU-only in that case.
 fn load_ai_session(path: impl AsRef<Path>) -> Result<Session> {
     let path = path.as_ref();
 
