@@ -88,7 +88,7 @@ tauri-plugin-clerk = "0.1.1"
 gphoto2 = { git = "https://github.com/CyberTimon/libgphoto2-rs", optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-ort = { version = "=2.0.0-rc.10", features = ["ndarray", "load-dynamic", "cuda", "directml"] }
+ort = { version = "=2.0.0-rc.10", features = ["ndarray", "load-dynamic", "cuda", "directml", "openvino"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 ort = { version = "=2.0.0-rc.10", features = ["ndarray", "load-dynamic", "coreml"] }
@@ -126,7 +126,7 @@ include_dir = "0.7.4"
 # WebGPU is the broad GPU path for Intel/AMD/NVIDIA devices; CUDA is an optional
 # higher-priority path for NVIDIA systems. Runtime/provider availability is checked
 # at session creation and always falls back to CPU.
-ort = { version = "=2.0.0-rc.10", features = ["ndarray", "load-dynamic", "webgpu", "cuda"] }
+ort = { version = "=2.0.0-rc.10", features = ["ndarray", "load-dynamic", "webgpu", "cuda", "openvino"] }
 gtk = "0.18.2"
 webkit2gtk = "=2.0.2"
 tauri-plugin-wayland-nvidia-quirk = "0.1.0"
