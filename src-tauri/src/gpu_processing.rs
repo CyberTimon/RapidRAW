@@ -217,16 +217,43 @@ pub fn get_or_init_gpu_context(
     #[cfg(any(target_os = "android", target_os = "linux"))]
     let surface_opt: Option<wgpu::Surface> = None;
 
+    // Prefer a fast discrete GPU, but do not make it a requirement. Some
+    // hybrid laptops and mobile devices expose only a low-power integrated
+    // adapter, and some Linux installations need a software adapter as a last
+    // resort to keep non-AI rendering available.
     let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::HighPerformance,
         compatible_surface: surface_opt.as_ref(),
         ..Default::default()
     }))
+    .or_else(|high_performance_error| {
+        log::warn!(
+            "High-performance GPU adapter unavailable; trying low-power/iGPU adapter: {}",
+            high_performance_error
+        );
+        pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::LowPower,
+            compatible_surface: surface_opt.as_ref(),
+            ..Default::default()
+        }))
+    })
+    .or_else(|low_power_error| {
+        log::warn!(
+            "Low-power GPU adapter unavailable; trying a software fallback adapter: {}",
+            low_power_error
+        );
+        pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::LowPower,
+            force_fallback_adapter: true,
+            compatible_surface: surface_opt.as_ref(),
+            ..Default::default()
+        }))
+    })
     .map_err(|e| {
         if let Some(p) = &flag_path {
             let _ = std::fs::remove_file(p);
         }
-        format!("Failed to find a wgpu adapter: {}", e)
+        format!("Failed to find a hardware or software wgpu adapter: {}", e)
     })?;
 
     let adapter_info = adapter.get_info();

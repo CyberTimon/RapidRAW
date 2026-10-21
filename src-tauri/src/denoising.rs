@@ -414,35 +414,82 @@ fn denoise_image(
     Ok((out_dynamic, data_url_denoised))
 }
 
+/// Convert planar RGB to YCbCr. Large images use Rayon to spread the
+/// independent per-pixel work across CPU cores; small images stay sequential
+/// to avoid thread-pool overhead. The loops remain safe Rust and can be
+/// auto-vectorized by LLVM for the host CPU.
 fn rgb_to_ycbcr(r: &[f32], g: &[f32], b: &[f32]) -> (Vec<f32>, Vec<f32>, Vec<f32>) {
+    const PARALLEL_THRESHOLD: usize = 262_144;
     let n = r.len();
+    debug_assert_eq!(g.len(), n);
+    debug_assert_eq!(b.len(), n);
+
     let mut y = vec![0.0f32; n];
     let mut cb = vec![0.0f32; n];
     let mut cr = vec![0.0f32; n];
-    for i in 0..n {
-        let rv = r[i];
-        let gv = g[i];
-        let bv = b[i];
-        y[i] = 0.299 * rv + 0.587 * gv + 0.114 * bv;
-        cb[i] = -0.168736 * rv - 0.331264 * gv + 0.5 * bv + 128.0;
-        cr[i] = 0.5 * rv - 0.418688 * gv - 0.081312 * bv + 128.0;
+
+    if n >= PARALLEL_THRESHOLD {
+        y.par_iter_mut()
+            .zip(cb.par_iter_mut())
+            .zip(cr.par_iter_mut())
+            .zip(r.par_iter())
+            .zip(g.par_iter())
+            .zip(b.par_iter())
+            .for_each(|(((((yv, cbv), crv), &rv), &gv), &bv)| {
+                *yv = 0.299 * rv + 0.587 * gv + 0.114 * bv;
+                *cbv = -0.168736 * rv - 0.331264 * gv + 0.5 * bv + 128.0;
+                *crv = 0.5 * rv - 0.418688 * gv - 0.081312 * bv + 128.0;
+            });
+    } else {
+        for i in 0..n {
+            let rv = r[i];
+            let gv = g[i];
+            let bv = b[i];
+            y[i] = 0.299 * rv + 0.587 * gv + 0.114 * bv;
+            cb[i] = -0.168736 * rv - 0.331264 * gv + 0.5 * bv + 128.0;
+            cr[i] = 0.5 * rv - 0.418688 * gv - 0.081312 * bv + 128.0;
+        }
     }
+
     (y, cb, cr)
 }
 
+/// Convert planar YCbCr to RGB using the same large-buffer parallel threshold.
 fn ycbcr_to_rgb(y: &[f32], cb: &[f32], cr: &[f32]) -> (Vec<f32>, Vec<f32>, Vec<f32>) {
+    const PARALLEL_THRESHOLD: usize = 262_144;
     let n = y.len();
+    debug_assert_eq!(cb.len(), n);
+    debug_assert_eq!(cr.len(), n);
+
     let mut r = vec![0.0f32; n];
     let mut g = vec![0.0f32; n];
     let mut b = vec![0.0f32; n];
-    for i in 0..n {
-        let yv = y[i];
-        let cbv = cb[i] - 128.0;
-        let crv = cr[i] - 128.0;
-        r[i] = yv + 1.402 * crv;
-        g[i] = yv - 0.344136 * cbv - 0.714136 * crv;
-        b[i] = yv + 1.772 * cbv;
+
+    if n >= PARALLEL_THRESHOLD {
+        r.par_iter_mut()
+            .zip(g.par_iter_mut())
+            .zip(b.par_iter_mut())
+            .zip(y.par_iter())
+            .zip(cb.par_iter())
+            .zip(cr.par_iter())
+            .for_each(|(((((rv, gv), bv), &yv), &cbv), &crv)| {
+                let cbv = cbv - 128.0;
+                let crv = crv - 128.0;
+                *rv = yv + 1.402 * crv;
+                *gv = yv - 0.344136 * cbv - 0.714136 * crv;
+                *bv = yv + 1.772 * cbv;
+            });
+    } else {
+        for i in 0..n {
+            let yv = y[i];
+            let cbv = cb[i] - 128.0;
+            let crv = cr[i] - 128.0;
+            r[i] = yv + 1.402 * crv;
+            g[i] = yv - 0.344136 * cbv - 0.714136 * crv;
+            b[i] = yv + 1.772 * cbv;
+        }
     }
+
     (r, g, b)
 }
 

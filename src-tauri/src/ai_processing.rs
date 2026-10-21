@@ -73,18 +73,23 @@ fn load_ai_session_cpu(path: impl AsRef<Path>) -> Result<Session> {
 }
 
 /// Build an ONNX Runtime session with platform-specific accelerators first.
-/// Execution providers are hints, not guarantees: driver/runtime initialization can
-/// fail even when the crate feature is present. Retry with CPU-only in that case.
+///
+/// Providers are tried independently with `error_on_failure()`: without it,
+/// ONNX Runtime may silently accept a CPU-only session and prevent the next
+/// provider from being attempted. A plain CPU session remains the universal
+/// compatibility path.
 fn load_ai_session(path: impl AsRef<Path>) -> Result<Session> {
     let path = path.as_ref();
 
     #[cfg(target_os = "windows")]
     {
-        // Try providers independently. If CUDA registration fails, do not let
-        // that prevent DirectML from being attempted on Intel/AMD GPUs.
+        // NVIDIA first, then DirectML for Intel/AMD/NVIDIA GPUs. DirectML is
+        // available on a broad range of Windows 10/11 GPU drivers.
         let cuda = Session::builder()
             .and_then(|builder| {
-                builder.with_execution_providers([ort::ep::CUDA::default().build()])
+                builder.with_execution_providers([
+                    ort::ep::CUDA::default().build().error_on_failure()
+                ])
             })
             .and_then(|builder| builder.commit_from_file(path));
 
@@ -96,15 +101,16 @@ fn load_ai_session(path: impl AsRef<Path>) -> Result<Session> {
         }
 
         // DirectML requires sequential execution and memory-pattern
-        // optimization to be disabled. Without these settings ORT can reject
-        // DirectML and quietly leave the model running on the CPU.
+        // optimization to be disabled.
         let directml = Session::builder()
             .and_then(|builder| builder.with_memory_pattern(false))
             .and_then(|builder| {
                 builder.with_execution_mode(ort::session::builder::ExecutionMode::Sequential)
             })
             .and_then(|builder| {
-                builder.with_execution_providers([ort::ep::DirectML::default().build()])
+                builder.with_execution_providers([
+                    ort::ep::DirectML::default().build().error_on_failure()
+                ])
             })
             .and_then(|builder| builder.commit_from_file(path));
 
@@ -118,13 +124,14 @@ fn load_ai_session(path: impl AsRef<Path>) -> Result<Session> {
 
     #[cfg(target_os = "macos")]
     {
-        let accelerated = Session::builder().and_then(|builder| {
-            builder.with_execution_providers([
-                // CoreML may dispatch eligible operators to Apple GPU / Neural Engine.
-                ort::ep::CoreML::default().build(),
-                ort::ep::CPU::default().build(),
-            ])
-        }).and_then(|builder| builder.commit_from_file(path));
+        let accelerated = Session::builder()
+            .and_then(|builder| {
+                builder.with_execution_providers([
+                    // CoreML can dispatch eligible operations to Apple GPU/Neural Engine.
+                    ort::ep::CoreML::default().build().error_on_failure()
+                ])
+            })
+            .and_then(|builder| builder.commit_from_file(path));
 
         match accelerated {
             Ok(session) => return Ok(session),
@@ -134,81 +141,93 @@ fn load_ai_session(path: impl AsRef<Path>) -> Result<Session> {
         }
     }
 
-    // Linux and other targets remain CPU-only by design. This is also the
-    // recovery path if a platform accelerator fails to initialize.
-    Ok(Session::builder()?
-        .with_execution_providers([ort::ep::CPU::default().build()])?
-        .commit_from_file(path)?)
+    #[cfg(target_os = "linux")]
+    {
+        // WebGPU is the cross-vendor option for Vulkan/D3D/Metal-class GPUs,
+        // including many Intel and AMD integrated GPUs. The provider and its
+        // helper libraries may be unavailable on a particular package/driver,
+        // so always test it explicitly and then continue to the next backend.
+        let webgpu = Session::builder()
+            .and_then(|builder| {
+                builder.with_execution_providers([
+                    ort::ep::WebGPU::default().build().error_on_failure()
+                ])
+            })
+            .and_then(|builder| builder.commit_from_file(path));
+
+        match webgpu {
+            Ok(session) => return Ok(session),
+            Err(error) => {
+                eprintln!("WebGPU AI provider unavailable; trying CUDA: {error}");
+            }
+        }
+
+        // CUDA is an optional acceleration path for NVIDIA systems. This does
+        // not make CUDA a requirement; unsupported systems continue to CPU.
+        let cuda = Session::builder()
+            .and_then(|builder| {
+                builder.with_execution_providers([
+                    ort::ep::CUDA::default().build().error_on_failure()
+                ])
+            })
+            .and_then(|builder| builder.commit_from_file(path));
+
+        match cuda {
+            Ok(session) => return Ok(session),
+            Err(error) => {
+                eprintln!("CUDA AI provider unavailable; retrying with CPU: {error}");
+            }
+        }
+    }
+
+    #[cfg(target_os = "android")]
+    {
+        // NNAPI can delegate eligible operations to supported Android GPU/NPU
+        // drivers. Actual delegate coverage depends on the device and model.
+        let nnapi = Session::builder()
+            .and_then(|builder| {
+                builder.with_execution_providers([
+                    ort::ep::NNAPI::default().build().error_on_failure()
+                ])
+            })
+            .and_then(|builder| builder.commit_from_file(path));
+
+        match nnapi {
+            Ok(session) => return Ok(session),
+            Err(error) => {
+                eprintln!("Android NNAPI provider unavailable; retrying with CPU: {error}");
+            }
+        }
+    }
+
+    // Universal fallback for unsupported GPUs, missing provider libraries,
+    // driver issues, and targets without an enabled accelerated provider.
+    load_ai_session_cpu(path)
 }
 
 pub struct AiModels {
     models_dir: PathBuf,
+    // Prevent concurrent failed requests from loading multiple CPU model sets.
+    cpu_fallback_active: Mutex<bool>,
     pub sam3_image_encoder: Mutex<Session>,
     pub sam3_text_encoder: Mutex<Session>,
     pub sam3_decoder: Mutex<Session>,
     pub sam3_tokenizer: Tokenizer,
-type SharedSession = Arc<Mutex<Session>>;
-
-pub struct AiModels {
-    models_dir: PathBuf,
-    sam_encoder: Mutex<Option<SharedSession>>,
-    sam_decoder: Mutex<Option<SharedSession>>,
-    u2netp: Mutex<Option<SharedSession>>,
-    sky_seg: Mutex<Option<SharedSession>>,
-    depth_anything: Mutex<Option<SharedSession>>,
-}
-
-impl AiModels {
-    fn session(
-        &self,
-        slot: &Mutex<Option<SharedSession>>,
-        filename: &str,
-    ) -> Result<SharedSession> {
-        let mut slot = slot.lock().unwrap();
-        if let Some(session) = slot.as_ref() {
-            return Ok(Arc::clone(session));
-        }
-        let session = Arc::new(Mutex::new(one_shot_session(
-            &self.models_dir.join(filename),
-        )?));
-        *slot = Some(Arc::clone(&session));
-        Ok(session)
-    }
-
-    pub fn sam_encoder(&self) -> Result<SharedSession> {
-        self.session(&self.sam_encoder, ENCODER_FILENAME)
-    }
-
-    pub fn sam_decoder(&self) -> Result<SharedSession> {
-        self.session(&self.sam_decoder, DECODER_FILENAME)
-    }
-
-    pub fn u2netp(&self) -> Result<SharedSession> {
-        self.session(&self.u2netp, U2NETP_FILENAME)
-    }
-
-    pub fn sky_seg(&self) -> Result<SharedSession> {
-        self.session(&self.sky_seg, SKYSEG_FILENAME)
-    }
-
-    pub fn depth_anything(&self) -> Result<SharedSession> {
-        self.session(&self.depth_anything, DEPTH_FILENAME)
-    }
-}
-
-fn one_shot_session(model_path: &Path) -> Result<Session> {
-    Ok(Session::builder()?
-        .with_execution_providers([ort::execution_providers::CPUExecutionProvider::default()
-            .with_arena_allocator(false)
-            .build()])?
-        .with_memory_pattern(false)?
-        .commit_from_file(model_path)?)
 }
 
 impl AiModels {
     /// Recreate all SAM 3 sessions with CPU-only execution if a GPU provider
     /// accepts session creation but fails when executing a real inference.
     pub fn force_sam3_cpu(&self) -> Result<()> {
+        // GPU errors can happen concurrently for several mask requests. Serialize
+        // recovery so only one request loads the CPU sessions.
+        let mut fallback_active = self.cpu_fallback_active
+            .lock()
+            .map_err(|_| anyhow::anyhow!("SAM 3 fallback-state lock was poisoned"))?;
+        if *fallback_active {
+            return Ok(());
+        }
+
         let image = load_ai_session_cpu(self.models_dir.join(SAM3_IMAGE_FILENAME))?;
         let text = load_ai_session_cpu(self.models_dir.join(SAM3_TEXT_FILENAME))?;
         let decoder = load_ai_session_cpu(self.models_dir.join(SAM3_DECODER_FILENAME))?;
@@ -228,6 +247,7 @@ impl AiModels {
         *image_slot = image;
         *text_slot = text;
         *decoder_slot = decoder;
+        *fallback_active = true;
         eprintln!("SAM 3 switched to CPU-only inference after an accelerated inference failure.");
         Ok(())
     }
@@ -634,19 +654,11 @@ pub async fn get_or_init_ai_models(
 
     let models = Arc::new(AiModels {
         models_dir: models_dir.clone(),
+        cpu_fallback_active: Mutex::new(false),
         sam3_image_encoder: Mutex::new(sam3_image_encoder),
         sam3_text_encoder: Mutex::new(sam3_text_encoder),
         sam3_decoder: Mutex::new(sam3_decoder),
         sam3_tokenizer,
-    crate::register_exit_handler();
-
-    let models = Arc::new(AiModels {
-        models_dir,
-        sam_encoder: Mutex::new(None),
-        sam_decoder: Mutex::new(None),
-        u2netp: Mutex::new(None),
-        sky_seg: Mutex::new(None),
-        depth_anything: Mutex::new(None),
     });
 
     remove_obsolete_model_assets(
