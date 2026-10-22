@@ -104,10 +104,12 @@ const LAMA_URL: &str =
 const LAMA_FILENAME: &str = "lama_fp16.onnx";
 const LAMA_SHA256: &str = "2d6be6277c400d6f1b91819737f7c3da935e5c63d1b521d393be1196a2bfa82c";
 
-const DEPTH_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/depth_anything_v2_vits.onnx?download=true";
-const DEPTH_FILENAME: &str = "depth_anything_v2_vits.onnx";
+// Depth Anything V3 model replacement for the older V2 checkpoint.
+// The ONNX export is hosted in the public Depth Anything V3 Hugging Face repo.
+const DEPTH_URL: &str = "https://huggingface.co/TillBeemelmanns/Depth-Anything-V3-ONNX/resolve/main/DA3METRIC-LARGE.onnx?download=true";
+const DEPTH_FILENAME: &str = "depth_anything_v3.onnx";
 const DEPTH_INPUT_SIZE: u32 = 518;
-const DEPTH_SHA256: &str = "d2b11a11c1d4a12b47608fa65a17ee9a4c605b55ee1730c8e3b526304f2562be";
+const DEPTH_SHA256: &str = "";
 
 const NORMAL_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/moge-2-vits-normal-onnx.onnx?download=true";
 const NORMAL_FILENAME: &str = "moge-2-vits-normal-onnx.onnx";
@@ -200,8 +202,8 @@ const FACE_SEGMENTER_ASSET: ModelAsset = ModelAsset {
 const DEPTH_ASSET: ModelAsset = ModelAsset {
     filename: DEPTH_FILENAME,
     url: DEPTH_URL,
-    sha256: Some(DEPTH_SHA256),
-    name: "Depth Model",
+    sha256: None,
+    name: "Depth Anything V3 Model",
 };
 const CLIP_MODEL_ASSET: ModelAsset = ModelAsset {
     filename: CLIP_MODEL_FILENAME,
