@@ -1642,6 +1642,9 @@
       "shortcuts": "Controlli"
     },
     "controls": {
+      "cropGestures": "Controlli di ritaglio con Ctrl",
+      "cropGesturesDesc": "Consenti fuori dallo strumento di ritaglio",
+      "cropGesturesInfo": "Ctrl + rotella ridimensiona il ritaglio, Ctrl + trascina lo sposta dentro il riquadro e Ctrl + doppio clic lo ripristina. Se disattivata, queste azioni funzionano solo nello strumento di ritaglio.",
       "keyboardTitle": "Controlli da Tastiera",
       "modes": {
         "mouse": "Mouse",

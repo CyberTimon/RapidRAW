@@ -1609,6 +1609,9 @@
       "shortcuts": "Ovládání"
     },
     "controls": {
+      "cropGestures": "Ovládání oříznutí klávesou Ctrl",
+      "cropGesturesDesc": "Povolit mimo nástroj oříznutí",
+      "cropGesturesInfo": "Ctrl + kolečko mění velikost oříznutí, Ctrl + tažení s ním posouvá v obraze a Ctrl + dvojklik ho resetuje. Když je tato volba vypnutá, fungují tato gesta jen v nástroji oříznutí.",
       "keyboardTitle": "Ovládání pomocí klávesnice",
       "modes": {
         "mouse": "Myš",

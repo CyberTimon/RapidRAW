@@ -1603,6 +1603,9 @@
       "shortcuts": "控制"
     },
     "controls": {
+      "cropGestures": "Ctrl 裁剪操作",
+      "cropGesturesDesc": "允許在裁剪工具之外使用",
+      "cropGesturesInfo": "Ctrl + 滾輪可調整裁剪範圍大小，Ctrl + 拖曳可在畫面內移動，Ctrl + 雙擊可重設。關閉後，這些操作僅在裁剪工具內生效。",
       "keyboardTitle": "鍵盤控制",
       "modes": {
         "mouse": "滑鼠",
