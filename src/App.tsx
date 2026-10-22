@@ -77,6 +77,7 @@ import {
 
 import ImageProcessingManager from './components/managers/ImageProcessingManager';
 import ImageLoaderManager from './components/managers/ImageLoaderManager';
+import { useOsPlatform } from './hooks/useOsPlatform';
 
 const DND_MEASURING = { droppable: { strategy: MeasuringStrategy.Always } };
 
@@ -143,11 +144,12 @@ function ImageDragOverlayNode({ activeItem }: { activeItem: { path: string; path
 function App() {
   const [activeImageDragItem, setActiveImageDragItem] = useState<{ path: string; paths: string[] } | null>(null);
 
-  const { appSettings, theme, osPlatform, handleSettingsChange } = useSettingsStore(
+  const { osPlatform } = useOsPlatform();
+
+  const { appSettings, theme, handleSettingsChange } = useSettingsStore(
     useShallow((state) => ({
       appSettings: state.appSettings,
       theme: state.theme,
-      osPlatform: state.osPlatform,
       handleSettingsChange: state.handleSettingsChange,
     })),
   );

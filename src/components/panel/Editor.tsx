@@ -35,6 +35,7 @@ import { useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useAiMasking } from '../../hooks/useAiMasking';
 import { useEditorActions, withRotation } from '../../hooks/useEditorActions';
+import { useOsPlatform } from '../../hooks/useOsPlatform';
 
 const parseRgb = (rgbStr: string): [number, number, number, number] => {
   const match = rgbStr.match(/[\d.]+/g);
@@ -95,7 +96,7 @@ interface EditorProps {
 
 export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, transformWrapperRef }: EditorProps) {
   const appSettings = useSettingsStore((s) => s.appSettings);
-  const osPlatform = useSettingsStore((s) => s.osPlatform);
+
   const isFullScreen = useUIStore((s) => s.isFullScreen);
   const activePanel = useUIStore((s) => s.activePanel);
   const isInstantTransition = useUIStore((s) => s.isInstantTransition);
@@ -134,7 +135,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const canUndo = adjustmentsHistoryIndex > 0;
   const canRedo = adjustmentsHistoryIndex < adjustmentsHistory.length - 1;
 
-  const isAndroid = osPlatform === 'android';
+  const { isAndroid } = useOsPlatform();
 
   const { handleGenerateAiMask, handleQuickErase, handleDirectPatch } = useAiMasking();
   const { setAdjustments, toggleShowOriginal } = useEditorActions();
@@ -998,8 +999,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         lastPanPos.current = { x: e.clientX, y: e.clientY };
 
         const bounds = getTransformBounds(transformStateRef.current.scale);
-        let curX = transformStateRef.current.positionX;
-        let curY = transformStateRef.current.positionY;
+        const curX = transformStateRef.current.positionX;
+        const curY = transformStateRef.current.positionY;
 
         if (curX < bounds.minX && dx < 0) dx *= 0.35;
         if (curX > bounds.maxX && dx > 0) dx *= 0.35;
@@ -1026,8 +1027,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
           const panX = midX - lastPinch.current.midX;
           const panY = midY - lastPinch.current.midY;
 
-          let newX = mouseX - (mouseX - transformStateRef.current.positionX) * ratio + panX;
-          let newY = mouseY - (mouseY - transformStateRef.current.positionY) * ratio + panY;
+          const newX = mouseX - (mouseX - transformStateRef.current.positionX) * ratio + panX;
+          const newY = mouseY - (mouseY - transformStateRef.current.positionY) * ratio + panY;
 
           const bounded = clampToBounds(newX, newY, newScale);
           applyTransform(bounded.x, bounded.y, bounded.scale);
@@ -2139,14 +2140,14 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         const expandEdge = (edge: 'L' | 'T' | 'R' | 'B', target: number) => {
           let low = 0,
             high = 1;
-          let startVal = edge === 'L' ? currL : edge === 'T' ? currT : edge === 'R' ? currR : currB;
+          const startVal = edge === 'L' ? currL : edge === 'T' ? currT : edge === 'R' ? currR : currB;
           let bestVal = startVal;
 
           for (let i = 0; i < 15; i++) {
-            let mid = (low + high) / 2;
-            let testVal = startVal + (target - startVal) * mid;
+            const mid = (low + high) / 2;
+            const testVal = startVal + (target - startVal) * mid;
 
-            let testCrop: PercentCrop = {
+            const testCrop: PercentCrop = {
               unit: '%',
               x: edge === 'L' ? testVal : currL,
               y: edge === 'T' ? testVal : currT,

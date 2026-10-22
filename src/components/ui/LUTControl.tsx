@@ -8,7 +8,7 @@ import { useContextMenu } from '../../context/ContextMenuContext';
 import { toast } from 'react-toastify';
 import Slider from './Slider';
 import { useEditorStore } from '../../store/useEditorStore';
-import { useSettingsStore } from '../../store/useSettingsStore';
+import { useOsPlatform } from '../../hooks/useOsPlatform';
 
 interface LutEntry {
   name: string;
@@ -49,6 +49,7 @@ export default function LUTControl({
   const { showContextMenu } = useContextMenu();
   const selectedImagePath = useEditorStore((state) => state.selectedImage?.path ?? null);
   const isImageReady = useEditorStore((state) => state.selectedImage?.isReady ?? false);
+  const { isAndroid } = useOsPlatform();
 
   const [isExpanded, setIsExpanded] = useState(false);
   const [entries, setEntries] = useState<LutEntry[]>([]);
@@ -141,9 +142,6 @@ export default function LUTControl({
 
   const handleImport = async () => {
     try {
-      const { osPlatform } = useSettingsStore.getState();
-      const isAndroid = osPlatform === 'android';
-
       const selected = await open({
         multiple: true,
         filters: isAndroid

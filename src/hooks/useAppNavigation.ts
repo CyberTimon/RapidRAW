@@ -14,6 +14,7 @@ import { globalImageCache } from '../utils/ImageLRUCache';
 import { debouncedSave, debouncedSetHistory } from './useEditorActions';
 import { clearLibrarySelection } from './useLibraryActions';
 import { computeSortedLibrary } from './useSortedLibrary';
+import { useOsPlatform } from './useOsPlatform';
 
 export interface AppNavigationProps {
   clearThumbnailQueue: () => void;
@@ -530,9 +531,9 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
   }, [handleSelectSubfolder, handleSelectAlbum]);
 
   const handleOpenFolder = useCallback(async () => {
-    const { osPlatform, appSettings, handleSettingsChange } = useSettingsStore.getState();
+    const { appSettings, handleSettingsChange } = useSettingsStore.getState();
     const { rootPaths, folderTrees, setLibrary } = useLibraryStore.getState();
-    const isAndroid = osPlatform === 'android';
+    const { isAndroid } = useOsPlatform();
 
     try {
       let selectedPath = '';

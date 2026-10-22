@@ -1,11 +1,11 @@
 import { useEffect } from 'react';
 import { useUIStore } from '../store/useUIStore';
-import { useSettingsStore } from '../store/useSettingsStore';
+import { useOsPlatform } from './useOsPlatform';
 
 export function useAndroidBackHandler() {
+  const { isAndroid } = useOsPlatform();
   useEffect(() => {
-    const osPlatform = useSettingsStore.getState().osPlatform;
-    if (osPlatform !== 'android') return;
+    if (!isAndroid) return;
 
     (window as any).__handleAndroidBack = () => {
       const ui = useUIStore.getState();
@@ -87,7 +87,9 @@ export function useAndroidBackHandler() {
         return;
       }
 
-      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }),
+      );
     };
 
     return () => {

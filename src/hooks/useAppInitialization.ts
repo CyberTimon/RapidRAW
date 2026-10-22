@@ -20,6 +20,7 @@ import {
   ThumbnailAspectRatio,
 } from '../components/ui/AppProperties';
 import { useTranslation } from 'react-i18next';
+import { useOsPlatform } from './useOsPlatform';
 
 interface UseAppInitializationProps {
   preloadedDataRef: React.RefObject<any>;
@@ -59,24 +60,13 @@ export const useAppInitialization = ({
   const isInitialMount = useRef(true);
   const { i18n } = useTranslation();
 
-  const {
-    appSettings,
-    theme,
-    osPlatform,
-    setAppSettings,
-    setTheme,
-    setSupportedTypes,
-    initPlatform,
-    handleSettingsChange,
-  } = useSettingsStore(
+  const { appSettings, theme, setAppSettings, setTheme, setSupportedTypes, handleSettingsChange } = useSettingsStore(
     useShallow((state) => ({
       appSettings: state.appSettings,
       theme: state.theme,
-      osPlatform: state.osPlatform,
       setAppSettings: state.setAppSettings,
       setTheme: state.setTheme,
       setSupportedTypes: state.setSupportedTypes,
-      initPlatform: state.initPlatform,
       handleSettingsChange: state.handleSettingsChange,
     })),
   );
@@ -131,14 +121,11 @@ export const useAppInitialization = ({
     })),
   );
 
-  const isAndroid = osPlatform === 'android';
+  const { isAndroid } = useOsPlatform();
+
   const defaultThumbnailSize = isAndroid ? ThumbnailSize.Small : ThumbnailSize.Medium;
   const defaultLibraryViewMode = isAndroid ? LibraryViewMode.Recursive : LibraryViewMode.Flat;
   const prevImageCountsNeed = useRef<boolean | undefined>(undefined);
-
-  useEffect(() => {
-    initPlatform();
-  }, [initPlatform]);
 
   useEffect(() => {
     invoke(Invokes.GetSupportedFileTypes)
