@@ -4,7 +4,7 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { AppSettings, Invokes } from '../components/ui/AppProperties';
 import { calculateTargetResolution } from '../utils/previewResolution';
-import { wheelZoomFactor } from '../utils/wheelZoom';
+import { clickZoomTarget, interpretWheel, movedBeyondClick } from '../utils/canvasControls';
 
 interface Size {
   width: number;
@@ -66,6 +66,15 @@ const clampView = (view: ViewerView, win: Size, image: Size): ViewerView => {
   };
 };
 
+const panBy = (view: ViewerView, dx: number, dy: number, win: Size, image: Size): ViewerView => {
+  const rect = viewRect(view, win, image);
+  return clampView(
+    { zoom: view.zoom, center: [view.center[0] - dx / rect.width, view.center[1] - dy / rect.height] },
+    win,
+    image,
+  );
+};
+
 const zoomAt = (view: ViewerView, zoom: number, point: Point, win: Size, image: Size): ViewerView => {
   const current = viewRect(view, win, image);
   const anchorX = (point.x - current.x) / current.width;
@@ -89,7 +98,8 @@ export default function ViewerWindow() {
   const [view, setView] = useState<ViewerView>(FIT_VIEW);
   const [isDragging, setIsDragging] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ pointer: Point; view: ViewerView } | null>(null);
+  const pressRef = useRef<{ pointer: Point; view: ViewerView; button: number } | null>(null);
+  const savedZoomRef = useRef<number | null>(null);
 
   const image = info?.image ?? null;
   const imagePath = image?.path;
@@ -197,9 +207,13 @@ export default function ViewerWindow() {
     const handleWheel = (event: WheelEvent) => {
       event.preventDefault();
       if (!image) return;
-      const factor = wheelZoomFactor(event, settings?.zoomSpeedMultiplier, settings?.canvasInputMode);
+      const gesture = interpretWheel(event, settings?.zoomSpeedMultiplier, settings?.canvasInputMode);
       const point = { x: event.clientX, y: event.clientY };
-      setView((current) => zoomAt(current, current.zoom * factor, point, win, image));
+      setView((current) =>
+        gesture.kind === 'zoom'
+          ? zoomAt(current, current.zoom * gesture.factor, point, win, image)
+          : panBy(current, -gesture.dx, -gesture.dy, win, image),
+      );
     };
     root.addEventListener('wheel', handleWheel, { passive: false });
     return () => root.removeEventListener('wheel', handleWheel);
@@ -210,50 +224,58 @@ export default function ViewerWindow() {
   const isJpegMode = info !== null && !info.native;
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0 || !canPan) return;
+    if (event.button !== 0 && event.button !== 1) return;
     event.currentTarget.setPointerCapture(event.pointerId);
-    dragRef.current = { pointer: { x: event.clientX, y: event.clientY }, view };
-    setIsDragging(true);
+    pressRef.current = { pointer: { x: event.clientX, y: event.clientY }, view, button: event.button };
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    const drag = dragRef.current;
-    if (!drag || !image) return;
-    const start = viewRect(drag.view, win, image);
-    setView(
-      clampView(
-        {
-          zoom: drag.view.zoom,
-          center: [
-            drag.view.center[0] - (event.clientX - drag.pointer.x) / start.width,
-            drag.view.center[1] - (event.clientY - drag.pointer.y) / start.height,
-          ],
-        },
-        win,
-        image,
-      ),
-    );
+    const press = pressRef.current;
+    if (!press || !image) return;
+    if (!isDragging && !movedBeyondClick(press.pointer, event.clientX, event.clientY)) return;
+    setIsDragging(canPan);
+    setView(panBy(press.view, event.clientX - press.pointer.x, event.clientY - press.pointer.y, win, image));
+  };
+
+  const releasePress = (event: React.PointerEvent<HTMLDivElement>) => {
+    const press = pressRef.current;
+    if (!press) return null;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+    pressRef.current = null;
+    setIsDragging(false);
+    return press;
   };
 
   const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragRef.current) return;
-    event.currentTarget.releasePointerCapture(event.pointerId);
-    dragRef.current = null;
-    setIsDragging(false);
-  };
-
-  const handleDoubleClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (!image) return;
-    const point = { x: event.clientX, y: event.clientY };
-    setView((current) => (current.zoom > 1 ? FIT_VIEW : zoomAt(current, maxZoom(win, image), point, win, image)));
+    const press = releasePress(event);
+    if (
+      press &&
+      image &&
+      press.button === 0 &&
+      !event.shiftKey &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !movedBeyondClick(press.pointer, event.clientX, event.clientY)
+    ) {
+      if (view.zoom > 1) {
+        savedZoomRef.current = view.zoom;
+        setView(FIT_VIEW);
+      } else {
+        const limit = maxZoom(win, image);
+        const target = clickZoomTarget(view.zoom, limit, limit, savedZoomRef.current, settings?.zoomPhotoToPixelClick);
+        setView(zoomAt(view, target, { x: event.clientX, y: event.clientY }, win, image));
+      }
+    }
   };
 
   return (
     <div
       className="relative h-screen w-screen select-none overflow-hidden"
       onContextMenu={(event) => event.preventDefault()}
-      onDoubleClick={handleDoubleClick}
-      onPointerCancel={handlePointerUp}
+      onMouseDown={(event) => {
+        if (event.button === 1) event.preventDefault();
+      }}
+      onPointerCancel={releasePress}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
