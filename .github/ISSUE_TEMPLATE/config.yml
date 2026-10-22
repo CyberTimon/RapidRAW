@@ -6,3 +6,6 @@ contact_links:
   - name: Supported lenses
     url: https://lensfun.github.io/lenslist/
     about: Click this link to check if your lenses are supported by the lensfun library used by RapidRAW.
+  - name: Contribute RAW samples
+    url: https://rawdb.dnglab.org
+    about: New cameras can only be supported with CC-0 licensed RAW samples. Upload them to RawDB following https://github.com/dnglab/dnglab/blob/main/CONTRIBUTE_SAMPLES.md

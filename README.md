@@ -632,7 +632,7 @@ RapidRAW relies on [dnglab / rawler](https://github.com/dnglab/dnglab) for RAW f
 | **Sigma**             | `.x3f`                         | Sigma Foveon Raw           |
 | **Sony**              | `.arw`, `.srf`, `.sr2`         | Sony Alpha Raw formats     |
 
-> **Note:** Is your camera's RAW file unsupported? Please open an issue directly with **[dnglab](https://github.com/dnglab/dnglab/issues)** to request RAW decoding support for your camera model. Once added there, support will be updated in RapidRAW.
+> **Note:** Is your camera's RAW file unsupported? Please open an issue directly with **[dnglab](https://github.com/dnglab/dnglab/issues)** to request RAW decoding support for your camera model and upload a CC-0 licensed sample set to **[RawDB](https://rawdb.dnglab.org)** (see [Contributing RAW samples](#contributing-raw-samples)). Once added there, support will be updated in RapidRAW.
 
 </details>
 
@@ -1023,7 +1023,20 @@ I’m really grateful for any contributions you make to RapidRAW! Whether you’
 
 ### Image format issues
 
-If your camera’s RAW files aren’t supported, please open a issue here first: [rawler issues](https://github.com/dnglab/dnglab/issues). Once support is added in rawler, create a issue for RapidRAW so I can update the packages and keep everything in sync.
+If your camera’s RAW files aren’t supported, please open an issue here first: [rawler issues](https://github.com/dnglab/dnglab/issues). Once support is added in rawler, create an issue for RapidRAW so I can update the packages and keep everything in sync.
+
+### Contributing RAW samples
+
+New cameras and RAW formats can only be added to rawler when a full set of **CC-0 licensed** sample files exists. Without samples there is no test case, and without a test case support can't be merged. Files shared via Google Drive or similar services can't be used.
+
+If you want support for your camera or smartphone, please help by uploading a sample set to **[RawDB](https://rawdb.dnglab.org)** as early as possible:
+
+- Shoot a properly exposed daylight scene with many colors (landscape with trees, fruit basket, colorful houses). No people, cars or other private property, and no color checker cards.
+- Cover the modes your camera supports (e.g. ISO levels, compression, bit depth, crop and RAW sizes). The required set differs per manufacturer.
+- Give your files descriptive names like `CANON_5DMK3_ISO_100_SRAW.CR2` instead of `IMG_0001.CR2`.
+- By uploading, you confirm that you are the copyright owner and license the samples under CC-0.
+
+Please read the full **[sample guidelines](https://github.com/dnglab/dnglab/blob/main/CONTRIBUTE_SAMPLES.md#important-notes-on-how-to-properly-shoot-samples)** before shooting, and link your RawDB upload in the dnglab issue.
 
 ## Special Thanks
 
