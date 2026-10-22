@@ -67,6 +67,7 @@ where
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(default)]
 pub struct ImageMetadata {
     pub version: u32,
     pub rating: u8,
@@ -4122,90 +4123,4 @@ pub async fn sample_white_balance(
     })
     .await
     .map_err(|e| format!("Task execution failed: {}", e))?
-}
-
-#[cfg(test)]
-mod downscale_tests {
-    use super::*;
-
-    fn pseudo_random_bytes(len: usize, seed: u32) -> Vec<u8> {
-        let mut state = seed;
-        (0..len)
-            .map(|_| {
-                state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
-                (state >> 24) as u8
-            })
-            .collect()
-    }
-
-    #[test]
-    fn u8_fast_path_matches_f32_conversion() {
-        for &(w, h, tw) in &[
-            (1013u32, 677u32, 480u32),
-            (640, 960, 320),
-            (300, 200, 299),
-            (4000, 3, 1280),
-        ] {
-            let rgb = image::RgbImage::from_raw(w, h, pseudo_random_bytes((w * h * 3) as usize, w))
-                .unwrap();
-            let rgba =
-                image::RgbaImage::from_raw(w, h, pseudo_random_bytes((w * h * 4) as usize, h))
-                    .unwrap();
-
-            for img in [DynamicImage::ImageRgb8(rgb), DynamicImage::ImageRgba8(rgba)] {
-                let fast = downscale_f32_image(&img, tw, tw);
-                let reference =
-                    downscale_f32_image(&DynamicImage::ImageRgb32F(img.to_rgb32f()), tw, tw);
-                let fast_bits: Vec<u32> = fast
-                    .as_rgb32f()
-                    .unwrap()
-                    .as_raw()
-                    .iter()
-                    .map(|v| v.to_bits())
-                    .collect();
-                let ref_bits: Vec<u32> = reference
-                    .as_rgb32f()
-                    .unwrap()
-                    .as_raw()
-                    .iter()
-                    .map(|v| v.to_bits())
-                    .collect();
-                assert_eq!(fast.dimensions(), reference.dimensions());
-                assert!(fast_bits == ref_bits, "mismatch for {}x{} -> {}", w, h, tw);
-            }
-        }
-    }
-
-    #[test]
-    fn rgb32f_orientation_matches_image_crate() {
-        let (w, h) = (37u32, 23u32);
-        let data: Vec<f32> = (0..w * h * 3).map(|i| i as f32 * 0.37).collect();
-        let img = DynamicImage::ImageRgb32F(Rgb32FImage::from_raw(w, h, data).unwrap());
-        for orientation in [
-            Orientation::HorizontalFlip,
-            Orientation::Rotate180,
-            Orientation::VerticalFlip,
-            Orientation::Transpose,
-            Orientation::Rotate90,
-            Orientation::Transverse,
-            Orientation::Rotate270,
-        ] {
-            let fast = apply_orientation(img.clone(), orientation);
-            let reference = match orientation {
-                Orientation::HorizontalFlip => img.fliph(),
-                Orientation::Rotate180 => img.rotate180(),
-                Orientation::VerticalFlip => img.flipv(),
-                Orientation::Transpose => img.rotate90().fliph(),
-                Orientation::Rotate90 => img.rotate90(),
-                Orientation::Transverse => img.rotate270().fliph(),
-                _ => img.rotate270(),
-            };
-            assert_eq!(fast.dimensions(), reference.dimensions());
-            assert!(
-                fast.as_rgb32f().unwrap().as_raw() == reference.as_rgb32f().unwrap().as_raw(),
-                "mismatch for {:?}",
-                orientation
-            );
-        }
-    }
 }

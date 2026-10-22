@@ -47,7 +47,7 @@ import {
   User,
   Album as AlbumIcon,
   PencilSparkles,
-  Wand2,
+  ScanLine,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
@@ -270,7 +270,7 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
             },
             {
               label: t('contextMenus.editor.autoStraighten'),
-              icon: Wand2,
+              icon: ScanLine,
               onClick: handleAutoStraighten,
               disabled: !selectedImage?.isReady,
             },
@@ -622,7 +622,7 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
             },
             {
               label: t('contextMenus.thumbnail.autoStraighten', { count: selectionCount }),
-              icon: Wand2,
+              icon: ScanLine,
               onClick: () => handleAutoStraightenPaths(finalSelection),
             },
             {

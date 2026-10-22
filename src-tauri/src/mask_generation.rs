@@ -1325,7 +1325,9 @@ fn generate_sub_mask_bitmap(
         "ai-foreground" => {
             generate_ai_foreground_bitmap(&sub_mask.parameters, width, height, scale, crop_offset)
         }
-        "ai-sky" => generate_ai_sky_bitmap(&sub_mask.parameters, width, height, scale, crop_offset),
+        "ai-sky" | "ai-text" => {
+            generate_ai_sky_bitmap(&sub_mask.parameters, width, height, scale, crop_offset)
+        }
         "ai-depth" => {
             generate_ai_depth_bitmap(&sub_mask.parameters, width, height, scale, crop_offset)
         }

@@ -1464,6 +1464,23 @@ export default function SettingsPanel({
                               <li>{t('settings.processing.ai.cpu.feature2')}</li>
                               <li>{t('settings.processing.ai.cpu.feature3')}</li>
                             </Text>
+                            {(osPlatform === 'windows' || osPlatform === 'macos') && (
+                              <div className="mt-8">
+                                <SettingItem
+                                  label={t('settings.processing.ai.cpu.gpuAcceleration')}
+                                  description={t('settings.processing.ai.cpu.gpuAccelerationDesc')}
+                                >
+                                  <Switch
+                                    checked={appSettings?.aiGpuAcceleration ?? true}
+                                    id="ai-gpu-acceleration-toggle"
+                                    label={t('settings.processing.ai.cpu.gpuAccelerationLabel')}
+                                    onChange={(checked) =>
+                                      onSettingsChange({ ...appSettings, aiGpuAcceleration: checked })
+                                    }
+                                  />
+                                </SettingItem>
+                              </div>
+                            )}
                           </motion.div>
                         )}
 
@@ -1989,14 +2006,25 @@ export default function SettingsPanel({
                       </li>
                       <li>
                         <a
-                          href="https://github.com/xuebinqin/U-2-Net"
+                          href="https://github.com/SimonZeng7108/efficientsam3"
                           target="_blank"
                           rel="noopener noreferrer"
                           className="font-semibold text-accent hover:underline"
                         >
-                          U-2-Net
+                          EfficientSAM3
                         </a>
-                        : {t('settings.thanks.list.u2net')}
+                        : {t('settings.thanks.list.efficientsam3')}
+                      </li>
+                      <li>
+                        <a
+                          href="https://github.com/ZhengPeng7/BiRefNet"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-accent hover:underline"
+                        >
+                          BiRefNet
+                        </a>
+                        : {t('settings.thanks.list.birefnet')}
                       </li>
                       <li>
                         <a

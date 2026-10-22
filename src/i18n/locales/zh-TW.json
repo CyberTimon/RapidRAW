@@ -222,7 +222,7 @@
       "yellow": "黃色"
     },
     "editor": {
-      "autoAdjust": "自動調整影像",
+      "autoAdjust": "自動調整",
       "autoLensCorrection": "自動鏡頭校正",
       "autoStraighten": "自動拉直",
       "cancel": "取消",
@@ -230,14 +230,14 @@
       "confirmReset": "確認重置",
       "convertNegative": "轉換負片",
       "copyAdjustments": "複製調整",
-      "cullImage": "篩選影像",
-      "denoise": "降噪影像",
+      "cullImage": "自動篩選",
+      "denoise": "降噪",
       "editImage": "編輯影像",
       "exportImage": "匯出影像",
       "flag": "標記",
       "flagPick": "留用",
       "flagReject": "已拒絕",
-      "frameImage": "裝裱影像",
+      "frameImage": "邊框編輯器",
       "mergeHdr": "合併為 HDR",
       "noLabel": "無標籤",
       "noRating": "無評分",
@@ -290,13 +290,13 @@
     },
     "thumbnail": {
       "addToAlbum": "新增到相簿",
-      "autoAdjust_one": "自動調整影像",
-      "autoAdjust_other": "自動調整影像",
+      "autoAdjust_one": "自動調整",
+      "autoAdjust_other": "自動調整",
       "autoLensCorrection_one": "自動鏡頭校正",
       "autoLensCorrection_other": "自動鏡頭校正",
-      "autoStraighten_one": "自動拉直影像",
-      "autoStraighten_other": "自動拉直影像",
-      "collage_one": "裝裱影像",
+      "autoStraighten_one": "自動拉直",
+      "autoStraighten_other": "自動拉直",
+      "collage_one": "邊框編輯器",
       "collage_other": "建立拼貼畫",
       "confirmDelete": "確認刪除",
       "confirmDeleteVc": "確認刪除 + 虛擬副本",
@@ -304,14 +304,14 @@
       "convertNegative_other": "轉換負片",
       "copyImage_one": "複製影像",
       "copyImage_other": "複製 {{count}} 張影像",
-      "cullImage_one": "篩選影像",
-      "cullImage_other": "篩選影像",
+      "cullImage_one": "自動篩選",
+      "cullImage_other": "自動篩選",
       "deleteAssociated": "刪除 + 關聯檔案",
       "deleteImage_one": "刪除影像",
       "deleteImage_other": "刪除 {{count}} 張影像",
       "deleteSelected": "僅刪除選中項",
-      "denoise_one": "降噪影像",
-      "denoise_other": "降噪影像",
+      "denoise_one": "降噪",
+      "denoise_other": "降噪",
       "duplicateImage": "複製影像",
       "exportImage_one": "匯出影像",
       "exportImage_other": "匯出 {{count}} 張影像",
@@ -404,7 +404,7 @@
       "comingSoon": "即將推出",
       "connection": {
         "backendLabel": "AI 後端：",
-        "builtinDesc": "使用基礎本地 CPU。在設定中選擇雲端或 AI 聯結器以使用生成式替換。",
+        "builtinDesc": "使用基礎內建 AI。在設定中選擇雲端或 AI 聯結器以使用生成式替換。",
         "builtinLabel": "內建 AI：",
         "cloudLabel": "雲端 AI：",
         "connectorConnectedDesc": "已連線到本地生成式後端。",
@@ -692,6 +692,7 @@
         "applyPreset": "應用預設",
         "componentPropertiesTitle": "{{name}} 屬性",
         "copySectionSettings": "複製 {{section}} 設定",
+        "generateTextMask": "產生遮罩",
         "invertComponent": "反轉元件",
         "invertMask": "反轉遮色片",
         "maskPropertiesTitle": "遮色片屬性",
@@ -701,7 +702,8 @@
         "pasteSettings": "貼上設定",
         "resetSectionSettings": "重置 {{section}} 設定",
         "select": "選擇",
-        "selectPresetTooltip": "選擇一個預設以應用"
+        "selectPresetTooltip": "選擇一個預設以應用",
+        "textPromptPlaceholder": "例如，人物、汽車、水面"
       },
       "toggleAnalyticsInAdjustments": "在調整面板中切換分析",
       "toggleAnalyticsTooltip": "切換分析顯示",
@@ -969,6 +971,37 @@
     }
   },
   "library": {
+    "aiJobs": {
+      "discard": "放棄剩餘的 AI 處理",
+      "failed": "失敗（{{failedCount}}）",
+      "kinds": {
+        "denoise": "正在 AI 降噪",
+        "depthMap": "正在分析深度",
+        "depthMask": "正在產生深度遮罩",
+        "foregroundMask": "正在產生前景遮罩",
+        "normalMap": "正在分析表面",
+        "skyMask": "正在產生天空遮罩",
+        "subjectMask": "正在產生主體遮罩",
+        "textMask": "正在產生文字遮罩"
+      },
+      "more": "另外 {{moreCount}} 項",
+      "pause": "暫停 AI 處理",
+      "paused": "已暫停 · 剩餘 {{remaining}} 項",
+      "pausedItem": "已暫停",
+      "pausing": "將在目前步驟後暫停…",
+      "process": "處理影像",
+      "progress": "{{current}}/{{total}}",
+      "queue": "佇列",
+      "queuedItem": "排隊中",
+      "resume": "繼續 AI 處理",
+      "retry": "重試",
+      "taskWithMask": "{{task}}「{{mask}}」",
+      "thumbnailPaused": "AI 處理已暫停",
+      "thumbnailPending": "等待 AI 處理",
+      "title": "AI 處理",
+      "unprocessed_other": "{{count}} 張影像需要 AI 處理",
+      "waiting": "正在準備 AI 處理…"
+    },
     "community": {
       "actionSave": "儲存",
       "actionSaved": "已儲存",
@@ -1243,7 +1276,8 @@
       "radial": "徑向",
       "retouch": "修飾",
       "sky": "天空",
-      "subject": "主體"
+      "subject": "主體",
+      "text": "文字"
     }
   },
   "menus": {
@@ -1299,6 +1333,7 @@
       "descMerge": "新增您複製的更改，保留其他設定不變。",
       "descReplace": "覆蓋所有選中的設定，其餘重置為預設值。",
       "groups": {
+        "aiDenoise": "AI 降噪",
         "chromaticAberration": "色差",
         "clarityDehaze": "清晰度與去朦朧",
         "colorCalibration": "顏色校準",
@@ -1307,16 +1342,19 @@
         "cropAspectRatio": "裁剪與寬高比",
         "curves": "曲線",
         "exposureToneMapper": "曝光與色調映射",
+        "fog": "霧",
         "grain": "顆粒",
         "guidedPerspective": "引導透視",
         "halationGlow": "光暈與發光",
         "hueShift": "全域色相偏移",
+        "lensBlur": "鏡頭模糊",
         "lensCorrection": "鏡頭校正",
         "lut": "LUT",
         "masks": "遮色片",
         "negativeConversion": "負片轉換",
         "noiseReduction": "降噪",
         "presence": "質感",
+        "relight": "重新打光",
         "sharpness": "銳度",
         "tone": "色調",
         "transformRotation": "變換與旋轉",
@@ -1813,8 +1851,11 @@
           "description": "直接整合到 RapidRAW 中，這些功能完全在您的計算機上執行。它們快速、免費且無需設定，非常適合日常加速工作流程。",
           "feature1": "AI 遮色片（主體、天空、前景）",
           "feature2": "自動影像標籤",
-          "feature3": "簡單的 CPU 生成式替換",
-          "title": "內建 AI（CPU）"
+          "feature3": "簡單的本機生成式替換",
+          "gpuAcceleration": "GPU 加速",
+          "gpuAccelerationDesc": "在顯示卡上執行降噪、遮罩、深度圖與法線圖以及標籤等內建 AI 功能，大幅提升速度。如果遇到當機或 AI 結果不正確，請關閉此選項。",
+          "gpuAccelerationLabel": "為 AI 模型使用 GPU",
+          "title": "內建 AI"
         },
         "aiFree": {
           "description": "關閉所有 AI 功能。所有與 AI 相關的控制項都會從介面中隱藏，RapidRAW 將作為純傳統的 RAW 編輯器運作。",
@@ -1828,7 +1869,7 @@
           "aiConnector": "AI 聯結器",
           "aiFree": "無 AI",
           "cloud": "雲端",
-          "cpu": "CPU"
+          "cpu": "內建"
         },
         "title": "生成式 AI"
       },
@@ -1967,8 +2008,10 @@
     "thanks": {
       "description": "衷心感謝以下專案，它們在 RapidRAW 的開發過程中非常重要：",
       "list": {
+        "birefnet": "為提供高解析度分割模型，用於 AI 前景檢測功能。",
         "darktable": "為部分參考實現提供了指導。",
         "depth": "為強大的單目深度估計模型提供支援，實現了 AI 深度遮色片功能。",
+        "efficientsam3": "為提供從 SAM 3 蒸餾而來的高效提示式分割模型，用於 AI 天空和文字遮罩。",
         "lama": "為強大且簡單的影像修復模型提供支援，實現了內容感知填充和物件移除。",
         "lensfun": "為無價的開源庫和全面的資料庫提供支援，實現了自動鏡頭校正。",
         "libgphoto2": "感謝提供全面的相機通訊函式庫，為 RapidRAW 的連線拍攝與遠端控制子系統提供支援。",
@@ -1977,7 +2020,6 @@
         "rawler": "為優秀的 Rust 庫提供支援，構成了本專案 RAW 檔案處理的基礎。",
         "sam2": "為提供基礎模型，用於 AI 主體檢測功能。",
         "spektrafilm": "感謝 Andrea Volpato 提供基於光譜的底片模擬 LUT，為 RapidRAW 的內建底片模擬提供支援。採用 CC BY-SA 4.0 授權。",
-        "u2net": "為提供穩健的架構，用於 AI 天空和前景檢測功能。",
         "you": "感謝您使用和支援 RapidRAW。您的關注使本專案持續發展。",
         "youLabel": "您"
       },

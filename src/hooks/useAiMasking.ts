@@ -440,6 +440,7 @@ export function useAiMasking() {
       const transformAdjustments = getTransformAdjustments(adjustments);
       const newParameters = await invoke(Invokes.GenerateAiSkyMask, {
         jsAdjustments: transformAdjustments,
+        path: selectedImage.path,
         flipHorizontal: adjustments.flipHorizontal,
         flipVertical: adjustments.flipVertical,
         orientationSteps: adjustments.orientationSteps,
@@ -457,6 +458,40 @@ export function useAiMasking() {
     } catch (error) {
       if (!String(error).includes('cancelled')) {
         toast.error(`AI Sky Mask Failed: ${error}`);
+      }
+    } finally {
+      unregisterAiTask(subMaskId);
+    }
+  };
+
+  const handleGenerateAiTextMask = async (subMaskId: string, prompt: string) => {
+    const { selectedImage, adjustments, patchesSentToBackend } = useEditorStore.getState();
+    if (!selectedImage?.path || !prompt.trim()) return;
+    registerAiTask(subMaskId, 'text');
+
+    try {
+      const transformAdjustments = getTransformAdjustments(adjustments);
+      const newParameters = await invoke<Record<string, unknown>>(Invokes.GenerateAiTextMask, {
+        jsAdjustments: transformAdjustments,
+        path: selectedImage.path,
+        prompt: prompt.trim(),
+        flipHorizontal: adjustments.flipHorizontal,
+        flipVertical: adjustments.flipVertical,
+        orientationSteps: adjustments.orientationSteps,
+        rotation: adjustments.rotation,
+        taskId: subMaskId,
+      });
+
+      const subMask =
+        adjustments.masks?.flatMap((m: MaskContainer) => m.subMasks).find((sm: SubMask) => sm.id === subMaskId) ||
+        adjustments.aiPatches?.flatMap((p: AiPatch) => p.subMasks).find((sm: SubMask) => sm.id === subMaskId);
+
+      const mergedParameters = { ...(subMask?.parameters || {}), ...newParameters };
+      patchesSentToBackend.delete(subMaskId);
+      updateSubMask(subMaskId, { parameters: mergedParameters });
+    } catch (error) {
+      if (!String(error).includes('cancelled')) {
+        toast.error(`AI Text Mask Failed: ${error}`);
       }
     } finally {
       unregisterAiTask(subMaskId);
@@ -494,6 +529,7 @@ export function useAiMasking() {
     handleGenerateAiDepthMask,
     handleGenerateAiForegroundMask,
     handleGenerateAiSkyMask,
+    handleGenerateAiTextMask,
     handleCancelAiTask,
   };
 }

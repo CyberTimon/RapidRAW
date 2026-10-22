@@ -222,7 +222,7 @@
       "yellow": "Yellow"
     },
     "editor": {
-      "autoAdjust": "Auto Adjust Image",
+      "autoAdjust": "Auto Adjust",
       "autoLensCorrection": "Auto Lens Correction",
       "autoStraighten": "Auto Straighten",
       "cancel": "Cancel",
@@ -230,14 +230,14 @@
       "confirmReset": "Confirm Reset",
       "convertNegative": "Convert Negative",
       "copyAdjustments": "Copy Adjustments",
-      "cullImage": "Cull Image",
-      "denoise": "Denoise Image",
+      "cullImage": "Auto Cull",
+      "denoise": "Denoise",
       "editImage": "Edit Image",
       "exportImage": "Export Image",
       "flag": "Flag",
       "flagPick": "Picked",
       "flagReject": "Rejected",
-      "frameImage": "Frame Image",
+      "frameImage": "Frame Editor",
       "mergeHdr": "Merge to HDR",
       "noLabel": "No Label",
       "noRating": "No Rating",
@@ -290,13 +290,13 @@
     },
     "thumbnail": {
       "addToAlbum": "Add to Album",
-      "autoAdjust_one": "Auto Adjust Image",
-      "autoAdjust_other": "Auto Adjust Images",
+      "autoAdjust_one": "Auto Adjust",
+      "autoAdjust_other": "Auto Adjust",
       "autoLensCorrection_one": "Auto Lens Correction",
       "autoLensCorrection_other": "Auto Lens Correction",
-      "autoStraighten_one": "Auto Straighten Image",
-      "autoStraighten_other": "Auto Straighten Images",
-      "collage_one": "Frame Image",
+      "autoStraighten_one": "Auto Straighten",
+      "autoStraighten_other": "Auto Straighten",
+      "collage_one": "Frame Editor",
       "collage_other": "Create Collage",
       "confirmDelete": "Confirm Delete",
       "confirmDeleteVc": "Confirm Delete + Virtual Copies",
@@ -304,14 +304,14 @@
       "convertNegative_other": "Convert Negatives",
       "copyImage_one": "Copy Image",
       "copyImage_other": "Copy {{count}} Images",
-      "cullImage_one": "Cull Image",
-      "cullImage_other": "Cull Images",
+      "cullImage_one": "Auto Cull",
+      "cullImage_other": "Auto Cull",
       "deleteAssociated": "Delete + Associated",
       "deleteImage_one": "Delete Image",
       "deleteImage_other": "Delete {{count}} Images",
       "deleteSelected": "Delete Selected Only",
-      "denoise_one": "Denoise Image",
-      "denoise_other": "Denoise Images",
+      "denoise_one": "Denoise",
+      "denoise_other": "Denoise",
       "duplicateImage": "Duplicate Image",
       "exportImage_one": "Export Image",
       "exportImage_other": "Export {{count}} Images",
@@ -404,7 +404,7 @@
       "comingSoon": "Coming Soon",
       "connection": {
         "backendLabel": "AI Backend:",
-        "builtinDesc": "Using basic local CPU. Select Cloud or AI Connector in settings for generative replace.",
+        "builtinDesc": "Using basic built-in AI. Select Cloud or AI Connector in settings for generative replace.",
         "builtinLabel": "Built-in AI:",
         "cloudLabel": "Cloud AI:",
         "connectorConnectedDesc": "Connected to local generative backend.",
@@ -694,6 +694,7 @@
         "applyPreset": "Apply Preset",
         "componentPropertiesTitle": "{{name}} Properties",
         "copySectionSettings": "Copy {{section}} Settings",
+        "generateTextMask": "Generate Mask",
         "invertComponent": "Invert Component",
         "invertMask": "Invert Mask",
         "maskPropertiesTitle": "Mask Properties",
@@ -703,7 +704,8 @@
         "pasteSettings": "Paste Settings",
         "resetSectionSettings": "Reset {{section}} Settings",
         "select": "Select",
-        "selectPresetTooltip": "Select a preset to apply"
+        "selectPresetTooltip": "Select a preset to apply",
+        "textPromptPlaceholder": "e.g., person, car, water"
       },
       "toggleAnalyticsInAdjustments": "Toggle analytics in Adjustments panel",
       "toggleAnalyticsTooltip": "Toggle Analytics Display",
@@ -971,6 +973,38 @@
     }
   },
   "library": {
+    "aiJobs": {
+      "discard": "Discard remaining AI processing",
+      "failed": "Failed ({{failedCount}})",
+      "kinds": {
+        "denoise": "AI denoising",
+        "depthMap": "Analyzing depth",
+        "depthMask": "Generating depth mask",
+        "foregroundMask": "Generating foreground mask",
+        "normalMap": "Analyzing surfaces",
+        "skyMask": "Generating sky mask",
+        "subjectMask": "Generating subject mask",
+        "textMask": "Generating text mask"
+      },
+      "more": "+{{moreCount}} more",
+      "pause": "Pause AI processing",
+      "paused": "Paused · {{remaining}} remaining",
+      "pausedItem": "Paused",
+      "pausing": "Pausing after the current step…",
+      "process": "Process images",
+      "progress": "{{current}}/{{total}}",
+      "queue": "Queue",
+      "queuedItem": "Queued",
+      "resume": "Resume AI processing",
+      "retry": "Retry",
+      "taskWithMask": "{{task}} “{{mask}}”",
+      "thumbnailPaused": "AI processing paused",
+      "thumbnailPending": "AI processing pending",
+      "title": "AI processing",
+      "unprocessed_one": "{{count}} image needs AI processing",
+      "unprocessed_other": "{{count}} images need AI processing",
+      "waiting": "Preparing AI processing…"
+    },
     "community": {
       "actionSave": "Save",
       "actionSaved": "Saved",
@@ -1245,7 +1279,8 @@
       "radial": "Radial",
       "retouch": "Retouch",
       "sky": "Sky",
-      "subject": "Subject"
+      "subject": "Subject",
+      "text": "Text"
     }
   },
   "menus": {
@@ -1301,6 +1336,7 @@
       "descMerge": "Adds your copied changes, leaving other settings untouched.",
       "descReplace": "Overwrites all selected settings, resetting the rest to their defaults.",
       "groups": {
+        "aiDenoise": "AI Denoise",
         "chromaticAberration": "Chromatic Aberration",
         "clarityDehaze": "Clarity & Dehaze",
         "colorCalibration": "Color Calibration",
@@ -1309,16 +1345,19 @@
         "cropAspectRatio": "Crop & Aspect Ratio",
         "curves": "Curves",
         "exposureToneMapper": "Exposure & Tone Mapper",
+        "fog": "Fog",
         "grain": "Grain",
         "guidedPerspective": "Guided Perspective",
         "halationGlow": "Halation & Glow",
         "hueShift": "Global Hue Shift",
+        "lensBlur": "Lens Blur",
         "lensCorrection": "Lens Correction",
         "lut": "LUT",
         "masks": "Masks",
         "negativeConversion": "Negative Conversion",
         "noiseReduction": "Noise Reduction",
         "presence": "Presence",
+        "relight": "Relight",
         "sharpness": "Sharpness",
         "tone": "Tone",
         "transformRotation": "Transform & Rotation",
@@ -1815,8 +1854,11 @@
           "description": "Integrated directly into RapidRAW, these features run entirely on your computer. They are fast, free, and require no setup, making them ideal for everyday workflow acceleration.",
           "feature1": "AI Masking (Subject, Sky, Foreground)",
           "feature2": "Automatic Image Tagging",
-          "feature3": "Simple CPU-based Generative Replace",
-          "title": "Built-in AI (CPU)"
+          "feature3": "Simple on-device Generative Replace",
+          "gpuAcceleration": "GPU Acceleration",
+          "gpuAccelerationDesc": "Run built-in AI features like denoise, masks, depth and normal maps and tagging on your graphics card for much faster results. Disable this if you experience crashes or incorrect AI results.",
+          "gpuAccelerationLabel": "Use GPU for AI models",
+          "title": "Built-in AI"
         },
         "aiFree": {
           "description": "Turn off every AI feature. All AI-related controls are hidden from the interface so RapidRAW works as a purely traditional RAW editor.",
@@ -1830,7 +1872,7 @@
           "aiConnector": "AI Connector",
           "aiFree": "AI-Free",
           "cloud": "Cloud",
-          "cpu": "CPU"
+          "cpu": "Built-in"
         },
         "title": "Generative AI"
       },
@@ -1969,8 +2011,10 @@
     "thanks": {
       "description": "A huge thank you to the following projects that were very important in the development of RapidRAW:",
       "list": {
+        "birefnet": "For the high-resolution segmentation model that powers the AI foreground detection.",
         "darktable": "For some reference implementations that guided parts of this work.",
         "depth": "For the powerful monocular depth estimation model that enables the AI depth masking capabilities.",
+        "efficientsam3": "For the efficient promptable segmentation model distilled from SAM 3 that powers the AI sky and text masks.",
         "lama": "For the powerful & simple image inpainting model, which enables content-aware fill and object removal.",
         "lensfun": "For its invaluable open-source library and comprehensive database for automatic lens correction.",
         "libgphoto2": "For the comprehensive camera communication library powering RapidRAW's tethering and remote capture subsystem.",
@@ -1979,7 +2023,6 @@
         "rawler": "For the excellent Rust crate that provides the foundation for RAW file processing in this project.",
         "sam2": "For providing the foundation model used for the AI subject detection capabilities.",
         "spektrafilm": "For the spectrally-based film emulation LUTs by Andrea Volpato, used to power RapidRAW's built-in film emulations. Licensed CC BY-SA 4.0.",
-        "u2net": "For providing the robust architecture used for the AI sky and foreground detection capabilities.",
         "you": "For using and supporting RapidRAW. Your interest keeps this project alive and evolving.",
         "youLabel": "You"
       },

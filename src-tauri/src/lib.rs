@@ -23,6 +23,7 @@ mod adjustment_utils;
 mod ai_commands;
 mod ai_connector;
 mod ai_denoise;
+mod ai_jobs;
 mod ai_processing;
 mod android_integration;
 mod app_settings;
@@ -440,6 +441,20 @@ fn cancel_thumbnail_generation(
     Ok(())
 }
 
+pub fn build_ai_source_image(
+    image: &DynamicImage,
+    is_raw: bool,
+    js_adjustments: &serde_json::Value,
+) -> DynamicImage {
+    let source =
+        crate::negative_conversion::apply_negative_conversion(Cow::Borrowed(image), js_adjustments);
+    build_full_warped_image_rgb8(
+        &source,
+        crate::negative_conversion::effective_is_raw(is_raw, js_adjustments),
+        js_adjustments,
+    )
+}
+
 pub fn get_cached_full_warped_image(
     state: &tauri::State<AppState>,
     js_adjustments: &serde_json::Value,
@@ -498,13 +513,9 @@ pub fn get_cached_full_warped_image_for_path(
         return Ok(img);
     }
 
-    let source = crate::negative_conversion::apply_negative_conversion(
-        Cow::Borrowed(loaded_image.image.as_ref()),
-        js_adjustments,
-    );
-    let warped_arc = Arc::new(build_full_warped_image_rgb8(
-        &source,
-        crate::negative_conversion::effective_is_raw(loaded_image.is_raw, js_adjustments),
+    let warped_arc = Arc::new(build_ai_source_image(
+        &loaded_image.image,
+        loaded_image.is_raw,
         js_adjustments,
     ));
     *state
@@ -919,17 +930,21 @@ fn start_preview_worker(app_handle: tauri::AppHandle) {
 
             let state = app_handle.state::<AppState>();
             let responder = job.responder;
-            match process_preview_job(
-                &app_handle,
-                state,
-                job.adjustments,
-                job.is_interactive,
-                job.target_resolution,
-                job.roi,
-                job.request_analytics,
-                job.compute_waveform,
-                job.active_waveform_channel.as_deref(),
-            ) {
+            let result = panic::catch_unwind(panic::AssertUnwindSafe(|| {
+                process_preview_job(
+                    &app_handle,
+                    state,
+                    job.adjustments,
+                    job.is_interactive,
+                    job.target_resolution,
+                    job.roi,
+                    job.request_analytics,
+                    job.compute_waveform,
+                    job.active_waveform_channel.as_deref(),
+                )
+            }))
+            .unwrap_or_else(|_| Err("Preview rendering panicked".to_string()));
+            match result {
                 Ok(bytes) => {
                     let _ = responder.send(bytes);
                 }
@@ -2027,6 +2042,7 @@ pub fn run() {
 
             if let Ok(cache_dir) = app_handle.path().app_cache_dir() {
                 crate::ai_denoise::initialize_cache_dir(cache_dir.clone());
+                crate::effect_maps::initialize_cache_dir(cache_dir.clone());
                 crate::exif_processing::initialize_cache_dir(cache_dir);
             }
 
@@ -2150,6 +2166,7 @@ pub fn run() {
             start_analytics_worker(app_handle.clone());
             file_management::start_thumbnail_workers(app_handle.clone());
             file_management::start_metadata_workers(app_handle.clone());
+            ai_jobs::start_worker(app_handle.clone());
             jxl_oxide::integration::register_image_decoding_hook();
 
             let window_cfg = app.config().app.windows.first().unwrap().clone();
@@ -2431,6 +2448,7 @@ pub fn run() {
             ai_commands::precompute_ai_subject_mask,
             ai_commands::generate_ai_foreground_mask,
             ai_commands::generate_ai_sky_mask,
+            ai_commands::generate_ai_text_mask,
             ai_commands::generate_ai_depth_mask,
             ai_commands::check_ai_connector_status,
             ai_commands::test_ai_connector_connection,
@@ -2438,6 +2456,13 @@ pub fn run() {
             ai_commands::generate_relight_normal_map,
             ai_denoise::get_ai_denoise_cache_size,
             ai_denoise::clear_ai_denoise_cache,
+            ai_jobs::get_ai_jobs_status,
+            ai_jobs::get_pending_ai_paths,
+            ai_jobs::pause_ai_jobs,
+            ai_jobs::resume_ai_jobs,
+            ai_jobs::discard_ai_jobs,
+            ai_jobs::queue_ai_jobs,
+            ai_jobs::retry_failed_ai_jobs,
             ai_commands::cancel_ai_task,
             apple_raw::is_raw9_available,
             inpainting::invoke_generative_replace_with_mask_def,

@@ -9,8 +9,10 @@ const ITERATIONS: usize = 3;
 const FULL_CLIP_CHROMA: f32 = 0.35;
 const HEADROOM_FADE: f32 = 0.3;
 const FILL_SUPPORT_DIVISOR: f32 = 28.0;
-const FILL_SPREAD_START: f32 = 0.4;
-const FILL_SPREAD_END: f32 = 1.1;
+const FILL_SPREAD_START: f32 = 0.25;
+const FILL_SPREAD_END: f32 = 0.6;
+const FILL_STRENGTH: f32 = 0.5;
+const FILL_SAMPLE_SPREAD: f32 = 0.25;
 const LEVEL_BINS: usize = 2048;
 const LEVEL_LOW: f32 = 0.75;
 const LEVEL_HIGH: f32 = 1.25;
@@ -292,11 +294,15 @@ fn fill_blown(
                     {
                         continue;
                     }
+                    let rg = (p[0] / p[1]).ln();
+                    let bg = (p[2] / p[1]).ln();
+                    let spread = (rg.max(bg).max(0.0) - rg.min(bg).min(0.0)) / FILL_SAMPLE_SPREAD;
+                    let w = 1.0 / (1.0 + spread * spread);
                     let target = &mut cells[x / cell];
-                    target.weight[0] += 1.0;
-                    target.weight[1] += 1.0;
-                    target.offset[0] += (p[0] / p[1]).ln();
-                    target.offset[1] += (p[2] / p[1]).ln();
+                    target.weight[0] += w;
+                    target.weight[1] += w;
+                    target.offset[0] += w * rg;
+                    target.offset[1] += w * bg;
                 }
             }
         });
@@ -316,7 +322,8 @@ fn fill_blown(
                 let gx = (x as f32 + 0.5) * inv_cell - 0.5;
                 let [rg, bg, _] = chroma.sample(gx, gy);
                 let spread = rg.max(bg).max(0.0) - rg.min(bg).min(0.0);
-                let strength = 1.0 - smoothstep(FILL_SPREAD_START, FILL_SPREAD_END, spread);
+                let strength =
+                    FILL_STRENGTH * (1.0 - smoothstep(FILL_SPREAD_START, FILL_SPREAD_END, spread));
                 let tint = [(rg * strength).exp(), 1.0, (bg * strength).exp()];
                 let pixel = &mut row[x];
                 let brightness = (pixel[0] + pixel[1] + pixel[2]) / (tint[0] + tint[1] + tint[2]);

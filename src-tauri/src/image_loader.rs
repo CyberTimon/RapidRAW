@@ -1044,11 +1044,13 @@ pub async fn load_image(
     }
 
     *state.original_image.lock().unwrap() = Some(LoadedImage {
-        path,
+        path: path.clone(),
         image: pristine_arc,
         is_raw,
         as_shot,
     });
+
+    crate::ai_jobs::prioritize(&app_handle, &path);
 
     Ok(LoadImageResult {
         width: orig_width,

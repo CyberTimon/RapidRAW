@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
 use half::f16;
@@ -146,6 +147,8 @@ impl WgpuDisplay {
     }
 }
 
+static GPU_DEVICE_LOST: AtomicBool = AtomicBool::new(false);
+
 pub fn get_or_init_gpu_context(
     state: &tauri::State<AppState>,
     _app_handle: &tauri::AppHandle,
@@ -164,6 +167,15 @@ pub fn get_or_init_gpu_context(
             guard
         }
     };
+    if GPU_DEVICE_LOST.load(Ordering::Acquire) {
+        log::warn!("Recreating GPU context after the device was lost.");
+        if let Some(context) = context_lock.take() {
+            *context.display.lock().unwrap_or_else(|e| e.into_inner()) = None;
+        }
+        *lock_or_reset(&state.gpu_processor, "GPU processor") = None;
+        *lock_or_reset(&state.gpu_image_cache, "GPU image cache") = None;
+        GPU_DEVICE_LOST.store(false, Ordering::Release);
+    }
     if let Some(context) = &*context_lock {
         return Ok(context.clone());
     }
@@ -294,6 +306,12 @@ pub fn get_or_init_gpu_context(
     device.on_uncaptured_error(Arc::new(|err: wgpu::Error| {
         log::error!("[wgpu-error] {}", err);
     }));
+    device.set_device_lost_callback(|reason, message| {
+        if reason == wgpu::DeviceLostReason::Unknown {
+            log::error!("GPU device lost: {}", message);
+            GPU_DEVICE_LOST.store(true, Ordering::Release);
+        }
+    });
 
     if let Some(p) = &flag_path {
         let _ = std::fs::remove_file(p);
@@ -531,19 +549,23 @@ fn read_texture_data_roi(
         .map_err(|e| format!("Failed receiving GPU map result: {}", e))?;
     map_result.map_err(|e| e.to_string())?;
 
-    let mapped = buffer_slice.get_mapped_range();
-    let data = if padded_bytes_per_row == unpadded_bytes_per_row {
-        mapped.to_vec()
-    } else {
-        let mut unpadded_data = Vec::with_capacity((unpadded_bytes_per_row * size.height) as usize);
-        for chunk in mapped.chunks(padded_bytes_per_row as usize) {
-            unpadded_data.extend_from_slice(&chunk[..unpadded_bytes_per_row as usize]);
-        }
-        unpadded_data
-    };
-    drop(mapped);
-    output_buffer.unmap();
-    Ok(data)
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let mapped = buffer_slice.get_mapped_range();
+        let data = if padded_bytes_per_row == unpadded_bytes_per_row {
+            mapped.to_vec()
+        } else {
+            let mut unpadded_data =
+                Vec::with_capacity((unpadded_bytes_per_row * size.height) as usize);
+            for chunk in mapped.chunks(padded_bytes_per_row as usize) {
+                unpadded_data.extend_from_slice(&chunk[..unpadded_bytes_per_row as usize]);
+            }
+            unpadded_data
+        };
+        drop(mapped);
+        output_buffer.unmap();
+        data
+    }))
+    .map_err(|_| "GPU device was lost while reading back the image".to_string())
 }
 
 fn to_rgba_f16(img: &DynamicImage) -> Vec<f16> {
@@ -731,7 +753,9 @@ fn analytics_readback_sender() -> &'static std::sync::mpsc::Sender<AnalyticsRead
                     recycle_readback_buffer(&readback.pool, readback.buffer);
                     readback = newer;
                 }
-                complete_analytics_readback(readback);
+                let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    complete_analytics_readback(readback)
+                }));
             }
         });
         tx

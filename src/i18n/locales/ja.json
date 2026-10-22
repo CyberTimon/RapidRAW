@@ -222,7 +222,7 @@
       "yellow": "イエロー"
     },
     "editor": {
-      "autoAdjust": "画像を自動補正",
+      "autoAdjust": "自動補正",
       "autoLensCorrection": "自動レンズ補正",
       "autoStraighten": "自動角度補正",
       "cancel": "キャンセル",
@@ -230,14 +230,14 @@
       "confirmReset": "リセットを確認",
       "convertNegative": "ネガ反転",
       "copyAdjustments": "補正設定をコピー",
-      "cullImage": "画像を選別",
-      "denoise": "ノイズ低減を実行",
+      "cullImage": "自動選別",
+      "denoise": "ノイズ低減",
       "editImage": "画像を編集",
       "exportImage": "画像を書き出し",
       "flag": "フラグ",
       "flagPick": "採用",
       "flagReject": "除外",
-      "frameImage": "画像にフレームを追加",
+      "frameImage": "フレームエディター",
       "mergeHdr": "HDRに統合",
       "noLabel": "ラベルなし",
       "noRating": "評価なし",
@@ -290,13 +290,13 @@
     },
     "thumbnail": {
       "addToAlbum": "アルバムに追加",
-      "autoAdjust_one": "画像を自動補正",
-      "autoAdjust_other": "画像を自動補正",
+      "autoAdjust_one": "自動補正",
+      "autoAdjust_other": "自動補正",
       "autoLensCorrection_one": "自動レンズ補正",
       "autoLensCorrection_other": "自動レンズ補正",
-      "autoStraighten_one": "画像を自動角度補正",
-      "autoStraighten_other": "画像を自動角度補正",
-      "collage_one": "画像にフレームを追加",
+      "autoStraighten_one": "自動角度補正",
+      "autoStraighten_other": "自動角度補正",
+      "collage_one": "フレームエディター",
       "collage_other": "コラージュを作成",
       "confirmDelete": "削除を確認",
       "confirmDeleteVc": "削除 + 仮想コピーを確認",
@@ -304,14 +304,14 @@
       "convertNegative_other": "ネガ反転",
       "copyImage_one": "画像をコピー",
       "copyImage_other": "{{count}} 枚の画像をコピー",
-      "cullImage_one": "画像を選別",
-      "cullImage_other": "画像を選別",
+      "cullImage_one": "自動選別",
+      "cullImage_other": "自動選別",
       "deleteAssociated": "削除 + 関連ファイル",
       "deleteImage_one": "画像を削除",
       "deleteImage_other": "{{count}} 枚の画像を削除",
       "deleteSelected": "選択したもののみ削除",
-      "denoise_one": "ノイズ低減を実行",
-      "denoise_other": "ノイズ低減を実行",
+      "denoise_one": "ノイズ低減",
+      "denoise_other": "ノイズ低減",
       "duplicateImage": "画像を複製",
       "exportImage_one": "画像を書き出し",
       "exportImage_other": "{{count}} 枚の画像を書き出し",
@@ -404,7 +404,7 @@
       "comingSoon": "近日公開",
       "connection": {
         "backendLabel": "AI バックエンド:",
-        "builtinDesc": "ローカルCPUを使用しています。生成塗りつぶしを使用するには、設定でクラウドまたはAI Connectorを選択してください。",
+        "builtinDesc": "基本的な内蔵AIを使用しています。生成塗りつぶしを使用するには、設定でクラウドまたはAI Connectorを選択してください。",
         "builtinLabel": "内蔵AI:",
         "cloudLabel": "クラウドAI:",
         "connectorConnectedDesc": "ローカルの生成バックエンドに接続されました。",
@@ -692,6 +692,7 @@
         "applyPreset": "プリセットを適用",
         "componentPropertiesTitle": "{{name}} のプロパティ",
         "copySectionSettings": "{{section}}設定をコピー",
+        "generateTextMask": "マスクを生成",
         "invertComponent": "コンポーネントを反転",
         "invertMask": "マスクを反転",
         "maskPropertiesTitle": "マスクのプロパティ",
@@ -701,7 +702,8 @@
         "pasteSettings": "設定を貼り付け",
         "resetSectionSettings": "{{section}}設定をリセット",
         "select": "選択",
-        "selectPresetTooltip": "適用するプリセットを選択"
+        "selectPresetTooltip": "適用するプリセットを選択",
+        "textPromptPlaceholder": "例: 人物、車、水"
       },
       "toggleAnalyticsInAdjustments": "調整パネルでアナリティクスを切り替える",
       "toggleAnalyticsTooltip": "アナリティクス表示の切り替え",
@@ -969,6 +971,37 @@
     }
   },
   "library": {
+    "aiJobs": {
+      "discard": "残りのAI処理を破棄",
+      "failed": "失敗（{{failedCount}}）",
+      "kinds": {
+        "denoise": "AIノイズ除去中",
+        "depthMap": "深度を解析中",
+        "depthMask": "深度マスクを生成中",
+        "foregroundMask": "前景マスクを生成中",
+        "normalMap": "表面を解析中",
+        "skyMask": "空マスクを生成中",
+        "subjectMask": "被写体マスクを生成中",
+        "textMask": "テキストマスクを生成中"
+      },
+      "more": "他{{moreCount}}件",
+      "pause": "AI処理を一時停止",
+      "paused": "一時停止中 · 残り{{remaining}}件",
+      "pausedItem": "一時停止",
+      "pausing": "現在のステップの後に一時停止します…",
+      "process": "画像を処理",
+      "progress": "{{current}}/{{total}}",
+      "queue": "キュー",
+      "queuedItem": "待機中",
+      "resume": "AI処理を再開",
+      "retry": "再試行",
+      "taskWithMask": "{{task}}「{{mask}}」",
+      "thumbnailPaused": "AI処理を一時停止中",
+      "thumbnailPending": "AI処理待ち",
+      "title": "AI処理",
+      "unprocessed_other": "{{count}}枚の画像にAI処理が必要です",
+      "waiting": "AI処理を準備中…"
+    },
     "community": {
       "actionSave": "保存",
       "actionSaved": "保存済み",
@@ -1243,7 +1276,8 @@
       "radial": "円形",
       "retouch": "レタッチ",
       "sky": "空",
-      "subject": "被写体"
+      "subject": "被写体",
+      "text": "テキスト"
     }
   },
   "menus": {
@@ -1299,6 +1333,7 @@
       "descMerge": "コピーした設定を追加し、その他の設定はそのまま残します。",
       "descReplace": "選択したすべての設定を上書きし、残りの設定をデフォルトにリセットします。",
       "groups": {
+        "aiDenoise": "AIノイズ除去",
         "chromaticAberration": "色収差",
         "clarityDehaze": "明瞭度とかすみの除去",
         "colorCalibration": "カラーキャリブレーション",
@@ -1307,16 +1342,19 @@
         "cropAspectRatio": "切り抜きとアスペクト比",
         "curves": "トーンカーブ",
         "exposureToneMapper": "露光量とトーンマッパー",
+        "fog": "フォグ",
         "grain": "粒子",
         "guidedPerspective": "ガイド付きパースペクティブ",
         "halationGlow": "ハレーションとグロー",
         "hueShift": "グローバル色相シフト",
+        "lensBlur": "レンズぼかし",
         "lensCorrection": "レンズ補正",
         "lut": "LUT",
         "masks": "マスク",
         "negativeConversion": "ネガ変換",
         "noiseReduction": "ノイズ低減",
         "presence": "外観",
+        "relight": "リライト",
         "sharpness": "シャープネス",
         "tone": "トーン",
         "transformRotation": "変形と回転",
@@ -1813,8 +1851,11 @@
           "description": "RapidRAWに直接内蔵されており、お使いのコンピューター上のみで動作します。高速かつ無料でセットアップも不要です。",
           "feature1": "AIマスク機能 (被写体、空、手前)",
           "feature2": "自動画像タグ付け機能",
-          "feature3": "CPUベースの簡易生成塗りつぶし",
-          "title": "内蔵AI (CPU)"
+          "feature3": "デバイス上での簡易生成塗りつぶし",
+          "gpuAcceleration": "GPUアクセラレーション",
+          "gpuAccelerationDesc": "ノイズ除去、マスク、深度マップや法線マップ、タグ付けなどの内蔵AI機能をグラフィックカードで実行し、大幅に高速化します。クラッシュやAIの結果がおかしい場合は無効にしてください。",
+          "gpuAccelerationLabel": "AIモデルにGPUを使用",
+          "title": "内蔵AI"
         },
         "aiFree": {
           "description": "すべてのAI機能をオフにします。AI関連のコントロールはすべてインターフェースから非表示になり、RapidRAWは純粋な従来型のRAWエディターとして動作します。",
@@ -1828,7 +1869,7 @@
           "aiConnector": "AI Connector",
           "aiFree": "AIなし",
           "cloud": "クラウド",
-          "cpu": "CPU"
+          "cpu": "内蔵"
         },
         "title": "生成AI"
       },
@@ -1967,8 +2008,10 @@
     "thanks": {
       "description": "RapidRAWの開発において、非常に重要な役割を果たしてくれた以下のプロジェクトに心より感謝いたします:",
       "list": {
+        "birefnet": "AIによる手前の自動検出を支える、高解像度のセグメンテーションモデルを提供しています。",
         "darktable": "一部の実装において参考にさせていただきました。",
         "depth": "AI奥行きマスクを可能にする、単眼深度推定モデルを提供しています。",
+        "efficientsam3": "AIによる空とテキストのマスクを支える、SAM 3から蒸留された効率的なプロンプト対応セグメンテーションモデルを提供しています。",
         "lama": "コンテンツに応じた塗りつぶしやオブジェクト削除を実現する、シンプルかつ強力な画像インペインティングモデルを提供しています。",
         "lensfun": "自動レンズ補正に不可欠な、オープンソースライブラリと膨大なデータベースを提供しています。",
         "libgphoto2": "RapidRAW のテザリングおよびリモート撮影機能を支える、包括的なカメラ通信ライブラリを提供してくださったことに。",
@@ -1977,7 +2020,6 @@
         "rawler": "RAWファイル処理の基盤となる優れたRustライブラリを提供しています。",
         "sam2": "AI被写体検出機能の基盤となるモデルを提供しています。",
         "spektrafilm": "RapidRAW の内蔵フィルムエミュレーションを支える、Andrea Volpato 氏によるスペクトルベースのフィルムエミュレーション LUT を提供してくださったことに。ライセンスは CC BY-SA 4.0 です。",
-        "u2net": "AIによる空や手前の自動検出に用いる、堅牢なアーキテクチャを提供しています。",
         "you": "RapidRAWをご利用、ご支援いただきありがとうございます。皆様のご関心こそが、プロジェクトの存続と発展の支えです。",
         "youLabel": "皆様"
       },

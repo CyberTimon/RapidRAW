@@ -40,14 +40,18 @@ import {
   Plus,
   PlusSquare,
   RotateCcw,
+  Send,
   Trash2,
   SwatchBook,
   SquaresIntersect,
+  X,
 } from 'lucide-react';
 
 import CollapsibleSection from '../../ui/CollapsibleSection';
 import Switch from '../../ui/Switch';
 import Slider from '../../ui/Slider';
+import Input from '../../ui/Input';
+import Button from '../../ui/Button';
 import AdjustmentSection from '../../adjustments/AdjustmentSection';
 import ConnectedWaveform from '../editor/ConnectedWaveform';
 import Resizer from '../../ui/Resizer';
@@ -142,6 +146,12 @@ const SUB_MASK_CONFIG: Record<Mask, any> = {
     ],
   },
   [Mask.AiSky]: {
+    parameters: [
+      { key: 'grow', min: -100, max: 100, step: 1, defaultValue: 0 },
+      { key: 'feather', min: 0, max: 100, step: 1, defaultValue: 0 },
+    ],
+  },
+  [Mask.AiText]: {
     parameters: [
       { key: 'grow', min: -100, max: 100, step: 1, defaultValue: 0 },
       { key: 'feather', min: 0, max: 100, step: 1, defaultValue: 0 },
@@ -259,8 +269,13 @@ export default function MasksPanel() {
   const { t } = useTranslation();
   const { setAdjustments } = useEditorActions();
   const isAiFree = useSettingsStore((s) => s.appSettings?.aiProvider === 'ai-free');
-  const { handleGenerateAiDepthMask, handleGenerateAiForegroundMask, handleGenerateAiSkyMask, handleCancelAiTask } =
-    useAiMasking();
+  const {
+    handleGenerateAiDepthMask,
+    handleGenerateAiForegroundMask,
+    handleGenerateAiSkyMask,
+    handleGenerateAiTextMask,
+    handleCancelAiTask,
+  } = useAiMasking();
 
   const { setCustomEscapeHandler, isAdjustmentsPanelVisible } = useUIStore(
     useShallow((state) => ({
@@ -1189,6 +1204,9 @@ export default function MasksPanel() {
                       setSettingsSectionOpen={setSettingsSectionOpen}
                       presets={presets}
                       handleGenerateAiDepthMask={handleGenerateAiDepthMask}
+                      handleGenerateAiTextMask={handleGenerateAiTextMask}
+                      handleCancelAiTask={handleCancelAiTask}
+                      activeAiTasks={activeAiTasks}
                     />
                   </motion.div>
                 )}
@@ -1895,11 +1913,19 @@ function SettingsPanel({
   setSettingsSectionOpen,
   presets,
   handleGenerateAiDepthMask,
+  handleGenerateAiTextMask,
+  handleCancelAiTask,
+  activeAiTasks,
 }: any) {
   const { t } = useTranslation();
   const { showContextMenu } = useContextMenu();
   const isActive = !!container;
   const presetButtonRef = useRef<HTMLButtonElement>(null);
+  const [textPrompt, setTextPrompt] = useState(activeSubMask?.parameters?.prompt || '');
+
+  useEffect(() => {
+    setTextPrompt(activeSubMask?.parameters?.prompt || '');
+  }, [activeSubMask?.id]);
 
   const placeholderContainer = {
     ...INITIAL_MASK_CONTAINER,
@@ -1977,8 +2003,17 @@ function SettingsPanel({
 
   const subMaskConfig = activeSubMask ? SUB_MASK_CONFIG[activeSubMask.type] || {} : {};
   const isAiMask =
-    activeSubMask && [Mask.AiSubject, Mask.AiForeground, Mask.AiSky, Mask.AiDepth].includes(activeSubMask.type);
+    activeSubMask &&
+    [Mask.AiSubject, Mask.AiForeground, Mask.AiSky, Mask.AiDepth, Mask.AiText].includes(activeSubMask.type);
   const isComponentMode = !!activeSubMask;
+  const isTextMask = activeSubMask?.type === Mask.AiText;
+  const isTextMaskRunning = isTextMask && Boolean(activeAiTasks?.[activeSubMask.id]);
+
+  const handleGenerateTextMaskClick = () => {
+    if (!isActive || !isTextMask || !textPrompt.trim()) return;
+    updateSubMask(activeSubMask.id, { parameters: { ...activeSubMask.parameters, prompt: textPrompt } });
+    handleGenerateAiTextMask(activeSubMask.id, textPrompt);
+  };
 
   const containerId: string | null = container?.id ?? null;
   const setMaskContainerAdjustments = useCallback(
@@ -2130,6 +2165,49 @@ function SettingsPanel({
         isContentVisible={true}
       >
         <div className="space-y-4 pt-2">
+          {isTextMask && (
+            <>
+              <div className="flex items-center gap-2">
+                <Input
+                  className="grow"
+                  disabled={isTextMaskRunning}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setTextPrompt(e.target.value)}
+                  onBlur={() =>
+                    isActive &&
+                    updateSubMask(activeSubMask.id, { parameters: { ...activeSubMask.parameters, prompt: textPrompt } })
+                  }
+                  onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                    if (e.key === 'Enter' && !isTextMaskRunning) handleGenerateTextMaskClick();
+                  }}
+                  placeholder={t('editor.masks.settings.textPromptPlaceholder')}
+                  type="text"
+                  value={textPrompt}
+                />
+              </div>
+
+              {isTextMaskRunning ? (
+                <Button
+                  className="group w-full bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 transition-colors"
+                  onClick={() => handleCancelAiTask(activeSubMask.id)}
+                >
+                  <span className="flex items-center justify-center group-hover:hidden">
+                    <Loader2 size={16} className="animate-spin mr-2" />
+                    {t('editor.ai.settings.generating')}
+                  </span>
+                  <span className="hidden items-center justify-center group-hover:flex">
+                    <X size={16} className="mr-2" />
+                    {t('editor.ai.settings.cancelGeneration')}
+                  </span>
+                </Button>
+              ) : (
+                <Button className="w-full" disabled={!textPrompt.trim()} onClick={handleGenerateTextMaskClick}>
+                  <Send size={16} />
+                  <span className="ml-2">{t('editor.masks.settings.generateTextMask')}</span>
+                </Button>
+              )}
+            </>
+          )}
+
           <Switch
             checked={!!(isComponentMode ? activeSubMask.invert : displayContainer.invert)}
             label={isComponentMode ? t('editor.masks.settings.invertComponent') : t('editor.masks.settings.invertMask')}

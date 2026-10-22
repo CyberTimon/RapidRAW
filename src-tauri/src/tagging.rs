@@ -203,7 +203,9 @@ pub fn generate_tags_with_clip(
     let mask_val = Tensor::from_array(mask_layout.into_owned())?;
 
     let mut clip_session = clip_session_mutex.lock().unwrap();
-    let outputs = clip_session.run(ort::inputs![ids_val, image_val, mask_val])?;
+    let outputs = crate::ai_processing::gpu_inference(
+        clip_session.run(ort::inputs![ids_val, image_val, mask_val]),
+    )?;
 
     let logits_dyn = outputs[0].try_extract_array::<f32>()?.to_owned();
     let logits = logits_dyn.into_dimensionality::<ndarray::Dim<[usize; 2]>>()?;
@@ -343,7 +345,7 @@ pub async fn start_background_indexing(
                     let path_str = path.to_string_lossy().to_string();
                     let (source_path, sidecar_path) = parse_virtual_path(&path_str);
 
-                    let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
+                    let metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
                     let should_generate_tags = match &metadata.tags {
                         None => true,
@@ -368,23 +370,25 @@ pub async fn start_background_indexing(
                                 ) {
                                     println!("Found AI tags for {}: {:?}", path_str, ai_tags);
 
-                                    let mut existing_tags: HashSet<String> =
-                                        metadata.tags.unwrap_or_default().into_iter().collect();
-
-                                    for tag in ai_tags {
-                                        existing_tags.insert(tag);
-                                    }
-
-                                    let mut final_tags: Vec<String> =
-                                        existing_tags.into_iter().collect();
-                                    final_tags.sort_unstable();
-
-                                    metadata.tags = Some(final_tags);
-
-                                    let _ = crate::exif_processing::write_sidecar(
+                                    let _ = crate::exif_processing::update_sidecar(
                                         &sidecar_path,
                                         &source_path,
-                                        &metadata,
+                                        |metadata| {
+                                            let mut existing_tags: HashSet<String> = metadata
+                                                .tags
+                                                .take()
+                                                .unwrap_or_default()
+                                                .into_iter()
+                                                .collect();
+
+                                            existing_tags.extend(ai_tags);
+
+                                            let mut final_tags: Vec<String> =
+                                                existing_tags.into_iter().collect();
+                                            final_tags.sort_unstable();
+
+                                            metadata.tags = Some(final_tags);
+                                        },
                                     );
                                 }
                             }
@@ -432,21 +436,18 @@ fn modify_tags_for_path(
 ) -> Result<(), String> {
     let (source_path, sidecar_path) = parse_virtual_path(path_str);
 
-    let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
+    let metadata =
+        crate::exif_processing::update_sidecar(&sidecar_path, &source_path, |metadata| {
+            let mut tags = metadata.tags.take().unwrap_or_default();
+            modify_fn(&mut tags);
 
-    let mut tags = metadata.tags.unwrap_or_default();
-    modify_fn(&mut tags);
+            tags.sort_unstable();
+            tags.dedup();
 
-    tags.sort_unstable();
-    tags.dedup();
-
-    if tags.is_empty() {
-        metadata.tags = None;
-    } else {
-        metadata.tags = Some(tags);
-    }
-
-    crate::exif_processing::write_sidecar(&sidecar_path, &source_path, &metadata)
+            if !tags.is_empty() {
+                metadata.tags = Some(tags);
+            }
+        })
         .map_err(|e| e.to_string())?;
 
     if let Ok(settings) = crate::load_settings(app_handle.clone())
@@ -516,95 +517,66 @@ fn sync_xmp_for_rrdata(
     }
 }
 
-fn write_rrdata(rrdata_path: &Path, metadata: &ImageMetadata) -> std::io::Result<()> {
-    match rrdata_source_path(rrdata_path) {
-        Some(source_path) => {
-            crate::exif_processing::write_sidecar(rrdata_path, &source_path, metadata)
+fn retain_tags_under(
+    root_path: &str,
+    app_handle: &AppHandle,
+    keep: impl Fn(&str) -> bool,
+) -> Result<usize, String> {
+    if !Path::new(root_path).exists() {
+        return Err(format!("Root path does not exist: {}", root_path));
+    }
+
+    let settings = crate::load_settings(app_handle.clone()).unwrap_or_default();
+    let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
+    let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
+
+    let mut updated_count = 0;
+    let walker = WalkDir::new(root_path).into_iter();
+
+    for entry in walker.filter_map(|e| e.ok()) {
+        let path = entry.path();
+        if !path.is_file() || path.extension().and_then(|s| s.to_str()) != Some("rrdata") {
+            continue;
         }
-        None => {
-            let json_string =
-                serde_json::to_string_pretty(metadata).map_err(std::io::Error::other)?;
-            fs::write(rrdata_path, json_string)
+        let Some(source_path) = rrdata_source_path(path) else {
+            continue;
+        };
+
+        let has_removable_tags = crate::exif_processing::load_sidecar(path)
+            .tags
+            .is_some_and(|tags| tags.iter().any(|tag| !keep(tag)));
+        if !has_removable_tags {
+            continue;
+        }
+
+        let updated = crate::exif_processing::update_sidecar(path, &source_path, |metadata| {
+            if let Some(tags) = &mut metadata.tags {
+                tags.retain(|tag| keep(tag));
+                if tags.is_empty() {
+                    metadata.tags = None;
+                }
+            }
+        });
+        if let Ok(metadata) = updated {
+            updated_count += 1;
+            sync_xmp_for_rrdata(path, &metadata, enable_xmp_sync, create_xmp_if_missing);
         }
     }
+    Ok(updated_count)
 }
 
 #[tauri::command]
 pub fn clear_ai_tags(root_path: String, app_handle: AppHandle) -> Result<usize, String> {
-    if !Path::new(&root_path).exists() {
-        return Err(format!("Root path does not exist: {}", root_path));
-    }
-
-    let settings = crate::load_settings(app_handle.clone()).unwrap_or_default();
-    let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
-    let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
-
-    let mut updated_count = 0;
-    let walker = WalkDir::new(root_path).into_iter();
-
-    for entry in walker.filter_map(|e| e.ok()) {
-        let path = entry.path();
-        if path.is_file()
-            && path.extension().and_then(|s| s.to_str()) == Some("rrdata")
-            && let Ok(content) = fs::read_to_string(path)
-            && let Ok(mut metadata) = serde_json::from_str::<ImageMetadata>(&content)
-            && let Some(tags) = &mut metadata.tags
-        {
-            let original_len = tags.len();
-            // Keep color tags and user tags, remove others (AI tags)
-            tags.retain(|tag| {
-                tag.starts_with(COLOR_TAG_PREFIX) || tag.starts_with(USER_TAG_PREFIX)
-            });
-
-            if tags.len() < original_len {
-                if tags.is_empty() {
-                    metadata.tags = None;
-                }
-                if write_rrdata(path, &metadata).is_ok() {
-                    updated_count += 1;
-                    sync_xmp_for_rrdata(path, &metadata, enable_xmp_sync, create_xmp_if_missing);
-                }
-            }
-        }
-    }
-    Ok(updated_count)
+    // Keep color tags and user tags, remove others (AI tags)
+    retain_tags_under(&root_path, &app_handle, |tag| {
+        tag.starts_with(COLOR_TAG_PREFIX) || tag.starts_with(USER_TAG_PREFIX)
+    })
 }
 
 #[tauri::command]
 pub fn clear_all_tags(root_path: String, app_handle: AppHandle) -> Result<usize, String> {
-    if !Path::new(&root_path).exists() {
-        return Err(format!("Root path does not exist: {}", root_path));
-    }
-
-    let settings = crate::load_settings(app_handle.clone()).unwrap_or_default();
-    let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
-    let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
-
-    let mut updated_count = 0;
-    let walker = WalkDir::new(root_path).into_iter();
-
-    for entry in walker.filter_map(|e| e.ok()) {
-        let path = entry.path();
-        if path.is_file()
-            && path.extension().and_then(|s| s.to_str()) == Some("rrdata")
-            && let Ok(content) = fs::read_to_string(path)
-            && let Ok(mut metadata) = serde_json::from_str::<ImageMetadata>(&content)
-            && let Some(tags) = &mut metadata.tags
-        {
-            let original_len = tags.len();
-            // Keep only color tags, remove AI and user tags
-            tags.retain(|tag| tag.starts_with(COLOR_TAG_PREFIX));
-
-            if tags.len() < original_len {
-                if tags.is_empty() {
-                    metadata.tags = None;
-                }
-                if write_rrdata(path, &metadata).is_ok() {
-                    updated_count += 1;
-                    sync_xmp_for_rrdata(path, &metadata, enable_xmp_sync, create_xmp_if_missing);
-                }
-            }
-        }
-    }
-    Ok(updated_count)
+    // Keep only color tags, remove AI and user tags
+    retain_tags_under(&root_path, &app_handle, |tag| {
+        tag.starts_with(COLOR_TAG_PREFIX)
+    })
 }

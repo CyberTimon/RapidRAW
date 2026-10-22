@@ -45,7 +45,7 @@ import { useUIStore } from '../../store/useUIStore';
 import SettingsPanel from './SettingsPanel';
 
 import LibraryGrid from './library/LibraryGrid';
-import { SearchInput, ViewOptionsDropdown } from './library/LibraryHeader';
+import { AiJobsMenu, SearchInput, ViewOptionsDropdown } from './library/LibraryHeader';
 
 export interface ColumnWidths {
   thumbnail: number;
@@ -618,6 +618,7 @@ export default function MainLibrary(props: MainLibraryProps) {
                   <span>{t('library.import.failed')}</span>
                 </Text>
               )}
+              <AiJobsMenu />
               <DisplayModeSwitch displayMode={libraryDisplayMode} setDisplayMode={setLibraryDisplayMode} t={t} />
 
               <div className="flex items-center bg-surface p-1 rounded-lg gap-1 border border-border-color/20">

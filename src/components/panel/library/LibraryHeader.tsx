@@ -2,6 +2,12 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import {
+  AlertTriangle,
+  CircleDashed,
+  ListTodo,
+  Pause,
+  Play,
+  RotateCcw,
   Search,
   Loader2,
   X,
@@ -14,8 +20,11 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
+import { invoke } from '@tauri-apps/api/core';
 import { useLibraryStore } from '../../../store/useLibraryStore';
+import { useProcessStore } from '../../../store/useProcessStore';
 import {
+  Invokes,
   FilterCriteria,
   RawStatus,
   EditedStatus,
@@ -839,5 +848,260 @@ export function ViewOptionsDropdown({
         </div>
       </div>
     </DropdownMenu>
+  );
+}
+
+const fileName = (path: string) => path.split('?vc=')[0].split(/[\\/]/).pop() ?? path;
+
+const MAX_LISTED_AI_JOBS = 50;
+const AI_JOB_ICON_BUTTON_CLASS =
+  'shrink-0 p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-primary transition-colors';
+
+const AI_JOB_COLLAPSE_ANIMATION = {
+  initial: { opacity: 0, height: 0 },
+  animate: { opacity: 1, height: 'auto' },
+  exit: { opacity: 0, height: 0 },
+  transition: { duration: 0.2, ease: 'easeOut' },
+} as const;
+
+function AiJobRow({ path, active, children }: { path: string; active?: boolean; children?: React.ReactNode }) {
+  return (
+    <motion.div className="overflow-hidden shrink-0" {...AI_JOB_COLLAPSE_ANIMATION}>
+      <div className="px-1 py-0.5">
+        <div
+          className={clsx('px-3 py-2 rounded-md flex items-center gap-3 transition-colors', active && 'bg-bg-primary')}
+          data-tooltip={path}
+        >
+          <Text
+            as="span"
+            color={active ? TextColors.primary : TextColors.secondary}
+            className="flex-1 min-w-0 truncate"
+          >
+            {fileName(path)}
+          </Text>
+          <div className="shrink-0 w-20 flex justify-end">{children}</div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+export function AiJobsMenu() {
+  const { t } = useTranslation();
+  const { current, queued, completed, paused, failed } = useProcessStore((state) => state.aiJobs);
+  const aiPendingPaths = useProcessStore((state) => state.aiPendingPaths);
+  const imageList = useLibraryStore((state) => state.imageList);
+
+  const unprocessedPaths = useMemo(
+    () => imageList.filter((image) => image.needs_ai && !aiPendingPaths[image.path]).map((image) => image.path),
+    [imageList, aiPendingPaths],
+  );
+  const queuedPaths = useMemo(() => {
+    const paths = Object.keys(aiPendingPaths);
+    return current ? [current.path, ...paths.filter((path) => path !== current.path)] : paths;
+  }, [aiPendingPaths, current]);
+
+  if (queued === 0 && failed.length === 0 && unprocessedPaths.length === 0) {
+    return null;
+  }
+
+  const isRunning = queued > 0 && !paused;
+  const task = current ? t(`library.aiJobs.kinds.${current.kind}`) : null;
+  const statusLabel = paused
+    ? current
+      ? t('library.aiJobs.pausing')
+      : t('library.aiJobs.paused', { remaining: queued })
+    : task && current?.maskName
+      ? t('library.aiJobs.taskWithMask', { task, mask: current.maskName })
+      : (task ?? t('library.aiJobs.waiting'));
+  const total = completed + queued;
+  const buttonTooltip =
+    queued > 0
+      ? [
+          statusLabel,
+          !paused && current ? fileName(current.path) : null,
+          t('library.aiJobs.progress', { current: completed, total }),
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      : failed.length > 0
+        ? t('library.aiJobs.failed', { failedCount: failed.length })
+        : t('library.aiJobs.unprocessed', { count: unprocessedPaths.length });
+  const hiddenJobs = Math.max(0, queuedPaths.length - MAX_LISTED_AI_JOBS);
+
+  return (
+    <div className="flex items-center bg-surface p-1 rounded-lg border border-border-color/20">
+      <DropdownMenu
+        buttonTitle={buttonTooltip}
+        contentClassName="w-80"
+        buttonContent={
+          <>
+            {isRunning ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : paused ? (
+              <Pause className="w-5 h-5" />
+            ) : (
+              <ListTodo className="w-5 h-5" />
+            )}
+            {(failed.length > 0 || !isRunning) && (
+              <div
+                className={clsx(
+                  'absolute top-1 right-1 rounded-full w-2.5 h-2.5',
+                  failed.length > 0 ? 'bg-red-500' : 'bg-accent',
+                )}
+              />
+            )}
+          </>
+        }
+      >
+        <div className="py-3 flex flex-col gap-3">
+          <div className="px-4 flex items-center gap-1 h-8">
+            <Text
+              as="div"
+              variant={TextVariants.small}
+              weight={TextWeights.semibold}
+              className="flex-1 truncate uppercase"
+            >
+              {t('library.aiJobs.title')}
+            </Text>
+            {queued > 0 && (
+              <>
+                <button
+                  className={AI_JOB_ICON_BUTTON_CLASS}
+                  onClick={() => invoke(paused ? Invokes.ResumeAiJobs : Invokes.PauseAiJobs)}
+                  data-tooltip={paused ? t('library.aiJobs.resume') : t('library.aiJobs.pause')}
+                >
+                  {paused ? <Play size={16} /> : <Pause size={16} />}
+                </button>
+                <button
+                  className={AI_JOB_ICON_BUTTON_CLASS}
+                  onClick={() => invoke(Invokes.DiscardAiJobs)}
+                  data-tooltip={t('library.aiJobs.discard')}
+                >
+                  <X size={16} />
+                </button>
+              </>
+            )}
+          </div>
+
+          <AnimatePresence initial={false}>
+            {queued > 0 && (
+              <motion.div key="queue" className="overflow-hidden flex flex-col gap-3" {...AI_JOB_COLLAPSE_ANIMATION}>
+                <div className="px-4 space-y-2">
+                  <Text as="div" color={TextColors.primary} className="truncate">
+                    {statusLabel}
+                  </Text>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-1 rounded-full bg-bg-primary overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-accent transition-[width] duration-300 ease-out"
+                        style={{ width: `${total > 0 ? (completed / total) * 100 : 0}%` }}
+                      />
+                    </div>
+                    <Text
+                      as="span"
+                      variant={TextVariants.small}
+                      color={TextColors.secondary}
+                      className="shrink-0 w-16 text-right tabular-nums"
+                    >
+                      {t('library.aiJobs.progress', { current: completed, total })}
+                    </Text>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <Text
+                    as="div"
+                    variant={TextVariants.small}
+                    weight={TextWeights.semibold}
+                    className="px-4 py-1 uppercase"
+                  >
+                    {t('library.aiJobs.queue')}
+                  </Text>
+                  <div className="max-h-64 overflow-y-auto custom-scrollbar flex flex-col px-1">
+                    <AnimatePresence initial={false}>
+                      {queuedPaths.slice(0, MAX_LISTED_AI_JOBS).map((path) => {
+                        const isCurrent = current?.path === path;
+                        return (
+                          <AiJobRow key={path} path={path} active={isCurrent}>
+                            {isCurrent && !paused ? (
+                              <Loader2 size={14} className="animate-spin text-text-secondary" />
+                            ) : (
+                              <Text
+                                as="span"
+                                variant={TextVariants.small}
+                                color={TextColors.secondary}
+                                className="truncate"
+                              >
+                                {paused ? t('library.aiJobs.pausedItem') : t('library.aiJobs.queuedItem')}
+                              </Text>
+                            )}
+                          </AiJobRow>
+                        );
+                      })}
+                    </AnimatePresence>
+                    {hiddenJobs > 0 && (
+                      <Text as="div" variant={TextVariants.small} color={TextColors.secondary} className="px-4 py-1">
+                        {t('library.aiJobs.more', { moreCount: hiddenJobs })}
+                      </Text>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {failed.length > 0 && (
+            <div className="flex flex-col gap-1 pt-3 border-t border-border-color/40">
+              <div className="px-4 flex items-center gap-3 h-8">
+                <Text
+                  as="div"
+                  variant={TextVariants.small}
+                  weight={TextWeights.semibold}
+                  color={TextColors.error}
+                  className="flex-1 truncate uppercase"
+                >
+                  {t('library.aiJobs.failed', { failedCount: failed.length })}
+                </Text>
+                <button
+                  className={AI_JOB_ICON_BUTTON_CLASS}
+                  onClick={() => invoke(Invokes.RetryFailedAiJobs)}
+                  data-tooltip={t('library.aiJobs.retry')}
+                >
+                  <RotateCcw size={16} />
+                </button>
+              </div>
+              <div className="max-h-40 overflow-y-auto custom-scrollbar flex flex-col px-1">
+                <AnimatePresence initial={false}>
+                  {failed.slice(0, MAX_LISTED_AI_JOBS).map((job) => (
+                    <AiJobRow key={job.path} path={job.path}>
+                      <span data-tooltip={job.error} className="text-red-400">
+                        <AlertTriangle size={14} />
+                      </span>
+                    </AiJobRow>
+                  ))}
+                </AnimatePresence>
+              </div>
+            </div>
+          )}
+
+          {unprocessedPaths.length > 0 && (
+            <div className="px-4 pt-3 flex items-center gap-3 border-t border-border-color/40">
+              <CircleDashed size={16} className="shrink-0 text-text-secondary" />
+              <Text as="div" color={TextColors.secondary} className="flex-1 min-w-0">
+                {t('library.aiJobs.unprocessed', { count: unprocessedPaths.length })}
+              </Text>
+              <button
+                className={AI_JOB_ICON_BUTTON_CLASS}
+                onClick={() => invoke(Invokes.QueueAiJobs, { paths: unprocessedPaths })}
+                data-tooltip={t('library.aiJobs.process')}
+              >
+                <Play size={16} />
+              </button>
+            </div>
+          )}
+        </div>
+      </DropdownMenu>
+    </div>
   );
 }

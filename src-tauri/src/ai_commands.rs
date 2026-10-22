@@ -1,9 +1,10 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::io::Cursor;
+use std::sync::{Arc, Mutex};
 
 use base64::{Engine as _, engine::general_purpose};
-use image::{GrayImage, ImageFormat};
+use image::{DynamicImage, GenericImageView, GrayImage, ImageFormat};
 
 use crate::ai_connector;
 use crate::ai_processing::{
@@ -11,10 +12,16 @@ use crate::ai_processing::{
     AiSubjectMaskParameters, AiModels, CachedDepthMap, Sam3ImageEmbeddings,
     generate_sam3_image_embeddings, get_or_init_ai_models, get_or_init_depth_anything3_model,
     run_depth_anything3_model, run_sam3_decoder,
+    AiDepthMaskParameters, AiForegroundMaskParameters, AiMaskModel, AiModels, AiSkyMaskParameters,
+    AiState, AiSubjectMaskParameters, AiTextMaskParameters, CachedDepthMap,
+    ESAM3_SKY_SCORE_THRESHOLD, ESAM3_TEXT_SCORE_THRESHOLD, Esam3Features, ImageEmbeddings,
+    generate_image_embeddings, get_or_init_ai_models, run_birefnet_model, run_depth_anything_model,
+    run_esam3_decoder, run_esam3_image_encoder, run_sam_decoder,
 };
 use crate::app_settings::load_settings;
 use crate::app_state::{AiTaskGuard, AppState};
 use crate::cache_utils::GEOMETRY_KEYS;
+use crate::effect_maps::EffectMapKind;
 use crate::get_cached_full_warped_image;
 
 fn sam3_embedding_hash(path: &str, js_adjustments: &serde_json::Value) -> String {
@@ -137,40 +144,58 @@ fn encode_to_base64_png(image: &GrayImage) -> Result<String, String> {
     Ok(format!("data:image/png;base64,{}", base64_str))
 }
 
-#[allow(clippy::too_many_arguments)]
-#[tauri::command]
-pub async fn generate_ai_foreground_mask(
-    js_adjustments: serde_json::Value,
-    rotation: f32,
-    flip_horizontal: bool,
-    flip_vertical: bool,
-    orientation_steps: u8,
-    task_id: Option<String>,
-    state: tauri::State<'_, AppState>,
-    app_handle: tauri::AppHandle,
-) -> Result<AiForegroundMaskParameters, String> {
-    let _guard = task_id
-        .as_ref()
-        .map(|id| AiTaskGuard::new(&state.active_ai_tasks, id.clone()));
-    let cancel_flag = _guard.as_ref().map(|g| &g.token);
+#[derive(Clone, Copy)]
+pub struct MaskTransform {
+    pub rotation: f32,
+    pub flip_horizontal: bool,
+    pub flip_vertical: bool,
+    pub orientation_steps: u8,
+}
 
-    if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
-        return Err("Task cancelled".to_string());
+impl MaskTransform {
+    pub fn from_adjustments(adjustments: &serde_json::Value) -> Self {
+        Self {
+            rotation: adjustments["rotation"].as_f64().unwrap_or(0.0) as f32,
+            flip_horizontal: adjustments["flipHorizontal"].as_bool().unwrap_or(false),
+            flip_vertical: adjustments["flipVertical"].as_bool().unwrap_or(false),
+            orientation_steps: adjustments["orientationSteps"].as_u64().unwrap_or(0) as u8,
+        }
     }
 
-    let models = get_or_init_ai_models(&app_handle, &state.ai_state, &state.ai_init_lock)
-        .await
-        .map_err(|e| e.to_string())?;
+    pub fn box_space(&self, (width, height): (u32, u32)) -> (u32, u32) {
+        if self.orientation_steps % 2 == 1 {
+            (height, width)
+        } else {
+            (width, height)
+        }
+    }
+}
 
-    if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
+pub fn ai_cache_key(path: &str, adjustments: &serde_json::Value) -> String {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(path.as_bytes());
+    let mut geo_hasher = DefaultHasher::new();
+    for key in GEOMETRY_KEYS {
+        if let Some(val) = adjustments.get(key) {
+            key.hash(&mut geo_hasher);
+            val.to_string().hash(&mut geo_hasher);
+        }
+    }
+    hasher.update(&geo_hasher.finish().to_le_bytes());
+    hasher.finalize().to_hex().to_string()
+}
+
+fn loaded_source_id(state: &tauri::State<'_, AppState>) -> Option<String> {
+    let loaded = state.original_image.lock().unwrap().clone()?;
+    crate::ai_jobs::source_id_for(&loaded.path)
+}
+
+fn check_cancelled(guard: &Option<AiTaskGuard>) -> Result<(), String> {
+    if guard.as_ref().is_some_and(|g| g.token.is_cancelled()) {
         return Err("Task cancelled".to_string());
     }
-
-    let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
-
-    if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
-        return Err("Task cancelled".to_string());
-    }
+    Ok(())
+}
 
     let loaded_image = get_loaded_image(&state)?;
     let path_hash = sam3_embedding_hash(&loaded_image.path, &js_adjustments);
@@ -186,55 +211,136 @@ pub async fn generate_ai_foreground_mask(
         "object",
         None,
     )?;
-
-    if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
-        return Err("Task cancelled".to_string());
-    }
-
-    let base64_data = encode_to_base64_png(&full_mask_image)?;
+pub fn generate_foreground_mask(
+    models: &AiModels,
+    warped_image: &DynamicImage,
+    transform: MaskTransform,
+    ai_source: Option<String>,
+) -> Result<AiForegroundMaskParameters, String> {
+    let mask = run_birefnet_model(
+        warped_image,
+        &*models.birefnet().map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())?;
 
     Ok(AiForegroundMaskParameters {
-        mask_data_base64: Some(base64_data),
-        rotation: Some(rotation),
-        flip_horizontal: Some(flip_horizontal),
-        flip_vertical: Some(flip_vertical),
-        orientation_steps: Some(orientation_steps),
+        mask_data_base64: Some(encode_to_base64_png(&mask)?),
+        rotation: Some(transform.rotation),
+        flip_horizontal: Some(transform.flip_horizontal),
+        flip_vertical: Some(transform.flip_vertical),
+        orientation_steps: Some(transform.orientation_steps),
+        ai_source,
     })
 }
 
-#[allow(clippy::too_many_arguments)]
-#[tauri::command]
-pub async fn generate_ai_sky_mask(
-    js_adjustments: serde_json::Value,
-    rotation: f32,
-    flip_horizontal: bool,
-    flip_vertical: bool,
-    orientation_steps: u8,
-    task_id: Option<String>,
-    state: tauri::State<'_, AppState>,
-    app_handle: tauri::AppHandle,
-) -> Result<AiSkyMaskParameters, String> {
-    let _guard = task_id
+fn cached_esam3_features(
+    ai_state: &Mutex<Option<AiState>>,
+    models: &AiModels,
+    cache_key: &str,
+    warped_image: &DynamicImage,
+) -> Result<Arc<Esam3Features>, String> {
+    if let Some(cached) = ai_state
+        .lock()
+        .unwrap()
         .as_ref()
-        .map(|id| AiTaskGuard::new(&state.active_ai_tasks, id.clone()));
-    let cancel_flag = _guard.as_ref().map(|g| &g.token);
-
-    if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
-        return Err("Task cancelled".to_string());
+        .and_then(|s| s.esam3_features.clone())
+        .filter(|cached| cached.path_hash == cache_key)
+    {
+        return Ok(cached);
     }
 
-    let models = get_or_init_ai_models(&app_handle, &state.ai_state, &state.ai_init_lock)
-        .await
+    let mut features = run_esam3_image_encoder(
+        warped_image,
+        &*models.esam3_image_encoder().map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())?;
+    features.path_hash = cache_key.to_string();
+    let features = Arc::new(features);
+
+    if let Some(state) = ai_state.lock().unwrap().as_mut() {
+        state.esam3_features = Some(features.clone());
+    }
+    Ok(features)
+}
+
+pub fn generate_sky_mask(
+    ai_state: &Mutex<Option<AiState>>,
+    models: &AiModels,
+    cache_key: &str,
+    warped_image: &DynamicImage,
+    transform: MaskTransform,
+    ai_source: Option<String>,
+) -> Result<AiSkyMaskParameters, String> {
+    let features = cached_esam3_features(ai_state, models, cache_key, warped_image)?;
+    let prompt = models.esam3_sky_prompt().map_err(|e| e.to_string())?;
+    let mask = run_esam3_decoder(
+        &*models.esam3_decoder().map_err(|e| e.to_string())?,
+        &features,
+        &prompt,
+        warped_image,
+        ESAM3_SKY_SCORE_THRESHOLD,
+    )
+    .map_err(|e| e.to_string())?
+    .unwrap_or_else(|| GrayImage::new(warped_image.width(), warped_image.height()));
+
+    Ok(AiSkyMaskParameters {
+        mask_data_base64: Some(encode_to_base64_png(&mask)?),
+        rotation: Some(transform.rotation),
+        flip_horizontal: Some(transform.flip_horizontal),
+        flip_vertical: Some(transform.flip_vertical),
+        orientation_steps: Some(transform.orientation_steps),
+        ai_source,
+    })
+}
+
+pub fn generate_text_mask(
+    ai_state: &Mutex<Option<AiState>>,
+    models: &AiModels,
+    cache_key: &str,
+    warped_image: &DynamicImage,
+    prompt: &str,
+    transform: MaskTransform,
+    ai_source: Option<String>,
+) -> Result<AiTextMaskParameters, String> {
+    let features = cached_esam3_features(ai_state, models, cache_key, warped_image)?;
+    let text_prompt = models
+        .esam3_text_prompt(prompt)
         .map_err(|e| e.to_string())?;
+    let mask = run_esam3_decoder(
+        &*models.esam3_decoder().map_err(|e| e.to_string())?,
+        &features,
+        &text_prompt,
+        warped_image,
+        ESAM3_TEXT_SCORE_THRESHOLD,
+    )
+    .map_err(|e| e.to_string())?
+    .ok_or_else(|| format!("No match found for \"{}\"", prompt.trim()))?;
 
-    if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
-        return Err("Task cancelled".to_string());
-    }
+    Ok(AiTextMaskParameters {
+        prompt: prompt.to_string(),
+        mask_data_base64: Some(encode_to_base64_png(&mask)?),
+        rotation: Some(transform.rotation),
+        flip_horizontal: Some(transform.flip_horizontal),
+        flip_vertical: Some(transform.flip_vertical),
+        orientation_steps: Some(transform.orientation_steps),
+        ai_source,
+    })
+}
 
-    let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
-
-    if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
-        return Err("Task cancelled".to_string());
+fn cached_depth_estimate(
+    ai_state: &Mutex<Option<AiState>>,
+    models: &AiModels,
+    cache_key: &str,
+    warped_image: &DynamicImage,
+) -> Result<CachedDepthMap, String> {
+    if let Some(cached) = ai_state
+        .lock()
+        .unwrap()
+        .as_ref()
+        .and_then(|s| s.depth_map.clone())
+        .filter(|cached| cached.path_hash == cache_key)
+    {
+        return Ok(cached);
     }
 
     let loaded_image = get_loaded_image(&state)?;
@@ -251,47 +357,65 @@ pub async fn generate_ai_sky_mask(
         "sky",
         None,
     )?;
+    let depth_image = run_depth_anything_model(
+        warped_image,
+        &*models.depth_anything().map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())?;
 
-    if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
-        return Err("Task cancelled".to_string());
+    let depth = CachedDepthMap {
+        path_hash: cache_key.to_string(),
+        depth_image,
+        original_size: warped_image.dimensions(),
+    };
+    if let Some(state) = ai_state.lock().unwrap().as_mut() {
+        state.depth_map = Some(depth.clone());
     }
+    Ok(depth)
+}
 
-    let base64_data = encode_to_base64_png(&full_mask_image)?;
+pub fn generate_depth_mask(
+    ai_state: &Mutex<Option<AiState>>,
+    models: &AiModels,
+    cache_key: &str,
+    warped_image: &DynamicImage,
+    params: AiDepthMaskParameters,
+    transform: MaskTransform,
+    ai_source: Option<String>,
+) -> Result<AiDepthMaskParameters, String> {
+    let depth = cached_depth_estimate(ai_state, models, cache_key, warped_image)?;
+    let raw_depth_fullres = image::imageops::resize(
+        &depth.depth_image,
+        depth.original_size.0,
+        depth.original_size.1,
+        image::imageops::FilterType::Triangle,
+    );
 
-    Ok(AiSkyMaskParameters {
-        mask_data_base64: Some(base64_data),
-        rotation: Some(rotation),
-        flip_horizontal: Some(flip_horizontal),
-        flip_vertical: Some(flip_vertical),
-        orientation_steps: Some(orientation_steps),
+    Ok(AiDepthMaskParameters {
+        mask_data_base64: Some(encode_to_base64_png(&raw_depth_fullres)?),
+        rotation: Some(transform.rotation),
+        flip_horizontal: Some(transform.flip_horizontal),
+        flip_vertical: Some(transform.flip_vertical),
+        orientation_steps: Some(transform.orientation_steps),
+        ai_source,
+        ..params
     })
 }
 
-#[allow(clippy::too_many_arguments)]
-#[tauri::command]
-pub async fn generate_ai_depth_mask(
-    js_adjustments: serde_json::Value,
-    path: String,
-    min_depth: f32,
-    max_depth: f32,
-    min_fade: f32,
-    max_fade: f32,
-    feather: f32,
-    rotation: f32,
-    flip_horizontal: bool,
-    flip_vertical: bool,
-    orientation_steps: u8,
-    task_id: Option<String>,
-    state: tauri::State<'_, AppState>,
-    app_handle: tauri::AppHandle,
-) -> Result<AiDepthMaskParameters, String> {
-    let _guard = task_id
+fn cached_image_embeddings(
+    ai_state: &Mutex<Option<AiState>>,
+    models: &AiModels,
+    cache_key: &str,
+    warped_image: &DynamicImage,
+) -> Result<ImageEmbeddings, String> {
+    if let Some(cached) = ai_state
+        .lock()
+        .unwrap()
         .as_ref()
-        .map(|id| AiTaskGuard::new(&state.active_ai_tasks, id.clone()));
-    let cancel_flag = _guard.as_ref().map(|g| &g.token);
-
-    if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
-        return Err("Task cancelled".to_string());
+        .and_then(|s| s.embeddings.clone())
+        .filter(|cached| cached.path_hash == cache_key)
+    {
+        return Ok(cached);
     }
 
     let depth_model =
@@ -312,10 +436,18 @@ pub async fn generate_ai_depth_mask(
         hasher.update(&geo_hasher.finish().to_le_bytes());
         hasher.finalize().to_hex().to_string()
     };
+    let mut embeddings = generate_image_embeddings(
+        warped_image,
+        &*models.sam_encoder().map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())?;
+    embeddings.path_hash = cache_key.to_string();
 
-    if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
-        return Err("Task cancelled".to_string());
+    if let Some(state) = ai_state.lock().unwrap().as_mut() {
+        state.embeddings = Some(embeddings.clone());
     }
+    Ok(embeddings)
+}
 
     let cached_depth = {
         let mut ai_state_lock = state.ai_state.lock().unwrap();
@@ -350,67 +482,146 @@ pub async fn generate_ai_depth_mask(
         } else {
             drop(ai_state_lock);
             let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
+fn unrotate_box(
+    start_point: (f64, f64),
+    end_point: (f64, f64),
+    (img_w, img_h): (u32, u32),
+    transform: MaskTransform,
+) -> ((f64, f64), (f64, f64)) {
+    let (coarse_rotated_w, coarse_rotated_h) = {
+        let (w, h) = transform.box_space((img_w, img_h));
+        (w as f64, h as f64)
+    };
+    let center = (coarse_rotated_w / 2.0, coarse_rotated_h / 2.0);
 
-            if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
-                return Err("Task cancelled".to_string());
-            }
+    let angle_rad = (transform.rotation as f64).to_radians();
+    let cos_a = angle_rad.cos();
+    let sin_a = angle_rad.sin();
 
             let depth_img = run_depth_anything3_model(warped_image.as_ref(), depth_model.as_ref())
                 .map_err(|e| e.to_string())?;
+    let unrotate = |p: (f64, f64)| {
+        let px = p.0 - center.0;
+        let py = p.1 - center.1;
+        (
+            px * cos_a + py * sin_a + center.0,
+            -px * sin_a + py * cos_a + center.1,
+        )
+    };
 
-            let new_cache = CachedDepthMap {
-                path_hash: path_hash.clone(),
-                depth_image: depth_img,
-                original_size: (warped_image.width(), warped_image.height()),
-            };
+    let unflip = |p: (f64, f64)| {
+        let mut new_px = p.0;
+        let mut new_py = p.1;
+        if transform.flip_horizontal {
+            new_px = coarse_rotated_w - p.0;
+        }
+        if transform.flip_vertical {
+            new_py = coarse_rotated_h - p.1;
+        }
+        (new_px, new_py)
+    };
 
-            let mut ai_state_lock = state.ai_state.lock().unwrap();
-            let ai_state = ai_state_lock.as_mut().unwrap();
-            ai_state.depth_map = Some(new_cache.clone());
-            new_cache
+    let un_coarse_rotate = |p: (f64, f64)| -> (f64, f64) {
+        match transform.orientation_steps {
+            0 => p,
+            1 => (p.1, img_h as f64 - p.0),
+            2 => (img_w as f64 - p.0, img_h as f64 - p.1),
+            3 => (img_w as f64 - p.1, p.0),
+            _ => p,
         }
     };
 
-    if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
-        return Err("Task cancelled".to_string());
-    }
+    let corners = [
+        start_point,
+        (start_point.0, end_point.1),
+        end_point,
+        (end_point.0, start_point.1),
+    ]
+    .map(|p| un_coarse_rotate(unflip(unrotate(p))));
 
-    let raw_depth_fullres = image::imageops::resize(
-        &cached_depth.depth_image,
-        cached_depth.original_size.0,
-        cached_depth.original_size.1,
-        image::imageops::FilterType::Triangle,
-    );
+    let min_x = corners.iter().map(|p| p.0).fold(f64::INFINITY, f64::min);
+    let min_y = corners.iter().map(|p| p.1).fold(f64::INFINITY, f64::min);
+    let max_x = corners
+        .iter()
+        .map(|p| p.0)
+        .fold(f64::NEG_INFINITY, f64::max);
+    let max_y = corners
+        .iter()
+        .map(|p| p.1)
+        .fold(f64::NEG_INFINITY, f64::max);
 
-    let base64_data = encode_to_base64_png(&raw_depth_fullres)?;
+    ((min_x, min_y), (max_x, max_y))
+}
 
-    Ok(AiDepthMaskParameters {
-        min_depth,
-        max_depth,
-        min_fade,
-        max_fade,
-        feather,
-        mask_data_base64: Some(base64_data),
-        rotation: Some(rotation),
-        flip_horizontal: Some(flip_horizontal),
-        flip_vertical: Some(flip_vertical),
-        orientation_steps: Some(orientation_steps),
+#[allow(clippy::too_many_arguments)]
+pub fn generate_subject_mask(
+    ai_state: &Mutex<Option<AiState>>,
+    models: &AiModels,
+    cache_key: &str,
+    warped_image: &DynamicImage,
+    start_point: (f64, f64),
+    end_point: (f64, f64),
+    skip_refinement: bool,
+    transform: MaskTransform,
+    ai_source: Option<String>,
+) -> Result<AiSubjectMaskParameters, String> {
+    let embeddings = cached_image_embeddings(ai_state, models, cache_key, warped_image)?;
+    let (unrotated_start, unrotated_end) =
+        unrotate_box(start_point, end_point, embeddings.original_size, transform);
+
+    let mask_bitmap = run_sam_decoder(
+        &*models.sam_decoder().map_err(|e| e.to_string())?,
+        &embeddings,
+        unrotated_start,
+        unrotated_end,
+        (!skip_refinement).then_some(warped_image),
+    )
+    .map_err(|e| e.to_string())?;
+
+    let (box_space_width, box_space_height) = transform.box_space(embeddings.original_size);
+
+    Ok(AiSubjectMaskParameters {
+        start_x: start_point.0,
+        start_y: start_point.1,
+        end_x: end_point.0,
+        end_y: end_point.1,
+        mask_data_base64: Some(encode_to_base64_png(&mask_bitmap)?),
+        rotation: Some(transform.rotation),
+        flip_horizontal: Some(transform.flip_horizontal),
+        flip_vertical: Some(transform.flip_vertical),
+        orientation_steps: Some(transform.orientation_steps),
+        box_space_width: Some(box_space_width),
+        box_space_height: Some(box_space_height),
+        ai_source,
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
-pub async fn generate_full_image_depth_map(
+pub async fn generate_ai_foreground_mask(
     js_adjustments: serde_json::Value,
+    rotation: f32,
+    flip_horizontal: bool,
+    flip_vertical: bool,
+    orientation_steps: u8,
+    task_id: Option<String>,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<String, String> {
     let depth_model = crate::ai_processing::get_or_init_depth_anything3_model(
+) -> Result<AiForegroundMaskParameters, String> {
+    let guard = task_id.map(|id| AiTaskGuard::new(&state.active_ai_tasks, id));
+    check_cancelled(&guard)?;
+
+    let models = get_or_init_ai_models(
         &app_handle,
         &state.ai_state,
         &state.ai_init_lock,
+        AiMaskModel::Foreground,
     )
     .await
     .map_err(|e| e.to_string())?;
+    check_cancelled(&guard)?;
 
     let loaded_image = get_loaded_image(&state)?;
     let source_image = crate::mask_generation::build_converted_source_image(
@@ -424,71 +635,84 @@ pub async fn generate_full_image_depth_map(
         depth_model.as_ref(),
     )
     .map_err(|e| e.to_string())?;
+    let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
+    check_cancelled(&guard)?;
 
-    crate::effect_maps::encode_source_space_map(&image::DynamicImage::ImageLuma8(depth_img))
-}
-
-#[tauri::command]
-pub async fn generate_relight_normal_map(
-    js_adjustments: serde_json::Value,
-    state: tauri::State<'_, AppState>,
-    app_handle: tauri::AppHandle,
-) -> Result<String, String> {
-    let normal_model = crate::ai_processing::get_or_init_normal_model(
-        &app_handle,
-        &state.ai_state,
-        &state.ai_init_lock,
-    )
-    .await
-    .map_err(|e| e.to_string())?;
-
-    let loaded_image = get_loaded_image(&state)?;
-    let source_image = crate::mask_generation::build_converted_source_image(
-        &loaded_image.image,
-        loaded_image.is_raw,
-        &js_adjustments,
-    );
-
-    let normal_img =
-        crate::ai_processing::run_normal_model(source_image.as_ref(), normal_model.as_ref())
-            .map_err(|e| e.to_string())?;
-
-    crate::effect_maps::encode_source_space_map(&image::DynamicImage::ImageRgba8(normal_img))
-}
-
-fn get_loaded_image(state: &tauri::State<'_, AppState>) -> Result<crate::LoadedImage, String> {
-    state
-        .original_image
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .clone()
-        .ok_or_else(|| "No original image loaded".to_string())
+    let transform = MaskTransform {
+        rotation,
+        flip_horizontal,
+        flip_vertical,
+        orientation_steps,
+    };
+    let params =
+        generate_foreground_mask(&models, &warped_image, transform, loaded_source_id(&state))?;
+    check_cancelled(&guard)?;
+    Ok(params)
 }
 
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
-pub async fn generate_ai_subject_mask(
+pub async fn generate_ai_sky_mask(
     js_adjustments: serde_json::Value,
     path: String,
-    start_point: (f64, f64),
-    end_point: (f64, f64),
     rotation: f32,
     flip_horizontal: bool,
     flip_vertical: bool,
     orientation_steps: u8,
-    skip_refinement: Option<bool>,
     task_id: Option<String>,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
-) -> Result<AiSubjectMaskParameters, String> {
-    let _guard = task_id
-        .as_ref()
-        .map(|id| AiTaskGuard::new(&state.active_ai_tasks, id.clone()));
-    let cancel_flag = _guard.as_ref().map(|g| &g.token);
+) -> Result<AiSkyMaskParameters, String> {
+    let guard = task_id.map(|id| AiTaskGuard::new(&state.active_ai_tasks, id));
+    check_cancelled(&guard)?;
 
-    if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
-        return Err("Task cancelled".to_string());
-    }
+    let models = get_or_init_ai_models(
+        &app_handle,
+        &state.ai_state,
+        &state.ai_init_lock,
+        AiMaskModel::Sky,
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    check_cancelled(&guard)?;
+
+    let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
+    check_cancelled(&guard)?;
+
+    let transform = MaskTransform {
+        rotation,
+        flip_horizontal,
+        flip_vertical,
+        orientation_steps,
+    };
+    let params = generate_sky_mask(
+        &state.ai_state,
+        &models,
+        &ai_cache_key(&path, &js_adjustments),
+        &warped_image,
+        transform,
+        loaded_source_id(&state),
+    )?;
+    check_cancelled(&guard)?;
+    Ok(params)
+}
+
+#[allow(clippy::too_many_arguments)]
+#[tauri::command]
+pub async fn generate_ai_text_mask(
+    js_adjustments: serde_json::Value,
+    path: String,
+    prompt: String,
+    rotation: f32,
+    flip_horizontal: bool,
+    flip_vertical: bool,
+    orientation_steps: u8,
+    task_id: Option<String>,
+    state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<AiTextMaskParameters, String> {
+    let guard = task_id.map(|id| AiTaskGuard::new(&state.active_ai_tasks, id));
+    check_cancelled(&guard)?;
 
     let models = get_or_init_ai_models(&app_handle, &state.ai_state, &state.ai_init_lock)
         .await
@@ -499,8 +723,18 @@ pub async fn generate_ai_subject_mask(
     if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
         return Err("Task cancelled".to_string());
     }
+    let models = get_or_init_ai_models(
+        &app_handle,
+        &state.ai_state,
+        &state.ai_init_lock,
+        AiMaskModel::Text,
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    check_cancelled(&guard)?;
 
     let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
+    check_cancelled(&guard)?;
 
     if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
         return Err("Task cancelled".to_string());
@@ -523,71 +757,104 @@ pub async fn generate_ai_subject_mask(
         (img_h as f64, img_w as f64)
     } else {
         (img_w as f64, img_h as f64)
+    let transform = MaskTransform {
+        rotation,
+        flip_horizontal,
+        flip_vertical,
+        orientation_steps,
     };
+    let params = generate_text_mask(
+        &state.ai_state,
+        &models,
+        &ai_cache_key(&path, &js_adjustments),
+        &warped_image,
+        &prompt,
+        transform,
+        loaded_source_id(&state),
+    )?;
+    check_cancelled(&guard)?;
+    Ok(params)
+}
 
-    let center = (coarse_rotated_w / 2.0, coarse_rotated_h / 2.0);
+#[allow(clippy::too_many_arguments)]
+#[tauri::command]
+pub async fn generate_ai_depth_mask(
+    js_adjustments: serde_json::Value,
+    path: String,
+    min_depth: f32,
+    max_depth: f32,
+    min_fade: f32,
+    max_fade: f32,
+    feather: f32,
+    rotation: f32,
+    flip_horizontal: bool,
+    flip_vertical: bool,
+    orientation_steps: u8,
+    task_id: Option<String>,
+    state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<AiDepthMaskParameters, String> {
+    let guard = task_id.map(|id| AiTaskGuard::new(&state.active_ai_tasks, id));
+    check_cancelled(&guard)?;
 
-    let p1 = start_point;
-    let p2 = (start_point.0, end_point.1);
-    let p3 = end_point;
-    let p4 = (end_point.0, start_point.1);
+    let models = get_or_init_ai_models(
+        &app_handle,
+        &state.ai_state,
+        &state.ai_init_lock,
+        AiMaskModel::Depth,
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    check_cancelled(&guard)?;
 
-    let angle_rad = (rotation as f64).to_radians();
-    let cos_a = angle_rad.cos();
-    let sin_a = angle_rad.sin();
+    let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
+    check_cancelled(&guard)?;
 
-    let unrotate = |p: (f64, f64)| {
-        let px = p.0 - center.0;
-        let py = p.1 - center.1;
-        let new_px = px * cos_a + py * sin_a + center.0;
-        let new_py = -px * sin_a + py * cos_a + center.1;
-        (new_px, new_py)
+    let transform = MaskTransform {
+        rotation,
+        flip_horizontal,
+        flip_vertical,
+        orientation_steps,
     };
-
-    let up1 = unrotate(p1);
-    let up2 = unrotate(p2);
-    let up3 = unrotate(p3);
-    let up4 = unrotate(p4);
-
-    let unflip = |p: (f64, f64)| {
-        let mut new_px = p.0;
-        let mut new_py = p.1;
-        if flip_horizontal {
-            new_px = coarse_rotated_w - p.0;
-        }
-        if flip_vertical {
-            new_py = coarse_rotated_h - p.1;
-        }
-        (new_px, new_py)
+    let params = AiDepthMaskParameters {
+        min_depth,
+        max_depth,
+        min_fade,
+        max_fade,
+        feather,
+        ..Default::default()
     };
+    let params = generate_depth_mask(
+        &state.ai_state,
+        &models,
+        &ai_cache_key(&path, &js_adjustments),
+        &warped_image,
+        params,
+        transform,
+        loaded_source_id(&state),
+    )?;
+    check_cancelled(&guard)?;
+    Ok(params)
+}
 
-    let ufp1 = unflip(up1);
-    let ufp2 = unflip(up2);
-    let ufp3 = unflip(up3);
-    let ufp4 = unflip(up4);
-
-    let un_coarse_rotate = |p: (f64, f64)| -> (f64, f64) {
-        match orientation_steps {
-            0 => p,
-            1 => (p.1, img_h as f64 - p.0),
-            2 => (img_w as f64 - p.0, img_h as f64 - p.1),
-            3 => (img_w as f64 - p.1, p.0),
-            _ => p,
-        }
-    };
-
-    let ucrp1 = un_coarse_rotate(ufp1);
-    let ucrp2 = un_coarse_rotate(ufp2);
-    let ucrp3 = un_coarse_rotate(ufp3);
-    let ucrp4 = un_coarse_rotate(ufp4);
-
-    let min_x = ucrp1.0.min(ucrp2.0).min(ucrp3.0).min(ucrp4.0);
-    let min_y = ucrp1.1.min(ucrp2.1).min(ucrp3.1).min(ucrp4.1);
-    let max_x = ucrp1.0.max(ucrp2.0).max(ucrp3.0).max(ucrp4.0);
-    let max_y = ucrp1.1.max(ucrp2.1).max(ucrp3.1).max(ucrp4.1);
-
-    let unrotated_start_point = (min_x, min_y);
-    let unrotated_end_point = (max_x, max_y);
+#[allow(clippy::too_many_arguments)]
+#[tauri::command]
+pub async fn generate_ai_subject_mask(
+    js_adjustments: serde_json::Value,
+    path: String,
+    start_point: (f64, f64),
+    end_point: (f64, f64),
+    rotation: f32,
+    flip_horizontal: bool,
+    flip_vertical: bool,
+    orientation_steps: u8,
+    skip_refinement: Option<bool>,
+    task_id: Option<String>,
+    state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<AiSubjectMaskParameters, String> {
+    let guard = task_id.map(|id| AiTaskGuard::new(&state.active_ai_tasks, id));
+    check_cancelled(&guard)?;
 
     // The previous SAM API's optional edge-refinement switch is retained for
     // saved command compatibility; SAM 3 currently returns its own decoder mask.
@@ -598,24 +865,38 @@ pub async fn generate_ai_subject_mask(
         "object",
         Some((unrotated_start_point, unrotated_end_point)),
     )?;
+    let models = get_or_init_ai_models(
+        &app_handle,
+        &state.ai_state,
+        &state.ai_init_lock,
+        AiMaskModel::Subject,
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    check_cancelled(&guard)?;
 
-    if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
-        return Err("Task cancelled".to_string());
-    }
+    let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
+    check_cancelled(&guard)?;
 
-    let base64_data = encode_to_base64_png(&mask_bitmap)?;
-
-    Ok(AiSubjectMaskParameters {
-        start_x: start_point.0,
-        start_y: start_point.1,
-        end_x: end_point.0,
-        end_y: end_point.1,
-        mask_data_base64: Some(base64_data),
-        rotation: Some(rotation),
-        flip_horizontal: Some(flip_horizontal),
-        flip_vertical: Some(flip_vertical),
-        orientation_steps: Some(orientation_steps),
-    })
+    let transform = MaskTransform {
+        rotation,
+        flip_horizontal,
+        flip_vertical,
+        orientation_steps,
+    };
+    let params = generate_subject_mask(
+        &state.ai_state,
+        &models,
+        &ai_cache_key(&path, &js_adjustments),
+        &warped_image,
+        start_point,
+        end_point,
+        skip_refinement.unwrap_or(false),
+        transform,
+        loaded_source_id(&state),
+    )?;
+    check_cancelled(&guard)?;
+    Ok(params)
 }
 
 #[tauri::command]
@@ -625,9 +906,14 @@ pub async fn precompute_ai_subject_mask(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    let models = get_or_init_ai_models(&app_handle, &state.ai_state, &state.ai_init_lock)
-        .await
-        .map_err(|e| e.to_string())?;
+    let models = get_or_init_ai_models(
+        &app_handle,
+        &state.ai_state,
+        &state.ai_init_lock,
+        AiMaskModel::Subject,
+    )
+    .await
+    .map_err(|e| e.to_string())?;
 
     let path_hash = sam3_embedding_hash(&path, &js_adjustments);
 
@@ -638,8 +924,105 @@ pub async fn precompute_ai_subject_mask(
         models.as_ref(),
         &path_hash,
     )?;
+    let cache_key = ai_cache_key(&path, &js_adjustments);
+    let is_cached = state
+        .ai_state
+        .lock()
+        .unwrap()
+        .as_ref()
+        .and_then(|s| s.embeddings.as_ref())
+        .is_some_and(|cached| cached.path_hash == cache_key);
+    if is_cached {
+        return Ok(());
+    }
 
+    let warped_image = get_cached_full_warped_image(&state, &js_adjustments)?;
+    cached_image_embeddings(&state.ai_state, &models, &cache_key, &warped_image)?;
     Ok(())
+}
+
+pub async fn generate_effect_map(
+    app_handle: &tauri::AppHandle,
+    kind: EffectMapKind,
+    source_image: &DynamicImage,
+    source_id: &str,
+) -> Result<String, String> {
+    let state = tauri::Manager::state::<AppState>(app_handle);
+    let map = match kind {
+        EffectMapKind::Depth => {
+            let models = get_or_init_ai_models(
+                app_handle,
+                &state.ai_state,
+                &state.ai_init_lock,
+                AiMaskModel::Depth,
+            )
+            .await
+            .map_err(|e| e.to_string())?;
+            let session = models.depth_anything().map_err(|e| e.to_string())?;
+            DynamicImage::ImageLuma8(
+                run_depth_anything_model(source_image, &session).map_err(|e| e.to_string())?,
+            )
+        }
+        EffectMapKind::Normal => {
+            let session = crate::ai_processing::get_or_init_normal_model(
+                app_handle,
+                &state.ai_state,
+                &state.ai_init_lock,
+            )
+            .await
+            .map_err(|e| e.to_string())?;
+            DynamicImage::ImageRgba8(
+                crate::ai_processing::run_normal_model(source_image, &session)
+                    .map_err(|e| e.to_string())?,
+            )
+        }
+    };
+
+    crate::effect_maps::store_source_map(kind, source_id, &map)
+}
+
+async fn generate_loaded_effect_map(
+    kind: EffectMapKind,
+    js_adjustments: serde_json::Value,
+    state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<String, String> {
+    let loaded_image = get_loaded_image(&state)?;
+    let source_id = crate::ai_jobs::source_id_for(&loaded_image.path)
+        .ok_or("Unable to identify the loaded image")?;
+    let source_image = crate::mask_generation::build_converted_source_image(
+        &loaded_image.image,
+        loaded_image.is_raw,
+        &js_adjustments,
+    );
+    generate_effect_map(&app_handle, kind, &source_image, &source_id).await
+}
+
+#[tauri::command]
+pub async fn generate_full_image_depth_map(
+    js_adjustments: serde_json::Value,
+    state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<String, String> {
+    generate_loaded_effect_map(EffectMapKind::Depth, js_adjustments, state, app_handle).await
+}
+
+#[tauri::command]
+pub async fn generate_relight_normal_map(
+    js_adjustments: serde_json::Value,
+    state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<String, String> {
+    generate_loaded_effect_map(EffectMapKind::Normal, js_adjustments, state, app_handle).await
+}
+
+fn get_loaded_image(state: &tauri::State<'_, AppState>) -> Result<crate::LoadedImage, String> {
+    state
+        .original_image
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+        .ok_or_else(|| "No original image loaded".to_string())
 }
 
 #[tauri::command]

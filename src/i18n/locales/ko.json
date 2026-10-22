@@ -222,7 +222,7 @@
       "yellow": "노랑"
     },
     "editor": {
-      "autoAdjust": "이미지 자동 조정",
+      "autoAdjust": "자동 조정",
       "autoLensCorrection": "자동 렌즈 교정",
       "autoStraighten": "자동 수평 맞추기",
       "cancel": "취소",
@@ -230,14 +230,14 @@
       "confirmReset": "초기화 확인",
       "convertNegative": "네거티브 변환",
       "copyAdjustments": "조정값 복사",
-      "cullImage": "이미지 선별",
-      "denoise": "이미지 노이즈 제거",
+      "cullImage": "자동 선별",
+      "denoise": "노이즈 제거",
       "editImage": "이미지 편집",
       "exportImage": "이미지 내보내기",
       "flag": "플래그",
       "flagPick": "선택됨",
       "flagReject": "거부됨",
-      "frameImage": "이미지 프레임",
+      "frameImage": "프레임 편집기",
       "mergeHdr": "HDR로 병합",
       "noLabel": "레이블 없음",
       "noRating": "평점 없음",
@@ -290,13 +290,13 @@
     },
     "thumbnail": {
       "addToAlbum": "앨범에 추가",
-      "autoAdjust_one": "이미지 자동 조정",
-      "autoAdjust_other": "이미지 자동 조정",
+      "autoAdjust_one": "자동 조정",
+      "autoAdjust_other": "자동 조정",
       "autoLensCorrection_one": "자동 렌즈 교정",
       "autoLensCorrection_other": "자동 렌즈 교정",
-      "autoStraighten_one": "이미지 자동 수평 맞추기",
-      "autoStraighten_other": "이미지 자동 수평 맞추기",
-      "collage_one": "이미지 프레임",
+      "autoStraighten_one": "자동 수평 맞추기",
+      "autoStraighten_other": "자동 수평 맞추기",
+      "collage_one": "프레임 편집기",
       "collage_other": "콜라주 만들기",
       "confirmDelete": "삭제 확인",
       "confirmDeleteVc": "삭제 + 가상 복사본 확인",
@@ -304,14 +304,14 @@
       "convertNegative_other": "네거티브 변환",
       "copyImage_one": "이미지 복사",
       "copyImage_other": "이미지 {{count}}개 복사",
-      "cullImage_one": "이미지 선별",
-      "cullImage_other": "이미지 선별",
+      "cullImage_one": "자동 선별",
+      "cullImage_other": "자동 선별",
       "deleteAssociated": "삭제 + 연결된 항목",
       "deleteImage_one": "이미지 삭제",
       "deleteImage_other": "이미지 {{count}}개 삭제",
       "deleteSelected": "선택 항목만 삭제",
-      "denoise_one": "이미지 노이즈 제거",
-      "denoise_other": "이미지 노이즈 제거",
+      "denoise_one": "노이즈 제거",
+      "denoise_other": "노이즈 제거",
       "duplicateImage": "이미지 복제",
       "exportImage_one": "이미지 내보내기",
       "exportImage_other": "이미지 {{count}}개 내보내기",
@@ -404,7 +404,7 @@
       "comingSoon": "출시 예정",
       "connection": {
         "backendLabel": "AI 백엔드:",
-        "builtinDesc": "기본 로컬 CPU를 사용 중입니다. 생성형 교체를 사용하려면 설정에서 클라우드 또는 AI 커넥터를 선택하세요.",
+        "builtinDesc": "기본 내장 AI를 사용 중입니다. 생성형 교체를 사용하려면 설정에서 클라우드 또는 AI 커넥터를 선택하세요.",
         "builtinLabel": "내장 AI:",
         "cloudLabel": "클라우드 AI:",
         "connectorConnectedDesc": "로컬 생성형 백엔드에 연결되었습니다.",
@@ -692,6 +692,7 @@
         "applyPreset": "프리셋 적용",
         "componentPropertiesTitle": "{{name}} 속성",
         "copySectionSettings": "{{section}} 설정 복사",
+        "generateTextMask": "마스크 생성",
         "invertComponent": "구성 요소 반전",
         "invertMask": "마스크 반전",
         "maskPropertiesTitle": "마스크 속성",
@@ -701,7 +702,8 @@
         "pasteSettings": "설정 붙여넣기",
         "resetSectionSettings": "{{section}} 설정 초기화",
         "select": "선택",
-        "selectPresetTooltip": "적용할 프리셋 선택"
+        "selectPresetTooltip": "적용할 프리셋 선택",
+        "textPromptPlaceholder": "예: 사람, 자동차, 물"
       },
       "toggleAnalyticsInAdjustments": "조정 패널에서 분석 토글",
       "toggleAnalyticsTooltip": "분석 표시 전환",
@@ -969,6 +971,37 @@
     }
   },
   "library": {
+    "aiJobs": {
+      "discard": "남은 AI 처리 취소",
+      "failed": "실패 ({{failedCount}})",
+      "kinds": {
+        "denoise": "AI 노이즈 제거 중",
+        "depthMap": "깊이 분석 중",
+        "depthMask": "깊이 마스크 생성 중",
+        "foregroundMask": "전경 마스크 생성 중",
+        "normalMap": "표면 분석 중",
+        "skyMask": "하늘 마스크 생성 중",
+        "subjectMask": "피사체 마스크 생성 중",
+        "textMask": "텍스트 마스크 생성 중"
+      },
+      "more": "+{{moreCount}}개 더",
+      "pause": "AI 처리 일시 중지",
+      "paused": "일시 중지됨 · {{remaining}}개 남음",
+      "pausedItem": "일시 중지",
+      "pausing": "현재 단계 후 일시 중지합니다…",
+      "process": "이미지 처리",
+      "progress": "{{current}}/{{total}}",
+      "queue": "대기열",
+      "queuedItem": "대기 중",
+      "resume": "AI 처리 재개",
+      "retry": "다시 시도",
+      "taskWithMask": "{{task}} “{{mask}}”",
+      "thumbnailPaused": "AI 처리 일시 중지됨",
+      "thumbnailPending": "AI 처리 대기 중",
+      "title": "AI 처리",
+      "unprocessed_other": "이미지 {{count}}개에 AI 처리가 필요합니다",
+      "waiting": "AI 처리 준비 중…"
+    },
     "community": {
       "actionSave": "저장",
       "actionSaved": "저장됨",
@@ -1243,7 +1276,8 @@
       "radial": "원형",
       "retouch": "리터칭",
       "sky": "하늘",
-      "subject": "피사체"
+      "subject": "피사체",
+      "text": "텍스트"
     }
   },
   "menus": {
@@ -1299,6 +1333,7 @@
       "descMerge": "복사한 변경 사항을 추가하며 다른 설정은 그대로 둡니다.",
       "descReplace": "선택한 모든 설정을 덮어쓰고 나머지는 기본값으로 초기화합니다.",
       "groups": {
+        "aiDenoise": "AI 노이즈 제거",
         "chromaticAberration": "색수차",
         "clarityDehaze": "명료도 및 디헤이즈",
         "colorCalibration": "색상 보정",
@@ -1307,16 +1342,19 @@
         "cropAspectRatio": "자르기 및 종횡비",
         "curves": "커브",
         "exposureToneMapper": "노출 및 톤 매퍼",
+        "fog": "안개",
         "grain": "그레인",
         "guidedPerspective": "유도된 원근 보정",
         "halationGlow": "헐레이션 및 글로우",
         "hueShift": "글로벌 색조 시프트",
+        "lensBlur": "렌즈 블러",
         "lensCorrection": "렌즈 보정",
         "lut": "LUT",
         "masks": "마스크",
         "negativeConversion": "네거티브 변환",
         "noiseReduction": "노이즈 감소",
         "presence": "외관",
+        "relight": "리라이트",
         "sharpness": "선명도",
         "tone": "톤",
         "transformRotation": "변형 및 회전",
@@ -1813,8 +1851,11 @@
           "description": "RapidRAW에 직접 통합된 이 기능들은 컴퓨터에서 전적으로 실행됩니다. 빠르고 무료이며 설정이 필요 없어 일상적인 워크플로 가속에 이상적입니다.",
           "feature1": "AI 마스킹 (피사체, 하늘, 전경)",
           "feature2": "자동 이미지 태그 지정",
-          "feature3": "간단한 CPU 기반 생성형 교체",
-          "title": "내장 AI (CPU)"
+          "feature3": "간단한 기기 내 생성형 교체",
+          "gpuAcceleration": "GPU 가속",
+          "gpuAccelerationDesc": "노이즈 제거, 마스크, 깊이 및 노멀 맵, 태그 지정 등 내장 AI 기능을 그래픽 카드에서 실행하여 훨씬 빠르게 처리합니다. 충돌이 발생하거나 AI 결과가 올바르지 않으면 비활성화하세요.",
+          "gpuAccelerationLabel": "AI 모델에 GPU 사용",
+          "title": "내장 AI"
         },
         "aiFree": {
           "description": "모든 AI 기능을 끕니다. AI 관련 컨트롤이 모두 인터페이스에서 숨겨져 RapidRAW가 순수한 기존 방식의 RAW 편집기로 작동합니다.",
@@ -1828,7 +1869,7 @@
           "aiConnector": "AI 커넥터",
           "aiFree": "AI 없음",
           "cloud": "클라우드",
-          "cpu": "CPU"
+          "cpu": "내장"
         },
         "title": "생성형 AI"
       },
@@ -1967,8 +2008,10 @@
     "thanks": {
       "description": "RapidRAW 개발에 매우 중요한 역할을 한 다음 프로젝트들에 깊은 감사를 드립니다:",
       "list": {
+        "birefnet": "AI 전경 감지 기능을 구동하는 고해상도 분할 모델을 제공해 주었습니다.",
         "darktable": "이 작업의 일부에 길잡이가 되어 준 참조 구현을 제공해 주었습니다.",
         "depth": "AI 심도 마스킹 기능을 가능하게 하는 강력한 단안 심도 추정 모델을 제공해 주었습니다.",
+        "efficientsam3": "AI 하늘 및 텍스트 마스크를 구동하는, SAM 3에서 증류된 효율적인 프롬프트 기반 분할 모델을 제공해 주었습니다.",
         "lama": "콘텐츠 인식 채우기와 객체 제거를 가능하게 하는 강력하고 간단한 이미지 인페인팅 모델을 제공해 주었습니다.",
         "lensfun": "자동 렌즈 보정을 위한 귀중한 오픈소스 라이브러리와 방대한 데이터베이스를 제공해 주었습니다.",
         "libgphoto2": "RapidRAW의 테더링 및 원격 촬영 시스템을 구동하는 포괄적인 카메라 통신 라이브러리를 제공해 주셔서.",
@@ -1977,7 +2020,6 @@
         "rawler": "이 프로젝트의 RAW 파일 처리 기반이 되는 훌륭한 Rust 크레이트를 제공해 주었습니다.",
         "sam2": "AI 피사체 감지 기능에 사용되는 파운데이션 모델을 제공해 주었습니다.",
         "spektrafilm": "RapidRAW의 내장 필름 에뮬레이션을 구동하는, Andrea Volpato의 스펙트럼 기반 필름 에뮬레이션 LUT를 제공해 주셔서. CC BY-SA 4.0 라이선스입니다.",
-        "u2net": "AI 하늘 및 전경 감지 기능에 사용되는 견고한 아키텍처를 제공해 주었습니다.",
         "you": "RapidRAW를 사용하고 지원해 주셔서 감사합니다. 여러분의 관심이 이 프로젝트를 살아 숨 쉬고 발전하게 합니다.",
         "youLabel": "여러분"
       },

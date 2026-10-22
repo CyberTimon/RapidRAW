@@ -222,7 +222,7 @@
       "yellow": "黄色"
     },
     "editor": {
-      "autoAdjust": "自动调整图像",
+      "autoAdjust": "自动调整",
       "autoLensCorrection": "自动镜头校正",
       "autoStraighten": "自动拉直",
       "cancel": "取消",
@@ -230,14 +230,14 @@
       "confirmReset": "确认重置",
       "convertNegative": "转换负片",
       "copyAdjustments": "复制调整",
-      "cullImage": "筛选图像",
-      "denoise": "降噪图像",
+      "cullImage": "自动筛选",
+      "denoise": "降噪",
       "editImage": "编辑图像",
       "exportImage": "导出图像",
       "flag": "标记",
       "flagPick": "留用",
       "flagReject": "已拒绝",
-      "frameImage": "装裱图像",
+      "frameImage": "边框编辑器",
       "mergeHdr": "合并为 HDR",
       "noLabel": "无标签",
       "noRating": "无评分",
@@ -290,13 +290,13 @@
     },
     "thumbnail": {
       "addToAlbum": "添加到相册",
-      "autoAdjust_one": "自动调整图像",
-      "autoAdjust_other": "自动调整图像",
+      "autoAdjust_one": "自动调整",
+      "autoAdjust_other": "自动调整",
       "autoLensCorrection_one": "自动镜头校正",
       "autoLensCorrection_other": "自动镜头校正",
-      "autoStraighten_one": "自动拉直图像",
-      "autoStraighten_other": "自动拉直图像",
-      "collage_one": "装裱图像",
+      "autoStraighten_one": "自动拉直",
+      "autoStraighten_other": "自动拉直",
+      "collage_one": "边框编辑器",
       "collage_other": "创建拼贴画",
       "confirmDelete": "确认删除",
       "confirmDeleteVc": "确认删除 + 虚拟副本",
@@ -304,14 +304,14 @@
       "convertNegative_other": "转换负片",
       "copyImage_one": "复制图像",
       "copyImage_other": "复制 {{count}} 张图像",
-      "cullImage_one": "筛选图像",
-      "cullImage_other": "筛选图像",
+      "cullImage_one": "自动筛选",
+      "cullImage_other": "自动筛选",
       "deleteAssociated": "删除 + 关联文件",
       "deleteImage_one": "删除图像",
       "deleteImage_other": "删除 {{count}} 张图像",
       "deleteSelected": "仅删除选中项",
-      "denoise_one": "降噪图像",
-      "denoise_other": "降噪图像",
+      "denoise_one": "降噪",
+      "denoise_other": "降噪",
       "duplicateImage": "复制图像",
       "exportImage_one": "导出图像",
       "exportImage_other": "导出 {{count}} 张图像",
@@ -404,7 +404,7 @@
       "comingSoon": "即将推出",
       "connection": {
         "backendLabel": "AI 后端：",
-        "builtinDesc": "使用基础本地 CPU。在设置中选择云端或 AI 连接器以使用生成式替换。",
+        "builtinDesc": "使用基础内置 AI。在设置中选择云端或 AI 连接器以使用生成式替换。",
         "builtinLabel": "内置 AI：",
         "cloudLabel": "云端 AI：",
         "connectorConnectedDesc": "已连接到本地生成式后端。",
@@ -692,6 +692,7 @@
         "applyPreset": "应用预设",
         "componentPropertiesTitle": "{{name}} 属性",
         "copySectionSettings": "复制 {{section}} 设置",
+        "generateTextMask": "生成蒙版",
         "invertComponent": "反转组件",
         "invertMask": "反转蒙版",
         "maskPropertiesTitle": "蒙版属性",
@@ -701,7 +702,8 @@
         "pasteSettings": "粘贴设置",
         "resetSectionSettings": "重置 {{section}} 设置",
         "select": "选择",
-        "selectPresetTooltip": "选择一个预设以应用"
+        "selectPresetTooltip": "选择一个预设以应用",
+        "textPromptPlaceholder": "例如，人物、汽车、水面"
       },
       "toggleAnalyticsInAdjustments": "在调整面板中切换分析",
       "toggleAnalyticsTooltip": "切换分析显示",
@@ -969,6 +971,37 @@
     }
   },
   "library": {
+    "aiJobs": {
+      "discard": "放弃剩余的 AI 处理",
+      "failed": "失败（{{failedCount}}）",
+      "kinds": {
+        "denoise": "正在 AI 降噪",
+        "depthMap": "正在分析深度",
+        "depthMask": "正在生成深度蒙版",
+        "foregroundMask": "正在生成前景蒙版",
+        "normalMap": "正在分析表面",
+        "skyMask": "正在生成天空蒙版",
+        "subjectMask": "正在生成主体蒙版",
+        "textMask": "正在生成文本蒙版"
+      },
+      "more": "另外 {{moreCount}} 项",
+      "pause": "暂停 AI 处理",
+      "paused": "已暂停 · 剩余 {{remaining}} 项",
+      "pausedItem": "已暂停",
+      "pausing": "将在当前步骤后暂停…",
+      "process": "处理图像",
+      "progress": "{{current}}/{{total}}",
+      "queue": "队列",
+      "queuedItem": "排队中",
+      "resume": "继续 AI 处理",
+      "retry": "重试",
+      "taskWithMask": "{{task}}“{{mask}}”",
+      "thumbnailPaused": "AI 处理已暂停",
+      "thumbnailPending": "等待 AI 处理",
+      "title": "AI 处理",
+      "unprocessed_other": "{{count}} 张图像需要 AI 处理",
+      "waiting": "正在准备 AI 处理…"
+    },
     "community": {
       "actionSave": "保存",
       "actionSaved": "已保存",
@@ -1243,7 +1276,8 @@
       "radial": "径向",
       "retouch": "修饰",
       "sky": "天空",
-      "subject": "主体"
+      "subject": "主体",
+      "text": "文本"
     }
   },
   "menus": {
@@ -1299,6 +1333,7 @@
       "descMerge": "添加您复制的更改，保留其他设置不变。",
       "descReplace": "覆盖所有选中的设置，其余重置为默认值。",
       "groups": {
+        "aiDenoise": "AI 降噪",
         "chromaticAberration": "色差",
         "clarityDehaze": "清晰度与去雾",
         "colorCalibration": "颜色校准",
@@ -1307,16 +1342,19 @@
         "cropAspectRatio": "裁剪与宽高比",
         "curves": "曲线",
         "exposureToneMapper": "曝光与色调映射",
+        "fog": "雾",
         "grain": "颗粒",
         "guidedPerspective": "引导透视",
         "halationGlow": "光晕与发光",
         "hueShift": "全局色相偏移",
+        "lensBlur": "镜头模糊",
         "lensCorrection": "镜头校正",
         "lut": "LUT",
         "masks": "蒙版",
         "negativeConversion": "负片转换",
         "noiseReduction": "降噪",
         "presence": "质感",
+        "relight": "重新打光",
         "sharpness": "锐度",
         "tone": "色调",
         "transformRotation": "变换与旋转",
@@ -1813,8 +1851,11 @@
           "description": "直接集成到 RapidRAW 中，这些功能完全在您的计算机上运行。它们快速、免费且无需设置，非常适合日常加速工作流程。",
           "feature1": "AI 蒙版（主体、天空、前景）",
           "feature2": "自动图像标签",
-          "feature3": "简单的 CPU 生成式替换",
-          "title": "内置 AI（CPU）"
+          "feature3": "简单的本地生成式替换",
+          "gpuAcceleration": "GPU 加速",
+          "gpuAccelerationDesc": "在显卡上运行降噪、蒙版、深度图和法线图以及标签等内置 AI 功能，大幅提升速度。如果遇到崩溃或 AI 结果不正确，请关闭此选项。",
+          "gpuAccelerationLabel": "为 AI 模型使用 GPU",
+          "title": "内置 AI"
         },
         "aiFree": {
           "description": "关闭所有 AI 功能。所有与 AI 相关的控件都会从界面中隐藏，RapidRAW 将作为纯传统的 RAW 编辑器运行。",
@@ -1828,7 +1869,7 @@
           "aiConnector": "AI 连接器",
           "aiFree": "无 AI",
           "cloud": "云端",
-          "cpu": "CPU"
+          "cpu": "内置"
         },
         "title": "生成式 AI"
       },
@@ -1967,8 +2008,10 @@
     "thanks": {
       "description": "衷心感谢以下项目，它们在 RapidRAW 的开发过程中非常重要：",
       "list": {
+        "birefnet": "为提供高分辨率分割模型，用于 AI 前景检测功能。",
         "darktable": "为部分参考实现提供了指导。",
         "depth": "为强大的单目深度估计模型提供支持，实现了 AI 深度蒙版功能。",
+        "efficientsam3": "为提供从 SAM 3 蒸馏而来的高效提示式分割模型，用于 AI 天空和文本蒙版。",
         "lama": "为强大且简单的图像修复模型提供支持，实现了内容感知填充和对象移除。",
         "lensfun": "为无价的开源库和全面的数据库提供支持，实现了自动镜头校正。",
         "libgphoto2": "感谢提供全面的相机通信库，为 RapidRAW 的联机拍摄与远程控制子系统提供支持。",
@@ -1977,7 +2020,6 @@
         "rawler": "为优秀的 Rust 库提供支持，构成了本项目 RAW 文件处理的基础。",
         "sam2": "为提供基础模型，用于 AI 主体检测功能。",
         "spektrafilm": "感谢 Andrea Volpato 提供基于光谱的胶片模拟 LUT，为 RapidRAW 的内置胶片模拟提供支持。采用 CC BY-SA 4.0 许可。",
-        "u2net": "为提供稳健的架构，用于 AI 天空和前景检测功能。",
         "you": "感谢您使用和支持 RapidRAW。您的关注使本项目持续发展。",
         "youLabel": "您"
       },

@@ -14,6 +14,17 @@ export interface AiTask {
   type: string;
 }
 
+export type AiJobKind =
+  'denoise' | 'depthMap' | 'normalMap' | 'foregroundMask' | 'skyMask' | 'textMask' | 'depthMask' | 'subjectMask';
+
+export interface AiJobsStatus {
+  current: { path: string; kind: AiJobKind; maskName: string | null } | null;
+  queued: number;
+  completed: number;
+  paused: boolean;
+  failed: Array<{ path: string; error: string }>;
+}
+
 interface ProcessState {
   exportState: ExportState;
   importState: ImportState;
@@ -30,6 +41,8 @@ interface ProcessState {
   initialFileToOpen: string | null;
   externalEditSession: ExternalEditSession | null;
   activeAiTasks: Record<string, AiTask>;
+  aiJobs: AiJobsStatus;
+  aiPendingPaths: Record<string, true>;
 
   setProcess: (state: Partial<ProcessState> | ((state: ProcessState) => Partial<ProcessState>)) => void;
   setExportState: (updater: Partial<ExportState> | ((state: ExportState) => Partial<ExportState>)) => void;
@@ -64,6 +77,8 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
   initialFileToOpen: null,
   externalEditSession: null,
   activeAiTasks: {},
+  aiJobs: { current: null, queued: 0, completed: 0, paused: false, failed: [] },
+  aiPendingPaths: {},
 
   setProcess: (updater) => {
     let nextState: Partial<ProcessState> = {};

@@ -1770,6 +1770,13 @@ pub(crate) async fn export_images_impl(
                     ExportAdjustmentsMode::GlobalOverride(_) => false,
                 };
 
+                if !is_current_edit
+                    && matches!(adjustments_mode, ExportAdjustmentsMode::UseSidecars { .. })
+                {
+                    crate::ai_jobs::ensure_ready(&app_handle_clone, &image_path_str)
+                        .map_err(|e| format!("Failed to generate AI results for export: {}", e))?;
+                }
+
                 let sidecar = crate::exif_processing::load_sidecar(&sidecar_path);
                 let export_xmp = crate::exif_processing::ExportXmp::from_metadata(&sidecar);
 

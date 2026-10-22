@@ -395,7 +395,7 @@ export function useEditorActions() {
 
   const handlePasteAdjustments = useCallback(
     (paths?: string[]) => {
-      const { copiedAdjustments, selectedImage, adjustments } = useEditorStore.getState();
+      const { copiedAdjustments, selectedImage } = useEditorStore.getState();
       const { multiSelectedPaths } = useLibraryStore.getState();
       const { appSettings } = useSettingsStore.getState();
       const { setProcess } = useProcessStore.getState();
@@ -435,24 +435,20 @@ export function useEditorActions() {
 
       pathsToUpdate.forEach((p) => globalImageCache.delete(p));
 
-      if (selectedImage && pathsToUpdate.includes(selectedImage.path)) {
-        setAdjustments({ ...adjustments, ...adjustmentsToApply });
+      const openPath = selectedImage && pathsToUpdate.includes(selectedImage.path) ? selectedImage.path : null;
+      if (openPath) {
+        debouncedSave.flush();
       }
 
       invoke(Invokes.ApplyAdjustmentsToPaths, { paths: pathsToUpdate, adjustments: adjustmentsToApply })
-        .then(() => {
-          if (selectedImage && pathsToUpdate.includes(selectedImage.path)) {
-            invoke('load_metadata', { path: selectedImage.path }).then((meta: any) => {
-              if (meta.adjustments) {
-                setAdjustments((prev: any) => ({
-                  ...prev,
-                  lensMaker: meta.adjustments.lensMaker,
-                  lensModel: meta.adjustments.lensModel,
-                  lensDistortionParams: meta.adjustments.lensDistortionParams,
-                }));
-              }
-            });
-          }
+        .then(async () => {
+          if (!openPath) return;
+          const meta: any = await invoke(Invokes.LoadMetadata, { path: openPath });
+          if (!meta.adjustments || useEditorStore.getState().selectedImage?.path !== openPath) return;
+
+          const pastedKeys = [...Object.keys(adjustmentsToApply), 'lensMaker', 'lensModel', 'lensDistortionParams'];
+          const pasted = Object.fromEntries(pastedKeys.map((key) => [key, meta.adjustments[key]]));
+          setAdjustments((prev: any) => ({ ...prev, ...pasted }));
         })
         .catch((err) => toast.error(`Failed to paste adjustments: ${err}`));
 
