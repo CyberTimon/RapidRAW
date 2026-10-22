@@ -27,14 +27,18 @@ import {
 } from '../../utils/cropUtils';
 import EditorToolbar from './editor/EditorToolbar';
 import ImageCanvas from './editor/ImageCanvas';
+import CullingPill, { type CullingPillMode } from './editor/CullingPill';
 import { Mask, SubMask } from './right/Masks';
-import { Panel, TransformState, Invokes } from '../ui/AppProperties';
+import { Panel, TransformState, Invokes, ImageFlag } from '../ui/AppProperties';
 import { useEditorStore } from '../../store/useEditorStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
+import { useProcessStore } from '../../store/useProcessStore';
 import { useAiMasking } from '../../hooks/useAiMasking';
 import { useEditorActions, withRotation } from '../../hooks/useEditorActions';
+import type { ImageNavigationDirection } from '../../utils/imageNavigation';
+import { getImageFlag } from '../../utils/imageFlags';
 
 const parseRgb = (rgbStr: string): [number, number, number, number] => {
   const match = rgbStr.match(/[\d.]+/g);
@@ -90,10 +94,99 @@ interface EditorProps {
   onBackToLibrary(): void;
   onContextMenu(event: any): void;
   onImageSelect?(path: string, event?: any): void;
+  onNavigateImage?(direction: ImageNavigationDirection): void;
+  getNeighborImagePath?(direction: ImageNavigationDirection): string | null;
+  onRate?(rating: number, path: string): void;
+  onSetFlag?(flag: ImageFlag | null, path: string): void;
   transformWrapperRef: any;
 }
 
-export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, transformWrapperRef }: EditorProps) {
+interface SwipeCull {
+  mode: CullingPillMode;
+  path: string;
+  start: number;
+  value: number;
+  step: number;
+}
+
+interface SwipeGesture {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  baseX: number;
+  baseY: number;
+  scale: number;
+  engaged: boolean;
+  cull: SwipeCull | null;
+  offset: number;
+  samples: Array<{ x: number; t: number }>;
+  prevPath: string | null;
+  nextPath: string | null;
+}
+
+interface SwipeNeighbors {
+  prev: string | null;
+  next: string | null;
+}
+
+interface SwipeHandoff {
+  path: string;
+  url: string | null;
+  fading: boolean;
+}
+
+const SWIPE_FIT_SCALE_MAX = 1.01;
+const SWIPE_ENGAGE_PX = 10;
+const SWIPE_HORIZONTAL_DOMINANCE = 1.2;
+const SWIPE_MIN_DISTANCE_PX = 60;
+const SWIPE_MIN_DISTANCE_RATIO = 0.15;
+const SWIPE_FLICK_MIN_DISTANCE_PX = 30;
+const SWIPE_FLICK_MIN_VELOCITY = 0.4;
+const SWIPE_EDGE_RESISTANCE = 0.35;
+const SWIPE_GAP_PX = 24;
+const SWIPE_CANCEL_DURATION_MS = 220;
+const SWIPE_COMMIT_MIN_DURATION_MS = 140;
+const SWIPE_COMMIT_MAX_DURATION_MS = 300;
+const SWIPE_HANDOFF_MIN_MS = 200;
+const SWIPE_HANDOFF_MAX_MS = 1200;
+const SWIPE_HANDOFF_FADE_MS = 180;
+const CULL_RATING_STEP_RATIO = 0.3 / 5;
+const CULL_RATING_STEP_MIN_PX = 14;
+const CULL_RATING_STEP_MAX_PX = 26;
+const CULL_FLAG_STEP_RATIO = 0.15;
+const CULL_FLAG_STEP_MIN_PX = 40;
+const CULL_FLAG_STEP_MAX_PX = 70;
+const CULL_PILL_HIDE_DELAY_MS = 350;
+const CULL_PILL_FADE_MS = 150;
+
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+
+const vibrateTick = () => {
+  try {
+    navigator.vibrate?.(8);
+  } catch {
+    // Vibration is optional; ignore platforms that block it.
+  }
+};
+
+const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+const getSwipeThumbnailUrl = (path: string | null) => {
+  if (!path) return null;
+  const { mediumThumbnails, thumbnails } = useProcessStore.getState();
+  return mediumThumbnails[path] || thumbnails[path] || null;
+};
+
+export default function Editor({
+  onBackToLibrary,
+  onContextMenu,
+  onImageSelect,
+  onNavigateImage,
+  getNeighborImagePath,
+  onRate,
+  onSetFlag,
+  transformWrapperRef,
+}: EditorProps) {
   const appSettings = useSettingsStore((s) => s.appSettings);
   const osPlatform = useSettingsStore((s) => s.osPlatform);
   const isFullScreen = useUIStore((s) => s.isFullScreen);
@@ -183,6 +276,17 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const wheelSnapTimeout = useRef<number | null>(null);
   const isMiddleMousePanning = useRef(false);
   const wasPanningDisabledOnDown = useRef(false);
+  const swipeRef = useRef<SwipeGesture | null>(null);
+  const swipeOverlayRef = useRef<HTMLDivElement>(null);
+  const swipeFrameId = useRef<number | null>(null);
+  const isSwipeLockedRef = useRef(false);
+  const swipeHandoffArrivedAtRef = useRef<number | null>(null);
+  const [swipeNeighbors, setSwipeNeighbors] = useState<SwipeNeighbors | null>(null);
+  const [swipeHandoff, setSwipeHandoff] = useState<SwipeHandoff | null>(null);
+  const [cullingPill, setCullingPill] = useState<{ mode: CullingPillMode; value: number; visible: boolean } | null>(
+    null,
+  );
+  const cullingPillTimeoutRef = useRef<number | null>(null);
 
   const prevRenderState = useRef({
     containerLeft: 0,
@@ -843,8 +947,115 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     setAdjustments,
   ]);
 
+  const setSwipeOffset = useCallback(
+    (swipe: SwipeGesture, offset: number) => {
+      swipe.offset = offset;
+      applyTransform(swipe.baseX + offset, swipe.baseY, swipe.scale);
+      if (swipeOverlayRef.current) {
+        swipeOverlayRef.current.style.transform = `translate3d(${offset}px, 0, 0)`;
+      }
+    },
+    [applyTransform],
+  );
+
+  const animateSwipeOffset = useCallback(
+    (swipe: SwipeGesture, target: number, duration: number, onDone: () => void) => {
+      if (swipeFrameId.current) cancelAnimationFrame(swipeFrameId.current);
+      const from = swipe.offset;
+      const startTime = performance.now();
+
+      const step = (now: number) => {
+        const progress = Math.min((now - startTime) / duration, 1);
+        setSwipeOffset(swipe, from + (target - from) * easeOutCubic(progress));
+        if (progress < 1) {
+          swipeFrameId.current = requestAnimationFrame(step);
+        } else {
+          swipeFrameId.current = null;
+          onDone();
+        }
+      };
+
+      swipeFrameId.current = requestAnimationFrame(step);
+    },
+    [setSwipeOffset],
+  );
+
+  useLayoutEffect(() => {
+    if (swipeNeighbors && swipeOverlayRef.current) {
+      swipeOverlayRef.current.style.transform = `translate3d(${swipeRef.current?.offset ?? 0}px, 0, 0)`;
+    }
+  }, [swipeNeighbors]);
+
+  useEffect(
+    () => () => {
+      if (swipeFrameId.current) cancelAnimationFrame(swipeFrameId.current);
+      if (cullingPillTimeoutRef.current) clearTimeout(cullingPillTimeoutRef.current);
+    },
+    [],
+  );
+
+  const showCullingPill = useCallback((mode: CullingPillMode, value: number) => {
+    if (cullingPillTimeoutRef.current) {
+      clearTimeout(cullingPillTimeoutRef.current);
+      cullingPillTimeoutRef.current = null;
+    }
+    setCullingPill({ mode, value, visible: true });
+  }, []);
+
+  const hideCullingPill = useCallback((delay: number) => {
+    if (cullingPillTimeoutRef.current) clearTimeout(cullingPillTimeoutRef.current);
+    cullingPillTimeoutRef.current = window.setTimeout(() => {
+      setCullingPill((prev) => (prev ? { ...prev, visible: false } : prev));
+      cullingPillTimeoutRef.current = window.setTimeout(() => {
+        cullingPillTimeoutRef.current = null;
+        setCullingPill(null);
+      }, CULL_PILL_FADE_MS);
+    }, delay);
+  }, []);
+
+  // Once the incoming image is selected, recentre the real canvas under the thumbnail.
+  useLayoutEffect(() => {
+    if (!swipeHandoff || swipeHandoffArrivedAtRef.current !== null) return;
+    if (selectedImage?.path !== swipeHandoff.path) return;
+    swipeHandoffArrivedAtRef.current = performance.now();
+    const fitted = clampToBounds(0, 0, 1);
+    applyTransform(fitted.x, fitted.y, fitted.scale);
+  }, [swipeHandoff, selectedImage?.path, clampToBounds, applyTransform]);
+
+  // Fade the thumbnail out once the real image has had a chance to render.
+  useEffect(() => {
+    if (!swipeHandoff) return;
+
+    if (swipeHandoff.fading) {
+      const timeout = window.setTimeout(() => {
+        swipeHandoffArrivedAtRef.current = null;
+        isSwipeLockedRef.current = false;
+        setSwipeHandoff(null);
+      }, SWIPE_HANDOFF_FADE_MS);
+      return () => clearTimeout(timeout);
+    }
+
+    const startFade = () => setSwipeHandoff((prev) => (prev ? { ...prev, fading: true } : prev));
+
+    if (swipeHandoffArrivedAtRef.current === null) {
+      const timeout = window.setTimeout(() => {
+        const fitted = clampToBounds(0, 0, 1);
+        applyTransform(fitted.x, fitted.y, fitted.scale);
+        startFade();
+      }, SWIPE_HANDOFF_MAX_MS);
+      return () => clearTimeout(timeout);
+    }
+
+    const elapsed = performance.now() - swipeHandoffArrivedAtRef.current;
+    const delay = Math.max((hasRenderedFirstFrame ? SWIPE_HANDOFF_MIN_MS : SWIPE_HANDOFF_MAX_MS) - elapsed, 0);
+    const timeout = window.setTimeout(startFade, delay);
+    return () => clearTimeout(timeout);
+  }, [swipeHandoff, selectedImage?.path, hasRenderedFirstFrame, clampToBounds, applyTransform]);
+
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
+      if (isSwipeLockedRef.current || swipeRef.current?.engaged || swipeRef.current?.cull) return;
+
       wasPanningDisabledOnDown.current = isPanningDisabled;
 
       const isCropHandle = isCropping && e.button === 0 && !!(e.target as HTMLElement).closest('[data-ord]');
@@ -914,6 +1125,28 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       mouseDownPos.current = { x: e.clientX, y: e.clientY };
       activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
+      const { positionX, positionY, scale: currentScale } = transformStateRef.current;
+      swipeRef.current =
+        activePointers.current.size === 1 &&
+        e.pointerType === 'touch' &&
+        !isMiddleClick &&
+        currentScale <= SWIPE_FIT_SCALE_MAX
+          ? {
+              pointerId: e.pointerId,
+              startX: e.clientX,
+              startY: e.clientY,
+              baseX: positionX,
+              baseY: positionY,
+              scale: currentScale,
+              engaged: false,
+              cull: null,
+              offset: 0,
+              samples: [],
+              prevPath: null,
+              nextPath: null,
+            }
+          : null;
+
       if (activePointers.current.size === 1) {
         lastPanPos.current = { x: e.clientX, y: e.clientY };
         setIsPanningState(true);
@@ -936,12 +1169,20 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     if (isMiddleMousePanning.current) return;
 
     activePointers.current.clear();
+    const swipe = swipeRef.current;
+    swipeRef.current = null;
+    if (swipe?.engaged && !isSwipeLockedRef.current) {
+      if (swipeFrameId.current) cancelAnimationFrame(swipeFrameId.current);
+      applyTransform(swipe.baseX, swipe.baseY, swipe.scale);
+      setSwipeNeighbors(null);
+    }
+    if (swipe?.cull) hideCullingPill(0);
     lastPanPos.current = null;
     lastPinch.current = null;
     panVelocityHistory.current = [];
     mouseDownPos.current = null;
     setIsPanningState(false);
-  }, [isPanningDisabled]);
+  }, [isPanningDisabled, applyTransform, hideCullingPill]);
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -987,6 +1228,93 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       if (!activePointers.current.has(e.pointerId)) return;
       activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
+      const swipe = swipeRef.current;
+      if (swipe && e.pointerId === swipe.pointerId && activePointers.current.size === 1) {
+        const dx = e.clientX - swipe.startX;
+        const dy = e.clientY - swipe.startY;
+
+        if (swipe.cull) {
+          const cull = swipe.cull;
+          const steps = Math.round(-dy / cull.step);
+          const value = cull.mode === 'rate' ? clamp(cull.start + steps, 0, 5) : clamp(cull.start + steps, -1, 1);
+          if (value !== cull.value) {
+            cull.value = value;
+            showCullingPill(cull.mode, value);
+            vibrateTick();
+          }
+          return;
+        }
+
+        if (!swipe.engaged) {
+          const absDx = Math.abs(dx);
+          const absDy = Math.abs(dy);
+          if (transformStateRef.current.scale > SWIPE_FIT_SCALE_MAX || isPanningDisabled) {
+            swipeRef.current = null;
+          } else if (absDy > SWIPE_ENGAGE_PX && absDy > absDx * SWIPE_HORIZONTAL_DOMINANCE) {
+            const rect = imageContainerRef.current?.getBoundingClientRect();
+            const path = selectedImage?.path;
+            const mode: CullingPillMode | null =
+              rect && path ? (swipe.startX - rect.left < rect.width / 2 ? 'rate' : 'flag') : null;
+
+            if (!rect || !path || !mode || (mode === 'rate' && !onRate) || (mode === 'flag' && !onSetFlag)) {
+              swipeRef.current = null;
+            } else {
+              const { imageList, imageRatings } = useLibraryStore.getState();
+              const currentFlag = getImageFlag(imageList, path);
+              const start =
+                mode === 'rate'
+                  ? currentFlag === ImageFlag.Reject
+                    ? 0
+                    : clamp(imageRatings[path] || 0, 0, 5)
+                  : currentFlag === ImageFlag.Pick
+                    ? 1
+                    : currentFlag === ImageFlag.Reject
+                      ? -1
+                      : 0;
+              const step =
+                mode === 'rate'
+                  ? clamp(rect.height * CULL_RATING_STEP_RATIO, CULL_RATING_STEP_MIN_PX, CULL_RATING_STEP_MAX_PX)
+                  : clamp(rect.height * CULL_FLAG_STEP_RATIO, CULL_FLAG_STEP_MIN_PX, CULL_FLAG_STEP_MAX_PX);
+
+              swipe.cull = { mode, path, start, value: start, step };
+              // Measure from the engagement point so the threshold distance doesn't count as a step.
+              swipe.startY = e.clientY;
+              panVelocityHistory.current = [];
+              showCullingPill(mode, start);
+            }
+            return;
+          } else if (absDy > SWIPE_ENGAGE_PX && absDy >= absDx) {
+            swipeRef.current = null;
+          } else if (absDx > SWIPE_ENGAGE_PX && absDx > absDy * SWIPE_HORIZONTAL_DOMINANCE) {
+            const currentPath = selectedImage?.path;
+            const resolve = (direction: ImageNavigationDirection) => {
+              const path = getNeighborImagePath?.(direction) ?? null;
+              return path && path !== currentPath ? path : null;
+            };
+            swipe.engaged = true;
+            swipe.prevPath = onNavigateImage ? resolve('prev') : null;
+            swipe.nextPath = onNavigateImage ? resolve('next') : null;
+            panVelocityHistory.current = [];
+            setSwipeNeighbors({
+              prev: getSwipeThumbnailUrl(swipe.prevPath),
+              next: getSwipeThumbnailUrl(swipe.nextPath),
+            });
+          } else {
+            return;
+          }
+        }
+
+        if (swipe.engaged) {
+          const now = performance.now();
+          swipe.samples.push({ x: e.clientX, t: now });
+          while (swipe.samples.length > 2 && now - swipe.samples[0].t > 100) swipe.samples.shift();
+
+          const hasTarget = dx < 0 ? swipe.nextPath : swipe.prevPath;
+          setSwipeOffset(swipe, hasTarget ? dx : dx * SWIPE_EDGE_RESISTANCE);
+          return;
+        }
+      }
+
       const canPan = !isPanningDisabled || isMiddleMousePanning.current;
 
       if (activePointers.current.size === 1 && lastPanPos.current && isPanningState && canPan) {
@@ -994,7 +1322,10 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         if (panVelocityHistory.current.length > 6) panVelocityHistory.current.shift();
 
         let dx = e.clientX - lastPanPos.current.x;
-        let dy = e.clientY - lastPanPos.current.y;
+        let dy =
+          e.pointerType === 'touch' && transformStateRef.current.scale <= SWIPE_FIT_SCALE_MAX
+            ? 0
+            : e.clientY - lastPanPos.current.y;
         lastPanPos.current = { x: e.clientX, y: e.clientY };
 
         const bounds = getTransformBounds(transformStateRef.current.scale);
@@ -1048,6 +1379,12 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       liveRotation,
       imageRenderSize.scale,
       setAdjustments,
+      getNeighborImagePath,
+      onNavigateImage,
+      setSwipeOffset,
+      onRate,
+      onSetFlag,
+      showCullingPill,
     ],
   );
 
@@ -1101,6 +1438,85 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         setIsPanningState(false);
         isMiddleMousePanning.current = false;
 
+        const swipe = swipeRef.current;
+        swipeRef.current = null;
+        if (swipe?.cull) {
+          const cull = swipe.cull;
+          panVelocityHistory.current = [];
+          if (e.type === 'pointerup' && cull.value !== cull.start) {
+            if (cull.mode === 'rate') {
+              onRate?.(cull.value, cull.path);
+            } else {
+              onSetFlag?.(cull.value === 1 ? ImageFlag.Pick : cull.value === -1 ? ImageFlag.Reject : null, cull.path);
+            }
+            hideCullingPill(CULL_PILL_HIDE_DELAY_MS);
+          } else {
+            hideCullingPill(0);
+          }
+          return;
+        }
+        if (swipe?.engaged && e.pointerId === swipe.pointerId) {
+          panVelocityHistory.current = [];
+          const containerWidth = imageContainerRef.current?.clientWidth ?? 0;
+          const offset = swipe.offset;
+          const direction: ImageNavigationDirection = offset < 0 ? 'next' : 'prev';
+          const targetPath = direction === 'next' ? swipe.nextPath : swipe.prevPath;
+
+          let velocity = 0;
+          const samples = swipe.samples;
+          if (samples.length > 1) {
+            const first = samples[0];
+            const last = samples[samples.length - 1];
+            const dt = last.t - first.t;
+            if (dt > 0 && performance.now() - last.t < 80) velocity = (last.x - first.x) / dt;
+          }
+
+          const absOffset = Math.abs(offset);
+          const isLongSwipe = absOffset >= Math.max(SWIPE_MIN_DISTANCE_PX, containerWidth * SWIPE_MIN_DISTANCE_RATIO);
+          const isFlick =
+            absOffset >= SWIPE_FLICK_MIN_DISTANCE_PX &&
+            Math.abs(velocity) >= SWIPE_FLICK_MIN_VELOCITY &&
+            Math.sign(velocity) === Math.sign(offset);
+          const isReversing =
+            Math.abs(velocity) >= SWIPE_FLICK_MIN_VELOCITY && Math.sign(velocity) !== Math.sign(offset);
+
+          if (
+            e.type === 'pointerup' &&
+            targetPath &&
+            onNavigateImage &&
+            containerWidth > 0 &&
+            (isFlick || (isLongSwipe && !isReversing))
+          ) {
+            const target = (offset < 0 ? -1 : 1) * (containerWidth + SWIPE_GAP_PX);
+            const remaining = Math.abs(target - offset);
+            const speed = Math.max(Math.abs(velocity), 1.5);
+            const duration = Math.min(
+              Math.max(remaining / speed, SWIPE_COMMIT_MIN_DURATION_MS),
+              SWIPE_COMMIT_MAX_DURATION_MS,
+            );
+
+            isSwipeLockedRef.current = true;
+            animateSwipeOffset(swipe, target, duration, () => {
+              swipeHandoffArrivedAtRef.current = null;
+              setSwipeNeighbors(null);
+              setSwipeHandoff({
+                path: targetPath,
+                url: getSwipeThumbnailUrl(targetPath),
+                fading: false,
+              });
+              onNavigateImage(direction);
+            });
+          } else {
+            isSwipeLockedRef.current = true;
+            animateSwipeOffset(swipe, 0, SWIPE_CANCEL_DURATION_MS, () => {
+              applyTransform(swipe.baseX, swipe.baseY, swipe.scale);
+              setSwipeNeighbors(null);
+              isSwipeLockedRef.current = false;
+            });
+          }
+          return;
+        }
+
         let vx = 0,
           vy = 0;
         const history = panVelocityHistory.current;
@@ -1113,6 +1529,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
             vy = (last.y - first.y) / dt;
           }
         }
+        if (e.pointerType === 'touch' && transformStateRef.current.scale <= SWIPE_FIT_SCALE_MAX) vy = 0;
 
         const { positionX, positionY, scale } = transformStateRef.current;
         const bounds = getTransformBounds(scale);
@@ -1124,7 +1541,17 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         }
       }
     },
-    [getTransformBounds, startPhysicsLoop, handleStraighten],
+    [
+      getTransformBounds,
+      startPhysicsLoop,
+      handleStraighten,
+      onNavigateImage,
+      applyTransform,
+      animateSwipeOffset,
+      onRate,
+      onSetFlag,
+      hideCullingPill,
+    ],
   );
 
   const handleClick = useCallback(
@@ -2384,6 +2811,48 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
             hasRenderedFirstFrame={hasRenderedFirstFrame}
           />
         </div>
+        {swipeNeighbors && (
+          <div ref={swipeOverlayRef} className="absolute inset-0 pointer-events-none z-10 will-change-transform">
+            {swipeNeighbors.prev && (
+              <img
+                src={swipeNeighbors.prev}
+                alt=""
+                draggable={false}
+                className="absolute inset-0 w-full h-full object-contain select-none"
+                style={{ transform: `translateX(calc(-100% - ${SWIPE_GAP_PX}px))` }}
+              />
+            )}
+            {swipeNeighbors.next && (
+              <img
+                src={swipeNeighbors.next}
+                alt=""
+                draggable={false}
+                className="absolute inset-0 w-full h-full object-contain select-none"
+                style={{ transform: `translateX(calc(100% + ${SWIPE_GAP_PX}px))` }}
+              />
+            )}
+          </div>
+        )}
+        {swipeHandoff && (
+          <div
+            className={clsx(
+              'absolute inset-0 pointer-events-none z-10 transition-opacity ease-out',
+              appSettings?.editorNeutralGreyBg ? 'bg-[#808080]' : 'bg-bg-secondary',
+              swipeHandoff.fading ? 'opacity-0' : 'opacity-100',
+            )}
+            style={{ transitionDuration: `${SWIPE_HANDOFF_FADE_MS}ms` }}
+          >
+            {swipeHandoff.url && (
+              <img
+                src={swipeHandoff.url}
+                alt=""
+                draggable={false}
+                className="absolute inset-0 w-full h-full object-contain select-none"
+              />
+            )}
+          </div>
+        )}
+        {cullingPill && <CullingPill mode={cullingPill.mode} value={cullingPill.value} visible={cullingPill.visible} />}
         {straightenDragLine && (
           <svg className="absolute inset-0 pointer-events-none z-[100]" style={{ width: '100%', height: '100%' }}>
             <line
