@@ -1062,6 +1062,7 @@
       "withOriginalDesc": "Für Bilder aus einem lokalen Ordner: Das Original wird mit seinen Bearbeitungen hochgeladen und der Export oben darauf gestapelt. Bilder aus Immich werden immer auf ihr Original gestapelt."
     },
     "section": {
+      "albums": "Alben",
       "empty": "Keine Alben auf dem Server.",
       "error": "Immich ist nicht erreichbar.",
       "loading": "Alben werden geladen…",

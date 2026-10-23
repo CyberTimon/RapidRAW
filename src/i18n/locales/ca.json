@@ -1088,6 +1088,7 @@
       "withOriginalDesc": "Per a imatges d'una carpeta local: l'original es puja amb les seves edicions i l'exportació s'apila a sobre. Les imatges d'Immich sempre s'apilen sobre el seu original."
     },
     "section": {
+      "albums": "Àlbums",
       "empty": "No hi ha àlbums al servidor.",
       "error": "No es pot accedir a Immich.",
       "loading": "Carregant àlbums…",

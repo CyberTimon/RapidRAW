@@ -1,7 +1,17 @@
 import { ReactNode, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import clsx from 'clsx';
-import { Album as AlbumIcon, CloudOff, CloudUpload, Inbox, RefreshCw, Users } from 'lucide-react';
+import {
+  Album as AlbumIcon,
+  ChevronDown,
+  ChevronRight,
+  CloudOff,
+  CloudUpload,
+  Inbox,
+  Library,
+  RefreshCw,
+  Users,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import Text from '../ui/Text';
@@ -21,6 +31,8 @@ interface ImmichSectionProps {
   selectedAlbumId: string | null;
   showImageCounts: boolean;
 }
+
+const ALBUMS_SECTION = 'immich-albums';
 
 const sortAlbums = (albums: ImmichAlbum[], sort: FolderTreeSort): ImmichAlbum[] =>
   [...albums].sort((a, b) => {
@@ -51,7 +63,19 @@ export default function ImmichSection({
       loadAlbums: state.loadAlbums,
     })),
   );
-  const sort = useSettingsStore((state) => state.appSettings?.folderTreeSort);
+  const appSettings = useSettingsStore((state) => state.appSettings);
+  const handleSettingsChange = useSettingsStore((state) => state.handleSettingsChange);
+  const sort = appSettings?.folderTreeSort;
+  const openSections = appSettings?.openTreeSections ?? ['current'];
+  const isAlbumsOpen = openSections.includes(ALBUMS_SECTION);
+
+  const toggleAlbums = () => {
+    if (!appSettings) return;
+    const newSections = isAlbumsOpen
+      ? openSections.filter((s) => s !== ALBUMS_SECTION)
+      : [...openSections, ALBUMS_SECTION];
+    handleSettingsChange({ ...appSettings, openTreeSections: newSections });
+  };
 
   const query = searchQuery.trim().toLowerCase();
   const visibleAlbums = useMemo(() => {
@@ -92,29 +116,46 @@ export default function ImmichSection({
                 <>
                   <ImmichTimeline selectedAlbumId={selectedAlbumId} onSelectAlbum={onSelectAlbum} />
                   <ImmichRow
-                    icon={Inbox}
-                    label={t('immich.section.unassigned')}
-                    dropId={IMMICH_UNASSIGNED_ID}
-                    isSelected={selectedAlbumId === IMMICH_UNASSIGNED_ID}
-                    onSelect={() => onSelectAlbum(IMMICH_UNASSIGNED_ID, t('immich.section.unassigned'), [])}
-                    tooltip={t('immich.section.unassignedHint')}
+                    icon={Library}
+                    label={t('immich.section.albums')}
+                    count={albums.length}
+                    showCount
+                    isSelected={false}
+                    onSelect={toggleAlbums}
+                    trailing={isAlbumsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                   />
-                  <div className="my-1 mx-2 h-px bg-surface" />
                 </>
               )}
 
-              {visibleAlbums.map((album) => (
-                <ImmichRow
-                  key={album.id}
-                  icon={album.shared ? Users : AlbumIcon}
-                  label={album.albumName}
-                  count={album.assetCount}
-                  showCount={showImageCounts}
-                  dropId={toImmichAlbumId(album.id)}
-                  isSelected={toImmichAlbumId(album.id) === selectedAlbumId}
-                  onSelect={() => onSelectAlbum(toImmichAlbumId(album.id), album.albumName, [])}
-                />
-              ))}
+              {(query || isAlbumsOpen) && (
+                <div className={clsx(!query && 'pl-4')}>
+                  {!query && (
+                    <>
+                      <ImmichRow
+                        icon={Inbox}
+                        label={t('immich.section.unassigned')}
+                        dropId={IMMICH_UNASSIGNED_ID}
+                        isSelected={selectedAlbumId === IMMICH_UNASSIGNED_ID}
+                        onSelect={() => onSelectAlbum(IMMICH_UNASSIGNED_ID, t('immich.section.unassigned'), [])}
+                        tooltip={t('immich.section.unassignedHint')}
+                      />
+                      <div className="my-1 mx-2 h-px bg-surface" />
+                    </>
+                  )}
+                  {visibleAlbums.map((album) => (
+                    <ImmichRow
+                      key={album.id}
+                      icon={album.shared ? Users : AlbumIcon}
+                      label={album.albumName}
+                      count={album.assetCount}
+                      showCount={showImageCounts}
+                      dropId={toImmichAlbumId(album.id)}
+                      isSelected={toImmichAlbumId(album.id) === selectedAlbumId}
+                      onSelect={() => onSelectAlbum(toImmichAlbumId(album.id), album.albumName, [])}
+                    />
+                  ))}
+                </div>
+              )}
 
               {error && (
                 <Text variant={TextVariants.small} className="p-2 text-center" data-tooltip={error}>

@@ -1088,6 +1088,7 @@
       "withOriginalDesc": "Per le immagini di una cartella locale: l'originale viene caricato con le sue modifiche e l'esportazione viene impilata sopra. Le immagini di Immich vengono sempre impilate sul loro originale."
     },
     "section": {
+      "albums": "Album",
       "empty": "Nessun album sul server.",
       "error": "Immich non è raggiungibile.",
       "loading": "Caricamento album…",

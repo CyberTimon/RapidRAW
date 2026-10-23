@@ -1114,6 +1114,7 @@
       "withOriginalDesc": "Pro obrázky z místní složky: originál se nahraje i s úpravami a export se umístí na něj do zásobníku. Obrázky z Immiche se vždy skládají na svůj originál."
     },
     "section": {
+      "albums": "Alba",
       "empty": "Na serveru nejsou žádná alba.",
       "error": "Immich není dostupný.",
       "loading": "Načítání alb…",

@@ -1088,6 +1088,7 @@
       "withOriginalDesc": "Para imagens de uma pasta local: o original é enviado com as respetivas edições e a exportação é empilhada por cima. As imagens do Immich são sempre empilhadas sobre o seu original."
     },
     "section": {
+      "albums": "Álbuns",
       "empty": "Não há álbuns no servidor.",
       "error": "O Immich não está acessível.",
       "loading": "A carregar álbuns…",

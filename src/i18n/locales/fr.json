@@ -1088,6 +1088,7 @@
       "withOriginalDesc": "Pour les images d'un dossier local : l'original est envoyé avec ses retouches et l'export est empilé par-dessus. Les images d'Immich sont toujours empilées sur leur original."
     },
     "section": {
+      "albums": "Albums",
       "empty": "Aucun album sur le serveur.",
       "error": "Immich est injoignable.",
       "loading": "Chargement des albums…",

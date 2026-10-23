@@ -1114,6 +1114,7 @@
       "withOriginalDesc": "Dla zdjęć z folderu lokalnego: oryginał jest przesyłany wraz z edycjami, a eksport układany na nim w stos. Zdjęcia z Immich są zawsze układane na swoim oryginale."
     },
     "section": {
+      "albums": "Albumy",
       "empty": "Brak albumów na serwerze.",
       "error": "Immich jest niedostępny.",
       "loading": "Wczytywanie albumów…",

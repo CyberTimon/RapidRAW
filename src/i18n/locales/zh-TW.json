@@ -1059,6 +1059,7 @@
       "withOriginalDesc": "對於本機資料夾中的影像：原始檔會連同編輯內容一起上傳，匯出的影像會堆疊在其上方。來自 Immich 的影像一律堆疊在其原始檔上。"
     },
     "section": {
+      "albums": "相簿",
       "empty": "伺服器上沒有相簿。",
       "error": "無法連線到 Immich。",
       "loading": "正在載入相簿…",

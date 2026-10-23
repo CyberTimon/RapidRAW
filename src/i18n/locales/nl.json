@@ -1062,6 +1062,7 @@
       "withOriginalDesc": "Voor afbeeldingen uit een lokale map: het origineel wordt met zijn bewerkingen geüpload en de export wordt erbovenop gestapeld. Afbeeldingen uit Immich worden altijd op hun origineel gestapeld."
     },
     "section": {
+      "albums": "Albums",
       "empty": "Geen albums op de server.",
       "error": "Immich is niet bereikbaar.",
       "loading": "Albums laden…",

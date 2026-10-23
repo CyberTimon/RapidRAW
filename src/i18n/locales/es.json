@@ -1088,6 +1088,7 @@
       "withOriginalDesc": "Para imágenes de una carpeta local: el original se sube con sus ediciones y la exportación se apila encima. Las imágenes de Immich siempre se apilan sobre su original."
     },
     "section": {
+      "albums": "Álbumes",
       "empty": "No hay álbumes en el servidor.",
       "error": "No se puede acceder a Immich.",
       "loading": "Cargando álbumes…",
