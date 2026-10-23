@@ -8,13 +8,14 @@ import { join } from 'node:path';
 const temp = await mkdtemp(join(tmpdir(), 'rapidraw-analysis-test-'));
 await build({
   stdin: {
-    contents: `export * from './src/store/useNegativeAnalysisStore'; export { useUIStore } from './src/store/useUIStore'; export { prepareAdjustmentsPayload } from './src/utils/backendPayload';`,
+    contents: `export * from './src/store/useNegativeAnalysisStore'; export { useUIStore } from './src/store/useUIStore'; export { prepareAdjustmentsPayload } from './src/utils/backendPayload'; export { default as AnalysisRegionOverlay } from './src/components/panel/editor/overlays/AnalysisRegionOverlay'; export { createElement } from 'react'; export { renderToStaticMarkup } from 'react-dom/server'; import './src/i18n';`,
     resolveDir: process.cwd(),
     loader: 'ts',
   },
   bundle: true,
   platform: 'node',
   format: 'esm',
+  banner: { js: `import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);` },
   outfile: join(temp, 'session.mjs'),
 });
 after(() => rm(temp, { recursive: true, force: true }));
@@ -22,6 +23,9 @@ const {
   useNegativeAnalysisStore: session,
   useUIStore: ui,
   prepareAdjustmentsPayload,
+  AnalysisRegionOverlay,
+  createElement,
+  renderToStaticMarkup,
 } = await import(join(temp, 'session.mjs'));
 
 test('moving the analysis rectangle changes conversion only on release', () => {
@@ -101,4 +105,41 @@ test('actual preview payload adds the session region without changing persisted 
   assert.equal(payload.negativeExposure, 0.7);
   assert.equal(payload.negativeContrast, 1.4);
   assert.equal('negativeAnalysisRegion' in settings, false);
+});
+
+test('all analysis rectangle corners and handles follow a perspective transform with rotation and scale', () => {
+  session.getState().closeWorkspace();
+  const markup = renderToStaticMarkup(
+    createElement(AnalysisRegionOverlay, {
+      width: 400,
+      height: 400,
+      zoom: 2,
+      imageUrl: 'negative.png',
+      imageStyle: {},
+      // A forward perspective warp followed by a quarter-turn, scale, and translation.
+      // Like the editor projector, this boundary can also accept already-warped UVs.
+      project: ({ x, y }, isWarped = false) => {
+        const denominator = isWarped ? 1 : 1 + x;
+        return { x: 100 - (200 * y) / denominator, y: 200 + (200 * x) / denominator };
+      },
+      unproject: () => ({ x: 0, y: 0 }),
+    }),
+  );
+  const expected = [
+    [78.571, 221.429],
+    [87.234, 293.617],
+    [6.383, 293.617],
+    [-57.143, 221.429],
+  ];
+  const round = (v) => Math.round(Number(v) * 1000) / 1000;
+  const polygon = markup
+    .match(/<polygon[^>]* points="([^"]+)"/)[1]
+    .split(' ')
+    .map((point) => point.split(',').map(round));
+  const handles = [...markup.matchAll(/<circle[^>]* cx="([^"]+)" cy="([^"]+)"/g)].map((match) => [
+    round(match[1]),
+    round(match[2]),
+  ]);
+  assert.deepEqual(polygon, expected);
+  assert.deepEqual(handles, expected);
 });
