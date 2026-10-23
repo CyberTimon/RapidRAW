@@ -227,6 +227,7 @@
       "autoLensCorrection": "自动镜头校正",
       "autoStraighten": "自动拉直",
       "cancel": "取消",
+      "closeViewer": "关闭第二窗口",
       "colorLabel": "颜色标签",
       "confirmReset": "确认重置",
       "convertNegative": "转换负片",
@@ -242,6 +243,7 @@
       "mergeHdr": "合并为 HDR",
       "noLabel": "无标签",
       "noRating": "无评分",
+      "openViewer": "在第二窗口中打开",
       "pasteAdjustments": "粘贴调整",
       "productivity": "效率",
       "rating": "评分",
@@ -850,15 +852,21 @@
       "tooltips": {
         "aperture": "光圈",
         "backToLibrary": "返回图库",
+        "closeViewer": "关闭第二窗口",
         "compare": "前后对比（B）或模式（右键）",
         "focalLength": "焦距",
         "fullscreen": "切换全屏（F）",
         "iso": "ISO",
+        "openViewer": "在第二窗口中打开",
         "redo": "重做（Ctrl+Y）或历史记录（右键单击）",
         "shutterSpeed": "快门速度",
         "undo": "撤销（Ctrl+Z）或历史记录（右键单击）"
       },
       "vc": "VC"
+    },
+    "viewer": {
+      "openFailed": "无法打开第二窗口：{{error}}",
+      "windowTitle": "RapidRAW 查看器"
     }
   },
   "export": {
@@ -1837,6 +1845,7 @@
         "toggle_presets": "切换预设面板",
         "toggle_reject": "切换拒绝标记",
         "toggle_right_panel": "切换右侧面板",
+        "toggle_viewer_window": "切换第二窗口",
         "undo": "撤销调整",
         "unflag": "取消标记",
         "zoom_100": "缩放到 100%",

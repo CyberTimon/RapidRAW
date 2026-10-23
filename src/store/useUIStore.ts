@@ -1,5 +1,9 @@
 import { create } from 'zustand';
+import { invoke } from '@tauri-apps/api/core';
+import i18n from 'i18next';
+import { toast } from 'react-toastify';
 import {
+  Invokes,
   ImageFile,
   Panel,
   UiVisibility,
@@ -197,6 +201,7 @@ export interface UIState {
   activeView: string;
   isFullScreen: boolean;
   isWindowFullScreen: boolean;
+  isViewerOpen: boolean;
   isInstantTransition: boolean;
   isLayoutReady: boolean;
   uiVisibility: UiVisibility;
@@ -258,6 +263,7 @@ export interface UIState {
   searchFocusRequest: number;
   requestSearchFocus: () => void;
   toggleFullScreen: () => void;
+  toggleViewerWindow: () => void;
   resetWorkspaceLayout: (isTetheringSupported?: boolean) => WorkspaceState;
 }
 
@@ -265,6 +271,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   activeView: 'library',
   isFullScreen: false,
   isWindowFullScreen: false,
+  isViewerOpen: false,
   isInstantTransition: false,
   isLayoutReady: false,
   uiVisibility: { filmstrip: true, leftPanel: true, rightPanel: true, quickFilter: false },
@@ -486,6 +493,17 @@ export const useUIStore = create<UIState>((set, get) => ({
     if (isNotFitToScreen) {
       setTimeout(() => set({ isInstantTransition: false }), 100);
     }
+  },
+
+  toggleViewerWindow: () => {
+    if (get().isViewerOpen) {
+      set({ isViewerOpen: false });
+      invoke(Invokes.CloseViewerWindow).catch(console.error);
+      return;
+    }
+    invoke(Invokes.OpenViewerWindow, { title: i18n.t('editor.viewer.windowTitle') })
+      .then(() => set({ isViewerOpen: true }))
+      .catch((err) => toast.error(i18n.t('editor.viewer.openFailed', { error: String(err) })));
   },
 
   resetWorkspaceLayout: (isTetheringSupported = false) => {

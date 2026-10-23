@@ -686,6 +686,13 @@ pub struct AppSettings {
     pub immich: crate::immich::ImmichSettings,
 }
 
+impl AppSettings {
+    pub fn wgpu_renderer_enabled(&self) -> bool {
+        cfg!(not(any(target_os = "linux", target_os = "android")))
+            && self.use_wgpu_renderer.unwrap_or(true)
+    }
+}
+
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
