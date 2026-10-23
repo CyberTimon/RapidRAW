@@ -1762,6 +1762,10 @@ pub(crate) async fn export_images_impl(
                 let state = app_handle_clone.state::<AppState>();
                 let (source_path, sidecar_path) = parse_virtual_path(&image_path_str);
                 let source_path_str = source_path.to_string_lossy().to_string();
+                tauri::async_runtime::block_on(crate::immich::ensure_local(
+                    &app_handle_clone,
+                    &source_path,
+                ))?;
 
                 let is_current_edit = match &adjustments_mode {
                     ExportAdjustmentsMode::UseSidecars { active_path, .. } => {
@@ -2056,7 +2060,7 @@ pub(crate) async fn export_images_impl(
                         )?;
                     }
 
-                    Ok(())
+                    crate::immich::on_exported(&app_handle_clone, &source_path_str, &output_path)
                 })();
 
                 if !cancellation_token_clone.load(Ordering::SeqCst) {

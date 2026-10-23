@@ -2202,8 +2202,10 @@ function SettingsPanel({
             <>
               <div className="flex items-center gap-2">
                 <Input
+                  autoFocus={!activeSubMask.parameters?.prompt}
                   className="grow"
                   disabled={isTextMaskRunning}
+                  key={activeSubMask.id}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setTextPrompt(e.target.value)}
                   onBlur={() =>
                     isActive &&

@@ -10,6 +10,7 @@ use std::collections::HashSet;
 use std::fs::{self, File};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{Emitter, Manager};
@@ -18,7 +19,6 @@ const MODEL_TAG: &str = "nind-v3";
 const BM3D_TAG: &str = "bm3d-v1";
 const BM3D_INTENSITY: f32 = 0.15;
 const FILE_MAGIC: &[u8; 8] = b"RRDN0002";
-const DISK_CACHE_LIMIT_BYTES: u64 = 4 * 1024 * 1024 * 1024;
 const MEMORY_CACHE_CAPACITY: usize = 2;
 const BLEND_CHUNK: usize = 3 * 16 * 1024;
 
@@ -40,6 +40,7 @@ struct DenoiseCache {
 }
 
 static CACHE: LazyLock<Mutex<DenoiseCache>> = LazyLock::new(Default::default);
+static DISK_CACHE_LIMIT_BYTES: AtomicU64 = AtomicU64::new(u64::MAX);
 
 fn cache() -> std::sync::MutexGuard<'static, DenoiseCache> {
     CACHE.lock().unwrap_or_else(|e| e.into_inner())
@@ -49,6 +50,15 @@ pub fn initialize_cache_dir(cache_dir: PathBuf) {
     let dir = cache_dir.join("ai_denoise");
     let _ = fs::create_dir_all(&dir);
     cache().dir = Some(dir);
+}
+
+pub fn set_disk_cache_limit_gb(limit_gb: u32) {
+    let limit = u64::from(limit_gb.max(1)) * 1024 * 1024 * 1024;
+    if DISK_CACHE_LIMIT_BYTES.swap(limit, Ordering::Relaxed) > limit
+        && let Some(dir) = cache().dir.clone()
+    {
+        std::thread::spawn(move || evict_disk_cache(&dir, None));
+    }
 }
 
 pub fn is_enabled(adjustments: &serde_json::Value) -> bool {
@@ -232,14 +242,17 @@ fn write_to_disk(entry: &DenoisedBase) -> Result<(), String> {
     drop(file);
 
     fs::rename(&tmp_path, &path).map_err(|e| e.to_string())?;
-    evict_disk_cache(&path);
+    if let Some(dir) = path.parent() {
+        evict_disk_cache(dir, Some(&path));
+    }
     Ok(())
 }
 
-fn evict_disk_cache(keep: &Path) {
-    let Some(read_dir) = keep.parent().and_then(|dir| fs::read_dir(dir).ok()) else {
+fn evict_disk_cache(dir: &Path, keep: Option<&Path>) {
+    let Ok(read_dir) = fs::read_dir(dir) else {
         return;
     };
+    let limit = DISK_CACHE_LIMIT_BYTES.load(Ordering::Relaxed);
 
     let mut entries: Vec<(PathBuf, u64, SystemTime)> = read_dir
         .filter_map(|e| e.ok())
@@ -254,10 +267,10 @@ fn evict_disk_cache(keep: &Path) {
     entries.sort_by_key(|(_, _, modified)| *modified);
 
     for (path, len, _) in entries {
-        if total <= DISK_CACHE_LIMIT_BYTES {
+        if total <= limit {
             break;
         }
-        if path != keep && fs::remove_file(&path).is_ok() {
+        if Some(path.as_path()) != keep && fs::remove_file(&path).is_ok() {
             total = total.saturating_sub(len);
         }
     }
@@ -665,11 +678,6 @@ fn cache_files() -> Vec<(PathBuf, u64)> {
         })
         .filter_map(|e| Some((e.path(), e.metadata().ok()?.len())))
         .collect()
-}
-
-#[tauri::command]
-pub fn get_ai_denoise_cache_size() -> u64 {
-    cache_files().iter().map(|(_, len)| len).sum()
 }
 
 #[tauri::command]

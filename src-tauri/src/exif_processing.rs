@@ -95,13 +95,34 @@ pub fn flush_all_dirty_caches() {
         }
     }
 
-    drop(state);
-
     for (path, map) in to_write {
         if let Ok(json) = serde_json::to_string(&map) {
             let _ = file_management::write_file_atomic(&path, json.as_bytes());
         }
     }
+    drop(state);
+}
+
+pub fn clear_disk_cache() -> Result<(), String> {
+    let mut state = get_exif_cache()
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
+    state.cache.clear();
+    state.dirty.clear();
+    let Some(read_dir) = state
+        .cache_dir
+        .as_ref()
+        .and_then(|dir| fs::read_dir(dir).ok())
+    else {
+        return Ok(());
+    };
+    for path in read_dir.filter_map(|e| e.ok()).map(|e| e.path()) {
+        if path.is_file() {
+            fs::remove_file(&path)
+                .map_err(|e| format!("Failed to remove {}: {}", path.display(), e))?;
+        }
+    }
+    Ok(())
 }
 
 fn load_rrcache_for_folder(folder: &Path) {
@@ -230,7 +251,7 @@ fn sidecar_lock_stripe(sidecar_path: &Path) -> &'static Mutex<()> {
     &SIDECAR_LOCKS[hasher.finish() as usize % SIDECAR_LOCK_STRIPES]
 }
 
-fn lock_sidecar(sidecar_path: &Path) -> MutexGuard<'static, ()> {
+pub fn lock_sidecar(sidecar_path: &Path) -> MutexGuard<'static, ()> {
     sidecar_lock_stripe(sidecar_path)
         .lock()
         .unwrap_or_else(PoisonError::into_inner)
@@ -360,6 +381,11 @@ pub fn update_sidecar(
     let _guard = lock_sidecar(sidecar_path);
     let (mut metadata, _) = read_sidecar(sidecar_path)?;
     update(&mut metadata);
+    if crate::immich::is_placeholder(source_path)
+        && let Some(parent) = sidecar_path.parent()
+    {
+        fs::create_dir_all(parent)?;
+    }
     write_sidecar(sidecar_path, source_path, &metadata)?;
     Ok(metadata)
 }

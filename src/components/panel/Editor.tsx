@@ -261,6 +261,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     offsetX: 0,
     offsetY: 0,
     width: 0,
+    height: 0,
+    containerWidth: 0,
+    containerHeight: 0,
   });
   const transitionAnchorRef = useRef<{
     active: boolean;
@@ -1378,6 +1381,23 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       ) {
         applyTransform(posNewX, posNewY, scaleNew);
       }
+    } else {
+      const prev = prevRenderState.current;
+      const containerResized =
+        Math.abs(prev.containerWidth - imageRenderSize.containerWidth) > 0.5 ||
+        Math.abs(prev.containerHeight - imageRenderSize.containerHeight) > 0.5;
+
+      if (containerResized && prev.width > 0 && prev.height > 0 && scaleOld > 1.01) {
+        const imgX = ((prev.containerWidth / 2 - posOldX) / scaleOld - prev.offsetX) / prev.width;
+        const imgY = ((prev.containerHeight / 2 - posOldY) / scaleOld - prev.offsetY) / prev.height;
+        const scaleNew = Math.max(1, (scaleOld * prev.width) / imageRenderSize.width);
+        const posNewX =
+          imageRenderSize.containerWidth / 2 - (imageRenderSize.offsetX + imgX * imageRenderSize.width) * scaleNew;
+        const posNewY =
+          imageRenderSize.containerHeight / 2 - (imageRenderSize.offsetY + imgY * imageRenderSize.height) * scaleNew;
+        const bounded = clampToBounds(posNewX, posNewY, scaleNew);
+        applyTransform(bounded.x, bounded.y, bounded.scale);
+      }
     }
 
     prevRenderState.current = {
@@ -1386,8 +1406,11 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       offsetX: imageRenderSize.offsetX,
       offsetY: imageRenderSize.offsetY,
       width: imageRenderSize.width,
+      height: imageRenderSize.height,
+      containerWidth: imageRenderSize.containerWidth,
+      containerHeight: imageRenderSize.containerHeight,
     };
-  }, [isFullScreen, imageRenderSize, isInstantTransition, applyTransform]);
+  }, [isFullScreen, imageRenderSize, isInstantTransition, applyTransform, clampToBounds]);
 
   useEffect(() => {
     const timer = setTimeout(() => {

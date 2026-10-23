@@ -334,7 +334,7 @@ impl AiModels {
     }
 
     fn gpu_inference(&self) -> bool {
-        self.use_gpu && gpu_execution_provider().is_some()
+        self.use_gpu && gpu_allowed_on_platform() && gpu_execution_provider().is_some()
     }
 
     pub fn birefnet(&self) -> Result<SharedSession> {
@@ -343,19 +343,23 @@ impl AiModels {
         } else {
             BIREFNET_FP32_FILENAME
         };
-        self.session(&self.birefnet, filename, true)
+        self.session(&self.birefnet, filename, gpu_allowed_on_platform())
     }
 
     pub fn esam3_image_encoder(&self) -> Result<SharedSession> {
         self.session(
             &self.esam3_image_encoder,
             ESAM3_IMAGE_ENCODER_FILENAME,
-            true,
+            gpu_allowed_on_platform(),
         )
     }
 
     pub fn esam3_decoder(&self) -> Result<SharedSession> {
-        self.session(&self.esam3_decoder, ESAM3_DECODER_FILENAME, true)
+        self.session(
+            &self.esam3_decoder,
+            ESAM3_DECODER_FILENAME,
+            gpu_allowed_on_platform(),
+        )
     }
 
     pub fn depth_anything(&self) -> Result<SharedSession> {
@@ -512,6 +516,10 @@ fn gpu_execution_provider() -> Option<ExecutionProviderDispatch> {
 #[cfg(not(any(target_os = "windows", target_os = "macos")))]
 fn gpu_execution_provider() -> Option<ExecutionProviderDispatch> {
     None
+}
+
+fn gpu_allowed_on_platform() -> bool {
+    !cfg!(target_os = "macos")
 }
 
 type GpuModelPatch = fn() -> ort::Result<(Model, Vec<Output>)>;
@@ -1181,7 +1189,7 @@ pub async fn get_or_init_clip_models(
     let model = Mutex::new(build_session(
         &clip_model_path,
         SessionKind::Persistent,
-        gpu_acceleration_enabled(app_handle),
+        gpu_allowed_on_platform() && gpu_acceleration_enabled(app_handle),
         None,
     )?);
     let tokenizer =
@@ -1259,7 +1267,7 @@ pub async fn get_or_init_normal_model(
     let session = build_session(
         &model_path,
         SessionKind::OneShot,
-        gpu_acceleration_enabled(app_handle),
+        gpu_allowed_on_platform() && gpu_acceleration_enabled(app_handle),
         None,
     )?;
     let normal_model = Arc::new(Mutex::new(session));

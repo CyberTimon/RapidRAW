@@ -14,6 +14,7 @@ import { globalImageCache } from '../utils/ImageLRUCache';
 import { debouncedSave, debouncedSetHistory } from './useEditorActions';
 import { clearLibrarySelection } from './useLibraryActions';
 import { computeSortedLibrary } from './useSortedLibrary';
+import { getImmichAlbumImages, isImmichAlbumId } from '../components/immich/immichApi';
 
 export interface AppNavigationProps {
   clearThumbnailQueue: () => void;
@@ -465,6 +466,10 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
       }
 
       const albumFolderPath = `Album: ${albumName}`;
+      const isCurrentAlbum = () => {
+        const { currentFolderPath, activeAlbumId } = useLibraryStore.getState();
+        return currentFolderPath === albumFolderPath && activeAlbumId === albumId;
+      };
 
       setLibrary({
         isViewLoading: true,
@@ -473,8 +478,10 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
       });
 
       try {
-        const files: ImageFile[] = await invoke(Invokes.GetAlbumImages, { paths: imagePaths });
-        if (useLibraryStore.getState().currentFolderPath !== albumFolderPath) return;
+        const files: ImageFile[] = isImmichAlbumId(albumId)
+          ? await getImmichAlbumImages(albumId)
+          : await invoke(Invokes.GetAlbumImages, { paths: imagePaths });
+        if (!isCurrentAlbum()) return true;
 
         const initialRatings: Record<string, number> = {};
         files.forEach((f) => {
@@ -487,11 +494,13 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
         });
 
         await loadExifForImages(files, albumFolderPath, sortCriteria.key, setLibrary);
+        return true;
       } catch (err) {
         console.error('Failed to load album images:', err);
         toast.error(`Failed to load album: ${err}`);
+        return false;
       } finally {
-        if (useLibraryStore.getState().currentFolderPath === albumFolderPath) {
+        if (isCurrentAlbum()) {
           setLibrary({ isViewLoading: false });
         }
       }
@@ -658,7 +667,10 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
             const album = findObj(albumTree);
             if (album) {
               await handleSelectAlbum(album.id, album.name, album.images);
-            } else {
+            } else if (
+              !isImmichAlbumId(activeAlbumId) ||
+              !(await handleSelectAlbum(activeAlbumId, pathToSelect.slice('Album: '.length), []))
+            ) {
               await handleSelectSubfolder(rootFolders[0], false, undefined, false);
             }
           } catch (e) {

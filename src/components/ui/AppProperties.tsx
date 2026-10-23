@@ -2,6 +2,7 @@ import { ExportPreset } from './ExportImportProperties';
 import { Adjustments, CopyPasteSettings } from '../../utils/adjustments';
 import { ToolType } from '../panel/right/Masks';
 import type { WhiteBalance, WhiteBalanceMode } from '../../utils/whiteBalance';
+import type { ImmichSettings } from '../immich/immichApi';
 
 export const GLOBAL_KEYS = [
   ' ',
@@ -66,7 +67,11 @@ export enum Invokes {
   GenerateMaskOverlay = 'generate_mask_overlay',
   GeneratePresetPreview = 'generate_preset_preview',
   GenerateUncroppedPreview = 'generate_uncropped_preview',
-  GetAiDenoiseCacheSize = 'get_ai_denoise_cache_size',
+  GetStorageUsage = 'get_storage_usage',
+  ClearAiMapsCache = 'clear_ai_maps_cache',
+  ClearAiModels = 'clear_ai_models',
+  ClearImmichCache = 'clear_immich_cache',
+  ClearMetadataCache = 'clear_metadata_cache',
   GetAiJobsStatus = 'get_ai_jobs_status',
   GetFolderTree = 'get_folder_tree',
   GetFolderChildren = 'get_folder_children',
@@ -210,6 +215,9 @@ export type CompareView = 'off' | 'vertical' | 'horizontal' | 'sideBySide';
 export type CompareMode = 'toggle' | Exclude<CompareView, 'off'>;
 
 export interface AppSettings {
+  aiCacheLimitGb?: number;
+  aiMapsCacheLimitGb?: number;
+  thumbnailCacheLimitGb?: number;
   aiConnectorAddress?: string;
   aiGpuAcceleration?: boolean;
   aiProvider?: string;
@@ -284,6 +292,7 @@ export interface AppSettings {
   groupPreferredType?: GroupPreference; // legacy
   alwaysDecodeRawThumbnails?: boolean;
   workspace?: WorkspaceState;
+  immich?: ImmichSettings;
 }
 
 export interface BrushSettings {

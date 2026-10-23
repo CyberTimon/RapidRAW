@@ -77,7 +77,7 @@ const CommunityPage = ({ onBackToLibrary, imageList, currentFolderPath }: Commun
   previewsRef.current = previews;
   const imageListRef = useRef(imageList);
   imageListRef.current = imageList;
-  const hasImages = imageList.length > 0;
+  const hasImages = imageList.some((image) => !image.is_cloud_placeholder);
 
   const fetchDefaultPreviewImage = useCallback(async (): Promise<string | null> => {
     try {
@@ -119,8 +119,9 @@ const CommunityPage = ({ onBackToLibrary, imageList, currentFolderPath }: Commun
 
   useEffect(() => {
     const setupPreviewImages = async () => {
-      const images = imageListRef.current;
-      if (!currentFolderPath || images.length === 0) {
+      const localImages = imageListRef.current.filter((image) => !image.is_cloud_placeholder);
+
+      if (!currentFolderPath || localImages.length === 0) {
         const defaultPath = await fetchDefaultPreviewImage();
         if (defaultPath) {
           setPreviewImagePaths([defaultPath]);
@@ -128,13 +129,13 @@ const CommunityPage = ({ onBackToLibrary, imageList, currentFolderPath }: Commun
         return;
       }
 
-      const shuffled = shuffleArray(images);
+      const shuffled = shuffleArray(localImages);
 
-      if (images.length === 1) {
-        setPreviewImagePaths([images[0].path]);
-      } else if (images.length >= 2 && images.length <= 3) {
+      if (localImages.length === 1) {
+        setPreviewImagePaths([localImages[0].path]);
+      } else if (localImages.length >= 2 && localImages.length <= 3) {
         setPreviewImagePaths(shuffled.slice(0, 2).map((img) => img.path));
-      } else if (images.length >= 4) {
+      } else if (localImages.length >= 4) {
         setPreviewImagePaths(shuffled.slice(0, 4).map((img) => img.path));
       }
     };

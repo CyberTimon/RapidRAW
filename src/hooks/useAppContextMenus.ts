@@ -79,6 +79,8 @@ import { buildAutoAdjustModeOptions, reloadAdjustmentsForPaths, useEditorActions
 import { useLibraryActions } from './useLibraryActions';
 import { transferFiles } from './useFileOperations';
 import { globalImageCache } from '../utils/ImageLRUCache';
+import { immichAlbumOf, isImmichAlbumId, removeFromImmichAlbum } from '../components/immich/immichApi';
+import { useImmichStore } from '../components/immich/useImmichStore';
 
 export interface UseAppContextMenusProps {
   handleImageSelect: (path: string) => void;
@@ -542,6 +544,22 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
 
       const handleRemoveFromAlbum = async () => {
         if (!activeAlbumId) return;
+        const immichAlbum = immichAlbumOf(activeAlbumId);
+        if (immichAlbum) {
+          try {
+            await removeFromImmichAlbum(immichAlbum, finalSelection);
+            const removed = new Set(finalSelection.filter((p) => !p.includes('?vc=')));
+            if (useLibraryStore.getState().activeAlbumId === activeAlbumId) {
+              setLibrary((state) => ({
+                imageList: state.imageList.filter((i) => !removed.has(i.path.split('?vc=')[0])),
+              }));
+            }
+            useImmichStore.getState().loadAlbums();
+          } catch (e) {
+            toast.error(String(e));
+          }
+          return;
+        }
         const newTree = JSON.parse(JSON.stringify(albumTree));
 
         const removeImages = (nodes: AlbumItem[]): boolean => {
@@ -808,15 +826,19 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
           ],
         },
         { type: OPTION_SEPARATOR },
-        {
-          label: t('contextMenus.thumbnail.addToAlbum'),
-          icon: FolderPlus,
-          submenu:
-            albumTree.length > 0
-              ? buildAddToAlbumMenu(albumTree, finalSelection)
-              : [{ label: t('contextMenus.thumbnail.noAlbums'), disabled: true }],
-        },
-        ...(activeAlbumId
+        ...(isImmichAlbumId(activeAlbumId)
+          ? []
+          : [
+              {
+                label: t('contextMenus.thumbnail.addToAlbum'),
+                icon: FolderPlus,
+                submenu:
+                  albumTree.length > 0
+                    ? buildAddToAlbumMenu(albumTree, finalSelection)
+                    : [{ label: t('contextMenus.thumbnail.noAlbums'), disabled: true }],
+              },
+            ]),
+        ...(activeAlbumId && (!isImmichAlbumId(activeAlbumId) || immichAlbumOf(activeAlbumId))
           ? [
               {
                 label: t('contextMenus.thumbnail.removeFromAlbum', { count: selectionCount }),

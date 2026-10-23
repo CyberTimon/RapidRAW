@@ -1339,7 +1339,7 @@ export function JobsMenu({ onNavigateToFolder }: { onNavigateToFolder(path: stri
               ) : buttonIcon === 'paused' ? (
                 <Pause className="w-5 h-5" />
               ) : (
-                <Inbox className="w-5 h-5" />
+                <Inbox className="w-4.5 h-4.5" />
               )}
             </motion.div>
           </AnimatePresence>

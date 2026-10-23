@@ -50,6 +50,7 @@ mod hdr_deghosting;
 mod highlight_reconstruction;
 mod image_loader;
 mod image_processing;
+mod immich;
 mod inpainting;
 mod launch_request;
 mod lens_blur;
@@ -64,6 +65,7 @@ mod panorama_utils;
 mod preset_converter;
 mod raw_processing;
 mod relight;
+mod storage;
 mod tagging;
 mod tagging_utils;
 mod white_balance;
@@ -128,17 +130,31 @@ pub use launch_request::*;
 use tagging_utils::{candidates, hierarchy};
 
 #[cfg(target_os = "macos")]
+static SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
+
+#[cfg(target_os = "macos")]
+extern "C" fn mark_shutting_down() {
+    SHUTTING_DOWN.store(true, Ordering::SeqCst);
+}
+
+#[cfg(target_os = "macos")]
 extern "C" fn force_exit(_signal: libc::c_int) {
-    unsafe {
-        libc::_exit(process_exit_code());
+    if SHUTTING_DOWN.load(Ordering::SeqCst) {
+        unsafe {
+            libc::_exit(process_exit_code());
+        }
     }
 }
 
 #[cfg(target_os = "macos")]
 pub fn register_exit_handler() {
+    static ATEXIT: std::sync::Once = std::sync::Once::new();
     unsafe {
         libc::signal(libc::SIGABRT, force_exit as *const () as libc::sighandler_t);
     }
+    ATEXIT.call_once(|| unsafe {
+        libc::atexit(mark_shutting_down);
+    });
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -2137,10 +2153,15 @@ pub fn run() {
 
             let app_handle = app.handle().clone();
 
+            if !is_headless {
+                crate::immich::start(&app_handle);
+            }
+
             if let Ok(cache_dir) = app_handle.path().app_cache_dir() {
                 crate::ai_denoise::initialize_cache_dir(cache_dir.clone());
                 crate::effect_maps::initialize_cache_dir(cache_dir.clone());
-                crate::exif_processing::initialize_cache_dir(cache_dir);
+                crate::exif_processing::initialize_cache_dir(cache_dir.clone());
+                crate::storage::initialize_thumbnail_cache(cache_dir);
             }
 
             {
@@ -2167,6 +2188,7 @@ pub fn run() {
                 let cache_size = settings.image_cache_size.unwrap_or(5) as usize;
                 state.decoded_image_cache.lock().unwrap().set_capacity(cache_size);
             }
+            crate::storage::apply_cache_limits(&settings);
 
             if crash_flag_path.exists() {
                 log::warn!("GPU Driver crash detected on last run! Falling back to OpenGL backend.");
@@ -2462,7 +2484,6 @@ pub fn run() {
                 });
             }
 
-            crate::register_exit_handler();
             Ok(())
         })
         .manage(AppState {
@@ -2553,7 +2574,6 @@ pub fn run() {
             ai_commands::test_ai_connector_connection,
             ai_commands::generate_full_image_depth_map,
             ai_commands::generate_relight_normal_map,
-            ai_denoise::get_ai_denoise_cache_size,
             ai_denoise::clear_ai_denoise_cache,
             ai_jobs::get_ai_jobs_status,
             ai_jobs::get_pending_ai_paths,
@@ -2616,6 +2636,11 @@ pub fn run() {
             file_management::save_community_preset,
             file_management::clear_all_sidecars,
             file_management::clear_thumbnail_cache,
+            storage::get_storage_usage,
+            storage::clear_ai_maps_cache,
+            storage::clear_metadata_cache,
+            storage::clear_immich_cache,
+            storage::clear_ai_models,
             file_management::set_color_label_for_paths,
             file_management::set_rating_for_paths,
             file_management::set_flag_for_paths,
@@ -2643,6 +2668,16 @@ pub fn run() {
             camera_tethering::tether_get_preview,
             camera_tethering::tether_autofocus,
             guided_perspective::calculate_guided_perspective,
+            immich::commands::immich_get_api_key,
+            immich::commands::immich_set_api_key,
+            immich::commands::immich_test_connection,
+            immich::commands::immich_list_albums,
+            immich::commands::immich_get_images,
+            immich::commands::immich_sync_status,
+            immich::commands::immich_flush,
+            immich::commands::immich_prepare_export,
+            immich::commands::immich_remove_from_album,
+            immich::commands::immich_timeline,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

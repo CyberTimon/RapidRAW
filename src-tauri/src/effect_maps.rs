@@ -9,18 +9,19 @@ use std::collections::hash_map::DefaultHasher;
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const SOURCE_SPACE_MAP_PREFIX: &str = "data:image/png;space=source;base64,";
 const MAP_REFERENCE_PREFIX: &str = "rrmap:";
-const MAP_DISK_CACHE_LIMIT_BYTES: u64 = 1024 * 1024 * 1024;
 
 const MAP_CACHE_CAPACITY: usize = 4;
 
 static LUMA_MAP_CACHE: Mutex<Vec<(u64, Arc<GrayImage>)>> = Mutex::new(Vec::new());
 static RGBA_MAP_CACHE: Mutex<Vec<(u64, Arc<RgbaImage>)>> = Mutex::new(Vec::new());
 static MAP_CACHE_DIR: Mutex<Option<PathBuf>> = Mutex::new(None);
+static MAP_DISK_CACHE_LIMIT_BYTES: AtomicU64 = AtomicU64::new(u64::MAX);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EffectMapKind {
@@ -55,6 +56,19 @@ pub fn initialize_cache_dir(cache_dir: PathBuf) {
     *MAP_CACHE_DIR.lock().unwrap_or_else(|e| e.into_inner()) = Some(dir);
 }
 
+pub fn set_disk_cache_limit_gb(limit_gb: u32) {
+    let limit = u64::from(limit_gb.max(1)) * 1024 * 1024 * 1024;
+    let dir = MAP_CACHE_DIR
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone();
+    if MAP_DISK_CACHE_LIMIT_BYTES.swap(limit, Ordering::Relaxed) > limit
+        && let Some(dir) = dir
+    {
+        std::thread::spawn(move || evict_map_disk_cache(&dir, None));
+    }
+}
+
 fn map_file_name(kind: EffectMapKind, source_id: &str) -> String {
     format!("{}-{}.png", kind.model_tag(), source_id)
 }
@@ -79,7 +93,9 @@ pub fn store_source_map(
     map.write_to(&mut buf, image::ImageFormat::Png)
         .map_err(|e| e.to_string())?;
     crate::file_management::write_file_atomic(&path, buf.get_ref()).map_err(|e| e.to_string())?;
-    evict_map_disk_cache(&path);
+    if let Some(dir) = path.parent() {
+        evict_map_disk_cache(dir, Some(&path));
+    }
 
     Ok(format!("{}{}", MAP_REFERENCE_PREFIX, file_name))
 }
@@ -102,10 +118,11 @@ pub fn is_map_valid_for(value: &serde_json::Value, kind: EffectMapKind, source_i
     }
 }
 
-fn evict_map_disk_cache(keep: &Path) {
-    let Some(read_dir) = keep.parent().and_then(|dir| fs::read_dir(dir).ok()) else {
+fn evict_map_disk_cache(dir: &Path, keep: Option<&Path>) {
+    let Ok(read_dir) = fs::read_dir(dir) else {
         return;
     };
+    let limit = MAP_DISK_CACHE_LIMIT_BYTES.load(Ordering::Relaxed);
 
     let mut entries: Vec<(PathBuf, u64, SystemTime)> = read_dir
         .filter_map(|e| e.ok())
@@ -120,13 +137,30 @@ fn evict_map_disk_cache(keep: &Path) {
     entries.sort_by_key(|(_, _, modified)| *modified);
 
     for (path, len, _) in entries {
-        if total <= MAP_DISK_CACHE_LIMIT_BYTES {
+        if total <= limit {
             break;
         }
-        if path != keep && fs::remove_file(&path).is_ok() {
+        if Some(path.as_path()) != keep && fs::remove_file(&path).is_ok() {
             total = total.saturating_sub(len);
         }
     }
+}
+
+pub fn clear_disk_cache() -> Result<(), String> {
+    let dir = MAP_CACHE_DIR
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone();
+    let Some(read_dir) = dir.and_then(|dir| fs::read_dir(dir).ok()) else {
+        return Ok(());
+    };
+    for path in read_dir.filter_map(|e| e.ok()).map(|e| e.path()) {
+        if path.is_file() {
+            fs::remove_file(&path)
+                .map_err(|e| format!("Failed to remove {}: {}", path.display(), e))?;
+        }
+    }
+    Ok(())
 }
 
 pub fn is_source_space_map(data_url: &str) -> bool {
@@ -274,7 +308,10 @@ fn rotate_normal(r: u8, g: u8, (cos, sin): (f32, f32)) -> (u8, u8) {
 
 fn decode_data_url(data_url: &str) -> Option<DynamicImage> {
     if let Some(file_name) = data_url.strip_prefix(MAP_REFERENCE_PREFIX) {
-        return image::open(map_file_path(file_name)?).ok();
+        let path = map_file_path(file_name)?;
+        let map = image::open(&path).ok()?;
+        crate::storage::mark_used(&path);
+        return Some(map);
     }
 
     let b64_data = match data_url.find(',') {

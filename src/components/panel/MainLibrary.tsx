@@ -574,7 +574,9 @@ export default function MainLibrary(props: MainLibraryProps) {
               {!props.isAndroid && (
                 <div className="flex items-center gap-2">
                   {props.currentFolderPath ? (
-                    <Text className="truncate">{props.currentFolderPath}</Text>
+                    <Text className="truncate" data-tooltip={props.currentFolderPath}>
+                      {props.currentFolderPath}
+                    </Text>
                   ) : (
                     <p className="text-sm invisible select-none pointer-events-none h-5 overflow-hidden"></p>
                   )}
