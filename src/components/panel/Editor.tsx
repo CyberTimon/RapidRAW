@@ -984,6 +984,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if ((e.target as HTMLElement).closest('[data-split-divider]')) return;
+      if (e.button === 0 && (e.target as Element).closest('[data-analysis-region]')) return;
       wasPanningDisabledOnDown.current = isPanningDisabled;
 
       const isCropHandle = isCropping && e.button === 0 && !!(e.target as HTMLElement).closest('[data-ord]');

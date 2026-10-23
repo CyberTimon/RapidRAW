@@ -1,3 +1,4 @@
+import { withAnalysisRegion } from '../../../store/useNegativeAnalysisStore';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { save, open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
@@ -473,7 +474,7 @@ export default function ExportPanel({
             exportSettings,
             outputFormat: format,
             currentEditPath: currentPath || null,
-            currentEditAdjustments: currentAdj || null,
+            currentEditAdjustments: currentAdj ? withAnalysisRegion(currentAdj) : null,
           });
           setEstimatedSize(size);
         } catch (err) {
@@ -685,7 +686,7 @@ export default function ExportPanel({
           exportSettings,
           outputFormat: selectedFormat.extensions[0],
           currentEditPath: selectedImage?.path || null,
-          currentEditAdjustments: adjustmentsRef.current || null,
+          currentEditAdjustments: adjustmentsRef.current ? withAnalysisRegion(adjustmentsRef.current) : null,
         });
       }
     } catch (error) {

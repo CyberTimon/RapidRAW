@@ -12,6 +12,7 @@ pub const PARAM_KEYS: &[&str] = &[
     "negativeBlueWeight",
     "negativeExposure",
     "negativeContrast",
+    "negativeAnalysisRegion",
 ];
 
 const BOUNDS_REFERENCE_DIM: u32 = 1080;
@@ -25,6 +26,7 @@ struct NegativeConversionParams {
 
     exposure: f32,
     contrast: f32,
+    region: Option<[f32; 4]>,
 }
 
 impl NegativeConversionParams {
@@ -36,6 +38,14 @@ impl NegativeConversionParams {
             blue_weight: get("negativeBlueWeight", 1.0),
             exposure: get("negativeExposure", 0.0),
             contrast: get("negativeContrast", 1.0),
+            region: adjustments
+                .get("negativeAnalysisRegion")
+                .and_then(|region| {
+                    let values = ["x", "y", "width", "height"]
+                        .map(|key| region[key].as_f64().unwrap_or(f64::NAN) as f32);
+                    (values.iter().all(|v| v.is_finite()) && values[2] > 0.0 && values[3] > 0.0)
+                        .then_some(values)
+                }),
         }
     }
 }
@@ -69,21 +79,38 @@ struct ChannelBounds {
     max: f32,
 }
 
-fn analyze_bounds(log_data: &[f32], width: usize, height: usize) -> [ChannelBounds; 3] {
+fn analyze_bounds(
+    log_data: &[f32],
+    width: usize,
+    height: usize,
+    region: Option<[f32; 4]>,
+) -> [ChannelBounds; 3] {
     let margin_x = (width as f32 * 0.12) as usize;
     let margin_y = (height as f32 * 0.12) as usize;
 
-    let est_pixels = (width.saturating_sub(margin_x * 2)) * (height.saturating_sub(margin_y * 2));
+    let default = (margin_x, margin_y, width - margin_x, height - margin_y);
+    let (left, top, right, bottom) = region
+        .map(|[x, y, w, h]| {
+            (
+                (x.clamp(0.0, 1.0) * width as f32).floor() as usize,
+                (y.clamp(0.0, 1.0) * height as f32).floor() as usize,
+                ((x + w).clamp(0.0, 1.0) * width as f32).ceil() as usize,
+                ((y + h).clamp(0.0, 1.0) * height as f32).ceil() as usize,
+            )
+        })
+        .filter(|&(l, t, r, b)| r > l && b > t)
+        .unwrap_or(default);
+    let est_pixels = (right - left) * (bottom - top);
     let step = (est_pixels / 40_000).max(1);
 
     let mut r_vals = Vec::with_capacity(est_pixels / step);
     let mut g_vals = Vec::with_capacity(est_pixels / step);
     let mut b_vals = Vec::with_capacity(est_pixels / step);
 
-    for y in (margin_y..(height - margin_y)).step_by(3) {
+    for y in (top..bottom).step_by(3) {
         let row_offset = y * width * 3;
 
-        for x in (margin_x..(width - margin_x)).step_by(step) {
+        for x in (left..right).step_by(step) {
             let idx = row_offset + (x * 3);
 
             if idx + 2 < log_data.len() {
@@ -131,7 +158,7 @@ fn density(v: f32) -> f32 {
     -v.clamp(1e-6, 1.0).log10()
 }
 
-fn channel_bounds(image: &DynamicImage) -> [ChannelBounds; 3] {
+fn channel_bounds(image: &DynamicImage, region: Option<[f32; 4]>) -> [ChannelBounds; 3] {
     let downscaled =
         downscale_f32_image_if_needed(image, BOUNDS_REFERENCE_DIM, BOUNDS_REFERENCE_DIM);
     let reference = downscaled.as_ref().unwrap_or(image);
@@ -145,11 +172,11 @@ fn channel_bounds(image: &DynamicImage) -> [ChannelBounds; 3] {
     };
     let (width, height) = rgb.dimensions();
     let log_pixels: Vec<f32> = rgb.as_raw().par_iter().map(|&v| density(v)).collect();
-    analyze_bounds(&log_pixels, width as usize, height as usize)
+    analyze_bounds(&log_pixels, width as usize, height as usize, region)
 }
 
 fn convert(input: DynamicImage, params: &NegativeConversionParams) -> DynamicImage {
-    let bounds = channel_bounds(&input);
+    let bounds = channel_bounds(&input, params.region);
     let mut rgb = input.into_rgb32f();
 
     let k = 4.0 * params.contrast.max(0.1);
@@ -193,4 +220,126 @@ fn convert(input: DynamicImage, params: &NegativeConversionParams) -> DynamicIma
     });
 
     DynamicImage::ImageRgb32F(rgb)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{Rgb, Rgb32FImage};
+    use serde_json::json;
+
+    fn bordered_negative(width: u32, height: u32) -> DynamicImage {
+        DynamicImage::ImageRgb32F(Rgb32FImage::from_fn(width, height, |x, _| {
+            let value = if x < width / 4 || x >= width * 3 / 4 {
+                0.001
+            } else {
+                0.2 + 0.6 * (x - width / 4) as f32 / (width / 2 - 1) as f32
+            };
+            Rgb([value; 3])
+        }))
+    }
+
+    #[test]
+    fn selected_region_excludes_distracting_borders_without_cropping_output() {
+        let image = bordered_negative(100, 60);
+        let settings = json!({"negativeConversionEnabled": true,
+            "negativeAnalysisRegion": {"x": 0.25, "y": 0.0, "width": 0.5, "height": 1.0}});
+        let selected = apply_negative_conversion(Cow::Borrowed(&image), &settings)
+            .into_owned()
+            .to_rgb32f();
+        let default = apply_negative_conversion(
+            Cow::Borrowed(&image),
+            &json!({"negativeConversionEnabled": true}),
+        )
+        .into_owned()
+        .to_rgb32f();
+        assert_eq!(selected.dimensions(), (100, 60));
+        assert!(selected.get_pixel(50, 30)[0] > default.get_pixel(50, 30)[0] + 0.2);
+        assert!(selected.get_pixel(0, 30)[0] > 0.99);
+    }
+    #[test]
+    fn explicit_default_preserves_existing_analysis_and_invalid_regions_fall_back_safely() {
+        for width in [1, 2, 25, 75, 101, 129, 256] {
+            let image = DynamicImage::ImageRgb32F(Rgb32FImage::from_fn(width, 11, |x, y| {
+                Rgb([0.1 + ((x + y) % 9) as f32 * 0.08; 3])
+            }));
+            let baseline = apply_negative_conversion(
+                Cow::Borrowed(&image),
+                &json!({"negativeConversionEnabled": true}),
+            )
+            .into_owned()
+            .to_rgb32f();
+            for region in [
+                json!({"x": 0.12, "y": 0.12, "width": 0.76, "height": 0.76}),
+                json!({"x": 0.2, "y": 0.2, "width": 0, "height": 0}),
+                json!({"x": 2, "y": 2, "width": 0.1, "height": 0.1}),
+                json!({"x": null, "width": 1, "height": 1}),
+            ] {
+                let result = apply_negative_conversion(
+                    Cow::Borrowed(&image),
+                    &json!({"negativeConversionEnabled": true, "negativeAnalysisRegion": region}),
+                )
+                .into_owned()
+                .to_rgb32f();
+                assert_eq!(result.as_raw(), baseline.as_raw(), "width {width}");
+                assert!(result.as_raw().iter().all(|v| v.is_finite()));
+            }
+        }
+    }
+
+    #[test]
+    fn custom_region_uses_its_edges_without_another_inset_and_tiny_regions_stay_finite() {
+        let image = DynamicImage::ImageRgb32F(Rgb32FImage::from_fn(200, 60, |x, _| {
+            let density = match x {
+                50..=54 => 0.0_f32,
+                55..=144 => 0.5,
+                145..=149 => 1.0,
+                _ => 3.0,
+            };
+            Rgb([10.0_f32.powf(-density); 3])
+        }));
+        let selected = apply_negative_conversion(
+            Cow::Borrowed(&image),
+            &json!({"negativeConversionEnabled": true,
+            "negativeAnalysisRegion": {"x": 0.25, "y": 0, "width": 0.5, "height": 1}}),
+        )
+        .into_owned()
+        .to_rgb32f();
+        // Worked result for density .5 with measured bounds [0, 1] and the existing default curve.
+        assert!((selected.get_pixel(100, 30)[0] - 0.6774).abs() < 0.001);
+        let tiny = apply_negative_conversion(
+            Cow::Borrowed(&image),
+            &json!({"negativeConversionEnabled": true,
+            "negativeAnalysisRegion": {"x": 0.4, "y": 0.4, "width": 0.000001, "height": 0.000001}}),
+        )
+        .into_owned()
+        .to_rgb32f();
+        assert_eq!(tiny.dimensions(), (200, 60));
+        assert!(
+            tiny.as_raw()
+                .iter()
+                .all(|v| v.is_finite() && (0.0..=1.0).contains(v))
+        );
+    }
+
+    #[test]
+    fn proportional_batch_regions_analyze_each_source_independently() {
+        let source = bordered_negative(100, 60).to_rgb32f();
+        let larger = DynamicImage::ImageRgb32F(Rgb32FImage::from_fn(200, 120, |x, y| {
+            let pixel = source.get_pixel(x / 2, y / 2);
+            Rgb(pixel.0.map(|v| v * 0.5))
+        }));
+        let settings = json!({"negativeConversionEnabled": true, "negativeExposure": 0.3,
+            "negativeAnalysisRegion": {"x": 0.25, "y": 0.0, "width": 0.5, "height": 1.0}});
+        let first =
+            apply_negative_conversion(Cow::Owned(DynamicImage::ImageRgb32F(source)), &settings)
+                .into_owned()
+                .to_rgb32f();
+        let second = apply_negative_conversion(Cow::Borrowed(&larger), &settings)
+            .into_owned()
+            .to_rgb32f();
+        // Doubling dimensions preserves source proportions. Halving transmission adds a
+        // density offset that each image's independent bounds must remove.
+        assert!((first.get_pixel(50, 30)[0] - second.get_pixel(100, 60)[0]).abs() < 0.00001);
+    }
 }

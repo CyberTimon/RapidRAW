@@ -1801,6 +1801,17 @@ pub(crate) async fn export_images_impl(
                     ExportAdjustmentsMode::GlobalOverride(adj) => adj.clone(),
                 };
 
+                // A workspace selection applies proportionally to every batch source. Each
+                // image still runs its own reference analysis; this value is never persisted.
+                if let ExportAdjustmentsMode::UseSidecars {
+                    active_adjustments: Some(active),
+                    ..
+                } = &adjustments_mode
+                {
+                    if let Some(region) = active.get("negativeAnalysisRegion") {
+                        js_adjustments["negativeAnalysisRegion"] = region.clone();
+                    }
+                }
                 hydrate_adjustments(&state, &mut js_adjustments);
                 let is_raw = is_raw_file(&source_path_str);
                 let original_path = std::path::Path::new(&source_path_str);
@@ -2447,6 +2458,12 @@ pub async fn estimate_export_sizes(
     } else {
         let metadata = crate::exif_processing::load_sidecar(&sidecar_path);
         let mut js_adjustments = metadata.adjustments;
+        if let Some(region) = current_edit_adjustments
+            .as_ref()
+            .and_then(|a| a.get("negativeAnalysisRegion"))
+        {
+            js_adjustments["negativeAnalysisRegion"] = region.clone();
+        }
 
         const ESTIMATE_DIM: u32 = 1280;
 
