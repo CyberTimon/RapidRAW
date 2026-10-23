@@ -31,7 +31,7 @@ export default function AnalysisRegionOverlay({
     { x: region.x + region.width, y: region.y + region.height },
     { x: region.x, y: region.y + region.height },
   ];
-  const screen = corners.map(project);
+  const screen = corners.map((corner) => project(corner));
   const handles = ['nw', 'ne', 'se', 'sw'] as const;
   const point = (event: PointerEvent<SVGSVGElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
