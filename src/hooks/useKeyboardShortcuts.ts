@@ -619,8 +619,10 @@ export const useKeyboardShortcuts = ({
           else if (s.editor.activeMaskId) s.editor.setEditor({ activeMaskId: null });
           else if (s.editor.activeMaskContainerId) s.editor.setEditor({ activeMaskContainerId: null });
           else if (s.ui.activePanel === Panel.Crop) s.ui.setPanel(Panel.Adjustments);
-          else if (s.ui.isFullScreen) s.ui.toggleFullScreen();
-          else if (s.ui.activeView === 'editor') handleBackToLibrary();
+          else if (s.ui.activeView === 'editor') {
+            if (s.ui.isFullScreen) s.ui.toggleFullScreen();
+            handleBackToLibrary();
+          } else if (s.ui.isFullScreen) s.ui.toggleFullScreen();
           else if (s.ui.activeView === 'library' && s.library.rootPaths?.length > 0) handleGoHome();
         },
       },
