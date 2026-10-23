@@ -1,23 +1,35 @@
 import { create } from 'zustand';
 
-export interface AnalysisRegion {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
+import { useEditorStore } from './useEditorStore';
+import { AnalysisRegion, DEFAULT_ANALYSIS_REGION } from '../utils/adjustments';
+
+export { DEFAULT_ANALYSIS_REGION } from '../utils/adjustments';
+export type { AnalysisRegion } from '../utils/adjustments';
+
+export const getAnalysisRegion = () =>
+  useEditorStore.getState().adjustments.negativeAnalysisRegion ?? DEFAULT_ANALYSIS_REGION;
+
+const saveRegion = (region: AnalysisRegion) => {
+  const editor = useEditorStore.getState();
+  const adjustments = { ...editor.adjustments, negativeAnalysisRegion: region };
+  editor.setEditor({
+    adjustments,
+    ...(editor.showOriginal ? { showOriginal: false, previewOverride: null } : {}),
+  });
+  editor.pushHistory(adjustments);
+};
+
 interface Point {
   x: number;
   y: number;
 }
-export const DEFAULT_ANALYSIS_REGION: AnalysisRegion = { x: 0.12, y: 0.12, width: 0.76, height: 0.76 };
-type Handle = 'move' | 'nw' | 'ne' | 'sw' | 'se';
+type Handle = 'draw' | 'move' | 'nw' | 'ne' | 'sw' | 'se';
 interface AnalysisState {
-  region: AnalysisRegion;
   draft: AnalysisRegion | null;
   editing: boolean;
-  gesture: { start: Point; region: AnalysisRegion; handle: Handle } | null;
+  gesture: { start: Point; region: AnalysisRegion; handle: Handle; imagePath: string | null } | null;
   setEditing(editing: boolean): void;
+  finishEditing(applyDraft: boolean): void;
   begin(point: Point, handle: Handle): void;
   move(point: Point): void;
   commit(): void;
@@ -27,20 +39,44 @@ interface AnalysisState {
 }
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 
-// Deliberately separate from adjustments: never copied to a sidecar, history, or preset.
+// Only overlay visibility and unfinished gestures are transient. The applied region belongs to image adjustments.
 export const useNegativeAnalysisStore = create<AnalysisState>((set, get) => ({
-  region: DEFAULT_ANALYSIS_REGION,
   draft: null,
   editing: false,
   gesture: null,
   setEditing: (editing) => set({ editing, draft: null, gesture: null }),
-  begin: (start, handle) => set({ gesture: { start, handle, region: get().region }, draft: get().region }),
+  finishEditing: (applyDraft) => {
+    if (applyDraft) get().commit();
+    get().setEditing(false);
+  },
+  begin: (start, handle) =>
+    set({
+      gesture: {
+        start,
+        handle,
+        region: getAnalysisRegion(),
+        imagePath: useEditorStore.getState().selectedImage?.path ?? null,
+      },
+      draft: handle === 'draw' ? { x: start.x, y: start.y, width: 0, height: 0 } : getAnalysisRegion(),
+    }),
   move: (point) => {
     const gesture = get().gesture;
     if (!gesture || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return;
     const { start, region: r, handle } = gesture;
     const dx = point.x - start.x;
     const dy = point.y - start.y;
+    if (handle === 'draw') {
+      const end = { x: clamp(point.x, 0, 1), y: clamp(point.y, 0, 1) };
+      set({
+        draft: {
+          x: Math.min(start.x, end.x),
+          y: Math.min(start.y, end.y),
+          width: Math.abs(end.x - start.x),
+          height: Math.abs(end.y - start.y),
+        },
+      });
+      return;
+    }
     if (handle === 'move') {
       set({ draft: { ...r, x: clamp(r.x + dx, 0, 1 - r.width), y: clamp(r.y + dy, 0, 1 - r.height) } });
       return;
@@ -51,14 +87,30 @@ export const useNegativeAnalysisStore = create<AnalysisState>((set, get) => ({
     const bottom = handle.includes('s') ? clamp(r.y + r.height + dy, r.y + 0.01, 1) : r.y + r.height;
     set({ draft: { x: left, y: top, width: right - left, height: bottom - top } });
   },
-  commit: () => set((s) => ({ region: s.draft ?? s.region, draft: null, gesture: null })),
+  commit: () => {
+    const { draft, gesture } = get();
+    set({ draft: null, gesture: null });
+    if (
+      draft &&
+      gesture &&
+      gesture.imagePath === (useEditorStore.getState().selectedImage?.path ?? null) &&
+      gesture.region === getAnalysisRegion() &&
+      (gesture.handle !== 'draw' || (draft.width >= 0.01 && draft.height >= 0.01))
+    ) {
+      saveRegion(draft);
+    }
+  },
   cancel: () => set({ draft: null, gesture: null }),
-  reset: () => set({ region: { ...DEFAULT_ANALYSIS_REGION }, draft: null, gesture: null }),
-  closeWorkspace: () => set({ region: { ...DEFAULT_ANALYSIS_REGION }, editing: false, draft: null, gesture: null }),
+  reset: () => {
+    set({ draft: null, gesture: null });
+    saveRegion({ ...DEFAULT_ANALYSIS_REGION });
+  },
+  closeWorkspace: () => set({ editing: false, draft: null, gesture: null }),
 }));
 
-// Render/export payloads use the same source proportions. Persistent adjustments remain untouched.
-export const withAnalysisRegion = <T extends object>(adjustments: T) => ({
-  ...adjustments,
-  negativeAnalysisRegion: useNegativeAnalysisStore.getState().region,
+// Switching sources must never carry an unfinished rectangle onto another image.
+useEditorStore.subscribe((state, previous) => {
+  if (state.selectedImage?.path !== previous.selectedImage?.path) {
+    useNegativeAnalysisStore.getState().cancel();
+  }
 });

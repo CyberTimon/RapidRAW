@@ -357,7 +357,7 @@ export const useUIStore = create<UIState>((set, get) => ({
     set((state) => {
       const next = typeof updater === 'function' ? updater(state) : updater;
       if (state.activeView === 'editor' && next.activeView && next.activeView !== 'editor') {
-        useNegativeAnalysisStore.getState().closeWorkspace();
+        useNegativeAnalysisStore.getState().setEditing(false);
       }
       return next;
     }),

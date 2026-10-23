@@ -1,7 +1,7 @@
 import { useNegativeAnalysisStore } from '../../store/useNegativeAnalysisStore';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Scan } from 'lucide-react';
 import Slider, { SliderChangeEvent } from '../ui/Slider';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
@@ -280,18 +280,24 @@ function DetailsPanel({
               setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, negativeConversionEnabled: enabled }))
             }
           >
-            <div className="flex items-center gap-2 py-2">
+            <div className="flex flex-col gap-2 py-2">
               <button
                 type="button"
                 aria-pressed={analysisEditing}
-                className="px-2 py-1 rounded bg-surface text-text-primary text-xs"
+                className={`flex items-center gap-3 w-full p-2.5 rounded-lg bg-surface text-sm font-medium hover:bg-card-active transition-colors ${
+                  analysisEditing ? 'text-accent' : 'text-text-secondary hover:text-text-primary'
+                }`}
                 onClick={() => setAnalysisEditing(!analysisEditing)}
               >
-                {t('adjustments.details.analysisRegion')}
+                <Scan size={16} aria-hidden="true" />
+                {t('adjustments.details.adjustAnalysisRegion')}
               </button>
+              {analysisEditing && (
+                <Text variant={TextVariants.small}>{t('adjustments.details.applyAnalysisRegionHint')}</Text>
+              )}
               <button
                 type="button"
-                className="px-2 py-1 rounded text-text-secondary text-xs"
+                className="self-end px-2 py-1 rounded text-text-secondary hover:text-text-primary hover:bg-surface text-xs transition-colors"
                 onClick={resetAnalysisRegion}
               >
                 {t('adjustments.details.resetAnalysisRegion')}

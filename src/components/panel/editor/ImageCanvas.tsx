@@ -1,5 +1,5 @@
 import AnalysisRegionOverlay from './overlays/AnalysisRegionOverlay';
-import { useNegativeAnalysisStore, withAnalysisRegion } from '../../../store/useNegativeAnalysisStore';
+import { useNegativeAnalysisStore } from '../../../store/useNegativeAnalysisStore';
 import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import ReactCrop from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
@@ -1429,7 +1429,7 @@ const MaskOverlay = memo(
 
 const getWbSampleAdjustments = () => {
   const { adjustments } = useEditorStore.getState();
-  return adjustments.negativeConversionEnabled ? withAnalysisRegion(adjustments) : null;
+  return adjustments.negativeConversionEnabled ? adjustments : null;
 };
 
 const ImageCanvas = memo(

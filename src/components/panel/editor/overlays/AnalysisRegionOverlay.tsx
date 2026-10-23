@@ -1,5 +1,7 @@
 import type { CSSProperties, PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useEditorStore } from '../../../../store/useEditorStore';
+import { DEFAULT_ANALYSIS_REGION } from '../../../../utils/adjustments';
 import { useNegativeAnalysisStore } from '../../../../store/useNegativeAnalysisStore';
 
 type Point = { x: number; y: number };
@@ -24,7 +26,8 @@ export default function AnalysisRegionOverlay({
 }: Props) {
   const { t } = useTranslation();
   const state = useNegativeAnalysisStore();
-  const region = state.draft ?? state.region;
+  const appliedRegion = useEditorStore((s) => s.adjustments.negativeAnalysisRegion ?? DEFAULT_ANALYSIS_REGION);
+  const region = state.draft ?? appliedRegion;
   const corners = [
     { x: region.x, y: region.y },
     { x: region.x + region.width, y: region.y },
@@ -51,8 +54,9 @@ export default function AnalysisRegionOverlay({
           data-analysis-region
           onClick={(event) => event.stopPropagation()}
           onKeyDown={(event) => {
-            if (event.key === 'Escape') {
-              state.cancel();
+            if (event.key === 'Escape' || event.key === 'Enter') {
+              state.finishEditing(event.key === 'Enter');
+              event.preventDefault();
               event.stopPropagation();
               return;
             }
@@ -69,14 +73,25 @@ export default function AnalysisRegionOverlay({
             });
             state.commit();
           }}
-          style={{ position: 'absolute', inset: 0, overflow: 'visible', touchAction: 'none' }}
+          style={{ position: 'absolute', inset: 0, overflow: 'visible', touchAction: 'none', cursor: 'crosshair' }}
           onPointerDown={(event) => {
             const handle = (event.target as SVGElement).dataset.handle as (typeof handles)[number] | 'move' | undefined;
-            if (!handle || event.button !== 0) return;
+            if (event.button !== 0) return;
+            const start = point(event);
+            if (
+              !handle &&
+              (!Number.isFinite(start.x) ||
+                !Number.isFinite(start.y) ||
+                start.x < 0 ||
+                start.x > 1 ||
+                start.y < 0 ||
+                start.y > 1)
+            )
+              return;
             event.stopPropagation();
             event.preventDefault();
             event.currentTarget.setPointerCapture(event.pointerId);
-            state.begin(point(event), handle);
+            state.begin(start, handle ?? 'draw');
           }}
           onPointerMove={(event) => {
             if (!useNegativeAnalysisStore.getState().gesture) return;

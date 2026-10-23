@@ -111,6 +111,8 @@
       "negativeContrast": "Print Grade",
       "negativeConversion": "Negative Conversion",
       "analysisRegion": "Analysis region",
+      "adjustAnalysisRegion": "Adjust analysis region",
+      "applyAnalysisRegionHint": "Press Enter to apply",
       "moveAnalysisRegion": "Move analysis region",
       "resizeAnalysisRegion": "Resize analysis region corner",
       "resetAnalysisRegion": "Reset region",

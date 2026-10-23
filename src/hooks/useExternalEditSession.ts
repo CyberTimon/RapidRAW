@@ -1,4 +1,3 @@
-import { withAnalysisRegion } from '../store/useNegativeAnalysisStore';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { exit } from '@tauri-apps/plugin-process';
@@ -88,7 +87,7 @@ export function useExternalEditSession(handleImageSelect: (path: string) => void
         exportSettings,
         outputFormat: session.format,
         currentEditPath: selectedImage.path,
-        currentEditAdjustments: adjustments ? withAnalysisRegion(adjustments) : null,
+        currentEditAdjustments: adjustments || null,
       });
     } catch (error) {
       setIsFinishing(false);

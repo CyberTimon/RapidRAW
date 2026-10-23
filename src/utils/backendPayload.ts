@@ -1,5 +1,4 @@
 import { useEditorStore } from '../store/useEditorStore';
-import { withAnalysisRegion } from '../store/useNegativeAnalysisStore';
 import { Adjustments } from './adjustments';
 
 const CACHED_EFFECT_MAP_PREFIX = '__cached__:';
@@ -29,7 +28,7 @@ export interface AdjustmentsPayload {
 
 export const prepareAdjustmentsPayload = (adjustments: Adjustments): AdjustmentsPayload => {
   const { lensBlurDepthMap, fogDepthMap, relightNormalMap, aiPatches, ...rest } = adjustments;
-  const payload: any = structuredClone(withAnalysisRegion(rest));
+  const payload: any = structuredClone(rest);
   payload.aiPatches = Array.isArray(aiPatches)
     ? aiPatches.map(({ patchData, ...patch }: any) => ({ ...structuredClone(patch), patchData }))
     : aiPatches;
