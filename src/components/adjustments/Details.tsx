@@ -1,3 +1,4 @@
+import { useNegativeAnalysisStore } from '../../store/useNegativeAnalysisStore';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
@@ -35,6 +36,9 @@ function DetailsPanel({
   onDragStateChange,
 }: DetailsPanelProps) {
   const { t } = useTranslation();
+  const analysisEditing = useNegativeAnalysisStore((s) => s.editing);
+  const setAnalysisEditing = useNegativeAnalysisStore((s) => s.setEditing);
+  const resetAnalysisRegion = useNegativeAnalysisStore((s) => s.reset);
   const setEditor = useEditorStore((state) => state.setEditor);
   const aiDenoiseProgress = useEditorStore((state) =>
     state.selectedImage ? state.aiDenoiseProgress[state.selectedImage.path] : undefined,
@@ -276,6 +280,23 @@ function DetailsPanel({
               setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, negativeConversionEnabled: enabled }))
             }
           >
+            <div className="flex items-center gap-2 py-2">
+              <button
+                type="button"
+                aria-pressed={analysisEditing}
+                className="px-2 py-1 rounded bg-surface text-text-primary text-xs"
+                onClick={() => setAnalysisEditing(!analysisEditing)}
+              >
+                {t('adjustments.details.analysisRegion')}
+              </button>
+              <button
+                type="button"
+                className="px-2 py-1 rounded text-text-secondary text-xs"
+                onClick={resetAnalysisRegion}
+              >
+                {t('adjustments.details.resetAnalysisRegion')}
+              </button>
+            </div>
             <Slider
               label={t('adjustments.details.negativeRed')}
               max={2}

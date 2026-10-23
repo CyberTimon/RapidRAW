@@ -1,3 +1,4 @@
+import { useNegativeAnalysisStore } from '../store/useNegativeAnalysisStore';
 import React, { useCallback, useEffect, useRef, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import debounce from 'lodash.debounce';
@@ -46,6 +47,9 @@ export function useImageProcessing(
   const isSliderDragging = useEditorStore((state) => state.isSliderDragging);
   const compareView = useEditorStore((state) => state.compareView);
   const setEditor = useEditorStore((state) => state.setEditor);
+
+  const analysisRegion = useNegativeAnalysisStore((s) => s.region);
+  const isAnalysisEditing = useNegativeAnalysisStore((s) => s.editing);
 
   const activeView = useUIStore((state) => state.activeView);
   const activePanel = useUIStore((state) => state.activePanel);
@@ -168,6 +172,7 @@ export function useImageProcessing(
       const currentPath = selectedImage?.path;
       if (!currentPath) return;
 
+      const requestedAnalysisRegion = useNegativeAnalysisStore.getState().region;
       const { payload, markSent } = prepareAdjustmentsPayload(currentAdjustments);
 
       const jobId = ++previewJobIdRef.current;
@@ -189,7 +194,11 @@ export function useImageProcessing(
 
         markSent();
 
-        if (currentPath !== selectedImagePathRef.current) return;
+        if (
+          currentPath !== selectedImagePathRef.current ||
+          requestedAnalysisRegion !== useNegativeAnalysisStore.getState().region
+        )
+          return;
 
         if (buffer && buffer.byteLength > 0 && jobId >= latestRenderedJobIdRef.current) {
           latestRenderedJobIdRef.current = jobId;
@@ -312,12 +321,14 @@ export function useImageProcessing(
         (adj: Adjustments) => {
           const requestedImage = useEditorStore.getState().selectedImage;
           if (!requestedImage?.isReady) return;
+          const requestedAnalysisRegion = useNegativeAnalysisStore.getState().region;
           const jobId = ++uncroppedJobIdRef.current;
           const { payload, markSent } = prepareAdjustmentsPayload(adj);
           invoke<ArrayBuffer>(Invokes.GenerateUncroppedPreview, { jsAdjustments: payload })
             .then((buffer) => {
               markSent();
               if (
+                requestedAnalysisRegion !== useNegativeAnalysisStore.getState().region ||
                 jobId < latestUncroppedJobIdRef.current ||
                 !buffer ||
                 buffer.byteLength === 0 ||
@@ -348,10 +359,18 @@ export function useImageProcessing(
   );
 
   useEffect(() => {
-    if (activeView === 'editor' && activePanel === Panel.Crop && selectedImage?.isReady) {
+    if (activeView === 'editor' && (activePanel === Panel.Crop || isAnalysisEditing) && selectedImage?.isReady) {
       generateUncroppedPreview(adjustments);
     }
-  }, [activeView, adjustments, activePanel, selectedImage?.isReady, generateUncroppedPreview]);
+  }, [
+    activeView,
+    adjustments,
+    analysisRegion,
+    isAnalysisEditing,
+    activePanel,
+    selectedImage?.isReady,
+    generateUncroppedPreview,
+  ]);
 
   const calculateTargetRes = useCallback(() => {
     const baseTargetRes = appSettings?.editorPreviewResolution || 1920;
@@ -524,6 +543,7 @@ export function useImageProcessing(
   }, [
     activeView,
     adjustments,
+    analysisRegion,
     previewOverride,
     selectedImage?.path,
     selectedImage?.isReady,
