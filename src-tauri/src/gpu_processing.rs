@@ -1939,11 +1939,46 @@ impl GpuProcessor {
             &params_hz_patch,
             half,
         );
-        pass(&self.gf_blur_h_pipeline, &hz_a, &hz_a, &hz_b, &params_hz_gf, half);
-        pass(&self.gf_blur_v_pipeline, &hz_b, &hz_b, &hz_a, &params_hz_gf, half);
-        pass(&self.hz_coeffs_pipeline, &hz_a, &hz_a, &hz_b, &params_hz_gf, half);
-        pass(&self.gf_blur_h_pipeline, &hz_b, &hz_b, &hz_a, &params_hz_gf, half);
-        pass(&self.gf_blur_v_pipeline, &hz_a, &hz_a, &haze, &params_hz_gf, half);
+        pass(
+            &self.gf_blur_h_pipeline,
+            &hz_a,
+            &hz_a,
+            &hz_b,
+            &params_hz_gf,
+            half,
+        );
+        pass(
+            &self.gf_blur_v_pipeline,
+            &hz_b,
+            &hz_b,
+            &hz_a,
+            &params_hz_gf,
+            half,
+        );
+        pass(
+            &self.hz_coeffs_pipeline,
+            &hz_a,
+            &hz_a,
+            &hz_b,
+            &params_hz_gf,
+            half,
+        );
+        pass(
+            &self.gf_blur_h_pipeline,
+            &hz_b,
+            &hz_b,
+            &hz_a,
+            &params_hz_gf,
+            half,
+        );
+        pass(
+            &self.gf_blur_v_pipeline,
+            &hz_a,
+            &hz_a,
+            &haze,
+            &params_hz_gf,
+            half,
+        );
 
         queue.submit(Some(encoder.finish()));
         GuidedTextures {

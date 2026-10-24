@@ -1637,12 +1637,12 @@ export default function SettingsPanel({
                       </li>
                       <li>
                         <a
-                          href="https://github.com/facebookresearch/sam2"
+                          href="https://github.com/facebookresearch/segment-anything"
                           target="_blank"
                           rel="noopener noreferrer"
                           className="font-semibold text-accent hover:underline"
                         >
-                          SAM 2
+                          Segment Anything
                         </a>
                         : {t('settings.thanks.list.sam2')}
                       </li>
