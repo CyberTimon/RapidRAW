@@ -19,9 +19,18 @@ macro_rules! cli_eprintln {
     }};
 }
 
+macro_rules! test_api_mod {
+    ($name:ident) => {
+        #[cfg(feature = "test-api")]
+        pub mod $name;
+        #[cfg(not(feature = "test-api"))]
+        mod $name;
+    };
+}
+
 mod adjustments;
 mod ai;
-mod app;
+test_api_mod!(app);
 mod decode;
 mod effects;
 mod export;
@@ -31,7 +40,7 @@ mod masks;
 mod merge;
 mod metadata;
 mod platform;
-mod render;
+test_api_mod!(render);
 mod retouch;
 
 use std::collections::HashMap;
