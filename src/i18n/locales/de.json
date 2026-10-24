@@ -1119,6 +1119,12 @@
       "toggleFit": "1:1 / Einpassen umschalten",
       "vc": "VK"
     },
+    "filterExit": {
+      "hiddenSingle": "{{name}} entspricht nicht mehr dem Filter",
+      "hiddenMultiple_one": "{{count}} Bilder entsprechen nicht mehr dem Filter",
+      "hiddenMultiple_other": "{{count}} Bilder entsprechen nicht mehr dem Filter",
+      "undo": "Rückgängig"
+    },
     "filters": {
       "edited": {
         "all": "Alle Bilder",

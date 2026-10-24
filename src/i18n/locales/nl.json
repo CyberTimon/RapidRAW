@@ -1113,6 +1113,12 @@
       "toggleFit": "1:1 / Passend aan/uit",
       "vc": "VK"
     },
+    "filterExit": {
+      "hiddenSingle": "{{name}} komt niet meer overeen met het filter",
+      "hiddenMultiple_one": "{{count}} afbeeldingen komen niet meer overeen met het filter",
+      "hiddenMultiple_other": "{{count}} afbeeldingen komen niet meer overeen met het filter",
+      "undo": "Ongedaan maken"
+    },
     "filters": {
       "edited": {
         "all": "Alle afbeeldingen",

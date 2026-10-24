@@ -1167,6 +1167,14 @@
       "toggleFit": "Przełącz 1:1 / Dopasuj",
       "vc": "KW"
     },
+    "filterExit": {
+      "hiddenSingle": "{{name}} nie pasuje już do filtra",
+      "hiddenMultiple_few": "Obrazy ({{count}}) nie pasują już do filtra",
+      "hiddenMultiple_many": "Obrazy ({{count}}) nie pasują już do filtra",
+      "hiddenMultiple_one": "Obrazy ({{count}}) nie pasują już do filtra",
+      "hiddenMultiple_other": "Obrazy ({{count}}) nie pasują już do filtra",
+      "undo": "Cofnij"
+    },
     "filters": {
       "edited": {
         "all": "Wszystkie obrazy",

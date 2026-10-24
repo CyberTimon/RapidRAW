@@ -1143,6 +1143,13 @@
       "toggleFit": "Alternar 1:1 / Ajustar",
       "vc": "CV"
     },
+    "filterExit": {
+      "hiddenSingle": "{{name}} não corresponde mais ao filtro",
+      "hiddenMultiple_many": "{{count}} imagens não correspondem mais ao filtro",
+      "hiddenMultiple_one": "{{count}} imagens não correspondem mais ao filtro",
+      "hiddenMultiple_other": "{{count}} imagens não correspondem mais ao filtro",
+      "undo": "Desfazer"
+    },
     "filters": {
       "edited": {
         "all": "Todas as Imagens",

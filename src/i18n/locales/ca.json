@@ -1121,6 +1121,13 @@
       "toggleFit": "Alternar 1:1 / Ajustar",
       "vc": "CV"
     },
+    "filterExit": {
+      "hiddenSingle": "{{name}} ja no coincideix amb el filtre",
+      "hiddenMultiple_many": "{{count}} imatges ja no coincideixen amb el filtre",
+      "hiddenMultiple_one": "{{count}} imatges ja no coincideixen amb el filtre",
+      "hiddenMultiple_other": "{{count}} imatges ja no coincideixen amb el filtre",
+      "undo": "Desfés"
+    },
     "filters": {
       "edited": {
         "all": "Totes les imatges",

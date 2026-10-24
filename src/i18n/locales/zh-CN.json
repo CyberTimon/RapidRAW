@@ -1116,6 +1116,11 @@
       "toggleFit": "切换 1:1 / 适应",
       "vc": "VC"
     },
+    "filterExit": {
+      "hiddenSingle": "{{name}} 已不再符合筛选条件",
+      "hiddenMultiple_other": "{{count}} 张图像已不再符合筛选条件",
+      "undo": "撤销"
+    },
     "filters": {
       "edited": {
         "all": "所有图像",

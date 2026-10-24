@@ -1116,6 +1116,11 @@
       "toggleFit": "1:1 / 全体表示の切り替え",
       "vc": "VC"
     },
+    "filterExit": {
+      "hiddenSingle": "{{name}} はフィルターに一致しなくなりました",
+      "hiddenMultiple_other": "{{count}} 枚の画像がフィルターに一致しなくなりました",
+      "undo": "元に戻す"
+    },
     "filters": {
       "edited": {
         "all": "すべての画像",

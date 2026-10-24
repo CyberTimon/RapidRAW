@@ -1167,6 +1167,14 @@
       "toggleFit": "Переключить 1:1 / Вписать",
       "vc": "ВК"
     },
+    "filterExit": {
+      "hiddenSingle": "{{name}} больше не соответствует фильтру",
+      "hiddenMultiple_few": "Снимки ({{count}}) больше не соответствуют фильтру",
+      "hiddenMultiple_many": "Снимки ({{count}}) больше не соответствуют фильтру",
+      "hiddenMultiple_one": "Снимки ({{count}}) больше не соответствуют фильтру",
+      "hiddenMultiple_other": "Снимки ({{count}}) больше не соответствуют фильтру",
+      "undo": "Отменить"
+    },
     "filters": {
       "edited": {
         "all": "Все изображения",

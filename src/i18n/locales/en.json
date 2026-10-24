@@ -1119,6 +1119,12 @@
       "toggleFit": "Toggle 1:1 / Fit",
       "vc": "VC"
     },
+    "filterExit": {
+      "hiddenSingle": "{{name}} no longer matches the filter",
+      "hiddenMultiple_one": "{{count}} images no longer match the filter",
+      "hiddenMultiple_other": "{{count}} images no longer match the filter",
+      "undo": "Undo"
+    },
     "filters": {
       "edited": {
         "all": "All Images",

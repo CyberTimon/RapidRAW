@@ -1122,6 +1122,14 @@
       "toggleFit": "Přepnout 1:1 / Přizpůsobit",
       "vc": "VC"
     },
+    "filterExit": {
+      "hiddenSingle": "{{name}} již neodpovídá filtru",
+      "hiddenMultiple_few": "Snímky ({{count}}) již neodpovídají filtru",
+      "hiddenMultiple_many": "Snímky ({{count}}) již neodpovídají filtru",
+      "hiddenMultiple_one": "Snímky ({{count}}) již neodpovídají filtru",
+      "hiddenMultiple_other": "Snímky ({{count}}) již neodpovídají filtru",
+      "undo": "Zpět"
+    },
     "filters": {
       "edited": {
         "all": "Všechny snímky",

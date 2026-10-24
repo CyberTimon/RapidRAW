@@ -1116,6 +1116,11 @@
       "toggleFit": "1:1 / 맞춤 전환",
       "vc": "VC"
     },
+    "filterExit": {
+      "hiddenSingle": "{{name}}이(가) 더 이상 필터와 일치하지 않습니다",
+      "hiddenMultiple_other": "이미지 {{count}}개가 더 이상 필터와 일치하지 않습니다",
+      "undo": "실행 취소"
+    },
     "filters": {
       "edited": {
         "all": "모든 이미지",
