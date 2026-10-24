@@ -1,6 +1,7 @@
+import { useNegativeAnalysisStore } from '../../store/useNegativeAnalysisStore';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Scan } from 'lucide-react';
 import Slider, { SliderChangeEvent } from '../ui/Slider';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
@@ -35,6 +36,9 @@ function DetailsPanel({
   onDragStateChange,
 }: DetailsPanelProps) {
   const { t } = useTranslation();
+  const analysisEditing = useNegativeAnalysisStore((s) => s.editing);
+  const setAnalysisEditing = useNegativeAnalysisStore((s) => s.setEditing);
+  const resetAnalysisRegion = useNegativeAnalysisStore((s) => s.reset);
   const setEditor = useEditorStore((state) => state.setEditor);
   const aiDenoiseProgress = useEditorStore((state) =>
     state.selectedImage ? state.aiDenoiseProgress[state.selectedImage.path] : undefined,
@@ -276,6 +280,29 @@ function DetailsPanel({
               setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, negativeConversionEnabled: enabled }))
             }
           >
+            <div className="flex flex-col gap-2 py-2">
+              <button
+                type="button"
+                aria-pressed={analysisEditing}
+                className={`flex items-center gap-3 w-full p-2.5 rounded-lg bg-surface text-sm font-medium hover:bg-card-active transition-colors ${
+                  analysisEditing ? 'text-accent' : 'text-text-secondary hover:text-text-primary'
+                }`}
+                onClick={() => setAnalysisEditing(!analysisEditing)}
+              >
+                <Scan size={16} aria-hidden="true" />
+                {t('adjustments.details.adjustAnalysisRegion')}
+              </button>
+              {analysisEditing && (
+                <Text variant={TextVariants.small}>{t('adjustments.details.applyAnalysisRegionHint')}</Text>
+              )}
+              <button
+                type="button"
+                className="self-end px-2 py-1 rounded text-text-secondary hover:text-text-primary hover:bg-surface text-xs transition-colors"
+                onClick={resetAnalysisRegion}
+              >
+                {t('adjustments.details.resetAnalysisRegion')}
+              </button>
+            </div>
             <Slider
               label={t('adjustments.details.negativeRed')}
               max={2}

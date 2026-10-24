@@ -1,3 +1,4 @@
+import { useNegativeAnalysisStore } from './useNegativeAnalysisStore';
 import { create } from 'zustand';
 import {
   ImageFile,
@@ -352,7 +353,14 @@ export const useUIStore = create<UIState>((set, get) => ({
   cullingModalState: { isOpen: false, suggestions: null, progress: null, error: null, pathsToCull: [] },
   collageModalState: { isOpen: false, sourceImages: [] },
 
-  setUI: (updater) => set((state) => (typeof updater === 'function' ? updater(state) : updater)),
+  setUI: (updater) =>
+    set((state) => {
+      const next = typeof updater === 'function' ? updater(state) : updater;
+      if (state.activeView === 'editor' && next.activeView && next.activeView !== 'editor') {
+        useNegativeAnalysisStore.getState().setEditing(false);
+      }
+      return next;
+    }),
 
   setLayoutDragItem: (panel) => set({ activeLayoutDragItem: panel }),
 

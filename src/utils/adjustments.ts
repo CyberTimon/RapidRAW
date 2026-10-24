@@ -79,6 +79,15 @@ export const getAiDenoiseEnablePatch = (aiProvider?: string): Partial<Adjustment
   aiDenoiseMethod: aiProvider === 'ai-free' ? DenoiseMethod.Bm3d : DenoiseMethod.Ai,
 });
 
+export interface AnalysisRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export const DEFAULT_ANALYSIS_REGION: AnalysisRegion = { x: 0.12, y: 0.12, width: 0.76, height: 0.76 };
+
 export enum DetailsAdjustment {
   AiDenoiseAmount = 'aiDenoiseAmount',
   AiDenoiseDetail = 'aiDenoiseDetail',
@@ -92,6 +101,7 @@ export enum DetailsAdjustment {
   CentréY = 'centréY',
   ColorNoiseReduction = 'colorNoiseReduction',
   LumaNoiseReduction = 'lumaNoiseReduction',
+  NegativeAnalysisRegion = 'negativeAnalysisRegion',
   NegativeBlueWeight = 'negativeBlueWeight',
   NegativeContrast = 'negativeContrast',
   NegativeConversionEnabled = 'negativeConversionEnabled',
@@ -366,6 +376,7 @@ export interface Adjustments {
   lutSize?: number;
   lutIsSceneReferred?: boolean;
   masks: Array<MaskContainer>;
+  negativeAnalysisRegion: AnalysisRegion;
   negativeBlueWeight: number;
   negativeContrast: number;
   negativeConversionEnabled: boolean;
@@ -867,6 +878,7 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
     {
       label: 'modals.copyPaste.groups.negativeConversion',
       keys: [
+        DetailsAdjustment.NegativeAnalysisRegion,
         DetailsAdjustment.NegativeConversionEnabled,
         DetailsAdjustment.NegativeRedWeight,
         DetailsAdjustment.NegativeGreenWeight,
@@ -1111,6 +1123,8 @@ export const areSectionPropsEqual =
   };
 
 const CANVAS_ADJUSTMENT_KEYS = new Set([
+  'negativeAnalysisRegion',
+  'negativeConversionEnabled',
   'vignetteCenterX',
   'vignetteCenterY',
   'vignetteMidpoint',

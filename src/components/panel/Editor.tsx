@@ -1,3 +1,4 @@
+import { useNegativeAnalysisStore } from '../../store/useNegativeAnalysisStore';
 import { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect, useImperativeHandle } from 'react';
 import { Crop, PercentCrop } from 'react-image-crop';
 import { Loader2 } from 'lucide-react';
@@ -431,7 +432,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const isCropping = activePanel === Panel.Crop;
   const isMasking = activePanel === Panel.Masks;
   const isAiEditing = activePanel === Panel.Ai;
-  const isSideBySide = compareView === 'sideBySide' && !isCropping;
+  const isAnalysisEditing =
+    useNegativeAnalysisStore((s) => s.editing) && !!adjustments.negativeConversionEnabled && !isMasking && !isAiEditing;
+  const isSideBySide = compareView === 'sideBySide' && !isCropping && !isAnalysisEditing;
 
   const getOriginalPaneShift = useCallback(
     () =>
@@ -984,6 +987,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if ((e.target as HTMLElement).closest('[data-split-divider]')) return;
+      if (e.button === 0 && (e.target as Element).closest('[data-analysis-region]')) return;
       wasPanningDisabledOnDown.current = isPanningDisabled;
 
       const isCropHandle = isCropping && e.button === 0 && !!(e.target as HTMLElement).closest('[data-ord]');
@@ -1544,7 +1548,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   }, [croppedDimensions]);
 
   const activeCompareView: CompareView =
-    originalPreview?.path === selectedImage?.path && !isCropping ? compareView : 'off';
+    originalPreview?.path === selectedImage?.path && !isCropping && !isAnalysisEditing ? compareView : 'off';
   splitLayoutRef.current = { view: activeCompareView, position: splitPosition };
 
   useLayoutEffect(syncSplitOverlay, [syncSplitOverlay, activeCompareView, splitPosition, imageRenderSize]);
@@ -1553,7 +1557,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     useWgpuRenderer: appSettings?.useWgpuRenderer,
     isReady: selectedImage?.isReady ?? false,
     hasRenderedFirstFrame,
-    isCropping,
+    isCropping: isCropping || isAnalysisEditing,
     uncroppedAdjustedPreviewUrl,
     showOriginal,
     compareView: activeCompareView,
@@ -1573,7 +1577,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       useWgpuRenderer: appSettings?.useWgpuRenderer,
       isReady: selectedImage?.isReady ?? false,
       hasRenderedFirstFrame,
-      isCropping,
+      isCropping: isCropping || isAnalysisEditing,
       uncroppedAdjustedPreviewUrl,
       showOriginal,
       compareView: activeCompareView,
@@ -1587,6 +1591,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     selectedImage?.isReady,
     hasRenderedFirstFrame,
     isCropping,
+    isAnalysisEditing,
     uncroppedAdjustedPreviewUrl,
     showOriginal,
     activeCompareView,
@@ -1603,6 +1608,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     selectedImage?.isReady,
     hasRenderedFirstFrame,
     isCropping,
+    isAnalysisEditing,
     uncroppedAdjustedPreviewUrl,
     showOriginal,
     activeCompareView,
