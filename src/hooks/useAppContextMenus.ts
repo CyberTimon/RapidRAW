@@ -630,10 +630,9 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
             ]
           : [{ icon: FileInput, label: exportLabel, onClick: onExportClick }, { type: OPTION_SEPARATOR }]),
         {
-          disabled: !isSingleSelection,
           icon: Copy,
           label: t('contextMenus.editor.copyAdjustments'),
-          onClick: () => handleCopyAdjustments(finalSelection[0]),
+          onClick: () => handleCopyAdjustments(path),
         },
         {
           disabled: copiedAdjustments === null,

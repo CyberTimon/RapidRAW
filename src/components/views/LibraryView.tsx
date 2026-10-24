@@ -178,7 +178,7 @@ export default function LibraryView({
         {rootPaths && rootPaths.length > 0 && (
           <BottomBar
             isCopied={isCopied}
-            isCopyDisabled={multiSelectedPaths.length !== 1}
+            isCopyDisabled={multiSelectedPaths.length === 0}
             isExportDisabled={multiSelectedPaths.length === 0}
             isLibraryView={true}
             layoutMode={layoutMode}
