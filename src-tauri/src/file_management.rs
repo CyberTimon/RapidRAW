@@ -2480,9 +2480,6 @@ fn find_all_associated_files(source_image_path: &Path) -> Result<Vec<PathBuf>, S
         .ok_or("Could not get source filename")?
         .to_string_lossy();
 
-    let primary_sidecar_name = format!("{}.rrdata", source_filename);
-    let virtual_copy_prefix = format!("{}.", source_filename);
-
     if let Ok(entries) = fs::read_dir(parent_dir) {
         for entry in entries.filter_map(Result::ok) {
             let entry_path = entry.path();
@@ -2493,9 +2490,7 @@ fn find_all_associated_files(source_image_path: &Path) -> Result<Vec<PathBuf>, S
             let entry_os_filename = entry.file_name();
             let entry_filename = entry_os_filename.to_string_lossy();
 
-            if entry_filename == primary_sidecar_name
-                || (entry_filename.starts_with(&virtual_copy_prefix)
-                    && entry_filename.ends_with(".rrdata"))
+            if parse_sidecar_name(&entry_filename).is_some_and(|(name, _)| name == source_filename)
             {
                 associated_files.push(entry_path);
             }
@@ -4218,14 +4213,22 @@ pub fn rename_files(
         return Ok(Vec::new());
     }
 
+    // An image and its virtual copies share one file, so rename each file once.
+    let mut original_paths: Vec<PathBuf> = Vec::new();
+    for path_str in &paths {
+        let (original_path, _) = parse_virtual_path(path_str);
+        if !original_paths.contains(&original_path) {
+            original_paths.push(original_path);
+        }
+    }
+
     let mut operations: Vec<(PathBuf, PathBuf)> = Vec::new();
-    let mut final_new_paths = Vec::with_capacity(paths.len());
     let mut renames = HashMap::new();
 
-    for (i, path_str) in paths.iter().enumerate() {
-        let (original_path, _) = parse_virtual_path(path_str);
+    for (i, original_path) in original_paths.iter().enumerate() {
+        let original_path = original_path.clone();
         if !original_path.exists() {
-            return Err(format!("File not found: {}", path_str));
+            return Err(format!("File not found: {}", original_path.display()));
         }
 
         let parent = original_path
@@ -4242,7 +4245,7 @@ pub fn rename_files(
             &name_template,
             &original_path,
             i + 1,
-            paths.len(),
+            original_paths.len(),
             &file_date,
         );
         let new_filename = format!("{}.{}", new_stem, extension);
@@ -4281,18 +4284,12 @@ pub fn rename_files(
                 let entry_os_filename = entry.file_name();
                 let entry_filename = entry_os_filename.to_string_lossy();
 
-                if entry_filename.starts_with(&format!("{}.", original_filename_str))
-                    && entry_filename.ends_with(".rrdata")
+                if parse_sidecar_name(&entry_filename)
+                    .is_some_and(|(name, _)| name == original_filename_str)
                 {
                     let new_sidecar_filename =
                         entry_filename.replacen(&*original_filename_str, &new_filename_str, 1);
                     let new_sidecar_path = parent.join(new_sidecar_filename);
-                    sidecar_operations.push((entry_path, new_sidecar_path));
-                } else if entry_filename == format!("{}.rrdata", original_filename_str) {
-                    let mut new_sidecar_name = new_path.file_name().unwrap().to_os_string();
-                    new_sidecar_name.push(".rrdata");
-                    let new_sidecar_path = new_path.with_file_name(new_sidecar_name);
-
                     sidecar_operations.push((entry_path, new_sidecar_path));
                 }
             }
@@ -4325,14 +4322,23 @@ pub fn rename_files(
         let old_str = old_path.to_string_lossy().into_owned();
         let new_str = new_path.to_string_lossy().into_owned();
 
-        renames.insert(old_str, new_str.clone());
-
-        if is_supported_image_file(&new_path) {
-            final_new_paths.push(new_str);
-        }
+        renames.insert(old_str, new_str);
     }
 
     sync_album_path_changes(&app_handle, Some(&renames), None, None);
+
+    // One entry per input path, in order, keeping virtual copy ids; unrenamed files keep their path.
+    let final_new_paths = paths
+        .iter()
+        .map(|path_str| {
+            let (base, copy_suffix) = match path_str.rsplit_once("?vc=") {
+                Some((base, id)) => (base, format!("?vc={}", id)),
+                None => (path_str.as_str(), String::new()),
+            };
+            let new_base = renames.get(base).map_or(base, String::as_str);
+            format!("{}{}", new_base, copy_suffix)
+        })
+        .collect();
 
     Ok(final_new_paths)
 }
