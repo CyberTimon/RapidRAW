@@ -1376,19 +1376,11 @@ pub fn apply_cpu_default_raw_processing(image: &mut DynamicImage) {
     });
 }
 
-pub(crate) fn srgb_channel_to_linear(c: f32) -> f32 {
+fn srgb_channel_to_linear(c: f32) -> f32 {
     if c <= 0.04045 {
         c / 12.92
     } else {
         ((c + 0.055) / 1.055).powf(2.4)
-    }
-}
-
-pub(crate) fn linear_channel_to_srgb(c: f32) -> f32 {
-    if c <= 0.0031308 {
-        c * 12.92
-    } else {
-        1.055 * c.powf(1.0 / 2.4) - 0.055
     }
 }
 
@@ -1425,7 +1417,14 @@ pub fn apply_srgb_to_linear(image: DynamicImage) -> DynamicImage {
 }
 
 pub fn apply_linear_to_srgb(image: DynamicImage) -> DynamicImage {
-    map_color_channels(image, |x| linear_channel_to_srgb(x.max(0.0)))
+    map_color_channels(image, |x| {
+        let x = x.max(0.0);
+        if x <= 0.0031308 {
+            x * 12.92
+        } else {
+            1.055 * x.powf(1.0 / 2.4) - 0.055
+        }
+    })
 }
 
 pub fn apply_orientation(image: DynamicImage, orientation: Orientation) -> DynamicImage {
