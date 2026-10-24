@@ -375,8 +375,9 @@ export function useEditorActions() {
     const { libraryActivePath, multiSelectedPaths } = useLibraryStore.getState();
     let sourceAdjustments: any = null;
 
+    const editingPath = useUIStore.getState().activeView === 'editor' ? selectedImage?.path : undefined;
     const pathToCopyFrom =
-      pathOverride || (selectedImage ? selectedImage.path : libraryActivePath || multiSelectedPaths[0]);
+      pathOverride || editingPath || libraryActivePath || multiSelectedPaths[0] || selectedImage?.path;
 
     if (selectedImage && pathToCopyFrom === selectedImage.path) {
       sourceAdjustments = adjustments;
