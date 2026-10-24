@@ -12,10 +12,11 @@ use crate::ai_connector;
 use crate::ai_processing::{
     AiDepthMaskParameters, AiFaceMaskParameters, AiForegroundMaskParameters, AiMaskModel, AiModels,
     AiSkyMaskParameters, AiState, AiSubjectMaskParameters, AiTextMaskParameters, CachedDepthMap,
-    ESAM3_FACE_SCORE_THRESHOLD, ESAM3_SKY_SCORE_THRESHOLD, ESAM3_TEXT_SCORE_THRESHOLD,
-    Esam3Features, ImageEmbeddings, generate_image_embeddings, get_or_init_ai_models,
-    run_birefnet_model, run_depth_anything_model, run_esam3_boxes, run_esam3_decoder,
-    run_esam3_image_encoder, run_sam_decoder,
+    ESAM3_FACE_SCORE_THRESHOLD, ESAM3_SKY_REFINE_EPS, ESAM3_SKY_SCORE_THRESHOLD,
+    ESAM3_TEXT_REFINE_EPS, ESAM3_TEXT_SCORE_THRESHOLD, Esam3Features, ImageEmbeddings,
+    generate_image_embeddings, get_or_init_ai_models, run_birefnet_model, run_depth_anything_model,
+    run_esam3_boxes, run_esam3_decoder, run_esam3_image_encoder, run_esam3_zoomed_decoder,
+    run_sam_decoder,
 };
 use crate::app_settings::load_settings;
 use crate::app_state::{AiTaskGuard, AppState};
@@ -222,6 +223,7 @@ pub fn generate_sky_mask(
         &prompt,
         warped_image,
         ESAM3_SKY_SCORE_THRESHOLD,
+        ESAM3_SKY_REFINE_EPS,
     )
     .map_err(|e| e.to_string())?
     .ok_or_else(|| NO_SKY_FOUND.to_string())?;
@@ -249,12 +251,14 @@ pub fn generate_text_mask(
     let text_prompt = models
         .esam3_text_prompt(prompt)
         .map_err(|e| e.to_string())?;
-    let mask = run_esam3_decoder(
+    let mask = run_esam3_zoomed_decoder(
+        &*models.esam3_image_encoder().map_err(|e| e.to_string())?,
         &*models.esam3_decoder().map_err(|e| e.to_string())?,
         &features,
         &text_prompt,
         warped_image,
         ESAM3_TEXT_SCORE_THRESHOLD,
+        ESAM3_TEXT_REFINE_EPS,
     )
     .map_err(|e| e.to_string())?
     .ok_or_else(|| format!("{} \"{}\"", NO_MATCH_FOUND, prompt.trim()))?;
