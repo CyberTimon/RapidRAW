@@ -214,12 +214,28 @@ const HSL_RANGES: array<HslRange, 8> = array<HslRange, 8>(
 @group(0) @binding(11) var flare_sampler: sampler;
 
 @group(0) @binding(12) var gf_coeffs_texture: texture_2d<f32>;
-@group(0) @binding(13) var gf_dehaze_texture: texture_2d<f32>;
+@group(0) @binding(13) var gf_structure_texture: texture_2d<f32>;
+@group(0) @binding(14) var haze_texture: texture_2d<f32>;
+@group(0) @binding(15) var airlight_texture: texture_2d<f32>;
 
 const GF_LUMA_FLOOR: f32 = 1.0e-4;
 const GF_DETAIL_SIGMA: f32 = 1.5;
 const GF_REINJECT_SIGMA: f32 = 0.8;
-const DEHAZE_STRENGTH: f32 = 1.5;
+const HZ_OMEGA: f32 = 0.95;
+const HZ_FLOOR: f32 = 0.35;
+const HZ_KNEE: f32 = 0.1;
+const HZ_T_MIN: f32 = 0.1;
+const HZ_TOLERANCE: f32 = 0.25;
+const HZ_BRIGHT_LO: f32 = 0.8;
+const HZ_BRIGHT_HI: f32 = 1.25;
+const HZ_GUIDE_GAMMA: f32 = 0.4545;
+const HZ_GUIDE_MAX: f32 = 1.5;
+const HZ_MIST: f32 = 0.5;
+const HZ_LIFT: f32 = 0.55;
+const HZ_DETAIL_MAX: f32 = 2.5;
+const HZ_DETAIL_SIGMA: f32 = 0.8;
+const HZ_CHROMA_MAX: f32 = 1.45;
+const HZ_CHROMA_FLOOR: f32 = 0.01;
 const GF_CLARITY_GAIN: f32 = 1.8;
 const GF_STRUCTURE_GAIN: f32 = 1.8;
 const GF_NEG_GAIN: f32 = 1.0;
@@ -473,16 +489,16 @@ fn apply_tonal_adjustments(
         let w_luma = max(get_luma(max(rgb, vec3<f32>(0.0))), 0.0001);
         let w_base = max(w_luma * exp2(-clamp(local_log_detail + mid_log_detail, -3.0, 3.0)), 0.0001);
         let t_w = pow(w_base, 0.4545);
-        let w_pivot = 0.45;
+        let w_pivot = 0.4;
         let u = max(t_w - w_pivot, 0.0);
 
         var t_new = t_w;
         if (wh > 0.0) {
-            t_new = t_w + wh * 0.25 * (u * u) / (1.0 + u * u);
+            t_new = t_w + wh * 0.35 * (u * u) / (1.0 + u * u);
         } else if (u > 0.0) {
             t_new = w_pivot + u / (1.0 + (-wh) * 0.3 * u);
         }
-        let w_ramp = smoothstep(0.25, 0.9, t_w);
+        let w_ramp = smoothstep(0.1, 0.9, t_w);
         t_new = mix(t_w, t_new, w_ramp);
 
         let w_amount = abs(t_new - t_w) * w_ramp;
@@ -902,16 +918,6 @@ fn sample_gf_coeffs(abs_coord: vec2<u32>) -> vec4<f32> {
     return sample_gf_tex(gf_coeffs_texture, abs_coord);
 }
 
-fn refined_dark_channel(abs_coord: vec2<u32>, is_raw: u32) -> f32 {
-    var rgb = clamp(textureLoad(input_texture, abs_coord, 0).rgb, vec3<f32>(0.0), vec3<f32>(65504.0));
-    if (is_raw == 0u) {
-        rgb = srgb_to_linear(rgb);
-    }
-    let dark_i = log2(max(min(rgb.r, min(rgb.g, rgb.b)), GF_LUMA_FLOOR));
-    let ab = sample_gf_tex(gf_dehaze_texture, abs_coord).zw;
-    return exp2(ab.x * dark_i + ab.y);
-}
-
 fn shape_detail(d: f32, sigma: f32) -> f32 {
     let x = d / sigma;
     return d / (1.0 + x * x);
@@ -1052,41 +1058,51 @@ fn apply_centre_tonal_and_color(
     return processed_color;
 }
 
-fn apply_dehaze(
-    color: vec3<f32>,
-    blurred_color_input_space: vec3<f32>,
-    refined_dark: f32,
-    is_raw: u32,
-    amount: f32
-) -> vec3<f32> {
+fn apply_dehaze(color: vec3<f32>, abs_coord: vec2<u32>, local_luma: f32, amount: f32) -> vec3<f32> {
     if (amount == 0.0) { return color; }
 
-    let atmospheric_light = vec3<f32>(0.95, 0.97, 1.0);
+    let air = textureLoad(airlight_texture, vec2<i32>(0, 0), 0);
+    let rgb = max(color, vec3<f32>(0.0));
+    let guide = min(pow(get_luma(rgb) / air.w, HZ_GUIDE_GAMMA), HZ_GUIDE_MAX);
+    let ab = sample_gf_tex(haze_texture, abs_coord).xy;
+    let veil = clamp(ab.x * guide + ab.y, 0.0, 1.0);
 
-    if (amount > 0.0) {
-        let safe_dark = max(refined_dark - 0.02, 0.0);
-        let mapped_haze = safe_dark / (safe_dark + 0.2);
-        let t = max(1.0 - amount * mapped_haze * DEHAZE_STRENGTH, 0.08);
-        var recovered = (color - atmospheric_light) / t + atmospheric_light;
-        let rec_luma = get_luma(max(recovered, vec3<f32>(0.0)));
-        let shadow_lift = smoothstep(0.1, 0.0, rec_luma) * (1.0 - t) * 0.15;
-        recovered += shadow_lift;
-        let haze_removed = 1.0 - t;
-        let sat_boost = haze_removed * 0.5;
-        let final_luma = get_luma(max(recovered, vec3<f32>(0.0)));
-        recovered = mix(vec3<f32>(final_luma), recovered, 1.0 + sat_boost);
-        return max(recovered, vec3<f32>(0.0));
-    } else {
-        var blurred_linear = blurred_color_input_space;
-        if (is_raw == 0u) {
-            blurred_linear = srgb_to_linear(blurred_color_input_space);
-        }
-        let regional_dark = min(blurred_linear.r, min(blurred_linear.g, blurred_linear.b));
-        let safe_dark = max(regional_dark - 0.02, 0.0);
-        let mapped_depth = safe_dark / (safe_dark + 0.2);
-        let depth_factor = mix(0.4, 1.0, mapped_depth);
-        return mix(color, atmospheric_light, abs(amount) * 0.7 * depth_factor);
+    if (amount < 0.0) {
+        let scene = textureLoad(airlight_texture, vec2<i32>(1, 0), 0);
+        let mist_tint = mix(vec3<f32>(1.0), scene.rgb / scene.w, 0.5);
+        let mist_light = mist_tint * sqrt(scene.w * air.w);
+        let density = min(-amount, 1.0) * HZ_MIST * mix(0.4, 1.0, veil);
+        return mix(color, mist_light, density);
     }
+
+    let detail = clamp(get_luma(rgb) / max(local_luma, 1.0e-6), 0.25, 4.0);
+    let local_rgb = rgb / detail;
+    let n = local_rgb / air.rgb;
+    let pixel_dark = min(n.r, min(n.g, n.b));
+    let strength = 1.0 - (1.0 - min(amount, 1.0)) * (1.0 - min(amount, 1.0));
+    let t_smooth = max(1.0 - strength * HZ_OMEGA * veil, HZ_T_MIN);
+    let t_floor = (1.0 - min(pixel_dark, 1.0)) / (1.0 - HZ_FLOOR * min(pixel_dark, 1.0));
+    let knee = max(HZ_KNEE - abs(t_smooth - t_floor), 0.0) / HZ_KNEE;
+    var t = min(max(t_smooth, t_floor) + knee * knee * HZ_KNEE * 0.25, 1.0);
+    let distance = max(abs(n.r - 1.0), max(abs(n.g - 1.0), abs(n.b - 1.0)));
+    let near_air = distance / HZ_TOLERANCE;
+    let bright = smoothstep(HZ_BRIGHT_LO, HZ_BRIGHT_HI, max(n.r, max(n.g, n.b)));
+    t = mix(t, 1.0, max(exp(-near_air * near_air), bright));
+    var recovered = max(local_rgb + (1.0 / t - 1.0) * min(local_rgb - air.rgb, vec3<f32>(0.0)), vec3<f32>(0.0));
+    let local_l = max(get_luma(local_rgb), 1.0e-6);
+    let recovered_l = max(get_luma(recovered), 1.0e-6);
+    let chroma_in = length(local_rgb / local_l - 1.0);
+    let chroma_out = recovered / recovered_l - 1.0;
+    let chroma_limit = HZ_CHROMA_MAX * chroma_in + HZ_CHROMA_FLOOR;
+    recovered = max(recovered_l * (1.0 + chroma_out * min(chroma_limit / max(length(chroma_out), 1.0e-6), 1.0)), vec3<f32>(0.0));
+    let contrast_gain = get_luma(local_rgb) / max(t * get_luma(recovered), 1.0e-6);
+    let detail_gain = clamp(contrast_gain, 1.0, HZ_DETAIL_MAX);
+    let detail_log = log2(detail);
+    let detail_out = exp2(detail_log + (detail_gain - 1.0) * shape_detail(detail_log, HZ_DETAIL_SIGMA));
+    let lift = pow(t_smooth, -HZ_LIFT);
+    let dehazed = recovered * detail_out;
+    let rolloff = min(get_luma(dehazed) / air.w, 1.0);
+    return dehazed * (lift / (1.0 + (lift - 1.0) * rolloff));
 }
 
 const NR_FLOOR: f32 = 0.002;
@@ -1889,7 +1905,7 @@ fn main(
     let detail_clarity = gf_i - (gf.x * gf_i + gf.y);
     var detail_structure = 0.0;
     if (t_structure != 0.0) {
-        let gf_s = sample_gf_tex(gf_dehaze_texture, absolute_coord).xy;
+        let gf_s = sample_gf_tex(gf_structure_texture, absolute_coord).xy;
         detail_structure = gf_i - (gf_s.x * gf_i + gf_s.y);
     }
 
@@ -1910,6 +1926,11 @@ fn main(
     let lc_log_gain = clarity_term * select(lc_gate, 1.0, clarity_total < 0.0)
                     + structure_term * select(lc_gate, 1.0, t_structure < 0.0);
     locally_contrasted_rgb *= exp2(lc_log_gain);
+
+    if (has_feature(F_DEHAZE)) {
+        let local_luma = exp2(gf.z * gf_i + gf.w);
+        locally_contrasted_rgb = apply_dehaze(locally_contrasted_rgb, absolute_coord, local_luma, t_dehaze);
+    }
 
     var processed_rgb = apply_linear_exposure(locally_contrasted_rgb, t_exposure);
 
@@ -1942,20 +1963,13 @@ fn main(
     }
 
     var composite_rgb_linear = processed_rgb;
-    if (has_feature(F_DEHAZE)) {
-        var dehaze_dark = 0.0;
-        if (t_dehaze > 0.0) {
-            dehaze_dark = refined_dark_channel(absolute_coord, is_raw);
-        }
-        composite_rgb_linear = apply_dehaze(processed_rgb, structure_blurred, dehaze_dark, is_raw, t_dehaze);
-    }
     composite_rgb_linear = apply_white_balance(composite_rgb_linear, t_wb_log_gains);
     composite_rgb_linear = apply_centre_tonal_and_color(composite_rgb_linear, adjustments.global.centre, vec2<f32>(adjustments.global.centre_x, adjustments.global.centre_y), absolute_coord_i);
     var tonal_log_detail = 0.0;
     var tonal_mid_detail = 0.0;
     if (t_shadows != 0.0 || t_blacks != 0.0 || t_highlights != 0.0 || t_whites != 0.0) {
         tonal_log_detail = (gf_i - (gf.z * gf_i + gf.w)) + lc_log_gain;
-        let gf_broad = sample_gf_tex(gf_dehaze_texture, absolute_coord).xy;
+        let gf_broad = sample_gf_tex(gf_structure_texture, absolute_coord).xy;
         tonal_mid_detail = (gf.z * gf_i + gf.w) - (gf_broad.x * gf_i + gf_broad.y);
     }
     composite_rgb_linear = apply_tonal_adjustments(composite_rgb_linear, tonal_log_detail, tonal_mid_detail, is_raw, t_contrast, t_shadows, t_whites, t_blacks);

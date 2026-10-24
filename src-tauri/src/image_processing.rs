@@ -1935,7 +1935,7 @@ const SCALES: AdjustmentScales = AdjustmentScales {
     luma_noise_reduction: 100.0,
     color_noise_reduction: 100.0,
     clarity: 125.0,
-    dehaze: 750.0,
+    dehaze: 100.0,
     structure: 125.0,
     centré: 250.0,
 
