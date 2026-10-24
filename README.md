@@ -546,10 +546,6 @@ Explore example edits processed entirely within RapidRAW. You can download the `
 
 ## Key Features
 
-<details>
-<summary><strong>Click to expand the full feature list</strong></summary>
-<br>
-
 <table width="100%">
   <tr>
     <td valign="top" width="50%">
@@ -609,8 +605,6 @@ Explore example edits processed entirely within RapidRAW. You can download the `
     </td>
   </tr>
 </table>
-
-</details>
 
 ## Supported Formats, Lenses & Languages
 
