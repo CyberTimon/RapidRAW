@@ -16,8 +16,9 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use image::codecs::jpeg::JpegEncoder;
 use image::{DynamicImage, GenericImageView};
+use quick_xml::escape::{escape, unescape};
 use rayon::prelude::*;
-use regex::regex;
+use regex::{NoExpand, regex};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sysinfo::Disks;
@@ -2571,7 +2572,11 @@ pub async fn copy_files(
                 if let Some(file_name) = file_to_copy.file_name() {
                     let dest_file_path = dest_path.join(file_name);
 
-                    if dest_file_path.exists() {
+                    if dest_file_path.exists()
+                        || operations_to_perform
+                            .iter()
+                            .any(|(_, dest)| *dest == dest_file_path)
+                    {
                         return Err(format!(
                             "Copy aborted: File already exists at destination: {}",
                             dest_file_path.display()
@@ -2634,7 +2639,11 @@ pub async fn move_files(
             if let Some(file_name) = file_to_move.file_name() {
                 let dest_file_path = dest_path.join(file_name);
 
-                if dest_file_path.exists() {
+                if dest_file_path.exists()
+                    || operations_to_perform
+                        .iter()
+                        .any(|(_, dest, _)| *dest == dest_file_path)
+                {
                     return Err(format!(
                         "Move aborted: File already exists at destination: {}",
                         dest_file_path.display()
@@ -3816,28 +3825,30 @@ pub fn delete_files_with_associated(
         return Ok(());
     }
 
-    let mut stems_to_delete = HashSet::new();
-    let mut parent_dirs = HashSet::new();
+    let mut stems_by_dir: HashMap<PathBuf, HashSet<String>> = HashMap::new();
     let mut deletions = HashSet::new();
 
     for path_str in &paths {
         deletions.insert(path_str.clone());
         let (source_path, _) = parse_virtual_path(path_str);
-        if let Some(stem) = source_path.file_stem().and_then(|s| s.to_str()) {
-            stems_to_delete.insert(stem.to_string());
-        }
-        if let Some(parent) = source_path.parent() {
-            parent_dirs.insert(parent.to_path_buf());
+        if let (Some(stem), Some(parent)) = (
+            source_path.file_stem().and_then(|s| s.to_str()),
+            source_path.parent(),
+        ) {
+            stems_by_dir
+                .entry(parent.to_path_buf())
+                .or_default()
+                .insert(stem.to_string());
         }
     }
 
-    if stems_to_delete.is_empty() {
+    if stems_by_dir.is_empty() {
         return Ok(());
     }
 
     let mut files_to_trash = HashSet::new();
 
-    for parent_dir in parent_dirs {
+    for (parent_dir, stems_to_delete) in stems_by_dir {
         if let Ok(entries) = fs::read_dir(parent_dir) {
             for entry in entries.filter_map(Result::ok) {
                 let entry_path = entry.path();
@@ -4122,6 +4133,9 @@ pub async fn import_files(
                                 trash_error
                             );
                             fs::remove_file(&source_sidecar).map_err(|e| e.to_string())?;
+                        }
+                        if source_rrexif.exists() {
+                            let _ = fs::remove_file(&source_rrexif);
                         }
                     }
 
@@ -4502,12 +4516,14 @@ pub fn sync_metadata_from_xmp(source_path: &Path, metadata: &mut ImageMetadata) 
         let had_no_tags = metadata.tags.is_none();
 
         for tag in xmp_tags {
+            let tag = unescape(&tag).map_or(tag.clone(), Cow::into_owned);
             if !current_tags.contains(&tag) {
                 current_tags.push(tag);
             }
         }
 
         if let Some(label) = xmp_label {
+            let label = unescape(&label).map_or(label.clone(), Cow::into_owned);
             let label_tag = format!("{}{}", COLOR_TAG_PREFIX, label.to_lowercase());
             if !current_tags.contains(&label_tag) {
                 current_tags.retain(|t| !t.starts_with(COLOR_TAG_PREFIX));
@@ -4583,16 +4599,20 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
             .collect();
 
         if let Some(lbl) = label {
+            let lbl = escape(lbl.as_str());
             let re_label_attr = regex!(r#"xmp:Label\s*=\s*"[^"]*""#);
             let re_label_tag = regex!(r#"<xmp:Label\s*>[^<]*</xmp:Label>"#);
 
             if re_label_attr.is_match(&content) {
                 content = re_label_attr
-                    .replace(&content, format!("xmp:Label=\"{}\"", lbl))
+                    .replace(&content, NoExpand(&format!("xmp:Label=\"{}\"", lbl)))
                     .to_string();
             } else if re_label_tag.is_match(&content) {
                 content = re_label_tag
-                    .replace(&content, format!("<xmp:Label>{}</xmp:Label>", lbl))
+                    .replace(
+                        &content,
+                        NoExpand(&format!("<xmp:Label>{}</xmp:Label>", lbl)),
+                    )
                     .to_string();
             } else if let Some(last_index) = content.rfind("</rdf:Description>") {
                 let (start, end) = content.split_at(last_index);
@@ -4609,10 +4629,11 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
         if normal_tags.is_empty() {
             content = re_subject.replace_all(&content, "").to_string();
         } else {
-            let bag = xmp_subject_bag(&normal_tags);
+            let escaped: Vec<Cow<str>> = normal_tags.iter().map(|t| escape(t.as_str())).collect();
+            let bag = xmp_subject_bag(&escaped);
 
             if re_subject.is_match(&content) {
-                content = re_subject.replace(&content, bag).to_string();
+                content = re_subject.replace(&content, NoExpand(&bag)).to_string();
             } else if let Some(last_index) = content.rfind("</rdf:Description>") {
                 let (start, end) = content.split_at(last_index);
                 content = format!("{} {}\n  {}", start, bag, end);

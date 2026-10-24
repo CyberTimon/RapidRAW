@@ -381,7 +381,11 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
           }
         } else if (path && expandParents) {
           const allRoots = [...(rootPaths || []), ...(pinnedFolders || [])].filter(Boolean) as string[];
-          const relevantRoot = allRoots.find((r) => path.startsWith(r));
+          const isInsideRoot = (r: string) =>
+            path === r || (path.startsWith(r) && (/[\\/]$/.test(r) || ['/', '\\'].includes(path[r.length])));
+          const relevantRoot = allRoots
+            .filter(isInsideRoot)
+            .reduce<string | undefined>((best, r) => (!best || r.length > best.length ? r : best), undefined);
 
           if (relevantRoot) {
             const separator = path.includes('/') ? '/' : '\\';

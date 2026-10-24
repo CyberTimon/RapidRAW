@@ -87,17 +87,25 @@ const snapshotMetadata = (paths: string[]) => {
 
 const restoreMetadata = (snapshot: Map<string, MetadataSnapshot>) => {
   const current = snapshotMetadata([...snapshot.keys()]);
-  const groupChanged = <K extends keyof MetadataSnapshot>(field: K) => {
+  const groupChanged = <K extends keyof MetadataSnapshot>(
+    field: K,
+    force?: (path: string, before: MetadataSnapshot) => boolean,
+  ) => {
     const groups = new Map<MetadataSnapshot[K], string[]>();
     snapshot.forEach((before, path) => {
-      if (current.get(path)?.[field] === before[field]) return;
+      if (current.get(path)?.[field] === before[field] && !force?.(path, before)) return;
       groups.set(before[field], [...(groups.get(before[field]) ?? []), path]);
     });
     return groups;
   };
 
   const ratingGroups = groupChanged('rating');
-  const flagGroups = groupChanged('flag');
+  const restoredRatingPaths = new Set([...ratingGroups.values()].flat());
+  // Restoring a rating > 0 clears a reject flag in the backend, so re-send the reject afterwards.
+  const flagGroups = groupChanged(
+    'flag',
+    (path, before) => before.flag === ImageFlag.Reject && before.rating > 0 && restoredRatingPaths.has(path),
+  );
   const colorGroups = groupChanged('color');
 
   useLibraryStore.getState().setLibrary((state) => {
