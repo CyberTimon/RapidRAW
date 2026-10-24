@@ -8,7 +8,7 @@ use ort::session::Session;
 use ort::value::Tensor;
 use rayon::prelude::*;
 
-use crate::ai_processing::fast_guided_filter;
+use crate::ai_processing::fast_color_guided_filter;
 
 const LANDMARK_INPUT_SIZE: usize = 256;
 const LANDMARK_COUNT: usize = 478;
@@ -26,7 +26,10 @@ const SEGMENTER_OUTPUTS: [usize; 3] = [1, 3, 2];
 const BODY_SPAN: f32 = 6.0;
 const BODY_OFFSET: f32 = 2.0;
 const BODY_WORK_SIZE: f32 = 1024.0;
-const BODY_REFINE_RADIUS: usize = 3;
+const BODY_REFINE_DIVISOR: f32 = 8.0;
+const BODY_REFINE_RADIUS: [f32; 2] = [2.0, 16.0];
+const SEGMENT_LOW: f32 = 0.3;
+const SEGMENT_HIGH: f32 = 0.7;
 const CROP_MARGIN: f32 = 0.6;
 const CROP_MARGIN_BOTTOM: f32 = 1.2;
 const WORK_SIZE: f32 = 768.0;
@@ -508,14 +511,21 @@ fn from_gray(image: &GrayImage) -> Vec<f32> {
     image.as_raw().iter().map(|&v| v as f32 / 255.0).collect()
 }
 
-fn refine(guide: &GrayImage, mask: &[f32], radius: usize) -> Vec<f32> {
+fn refine(guide: &RgbImage, mask: &[f32], radius: usize) -> Vec<f32> {
     let (width, height) = guide.dimensions();
-    from_gray(&fast_guided_filter(
+    from_gray(&fast_color_guided_filter(
         guide,
         &to_gray(mask, width as usize, height as usize),
         radius.max(1),
         REFINE_EPS,
     ))
+}
+
+fn sharpen(probabilities: &[f32]) -> Vec<f32> {
+    probabilities
+        .iter()
+        .map(|&p| (p - SEGMENT_LOW) / (SEGMENT_HIGH - SEGMENT_LOW))
+        .collect()
 }
 
 fn maximum(a: &mut [f32], b: &[f32]) {
@@ -596,11 +606,10 @@ fn face_parts_mask(
     let h = ((crop_h as f32 * scale).round() as usize).max(1);
 
     let crop = image.crop_imm(x0, y0, crop_w, crop_h);
-    let guide_full = crop.to_luma8();
+    let guide_full = crop.to_rgb8();
     let work = crop.resize_exact(w as u32, h as u32, imageops::FilterType::Triangle);
     let work_rgb = work.to_rgb8();
-    let guide = work.to_luma8();
-    let luma = from_gray(&guide);
+    let luma = from_gray(&work.to_luma8());
 
     let points: Vec<[f32; 2]> = face
         .landmarks
@@ -641,35 +650,43 @@ fn face_parts_mask(
     for &part in parts {
         let mask = match part {
             FacePart::EyeWhites => {
-                let refined = refine(&guide, &eyes, fine_radius);
-                let iris = refine(&guide, &iris, fine_radius);
+                let refined = refine(&work_rgb, &eyes, fine_radius);
+                let iris = refine(&work_rgb, &iris, fine_radius);
                 refined
                     .iter()
                     .zip(&iris)
                     .map(|(&e, &i)| (e - i).max(0.0))
                     .collect()
             }
-            FacePart::Iris => refine(&guide, &iris, fine_radius),
-            FacePart::Eyebrows => refine(&guide, &brows, radius),
-            FacePart::Lips => refine(&guide, &lips, radius),
+            FacePart::Iris => refine(&work_rgb, &iris, fine_radius),
+            FacePart::Eyebrows => refine(&work_rgb, &brows, radius),
+            FacePart::Lips => refine(&work_rgb, &lips, radius),
             FacePart::Teeth => {
                 let inner = polygon_mask(w, h, &scaled_polygon(&select(&LIPS_INNER), 0.95));
                 let teeth = teeth_mask(&work_rgb, &luma, &lips, &inner);
-                refine(&guide, &teeth, fine_radius)
+                refine(&work_rgb, &teeth, fine_radius)
                     .iter()
                     .zip(&inner)
                     .map(|(&t, &m)| t * m)
                     .collect()
             }
             FacePart::Nose => refine(
-                &guide,
+                &work_rgb,
                 &polygon_mask(w, h, &convex_hull(&select(&NOSE))),
                 radius * 2,
             ),
             FacePart::BodySkin => continue,
             FacePart::Hair => refine(
-                &guide,
-                &segment_probabilities(&face.segment_frame, &face.hair, w, h, x0, y0, scale),
+                &work_rgb,
+                &sharpen(&segment_probabilities(
+                    &face.segment_frame,
+                    &face.hair,
+                    w,
+                    h,
+                    x0,
+                    y0,
+                    scale,
+                )),
                 radius * 2,
             ),
             FacePart::FaceSkin => {
@@ -687,11 +704,15 @@ fn face_parts_mask(
                         .zip(&oval)
                         .map(|(&s, &o)| s * o)
                         .collect();
-                let features = pair(pair(brows.clone(), &eyes), &lips_outer);
-                refine(&guide, &skin, radius * 2)
+                let features = refine(
+                    &work_rgb,
+                    &pair(pair(brows.clone(), &eyes), &lips_outer),
+                    fine_radius,
+                );
+                refine(&work_rgb, &sharpen(&skin), radius * 2)
                     .iter()
                     .zip(&features)
-                    .map(|(&s, &f)| (s - f).max(0.0))
+                    .map(|(&s, &f)| s * (1.0 - f))
                     .collect()
             }
         };
@@ -716,7 +737,7 @@ fn face_parts_mask(
     if (w as u32, h as u32) == (crop_w, crop_h) {
         combined
     } else {
-        fast_guided_filter(&guide_full, &combined, fine_radius, REFINE_EPS)
+        fast_color_guided_filter(&guide_full, &combined, fine_radius, REFINE_EPS)
     }
 }
 
@@ -766,10 +787,17 @@ pub fn compose_face_mask(
                 &segment_probabilities(frame, grid, w, h, 0, 0, scale),
             );
         }
-        mask = fast_guided_filter(
-            &image.to_luma8(),
-            &to_gray(&body, w, h),
-            BODY_REFINE_RADIUS,
+        let smallest_face = analysis
+            .faces
+            .iter()
+            .map(|face| face.size)
+            .fold(f32::MAX, f32::min);
+        let radius = (smallest_face * scale / BODY_REFINE_DIVISOR)
+            .clamp(BODY_REFINE_RADIUS[0], BODY_REFINE_RADIUS[1]);
+        mask = fast_color_guided_filter(
+            &image.to_rgb8(),
+            &to_gray(&sharpen(&body), w, h),
+            radius.round() as usize,
             REFINE_EPS,
         );
     }
