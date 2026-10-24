@@ -100,7 +100,7 @@ export const createSubMask = (
     case Mask.AiFace:
       return { ...common, parameters: { maskDataBase64: null, parts: ['faceSkin'], grow: 0, feather: 0 } };
     case Mask.QuickEraser:
-      return { ...common, parameters: { maskDataBase64: null, grow: 50, feather: 50 } };
+      return { ...common, parameters: { maskDataBase64: null, grow: 150, feather: 75 } };
     default:
       return { ...common, parameters: {} };
   }
