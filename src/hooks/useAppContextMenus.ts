@@ -229,8 +229,17 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
       event.preventDefault();
       event.stopPropagation();
 
-      const { selectedImage, history, historyIndex, undo, redo, resetHistory, copiedAdjustments, setEditor } =
-        useEditorStore.getState();
+      const {
+        selectedImage,
+        adjustments,
+        history,
+        historyIndex,
+        undo,
+        redo,
+        resetHistory,
+        copiedAdjustments,
+        setEditor,
+      } = useEditorStore.getState();
       const { appSettings } = useSettingsStore.getState();
       const { setPanel, setUI } = useUIStore.getState();
 
@@ -284,19 +293,28 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
               disabled: !selectedImage?.isReady,
             },
             {
-              label: t('contextMenus.editor.denoise'),
+              label: adjustments.aiDenoiseEnabled
+                ? t('contextMenus.editor.removeDenoise')
+                : t('contextMenus.editor.denoise'),
               icon: Grip,
               onClick: () =>
                 handleEnableAdjustments(
                   [selectedImage.path],
-                  getAiDenoiseEnablePatch(useSettingsStore.getState().appSettings?.aiProvider),
+                  adjustments.aiDenoiseEnabled
+                    ? { aiDenoiseEnabled: false }
+                    : getAiDenoiseEnablePatch(useSettingsStore.getState().appSettings?.aiProvider),
                 ),
               disabled: !selectedImage?.isReady,
             },
             {
-              label: t('contextMenus.editor.convertNegative'),
+              label: adjustments.negativeConversionEnabled
+                ? t('contextMenus.editor.removeNegativeConversion')
+                : t('contextMenus.editor.convertNegative'),
               icon: Film,
-              onClick: () => handleEnableAdjustments([selectedImage.path], { negativeConversionEnabled: true }),
+              onClick: () =>
+                handleEnableAdjustments([selectedImage.path], {
+                  negativeConversionEnabled: !adjustments.negativeConversionEnabled,
+                }),
               disabled: !selectedImage?.isReady,
             },
             {
@@ -496,7 +514,6 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
       const cullLabel = t('contextMenus.thumbnail.cullImage', { count: selectionCount });
       const collageLabel = t('contextMenus.thumbnail.collage', { count: selectionCount });
       const stitchLabel = t('contextMenus.editor.stitchPanorama');
-      const conversionLabel = t('contextMenus.thumbnail.convertNegative', { count: selectionCount });
       const denoiseLabel = t('contextMenus.thumbnail.denoise', { count: selectionCount });
       const mergeLabel = t('contextMenus.editor.mergeHdr');
 
@@ -647,17 +664,39 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
               label: denoiseLabel,
               icon: Grip,
               disabled: finalSelection.length === 0,
-              onClick: () =>
-                handleEnableAdjustments(
-                  finalSelection,
-                  getAiDenoiseEnablePatch(useSettingsStore.getState().appSettings?.aiProvider),
-                ),
+              submenu: [
+                {
+                  label: t('contextMenus.thumbnail.enable'),
+                  icon: Check,
+                  onClick: () =>
+                    handleEnableAdjustments(
+                      finalSelection,
+                      getAiDenoiseEnablePatch(useSettingsStore.getState().appSettings?.aiProvider),
+                    ),
+                },
+                {
+                  label: t('contextMenus.thumbnail.remove'),
+                  icon: X,
+                  onClick: () => handleEnableAdjustments(finalSelection, { aiDenoiseEnabled: false }),
+                },
+              ],
             },
             {
-              label: conversionLabel,
+              label: t('contextMenus.editor.convertNegative'),
               icon: Film,
               disabled: selectionCount === 0,
-              onClick: () => handleEnableAdjustments(finalSelection, { negativeConversionEnabled: true }),
+              submenu: [
+                {
+                  label: t('contextMenus.thumbnail.enable'),
+                  icon: Check,
+                  onClick: () => handleEnableAdjustments(finalSelection, { negativeConversionEnabled: true }),
+                },
+                {
+                  label: t('contextMenus.thumbnail.remove'),
+                  icon: X,
+                  onClick: () => handleEnableAdjustments(finalSelection, { negativeConversionEnabled: false }),
+                },
+              ],
             },
             {
               icon: LayoutTemplate,

@@ -260,8 +260,7 @@ function CullingPreview({
         const metadata: any = await invoke(Invokes.LoadMetadata, { path: image.path });
         if (!active) return;
 
-        const adjustments =
-          metadata && metadata.adjustments && !metadata.adjustments.is_null ? metadata.adjustments : {};
+        const adjustments = metadata?.adjustments ?? null;
 
         const bytes = await invoke<Uint8Array>(Invokes.GeneratePreviewForPath, {
           path: image.path,
@@ -285,7 +284,7 @@ function CullingPreview({
           try {
             const fallbackBytes = await invoke<Uint8Array>(Invokes.GeneratePreviewForPath, {
               path: image.path,
-              jsAdjustments: {},
+              jsAdjustments: null,
             });
             if (!active) return;
             const blob = new Blob([new Uint8Array(fallbackBytes)], { type: 'image/jpeg' });
