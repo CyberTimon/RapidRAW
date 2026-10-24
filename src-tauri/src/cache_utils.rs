@@ -50,28 +50,25 @@ fn hash_ai_patches(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) 
             is_visible.hash(hasher);
 
             let mask_from_sub_masks = if let Some(patch_data) = patch.get("patchData") {
-                let color_len = patch_data
+                let color = patch_data
                     .get("color")
                     .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .len();
-                color_len.hash(hasher);
+                    .unwrap_or("");
+                color.hash(hasher);
 
-                let mask_len = patch_data
+                let mask = patch_data
                     .get("mask")
                     .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .len();
-                mask_len.hash(hasher);
+                    .unwrap_or("");
+                mask.hash(hasher);
 
-                color_len > 0 && mask_len == 0
+                !color.is_empty() && mask.is_empty()
             } else {
-                let data_len = patch
+                let data = patch
                     .get("patchDataBase64")
                     .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .len();
-                data_len.hash(hasher);
+                    .unwrap_or("");
+                data.hash(hasher);
                 true
             };
 
@@ -297,78 +294,7 @@ pub fn calculate_transform_hash(adjustments: &serde_json::Value) -> u64 {
     let flip_v = adjustments["flipVertical"].as_bool().unwrap_or(false);
     flip_v.hash(&mut hasher);
 
-    let blur_enabled =
-        crate::image_processing::is_effect_enabled(adjustments, "lensBlur", "lensBlurEnabled");
-    blur_enabled.hash(&mut hasher);
-    if blur_enabled {
-        if let Some(val) = adjustments.get("lensBlurAmount") {
-            val.to_string().hash(&mut hasher);
-        }
-        if let Some(val) = adjustments.get("lensBlurDiffusion") {
-            val.to_string().hash(&mut hasher);
-        }
-        if let Some(val) = adjustments.get("lensBlurShape") {
-            val.as_str().unwrap_or("").hash(&mut hasher);
-        }
-        if let Some(val) = adjustments.get("lensBlurMinDepth") {
-            val.to_string().hash(&mut hasher);
-        }
-        if let Some(val) = adjustments.get("lensBlurMaxDepth") {
-            val.to_string().hash(&mut hasher);
-        }
-        if let Some(val) = adjustments.get("lensBlurMinFade") {
-            val.to_string().hash(&mut hasher);
-        }
-        if let Some(val) = adjustments.get("lensBlurMaxFade") {
-            val.to_string().hash(&mut hasher);
-        }
-        if let Some(val) = adjustments.get("lensBlurDepthMap") {
-            val.as_str().unwrap_or("").len().hash(&mut hasher);
-        }
-    }
-
-    let relight_enabled =
-        crate::image_processing::is_effect_enabled(adjustments, "relight", "relightEnabled");
-    relight_enabled.hash(&mut hasher);
-    if relight_enabled {
-        for key in [
-            "relightLights",
-            "relightAmbient",
-            "relightSoftness",
-            "relightShine",
-            "relightShadows",
-            "relightShadowSoftness",
-        ] {
-            if let Some(val) = adjustments.get(key) {
-                val.to_string().hash(&mut hasher);
-            }
-        }
-        if let Some(val) = adjustments.get("relightNormalMap") {
-            val.as_str().unwrap_or("").len().hash(&mut hasher);
-        }
-    }
-
-    let fog_enabled = crate::image_processing::is_effect_enabled(adjustments, "fog", "fogEnabled");
-    fog_enabled.hash(&mut hasher);
-    if fog_enabled {
-        for key in [
-            "fogAmount",
-            "fogStart",
-            "fogDensity",
-            "fogHeight",
-            "fogVariation",
-            "fogGlow",
-            "fogTemperature",
-            "fogTint",
-        ] {
-            if let Some(val) = adjustments.get(key) {
-                val.to_string().hash(&mut hasher);
-            }
-        }
-        if let Some(val) = adjustments.get("fogDepthMap") {
-            val.as_str().unwrap_or("").len().hash(&mut hasher);
-        }
-    }
+    calculate_effects_hash(adjustments).hash(&mut hasher);
 
     if let Some(crop_val) = adjustments.get("crop")
         && !crop_val.is_null()
