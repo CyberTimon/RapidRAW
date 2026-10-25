@@ -21,7 +21,7 @@ export const transferFiles = (kind: JobKind.Copy | JobKind.Move, sourcePaths: st
 export function useFileOperations(
   refreshImageList: () => Promise<void>,
   refreshAllFolderTrees: () => Promise<void>,
-  handleImageSelect: (path: string) => void,
+  handleImageSelect: (path: string, openInEditor?: boolean) => void,
   handleBackToLibrary: () => void,
   sortedImageList: any[],
 ) {
@@ -45,6 +45,8 @@ export function useFileOperations(
       // Determine the active path based on the current view
       const activePath = selectedImage && activeView === 'editor' ? selectedImage.path : libraryActivePath;
       let nextImagePath: string | null = null;
+      // Deleting an image also deletes its virtual copies.
+      const isDeleted = (path: string) => pathsToDelete.includes(path) || pathsToDelete.includes(path.split('?vc=')[0]);
 
       if (activePath) {
         const physicalPath = activePath.split('?vc=')[0];
@@ -53,9 +55,7 @@ export function useFileOperations(
         if (isActiveImageDeleted) {
           const currentIndex = sortedImageList.findIndex((img) => img.path === activePath);
           if (currentIndex !== -1) {
-            const nextCandidate = sortedImageList
-              .slice(currentIndex + 1)
-              .find((img) => !pathsToDelete.includes(img.path));
+            const nextCandidate = sortedImageList.slice(currentIndex + 1).find((img) => !isDeleted(img.path));
 
             if (nextCandidate) {
               nextImagePath = nextCandidate.path;
@@ -63,7 +63,7 @@ export function useFileOperations(
               const prevCandidate = sortedImageList
                 .slice(0, currentIndex)
                 .reverse()
-                .find((img) => !pathsToDelete.includes(img.path));
+                .find((img) => !isDeleted(img.path));
 
               if (prevCandidate) {
                 nextImagePath = prevCandidate.path;
@@ -221,25 +221,26 @@ export function useFileOperations(
           const separator = oldPath.includes('/') ? '/' : '\\';
           const newPath = parentDir ? `${parentDir}${separator}${trimmedNewName}` : trimmedNewName;
 
+          const isInRenamedFolder = (p: string) =>
+            p === oldPath || p.startsWith(`${oldPath}/`) || p.startsWith(`${oldPath}\\`);
+          const renamePath = (p: string) => (isInRenamedFolder(p) ? newPath + p.slice(oldPath.length) : p);
+
           const newAppSettings = { ...appSettings } as any;
           let settingsChanged = false;
 
-          if (rootPaths.includes(oldPath)) {
-            const newRoots = rootPaths.map((r) => (r === oldPath ? newPath : r));
+          if (rootPaths.some(isInRenamedFolder)) {
+            const newRoots = rootPaths.map(renamePath);
             setLibrary({ rootPaths: newRoots });
             newAppSettings.rootFolders = newRoots;
             settingsChanged = true;
           }
-          if (currentFolderPath?.startsWith(oldPath)) {
-            const newCurrentPath = currentFolderPath.replace(oldPath, newPath);
-            setLibrary({ currentFolderPath: newCurrentPath });
+          if (currentFolderPath && isInRenamedFolder(currentFolderPath)) {
+            setLibrary({ currentFolderPath: renamePath(currentFolderPath) });
           }
 
           const currentPins = appSettings?.pinnedFolders || [];
-          if (currentPins.includes(oldPath)) {
-            const newPins = currentPins
-              .map((p: string) => (p === oldPath ? newPath : p))
-              .sort((a: string, b: string) => a.localeCompare(b));
+          if (currentPins.some(isInRenamedFolder)) {
+            const newPins = currentPins.map(renamePath).sort((a: string, b: string) => a.localeCompare(b));
             newAppSettings.pinnedFolders = newPins;
             settingsChanged = true;
           }
@@ -259,7 +260,7 @@ export function useFileOperations(
 
   const handleSaveRename = useCallback(
     async (nameTemplate: string) => {
-      const { renameTargetPaths, setUI } = useUIStore.getState();
+      const { renameTargetPaths, activeView, setUI } = useUIStore.getState();
       const { selectedImage } = useEditorStore.getState();
       const { libraryActivePath, setLibrary } = useLibraryStore.getState();
 
@@ -275,8 +276,8 @@ export function useFileOperations(
           if (selectedImage && renameTargetPaths.includes(selectedImage.path)) {
             const oldPathIndex = renameTargetPaths.indexOf(selectedImage.path);
             if (newPaths[oldPathIndex]) {
-              handleImageSelect(newPaths[oldPathIndex]);
-            } else {
+              handleImageSelect(newPaths[oldPathIndex], activeView === 'editor');
+            } else if (activeView === 'editor') {
               handleBackToLibrary();
             }
           }
