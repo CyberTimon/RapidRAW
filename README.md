@@ -519,7 +519,7 @@ Explore example edits processed entirely within RapidRAW. You can download the `
 
 <table width="100%">
   <tr>
-    <td width="25%" valign="top" align="center">
+    <td width="25%" valign="middle" align="center">
       <br>
       <img src="https://raw.githubusercontent.com/CyberTimon/RapidRAW/assets/.github/assets/portrait.jpg" alt="Timon Käch" width="100%" style="border-radius: 8px;">
       <br><br>
@@ -538,6 +538,9 @@ Explore example edits processed entirely within RapidRAW. You can download the `
       </p>
       <p>
         The foundation is built on Rust for its safety and performance, and Tauri for its ability to create lightweight, cross-platform desktop apps with a web frontend. The entire image processing pipeline is offloaded to the GPU via WGPU and a custom WGSL shader, ensuring that even on complex edits with multiple masks, the UI remains fluid.
+      </p>
+      <p>
+        Curious how it works under the hood? The <strong><a href="https://www.getrapidraw.com/docs/technical/pipeline">Technical Reference</a></strong> explains the whole pipeline and the math behind it, from RAW decoding, demosaicing and highlight reconstruction to every slider, the AI models and the depth effects, with formulas and example images.
       </p>
       <br>
     </td>
@@ -1032,6 +1035,8 @@ See [#306](https://github.com/CyberTimon/RapidRAW/issues/306) for more informati
 ## Contributing
 
 I’m really grateful for any contributions you make to RapidRAW! Whether you’re reporting a bug, suggesting a new feature, or submitting a pull request - your input helps shape the project and makes it better for everyone. Don’t hesitate to open an issue or share your ideas.
+
+Before diving into the code, the **[Technical Reference](https://www.getrapidraw.com/docs/technical/pipeline)** is a good starting point. It describes every stage of the processing pipeline, which source files implement it, and how the individual algorithms work.
 
 ### Image format issues
 
