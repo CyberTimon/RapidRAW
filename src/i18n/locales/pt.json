@@ -1126,7 +1126,8 @@
       "transferred": "Adicionadas ao Immich: {{number}}",
       "transferring": "A adicionar ao Immich… {{current}}/{{total}}",
       "trashFailed": "Não foi possível mover para o lixo do Immich: {{error}}",
-      "uploaded": "Enviadas para o Immich: {{number}}"
+      "uploaded": "Enviadas para o Immich: {{number}}",
+      "uploadKeptCopy": "{{fileName}} já está no Immich com outras edições. Essas são mantidas e as suas edições ficam como cópia virtual."
     }
   },
   "library": {

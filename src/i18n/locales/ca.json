@@ -1126,7 +1126,8 @@
       "transferred": "Afegides a Immich: {{number}}",
       "transferring": "S'està afegint a Immich… {{current}}/{{total}}",
       "trashFailed": "No s'ha pogut moure a la paperera d'Immich: {{error}}",
-      "uploaded": "Pujades a Immich: {{number}}"
+      "uploaded": "Pujades a Immich: {{number}}",
+      "uploadKeptCopy": "{{fileName}} ja és a Immich amb altres edicions. Aquestes es mantenen i les teves es desen com a còpia virtual."
     }
   },
   "library": {

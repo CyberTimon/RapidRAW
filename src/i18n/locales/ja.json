@@ -1097,7 +1097,8 @@
       "transferred": "Immich に追加しました: {{number}}",
       "transferring": "Immich に追加中… {{current}}/{{total}}",
       "trashFailed": "Immich のゴミ箱に移動できませんでした: {{error}}",
-      "uploaded": "Immich にアップロードしました: {{number}}"
+      "uploaded": "Immich にアップロードしました: {{number}}",
+      "uploadKeptCopy": "{{fileName}} は別の編集内容で既に Immich にあります。そちらはそのまま残り、あなたの編集は仮想コピーとして保存されます。"
     }
   },
   "library": {

@@ -1126,7 +1126,8 @@
       "transferred": "Aggiunte a Immich: {{number}}",
       "transferring": "Aggiunta a Immich… {{current}}/{{total}}",
       "trashFailed": "Impossibile spostare nel cestino di Immich: {{error}}",
-      "uploaded": "Caricate su Immich: {{number}}"
+      "uploaded": "Caricate su Immich: {{number}}",
+      "uploadKeptCopy": "{{fileName}} è già in Immich con altre modifiche. Quelle restano e le tue vengono conservate come copia virtuale."
     }
   },
   "library": {

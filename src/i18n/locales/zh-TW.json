@@ -1097,7 +1097,8 @@
       "transferred": "已新增到 Immich：{{number}}",
       "transferring": "正在新增到 Immich… {{current}}/{{total}}",
       "trashFailed": "無法移至 Immich 垃圾桶：{{error}}",
-      "uploaded": "已上傳到 Immich：{{number}}"
+      "uploaded": "已上傳到 Immich：{{number}}",
+      "uploadKeptCopy": "{{fileName}} 已在 Immich 中，且有其他編輯。那些編輯會保留，你的編輯將作為虛擬副本保存。"
     }
   },
   "library": {

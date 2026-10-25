@@ -226,22 +226,15 @@ async fn upload_original(
     source: &Path,
 ) -> Result<String, String> {
     let modified = file_time(source);
-    let id = session
-        .client
-        .upload(source, &modified, &modified)
-        .await?
-        .id;
+    let uploaded = session.client.upload(source, &modified, &modified).await?;
+    let id = uploaded.id;
 
     let file_name = source.file_name().ok_or("Invalid file name")?;
     let target = session.cache_dir.join(&id).join(file_name);
     std::fs::create_dir_all(target.parent().unwrap()).map_err(|e| e.to_string())?;
-    std::fs::copy(source, &target).map_err(|e| format!("Cannot copy {}: {e}", source.display()))?;
-    let sidecar = crate::exif_processing::get_primary_sidecar_path(source);
-    if sidecar.exists() {
-        let _ = std::fs::copy(
-            &sidecar,
-            crate::exif_processing::get_primary_sidecar_path(&target),
-        );
+    if !target.exists() {
+        std::fs::copy(source, &target)
+            .map_err(|e| format!("Cannot copy {}: {e}", source.display()))?;
     }
     registry::insert(
         target.clone(),
@@ -251,7 +244,15 @@ async fn upload_original(
             album_id: None,
         },
     );
-    sync::push(app_handle, &session.client, &id, &target).await?;
+    sync::adopt_upload(
+        app_handle,
+        &session.client,
+        &id,
+        &target,
+        &crate::exif_processing::get_primary_sidecar_path(source),
+        uploaded.status == "duplicate",
+    )
+    .await?;
     Ok(id)
 }
 

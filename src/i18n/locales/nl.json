@@ -1100,7 +1100,8 @@
       "transferred": "Toegevoegd aan Immich: {{number}}",
       "transferring": "Toevoegen aan Immich… {{current}}/{{total}}",
       "trashFailed": "Verplaatsen naar de prullenbak van Immich mislukt: {{error}}",
-      "uploaded": "Geüpload naar Immich: {{number}}"
+      "uploaded": "Geüpload naar Immich: {{number}}",
+      "uploadKeptCopy": "{{fileName}} staat al in Immich met andere bewerkingen. Die blijven, en jouw bewerkingen worden als virtuele kopie bewaard."
     }
   },
   "library": {

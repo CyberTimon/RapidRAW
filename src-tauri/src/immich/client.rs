@@ -55,6 +55,8 @@ pub struct TimelineMonth {
 pub struct UploadResult {
     #[serde(deserialize_with = "asset_id")]
     pub id: String,
+    #[serde(default)]
+    pub status: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]

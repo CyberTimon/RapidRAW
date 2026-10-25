@@ -1100,7 +1100,8 @@
       "transferred": "Added to Immich: {{number}}",
       "transferring": "Adding to Immich… {{current}}/{{total}}",
       "trashFailed": "Could not move to Immich's trash: {{error}}",
-      "uploaded": "Uploaded to Immich: {{number}}"
+      "uploaded": "Uploaded to Immich: {{number}}",
+      "uploadKeptCopy": "{{fileName}} is already in Immich with other edits. Those stay, and your edits are kept as a virtual copy."
     }
   },
   "library": {

@@ -1152,7 +1152,8 @@
       "transferred": "Dodano do Immich: {{number}}",
       "transferring": "Dodawanie do Immich… {{current}}/{{total}}",
       "trashFailed": "Nie udało się przenieść do kosza Immich: {{error}}",
-      "uploaded": "Przesłano do Immich: {{number}}"
+      "uploaded": "Przesłano do Immich: {{number}}",
+      "uploadKeptCopy": "{{fileName}} jest już w Immich z innymi edycjami. Pozostają one bez zmian, a Twoje edycje są zachowane jako kopia wirtualna."
     }
   },
   "library": {

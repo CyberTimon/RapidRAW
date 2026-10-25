@@ -1152,7 +1152,8 @@
       "transferred": "Přidáno do Immiche: {{number}}",
       "transferring": "Přidávání do Immiche… {{current}}/{{total}}",
       "trashFailed": "Přesun do koše Immiche se nezdařil: {{error}}",
-      "uploaded": "Nahráno do Immiche: {{number}}"
+      "uploaded": "Nahráno do Immiche: {{number}}",
+      "uploadKeptCopy": "{{fileName}} už je v Immichu s jinými úpravami. Ty zůstanou a tvé úpravy se uloží jako virtuální kopie."
     }
   },
   "library": {

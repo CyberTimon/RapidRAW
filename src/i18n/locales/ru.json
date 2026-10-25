@@ -1152,7 +1152,8 @@
       "transferred": "Добавлено в Immich: {{number}}",
       "transferring": "Добавление в Immich… {{current}}/{{total}}",
       "trashFailed": "Не удалось переместить в корзину Immich: {{error}}",
-      "uploaded": "Загружено в Immich: {{number}}"
+      "uploaded": "Загружено в Immich: {{number}}",
+      "uploadKeptCopy": "{{fileName}} уже есть в Immich с другой обработкой. Она сохраняется, а ваша обработка сохранена как виртуальная копия."
     }
   },
   "library": {

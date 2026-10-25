@@ -1097,7 +1097,8 @@
       "transferred": "已添加到 Immich：{{number}}",
       "transferring": "正在添加到 Immich… {{current}}/{{total}}",
       "trashFailed": "无法移至 Immich 回收站：{{error}}",
-      "uploaded": "已上传到 Immich：{{number}}"
+      "uploaded": "已上传到 Immich：{{number}}",
+      "uploadKeptCopy": "{{fileName}} 已在 Immich 中，且有其他编辑。那些编辑会保留，你的编辑将作为虚拟副本保存。"
     }
   },
   "library": {

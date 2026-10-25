@@ -1100,7 +1100,8 @@
       "transferred": "Zu Immich hinzugefügt: {{number}}",
       "transferring": "Wird zu Immich hinzugefügt… {{current}}/{{total}}",
       "trashFailed": "Verschieben in den Immich-Papierkorb fehlgeschlagen: {{error}}",
-      "uploaded": "Zu Immich hochgeladen: {{number}}"
+      "uploaded": "Zu Immich hochgeladen: {{number}}",
+      "uploadKeptCopy": "{{fileName}} ist schon mit anderer Bearbeitung in Immich. Diese bleibt, deine Bearbeitung liegt als virtuelle Kopie daneben."
     }
   },
   "library": {

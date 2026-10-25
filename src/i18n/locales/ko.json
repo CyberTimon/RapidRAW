@@ -1097,7 +1097,8 @@
       "transferred": "Immich에 추가됨: {{number}}",
       "transferring": "Immich에 추가하는 중… {{current}}/{{total}}",
       "trashFailed": "Immich 휴지통으로 이동하지 못했습니다: {{error}}",
-      "uploaded": "Immich에 업로드됨: {{number}}"
+      "uploaded": "Immich에 업로드됨: {{number}}",
+      "uploadKeptCopy": "{{fileName}}은(는) 이미 다른 편집 내용으로 Immich에 있습니다. 해당 편집은 유지되고, 내 편집은 가상 사본으로 보관됩니다."
     }
   },
   "library": {
