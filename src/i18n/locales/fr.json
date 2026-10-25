@@ -1080,6 +1080,10 @@
       "title": "Retouches pas encore dans Immich"
     },
     "export": {
+      "newAlbum": "Nouvel album…",
+      "newAlbumName": "Nom de l'album",
+      "createAlbum": "Créer",
+      "newAlbumFailed": "Impossible de créer l'album : {{error}}",
       "album": "Album",
       "destination": "Immich",
       "noAlbum": "Aucun album",
@@ -1100,7 +1104,7 @@
     },
     "settings": {
       "apiKey": "Clé d'API",
-      "apiKeyDesc": "Créez-en une dans Immich sous Paramètres du compte → Clés d'API avec ces autorisations : album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create et user.read.",
+      "apiKeyDesc": "Créez-en une dans Immich sous Paramètres du compte → Clés d'API avec ces autorisations : album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create et user.read.",
       "connected": "Connecté en tant que {{user}} (Immich {{version}})",
       "description": "Parcourez les photos de votre serveur Immich dans la bibliothèque et retouchez-les directement. Les originaux sont téléchargés à l'ouverture et vos retouches sont enregistrées dans Immich, elles sont donc identiques sur chaque ordinateur.",
       "keyInFile": "Enregistrée dans un fichier lisible par vous seul : aucun gestionnaire d'identifiants n'est disponible. Sous KDE, activez l'interface Secret Service dans les paramètres de KDE Wallet, puis enregistrez à nouveau.",

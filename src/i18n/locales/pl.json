@@ -1106,6 +1106,10 @@
       "title": "Edycje jeszcze nie w Immich"
     },
     "export": {
+      "newAlbum": "Nowy album…",
+      "newAlbumName": "Nazwa albumu",
+      "createAlbum": "Utwórz",
+      "newAlbumFailed": "Nie udało się utworzyć albumu: {{error}}",
       "album": "Album",
       "destination": "Immich",
       "noAlbum": "Bez albumu",
@@ -1126,7 +1130,7 @@
     },
     "settings": {
       "apiKey": "Klucz API",
-      "apiKeyDesc": "Utwórz go w Immich w Ustawieniach konta → Klucze API z tymi uprawnieniami: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create i user.read.",
+      "apiKeyDesc": "Utwórz go w Immich w Ustawieniach konta → Klucze API z tymi uprawnieniami: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create i user.read.",
       "connected": "Połączono jako {{user}} (Immich {{version}})",
       "description": "Przeglądaj zdjęcia z serwera Immich w bibliotece i edytuj je bezpośrednio. Oryginały są pobierane przy otwarciu, a edycje zapisywane w Immich, więc wyglądają tak samo na każdym komputerze.",
       "keyInFile": "Zapisano w pliku, który możesz odczytać tylko Ty: brak dostępnego magazynu poświadczeń. W KDE włącz interfejs Secret Service w ustawieniach Portfela KDE i zapisz ponownie.",

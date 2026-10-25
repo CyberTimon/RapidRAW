@@ -1080,6 +1080,10 @@
       "title": "Ediciones aún no en Immich"
     },
     "export": {
+      "newAlbum": "Álbum nuevo…",
+      "newAlbumName": "Nombre del álbum",
+      "createAlbum": "Crear",
+      "newAlbumFailed": "No se pudo crear el álbum: {{error}}",
       "album": "Álbum",
       "destination": "Immich",
       "noAlbum": "Sin álbum",
@@ -1100,7 +1104,7 @@
     },
     "settings": {
       "apiKey": "Clave de API",
-      "apiKeyDesc": "Crea una en Immich en Configuración de la cuenta → Claves de API con estos permisos: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create y user.read.",
+      "apiKeyDesc": "Crea una en Immich en Configuración de la cuenta → Claves de API con estos permisos: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create y user.read.",
       "connected": "Conectado como {{user}} (Immich {{version}})",
       "description": "Explora las fotos de tu servidor Immich en la biblioteca y edítalas directamente. Los originales se descargan al abrirlos y tus ediciones se guardan en Immich, así que se ven igual en todos los equipos.",
       "keyInFile": "Guardada en un archivo que solo tú puedes leer: no hay ningún almacén de credenciales disponible. En KDE, activa la interfaz Secret Service en la configuración de KDE Wallet y vuelve a guardar.",

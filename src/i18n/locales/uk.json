@@ -1123,7 +1123,7 @@
     },
     "settings": {
       "apiKey": "Ключ API",
-      "apiKeyDesc": "Створіть його в Immich у розділі «Налаштування облікового запису → Ключі API» з такими дозволами: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create і user.read.",
+      "apiKeyDesc": "Створіть його в Immich у розділі «Налаштування облікового запису → Ключі API» з такими дозволами: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create і user.read.",
       "connected": "Під'єднано як {{user}} (Immich {{version}})",
       "description": "Переглядайте фото зі свого сервера Immich у бібліотеці та редагуйте їх безпосередньо. Оригінали завантажуються, коли ви їх відкриваєте, а редагування зберігаються в Immich, тож на кожному комп'ютері вони виглядають однаково.",
       "keyInFile": "Збережено у файлі, який можете читати лише ви: сховище облікових даних недоступне. У KDE увімкніть інтерфейс Secret Service у налаштуваннях KDE Wallet і збережіть ще раз.",

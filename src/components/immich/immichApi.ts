@@ -15,6 +15,7 @@ export const ImmichInvokes = {
   SetApiKey: 'immich_set_api_key',
   TestConnection: 'immich_test_connection',
   ListAlbums: 'immich_list_albums',
+  CreateAlbum: 'immich_create_album',
   GetImages: 'immich_get_images',
   Timeline: 'immich_timeline',
   SyncStatus: 'immich_sync_status',
@@ -108,6 +109,8 @@ export const testImmichConnection = (serverUrl: string, apiKey: string) =>
   invoke<ImmichConnectionInfo>(ImmichInvokes.TestConnection, { serverUrl, apiKey });
 
 export const listImmichAlbums = () => invoke<ImmichAlbum[]>(ImmichInvokes.ListAlbums);
+
+export const createImmichAlbum = (name: string) => invoke<ImmichAlbum>(ImmichInvokes.CreateAlbum, { name });
 
 export const listImmichTimeline = () => invoke<ImmichTimelineMonth[]>(ImmichInvokes.Timeline);
 

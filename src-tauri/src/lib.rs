@@ -2681,6 +2681,7 @@ pub fn run() {
             immich::commands::immich_set_api_key,
             immich::commands::immich_test_connection,
             immich::commands::immich_list_albums,
+            immich::commands::immich_create_album,
             immich::commands::immich_get_images,
             immich::commands::immich_sync_status,
             immich::commands::immich_flush,

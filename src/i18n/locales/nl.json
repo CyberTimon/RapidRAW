@@ -1054,6 +1054,10 @@
       "title": "Bewerkingen nog niet in Immich"
     },
     "export": {
+      "newAlbum": "Nieuw album…",
+      "newAlbumName": "Albumnaam",
+      "createAlbum": "Aanmaken",
+      "newAlbumFailed": "Kan het album niet aanmaken: {{error}}",
       "album": "Album",
       "destination": "Immich",
       "noAlbum": "Geen album",
@@ -1074,7 +1078,7 @@
     },
     "settings": {
       "apiKey": "API-sleutel",
-      "apiKeyDesc": "Maak er een aan in Immich onder Accountinstellingen → API-sleutels met deze rechten: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create en user.read.",
+      "apiKeyDesc": "Maak er een aan in Immich onder Accountinstellingen → API-sleutels met deze rechten: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create en user.read.",
       "connected": "Verbonden als {{user}} (Immich {{version}})",
       "description": "Blader door de foto's van je Immich-server in de bibliotheek en bewerk ze direct. Originelen worden gedownload als je ze opent, en je bewerkingen worden in Immich opgeslagen, zodat ze op elke computer hetzelfde zijn.",
       "keyInFile": "Opgeslagen in een bestand dat alleen jij kunt lezen: er is geen sleutelopslag beschikbaar. Zet in KDE de Secret Service-interface aan in de instellingen van KDE Wallet en sla opnieuw op.",

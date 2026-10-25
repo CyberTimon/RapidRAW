@@ -1106,6 +1106,10 @@
       "title": "Правки ещё не в Immich"
     },
     "export": {
+      "newAlbum": "Новый альбом…",
+      "newAlbumName": "Название альбома",
+      "createAlbum": "Создать",
+      "newAlbumFailed": "Не удалось создать альбом: {{error}}",
       "album": "Альбом",
       "destination": "Immich",
       "noAlbum": "Без альбома",
@@ -1126,7 +1130,7 @@
     },
     "settings": {
       "apiKey": "API-ключ",
-      "apiKeyDesc": "Создайте его в Immich в разделе «Настройки аккаунта → API-ключи» с такими разрешениями: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create и user.read.",
+      "apiKeyDesc": "Создайте его в Immich в разделе «Настройки аккаунта → API-ключи» с такими разрешениями: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create и user.read.",
       "connected": "Подключено как {{user}} (Immich {{version}})",
       "description": "Просматривайте фотографии с вашего сервера Immich в библиотеке и редактируйте их напрямую. Оригиналы загружаются при открытии, а правки сохраняются в Immich, поэтому на любом компьютере они выглядят одинаково.",
       "keyInFile": "Сохранён в файле, доступном для чтения только вам: хранилище учётных данных недоступно. В KDE включите интерфейс Secret Service в настройках KDE Wallet и сохраните ещё раз.",

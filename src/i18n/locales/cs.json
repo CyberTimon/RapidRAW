@@ -1106,6 +1106,10 @@
       "title": "Úpravy ještě nejsou v Immichi"
     },
     "export": {
+      "newAlbum": "Nové album…",
+      "newAlbumName": "Název alba",
+      "createAlbum": "Vytvořit",
+      "newAlbumFailed": "Album se nepodařilo vytvořit: {{error}}",
       "album": "Album",
       "destination": "Immich",
       "noAlbum": "Žádné album",
@@ -1126,7 +1130,7 @@
     },
     "settings": {
       "apiKey": "API klíč",
-      "apiKeyDesc": "Vytvořte jej v Immichi v Nastavení účtu → API klíče s těmito oprávněními: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create a user.read.",
+      "apiKeyDesc": "Vytvořte jej v Immichi v Nastavení účtu → API klíče s těmito oprávněními: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create a user.read.",
       "connected": "Připojeno jako {{user}} (Immich {{version}})",
       "description": "Procházejte fotky ze svého serveru Immich v knihovně a upravujte je přímo. Originály se stahují při otevření a úpravy se ukládají do Immiche, takže vypadají stejně na každém počítači.",
       "keyInFile": "Uloženo v souboru, který můžete číst jen vy: není k dispozici žádné úložiště přihlašovacích údajů. V KDE zapněte rozhraní Secret Service v nastavení KDE Wallet a uložte znovu.",

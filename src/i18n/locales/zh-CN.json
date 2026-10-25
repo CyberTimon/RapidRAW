@@ -1051,6 +1051,10 @@
       "title": "编辑尚未同步到 Immich"
     },
     "export": {
+      "newAlbum": "新建相册…",
+      "newAlbumName": "相册名称",
+      "createAlbum": "创建",
+      "newAlbumFailed": "无法创建相册：{{error}}",
       "album": "相册",
       "destination": "Immich",
       "noAlbum": "不加入相册",
@@ -1071,7 +1075,7 @@
     },
     "settings": {
       "apiKey": "API 密钥",
-      "apiKeyDesc": "在 Immich 的“帐户设置 → API 密钥”中创建，并授予以下权限：album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create、user.read。",
+      "apiKeyDesc": "在 Immich 的“帐户设置 → API 密钥”中创建，并授予以下权限：album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create、user.read。",
       "connected": "已以 {{user}} 身份连接 (Immich {{version}})",
       "description": "在图库中浏览 Immich 服务器上的照片并直接编辑。原始文件会在打开时下载，编辑内容会保存到 Immich，因此在每台电脑上看起来都一样。",
       "keyInFile": "已保存在仅你可读取的文件中：没有可用的凭据存储。在 KDE 中，请在 KDE 钱包设置里启用 Secret Service 接口，然后重新保存。",

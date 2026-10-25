@@ -189,6 +189,15 @@ impl ImmichClient {
             .await
     }
 
+    pub async fn create_album(&self, name: &str) -> Result<Album, String> {
+        self.json(
+            self.request(Method::POST, "/albums")
+                .json(&json!({ "albumName": name })),
+            "albums",
+        )
+        .await
+    }
+
     pub async fn search(&self, query: Value) -> Result<Vec<Asset>, String> {
         let (mut found, mut more) = self.search_page(&query, 1).await?;
         let mut next = 2;
