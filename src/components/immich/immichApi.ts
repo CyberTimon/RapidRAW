@@ -118,8 +118,15 @@ export const monthFilter = (timeBucket: string): ImmichFilter => {
   return { takenFrom: `${year}-${mm}-01`, takenUntil: `${year}-${mm}-${String(lastDay).padStart(2, '0')}` };
 };
 
-export const getImmichAlbumImages = (albumId: string) =>
-  invoke<ImageFile[]>(ImmichInvokes.GetImages, { filter: albumIdToFilter(albumId) });
+const immichImagePaths = new Set<string>();
+
+export const isImmichImagePath = (path: string) => immichImagePaths.has(path.split('?vc=')[0]);
+
+export const getImmichAlbumImages = async (albumId: string) => {
+  const images = await invoke<ImageFile[]>(ImmichInvokes.GetImages, { filter: albumIdToFilter(albumId) });
+  images.forEach((image) => immichImagePaths.add(image.path.split('?vc=')[0]));
+  return images;
+};
 
 export const getImmichSyncStatus = () => invoke<ImmichSyncStatus>(ImmichInvokes.SyncStatus);
 
