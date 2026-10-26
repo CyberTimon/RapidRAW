@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef, useMemo, ReactNode } from 'react';
+import { useState, useEffect, useRef, useMemo, ReactNode, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'react-toastify';
-import { Loader2, Circle, Hexagon, Octagon, Aperture, Plus, X } from 'lucide-react';
+import { Loader2, Circle, Hexagon, Octagon, Aperture, Plus, X, CopyPlus, Trash2 } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import Slider, { SliderChangeEvent } from '../ui/Slider';
@@ -26,9 +27,11 @@ import Text from '../ui/Text';
 import AdjustmentSubSection from './AdjustmentSubSection';
 import { TextVariants } from '../../types/typography';
 import { DepthRangePicker } from '../ui/DepthRangePicker';
-import { useProcessStore } from '../../store/useProcessStore';
+import { selectAiModelDownloadStatus, useProcessStore } from '../../store/useProcessStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useEditorStore } from '../../store/useEditorStore';
+import { useContextMenu } from '../../context/ContextMenuContext';
+import { areSectionPropsEqual } from '../../utils/adjustments';
 
 interface EffectsPanelProps {
   adjustments: Adjustments;
@@ -158,7 +161,7 @@ interface SpatialEffectProps {
   onToggle(enabled: boolean): void;
 }
 
-const SpatialEffect = ({ children, enabled, label, onToggle }: SpatialEffectProps) => {
+export const SpatialEffect = ({ children, enabled, label, onToggle }: SpatialEffectProps) => {
   return (
     <div>
       <Switch label={label} checked={enabled} onChange={onToggle} />
@@ -178,7 +181,7 @@ const SpatialEffect = ({ children, enabled, label, onToggle }: SpatialEffectProp
   );
 };
 
-export default function EffectsPanel({
+function EffectsPanel({
   adjustments,
   setAdjustments,
   isForMask = false,
@@ -192,15 +195,16 @@ export default function EffectsPanel({
   const [isGeneratingNormals, setIsGeneratingNormals] = useState(false);
   const [isGeneratingFogDepth, setIsGeneratingFogDepth] = useState(false);
   const [hoveredLightId, setHoveredLightId] = useState<string | null>(null);
-  const aiModelDownloadStatus = useProcessStore((state) => state.aiModelDownloadStatus);
+  const aiModelDownloadStatus = useProcessStore(selectAiModelDownloadStatus);
   const isRelightPickerActive = useEditorStore((state) => state.isRelightPickerActive);
   const activeRelightLightId = useEditorStore((state) => state.activeRelightLightId);
   const setEditor = useEditorStore((state) => state.setEditor);
+  const { showContextMenu } = useContextMenu();
 
   const handleGenerateLensBlurDepthMap = async () => {
     setIsGeneratingDepth(true);
     try {
-      const b64: string = await invoke('generate_full_image_depth_map');
+      const b64: string = await invoke('generate_full_image_depth_map', { jsAdjustments: adjustments });
       setAdjustments((prev: Partial<Adjustments>) => ({
         ...prev,
         lensBlurDepthMap: b64,
@@ -216,7 +220,7 @@ export default function EffectsPanel({
   const handleGenerateRelightNormalMap = async () => {
     setIsGeneratingNormals(true);
     try {
-      const b64: string = await invoke('generate_relight_normal_map');
+      const b64: string = await invoke('generate_relight_normal_map', { jsAdjustments: adjustments });
       setAdjustments((prev: Partial<Adjustments>) => ({
         ...prev,
         relightNormalMap: b64,
@@ -232,7 +236,7 @@ export default function EffectsPanel({
   const handleGenerateFogDepthMap = async () => {
     setIsGeneratingFogDepth(true);
     try {
-      const b64: string = await invoke('generate_full_image_depth_map');
+      const b64: string = await invoke('generate_full_image_depth_map', { jsAdjustments: adjustments });
       setAdjustments((prev: Partial<Adjustments>) => ({
         ...prev,
         fogDepthMap: b64,
@@ -346,6 +350,41 @@ export default function EffectsPanel({
     if (id === activeRelightLightId) {
       setEditor({ activeRelightLightId: null, isRelightPickerActive: false });
     }
+  };
+
+  const handleDuplicateLight = (id: string) => {
+    const source = relightLights.find((light) => light.id === id);
+    if (!source) return;
+    const light = { ...source, id: uuidv4() };
+    setAdjustments((prev: Partial<Adjustments>) => {
+      const lights = prev.relightLights || [];
+      const index = lights.findIndex((l: RelightLight) => l.id === id);
+      return { ...prev, relightLights: [...lights.slice(0, index + 1), light, ...lights.slice(index + 1)] };
+    });
+    setEditor({
+      activeRelightLightId: light.id,
+      isRelightPickerActive: true,
+      isWbPickerActive: false,
+      activeCenterMarker: null,
+    });
+  };
+
+  const handleLightContextMenu = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    showContextMenu(e.clientX, e.clientY, [
+      {
+        label: t('adjustments.effects.relightDuplicateLight'),
+        icon: CopyPlus,
+        onClick: () => handleDuplicateLight(id),
+      },
+      {
+        label: t('adjustments.effects.relightRemoveLight'),
+        icon: Trash2,
+        isDestructive: true,
+        onClick: () => handleRemoveLight(id),
+      },
+    ]);
   };
 
   const isAiFree = useSettingsStore((s) => s.appSettings?.aiProvider === 'ai-free');
@@ -587,6 +626,7 @@ export default function EffectsPanel({
                                 key={light.id}
                                 onMouseEnter={() => setHoveredLightId(light.id)}
                                 onMouseLeave={() => setHoveredLightId(null)}
+                                onContextMenu={(e) => handleLightContextMenu(e, light.id)}
                               >
                                 <ColorSwatch
                                   color={getRelightLightColor(light)}
@@ -1012,3 +1052,5 @@ export default function EffectsPanel({
     </div>
   );
 }
+
+export default memo(EffectsPanel, areSectionPropsEqual('effects'));

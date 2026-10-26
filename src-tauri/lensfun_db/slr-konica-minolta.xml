@@ -505,6 +505,19 @@
 
     <lens>
         <maker>Minolta</maker>
+	<!-- Same lens as above - some units report different model -->
+        <model>Minolta AF 50mm F1.4 [New]</model>
+        <mount>Minolta AF</mount>
+        <cropfactor>1</cropfactor>
+        <calibration>
+            <!-- Taken with Sony Alpha DSLR-A850 -->
+            <distortion model="poly3" focal="50" k1="-0.0044"/>
+            <tca model="poly3" focal="50" br="-0.0000693" vr="1.0002434" bb="0.0000918" vb="0.9996770"/>
+        </calibration>
+    </lens>
+
+    <lens>
+        <maker>Minolta</maker>
         <model>Minolta AF 50mm f/1.7</model>
         <mount>Minolta AF</mount>
         <cropfactor>1.523</cropfactor>

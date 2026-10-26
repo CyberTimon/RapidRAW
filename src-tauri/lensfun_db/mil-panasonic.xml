@@ -3467,4 +3467,17 @@
         </calibration>
     </lens>
 
+	<lens>
+        <maker>Panasonic</maker>
+        <model>Lumix S 40/F2</model>
+        <model lang="en">Lumix S 40mm f/2</model>
+        <mount>Leica L</mount>
+        <cropfactor>1.0</cropfactor>
+        <calibration>
+			<!-- Taken with Lumix DC-S5M2 -->
+            <distortion model="ptlens" focal="40" a="0.0072134" b="-0.0163974" c="0.0124508"/>
+            <tca model="poly3" focal="40" vr="1.0000545" vb="1.0000243"/>
+        </calibration>
+    </lens>
+
 </lensdatabase>

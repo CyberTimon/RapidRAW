@@ -8,8 +8,21 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { Adjustments, COPYABLE_ADJUSTMENT_KEYS } from '../utils/adjustments';
 import { Invokes, Panel } from '../components/ui/AppProperties';
-import { debouncedSave } from './useEditorActions';
+import { debouncedSave, getOriginalAdjustments } from './useEditorActions';
 import { globalImageCache } from '../utils/ImageLRUCache';
+import { prepareAdjustmentsPayload } from '../utils/backendPayload';
+
+const isWgpuRender = (buffer: ArrayBuffer) => new TextDecoder().decode(buffer.slice(0, 11)) === 'WGPU_RENDER';
+
+const releasePreviewUrl = (url: string | null | undefined) => {
+  if (url && url.startsWith('blob:') && !globalImageCache.isProtected(url)) {
+    setTimeout(() => {
+      if (!globalImageCache.isProtected(url)) {
+        URL.revokeObjectURL(url);
+      }
+    }, 250);
+  }
+};
 
 export function useImageProcessing(
   transformWrapperRef: any,
@@ -31,6 +44,7 @@ export function useImageProcessing(
   const baseRenderSize = useEditorStore((state) => state.baseRenderSize);
   const originalSize = useEditorStore((state) => state.originalSize);
   const isSliderDragging = useEditorStore((state) => state.isSliderDragging);
+  const compareView = useEditorStore((state) => state.compareView);
   const setEditor = useEditorStore((state) => state.setEditor);
 
   const activeView = useUIStore((state) => state.activeView);
@@ -41,8 +55,8 @@ export function useImageProcessing(
   const uncroppedJobIdRef = useRef(0);
   const latestUncroppedJobIdRef = useRef(0);
 
+  const originalRequestKeyRef = useRef<string | null>(null);
   const inFlightCountRef = useRef(0);
-  const lastAnalyticsTimeRef = useRef<number>(0);
   const pendingApplyRef = useRef<{ adjustments: Adjustments; targetRes?: number } | null>(null);
   const dragIdleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeWaveformChannelRef = useRef(activeWaveformChannel);
@@ -109,96 +123,81 @@ export function useImageProcessing(
     return [clampedX, clampedY, clampedW, clampedH] as [number, number, number, number];
   }, [baseRenderSize, transformWrapperRef]);
 
+  const renderOriginal = useCallback(
+    async (targetRes?: number) => {
+      const { selectedImage: image, adjustments: currentAdjustments, compareView: view } = useEditorStore.getState();
+      const ui = useUIStore.getState();
+      if (view === 'off' || !image?.isReady || ui.activeView !== 'editor' || ui.activePanel === Panel.Crop) return;
+
+      const originalAdjustments = getOriginalAdjustments(currentAdjustments);
+      const { useWgpuRenderer } = useSettingsStore.getState().appSettings ?? {};
+      const key = JSON.stringify([image.path, targetRes, useWgpuRenderer, originalAdjustments]);
+      if (key === originalRequestKeyRef.current) return;
+      originalRequestKeyRef.current = key;
+
+      const { payload, markSent } = prepareAdjustmentsPayload(originalAdjustments);
+      try {
+        const buffer: ArrayBuffer = await invoke(Invokes.ApplyAdjustments, {
+          jsAdjustments: payload,
+          original: true,
+          isInteractive: false,
+          targetResolution: targetRes || null,
+          roi: null,
+          requestAnalytics: false,
+          computeWaveform: false,
+          activeWaveformChannel: null,
+        });
+        markSent();
+
+        if (key !== originalRequestKeyRef.current || !buffer || buffer.byteLength === 0) return;
+
+        const url = isWgpuRender(buffer) ? null : URL.createObjectURL(new Blob([buffer], { type: 'image/jpeg' }));
+        setEditor((state) => {
+          releasePreviewUrl(state.originalPreview?.url);
+          return { originalPreview: { path: image.path, url } };
+        });
+      } catch {
+        if (key === originalRequestKeyRef.current) originalRequestKeyRef.current = null;
+      }
+    },
+    [setEditor],
+  );
+
   const executeApplyAdjustments = useCallback(
     async (currentAdjustments: Adjustments, dragging: boolean = false, targetRes?: number) => {
       const currentPath = selectedImage?.path;
       if (!currentPath) return;
 
-      let shouldRequestAnalytics = false;
-      if (dragging) {
-        const now = performance.now();
-        if (now - lastAnalyticsTimeRef.current > 33.33) {
-          shouldRequestAnalytics = true;
-          lastAnalyticsTimeRef.current = now;
-        }
-      } else {
-        shouldRequestAnalytics = true;
-        lastAnalyticsTimeRef.current = 0;
-      }
-
-      const payload = structuredClone(currentAdjustments);
-      const { patchesSentToBackend } = useEditorStore.getState();
-      const newlySentPatches = new Set<string>();
-
-      const processSubMasks = (subMasks: any[]) => {
-        if (!Array.isArray(subMasks)) return;
-        subMasks.forEach((sm: any) => {
-          if (sm.id && sm.parameters) {
-            const keys = ['mask_data_base64', 'maskDataBase64'];
-            let foundMaskData = false;
-
-            for (const key of keys) {
-              if (sm.parameters[key] !== undefined && sm.parameters[key] !== null) {
-                foundMaskData = true;
-                if (patchesSentToBackend.has(sm.id)) {
-                  sm.parameters[key] = null;
-                }
-              }
-            }
-            if (foundMaskData && !patchesSentToBackend.has(sm.id)) {
-              newlySentPatches.add(sm.id);
-            }
-          }
-        });
-      };
-
-      if (payload.aiPatches && Array.isArray(payload.aiPatches)) {
-        payload.aiPatches.forEach((p: any) => {
-          if (p.id && p.patchData && !p.isLoading) {
-            if (patchesSentToBackend.has(p.id)) {
-              p.patchData = null;
-            } else {
-              newlySentPatches.add(p.id);
-            }
-          }
-          if (p.subMasks) processSubMasks(p.subMasks);
-        });
-      }
-
-      if (payload.masks && Array.isArray(payload.masks)) {
-        payload.masks.forEach((container: any) => {
-          if (container.subMasks) processSubMasks(container.subMasks);
-        });
-      }
+      const { payload, markSent } = prepareAdjustmentsPayload(currentAdjustments);
 
       const jobId = ++previewJobIdRef.current;
       const roi = calculateROI();
 
       try {
-        const buffer: ArrayBuffer = await invoke(Invokes.ApplyAdjustments, {
+        const request = invoke<ArrayBuffer>(Invokes.ApplyAdjustments, {
           jsAdjustments: payload,
+          original: false,
           isInteractive: dragging,
           targetResolution: targetRes || null,
           roi: roi || null,
-          requestAnalytics: shouldRequestAnalytics,
+          requestAnalytics: true,
           computeWaveform: !!isWaveformVisible,
           activeWaveformChannel: activeWaveformChannelRef.current || null,
         });
+        if (!dragging) renderOriginal(targetRes);
+        const buffer = await request;
 
-        if (newlySentPatches.size > 0) {
-          newlySentPatches.forEach((id) => patchesSentToBackend.add(id));
-        }
+        markSent();
 
         if (currentPath !== selectedImagePathRef.current) return;
 
         if (buffer && buffer.byteLength > 0 && jobId >= latestRenderedJobIdRef.current) {
           latestRenderedJobIdRef.current = jobId;
 
-          const textDecoder = new TextDecoder();
-          const prefix = textDecoder.decode(buffer.slice(0, 11));
-          if (prefix === 'WGPU_RENDER') {
+          if (isWgpuRender(buffer)) {
             setEditor((state) => {
-              if (state.interactivePatch && state.interactivePatch.url) URL.revokeObjectURL(state.interactivePatch.url);
+              if (!state.interactivePatch) return state;
+              if (state.interactivePatch.url) URL.revokeObjectURL(state.interactivePatch.url);
               return { interactivePatch: null };
             });
             return;
@@ -240,14 +239,7 @@ export function useImageProcessing(
             }
 
             setEditor((state) => {
-              const prevUrl = state.finalPreviewUrl;
-              if (prevUrl && prevUrl.startsWith('blob:') && !globalImageCache.isProtected(prevUrl)) {
-                setTimeout(() => {
-                  if (!globalImageCache.isProtected(prevUrl)) {
-                    URL.revokeObjectURL(prevUrl);
-                  }
-                }, 250);
-              }
+              releasePreviewUrl(state.finalPreviewUrl);
               return { finalPreviewUrl: url };
             });
 
@@ -271,7 +263,15 @@ export function useImageProcessing(
         }
       }
     },
-    [selectedImage?.path, calculateROI, isWaveformVisible, setEditor, previewJobIdRef, latestRenderedJobIdRef],
+    [
+      selectedImage?.path,
+      calculateROI,
+      isWaveformVisible,
+      setEditor,
+      previewJobIdRef,
+      latestRenderedJobIdRef,
+      renderOriginal,
+    ],
   );
 
   const flushPipeline = useCallback(() => {
@@ -310,14 +310,27 @@ export function useImageProcessing(
     () =>
       throttle(
         (adj: Adjustments) => {
-          if (!useEditorStore.getState().selectedImage?.isReady) return;
+          const requestedImage = useEditorStore.getState().selectedImage;
+          if (!requestedImage?.isReady) return;
           const jobId = ++uncroppedJobIdRef.current;
-          invoke<string>(Invokes.GenerateUncroppedPreview, { jsAdjustments: adj })
-            .then((dataUrl) => {
-              if (jobId >= latestUncroppedJobIdRef.current) {
-                latestUncroppedJobIdRef.current = jobId;
-                useEditorStore.getState().setEditor({ uncroppedAdjustedPreviewUrl: dataUrl });
+          const { payload, markSent } = prepareAdjustmentsPayload(adj);
+          invoke<ArrayBuffer>(Invokes.GenerateUncroppedPreview, { jsAdjustments: payload })
+            .then((buffer) => {
+              markSent();
+              if (
+                jobId < latestUncroppedJobIdRef.current ||
+                !buffer ||
+                buffer.byteLength === 0 ||
+                useEditorStore.getState().selectedImage?.path !== requestedImage.path
+              ) {
+                return;
               }
+              latestUncroppedJobIdRef.current = jobId;
+              const url = URL.createObjectURL(new Blob([buffer], { type: 'image/jpeg' }));
+              useEditorStore.getState().setEditor((state) => {
+                releasePreviewUrl(state.uncroppedAdjustedPreviewUrl);
+                return { uncroppedAdjustedPreviewUrl: url };
+              });
             })
             .catch(console.error);
         },
@@ -417,6 +430,32 @@ export function useImageProcessing(
     requestHiFiZoom,
     originalSize,
   ]);
+
+  const isComparing = compareView !== 'off';
+
+  useEffect(() => {
+    if (isComparing && currentResRef.current > 0) renderOriginal(currentResRef.current);
+  }, [
+    isComparing,
+    activeView,
+    activePanel,
+    selectedImage?.path,
+    selectedImage?.isReady,
+    renderOriginal,
+    currentResRef,
+  ]);
+
+  useEffect(() => {
+    if (!isComparing) return;
+    return () => {
+      originalRequestKeyRef.current = null;
+      setEditor((state) => {
+        releasePreviewUrl(state.originalPreview?.url);
+        return { originalPreview: null };
+      });
+      invoke(Invokes.ReleaseOriginalPreview).catch(console.error);
+    };
+  }, [isComparing, setEditor]);
 
   useEffect(() => {
     if (!selectedImage?.isReady) return;

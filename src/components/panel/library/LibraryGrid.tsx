@@ -389,6 +389,15 @@ export default function LibraryGrid(props: any) {
     [onRequestThumbnails],
   );
 
+  useEffect(
+    () => () => {
+      if (requestTimeoutRef.current) clearTimeout(requestTimeoutRef.current);
+      requestTimeoutRef.current = null;
+      requestQueueRef.current.clear();
+    },
+    [currentFolderPath],
+  );
+
   const handleToggleRecursiveFolder = useCallback((path: string) => {
     setCollapsedRecursiveFolders((prev) => {
       const next = new Set(prev);
@@ -506,6 +515,27 @@ export default function LibraryGrid(props: any) {
         : [],
     [gridData],
   );
+
+  useEffect(() => {
+    if (!gridData) {
+      setLibrary({ libraryGridRows: [] });
+      return;
+    }
+    const navRows = gridData.rows
+      .filter((row) => row.type === 'images')
+      .map((row) => {
+        let x = 0;
+        return row.images.map((image: ImageFile, i: number) => {
+          const width = row.justifiedWidths ? row.justifiedWidths[i] : gridData.itemWidth;
+          const center = x + width / 2;
+          x += width + gridData.ITEM_GAP;
+          return { path: image.path, center };
+        });
+      });
+    setLibrary({ libraryGridRows: navRows });
+  }, [gridData, setLibrary]);
+
+  useEffect(() => () => setLibrary({ libraryGridRows: [] }), [setLibrary]);
 
   const handleImageClick = useCallback(
     (path: string, e: any) => {

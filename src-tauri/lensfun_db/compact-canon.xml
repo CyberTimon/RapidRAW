@@ -833,6 +833,14 @@
 
     <camera>
         <maker>Canon</maker>
+        <model>Canon PowerShot A710 IS</model>
+        <model lang="en">PowerShot A710 IS</model>
+        <mount>canonA720IS</mount>
+        <cropfactor>6.03</cropfactor>
+    </camera>
+
+    <camera>
+        <maker>Canon</maker>
         <model>Canon PowerShot A720 IS</model>
         <model lang="en">PowerShot A720 IS</model>
         <mount>canonA720IS</mount>

@@ -38,7 +38,7 @@ export const useKeyboardShortcuts = ({
   handlePasteFiles,
   handleZoomChange,
 }: KeyboardShortcutsProps) => {
-  const { handleRotate, handleAutoStraighten, handleCopyAdjustments, handlePasteAdjustments, toggleShowOriginal } =
+  const { handleRotate, handleAutoStraighten, handleCopyAdjustments, handlePasteAdjustments, toggleCompare } =
     useEditorActions();
   const { handleRate, handleSetFlag, handleToggleFlag, handleSetColorLabel } = useLibraryActions();
 
@@ -321,7 +321,7 @@ export const useKeyboardShortcuts = ({
         shouldFire: (s: any) => s.ui.activeView === 'editor' && !!s.editor.selectedImage,
         execute: (e: any) => {
           e.preventDefault();
-          toggleShowOriginal();
+          toggleCompare();
         },
       },
       toggle_adjustments: {
@@ -657,9 +657,26 @@ export const useKeyboardShortcuts = ({
           s.ui.activeView === 'library' && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code),
         execute: (e: KeyboardEvent, s: any) => {
           e.preventDefault();
-          const isNext = e.code === 'ArrowRight' || e.code === 'ArrowDown';
           const activePath = s.library.libraryActivePath;
           if (!activePath || sortedListRef.current.length === 0) return;
+          const selectPath = (path: string) => {
+            s.library.setLibrary({ libraryActivePath: path, multiSelectedPaths: [path] });
+            handleImageSelect(path, false);
+          };
+          const isVertical = e.code === 'ArrowUp' || e.code === 'ArrowDown';
+          const isNext = e.code === 'ArrowRight' || e.code === 'ArrowDown';
+          const gridRows: Array<Array<{ path: string; center: number }>> = s.library.libraryGridRows;
+          const rowIndex = isVertical ? gridRows.findIndex((row) => row.some((item) => item.path === activePath)) : -1;
+          if (rowIndex !== -1) {
+            const targetRow = gridRows[rowIndex + (isNext ? 1 : -1)];
+            if (!targetRow) return;
+            const center = gridRows[rowIndex].find((item) => item.path === activePath)!.center;
+            const closest = targetRow.reduce((best, item) =>
+              Math.abs(item.center - center) < Math.abs(best.center - center) ? item : best,
+            );
+            selectPath(closest.path);
+            return;
+          }
           const recursive = s.settings.appSettings?.libraryViewMode === LibraryViewMode.Recursive;
           const navigationList = recursive
             ? sortedListRef.current.filter((img) => getParentFolder(img.path) === getParentFolder(activePath))
@@ -670,10 +687,7 @@ export const useKeyboardShortcuts = ({
           if (nextIndex >= navigationList.length) nextIndex = 0;
           if (nextIndex < 0) nextIndex = navigationList.length - 1;
           const nextImage = navigationList[nextIndex];
-          if (nextImage) {
-            s.library.setLibrary({ libraryActivePath: nextImage.path, multiSelectedPaths: [nextImage.path] });
-            handleImageSelect(nextImage.path, false);
-          }
+          if (nextImage) selectPath(nextImage.path);
         },
       },
     ];
@@ -690,9 +704,7 @@ export const useKeyboardShortcuts = ({
         state.ui.confirmModalState.isOpen ||
         state.ui.panoramaModalState.isOpen ||
         state.ui.cullingModalState.isOpen ||
-        state.ui.collageModalState.isOpen ||
-        state.ui.denoiseModalState.isOpen ||
-        state.ui.negativeModalState.isOpen;
+        state.ui.collageModalState.isOpen;
 
       if (isModalOpen) return;
 
@@ -748,6 +760,6 @@ export const useKeyboardShortcuts = ({
     handleSetFlag,
     handleToggleFlag,
     handleSetColorLabel,
-    toggleShowOriginal,
+    toggleCompare,
   ]);
 };

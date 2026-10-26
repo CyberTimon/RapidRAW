@@ -59,22 +59,6 @@ interface HdrModalState {
   stitchingSourcePaths: Array<string>;
 }
 
-interface DenoiseModalState {
-  isOpen: boolean;
-  isProcessing: boolean;
-  previewBase64: string | null;
-  originalBase64?: string | null;
-  error: string | null;
-  targetPaths: string[];
-  progressMessage: string | null;
-  isRaw: boolean;
-}
-
-interface NegativeConversionModalState {
-  isOpen: boolean;
-  targetPaths: Array<string>;
-}
-
 interface CullingModalState {
   isOpen: boolean;
   suggestions: CullingSuggestions | null;
@@ -262,8 +246,6 @@ export interface UIState {
   panoramaModalState: PanoramaModalState;
   focusStackModalState: FocusStackModalState;
   hdrModalState: HdrModalState;
-  negativeModalState: NegativeConversionModalState;
-  denoiseModalState: DenoiseModalState;
   cullingModalState: CullingModalState;
   collageModalState: CollageModalState;
 
@@ -366,16 +348,6 @@ export const useUIStore = create<UIState>((set, get) => ({
     isProcessing: false,
     progressMessage: '',
     stitchingSourcePaths: [],
-  },
-  negativeModalState: { isOpen: false, targetPaths: [] },
-  denoiseModalState: {
-    isOpen: false,
-    isProcessing: false,
-    previewBase64: null,
-    error: null,
-    targetPaths: [],
-    progressMessage: null,
-    isRaw: false,
   },
   cullingModalState: { isOpen: false, suggestions: null, progress: null, error: null, pathsToCull: [] },
   collageModalState: { isOpen: false, sourceImages: [] },

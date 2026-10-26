@@ -33,6 +33,8 @@ import { COLOR_LABELS, Color } from '../../../utils/adjustments';
 import { expandGroupedPaths } from '../../../utils/imageGrouping';
 import { IconAperture, IconFocalLength, IconIso, IconShutter } from '../editor/ExifIcons';
 
+const NOOP = () => {};
+
 interface SyncViewport {
   isActive: boolean;
   zoom: number;
@@ -126,8 +128,9 @@ function CullingPreview({
       .sort((a, b) => a.tag.localeCompare(b.tag));
   }, [image.tags]);
 
+  const imageExif = useLibraryStore((s) => s.exifByPath[image.path]);
   const { exifData, hasExif } = useMemo(() => {
-    const exif = image.exif || {};
+    const exif = imageExif || {};
 
     let fNum = exif.FNumber;
     if (fNum) {
@@ -162,10 +165,10 @@ function CullingPreview({
       exifData: data,
       hasExif: hasData,
     };
-  }, [image.exif]);
+  }, [imageExif]);
 
-  const imageWidth = (image as any).width || image.exif?.ExifImageWidth || image.exif?.PixelXDimension;
-  const imageHeight = (image as any).height || image.exif?.ExifImageHeight || image.exif?.PixelYDimension;
+  const imageWidth = (image as any).width || imageExif?.ExifImageWidth || imageExif?.PixelXDimension;
+  const imageHeight = (image as any).height || imageExif?.ExifImageHeight || imageExif?.PixelYDimension;
 
   const handleAddTag = async (tagToAdd: string) => {
     const newTagValue = tagToAdd.trim().toLowerCase();
@@ -257,8 +260,7 @@ function CullingPreview({
         const metadata: any = await invoke(Invokes.LoadMetadata, { path: image.path });
         if (!active) return;
 
-        const adjustments =
-          metadata && metadata.adjustments && !metadata.adjustments.is_null ? metadata.adjustments : {};
+        const adjustments = metadata?.adjustments ?? null;
 
         const bytes = await invoke<Uint8Array>(Invokes.GeneratePreviewForPath, {
           path: image.path,
@@ -282,7 +284,7 @@ function CullingPreview({
           try {
             const fallbackBytes = await invoke<Uint8Array>(Invokes.GeneratePreviewForPath, {
               path: image.path,
-              jsAdjustments: {},
+              jsAdjustments: null,
             });
             if (!active) return;
             const blob = new Blob([new Uint8Array(fallbackBytes)], { type: 'image/jpeg' });
@@ -963,18 +965,21 @@ const Row = React.memo(
   }: any) => {
     const image: ImageFile = imageList[index];
     const isSelected = multiSelectedPaths.includes(image.path);
+    const imagePath = image?.path;
+    const isCloudPlaceholder = !!image?.is_cloud_placeholder;
 
     useEffect(() => {
       if (!image || !queueThumbnailRequest) return;
       queueThumbnailRequest(image.path);
-
-      if (image.is_cloud_placeholder) {
-        const interval = setInterval(() => {
-          queueThumbnailRequest(image.path);
-        }, 5000);
-        return () => clearInterval(interval);
-      }
     }, [image, queueThumbnailRequest]);
+
+    useEffect(() => {
+      if (!imagePath || !isCloudPlaceholder || !queueThumbnailRequest) return;
+      const interval = setInterval(() => {
+        queueThumbnailRequest(imagePath);
+      }, 5000);
+      return () => clearInterval(interval);
+    }, [imagePath, isCloudPlaceholder, queueThumbnailRequest]);
 
     return (
       <div style={style} className="p-2 box-border">
@@ -984,14 +989,13 @@ const Row = React.memo(
             isSelected={isSelected}
             isActive={activePath === image.path}
             isForcedHover={hoveredCullingPath === image.path}
-            onImageClick={(path: string, e: any) => onImageClick(path, e)}
+            onImageClick={onImageClick}
             onContextMenu={onContextMenu}
             onImageDoubleClick={onImageDoubleClick}
-            onLoad={() => {}}
+            onLoad={NOOP}
             rating={imageRatings?.[image.path] || 0}
             flag={image.flag}
             tags={image.tags}
-            exif={image.exif}
             isEdited={image.is_edited}
             aspectRatio={thumbnailAspectRatio}
             isCloudPlaceholder={image.is_cloud_placeholder}
@@ -1100,6 +1104,15 @@ export default function CullingView(props: any) {
       }
     },
     [onRequestThumbnails],
+  );
+
+  useEffect(
+    () => () => {
+      if (requestTimeoutRef.current) clearTimeout(requestTimeoutRef.current);
+      requestTimeoutRef.current = null;
+      requestQueueRef.current.clear();
+    },
+    [],
   );
 
   useEffect(() => {

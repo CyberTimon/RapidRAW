@@ -41,14 +41,14 @@ import { useSettingsStore } from './store/useSettingsStore';
 import { DEFAULT_BOTTOM_PANEL_HEIGHT, DEFAULT_PANEL_WIDTH, useUIStore } from './store/useUIStore';
 import { useLibraryStore } from './store/useLibraryStore';
 import { useEditorStore } from './store/useEditorStore';
-import { useProcessStore } from './store/useProcessStore';
+import { JobKind, useProcessStore } from './store/useProcessStore';
 import { useShallow } from 'zustand/react/shallow';
 
 import { useThumbnails } from './hooks/useThumbnails';
 import { ImageDimensions } from './hooks/useImageRenderSize';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useTauriListeners } from './hooks/useTauriListeners';
-import { useFileOperations } from './hooks/useFileOperations';
+import { transferFiles, useFileOperations } from './hooks/useFileOperations';
 import { useAppContextMenus } from './hooks/useAppContextMenus';
 import { useSortedLibrary } from './hooks/useSortedLibrary';
 import { useAppNavigation } from './hooks/useAppNavigation';
@@ -77,6 +77,10 @@ import {
 
 import ImageProcessingManager from './components/managers/ImageProcessingManager';
 import ImageLoaderManager from './components/managers/ImageLoaderManager';
+import { isImmichAlbumId } from './components/immich/immichApi';
+import { useImmichEvents } from './components/immich/useImmichEvents';
+
+const DND_MEASURING = { droppable: { strategy: MeasuringStrategy.Always } };
 
 const insertChildrenIntoTree = (node: any, targetPath: string, newChildren: any[]): any => {
   if (!node) return null;
@@ -399,6 +403,8 @@ function App() {
           };
           const album = findObj(albumTree);
           if (album) await handleSelectAlbum(album.id, album.name, album.images, true);
+          else if (isImmichAlbumId(activeAlbumId))
+            await handleSelectAlbum(activeAlbumId, currentFolderPath.slice('Album: '.length), [], true);
         }
       } else {
         await handleSelectSubfolder(currentFolderPath, false, undefined, false, true);
@@ -430,9 +436,6 @@ function App() {
     handleSavePanorama,
     handleStartHdr,
     handleSaveHdr,
-    handleApplyDenoise,
-    handleBatchDenoise,
-    handleSaveDenoisedImage,
     handleSaveCollage,
     handleStartFocusStack,
     handleSaveFocusStack,
@@ -456,6 +459,8 @@ function App() {
     handleDeleteRejected,
     handleTogglePinFolder,
   });
+
+  useImmichEvents(handleLibraryRefresh);
 
   useTauriListeners({
     refreshAllFolderTrees,
@@ -820,7 +825,7 @@ function App() {
       const targetFolder = over.data.current.path;
       const sourcePaths = activeImageDragItem?.paths || [active.data.current.path];
 
-      invoke(Invokes.MoveFiles, { sourcePaths, destinationFolder: targetFolder })
+      transferFiles(JobKind.Move, sourcePaths, targetFolder)
         .then(() => {
           refreshAllFolderTrees();
           handleLibraryRefresh();
@@ -891,11 +896,7 @@ function App() {
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
             collisionDetection={pointerWithin}
-            measuring={{
-              droppable: {
-                strategy: MeasuringStrategy.Always,
-              },
-            }}
+            measuring={DND_MEASURING}
           >
             <div className="flex flex-row grow h-full min-h-0">
               {!shouldHideFolderTree && hasMainContent && (
@@ -979,6 +980,7 @@ function App() {
                     handleContinueSession={handleContinueSession}
                     handleGoHome={handleGoHome}
                     handleOpenFolder={handleOpenFolder}
+                    handleNavigateToFolder={(path) => handleSelectSubfolder(path, false, undefined, true)}
                     handleImportClick={handleImportClick}
                     handleLibraryRefresh={handleLibraryRefresh}
                     handleCopyAdjustments={handleCopyAdjustments}
@@ -1033,10 +1035,6 @@ function App() {
           handleSaveFocusStack={handleSaveFocusStack}
           handleSaveHdr={handleSaveHdr}
           handleStartHdr={handleStartHdr}
-          refreshImageList={handleLibraryRefresh}
-          handleApplyDenoise={handleApplyDenoise}
-          handleBatchDenoise={handleBatchDenoise}
-          handleSaveDenoisedImage={handleSaveDenoisedImage}
           handleCreateFolder={handleCreateFolder}
           handleRenameFolder={handleRenameFolder}
           handleSaveRename={handleSaveRename}

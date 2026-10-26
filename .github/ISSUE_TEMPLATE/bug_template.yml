@@ -86,12 +86,16 @@ body:
         | Lens corrections | [lensfun](https://github.com/lensfun/lensfun/) | [Open an issue](https://github.com/lensfun/lensfun/issues/new) |
         | Raw file decoding | [dnglab](https://github.com/dnglab/dnglab/) | [Open an issue](https://github.com/dnglab/dnglab/issues/new) |
 
+        New cameras can only be supported when a **CC-0 licensed** RAW sample set is available. Please upload your samples to [RawDB](https://rawdb.dnglab.org) following the [sample guidelines](https://github.com/dnglab/dnglab/blob/main/CONTRIBUTE_SAMPLES.md#important-notes-on-how-to-properly-shoot-samples). Files shared via Google Drive or similar can't be used.
+
   - type: checkboxes
     id: acknowledgement-checkboxes
     attributes:
       label: Acknowledgement
       options:
         - label: I have verified that my camera and lenses are supported by the external libraries listed above, or my issue is unrelated to camera/lens support.
+          required: true
+        - label: If my issue is about an unsupported camera or RAW format, I have uploaded a CC-0 licensed sample set to [RawDB](https://rawdb.dnglab.org) following the [sample guidelines](https://github.com/dnglab/dnglab/blob/main/CONTRIBUTE_SAMPLES.md#important-notes-on-how-to-properly-shoot-samples).
           required: true
         - label: I have searched all existing issues, both open and closed, and did not find a duplicate.
           required: true

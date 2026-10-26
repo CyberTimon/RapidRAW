@@ -1,9 +1,15 @@
 use crate::AppState;
-use image::DynamicImage;
+use crate::app_settings::AppSettings;
+use half::f16;
+use half::slice::HalfFloatSliceExt;
+use image::{DynamicImage, GenericImageView, Rgb32FImage, Rgba32FImage};
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
+use std::path::Path;
+use std::sync::{Arc, Condvar, LazyLock, Mutex};
+use std::time::SystemTime;
 
 pub const GEOMETRY_KEYS: &[&str] = &[
     "transformDistortion",
@@ -43,7 +49,7 @@ fn hash_ai_patches(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) 
                 .unwrap_or(true);
             is_visible.hash(hasher);
 
-            if let Some(patch_data) = patch.get("patchData") {
+            let mask_from_sub_masks = if let Some(patch_data) = patch.get("patchData") {
                 let color_len = patch_data
                     .get("color")
                     .and_then(|v| v.as_str())
@@ -57,6 +63,8 @@ fn hash_ai_patches(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) 
                     .unwrap_or("")
                     .len();
                 mask_len.hash(hasher);
+
+                color_len > 0 && mask_len == 0
             } else {
                 let data_len = patch
                     .get("patchDataBase64")
@@ -64,9 +72,10 @@ fn hash_ai_patches(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) 
                     .unwrap_or("")
                     .len();
                 data_len.hash(hasher);
-            }
+                true
+            };
 
-            if let Some(sub_masks_val) = patch.get("subMasks") {
+            if mask_from_sub_masks && let Some(sub_masks_val) = patch.get("subMasks") {
                 sub_masks_val.to_string().hash(hasher);
             }
 
@@ -76,6 +85,27 @@ fn hash_ai_patches(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) 
                 .unwrap_or(false);
             invert.hash(hasher);
         }
+    }
+}
+
+fn hash_ai_denoise(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) {
+    let enabled = crate::ai_denoise::is_enabled(adjustments);
+    enabled.hash(hasher);
+    if enabled {
+        hash_effect_keys(
+            adjustments,
+            &["aiDenoiseMethod", "aiDenoiseAmount", "aiDenoiseDetail"],
+            hasher,
+        );
+        crate::ai_denoise::cache_epoch().hash(hasher);
+    }
+}
+
+fn hash_negative_conversion(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) {
+    let enabled = crate::negative_conversion::is_enabled(adjustments);
+    enabled.hash(hasher);
+    if enabled {
+        hash_effect_keys(adjustments, crate::negative_conversion::PARAM_KEYS, hasher);
     }
 }
 
@@ -115,6 +145,8 @@ pub fn calculate_patch_hash(adjustments: &serde_json::Value) -> u64 {
     let mut hasher = DefaultHasher::new();
 
     hash_ai_patches(adjustments, &mut hasher);
+    hash_ai_denoise(adjustments, &mut hasher);
+    hash_negative_conversion(adjustments, &mut hasher);
 
     let uses_generated_masks = adjustments
         .get("aiPatches")
@@ -250,29 +282,6 @@ pub fn calculate_thumbnail_base_hash(adjustments: &serde_json::Value) -> u64 {
     hasher.finish()
 }
 
-pub fn calculate_visual_hash(path: &str, adjustments: &serde_json::Value) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    path.hash(&mut hasher);
-
-    if let Some(obj) = adjustments.as_object() {
-        for (key, value) in obj {
-            if GEOMETRY_KEYS.contains(&key.as_str()) {
-                continue;
-            }
-
-            match key.as_str() {
-                "crop" | "rotation" | "orientationSteps" | "flipHorizontal" | "flipVertical" => (),
-                _ => {
-                    key.hash(&mut hasher);
-                    value.to_string().hash(&mut hasher);
-                }
-            }
-        }
-    }
-
-    hasher.finish()
-}
-
 pub fn calculate_transform_hash(adjustments: &serde_json::Value) -> u64 {
     let mut hasher = DefaultHasher::new();
 
@@ -375,6 +384,8 @@ pub fn calculate_transform_hash(adjustments: &serde_json::Value) -> u64 {
     }
 
     hash_ai_patches(adjustments, &mut hasher);
+    hash_ai_denoise(adjustments, &mut hasher);
+    hash_negative_conversion(adjustments, &mut hasher);
 
     hasher.finish()
 }
@@ -386,9 +397,141 @@ pub fn calculate_full_job_hash(path: &str, adjustments: &serde_json::Value) -> u
     hasher.finish()
 }
 
+const HALF_CONVERSION_CHUNK: usize = 64 * 1024;
+
+static DECODED_CACHE_BUDGET_BYTES: LazyLock<usize> = LazyLock::new(|| {
+    let mut sys = sysinfo::System::new();
+    sys.refresh_memory();
+    let total = sys.total_memory() as usize;
+    if total > 0 {
+        total / 5
+    } else {
+        2 * 1024 * 1024 * 1024
+    }
+});
+
+enum CachedImage {
+    Full(Arc<DynamicImage>),
+    Half {
+        width: u32,
+        height: u32,
+        channels: usize,
+        data: Vec<f16>,
+    },
+}
+
+impl CachedImage {
+    fn byte_size(&self) -> usize {
+        match self {
+            CachedImage::Full(image) => image.as_bytes().len(),
+            CachedImage::Half { data, .. } => data.len() * std::mem::size_of::<f16>(),
+        }
+    }
+
+    fn compact(self) -> Self {
+        let CachedImage::Full(image) = self else {
+            return self;
+        };
+        if Arc::strong_count(&image) > 1 {
+            return CachedImage::Full(image);
+        }
+
+        let (width, height) = image.dimensions();
+        let (channels, raw) = match image.as_ref() {
+            DynamicImage::ImageRgb32F(buffer) => (3, buffer.as_raw()),
+            DynamicImage::ImageRgba32F(buffer) => (4, buffer.as_raw()),
+            _ => return CachedImage::Full(image),
+        };
+
+        let mut data = vec![f16::ZERO; raw.len()];
+        data.par_chunks_mut(HALF_CONVERSION_CHUNK)
+            .zip(raw.par_chunks(HALF_CONVERSION_CHUNK))
+            .for_each(|(dst, src)| dst.convert_from_f32_slice(src));
+
+        CachedImage::Half {
+            width,
+            height,
+            channels,
+            data,
+        }
+    }
+
+    fn expand(&self) -> Arc<DynamicImage> {
+        match self {
+            CachedImage::Full(image) => Arc::clone(image),
+            CachedImage::Half {
+                width,
+                height,
+                channels,
+                data,
+            } => {
+                let mut raw = vec![0.0f32; data.len()];
+                raw.par_chunks_mut(HALF_CONVERSION_CHUNK)
+                    .zip(data.par_chunks(HALF_CONVERSION_CHUNK))
+                    .for_each(|(dst, src)| src.convert_to_f32_slice(dst));
+
+                let image = if *channels == 4 {
+                    DynamicImage::ImageRgba32F(
+                        Rgba32FImage::from_raw(*width, *height, raw)
+                            .expect("RGBA buffer matches image dimensions"),
+                    )
+                } else {
+                    DynamicImage::ImageRgb32F(
+                        Rgb32FImage::from_raw(*width, *height, raw)
+                            .expect("RGB buffer matches image dimensions"),
+                    )
+                };
+                Arc::new(image)
+            }
+        }
+    }
+}
+
+/// A path alone goes stale: tethering reuses file names and raw settings change the pixels.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DecodeFingerprint {
+    len: u64,
+    modified: Option<SystemTime>,
+    settings_hash: u64,
+}
+
+impl DecodeFingerprint {
+    pub fn for_file(path: &Path, settings: &AppSettings) -> Option<Self> {
+        let metadata = std::fs::metadata(path).ok()?;
+        let mut hasher = DefaultHasher::new();
+        settings
+            .raw_highlight_compression
+            .map(f32::to_bits)
+            .hash(&mut hasher);
+        settings.linear_raw_mode.hash(&mut hasher);
+        settings
+            .raw_preprocessing_color_nr
+            .map(f32::to_bits)
+            .hash(&mut hasher);
+        settings
+            .raw_preprocessing_sharpening
+            .map(f32::to_bits)
+            .hash(&mut hasher);
+        settings.apply_preprocessing_to_non_raws.hash(&mut hasher);
+        settings.use_apple_raw9.hash(&mut hasher);
+        Some(Self {
+            len: metadata.len(),
+            modified: metadata.modified().ok(),
+            settings_hash: hasher.finish(),
+        })
+    }
+}
+
+struct DecodedEntry {
+    path: String,
+    fingerprint: DecodeFingerprint,
+    image: CachedImage,
+    exif: HashMap<String, String>,
+}
+
 pub struct DecodedImageCache {
     capacity: usize,
-    items: Vec<(String, Arc<DynamicImage>, HashMap<String, String>)>,
+    items: Vec<DecodedEntry>,
 }
 
 impl DecodedImageCache {
@@ -401,20 +544,46 @@ impl DecodedImageCache {
 
     pub fn set_capacity(&mut self, capacity: usize) {
         self.capacity = capacity;
-        while self.items.len() > self.capacity {
-            self.items.remove(0);
-        }
+        self.evict();
     }
 
-    pub fn get(&mut self, path: &str) -> Option<(Arc<DynamicImage>, HashMap<String, String>)> {
-        if let Some(pos) = self.items.iter().position(|(p, _, _)| p == path) {
-            let item = self.items.remove(pos);
-            let result = (item.1.clone(), item.2.clone());
-            self.items.push(item);
-            Some(result)
-        } else {
-            None
+    pub fn contains(&self, path: &str, fingerprint: &DecodeFingerprint) -> bool {
+        self.items
+            .iter()
+            .any(|e| e.path == path && e.fingerprint == *fingerprint)
+    }
+
+    pub fn get(
+        &mut self,
+        path: &str,
+        fingerprint: &DecodeFingerprint,
+    ) -> Option<(Arc<DynamicImage>, HashMap<String, String>)> {
+        let pos = self.items.iter().position(|e| e.path == path)?;
+        let entry = self.items.remove(pos);
+        if entry.fingerprint != *fingerprint {
+            return None;
         }
+        let image = entry.image.expand();
+        let exif = entry.exif.clone();
+        self.items.push(DecodedEntry {
+            image: CachedImage::Full(Arc::clone(&image)),
+            ..entry
+        });
+        Some((image, exif))
+    }
+
+    pub fn compact_except(&mut self, keep_path: &str) {
+        if let Some(pos) = self.items.iter().position(|e| e.path == keep_path) {
+            let item = self.items.remove(pos);
+            self.items.push(item);
+        }
+        for item in self.items.iter_mut() {
+            if item.path != keep_path {
+                let cached = std::mem::replace(&mut item.image, CachedImage::Full(Arc::default()));
+                item.image = cached.compact();
+            }
+        }
+        self.evict();
     }
 
     pub fn clear(&mut self) {
@@ -424,15 +593,97 @@ impl DecodedImageCache {
     pub fn insert(
         &mut self,
         path: String,
+        fingerprint: DecodeFingerprint,
         image: Arc<DynamicImage>,
         exif: HashMap<String, String>,
     ) {
-        if let Some(pos) = self.items.iter().position(|(p, _, _)| *p == path) {
+        if let Some(pos) = self.items.iter().position(|e| e.path == path) {
             self.items.remove(pos);
-        } else if self.items.len() >= self.capacity {
+        }
+        self.items.push(DecodedEntry {
+            path,
+            fingerprint,
+            image: CachedImage::Full(image),
+            exif,
+        });
+        self.evict();
+    }
+
+    fn evict(&mut self) {
+        while self.items.len() > self.capacity.max(1) {
             self.items.remove(0);
         }
-        self.items.push((path, image, exif));
+        while self.items.len() > 1
+            && self
+                .items
+                .iter()
+                .map(|e| e.image.byte_size())
+                .sum::<usize>()
+                > *DECODED_CACHE_BUDGET_BYTES
+        {
+            self.items.remove(0);
+        }
+    }
+}
+
+/// Lets concurrent callers share one decode of a file instead of each decoding it.
+#[derive(Default)]
+pub struct DecodeFlights {
+    inflight: Mutex<HashMap<String, Arc<Flight>>>,
+}
+
+#[derive(Default)]
+pub struct Flight {
+    done: Mutex<bool>,
+    finished: Condvar,
+}
+
+impl Flight {
+    pub fn wait(&self) {
+        let mut done = self.done.lock().unwrap_or_else(|e| e.into_inner());
+        while !*done {
+            done = self.finished.wait(done).unwrap_or_else(|e| e.into_inner());
+        }
+    }
+}
+
+pub enum FlightRole<'a> {
+    Leader(FlightGuard<'a>),
+    Follower(Arc<Flight>),
+}
+
+/// Wakes waiters when dropped, including on error or panic.
+pub struct FlightGuard<'a> {
+    flights: &'a DecodeFlights,
+    path: String,
+    flight: Arc<Flight>,
+}
+
+impl Drop for FlightGuard<'_> {
+    fn drop(&mut self) {
+        self.flights
+            .inflight
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(&self.path);
+        *self.flight.done.lock().unwrap_or_else(|e| e.into_inner()) = true;
+        self.flight.finished.notify_all();
+    }
+}
+
+impl DecodeFlights {
+    pub fn begin(&self, path: &str) -> FlightRole<'_> {
+        let mut inflight = self.inflight.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(flight) = inflight.get(path) {
+            return FlightRole::Follower(Arc::clone(flight));
+        }
+        let flight = Arc::new(Flight::default());
+        inflight.insert(path.to_string(), Arc::clone(&flight));
+        FlightRole::Leader(FlightGuard {
+            flights: self,
+            path: path.to_string(),
+            flight,
+        })
     }
 }
 
@@ -441,10 +692,7 @@ pub fn clear_preview_stage_caches(state: &AppState) {
         .patched_cache
         .lock()
         .unwrap_or_else(|e| e.into_inner()) = None;
-    *state
-        .patched_warped_cache
-        .lock()
-        .unwrap_or_else(|e| e.into_inner()) = None;
+    *state.warped_cache.lock().unwrap_or_else(|e| e.into_inner()) = None;
     *state
         .working_cache
         .lock()

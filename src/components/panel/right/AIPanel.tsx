@@ -65,7 +65,7 @@ import { createSubMask } from '../../../utils/maskUtils';
 import Text from '../../ui/Text';
 import { TEXT_COLOR_KEYS, TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useEditorStore } from '../../../store/useEditorStore';
-import { useProcessStore } from '../../../store/useProcessStore';
+import { selectAiModelDownloadStatus, useProcessStore } from '../../../store/useProcessStore';
 import { useUIStore } from '../../../store/useUIStore';
 import { useEditorActions } from '../../../hooks/useEditorActions';
 import { useAiMasking } from '../../../hooks/useAiMasking';
@@ -132,7 +132,7 @@ const SUB_MASK_CONFIG: any = {
   },
   [Mask.QuickEraser]: {
     parameters: [
-      { key: 'grow', min: -100, max: 100, step: 1, defaultValue: 75 },
+      { key: 'grow', min: -100, max: 200, step: 1, defaultValue: 150 },
       { key: 'feather', min: 0, max: 100, step: 1, defaultValue: 75 },
     ],
   },
@@ -343,7 +343,7 @@ export default function AIPanel() {
   const setEditor = useEditorStore((s) => s.setEditor);
 
   const activeAiTasks = useProcessStore((s) => s.activeAiTasks);
-  const aiModelDownloadStatus = useProcessStore((s) => s.aiModelDownloadStatus);
+  const aiModelDownloadStatus = useProcessStore(selectAiModelDownloadStatus);
   const setCustomEscapeHandler = useUIStore((s) => s.setCustomEscapeHandler);
 
   const { setAdjustments } = useEditorActions();
@@ -704,10 +704,11 @@ export default function AIPanel() {
   const updateSubMask = (id: string, data: any) =>
     setAdjustments((prev: Adjustments) => ({
       ...prev,
-      aiPatches: prev.aiPatches.map((p) => ({
-        ...p,
-        subMasks: p.subMasks.map((sm) => (sm.id === id ? { ...sm, ...data } : sm)),
-      })),
+      aiPatches: prev.aiPatches.map((p) =>
+        p.subMasks.some((sm) => sm.id === id)
+          ? { ...p, subMasks: p.subMasks.map((sm) => (sm.id === id ? { ...sm, ...data } : sm)) }
+          : p,
+      ),
     }));
 
   const handleDeleteContainer = (id: string) => {
