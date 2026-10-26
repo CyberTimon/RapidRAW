@@ -864,7 +864,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
               <button
                 key={channel}
                 className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
-                  selected ? 'ring-2 ring-offset-2 ring-offset-surface ring-accent' : 'bg-surface-secondary'
+                  selected ? 'ring-2 ring-offset-2 ring-offset-bg-card ring-accent' : 'bg-surface-secondary'
                 } ${channel === ActiveChannel.Luma ? 'text-text-primary' : ''}`}
                 onClick={() => setActiveChannel(channel)}
                 type="button"

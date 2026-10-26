@@ -102,7 +102,7 @@ export default function ImmichSettings() {
   const connectionChanged = serverUrl.trim() !== saved.serverUrl || apiKey.trim() !== keyInfo.apiKey;
 
   return (
-    <div className="p-6 bg-surface rounded-xl shadow-md">
+    <div className="p-6 bg-bg-card rounded-xl shadow-md">
       <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
         {t('immich.settings.title')}
       </Text>

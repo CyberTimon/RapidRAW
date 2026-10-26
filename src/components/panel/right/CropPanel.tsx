@@ -978,7 +978,7 @@ export default function CropPanel() {
               <Text variant={TextVariants.heading} className="mb-2">
                 {t('editor.crop.rotationHeading')}
               </Text>
-              <div className="bg-surface px-4 pt-3 pb-4 rounded-lg">
+              <div className="bg-bg-card px-4 pt-3 pb-4 rounded-lg">
                 <Slider
                   label={
                     <div className="flex items-center gap-2">
@@ -1095,7 +1095,7 @@ export default function CropPanel() {
               <Text variant={TextVariants.heading} className="mb-2">
                 {t('modals.transform.title')}
               </Text>
-              <div className="bg-surface rounded-xl overflow-hidden" onContextMenu={handleTransformContextMenu}>
+              <div className="bg-bg-card rounded-xl overflow-hidden" onContextMenu={handleTransformContextMenu}>
                 <button
                   onClick={() => toggleSection('transform')}
                   className="w-full flex items-center justify-between p-4 text-text-secondary hover:text-text-primary hover:bg-card-active transition-colors"
@@ -1373,7 +1373,7 @@ export default function CropPanel() {
               <Text variant={TextVariants.heading} className="mb-2">
                 {t('modals.lensCorrection.title')}
               </Text>
-              <div className="bg-surface rounded-xl overflow-hidden mb-6" onContextMenu={handleLensContextMenu}>
+              <div className="bg-bg-card rounded-xl overflow-hidden mb-6" onContextMenu={handleLensContextMenu}>
                 <button
                   onClick={() => toggleSection('lens')}
                   className="w-full flex items-center justify-between p-4 text-text-secondary hover:text-text-primary hover:bg-card-active transition-colors"

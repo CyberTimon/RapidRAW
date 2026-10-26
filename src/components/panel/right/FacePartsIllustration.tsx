@@ -86,9 +86,9 @@ export default function FacePartsIllustration({ selected }: FacePartsIllustratio
             fill:
               part && selected.includes(part)
                 ? 'var(--color-accent)'
-                : `color-mix(in srgb, var(--color-text-secondary) ${shade}%, var(--color-surface))`,
+                : `color-mix(in srgb, var(--color-text-secondary) ${shade}%, var(--color-bg-card))`,
           }}
-          className={part ? 'stroke-surface transition-colors' : undefined}
+          className={part ? 'stroke-bg-card transition-colors' : undefined}
         />
       ))}
     </svg>

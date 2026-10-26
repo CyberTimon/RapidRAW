@@ -80,7 +80,7 @@ function ListHeader({ widths, setWidths, containerRef, sortCriteria, onSortChang
       <div
         style={{ width: actualWidth }}
         className={`relative flex items-center px-3 h-full select-none ${
-          sortKey ? 'cursor-pointer hover:bg-bg-primary/50 transition-colors' : ''
+          sortKey ? 'cursor-pointer hover:bg-bg-inset/50 transition-colors' : ''
         }`}
         onClick={() => sortKey && onSortChange(sortKey)}
       >

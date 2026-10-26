@@ -1083,7 +1083,7 @@ export default function ExportPanel({
               <Text variant={TextVariants.heading} className="mb-2">
                 {t('export.sections.advanced')}
               </Text>
-              <div className="bg-surface rounded-xl overflow-hidden">
+              <div className="bg-bg-card rounded-xl overflow-hidden">
                 <button
                   onClick={() => setIsAdvancedExpanded(!isAdvancedExpanded)}
                   disabled={isExporting}

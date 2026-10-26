@@ -150,7 +150,7 @@ export default function ExportPresetsList({
             placeholder={t('ui.exportPresets.presetNamePlaceholder')}
             value={newPresetName}
             onChange={(e) => setNewPresetName(e.target.value)}
-            className="grow bg-bg-primary border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
+            className="grow bg-bg-inset border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
             onKeyDown={(e) => e.key === 'Enter' && handleSavePreset()}
           />
           <button

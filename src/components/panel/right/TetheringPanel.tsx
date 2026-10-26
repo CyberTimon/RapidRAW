@@ -626,7 +626,7 @@ export default function TetheringPanel({ onLibraryRefresh, onImageSelect }: Teth
           <Text variant={TextVariants.heading} className="mb-2">
             {t('tethering.status')}
           </Text>
-          <div className="bg-surface border border-surface rounded-xl p-3.5 flex flex-col gap-3 cursor-default relative transition-all">
+          <div className="bg-bg-card border border-bg-card rounded-xl p-3.5 flex flex-col gap-3 cursor-default relative transition-all">
             <div className="flex justify-between items-center gap-4 relative z-10">
               <Text weight={TextWeights.semibold} color={TextColors.primary} className="truncate drop-shadow-sm">
                 {isConnected ? t('tethering.cameraConnected') : t('tethering.selectCamera')}
@@ -847,7 +847,7 @@ export default function TetheringPanel({ onLibraryRefresh, onImageSelect }: Teth
                 {t('tethering.generalSettings')}
               </Text>
 
-              <div className="flex flex-col gap-1 bg-surface p-2.5 rounded-lg border border-surface">
+              <div className="flex flex-col gap-1 bg-bg-card p-2.5 rounded-lg border border-bg-card">
                 <div className="flex justify-between items-center">
                   <Text variant={TextVariants.label} className="select-none">
                     {t('tethering.autoApplyPreset')}
@@ -877,7 +877,7 @@ export default function TetheringPanel({ onLibraryRefresh, onImageSelect }: Teth
                 )}
               </div>
 
-              <div className="bg-surface p-2.5 rounded-lg border border-surface">
+              <div className="bg-bg-card p-2.5 rounded-lg border border-bg-card">
                 <Switch
                   label={t('tethering.autoOpenCaptured')}
                   checked={autoOpenCaptured}

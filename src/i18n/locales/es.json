@@ -2143,7 +2143,8 @@
     "themes": {
       "dark": "Oscuro",
       "grey": "Gris",
-      "light": "Claro"
+      "light": "Claro",
+      "oled": "OLED"
     },
     "title": "Ajustes",
     "tooltips": {
