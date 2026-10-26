@@ -6,30 +6,165 @@ use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use image::{DynamicImage, GrayImage, Luma, Rgb, Rgb32FImage, Rgba, RgbaImage};
 use rayon::prelude::*;
 use std::collections::hash_map::DefaultHasher;
+use std::fs;
 use std::hash::{Hash, Hasher};
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const SOURCE_SPACE_MAP_PREFIX: &str = "data:image/png;space=source;base64,";
+const MAP_REFERENCE_PREFIX: &str = "rrmap:";
 
 const MAP_CACHE_CAPACITY: usize = 4;
 
 static LUMA_MAP_CACHE: Mutex<Vec<(u64, Arc<GrayImage>)>> = Mutex::new(Vec::new());
 static RGBA_MAP_CACHE: Mutex<Vec<(u64, Arc<RgbaImage>)>> = Mutex::new(Vec::new());
+static MAP_CACHE_DIR: Mutex<Option<PathBuf>> = Mutex::new(None);
+static MAP_DISK_CACHE_LIMIT_BYTES: AtomicU64 = AtomicU64::new(u64::MAX);
 
-pub fn encode_source_space_map(image: &DynamicImage) -> Result<String, String> {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EffectMapKind {
+    Depth,
+    Normal,
+}
+
+impl EffectMapKind {
+    pub const ALL: [EffectMapKind; 2] = [EffectMapKind::Depth, EffectMapKind::Normal];
+
+    fn model_tag(self) -> &'static str {
+        match self {
+            EffectMapKind::Depth => "depth-anything-v2",
+            EffectMapKind::Normal => "normal-v1",
+        }
+    }
+
+    pub fn adjustment_keys(self) -> &'static [(&'static str, &'static str, &'static str)] {
+        match self {
+            EffectMapKind::Depth => &[
+                ("lensBlur", "lensBlurEnabled", "lensBlurDepthMap"),
+                ("fog", "fogEnabled", "fogDepthMap"),
+            ],
+            EffectMapKind::Normal => &[("relight", "relightEnabled", "relightNormalMap")],
+        }
+    }
+}
+
+pub fn initialize_cache_dir(cache_dir: PathBuf) {
+    let dir = cache_dir.join("ai_maps");
+    let _ = fs::create_dir_all(&dir);
+    *MAP_CACHE_DIR.lock().unwrap_or_else(|e| e.into_inner()) = Some(dir);
+}
+
+pub fn set_disk_cache_limit_gb(limit_gb: u32) {
+    let limit = u64::from(limit_gb.max(1)) * 1024 * 1024 * 1024;
+    let dir = MAP_CACHE_DIR
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone();
+    if MAP_DISK_CACHE_LIMIT_BYTES.swap(limit, Ordering::Relaxed) > limit
+        && let Some(dir) = dir
+    {
+        std::thread::spawn(move || evict_map_disk_cache(&dir, None));
+    }
+}
+
+fn map_file_name(kind: EffectMapKind, source_id: &str) -> String {
+    format!("{}-{}.png", kind.model_tag(), source_id)
+}
+
+fn map_file_path(file_name: &str) -> Option<PathBuf> {
+    MAP_CACHE_DIR
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_ref()
+        .map(|dir| dir.join(file_name))
+}
+
+pub fn store_source_map(
+    kind: EffectMapKind,
+    source_id: &str,
+    map: &DynamicImage,
+) -> Result<String, String> {
+    let file_name = map_file_name(kind, source_id);
+    let path = map_file_path(&file_name).ok_or("AI map cache directory is not initialized")?;
+
     let mut buf = std::io::Cursor::new(Vec::new());
-    image
-        .write_to(&mut buf, image::ImageFormat::Png)
+    map.write_to(&mut buf, image::ImageFormat::Png)
         .map_err(|e| e.to_string())?;
-    Ok(format!(
-        "{}{}",
-        SOURCE_SPACE_MAP_PREFIX,
-        BASE64.encode(buf.get_ref())
-    ))
+    crate::file_management::write_file_atomic(&path, buf.get_ref()).map_err(|e| e.to_string())?;
+    if let Some(dir) = path.parent() {
+        evict_map_disk_cache(dir, Some(&path));
+    }
+
+    Ok(format!("{}{}", MAP_REFERENCE_PREFIX, file_name))
+}
+
+pub fn is_map_reference(value: &serde_json::Value) -> bool {
+    value
+        .as_str()
+        .is_some_and(|map| map.starts_with(MAP_REFERENCE_PREFIX))
+}
+
+pub fn is_map_valid_for(value: &serde_json::Value, kind: EffectMapKind, source_id: &str) -> bool {
+    match value.as_str() {
+        Some(map) if map.starts_with(MAP_REFERENCE_PREFIX) => {
+            let file_name = map_file_name(kind, source_id);
+            map[MAP_REFERENCE_PREFIX.len()..] == file_name
+                && map_file_path(&file_name).is_some_and(|path| path.exists())
+        }
+        Some(map) => !map.is_empty(),
+        None => false,
+    }
+}
+
+fn evict_map_disk_cache(dir: &Path, keep: Option<&Path>) {
+    let Ok(read_dir) = fs::read_dir(dir) else {
+        return;
+    };
+    let limit = MAP_DISK_CACHE_LIMIT_BYTES.load(Ordering::Relaxed);
+
+    let mut entries: Vec<(PathBuf, u64, SystemTime)> = read_dir
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "png"))
+        .filter_map(|e| {
+            let meta = e.metadata().ok()?;
+            Some((e.path(), meta.len(), meta.modified().unwrap_or(UNIX_EPOCH)))
+        })
+        .collect();
+
+    let mut total: u64 = entries.iter().map(|(_, len, _)| len).sum();
+    entries.sort_by_key(|(_, _, modified)| *modified);
+
+    for (path, len, _) in entries {
+        if total <= limit {
+            break;
+        }
+        if Some(path.as_path()) != keep && fs::remove_file(&path).is_ok() {
+            total = total.saturating_sub(len);
+        }
+    }
+}
+
+pub fn clear_disk_cache() -> Result<(), String> {
+    let dir = MAP_CACHE_DIR
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone();
+    let Some(read_dir) = dir.and_then(|dir| fs::read_dir(dir).ok()) else {
+        return Ok(());
+    };
+    for path in read_dir.filter_map(|e| e.ok()).map(|e| e.path()) {
+        if path.is_file() {
+            fs::remove_file(&path)
+                .map_err(|e| format!("Failed to remove {}: {}", path.display(), e))?;
+        }
+    }
+    Ok(())
 }
 
 pub fn is_source_space_map(data_url: &str) -> bool {
-    data_url.starts_with(SOURCE_SPACE_MAP_PREFIX)
+    data_url.starts_with(SOURCE_SPACE_MAP_PREFIX) || data_url.starts_with(MAP_REFERENCE_PREFIX)
 }
 
 pub fn effect_map_key(data_url: &str, adjustments: &serde_json::Value) -> u64 {
@@ -172,6 +307,13 @@ fn rotate_normal(r: u8, g: u8, (cos, sin): (f32, f32)) -> (u8, u8) {
 }
 
 fn decode_data_url(data_url: &str) -> Option<DynamicImage> {
+    if let Some(file_name) = data_url.strip_prefix(MAP_REFERENCE_PREFIX) {
+        let path = map_file_path(file_name)?;
+        let map = image::open(&path).ok()?;
+        crate::storage::mark_used(&path);
+        return Some(map);
+    }
+
     let b64_data = match data_url.find(',') {
         Some(idx) => &data_url[idx + 1..],
         None => data_url,

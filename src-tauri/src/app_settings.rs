@@ -125,6 +125,10 @@ pub fn all_available_adjustments() -> HashSet<String> {
         "centréY",
         "lumaNoiseReduction",
         "colorNoiseReduction",
+        "aiDenoiseEnabled",
+        "aiDenoiseMethod",
+        "aiDenoiseAmount",
+        "aiDenoiseDetail",
         "chromaticAberrationRedCyan",
         "chromaticAberrationBlueYellow",
         "negativeConversionEnabled",
@@ -151,6 +155,30 @@ pub fn all_available_adjustments() -> HashSet<String> {
         "glowAmount",
         "halationAmount",
         "flareAmount",
+        "lensBlurEnabled",
+        "lensBlurAmount",
+        "lensBlurDiffusion",
+        "lensBlurShape",
+        "lensBlurMinDepth",
+        "lensBlurMaxDepth",
+        "lensBlurMinFade",
+        "lensBlurMaxFade",
+        "fogEnabled",
+        "fogAmount",
+        "fogStart",
+        "fogDensity",
+        "fogHeight",
+        "fogVariation",
+        "fogGlow",
+        "fogTemperature",
+        "fogTint",
+        "relightEnabled",
+        "relightLights",
+        "relightAmbient",
+        "relightSoftness",
+        "relightShine",
+        "relightShadows",
+        "relightShadowSoftness",
         "crop",
         "aspectRatio",
         "rotation",
@@ -460,6 +488,22 @@ pub fn default_compensate_highlight_preservation() -> bool {
     true
 }
 
+pub fn default_ai_gpu_acceleration() -> bool {
+    true
+}
+
+pub fn default_ai_cache_limit_gb() -> u32 {
+    10
+}
+
+pub fn default_ai_maps_cache_limit_gb() -> u32 {
+    4
+}
+
+pub fn default_thumbnail_cache_limit_gb() -> u32 {
+    10
+}
+
 pub fn default_tagging_shortcuts_option() -> Option<Vec<String>> {
     Some(vec![
         "portrait".to_string(),
@@ -522,6 +566,8 @@ pub struct AppSettings {
     pub thumbnail_size: Option<String>,
     pub thumbnail_aspect_ratio: Option<String>,
     pub ai_provider: Option<String>,
+    #[serde(default = "default_ai_gpu_acceleration")]
+    pub ai_gpu_acceleration: bool,
     #[serde(default = "default_open_tree_sections")]
     pub open_tree_sections: Vec<String>,
     #[serde(default)]
@@ -562,6 +608,8 @@ pub struct AppSettings {
     pub editor_neutral_grey_bg: Option<bool>,
     #[serde(default)]
     pub canvas_input_mode: Option<String>,
+    #[serde(default)]
+    pub compare_mode: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub white_balance_mode: Option<String>,
     #[serde(default)]
@@ -574,6 +622,12 @@ pub struct AppSettings {
     pub thumbnail_worker_threads: Option<u32>,
     #[serde(default)]
     pub image_cache_size: Option<u32>,
+    #[serde(default)]
+    pub ai_cache_limit_gb: Option<u32>,
+    #[serde(default)]
+    pub thumbnail_cache_limit_gb: Option<u32>,
+    #[serde(default)]
+    pub ai_maps_cache_limit_gb: Option<u32>,
     #[serde(default)]
     pub export_worker_threads: Option<u32>,
     #[serde(default)]
@@ -632,6 +686,8 @@ pub struct AppSettings {
     pub adjustment_layout: AdjustmentLayout,
     #[serde(default)]
     pub workspace: WorkspaceState,
+    #[serde(default)]
+    pub immich: crate::immich::ImmichSettings,
 }
 
 impl Default for AppSettings {
@@ -669,6 +725,7 @@ impl Default for AppSettings {
             thumbnail_size: Some("medium".to_string()),
             thumbnail_aspect_ratio: Some("contain".to_string()),
             ai_provider: Some("cpu".to_string()),
+            ai_gpu_acceleration: default_ai_gpu_acceleration(),
             open_tree_sections: default_open_tree_sections(),
             copy_paste_settings: CopyPasteSettings::default(),
             raw_highlight_compression: Some(2.5),
@@ -696,6 +753,7 @@ impl Default for AppSettings {
             use_wgpu_renderer: Some(true),
             editor_neutral_grey_bg: Some(false),
             canvas_input_mode: Some("mouse".to_string()),
+            compare_mode: None,
             white_balance_mode: None,
             zoom_speed_multiplier: Some(1.0),
             zoom_photo_to_pixel_click: Some(false),
@@ -708,6 +766,9 @@ impl Default for AppSettings {
             image_cache_size: Some(2),
             #[cfg(not(target_os = "android"))]
             image_cache_size: Some(5),
+            ai_cache_limit_gb: Some(default_ai_cache_limit_gb()),
+            thumbnail_cache_limit_gb: Some(default_thumbnail_cache_limit_gb()),
+            ai_maps_cache_limit_gb: Some(default_ai_maps_cache_limit_gb()),
             export_worker_threads: None,
             export_memory_limit: None,
             enable_baseline_exposure: false,
@@ -736,6 +797,7 @@ impl Default for AppSettings {
             custom_aspect_ratios: Vec::new(),
             adjustment_layout: AdjustmentLayout::default(),
             workspace: WorkspaceState::default(),
+            immich: crate::immich::ImmichSettings::default(),
         }
     }
 }
@@ -843,10 +905,14 @@ fn read_settings_from_disk(app_handle: &AppHandle) -> Result<AppSettings, String
 
 #[tauri::command]
 pub fn save_settings(settings: AppSettings, app_handle: AppHandle) -> Result<(), String> {
+    let previous_gpu_acceleration = load_settings(app_handle.clone())
+        .map(|previous| previous.ai_gpu_acceleration)
+        .ok();
     let path = get_settings_path(&app_handle)?;
     let json_string = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
     fs::write(path, json_string).map_err(|e| e.to_string())?;
     *settings_cache() = None;
+    crate::immich::apply_settings(&settings.immich);
 
     let state = app_handle.state::<AppState>();
     let cache_size = settings.image_cache_size.unwrap_or(5) as usize;
@@ -855,5 +921,10 @@ pub fn save_settings(settings: AppSettings, app_handle: AppHandle) -> Result<(),
         .lock()
         .unwrap()
         .set_capacity(cache_size);
+    crate::storage::apply_cache_limits(&settings);
+
+    if previous_gpu_acceleration != Some(settings.ai_gpu_acceleration) {
+        crate::ai_processing::reset_ai_sessions(&state.ai_state);
+    }
     Ok(())
 }

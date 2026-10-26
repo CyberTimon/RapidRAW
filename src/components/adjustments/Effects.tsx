@@ -27,7 +27,7 @@ import Text from '../ui/Text';
 import AdjustmentSubSection from './AdjustmentSubSection';
 import { TextVariants } from '../../types/typography';
 import { DepthRangePicker } from '../ui/DepthRangePicker';
-import { useProcessStore } from '../../store/useProcessStore';
+import { selectAiModelDownloadStatus, useProcessStore } from '../../store/useProcessStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useEditorStore } from '../../store/useEditorStore';
 import { useContextMenu } from '../../context/ContextMenuContext';
@@ -195,7 +195,7 @@ function EffectsPanel({
   const [isGeneratingNormals, setIsGeneratingNormals] = useState(false);
   const [isGeneratingFogDepth, setIsGeneratingFogDepth] = useState(false);
   const [hoveredLightId, setHoveredLightId] = useState<string | null>(null);
-  const aiModelDownloadStatus = useProcessStore((state) => state.aiModelDownloadStatus);
+  const aiModelDownloadStatus = useProcessStore(selectAiModelDownloadStatus);
   const isRelightPickerActive = useEditorStore((state) => state.isRelightPickerActive);
   const activeRelightLightId = useEditorStore((state) => state.activeRelightLightId);
   const setEditor = useEditorStore((state) => state.setEditor);
@@ -238,7 +238,10 @@ function EffectsPanel({
       mapRequests.current.get(mapKey) === request && useEditorStore.getState().selectedImage?.path === imagePath;
     setGenerating(true);
     try {
-      const result = await invoke<{ imagePath: string; dataUrl: string }>(command, { imagePath });
+      const result = await invoke<{ imagePath: string; dataUrl: string }>(command, {
+        imagePath,
+        jsAdjustments: adjustments,
+      });
       if (!isCurrent() || result.imagePath !== imagePath) return;
       setAdjustments((prev) => (isCurrent() ? { ...prev, [mapKey]: result.dataUrl } : prev));
     } catch (e: unknown) {

@@ -3,6 +3,7 @@
   "aiDenoiseAmount": 100,
   "aiDenoiseDetail": 0,
   "aiDenoiseEnabled": false,
+  "aiDenoiseMethod": "ai",
   "aiPatches": [],
   "aspectRatio": 0,
   "baselineExposure": true,
