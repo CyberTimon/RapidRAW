@@ -25,6 +25,7 @@ import {
 import { calculateAutoCropForRotation, calculateCenteredCrop } from '../utils/cropUtils';
 import { CompareMode, Invokes, Option, SelectedImage } from '../components/ui/AppProperties';
 import { globalImageCache } from '../utils/ImageLRUCache';
+import { BulkChange, BulkChangeOptions, applyWithBulkConfirm, countEditedImages } from '../utils/bulkChanges';
 
 export const debouncedSetHistory = debounce((newAdj: Adjustments) => {
   useEditorStore.getState().pushHistory(newAdj);
@@ -289,26 +290,28 @@ export function useEditorActions() {
   );
 
   const handleResetAdjustments = useCallback(
-    (paths?: string[]) => {
-      const { multiSelectedPaths, libraryActivePath, setLibrary } = useLibraryStore.getState();
+    (paths?: string[], options?: BulkChangeOptions) => {
+      const { multiSelectedPaths, libraryActivePath, imageList, setLibrary } = useLibraryStore.getState();
       const { selectedImage, resetHistory } = useEditorStore.getState();
       const pathsToReset = paths || multiSelectedPaths;
       if (pathsToReset.length === 0) return;
 
-      pathsToReset.forEach((p) => globalImageCache.delete(p));
-      debouncedSetHistory.cancel();
+      applyWithBulkConfirm(BulkChange.Reset, countEditedImages(imageList, pathsToReset), options, () => {
+        pathsToReset.forEach((p) => globalImageCache.delete(p));
+        debouncedSetHistory.cancel();
 
-      invoke(Invokes.ResetAdjustmentsForPaths, { paths: pathsToReset })
-        .then(() => {
-          if (libraryActivePath && pathsToReset.includes(libraryActivePath))
-            setLibrary({ libraryActiveAdjustments: { ...INITIAL_ADJUSTMENTS } });
-          if (selectedImage && pathsToReset.includes(selectedImage.path)) {
-            const resetData = { ...INITIAL_ADJUSTMENTS, aiPatches: [] };
-            resetHistory(resetData);
-            setEditor({ adjustments: resetData });
-          }
-        })
-        .catch((err) => toast.error(`Failed to reset adjustments: ${err}`));
+        invoke(Invokes.ResetAdjustmentsForPaths, { paths: pathsToReset })
+          .then(() => {
+            if (libraryActivePath && pathsToReset.includes(libraryActivePath))
+              setLibrary({ libraryActiveAdjustments: { ...INITIAL_ADJUSTMENTS } });
+            if (selectedImage && pathsToReset.includes(selectedImage.path)) {
+              const resetData = { ...INITIAL_ADJUSTMENTS, aiPatches: [] };
+              resetHistory(resetData);
+              setEditor({ adjustments: resetData });
+            }
+          })
+          .catch((err) => toast.error(`Failed to reset adjustments: ${err}`));
+      });
     },
     [setEditor],
   );

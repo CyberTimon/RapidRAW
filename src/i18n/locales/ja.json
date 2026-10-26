@@ -1387,6 +1387,28 @@
     }
   },
   "modals": {
+    "bulkChange": {
+      "colorLabels": {
+        "confirm": "ラベルを変更",
+        "message_other": "選択した画像のうち {{count}} 枚にはすでにカラーラベルがあります。この操作で置き換えられます。",
+        "title_other": "{{count}} 件のカラーラベルを変更しますか？"
+      },
+      "flags": {
+        "confirm": "フラグを変更",
+        "message_other": "選択した画像のうち {{count}} 枚にはすでにフラグがあります。この操作で置き換えられます。",
+        "title_other": "{{count}} 件のフラグを変更しますか？"
+      },
+      "ratings": {
+        "confirm": "評価を変更",
+        "message_other": "選択した画像のうち {{count}} 枚にはすでに評価があります。この操作で置き換えられます。",
+        "title_other": "{{count}} 件の評価を変更しますか？"
+      },
+      "reset": {
+        "confirm": "編集をリセット",
+        "message_other": "選択した画像のうち {{count}} 枚には編集内容があります。リセットすると削除され、元に戻せません。",
+        "title_other": "{{count}} 枚の画像をリセットしますか？"
+      }
+    },
     "collage": {
       "aspectRatio": "アスペクト比",
       "background": "背景",
@@ -1760,6 +1782,10 @@
       "totalUsed": "RapidRAW はこのデバイスで {{size}} を使用しています。"
     },
     "general": {
+      "confirmBulkChanges": "一括変更を確認",
+      "confirmBulkChangesDesc": "多数の画像の評価、フラグ、カラーラベル、編集内容を一度に置き換える前に確認します。",
+      "confirmBulkChangesFrom": "確認する枚数",
+      "confirmBulkChangesFromDesc": "変更される画像がこの枚数以上の場合に確認します。",
       "createXmp": "見つからないXMPファイルを作成",
       "createXmpDesc": "画像にXMPサイドカーファイルが存在しない場合、自動的に新規作成します。",
       "createXmpMissing": "見つからない場合はXMPを作成",

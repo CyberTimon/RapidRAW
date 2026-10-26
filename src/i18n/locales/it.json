@@ -1423,6 +1423,44 @@
     }
   },
   "modals": {
+    "bulkChange": {
+      "colorLabels": {
+        "confirm": "Cambia Etichette",
+        "message_many": "{{count}} delle immagini selezionate hanno già un'etichetta colore. Questa azione la sostituisce.",
+        "message_one": "{{count}} delle immagini selezionate ha già un'etichetta colore. Questa azione la sostituisce.",
+        "message_other": "{{count}} delle immagini selezionate hanno già un'etichetta colore. Questa azione la sostituisce.",
+        "title_many": "Cambiare {{count}} Etichette Colore?",
+        "title_one": "Cambiare {{count}} Etichetta Colore?",
+        "title_other": "Cambiare {{count}} Etichette Colore?"
+      },
+      "flags": {
+        "confirm": "Cambia Flag",
+        "message_many": "{{count}} delle immagini selezionate hanno già un flag. Questa azione lo sostituisce.",
+        "message_one": "{{count}} delle immagini selezionate ha già un flag. Questa azione lo sostituisce.",
+        "message_other": "{{count}} delle immagini selezionate hanno già un flag. Questa azione lo sostituisce.",
+        "title_many": "Cambiare {{count}} Flag?",
+        "title_one": "Cambiare {{count}} Flag?",
+        "title_other": "Cambiare {{count}} Flag?"
+      },
+      "ratings": {
+        "confirm": "Cambia Valutazioni",
+        "message_many": "{{count}} delle immagini selezionate hanno già una valutazione. Questa azione la sostituisce.",
+        "message_one": "{{count}} delle immagini selezionate ha già una valutazione. Questa azione la sostituisce.",
+        "message_other": "{{count}} delle immagini selezionate hanno già una valutazione. Questa azione la sostituisce.",
+        "title_many": "Cambiare {{count}} Valutazioni?",
+        "title_one": "Cambiare {{count}} Valutazione?",
+        "title_other": "Cambiare {{count}} Valutazioni?"
+      },
+      "reset": {
+        "confirm": "Ripristina Modifiche",
+        "message_many": "{{count}} delle immagini selezionate hanno delle modifiche. Il ripristino le rimuove e non può essere annullato.",
+        "message_one": "{{count}} delle immagini selezionate ha delle modifiche. Il ripristino le rimuove e non può essere annullato.",
+        "message_other": "{{count}} delle immagini selezionate hanno delle modifiche. Il ripristino le rimuove e non può essere annullato.",
+        "title_many": "Ripristinare {{count}} Immagini?",
+        "title_one": "Ripristinare {{count}} Immagine?",
+        "title_other": "Ripristinare {{count}} Immagini?"
+      }
+    },
     "collage": {
       "aspectRatio": "Proporzioni",
       "background": "Sfondo",
@@ -1805,6 +1843,10 @@
       "totalUsed": "RapidRAW sta usando {{size}} su questo dispositivo."
     },
     "general": {
+      "confirmBulkChanges": "Conferma Modifiche Multiple",
+      "confirmBulkChangesDesc": "Chiedi prima di sostituire valutazione, flag, etichetta colore o modifiche su molte immagini contemporaneamente.",
+      "confirmBulkChangesFrom": "Conferma a Partire Da",
+      "confirmBulkChangesFromDesc": "Chiedi quando cambierebbero questo numero di immagini o più.",
       "createXmp": "Crea File XMP Mancanti",
       "createXmpDesc": "Crea automaticamente un nuovo file sidecar XMP se non ne esiste uno per un'immagine.",
       "createXmpMissing": "Crea XMP se mancante",

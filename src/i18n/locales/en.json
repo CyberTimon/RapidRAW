@@ -1392,6 +1392,36 @@
     }
   },
   "modals": {
+    "bulkChange": {
+      "colorLabels": {
+        "confirm": "Change Labels",
+        "message_one": "{{count}} of the selected images already has a color label. This replaces it.",
+        "message_other": "{{count}} of the selected images already have a color label. This replaces it.",
+        "title_one": "Change {{count}} Color Label?",
+        "title_other": "Change {{count}} Color Labels?"
+      },
+      "flags": {
+        "confirm": "Change Flags",
+        "message_one": "{{count}} of the selected images already has a flag. This replaces it.",
+        "message_other": "{{count}} of the selected images already have a flag. This replaces it.",
+        "title_one": "Change {{count}} Flag?",
+        "title_other": "Change {{count}} Flags?"
+      },
+      "ratings": {
+        "confirm": "Change Ratings",
+        "message_one": "{{count}} of the selected images already has a rating. This replaces it.",
+        "message_other": "{{count}} of the selected images already have a rating. This replaces it.",
+        "title_one": "Change {{count}} Rating?",
+        "title_other": "Change {{count}} Ratings?"
+      },
+      "reset": {
+        "confirm": "Reset Edits",
+        "message_one": "{{count}} of the selected images has edits. Resetting removes them and can't be undone.",
+        "message_other": "{{count}} of the selected images have edits. Resetting removes them and can't be undone.",
+        "title_one": "Reset {{count}} Image?",
+        "title_other": "Reset {{count}} Images?"
+      }
+    },
     "collage": {
       "aspectRatio": "Aspect Ratio",
       "background": "Background",
@@ -1765,6 +1795,10 @@
       "totalUsed": "RapidRAW is using {{size}} on this device."
     },
     "general": {
+      "confirmBulkChanges": "Confirm Bulk Changes",
+      "confirmBulkChangesDesc": "Ask before replacing the rating, flag, color label or edits on many images at once.",
+      "confirmBulkChangesFrom": "Confirm From",
+      "confirmBulkChangesFromDesc": "Ask when this many images or more would change.",
       "createXmp": "Create Missing XMP Files",
       "createXmpDesc": "Automatically create a new XMP sidecar file if one does not exist for an image.",
       "createXmpMissing": "Create XMP if missing",

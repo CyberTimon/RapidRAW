@@ -1387,6 +1387,28 @@
     }
   },
   "modals": {
+    "bulkChange": {
+      "colorLabels": {
+        "confirm": "更改标签",
+        "message_other": "所选图像中有 {{count}} 张已有颜色标签。此操作将替换颜色标签。",
+        "title_other": "更改 {{count}} 个颜色标签？"
+      },
+      "flags": {
+        "confirm": "更改标记",
+        "message_other": "所选图像中有 {{count}} 张已有标记。此操作将替换标记。",
+        "title_other": "更改 {{count}} 个标记？"
+      },
+      "ratings": {
+        "confirm": "更改评分",
+        "message_other": "所选图像中有 {{count}} 张已有评分。此操作将替换评分。",
+        "title_other": "更改 {{count}} 个评分？"
+      },
+      "reset": {
+        "confirm": "重置编辑",
+        "message_other": "所选图像中有 {{count}} 张包含编辑。重置将移除这些编辑，且无法撤销。",
+        "title_other": "重置 {{count}} 张图像？"
+      }
+    },
     "collage": {
       "aspectRatio": "宽高比",
       "background": "背景",
@@ -1760,6 +1782,10 @@
       "totalUsed": "RapidRAW 在此设备上占用了 {{size}}。"
     },
     "general": {
+      "confirmBulkChanges": "确认批量更改",
+      "confirmBulkChangesDesc": "一次替换多张图像的评分、标记、颜色标签或编辑前先询问。",
+      "confirmBulkChangesFrom": "确认数量",
+      "confirmBulkChangesFromDesc": "当将要更改的图像达到此数量或更多时询问。",
       "createXmp": "创建缺失的 XMP 文件",
       "createXmpDesc": "如果图像没有对应的 XMP 附属文件，则自动创建一个。",
       "createXmpMissing": "缺失时创建 XMP",

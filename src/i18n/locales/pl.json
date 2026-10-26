@@ -1450,6 +1450,52 @@
     }
   },
   "modals": {
+    "bulkChange": {
+      "colorLabels": {
+        "confirm": "Zmień etykiety",
+        "message_few": "{{count}} z zaznaczonych obrazów mają już etykietę koloru. Ta operacja ją zastąpi.",
+        "message_many": "{{count}} z zaznaczonych obrazów ma już etykietę koloru. Ta operacja ją zastąpi.",
+        "message_one": "{{count}} z zaznaczonych obrazów ma już etykietę koloru. Ta operacja ją zastąpi.",
+        "message_other": "{{count}} z zaznaczonych obrazów ma już etykietę koloru. Ta operacja ją zastąpi.",
+        "title_few": "Zmienić {{count}} etykiety koloru?",
+        "title_many": "Zmienić {{count}} etykiet koloru?",
+        "title_one": "Zmienić {{count}} etykietę koloru?",
+        "title_other": "Zmienić {{count}} etykiety koloru?"
+      },
+      "flags": {
+        "confirm": "Zmień oznaczenia",
+        "message_few": "{{count}} z zaznaczonych obrazów mają już oznaczenie. Ta operacja je zastąpi.",
+        "message_many": "{{count}} z zaznaczonych obrazów ma już oznaczenie. Ta operacja je zastąpi.",
+        "message_one": "{{count}} z zaznaczonych obrazów ma już oznaczenie. Ta operacja je zastąpi.",
+        "message_other": "{{count}} z zaznaczonych obrazów ma już oznaczenie. Ta operacja je zastąpi.",
+        "title_few": "Zmienić {{count}} oznaczenia?",
+        "title_many": "Zmienić {{count}} oznaczeń?",
+        "title_one": "Zmienić {{count}} oznaczenie?",
+        "title_other": "Zmienić {{count}} oznaczenia?"
+      },
+      "ratings": {
+        "confirm": "Zmień oceny",
+        "message_few": "{{count}} z zaznaczonych obrazów mają już ocenę. Ta operacja ją zastąpi.",
+        "message_many": "{{count}} z zaznaczonych obrazów ma już ocenę. Ta operacja ją zastąpi.",
+        "message_one": "{{count}} z zaznaczonych obrazów ma już ocenę. Ta operacja ją zastąpi.",
+        "message_other": "{{count}} z zaznaczonych obrazów ma już ocenę. Ta operacja ją zastąpi.",
+        "title_few": "Zmienić {{count}} oceny?",
+        "title_many": "Zmienić {{count}} ocen?",
+        "title_one": "Zmienić {{count}} ocenę?",
+        "title_other": "Zmienić {{count}} oceny?"
+      },
+      "reset": {
+        "confirm": "Resetuj edycje",
+        "message_few": "{{count}} z zaznaczonych obrazów mają edycje. Reset je usunie i nie można go cofnąć.",
+        "message_many": "{{count}} z zaznaczonych obrazów ma edycje. Reset je usunie i nie można go cofnąć.",
+        "message_one": "{{count}} z zaznaczonych obrazów ma edycje. Reset je usunie i nie można go cofnąć.",
+        "message_other": "{{count}} z zaznaczonych obrazów ma edycje. Reset je usunie i nie można go cofnąć.",
+        "title_few": "Zresetować {{count}} obrazy?",
+        "title_many": "Zresetować {{count}} obrazów?",
+        "title_one": "Zresetować {{count}} obraz?",
+        "title_other": "Zresetować {{count}} obrazu?"
+      }
+    },
     "collage": {
       "aspectRatio": "Proporcje",
       "background": "Tło",
@@ -1841,6 +1887,10 @@
       "totalUsed": "RapidRAW zajmuje {{size}} na tym urządzeniu."
     },
     "general": {
+      "confirmBulkChanges": "Potwierdzaj zmiany zbiorcze",
+      "confirmBulkChangesDesc": "Pytaj przed zastąpieniem oceny, oznaczenia, etykiety koloru lub edycji wielu obrazów naraz.",
+      "confirmBulkChangesFrom": "Potwierdzaj od",
+      "confirmBulkChangesFromDesc": "Pytaj, gdy zmieniłoby się tyle obrazów lub więcej.",
       "createXmp": "Twórz brakujące pliki XMP",
       "createXmpDesc": "Automatycznie utwórz nowy plik poboczny XMP, jeśli nie istnieje dla obrazu.",
       "createXmpMissing": "Utwórz XMP, jeśli brakuje",

@@ -1387,6 +1387,28 @@
     }
   },
   "modals": {
+    "bulkChange": {
+      "colorLabels": {
+        "confirm": "레이블 변경",
+        "message_other": "선택한 이미지 중 {{count}}개에 이미 색상 레이블이 있습니다. 이 작업은 기존 레이블을 대체합니다.",
+        "title_other": "색상 레이블 {{count}}개를 변경하시겠습니까?"
+      },
+      "flags": {
+        "confirm": "플래그 변경",
+        "message_other": "선택한 이미지 중 {{count}}개에 이미 플래그가 있습니다. 이 작업은 기존 플래그를 대체합니다.",
+        "title_other": "플래그 {{count}}개를 변경하시겠습니까?"
+      },
+      "ratings": {
+        "confirm": "평점 변경",
+        "message_other": "선택한 이미지 중 {{count}}개에 이미 평점이 있습니다. 이 작업은 기존 평점을 대체합니다.",
+        "title_other": "평점 {{count}}개를 변경하시겠습니까?"
+      },
+      "reset": {
+        "confirm": "편집 초기화",
+        "message_other": "선택한 이미지 중 {{count}}개에 편집 내용이 있습니다. 초기화하면 편집 내용이 제거되며 되돌릴 수 없습니다.",
+        "title_other": "이미지 {{count}}개를 초기화하시겠습니까?"
+      }
+    },
     "collage": {
       "aspectRatio": "종횡비",
       "background": "배경",
@@ -1760,6 +1782,10 @@
       "totalUsed": "RapidRAW가 이 기기에서 {{size}}를 사용하고 있습니다."
     },
     "general": {
+      "confirmBulkChanges": "일괄 변경 확인",
+      "confirmBulkChangesDesc": "여러 이미지의 평점, 플래그, 색상 레이블 또는 편집 내용을 한 번에 바꾸기 전에 확인합니다.",
+      "confirmBulkChangesFrom": "확인 기준",
+      "confirmBulkChangesFromDesc": "이 개수 이상의 이미지가 변경될 때 확인합니다.",
       "createXmp": "누락된 XMP 파일 생성",
       "createXmpDesc": "이미지에 XMP 사이드카 파일이 없으면 자동으로 새로 생성합니다.",
       "createXmpMissing": "없는 경우 XMP 생성",

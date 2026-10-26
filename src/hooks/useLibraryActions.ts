@@ -19,6 +19,15 @@ import { computeSortedLibrary } from './useSortedLibrary';
 import { expandGroupedPaths } from '../utils/imageGrouping';
 import { getImageFlag } from '../utils/imageFlags';
 import FilterExitToast from '../components/ui/FilterExitToast';
+import {
+  BulkChange,
+  BulkChangeOptions,
+  applyWithBulkConfirm,
+  countReplacedColorLabels,
+  countReplacedFlags,
+  countReplacedRatings,
+  getColorLabel,
+} from '../utils/bulkChanges';
 
 const resolveTargetPaths = (paths?: string[]) => {
   const { multiSelectedPaths, imageList } = useLibraryStore.getState();
@@ -71,8 +80,6 @@ interface MetadataSnapshot {
 }
 
 const FILTER_EXIT_TOAST_ID = 'filter-exit';
-
-const getColorLabel = (image?: ImageFile) => image?.tags?.find((tag) => tag.startsWith('color:'))?.substring(6) ?? null;
 
 const snapshotMetadata = (paths: string[]) => {
   const { imageList, imageRatings } = useLibraryStore.getState();
@@ -212,7 +219,7 @@ const applyWithAutoAdvance = (changedPaths: string[], undoable: boolean, applyCh
 };
 
 export function useLibraryActions(handleImageSelect?: (path: string, openInEditor?: boolean) => void) {
-  const handleRate = useCallback((newRating: number, paths?: string[]) => {
+  const handleRate = useCallback((newRating: number, paths?: string[], options?: BulkChangeOptions) => {
     const { imageRatings, imageList, setLibrary } = useLibraryStore.getState();
 
     const { selectedPaths, expandedPaths: pathsToRate } = resolveTargetPaths(paths);
@@ -222,41 +229,47 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
     const currentRating = imageRatings[selectedPaths[0]] || 0;
     const finalRating = newRating === currentRating && !isRejected ? 0 : newRating;
 
-    applyWithAutoAdvance(pathsToRate, true, () =>
-      setLibrary((state) => {
-        const newRatings = { ...state.imageRatings };
-        pathsToRate.forEach((p) => {
-          newRatings[p] = finalRating;
-        });
-        if (finalRating > 0) {
-          return {
-            imageRatings: newRatings,
-            imageList: withFlag(state.imageList, pathsToRate, null, ImageFlag.Reject),
-          };
-        }
-        return { imageRatings: newRatings };
-      }),
-    );
+    const replacedCount = countReplacedRatings(imageList, imageRatings, pathsToRate, finalRating);
+    applyWithBulkConfirm(BulkChange.Rating, replacedCount, options, () => {
+      applyWithAutoAdvance(pathsToRate, true, () =>
+        setLibrary((state) => {
+          const newRatings = { ...state.imageRatings };
+          pathsToRate.forEach((p) => {
+            newRatings[p] = finalRating;
+          });
+          if (finalRating > 0) {
+            return {
+              imageRatings: newRatings,
+              imageList: withFlag(state.imageList, pathsToRate, null, ImageFlag.Reject),
+            };
+          }
+          return { imageRatings: newRatings };
+        }),
+      );
 
-    invoke(Invokes.SetRatingForPaths, { paths: pathsToRate, rating: finalRating }).catch((err) => {
-      console.error(err);
-      toast.error(`Failed to apply rating: ${err}`);
+      invoke(Invokes.SetRatingForPaths, { paths: pathsToRate, rating: finalRating }).catch((err) => {
+        console.error(err);
+        toast.error(`Failed to apply rating: ${err}`);
+      });
     });
   }, []);
 
-  const handleSetFlag = useCallback((flag: ImageFlag | null, paths?: string[]) => {
+  const handleSetFlag = useCallback((flag: ImageFlag | null, paths?: string[], options?: BulkChangeOptions) => {
     const { expandedPaths } = resolveTargetPaths(paths);
     if (expandedPaths.length === 0) return;
 
-    applyWithAutoAdvance(expandedPaths, true, () =>
-      useLibraryStore.getState().setLibrary((state) => ({
-        imageList: withFlag(state.imageList, expandedPaths, flag),
-      })),
-    );
+    const { imageList } = useLibraryStore.getState();
+    applyWithBulkConfirm(BulkChange.Flag, countReplacedFlags(imageList, expandedPaths, flag), options, () => {
+      applyWithAutoAdvance(expandedPaths, true, () =>
+        useLibraryStore.getState().setLibrary((state) => ({
+          imageList: withFlag(state.imageList, expandedPaths, flag),
+        })),
+      );
 
-    invoke(Invokes.SetFlagForPaths, { paths: expandedPaths, flag }).catch((err) => {
-      console.error(err);
-      toast.error(`Failed to update flag: ${err}`);
+      invoke(Invokes.SetFlagForPaths, { paths: expandedPaths, flag }).catch((err) => {
+        console.error(err);
+        toast.error(`Failed to update flag: ${err}`);
+      });
     });
   }, []);
 
@@ -272,7 +285,7 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
     [handleSetFlag],
   );
 
-  const handleSetColorLabel = useCallback(async (color: string | null, paths?: string[]) => {
+  const handleSetColorLabel = useCallback((color: string | null, paths?: string[]) => {
     const { libraryActivePath, imageList, setLibrary } = useLibraryStore.getState();
     const { selectedImage } = useEditorStore.getState();
 
@@ -280,32 +293,30 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
     if (selectedPaths.length === 0) return;
 
     const primaryPath = selectedImage?.path || libraryActivePath;
-    const primaryImage = imageList.find((img: ImageFile) => img.path === primaryPath);
-    let currentColor = null;
-    if (primaryImage && primaryImage.tags) {
-      const colorTag = primaryImage.tags.find((tag: string) => tag.startsWith('color:'));
-      if (colorTag) currentColor = colorTag.substring(6);
-    }
+    const currentColor = getColorLabel(imageList.find((img: ImageFile) => img.path === primaryPath));
     const finalColor = color !== null && color === currentColor ? null : color;
 
-    try {
-      await invoke(Invokes.SetColorLabelForPaths, { paths: pathsToUpdate, color: finalColor });
-      const pathSet = new Set(pathsToUpdate);
-      applyWithAutoAdvance(pathsToUpdate, true, () =>
-        setLibrary((state) => ({
-          imageList: state.imageList.map((image: ImageFile) => {
-            if (pathSet.has(image.path)) {
-              const otherTags = (image.tags || []).filter((tag: string) => !tag.startsWith('color:'));
-              const newTags = finalColor ? [...otherTags, `color:${finalColor}`] : otherTags;
-              return { ...image, tags: newTags };
-            }
-            return image;
-          }),
-        })),
-      );
-    } catch (err) {
-      toast.error(`Failed to set color label: ${err}`);
-    }
+    const replacedCount = countReplacedColorLabels(imageList, pathsToUpdate, finalColor);
+    applyWithBulkConfirm(BulkChange.ColorLabel, replacedCount, undefined, async () => {
+      try {
+        await invoke(Invokes.SetColorLabelForPaths, { paths: pathsToUpdate, color: finalColor });
+        const pathSet = new Set(pathsToUpdate);
+        applyWithAutoAdvance(pathsToUpdate, true, () =>
+          setLibrary((state) => ({
+            imageList: state.imageList.map((image: ImageFile) => {
+              if (pathSet.has(image.path)) {
+                const otherTags = (image.tags || []).filter((tag: string) => !tag.startsWith('color:'));
+                const newTags = finalColor ? [...otherTags, `color:${finalColor}`] : otherTags;
+                return { ...image, tags: newTags };
+              }
+              return image;
+            }),
+          })),
+        );
+      } catch (err) {
+        toast.error(`Failed to set color label: ${err}`);
+      }
+    });
   }, []);
 
   const handleTagsChanged = useCallback((changedPaths: string[], newTags: { tag: string; isUser: boolean }[]) => {

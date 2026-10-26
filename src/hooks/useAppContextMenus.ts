@@ -906,7 +906,7 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
               label: t('contextMenus.editor.confirmReset'),
               icon: Check,
               isDestructive: true,
-              onClick: () => handleResetAdjustments(finalSelection),
+              onClick: () => handleResetAdjustments(finalSelection, { skipBulkConfirm: true }),
             },
           ],
         },

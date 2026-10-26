@@ -1421,6 +1421,44 @@
     }
   },
   "modals": {
+    "bulkChange": {
+      "colorLabels": {
+        "confirm": "Alterar Rótulos",
+        "message_many": "{{count}} das imagens selecionadas já têm um rótulo de cor. Isso o substitui.",
+        "message_one": "{{count}} das imagens selecionadas já tem um rótulo de cor. Isso o substitui.",
+        "message_other": "{{count}} das imagens selecionadas já têm um rótulo de cor. Isso o substitui.",
+        "title_many": "Alterar {{count}} Rótulos de Cor?",
+        "title_one": "Alterar {{count}} Rótulo de Cor?",
+        "title_other": "Alterar {{count}} Rótulos de Cor?"
+      },
+      "flags": {
+        "confirm": "Alterar Marcas",
+        "message_many": "{{count}} das imagens selecionadas já têm uma marca. Isso a substitui.",
+        "message_one": "{{count}} das imagens selecionadas já tem uma marca. Isso a substitui.",
+        "message_other": "{{count}} das imagens selecionadas já têm uma marca. Isso a substitui.",
+        "title_many": "Alterar {{count}} Marcas?",
+        "title_one": "Alterar {{count}} Marca?",
+        "title_other": "Alterar {{count}} Marcas?"
+      },
+      "ratings": {
+        "confirm": "Alterar Avaliações",
+        "message_many": "{{count}} das imagens selecionadas já têm uma avaliação. Isso a substitui.",
+        "message_one": "{{count}} das imagens selecionadas já tem uma avaliação. Isso a substitui.",
+        "message_other": "{{count}} das imagens selecionadas já têm uma avaliação. Isso a substitui.",
+        "title_many": "Alterar {{count}} Avaliações?",
+        "title_one": "Alterar {{count}} Avaliação?",
+        "title_other": "Alterar {{count}} Avaliações?"
+      },
+      "reset": {
+        "confirm": "Redefinir Edições",
+        "message_many": "{{count}} das imagens selecionadas têm edições. A redefinição as remove e não pode ser desfeita.",
+        "message_one": "{{count}} das imagens selecionadas tem edições. A redefinição as remove e não pode ser desfeita.",
+        "message_other": "{{count}} das imagens selecionadas têm edições. A redefinição as remove e não pode ser desfeita.",
+        "title_many": "Redefinir {{count}} Imagens?",
+        "title_one": "Redefinir {{count}} Imagem?",
+        "title_other": "Redefinir {{count}} Imagens?"
+      }
+    },
     "collage": {
       "aspectRatio": "Proporção de Tela",
       "background": "Fundo",
@@ -1803,6 +1841,10 @@
       "totalUsed": "O RapidRAW está usando {{size}} neste dispositivo."
     },
     "general": {
+      "confirmBulkChanges": "Confirmar Alterações em Massa",
+      "confirmBulkChangesDesc": "Perguntar antes de substituir a avaliação, a marca, o rótulo de cor ou as edições de muitas imagens de uma vez.",
+      "confirmBulkChangesFrom": "Confirmar a Partir De",
+      "confirmBulkChangesFromDesc": "Perguntar quando esta quantidade de imagens ou mais seria alterada.",
       "createXmp": "Criar Arquivos XMP Ausentes",
       "createXmpDesc": "Cria automaticamente um novo arquivo sidecar XMP se não existir um para uma imagem.",
       "createXmpMissing": "Criar XMP se ausente",
