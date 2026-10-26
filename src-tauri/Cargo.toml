@@ -14,14 +14,12 @@ default = []
 tethering = ["dep:gphoto2"]
 
 [dependencies]
-# Kept at "2.11" (not "2.12") so the Android CI job can pin the tauri stack back to
-# 2.11.5 with `cargo update --precise`; Cargo.lock keeps every other platform on
-# 2.12.1. See "Pin tauri stack to 2.11 (Android)" in .github/workflows/build.yml.
-tauri = { version = "2.11", features = [ "macos-private-api", "rustls-tls", "protocol-asset" ] }
+tauri = { version = "2.12", features = [ "macos-private-api", "rustls-tls", "protocol-asset" ] }
 tauri-plugin-dialog = "2.7.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 image = "0.25.10"
+tiff = "0.11.3"
 base64 = "0.23"
 tauri-plugin-fs = "2.5.1"
 rayon = "1.12.0"
@@ -36,6 +34,7 @@ tokio = { version = "1", features = ["full"] }
 uuid = { version = "1.25", features = ["v4", "serde"] }
 walkdir = "2.5.0"
 imageproc = "0.27.0"
+lsdetect = "0.3.0"
 ort = { version = "=2.0.0-rc.10", features = ["ndarray", "load-dynamic"] }
 ndarray = "0.16"
 tauri-plugin-process = "2.3.1"
@@ -54,7 +53,8 @@ hex = "0.4"
 rand = "0.10"
 tauri-plugin-shell = "2.3.5"
 tempfile = "3.27.0"
-mimalloc = "0.1.52"
+# no_thp: MADV_HUGEPAGE causes multi-second compaction stalls on fragmented Linux systems.
+mimalloc = { version = "0.1.52", features = ["no_thp"] }
 image_hasher = "3.1.1"
 regex = "1.13.1"
 memmap2 = "0.9.11"
@@ -72,21 +72,25 @@ libc = "0.2.189"
 rgb = "0.8.53"
 imgref = "1.12.2"
 sysinfo = "0.39.6"
-# Lower bounds (not "2.8.0"/"2.5.0") so the Android CI job can pin these back
-# alongside tauri 2.11.5; Cargo.lock keeps desktop on 2.8.0/2.5.0.
-tauri-plugin-http = "2.7"
-tauri-plugin-store = "2.4"
+tauri-plugin-http = "2.8.0"
+tauri-plugin-store = "2.5.0"
 
 [target.'cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))'.dependencies]
 trash = "5.2.6"
+keyring-core = "1"
 tauri-plugin-single-instance = "2.4.3"
 reqwest = { version = "0.13", default-features = false, features = ["json", "multipart", "rustls"] }
 tauri-plugin-clerk = "0.1.1"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.62", features = ["Win32_Graphics_Dxgi"] }
+windows-native-keyring-store = "1"
 
 [target.'cfg(any(target_os = "macos", target_os = "linux"))'.dependencies]
 gphoto2 = { git = "https://github.com/CyberTimon/libgphoto2-rs", optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
+apple-native-keyring-store = { version = "1", features = ["keychain"] }
 objc = "0.2"
 objc2 = "0.6"
 objc2-foundation = { version = "0.3.2", features = [
@@ -107,6 +111,8 @@ objc2-core-image = { version = "0.3.2", features = [
 ] }
 
 [target.'cfg(target_os = "android")'.dependencies]
+android-native-keyring-store = "1"
+keyring-core = "1"
 ndk-context = "0.1"
 jni = "0.21"
 jni22 = { package = "jni", version = "0.22" }
@@ -115,6 +121,7 @@ reqwest = { version = "0.13", default-features = false, features = ["json", "mul
 include_dir = "0.7.4"
 
 [target.'cfg(target_os = "linux")'.dependencies]
+zbus-secret-service-keyring-store = { version = "1", features = ["rt-tokio-crypto-rust"] }
 gtk = "0.18.2"
 webkit2gtk = "=2.0.2"
 tauri-plugin-wayland-nvidia-quirk = "0.1.0"

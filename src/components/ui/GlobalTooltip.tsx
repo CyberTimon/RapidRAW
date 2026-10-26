@@ -12,6 +12,7 @@ const TOOLTIP_VIEWPORT_MARGIN = 12;
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
 
 interface TooltipData {
+  id: number;
   content: string;
   centerX: number;
   y: number;
@@ -25,6 +26,7 @@ export default function GlobalTooltip() {
   const targetRef = useRef<HTMLElement | null>(null);
   const rafRef = useRef<number>(0);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
+  const tooltipIdRef = useRef(0);
 
   useEffect(() => {
     const clearTimer = () => {
@@ -62,16 +64,19 @@ export default function GlobalTooltip() {
         isAbove = true;
       }
 
-      return { content, centerX, y, isAbove };
+      tooltipIdRef.current += 1;
+      return { id: tooltipIdRef.current, content, centerX, y, isAbove };
     };
 
     const watchTarget = () => {
       const tick = () => {
         const el = targetRef.current;
-        if (!el || !document.contains(el) || !el.getAttribute('data-tooltip')) {
+        const content = el?.getAttribute('data-tooltip');
+        if (!el || !document.contains(el) || !content) {
           hide();
           return;
         }
+        setTooltip((prev) => (prev && prev.content !== content ? { ...prev, content } : prev));
         rafRef.current = requestAnimationFrame(tick);
       };
       rafRef.current = requestAnimationFrame(tick);
@@ -174,7 +179,7 @@ export default function GlobalTooltip() {
       {tooltip && (
         <motion.div
           ref={tooltipRef}
-          key={tooltip.content}
+          key={tooltip.id}
           initial={{ opacity: 0, scale: 0.9, y: tooltip.isAbove ? 5 : -5, x: '-50%' }}
           animate={{ opacity: 1, scale: 1, y: tooltip.isAbove ? -10 : 0, x: '-50%' }}
           exit={{ opacity: 0, scale: 0.9, x: '-50%' }}

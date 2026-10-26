@@ -1,13 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { AlertOctagon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { WaveformData } from '../../ui/AppProperties';
 import { DisplayMode } from '../../../utils/adjustments';
+import { useEditorStore } from '../../../store/useEditorStore';
 
 interface WaveformProps {
-  waveformData: WaveformData | null;
-  histogram?: any;
+  hasWaveform: boolean;
+  hasHistogram: boolean;
   displayMode: string;
   setDisplayMode: (mode: string) => void;
   showClipping?: boolean;
@@ -53,7 +53,8 @@ const modeButtons = [
   },
 ];
 
-const HistogramView = ({ histogram }: { histogram: any }) => {
+const HistogramView = memo(() => {
+  const histogram: any = useEditorStore((state) => state.histogram);
   if (!histogram || !histogram.red || !histogram.green || !histogram.blue) return null;
 
   const redMax = Math.max(...(histogram.red || [0]));
@@ -101,7 +102,7 @@ const HistogramView = ({ histogram }: { histogram: any }) => {
       })}
     </svg>
   );
-};
+});
 
 const FakeHistogramLoader = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -171,44 +172,33 @@ const FakeHistogramLoader = () => {
   return <canvas ref={canvasRef} width={256} height={256} className="w-full h-full opacity-60" />;
 };
 
-const useRawRgbaCanvas = (
-  canvasRef: React.RefObject<HTMLCanvasElement | null>,
-  base64Data: string,
-  width: number,
-  height: number,
-) => {
+const useBitmapCanvas = (canvasRef: React.RefObject<HTMLCanvasElement | null>, bitmap: ImageBitmap | null) => {
   useEffect(() => {
-    if (!base64Data || !canvasRef.current || !width || !height) return;
+    if (!bitmap || !canvasRef.current) return;
 
     const ctx = canvasRef.current.getContext('2d');
     if (!ctx) return;
 
     ctx.imageSmoothingEnabled = false;
-
-    const binary = atob(base64Data);
-    const bytes = new Uint8ClampedArray(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-
-    const imageData = new ImageData(bytes, width, height);
-    ctx.putImageData(imageData, 0, 0);
-  }, [base64Data, width, height, canvasRef]);
+    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    ctx.drawImage(bitmap, 0, 0);
+  }, [bitmap, canvasRef]);
 };
 
-const WaveformCanvas = ({
-  base64Data,
-  width,
-  height,
-  isVectorscope,
-}: {
-  base64Data: string;
-  width: number;
-  height: number;
-  isVectorscope: boolean;
-}) => {
+const WAVEFORM_PLANES: Partial<Record<DisplayMode, 'rgb' | 'luma' | 'parade' | 'vectorscope'>> = {
+  [DisplayMode.Rgb]: 'rgb',
+  [DisplayMode.Luma]: 'luma',
+  [DisplayMode.Parade]: 'parade',
+  [DisplayMode.Vectorscope]: 'vectorscope',
+};
+
+const WaveformCanvas = ({ mode, isVectorscope }: { mode: DisplayMode; isVectorscope: boolean }) => {
+  const plane = WAVEFORM_PLANES[mode];
+  const bitmap = useEditorStore((state) => (plane && state.waveform ? state.waveform[plane] : null));
+  const width = useEditorStore((state) => state.waveform?.width || 256);
+  const height = useEditorStore((state) => state.waveform?.height || 256);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  useRawRgbaCanvas(canvasRef, base64Data, width, height);
+  useBitmapCanvas(canvasRef, bitmap);
 
   return (
     <canvas
@@ -448,9 +438,9 @@ const FakeWaveformLoader = ({ mode }: { mode: string }) => {
   );
 };
 
-export default function Waveform({
-  waveformData,
-  histogram,
+function Waveform({
+  hasWaveform,
+  hasHistogram,
   displayMode,
   setDisplayMode,
   showClipping,
@@ -464,20 +454,8 @@ export default function Waveform({
   const isLightTheme = theme ? ['light', 'snow', 'arctic'].includes(theme) : false;
   const isHistogram = displayMode === DisplayMode.Histogram;
   const isVectorscope = displayMode === DisplayMode.Vectorscope;
-  const isReady = isHistogram ? !!(histogram && histogram.red) : !!waveformData;
+  const isReady = isHistogram ? hasHistogram : hasWaveform;
   const hadDataOnMount = useRef(isReady);
-  const width = waveformData?.width || 256;
-  const height = waveformData?.height || 256;
-
-  const activeData = waveformData
-    ? {
-        [DisplayMode.Rgb]: waveformData.rgb,
-        [DisplayMode.Luma]: waveformData.luma,
-        [DisplayMode.Parade]: waveformData.parade,
-        [DisplayMode.Vectorscope]: waveformData.vectorscope,
-        [DisplayMode.Histogram]: undefined,
-      }[displayMode as DisplayMode]
-    : '';
 
   const handleMouseEnter = () => {
     hoverTimeoutRef.current = setTimeout(() => {
@@ -543,7 +521,7 @@ export default function Waveform({
                 style={{ transformOrigin: 'bottom' }}
                 className="absolute inset-0 z-10"
               >
-                <HistogramView histogram={histogram} />
+                <HistogramView />
               </motion.div>
             ) : (
               <motion.div
@@ -559,12 +537,7 @@ export default function Waveform({
                 style={{ transformOrigin: 'bottom' }}
                 className="absolute inset-0 z-10"
               >
-                <WaveformCanvas
-                  base64Data={activeData || ''}
-                  width={width}
-                  height={height}
-                  isVectorscope={isVectorscope}
-                />
+                <WaveformCanvas mode={displayMode as DisplayMode} isVectorscope={isVectorscope} />
               </motion.div>
             )
           ) : isLoaderMode ? (
@@ -646,3 +619,5 @@ export default function Waveform({
     </div>
   );
 }
+
+export default memo(Waveform);

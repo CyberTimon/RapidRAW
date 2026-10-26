@@ -76,13 +76,7 @@ pub fn apply_fog<'a>(
     image: Cow<'a, DynamicImage>,
     adjustments: &serde_json::Value,
 ) -> Cow<'a, DynamicImage> {
-    let effects_visible = adjustments
-        .get("sectionVisibility")
-        .and_then(|v| v.get("effects"))
-        .and_then(|s| s.as_bool())
-        .unwrap_or(true);
-
-    if !adjustments["fogEnabled"].as_bool().unwrap_or(false) || !effects_visible {
+    if !crate::image_processing::is_effect_enabled(adjustments, "fog", "fogEnabled") {
         return image;
     }
 

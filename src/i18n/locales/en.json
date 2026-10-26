@@ -96,13 +96,23 @@
       "resetPoint": "Reset {{channel}} Point Curve"
     },
     "details": {
+      "aiDenoise": "AI Denoise",
+      "classicDenoise": "Classic Denoise",
+      "aiDenoiseDetail": "Detail",
       "blueYellow": "Blue/Yellow",
       "centre": "Centré",
       "chromaticAberration": "Chromatic Aberration",
       "clarity": "Clarity",
       "color": "Color",
+      "convertNegative": "Convert Negative",
       "dehaze": "Dehaze",
       "luminance": "Luminance",
+      "negativeBlue": "Blue",
+      "negativeContrast": "Print Grade",
+      "negativeConversion": "Negative Conversion",
+      "negativeExposure": "Print Exposure",
+      "negativeGreen": "Green",
+      "negativeRed": "Red",
       "noiseReduction": "Noise Reduction",
       "presence": "Presence",
       "redCyan": "Red/Cyan",
@@ -140,6 +150,7 @@
       "relightColor": "Light Color",
       "relightCone": "Cone",
       "relightDepth": "Depth",
+      "relightDuplicateLight": "Duplicate Light",
       "relightElevation": "Elevation",
       "relightFalloff": "Falloff",
       "relightHint": "Add or select a light, then click or drag on the image to position it.",
@@ -197,6 +208,11 @@
       "renameGroup": "Rename Group",
       "rootDir": "Root Directory"
     },
+    "autoAdjustModes": {
+      "normal": "Normal",
+      "strong": "Strong",
+      "subtle": "Subtle"
+    },
     "colors": {
       "blue": "Blue",
       "green": "Green",
@@ -207,21 +223,22 @@
       "yellow": "Yellow"
     },
     "editor": {
-      "autoAdjust": "Auto Adjust Image",
+      "autoAdjust": "Auto Adjust",
       "autoLensCorrection": "Auto Lens Correction",
+      "autoStraighten": "Auto Straighten",
       "cancel": "Cancel",
       "colorLabel": "Color Label",
       "confirmReset": "Confirm Reset",
       "convertNegative": "Convert Negative",
       "copyAdjustments": "Copy Adjustments",
-      "cullImage": "Cull Image",
-      "denoise": "Denoise Image",
+      "cullImage": "Auto Cull",
+      "denoise": "Denoise",
       "editImage": "Edit Image",
       "exportImage": "Export Image",
       "flag": "Flag",
       "flagPick": "Picked",
       "flagReject": "Rejected",
-      "frameImage": "Frame Image",
+      "frameImage": "Frame Editor",
       "mergeHdr": "Merge to HDR",
       "noLabel": "No Label",
       "noRating": "No Rating",
@@ -231,6 +248,8 @@
       "ratingLabel_one": "{{count}} Star",
       "ratingLabel_other": "{{count}} Stars",
       "redo": "Redo",
+      "removeDenoise": "Remove Denoise",
+      "removeNegativeConversion": "Remove Negative Conversion",
       "resetAdjustments": "Reset Adjustments",
       "stitchPanorama": "Stitch Panorama",
       "tagging": "Tagging",
@@ -274,33 +293,35 @@
     },
     "thumbnail": {
       "addToAlbum": "Add to Album",
-      "autoAdjust_one": "Auto Adjust Image",
-      "autoAdjust_other": "Auto Adjust Images",
+      "autoAdjust_one": "Auto Adjust",
+      "autoAdjust_other": "Auto Adjust",
       "autoLensCorrection_one": "Auto Lens Correction",
       "autoLensCorrection_other": "Auto Lens Correction",
-      "collage_one": "Frame Image",
+      "autoStraighten_one": "Auto Straighten",
+      "autoStraighten_other": "Auto Straighten",
+      "collage_one": "Frame Editor",
       "collage_other": "Create Collage",
       "confirmDelete": "Confirm Delete",
       "confirmDeleteVc": "Confirm Delete + Virtual Copies",
-      "convertNegative_one": "Convert Negative",
-      "convertNegative_other": "Convert Negatives",
       "copyImage_one": "Copy Image",
       "copyImage_other": "Copy {{count}} Images",
-      "cullImage_one": "Cull Image",
-      "cullImage_other": "Cull Images",
+      "cullImage_one": "Auto Cull",
+      "cullImage_other": "Auto Cull",
       "deleteAssociated": "Delete + Associated",
       "deleteImage_one": "Delete Image",
       "deleteImage_other": "Delete {{count}} Images",
       "deleteSelected": "Delete Selected Only",
-      "denoise_one": "Denoise Image",
-      "denoise_other": "Denoise Images",
+      "denoise_one": "Denoise",
+      "denoise_other": "Denoise",
       "duplicateImage": "Duplicate Image",
+      "enable": "Enable",
       "exportImage_one": "Export Image",
       "exportImage_other": "Export {{count}} Images",
       "noAlbums": "No Albums Available",
       "pasteAdjustments_one": "Paste Adjustments",
       "pasteAdjustments_other": "Paste Adjustments to {{count}} Images",
       "physicalCopy": "Physical Copy",
+      "remove": "Remove",
       "removeFromAlbum_one": "Remove from Album",
       "removeFromAlbum_other": "Remove {{count}} Images from Album",
       "renameImage_one": "Rename Image",
@@ -386,7 +407,7 @@
       "comingSoon": "Coming Soon",
       "connection": {
         "backendLabel": "AI Backend:",
-        "builtinDesc": "Using basic local CPU. Select Cloud or AI Connector in settings for generative replace.",
+        "builtinDesc": "Using basic built-in AI. Select Cloud or AI Connector in settings for generative replace.",
         "builtinLabel": "Built-in AI:",
         "cloudLabel": "Cloud AI:",
         "connectorConnectedDesc": "Connected to local generative backend.",
@@ -402,6 +423,7 @@
       },
       "createNewTitle": "Create New Generative Edit",
       "createNewTooltip": "Create New {{name}} Edit",
+      "denoising": "Running AI Denoise...",
       "dropzoneText": "Drop here to create a new edit",
       "editSettingsTitle": "Edit Settings",
       "editsTitle": "Edits",
@@ -468,8 +490,17 @@
       },
       "touchUpTitle": "Touch Up"
     },
+    "compare": {
+      "horizontal": "Split Top / Bottom",
+      "sideBySide": "Side by Side",
+      "title": "Before / After",
+      "toggle": "Full Original",
+      "vertical": "Split Left / Right"
+    },
     "crop": {
       "aspectRatioHeading": "Aspect Ratio",
+      "autoStraightenFailed": "Auto straighten failed: {{error}}",
+      "autoStraightenNoLines": "No straight lines found to level from",
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Height",
@@ -569,6 +600,7 @@
       "rotationHeading": "Rotation",
       "title": "Crop & Transform",
       "tooltips": {
+        "autoStraighten": "Auto Straighten (Shift+S)",
         "compositionOverlay": "Composition Overlay",
         "flipHoriz": "Flip image horizontally",
         "flipVert": "Flip image vertically",
@@ -672,6 +704,18 @@
         "applyPreset": "Apply Preset",
         "componentPropertiesTitle": "{{name}} Properties",
         "copySectionSettings": "Copy {{section}} Settings",
+        "faceParts": {
+          "bodySkin": "Body Skin",
+          "eyeWhites": "Eye Whites",
+          "eyebrows": "Eyebrows",
+          "faceSkin": "Face Skin",
+          "hair": "Hair",
+          "iris": "Iris & Pupil",
+          "lips": "Lips",
+          "nose": "Nose",
+          "teeth": "Teeth"
+        },
+        "generateTextMask": "Generate Mask",
         "invertComponent": "Invert Component",
         "invertMask": "Invert Mask",
         "maskPropertiesTitle": "Mask Properties",
@@ -681,7 +725,8 @@
         "pasteSettings": "Paste Settings",
         "resetSectionSettings": "Reset {{section}} Settings",
         "select": "Select",
-        "selectPresetTooltip": "Select a preset to apply"
+        "selectPresetTooltip": "Select a preset to apply",
+        "textPromptPlaceholder": "e.g., person, car, water"
       },
       "toggleAnalyticsInAdjustments": "Toggle analytics in Adjustments panel",
       "toggleAnalyticsTooltip": "Toggle Analytics Display",
@@ -804,16 +849,16 @@
       }
     },
     "toolbar": {
+      "history": "History",
       "switchToVariant": "Switch to {{label}}",
       "tooltips": {
         "aperture": "Aperture",
         "backToLibrary": "Back to Library",
+        "compare": "Before / After (B) or Modes (Right-click)",
         "focalLength": "Focal Length",
         "fullscreen": "Toggle Fullscreen (F)",
         "iso": "ISO",
         "redo": "Redo (Ctrl+Y) or History (Right-click)",
-        "showEdited": "Show Edited (B)",
-        "showOriginal": "Show Original (B)",
         "shutterSpeed": "Shutter Speed",
         "undo": "Undo (Ctrl+Z) or History (Right-click)"
       },
@@ -861,8 +906,10 @@
       "selectFolderTitle_other": "Select Folder to Export {{count}} Images"
     },
     "file": {
+      "dpi": "DPI",
       "quality": "Quality",
       "qualityLossless": "Quality (Lossless)",
+      "resolution": "Resolution",
       "tiffBitDepth": "TIFF bit depth",
       "tiffBitDepth16": "16-bit",
       "tiffBitDepth8": "8-bit"
@@ -946,7 +993,91 @@
       "watermarkImage": "Watermark Image"
     }
   },
+  "immich": {
+    "close": {
+      "cancel": "Cancel",
+      "closeAnyway": "Close anyway",
+      "message": "Edits waiting for Immich: {{number}}. They stay on this computer and are sent the next time RapidRAW runs and Immich is reachable.",
+      "title": "Edits not in Immich yet"
+    },
+    "export": {
+      "album": "Album",
+      "destination": "Immich",
+      "noAlbum": "No album",
+      "sourceAlbum": "Album the image was opened from",
+      "withOriginal": "Upload the original too",
+      "withOriginalDesc": "For images from a local folder: the original is uploaded with its edits and the export is stacked on top of it. Images from Immich are always stacked on their original."
+    },
+    "section": {
+      "empty": "No albums on the server.",
+      "error": "Immich is not reachable.",
+      "loading": "Loading albums…",
+      "refresh": "Refresh albums",
+      "timeline": "Timeline",
+      "title": "Immich"
+    },
+    "settings": {
+      "apiKey": "API key",
+      "apiKeyDesc": "Create one in Immich under Account Settings → API Keys with these permissions: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create and user.read.",
+      "connected": "Connected as {{user}} (Immich {{version}})",
+      "description": "Browse the photos of your Immich server in the library and edit them directly. Originals are downloaded when you open them, and your edits are saved in Immich, so they look the same on every computer.",
+      "keyInFile": "Stored in a file only you can read: no credential store is available. On KDE, turn on the Secret Service interface in the KDE Wallet settings and save again.",
+      "keyInStore": "Stored in the system's credential store.",
+      "save": "Save",
+      "saved": "Saved.",
+      "serverUrl": "Server address",
+      "serverUrlDesc": "The address you open Immich with in the browser.",
+      "test": "Test connection",
+      "title": "Immich",
+      "working": "Working…"
+    },
+    "sync": {
+      "offline": "Offline",
+      "pending": "Edits waiting for Immich: {{number}}"
+    },
+    "toasts": {
+      "backOnline": "Immich is reachable again, and all edits are saved there.",
+      "downloadFailed": "Could not download from Immich: {{error}}",
+      "editsConflict": "{{fileName}} was also edited on another computer. Your edits stay, and the other version is kept as a virtual copy.",
+      "offline": "Immich is not reachable. Your edits are kept here and sent as soon as it's back.",
+      "trashFailed": "Could not move to Immich's trash: {{error}}",
+      "uploaded": "Uploaded to Immich: {{number}}"
+    }
+  },
   "library": {
+    "aiJobs": {
+      "discard": "Discard remaining AI processing",
+      "failed": "Failed ({{failedCount}})",
+      "kinds": {
+        "denoise": "AI denoising",
+        "depthMap": "Analyzing depth",
+        "depthMask": "Generating depth mask",
+        "faceMask": "Generating face mask",
+        "foregroundMask": "Generating foreground mask",
+        "normalMap": "Analyzing surfaces",
+        "skyMask": "Generating sky mask",
+        "subjectMask": "Generating subject mask",
+        "textMask": "Generating text mask"
+      },
+      "more": "+{{moreCount}} more",
+      "pause": "Pause AI processing",
+      "paused": "Paused · {{remaining}} remaining",
+      "pausedItem": "Paused",
+      "pausing": "Pausing after the current step…",
+      "process": "Process images",
+      "progress": "{{current}}/{{total}}",
+      "queue": "Queue",
+      "queuedItem": "Queued",
+      "resume": "Resume AI processing",
+      "retry": "Retry",
+      "taskWithMask": "{{task}} “{{mask}}”",
+      "thumbnailPaused": "AI processing paused",
+      "thumbnailPending": "AI processing pending",
+      "title": "AI processing",
+      "unprocessed_one": "{{count}} image needs AI processing",
+      "unprocessed_other": "{{count}} images need AI processing",
+      "waiting": "Preparing AI processing…"
+    },
     "community": {
       "actionSave": "Save",
       "actionSaved": "Saved",
@@ -987,6 +1118,12 @@
       "tags": "Tags",
       "toggleFit": "Toggle 1:1 / Fit",
       "vc": "VC"
+    },
+    "filterExit": {
+      "hiddenSingle": "{{name}} no longer matches the filter",
+      "hiddenMultiple_one": "{{count}} images no longer match the filter",
+      "hiddenMultiple_other": "{{count}} images no longer match the filter",
+      "undo": "Undo"
     },
     "filters": {
       "edited": {
@@ -1063,6 +1200,8 @@
       }
     },
     "header": {
+      "cancel": "Cancel",
+      "deselectAll": "Deselect All",
       "search": {
         "addFilterOrSearch": "Add filter or search...",
         "indexingImages": "Indexing Images...",
@@ -1074,6 +1213,8 @@
         "tooltipClearSearch": "Clear search",
         "tooltipSearchFilter": "Search or Filter"
       },
+      "selectAll": "Select All",
+      "selectItems": "Select items",
       "title": "Library",
       "viewOptions": {
         "currentFolder": "Current Folder",
@@ -1109,13 +1250,9 @@
         "title": "View Options"
       }
     },
-    "import": {
-      "complete": "Import Complete!",
-      "failed": "Import Failed!",
-      "progress": "Importing... ({{current}}/{{total}})"
-    },
     "items": {
       "cloudPlaceholder": "Stored in iCloud — not downloaded",
+      "immichPlaceholder": "Stored in Immich — not downloaded",
       "collapseFolder": "Collapse Folder",
       "currentFolder": "Current Folder",
       "expandFolder": "Expand Folder",
@@ -1127,6 +1264,29 @@
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "Shutter Speed",
       "tooltipVirtualCopy": "Virtual Copy"
+    },
+    "jobs": {
+      "active": "Running",
+      "cancel": "Cancel export",
+      "cancelling": "Cancelling…",
+      "clear": "Clear",
+      "copyError": "Click to copy",
+      "empty": "No active jobs",
+      "emptyHint": "Exports, imports, file transfers and AI work show up here.",
+      "errorCopied": "Error copied to clipboard",
+      "images_one": "{{count}} image",
+      "images_other": "{{count}} images",
+      "kinds": {
+        "aiTagging": "AI tagging",
+        "copy": "Copy files",
+        "export": "Export",
+        "import": "Import",
+        "modelDownload": "AI model download",
+        "move": "Move files"
+      },
+      "openInLibrary": "Open in library",
+      "recent": "Recent",
+      "title": "Jobs"
     },
     "reject": {
       "deleteConfirm": "Delete Rejected",
@@ -1194,7 +1354,8 @@
     "tooltips": {
       "communityPresets": "Community Presets",
       "goHome": "Go to Home",
-      "importImages": "Import Images"
+      "importImages": "Import Images",
+      "select": "Select"
     }
   },
   "masks": {
@@ -1204,6 +1365,7 @@
       "clone": "Clone",
       "color": "Color",
       "depth": "Depth",
+      "face": "Face",
       "flow": "Flow",
       "foreground": "Foreground",
       "heal": "Heal",
@@ -1216,7 +1378,8 @@
       "radial": "Radial",
       "retouch": "Retouch",
       "sky": "Sky",
-      "subject": "Subject"
+      "subject": "Subject",
+      "text": "Text"
     }
   },
   "menus": {
@@ -1272,6 +1435,7 @@
       "descMerge": "Adds your copied changes, leaving other settings untouched.",
       "descReplace": "Overwrites all selected settings, resetting the rest to their defaults.",
       "groups": {
+        "aiDenoise": "AI Denoise",
         "chromaticAberration": "Chromatic Aberration",
         "clarityDehaze": "Clarity & Dehaze",
         "colorCalibration": "Color Calibration",
@@ -1279,18 +1443,20 @@
         "colorMixer": "Color Mixer",
         "cropAspectRatio": "Crop & Aspect Ratio",
         "curves": "Curves",
-        "exposureToneMapper": "Exposure & Tone Mapper",
+        "fog": "Fog",
         "grain": "Grain",
         "guidedPerspective": "Guided Perspective",
         "halationGlow": "Halation & Glow",
         "hueShift": "Global Hue Shift",
+        "lensBlur": "Lens Blur",
         "lensCorrection": "Lens Correction",
         "lut": "LUT",
         "masks": "Masks",
+        "negativeConversion": "Negative Conversion",
         "noiseReduction": "Noise Reduction",
         "presence": "Presence",
+        "relight": "Relight",
         "sharpness": "Sharpness",
-        "tone": "Tone",
         "transformRotation": "Transform & Rotation",
         "vignette": "Vignette",
         "whiteBalance": "White Balance"
@@ -1347,36 +1513,6 @@
       "startCulling": "Start Culling",
       "starting": "Starting...",
       "title": "Cull Images"
-    },
-    "denoise": {
-      "batchProgressText": "Denoising {{current}} of {{total}}...",
-      "btnBatchDenoise": "Batch Denoise & Save",
-      "btnRetry": "Retry",
-      "btnSave": "Save",
-      "btnStart": "Start",
-      "cancel": "Cancel",
-      "close": "Close",
-      "denoised": "Denoised",
-      "denoisingProgress": "Denoising in Progress",
-      "description": "Remove noise from your image using AI-powered or traditional denoising.",
-      "downloadingText": "Downloading {{status}}...",
-      "gpuWarningTooltip": "NIND Denoise does not yet support GPU acceleration due to dependency limitations.",
-      "initializing": "Initializing...",
-      "methodAi": "NIND (AI - Best for RAW)",
-      "methodBm3d": "BM3D (Traditional - All formats)",
-      "methodLabel": "Method",
-      "methodRaw9": "Apple RAW 9 (Neural Engine)",
-      "openInEditor": "Open in Editor",
-      "original": "Original",
-      "panZoomEnabled": "Pan & Zoom enabled",
-      "processingFailed": "Processing Failed",
-      "qualityTileSizeLabel": "Quality / Tile Size",
-      "reset": "Reset",
-      "saveSuccess": "Image Saved Successfully!",
-      "speedNotice": "This may take a few minutes depending on image size and selected method.",
-      "strengthLabel": "Strength",
-      "titleBatch": "Denoise Images",
-      "titleSingle": "Denoise Image"
     },
     "focusStack": {
       "cancel": "Cancel",
@@ -1457,30 +1593,6 @@
       "title": "Lens Correction",
       "vignetting": "Vignetting",
       "waitingAutoDetect": "Waiting for Auto-Detect...",
-      "zoomInTooltip": "Zoom In",
-      "zoomOutTooltip": "Zoom Out"
-    },
-    "negativeConversion": {
-      "blueWeight": "Blue (Yellow)",
-      "cancel": "Cancel",
-      "colorTiming": "Color Timing",
-      "compareTooltip": "Hold to View Original",
-      "contrast": "Contrast (Grade)",
-      "convertAndSave": "Convert & Save",
-      "convertAndSaveAll": "Convert & Save All ({{count}})",
-      "convertAndSaveAll_one": "Convert & Save All ({{count}})",
-      "convertAndSaveAll_other": "Convert & Save All ({{count}})",
-      "converting": "Converting",
-      "convertingProgress": "Converting {{current}}/{{total}}",
-      "exposure": "Exposure",
-      "greenWeight": "Green (Magenta)",
-      "noticeText": "Inversion logic inspired by <0>NegPy</0> created by marcinz606 (<1>GPL-3.0</1>).",
-      "originalLabel": "Original Negative",
-      "printGrade": "Print Grade",
-      "redWeight": "Red (Cyan)",
-      "resetTooltip": "Reset",
-      "resetViewTooltip": "Reset View",
-      "title": "Negative Conversion",
       "zoomInTooltip": "Zoom In",
       "zoomOutTooltip": "Zoom Out"
     },
@@ -1580,39 +1692,45 @@
       "zoomDesc": "Adjust how fast the canvas zooms in and out when using the scroll wheel or pinch gesture."
     },
     "data": {
-      "clearSidecars": "Clear All Sidecar Files",
-      "clearSidecarsButton": "Clear",
-      "clearSidecarsDesc": "This will delete all .rrdata files (containing your edits) within your root folders:",
-      "clearThumbnail": "Clear Thumbnail Cache",
-      "clearThumbnailButton": "Clear",
-      "clearThumbnailDesc": "This will delete all cached thumbnail images. They will be regenerated automatically as you browse your library.",
-      "loading": "Loading...",
-      "logs": "View Application Logs",
-      "logsButton": "Open",
-      "logsDesc": "View the application's log file for troubleshooting. The log is located at:",
+      "aiTags": "Clear AI Tags",
+      "aiTagsDesc": "Removes AI-generated tags from all images in your root folders. Your own tags are kept.",
+      "allTags": "Clear All Tags",
+      "allTagsDesc": "Removes AI-generated and user-added tags from all images in your root folders. Color labels are kept.",
+      "clear": "Clear",
+      "delete": "Delete",
+      "deleteEdits": "Delete All Edits",
+      "deleteEditsDesc": "Removes every .rrdata sidecar (your edits) in all root folders. This cannot be undone.",
+      "libraryAndWorkspace": "Library & Workspace",
+      "limit": "Limit",
       "modals": {
+        "aiDenoiseMessage": "Are you sure you want to clear the AI Denoise cache?\n\nImages with AI Denoise enabled will need to be denoised again, which can take several minutes per image.",
+        "aiMapsMessage": "Are you sure you want to clear the depth & normal maps?\n\nImages using Lens Blur, Fog or Relight will regenerate their maps the next time they are opened.",
         "aiMessage": "Are you sure you want to remove all AI-generated tags from all images in all active root folders?\n\nThis will not affect user-added tags. This action cannot be undone.",
         "allMessage": "Are you sure you want to remove all AI-generated and user-added tags from all images in all active root folders?\n\nThis action cannot be undone.",
         "cacheMessage": "Are you sure you want to clear the thumbnail cache?\n\nAll thumbnails will need to be regenerated, which may be slow for large folders.",
         "confirmAiTitle": "Confirm AI Tag Deletion",
         "confirmAllTitle": "Confirm All Tag Deletion",
-        "confirmCacheTitle": "Confirm Cache Deletion",
         "confirmClear": "Clear",
         "confirmClearAi": "Clear AI Tags",
         "confirmClearAll": "Clear All Tags",
-        "confirmClearCache": "Clear Cache",
         "confirmDeleteAllEdits": "Delete All Edits",
         "confirmResetLayout": "Reset Layout",
         "confirmResetLayoutTitle": "Reset Workspace Layout",
         "confirmTitle": "Confirm Deletion",
+        "immichMessage": "Are you sure you want to clear the downloaded Immich originals?\n\nYour edits are kept. Originals are downloaded again when you open them.",
+        "metadataMessage": "Are you sure you want to clear the metadata cache?\n\nMetadata will be read from your files again as you browse.",
+        "modelsMessage": "Are you sure you want to remove the downloaded AI models?\n\nThey will be downloaded again the next time an AI feature is used.",
         "resetLayoutMessage": "Are you sure you want to reset the workspace layout? All docked panels, widths, and switcher positions will be restored to their defaults.",
         "sidecarMessage": "Are you sure you want to delete all sidecar files?\n\nThis will permanently remove all your edits for all images inside all active root folders and their subfolders."
       },
       "noFolders": "No folders selected",
-      "resetLayoutButton": "Reset Layout",
+      "refresh": "Refresh",
+      "reset": "Reset",
       "resetLayoutDesc": "Restore panel docks, side splitters, heights, and panel switchers to the default layout.",
       "resetLayoutTitle": "Reset Workspace Layout",
+      "show": "Show",
       "statuses": {
+        "aiDenoiseSuccess": "AI Denoise cache cleared successfully.",
         "aiSuccess": "{{count}} files updated. AI tags removed.",
         "aiSuccess_one": "{{count}} file updated. AI tags removed.",
         "aiSuccess_other": "{{count}} files updated. AI tags removed.",
@@ -1620,19 +1738,31 @@
         "allSuccess_one": "{{count}} file updated. All non-color tags removed.",
         "allSuccess_other": "{{count}} files updated. All non-color tags removed.",
         "cacheSuccess": "Thumbnail cache cleared successfully.",
-        "clearingAi": "Clearing AI tags from all sidecar files...",
-        "clearingAll": "Clearing all tags from sidecar files...",
-        "clearingCache": "Clearing thumbnail cache...",
-        "deleting": "Deleting sidecar files, please wait...",
-        "failedToGetPath": "Could not retrieve log file path.",
+        "cleared": "Cleared successfully.",
         "layoutResetSuccess": "Workspace layout reset to default.",
-        "processing": "Processing...",
-        "resettingLayout": "Resetting workspace...",
         "sidecarSuccess": "{{count}} sidecar files deleted successfully.",
         "sidecarSuccess_one": "{{count}} sidecar file deleted successfully.",
         "sidecarSuccess_other": "{{count}} sidecar files deleted successfully."
       },
-      "title": "Data Management"
+      "storage": {
+        "aiDenoise": "AI Denoise",
+        "aiDenoiseDesc": "Cached denoise results.",
+        "aiMaps": "Depth & Normal Maps",
+        "aiMapsDesc": "Used by Lens Blur, Fog and Relight.",
+        "immich": "Immich",
+        "immichDesc": "Downloaded originals. Least recently used ones are removed once the limit is reached; your edits are kept.",
+        "logs": "Logs",
+        "logsDesc": "Application log files for troubleshooting. Cleared on every start.",
+        "metadata": "Metadata",
+        "metadataDesc": "Cached EXIF data for faster folder loading.",
+        "models": "AI Models",
+        "modelsDesc": "Downloaded on demand when an AI feature is first used.",
+        "thumbnails": "Thumbnails",
+        "thumbnailsDesc": "Regenerated automatically as you browse."
+      },
+      "storageTitle": "Storage",
+      "title": "Data Management",
+      "totalUsed": "RapidRAW is using {{size}} on this device."
     },
     "general": {
       "createXmp": "Create Missing XMP Files",
@@ -1668,6 +1798,7 @@
     },
     "keybinds": {
       "actions": {
+        "auto_straighten": "Auto straighten",
         "brush_size_down": "Decrease brush size",
         "brush_size_up": "Increase brush size",
         "color_label_blue": "Color label: Blue",
@@ -1748,6 +1879,16 @@
       "title": "My Lenses"
     },
     "processing": {
+      "advanced": {
+        "heading": "Advanced",
+        "headingDesc": "Performance tuning for thumbnails, caching and exports. The defaults work well for most users.",
+        "title": "Advanced Settings",
+        "auto": "Auto",
+        "exportThreads": "Parallel Exports",
+        "exportThreadsDesc": "Number of images exported at the same time. Auto picks a value based on your CPU. Lower it if large exports fail or your GPU has little memory.",
+        "exportMemoryLimit": "Export Memory Limit",
+        "exportMemoryLimitDesc": "Share of free RAM that batch exports may use. Lower it to keep other apps responsive during large exports."
+      },
       "ai": {
         "cloud": {
           "description": "For those who want a simpler solution, an optional subscription provides the same high-quality results as self-hosting without any hassle. This is the most convenient option and the best way to support the project.",
@@ -1792,8 +1933,11 @@
           "description": "Integrated directly into RapidRAW, these features run entirely on your computer. They are fast, free, and require no setup, making them ideal for everyday workflow acceleration.",
           "feature1": "AI Masking (Subject, Sky, Foreground)",
           "feature2": "Automatic Image Tagging",
-          "feature3": "Simple CPU-based Generative Replace",
-          "title": "Built-in AI (CPU)"
+          "feature3": "Simple on-device Generative Replace",
+          "gpuAcceleration": "GPU Acceleration",
+          "gpuAccelerationDesc": "Run built-in AI features like denoise, masks, depth and normal maps and tagging on your graphics card for much faster results. Disable this if you experience crashes or incorrect AI results.",
+          "gpuAccelerationLabel": "Use GPU for AI models",
+          "title": "Built-in AI"
         },
         "aiFree": {
           "description": "Turn off every AI feature. All AI-related controls are hidden from the interface so RapidRAW works as a purely traditional RAW editor.",
@@ -1807,7 +1951,7 @@
           "aiConnector": "AI Connector",
           "aiFree": "AI-Free",
           "cloud": "Cloud",
-          "cpu": "CPU"
+          "cpu": "Built-in"
         },
         "title": "Generative AI"
       },
@@ -1891,7 +2035,6 @@
       "previewResDesc": "Determines the maximum resolution of the preview. Lower values significantly improve performance.",
       "previewStrategy": "Preview Rendering Strategy",
       "qualities": {
-        "full": "Full Resolution",
         "high": "High Quality",
         "performance": "Performance"
       },
@@ -1925,11 +2068,6 @@
       "aiTaggingDesc": "Enables automatic image tagging using an AI (CLIP) model. This will download an additional model and impact performance while browsing folders. Tags are used for searching a folder.",
       "amount": "Amount",
       "automaticAiTagging": "Automatic AI Tagging",
-      "clearAiTagsButton": "Clear",
-      "clearAiTagsDesc": "This will remove all AI-generated tags from your .rrdata files in all active root folders. User-added tags will be kept.",
-      "clearAiTagsTitle": "Clear AI Tags",
-      "clearAllTagsDesc": "This will remove all AI-generated and user-added tags from your .rrdata files in all active root folders. Color labels will be kept.",
-      "clearAllTagsTitle": "Clear All Tags",
       "clearCustomTooltip": "Clear AI Tag List",
       "clearShortcutsTooltip": "Clear Shortcuts Tag List",
       "customList": "Custom AI Tag List",
@@ -1947,17 +2085,19 @@
     "thanks": {
       "description": "A huge thank you to the following projects that were very important in the development of RapidRAW:",
       "list": {
+        "birefnet": "For the high-resolution segmentation model that powers the AI foreground detection.",
         "darktable": "For some reference implementations that guided parts of this work.",
         "depth": "For the powerful monocular depth estimation model that enables the AI depth masking capabilities.",
+        "efficientsam3": "For the efficient promptable segmentation model distilled from SAM 3 that powers the AI sky and text masks.",
         "lama": "For the powerful & simple image inpainting model, which enables content-aware fill and object removal.",
         "lensfun": "For its invaluable open-source library and comprehensive database for automatic lens correction.",
         "libgphoto2": "For the comprehensive camera communication library powering RapidRAW's tethering and remote capture subsystem.",
+        "mediapipe": "For the fast face landmark and segmentation models that power the AI face masks.",
         "negpy": "For the inspiration behind the negative conversion logic.",
         "nind": "For providing AI models that power the AI noise reduction capabilities in RapidRAW.",
         "rawler": "For the excellent Rust crate that provides the foundation for RAW file processing in this project.",
         "sam2": "For providing the foundation model used for the AI subject detection capabilities.",
         "spektrafilm": "For the spectrally-based film emulation LUTs by Andrea Volpato, used to power RapidRAW's built-in film emulations. Licensed CC BY-SA 4.0.",
-        "u2net": "For providing the robust architecture used for the AI sky and foreground detection capabilities.",
         "you": "For using and supporting RapidRAW. Your interest keeps this project alive and evolving.",
         "youLabel": "You"
       },

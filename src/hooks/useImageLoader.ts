@@ -93,15 +93,6 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
             }
             return state;
           });
-
-          setEditor((state) => {
-            if (!state.adjustments.aspectRatio && !state.adjustments.crop) {
-              return {
-                adjustments: { ...state.adjustments, aspectRatio: loadImageResult.width / loadImageResult.height },
-              };
-            }
-            return state;
-          });
         } catch (err) {
           if (isEffectActive) {
             console.error('Failed to load image:', err);

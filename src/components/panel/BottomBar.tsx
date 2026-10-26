@@ -642,14 +642,12 @@ export default function BottomBar({
           </div>
         </div>
 
-        <div className="grow" />
-
-        <div className="flex items-center gap-4">
+        <div className="flex-1 flex items-center justify-end gap-4">
           {!isLibraryView && showZoomControls && (
             <>
-              <div className="flex items-center gap-2 w-56">
+              <div className="flex-1 max-w-56 flex items-center gap-2">
                 <div
-                  className="relative w-12 h-full flex items-center justify-end cursor-pointer"
+                  className="relative w-12 h-full shrink-0 flex items-center justify-end cursor-pointer"
                   onClick={handleResetZoom}
                   onMouseEnter={() => setIsZoomLabelHovered(true)}
                   onMouseLeave={() => setIsZoomLabelHovered(false)}
@@ -660,7 +658,7 @@ export default function BottomBar({
                   </span>
                 </div>
 
-                <div className="relative flex-1 h-5">
+                <div className="relative flex-1 min-w-0 h-5">
                   <div className="absolute top-1/2 left-0 w-full h-1.5 -translate-y-1/2 bg-surface rounded-full pointer-events-none" />
                   <input
                     type="range"
@@ -681,7 +679,7 @@ export default function BottomBar({
                   />
                 </div>
 
-                <div className="relative text-xs text-text-secondary w-6 text-right flex items-center justify-end h-5 gap-1">
+                <div className="relative text-xs text-text-secondary w-6 shrink-0 text-right flex items-center justify-end h-5 gap-1">
                   {isEditingPercent ? (
                     <input
                       ref={percentInputRef}
@@ -705,11 +703,11 @@ export default function BottomBar({
                 </div>
               </div>
 
-              <div className="h-5 w-px bg-surface"></div>
+              <div className="h-5 w-px shrink-0 bg-surface"></div>
             </>
           )}
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             {(showLeftPanelToggle || showRightPanelToggle || showBottomPanelToggle) && (
               <>
                 {showLeftPanelToggle && (
