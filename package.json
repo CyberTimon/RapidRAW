@@ -9,7 +9,6 @@
     "start": "tauri dev",
     "start:tethering": "tauri dev -- --features tethering",
     "typecheck": "tsc --noEmit",
-    "test:negative-analysis": "node tests/negative-analysis-region.test.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
