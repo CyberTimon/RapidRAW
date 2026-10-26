@@ -1821,6 +1821,8 @@
       "folderImageCountsDesc": "Mostra il numero di immagini all'interno delle cartelle passando con il mouse sulla struttura delle cartelle.",
       "font": "Carattere",
       "fontDesc": "Cambia il tipo di carattere dell'applicazione.",
+      "hideCollapsedPanels": "Nascondi Pannelli Ridotti",
+      "hideCollapsedPanelsDesc": "I pannelli laterali ridotti vengono nascosti completamente invece di lasciare una striscia stretta. Riaprili dalla barra inferiore o con le relative scorciatoie da tastiera.",
       "nativeTitlebar": "Barra del Titolo Nativa",
       "nativeTitlebarDesc": "Usa la barra del titolo della finestra predefinita del tuo sistema invece di quella personalizzata di RapidRAW.",
       "neutralGreyCanvas": "Tela grigio neutro",

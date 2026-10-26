@@ -1857,6 +1857,8 @@
       "folderImageCountsDesc": "Pokaż liczbę obrazów w folderach podczas najechania myszą na drzewo katalogów.",
       "font": "Czcionka",
       "fontDesc": "Zmień czcionkę aplikacji.",
+      "hideCollapsedPanels": "Ukryj zwinięte panele",
+      "hideCollapsedPanelsDesc": "Zwinięte panele boczne chowają się całkowicie zamiast zostawiać wąski pasek. Otwórz je ponownie z dolnego paska lub za pomocą ich skrótów klawiszowych.",
       "nativeTitlebar": "Natywny pasek tytułu",
       "nativeTitlebarDesc": "Użyj domyślnego paska tytułu okna twojego systemu zamiast niestandardowego w RapidRAW.",
       "neutralGreyCanvas": "Neutralne szare płótno",

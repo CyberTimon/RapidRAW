@@ -1758,6 +1758,8 @@
       "folderImageCountsDesc": "Toon het aantal afbeeldingen in mappen bij het aanwijzen van de mappenstructuur.",
       "font": "Lettertype",
       "fontDesc": "Het toepassingslettertype wijzigen.",
+      "hideCollapsedPanels": "Ingeklapte panelen verbergen",
+      "hideCollapsedPanelsDesc": "Ingeklapte zijpanelen worden volledig verborgen in plaats van een smalle strook achter te laten. Open ze opnieuw via de onderste balk of met hun sneltoetsen.",
       "nativeTitlebar": "Systeemeigen titelbalk",
       "nativeTitlebarDesc": "Gebruik de standaard venstertitelbalk van uw systeem in plaats van de aangepaste titelbalk van RapidRAW.",
       "neutralGreyCanvas": "Neutraal grijs canvas",

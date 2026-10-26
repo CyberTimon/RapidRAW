@@ -1818,6 +1818,8 @@
       "folderImageCountsDesc": "Muestra la cantidad de imágenes dentro de las carpetas al pasar el ratón sobre el árbol de carpetas.",
       "font": "Fuente",
       "fontDesc": "Cambia la fuente de la aplicación.",
+      "hideCollapsedPanels": "Ocultar paneles contraídos",
+      "hideCollapsedPanelsDesc": "Los paneles laterales contraídos se ocultan por completo en lugar de dejar una franja estrecha. Vuelve a abrirlos desde la barra inferior o con sus atajos de teclado.",
       "nativeTitlebar": "Barra de título nativa",
       "nativeTitlebarDesc": "Usa la barra de título de ventana predeterminada de tu sistema en lugar de la personalizada de RapidRAW.",
       "neutralGreyCanvas": "Lienzo gris neutro",

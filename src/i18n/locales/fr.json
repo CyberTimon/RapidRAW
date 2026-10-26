@@ -1818,6 +1818,8 @@
       "folderImageCountsDesc": "Affiche le nombre d'images dans les dossiers lors du survol de l'arborescence des dossiers.",
       "font": "Police",
       "fontDesc": "Modifier la police de l'application.",
+      "hideCollapsedPanels": "Masquer les panneaux réduits",
+      "hideCollapsedPanelsDesc": "Les panneaux latéraux réduits sont entièrement masqués au lieu de laisser une bande étroite. Rouvrez-les depuis la barre inférieure ou avec leurs raccourcis clavier.",
       "nativeTitlebar": "Barre de titre native",
       "nativeTitlebarDesc": "Utiliser la barre de titre de fenêtre par défaut de votre système au lieu de celle personnalisée de RapidRAW.",
       "neutralGreyCanvas": "Toile gris neutre",

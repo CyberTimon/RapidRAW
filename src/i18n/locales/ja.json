@@ -1776,6 +1776,8 @@
       "folderImageCountsDesc": "フォルダツリーをホバーしたときにフォルダ内の画像数を表示します。",
       "font": "フォント",
       "fontDesc": "アプリケーションのフォントを変更します。",
+      "hideCollapsedPanels": "折りたたんだパネルを非表示",
+      "hideCollapsedPanelsDesc": "折りたたんだサイドパネルを細い帯として残さず、完全に非表示にします。下部バーまたはキーボードショートカットで再び開けます。",
       "nativeTitlebar": "OS標準のタイトルバー",
       "nativeTitlebarDesc": "RapidRAWカスタムのもの代わりに、システムのデフォルトのウィンドウタイトルバーを使用します。",
       "neutralGreyCanvas": "ニュートラルグレーのキャンバス",

@@ -1781,6 +1781,8 @@
       "folderImageCountsDesc": "Show the number of images inside folders when hovering over the folder tree.",
       "font": "Font",
       "fontDesc": "Change the application font.",
+      "hideCollapsedPanels": "Hide Collapsed Panels",
+      "hideCollapsedPanelsDesc": "Collapsed side panels hide completely instead of leaving a narrow strip. Reopen them from the bottom bar or with their keyboard shortcuts.",
       "nativeTitlebar": "Native Titlebar",
       "nativeTitlebarDesc": "Use your system's default window titlebar instead of RapidRAW's custom one.",
       "neutralGreyCanvas": "Neutral Grey Canvas",

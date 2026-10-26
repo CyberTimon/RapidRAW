@@ -278,6 +278,7 @@ export interface AppSettings {
   copyPasteSettings?: CopyPasteSettings;
   enableFocusMode?: boolean;
   enableToolFocusMode?: boolean;
+  hideCollapsedPanels?: boolean;
   openTreeSections?: string[];
   folderIcons?: Record<string, string>;
   exifOverlay?: ExifOverlay;

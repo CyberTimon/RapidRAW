@@ -1819,6 +1819,8 @@
       "folderImageCountsDesc": "Mostrar o número de imagens dentro de pastas ao passar o mouse sobre a árvore de pastas.",
       "font": "Fonte",
       "fontDesc": "Alterar a fonte do aplicativo.",
+      "hideCollapsedPanels": "Ocultar Painéis Recolhidos",
+      "hideCollapsedPanelsDesc": "Painéis laterais recolhidos ficam totalmente ocultos em vez de deixar uma faixa estreita. Reabra-os pela barra inferior ou com seus atalhos de teclado.",
       "nativeTitlebar": "Barra de Título Nativa",
       "nativeTitlebarDesc": "Use a barra de título padrão da janela do seu sistema em vez da personalizada do RapidRAW.",
       "neutralGreyCanvas": "Tela cinza neutro",

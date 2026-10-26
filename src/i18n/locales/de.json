@@ -1781,6 +1781,8 @@
       "folderImageCountsDesc": "Zeigt die Anzahl der Bilder in Ordnern an, wenn Sie mit der Maus über die Ordnerstruktur fahren.",
       "font": "Schriftart",
       "fontDesc": "Ändern Sie die Schriftart der Anwendung.",
+      "hideCollapsedPanels": "Eingeklappte Panels ausblenden",
+      "hideCollapsedPanelsDesc": "Eingeklappte Seitenpanels werden vollständig ausgeblendet, statt einen schmalen Streifen zu hinterlassen. Öffnen Sie sie über die untere Leiste oder mit ihren Tastenkürzeln wieder.",
       "nativeTitlebar": "Native Titelleiste",
       "nativeTitlebarDesc": "Verwenden Sie die Standard-Fenstertitelleiste Ihres Systems anstelle der benutzerdefinierten von RapidRAW.",
       "neutralGreyCanvas": "Neutralgraue Arbeitsfläche",
