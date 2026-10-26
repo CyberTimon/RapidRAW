@@ -96,6 +96,7 @@
     },
     "details": {
       "aiDenoise": "AI-ruisonderdrukking",
+      "classicDenoise": "Klassieke ruisonderdrukking",
       "aiDenoiseDetail": "Detail",
       "blueYellow": "Blauw/Geel",
       "centre": "Centrum",
@@ -229,11 +230,11 @@
       "confirmReset": "Herstellen bevestigen",
       "convertNegative": "Negatief omzetten",
       "copyAdjustments": "Aanpassingen kopiëren",
-      "cullImage": "Afbeelding selecteren",
+      "cullImage": "Autom. selecteren",
       "denoise": "Ruis verwijderen",
       "editImage": "Afbeelding bewerken",
       "exportImage": "Afbeelding exporteren",
-      "frameImage": "Afbeelding inkaderen",
+      "frameImage": "Kadereditor",
       "mergeHdr": "Samenvoegen naar HDR",
       "noLabel": "Geen label",
       "noRating": "Geen beoordeling",
@@ -243,6 +244,8 @@
       "ratingLabel_one": "{{count}} ster",
       "ratingLabel_other": "{{count}} sterren",
       "redo": "Opnieuw",
+      "removeDenoise": "Ruisonderdrukking verwijderen",
+      "removeNegativeConversion": "Negatiefconversie verwijderen",
       "resetAdjustments": "Aanpassingen herstellen",
       "stitchPanorama": "Panorama samenvoegen",
       "tagging": "Tags toevoegen",
@@ -288,31 +291,31 @@
       "autoAdjust_other": "Autom. aanpassen",
       "autoLensCorrection_one": "Autom. lenscorrectie",
       "autoLensCorrection_other": "Autom. lenscorrectie",
-      "autoStraighten_one": "Afbeelding automatisch rechtzetten",
-      "autoStraighten_other": "Afbeeldingen automatisch rechtzetten",
-      "collage_one": "Afbeelding inkaderen",
+      "autoStraighten_one": "Automatisch rechtzetten",
+      "autoStraighten_other": "Automatisch rechtzetten",
+      "collage_one": "Kadereditor",
       "collage_other": "Collage maken",
       "confirmDelete": "Verwijderen bevestigen",
       "confirmDeleteVc": "Verwijderen + virtuele kopieën bevestigen",
-      "convertNegative_one": "Negatief omzetten",
-      "convertNegative_other": "Negatieven omzetten",
       "copyImage_one": "Afbeelding kopiëren",
       "copyImage_other": "{{count}} afbeeldingen kopiëren",
-      "cullImage_one": "Afbeelding selecteren",
-      "cullImage_other": "Afbeeldingen selecteren",
+      "cullImage_one": "Autom. selecteren",
+      "cullImage_other": "Autom. selecteren",
       "deleteAssociated": "Verwijderen + bijbehorende bestanden",
       "deleteImage_one": "Afbeelding verwijderen",
       "deleteImage_other": "{{count}} afbeeldingen verwijderen",
       "deleteSelected": "Alleen geselecteerde verwijderen",
-      "denoise_one": "Foto ontruisen",
-      "denoise_other": "Foto's ontruisen",
+      "denoise_one": "Ruis verwijderen",
+      "denoise_other": "Ruis verwijderen",
       "duplicateImage": "Afbeelding dupliceren",
+      "enable": "Inschakelen",
       "exportImage_one": "Afbeelding exporteren",
       "exportImage_other": "{{count}} afbeeldingen exporteren",
       "noAlbums": "Geen albums beschikbaar",
       "pasteAdjustments_one": "Aanpassingen plakken",
       "pasteAdjustments_other": "Aanpassingen plakken op {{count}} afbeeldingen",
       "physicalCopy": "Fysieke kopie",
+      "remove": "Verwijderen",
       "removeFromAlbum_one": "Uit album verwijderen",
       "removeFromAlbum_other": "{{count}} afbeeldingen uit album verwijderen",
       "renameImage_one": "Afbeelding hernoemen",
@@ -398,7 +401,7 @@
       "comingSoon": "Binnenkort beschikbaar",
       "connection": {
         "backendLabel": "AI-backend:",
-        "builtinDesc": "Gebruikt basis lokale CPU. Selecteer Cloud of AI-verbinding in instellingen voor generatieve vervanging.",
+        "builtinDesc": "Gebruikt de ingebouwde basis-AI. Selecteer Cloud of AI-verbinding in instellingen voor generatieve vervanging.",
         "builtinLabel": "Ingebouwde AI:",
         "cloudLabel": "Cloud AI:",
         "connectorConnectedDesc": "Verbonden met lokale generatieve backend.",
@@ -480,6 +483,13 @@
         "useBasicInpaint": "Basis inpainting gebruiken"
       },
       "touchUpTitle": "Retoucheren"
+    },
+    "compare": {
+      "horizontal": "Boven / onder splitsen",
+      "sideBySide": "Naast elkaar",
+      "title": "Voor / na",
+      "toggle": "Volledig origineel",
+      "vertical": "Links / rechts splitsen"
     },
     "crop": {
       "aspectRatioHeading": "Beeldverhouding",
@@ -688,6 +698,18 @@
         "applyPreset": "Voorinstelling toepassen",
         "componentPropertiesTitle": "{{name}} eigenschappen",
         "copySectionSettings": "{{section}} instellingen kopiëren",
+        "faceParts": {
+          "bodySkin": "Lichaamshuid",
+          "eyeWhites": "Oogwit",
+          "eyebrows": "Wenkbrauwen",
+          "faceSkin": "Gezichtshuid",
+          "hair": "Haar",
+          "iris": "Iris en pupil",
+          "lips": "Lippen",
+          "nose": "Neus",
+          "teeth": "Tanden"
+        },
+        "generateTextMask": "Masker maken",
         "invertComponent": "Component omkeren",
         "invertMask": "Masker omkeren",
         "maskPropertiesTitle": "Maskereigenschappen",
@@ -697,7 +719,8 @@
         "pasteSettings": "Instellingen plakken",
         "resetSectionSettings": "{{section}} instellingen herstellen",
         "select": "Selecteren",
-        "selectPresetTooltip": "Selecteer een voorinstelling om toe te passen"
+        "selectPresetTooltip": "Selecteer een voorinstelling om toe te passen",
+        "textPromptPlaceholder": "bijv. persoon, auto, water"
       },
       "toggleAnalyticsInAdjustments": "Analyse in aanpassingspaneel aan/uit",
       "toggleAnalyticsTooltip": "Analytische weergave aan/uit",
@@ -820,16 +843,16 @@
       }
     },
     "toolbar": {
+      "history": "Geschiedenis",
       "switchToVariant": "Overschakelen naar {{label}}",
       "tooltips": {
         "aperture": "Diafragma",
         "backToLibrary": "Terug naar bibliotheek",
+        "compare": "Voor / na (B) of modi (rechtsklik)",
         "focalLength": "Brandpuntsafstand",
         "fullscreen": "Volledig scherm aan/uit (F)",
         "iso": "ISO",
         "redo": "Opnieuw (Ctrl+Y) of geschiedenis (rechtermuisknop)",
-        "showEdited": "Bewerkt weergeven (B)",
-        "showOriginal": "Origineel weergeven (B)",
         "shutterSpeed": "Sluitertijd",
         "undo": "Ongedaan maken (Ctrl+Z) of geschiedenis (rechtermuisknop)"
       },
@@ -964,7 +987,91 @@
       "watermarkImage": "Watermarkafbeelding"
     }
   },
+  "immich": {
+    "close": {
+      "cancel": "Annuleren",
+      "closeAnyway": "Toch sluiten",
+      "message": "Bewerkingen die op Immich wachten: {{number}}. Ze blijven op deze computer en worden verstuurd zodra RapidRAW weer draait en Immich bereikbaar is.",
+      "title": "Bewerkingen nog niet in Immich"
+    },
+    "export": {
+      "album": "Album",
+      "destination": "Immich",
+      "noAlbum": "Geen album",
+      "sourceAlbum": "Album waaruit de afbeelding is geopend",
+      "withOriginal": "Origineel ook uploaden",
+      "withOriginalDesc": "Voor afbeeldingen uit een lokale map: het origineel wordt met zijn bewerkingen geüpload en de export wordt erbovenop gestapeld. Afbeeldingen uit Immich worden altijd op hun origineel gestapeld."
+    },
+    "section": {
+      "empty": "Geen albums op de server.",
+      "error": "Immich is niet bereikbaar.",
+      "loading": "Albums laden…",
+      "refresh": "Albums vernieuwen",
+      "timeline": "Tijdlijn",
+      "title": "Immich"
+    },
+    "settings": {
+      "apiKey": "API-sleutel",
+      "apiKeyDesc": "Maak er een aan in Immich onder Accountinstellingen → API-sleutels met deze rechten: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create en user.read.",
+      "connected": "Verbonden als {{user}} (Immich {{version}})",
+      "description": "Blader door de foto's van je Immich-server in de bibliotheek en bewerk ze direct. Originelen worden gedownload als je ze opent, en je bewerkingen worden in Immich opgeslagen, zodat ze op elke computer hetzelfde zijn.",
+      "keyInFile": "Opgeslagen in een bestand dat alleen jij kunt lezen: er is geen sleutelopslag beschikbaar. Zet in KDE de Secret Service-interface aan in de instellingen van KDE Wallet en sla opnieuw op.",
+      "keyInStore": "Opgeslagen in de sleutelopslag van het systeem.",
+      "save": "Opslaan",
+      "saved": "Opgeslagen.",
+      "serverUrl": "Serveradres",
+      "serverUrlDesc": "Het adres waarmee je Immich in de browser opent.",
+      "test": "Verbinding testen",
+      "title": "Immich",
+      "working": "Bezig…"
+    },
+    "sync": {
+      "offline": "Offline",
+      "pending": "Bewerkingen die op Immich wachten: {{number}}"
+    },
+    "toasts": {
+      "backOnline": "Immich is weer bereikbaar en alle bewerkingen zijn daar opgeslagen.",
+      "downloadFailed": "Downloaden van Immich mislukt: {{error}}",
+      "editsConflict": "{{fileName}} is ook op een andere computer bewerkt. Je bewerkingen blijven en de andere versie wordt bewaard als virtuele kopie.",
+      "offline": "Immich is niet bereikbaar. Je bewerkingen blijven hier en worden verstuurd zodra het weer bereikbaar is.",
+      "trashFailed": "Verplaatsen naar de prullenbak van Immich mislukt: {{error}}",
+      "uploaded": "Geüpload naar Immich: {{number}}"
+    }
+  },
   "library": {
+    "aiJobs": {
+      "discard": "Resterende AI-verwerking verwijderen",
+      "failed": "Mislukt ({{failedCount}})",
+      "kinds": {
+        "denoise": "AI-ruisonderdrukking",
+        "depthMap": "Diepte analyseren",
+        "depthMask": "Dieptemasker maken",
+        "faceMask": "Gezichtsmasker maken",
+        "foregroundMask": "Voorgrondmasker maken",
+        "normalMap": "Oppervlakken analyseren",
+        "skyMask": "Luchtmasker maken",
+        "subjectMask": "Onderwerpmasker maken",
+        "textMask": "Tekstmasker maken"
+      },
+      "more": "+{{moreCount}} meer",
+      "pause": "AI-verwerking pauzeren",
+      "paused": "Gepauzeerd · {{remaining}} resterend",
+      "pausedItem": "Gepauzeerd",
+      "pausing": "Pauzeert na de huidige stap…",
+      "process": "Afbeeldingen verwerken",
+      "progress": "{{current}}/{{total}}",
+      "queue": "Wachtrij",
+      "queuedItem": "In wachtrij",
+      "resume": "AI-verwerking hervatten",
+      "retry": "Opnieuw proberen",
+      "taskWithMask": "{{task}} ‘{{mask}}’",
+      "thumbnailPaused": "AI-verwerking gepauzeerd",
+      "thumbnailPending": "AI-verwerking in behandeling",
+      "title": "AI-verwerking",
+      "unprocessed_one": "{{count}} afbeelding heeft AI-verwerking nodig",
+      "unprocessed_other": "{{count}} afbeeldingen hebben AI-verwerking nodig",
+      "waiting": "AI-verwerking voorbereiden…"
+    },
     "community": {
       "actionSave": "Opslaan",
       "actionSaved": "Opgeslagen",
@@ -1005,6 +1112,12 @@
       "tags": "Tags",
       "toggleFit": "1:1 / Passend aan/uit",
       "vc": "VK"
+    },
+    "filterExit": {
+      "hiddenSingle": "{{name}} komt niet meer overeen met het filter",
+      "hiddenMultiple_one": "{{count}} afbeeldingen komen niet meer overeen met het filter",
+      "hiddenMultiple_other": "{{count}} afbeeldingen komen niet meer overeen met het filter",
+      "undo": "Ongedaan maken"
     },
     "filters": {
       "edited": {
@@ -1124,13 +1237,9 @@
         "title": "Weergaveopties"
       }
     },
-    "import": {
-      "complete": "Import voltooid!",
-      "failed": "Import mislukt!",
-      "progress": "Importeren... ({{current}}/{{total}})"
-    },
     "items": {
       "cloudPlaceholder": "Opgeslagen in iCloud — niet gedownload",
+      "immichPlaceholder": "Opgeslagen in Immich — niet gedownload",
       "collapseFolder": "Map inklappen",
       "currentFolder": "Huidige map",
       "expandFolder": "Map uitklappen",
@@ -1141,6 +1250,29 @@
       "tooltipIso": "ISO",
       "tooltipShutterSpeed": "Sluitertijd",
       "tooltipVirtualCopy": "Virtuele kopie"
+    },
+    "jobs": {
+      "active": "Bezig",
+      "cancel": "Export annuleren",
+      "cancelling": "Annuleren…",
+      "clear": "Wissen",
+      "copyError": "Klik om te kopiëren",
+      "empty": "Geen actieve taken",
+      "emptyHint": "Exports, imports, bestandsoverdrachten en AI-taken verschijnen hier.",
+      "errorCopied": "Fout naar klembord gekopieerd",
+      "images_one": "{{count}} afbeelding",
+      "images_other": "{{count}} afbeeldingen",
+      "kinds": {
+        "aiTagging": "AI-tagging",
+        "copy": "Bestanden kopiëren",
+        "export": "Export",
+        "import": "Import",
+        "modelDownload": "AI-model downloaden",
+        "move": "Bestanden verplaatsen"
+      },
+      "openInLibrary": "Openen in bibliotheek",
+      "recent": "Recent",
+      "title": "Taken"
     },
     "search": {
       "noResults": "Geen resultaten gevonden",
@@ -1210,6 +1342,7 @@
       "clone": "Klonen",
       "color": "Kleur",
       "depth": "Diepte",
+      "face": "Gezicht",
       "flow": "Doorstroming",
       "foreground": "Voorgrond",
       "heal": "Herstellen",
@@ -1222,7 +1355,8 @@
       "radial": "Radiaal",
       "retouch": "Retoucheren",
       "sky": "Lucht",
-      "subject": "Onderwerp"
+      "subject": "Onderwerp",
+      "text": "Tekst"
     }
   },
   "menus": {
@@ -1278,6 +1412,7 @@
       "descMerge": "Voegt uw gekopieerde wijzigingen toe zonder andere instellingen aan te raken.",
       "descReplace": "Overschrijft alle geselecteerde instellingen en herstelt de overige naar standaardwaarden.",
       "groups": {
+        "aiDenoise": "AI-ruisonderdrukking",
         "chromaticAberration": "Chromatische aberratie",
         "clarityDehaze": "Contrast en nevelreductie",
         "colorCalibration": "Kleurkalibratie",
@@ -1285,19 +1420,20 @@
         "colorMixer": "Kleurenmixer",
         "cropAspectRatio": "Bijsnijden & beeldverhouding",
         "curves": "Curven",
-        "exposureToneMapper": "Belichting & toonmapping",
+        "fog": "Mist",
         "grain": "Korrel",
         "guidedPerspective": "Geleid perspectief",
         "halationGlow": "Halatie & gloed",
         "hueShift": "Globale kleurtoonwijziging",
+        "lensBlur": "Lensvervaging",
         "lensCorrection": "Lenscorrectie",
         "lut": "LUT",
         "masks": "Maskers",
         "negativeConversion": "Negatiefconversie",
         "noiseReduction": "Ruisonderdrukking",
         "presence": "Presentie",
+        "relight": "Herbelichten",
         "sharpness": "Scherpte",
-        "tone": "Toon",
         "transformRotation": "Transformeren & rotatie",
         "vignette": "Vignet",
         "whiteBalance": "Witbalans"
@@ -1354,36 +1490,6 @@
       "startCulling": "Selectie starten",
       "starting": "Starten...",
       "title": "Afbeeldingen selecteren"
-    },
-    "denoise": {
-      "batchProgressText": "Ruis verwijderen {{current}} van {{total}}...",
-      "btnBatchDenoise": "Batch ruisonderdrukking & opslaan",
-      "btnRetry": "Opnieuw",
-      "btnSave": "Opslaan",
-      "btnStart": "Starten",
-      "cancel": "Annuleren",
-      "close": "Sluiten",
-      "denoised": "Ruis verwijderd",
-      "denoisingProgress": "Ruisonderdrukking bezig",
-      "description": "Verwijder ruis uit uw afbeelding met AI-gestuurde of traditionele ruisonderdrukking.",
-      "downloadingText": "Downloaden {{status}}...",
-      "gpuWarningTooltip": "NIND Ruis verwijderen ondersteunt nog geen GPU-versnelling vanwege afhankelijkheidsbeperkingen.",
-      "initializing": "Initialiseren...",
-      "methodAi": "NIND (AI - Beste voor RAW)",
-      "methodBm3d": "BM3D (Traditioneel - Alle formaten)",
-      "methodLabel": "Methode",
-      "methodRaw9": "Apple RAW 9 (Neural Engine)",
-      "openInEditor": "Openen in editor",
-      "original": "Origineel",
-      "panZoomEnabled": "Pannen & zoomen ingeschakeld",
-      "processingFailed": "Verwerking mislukt",
-      "qualityTileSizeLabel": "Kwaliteit / Tegelgrootte",
-      "reset": "Herstellen",
-      "saveSuccess": "Afbeelding succesvol opgeslagen!",
-      "speedNotice": "Dit kan enkele minuten duren afhankelijk van de afbeeldingsgrootte en geselecteerde methode.",
-      "strengthLabel": "Sterkte",
-      "titleBatch": "Ruis verwijderen uit foto's",
-      "titleSingle": "Ruis verwijderen uit foto"
     },
     "focusStack": {
       "cancel": "Annuleren",
@@ -1563,42 +1669,43 @@
       "zoomDesc": "Pas aan hoe snel het canvas in- en uitzoomt bij gebruik van het scrollwiel of knijpgebaar."
     },
     "data": {
-      "clearAiDenoise": "AI-ruisonderdrukkingscache wissen",
-      "clearAiDenoiseButton": "Wissen",
-      "clearAiDenoiseDesc": "Verwijdert de opgeslagen AI-ruisonderdrukkingsresultaten ({{size}}). Afbeeldingen met AI-ruisonderdrukking ingeschakeld berekenen deze opnieuw wanneer ze de volgende keer worden geopend.",
-      "clearSidecars": "Alle sidecar-bestanden wissen",
-      "clearSidecarsButton": "Wissen",
-      "clearSidecarsDesc": "Dit verwijdert alle .rrdata-bestanden (met uw bewerkingen) in uw hoofdmappen:",
-      "clearThumbnail": "Miniatuurcache wissen",
-      "clearThumbnailButton": "Wissen",
-      "clearThumbnailDesc": "Dit verwijdert alle gecachte miniatuurafbeeldingen. Ze worden automatisch opnieuw gegenereerd terwijl u door uw bibliotheek bladert.",
-      "loading": "Laden...",
-      "logs": "Toepassingslogboeken bekijken",
-      "logsButton": "Openen",
-      "logsDesc": "Bekijk het logboekbestand van de toepassing voor probleemoplossing. Het logboek bevindt zich op:",
+      "aiTags": "AI-tags wissen",
+      "aiTagsDesc": "Verwijdert door AI gegenereerde tags van alle afbeeldingen in je hoofdmappen. Je eigen tags blijven behouden.",
+      "allTags": "Alle tags wissen",
+      "allTagsDesc": "Verwijdert door AI gegenereerde en zelf toegevoegde tags van alle afbeeldingen in je hoofdmappen. Kleurlabels blijven behouden.",
+      "clear": "Wissen",
+      "delete": "Verwijderen",
+      "deleteEdits": "Alle bewerkingen verwijderen",
+      "deleteEditsDesc": "Verwijdert alle .rrdata-sidecarbestanden (je bewerkingen) in alle hoofdmappen. Dit kan niet ongedaan worden gemaakt.",
+      "libraryAndWorkspace": "Bibliotheek & werkruimte",
+      "limit": "Limiet",
       "modals": {
         "aiDenoiseMessage": "Weet je zeker dat je de AI-ruisonderdrukkingscache wilt wissen?\n\nAfbeeldingen met AI-ruisonderdrukking ingeschakeld moeten opnieuw worden verwerkt, wat per afbeelding enkele minuten kan duren.",
+        "aiMapsMessage": "Weet je zeker dat je de diepte- en normal maps wilt wissen?\n\nAfbeeldingen met lensvervaging, mist of herbelichting maken hun maps opnieuw aan wanneer ze weer worden geopend.",
         "aiMessage": "Weet u zeker dat u alle door AI gegenereerde tags van alle afbeeldingen in alle actieve hoofdmappen wilt verwijderen?\n\nDit heeft geen invloed op door gebruikers toegevoegde tags. Deze actie kan niet ongedaan worden gemaakt.",
         "allMessage": "Weet u zeker dat u alle door AI gegenereerde en door gebruikers toegevoegde tags van alle afbeeldingen in alle actieve hoofdmappen wilt verwijderen?\n\nDeze actie kan niet ongedaan worden gemaakt.",
         "cacheMessage": "Weet u zeker dat u de miniatuurcache wilt wissen?\n\nAlle miniaturen moeten opnieuw worden gegenereerd, wat langzaam kan zijn voor grote mappen.",
         "confirmAiTitle": "AI-tagverwijdering bevestigen",
         "confirmAllTitle": "Alle tagverwijdering bevestigen",
-        "confirmCacheTitle": "Cacheverwijdering bevestigen",
         "confirmClear": "Wissen",
         "confirmClearAi": "AI-tags wissen",
         "confirmClearAll": "Alle tags wissen",
-        "confirmClearCache": "Cache wissen",
         "confirmDeleteAllEdits": "Alle bewerkingen verwijderen",
         "confirmResetLayout": "Indeling herstellen",
         "confirmResetLayoutTitle": "Werkruimte-indeling herstellen",
         "confirmTitle": "Verwijdering bevestigen",
+        "immichMessage": "Weet je zeker dat je de gedownloade Immich-originelen wilt wissen?\n\nJe bewerkingen blijven behouden. Originelen worden opnieuw gedownload wanneer je ze opent.",
+        "metadataMessage": "Weet je zeker dat je de metadatacache wilt wissen?\n\nMetadata wordt opnieuw uit je bestanden gelezen terwijl je bladert.",
+        "modelsMessage": "Weet je zeker dat je de gedownloade AI-modellen wilt verwijderen?\n\nZe worden opnieuw gedownload wanneer je weer een AI-functie gebruikt.",
         "resetLayoutMessage": "Weet u zeker dat u de werkruimte-indeling wilt herstellen? Alle gedockte panelen, breedtes en schakelposities worden teruggezet naar hun standaardwaarden.",
         "sidecarMessage": "Weet u zeker dat u alle sidecar-bestanden wilt verwijderen?\n\nDit verwijdert permanent al uw bewerkingen voor alle afbeeldingen in alle actieve hoofdmappen en hun submappen."
       },
       "noFolders": "Geen mappen geselecteerd",
-      "resetLayoutButton": "Indeling herstellen",
+      "refresh": "Vernieuwen",
+      "reset": "Herstellen",
       "resetLayoutDesc": "Paneeldocks, zijsplitsers, hoogtes en paneelschakelaars terugzetten naar de standaardindeling.",
       "resetLayoutTitle": "Werkruimte-indeling herstellen",
+      "show": "Tonen",
       "statuses": {
         "aiDenoiseSuccess": "AI-ruisonderdrukkingscache succesvol gewist.",
         "aiSuccess": "{{count}} bestanden bijgewerkt. AI-tags verwijderd.",
@@ -1608,20 +1715,31 @@
         "allSuccess_one": "{{count}} bestand bijgewerkt. Alle niet-kleur-tags verwijderd.",
         "allSuccess_other": "{{count}} bestanden bijgewerkt. Alle niet-kleur-tags verwijderd.",
         "cacheSuccess": "Miniatuurcache succesvol gewist.",
-        "clearingAi": "AI-tags wissen uit alle sidecar-bestanden...",
-        "clearingAiDenoise": "AI-ruisonderdrukkingscache wordt gewist...",
-        "clearingAll": "Alle tags wissen uit sidecar-bestanden...",
-        "clearingCache": "Miniatuurcache wissen...",
-        "deleting": "Sidecar-bestanden verwijderen, even geduld...",
-        "failedToGetPath": "Kon pad naar logboekbestand niet ophalen.",
+        "cleared": "Succesvol gewist.",
         "layoutResetSuccess": "Werkruimte-indeling hersteld naar standaard.",
-        "processing": "Verwerken...",
-        "resettingLayout": "Werkruimte herstellen...",
         "sidecarSuccess": "{{count}} sidecar-bestanden succesvol verwijderd.",
         "sidecarSuccess_one": "{{count}} sidecar-bestand succesvol verwijderd.",
         "sidecarSuccess_other": "{{count}} sidecar-bestanden succesvol verwijderd."
       },
-      "title": "Gegevensbeheer"
+      "storage": {
+        "aiDenoise": "AI-ruisonderdrukking",
+        "aiDenoiseDesc": "Gecachete ruisonderdrukkingsresultaten.",
+        "aiMaps": "Diepte- & normal maps",
+        "aiMapsDesc": "Gebruikt door lensvervaging, mist en herbelichting.",
+        "immich": "Immich",
+        "immichDesc": "Gedownloade originelen. De langst niet gebruikte worden verwijderd zodra de limiet is bereikt; je bewerkingen blijven behouden.",
+        "logs": "Logboeken",
+        "logsDesc": "Logbestanden van de app voor probleemoplossing. Worden bij elke start gewist.",
+        "metadata": "Metadata",
+        "metadataDesc": "Gecachete EXIF-gegevens om mappen sneller te laden.",
+        "models": "AI-modellen",
+        "modelsDesc": "Worden gedownload wanneer een AI-functie voor het eerst wordt gebruikt.",
+        "thumbnails": "Miniaturen",
+        "thumbnailsDesc": "Worden automatisch opnieuw gemaakt terwijl je bladert."
+      },
+      "storageTitle": "Opslag",
+      "title": "Gegevensbeheer",
+      "totalUsed": "RapidRAW gebruikt {{size}} op dit apparaat."
     },
     "general": {
       "createXmp": "Ontbrekende XMP-bestanden maken",
@@ -1788,8 +1906,11 @@
           "description": "Rechtstreeks geïntegreerd in RapidRAW, draaien deze functies volledig op uw computer. Ze zijn snel, gratis en vereisen geen installatie, waardoor ze ideaal zijn voor dagelijkse workflowversnelling.",
           "feature1": "AI-maskering (onderwerp, lucht, voorgrond)",
           "feature2": "Automatische afbeeldingstagging",
-          "feature3": "Eenvoudige CPU-gebaseerde generatieve vervanging",
-          "title": "Ingebouwde AI (CPU)"
+          "feature3": "Eenvoudige generatieve vervanging op het apparaat",
+          "gpuAcceleration": "GPU-versnelling",
+          "gpuAccelerationDesc": "Voert ingebouwde AI-functies zoals ruisonderdrukking, maskers, diepte- en normaalkaarten en taggen uit op de grafische kaart voor veel snellere resultaten. Schakel dit uit als je crashes of onjuiste AI-resultaten ervaart.",
+          "gpuAccelerationLabel": "GPU gebruiken voor AI-modellen",
+          "title": "Ingebouwde AI"
         },
         "aiFree": {
           "description": "Schakelt alle AI-functies uit. Alle AI-gerelateerde bedieningselementen worden verborgen, zodat RapidRAW werkt als een puur traditionele RAW-editor.",
@@ -1803,7 +1924,7 @@
           "aiConnector": "AI-verbinding",
           "aiFree": "Zonder AI",
           "cloud": "Cloud",
-          "cpu": "CPU"
+          "cpu": "Ingebouwd"
         },
         "title": "Generatieve AI"
       },
@@ -1920,11 +2041,6 @@
       "aiTaggingDesc": "Schakelt automatische afbeeldingstagging in met behulp van een AI (CLIP) model. Dit downloadt een extra model en beïnvloedt de prestaties tijdens het bladeren door mappen. Tags worden gebruikt voor het doorzoeken van een map.",
       "amount": "Hoeveelheid",
       "automaticAiTagging": "Automatische AI-tagging",
-      "clearAiTagsButton": "Wissen",
-      "clearAiTagsDesc": "Dit verwijdert alle door AI gegenereerde tags uit uw .rrdata-bestanden in alle actieve hoofdmappen. Door gebruikers toegevoegde tags blijven behouden.",
-      "clearAiTagsTitle": "AI-tags wissen",
-      "clearAllTagsDesc": "Dit verwijdert alle door AI gegenereerde en door gebruikers toegevoegde tags uit uw .rrdata-bestanden in alle actieve hoofdmappen. Kleurlabels blijven behouden.",
-      "clearAllTagsTitle": "Alle tags wissen",
       "clearCustomTooltip": "Aangepaste AI-taglijst wissen",
       "clearShortcutsTooltip": "Snelkoppelingstaglijst wissen",
       "customList": "Aangepaste AI-taglijst",
@@ -1942,17 +2058,19 @@
     "thanks": {
       "description": "Veel dank aan de volgende projecten die zeer belangrijk waren bij de ontwikkeling van RapidRAW:",
       "list": {
+        "birefnet": "Voor het segmentatiemodel met hoge resolutie dat de AI-voorgronddetectie aandrijft.",
         "darktable": "Voor enkele referentie-implementaties die delen van dit werk hebben geleid.",
         "depth": "Voor het krachtige monoculaire diepteschattingsmodel dat de AI-dieptemaskering mogelijk maakt.",
+        "efficientsam3": "Voor het efficiënte, uit SAM 3 gedistilleerde segmentatiemodel met tekstprompts dat de AI-lucht- en tekstmaskers aandrijft.",
         "lama": "Voor het krachtige en eenvoudige afbeeldingsinpainting-model dat inhoudsgebaseerde opvulling en objectverwijdering mogelijk maakt.",
         "lensfun": "Voor de onschatbare open-source bibliotheek en uitgebreide database voor automatische lenscorrectie.",
         "libgphoto2": "Voor de uitgebreide cameracommuicatiebibliotheek die het tethering- en afstandsbedieningssysteem van RapidRAW aandrijft.",
+        "mediapipe": "Voor de snelle gezichtslandmark- en segmentatiemodellen achter de AI-gezichtsmaskers.",
         "negpy": "Voor de inspiratie achter de negatief-omzetlogica.",
         "nind": "Voor het leveren van AI-modellen die de AI-ruisonderdrukkingmogelijkheden in RapidRAW aandrijven.",
         "rawler": "Voor de uitstekende Rust-crate die de basis vormt voor RAW-bestandsverwerking in dit project.",
         "sam2": "Voor het leveren van het basismodel dat wordt gebruikt voor de AI-onderwerpdetectiemogelijkheden.",
         "spektrafilm": "Voor de spectraalgebaseerde filmemulatie-LUT's door Andrea Volpato, gebruikt voor de ingebouwde filmemulaties van RapidRAW. Gelicenseerd onder CC BY-SA 4.0.",
-        "u2net": "Voor het leveren van de robuuste architectuur die wordt gebruikt voor de AI-lucht- en voorgronddetectiemogelijkheden.",
         "you": "Voor het gebruiken en ondersteunen van RapidRAW. Uw interesse houdt dit project levend en evoluerend.",
         "youLabel": "U"
       },

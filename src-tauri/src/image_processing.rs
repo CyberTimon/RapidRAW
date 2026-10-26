@@ -22,7 +22,6 @@ pub use crate::gpu_processing::{
     process_and_get_dynamic_image_with_analytics, process_and_get_dynamic_image_with_precision,
 };
 use crate::{AppState, mask_generation::MaskDefinition};
-use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 
 pub trait IntoCowImage<'a> {
     fn into_cow(self) -> Cow<'a, DynamicImage>;
@@ -67,6 +66,7 @@ where
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(default)]
 pub struct ImageMetadata {
     pub version: u32,
     pub rating: u8,
@@ -1935,7 +1935,7 @@ const SCALES: AdjustmentScales = AdjustmentScales {
     luma_noise_reduction: 100.0,
     color_noise_reduction: 100.0,
     clarity: 125.0,
-    dehaze: 750.0,
+    dehaze: 100.0,
     structure: 125.0,
     centré: 250.0,
 
@@ -2952,22 +2952,6 @@ pub struct GpuContext {
     pub display: Arc<std::sync::Mutex<Option<WgpuDisplay>>>,
 }
 
-#[inline(always)]
-fn rgb_to_yc_only(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
-    let y = 0.299 * r + 0.587 * g + 0.114 * b;
-    let cb = -0.168736 * r - 0.331264 * g + 0.5 * b;
-    let cr = 0.5 * r - 0.418688 * g - 0.081312 * b;
-    (y, cb, cr)
-}
-
-#[inline(always)]
-fn yc_to_rgb(y: f32, cb: f32, cr: f32) -> (f32, f32, f32) {
-    let r = y + 1.402 * cr;
-    let g = y - 0.344136 * cb - 0.714136 * cr;
-    let b = y + 1.772 * cb;
-    (r, g, b)
-}
-
 fn into_rgb32f_parallel(image: DynamicImage) -> image::Rgb32FImage {
     match image {
         DynamicImage::ImageRgba32F(rgba) => {
@@ -2984,211 +2968,643 @@ fn into_rgb32f_parallel(image: DynamicImage) -> image::Rgb32FImage {
 
 pub fn remove_raw_artifacts_and_enhance(
     image: &mut DynamicImage,
-    color_nr_inv_sigma: f32,
+    color_nr_amount: f32,
     sharpening_amount: f32,
 ) {
     let mut buffer = into_rgb32f_parallel(std::mem::take(image));
-    let w = buffer.width() as usize;
-    let h = buffer.height() as usize;
 
-    let mut ycbcr_buffer = vec![0.0f32; w * h * 3];
-
-    let src = buffer.as_raw();
-
-    ycbcr_buffer
-        .par_chunks_mut(3)
-        .zip(src.par_chunks(3))
-        .for_each(|(dest, pixel)| {
-            let (y, cb, cr) = rgb_to_yc_only(pixel[0], pixel[1], pixel[2]);
-            dest[0] = y;
-            dest[1] = cb;
-            dest[2] = cr;
-        });
-
-    if color_nr_inv_sigma > 0.0 {
-        let base_inv_sigma = color_nr_inv_sigma;
-        const OFFSETS: [isize; 3] = [-5, -1, 3];
-        const OFFSET_SQUARES: [f32; 3] = [25.0, 1.0, 9.0];
-
-        buffer
-            .par_chunks_mut(w * 3)
-            .enumerate()
-            .for_each(|(y, row)| {
-                let row_offset = y * w;
-                let h_isize = h as isize;
-                let w_isize = w as isize;
-                let y_isize = y as isize;
-
-                for x in 0..w {
-                    let center_idx = (row_offset + x) * 3;
-
-                    let cy = ycbcr_buffer[center_idx];
-                    let ccb = ycbcr_buffer[center_idx + 1];
-                    let ccr = ycbcr_buffer[center_idx + 2];
-
-                    let mut cb_sum = 0.0;
-                    let mut cr_sum = 0.0;
-                    let mut w_sum = 0.0;
-
-                    for (ki, &ky) in OFFSETS.iter().enumerate() {
-                        let sy = y_isize + ky;
-                        if sy < 0 || sy >= h_isize {
-                            continue;
-                        }
-
-                        let neighbor_row_idx = (sy as usize) * w;
-                        let ky_sq_div_50 = OFFSET_SQUARES[ki] * 0.02;
-
-                        for (kj, &kx) in OFFSETS.iter().enumerate() {
-                            let sx = (x as isize) + kx;
-                            if sx < 0 || sx >= w_isize {
-                                continue;
-                            }
-
-                            let neighbor_idx = (neighbor_row_idx + sx as usize) * 3;
-
-                            let neighbor_y = ycbcr_buffer[neighbor_idx];
-                            let y_diff = (cy - neighbor_y).abs();
-
-                            let val = y_diff * base_inv_sigma;
-                            let spatial_penalty = OFFSET_SQUARES[kj] * 0.02 + ky_sq_div_50;
-
-                            let weight = 1.0 / (1.0 + val * val + spatial_penalty);
-
-                            cb_sum += ycbcr_buffer[neighbor_idx + 1] * weight;
-                            cr_sum += ycbcr_buffer[neighbor_idx + 2] * weight;
-                            w_sum += weight;
-                        }
-                    }
-
-                    let (out_cb, out_cr) = if w_sum > 1e-4 {
-                        let inv_w_sum = 1.0 / w_sum;
-                        let filtered_cb = cb_sum * inv_w_sum;
-                        let filtered_cr = cr_sum * inv_w_sum;
-
-                        let orig_mag_sq = ccb * ccb + ccr * ccr;
-                        let filt_mag_sq = filtered_cb * filtered_cb + filtered_cr * filtered_cr;
-
-                        if filt_mag_sq > orig_mag_sq && orig_mag_sq > 1e-12 {
-                            let scale = (orig_mag_sq / filt_mag_sq).sqrt();
-                            (filtered_cb * scale, filtered_cr * scale)
-                        } else {
-                            (filtered_cb, filtered_cr)
-                        }
-                    } else {
-                        (ccb, ccr)
-                    };
-
-                    let (r, g, b) = yc_to_rgb(cy, out_cb, out_cr);
-
-                    let o = x * 3;
-                    row[o] = r.max(0.0);
-                    row[o + 1] = g.max(0.0);
-                    row[o + 2] = b.max(0.0);
-                }
-            });
-    }
+    let luma = (color_nr_amount > 0.0)
+        .then(|| reduce_raw_chroma_noise(&mut buffer, color_nr_amount.min(1.0)));
 
     if sharpening_amount > 0.0 {
-        apply_gentle_detail_enhance(&mut buffer, &ycbcr_buffer, sharpening_amount);
+        let luma = luma.unwrap_or_else(|| sqrt_luma_plane(&buffer));
+        apply_gentle_detail_enhance(&mut buffer, &luma, sharpening_amount);
     }
 
     *image = DynamicImage::ImageRgb32F(buffer);
 }
 
-fn apply_gentle_detail_enhance(
-    buffer: &mut image::ImageBuffer<image::Rgb<f32>, Vec<f32>>,
-    ycbcr_source: &[f32],
-    amount: f32,
-) {
-    let w = buffer.width() as usize;
-    let h = buffer.height() as usize;
-
-    let mut temp_blur = vec![0.0; w * h];
-    let radius = 2i32;
-
-    temp_blur
-        .par_chunks_mut(w)
-        .enumerate()
-        .for_each(|(y, row)| {
-            let row_offset = y * w;
-            for (x, row_val) in row.iter_mut().enumerate() {
-                let mut sum = 0.0;
-                let mut count = 0;
-                for kx in -radius..=radius {
-                    let sx = (x as i32 + kx).clamp(0, (w as i32) - 1) as usize;
-                    sum += ycbcr_source[(row_offset + sx) * 3];
-                    count += 1;
-                }
-                *row_val = sum / count as f32;
-            }
-        });
-
-    let output = buffer.as_mut();
-
-    output
-        .par_chunks_mut(w * 3)
-        .enumerate()
-        .for_each(|(y, rgb_row)| {
-            for x in 0..w {
-                let mut blur_sum = 0.0;
-                let mut count = 0;
-                for ky in -radius..=radius {
-                    let sy = (y as i32 + ky).clamp(0, (h as i32) - 1) as usize;
-                    blur_sum += temp_blur[sy * w + x];
-                    count += 1;
-                }
-                let blurred_val = blur_sum / count as f32;
-
-                let original_luma = ycbcr_source[(y * w + x) * 3];
-
-                let detail = original_luma - blurred_val;
-
-                let edge_strength = detail.abs();
-                let adaptive_amount = if edge_strength > 0.1 {
-                    amount * 0.3
-                } else {
-                    amount
-                };
-                let boost = detail * adaptive_amount;
-
-                let r_idx = x * 3;
-                let g_idx = r_idx + 1;
-                let b_idx = r_idx + 2;
-
-                let r = rgb_row[r_idx];
-                let g = rgb_row[g_idx];
-                let b = rgb_row[b_idx];
-
-                let new_r = r + boost;
-                let new_g = g + boost;
-                let new_b = b + boost;
-
-                let max_val = new_r.max(new_g).max(new_b);
-                let min_val = new_r.min(new_g).min(new_b);
-
-                let scale = if max_val > 1.0 || min_val < 0.0 {
-                    if max_val > 1.0 && min_val < 0.0 {
-                        0.0
-                    } else if max_val > 1.0 {
-                        (1.0 - r.max(g).max(b)) / boost.max(0.001)
-                    } else {
-                        r.min(g).min(b) / (-boost).max(0.001)
-                    }
-                } else {
-                    1.0
-                };
-
-                let safe_boost = boost * scale.clamp(0.0, 1.0);
-
-                rgb_row[r_idx] = (r + safe_boost).max(0.0);
-                rgb_row[g_idx] = (g + safe_boost).max(0.0);
-                rgb_row[b_idx] = (b + safe_boost).max(0.0);
-            }
-        });
+struct ChromaPlanes {
+    q: Vec<f32>,
+    cr: Vec<f32>,
+    cb: Vec<f32>,
+    w: usize,
+    h: usize,
+    noise_q: f32,
+    noise_c: f32,
 }
 
-#[derive(Serialize, Clone)]
+impl ChromaPlanes {
+    const PAD: usize = 2;
+    const CHUNK: usize = 64;
+    const FLOOR: f32 = 0.002;
+
+    fn stabilize(rgb: [f32; 3]) -> (f32, f32, f32) {
+        let l = 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+        let s = (l.max(0.0) + Self::FLOOR).sqrt();
+        (
+            s,
+            (rgb[0].max(0.0) + Self::FLOOR).sqrt() - s,
+            (rgb[2].max(0.0) + Self::FLOOR).sqrt() - s,
+        )
+    }
+
+    fn new(w: usize, h: usize, sample: impl Fn(usize, usize) -> (f32, f32, f32) + Sync) -> Self {
+        let pw = w + 2 * Self::PAD;
+        let ph = h + 2 * Self::PAD;
+        let mut q = vec![0.0f32; pw * ph];
+        let mut cr = vec![0.0f32; pw * ph];
+        let mut cb = vec![0.0f32; pw * ph];
+        q.par_chunks_mut(pw)
+            .zip(cr.par_chunks_mut(pw))
+            .zip(cb.par_chunks_mut(pw))
+            .enumerate()
+            .for_each(|(py, ((q_row, cr_row), cb_row))| {
+                let y = py.saturating_sub(Self::PAD).min(h - 1);
+                for px in 0..pw {
+                    let x = px.saturating_sub(Self::PAD).min(w - 1);
+                    (q_row[px], cr_row[px], cb_row[px]) = sample(x, y);
+                }
+            });
+        let noise_q = estimate_noise(pw, ph, &[&|i| q[i]]).max(1e-3);
+        let noise_c = estimate_noise(pw, ph, &[&|i| cr[i], &|i| cb[i]]).max(1e-3);
+        Self {
+            q,
+            cr,
+            cb,
+            w,
+            h,
+            noise_q,
+            noise_c,
+        }
+    }
+
+    fn from_rgb(src: &[f32], w: usize, h: usize) -> Self {
+        Self::new(w.div_ceil(2), h.div_ceil(2), |x, y| {
+            let mut sum = [0.0f32; 3];
+            for sy in [2 * y, (2 * y + 1).min(h - 1)] {
+                for sx in [2 * x, (2 * x + 1).min(w - 1)] {
+                    let i = (sy * w + sx) * 3;
+                    for c in 0..3 {
+                        sum[c] += src[i + c] * 0.25;
+                    }
+                }
+            }
+            Self::stabilize(sum)
+        })
+    }
+
+    fn downsample(&self) -> Self {
+        Self::new(self.w.div_ceil(2), self.h.div_ceil(2), |x, y| {
+            let mut sum = (0.0, 0.0, 0.0);
+            for sy in [2 * y, (2 * y + 1).min(self.h - 1)] {
+                for sx in [2 * x, (2 * x + 1).min(self.w - 1)] {
+                    let i = self.at(sx, sy);
+                    sum.0 += self.q[i] * 0.25;
+                    sum.1 += self.cr[i] * 0.25;
+                    sum.2 += self.cb[i] * 0.25;
+                }
+            }
+            sum
+        })
+    }
+
+    fn stride(&self) -> usize {
+        self.w + 2 * Self::PAD
+    }
+
+    fn at(&self, x: usize, y: usize) -> usize {
+        (y + Self::PAD) * self.stride() + x + Self::PAD
+    }
+
+    fn filter(
+        &self,
+        amount: f32,
+        reference: Option<&(Vec<f32>, Vec<f32>)>,
+    ) -> (Vec<f32>, Vec<f32>) {
+        const R: usize = ChromaPlanes::PAD;
+        const D: usize = 2 * R + 1;
+
+        let (w, h, pw) = (self.w, self.h, self.stride());
+        let (q, cr, cb) = (&self.q, &self.cr, &self.cb);
+        let luma_tol = (1.5 + 2.0 * amount) * self.noise_q;
+        let chroma_tol = (2.0 + 3.0 * amount) * self.noise_c;
+        let sigma = 1.5 + amount;
+        let spatial: [f32; D * D] = std::array::from_fn(|k| {
+            let dx = (k % D) as f32 - R as f32;
+            let dy = (k / D) as f32 - R as f32;
+            (-(dx * dx + dy * dy) / (2.0 * sigma * sigma)).exp()
+        });
+        let kq = 1.0 / (luma_tol * luma_tol);
+        let kc = 1.0 / (chroma_tol * chroma_tol);
+        let eps = luma_tol * luma_tol;
+        let ph = h + 2 * R;
+        let mut rel = vec![1.0f32; q.len()];
+        let mut widen = vec![1.0f32; q.len()];
+        rel.par_chunks_mut(pw)
+            .zip(widen.par_chunks_mut(pw))
+            .enumerate()
+            .for_each(|(py, (rel_row, widen_row))| {
+                if py == 0 || py + 1 >= ph {
+                    return;
+                }
+                for px in 1..pw - 1 {
+                    let i = py * pw + px;
+                    let g = 0.5
+                        * (q[i + 1] - q[i - 1])
+                            .abs()
+                            .max((q[i + pw] - q[i - pw]).abs());
+                    let t = g / luma_tol;
+                    rel_row[px] = 1.0 / (1.0 + t * t);
+                    let f = 1.0 + 2.0 * t;
+                    widen_row[px] = 1.0 / (f * f);
+                }
+            });
+
+        let mut out_r = vec![0.0f32; w * h];
+        let mut out_b = vec![0.0f32; w * h];
+        out_r
+            .par_chunks_mut(w)
+            .zip(out_b.par_chunks_mut(w))
+            .enumerate()
+            .for_each(|(y, (row_r, row_b))| {
+                let mut x0 = 0;
+                while x0 < w {
+                    let n = ChromaPlanes::CHUNK.min(w - x0);
+                    let at = |j: usize, i: usize| (y + j) * pw + x0 + i;
+                    let c = at(R, R);
+                    let qc = &q[c..c + n];
+                    let wc = &widen[c..c + n];
+
+                    let mut ref_r = [0.0f32; ChromaPlanes::CHUNK];
+                    let mut ref_b = [0.0f32; ChromaPlanes::CHUNK];
+                    if let Some((rr, rb)) = reference {
+                        let o = y * w + x0;
+                        ref_r[..n].copy_from_slice(&rr[o..o + n]);
+                        ref_b[..n].copy_from_slice(&rb[o..o + n]);
+                    } else {
+                        let mut ref_w = [0.0f32; ChromaPlanes::CHUNK];
+                        for j in R - 1..=R + 1 {
+                            for i in R - 1..=R + 1 {
+                                let o = at(j, i);
+                                let sp = spatial[j * D + i];
+                                let (qs, crs, cbs, rs) =
+                                    (&q[o..o + n], &cr[o..o + n], &cb[o..o + n], &rel[o..o + n]);
+                                for k in 0..n {
+                                    let d = qs[k] - qc[k];
+                                    let t = (1.0 - d * d * kq * wc[k]).max(0.0);
+                                    let wt = sp * rs[k] * t * t;
+                                    ref_r[k] += wt * crs[k];
+                                    ref_b[k] += wt * cbs[k];
+                                    ref_w[k] += wt;
+                                }
+                            }
+                        }
+                        for k in 0..n {
+                            let inv = 1.0 / ref_w[k];
+                            ref_r[k] *= inv;
+                            ref_b[k] *= inv;
+                        }
+                    }
+
+                    let mut sw = [0.0f32; ChromaPlanes::CHUNK];
+                    let mut sd = [0.0f32; ChromaPlanes::CHUNK];
+                    let mut sdd = [0.0f32; ChromaPlanes::CHUNK];
+                    let mut sr = [0.0f32; ChromaPlanes::CHUNK];
+                    let mut sb = [0.0f32; ChromaPlanes::CHUNK];
+                    let mut sdr = [0.0f32; ChromaPlanes::CHUNK];
+                    let mut sdb = [0.0f32; ChromaPlanes::CHUNK];
+                    for j in 0..D {
+                        for i in 0..D {
+                            let o = at(j, i);
+                            let sp = spatial[j * D + i];
+                            let (qs, crs, cbs, rs) =
+                                (&q[o..o + n], &cr[o..o + n], &cb[o..o + n], &rel[o..o + n]);
+                            for k in 0..n {
+                                let d = qs[k] - qc[k];
+                                let er = crs[k] - ref_r[k];
+                                let eb = cbs[k] - ref_b[k];
+                                let t = (1.0 - (d * d * kq + (er * er + eb * eb) * kc) * wc[k])
+                                    .max(0.0);
+                                let wt = sp * rs[k] * t * t;
+                                let wd = wt * d;
+                                sw[k] += wt;
+                                sd[k] += wd;
+                                sdd[k] += wd * d;
+                                sr[k] += wt * crs[k];
+                                sb[k] += wt * cbs[k];
+                                sdr[k] += wd * crs[k];
+                                sdb[k] += wd * cbs[k];
+                            }
+                        }
+                    }
+
+                    for k in 0..n {
+                        let (fr, fb) = if sw[k] > 1e-6 {
+                            let inv = 1.0 / sw[k];
+                            let md = sd[k] * inv;
+                            let mr = sr[k] * inv;
+                            let mb = sb[k] * inv;
+                            let var = (sdd[k] * inv - md * md).max(0.0) + eps;
+                            let slope_r = (sdr[k] * inv - mr * md) / var;
+                            let slope_b = (sdb[k] * inv - mb * md) / var;
+                            (mr - slope_r * md, mb - slope_b * md)
+                        } else {
+                            (ref_r[k], ref_b[k])
+                        };
+                        row_r[x0 + k] = fr;
+                        row_b[x0 + k] = fb;
+                    }
+                    x0 += n;
+                }
+            });
+        (out_r, out_b)
+    }
+
+    fn upsample_eps(&self, amount: f32) -> f32 {
+        16.0 * ((1.5 + 2.0 * amount) * self.noise_q).powi(2)
+    }
+
+    fn upsample(
+        &self,
+        coarse: &ChromaPlanes,
+        (cr, cb): &(Vec<f32>, Vec<f32>),
+        amount: f32,
+    ) -> (Vec<f32>, Vec<f32>) {
+        let eps = self.upsample_eps(amount);
+        let (w, cw) = (self.w, coarse.w);
+        let mut out_r = vec![0.0f32; w * self.h];
+        let mut out_b = vec![0.0f32; w * self.h];
+        out_r
+            .par_chunks_mut(w)
+            .zip(out_b.par_chunks_mut(w))
+            .enumerate()
+            .for_each(|(y, (row_r, row_b))| {
+                let rows = upsample_taps(y, coarse.h).map(|(ly, wy)| {
+                    let o = coarse.at(0, ly);
+                    (
+                        &coarse.q[o..o + cw],
+                        &cr[ly * cw..(ly + 1) * cw],
+                        &cb[ly * cw..(ly + 1) * cw],
+                        wy,
+                    )
+                });
+                let q_row = &self.q[self.at(0, y)..self.at(0, y) + w];
+                let mut x0 = 0;
+                while x0 < w {
+                    let n = ChromaPlanes::CHUNK.min(w - x0);
+                    let up = upsample_chunk(rows, &q_row[x0..x0 + n], x0, cw, eps);
+                    row_r[x0..x0 + n].copy_from_slice(&up.r[..n]);
+                    row_b[x0..x0 + n].copy_from_slice(&up.b[..n]);
+                    x0 += n;
+                }
+            });
+        (out_r, out_b)
+    }
+
+    fn core(
+        &self,
+        (mut fr, mut fb): (Vec<f32>, Vec<f32>),
+        (rr, rb): &(Vec<f32>, Vec<f32>),
+        amount: f32,
+    ) -> (Vec<f32>, Vec<f32>) {
+        let mut mags: Vec<f32> = (0..fr.len())
+            .step_by(7)
+            .map(|i| (fr[i] - rr[i]).hypot(fb[i] - rb[i]))
+            .collect();
+        let mid = mags.len() / 2;
+        let core = (*mags.select_nth_unstable_by(mid, f32::total_cmp).1 * (1.5 + amount)).max(1e-6);
+        let texture = 4.0 * (0.5 + amount);
+        let (w, pw) = (self.w, self.stride());
+        fr.par_chunks_mut(w)
+            .zip(fb.par_chunks_mut(w))
+            .zip(rr.par_chunks(w).zip(rb.par_chunks(w)))
+            .enumerate()
+            .for_each(|(y, ((r, b), (ref_r, ref_b)))| {
+                let rows: [&[f32]; 3] = std::array::from_fn(|j| {
+                    let o = (y + Self::PAD + j - 1) * pw + Self::PAD;
+                    &self.q[o - 1..o + w + 1]
+                });
+                for x in 0..w {
+                    let (mut lo, mut hi) = (f32::MAX, f32::MIN);
+                    for row in rows {
+                        for &v in &row[x..x + 3] {
+                            lo = lo.min(v);
+                            hi = hi.max(v);
+                        }
+                    }
+                    let (er, eb) = (r[x] - ref_r[x], b[x] - ref_b[x]);
+                    let keep = ((er * er + eb * eb).sqrt() / (core + texture * (hi - lo)) - 1.0)
+                        .clamp(0.0, 1.0);
+                    r[x] = ref_r[x] + er * keep;
+                    b[x] = ref_b[x] + eb * keep;
+                }
+            });
+        (fr, fb)
+    }
+}
+
+type UpsampleRow<'a> = (&'a [f32], &'a [f32], &'a [f32], f32);
+
+struct UpsampledChunk {
+    r: [f32; ChromaPlanes::CHUNK],
+    b: [f32; ChromaPlanes::CHUNK],
+    q_range: [f32; ChromaPlanes::CHUNK],
+    r_min: [f32; ChromaPlanes::CHUNK],
+    r_max: [f32; ChromaPlanes::CHUNK],
+    b_min: [f32; ChromaPlanes::CHUNK],
+    b_max: [f32; ChromaPlanes::CHUNK],
+}
+
+fn upsample_chunk(
+    rows: [UpsampleRow; 2],
+    qc: &[f32],
+    x0: usize,
+    cw: usize,
+    eps: f32,
+) -> UpsampledChunk {
+    let n = qc.len().min(ChromaPlanes::CHUNK);
+    let mut out = UpsampledChunk {
+        r: [0.0; ChromaPlanes::CHUNK],
+        b: [0.0; ChromaPlanes::CHUNK],
+        q_range: [0.0; ChromaPlanes::CHUNK],
+        r_min: [f32::MAX; ChromaPlanes::CHUNK],
+        r_max: [f32::MIN; ChromaPlanes::CHUNK],
+        b_min: [f32::MAX; ChromaPlanes::CHUNK],
+        b_max: [f32::MIN; ChromaPlanes::CHUNK],
+    };
+    let mut q_min = [f32::MAX; ChromaPlanes::CHUNK];
+    let mut q_max = [f32::MIN; ChromaPlanes::CHUNK];
+    let mut sd = [0.0f32; ChromaPlanes::CHUNK];
+    let mut sdd = [0.0f32; ChromaPlanes::CHUNK];
+    let mut sdr = [0.0f32; ChromaPlanes::CHUNK];
+    let mut sdb = [0.0f32; ChromaPlanes::CHUNK];
+    for (q_row, r_row, b_row, wy) in rows {
+        for side in 0..2 {
+            let mut gq = [0.0f32; ChromaPlanes::CHUNK];
+            let mut gr = [0.0f32; ChromaPlanes::CHUNK];
+            let mut gb = [0.0f32; ChromaPlanes::CHUNK];
+            let mut gw = [0.0f32; ChromaPlanes::CHUNK];
+            for k in 0..n {
+                let (lx, wx) = upsample_taps(x0 + k, cw)[side];
+                gq[k] = q_row[lx];
+                gr[k] = r_row[lx];
+                gb[k] = b_row[lx];
+                gw[k] = wy * wx;
+            }
+            for k in 0..n {
+                let d = gq[k] - qc[k];
+                let wd = gw[k] * d;
+                out.r[k] += gw[k] * gr[k];
+                out.b[k] += gw[k] * gb[k];
+                sd[k] += wd;
+                sdd[k] += wd * d;
+                sdr[k] += wd * gr[k];
+                sdb[k] += wd * gb[k];
+                q_min[k] = q_min[k].min(gq[k]);
+                q_max[k] = q_max[k].max(gq[k]);
+                out.r_min[k] = out.r_min[k].min(gr[k]);
+                out.r_max[k] = out.r_max[k].max(gr[k]);
+                out.b_min[k] = out.b_min[k].min(gb[k]);
+                out.b_max[k] = out.b_max[k].max(gb[k]);
+            }
+        }
+    }
+    for k in 0..n {
+        let var = (sdd[k] - sd[k] * sd[k]).max(0.0) + eps;
+        let slope_r = (sdr[k] - out.r[k] * sd[k]) / var;
+        let slope_b = (sdb[k] - out.b[k] * sd[k]) / var;
+        out.r[k] -= slope_r * sd[k];
+        out.b[k] -= slope_b * sd[k];
+        out.q_range[k] = q_max[k] - q_min[k];
+    }
+    out
+}
+
+fn upsample_taps(v: usize, n: usize) -> [(usize, f32); 2] {
+    let i = (v / 2).min(n - 1);
+    if v.is_multiple_of(2) {
+        [(i.saturating_sub(1), 0.25), (i, 0.75)]
+    } else {
+        [(i, 0.75), ((i + 1).min(n - 1), 0.25)]
+    }
+}
+
+fn reduce_raw_chroma_noise(buffer: &mut Rgb32FImage, amount: f32) -> Vec<f32> {
+    const FLOOR: f32 = ChromaPlanes::FLOOR;
+
+    let w = buffer.width() as usize;
+    let h = buffer.height() as usize;
+    let src = buffer.as_raw();
+
+    let half = ChromaPlanes::from_rgb(src, w, h);
+    let quarter = half.downsample();
+    let reference = half.upsample(&quarter, &quarter.filter(amount, None), amount);
+    let (fr, fb) = half.core(half.filter(amount, Some(&reference)), &reference, amount);
+
+    let pixel = |i: usize| ChromaPlanes::stabilize([src[i * 3], src[i * 3 + 1], src[i * 3 + 2]]);
+    let noise_c_full = estimate_noise(w, h, &[&|i| pixel(i).1, &|i| pixel(i).2]).max(1e-3);
+    let eps = half.upsample_eps(amount);
+    let edge_scale = 0.5 / eps.sqrt();
+    let core = (2.0 + 2.0 * amount) * noise_c_full;
+    let texture = 4.0 * (0.5 + amount);
+    let (hw, hh) = (half.w, half.h);
+
+    let mut luma = vec![0.0f32; w * h];
+    buffer
+        .par_chunks_mut(w * 3)
+        .zip(luma.par_chunks_mut(w))
+        .enumerate()
+        .for_each(|(y, (row, luma_row))| {
+            let low_rows = upsample_taps(y, hh).map(|(ly, wy)| {
+                let o = half.at(0, ly);
+                (
+                    &half.q[o..o + hw],
+                    &fr[ly * hw..(ly + 1) * hw],
+                    &fb[ly * hw..(ly + 1) * hw],
+                    wy,
+                )
+            });
+            for (cx, px) in row.chunks_mut(ChromaPlanes::CHUNK * 3).enumerate() {
+                let x0 = cx * ChromaPlanes::CHUNK;
+                let n = (px.len() / 3).min(ChromaPlanes::CHUNK);
+                let mut rgb = [[0.0f32; ChromaPlanes::CHUNK]; 3];
+                for k in 0..n {
+                    for c in 0..3 {
+                        rgb[c][k] = px[k * 3 + c];
+                    }
+                }
+                let mut l = [0.0f32; ChromaPlanes::CHUNK];
+                let mut qc = [0.0f32; ChromaPlanes::CHUNK];
+                let mut cr = [0.0f32; ChromaPlanes::CHUNK];
+                let mut cb = [0.0f32; ChromaPlanes::CHUNK];
+                for k in 0..n {
+                    let lk = 0.2126 * rgb[0][k] + 0.7152 * rgb[1][k] + 0.0722 * rgb[2][k];
+                    let s = (lk.max(0.0) + FLOOR).sqrt();
+                    l[k] = lk;
+                    qc[k] = s;
+                    cr[k] = (rgb[0][k].max(0.0) + FLOOR).sqrt() - s;
+                    cb[k] = (rgb[2][k].max(0.0) + FLOOR).sqrt() - s;
+                }
+
+                luma_row[x0..x0 + n].copy_from_slice(&qc[..n]);
+                let up = upsample_chunk(low_rows, &qc[..n], x0, hw, eps);
+
+                for k in 0..n {
+                    let er = cr[k] - up.r[k];
+                    let eb = cb[k] - up.b[k];
+                    let edge = up.q_range[k] * edge_scale;
+                    let keep = ((er * er + eb * eb).sqrt() / (core + texture * up.q_range[k])
+                        - 1.0)
+                        .clamp(0.0, 1.0)
+                        / (1.0 + edge * edge);
+                    let nr = (up.r[k] + er * keep).max(up.r_min[k]).min(up.r_max[k]);
+                    let nb = (up.b[k] + eb * keep).max(up.b_min[k]).min(up.b_max[k]);
+                    let vr = (qc[k] + nr).max(0.0);
+                    let vb = (qc[k] + nb).max(0.0);
+                    let lk = l[k];
+                    let dr = vr * vr - FLOOR - lk;
+                    let db = vb * vb - FLOOR - lk;
+                    let dg = -(0.2126 * dr + 0.0722 * db) * (1.0 / 0.7152);
+                    let m = dr.min(dg).min(db);
+                    let s = if lk + m < 0.0 { -lk / m } else { 1.0 };
+                    let apply = |v: f32, orig: f32| if lk > 0.0 { v.max(0.0) } else { orig };
+                    rgb[0][k] = apply(lk + dr * s, rgb[0][k]);
+                    rgb[1][k] = apply(lk + dg * s, rgb[1][k]);
+                    rgb[2][k] = apply(lk + db * s, rgb[2][k]);
+                }
+                for k in 0..n {
+                    for c in 0..3 {
+                        px[k * 3 + c] = rgb[c][k];
+                    }
+                }
+            }
+        });
+    luma
+}
+
+fn estimate_noise(w: usize, h: usize, channels: &[&(dyn Fn(usize) -> f32 + Sync)]) -> f32 {
+    let mut diffs: Vec<f32> = (0..h)
+        .into_par_iter()
+        .step_by(8)
+        .flat_map_iter(|y| {
+            (0..w.saturating_sub(4)).step_by(7).flat_map(move |x| {
+                let i = y * w + x;
+                channels.iter().map(move |f| (f(i + 4) - f(i)).abs())
+            })
+        })
+        .collect();
+    if diffs.is_empty() {
+        return 0.0;
+    }
+    let mid = diffs.len() / 2;
+    let (_, median, _) = diffs.select_nth_unstable_by(mid, f32::total_cmp);
+    *median * 1.4826 / std::f32::consts::SQRT_2
+}
+
+fn sqrt_luma_plane(buffer: &Rgb32FImage) -> Vec<f32> {
+    buffer
+        .as_raw()
+        .par_chunks_exact(3)
+        .map(|p| {
+            ((0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2]).max(0.0) + ChromaPlanes::FLOOR).sqrt()
+        })
+        .collect()
+}
+
+fn apply_gentle_detail_enhance(buffer: &mut Rgb32FImage, q: &[f32], amount: f32) {
+    let w = buffer.width() as usize;
+    let h = buffer.height() as usize;
+    let row_at = |y: isize| {
+        let y = y.clamp(0, h as isize - 1) as usize;
+        &q[y * w..(y + 1) * w]
+    };
+    let blur_row = |y: usize, v: &mut [f32], out: &mut [f32]| {
+        let r: [&[f32]; 5] = std::array::from_fn(|k| row_at(y as isize + k as isize - 2));
+        for x in 0..w {
+            v[x + 2] =
+                (r[0][x] + r[4][x] + 4.0 * (r[1][x] + r[3][x]) + 6.0 * r[2][x]) * (1.0 / 16.0);
+        }
+        (v[0], v[1]) = (v[2], v[2]);
+        (v[w + 2], v[w + 3]) = (v[w + 1], v[w + 1]);
+        for x in 0..w {
+            out[x] =
+                (v[x] + v[x + 4] + 4.0 * (v[x + 1] + v[x + 3]) + 6.0 * v[x + 2]) * (1.0 / 16.0);
+        }
+    };
+
+    let mut samples: Vec<f32> = (0..h)
+        .into_par_iter()
+        .step_by(16)
+        .flat_map_iter(|y| {
+            let (mut v, mut blur) = (vec![0.0f32; w + 4], vec![0.0f32; w]);
+            blur_row(y, &mut v, &mut blur);
+            let row = &q[y * w..(y + 1) * w];
+            (0..w)
+                .step_by(5)
+                .map(|x| (row[x] - blur[x]).abs())
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    if samples.is_empty() {
+        return;
+    }
+    let mid = samples.len() / 2;
+    let noise = *samples.select_nth_unstable_by(mid, f32::total_cmp).1 * 1.4826;
+    let threshold = (1.5 * noise).powi(2).max(1e-12);
+    let strength = 4.5 * amount;
+    let taper = 0.3 / threshold.sqrt();
+    let floor = ChromaPlanes::FLOOR;
+
+    buffer.par_chunks_mut(w * 3).enumerate().for_each_init(
+        || {
+            (
+                vec![0.0f32; w + 4],
+                vec![0.0f32; w],
+                vec![0.0f32; w + 2],
+                vec![0.0f32; w + 2],
+            )
+        },
+        |(v, blur, lo, hi), (y, row)| {
+            blur_row(y, v, blur);
+            let r: [&[f32]; 3] = std::array::from_fn(|k| row_at(y as isize + k as isize - 1));
+            for x in 0..w {
+                lo[x + 1] = r[0][x].min(r[1][x]).min(r[2][x]);
+                hi[x + 1] = r[0][x].max(r[1][x]).max(r[2][x]);
+            }
+            (lo[0], hi[0], lo[w + 1], hi[w + 1]) = (lo[1], hi[1], lo[w], hi[w]);
+            let center = r[1];
+            for (x, p) in row.as_chunks_mut::<3>().0.iter_mut().enumerate() {
+                let qc = center[x];
+                let d = qc - blur[x];
+                let d = d * d * d / (d * d + threshold);
+                let d = d / (1.0 + d.abs() * taper);
+                let min = lo[x].min(lo[x + 1]).min(lo[x + 2]);
+                let max = hi[x].max(hi[x + 1]).max(hi[x + 2]);
+                let delta = strength * d;
+                let range = max - min;
+                let up_room = max - qc + range * 0.15 + 0.004;
+                let down_room = qc - min + range * 0.05 + 0.002;
+                let up = delta.max(0.0);
+                let down = (-delta).max(0.0) * 0.7;
+                let qn = qc + up * up_room / (up_room + up) - down * down_room / (down_room + down);
+                let l = qc * qc - floor;
+                let ln = (qn * qn - floor).max(0.0);
+                if l > 1e-6 {
+                    let peak = p[0].max(p[1]).max(p[2]);
+                    let mut ratio = ln / l;
+                    if ratio > 1.0 && peak * ratio > 1.0 {
+                        ratio = (1.0 / peak).max(1.0);
+                    }
+                    p.iter_mut().for_each(|c| *c *= ratio);
+                } else {
+                    p.iter_mut().for_each(|c| *c = (*c + ln - l).max(0.0));
+                }
+            }
+        },
+    );
+}
+
 pub struct HistogramData {
     red: Vec<f32>,
     green: Vec<f32>,
@@ -3348,15 +3764,57 @@ fn normalize_histogram_range(histogram: &mut [f32], percentile_clip: f32) {
     }
 }
 
-#[derive(serde::Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
 pub struct WaveformData {
-    pub rgb: String,
-    pub luma: String,
-    pub parade: String,
-    pub vectorscope: String,
+    pub rgb: Vec<u8>,
+    pub luma: Vec<u8>,
+    pub parade: Vec<u8>,
+    pub vectorscope: Vec<u8>,
     pub width: u32,
     pub height: u32,
+}
+
+pub fn encode_analytics_packet(
+    path: &str,
+    histogram: Option<&HistogramData>,
+    waveform: Option<&WaveformData>,
+) -> Vec<u8> {
+    let put_u32 = |out: &mut Vec<u8>, v: usize| out.extend_from_slice(&(v as u32).to_le_bytes());
+    let wave_len = waveform.map_or(0, |w| {
+        w.rgb.len() + w.luma.len() + w.parade.len() + w.vectorscope.len()
+    });
+    let mut out = Vec::with_capacity(path.len() + 4 * 256 * 4 + wave_len + 40);
+
+    put_u32(&mut out, path.len());
+    out.extend_from_slice(path.as_bytes());
+
+    match histogram {
+        Some(h) => {
+            put_u32(&mut out, h.red.len());
+            for channel in [&h.red, &h.green, &h.blue, &h.luma] {
+                for v in channel.iter() {
+                    out.extend_from_slice(&v.to_le_bytes());
+                }
+            }
+        }
+        None => put_u32(&mut out, 0),
+    }
+
+    match waveform {
+        Some(w) => {
+            put_u32(&mut out, w.width as usize);
+            put_u32(&mut out, w.height as usize);
+            for plane in [&w.rgb, &w.luma, &w.parade, &w.vectorscope] {
+                put_u32(&mut out, plane.len());
+                out.extend_from_slice(plane);
+            }
+        }
+        None => {
+            put_u32(&mut out, 0);
+            put_u32(&mut out, 0);
+        }
+    }
+
+    out
 }
 
 const WAVEFORM_W: usize = 256;
@@ -3632,26 +4090,10 @@ pub fn calculate_waveform(
     }
 
     Ok(WaveformData {
-        rgb: if do_rgb {
-            BASE64.encode(&rgba_rgb)
-        } else {
-            String::new()
-        },
-        luma: if do_luma {
-            BASE64.encode(&rgba_luma)
-        } else {
-            String::new()
-        },
-        parade: if do_parade {
-            BASE64.encode(&rgba_parade)
-        } else {
-            String::new()
-        },
-        vectorscope: if do_vectorscope {
-            BASE64.encode(&rgba_vector)
-        } else {
-            String::new()
-        },
+        rgb: rgba_rgb,
+        luma: rgba_luma,
+        parade: rgba_parade,
+        vectorscope: rgba_vector,
         width: W as u32,
         height: H as u32,
     })
@@ -4122,90 +4564,4 @@ pub async fn sample_white_balance(
     })
     .await
     .map_err(|e| format!("Task execution failed: {}", e))?
-}
-
-#[cfg(test)]
-mod downscale_tests {
-    use super::*;
-
-    fn pseudo_random_bytes(len: usize, seed: u32) -> Vec<u8> {
-        let mut state = seed;
-        (0..len)
-            .map(|_| {
-                state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
-                (state >> 24) as u8
-            })
-            .collect()
-    }
-
-    #[test]
-    fn u8_fast_path_matches_f32_conversion() {
-        for &(w, h, tw) in &[
-            (1013u32, 677u32, 480u32),
-            (640, 960, 320),
-            (300, 200, 299),
-            (4000, 3, 1280),
-        ] {
-            let rgb = image::RgbImage::from_raw(w, h, pseudo_random_bytes((w * h * 3) as usize, w))
-                .unwrap();
-            let rgba =
-                image::RgbaImage::from_raw(w, h, pseudo_random_bytes((w * h * 4) as usize, h))
-                    .unwrap();
-
-            for img in [DynamicImage::ImageRgb8(rgb), DynamicImage::ImageRgba8(rgba)] {
-                let fast = downscale_f32_image(&img, tw, tw);
-                let reference =
-                    downscale_f32_image(&DynamicImage::ImageRgb32F(img.to_rgb32f()), tw, tw);
-                let fast_bits: Vec<u32> = fast
-                    .as_rgb32f()
-                    .unwrap()
-                    .as_raw()
-                    .iter()
-                    .map(|v| v.to_bits())
-                    .collect();
-                let ref_bits: Vec<u32> = reference
-                    .as_rgb32f()
-                    .unwrap()
-                    .as_raw()
-                    .iter()
-                    .map(|v| v.to_bits())
-                    .collect();
-                assert_eq!(fast.dimensions(), reference.dimensions());
-                assert!(fast_bits == ref_bits, "mismatch for {}x{} -> {}", w, h, tw);
-            }
-        }
-    }
-
-    #[test]
-    fn rgb32f_orientation_matches_image_crate() {
-        let (w, h) = (37u32, 23u32);
-        let data: Vec<f32> = (0..w * h * 3).map(|i| i as f32 * 0.37).collect();
-        let img = DynamicImage::ImageRgb32F(Rgb32FImage::from_raw(w, h, data).unwrap());
-        for orientation in [
-            Orientation::HorizontalFlip,
-            Orientation::Rotate180,
-            Orientation::VerticalFlip,
-            Orientation::Transpose,
-            Orientation::Rotate90,
-            Orientation::Transverse,
-            Orientation::Rotate270,
-        ] {
-            let fast = apply_orientation(img.clone(), orientation);
-            let reference = match orientation {
-                Orientation::HorizontalFlip => img.fliph(),
-                Orientation::Rotate180 => img.rotate180(),
-                Orientation::VerticalFlip => img.flipv(),
-                Orientation::Transpose => img.rotate90().fliph(),
-                Orientation::Rotate90 => img.rotate90(),
-                Orientation::Transverse => img.rotate270().fliph(),
-                _ => img.rotate270(),
-            };
-            assert_eq!(fast.dimensions(), reference.dimensions());
-            assert!(
-                fast.as_rgb32f().unwrap().as_raw() == reference.as_rgb32f().unwrap().as_raw(),
-                "mismatch for {:?}",
-                orientation
-            );
-        }
-    }
 }

@@ -7,14 +7,16 @@ import { TextVariants } from '../../types/typography';
 import { SpatialEffect } from './Effects';
 import {
   Adjustments,
+  DenoiseMethod,
   DetailsAdjustment,
   getAdjustmentToolOrder,
+  getAiDenoiseEnablePatch,
   getHiddenAdjustmentTools,
 } from '../../utils/adjustments';
 import { AppSettings } from '../ui/AppProperties';
 import AdjustmentSubSection from './AdjustmentSubSection';
 import { useEditorStore } from '../../store/useEditorStore';
-import { useProcessStore } from '../../store/useProcessStore';
+import { selectAiModelDownloadStatus, useProcessStore } from '../../store/useProcessStore';
 import { areSectionPropsEqual } from '../../utils/adjustments';
 
 interface DetailsPanelProps {
@@ -37,7 +39,7 @@ function DetailsPanel({
   const aiDenoiseProgress = useEditorStore((state) =>
     state.selectedImage ? state.aiDenoiseProgress[state.selectedImage.path] : undefined,
   );
-  const aiModelDownloadStatus = useProcessStore((state) => state.aiModelDownloadStatus);
+  const aiModelDownloadStatus = useProcessStore(selectAiModelDownloadStatus);
 
   const handleAdjustmentChange = (key: string, value: string) => {
     const numericValue = parseInt(value, 10);
@@ -49,6 +51,11 @@ function DetailsPanel({
   };
 
   const isAiFree = appSettings?.aiProvider === 'ai-free';
+  const denoiseMethod = adjustments.aiDenoiseEnabled
+    ? (adjustments.aiDenoiseMethod ?? DenoiseMethod.Ai)
+    : isAiFree
+      ? DenoiseMethod.Bm3d
+      : DenoiseMethod.Ai;
   const hiddenTools = getHiddenAdjustmentTools(appSettings?.adjustmentLayout);
   const toolOrder = getAdjustmentToolOrder('details', appSettings?.adjustmentLayout?.toolOrder);
 
@@ -163,20 +170,24 @@ function DetailsPanel({
             value={adjustments.colorNoiseReduction}
             onDragStateChange={onDragStateChange}
           />
-          {!isForMask && !isAiFree && (
+          {!isForMask && (
             <div className="mt-2">
               <SpatialEffect
                 enabled={!!adjustments.aiDenoiseEnabled}
-                label={t('adjustments.details.aiDenoise')}
+                label={
+                  denoiseMethod === DenoiseMethod.Ai
+                    ? t('adjustments.details.aiDenoise')
+                    : t('adjustments.details.classicDenoise')
+                }
                 onToggle={(enabled: boolean) =>
-                  setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, aiDenoiseEnabled: enabled }))
+                  setAdjustments((prev: Partial<Adjustments>) => ({
+                    ...prev,
+                    ...(enabled ? getAiDenoiseEnablePatch(appSettings?.aiProvider) : { aiDenoiseEnabled: false }),
+                  }))
                 }
               >
                 {aiDenoiseProgress !== undefined ? (
-                  <div
-                    className="flex flex-col items-center justify-center gap-1 p-4 text-text-secondary text-center"
-                    data-tooltip={aiModelDownloadStatus ? undefined : t('modals.denoise.gpuWarningTooltip')}
-                  >
+                  <div className="flex flex-col items-center justify-center gap-1 p-4 text-text-secondary text-center">
                     <div className="flex items-center gap-2">
                       <Loader2 size={16} className="animate-spin shrink-0" />
                       <Text variant={TextVariants.label}>

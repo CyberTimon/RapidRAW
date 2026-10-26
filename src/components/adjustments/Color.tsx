@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, memo } from 'react';
+import { useState, useMemo, memo, CSSProperties } from 'react';
 import { Pipette, Sliders } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -456,13 +456,10 @@ function ColorPanel({
   const baseHue = colorHueMap[activeColor] || 0;
   const effectiveHue = baseHue + (currentHsl.hue || 0);
 
-  useEffect(() => {
-    const normalizedHue = ((effectiveHue % 360) + 360) % 360;
-    const effectiveSaturation = (currentHsl.saturation + 100) / 2;
-
-    document.documentElement.style.setProperty(`--hsl-mixer-hue-${activeColor}`, normalizedHue.toString());
-    document.documentElement.style.setProperty(`--hsl-mixer-sat-${activeColor}`, `${effectiveSaturation}%`);
-  }, [effectiveHue, currentHsl.saturation, activeColor]);
+  const mixerTrackStyle = {
+    [`--hsl-mixer-hue-${activeColor}`]: ((effectiveHue % 360) + 360) % 360,
+    [`--hsl-mixer-sat-${activeColor}`]: `${(currentHsl.saturation + 100) / 2}%`,
+  } as CSSProperties;
 
   const handleAdjustmentChange = (key: ColorAdjustment, value: string) => {
     setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: parseFloat(value) }));
@@ -658,36 +655,38 @@ function ColorPanel({
               />
             ))}
           </div>
-          <Slider
-            label={t('adjustments.color.hue')}
-            max={100}
-            min={-100}
-            onChange={(e: any) => handleHslChange(ColorAdjustment.Hue, e.target.value)}
-            step={1}
-            value={currentHsl.hue}
-            trackClassName={hue_slider}
-            onDragStateChange={onDragStateChange}
-          />
-          <Slider
-            label={t('adjustments.color.saturation')}
-            max={100}
-            min={-100}
-            onChange={(e: any) => handleHslChange(ColorAdjustment.Saturation, e.target.value)}
-            step={1}
-            value={currentHsl.saturation}
-            trackClassName={saturation_slider}
-            onDragStateChange={onDragStateChange}
-          />
-          <Slider
-            label={t('adjustments.color.luminance')}
-            max={100}
-            min={-100}
-            onChange={(e: any) => handleHslChange(ColorAdjustment.Luminance, e.target.value)}
-            step={1}
-            value={currentHsl.luminance}
-            trackClassName={luminance_slider}
-            onDragStateChange={onDragStateChange}
-          />
+          <div style={mixerTrackStyle}>
+            <Slider
+              label={t('adjustments.color.hue')}
+              max={100}
+              min={-100}
+              onChange={(e: any) => handleHslChange(ColorAdjustment.Hue, e.target.value)}
+              step={1}
+              value={currentHsl.hue}
+              trackClassName={hue_slider}
+              onDragStateChange={onDragStateChange}
+            />
+            <Slider
+              label={t('adjustments.color.saturation')}
+              max={100}
+              min={-100}
+              onChange={(e: any) => handleHslChange(ColorAdjustment.Saturation, e.target.value)}
+              step={1}
+              value={currentHsl.saturation}
+              trackClassName={saturation_slider}
+              onDragStateChange={onDragStateChange}
+            />
+            <Slider
+              label={t('adjustments.color.luminance')}
+              max={100}
+              min={-100}
+              onChange={(e: any) => handleHslChange(ColorAdjustment.Luminance, e.target.value)}
+              step={1}
+              value={currentHsl.luminance}
+              trackClassName={luminance_slider}
+              onDragStateChange={onDragStateChange}
+            />
+          </div>
         </AdjustmentSubSection>
       )}
 

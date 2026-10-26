@@ -214,14 +214,28 @@ const HSL_RANGES: array<HslRange, 8> = array<HslRange, 8>(
 @group(0) @binding(11) var flare_sampler: sampler;
 
 @group(0) @binding(12) var gf_coeffs_texture: texture_2d<f32>;
-@group(0) @binding(13) var gf_dehaze_texture: texture_2d<f32>;
+@group(0) @binding(13) var gf_structure_texture: texture_2d<f32>;
+@group(0) @binding(14) var haze_texture: texture_2d<f32>;
+@group(0) @binding(15) var airlight_texture: texture_2d<f32>;
 
 const GF_LUMA_FLOOR: f32 = 1.0e-4;
 const GF_DETAIL_SIGMA: f32 = 1.5;
-const SHARPEN_EDGE_SIGMA: f32 = 0.12;
-const SHARPEN_DARK_SCALE: f32 = 0.55;
 const GF_REINJECT_SIGMA: f32 = 0.8;
-const DEHAZE_STRENGTH: f32 = 1.5;
+const HZ_OMEGA: f32 = 0.95;
+const HZ_FLOOR: f32 = 0.35;
+const HZ_KNEE: f32 = 0.1;
+const HZ_T_MIN: f32 = 0.1;
+const HZ_TOLERANCE: f32 = 0.25;
+const HZ_BRIGHT_LO: f32 = 0.8;
+const HZ_BRIGHT_HI: f32 = 1.25;
+const HZ_GUIDE_GAMMA: f32 = 0.4545;
+const HZ_GUIDE_MAX: f32 = 1.5;
+const HZ_MIST: f32 = 0.5;
+const HZ_LIFT: f32 = 0.55;
+const HZ_DETAIL_MAX: f32 = 2.5;
+const HZ_DETAIL_SIGMA: f32 = 0.8;
+const HZ_CHROMA_MAX: f32 = 1.45;
+const HZ_CHROMA_FLOOR: f32 = 0.01;
 const GF_CLARITY_GAIN: f32 = 1.8;
 const GF_STRUCTURE_GAIN: f32 = 1.8;
 const GF_NEG_GAIN: f32 = 1.0;
@@ -475,16 +489,16 @@ fn apply_tonal_adjustments(
         let w_luma = max(get_luma(max(rgb, vec3<f32>(0.0))), 0.0001);
         let w_base = max(w_luma * exp2(-clamp(local_log_detail + mid_log_detail, -3.0, 3.0)), 0.0001);
         let t_w = pow(w_base, 0.4545);
-        let w_pivot = 0.45;
+        let w_pivot = 0.4;
         let u = max(t_w - w_pivot, 0.0);
 
         var t_new = t_w;
         if (wh > 0.0) {
-            t_new = t_w + wh * 0.25 * (u * u) / (1.0 + u * u);
+            t_new = t_w + wh * 0.35 * (u * u) / (1.0 + u * u);
         } else if (u > 0.0) {
             t_new = w_pivot + u / (1.0 + (-wh) * 0.3 * u);
         }
-        let w_ramp = smoothstep(0.25, 0.9, t_w);
+        let w_ramp = smoothstep(0.1, 0.9, t_w);
         t_new = mix(t_w, t_new, w_ramp);
 
         let w_amount = abs(t_new - t_w) * w_ramp;
@@ -904,16 +918,6 @@ fn sample_gf_coeffs(abs_coord: vec2<u32>) -> vec4<f32> {
     return sample_gf_tex(gf_coeffs_texture, abs_coord);
 }
 
-fn refined_dark_channel(abs_coord: vec2<u32>, is_raw: u32) -> f32 {
-    var rgb = clamp(textureLoad(input_texture, abs_coord, 0).rgb, vec3<f32>(0.0), vec3<f32>(65504.0));
-    if (is_raw == 0u) {
-        rgb = srgb_to_linear(rgb);
-    }
-    let dark_i = log2(max(min(rgb.r, min(rgb.g, rgb.b)), GF_LUMA_FLOOR));
-    let ab = sample_gf_tex(gf_dehaze_texture, abs_coord).zw;
-    return exp2(ab.x * dark_i + ab.y);
-}
-
 fn shape_detail(d: f32, sigma: f32) -> f32 {
     let x = d / sigma;
     return d / (1.0 + x * x);
@@ -952,28 +956,8 @@ fn sharpen_tap(coords: vec2<i32>, max_idx: vec2<i32>, is_raw: u32) -> f32 {
     return sharpen_perc(textureLoad(input_texture, vec2<u32>(c), 0).rgb, is_raw);
 }
 
-fn sharpen_tap_bilinear(p: vec2<f32>, max_idx: vec2<i32>, is_raw: u32) -> f32 {
-    let fl = floor(p);
-    let w = p - fl;
-    let b = vec2<i32>(fl);
-    let s00 = sharpen_tap(b, max_idx, is_raw);
-    let s10 = sharpen_tap(b + vec2<i32>(1, 0), max_idx, is_raw);
-    let s01 = sharpen_tap(b + vec2<i32>(0, 1), max_idx, is_raw);
-    let s11 = sharpen_tap(b + vec2<i32>(1, 1), max_idx, is_raw);
-    return mix(mix(s00, s10, w.x), mix(s01, s11, w.x), w.y);
-}
-
-fn sharpen_soft_limit(v: f32, lo: f32, hi: f32, margin: f32) -> f32 {
-    let m = max(margin, 1e-5);
-    if (v > hi) {
-        let e = v - hi;
-        return hi + e / (1.0 + e / m);
-    }
-    if (v < lo) {
-        let e = lo - v;
-        return lo - e / (1.0 + e / m);
-    }
-    return v;
+fn sharpen_core(d: f32, t: f32) -> f32 {
+    return d * d * d / (d * d + t * t);
 }
 
 fn apply_sharpen(
@@ -1003,94 +987,31 @@ fn apply_sharpen(
     let l1 = sharpen_perc(b1_in, is_raw);
     let l2 = sharpen_perc(b2_in, is_raw);
 
-    let d0 = l  - l1;
-    let d1 = l1 - l2;
-
-    let t = max(threshold * 0.15, 1e-4);
-    let g0 = smoothstep(t * 0.20, t * 0.85, abs(d0));
-    let g1 = smoothstep(t * 0.12, t * 0.55, abs(d1));
-
-    let d0_s = shape_detail(d0, SHARPEN_EDGE_SIGMA);
-    let d1_s = shape_detail(d1, SHARPEN_EDGE_SIGMA * 0.8);
-    let boost = (d0_s * 1.25 * g0 + d1_s * 0.25 * g1) * amount;
-
-    let dims = vec2<i32>(textureDimensions(input_texture));
-    let max_idx = dims - vec2<i32>(1);
-    let kw = array<f32, 5>(0.01853, -0.21023, 1.38348, -0.21023, 0.01853);
-
-    var acc = 0.0;
-    var center_tap = 0.0;
-    var lo = 1.0e9;
-    var hi = -1.0e9;
-    var gx = 0.0;
-    var gy = 0.0;
-
-    for (var iy = 0; iy < 5; iy = iy + 1) {
-        let oy = iy - 2;
-        let ky = kw[iy];
-        let cy = clamp(coords_i.y + oy, 0, max_idx.y);
-        for (var ix = 0; ix < 5; ix = ix + 1) {
-            let ox = ix - 2;
-            let cx = clamp(coords_i.x + ox, 0, max_idx.x);
-            let sl = sharpen_perc(textureLoad(input_texture, vec2<u32>(vec2<i32>(cx, cy)), 0).rgb, is_raw);
-
-            acc += sl * kw[ix] * ky;
-            lo = min(lo, sl);
-            hi = max(hi, sl);
-
-            if (ox == 0 && oy == 0) { center_tap = sl; }
-
-            if (abs(ox) <= 1 && abs(oy) <= 1) {
-                gx += sl * f32(ox) * (2.0 - abs(f32(oy)));
-                gy += sl * f32(oy) * (2.0 - abs(f32(ox)));
-            }
+    let max_idx = vec2<i32>(textureDimensions(input_texture)) - vec2<i32>(1);
+    var lo = l;
+    var hi = l;
+    for (var dy = -1; dy <= 1; dy = dy + 1) {
+        for (var dx = -1; dx <= 1; dx = dx + 1) {
+            let s = sharpen_tap(coords_i + vec2<i32>(dx, dy), max_idx, is_raw);
+            lo = min(lo, s);
+            hi = max(hi, s);
         }
     }
 
-    let deconv_delta = shape_detail(acc - center_tap, SHARPEN_EDGE_SIGMA) * clamp(amount * 0.60, 0.0, 1.0);
-    let range = max(hi - lo, 1e-5);
-    let edge_ratio = smoothstep(0.06, 0.28, range);
-    let dark_scale = mix(SHARPEN_DARK_SCALE, 0.1, edge_ratio);
-    let sharpen_delta = boost + deconv_delta;
-    var l_new = l + select(sharpen_delta, sharpen_delta * dark_scale, sharpen_delta < 0.0);
-
-    l_new = sharpen_soft_limit(
-        l_new,
-        lo - range * 0.01,
-        hi + range * 0.10,
-        range * 0.12
-    );
-
-    let g2 = gx * gx + gy * gy;
-    if (g2 > 1e-6) {
-        let diagonality = clamp(2.0 * abs(gx * gy) / g2, 0.0, 1.0);
-        let edge_present = smoothstep(t * 0.5, t * 2.5, sqrt(g2) * 0.25);
-        let aa = 0.90 * diagonality * edge_present;
-
-        if (aa > 0.002) {
-            let inv_g = inverseSqrt(g2);
-
-            let tang = vec2<f32>(-gy, gx) * inv_g * 0.75;
-            let p = vec2<f32>(coords_i) + vec2<f32>(0.5);
-
-            let tp = sharpen_tap_bilinear(p + tang - vec2<f32>(0.5), max_idx, is_raw);
-            let tn = sharpen_tap_bilinear(p - tang - vec2<f32>(0.5), max_idx, is_raw);
-
-            let safe_tp = max(tp, l * 0.6);
-            let safe_tn = max(tn, l * 0.6);
-
-            let l_tan = (safe_tp + safe_tn + l * 2.0) * 0.25;
-
-            let l_aa = l_tan + (l_new - l);
-
-            l_new = mix(l_new, l_aa, min(aa, 0.5));
-        }
-    }
+    let t = max(threshold * 0.07, 1e-4);
+    let detail = sharpen_core(l - l1, t) + 0.5 * sharpen_core(l1 - l2, t);
+    let tapered = detail / (1.0 + abs(detail) * 12.0);
+    let delta = tapered * amount * 5.2 / (1.0 + 0.4 * max(amount - 1.0, 0.0));
+    let range = hi - lo;
+    let up_room = (hi - l + range * 0.15 + 0.004) * 0.7;
+    let down_room = (l - lo + range * 0.05 + 0.002) * 0.7;
+    let up = max(delta, 0.0);
+    let down = max(-delta, 0.0) * 0.7;
+    var l_new = l + up * up_room / (up_room + up) - down * down_room / (down_room + down);
 
     let shadow_floor = select(0.03, 0.10, is_raw == 1u);
     let prot = smoothstep(0.0, shadow_floor, l) * (1.0 - smoothstep(0.92, 1.0, l));
     l_new = max(mix(l, l_new, prot), 0.0);
-    l_new = max(l_new, l * 0.70);
 
     let ratio = l_new / max(l, 1e-4);
     if (is_raw == 1u) {
@@ -1137,90 +1058,200 @@ fn apply_centre_tonal_and_color(
     return processed_color;
 }
 
-fn apply_dehaze(
-    color: vec3<f32>,
-    blurred_color_input_space: vec3<f32>,
-    refined_dark: f32,
-    is_raw: u32,
-    amount: f32
-) -> vec3<f32> {
+fn apply_dehaze(color: vec3<f32>, abs_coord: vec2<u32>, local_luma: f32, amount: f32) -> vec3<f32> {
     if (amount == 0.0) { return color; }
 
-    let atmospheric_light = vec3<f32>(0.95, 0.97, 1.0);
+    let air = textureLoad(airlight_texture, vec2<i32>(0, 0), 0);
+    let rgb = max(color, vec3<f32>(0.0));
+    let guide = min(pow(get_luma(rgb) / air.w, HZ_GUIDE_GAMMA), HZ_GUIDE_MAX);
+    let ab = sample_gf_tex(haze_texture, abs_coord).xy;
+    let veil = clamp(ab.x * guide + ab.y, 0.0, 1.0);
 
-    if (amount > 0.0) {
-        let safe_dark = max(refined_dark - 0.02, 0.0);
-        let mapped_haze = safe_dark / (safe_dark + 0.2);
-        let t = max(1.0 - amount * mapped_haze * DEHAZE_STRENGTH, 0.08);
-        var recovered = (color - atmospheric_light) / t + atmospheric_light;
-        let rec_luma = get_luma(max(recovered, vec3<f32>(0.0)));
-        let shadow_lift = smoothstep(0.1, 0.0, rec_luma) * (1.0 - t) * 0.15;
-        recovered += shadow_lift;
-        let haze_removed = 1.0 - t;
-        let sat_boost = haze_removed * 0.5;
-        let final_luma = get_luma(max(recovered, vec3<f32>(0.0)));
-        recovered = mix(vec3<f32>(final_luma), recovered, 1.0 + sat_boost);
-        return max(recovered, vec3<f32>(0.0));
-    } else {
-        var blurred_linear = blurred_color_input_space;
-        if (is_raw == 0u) {
-            blurred_linear = srgb_to_linear(blurred_color_input_space);
-        }
-        let regional_dark = min(blurred_linear.r, min(blurred_linear.g, blurred_linear.b));
-        let safe_dark = max(regional_dark - 0.02, 0.0);
-        let mapped_depth = safe_dark / (safe_dark + 0.2);
-        let depth_factor = mix(0.4, 1.0, mapped_depth);
-        return mix(color, atmospheric_light, abs(amount) * 0.7 * depth_factor);
+    if (amount < 0.0) {
+        let scene = textureLoad(airlight_texture, vec2<i32>(1, 0), 0);
+        let mist_tint = mix(vec3<f32>(1.0), scene.rgb / scene.w, 0.5);
+        let mist_light = mist_tint * sqrt(scene.w * air.w);
+        let density = min(-amount, 1.0) * HZ_MIST * mix(0.4, 1.0, veil);
+        return mix(color, mist_light, density);
     }
+
+    let detail = clamp(get_luma(rgb) / max(local_luma, 1.0e-6), 0.25, 4.0);
+    let local_rgb = rgb / detail;
+    let n = local_rgb / air.rgb;
+    let pixel_dark = min(n.r, min(n.g, n.b));
+    let strength = 1.0 - (1.0 - min(amount, 1.0)) * (1.0 - min(amount, 1.0));
+    let t_smooth = max(1.0 - strength * HZ_OMEGA * veil, HZ_T_MIN);
+    let t_floor = (1.0 - min(pixel_dark, 1.0)) / (1.0 - HZ_FLOOR * min(pixel_dark, 1.0));
+    let knee = max(HZ_KNEE - abs(t_smooth - t_floor), 0.0) / HZ_KNEE;
+    var t = min(max(t_smooth, t_floor) + knee * knee * HZ_KNEE * 0.25, 1.0);
+    let distance = max(abs(n.r - 1.0), max(abs(n.g - 1.0), abs(n.b - 1.0)));
+    let near_air = distance / HZ_TOLERANCE;
+    let bright = smoothstep(HZ_BRIGHT_LO, HZ_BRIGHT_HI, max(n.r, max(n.g, n.b)));
+    t = mix(t, 1.0, max(exp(-near_air * near_air), bright));
+    var recovered = max(local_rgb + (1.0 / t - 1.0) * min(local_rgb - air.rgb, vec3<f32>(0.0)), vec3<f32>(0.0));
+    let local_l = max(get_luma(local_rgb), 1.0e-6);
+    let recovered_l = max(get_luma(recovered), 1.0e-6);
+    let chroma_in = length(local_rgb / local_l - 1.0);
+    let chroma_out = recovered / recovered_l - 1.0;
+    let chroma_limit = HZ_CHROMA_MAX * chroma_in + HZ_CHROMA_FLOOR;
+    recovered = max(recovered_l * (1.0 + chroma_out * min(chroma_limit / max(length(chroma_out), 1.0e-6), 1.0)), vec3<f32>(0.0));
+    let contrast_gain = get_luma(local_rgb) / max(t * get_luma(recovered), 1.0e-6);
+    let detail_gain = clamp(contrast_gain, 1.0, HZ_DETAIL_MAX);
+    let detail_log = log2(detail);
+    let detail_out = exp2(detail_log + (detail_gain - 1.0) * shape_detail(detail_log, HZ_DETAIL_SIGMA));
+    let lift = pow(t_smooth, -HZ_LIFT);
+    let dehazed = recovered * detail_out;
+    let rolloff = min(get_luma(dehazed) / air.w, 1.0);
+    return dehazed * (lift / (1.0 + (lift - 1.0) * rolloff));
 }
 
-fn nr_luma_tap(
-    coords_i: vec2<i32>,
-    max_idx: vec2<i32>,
-    dx: i32,
-    dy: i32,
-    extra: f32,
-    jx: f32,
-    jy: f32,
-    is_raw: u32
-) -> f32 {
-    let ring = max(abs(dx), abs(dy));
-    let ring_factor = select(0.5, 1.0, ring == 2);
-    let grow = 1.0 + extra * ring_factor;
-    let off_f = vec2<f32>(f32(dx) * grow + jx, f32(dy) * grow + jy);
-    let off   = vec2<i32>(i32(round(off_f.x)), i32(round(off_f.y)));
-    let coord = clamp(coords_i + off, vec2<i32>(0), max_idx);
-    var s = textureLoad(input_texture, vec2<u32>(coord), 0).rgb;
+const NR_FLOOR: f32 = 0.002;
+const NR_GUIDE_VAR: f32 = 0.3;
+const NR_COARSE_VAR: f32 = 0.15;
+const NR_SPATIAL: f32 = 0.03;
+
+var<workgroup> nr_tile: array<u32, 676>;
+var<workgroup> nr_coarse: array<f32, 676>;
+
+fn nr_fetch(coord: vec2<i32>, max_idx: vec2<i32>, gain: f32, is_raw: u32) -> vec3<f32> {
+    var s = textureLoad(input_texture, vec2<u32>(clamp(coord, vec2<i32>(0), max_idx)), 0).rgb;
     if (is_raw == 0u) { s = srgb_to_linear(s); }
-    return get_luma(max(s, vec3<f32>(0.0)));
+    return s * gain;
 }
 
-fn nr_accum_outlier(acc: ptr<function, vec2<f32>>, l: f32, init_w: f32, mean: f32, tol: f32) {
-    if (init_w > 0.0001) {
-        let d = l - mean;
-        let r = abs(d) / tol;
-        let bisq = max(0.0, 1.0 - r * r);
-        let outlier_w = bisq * bisq;
-        let w = init_w * outlier_w;
-        (*acc).x += l * w;
-        (*acc).y += w;
+fn nr_halo(scale: f32) -> i32 {
+    return select(5, 9, scale > 1.5);
+}
+
+fn nr_p(k: i32) -> f32 {
+    return unpack2x16float(nr_tile[k]).x;
+}
+
+fn nr_g(k: i32) -> f32 {
+    return unpack2x16float(nr_tile[k]).y;
+}
+
+fn nr_lin(p: vec4<f32>) -> vec4<f32> {
+    let q = p + sqrt(NR_FLOOR);
+    return q * q - NR_FLOOR;
+}
+
+fn nr_load_tile(local_id: vec2<i32>, group_origin: vec2<i32>, exposure: f32, is_raw: u32, scale: f32) {
+    let max_idx = vec2<i32>(textureDimensions(input_texture)) - vec2<i32>(1);
+    let gain = exp2(clamp(exposure, -10.0, 10.0));
+    let halo = nr_halo(scale);
+    let t = 8 + 2 * halo;
+    for (var y = local_id.y; y < t; y = y + 8) {
+        for (var x = local_id.x; x < t; x = x + 8) {
+            let l = get_luma(nr_fetch(group_origin + vec2<i32>(x - halo, y - halo), max_idx, gain, is_raw));
+            nr_tile[y * t + x] = pack2x16float(vec2<f32>(sqrt(max(l, 0.0) + NR_FLOOR) - sqrt(NR_FLOOR), 0.0));
+        }
     }
 }
 
-fn nr_accum_outlier4(acc: ptr<function, vec2<f32>>, l: vec4<f32>, init_w: vec4<f32>, mean: f32, tol: f32) {
-    nr_accum_outlier(acc, l.x, init_w.x, mean, tol);
-    nr_accum_outlier(acc, l.y, init_w.y, mean, tol);
-    nr_accum_outlier(acc, l.z, init_w.z, mean, tol);
-    nr_accum_outlier(acc, l.w, init_w.w, mean, tol);
+fn nr_build_guide(local_id: vec2<i32>, scale: f32) {
+    let r = 8 + 2 * nr_halo(scale);
+    for (var y = local_id.y + 1; y < r - 1; y = y + 8) {
+        for (var x = local_id.x + 1; x < r - 1; x = x + 8) {
+            let k = y * r + x;
+            let c = nr_p(k - r - 1) + 2.0 * nr_p(k - r) + nr_p(k - r + 1)
+                  + 2.0 * nr_p(k - 1) + 4.0 * nr_p(k) + 2.0 * nr_p(k + 1)
+                  + nr_p(k + r - 1) + 2.0 * nr_p(k + r) + nr_p(k + r + 1);
+            nr_coarse[k] = c * 0.0625;
+        }
+    }
+}
+
+fn nr_pack_guide(local_id: vec2<i32>, scale: f32) {
+    let r = 8 + 2 * nr_halo(scale);
+    for (var y = local_id.y + 1; y < r - 1; y = y + 8) {
+        for (var x = local_id.x + 1; x < r - 1; x = x + 8) {
+            let k = y * r + x;
+            nr_tile[k] = pack2x16float(vec2<f32>(nr_p(k), nr_coarse[k]));
+        }
+    }
+}
+
+fn nr_enabled() -> bool {
+    var on = adjustments.global.luma_noise_reduction != 0.0 || adjustments.global.color_noise_reduction != 0.0;
+    for (var i = 0u; i < adjustments.mask_count; i = i + 1u) {
+        let m = adjustments.mask_adjustments[i];
+        on = on || m.luma_noise_reduction != 0.0 || m.color_noise_reduction != 0.0;
+    }
+    return on;
+}
+
+fn nr_build_coarse_guide(local_id: vec2<i32>, scale: f32) {
+    let halo = nr_halo(scale);
+    if (halo < 9) { return; }
+    let r = 8 + 2 * halo;
+    for (var y = local_id.y + 3; y < r - 3; y = y + 8) {
+        for (var x = local_id.x + 3; x < r - 3; x = x + 8) {
+            let k = y * r + x;
+            let c = nr_g(k - 2 * r - 2) + 2.0 * nr_g(k - 2 * r) + nr_g(k - 2 * r + 2)
+                  + 2.0 * nr_g(k - 2) + 4.0 * nr_g(k) + 2.0 * nr_g(k + 2)
+                  + nr_g(k + 2 * r - 2) + 2.0 * nr_g(k + 2 * r) + nr_g(k + 2 * r + 2);
+            nr_coarse[k] = c * 0.0625;
+        }
+    }
+}
+
+fn nr_fine_row(k: i32) -> array<vec4<f32>, 3> {
+    return array<vec4<f32>, 3>(
+        vec4<f32>(nr_g(k), nr_g(k + 1), nr_g(k + 2), nr_g(k + 3)),
+        vec4<f32>(nr_g(k + 4), nr_g(k + 5), nr_g(k + 6), nr_g(k + 7)),
+        vec4<f32>(nr_g(k + 8), 0.0, 0.0, 0.0)
+    );
+}
+
+fn nr_fine_d2(r: array<vec4<f32>, 3>, p: vec3<f32>) -> array<vec4<f32>, 2> {
+    let a = r[0];
+    let b = r[1];
+    let c = r[2];
+    let l0 = a - p.x;
+    let l1 = vec4<f32>(a.yzw, b.x) - p.y;
+    let l2 = vec4<f32>(a.zw, b.xy) - p.z;
+    let h0 = b - p.x;
+    let h1 = vec4<f32>(b.yzw, c.x) - p.y;
+    let h2 = vec4<f32>(b.zw, c.x, 0.0) - p.z;
+    return array<vec4<f32>, 2>(l0 * l0 + l1 * l1 + l2 * l2, h0 * h0 + h1 * h1 + h2 * h2);
+}
+
+fn nr_coarse_row(k: i32) -> array<vec4<f32>, 2> {
+    return array<vec4<f32>, 2>(
+        vec4<f32>(nr_coarse[k - 6], nr_coarse[k - 4], nr_coarse[k - 2], nr_coarse[k]),
+        vec4<f32>(nr_coarse[k + 2], nr_coarse[k + 4], nr_coarse[k + 6], 0.0)
+    );
+}
+
+fn nr_coarse_d2(r: array<vec4<f32>, 2>, p: vec3<f32>) -> vec4<f32> {
+    let a = r[0];
+    let b = r[1];
+    let e0 = a - p.x;
+    let e1 = vec4<f32>(a.yzw, b.x) - p.y;
+    let e2 = vec4<f32>(a.zw, b.xy) - p.z;
+    return e0 * e0 + e1 * e1 + e2 * e2;
+}
+
+fn nr_coarse_d2_last(r: array<vec4<f32>, 2>, p: vec3<f32>) -> f32 {
+    let f = r[1].xyz - p;
+    return dot(f, f);
+}
+
+fn nr_weight(d2: vec4<f32>, inv: f32, r2: vec4<f32>) -> vec4<f32> {
+    return exp(-max(d2 * inv - 1.0, vec4<f32>(0.0)) - r2 * NR_SPATIAL);
 }
 
 fn apply_noise_reduction(
     center_linear: vec3<f32>,
     coords_i: vec2<i32>,
+    local_i: vec2<i32>,
     luma_amount: f32,
     color_amount: f32,
     scale: f32,
-    is_raw: u32
+    is_raw: u32,
+    exposure: f32,
+    tile_exposure: f32
 ) -> vec3<f32> {
     let luma_a  = clamp(luma_amount,  0.0, 1.0);
     let color_a = clamp(color_amount, 0.0, 1.0);
@@ -1228,201 +1259,134 @@ fn apply_noise_reduction(
         return center_linear;
     }
 
-    let dims = vec2<i32>(textureDimensions(input_texture));
-    let max_idx = dims - vec2<i32>(1);
-    let center_safe   = max(center_linear, vec3<f32>(0.0));
-    let center_luma   = get_luma(center_safe);
-    let center_chroma = center_linear - vec3<f32>(center_luma);
+    let max_idx = vec2<i32>(textureDimensions(input_texture)) - vec2<i32>(1);
+    let gain = exp2(clamp(exposure, -10.0, 10.0));
+    let tile_ratio = gain / exp2(clamp(tile_exposure, -10.0, 10.0));
+    let tile_ratio_sqrt = sqrt(tile_ratio);
+    let res = clamp(sqrt(scale), 0.75, 2.5);
+    let halo = nr_halo(scale);
+    let row = 8 + 2 * halo;
+    let base = (local_i.y + halo) * row + local_i.x + halo;
 
-    let res_factor = clamp(sqrt(scale), 0.5, 2.0);
+    let center_l = center_linear * gain;
+    let center_yl = get_luma(center_l);
+    let sf = sqrt(NR_FLOOR);
+    let center_y = sqrt(max(center_yl, 0.0) + NR_FLOOR) - sf;
+    let center_t = unpack2x16float(nr_tile[base]);
 
-    var new_luma   = center_luma;
-    var new_chroma = center_chroma;
+    let c_curve = sqrt(color_a);
+    let sigma = select(mix(0.012, 0.03, c_curve), 0.002 + 0.06 * pow(luma_a, 1.3), luma_a > 0.001);
 
+    var new_yl = center_yl;
+    var ref_y = center_y + (center_t.y - center_t.x) * tile_ratio_sqrt;
     if (luma_a > 0.001) {
-        let l_curve = sqrt(luma_a);
-
-        let stride_f = mix(1.0, 2.0, smoothstep(0.45, 0.95, luma_a)) * res_factor;
-        let extra    = clamp(stride_f - 1.0, 0.0, 1.0);
-
-        let l_spatial = mix(1.0, 1.5, l_curve);
-        let l_spat_n  = -1.0 / max(2.0 * l_spatial * l_spatial, 1e-6);
-
-        let h1 = hash(vec2<f32>(coords_i));
-        let h2 = hash(vec2<f32>(coords_i) + vec2<f32>(17.31, 71.13));
-        let jx = (h1 - 0.5) * 2.0 * extra;
-        let jy = (h2 - 0.5) * 2.0 * extra;
-
-        let l0 = vec4<f32>(
-            nr_luma_tap(coords_i, max_idx, -2, -2, extra, jx, jy, is_raw),
-            nr_luma_tap(coords_i, max_idx, -1, -2, extra, jx, jy, is_raw),
-            nr_luma_tap(coords_i, max_idx,  0, -2, extra, jx, jy, is_raw),
-            nr_luma_tap(coords_i, max_idx,  1, -2, extra, jx, jy, is_raw));
-        let l1 = vec4<f32>(
-            nr_luma_tap(coords_i, max_idx,  2, -2, extra, jx, jy, is_raw),
-            nr_luma_tap(coords_i, max_idx, -2, -1, extra, jx, jy, is_raw),
-            nr_luma_tap(coords_i, max_idx, -1, -1, extra, jx, jy, is_raw),
-            nr_luma_tap(coords_i, max_idx,  0, -1, extra, jx, jy, is_raw));
-        let l2 = vec4<f32>(
-            nr_luma_tap(coords_i, max_idx,  1, -1, extra, jx, jy, is_raw),
-            nr_luma_tap(coords_i, max_idx,  2, -1, extra, jx, jy, is_raw),
-            nr_luma_tap(coords_i, max_idx, -2,  0, extra, jx, jy, is_raw),
-            nr_luma_tap(coords_i, max_idx, -1,  0, extra, jx, jy, is_raw));
-        let l3 = vec4<f32>(
-            nr_luma_tap(coords_i, max_idx,  1,  0, extra, jx, jy, is_raw),
-            nr_luma_tap(coords_i, max_idx,  2,  0, extra, jx, jy, is_raw),
-            nr_luma_tap(coords_i, max_idx, -2,  1, extra, jx, jy, is_raw),
-            nr_luma_tap(coords_i, max_idx, -1,  1, extra, jx, jy, is_raw));
-        let l4 = vec4<f32>(
-            nr_luma_tap(coords_i, max_idx,  0,  1, extra, jx, jy, is_raw),
-            nr_luma_tap(coords_i, max_idx,  1,  1, extra, jx, jy, is_raw),
-            nr_luma_tap(coords_i, max_idx,  2,  1, extra, jx, jy, is_raw),
-            nr_luma_tap(coords_i, max_idx, -2,  2, extra, jx, jy, is_raw));
-        let l5 = vec4<f32>(
-            nr_luma_tap(coords_i, max_idx, -1,  2, extra, jx, jy, is_raw),
-            nr_luma_tap(coords_i, max_idx,  0,  2, extra, jx, jy, is_raw),
-            nr_luma_tap(coords_i, max_idx,  1,  2, extra, jx, jy, is_raw),
-            nr_luma_tap(coords_i, max_idx,  2,  2, extra, jx, jy, is_raw));
-
-        let e1 = exp(1.0 * l_spat_n);
-        let e2 = exp(2.0 * l_spat_n);
-        let e4 = exp(4.0 * l_spat_n);
-        let e5 = exp(fma(l_spat_n, 4.0, l_spat_n));
-        let e8 = exp(8.0 * l_spat_n);
-        let sp0 = vec4<f32>(e8, e5, e4, e5);
-        let sp1 = vec4<f32>(e8, e5, e2, e1);
-        let sp2 = vec4<f32>(e2, e5, e4, e1);
-        let sp3 = vec4<f32>(e1, e4, e5, e2);
-        let sp4 = vec4<f32>(e1, e2, e5, e8);
-        let sp5 = vec4<f32>(e5, e4, e5, e8);
-
-        let lmin = min(center_luma, min(
-            min(min(min(l0.x, l0.y), min(l0.z, l0.w)), min(min(l1.x, l1.y), min(l1.z, l1.w))),
-            min(min(min(min(l2.x, l2.y), min(l2.z, l2.w)), min(min(l3.x, l3.y), min(l3.z, l3.w))),
-                min(min(min(l4.x, l4.y), min(l4.z, l4.w)), min(min(l5.x, l5.y), min(l5.z, l5.w))))));
-        let lmax = max(center_luma, max(
-            max(max(max(l0.x, l0.y), max(l0.z, l0.w)), max(max(l1.x, l1.y), max(l1.z, l1.w))),
-            max(max(max(max(l2.x, l2.y), max(l2.z, l2.w)), max(max(l3.x, l3.y), max(l3.z, l3.w))),
-                max(max(max(l4.x, l4.y), max(l4.z, l4.w)), max(max(l5.x, l5.y), max(l5.z, l5.w))))));
-
-        let luma_range    = lmax - lmin;
-        let edge_strength = smoothstep(0.04, 0.20, luma_range);
-        let edge_midpoint = (lmin + lmax) * 0.5;
-        let center_side   = center_luma > edge_midpoint;
-
-        let l_range_tol = mix(
-            mix(0.025, 0.075, l_curve),
-            mix(0.010, 0.025, l_curve),
-            edge_strength
-        );
-
-        var samp_luma = array<f32, 25>(center_luma, l0.x, l0.y, l0.z, l0.w, l1.x, l1.y, l1.z, l1.w, l2.x, l2.y, l2.z, l2.w, l3.x, l3.y, l3.z, l3.w, l4.x, l4.y, l4.z, l4.w, l5.x, l5.y, l5.z, l5.w);
-        var samp_spat = array<f32, 25>(1.0, sp0.x, sp0.y, sp0.z, sp0.w, sp1.x, sp1.y, sp1.z, sp1.w, sp2.x, sp2.y, sp2.z, sp2.w, sp3.x, sp3.y, sp3.z, sp3.w, sp4.x, sp4.y, sp4.z, sp4.w, sp5.x, sp5.y, sp5.z, sp5.w);
-        var samp_gate: array<f32, 25>;
-        var sum_a: f32 = 0.0;
-        var w_a:   f32 = 0.0;
-        for (var k: u32 = 0u; k < 25u; k = k + 1u) {
-            let lk = samp_luma[k];
-            let sk = samp_spat[k];
-            let diff = abs(lk - center_luma);
-            let g_range = 1.0 - smoothstep(l_range_tol * 0.6, l_range_tol, diff);
-            let s_side  = lk > edge_midpoint;
-            let g_side  = select(0.0, 1.0, s_side == center_side);
-            let g_edge  = mix(1.0, g_side, edge_strength);
-            let w = sk * g_range * g_edge;
-            samp_gate[k] = w;
-            sum_a += lk * w;
-            w_a   += w;
+        let inv_g = tile_ratio / (sigma * sigma * NR_GUIDE_VAR * 9.0);
+        let pa = vec3<f32>(nr_g(base - row - 1), nr_g(base - row), nr_g(base - row + 1));
+        let pb = vec3<f32>(nr_g(base - 1), center_t.y, nr_g(base + 1));
+        let pc = vec3<f32>(nr_g(base + row - 1), nr_g(base + row), nr_g(base + row + 1));
+        var acc = 0.0;
+        var acc_p = 0.0;
+        var wsum = 0.0;
+        for (var dj: i32 = -3; dj <= 3; dj = dj + 1) {
+            let k = base + dj * row - 4;
+            let d0 = nr_fine_d2(nr_fine_row(k - row), pa);
+            let d1 = nr_fine_d2(nr_fine_row(k), pb);
+            let d2 = nr_fine_d2(nr_fine_row(k + row), pc);
+            let dj2 = f32(dj * dj);
+            let wl = nr_weight(d0[0] + d1[0] + d2[0], inv_g, vec4<f32>(9.0, 4.0, 1.0, 0.0) + dj2);
+            var wh = nr_weight(d0[1] + d1[1] + d2[1], inv_g, vec4<f32>(1.0, 4.0, 9.0, 0.0) + dj2);
+            wh.w = 0.0;
+            let pl = vec4<f32>(nr_p(k + 1), nr_p(k + 2), nr_p(k + 3), nr_p(k + 4));
+            let ph = vec4<f32>(nr_p(k + 5), nr_p(k + 6), nr_p(k + 7), 0.0);
+            acc += dot(nr_lin(pl), wl) + dot(nr_lin(ph), wh);
+            acc_p += dot(pl, wl) + dot(ph, wh);
+            wsum += dot(wl, vec4<f32>(1.0)) + dot(wh, vec4<f32>(1.0));
         }
-        let initial_mean = sum_a / max(w_a, 1e-4);
-        let g_c = samp_gate[0];
-        let g0 = vec4<f32>(samp_gate[1], samp_gate[2], samp_gate[3], samp_gate[4]);
-        let g1 = vec4<f32>(samp_gate[5], samp_gate[6], samp_gate[7], samp_gate[8]);
-        let g2 = vec4<f32>(samp_gate[9], samp_gate[10], samp_gate[11], samp_gate[12]);
-        let g3 = vec4<f32>(samp_gate[13], samp_gate[14], samp_gate[15], samp_gate[16]);
-        let g4 = vec4<f32>(samp_gate[17], samp_gate[18], samp_gate[19], samp_gate[20]);
-        let g5 = vec4<f32>(samp_gate[21], samp_gate[22], samp_gate[23], samp_gate[24]);
-
-        let outlier_tol = mix(0.07, 0.025, edge_strength);
-        var acc_b = vec2<f32>(0.0);
-        nr_accum_outlier(&acc_b, center_luma, g_c, initial_mean, outlier_tol);
-        nr_accum_outlier4(&acc_b, l0, g0, initial_mean, outlier_tol);
-        nr_accum_outlier4(&acc_b, l1, g1, initial_mean, outlier_tol);
-        nr_accum_outlier4(&acc_b, l2, g2, initial_mean, outlier_tol);
-        nr_accum_outlier4(&acc_b, l3, g3, initial_mean, outlier_tol);
-        nr_accum_outlier4(&acc_b, l4, g4, initial_mean, outlier_tol);
-        nr_accum_outlier4(&acc_b, l5, g5, initial_mean, outlier_tol);
-        let robust_luma = select(initial_mean, acc_b.x / max(acc_b.y, 1e-6), acc_b.y > 0.01);
-
-        let strength = luma_a * mix(1.0, 0.6, edge_strength);
-        new_luma = mix(center_luma, robust_luma, strength);
-    }
-
-    if (color_a > 0.001) {
-        let center_r_y = center_linear.r - center_luma;
-        let center_b_y = center_linear.b - center_luma;
-        let c_curve = sqrt(color_a);
-        let stride_f = mix(2.0, 3.5, c_curve) * res_factor;
-
-        let c_spatial = mix(2.0, 3.5, c_curve);
-        let c_spat_n  = -1.0 / max(2.0 * c_spatial * c_spatial, 1e-6);
-
-        let luma_tol = mix(0.12, 0.04, c_curve);
-        let luma_n   = -1.0 / max(2.0 * luma_tol * luma_tol, 1e-6);
-
-        let chroma_tol = mix(0.20, 0.08, c_curve);
-        let chroma_n   = -1.0 / max(2.0 * chroma_tol * chroma_tol, 1e-6);
-
-        let jh1 = hash(vec2<f32>(coords_i) + vec2<f32>(43.7, 91.1));
-        let jh2 = hash(vec2<f32>(coords_i) + vec2<f32>(73.3, 17.9));
-        let jx  = (jh1 - 0.5) * stride_f * 0.5;
-        let jy  = (jh2 - 0.5) * stride_f * 0.5;
-
-        var sum_r: f32 = center_r_y;
-        var sum_b: f32 = center_b_y;
-        var w_sum: f32 = 1.0;
-
-        for (var dy: i32 = -2; dy <= 2; dy = dy + 1) {
-            for (var dx: i32 = -2; dx <= 2; dx = dx + 1) {
-                if (dx == 0 && dy == 0) { continue; }
-                let off_f = vec2<f32>(f32(dx) * stride_f + jx, f32(dy) * stride_f + jy);
-                let off   = vec2<i32>(i32(round(off_f.x)), i32(round(off_f.y)));
-                let coord = clamp(coords_i + off, vec2<i32>(0), max_idx);
-                var s = textureLoad(input_texture, vec2<u32>(coord), 0).rgb;
-
-                if (is_raw == 0u) { s = srgb_to_linear(s); }
-
-                let s_safe = max(s, vec3<f32>(0.0));
-                let s_luma = get_luma(s_safe);
-                let s_r_y  = s.r - s_luma;
-                let s_b_y  = s.b - s_luma;
-
-                let r2  = f32(dx * dx + dy * dy);
-                let w_s = exp(r2 * c_spat_n);
-                let dl  = s_luma - center_luma;
-                let w_l = exp(dl * dl * luma_n);
-                let dr  = s_r_y - center_r_y;
-                let db  = s_b_y - center_b_y;
-                let dc2 = dr * dr + db * db;
-                let w_c = exp(dc2 * chroma_n);
-                let w = w_s * w_l * w_c;
-
-                sum_r += s_r_y * w;
-                sum_b += s_b_y * w;
-                w_sum += w;
+        if (halo == 9) {
+            let coarse_a = smoothstep(1.5, 2.5, scale);
+            let inv_c = tile_ratio / (sigma * sigma * NR_COARSE_VAR * 9.0);
+            let t2 = 2 * row;
+            let qa = vec3<f32>(nr_coarse[base - t2 - 2], nr_coarse[base - t2], nr_coarse[base - t2 + 2]);
+            let qb = vec3<f32>(nr_coarse[base - 2], nr_coarse[base], nr_coarse[base + 2]);
+            let qc = vec3<f32>(nr_coarse[base + t2 - 2], nr_coarse[base + t2], nr_coarse[base + t2 + 2]);
+            for (var dj: i32 = -2; dj <= 2; dj = dj + 1) {
+                let k = base + 2 * dj * row;
+                let r0 = nr_coarse_row(k - t2);
+                let r1 = nr_coarse_row(k);
+                let r2 = nr_coarse_row(k + t2);
+                let dj2 = f32(4 * dj * dj);
+                var wv = coarse_a * nr_weight(nr_coarse_d2(r0, qa) + nr_coarse_d2(r1, qb) + nr_coarse_d2(r2, qc), inv_c, vec4<f32>(16.0, 4.0, 0.0, 4.0) + dj2);
+                if (dj == 0) { wv.z = 0.0; }
+                let ws = coarse_a * nr_weight(vec4<f32>(nr_coarse_d2_last(r0, qa) + nr_coarse_d2_last(r1, qb) + nr_coarse_d2_last(r2, qc)), inv_c, vec4<f32>(16.0 + dj2)).x;
+                let pv = vec4<f32>(nr_p(k - 4), nr_p(k - 2), nr_p(k), nr_p(k + 2));
+                let pw = nr_p(k + 4);
+                acc += dot(nr_lin(pv), wv) + nr_lin(vec4<f32>(pw)).x * ws;
+                acc_p += dot(pv, wv) + pw * ws;
+                wsum += dot(wv, vec4<f32>(1.0)) + ws;
             }
         }
-        let filtered_r_y = sum_r / max(w_sum, 1e-6);
-        let filtered_b_y = sum_b / max(w_sum, 1e-6);
-
-        let new_r_y = mix(center_r_y, filtered_r_y, color_a);
-        let new_b_y = mix(center_b_y, filtered_b_y, color_a);
-        let new_g_y = -(LUMA_COEFF.r * new_r_y + LUMA_COEFF.b * new_b_y) / LUMA_COEFF.g;
-
-        new_chroma = vec3<f32>(new_r_y, new_g_y, new_b_y);
+        ref_y = center_y + (acc_p / wsum - center_t.x) * tile_ratio_sqrt;
+        new_yl = mix(center_yl, acc * tile_ratio / wsum, min(luma_a * 5.0, 1.0));
     }
 
-    return vec3<f32>(new_luma) + new_chroma;
+    var new_c = center_l - vec3<f32>(center_yl);
+    if (color_a > 0.001) {
+        let ref_tol = -1.0 / (9.0 * sigma * sigma + 1e-4);
+        var cref = vec3<f32>(0.0);
+        var cref_w = 0.0;
+        for (var j: i32 = -2; j <= 2; j = j + 1) {
+            for (var i: i32 = -2; i <= 2; i = i + 1) {
+                let s = nr_fetch(coords_i + vec2<i32>(i, j), max_idx, gain, is_raw);
+                let sl = get_luma(s);
+                let q = sqrt(max(sl, 0.0) + NR_FLOOR);
+                let dy = q - sf - ref_y;
+                let w = exp(dy * dy * ref_tol);
+                cref += (s - vec3<f32>(sl)) * (0.5 / q) * w;
+                cref_w += w;
+            }
+        }
+        cref /= max(cref_w, 1e-6);
+
+        let ct = clamp(i32(round(mix(2.0, 5.5, c_curve) * res * res * 0.52)), 1, 16);
+        let y_tol = -1.0 / (2.0 * pow(mix(0.04, 0.1, c_curve) + 2.0 * sigma, 2.0));
+        let c_tol = -1.0 / (2.0 * pow(mix(0.03, 0.12, c_curve), 2.0));
+        var sw = 0.0;
+        var sy = 0.0;
+        var syy = 0.0;
+        var sc = vec3<f32>(0.0);
+        var syc = vec3<f32>(0.0);
+        for (var j: i32 = -3; j <= 3; j = j + 1) {
+            let span = select(select(1, 2, abs(j) == 2), 3, abs(j) <= 1);
+            for (var i: i32 = -span; i <= span; i = i + 1) {
+                let r2 = f32(i * i + j * j);
+                let o = coords_i + vec2<i32>(i, j) * ct;
+                let s = 0.25 * (nr_fetch(o, max_idx, gain, is_raw) + nr_fetch(o + vec2<i32>(1, 0), max_idx, gain, is_raw)
+                    + nr_fetch(o + vec2<i32>(0, 1), max_idx, gain, is_raw) + nr_fetch(o + vec2<i32>(1, 1), max_idx, gain, is_raw));
+                let sl = get_luma(s);
+                let q = sqrt(max(sl, 0.0) + NR_FLOOR);
+                let y = q - sf;
+                let dy = y - ref_y;
+                let c = (s - vec3<f32>(sl)) * (0.5 / q);
+                let dc = c - cref;
+                let w = exp(dy * dy * y_tol + dot(dc, dc) * c_tol - r2 * 0.06);
+                sw += w;
+                sy += y * w;
+                syy += y * y * w;
+                sc += c * w;
+                syc += c * (y * w);
+            }
+        }
+        if (sw > 1e-4) {
+            let my = sy / sw;
+            let mc = sc / sw;
+            let slope = (syc / sw - mc * my) / max(syy / sw - my * my + 0.0004, 1e-6);
+            let c_hat = mc + slope * (ref_y - my);
+            let c_lin = c_hat * (2.0 * sqrt(max(new_yl, 0.0) + NR_FLOOR));
+            new_c = mix(new_c, c_lin, min(color_a * 4.0, 1.0));
+        }
+    }
+
+    return (vec3<f32>(new_yl) + new_c) / gain;
 }
 
 fn apply_ca_correction(coords: vec2<u32>, ca_rc: f32, ca_by: f32) -> vec3<f32> {
@@ -1789,14 +1753,31 @@ fn apply_halation(
 }
 
 @compute @workgroup_size(8, 8, 1)
-fn main(@builtin(global_invocation_id) id: vec3<u32>) {
-    let out_dims = vec2<u32>(textureDimensions(output_texture));
-    if (id.x >= out_dims.x || id.y >= out_dims.y) { return; }
-
+fn main(
+    @builtin(global_invocation_id) id: vec3<u32>,
+    @builtin(local_invocation_id) local_id: vec3<u32>,
+    @builtin(workgroup_id) group_id: vec3<u32>
+) {
     const REFERENCE_DIMENSION: f32 = 1080.0;
     let full_dims = vec2<f32>(textureDimensions(input_texture));
     let current_ref_dim = min(full_dims.x, full_dims.y);
     let scale = max(0.1, current_ref_dim / REFERENCE_DIMENSION);
+
+    if ((FEATURES & F_NOISE_REDUCTION) != 0u && nr_enabled()) {
+        let group_origin = group_id.xy * 8u + vec2<u32>(adjustments.tile_offset_x, adjustments.tile_offset_y);
+        let local_i = vec2<i32>(local_id.xy);
+        nr_load_tile(local_i, vec2<i32>(group_origin), adjustments.global.exposure, adjustments.global.is_raw_image, scale);
+        workgroupBarrier();
+        nr_build_guide(local_i, scale);
+        workgroupBarrier();
+        nr_pack_guide(local_i, scale);
+        workgroupBarrier();
+        nr_build_coarse_guide(local_i, scale);
+        workgroupBarrier();
+    }
+
+    let out_dims = vec2<u32>(textureDimensions(output_texture));
+    if (id.x >= out_dims.x || id.y >= out_dims.y) { return; }
 
     let absolute_coord = id.xy + vec2<u32>(adjustments.tile_offset_x, adjustments.tile_offset_y);
     let absolute_coord_i = vec2<i32>(absolute_coord);
@@ -1897,8 +1878,9 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     if (has_feature(F_NOISE_REDUCTION)) {
         initial_linear_rgb = apply_noise_reduction(
-            initial_linear_rgb, absolute_coord_i,
-            t_luma_nr, t_color_nr, scale, is_raw
+            initial_linear_rgb, absolute_coord_i, vec2<i32>(local_id.xy),
+            t_luma_nr, t_color_nr, scale, is_raw,
+            t_exposure, adjustments.global.exposure
         );
     }
 
@@ -1923,7 +1905,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let detail_clarity = gf_i - (gf.x * gf_i + gf.y);
     var detail_structure = 0.0;
     if (t_structure != 0.0) {
-        let gf_s = sample_gf_tex(gf_dehaze_texture, absolute_coord).xy;
+        let gf_s = sample_gf_tex(gf_structure_texture, absolute_coord).xy;
         detail_structure = gf_i - (gf_s.x * gf_i + gf_s.y);
     }
 
@@ -1944,6 +1926,11 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let lc_log_gain = clarity_term * select(lc_gate, 1.0, clarity_total < 0.0)
                     + structure_term * select(lc_gate, 1.0, t_structure < 0.0);
     locally_contrasted_rgb *= exp2(lc_log_gain);
+
+    if (has_feature(F_DEHAZE)) {
+        let local_luma = exp2(gf.z * gf_i + gf.w);
+        locally_contrasted_rgb = apply_dehaze(locally_contrasted_rgb, absolute_coord, local_luma, t_dehaze);
+    }
 
     var processed_rgb = apply_linear_exposure(locally_contrasted_rgb, t_exposure);
 
@@ -1976,20 +1963,13 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     }
 
     var composite_rgb_linear = processed_rgb;
-    if (has_feature(F_DEHAZE)) {
-        var dehaze_dark = 0.0;
-        if (t_dehaze > 0.0) {
-            dehaze_dark = refined_dark_channel(absolute_coord, is_raw);
-        }
-        composite_rgb_linear = apply_dehaze(processed_rgb, structure_blurred, dehaze_dark, is_raw, t_dehaze);
-    }
     composite_rgb_linear = apply_white_balance(composite_rgb_linear, t_wb_log_gains);
     composite_rgb_linear = apply_centre_tonal_and_color(composite_rgb_linear, adjustments.global.centre, vec2<f32>(adjustments.global.centre_x, adjustments.global.centre_y), absolute_coord_i);
     var tonal_log_detail = 0.0;
     var tonal_mid_detail = 0.0;
     if (t_shadows != 0.0 || t_blacks != 0.0 || t_highlights != 0.0 || t_whites != 0.0) {
         tonal_log_detail = (gf_i - (gf.z * gf_i + gf.w)) + lc_log_gain;
-        let gf_broad = sample_gf_tex(gf_dehaze_texture, absolute_coord).xy;
+        let gf_broad = sample_gf_tex(gf_structure_texture, absolute_coord).xy;
         tonal_mid_detail = (gf.z * gf_i + gf.w) - (gf_broad.x * gf_i + gf_broad.y);
     }
     composite_rgb_linear = apply_tonal_adjustments(composite_rgb_linear, tonal_log_detail, tonal_mid_detail, is_raw, t_contrast, t_shadows, t_whites, t_blacks);

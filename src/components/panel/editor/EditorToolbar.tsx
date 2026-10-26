@@ -1,15 +1,90 @@
 import { memo, useState, useEffect, useRef, useMemo } from 'react';
-import { Eye, EyeOff, ArrowLeft, Maximize, Loader2, Undo, Redo } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import {
+  ArrowLeft,
+  Columns2,
+  Eye,
+  EyeOff,
+  Loader2,
+  LucideIcon,
+  Maximize,
+  Redo,
+  SquareSplitHorizontal,
+  SquareSplitVertical,
+  Undo,
+} from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
-import { SelectedImage, GroupingMode } from '../../ui/AppProperties';
+import { CompareMode, SelectedImage, GroupingMode } from '../../ui/AppProperties';
+import { ToolbarMenu, ToolbarMenuItem, useMenuDismiss } from './ToolbarMenu';
 import { IconAperture, IconCalendar, IconClock, IconFocalLength, IconIso, IconShutter } from './ExifIcons';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { findGroupVariants, getVariantLabel } from '../../../utils/imageGrouping';
+
+const COMPARE_MODES = [
+  { mode: 'toggle', icon: Eye, label: 'editor.compare.toggle' },
+  { mode: 'vertical', icon: SquareSplitHorizontal, label: 'editor.compare.vertical' },
+  { mode: 'horizontal', icon: SquareSplitVertical, label: 'editor.compare.horizontal' },
+  { mode: 'sideBySide', icon: Columns2, label: 'editor.compare.sideBySide' },
+] as const satisfies ReadonlyArray<{ mode: CompareMode; icon: LucideIcon; label: string }>;
+
+interface CompareButtonProps {
+  compareMode: CompareMode;
+  isComparing: boolean;
+  onKeyDown(e: React.KeyboardEvent<HTMLButtonElement>): void;
+  onSelectMode(mode: CompareMode): void;
+  onToggle(): void;
+}
+
+function CompareButton({ compareMode, isComparing, onKeyDown, onSelectMode, onToggle }: CompareButtonProps) {
+  const { t } = useTranslation();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  useMenuDismiss(containerRef, isMenuOpen, setIsMenuOpen);
+
+  const ModeIcon =
+    compareMode === 'toggle' && isComparing ? EyeOff : COMPARE_MODES.find((m) => m.mode === compareMode)!.icon;
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        className={clsx(
+          'p-2 rounded-full transition-colors',
+          isComparing
+            ? 'bg-accent text-button-text hover:bg-accent/90 hover:text-button-text'
+            : 'bg-surface hover:bg-card-active text-text-primary',
+        )}
+        onClick={onToggle}
+        onKeyDown={onKeyDown}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setIsMenuOpen((prev) => !prev);
+        }}
+        data-tooltip={t('editor.toolbar.tooltips.compare')}
+      >
+        <ModeIcon size={20} />
+      </button>
+
+      <ToolbarMenu isOpen={isMenuOpen} title={t('editor.compare.title')}>
+        {COMPARE_MODES.map(({ mode, icon, label }) => (
+          <ToolbarMenuItem
+            key={mode}
+            icon={icon}
+            isSelected={mode === compareMode}
+            label={t(label)}
+            onClick={() => {
+              onSelectMode(mode);
+              setIsMenuOpen(false);
+            }}
+            onKeyDown={onKeyDown}
+          />
+        ))}
+      </ToolbarMenu>
+    </div>
+  );
+}
 
 interface EditorToolbarProps {
   canRedo: boolean;
@@ -20,10 +95,12 @@ interface EditorToolbarProps {
   onImageSelect?(path: string, event?: any): void;
   onRedo(): void;
   onToggleFullScreen(): void;
-  onToggleShowOriginal(): void;
+  onToggleCompare(): void;
+  onSelectCompareMode(mode: CompareMode): void;
   onUndo(): void;
   selectedImage: SelectedImage;
-  showOriginal: boolean;
+  isComparing: boolean;
+  compareMode: CompareMode;
   showDateView: boolean;
   onToggleDateView(): void;
   adjustmentsHistory: any[];
@@ -41,10 +118,12 @@ const EditorToolbar = memo(
     onImageSelect,
     onRedo,
     onToggleFullScreen,
-    onToggleShowOriginal,
+    onToggleCompare,
+    onSelectCompareMode,
     onUndo,
     selectedImage,
-    showOriginal,
+    isComparing,
+    compareMode,
     showDateView,
     onToggleDateView,
     adjustmentsHistory,
@@ -61,8 +140,8 @@ const EditorToolbar = memo(
     const [isVcHovered, setIsVcHovered] = useState(false);
     const [isInfoHovered, setIsInfoHovered] = useState(false);
     const [isHistoryVisible, setIsHistoryVisible] = useState(false);
-    const historyContainerRef = useRef<HTMLDivElement>(null);
     const historyButtonRef = useRef<HTMLDivElement>(null);
+    useMenuDismiss(historyButtonRef, isHistoryVisible, setIsHistoryVisible);
 
     const showResolution = !isAndroid && selectedImage.width > 0 && selectedImage.height > 0;
     const [displayedResolution, setDisplayedResolution] = useState('');
@@ -163,22 +242,6 @@ const EditorToolbar = memo(
         setIsLoaderMounted(false);
       }
     }, [isLoaderVisible, disableLoaderTransition]);
-
-    useEffect(() => {
-      if (!isHistoryVisible) return;
-      const handleClickOutside = (e: MouseEvent) => {
-        if (
-          historyContainerRef.current &&
-          !historyContainerRef.current.contains(e.target as Node) &&
-          historyButtonRef.current &&
-          !historyButtonRef.current.contains(e.target as Node)
-        ) {
-          setIsHistoryVisible(false);
-        }
-      };
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [isHistoryVisible]);
 
     const prevNamesRef = useRef<string[]>(['Initial State']);
 
@@ -342,9 +405,9 @@ const EditorToolbar = memo(
     }, [adjustmentsHistory]);
 
     useEffect(() => {
-      if (isHistoryVisible && historyContainerRef.current) {
+      if (isHistoryVisible) {
         const timer = setTimeout(() => {
-          const activeEl = historyContainerRef.current?.querySelector('[data-active="true"]');
+          const activeEl = historyButtonRef.current?.querySelector('[data-active="true"]');
           if (activeEl) {
             activeEl.scrollIntoView({ block: 'nearest', behavior: 'auto' });
           }
@@ -613,79 +676,28 @@ const EditorToolbar = memo(
               <Redo size={20} />
             </button>
 
-            <AnimatePresence>
-              {isHistoryVisible && adjustmentsHistory && adjustmentsHistory.length > 1 && (
-                <motion.div
-                  ref={historyContainerRef}
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.15, ease: 'easeOut' }}
-                  className="absolute top-full right-0 mt-3 w-56 max-h-80 bg-surface/90 backdrop-blur-md border border-text-secondary/10 shadow-xl rounded-lg overflow-y-auto custom-scrollbar z-50 flex flex-col py-1.5 px-0.5"
-                >
-                  {historyNames.map((name, i) => {
-                    const isCurrent = i === adjustmentsHistoryIndex;
-                    const isFuture = i > adjustmentsHistoryIndex;
-
-                    const textColor = isCurrent
-                      ? TextColors.button
-                      : isFuture
-                        ? TextColors.secondary
-                        : TextColors.primary;
-                    const textWeight = isCurrent ? TextWeights.medium : TextWeights.normal;
-
-                    return (
-                      <button
-                        key={i}
-                        data-active={isCurrent}
-                        onClick={() => goToAdjustmentsHistoryIndex(i)}
-                        onKeyDown={handleButtonKeyDown}
-                        className={clsx(
-                          'text-left px-3 py-2 transition-colors mx-1 my-0.5 rounded-md',
-                          isCurrent
-                            ? 'bg-accent'
-                            : isFuture
-                              ? 'opacity-50 hover:bg-bg-primary hover:opacity-100'
-                              : 'hover:bg-bg-primary',
-                        )}
-                      >
-                        <div className="flex justify-between items-center gap-2">
-                          <Text as="span" color={textColor} weight={textWeight} className="truncate">
-                            {name}
-                          </Text>
-                          <Text
-                            as="span"
-                            variant={TextVariants.small}
-                            color={textColor}
-                            weight={textWeight}
-                            className="opacity-50 shrink-0"
-                          >
-                            {i === 0 ? '' : i}
-                          </Text>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <ToolbarMenu isOpen={isHistoryVisible && adjustmentsHistory.length > 1} title={t('editor.toolbar.history')}>
+              {historyNames.map((name, i) => (
+                <ToolbarMenuItem
+                  key={i}
+                  detail={i > 0 ? i : undefined}
+                  isDimmed={i > adjustmentsHistoryIndex}
+                  isSelected={i === adjustmentsHistoryIndex}
+                  label={name}
+                  onClick={() => goToAdjustmentsHistoryIndex(i)}
+                  onKeyDown={handleButtonKeyDown}
+                />
+              ))}
+            </ToolbarMenu>
           </div>
 
-          <button
-            className={clsx(
-              'p-2 rounded-full transition-colors',
-              showOriginal
-                ? 'bg-accent text-button-text hover:bg-accent/90 hover:text-button-text'
-                : 'bg-surface hover:bg-card-active text-text-primary',
-            )}
-            onClick={onToggleShowOriginal}
+          <CompareButton
+            compareMode={compareMode}
+            isComparing={isComparing}
             onKeyDown={handleButtonKeyDown}
-            data-tooltip={
-              showOriginal ? t('editor.toolbar.tooltips.showEdited') : t('editor.toolbar.tooltips.showOriginal')
-            }
-          >
-            {showOriginal ? <EyeOff size={20} /> : <Eye size={20} />}
-          </button>
+            onSelectMode={onSelectCompareMode}
+            onToggle={onToggleCompare}
+          />
           <button
             className="bg-surface text-text-primary p-2 rounded-full hover:bg-card-active transition-colors disabled:opacity-50 disabled:cursor-not-allowed relative"
             onClick={onToggleFullScreen}
