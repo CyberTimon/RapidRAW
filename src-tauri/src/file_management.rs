@@ -1524,6 +1524,15 @@ fn read_thumbnail_metadata(path_str: &str, app_handle: &AppHandle) -> Option<Ima
     }
 }
 
+// Patch offsets and bitmaps are in native pixels, so they can't be composited
+// onto a fast (downscaled) RAW decode.
+fn has_ai_patches(adjustments: &Value) -> bool {
+    adjustments
+        .get("aiPatches")
+        .and_then(|v| v.as_array())
+        .is_some_and(|a| !a.is_empty())
+}
+
 fn generate_thumbnail_data_with_metadata(
     path_str: &str,
     gpu_context: Option<&GpuContext>,
@@ -1626,7 +1635,7 @@ fn generate_thumbnail_data_with_metadata(
                     file_slice,
                     &source_path_str,
                     adjustments,
-                    true,
+                    !has_ai_patches(adjustments),
                     settings,
                     None,
                 )?;
@@ -1831,7 +1840,7 @@ fn generate_thumbnail_data_with_metadata(
                 &mmap,
                 &source_path_str,
                 adjustments,
-                true,
+                !has_ai_patches(adjustments),
                 settings,
                 None,
             )?,
@@ -1842,7 +1851,7 @@ fn generate_thumbnail_data_with_metadata(
                     &bytes,
                     &source_path_str,
                     adjustments,
-                    true,
+                    !has_ai_patches(adjustments),
                     settings,
                     None,
                 )?
@@ -3084,6 +3093,7 @@ async fn update_sidecars_from_images(
         let gpu_context = gpu_processing::get_or_init_gpu_context(&state, &app_handle).ok();
 
         let process = |path: &String| {
+            let mut reuse_for_thumbnail = true;
             let loaded_image: Option<DynamicImage> = (|| -> Result<DynamicImage, String> {
                 let (source_path, sidecar_path) = parse_virtual_path(path);
                 let source_path_str = source_path.to_string_lossy().to_string();
@@ -3118,10 +3128,14 @@ async fn update_sidecars_from_images(
                 if enable_xmp_sync {
                     sync_metadata_to_xmp(&source_path, &updated_metadata, create_xmp_if_missing);
                 }
+                reuse_for_thumbnail = !(fast_decode
+                    && is_raw_file(&source_path_str)
+                    && has_ai_patches(&updated_metadata.adjustments));
                 Ok(image)
             })()
             .map_err(|e| eprintln!("Failed to apply {} to {}: {}", operation, path, e))
-            .ok();
+            .ok()
+            .filter(|_| reuse_for_thumbnail);
 
             let result = generate_single_thumbnail_and_cache(
                 path,
