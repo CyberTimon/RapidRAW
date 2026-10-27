@@ -58,6 +58,7 @@ mod lens_correction;
 mod lut_processing;
 mod mask_generation;
 mod memory_budget;
+mod metadata_store;
 mod multi_exposure;
 mod negative_conversion;
 mod panorama_stitching;
@@ -1362,10 +1363,9 @@ async fn generate_preset_preview(
 
         let mut js_adjustments = js_adjustments;
         if ai_jobs::has_ai_results(&js_adjustments) {
-            let (source_path, sidecar_path) =
-                file_management::parse_virtual_path(&loaded_image.path);
+            let (source_path, key) = file_management::parse_virtual_path(&loaded_image.path);
             if let Some(source_id) = ai_jobs::source_id(&source_path) {
-                let existing = exif_processing::load_sidecar(&sidecar_path).adjustments;
+                let existing = crate::metadata_store::load(&key).adjustments;
                 ai_jobs::reconcile_ai_results(&mut js_adjustments, &existing, &source_id, false);
             }
         }
@@ -2301,6 +2301,10 @@ pub fn run() {
                 crate::immich::start(&app_handle);
             }
 
+            if let Ok(settings) = load_settings(app_handle.clone()) {
+                crate::metadata_store::apply_settings(&app_handle, &settings);
+            }
+
             if let Ok(cache_dir) = app_handle.path().app_cache_dir() {
                 crate::ai_denoise::initialize_cache_dir(cache_dir.clone());
                 crate::effect_maps::initialize_cache_dir(cache_dir.clone());
@@ -2780,6 +2784,7 @@ pub fn run() {
             file_management::handle_export_presets_to_file,
             file_management::save_community_preset,
             file_management::clear_all_sidecars,
+            metadata_store::get_default_metadata_database_path,
             file_management::clear_thumbnail_cache,
             storage::get_storage_usage,
             storage::clear_ai_maps_cache,

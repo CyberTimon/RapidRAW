@@ -1778,7 +1778,7 @@ pub(crate) async fn export_images_impl(
                 ensure_export_not_cancelled(&cancellation_token_clone)?;
 
                 let state = app_handle_clone.state::<AppState>();
-                let (source_path, sidecar_path) = parse_virtual_path(&image_path_str);
+                let (source_path, key) = parse_virtual_path(&image_path_str);
                 let source_path_str = source_path.to_string_lossy().to_string();
                 tauri::async_runtime::block_on(crate::immich::ensure_local(
                     &app_handle_clone,
@@ -1799,7 +1799,7 @@ pub(crate) async fn export_images_impl(
                         .map_err(|e| format!("Failed to generate AI results for export: {}", e))?;
                 }
 
-                let sidecar = crate::exif_processing::load_sidecar(&sidecar_path);
+                let sidecar = crate::metadata_store::load(&key);
                 let export_xmp = crate::exif_processing::ExportXmp::from_metadata(&sidecar);
 
                 let mut js_adjustments = match &adjustments_mode {
@@ -2345,7 +2345,7 @@ pub async fn estimate_export_sizes(
     }
 
     let first_path = &paths[0];
-    let (source_path, sidecar_path) = parse_virtual_path(first_path);
+    let (source_path, key) = parse_virtual_path(first_path);
     let source_path_str = source_path.to_string_lossy().to_string();
 
     let context = get_or_init_gpu_context(&state, &app_handle)?;
@@ -2465,7 +2465,7 @@ pub async fn estimate_export_sizes(
 
         (preview_byte_size as f64 * pixel_ratio) as usize
     } else {
-        let metadata = crate::exif_processing::load_sidecar(&sidecar_path);
+        let metadata = crate::metadata_store::load(&key);
         let mut js_adjustments = metadata.adjustments;
 
         const ESTIMATE_DIM: u32 = 1280;
