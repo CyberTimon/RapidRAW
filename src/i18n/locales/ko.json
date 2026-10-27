@@ -286,6 +286,7 @@
       "cullImage": "자동 선별",
       "denoise": "노이즈 제거",
       "editImage": "이미지 편집",
+      "editIn": "다른 프로그램에서 편집",
       "exportImage": "이미지 내보내기",
       "flag": "플래그",
       "flagPick": "선택됨",
@@ -388,6 +389,9 @@
     "toasts": {
       "couldNotShowExplorer": "탐색기에서 파일을 표시할 수 없습니다: {{err}}",
       "couldNotShowFolder": "폴더를 표시할 수 없습니다: {{err}}",
+      "editInFailed": "{{app}} 실패: {{err}}",
+      "editInNoOutput": "{{app}}이(가) 저장하지 않고 종료되었습니다.",
+      "editInWaiting": "{{app}}을(를) 기다리는 중입니다. 그 프로그램에서 파일을 저장하면 다시 가져옵니다. 기다리지 않으려면 이 메시지를 닫으세요.",
       "failedAddToAlbum": "앨범에 추가하지 못했습니다: {{err}}",
       "failedApplyAuto": "자동 조정을 적용하지 못했습니다: {{err}}",
       "failedChangeIcon": "아이콘을 변경하지 못했습니다: {{err}}",
@@ -2051,6 +2055,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "편집기는 디스플레이의 실제 픽셀 밀도에 맞춰 미리보기를 렌더링합니다. 이를 통해 모든 디테일이 1:1 픽셀 정확도로 표현되어, 확대하고 초점을 확인할 때 최대의 선명도를 제공합니다.",
+      "editIn": {
+        "add": "프로그램 추가",
+        "args": "인수 (선택 사항, {file}은 이미지 경로로 바뀝니다)",
+        "browse": "찾아보기",
+        "description": "여기에 등록한 프로그램은 이미지 컨텍스트 메뉴의 \"다른 프로그램에서 편집\"에 표시됩니다. \"원본 파일 보내기\"는 Topaz Photo AI나 DxO PureRAW 같은 RAW 도구에 적합합니다. 프로그램이 원본 파일을 받고, 그 옆에 저장한 이미지를 현재 조정과 함께 다시 가져옵니다. \"편집된 TIFF 보내기\"는 Photoshop, GIMP, Affinity 같은 편집기에 적합합니다. 조정 내용을 16비트 TIFF로 렌더링하고 프로그램이 그 파일을 직접 편집합니다.",
+        "executable": "프로그램",
+        "modes": {
+          "original": "원본 파일 보내기",
+          "rendered": "편집된 TIFF 보내기"
+        },
+        "name": "이름",
+        "path": "프로그램 경로",
+        "remove": "제거",
+        "title": "다른 프로그램에서 편집"
+      },
       "enableLivePreviews": "실시간 미리보기 활성화",
       "highDpi": "고해상도(High-DPI) 렌더링",
       "highDpiDesc": "화면의 네이티브 {{dpr}}배 물리적 픽셀 해상도로 미리보기를 렌더링합니다. 가능한 가장 선명한 미리보기를 제공하지만 메모리를 훨씬 많이 사용합니다.",

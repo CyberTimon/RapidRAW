@@ -286,6 +286,7 @@
       "cullImage": "自动筛选",
       "denoise": "降噪",
       "editImage": "编辑图像",
+      "editIn": "在其他程序中编辑",
       "exportImage": "导出图像",
       "flag": "标记",
       "flagPick": "留用",
@@ -388,6 +389,9 @@
     "toasts": {
       "couldNotShowExplorer": "无法在文件资源管理器中显示文件：{{err}}",
       "couldNotShowFolder": "无法显示文件夹：{{err}}",
+      "editInFailed": "{{app}} 失败：{{err}}",
+      "editInNoOutput": "{{app}} 已关闭，未保存。",
+      "editInWaiting": "正在等待 {{app}}。在该程序中保存文件即可将其带回，关闭此消息可停止等待。",
       "failedAddToAlbum": "添加到相册失败：{{err}}",
       "failedApplyAuto": "应用自动调整失败：{{err}}",
       "failedChangeIcon": "更换图标失败：{{err}}",
@@ -2051,6 +2055,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "编辑器根据显示器实际像素密度渲染预览。这确保每个细节都以 1:1 像素精度呈现，在缩放和检查焦点时提供最大清晰度。",
+      "editIn": {
+        "add": "添加程序",
+        "args": "参数（可选，{file} 会被替换为图像路径）",
+        "browse": "浏览",
+        "description": "此处列出的程序会出现在图像右键菜单的“在其他程序中编辑”中。“发送原始文件”适用于 Topaz Photo AI、DxO PureRAW 等 RAW 工具：程序接收原始文件，其保存在旁边的图像会连同您的调整一起带回。“发送编辑后的 TIFF”适用于 Photoshop、GIMP、Affinity 等编辑器：您的调整会渲染为 16 位 TIFF，由该程序直接编辑。",
+        "executable": "程序",
+        "modes": {
+          "original": "发送原始文件",
+          "rendered": "发送编辑后的 TIFF"
+        },
+        "name": "名称",
+        "path": "程序路径",
+        "remove": "移除",
+        "title": "在其他程序中编辑"
+      },
       "enableLivePreviews": "启用实时预览",
       "highDpi": "高 DPI 渲染",
       "highDpiDesc": "以屏幕原生 {{dpr}}x 物理像素分辨率渲染预览。产生最清晰的预览，但会显著增加内存使用。",

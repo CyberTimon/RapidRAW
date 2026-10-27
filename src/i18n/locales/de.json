@@ -286,6 +286,7 @@
       "cullImage": "Autom. aussortieren",
       "denoise": "Entrauschen",
       "editImage": "Bild bearbeiten",
+      "editIn": "Bearbeiten in",
       "exportImage": "Bild exportieren",
       "flag": "Markierung",
       "flagPick": "Ausgewählt",
@@ -388,6 +389,9 @@
     "toasts": {
       "couldNotShowExplorer": "Datei konnte nicht im Explorer angezeigt werden: {{err}}",
       "couldNotShowFolder": "Ordner konnte nicht angezeigt werden: {{err}}",
+      "editInFailed": "{{app}} fehlgeschlagen: {{err}}",
+      "editInNoOutput": "{{app}} wurde ohne Speichern geschlossen.",
+      "editInWaiting": "Warte auf {{app}}. Speichere die Datei dort, um sie zurückzuholen, oder schließe diese Meldung, um das Warten zu beenden.",
       "failedAddToAlbum": "Fehler beim Hinzufügen zum Album: {{err}}",
       "failedApplyAuto": "Fehler bei der autom. Anpassung: {{err}}",
       "failedChangeIcon": "Fehler beim Ändern des Symbols: {{err}}",
@@ -2057,6 +2061,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "Der Editor rendert die Vorschau passend zur tatsächlichen Pixeldichte Ihres Displays. Dies sorgt für 1:1 Pixelgenauigkeit und maximale Klarheit beim Zoomen.",
+      "editIn": {
+        "add": "Programm hinzufügen",
+        "args": "Argumente (optional, {file} wird durch den Bildpfad ersetzt)",
+        "browse": "Durchsuchen",
+        "description": "Hier aufgeführte Programme erscheinen im Kontextmenü von Bildern unter „Bearbeiten in“. „Originaldatei senden“ eignet sich für RAW-Werkzeuge wie Topaz Photo AI oder DxO PureRAW: Das Programm erhält die Originaldatei, und das daneben gespeicherte Bild wird mit deinen Anpassungen zurückgeholt. „Bearbeitetes TIFF senden“ eignet sich für Editoren wie Photoshop, GIMP oder Affinity: Deine Anpassungen werden in ein 16-Bit-TIFF gerendert, das das Programm direkt bearbeitet.",
+        "executable": "Programme",
+        "modes": {
+          "original": "Originaldatei senden",
+          "rendered": "Bearbeitetes TIFF senden"
+        },
+        "name": "Name",
+        "path": "Programmpfad",
+        "remove": "Entfernen",
+        "title": "Bearbeiten in"
+      },
       "enableLivePreviews": "Live-Vorschauen aktivieren",
       "highDpi": "High-DPI Rendering",
       "highDpiDesc": "Rendern Sie Vorschauen in der nativen {{dpr}}x Auflösung Ihres Bildschirms. Erzeugt die schärfste Vorschau, verbraucht aber mehr Speicher.",

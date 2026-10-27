@@ -41,6 +41,7 @@ export enum Invokes {
   SampleWhiteBalance = 'sample_white_balance',
   CalculateAutoStraighten = 'calculate_auto_straighten',
   CancelAiTask = 'cancel_ai_task',
+  CancelEditInApp = 'cancel_edit_in_app',
   CancelExport = 'cancel_export',
   CheckAIConnectorStatus = 'check_ai_connector_status',
   ClearAllSidecars = 'clear_all_sidecars',
@@ -55,6 +56,7 @@ export enum Invokes {
   DeleteFolder = 'delete_folder',
   DiscardAiJobs = 'discard_ai_jobs',
   DuplicateFile = 'duplicate_file',
+  EditInApp = 'edit_in_app',
   EstimateExportSizes = 'estimate_export_sizes',
   ExportImages = 'export_images',
   FrontendLog = 'frontend_log',
@@ -215,6 +217,18 @@ export interface CustomAspectRatio {
   height: number;
 }
 
+export enum EditInMode {
+  Original = 'original',
+  Rendered = 'rendered',
+}
+
+export interface EditInApp {
+  name: string;
+  path: string;
+  args: string;
+  mode: EditInMode;
+}
+
 export type GroupPreference = 'jpeg' | 'raw';
 export type GroupingMode = 'off' | GroupPreference;
 export type CompareView = 'off' | 'vertical' | 'horizontal' | 'sideBySide';
@@ -258,6 +272,7 @@ export interface AppSettings {
   exportPresets?: ExportPreset[];
   myLenses?: any;
   customAspectRatios?: CustomAspectRatio[];
+  editInApps?: EditInApp[];
   adjustmentLayout?: AdjustmentLayout;
   enableFolderImageCounts?: boolean;
   displayEditIcon?: boolean;

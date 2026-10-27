@@ -286,6 +286,7 @@
       "cullImage": "Cribratge automàtic",
       "denoise": "Reduir soroll",
       "editImage": "Editar imatge",
+      "editIn": "Edita a",
       "exportImage": "Exportar imatge",
       "flag": "Marca",
       "flagPick": "Seleccionada",
@@ -405,6 +406,9 @@
     "toasts": {
       "couldNotShowExplorer": "No s'ha pogut mostrar el fitxer a l'explorador: {{err}}",
       "couldNotShowFolder": "No s'ha pogut mostrar la carpeta: {{err}}",
+      "editInFailed": "{{app}} ha fallat: {{err}}",
+      "editInNoOutput": "{{app}} s'ha tancat sense desar.",
+      "editInWaiting": "S'està esperant {{app}}. Deseu el fitxer allà per recuperar-lo, o tanqueu aquest missatge per deixar d'esperar.",
       "failedAddToAlbum": "No s'ha pogut afegir a l'àlbum: {{err}}",
       "failedApplyAuto": "No s'han pogut aplicar els ajustaments automàtics: {{err}}",
       "failedChangeIcon": "No s'ha pogut canviar la icona: {{err}}",
@@ -2098,6 +2102,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "L'editor renderitza la vista prèvia perquè coincideixi amb la densitat real de píxels de la vostra pantalla. Això assegura que cada detall es representi amb precisió 1:1, proporcionant la màxima claredat a l'hora de fer zoom i comprovar l'enfocament.",
+      "editIn": {
+        "add": "Afegeix un programa",
+        "args": "Arguments (opcional, {file} se substitueix pel camí de la imatge)",
+        "browse": "Navega",
+        "description": "Els programes d'aquesta llista apareixen a «Edita a» del menú contextual de les imatges. «Envia el fitxer original» és per a eines RAW com Topaz Photo AI o DxO PureRAW: el programa rep el fitxer original i la imatge que desa al costat torna amb els vostres ajustos. «Envia un TIFF editat» és per a editors com Photoshop, GIMP o Affinity: els vostres ajustos es renderitzen en un TIFF de 16 bits que el programa edita directament.",
+        "executable": "Programes",
+        "modes": {
+          "original": "Envia el fitxer original",
+          "rendered": "Envia un TIFF editat"
+        },
+        "name": "Nom",
+        "path": "Camí del programa",
+        "remove": "Elimina",
+        "title": "Edita a"
+      },
       "enableLivePreviews": "Activar vistes prèvies en directe",
       "highDpi": "Renderització High-DPI",
       "highDpiDesc": "Renderitzar vistes prèvies a la resolució nativa de {{dpr}}x píxels de la pantalla. Produeix la vista prèvia més nítida possible, però utilitza molta més memòria.",

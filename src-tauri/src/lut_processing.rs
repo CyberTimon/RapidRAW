@@ -111,7 +111,7 @@ pub fn list_luts_in_dir(dir: &Path, is_built_in: bool) -> anyhow::Result<Vec<Lut
     Ok(entries)
 }
 
-fn unique_lut_destination(dir: &Path, stem: &str, extension: &str) -> PathBuf {
+pub fn unique_destination(dir: &Path, stem: &str, extension: &str) -> PathBuf {
     let mut candidate = dir.join(format!("{}.{}", stem, extension));
     let mut suffix = 1;
     while candidate.exists() && suffix < 1000 {
@@ -146,7 +146,7 @@ pub fn import_luts_to_dir(dir: &Path, source_paths: &[String]) -> anyhow::Result
             .and_then(|s| s.to_str())
             .unwrap_or("cube")
             .to_lowercase();
-        let destination = unique_lut_destination(dir, stem, &extension);
+        let destination = unique_destination(dir, stem, &extension);
         if let Err(error) = copy(source_path, &destination) {
             log::error!("Failed to copy LUT '{}': {}", source, error);
         }
@@ -176,7 +176,7 @@ fn import_android_lut(source: &str) -> anyhow::Result<()> {
         .parent()
         .ok_or_else(|| anyhow!("Invalid cache path"))?
         .to_path_buf();
-    let destination = unique_lut_destination(&cache_dir, &stem, &extension);
+    let destination = unique_destination(&cache_dir, &stem, &extension);
     std::fs::write(&destination, &bytes)?;
     Ok(())
 }

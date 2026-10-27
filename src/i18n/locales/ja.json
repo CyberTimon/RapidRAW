@@ -286,6 +286,7 @@
       "cullImage": "自動選別",
       "denoise": "ノイズ低減",
       "editImage": "画像を編集",
+      "editIn": "外部アプリで編集",
       "exportImage": "画像を書き出し",
       "flag": "フラグ",
       "flagPick": "採用",
@@ -388,6 +389,9 @@
     "toasts": {
       "couldNotShowExplorer": "エクスプローラーでファイルを表示できませんでした: {{err}}",
       "couldNotShowFolder": "フォルダを表示できませんでした: {{err}}",
+      "editInFailed": "{{app}} が失敗しました: {{err}}",
+      "editInNoOutput": "{{app}} は保存せずに終了しました。",
+      "editInWaiting": "{{app}} を待っています。そちらでファイルを保存すると取り込まれます。待機をやめるにはこのメッセージを閉じてください。",
       "failedAddToAlbum": "アルバムへの追加に失敗しました: {{err}}",
       "failedApplyAuto": "自動補正の適用に失敗しました: {{err}}",
       "failedChangeIcon": "アイコンの変更に失敗しました: {{err}}",
@@ -2051,6 +2055,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "編集画面は、ディスプレイの実際の画素密度に合わせたプレビューをレンダリングします。これにより、ズーム時やピント合わせ時に1:1のピクセル精度で細部まで鮮明に表現されます。",
+      "editIn": {
+        "add": "プログラムを追加",
+        "args": "引数（任意。{file} は画像のパスに置き換えられます）",
+        "browse": "参照",
+        "description": "ここに登録したプログラムは、画像のコンテキストメニューの「外部アプリで編集」に表示されます。「元のファイルを送る」は Topaz Photo AI や DxO PureRAW などの RAW ツール向けです。プログラムに元のファイルを渡し、その横に保存された画像を現在の調整とともに取り込みます。「編集済み TIFF を送る」は Photoshop、GIMP、Affinity などのエディター向けです。調整を 16 ビット TIFF に書き出し、プログラムがそのファイルを直接編集します。",
+        "executable": "プログラム",
+        "modes": {
+          "original": "元のファイルを送る",
+          "rendered": "編集済み TIFF を送る"
+        },
+        "name": "名前",
+        "path": "プログラムのパス",
+        "remove": "削除",
+        "title": "外部アプリで編集"
+      },
       "enableLivePreviews": "リアルタイムプレビューを有効化",
       "highDpi": "高DPIレンダリング",
       "highDpiDesc": "画面本来の物理解像度である {{dpr}}x でプレビューをレンダリングします。極めて鮮明なプレビューが得られますが、メモリ消費が大幅に増加します。",

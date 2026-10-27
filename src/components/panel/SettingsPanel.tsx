@@ -56,6 +56,7 @@ import { useCloudUsage } from '../../hooks/useCloudUsage';
 import { open } from '@tauri-apps/plugin-shell';
 import ImmichSettings from '../immich/ImmichSettings';
 import DataManagementSettings from './settings/DataManagementSettings';
+import EditInAppsSettings from './settings/EditInAppsSettings';
 
 interface ConfirmModalState {
   confirmText: string;
@@ -2336,6 +2337,13 @@ export default function SettingsPanel({
                         </AnimatePresence>
                       </div>
                     </div>
+                  </div>
+
+                  <div className="p-6 bg-surface rounded-xl shadow-md">
+                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
+                      {t('settings.processing.editIn.title')}
+                    </Text>
+                    <EditInAppsSettings appSettings={appSettings} onSettingsChange={onSettingsChange} />
                   </div>
 
                   <div className="p-6 bg-surface rounded-xl shadow-md">

@@ -286,6 +286,7 @@
       "cullImage": "Autom. selecteren",
       "denoise": "Ruis verwijderen",
       "editImage": "Afbeelding bewerken",
+      "editIn": "Bewerken in",
       "exportImage": "Afbeelding exporteren",
       "flag": "Markering",
       "flagPick": "Gekozen",
@@ -388,6 +389,9 @@
     "toasts": {
       "couldNotShowExplorer": "Kon bestand niet weergeven in Verkenner: {{err}}",
       "couldNotShowFolder": "Kon map niet weergeven: {{err}}",
+      "editInFailed": "{{app}} mislukt: {{err}}",
+      "editInNoOutput": "{{app}} is gesloten zonder op te slaan.",
+      "editInWaiting": "Wachten op {{app}}. Sla het bestand daar op om het terug te halen, of sluit dit bericht om te stoppen met wachten.",
       "failedAddToAlbum": "Kan niet aan album toevoegen: {{err}}",
       "failedApplyAuto": "Automatische aanpassingen konden niet worden toegepast: {{err}}",
       "failedChangeIcon": "Pictogram kon niet worden gewijzigd: {{err}}",
@@ -2053,6 +2057,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "De editor rendert het voorbeeld om overeen te komen met de werkelijke pixeldichtheid van uw beeldscherm. Dit zorgt ervoor dat elk detail wordt weergegeven met 1:1 pixelnauwkeurigheid, wat maximale helderheid biedt bij zoomen en scherpte controleren.",
+      "editIn": {
+        "add": "Programma toevoegen",
+        "args": "Argumenten (optioneel, {file} wordt vervangen door het pad van de afbeelding)",
+        "browse": "Bladeren",
+        "description": "Programma's in deze lijst verschijnen onder \"Bewerken in\" in het contextmenu van afbeeldingen. \"Origineel bestand sturen\" is voor RAW-tools zoals Topaz Photo AI of DxO PureRAW: het programma krijgt het originele bestand en de afbeelding die het ernaast opslaat komt terug met je aanpassingen. \"Bewerkte TIFF sturen\" is voor editors zoals Photoshop, GIMP of Affinity: je aanpassingen worden gerenderd naar een 16-bit TIFF die het programma ter plekke bewerkt.",
+        "executable": "Programma's",
+        "modes": {
+          "original": "Origineel bestand sturen",
+          "rendered": "Bewerkte TIFF sturen"
+        },
+        "name": "Naam",
+        "path": "Programmapad",
+        "remove": "Verwijderen",
+        "title": "Bewerken in"
+      },
       "enableLivePreviews": "Live voorbeelden inschakelen",
       "highDpi": "High-DPI-rendering",
       "highDpiDesc": "Voorbeelden renderen op de native {{dpr}}x fysieke pixelresolutie van uw scherm. Produceert het scherpste mogelijk voorbeeld maar gebruikt aanzienlijk meer geheugen.",
