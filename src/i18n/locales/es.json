@@ -518,13 +518,9 @@
       "vertical": "Dividir izquierda / derecha"
     },
     "crop": {
-      "apply": "Aplicar",
-      "applyTooltip": "Aplicar recorte (Intro)",
       "aspectRatioHeading": "Relación de aspecto",
       "autoStraightenFailed": "Error al enderezar automáticamente: {{error}}",
       "autoStraightenNoLines": "No se encontraron líneas rectas para enderezar",
-      "cancel": "Cancelar",
-      "cancelTooltip": "Deshacer cambios de recorte (Esc)",
       "custom": {
         "hPlaceholder": "Al",
         "hTooltip": "Altura",

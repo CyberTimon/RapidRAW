@@ -498,13 +498,9 @@
       "vertical": "Links / rechts teilen"
     },
     "crop": {
-      "apply": "Anwenden",
-      "applyTooltip": "Zuschnitt anwenden (Eingabe)",
       "aspectRatioHeading": "Seitenverhältnis",
       "autoStraightenFailed": "Automatisches Ausrichten fehlgeschlagen: {{error}}",
       "autoStraightenNoLines": "Keine geraden Linien zum Ausrichten gefunden",
-      "cancel": "Abbrechen",
-      "cancelTooltip": "Zuschnittänderungen verwerfen (Esc)",
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Höhe",

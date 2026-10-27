@@ -498,13 +498,9 @@
       "vertical": "Split Left / Right"
     },
     "crop": {
-      "apply": "Apply",
-      "applyTooltip": "Apply crop (Enter)",
       "aspectRatioHeading": "Aspect Ratio",
       "autoStraightenFailed": "Auto straighten failed: {{error}}",
       "autoStraightenNoLines": "No straight lines found to level from",
-      "cancel": "Cancel",
-      "cancelTooltip": "Revert crop changes (Esc)",
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Height",

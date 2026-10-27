@@ -538,13 +538,9 @@
       "vertical": "Разделить слева / справа"
     },
     "crop": {
-      "apply": "Применить",
-      "applyTooltip": "Применить кадрирование (Enter)",
       "aspectRatioHeading": "Соотношение сторон",
       "autoStraightenFailed": "Не удалось выровнять автоматически: {{error}}",
       "autoStraightenNoLines": "Не найдено прямых линий для выравнивания",
-      "cancel": "Отмена",
-      "cancelTooltip": "Отменить изменения кадрирования (Esc)",
       "custom": {
         "hPlaceholder": "В",
         "hTooltip": "Высота",

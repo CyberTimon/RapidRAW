@@ -518,13 +518,9 @@
       "vertical": "Scinder gauche / droite"
     },
     "crop": {
-      "apply": "Appliquer",
-      "applyTooltip": "Appliquer le recadrage (Entrée)",
       "aspectRatioHeading": "Rapport d'aspect",
       "autoStraightenFailed": "Échec du redressement automatique : {{error}}",
       "autoStraightenNoLines": "Aucune ligne droite trouvée pour redresser",
-      "cancel": "Annuler",
-      "cancelTooltip": "Annuler les modifications du recadrage (Échap)",
       "custom": {
         "hPlaceholder": "H",
         "hTooltip": "Hauteur",
