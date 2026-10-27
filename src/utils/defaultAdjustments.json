@@ -286,6 +286,7 @@
   "lutSize": 0,
   "lutIsSceneReferred": false,
   "masks": [],
+  "negativeAnalysisRegion": { "x": 0.12, "y": 0.12, "width": 0.76, "height": 0.76 },
   "negativeBlueWeight": 1,
   "negativeContrast": 1,
   "negativeConversionEnabled": false,

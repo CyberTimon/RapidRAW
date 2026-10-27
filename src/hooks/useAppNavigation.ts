@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
+import { useNegativeAnalysisStore } from '../store/useNegativeAnalysisStore';
 import { useProcessStore } from '../store/useProcessStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { Invokes, LibraryViewMode, ImageFile } from '../components/ui/AppProperties';
@@ -116,6 +117,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
   } = refs;
 
   const handleGoHome = useCallback(() => {
+    useNegativeAnalysisStore.getState().closeWorkspace();
     useLibraryStore.getState().setLibrary({
       rootPaths: [],
       currentFolderPath: null,

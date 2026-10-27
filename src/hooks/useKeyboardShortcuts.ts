@@ -7,6 +7,7 @@ import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useUIStore } from '../store/useUIStore';
 import { useProcessStore } from '../store/useProcessStore';
+import { useNegativeAnalysisStore } from '../store/useNegativeAnalysisStore';
 import { useEditorActions } from './useEditorActions';
 import { useLibraryActions } from './useLibraryActions';
 
@@ -608,6 +609,21 @@ export const useKeyboardShortcuts = ({
     };
 
     const builtinShortcuts = [
+      {
+        match: (e: KeyboardEvent, s: ShortcutState) =>
+          (e.key === 'Enter' || e.key === 'Escape') &&
+          s.ui.activeView === 'editor' &&
+          !!s.editor.adjustments.negativeConversionEnabled &&
+          s.ui.activePanel !== Panel.Crop &&
+          s.ui.activePanel !== Panel.Masks &&
+          s.ui.activePanel !== Panel.Ai &&
+          useNegativeAnalysisStore.getState().editing,
+        execute: (e: KeyboardEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          useNegativeAnalysisStore.getState().finishEditing(e.key === 'Enter');
+        },
+      },
       {
         match: (e: KeyboardEvent) => e.code === 'Escape',
         execute: (e: KeyboardEvent, s: any) => {

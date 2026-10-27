@@ -1,3 +1,5 @@
+import AnalysisRegionOverlay from './overlays/AnalysisRegionOverlay';
+import { useNegativeAnalysisStore } from '../../../store/useNegativeAnalysisStore';
 import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import ReactCrop from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
@@ -1478,6 +1480,12 @@ const ImageCanvas = memo(
     transformScale,
     hasRenderedFirstFrame,
   }: ImageCanvasProps) => {
+    const analysisEditing =
+      useNegativeAnalysisStore((s) => s.editing) &&
+      !!adjustments.negativeConversionEnabled &&
+      !isCropping &&
+      !isMasking &&
+      !isAiEditing;
     const interactivePatch = useEditorStore((state) => state.interactivePatch);
     const isGuidedPerspectiveActive = useEditorStore((state) => state.isGuidedPerspectiveActive);
     const isRelightPickerActive = useEditorStore((state) => state.isRelightPickerActive);
@@ -3455,8 +3463,8 @@ const ImageCanvas = memo(
         <div
           className="absolute inset-0 w-full h-full transition-opacity duration-200 flex items-center justify-center"
           style={{
-            opacity: isCropViewVisible ? 0 : 1,
-            pointerEvents: isCropViewVisible ? 'none' : 'auto',
+            opacity: isCropViewVisible || analysisEditing ? 0 : 1,
+            pointerEvents: isCropViewVisible || analysisEditing ? 'none' : 'auto',
           }}
         >
           <div
@@ -3840,6 +3848,21 @@ const ImageCanvas = memo(
             </div>
           )}
         </div>
+
+        {analysisEditing &&
+          uncroppedAdjustedPreviewUrl &&
+          uncroppedImageRenderSize?.width &&
+          uncroppedImageRenderSize?.height && (
+            <AnalysisRegionOverlay
+              width={uncroppedImageRenderSize.width}
+              height={uncroppedImageRenderSize.height}
+              zoom={effectiveZoomScale}
+              imageUrl={uncroppedAdjustedPreviewUrl}
+              imageStyle={{ transform: cropImageTransforms }}
+              project={mapUvToScreen}
+              unproject={mapScreenToUv}
+            />
+          )}
 
         <div
           className="absolute inset-0 w-full h-full flex items-center justify-center transition-opacity duration-200"

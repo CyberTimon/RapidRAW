@@ -12,6 +12,7 @@ pub const PARAM_KEYS: &[&str] = &[
     "negativeBlueWeight",
     "negativeExposure",
     "negativeContrast",
+    "negativeAnalysisRegion",
 ];
 
 const BOUNDS_REFERENCE_DIM: u32 = 1080;
@@ -25,6 +26,7 @@ struct NegativeConversionParams {
 
     exposure: f32,
     contrast: f32,
+    region: Option<[f32; 4]>,
 }
 
 impl NegativeConversionParams {
@@ -36,6 +38,14 @@ impl NegativeConversionParams {
             blue_weight: get("negativeBlueWeight", 1.0),
             exposure: get("negativeExposure", 0.0),
             contrast: get("negativeContrast", 1.0),
+            region: adjustments
+                .get("negativeAnalysisRegion")
+                .and_then(|region| {
+                    let values = ["x", "y", "width", "height"]
+                        .map(|key| region[key].as_f64().unwrap_or(f64::NAN) as f32);
+                    (values.iter().all(|v| v.is_finite()) && values[2] > 0.0 && values[3] > 0.0)
+                        .then_some(values)
+                }),
         }
     }
 }
@@ -69,21 +79,38 @@ struct ChannelBounds {
     max: f32,
 }
 
-fn analyze_bounds(log_data: &[f32], width: usize, height: usize) -> [ChannelBounds; 3] {
+fn analyze_bounds(
+    log_data: &[f32],
+    width: usize,
+    height: usize,
+    region: Option<[f32; 4]>,
+) -> [ChannelBounds; 3] {
     let margin_x = (width as f32 * 0.12) as usize;
     let margin_y = (height as f32 * 0.12) as usize;
 
-    let est_pixels = (width.saturating_sub(margin_x * 2)) * (height.saturating_sub(margin_y * 2));
+    let default = (margin_x, margin_y, width - margin_x, height - margin_y);
+    let (left, top, right, bottom) = region
+        .map(|[x, y, w, h]| {
+            (
+                (x.clamp(0.0, 1.0) * width as f32).floor() as usize,
+                (y.clamp(0.0, 1.0) * height as f32).floor() as usize,
+                ((x + w).clamp(0.0, 1.0) * width as f32).ceil() as usize,
+                ((y + h).clamp(0.0, 1.0) * height as f32).ceil() as usize,
+            )
+        })
+        .filter(|&(l, t, r, b)| r > l && b > t)
+        .unwrap_or(default);
+    let est_pixels = (right - left) * (bottom - top);
     let step = (est_pixels / 40_000).max(1);
 
     let mut r_vals = Vec::with_capacity(est_pixels / step);
     let mut g_vals = Vec::with_capacity(est_pixels / step);
     let mut b_vals = Vec::with_capacity(est_pixels / step);
 
-    for y in (margin_y..(height - margin_y)).step_by(3) {
+    for y in (top..bottom).step_by(3) {
         let row_offset = y * width * 3;
 
-        for x in (margin_x..(width - margin_x)).step_by(step) {
+        for x in (left..right).step_by(step) {
             let idx = row_offset + (x * 3);
 
             if idx + 2 < log_data.len() {
@@ -131,7 +158,7 @@ fn density(v: f32) -> f32 {
     -v.clamp(1e-6, 1.0).log10()
 }
 
-fn channel_bounds(image: &DynamicImage) -> [ChannelBounds; 3] {
+fn channel_bounds(image: &DynamicImage, region: Option<[f32; 4]>) -> [ChannelBounds; 3] {
     let downscaled =
         downscale_f32_image_if_needed(image, BOUNDS_REFERENCE_DIM, BOUNDS_REFERENCE_DIM);
     let reference = downscaled.as_ref().unwrap_or(image);
@@ -145,11 +172,11 @@ fn channel_bounds(image: &DynamicImage) -> [ChannelBounds; 3] {
     };
     let (width, height) = rgb.dimensions();
     let log_pixels: Vec<f32> = rgb.as_raw().par_iter().map(|&v| density(v)).collect();
-    analyze_bounds(&log_pixels, width as usize, height as usize)
+    analyze_bounds(&log_pixels, width as usize, height as usize, region)
 }
 
 fn convert(input: DynamicImage, params: &NegativeConversionParams) -> DynamicImage {
-    let bounds = channel_bounds(&input);
+    let bounds = channel_bounds(&input, params.region);
     let mut rgb = input.into_rgb32f();
 
     let k = 4.0 * params.contrast.max(0.1);
@@ -194,3 +221,4 @@ fn convert(input: DynamicImage, params: &NegativeConversionParams) -> DynamicIma
 
     DynamicImage::ImageRgb32F(rgb)
 }
+
