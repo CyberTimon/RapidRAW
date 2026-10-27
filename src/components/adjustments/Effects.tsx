@@ -946,7 +946,7 @@ function EffectsPanel({
               <LUTControl
                 lutPath={adjustments.lutPath || null}
                 lutName={adjustments.lutName || null}
-                lutIntensity={adjustments.lutIntensity || 100}
+                lutIntensity={adjustments.lutIntensity ?? 100}
                 onLutSelect={handleLutSelect}
                 onLutHover={onLutHover}
                 onIntensityChange={handleLutIntensityChange}
