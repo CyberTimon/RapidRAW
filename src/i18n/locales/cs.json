@@ -55,6 +55,55 @@
         "reds": "Červená",
         "yellows": "Žlutá"
       },
+      "monochrome": {
+        "badge": "Č/B",
+        "balance": "Vyvážení",
+        "blackWhite": "Černobílá",
+        "film": "Film",
+        "filmDescriptions": {
+          "balanced": "Rovnoměrná citlivost na všechny barvy, se světlejšími červenými a pletí",
+          "extendedRed": "Film citlivý na červenou se zářivou pletí a tmavší oblohou",
+          "infrared": "Zářící listí a téměř černá obloha",
+          "neutral": "Odpovídá vnímanému jasu každé barvy",
+          "orthoPanchromatic": "Mírně tmavší červené a jasné zelené",
+          "orthochromatic": "Necitlivý na červenou, s tmavými červenými a světlou oblohou",
+          "panchromatic": "Klasická odezva filmu se světlejší modrou oblohou"
+        },
+        "films": {
+          "balanced": "Vyvážený",
+          "extendedRed": "Rozšířená červená",
+          "infrared": "Infračervený",
+          "neutral": "Neutrální",
+          "orthoPanchromatic": "Orto-pan",
+          "orthochromatic": "Ortochromatický",
+          "panchromatic": "Panchromatický"
+        },
+        "filter": "Filtr",
+        "filters": {
+          "blue": "Modrá",
+          "green": "Zelená",
+          "none": "Žádný",
+          "orange": "Oranžová",
+          "red": "Červená",
+          "yellow": "Žlutá"
+        },
+        "highlights": "Světla",
+        "hue": "Odstín",
+        "mix": "Č/B mix",
+        "saturation": "Sytost",
+        "shadows": "Stíny",
+        "strength": "Síla",
+        "toning": "Tónování",
+        "tonings": {
+          "cyanotype": "Kyanotypie",
+          "gold": "Zlato",
+          "none": "Žádné",
+          "platinum": "Platina",
+          "selenium": "Selen",
+          "sepia": "Sépie",
+          "split": "Dělené tónování"
+        }
+      },
       "presence": "Prezence",
       "saturation": "Sytost",
       "temperature": "Teplota",
@@ -228,6 +277,7 @@
       "cancel": "Zrušit",
       "colorLabel": "Barevný štítek",
       "confirmReset": "Potvrďte reset",
+      "convertBlackWhite": "Převést na černobílou",
       "convertNegative": "Převést negativ",
       "copyAdjustments": "Kopírovat úpravy",
       "cullImage": "Automatické třídění",
@@ -247,6 +297,7 @@
       "ratingLabel_one": "{{count}} hvězdička",
       "ratingLabel_other": "{{count}} hvězdiček",
       "redo": "Znovu",
+      "removeBlackWhite": "Odebrat černobílou",
       "removeDenoise": "Odebrat odšumění",
       "removeNegativeConversion": "Odebrat převod negativu",
       "resetAdjustments": "Obnovit nastavení",
@@ -1443,6 +1494,7 @@
       "descReplace": "Přepíše všechna vybraná nastavení, zbytek obnoví na výchozí hodnoty.",
       "groups": {
         "aiDenoise": "AI odšumění",
+        "blackWhite": "Černobílá",
         "chromaticAberration": "Chromatická aberace",
         "clarityDehaze": "Zřetelnost a odmlžení",
         "colorCalibration": "Kalibrace barev",
@@ -1841,6 +1893,7 @@
         "toggle_adjustments": "Přepnout panel úprav",
         "toggle_ai": "Přepnout panel AI",
         "toggle_analytics": "Přepnout zobrazení analýzy",
+        "toggle_black_white": "Přepnout černobílou",
         "toggle_bottom_panel": "Přepnout filmový pás",
         "toggle_crop": "Přepnout oříznutí / narovnání",
         "toggle_crop_panel": "Přepnout panel oříznutí",

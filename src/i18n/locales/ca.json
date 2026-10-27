@@ -56,6 +56,55 @@
         "reds": "Vermells",
         "yellows": "Grocs"
       },
+      "monochrome": {
+        "badge": "B/N",
+        "balance": "Balanç",
+        "blackWhite": "Blanc i negre",
+        "film": "Pel·lícula",
+        "filmDescriptions": {
+          "balanced": "Sensibilitat uniforme a tots els colors, amb vermells i pell més clars",
+          "extendedRed": "Pel·lícula sensible al vermell amb pell lluminosa i cels més foscos",
+          "infrared": "Fullatge brillant i cels gairebé negres",
+          "neutral": "Coincideix amb la brillantor percebuda de cada color",
+          "orthoPanchromatic": "Vermells lleugerament més foscos amb verds nítids",
+          "orthochromatic": "Cega al vermell, amb vermells foscos i cels clars",
+          "panchromatic": "Resposta clàssica de pel·lícula amb cels blaus més clars"
+        },
+        "films": {
+          "balanced": "Equilibrada",
+          "extendedRed": "Vermell estès",
+          "infrared": "Infraroja",
+          "neutral": "Neutra",
+          "orthoPanchromatic": "Orto-pan",
+          "orthochromatic": "Ortocromàtica",
+          "panchromatic": "Pancromàtica"
+        },
+        "filter": "Filtre",
+        "filters": {
+          "blue": "Blau",
+          "green": "Verd",
+          "none": "Cap",
+          "orange": "Taronja",
+          "red": "Vermell",
+          "yellow": "Groc"
+        },
+        "highlights": "Altes llums",
+        "hue": "To",
+        "mix": "Mescla B/N",
+        "saturation": "Saturació",
+        "shadows": "Ombres",
+        "strength": "Intensitat",
+        "toning": "Virat",
+        "tonings": {
+          "cyanotype": "Cianotípia",
+          "gold": "Or",
+          "none": "Cap",
+          "platinum": "Platí",
+          "selenium": "Seleni",
+          "sepia": "Sèpia",
+          "split": "Virat dividit"
+        }
+      },
       "presence": "Presència",
       "saturation": "Saturació",
       "temperature": "Temperatura",
@@ -229,6 +278,7 @@
       "cancel": "Cancel·lar",
       "colorLabel": "Etiqueta de color",
       "confirmReset": "Confirmar restabliment",
+      "convertBlackWhite": "Convertir a blanc i negre",
       "convertNegative": "Convertir negatiu",
       "copyAdjustments": "Copiar ajustaments",
       "cullImage": "Cribratge automàtic",
@@ -248,6 +298,7 @@
       "ratingLabel_one": "{{count}} Estrella",
       "ratingLabel_other": "{{count}} Estrelles",
       "redo": "Refer",
+      "removeBlackWhite": "Treure blanc i negre",
       "removeDenoise": "Treure reducció de soroll",
       "removeNegativeConversion": "Treure conversió de negatiu",
       "resetAdjustments": "Restablir ajustaments",
@@ -1442,6 +1493,7 @@
       "descReplace": "Sobreescriu tota la configuració seleccionada, restablint la resta als seus valors predeterminats.",
       "groups": {
         "aiDenoise": "Reducció de soroll amb IA",
+        "blackWhite": "Blanc i negre",
         "chromaticAberration": "Aberració cromàtica",
         "clarityDehaze": "Claredat i Eliminar boira",
         "colorCalibration": "Calibratge de color",
@@ -1840,6 +1892,7 @@
         "toggle_adjustments": "Alternar tauler d'Ajustaments",
         "toggle_ai": "Alternar tauler d'IA",
         "toggle_analytics": "Alternar visualització d'anàlisi",
+        "toggle_black_white": "Alternar blanc i negre",
         "toggle_bottom_panel": "Commutar la tira d'imatges",
         "toggle_crop": "Alternar Retallar / Redreçar",
         "toggle_crop_panel": "Alternar tauler de Retall",

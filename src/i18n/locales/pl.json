@@ -56,6 +56,55 @@
         "reds": "Czerwone",
         "yellows": "Żółte"
       },
+      "monochrome": {
+        "badge": "Cz-b",
+        "balance": "Balans",
+        "blackWhite": "Czarno-białe",
+        "film": "Film",
+        "filmDescriptions": {
+          "balanced": "Równa czułość na wszystkie kolory, z jaśniejszymi czerwieniami i skórą",
+          "extendedRed": "Film czuły na czerwień: świetlista skóra i ciemniejsze niebo",
+          "infrared": "Świecące liście i niemal czarne niebo",
+          "neutral": "Odpowiada postrzeganej jasności każdego koloru",
+          "orthoPanchromatic": "Nieco ciemniejsze czerwienie i wyraziste zielenie",
+          "orthochromatic": "Ślepy na czerwień: ciemne czerwienie i jasne niebo",
+          "panchromatic": "Klasyczna charakterystyka filmu z jaśniejszym niebieskim niebem"
+        },
+        "films": {
+          "balanced": "Zrównoważony",
+          "extendedRed": "Rozszerzona czerwień",
+          "infrared": "Podczerwień",
+          "neutral": "Neutralny",
+          "orthoPanchromatic": "Orto-pan",
+          "orthochromatic": "Ortochromatyczny",
+          "panchromatic": "Panchromatyczny"
+        },
+        "filter": "Filtr",
+        "filters": {
+          "blue": "Niebieski",
+          "green": "Zielony",
+          "none": "Brak",
+          "orange": "Pomarańczowy",
+          "red": "Czerwony",
+          "yellow": "Żółty"
+        },
+        "highlights": "Światła",
+        "hue": "Odcień",
+        "mix": "Mikser cz-b",
+        "saturation": "Nasycenie",
+        "shadows": "Cienie",
+        "strength": "Siła",
+        "toning": "Tonowanie",
+        "tonings": {
+          "cyanotype": "Cyjanotypia",
+          "gold": "Złoto",
+          "none": "Brak",
+          "platinum": "Platyna",
+          "selenium": "Selen",
+          "sepia": "Sepia",
+          "split": "Tonowanie dzielone"
+        }
+      },
       "presence": "Prezencja",
       "saturation": "Nasycenie",
       "temperature": "Temperatura",
@@ -229,6 +278,7 @@
       "cancel": "Anuluj",
       "colorLabel": "Etykieta koloru",
       "confirmReset": "Potwierdź reset",
+      "convertBlackWhite": "Konwertuj na czarno-białe",
       "convertNegative": "Konwertuj negatyw",
       "copyAdjustments": "Kopiuj ustawienia",
       "cullImage": "Automatyczna selekcja",
@@ -250,6 +300,7 @@
       "ratingLabel_one": "{{count}} Gwiazdka",
       "ratingLabel_other": "{{count}} Gwiazdek",
       "redo": "Ponów",
+      "removeBlackWhite": "Usuń konwersję czarno-białą",
       "removeDenoise": "Usuń odszumianie",
       "removeNegativeConversion": "Usuń konwersję negatywu",
       "resetAdjustments": "Resetuj ustawienia",
@@ -1494,6 +1545,7 @@
       "descReplace": "Nadpisuje wszystkie wybrane ustawienia, przywracając resztę do wartości domyślnych.",
       "groups": {
         "aiDenoise": "Odszumianie AI",
+        "blackWhite": "Czarno-białe",
         "chromaticAberration": "Aberracja chromatyczna",
         "clarityDehaze": "Przejrzystość i Usuwanie mgły",
         "colorCalibration": "Kalibracja kolorów",
@@ -1910,6 +1962,7 @@
         "toggle_adjustments": "Przełącz panel Ustawienia",
         "toggle_ai": "Przełącz panel AI",
         "toggle_analytics": "Przełącz wyświetlanie analityki",
+        "toggle_black_white": "Przełącz czarno-białe",
         "toggle_bottom_panel": "Przełącz pasek z klatkami",
         "toggle_crop": "Przełącz Kadrowanie / Prostowanie",
         "toggle_crop_panel": "Przełącz panel Kadrowanie",

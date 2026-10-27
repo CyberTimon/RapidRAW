@@ -56,6 +56,55 @@
         "reds": "Rossi",
         "yellows": "Gialli"
       },
+      "monochrome": {
+        "badge": "B/N",
+        "balance": "Bilanciamento",
+        "blackWhite": "Bianco e nero",
+        "film": "Pellicola",
+        "filmDescriptions": {
+          "balanced": "Sensibilità uniforme a tutti i colori, con rossi e pelle più chiari",
+          "extendedRed": "Pellicola sensibile al rosso con pelle luminosa e cieli più scuri",
+          "infrared": "Fogliame luminoso e cieli quasi neri",
+          "neutral": "Corrisponde alla luminosità percepita di ogni colore",
+          "orthoPanchromatic": "Rossi leggermente più scuri e verdi nitidi",
+          "orthochromatic": "Cieca al rosso, con rossi scuri e cieli chiari",
+          "panchromatic": "Risposta classica della pellicola con cieli azzurri più chiari"
+        },
+        "films": {
+          "balanced": "Bilanciata",
+          "extendedRed": "Rosso esteso",
+          "infrared": "Infrarossi",
+          "neutral": "Neutra",
+          "orthoPanchromatic": "Orto-pan",
+          "orthochromatic": "Ortocromatica",
+          "panchromatic": "Pancromatica"
+        },
+        "filter": "Filtro",
+        "filters": {
+          "blue": "Blu",
+          "green": "Verde",
+          "none": "Nessuno",
+          "orange": "Arancione",
+          "red": "Rosso",
+          "yellow": "Giallo"
+        },
+        "highlights": "Luci",
+        "hue": "Tonalità",
+        "mix": "Mixer B/N",
+        "saturation": "Saturazione",
+        "shadows": "Ombre",
+        "strength": "Intensità",
+        "toning": "Viraggio",
+        "tonings": {
+          "cyanotype": "Cianotipia",
+          "gold": "Oro",
+          "none": "Nessuno",
+          "platinum": "Platino",
+          "selenium": "Selenio",
+          "sepia": "Seppia",
+          "split": "Viraggio diviso"
+        }
+      },
       "presence": "Presenza",
       "saturation": "Saturazione",
       "temperature": "Temperatura",
@@ -229,6 +278,7 @@
       "cancel": "Annulla",
       "colorLabel": "Etichetta Colore",
       "confirmReset": "Conferma Ripristino",
+      "convertBlackWhite": "Converti in Bianco e Nero",
       "convertNegative": "Converti Negativo",
       "copyAdjustments": "Copia Regolazioni",
       "cullImage": "Selezione Automatica",
@@ -249,6 +299,7 @@
       "ratingLabel_one": "{{count}} Stella",
       "ratingLabel_other": "{{count}} Stelle",
       "redo": "Ripeti",
+      "removeBlackWhite": "Rimuovi Bianco e Nero",
       "removeDenoise": "Rimuovi Riduzione Rumore",
       "removeNegativeConversion": "Rimuovi Conversione Negativo",
       "resetAdjustments": "Ripristina Regolazioni",
@@ -1467,6 +1518,7 @@
       "descReplace": "Sovrascrive tutte le impostazioni selezionate, ripristinando il resto ai valori predefiniti.",
       "groups": {
         "aiDenoise": "Riduzione rumore IA",
+        "blackWhite": "Bianco e nero",
         "chromaticAberration": "Aberrazione Cromatica",
         "clarityDehaze": "Chiarezza e Rimozione Foschia",
         "colorCalibration": "Calibrazione Colore",
@@ -1874,6 +1926,7 @@
         "toggle_adjustments": "Attiva/Disattiva pannello Regolazioni",
         "toggle_ai": "Attiva/Disattiva pannello AI",
         "toggle_analytics": "Attiva/Disattiva visualizzazione Analitiche",
+        "toggle_black_white": "Attiva/Disattiva Bianco e Nero",
         "toggle_bottom_panel": "Mostra/Nascondi striscia immagini",
         "toggle_crop": "Attiva/Disattiva Ritaglio / Raddrizza",
         "toggle_crop_panel": "Attiva/Disattiva pannello Ritaglio",

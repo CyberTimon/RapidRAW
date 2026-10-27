@@ -55,6 +55,55 @@
         "reds": "Rood",
         "yellows": "Geel"
       },
+      "monochrome": {
+        "badge": "Z/W",
+        "balance": "Balans",
+        "blackWhite": "Zwart-wit",
+        "film": "Film",
+        "filmDescriptions": {
+          "balanced": "Gelijkmatige gevoeligheid voor alle kleuren, met lichter rood en een lichtere huid",
+          "extendedRed": "Roodgevoelige film met een stralende huid en donkerdere luchten",
+          "infrared": "Stralend gebladerte en bijna zwarte luchten",
+          "neutral": "Komt overeen met de waargenomen helderheid van elke kleur",
+          "orthoPanchromatic": "Iets donkerder rood met heldere groentinten",
+          "orthochromatic": "Blind voor rood, met donker rood en lichte luchten",
+          "panchromatic": "Klassieke filmrespons met lichtere blauwe luchten"
+        },
+        "films": {
+          "balanced": "Gebalanceerd",
+          "extendedRed": "Uitgebreid rood",
+          "infrared": "Infrarood",
+          "neutral": "Neutraal",
+          "orthoPanchromatic": "Ortho-pan",
+          "orthochromatic": "Orthochromatisch",
+          "panchromatic": "Panchromatisch"
+        },
+        "filter": "Filter",
+        "filters": {
+          "blue": "Blauw",
+          "green": "Groen",
+          "none": "Geen",
+          "orange": "Oranje",
+          "red": "Rood",
+          "yellow": "Geel"
+        },
+        "highlights": "Hooglichten",
+        "hue": "Kleurtoon",
+        "mix": "Z/W-mix",
+        "saturation": "Verzadiging",
+        "shadows": "Schaduwen",
+        "strength": "Sterkte",
+        "toning": "Tonen",
+        "tonings": {
+          "cyanotype": "Cyanotypie",
+          "gold": "Goud",
+          "none": "Geen",
+          "platinum": "Platina",
+          "selenium": "Selenium",
+          "sepia": "Sepia",
+          "split": "Split-toning"
+        }
+      },
       "presence": "Presentie",
       "saturation": "Verzadiging",
       "temperature": "Kleurtemperatuur",
@@ -228,6 +277,7 @@
       "cancel": "Annuleren",
       "colorLabel": "Kleurlabel",
       "confirmReset": "Herstellen bevestigen",
+      "convertBlackWhite": "Omzetten naar zwart-wit",
       "convertNegative": "Negatief omzetten",
       "copyAdjustments": "Aanpassingen kopiëren",
       "cullImage": "Autom. selecteren",
@@ -244,6 +294,7 @@
       "ratingLabel_one": "{{count}} ster",
       "ratingLabel_other": "{{count}} sterren",
       "redo": "Opnieuw",
+      "removeBlackWhite": "Zwart-wit verwijderen",
       "removeDenoise": "Ruisonderdrukking verwijderen",
       "removeNegativeConversion": "Negatiefconversie verwijderen",
       "resetAdjustments": "Aanpassingen herstellen",
@@ -1413,6 +1464,7 @@
       "descReplace": "Overschrijft alle geselecteerde instellingen en herstelt de overige naar standaardwaarden.",
       "groups": {
         "aiDenoise": "AI-ruisonderdrukking",
+        "blackWhite": "Zwart-wit",
         "chromaticAberration": "Chromatische aberratie",
         "clarityDehaze": "Contrast en nevelreductie",
         "colorCalibration": "Kleurkalibratie",
@@ -1810,6 +1862,7 @@
         "toggle_adjustments": "Aanpassingspaneel aan/uit",
         "toggle_ai": "AI-paneel aan/uit",
         "toggle_analytics": "Analyseweergave aan/uit",
+        "toggle_black_white": "Zwart-wit aan/uit",
         "toggle_bottom_panel": "Filmstrip aan/uit",
         "toggle_crop": "Bijsnijden / rechtzetten aan/uit",
         "toggle_crop_panel": "Bijsnijdpaneel aan/uit",

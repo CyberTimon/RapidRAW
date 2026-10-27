@@ -56,6 +56,55 @@
         "reds": "红色",
         "yellows": "黄色"
       },
+      "monochrome": {
+        "badge": "黑白",
+        "balance": "平衡",
+        "blackWhite": "黑白",
+        "film": "胶片",
+        "filmDescriptions": {
+          "balanced": "对各颜色感光均匀，红色和肤色更亮",
+          "extendedRed": "红色敏感胶片，肤色通透，天空更暗",
+          "infrared": "植被发光，天空近乎全黑",
+          "neutral": "匹配每种颜色的感知亮度",
+          "orthoPanchromatic": "红色略暗，绿色清晰",
+          "orthochromatic": "对红色不敏感，红色更暗，天空明亮",
+          "panchromatic": "经典胶片响应，蓝天更亮"
+        },
+        "films": {
+          "balanced": "均衡",
+          "extendedRed": "扩展红",
+          "infrared": "红外",
+          "neutral": "中性",
+          "orthoPanchromatic": "正全色",
+          "orthochromatic": "正色",
+          "panchromatic": "全色"
+        },
+        "filter": "滤镜",
+        "filters": {
+          "blue": "蓝色",
+          "green": "绿色",
+          "none": "无",
+          "orange": "橙色",
+          "red": "红色",
+          "yellow": "黄色"
+        },
+        "highlights": "高光",
+        "hue": "色相",
+        "mix": "黑白混合",
+        "saturation": "饱和度",
+        "shadows": "阴影",
+        "strength": "强度",
+        "toning": "色调",
+        "tonings": {
+          "cyanotype": "蓝晒",
+          "gold": "金",
+          "none": "无",
+          "platinum": "铂金",
+          "selenium": "硒",
+          "sepia": "棕褐色",
+          "split": "分离色调"
+        }
+      },
       "presence": "质感",
       "saturation": "饱和度",
       "temperature": "色温",
@@ -229,6 +278,7 @@
       "cancel": "取消",
       "colorLabel": "颜色标签",
       "confirmReset": "确认重置",
+      "convertBlackWhite": "转换为黑白",
       "convertNegative": "转换负片",
       "copyAdjustments": "复制调整",
       "cullImage": "自动筛选",
@@ -248,6 +298,7 @@
       "ratingLabel_one": "{{count}} 星",
       "ratingLabel_other": "{{count}} 星",
       "redo": "重做",
+      "removeBlackWhite": "移除黑白",
       "removeDenoise": "移除降噪",
       "removeNegativeConversion": "移除负片转换",
       "resetAdjustments": "重置调整",
@@ -1431,6 +1482,7 @@
       "descReplace": "覆盖所有选中的设置，其余重置为默认值。",
       "groups": {
         "aiDenoise": "AI 降噪",
+        "blackWhite": "黑白",
         "chromaticAberration": "色差",
         "clarityDehaze": "清晰度与去雾",
         "colorCalibration": "颜色校准",
@@ -1829,6 +1881,7 @@
         "toggle_adjustments": "切换调整面板",
         "toggle_ai": "切换 AI 面板",
         "toggle_analytics": "切换分析显示",
+        "toggle_black_white": "切换黑白",
         "toggle_bottom_panel": "切换胶片条",
         "toggle_crop": "切换裁剪/拉直",
         "toggle_crop_panel": "切换裁剪面板",

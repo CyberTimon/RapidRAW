@@ -56,6 +56,55 @@
         "reds": "紅色",
         "yellows": "黃色"
       },
+      "monochrome": {
+        "badge": "黑白",
+        "balance": "平衡",
+        "blackWhite": "黑白",
+        "film": "底片",
+        "filmDescriptions": {
+          "balanced": "對各顏色感光均勻，紅色與膚色更亮",
+          "extendedRed": "紅色敏感底片，膚色透亮，天空更暗",
+          "infrared": "植被發光，天空近乎全黑",
+          "neutral": "符合每種顏色的感知亮度",
+          "orthoPanchromatic": "紅色略暗，綠色清晰",
+          "orthochromatic": "對紅色不敏感，紅色更暗，天空明亮",
+          "panchromatic": "經典底片響應，藍天更亮"
+        },
+        "films": {
+          "balanced": "均衡",
+          "extendedRed": "延伸紅",
+          "infrared": "紅外線",
+          "neutral": "中性",
+          "orthoPanchromatic": "正全色",
+          "orthochromatic": "正色",
+          "panchromatic": "全色"
+        },
+        "filter": "濾鏡",
+        "filters": {
+          "blue": "藍色",
+          "green": "綠色",
+          "none": "無",
+          "orange": "橙色",
+          "red": "紅色",
+          "yellow": "黃色"
+        },
+        "highlights": "亮部",
+        "hue": "色相",
+        "mix": "黑白混合",
+        "saturation": "飽和度",
+        "shadows": "陰影",
+        "strength": "強度",
+        "toning": "色調",
+        "tonings": {
+          "cyanotype": "藍曬",
+          "gold": "金",
+          "none": "無",
+          "platinum": "鉑金",
+          "selenium": "硒",
+          "sepia": "棕褐色",
+          "split": "分離色調"
+        }
+      },
       "presence": "質感",
       "saturation": "飽和度",
       "temperature": "色溫",
@@ -229,6 +278,7 @@
       "cancel": "取消",
       "colorLabel": "顏色標籤",
       "confirmReset": "確認重置",
+      "convertBlackWhite": "轉換為黑白",
       "convertNegative": "轉換負片",
       "copyAdjustments": "複製調整",
       "cullImage": "自動篩選",
@@ -248,6 +298,7 @@
       "ratingLabel_one": "{{count}} 星",
       "ratingLabel_other": "{{count}} 星",
       "redo": "重做",
+      "removeBlackWhite": "移除黑白",
       "removeDenoise": "移除降噪",
       "removeNegativeConversion": "移除負片轉換",
       "resetAdjustments": "重置調整",
@@ -1431,6 +1482,7 @@
       "descReplace": "覆蓋所有選中的設定，其餘重置為預設值。",
       "groups": {
         "aiDenoise": "AI 降噪",
+        "blackWhite": "黑白",
         "chromaticAberration": "色差",
         "clarityDehaze": "清晰度與去朦朧",
         "colorCalibration": "顏色校準",
@@ -1829,6 +1881,7 @@
         "toggle_adjustments": "切換調整面板",
         "toggle_ai": "切換 AI 面板",
         "toggle_analytics": "切換分析顯示",
+        "toggle_black_white": "切換黑白",
         "toggle_bottom_panel": "切換膠片條",
         "toggle_crop": "切換裁剪/拉直",
         "toggle_crop_panel": "切換裁剪面板",

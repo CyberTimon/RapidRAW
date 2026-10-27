@@ -222,6 +222,40 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
         adjustments.insert("hsl".to_string(), Value::Object(hsl_map));
     }
 
+    let grayscale = attrs
+        .get("ConvertToGrayscale")
+        .map(|v| v.eq_ignore_ascii_case("true"));
+    if let Some(is_monochrome) = grayscale {
+        adjustments.insert("monochromeEnabled".to_string(), json!(is_monochrome));
+    }
+    if grayscale == Some(true) {
+        let mut mix_map = Map::new();
+        for (src, dst) in colors {
+            if let Some(val) = get_attr_as_f64(&attrs, &format!("GrayMixer{}", src)) {
+                mix_map.insert(dst.to_string(), json!(val.clamp(-100.0, 100.0)));
+            }
+        }
+        if !mix_map.is_empty() {
+            adjustments.insert("monochromeMix".to_string(), Value::Object(mix_map));
+        }
+
+        let mut toning_map = Map::new();
+        for (xmp_key, rr_key) in [
+            ("SplitToningShadowHue", "shadowHue"),
+            ("SplitToningShadowSaturation", "shadowSaturation"),
+            ("SplitToningHighlightHue", "highlightHue"),
+            ("SplitToningHighlightSaturation", "highlightSaturation"),
+            ("SplitToningBalance", "balance"),
+        ] {
+            if let Some(val) = get_attr_as_f64(&attrs, xmp_key) {
+                toning_map.insert(rr_key.to_string(), json!(val));
+            }
+        }
+        if !toning_map.is_empty() {
+            adjustments.insert("monochromeToning".to_string(), Value::Object(toning_map));
+        }
+    }
+
     let mut shadows_map = Map::new();
     let mut midtones_map = Map::new();
     let mut highlights_map = Map::new();

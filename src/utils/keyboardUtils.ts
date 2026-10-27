@@ -318,6 +318,12 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     section: 'editing',
   },
   {
+    action: 'toggle_black_white',
+    description: 'settings.keybinds.actions.toggle_black_white',
+    defaultCombo: ['KeyV'],
+    section: 'editing',
+  },
+  {
     action: 'brush_size_up',
     description: 'settings.keybinds.actions.brush_size_up',
     defaultCombo: ['ctrl', 'ArrowUp'],
