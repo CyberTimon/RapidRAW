@@ -2045,7 +2045,10 @@ pub fn run() {
         .build_global();
 
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let launch_req = parse_launch_args(&args);
+    let launch_req = resolve_gui_launch_paths(
+        parse_launch_args(&args),
+        &std::env::current_dir().unwrap_or_default(),
+    );
     if let LaunchRequest::InvalidHeadless(error) = &launch_req {
         eprintln!("Headless export failed: {}", error);
         std::process::exit(2);
@@ -2064,7 +2067,7 @@ pub fn run() {
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         if !is_headless {
-            builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
                 log::info!(
                     "New instance launched with args: {:?}. Focusing main window.",
                     argv
@@ -2079,7 +2082,13 @@ pub fn run() {
                 }
 
                 let forwarded_args = argv.get(1..).unwrap_or(&[]);
-                emit_launch_request(app, parse_launch_args(forwarded_args));
+                emit_launch_request(
+                    app,
+                    resolve_gui_launch_paths(
+                        parse_launch_args(forwarded_args),
+                        std::path::Path::new(&cwd),
+                    ),
+                );
             }));
         }
     }
