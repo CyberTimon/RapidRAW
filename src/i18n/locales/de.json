@@ -2229,6 +2229,7 @@
       "selectImageFile": "Eine Bilddatei auswählen"
     },
     "lut": {
+      "cameraLook": "Kamera-Look",
       "clearLut": "LUT löschen",
       "customLuts": "Eigene LUTs",
       "empty": "Noch keine LUTs — importiere welche",
@@ -2238,6 +2239,8 @@
       "importFailed": "LUTs konnten nicht importiert werden",
       "intensity": "Intensität",
       "label": "LUT",
+      "matchCamera": "Kamera-JPEG nachbilden",
+      "matchCameraFailed": "Kamera-JPEG konnte nicht nachgebildet werden: {{error}}",
       "removeLut": "LUT entfernen",
       "select": "Auswählen",
       "selectLutFile": "Eine LUT-Datei auswählen",

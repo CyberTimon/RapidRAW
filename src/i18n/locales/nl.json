@@ -2198,6 +2198,7 @@
       "selectImageFile": "Selecteer een afbeeldingsbestand"
     },
     "lut": {
+      "cameraLook": "Cameralook",
       "clearLut": "LUT wissen",
       "customLuts": "Aangepaste LUT's",
       "empty": "Nog geen LUT's — importeer er enkele",
@@ -2207,6 +2208,8 @@
       "importFailed": "LUT's importeren mislukt",
       "intensity": "Intensiteit",
       "label": "LUT",
+      "matchCamera": "Camera-JPEG nabootsen",
+      "matchCameraFailed": "Kan de camera-JPEG niet nabootsen: {{error}}",
       "removeLut": "LUT verwijderen",
       "select": "Selecteren",
       "selectLutFile": "Selecteer een LUT-bestand",

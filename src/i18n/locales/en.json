@@ -2229,6 +2229,7 @@
       "selectImageFile": "Select an image file"
     },
     "lut": {
+      "cameraLook": "Camera Look",
       "clearLut": "Clear LUT",
       "customLuts": "Custom LUTs",
       "empty": "No LUTs yet — import some",
@@ -2238,6 +2239,8 @@
       "importFailed": "Failed to import LUTs",
       "intensity": "Intensity",
       "label": "LUT",
+      "matchCamera": "Match Camera JPEG",
+      "matchCameraFailed": "Could not match the camera JPEG: {{error}}",
       "removeLut": "Remove LUT",
       "select": "Select",
       "selectLutFile": "Select a LUT file",

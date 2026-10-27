@@ -2267,6 +2267,7 @@
       "selectImageFile": "Seleccionar un archivo de imagen"
     },
     "lut": {
+      "cameraLook": "Aspecto de la cámara",
       "clearLut": "Borrar LUT",
       "customLuts": "LUTs personalizadas",
       "empty": "Aún no hay LUTs — importa algunos",
@@ -2276,6 +2277,8 @@
       "importFailed": "Error al importar LUTs",
       "intensity": "Intensidad",
       "label": "LUT",
+      "matchCamera": "Igualar el JPEG de la cámara",
+      "matchCameraFailed": "No se pudo igualar el JPEG de la cámara: {{error}}",
       "removeLut": "Eliminar LUT",
       "select": "Seleccionar",
       "selectLutFile": "Seleccionar un archivo LUT",

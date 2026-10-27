@@ -2224,6 +2224,7 @@
       "selectImageFile": "이미지 파일 선택"
     },
     "lut": {
+      "cameraLook": "카메라 룩",
       "clearLut": "LUT 지우기",
       "customLuts": "사용자 LUT",
       "empty": "아직 LUT가 없습니다 — 가져오기를 수행하세요",
@@ -2233,6 +2234,8 @@
       "importFailed": "LUT 가져오기 실패",
       "intensity": "강도",
       "label": "LUT",
+      "matchCamera": "카메라 JPEG에 맞추기",
+      "matchCameraFailed": "카메라 JPEG에 맞출 수 없습니다: {{error}}",
       "removeLut": "LUT 제거",
       "select": "선택",
       "selectLutFile": "LUT 파일 선택",
