@@ -1483,6 +1483,44 @@
     }
   },
   "modals": {
+    "bulkChange": {
+      "colorLabels": {
+        "confirm": "Modifier les étiquettes",
+        "message_many": "{{count}} des images sélectionnées ont déjà une étiquette de couleur. Cette action la remplace.",
+        "message_one": "{{count}} des images sélectionnées a déjà une étiquette de couleur. Cette action la remplace.",
+        "message_other": "{{count}} des images sélectionnées ont déjà une étiquette de couleur. Cette action la remplace.",
+        "title_many": "Modifier {{count}} étiquettes de couleur ?",
+        "title_one": "Modifier {{count}} étiquette de couleur ?",
+        "title_other": "Modifier {{count}} étiquettes de couleur ?"
+      },
+      "flags": {
+        "confirm": "Modifier les marquages",
+        "message_many": "{{count}} des images sélectionnées ont déjà un marquage. Cette action le remplace.",
+        "message_one": "{{count}} des images sélectionnées a déjà un marquage. Cette action le remplace.",
+        "message_other": "{{count}} des images sélectionnées ont déjà un marquage. Cette action le remplace.",
+        "title_many": "Modifier {{count}} marquages ?",
+        "title_one": "Modifier {{count}} marquage ?",
+        "title_other": "Modifier {{count}} marquages ?"
+      },
+      "ratings": {
+        "confirm": "Modifier les notes",
+        "message_many": "{{count}} des images sélectionnées ont déjà une note. Cette action la remplace.",
+        "message_one": "{{count}} des images sélectionnées a déjà une note. Cette action la remplace.",
+        "message_other": "{{count}} des images sélectionnées ont déjà une note. Cette action la remplace.",
+        "title_many": "Modifier {{count}} notes ?",
+        "title_one": "Modifier {{count}} note ?",
+        "title_other": "Modifier {{count}} notes ?"
+      },
+      "reset": {
+        "confirm": "Réinitialiser les retouches",
+        "message_many": "{{count}} des images sélectionnées ont des retouches. La réinitialisation les supprime et est irréversible.",
+        "message_one": "{{count}} des images sélectionnées a des retouches. La réinitialisation les supprime et est irréversible.",
+        "message_other": "{{count}} des images sélectionnées ont des retouches. La réinitialisation les supprime et est irréversible.",
+        "title_many": "Réinitialiser {{count}} images ?",
+        "title_one": "Réinitialiser {{count}} image ?",
+        "title_other": "Réinitialiser {{count}} images ?"
+      }
+    },
     "collage": {
       "aspectRatio": "Rapport d'aspect",
       "background": "Arrière-plan",
@@ -1866,6 +1904,10 @@
       "totalUsed": "RapidRAW utilise {{size}} sur cet appareil."
     },
     "general": {
+      "confirmBulkChanges": "Confirmer les modifications groupées",
+      "confirmBulkChangesDesc": "Demander avant de remplacer la note, le marquage, l'étiquette de couleur ou les retouches de nombreuses images à la fois.",
+      "confirmBulkChangesFrom": "Confirmer à partir de",
+      "confirmBulkChangesFromDesc": "Demander lorsqu'au moins ce nombre d'images serait modifié.",
       "createXmp": "Créer les fichiers XMP manquants",
       "createXmpDesc": "Créer automatiquement un nouveau fichier annexe XMP s'il n'en existe pas pour une image.",
       "createXmpMissing": "Créer XMP si manquant",

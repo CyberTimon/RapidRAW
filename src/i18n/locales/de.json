@@ -1450,6 +1450,36 @@
     }
   },
   "modals": {
+    "bulkChange": {
+      "colorLabels": {
+        "confirm": "Farbmarkierungen ändern",
+        "message_one": "{{count}} der ausgewählten Bilder hat bereits eine Farbmarkierung. Sie wird ersetzt.",
+        "message_other": "{{count}} der ausgewählten Bilder haben bereits eine Farbmarkierung. Sie wird ersetzt.",
+        "title_one": "{{count}} Farbmarkierung ändern?",
+        "title_other": "{{count}} Farbmarkierungen ändern?"
+      },
+      "flags": {
+        "confirm": "Markierungen ändern",
+        "message_one": "{{count}} der ausgewählten Bilder hat bereits eine Markierung. Sie wird ersetzt.",
+        "message_other": "{{count}} der ausgewählten Bilder haben bereits eine Markierung. Sie wird ersetzt.",
+        "title_one": "{{count}} Markierung ändern?",
+        "title_other": "{{count}} Markierungen ändern?"
+      },
+      "ratings": {
+        "confirm": "Bewertungen ändern",
+        "message_one": "{{count}} der ausgewählten Bilder hat bereits eine Bewertung. Sie wird ersetzt.",
+        "message_other": "{{count}} der ausgewählten Bilder haben bereits eine Bewertung. Sie wird ersetzt.",
+        "title_one": "{{count}} Bewertung ändern?",
+        "title_other": "{{count}} Bewertungen ändern?"
+      },
+      "reset": {
+        "confirm": "Bearbeitungen zurücksetzen",
+        "message_one": "{{count}} der ausgewählten Bilder hat Bearbeitungen. Beim Zurücksetzen werden sie entfernt, was nicht rückgängig gemacht werden kann.",
+        "message_other": "{{count}} der ausgewählten Bilder haben Bearbeitungen. Beim Zurücksetzen werden sie entfernt, was nicht rückgängig gemacht werden kann.",
+        "title_one": "{{count}} Bild zurücksetzen?",
+        "title_other": "{{count}} Bilder zurücksetzen?"
+      }
+    },
     "collage": {
       "aspectRatio": "Seitenverhältnis",
       "background": "Hintergrund",
@@ -1824,6 +1854,10 @@
       "totalUsed": "RapidRAW belegt {{size}} auf diesem Gerät."
     },
     "general": {
+      "confirmBulkChanges": "Massenänderungen bestätigen",
+      "confirmBulkChangesDesc": "Vor dem Ersetzen von Bewertung, Markierung, Farbmarkierung oder Bearbeitungen vieler Bilder auf einmal nachfragen.",
+      "confirmBulkChangesFrom": "Bestätigen ab",
+      "confirmBulkChangesFromDesc": "Nachfragen, wenn sich so viele Bilder oder mehr ändern würden.",
       "createXmp": "Fehlende XMP-Dateien erstellen",
       "createXmpDesc": "Erstellt automatisch eine neue XMP-Filialdatei, falls noch keine für ein Bild existiert.",
       "createXmpMissing": "XMP erstellen, falls fehlend",

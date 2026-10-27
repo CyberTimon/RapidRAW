@@ -278,6 +278,8 @@ export interface AppSettings {
   copyPasteSettings?: CopyPasteSettings;
   enableFocusMode?: boolean;
   enableToolFocusMode?: boolean;
+  confirmBulkChanges?: boolean;
+  bulkChangeThreshold?: number;
   openTreeSections?: string[];
   folderIcons?: Record<string, string>;
   exifOverlay?: ExifOverlay;

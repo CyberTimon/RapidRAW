@@ -1482,6 +1482,44 @@
     }
   },
   "modals": {
+    "bulkChange": {
+      "colorLabels": {
+        "confirm": "Canviar etiquetes",
+        "message_many": "{{count}} de les imatges seleccionades ja tenen una etiqueta de color. Això la substitueix.",
+        "message_one": "{{count}} de les imatges seleccionades ja té una etiqueta de color. Això la substitueix.",
+        "message_other": "{{count}} de les imatges seleccionades ja tenen una etiqueta de color. Això la substitueix.",
+        "title_many": "Canviar {{count}} etiquetes de color?",
+        "title_one": "Canviar {{count}} etiqueta de color?",
+        "title_other": "Canviar {{count}} etiquetes de color?"
+      },
+      "flags": {
+        "confirm": "Canviar marques",
+        "message_many": "{{count}} de les imatges seleccionades ja tenen una marca. Això la substitueix.",
+        "message_one": "{{count}} de les imatges seleccionades ja té una marca. Això la substitueix.",
+        "message_other": "{{count}} de les imatges seleccionades ja tenen una marca. Això la substitueix.",
+        "title_many": "Canviar {{count}} marques?",
+        "title_one": "Canviar {{count}} marca?",
+        "title_other": "Canviar {{count}} marques?"
+      },
+      "ratings": {
+        "confirm": "Canviar puntuacions",
+        "message_many": "{{count}} de les imatges seleccionades ja tenen una puntuació. Això la substitueix.",
+        "message_one": "{{count}} de les imatges seleccionades ja té una puntuació. Això la substitueix.",
+        "message_other": "{{count}} de les imatges seleccionades ja tenen una puntuació. Això la substitueix.",
+        "title_many": "Canviar {{count}} puntuacions?",
+        "title_one": "Canviar {{count}} puntuació?",
+        "title_other": "Canviar {{count}} puntuacions?"
+      },
+      "reset": {
+        "confirm": "Restablir edicions",
+        "message_many": "{{count}} de les imatges seleccionades tenen edicions. El restabliment les elimina i no es pot desfer.",
+        "message_one": "{{count}} de les imatges seleccionades té edicions. El restabliment les elimina i no es pot desfer.",
+        "message_other": "{{count}} de les imatges seleccionades tenen edicions. El restabliment les elimina i no es pot desfer.",
+        "title_many": "Restablir {{count}} imatges?",
+        "title_one": "Restablir {{count}} imatge?",
+        "title_other": "Restablir {{count}} imatges?"
+      }
+    },
     "collage": {
       "aspectRatio": "Relació d'aspecte",
       "background": "Fons",
@@ -1865,6 +1903,10 @@
       "totalUsed": "RapidRAW està fent servir {{size}} en aquest dispositiu."
     },
     "general": {
+      "confirmBulkChanges": "Confirmar canvis massius",
+      "confirmBulkChangesDesc": "Pregunta abans de substituir la puntuació, la marca, l'etiqueta de color o les edicions de moltes imatges alhora.",
+      "confirmBulkChangesFrom": "Confirmar a partir de",
+      "confirmBulkChangesFromDesc": "Pregunta quan canviarien aquest nombre d'imatges o més.",
       "createXmp": "Crear fitxers XMP que falten",
       "createXmpDesc": "Crear automàticament un nou fitxer sidecar XMP si no n'existeix cap per a una imatge.",
       "createXmpMissing": "Crear XMP si falta",

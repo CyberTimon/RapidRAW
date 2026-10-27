@@ -1482,6 +1482,44 @@
     }
   },
   "modals": {
+    "bulkChange": {
+      "colorLabels": {
+        "confirm": "Cambiar etiquetas",
+        "message_many": "{{count}} de las imágenes seleccionadas ya tienen una etiqueta de color. Esto la reemplaza.",
+        "message_one": "{{count}} de las imágenes seleccionadas ya tiene una etiqueta de color. Esto la reemplaza.",
+        "message_other": "{{count}} de las imágenes seleccionadas ya tienen una etiqueta de color. Esto la reemplaza.",
+        "title_many": "¿Cambiar {{count}} etiquetas de color?",
+        "title_one": "¿Cambiar {{count}} etiqueta de color?",
+        "title_other": "¿Cambiar {{count}} etiquetas de color?"
+      },
+      "flags": {
+        "confirm": "Cambiar marcas",
+        "message_many": "{{count}} de las imágenes seleccionadas ya tienen una marca. Esto la reemplaza.",
+        "message_one": "{{count}} de las imágenes seleccionadas ya tiene una marca. Esto la reemplaza.",
+        "message_other": "{{count}} de las imágenes seleccionadas ya tienen una marca. Esto la reemplaza.",
+        "title_many": "¿Cambiar {{count}} marcas?",
+        "title_one": "¿Cambiar {{count}} marca?",
+        "title_other": "¿Cambiar {{count}} marcas?"
+      },
+      "ratings": {
+        "confirm": "Cambiar puntuaciones",
+        "message_many": "{{count}} de las imágenes seleccionadas ya tienen una puntuación. Esto la reemplaza.",
+        "message_one": "{{count}} de las imágenes seleccionadas ya tiene una puntuación. Esto la reemplaza.",
+        "message_other": "{{count}} de las imágenes seleccionadas ya tienen una puntuación. Esto la reemplaza.",
+        "title_many": "¿Cambiar {{count}} puntuaciones?",
+        "title_one": "¿Cambiar {{count}} puntuación?",
+        "title_other": "¿Cambiar {{count}} puntuaciones?"
+      },
+      "reset": {
+        "confirm": "Restablecer ediciones",
+        "message_many": "{{count}} de las imágenes seleccionadas tienen ediciones. El restablecimiento las elimina y no se puede deshacer.",
+        "message_one": "{{count}} de las imágenes seleccionadas tiene ediciones. El restablecimiento las elimina y no se puede deshacer.",
+        "message_other": "{{count}} de las imágenes seleccionadas tienen ediciones. El restablecimiento las elimina y no se puede deshacer.",
+        "title_many": "¿Restablecer {{count}} imágenes?",
+        "title_one": "¿Restablecer {{count}} imagen?",
+        "title_other": "¿Restablecer {{count}} imágenes?"
+      }
+    },
     "collage": {
       "aspectRatio": "Relación de aspecto",
       "background": "Fondo",
@@ -1865,6 +1903,10 @@
       "totalUsed": "RapidRAW está usando {{size}} en este dispositivo."
     },
     "general": {
+      "confirmBulkChanges": "Confirmar cambios masivos",
+      "confirmBulkChangesDesc": "Preguntar antes de reemplazar la puntuación, la marca, la etiqueta de color o las ediciones de muchas imágenes a la vez.",
+      "confirmBulkChangesFrom": "Confirmar a partir de",
+      "confirmBulkChangesFromDesc": "Preguntar cuando cambiarían este número de imágenes o más.",
       "createXmp": "Crear archivos XMP faltantes",
       "createXmpDesc": "Crear automáticamente un nuevo archivo sidecar XMP si no existe uno para una imagen.",
       "createXmpMissing": "Crear XMP si falta",

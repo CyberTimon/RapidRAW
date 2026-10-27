@@ -1450,6 +1450,36 @@
     }
   },
   "modals": {
+    "bulkChange": {
+      "colorLabels": {
+        "confirm": "Labels wijzigen",
+        "message_one": "{{count}} van de geselecteerde afbeeldingen heeft al een kleurlabel. Het wordt vervangen.",
+        "message_other": "{{count}} van de geselecteerde afbeeldingen hebben al een kleurlabel. Het wordt vervangen.",
+        "title_one": "{{count}} kleurlabel wijzigen?",
+        "title_other": "{{count}} kleurlabels wijzigen?"
+      },
+      "flags": {
+        "confirm": "Vlaggen wijzigen",
+        "message_one": "{{count}} van de geselecteerde afbeeldingen heeft al een vlag. Deze wordt vervangen.",
+        "message_other": "{{count}} van de geselecteerde afbeeldingen hebben al een vlag. Deze wordt vervangen.",
+        "title_one": "{{count}} vlag wijzigen?",
+        "title_other": "{{count}} vlaggen wijzigen?"
+      },
+      "ratings": {
+        "confirm": "Beoordelingen wijzigen",
+        "message_one": "{{count}} van de geselecteerde afbeeldingen heeft al een beoordeling. Deze wordt vervangen.",
+        "message_other": "{{count}} van de geselecteerde afbeeldingen hebben al een beoordeling. Deze wordt vervangen.",
+        "title_one": "{{count}} beoordeling wijzigen?",
+        "title_other": "{{count}} beoordelingen wijzigen?"
+      },
+      "reset": {
+        "confirm": "Bewerkingen herstellen",
+        "message_one": "{{count}} van de geselecteerde afbeeldingen heeft bewerkingen. Herstellen verwijdert ze en dit kan niet ongedaan worden gemaakt.",
+        "message_other": "{{count}} van de geselecteerde afbeeldingen hebben bewerkingen. Herstellen verwijdert ze en dit kan niet ongedaan worden gemaakt.",
+        "title_one": "{{count}} afbeelding herstellen?",
+        "title_other": "{{count}} afbeeldingen herstellen?"
+      }
+    },
     "collage": {
       "aspectRatio": "Beeldverhouding",
       "background": "Achtergrond",
@@ -1824,6 +1854,10 @@
       "totalUsed": "RapidRAW gebruikt {{size}} op dit apparaat."
     },
     "general": {
+      "confirmBulkChanges": "Bulkwijzigingen bevestigen",
+      "confirmBulkChangesDesc": "Vragen voordat de beoordeling, vlag, het kleurlabel of de bewerkingen van veel afbeeldingen tegelijk worden vervangen.",
+      "confirmBulkChangesFrom": "Bevestigen vanaf",
+      "confirmBulkChangesFromDesc": "Vragen wanneer dit aantal afbeeldingen of meer zou veranderen.",
       "createXmp": "Ontbrekende XMP-bestanden maken",
       "createXmpDesc": "Automatisch een nieuw XMP-sidecar-bestand maken als er geen bestaat voor een afbeelding.",
       "createXmpMissing": "XMP maken indien ontbrekend",

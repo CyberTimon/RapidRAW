@@ -36,8 +36,13 @@ import ConfirmModal from '../modals/ConfirmModal';
 import Dropdown, { OptionItem } from '../ui/Dropdown';
 import Switch from '../ui/Switch';
 import Input from '../ui/Input';
-import Slider from '../ui/Slider';
+import Slider, { SliderChangeEvent } from '../ui/Slider';
 import { ThemeProps, THEMES, DEFAULT_THEME_ID } from '../../utils/themes';
+import {
+  DEFAULT_BULK_CHANGE_THRESHOLD,
+  MAX_BULK_CHANGE_THRESHOLD,
+  MIN_BULK_CHANGE_THRESHOLD,
+} from '../../utils/bulkChanges';
 import { useTranslation } from 'react-i18next';
 import { Invokes } from '../ui/AppProperties';
 import {
@@ -1009,6 +1014,52 @@ export default function SettingsPanel({
                                     onChange={(checked) =>
                                       onSettingsChange({ ...appSettings, createXmpIfMissing: checked })
                                     }
+                                  />
+                                </SettingItem>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
+                      <div className="space-y-4">
+                        <SettingItem
+                          label={t('settings.general.confirmBulkChanges')}
+                          description={t('settings.general.confirmBulkChangesDesc')}
+                        >
+                          <Switch
+                            checked={appSettings?.confirmBulkChanges ?? false}
+                            id="confirm-bulk-changes-toggle"
+                            label={t('settings.general.confirmBulkChanges')}
+                            onChange={(checked) => onSettingsChange({ ...appSettings, confirmBulkChanges: checked })}
+                          />
+                        </SettingItem>
+
+                        <AnimatePresence initial={false}>
+                          {(appSettings?.confirmBulkChanges ?? false) && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.3, ease: 'easeInOut' }}
+                              className="overflow-hidden"
+                            >
+                              <div className="pl-4 border-l-2 border-border-color ml-1">
+                                <SettingItem
+                                  label={t('settings.general.confirmBulkChangesFrom')}
+                                  description={t('settings.general.confirmBulkChangesFromDesc')}
+                                >
+                                  <Slider
+                                    label={t('settings.processing.images')}
+                                    min={MIN_BULK_CHANGE_THRESHOLD}
+                                    max={MAX_BULK_CHANGE_THRESHOLD}
+                                    step={1}
+                                    value={appSettings?.bulkChangeThreshold ?? DEFAULT_BULK_CHANGE_THRESHOLD}
+                                    defaultValue={DEFAULT_BULK_CHANGE_THRESHOLD}
+                                    onChange={(e: SliderChangeEvent) =>
+                                      onSettingsChange({ ...appSettings, bulkChangeThreshold: Number(e.target.value) })
+                                    }
+                                    fillOrigin="min"
                                   />
                                 </SettingItem>
                               </div>

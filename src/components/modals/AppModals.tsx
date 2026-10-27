@@ -17,6 +17,7 @@ import CullingModal from './CullingModal';
 import CollageModal from './CollageModal';
 import { AppSettings, Invokes, ImageFlag, AlbumItem, Album, AlbumGroup } from '../ui/AppProperties';
 import { CopyPasteSettings } from '../../utils/adjustments';
+import { BulkChangeOptions } from '../../utils/bulkChanges';
 
 export interface AppModalsProps {
   handleImageSelect: (path: string) => void;
@@ -30,8 +31,8 @@ export interface AppModalsProps {
   handleRenameFolder: (newName: string) => Promise<void>;
   handleSaveRename: (nameTemplate: string) => Promise<void>;
   handleStartImport: (settings: any) => Promise<void>;
-  handleSetFlag: (flag: ImageFlag | null, paths?: string[]) => void;
-  handleRate: (rating: number, paths?: string[]) => void;
+  handleSetFlag: (flag: ImageFlag | null, paths?: string[], options?: BulkChangeOptions) => void;
+  handleRate: (rating: number, paths?: string[], options?: BulkChangeOptions) => void;
   executeDelete: (paths: string[], options: any) => Promise<void>;
   handleSaveCollage: (base64Data: string, firstPath: string) => Promise<string>;
   handleCreateAlbumItem: (name: string, type: 'album' | 'group') => Promise<void>;
@@ -272,9 +273,9 @@ export default function AppModals(props: AppModalsProps) {
         imagePaths={cullingModalState.pathsToCull}
         onApply={(action, paths) => {
           if (action === 'reject') {
-            props.handleSetFlag(ImageFlag.Reject, paths);
+            props.handleSetFlag(ImageFlag.Reject, paths, { skipBulkConfirm: true });
           } else if (action === 'rate_zero') {
-            props.handleRate(1, paths);
+            props.handleRate(1, paths, { skipBulkConfirm: true });
           } else if (action === 'delete') {
             props.executeDelete(paths, { includeAssociated: false });
           }

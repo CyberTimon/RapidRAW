@@ -1514,6 +1514,52 @@
     }
   },
   "modals": {
+    "bulkChange": {
+      "colorLabels": {
+        "confirm": "Změnit štítky",
+        "message_few": "{{count}} z vybraných snímků už mají barevný štítek. Tato akce ho nahradí.",
+        "message_many": "{{count}} z vybraných snímků už má barevný štítek. Tato akce ho nahradí.",
+        "message_one": "{{count}} z vybraných snímků už má barevný štítek. Tato akce ho nahradí.",
+        "message_other": "{{count}} z vybraných snímků už má barevný štítek. Tato akce ho nahradí.",
+        "title_few": "Změnit {{count}} barevné štítky?",
+        "title_many": "Změnit {{count}} barevného štítku?",
+        "title_one": "Změnit {{count}} barevný štítek?",
+        "title_other": "Změnit {{count}} barevných štítků?"
+      },
+      "flags": {
+        "confirm": "Změnit příznaky",
+        "message_few": "{{count}} z vybraných snímků už mají příznak. Tato akce ho nahradí.",
+        "message_many": "{{count}} z vybraných snímků už má příznak. Tato akce ho nahradí.",
+        "message_one": "{{count}} z vybraných snímků už má příznak. Tato akce ho nahradí.",
+        "message_other": "{{count}} z vybraných snímků už má příznak. Tato akce ho nahradí.",
+        "title_few": "Změnit {{count}} příznaky?",
+        "title_many": "Změnit {{count}} příznaku?",
+        "title_one": "Změnit {{count}} příznak?",
+        "title_other": "Změnit {{count}} příznaků?"
+      },
+      "ratings": {
+        "confirm": "Změnit hodnocení",
+        "message_few": "{{count}} z vybraných snímků už mají hodnocení. Tato akce ho nahradí.",
+        "message_many": "{{count}} z vybraných snímků už má hodnocení. Tato akce ho nahradí.",
+        "message_one": "{{count}} z vybraných snímků už má hodnocení. Tato akce ho nahradí.",
+        "message_other": "{{count}} z vybraných snímků už má hodnocení. Tato akce ho nahradí.",
+        "title_few": "Změnit {{count}} hodnocení?",
+        "title_many": "Změnit {{count}} hodnocení?",
+        "title_one": "Změnit {{count}} hodnocení?",
+        "title_other": "Změnit {{count}} hodnocení?"
+      },
+      "reset": {
+        "confirm": "Resetovat úpravy",
+        "message_few": "{{count}} z vybraných snímků mají úpravy. Resetování je odstraní a nelze ho vrátit zpět.",
+        "message_many": "{{count}} z vybraných snímků má úpravy. Resetování je odstraní a nelze ho vrátit zpět.",
+        "message_one": "{{count}} z vybraných snímků má úpravy. Resetování je odstraní a nelze ho vrátit zpět.",
+        "message_other": "{{count}} z vybraných snímků má úpravy. Resetování je odstraní a nelze ho vrátit zpět.",
+        "title_few": "Resetovat {{count}} snímky?",
+        "title_many": "Resetovat {{count}} snímku?",
+        "title_one": "Resetovat {{count}} snímek?",
+        "title_other": "Resetovat {{count}} snímků?"
+      }
+    },
     "collage": {
       "aspectRatio": "Poměr stran",
       "background": "Pozadí",
@@ -1906,6 +1952,10 @@
       "totalUsed": "RapidRAW na tomto zařízení zabírá {{size}}."
     },
     "general": {
+      "confirmBulkChanges": "Potvrzovat hromadné změny",
+      "confirmBulkChangesDesc": "Zeptat se před nahrazením hodnocení, příznaku, barevného štítku nebo úprav u mnoha snímků najednou.",
+      "confirmBulkChangesFrom": "Potvrzovat od",
+      "confirmBulkChangesFromDesc": "Zeptat se, když by se změnil tento počet snímků nebo více.",
       "createXmp": "Vytvořit chybějící soubory XMP",
       "createXmpDesc": "Automaticky vytvořit nový doprovodný soubor XMP, pokud pro snímek neexistuje.",
       "createXmpMissing": "Pokud chybí, vytvořit XMP",
