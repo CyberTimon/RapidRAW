@@ -26,6 +26,7 @@ import { Thumbnail } from './LibraryItems';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useProcessStore } from '../../../store/useProcessStore';
+import { loadCullingPreview } from '../../../utils/cullingPreview';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useLibraryActions } from '../../../hooks/useLibraryActions';
@@ -255,53 +256,15 @@ function CullingPreview({
     setIsLoading(true);
     setHighResSrc(null);
 
-    const fetchPreviewWithAdjustments = async () => {
-      try {
-        const metadata: any = await invoke(Invokes.LoadMetadata, { path: image.path });
-        if (!active) return;
-
-        const adjustments = metadata?.adjustments ?? null;
-
-        const bytes = await invoke<Uint8Array>(Invokes.GeneratePreviewForPath, {
-          path: image.path,
-          jsAdjustments: adjustments,
-        });
-        if (!active) return;
-
-        const blob = new Blob([new Uint8Array(bytes)], { type: 'image/jpeg' });
-        const localBlobUrl = URL.createObjectURL(blob);
-
-        setPreview(image.path, localBlobUrl, safeThumbKey);
-
-        if (active) {
-          setHighResSrc(localBlobUrl);
-          setIsLoading(false);
-        }
-      } catch (err) {
-        console.error('Error loading culling preview with adjustments:', err);
-
-        if (active) {
-          try {
-            const fallbackBytes = await invoke<Uint8Array>(Invokes.GeneratePreviewForPath, {
-              path: image.path,
-              jsAdjustments: null,
-            });
-            if (!active) return;
-            const blob = new Blob([new Uint8Array(fallbackBytes)], { type: 'image/jpeg' });
-            const localBlobUrl = URL.createObjectURL(blob);
-
-            setPreview(image.path, localBlobUrl, safeThumbKey);
-            setHighResSrc(localBlobUrl);
-          } catch (fallbackErr) {
-            console.error('Fallback preview generation also failed:', fallbackErr);
-          }
-          setIsLoading(false);
-        }
-      }
-    };
-
     const delayTimeout = setTimeout(() => {
-      fetchPreviewWithAdjustments();
+      loadCullingPreview(image.path, safeThumbKey)
+        .then((url) => {
+          if (active) setHighResSrc(url);
+        })
+        .catch((err) => console.error('Fallback preview generation also failed:', err))
+        .finally(() => {
+          if (active) setIsLoading(false);
+        });
     }, 200);
 
     return () => {
