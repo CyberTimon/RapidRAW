@@ -351,6 +351,7 @@
       "autoAdjust_many": "Ajustement auto",
       "autoAdjust_one": "Ajustement auto",
       "autoAdjust_other": "Ajustement auto",
+      "autoLensCorrection_many": "Corrections d'objectif automatiques",
       "autoLensCorrection_one": "Correction d'objectif automatique",
       "autoLensCorrection_other": "Corrections d'objectif automatiques",
       "autoStraighten_many": "Redresser automatiquement",
@@ -530,13 +531,17 @@
         "heal_other": "Corriger {{count}}",
         "invertedName": "{{name}} Inversé",
         "liquify": "Fluidité {{count}}",
+        "liquify_many": "Fluidité {{count}}",
         "liquify_one": "Fluidité {{count}}",
         "liquify_other": "Fluidité {{count}}",
         "quickErase": "Gommage rapide {{count}}",
         "quickErase_many": "Gommage rapide {{count}}",
         "quickErase_one": "Gommage rapide {{count}}",
         "quickErase_other": "Gommages rapides {{count}}",
-        "retouch": "Retouche {{count}}"
+        "retouch": "Retouche {{count}}",
+        "retouch_many": "Retouche {{count}}",
+        "retouch_one": "Retouche {{count}}",
+        "retouch_other": "Retouche {{count}}"
       },
       "resetInpaintingTooltip": "Réinitialiser l'Inpainting",
       "settings": {
@@ -1188,6 +1193,7 @@
       "rateAndLabel": "Noter et Étiqueter",
       "rating": "Note",
       "selectImagesToCompare": "Sélectionnez des images à comparer",
+      "shutterSpeed": "Vitesse d'obturation",
       "shutterSpeed:": "Vitesse d'obturation",
       "syncZoomAndPan": "Synchroniser le zoom et le panoramique",
       "tags": "Tags",
@@ -1436,6 +1442,11 @@
       "goHome": "Aller à l'accueil",
       "importImages": "Importer des images",
       "select": "Sélectionner"
+    },
+    "viewMode": {
+      "culling": "Vue de tri",
+      "grid": "Vue grille",
+      "list": "Vue liste"
     }
   },
   "masks": {
@@ -1602,6 +1613,7 @@
       "close": "Fermer",
       "depthMap": "Carte de profondeur",
       "description": "Combinez plusieurs images avec des distances de mise au point variables en une seule image parfaitement nette.",
+      "descriptionWithCount_many": "Combinez {{count}} images avec des distances de mise au point variables en une seule image parfaitement nette.",
       "descriptionWithCount_one": "Combinez {{count}} image avec des distances de mise au point variables en une seule image parfaitement nette.",
       "descriptionWithCount_other": "Combinez {{count}} images avec des distances de mise au point variables en une seule image parfaitement nette.",
       "failed": "L'empilement de mise au point a échoué",

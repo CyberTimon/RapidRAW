@@ -514,7 +514,8 @@
         "quickErase": "빠른 지우기 {{count}}",
         "quickErase_one": "빠른 지우기 {{count}}",
         "quickErase_other": "빠른 지우기 {{count}}",
-        "retouch": "리터칭 {{count}}"
+        "retouch": "리터칭 {{count}}",
+        "retouch_other": "리터칭 {{count}}"
       },
       "resetInpaintingTooltip": "인페인팅 초기화",
       "settings": {
@@ -1402,6 +1403,11 @@
       "goHome": "홈으로 이동",
       "importImages": "이미지 가져오기",
       "select": "선택"
+    },
+    "viewMode": {
+      "culling": "선별 보기",
+      "grid": "그리드 보기",
+      "list": "목록 보기"
     }
   },
   "masks": {

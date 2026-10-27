@@ -356,6 +356,8 @@
       "autoAdjust_many": "Автонастройка",
       "autoAdjust_one": "Автонастройка",
       "autoAdjust_other": "Автонастройка",
+      "autoLensCorrection_few": "Автокоррекция объектива",
+      "autoLensCorrection_many": "Автокоррекция объектива",
       "autoLensCorrection_one": "Автокоррекция объектива",
       "autoLensCorrection_other": "Автокоррекция объектива",
       "autoStraighten_few": "Автовыравнивание",
@@ -549,6 +551,8 @@
         "heal_other": "Восстановление {{count}}",
         "invertedName": "{{name}} (инвертировано)",
         "liquify": "Пластика {{count}}",
+        "liquify_few": "Пластика {{count}}",
+        "liquify_many": "Пластика {{count}}",
         "liquify_one": "Пластика {{count}}",
         "liquify_other": "Пластика {{count}}",
         "quickErase": "Быстрое стирание {{count}}",
@@ -556,7 +560,11 @@
         "quickErase_many": "Быстрое стирание {{count}}",
         "quickErase_one": "Быстрое стирание {{count}}",
         "quickErase_other": "Быстрое стирание {{count}}",
-        "retouch": "Ретушь {{count}}"
+        "retouch": "Ретушь {{count}}",
+        "retouch_few": "Ретушь {{count}}",
+        "retouch_many": "Ретушь {{count}}",
+        "retouch_one": "Ретушь {{count}}",
+        "retouch_other": "Ретушь {{count}}"
       },
       "resetInpaintingTooltip": "Сбросить восстановление",
       "settings": {
@@ -1465,6 +1473,11 @@
       "goHome": "На главную",
       "importImages": "Импортировать изображения",
       "select": "Выбрать"
+    },
+    "viewMode": {
+      "culling": "Режим отбора",
+      "grid": "Сетка",
+      "list": "Список"
     }
   },
   "masks": {

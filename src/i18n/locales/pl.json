@@ -356,6 +356,8 @@
       "autoAdjust_many": "Auto-korekta",
       "autoAdjust_one": "Auto-korekta",
       "autoAdjust_other": "Auto-korekta",
+      "autoLensCorrection_few": "Automatyczna korekcja obiektywu",
+      "autoLensCorrection_many": "Automatyczna korekcja obiektywu",
       "autoLensCorrection_one": "Automatyczna korekcja obiektywu",
       "autoLensCorrection_other": "Automatyczna korekcja obiektywu",
       "autoStraighten_few": "Automatyczne prostowanie",
@@ -549,6 +551,8 @@
         "heal_other": "Naprawianie {{count}}",
         "invertedName": "{{name}} odwrócone",
         "liquify": "Skraplanie {{count}}",
+        "liquify_few": "Skraplanie {{count}}",
+        "liquify_many": "Skraplanie {{count}}",
         "liquify_one": "Skraplanie {{count}}",
         "liquify_other": "Skraplanie {{count}}",
         "quickErase": "Szybkie wymazanie {{count}}",
@@ -556,7 +560,11 @@
         "quickErase_many": "Szybkich wymazań {{count}}",
         "quickErase_one": "Szybkie wymazanie {{count}}",
         "quickErase_other": "Szybkie wymazanie {{count}}",
-        "retouch": "Retusz {{count}}"
+        "retouch": "Retusz {{count}}",
+        "retouch_few": "Retusz {{count}}",
+        "retouch_many": "Retusz {{count}}",
+        "retouch_one": "Retusz {{count}}",
+        "retouch_other": "Retusz {{count}}"
       },
       "resetInpaintingTooltip": "Resetuj Inpainting",
       "settings": {
@@ -1465,6 +1473,11 @@
       "goHome": "Przejdź do strony głównej",
       "importImages": "Importuj obrazy",
       "select": "Zaznacz"
+    },
+    "viewMode": {
+      "culling": "Widok selekcji",
+      "grid": "Widok siatki",
+      "list": "Widok listy"
     }
   },
   "masks": {

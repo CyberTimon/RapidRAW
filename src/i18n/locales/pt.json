@@ -351,6 +351,7 @@
       "autoAdjust_many": "Ajuste Automático",
       "autoAdjust_one": "Ajuste Automático",
       "autoAdjust_other": "Ajuste Automático",
+      "autoLensCorrection_many": "Correção automática de lente",
       "autoLensCorrection_one": "Correção automática de lente",
       "autoLensCorrection_other": "Correção automática de lente",
       "autoStraighten_many": "Endireitar automaticamente",
@@ -530,13 +531,17 @@
         "heal_other": "Restaurar {{count}}",
         "invertedName": "{{name}} Invertido",
         "liquify": "Dissolver {{count}}",
+        "liquify_many": "Dissolver {{count}}",
         "liquify_one": "Dissolver {{count}}",
         "liquify_other": "Dissolver {{count}}",
         "quickErase": "Apagamento Rápido {{count}}",
         "quickErase_many": "Apagamento Rápido {{count}}",
         "quickErase_one": "Apagamento Rápido {{count}}",
         "quickErase_other": "Apagamento Rápido {{count}}",
-        "retouch": "Retoque {{count}}"
+        "retouch": "Retoque {{count}}",
+        "retouch_many": "Retoque {{count}}",
+        "retouch_one": "Retoque {{count}}",
+        "retouch_other": "Retoque {{count}}"
       },
       "resetInpaintingTooltip": "Redefinir Preenchimento",
       "settings": {
@@ -1436,6 +1441,11 @@
       "goHome": "Ir para Início",
       "importImages": "Importar Imagens",
       "select": "Selecionar"
+    },
+    "viewMode": {
+      "culling": "Visualização de seleção",
+      "grid": "Visualização em grade",
+      "list": "Visualização em lista"
     }
   },
   "masks": {

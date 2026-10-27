@@ -538,7 +538,10 @@
         "quickErase_many": "Cancellazione Rapida {{count}}",
         "quickErase_one": "Cancellazione Rapida {{count}}",
         "quickErase_other": "Cancellazione Rapida {{count}}",
-        "retouch": "Ritocco {{count}}"
+        "retouch": "Ritocco {{count}}",
+        "retouch_many": "Ritocco {{count}}",
+        "retouch_one": "Ritocco {{count}}",
+        "retouch_other": "Ritocco {{count}}"
       },
       "resetInpaintingTooltip": "Ripristina Inpainting",
       "settings": {
@@ -1438,6 +1441,11 @@
       "goHome": "Torna alla Home page",
       "importImages": "Importa Immagini",
       "select": "Seleziona"
+    },
+    "viewMode": {
+      "culling": "Vista selezione",
+      "grid": "Vista griglia",
+      "list": "Vista elenco"
     }
   },
   "masks": {

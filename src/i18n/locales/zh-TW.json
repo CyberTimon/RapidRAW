@@ -514,7 +514,8 @@
         "quickErase": "快速擦除 {{count}}",
         "quickErase_one": "快速擦除 {{count}}",
         "quickErase_other": "快速擦除 {{count}}",
-        "retouch": "修飾 {{count}}"
+        "retouch": "修飾 {{count}}",
+        "retouch_other": "修飾 {{count}}"
       },
       "resetInpaintingTooltip": "重置影像修復",
       "settings": {
@@ -1402,6 +1403,11 @@
       "goHome": "返回首頁",
       "importImages": "匯入影像",
       "select": "選擇"
+    },
+    "viewMode": {
+      "culling": "篩選檢視",
+      "grid": "網格檢視",
+      "list": "列表檢視"
     }
   },
   "masks": {
