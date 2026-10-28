@@ -933,12 +933,10 @@
       "tooltips": {
         "aperture": "Ouverture",
         "backToLibrary": "Retour à la bibliothèque",
-        "closeViewer": "Fermer la seconde fenêtre",
         "compare": "Avant / après (B) ou modes (clic droit)",
         "focalLength": "Longueur focale",
         "fullscreen": "Basculer en plein écran (F)",
         "iso": "ISO",
-        "openViewer": "Ouvrir dans une seconde fenêtre",
         "redo": "Rétablir (Ctrl+Y) ou Historique (Clic-droit)",
         "shutterSpeed": "Vitesse d'obturation",
         "undo": "Annuler (Ctrl+Z) ou Historique (Clic-droit)"

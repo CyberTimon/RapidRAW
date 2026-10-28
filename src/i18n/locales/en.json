@@ -909,12 +909,10 @@
       "tooltips": {
         "aperture": "Aperture",
         "backToLibrary": "Back to Library",
-        "closeViewer": "Close second window",
         "compare": "Before / After (B) or Modes (Right-click)",
         "focalLength": "Focal Length",
         "fullscreen": "Toggle Fullscreen (F)",
         "iso": "ISO",
-        "openViewer": "Open in second window",
         "redo": "Redo (Ctrl+Y) or History (Right-click)",
         "shutterSpeed": "Shutter Speed",
         "undo": "Undo (Ctrl+Z) or History (Right-click)"

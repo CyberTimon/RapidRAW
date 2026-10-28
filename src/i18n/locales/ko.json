@@ -906,12 +906,10 @@
       "tooltips": {
         "aperture": "조리개",
         "backToLibrary": "라이브러리로 돌아가기",
-        "closeViewer": "보조 창 닫기",
         "compare": "전 / 후 (B) 또는 모드 (우클릭)",
         "focalLength": "초점 거리",
         "fullscreen": "전체 화면 전환 (F)",
         "iso": "ISO",
-        "openViewer": "보조 창에서 열기",
         "redo": "다시 실행 (Ctrl+Y) 또는 기록 (우클릭)",
         "shutterSpeed": "셔터 속도",
         "undo": "실행 취소 (Ctrl+Z) 또는 기록 (우클릭)"

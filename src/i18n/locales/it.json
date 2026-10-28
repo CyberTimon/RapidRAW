@@ -933,12 +933,10 @@
       "tooltips": {
         "aperture": "Apertura",
         "backToLibrary": "Torna alla Libreria",
-        "closeViewer": "Chiudi la seconda finestra",
         "compare": "Prima / dopo (B) o modalità (clic destro)",
         "focalLength": "Lunghezza Focale",
         "fullscreen": "Attiva/Disattiva Schermo Intero (F)",
         "iso": "ISO",
-        "openViewer": "Apri in una seconda finestra",
         "redo": "Ripeti (Ctrl+Y) o Cronologia (Tasto destro)",
         "shutterSpeed": "Tempo di Esposizione",
         "undo": "Annulla (Ctrl+Z) o Cronologia (Tasto destro)"

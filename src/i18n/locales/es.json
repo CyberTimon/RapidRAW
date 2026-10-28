@@ -933,12 +933,10 @@
       "tooltips": {
         "aperture": "Apertura",
         "backToLibrary": "Volver a la Biblioteca",
-        "closeViewer": "Cerrar la segunda ventana",
         "compare": "Antes / después (B) o modos (clic derecho)",
         "focalLength": "Distancia focal",
         "fullscreen": "Alternar pantalla completa (F)",
         "iso": "ISO",
-        "openViewer": "Abrir en una segunda ventana",
         "redo": "Rehacer (Ctrl+Y) o Historial (Clic derecho)",
         "shutterSpeed": "Velocidad de obturación",
         "undo": "Deshacer (Ctrl+Z) o Historial (Clic derecho)"

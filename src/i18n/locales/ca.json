@@ -933,12 +933,10 @@
       "tooltips": {
         "aperture": "Obertura",
         "backToLibrary": "Tornar a la Biblioteca",
-        "closeViewer": "Tanca la segona finestra",
         "compare": "Abans / després (B) o modes (clic dret)",
         "focalLength": "Distància focal",
         "fullscreen": "Alternar pantalla completa (F)",
         "iso": "ISO",
-        "openViewer": "Obre en una segona finestra",
         "redo": "Refer (Ctrl+Y) o Historial (Clic dret)",
         "shutterSpeed": "Velocitat d'obturació",
         "undo": "Desfer (Ctrl+Z) o Historial (Clic dret)"

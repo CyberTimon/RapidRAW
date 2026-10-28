@@ -909,12 +909,10 @@
       "tooltips": {
         "aperture": "Diafragma",
         "backToLibrary": "Terug naar bibliotheek",
-        "closeViewer": "Tweede venster sluiten",
         "compare": "Voor / na (B) of modi (rechtsklik)",
         "focalLength": "Brandpuntsafstand",
         "fullscreen": "Volledig scherm aan/uit (F)",
         "iso": "ISO",
-        "openViewer": "Openen in tweede venster",
         "redo": "Opnieuw (Ctrl+Y) of geschiedenis (rechtermuisknop)",
         "shutterSpeed": "Sluitertijd",
         "undo": "Ongedaan maken (Ctrl+Z) of geschiedenis (rechtermuisknop)"

@@ -906,12 +906,10 @@
       "tooltips": {
         "aperture": "光圈",
         "backToLibrary": "返回相簿",
-        "closeViewer": "關閉第二視窗",
         "compare": "前後對比（B）或模式（右鍵）",
         "focalLength": "焦距",
         "fullscreen": "切換全屏（F）",
         "iso": "ISO",
-        "openViewer": "在第二視窗中開啟",
         "redo": "重做（Ctrl+Y）或歷史記錄（右鍵單擊）",
         "shutterSpeed": "快門速度",
         "undo": "復原（Ctrl+Z）或歷史記錄（右鍵單擊）"

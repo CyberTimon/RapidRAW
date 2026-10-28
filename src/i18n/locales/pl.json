@@ -957,12 +957,10 @@
       "tooltips": {
         "aperture": "Przysłona",
         "backToLibrary": "Wróć do biblioteki",
-        "closeViewer": "Zamknij drugie okno",
         "compare": "Przed / po (B) lub tryby (prawy przycisk)",
         "focalLength": "Ogniskowa",
         "fullscreen": "Przełącz pełny ekran (F)",
         "iso": "ISO",
-        "openViewer": "Otwórz w drugim oknie",
         "redo": "Ponów (Ctrl+Y) lub Historia (Prawy przycisk)",
         "shutterSpeed": "Czas otwarcia migawki",
         "undo": "Cofnij (Ctrl+Z) lub Historia (Prawy przycisk)"

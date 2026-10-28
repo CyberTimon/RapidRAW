@@ -909,12 +909,10 @@
       "tooltips": {
         "aperture": "Blende",
         "backToLibrary": "Zurück zur Bibliothek",
-        "closeViewer": "Zweites Fenster schließen",
         "compare": "Vorher / Nachher (B) oder Modi (Rechtsklick)",
         "focalLength": "Brennweite",
         "fullscreen": "Vollbild umschalten (F)",
         "iso": "ISO",
-        "openViewer": "In zweitem Fenster öffnen",
         "redo": "Wiederholen (Strg+Y) oder Verlauf (Rechtsklick)",
         "shutterSpeed": "Verschlusszeit",
         "undo": "Rückgängig (Strg+Z) oder Verlauf (Rechtsklick)"

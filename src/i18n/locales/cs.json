@@ -957,12 +957,10 @@
       "tooltips": {
         "aperture": "Clona",
         "backToLibrary": "Zpět do Knihovny",
-        "closeViewer": "Zavřít druhé okno",
         "compare": "Před / po (B) nebo režimy (pravé tlačítko)",
         "focalLength": "Ohnisková vzdálenost",
         "fullscreen": "Přepnout na celou obrazovku (F)",
         "iso": "ISO",
-        "openViewer": "Otevřít ve druhém okně",
         "redo": "Znovu (Ctrl+Y) nebo Historie (kliknutí pravým tlačítkem)",
         "shutterSpeed": "Rychlost závěrky",
         "undo": "Zpět (Ctrl+Z) nebo Historie (kliknutí pravým tlačítkem)"
