@@ -102,7 +102,6 @@ export default function ViewerWindow() {
   const savedZoomRef = useRef<number | null>(null);
 
   const image = info?.image ?? null;
-  const imagePath = image?.path;
 
   useEffect(() => {
     let isActive = true;
@@ -172,10 +171,6 @@ export default function ViewerWindow() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
-
-  useEffect(() => {
-    setView(FIT_VIEW);
-  }, [imagePath]);
 
   useEffect(() => {
     if (image) setView((current) => clampView(current, win, image));

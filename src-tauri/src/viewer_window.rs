@@ -182,7 +182,7 @@ pub fn sync_viewer_image(app_handle: &AppHandle, path: &str, base_size: (u32, u3
         height: (base_size.1 as f32 / scale).round() as u32,
     };
     let state = app_handle.state::<AppState>();
-    let path_changed = {
+    {
         let mut viewer = viewer_state(&state);
         if viewer.session.image.as_ref() == Some(&image) {
             return;
@@ -201,10 +201,6 @@ pub fn sync_viewer_image(app_handle: &AppHandle, path: &str, base_size: (u32, u3
         } else {
             viewer.session.image = Some(image);
         }
-        path_changed
-    };
-    if path_changed {
-        update_viewer_display(&state, |display| display.set_view(DisplayView::default()));
     }
     notify_viewer(app_handle, "viewer-info");
 }
