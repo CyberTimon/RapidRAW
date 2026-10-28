@@ -1447,7 +1447,11 @@ fn is_sync_unsupported(e: &std::io::Error) -> bool {
     matches!(e.raw_os_error(), Some(code) if code == libc::ENOTSUP || code == libc::EOPNOTSUPP)
 }
 
-fn find_embedded_jpeg(exif: &exif::Exif, ifd: exif::In) -> Option<&[u8]> {
+fn find_embedded_jpeg<'a>(
+    exif: &'a exif::Exif,
+    file_bytes: &'a [u8],
+    ifd: exif::In,
+) -> Option<&'a [u8]> {
     let offset = exif
         .get_field(exif::Tag::JPEGInterchangeFormat, ifd)?
         .value
@@ -1456,7 +1460,13 @@ fn find_embedded_jpeg(exif: &exif::Exif, ifd: exif::In) -> Option<&[u8]> {
         .get_field(exif::Tag::JPEGInterchangeFormatLength, ifd)?
         .value
         .get_uint(0)? as usize;
-    exif.buf().get(offset..offset + len)
+    // read_exif may keep only the start of a TIFF file; its offsets point into the file.
+    let tiff = if exif_processing::is_tiff(file_bytes) {
+        file_bytes
+    } else {
+        exif.buf()
+    };
+    tiff.get(offset..offset + len)
 }
 
 fn apply_exif_orientation(img: DynamicImage, orientation: u32) -> DynamicImage {
@@ -1487,11 +1497,12 @@ fn reserve_thumbnail_decode(
         .reserve(pixels * if is_raw { 10 } else { 20 }, None)
 }
 
-fn exif_embedded_preview(exif: &exif::Exif) -> Option<DynamicImage> {
-    let (jpeg_bytes, ifd) = find_embedded_jpeg(exif, exif::In::PRIMARY)
+fn exif_embedded_preview(exif: &exif::Exif, file_bytes: &[u8]) -> Option<DynamicImage> {
+    let (jpeg_bytes, ifd) = find_embedded_jpeg(exif, file_bytes, exif::In::PRIMARY)
         .map(|b| (b, exif::In::PRIMARY))
         .or_else(|| {
-            find_embedded_jpeg(exif, exif::In::THUMBNAIL).map(|b| (b, exif::In::THUMBNAIL))
+            find_embedded_jpeg(exif, file_bytes, exif::In::THUMBNAIL)
+                .map(|b| (b, exif::In::THUMBNAIL))
         })?;
 
     let img = image::load_from_memory_with_format(jpeg_bytes, image::ImageFormat::Jpeg).ok()?;
@@ -1510,7 +1521,7 @@ fn try_load_embedded_raw_preview(source_path: &Path, target_res: u32) -> Option<
     let large_enough = |preview: &DynamicImage| preview.width().max(preview.height()) >= min_size;
 
     match exif_processing::read_exif(&mmap) {
-        Some(exif) => exif_embedded_preview(&exif)
+        Some(exif) => exif_embedded_preview(&exif, &mmap)
             .filter(large_enough)
             .or_else(|| image_loader::tiff_embedded_preview(&mmap).filter(large_enough)),
         None => image_loader::safe_embedded_preview_fallback(&mmap, &source_path.to_string_lossy())
