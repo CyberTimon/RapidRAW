@@ -519,8 +519,14 @@ pub async fn read_exif_for_paths(
             }
         };
 
+        // Not the global pool: reads that block on a network share would stall thumbnails there.
         let exif_data: HashMap<String, HashMap<String, String>> = if is_hdd {
             paths.iter().filter_map(process_path).collect()
+        } else if let Ok(pool) = rayon::ThreadPoolBuilder::new()
+            .num_threads(rayon::current_num_threads())
+            .build()
+        {
+            pool.install(|| paths.par_iter().filter_map(process_path).collect())
         } else {
             paths.par_iter().filter_map(process_path).collect()
         };
