@@ -901,6 +901,7 @@ pub fn get_or_decode_pristine(
             let image =
                 load_base_image_from_bytes(bytes, &path_str, false, settings, cancel_token.clone())
                     .map_err(|e| e.to_string())?;
+            crate::as_shot::as_shot_from_bytes(&path_str, bytes);
             Ok((image, exif_processing::read_exif_data(&path_str, bytes)))
         };
         let (image, exif) = match read_file_mapped(source_path) {
