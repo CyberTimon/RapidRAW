@@ -15,6 +15,9 @@ interface EditInAppsSettingsProps {
   onSettingsChange(settings: AppSettings): void | Promise<void>;
 }
 
+const patchAt = (apps: EditInApp[], index: number, patch: Partial<EditInApp>) =>
+  apps.map((app, i) => (i === index ? { ...app, ...patch } : app));
+
 export default function EditInAppsSettings({ appSettings, onSettingsChange }: EditInAppsSettingsProps) {
   const { t } = useTranslation();
   const osPlatform = useOsPlatform();
@@ -37,8 +40,19 @@ export default function EditInAppsSettings({ appSettings, onSettingsChange }: Ed
     if (appSettings) onSettingsChange({ ...appSettings, editInApps: next });
   };
 
-  const update = (index: number, patch: Partial<EditInApp>) =>
-    setApps((prev) => prev.map((app, i) => (i === index ? { ...app, ...patch } : app)));
+  const renderField = (index: number, field: 'name' | 'path' | 'args', placeholder: string, className?: string) => (
+    <Input
+      className={className}
+      value={apps[index][field]}
+      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+        setApps((prev) => patchAt(prev, index, { [field]: e.target.value }))
+      }
+      onBlur={() => commit(apps)}
+      onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.stopPropagation()}
+      placeholder={placeholder}
+      bgClassName="bg-surface"
+    />
+  );
 
   const pickExecutable = async () => {
     const selected = await openDialog({
@@ -58,7 +72,7 @@ export default function EditInAppsSettings({ appSettings, onSettingsChange }: Ed
 
   const handleBrowse = async (index: number) => {
     const path = await pickExecutable();
-    if (path) commit(apps.map((app, i) => (i === index ? { ...app, path } : app)));
+    if (path) commit(patchAt(apps, index, { path }));
   };
 
   return (
@@ -67,18 +81,10 @@ export default function EditInAppsSettings({ appSettings, onSettingsChange }: Ed
       {apps.map((app, index) => (
         <div key={index} className="p-4 bg-bg-primary rounded-lg border border-border-color space-y-3">
           <div className="flex items-center gap-2">
-            <Input
-              className="grow"
-              value={app.name}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => update(index, { name: e.target.value })}
-              onBlur={() => commit(apps)}
-              onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.stopPropagation()}
-              placeholder={t('settings.processing.editIn.name')}
-              bgClassName="bg-surface"
-            />
+            {renderField(index, 'name', t('settings.processing.editIn.name'), 'grow')}
             <Dropdown
               className="w-56"
-              onChange={(mode: EditInMode) => commit(apps.map((a, i) => (i === index ? { ...a, mode } : a)))}
+              onChange={(mode: EditInMode) => commit(patchAt(apps, index, { mode }))}
               options={modeOptions}
               value={app.mode}
               triggerClassName="bg-surface"
@@ -92,15 +98,7 @@ export default function EditInAppsSettings({ appSettings, onSettingsChange }: Ed
             </button>
           </div>
           <div className="flex items-center gap-2">
-            <Input
-              className="grow"
-              value={app.path}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => update(index, { path: e.target.value })}
-              onBlur={() => commit(apps)}
-              onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.stopPropagation()}
-              placeholder={t('settings.processing.editIn.path')}
-              bgClassName="bg-surface"
-            />
+            {renderField(index, 'path', t('settings.processing.editIn.path'), 'grow')}
             <button
               onClick={() => handleBrowse(index)}
               className="p-2 text-text-secondary hover:text-text-primary hover:bg-surface rounded-md transition-colors"
@@ -109,14 +107,7 @@ export default function EditInAppsSettings({ appSettings, onSettingsChange }: Ed
               <FolderOpen size={18} />
             </button>
           </div>
-          <Input
-            value={app.args}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => update(index, { args: e.target.value })}
-            onBlur={() => commit(apps)}
-            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.stopPropagation()}
-            placeholder={t('settings.processing.editIn.args')}
-            bgClassName="bg-surface"
-          />
+          {renderField(index, 'args', t('settings.processing.editIn.args'))}
         </div>
       ))}
       <Button onClick={handleAdd}>

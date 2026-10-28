@@ -15,7 +15,7 @@ use tauri::{AppHandle, State};
 use crate::AppState;
 use crate::app_settings::{EditInApp, EditInMode};
 use crate::export_processing::{
-    ExportAdjustmentsMode, ExportSettings, TiffBitDepth, export_images_impl,
+    ExportAdjustmentsMode, ExportSettings, TiffBitDepth, export_images_and_wait,
 };
 use crate::file_management::parse_virtual_path;
 use crate::formats::{is_raw_file, is_supported_image_file};
@@ -241,8 +241,7 @@ async fn render_tiff(
         subfolder: None,
         dpi: None,
     };
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    export_images_impl(
+    export_images_and_wait(
         vec![path.clone()],
         output.to_string_lossy().to_string(),
         true,
@@ -257,14 +256,8 @@ async fn render_tiff(
         },
         state,
         app_handle,
-        Some(tx),
     )
-    .await?;
-    match rx.await {
-        Ok(Ok(())) => Ok(()),
-        Ok(Err(_)) => Err("Failed to render the TIFF.".to_string()),
-        Err(_) => Err("Rendering the TIFF was cancelled.".to_string()),
-    }
+    .await
 }
 
 #[tauri::command]
