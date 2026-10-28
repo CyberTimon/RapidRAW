@@ -276,6 +276,7 @@
       "autoLensCorrection": "자동 렌즈 교정",
       "autoStraighten": "자동 수평 맞추기",
       "cancel": "취소",
+      "closeViewer": "보조 창 닫기",
       "colorLabel": "색상 레이블",
       "confirmReset": "초기화 확인",
       "convertBlackWhite": "흑백으로 변환",
@@ -292,6 +293,7 @@
       "mergeHdr": "HDR로 병합",
       "noLabel": "레이블 없음",
       "noRating": "평점 없음",
+      "openViewer": "보조 창에서 열기",
       "pasteAdjustments": "조정값 붙여넣기",
       "productivity": "생산성",
       "rating": "평점",
@@ -913,6 +915,10 @@
         "undo": "실행 취소 (Ctrl+Z) 또는 기록 (우클릭)"
       },
       "vc": "VC"
+    },
+    "viewer": {
+      "openFailed": "보조 창을 열 수 없습니다: {{error}}",
+      "windowTitle": "RapidRAW 뷰어"
     }
   },
   "export": {
@@ -1915,6 +1921,7 @@
         "toggle_presets": "프리셋 패널 전환",
         "toggle_reject": "거부 플래그 전환",
         "toggle_right_panel": "오른쪽 패널 토글",
+        "toggle_viewer_window": "보조 창 전환",
         "undo": "조정 실행 취소",
         "unflag": "플래그 해제",
         "zoom_100": "100%로 확대/축소",

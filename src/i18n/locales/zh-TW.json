@@ -276,6 +276,7 @@
       "autoLensCorrection": "自動鏡頭校正",
       "autoStraighten": "自動拉直",
       "cancel": "取消",
+      "closeViewer": "關閉第二視窗",
       "colorLabel": "顏色標籤",
       "confirmReset": "確認重置",
       "convertBlackWhite": "轉換為黑白",
@@ -292,6 +293,7 @@
       "mergeHdr": "合併為 HDR",
       "noLabel": "無標籤",
       "noRating": "無評分",
+      "openViewer": "在第二視窗中開啟",
       "pasteAdjustments": "貼上調整",
       "productivity": "效率",
       "rating": "評分",
@@ -913,6 +915,10 @@
         "undo": "復原（Ctrl+Z）或歷史記錄（右鍵單擊）"
       },
       "vc": "VC"
+    },
+    "viewer": {
+      "openFailed": "無法開啟第二視窗：{{error}}",
+      "windowTitle": "RapidRAW 檢視器"
     }
   },
   "export": {
@@ -1915,6 +1921,7 @@
         "toggle_presets": "切換預設面板",
         "toggle_reject": "切換拒絕標記",
         "toggle_right_panel": "切換右側面板",
+        "toggle_viewer_window": "切換第二視窗",
         "undo": "復原調整",
         "unflag": "取消標記",
         "zoom_100": "縮放到 100%",

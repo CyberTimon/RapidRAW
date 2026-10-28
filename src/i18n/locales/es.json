@@ -276,6 +276,7 @@
       "autoLensCorrection": "Corrección de lente automática",
       "autoStraighten": "Enderezar automáticamente",
       "cancel": "Cancelar",
+      "closeViewer": "Cerrar la segunda ventana",
       "colorLabel": "Etiqueta de color",
       "confirmReset": "Confirmar restablecimiento",
       "convertBlackWhite": "Convertir a blanco y negro",
@@ -292,6 +293,7 @@
       "mergeHdr": "Combinar en HDR",
       "noLabel": "Sin etiqueta",
       "noRating": "Sin puntuación",
+      "openViewer": "Abrir en una segunda ventana",
       "pasteAdjustments": "Pegar ajustes",
       "productivity": "Productividad",
       "rating": "Puntuación",
@@ -940,6 +942,10 @@
         "undo": "Deshacer (Ctrl+Z) o Historial (Clic derecho)"
       },
       "vc": "CV"
+    },
+    "viewer": {
+      "openFailed": "No se pudo abrir la segunda ventana: {{error}}",
+      "windowTitle": "Visor de RapidRAW"
     }
   },
   "export": {
@@ -1962,6 +1968,7 @@
         "toggle_presets": "Alternar panel de Ajustes preestablecidos",
         "toggle_reject": "Alternar marca de rechazada",
         "toggle_right_panel": "Alternar panel derecho",
+        "toggle_viewer_window": "Alternar segunda ventana",
         "undo": "Deshacer ajuste",
         "unflag": "Quitar marca",
         "zoom_100": "Hacer zoom al 100%",
