@@ -56,6 +56,7 @@
         "reds": "Червоні",
         "yellows": "Жовті"
       },
+      "mixerPickerTooltip": "Піпетка змішувача кольорів: натисніть і перетягніть угору або вниз на фото",
       "monochrome": {
         "badge": "Ч/Б",
         "balance": "Баланс",
@@ -109,6 +110,7 @@
       "saturation": "Насиченість",
       "temperature": "Температура",
       "tint": "Відтінок",
+      "toggleMixerExpanded": "Розширений змішувач кольорів",
       "toggleSliders": "Перемкнути повзунки",
       "vibrance": "Соковитість",
       "wbPickerTooltip": "Піпетка балансу білого",
