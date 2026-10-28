@@ -306,6 +306,7 @@ function EffectsPanel({
       activeRelightLightId: id,
       isRelightPickerActive: true,
       isWbPickerActive: false,
+      mixerPickerProperty: null,
       activeCenterMarker: null,
     });
   };
@@ -320,6 +321,7 @@ function EffectsPanel({
       activeRelightLightId: light.id,
       isRelightPickerActive: true,
       isWbPickerActive: false,
+      mixerPickerProperty: null,
       activeCenterMarker: null,
     });
   };
@@ -365,6 +367,7 @@ function EffectsPanel({
       activeRelightLightId: light.id,
       isRelightPickerActive: true,
       isWbPickerActive: false,
+      mixerPickerProperty: null,
       activeCenterMarker: null,
     });
   };
@@ -965,7 +968,12 @@ function EffectsPanel({
               <div
                 data-center-marker-controls="vignette"
                 onPointerDown={() =>
-                  setEditor({ activeCenterMarker: 'vignette', isRelightPickerActive: false, isWbPickerActive: false })
+                  setEditor({
+                    activeCenterMarker: 'vignette',
+                    isRelightPickerActive: false,
+                    isWbPickerActive: false,
+                    mixerPickerProperty: null,
+                  })
                 }
               >
                 <Slider

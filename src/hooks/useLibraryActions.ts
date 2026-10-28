@@ -58,6 +58,7 @@ export const clearLibrarySelection = () => {
     activeAiPatchContainerId: null,
     activeAiSubMaskId: null,
     isWbPickerActive: false,
+    mixerPickerProperty: null,
     isRelightPickerActive: false,
     activeRelightLightId: null,
     activeCenterMarker: null,

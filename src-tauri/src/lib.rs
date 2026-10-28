@@ -615,6 +615,27 @@ async fn release_original_preview(state: tauri::State<'_, AppState>) -> Result<(
     .map_err(|e| format!("Task panicked: {}", e))
 }
 
+#[tauri::command]
+async fn sample_display_area(
+    x: f32,
+    y: f32,
+    radius: f32,
+    app_handle: tauri::AppHandle,
+) -> Result<Vec<u8>, String> {
+    tokio::task::spawn_blocking(move || {
+        let state = app_handle.state::<AppState>();
+        let context = state
+            .gpu_context
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
+            .ok_or("GPU context is not initialized")?;
+        crate::gpu_processing::read_display_area(&context, &state, (x, y), radius)
+    })
+    .await
+    .map_err(|e| format!("Task panicked: {}", e))?
+}
+
 #[allow(clippy::too_many_arguments)]
 fn process_preview_job(
     app_handle: &tauri::AppHandle,
@@ -2702,6 +2723,7 @@ pub fn run() {
             viewer_window::set_viewer_view,
             viewer_window::get_viewer_info,
             viewer_window::get_viewer_frame,
+            sample_display_area,
             android_integration::resolve_android_content_uri_name,
             cache_utils::clear_session_caches,
             cache_utils::clear_image_caches,

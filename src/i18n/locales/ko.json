@@ -56,6 +56,7 @@
         "reds": "레드",
         "yellows": "옐로우"
       },
+      "mixerPickerTooltip": "컬러 믹서 스포이트: 사진을 클릭한 채 위아래로 드래그",
       "monochrome": {
         "badge": "흑백",
         "balance": "밸런스",
@@ -109,6 +110,7 @@
       "saturation": "채도",
       "temperature": "색온도",
       "tint": "틴트",
+      "toggleMixerExpanded": "확장 컬러 믹서",
       "toggleSliders": "슬라이더 전환",
       "vibrance": "생동감",
       "wbPickerTooltip": "화이트 밸런스 피커",

@@ -3149,6 +3149,49 @@ impl GpuProcessor {
     }
 }
 
+pub fn read_display_area(
+    context: &GpuContext,
+    state: &tauri::State<AppState>,
+    center: (f32, f32),
+    radius: f32,
+) -> Result<Vec<u8>, String> {
+    let [width, height] = context
+        .display
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_ref()
+        .ok_or("WGPU display is not initialized")?
+        .latest_transform
+        .image_size;
+    let processor_lock = state
+        .gpu_processor
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    let processor = &processor_lock
+        .as_ref()
+        .ok_or("GPU processor is not initialized")?
+        .processor;
+
+    let half = (radius * width).max(1.0);
+    let x0 = (center.0 * width - half).clamp(0.0, width - 1.0) as u32;
+    let y0 = (center.1 * height - half).clamp(0.0, height - 1.0) as u32;
+    let x1 = ((center.0 * width + half).ceil() as u32).clamp(x0 + 1, width as u32);
+    let y1 = ((center.1 * height + half).ceil() as u32).clamp(y0 + 1, height as u32);
+
+    read_texture_data_roi(
+        &context.device,
+        &context.queue,
+        &processor.display_textures().output_texture,
+        wgpu::Origin3d { x: x0, y: y0, z: 0 },
+        wgpu::Extent3d {
+            width: x1 - x0,
+            height: y1 - y0,
+            depth_or_array_layers: 1,
+        },
+        4,
+    )
+}
+
 pub fn process_and_get_dynamic_image(
     context: &GpuContext,
     state: &tauri::State<AppState>,

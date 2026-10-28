@@ -538,6 +538,7 @@ function App() {
       isWbPickerActive: false,
       isRelightPickerActive: false,
       activeCenterMarker: null,
+      mixerPickerProperty: null,
       isStraightenActive: false,
       isGuidedPerspectiveActive: false,
       activeMaskId: null,

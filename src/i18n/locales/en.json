@@ -56,6 +56,7 @@
         "reds": "Reds",
         "yellows": "Yellows"
       },
+      "mixerPickerTooltip": "Color Mixer Picker: click and drag up or down on the photo",
       "monochrome": {
         "badge": "B&W",
         "balance": "Balance",
@@ -109,6 +110,7 @@
       "saturation": "Saturation",
       "temperature": "Temperature",
       "tint": "Tint",
+      "toggleMixerExpanded": "Expanded Color Mixer",
       "toggleSliders": "Toggle Sliders",
       "vibrance": "Vibrance",
       "wbPickerTooltip": "White Balance Picker",

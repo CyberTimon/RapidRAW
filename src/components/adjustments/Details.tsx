@@ -129,7 +129,12 @@ function DetailsPanel({
             <div
               data-center-marker-controls="centre"
               onPointerDown={() =>
-                setEditor({ activeCenterMarker: 'centre', isRelightPickerActive: false, isWbPickerActive: false })
+                setEditor({
+                  activeCenterMarker: 'centre',
+                  isRelightPickerActive: false,
+                  isWbPickerActive: false,
+                  mixerPickerProperty: null,
+                })
               }
             >
               <Slider

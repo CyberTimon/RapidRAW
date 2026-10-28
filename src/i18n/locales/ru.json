@@ -56,6 +56,7 @@
         "reds": "Красные",
         "yellows": "Желтые"
       },
+      "mixerPickerTooltip": "Пипетка смешения цветов: нажмите на фото и перетащите вверх или вниз",
       "monochrome": {
         "badge": "Ч/Б",
         "balance": "Баланс",
@@ -109,6 +110,7 @@
       "saturation": "Насыщенность",
       "temperature": "Температура",
       "tint": "Оттенок",
+      "toggleMixerExpanded": "Расширенное смешение цветов",
       "toggleSliders": "Переключить ползунки",
       "vibrance": "Красочность",
       "wbPickerTooltip": "Пипетка баланса белого",

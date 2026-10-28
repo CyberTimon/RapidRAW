@@ -99,6 +99,7 @@ export default function Controls() {
     () =>
       setEditor((state) => ({
         isWbPickerActive: !state.isWbPickerActive,
+        mixerPickerProperty: null,
         isRelightPickerActive: false,
         activeCenterMarker: null,
       })),
