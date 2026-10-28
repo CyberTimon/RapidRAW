@@ -2059,9 +2059,9 @@
       "dynamicDesc": "De editor rendert het voorbeeld om overeen te komen met de werkelijke pixeldichtheid van uw beeldscherm. Dit zorgt ervoor dat elk detail wordt weergegeven met 1:1 pixelnauwkeurigheid, wat maximale helderheid biedt bij zoomen en scherpte controleren.",
       "editIn": {
         "add": "Programma toevoegen",
-        "args": "Argumenten (optioneel, {file} wordt vervangen door het pad van de afbeelding)",
+        "args": "Argumenten ({file} = pad van de afbeelding)",
         "browse": "Bladeren",
-        "description": "Programma's in deze lijst verschijnen onder \"Bewerken in\" in het contextmenu van afbeeldingen. \"Origineel bestand sturen\" is voor RAW-tools zoals Topaz Photo AI of DxO PureRAW: het programma krijgt het originele bestand en de afbeelding die het ernaast opslaat komt terug met je aanpassingen. \"Bewerkte TIFF sturen\" is voor editors zoals Photoshop, GIMP of Affinity: je aanpassingen worden gerenderd naar een 16-bit TIFF die het programma ter plekke bewerkt.",
+        "description": "Programma's voor het menu \"Bewerken in\".",
         "executable": "Programma's",
         "modes": {
           "original": "Origineel bestand sturen",

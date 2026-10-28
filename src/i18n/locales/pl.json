@@ -2145,9 +2145,9 @@
       "dynamicDesc": "Edytor renderuje podgląd tak, aby odpowiadał rzeczywistej gęstości pikseli twojego wyświetlacza. Zapewnia to oddanie każdego szczegółu w proporcji 1:1, dostarczając maksymalnej jasności przy zbliżaniu i sprawdzaniu ostrości.",
       "editIn": {
         "add": "Dodaj program",
-        "args": "Argumenty (opcjonalne, {file} zostaje zastąpione ścieżką obrazu)",
+        "args": "Argumenty ({file} = ścieżka obrazu)",
         "browse": "Przeglądaj",
-        "description": "Programy z tej listy pojawiają się w menu kontekstowym obrazów pod pozycją „Edytuj w”. „Wyślij oryginalny plik” pasuje do narzędzi RAW, takich jak Topaz Photo AI czy DxO PureRAW: program otrzymuje oryginalny plik, a obraz zapisany obok wraca z Twoimi korektami. „Wyślij edytowany TIFF” pasuje do edytorów, takich jak Photoshop, GIMP czy Affinity: Twoje korekty są renderowane do 16-bitowego pliku TIFF, który program edytuje na miejscu.",
+        "description": "Programy w menu „Edytuj w”.",
         "executable": "Programy",
         "modes": {
           "original": "Wyślij oryginalny plik",

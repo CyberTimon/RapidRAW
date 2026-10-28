@@ -2104,9 +2104,9 @@
       "dynamicDesc": "L'editor renderitza la vista prèvia perquè coincideixi amb la densitat real de píxels de la vostra pantalla. Això assegura que cada detall es representi amb precisió 1:1, proporcionant la màxima claredat a l'hora de fer zoom i comprovar l'enfocament.",
       "editIn": {
         "add": "Afegeix un programa",
-        "args": "Arguments (opcional, {file} se substitueix pel camí de la imatge)",
+        "args": "Arguments ({file} = camí de la imatge)",
         "browse": "Navega",
-        "description": "Els programes d'aquesta llista apareixen a «Edita a» del menú contextual de les imatges. «Envia el fitxer original» és per a eines RAW com Topaz Photo AI o DxO PureRAW: el programa rep el fitxer original i la imatge que desa al costat torna amb els vostres ajustos. «Envia un TIFF editat» és per a editors com Photoshop, GIMP o Affinity: els vostres ajustos es renderitzen en un TIFF de 16 bits que el programa edita directament.",
+        "description": "Programes del menú «Edita a».",
         "executable": "Programes",
         "modes": {
           "original": "Envia el fitxer original",

@@ -2063,9 +2063,9 @@
       "dynamicDesc": "The editor renders the preview to match your display's actual pixel density. This ensures that every detail is represented with 1:1 pixel accuracy, providing maximum clarity when zooming and checking focus.",
       "editIn": {
         "add": "Add Program",
-        "args": "Arguments (optional, {file} is replaced by the image path)",
+        "args": "Arguments ({file} = image path)",
         "browse": "Browse",
-        "description": "Programs listed here appear under \"Edit In\" in the image context menu. \"Send original file\" suits RAW tools such as Topaz Photo AI or DxO PureRAW: the program gets the original file and the image it saves next to it is brought back with your adjustments. \"Send edited TIFF\" suits editors such as Photoshop, GIMP or Affinity: your adjustments are rendered to a 16-bit TIFF that the program edits in place.",
+        "description": "Programs for the \"Edit In\" menu.",
         "executable": "Programs",
         "modes": {
           "original": "Send original file",

@@ -2105,9 +2105,9 @@
       "dynamicDesc": "L'éditeur effectue le rendu de l'aperçu pour correspondre à la densité de pixels réelle de votre écran. Cela garantit que chaque détail est représenté avec une précision au pixel près, offrant une clarté maximale lors du zoom et de la vérification de la mise au point.",
       "editIn": {
         "add": "Ajouter un programme",
-        "args": "Arguments (facultatif, {file} est remplacé par le chemin de l'image)",
+        "args": "Arguments ({file} = chemin de l'image)",
         "browse": "Parcourir",
-        "description": "Les programmes listés ici apparaissent sous « Modifier dans » dans le menu contextuel des images. « Envoyer le fichier original » convient aux outils RAW comme Topaz Photo AI ou DxO PureRAW : le programme reçoit le fichier original, et l'image qu'il enregistre à côté est récupérée avec vos réglages. « Envoyer un TIFF modifié » convient aux éditeurs comme Photoshop, GIMP ou Affinity : vos réglages sont rendus dans un TIFF 16 bits que le programme modifie sur place.",
+        "description": "Programmes du menu « Modifier dans ».",
         "executable": "Programmes",
         "modes": {
           "original": "Envoyer le fichier original",

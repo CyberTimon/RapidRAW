@@ -2057,9 +2057,9 @@
       "dynamicDesc": "編輯器根據顯示器實際畫素密度渲染預覽。這確保每個細節都以 1:1 畫素精度呈現，在縮放和檢查焦點時提供最大清晰度。",
       "editIn": {
         "add": "新增程式",
-        "args": "參數（選用，{file} 會被取代為影像路徑）",
+        "args": "參數（{file} = 影像路徑）",
         "browse": "瀏覽",
-        "description": "此處列出的程式會出現在影像右鍵選單的「在其他程式中編輯」中。「傳送原始檔案」適用於 Topaz Photo AI、DxO PureRAW 等 RAW 工具：程式接收原始檔案，其儲存在旁邊的影像會連同您的調整一起帶回。「傳送編輯後的 TIFF」適用於 Photoshop、GIMP、Affinity 等編輯器：您的調整會算繪為 16 位元 TIFF，由該程式直接編輯。",
+        "description": "「在其他程式中編輯」選單中的程式。",
         "executable": "程式",
         "modes": {
           "original": "傳送原始檔案",

@@ -2057,9 +2057,9 @@
       "dynamicDesc": "编辑器根据显示器实际像素密度渲染预览。这确保每个细节都以 1:1 像素精度呈现，在缩放和检查焦点时提供最大清晰度。",
       "editIn": {
         "add": "添加程序",
-        "args": "参数（可选，{file} 会被替换为图像路径）",
+        "args": "参数（{file} = 图像路径）",
         "browse": "浏览",
-        "description": "此处列出的程序会出现在图像右键菜单的“在其他程序中编辑”中。“发送原始文件”适用于 Topaz Photo AI、DxO PureRAW 等 RAW 工具：程序接收原始文件，其保存在旁边的图像会连同您的调整一起带回。“发送编辑后的 TIFF”适用于 Photoshop、GIMP、Affinity 等编辑器：您的调整会渲染为 16 位 TIFF，由该程序直接编辑。",
+        "description": "“在其他程序中编辑”菜单中的程序。",
         "executable": "程序",
         "modes": {
           "original": "发送原始文件",

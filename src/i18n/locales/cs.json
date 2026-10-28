@@ -2145,9 +2145,9 @@
       "dynamicDesc": "Editor vykresluje náhled tak, aby odpovídal skutečné hustotě pixelů vašeho displeje. Tím je zajištěno, že každý detail je zobrazen s přesností pixelů 1:1, což poskytuje maximální jasnost při přibližování a kontrole zaostření.",
       "editIn": {
         "add": "Přidat program",
-        "args": "Argumenty (volitelné, {file} se nahradí cestou k obrázku)",
+        "args": "Argumenty ({file} = cesta k obrázku)",
         "browse": "Procházet",
-        "description": "Programy z tohoto seznamu se zobrazí v kontextové nabídce obrázků pod položkou „Upravit v“. „Odeslat původní soubor“ se hodí pro RAW nástroje jako Topaz Photo AI nebo DxO PureRAW: program dostane původní soubor a obrázek, který uloží vedle něj, se vrátí s vašimi úpravami. „Odeslat upravený TIFF“ se hodí pro editory jako Photoshop, GIMP nebo Affinity: vaše úpravy se vykreslí do 16bitového TIFF, který program upraví přímo.",
+        "description": "Programy pro nabídku „Upravit v“.",
         "executable": "Programy",
         "modes": {
           "original": "Odeslat původní soubor",

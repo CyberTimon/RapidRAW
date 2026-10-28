@@ -2104,9 +2104,9 @@
       "dynamicDesc": "El editor renderiza la vista previa para que coincida con la densidad real de píxeles de tu pantalla. Esto garantiza que cada detalle se represente con precisión de 1:1 píxeles, proporcionando la máxima claridad al hacer zoom y verificar el enfoque.",
       "editIn": {
         "add": "Añadir programa",
-        "args": "Argumentos (opcional, {file} se sustituye por la ruta de la imagen)",
+        "args": "Argumentos ({file} = ruta de la imagen)",
         "browse": "Examinar",
-        "description": "Los programas de esta lista aparecen en «Editar en» del menú contextual de las imágenes. «Enviar archivo original» es para herramientas RAW como Topaz Photo AI o DxO PureRAW: el programa recibe el archivo original y la imagen que guarda junto a él vuelve con tus ajustes. «Enviar TIFF editado» es para editores como Photoshop, GIMP o Affinity: tus ajustes se renderizan en un TIFF de 16 bits que el programa edita directamente.",
+        "description": "Programas del menú «Editar en».",
         "executable": "Programas",
         "modes": {
           "original": "Enviar archivo original",
