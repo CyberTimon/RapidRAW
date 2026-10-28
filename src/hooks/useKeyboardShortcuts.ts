@@ -5,7 +5,7 @@ import { KEYBIND_DEFINITIONS, getDefaultCombo, normalizeCombo } from '../utils/k
 import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { useUIStore } from '../store/useUIStore';
+import { getReopenedPanelWidth, useUIStore } from '../store/useUIStore';
 import { useProcessStore } from '../store/useProcessStore';
 import { useEditorActions } from './useEditorActions';
 import { useLibraryActions } from './useLibraryActions';
@@ -405,7 +405,7 @@ export const useKeyboardShortcuts = ({
           const isOpening = !s.ui.uiVisibility.leftPanel;
           s.ui.setUI((state: any) => ({
             uiVisibility: { ...state.uiVisibility, leftPanel: isOpening },
-            leftPanelWidth: isOpening && state.leftPanelWidth < 250 ? 350 : state.leftPanelWidth,
+            leftPanelWidth: isOpening ? getReopenedPanelWidth(state.leftPanelWidth) : state.leftPanelWidth,
           }));
         },
       },
@@ -416,7 +416,7 @@ export const useKeyboardShortcuts = ({
           const isOpening = !s.ui.uiVisibility.rightPanel;
           s.ui.setUI((state: any) => ({
             uiVisibility: { ...state.uiVisibility, rightPanel: isOpening },
-            rightPanelWidth: isOpening && state.rightPanelWidth < 250 ? 350 : state.rightPanelWidth,
+            rightPanelWidth: isOpening ? getReopenedPanelWidth(state.rightPanelWidth) : state.rightPanelWidth,
           }));
         },
       },

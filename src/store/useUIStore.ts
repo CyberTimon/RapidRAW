@@ -94,6 +94,10 @@ const DEFAULT_PANEL_DEFAULT_REGIONS: Record<Panel, PanelRegion> = {
 export const DEFAULT_PANEL_WIDTH = 350;
 export const DEFAULT_PANEL_SECTION_HEIGHT = 450;
 export const DEFAULT_BOTTOM_PANEL_HEIGHT = 144;
+const MIN_REOPENED_PANEL_WIDTH = 250;
+
+export const getReopenedPanelWidth = (width: number) =>
+  width < MIN_REOPENED_PANEL_WIDTH ? DEFAULT_PANEL_WIDTH : width;
 
 export function reconcileWorkspace(
   savedWorkspace: WorkspaceState | undefined,

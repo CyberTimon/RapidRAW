@@ -1845,6 +1845,8 @@
       "folderImageCountsDesc": "폴더 트리 위에 마우스를 올리면 폴더 내 이미지 개수를 표시합니다.",
       "font": "글꼴",
       "fontDesc": "애플리케이션 글꼴을 변경합니다.",
+      "hideCollapsedPanels": "접힌 패널 숨기기",
+      "hideCollapsedPanelsDesc": "접힌 사이드 패널을 좁은 띠로 남기지 않고 완전히 숨깁니다. 하단 바 또는 키보드 단축키로 다시 열 수 있습니다.",
       "nativeTitlebar": "네이티브 제목 표시줄",
       "nativeTitlebarDesc": "RapidRAW의 사용자 지정 제목 표시줄 대신 시스템 기본 창 제목 표시줄을 사용합니다.",
       "neutralGreyCanvas": "뉴트럴 그레이 캔버스",

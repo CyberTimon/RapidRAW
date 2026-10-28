@@ -1933,6 +1933,8 @@
       "folderImageCountsDesc": "Při najetí myší na strom složek zobrazit počet snímků ve složkách.",
       "font": "Písmo",
       "fontDesc": "Změňte písmo aplikace.",
+      "hideCollapsedPanels": "Skrýt sbalené panely",
+      "hideCollapsedPanelsDesc": "Sbalené boční panely se zcela skryjí, místo aby po nich zůstal úzký pruh. Znovu je otevřete ze spodní lišty nebo pomocí jejich klávesových zkratek.",
       "nativeTitlebar": "Nativní záhlaví",
       "nativeTitlebarDesc": "Použijte výchozí záhlaví okna vašeho systému namísto vlastního okna RapidRAW.",
       "neutralGreyCanvas": "Neutrální šedé plátno",

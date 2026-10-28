@@ -1845,6 +1845,8 @@
       "folderImageCountsDesc": "悬停在文件夹树时显示文件夹内的图像数量。",
       "font": "字体",
       "fontDesc": "更改应用程序字体。",
+      "hideCollapsedPanels": "隐藏折叠的面板",
+      "hideCollapsedPanelsDesc": "折叠的侧边面板将完全隐藏，而不是留下一道窄条。可通过底部栏或键盘快捷键重新打开。",
       "nativeTitlebar": "原生标题栏",
       "nativeTitlebarDesc": "使用系统默认的窗口标题栏，而非 RapidRAW 的自定义标题栏。",
       "neutralGreyCanvas": "中性灰画布",

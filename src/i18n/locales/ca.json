@@ -1892,6 +1892,8 @@
       "folderImageCountsDesc": "Mostra el nombre d'imatges dins de les carpetes quan passeu el ratolí sobre l'arbre de carpetes.",
       "font": "Tipus de lletra",
       "fontDesc": "Canvia el tipus de lletra de l'aplicació.",
+      "hideCollapsedPanels": "Amagar els panells plegats",
+      "hideCollapsedPanelsDesc": "Els panells laterals plegats s'amaguen completament en lloc de deixar una franja estreta. Torneu-los a obrir des de la barra inferior o amb les seves dreceres de teclat.",
       "nativeTitlebar": "Barra de títol nativa",
       "nativeTitlebarDesc": "Utilitzar la barra de títol de la finestra predeterminada del sistema en lloc de la personalitzada de RapidRAW.",
       "neutralGreyCanvas": "Llenç gris neutre",

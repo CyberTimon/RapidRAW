@@ -1845,6 +1845,8 @@
       "folderImageCountsDesc": "懸停在資料夾樹時顯示資料夾內的影像數量。",
       "font": "字型",
       "fontDesc": "更改應用程式字型。",
+      "hideCollapsedPanels": "隱藏折疊的面板",
+      "hideCollapsedPanelsDesc": "折疊的側邊面板將完全隱藏，而不是留下一道窄條。可透過底部列或鍵盤快捷鍵重新開啟。",
       "nativeTitlebar": "原生標題欄",
       "nativeTitlebarDesc": "使用系統預設的視窗標題欄，而非 RapidRAW 的自定義標題欄。",
       "neutralGreyCanvas": "中性灰畫布",
