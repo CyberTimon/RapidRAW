@@ -17,6 +17,7 @@ pub struct Resolved {
 #[serde(rename_all = "camelCase", default)]
 pub struct Filter {
     pub album_id: Option<String>,
+    pub not_in_album: bool,
     pub taken_from: Option<String>,
     pub taken_until: Option<String>,
 }
@@ -26,6 +27,9 @@ impl Filter {
         let mut query = json!({ "type": "IMAGE" });
         if let Some(album) = &self.album_id {
             query["albumIds"] = json!([album]);
+        }
+        if self.not_in_album {
+            query["isNotInAlbum"] = json!(true);
         }
         if let Some(from) = day_start(self.taken_from.as_deref(), 0) {
             query["takenAfter"] = json!(from);
@@ -86,16 +90,21 @@ impl StackIndex {
         (stack.primary_asset_id != asset.id).then_some(stack.primary_asset_id.as_str())
     }
 
+    fn companions<'a>(&'a self, asset: &'a Asset) -> impl Iterator<Item = &'a Asset> {
+        self.by_asset
+            .get(&asset.id)
+            .map(|&i| self.stacks[i].assets.as_slice())
+            .unwrap_or_default()
+            .iter()
+            .filter(move |a| a.id != asset.id && !a.is_trashed)
+    }
+
     fn source<'a>(&'a self, listed: &'a Asset, cache_dir: &Path) -> &'a Asset {
         if is_raw(listed) {
             return listed;
         }
-        self.by_asset
-            .get(&listed.id)
-            .map(|&i| self.stacks[i].assets.as_slice())
-            .unwrap_or_default()
-            .iter()
-            .filter(|a| a.id != listed.id && !a.is_trashed && is_raw(a))
+        self.companions(listed)
+            .filter(|a| is_raw(a))
             .max_by_key(|raw| cache_path(raw, cache_dir).exists())
             .unwrap_or(listed)
     }
@@ -119,6 +128,11 @@ pub async fn listing(
         .filter(|asset| asset.kind == "IMAGE" && !registry::is_trashing(&asset.id))
         .collect();
     let stacks = StackIndex::new(client.stacks().await?);
+    let assets = if filter.not_in_album {
+        without_sorted_stacks(assets, &stacks)
+    } else {
+        assets
+    };
 
     let listed_ids: HashSet<&str> = assets.iter().map(|a| a.id.as_str()).collect();
     let mut seen = HashSet::new();
@@ -146,4 +160,21 @@ pub async fn listing(
         });
     }
     Ok(resolved)
+}
+
+fn without_sorted_stacks(assets: Vec<Asset>, stacks: &StackIndex) -> Vec<Asset> {
+    let unsorted: HashSet<&str> = assets.iter().map(|a| a.id.as_str()).collect();
+    let sorted: HashSet<String> = assets
+        .iter()
+        .filter(|a| {
+            stacks
+                .companions(a)
+                .any(|c| !unsorted.contains(c.id.as_str()))
+        })
+        .map(|a| a.id.clone())
+        .collect();
+    assets
+        .into_iter()
+        .filter(|a| !sorted.contains(&a.id))
+        .collect()
 }

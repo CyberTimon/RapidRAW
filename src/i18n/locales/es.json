@@ -1080,6 +1080,10 @@
       "title": "Ediciones aún no en Immich"
     },
     "export": {
+      "newAlbum": "Álbum nuevo…",
+      "newAlbumName": "Nombre del álbum",
+      "createAlbum": "Crear",
+      "newAlbumFailed": "No se pudo crear el álbum: {{error}}",
       "album": "Álbum",
       "destination": "Immich",
       "noAlbum": "Sin álbum",
@@ -1088,16 +1092,19 @@
       "withOriginalDesc": "Para imágenes de una carpeta local: el original se sube con sus ediciones y la exportación se apila encima. Las imágenes de Immich siempre se apilan sobre su original."
     },
     "section": {
+      "albums": "Álbumes",
       "empty": "No hay álbumes en el servidor.",
       "error": "No se puede acceder a Immich.",
       "loading": "Cargando álbumes…",
       "refresh": "Actualizar álbumes",
       "timeline": "Cronología",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "Sin álbum",
+      "unassignedHint": "Arrastra imágenes aquí para subirlas sin añadirlas a ningún álbum."
     },
     "settings": {
       "apiKey": "Clave de API",
-      "apiKeyDesc": "Crea una en Immich en Configuración de la cuenta → Claves de API con estos permisos: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create y user.read.",
+      "apiKeyDesc": "Crea una en Immich en Configuración de la cuenta → Claves de API con estos permisos: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create y user.read.",
       "connected": "Conectado como {{user}} (Immich {{version}})",
       "description": "Explora las fotos de tu servidor Immich en la biblioteca y edítalas directamente. Los originales se descargan al abrirlos y tus ediciones se guardan en Immich, así que se ven igual en todos los equipos.",
       "keyInFile": "Guardada en un archivo que solo tú puedes leer: no hay ningún almacén de credenciales disponible. En KDE, activa la interfaz Secret Service en la configuración de KDE Wallet y vuelve a guardar.",
@@ -1119,8 +1126,12 @@
       "downloadFailed": "No se pudo descargar de Immich: {{error}}",
       "editsConflict": "{{fileName}} también se editó en otro equipo. Tus ediciones se mantienen y la otra versión se conserva como copia virtual.",
       "offline": "No se puede acceder a Immich. Tus ediciones se guardan aquí y se enviarán en cuanto vuelva a estar disponible.",
+      "transferFailed": "No añadidas a Immich: {{number}} ({{error}})",
+      "transferred": "Añadidas a Immich: {{number}}",
+      "transferring": "Añadiendo a Immich… {{current}}/{{total}}",
       "trashFailed": "No se pudo mover a la papelera de Immich: {{error}}",
-      "uploaded": "Subidas a Immich: {{number}}"
+      "uploaded": "Subidas a Immich: {{number}}",
+      "uploadKeptCopy": "{{fileName}} ya está en Immich con otras ediciones. Esas se mantienen y tus ediciones se guardan como copia virtual."
     }
   },
   "library": {

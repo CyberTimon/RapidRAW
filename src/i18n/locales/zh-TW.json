@@ -1051,6 +1051,10 @@
       "title": "編輯尚未同步到 Immich"
     },
     "export": {
+      "newAlbum": "新增相簿…",
+      "newAlbumName": "相簿名稱",
+      "createAlbum": "建立",
+      "newAlbumFailed": "無法建立相簿：{{error}}",
       "album": "相簿",
       "destination": "Immich",
       "noAlbum": "不加入相簿",
@@ -1059,16 +1063,19 @@
       "withOriginalDesc": "對於本機資料夾中的影像：原始檔會連同編輯內容一起上傳，匯出的影像會堆疊在其上方。來自 Immich 的影像一律堆疊在其原始檔上。"
     },
     "section": {
+      "albums": "相簿",
       "empty": "伺服器上沒有相簿。",
       "error": "無法連線到 Immich。",
       "loading": "正在載入相簿…",
       "refresh": "重新整理相簿",
       "timeline": "時間軸",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "不在任何相簿中",
+      "unassignedHint": "將影像拖到這裡即可上傳，但不加入任何相簿。"
     },
     "settings": {
       "apiKey": "API 金鑰",
-      "apiKeyDesc": "請在 Immich 的「帳戶設定 → API 金鑰」中建立，並授予以下權限：album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create、user.read。",
+      "apiKeyDesc": "請在 Immich 的「帳戶設定 → API 金鑰」中建立，並授予以下權限：album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create、user.read。",
       "connected": "已以 {{user}} 身分連線 (Immich {{version}})",
       "description": "在圖庫中瀏覽 Immich 伺服器上的照片並直接編輯。原始檔會在開啟時下載，編輯內容會儲存到 Immich，因此在每台電腦上看起來都一樣。",
       "keyInFile": "已儲存在只有你能讀取的檔案中：沒有可用的認證資訊儲存區。在 KDE 中，請在 KDE 錢包設定裡啟用 Secret Service 介面，然後重新儲存。",
@@ -1090,8 +1097,12 @@
       "downloadFailed": "無法從 Immich 下載：{{error}}",
       "editsConflict": "{{fileName}} 也在另一台電腦上被編輯過。你的編輯內容會保留，另一個版本已儲存為虛擬副本。",
       "offline": "無法連線到 Immich。你的編輯內容會保留在這裡，並在恢復連線後傳送。",
+      "transferFailed": "未能新增到 Immich：{{number}}（{{error}}）",
+      "transferred": "已新增到 Immich：{{number}}",
+      "transferring": "正在新增到 Immich… {{current}}/{{total}}",
       "trashFailed": "無法移至 Immich 垃圾桶：{{error}}",
-      "uploaded": "已上傳到 Immich：{{number}}"
+      "uploaded": "已上傳到 Immich：{{number}}",
+      "uploadKeptCopy": "{{fileName}} 已在 Immich 中，且有其他編輯。那些編輯會保留，你的編輯將作為虛擬副本保存。"
     }
   },
   "library": {

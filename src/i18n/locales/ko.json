@@ -1051,6 +1051,10 @@
       "title": "아직 Immich에 없는 편집"
     },
     "export": {
+      "newAlbum": "새 앨범…",
+      "newAlbumName": "앨범 이름",
+      "createAlbum": "만들기",
+      "newAlbumFailed": "앨범을 만들 수 없습니다: {{error}}",
       "album": "앨범",
       "destination": "Immich",
       "noAlbum": "앨범 없음",
@@ -1059,16 +1063,19 @@
       "withOriginalDesc": "로컬 폴더의 이미지: 원본이 편집 내용과 함께 업로드되고 내보낸 파일이 그 위에 스택됩니다. Immich의 이미지는 항상 원본 위에 스택됩니다."
     },
     "section": {
+      "albums": "앨범",
       "empty": "서버에 앨범이 없습니다.",
       "error": "Immich에 연결할 수 없습니다.",
       "loading": "앨범 불러오는 중…",
       "refresh": "앨범 새로고침",
       "timeline": "타임라인",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "앨범 없음",
+      "unassignedHint": "이미지를 여기에 놓으면 앨범에 추가하지 않고 업로드합니다."
     },
     "settings": {
       "apiKey": "API 키",
-      "apiKeyDesc": "Immich의 계정 설정 → API 키에서 다음 권한으로 만드세요: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create, user.read",
+      "apiKeyDesc": "Immich의 계정 설정 → API 키에서 다음 권한으로 만드세요: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create, user.read",
       "connected": "{{user}}(으)로 연결됨 (Immich {{version}})",
       "description": "Immich 서버의 사진을 라이브러리에서 둘러보고 바로 편집하세요. 원본은 열 때 다운로드되며, 편집 내용은 Immich에 저장되어 모든 컴퓨터에서 똑같이 보입니다.",
       "keyInFile": "본인만 읽을 수 있는 파일에 저장됨: 사용 가능한 자격 증명 저장소가 없습니다. KDE에서는 KDE 지갑 설정에서 Secret Service 인터페이스를 켠 뒤 다시 저장하세요.",
@@ -1090,8 +1097,12 @@
       "downloadFailed": "Immich에서 다운로드하지 못했습니다: {{error}}",
       "editsConflict": "{{fileName}}이(가) 다른 컴퓨터에서도 편집되었습니다. 내 편집 내용은 유지되고, 다른 버전은 가상 사본으로 보관됩니다.",
       "offline": "Immich에 연결할 수 없습니다. 편집 내용은 여기에 보관되며 다시 연결되면 전송됩니다.",
+      "transferFailed": "Immich에 추가하지 못함: {{number}} ({{error}})",
+      "transferred": "Immich에 추가됨: {{number}}",
+      "transferring": "Immich에 추가하는 중… {{current}}/{{total}}",
       "trashFailed": "Immich 휴지통으로 이동하지 못했습니다: {{error}}",
-      "uploaded": "Immich에 업로드됨: {{number}}"
+      "uploaded": "Immich에 업로드됨: {{number}}",
+      "uploadKeptCopy": "{{fileName}}은(는) 이미 다른 편집 내용으로 Immich에 있습니다. 해당 편집은 유지되고, 내 편집은 가상 사본으로 보관됩니다."
     }
   },
   "library": {

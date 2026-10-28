@@ -1080,6 +1080,10 @@
       "title": "Edicions encara no a Immich"
     },
     "export": {
+      "newAlbum": "Àlbum nou…",
+      "newAlbumName": "Nom de l'àlbum",
+      "createAlbum": "Crea",
+      "newAlbumFailed": "No s'ha pogut crear l'àlbum: {{error}}",
       "album": "Àlbum",
       "destination": "Immich",
       "noAlbum": "Sense àlbum",
@@ -1088,16 +1092,19 @@
       "withOriginalDesc": "Per a imatges d'una carpeta local: l'original es puja amb les seves edicions i l'exportació s'apila a sobre. Les imatges d'Immich sempre s'apilen sobre el seu original."
     },
     "section": {
+      "albums": "Àlbums",
       "empty": "No hi ha àlbums al servidor.",
       "error": "No es pot accedir a Immich.",
       "loading": "Carregant àlbums…",
       "refresh": "Actualitza els àlbums",
       "timeline": "Cronologia",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "Sense àlbum",
+      "unassignedHint": "Arrossega imatges aquí per pujar-les sense afegir-les a cap àlbum."
     },
     "settings": {
       "apiKey": "Clau d'API",
-      "apiKeyDesc": "Crea'n una a Immich a Configuració del compte → Claus d'API amb aquests permisos: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create i user.read.",
+      "apiKeyDesc": "Crea'n una a Immich a Configuració del compte → Claus d'API amb aquests permisos: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create i user.read.",
       "connected": "Connectat com a {{user}} (Immich {{version}})",
       "description": "Explora les fotos del teu servidor Immich a la biblioteca i edita-les directament. Els originals es descarreguen quan els obres, i les edicions es desen a Immich, de manera que es veuen igual a tots els ordinadors.",
       "keyInFile": "Desada en un fitxer que només tu pots llegir: no hi ha cap magatzem de credencials disponible. A KDE, activa la interfície Secret Service a la configuració de KDE Wallet i torna a desar.",
@@ -1119,8 +1126,12 @@
       "downloadFailed": "No s'ha pogut descarregar d'Immich: {{error}}",
       "editsConflict": "{{fileName}} també s'ha editat en un altre ordinador. Les teves edicions es mantenen i l'altra versió es conserva com a còpia virtual.",
       "offline": "No es pot accedir a Immich. Les teves edicions es guarden aquí i s'enviaran quan torni a estar disponible.",
+      "transferFailed": "No afegides a Immich: {{number}} ({{error}})",
+      "transferred": "Afegides a Immich: {{number}}",
+      "transferring": "S'està afegint a Immich… {{current}}/{{total}}",
       "trashFailed": "No s'ha pogut moure a la paperera d'Immich: {{error}}",
-      "uploaded": "Pujades a Immich: {{number}}"
+      "uploaded": "Pujades a Immich: {{number}}",
+      "uploadKeptCopy": "{{fileName}} ja és a Immich amb altres edicions. Aquestes es mantenen i les teves es desen com a còpia virtual."
     }
   },
   "library": {
