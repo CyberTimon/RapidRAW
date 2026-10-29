@@ -1885,11 +1885,17 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   }, [showSpinner]);
 
   useEffect(() => {
-    if (!isCropping || !selectedImage?.width || !selectedImage?.height) {
+    const { aspectRatio, orientationSteps = 0, crop: currentAdjCrop, rotation = 0 } = adjustments;
+
+    if (!isCropping) {
+      prevCropParams.current = { rotation, aspectRatio, orientationSteps };
       return;
     }
 
-    const { aspectRatio, orientationSteps = 0, crop: currentAdjCrop, rotation = 0 } = adjustments;
+    if (!selectedImage?.width || !selectedImage?.height) {
+      return;
+    }
+
     const effectiveRotation = liveRotation !== null && liveRotation !== undefined ? liveRotation : rotation;
 
     const geometryChanged =
