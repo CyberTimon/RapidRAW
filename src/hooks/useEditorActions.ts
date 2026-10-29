@@ -26,8 +26,8 @@ import { calculateAutoCropForRotation, calculateCenteredCrop } from '../utils/cr
 import { CompareMode, Invokes, Option, SelectedImage } from '../components/ui/AppProperties';
 import { globalImageCache } from '../utils/ImageLRUCache';
 
-export const debouncedSetHistory = debounce((newAdj: Adjustments) => {
-  useEditorStore.getState().pushHistory(newAdj);
+export const debouncedSetHistory = debounce((newAdj: Adjustments, label?: string) => {
+  useEditorStore.getState().pushHistory(newAdj, label);
 }, 500);
 
 export const debouncedSave = debounce((path: string, adjustmentsToSave: Adjustments) => {
@@ -144,17 +144,20 @@ export function useEditorActions() {
   const setEditor = useEditorStore((s) => s.setEditor);
 
   const setAdjustments = useCallback(
-    (value: Partial<Adjustments> | ((prev: Adjustments) => Adjustments)) => {
+    (value: Partial<Adjustments> | ((prev: Adjustments) => Adjustments), label?: string) => {
+      // A labelled action gets its own history step instead of merging with pending slider edits.
+      if (label) debouncedSetHistory.flush();
       setEditor((state) => {
         const prev = state.adjustments;
         const newAdjustments = typeof value === 'function' ? value(prev) : { ...prev, ...value };
         if (newAdjustments === prev) return state;
-        debouncedSetHistory(newAdjustments);
+        debouncedSetHistory(newAdjustments, label);
         return {
           adjustments: newAdjustments,
           ...(state.showOriginal ? { showOriginal: false, previewOverride: null } : {}),
         };
       });
+      if (label) debouncedSetHistory.flush();
     },
     [setEditor],
   );
@@ -190,16 +193,19 @@ export function useEditorActions() {
           jsAdjustments: useEditorStore.getState().adjustments,
           mode,
         });
-        setAdjustments((prev: Adjustments) => ({
-          ...prev,
-          ...autoAdjustments,
-          activeTools: mergeActiveTools(prev, autoAdjustments),
-        }));
+        setAdjustments(
+          (prev: Adjustments) => ({
+            ...prev,
+            ...autoAdjustments,
+            activeTools: mergeActiveTools(prev, autoAdjustments),
+          }),
+          t('contextMenus.editor.autoAdjust'),
+        );
       } catch (err) {
         toast.error(`Failed to apply auto adjustments: ${err}`);
       }
     },
-    [setAdjustments],
+    [setAdjustments, t],
   );
 
   const handleAutoStraighten = useCallback(async () => {
@@ -463,13 +469,13 @@ export function useEditorActions() {
 
           const pastedKeys = [...Object.keys(adjustmentsToApply), 'lensMaker', 'lensModel', 'lensDistortionParams'];
           const pasted = Object.fromEntries(pastedKeys.map((key) => [key, meta.adjustments[key]]));
-          setAdjustments((prev: any) => ({ ...prev, ...pasted }));
+          setAdjustments((prev: any) => ({ ...prev, ...pasted }), t('contextMenus.editor.pasteAdjustments'));
         })
         .catch((err) => toast.error(`Failed to paste adjustments: ${err}`));
 
       setProcess({ isPasted: true });
     },
-    [setAdjustments],
+    [setAdjustments, t],
   );
 
   const handleZoomChange = useCallback((zoomValue: number, fitToWindow: boolean = false) => {
