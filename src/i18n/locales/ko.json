@@ -116,6 +116,12 @@
       "whiteBalance": "화이트 밸런스"
     },
     "curves": {
+      "histogram": "히스토그램",
+      "inputHistogram": "입력 히스토그램",
+      "outputHistogram": "출력 히스토그램",
+      "interpolation": "곡선 유형",
+      "standardCurve": "표준",
+      "smoothCurve": "부드럽게",
       "channelTitle": "{{channel}} 채널",
       "channels": {
         "blue": "파랑",

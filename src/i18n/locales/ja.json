@@ -116,6 +116,12 @@
       "whiteBalance": "ホワイトバランス"
     },
     "curves": {
+      "histogram": "ヒストグラム",
+      "inputHistogram": "入力ヒストグラム",
+      "outputHistogram": "出力ヒストグラム",
+      "interpolation": "カーブの種類",
+      "standardCurve": "標準",
+      "smoothCurve": "滑らか",
       "channelTitle": "{{channel}} チャンネル",
       "channels": {
         "blue": "ブルー",

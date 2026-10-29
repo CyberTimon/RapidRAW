@@ -116,6 +116,12 @@
       "whiteBalance": "Vyvážení bílé"
     },
     "curves": {
+      "histogram": "Histogram",
+      "inputHistogram": "Vstupní histogram",
+      "outputHistogram": "Výstupní histogram",
+      "interpolation": "Typ křivky",
+      "standardCurve": "Standardní",
+      "smoothCurve": "Hladká",
       "channelTitle": "{{channel}} kanál",
       "channels": {
         "blue": "Modrý",

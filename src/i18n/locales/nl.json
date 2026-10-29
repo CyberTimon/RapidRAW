@@ -116,6 +116,12 @@
       "whiteBalance": "Witbalans"
     },
     "curves": {
+      "histogram": "Histogram",
+      "inputHistogram": "Invoerhistogram",
+      "outputHistogram": "Uitvoerhistogram",
+      "interpolation": "Curvetype",
+      "standardCurve": "Standaard",
+      "smoothCurve": "Vloeiend",
       "channelTitle": "{{channel}} kanaal",
       "channels": {
         "blue": "Blauw",

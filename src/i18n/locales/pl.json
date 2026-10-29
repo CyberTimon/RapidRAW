@@ -116,6 +116,12 @@
       "whiteBalance": "Balans bieli"
     },
     "curves": {
+      "histogram": "Histogram",
+      "inputHistogram": "Histogram wejściowy",
+      "outputHistogram": "Histogram wyjściowy",
+      "interpolation": "Typ krzywej",
+      "standardCurve": "Standardowa",
+      "smoothCurve": "Gładka",
       "channelTitle": "Kanał {{channel}}",
       "channels": {
         "blue": "Niebieski",
