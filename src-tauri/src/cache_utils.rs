@@ -1,5 +1,5 @@
-use crate::AppState;
 use crate::app_settings::AppSettings;
+use crate::{AppState, PreviewTarget};
 use half::f16;
 use half::slice::HalfFloatSliceExt;
 use image::{DynamicImage, GenericImageView, Rgb32FImage, Rgba32FImage};
@@ -707,16 +707,24 @@ pub fn clear_preview_stage_caches(state: &AppState) {
         .unwrap_or_else(|e| e.into_inner()) = None;
 }
 
+pub fn clear_preview_slot(state: &AppState, target: PreviewTarget) {
+    *state
+        .gpu_image_cache_for(target)
+        .lock()
+        .unwrap_or_else(|e| e.into_inner()) = None;
+    *state
+        .cached_preview_for(target)
+        .lock()
+        .unwrap_or_else(|e| e.into_inner()) = None;
+}
+
 #[tauri::command]
 pub fn clear_image_caches(state: tauri::State<AppState>) {
     if let Ok(mut decoded_cache) = state.decoded_image_cache.lock() {
         decoded_cache.clear();
     }
-    if let Ok(mut gpu_cache) = state.gpu_image_cache.lock() {
-        *gpu_cache = None;
-    }
-    if let Ok(mut preview_cache) = state.cached_preview.lock() {
-        *preview_cache = None;
+    for target in PreviewTarget::ALL {
+        clear_preview_slot(&state, target);
     }
     if let Ok(mut warped_cache) = state.full_warped_cache.lock() {
         *warped_cache = None;

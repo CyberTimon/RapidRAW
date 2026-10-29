@@ -5,9 +5,9 @@ import { KEYBIND_DEFINITIONS, getDefaultCombo, normalizeCombo } from '../utils/k
 import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { useUIStore } from '../store/useUIStore';
+import { getReopenedPanelWidth, useUIStore } from '../store/useUIStore';
 import { useProcessStore } from '../store/useProcessStore';
-import { useEditorActions } from './useEditorActions';
+import { applyCrop, cancelCrop, useEditorActions } from './useEditorActions';
 import { useLibraryActions } from './useLibraryActions';
 
 const getParentFolder = (path: string) => {
@@ -323,6 +323,13 @@ export const useKeyboardShortcuts = ({
           s.ui.toggleFullScreen();
         },
       },
+      toggle_viewer_window: {
+        shouldFire: (s: ShortcutState) => s.settings.osPlatform !== 'android',
+        execute: (e: KeyboardEvent, s: ShortcutState) => {
+          e.preventDefault();
+          s.ui.toggleViewerWindow();
+        },
+      },
       show_original: {
         shouldFire: (s: any) => s.ui.activeView === 'editor' && !!s.editor.selectedImage,
         execute: (e: any) => {
@@ -405,7 +412,7 @@ export const useKeyboardShortcuts = ({
           const isOpening = !s.ui.uiVisibility.leftPanel;
           s.ui.setUI((state: any) => ({
             uiVisibility: { ...state.uiVisibility, leftPanel: isOpening },
-            leftPanelWidth: isOpening && state.leftPanelWidth < 250 ? 350 : state.leftPanelWidth,
+            leftPanelWidth: isOpening ? getReopenedPanelWidth(state.leftPanelWidth) : state.leftPanelWidth,
           }));
         },
       },
@@ -416,7 +423,7 @@ export const useKeyboardShortcuts = ({
           const isOpening = !s.ui.uiVisibility.rightPanel;
           s.ui.setUI((state: any) => ({
             uiVisibility: { ...state.uiVisibility, rightPanel: isOpening },
-            rightPanelWidth: isOpening && state.rightPanelWidth < 250 ? 350 : state.rightPanelWidth,
+            rightPanelWidth: isOpening ? getReopenedPanelWidth(state.rightPanelWidth) : state.rightPanelWidth,
           }));
         },
       },
@@ -633,7 +640,7 @@ export const useKeyboardShortcuts = ({
           else if (s.editor.activeAiPatchContainerId) s.editor.setEditor({ activeAiPatchContainerId: null });
           else if (s.editor.activeMaskId) s.editor.setEditor({ activeMaskId: null });
           else if (s.editor.activeMaskContainerId) s.editor.setEditor({ activeMaskContainerId: null });
-          else if (s.ui.activePanel === Panel.Crop) s.ui.setPanel(Panel.Adjustments);
+          else if (s.ui.activePanel === Panel.Crop) cancelCrop();
           else if (s.ui.isFullScreen) s.ui.toggleFullScreen();
           else if (s.ui.activeView === 'editor') handleBackToLibrary();
           else if (s.ui.activeView === 'library' && s.library.rootPaths?.length > 0) handleGoHome();
@@ -665,6 +672,19 @@ export const useKeyboardShortcuts = ({
               activeAiSubMaskId: null,
             }));
           }
+        },
+      },
+      {
+        match: (e: KeyboardEvent, s: any) =>
+          (e.code === 'Enter' || e.code === 'NumpadEnter') &&
+          !e.ctrlKey &&
+          !e.metaKey &&
+          !e.altKey &&
+          s.ui.activeView === 'editor' &&
+          s.ui.activePanel === Panel.Crop,
+        execute: (e: KeyboardEvent) => {
+          e.preventDefault();
+          applyCrop();
         },
       },
       {

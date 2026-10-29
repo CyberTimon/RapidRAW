@@ -45,6 +45,10 @@ pub struct Album {
     #[serde(default)]
     pub album_thumbnail_asset_id: Option<String>,
     #[serde(default)]
+    pub start_date: Option<String>,
+    #[serde(default)]
+    pub end_date: Option<String>,
+    #[serde(default)]
     pub shared: bool,
 }
 
@@ -65,6 +69,8 @@ pub struct TimelineMonth {
 pub struct UploadResult {
     #[serde(deserialize_with = "asset_id")]
     pub id: String,
+    #[serde(default)]
+    pub status: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -195,6 +201,15 @@ impl ImmichClient {
     pub async fn albums(&self) -> Result<Vec<Album>, String> {
         self.json(self.request(Method::GET, "/albums"), "albums")
             .await
+    }
+
+    pub async fn create_album(&self, name: &str) -> Result<Album, String> {
+        self.json(
+            self.request(Method::POST, "/albums")
+                .json(&json!({ "albumName": name })),
+            "albums",
+        )
+        .await
     }
 
     pub async fn search(&self, query: Value) -> Result<Vec<Asset>, String> {

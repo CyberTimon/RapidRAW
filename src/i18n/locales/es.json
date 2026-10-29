@@ -276,6 +276,7 @@
       "autoLensCorrection": "Corrección de lente automática",
       "autoStraighten": "Enderezar automáticamente",
       "cancel": "Cancelar",
+      "closeViewer": "Cerrar la segunda ventana",
       "colorLabel": "Etiqueta de color",
       "confirmReset": "Confirmar restablecimiento",
       "convertBlackWhite": "Convertir a blanco y negro",
@@ -292,6 +293,7 @@
       "mergeHdr": "Combinar en HDR",
       "noLabel": "Sin etiqueta",
       "noRating": "Sin puntuación",
+      "openViewer": "Abrir en una segunda ventana",
       "pasteAdjustments": "Pegar ajustes",
       "productivity": "Productividad",
       "rating": "Puntuación",
@@ -940,6 +942,10 @@
         "undo": "Deshacer (Ctrl+Z) o Historial (Clic derecho)"
       },
       "vc": "CV"
+    },
+    "viewer": {
+      "openFailed": "No se pudo abrir la segunda ventana: {{error}}",
+      "windowTitle": "Visor de RapidRAW"
     }
   },
   "export": {
@@ -1080,6 +1086,10 @@
       "title": "Ediciones aún no en Immich"
     },
     "export": {
+      "newAlbum": "Álbum nuevo…",
+      "newAlbumName": "Nombre del álbum",
+      "createAlbum": "Crear",
+      "newAlbumFailed": "No se pudo crear el álbum: {{error}}",
       "album": "Álbum",
       "destination": "Immich",
       "noAlbum": "Sin álbum",
@@ -1088,16 +1098,19 @@
       "withOriginalDesc": "Para imágenes de una carpeta local: el original se sube con sus ediciones y la exportación se apila encima. Las imágenes de Immich siempre se apilan sobre su original."
     },
     "section": {
+      "albums": "Álbumes",
       "empty": "No hay álbumes en el servidor.",
       "error": "No se puede acceder a Immich.",
       "loading": "Cargando álbumes…",
       "refresh": "Actualizar álbumes",
       "timeline": "Cronología",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "Sin álbum",
+      "unassignedHint": "Arrastra imágenes aquí para subirlas sin añadirlas a ningún álbum."
     },
     "settings": {
       "apiKey": "Clave de API",
-      "apiKeyDesc": "Crea una en Immich en Configuración de la cuenta → Claves de API con estos permisos: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create y user.read.",
+      "apiKeyDesc": "Crea una en Immich en Configuración de la cuenta → Claves de API con estos permisos: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create y user.read.",
       "connected": "Conectado como {{user}} (Immich {{version}})",
       "description": "Explora las fotos de tu servidor Immich en la biblioteca y edítalas directamente. Los originales se descargan al abrirlos y tus ediciones se guardan en Immich, así que se ven igual en todos los equipos.",
       "keyInFile": "Guardada en un archivo que solo tú puedes leer: no hay ningún almacén de credenciales disponible. En KDE, activa la interfaz Secret Service en la configuración de KDE Wallet y vuelve a guardar.",
@@ -1119,8 +1132,12 @@
       "downloadFailed": "No se pudo descargar de Immich: {{error}}",
       "editsConflict": "{{fileName}} también se editó en otro equipo. Tus ediciones se mantienen y la otra versión se conserva como copia virtual.",
       "offline": "No se puede acceder a Immich. Tus ediciones se guardan aquí y se enviarán en cuanto vuelva a estar disponible.",
+      "transferFailed": "No añadidas a Immich: {{number}} ({{error}})",
+      "transferred": "Añadidas a Immich: {{number}}",
+      "transferring": "Añadiendo a Immich… {{current}}/{{total}}",
       "trashFailed": "No se pudo mover a la papelera de Immich: {{error}}",
-      "uploaded": "Subidas a Immich: {{number}}"
+      "uploaded": "Subidas a Immich: {{number}}",
+      "uploadKeptCopy": "{{fileName}} ya está en Immich con otras ediciones. Esas se mantienen y tus ediciones se guardan como copia virtual."
     }
   },
   "library": {
@@ -1881,6 +1898,8 @@
       "folderImageCountsDesc": "Muestra la cantidad de imágenes dentro de las carpetas al pasar el ratón sobre el árbol de carpetas.",
       "font": "Fuente",
       "fontDesc": "Cambia la fuente de la aplicación.",
+      "hideCollapsedPanels": "Ocultar paneles contraídos",
+      "hideCollapsedPanelsDesc": "Los paneles laterales contraídos se ocultan por completo en lugar de dejar una franja estrecha. Vuelve a abrirlos desde la barra inferior o con sus atajos de teclado.",
       "nativeTitlebar": "Barra de título nativa",
       "nativeTitlebarDesc": "Usa la barra de título de ventana predeterminada de tu sistema en lugar de la personalizada de RapidRAW.",
       "neutralGreyCanvas": "Lienzo gris neutro",
@@ -1949,6 +1968,7 @@
         "toggle_presets": "Alternar panel de Ajustes preestablecidos",
         "toggle_reject": "Alternar marca de rechazada",
         "toggle_right_panel": "Alternar panel derecho",
+        "toggle_viewer_window": "Alternar segunda ventana",
         "undo": "Deshacer ajuste",
         "unflag": "Quitar marca",
         "zoom_100": "Hacer zoom al 100%",
@@ -2098,7 +2118,7 @@
         "baselineExposure": "Exposición base",
         "baselineExposureAmount": "Cantidad base",
         "baselineExposureAmountDesc": "Exposición añadida a los archivos RAW. darktable usa +0,7 EV.",
-        "baselineExposureDesc": "Aclara todos los archivos RAW en una cantidad fija, como el valor predeterminado de darktable en modo referido a la escena, más la etiqueta DNG BaselineExposure si existe. Las imágenes editadas antes de que existiera esta opción no se ven afectadas.",
+        "baselineExposureDesc": "Aclara los archivos RAW en una cantidad fija, más la etiqueta DNG BaselineExposure si existe.",
         "colorNr": "Reducción base del ruido de color",
         "colorNrDesc": "Aplica un filtro bilateral cruzado temprano en el pipeline para eliminar el ruido de croma. Valor más alto = mayor reducción.",
         "defaultNonRawTonemapper": "Mapeador de tonos predeterminado no RAW",
@@ -2111,7 +2131,7 @@
         "enablePreprocessingNonRaws": "Activar para no RAW",
         "enableTonemapperOverride": "Activar anulación del mapeador de tonos",
         "highlightPreservation": "Compensación de protección de altas luces",
-        "highlightPreservationDesc": "Restaura la exposición que la cámara reservó en los modos de protección de altas luces, leída del archivo RAW (Fujifilm DR200/DR400, Prioridad a tonos altas luces y Auto Lighting Optimizer de Canon, D-Lighting activo de Nikon, gradación de Olympus, expansión de rango dinámico de Pentax). Las imágenes editadas antes de que existiera esta opción no se ven afectadas.",
+        "highlightPreservationDesc": "Restaura la exposición reducida por los modos de protección de altas luces de la cámara, como Fujifilm DR200/DR400 o D-Lighting activo de Nikon.",
         "highlightRecovery": "Recuperación de altas luces RAW",
         "highlightRecoveryDesc": "Controla cuánto detalle se recupera de las luces recortadas en los archivos RAW. Valores más altos recuperan más detalle pero pueden introducir artefactos morados.",
         "linearOptions": {

@@ -276,6 +276,7 @@
       "autoLensCorrection": "自動鏡頭校正",
       "autoStraighten": "自動拉直",
       "cancel": "取消",
+      "closeViewer": "關閉第二視窗",
       "colorLabel": "顏色標籤",
       "confirmReset": "確認重置",
       "convertBlackWhite": "轉換為黑白",
@@ -292,6 +293,7 @@
       "mergeHdr": "合併為 HDR",
       "noLabel": "無標籤",
       "noRating": "無評分",
+      "openViewer": "在第二視窗中開啟",
       "pasteAdjustments": "貼上調整",
       "productivity": "效率",
       "rating": "評分",
@@ -913,6 +915,10 @@
         "undo": "復原（Ctrl+Z）或歷史記錄（右鍵單擊）"
       },
       "vc": "VC"
+    },
+    "viewer": {
+      "openFailed": "無法開啟第二視窗：{{error}}",
+      "windowTitle": "RapidRAW 檢視器"
     }
   },
   "export": {
@@ -1051,6 +1057,10 @@
       "title": "編輯尚未同步到 Immich"
     },
     "export": {
+      "newAlbum": "新增相簿…",
+      "newAlbumName": "相簿名稱",
+      "createAlbum": "建立",
+      "newAlbumFailed": "無法建立相簿：{{error}}",
       "album": "相簿",
       "destination": "Immich",
       "noAlbum": "不加入相簿",
@@ -1059,16 +1069,19 @@
       "withOriginalDesc": "對於本機資料夾中的影像：原始檔會連同編輯內容一起上傳，匯出的影像會堆疊在其上方。來自 Immich 的影像一律堆疊在其原始檔上。"
     },
     "section": {
+      "albums": "相簿",
       "empty": "伺服器上沒有相簿。",
       "error": "無法連線到 Immich。",
       "loading": "正在載入相簿…",
       "refresh": "重新整理相簿",
       "timeline": "時間軸",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "不在任何相簿中",
+      "unassignedHint": "將影像拖到這裡即可上傳，但不加入任何相簿。"
     },
     "settings": {
       "apiKey": "API 金鑰",
-      "apiKeyDesc": "請在 Immich 的「帳戶設定 → API 金鑰」中建立，並授予以下權限：album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create、user.read。",
+      "apiKeyDesc": "請在 Immich 的「帳戶設定 → API 金鑰」中建立，並授予以下權限：album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create、user.read。",
       "connected": "已以 {{user}} 身分連線 (Immich {{version}})",
       "description": "在圖庫中瀏覽 Immich 伺服器上的照片並直接編輯。原始檔會在開啟時下載，編輯內容會儲存到 Immich，因此在每台電腦上看起來都一樣。",
       "keyInFile": "已儲存在只有你能讀取的檔案中：沒有可用的認證資訊儲存區。在 KDE 中，請在 KDE 錢包設定裡啟用 Secret Service 介面，然後重新儲存。",
@@ -1090,8 +1103,12 @@
       "downloadFailed": "無法從 Immich 下載：{{error}}",
       "editsConflict": "{{fileName}} 也在另一台電腦上被編輯過。你的編輯內容會保留，另一個版本已儲存為虛擬副本。",
       "offline": "無法連線到 Immich。你的編輯內容會保留在這裡，並在恢復連線後傳送。",
+      "transferFailed": "未能新增到 Immich：{{number}}（{{error}}）",
+      "transferred": "已新增到 Immich：{{number}}",
+      "transferring": "正在新增到 Immich… {{current}}/{{total}}",
       "trashFailed": "無法移至 Immich 垃圾桶：{{error}}",
-      "uploaded": "已上傳到 Immich：{{number}}"
+      "uploaded": "已上傳到 Immich：{{number}}",
+      "uploadKeptCopy": "{{fileName}} 已在 Immich 中，且有其他編輯。那些編輯會保留，你的編輯將作為虛擬副本保存。"
     }
   },
   "library": {
@@ -1834,6 +1851,8 @@
       "folderImageCountsDesc": "懸停在資料夾樹時顯示資料夾內的影像數量。",
       "font": "字型",
       "fontDesc": "更改應用程式字型。",
+      "hideCollapsedPanels": "隱藏折疊的面板",
+      "hideCollapsedPanelsDesc": "折疊的側邊面板將完全隱藏，而不是留下一道窄條。可透過底部列或鍵盤快捷鍵重新開啟。",
       "nativeTitlebar": "原生標題欄",
       "nativeTitlebarDesc": "使用系統預設的視窗標題欄，而非 RapidRAW 的自定義標題欄。",
       "neutralGreyCanvas": "中性灰畫布",
@@ -1902,6 +1921,7 @@
         "toggle_presets": "切換預設面板",
         "toggle_reject": "切換拒絕標記",
         "toggle_right_panel": "切換右側面板",
+        "toggle_viewer_window": "切換第二視窗",
         "undo": "復原調整",
         "unflag": "取消標記",
         "zoom_100": "縮放到 100%",
@@ -2051,7 +2071,7 @@
         "baselineExposure": "基礎曝光",
         "baselineExposureAmount": "基礎量",
         "baselineExposureAmountDesc": "加到 RAW 檔案的曝光量。darktable 使用 +0.7 EV。",
-        "baselineExposureDesc": "將所有 RAW 檔案提亮一個固定值（與 darktable 場景參考模式的預設值相同），如有 DNG BaselineExposure 標籤也會一併加上。在此選項推出之前編輯的影像不受影響。",
+        "baselineExposureDesc": "將 RAW 檔案提亮一個固定值，如有 DNG BaselineExposure 標籤也會一併加上。",
         "colorNr": "基礎顏色降噪",
         "colorNrDesc": "在管線早期應用交叉雙邊濾波器以去除彩色噪點。值越高 = 降噪越強。",
         "defaultNonRawTonemapper": "預設非 RAW 色調映射",
@@ -2064,7 +2084,7 @@
         "enablePreprocessingNonRaws": "對非 RAW 影像啟用",
         "enableTonemapperOverride": "啟用色調映射覆蓋",
         "highlightPreservation": "高光保護補償",
-        "highlightPreservationDesc": "從 RAW 檔案讀取相機在高光保護模式下保留的曝光並予以恢復（富士 DR200/DR400、Canon 高光色調優先與自動亮度優化、Nikon 動態 D-Lighting、Olympus 層次、Pentax 動態範圍擴展）。在此選項推出之前編輯的影像不受影響。",
+        "highlightPreservationDesc": "恢復相機高光保護模式（如富士 DR200/DR400、Nikon 動態 D-Lighting）降低的曝光。",
         "highlightRecovery": "RAW 亮部恢復",
         "highlightRecoveryDesc": "控制從 RAW 檔案的裁剪亮部中恢復細節的程度。較高的值可恢復更多細節，但可能引入紫色偽影。",
         "linearOptions": {

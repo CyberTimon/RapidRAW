@@ -1,6 +1,6 @@
 use crate::as_shot::AsShot;
 use crate::baseline_exposure::BaselineOptions;
-use crate::gpu_processing::WgpuDisplay;
+use crate::gpu_processing::{GpuPipelines, WgpuDisplay};
 use crate::guided_perspective::{GuideLine, compute_guided_homography, count_valid_lines};
 use crate::white_balance::{self, WhiteBalance};
 use bytemuck::{Pod, Zeroable};
@@ -2279,7 +2279,7 @@ pub fn resolve_tonemapper_override(settings: &crate::AppSettings, is_raw: bool) 
     Some(if tm == "agx" { 1 } else { 0 })
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct RenderOptions {
     pub tonemapper_override: Option<u32>,
     pub non_raw_tonemapper_override: Option<u32>,
@@ -3113,11 +3113,28 @@ pub fn get_all_adjustments_from_json(
 
 #[derive(Clone)]
 pub struct GpuContext {
+    pub instance: wgpu::Instance,
+    pub adapter: wgpu::Adapter,
     pub device: Arc<wgpu::Device>,
     pub queue: Arc<wgpu::Queue>,
     pub limits: wgpu::Limits,
     pub adapter_info: wgpu::AdapterInfo,
     pub display: Arc<std::sync::Mutex<Option<WgpuDisplay>>>,
+    pub viewer_display: Arc<std::sync::Mutex<Option<WgpuDisplay>>>,
+    pub pipelines: Arc<OnceLock<Arc<GpuPipelines>>>,
+}
+
+impl GpuContext {
+    pub fn display_for_label(
+        &self,
+        label: &str,
+    ) -> Option<&Arc<std::sync::Mutex<Option<WgpuDisplay>>>> {
+        match label {
+            "main" => Some(&self.display),
+            crate::viewer_window::VIEWER_LABEL => Some(&self.viewer_display),
+            _ => None,
+        }
+    }
 }
 
 fn into_rgb32f_parallel(image: DynamicImage) -> image::Rgb32FImage {

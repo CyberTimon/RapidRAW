@@ -16,6 +16,8 @@ use rawler::{
     rawsource::RawSource,
 };
 use rayon::prelude::*;
+use std::cell::Cell;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
@@ -47,15 +49,59 @@ fn metadata_orientation(decoder: &dyn Decoder, source: &RawSource) -> Result<Ori
         .unwrap_or(Orientation::Normal))
 }
 
+thread_local! {
+    static READING_PREFIX: Cell<bool> = const { Cell::new(false) };
+    static PREFIX_WARNED: Cell<bool> = const { Cell::new(false) };
+}
+
+pub fn is_reading_prefix() -> bool {
+    READING_PREFIX.with(Cell::get)
+}
+
+pub fn swallow_prefix_log(metadata: &log::Metadata) -> bool {
+    if !metadata.target().starts_with("rawler") || !is_reading_prefix() {
+        return false;
+    }
+    if metadata.level() <= log::Level::Warn {
+        PREFIX_WARNED.with(|warned| warned.set(true));
+    }
+    true
+}
+
+pub fn read_from_prefix<T>(
+    file_bytes: &[u8],
+    read: impl Fn(&[u8], bool) -> Option<T>,
+) -> Option<T> {
+    let mut len = 256 * 1024;
+    while len < file_bytes.len() && len <= 16 * 1024 * 1024 {
+        READING_PREFIX.with(|reading| reading.set(true));
+        PREFIX_WARNED.with(|warned| warned.set(false));
+        let found = catch_unwind(AssertUnwindSafe(|| read(&file_bytes[..len], false)));
+        READING_PREFIX.with(|reading| reading.set(false));
+        if let Ok(Some(found)) = found
+            && !PREFIX_WARNED.with(Cell::get)
+        {
+            return Some(found);
+        }
+        len *= 4;
+    }
+    read(file_bytes, true)
+}
+
 pub fn extract_embedded_preview(file_bytes: &[u8]) -> Option<DynamicImage> {
-    let source = RawSource::new_from_slice(file_bytes);
-    let decoder = rawler::get_decoder(&source).ok()?;
-    let preview = decoder
-        .full_image(&source, &RawDecodeParams::default())
-        .ok()??;
-    let orientation =
-        metadata_orientation(decoder.as_ref(), &source).unwrap_or(Orientation::Normal);
-    Some(apply_orientation(preview, orientation))
+    read_from_prefix(file_bytes, |bytes, whole_file| {
+        let source = RawSource::new_from_slice(bytes);
+        let decoder = rawler::get_decoder(&source).ok()?;
+        let orientation = match metadata_orientation(decoder.as_ref(), &source) {
+            Ok(orientation) => orientation,
+            Err(_) if whole_file => Orientation::Normal,
+            Err(_) => return None,
+        };
+        let preview = decoder
+            .full_image(&source, &RawDecodeParams::default())
+            .ok()??;
+        Some(apply_orientation(preview, orientation))
+    })
 }
 
 fn is_linear_raw_format(raw_image: &RawImage) -> bool {

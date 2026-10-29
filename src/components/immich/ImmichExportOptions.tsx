@@ -1,11 +1,14 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'react-toastify';
+import Button from '../ui/Button';
 import Dropdown from '../ui/Dropdown';
+import Input from '../ui/Input';
 import Switch from '../ui/Switch';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
 import { useSettingsStore } from '../../store/useSettingsStore';
-import { DEFAULT_IMMICH_SETTINGS, ImmichSettings } from './immichApi';
+import { createImmichAlbum, DEFAULT_IMMICH_SETTINGS, ImmichSettings } from './immichApi';
 import { useImmichStore } from './useImmichStore';
 
 export function useImmichExportAvailable() {
@@ -28,6 +31,7 @@ export default function ImmichExportOptions({ disabled }: { disabled?: boolean }
   const albums = useImmichStore((state) => state.albums);
   const loadAlbums = useImmichStore((state) => state.loadAlbums);
   const { album, withOriginal } = useImmichExportChoice();
+  const [newAlbumName, setNewAlbumName] = useState<string | null>(null);
 
   useEffect(() => {
     if (albums.length === 0) loadAlbums();
@@ -41,9 +45,23 @@ export default function ImmichExportOptions({ disabled }: { disabled?: boolean }
     });
   };
 
+  const createAlbum = async () => {
+    const name = newAlbumName?.trim();
+    if (!name) return;
+    try {
+      const created = await createImmichAlbum(name);
+      await loadAlbums();
+      change({ exportAlbum: created.id });
+      setNewAlbumName(null);
+    } catch (error) {
+      toast.error(t('immich.export.newAlbumFailed', { error }));
+    }
+  };
+
   const options = [
     { label: t('immich.export.sourceAlbum'), value: 'source' },
     { label: t('immich.export.noAlbum'), value: 'none' },
+    { label: t('immich.export.newAlbum'), value: 'new' },
     ...albums.map((a) => ({ label: a.albumName, value: a.id })),
   ];
 
@@ -55,12 +73,34 @@ export default function ImmichExportOptions({ disabled }: { disabled?: boolean }
         </Text>
         <Dropdown
           options={options}
-          value={album}
-          onChange={(value) => change({ exportAlbum: value as string })}
+          value={newAlbumName === null ? album : 'new'}
+          onChange={(value) => {
+            if (value === 'new') {
+              setNewAlbumName('');
+            } else {
+              setNewAlbumName(null);
+              change({ exportAlbum: value as string });
+            }
+          }}
           disabled={disabled}
           className="w-full"
         />
       </div>
+      {newAlbumName !== null && (
+        <div className="flex items-center gap-2">
+          <Input
+            value={newAlbumName}
+            placeholder={t('immich.export.newAlbumName')}
+            onChange={(e) => setNewAlbumName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && createAlbum()}
+            disabled={disabled}
+            autoFocus
+          />
+          <Button onClick={createAlbum} disabled={disabled || !newAlbumName.trim()}>
+            {t('immich.export.createAlbum')}
+          </Button>
+        </div>
+      )}
       <Switch
         id="immich-export-with-original"
         label={t('immich.export.withOriginal')}

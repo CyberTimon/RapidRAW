@@ -124,6 +124,12 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     section: 'view',
   },
   {
+    action: 'toggle_viewer_window',
+    description: 'settings.keybinds.actions.toggle_viewer_window',
+    defaultCombo: ['shift', 'KeyF'],
+    section: 'view',
+  },
+  {
     action: 'show_original',
     description: 'settings.keybinds.actions.show_original',
     defaultCombo: ['KeyB'],

@@ -276,6 +276,7 @@
       "autoLensCorrection": "Автокоррекция объектива",
       "autoStraighten": "Автовыравнивание",
       "cancel": "Отмена",
+      "closeViewer": "Закрыть второе окно",
       "colorLabel": "Цветовая метка",
       "confirmReset": "Подтвердить сброс",
       "convertBlackWhite": "Преобразовать в черно-белое",
@@ -292,6 +293,7 @@
       "mergeHdr": "Объединить в HDR",
       "noLabel": "Без метки",
       "noRating": "Без рейтинга",
+      "openViewer": "Открыть во втором окне",
       "pasteAdjustments": "Вставить настройки",
       "productivity": "Продуктивность",
       "rating": "Рейтинг",
@@ -964,6 +966,10 @@
         "undo": "Отменить (Ctrl+Z) или история (правый клик)"
       },
       "vc": "ВК"
+    },
+    "viewer": {
+      "openFailed": "Не удалось открыть второе окно: {{error}}",
+      "windowTitle": "Просмотр RapidRAW"
     }
   },
   "export": {
@@ -1106,6 +1112,10 @@
       "title": "Правки ещё не в Immich"
     },
     "export": {
+      "newAlbum": "Новый альбом…",
+      "newAlbumName": "Название альбома",
+      "createAlbum": "Создать",
+      "newAlbumFailed": "Не удалось создать альбом: {{error}}",
       "album": "Альбом",
       "destination": "Immich",
       "noAlbum": "Без альбома",
@@ -1114,16 +1124,19 @@
       "withOriginalDesc": "Для изображений из локальной папки: оригинал загружается вместе с правками, а экспорт кладётся поверх него в стопку. Изображения из Immich всегда кладутся поверх своего оригинала."
     },
     "section": {
+      "albums": "Альбомы",
       "empty": "На сервере нет альбомов.",
       "error": "Immich недоступен.",
       "loading": "Загрузка альбомов…",
       "refresh": "Обновить альбомы",
       "timeline": "Хронология",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "Без альбома",
+      "unassignedHint": "Перетащите сюда изображения, чтобы загрузить их без добавления в альбом."
     },
     "settings": {
       "apiKey": "API-ключ",
-      "apiKeyDesc": "Создайте его в Immich в разделе «Настройки аккаунта → API-ключи» с такими разрешениями: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create и user.read.",
+      "apiKeyDesc": "Создайте его в Immich в разделе «Настройки аккаунта → API-ключи» с такими разрешениями: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create и user.read.",
       "connected": "Подключено как {{user}} (Immich {{version}})",
       "description": "Просматривайте фотографии с вашего сервера Immich в библиотеке и редактируйте их напрямую. Оригиналы загружаются при открытии, а правки сохраняются в Immich, поэтому на любом компьютере они выглядят одинаково.",
       "keyInFile": "Сохранён в файле, доступном для чтения только вам: хранилище учётных данных недоступно. В KDE включите интерфейс Secret Service в настройках KDE Wallet и сохраните ещё раз.",
@@ -1145,8 +1158,12 @@
       "downloadFailed": "Не удалось загрузить из Immich: {{error}}",
       "editsConflict": "{{fileName}} также редактировался на другом компьютере. Ваши правки остаются, а другая версия сохранена как виртуальная копия.",
       "offline": "Immich недоступен. Ваши правки хранятся здесь и будут отправлены, как только он снова станет доступен.",
+      "transferFailed": "Не добавлено в Immich: {{number}} ({{error}})",
+      "transferred": "Добавлено в Immich: {{number}}",
+      "transferring": "Добавление в Immich… {{current}}/{{total}}",
       "trashFailed": "Не удалось переместить в корзину Immich: {{error}}",
-      "uploaded": "Загружено в Immich: {{number}}"
+      "uploaded": "Загружено в Immich: {{number}}",
+      "uploadKeptCopy": "{{fileName}} уже есть в Immich с другой обработкой. Она сохраняется, а ваша обработка сохранена как виртуальная копия."
     }
   },
   "library": {
@@ -1922,6 +1939,8 @@
       "folderImageCountsDesc": "Показывать количество изображений внутри папок при наведении курсора на дерево каталогов.",
       "font": "Шрифт",
       "fontDesc": "Изменить шрифт интерфейса приложения.",
+      "hideCollapsedPanels": "Скрывать свёрнутые панели",
+      "hideCollapsedPanelsDesc": "Свёрнутые боковые панели полностью скрываются, не оставляя узкой полосы. Открыть их снова можно с нижней панели или с помощью сочетаний клавиш.",
       "nativeTitlebar": "Системный заголовок окна",
       "nativeTitlebarDesc": "Использовать стандартный заголовок окна вашей операционной системы вместо кастомного заголовка RapidRAW.",
       "neutralGreyCanvas": "Нейтрально-серый холст",
@@ -1990,6 +2009,7 @@
         "toggle_presets": "Панель пресетов",
         "toggle_reject": "Переключить отметку «отклонено»",
         "toggle_right_panel": "Показать/скрыть правую панель",
+        "toggle_viewer_window": "Переключить второе окно",
         "undo": "Отменить действие",
         "unflag": "Снять отметку",
         "zoom_100": "Масштаб 100%",
@@ -2139,7 +2159,7 @@
         "baselineExposure": "Базовая экспозиция",
         "baselineExposureAmount": "Базовая величина",
         "baselineExposureAmountDesc": "Экспозиция, добавляемая к RAW-файлам. В darktable используется +0,7 EV.",
-        "baselineExposureDesc": "Осветляет все RAW-файлы на фиксированную величину, как значение по умолчанию в darktable для scene-referred обработки, и добавляет тег DNG BaselineExposure, если он есть. Изображения, отредактированные до появления этой настройки, не изменяются.",
+        "baselineExposureDesc": "Осветляет RAW-файлы на фиксированную величину и добавляет тег DNG BaselineExposure, если он есть.",
         "colorNr": "Базовое шумоподавление цвета",
         "colorNrDesc": "Применяет двусторонний пространственный фильтр на раннем этапе обработки для удаления хроматического шума. Больше значение — сильнее эффект.",
         "defaultNonRawTonemapper": "Тон-маппер для не-RAW",
@@ -2152,7 +2172,7 @@
         "enablePreprocessingNonRaws": "Включить для не-RAW файлов",
         "enableTonemapperOverride": "Принудительный выбор тон-маппера",
         "highlightPreservation": "Компенсация сохранения светов",
-        "highlightPreservationDesc": "Возвращает экспозицию, которую камера убавила в режимах сохранения светов, считывая её из RAW-файла (Fujifilm DR200/DR400, Canon «Приоритет светов» и Auto Lighting Optimizer, Nikon Active D-Lighting, градация Olympus, расширение динамического диапазона Pentax). Изображения, отредактированные до появления этой настройки, не изменяются.",
+        "highlightPreservationDesc": "Возвращает экспозицию, убавленную режимами сохранения светов камеры, например Fujifilm DR200/DR400 или Nikon Active D-Lighting.",
         "highlightRecovery": "Восстановление светов в RAW",
         "highlightRecoveryDesc": "Регулирует глубину восстановления деталей из переэкспонированных областей в файлах RAW. Высокие значения восстанавливают больше текстур, но могут приводить к появлению нежелательных оттенков в ярких зонах.",
         "linearOptions": {

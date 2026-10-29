@@ -49,6 +49,7 @@ import {
   Album as AlbumIcon,
   PencilSparkles,
   ScanLine,
+  MonitorUp,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
@@ -80,7 +81,12 @@ import { buildAutoAdjustModeOptions, reloadAdjustmentsForPaths, useEditorActions
 import { useLibraryActions } from './useLibraryActions';
 import { transferFiles } from './useFileOperations';
 import { globalImageCache } from '../utils/ImageLRUCache';
-import { immichAlbumOf, isImmichAlbumId, removeFromImmichAlbum } from '../components/immich/immichApi';
+import {
+  immichAlbumOf,
+  isImmichAlbumId,
+  isImmichImagePath,
+  removeFromImmichAlbum,
+} from '../components/immich/immichApi';
 import { useImmichStore } from '../components/immich/useImmichStore';
 
 export interface UseAppContextMenusProps {
@@ -241,8 +247,8 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
         copiedAdjustments,
         setEditor,
       } = useEditorStore.getState();
-      const { appSettings } = useSettingsStore.getState();
-      const { setPanel, setUI } = useUIStore.getState();
+      const { appSettings, osPlatform } = useSettingsStore.getState();
+      const { setPanel, setUI, isViewerOpen, toggleViewerWindow } = useUIStore.getState();
 
       if (!selectedImage) return;
 
@@ -256,6 +262,15 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
           icon: FileInput,
           onClick: () => setPanel(Panel.Export),
         },
+        ...(osPlatform !== 'android'
+          ? [
+              {
+                label: isViewerOpen ? t('contextMenus.editor.closeViewer') : t('contextMenus.editor.openViewer'),
+                icon: MonitorUp,
+                onClick: toggleViewerWindow,
+              },
+            ]
+          : []),
         { type: OPTION_SEPARATOR },
         { label: t('contextMenus.editor.undo'), icon: Undo, onClick: undo, disabled: !canUndo },
         { label: t('contextMenus.editor.redo'), icon: Redo, onClick: redo, disabled: !canRedo },
@@ -1110,6 +1125,7 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
             },
             {
               label: movePastedLabel,
+              disabled: copiedFilePaths.some(isImmichImagePath),
               onClick: async () => {
                 try {
                   await transferFiles(JobKind.Move, copiedFilePaths, targetPath);
@@ -1470,6 +1486,7 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
               },
               {
                 label: movePastedLabel,
+                disabled: copiedFilePaths.some(isImmichImagePath),
                 onClick: async () => {
                   try {
                     await transferFiles(JobKind.Move, copiedFilePaths, currentFolderPath as string);

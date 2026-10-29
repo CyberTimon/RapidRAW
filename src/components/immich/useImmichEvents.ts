@@ -15,12 +15,18 @@ interface DownloadEvent {
   error?: string;
 }
 
+type TransferEvent =
+  | { state: 'progress'; current: number; total: number }
+  | { state: 'done'; added: number; failed: number; error?: string };
+
 interface ConflictEvent {
   path: string;
   fileName: string;
 }
 
 const REFRESH_DELAY_MS = 1500;
+
+const TRANSFER_TOAST = 'immich-transfer';
 
 export function useImmichEvents(refreshLibrary: () => void) {
   const { t } = useTranslation();
@@ -79,8 +85,27 @@ export function useImmichEvents(refreshLibrary: () => void) {
           imageRatings: { ...state.imageRatings, [payload.path]: payload.rating },
         }));
       }),
+      listen<TransferEvent>('immich-transfer', ({ payload }) => {
+        if (payload.state === 'progress') {
+          const text = t('immich.toasts.transferring', { current: payload.current + 1, total: payload.total });
+          if (toast.isActive(TRANSFER_TOAST)) toast.update(TRANSFER_TOAST, { render: text });
+          else toast.loading(text, { toastId: TRANSFER_TOAST });
+          return;
+        }
+        toast.dismiss(TRANSFER_TOAST);
+        if (payload.failed > 0) {
+          toast.error(t('immich.toasts.transferFailed', { number: payload.failed, error: payload.error }));
+        }
+        if (payload.added > 0) {
+          toast.success(t('immich.toasts.transferred', { number: payload.added }));
+        }
+      }),
       listen<ConflictEvent>('immich-edits-conflict', ({ payload }) => {
         toast.info(t('immich.toasts.editsConflict', { fileName: payload.fileName }));
+        refreshRef.current();
+      }),
+      listen<ConflictEvent>('immich-upload-kept-copy', ({ payload }) => {
+        toast.info(t('immich.toasts.uploadKeptCopy', { fileName: payload.fileName }));
         refreshRef.current();
       }),
     ];

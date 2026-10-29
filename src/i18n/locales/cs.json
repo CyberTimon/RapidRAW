@@ -276,6 +276,7 @@
       "autoLensCorrection": "Auto korekce objektivu",
       "autoStraighten": "Automaticky vyrovnat",
       "cancel": "Zrušit",
+      "closeViewer": "Zavřít druhé okno",
       "colorLabel": "Barevný štítek",
       "confirmReset": "Potvrďte reset",
       "convertBlackWhite": "Převést na černobílou",
@@ -292,6 +293,7 @@
       "mergeHdr": "Sloučit do HDR",
       "noLabel": "Žádný štítek",
       "noRating": "Žádné hodnocení",
+      "openViewer": "Otevřít ve druhém okně",
       "pasteAdjustments": "Vložit úpravy",
       "productivity": "Produktivita",
       "rating": "Hodnocení",
@@ -964,6 +966,10 @@
         "undo": "Zpět (Ctrl+Z) nebo Historie (kliknutí pravým tlačítkem)"
       },
       "vc": "VC"
+    },
+    "viewer": {
+      "openFailed": "Druhé okno nelze otevřít: {{error}}",
+      "windowTitle": "Prohlížeč RapidRAW"
     }
   },
   "export": {
@@ -1106,6 +1112,10 @@
       "title": "Úpravy ještě nejsou v Immichi"
     },
     "export": {
+      "newAlbum": "Nové album…",
+      "newAlbumName": "Název alba",
+      "createAlbum": "Vytvořit",
+      "newAlbumFailed": "Album se nepodařilo vytvořit: {{error}}",
       "album": "Album",
       "destination": "Immich",
       "noAlbum": "Žádné album",
@@ -1114,16 +1124,19 @@
       "withOriginalDesc": "Pro obrázky z místní složky: originál se nahraje i s úpravami a export se umístí na něj do zásobníku. Obrázky z Immiche se vždy skládají na svůj originál."
     },
     "section": {
+      "albums": "Alba",
       "empty": "Na serveru nejsou žádná alba.",
       "error": "Immich není dostupný.",
       "loading": "Načítání alb…",
       "refresh": "Obnovit alba",
       "timeline": "Časová osa",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "Bez alba",
+      "unassignedHint": "Přetáhněte sem obrázky a nahrajte je bez přidání do alba."
     },
     "settings": {
       "apiKey": "API klíč",
-      "apiKeyDesc": "Vytvořte jej v Immichi v Nastavení účtu → API klíče s těmito oprávněními: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create a user.read.",
+      "apiKeyDesc": "Vytvořte jej v Immichi v Nastavení účtu → API klíče s těmito oprávněními: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create a user.read.",
       "connected": "Připojeno jako {{user}} (Immich {{version}})",
       "description": "Procházejte fotky ze svého serveru Immich v knihovně a upravujte je přímo. Originály se stahují při otevření a úpravy se ukládají do Immiche, takže vypadají stejně na každém počítači.",
       "keyInFile": "Uloženo v souboru, který můžete číst jen vy: není k dispozici žádné úložiště přihlašovacích údajů. V KDE zapněte rozhraní Secret Service v nastavení KDE Wallet a uložte znovu.",
@@ -1145,8 +1158,12 @@
       "downloadFailed": "Stažení z Immiche se nezdařilo: {{error}}",
       "editsConflict": "{{fileName}} byl upraven také na jiném počítači. Vaše úpravy zůstávají a druhá verze je uložena jako virtuální kopie.",
       "offline": "Immich není dostupný. Vaše úpravy zůstávají zde a odešlou se, jakmile bude opět dostupný.",
+      "transferFailed": "Nepřidáno do Immiche: {{number}} ({{error}})",
+      "transferred": "Přidáno do Immiche: {{number}}",
+      "transferring": "Přidávání do Immiche… {{current}}/{{total}}",
       "trashFailed": "Přesun do koše Immiche se nezdařil: {{error}}",
-      "uploaded": "Nahráno do Immiche: {{number}}"
+      "uploaded": "Nahráno do Immiche: {{number}}",
+      "uploadKeptCopy": "{{fileName}} už je v Immichu s jinými úpravami. Ty zůstanou a tvé úpravy se uloží jako virtuální kopie."
     }
   },
   "library": {
@@ -1922,6 +1939,8 @@
       "folderImageCountsDesc": "Při najetí myší na strom složek zobrazit počet snímků ve složkách.",
       "font": "Písmo",
       "fontDesc": "Změňte písmo aplikace.",
+      "hideCollapsedPanels": "Skrýt sbalené panely",
+      "hideCollapsedPanelsDesc": "Sbalené boční panely se zcela skryjí, místo aby po nich zůstal úzký pruh. Znovu je otevřete ze spodní lišty nebo pomocí jejich klávesových zkratek.",
       "nativeTitlebar": "Nativní záhlaví",
       "nativeTitlebarDesc": "Použijte výchozí záhlaví okna vašeho systému namísto vlastního okna RapidRAW.",
       "neutralGreyCanvas": "Neutrální šedé plátno",
@@ -1990,6 +2009,7 @@
         "toggle_presets": "Přepnout panel předvolby",
         "toggle_reject": "Přepnout odmítnutí",
         "toggle_right_panel": "Přepnout pravý panel",
+        "toggle_viewer_window": "Přepnout druhé okno",
         "undo": "Zrušit úpravu",
         "unflag": "Odebrat příznak",
         "zoom_100": "Přiblížit na 100 %",
@@ -2139,7 +2159,7 @@
         "baselineExposure": "Základní expozice",
         "baselineExposureAmount": "Velikost základu",
         "baselineExposureAmountDesc": "Expozice přidaná k souborům RAW. darktable používá +0,7 EV.",
-        "baselineExposureDesc": "Zesvětlí všechny soubory RAW o pevnou hodnotu, podobně jako výchozí nastavení darktable pro scene-referred zpracování, a přičte značku DNG BaselineExposure, pokud ji soubor obsahuje. Snímky upravené před zavedením této volby nejsou ovlivněny.",
+        "baselineExposureDesc": "Zesvětlí soubory RAW o pevnou hodnotu a přičte značku DNG BaselineExposure, pokud existuje.",
         "colorNr": "Redukce šumu základní barvy",
         "colorNrDesc": "Aplikuje křížový bilaterální filtr na začátku procesu k odstranění barevného šumu. Vyšší hodnota = silnější redukce šumu.",
         "defaultNonRawTonemapper": "Výchozí Non-RAW Tonemapper",
@@ -2152,7 +2172,7 @@
         "enablePreprocessingNonRaws": "Povolit pro soubory bez RAW",
         "enableTonemapperOverride": "Povolte přepsání Tonemapperu",
         "highlightPreservation": "Kompenzace ochrany světel",
-        "highlightPreservationDesc": "Vrátí expozici, kterou fotoaparát ubral v režimech ochrany světel, načtenou ze souboru RAW (Fujifilm DR200/DR400, Canon Priorita jasných tónů a Auto Lighting Optimizer, Nikon Active D-Lighting, gradace Olympus, rozšíření dynamického rozsahu Pentax). Snímky upravené před zavedením této volby nejsou ovlivněny.",
+        "highlightPreservationDesc": "Vrátí expozici sníženou režimy ochrany světel fotoaparátu, např. Fujifilm DR200/DR400 nebo Nikon Active D-Lighting.",
         "highlightRecovery": "RAW Highlight Recovery",
         "highlightRecoveryDesc": "Řídí, kolik detailů se obnoví z přepálených světel v souborech RAW. Vyšší hodnoty obnoví více detailů, ale mohou způsobit fialové artefakty.",
         "linearOptions": {

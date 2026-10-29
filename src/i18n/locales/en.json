@@ -276,6 +276,7 @@
       "autoLensCorrection": "Auto Lens Correction",
       "autoStraighten": "Auto Straighten",
       "cancel": "Cancel",
+      "closeViewer": "Close second window",
       "colorLabel": "Color Label",
       "confirmReset": "Confirm Reset",
       "convertBlackWhite": "Convert to Black & White",
@@ -292,6 +293,7 @@
       "mergeHdr": "Merge to HDR",
       "noLabel": "No Label",
       "noRating": "No Rating",
+      "openViewer": "Open in second window",
       "pasteAdjustments": "Paste Adjustments",
       "productivity": "Productivity",
       "rating": "Rating",
@@ -916,6 +918,10 @@
         "undo": "Undo (Ctrl+Z) or History (Right-click)"
       },
       "vc": "VC"
+    },
+    "viewer": {
+      "openFailed": "Could not open the second window: {{error}}",
+      "windowTitle": "RapidRAW Viewer"
     }
   },
   "export": {
@@ -1054,6 +1060,10 @@
       "title": "Edits not in Immich yet"
     },
     "export": {
+      "newAlbum": "New album…",
+      "newAlbumName": "Album name",
+      "createAlbum": "Create",
+      "newAlbumFailed": "Could not create the album: {{error}}",
       "album": "Album",
       "destination": "Immich",
       "noAlbum": "No album",
@@ -1062,16 +1072,19 @@
       "withOriginalDesc": "For images from a local folder: the original is uploaded with its edits and the export is stacked on top of it. Images from Immich are always stacked on their original."
     },
     "section": {
+      "albums": "Albums",
       "empty": "No albums on the server.",
       "error": "Immich is not reachable.",
       "loading": "Loading albums…",
       "refresh": "Refresh albums",
       "timeline": "Timeline",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "In no album",
+      "unassignedHint": "Drop images here to upload them without adding them to an album."
     },
     "settings": {
       "apiKey": "API key",
-      "apiKeyDesc": "Create one in Immich under Account Settings → API Keys with these permissions: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create and user.read.",
+      "apiKeyDesc": "Create one in Immich under Account Settings → API Keys with these permissions: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create and user.read.",
       "connected": "Connected as {{user}} (Immich {{version}})",
       "description": "Browse the photos of your Immich server in the library and edit them directly. Originals are downloaded when you open them, and your edits are saved in Immich, so they look the same on every computer.",
       "keyInFile": "Stored in a file only you can read: no credential store is available. On KDE, turn on the Secret Service interface in the KDE Wallet settings and save again.",
@@ -1093,8 +1106,12 @@
       "downloadFailed": "Could not download from Immich: {{error}}",
       "editsConflict": "{{fileName}} was also edited on another computer. Your edits stay, and the other version is kept as a virtual copy.",
       "offline": "Immich is not reachable. Your edits are kept here and sent as soon as it's back.",
+      "transferFailed": "Not added to Immich: {{number}} ({{error}})",
+      "transferred": "Added to Immich: {{number}}",
+      "transferring": "Adding to Immich… {{current}}/{{total}}",
       "trashFailed": "Could not move to Immich's trash: {{error}}",
-      "uploaded": "Uploaded to Immich: {{number}}"
+      "uploaded": "Uploaded to Immich: {{number}}",
+      "uploadKeptCopy": "{{fileName}} is already in Immich with other edits. Those stay, and your edits are kept as a virtual copy."
     }
   },
   "library": {
@@ -1840,6 +1857,8 @@
       "folderImageCountsDesc": "Show the number of images inside folders when hovering over the folder tree.",
       "font": "Font",
       "fontDesc": "Change the application font.",
+      "hideCollapsedPanels": "Hide Collapsed Panels",
+      "hideCollapsedPanelsDesc": "Collapsed side panels hide completely instead of leaving a narrow strip. Reopen them from the bottom bar or with their keyboard shortcuts.",
       "nativeTitlebar": "Native Titlebar",
       "nativeTitlebarDesc": "Use your system's default window titlebar instead of RapidRAW's custom one.",
       "neutralGreyCanvas": "Neutral Grey Canvas",
@@ -1908,6 +1927,7 @@
         "toggle_presets": "Toggle Presets panel",
         "toggle_reject": "Toggle reject flag",
         "toggle_right_panel": "Toggle Right Panel",
+        "toggle_viewer_window": "Toggle second window",
         "undo": "Undo adjustment",
         "unflag": "Remove flag",
         "zoom_100": "Zoom to 100%",
@@ -2057,7 +2077,7 @@
         "baselineExposure": "Baseline Exposure",
         "baselineExposureAmount": "Baseline Amount",
         "baselineExposureAmountDesc": "Exposure added to RAW files. darktable uses +0.7 EV.",
-        "baselineExposureDesc": "Brightens every RAW file by a fixed amount, like darktable's scene-referred default, plus the DNG BaselineExposure tag when present. Images edited before this option existed are not affected.",
+        "baselineExposureDesc": "Brightens RAW files by a fixed amount, plus the DNG BaselineExposure tag if present.",
         "colorNr": "Base Color Noise Reduction",
         "colorNrDesc": "Applies a cross-bilateral filter early in the pipeline to remove chroma noise. Higher value = Stronger NR.",
         "defaultNonRawTonemapper": "Default Non-RAW Tonemapper",
@@ -2070,7 +2090,7 @@
         "enablePreprocessingNonRaws": "Enable for Non-RAWs",
         "enableTonemapperOverride": "Enable Tonemapper Override",
         "highlightPreservation": "Highlight Preservation Compensation",
-        "highlightPreservationDesc": "Restores the exposure the camera held back in highlight-preserving modes, read from the RAW file (Fujifilm DR200/DR400, Canon Highlight Tone Priority and Auto Lighting Optimizer, Nikon Active D-Lighting, Olympus gradation, Pentax DR expansion). Images edited before this option existed are not affected.",
+        "highlightPreservationDesc": "Restores exposure lowered by highlight-preserving camera modes, such as Fujifilm DR200/DR400 or Nikon Active D-Lighting.",
         "highlightRecovery": "RAW Highlight Recovery",
         "highlightRecoveryDesc": "Controls how much detail is recovered from clipped highlights in RAW files. Higher values recover more detail but can introduce purple artefacts.",
         "linearOptions": {

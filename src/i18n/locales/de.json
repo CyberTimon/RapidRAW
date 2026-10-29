@@ -276,6 +276,7 @@
       "autoLensCorrection": "Autom. Objektivkorrektur",
       "autoStraighten": "Automatisch ausrichten",
       "cancel": "Abbrechen",
+      "closeViewer": "Zweites Fenster schließen",
       "colorLabel": "Farbmarkierung",
       "confirmReset": "Zurücksetzen bestätigen",
       "convertBlackWhite": "In Schwarzweiß umwandeln",
@@ -292,6 +293,7 @@
       "mergeHdr": "Zu HDR zusammenfügen",
       "noLabel": "Keine Markierung",
       "noRating": "Keine Bewertung",
+      "openViewer": "In zweitem Fenster öffnen",
       "pasteAdjustments": "Einstellungen einfügen",
       "productivity": "Produktivität",
       "rating": "Bewertung",
@@ -916,6 +918,10 @@
         "undo": "Rückgängig (Strg+Z) oder Verlauf (Rechtsklick)"
       },
       "vc": "VK"
+    },
+    "viewer": {
+      "openFailed": "Das zweite Fenster konnte nicht geöffnet werden: {{error}}",
+      "windowTitle": "RapidRAW-Betrachter"
     }
   },
   "export": {
@@ -1054,6 +1060,10 @@
       "title": "Bearbeitungen noch nicht in Immich"
     },
     "export": {
+      "newAlbum": "Neues Album…",
+      "newAlbumName": "Albumname",
+      "createAlbum": "Anlegen",
+      "newAlbumFailed": "Album konnte nicht angelegt werden: {{error}}",
       "album": "Album",
       "destination": "Immich",
       "noAlbum": "Kein Album",
@@ -1062,16 +1072,19 @@
       "withOriginalDesc": "Für Bilder aus einem lokalen Ordner: Das Original wird mit seinen Bearbeitungen hochgeladen und der Export oben darauf gestapelt. Bilder aus Immich werden immer auf ihr Original gestapelt."
     },
     "section": {
+      "albums": "Alben",
       "empty": "Keine Alben auf dem Server.",
       "error": "Immich ist nicht erreichbar.",
       "loading": "Alben werden geladen…",
       "refresh": "Alben aktualisieren",
       "timeline": "Zeitleiste",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "Ohne Album",
+      "unassignedHint": "Bilder hierher ziehen, um sie ohne Album hochzuladen."
     },
     "settings": {
       "apiKey": "API-Schlüssel",
-      "apiKeyDesc": "In Immich unter Kontoeinstellungen → API-Schlüssel anlegen, mit diesen Berechtigungen: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create und user.read.",
+      "apiKeyDesc": "In Immich unter Kontoeinstellungen → API-Schlüssel anlegen, mit diesen Berechtigungen: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create und user.read.",
       "connected": "Verbunden als {{user}} (Immich {{version}})",
       "description": "Zeigt die Fotos deines Immich-Servers in der Bibliothek, damit du sie direkt bearbeiten kannst. Originale werden beim Öffnen heruntergeladen, und deine Bearbeitungen werden in Immich gespeichert – so sehen sie auf jedem Rechner gleich aus.",
       "keyInFile": "In einer Datei gespeichert, die nur du lesen kannst: Es ist kein Schlüsselbund erreichbar. Unter KDE in den Einstellungen der KDE-Brieftasche die Secret-Service-Schnittstelle einschalten und erneut speichern.",
@@ -1093,8 +1106,12 @@
       "downloadFailed": "Download aus Immich fehlgeschlagen: {{error}}",
       "editsConflict": "{{fileName}} wurde auch auf einem anderen Rechner bearbeitet. Deine Bearbeitung bleibt, die andere Fassung liegt als virtuelle Kopie daneben.",
       "offline": "Immich ist nicht erreichbar. Deine Bearbeitungen bleiben hier und werden gesendet, sobald es wieder da ist.",
+      "transferFailed": "Nicht zu Immich hinzugefügt: {{number}} ({{error}})",
+      "transferred": "Zu Immich hinzugefügt: {{number}}",
+      "transferring": "Wird zu Immich hinzugefügt… {{current}}/{{total}}",
       "trashFailed": "Verschieben in den Immich-Papierkorb fehlgeschlagen: {{error}}",
-      "uploaded": "Zu Immich hochgeladen: {{number}}"
+      "uploaded": "Zu Immich hochgeladen: {{number}}",
+      "uploadKeptCopy": "{{fileName}} ist schon mit anderer Bearbeitung in Immich. Diese bleibt, deine Bearbeitung liegt als virtuelle Kopie daneben."
     }
   },
   "library": {
@@ -1840,6 +1857,8 @@
       "folderImageCountsDesc": "Zeigt die Anzahl der Bilder in Ordnern an, wenn Sie mit der Maus über die Ordnerstruktur fahren.",
       "font": "Schriftart",
       "fontDesc": "Ändern Sie die Schriftart der Anwendung.",
+      "hideCollapsedPanels": "Eingeklappte Panels ausblenden",
+      "hideCollapsedPanelsDesc": "Eingeklappte Seitenpanels werden vollständig ausgeblendet, statt einen schmalen Streifen zu hinterlassen. Öffnen Sie sie über die untere Leiste oder mit ihren Tastenkürzeln wieder.",
       "nativeTitlebar": "Native Titelleiste",
       "nativeTitlebarDesc": "Verwenden Sie die Standard-Fenstertitelleiste Ihres Systems anstelle der benutzerdefinierten von RapidRAW.",
       "neutralGreyCanvas": "Neutralgraue Arbeitsfläche",
@@ -1908,6 +1927,7 @@
         "toggle_presets": "Vorgaben-Panel ein-/ausblenden",
         "toggle_reject": "Ablehnungsmarkierung umschalten",
         "toggle_right_panel": "Rechtes Panel ein-/ausblenden",
+        "toggle_viewer_window": "Zweites Fenster umschalten",
         "undo": "Bearbeitung rückgängig machen",
         "unflag": "Markierung entfernen",
         "zoom_100": "Auf 100% zoomen",
@@ -2057,7 +2077,7 @@
         "baselineExposure": "Basisbelichtung",
         "baselineExposureAmount": "Basiswert",
         "baselineExposureAmountDesc": "Belichtung, die zu RAW-Dateien addiert wird. darktable verwendet +0,7 LW.",
-        "baselineExposureDesc": "Hellt alle RAW-Dateien um einen festen Wert auf, wie die szenenbezogene Voreinstellung von darktable, zuzüglich des DNG-Tags BaselineExposure, falls vorhanden. Bilder, die vor Einführung dieser Option bearbeitet wurden, sind nicht betroffen.",
+        "baselineExposureDesc": "Hellt RAW-Dateien um einen festen Wert auf, zuzüglich des DNG-Tags BaselineExposure, falls vorhanden.",
         "colorNr": "Basis-Farbrauschreduzierung",
         "colorNrDesc": "Wendet früh in der Pipeline einen Filter an, um Farbrauschen zu entfernen. Höherer Wert = Stärkere Reduzierung.",
         "defaultNonRawTonemapper": "Standard-Tonemapper (Nicht-RAW)",
@@ -2070,7 +2090,7 @@
         "enablePreprocessingNonRaws": "Für Nicht-RAWs aktivieren",
         "enableTonemapperOverride": "Tonemapper-Override aktivieren",
         "highlightPreservation": "Ausgleich der Lichterschutz-Modi",
-        "highlightPreservationDesc": "Stellt die Belichtung wieder her, die die Kamera in Modi zum Schutz der Lichter zurückgehalten hat, ausgelesen aus der RAW-Datei (Fujifilm DR200/DR400, Canon Tonwert Priorität und Automatische Belichtungsoptimierung, Nikon Active D-Lighting, Olympus Gradation, Pentax Dynamikbereichserweiterung). Bilder, die vor Einführung dieser Option bearbeitet wurden, sind nicht betroffen.",
+        "highlightPreservationDesc": "Gleicht die Belichtung aus, die Lichterschutz-Modi der Kamera zurückhalten, z. B. Fujifilm DR200/DR400 oder Nikon Active D-Lighting.",
         "highlightRecovery": "RAW-Lichterwiederherstellung",
         "highlightRecoveryDesc": "Steuert, wie viele Details aus beschnittenen Lichtern wiederhergestellt werden. Höhere Werte stellen mehr her, können aber rosa Artefakte einführen.",
         "linearOptions": {
