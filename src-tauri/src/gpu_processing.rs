@@ -812,6 +812,7 @@ pub fn get_or_init_gpu_context(
         adapter_info,
         display: Arc::new(std::sync::Mutex::new(display_opt)),
         viewer_display: Arc::new(std::sync::Mutex::new(None)),
+        pipelines: Arc::new(std::sync::OnceLock::new()),
     };
     *context_lock = Some(new_context.clone());
     Ok(new_context)
@@ -981,52 +982,17 @@ struct FlareParams {
 
 pub struct GpuProcessor {
     context: GpuContext,
-    blur_bgl: wgpu::BindGroupLayout,
-    h_blur_pipeline: wgpu::ComputePipeline,
-    v_blur_pipeline: wgpu::ComputePipeline,
-    h_blur_direct_pipeline: wgpu::ComputePipeline,
-    v_blur_direct_pipeline: wgpu::ComputePipeline,
+    pipelines: Arc<GpuPipelines>,
     blur_params_buffer: wgpu::Buffer,
 
-    flare_bgl_0: wgpu::BindGroupLayout,
-    flare_bgl_1: wgpu::BindGroupLayout,
-    flare_threshold_pipeline: wgpu::ComputePipeline,
-    flare_ghosts_pipeline: wgpu::ComputePipeline,
     flare_params_buffer: wgpu::Buffer,
     flare_threshold_view: wgpu::TextureView,
     flare_ghosts_view: wgpu::TextureView,
     flare_final_view: wgpu::TextureView,
-    flare_sampler: wgpu::Sampler,
 
-    gf_bgl: wgpu::BindGroupLayout,
-    gf_downsample_pipeline: wgpu::ComputePipeline,
-    gf_box_down_pipeline: wgpu::ComputePipeline,
-    gf_blur_h_pipeline: wgpu::ComputePipeline,
-    gf_blur_v_pipeline: wgpu::ComputePipeline,
-    gf_coeffs_pipeline: wgpu::ComputePipeline,
-    gf_pack_pipeline: wgpu::ComputePipeline,
-    hz_downsample_pipeline: wgpu::ComputePipeline,
-    hz_airlight_pipeline: wgpu::ComputePipeline,
-    hz_min_h_pipeline: wgpu::ComputePipeline,
-    hz_min_v_pipeline: wgpu::ComputePipeline,
-    hz_max_h_pipeline: wgpu::ComputePipeline,
-    hz_max_v_pipeline: wgpu::ComputePipeline,
-    hz_coeffs_pipeline: wgpu::ComputePipeline,
-
-    main_bgl: wgpu::BindGroupLayout,
-    main_pipeline: wgpu::ComputePipeline,
-    main_shader_module: wgpu::ShaderModule,
-    main_pipeline_layout: wgpu::PipelineLayout,
-    specialized_pipelines: SpecializedPipelines,
-    high_precision_entries: Vec<wgpu::BindGroupLayoutEntry>,
-    high_precision_pipeline: std::sync::OnceLock<HighPrecisionPipeline>,
     high_precision_tile: std::sync::OnceLock<HighPrecisionTile>,
     tile_output_size: wgpu::Extent3d,
     adjustments_buffer: wgpu::Buffer,
-    dummy_blur_view: wgpu::TextureView,
-    dummy_lut_view: wgpu::TextureView,
-    dummy_lut_sampler: wgpu::Sampler,
-    dummy_mask_view: wgpu::TextureView,
     mask_cache: std::sync::Mutex<Option<MaskCache>>,
     lut_cache: std::sync::Mutex<Option<LutCache>>,
     ping_pong_view: wgpu::TextureView,
@@ -1269,9 +1235,49 @@ fn lock_or_reset<'a, T>(
     })
 }
 
-impl GpuProcessor {
-    pub fn new(context: GpuContext, max_width: u32, max_height: u32) -> Result<Self, String> {
-        let device = &context.device;
+pub struct GpuPipelines {
+    blur_bgl: wgpu::BindGroupLayout,
+    h_blur_pipeline: wgpu::ComputePipeline,
+    v_blur_pipeline: wgpu::ComputePipeline,
+    h_blur_direct_pipeline: wgpu::ComputePipeline,
+    v_blur_direct_pipeline: wgpu::ComputePipeline,
+
+    flare_bgl_0: wgpu::BindGroupLayout,
+    flare_bgl_1: wgpu::BindGroupLayout,
+    flare_threshold_pipeline: wgpu::ComputePipeline,
+    flare_ghosts_pipeline: wgpu::ComputePipeline,
+    flare_sampler: wgpu::Sampler,
+
+    gf_bgl: wgpu::BindGroupLayout,
+    gf_downsample_pipeline: wgpu::ComputePipeline,
+    gf_box_down_pipeline: wgpu::ComputePipeline,
+    gf_blur_h_pipeline: wgpu::ComputePipeline,
+    gf_blur_v_pipeline: wgpu::ComputePipeline,
+    gf_coeffs_pipeline: wgpu::ComputePipeline,
+    gf_pack_pipeline: wgpu::ComputePipeline,
+    hz_downsample_pipeline: wgpu::ComputePipeline,
+    hz_airlight_pipeline: wgpu::ComputePipeline,
+    hz_min_h_pipeline: wgpu::ComputePipeline,
+    hz_min_v_pipeline: wgpu::ComputePipeline,
+    hz_max_h_pipeline: wgpu::ComputePipeline,
+    hz_max_v_pipeline: wgpu::ComputePipeline,
+    hz_coeffs_pipeline: wgpu::ComputePipeline,
+
+    main_bgl: wgpu::BindGroupLayout,
+    main_pipeline: wgpu::ComputePipeline,
+    main_shader_module: wgpu::ShaderModule,
+    main_pipeline_layout: wgpu::PipelineLayout,
+    specialized_pipelines: SpecializedPipelines,
+    high_precision_entries: Vec<wgpu::BindGroupLayoutEntry>,
+    high_precision_pipeline: std::sync::OnceLock<HighPrecisionPipeline>,
+    dummy_blur_view: wgpu::TextureView,
+    dummy_lut_view: wgpu::TextureView,
+    dummy_lut_sampler: wgpu::Sampler,
+    dummy_mask_view: wgpu::TextureView,
+}
+
+impl GpuPipelines {
+    fn new(device: &wgpu::Device) -> Self {
         const MAX_MASK_BINDINGS: u32 = 1;
 
         let blur_shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -1358,13 +1364,6 @@ impl GpuProcessor {
                 compilation_options: Default::default(),
                 cache: None,
             });
-
-        let blur_params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Blur Params Buffer"),
-            size: std::mem::size_of::<BlurParams>() as u64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
 
         let flare_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Flare Shader"),
@@ -1471,35 +1470,6 @@ impl GpuProcessor {
                 compilation_options: Default::default(),
                 cache: None,
             });
-
-        let flare_params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Flare Params Buffer"),
-            size: std::mem::size_of::<FlareParams>() as u64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-
-        let flare_tex_desc = wgpu::TextureDescriptor {
-            label: Some("Flare Tex"),
-            size: wgpu::Extent3d {
-                width: FLARE_MAP_SIZE,
-                height: FLARE_MAP_SIZE,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba16Float,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::STORAGE_BINDING,
-            view_formats: &[],
-        };
-
-        let flare_threshold_texture = device.create_texture(&flare_tex_desc);
-        let flare_threshold_view = flare_threshold_texture.create_view(&Default::default());
-        let flare_ghosts_texture = device.create_texture(&flare_tex_desc);
-        let flare_ghosts_view = flare_ghosts_texture.create_view(&Default::default());
-        let flare_final_texture = device.create_texture(&flare_tex_desc);
-        let flare_final_view = flare_final_texture.create_view(&Default::default());
 
         let flare_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("Flare Sampler"),
@@ -1760,13 +1730,6 @@ impl GpuProcessor {
             format: wgpu::TextureFormat::Rgba16Float,
             view_dimension: wgpu::TextureViewDimension::D2,
         };
-        let adjustments_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Adjustments Buffer"),
-            size: std::mem::size_of::<AllAdjustments>() as u64,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-
         let dummy_texture_desc = wgpu::TextureDescriptor {
             label: Some("Dummy Texture"),
             size: wgpu::Extent3d {
@@ -1805,6 +1768,98 @@ impl GpuProcessor {
                 dimension: Some(wgpu::TextureViewDimension::D2Array),
                 ..Default::default()
             });
+
+        Self {
+            blur_bgl,
+            h_blur_pipeline,
+            v_blur_pipeline,
+            h_blur_direct_pipeline,
+            v_blur_direct_pipeline,
+            flare_bgl_0,
+            flare_bgl_1,
+            flare_threshold_pipeline,
+            flare_ghosts_pipeline,
+            flare_sampler,
+            gf_bgl,
+            gf_downsample_pipeline,
+            gf_box_down_pipeline,
+            gf_blur_h_pipeline,
+            gf_blur_v_pipeline,
+            gf_coeffs_pipeline,
+            gf_pack_pipeline,
+            hz_downsample_pipeline,
+            hz_airlight_pipeline,
+            hz_min_h_pipeline,
+            hz_min_v_pipeline,
+            hz_max_h_pipeline,
+            hz_max_v_pipeline,
+            hz_coeffs_pipeline,
+            main_bgl,
+            main_pipeline,
+            main_shader_module,
+            main_pipeline_layout,
+            specialized_pipelines: Arc::new(std::sync::Mutex::new(HashMap::new())),
+            high_precision_entries: bind_group_layout_entries,
+            high_precision_pipeline: std::sync::OnceLock::new(),
+            dummy_blur_view,
+            dummy_lut_view,
+            dummy_lut_sampler,
+            dummy_mask_view,
+        }
+    }
+}
+
+impl GpuProcessor {
+    pub fn new(context: GpuContext, max_width: u32, max_height: u32) -> Result<Self, String> {
+        let device = &context.device;
+        let pipelines = Arc::clone(
+            context
+                .pipelines
+                .get_or_init(|| Arc::new(GpuPipelines::new(device))),
+        );
+
+        let blur_params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Blur Params Buffer"),
+            size: std::mem::size_of::<BlurParams>() as u64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        let flare_params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Flare Params Buffer"),
+            size: std::mem::size_of::<FlareParams>() as u64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        let flare_tex_desc = wgpu::TextureDescriptor {
+            label: Some("Flare Tex"),
+            size: wgpu::Extent3d {
+                width: FLARE_MAP_SIZE,
+                height: FLARE_MAP_SIZE,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba16Float,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::STORAGE_BINDING,
+            view_formats: &[],
+        };
+
+        let flare_threshold_texture = device.create_texture(&flare_tex_desc);
+        let flare_threshold_view = flare_threshold_texture.create_view(&Default::default());
+        let flare_ghosts_texture = device.create_texture(&flare_tex_desc);
+        let flare_ghosts_view = flare_ghosts_texture.create_view(&Default::default());
+        let flare_final_texture = device.create_texture(&flare_tex_desc);
+        let flare_final_view = flare_final_texture.create_view(&Default::default());
+
+        let adjustments_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Adjustments Buffer"),
+            size: std::mem::size_of::<AllAdjustments>() as u64,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
 
         const TILE_SIZE: u32 = 2048;
         const TILE_OVERLAP: u32 = 128;
@@ -1881,49 +1936,15 @@ impl GpuProcessor {
 
         Ok(Self {
             context,
-            blur_bgl,
-            h_blur_pipeline,
-            v_blur_pipeline,
-            h_blur_direct_pipeline,
-            v_blur_direct_pipeline,
+            pipelines,
             blur_params_buffer,
-            flare_bgl_0,
-            flare_bgl_1,
-            flare_threshold_pipeline,
-            flare_ghosts_pipeline,
             flare_params_buffer,
             flare_threshold_view,
             flare_ghosts_view,
             flare_final_view,
-            flare_sampler,
-            gf_bgl,
-            gf_downsample_pipeline,
-            gf_box_down_pipeline,
-            gf_blur_h_pipeline,
-            gf_blur_v_pipeline,
-            gf_coeffs_pipeline,
-            gf_pack_pipeline,
-            hz_downsample_pipeline,
-            hz_airlight_pipeline,
-            hz_min_h_pipeline,
-            hz_min_v_pipeline,
-            hz_max_h_pipeline,
-            hz_max_v_pipeline,
-            hz_coeffs_pipeline,
-            main_bgl,
-            main_pipeline,
-            main_shader_module,
-            main_pipeline_layout,
-            specialized_pipelines: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            high_precision_entries: bind_group_layout_entries,
-            high_precision_pipeline: std::sync::OnceLock::new(),
             high_precision_tile: std::sync::OnceLock::new(),
             tile_output_size: clamped_tile_size,
             adjustments_buffer,
-            dummy_blur_view,
-            dummy_lut_view,
-            dummy_lut_sampler,
-            dummy_mask_view,
             mask_cache: std::sync::Mutex::new(None),
             lut_cache: std::sync::Mutex::new(None),
             ping_pong_view,
@@ -2028,7 +2049,7 @@ impl GpuProcessor {
                         (w, h): (u32, u32)| {
             let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("Guided Filter BG"),
-                layout: &self.gf_bgl,
+                layout: &self.pipelines.gf_bgl,
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
@@ -2058,7 +2079,7 @@ impl GpuProcessor {
         let half = (hw, hh);
 
         pass(
-            &self.gf_downsample_pipeline,
+            &self.pipelines.gf_downsample_pipeline,
             input_view,
             input_view,
             &moments,
@@ -2067,7 +2088,7 @@ impl GpuProcessor {
         );
 
         pass(
-            &self.gf_box_down_pipeline,
+            &self.pipelines.gf_box_down_pipeline,
             &moments,
             &moments,
             &c_moments,
@@ -2075,7 +2096,7 @@ impl GpuProcessor {
             coarse,
         );
         pass(
-            &self.gf_blur_h_pipeline,
+            &self.pipelines.gf_blur_h_pipeline,
             &c_moments,
             &c_moments,
             &c_tmp,
@@ -2083,7 +2104,7 @@ impl GpuProcessor {
             coarse,
         );
         pass(
-            &self.gf_blur_v_pipeline,
+            &self.pipelines.gf_blur_v_pipeline,
             &c_tmp,
             &c_tmp,
             &c_blurred,
@@ -2091,7 +2112,7 @@ impl GpuProcessor {
             coarse,
         );
         pass(
-            &self.gf_coeffs_pipeline,
+            &self.pipelines.gf_coeffs_pipeline,
             &c_blurred,
             &c_blurred,
             &c_ab,
@@ -2099,7 +2120,7 @@ impl GpuProcessor {
             coarse,
         );
         pass(
-            &self.gf_blur_h_pipeline,
+            &self.pipelines.gf_blur_h_pipeline,
             &c_ab,
             &c_ab,
             &c_tmp,
@@ -2107,7 +2128,7 @@ impl GpuProcessor {
             coarse,
         );
         pass(
-            &self.gf_blur_v_pipeline,
+            &self.pipelines.gf_blur_v_pipeline,
             &c_tmp,
             &c_tmp,
             &c_moments,
@@ -2117,28 +2138,49 @@ impl GpuProcessor {
 
         for (params, out) in [(&params_clarity, &ab_clarity), (&params_tonal, &blurred)] {
             pass(
-                &self.gf_blur_h_pipeline,
+                &self.pipelines.gf_blur_h_pipeline,
                 &moments,
                 &moments,
                 &tmp,
                 params,
                 fine,
             );
-            pass(&self.gf_blur_v_pipeline, &tmp, &tmp, &blurred, params, fine);
             pass(
-                &self.gf_coeffs_pipeline,
+                &self.pipelines.gf_blur_v_pipeline,
+                &tmp,
+                &tmp,
+                &blurred,
+                params,
+                fine,
+            );
+            pass(
+                &self.pipelines.gf_coeffs_pipeline,
                 &blurred,
                 &blurred,
                 &ab,
                 params,
                 fine,
             );
-            pass(&self.gf_blur_h_pipeline, &ab, &ab, &tmp, params, fine);
-            pass(&self.gf_blur_v_pipeline, &tmp, &tmp, out, params, fine);
+            pass(
+                &self.pipelines.gf_blur_h_pipeline,
+                &ab,
+                &ab,
+                &tmp,
+                params,
+                fine,
+            );
+            pass(
+                &self.pipelines.gf_blur_v_pipeline,
+                &tmp,
+                &tmp,
+                out,
+                params,
+                fine,
+            );
         }
 
         pass(
-            &self.gf_pack_pipeline,
+            &self.pipelines.gf_pack_pipeline,
             &ab_clarity,
             &blurred,
             &ab,
@@ -2147,7 +2189,7 @@ impl GpuProcessor {
         );
 
         pass(
-            &self.hz_downsample_pipeline,
+            &self.pipelines.hz_downsample_pipeline,
             input_view,
             input_view,
             &hz_a,
@@ -2155,7 +2197,7 @@ impl GpuProcessor {
             half,
         );
         pass(
-            &self.gf_box_down_pipeline,
+            &self.pipelines.gf_box_down_pipeline,
             &hz_a,
             &hz_a,
             &hz_coarse,
@@ -2163,7 +2205,7 @@ impl GpuProcessor {
             (hcw, hch),
         );
         pass(
-            &self.hz_airlight_pipeline,
+            &self.pipelines.hz_airlight_pipeline,
             &hz_coarse,
             &hz_coarse,
             &airlight,
@@ -2171,7 +2213,7 @@ impl GpuProcessor {
             (1, 1),
         );
         pass(
-            &self.hz_min_h_pipeline,
+            &self.pipelines.hz_min_h_pipeline,
             &hz_a,
             &airlight,
             &hz_b,
@@ -2179,7 +2221,7 @@ impl GpuProcessor {
             half,
         );
         pass(
-            &self.hz_min_v_pipeline,
+            &self.pipelines.hz_min_v_pipeline,
             &hz_b,
             &hz_b,
             &hz_a,
@@ -2187,7 +2229,7 @@ impl GpuProcessor {
             half,
         );
         pass(
-            &self.hz_max_h_pipeline,
+            &self.pipelines.hz_max_h_pipeline,
             &hz_a,
             &hz_a,
             &hz_b,
@@ -2195,7 +2237,7 @@ impl GpuProcessor {
             half,
         );
         pass(
-            &self.hz_max_v_pipeline,
+            &self.pipelines.hz_max_v_pipeline,
             &hz_b,
             &hz_b,
             &hz_a,
@@ -2203,7 +2245,7 @@ impl GpuProcessor {
             half,
         );
         pass(
-            &self.gf_blur_h_pipeline,
+            &self.pipelines.gf_blur_h_pipeline,
             &hz_a,
             &hz_a,
             &hz_b,
@@ -2211,7 +2253,7 @@ impl GpuProcessor {
             half,
         );
         pass(
-            &self.gf_blur_v_pipeline,
+            &self.pipelines.gf_blur_v_pipeline,
             &hz_b,
             &hz_b,
             &hz_a,
@@ -2219,7 +2261,7 @@ impl GpuProcessor {
             half,
         );
         pass(
-            &self.hz_coeffs_pipeline,
+            &self.pipelines.hz_coeffs_pipeline,
             &hz_a,
             &hz_a,
             &hz_b,
@@ -2227,7 +2269,7 @@ impl GpuProcessor {
             half,
         );
         pass(
-            &self.gf_blur_h_pipeline,
+            &self.pipelines.gf_blur_h_pipeline,
             &hz_b,
             &hz_b,
             &hz_a,
@@ -2235,7 +2277,7 @@ impl GpuProcessor {
             half,
         );
         pass(
-            &self.gf_blur_v_pipeline,
+            &self.pipelines.gf_blur_v_pipeline,
             &hz_a,
             &hz_a,
             &haze,
@@ -2260,7 +2302,7 @@ impl GpuProcessor {
         cache_key: Option<u64>,
     ) -> wgpu::TextureView {
         if mask_bitmaps.is_empty() {
-            return self.dummy_mask_view.clone();
+            return self.pipelines.dummy_mask_view.clone();
         }
 
         let device = &self.context.device;
@@ -2401,9 +2443,9 @@ impl GpuProcessor {
             (&hp.pipeline, &hp.shader, &hp.layout)
         } else {
             (
-                &self.main_pipeline,
-                &self.main_shader_module,
-                &self.main_pipeline_layout,
+                &self.pipelines.main_pipeline,
+                &self.pipelines.main_shader_module,
+                &self.pipelines.main_pipeline_layout,
             )
         };
         if features == ALL_SHADER_FEATURES {
@@ -2412,6 +2454,7 @@ impl GpuProcessor {
 
         let key = (high_precision, features);
         let mut pipelines = self
+            .pipelines
             .specialized_pipelines
             .lock()
             .unwrap_or_else(|e| e.into_inner());
@@ -2426,7 +2469,7 @@ impl GpuProcessor {
         let device = self.context.device.clone();
         let shader = shader.clone();
         let layout = layout.clone();
-        let specialized_pipelines = Arc::clone(&self.specialized_pipelines);
+        let specialized_pipelines = Arc::clone(&self.pipelines.specialized_pipelines);
         std::thread::spawn(move || {
             let mut constants = vec![("FEATURES", features as f64)];
             if high_precision {
@@ -2495,11 +2538,11 @@ impl GpuProcessor {
     }
 
     fn high_precision_pipeline(&self) -> &HighPrecisionPipeline {
-        self.high_precision_pipeline.get_or_init(|| {
+        self.pipelines.high_precision_pipeline.get_or_init(|| {
             let device = &self.context.device;
             let bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("High Precision Main BGL"),
-                entries: &self.high_precision_entries,
+                entries: &self.pipelines.high_precision_entries,
             });
             let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("High Precision Pipeline Layout"),
@@ -2596,7 +2639,7 @@ impl GpuProcessor {
                 )
             } else {
                 (
-                    &self.main_bgl,
+                    &self.pipelines.main_bgl,
                     &self.tile_output_texture,
                     &self.tile_output_texture_view,
                     4,
@@ -2615,7 +2658,10 @@ impl GpuProcessor {
             self.mask_view(request.mask_bitmaps, width, height, request.mask_cache_key);
         let (lut_texture_view, lut_sampler) = match &request.lut {
             Some(lut) => self.lut_view(lut),
-            None => (self.dummy_lut_view.clone(), self.dummy_lut_sampler.clone()),
+            None => (
+                self.pipelines.dummy_lut_view.clone(),
+                self.pipelines.dummy_lut_sampler.clone(),
+            ),
         };
 
         let adjustments = request.adjustments;
@@ -2641,7 +2687,7 @@ impl GpuProcessor {
 
             let bg0 = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("Flare BG0"),
-                layout: &self.flare_bgl_0,
+                layout: &self.pipelines.flare_bgl_0,
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
@@ -2657,21 +2703,21 @@ impl GpuProcessor {
                     },
                     wgpu::BindGroupEntry {
                         binding: 3,
-                        resource: wgpu::BindingResource::Sampler(&self.flare_sampler),
+                        resource: wgpu::BindingResource::Sampler(&self.pipelines.flare_sampler),
                     },
                 ],
             });
 
             {
                 let mut cpass = encoder.begin_compute_pass(&Default::default());
-                cpass.set_pipeline(&self.flare_threshold_pipeline);
+                cpass.set_pipeline(&self.pipelines.flare_threshold_pipeline);
                 cpass.set_bind_group(0, &bg0, &[]);
                 cpass.dispatch_workgroups(FLARE_MAP_SIZE / 16, FLARE_MAP_SIZE / 16, 1);
             }
 
             let bg0_ghosts = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("Flare BG0 Ghosts"),
-                layout: &self.flare_bgl_0,
+                layout: &self.pipelines.flare_bgl_0,
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
@@ -2687,14 +2733,14 @@ impl GpuProcessor {
                     },
                     wgpu::BindGroupEntry {
                         binding: 3,
-                        resource: wgpu::BindingResource::Sampler(&self.flare_sampler),
+                        resource: wgpu::BindingResource::Sampler(&self.pipelines.flare_sampler),
                     },
                 ],
             });
 
             let bg1 = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("Flare BG1"),
-                layout: &self.flare_bgl_1,
+                layout: &self.pipelines.flare_bgl_1,
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
@@ -2709,7 +2755,7 @@ impl GpuProcessor {
 
             {
                 let mut cpass = encoder.begin_compute_pass(&Default::default());
-                cpass.set_pipeline(&self.flare_ghosts_pipeline);
+                cpass.set_pipeline(&self.pipelines.flare_ghosts_pipeline);
                 cpass.set_bind_group(0, &bg0_ghosts, &[]);
                 cpass.set_bind_group(1, &bg1, &[]);
                 cpass.dispatch_workgroups(FLARE_MAP_SIZE / 16, FLARE_MAP_SIZE / 16, 1);
@@ -2791,7 +2837,7 @@ impl GpuProcessor {
 
                     let h_blur_bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
                         label: Some("H-Blur BG"),
-                        layout: &self.blur_bgl,
+                        layout: &self.pipelines.blur_bgl,
                         entries: &[
                             wgpu::BindGroupEntry {
                                 binding: 0,
@@ -2813,9 +2859,9 @@ impl GpuProcessor {
                     {
                         let mut cpass = blur_encoder.begin_compute_pass(&Default::default());
                         cpass.set_pipeline(if direct {
-                            &self.h_blur_direct_pipeline
+                            &self.pipelines.h_blur_direct_pipeline
                         } else {
-                            &self.h_blur_pipeline
+                            &self.pipelines.h_blur_pipeline
                         });
                         cpass.set_bind_group(0, &h_blur_bg, &[]);
                         cpass.dispatch_workgroups(
@@ -2827,7 +2873,7 @@ impl GpuProcessor {
 
                     let v_blur_bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
                         label: Some("V-Blur BG"),
-                        layout: &self.blur_bgl,
+                        layout: &self.pipelines.blur_bgl,
                         entries: &[
                             wgpu::BindGroupEntry {
                                 binding: 0,
@@ -2848,10 +2894,10 @@ impl GpuProcessor {
                         let mut cpass = blur_encoder.begin_compute_pass(&Default::default());
                         cpass.set_bind_group(0, &v_blur_bg, &[]);
                         if direct {
-                            cpass.set_pipeline(&self.v_blur_direct_pipeline);
+                            cpass.set_pipeline(&self.pipelines.v_blur_direct_pipeline);
                             cpass.dispatch_workgroups(input_width, input_height.div_ceil(256), 1);
                         } else {
-                            cpass.set_pipeline(&self.v_blur_pipeline);
+                            cpass.set_pipeline(&self.pipelines.v_blur_pipeline);
                             cpass.dispatch_workgroups(
                                 input_width.div_ceil(BLUR_V_GROUP_SIZE.0),
                                 input_height.div_ceil(BLUR_V_GROUP_SIZE.1),
@@ -2934,7 +2980,7 @@ impl GpuProcessor {
                     resource: wgpu::BindingResource::TextureView(if did_create_sharpness_blur {
                         &self.sharpness_blur_view
                     } else {
-                        &self.dummy_blur_view
+                        &self.pipelines.dummy_blur_view
                     }),
                 });
                 bind_group_entries.push(wgpu::BindGroupEntry {
@@ -2942,7 +2988,7 @@ impl GpuProcessor {
                     resource: wgpu::BindingResource::TextureView(if did_create_tonal_blur {
                         &self.tonal_blur_view
                     } else {
-                        &self.dummy_blur_view
+                        &self.pipelines.dummy_blur_view
                     }),
                 });
                 bind_group_entries.push(wgpu::BindGroupEntry {
@@ -2950,7 +2996,7 @@ impl GpuProcessor {
                     resource: wgpu::BindingResource::TextureView(if did_create_clarity_blur {
                         &self.clarity_blur_view
                     } else {
-                        &self.dummy_blur_view
+                        &self.pipelines.dummy_blur_view
                     }),
                 });
                 bind_group_entries.push(wgpu::BindGroupEntry {
@@ -2958,7 +3004,7 @@ impl GpuProcessor {
                     resource: wgpu::BindingResource::TextureView(if did_create_structure_blur {
                         &self.structure_blur_view
                     } else {
-                        &self.dummy_blur_view
+                        &self.pipelines.dummy_blur_view
                     }),
                 });
 
@@ -2968,12 +3014,12 @@ impl GpuProcessor {
                     resource: wgpu::BindingResource::TextureView(if use_flare {
                         &self.flare_ghosts_view
                     } else {
-                        &self.dummy_blur_view
+                        &self.pipelines.dummy_blur_view
                     }),
                 });
                 bind_group_entries.push(wgpu::BindGroupEntry {
                     binding: 10 + MAX_MASK_BINDINGS,
-                    resource: wgpu::BindingResource::Sampler(&self.flare_sampler),
+                    resource: wgpu::BindingResource::Sampler(&self.pipelines.flare_sampler),
                 });
                 bind_group_entries.push(wgpu::BindGroupEntry {
                     binding: 11 + MAX_MASK_BINDINGS,
