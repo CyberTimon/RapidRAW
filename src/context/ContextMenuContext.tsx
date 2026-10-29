@@ -235,7 +235,8 @@ function MenuItem({ option, path, hideContextMenu }: MenuItemProps) {
           }
         }}
         ref={itemRef}
-        role="menuitem"
+        role={option.checked === undefined ? 'menuitem' : 'menuitemradio'}
+        aria-checked={option.checked}
       >
         <div className="flex items-center gap-3">
           {option.color && <div className="w-3 h-3 rounded-full" style={{ backgroundColor: option.color }}></div>}

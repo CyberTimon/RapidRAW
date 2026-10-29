@@ -1,8 +1,8 @@
 struct Point {
     x: f32,
     y: f32,
-    _pad1: f32,
-    _pad2: f32,
+    tangent: f32,
+    interpolation: u32,
 }
 
 struct HslColor {
@@ -475,6 +475,10 @@ fn apply_curve(val: f32, src: u32, ch: u32, count: u32) -> f32 {
         let p2 = curve_point(src, ch, i + 1u);
         if (x <= p2.x) {
             let p1 = curve_point(src, ch, i);
+            if (p1.interpolation == 1u) {
+                let result_y = interpolate_cubic_hermite(x, p1, p2, p1.tangent, p2.tangent);
+                return clamp(result_y / 255.0, 0.0, 1.0);
+            }
             let p0 = curve_point(src, ch, select(i - 1u, 0u, i == 0u));
             let p3 = curve_point(src, ch, min(count - 1u, i + 2u));
             let delta_before = (p1.y - p0.y) / max(0.001, p1.x - p0.x);

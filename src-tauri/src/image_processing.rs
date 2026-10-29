@@ -1661,8 +1661,8 @@ pub struct AutoAdjustmentResults {
 pub struct Point {
     x: f32,
     y: f32,
-    _pad1: f32,
-    _pad2: f32,
+    tangent: f32,
+    interpolation: u32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
@@ -2152,19 +2152,70 @@ fn parse_monochrome_settings(
     }
 }
 
-fn convert_points_to_aligned(frontend_points: Vec<serde_json::Value>) -> [Point; 16] {
+fn convert_points_to_aligned(
+    frontend_points: Vec<serde_json::Value>,
+    natural: bool,
+) -> [Point; 16] {
     let mut aligned_points = [Point::default(); 16];
     for (i, point) in frontend_points.iter().enumerate().take(16) {
         if let (Some(x), Some(y)) = (point["x"].as_f64(), point["y"].as_f64()) {
             aligned_points[i] = Point {
                 x: x as f32,
                 y: y as f32,
-                _pad1: 0.0,
-                _pad2: 0.0,
+                tangent: 0.0,
+                interpolation: 0,
             };
         }
     }
+    let n = frontend_points.len().min(16);
+    if natural && let Some(tangents) = natural_curve_tangents(&aligned_points[..n]) {
+        for (point, tangent) in aligned_points.iter_mut().zip(tangents) {
+            point.tangent = tangent;
+            point.interpolation = 1;
+        }
+    }
     aligned_points
+}
+
+fn natural_curve_tangents(points: &[Point]) -> Option<Vec<f32>> {
+    let n = points.len();
+    if n < 2
+        || points
+            .iter()
+            .enumerate()
+            .any(|(i, p)| !p.x.is_finite() || !p.y.is_finite() || (i > 0 && p.x <= points[i - 1].x))
+    {
+        return None;
+    }
+    let h: Vec<f64> = points
+        .windows(2)
+        .map(|p| p[1].x as f64 - p[0].x as f64)
+        .collect();
+    let delta: Vec<f64> = points
+        .windows(2)
+        .zip(&h)
+        .map(|(p, h)| (p[1].y as f64 - p[0].y as f64) / h)
+        .collect();
+    let mut diagonal = vec![1.0; n];
+    let mut rhs = vec![0.0; n];
+    for i in 1..n - 1 {
+        diagonal[i] = 2.0 * (h[i - 1] + h[i]);
+        rhs[i] = 6.0 * (delta[i] - delta[i - 1]);
+    }
+    for i in 1..n - 1 {
+        let factor = h[i - 1] / diagonal[i - 1];
+        diagonal[i] -= factor * if i == 1 { 0.0 } else { h[i - 1] };
+        rhs[i] -= factor * rhs[i - 1];
+    }
+    let mut second = vec![0.0; n];
+    for i in (1..n - 1).rev() {
+        second[i] = (rhs[i] - h[i] * second[i + 1]) / diagonal[i];
+    }
+    let mut tangents: Vec<f32> = (0..n - 1)
+        .map(|i| (delta[i] - h[i] * (2.0 * second[i] + second[i + 1]) / 6.0) as f32)
+        .collect();
+    tangents.push((delta[n - 2] + h[n - 2] * (second[n - 2] + 2.0 * second[n - 1]) / 6.0) as f32);
+    tangents.iter().all(|m| m.is_finite()).then_some(tangents)
 }
 
 pub(crate) const WP_D65: Vec2 = Vec2::new(0.3127, 0.3290);
@@ -2598,6 +2649,8 @@ fn get_global_adjustments_from_json(
 
     let default_curve = serde_json::json!([{"x": 0.0, "y": 0.0}, {"x": 255.0, "y": 255.0}]);
     let curves_obj = js_adjustments.get("curves").cloned().unwrap_or_default();
+    let natural = js_adjustments["curveInterpolation"].as_str() == Some("natural")
+        && js_adjustments["curveMode"].as_str() != Some("parametric");
 
     let luma_points: Vec<serde_json::Value> = if is_visible("curves") {
         curves_obj
@@ -2862,10 +2915,10 @@ fn get_global_adjustments_from_json(
         } else {
             [HslColor::default(); 8]
         },
-        luma_curve: convert_points_to_aligned(luma_points.clone()),
-        red_curve: convert_points_to_aligned(red_points.clone()),
-        green_curve: convert_points_to_aligned(green_points.clone()),
-        blue_curve: convert_points_to_aligned(blue_points.clone()),
+        luma_curve: convert_points_to_aligned(luma_points.clone(), natural),
+        red_curve: convert_points_to_aligned(red_points.clone(), natural),
+        green_curve: convert_points_to_aligned(green_points.clone(), natural),
+        blue_curve: convert_points_to_aligned(blue_points.clone(), natural),
         luma_curve_count: luma_points.len() as u32,
         red_curve_count: red_points.len() as u32,
         green_curve_count: green_points.len() as u32,
@@ -2916,6 +2969,8 @@ fn get_mask_adjustments_from_json(
     };
 
     let curves_obj = adj.get("curves").cloned().unwrap_or_default();
+    let natural = adj["curveInterpolation"].as_str() == Some("natural")
+        && adj["curveMode"].as_str() != Some("parametric");
     let luma_points: Vec<serde_json::Value> = if is_visible("curves") {
         curves_obj["luma"].as_array().cloned().unwrap_or_default()
     } else {
@@ -3032,10 +3087,10 @@ fn get_mask_adjustments_from_json(
         } else {
             [HslColor::default(); 8]
         },
-        luma_curve: convert_points_to_aligned(luma_points.clone()),
-        red_curve: convert_points_to_aligned(red_points.clone()),
-        green_curve: convert_points_to_aligned(green_points.clone()),
-        blue_curve: convert_points_to_aligned(blue_points.clone()),
+        luma_curve: convert_points_to_aligned(luma_points.clone(), natural),
+        red_curve: convert_points_to_aligned(red_points.clone(), natural),
+        green_curve: convert_points_to_aligned(green_points.clone(), natural),
+        blue_curve: convert_points_to_aligned(blue_points.clone(), natural),
         luma_curve_count: luma_points.len() as u32,
         red_curve_count: red_points.len() as u32,
         green_curve_count: green_points.len() as u32,

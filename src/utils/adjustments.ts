@@ -4,6 +4,7 @@ import { SubMask, SubMaskMode } from '../components/panel/right/Masks';
 import type { AdjustmentLayout, AppSettings } from '../components/ui/AppProperties';
 import type { WhiteBalance } from './whiteBalance';
 import defaultAdjustments from './defaultAdjustments.json';
+import type { CurveInterpolation } from './curveInterpolation';
 
 export enum ActiveChannel {
   Blue = 'blue',
@@ -296,6 +297,7 @@ export interface Adjustments {
   pointCurves?: Curves;
   parametricCurve?: ParametricCurve;
   curveMode?: 'point' | 'parametric';
+  curveInterpolation?: CurveInterpolation;
   crop: Crop | null;
   dehaze: number;
   exposure: number;
@@ -508,6 +510,7 @@ export interface MaskAdjustments {
   pointCurves?: Curves;
   parametricCurve?: ParametricCurve;
   curveMode?: 'point' | 'parametric';
+  curveInterpolation?: CurveInterpolation;
   dehaze: number;
   exposure: number;
   flareAmount: number;
@@ -619,6 +622,7 @@ export const INITIAL_MASK_ADJUSTMENTS: MaskAdjustments = {
   pointCurves: getDefaultCurves(),
   parametricCurve: getDefaultParametricCurve(),
   curveMode: 'point',
+  curveInterpolation: 'standard',
   dehaze: 0,
   exposure: 0,
   flareAmount: 0,
@@ -745,6 +749,7 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
           ? deepCloneParametric(containerAdjustments.parametricCurve)
           : getDefaultParametricCurve(),
         curveMode: containerAdjustments.curveMode || INITIAL_MASK_ADJUSTMENTS.curveMode,
+        curveInterpolation: containerAdjustments.curveInterpolation === 'natural' ? 'natural' : 'standard',
         activeTools: getActiveTools(containerAdjustments),
         sectionVisibility: undefined,
         sharpnessThreshold: containerAdjustments.sharpnessThreshold ?? INITIAL_MASK_ADJUSTMENTS.sharpnessThreshold,
@@ -841,6 +846,7 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
       ? deepCloneParametric(loadedAdjustments.parametricCurve)
       : getDefaultParametricCurve(),
     curveMode: loadedAdjustments.curveMode || INITIAL_ADJUSTMENTS.curveMode,
+    curveInterpolation: loadedAdjustments.curveInterpolation === 'natural' ? 'natural' : 'standard',
     masks: normalizedMasks,
     aiPatches: normalizedAiPatches,
     activeTools: getActiveTools(loadedAdjustments),
@@ -875,7 +881,7 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
     { label: 'adjustments.basic.brightness', keys: [BasicAdjustment.Brightness] },
     {
       label: 'modals.copyPaste.groups.curves',
-      keys: ['curves', 'pointCurves', 'parametricCurve', 'curveMode'],
+      keys: ['curves', 'pointCurves', 'parametricCurve', 'curveMode', 'curveInterpolation'],
     },
   ],
   color: [
@@ -1065,7 +1071,7 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     BasicAdjustment.Exposure,
     'toneMapper',
   ],
-  curves: ['curves', 'pointCurves', 'parametricCurve', 'curveMode'],
+  curves: ['curves', 'pointCurves', 'parametricCurve', 'curveMode', 'curveInterpolation'],
   color: [
     ColorAdjustment.Saturation,
     ColorAdjustment.Temperature,
