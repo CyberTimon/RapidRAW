@@ -1261,6 +1261,21 @@ export const ADJUSTMENT_TOOLS_BY_ID: Record<string, AdjustmentSectionTool> = Obj
 export const getAdjustmentSectionToolIds = (section: string): string[] =>
   (ADJUSTMENT_SECTION_TOOLS[section] ?? []).map((tool) => tool.id);
 
+export const withToolCollapsed = (settings: AppSettings, id: string, isCollapsed: boolean): AppSettings => {
+  const collapsedTools = settings.adjustmentLayout?.collapsedTools ?? [];
+  if (isCollapsed) {
+    return withAdjustmentLayout(settings, { collapsedTools: [...collapsedTools, id] });
+  }
+  const siblingTools = settings.enableToolFocusMode
+    ? (Object.keys(ADJUSTMENT_SECTION_TOOLS)
+        .map(getAdjustmentSectionToolIds)
+        .find((tools) => tools.includes(id)) ?? [])
+    : [];
+  return withAdjustmentLayout(settings, {
+    collapsedTools: [...new Set([...collapsedTools, ...siblingTools])].filter((tool) => tool !== id),
+  });
+};
+
 const getToolIds = (id: string): Array<string> => {
   const expand = (tool: AdjustmentSectionTool) => tool.subTools ?? [tool.id];
   const sectionTools = ADJUSTMENT_SECTION_TOOLS[id];

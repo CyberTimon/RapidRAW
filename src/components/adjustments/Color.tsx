@@ -35,7 +35,7 @@ import {
 import { TextColors, TextWeights } from '../../types/typography';
 import { useUIStore } from '../../store/useUIStore';
 import { HSL_MIXER_BANDS, HslMixerBand, HslMixerProperty } from '../../utils/hslMixer';
-import { areSectionPropsEqual } from '../../utils/adjustments';
+import { areSectionPropsEqual, withToolCollapsed } from '../../utils/adjustments';
 
 interface ColorProps {
   color: string;
@@ -777,6 +777,9 @@ function ColorPanel({
   };
 
   const toggleMixerPicker = () => {
+    if (!mixerPickerProperty && appSettings?.adjustmentLayout?.collapsedTools?.includes('colorMixer')) {
+      handleSettingsChange(withToolCollapsed(appSettings, 'colorMixer', false));
+    }
     setEditor({
       mixerPickerProperty: mixerPickerProperty ? null : mixerTab,
       isWbPickerActive: false,
