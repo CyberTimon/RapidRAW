@@ -605,7 +605,6 @@ pub fn is_tiff(file_bytes: &[u8]) -> bool {
 
 pub fn read_exif(file_bytes: &[u8]) -> Option<Exif> {
     let exifreader = exif::Reader::new();
-    // EXIF is near the file's start and a cut-off prefix fails to parse, so try prefixes first.
     if is_tiff(file_bytes) {
         let mut len = 64 * 1024;
         while len < file_bytes.len() && len <= 16 * 1024 * 1024 {

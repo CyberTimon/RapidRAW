@@ -483,6 +483,17 @@ pub fn parse_virtual_path(virtual_path: &str) -> (PathBuf, PathBuf) {
     (source_path, sidecar_path)
 }
 
+fn exif_read_pool() -> Option<&'static rayon::ThreadPool> {
+    static POOL: std::sync::OnceLock<Option<rayon::ThreadPool>> = std::sync::OnceLock::new();
+    POOL.get_or_init(|| {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(rayon::current_num_threads())
+            .build()
+            .ok()
+    })
+    .as_ref()
+}
+
 #[tauri::command]
 pub async fn read_exif_for_paths(
     paths: Vec<String>,
@@ -519,13 +530,9 @@ pub async fn read_exif_for_paths(
             }
         };
 
-        // Not the global pool: reads that block on a network share would stall thumbnails there.
         let exif_data: HashMap<String, HashMap<String, String>> = if is_hdd {
             paths.iter().filter_map(process_path).collect()
-        } else if let Ok(pool) = rayon::ThreadPoolBuilder::new()
-            .num_threads(rayon::current_num_threads())
-            .build()
-        {
+        } else if let Some(pool) = exif_read_pool() {
             pool.install(|| paths.par_iter().filter_map(process_path).collect())
         } else {
             paths.par_iter().filter_map(process_path).collect()
@@ -1466,7 +1473,6 @@ fn find_embedded_jpeg<'a>(
         .get_field(exif::Tag::JPEGInterchangeFormatLength, ifd)?
         .value
         .get_uint(0)? as usize;
-    // read_exif may keep only the start of a TIFF file; its offsets point into the file.
     let tiff = if exif_processing::is_tiff(file_bytes) {
         file_bytes
     } else {
