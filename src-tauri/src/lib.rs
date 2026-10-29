@@ -1941,7 +1941,10 @@ fn setup_logging(app_handle: &tauri::AppHandle) {
                 message
             ))
         })
-        .level(level)
+        .level(level.max(log::LevelFilter::Warn))
+        .filter(move |metadata| {
+            !raw_processing::swallow_prefix_log(metadata) && metadata.level() <= level
+        })
         .chain(fern::Output::call(|record| {
             let _ = writeln!(std::io::stderr(), "{}", record.args());
         }));
@@ -1960,6 +1963,9 @@ fn setup_logging(app_handle: &tauri::AppHandle) {
     }
 
     panic::set_hook(Box::new(|info| {
+        if raw_processing::is_reading_prefix() {
+            return;
+        }
         let message = if let Some(s) = info.payload().downcast_ref::<&'static str>() {
             s.to_string()
         } else if let Some(s) = info.payload().downcast_ref::<String>() {
