@@ -7,6 +7,16 @@ use std::path::Path;
 use std::time::Duration;
 use tokio::io::AsyncWriteExt;
 
+fn with_cause(error: &dyn std::error::Error) -> String {
+    let mut text = error.to_string();
+    let mut source = error.source();
+    while let Some(cause) = source {
+        text.push_str(&format!(": {cause}"));
+        source = cause.source();
+    }
+    text
+}
+
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Asset {
@@ -17,6 +27,10 @@ pub struct Asset {
     pub original_file_name: String,
     #[serde(default)]
     pub file_modified_at: Option<String>,
+    #[serde(default)]
+    pub file_created_at: Option<String>,
+    #[serde(default)]
+    pub created_at: Option<String>,
     #[serde(default)]
     pub is_trashed: bool,
 }
@@ -144,7 +158,7 @@ impl ImmichClient {
         let response = builder
             .send()
             .await
-            .map_err(|e| format!("Immich is not reachable ({what}): {e}"))?;
+            .map_err(|e| format!("Immich is not reachable ({what}): {}", with_cause(&e)))?;
         let status = response.status();
         if status.is_success() {
             return Ok(response);
@@ -254,7 +268,7 @@ impl ImmichClient {
             .timeout(Duration::from_secs(5))
             .send()
             .await
-            .map_err(|e| format!("Immich is not reachable (edits): {e}"))?;
+            .map_err(|e| format!("Immich is not reachable (edits): {}", with_cause(&e)))?;
         let status = response.status();
         if status.is_success() {
             return response

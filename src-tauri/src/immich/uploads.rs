@@ -65,8 +65,9 @@ pub fn on_exported(
     output_path: &Path,
 ) -> Result<(), String> {
     let Some(target) = output_path
-        .parent()
-        .and_then(|folder| EXPORT_TARGETS.lock().unwrap().get(folder).cloned())
+        .ancestors()
+        .skip(1)
+        .find_map(|folder| EXPORT_TARGETS.lock().unwrap().get(folder).cloned())
     else {
         return Ok(());
     };
