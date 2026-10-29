@@ -86,6 +86,9 @@ function ValidatedNumberInput({ ariaLabel, disabled, field, max }: ValidatedNumb
       max={max}
       min="0"
       onChange={(e) => field.handleChange(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur();
+      }}
       step="any"
       type="number"
       value={field.text}
