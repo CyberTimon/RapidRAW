@@ -9,6 +9,7 @@ import { AiJobsStatus, JobKind, JobStatus, useProcessStore } from '../store/useP
 import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
 import { useLibraryStore } from '../store/useLibraryStore';
+import type { CurveInputHistogram, HistogramData } from '../types/analytics';
 
 const parseAnalyticsPacket = async (buffer: ArrayBuffer) => {
   const view = new DataView(buffer);
@@ -23,9 +24,9 @@ const parseAnalyticsPacket = async (buffer: ArrayBuffer) => {
   const path = new TextDecoder().decode(new Uint8Array(buffer, offset, pathLength));
   offset += pathLength;
 
-  const bins = readU32();
-  let histogram: { red: number[]; green: number[]; blue: number[]; luma: number[] } | null = null;
-  if (bins > 0) {
+  const readHistogram = (): HistogramData | null => {
+    const bins = readU32();
+    if (bins === 0) return null;
     const readChannel = () => {
       const channel = new Array<number>(bins);
       for (let i = 0; i < bins; i++) {
@@ -34,8 +35,9 @@ const parseAnalyticsPacket = async (buffer: ArrayBuffer) => {
       }
       return channel;
     };
-    histogram = { red: readChannel(), green: readChannel(), blue: readChannel(), luma: readChannel() };
-  }
+    return { red: readChannel(), green: readChannel(), blue: readChannel(), luma: readChannel() };
+  };
+  const histogram = readHistogram();
 
   const width = readU32();
   const height = readU32();
@@ -51,7 +53,16 @@ const parseAnalyticsPacket = async (buffer: ArrayBuffer) => {
     waveform = { width, height, rgb, luma, parade, vectorscope };
   }
 
-  return { path, histogram, waveform };
+  let curveInputHistogram: CurveInputHistogram | null = null;
+  if (offset < buffer.byteLength) {
+    const maskIdLength = readU32();
+    const maskId = new TextDecoder().decode(new Uint8Array(buffer, offset, maskIdLength)) || null;
+    offset += maskIdLength;
+    const input = readHistogram();
+    if (input) curveInputHistogram = { maskId, histogram: input };
+  }
+
+  return { path, histogram, waveform, curveInputHistogram };
 };
 
 interface TauriListenerProps {
@@ -575,11 +586,15 @@ export function useTauriListeners({
     const analyticsChannel = new Channel<ArrayBuffer>();
     analyticsChannel.onmessage = async (buffer) => {
       const sequence = ++analyticsSequence;
-      const { path, histogram, waveform } = await parseAnalyticsPacket(buffer);
+      const { path, histogram, waveform, curveInputHistogram } = await parseAnalyticsPacket(buffer);
       if (!isEffectActive || sequence < latestAppliedAnalytics) return;
       if (path !== useEditorStore.getState().selectedImage?.path) return;
       latestAppliedAnalytics = sequence;
-      const update: { histogram?: any; waveform?: WaveformData } = {};
+      const update: {
+        histogram?: HistogramData;
+        waveform?: WaveformData;
+        curveInputHistogram: CurveInputHistogram | null;
+      } = { curveInputHistogram };
       if (histogram) update.histogram = histogram;
       if (waveform) update.waveform = waveform;
       useEditorStore.getState().setEditor(update);

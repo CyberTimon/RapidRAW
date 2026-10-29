@@ -625,6 +625,7 @@ fn process_preview_job(
     target_resolution: Option<u32>,
     roi: Option<(f32, f32, f32, f32)>,
     request_analytics: bool,
+    curve_histogram_mask_id: Option<&str>,
     compute_waveform: bool,
     active_waveform_channel: Option<&str>,
     target: PreviewTarget,
@@ -834,6 +835,16 @@ fn process_preview_job(
             .clone()
             .map(|tx| crate::AnalyticsConfig {
                 path: loaded_image.path.clone(),
+                curve_histogram_source: match curve_histogram_mask_id {
+                    None => u32::MAX,
+                    Some(id) => mask_definitions
+                        .iter()
+                        .filter(|m| m.visible && !m.sub_masks.is_empty())
+                        .take(image_processing::MAX_MASKS)
+                        .position(|m| m.id == id)
+                        .map_or(u32::MAX - 1, |index| index as u32),
+                },
+                curve_histogram_mask_id: curve_histogram_mask_id.map(str::to_owned),
                 compute_waveform,
                 active_waveform_channel: channel_filter,
                 sender: tx,
@@ -1010,6 +1021,7 @@ fn start_analytics_worker(app_handle: tauri::AppHandle) {
             last_run = Some(std::time::Instant::now());
 
             let histogram_data = image_processing::calculate_histogram(&job.frame).ok();
+            let curve_histogram = image_processing::curve_input_histogram(&job.curve_histogram);
 
             let waveform_data = if job.compute_waveform {
                 image_processing::calculate_waveform(
@@ -1029,6 +1041,8 @@ fn start_analytics_worker(app_handle: tauri::AppHandle) {
                         &job.path,
                         histogram_data.as_ref(),
                         waveform_data.as_ref(),
+                        curve_histogram.as_ref(),
+                        job.curve_histogram_mask_id.as_deref(),
                     );
                     let _ = channel.send(InvokeResponseBody::Raw(packet));
                 }
@@ -1060,6 +1074,7 @@ fn run_editor_job(app_handle: &tauri::AppHandle, job: PreviewJob) {
             job.target_resolution,
             job.roi,
             job.request_analytics,
+            job.curve_histogram_mask_id.as_deref(),
             job.compute_waveform,
             job.active_waveform_channel.as_deref(),
             PreviewTarget::Editor,
@@ -1093,6 +1108,7 @@ fn run_viewer_job(app_handle: &tauri::AppHandle) {
             Some(target_resolution),
             None,
             false,
+            None,
             false,
             None,
             PreviewTarget::Viewer,
@@ -1152,6 +1168,7 @@ async fn apply_adjustments(
     target_resolution: Option<u32>,
     roi: Option<(f32, f32, f32, f32)>,
     request_analytics: bool,
+    curve_histogram_mask_id: Option<String>,
     compute_waveform: bool,
     active_waveform_channel: Option<String>,
     state: tauri::State<'_, AppState>,
@@ -1172,6 +1189,7 @@ async fn apply_adjustments(
                 target_resolution,
                 roi,
                 request_analytics,
+                curve_histogram_mask_id,
                 compute_waveform,
                 active_waveform_channel,
                 responder: tx,

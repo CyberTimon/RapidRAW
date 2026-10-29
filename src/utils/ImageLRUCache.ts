@@ -1,8 +1,10 @@
 import type { Adjustments } from './adjustments';
+import type { CurveInputHistogram } from '../types/analytics';
 
 interface ImageCacheEntry {
   adjustments: Adjustments;
   histogram: any;
+  curveInputHistogram: CurveInputHistogram | null;
   waveform: any;
   finalPreviewUrl: string | null;
   uncroppedPreviewUrl: string | null;

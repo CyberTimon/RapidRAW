@@ -11,6 +11,7 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
   const selectedImage = useEditorStore((s) => s.selectedImage);
   const adjustments = useEditorStore((s) => s.adjustments);
   const histogram = useEditorStore((s) => s.histogram);
+  const curveInputHistogram = useEditorStore((s) => s.curveInputHistogram);
   const waveform = useEditorStore((s) => s.waveform);
   const finalPreviewUrl = useEditorStore((s) => s.finalPreviewUrl);
   const uncroppedAdjustedPreviewUrl = useEditorStore((s) => s.uncroppedAdjustedPreviewUrl);
@@ -133,6 +134,7 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
       cachedEditStateRef.current = {
         adjustments,
         histogram,
+        curveInputHistogram,
         waveform,
         finalPreviewUrl,
         uncroppedPreviewUrl: uncroppedAdjustedPreviewUrl,
@@ -147,6 +149,7 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
     selectedImage,
     adjustments,
     histogram,
+    curveInputHistogram,
     waveform,
     finalPreviewUrl,
     uncroppedAdjustedPreviewUrl,

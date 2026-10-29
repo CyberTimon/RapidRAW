@@ -22,19 +22,6 @@ import { useEditorStore } from '../../store/useEditorStore';
 let curveClipboard: Array<Coord> | null = null;
 let parametricClipboard: any = null;
 
-export interface ChannelConfig {
-  [index: string]: ColorData;
-  [ActiveChannel.Luma]: ColorData;
-  [ActiveChannel.Red]: ColorData;
-  [ActiveChannel.Green]: ColorData;
-  [ActiveChannel.Blue]: ColorData;
-}
-
-interface ColorData {
-  color: string;
-  data: any;
-}
-
 interface CurveGraphProps {
   adjustments: Adjustments | any;
   isForMask?: boolean;
@@ -202,8 +189,18 @@ function getZeroHistogramPath(data: Array<any>) {
   return `M0,255 L${pathData} L255,255 Z`;
 }
 
-const HistogramFill = memo(({ channel, opacity }: { channel: ActiveChannel; opacity: number }) => {
-  const data: number[] | undefined = useEditorStore((state) => state.histogram?.[channel]) as any;
+interface HistogramFillProps {
+  channel: ActiveChannel;
+  opacity: number;
+  isForMask: boolean;
+}
+
+const HistogramFill = memo(({ channel, opacity, isForMask }: HistogramFillProps) => {
+  const data = useEditorStore((state) => {
+    const input = state.curveInputHistogram;
+    const maskId = isForMask ? state.activeMaskContainerId : null;
+    return input?.maskId === maskId ? input.histogram[channel] : undefined;
+  });
   const histogramPath = useMemo(() => getHistogramPath(data ?? []), [data]);
   const zeroHistogramPath = useMemo(() => getZeroHistogramPath(data ?? []), [data]);
 
@@ -277,7 +274,7 @@ const MIN_POINT_GAP_X = 1;
 const hasFineAdjustmentModifier = (event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) =>
   'shiftKey' in event && (event.shiftKey || event.altKey);
 
-function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: CurveGraphProps) {
+function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isForMask = false }: CurveGraphProps) {
   const { t } = useTranslation();
   const { showContextMenu } = useContextMenu();
   const [curveMode, setCurveMode] = useState<'point' | 'parametric'>(adjustments.curveMode || 'point');
@@ -901,7 +898,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
               stroke="rgba(255,255,255,0.1)"
               strokeWidth="0.5"
             />
-            <HistogramFill channel={activeChannel} opacity={histogramOpacity} />
+            <HistogramFill channel={activeChannel} opacity={histogramOpacity} isForMask={isForMask} />
             <line
               x1="0"
               y1="255"

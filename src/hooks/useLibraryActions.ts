@@ -52,6 +52,7 @@ export const clearLibrarySelection = () => {
     finalPreviewUrl: null,
     uncroppedAdjustedPreviewUrl: null,
     histogram: null,
+    curveInputHistogram: null,
     waveform: null,
     activeMaskId: null,
     activeMaskContainerId: null,

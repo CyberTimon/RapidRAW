@@ -3864,16 +3864,7 @@ pub fn calculate_histogram(frame: &AnalyticsFrame) -> Result<HistogramData, Stri
     let [mut red, mut green, mut blue, mut luma] =
         counts.map(|channel| channel.map(|c| c as f32).to_vec());
 
-    let smoothing_sigma = 2.0;
-    apply_gaussian_smoothing(&mut red, smoothing_sigma);
-    apply_gaussian_smoothing(&mut green, smoothing_sigma);
-    apply_gaussian_smoothing(&mut blue, smoothing_sigma);
-    apply_gaussian_smoothing(&mut luma, smoothing_sigma);
-
-    normalize_histogram_range(&mut red, 0.99);
-    normalize_histogram_range(&mut green, 0.99);
-    normalize_histogram_range(&mut blue, 0.99);
-    normalize_histogram_range(&mut luma, 0.99);
+    finish_histogram(&mut red, &mut green, &mut blue, &mut luma);
 
     Ok(HistogramData {
         red,
@@ -3881,6 +3872,39 @@ pub fn calculate_histogram(frame: &AnalyticsFrame) -> Result<HistogramData, Stri
         blue,
         luma,
     })
+}
+
+pub fn curve_input_histogram(counts: &[u32]) -> Option<HistogramData> {
+    if counts.len() != 4 * 256 {
+        return None;
+    }
+    let mut channels = counts
+        .chunks_exact(256)
+        .map(|c| c.iter().map(|&v| v as f32).collect::<Vec<_>>());
+    let mut red = channels.next()?;
+    let mut green = channels.next()?;
+    let mut blue = channels.next()?;
+    let mut luma = channels.next()?;
+    finish_histogram(&mut red, &mut green, &mut blue, &mut luma);
+    Some(HistogramData {
+        red,
+        green,
+        blue,
+        luma,
+    })
+}
+
+fn finish_histogram(red: &mut [f32], green: &mut [f32], blue: &mut [f32], luma: &mut [f32]) {
+    let smoothing_sigma = 2.0;
+    apply_gaussian_smoothing(red, smoothing_sigma);
+    apply_gaussian_smoothing(green, smoothing_sigma);
+    apply_gaussian_smoothing(blue, smoothing_sigma);
+    apply_gaussian_smoothing(luma, smoothing_sigma);
+
+    normalize_histogram_range(red, 0.99);
+    normalize_histogram_range(green, 0.99);
+    normalize_histogram_range(blue, 0.99);
+    normalize_histogram_range(luma, 0.99);
 }
 
 fn apply_gaussian_smoothing(histogram: &mut [f32], sigma: f32) {
@@ -3962,6 +3986,8 @@ pub fn encode_analytics_packet(
     path: &str,
     histogram: Option<&HistogramData>,
     waveform: Option<&WaveformData>,
+    curve_histogram: Option<&HistogramData>,
+    curve_histogram_mask_id: Option<&str>,
 ) -> Vec<u8> {
     let put_u32 = |out: &mut Vec<u8>, v: usize| out.extend_from_slice(&(v as u32).to_le_bytes());
     let wave_len = waveform.map_or(0, |w| {
@@ -3997,6 +4023,21 @@ pub fn encode_analytics_packet(
             put_u32(&mut out, 0);
             put_u32(&mut out, 0);
         }
+    }
+
+    let mask_id = curve_histogram_mask_id.unwrap_or("");
+    put_u32(&mut out, mask_id.len());
+    out.extend_from_slice(mask_id.as_bytes());
+    match curve_histogram {
+        Some(h) => {
+            put_u32(&mut out, h.red.len());
+            for channel in [&h.red, &h.green, &h.blue, &h.luma] {
+                for value in channel {
+                    out.extend_from_slice(&value.to_le_bytes());
+                }
+            }
+        }
+        None => put_u32(&mut out, 0),
     }
 
     out

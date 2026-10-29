@@ -41,6 +41,7 @@ export function useImageProcessing(
   const previewOverride = useEditorStore((state) => state.previewOverride);
   const isWaveformVisible = useEditorStore((state) => state.isWaveformVisible);
   const activeWaveformChannel = useEditorStore((state) => state.activeWaveformChannel);
+  const activeMaskContainerId = useEditorStore((state) => state.activeMaskContainerId);
   const displaySize = useEditorStore((state) => state.displaySize);
   const baseRenderSize = useEditorStore((state) => state.baseRenderSize);
   const originalSize = useEditorStore((state) => state.originalSize);
@@ -183,6 +184,8 @@ export function useImageProcessing(
           targetResolution: targetRes || null,
           roi: roi || null,
           requestAnalytics: true,
+          curveHistogramMaskId:
+            useUIStore.getState().activePanel === Panel.Masks ? useEditorStore.getState().activeMaskContainerId : null,
           computeWaveform: !!isWaveformVisible,
           activeWaveformChannel: activeWaveformChannelRef.current || null,
         });
@@ -516,6 +519,8 @@ export function useImageProcessing(
     appSettings?.copyPasteSettings?.includedAdjustments,
     appSettings?.copyPasteSettings?.autoSync,
     isWaveformVisible,
+    activePanel,
+    activeMaskContainerId,
   ]);
 
   return {
