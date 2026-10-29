@@ -167,6 +167,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const selectedImage = useEditorStore((s) => s.selectedImage);
   const adjustments = useEditorStore(useShallow((s) => omitTonalAdjustments(s.adjustments)));
   const adjustmentsHistory = useEditorStore((s) => s.history);
+  const adjustmentsHistoryLabels = useEditorStore((s) => s.historyLabels);
   const adjustmentsHistoryIndex = useEditorStore((s) => s.historyIndex);
   const finalPreviewUrl = useEditorStore((s) => s.finalPreviewUrl);
   const uncroppedAdjustedPreviewUrl = useEditorStore((s) => s.uncroppedAdjustedPreviewUrl);
@@ -2517,7 +2518,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
           compareMode={appSettings?.compareMode ?? 'toggle'}
           showDateView={showExifDateView}
           onToggleDateView={() => setShowExifDateView((prev) => !prev)}
-          adjustmentsHistory={adjustmentsHistory}
+          adjustmentsHistoryLabels={adjustmentsHistoryLabels}
           adjustmentsHistoryIndex={adjustmentsHistoryIndex}
           goToAdjustmentsHistoryIndex={goToHistoryIndex}
         />
