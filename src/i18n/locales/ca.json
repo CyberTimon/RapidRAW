@@ -276,6 +276,7 @@
       "autoLensCorrection": "Correcció d'objectiu automàtica",
       "autoStraighten": "Redreçar automàticament",
       "cancel": "Cancel·lar",
+      "closeViewer": "Tanca la segona finestra",
       "colorLabel": "Etiqueta de color",
       "confirmReset": "Confirmar restabliment",
       "convertBlackWhite": "Convertir a blanc i negre",
@@ -292,6 +293,7 @@
       "mergeHdr": "Fusionar a HDR",
       "noLabel": "Sense etiqueta",
       "noRating": "Sense puntuació",
+      "openViewer": "Obre en una segona finestra",
       "pasteAdjustments": "Enganxar ajustaments",
       "productivity": "Productivitat",
       "rating": "Puntuació",
@@ -940,6 +942,10 @@
         "undo": "Desfer (Ctrl+Z) o Historial (Clic dret)"
       },
       "vc": "CV"
+    },
+    "viewer": {
+      "openFailed": "No s'ha pogut obrir la segona finestra: {{error}}",
+      "windowTitle": "Visor del RapidRAW"
     }
   },
   "export": {
@@ -1080,6 +1086,10 @@
       "title": "Edicions encara no a Immich"
     },
     "export": {
+      "newAlbum": "Àlbum nou…",
+      "newAlbumName": "Nom de l'àlbum",
+      "createAlbum": "Crea",
+      "newAlbumFailed": "No s'ha pogut crear l'àlbum: {{error}}",
       "album": "Àlbum",
       "destination": "Immich",
       "noAlbum": "Sense àlbum",
@@ -1088,16 +1098,19 @@
       "withOriginalDesc": "Per a imatges d'una carpeta local: l'original es puja amb les seves edicions i l'exportació s'apila a sobre. Les imatges d'Immich sempre s'apilen sobre el seu original."
     },
     "section": {
+      "albums": "Àlbums",
       "empty": "No hi ha àlbums al servidor.",
       "error": "No es pot accedir a Immich.",
       "loading": "Carregant àlbums…",
       "refresh": "Actualitza els àlbums",
       "timeline": "Cronologia",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "Sense àlbum",
+      "unassignedHint": "Arrossega imatges aquí per pujar-les sense afegir-les a cap àlbum."
     },
     "settings": {
       "apiKey": "Clau d'API",
-      "apiKeyDesc": "Crea'n una a Immich a Configuració del compte → Claus d'API amb aquests permisos: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create i user.read.",
+      "apiKeyDesc": "Crea'n una a Immich a Configuració del compte → Claus d'API amb aquests permisos: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create i user.read.",
       "connected": "Connectat com a {{user}} (Immich {{version}})",
       "description": "Explora les fotos del teu servidor Immich a la biblioteca i edita-les directament. Els originals es descarreguen quan els obres, i les edicions es desen a Immich, de manera que es veuen igual a tots els ordinadors.",
       "keyInFile": "Desada en un fitxer que només tu pots llegir: no hi ha cap magatzem de credencials disponible. A KDE, activa la interfície Secret Service a la configuració de KDE Wallet i torna a desar.",
@@ -1119,8 +1132,12 @@
       "downloadFailed": "No s'ha pogut descarregar d'Immich: {{error}}",
       "editsConflict": "{{fileName}} també s'ha editat en un altre ordinador. Les teves edicions es mantenen i l'altra versió es conserva com a còpia virtual.",
       "offline": "No es pot accedir a Immich. Les teves edicions es guarden aquí i s'enviaran quan torni a estar disponible.",
+      "transferFailed": "No afegides a Immich: {{number}} ({{error}})",
+      "transferred": "Afegides a Immich: {{number}}",
+      "transferring": "S'està afegint a Immich… {{current}}/{{total}}",
       "trashFailed": "No s'ha pogut moure a la paperera d'Immich: {{error}}",
-      "uploaded": "Pujades a Immich: {{number}}"
+      "uploaded": "Pujades a Immich: {{number}}",
+      "uploadKeptCopy": "{{fileName}} ja és a Immich amb altres edicions. Aquestes es mantenen i les teves es desen com a còpia virtual."
     }
   },
   "library": {
@@ -1881,6 +1898,8 @@
       "folderImageCountsDesc": "Mostra el nombre d'imatges dins de les carpetes quan passeu el ratolí sobre l'arbre de carpetes.",
       "font": "Tipus de lletra",
       "fontDesc": "Canvia el tipus de lletra de l'aplicació.",
+      "hideCollapsedPanels": "Amagar els panells plegats",
+      "hideCollapsedPanelsDesc": "Els panells laterals plegats s'amaguen completament en lloc de deixar una franja estreta. Torneu-los a obrir des de la barra inferior o amb les seves dreceres de teclat.",
       "nativeTitlebar": "Barra de títol nativa",
       "nativeTitlebarDesc": "Utilitzar la barra de títol de la finestra predeterminada del sistema en lloc de la personalitzada de RapidRAW.",
       "neutralGreyCanvas": "Llenç gris neutre",
@@ -1949,6 +1968,7 @@
         "toggle_presets": "Alternar tauler d'Ajustos preestablerts",
         "toggle_reject": "Commuta la marca de rebutjada",
         "toggle_right_panel": "Commutar el panell dret",
+        "toggle_viewer_window": "Commuta la segona finestra",
         "undo": "Desfer ajustament",
         "unflag": "Treure la marca",
         "zoom_100": "Apropar al 100%",

@@ -276,6 +276,7 @@
       "autoLensCorrection": "自動レンズ補正",
       "autoStraighten": "自動角度補正",
       "cancel": "キャンセル",
+      "closeViewer": "セカンドウィンドウを閉じる",
       "colorLabel": "カラーラベル",
       "confirmReset": "リセットを確認",
       "convertBlackWhite": "白黒に変換",
@@ -292,6 +293,7 @@
       "mergeHdr": "HDRに統合",
       "noLabel": "ラベルなし",
       "noRating": "評価なし",
+      "openViewer": "セカンドウィンドウで開く",
       "pasteAdjustments": "補正設定を貼り付け",
       "productivity": "生産性",
       "rating": "評価",
@@ -913,6 +915,10 @@
         "undo": "元に戻す (Ctrl+Z) または履歴 (右クリック)"
       },
       "vc": "仮想"
+    },
+    "viewer": {
+      "openFailed": "セカンドウィンドウを開けませんでした: {{error}}",
+      "windowTitle": "RapidRAW ビューアー"
     }
   },
   "export": {
@@ -1051,6 +1057,10 @@
       "title": "Immich に未送信の編集"
     },
     "export": {
+      "newAlbum": "新しいアルバム…",
+      "newAlbumName": "アルバム名",
+      "createAlbum": "作成",
+      "newAlbumFailed": "アルバムを作成できませんでした: {{error}}",
       "album": "アルバム",
       "destination": "Immich",
       "noAlbum": "アルバムなし",
@@ -1059,16 +1069,19 @@
       "withOriginalDesc": "ローカルフォルダーの画像の場合: オリジナルが編集内容とともにアップロードされ、エクスポートがその上にスタックされます。Immich の画像は常にオリジナルの上にスタックされます。"
     },
     "section": {
+      "albums": "アルバム",
       "empty": "サーバーにアルバムがありません。",
       "error": "Immich に接続できません。",
       "loading": "アルバムを読み込み中…",
       "refresh": "アルバムを更新",
       "timeline": "タイムライン",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "アルバムなし",
+      "unassignedHint": "ここに画像をドロップすると、アルバムに追加せずにアップロードします。"
     },
     "settings": {
       "apiKey": "API キー",
-      "apiKeyDesc": "Immich の「アカウント設定 → API キー」で、次の権限を付けて作成してください: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create, user.read",
+      "apiKeyDesc": "Immich の「アカウント設定 → API キー」で、次の権限を付けて作成してください: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create, user.read",
       "connected": "{{user}} として接続しました (Immich {{version}})",
       "description": "Immich サーバーの写真をライブラリで閲覧し、そのまま編集できます。オリジナルは開いたときにダウンロードされ、編集内容は Immich に保存されるので、どのコンピューターでも同じに見えます。",
       "keyInFile": "本人だけが読めるファイルに保存されています。利用できる資格情報ストアがありません。KDE の場合は、KDE ウォレットの設定で Secret Service インターフェースを有効にしてから、もう一度保存してください。",
@@ -1090,8 +1103,12 @@
       "downloadFailed": "Immich からダウンロードできませんでした: {{error}}",
       "editsConflict": "{{fileName}} は別のコンピューターでも編集されています。あなたの編集内容はそのまま残り、もう一方のバージョンは仮想コピーとして保存されます。",
       "offline": "Immich に接続できません。編集内容はここに保持され、接続が戻りしだい送信されます。",
+      "transferFailed": "Immich に追加できませんでした: {{number}} ({{error}})",
+      "transferred": "Immich に追加しました: {{number}}",
+      "transferring": "Immich に追加中… {{current}}/{{total}}",
       "trashFailed": "Immich のゴミ箱に移動できませんでした: {{error}}",
-      "uploaded": "Immich にアップロードしました: {{number}}"
+      "uploaded": "Immich にアップロードしました: {{number}}",
+      "uploadKeptCopy": "{{fileName}} は別の編集内容で既に Immich にあります。そちらはそのまま残り、あなたの編集は仮想コピーとして保存されます。"
     }
   },
   "library": {
@@ -1834,6 +1851,8 @@
       "folderImageCountsDesc": "フォルダツリーをホバーしたときにフォルダ内の画像数を表示します。",
       "font": "フォント",
       "fontDesc": "アプリケーションのフォントを変更します。",
+      "hideCollapsedPanels": "折りたたんだパネルを非表示",
+      "hideCollapsedPanelsDesc": "折りたたんだサイドパネルを細い帯として残さず、完全に非表示にします。下部バーまたはキーボードショートカットで再び開けます。",
       "nativeTitlebar": "OS標準のタイトルバー",
       "nativeTitlebarDesc": "RapidRAWカスタムのもの代わりに、システムのデフォルトのウィンドウタイトルバーを使用します。",
       "neutralGreyCanvas": "ニュートラルグレーのキャンバス",
@@ -1902,6 +1921,7 @@
         "toggle_presets": "プリセットパネルの表示/非表示",
         "toggle_reject": "除外フラグを切り替え",
         "toggle_right_panel": "右パネルの表示/非表示",
+        "toggle_viewer_window": "セカンドウィンドウの切り替え",
         "undo": "操作を元に戻す",
         "unflag": "フラグを解除",
         "zoom_100": "100%ズーム",

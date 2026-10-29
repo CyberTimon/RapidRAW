@@ -21,7 +21,7 @@ import Text from '../ui/Text';
 import { useEditorStore } from '../../store/useEditorStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useLibraryActions } from '../../hooks/useLibraryActions';
-import { useUIStore } from '../../store/useUIStore';
+import { getReopenedPanelWidth, useUIStore } from '../../store/useUIStore';
 import { COLOR_LABELS } from '../../utils/adjustments';
 
 interface BottomBarProps {
@@ -190,7 +190,7 @@ export default function BottomBar({
       const isOpening = !s.uiVisibility.leftPanel;
       return {
         uiVisibility: { ...s.uiVisibility, leftPanel: isOpening },
-        leftPanelWidth: isOpening && s.leftPanelWidth < 250 ? 350 : s.leftPanelWidth,
+        leftPanelWidth: isOpening ? getReopenedPanelWidth(s.leftPanelWidth) : s.leftPanelWidth,
       };
     });
 
@@ -199,7 +199,7 @@ export default function BottomBar({
       const isOpening = !s.uiVisibility.rightPanel;
       return {
         uiVisibility: { ...s.uiVisibility, rightPanel: isOpening },
-        rightPanelWidth: isOpening && s.rightPanelWidth < 250 ? 350 : s.rightPanelWidth,
+        rightPanelWidth: isOpening ? getReopenedPanelWidth(s.rightPanelWidth) : s.rightPanelWidth,
       };
     });
 

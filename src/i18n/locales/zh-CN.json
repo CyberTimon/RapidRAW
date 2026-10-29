@@ -276,6 +276,7 @@
       "autoLensCorrection": "自动镜头校正",
       "autoStraighten": "自动拉直",
       "cancel": "取消",
+      "closeViewer": "关闭第二窗口",
       "colorLabel": "颜色标签",
       "confirmReset": "确认重置",
       "convertBlackWhite": "转换为黑白",
@@ -292,6 +293,7 @@
       "mergeHdr": "合并为 HDR",
       "noLabel": "无标签",
       "noRating": "无评分",
+      "openViewer": "在第二窗口中打开",
       "pasteAdjustments": "粘贴调整",
       "productivity": "效率",
       "rating": "评分",
@@ -913,6 +915,10 @@
         "undo": "撤销（Ctrl+Z）或历史记录（右键单击）"
       },
       "vc": "VC"
+    },
+    "viewer": {
+      "openFailed": "无法打开第二窗口：{{error}}",
+      "windowTitle": "RapidRAW 查看器"
     }
   },
   "export": {
@@ -1051,6 +1057,10 @@
       "title": "编辑尚未同步到 Immich"
     },
     "export": {
+      "newAlbum": "新建相册…",
+      "newAlbumName": "相册名称",
+      "createAlbum": "创建",
+      "newAlbumFailed": "无法创建相册：{{error}}",
       "album": "相册",
       "destination": "Immich",
       "noAlbum": "不加入相册",
@@ -1059,16 +1069,19 @@
       "withOriginalDesc": "对于本地文件夹中的图像：原始文件会连同编辑内容一起上传，导出的图像会堆叠在其上方。来自 Immich 的图像始终堆叠在其原始文件上。"
     },
     "section": {
+      "albums": "相册",
       "empty": "服务器上没有相册。",
       "error": "无法连接到 Immich。",
       "loading": "正在加载相册…",
       "refresh": "刷新相册",
       "timeline": "时间线",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "不在任何相册中",
+      "unassignedHint": "将图像拖到这里即可上传，但不加入任何相册。"
     },
     "settings": {
       "apiKey": "API 密钥",
-      "apiKeyDesc": "在 Immich 的“帐户设置 → API 密钥”中创建，并授予以下权限：album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create、user.read。",
+      "apiKeyDesc": "在 Immich 的“帐户设置 → API 密钥”中创建，并授予以下权限：album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create、user.read。",
       "connected": "已以 {{user}} 身份连接 (Immich {{version}})",
       "description": "在图库中浏览 Immich 服务器上的照片并直接编辑。原始文件会在打开时下载，编辑内容会保存到 Immich，因此在每台电脑上看起来都一样。",
       "keyInFile": "已保存在仅你可读取的文件中：没有可用的凭据存储。在 KDE 中，请在 KDE 钱包设置里启用 Secret Service 接口，然后重新保存。",
@@ -1090,8 +1103,12 @@
       "downloadFailed": "无法从 Immich 下载：{{error}}",
       "editsConflict": "{{fileName}} 也在另一台电脑上被编辑过。你的编辑内容会保留，另一个版本已保存为虚拟副本。",
       "offline": "无法连接到 Immich。你的编辑内容会保留在这里，并在恢复连接后发送。",
+      "transferFailed": "未能添加到 Immich：{{number}}（{{error}}）",
+      "transferred": "已添加到 Immich：{{number}}",
+      "transferring": "正在添加到 Immich… {{current}}/{{total}}",
       "trashFailed": "无法移至 Immich 回收站：{{error}}",
-      "uploaded": "已上传到 Immich：{{number}}"
+      "uploaded": "已上传到 Immich：{{number}}",
+      "uploadKeptCopy": "{{fileName}} 已在 Immich 中，且有其他编辑。那些编辑会保留，你的编辑将作为虚拟副本保存。"
     }
   },
   "library": {
@@ -1834,6 +1851,8 @@
       "folderImageCountsDesc": "悬停在文件夹树时显示文件夹内的图像数量。",
       "font": "字体",
       "fontDesc": "更改应用程序字体。",
+      "hideCollapsedPanels": "隐藏折叠的面板",
+      "hideCollapsedPanelsDesc": "折叠的侧边面板将完全隐藏，而不是留下一道窄条。可通过底部栏或键盘快捷键重新打开。",
       "nativeTitlebar": "原生标题栏",
       "nativeTitlebarDesc": "使用系统默认的窗口标题栏，而非 RapidRAW 的自定义标题栏。",
       "neutralGreyCanvas": "中性灰画布",
@@ -1902,6 +1921,7 @@
         "toggle_presets": "切换预设面板",
         "toggle_reject": "切换拒绝标记",
         "toggle_right_panel": "切换右侧面板",
+        "toggle_viewer_window": "切换第二窗口",
         "undo": "撤销调整",
         "unflag": "取消标记",
         "zoom_100": "缩放到 100%",

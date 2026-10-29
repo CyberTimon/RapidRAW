@@ -276,6 +276,7 @@
       "autoLensCorrection": "Automatyczna korekcja obiektywu",
       "autoStraighten": "Automatyczne prostowanie",
       "cancel": "Anuluj",
+      "closeViewer": "Zamknij drugie okno",
       "colorLabel": "Etykieta koloru",
       "confirmReset": "Potwierdź reset",
       "convertBlackWhite": "Konwertuj na czarno-białe",
@@ -292,6 +293,7 @@
       "mergeHdr": "Scal do HDR",
       "noLabel": "Brak etykiety",
       "noRating": "Brak oceny",
+      "openViewer": "Otwórz w drugim oknie",
       "pasteAdjustments": "Wklej ustawienia",
       "productivity": "Produktywność",
       "rating": "Ocena",
@@ -964,6 +966,10 @@
         "undo": "Cofnij (Ctrl+Z) lub Historia (Prawy przycisk)"
       },
       "vc": "VC"
+    },
+    "viewer": {
+      "openFailed": "Nie można otworzyć drugiego okna: {{error}}",
+      "windowTitle": "Przeglądarka RapidRAW"
     }
   },
   "export": {
@@ -1106,6 +1112,10 @@
       "title": "Edycje jeszcze nie w Immich"
     },
     "export": {
+      "newAlbum": "Nowy album…",
+      "newAlbumName": "Nazwa albumu",
+      "createAlbum": "Utwórz",
+      "newAlbumFailed": "Nie udało się utworzyć albumu: {{error}}",
       "album": "Album",
       "destination": "Immich",
       "noAlbum": "Bez albumu",
@@ -1114,16 +1124,19 @@
       "withOriginalDesc": "Dla zdjęć z folderu lokalnego: oryginał jest przesyłany wraz z edycjami, a eksport układany na nim w stos. Zdjęcia z Immich są zawsze układane na swoim oryginale."
     },
     "section": {
+      "albums": "Albumy",
       "empty": "Brak albumów na serwerze.",
       "error": "Immich jest niedostępny.",
       "loading": "Wczytywanie albumów…",
       "refresh": "Odśwież albumy",
       "timeline": "Oś czasu",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "Bez albumu",
+      "unassignedHint": "Przeciągnij tu zdjęcia, aby przesłać je bez dodawania do albumu."
     },
     "settings": {
       "apiKey": "Klucz API",
-      "apiKeyDesc": "Utwórz go w Immich w Ustawieniach konta → Klucze API z tymi uprawnieniami: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create i user.read.",
+      "apiKeyDesc": "Utwórz go w Immich w Ustawieniach konta → Klucze API z tymi uprawnieniami: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create i user.read.",
       "connected": "Połączono jako {{user}} (Immich {{version}})",
       "description": "Przeglądaj zdjęcia z serwera Immich w bibliotece i edytuj je bezpośrednio. Oryginały są pobierane przy otwarciu, a edycje zapisywane w Immich, więc wyglądają tak samo na każdym komputerze.",
       "keyInFile": "Zapisano w pliku, który możesz odczytać tylko Ty: brak dostępnego magazynu poświadczeń. W KDE włącz interfejs Secret Service w ustawieniach Portfela KDE i zapisz ponownie.",
@@ -1145,8 +1158,12 @@
       "downloadFailed": "Nie udało się pobrać z Immich: {{error}}",
       "editsConflict": "{{fileName}} edytowano także na innym komputerze. Twoje edycje pozostają, a druga wersja jest zachowana jako kopia wirtualna.",
       "offline": "Immich jest niedostępny. Twoje edycje pozostają tutaj i zostaną wysłane, gdy tylko będzie dostępny.",
+      "transferFailed": "Nie dodano do Immich: {{number}} ({{error}})",
+      "transferred": "Dodano do Immich: {{number}}",
+      "transferring": "Dodawanie do Immich… {{current}}/{{total}}",
       "trashFailed": "Nie udało się przenieść do kosza Immich: {{error}}",
-      "uploaded": "Przesłano do Immich: {{number}}"
+      "uploaded": "Przesłano do Immich: {{number}}",
+      "uploadKeptCopy": "{{fileName}} jest już w Immich z innymi edycjami. Pozostają one bez zmian, a Twoje edycje są zachowane jako kopia wirtualna."
     }
   },
   "library": {
@@ -1922,6 +1939,8 @@
       "folderImageCountsDesc": "Pokaż liczbę obrazów w folderach podczas najechania myszą na drzewo katalogów.",
       "font": "Czcionka",
       "fontDesc": "Zmień czcionkę aplikacji.",
+      "hideCollapsedPanels": "Ukryj zwinięte panele",
+      "hideCollapsedPanelsDesc": "Zwinięte panele boczne chowają się całkowicie zamiast zostawiać wąski pasek. Otwórz je ponownie z dolnego paska lub za pomocą ich skrótów klawiszowych.",
       "nativeTitlebar": "Natywny pasek tytułu",
       "nativeTitlebarDesc": "Użyj domyślnego paska tytułu okna twojego systemu zamiast niestandardowego w RapidRAW.",
       "neutralGreyCanvas": "Neutralne szare płótno",
@@ -1990,6 +2009,7 @@
         "toggle_presets": "Przełącz panel Presety",
         "toggle_reject": "Przełącz oznaczenie odrzucenia",
         "toggle_right_panel": "Przełącz prawy panel",
+        "toggle_viewer_window": "Przełącz drugie okno",
         "undo": "Cofnij korektę",
         "unflag": "Usuń oznaczenie",
         "zoom_100": "Powiększ do 100%",

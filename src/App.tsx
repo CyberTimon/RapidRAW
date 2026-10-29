@@ -38,7 +38,12 @@ import LibraryView from './components/views/LibraryView';
 
 import { ContextMenuProvider } from './context/ContextMenuContext';
 import { useSettingsStore } from './store/useSettingsStore';
-import { DEFAULT_BOTTOM_PANEL_HEIGHT, DEFAULT_PANEL_WIDTH, useUIStore } from './store/useUIStore';
+import {
+  DEFAULT_BOTTOM_PANEL_HEIGHT,
+  DEFAULT_PANEL_WIDTH,
+  getReopenedPanelWidth,
+  useUIStore,
+} from './store/useUIStore';
 import { useLibraryStore } from './store/useLibraryStore';
 import { useEditorStore } from './store/useEditorStore';
 import { JobKind, useProcessStore } from './store/useProcessStore';
@@ -812,6 +817,20 @@ function App() {
     }
   };
 
+  const openHiddenSide = (region: PanelRegion) => {
+    if (region.startsWith('left') && !uiVisibility.leftPanel) {
+      setUI((state) => ({
+        uiVisibility: { ...state.uiVisibility, leftPanel: true },
+        leftPanelWidth: getReopenedPanelWidth(state.leftPanelWidth),
+      }));
+    } else if (region.startsWith('right') && !uiVisibility.rightPanel) {
+      setUI((state) => ({
+        uiVisibility: { ...state.uiVisibility, rightPanel: true },
+        rightPanelWidth: getReopenedPanelWidth(state.rightPanelWidth),
+      }));
+    }
+  };
+
   const handleDragEnd = (e: any) => {
     setLayoutDragItem(null);
     setActiveImageDragItem(null);
@@ -819,6 +838,10 @@ function App() {
 
     if (active.data.current?.type === 'layout-tab' && over?.data.current?.type === 'layout-region') {
       movePanel(active.data.current.panel as Panel, over.data.current.region as PanelRegion);
+    }
+
+    if (appSettings?.hideCollapsedPanels && active.data.current?.type === 'layout-tab' && over?.data.current?.region) {
+      openHiddenSide(over.data.current.region as PanelRegion);
     }
 
     if (active.data.current?.type === 'library-image' && over?.data.current?.type === 'folder') {
@@ -853,8 +876,11 @@ function App() {
   };
 
   const ActiveOverlayIcon = activeLayoutDragItem ? PANEL_ICONS[activeLayoutDragItem] : null;
-  const effectiveLeftWidth = uiVisibility.leftPanel ? leftPanelWidth : 48;
-  const effectiveRightWidth = uiVisibility.rightPanel ? rightPanelWidth : useWidePanels ? 58 : 48;
+  const shouldHideCollapsedPanels = appSettings?.hideCollapsedPanels && !activeLayoutDragItem;
+  const collapsedLeftWidth = shouldHideCollapsedPanels ? 0 : 48;
+  const collapsedRightWidth = shouldHideCollapsedPanels ? 0 : useWidePanels ? 58 : 48;
+  const effectiveLeftWidth = uiVisibility.leftPanel ? leftPanelWidth : collapsedLeftWidth;
+  const effectiveRightWidth = uiVisibility.rightPanel ? rightPanelWidth : collapsedRightWidth;
 
   return (
     <>

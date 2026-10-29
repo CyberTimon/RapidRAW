@@ -276,6 +276,7 @@
       "autoLensCorrection": "Автокорекція об'єктива",
       "autoStraighten": "Автовирівнювання",
       "cancel": "Скасувати",
+      "closeViewer": "Закрити друге вікно",
       "colorLabel": "Колірна мітка",
       "confirmReset": "Підтвердити скидання",
       "convertBlackWhite": "Перетворити на чорно-біле",
@@ -292,6 +293,7 @@
       "mergeHdr": "Об'єднати в HDR",
       "noLabel": "Без мітки",
       "noRating": "Без оцінки",
+      "openViewer": "Відкрити в другому вікні",
       "pasteAdjustments": "Вставити коригування",
       "productivity": "Продуктивність",
       "rating": "Оцінка",
@@ -964,6 +966,10 @@
         "undo": "Скасувати (Ctrl+Z) або історія (правий клік)"
       },
       "vc": "ВК"
+    },
+    "viewer": {
+      "openFailed": "Не вдалося відкрити друге вікно: {{error}}",
+      "windowTitle": "Переглядач RapidRAW"
     }
   },
   "export": {
@@ -1106,6 +1112,10 @@
       "title": "Редагування ще не в Immich"
     },
     "export": {
+      "newAlbum": "Новий альбом…",
+      "newAlbumName": "Назва альбому",
+      "createAlbum": "Створити",
+      "newAlbumFailed": "Не вдалося створити альбом: {{error}}",
       "album": "Альбом",
       "destination": "Immich",
       "noAlbum": "Без альбому",
@@ -1114,6 +1124,9 @@
       "withOriginalDesc": "Для зображень із локальної папки: оригінал вивантажується разом із редагуваннями, а експорт додається до стосу поверх нього. Зображення з Immich завжди додаються до стосу поверх свого оригіналу."
     },
     "section": {
+      "albums": "Альбоми",
+      "unassigned": "Без альбому",
+      "unassignedHint": "Перетягніть сюди зображення, щоб вивантажити їх без додавання до альбому.",
       "empty": "На сервері немає альбомів.",
       "error": "Immich недоступний.",
       "loading": "Завантаження альбомів…",
@@ -1123,7 +1136,7 @@
     },
     "settings": {
       "apiKey": "Ключ API",
-      "apiKeyDesc": "Створіть його в Immich у розділі «Налаштування облікового запису → Ключі API» з такими дозволами: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create і user.read.",
+      "apiKeyDesc": "Створіть його в Immich у розділі «Налаштування облікового запису → Ключі API» з такими дозволами: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create і user.read.",
       "connected": "Під'єднано як {{user}} (Immich {{version}})",
       "description": "Переглядайте фото зі свого сервера Immich у бібліотеці та редагуйте їх безпосередньо. Оригінали завантажуються, коли ви їх відкриваєте, а редагування зберігаються в Immich, тож на кожному комп'ютері вони виглядають однаково.",
       "keyInFile": "Збережено у файлі, який можете читати лише ви: сховище облікових даних недоступне. У KDE увімкніть інтерфейс Secret Service у налаштуваннях KDE Wallet і збережіть ще раз.",
@@ -1141,6 +1154,10 @@
       "pending": "Редагувань, що очікують надсилання в Immich: {{number}}"
     },
     "toasts": {
+      "transferFailed": "Не додано до Immich: {{number}} ({{error}})",
+      "transferred": "Додано до Immich: {{number}}",
+      "transferring": "Додавання до Immich… {{current}}/{{total}}",
+      "uploadKeptCopy": "{{fileName}} уже є в Immich з іншими редагуваннями. Вони залишаються, а ваші редагування збережено як віртуальну копію.",
       "backOnline": "Immich знову доступний, і всі редагування збережено в ньому.",
       "downloadFailed": "Не вдалося завантажити з Immich: {{error}}",
       "editsConflict": "{{fileName}} також редагували на іншому комп'ютері. Ваші редагування залишаються, а іншу версію збережено як віртуальну копію.",
@@ -1990,6 +2007,7 @@
         "toggle_presets": "Показати/сховати панель пресетів",
         "toggle_reject": "Перемкнути позначку «відхилено»",
         "toggle_right_panel": "Показати/сховати праву панель",
+        "toggle_viewer_window": "Перемкнути друге вікно",
         "undo": "Скасувати коригування",
         "unflag": "Зняти позначку",
         "zoom_100": "Масштаб 100%",

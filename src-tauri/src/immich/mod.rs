@@ -21,7 +21,7 @@ pub use config::ImmichSettings;
 pub use files::ensure_local;
 pub use thumbnails::placeholder_thumbnail;
 pub use trash::trash_remote;
-pub use uploads::on_exported;
+pub use uploads::{add_to_album, on_exported};
 
 const MIN_VERSION: (u32, u32, u32) = (2, 5, 0);
 

@@ -276,6 +276,7 @@
       "autoLensCorrection": "Correction d'objectif automatique",
       "autoStraighten": "Redresser automatiquement",
       "cancel": "Annuler",
+      "closeViewer": "Fermer la seconde fenêtre",
       "colorLabel": "Étiquette de couleur",
       "confirmReset": "Confirmer la réinitialisation",
       "convertBlackWhite": "Convertir en noir et blanc",
@@ -292,6 +293,7 @@
       "mergeHdr": "Fusionner en HDR",
       "noLabel": "Aucune étiquette",
       "noRating": "Aucune note",
+      "openViewer": "Ouvrir dans une seconde fenêtre",
       "pasteAdjustments": "Coller les ajustements",
       "productivity": "Productivité",
       "rating": "Note",
@@ -940,6 +942,10 @@
         "undo": "Annuler (Ctrl+Z) ou Historique (Clic-droit)"
       },
       "vc": "CV"
+    },
+    "viewer": {
+      "openFailed": "Impossible d'ouvrir la seconde fenêtre : {{error}}",
+      "windowTitle": "Visionneuse RapidRAW"
     }
   },
   "export": {
@@ -1080,6 +1086,10 @@
       "title": "Retouches pas encore dans Immich"
     },
     "export": {
+      "newAlbum": "Nouvel album…",
+      "newAlbumName": "Nom de l'album",
+      "createAlbum": "Créer",
+      "newAlbumFailed": "Impossible de créer l'album : {{error}}",
       "album": "Album",
       "destination": "Immich",
       "noAlbum": "Aucun album",
@@ -1088,16 +1098,19 @@
       "withOriginalDesc": "Pour les images d'un dossier local : l'original est envoyé avec ses retouches et l'export est empilé par-dessus. Les images d'Immich sont toujours empilées sur leur original."
     },
     "section": {
+      "albums": "Albums",
       "empty": "Aucun album sur le serveur.",
       "error": "Immich est injoignable.",
       "loading": "Chargement des albums…",
       "refresh": "Actualiser les albums",
       "timeline": "Chronologie",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "Sans album",
+      "unassignedHint": "Déposez des images ici pour les envoyer sans les ajouter à un album."
     },
     "settings": {
       "apiKey": "Clé d'API",
-      "apiKeyDesc": "Créez-en une dans Immich sous Paramètres du compte → Clés d'API avec ces autorisations : album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create et user.read.",
+      "apiKeyDesc": "Créez-en une dans Immich sous Paramètres du compte → Clés d'API avec ces autorisations : album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create et user.read.",
       "connected": "Connecté en tant que {{user}} (Immich {{version}})",
       "description": "Parcourez les photos de votre serveur Immich dans la bibliothèque et retouchez-les directement. Les originaux sont téléchargés à l'ouverture et vos retouches sont enregistrées dans Immich, elles sont donc identiques sur chaque ordinateur.",
       "keyInFile": "Enregistrée dans un fichier lisible par vous seul : aucun gestionnaire d'identifiants n'est disponible. Sous KDE, activez l'interface Secret Service dans les paramètres de KDE Wallet, puis enregistrez à nouveau.",
@@ -1119,8 +1132,12 @@
       "downloadFailed": "Échec du téléchargement depuis Immich : {{error}}",
       "editsConflict": "{{fileName}} a aussi été retouchée sur un autre ordinateur. Vos retouches sont conservées et l'autre version est gardée comme copie virtuelle.",
       "offline": "Immich est injoignable. Vos retouches sont conservées ici et seront envoyées dès son retour.",
+      "transferFailed": "Non ajoutées à Immich : {{number}} ({{error}})",
+      "transferred": "Ajoutées à Immich : {{number}}",
+      "transferring": "Ajout à Immich… {{current}}/{{total}}",
       "trashFailed": "Impossible de déplacer vers la corbeille d'Immich : {{error}}",
-      "uploaded": "Envoyées vers Immich : {{number}}"
+      "uploaded": "Envoyées vers Immich : {{number}}",
+      "uploadKeptCopy": "{{fileName}} est déjà dans Immich avec d'autres retouches. Elles sont conservées, et les vôtres sont gardées comme copie virtuelle."
     }
   },
   "library": {
@@ -1882,6 +1899,8 @@
       "folderImageCountsDesc": "Affiche le nombre d'images dans les dossiers lors du survol de l'arborescence des dossiers.",
       "font": "Police",
       "fontDesc": "Modifier la police de l'application.",
+      "hideCollapsedPanels": "Masquer les panneaux réduits",
+      "hideCollapsedPanelsDesc": "Les panneaux latéraux réduits sont entièrement masqués au lieu de laisser une bande étroite. Rouvrez-les depuis la barre inférieure ou avec leurs raccourcis clavier.",
       "nativeTitlebar": "Barre de titre native",
       "nativeTitlebarDesc": "Utiliser la barre de titre de fenêtre par défaut de votre système au lieu de celle personnalisée de RapidRAW.",
       "neutralGreyCanvas": "Toile gris neutre",
@@ -1950,6 +1969,7 @@
         "toggle_presets": "Basculer le panneau des paramètres prédéfinis",
         "toggle_reject": "Basculer le marquage rejeté",
         "toggle_right_panel": "Afficher/Masquer le panneau droit",
+        "toggle_viewer_window": "Basculer la seconde fenêtre",
         "undo": "Annuler l'ajustement",
         "unflag": "Retirer le marquage",
         "zoom_100": "Zoomer à 100%",

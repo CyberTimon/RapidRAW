@@ -276,6 +276,7 @@
       "autoLensCorrection": "Autom. lenscorrectie",
       "autoStraighten": "Automatisch rechtzetten",
       "cancel": "Annuleren",
+      "closeViewer": "Tweede venster sluiten",
       "colorLabel": "Kleurlabel",
       "confirmReset": "Herstellen bevestigen",
       "convertBlackWhite": "Omzetten naar zwart-wit",
@@ -292,6 +293,7 @@
       "mergeHdr": "Samenvoegen naar HDR",
       "noLabel": "Geen label",
       "noRating": "Geen beoordeling",
+      "openViewer": "Openen in tweede venster",
       "pasteAdjustments": "Aanpassingen plakken",
       "productivity": "Productiviteit",
       "rating": "Beoordeling",
@@ -916,6 +918,10 @@
         "undo": "Ongedaan maken (Ctrl+Z) of geschiedenis (rechtermuisknop)"
       },
       "vc": "VK"
+    },
+    "viewer": {
+      "openFailed": "Kan het tweede venster niet openen: {{error}}",
+      "windowTitle": "RapidRAW-viewer"
     }
   },
   "export": {
@@ -1054,6 +1060,10 @@
       "title": "Bewerkingen nog niet in Immich"
     },
     "export": {
+      "newAlbum": "Nieuw album…",
+      "newAlbumName": "Albumnaam",
+      "createAlbum": "Aanmaken",
+      "newAlbumFailed": "Kan het album niet aanmaken: {{error}}",
       "album": "Album",
       "destination": "Immich",
       "noAlbum": "Geen album",
@@ -1062,16 +1072,19 @@
       "withOriginalDesc": "Voor afbeeldingen uit een lokale map: het origineel wordt met zijn bewerkingen geüpload en de export wordt erbovenop gestapeld. Afbeeldingen uit Immich worden altijd op hun origineel gestapeld."
     },
     "section": {
+      "albums": "Albums",
       "empty": "Geen albums op de server.",
       "error": "Immich is niet bereikbaar.",
       "loading": "Albums laden…",
       "refresh": "Albums vernieuwen",
       "timeline": "Tijdlijn",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "Zonder album",
+      "unassignedHint": "Sleep afbeeldingen hierheen om ze te uploaden zonder ze aan een album toe te voegen."
     },
     "settings": {
       "apiKey": "API-sleutel",
-      "apiKeyDesc": "Maak er een aan in Immich onder Accountinstellingen → API-sleutels met deze rechten: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create en user.read.",
+      "apiKeyDesc": "Maak er een aan in Immich onder Accountinstellingen → API-sleutels met deze rechten: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create en user.read.",
       "connected": "Verbonden als {{user}} (Immich {{version}})",
       "description": "Blader door de foto's van je Immich-server in de bibliotheek en bewerk ze direct. Originelen worden gedownload als je ze opent, en je bewerkingen worden in Immich opgeslagen, zodat ze op elke computer hetzelfde zijn.",
       "keyInFile": "Opgeslagen in een bestand dat alleen jij kunt lezen: er is geen sleutelopslag beschikbaar. Zet in KDE de Secret Service-interface aan in de instellingen van KDE Wallet en sla opnieuw op.",
@@ -1093,8 +1106,12 @@
       "downloadFailed": "Downloaden van Immich mislukt: {{error}}",
       "editsConflict": "{{fileName}} is ook op een andere computer bewerkt. Je bewerkingen blijven en de andere versie wordt bewaard als virtuele kopie.",
       "offline": "Immich is niet bereikbaar. Je bewerkingen blijven hier en worden verstuurd zodra het weer bereikbaar is.",
+      "transferFailed": "Niet toegevoegd aan Immich: {{number}} ({{error}})",
+      "transferred": "Toegevoegd aan Immich: {{number}}",
+      "transferring": "Toevoegen aan Immich… {{current}}/{{total}}",
       "trashFailed": "Verplaatsen naar de prullenbak van Immich mislukt: {{error}}",
-      "uploaded": "Geüpload naar Immich: {{number}}"
+      "uploaded": "Geüpload naar Immich: {{number}}",
+      "uploadKeptCopy": "{{fileName}} staat al in Immich met andere bewerkingen. Die blijven, en jouw bewerkingen worden als virtuele kopie bewaard."
     }
   },
   "library": {
@@ -1840,6 +1857,8 @@
       "folderImageCountsDesc": "Toon het aantal afbeeldingen in mappen bij het aanwijzen van de mappenstructuur.",
       "font": "Lettertype",
       "fontDesc": "Het toepassingslettertype wijzigen.",
+      "hideCollapsedPanels": "Ingeklapte panelen verbergen",
+      "hideCollapsedPanelsDesc": "Ingeklapte zijpanelen worden volledig verborgen in plaats van een smalle strook achter te laten. Open ze opnieuw via de onderste balk of met hun sneltoetsen.",
       "nativeTitlebar": "Systeemeigen titelbalk",
       "nativeTitlebarDesc": "Gebruik de standaard venstertitelbalk van uw systeem in plaats van de aangepaste titelbalk van RapidRAW.",
       "neutralGreyCanvas": "Neutraal grijs canvas",
@@ -1905,6 +1924,7 @@
         "toggle_metadata": "Metadatapaneel aan/uit",
         "toggle_presets": "Voorinstellingspaneel aan/uit",
         "toggle_right_panel": "Rechterpaneel aan/uit",
+        "toggle_viewer_window": "Tweede venster in-/uitschakelen",
         "undo": "Aanpassing ongedaan maken",
         "zoom_100": "Zoomen naar 100%",
         "zoom_fit": "Zoomen om te passen",
