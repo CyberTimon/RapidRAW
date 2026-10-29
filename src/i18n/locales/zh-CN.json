@@ -2071,7 +2071,7 @@
         "baselineExposure": "基础曝光",
         "baselineExposureAmount": "基础量",
         "baselineExposureAmountDesc": "添加到 RAW 文件的曝光量。darktable 使用 +0.7 EV。",
-        "baselineExposureDesc": "将所有 RAW 文件提亮一个固定值（与 darktable 场景参考模式的默认值相同），如有 DNG BaselineExposure 标签也会一并加上。在此选项推出之前编辑的图像不受影响。",
+        "baselineExposureDesc": "将 RAW 文件提亮一个固定值，如有 DNG BaselineExposure 标签也会一并加上。",
         "colorNr": "基础颜色降噪",
         "colorNrDesc": "在管线早期应用交叉双边滤波器以去除彩色噪点。值越高 = 降噪越强。",
         "defaultNonRawTonemapper": "默认非 RAW 色调映射",
@@ -2084,7 +2084,7 @@
         "enablePreprocessingNonRaws": "对非 RAW 图像启用",
         "enableTonemapperOverride": "启用色调映射覆盖",
         "highlightPreservation": "高光保护补偿",
-        "highlightPreservationDesc": "从 RAW 文件读取相机在高光保护模式下保留的曝光并予以恢复（富士 DR200/DR400、佳能高光色调优先和自动亮度优化、尼康动态 D-Lighting、奥林巴斯层次、宾得动态范围扩展）。在此选项推出之前编辑的图像不受影响。",
+        "highlightPreservationDesc": "恢复相机高光保护模式（如富士 DR200/DR400、尼康动态 D-Lighting）降低的曝光。",
         "highlightRecovery": "RAW 高光恢复",
         "highlightRecoveryDesc": "控制从 RAW 文件的裁剪高光中恢复细节的程度。较高的值可恢复更多细节，但可能引入紫色伪影。",
         "linearOptions": {

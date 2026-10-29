@@ -2118,7 +2118,7 @@
         "baselineExposure": "Exposición base",
         "baselineExposureAmount": "Cantidad base",
         "baselineExposureAmountDesc": "Exposición añadida a los archivos RAW. darktable usa +0,7 EV.",
-        "baselineExposureDesc": "Aclara todos los archivos RAW en una cantidad fija, como el valor predeterminado de darktable en modo referido a la escena, más la etiqueta DNG BaselineExposure si existe. Las imágenes editadas antes de que existiera esta opción no se ven afectadas.",
+        "baselineExposureDesc": "Aclara los archivos RAW en una cantidad fija, más la etiqueta DNG BaselineExposure si existe.",
         "colorNr": "Reducción base del ruido de color",
         "colorNrDesc": "Aplica un filtro bilateral cruzado temprano en el pipeline para eliminar el ruido de croma. Valor más alto = mayor reducción.",
         "defaultNonRawTonemapper": "Mapeador de tonos predeterminado no RAW",
@@ -2131,7 +2131,7 @@
         "enablePreprocessingNonRaws": "Activar para no RAW",
         "enableTonemapperOverride": "Activar anulación del mapeador de tonos",
         "highlightPreservation": "Compensación de protección de altas luces",
-        "highlightPreservationDesc": "Restaura la exposición que la cámara reservó en los modos de protección de altas luces, leída del archivo RAW (Fujifilm DR200/DR400, Prioridad a tonos altas luces y Auto Lighting Optimizer de Canon, D-Lighting activo de Nikon, gradación de Olympus, expansión de rango dinámico de Pentax). Las imágenes editadas antes de que existiera esta opción no se ven afectadas.",
+        "highlightPreservationDesc": "Restaura la exposición reducida por los modos de protección de altas luces de la cámara, como Fujifilm DR200/DR400 o D-Lighting activo de Nikon.",
         "highlightRecovery": "Recuperación de altas luces RAW",
         "highlightRecoveryDesc": "Controla cuánto detalle se recupera de las luces recortadas en los archivos RAW. Valores más altos recuperan más detalle pero pueden introducir artefactos morados.",
         "linearOptions": {

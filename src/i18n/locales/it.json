@@ -2118,7 +2118,7 @@
         "baselineExposure": "Esposizione di base",
         "baselineExposureAmount": "Valore di base",
         "baselineExposureAmountDesc": "Esposizione aggiunta ai file RAW. darktable usa +0,7 EV.",
-        "baselineExposureDesc": "Schiarisce tutti i file RAW di un valore fisso, come l'impostazione predefinita di darktable in modalità scene-referred, più il tag DNG BaselineExposure se presente. Le immagini modificate prima dell'introduzione di questa opzione non cambiano.",
+        "baselineExposureDesc": "Schiarisce i file RAW di un valore fisso, più il tag DNG BaselineExposure se presente.",
         "colorNr": "Riduzione Rumore Cromatico di Base",
         "colorNrDesc": "Applica un filtro bilaterale incrociato all'inizio del processo per rimuovere il rumore cromatico. Valore più alto = Riduzione Rumore (NR) più forte.",
         "defaultNonRawTonemapper": "Tonemapper Predefinito per Non-RAW",
@@ -2131,7 +2131,7 @@
         "enablePreprocessingNonRaws": "Abilita per Non-RAW",
         "enableTonemapperOverride": "Abilita Sovrascrittura Tonemapper",
         "highlightPreservation": "Compensazione della protezione delle alte luci",
-        "highlightPreservationDesc": "Ripristina l'esposizione trattenuta dalla fotocamera nelle modalità di protezione delle alte luci, letta dal file RAW (Fujifilm DR200/DR400, Priorità tonalità chiare e Auto Lighting Optimizer Canon, D-Lighting attivo Nikon, gradazione Olympus, espansione della gamma dinamica Pentax). Le immagini modificate prima dell'introduzione di questa opzione non cambiano.",
+        "highlightPreservationDesc": "Ripristina l'esposizione ridotta dalle modalità di protezione delle alte luci, come Fujifilm DR200/DR400 o D-Lighting attivo Nikon.",
         "highlightRecovery": "Recupero Luci RAW",
         "highlightRecoveryDesc": "Controlla quanti dettagli vengono recuperati dalle luci bruciate nei file RAW. Valori più alti recuperano più dettagli ma possono introdurre artefatti viola.",
         "linearOptions": {

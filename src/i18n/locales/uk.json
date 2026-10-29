@@ -2157,7 +2157,7 @@
         "baselineExposure": "Базова експозиція",
         "baselineExposureAmount": "Базова величина",
         "baselineExposureAmountDesc": "Експозиція, що додається до RAW-файлів. darktable використовує +0,7 EV.",
-        "baselineExposureDesc": "Освітлює кожен RAW-файл на фіксовану величину, як стандартне scene-referred значення в darktable, плюс тег DNG BaselineExposure, якщо він є. На зображення, відредаговані до появи цього параметра, не впливає.",
+        "baselineExposureDesc": "Освітлює RAW-файли на фіксовану величину, плюс тег DNG BaselineExposure, якщо він є.",
         "colorNr": "Базове зменшення колірного шуму",
         "colorNrDesc": "Застосовує перехресний білатеральний фільтр на ранньому етапі конвеєра для усунення колірного шуму. Більше значення = сильніше зменшення шуму.",
         "defaultNonRawTonemapper": "Тональне відображення для не-RAW за замовчуванням",
@@ -2170,7 +2170,7 @@
         "enablePreprocessingNonRaws": "Увімкнути для не-RAW",
         "enableTonemapperOverride": "Увімкнути примусове тональне відображення",
         "highlightPreservation": "Компенсація збереження світлих ділянок",
-        "highlightPreservationDesc": "Відновлює експозицію, яку камера зменшила в режимах збереження світлих ділянок, зчитуючи її з RAW-файлу (Fujifilm DR200/DR400, Canon Highlight Tone Priority та Auto Lighting Optimizer, Nikon Active D-Lighting, градація Olympus, розширення DR у Pentax). На зображення, відредаговані до появи цього параметра, не впливає.",
+        "highlightPreservationDesc": "Відновлює експозицію, зменшену режимами камери зі збереженням світлих ділянок, як-от Fujifilm DR200/DR400 або Nikon Active D-Lighting.",
         "highlightRecovery": "Відновлення світлих ділянок RAW",
         "highlightRecoveryDesc": "Визначає, скільки деталей відновлюється з пересвічених світлих ділянок у RAW-файлах. Вищі значення відновлюють більше деталей, але можуть спричиняти фіолетові артефакти.",
         "linearOptions": {

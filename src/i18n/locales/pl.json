@@ -2159,7 +2159,7 @@
         "baselineExposure": "Ekspozycja bazowa",
         "baselineExposureAmount": "Wartość bazowa",
         "baselineExposureAmountDesc": "Ekspozycja dodawana do plików RAW. darktable używa +0,7 EV.",
-        "baselineExposureDesc": "Rozjaśnia wszystkie pliki RAW o stałą wartość, podobnie jak domyślne ustawienie darktable w trybie scene-referred, oraz uwzględnia znacznik DNG BaselineExposure, jeśli występuje. Nie wpływa na zdjęcia edytowane przed wprowadzeniem tej opcji.",
+        "baselineExposureDesc": "Rozjaśnia pliki RAW o stałą wartość oraz uwzględnia znacznik DNG BaselineExposure, jeśli występuje.",
         "colorNr": "Bazowa redukcja szumu koloru",
         "colorNrDesc": "Stosuje filtr na wczesnym etapie w celu usunięcia szumu koloru (Chroma). Wyższa wartość = Silniejsza redukcja szumów.",
         "defaultNonRawTonemapper": "Domyślne mapowanie tonów (Non-RAW)",
@@ -2172,7 +2172,7 @@
         "enablePreprocessingNonRaws": "Włącz dla innych niż RAW",
         "enableTonemapperOverride": "Włącz nadpisywanie mapowania tonów",
         "highlightPreservation": "Kompensacja ochrony świateł",
-        "highlightPreservationDesc": "Przywraca ekspozycję, którą aparat ograniczył w trybach ochrony świateł, odczytaną z pliku RAW (Fujifilm DR200/DR400, Canon Priorytet jasnych partii obrazu i Auto Lighting Optimizer, Nikon Aktywna funkcja D-Lighting, gradacja Olympus, rozszerzenie zakresu dynamiki Pentax). Nie wpływa na zdjęcia edytowane przed wprowadzeniem tej opcji.",
+        "highlightPreservationDesc": "Przywraca ekspozycję obniżoną przez tryby ochrony świateł aparatu, np. Fujifilm DR200/DR400 lub Nikon Aktywna funkcja D-Lighting.",
         "highlightRecovery": "Odzyskiwanie świateł w RAW",
         "highlightRecoveryDesc": "Decyduje o tym, ile detali zostanie odzyskanych z obciętych świateł w plikach RAW. Wyższe wartości odzyskują więcej, ale mogą wprowadzać fioletowe artefakty.",
         "linearOptions": {

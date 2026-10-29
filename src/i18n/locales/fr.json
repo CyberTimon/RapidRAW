@@ -2119,7 +2119,7 @@
         "baselineExposure": "Exposition de base",
         "baselineExposureAmount": "Valeur de base",
         "baselineExposureAmountDesc": "Exposition ajoutée aux fichiers RAW. darktable utilise +0,7 IL.",
-        "baselineExposureDesc": "Éclaircit tous les fichiers RAW d'une valeur fixe, comme le réglage par défaut de darktable en mode relatif à la scène, plus la balise DNG BaselineExposure si elle est présente. Les images retouchées avant l'ajout de cette option ne sont pas modifiées.",
+        "baselineExposureDesc": "Éclaircit les fichiers RAW d'une valeur fixe, plus la balise DNG BaselineExposure si présente.",
         "colorNr": "Réduction du bruit colorimétrique de base",
         "colorNrDesc": "Applique un filtre bilatéral croisé tôt dans le traitement pour éliminer le bruit de chrominance. Valeur plus élevée = Réduction plus forte.",
         "defaultNonRawTonemapper": "Mappeur de tons par défaut (Non-RAW)",
@@ -2132,7 +2132,7 @@
         "enablePreprocessingNonRaws": "Activer pour les Non-RAW",
         "enableTonemapperOverride": "Activer la surcharge du mappeur de tons",
         "highlightPreservation": "Compensation de la préservation des hautes lumières",
-        "highlightPreservationDesc": "Rétablit l'exposition retenue par l'appareil dans les modes de préservation des hautes lumières, lue dans le fichier RAW (Fujifilm DR200/DR400, Priorité hautes lumières et Correction auto de luminosité Canon, D-Lighting actif Nikon, gradation Olympus, extension de plage dynamique Pentax). Les images retouchées avant l'ajout de cette option ne sont pas modifiées.",
+        "highlightPreservationDesc": "Rétablit l'exposition réduite par les modes de préservation des hautes lumières, comme Fujifilm DR200/DR400 ou D-Lighting actif Nikon.",
         "highlightRecovery": "Récupération des hautes lumières RAW",
         "highlightRecoveryDesc": "Contrôle la quantité de détails récupérés des hautes lumières écrêtées dans les fichiers RAW. Des valeurs plus élevées récupèrent plus de détails mais peuvent introduire des artefacts violets.",
         "linearOptions": {

@@ -2071,7 +2071,7 @@
         "baselineExposure": "기본 노출",
         "baselineExposureAmount": "기본량",
         "baselineExposureAmountDesc": "RAW 파일에 더하는 노출입니다. darktable은 +0.7 EV를 사용합니다.",
-        "baselineExposureDesc": "모든 RAW 파일을 일정량 밝힙니다(darktable의 장면 기준 기본값과 같은 방식). DNG BaselineExposure 태그가 있으면 그 값도 더합니다. 이 옵션이 생기기 전에 편집한 이미지는 영향을 받지 않습니다.",
+        "baselineExposureDesc": "RAW 파일을 일정량 밝힙니다. DNG BaselineExposure 태그가 있으면 그 값도 더합니다.",
         "colorNr": "기본 색상 노이즈 감소",
         "colorNrDesc": "파이프라인 초기에 교차 양방향 필터를 적용하여 색차 노이즈를 제거합니다. 값이 높을수록 노이즈 감소가 강해집니다.",
         "defaultNonRawTonemapper": "기본 비RAW 톤매퍼",
@@ -2084,7 +2084,7 @@
         "enablePreprocessingNonRaws": "RAW가 아닌 이미지에 활성화",
         "enableTonemapperOverride": "톤매퍼 재정의 활성화",
         "highlightPreservation": "하이라이트 보호 보정",
-        "highlightPreservationDesc": "하이라이트 보호 모드에서 카메라가 낮춘 노출을 RAW 파일에서 읽어 되돌립니다(후지필름 DR200/DR400, 캐논 하이라이트 톤 우선 및 자동 밝기 최적화, 니콘 액티브 D-라이팅, 올림푸스 계조, 펜탁스 DR 확장). 이 옵션이 생기기 전에 편집한 이미지는 영향을 받지 않습니다.",
+        "highlightPreservationDesc": "카메라 하이라이트 보호 모드(후지필름 DR200/DR400, 니콘 액티브 D-라이팅 등)에서 낮춘 노출을 되돌립니다.",
         "highlightRecovery": "RAW 하이라이트 복구",
         "highlightRecoveryDesc": "RAW 파일에서 클리핑된 하이라이트로부터 얼마나 많은 디테일을 복구할지 제어합니다. 값이 높을수록 더 많은 디테일을 복구하지만 보라색 아티팩트가 생길 수 있습니다.",
         "linearOptions": {

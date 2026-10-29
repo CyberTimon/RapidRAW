@@ -2118,7 +2118,7 @@
         "baselineExposure": "Exposició base",
         "baselineExposureAmount": "Quantitat base",
         "baselineExposureAmountDesc": "Exposició afegida als fitxers RAW. darktable utilitza +0,7 EV.",
-        "baselineExposureDesc": "Aclareix tots els fitxers RAW en una quantitat fixa, com el valor per defecte de darktable en mode referit a l'escena, més l'etiqueta DNG BaselineExposure si n'hi ha. Les imatges editades abans que existís aquesta opció no es veuen afectades.",
+        "baselineExposureDesc": "Aclareix els fitxers RAW en una quantitat fixa, més l'etiqueta DNG BaselineExposure si n'hi ha.",
         "colorNr": "Reducció de soroll de color base",
         "colorNrDesc": "Aplica un filtre bilateral creuat d'hora a la canonada per eliminar el soroll de croma. Valor més alt = Més reducció.",
         "defaultNonRawTonemapper": "Mapejador de tons predeterminat No-RAW",
@@ -2131,7 +2131,7 @@
         "enablePreprocessingNonRaws": "Activar per a No-RAW",
         "enableTonemapperOverride": "Activar la sobreescriptura del mapejador de tons",
         "highlightPreservation": "Compensació de la preservació de llums",
-        "highlightPreservationDesc": "Restaura l'exposició que la càmera ha reservat en els modes de preservació de les llums, llegida del fitxer RAW (Fujifilm DR200/DR400, Prioritat de to de les llums i Optimitzador automàtic de la il·luminació de Canon, D-Lighting actiu de Nikon, gradació d'Olympus, expansió de rang dinàmic de Pentax). Les imatges editades abans que existís aquesta opció no es veuen afectades.",
+        "highlightPreservationDesc": "Restaura l'exposició reduïda pels modes de preservació de llums de la càmera, com Fujifilm DR200/DR400 o D-Lighting actiu de Nikon.",
         "highlightRecovery": "Recuperació de llums altes RAW",
         "highlightRecoveryDesc": "Controla la quantitat de detalls que es recuperen de les llums altes retallades als fitxers RAW. Valors més alts recuperen més detalls però poden introduir artefactes de color porpra.",
         "linearOptions": {
