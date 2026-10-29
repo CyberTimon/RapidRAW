@@ -5,6 +5,7 @@ interface ImageCacheEntry {
   adjustments: Adjustments;
   histogram: any;
   curveInputHistogram: CurveInputHistogram | null;
+  maskCurveInputHistogram: CurveInputHistogram | null;
   waveform: any;
   finalPreviewUrl: string | null;
   uncroppedPreviewUrl: string | null;

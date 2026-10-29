@@ -994,6 +994,7 @@ pub struct GpuProcessor {
     tile_output_size: wgpu::Extent3d,
     adjustments_buffer: wgpu::Buffer,
     curve_histogram_buffer: wgpu::Buffer,
+    empty_curve_points_buffer: wgpu::Buffer,
     mask_cache: std::sync::Mutex<Option<MaskCache>>,
     lut_cache: std::sync::Mutex<Option<LutCache>>,
     ping_pong_view: wgpu::TextureView,
@@ -1058,7 +1059,7 @@ struct AnalyticsReadback {
 }
 
 const CURVE_HISTOGRAM_HEADER_SIZE: u64 = 6 * 4;
-const CURVE_HISTOGRAM_SIZE: u64 = 4 * 256 * 4;
+const CURVE_HISTOGRAM_SIZE: u64 = 2 * 4 * 256 * 4;
 
 fn analytics_readback_sender() -> &'static std::sync::mpsc::Sender<AnalyticsReadback> {
     static SENDER: std::sync::OnceLock<std::sync::mpsc::Sender<AnalyticsReadback>> =
@@ -1728,6 +1729,16 @@ impl GpuPipelines {
             },
             count: None,
         });
+        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
+            binding: 17,
+            visibility: wgpu::ShaderStages::COMPUTE,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        });
 
         let main_bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Main BGL"),
@@ -1882,7 +1893,7 @@ impl GpuProcessor {
 
         let adjustments_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Adjustments Buffer"),
-            size: std::mem::size_of::<AllAdjustments>() as u64,
+            size: std::mem::size_of::<crate::image_processing::GpuAdjustments>() as u64,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -1895,6 +1906,13 @@ impl GpuProcessor {
                 | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
+
+        let empty_curve_points_buffer =
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Empty Extended Curve Points"),
+                contents: &[0; 16],
+                usage: wgpu::BufferUsages::STORAGE,
+            });
 
         const TILE_SIZE: u32 = 2048;
         const TILE_OVERLAP: u32 = 128;
@@ -1981,6 +1999,7 @@ impl GpuProcessor {
             tile_output_size: clamped_tile_size,
             adjustments_buffer,
             curve_histogram_buffer,
+            empty_curve_points_buffer,
             mask_cache: std::sync::Mutex::new(None),
             lut_cache: std::sync::Mutex::new(None),
             ping_pong_view,
@@ -2650,6 +2669,21 @@ impl GpuProcessor {
         let scale = (width.min(height) as f32) / 1080.0;
         const MAX_MASK_BINDINGS: u32 = 1;
 
+        let curve_bytes = bytemuck::cast_slice(&request.adjustments.extended_curve_points);
+        if curve_bytes.len() as u64 > self.context.limits.max_storage_buffer_binding_size as u64 {
+            return Err(
+                "Curve data exceeds the GPU storage limit; the saved points have been preserved."
+                    .to_string(),
+            );
+        }
+        let extended_curve_buffer = (!curve_bytes.is_empty()).then(|| {
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Extended Curve Points"),
+                contents: curve_bytes,
+                usage: wgpu::BufferUsages::STORAGE,
+            })
+        });
+
         queue.write_buffer(
             &self.curve_histogram_buffer,
             0,
@@ -3000,7 +3034,7 @@ impl GpuProcessor {
 
                 let mut main_encoder = device.create_command_encoder(&Default::default());
 
-                let mut tile_adjustments = adjustments;
+                let mut tile_adjustments = adjustments.gpu;
                 tile_adjustments.tile_offset_x = input_x_start;
                 tile_adjustments.tile_offset_y = input_y_start;
                 queue.write_buffer(
@@ -3102,6 +3136,13 @@ impl GpuProcessor {
                 bind_group_entries.push(wgpu::BindGroupEntry {
                     binding: 16,
                     resource: self.curve_histogram_buffer.as_entire_binding(),
+                });
+                bind_group_entries.push(wgpu::BindGroupEntry {
+                    binding: 17,
+                    resource: extended_curve_buffer
+                        .as_ref()
+                        .unwrap_or(&self.empty_curve_points_buffer)
+                        .as_entire_binding(),
                 });
                 let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("Tile Bind Group"),

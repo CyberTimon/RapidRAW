@@ -1021,7 +1021,19 @@ fn start_analytics_worker(app_handle: tauri::AppHandle) {
             last_run = Some(std::time::Instant::now());
 
             let histogram_data = image_processing::calculate_histogram(&job.frame).ok();
-            let curve_histogram = image_processing::curve_input_histogram(&job.curve_histogram);
+            let global_curve_histogram = job
+                .curve_histogram
+                .get(..1024)
+                .and_then(image_processing::curve_input_histogram);
+            let mask_curve_histogram = job
+                .curve_histogram
+                .get(1024..2048)
+                .and_then(image_processing::curve_input_histogram);
+            let curve_histogram = if job.curve_histogram_mask_id.is_some() {
+                mask_curve_histogram.as_ref()
+            } else {
+                global_curve_histogram.as_ref()
+            };
 
             let waveform_data = if job.compute_waveform {
                 image_processing::calculate_waveform(
@@ -1041,8 +1053,9 @@ fn start_analytics_worker(app_handle: tauri::AppHandle) {
                         &job.path,
                         histogram_data.as_ref(),
                         waveform_data.as_ref(),
-                        curve_histogram.as_ref(),
+                        curve_histogram,
                         job.curve_histogram_mask_id.as_deref(),
+                        global_curve_histogram.as_ref(),
                     );
                     let _ = channel.send(InvokeResponseBody::Raw(packet));
                 }

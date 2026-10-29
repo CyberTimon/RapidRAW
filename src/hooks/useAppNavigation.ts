@@ -245,6 +245,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
           previewSize: cached.previewSize,
           histogram: cached.histogram,
           curveInputHistogram: cached?.curveInputHistogram ?? null,
+          maskCurveInputHistogram: cached?.maskCurveInputHistogram ?? null,
           waveform: cached.waveform,
           finalPreviewUrl: cached.finalPreviewUrl,
           uncroppedAdjustedPreviewUrl: cached.uncroppedPreviewUrl,
@@ -314,6 +315,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
         previewSize: { width: 0, height: 0 },
         histogram: null,
         curveInputHistogram: null,
+        maskCurveInputHistogram: null,
         waveform: null,
         uncroppedAdjustedPreviewUrl: null,
       });
@@ -421,6 +423,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
             uncroppedAdjustedPreviewUrl: null,
             histogram: null,
             curveInputHistogram: null,
+            maskCurveInputHistogram: null,
           });
           setEditor({ adjustments: INITIAL_ADJUSTMENTS });
           resetHistory(INITIAL_ADJUSTMENTS);

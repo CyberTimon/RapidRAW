@@ -205,7 +205,7 @@ const HistogramFill = memo(({ channel, opacity, isForMask }: HistogramFillProps)
   const showOutput = useSettingsStore((state) => state.appSettings?.curveHistogramMode === 'output');
   const data = useEditorStore((state) => {
     if (showOutput) return state.histogram?.[channel];
-    const input = state.curveInputHistogram;
+    const input = isForMask ? state.maskCurveInputHistogram : state.curveInputHistogram;
     const maskId = isForMask ? state.activeMaskContainerId : null;
     return input?.maskId === maskId ? input.histogram[channel] : undefined;
   });
@@ -588,6 +588,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isF
     const x = Math.max(0, Math.min(255, ((clientX - rect.left) / rect.width) * 255));
     const y = Math.max(0, Math.min(255, 255 - ((clientY - rect.top) / rect.height) * 255));
 
+    if (activePoints.length >= 16) return;
     if (activePoints.some((p: Coord) => Math.abs(p.x - x) < MIN_POINT_GAP_X)) return;
 
     onDragStateChange?.(true);

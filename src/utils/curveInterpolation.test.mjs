@@ -86,3 +86,25 @@ test('invalid or duplicate x coordinates cannot produce spline tangents', () => 
     null,
   );
 });
+
+test('near-diagonal control points can create a strongly non-identity natural spline', () => {
+  const points = [
+    { x: 0, y: 0 },
+    { x: 100, y: 100.49 },
+    { x: 100.01, y: 99.52 },
+    { x: 255, y: 255 },
+  ];
+  const tangents = naturalCurveTangents(points);
+  assert.ok(points.every((p) => Math.abs(p.x - p.y) < 0.5));
+  assert.ok(evaluateNaturalCurve(points, tangents, 50) > 255);
+  assert.ok(evaluateNaturalCurve(points, tangents, 150) < 0);
+});
+
+test('a saved 17-point spline includes its final knot in the full solution', () => {
+  const points = Array.from({ length: 17 }, (_, i) => ({ x: (i * 255) / 16, y: i === 16 ? 240 : i * 8 }));
+  const tangents = naturalCurveTangents(points);
+  assert.equal(tangents.length, 17);
+  for (const p of points) near(evaluateNaturalCurve(points, tangents, p.x), p.y);
+  assert.notEqual(tangents[15], naturalCurveTangents(points.slice(0, 16))[15]);
+  assert.match(naturalCurvePath(points), /L 255 15$/);
+});

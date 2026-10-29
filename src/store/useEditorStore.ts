@@ -54,6 +54,7 @@ interface EditorState {
   // Analytics
   histogram: HistogramData | null;
   curveInputHistogram: CurveInputHistogram | null;
+  maskCurveInputHistogram: CurveInputHistogram | null;
   waveform: WaveformData | null;
   isWaveformVisible: boolean;
   activeWaveformChannel: string;
@@ -125,6 +126,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   originalPreview: null,
   histogram: null,
   curveInputHistogram: null,
+  maskCurveInputHistogram: null,
   waveform: null,
   isWaveformVisible: false,
   activeWaveformChannel: 'luma',

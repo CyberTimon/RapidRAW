@@ -54,15 +54,23 @@ const parseAnalyticsPacket = async (buffer: ArrayBuffer) => {
   }
 
   let curveInputHistogram: CurveInputHistogram | null = null;
+  let maskCurveInputHistogram: CurveInputHistogram | null = null;
   if (offset < buffer.byteLength) {
     const maskIdLength = readU32();
     const maskId = new TextDecoder().decode(new Uint8Array(buffer, offset, maskIdLength)) || null;
     offset += maskIdLength;
     const input = readHistogram();
-    if (input) curveInputHistogram = { maskId, histogram: input };
+    if (input) {
+      if (maskId) maskCurveInputHistogram = { maskId, histogram: input };
+      else curveInputHistogram = { maskId: null, histogram: input };
+    }
+    if (offset < buffer.byteLength) {
+      const globalInput = readHistogram();
+      if (globalInput) curveInputHistogram = { maskId: null, histogram: globalInput };
+    }
   }
 
-  return { path, histogram, waveform, curveInputHistogram };
+  return { path, histogram, waveform, curveInputHistogram, maskCurveInputHistogram };
 };
 
 interface TauriListenerProps {
@@ -586,7 +594,8 @@ export function useTauriListeners({
     const analyticsChannel = new Channel<ArrayBuffer>();
     analyticsChannel.onmessage = async (buffer) => {
       const sequence = ++analyticsSequence;
-      const { path, histogram, waveform, curveInputHistogram } = await parseAnalyticsPacket(buffer);
+      const { path, histogram, waveform, curveInputHistogram, maskCurveInputHistogram } =
+        await parseAnalyticsPacket(buffer);
       if (!isEffectActive || sequence < latestAppliedAnalytics) return;
       if (path !== useEditorStore.getState().selectedImage?.path) return;
       latestAppliedAnalytics = sequence;
@@ -594,7 +603,8 @@ export function useTauriListeners({
         histogram?: HistogramData;
         waveform?: WaveformData;
         curveInputHistogram: CurveInputHistogram | null;
-      } = { curveInputHistogram };
+        maskCurveInputHistogram: CurveInputHistogram | null;
+      } = { curveInputHistogram, maskCurveInputHistogram };
       if (histogram) update.histogram = histogram;
       if (waveform) update.waveform = waveform;
       useEditorStore.getState().setEditor(update);

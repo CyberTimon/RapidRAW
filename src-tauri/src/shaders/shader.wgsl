@@ -243,10 +243,11 @@ struct CurveHistogram {
     y_start: u32,
     x_end: u32,
     y_end: u32,
-    bins: array<atomic<u32>, 1024>,
+    bins: array<atomic<u32>, 2048>,
 }
 
 @group(0) @binding(16) var<storage, read_write> curve_histogram: CurveHistogram;
+@group(0) @binding(17) var<storage, read> extended_curve_points: array<Point>;
 
 const GF_LUMA_FLOOR: f32 = 1.0e-4;
 const GF_DETAIL_SIGMA: f32 = 1.5;
@@ -429,7 +430,7 @@ fn interpolate_cubic_hermite(x: f32, p1: Point, p2: Point, m1: f32, m2: f32) -> 
 
 const CURVE_SRC_GLOBAL: u32 = 0xFFFFFFFFu;
 
-fn curve_point(src: u32, ch: u32, i: u32) -> Point {
+fn raw_curve_point(src: u32, ch: u32, i: u32) -> Point {
     if (src == CURVE_SRC_GLOBAL) {
         switch ch {
             case 0u: { return adjustments.global.luma_curve[i]; }
@@ -444,6 +445,14 @@ fn curve_point(src: u32, ch: u32, i: u32) -> Point {
         case 2u: { return adjustments.mask_adjustments[src].green_curve[i]; }
         default: { return adjustments.mask_adjustments[src].blue_curve[i]; }
     }
+}
+
+fn curve_point(src: u32, ch: u32, i: u32) -> Point {
+    let header = raw_curve_point(src, ch, 0u);
+    if ((header.interpolation & 2u) != 0u) {
+        return extended_curve_points[(header.interpolation >> 2u) + i];
+    }
+    return raw_curve_point(src, ch, i);
 }
 
 fn curve_count(src: u32, ch: u32) -> u32 {
@@ -470,7 +479,7 @@ fn apply_curve(val: f32, src: u32, ch: u32, count: u32) -> f32 {
     if (x <= first.x) { return first.y / 255.0; }
     let last = curve_point(src, ch, count - 1u);
     if (x >= last.x) { return last.y / 255.0; }
-    for (var i = 0u; i < 15u; i = i + 1u) {
+    for (var i = 0u; i + 1u < count; i = i + 1u) {
         if (i >= count - 1u) { break; }
         let p2 = curve_point(src, ch, i + 1u);
         if (x <= p2.x) {
@@ -1605,6 +1614,10 @@ fn is_default_curve(src: u32, ch: u32, count: u32) -> bool {
     if (count < 2u) {
         return false;
     }
+    // Natural splines can amplify small point deviations, so the legacy tolerance is unsafe.
+    if (curve_point(src, ch, 0u).interpolation == 1u) {
+        return false;
+    }
 
     var is_identity = true;
     for (var i = 0u; i < count; i = i + 1u) {
@@ -1629,16 +1642,17 @@ fn apply_all_curves(color: vec3<f32>, src: u32, sample_input: bool) -> vec3<f32>
     var g = apply_curve(color.g, src, 0u, luma_count);
     var b = apply_curve(color.b, src, 0u, luma_count);
 
-    if (sample_input && curve_histogram.source == src) {
+    if (sample_input && (src == CURVE_SRC_GLOBAL || curve_histogram.source == src)) {
+        let offset = select(1024u, 0u, src == CURVE_SRC_GLOBAL);
         let master_bins = vec3<u32>(round(clamp(color, vec3<f32>(0.0), vec3<f32>(1.0)) * 255.0));
         // The master curve maps RGB components individually, rather than luminance.
-        atomicAdd(&curve_histogram.bins[768u + master_bins.r], 1u);
-        atomicAdd(&curve_histogram.bins[768u + master_bins.g], 1u);
-        atomicAdd(&curve_histogram.bins[768u + master_bins.b], 1u);
+        atomicAdd(&curve_histogram.bins[offset + 768u + master_bins.r], 1u);
+        atomicAdd(&curve_histogram.bins[offset + 768u + master_bins.g], 1u);
+        atomicAdd(&curve_histogram.bins[offset + 768u + master_bins.b], 1u);
         let rgb_bins = vec3<u32>(round(clamp(vec3<f32>(r, g, b), vec3<f32>(0.0), vec3<f32>(1.0)) * 255.0));
-        atomicAdd(&curve_histogram.bins[rgb_bins.r], 1u);
-        atomicAdd(&curve_histogram.bins[256u + rgb_bins.g], 1u);
-        atomicAdd(&curve_histogram.bins[512u + rgb_bins.b], 1u);
+        atomicAdd(&curve_histogram.bins[offset + rgb_bins.r], 1u);
+        atomicAdd(&curve_histogram.bins[offset + 256u + rgb_bins.g], 1u);
+        atomicAdd(&curve_histogram.bins[offset + 512u + rgb_bins.b], 1u);
     }
 
     let red_count = curve_count(src, 1u);
