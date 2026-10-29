@@ -1103,8 +1103,10 @@ fn complete_analytics_readback(readback: AnalyticsReadback) {
         let view = readback.buffer.slice(..).get_mapped_range();
         let start = readback.histogram_offset as usize;
         let curve_histogram = view[start..start + CURVE_HISTOGRAM_SIZE as usize]
-            .chunks_exact(4)
-            .map(|bytes| u32::from_le_bytes(bytes.try_into().unwrap()))
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|bytes| u32::from_le_bytes(*bytes))
             .collect();
         let mapped = AnalyticsPixels::Mapped(PooledReadback {
             view: Some(view),
@@ -2670,7 +2672,7 @@ impl GpuProcessor {
         const MAX_MASK_BINDINGS: u32 = 1;
 
         let curve_bytes = bytemuck::cast_slice(&request.adjustments.extended_curve_points);
-        if curve_bytes.len() as u64 > self.context.limits.max_storage_buffer_binding_size as u64 {
+        if curve_bytes.len() as u64 > self.context.limits.max_storage_buffer_binding_size {
             return Err(
                 "Curve data exceeds the GPU storage limit; the saved points have been preserved."
                     .to_string(),

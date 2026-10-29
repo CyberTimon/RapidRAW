@@ -4024,7 +4024,9 @@ pub fn curve_input_histogram(counts: &[u32]) -> Option<HistogramData> {
         return None;
     }
     let mut channels = counts
-        .chunks_exact(256)
+        .as_chunks::<256>()
+        .0
+        .iter()
         .map(|c| c.iter().map(|&v| v as f32).collect::<Vec<_>>());
     let mut red = channels.next()?;
     let mut green = channels.next()?;
