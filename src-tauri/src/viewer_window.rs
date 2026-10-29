@@ -396,17 +396,23 @@ fn place_viewer(
     None
 }
 
-#[cfg(not(any(target_os = "android", target_os = "linux")))]
+#[cfg(not(target_os = "android"))]
 fn attach_viewer_display(
     app_handle: &AppHandle,
     window: &tauri::WebviewWindow,
 ) -> Result<(), String> {
     let state = app_handle.state::<AppState>();
     let ctx = crate::gpu_processing::get_or_init_gpu_context(&state, app_handle)?;
-    let surface = crate::gpu_processing::create_window_surface(&ctx.instance, window)?;
+    let (surface, platform) = crate::gpu_processing::create_window_surface(&ctx.instance, window)?;
     let size = window.inner_size().map_err(|e| e.to_string())?;
-    let mut display =
-        crate::gpu_processing::build_wgpu_display(surface, &ctx.adapter, &ctx.device, size, true)?;
+    let mut display = crate::gpu_processing::build_wgpu_display(
+        surface,
+        &ctx.adapter,
+        &ctx.device,
+        size,
+        true,
+        platform,
+    )?;
     display.set_background(viewer_state(&state).background);
     display.flush(&ctx.device, &ctx.queue);
     *ctx.viewer_display.lock().unwrap_or_else(|e| e.into_inner()) = Some(display);
@@ -443,7 +449,6 @@ pub async fn open_viewer_window(title: String, app_handle: AppHandle) -> Result<
 
         let saved = place_viewer(&app_handle, &window);
 
-        #[cfg(not(target_os = "linux"))]
         if load_settings(app_handle.clone())
             .unwrap_or_default()
             .wgpu_renderer_enabled()

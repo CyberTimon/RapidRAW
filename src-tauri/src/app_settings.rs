@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
-use std::sync::{LazyLock, Mutex};
+use std::sync::{LazyLock, Mutex, OnceLock};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -587,6 +587,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub linux_gpu_optimization_migrated_v1: Option<bool>,
     #[serde(default)]
+    pub linux_wgpu_renderer_migrated_v1: Option<bool>,
+    #[serde(default)]
     pub library_view_mode: Option<String>,
     #[serde(default = "default_export_presets")]
     pub export_presets: Vec<ExportPreset>,
@@ -700,9 +702,40 @@ pub struct AppSettings {
 
 impl AppSettings {
     pub fn wgpu_renderer_enabled(&self) -> bool {
-        cfg!(not(any(target_os = "linux", target_os = "android")))
-            && self.use_wgpu_renderer.unwrap_or(true)
+        cfg!(not(target_os = "android"))
+            && wgpu_renderer_available()
+            && self
+                .use_wgpu_renderer
+                .unwrap_or(cfg!(not(target_os = "linux")))
     }
+}
+
+/// Supported by the session and, if a display surface was attempted, it was created.
+pub fn wgpu_renderer_available() -> bool {
+    wgpu_renderer_supported() && !crate::gpu_processing::wgpu_display_failed()
+}
+
+// On Linux the WGPU display lives in a Wayland subsurface below the webview. X11 has no
+// equivalent, so GTK and WGPU fight over the same window and the image disappears.
+#[cfg(target_os = "linux")]
+pub fn wgpu_renderer_supported() -> bool {
+    static SUPPORTED: OnceLock<bool> = OnceLock::new();
+    *SUPPORTED.get_or_init(|| {
+        let has_env = |name| std::env::var_os(name).is_some_and(|v| !v.is_empty());
+        // GDK picks the first backend in the list it can open.
+        let preferred = std::env::var("GDK_BACKEND").ok().and_then(|list| {
+            list.split(',')
+                .map(str::trim)
+                .find(|b| *b == "wayland" || *b == "x11")
+                .map(|b| b == "wayland")
+        });
+        preferred.unwrap_or_else(|| has_env("WAYLAND_DISPLAY") || has_env("WAYLAND_SOCKET"))
+    })
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn wgpu_renderer_supported() -> bool {
+    true
 }
 
 impl Default for AppSettings {
@@ -747,6 +780,7 @@ impl Default for AppSettings {
             processing_backend: Some("auto".to_string()),
             linux_gpu_optimization: Some(false),
             linux_gpu_optimization_migrated_v1: Some(true),
+            linux_wgpu_renderer_migrated_v1: Some(true),
             library_view_mode: Some("flat".to_string()),
             export_presets: default_export_presets(),
             my_lenses: Some(Vec::new()),
@@ -843,13 +877,26 @@ fn settings_cache() -> std::sync::MutexGuard<'static, Option<AppSettings>> {
 }
 
 #[tauri::command]
-pub fn load_settings(app_handle: AppHandle) -> Result<AppSettings, String> {
-    if let Some(settings) = settings_cache().as_ref() {
-        return Ok(settings.clone());
-    }
+pub fn is_wgpu_renderer_supported() -> bool {
+    wgpu_renderer_available()
+}
 
-    let settings = read_settings_from_disk(&app_handle)?;
-    *settings_cache() = Some(settings.clone());
+#[tauri::command]
+pub fn load_settings(app_handle: AppHandle) -> Result<AppSettings, String> {
+    let cached = settings_cache().clone();
+    let mut settings = match cached {
+        Some(settings) => settings,
+        None => {
+            let settings = read_settings_from_disk(&app_handle)?;
+            *settings_cache() = Some(settings.clone());
+            settings
+        }
+    };
+    // The frontend reads `use_wgpu_renderer` directly, so it must not claim WGPU where it
+    // cannot run. The stored choice is kept for sessions where it can.
+    if !wgpu_renderer_available() {
+        settings.use_wgpu_renderer = Some(false);
+    }
     Ok(settings)
 }
 
@@ -880,6 +927,15 @@ fn read_settings_from_disk(app_handle: &AppHandle) -> Result<AppSettings, String
             settings.linux_gpu_optimization = Some(false);
         }
         settings.linux_gpu_optimization_migrated_v1 = Some(true);
+        settings_modified = true;
+    }
+
+    // WGPU used to be unavailable on Linux, so a stored `true` was never a real choice
+    // (the settings panel saved it by default). Make the experimental renderer opt-in.
+    #[cfg(target_os = "linux")]
+    if !settings.linux_wgpu_renderer_migrated_v1.unwrap_or(false) {
+        settings.use_wgpu_renderer = Some(false);
+        settings.linux_wgpu_renderer_migrated_v1 = Some(true);
         settings_modified = true;
     }
 
@@ -920,10 +976,16 @@ fn read_settings_from_disk(app_handle: &AppHandle) -> Result<AppSettings, String
 }
 
 #[tauri::command]
-pub fn save_settings(settings: AppSettings, app_handle: AppHandle) -> Result<(), String> {
+pub fn save_settings(mut settings: AppSettings, app_handle: AppHandle) -> Result<(), String> {
     let previous_gpu_acceleration = load_settings(app_handle.clone())
         .map(|previous| previous.ai_gpu_acceleration)
         .ok();
+    if !wgpu_renderer_available() {
+        // Don't persist the forced-off value from `load_settings`.
+        if let Some(stored) = settings_cache().as_ref() {
+            settings.use_wgpu_renderer = stored.use_wgpu_renderer;
+        }
+    }
     let path = get_settings_path(&app_handle)?;
     let json_string = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
     fs::write(path, json_string).map_err(|e| e.to_string())?;
