@@ -2159,7 +2159,7 @@
         "baselineExposure": "Základní expozice",
         "baselineExposureAmount": "Velikost základu",
         "baselineExposureAmountDesc": "Expozice přidaná k souborům RAW. darktable používá +0,7 EV.",
-        "baselineExposureDesc": "Zesvětlí všechny soubory RAW o pevnou hodnotu, podobně jako výchozí nastavení darktable pro scene-referred zpracování, a přičte značku DNG BaselineExposure, pokud ji soubor obsahuje. Snímky upravené před zavedením této volby nejsou ovlivněny.",
+        "baselineExposureDesc": "Zesvětlí soubory RAW o pevnou hodnotu a přičte značku DNG BaselineExposure, pokud existuje.",
         "colorNr": "Redukce šumu základní barvy",
         "colorNrDesc": "Aplikuje křížový bilaterální filtr na začátku procesu k odstranění barevného šumu. Vyšší hodnota = silnější redukce šumu.",
         "defaultNonRawTonemapper": "Výchozí Non-RAW Tonemapper",
@@ -2172,7 +2172,7 @@
         "enablePreprocessingNonRaws": "Povolit pro soubory bez RAW",
         "enableTonemapperOverride": "Povolte přepsání Tonemapperu",
         "highlightPreservation": "Kompenzace ochrany světel",
-        "highlightPreservationDesc": "Vrátí expozici, kterou fotoaparát ubral v režimech ochrany světel, načtenou ze souboru RAW (Fujifilm DR200/DR400, Canon Priorita jasných tónů a Auto Lighting Optimizer, Nikon Active D-Lighting, gradace Olympus, rozšíření dynamického rozsahu Pentax). Snímky upravené před zavedením této volby nejsou ovlivněny.",
+        "highlightPreservationDesc": "Vrátí expozici sníženou režimy ochrany světel fotoaparátu, např. Fujifilm DR200/DR400 nebo Nikon Active D-Lighting.",
         "highlightRecovery": "RAW Highlight Recovery",
         "highlightRecoveryDesc": "Řídí, kolik detailů se obnoví z přepálených světel v souborech RAW. Vyšší hodnoty obnoví více detailů, ale mohou způsobit fialové artefakty.",
         "linearOptions": {

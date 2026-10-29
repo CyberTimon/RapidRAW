@@ -2159,7 +2159,7 @@
         "baselineExposure": "Базовая экспозиция",
         "baselineExposureAmount": "Базовая величина",
         "baselineExposureAmountDesc": "Экспозиция, добавляемая к RAW-файлам. В darktable используется +0,7 EV.",
-        "baselineExposureDesc": "Осветляет все RAW-файлы на фиксированную величину, как значение по умолчанию в darktable для scene-referred обработки, и добавляет тег DNG BaselineExposure, если он есть. Изображения, отредактированные до появления этой настройки, не изменяются.",
+        "baselineExposureDesc": "Осветляет RAW-файлы на фиксированную величину и добавляет тег DNG BaselineExposure, если он есть.",
         "colorNr": "Базовое шумоподавление цвета",
         "colorNrDesc": "Применяет двусторонний пространственный фильтр на раннем этапе обработки для удаления хроматического шума. Больше значение — сильнее эффект.",
         "defaultNonRawTonemapper": "Тон-маппер для не-RAW",
@@ -2172,7 +2172,7 @@
         "enablePreprocessingNonRaws": "Включить для не-RAW файлов",
         "enableTonemapperOverride": "Принудительный выбор тон-маппера",
         "highlightPreservation": "Компенсация сохранения светов",
-        "highlightPreservationDesc": "Возвращает экспозицию, которую камера убавила в режимах сохранения светов, считывая её из RAW-файла (Fujifilm DR200/DR400, Canon «Приоритет светов» и Auto Lighting Optimizer, Nikon Active D-Lighting, градация Olympus, расширение динамического диапазона Pentax). Изображения, отредактированные до появления этой настройки, не изменяются.",
+        "highlightPreservationDesc": "Возвращает экспозицию, убавленную режимами сохранения светов камеры, например Fujifilm DR200/DR400 или Nikon Active D-Lighting.",
         "highlightRecovery": "Восстановление светов в RAW",
         "highlightRecoveryDesc": "Регулирует глубину восстановления деталей из переэкспонированных областей в файлах RAW. Высокие значения восстанавливают больше текстур, но могут приводить к появлению нежелательных оттенков в ярких зонах.",
         "linearOptions": {

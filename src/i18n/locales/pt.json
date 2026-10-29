@@ -2118,7 +2118,7 @@
         "baselineExposure": "Exposição base",
         "baselineExposureAmount": "Valor base",
         "baselineExposureAmountDesc": "Exposição adicionada aos arquivos RAW. O darktable usa +0,7 EV.",
-        "baselineExposureDesc": "Clareia todos os arquivos RAW em um valor fixo, como o padrão do darktable no modo referido à cena, mais a etiqueta DNG BaselineExposure quando presente. Imagens editadas antes desta opção existir não são afetadas.",
+        "baselineExposureDesc": "Clareia os arquivos RAW em um valor fixo, mais a etiqueta DNG BaselineExposure quando presente.",
         "colorNr": "Redução Base de Ruído de Cor",
         "colorNrDesc": "Aplica um filtro bilateral cruzado no início do pipeline para remover o ruído de croma. Valor mais alto = Redução mais forte.",
         "defaultNonRawTonemapper": "Mapeador de Tons Padrão Não-RAW",
@@ -2131,7 +2131,7 @@
         "enablePreprocessingNonRaws": "Ativar para Não-RAWs",
         "enableTonemapperOverride": "Ativar Substituição de Mapeador de Tons",
         "highlightPreservation": "Compensação de preservação de realces",
-        "highlightPreservationDesc": "Restaura a exposição que a câmera reservou nos modos de preservação de realces, lida do arquivo RAW (Fujifilm DR200/DR400, Prioridade de tom de destaque e Auto Lighting Optimizer da Canon, D-Lighting ativo da Nikon, gradação da Olympus, expansão de faixa dinâmica da Pentax). Imagens editadas antes desta opção existir não são afetadas.",
+        "highlightPreservationDesc": "Restaura a exposição reduzida pelos modos de preservação de realces da câmera, como Fujifilm DR200/DR400 ou D-Lighting ativo da Nikon.",
         "highlightRecovery": "Recuperação de Realces RAW",
         "highlightRecoveryDesc": "Controla a quantidade de detalhes recuperados de realces estourados em arquivos RAW. Valores mais altos recuperam mais detalhes, mas podem introduzir artefatos roxos.",
         "linearOptions": {
