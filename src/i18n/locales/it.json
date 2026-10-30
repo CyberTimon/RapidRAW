@@ -1128,6 +1128,7 @@
       "pending": "Modifiche in attesa di Immich: {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} appartiene a un'altra persona, quindi Immich non accetta modifiche. Le tue modifiche restano su questo computer.",
       "backOnline": "Immich è di nuovo raggiungibile e tutte le modifiche sono salvate lì.",
       "downloadFailed": "Impossibile scaricare da Immich: {{error}}",
       "editsConflict": "{{fileName}} è stata modificata anche su un altro computer. Le tue modifiche restano e l'altra versione viene conservata come copia virtuale.",

@@ -1099,6 +1099,7 @@
       "pending": "Immich への送信待ちの編集: {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} は他のユーザーのものなので、Immich は編集を受け付けません。編集内容はこのコンピューターに残ります。",
       "backOnline": "Immich に再び接続でき、すべての編集内容が保存されました。",
       "downloadFailed": "Immich からダウンロードできませんでした: {{error}}",
       "editsConflict": "{{fileName}} は別のコンピューターでも編集されています。あなたの編集内容はそのまま残り、もう一方のバージョンは仮想コピーとして保存されます。",

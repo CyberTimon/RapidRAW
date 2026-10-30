@@ -1128,6 +1128,7 @@
       "pending": "Ediciones pendientes de enviar a Immich: {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} pertenece a otra persona, así que Immich no acepta ediciones para ella. Tus ediciones se quedan en este ordenador.",
       "backOnline": "Immich vuelve a estar disponible y todas las ediciones están guardadas allí.",
       "downloadFailed": "No se pudo descargar de Immich: {{error}}",
       "editsConflict": "{{fileName}} también se editó en otro equipo. Tus ediciones se mantienen y la otra versión se conserva como copia virtual.",
