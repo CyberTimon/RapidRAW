@@ -236,6 +236,12 @@ export function useFileOperations(
           }
           if (currentFolderPath && isInRenamedFolder(currentFolderPath)) {
             setLibrary({ currentFolderPath: renamePath(currentFolderPath) });
+          } else if (
+            currentFolderPath &&
+            (oldPath.startsWith(`${currentFolderPath}/`) || oldPath.startsWith(`${currentFolderPath}\\`))
+          ) {
+            // The recursive view of a parent folder still lists the old paths.
+            await refreshImageList();
           }
 
           const currentPins = appSettings?.pinnedFolders || [];
@@ -255,7 +261,7 @@ export function useFileOperations(
         }
       }
     },
-    [refreshAllFolderTrees],
+    [refreshAllFolderTrees, refreshImageList],
   );
 
   const handleSaveRename = useCallback(

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import debounce from 'lodash.debounce';
 import {
   Adjustments,
   INITIAL_ADJUSTMENTS,
@@ -108,6 +109,11 @@ interface EditorState {
   goToHistoryIndex: (index: number) => void;
 }
 
+// Undo, redo and history jumps flush this first so a pending edit is recorded before moving.
+export const debouncedSetHistory = debounce((newAdj: Adjustments, label?: string) => {
+  useEditorStore.getState().pushHistory(newAdj, label);
+}, 500);
+
 export const useEditorStore = create<EditorState>((set) => ({
   selectedImage: null,
   adjustments: INITIAL_ADJUSTMENTS,
@@ -182,23 +188,27 @@ export const useEditorStore = create<EditorState>((set) => ({
       return { history: newHistory, historyLabels: newLabels, historyIndex: newHistory.length - 1 };
     }),
 
-  undo: () =>
+  undo: () => {
+    debouncedSetHistory.flush();
     set((state) => {
       if (state.historyIndex > 0) {
         const newIndex = state.historyIndex - 1;
         return { historyIndex: newIndex, adjustments: state.history[newIndex] };
       }
       return state;
-    }),
+    });
+  },
 
-  redo: () =>
+  redo: () => {
+    debouncedSetHistory.flush();
     set((state) => {
       if (state.historyIndex < state.history.length - 1) {
         const newIndex = state.historyIndex + 1;
         return { historyIndex: newIndex, adjustments: state.history[newIndex] };
       }
       return state;
-    }),
+    });
+  },
 
   resetHistory: (initialState) =>
     set((state) => ({
@@ -216,11 +226,13 @@ export const useEditorStore = create<EditorState>((set) => ({
         : {}),
     })),
 
-  goToHistoryIndex: (index) =>
+  goToHistoryIndex: (index) => {
+    debouncedSetHistory.flush();
     set((state) => {
       if (index >= 0 && index < state.history.length) {
         return { historyIndex: index, adjustments: state.history[index] };
       }
       return state;
-    }),
+    });
+  },
 }));

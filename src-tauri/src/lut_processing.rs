@@ -355,11 +355,15 @@ pub fn parse_lut_file(path_str: &str) -> anyhow::Result<Lut> {
         return Err(anyhow!("Network paths (UNC) are not allowed for LUTs"));
     }
 
-    if path_str.contains("..") {
+    let path = std::path::Path::new(path_str);
+    // Only a ".." path component is traversal; file names may contain "..".
+    if path
+        .components()
+        .any(|component| component == std::path::Component::ParentDir)
+    {
         return Err(anyhow!("Directory traversal (..) is not allowed"));
     }
 
-    let path = std::path::Path::new(path_str);
     if let Some(std::path::Component::Prefix(prefix)) = path.components().next() {
         match prefix.kind() {
             std::path::Prefix::UNC(_, _)
