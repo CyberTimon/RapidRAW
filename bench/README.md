@@ -15,8 +15,9 @@ noise-reduction exclusions. It does not measure native
 window input latency or GPU throughput.
 
 Run diagnostic renderer and resource tests with `cargo test --manifest-path
-src-tauri/Cargo.toml --lib`. A compute-capable GPU adapter is required for the GPU
-cases. Run the optional same-machine benchmark separately:
+src-tauri/Cargo.toml --lib -- --test-threads=1`. A compute-capable GPU adapter is required for the GPU
+cases. Run tests serially to avoid concurrent diagnostic-device initialisation
+contending on the same adapter. Run the optional same-machine benchmark separately:
 
 ```powershell
 cargo test --manifest-path src-tauri/Cargo.toml --lib diagnostic_benchmark -- --ignored --nocapture
