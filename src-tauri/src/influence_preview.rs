@@ -598,6 +598,23 @@ fn scope_index(recipe: &Value, scope: &Scope) -> Result<u32, String> {
 }
 fn probe_parameters(target: &Target, recipe: &Value) -> Result<[u32; 4], String> {
     match target {
+        Target::Scalar {
+            control,
+            scope: Scope::Global,
+        } if [
+            "exposure",
+            "brightness",
+            "contrast",
+            "hue",
+            "saturation",
+            "vibrance",
+        ]
+        .contains(&control.as_str()) =>
+        {
+            // These controls have image-wide reach. Use the same compositor as
+            // local controls, whose coverage is supplied by their adjustment mask.
+            Ok([5, 0, 0, u32::MAX])
+        }
         Target::Parameter { control } if control == "relightAmbient" => Ok([5, 0, 0, u32::MAX]),
         Target::Hsl {
             band,

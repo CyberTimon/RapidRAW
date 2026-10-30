@@ -5,7 +5,7 @@ import {
   type InfluenceTarget,
   type InfluenceScope,
 } from './influencePreview';
-/** A deliberate eligibility list: whole-image exposure and unclassified controls keep the photo. */
+/** Explicit eligibility keeps unclassified controls in their ordinary editing mode. */
 export function altPreviewTarget(
   control: string | undefined,
   scope: InfluenceScope,
@@ -18,6 +18,12 @@ export function altPreviewTarget(
     (SCALAR_CONTROLS as readonly string[]).includes(control) &&
     (scope.kind === 'mask' ||
       [
+        'exposure',
+        'brightness',
+        'contrast',
+        'hue',
+        'saturation',
+        'vibrance',
         'highlights',
         'shadows',
         'whites',

@@ -1100,3 +1100,63 @@ fn perceptual_difference_detects_colour_and_equal_input_is_zero() {
             .all(|p| p.0 == [0, 0, 0, 255])
     );
 }
+
+#[test]
+fn broad_global_controls_have_full_coverage_and_follow_the_rendered_result() {
+    let mut gpu = crate::gpu_processing::DiagnosticGpu::new(gpu_context(), 33, 17).unwrap();
+    let image = DynamicImage::ImageRgb32F(image::Rgb32FImage::from_pixel(
+        33,
+        17,
+        image::Rgb([0.25, 0.12, 0.04]),
+    ));
+    for control in [
+        "exposure",
+        "brightness",
+        "contrast",
+        "hue",
+        "saturation",
+        "vibrance",
+    ] {
+        let target = Target::Scalar {
+            control: control.into(),
+            scope: Scope::Global,
+        };
+        let recipe = crate::image_processing::default_adjustments();
+        let probe = probe_parameters(&target, &recipe).unwrap();
+        let support = fixture_frame(&mut gpu, &image, &recipe, Some(probe));
+        let selection = gpu
+            .compose(&support, &support, 3, Some(&support), None)
+            .unwrap();
+        assert!(
+            selection.pixels().all(|p| p.0 == [255, 255, 255, 255]),
+            "{control}"
+        );
+        let presentation = if ["hue", "saturation", "vibrance"].contains(&control) {
+            2
+        } else {
+            1
+        };
+        let mut previews = Vec::new();
+        for value in [-1.0, 0.0, 1.0] {
+            let mut edited = recipe.clone();
+            edited[control] = json!(
+                value
+                    * if ["exposure", "brightness"].contains(&control) {
+                        1.0
+                    } else {
+                        50.0
+                    }
+            );
+            let actual = fixture_frame(&mut gpu, &image, &edited, None);
+            let preview = gpu
+                .compose(&actual, &actual, presentation, Some(&support), None)
+                .unwrap();
+            if presentation == 1 {
+                assert!(preview.pixels().all(|p| p[0] == p[1] && p[1] == p[2]));
+            }
+            previews.push(preview);
+        }
+        assert_ne!(previews[0], previews[1], "{control} negative");
+        assert_ne!(previews[1], previews[2], "{control} positive");
+    }
+}

@@ -274,11 +274,15 @@ try {
 assert.equal(preview.getState().preview.target, null, 'A native diagnostic failure restores ordinary photo rendering');
 assert.equal(preview.getState().url, null);
 await act(async () => mouse(window, 'mouseup'));
-input = await mount('exposure');
-count = calls.length;
-await act(async () => mouse(input, 'mousedown', 100, { altKey: true }));
-assert.equal(calls.length, count, 'Global exposure keeps the ordinary photo');
-await act(async () => mouse(window, 'mouseup'));
+for (const control of ['exposure', 'brightness', 'contrast', 'hue', 'saturation', 'vibrance']) {
+  input = await mount(control);
+  count = calls.length;
+  await act(async () => mouse(input, 'mousedown', 100, { altKey: true }));
+  assert.ok(calls.length > count, control + ' starts a global preview');
+  assert.equal(calls.at(-1).request.target.control, control);
+  assert.equal(calls.at(-1).request.presentation, ['hue', 'saturation', 'vibrance'].includes(control) ? 2 : 1);
+  await act(async () => mouse(window, 'mouseup'));
+}
 input = await mount('highlights', true);
 count = calls.length;
 await act(async () => mouse(input, 'mousedown', 100, { altKey: true }));

@@ -9,7 +9,7 @@ existing angular/radial modifier behaviour. Ctrl+Alt/AltGr does not activate pre
 ## How to read the preview
 
 - **Tone:** the edited greyscale pixels inside the affected region; black outside.
-  Darkening looks darker and lightening looks lighter. Target coverage remains
+  Darkening looks darker and lightening looks lighter. Global Exposure/Brightness/Contrast use the whole image as coverage, for a consistent greyscale editing view. Target coverage remains
   visible at neutral when it has potential influence.
 - **Colour:** the edited RGB pixels inside the affected region; black outside.
   Hue, saturation and luminance follow the actual result.
@@ -28,26 +28,26 @@ weights. Difference previews measure the actual masked effect.
 
 ## Tone and colour controls
 
-| Control                                                          | Scope                                 | Preview and response to dragging                                                                                                               |
-| ---------------------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Highlights                                                       | Both                                  | Tone, restricted to highlight response. Increasing raises the affected highlights; decreasing lowers them.                                     |
-| Shadows                                                          | Both                                  | Tone, restricted to shadow response. Increasing lifts affected shadows; decreasing darkens them.                                               |
-| Whites                                                           | Both                                  | Tone, restricted to white-end response. Increasing raises the white end; decreasing lowers it.                                                 |
-| Blacks                                                           | Both                                  | Tone, restricted to black-end response. Increasing lifts the black end; decreasing darkens it.                                                 |
-| Exposure                                                         | Mask only                             | Tone through the mask. Increasing brightens; decreasing darkens.                                                                               |
-| Brightness                                                       | Mask only                             | Tone through the mask. Increasing brightens; decreasing darkens.                                                                               |
-| Contrast                                                         | Mask only                             | Tone through the mask. Increasing separates light/dark tones; decreasing flattens contrast. Different pixels can move in different directions. |
-| Hue                                                              | Mask only                             | Colour through the mask. Dragging rotates the resulting hue in either direction.                                                               |
-| Saturation                                                       | Mask only                             | Colour through the mask. Increasing adds saturation; decreasing moves towards grey.                                                            |
-| Vibrance                                                         | Mask only                             | Colour through the mask. Increasing boosts the renderer's selectively weighted colour response; decreasing reduces it.                         |
-| Colour Mixer: Hue                                                | Both, each of the eight bands below   | Colour, limited to the selected source-colour band. Dragging shows the resulting hue.                                                          |
-| Colour Mixer: Saturation                                         | Both, each band                       | Colour. Increasing saturates selected pixels; decreasing desaturates them.                                                                     |
-| Colour Mixer: Luminance                                          | Both, each band                       | Colour. Increasing lightens selected pixels; decreasing darkens them.                                                                          |
-| Monochrome Mix                                                   | Global, each band                     | Tone, isolated by the source-colour band. Increasing lightens that colour's monochrome contribution; decreasing darkens it.                    |
-| Grading wheel pointer                                            | Both, Shadows / Midtones / Highlights | Colour, isolated to that tonal region. Angular movement changes hue; outward movement increases saturation and inward movement reduces it.     |
-| Grading Hue slider                                               | Both, each of those three regions     | Colour. Rotates the resulting grading hue; a hue change at zero grading saturation correctly has no colour effect.                             |
-| Grading Saturation slider                                        | Both, each region                     | Colour. Increasing strengthens the tint; decreasing weakens it.                                                                                |
-| Grading Luminance slider (including the compact sun-icon slider) | Both, each region                     | Colour. Increasing raises the affected tones; decreasing lowers them.                                                                          |
+| Control                                                          | Scope                                 | Preview and response to dragging                                                                                                                                    |
+| ---------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Highlights                                                       | Both                                  | Tone, restricted to highlight response. Increasing raises the affected highlights; decreasing lowers them.                                                          |
+| Shadows                                                          | Both                                  | Tone, restricted to shadow response. Increasing lifts affected shadows; decreasing darkens them.                                                                    |
+| Whites                                                           | Both                                  | Tone, restricted to white-end response. Increasing raises the white end; decreasing lowers it.                                                                      |
+| Blacks                                                           | Both                                  | Tone, restricted to black-end response. Increasing lifts the black end; decreasing darkens it.                                                                      |
+| Exposure                                                         | Both                                  | Tone across the image, or through the mask. Increasing brightens; decreasing darkens.                                                                               |
+| Brightness                                                       | Both                                  | Tone across the image, or through the mask. Increasing brightens; decreasing darkens.                                                                               |
+| Contrast                                                         | Both                                  | Tone across the image, or through the mask. Increasing separates light/dark tones; decreasing flattens contrast. Different pixels can move in different directions. |
+| Hue                                                              | Both                                  | Colour across the image, or through the mask. Dragging rotates the resulting hue in either direction.                                                               |
+| Saturation                                                       | Both                                  | Colour across the image, or through the mask. Increasing adds saturation; decreasing moves towards grey.                                                            |
+| Vibrance                                                         | Both                                  | Colour across the image, or through the mask. Increasing boosts the renderer's selectively weighted colour response; decreasing reduces it.                         |
+| Colour Mixer: Hue                                                | Both, each of the eight bands below   | Colour, limited to the selected source-colour band. Dragging shows the resulting hue.                                                                               |
+| Colour Mixer: Saturation                                         | Both, each band                       | Colour. Increasing saturates selected pixels; decreasing desaturates them.                                                                                          |
+| Colour Mixer: Luminance                                          | Both, each band                       | Colour. Increasing lightens selected pixels; decreasing darkens them.                                                                                               |
+| Monochrome Mix                                                   | Global, each band                     | Tone, isolated by the source-colour band. Increasing lightens that colour's monochrome contribution; decreasing darkens it.                                         |
+| Grading wheel pointer                                            | Both, Shadows / Midtones / Highlights | Colour, isolated to that tonal region. Angular movement changes hue; outward movement increases saturation and inward movement reduces it.                          |
+| Grading Hue slider                                               | Both, each of those three regions     | Colour. Rotates the resulting grading hue; a hue change at zero grading saturation correctly has no colour effect.                                                  |
+| Grading Saturation slider                                        | Both, each region                     | Colour. Increasing strengthens the tint; decreasing weakens it.                                                                                                     |
+| Grading Luminance slider (including the compact sun-icon slider) | Both, each region                     | Colour. Increasing raises the affected tones; decreasing lowers them.                                                                                               |
 
 The eight Colour Mixer and Monochrome Mix bands are **Reds, Oranges, Yellows,
 Greens, Aquas, Blues, Purples and Magentas**. All three Colour Mixer sliders are
@@ -145,8 +145,7 @@ All eight sliders support Alt. A valid stored depth map is required.
 Luminance Noise Reduction, Color Noise Reduction, AI Denoise Amount and AI Denoise
 Detail have **no Alt behaviour**, including in mask sections where present.
 
-The following also retain their ordinary editing behaviour: global Exposure,
-Brightness, Contrast, Hue, Saturation and Vibrance; White Balance Temperature/Tint;
+The following also retain their ordinary editing behaviour: White Balance Temperature/Tint;
 Global grading wheel/sliders; grading Balance/Blending; colour calibration;
 monochrome film/filter/toning controls; Sharpness Threshold; chromatic aberration;
 negative-conversion controls; LUT intensity; Grain Amount/Size/Roughness;

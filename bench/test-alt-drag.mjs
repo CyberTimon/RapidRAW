@@ -23,8 +23,13 @@ const {
   altPreviewPolicy,
   curvePointProbe,
 } = createRequire(import.meta.url)('./out/alt-drag-tests.cjs');
-assert.equal(altPreviewTarget('exposure', { kind: 'global' }, 'global', {}), null);
-assert.equal(altPreviewTarget('contrast', { kind: 'global' }, 'global', {}), null);
+for (const control of ['exposure', 'brightness', 'contrast', 'hue', 'saturation', 'vibrance']) {
+  for (const scope of [{ kind: 'global' }, { kind: 'mask', containerId: 'm' }]) {
+    const target = altPreviewTarget(control, scope, 'owner', {});
+    assert.deepEqual(target, { kind: 'scalar', control, scope });
+    assert.equal(altPreviewPolicy(target, control), ['hue', 'saturation', 'vibrance'].includes(control) ? 2 : 1);
+  }
+}
 assert.equal(altPreviewTarget('grainAmount', { kind: 'global' }, 'global', {}), null);
 assert.equal(altPreviewTarget('exposure', { kind: 'mask', containerId: 'm' }, 'mask:m', {}).scope.containerId, 'm');
 assert.equal(altPreviewTarget('highlights', { kind: 'global' }, 'global', {}).control, 'highlights');
