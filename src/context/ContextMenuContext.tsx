@@ -235,12 +235,18 @@ function MenuItem({ option, path, hideContextMenu }: MenuItemProps) {
           }
         }}
         ref={itemRef}
-        role={option.checked === undefined ? 'menuitem' : 'menuitemradio'}
+        role={option.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
         aria-checked={option.checked}
       >
         <div className="flex items-center gap-3">
           {option.color && <div className="w-3 h-3 rounded-full" style={{ backgroundColor: option.color }}></div>}
-          {option.icon && <option.icon size={16} />}
+          {option.checked !== undefined ? (
+            <span className="w-4 h-4 shrink-0" aria-hidden="true">
+              {option.icon && <option.icon size={16} />}
+            </span>
+          ) : (
+            option.icon && <option.icon size={16} />
+          )}
           <span>{option.label}</span>
         </div>
         {option.submenu && <ChevronRight className="shrink-0" size={16} />}

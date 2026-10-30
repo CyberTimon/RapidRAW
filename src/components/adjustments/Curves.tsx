@@ -645,47 +645,28 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isF
       }
     };
     const displayOptions: Option[] = [
-      {
-        label: t('adjustments.curves.histogram'),
-        submenu: [
-          {
-            label: t('adjustments.curves.inputHistogram'),
-            checked: histogramMode === 'input',
-            icon: histogramMode === 'input' ? Check : undefined,
-            onClick: () => setHistogramMode('input'),
-          },
-          {
-            label: t('adjustments.curves.outputHistogram'),
-            checked: histogramMode === 'output',
-            icon: histogramMode === 'output' ? Check : undefined,
-            onClick: () => setHistogramMode('output'),
-          },
-        ],
-      },
       ...(!isParametricMode
         ? [
             {
-              label: t('adjustments.curves.interpolation'),
-              submenu: [
-                {
-                  label: t('adjustments.curves.standardCurve'),
-                  checked: interpolation === 'standard',
-                  icon: interpolation === 'standard' ? Check : undefined,
-                  onClick: () => setAdjustments((prev: Adjustments) => ({ ...prev, curveInterpolation: 'standard' })),
-                },
-                {
-                  label: t('adjustments.curves.smoothCurve'),
-                  checked: interpolation === 'natural',
-                  icon: interpolation === 'natural' ? Check : undefined,
-                  onClick: () => setAdjustments((prev: Adjustments) => ({ ...prev, curveInterpolation: 'natural' })),
-                },
-              ],
+              label: t('adjustments.curves.smoothCurve'),
+              checked: interpolation === 'natural',
+              icon: interpolation === 'natural' ? Check : undefined,
+              onClick: () =>
+                setAdjustments((prev: Adjustments) => ({
+                  ...prev,
+                  curveInterpolation: prev.curveInterpolation === 'natural' ? 'standard' : 'natural',
+                })),
             },
           ]
         : []),
+      {
+        label: t('adjustments.curves.showProcessedHistogram'),
+        checked: histogramMode === 'output',
+        icon: histogramMode === 'output' ? Check : undefined,
+        onClick: () => setHistogramMode(histogramMode === 'output' ? 'input' : 'output'),
+      },
       { type: OPTION_SEPARATOR },
     ];
-
     if (isParametricMode) {
       const handleCopyParametric = () => {
         parametricClipboard = { ...activeParametricSettings };

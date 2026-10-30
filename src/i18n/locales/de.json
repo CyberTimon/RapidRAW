@@ -116,12 +116,8 @@
       "whiteBalance": "Weißabgleich"
     },
     "curves": {
-      "histogram": "Histogramm",
-      "inputHistogram": "Eingangshistogramm",
-      "outputHistogram": "Ausgangshistogramm",
-      "interpolation": "Kurventyp",
-      "standardCurve": "Standard",
-      "smoothCurve": "Glatt",
+      "showProcessedHistogram": "Histogramm nach Bearbeitung",
+      "smoothCurve": "Glatte Kurve",
       "channelTitle": "{{channel}}-Kanal",
       "channels": {
         "blue": "Blau",
