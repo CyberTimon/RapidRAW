@@ -2394,6 +2394,7 @@
       "selectImageFile": "Wybierz plik obrazu"
     },
     "lut": {
+      "cameraLook": "Wygląd z aparatu",
       "clearLut": "Wyczyść LUT",
       "customLuts": "Własne LUT-y",
       "empty": "Brak LUT — zaimportuj jakieś",
@@ -2403,6 +2404,8 @@
       "importFailed": "Nie udało się zaimportować LUT",
       "intensity": "Intensywność",
       "label": "LUT",
+      "matchCamera": "Odwzoruj JPEG z aparatu",
+      "matchCameraFailed": "Nie udało się odwzorować JPEG z aparatu: {{error}}",
       "removeLut": "Usuń LUT",
       "select": "Wybierz",
       "selectLutFile": "Wybierz plik LUT",

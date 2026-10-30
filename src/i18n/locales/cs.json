@@ -2394,6 +2394,7 @@
       "selectImageFile": "Vyberte soubor snímku"
     },
     "lut": {
+      "cameraLook": "Vzhled fotoaparátu",
       "clearLut": "Vymazat LUT",
       "customLuts": "Vlastní LUT",
       "empty": "Zatím žádné LUT — nějaké importujte",
@@ -2403,6 +2404,8 @@
       "importFailed": "Import LUT se nezdařil",
       "intensity": "Intenzita",
       "label": "LUT",
+      "matchCamera": "Napodobit JPEG z fotoaparátu",
+      "matchCameraFailed": "JPEG z fotoaparátu se nepodařilo napodobit: {{error}}",
       "removeLut": "Odebrat LUT",
       "select": "Vybrat",
       "selectLutFile": "Vyberte soubor LUT",

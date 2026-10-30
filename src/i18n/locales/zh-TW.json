@@ -2304,6 +2304,7 @@
       "selectImageFile": "選擇影像檔案"
     },
     "lut": {
+      "cameraLook": "相機風格",
       "clearLut": "清除 LUT",
       "customLuts": "自訂 LUT",
       "empty": "暫無 LUT — 請匯入一些",
@@ -2313,6 +2314,8 @@
       "importFailed": "匯入 LUT 失敗",
       "intensity": "強度",
       "label": "LUT",
+      "matchCamera": "匹配相機 JPEG",
+      "matchCameraFailed": "無法匹配相機 JPEG：{{error}}",
       "removeLut": "移除 LUT",
       "select": "選擇",
       "selectLutFile": "選擇 LUT 檔案",

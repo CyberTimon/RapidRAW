@@ -2353,6 +2353,7 @@
       "selectImageFile": "Sélectionner un fichier image"
     },
     "lut": {
+      "cameraLook": "Rendu du boîtier",
       "clearLut": "Effacer LUT",
       "customLuts": "LUTs personnalisées",
       "empty": "Pas encore de LUT — importez-en",
@@ -2362,6 +2363,8 @@
       "importFailed": "Échec de l'importation des LUT",
       "intensity": "Intensité",
       "label": "LUT",
+      "matchCamera": "Reproduire le JPEG du boîtier",
+      "matchCameraFailed": "Impossible de reproduire le JPEG du boîtier : {{error}}",
       "removeLut": "Supprimer la LUT",
       "select": "Sélectionner",
       "selectLutFile": "Sélectionner un fichier LUT",

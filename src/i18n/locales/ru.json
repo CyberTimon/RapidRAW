@@ -2394,6 +2394,7 @@
       "selectImageFile": "Выберите графический файл"
     },
     "lut": {
+      "cameraLook": "Вид как в камере",
       "clearLut": "Удалить LUT",
       "customLuts": "Свои LUT",
       "empty": "Пока нет LUT — импортируйте их",
@@ -2403,6 +2404,8 @@
       "importFailed": "Не удалось импортировать LUT",
       "intensity": "Интенсивность",
       "label": "LUT",
+      "matchCamera": "Повторить JPEG камеры",
+      "matchCameraFailed": "Не удалось повторить JPEG камеры: {{error}}",
       "removeLut": "Удалить LUT",
       "select": "Выбрать",
       "selectLutFile": "Выберите файл таблицы цветов LUT",

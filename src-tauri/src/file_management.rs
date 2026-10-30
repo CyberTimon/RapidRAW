@@ -1531,7 +1531,7 @@ fn exif_embedded_preview(exif: &exif::Exif, file_bytes: &[u8]) -> Option<Dynamic
     Some(apply_exif_orientation(img, orientation))
 }
 
-fn try_load_embedded_raw_preview(source_path: &Path, target_res: u32) -> Option<DynamicImage> {
+pub fn try_load_embedded_raw_preview(source_path: &Path, target_res: u32) -> Option<DynamicImage> {
     let mmap = read_file_mapped(source_path).ok()?;
     let min_size = (target_res as f32 * 0.95) as u32;
     let large_enough = |preview: &DynamicImage| preview.width().max(preview.height()) >= min_size;

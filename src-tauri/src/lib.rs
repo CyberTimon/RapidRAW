@@ -34,6 +34,7 @@ mod auto_straighten;
 mod baseline_exposure;
 mod bm3d;
 mod cache_utils;
+mod camera_look;
 mod camera_tethering;
 mod culling;
 mod effect_maps;
@@ -2689,6 +2690,7 @@ pub fn run() {
             lut_processing::import_luts,
             lut_processing::remove_lut,
             lut_processing::generate_lut_previews,
+            camera_look::fit_camera_look,
             fetch_community_presets,
             generate_all_community_previews,
             save_temp_file,

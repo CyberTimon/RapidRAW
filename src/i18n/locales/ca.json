@@ -2352,6 +2352,7 @@
       "selectImageFile": "Seleccionar un fitxer d'imatge"
     },
     "lut": {
+      "cameraLook": "Aspecte de la càmera",
       "clearLut": "Esborrar LUT",
       "customLuts": "LUTs personalitzades",
       "empty": "Cap LUT encara — importeu-ne algun",
@@ -2361,6 +2362,8 @@
       "importFailed": "Error en importar LUTs",
       "intensity": "Intensitat",
       "label": "LUT",
+      "matchCamera": "Igualar el JPEG de la càmera",
+      "matchCameraFailed": "No s'ha pogut igualar el JPEG de la càmera: {{error}}",
       "removeLut": "Eliminar LUT",
       "select": "Seleccionar",
       "selectLutFile": "Seleccionar un fitxer LUT",
