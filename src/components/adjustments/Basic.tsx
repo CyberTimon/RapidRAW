@@ -187,6 +187,7 @@ function BasicAdjustments({
           min={-5}
           onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Exposure, e.target.value)}
           step={0.01}
+          influenceControl="exposure"
           value={adjustments.exposure}
           onDragStateChange={onDragStateChange}
         />
@@ -205,6 +206,7 @@ function BasicAdjustments({
         min={-100}
         onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Contrast, e.target.value)}
         step={1}
+        influenceControl="contrast"
         value={adjustments.contrast}
         onDragStateChange={onDragStateChange}
       />
@@ -214,6 +216,7 @@ function BasicAdjustments({
         min={-100}
         onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Highlights, e.target.value)}
         step={1}
+        influenceControl="highlights"
         value={adjustments.highlights}
         onDragStateChange={onDragStateChange}
       />
@@ -223,6 +226,7 @@ function BasicAdjustments({
         min={-100}
         onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Shadows, e.target.value)}
         step={1}
+        influenceControl="shadows"
         value={adjustments.shadows}
         onDragStateChange={onDragStateChange}
       />
@@ -232,6 +236,7 @@ function BasicAdjustments({
         min={-100}
         onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Whites, e.target.value)}
         step={1}
+        influenceControl="whites"
         value={adjustments.whites}
         onDragStateChange={onDragStateChange}
       />
@@ -241,6 +246,7 @@ function BasicAdjustments({
         min={-100}
         onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Blacks, e.target.value)}
         step={1}
+        influenceControl="blacks"
         value={adjustments.blacks}
         onDragStateChange={onDragStateChange}
       />
@@ -250,6 +256,7 @@ function BasicAdjustments({
         min={-5}
         onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Brightness, e.target.value)}
         step={0.01}
+        influenceControl="brightness"
         value={adjustments.brightness}
         onDragStateChange={onDragStateChange}
       />

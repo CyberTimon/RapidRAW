@@ -51,6 +51,7 @@ mod highlight_reconstruction;
 mod image_loader;
 mod image_processing;
 mod immich;
+mod influence_preview;
 mod inpainting;
 mod launch_request;
 mod lens_blur;
@@ -264,11 +265,45 @@ fn compute_transformed_preview(
     adjustments: &serde_json::Value,
     preview_dim: u32,
 ) -> Result<TransformedPreview, String> {
-    let patched_key = patched_cache_key(&loaded_image.path, adjustments);
+    compute_transformed_preview_cached(
+        loaded_image,
+        adjustments,
+        preview_dim,
+        &state.patched_cache,
+        &state.working_cache,
+        &state.warped_cache,
+        &state.effects_cache,
+        0,
+        &|| false,
+    )
+}
 
-    let patched = get_or_compute_stage(&state.patched_cache, patched_key, || {
+#[allow(clippy::too_many_arguments)]
+fn compute_transformed_preview_cached(
+    loaded_image: &LoadedImage,
+    adjustments: &serde_json::Value,
+    preview_dim: u32,
+    patched_cache: &Mutex<Option<(u64, Arc<DynamicImage>)>>,
+    working_cache: &Mutex<Option<(u64, Arc<DynamicImage>)>>,
+    warped_cache: &Mutex<Option<(u64, Arc<DynamicImage>)>>,
+    effects_cache: &Mutex<Option<(u64, Arc<DynamicImage>)>>,
+    salt: u64,
+    cancelled: &(dyn Fn() -> bool + Sync),
+) -> Result<TransformedPreview, String> {
+    let checkpoint = || {
+        if cancelled() {
+            Err("Superseded influence request".to_string())
+        } else {
+            Ok(())
+        }
+    };
+    checkpoint()?;
+    let patched_key = patched_cache_key(&loaded_image.path, adjustments) ^ salt;
+
+    let patched = get_or_compute_stage(patched_cache, patched_key, || {
         compute_patched(loaded_image, adjustments)
     })?;
+    checkpoint()?;
 
     let (full_w_px, full_h_px) = patched.dimensions();
     let orientation_steps = adjustments["orientationSteps"].as_u64().unwrap_or(0);
@@ -308,28 +343,29 @@ fn compute_transformed_preview(
         patched_key.hash(&mut hasher);
         (working_w, working_h).hash(&mut hasher);
 
-        get_or_compute_stage(&state.working_cache, hasher.finish(), || {
+        get_or_compute_stage(working_cache, hasher.finish(), || {
             Ok(Arc::new(downscale_f32_image(
                 &patched, working_w, working_h,
             )))
         })?
     } else {
-        *state
-            .working_cache
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
+        *working_cache.lock().unwrap_or_else(|e| e.into_inner()) = None;
         Arc::clone(&patched)
     };
     drop(patched);
+    checkpoint()?;
 
     let mut hasher = DefaultHasher::new();
     loaded_image.path.hash(&mut hasher);
     calculate_geometry_hash(adjustments).hash(&mut hasher);
+    if salt != 0 {
+        salt.hash(&mut hasher);
+    }
     working.dimensions().hash(&mut hasher);
     (target_w, target_h).hash(&mut hasher);
     let warped_key = hasher.finish();
 
-    let warped = get_or_compute_stage(&state.warped_cache, warped_key, || {
+    let warped = get_or_compute_stage(warped_cache, warped_key, || {
         Ok(
             match apply_geometry_warp(Cow::Borrowed(working.as_ref()), adjustments) {
                 Cow::Borrowed(_) => Arc::clone(&working),
@@ -341,6 +377,7 @@ fn compute_transformed_preview(
         )
     })?;
     drop(working);
+    checkpoint()?;
 
     let working_scale = warped.width() as f64 / full_w_px.max(1) as f64;
 
@@ -348,10 +385,29 @@ fn compute_transformed_preview(
     warped_key.hash(&mut hasher);
     crate::cache_utils::calculate_effects_hash(adjustments).hash(&mut hasher);
 
-    let effected = get_or_compute_stage(&state.effects_cache, hasher.finish(), || {
-        let relit = crate::relight::apply_relight(Cow::Borrowed(warped.as_ref()), adjustments);
-        let fogged = crate::fog::apply_fog(relit, adjustments);
-        let blurred = crate::lens_blur::apply_lens_blur(fogged, adjustments);
+    let effected = get_or_compute_stage(effects_cache, hasher.finish(), || {
+        let relit = if salt == 0 {
+            crate::relight::apply_relight(Cow::Borrowed(warped.as_ref()), adjustments)
+        } else {
+            crate::relight::apply_relight_cancellable(
+                Cow::Borrowed(warped.as_ref()),
+                adjustments,
+                cancelled,
+            )
+        };
+        checkpoint()?;
+        let fogged = if salt == 0 {
+            crate::fog::apply_fog(relit, adjustments)
+        } else {
+            crate::fog::apply_fog_cancellable(relit, adjustments, cancelled)
+        };
+        checkpoint()?;
+        let blurred = if salt == 0 {
+            crate::lens_blur::apply_lens_blur(fogged, adjustments)
+        } else {
+            crate::lens_blur::apply_lens_blur_cancellable(fogged, adjustments, cancelled)
+        };
+        checkpoint()?;
         Ok(match blurred {
             Cow::Borrowed(_) => Arc::clone(&warped),
             Cow::Owned(img) => Arc::new(img),
@@ -1111,8 +1167,14 @@ fn start_preview_worker(app_handle: tauri::AppHandle) {
 
     std::thread::spawn(move || {
         let mut viewer_pending = false;
+        let mut influence_pending = None;
+        let mut latest: [Option<PreviewJob>; 2] = [None, None];
+        let mut served_influence = false;
         loop {
-            let first = if viewer_pending {
+            let first = if viewer_pending
+                || influence_pending.is_some()
+                || latest.iter().any(Option::is_some)
+            {
                 rx.try_recv().ok()
             } else {
                 match rx.recv() {
@@ -1121,7 +1183,6 @@ fn start_preview_worker(app_handle: tauri::AppHandle) {
                 }
             };
 
-            let mut latest: [Option<PreviewJob>; 2] = [None, None];
             for task in first.into_iter().chain(rx.try_iter()) {
                 match task {
                     PreviewTask::Editor(job) => {
@@ -1129,15 +1190,23 @@ fn start_preview_worker(app_handle: tauri::AppHandle) {
                         latest[slot] = Some(job);
                     }
                     PreviewTask::Viewer => viewer_pending = true,
+                    PreviewTask::Influence(job) => influence_pending = Some(job),
                 }
             }
 
-            if latest.iter().any(Option::is_some) {
-                for job in latest.into_iter().flatten() {
+            if influence_pending.is_some() && !served_influence {
+                crate::influence_preview::run_job(&app_handle, influence_pending.take().unwrap());
+                served_influence = true;
+            } else if latest.iter().any(Option::is_some) {
+                served_influence = false;
+                for job in latest.iter_mut().filter_map(Option::take) {
                     run_editor_job(&app_handle, job);
                 }
             } else if std::mem::take(&mut viewer_pending) {
+                served_influence = false;
                 run_viewer_job(&app_handle);
+            } else if let Some(job) = influence_pending.take() {
+                crate::influence_preview::run_job(&app_handle, job);
             }
         }
     });
@@ -2621,6 +2690,10 @@ pub fn run() {
             Ok(())
         })
         .manage(AppState {
+            influence_generation: AtomicU64::new(0),
+            influence_release: AtomicBool::new(false),
+            influence_stages: Mutex::new(Default::default()),
+            influence_gpu: Mutex::new(None),
             window_setup_complete: AtomicBool::new(false),
             gpu_crash_flag_path: Mutex::new(None),
             original_image: Mutex::new(None),
@@ -2675,6 +2748,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             apply_adjustments,
+            influence_preview::request_influence_preview,
+            influence_preview::cancel_influence_preview,
             subscribe_analytics,
             generate_preview_for_path,
             generate_preset_preview,

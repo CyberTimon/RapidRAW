@@ -110,7 +110,7 @@ pub fn default_adjustments() -> Value {
     adjustments
 }
 
-fn default_adjustment_values() -> Option<&'static serde_json::Map<String, Value>> {
+pub(crate) fn default_adjustment_values() -> Option<&'static serde_json::Map<String, Value>> {
     static DEFAULTS: OnceLock<Option<serde_json::Map<String, Value>>> = OnceLock::new();
     DEFAULTS
         .get_or_init(|| {

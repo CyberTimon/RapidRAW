@@ -1,3 +1,6 @@
+import { buildParametricPoints } from '../../utils/curveMath';
+import { useInfluencePreviewStore } from '../../store/useInfluencePreviewStore';
+import { useInfluenceSelection, useInfluenceSubcontrol } from '../../hooks/useInfluenceSelection';
 import { useState, useRef, useEffect, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RotateCcw, Copy, ClipboardPaste, Spline, Settings2 } from 'lucide-react';
@@ -51,60 +54,6 @@ const CHANNEL_COLORS: Record<ActiveChannel, string> = {
   [ActiveChannel.Green]: '#6BCB77',
   [ActiveChannel.Blue]: '#4D96FF',
 };
-
-function buildParametricPoints(settings: ParametricCurveSettings): Array<Coord> {
-  const vH = settings.highlights / 100;
-  const vL = settings.lights / 100;
-  const vD = settings.darks / 100;
-  const vS = settings.shadows / 100;
-
-  const blackYOffset = settings.blackLevel;
-  const whiteYOffset = settings.whiteLevel;
-
-  const s1 = settings.split1 / 100;
-  const s2 = settings.split2 / 100;
-  const s3 = settings.split3 / 100;
-
-  const xH = (s3 + 1) / 2;
-  const xS = s1 / 2;
-  const xs = [0, xS, s1, s2, s3, xH, 1];
-
-  const SLIDER_GAIN = 1.2;
-  const MAX_DISPLACEMENT = 0.35;
-
-  const response = (v: number, x: number): number => {
-    const headroom = v >= 0 ? 1 - x : x;
-    const compressedHeadroom = Math.sqrt(headroom);
-    const sigmoid = Math.tanh(v * SLIDER_GAIN);
-    return sigmoid * MAX_DISPLACEMENT * compressedHeadroom;
-  };
-
-  const ys = [
-    0,
-    xS + response(vS, xS),
-    s1 + (response(vS, s1) + response(vD, s1)) / 2,
-    s2 + (response(vD, s2) + response(vL, s2)) / 2,
-    s3 + (response(vL, s3) + response(vH, s3)) / 2,
-    xH + response(vH, xH),
-    1,
-  ];
-
-  const clamp = (v: number) => Math.max(0, Math.min(1, v));
-
-  const points = xs.map((x, i) => ({
-    x: x * 255,
-    y: clamp(ys[i]) * 255,
-  }));
-
-  if (points.length >= 2) {
-    points[0].y = Math.max(0, Math.min(255, points[0].y + blackYOffset));
-
-    const lastIndex = points.length - 1;
-    points[lastIndex].y = Math.max(0, Math.min(255, points[lastIndex].y + whiteYOffset));
-  }
-
-  return points;
-}
 
 function getCurvePath(points: Array<Coord>) {
   if (points.length < 2) return '';
@@ -275,13 +224,22 @@ const POINT_HIT_RADIUS_PX = 12;
 const MIN_POINT_GAP_X = 1;
 
 const hasFineAdjustmentModifier = (event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) =>
-  'shiftKey' in event && (event.shiftKey || event.altKey);
+  'shiftKey' in event && event.shiftKey;
 
 function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: CurveGraphProps) {
   const { t } = useTranslation();
   const { showContextMenu } = useContextMenu();
   const [curveMode, setCurveMode] = useState<'point' | 'parametric'>(adjustments.curveMode || 'point');
   const [activeChannel, setActiveChannel] = useState<ActiveChannel>(ActiveChannel.Luma);
+  useInfluenceSubcontrol('curves', activeChannel);
+  const selectInfluence = useInfluenceSelection();
+  const curveGesture = useRef(false);
+  useEffect(
+    () => () => {
+      if (curveGesture.current) useInfluencePreviewStore.getState().endDrag();
+    },
+    [],
+  );
   const [draggingPointIndex, setDraggingPointIndex] = useState<number | null>(null);
   const [draggingSplitKey, setDraggingSplitKey] = useState<'split1' | 'split2' | 'split3' | null>(null);
   const [localPoints, setLocalPoints] = useState<Array<Coord> | null>(null);
@@ -364,6 +322,10 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
   };
 
   useEffect(() => {
+    if (curveGesture.current) {
+      curveGesture.current = false;
+      useInfluencePreviewStore.getState().endDrag();
+    }
     activeChannelRef.current = activeChannel;
     setLocalPoints(null);
     setDraggingPointIndex(null);
@@ -478,6 +440,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
     };
 
     const handleUp = () => {
+      curveGesture.current = false;
+      useInfluencePreviewStore.getState().endDrag();
       setDraggingPointIndex(null);
       setDraggingSplitKey(null);
       draggingIndexRef.current = null;
@@ -490,6 +454,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
     if (draggingPointIndex !== null || draggingSplitKey !== null) {
       window.addEventListener('mousemove', handleMove, { passive: false });
       window.addEventListener('mouseup', handleUp);
+      window.addEventListener('blur', handleUp);
+      window.addEventListener('pointercancel', handleUp);
       window.addEventListener('touchmove', handleMove, { passive: false });
       window.addEventListener('touchend', handleUp);
       window.addEventListener('touchcancel', handleUp);
@@ -498,6 +464,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
     return () => {
       window.removeEventListener('mousemove', handleMove);
       window.removeEventListener('mouseup', handleUp);
+      window.removeEventListener('blur', handleUp);
+      window.removeEventListener('pointercancel', handleUp);
       window.removeEventListener('touchmove', handleMove);
       window.removeEventListener('touchend', handleUp);
       window.removeEventListener('touchcancel', handleUp);
@@ -527,6 +495,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
 
     lastPointerRef.current = { x: clientX, y: clientY };
     accumulatedPointRef.current = { ...activePoints[index] };
+    curveGesture.current = true;
+    selectInfluence('curvePoint.' + activeChannel + '.' + index, e.altKey && !e.ctrlKey);
 
     onDragStateChange?.(true);
     setLocalPoints(activePoints);
@@ -584,6 +554,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
 
     const newPoints = [...activePoints, { x, y }].sort((a: Coord, b: Coord) => a.x - b.x);
     const newPointIndex = newPoints.findIndex((p: Coord) => p.x === x && p.y === y);
+    curveGesture.current = true;
+    selectInfluence('curvePoint.' + activeChannel + '.' + newPointIndex, e.altKey && !e.ctrlKey);
 
     lastPointerRef.current = { x: clientX, y: clientY };
     accumulatedPointRef.current = { x, y };
@@ -1051,6 +1023,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                   max={0}
                   step={1}
                   defaultValue={0}
+                  influenceControl="parametric.whiteLevel"
                   value={activeParametricSettings.whiteLevel}
                   onChange={(e: any) => updateParametricValue('whiteLevel', parseFloat(e.target.value))}
                   onDragStateChange={onDragStateChange}
@@ -1062,6 +1035,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                   max={100}
                   step={1}
                   defaultValue={0}
+                  influenceControl="parametric.highlights"
                   value={activeParametricSettings.highlights}
                   onChange={(e: any) => updateParametricValue('highlights', parseFloat(e.target.value))}
                   onDragStateChange={onDragStateChange}
@@ -1073,6 +1047,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                   max={100}
                   step={1}
                   defaultValue={0}
+                  influenceControl="parametric.lights"
                   value={activeParametricSettings.lights}
                   onChange={(e: any) => updateParametricValue('lights', parseFloat(e.target.value))}
                   onDragStateChange={onDragStateChange}
@@ -1084,6 +1059,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                   max={100}
                   step={1}
                   defaultValue={0}
+                  influenceControl="parametric.darks"
                   value={activeParametricSettings.darks}
                   onChange={(e: any) => updateParametricValue('darks', parseFloat(e.target.value))}
                   onDragStateChange={onDragStateChange}
@@ -1095,6 +1071,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                   max={100}
                   step={1}
                   defaultValue={0}
+                  influenceControl="parametric.shadows"
                   value={activeParametricSettings.shadows}
                   onChange={(e: any) => updateParametricValue('shadows', parseFloat(e.target.value))}
                   onDragStateChange={onDragStateChange}
@@ -1106,6 +1083,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                   max={100}
                   step={1}
                   defaultValue={0}
+                  influenceControl="parametric.blackLevel"
                   value={activeParametricSettings.blackLevel}
                   onChange={(e: any) => updateParametricValue('blackLevel', parseFloat(e.target.value))}
                   onDragStateChange={onDragStateChange}

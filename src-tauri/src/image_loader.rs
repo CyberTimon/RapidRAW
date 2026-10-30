@@ -36,6 +36,7 @@ use tauri::Manager;
 
 #[derive(serde::Serialize)]
 pub struct LoadImageResult {
+    pub load_generation: usize,
     pub width: u32,
     pub height: u32,
     pub metadata: ImageMetadata,
@@ -1055,6 +1056,7 @@ pub async fn load_image(
     crate::ai_jobs::prioritize(&app_handle, &path);
 
     Ok(LoadImageResult {
+        load_generation: my_generation,
         width: orig_width,
         height: orig_height,
         metadata,

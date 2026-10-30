@@ -1,3 +1,5 @@
+import { useInfluencePreviewStore } from '../../../store/useInfluencePreviewStore';
+import InfluencePreviewLayer from './InfluencePreviewLayer';
 import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import ReactCrop from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
@@ -1504,6 +1506,13 @@ const ImageCanvas = memo(
     const [displayedMaskUrl, setDisplayedMaskUrl] = useState<string | null>(null);
     const [localInitialDrawParams, setLocalInitialDrawParams] = useState<any>(null);
     const [isMaskInteractionActive, setIsMaskInteractionActive] = useState(false);
+    useEffect(() => {
+      useInfluencePreviewStore
+        .getState()
+        .dispatch({ type: 'interaction', token: 'canvas-mask', active: isMaskInteractionActive });
+      return () =>
+        useInfluencePreviewStore.getState().dispatch({ type: 'interaction', token: 'canvas-mask', active: false });
+    }, [isMaskInteractionActive]);
     const [hoveredMarkerId, setHoveredMarkerId] = useState<string | null>(null);
     const isDrawing = useRef(false);
     const drawingStageRef = useRef<any>(null);
@@ -3439,8 +3448,12 @@ const ImageCanvas = memo(
     }, [setIsMaskTouchInteracting, setEditor]);
 
     const currentActiveSubMaskId = activeAiSubMaskId || activeMaskId;
+    const influence = useInfluencePreviewStore((s) => s.preview);
+    const influenceUrl = useInfluencePreviewStore((s) => s.url);
+    const influenceVisible =
+      Boolean(influence.target && influenceUrl) && !isMaskInteractionActive && !isShowingOriginal;
     const maskOpacity =
-      isShowingOriginal || isSliderDragging || isMaskInteractionActive
+      influenceVisible || isShowingOriginal || isSliderDragging || isMaskInteractionActive
         ? 0
         : isDirectPatchActive
           ? hoveredMarkerId === currentActiveSubMaskId || isMaskControlHovered
@@ -3528,6 +3541,18 @@ const ImageCanvas = memo(
                 )}
               </svg>
 
+              {influenceVisible && influenceUrl && (
+                <InfluencePreviewLayer
+                  url={influenceUrl}
+                  style={{
+                    left: imageRenderSize.offsetX,
+                    top: imageRenderSize.offsetY,
+                    width: imageRenderSize.width,
+                    height: imageRenderSize.height,
+                    zIndex: 4,
+                  }}
+                />
+              )}
               {displayedMaskUrl && (
                 <img
                   alt="Mask Overlay"

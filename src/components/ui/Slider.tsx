@@ -1,3 +1,5 @@
+import { useInfluenceSelection } from '../../hooks/useInfluenceSelection';
+import { useInfluencePreviewStore } from '../../store/useInfluencePreviewStore';
 import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GLOBAL_KEYS } from './AppProperties';
@@ -26,6 +28,7 @@ const LINEAR_SCALE: SliderScale = {
 };
 
 interface SliderProps {
+  influenceControl?: string;
   defaultValue?: number;
   disabled?: boolean;
   label: React.ReactNode;
@@ -51,9 +54,10 @@ const TOUCH_THUMB_HIT_RADIUS_PX = 24;
 const getFraction = (value: number, min: number, max: number) => (max !== min ? (value - min) / (max - min) : 0);
 
 const hasFineAdjustmentModifier = (event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) =>
-  'shiftKey' in event && (event.shiftKey || event.altKey);
+  'shiftKey' in event && event.shiftKey;
 
 const Slider = ({
+  influenceControl,
   defaultValue = 0,
   disabled = false,
   label,
@@ -71,6 +75,9 @@ const Slider = ({
   suffix = '',
 }: SliderProps) => {
   const { t } = useTranslation();
+  const selectInfluence = useInfluenceSelection();
+  const influenceSelectionRef = useRef(selectInfluence);
+  influenceSelectionRef.current = selectInfluence;
   const [displayValue, setDisplayValue] = useState<number>(value);
   const [isDragging, setIsDragging] = useState(false);
   const animationFrameRef = useRef<number | undefined>(undefined);
@@ -299,11 +306,14 @@ const Slider = ({
       if (isDragging) {
         onPointerUp?.();
       }
+      useInfluencePreviewStore.getState().endDrag();
       setIsDragging(false);
     };
 
     window.addEventListener('mousemove', handlePointerMove, { passive: false });
     window.addEventListener('mouseup', handlePointerUp);
+    window.addEventListener('blur', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
     window.addEventListener('touchmove', handlePointerMove, { passive: false });
     window.addEventListener('touchend', handlePointerUp);
     window.addEventListener('touchcancel', handlePointerUp);
@@ -316,6 +326,9 @@ const Slider = ({
       pendingDragValueRef.current = null;
       window.removeEventListener('mousemove', handlePointerMove);
       window.removeEventListener('mouseup', handlePointerUp);
+      window.removeEventListener('blur', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+      useInfluencePreviewStore.getState().endDrag();
       window.removeEventListener('touchmove', handlePointerMove);
       window.removeEventListener('touchend', handlePointerUp);
       window.removeEventListener('touchcancel', handlePointerUp);
@@ -428,6 +441,7 @@ const Slider = ({
     lastPointerXRef.current = e.clientX;
     lastEmittedValueRef.current = snappedValue;
 
+    influenceSelectionRef.current(influenceControl, e.altKey && !e.ctrlKey);
     setIsDragging(true);
     setDisplayValue(snappedValue);
     setInputValue(String(snappedValue));

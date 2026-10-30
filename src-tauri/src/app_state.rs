@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Condvar, Mutex};
 
@@ -215,6 +215,7 @@ pub struct PreviewJob {
 pub enum PreviewTask {
     Editor(PreviewJob),
     Viewer,
+    Influence(crate::influence_preview::InfluenceJob),
 }
 
 pub struct AnalyticsJob {
@@ -283,6 +284,10 @@ pub type TransformedImageCache = (u64, Arc<DynamicImage>, f32, (f32, f32));
 pub type TransformedPreview = (Arc<DynamicImage>, f32, (f32, f32));
 
 pub struct AppState {
+    pub influence_generation: AtomicU64,
+    pub influence_release: AtomicBool,
+    pub(crate) influence_stages: Mutex<crate::influence_preview::Stages>,
+    pub influence_gpu: Mutex<Option<crate::gpu_processing::DiagnosticGpu>>,
     pub window_setup_complete: AtomicBool,
     pub gpu_crash_flag_path: Mutex<Option<PathBuf>>,
     pub original_image: Mutex<Option<LoadedImage>>,

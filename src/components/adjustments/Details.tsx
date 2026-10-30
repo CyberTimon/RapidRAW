@@ -73,6 +73,7 @@ function DetailsPanel({
             min={-100}
             onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Sharpness, e.target.value)}
             step={1}
+            influenceControl="sharpness"
             value={adjustments.sharpness}
             onDragStateChange={onDragStateChange}
           />
@@ -104,6 +105,7 @@ function DetailsPanel({
             min={-100}
             onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Clarity, e.target.value)}
             step={1}
+            influenceControl="clarity"
             value={adjustments.clarity}
             onDragStateChange={onDragStateChange}
           />
@@ -113,6 +115,7 @@ function DetailsPanel({
             min={-100}
             onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Dehaze, e.target.value)}
             step={1}
+            influenceControl="dehaze"
             value={adjustments.dehaze}
             onDragStateChange={onDragStateChange}
           />
@@ -122,6 +125,7 @@ function DetailsPanel({
             min={-100}
             onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Structure, e.target.value)}
             step={1}
+            influenceControl="structure"
             value={adjustments.structure}
             onDragStateChange={onDragStateChange}
           />
@@ -138,6 +142,7 @@ function DetailsPanel({
                 min={-100}
                 onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Centré, e.target.value)}
                 step={1}
+                influenceControl="centré"
                 value={adjustments.centré}
                 onDragStateChange={onDragStateChange}
               />
@@ -257,6 +262,7 @@ function DetailsPanel({
               handleAdjustmentChange(DetailsAdjustment.ChromaticAberrationBlueYellow, e.target.value)
             }
             step={1}
+            influenceControl="chromaticAberrationBlueYellow"
             value={adjustments.chromaticAberrationBlueYellow}
             onDragStateChange={onDragStateChange}
           />

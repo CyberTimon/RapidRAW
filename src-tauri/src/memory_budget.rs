@@ -17,6 +17,21 @@ pub struct MemoryReservation {
 }
 
 impl MemoryBudget {
+    /// Diagnostics yield to normal work instead of waiting with image resources held.
+    pub fn try_reserve(self: &Arc<Self>, bytes: u64) -> Option<MemoryReservation> {
+        if bytes > self.total {
+            return None;
+        }
+        let mut available = self.available.lock().unwrap_or_else(|e| e.into_inner());
+        if *available < bytes {
+            return None;
+        }
+        *available -= bytes;
+        Some(MemoryReservation {
+            budget: Arc::clone(self),
+            bytes,
+        })
+    }
     pub fn new(total: u64) -> Arc<Self> {
         Arc::new(Self {
             total,
@@ -78,4 +93,23 @@ pub fn image_pixel_count(path: &Path, is_raw: bool) -> Option<u64> {
 pub fn raw_pixel_count(file_bytes: &[u8]) -> Option<u64> {
     let (width, height) = crate::raw_processing::raw_dimensions(file_bytes)?;
     Some(width as u64 * height as u64)
+}
+
+#[cfg(test)]
+mod diagnostic_tests {
+    use super::*;
+    #[test]
+    fn nonblocking_reservations_refuse_oversized_and_release_exactly() {
+        let budget = MemoryBudget::new(100);
+        assert!(budget.try_reserve(101).is_none());
+        for _ in 0..100 {
+            let first = budget.try_reserve(70).unwrap();
+            assert!(budget.try_reserve(31).is_none());
+            let second = budget.try_reserve(30).unwrap();
+            assert_eq!(*budget.available.lock().unwrap(), 0);
+            drop(first);
+            drop(second);
+            assert_eq!(*budget.available.lock().unwrap(), 100);
+        }
+    }
 }
