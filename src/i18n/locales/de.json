@@ -1102,6 +1102,7 @@
       "pending": "Bearbeitungen, die auf Immich warten: {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} gehört jemand anderem, deshalb nimmt Immich keine Bearbeitungen dafür an. Deine Bearbeitung bleibt auf diesem Computer.",
       "backOnline": "Immich ist wieder erreichbar, alle Bearbeitungen sind dort gespeichert.",
       "downloadFailed": "Download aus Immich fehlgeschlagen: {{error}}",
       "editsConflict": "{{fileName}} wurde auch auf einem anderen Rechner bearbeitet. Deine Bearbeitung bleibt, die andere Fassung liegt als virtuelle Kopie daneben.",

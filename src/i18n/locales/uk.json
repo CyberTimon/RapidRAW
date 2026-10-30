@@ -1154,6 +1154,7 @@
       "pending": "Редагувань, що очікують надсилання в Immich: {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} належить іншій людині, тому Immich не приймає для нього редагування. Ваші редагування залишаються на цьому комп'ютері.",
       "transferFailed": "Не додано до Immich: {{number}} ({{error}})",
       "transferred": "Додано до Immich: {{number}}",
       "transferring": "Додавання до Immich… {{current}}/{{total}}",

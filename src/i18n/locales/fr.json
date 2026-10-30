@@ -1128,6 +1128,7 @@
       "pending": "Retouches en attente d'envoi vers Immich : {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} appartient à quelqu'un d'autre, Immich n'accepte donc pas de retouches pour cette image. Vos retouches restent sur cet ordinateur.",
       "backOnline": "Immich est de nouveau joignable et toutes les retouches y sont enregistrées.",
       "downloadFailed": "Échec du téléchargement depuis Immich : {{error}}",
       "editsConflict": "{{fileName}} a aussi été retouchée sur un autre ordinateur. Vos retouches sont conservées et l'autre version est gardée comme copie virtuelle.",

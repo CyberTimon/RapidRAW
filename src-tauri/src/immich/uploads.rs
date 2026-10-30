@@ -141,7 +141,15 @@ async fn upload_export(
                 ids.push(asset.id);
             }
         }
-        client.create_stack(&ids).await?;
+        if let Err(e) = client.create_stack(&ids).await {
+            if client.owns(&ids[1]).await != Ok(false) {
+                return Err(e);
+            }
+            log::info!(
+                "Not stacking {}, its original belongs to someone else: {e}",
+                output.display()
+            );
+        }
     }
     if entry.is_some() {
         registry::set_listed_asset(source, &new_id);

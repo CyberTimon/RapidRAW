@@ -1099,6 +1099,7 @@
       "pending": "等待同步到 Immich 的編輯：{{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} 屬於其他人，因此 Immich 不接受對它的編輯。你的編輯會保留在這台電腦上。",
       "backOnline": "Immich 已重新連線，所有編輯內容都已儲存。",
       "downloadFailed": "無法從 Immich 下載：{{error}}",
       "editsConflict": "{{fileName}} 也在另一台電腦上被編輯過。你的編輯內容會保留，另一個版本已儲存為虛擬副本。",

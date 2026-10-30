@@ -1099,6 +1099,7 @@
       "pending": "Immich 전송 대기 중인 편집: {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}}은(는) 다른 사람의 이미지라 Immich가 편집을 받지 않습니다. 편집 내용은 이 컴퓨터에 남습니다.",
       "backOnline": "Immich에 다시 연결되었으며 모든 편집 내용이 저장되었습니다.",
       "downloadFailed": "Immich에서 다운로드하지 못했습니다: {{error}}",
       "editsConflict": "{{fileName}}이(가) 다른 컴퓨터에서도 편집되었습니다. 내 편집 내용은 유지되고, 다른 버전은 가상 사본으로 보관됩니다.",
