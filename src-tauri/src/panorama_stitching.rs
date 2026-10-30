@@ -145,22 +145,19 @@ pub async fn save_panorama(
         .and_then(|s| s.to_str())
         .unwrap_or("panorama");
 
-    let (output_filename, image_to_save): (String, DynamicImage) =
-        if panorama_image.color().has_alpha() {
-            (
-                format!("{}_Pano.png", stem),
-                DynamicImage::ImageRgba8(panorama_image.to_rgba8()),
-            )
-        } else if panorama_image.as_rgb32f().is_some() {
-            (format!("{}_Pano.tiff", stem), panorama_image)
-        } else {
-            (
-                format!("{}_Pano.png", stem),
-                DynamicImage::ImageRgb8(panorama_image.to_rgb8()),
-            )
-        };
+    let (extension, image_to_save): (&str, DynamicImage) = if panorama_image.color().has_alpha() {
+        ("png", DynamicImage::ImageRgba8(panorama_image.to_rgba8()))
+    } else if panorama_image.as_rgb32f().is_some() {
+        ("tiff", panorama_image)
+    } else {
+        ("png", DynamicImage::ImageRgb8(panorama_image.to_rgb8()))
+    };
 
-    let output_path = parent_dir.join(output_filename);
+    let output_path = crate::file_management::unique_output_path(
+        parent_dir,
+        &format!("{}_Pano", stem),
+        extension,
+    );
 
     image_to_save
         .save(&output_path)

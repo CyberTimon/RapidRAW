@@ -2152,7 +2152,11 @@ pub async fn save_focus_stack(
         .ok_or_else(|| "Could not determine output directory.".to_string())?;
     let stem = first_path.file_stem().unwrap_or_default().to_string_lossy();
 
-    let output_path = parent_dir.join(format!("{}_Stacked.tiff", stem));
+    let output_path = crate::file_management::unique_output_path(
+        parent_dir,
+        &format!("{}_Stacked", stem),
+        "tiff",
+    );
 
     let rgb16 = focus_image.to_rgb16();
     rgb16

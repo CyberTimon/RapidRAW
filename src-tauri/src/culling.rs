@@ -4,7 +4,6 @@ use image_hasher::{HashAlg, HasherConfig};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
-use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tauri::{AppHandle, Emitter};
@@ -129,14 +128,22 @@ fn analyze_image(
 ) -> Result<ImageAnalysisData, String> {
     const ANALYSIS_DIM: u32 = 720; // FIXME: How should we calculate good focus if it's downscaled?!?
 
-    if crate::file_management::is_cloud_placeholder(Path::new(path)) {
+    // Virtual copies share the file of their original.
+    let (source_path, _) = crate::file_management::parse_virtual_path(path);
+    if crate::file_management::is_cloud_placeholder(&source_path) {
         return Err(format!("'{}' is stored in iCloud and not downloaded", path));
     }
 
-    let file_bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+    let file_bytes = std::fs::read(&source_path).map_err(|e| e.to_string())?;
 
-    let img = image_loader::load_base_image_from_bytes(&file_bytes, path, true, settings, None)
-        .map_err(|e| e.to_string())?;
+    let img = image_loader::load_base_image_from_bytes(
+        &file_bytes,
+        &source_path.to_string_lossy(),
+        true,
+        settings,
+        None,
+    )
+    .map_err(|e| e.to_string())?;
 
     let (width, height) = img.dimensions();
     let thumbnail = img.thumbnail(ANALYSIS_DIM, ANALYSIS_DIM);
@@ -243,6 +250,7 @@ pub async fn cull_images(
         ..Default::default()
     };
     let mut processed_indices = vec![false; successful_analyses.len()];
+    let mut grouped_indices = vec![false; successful_analyses.len()];
 
     if settings.group_similar {
         for i in 0..successful_analyses.len() {
@@ -283,6 +291,9 @@ pub async fn cull_images(
                         .unwrap_or(std::cmp::Ordering::Equal)
                 });
 
+                for &idx in &current_group_indices {
+                    grouped_indices[idx] = true;
+                }
                 let representative_idx = current_group_indices[0];
                 let duplicate_indices = &current_group_indices[1..];
 
@@ -299,7 +310,8 @@ pub async fn cull_images(
 
     if settings.filter_blurry {
         for i in 0..successful_analyses.len() {
-            if !processed_indices[i] {
+            // Images already reported in a similar group are not listed again.
+            if !grouped_indices[i] {
                 let item = &successful_analyses[i];
                 if item.result.sharpness_metric < settings.blur_threshold {
                     suggestions.blurry_images.push(item.result.clone());
