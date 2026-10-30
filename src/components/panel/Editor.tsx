@@ -35,6 +35,7 @@ import { useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useAiMasking } from '../../hooks/useAiMasking';
 import { useEditorActions, withRotation } from '../../hooks/useEditorActions';
+import { clickZoomTarget, interpretWheel, movedBeyondClick } from '../../utils/canvasControls';
 
 const parseRgb = (rgbStr: string): [number, number, number, number] => {
   const match = rgbStr.match(/[\d.]+/g);
@@ -166,6 +167,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const selectedImage = useEditorStore((s) => s.selectedImage);
   const adjustments = useEditorStore(useShallow((s) => omitTonalAdjustments(s.adjustments)));
   const adjustmentsHistory = useEditorStore((s) => s.history);
+  const adjustmentsHistoryLabels = useEditorStore((s) => s.historyLabels);
   const adjustmentsHistoryIndex = useEditorStore((s) => s.historyIndex);
   const finalPreviewUrl = useEditorStore((s) => s.finalPreviewUrl);
   const uncroppedAdjustedPreviewUrl = useEditorStore((s) => s.uncroppedAdjustedPreviewUrl);
@@ -884,26 +886,14 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         return;
       }
 
-      const isPinch = e.ctrlKey;
-      const isTrackpad = appSettings?.canvasInputMode === 'trackpad';
-      let zoomSpeedMult = appSettings?.zoomSpeedMultiplier ?? 1.0;
+      const gesture = interpretWheel(e, appSettings?.zoomSpeedMultiplier, appSettings?.canvasInputMode);
 
-      if (isTrackpad) {
-        zoomSpeedMult *= 5;
-      }
-
-      const isZoomIntent = isPinch || (!isTrackpad && !e.shiftKey && !e.altKey);
-
-      if (isZoomIntent) {
+      if (gesture.kind === 'zoom') {
         const rect = container.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
-        const zoomSensitivity = 0.002 * zoomSpeedMult;
-        const exponent = delta * zoomSensitivity;
-
-        let newScale = transformStateRef.current.scale * Math.exp(-exponent);
+        let newScale = transformStateRef.current.scale * gesture.factor;
         newScale = Math.max(minScaleRef.current, Math.min(maxScaleRef.current, newScale));
 
         const ratio = newScale / transformStateRef.current.scale;
@@ -918,24 +908,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         const { positionX: curX, positionY: curY, scale } = transformStateRef.current;
         const bounds = getTransformBounds(scale);
 
-        let dx = e.deltaX;
-        let dy = e.deltaY;
-
-        if (!isTrackpad) {
-          if (e.shiftKey && e.altKey) {
-            dx = e.deltaY !== 0 ? e.deltaY : e.deltaX;
-            dy = dx;
-          } else if (e.shiftKey) {
-            dx = e.deltaY !== 0 ? e.deltaY : e.deltaX;
-            dy = 0;
-          } else if (e.altKey) {
-            dx = 0;
-            dy = e.deltaY !== 0 ? e.deltaY : e.deltaX;
-          }
-        }
-
-        let newX = curX - dx;
-        let newY = curY - dy;
+        let newX = curX - gesture.dx;
+        let newY = curY - gesture.dy;
 
         const resistance = 0.5;
 
@@ -1285,11 +1259,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         return;
       if (isPanningDisabled || wasPanningDisabledOnDown.current) return;
 
-      if (mouseDownPos.current) {
-        const dx = Math.abs(e.clientX - mouseDownPos.current.x);
-        const dy = Math.abs(e.clientY - mouseDownPos.current.y);
-        if (dx > 5 || dy > 5) return;
-      }
+      if (mouseDownPos.current && movedBeyondClick(mouseDownPos.current, e.clientX, e.clientY)) return;
 
       const currentScale = transformStateRef.current.scale;
 
@@ -1319,16 +1289,15 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        let zoomTarget = Math.min(currentScale * 2, maxScaleRef.current);
-
-        if (appSettings?.zoomPhotoToPixelClick) {
-          const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-          const scaleForCss100 = imageRenderSizeRef.current.scale ? 1 / imageRenderSizeRef.current.scale : 1;
-          const scaleForPhysical100 = scaleForCss100 / dpr;
-          zoomTarget = Math.max(1.05, Math.min(scaleForPhysical100, maxScaleRef.current));
-        } else {
-          zoomTarget = savedZoomState.current ? savedZoomState.current.scale : zoomTarget;
-        }
+        const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+        const scaleForCss100 = imageRenderSizeRef.current.scale ? 1 / imageRenderSizeRef.current.scale : 1;
+        const zoomTarget = clickZoomTarget(
+          currentScale,
+          maxScaleRef.current,
+          scaleForCss100 / dpr,
+          savedZoomState.current?.scale ?? null,
+          appSettings?.zoomPhotoToPixelClick,
+        );
         const ratio = zoomTarget / currentScale;
 
         const newPositionX = mouseX - (mouseX - currentPositionX) * ratio;
@@ -1917,11 +1886,17 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   }, [showSpinner]);
 
   useEffect(() => {
-    if (!isCropping || !selectedImage?.width || !selectedImage?.height) {
+    const { aspectRatio, orientationSteps = 0, crop: currentAdjCrop, rotation = 0 } = adjustments;
+
+    if (!isCropping) {
+      prevCropParams.current = { rotation, aspectRatio, orientationSteps };
       return;
     }
 
-    const { aspectRatio, orientationSteps = 0, crop: currentAdjCrop, rotation = 0 } = adjustments;
+    if (!selectedImage?.width || !selectedImage?.height) {
+      return;
+    }
+
     const effectiveRotation = liveRotation !== null && liveRotation !== undefined ? liveRotation : rotation;
 
     const geometryChanged =
@@ -2543,7 +2518,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
           compareMode={appSettings?.compareMode ?? 'toggle'}
           showDateView={showExifDateView}
           onToggleDateView={() => setShowExifDateView((prev) => !prev)}
-          adjustmentsHistory={adjustmentsHistory}
+          adjustmentsHistoryLabels={adjustmentsHistoryLabels}
           adjustmentsHistoryIndex={adjustmentsHistoryIndex}
           goToAdjustmentsHistoryIndex={goToHistoryIndex}
         />

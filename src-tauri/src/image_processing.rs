@@ -1,6 +1,6 @@
 use crate::as_shot::AsShot;
 use crate::baseline_exposure::BaselineOptions;
-use crate::gpu_processing::WgpuDisplay;
+use crate::gpu_processing::{GpuPipelines, WgpuDisplay};
 use crate::guided_perspective::{GuideLine, compute_guided_homography, count_valid_lines};
 use crate::white_balance::{self, WhiteBalance};
 use bytemuck::{Pod, Zeroable};
@@ -1696,6 +1696,24 @@ pub struct ColorCalibrationSettings {
     _pad1: f32,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
+#[repr(C)]
+pub struct MonochromeSettings {
+    pub enabled: u32,
+    pub weight_r: f32,
+    pub weight_g: f32,
+    pub weight_b: f32,
+    pub mix: [f32; 8],
+    pub shadow_a: f32,
+    pub shadow_b: f32,
+    pub highlight_a: f32,
+    pub highlight_b: f32,
+    pub toning_balance: f32,
+    _pad1: f32,
+    _pad2: f32,
+    _pad3: f32,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable)]
 #[repr(C)]
 pub struct GpuMat3 {
@@ -1803,6 +1821,8 @@ pub struct GlobalAdjustments {
     pub halation_amount: f32,
     pub flare_amount: f32,
     pub sharpness_threshold: f32,
+
+    pub monochrome: MonochromeSettings,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
@@ -1914,6 +1934,9 @@ struct AdjustmentScales {
     color_calibration_hue: f32,
     color_calibration_saturation: f32,
 
+    monochrome_mix: f32,
+    monochrome_toning_saturation: f32,
+
     glow: f32,
     halation: f32,
     flares: f32,
@@ -1961,6 +1984,9 @@ const SCALES: AdjustmentScales = AdjustmentScales {
     color_calibration_hue: 400.0,
     color_calibration_saturation: 120.0,
 
+    monochrome_mix: 100.0,
+    monochrome_toning_saturation: 800.0,
+
     glow: 100.0,
     halation: 100.0,
     flares: 100.0,
@@ -2007,6 +2033,122 @@ fn parse_color_grade_settings(js_cg: &serde_json::Value) -> ColorGradeSettings {
         luminance: js_cg["luminance"].as_f64().unwrap_or(0.0) as f32
             / SCALES.color_grading_luminance,
         _pad: 0.0,
+    }
+}
+
+fn hue_to_linear_srgb(hue_degrees: f32) -> Vec3 {
+    let h = hue_degrees.rem_euclid(360.0) / 60.0;
+    let x = 1.0 - ((h % 2.0) - 1.0).abs();
+    let srgb = match h as u32 {
+        0 => Vec3::new(1.0, x, 0.0),
+        1 => Vec3::new(x, 1.0, 0.0),
+        2 => Vec3::new(0.0, 1.0, x),
+        3 => Vec3::new(0.0, x, 1.0),
+        4 => Vec3::new(x, 0.0, 1.0),
+        _ => Vec3::new(1.0, 0.0, x),
+    };
+    srgb.map(|c| {
+        if c <= 0.04045 {
+            c / 12.92
+        } else {
+            ((c + 0.055) / 1.055).powf(2.4)
+        }
+    })
+}
+
+fn oklab_hue_direction(hue_degrees: f32) -> Vec2 {
+    let rgb = hue_to_linear_srgb(hue_degrees);
+    let l = (0.412_221_47 * rgb.x + 0.536_332_55 * rgb.y + 0.051_445_995 * rgb.z).cbrt();
+    let m = (0.211_903_5 * rgb.x + 0.680_699_5 * rgb.y + 0.107_396_96 * rgb.z).cbrt();
+    let s = (0.088_302_46 * rgb.x + 0.281_718_85 * rgb.y + 0.629_978_7 * rgb.z).cbrt();
+    let ab = Vec2::new(
+        1.977_998_5 * l - 2.428_592_2 * m + 0.450_593_7 * s,
+        0.025_904_037 * l + 0.782_771_77 * m - 0.808_675_77 * s,
+    );
+    ab.normalize_or_zero()
+}
+
+fn monochrome_film_response(film: &str) -> (Vec3, [f32; 8]) {
+    match film {
+        "panchromatic" => (Vec3::new(0.19, 0.36, 0.45), [0.0; 8]),
+        "balanced" => (Vec3::new(0.33, 0.36, 0.31), [0.0; 8]),
+        "orthoPanchromatic" => (Vec3::new(0.237, 0.418, 0.345), [0.0; 8]),
+        "extendedRed" => (Vec3::new(0.45, 0.35, 0.20), [0.0; 8]),
+        "orthochromatic" => (Vec3::new(0.0, 0.4, 0.6), [0.0; 8]),
+        "infrared" => (
+            Vec3::new(0.45, 0.55, 0.0),
+            [0.3, 0.3, 0.6, 1.0, -0.5, -1.0, -0.3, 0.2],
+        ),
+        _ => (Vec3::new(0.2126, 0.7152, 0.0722), [0.0; 8]),
+    }
+}
+
+fn parse_monochrome_settings(
+    js_adjustments: &serde_json::Value,
+    mix_visible: bool,
+    toning_visible: bool,
+) -> MonochromeSettings {
+    let get = |value: &serde_json::Value, default: f64| value.as_f64().unwrap_or(default) as f32;
+
+    let filter_strength =
+        (get(&js_adjustments["monochromeFilterStrength"], 0.0) / 100.0).clamp(0.0, 1.0);
+    let filter = Vec3::ONE.lerp(
+        hue_to_linear_srgb(get(&js_adjustments["monochromeFilterHue"], 0.0)),
+        filter_strength,
+    );
+    let (film, mut mix) =
+        monochrome_film_response(js_adjustments["monochromeFilm"].as_str().unwrap_or(""));
+    let filtered = (film * filter).max(Vec3::ZERO);
+    let filtered_sum = filtered.x + filtered.y + filtered.z;
+    let weights = if filtered_sum > 1e-4 {
+        filtered / filtered_sum
+    } else {
+        film
+    };
+
+    if mix_visible {
+        let js_mix = &js_adjustments["monochromeMix"];
+        for (index, name) in [
+            "reds", "oranges", "yellows", "greens", "aquas", "blues", "purples", "magentas",
+        ]
+        .iter()
+        .enumerate()
+        {
+            mix[index] =
+                (mix[index] + get(&js_mix[*name], 0.0) / SCALES.monochrome_mix).clamp(-1.0, 1.0);
+        }
+    }
+
+    let js_toning = &js_adjustments["monochromeToning"];
+    let toning = |hue_key: &str, saturation_key: &str| {
+        if !toning_visible {
+            return Vec2::ZERO;
+        }
+        let saturation = get(&js_toning[saturation_key], 0.0).clamp(0.0, 100.0);
+        oklab_hue_direction(get(&js_toning[hue_key], 0.0))
+            * (saturation / SCALES.monochrome_toning_saturation)
+    };
+    let shadow = toning("shadowHue", "shadowSaturation");
+    let highlight = toning("highlightHue", "highlightSaturation");
+
+    MonochromeSettings {
+        enabled: 1,
+        weight_r: weights.x,
+        weight_g: weights.y,
+        weight_b: weights.z,
+        mix,
+        shadow_a: shadow.x,
+        shadow_b: shadow.y,
+        highlight_a: highlight.x,
+        highlight_b: highlight.y,
+        toning_balance: if toning_visible {
+            get(&js_toning["balance"], 0.0) / 100.0
+        } else {
+            0.0
+        },
+        _pad1: 0.0,
+        _pad2: 0.0,
+        _pad3: 0.0,
     }
 }
 
@@ -2137,7 +2279,7 @@ pub fn resolve_tonemapper_override(settings: &crate::AppSettings, is_raw: bool) 
     Some(if tm == "agx" { 1 } else { 0 })
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct RenderOptions {
     pub tonemapper_override: Option<u32>,
     pub non_raw_tonemapper_override: Option<u32>,
@@ -2498,8 +2640,12 @@ fn get_global_adjustments_from_json(
         Vec::new()
     };
 
-    let color_grading_visible = is_visible("colorGrading");
-    let color_mixer_visible = is_visible("colorMixer");
+    let is_monochrome = js_adjustments["monochromeEnabled"]
+        .as_bool()
+        .unwrap_or(false)
+        && is_visible("colorPresence");
+    let color_grading_visible = is_visible("colorGrading") && !is_monochrome;
+    let color_mixer_visible = is_visible("colorMixer") && !is_monochrome;
 
     let cg_obj = js_adjustments
         .get("colorGrading")
@@ -2511,7 +2657,7 @@ fn get_global_adjustments_from_json(
         .cloned()
         .unwrap_or_default();
 
-    let color_cal_settings = if is_visible("colorCalibration") {
+    let color_cal_settings = if is_visible("colorCalibration") && !is_monochrome {
         ColorCalibrationSettings {
             shadows_tint: cal_obj["shadowsTint"].as_f64().unwrap_or(0.0) as f32
                 / SCALES.color_calibration_hue,
@@ -2567,9 +2713,21 @@ fn get_global_adjustments_from_json(
         whites: get_val("basic", "whites", SCALES.whites, None),
         blacks: get_val("basic", "blacks", SCALES.blacks, None),
 
-        saturation: get_val("colorPresence", "saturation", SCALES.saturation, None),
-        vibrance: get_val("colorPresence", "vibrance", SCALES.vibrance, None),
-        hue: get_val("hue", "hue", 1.0, None),
+        saturation: if is_monochrome {
+            0.0
+        } else {
+            get_val("colorPresence", "saturation", SCALES.saturation, None)
+        },
+        vibrance: if is_monochrome {
+            0.0
+        } else {
+            get_val("colorPresence", "vibrance", SCALES.vibrance, None)
+        },
+        hue: if is_monochrome {
+            0.0
+        } else {
+            get_val("hue", "hue", 1.0, None)
+        },
         wb_log_gain_l: white_balance_gains[0],
         wb_log_gain_m: white_balance_gains[1],
         wb_log_gain_s: white_balance_gains[2],
@@ -2726,6 +2884,16 @@ fn get_global_adjustments_from_json(
             SCALES.sharpness_threshold,
             Some(15.0),
         ),
+
+        monochrome: if is_monochrome {
+            parse_monochrome_settings(
+                js_adjustments,
+                is_visible("colorMixer"),
+                is_visible("colorGrading"),
+            )
+        } else {
+            MonochromeSettings::default()
+        },
     }
 }
 
@@ -2945,11 +3113,28 @@ pub fn get_all_adjustments_from_json(
 
 #[derive(Clone)]
 pub struct GpuContext {
+    pub instance: wgpu::Instance,
+    pub adapter: wgpu::Adapter,
     pub device: Arc<wgpu::Device>,
     pub queue: Arc<wgpu::Queue>,
     pub limits: wgpu::Limits,
     pub adapter_info: wgpu::AdapterInfo,
     pub display: Arc<std::sync::Mutex<Option<WgpuDisplay>>>,
+    pub viewer_display: Arc<std::sync::Mutex<Option<WgpuDisplay>>>,
+    pub pipelines: Arc<OnceLock<Arc<GpuPipelines>>>,
+}
+
+impl GpuContext {
+    pub fn display_for_label(
+        &self,
+        label: &str,
+    ) -> Option<&Arc<std::sync::Mutex<Option<WgpuDisplay>>>> {
+        match label {
+            "main" => Some(&self.display),
+            crate::viewer_window::VIEWER_LABEL => Some(&self.viewer_display),
+            _ => None,
+        }
+    }
 }
 
 fn into_rgb32f_parallel(image: DynamicImage) -> image::Rgb32FImage {

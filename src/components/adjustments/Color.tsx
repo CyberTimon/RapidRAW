@@ -4,12 +4,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import Slider, { SliderChangeEvent } from '../ui/Slider';
 import ColorWheel from '../ui/ColorWheel';
-import { ColorAdjustment, ColorCalibration, HueSatLum, INITIAL_ADJUSTMENTS } from '../../utils/adjustments';
+import {
+  ColorAdjustment,
+  ColorCalibration,
+  HueSatLum,
+  INITIAL_ADJUSTMENTS,
+  MonochromeFilm,
+  MonochromeToning,
+} from '../../utils/adjustments';
 import { Adjustments, ColorGrading, getAdjustmentToolOrder, getHiddenAdjustmentTools } from '../../utils/adjustments';
 import { AppSettings } from '../ui/AppProperties';
 import Text from '../ui/Text';
 import AdjustmentSubSection from './AdjustmentSubSection';
 import { useSettingsStore } from '../../store/useSettingsStore';
+import { useEditorStore } from '../../store/useEditorStore';
 import {
   getRelativeWhiteBalance,
   getWhiteBalanceMode,
@@ -49,10 +57,11 @@ interface ColorSwatchProps {
   isActive: boolean;
   name: string;
   ariaLabel: string;
+  tooltip?: string;
   onClick: (name: string) => void;
 }
 
-export const ColorSwatch = ({ color, name, isActive, ariaLabel, onClick }: ColorSwatchProps) => {
+export const ColorSwatch = ({ color, name, isActive, ariaLabel, tooltip, onClick }: ColorSwatchProps) => {
   const [isPressed, setIsPressed] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -87,6 +96,7 @@ export const ColorSwatch = ({ color, name, isActive, ariaLabel, onClick }: Color
   return (
     <button
       aria-label={ariaLabel}
+      data-tooltip={tooltip}
       className="relative w-6 h-6 focus:outline-hidden group"
       onClick={handleClick}
       onMouseDown={handleMouseDown}
@@ -113,7 +123,7 @@ export const ColorSwatch = ({ color, name, isActive, ariaLabel, onClick }: Color
           isActive ? 'shadow-lg' : 'shadow-md'
         }`}
         style={{
-          backgroundColor: color,
+          background: color,
           transform: getTransform(),
           transition: isPressed
             ? 'transform 100ms cubic-bezier(0.4, 0, 0.2, 1)'
@@ -408,6 +418,267 @@ const ColorCalibrationPanel = ({ adjustments, setAdjustments, onDragStateChange 
   );
 };
 
+const MONOCHROME_FILTERS = [
+  { name: 'none', color: '#8a8a8a', hue: 0, strength: 0 },
+  { name: 'red', color: '#f87171', hue: 0, strength: 100 },
+  { name: 'orange', color: '#fb923c', hue: 30, strength: 85 },
+  { name: 'yellow', color: '#facc15', hue: 55, strength: 60 },
+  { name: 'green', color: '#4ade80', hue: 120, strength: 70 },
+  { name: 'blue', color: '#60a5fa', hue: 225, strength: 80 },
+] as const;
+
+const MONOCHROME_TONINGS = [
+  { name: 'none', color: '#8a8a8a', toning: { highlightSaturation: 0, shadowSaturation: 0 } },
+  {
+    name: 'sepia',
+    color: '#a9825a',
+    toning: { highlightHue: 40, highlightSaturation: 30, shadowHue: 30, shadowSaturation: 35, balance: 0 },
+  },
+  {
+    name: 'selenium',
+    color: '#7d6a78',
+    toning: { highlightHue: 40, highlightSaturation: 0, shadowHue: 310, shadowSaturation: 22, balance: 0 },
+  },
+  {
+    name: 'platinum',
+    color: '#b4a58f',
+    toning: { highlightHue: 42, highlightSaturation: 12, shadowHue: 32, shadowSaturation: 16, balance: 0 },
+  },
+  {
+    name: 'gold',
+    color: '#7f93a8',
+    toning: { highlightHue: 215, highlightSaturation: 14, shadowHue: 215, shadowSaturation: 20, balance: 0 },
+  },
+  {
+    name: 'cyanotype',
+    color: '#3f6f9e',
+    toning: { highlightHue: 210, highlightSaturation: 50, shadowHue: 210, shadowSaturation: 60, balance: 0 },
+  },
+  {
+    name: 'split',
+    color: 'linear-gradient(135deg, #d0a060 50%, #5a7fa8 50%)',
+    toning: { highlightHue: 45, highlightSaturation: 25, shadowHue: 215, shadowSaturation: 25, balance: 0 },
+  },
+] as const satisfies ReadonlyArray<{ name: string; color: string; toning: Partial<MonochromeToning> }>;
+
+const MonochromePanel = ({ adjustments, setAdjustments, onDragStateChange }: ColorPanelProps) => {
+  const { t } = useTranslation();
+  const filterHue = adjustments.monochromeFilterHue ?? 0;
+  const filterStrength = adjustments.monochromeFilterStrength ?? 0;
+
+  const activeFilm = adjustments.monochromeFilm ?? MonochromeFilm.Neutral;
+
+  const handleChange = (key: keyof Adjustments, value: number | string) => {
+    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: value }));
+  };
+
+  const handleFilterSelect = (name: string) => {
+    const filter = MONOCHROME_FILTERS.find((f) => f.name === name);
+    if (!filter) {
+      return;
+    }
+    setAdjustments((prev: Partial<Adjustments>) => ({
+      ...prev,
+      monochromeFilterHue: filter.strength > 0 ? filter.hue : prev.monochromeFilterHue,
+      monochromeFilterStrength: filter.strength,
+    }));
+  };
+
+  const isFilterActive = (filter: (typeof MONOCHROME_FILTERS)[number]) =>
+    filter.strength === 0 ? filterStrength === 0 : filterHue === filter.hue && filterStrength === filter.strength;
+
+  return (
+    <div>
+      <Text color={TextColors.primary} weight={TextWeights.medium} className="mb-2">
+        {t('adjustments.color.monochrome.film')}
+      </Text>
+      <div className="grid grid-cols-2 gap-1.5">
+        {Object.values(MonochromeFilm).map((film) => (
+          <button
+            key={film}
+            onClick={() => handleChange('monochromeFilm', film)}
+            className={`px-2 py-1.5 rounded-md text-xs text-left truncate transition-colors ${
+              activeFilm === film
+                ? 'bg-accent text-button-text font-semibold'
+                : 'bg-bg-secondary text-text-secondary hover:text-text-primary hover:bg-bg-secondary/80'
+            }`}
+            data-tooltip={t(`adjustments.color.monochrome.filmDescriptions.${film}`)}
+          >
+            {t(`adjustments.color.monochrome.films.${film}`)}
+          </button>
+        ))}
+      </div>
+      <div className="mt-4">
+        <Text color={TextColors.primary} weight={TextWeights.medium} className="mb-3">
+          {t('adjustments.color.monochrome.filter')}
+        </Text>
+        <div className="flex justify-between mb-4 px-1">
+          {MONOCHROME_FILTERS.map((filter) => (
+            <ColorSwatch
+              color={filter.color}
+              isActive={isFilterActive(filter)}
+              key={filter.name}
+              name={filter.name}
+              onClick={handleFilterSelect}
+              ariaLabel={t(`adjustments.color.monochrome.filters.${filter.name}`)}
+              tooltip={t(`adjustments.color.monochrome.filters.${filter.name}`)}
+            />
+          ))}
+        </div>
+        <Slider
+          label={t('adjustments.color.monochrome.hue')}
+          max={360}
+          min={0}
+          step={1}
+          defaultValue={0}
+          value={filterHue}
+          onChange={(e: SliderChangeEvent) => handleChange('monochromeFilterHue', Number(e.target.value))}
+          onDragStateChange={onDragStateChange}
+          trackClassName="hue-range-track"
+        />
+        <Slider
+          label={t('adjustments.color.monochrome.strength')}
+          max={100}
+          min={0}
+          step={1}
+          defaultValue={0}
+          value={filterStrength}
+          onChange={(e: SliderChangeEvent) => handleChange('monochromeFilterStrength', Number(e.target.value))}
+          onDragStateChange={onDragStateChange}
+          fillOrigin="min"
+        />
+      </div>
+    </div>
+  );
+};
+
+interface MonochromeMixPanelProps {
+  colors: Array<ColorProps>;
+  values: Record<string, number>;
+  onChange(name: string, value: number | string): void;
+  onDragStateChange?: (isDragging: boolean) => void;
+}
+
+const MonochromeMixPanel = ({ colors, values, onChange, onDragStateChange }: MonochromeMixPanelProps) => {
+  const trackStyle = Object.fromEntries(colors.map(({ name }) => [`--hsl-mixer-sat-${name}`, '60%'])) as CSSProperties;
+
+  return (
+    <div style={trackStyle}>
+      {colors.map(({ name, label }) => (
+        <Slider
+          key={name}
+          label={label}
+          max={100}
+          min={-100}
+          step={1}
+          defaultValue={0}
+          value={values[name] ?? 0}
+          onChange={(e: SliderChangeEvent) => onChange(name, e.target.value)}
+          onDragStateChange={onDragStateChange}
+          trackClassName={`lum-slider-${name}`}
+        />
+      ))}
+    </div>
+  );
+};
+
+const MonochromeToningPanel = ({ adjustments, setAdjustments, onDragStateChange }: ColorPanelProps) => {
+  const { t } = useTranslation();
+  const toning = adjustments.monochromeToning || INITIAL_ADJUSTMENTS.monochromeToning;
+
+  const handleToningChange = (key: keyof MonochromeToning, value: number | string) => {
+    setAdjustments((prev: Partial<Adjustments>) => ({
+      ...prev,
+      monochromeToning: {
+        ...(prev.monochromeToning || INITIAL_ADJUSTMENTS.monochromeToning),
+        [key]: Number(value),
+      },
+    }));
+  };
+
+  const handlePresetSelect = (name: string) => {
+    const preset = MONOCHROME_TONINGS.find((p) => p.name === name);
+    if (!preset) {
+      return;
+    }
+    setAdjustments((prev: Partial<Adjustments>) => ({
+      ...prev,
+      monochromeToning: {
+        ...(prev.monochromeToning || INITIAL_ADJUSTMENTS.monochromeToning),
+        ...preset.toning,
+      },
+    }));
+  };
+
+  const isPresetActive = (preset: (typeof MONOCHROME_TONINGS)[number]) =>
+    Object.entries(preset.toning).every(([key, value]) => toning[key as keyof MonochromeToning] === value);
+
+  const renderTone = (tone: 'highlight' | 'shadow') => {
+    const hueKey = `${tone}Hue` as const;
+    const saturationKey = `${tone}Saturation` as const;
+    return (
+      <div style={{ '--toning-hue': toning[hueKey] } as CSSProperties}>
+        <Text color={TextColors.primary} weight={TextWeights.medium} className="mb-1">
+          {t(`adjustments.color.monochrome.${tone}s`)}
+        </Text>
+        <Slider
+          label={t('adjustments.color.monochrome.hue')}
+          max={360}
+          min={0}
+          step={1}
+          defaultValue={INITIAL_ADJUSTMENTS.monochromeToning[hueKey]}
+          value={toning[hueKey]}
+          onChange={(e: SliderChangeEvent) => handleToningChange(hueKey, e.target.value)}
+          onDragStateChange={onDragStateChange}
+          trackClassName="hue-range-track"
+        />
+        <Slider
+          label={t('adjustments.color.monochrome.saturation')}
+          max={100}
+          min={0}
+          step={1}
+          defaultValue={0}
+          value={toning[saturationKey]}
+          onChange={(e: SliderChangeEvent) => handleToningChange(saturationKey, e.target.value)}
+          onDragStateChange={onDragStateChange}
+          trackClassName="toning-saturation-track"
+          fillOrigin="min"
+        />
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between mb-4 px-1">
+        {MONOCHROME_TONINGS.map((preset) => (
+          <ColorSwatch
+            color={preset.color}
+            isActive={isPresetActive(preset)}
+            key={preset.name}
+            name={preset.name}
+            onClick={handlePresetSelect}
+            ariaLabel={t(`adjustments.color.monochrome.tonings.${preset.name}`)}
+            tooltip={t(`adjustments.color.monochrome.tonings.${preset.name}`)}
+          />
+        ))}
+      </div>
+      {renderTone('highlight')}
+      <Slider
+        label={t('adjustments.color.monochrome.balance')}
+        max={100}
+        min={-100}
+        step={1}
+        defaultValue={0}
+        value={toning.balance}
+        onChange={(e: SliderChangeEvent) => handleToningChange('balance', e.target.value)}
+        onDragStateChange={onDragStateChange}
+      />
+      <div className="mt-3">{renderTone('shadow')}</div>
+    </div>
+  );
+};
+
 function ColorPanel({
   adjustments,
   setAdjustments,
@@ -461,8 +732,37 @@ function ColorPanel({
     [`--hsl-mixer-sat-${activeColor}`]: `${(currentHsl.saturation + 100) / 2}%`,
   } as CSSProperties;
 
+  const isMonochromeImage = useEditorStore((state) => !!state.adjustments.monochromeEnabled);
+  const isMonochrome = !isForMask && !!adjustments.monochromeEnabled;
+  const isMonochromeMask = isForMask && isMonochromeImage;
+  const showMonochromeMix = isMonochrome || isMonochromeMask;
+  const gradingOrder = toolOrder.indexOf('colorGrading');
+  const mixerOrder = toolOrder.indexOf('colorMixer');
+
   const handleAdjustmentChange = (key: ColorAdjustment, value: string) => {
     setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: parseFloat(value) }));
+  };
+
+  const toggleMonochrome = () => {
+    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, monochromeEnabled: !prev.monochromeEnabled }));
+  };
+
+  const monochromeMixValues = isMonochrome
+    ? adjustments.monochromeMix || INITIAL_ADJUSTMENTS.monochromeMix
+    : Object.fromEntries(HSL_COLORS.map(({ name }) => [name, adjustments.hsl?.[name]?.luminance ?? 0]));
+
+  const handleMonochromeMixChange = (name: string, value: number | string) => {
+    setAdjustments((prev: Partial<Adjustments>) =>
+      isMonochrome
+        ? {
+            ...prev,
+            monochromeMix: { ...(prev.monochromeMix || INITIAL_ADJUSTMENTS.monochromeMix), [name]: Number(value) },
+          }
+        : {
+            ...prev,
+            hsl: { ...(prev.hsl || {}), [name]: { ...(prev.hsl?.[name] || {}), luminance: Number(value) } },
+          },
+    );
   };
 
   const kelvinAsShot =
@@ -576,34 +876,58 @@ function ColorPanel({
         </AdjustmentSubSection>
       )}
 
-      {!hiddenTools.includes('colorPresence') && (
+      {!isMonochromeMask && !hiddenTools.includes('colorPresence') && (
         <AdjustmentSubSection
+          actions={
+            !isForMask && (
+              <button
+                onClick={toggleMonochrome}
+                className={`min-w-6 h-6 px-1 flex items-center justify-center rounded-md text-xs font-semibold whitespace-nowrap transition-colors ${
+                  isMonochrome ? 'bg-accent text-button-text' : 'hover:bg-bg-secondary text-text-secondary'
+                }`}
+                data-tooltip={t('adjustments.color.monochrome.blackWhite')}
+              >
+                {t('adjustments.color.monochrome.badge')}
+              </button>
+            )
+          }
           id="colorPresence"
           order={toolOrder.indexOf('colorPresence')}
-          title={t('adjustments.color.presence')}
+          title={isMonochrome ? t('adjustments.color.monochrome.blackWhite') : t('adjustments.color.presence')}
         >
-          <Slider
-            label={t('adjustments.color.vibrance')}
-            max={100}
-            min={-100}
-            onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Vibrance, e.target.value)}
-            step={1}
-            value={adjustments.vibrance || 0}
-            onDragStateChange={onDragStateChange}
-          />
-          <Slider
-            label={t('adjustments.color.saturation')}
-            max={100}
-            min={-100}
-            onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Saturation, e.target.value)}
-            step={1}
-            value={adjustments.saturation || 0}
-            onDragStateChange={onDragStateChange}
-          />
+          {isMonochrome ? (
+            <MonochromePanel
+              adjustments={adjustments}
+              setAdjustments={setAdjustments}
+              appSettings={appSettings}
+              onDragStateChange={onDragStateChange}
+            />
+          ) : (
+            <>
+              <Slider
+                label={t('adjustments.color.vibrance')}
+                max={100}
+                min={-100}
+                onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Vibrance, e.target.value)}
+                step={1}
+                value={adjustments.vibrance || 0}
+                onDragStateChange={onDragStateChange}
+              />
+              <Slider
+                label={t('adjustments.color.saturation')}
+                max={100}
+                min={-100}
+                onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Saturation, e.target.value)}
+                step={1}
+                value={adjustments.saturation || 0}
+                onDragStateChange={onDragStateChange}
+              />
+            </>
+          )}
         </AdjustmentSubSection>
       )}
 
-      {!hiddenTools.includes('hue') && (
+      {!showMonochromeMix && !hiddenTools.includes('hue') && (
         <AdjustmentSubSection
           id="hue"
           order={toolOrder.indexOf('hue')}
@@ -622,75 +946,95 @@ function ColorPanel({
         </AdjustmentSubSection>
       )}
 
-      {!hiddenTools.includes('colorGrading') && (
+      {!isMonochromeMask && !hiddenTools.includes('colorGrading') && (
         <AdjustmentSubSection
           id="colorGrading"
-          order={toolOrder.indexOf('colorGrading')}
-          title={t('adjustments.color.colorGrading')}
+          order={isMonochrome ? Math.max(gradingOrder, mixerOrder) : gradingOrder}
+          title={isMonochrome ? t('adjustments.color.monochrome.toning') : t('adjustments.color.colorGrading')}
         >
-          <ColorGradingPanel
-            adjustments={adjustments}
-            setAdjustments={setAdjustments}
-            appSettings={appSettings}
-            onDragStateChange={onDragStateChange}
-          />
+          {isMonochrome ? (
+            <MonochromeToningPanel
+              adjustments={adjustments}
+              setAdjustments={setAdjustments}
+              appSettings={appSettings}
+              onDragStateChange={onDragStateChange}
+            />
+          ) : (
+            <ColorGradingPanel
+              adjustments={adjustments}
+              setAdjustments={setAdjustments}
+              appSettings={appSettings}
+              onDragStateChange={onDragStateChange}
+            />
+          )}
         </AdjustmentSubSection>
       )}
 
       {!hiddenTools.includes('colorMixer') && (
         <AdjustmentSubSection
           id="colorMixer"
-          order={toolOrder.indexOf('colorMixer')}
-          title={t('adjustments.color.colorMixer')}
+          order={isMonochrome ? Math.min(gradingOrder, mixerOrder) : mixerOrder}
+          title={showMonochromeMix ? t('adjustments.color.monochrome.mix') : t('adjustments.color.colorMixer')}
         >
-          <div className="flex justify-between mb-4 px-1">
-            {HSL_COLORS.map(({ name, color, label }) => (
-              <ColorSwatch
-                color={color}
-                isActive={activeColor === name}
-                key={name}
-                name={name}
-                onClick={setActiveColor}
-                ariaLabel={t('adjustments.color.ariaSelectColor', { name: label })}
-              />
-            ))}
-          </div>
-          <div style={mixerTrackStyle}>
-            <Slider
-              label={t('adjustments.color.hue')}
-              max={100}
-              min={-100}
-              onChange={(e: any) => handleHslChange(ColorAdjustment.Hue, e.target.value)}
-              step={1}
-              value={currentHsl.hue}
-              trackClassName={hue_slider}
+          {showMonochromeMix ? (
+            <MonochromeMixPanel
+              colors={HSL_COLORS}
+              values={monochromeMixValues}
+              onChange={handleMonochromeMixChange}
               onDragStateChange={onDragStateChange}
             />
-            <Slider
-              label={t('adjustments.color.saturation')}
-              max={100}
-              min={-100}
-              onChange={(e: any) => handleHslChange(ColorAdjustment.Saturation, e.target.value)}
-              step={1}
-              value={currentHsl.saturation}
-              trackClassName={saturation_slider}
-              onDragStateChange={onDragStateChange}
-            />
-            <Slider
-              label={t('adjustments.color.luminance')}
-              max={100}
-              min={-100}
-              onChange={(e: any) => handleHslChange(ColorAdjustment.Luminance, e.target.value)}
-              step={1}
-              value={currentHsl.luminance}
-              trackClassName={luminance_slider}
-              onDragStateChange={onDragStateChange}
-            />
-          </div>
+          ) : (
+            <>
+              <div className="flex justify-between mb-4 px-1">
+                {HSL_COLORS.map(({ name, color, label }) => (
+                  <ColorSwatch
+                    color={color}
+                    isActive={activeColor === name}
+                    key={name}
+                    name={name}
+                    onClick={setActiveColor}
+                    ariaLabel={t('adjustments.color.ariaSelectColor', { name: label })}
+                  />
+                ))}
+              </div>
+              <div style={mixerTrackStyle}>
+                <Slider
+                  label={t('adjustments.color.hue')}
+                  max={100}
+                  min={-100}
+                  onChange={(e: any) => handleHslChange(ColorAdjustment.Hue, e.target.value)}
+                  step={1}
+                  value={currentHsl.hue}
+                  trackClassName={hue_slider}
+                  onDragStateChange={onDragStateChange}
+                />
+                <Slider
+                  label={t('adjustments.color.saturation')}
+                  max={100}
+                  min={-100}
+                  onChange={(e: any) => handleHslChange(ColorAdjustment.Saturation, e.target.value)}
+                  step={1}
+                  value={currentHsl.saturation}
+                  trackClassName={saturation_slider}
+                  onDragStateChange={onDragStateChange}
+                />
+                <Slider
+                  label={t('adjustments.color.luminance')}
+                  max={100}
+                  min={-100}
+                  onChange={(e: any) => handleHslChange(ColorAdjustment.Luminance, e.target.value)}
+                  step={1}
+                  value={currentHsl.luminance}
+                  trackClassName={luminance_slider}
+                  onDragStateChange={onDragStateChange}
+                />
+              </div>
+            </>
+          )}
         </AdjustmentSubSection>
       )}
 
-      {!isForMask && !hiddenTools.includes('colorCalibration') && (
+      {!isForMask && !isMonochrome && !hiddenTools.includes('colorCalibration') && (
         <AdjustmentSubSection
           id="colorCalibration"
           order={toolOrder.indexOf('colorCalibration')}

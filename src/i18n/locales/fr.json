@@ -56,6 +56,55 @@
         "reds": "Rouges",
         "yellows": "Jaunes"
       },
+      "monochrome": {
+        "badge": "N&B",
+        "balance": "Balance",
+        "blackWhite": "Noir et blanc",
+        "film": "Pellicule",
+        "filmDescriptions": {
+          "balanced": "Sensibilité uniforme à toutes les couleurs, avec des rouges et une peau plus clairs",
+          "extendedRed": "Pellicule sensible au rouge : peau lumineuse et ciels plus sombres",
+          "infrared": "Feuillage lumineux et ciels presque noirs",
+          "neutral": "Correspond à la luminosité perçue de chaque couleur",
+          "orthoPanchromatic": "Rouges légèrement plus sombres et verts nets",
+          "orthochromatic": "Insensible au rouge : rouges sombres et ciels clairs",
+          "panchromatic": "Rendu argentique classique avec des ciels bleus plus clairs"
+        },
+        "films": {
+          "balanced": "Équilibrée",
+          "extendedRed": "Rouge étendu",
+          "infrared": "Infrarouge",
+          "neutral": "Neutre",
+          "orthoPanchromatic": "Ortho-pan",
+          "orthochromatic": "Orthochromatique",
+          "panchromatic": "Panchromatique"
+        },
+        "filter": "Filtre",
+        "filters": {
+          "blue": "Bleu",
+          "green": "Vert",
+          "none": "Aucun",
+          "orange": "Orange",
+          "red": "Rouge",
+          "yellow": "Jaune"
+        },
+        "highlights": "Hautes lumières",
+        "hue": "Teinte",
+        "mix": "Mélange N&B",
+        "saturation": "Saturation",
+        "shadows": "Ombres",
+        "strength": "Intensité",
+        "toning": "Virage",
+        "tonings": {
+          "cyanotype": "Cyanotype",
+          "gold": "Or",
+          "none": "Aucun",
+          "platinum": "Platine",
+          "selenium": "Sélénium",
+          "sepia": "Sépia",
+          "split": "Virage partiel"
+        }
+      },
       "presence": "Présence",
       "saturation": "Saturation",
       "temperature": "Température",
@@ -227,8 +276,10 @@
       "autoLensCorrection": "Correction d'objectif automatique",
       "autoStraighten": "Redresser automatiquement",
       "cancel": "Annuler",
+      "closeViewer": "Fermer la seconde fenêtre",
       "colorLabel": "Étiquette de couleur",
       "confirmReset": "Confirmer la réinitialisation",
+      "convertBlackWhite": "Convertir en noir et blanc",
       "convertNegative": "Convertir le négatif",
       "copyAdjustments": "Copier les ajustements",
       "cullImage": "Tri automatique",
@@ -242,6 +293,7 @@
       "mergeHdr": "Fusionner en HDR",
       "noLabel": "Aucune étiquette",
       "noRating": "Aucune note",
+      "openViewer": "Ouvrir dans une seconde fenêtre",
       "pasteAdjustments": "Coller les ajustements",
       "productivity": "Productivité",
       "rating": "Note",
@@ -249,6 +301,7 @@
       "ratingLabel_one": "{{count}} Étoile",
       "ratingLabel_other": "{{count}} Étoiles",
       "redo": "Rétablir",
+      "removeBlackWhite": "Retirer le noir et blanc",
       "removeDenoise": "Retirer le débruitage",
       "removeNegativeConversion": "Retirer la conversion du négatif",
       "resetAdjustments": "Réinitialiser les ajustements",
@@ -300,6 +353,7 @@
       "autoAdjust_many": "Ajustement auto",
       "autoAdjust_one": "Ajustement auto",
       "autoAdjust_other": "Ajustement auto",
+      "autoLensCorrection_many": "Corrections d'objectif automatiques",
       "autoLensCorrection_one": "Correction d'objectif automatique",
       "autoLensCorrection_other": "Corrections d'objectif automatiques",
       "autoStraighten_many": "Redresser automatiquement",
@@ -479,13 +533,17 @@
         "heal_other": "Corriger {{count}}",
         "invertedName": "{{name}} Inversé",
         "liquify": "Fluidité {{count}}",
+        "liquify_many": "Fluidité {{count}}",
         "liquify_one": "Fluidité {{count}}",
         "liquify_other": "Fluidité {{count}}",
         "quickErase": "Gommage rapide {{count}}",
         "quickErase_many": "Gommage rapide {{count}}",
         "quickErase_one": "Gommage rapide {{count}}",
         "quickErase_other": "Gommages rapides {{count}}",
-        "retouch": "Retouche {{count}}"
+        "retouch": "Retouche {{count}}",
+        "retouch_many": "Retouche {{count}}",
+        "retouch_one": "Retouche {{count}}",
+        "retouch_other": "Retouche {{count}}"
       },
       "resetInpaintingTooltip": "Réinitialiser l'Inpainting",
       "settings": {
@@ -884,6 +942,10 @@
         "undo": "Annuler (Ctrl+Z) ou Historique (Clic-droit)"
       },
       "vc": "CV"
+    },
+    "viewer": {
+      "openFailed": "Impossible d'ouvrir la seconde fenêtre : {{error}}",
+      "windowTitle": "Visionneuse RapidRAW"
     }
   },
   "export": {
@@ -1024,6 +1086,10 @@
       "title": "Retouches pas encore dans Immich"
     },
     "export": {
+      "newAlbum": "Nouvel album…",
+      "newAlbumName": "Nom de l'album",
+      "createAlbum": "Créer",
+      "newAlbumFailed": "Impossible de créer l'album : {{error}}",
       "album": "Album",
       "destination": "Immich",
       "noAlbum": "Aucun album",
@@ -1032,16 +1098,19 @@
       "withOriginalDesc": "Pour les images d'un dossier local : l'original est envoyé avec ses retouches et l'export est empilé par-dessus. Les images d'Immich sont toujours empilées sur leur original."
     },
     "section": {
+      "albums": "Albums",
       "empty": "Aucun album sur le serveur.",
       "error": "Immich est injoignable.",
       "loading": "Chargement des albums…",
       "refresh": "Actualiser les albums",
       "timeline": "Chronologie",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "Sans album",
+      "unassignedHint": "Déposez des images ici pour les envoyer sans les ajouter à un album."
     },
     "settings": {
       "apiKey": "Clé d'API",
-      "apiKeyDesc": "Créez-en une dans Immich sous Paramètres du compte → Clés d'API avec ces autorisations : album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create et user.read.",
+      "apiKeyDesc": "Créez-en une dans Immich sous Paramètres du compte → Clés d'API avec ces autorisations : album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create et user.read.",
       "connected": "Connecté en tant que {{user}} (Immich {{version}})",
       "description": "Parcourez les photos de votre serveur Immich dans la bibliothèque et retouchez-les directement. Les originaux sont téléchargés à l'ouverture et vos retouches sont enregistrées dans Immich, elles sont donc identiques sur chaque ordinateur.",
       "keyInFile": "Enregistrée dans un fichier lisible par vous seul : aucun gestionnaire d'identifiants n'est disponible. Sous KDE, activez l'interface Secret Service dans les paramètres de KDE Wallet, puis enregistrez à nouveau.",
@@ -1063,8 +1132,12 @@
       "downloadFailed": "Échec du téléchargement depuis Immich : {{error}}",
       "editsConflict": "{{fileName}} a aussi été retouchée sur un autre ordinateur. Vos retouches sont conservées et l'autre version est gardée comme copie virtuelle.",
       "offline": "Immich est injoignable. Vos retouches sont conservées ici et seront envoyées dès son retour.",
+      "transferFailed": "Non ajoutées à Immich : {{number}} ({{error}})",
+      "transferred": "Ajoutées à Immich : {{number}}",
+      "transferring": "Ajout à Immich… {{current}}/{{total}}",
       "trashFailed": "Impossible de déplacer vers la corbeille d'Immich : {{error}}",
-      "uploaded": "Envoyées vers Immich : {{number}}"
+      "uploaded": "Envoyées vers Immich : {{number}}",
+      "uploadKeptCopy": "{{fileName}} est déjà dans Immich avec d'autres retouches. Elles sont conservées, et les vôtres sont gardées comme copie virtuelle."
     }
   },
   "library": {
@@ -1137,6 +1210,7 @@
       "rateAndLabel": "Noter et Étiqueter",
       "rating": "Note",
       "selectImagesToCompare": "Sélectionnez des images à comparer",
+      "shutterSpeed": "Vitesse d'obturation",
       "shutterSpeed:": "Vitesse d'obturation",
       "syncZoomAndPan": "Synchroniser le zoom et le panoramique",
       "tags": "Tags",
@@ -1385,6 +1459,11 @@
       "goHome": "Aller à l'accueil",
       "importImages": "Importer des images",
       "select": "Sélectionner"
+    },
+    "viewMode": {
+      "culling": "Vue de tri",
+      "grid": "Vue grille",
+      "list": "Vue liste"
     }
   },
   "masks": {
@@ -1465,6 +1544,7 @@
       "descReplace": "Écrase tous les paramètres sélectionnés, réinitialisant les autres à leurs valeurs par défaut.",
       "groups": {
         "aiDenoise": "Débruitage IA",
+        "blackWhite": "Noir et blanc",
         "chromaticAberration": "Aberration chromatique",
         "clarityDehaze": "Clarté & Correction du voile",
         "colorCalibration": "Étalonnage des couleurs",
@@ -1550,6 +1630,7 @@
       "close": "Fermer",
       "depthMap": "Carte de profondeur",
       "description": "Combinez plusieurs images avec des distances de mise au point variables en une seule image parfaitement nette.",
+      "descriptionWithCount_many": "Combinez {{count}} images avec des distances de mise au point variables en une seule image parfaitement nette.",
       "descriptionWithCount_one": "Combinez {{count}} image avec des distances de mise au point variables en une seule image parfaitement nette.",
       "descriptionWithCount_other": "Combinez {{count}} images avec des distances de mise au point variables en une seule image parfaitement nette.",
       "failed": "L'empilement de mise au point a échoué",
@@ -1818,6 +1899,8 @@
       "folderImageCountsDesc": "Affiche le nombre d'images dans les dossiers lors du survol de l'arborescence des dossiers.",
       "font": "Police",
       "fontDesc": "Modifier la police de l'application.",
+      "hideCollapsedPanels": "Masquer les panneaux réduits",
+      "hideCollapsedPanelsDesc": "Les panneaux latéraux réduits sont entièrement masqués au lieu de laisser une bande étroite. Rouvrez-les depuis la barre inférieure ou avec leurs raccourcis clavier.",
       "nativeTitlebar": "Barre de titre native",
       "nativeTitlebarDesc": "Utiliser la barre de titre de fenêtre par défaut de votre système au lieu de celle personnalisée de RapidRAW.",
       "neutralGreyCanvas": "Toile gris neutre",
@@ -1871,6 +1954,7 @@
         "toggle_adjustments": "Basculer le panneau des ajustements",
         "toggle_ai": "Basculer le panneau IA",
         "toggle_analytics": "Basculer l'affichage des analyses",
+        "toggle_black_white": "Basculer noir et blanc",
         "toggle_bottom_panel": "Afficher/Masquer la bande de film",
         "toggle_crop": "Basculer Recadrer / Redresser",
         "toggle_crop_panel": "Basculer le panneau de recadrage",
@@ -1885,6 +1969,7 @@
         "toggle_presets": "Basculer le panneau des paramètres prédéfinis",
         "toggle_reject": "Basculer le marquage rejeté",
         "toggle_right_panel": "Afficher/Masquer le panneau droit",
+        "toggle_viewer_window": "Basculer la seconde fenêtre",
         "undo": "Annuler l'ajustement",
         "unflag": "Retirer le marquage",
         "zoom_100": "Zoomer à 100%",
@@ -2034,7 +2119,7 @@
         "baselineExposure": "Exposition de base",
         "baselineExposureAmount": "Valeur de base",
         "baselineExposureAmountDesc": "Exposition ajoutée aux fichiers RAW. darktable utilise +0,7 IL.",
-        "baselineExposureDesc": "Éclaircit tous les fichiers RAW d'une valeur fixe, comme le réglage par défaut de darktable en mode relatif à la scène, plus la balise DNG BaselineExposure si elle est présente. Les images retouchées avant l'ajout de cette option ne sont pas modifiées.",
+        "baselineExposureDesc": "Éclaircit les fichiers RAW d'une valeur fixe, plus la balise DNG BaselineExposure si présente.",
         "colorNr": "Réduction du bruit colorimétrique de base",
         "colorNrDesc": "Applique un filtre bilatéral croisé tôt dans le traitement pour éliminer le bruit de chrominance. Valeur plus élevée = Réduction plus forte.",
         "defaultNonRawTonemapper": "Mappeur de tons par défaut (Non-RAW)",
@@ -2047,7 +2132,7 @@
         "enablePreprocessingNonRaws": "Activer pour les Non-RAW",
         "enableTonemapperOverride": "Activer la surcharge du mappeur de tons",
         "highlightPreservation": "Compensation de la préservation des hautes lumières",
-        "highlightPreservationDesc": "Rétablit l'exposition retenue par l'appareil dans les modes de préservation des hautes lumières, lue dans le fichier RAW (Fujifilm DR200/DR400, Priorité hautes lumières et Correction auto de luminosité Canon, D-Lighting actif Nikon, gradation Olympus, extension de plage dynamique Pentax). Les images retouchées avant l'ajout de cette option ne sont pas modifiées.",
+        "highlightPreservationDesc": "Rétablit l'exposition réduite par les modes de préservation des hautes lumières, comme Fujifilm DR200/DR400 ou D-Lighting actif Nikon.",
         "highlightRecovery": "Récupération des hautes lumières RAW",
         "highlightRecoveryDesc": "Contrôle la quantité de détails récupérés des hautes lumières écrêtées dans les fichiers RAW. Des valeurs plus élevées récupèrent plus de détails mais peuvent introduire des artefacts violets.",
         "linearOptions": {

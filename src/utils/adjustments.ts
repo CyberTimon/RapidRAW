@@ -366,6 +366,12 @@ export interface Adjustments {
   lutSize?: number;
   lutIsSceneReferred?: boolean;
   masks: Array<MaskContainer>;
+  monochromeEnabled: boolean;
+  monochromeFilm: MonochromeFilm;
+  monochromeFilterHue: number;
+  monochromeFilterStrength: number;
+  monochromeMix: MonochromeMix;
+  monochromeToning: MonochromeToning;
   negativeBlueWeight: number;
   negativeContrast: number;
   negativeConversionEnabled: boolean;
@@ -457,6 +463,36 @@ interface Hsl {
   purples: HueSatLum;
   reds: HueSatLum;
   yellows: HueSatLum;
+}
+
+export enum MonochromeFilm {
+  Neutral = 'neutral',
+  Panchromatic = 'panchromatic',
+  Balanced = 'balanced',
+  OrthoPanchromatic = 'orthoPanchromatic',
+  ExtendedRed = 'extendedRed',
+  Orthochromatic = 'orthochromatic',
+  Infrared = 'infrared',
+}
+
+export interface MonochromeMix {
+  [index: string]: number;
+  aquas: number;
+  blues: number;
+  greens: number;
+  magentas: number;
+  oranges: number;
+  purples: number;
+  reds: number;
+  yellows: number;
+}
+
+export interface MonochromeToning {
+  balance: number;
+  highlightHue: number;
+  highlightSaturation: number;
+  shadowHue: number;
+  shadowSaturation: number;
 }
 
 export interface MaskAdjustments {
@@ -655,6 +691,20 @@ const deepCloneParametric = (pCurve: any): ParametricCurve => ({
   blue: { ...DEFAULT_PARAMETRIC_CURVE_SETTINGS, ...(pCurve?.blue || {}) },
 });
 
+export const CROP_GEOMETRY_KEYS = [
+  'crop',
+  'aspectRatio',
+  'rotation',
+  'orientationSteps',
+  'flipHorizontal',
+  'flipVertical',
+] as const satisfies ReadonlyArray<keyof Adjustments>;
+
+export type CropGeometry = Pick<Adjustments, (typeof CROP_GEOMETRY_KEYS)[number]>;
+
+export const pickCropGeometry = (adjustments: Adjustments): CropGeometry =>
+  Object.fromEntries(CROP_GEOMETRY_KEYS.map((key) => [key, structuredClone(adjustments[key])])) as CropGeometry;
+
 export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any => {
   if (!loadedAdjustments) {
     return INITIAL_ADJUSTMENTS;
@@ -783,6 +833,8 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     colorCalibration: { ...INITIAL_ADJUSTMENTS.colorCalibration, ...(loadedAdjustments.colorCalibration || {}) },
     colorGrading: { ...INITIAL_ADJUSTMENTS.colorGrading, ...(loadedAdjustments.colorGrading || {}) },
     hsl: { ...INITIAL_ADJUSTMENTS.hsl, ...(loadedAdjustments.hsl || {}) },
+    monochromeMix: { ...INITIAL_ADJUSTMENTS.monochromeMix, ...(loadedAdjustments.monochromeMix || {}) },
+    monochromeToning: { ...INITIAL_ADJUSTMENTS.monochromeToning, ...(loadedAdjustments.monochromeToning || {}) },
     curves: loadedAdjustments.curves ? deepCloneCurves(loadedAdjustments.curves) : getDefaultCurves(),
     pointCurves: loadedAdjustments.pointCurves ? deepCloneCurves(loadedAdjustments.pointCurves) : getDefaultCurves(),
     parametricCurve: loadedAdjustments.parametricCurve
@@ -796,6 +848,15 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     sharpnessThreshold: loadedAdjustments.sharpnessThreshold ?? INITIAL_ADJUSTMENTS.sharpnessThreshold,
   };
 };
+
+export const MONOCHROME_ADJUSTMENT_KEYS = [
+  'monochromeEnabled',
+  'monochromeFilm',
+  'monochromeFilterHue',
+  'monochromeFilterStrength',
+  'monochromeMix',
+  'monochromeToning',
+] as const;
 
 export interface AdjustmentGroup {
   label: string;
@@ -830,6 +891,10 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
     { label: 'modals.copyPaste.groups.colorGrading', keys: [ColorAdjustment.ColorGrading] },
     { label: 'modals.copyPaste.groups.colorMixer', keys: [ColorAdjustment.Hsl] },
     { label: 'modals.copyPaste.groups.colorCalibration', keys: ['colorCalibration'] },
+    {
+      label: 'modals.copyPaste.groups.blackWhite',
+      keys: [...MONOCHROME_ADJUSTMENT_KEYS],
+    },
   ],
   details: [
     {
@@ -1011,6 +1076,7 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     ColorAdjustment.ColorGrading,
     'colorCalibration',
     ColorAdjustment.Hue,
+    ...MONOCHROME_ADJUSTMENT_KEYS,
   ],
   details: [
     DetailsAdjustment.Clarity,

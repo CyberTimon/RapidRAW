@@ -30,6 +30,22 @@ struct ColorCalibrationSettings {
     _pad1: f32,
 }
 
+struct MonochromeSettings {
+    enabled: u32,
+    weight_r: f32,
+    weight_g: f32,
+    weight_b: f32,
+    mix: array<f32, 8>,
+    shadow_a: f32,
+    shadow_b: f32,
+    highlight_a: f32,
+    highlight_b: f32,
+    toning_balance: f32,
+    _pad1: f32,
+    _pad2: f32,
+    _pad3: f32,
+}
+
 struct GlobalAdjustments {
     exposure: f32,
     brightness: f32,
@@ -117,6 +133,8 @@ struct GlobalAdjustments {
     halation_amount: f32,
     flare_amount: f32,
     sharpness_threshold: f32,
+
+    monochrome: MonochromeSettings,
 }
 
 struct MaskAdjustments {
@@ -257,6 +275,7 @@ const F_VIGNETTE: u32 = 128u;
 const F_LUT: u32 = 256u;
 const F_CA: u32 = 512u;
 const F_AGX: u32 = 1024u;
+const F_MONOCHROME: u32 = 2048u;
 
 fn has_feature(f: u32) -> bool {
     return (FEATURES & f) != 0u;
@@ -896,6 +915,63 @@ fn apply_color_grading(color: vec3<f32>, shadows: ColorGradeSettings, midtones: 
     if (global.saturation > 0.001) { let tint_rgb = hsv_to_rgb(vec3<f32>(global.hue, 1.0, 1.0)); graded_color += (tint_rgb - 0.5) * global.saturation * global_mask * global_sat_strength; }
     graded_color += global.luminance * global_mask * global_lum_strength;
     return graded_color;
+}
+
+const MONOCHROME_MIX_EV: f32 = 2.0;
+
+fn apply_monochrome_mix(color: vec3<f32>, mono: MonochromeSettings, local_hsl: array<HslColor, 8>) -> vec3<f32> {
+    let safe_color = max(color, vec3<f32>(0.0));
+    var gray = max(dot(safe_color, vec3<f32>(mono.weight_r, mono.weight_g, mono.weight_b)), 0.0);
+
+    let srgb = linear_to_srgb_extended(safe_color);
+    let hsv = rgb_to_hsv(srgb);
+    let chroma = hsv.y * hsv.z;
+    let chroma_gate = smoothstep(0.05, 0.4, hsv.y) * smoothstep(0.0, 0.1, chroma);
+    if (chroma_gate <= 0.0) {
+        return vec3<f32>(gray);
+    }
+
+    var total_influence: f32 = 0.0;
+    var total_mix: f32 = 0.0;
+    for (var i = 0u; i < 8u; i = i + 1u) {
+        let range = HSL_RANGES[i];
+        let influence = get_raw_hsl_influence(hsv.x, range.center, range.width);
+        total_influence += influence;
+        total_mix += influence * clamp(mono.mix[i] + local_hsl[i].luminance, -1.0, 1.0);
+    }
+    if (total_influence > 0.0) {
+        gray *= exp2(total_mix / total_influence * chroma_gate * MONOCHROME_MIX_EV);
+    }
+    return vec3<f32>(gray);
+}
+
+fn oklab_to_linear_srgb(lab: vec3<f32>) -> vec3<f32> {
+    let l_ = lab.x + 0.3963377774 * lab.y + 0.2158037573 * lab.z;
+    let m_ = lab.x - 0.1055613458 * lab.y - 0.0638541728 * lab.z;
+    let s_ = lab.x - 0.0894841775 * lab.y - 1.2914855480 * lab.z;
+    let l = l_ * l_ * l_;
+    let m = m_ * m_ * m_;
+    let s = s_ * s_ * s_;
+    return vec3<f32>(
+        4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+        -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+        -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s
+    );
+}
+
+fn apply_monochrome_toning(srgb_gray: f32, mono: MonochromeSettings) -> vec3<f32> {
+    let shadow_ab = vec2<f32>(mono.shadow_a, mono.shadow_b);
+    let highlight_ab = vec2<f32>(mono.highlight_a, mono.highlight_b);
+    let gray = clamp(srgb_gray, 0.0, 1.0);
+    if (all(shadow_ab == vec2<f32>(0.0)) && all(highlight_ab == vec2<f32>(0.0))) {
+        return vec3<f32>(gray);
+    }
+
+    let lightness = pow(srgb_to_linear(vec3<f32>(gray)).x, 1.0 / 3.0);
+    let highlight_weight = smoothstep(0.2, 0.8, lightness + 0.4 * mono.toning_balance);
+    let envelope = smoothstep(0.0, 0.3, lightness) * (1.0 - 0.6 * smoothstep(0.8, 1.0, lightness));
+    let ab = mix(shadow_ab, highlight_ab, highlight_weight) * envelope;
+    return linear_to_srgb(oklab_to_linear_srgb(vec3<f32>(lightness, ab)));
 }
 
 fn sample_gf_tex(tex: texture_2d<f32>, abs_coord: vec2<u32>) -> vec4<f32> {
@@ -1974,12 +2050,17 @@ fn main(
     }
     composite_rgb_linear = apply_tonal_adjustments(composite_rgb_linear, tonal_log_detail, tonal_mid_detail, is_raw, t_contrast, t_shadows, t_whites, t_blacks);
     composite_rgb_linear = apply_highlights_adjustment(composite_rgb_linear, tonal_log_detail, tonal_mid_detail, is_raw, t_highlights);
-    composite_rgb_linear = apply_color_calibration(composite_rgb_linear, adjustments.global.color_calibration);
-    if (has_feature(F_HSL)) {
-        composite_rgb_linear = apply_hsl_panel(composite_rgb_linear, final_hsl, absolute_coord_i);
+    let is_monochrome = has_feature(F_MONOCHROME) && adjustments.global.monochrome.enabled == 1u;
+    if (is_monochrome) {
+        composite_rgb_linear = apply_monochrome_mix(composite_rgb_linear, adjustments.global.monochrome, final_hsl);
+    } else {
+        composite_rgb_linear = apply_color_calibration(composite_rgb_linear, adjustments.global.color_calibration);
+        if (has_feature(F_HSL)) {
+            composite_rgb_linear = apply_hsl_panel(composite_rgb_linear, final_hsl, absolute_coord_i);
+        }
+        composite_rgb_linear = apply_hue_shift(composite_rgb_linear, t_hue);
+        composite_rgb_linear = apply_creative_color(composite_rgb_linear, t_saturation, t_vibrance);
     }
-    composite_rgb_linear = apply_hue_shift(composite_rgb_linear, t_hue);
-    composite_rgb_linear = apply_creative_color(composite_rgb_linear, t_saturation, t_vibrance);
 
     composite_rgb_linear = apply_color_grading(
         composite_rgb_linear,
@@ -2057,6 +2138,10 @@ fn main(
             let mask_curved_srgb = apply_all_curves(final_rgb, i);
             final_rgb = mix(final_rgb, mask_curved_srgb, influence);
         }
+    }
+
+    if (is_monochrome) {
+        final_rgb = apply_monochrome_toning(get_luma(final_rgb), adjustments.global.monochrome);
     }
 
     if (has_feature(F_LUT) && adjustments.global.has_lut == 1u && adjustments.global.lut_is_scene_referred == 0u) {

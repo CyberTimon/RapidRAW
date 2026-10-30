@@ -957,6 +957,7 @@ export default function SettingsPanel({
                             { value: 'pl', label: 'Polski' },
                             { value: 'pt', label: 'Português' },
                             { value: 'ru', label: 'Русский' },
+                            { value: 'uk', label: 'Українська' },
                             { value: 'ja', label: '日本語' },
                             { value: 'ko', label: '한국어' },
                             { value: 'cs', label: 'Čeština' },
@@ -1073,6 +1074,18 @@ export default function SettingsPanel({
                           id="tool-focus-mode-toggle"
                           label={t('settings.general.enableToolFocusMode')}
                           onChange={(checked) => onSettingsChange({ ...appSettings, enableToolFocusMode: checked })}
+                        />
+                      </SettingItem>
+
+                      <SettingItem
+                        label={t('settings.general.hideCollapsedPanels')}
+                        description={t('settings.general.hideCollapsedPanelsDesc')}
+                      >
+                        <Switch
+                          checked={appSettings?.hideCollapsedPanels ?? false}
+                          id="hide-collapsed-panels-toggle"
+                          label={t('settings.general.hideCollapsedPanels')}
+                          onChange={(checked) => onSettingsChange({ ...appSettings, hideCollapsedPanels: checked })}
                         />
                       </SettingItem>
 

@@ -56,6 +56,55 @@
         "reds": "レッド",
         "yellows": "イエロー"
       },
+      "monochrome": {
+        "badge": "白黒",
+        "balance": "バランス",
+        "blackWhite": "白黒",
+        "film": "フィルム",
+        "filmDescriptions": {
+          "balanced": "すべての色に均等な感度で、赤や肌が明るくなります",
+          "extendedRed": "赤に強い感度を持つフィルム。肌が明るく、空が暗くなります",
+          "infrared": "輝く草木とほぼ黒い空",
+          "neutral": "各色の知覚的な明るさに合わせます",
+          "orthoPanchromatic": "赤がやや暗く、緑がくっきりします",
+          "orthochromatic": "赤に感光しないため、赤は暗く、空は明るくなります",
+          "panchromatic": "青空が明るめになるクラシックなフィルム特性"
+        },
+        "films": {
+          "balanced": "バランス",
+          "extendedRed": "拡張赤感",
+          "infrared": "赤外線",
+          "neutral": "ニュートラル",
+          "orthoPanchromatic": "オルソパン",
+          "orthochromatic": "オルソクロマチック",
+          "panchromatic": "パンクロマチック"
+        },
+        "filter": "フィルター",
+        "filters": {
+          "blue": "ブルー",
+          "green": "グリーン",
+          "none": "なし",
+          "orange": "オレンジ",
+          "red": "レッド",
+          "yellow": "イエロー"
+        },
+        "highlights": "ハイライト",
+        "hue": "色相",
+        "mix": "白黒ミックス",
+        "saturation": "彩度",
+        "shadows": "シャドウ",
+        "strength": "強度",
+        "toning": "調色",
+        "tonings": {
+          "cyanotype": "サイアノタイプ",
+          "gold": "ゴールド",
+          "none": "なし",
+          "platinum": "プラチナ",
+          "selenium": "セレン",
+          "sepia": "セピア",
+          "split": "スプリットトーン"
+        }
+      },
       "presence": "外観",
       "saturation": "彩度",
       "temperature": "色温度",
@@ -227,8 +276,10 @@
       "autoLensCorrection": "自動レンズ補正",
       "autoStraighten": "自動角度補正",
       "cancel": "キャンセル",
+      "closeViewer": "セカンドウィンドウを閉じる",
       "colorLabel": "カラーラベル",
       "confirmReset": "リセットを確認",
+      "convertBlackWhite": "白黒に変換",
       "convertNegative": "ネガ反転",
       "copyAdjustments": "補正設定をコピー",
       "cullImage": "自動選別",
@@ -242,12 +293,14 @@
       "mergeHdr": "HDRに統合",
       "noLabel": "ラベルなし",
       "noRating": "評価なし",
+      "openViewer": "セカンドウィンドウで開く",
       "pasteAdjustments": "補正設定を貼り付け",
       "productivity": "生産性",
       "rating": "評価",
       "ratingLabel_one": "{{count}} つ星",
       "ratingLabel_other": "{{count}} つ星",
       "redo": "やり直し",
+      "removeBlackWhite": "白黒を解除",
       "removeDenoise": "ノイズ低減を解除",
       "removeNegativeConversion": "ネガ反転を解除",
       "resetAdjustments": "補正設定をリセット",
@@ -463,7 +516,8 @@
         "quickErase": "クイック消去 {{count}}",
         "quickErase_one": "クイック消去 {{count}}",
         "quickErase_other": "クイック消去 {{count}}",
-        "retouch": "レタッチ {{count}}"
+        "retouch": "レタッチ {{count}}",
+        "retouch_other": "レタッチ {{count}}"
       },
       "resetInpaintingTooltip": "インペインティングをリセット",
       "settings": {
@@ -861,6 +915,10 @@
         "undo": "元に戻す (Ctrl+Z) または履歴 (右クリック)"
       },
       "vc": "仮想"
+    },
+    "viewer": {
+      "openFailed": "セカンドウィンドウを開けませんでした: {{error}}",
+      "windowTitle": "RapidRAW ビューアー"
     }
   },
   "export": {
@@ -999,6 +1057,10 @@
       "title": "Immich に未送信の編集"
     },
     "export": {
+      "newAlbum": "新しいアルバム…",
+      "newAlbumName": "アルバム名",
+      "createAlbum": "作成",
+      "newAlbumFailed": "アルバムを作成できませんでした: {{error}}",
       "album": "アルバム",
       "destination": "Immich",
       "noAlbum": "アルバムなし",
@@ -1007,16 +1069,19 @@
       "withOriginalDesc": "ローカルフォルダーの画像の場合: オリジナルが編集内容とともにアップロードされ、エクスポートがその上にスタックされます。Immich の画像は常にオリジナルの上にスタックされます。"
     },
     "section": {
+      "albums": "アルバム",
       "empty": "サーバーにアルバムがありません。",
       "error": "Immich に接続できません。",
       "loading": "アルバムを読み込み中…",
       "refresh": "アルバムを更新",
       "timeline": "タイムライン",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "アルバムなし",
+      "unassignedHint": "ここに画像をドロップすると、アルバムに追加せずにアップロードします。"
     },
     "settings": {
       "apiKey": "API キー",
-      "apiKeyDesc": "Immich の「アカウント設定 → API キー」で、次の権限を付けて作成してください: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create, user.read",
+      "apiKeyDesc": "Immich の「アカウント設定 → API キー」で、次の権限を付けて作成してください: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create, user.read",
       "connected": "{{user}} として接続しました (Immich {{version}})",
       "description": "Immich サーバーの写真をライブラリで閲覧し、そのまま編集できます。オリジナルは開いたときにダウンロードされ、編集内容は Immich に保存されるので、どのコンピューターでも同じに見えます。",
       "keyInFile": "本人だけが読めるファイルに保存されています。利用できる資格情報ストアがありません。KDE の場合は、KDE ウォレットの設定で Secret Service インターフェースを有効にしてから、もう一度保存してください。",
@@ -1038,8 +1103,12 @@
       "downloadFailed": "Immich からダウンロードできませんでした: {{error}}",
       "editsConflict": "{{fileName}} は別のコンピューターでも編集されています。あなたの編集内容はそのまま残り、もう一方のバージョンは仮想コピーとして保存されます。",
       "offline": "Immich に接続できません。編集内容はここに保持され、接続が戻りしだい送信されます。",
+      "transferFailed": "Immich に追加できませんでした: {{number}} ({{error}})",
+      "transferred": "Immich に追加しました: {{number}}",
+      "transferring": "Immich に追加中… {{current}}/{{total}}",
       "trashFailed": "Immich のゴミ箱に移動できませんでした: {{error}}",
-      "uploaded": "Immich にアップロードしました: {{number}}"
+      "uploaded": "Immich にアップロードしました: {{number}}",
+      "uploadKeptCopy": "{{fileName}} は別の編集内容で既に Immich にあります。そちらはそのまま残り、あなたの編集は仮想コピーとして保存されます。"
     }
   },
   "library": {
@@ -1351,6 +1420,11 @@
       "goHome": "ホームへ移動",
       "importImages": "画像をインポート",
       "select": "選択"
+    },
+    "viewMode": {
+      "culling": "選別表示",
+      "grid": "グリッド表示",
+      "list": "リスト表示"
     }
   },
   "masks": {
@@ -1431,6 +1505,7 @@
       "descReplace": "選択したすべての設定を上書きし、残りの設定をデフォルトにリセットします。",
       "groups": {
         "aiDenoise": "AIノイズ除去",
+        "blackWhite": "白黒",
         "chromaticAberration": "色収差",
         "clarityDehaze": "明瞭度とかすみの除去",
         "colorCalibration": "カラーキャリブレーション",
@@ -1776,6 +1851,8 @@
       "folderImageCountsDesc": "フォルダツリーをホバーしたときにフォルダ内の画像数を表示します。",
       "font": "フォント",
       "fontDesc": "アプリケーションのフォントを変更します。",
+      "hideCollapsedPanels": "折りたたんだパネルを非表示",
+      "hideCollapsedPanelsDesc": "折りたたんだサイドパネルを細い帯として残さず、完全に非表示にします。下部バーまたはキーボードショートカットで再び開けます。",
       "nativeTitlebar": "OS標準のタイトルバー",
       "nativeTitlebarDesc": "RapidRAWカスタムのもの代わりに、システムのデフォルトのウィンドウタイトルバーを使用します。",
       "neutralGreyCanvas": "ニュートラルグレーのキャンバス",
@@ -1829,6 +1906,7 @@
         "toggle_adjustments": "補正設定パネルの表示/非表示",
         "toggle_ai": "AIパネルの表示/非表示",
         "toggle_analytics": "アナリティクス表示の表示/非表示",
+        "toggle_black_white": "白黒の切り替え",
         "toggle_bottom_panel": "フィルムストリップの表示/非表示",
         "toggle_crop": "切り抜き/角度補正の切り替え",
         "toggle_crop_panel": "切り抜きパネルの表示/非表示",
@@ -1843,6 +1921,7 @@
         "toggle_presets": "プリセットパネルの表示/非表示",
         "toggle_reject": "除外フラグを切り替え",
         "toggle_right_panel": "右パネルの表示/非表示",
+        "toggle_viewer_window": "セカンドウィンドウの切り替え",
         "undo": "操作を元に戻す",
         "unflag": "フラグを解除",
         "zoom_100": "100%ズーム",
@@ -1992,7 +2071,7 @@
         "baselineExposure": "ベース露出",
         "baselineExposureAmount": "ベース量",
         "baselineExposureAmountDesc": "RAWファイルに加える露出量です。darktableは+0.7 EVを使用します。",
-        "baselineExposureDesc": "すべてのRAWファイルを一定量明るくします（darktableのシーンリファード既定値と同様）。DNGのBaselineExposureタグがある場合はその値も加えます。このオプションの追加前に編集した画像には影響しません。",
+        "baselineExposureDesc": "RAWファイルを一定量明るくします。DNGのBaselineExposureタグがあればその値も加えます。",
         "colorNr": "カラーノイズ低減 (基本)",
         "colorNrDesc": "パイプラインの初期段階でクロスバイラテラルフィルタを適用し、カラーノイズを除去します。値が大きいほど効果が強まります。",
         "defaultNonRawTonemapper": "標準トーンマッパー (RAW以外)",
@@ -2005,7 +2084,7 @@
         "enablePreprocessingNonRaws": "RAW以外の画像にも適用",
         "enableTonemapperOverride": "トーンマッパーの上書きを有効化",
         "highlightPreservation": "ハイライト保護の補正",
-        "highlightPreservationDesc": "ハイライト保護モードでカメラが抑えた露出を、RAWファイルから読み取って補います（富士フイルム DR200/DR400、キヤノン 高輝度側・階調優先とオートライティングオプティマイザ、ニコン アクティブD-ライティング、オリンパス 階調、ペンタックス Dレンジ補正）。このオプションの追加前に編集した画像には影響しません。",
+        "highlightPreservationDesc": "カメラのハイライト保護モード（富士フイルム DR200/DR400、ニコン アクティブD-ライティングなど）で抑えられた露出を戻します。",
         "highlightRecovery": "RAWハイライト再現",
         "highlightRecoveryDesc": "RAWファイルで白とびしたハイライトから再現する情報のレベルを設定します。値を高くするとディテールが戻りますが、紫色のアーティファクトが発生する場合があります。",
         "linearOptions": {

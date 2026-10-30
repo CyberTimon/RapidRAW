@@ -124,6 +124,12 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     section: 'view',
   },
   {
+    action: 'toggle_viewer_window',
+    description: 'settings.keybinds.actions.toggle_viewer_window',
+    defaultCombo: ['shift', 'KeyF'],
+    section: 'view',
+  },
+  {
     action: 'show_original',
     description: 'settings.keybinds.actions.show_original',
     defaultCombo: ['KeyB'],
@@ -315,6 +321,12 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     action: 'auto_straighten',
     description: 'settings.keybinds.actions.auto_straighten',
     defaultCombo: ['shift', 'KeyS'],
+    section: 'editing',
+  },
+  {
+    action: 'toggle_black_white',
+    description: 'settings.keybinds.actions.toggle_black_white',
+    defaultCombo: ['KeyV'],
     section: 'editing',
   },
   {

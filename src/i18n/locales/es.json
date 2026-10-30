@@ -56,6 +56,55 @@
         "reds": "Rojos",
         "yellows": "Amarillos"
       },
+      "monochrome": {
+        "badge": "B/N",
+        "balance": "Equilibrio",
+        "blackWhite": "Blanco y negro",
+        "film": "Película",
+        "filmDescriptions": {
+          "balanced": "Sensibilidad uniforme en todos los colores, con rojos y piel más claros",
+          "extendedRed": "Película sensible al rojo con piel luminosa y cielos más oscuros",
+          "infrared": "Follaje brillante y cielos casi negros",
+          "neutral": "Coincide con el brillo percibido de cada color",
+          "orthoPanchromatic": "Rojos ligeramente más oscuros con verdes nítidos",
+          "orthochromatic": "Ciega al rojo, con rojos oscuros y cielos claros",
+          "panchromatic": "Respuesta clásica de película con cielos azules más claros"
+        },
+        "films": {
+          "balanced": "Equilibrada",
+          "extendedRed": "Rojo extendido",
+          "infrared": "Infrarroja",
+          "neutral": "Neutral",
+          "orthoPanchromatic": "Orto-pan",
+          "orthochromatic": "Ortocromática",
+          "panchromatic": "Pancromática"
+        },
+        "filter": "Filtro",
+        "filters": {
+          "blue": "Azul",
+          "green": "Verde",
+          "none": "Ninguno",
+          "orange": "Naranja",
+          "red": "Rojo",
+          "yellow": "Amarillo"
+        },
+        "highlights": "Iluminaciones",
+        "hue": "Tono",
+        "mix": "Mezcla B/N",
+        "saturation": "Saturación",
+        "shadows": "Sombras",
+        "strength": "Intensidad",
+        "toning": "Virado",
+        "tonings": {
+          "cyanotype": "Cianotipia",
+          "gold": "Oro",
+          "none": "Ninguno",
+          "platinum": "Platino",
+          "selenium": "Selenio",
+          "sepia": "Sepia",
+          "split": "Virado dividido"
+        }
+      },
       "presence": "Presencia",
       "saturation": "Saturación",
       "temperature": "Temperatura",
@@ -227,8 +276,10 @@
       "autoLensCorrection": "Corrección de lente automática",
       "autoStraighten": "Enderezar automáticamente",
       "cancel": "Cancelar",
+      "closeViewer": "Cerrar la segunda ventana",
       "colorLabel": "Etiqueta de color",
       "confirmReset": "Confirmar restablecimiento",
+      "convertBlackWhite": "Convertir a blanco y negro",
       "convertNegative": "Convertir negativo",
       "copyAdjustments": "Copiar ajustes",
       "cullImage": "Cribado automático",
@@ -242,6 +293,7 @@
       "mergeHdr": "Combinar en HDR",
       "noLabel": "Sin etiqueta",
       "noRating": "Sin puntuación",
+      "openViewer": "Abrir en una segunda ventana",
       "pasteAdjustments": "Pegar ajustes",
       "productivity": "Productividad",
       "rating": "Puntuación",
@@ -249,6 +301,7 @@
       "ratingLabel_one": "{{count}} Estrella",
       "ratingLabel_other": "{{count}} Estrellas",
       "redo": "Rehacer",
+      "removeBlackWhite": "Quitar blanco y negro",
       "removeDenoise": "Quitar reducción de ruido",
       "removeNegativeConversion": "Quitar conversión de negativo",
       "resetAdjustments": "Restablecer ajustes",
@@ -300,6 +353,7 @@
       "autoAdjust_many": "Ajuste automático",
       "autoAdjust_one": "Ajuste automático",
       "autoAdjust_other": "Ajuste automático",
+      "autoLensCorrection_many": "Corrección de lente automática",
       "autoLensCorrection_one": "Corrección de lente automática",
       "autoLensCorrection_other": "Corrección de lente automática",
       "autoStraighten_many": "Enderezar automáticamente",
@@ -479,13 +533,17 @@
         "heal_other": "Curar {{count}}",
         "invertedName": "{{name}} Invertida",
         "liquify": "Licuar {{count}}",
+        "liquify_many": "Licuar {{count}}",
         "liquify_one": "Licuar {{count}}",
         "liquify_other": "Licuar {{count}}",
         "quickErase": "Borrado rápido {{count}}",
         "quickErase_many": "Borrado rápido {{count}}",
         "quickErase_one": "Borrado rápido {{count}}",
         "quickErase_other": "Borrado rápido {{count}}",
-        "retouch": "Retoque {{count}}"
+        "retouch": "Retoque {{count}}",
+        "retouch_many": "Retoque {{count}}",
+        "retouch_one": "Retoque {{count}}",
+        "retouch_other": "Retoque {{count}}"
       },
       "resetInpaintingTooltip": "Restablecer Inpainting",
       "settings": {
@@ -884,6 +942,10 @@
         "undo": "Deshacer (Ctrl+Z) o Historial (Clic derecho)"
       },
       "vc": "CV"
+    },
+    "viewer": {
+      "openFailed": "No se pudo abrir la segunda ventana: {{error}}",
+      "windowTitle": "Visor de RapidRAW"
     }
   },
   "export": {
@@ -1024,6 +1086,10 @@
       "title": "Ediciones aún no en Immich"
     },
     "export": {
+      "newAlbum": "Álbum nuevo…",
+      "newAlbumName": "Nombre del álbum",
+      "createAlbum": "Crear",
+      "newAlbumFailed": "No se pudo crear el álbum: {{error}}",
       "album": "Álbum",
       "destination": "Immich",
       "noAlbum": "Sin álbum",
@@ -1032,16 +1098,19 @@
       "withOriginalDesc": "Para imágenes de una carpeta local: el original se sube con sus ediciones y la exportación se apila encima. Las imágenes de Immich siempre se apilan sobre su original."
     },
     "section": {
+      "albums": "Álbumes",
       "empty": "No hay álbumes en el servidor.",
       "error": "No se puede acceder a Immich.",
       "loading": "Cargando álbumes…",
       "refresh": "Actualizar álbumes",
       "timeline": "Cronología",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "Sin álbum",
+      "unassignedHint": "Arrastra imágenes aquí para subirlas sin añadirlas a ningún álbum."
     },
     "settings": {
       "apiKey": "Clave de API",
-      "apiKeyDesc": "Crea una en Immich en Configuración de la cuenta → Claves de API con estos permisos: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create y user.read.",
+      "apiKeyDesc": "Crea una en Immich en Configuración de la cuenta → Claves de API con estos permisos: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create y user.read.",
       "connected": "Conectado como {{user}} (Immich {{version}})",
       "description": "Explora las fotos de tu servidor Immich en la biblioteca y edítalas directamente. Los originales se descargan al abrirlos y tus ediciones se guardan en Immich, así que se ven igual en todos los equipos.",
       "keyInFile": "Guardada en un archivo que solo tú puedes leer: no hay ningún almacén de credenciales disponible. En KDE, activa la interfaz Secret Service en la configuración de KDE Wallet y vuelve a guardar.",
@@ -1063,8 +1132,12 @@
       "downloadFailed": "No se pudo descargar de Immich: {{error}}",
       "editsConflict": "{{fileName}} también se editó en otro equipo. Tus ediciones se mantienen y la otra versión se conserva como copia virtual.",
       "offline": "No se puede acceder a Immich. Tus ediciones se guardan aquí y se enviarán en cuanto vuelva a estar disponible.",
+      "transferFailed": "No añadidas a Immich: {{number}} ({{error}})",
+      "transferred": "Añadidas a Immich: {{number}}",
+      "transferring": "Añadiendo a Immich… {{current}}/{{total}}",
       "trashFailed": "No se pudo mover a la papelera de Immich: {{error}}",
-      "uploaded": "Subidas a Immich: {{number}}"
+      "uploaded": "Subidas a Immich: {{number}}",
+      "uploadKeptCopy": "{{fileName}} ya está en Immich con otras ediciones. Esas se mantienen y tus ediciones se guardan como copia virtual."
     }
   },
   "library": {
@@ -1385,6 +1458,11 @@
       "goHome": "Ir al Inicio",
       "importImages": "Importar imágenes",
       "select": "Seleccionar"
+    },
+    "viewMode": {
+      "culling": "Vista de cribado",
+      "grid": "Vista de cuadrícula",
+      "list": "Vista de lista"
     }
   },
   "masks": {
@@ -1465,6 +1543,7 @@
       "descReplace": "Sobrescribe todos los ajustes seleccionados, restableciendo el resto a sus valores predeterminados.",
       "groups": {
         "aiDenoise": "Reducción de ruido con IA",
+        "blackWhite": "Blanco y negro",
         "chromaticAberration": "Aberración cromática",
         "clarityDehaze": "Claridad y Borrar neblina",
         "colorCalibration": "Calibración de color",
@@ -1550,6 +1629,7 @@
       "close": "Cerrar",
       "depthMap": "Mapa de profundidad",
       "description": "Combina varias imágenes con diferentes distancias de enfoque en una sola imagen perfectamente nítida.",
+      "descriptionWithCount_many": "Combina {{count}} imágenes con diferentes distancias de enfoque en una sola imagen perfectamente nítida.",
       "descriptionWithCount_one": "Combina {{count}} imagen con diferentes distancias de enfoque en una sola imagen perfectamente nítida.",
       "descriptionWithCount_other": "Combina {{count}} imágenes con diferentes distancias de enfoque en una sola imagen perfectamente nítida.",
       "failed": "Error en el apilamiento de enfoque",
@@ -1818,6 +1898,8 @@
       "folderImageCountsDesc": "Muestra la cantidad de imágenes dentro de las carpetas al pasar el ratón sobre el árbol de carpetas.",
       "font": "Fuente",
       "fontDesc": "Cambia la fuente de la aplicación.",
+      "hideCollapsedPanels": "Ocultar paneles contraídos",
+      "hideCollapsedPanelsDesc": "Los paneles laterales contraídos se ocultan por completo en lugar de dejar una franja estrecha. Vuelve a abrirlos desde la barra inferior o con sus atajos de teclado.",
       "nativeTitlebar": "Barra de título nativa",
       "nativeTitlebarDesc": "Usa la barra de título de ventana predeterminada de tu sistema en lugar de la personalizada de RapidRAW.",
       "neutralGreyCanvas": "Lienzo gris neutro",
@@ -1871,6 +1953,7 @@
         "toggle_adjustments": "Alternar panel de Ajustes",
         "toggle_ai": "Alternar panel de IA",
         "toggle_analytics": "Alternar vista de análisis",
+        "toggle_black_white": "Alternar blanco y negro",
         "toggle_bottom_panel": "Alternar tira de imágenes",
         "toggle_crop": "Alternar Recortar / Enderezar",
         "toggle_crop_panel": "Alternar panel de Recorte",
@@ -1885,6 +1968,7 @@
         "toggle_presets": "Alternar panel de Ajustes preestablecidos",
         "toggle_reject": "Alternar marca de rechazada",
         "toggle_right_panel": "Alternar panel derecho",
+        "toggle_viewer_window": "Alternar segunda ventana",
         "undo": "Deshacer ajuste",
         "unflag": "Quitar marca",
         "zoom_100": "Hacer zoom al 100%",
@@ -2034,7 +2118,7 @@
         "baselineExposure": "Exposición base",
         "baselineExposureAmount": "Cantidad base",
         "baselineExposureAmountDesc": "Exposición añadida a los archivos RAW. darktable usa +0,7 EV.",
-        "baselineExposureDesc": "Aclara todos los archivos RAW en una cantidad fija, como el valor predeterminado de darktable en modo referido a la escena, más la etiqueta DNG BaselineExposure si existe. Las imágenes editadas antes de que existiera esta opción no se ven afectadas.",
+        "baselineExposureDesc": "Aclara los archivos RAW en una cantidad fija, más la etiqueta DNG BaselineExposure si existe.",
         "colorNr": "Reducción base del ruido de color",
         "colorNrDesc": "Aplica un filtro bilateral cruzado temprano en el pipeline para eliminar el ruido de croma. Valor más alto = mayor reducción.",
         "defaultNonRawTonemapper": "Mapeador de tonos predeterminado no RAW",
@@ -2047,7 +2131,7 @@
         "enablePreprocessingNonRaws": "Activar para no RAW",
         "enableTonemapperOverride": "Activar anulación del mapeador de tonos",
         "highlightPreservation": "Compensación de protección de altas luces",
-        "highlightPreservationDesc": "Restaura la exposición que la cámara reservó en los modos de protección de altas luces, leída del archivo RAW (Fujifilm DR200/DR400, Prioridad a tonos altas luces y Auto Lighting Optimizer de Canon, D-Lighting activo de Nikon, gradación de Olympus, expansión de rango dinámico de Pentax). Las imágenes editadas antes de que existiera esta opción no se ven afectadas.",
+        "highlightPreservationDesc": "Restaura la exposición reducida por los modos de protección de altas luces de la cámara, como Fujifilm DR200/DR400 o D-Lighting activo de Nikon.",
         "highlightRecovery": "Recuperación de altas luces RAW",
         "highlightRecoveryDesc": "Controla cuánto detalle se recupera de las luces recortadas en los archivos RAW. Valores más altos recuperan más detalle pero pueden introducir artefactos morados.",
         "linearOptions": {

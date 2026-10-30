@@ -1,10 +1,18 @@
 import { create } from 'zustand';
-import { Adjustments, INITIAL_ADJUSTMENTS, MaskContainer, AiPatch } from '../utils/adjustments';
+import {
+  Adjustments,
+  INITIAL_ADJUSTMENTS,
+  MaskContainer,
+  AiPatch,
+  CropGeometry,
+  pickCropGeometry,
+} from '../utils/adjustments';
 import { SelectedImage, WaveformData, BrushSettings, CompareView } from '../components/ui/AppProperties';
 import { ChannelConfig } from '../components/adjustments/Curves';
 import { ImageDimensions } from '../hooks/useImageRenderSize';
 import { ToolType } from '../components/panel/right/Masks';
 import { OverlayMode } from '../components/panel/right/CropPanel';
+import { describeHistoryChange } from '../utils/editHistory';
 
 export type CenterMarker = 'vignette' | 'centre';
 
@@ -31,6 +39,7 @@ interface EditorState {
 
   // History State
   history: Adjustments[];
+  historyLabels: string[];
   historyIndex: number;
 
   // Previews & Overlays
@@ -69,6 +78,7 @@ interface EditorState {
   activeCenterMarker: CenterMarker | null;
   isGuidedPerspectiveActive: boolean;
   liveRotation: number | null;
+  cropSessionSnapshot: { path: string | null; geometry: CropGeometry } | null;
   brushSettings: BrushSettings | null;
 
   // Masks & AI
@@ -91,7 +101,7 @@ interface EditorState {
 
   // Actions
   setEditor: (updater: Partial<EditorState> | ((state: EditorState) => Partial<EditorState>)) => void;
-  pushHistory: (newAdjustments: Adjustments) => void;
+  pushHistory: (newAdjustments: Adjustments, label?: string) => void;
   undo: () => void;
   redo: () => void;
   resetHistory: (initialState: Adjustments) => void;
@@ -103,6 +113,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   adjustments: INITIAL_ADJUSTMENTS,
   previewOverride: null,
   history: [INITIAL_ADJUSTMENTS],
+  historyLabels: [''],
   historyIndex: 0,
 
   finalPreviewUrl: null,
@@ -141,6 +152,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   activeCenterMarker: null,
   isGuidedPerspectiveActive: false,
   liveRotation: null,
+  cropSessionSnapshot: null,
 
   copiedSectionAdjustments: null,
   copiedMask: null,
@@ -157,12 +169,17 @@ export const useEditorStore = create<EditorState>((set) => ({
 
   setEditor: (updater) => set((state) => (typeof updater === 'function' ? updater(state) : updater)),
 
-  pushHistory: (newAdj) =>
+  pushHistory: (newAdj, label) =>
     set((state) => {
       const newHistory = state.history.slice(0, state.historyIndex + 1);
+      const newLabels = state.historyLabels.slice(0, state.historyIndex + 1);
+      newLabels.push(label || describeHistoryChange(state.history[state.historyIndex], newAdj));
       newHistory.push(newAdj);
-      if (newHistory.length > 50) newHistory.shift();
-      return { history: newHistory, historyIndex: newHistory.length - 1 };
+      if (newHistory.length > 50) {
+        newHistory.shift();
+        newLabels.shift();
+      }
+      return { history: newHistory, historyLabels: newLabels, historyIndex: newHistory.length - 1 };
     }),
 
   undo: () =>
@@ -184,11 +201,20 @@ export const useEditorStore = create<EditorState>((set) => ({
     }),
 
   resetHistory: (initialState) =>
-    set({
+    set((state) => ({
       history: [initialState],
+      historyLabels: [''],
       historyIndex: 0,
       adjustments: initialState,
-    }),
+      ...(state.cropSessionSnapshot
+        ? {
+            cropSessionSnapshot: {
+              path: state.selectedImage?.path ?? null,
+              geometry: pickCropGeometry(initialState),
+            },
+          }
+        : {}),
+    })),
 
   goToHistoryIndex: (index) =>
     set((state) => {

@@ -1,8 +1,8 @@
 use crate::Cursor;
 use crate::app_settings::{AppSettings, load_settings};
-use crate::app_state::{AppState, LoadedImage};
+use crate::app_state::{AppState, LoadedImage, PreviewTarget};
 use crate::baseline_exposure::BaselineOptions;
-use crate::cache_utils::{DecodeFingerprint, FlightRole};
+use crate::cache_utils::{DecodeFingerprint, FlightRole, clear_preview_slot};
 use crate::exif_processing;
 use crate::file_management::{parse_virtual_path, read_file_mapped};
 use crate::formats::is_raw_file;
@@ -350,14 +350,11 @@ fn largest_tiff_jpeg_preview(buf: &[u8]) -> Option<DynamicImage> {
 pub fn tiff_embedded_preview(bytes: &[u8]) -> Option<DynamicImage> {
     let img = largest_tiff_jpeg_preview(bytes)?;
 
-    let orientation = ExifReader::new()
-        .read_from_container(&mut Cursor::new(bytes))
-        .ok()
-        .and_then(|exif| {
-            exif.get_field(Tag::Orientation, exif::In::PRIMARY)?
-                .value
-                .get_uint(0)
-        });
+    let orientation = exif_processing::read_exif(bytes).and_then(|exif| {
+        exif.get_field(Tag::Orientation, exif::In::PRIMARY)?
+            .value
+            .get_uint(0)
+    });
 
     Some(match orientation {
         Some(o) if o > 1 => apply_orientation(img, Orientation::from_u16(o as u16)),
@@ -904,6 +901,7 @@ pub fn get_or_decode_pristine(
             let image =
                 load_base_image_from_bytes(bytes, &path_str, false, settings, cancel_token.clone())
                     .map_err(|e| e.to_string())?;
+            crate::as_shot::as_shot_from_bytes(&path_str, bytes);
             Ok((image, exif_processing::read_exif_data(&path_str, bytes)))
         };
         let (image, exif) = match read_file_mapped(source_path) {
@@ -966,14 +964,9 @@ pub async fn load_image(
             .original_image
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = None;
-        *state
-            .cached_preview
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
-        *state
-            .gpu_image_cache
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
+        for target in PreviewTarget::ALL {
+            clear_preview_slot(&state, target);
+        }
         *state
             .full_warped_cache
             .lock()

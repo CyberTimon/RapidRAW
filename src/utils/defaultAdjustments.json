@@ -286,6 +286,27 @@
   "lutSize": 0,
   "lutIsSceneReferred": false,
   "masks": [],
+  "monochromeEnabled": false,
+  "monochromeFilm": "neutral",
+  "monochromeFilterHue": 0,
+  "monochromeFilterStrength": 0,
+  "monochromeMix": {
+    "aquas": 0,
+    "blues": 0,
+    "greens": 0,
+    "magentas": 0,
+    "oranges": 0,
+    "purples": 0,
+    "reds": 0,
+    "yellows": 0
+  },
+  "monochromeToning": {
+    "balance": 0,
+    "highlightHue": 40,
+    "highlightSaturation": 0,
+    "shadowHue": 220,
+    "shadowSaturation": 0
+  },
   "negativeBlueWeight": 1,
   "negativeContrast": 1,
   "negativeConversionEnabled": false,

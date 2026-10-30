@@ -788,15 +788,21 @@ You have two options to run RapidRAW:
 
 **1. Download the Latest Release (Recommended)**
 
+The [**download page**](https://www.getrapidraw.com/download) picks the right file for your system. All builds are also on the [**Releases**](https://github.com/CyberTimon/RapidRAW/releases) page.
+
 **Windows & macOS:**
 
-- Grab the pre-built installer or application bundle for your operating system from the [**Releases**](https://github.com/CyberTimon/RapidRAW/releases) page.
+- Grab the installer or application bundle for your operating system from the [**download page**](https://www.getrapidraw.com/download).
 
 **Linux:**
 
 - The official Flatpak package supports all Linux distributions and is available on [**Flathub**](https://flathub.org/apps/io.github.CyberTimon.RapidRAW).
-- On Debian-based distributions, install the `.deb` package from the [**Releases**](https://github.com/CyberTimon/RapidRAW/releases) page.
+- On Debian-based distributions, install the `.deb` package from the [**download page**](https://www.getrapidraw.com/download).
 - On Arch-based distributions, use the [`rapidraw-bin`](https://aur.archlinux.org/packages/rapidraw-bin) package from the AUR.
+
+**Android:**
+
+- Install the `.apk` from the [**download page**](https://www.getrapidraw.com/download). Requires a 64-bit ARM device with Android 7.0 or newer.
 
 **2. Build from Source**
 
@@ -939,7 +945,7 @@ sudo dnf install libgphoto2-devel pkgconf-pkg-config
 
 </details>
 
-After installing the system dependencies, download the corresponding `_tethering` build from the [Releases](https://github.com/CyberTimon/RapidRAW/releases) page, or run/build from source using the `tethering` feature flag.
+After installing the system dependencies, download the corresponding tethering build from the [download page](https://www.getrapidraw.com/download#tethering), or run/build from source using the `tethering` feature flag.
 
 ## Command Line Interface (CLI)
 
@@ -1079,7 +1085,7 @@ A huge thank you to the following projects and tools that were very important in
 
 ## Support the Project
 
-As a young developer balancing this project with an apprenticeship, your support means the world. If you find RapidRAW useful or exciting, please consider donating to help me dedicate more time to its development and cover any associated costs.
+As a young developer balancing this project with an apprenticeship, your support means the world. If RapidRAW has a place in your workflow, a donation buys me more time to work on it, new gear to test it with, and days outdoors with my camera, which is where most new ideas for RapidRAW start.
 
 - **Ko-fi:** [Donate on Ko-fi](https://ko-fi.com/cybertimon)
 - **Crypto:**
