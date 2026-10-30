@@ -444,3 +444,8 @@
     text-shadow: 0 0 18px rgba(255, 255, 255, 0.3);
   }
 }
+
+.ReactCrop__drag-handle,
+.ReactCrop__drag-bar {
+  z-index: 1;
+}
