@@ -1,17 +1,23 @@
 import React, { useRef } from 'react';
-import { RotateCw } from 'lucide-react';
 import clsx from 'clsx';
 import { MAX_FINE_ROTATION } from '../../../../utils/cropUtils';
 import { FINE_ADJUSTMENT_MULTIPLIER, hasFineAdjustmentModifier } from '../../../../utils/keyboardUtils';
 
-const HANDLE_INSET = 10;
+const ZONE_SIZE = 56;
+const ZONE_OFFSET = -ZONE_SIZE / 2;
 const MIN_CROP_SIZE = 96;
 
+const rotateCursor = (angle: number) => {
+  const arrow = 'M6 17A11 11 0 0 1 17 6M3 14L6 18L9 14M14 3L18 6L14 9';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><g transform="rotate(${angle} 12 12)"><path d="${arrow}" stroke="black" stroke-width="4"/><path d="${arrow}" stroke="white" stroke-width="2"/></g></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 12 12, grab`;
+};
+
 const CORNERS: Array<React.CSSProperties> = [
-  { top: HANDLE_INSET, left: HANDLE_INSET },
-  { top: HANDLE_INSET, right: HANDLE_INSET },
-  { bottom: HANDLE_INSET, right: HANDLE_INSET },
-  { bottom: HANDLE_INSET, left: HANDLE_INSET },
+  { top: ZONE_OFFSET, left: ZONE_OFFSET, cursor: rotateCursor(0) },
+  { top: ZONE_OFFSET, right: ZONE_OFFSET, cursor: rotateCursor(90) },
+  { bottom: ZONE_OFFSET, right: ZONE_OFFSET, cursor: rotateCursor(180) },
+  { bottom: ZONE_OFFSET, left: ZONE_OFFSET, cursor: rotateCursor(270) },
 ];
 
 interface CropRotateHandlesProps {
@@ -89,23 +95,17 @@ export default function CropRotateHandles({ width, height, rotation, onRotate, o
   };
 
   return (
-    <div
-      ref={containerRef}
-      className={clsx('absolute inset-0 pointer-events-none', isTooSmall && 'invisible')}
-      style={{ zIndex: 60 }}
-    >
+    <div ref={containerRef} className={clsx('absolute inset-0 pointer-events-none', isTooSmall && 'invisible')}>
       {CORNERS.map((position, index) => (
         <div
           key={index}
-          className="absolute w-6 h-6 rounded-full flex items-center justify-center bg-black/50 border border-white/70 text-white opacity-70 hover:opacity-100 transition-opacity pointer-events-auto cursor-grab active:cursor-grabbing touch-none"
-          style={position}
+          className="absolute pointer-events-auto touch-none"
+          style={{ ...position, width: ZONE_SIZE, height: ZONE_SIZE }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerEnd}
           onPointerCancel={handlePointerEnd}
-        >
-          <RotateCw size={12} />
-        </div>
+        />
       ))}
     </div>
   );
