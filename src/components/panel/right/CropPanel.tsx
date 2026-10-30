@@ -44,6 +44,7 @@ import {
   calculateAreaPreservingCrop,
   calculateCenteredCrop,
   getOrientedDimensions,
+  MAX_FINE_ROTATION,
   ORIGINAL_RATIO,
   resolveAspectRatio,
 } from '../../../utils/cropUtils';
@@ -108,6 +109,7 @@ export default function CropPanel() {
   const isAutoStraightening = useEditorStore((s) => s.isAutoStraightening);
   const isGuidedPerspectiveActive = useEditorStore((s) => s.isGuidedPerspectiveActive);
   const activeOverlay = useEditorStore((s) => s.overlayMode);
+  const liveRotation = useEditorStore((s) => s.liveRotation);
   const setEditor = useEditorStore((s) => s.setEditor);
   const { setAdjustments, handleRotate, handleAutoStraighten } = useEditorActions();
 
@@ -121,7 +123,6 @@ export default function CropPanel() {
   const [lenses, setLenses] = useState<string[]>([]);
   const [myLenses, setMyLenses] = useState<any[]>([]);
   const [lensInfo, setLensInfo] = useState<LensCorrectionInfo | null | undefined>(undefined);
-  const [localRotation, setLocalRotation] = useState<number | null>(null);
   const localRotationRef = useRef<number | null>(null);
 
   const lensMode = adjustments.lensCorrectionMode || 'manual';
@@ -217,7 +218,6 @@ export default function CropPanel() {
 
   const updateLocalRotation = useCallback(
     (val: number | null) => {
-      setLocalRotation(val);
       localRotationRef.current = val;
       setEditor({ liveRotation: val });
     },
@@ -564,7 +564,7 @@ export default function CropPanel() {
     return rotation || 0;
   }, [rotation]);
 
-  const displayRotation = localRotation !== null ? localRotation : fineRotation;
+  const displayRotation = liveRotation ?? fineRotation;
 
   const handleFineRotationChange = (e: { target: { value: number | string } }) => {
     const newFineRotation = parseFloat(String(e.target.value));
@@ -940,8 +940,8 @@ export default function CropPanel() {
                       </button>
                     </div>
                   }
-                  min={-45}
-                  max={45}
+                  min={-MAX_FINE_ROTATION}
+                  max={MAX_FINE_ROTATION}
                   step={0.1}
                   value={displayRotation}
                   defaultValue={0}

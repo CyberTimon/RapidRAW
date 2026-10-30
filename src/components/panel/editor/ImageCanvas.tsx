@@ -29,6 +29,7 @@ import { MIXER_SAMPLE_SCREEN_SIZE, useHslMixerPicker } from '../../../hooks/useH
 import { isPanelVisible, useUIStore } from '../../../store/useUIStore';
 import type { OverlayMode } from '../right/CropPanel';
 import CompositionOverlays from './overlays/CompositionOverlays';
+import CropRotateHandles from './overlays/CropRotateHandles';
 import RelightLightShape, { RelightBasis } from './overlays/RelightLightShape';
 import CenterMarkerShape, { CENTER_MARKERS } from './overlays/CenterMarkerShape';
 import CloneSourceOverlay from './overlays/CloneSourceOverlay';
@@ -3518,10 +3519,24 @@ const ImageCanvas = memo(
       }
     }, [baseIsReady, interactivePatch]);
 
-    const cropImageTransforms = useMemo(() => {
-      const rotation = liveRotation !== null && liveRotation !== undefined ? liveRotation : adjustments.rotation || 0;
-      return `rotate(${rotation}deg)`;
-    }, [adjustments.rotation, liveRotation]);
+    const effectiveRotation = liveRotation ?? adjustments.rotation ?? 0;
+
+    const cropImageTransforms = useMemo(() => `rotate(${effectiveRotation}deg)`, [effectiveRotation]);
+
+    const handleRotateHandleChange = useCallback(
+      (rotation: number) => setEditor({ isRotationActive: true, liveRotation: rotation }),
+      [setEditor],
+    );
+
+    const handleRotateHandleEnd = useCallback(
+      (rotation: number | null) => {
+        setEditor({ isRotationActive: false, liveRotation: null });
+        if (rotation !== null) {
+          setAdjustments((prev: Adjustments) => ({ ...prev, rotation }));
+        }
+      },
+      [setAdjustments, setEditor],
+    );
 
     const getCropDimensions = () => {
       if (!crop || !uncroppedImageRenderSize?.width || !uncroppedImageRenderSize?.height) {
@@ -4118,13 +4133,24 @@ const ImageCanvas = memo(
                             ? 'none'
                             : overlayMode || 'none';
                         return (
-                          <CompositionOverlays
-                            width={width}
-                            height={height}
-                            mode={currentOverlayMode}
-                            rotation={overlayRotation || 0}
-                            denseVisible={showDenseGrid}
-                          />
+                          <>
+                            <CompositionOverlays
+                              width={width}
+                              height={height}
+                              mode={currentOverlayMode}
+                              rotation={overlayRotation || 0}
+                              denseVisible={showDenseGrid}
+                            />
+                            {!isStraightenActive && !isGuidedPerspectiveActive && (
+                              <CropRotateHandles
+                                width={width}
+                                height={height}
+                                rotation={effectiveRotation}
+                                onRotate={handleRotateHandleChange}
+                                onRotateEnd={handleRotateHandleEnd}
+                              />
+                            )}
+                          </>
                         );
                       }}
                     >
