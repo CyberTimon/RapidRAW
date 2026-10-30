@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GLOBAL_KEYS } from './AppProperties';
+import { FINE_ADJUSTMENT_MULTIPLIER, hasFineAdjustmentModifier } from '../../utils/keyboardUtils';
 
 export type SliderChangeEvent =
   | React.ChangeEvent<HTMLInputElement>
@@ -44,14 +45,10 @@ interface SliderProps {
 }
 
 const DOUBLE_CLICK_THRESHOLD_MS = 150;
-const FINE_ADJUSTMENT_MULTIPLIER = 0.2;
 const TOUCH_DRAG_THRESHOLD_PX = 10;
 const TOUCH_THUMB_HIT_RADIUS_PX = 24;
 
 const getFraction = (value: number, min: number, max: number) => (max !== min ? (value - min) / (max - min) : 0);
-
-const hasFineAdjustmentModifier = (event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) =>
-  'shiftKey' in event && (event.shiftKey || event.altKey);
 
 const Slider = ({
   defaultValue = 0,

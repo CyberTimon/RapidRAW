@@ -1,3 +1,5 @@
+import type React from 'react';
+
 export interface KeybindDefinition {
   action: string;
   description: string;
@@ -456,3 +458,8 @@ export function formatKeyCode(key: string, osPlatform: string): string {
   const label = codeToDisplayLabel(key);
   return label || key;
 }
+
+export const FINE_ADJUSTMENT_MULTIPLIER = 0.2;
+
+export const hasFineAdjustmentModifier = (event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) =>
+  'shiftKey' in event && (event.shiftKey || event.altKey);
