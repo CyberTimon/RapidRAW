@@ -799,6 +799,7 @@
       "camera": {
         "aperture": "Blende",
         "focalLength": "Brennweite",
+        "focusDistance": "Fokusentfernung",
         "iso": "ISO",
         "lens": "Objektiv",
         "shutterSpeed": "Verschlusszeit",

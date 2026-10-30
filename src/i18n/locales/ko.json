@@ -796,6 +796,7 @@
       "camera": {
         "aperture": "조리개",
         "focalLength": "초점 거리",
+        "focusDistance": "초점 거리",
         "iso": "ISO",
         "lens": "렌즈",
         "shutterSpeed": "셔터 속도",

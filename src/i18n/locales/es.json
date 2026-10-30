@@ -823,6 +823,7 @@
       "camera": {
         "aperture": "Apertura",
         "focalLength": "Distancia focal",
+        "focusDistance": "Distancia de enfoque",
         "iso": "ISO",
         "lens": "Lente",
         "shutterSpeed": "Velocidad de obturación",
