@@ -145,6 +145,7 @@ const ToneMapperSwitch = ({
             min={-5}
             onChange={(e: any) => onExposureChange(parseFloat(e.target.value))}
             step={0.01}
+            influenceControl="exposure"
             value={exposureValue}
             trackClassName="bg-surface"
             onDragStateChange={onDragStateChange}

@@ -87,7 +87,7 @@ globalThis.altTestInvoke = (command, args) => {
 };
 const bundle = await build({
   stdin: {
-    contents: `export {default as Slider} from './src/components/ui/Slider'; export {default as ColorWheel} from './src/components/ui/ColorWheel'; export {default as CurveGraph} from './src/components/adjustments/Curves'; export {default as EffectsPanel} from './src/components/adjustments/Effects'; export {default as DetailsPanel} from './src/components/adjustments/Details'; export {useInfluencePreview} from './src/hooks/useInfluencePreview'; export {useInfluencePreviewStore} from './src/store/useInfluencePreviewStore'; export {useEditorStore} from './src/store/useEditorStore'; export {useUIStore} from './src/store/useUIStore';`,
+    contents: `export {default as BasicPanel} from './src/components/adjustments/Basic'; export {default as Slider} from './src/components/ui/Slider'; export {default as ColorWheel} from './src/components/ui/ColorWheel'; export {default as CurveGraph} from './src/components/adjustments/Curves'; export {default as EffectsPanel} from './src/components/adjustments/Effects'; export {default as DetailsPanel} from './src/components/adjustments/Details'; export {useInfluencePreview} from './src/hooks/useInfluencePreview'; export {useInfluencePreviewStore} from './src/store/useInfluencePreviewStore'; export {useEditorStore} from './src/store/useEditorStore'; export {useUIStore} from './src/store/useUIStore';`,
     resolveDir: process.cwd(),
     loader: 'tsx',
   },
@@ -122,6 +122,7 @@ const {
   ColorWheel,
   CurveGraph,
   EffectsPanel,
+  BasicPanel,
   DetailsPanel,
   useInfluencePreview,
   useInfluencePreviewStore: preview,
@@ -488,6 +489,27 @@ for (const label of [
   assert.equal(preview.getState().preview.target, null);
   await act(async () => mouse(window, 'mouseup'));
 }
+function BasicHarness() {
+  const adjustments = editor((s) => s.adjustments);
+  return React.createElement(BasicPanel, {
+    adjustments,
+    appSettings: {},
+    setAdjustments: (updater) =>
+      editor.setState((s) => ({
+        adjustments: typeof updater === 'function' ? updater(s.adjustments) : { ...s.adjustments, ...updater },
+      })),
+  });
+}
+await mountComponent(BasicHarness);
+input = document.querySelector('input[type=range]');
+assert.ok(input, 'Actual global Tone Mapper exposure slider is present');
+input.getBoundingClientRect = () => ({ left: 0, width: 200 });
+count = calls.length;
+await act(async () => mouse(input, 'mousedown', 100, { altKey: true }));
+assert.ok(calls.length > count, 'Tone Mapper exposure must request a preview');
+assert.equal(calls.at(-1).request.target.control, 'exposure');
+assert.equal(calls.at(-1).request.presentation, 1);
+await act(async () => mouse(window, 'mouseup'));
 await act(async () => root.unmount());
 assert.equal(openUrls.size, 0, 'Every decoded diagnostic URL is released');
 dom.window.close();
