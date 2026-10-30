@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import type Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { useEditorStore } from '../store/useEditorStore';
-import { Adjustments, HueSatLum, INITIAL_ADJUSTMENTS } from '../utils/adjustments';
+import { Adjustments, HueSatLum, INITIAL_ADJUSTMENTS, INITIAL_MASK_ADJUSTMENTS } from '../utils/adjustments';
 import { HslMixerBand, HslMixerProperty, HslPresence, sampleHslPresence } from '../utils/hslMixer';
 import { RenderSize } from './useImageRenderSize';
 import { Invokes } from '../components/ui/AppProperties';
@@ -19,6 +19,7 @@ interface Coord {
 
 interface PickerDrag {
   property: HslMixerProperty;
+  maskId: string | null;
   lastY: number;
   offset: number;
   appliedKey: string | null;
@@ -28,8 +29,10 @@ interface PickerDrag {
 }
 
 interface HslMixerPickerOptions {
+  activeMaskContainerId: string | null;
   getCanvasPointer(stage: Konva.Stage): Coord | null;
   imageRenderSize: RenderSize;
+  isMasking: boolean;
   previewUrl: string | null;
   zoomScale: number;
   setAdjustments(fn: (prev: Adjustments) => Adjustments): void;
@@ -39,9 +42,16 @@ const clampOffset = ({ offsetRange: [min, max] }: PickerDrag, offset: number) =>
 
 const getClientY = (e: MouseEvent | TouchEvent) => ('touches' in e ? e.touches[0]?.clientY : e.clientY);
 
+const getTargetHsl = (adjustments: Adjustments, maskId: string | null): Adjustments['hsl'] =>
+  maskId
+    ? { ...INITIAL_MASK_ADJUSTMENTS.hsl, ...adjustments.masks.find((mask) => mask.id === maskId)?.adjustments.hsl }
+    : { ...INITIAL_ADJUSTMENTS.hsl, ...adjustments.hsl };
+
 export function useHslMixerPicker({
+  activeMaskContainerId,
   getCanvasPointer,
   imageRenderSize,
+  isMasking,
   previewUrl,
   zoomScale,
   setAdjustments,
@@ -97,7 +107,7 @@ export function useHslMixerPicker({
 
   const applyDrag = useCallback(
     (drag: PickerDrag) => {
-      const { presence, base, property: key } = drag;
+      const { presence, base, property: key, maskId } = drag;
       if (!presence) return;
       const values = Object.entries(presence).map(([band, weight]): [string, number] => [
         band,
@@ -107,11 +117,18 @@ export function useHslMixerPicker({
       if (appliedKey === drag.appliedKey) return;
       drag.appliedKey = appliedKey;
       setAdjustments((prev) => {
-        const hsl = { ...(prev.hsl || INITIAL_ADJUSTMENTS.hsl) };
+        const hsl = getTargetHsl(prev, maskId);
         values.forEach(([band, value]) => {
           hsl[band] = { ...hsl[band], [key]: value };
         });
-        return { ...prev, hsl };
+        return maskId
+          ? {
+              ...prev,
+              masks: prev.masks.map((mask) =>
+                mask.id === maskId ? { ...mask, adjustments: { ...mask.adjustments, hsl } } : mask,
+              ),
+            }
+          : { ...prev, hsl };
       });
     },
     [setAdjustments],
@@ -131,16 +148,18 @@ export function useHslMixerPicker({
       const stage = e.target.getStage();
       const pos = stage && getCanvasPointer(stage);
       const clientY = getClientY(e.evt);
-      if (!property || !pos || clientY === undefined) return;
+      const maskId = isMasking ? activeMaskContainerId : null;
+      if (!property || !pos || clientY === undefined || (isMasking && !maskId)) return;
       if (pos.x < 0 || pos.y < 0 || pos.x > imageRenderSize.width || pos.y > imageRenderSize.height) return;
 
       end();
       const drag: PickerDrag = {
         property,
+        maskId,
         lastY: clientY,
         offset: 0,
         appliedKey: null,
-        base: { ...INITIAL_ADJUSTMENTS.hsl, ...useEditorStore.getState().adjustments.hsl },
+        base: getTargetHsl(useEditorStore.getState().adjustments, maskId),
         presence: null,
         offsetRange: [-Infinity, Infinity],
       };
@@ -185,7 +204,18 @@ export function useHslMixerPicker({
         })
         .catch((err) => console.error('Failed to sample preview for color mixer picker:', err));
     },
-    [property, imageRenderSize, zoomScale, getCanvasPointer, sampleArea, setEditor, applyDrag, end],
+    [
+      property,
+      isMasking,
+      activeMaskContainerId,
+      imageRenderSize,
+      zoomScale,
+      getCanvasPointer,
+      sampleArea,
+      setEditor,
+      applyDrag,
+      end,
+    ],
   );
 
   useEffect(() => {

@@ -1779,8 +1779,10 @@ const ImageCanvas = memo(
       isDragging: isMixerPickerDragging,
       start: startMixerPick,
     } = useHslMixerPicker({
+      activeMaskContainerId,
       getCanvasPointer,
       imageRenderSize,
+      isMasking,
       previewUrl: finalPreviewUrl,
       zoomScale: effectiveZoomScale,
       setAdjustments,
