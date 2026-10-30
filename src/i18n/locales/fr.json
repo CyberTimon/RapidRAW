@@ -116,6 +116,8 @@
       "whiteBalance": "Balance des blancs"
     },
     "curves": {
+      "showProcessedHistogram": "Afficher l’histogramme de l’image traitée",
+      "cubicSpline": "Spline cubique",
       "channelTitle": "Canal {{channel}}",
       "channels": {
         "blue": "Bleu",

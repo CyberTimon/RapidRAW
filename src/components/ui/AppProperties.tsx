@@ -265,6 +265,7 @@ export interface AppSettings {
   createXmpIfMissing?: boolean;
   isWaveformVisible?: boolean;
   waveformHeight?: number;
+  curveHistogramMode?: 'input' | 'output';
   activeWaveformChannel?: string;
   useWgpuRenderer?: boolean;
   editorNeutralGreyBg?: boolean;
@@ -391,6 +392,7 @@ export interface ImageFile {
 }
 
 export interface Option {
+  checked?: boolean;
   color?: string;
   disabled?: boolean;
   icon?: any;

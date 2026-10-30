@@ -116,6 +116,8 @@
       "whiteBalance": "白平衡"
     },
     "curves": {
+      "showProcessedHistogram": "顯示處理後的直方圖",
+      "cubicSpline": "三次樣條",
       "channelTitle": "{{channel}} 通道",
       "channels": {
         "blue": "藍色",

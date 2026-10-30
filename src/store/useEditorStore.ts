@@ -8,7 +8,7 @@ import {
   pickCropGeometry,
 } from '../utils/adjustments';
 import { SelectedImage, WaveformData, BrushSettings, CompareView } from '../components/ui/AppProperties';
-import { ChannelConfig } from '../components/adjustments/Curves';
+import type { CurveInputHistogram, HistogramData } from '../types/analytics';
 import { ImageDimensions } from '../hooks/useImageRenderSize';
 import { ToolType } from '../components/panel/right/Masks';
 import { OverlayMode } from '../components/panel/right/CropPanel';
@@ -52,7 +52,9 @@ interface EditorState {
   originalPreview: { path: string; url: string | null } | null;
 
   // Analytics
-  histogram: ChannelConfig | null;
+  histogram: HistogramData | null;
+  curveInputHistogram: CurveInputHistogram | null;
+  maskCurveInputHistogram: CurveInputHistogram | null;
   waveform: WaveformData | null;
   isWaveformVisible: boolean;
   activeWaveformChannel: string;
@@ -123,6 +125,8 @@ export const useEditorStore = create<EditorState>((set) => ({
   splitPosition: 0.5,
   originalPreview: null,
   histogram: null,
+  curveInputHistogram: null,
+  maskCurveInputHistogram: null,
   waveform: null,
   isWaveformVisible: false,
   activeWaveformChannel: 'luma',

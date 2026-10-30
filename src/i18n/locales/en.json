@@ -116,6 +116,8 @@
       "whiteBalance": "White Balance"
     },
     "curves": {
+      "showProcessedHistogram": "Show processed histogram",
+      "cubicSpline": "Cubic spline",
       "channelTitle": "{{channel}} Channel",
       "channels": {
         "blue": "Blue",

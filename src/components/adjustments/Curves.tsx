@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RotateCcw, Copy, ClipboardPaste, Spline, Settings2 } from 'lucide-react';
+import { RotateCcw, Copy, ClipboardPaste, Spline, Settings2, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   ActiveChannel,
@@ -11,29 +11,18 @@ import {
   ParametricCurveSettings,
   getDefaultCurves,
 } from '../../utils/adjustments';
-import { Theme, OPTION_SEPARATOR } from '../ui/AppProperties';
+import { Theme, OPTION_SEPARATOR, type Option } from '../ui/AppProperties';
 import { useContextMenu } from '../../context/ContextMenuContext';
 import Text from '../ui/Text';
 import Slider from '../ui/Slider';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { areSectionPropsEqual } from '../../utils/adjustments';
 import { useEditorStore } from '../../store/useEditorStore';
+import { useSettingsStore } from '../../store/useSettingsStore';
+import { naturalCurvePath, type CurveInterpolation } from '../../utils/curveInterpolation';
 
 let curveClipboard: Array<Coord> | null = null;
 let parametricClipboard: any = null;
-
-export interface ChannelConfig {
-  [index: string]: ColorData;
-  [ActiveChannel.Luma]: ColorData;
-  [ActiveChannel.Red]: ColorData;
-  [ActiveChannel.Green]: ColorData;
-  [ActiveChannel.Blue]: ColorData;
-}
-
-interface ColorData {
-  color: string;
-  data: any;
-}
 
 interface CurveGraphProps {
   adjustments: Adjustments | any;
@@ -106,8 +95,12 @@ function buildParametricPoints(settings: ParametricCurveSettings): Array<Coord> 
   return points;
 }
 
-function getCurvePath(points: Array<Coord>) {
+function getCurvePath(points: Array<Coord>, interpolation: CurveInterpolation = 'standard') {
   if (points.length < 2) return '';
+  if (interpolation === 'natural') {
+    const path = naturalCurvePath(points);
+    if (path !== null) return path;
+  }
 
   const n = points.length;
   const deltas = [];
@@ -202,8 +195,20 @@ function getZeroHistogramPath(data: Array<any>) {
   return `M0,255 L${pathData} L255,255 Z`;
 }
 
-const HistogramFill = memo(({ channel, opacity }: { channel: ActiveChannel; opacity: number }) => {
-  const data: number[] | undefined = useEditorStore((state) => state.histogram?.[channel]) as any;
+interface HistogramFillProps {
+  channel: ActiveChannel;
+  opacity: number;
+  isForMask: boolean;
+}
+
+const HistogramFill = memo(({ channel, opacity, isForMask }: HistogramFillProps) => {
+  const showOutput = useSettingsStore((state) => state.appSettings?.curveHistogramMode === 'output');
+  const data = useEditorStore((state) => {
+    if (showOutput) return state.histogram?.[channel];
+    const input = isForMask ? state.maskCurveInputHistogram : state.curveInputHistogram;
+    const maskId = isForMask ? state.activeMaskContainerId : null;
+    return input?.maskId === maskId ? input.histogram[channel] : undefined;
+  });
   const histogramPath = useMemo(() => getHistogramPath(data ?? []), [data]);
   const zeroHistogramPath = useMemo(() => getZeroHistogramPath(data ?? []), [data]);
 
@@ -277,7 +282,7 @@ const MIN_POINT_GAP_X = 1;
 const hasFineAdjustmentModifier = (event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) =>
   'shiftKey' in event && (event.shiftKey || event.altKey);
 
-function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: CurveGraphProps) {
+function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isForMask = false }: CurveGraphProps) {
   const { t } = useTranslation();
   const { showContextMenu } = useContextMenu();
   const [curveMode, setCurveMode] = useState<'point' | 'parametric'>(adjustments.curveMode || 'point');
@@ -295,6 +300,11 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
   const localPointsRef = useRef<Array<Coord> | null>(null);
   const localParametricSettingsRef = useRef<ParametricCurveSettings | null>(null);
   const isParametricMode = curveMode === 'parametric';
+  const interpolation: CurveInterpolation =
+    !isParametricMode && adjustments.curveInterpolation === 'natural' ? 'natural' : 'standard';
+  const histogramMode = useSettingsStore((state) =>
+    state.appSettings?.curveHistogramMode === 'output' ? 'output' : 'input',
+  );
 
   const parametricCurves = adjustments?.parametricCurve || DEFAULT_PARAMETRIC_CURVE;
   const parametricCurvesRef = useRef(parametricCurves);
@@ -578,6 +588,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
     const x = Math.max(0, Math.min(255, ((clientX - rect.left) / rect.width) * 255));
     const y = Math.max(0, Math.min(255, 255 - ((clientY - rect.top) / rect.height) * 255));
 
+    if (activePoints.length >= 16) return;
     if (activePoints.some((p: Coord) => Math.abs(p.x - x) < MIN_POINT_GAP_X)) return;
 
     onDragStateChange?.(true);
@@ -627,7 +638,35 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
     e.stopPropagation();
 
     const channelLabel = t(`adjustments.curves.channels.${activeChannel}`);
-
+    const setHistogramMode = (mode: 'input' | 'output') => {
+      const settings = useSettingsStore.getState();
+      if (settings.appSettings) {
+        void settings.handleSettingsChange({ ...settings.appSettings, curveHistogramMode: mode });
+      }
+    };
+    const displayOptions: Option[] = [
+      ...(!isParametricMode
+        ? [
+            {
+              label: t('adjustments.curves.cubicSpline'),
+              checked: interpolation === 'natural',
+              icon: interpolation === 'natural' ? Check : undefined,
+              onClick: () =>
+                setAdjustments((prev: Adjustments) => ({
+                  ...prev,
+                  curveInterpolation: prev.curveInterpolation === 'natural' ? 'standard' : 'natural',
+                })),
+            },
+          ]
+        : []),
+      {
+        label: t('adjustments.curves.showProcessedHistogram'),
+        checked: histogramMode === 'output',
+        icon: histogramMode === 'output' ? Check : undefined,
+        onClick: () => setHistogramMode(histogramMode === 'output' ? 'input' : 'output'),
+      },
+      { type: OPTION_SEPARATOR },
+    ];
     if (isParametricMode) {
       const handleCopyParametric = () => {
         parametricClipboard = { ...activeParametricSettings };
@@ -713,7 +752,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
         });
       }
 
-      showContextMenu(e.clientX, e.clientY, options);
+      showContextMenu(e.clientX, e.clientY, [...displayOptions, ...options]);
       return;
     }
 
@@ -801,7 +840,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
       });
     }
 
-    showContextMenu(e.clientX, e.clientY, options);
+    showContextMenu(e.clientX, e.clientY, [...displayOptions, ...options]);
   };
 
   const splitPositions = useMemo(
@@ -901,7 +940,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
               stroke="rgba(255,255,255,0.1)"
               strokeWidth="0.5"
             />
-            <HistogramFill channel={activeChannel} opacity={histogramOpacity} />
+            <HistogramFill channel={activeChannel} opacity={histogramOpacity} isForMask={isForMask} />
             <line
               x1="0"
               y1="255"
@@ -926,7 +965,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
               )
               .map((channel) => (
                 <path
-                  d={getCurvePath(adjustments.curves[channel])}
+                  d={getCurvePath(adjustments.curves[channel], interpolation)}
                   fill="none"
                   key={channel}
                   pointerEvents="none"
@@ -936,7 +975,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                 />
               ))}
 
-            <path d={getCurvePath(activePoints)} fill="none" stroke={color} strokeWidth="2.5" />
+            <path d={getCurvePath(activePoints, interpolation)} fill="none" stroke={color} strokeWidth="2.5" />
 
             {isParametricMode && activePoints.length >= 2 && (
               <>
