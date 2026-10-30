@@ -4,6 +4,8 @@ import { Crop } from 'react-image-crop';
 // 0 is the default, because the image ratio differs per image and cannot be stored as one number.
 export const ORIGINAL_RATIO = 0;
 
+export const MAX_FINE_ROTATION = 45;
+
 export function resolveAspectRatio(
   aspectRatio: number | null,
   image: { width: number; height: number } | null | undefined,
