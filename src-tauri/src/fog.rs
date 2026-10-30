@@ -76,6 +76,23 @@ pub fn apply_fog<'a>(
     image: Cow<'a, DynamicImage>,
     adjustments: &serde_json::Value,
 ) -> Cow<'a, DynamicImage> {
+    apply_fog_inner::<false, false>(image, adjustments, None)
+}
+pub(crate) fn apply_fog_cancellable<'a>(
+    image: Cow<'a, DynamicImage>,
+    adjustments: &serde_json::Value,
+    cancelled: &(dyn Fn() -> bool + Sync),
+) -> Cow<'a, DynamicImage> {
+    apply_fog_inner::<false, true>(image, adjustments, Some(cancelled))
+}
+pub(crate) fn diagnose_fog(image: &DynamicImage, adjustments: &serde_json::Value) -> DynamicImage {
+    apply_fog_inner::<true, false>(Cow::Borrowed(image), adjustments, None).into_owned()
+}
+fn apply_fog_inner<'a, const DIAGNOSTIC: bool, const CANCELLABLE: bool>(
+    image: Cow<'a, DynamicImage>,
+    adjustments: &serde_json::Value,
+    cancelled: Option<&(dyn Fn() -> bool + Sync)>,
+) -> Cow<'a, DynamicImage> {
     if !crate::image_processing::is_effect_enabled(adjustments, "fog", "fogEnabled") {
         return image;
     }
@@ -88,7 +105,11 @@ pub fn apply_fog<'a>(
     let get = |key: &str, default: f64| {
         (adjustments[key].as_f64().unwrap_or(default) as f32 / 100.0).clamp(0.0, 1.0)
     };
-    let amount = get("fogAmount", 50.0);
+    let amount = if DIAGNOSTIC && get("fogAmount", 50.0) == 0.0 {
+        1.0
+    } else {
+        get("fogAmount", 50.0)
+    };
     if amount <= 0.0 {
         return image;
     }
@@ -242,6 +263,9 @@ pub fn apply_fog<'a>(
     out.par_chunks_exact_mut(wu * 3)
         .enumerate()
         .for_each(|(y, row)| {
+            if CANCELLABLE && cancelled.is_some_and(|f| f()) {
+                return;
+            }
             let v = (y as f32 + 0.5) / h as f32;
             for x in 0..wu {
                 let i = x * 3;
@@ -258,6 +282,12 @@ pub fn apply_fog<'a>(
                     (1.0 + 1.6 * variation * (depth_tap.sample(&noise) * 2.0 - 1.0)).max(0.0);
                 let optical = density * t * (-height * up).exp() * patches;
                 let fog = (amount * (1.0 - (-optical).exp()) / norm).clamp(0.0, 1.0);
+                if DIAGNOSTIC {
+                    row[i] = fog;
+                    row[i + 1] = fog;
+                    row[i + 2] = fog;
+                    continue;
+                }
                 if fog <= 0.0 {
                     continue;
                 }

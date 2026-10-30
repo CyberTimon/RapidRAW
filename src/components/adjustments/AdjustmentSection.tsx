@@ -1,3 +1,5 @@
+import { InfluencePreviewContext } from '../../context/InfluencePreviewContext';
+import type { InfluenceScope } from '../../utils/influencePreview';
 import { useMemo } from 'react';
 import BasicAdjustments from './Basic';
 import CurveGraph from './Curves';
@@ -19,11 +21,13 @@ interface AdjustmentSectionProps {
   sectionName: string;
   activeTools: ActiveTools;
   onToggleTool(id: string): void;
+  influenceScope?: InfluenceScope;
   [key: string]: unknown;
 }
 
 export default function AdjustmentSection({
   sectionName,
+  influenceScope,
   activeTools,
   onToggleTool,
   ...sectionProps
@@ -32,11 +36,20 @@ export default function AdjustmentSection({
     () => ({ activeTools, onToggleTool, section: sectionName }),
     [activeTools, onToggleTool, sectionName],
   );
+  const influenceContext = useMemo(
+    () => ({
+      ownerId: influenceScope?.kind === 'mask' ? `mask:${influenceScope.containerId}` : 'global',
+      scope: influenceScope ?? { kind: 'global' as const },
+    }),
+    [influenceScope],
+  );
   const SectionComponent = SECTION_COMPONENTS[sectionName];
 
   return (
     <ToolVisibilityContext.Provider value={contextValue}>
-      <SectionComponent {...sectionProps} />
+      <InfluencePreviewContext.Provider value={influenceContext}>
+        <SectionComponent {...sectionProps} />
+      </InfluencePreviewContext.Provider>
     </ToolVisibilityContext.Provider>
   );
 }

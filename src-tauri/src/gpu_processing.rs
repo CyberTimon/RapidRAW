@@ -39,6 +39,388 @@ pub struct RenderRequest<'a> {
     pub roi: Option<Roi>,
 }
 
+struct DiagnosticPass<'a> {
+    output: &'a wgpu::Texture,
+    pipeline: Option<&'a wgpu::ComputePipeline>,
+    probe: Option<&'a wgpu::BindGroup>,
+    cancelled: &'a dyn Fn() -> bool,
+}
+
+pub struct DiagnosticFrame {
+    texture: wgpu::Texture,
+    width: u32,
+    height: u32,
+}
+
+/// Private offscreen resources. Never writes normal display textures or analytics.
+pub struct DiagnosticGpu {
+    processor: GpuProcessor,
+    input: Option<(u64, GpuImageEntry)>,
+    probe_pipeline: Option<(wgpu::ComputePipeline, wgpu::BindGroupLayout)>,
+    metric_pipeline: Option<wgpu::ComputePipeline>,
+    width: u32,
+    height: u32,
+}
+
+impl DiagnosticGpu {
+    pub(crate) fn upload_frame(&self, image: &image::Rgba32FImage) -> DiagnosticFrame {
+        let values: Vec<f16> = image.as_raw().iter().copied().map(f16::from_f32).collect();
+        let texture = self.processor.context.device.create_texture_with_data(
+            &self.processor.context.queue,
+            &wgpu::TextureDescriptor {
+                label: Some("Influence coverage upload"),
+                size: wgpu::Extent3d {
+                    width: image.width(),
+                    height: image.height(),
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba16Float,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
+            TextureDataOrder::LayerMajor,
+            bytemuck::cast_slice(&values),
+        );
+        DiagnosticFrame {
+            texture,
+            width: image.width(),
+            height: image.height(),
+        }
+    }
+    pub fn matches(&self, context: &GpuContext, width: u32, height: u32) -> bool {
+        Arc::ptr_eq(&self.processor.context.device, &context.device)
+            && self.width >= width
+            && self.height >= height
+    }
+    pub fn new(context: GpuContext, width: u32, height: u32) -> Result<Self, String> {
+        Ok(Self {
+            processor: GpuProcessor::new(context, width, height)?,
+            input: None,
+            probe_pipeline: None,
+            metric_pipeline: None,
+            width,
+            height,
+        })
+    }
+    pub fn render(
+        &mut self,
+        image: &DynamicImage,
+        key: u64,
+        request: RenderRequest<'_>,
+        probe: Option<[u32; 4]>,
+        cancelled: &dyn Fn() -> bool,
+    ) -> Result<DiagnosticFrame, String> {
+        let (width, height) = image.dimensions();
+        if !self
+            .input
+            .as_ref()
+            .is_some_and(|(k, e)| *k == key && e.width == width && e.height == height)
+        {
+            let context = &self.processor.context;
+            let texture = context.device.create_texture_with_data(
+                &context.queue,
+                &wgpu::TextureDescriptor {
+                    label: Some("Influence input"),
+                    size: wgpu::Extent3d {
+                        width,
+                        height,
+                        depth_or_array_layers: 1,
+                    },
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: wgpu::TextureFormat::Rgba16Float,
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                    view_formats: &[],
+                },
+                TextureDataOrder::MipMajor,
+                bytemuck::cast_slice(&to_rgba_f16(image)),
+            );
+            let view = texture.create_view(&Default::default());
+            let guided = self.processor.build_guided_coeffs(
+                &view,
+                width,
+                height,
+                request.adjustments.global.is_raw_image,
+            );
+            self.input = Some((
+                key,
+                GpuImageEntry {
+                    id: NEXT_GPU_IMAGE_ID.fetch_add(1, Ordering::Relaxed),
+                    texture,
+                    texture_view: view,
+                    gf_coeffs_view: guided.coeffs,
+                    gf_structure_view: guided.structure,
+                    haze_view: guided.haze,
+                    airlight_view: guided.airlight,
+                    is_raw: request.adjustments.global.is_raw_image,
+                    width,
+                    height,
+                    transform_hash: key,
+                    source: (0, 0),
+                },
+            ));
+        }
+        let output = self
+            .processor
+            .context
+            .device
+            .create_texture(&wgpu::TextureDescriptor {
+                label: Some("Influence float branch"),
+                size: wgpu::Extent3d {
+                    width,
+                    height,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba16Float,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            });
+        if probe.is_some() && self.probe_pipeline.is_none() {
+            let device = &self.processor.context.device;
+            let bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Influence probe parameters"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
+            let hp = self.processor.high_precision_pipeline();
+            let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Influence probe layout"),
+                bind_group_layouts: &[Some(&hp.bgl), Some(&bgl)],
+                immediate_size: 0,
+            });
+            let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("Influence stage probes"),
+                source: wgpu::ShaderSource::Wgsl(diagnostic_shader_source().into()),
+            });
+            let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("Influence stage pipeline"),
+                layout: Some(&layout),
+                module: &shader,
+                entry_point: Some("main"),
+                compilation_options: wgpu::PipelineCompilationOptions {
+                    constants: &[("HIGH_PRECISION_OUTPUT", 1.)],
+                    ..Default::default()
+                },
+                cache: None,
+            });
+            self.probe_pipeline = Some((pipeline, bgl));
+        }
+        let probe_group = probe.map(|values| {
+            let device = &self.processor.context.device;
+            let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Influence probe"),
+                contents: bytemuck::cast_slice(&values),
+                usage: wgpu::BufferUsages::UNIFORM,
+            });
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Influence probe"),
+                layout: &self.probe_pipeline.as_ref().unwrap().1,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: buffer.as_entire_binding(),
+                }],
+            })
+        });
+        let pass = DiagnosticPass {
+            output: &output,
+            pipeline: probe.and_then(|_| self.probe_pipeline.as_ref().map(|p| &p.0)),
+            probe: probe_group.as_ref(),
+            cancelled,
+        };
+        self.processor.run(
+            &self.input.as_ref().unwrap().1,
+            request,
+            true,
+            RenderOutputPrecision::SixteenBit,
+            Some(&pass),
+        )?;
+        Ok(DiagnosticFrame {
+            texture: output,
+            width,
+            height,
+        })
+    }
+    pub fn compose(
+        &mut self,
+        actual: &DiagnosticFrame,
+        baseline: &DiagnosticFrame,
+        presentation: u32,
+        support: Option<&DiagnosticFrame>,
+        support_reference: Option<&DiagnosticFrame>,
+    ) -> Result<image::RgbaImage, String> {
+        self.compose_filtered(
+            actual,
+            baseline,
+            presentation,
+            support,
+            support_reference,
+            None,
+        )
+    }
+    #[allow(clippy::too_many_arguments)]
+    pub fn compose_filtered(
+        &mut self,
+        actual: &DiagnosticFrame,
+        baseline: &DiagnosticFrame,
+        presentation: u32,
+        support: Option<&DiagnosticFrame>,
+        support_reference: Option<&DiagnosticFrame>,
+        filter: Option<&DiagnosticFrame>,
+    ) -> Result<image::RgbaImage, String> {
+        if (actual.width, actual.height) != (baseline.width, baseline.height) {
+            return Err("Comparison dimensions differ".into());
+        }
+        if presentation > 3 || (presentation > 0 && support.is_none()) {
+            return Err("Invalid diagnostic presentation/coverage".into());
+        }
+        for frame in [support, support_reference, filter].into_iter().flatten() {
+            if (frame.width, frame.height) != (actual.width, actual.height) {
+                return Err("Coverage dimensions differ".into());
+            }
+        }
+        let context = &self.processor.context;
+        let device = &context.device;
+        let pipeline = self
+            .metric_pipeline
+            .get_or_insert_with(|| {
+                let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+                    label: Some("Influence metric"),
+                    source: wgpu::ShaderSource::Wgsl(
+                        include_str!("shaders/influence_difference.wgsl").into(),
+                    ),
+                });
+                device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                    label: Some("Influence difference"),
+                    layout: None,
+                    module: &shader,
+                    entry_point: Some("main"),
+                    compilation_options: Default::default(),
+                    cache: None,
+                })
+            })
+            .clone();
+        let output = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Influence map"),
+            size: wgpu::Extent3d {
+                width: actual.width,
+                height: actual.height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::COPY_SRC,
+            view_formats: &[],
+        });
+        let a = actual.texture.create_view(&Default::default());
+        let b = baseline.texture.create_view(&Default::default());
+        let support_reference_view = support_reference
+            .unwrap_or(baseline)
+            .texture
+            .create_view(&Default::default());
+        let filter_view = filter
+            .unwrap_or(baseline)
+            .texture
+            .create_view(&Default::default());
+        let support_view = support
+            .unwrap_or(baseline)
+            .texture
+            .create_view(&Default::default());
+        let out = output.create_view(&Default::default());
+        let values = [
+            presentation,
+            if support_reference.is_some() {
+                2
+            } else {
+                u32::from(support.is_some())
+            },
+            u32::from(filter.is_some()),
+            0,
+        ];
+        let params = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Influence metric parameters"),
+            contents: bytemuck::cast_slice(&values),
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+        let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Influence metric"),
+            layout: &pipeline.get_bind_group_layout(0),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&a),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&b),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(&out),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: params.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: wgpu::BindingResource::TextureView(&support_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 5,
+                    resource: wgpu::BindingResource::TextureView(&support_reference_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 6,
+                    resource: wgpu::BindingResource::TextureView(&filter_view),
+                },
+            ],
+        });
+        let mut encoder = device.create_command_encoder(&Default::default());
+        {
+            let mut pass = encoder.begin_compute_pass(&Default::default());
+            pass.set_pipeline(&pipeline);
+            pass.set_bind_group(0, &group, &[]);
+            pass.dispatch_workgroups(actual.width.div_ceil(8), actual.height.div_ceil(8), 1);
+        }
+        context.queue.submit(Some(encoder.finish()));
+        let bytes = read_texture_data_roi(
+            device,
+            &context.queue,
+            &output,
+            wgpu::Origin3d::ZERO,
+            wgpu::Extent3d {
+                width: actual.width,
+                height: actual.height,
+                depth_or_array_layers: 1,
+            },
+            4,
+        )?;
+        image::RgbaImage::from_raw(actual.width, actual.height, bytes)
+            .ok_or("Invalid influence readback".into())
+    }
+}
+
+fn diagnostic_shader_source() -> String {
+    crate::influence_preview::probe_shader_source(&high_precision_shader_source())
+}
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct DisplayTransform {
@@ -2601,6 +2983,7 @@ impl GpuProcessor {
         request: RenderRequest,
         output_to_display: bool,
         output_precision: RenderOutputPrecision,
+        diagnostic: Option<&DiagnosticPass<'_>>,
     ) -> Result<(RenderedPixels, u32, u32, u32, u32), String> {
         let input_texture_view = &input.texture_view;
         let gf_coeffs_view = &input.gf_coeffs_view;
@@ -2613,7 +2996,10 @@ impl GpuProcessor {
         let scale = (width.min(height) as f32) / 1080.0;
         const MAX_MASK_BINDINGS: u32 = 1;
 
-        if output_precision == RenderOutputPrecision::SixteenBit && output_to_display {
+        if output_precision == RenderOutputPrecision::SixteenBit
+            && output_to_display
+            && diagnostic.is_none()
+        {
             return Err(
                 "High-precision GPU output is only supported for CPU-readback renders.".to_string(),
             );
@@ -2624,10 +3010,14 @@ impl GpuProcessor {
         } else {
             None
         };
-        let output_pipeline = self.main_pipeline_for(
-            high_precision_tile.is_some(),
-            shader_features(&request.adjustments),
-        );
+        let output_pipeline = diagnostic
+            .and_then(|d| d.pipeline.cloned())
+            .unwrap_or_else(|| {
+                self.main_pipeline_for(
+                    high_precision_tile.is_some(),
+                    shader_features(&request.adjustments),
+                )
+            });
         let (output_bgl, output_tile_texture, output_tile_view, bytes_per_pixel) =
             if let Some(high_precision_tile) = high_precision_tile {
                 let hp = self.high_precision_pipeline();
@@ -2784,6 +3174,9 @@ impl GpuProcessor {
 
         for tile_y in start_tile_y..end_tile_y {
             for tile_x in start_tile_x..end_tile_x {
+                if diagnostic.is_some_and(|d| (d.cancelled)()) {
+                    return Err("Superseded influence request".into());
+                }
                 let x_start_unclamped = tile_x * TILE_SIZE;
                 let y_start_unclamped = tile_y * TILE_SIZE;
 
@@ -3048,6 +3441,9 @@ impl GpuProcessor {
                     let mut compute_pass = main_encoder.begin_compute_pass(&Default::default());
                     compute_pass.set_pipeline(&output_pipeline);
                     compute_pass.set_bind_group(0, &bind_group, &[]);
+                    if let Some(probe) = diagnostic.and_then(|d| d.probe) {
+                        compute_pass.set_bind_group(1, probe, &[]);
+                    }
                     compute_pass.dispatch_workgroups(
                         input_width.div_ceil(8),
                         input_height.div_ceil(8),
@@ -3061,7 +3457,11 @@ impl GpuProcessor {
                 if output_to_display {
                     main_encoder.copy_texture_to_texture(
                         wgpu::TexelCopyTextureInfo {
-                            texture: &self.tile_output_texture,
+                            texture: if diagnostic.is_some() {
+                                output_tile_texture
+                            } else {
+                                &self.tile_output_texture
+                            },
                             mip_level: 0,
                             origin: wgpu::Origin3d {
                                 x: crop_x_start,
@@ -3071,7 +3471,10 @@ impl GpuProcessor {
                             aspect: wgpu::TextureAspect::All,
                         },
                         wgpu::TexelCopyTextureInfo {
-                            texture: &self.display_textures().working_texture,
+                            texture: diagnostic.map_or_else(
+                                || &self.display_textures().working_texture,
+                                |d| d.output,
+                            ),
                             mip_level: 0,
                             origin: wgpu::Origin3d {
                                 x: x_start,
@@ -3380,7 +3783,7 @@ fn process_and_get_dynamic_image_inner(
     let skip_readback = output_to_display;
 
     let (processed_pixels, out_w, out_h, out_x, out_y) =
-        processor.run(cache, request, output_to_display, output_precision)?;
+        processor.run(cache, request, output_to_display, output_precision, None)?;
 
     let mut final_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
         label: Some("Final Passes Encoder"),

@@ -1,0 +1,14 @@
+name: Influence preview tests
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  renderer-contracts:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Diagnostic renderer and memory tests
+        working-directory: src-tauri
+        run: cargo test --lib -- --test-threads=1 --nocapture

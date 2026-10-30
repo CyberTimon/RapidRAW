@@ -1,3 +1,4 @@
+import { useInfluenceSubcontrol } from '../../hooks/useInfluenceSelection';
 import { useState, useMemo, memo, CSSProperties } from 'react';
 import { Pipette, Sliders } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -236,6 +237,7 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
                     defaultValue={INITIAL_ADJUSTMENTS.colorGrading.midtones}
                     label={t('adjustments.color.grading.midtones')}
                     onChange={(val: HueSatLum) => handleChange(ColorGrading.Midtones, val)}
+                    influenceControl="grading.midtones"
                     value={colorGrading.midtones}
                     onDragStateChange={onDragStateChange}
                     isExpanded={isExpanded}
@@ -248,6 +250,7 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
                     defaultValue={INITIAL_ADJUSTMENTS.colorGrading.shadows}
                     label={t('adjustments.color.grading.shadows')}
                     onChange={(val: HueSatLum) => handleChange(ColorGrading.Shadows, val)}
+                    influenceControl="grading.shadows"
                     value={colorGrading.shadows}
                     onDragStateChange={onDragStateChange}
                     isExpanded={isExpanded}
@@ -258,6 +261,7 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
                     defaultValue={INITIAL_ADJUSTMENTS.colorGrading.highlights}
                     label={t('adjustments.color.grading.highlights')}
                     onChange={(val: HueSatLum) => handleChange(ColorGrading.Highlights, val)}
+                    influenceControl="grading.highlights"
                     value={colorGrading.highlights}
                     onDragStateChange={onDragStateChange}
                     isExpanded={isExpanded}
@@ -279,6 +283,7 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
                   defaultValue={INITIAL_ADJUSTMENTS.colorGrading.global}
                   label={t('adjustments.color.grading.global')}
                   onChange={(val: HueSatLum) => handleChange(ColorGrading.Global, val)}
+                  influenceControl="grading.global"
                   value={colorGrading.global || INITIAL_ADJUSTMENTS.colorGrading.global}
                   onDragStateChange={onDragStateChange}
                   isExpanded={isExpanded}
@@ -572,6 +577,7 @@ const MonochromeMixPanel = ({ colors, values, onChange, onDragStateChange }: Mon
           min={-100}
           step={1}
           defaultValue={0}
+          influenceControl={'mono.' + name}
           value={values[name] ?? 0}
           onChange={(e: SliderChangeEvent) => onChange(name, e.target.value)}
           onDragStateChange={onDragStateChange}
@@ -692,6 +698,7 @@ function ColorPanel({
   const { t } = useTranslation();
   const handleSettingsChange = useSettingsStore((state) => state.handleSettingsChange);
   const [activeColor, setActiveColor] = useState('reds');
+  useInfluenceSubcontrol('colorMixer', activeColor);
   const hiddenTools = getHiddenAdjustmentTools(appSettings?.adjustmentLayout);
   const toolOrder = getAdjustmentToolOrder('color', appSettings?.adjustmentLayout?.toolOrder);
 
@@ -910,6 +917,7 @@ function ColorPanel({
                 min={-100}
                 onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Vibrance, e.target.value)}
                 step={1}
+                influenceControl="vibrance"
                 value={adjustments.vibrance || 0}
                 onDragStateChange={onDragStateChange}
               />
@@ -919,6 +927,7 @@ function ColorPanel({
                 min={-100}
                 onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Saturation, e.target.value)}
                 step={1}
+                influenceControl="saturation"
                 value={adjustments.saturation || 0}
                 onDragStateChange={onDragStateChange}
               />
@@ -939,6 +948,7 @@ function ColorPanel({
             min={-180}
             onChange={(e: any) => handleAdjustmentChange(ColorAdjustment.Hue, e.target.value)}
             step={1}
+            influenceControl="hue"
             value={adjustments.hue || 0}
             trackClassName="hue-range-track"
             onDragStateChange={onDragStateChange}
@@ -1004,6 +1014,7 @@ function ColorPanel({
                   min={-100}
                   onChange={(e: any) => handleHslChange(ColorAdjustment.Hue, e.target.value)}
                   step={1}
+                  influenceControl="hsl.hue"
                   value={currentHsl.hue}
                   trackClassName={hue_slider}
                   onDragStateChange={onDragStateChange}
@@ -1014,6 +1025,7 @@ function ColorPanel({
                   min={-100}
                   onChange={(e: any) => handleHslChange(ColorAdjustment.Saturation, e.target.value)}
                   step={1}
+                  influenceControl="hsl.saturation"
                   value={currentHsl.saturation}
                   trackClassName={saturation_slider}
                   onDragStateChange={onDragStateChange}
@@ -1024,6 +1036,7 @@ function ColorPanel({
                   min={-100}
                   onChange={(e: any) => handleHslChange(ColorAdjustment.Luminance, e.target.value)}
                   step={1}
+                  influenceControl="hsl.luminance"
                   value={currentHsl.luminance}
                   trackClassName={luminance_slider}
                   onDragStateChange={onDragStateChange}

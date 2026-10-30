@@ -1,3 +1,4 @@
+import { useInfluencePreview } from '../../hooks/useInfluencePreview';
 import { useImageProcessing } from '../../hooks/useImageProcessing';
 
 interface Props {
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export default function ImageProcessingManager(props: Props) {
+  useInfluencePreview();
   useImageProcessing(props.transformWrapperRef, props.prevAdjustmentsRef, {
     previewJobIdRef: props.previewJobIdRef,
     latestRenderedJobIdRef: props.latestRenderedJobIdRef,

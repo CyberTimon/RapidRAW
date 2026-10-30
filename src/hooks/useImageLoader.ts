@@ -1,3 +1,4 @@
+import { useInfluencePreviewStore } from '../store/useInfluencePreviewStore';
 import { useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'react-toastify';
@@ -27,6 +28,9 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
 
   useEffect(() => {
     if (selectedImage && !selectedImage.isReady && selectedImage.path) {
+      useInfluencePreviewStore.getState().endDrag();
+      useInfluencePreviewStore.getState().dispatch({ type: 'imageChanged' });
+      useInfluencePreviewStore.getState().setTransport({ loadedImageGeneration: null });
       let isEffectActive = true;
 
       const loadMetadataEarly = async () => {
@@ -56,6 +60,7 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
           const loadImageResult: any = await invoke(Invokes.LoadImage, { path: selectedImage.path });
           if (!isEffectActive) return;
 
+          useInfluencePreviewStore.getState().setTransport({ loadedImageGeneration: loadImageResult.load_generation });
           const { width, height } = loadImageResult;
           setEditor({ originalSize: { width, height } });
 

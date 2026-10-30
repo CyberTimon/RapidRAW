@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Slider from './Slider';
+import { useInfluenceSelection } from '../../hooks/useInfluenceSelection';
+import { useInfluencePreviewStore } from '../../store/useInfluencePreviewStore';
 import Wheel from '@uiw/react-color-wheel';
 import { ColorResult, HsvaColor, hsvaToHex } from '@uiw/color-convert';
 import { Sun } from 'lucide-react';
@@ -10,6 +12,7 @@ import Text from './Text';
 import { TextColors, TextVariants } from '../../types/typography';
 
 interface ColorWheelProps {
+  influenceControl?: string;
   defaultValue: HueSatLum;
   label: string;
   onChange(hsl: HueSatLum): void;
@@ -19,6 +22,7 @@ interface ColorWheelProps {
 }
 
 const ColorWheel = ({
+  influenceControl,
   defaultValue = { hue: 0, saturation: 0, luminance: 0 },
   label,
   onChange,
@@ -27,6 +31,14 @@ const ColorWheel = ({
   isExpanded = false,
 }: ColorWheelProps) => {
   const { t } = useTranslation();
+  const selectInfluence = useInfluenceSelection();
+  const wheelActive = useRef(false);
+  useEffect(
+    () => () => {
+      if (wheelActive.current) useInfluencePreviewStore.getState().endDrag();
+    },
+    [],
+  );
   const effectiveValue = { ...defaultValue, ...value };
   const { hue, saturation, luminance } = effectiveValue;
   const sizerRef = useRef<HTMLDivElement>(null);
@@ -87,16 +99,24 @@ const ColorWheel = ({
 
   useEffect(() => {
     const handleInteractionEnd = () => {
+      wheelActive.current = false;
+      useInfluencePreviewStore.getState().endDrag();
       setIsWheelDragging(false);
       onDragStateChange?.(isSliderDragging);
     };
     if (isWheelDragging) {
       window.addEventListener('mouseup', handleInteractionEnd);
       window.addEventListener('touchend', handleInteractionEnd);
+      window.addEventListener('touchcancel', handleInteractionEnd);
+      window.addEventListener('pointercancel', handleInteractionEnd);
+      window.addEventListener('blur', handleInteractionEnd);
     }
     return () => {
       window.removeEventListener('mouseup', handleInteractionEnd);
       window.removeEventListener('touchend', handleInteractionEnd);
+      window.removeEventListener('touchcancel', handleInteractionEnd);
+      window.removeEventListener('pointercancel', handleInteractionEnd);
+      window.removeEventListener('blur', handleInteractionEnd);
     };
   }, [isWheelDragging, isSliderDragging, onDragStateChange]);
 
@@ -148,7 +168,11 @@ const ColorWheel = ({
     onChange(defaultValue);
   };
 
-  const handleDragStart = () => {
+  const handleDragStart = (event: React.MouseEvent | React.TouchEvent) => {
+    if ('button' in event && event.button !== 0) return;
+    modifierState.current = { ctrl: event.ctrlKey, shift: event.shiftKey };
+    wheelActive.current = true;
+    selectInfluence(influenceControl ? influenceControl + '.wheel' : undefined, event.altKey && !event.ctrlKey);
     onDragStateChange?.(true);
     setIsWheelDragging(true);
   };
@@ -262,6 +286,7 @@ const ColorWheel = ({
           >
             <div className="w-full">
               <Slider
+                influenceControl={influenceControl ? influenceControl + '.hue' : undefined}
                 defaultValue={defaultValue.hue}
                 label={t('ui.colorWheel.hue')}
                 max={360}
@@ -276,6 +301,7 @@ const ColorWheel = ({
 
             <div className="w-full" style={satWrapperStyle}>
               <Slider
+                influenceControl={influenceControl ? influenceControl + '.saturation' : undefined}
                 defaultValue={defaultValue.saturation}
                 label={t('ui.colorWheel.saturation')}
                 max={100}
@@ -293,6 +319,7 @@ const ColorWheel = ({
 
       <div className="w-full" style={lumWrapperStyle}>
         <Slider
+          influenceControl={influenceControl ? influenceControl + '.luminance' : undefined}
           defaultValue={defaultValue.luminance}
           label={isExpanded ? t('ui.colorWheel.luminance') : <Sun size={16} className="text-text-secondary" />}
           max={100}

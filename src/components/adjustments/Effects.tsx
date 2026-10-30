@@ -405,6 +405,7 @@ function EffectsPanel({
             min={0}
             onChange={(e: SliderChangeEvent) => handleAdjustmentChange(CreativeAdjustment.GlowAmount, e.target.value)}
             step={1}
+            influenceControl="glowAmount"
             value={adjustments.glowAmount}
             onDragStateChange={onDragStateChange}
           />
@@ -417,6 +418,7 @@ function EffectsPanel({
               handleAdjustmentChange(CreativeAdjustment.HalationAmount, e.target.value)
             }
             step={1}
+            influenceControl="halationAmount"
             value={adjustments.halationAmount}
             onDragStateChange={onDragStateChange}
           />
@@ -430,6 +432,7 @@ function EffectsPanel({
                 handleAdjustmentChange(CreativeAdjustment.FlareAmount, e.target.value)
               }
               step={1}
+              influenceControl="flareAmount"
               value={adjustments.flareAmount}
               onDragStateChange={onDragStateChange}
             />
@@ -478,6 +481,7 @@ function EffectsPanel({
                           handleAdjustmentChange(Effect.LensBlurAmount, e.target.value)
                         }
                         step={1}
+                        influenceControl="lensBlurAmount"
                         value={adjustments.lensBlurAmount ?? 50}
                         onDragStateChange={onDragStateChange}
                         fillOrigin="min"
@@ -492,6 +496,7 @@ function EffectsPanel({
                           handleAdjustmentChange(Effect.lensBlurDiffusion, e.target.value)
                         }
                         step={1}
+                        influenceControl="lensBlurDiffusion"
                         value={adjustments.lensBlurDiffusion ?? 0}
                         onDragStateChange={onDragStateChange}
                       />
@@ -566,6 +571,7 @@ function EffectsPanel({
                             handleAdjustmentChange(Effect.RelightAmbient, e.target.value)
                           }
                           step={1}
+                          influenceControl="relightAmbient"
                           value={adjustments.relightAmbient ?? 0}
                           onDragStateChange={onDragStateChange}
                         />
@@ -579,6 +585,7 @@ function EffectsPanel({
                             handleAdjustmentChange(Effect.RelightSoftness, e.target.value)
                           }
                           step={1}
+                          influenceControl="relightSoftness"
                           value={adjustments.relightSoftness ?? 25}
                           onDragStateChange={onDragStateChange}
                           fillOrigin="min"
@@ -592,6 +599,7 @@ function EffectsPanel({
                             handleAdjustmentChange(Effect.RelightShine, e.target.value)
                           }
                           step={1}
+                          influenceControl="relightShine"
                           value={adjustments.relightShine ?? 0}
                           onDragStateChange={onDragStateChange}
                         />
@@ -612,6 +620,7 @@ function EffectsPanel({
                               handleAdjustmentChange(Effect.RelightShadowSoftness, e.target.value)
                             }
                             step={1}
+                            influenceControl="relightShadowSoftness"
                             value={adjustments.relightShadowSoftness ?? 15}
                             onDragStateChange={onDragStateChange}
                             fillOrigin="min"
@@ -688,6 +697,7 @@ function EffectsPanel({
                               />
 
                               <Slider
+                                influenceControl={'light.' + activeLight.id + '|intensity'}
                                 label={t('adjustments.effects.relightIntensity')}
                                 max={100}
                                 min={0}
@@ -702,6 +712,7 @@ function EffectsPanel({
                               {activeLight.type !== 'directional' && (
                                 <>
                                   <Slider
+                                    influenceControl={'light.' + activeLight.id + '|depth'}
                                     label={t('adjustments.effects.relightDepth')}
                                     max={100}
                                     min={0}
@@ -714,6 +725,7 @@ function EffectsPanel({
                                   />
 
                                   <Slider
+                                    influenceControl={'light.' + activeLight.id + '|radius'}
                                     label={t('adjustments.effects.relightFalloff')}
                                     max={100}
                                     min={0}
@@ -730,6 +742,7 @@ function EffectsPanel({
                               {activeLight.type !== 'point' && (
                                 <>
                                   <Slider
+                                    influenceControl={'light.' + activeLight.id + '|angle'}
                                     label={t('adjustments.effects.relightAngle')}
                                     max={360}
                                     min={0}
@@ -743,6 +756,7 @@ function EffectsPanel({
                                   />
 
                                   <Slider
+                                    influenceControl={'light.' + activeLight.id + '|elevation'}
                                     label={t('adjustments.effects.relightElevation')}
                                     max={180}
                                     min={-180}
@@ -759,6 +773,7 @@ function EffectsPanel({
                               {activeLight.type === 'spot' && (
                                 <>
                                   <Slider
+                                    influenceControl={'light.' + activeLight.id + '|cone'}
                                     label={t('adjustments.effects.relightCone')}
                                     max={100}
                                     min={0}
@@ -771,6 +786,7 @@ function EffectsPanel({
                                   />
 
                                   <Slider
+                                    influenceControl={'light.' + activeLight.id + '|feather'}
                                     label={t('adjustments.effects.feather')}
                                     max={100}
                                     min={0}
@@ -785,6 +801,7 @@ function EffectsPanel({
                               )}
 
                               <Slider
+                                influenceControl={'light.' + activeLight.id + '|temperature'}
                                 label={t('adjustments.color.temperature')}
                                 max={100}
                                 min={-100}
@@ -796,6 +813,7 @@ function EffectsPanel({
                               />
 
                               <Slider
+                                influenceControl={'light.' + activeLight.id + '|tint'}
                                 label={t('adjustments.color.tint')}
                                 max={100}
                                 min={-100}
@@ -846,6 +864,7 @@ function EffectsPanel({
                         defaultValue={50}
                         onChange={(e: SliderChangeEvent) => handleAdjustmentChange(Effect.FogAmount, e.target.value)}
                         step={1}
+                        influenceControl="fogAmount"
                         value={adjustments.fogAmount ?? 50}
                         onDragStateChange={onDragStateChange}
                         fillOrigin="min"
@@ -858,6 +877,7 @@ function EffectsPanel({
                         defaultValue={0}
                         onChange={(e: SliderChangeEvent) => handleAdjustmentChange(Effect.FogStart, e.target.value)}
                         step={1}
+                        influenceControl="fogStart"
                         value={adjustments.fogStart ?? 0}
                         onDragStateChange={onDragStateChange}
                         fillOrigin="min"
@@ -870,6 +890,7 @@ function EffectsPanel({
                         defaultValue={50}
                         onChange={(e: SliderChangeEvent) => handleAdjustmentChange(Effect.FogDensity, e.target.value)}
                         step={1}
+                        influenceControl="fogDensity"
                         value={adjustments.fogDensity ?? 50}
                         onDragStateChange={onDragStateChange}
                         fillOrigin="min"
@@ -882,6 +903,7 @@ function EffectsPanel({
                         defaultValue={0}
                         onChange={(e: SliderChangeEvent) => handleAdjustmentChange(Effect.FogHeight, e.target.value)}
                         step={1}
+                        influenceControl="fogHeight"
                         value={adjustments.fogHeight ?? 0}
                         onDragStateChange={onDragStateChange}
                         fillOrigin="min"
@@ -894,6 +916,7 @@ function EffectsPanel({
                         defaultValue={25}
                         onChange={(e: SliderChangeEvent) => handleAdjustmentChange(Effect.FogVariation, e.target.value)}
                         step={1}
+                        influenceControl="fogVariation"
                         value={adjustments.fogVariation ?? 25}
                         onDragStateChange={onDragStateChange}
                         fillOrigin="min"
@@ -906,6 +929,7 @@ function EffectsPanel({
                         defaultValue={25}
                         onChange={(e: SliderChangeEvent) => handleAdjustmentChange(Effect.FogGlow, e.target.value)}
                         step={1}
+                        influenceControl="fogGlow"
                         value={adjustments.fogGlow ?? 25}
                         onDragStateChange={onDragStateChange}
                         fillOrigin="min"
@@ -919,6 +943,7 @@ function EffectsPanel({
                           handleAdjustmentChange(Effect.FogTemperature, e.target.value)
                         }
                         step={1}
+                        influenceControl="fogTemperature"
                         value={adjustments.fogTemperature ?? 0}
                         trackClassName="temperature-gradient-track"
                         onDragStateChange={onDragStateChange}
@@ -930,6 +955,7 @@ function EffectsPanel({
                         min={-100}
                         onChange={(e: SliderChangeEvent) => handleAdjustmentChange(Effect.FogTint, e.target.value)}
                         step={1}
+                        influenceControl="fogTint"
                         value={adjustments.fogTint ?? 0}
                         trackClassName="tint-gradient-track"
                         onDragStateChange={onDragStateChange}
@@ -974,6 +1000,7 @@ function EffectsPanel({
                   min={-100}
                   onChange={(e: SliderChangeEvent) => handleAdjustmentChange(Effect.VignetteAmount, e.target.value)}
                   step={1}
+                  influenceControl="vignetteAmount"
                   value={adjustments.vignetteAmount}
                   onDragStateChange={onDragStateChange}
                 />
@@ -984,6 +1011,7 @@ function EffectsPanel({
                   min={0}
                   onChange={(e: SliderChangeEvent) => handleAdjustmentChange(Effect.VignetteMidpoint, e.target.value)}
                   step={1}
+                  influenceControl="vignetteMidpoint"
                   value={adjustments.vignetteMidpoint}
                   onDragStateChange={onDragStateChange}
                   fillOrigin="min"
@@ -994,6 +1022,7 @@ function EffectsPanel({
                   min={-100}
                   onChange={(e: SliderChangeEvent) => handleAdjustmentChange(Effect.VignetteRoundness, e.target.value)}
                   step={1}
+                  influenceControl="vignetteRoundness"
                   value={adjustments.vignetteRoundness}
                   onDragStateChange={onDragStateChange}
                 />
@@ -1004,6 +1033,7 @@ function EffectsPanel({
                   min={0}
                   onChange={(e: SliderChangeEvent) => handleAdjustmentChange(Effect.VignetteFeather, e.target.value)}
                   step={1}
+                  influenceControl="vignetteFeather"
                   value={adjustments.vignetteFeather}
                   onDragStateChange={onDragStateChange}
                   fillOrigin="min"

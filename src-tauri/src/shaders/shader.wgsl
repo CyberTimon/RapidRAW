@@ -834,8 +834,9 @@ fn apply_hsl_panel(color: vec3<f32>, hsl_adjustments: array<HslColor, 8>, coords
     let original_hsv = rgb_to_hsv(linear_to_srgb_extended(safe_color));
     let original_luma = get_luma(safe_color);
 
-    let saturation_mask = smoothstep(0.05, 0.20, original_hsv.y);
-    let luminance_weight = smoothstep(0.0, 1.0, original_hsv.y);
+    let gates = hsl_gates(original_hsv.y);
+    let saturation_mask = gates.x;
+    let luminance_weight = gates.y;
 
     if (saturation_mask < 0.001 && luminance_weight < 0.001) {
         return safe_color;
@@ -843,21 +844,14 @@ fn apply_hsl_panel(color: vec3<f32>, hsl_adjustments: array<HslColor, 8>, coords
 
     let original_hue = original_hsv.x;
 
-    var raw_influences: array<f32, 8>;
-    var total_raw_influence: f32 = 0.0;
-    for (var i = 0u; i < 8u; i = i + 1u) {
-        let range = HSL_RANGES[i];
-        let influence = get_raw_hsl_influence(original_hue, range.center, range.width);
-        raw_influences[i] = influence;
-        total_raw_influence += influence;
-    }
+    let normalized_weights = normalized_hsl_weights(original_hue);
 
     var total_hue_shift: f32 = 0.0;
     var total_sat_multiplier: f32 = 0.0;
     var total_lum_adjust: f32 = 0.0;
 
     for (var i = 0u; i < 8u; i = i + 1u) {
-        let normalized_influence = raw_influences[i] / total_raw_influence;
+        let normalized_influence = normalized_weights[i];
 
         let hue_sat_influence = normalized_influence * saturation_mask;
         let luma_influence = normalized_influence * luminance_weight;
@@ -885,17 +879,10 @@ fn apply_hsl_panel(color: vec3<f32>, hsl_adjustments: array<HslColor, 8>, coords
 }
 
 fn apply_color_grading(color: vec3<f32>, shadows: ColorGradeSettings, midtones: ColorGradeSettings, highlights: ColorGradeSettings, global: ColorGradeSettings, blending: f32, balance: f32) -> vec3<f32> {
-    let luma = get_luma(max(vec3(0.0), color));
-    let base_shadow_crossover = 0.1;
-    let base_highlight_crossover = 0.5;
-    let balance_range = 0.5;
-    let shadow_crossover = base_shadow_crossover + max(0.0, -balance) * balance_range;
-    let highlight_crossover = base_highlight_crossover - max(0.0, balance) * balance_range;
-    let feather = 0.2 * blending;
-    let final_shadow_crossover = min(shadow_crossover, highlight_crossover - 0.01);
-    let shadow_mask = 1.0 - smoothstep(final_shadow_crossover - feather, final_shadow_crossover + feather, luma);
-    let highlight_mask = smoothstep(highlight_crossover - feather, highlight_crossover + feather, luma);
-    let midtone_mask = max(0.0, 1.0 - shadow_mask - highlight_mask);
+    let range_weights = grading_selection_weights(color, blending, balance);
+    let shadow_mask = range_weights.x;
+    let midtone_mask = range_weights.y;
+    let highlight_mask = range_weights.z;
     let global_mask = 1.0;
     var graded_color = color;
     let shadow_sat_strength = 0.1;
@@ -2085,18 +2072,8 @@ fn main(
     }
 
     if (has_feature(F_VIGNETTE) && adjustments.global.vignette_amount != 0.0) {
-        let full_dims_f = vec2<f32>(textureDimensions(input_texture));
-        let coord_f = vec2<f32>(absolute_coord);
         let v_amount = adjustments.global.vignette_amount;
-        let v_mid = adjustments.global.vignette_midpoint;
-        let v_round = 1.0 - adjustments.global.vignette_roundness;
-        let v_feather = adjustments.global.vignette_feather * 0.5;
-        let aspect = full_dims_f.y / full_dims_f.x;
-        let v_center = vec2<f32>(adjustments.global.vignette_center_x, adjustments.global.vignette_center_y);
-        let uv_centered = (coord_f / full_dims_f - v_center) * 2.0;
-        let uv_round = sign(uv_centered) * pow(abs(uv_centered), vec2<f32>(v_round, v_round));
-        let d = length(uv_round * vec2<f32>(1.0, aspect)) * 0.5;
-        let vignette_mask = smoothstep(v_mid - v_feather, v_mid + v_feather, d);
+        let vignette_mask = vignette_selection_weight(absolute_coord_i);
         if (v_amount < 0.0) {
             composite_rgb_linear *= (1.0 + v_amount * vignette_mask);
         } else {
@@ -2182,4 +2159,53 @@ fn main(
     }
 
     textureStore(output_texture, id.xy, vec4<f32>(clamp(final_rgb, vec3<f32>(0.0), vec3<f32>(1.0)), original_alpha));
+}
+
+fn grading_selection_weights(color: vec3<f32>, blending: f32, balance: f32) -> vec3<f32> {
+    let luma = get_luma(max(vec3(0.0), color));
+    let base_shadow_crossover = 0.1;
+    let base_highlight_crossover = 0.5;
+    let balance_range = 0.5;
+    let shadow_crossover = base_shadow_crossover + max(0.0, -balance) * balance_range;
+    let highlight_crossover = base_highlight_crossover - max(0.0, balance) * balance_range;
+    let feather = 0.2 * blending;
+    let final_shadow_crossover = min(shadow_crossover, highlight_crossover - 0.01);
+    let shadow_mask = 1.0 - smoothstep(final_shadow_crossover - feather, final_shadow_crossover + feather, luma);
+    let highlight_mask = smoothstep(highlight_crossover - feather, highlight_crossover + feather, luma);
+    let midtone_mask = max(0.0, 1.0 - shadow_mask - highlight_mask);
+    return vec3<f32>(shadow_mask, midtone_mask, highlight_mask);
+}
+
+fn normalized_hsl_weights(hue: f32) -> array<f32, 8> {
+    var raw_influences: array<f32, 8>;
+    var total_raw_influence: f32 = 0.0;
+    for (var i = 0u; i < 8u; i = i + 1u) {
+        let range = HSL_RANGES[i];
+        let influence = get_raw_hsl_influence(hue, range.center, range.width);
+        raw_influences[i] = influence;
+        total_raw_influence += influence;
+    }
+
+    for (var i = 0u; i < 8u; i++) {
+        raw_influences[i] /= total_raw_influence;
+    }
+    return raw_influences;
+}
+fn hsl_gates(s: f32) -> vec2<f32> {
+    return vec2<f32>(smoothstep(0.05, 0.20, s), smoothstep(0.0, 1.0, s));
+}
+
+fn vignette_selection_weight(coord: vec2<i32>) -> f32 {
+    let full_dims_f = vec2<f32>(textureDimensions(input_texture));
+    let coord_f = vec2<f32>(coord);
+    let v_mid = adjustments.global.vignette_midpoint;
+    let v_round = 1.0 - adjustments.global.vignette_roundness;
+    let v_feather = adjustments.global.vignette_feather * 0.5;
+    let aspect = full_dims_f.y / full_dims_f.x;
+    let v_center = vec2<f32>(adjustments.global.vignette_center_x, adjustments.global.vignette_center_y);
+    let uv_centered = (coord_f / full_dims_f - v_center) * 2.0;
+    let uv_round = sign(uv_centered) * pow(abs(uv_centered), vec2<f32>(v_round, v_round));
+    let d = length(uv_round * vec2<f32>(1.0, aspect)) * 0.5;
+    let vignette_mask = smoothstep(v_mid - v_feather, v_mid + v_feather, d);
+    return vignette_mask;
 }

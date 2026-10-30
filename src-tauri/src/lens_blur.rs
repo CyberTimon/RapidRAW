@@ -15,6 +15,22 @@ pub fn apply_lens_blur<'a>(
     image: Cow<'a, DynamicImage>,
     adjustments: &serde_json::Value,
 ) -> Cow<'a, DynamicImage> {
+    apply_lens_blur_inner(image, adjustments, None)
+}
+
+pub(crate) fn apply_lens_blur_cancellable<'a>(
+    image: Cow<'a, DynamicImage>,
+    adjustments: &serde_json::Value,
+    cancelled: &(dyn Fn() -> bool + Sync),
+) -> Cow<'a, DynamicImage> {
+    apply_lens_blur_inner(image, adjustments, Some(cancelled))
+}
+
+fn apply_lens_blur_inner<'a>(
+    image: Cow<'a, DynamicImage>,
+    adjustments: &serde_json::Value,
+    cancelled: Option<&(dyn Fn() -> bool + Sync)>,
+) -> Cow<'a, DynamicImage> {
     if !crate::image_processing::is_effect_enabled(adjustments, "lensBlur", "lensBlurEnabled") {
         return image;
     }
@@ -67,7 +83,10 @@ pub fn apply_lens_blur<'a>(
         return image;
     }
 
-    let out = render_depth_of_field(&src, &coc, max_radius, shape, diffusion);
+    if cancelled.is_some_and(|f| f()) {
+        return image;
+    }
+    let out = render_depth_of_field(&src, &coc, max_radius, shape, diffusion, cancelled);
 
     log::info!(
         "lens blur ({}x{}, r_max {:.1}px, diffusion {:.2}) took {:.2?}",
@@ -357,6 +376,7 @@ fn render_depth_of_field(
     max_radius: f32,
     shape: &str,
     diffusion: f32,
+    cancelled: Option<&(dyn Fn() -> bool + Sync)>,
 ) -> Rgb32FImage {
     let w = src.width() as usize;
     let h = src.height() as usize;
@@ -383,10 +403,10 @@ fn render_depth_of_field(
     }
 
     let (far_rgb, far_a) = dof_composite_stack(
-        &base, &coc_small, ww, wh, &radii, ds, shape, diffusion, false,
+        &base, &coc_small, ww, wh, &radii, ds, shape, diffusion, false, cancelled,
     );
     let (near_rgb, near_a) = dof_composite_stack(
-        &base, &coc_small, ww, wh, &radii, ds, shape, diffusion, true,
+        &base, &coc_small, ww, wh, &radii, ds, shape, diffusion, true, cancelled,
     );
 
     let diffusion_on = diffusion > 1.0e-3;
@@ -548,6 +568,7 @@ fn dof_composite_stack(
     shape: &str,
     diffusion: f32,
     near_side: bool,
+    cancelled: Option<&(dyn Fn() -> bool + Sync)>,
 ) -> (Vec<f32>, Vec<f32>) {
     let np = ww * wh;
     let mut acc_rgb = vec![0.0f32; np * 3];
@@ -560,6 +581,9 @@ fn dof_composite_stack(
     };
 
     for k in order {
+        if cancelled.is_some_and(|f| f()) {
+            break;
+        }
         let mut layer = vec![0.0f32; np * 4];
         let row_bounds: Vec<(usize, usize)> = layer
             .par_chunks_exact_mut(ww * 4)

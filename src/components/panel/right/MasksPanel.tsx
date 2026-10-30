@@ -2406,6 +2406,7 @@ function SettingsPanel({
                 adjustments={displayContainer.adjustments}
                 setAdjustments={setMaskContainerAdjustments}
                 isForMask={true}
+                influenceScope={{ kind: 'mask', containerId: displayContainer.id }}
                 appSettings={appSettings}
                 onDragStateChange={onDragStateChange}
               />

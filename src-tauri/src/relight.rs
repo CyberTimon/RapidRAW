@@ -205,6 +205,7 @@ fn shadow_key(light: &RelightLight, shadow_softness: f32) -> u64 {
     hasher.finish()
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_shadow_map(
     depth: &[f32],
     depth_range: [f32; 2],
@@ -213,6 +214,7 @@ fn build_shadow_map(
     aspect: [f32; 2],
     light: &RelightLight,
     shadow_softness: f32,
+    cancelled: Option<&(dyn Fn() -> bool + Sync)>,
 ) -> Vec<f32> {
     let mut shadow = vec![1.0f32; sw * sh];
     let (swf, shf) = (sw as f32, sh as f32);
@@ -223,6 +225,9 @@ fn build_shadow_map(
         .par_chunks_exact_mut(sw)
         .enumerate()
         .for_each(|(y, row)| {
+            if cancelled.is_some_and(|f| f()) {
+                return;
+            }
             let v = (y as f32 + 0.5) / shf;
             let depth_row = &depth[y * sw..(y + 1) * sw];
             for (x, out) in row.iter_mut().enumerate() {
@@ -285,6 +290,31 @@ fn build_shadow_map(
 pub fn apply_relight<'a>(
     image: Cow<'a, DynamicImage>,
     adjustments: &serde_json::Value,
+) -> Cow<'a, DynamicImage> {
+    apply_relight_inner(image, adjustments, None, None)
+}
+
+pub(crate) fn apply_relight_cancellable<'a>(
+    image: Cow<'a, DynamicImage>,
+    adjustments: &serde_json::Value,
+    cancelled: &(dyn Fn() -> bool + Sync),
+) -> Cow<'a, DynamicImage> {
+    apply_relight_inner(image, adjustments, None, Some(cancelled))
+}
+
+pub(crate) fn diagnose_relight(
+    image: &DynamicImage,
+    adjustments: &serde_json::Value,
+    index: usize,
+) -> DynamicImage {
+    apply_relight_inner(Cow::Borrowed(image), adjustments, Some(index), None).into_owned()
+}
+
+fn apply_relight_inner<'a>(
+    image: Cow<'a, DynamicImage>,
+    adjustments: &serde_json::Value,
+    diagnostic: Option<usize>,
+    cancelled: Option<&(dyn Fn() -> bool + Sync)>,
 ) -> Cow<'a, DynamicImage> {
     if !crate::image_processing::is_effect_enabled(adjustments, "relight", "relightEnabled") {
         return image;
@@ -502,6 +532,7 @@ pub fn apply_relight<'a>(
                         [aspect_x, aspect_y],
                         light,
                         shadow_softness,
+                        cancelled,
                     );
                     let model =
                         build_guided_model_with(&inputs.stats, &inputs.guide, &shadow, sw, sh, eps);
@@ -515,6 +546,9 @@ pub fn apply_relight<'a>(
         _ => Vec::new(),
     };
 
+    if cancelled.is_some_and(|f| f()) {
+        return Cow::Owned(DynamicImage::ImageRgb32F(out));
+    }
     *RELIGHT_CACHE.lock().unwrap_or_else(|e| e.into_inner()) = Some(cache.clone());
 
     let surface_models = &cache.surface_models;
@@ -524,6 +558,9 @@ pub fn apply_relight<'a>(
     out.par_chunks_exact_mut(wu * 3)
         .enumerate()
         .for_each(|(y, row)| {
+            if cancelled.is_some_and(|f| f()) {
+                return;
+            }
             let v = (y as f32 + 0.5) / h as f32;
 
             for x in 0..wu {
@@ -542,6 +579,7 @@ pub fn apply_relight<'a>(
                 ];
 
                 let mut gain = [ambient_gain; 3];
+                let mut diagnostic_value = 0.0f32;
                 for (index, light) in lights.iter().enumerate() {
                     let (l, mut atten) = if let RelightKind::Directional { dir } = light.kind {
                         (dir, 1.0)
@@ -562,8 +600,11 @@ pub fn apply_relight<'a>(
                         (l, atten)
                     };
 
-                    if let Some(model) = shadow_models.get(index) {
-                        atten *= shadow_tap.guided(model, guide).clamp(0.0, 1.0);
+                    let visibility = shadow_models
+                        .get(index)
+                        .map_or(1.0, |model| shadow_tap.guided(model, guide).clamp(0.0, 1.0));
+                    if shadow_models.get(index).is_some() {
+                        atten *= visibility;
                     }
 
                     let ndl = n[0] * l[0] + n[1] * l[1] + n[2] * l[2];
@@ -579,6 +620,11 @@ pub fn apply_relight<'a>(
                     };
 
                     let k = (diffuse + specular) * atten;
+                    if let Some(selected) = diagnostic
+                        && selected == index
+                    {
+                        diagnostic_value = k / (1.0 + k);
+                    }
                     gain[0] += light.color[0] * k;
                     gain[1] += light.color[1] * k;
                     gain[2] += light.color[2] * k;
@@ -588,6 +634,11 @@ pub fn apply_relight<'a>(
                 row[i] *= gain[0].max(0.0);
                 row[i + 1] *= gain[1].max(0.0);
                 row[i + 2] *= gain[2].max(0.0);
+                if diagnostic.is_some() {
+                    row[i] = diagnostic_value;
+                    row[i + 1] = diagnostic_value;
+                    row[i + 2] = diagnostic_value;
+                }
             }
         });
 

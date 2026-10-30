@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import debounce from 'lodash.debounce';
+import { useInfluencePreviewStore } from '../store/useInfluencePreviewStore';
 import throttle from 'lodash.throttle';
 import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
@@ -44,6 +45,7 @@ export function useImageProcessing(
   const displaySize = useEditorStore((state) => state.displaySize);
   const baseRenderSize = useEditorStore((state) => state.baseRenderSize);
   const originalSize = useEditorStore((state) => state.originalSize);
+  const altPreviewActive = useInfluencePreviewStore((s) => s.preview.target !== null);
   const isSliderDragging = useEditorStore((state) => state.isSliderDragging);
   const compareView = useEditorStore((state) => state.compareView);
   const setEditor = useEditorStore((state) => state.setEditor);
@@ -449,6 +451,8 @@ export function useImageProcessing(
       if (isSliderDragging) return;
     }
 
+    if (altPreviewActive) return;
+
     if (isSliderDragging) {
       if (appSettings?.enableLivePreviews !== false) {
         applyAdjustments(renderAdjustments, true, targetRes);
@@ -503,6 +507,7 @@ export function useImageProcessing(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     activeView,
+    altPreviewActive,
     adjustments,
     previewOverride,
     selectedImage?.path,
