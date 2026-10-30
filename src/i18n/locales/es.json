@@ -116,12 +116,8 @@
       "whiteBalance": "Balance de blancos"
     },
     "curves": {
-      "histogram": "Histograma",
-      "inputHistogram": "Histograma de entrada",
-      "outputHistogram": "Histograma de salida",
-      "interpolation": "Tipo de curva",
-      "standardCurve": "Estándar",
-      "smoothCurve": "Suave",
+      "showProcessedHistogram": "Mostrar histograma de la imagen procesada",
+      "cubicSpline": "Spline cúbico",
       "channelTitle": "Canal {{channel}}",
       "channels": {
         "blue": "Azul",

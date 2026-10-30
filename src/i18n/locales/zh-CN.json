@@ -116,12 +116,8 @@
       "whiteBalance": "白平衡"
     },
     "curves": {
-      "histogram": "直方图",
-      "inputHistogram": "输入直方图",
-      "outputHistogram": "输出直方图",
-      "interpolation": "曲线类型",
-      "standardCurve": "标准",
-      "smoothCurve": "平滑",
+      "showProcessedHistogram": "显示处理后的直方图",
+      "cubicSpline": "三次样条",
       "channelTitle": "{{channel}} 通道",
       "channels": {
         "blue": "蓝色",

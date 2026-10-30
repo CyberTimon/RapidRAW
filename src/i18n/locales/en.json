@@ -117,7 +117,7 @@
     },
     "curves": {
       "showProcessedHistogram": "Show processed histogram",
-      "smoothCurve": "Smooth curve",
+      "cubicSpline": "Cubic spline",
       "channelTitle": "{{channel}} Channel",
       "channels": {
         "blue": "Blue",

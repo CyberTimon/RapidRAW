@@ -116,12 +116,8 @@
       "whiteBalance": "ホワイトバランス"
     },
     "curves": {
-      "histogram": "ヒストグラム",
-      "inputHistogram": "入力ヒストグラム",
-      "outputHistogram": "出力ヒストグラム",
-      "interpolation": "カーブの種類",
-      "standardCurve": "標準",
-      "smoothCurve": "滑らか",
+      "showProcessedHistogram": "処理後のヒストグラムを表示",
+      "cubicSpline": "3次スプライン",
       "channelTitle": "{{channel}} チャンネル",
       "channels": {
         "blue": "ブルー",

@@ -648,7 +648,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isF
       ...(!isParametricMode
         ? [
             {
-              label: t('adjustments.curves.smoothCurve'),
+              label: t('adjustments.curves.cubicSpline'),
               checked: interpolation === 'natural',
               icon: interpolation === 'natural' ? Check : undefined,
               onClick: () =>

@@ -116,12 +116,8 @@
       "whiteBalance": "Bilanciamento del Bianco"
     },
     "curves": {
-      "histogram": "Istogramma",
-      "inputHistogram": "Istogramma di ingresso",
-      "outputHistogram": "Istogramma di uscita",
-      "interpolation": "Tipo di curva",
-      "standardCurve": "Standard",
-      "smoothCurve": "Morbida",
+      "showProcessedHistogram": "Mostra l’istogramma dell’immagine elaborata",
+      "cubicSpline": "Spline cubica",
       "channelTitle": "Canale {{channel}}",
       "channels": {
         "blue": "Blu",

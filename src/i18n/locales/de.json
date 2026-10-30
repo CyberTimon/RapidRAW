@@ -117,7 +117,7 @@
     },
     "curves": {
       "showProcessedHistogram": "Histogramm nach Bearbeitung",
-      "smoothCurve": "Glatte Kurve",
+      "cubicSpline": "Kubischer Spline",
       "channelTitle": "{{channel}}-Kanal",
       "channels": {
         "blue": "Blau",

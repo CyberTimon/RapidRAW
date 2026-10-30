@@ -116,12 +116,8 @@
       "whiteBalance": "Vyvážení bílé"
     },
     "curves": {
-      "histogram": "Histogram",
-      "inputHistogram": "Vstupní histogram",
-      "outputHistogram": "Výstupní histogram",
-      "interpolation": "Typ křivky",
-      "standardCurve": "Standardní",
-      "smoothCurve": "Hladká",
+      "showProcessedHistogram": "Zobrazit histogram zpracovaného snímku",
+      "cubicSpline": "Kubický splajn",
       "channelTitle": "{{channel}} kanál",
       "channels": {
         "blue": "Modrý",

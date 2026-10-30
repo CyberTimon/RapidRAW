@@ -116,12 +116,8 @@
       "whiteBalance": "Баланс белого"
     },
     "curves": {
-      "histogram": "Гистограмма",
-      "inputHistogram": "Входная гистограмма",
-      "outputHistogram": "Выходная гистограмма",
-      "interpolation": "Тип кривой",
-      "standardCurve": "Стандартная",
-      "smoothCurve": "Плавная",
+      "showProcessedHistogram": "Показывать гистограмму обработанного изображения",
+      "cubicSpline": "Кубический сплайн",
       "channelTitle": "Канал {{channel}}",
       "channels": {
         "blue": "Синий",
