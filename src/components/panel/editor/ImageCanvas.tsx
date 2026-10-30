@@ -27,7 +27,7 @@ import { MIXER_SAMPLE_SCREEN_SIZE, useHslMixerPicker } from '../../../hooks/useH
 import { isPanelVisible, useUIStore } from '../../../store/useUIStore';
 import type { OverlayMode } from '../right/CropPanel';
 import CompositionOverlays from './overlays/CompositionOverlays';
-import CropRotateHandles from './overlays/CropRotateHandles';
+import CropRotateArea, { CROP_ROTATE_MARGIN } from './overlays/CropRotateArea';
 import RelightLightShape, { RelightBasis } from './overlays/RelightLightShape';
 import CenterMarkerShape, { CENTER_MARKERS } from './overlays/CenterMarkerShape';
 import { calculateStraightenAngle, resolveAspectRatio } from '../../../utils/cropUtils';
@@ -2000,8 +2000,9 @@ const ImageCanvas = memo(
         return null;
       }
 
-      const viewportWidth = imageRenderSize.width + 2 * imageRenderSize.offsetX;
-      const viewportHeight = imageRenderSize.height + 2 * imageRenderSize.offsetY;
+      const margin = isCropping ? 2 * CROP_ROTATE_MARGIN : 0;
+      const viewportWidth = imageRenderSize.width + 2 * imageRenderSize.offsetX - margin;
+      const viewportHeight = imageRenderSize.height + 2 * imageRenderSize.offsetY - margin;
 
       let uncroppedEffectiveWidth = selectedImage.width;
       let uncroppedEffectiveHeight = selectedImage.height;
@@ -2020,7 +2021,7 @@ const ImageCanvas = memo(
       const renderHeight = uncroppedEffectiveHeight * scale;
 
       return { width: renderWidth, height: renderHeight };
-    }, [selectedImage?.width, selectedImage?.height, imageRenderSize, adjustments.orientationSteps]);
+    }, [selectedImage?.width, selectedImage?.height, imageRenderSize, adjustments.orientationSteps, isCropping]);
 
     useEffect(() => {
       const calcMatrix = async () => {
@@ -3944,6 +3945,14 @@ const ImageCanvas = memo(
                 }
               }}
             >
+              {!isStraightenActive && !isGuidedPerspectiveActive && (
+                <CropRotateArea
+                  crop={crop}
+                  rotation={effectiveRotation}
+                  onRotate={handleRotateHandleChange}
+                  onRotateEnd={handleRotateHandleEnd}
+                />
+              )}
               <ReactCrop
                 aspect={
                   resolveAspectRatio(adjustments.aspectRatio, selectedImage, adjustments.orientationSteps || 0) ??
@@ -3964,24 +3973,13 @@ const ImageCanvas = memo(
                       ? 'none'
                       : overlayMode || 'none';
                   return (
-                    <>
-                      <CompositionOverlays
-                        width={width}
-                        height={height}
-                        mode={currentOverlayMode}
-                        rotation={overlayRotation || 0}
-                        denseVisible={showDenseGrid}
-                      />
-                      {!isStraightenActive && !isGuidedPerspectiveActive && (
-                        <CropRotateHandles
-                          width={width}
-                          height={height}
-                          rotation={effectiveRotation}
-                          onRotate={handleRotateHandleChange}
-                          onRotateEnd={handleRotateHandleEnd}
-                        />
-                      )}
-                    </>
+                    <CompositionOverlays
+                      width={width}
+                      height={height}
+                      mode={currentOverlayMode}
+                      rotation={overlayRotation || 0}
+                      denseVisible={showDenseGrid}
+                    />
                   );
                 }}
               >
