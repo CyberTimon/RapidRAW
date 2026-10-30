@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { RotateCw } from 'lucide-react';
 import clsx from 'clsx';
 import { MAX_FINE_ROTATION } from '../../../../utils/cropUtils';
+import { FINE_ADJUSTMENT_MULTIPLIER, hasFineAdjustmentModifier } from '../../../ui/Slider';
 
 const HANDLE_INSET = 10;
 const MIN_CROP_SIZE = 96;
@@ -66,7 +67,7 @@ export default function CropRotateHandles({ width, height, rotation, onRotate, o
     if (step > 180) step -= 360;
     if (step < -180) step += 360;
     drag.lastAngle = angle;
-    drag.angleDelta += step;
+    drag.angleDelta += hasFineAdjustmentModifier(e) ? step * FINE_ADJUSTMENT_MULTIPLIER : step;
 
     const next = Math.max(-MAX_FINE_ROTATION, Math.min(MAX_FINE_ROTATION, drag.startRotation + drag.angleDelta));
     const rounded = Math.round(next * 10) / 10;
