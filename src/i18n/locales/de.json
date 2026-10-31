@@ -1241,12 +1241,18 @@
       "albumsEmpty": "Rechtsklick, um ein Album zu erstellen.",
       "collapseSection": "{{section}} minimieren",
       "expandSection": "{{section}} erweitern",
+      "flagViews": {
+        "empty": "Keine Bilder mit dieser Markierung in diesem Ordner oder seinen Unterordnern.",
+        "picked": "Ausgewählt",
+        "rejected": "Abgelehnt"
+      },
       "loading": "Ordner werden geladen...",
       "noFoldersFound": "Keine Ordner gefunden.",
       "openFolderInstruction": "Einen Ordner öffnen, um die Struktur zu sehen.",
       "searchPlaceholder": "Ordner durchsuchen...",
       "sections": {
         "albums": "Alben",
+        "flags": "Markierungen",
         "folders": "Ordner",
         "pinned": "Angeheftet"
       },

@@ -1297,12 +1297,18 @@
       "albumsEmpty": "Клацніть правою кнопкою миші, щоб створити альбом.",
       "collapseSection": "Згорнути {{section}}",
       "expandSection": "Розгорнути {{section}}",
+      "flagViews": {
+        "empty": "У цій папці та її підпапках немає зображень із цим прапорцем.",
+        "picked": "Вибрані",
+        "rejected": "Відхилені"
+      },
       "loading": "Завантаження папок...",
       "noFoldersFound": "Папок не знайдено.",
       "openFolderInstruction": "Відкрийте папку, щоб побачити її структуру.",
       "searchPlaceholder": "Пошук папок...",
       "sections": {
         "albums": "Альбоми",
+        "flags": "Прапорці",
         "folders": "Папки",
         "pinned": "Закріплені"
       },

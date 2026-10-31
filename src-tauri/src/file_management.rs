@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 use std::process::Command;
 use std::sync::Arc;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 
 use anyhow::Result;
@@ -804,6 +804,115 @@ pub async fn list_images_in_dir(
     })
     .await
     .map_err(|e| format!("Task failed: {}", e))?
+}
+
+// Cloud placeholders are skipped so a background count never forces downloads.
+fn collect_flagged_paths(
+    root_path: &Path,
+    settings: &AppSettings,
+    is_cancelled: &(dyn Fn() -> bool + Sync),
+) -> HashMap<String, ImageFlag> {
+    let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
+    let mut images = Vec::new();
+    let mut sidecars_by_path: HashMap<PathBuf, Vec<Option<String>>> = HashMap::new();
+
+    for entry in WalkDir::new(root_path).into_iter().filter_map(Result::ok) {
+        if is_cancelled() {
+            return HashMap::new();
+        }
+
+        let file_type = entry.file_type();
+        if !(file_type.is_file() || (file_type.is_symlink() && entry.path().is_file())) {
+            continue;
+        }
+
+        let file_name = entry.file_name().to_string_lossy();
+        if let Some((source_filename, copy_id)) = parse_sidecar_name(&file_name) {
+            sidecars_by_path
+                .entry(entry.path().with_file_name(source_filename))
+                .or_default()
+                .push(copy_id.map(str::to_string));
+        } else if is_supported_image_file(file_name.as_ref()) {
+            images.push(entry.into_path());
+        }
+    }
+
+    let tasks: Vec<_> = images
+        .into_iter()
+        .filter_map(|image_path| {
+            let sidecars = sidecars_by_path.remove(&image_path);
+            // Without a sidecar only an XMP file can hold a flag.
+            (sidecars.is_some() || enable_xmp_sync).then_some((image_path, sidecars))
+        })
+        .collect();
+
+    tasks
+        .into_par_iter()
+        .flat_map_iter(|(image_path, sidecars)| {
+            let mut flagged = Vec::new();
+            if is_cancelled()
+                || (enable_xmp_sync
+                    && resolve_xmp_path(&image_path).is_some_and(|p| is_cloud_placeholder(&p)))
+            {
+                return flagged;
+            }
+
+            let path_str = image_path.to_string_lossy().into_owned();
+            let file_name = image_path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned();
+            let sidecar_exists = sidecars.is_some();
+
+            for copy_id in sidecars.unwrap_or_else(|| vec![None]) {
+                let (virtual_path, sidecar_filename) = match copy_id {
+                    Some(id) => (
+                        format!("{}?vc={}", path_str, id),
+                        format!("{}.{}.rrdata", file_name, id),
+                    ),
+                    None => (path_str.clone(), format!("{}.rrdata", file_name)),
+                };
+                let sidecar_path = image_path.with_file_name(sidecar_filename);
+                if sidecar_exists && is_cloud_placeholder(&sidecar_path) {
+                    continue;
+                }
+
+                let metadata = resolve_image_metadata(
+                    &image_path,
+                    &sidecar_path,
+                    sidecar_exists,
+                    enable_xmp_sync,
+                    settings,
+                );
+                if let Some(flag) = metadata.flag {
+                    flagged.push((virtual_path, flag));
+                }
+            }
+
+            flagged
+        })
+        .collect()
+}
+
+static FLAG_SCAN_GENERATION: AtomicU64 = AtomicU64::new(0);
+
+// Only the newest scan matters: starting one makes any scan still running stop early.
+#[tauri::command]
+pub async fn get_flagged_paths(
+    path: String,
+    app_handle: AppHandle,
+) -> Result<HashMap<String, ImageFlag>, String> {
+    let generation = FLAG_SCAN_GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let settings = load_settings(app_handle).unwrap_or_default();
+        collect_flagged_paths(Path::new(&path), &settings, &|| {
+            FLAG_SCAN_GENERATION.load(Ordering::SeqCst) != generation
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -4715,5 +4824,89 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
         }
 
         let _ = fs::write(&xmp_file, content);
+    }
+}
+
+#[cfg(test)]
+mod flagged_paths_tests {
+    use super::*;
+
+    fn write_sidecar(path: &Path, flag: Option<ImageFlag>) {
+        let metadata = ImageMetadata {
+            flag,
+            ..Default::default()
+        };
+        fs::write(path, serde_json::to_string(&metadata).unwrap()).unwrap();
+    }
+
+    fn create_library(root: &Path) {
+        let sub = root.join("session").join("day2");
+        fs::create_dir_all(&sub).unwrap();
+
+        for image in [
+            root.join("picked.jpg"),
+            root.join("no_sidecar.jpg"),
+            root.join("unflagged.jpg"),
+            sub.join("rejected.jpg"),
+        ] {
+            fs::write(image, b"").unwrap();
+        }
+
+        write_sidecar(&root.join("picked.jpg.rrdata"), Some(ImageFlag::Pick));
+        write_sidecar(
+            &root.join("picked.jpg.abc123.rrdata"),
+            Some(ImageFlag::Reject),
+        );
+        write_sidecar(&root.join("unflagged.jpg.rrdata"), None);
+        write_sidecar(&sub.join("rejected.jpg.rrdata"), Some(ImageFlag::Reject));
+    }
+
+    #[test]
+    fn finds_flags_in_subfolders_and_virtual_copies() {
+        let dir = tempfile::tempdir().unwrap();
+        create_library(dir.path());
+
+        let flagged = collect_flagged_paths(dir.path(), &AppSettings::default(), &|| false);
+
+        let picked = dir.path().join("picked.jpg").to_string_lossy().into_owned();
+        let rejected = dir
+            .path()
+            .join("session")
+            .join("day2")
+            .join("rejected.jpg")
+            .to_string_lossy()
+            .into_owned();
+
+        assert_eq!(flagged.len(), 3);
+        assert_eq!(flagged.get(&picked), Some(&ImageFlag::Pick));
+        assert_eq!(flagged.get(&rejected), Some(&ImageFlag::Reject));
+        assert_eq!(
+            flagged.get(&format!("{}?vc=abc123", picked)),
+            Some(&ImageFlag::Reject)
+        );
+    }
+
+    #[test]
+    fn subfolder_scan_only_sees_its_own_images() {
+        let dir = tempfile::tempdir().unwrap();
+        create_library(dir.path());
+
+        let flagged = collect_flagged_paths(
+            &dir.path().join("session"),
+            &AppSettings::default(),
+            &|| false,
+        );
+
+        assert_eq!(flagged.len(), 1);
+    }
+
+    #[test]
+    fn cancelled_scan_returns_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        create_library(dir.path());
+
+        let flagged = collect_flagged_paths(dir.path(), &AppSettings::default(), &|| true);
+
+        assert!(flagged.is_empty());
     }
 }

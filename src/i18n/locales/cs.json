@@ -1297,12 +1297,18 @@
       "albumsEmpty": "Kliknutím pravým tlačítkem myši vytvoříte album.",
       "collapseSection": "Sbalit {{section}}",
       "expandSection": "Rozbalit {{section}}",
+      "flagViews": {
+        "empty": "V této složce ani jejích podsložkách nejsou žádné obrázky s tímto příznakem.",
+        "picked": "Vybrané",
+        "rejected": "Odmítnuté"
+      },
       "loading": "Načítání složek...",
       "noFoldersFound": "Nebyly nalezeny žádné složky.",
       "openFolderInstruction": "Otevřete složku a zobrazte její strukturu.",
       "searchPlaceholder": "Prohledat složky...",
       "sections": {
         "albums": "Alba",
+        "flags": "Příznaky",
         "folders": "Složky",
         "pinned": "Připnuto"
       },

@@ -1236,12 +1236,18 @@
       "albumsEmpty": "우클릭하여 앨범을 만드세요.",
       "collapseSection": "{{section}} 접기",
       "expandSection": "{{section}} 펼치기",
+      "flagViews": {
+        "empty": "이 폴더와 하위 폴더에 이 플래그가 지정된 이미지가 없습니다.",
+        "picked": "선택됨",
+        "rejected": "거부됨"
+      },
       "loading": "폴더 로딩 중...",
       "noFoldersFound": "폴더를 찾을 수 없습니다.",
       "openFolderInstruction": "폴더를 열어 구조를 확인하세요.",
       "searchPlaceholder": "폴더 검색...",
       "sections": {
         "albums": "앨범",
+        "flags": "플래그",
         "folders": "폴더",
         "pinned": "고정됨"
       },
