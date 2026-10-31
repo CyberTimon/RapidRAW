@@ -80,6 +80,7 @@ export enum Invokes {
   IsRaw9Available = 'is_raw9_available',
   ListImagesInDir = 'list_images_in_dir',
   ListImagesRecursive = 'list_images_recursive',
+  GetFlaggedPaths = 'get_flagged_paths',
   LoadImage = 'load_image',
   LoadMetadata = 'load_metadata',
   LoadPresets = 'load_presets',

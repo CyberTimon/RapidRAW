@@ -32,6 +32,7 @@ import {
   RawStatus,
   EditedStatus,
   FlagStatus,
+  ImageFlag,
   LibraryDisplayMode,
 } from '../ui/AppProperties';
 import { GroupBadgeInfo, GroupId } from '../../utils/imageGrouping';
@@ -184,6 +185,9 @@ export default function MainLibrary(props: MainLibraryProps) {
   };
 
   const searchCriteria = useLibraryStore((state) => state.searchCriteria);
+  const flagView = useLibraryStore((state) => state.flagView);
+  const activeAlbumId = useLibraryStore((state) => state.activeAlbumId);
+  const isViewLoading = useLibraryStore((state) => state.isViewLoading);
 
   const translatedRatingFilterOptions = useMemo(
     () => [
@@ -523,7 +527,15 @@ export default function MainLibrary(props: MainLibraryProps) {
           {!props.isAndroid && (
             <div className="flex items-center gap-2">
               {props.currentFolderPath ? (
-                <Text className="truncate">{props.currentFolderPath}</Text>
+                <Text className="truncate">
+                  {props.currentFolderPath}
+                  {flagView &&
+                    ` · ${t(
+                      flagView === ImageFlag.Pick
+                        ? 'library.folders.flagViews.picked'
+                        : 'library.folders.flagViews.rejected',
+                    )}`}
+                </Text>
               ) : (
                 <p className="text-sm invisible select-none pointer-events-none h-5 overflow-hidden"></p>
               )}
@@ -623,6 +635,7 @@ export default function MainLibrary(props: MainLibraryProps) {
         ) : (
           <LibraryGrid
             {...props}
+            libraryViewMode={flagView && !activeAlbumId ? LibraryViewMode.Recursive : props.libraryViewMode}
             libraryDisplayMode={libraryDisplayMode}
             thumbnailSizeOptions={translatedThumbnailSizeOptions}
           />
@@ -649,6 +662,10 @@ export default function MainLibrary(props: MainLibraryProps) {
           </Text>
           <Text className="mt-2">{t('library.status.moment')}</Text>
         </div>
+      ) : flagView && isViewLoading ? (
+        <div className="flex-1 flex items-center justify-center" onContextMenu={props.onEmptyAreaContextMenu}>
+          <Loader2 className="h-12 w-12 text-secondary animate-spin" />
+        </div>
       ) : searchCriteria.tags.length > 0 || searchCriteria.text ? (
         <div
           className="flex-1 flex flex-col items-center justify-center text-text-secondary text-center"
@@ -666,7 +683,7 @@ export default function MainLibrary(props: MainLibraryProps) {
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center" onContextMenu={props.onEmptyAreaContextMenu}>
           <SlidersHorizontal className="h-12 w-12 mb-4 text-text-secondary" />
-          <Text>{t('library.filters.noMatch')}</Text>
+          <Text>{flagView ? t('library.folders.flagViews.empty') : t('library.filters.noMatch')}</Text>
         </div>
       )}
       {props.isAndroid && (

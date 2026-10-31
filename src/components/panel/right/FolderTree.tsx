@@ -39,8 +39,17 @@ import { useShallow } from 'zustand/react/shallow';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useUIStore } from '../../../store/useUIStore';
-import { AlbumItem, AlbumGroup, Album, Invokes, FolderTreeSort, SortDirection } from '../../ui/AppProperties';
+import {
+  AlbumItem,
+  AlbumGroup,
+  Album,
+  Invokes,
+  FolderTreeSort,
+  ImageFlag,
+  SortDirection,
+} from '../../ui/AppProperties';
 import { useLibraryActions } from '../../../hooks/useLibraryActions';
+import { countFlaggedImages, FLAG_ICONS } from '../../../utils/imageFlags';
 
 export interface FolderTree {
   children: FolderTree[];
@@ -59,6 +68,7 @@ interface FolderTreeProps {
   onAlbumContextMenu(event: any, item: AlbumItem | null): void;
   onFolderSelect(folder: string, skipHistory?: boolean): void;
   onSelectAlbum(albumId: string, albumName: string, images: string[], skipHistory?: boolean): void;
+  onSelectFlagView(flagView: ImageFlag | null): void;
   onToggleFolder(folder: string): void;
   onOpenFolder(): void;
   onNavBack(): void;
@@ -101,6 +111,11 @@ const ALBUM_ICONS: Record<string, React.ElementType> = {
   car: Car,
   briefcase: Briefcase,
 };
+
+const FLAG_VIEWS = [
+  { flag: ImageFlag.Pick, labelKey: 'library.folders.flagViews.picked' },
+  { flag: ImageFlag.Reject, labelKey: 'library.folders.flagViews.rejected' },
+] as const;
 
 const filterTree = (node: FolderTree | null, query: string): FolderTree | null => {
   if (!node) {
@@ -334,6 +349,28 @@ function SectionHeader({ title, isOpen, onToggle }: { title: string; isOpen: boo
         <span className="ml-1 uppercase tracking-wider select-none truncate">{title}</span>
       </Text>
     </div>
+  );
+}
+
+function FlagViewCount({ flag }: { flag: ImageFlag }) {
+  const imageList = useLibraryStore((state) => state.imageList);
+  const scopeFlags = useLibraryStore((state) => state.scopeFlags);
+  const count = useMemo(() => countFlaggedImages(scopeFlags, imageList, flag), [scopeFlags, imageList, flag]);
+
+  return (
+    <>
+      {count !== null && (
+        <Text
+          as="span"
+          variant={TextVariants.small}
+          color={TextColors.secondary}
+          className="ml-auto min-w-8 shrink-0 text-right tabular-nums"
+        >
+          {count}
+        </Text>
+      )}
+      <div className="w-5 h-5 shrink-0" aria-hidden="true" />
+    </>
   );
 }
 
@@ -689,6 +726,7 @@ export default function FolderTree({
   onAlbumContextMenu,
   onFolderSelect,
   onSelectAlbum,
+  onSelectFlagView,
   onToggleFolder,
   onOpenFolder,
   onNavBack,
@@ -710,6 +748,7 @@ export default function FolderTree({
     folderTrees,
     pinnedFolderTrees,
     currentFolderPath: selectedPath,
+    flagView: activeFlagView,
     expandedFolders,
     isTreeLoading: isLoading,
     albumTree,
@@ -722,6 +761,7 @@ export default function FolderTree({
       folderTrees: state.folderTrees,
       pinnedFolderTrees: state.pinnedFolderTrees,
       currentFolderPath: state.currentFolderPath,
+      flagView: state.flagView,
       expandedFolders: state.expandedFolders,
       isTreeLoading: state.isTreeLoading,
       albumTree: state.albumTree,
@@ -859,6 +899,13 @@ export default function FolderTree({
   const isPinnedOpen = openSections.includes('pinned');
   const isCurrentOpen = openSections.includes('current');
   const isAlbumsOpen = openSections.includes('albums');
+  // Stored inverted so the section starts open for users whose saved settings predate it.
+  const isFlagsOpen = !openSections.includes('flagsCollapsed');
+
+  const visibleFlagViews = FLAG_VIEWS.filter(
+    ({ labelKey }) => !isSearching || t(labelKey).toLowerCase().includes(trimmedQuery.toLowerCase()),
+  );
+  const showFlagsSection = !!selectedPath && visibleFlagViews.length > 0;
 
   const hasVisiblePinnedTrees = filteredPinnedTrees && filteredPinnedTrees.length > 0;
   const hasVisibleAlbums = filteredAlbumTree && filteredAlbumTree.length > 0;
@@ -985,6 +1032,56 @@ export default function FolderTree({
                             </motion.div>
                           ))}
                         </AnimatePresence>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </>
+            )}
+
+            {showFlagsSection && (
+              <>
+                <div>
+                  <SectionHeader
+                    title={t('library.folders.sections.flags')}
+                    isOpen={isFlagsOpen}
+                    onToggle={() => toggleSection('flagsCollapsed')}
+                  />
+                </div>
+                <AnimatePresence initial={false}>
+                  {isFlagsOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2, ease: 'easeInOut' }}
+                      className="overflow-hidden"
+                    >
+                      <div className="pt-1 pb-2">
+                        {visibleFlagViews.map(({ flag, labelKey }) => {
+                          const FlagIcon = FLAG_ICONS[flag];
+                          const isSelected = activeFlagView === flag;
+                          return (
+                            <Text as="div" key={flag} color={TextColors.primary} weight={TextWeights.medium}>
+                              <div
+                                className={clsx(
+                                  'flex items-center gap-2 p-1.5 rounded-md transition-colors cursor-pointer',
+                                  {
+                                    'bg-surface': isSelected,
+                                    'hover:bg-card-active': !isSelected,
+                                  },
+                                )}
+                                onClick={() => onSelectFlagView(isSelected ? null : flag)}
+                              >
+                                <div className="w-5 h-5 flex items-center justify-center p-0.5 text-text-secondary shrink-0">
+                                  <FlagIcon size={16} />
+                                </div>
+                                <span className="min-w-0 flex-1 select-none truncate">{t(labelKey)}</span>
+                                <FlagViewCount flag={flag} />
+                              </div>
+                            </Text>
+                          );
+                        })}
                       </div>
                     </motion.div>
                   )}
@@ -1143,9 +1240,11 @@ export default function FolderTree({
               </>
             )}
 
-            {!filteredTrees?.length && !hasVisiblePinnedTrees && !hasVisibleAlbums && isSearching && (
-              <Text className="p-2 text-center">{t('library.folders.noFoldersFound')}</Text>
-            )}
+            {!filteredTrees?.length &&
+              !hasVisiblePinnedTrees &&
+              !hasVisibleAlbums &&
+              !showFlagsSection &&
+              isSearching && <Text className="p-2 text-center">{t('library.folders.noFoldersFound')}</Text>}
 
             {folderTrees.length === 0 && pinnedFolderTrees.length === 0 && !isSearching && (
               <div className="pt-1">

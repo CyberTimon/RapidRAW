@@ -9,7 +9,7 @@ use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 
 use anyhow::Result;
@@ -692,22 +692,21 @@ pub fn list_images_in_dir(path: String, app_handle: AppHandle) -> Result<Vec<Ima
     Ok(result_list)
 }
 
-#[tauri::command]
-pub fn list_images_recursive(
-    path: String,
-    app_handle: AppHandle,
-) -> Result<Vec<ImageFile>, String> {
-    let settings = load_settings(app_handle.clone()).unwrap_or_default();
-    let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
+type RecursiveImageTask = (String, String, PathBuf, Vec<Option<String>>);
 
-    update_rotational_disk_flag(&path, &app_handle);
-
-    let root_path = Path::new(&path);
+fn collect_recursive_image_tasks(
+    root_path: &Path,
+    is_cancelled: &(dyn Fn() -> bool + Sync),
+) -> Vec<RecursiveImageTask> {
     let mut images = Vec::new();
 
     let mut sidecars_by_path: HashMap<PathBuf, Vec<Option<String>>> = HashMap::new();
 
     for entry in WalkDir::new(root_path).into_iter().filter_map(Result::ok) {
+        if is_cancelled() {
+            return Vec::new();
+        }
+
         let entry_path = entry.path();
         if !entry_path.is_file() {
             continue;
@@ -738,7 +737,7 @@ pub fn list_images_recursive(
         }
     }
 
-    let tasks: Vec<_> = images
+    images
         .into_iter()
         .map(|path_buf| {
             let sidecars = sidecars_by_path
@@ -752,7 +751,89 @@ pub fn list_images_recursive(
                 .into_owned();
             (path_str, file_name, path_buf, sidecars)
         })
-        .collect();
+        .collect()
+}
+
+// Cloud placeholders are skipped so a background count never forces downloads.
+fn collect_flagged_paths(
+    root_path: &Path,
+    enable_xmp_sync: bool,
+    settings: &AppSettings,
+    is_cancelled: &(dyn Fn() -> bool + Sync),
+) -> HashMap<String, ImageFlag> {
+    collect_recursive_image_tasks(root_path, is_cancelled)
+        .into_par_iter()
+        .flat_map(|(path_str, file_name, path_buf, sidecars)| {
+            let mut flagged = Vec::new();
+            if is_cancelled() {
+                return flagged;
+            }
+
+            let xmp_is_placeholder = enable_xmp_sync
+                && resolve_xmp_path(&path_buf).is_some_and(|p| is_cloud_placeholder(&p));
+            if xmp_is_placeholder {
+                return flagged;
+            }
+
+            for copy_id_opt in sidecars {
+                let (virtual_path, sidecar_filename) = match copy_id_opt {
+                    Some(id) => (
+                        format!("{}?vc={}", path_str, id),
+                        format!("{}.{}.rrdata", file_name, id),
+                    ),
+                    None => (path_str.clone(), format!("{}.rrdata", file_name)),
+                };
+
+                let sidecar_path = path_buf.with_file_name(sidecar_filename);
+                if is_cloud_placeholder(&sidecar_path) {
+                    continue;
+                }
+
+                let metadata =
+                    resolve_image_metadata(&path_buf, &sidecar_path, enable_xmp_sync, settings);
+                if let Some(flag) = metadata.flag {
+                    flagged.push((virtual_path, flag));
+                }
+            }
+
+            flagged
+        })
+        .collect()
+}
+
+static FLAG_SCAN_GENERATION: AtomicU64 = AtomicU64::new(0);
+
+// Only the newest scan matters: starting one makes any scan still running stop early.
+#[tauri::command]
+pub async fn get_flagged_paths(
+    path: String,
+    app_handle: AppHandle,
+) -> Result<HashMap<String, ImageFlag>, String> {
+    let generation = FLAG_SCAN_GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let settings = load_settings(app_handle).unwrap_or_default();
+        let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
+        collect_flagged_paths(Path::new(&path), enable_xmp_sync, &settings, &|| {
+            FLAG_SCAN_GENERATION.load(Ordering::SeqCst) != generation
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_images_recursive(
+    path: String,
+    app_handle: AppHandle,
+) -> Result<Vec<ImageFile>, String> {
+    let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
+
+    update_rotational_disk_flag(&path, &app_handle);
+
+    let root_path = Path::new(&path);
+    let tasks = collect_recursive_image_tasks(root_path, &|| false);
 
     let mut result_list: Vec<ImageFile> = tasks
         .into_par_iter()
@@ -4354,5 +4435,107 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
         }
 
         let _ = fs::write(&xmp_file, content);
+    }
+}
+
+#[cfg(test)]
+mod flagged_paths_tests {
+    use super::*;
+
+    fn write_sidecar(path: &Path, flag: Option<ImageFlag>) {
+        let metadata = ImageMetadata {
+            flag,
+            ..Default::default()
+        };
+        fs::write(path, serde_json::to_string(&metadata).unwrap()).unwrap();
+    }
+
+    fn create_library(root: &Path) {
+        let sub = root.join("session").join("day2");
+        fs::create_dir_all(&sub).unwrap();
+
+        for image in [
+            root.join("picked.jpg"),
+            root.join("no_sidecar.jpg"),
+            root.join("unflagged.jpg"),
+            sub.join("rejected.jpg"),
+        ] {
+            fs::write(image, b"").unwrap();
+        }
+
+        write_sidecar(&root.join("picked.jpg.rrdata"), Some(ImageFlag::Pick));
+        write_sidecar(
+            &root.join("picked.jpg.abc123.rrdata"),
+            Some(ImageFlag::Reject),
+        );
+        write_sidecar(&root.join("unflagged.jpg.rrdata"), None);
+        write_sidecar(&sub.join("rejected.jpg.rrdata"), Some(ImageFlag::Reject));
+    }
+
+    #[test]
+    fn finds_flags_in_subfolders_and_virtual_copies() {
+        let dir = tempfile::tempdir().unwrap();
+        create_library(dir.path());
+
+        let flagged = collect_flagged_paths(dir.path(), false, &AppSettings::default(), &|| false);
+
+        let picked = dir.path().join("picked.jpg").to_string_lossy().into_owned();
+        let rejected = dir
+            .path()
+            .join("session")
+            .join("day2")
+            .join("rejected.jpg")
+            .to_string_lossy()
+            .into_owned();
+
+        assert_eq!(flagged.len(), 3);
+        assert_eq!(flagged.get(&picked), Some(&ImageFlag::Pick));
+        assert_eq!(flagged.get(&rejected), Some(&ImageFlag::Reject));
+        assert_eq!(
+            flagged.get(&format!("{}?vc=abc123", picked)),
+            Some(&ImageFlag::Reject)
+        );
+    }
+
+    #[test]
+    fn subfolder_scan_only_sees_its_own_images() {
+        let dir = tempfile::tempdir().unwrap();
+        create_library(dir.path());
+
+        let flagged = collect_flagged_paths(
+            &dir.path().join("session"),
+            false,
+            &AppSettings::default(),
+            &|| false,
+        );
+
+        assert_eq!(flagged.len(), 1);
+    }
+
+    #[test]
+    fn cancelled_scan_returns_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        create_library(dir.path());
+
+        let flagged = collect_flagged_paths(dir.path(), false, &AppSettings::default(), &|| true);
+
+        assert!(flagged.is_empty());
+    }
+
+    #[test]
+    fn listing_and_scan_agree_on_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        create_library(dir.path());
+
+        let listed: HashSet<String> = collect_recursive_image_tasks(dir.path(), &|| false)
+            .into_iter()
+            .map(|(path_str, ..)| path_str)
+            .collect();
+        let flagged = collect_flagged_paths(dir.path(), false, &AppSettings::default(), &|| false);
+
+        for path in flagged.keys() {
+            let source = path.split("?vc=").next().unwrap();
+            assert!(listed.contains(source), "{} was not listed", source);
+        }
     }
 }

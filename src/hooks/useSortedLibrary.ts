@@ -49,7 +49,7 @@ export interface GroupedLibrary {
 }
 
 function computeGroupedLibrary(libraryState: any, settingsState: any): GroupedLibrary {
-  const { imageList, imageRatings, filterCriteria, searchCriteria, sortCriteria } = libraryState;
+  const { imageList, imageRatings, filterCriteria, searchCriteria, sortCriteria, flagView } = libraryState;
   const { appSettings } = settingsState;
 
   const groupingMode: GroupingMode = appSettings?.grouping ?? 'off';
@@ -77,7 +77,9 @@ function computeGroupedLibrary(libraryState: any, settingsState: any): GroupedLi
       if (filterCriteria.editedStatus === EditedStatus.UneditedOnly && image.is_edited) return false;
     }
 
-    if (filterCriteria.flagStatus && filterCriteria.flagStatus !== FlagStatus.All) {
+    if (flagView) {
+      if (image.flag !== flagView) return false;
+    } else if (filterCriteria.flagStatus && filterCriteria.flagStatus !== FlagStatus.All) {
       if (filterCriteria.flagStatus === FlagStatus.Picked && image.flag !== ImageFlag.Pick) return false;
       if (filterCriteria.flagStatus === FlagStatus.ExcludeRejected && image.flag === ImageFlag.Reject) return false;
       if (filterCriteria.flagStatus === FlagStatus.Rejected && image.flag !== ImageFlag.Reject) return false;
@@ -291,15 +293,16 @@ export function useSortedLibrary() {
   const filterCriteria = useLibraryStore((state) => state.filterCriteria);
   const searchCriteria = useLibraryStore((state) => state.searchCriteria);
   const sortCriteria = useLibraryStore((state) => state.sortCriteria);
+  const flagView = useLibraryStore((state) => state.flagView);
 
   const appSettings = useSettingsStore((state) => state.appSettings);
 
   const result = useMemo(() => {
     return computeGroupedLibrary(
-      { imageList, imageRatings, filterCriteria, searchCriteria, sortCriteria },
+      { imageList, imageRatings, filterCriteria, searchCriteria, sortCriteria, flagView },
       { appSettings },
     );
-  }, [imageList, sortCriteria, imageRatings, filterCriteria, searchCriteria, appSettings]);
+  }, [imageList, sortCriteria, imageRatings, filterCriteria, searchCriteria, flagView, appSettings]);
 
   return result;
 }

@@ -1078,12 +1078,18 @@
       "albumsEmpty": "Kliknij prawym przyciskiem, aby utworzyć album.",
       "collapseSection": "Zwiń {{section}}",
       "expandSection": "Rozwiń {{section}}",
+      "flagViews": {
+        "empty": "Brak obrazów z tą flagą w tym folderze i jego podfolderach.",
+        "picked": "Wybrane",
+        "rejected": "Odrzucone"
+      },
       "loading": "Wczytywanie folderów...",
       "noFoldersFound": "Nie znaleziono folderów.",
       "openFolderInstruction": "Otwórz folder, aby zobaczyć jego strukturę.",
       "searchPlaceholder": "Szukaj folderów...",
       "sections": {
         "albums": "Albumy",
+        "flags": "Flagi",
         "folders": "Foldery",
         "pinned": "Przypięte"
       },

@@ -1078,12 +1078,18 @@
       "albumsEmpty": "Нажмите правой кнопкой мыши для создания альбома.",
       "collapseSection": "Свернуть {{section}}",
       "expandSection": "Развернуть {{section}}",
+      "flagViews": {
+        "empty": "В этой папке и её подпапках нет изображений с этим флагом.",
+        "picked": "Выбранные",
+        "rejected": "Отклонённые"
+      },
       "loading": "Загрузка папок...",
       "noFoldersFound": "Папки не найдены.",
       "openFolderInstruction": "Откройте папку, чтобы просмотреть ее структуру.",
       "searchPlaceholder": "Поиск папок...",
       "sections": {
         "albums": "Альбомы",
+        "flags": "Флаги",
         "folders": "Папки",
         "pinned": "Закрепленные"
       },

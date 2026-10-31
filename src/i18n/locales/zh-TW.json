@@ -1030,12 +1030,18 @@
       "albumsEmpty": "右鍵單擊以建立相簿。",
       "collapseSection": "摺疊 {{section}}",
       "expandSection": "展開 {{section}}",
+      "flagViews": {
+        "empty": "此資料夾及其子資料夾中沒有帶此旗標的影像。",
+        "picked": "已選",
+        "rejected": "已拒絕"
+      },
       "loading": "載入資料夾中...",
       "noFoldersFound": "未找到資料夾。",
       "openFolderInstruction": "開啟一個資料夾以檢視其結構。",
       "searchPlaceholder": "搜尋資料夾...",
       "sections": {
         "albums": "相簿",
+        "flags": "旗標",
         "folders": "資料夾",
         "pinned": "已固定"
       },

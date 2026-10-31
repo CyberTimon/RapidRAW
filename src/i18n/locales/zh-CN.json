@@ -1030,12 +1030,18 @@
       "albumsEmpty": "右键单击以创建相册。",
       "collapseSection": "折叠 {{section}}",
       "expandSection": "展开 {{section}}",
+      "flagViews": {
+        "empty": "此文件夹及其子文件夹中没有带此旗标的图像。",
+        "picked": "已选",
+        "rejected": "已拒绝"
+      },
       "loading": "加载文件夹中...",
       "noFoldersFound": "未找到文件夹。",
       "openFolderInstruction": "打开一个文件夹以查看其结构。",
       "searchPlaceholder": "搜索文件夹...",
       "sections": {
         "albums": "相册",
+        "flags": "旗标",
         "folders": "文件夹",
         "pinned": "已固定"
       },

@@ -1055,12 +1055,18 @@
       "albumsEmpty": "Fai clic con il tasto destro per creare un album.",
       "collapseSection": "Comprimi {{section}}",
       "expandSection": "Espandi {{section}}",
+      "flagViews": {
+        "empty": "Nessuna immagine con questo contrassegno in questa cartella o nelle sue sottocartelle.",
+        "picked": "Scelte",
+        "rejected": "Rifiutate"
+      },
       "loading": "Caricamento cartelle...",
       "noFoldersFound": "Nessuna cartella trovata.",
       "openFolderInstruction": "Apri una cartella per vederne la struttura.",
       "searchPlaceholder": "Cerca cartelle...",
       "sections": {
         "albums": "Album",
+        "flags": "Contrassegni",
         "folders": "Cartelle",
         "pinned": "Fissate"
       },
