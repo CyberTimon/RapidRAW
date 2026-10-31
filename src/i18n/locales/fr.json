@@ -1805,8 +1805,27 @@
       "pressKey": "Appuyez sur une touche... (Échap pour effacer)",
       "resetDefaults": "Réinitialiser aux valeurs par défaut",
       "speed": "Vitesse",
-      "speedEditAdjustments": "Réglages de l'édition rapide",
-      "speedEditAdjustmentsDesc": "En maintenant la touche d'édition rapide, appuyez sur A et D pour passer d'un réglage à l'autre, ← et → pour les ajuster pas à pas, Q et E pour changer d'image, R pour les réinitialiser et C et V pour copier et coller une valeur.",
+      "speedEdit": {
+        "adjustments": "Réglages",
+        "gestures": {
+          "doubleClick": "Double-clic pour réinitialiser",
+          "drag": "Glisser sur le canevas pour ajuster",
+          "fine": "Maj pour affiner"
+        },
+        "keys": {
+          "hold": "Maintenir",
+          "previousImage": "Image préc.",
+          "nextImage": "Image suiv.",
+          "reset": "Réinit.",
+          "previousAdjustment": "Curseur préc.",
+          "nextAdjustment": "Curseur suiv.",
+          "copy": "Copier",
+          "paste": "Coller",
+          "stepDown": "−1 pas",
+          "stepUp": "+1 pas"
+        },
+        "title": "Édition rapide"
+      },
       "title": "Contrôles de la souris",
       "zoom": "Multiplicateur de vitesse de zoom",
       "zoomClick": "Zoomer la photo à 100 %",
@@ -1959,7 +1978,6 @@
         "rotate_right": "Pivoter de 90° à droite",
         "select_all": "Sélectionner toutes les images",
         "show_original": "Afficher l'original (avant/après)",
-        "speed_edit": "Édition rapide du dernier curseur (maintenir et glisser)",
         "toggle_adjustments": "Basculer le panneau des ajustements",
         "toggle_ai": "Basculer le panneau IA",
         "toggle_analytics": "Basculer l'affichage des analyses",

@@ -1760,8 +1760,27 @@
       "pressKey": "キーを押してください... (Escでクリア)",
       "resetDefaults": "すべてデフォルトに戻す",
       "speed": "速度",
-      "speedEditAdjustments": "クイック編集の調整項目",
-      "speedEditAdjustmentsDesc": "クイック編集キーを押している間、A と D でこれらの調整項目を切り替え、← と → で微調整、Q と E で画像を切り替え、R でリセット、C と V で値をコピー＆ペーストします。",
+      "speedEdit": {
+        "adjustments": "調整項目",
+        "gestures": {
+          "doubleClick": "ダブルクリックでリセット",
+          "drag": "キャンバス上でドラッグして調整",
+          "fine": "Shift で微調整"
+        },
+        "keys": {
+          "hold": "押し続ける",
+          "previousImage": "前の画像",
+          "nextImage": "次の画像",
+          "reset": "リセット",
+          "previousAdjustment": "前のスライダー",
+          "nextAdjustment": "次のスライダー",
+          "copy": "コピー",
+          "paste": "ペースト",
+          "stepDown": "−1 ステップ",
+          "stepUp": "+1 ステップ"
+        },
+        "title": "クイック編集"
+      },
       "title": "マウス操作設定",
       "zoom": "ズーム速度の倍率",
       "zoomClick": "写真を100%にズーム",
@@ -1911,7 +1930,6 @@
         "rotate_right": "時計回りに90°回転",
         "select_all": "すべての画像を選択",
         "show_original": "オリジナルを表示 (比較)",
-        "speed_edit": "最後に使ったスライダーをクイック編集（押したままドラッグ）",
         "toggle_adjustments": "補正設定パネルの表示/非表示",
         "toggle_ai": "AIパネルの表示/非表示",
         "toggle_analytics": "アナリティクス表示の表示/非表示",

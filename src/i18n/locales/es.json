@@ -1804,8 +1804,27 @@
       "pressKey": "Presiona una tecla... (Esc para borrar)",
       "resetDefaults": "Restablecer todo a los valores predeterminados",
       "speed": "Velocidad",
-      "speedEditAdjustments": "Ajustes de edición rápida",
-      "speedEditAdjustmentsDesc": "Mientras mantienes pulsada la tecla de edición rápida, pulsa A y D para cambiar entre estos ajustes, ← y → para ajustarlos paso a paso, Q y E para cambiar de imagen, R para restablecerlos y C y V para copiar y pegar un valor.",
+      "speedEdit": {
+        "adjustments": "Ajustes",
+        "gestures": {
+          "doubleClick": "Doble clic para restablecer",
+          "drag": "Arrastra en el lienzo para ajustar",
+          "fine": "Mayús para afinar"
+        },
+        "keys": {
+          "hold": "Mantener",
+          "previousImage": "Imagen ant.",
+          "nextImage": "Imagen sig.",
+          "reset": "Restablecer",
+          "previousAdjustment": "Deslizador ant.",
+          "nextAdjustment": "Deslizador sig.",
+          "copy": "Copiar",
+          "paste": "Pegar",
+          "stepDown": "−1 paso",
+          "stepUp": "+1 paso"
+        },
+        "title": "Edición rápida"
+      },
       "title": "Controles del ratón",
       "zoom": "Multiplicador de velocidad de zoom",
       "zoomClick": "Zoom de foto al 100%",
@@ -1958,7 +1977,6 @@
         "rotate_right": "Rotar 90° en sentido horario",
         "select_all": "Seleccionar todas las imágenes",
         "show_original": "Mostrar original (antes/después)",
-        "speed_edit": "Edición rápida del último deslizador (mantener y arrastrar)",
         "toggle_adjustments": "Alternar panel de Ajustes",
         "toggle_ai": "Alternar panel de IA",
         "toggle_analytics": "Alternar vista de análisis",

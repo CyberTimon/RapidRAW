@@ -1804,8 +1804,27 @@
       "pressKey": "Premi un tasto... (Esc per cancellare)",
       "resetDefaults": "Ripristina Tutto ai Valori Predefiniti",
       "speed": "Velocità",
-      "speedEditAdjustments": "Regolazioni della modifica rapida",
-      "speedEditAdjustmentsDesc": "Tenendo premuto il tasto di modifica rapida, premi A e D per passare da una regolazione all'altra, ← e → per regolarle a piccoli passi, Q ed E per cambiare immagine, R per reimpostarle e C e V per copiare e incollare un valore.",
+      "speedEdit": {
+        "adjustments": "Regolazioni",
+        "gestures": {
+          "doubleClick": "Doppio clic per reimpostare",
+          "drag": "Trascina sulla tela per regolare",
+          "fine": "Maiusc per precisione"
+        },
+        "keys": {
+          "hold": "Tieni premuto",
+          "previousImage": "Immagine prec.",
+          "nextImage": "Immagine succ.",
+          "reset": "Reimposta",
+          "previousAdjustment": "Cursore prec.",
+          "nextAdjustment": "Cursore succ.",
+          "copy": "Copia",
+          "paste": "Incolla",
+          "stepDown": "−1 passo",
+          "stepUp": "+1 passo"
+        },
+        "title": "Modifica rapida"
+      },
       "title": "Controlli Mouse",
       "zoom": "Moltiplicatore Velocità Zoom",
       "zoomClick": "Zoom foto al 100%",
@@ -1958,7 +1977,6 @@
         "rotate_right": "Ruota 90° in senso orario",
         "select_all": "Seleziona tutte le immagini",
         "show_original": "Mostra originale (prima/dopo)",
-        "speed_edit": "Modifica rapida dell'ultimo cursore (tieni premuto e trascina)",
         "toggle_adjustments": "Attiva/Disattiva pannello Regolazioni",
         "toggle_ai": "Attiva/Disattiva pannello AI",
         "toggle_analytics": "Attiva/Disattiva visualizzazione Analitiche",

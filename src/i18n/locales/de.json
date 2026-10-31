@@ -1766,8 +1766,27 @@
       "pressKey": "Taste drücken... (Esc zum Löschen)",
       "resetDefaults": "Alles auf Standard zurücksetzen",
       "speed": "Geschwindigkeit",
-      "speedEditAdjustments": "Schnellbearbeitungs-Anpassungen",
-      "speedEditAdjustmentsDesc": "Halte die Schnellbearbeitungstaste gedrückt und wechsle mit A und D zwischen diesen Anpassungen, ändere sie mit ← und → schrittweise, wechsle mit Q und E das Bild, setze sie mit R zurück und kopiere und füge mit C und V einen Wert ein.",
+      "speedEdit": {
+        "adjustments": "Anpassungen",
+        "gestures": {
+          "doubleClick": "Doppelklick zum Zurücksetzen",
+          "drag": "Auf der Leinwand ziehen zum Anpassen",
+          "fine": "Umschalt für fein"
+        },
+        "keys": {
+          "hold": "Halten",
+          "previousImage": "Vorh. Bild",
+          "nextImage": "Nächstes Bild",
+          "reset": "Zurücksetzen",
+          "previousAdjustment": "Vorh. Regler",
+          "nextAdjustment": "Nächster Regler",
+          "copy": "Kopieren",
+          "paste": "Einfügen",
+          "stepDown": "−1 Schritt",
+          "stepUp": "+1 Schritt"
+        },
+        "title": "Schnellbearbeitung"
+      },
       "title": "Maussteuerung",
       "zoom": "Zoom-Geschwindigkeitsfaktor",
       "zoomClick": "Foto auf 100% zoomen",
@@ -1917,7 +1936,6 @@
         "rotate_right": "90° im Uhrzeigersinn drehen",
         "select_all": "Alle Bilder auswählen",
         "show_original": "Original anzeigen (Vorher/Nachher)",
-        "speed_edit": "Schnellbearbeitung des letzten Reglers (halten und ziehen)",
         "toggle_adjustments": "Anpassungen-Panel ein-/ausblenden",
         "toggle_ai": "KI-Panel ein-/ausblenden",
         "toggle_analytics": "Analyseanzeige ein-/ausblenden",

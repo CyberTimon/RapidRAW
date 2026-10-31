@@ -1760,8 +1760,27 @@
       "pressKey": "按下按鍵...（Esc 清除）",
       "resetDefaults": "全部重置為預設值",
       "speed": "速度",
-      "speedEditAdjustments": "快速編輯調整項目",
-      "speedEditAdjustmentsDesc": "按住快速編輯鍵時，按 A 和 D 在這些調整項目之間切換，按 ← 和 → 微調，按 Q 和 E 切換影像，按 R 重設，按 C 和 V 複製和貼上數值。",
+      "speedEdit": {
+        "adjustments": "調整項目",
+        "gestures": {
+          "doubleClick": "按兩下重設",
+          "drag": "在畫布上拖曳調整",
+          "fine": "按 Shift 精細調整"
+        },
+        "keys": {
+          "hold": "按住",
+          "previousImage": "上一張",
+          "nextImage": "下一張",
+          "reset": "重設",
+          "previousAdjustment": "上一個滑桿",
+          "nextAdjustment": "下一個滑桿",
+          "copy": "複製",
+          "paste": "貼上",
+          "stepDown": "−1 步",
+          "stepUp": "+1 步"
+        },
+        "title": "快速編輯"
+      },
       "title": "滑鼠控制",
       "zoom": "縮放速度倍率",
       "zoomClick": "縮放照片至 100%",
@@ -1911,7 +1930,6 @@
         "rotate_right": "順時針旋轉 90°",
         "select_all": "選擇所有影像",
         "show_original": "顯示原始影像（前後對比）",
-        "speed_edit": "快速編輯上次使用的滑桿（按住並拖曳）",
         "toggle_adjustments": "切換調整面板",
         "toggle_ai": "切換 AI 面板",
         "toggle_analytics": "切換分析顯示",

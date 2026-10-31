@@ -3358,9 +3358,8 @@ const ImageCanvas = memo(
     const wbSwatchRgb = wbSample
       ? [wbSample.r, wbSample.g, wbSample.b].map((v) => linearToSrgb8(v / wbSwatchNorm))
       : [0, 0, 0];
-    const wbSwatchFlipX = !!wbSwatchAnchor && wbSwatchAnchor.x > imageRenderSize.width * 0.75;
-    const wbSwatchFlipY = !!wbSwatchAnchor && wbSwatchAnchor.y > imageRenderSize.height * 0.75;
-    const wbSwatchOffset = WB_SWATCH_OFFSET / effectiveZoomScale;
+    const getWbSwatchShift = (isFlipped: boolean) =>
+      isFlipped ? `calc(-100% - ${WB_SWATCH_OFFSET}px)` : `${WB_SWATCH_OFFSET}px`;
     const wbSwatchWhiteBalance =
       wbSample && asShotWhiteBalance
         ? isKelvinWhiteBalance
@@ -3864,41 +3863,48 @@ const ImageCanvas = memo(
                 key="wbSwatch"
                 style={{
                   position: 'absolute',
-                  left: imageRenderSize.offsetX + wbSwatchAnchor.x + (wbSwatchFlipX ? -wbSwatchOffset : wbSwatchOffset),
-                  top: imageRenderSize.offsetY + wbSwatchAnchor.y + (wbSwatchFlipY ? -wbSwatchOffset : wbSwatchOffset),
+                  left: imageRenderSize.offsetX + wbSwatchAnchor.x,
+                  top: imageRenderSize.offsetY + wbSwatchAnchor.y,
                   transformOrigin: '0 0',
-                  transform: `scale(${1 / effectiveZoomScale}) translate(${wbSwatchFlipX ? '-100%' : '0'}, ${
-                    wbSwatchFlipY ? '-100%' : '0'
-                  })`,
+                  transform: `scale(${1 / effectiveZoomScale})`,
                   pointerEvents: 'none',
                   zIndex: 5,
                 }}
               >
-                <motion.div
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="flex items-center gap-2 p-2 rounded-lg bg-surface/95 backdrop-blur-md shadow-xl text-xs text-text-primary whitespace-nowrap"
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.1, ease: 'easeOut' }}
+                <div
+                  className="transition-transform duration-150 ease-out"
+                  style={{
+                    transform: `translate(${getWbSwatchShift(wbSwatchAnchor.x > imageRenderSize.width * 0.75)}, ${getWbSwatchShift(
+                      wbSwatchAnchor.y > imageRenderSize.height * 0.75,
+                    )})`,
+                  }}
                 >
-                  <div
-                    className="w-6 h-6 rounded-sm ring-1 ring-black/20"
-                    style={{ backgroundColor: `rgb(${wbSwatchRgb.join(', ')})` }}
-                  />
-                  <div className="flex flex-col gap-0.5 font-mono tabular-nums">
-                    <span className="text-text-secondary">
-                      R {wbSwatchRgb[0]} G {wbSwatchRgb[1]} B {wbSwatchRgb[2]}
-                    </span>
-                    {wbSwatchWhiteBalance && (
-                      <span className="flex gap-1">
-                        <span>{t('adjustments.color.temperature')}</span>
-                        <span>{`${Math.round(wbSwatchWhiteBalance.temperature)}${isKelvinWhiteBalance ? 'K' : ''}`}</span>
-                        <span className="ml-1">{t('adjustments.color.tint')}</span>
-                        <span>{Math.round(wbSwatchWhiteBalance.tint)}</span>
+                  <motion.div
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex items-center gap-2 p-2 rounded-lg bg-surface/95 backdrop-blur-md shadow-xl text-xs text-text-primary whitespace-nowrap"
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.1, ease: 'easeOut' }}
+                  >
+                    <div
+                      className="w-6 h-6 rounded-sm ring-1 ring-black/20"
+                      style={{ backgroundColor: `rgb(${wbSwatchRgb.join(', ')})` }}
+                    />
+                    <div className="flex flex-col gap-0.5 font-mono tabular-nums">
+                      <span className="text-text-secondary">
+                        R {wbSwatchRgb[0]} G {wbSwatchRgb[1]} B {wbSwatchRgb[2]}
                       </span>
-                    )}
-                  </div>
-                </motion.div>
+                      {wbSwatchWhiteBalance && (
+                        <span className="flex gap-1">
+                          <span>{t('adjustments.color.temperature')}</span>
+                          <span>{`${Math.round(wbSwatchWhiteBalance.temperature)}${isKelvinWhiteBalance ? 'K' : ''}`}</span>
+                          <span className="ml-1">{t('adjustments.color.tint')}</span>
+                          <span>{Math.round(wbSwatchWhiteBalance.tint)}</span>
+                        </span>
+                      )}
+                    </div>
+                  </motion.div>
+                </div>
               </div>
             )}
           </AnimatePresence>

@@ -1804,8 +1804,27 @@
       "pressKey": "Premeu una tecla... (Esc per esborrar)",
       "resetDefaults": "Restablir-ho tot als valors per defecte",
       "speed": "Velocitat",
-      "speedEditAdjustments": "Ajustos d'edició ràpida",
-      "speedEditAdjustmentsDesc": "Mentre mantens premuda la tecla d'edició ràpida, prem A i D per canviar entre aquests ajustos, ← i → per ajustar-los pas a pas, Q i E per canviar d'imatge, R per restablir-los i C i V per copiar i enganxar un valor.",
+      "speedEdit": {
+        "adjustments": "Ajustos",
+        "gestures": {
+          "doubleClick": "Doble clic per restablir",
+          "drag": "Arrossega al llenç per ajustar",
+          "fine": "Maj per afinar"
+        },
+        "keys": {
+          "hold": "Mantenir",
+          "previousImage": "Imatge ant.",
+          "nextImage": "Imatge seg.",
+          "reset": "Restablir",
+          "previousAdjustment": "Control ant.",
+          "nextAdjustment": "Control seg.",
+          "copy": "Copiar",
+          "paste": "Enganxar",
+          "stepDown": "−1 pas",
+          "stepUp": "+1 pas"
+        },
+        "title": "Edició ràpida"
+      },
       "title": "Controls del ratolí",
       "zoom": "Multiplicador de velocitat del zoom",
       "zoomClick": "Amplia la foto al 100%",
@@ -1958,7 +1977,6 @@
         "rotate_right": "Girar 90° en sentit horari",
         "select_all": "Seleccionar totes les imatges",
         "show_original": "Mostrar original (abans/després)",
-        "speed_edit": "Edició ràpida de l'últim control lliscant (mantén i arrossega)",
         "toggle_adjustments": "Alternar tauler d'Ajustaments",
         "toggle_ai": "Alternar tauler d'IA",
         "toggle_analytics": "Alternar visualització d'anàlisi",

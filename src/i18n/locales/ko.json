@@ -1760,8 +1760,27 @@
       "pressKey": "키를 누르세요... (Esc로 지우기)",
       "resetDefaults": "모두 기본값으로 초기화",
       "speed": "속도",
-      "speedEditAdjustments": "빠른 편집 조정 항목",
-      "speedEditAdjustmentsDesc": "빠른 편집 키를 누른 상태에서 A와 D로 조정 항목을 전환하고, ←와 →로 미세 조정하며, Q와 E로 이미지를 전환하고, R로 초기화하고, C와 V로 값을 복사하고 붙여넣습니다.",
+      "speedEdit": {
+        "adjustments": "조정 항목",
+        "gestures": {
+          "doubleClick": "더블클릭하여 초기화",
+          "drag": "캔버스에서 드래그하여 조정",
+          "fine": "Shift로 미세 조정"
+        },
+        "keys": {
+          "hold": "누르기",
+          "previousImage": "이전 이미지",
+          "nextImage": "다음 이미지",
+          "reset": "초기화",
+          "previousAdjustment": "이전 슬라이더",
+          "nextAdjustment": "다음 슬라이더",
+          "copy": "복사",
+          "paste": "붙여넣기",
+          "stepDown": "−1 단계",
+          "stepUp": "+1 단계"
+        },
+        "title": "빠른 편집"
+      },
       "title": "마우스 컨트롤",
       "zoom": "확대/축소 속도 배율",
       "zoomClick": "사진 100% 확대",
@@ -1911,7 +1930,6 @@
         "rotate_right": "90° 시계 방향 회전",
         "select_all": "모든 이미지 선택",
         "show_original": "원본 표시 (전/후)",
-        "speed_edit": "마지막 슬라이더 빠른 편집 (누른 채 드래그)",
         "toggle_adjustments": "조정 패널 전환",
         "toggle_ai": "AI 패널 전환",
         "toggle_analytics": "분석 표시 전환",

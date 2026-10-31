@@ -1842,8 +1842,27 @@
       "pressKey": "Naciśnij klawisz... (Esc by anulować)",
       "resetDefaults": "Przywróć wszystkie domyślne",
       "speed": "Prędkość",
-      "speedEditAdjustments": "Korekty szybkiej edycji",
-      "speedEditAdjustmentsDesc": "Przytrzymując klawisz szybkiej edycji, naciskaj A i D, aby przełączać się między tymi korektami, ← i →, aby zmieniać je o krok, Q i E, aby zmieniać zdjęcie, R, aby je zresetować, oraz C i V, aby skopiować i wkleić wartość.",
+      "speedEdit": {
+        "adjustments": "Korekty",
+        "gestures": {
+          "doubleClick": "Dwuklik, aby zresetować",
+          "drag": "Przeciągnij po płótnie, aby zmienić",
+          "fine": "Shift – precyzyjnie"
+        },
+        "keys": {
+          "hold": "Przytrzymaj",
+          "previousImage": "Poprz. zdjęcie",
+          "nextImage": "Nast. zdjęcie",
+          "reset": "Resetuj",
+          "previousAdjustment": "Poprz. suwak",
+          "nextAdjustment": "Nast. suwak",
+          "copy": "Kopiuj",
+          "paste": "Wklej",
+          "stepDown": "−1 krok",
+          "stepUp": "+1 krok"
+        },
+        "title": "Szybka edycja"
+      },
       "title": "Sterowanie myszą",
       "zoom": "Mnożnik szybkości przybliżania",
       "zoomClick": "Powiększ zdjęcie do 100%",
@@ -1999,7 +2018,6 @@
         "rotate_right": "Obróć o 90° w prawo",
         "select_all": "Zaznacz wszystkie obrazy",
         "show_original": "Pokaż oryginał (przed/po)",
-        "speed_edit": "Szybka edycja ostatniego suwaka (przytrzymaj i przeciągnij)",
         "toggle_adjustments": "Przełącz panel Ustawienia",
         "toggle_ai": "Przełącz panel AI",
         "toggle_analytics": "Przełącz wyświetlanie analityki",

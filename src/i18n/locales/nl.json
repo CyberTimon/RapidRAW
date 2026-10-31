@@ -1766,8 +1766,27 @@
       "pressKey": "Druk op een toets... (Esc om te wissen)",
       "resetDefaults": "Alles herstellen naar standaard",
       "speed": "Snelheid",
-      "speedEditAdjustments": "Aanpassingen voor snel bewerken",
-      "speedEditAdjustmentsDesc": "Houd de sneltoets voor snel bewerken ingedrukt en druk op A en D om tussen deze aanpassingen te wisselen, op ← en → om ze stapsgewijs aan te passen, op Q en E om van afbeelding te wisselen, op R om ze te herstellen en op C en V om een waarde te kopiëren en te plakken.",
+      "speedEdit": {
+        "adjustments": "Aanpassingen",
+        "gestures": {
+          "doubleClick": "Dubbelklik om te herstellen",
+          "drag": "Sleep op het canvas om aan te passen",
+          "fine": "Shift voor fijn"
+        },
+        "keys": {
+          "hold": "Vasthouden",
+          "previousImage": "Vorige afb.",
+          "nextImage": "Volgende afb.",
+          "reset": "Herstellen",
+          "previousAdjustment": "Vorige regelaar",
+          "nextAdjustment": "Volgende regelaar",
+          "copy": "Kopiëren",
+          "paste": "Plakken",
+          "stepDown": "−1 stap",
+          "stepUp": "+1 stap"
+        },
+        "title": "Snel bewerken"
+      },
       "title": "Muisbesturing",
       "zoom": "Zoomsnelheidsmultiplicator",
       "zoomClick": "Foto zoomen naar 100%",
@@ -1916,7 +1935,6 @@
         "rotate_right": "90° met de klok mee roteren",
         "select_all": "Alle afbeeldingen selecteren",
         "show_original": "Origineel weergeven (voor/na)",
-        "speed_edit": "Laatste schuifregelaar snel bewerken (ingedrukt houden en slepen)",
         "toggle_adjustments": "Aanpassingspaneel aan/uit",
         "toggle_ai": "AI-paneel aan/uit",
         "toggle_analytics": "Analyseweergave aan/uit",

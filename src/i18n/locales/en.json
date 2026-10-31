@@ -1766,8 +1766,27 @@
       "pressKey": "Press a key... (Esc to clear)",
       "resetDefaults": "Reset All to Defaults",
       "speed": "Speed",
-      "speedEditAdjustments": "Speed Edit Adjustments",
-      "speedEditAdjustmentsDesc": "While holding the speed edit key, press A and D to switch between these adjustments, ← and → to nudge them, Q and E to change images, R to reset, and C and V to copy and paste a value.",
+      "speedEdit": {
+        "adjustments": "Adjustments",
+        "gestures": {
+          "doubleClick": "Double-click to reset",
+          "drag": "Drag on canvas to adjust",
+          "fine": "Shift for fine"
+        },
+        "keys": {
+          "hold": "Hold",
+          "previousImage": "Prev. image",
+          "nextImage": "Next image",
+          "reset": "Reset",
+          "previousAdjustment": "Prev. slider",
+          "nextAdjustment": "Next slider",
+          "copy": "Copy",
+          "paste": "Paste",
+          "stepDown": "−1 step",
+          "stepUp": "+1 step"
+        },
+        "title": "Speed Edit"
+      },
       "title": "Mouse Controls",
       "zoom": "Zoom Speed Multiplier",
       "zoomClick": "Zoom photo to 100%",
@@ -1917,7 +1936,6 @@
         "rotate_right": "Rotate 90° clockwise",
         "select_all": "Select all images",
         "show_original": "Show original (before/after)",
-        "speed_edit": "Speed edit last used slider (hold and drag)",
         "toggle_adjustments": "Toggle Adjustments panel",
         "toggle_ai": "Toggle AI panel",
         "toggle_analytics": "Toggle Analytics display",

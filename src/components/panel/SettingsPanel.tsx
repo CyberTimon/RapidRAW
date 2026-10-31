@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useState } from 'react';
+import { Fragment, useEffect, useMemo, useReducer, useState } from 'react';
 import {
   ArrowLeft,
   Cloud,
@@ -22,6 +22,9 @@ import {
   ChevronDown,
   ChevronRight,
   Settings as SettingsIcon,
+  Move,
+  MousePointerClick,
+  ArrowBigUp,
 } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -225,6 +228,86 @@ const SettingItem = ({ children, description, label }: SettingItemProps) => (
       </Text>
     )}
   </div>
+);
+
+const SPEED_EDIT_KEY_ROWS = [
+  {
+    offset: '',
+    keys: [
+      { code: 'KeyQ', label: 'settings.controls.speedEdit.keys.previousImage' },
+      { code: 'KeyW', label: 'settings.controls.speedEdit.keys.hold' },
+      { code: 'KeyE', label: 'settings.controls.speedEdit.keys.nextImage' },
+      { code: 'KeyR', label: 'settings.controls.speedEdit.keys.reset' },
+    ],
+  },
+  {
+    offset: 'ml-4',
+    keys: [
+      { code: 'KeyA', label: 'settings.controls.speedEdit.keys.previousAdjustment' },
+      { code: 'KeyS', label: null },
+      { code: 'KeyD', label: 'settings.controls.speedEdit.keys.nextAdjustment' },
+    ],
+  },
+  {
+    offset: 'ml-12',
+    keys: [
+      { code: 'KeyZ', label: null },
+      { code: 'KeyX', label: null },
+      { code: 'KeyC', label: 'settings.controls.speedEdit.keys.copy' },
+      { code: 'KeyV', label: 'settings.controls.speedEdit.keys.paste' },
+    ],
+  },
+] as const;
+
+const SPEED_EDIT_ARROW_ROWS = [
+  { offset: 'ml-[70px]', keys: [{ code: 'ArrowUp', label: null }] },
+  {
+    offset: '',
+    keys: [
+      { code: 'ArrowLeft', label: 'settings.controls.speedEdit.keys.stepDown' },
+      { code: 'ArrowDown', label: null },
+      { code: 'ArrowRight', label: 'settings.controls.speedEdit.keys.stepUp' },
+    ],
+  },
+] as const;
+
+const SPEED_EDIT_GESTURES = [
+  { icon: Move, label: 'settings.controls.speedEdit.gestures.drag', isPrimary: true },
+  { icon: ArrowBigUp, label: 'settings.controls.speedEdit.gestures.fine', isPrimary: false },
+  { icon: MousePointerClick, label: 'settings.controls.speedEdit.gestures.doubleClick', isPrimary: false },
+] as const;
+
+interface SpeedEditKeyProps {
+  code: string;
+  label: string | null;
+  osPlatform: string;
+}
+
+const SpeedEditKey = ({ code, label, osPlatform }: SpeedEditKeyProps) => {
+  const isHold = code === 'KeyW';
+  return (
+    <kbd
+      className={clsx(
+        'flex flex-col items-center justify-center gap-1 w-16 h-14 px-1 rounded-lg border font-sans text-center',
+        isHold && 'bg-accent border-accent text-button-text',
+        !isHold && label && 'bg-bg-primary border-border-color shadow-[inset_0_-2px_0_rgba(0,0,0,0.25)]',
+        !label && 'border-dashed border-border-color text-text-secondary opacity-40',
+      )}
+    >
+      <span className="text-sm font-semibold leading-none">{formatKeyCode(code, osPlatform)}</span>
+      {label && (
+        <span className={clsx('text-[9px] leading-tight', isHold ? 'text-button-text/80' : 'text-text-secondary')}>
+          {label}
+        </span>
+      )}
+    </kbd>
+  );
+};
+
+const MiniKey = ({ code, osPlatform }: { code: string; osPlatform: string }) => (
+  <kbd className="px-1.5 py-0.5 rounded-sm border border-border-color bg-bg-primary font-sans text-[10px] font-semibold">
+    {formatKeyCode(code, osPlatform)}
+  </kbd>
 );
 
 interface AiProviderSwitchProps {
@@ -2409,10 +2492,63 @@ export default function SettingsPanel({
                           }}
                         />
                       </SettingItem>
-                      <SettingItem
-                        label={t('settings.controls.speedEditAdjustments')}
-                        description={t('settings.controls.speedEditAdjustmentsDesc')}
-                      >
+                    </div>
+                  </div>
+
+                  <div className="p-6 bg-surface rounded-xl shadow-md">
+                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
+                      {t('settings.controls.speedEdit.title')}
+                    </Text>
+                    <div className="space-y-8">
+                      <div>
+                        <div className="flex items-end gap-6">
+                          {[SPEED_EDIT_KEY_ROWS, SPEED_EDIT_ARROW_ROWS].map((rows) => (
+                            <div className="space-y-1.5" key={rows[0].keys[0].code}>
+                              {rows.map(({ offset, keys }) => (
+                                <div className={clsx('flex gap-1.5', offset)} key={keys[0].code}>
+                                  {keys.map(({ code, label }) => (
+                                    <SpeedEditKey
+                                      code={code}
+                                      key={code}
+                                      label={label && t(label)}
+                                      osPlatform={osPlatform}
+                                    />
+                                  ))}
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex flex-wrap gap-2 mt-5">
+                          {SPEED_EDIT_GESTURES.map(({ icon: Icon, label, isPrimary }) => (
+                            <span
+                              className={clsx(
+                                'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs',
+                                isPrimary
+                                  ? 'bg-accent text-button-text font-semibold'
+                                  : 'bg-bg-primary text-text-secondary',
+                              )}
+                              key={label}
+                            >
+                              <Icon size={14} />
+                              {t(label)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <SettingItem label={t('settings.controls.speedEdit.adjustments')}>
+                        <div className="flex flex-wrap items-center gap-1.5 mb-4 text-xs">
+                          <MiniKey code="KeyA" osPlatform={osPlatform} />
+                          {SPEED_EDIT_ADJUSTMENTS.filter(({ id }) => speedEditAdjustments.includes(id)).map(
+                            ({ id, label }, index) => (
+                              <Fragment key={id}>
+                                {index > 0 && <ChevronRight size={12} className="text-text-secondary" />}
+                                <span className="px-2 py-0.5 rounded-full bg-bg-primary">{t(label)}</span>
+                              </Fragment>
+                            ),
+                          )}
+                          <MiniKey code="KeyD" osPlatform={osPlatform} />
+                        </div>
                         <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                           {SPEED_EDIT_ADJUSTMENTS.map(({ id, label }) => (
                             <Switch

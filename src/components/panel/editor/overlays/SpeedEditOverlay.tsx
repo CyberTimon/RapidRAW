@@ -11,11 +11,12 @@ import {
   hasFineAdjustmentModifier,
 } from '../../../ui/Slider';
 import { Coord, DEFAULT_SPEED_EDIT_ADJUSTMENTS } from '../../../../utils/adjustments';
-import { KEYBIND_DEFINITIONS, formatKeyCode, getEffectiveCombo, normalizeCombo } from '../../../../utils/keyboardUtils';
+import { Panel, PanelRegion } from '../../../ui/AppProperties';
+import { formatKeyCode, normalizeCombo } from '../../../../utils/keyboardUtils';
 
 const DRAG_RANGE_PX = 400;
 const HUD_OFFSET = 16;
-const SPEED_EDIT_KEYBIND = KEYBIND_DEFINITIONS.find((def) => def.action === 'speed_edit')!;
+const SPEED_EDIT_KEY = 'KeyW';
 const FINE_ADJUSTMENT_KEYS = ['shift', 'alt'];
 const PREVIOUS_KEY = 'KeyA';
 const NEXT_KEY = 'KeyD';
@@ -65,16 +66,19 @@ const toLocalPoint = (element: HTMLElement | null, client: Coord | null): Coord 
 const placeHud = (hud: HTMLElement | null, overlay: HTMLElement | null, client: Coord | null) => {
   const point = toLocalPoint(overlay, client);
   if (!hud || !overlay || !point) return;
-  const flipX = point.x > overlay.clientWidth * 0.75;
-  const flipY = point.y > overlay.clientHeight * 0.75;
-  hud.style.left = `${point.x + (flipX ? -HUD_OFFSET : HUD_OFFSET)}px`;
-  hud.style.top = `${point.y + (flipY ? -HUD_OFFSET : HUD_OFFSET)}px`;
-  hud.style.transform = `translate(${flipX ? '-100%' : '0'}, ${flipY ? '-100%' : '0'})`;
+  const shift = (isFlipped: boolean) => (isFlipped ? `calc(-100% - ${HUD_OFFSET}px)` : `${HUD_OFFSET}px`);
+  hud.style.transition = hud.style.transform ? 'transform 150ms ease-out' : 'none';
+  hud.style.left = `${point.x}px`;
+  hud.style.top = `${point.y}px`;
+  hud.style.transform = `translate(${shift(point.x > overlay.clientWidth * 0.75)}, ${shift(point.y > overlay.clientHeight * 0.75)})`;
 };
 
-const getSpeedEditElements = () => {
+const getActivePanelArea = () =>
+  document.querySelector(`[data-panel="${useUIStore.getState().activePanel}"]`) ?? document;
+
+const getSpeedEditElements = (scope: ParentNode = document) => {
   const ids = useSettingsStore.getState().appSettings?.speedEditAdjustments ?? DEFAULT_SPEED_EDIT_ADJUSTMENTS;
-  return [...document.querySelectorAll<HTMLElement>('[data-speed-edit-id]')]
+  return [...scope.querySelectorAll<HTMLElement>('[data-speed-edit-id]')]
     .filter((element) => ids.includes(element.dataset.speedEditId!) && element.offsetParent !== null)
     .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
 };
@@ -92,11 +96,16 @@ const getAdjacentElement = (
 
 const setIsHeld = (isSpeedEditHeld: boolean) => useEditorStore.getState().setEditor({ isSpeedEditHeld });
 
+const activateOwningPanel = (element: Element | undefined) => {
+  const area = element?.closest<HTMLElement>('[data-panel-region]');
+  if (!area?.dataset.panel) return;
+  useUIStore.getState().setActivePanel(area.dataset.panelRegion as PanelRegion, area.dataset.panel as Panel);
+};
+
 const getFraction = (target: SpeedEditTarget, value: number) =>
   (target.toPosition(value) - target.minPosition) / (target.maxPosition - target.minPosition);
 
 export default function SpeedEditOverlay() {
-  const keybinds = useSettingsStore((state) => state.appSettings?.keybinds);
   const osPlatform = useSettingsStore((state) => state.osPlatform);
   const speedEditTarget = useEditorStore((state) => state.speedEditTarget);
   const adjustments = useEditorStore((state) => state.adjustments);
@@ -174,25 +183,24 @@ export default function SpeedEditOverlay() {
   }, [speedEditTarget, adjustments, liveRotation]);
 
   useEffect(() => {
-    const combo = getEffectiveCombo(SPEED_EDIT_KEYBIND, keybinds, osPlatform);
-
     const handleKeyDown = (e: KeyboardEvent) => {
       const { activeView, isSettingsOpen } = useUIStore.getState();
-      if (activeView !== 'editor' || isSettingsOpen || isTextInputFocused() || combo.length === 0) return;
-      const pressed = normalizeCombo(e, osPlatform).filter(
-        (part) => combo.includes(part) || !FINE_ADJUSTMENT_KEYS.includes(part),
-      );
-      if (pressed.join('+') !== combo.join('+')) return;
+      if (activeView !== 'editor' || isSettingsOpen || isTextInputFocused()) return;
+      const pressed = normalizeCombo(e, osPlatform).filter((part) => !FINE_ADJUSTMENT_KEYS.includes(part));
+      if (pressed.join('+') !== SPEED_EDIT_KEY) return;
       e.preventDefault();
       if (e.repeat) return;
       setIsHeld(true);
       setIsPointerInside(toLocalPoint(overlayRef.current, lastPointerRef.current) !== null);
       const { speedEditTarget: current, setEditor } = useEditorStore.getState();
-      const [first] = getSpeedEditElements();
-      if (!current?.current && first) setEditor({ speedEditTarget: getSpeedEditTarget(first) });
+      const element = current?.current
+        ? getSpeedEditElements().find((item) => getSpeedEditTarget(item) === current)
+        : getSpeedEditElements(getActivePanelArea())[0];
+      if (!current?.current && element) setEditor({ speedEditTarget: getSpeedEditTarget(element) });
+      activateOwningPanel(element);
     };
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (normalizeCombo(e, osPlatform).at(-1) === combo.at(-1)) setIsHeld(false);
+      if (normalizeCombo(e, osPlatform).at(-1) === SPEED_EDIT_KEY) setIsHeld(false);
     };
     const handleBlur = () => setIsHeld(false);
 
@@ -204,7 +212,7 @@ export default function SpeedEditOverlay() {
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
     };
-  }, [keybinds, osPlatform]);
+  }, [osPlatform]);
 
   useEffect(() => {
     if (!isHeld) return;
@@ -247,7 +255,7 @@ export default function SpeedEditOverlay() {
         showNotice('editor.speedEdit.pasted', copyTarget, copy.value);
         return;
       }
-      const next = getAdjacentElement(getSpeedEditElements(), current, CYCLE_DIRECTIONS[key]);
+      const next = getAdjacentElement(getSpeedEditElements(getActivePanelArea()), current, CYCLE_DIRECTIONS[key]);
       const nextTarget = next && getSpeedEditTarget(next);
       if (!next || !nextTarget) return;
       endNudge();
@@ -324,7 +332,7 @@ export default function SpeedEditOverlay() {
 
   const isActive = isHeld || isDragging;
   const target = speedEditTarget?.current;
-  const elements = isHeld && target ? getSpeedEditElements() : [];
+  const elements = isHeld && target ? getSpeedEditElements(getActivePanelArea()) : [];
 
   const getNeighborLabel = (direction: number) => {
     const element = getAdjacentElement(elements, speedEditTarget, direction);

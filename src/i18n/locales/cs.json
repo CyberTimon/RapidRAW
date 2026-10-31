@@ -1842,8 +1842,27 @@
       "pressKey": "Stiskněte klávesu... (Esc pro vymazání)",
       "resetDefaults": "Obnovit vše na výchozí",
       "speed": "Rychlost",
-      "speedEditAdjustments": "Posuvníky rychlé úpravy",
-      "speedEditAdjustmentsDesc": "Při podržení klávesy rychlé úpravy přepínejte mezi těmito úpravami klávesami A a D, šipkami ← a → je posouvejte po krocích, klávesami Q a E přepínejte snímky, klávesou R je obnovte a klávesami C a V zkopírujte a vložte hodnotu.",
+      "speedEdit": {
+        "adjustments": "Úpravy",
+        "gestures": {
+          "doubleClick": "Dvojklikem obnovíte",
+          "drag": "Tažením po plátně upravíte",
+          "fine": "Shift pro jemnost"
+        },
+        "keys": {
+          "hold": "Podržet",
+          "previousImage": "Předch. snímek",
+          "nextImage": "Další snímek",
+          "reset": "Obnovit",
+          "previousAdjustment": "Předch. posuvník",
+          "nextAdjustment": "Další posuvník",
+          "copy": "Kopírovat",
+          "paste": "Vložit",
+          "stepDown": "−1 krok",
+          "stepUp": "+1 krok"
+        },
+        "title": "Rychlá úprava"
+      },
       "title": "Ovládání myší",
       "zoom": "Rychlost zoomu",
       "zoomClick": "Přiblížit snímek na 100 %",
@@ -1999,7 +2018,6 @@
         "rotate_right": "Otočit o 90° ve směru hodinových ručiček",
         "select_all": "Vybrat všechny snímky",
         "show_original": "Zobrazit originál (před/po)",
-        "speed_edit": "Rychlá úprava posledního posuvníku (podržet a táhnout)",
         "toggle_adjustments": "Přepnout panel úprav",
         "toggle_ai": "Přepnout panel AI",
         "toggle_analytics": "Přepnout zobrazení analýzy",
