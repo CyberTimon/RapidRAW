@@ -46,6 +46,7 @@ use crate::image_processing::{
     get_all_adjustments_from_json, perform_auto_analysis, resolve_render_options,
 };
 use crate::mask_generation::MaskDefinition;
+use crate::metadata_store::{self, ImageKey, Removal};
 use crate::preset_converter;
 use crate::tagging::COLOR_TAG_PREFIX;
 
@@ -107,11 +108,11 @@ struct ImageFileMetadata {
 }
 
 pub fn rating_and_edited(path_str: &str, settings: &AppSettings) -> (u8, bool) {
-    let (source_path, sidecar_path) = parse_virtual_path(path_str);
+    let (source_path, key) = parse_virtual_path(path_str);
     let metadata = resolve_image_metadata(
         &source_path,
-        &sidecar_path,
-        sidecar_path.exists(),
+        &key,
+        metadata_store::exists(&key),
         false,
         settings,
     );
@@ -120,19 +121,19 @@ pub fn rating_and_edited(path_str: &str, settings: &AppSettings) -> (u8, bool) {
 
 fn resolve_image_metadata(
     image_path: &Path,
-    sidecar_path: &Path,
-    sidecar_exists: bool,
+    key: &ImageKey,
+    record_exists: bool,
     enable_xmp_sync: bool,
     settings: &AppSettings,
 ) -> ImageFileMetadata {
-    let mut metadata = if sidecar_exists {
-        crate::exif_processing::load_sidecar(sidecar_path)
+    let mut metadata = if record_exists {
+        metadata_store::load(key)
     } else {
         ImageMetadata::default()
     };
 
     if enable_xmp_sync && sync_metadata_from_xmp(image_path, &mut metadata) {
-        let _ = crate::exif_processing::update_sidecar(sidecar_path, image_path, |current| {
+        let _ = metadata_store::update(key, |current| {
             sync_metadata_from_xmp(image_path, current);
         });
     }
@@ -170,13 +171,13 @@ fn enqueue_metadata(
     app_handle: &AppHandle,
     virtual_path: String,
     image_path: PathBuf,
-    sidecar_path: PathBuf,
+    key: ImageKey,
 ) {
     let state = app_handle.state::<crate::AppState>();
     let manager = &state.metadata_manager;
 
     let mut pending = manager.pending.lock().unwrap();
-    if !pending.insert(sidecar_path.clone()) {
+    if !pending.insert(key.clone()) {
         return;
     }
     drop(pending);
@@ -184,7 +185,7 @@ fn enqueue_metadata(
     manager.queue.lock().unwrap().push_back(PendingMetadata {
         virtual_path,
         image_path,
-        sidecar_path,
+        key,
     });
     manager.cvar.notify_one();
 }
@@ -217,7 +218,7 @@ pub fn start_metadata_workers(app_handle: tauri::AppHandle) {
 
                 let metadata = resolve_image_metadata(
                     &item.image_path,
-                    &item.sidecar_path,
+                    &item.key,
                     true,
                     enable_xmp_sync,
                     &settings,
@@ -225,11 +226,7 @@ pub fn start_metadata_workers(app_handle: tauri::AppHandle) {
 
                 emit_image_metadata_loaded(&app_clone, &item.virtual_path, &metadata);
 
-                manager_clone
-                    .pending
-                    .lock()
-                    .unwrap()
-                    .remove(&item.sidecar_path);
+                manager_clone.pending.lock().unwrap().remove(&item.key);
             }
         });
     }
@@ -440,47 +437,9 @@ pub struct ImportSettings {
     pub delete_after_import: bool,
 }
 
-pub fn parse_sidecar_name(file_name: &str) -> Option<(&str, Option<&str>)> {
-    let base = file_name.strip_suffix(".rrdata")?;
-    if base.len() >= 7 && base.as_bytes()[base.len() - 7] == b'.' {
-        let id = &base[base.len() - 6..];
-        if id.chars().all(|c| matches!(c, '0'..='9' | 'a'..='f')) {
-            return Some((&base[..base.len() - 7], Some(id)));
-        }
-    }
-    Some((base, None))
-}
-
-pub fn parse_virtual_path(virtual_path: &str) -> (PathBuf, PathBuf) {
-    let (source_path_str, copy_id) = if let Some((base, id)) = virtual_path.rsplit_once("?vc=") {
-        (base.to_string(), Some(id.to_string()))
-    } else {
-        (virtual_path.to_string(), None)
-    };
-
-    let source_path = PathBuf::from(source_path_str);
-
-    let sidecar_filename = if let Some(id) = copy_id {
-        format!(
-            "{}.{}.rrdata",
-            source_path
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy(),
-            id
-        )
-    } else {
-        format!(
-            "{}.rrdata",
-            source_path
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-        )
-    };
-
-    let sidecar_path = source_path.with_file_name(sidecar_filename);
-    (source_path, sidecar_path)
+pub fn parse_virtual_path(virtual_path: &str) -> (PathBuf, ImageKey) {
+    let key = ImageKey::parse(virtual_path);
+    (key.source.clone(), key)
 }
 
 fn exif_read_pool() -> Option<&'static rayon::ThreadPool> {
@@ -552,22 +511,19 @@ pub async fn update_exif_fields(
     tauri::async_runtime::spawn_blocking(move || {
         paths.par_iter().for_each(|path| {
             let original_path = Path::new(&path);
-            let primary_path = crate::exif_processing::get_primary_sidecar_path(original_path);
+            let _ = metadata_store::update(&ImageKey::primary(original_path), |metadata| {
+                crate::exif_processing::fill_missing_exif(metadata, original_path);
+                let exif_data = metadata.exif.get_or_insert_default();
 
-            let _ =
-                crate::exif_processing::update_sidecar(&primary_path, original_path, |metadata| {
-                    crate::exif_processing::fill_missing_exif(metadata, original_path);
-                    let exif_data = metadata.exif.get_or_insert_default();
-
-                    for (k, v) in &updates {
-                        let trimmed = v.trim();
-                        if trimmed.is_empty() {
-                            exif_data.remove(k);
-                        } else {
-                            exif_data.insert(k.clone(), trimmed.to_string());
-                        }
+                for (k, v) in &updates {
+                    let trimmed = v.trim();
+                    if trimmed.is_empty() {
+                        exif_data.remove(k);
+                    } else {
+                        exif_data.insert(k.clone(), trimmed.to_string());
                     }
-                });
+                }
+            });
         });
         Ok(())
     })
@@ -641,7 +597,6 @@ fn modified_secs(metadata: std::io::Result<fs::Metadata>, path: &Path) -> u64 {
 
 struct ListedImage {
     path: PathBuf,
-    file_name: String,
     modified: u64,
 }
 
@@ -651,8 +606,8 @@ fn build_image_file(
     settings: &AppSettings,
     source_path: &Path,
     virtual_path: String,
-    sidecar_path: &Path,
-    sidecar_exists: bool,
+    key: &ImageKey,
+    record_exists: bool,
     modified: u64,
     is_cloud_placeholder: bool,
 ) -> ImageFile {
@@ -662,31 +617,24 @@ fn build_image_file(
     let xmp_is_placeholder = enable_xmp_sync
         && resolve_xmp_path(source_path).is_some_and(|p| self::is_cloud_placeholder(&p));
 
-    let metadata =
-        if (sidecar_exists && self::is_cloud_placeholder(sidecar_path)) || xmp_is_placeholder {
-            enqueue_metadata(
-                app_handle,
-                virtual_path.clone(),
-                source_path.to_path_buf(),
-                sidecar_path.to_path_buf(),
-            );
-            ImageFileMetadata {
-                is_edited: false,
-                tags: None,
-                rating: 0,
-                flag: None,
-                is_raw: crate::formats::is_raw_file(source_path),
-                needs_ai: false,
-            }
-        } else {
-            resolve_image_metadata(
-                source_path,
-                sidecar_path,
-                sidecar_exists,
-                enable_xmp_sync,
-                settings,
-            )
-        };
+    let metadata = if (record_exists && metadata_store::is_placeholder(key)) || xmp_is_placeholder {
+        enqueue_metadata(
+            app_handle,
+            virtual_path.clone(),
+            source_path.to_path_buf(),
+            key.clone(),
+        );
+        ImageFileMetadata {
+            is_edited: false,
+            tags: None,
+            rating: 0,
+            flag: None,
+            is_raw: crate::formats::is_raw_file(source_path),
+            needs_ai: false,
+        }
+    } else {
+        resolve_image_metadata(source_path, key, record_exists, enable_xmp_sync, settings)
+    };
 
     ImageFile {
         path: virtual_path,
@@ -707,7 +655,7 @@ fn build_image_file(
 fn collect_image_files<E: Send>(
     entries: Vec<E>,
     describe: impl Fn(E) -> ListedImage + Sync + Send,
-    mut sidecars_by_path: HashMap<PathBuf, Vec<Option<String>>>,
+    mut records_by_path: HashMap<PathBuf, Vec<ImageKey>>,
     app_handle: &AppHandle,
 ) -> Vec<ImageFile> {
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
@@ -716,38 +664,28 @@ fn collect_image_files<E: Send>(
     let tasks: Vec<_> = listed
         .into_iter()
         .map(|image| {
-            let sidecars = sidecars_by_path.remove(&image.path);
-            (image, sidecars)
+            let records = records_by_path.remove(&image.path);
+            (image, records)
         })
         .collect();
 
     let mut result_list: Vec<ImageFile> = tasks
         .into_par_iter()
-        .flat_map_iter(|(image, sidecars)| {
-            let path_str = image.path.to_string_lossy().into_owned();
+        .flat_map_iter(|(image, records)| {
             let is_cloud_placeholder = is_cloud_placeholder(&image.path);
-            let sidecar_exists = sidecars.is_some();
+            let record_exists = records.is_some();
 
-            sidecars
-                .unwrap_or_else(|| vec![None])
+            records
+                .unwrap_or_else(|| vec![ImageKey::primary(&image.path)])
                 .into_iter()
-                .map(|copy_id| {
-                    let (virtual_path, sidecar_filename) = match copy_id {
-                        Some(id) => (
-                            format!("{}?vc={}", path_str, id),
-                            format!("{}.{}.rrdata", image.file_name, id),
-                        ),
-                        None => (path_str.clone(), format!("{}.rrdata", image.file_name)),
-                    };
-                    let sidecar_path = image.path.with_file_name(sidecar_filename);
-
+                .map(|key| {
                     build_image_file(
                         app_handle,
                         &settings,
                         &image.path,
-                        virtual_path,
-                        &sidecar_path,
-                        sidecar_exists,
+                        key.virtual_path(),
+                        &key,
+                        record_exists,
                         image.modified,
                         is_cloud_placeholder,
                     )
@@ -770,7 +708,7 @@ pub async fn list_images_in_dir(
 
         let entries = fs::read_dir(&path).map_err(|e| e.to_string())?;
         let mut images = Vec::new();
-        let mut sidecars_by_path: HashMap<PathBuf, Vec<Option<String>>> = HashMap::new();
+        let mut records = metadata_store::records_in_folder(Path::new(&path), false);
 
         for entry in entries.filter_map(Result::ok) {
             let file_name = entry
@@ -778,32 +716,39 @@ pub async fn list_images_in_dir(
                 .into_string()
                 .unwrap_or_else(|os| os.to_string_lossy().into_owned());
 
-            if let Some((source_filename, copy_id)) = parse_sidecar_name(&file_name) {
-                sidecars_by_path
-                    .entry(entry.path().with_file_name(source_filename))
-                    .or_default()
-                    .push(copy_id.map(str::to_string));
+            if let Some(key) = metadata_store::record_for_file(&entry.path()) {
+                records.push(key);
             } else if is_supported_image_file(&file_name) {
-                images.push((entry, file_name));
+                images.push(entry);
             }
         }
 
         Ok(collect_image_files(
             images,
-            |(entry, file_name)| {
+            |entry| {
                 let path = entry.path();
                 ListedImage {
                     modified: modified_secs(entry.metadata(), &path),
                     path,
-                    file_name,
                 }
             },
-            sidecars_by_path,
+            group_records(records),
             &app_handle,
         ))
     })
     .await
     .map_err(|e| format!("Task failed: {}", e))?
+}
+
+fn group_records(records: Vec<ImageKey>) -> HashMap<PathBuf, Vec<ImageKey>> {
+    let mut records_by_path: HashMap<PathBuf, Vec<ImageKey>> = HashMap::new();
+    for key in records {
+        records_by_path
+            .entry(key.source.clone())
+            .or_default()
+            .push(key);
+    }
+    records_by_path
 }
 
 #[tauri::command]
@@ -815,7 +760,7 @@ pub async fn list_images_recursive(
         update_rotational_disk_flag(&path, &app_handle);
 
         let mut images = Vec::new();
-        let mut sidecars_by_path: HashMap<PathBuf, Vec<Option<String>>> = HashMap::new();
+        let mut records = metadata_store::records_in_folder(Path::new(&path), true);
 
         for entry in WalkDir::new(&path).into_iter().filter_map(Result::ok) {
             let file_type = entry.file_type();
@@ -824,11 +769,8 @@ pub async fn list_images_recursive(
             }
 
             let file_name = entry.file_name().to_string_lossy();
-            if let Some((source_filename, copy_id)) = parse_sidecar_name(&file_name) {
-                sidecars_by_path
-                    .entry(entry.path().with_file_name(source_filename))
-                    .or_default()
-                    .push(copy_id.map(str::to_string));
+            if let Some(key) = metadata_store::record_for_file(entry.path()) {
+                records.push(key);
             } else if is_supported_image_file(file_name.as_ref()) {
                 images.push(entry);
             }
@@ -841,10 +783,9 @@ pub async fn list_images_recursive(
                     entry.metadata().map_err(std::io::Error::from),
                     entry.path(),
                 ),
-                file_name: entry.file_name().to_string_lossy().into_owned(),
                 path: entry.into_path(),
             },
-            sidecars_by_path,
+            group_records(records),
             &app_handle,
         ))
     })
@@ -1066,7 +1007,7 @@ pub async fn get_album_images(
         let mut result_list: Vec<ImageFile> = paths
             .into_par_iter()
             .filter_map(|virtual_path| {
-                let (source_path, sidecar_path) = parse_virtual_path(&virtual_path);
+                let (source_path, key) = parse_virtual_path(&virtual_path);
                 let metadata = fs::metadata(&source_path).ok()?;
                 let modified = modified_secs(Ok(metadata), &source_path);
                 let is_cloud_placeholder = is_cloud_placeholder(&source_path);
@@ -1076,7 +1017,7 @@ pub async fn get_album_images(
                     &settings,
                     &source_path,
                     virtual_path,
-                    &sidecar_path,
+                    &key,
                     true,
                     modified,
                     is_cloud_placeholder,
@@ -1564,19 +1505,12 @@ pub fn generate_thumbnail_data(
 }
 
 fn read_thumbnail_metadata(path_str: &str, app_handle: &AppHandle) -> Option<ImageMetadata> {
-    let (source_path, sidecar_path) = parse_virtual_path(path_str);
-    if is_cloud_placeholder(&sidecar_path) {
-        enqueue_metadata(
-            app_handle,
-            path_str.to_string(),
-            source_path.clone(),
-            sidecar_path.clone(),
-        );
+    let (source_path, key) = parse_virtual_path(path_str);
+    if metadata_store::is_placeholder(&key) {
+        enqueue_metadata(app_handle, path_str.to_string(), source_path, key);
         None
     } else {
-        fs::read_to_string(&sidecar_path)
-            .ok()
-            .and_then(|content| serde_json::from_str(&content).ok())
+        metadata_store::peek(&key)
     }
 }
 
@@ -1959,32 +1893,23 @@ fn generate_single_thumbnail_and_cache(
     settings: &AppSettings,
     before_generate: Option<&dyn Fn()>,
 ) -> Option<(String, String, u8, bool)> {
-    let (source_path, sidecar_path) = parse_virtual_path(path_str);
-    let sidecar_is_placeholder = is_cloud_placeholder(&sidecar_path);
+    let (source_path, key) = parse_virtual_path(path_str);
+    let sidecar_is_placeholder = metadata_store::is_placeholder(&key);
 
     let mut metadata: Option<ImageMetadata> = None;
     let (rating, is_edited, adjustments_bytes) = if sidecar_is_placeholder {
-        enqueue_metadata(
-            app_handle,
-            path_str.to_string(),
-            source_path.clone(),
-            sidecar_path.clone(),
-        );
+        enqueue_metadata(app_handle, path_str.to_string(), source_path.clone(), key);
         (0, false, Vec::new())
-    } else if let Ok(content) = fs::read_to_string(&sidecar_path) {
-        if let Ok(meta) = serde_json::from_str::<ImageMetadata>(&content) {
-            let is_raw = crate::formats::is_raw_file(path_str);
-            let tm = crate::image_processing::resolve_tonemapper_override(settings, is_raw);
-            let info = (
-                meta.rating,
-                crate::image_processing::is_image_edited(&meta.adjustments, is_raw, tm),
-                serde_json::to_vec(&meta.adjustments).unwrap_or_default(),
-            );
-            metadata = Some(meta);
-            info
-        } else {
-            (0, false, Vec::new())
-        }
+    } else if let Some(meta) = metadata_store::peek(&key) {
+        let is_raw = crate::formats::is_raw_file(path_str);
+        let tm = crate::image_processing::resolve_tonemapper_override(settings, is_raw);
+        let info = (
+            meta.rating,
+            crate::image_processing::is_image_edited(&meta.adjustments, is_raw, tm),
+            serde_json::to_vec(&meta.adjustments).unwrap_or_default(),
+        );
+        metadata = Some(meta);
+        info
     } else {
         (0, false, Vec::new())
     };
@@ -2418,6 +2343,7 @@ pub fn rename_folder(path: String, new_name: String, app_handle: AppHandle) -> R
         }
         let new_path = parent.join(&new_name);
         fs::rename(p, &new_path).map_err(|e| e.to_string())?;
+        metadata_store::folder_renamed(p, &new_path);
 
         let new_folder_str = new_path.to_string_lossy().into_owned();
         sync_album_path_changes(&app_handle, None, None, Some((&path, &new_folder_str)));
@@ -2446,6 +2372,8 @@ pub fn delete_folder(path: String, app_handle: AppHandle) -> Result<(), String> 
         fs::remove_dir_all(&path).map_err(|e| e.to_string())?;
     }
 
+    metadata_store::folder_removed(Path::new(&path));
+
     let mut deletions = HashSet::new();
     deletions.insert(path);
     sync_album_path_changes(&app_handle, None, Some(&deletions), None);
@@ -2459,7 +2387,7 @@ pub fn duplicate_file(
     target_album_id: Option<String>,
     app_handle: AppHandle,
 ) -> Result<String, String> {
-    let (source_path, source_sidecar_path) = parse_virtual_path(&path);
+    let (source_path, source_key) = parse_virtual_path(&path);
     if !source_path.is_file() {
         return Err("Source path is not a file.".to_string());
     }
@@ -2492,13 +2420,7 @@ pub fn duplicate_file(
     }
 
     fs::copy(&source_path, &dest_path).map_err(|e| e.to_string())?;
-
-    if source_sidecar_path.exists()
-        && let Some(dest_str) = dest_path.to_str()
-    {
-        let (_, dest_sidecar_path) = parse_virtual_path(dest_str);
-        fs::copy(&source_sidecar_path, &dest_sidecar_path).map_err(|e| e.to_string())?;
-    }
+    metadata_store::copy(&source_key, &ImageKey::primary(&dest_path)).map_err(|e| e.to_string())?;
 
     let mut source_rrexif_name = source_path.file_name().unwrap().to_os_string();
     source_rrexif_name.push(".rrexif");
@@ -2520,6 +2442,8 @@ pub fn duplicate_file(
     Ok(dest_path_str)
 }
 
+/// The image and the files that belong to it on disk. Metadata records are moved
+/// separately through `metadata_store`.
 fn find_all_associated_files(source_image_path: &Path) -> Result<Vec<PathBuf>, String> {
     let mut associated_files = vec![source_image_path.to_path_buf()];
 
@@ -2532,31 +2456,6 @@ fn find_all_associated_files(source_image_path: &Path) -> Result<Vec<PathBuf>, S
 
     if rrexif_path.exists() {
         associated_files.push(rrexif_path);
-    }
-
-    let parent_dir = source_image_path
-        .parent()
-        .ok_or("Could not determine parent directory")?;
-    let source_filename = source_image_path
-        .file_name()
-        .ok_or("Could not get source filename")?
-        .to_string_lossy();
-
-    if let Ok(entries) = fs::read_dir(parent_dir) {
-        for entry in entries.filter_map(Result::ok) {
-            let entry_path = entry.path();
-            if !entry_path.is_file() {
-                continue;
-            }
-
-            let entry_os_filename = entry.file_name();
-            let entry_filename = entry_os_filename.to_string_lossy();
-
-            if parse_sidecar_name(&entry_filename).is_some_and(|(name, _)| name == source_filename)
-            {
-                associated_files.push(entry_path);
-            }
-        }
     }
 
     Ok(associated_files)
@@ -2586,6 +2485,9 @@ pub async fn copy_files(
     }
 
     let mut operations_to_perform = Vec::new();
+    // Each image with where its files end in `operations_to_perform`, so its edits are
+    // copied right after its files.
+    let mut record_copies: Vec<(PathBuf, PathBuf, usize)> = Vec::new();
 
     for source_image_path in &unique_source_images {
         let all_files_to_copy = find_all_associated_files(source_image_path)?;
@@ -2624,7 +2526,19 @@ pub async fn copy_files(
                 let final_dest_path = dest_path.join(new_dest_filename);
                 operations_to_perform.push((original_file, final_dest_path));
             }
+            record_copies.push((
+                source_image_path.clone(),
+                new_base_path.clone(),
+                operations_to_perform.len(),
+            ));
         } else {
+            let dest_image_path = dest_path.join(source_image_path.file_name().unwrap());
+            if metadata_store::has_records(&dest_image_path) {
+                return Err(format!(
+                    "Copy aborted: Edits already exist at destination: {}",
+                    dest_image_path.display()
+                ));
+            }
             for file_to_copy in all_files_to_copy {
                 if let Some(file_name) = file_to_copy.file_name() {
                     let dest_file_path = dest_path.join(file_name);
@@ -2643,12 +2557,23 @@ pub async fn copy_files(
                     operations_to_perform.push((file_to_copy, dest_file_path));
                 }
             }
+            record_copies.push((
+                source_image_path.clone(),
+                dest_image_path,
+                operations_to_perform.len(),
+            ));
         }
     }
 
-    for (source, dest) in operations_to_perform {
-        fs::copy(&source, &dest)
-            .map_err(|e| format!("Copy failed for {}: {}", source.display(), e))?;
+    let mut copied = 0;
+    for (source_image, dest_image, files_end) in record_copies {
+        for (source, dest) in &operations_to_perform[copied..files_end] {
+            fs::copy(source, dest)
+                .map_err(|e| format!("Copy failed for {}: {}", source.display(), e))?;
+        }
+        copied = files_end;
+        metadata_store::copy_all(&source_image, &dest_image)
+            .map_err(|e| format!("Copy failed for edits of {}: {}", source_image.display(), e))?;
     }
 
     Ok(())
@@ -2678,6 +2603,9 @@ pub async fn move_files(
     }
 
     let mut operations_to_perform = Vec::new();
+    // Each image with where its files end in `operations_to_perform`, so its edits follow
+    // right after its files.
+    let mut record_moves: Vec<(PathBuf, PathBuf, bool, usize)> = Vec::new();
     let mut renames = HashMap::new();
 
     for source_image_path in &unique_source_images {
@@ -2692,6 +2620,13 @@ pub async fn move_files(
         let all_files_to_move = find_all_associated_files(source_image_path)?;
         let is_remote = crate::immich::is_remote(source_image_path);
 
+        let dest_image_path = dest_path.join(source_image_path.file_name().unwrap());
+        if metadata_store::has_records(&dest_image_path) {
+            return Err(format!(
+                "Move aborted: Edits already exist at destination: {}",
+                dest_image_path.display()
+            ));
+        }
         for file_to_move in &all_files_to_move {
             if let Some(file_name) = file_to_move.file_name() {
                 let dest_file_path = dest_path.join(file_name);
@@ -2710,33 +2645,52 @@ pub async fn move_files(
                 operations_to_perform.push((file_to_move.clone(), dest_file_path, is_remote));
             }
         }
+        record_moves.push((
+            source_image_path.clone(),
+            dest_image_path.clone(),
+            is_remote,
+            operations_to_perform.len(),
+        ));
 
         if is_remote {
             continue;
         }
-        let dest_image_path = dest_path.join(source_image_path.file_name().unwrap());
         renames.insert(
             source_image_path.to_string_lossy().into_owned(),
             dest_image_path.to_string_lossy().into_owned(),
         );
     }
 
-    for (source, dest, is_remote) in operations_to_perform {
-        if is_remote {
-            fs::copy(&source, &dest)
-                .map_err(|e| format!("Copy failed for {}: {}", source.display(), e))?;
-        } else if fs::rename(&source, &dest).is_err() {
-            fs::copy(&source, &dest)
-                .map_err(|e| format!("Move failed during copy for {}: {}", source.display(), e))?;
+    let mut moved = 0;
+    for (source_image, dest_image, is_remote_image, files_end) in record_moves {
+        for (source, dest, is_remote) in &operations_to_perform[moved..files_end] {
+            if *is_remote {
+                fs::copy(source, dest)
+                    .map_err(|e| format!("Copy failed for {}: {}", source.display(), e))?;
+            } else if fs::rename(source, dest).is_err() {
+                fs::copy(source, dest).map_err(|e| {
+                    format!("Move failed during copy for {}: {}", source.display(), e)
+                })?;
 
-            if let Err(e) = fs::remove_file(&source) {
-                log::warn!(
-                    "Moved file successfully, but failed to delete original {}: {}",
-                    source.display(),
-                    e
-                );
+                if let Err(e) = fs::remove_file(source) {
+                    log::warn!(
+                        "Moved file successfully, but failed to delete original {}: {}",
+                        source.display(),
+                        e
+                    );
+                }
             }
         }
+        moved = files_end;
+
+        // Remote images stay where they are, so their edits are copied rather than moved.
+        let result = if is_remote_image {
+            metadata_store::copy_all(&source_image, &dest_image)
+        } else {
+            metadata_store::move_all(&source_image, &dest_image)
+        };
+        result
+            .map_err(|e| format!("Move failed for edits of {}: {}", source_image.display(), e))?;
     }
 
     sync_album_path_changes(&app_handle, Some(&renames), None, None);
@@ -2751,33 +2705,32 @@ pub fn save_metadata_and_update_thumbnail(
     app_handle: AppHandle,
     state: tauri::State<AppState>,
 ) -> Result<(), String> {
-    let (source_path, sidecar_path) = parse_virtual_path(&path);
+    let (source_path, key) = parse_virtual_path(&path);
     let lens_db = state.lens_db.lock().unwrap().clone();
     let source_id = crate::ai_jobs::source_id(&source_path);
     let mut stripped_ai_results = false;
     let mut had_ai_work = false;
 
-    let metadata =
-        crate::exif_processing::update_sidecar(&sidecar_path, &source_path, |metadata| {
-            crate::exif_processing::fill_missing_exif(metadata, &source_path);
-            had_ai_work = crate::ai_jobs::needs_generation(&metadata.adjustments, &source_path);
-            let mut final_adjustments = adjustments;
-            if let Some(source_id) = &source_id {
-                stripped_ai_results = crate::ai_jobs::reconcile_ai_results(
-                    &mut final_adjustments,
-                    &metadata.adjustments,
-                    source_id,
-                    true,
-                );
-            }
-            resolve_lens_params_in_adjustments(
+    let metadata = metadata_store::update(&key, |metadata| {
+        crate::exif_processing::fill_missing_exif(metadata, &source_path);
+        had_ai_work = crate::ai_jobs::needs_generation(&metadata.adjustments, &source_path);
+        let mut final_adjustments = adjustments;
+        if let Some(source_id) = &source_id {
+            stripped_ai_results = crate::ai_jobs::reconcile_ai_results(
                 &mut final_adjustments,
-                &metadata.exif,
-                lens_db.as_deref(),
+                &metadata.adjustments,
+                source_id,
+                true,
             );
-            metadata.adjustments = final_adjustments;
-        })
-        .map_err(|e| e.to_string())?;
+        }
+        resolve_lens_params_in_adjustments(
+            &mut final_adjustments,
+            &metadata.exif,
+            lens_db.as_deref(),
+        );
+        metadata.adjustments = final_adjustments;
+    })
+    .map_err(|e| e.to_string())?;
 
     if stripped_ai_results {
         crate::ai_jobs::enqueue(&app_handle, std::slice::from_ref(&path), true);
@@ -2972,9 +2925,9 @@ fn update_sidecars_and_thumbnails(
     paths
         .par_iter()
         .for_each_with(updated_tx, |updated_tx, path| {
-            let (source_path, sidecar_path) = parse_virtual_path(path);
+            let (source_path, key) = parse_virtual_path(path);
             let mut had_ai_work = false;
-            match crate::exif_processing::update_sidecar(&sidecar_path, &source_path, |metadata| {
+            match metadata_store::update(&key, |metadata| {
                 had_ai_work = crate::ai_jobs::needs_generation(&metadata.adjustments, &source_path);
                 update(path, &source_path, metadata)
             }) {
@@ -2988,7 +2941,7 @@ fn update_sidecars_and_thumbnails(
                         sync_metadata_to_xmp(&source_path, &metadata, create_xmp_if_missing);
                     }
                 }
-                Err(e) => log::error!("Failed to update sidecar for {}: {}", path, e),
+                Err(e) => log::error!("Failed to update metadata for {}: {}", path, e),
             }
 
             let _ = updated_tx.send(path.clone());
@@ -3147,7 +3100,7 @@ async fn update_sidecars_from_images(
 
         let process = |path: &String| {
             let loaded_image: Option<DynamicImage> = (|| -> Result<DynamicImage, String> {
-                let (source_path, sidecar_path) = parse_virtual_path(path);
+                let (source_path, key) = parse_virtual_path(path);
                 let source_path_str = source_path.to_string_lossy().to_string();
 
                 let file_bytes = read_file_mapped(&source_path).map_err(|e| e.to_string())?;
@@ -3160,21 +3113,17 @@ async fn update_sidecars_from_images(
                 )
                 .map_err(|e| e.to_string())?;
 
-                let updated_metadata = crate::exif_processing::update_sidecar(
-                    &sidecar_path,
-                    &source_path,
-                    |metadata| {
-                        if metadata.adjustments.is_null() {
-                            metadata.adjustments = default_adjustments();
-                        }
-                        update(
-                            &image,
-                            &source_path_str,
-                            &settings,
-                            &mut metadata.adjustments,
-                        );
-                    },
-                )
+                let updated_metadata = metadata_store::update(&key, |metadata| {
+                    if metadata.adjustments.is_null() {
+                        metadata.adjustments = default_adjustments();
+                    }
+                    update(
+                        &image,
+                        &source_path_str,
+                        &settings,
+                        &mut metadata.adjustments,
+                    );
+                })
                 .map_err(|e| e.to_string())?;
 
                 if enable_xmp_sync {
@@ -3299,14 +3248,14 @@ fn update_metadata_for_paths(
     let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
 
     paths.par_iter().for_each(|path| {
-        let (source_path, sidecar_path) = parse_virtual_path(path);
+        let (source_path, key) = parse_virtual_path(path);
 
-        match crate::exif_processing::update_sidecar(&sidecar_path, &source_path, &update) {
+        match metadata_store::update(&key, &update) {
             Ok(metadata) if enable_xmp_sync => {
                 sync_metadata_to_xmp(&source_path, &metadata, create_xmp_if_missing);
             }
             Ok(_) => {}
-            Err(e) => log::error!("Failed to update sidecar for {}: {}", path, e),
+            Err(e) => log::error!("Failed to update metadata for {}: {}", path, e),
         }
     });
 }
@@ -3373,14 +3322,13 @@ pub async fn load_metadata(path: String, app_handle: AppHandle) -> Result<ImageM
         let settings = load_settings(app_handle).unwrap_or_default();
         let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
 
-        let (source_path, sidecar_path) = parse_virtual_path(&path);
-        let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
+        let (source_path, key) = parse_virtual_path(&path);
+        let mut metadata = metadata_store::load(&key);
 
         if enable_xmp_sync && sync_metadata_from_xmp(&source_path, &mut metadata) {
-            let _ =
-                crate::exif_processing::update_sidecar(&sidecar_path, &source_path, |current| {
-                    sync_metadata_from_xmp(&source_path, current);
-                });
+            let _ = metadata_store::update(&key, |current| {
+                sync_metadata_from_xmp(&source_path, current);
+            });
         }
 
         if crate::ai_jobs::has_ai_results(&metadata.adjustments)
@@ -3684,14 +3632,16 @@ pub fn clear_all_sidecars(root_path: String) -> Result<usize, String> {
         return Err(format!("Root path does not exist: {}", root_path));
     }
 
-    let mut deleted_count = 0;
-    let walker = WalkDir::new(root_path).into_iter();
+    let mut deleted_count =
+        metadata_store::clear_under(Path::new(&root_path)).map_err(|e| e.to_string())?;
 
-    for entry in walker.filter_map(|e| e.ok()) {
+    // Legacy EXIF sidecars from older versions.
+    for entry in WalkDir::new(&root_path).into_iter().filter_map(|e| e.ok()) {
         let path = entry.path();
         if path.is_file()
-            && let Some(extension) = path.extension()
-            && (extension == "rrdata" || extension == "rrexif")
+            && path
+                .extension()
+                .is_some_and(|extension| extension == "rrexif")
         {
             if fs::remove_file(path).is_ok() {
                 deleted_count += 1;
@@ -3780,18 +3730,20 @@ pub fn show_in_finder(path: String) -> Result<(), String> {
 pub fn delete_files_from_disk(paths: Vec<String>, app_handle: AppHandle) -> Result<(), String> {
     let paths = crate::immich::trash_remote(&app_handle, paths, false)?;
     let mut files_to_trash = HashSet::new();
+    let mut records_to_remove = Vec::new();
     let mut deletions = HashSet::new();
 
     for path_str in paths {
-        let (source_path, sidecar_path) = parse_virtual_path(&path_str);
+        let (source_path, key) = parse_virtual_path(&path_str);
         deletions.insert(path_str.clone());
 
-        if path_str.contains("?vc=") {
-            if sidecar_path.exists() {
-                files_to_trash.insert(sidecar_path);
+        if !key.is_primary() {
+            if metadata_store::exists(&key) {
+                records_to_remove.push(key);
             }
         } else {
             if source_path.exists() {
+                records_to_remove.extend(metadata_store::records_for(&source_path));
                 match find_all_associated_files(&source_path) {
                     Ok(associated_files) => {
                         for file in associated_files {
@@ -3810,14 +3762,20 @@ pub fn delete_files_from_disk(paths: Vec<String>, app_handle: AppHandle) -> Resu
         }
     }
 
-    if files_to_trash.is_empty() {
+    if files_to_trash.is_empty() && records_to_remove.is_empty() {
         return Ok(());
+    }
+
+    if let Err(e) = metadata_store::remove(&records_to_remove, Removal::Trash) {
+        log::warn!("Failed to remove edits of deleted images: {}", e);
     }
 
     let final_paths_to_delete: Vec<PathBuf> = files_to_trash.into_iter().collect();
 
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-    if let Err(trash_error) = trash::delete_all(&final_paths_to_delete) {
+    if !final_paths_to_delete.is_empty()
+        && let Err(trash_error) = trash::delete_all(&final_paths_to_delete)
+    {
         log::warn!(
             "Failed to move files to trash: {}. Falling back to permanent delete.",
             trash_error
@@ -3854,19 +3812,7 @@ pub fn delete_files_from_disk(paths: Vec<String>, app_handle: AppHandle) -> Resu
 }
 
 fn deletion_stem_for(filename: &str) -> Option<&str> {
-    let image_filename = if filename.ends_with(".rrdata") {
-        let without_rrdata = filename.trim_end_matches(".rrdata");
-        if let Some(dot_pos) = without_rrdata.rfind('.') {
-            let suffix = &without_rrdata[dot_pos + 1..];
-            if suffix.len() == 6 && suffix.chars().all(|c| c.is_ascii_hexdigit()) {
-                &without_rrdata[..dot_pos]
-            } else {
-                without_rrdata
-            }
-        } else {
-            without_rrdata
-        }
-    } else if filename.ends_with(".rrexif") {
+    let image_filename = if filename.ends_with(".rrexif") {
         filename.trim_end_matches(".rrexif")
     } else if is_supported_image_file(filename) {
         filename
@@ -3910,6 +3856,7 @@ pub fn delete_files_with_associated(
     }
 
     let mut files_to_trash = HashSet::new();
+    let mut records_to_remove = HashSet::new();
 
     for (parent_dir, stems_to_delete) in stems_by_dir {
         if let Ok(entries) = fs::read_dir(parent_dir) {
@@ -3919,26 +3866,49 @@ pub fn delete_files_with_associated(
                     continue;
                 }
 
+                // Records stored next to the images go even when their image is already gone.
+                if let Some(key) = metadata_store::record_for_file(&entry_path) {
+                    if key
+                        .source
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .is_some_and(|stem| stems_to_delete.contains(stem))
+                    {
+                        records_to_remove.insert(key);
+                    }
+                    continue;
+                }
+
                 let entry_filename = entry.file_name();
                 let entry_filename_str = entry_filename.to_string_lossy();
 
                 if let Some(stem) = deletion_stem_for(&entry_filename_str)
                     && stems_to_delete.contains(stem)
                 {
+                    if is_supported_image_file(entry_filename_str.as_ref()) {
+                        records_to_remove.extend(metadata_store::records_for(&entry_path));
+                    }
                     files_to_trash.insert(entry_path);
                 }
             }
         }
     }
 
-    if files_to_trash.is_empty() {
+    if files_to_trash.is_empty() && records_to_remove.is_empty() {
         return Ok(());
+    }
+
+    let records_to_remove: Vec<ImageKey> = records_to_remove.into_iter().collect();
+    if let Err(e) = metadata_store::remove(&records_to_remove, Removal::Trash) {
+        log::warn!("Failed to remove edits of deleted images: {}", e);
     }
 
     let final_paths_to_delete: Vec<PathBuf> = files_to_trash.into_iter().collect();
 
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-    if let Err(trash_error) = trash::delete_all(&final_paths_to_delete) {
+    if !final_paths_to_delete.is_empty()
+        && let Err(trash_error) = trash::delete_all(&final_paths_to_delete)
+    {
         log::warn!(
             "Failed to move files to trash: {}. Falling back to permanent delete.",
             trash_error
@@ -3979,17 +3949,11 @@ pub fn get_thumb_cache_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
 }
 
 pub fn get_cache_key_hash(path_str: &str, settings: &AppSettings) -> Option<String> {
-    let (_, sidecar_path) = parse_virtual_path(path_str);
+    let (_, key) = parse_virtual_path(path_str);
 
-    let adjustments_bytes = if let Ok(content) = fs::read_to_string(&sidecar_path) {
-        if let Ok(meta) = serde_json::from_str::<ImageMetadata>(&content) {
-            serde_json::to_vec(&meta.adjustments).unwrap_or_default()
-        } else {
-            Vec::new()
-        }
-    } else {
-        Vec::new()
-    };
+    let adjustments_bytes = metadata_store::peek(&key)
+        .map(|meta| serde_json::to_vec(&meta.adjustments).unwrap_or_default())
+        .unwrap_or_default();
 
     compute_thumbnail_cache_hash(path_str, &adjustments_bytes, settings)
 }
@@ -4115,7 +4079,7 @@ pub async fn import_files(
                     return Ok(());
                 }
 
-                let (source_path, source_sidecar) = parse_virtual_path(source_path_str);
+                let (source_path, source_key) = parse_virtual_path(source_path_str);
                 if !source_path.exists() {
                     return Err(format!("Source file not found: {}", source_path_str));
                 }
@@ -4158,12 +4122,8 @@ pub async fn import_files(
                 }
 
                 fs::copy(&source_path, &dest_file_path).map_err(|e| e.to_string())?;
-                if source_sidecar.exists()
-                    && let Some(dest_str) = dest_file_path.to_str()
-                {
-                    let (_, dest_sidecar) = parse_virtual_path(dest_str);
-                    fs::copy(&source_sidecar, &dest_sidecar).map_err(|e| e.to_string())?;
-                }
+                metadata_store::copy(&source_key, &ImageKey::primary(&dest_file_path))
+                    .map_err(|e| e.to_string())?;
 
                 let mut source_rrexif_name = source_path.file_name().unwrap().to_os_string();
                 source_rrexif_name.push(".rrexif");
@@ -4187,16 +4147,8 @@ pub async fn import_files(
                             );
                             fs::remove_file(&source_path).map_err(|e| e.to_string())?;
                         }
-                        if source_sidecar.exists()
-                            && let Err(trash_error) = trash::delete(&source_sidecar)
-                        {
-                            log::warn!(
-                                "Failed to trash source sidecar {}: {}. Deleting permanently.",
-                                source_sidecar.display(),
-                                trash_error
-                            );
-                            fs::remove_file(&source_sidecar).map_err(|e| e.to_string())?;
-                        }
+                        metadata_store::remove(std::slice::from_ref(&source_key), Removal::Trash)
+                            .map_err(|e| e.to_string())?;
                         if source_rrexif.exists() {
                             let _ = fs::remove_file(&source_rrexif);
                         }
@@ -4209,9 +4161,11 @@ pub async fn import_files(
                     )))]
                     {
                         fs::remove_file(&source_path).map_err(|e| e.to_string())?;
-                        if source_sidecar.exists() {
-                            fs::remove_file(&source_sidecar).map_err(|e| e.to_string())?;
-                        }
+                        metadata_store::remove(
+                            std::slice::from_ref(&source_key),
+                            Removal::Permanent,
+                        )
+                        .map_err(|e| e.to_string())?;
                         if source_rrexif.exists() {
                             let _ = fs::remove_file(&source_rrexif);
                         }
@@ -4340,29 +4294,6 @@ pub fn rename_files(
 
     let mut sidecar_operations: Vec<(PathBuf, PathBuf)> = Vec::new();
     for (original_path, new_path) in &operations {
-        let parent = original_path
-            .parent()
-            .ok_or("Could not get parent directory")?;
-        let original_filename_str = original_path.file_name().unwrap().to_string_lossy();
-        let new_filename_str = new_path.file_name().unwrap().to_string_lossy();
-
-        if let Ok(entries) = fs::read_dir(parent) {
-            for entry in entries.filter_map(Result::ok) {
-                let entry_path = entry.path();
-                let entry_os_filename = entry.file_name();
-                let entry_filename = entry_os_filename.to_string_lossy();
-
-                if parse_sidecar_name(&entry_filename)
-                    .is_some_and(|(name, _)| name == original_filename_str)
-                {
-                    let new_sidecar_filename =
-                        entry_filename.replacen(&*original_filename_str, &new_filename_str, 1);
-                    let new_sidecar_path = parent.join(new_sidecar_filename);
-                    sidecar_operations.push((entry_path, new_sidecar_path));
-                }
-            }
-        }
-
         let mut old_rrexif_name = original_path.file_name().unwrap().to_os_string();
         old_rrexif_name.push(".rrexif");
         let old_rrexif = original_path.with_file_name(old_rrexif_name);
@@ -4374,9 +4305,10 @@ pub fn rename_files(
             sidecar_operations.push((old_rrexif, new_rrexif));
         }
     }
+    let renamed_images = operations.len();
     operations.extend(sidecar_operations);
 
-    for (old_path, new_path) in operations {
+    for (index, (old_path, new_path)) in operations.into_iter().enumerate() {
         if let Err(e) = fs::rename(&old_path, &new_path) {
             log::warn!(
                 "Failed to rename {} to {}: {}",
@@ -4385,6 +4317,13 @@ pub fn rename_files(
                 e
             );
             continue;
+        }
+
+        if index < renamed_images
+            && old_path != new_path
+            && let Err(e) = metadata_store::move_all(&old_path, &new_path)
+        {
+            log::warn!("Failed to move edits of {}: {}", old_path.display(), e);
         }
 
         let old_str = old_path.to_string_lossy().into_owned();
@@ -4417,42 +4356,10 @@ pub fn create_virtual_copy(
     target_album_id: Option<String>,
     app_handle: AppHandle,
 ) -> Result<String, String> {
-    let (source_path, source_sidecar_path) = parse_virtual_path(&source_virtual_path);
-
-    let new_copy_id = Uuid::new_v4().to_string()[..6].to_string();
-    let new_virtual_path = format!("{}?vc={}", source_path.to_string_lossy(), new_copy_id);
-    let (_, new_sidecar_path) = parse_virtual_path(&new_virtual_path);
-
-    let default_json =
-        serde_json::to_string_pretty(&ImageMetadata::default()).map_err(|e| e.to_string())?;
-
-    {
-        let _layout = crate::exif_processing::SIDECAR_LAYOUT_LOCK.lock().unwrap();
-
-        if source_sidecar_path.exists() {
-            fs::copy(&source_sidecar_path, &new_sidecar_path)
-                .map_err(|e| format!("Failed to copy sidecar file: {}", e))?;
-        } else {
-            write_file_atomic(&new_sidecar_path, default_json.as_bytes())
-                .map_err(|e| e.to_string())?;
-        }
-
-        // The library hides the original when only virtual copy sidecars exist.
-        let primary_sidecar_path = crate::exif_processing::get_primary_sidecar_path(&source_path);
-        match fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&primary_sidecar_path)
-        {
-            Ok(mut file) => {
-                use std::io::Write;
-                file.write_all(default_json.as_bytes())
-                    .map_err(|e| e.to_string())?;
-            }
-            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
-            Err(e) => return Err(e.to_string()),
-        }
-    }
+    let (_, source_key) = parse_virtual_path(&source_virtual_path);
+    let new_virtual_path = metadata_store::create_virtual_copy(&source_key)
+        .map_err(|e| format!("Failed to create virtual copy: {}", e))?
+        .virtual_path();
 
     if let Some(album_id) = target_album_id {
         let _ = add_to_album(album_id, vec![new_virtual_path.clone()], app_handle);
