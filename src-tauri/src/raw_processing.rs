@@ -566,12 +566,24 @@ pub fn read_as_shot(file_bytes: &[u8]) -> Option<AsShot> {
 
     Some(AsShot {
         white_balance: (!is_monochrome)
-            .then(|| as_shot_color(&raw_image))
+            .then(|| as_shot_white_balance(&raw_image))
             .flatten()
-            .map(|(white_balance, _)| white_balance)
             .unwrap_or_else(WhiteBalance::reference),
         exposure: crate::baseline_exposure::read(decoder.as_ref(), file_bytes, is_monochrome),
     })
+}
+
+fn as_shot_white_balance(raw_image: &RawImage) -> Option<WhiteBalance> {
+    // Sony lossless M/S RGB is already balanced; unity gains are not a camera neutral.
+    if raw_image.make.eq_ignore_ascii_case("SONY")
+        && raw_image.cpp == 3
+        && is_linear_raw_format(raw_image)
+        && raw_image.wb_coeffs[..3] == [1.0; 3]
+    {
+        return None;
+    }
+
+    as_shot_color(raw_image).map(|(white_balance, _)| white_balance)
 }
 
 fn camera_neutral(raw_image: &RawImage) -> [f32; 4] {
