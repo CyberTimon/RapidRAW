@@ -36,6 +36,7 @@ mod bm3d;
 mod cache_utils;
 mod camera_tethering;
 mod culling;
+mod edit_in;
 mod effect_maps;
 mod exif_processing;
 mod export_processing;
@@ -2861,6 +2862,8 @@ pub fn run() {
             export_processing::export_images,
             export_processing::cancel_export,
             export_processing::estimate_export_sizes,
+            edit_in::edit_in_app,
+            edit_in::cancel_edit_in_app,
             image_processing::calculate_auto_adjustments,
             image_processing::sample_white_balance,
             auto_straighten::calculate_auto_straighten,

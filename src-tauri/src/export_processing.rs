@@ -2170,6 +2170,40 @@ pub(crate) async fn export_images_impl(
 }
 
 #[allow(clippy::too_many_arguments)]
+pub(crate) async fn export_images_and_wait(
+    paths: Vec<String>,
+    output_folder_or_file: String,
+    is_explicit_file_path: bool,
+    base_origin_folders: Vec<String>,
+    export_settings: ExportSettings,
+    output_format: String,
+    adjustments_mode: ExportAdjustmentsMode,
+    state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    export_images_impl(
+        paths,
+        output_folder_or_file,
+        is_explicit_file_path,
+        base_origin_folders,
+        export_settings,
+        output_format,
+        adjustments_mode,
+        state,
+        app_handle,
+        Some(tx),
+    )
+    .await?;
+
+    match rx.await {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(errors)) => Err(format!("Export completed with {} errors.", errors)),
+        Err(_) => Err("Export task panicked or was cancelled.".to_string()),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn export_images(
     paths: Vec<String>,
@@ -2276,8 +2310,6 @@ pub async fn run_headless_export(
         );
     }
 
-    let (tx, rx) = tokio::sync::oneshot::channel();
-
     let mode = if let Some(adj) = custom_adjustments {
         ExportAdjustmentsMode::GlobalOverride(adj)
     } else {
@@ -2287,7 +2319,7 @@ pub async fn run_headless_export(
         }
     };
 
-    export_images_impl(
+    export_images_and_wait(
         paths,
         session.output,
         is_explicit_file_path,
@@ -2297,15 +2329,8 @@ pub async fn run_headless_export(
         mode,
         state.clone(),
         app_handle.clone(),
-        Some(tx),
     )
-    .await?;
-
-    match rx.await {
-        Ok(Ok(())) => Ok(()),
-        Ok(Err(errors)) => Err(format!("Export completed with {} errors.", errors)),
-        Err(_) => Err("Export task panicked or was cancelled.".to_string()),
-    }
+    .await
 }
 
 #[tauri::command]

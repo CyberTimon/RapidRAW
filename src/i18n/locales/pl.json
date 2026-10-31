@@ -286,6 +286,7 @@
       "cullImage": "Automatyczna selekcja",
       "denoise": "Odszumianie",
       "editImage": "Edytuj obraz",
+      "editIn": "Edytuj w",
       "exportImage": "Eksportuj obraz",
       "flag": "Oznaczenie",
       "flagPick": "Wybrane",
@@ -422,6 +423,9 @@
     "toasts": {
       "couldNotShowExplorer": "Nie można pokazać pliku w eksploratorze: {{err}}",
       "couldNotShowFolder": "Nie można pokazać folderu: {{err}}",
+      "editInFailed": "{{app}} – błąd: {{err}}",
+      "editInNoOutput": "{{app}} zamknięto bez zapisywania.",
+      "editInWaiting": "Oczekiwanie na {{app}}. Zapisz tam plik, aby go przywrócić, lub zamknij ten komunikat, aby przestać czekać.",
       "failedAddToAlbum": "Nie udało się dodać do albumu: {{err}}",
       "failedApplyAuto": "Nie udało się zastosować auto-korekty: {{err}}",
       "failedChangeIcon": "Nie udało się zmienić ikony: {{err}}",
@@ -2157,6 +2161,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "Edytor renderuje podgląd tak, aby odpowiadał rzeczywistej gęstości pikseli twojego wyświetlacza. Zapewnia to oddanie każdego szczegółu w proporcji 1:1, dostarczając maksymalnej jasności przy zbliżaniu i sprawdzaniu ostrości.",
+      "editIn": {
+        "add": "Dodaj program",
+        "args": "Argumenty ({file} = ścieżka obrazu)",
+        "browse": "Przeglądaj",
+        "description": "Programy w menu „Edytuj w”.",
+        "executable": "Programy",
+        "modes": {
+          "original": "Wyślij oryginalny plik",
+          "rendered": "Wyślij edytowany TIFF"
+        },
+        "name": "Nazwa",
+        "path": "Ścieżka programu",
+        "remove": "Usuń",
+        "title": "Edytuj w"
+      },
       "enableLivePreviews": "Włącz interaktywny podgląd na żywo",
       "highDpi": "Renderowanie High-DPI",
       "highDpiDesc": "Renderuj podglądy w natywnej {{dpr}}x rozdzielczości pikseli fizycznych twojego ekranu. Zapewnia najostrzejszy z możliwych podglądów, ale zużywa znacznie więcej pamięci.",

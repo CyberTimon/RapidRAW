@@ -286,6 +286,7 @@
       "cullImage": "Auto Cull",
       "denoise": "Denoise",
       "editImage": "Edit Image",
+      "editIn": "Edit In",
       "exportImage": "Export Image",
       "flag": "Flag",
       "flagPick": "Picked",
@@ -388,6 +389,9 @@
     "toasts": {
       "couldNotShowExplorer": "Could not show file in explorer: {{err}}",
       "couldNotShowFolder": "Could not show folder: {{err}}",
+      "editInFailed": "{{app}} failed: {{err}}",
+      "editInNoOutput": "{{app}} closed without saving.",
+      "editInWaiting": "Waiting for {{app}}. Save the file there to bring it back, or close this message to stop waiting.",
       "failedAddToAlbum": "Failed to add to album: {{err}}",
       "failedApplyAuto": "Failed to apply auto adjustments: {{err}}",
       "failedChangeIcon": "Failed to change icon: {{err}}",
@@ -2075,6 +2079,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "The editor renders the preview to match your display's actual pixel density. This ensures that every detail is represented with 1:1 pixel accuracy, providing maximum clarity when zooming and checking focus.",
+      "editIn": {
+        "add": "Add Program",
+        "args": "Arguments ({file} = image path)",
+        "browse": "Browse",
+        "description": "Programs for the \"Edit In\" menu.",
+        "executable": "Programs",
+        "modes": {
+          "original": "Send original file",
+          "rendered": "Send edited TIFF"
+        },
+        "name": "Name",
+        "path": "Program path",
+        "remove": "Remove",
+        "title": "Edit In"
+      },
       "enableLivePreviews": "Enable Live Previews",
       "highDpi": "High-DPI Rendering",
       "highDpiDesc": "Render previews at your screen's native {{dpr}}x physical pixel resolution. Produces the sharpest possible preview but uses significantly more memory.",

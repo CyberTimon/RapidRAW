@@ -286,6 +286,7 @@
       "cullImage": "Tri automatique",
       "denoise": "Débruiter",
       "editImage": "Modifier l'image",
+      "editIn": "Modifier dans",
       "exportImage": "Exporter l'image",
       "flag": "Marquage",
       "flagPick": "Retenue",
@@ -405,6 +406,9 @@
     "toasts": {
       "couldNotShowExplorer": "Impossible d'afficher le fichier dans l'explorateur : {{err}}",
       "couldNotShowFolder": "Impossible d'afficher le dossier : {{err}}",
+      "editInFailed": "{{app}} a échoué : {{err}}",
+      "editInNoOutput": "{{app}} a été fermé sans enregistrer.",
+      "editInWaiting": "En attente de {{app}}. Enregistrez le fichier dans ce programme pour le récupérer, ou fermez ce message pour arrêter d'attendre.",
       "failedAddToAlbum": "Échec de l'ajout à l'album : {{err}}",
       "failedApplyAuto": "Échec de l'ajustement automatique : {{err}}",
       "failedChangeIcon": "Échec de la modification de l'icône : {{err}}",
@@ -2117,6 +2121,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "L'éditeur effectue le rendu de l'aperçu pour correspondre à la densité de pixels réelle de votre écran. Cela garantit que chaque détail est représenté avec une précision au pixel près, offrant une clarté maximale lors du zoom et de la vérification de la mise au point.",
+      "editIn": {
+        "add": "Ajouter un programme",
+        "args": "Arguments ({file} = chemin de l'image)",
+        "browse": "Parcourir",
+        "description": "Programmes du menu « Modifier dans ».",
+        "executable": "Programmes",
+        "modes": {
+          "original": "Envoyer le fichier original",
+          "rendered": "Envoyer un TIFF modifié"
+        },
+        "name": "Nom",
+        "path": "Chemin du programme",
+        "remove": "Supprimer",
+        "title": "Modifier dans"
+      },
       "enableLivePreviews": "Activer les aperçus en direct",
       "highDpi": "Rendu haute résolution (DPI)",
       "highDpiDesc": "Rendez les aperçus à la résolution native de {{dpr}}x pixels physiques de votre écran. Produit l'aperçu le plus net possible mais utilise beaucoup plus de mémoire.",

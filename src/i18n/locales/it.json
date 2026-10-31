@@ -286,6 +286,7 @@
       "cullImage": "Selezione Automatica",
       "denoise": "Riduci Rumore",
       "editImage": "Modifica Immagine",
+      "editIn": "Modifica in",
       "exportImage": "Esporta Immagine",
       "flag": "Flag",
       "flagPick": "Scelta",
@@ -405,6 +406,9 @@
     "toasts": {
       "couldNotShowExplorer": "Impossibile mostrare il file in esplora risorse: {{err}}",
       "couldNotShowFolder": "Impossibile mostrare la cartella: {{err}}",
+      "editInFailed": "{{app}} non riuscito: {{err}}",
+      "editInNoOutput": "{{app}} è stato chiuso senza salvare.",
+      "editInWaiting": "In attesa di {{app}}. Salva il file lì per riportarlo indietro, oppure chiudi questo messaggio per smettere di attendere.",
       "failedAddToAlbum": "Impossibile aggiungere all'album: {{err}}",
       "failedApplyAuto": "Impossibile applicare le regolazioni automatiche: {{err}}",
       "failedChangeIcon": "Impossibile cambiare l'icona: {{err}}",
@@ -2116,6 +2120,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "L'editor renderizza l'anteprima per adattarla all'effettiva densità di pixel del tuo display. Questo garantisce che ogni dettaglio sia rappresentato con un'accuratezza pixel 1:1, fornendo la massima chiarezza durante lo zoom e il controllo della messa a fuoco.",
+      "editIn": {
+        "add": "Aggiungi programma",
+        "args": "Argomenti ({file} = percorso dell'immagine)",
+        "browse": "Sfoglia",
+        "description": "Programmi del menu «Modifica in».",
+        "executable": "Programmi",
+        "modes": {
+          "original": "Invia file originale",
+          "rendered": "Invia TIFF modificato"
+        },
+        "name": "Nome",
+        "path": "Percorso del programma",
+        "remove": "Rimuovi",
+        "title": "Modifica in"
+      },
       "enableLivePreviews": "Abilita Anteprime dal Vivo",
       "highDpi": "Rendering High-DPI",
       "highDpiDesc": "Renderizza le anteprime alla risoluzione nativa in pixel fisici {{dpr}}x del tuo schermo. Produce l'anteprima più nitida possibile ma utilizza molta più memoria.",

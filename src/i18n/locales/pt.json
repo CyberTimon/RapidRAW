@@ -286,6 +286,7 @@
       "cullImage": "Seleção Automática",
       "denoise": "Reduzir Ruído",
       "editImage": "Editar Imagem",
+      "editIn": "Editar em",
       "exportImage": "Exportar Imagem",
       "flag": "Marca",
       "flagPick": "Escolhida",
@@ -405,6 +406,9 @@
     "toasts": {
       "couldNotShowExplorer": "Não foi possível mostrar o arquivo no explorador: {{err}}",
       "couldNotShowFolder": "Não foi possível mostrar a pasta: {{err}}",
+      "editInFailed": "{{app}} falhou: {{err}}",
+      "editInNoOutput": "{{app}} foi fechado sem salvar.",
+      "editInWaiting": "Aguardando {{app}}. Salve o arquivo lá para trazê-lo de volta, ou feche esta mensagem para parar de aguardar.",
       "failedAddToAlbum": "Falha ao adicionar ao álbum: {{err}}",
       "failedApplyAuto": "Falha ao aplicar ajustes automáticos: {{err}}",
       "failedChangeIcon": "Falha ao alterar ícone: {{err}}",
@@ -2116,6 +2120,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "O editor renderiza a visualização para corresponder à densidade real de pixels da sua tela. Isso garante que cada detalhe seja representado com precisão de 1:1 pixel, fornecendo clareza máxima ao aumentar o zoom e verificar o foco.",
+      "editIn": {
+        "add": "Adicionar programa",
+        "args": "Argumentos ({file} = caminho da imagem)",
+        "browse": "Procurar",
+        "description": "Programas do menu \"Editar em\".",
+        "executable": "Programas",
+        "modes": {
+          "original": "Enviar arquivo original",
+          "rendered": "Enviar TIFF editado"
+        },
+        "name": "Nome",
+        "path": "Caminho do programa",
+        "remove": "Remover",
+        "title": "Editar em"
+      },
       "enableLivePreviews": "Ativar Visualizações ao Vivo",
       "highDpi": "Renderização de Alto DPI",
       "highDpiDesc": "Renderizar visualizações na resolução de pixel físico nativa {{dpr}}x da tela. Produz a visualização mais nítida possível, mas usa significativamente mais memória.",

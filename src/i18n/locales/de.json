@@ -286,6 +286,7 @@
       "cullImage": "Autom. aussortieren",
       "denoise": "Entrauschen",
       "editImage": "Bild bearbeiten",
+      "editIn": "Bearbeiten in",
       "exportImage": "Bild exportieren",
       "flag": "Markierung",
       "flagPick": "Ausgewählt",
@@ -388,6 +389,9 @@
     "toasts": {
       "couldNotShowExplorer": "Datei konnte nicht im Explorer angezeigt werden: {{err}}",
       "couldNotShowFolder": "Ordner konnte nicht angezeigt werden: {{err}}",
+      "editInFailed": "{{app}} fehlgeschlagen: {{err}}",
+      "editInNoOutput": "{{app}} wurde ohne Speichern geschlossen.",
+      "editInWaiting": "Warte auf {{app}}. Speichere die Datei dort, um sie zurückzuholen, oder schließe diese Meldung, um das Warten zu beenden.",
       "failedAddToAlbum": "Fehler beim Hinzufügen zum Album: {{err}}",
       "failedApplyAuto": "Fehler bei der autom. Anpassung: {{err}}",
       "failedChangeIcon": "Fehler beim Ändern des Symbols: {{err}}",
@@ -2075,6 +2079,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "Der Editor rendert die Vorschau passend zur tatsächlichen Pixeldichte Ihres Displays. Dies sorgt für 1:1 Pixelgenauigkeit und maximale Klarheit beim Zoomen.",
+      "editIn": {
+        "add": "Programm hinzufügen",
+        "args": "Argumente ({file} = Bildpfad)",
+        "browse": "Durchsuchen",
+        "description": "Programme für das Menü „Bearbeiten in“.",
+        "executable": "Programme",
+        "modes": {
+          "original": "Originaldatei senden",
+          "rendered": "Bearbeitetes TIFF senden"
+        },
+        "name": "Name",
+        "path": "Programmpfad",
+        "remove": "Entfernen",
+        "title": "Bearbeiten in"
+      },
       "enableLivePreviews": "Live-Vorschauen aktivieren",
       "highDpi": "High-DPI Rendering",
       "highDpiDesc": "Rendern Sie Vorschauen in der nativen {{dpr}}x Auflösung Ihres Bildschirms. Erzeugt die schärfste Vorschau, verbraucht aber mehr Speicher.",
