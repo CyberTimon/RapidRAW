@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
 
 use rawler::decoders::{RawDecodeParams, WellKnownIFD};
@@ -26,8 +26,7 @@ type Fingerprint = (SystemTime, u64);
 const POLL_INTERVAL: Duration = Duration::from_secs(1);
 const LAUNCHER_HANDOFF: Duration = Duration::from_secs(10);
 
-static ACTIVE_SESSIONS: LazyLock<Mutex<HashMap<String, Arc<AtomicBool>>>> =
-    LazyLock::new(Default::default);
+static ACTIVE_SESSION: Mutex<Option<(String, Arc<AtomicBool>)>> = Mutex::new(None);
 
 fn is_dng(path: &Path) -> bool {
     path.extension()
@@ -35,11 +34,21 @@ fn is_dng(path: &Path) -> bool {
         .is_some_and(|e| e.eq_ignore_ascii_case("dng"))
 }
 
+fn read_entries(dir: &Path) -> Vec<fs::DirEntry> {
+    fs::read_dir(dir).into_iter().flatten().flatten().collect()
+}
+
 fn snapshot_images(dir: &Path) -> HashMap<PathBuf, Fingerprint> {
-    fs::read_dir(dir)
+    let mut entries = read_entries(dir);
+    let nested: Vec<fs::DirEntry> = entries
+        .iter()
+        .filter(|entry| entry.file_type().is_ok_and(|t| t.is_dir()))
+        .flat_map(|entry| read_entries(&entry.path()))
+        .collect();
+    entries.extend(nested);
+
+    entries
         .into_iter()
-        .flatten()
-        .flatten()
         .map(|entry| entry.path())
         .filter(|path| is_supported_image_file(path))
         .filter_map(|path| {
@@ -179,10 +188,16 @@ fn wait_for_output(
             _ => pending = changed,
         }
 
-        if pending.is_none() && child_running && matches!(child.try_wait(), Ok(Some(_))) {
+        if pending.is_none()
+            && child_running
+            && let Ok(Some(status)) = child.try_wait()
+        {
             child_running = false;
             if started.elapsed() > LAUNCHER_HANDOFF {
                 return Ok(None);
+            }
+            if !status.success() {
+                return Err(format!("the program quit early ({})", status));
             }
         }
     }
@@ -269,6 +284,37 @@ pub async fn edit_in_app(
     state: State<'_, AppState>,
     app_handle: AppHandle,
 ) -> Result<Option<String>, String> {
+    let cancelled = Arc::new(AtomicBool::new(false));
+    {
+        let mut active = ACTIVE_SESSION.lock().unwrap_or_else(|e| e.into_inner());
+        if active.is_some() {
+            return Err("another Edit In session is still running".to_string());
+        }
+        *active = Some((session_id, Arc::clone(&cancelled)));
+    }
+
+    let result = run_edit_in(
+        path,
+        app,
+        current_edit_adjustments,
+        cancelled,
+        state,
+        app_handle,
+    )
+    .await;
+
+    *ACTIVE_SESSION.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    result
+}
+
+async fn run_edit_in(
+    path: String,
+    app: EditInApp,
+    current_edit_adjustments: Option<Value>,
+    cancelled: Arc<AtomicBool>,
+    state: State<'_, AppState>,
+    app_handle: AppHandle,
+) -> Result<Option<String>, String> {
     let (source_path, source_sidecar) = parse_virtual_path(&path);
     let dir = source_path
         .parent()
@@ -284,13 +330,11 @@ pub async fn edit_in_app(
         }
     };
 
-    let cancelled = Arc::new(AtomicBool::new(false));
-    ACTIVE_SESSIONS
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .insert(session_id.clone(), Arc::clone(&cancelled));
+    if cancelled.load(Ordering::SeqCst) {
+        return Ok(None);
+    }
 
-    let result = tokio::task::spawn_blocking(move || {
+    tokio::task::spawn_blocking(move || {
         let output = match app.mode {
             EditInMode::Original => {
                 wait_for_output(&app, &launch_target, &dir, |p| p != source_path, &cancelled)?
@@ -307,21 +351,17 @@ pub async fn edit_in_app(
         };
         Ok(output.map(|p| p.to_string_lossy().to_string()))
     })
-    .await;
-
-    ACTIVE_SESSIONS
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .remove(&session_id);
-    result.map_err(|e| format!("Edit task failed: {}", e))?
+    .await
+    .map_err(|e| format!("Edit task failed: {}", e))?
 }
 
 #[tauri::command]
 pub fn cancel_edit_in_app(session_id: String) {
-    if let Some(cancelled) = ACTIVE_SESSIONS
+    if let Some((active_id, cancelled)) = ACTIVE_SESSION
         .lock()
         .unwrap_or_else(|e| e.into_inner())
-        .get(&session_id)
+        .as_ref()
+        && *active_id == session_id
     {
         cancelled.store(true, Ordering::SeqCst);
     }
