@@ -92,6 +92,7 @@
         "highlights": "Lichter",
         "hue": "Farbton",
         "mix": "S/W-Mischer",
+        "mixPickerTooltip": "S/W-Mischer-Pipette: Auf das Foto klicken und nach oben oder unten ziehen",
         "saturation": "Sättigung",
         "shadows": "Tiefen",
         "strength": "Stärke",

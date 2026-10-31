@@ -820,7 +820,7 @@ fn hsl_probe(color: vec3<f32>) -> vec4<f32> {
         return vec4<f32>(0.0, 0.0, 0.0, 1.0);
     }
     let hsv = rgb_to_hsv(linear_to_srgb_extended(safe_color));
-    return vec4<f32>(hsv.x / 360.0, hsv.y, 0.0, 1.0);
+    return vec4<f32>(hsv.x / 360.0, hsv.y, hsv.z, 1.0);
 }
 
 fn apply_hsl_panel(color: vec3<f32>, hsl_adjustments: array<HslColor, 8>, coords_i: vec2<i32>) -> vec3<f32> {
@@ -2061,14 +2061,16 @@ fn main(
     composite_rgb_linear = apply_tonal_adjustments(composite_rgb_linear, tonal_log_detail, tonal_mid_detail, is_raw, t_contrast, t_shadows, t_whites, t_blacks);
     composite_rgb_linear = apply_highlights_adjustment(composite_rgb_linear, tonal_log_detail, tonal_mid_detail, is_raw, t_highlights);
     let is_monochrome = has_feature(F_MONOCHROME) && adjustments.global.monochrome.enabled == 1u;
+    if (!is_monochrome) {
+        composite_rgb_linear = apply_color_calibration(composite_rgb_linear, adjustments.global.color_calibration);
+    }
+    if (HSL_PROBE == 1u) {
+        textureStore(output_texture, id.xy, hsl_probe(composite_rgb_linear));
+        return;
+    }
     if (is_monochrome) {
         composite_rgb_linear = apply_monochrome_mix(composite_rgb_linear, adjustments.global.monochrome, final_hsl);
     } else {
-        composite_rgb_linear = apply_color_calibration(composite_rgb_linear, adjustments.global.color_calibration);
-        if (HSL_PROBE == 1u) {
-            textureStore(output_texture, id.xy, hsl_probe(composite_rgb_linear));
-            return;
-        }
         if (has_feature(F_HSL)) {
             composite_rgb_linear = apply_hsl_panel(composite_rgb_linear, final_hsl, absolute_coord_i);
         }

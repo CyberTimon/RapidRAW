@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, memo, CSSProperties, ReactNode } from 'react';
+import { useState, useMemo, memo, CSSProperties, ReactNode } from 'react';
 import { Pipette, Sliders } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -584,15 +584,23 @@ interface MonochromeMixPanelProps {
   values: Record<string, number>;
   onChange(name: string, value: number | string): void;
   onDragStateChange?: (isDragging: boolean) => void;
+  animateValueChanges?: boolean;
 }
 
-const MonochromeMixPanel = ({ colors, values, onChange, onDragStateChange }: MonochromeMixPanelProps) => {
+const MonochromeMixPanel = ({
+  colors,
+  values,
+  onChange,
+  onDragStateChange,
+  animateValueChanges,
+}: MonochromeMixPanelProps) => {
   const trackStyle = Object.fromEntries(colors.map(({ name }) => [`--hsl-mixer-sat-${name}`, '60%'])) as CSSProperties;
 
   return (
     <div style={trackStyle}>
       {colors.map(({ name, label }) => (
         <Slider
+          animateValueChanges={animateValueChanges}
           key={name}
           label={label}
           max={100}
@@ -775,6 +783,12 @@ function ColorPanel({
     setEditor(canvasToolState({ mixerPickerProperty: mixerPickerProperty ? null : mixerTab }));
   };
 
+  const renderMixerPicker = (tooltip: string) => (
+    <HeaderToggleButton isActive={mixerPickerProperty !== null} onClick={toggleMixerPicker} tooltip={tooltip}>
+      <Pipette size={16} />
+    </HeaderToggleButton>
+  );
+
   const selectMixerTab = (tab: HslMixerProperty) => {
     setLocalMixerTab(tab);
     if (mixerPickerProperty) setEditor({ mixerPickerProperty: tab });
@@ -790,10 +804,6 @@ function ColorPanel({
   const handleAdjustmentChange = (key: ColorAdjustment, value: string) => {
     setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: parseFloat(value) }));
   };
-
-  useEffect(() => {
-    if (showMonochromeMix && mixerPickerProperty) setEditor({ mixerPickerProperty: null });
-  }, [showMonochromeMix, mixerPickerProperty, setEditor]);
 
   const toggleMonochrome = () => {
     setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, monochromeEnabled: !prev.monochromeEnabled }));
@@ -1045,17 +1055,11 @@ function ColorPanel({
       {!hiddenTools.includes('colorMixer') && (
         <AdjustmentSubSection
           actions={
-            !showMonochromeMix && (
+            showMonochromeMix ? (
+              renderMixerPicker(t('adjustments.color.monochrome.mixPickerTooltip'))
+            ) : (
               <div className="flex items-center gap-1">
-                {isMixerExpanded && (
-                  <HeaderToggleButton
-                    isActive={mixerPickerProperty !== null}
-                    onClick={toggleMixerPicker}
-                    tooltip={t('adjustments.color.mixerPickerTooltip')}
-                  >
-                    <Pipette size={16} />
-                  </HeaderToggleButton>
-                )}
+                {isMixerExpanded && renderMixerPicker(t('adjustments.color.mixerPickerTooltip'))}
                 <HeaderToggleButton
                   isActive={isMixerExpanded}
                   onClick={toggleMixerExpanded}
@@ -1076,6 +1080,7 @@ function ColorPanel({
               values={monochromeMixValues}
               onChange={handleMonochromeMixChange}
               onDragStateChange={onDragStateChange}
+              animateValueChanges={!isMixerPickerDragging}
             />
           ) : (
             <div style={mixerTrackStyle}>

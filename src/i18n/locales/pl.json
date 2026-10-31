@@ -92,6 +92,7 @@
         "highlights": "Światła",
         "hue": "Odcień",
         "mix": "Mikser cz-b",
+        "mixPickerTooltip": "Pipeta miksera cz-b: kliknij i przeciągnij w górę lub w dół na zdjęciu",
         "saturation": "Nasycenie",
         "shadows": "Cienie",
         "strength": "Siła",

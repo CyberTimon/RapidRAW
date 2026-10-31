@@ -92,6 +92,7 @@
         "highlights": "亮部",
         "hue": "色相",
         "mix": "黑白混合",
+        "mixPickerTooltip": "黑白混合滴管：在相片上按住並上下拖曳",
         "saturation": "飽和度",
         "shadows": "陰影",
         "strength": "強度",

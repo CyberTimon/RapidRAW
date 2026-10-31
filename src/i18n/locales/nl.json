@@ -92,6 +92,7 @@
         "highlights": "Hooglichten",
         "hue": "Kleurtoon",
         "mix": "Z/W-mix",
+        "mixPickerTooltip": "Z/W-mix-pipet: klik en sleep omhoog of omlaag op de foto",
         "saturation": "Verzadiging",
         "shadows": "Schaduwen",
         "strength": "Sterkte",

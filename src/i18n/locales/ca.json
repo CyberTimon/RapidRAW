@@ -92,6 +92,7 @@
         "highlights": "Altes llums",
         "hue": "To",
         "mix": "Mescla B/N",
+        "mixPickerTooltip": "Selector de la mescla B/N: feu clic i arrossegueu amunt o avall a la foto",
         "saturation": "Saturació",
         "shadows": "Ombres",
         "strength": "Intensitat",
