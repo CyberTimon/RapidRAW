@@ -24,7 +24,7 @@ import { OPTION_SEPARATOR, Orientation } from '../../ui/AppProperties';
 import Text from '../../ui/Text';
 import { TextVariants, TextColors, TextWeights } from '../../../types/typography';
 import { useShallow } from 'zustand/react/shallow';
-import { useEditorStore } from '../../../store/useEditorStore';
+import { canvasToolState, useEditorStore } from '../../../store/useEditorStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useUIStore } from '../../../store/useUIStore';
 import { buildAutoAdjustModeOptions, useEditorActions } from '../../../hooks/useEditorActions';
@@ -96,13 +96,7 @@ export default function Controls() {
   );
 
   const toggleWbPicker = useCallback(
-    () =>
-      setEditor((state) => ({
-        isWbPickerActive: !state.isWbPickerActive,
-        mixerPickerProperty: null,
-        isRelightPickerActive: false,
-        activeCenterMarker: null,
-      })),
+    () => setEditor((state) => canvasToolState({ isWbPickerActive: !state.isWbPickerActive })),
     [setEditor],
   );
 

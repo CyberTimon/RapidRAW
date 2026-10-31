@@ -110,6 +110,19 @@ interface EditorState {
   goToHistoryIndex: (index: number) => void;
 }
 
+type CanvasToolState = Pick<
+  EditorState,
+  'isWbPickerActive' | 'isRelightPickerActive' | 'activeCenterMarker' | 'mixerPickerProperty'
+>;
+
+export const canvasToolState = (activeTool: Partial<CanvasToolState> = {}): CanvasToolState => ({
+  isWbPickerActive: false,
+  isRelightPickerActive: false,
+  activeCenterMarker: null,
+  mixerPickerProperty: null,
+  ...activeTool,
+});
+
 export const useEditorStore = create<EditorState>((set) => ({
   selectedImage: null,
   adjustments: INITIAL_ADJUSTMENTS,

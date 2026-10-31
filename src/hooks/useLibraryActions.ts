@@ -2,7 +2,7 @@ import { createElement, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'react-toastify';
 import { useLibraryStore } from '../store/useLibraryStore';
-import { useEditorStore } from '../store/useEditorStore';
+import { canvasToolState, useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
 import {
   Invokes,
@@ -57,11 +57,8 @@ export const clearLibrarySelection = () => {
     activeMaskContainerId: null,
     activeAiPatchContainerId: null,
     activeAiSubMaskId: null,
-    isWbPickerActive: false,
-    mixerPickerProperty: null,
-    isRelightPickerActive: false,
+    ...canvasToolState(),
     activeRelightLightId: null,
-    activeCenterMarker: null,
   });
 };
 

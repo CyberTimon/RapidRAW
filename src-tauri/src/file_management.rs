@@ -1864,6 +1864,7 @@ fn generate_thumbnail_data_with_metadata(
                 mask_cache_key: None,
                 lut,
                 roi: None,
+                hsl_probe: false,
             },
             "generate_thumbnail_data",
         ) {

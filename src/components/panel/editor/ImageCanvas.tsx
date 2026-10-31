@@ -1783,7 +1783,6 @@ const ImageCanvas = memo(
       getCanvasPointer,
       imageRenderSize,
       isMasking,
-      previewUrl: finalPreviewUrl,
       zoomScale: effectiveZoomScale,
       setAdjustments,
     });

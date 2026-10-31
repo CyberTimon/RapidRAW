@@ -8,6 +8,7 @@ import { HslMixerBand, HslMixerProperty, HslPresence, sampleHslPresence } from '
 import { RenderSize } from './useImageRenderSize';
 import { Invokes } from '../components/ui/AppProperties';
 import { FINE_ADJUSTMENT_MULTIPLIER } from '../components/ui/Slider';
+import { prepareAdjustmentsPayload } from '../utils/backendPayload';
 
 const SAMPLE_SCREEN_SIZE = 16;
 const DRAG_GAIN = 0.5;
@@ -33,7 +34,6 @@ interface HslMixerPickerOptions {
   getCanvasPointer(stage: Konva.Stage): Coord | null;
   imageRenderSize: RenderSize;
   isMasking: boolean;
-  previewUrl: string | null;
   zoomScale: number;
   setAdjustments(fn: (prev: Adjustments) => Adjustments): void;
 }
@@ -52,7 +52,6 @@ export function useHslMixerPicker({
   getCanvasPointer,
   imageRenderSize,
   isMasking,
-  previewUrl,
   zoomScale,
   setAdjustments,
 }: HslMixerPickerOptions) {
@@ -60,50 +59,14 @@ export function useHslMixerPicker({
   const setEditor = useEditorStore((state) => state.setEditor);
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<PickerDrag | null>(null);
-  const bitmapRef = useRef<{ url: string; bitmap: Promise<ImageBitmap> } | null>(null);
   const detachRef = useRef<(() => void) | null>(null);
 
-  const releaseBitmap = useCallback(() => {
-    bitmapRef.current?.bitmap.then((bitmap) => bitmap.close()).catch(() => {});
+  const sampleArea = useCallback(async (u: number, v: number, radius: number): Promise<Uint8Array> => {
+    const { payload, markSent } = prepareAdjustmentsPayload(useEditorStore.getState().adjustments);
+    const probe = await invoke<ArrayBuffer>(Invokes.SampleHslMixerArea, { jsAdjustments: payload, x: u, y: v, radius });
+    markSent();
+    return new Uint8Array(probe);
   }, []);
-
-  const getBitmap = useCallback(
-    (url: string) => {
-      if (bitmapRef.current?.url !== url) {
-        releaseBitmap();
-        bitmapRef.current = {
-          url,
-          bitmap: fetch(url)
-            .then((res) => res.blob())
-            .then((blob) => createImageBitmap(blob)),
-        };
-      }
-      return bitmapRef.current.bitmap;
-    },
-    [releaseBitmap],
-  );
-
-  const sampleArea = useCallback(
-    async (u: number, v: number, radius: number): Promise<Uint8ClampedArray> => {
-      if (!previewUrl) {
-        return Uint8ClampedArray.from(await invoke<number[]>(Invokes.SampleDisplayArea, { x: u, y: v, radius }));
-      }
-      const bitmap = await getBitmap(previewUrl);
-      const half = Math.max(1, radius * bitmap.width);
-      const x0 = Math.max(0, Math.floor(u * bitmap.width - half));
-      const y0 = Math.max(0, Math.floor(v * bitmap.height - half));
-      const w = Math.max(1, Math.min(bitmap.width, Math.ceil(u * bitmap.width + half)) - x0);
-      const h = Math.max(1, Math.min(bitmap.height, Math.ceil(v * bitmap.height + half)) - y0);
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      if (!ctx) return new Uint8ClampedArray();
-      ctx.drawImage(bitmap, x0, y0, w, h, 0, 0, w, h);
-      return ctx.getImageData(0, 0, w, h).data;
-    },
-    [previewUrl, getBitmap],
-  );
 
   const applyDrag = useCallback(
     (drag: PickerDrag) => {
@@ -222,13 +185,7 @@ export function useHslMixerPicker({
     if (!property) end();
   }, [property, end]);
 
-  useEffect(
-    () => () => {
-      end();
-      releaseBitmap();
-    },
-    [end, releaseBitmap],
-  );
+  useEffect(() => end, [end]);
 
   return { isActive: property !== null, isDragging, start };
 }

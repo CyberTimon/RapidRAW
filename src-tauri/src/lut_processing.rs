@@ -642,6 +642,7 @@ fn render_lut_swatch(
             mask_cache_key: None,
             lut: Some(lut),
             roi: None,
+            hsl_probe: false,
         },
         "generate_lut_previews",
     )

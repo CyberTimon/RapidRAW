@@ -37,6 +37,7 @@ pub struct RenderRequest<'a> {
     pub mask_cache_key: Option<u64>,
     pub lut: Option<Arc<Lut>>,
     pub roi: Option<Roi>,
+    pub hsl_probe: bool,
 }
 
 #[repr(C)]
@@ -1270,6 +1271,7 @@ pub struct GpuPipelines {
     specialized_pipelines: SpecializedPipelines,
     high_precision_entries: Vec<wgpu::BindGroupLayoutEntry>,
     high_precision_pipeline: std::sync::OnceLock<HighPrecisionPipeline>,
+    hsl_probe_pipeline: std::sync::OnceLock<wgpu::ComputePipeline>,
     dummy_blur_view: wgpu::TextureView,
     dummy_lut_view: wgpu::TextureView,
     dummy_lut_sampler: wgpu::Sampler,
@@ -1801,6 +1803,7 @@ impl GpuPipelines {
             specialized_pipelines: Arc::new(std::sync::Mutex::new(HashMap::new())),
             high_precision_entries: bind_group_layout_entries,
             high_precision_pipeline: std::sync::OnceLock::new(),
+            hsl_probe_pipeline: std::sync::OnceLock::new(),
             dummy_blur_view,
             dummy_lut_view,
             dummy_lut_sampler,
@@ -2573,6 +2576,24 @@ impl GpuProcessor {
         })
     }
 
+    fn hsl_probe_pipeline(&self) -> &wgpu::ComputePipeline {
+        self.pipelines.hsl_probe_pipeline.get_or_init(|| {
+            self.context
+                .device
+                .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                    label: Some("HSL Probe Pipeline"),
+                    layout: Some(&self.pipelines.main_pipeline_layout),
+                    module: &self.pipelines.main_shader_module,
+                    entry_point: Some("main"),
+                    compilation_options: wgpu::PipelineCompilationOptions {
+                        constants: &[("HSL_PROBE", 1.0)],
+                        ..Default::default()
+                    },
+                    cache: None,
+                })
+        })
+    }
+
     fn high_precision_tile(&self) -> &HighPrecisionTile {
         self.high_precision_tile.get_or_init(|| {
             let texture = self
@@ -2624,10 +2645,14 @@ impl GpuProcessor {
         } else {
             None
         };
-        let output_pipeline = self.main_pipeline_for(
-            high_precision_tile.is_some(),
-            shader_features(&request.adjustments),
-        );
+        let output_pipeline = if request.hsl_probe {
+            self.hsl_probe_pipeline().clone()
+        } else {
+            self.main_pipeline_for(
+                high_precision_tile.is_some(),
+                shader_features(&request.adjustments),
+            )
+        };
         let (output_bgl, output_tile_texture, output_tile_view, bytes_per_pixel) =
             if let Some(high_precision_tile) = high_precision_tile {
                 let hp = self.high_precision_pipeline();
@@ -3147,49 +3172,6 @@ impl GpuProcessor {
 
         Ok((final_pixels, out_width, out_height, bounds.x, bounds.y))
     }
-}
-
-pub fn read_display_area(
-    context: &GpuContext,
-    state: &tauri::State<AppState>,
-    center: (f32, f32),
-    radius: f32,
-) -> Result<Vec<u8>, String> {
-    let [width, height] = context
-        .display
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .as_ref()
-        .ok_or("WGPU display is not initialized")?
-        .latest_transform
-        .image_size;
-    let processor_lock = state
-        .gpu_processor
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
-    let processor = &processor_lock
-        .as_ref()
-        .ok_or("GPU processor is not initialized")?
-        .processor;
-
-    let half = (radius * width).max(1.0);
-    let x0 = (center.0 * width - half).clamp(0.0, width - 1.0) as u32;
-    let y0 = (center.1 * height - half).clamp(0.0, height - 1.0) as u32;
-    let x1 = ((center.0 * width + half).ceil() as u32).clamp(x0 + 1, width as u32);
-    let y1 = ((center.1 * height + half).ceil() as u32).clamp(y0 + 1, height as u32);
-
-    read_texture_data_roi(
-        &context.device,
-        &context.queue,
-        &processor.display_textures().output_texture,
-        wgpu::Origin3d { x: x0, y: y0, z: 0 },
-        wgpu::Extent3d {
-            width: x1 - x0,
-            height: y1 - y0,
-            depth_or_array_layers: 1,
-        },
-        4,
-    )
 }
 
 pub fn process_and_get_dynamic_image(
