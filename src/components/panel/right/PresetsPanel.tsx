@@ -66,6 +66,8 @@ interface DraggablePresetItemProps {
   intensity?: number;
   onIntensityChange?: (val: number) => void;
   onDragStateChange?: (isDragging: boolean) => void;
+  isSelected?: boolean;
+  isGroupDragging?: boolean;
 }
 
 interface FolderProps {
@@ -80,6 +82,11 @@ interface FolderState {
 interface ModalState {
   isOpen: boolean;
   preset: Preset | null;
+}
+
+interface PosState {
+  posX: number;
+  posY: number;
 }
 
 interface PresetItemDisplayProps {
@@ -386,6 +393,8 @@ function DraggablePresetItem({
   intensity,
   onIntensityChange,
   onDragStateChange,
+  isSelected,
+  isGroupDragging,
 }: DraggablePresetItemProps) {
   const {
     attributes,
@@ -412,14 +421,15 @@ function DraggablePresetItem({
 
   const style = {
     borderRadius: '10px',
-    opacity: isDragging ? 0.4 : 1,
-    outline: isOver ? '2px solid var(--color-primary)' : '2px solid transparent',
+    opacity: isDragging || isGroupDragging ? 0.4 : 1,
+    outline: isOver || isSelected ? '2px solid var(--color-accent)' : '2px solid transparent',
     outlineOffset: '-2px',
     touchAction: 'none',
   };
 
   return (
     <div
+      data-selection-id={preset.id}
       onClick={() => onApply(preset)}
       onContextMenu={(e: any) => onContextMenu(e, { preset })}
       ref={setCombinedRef}
@@ -476,6 +486,7 @@ function DroppableFolderItem({ folder, onContextMenu, children, onToggle, isExpa
       style={style}
     >
       <div
+        data-folder-header
         className="flex items-center gap-2 p-2 rounded-lg bg-surface cursor-pointer"
         onContextMenu={(e: any) => onContextMenu(e, { folder })}
       >
@@ -531,19 +542,187 @@ function DroppableFolderItem({ folder, onContextMenu, children, onToggle, isExpa
 function RootDroppableArea({
   children,
   onContextMenu,
+  onSelectionChange,
 }: {
   children: React.ReactNode;
   onContextMenu: (e: any) => void;
+  onSelectionChange: (selectedIds: Set<string>) => void;
 }) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const { setNodeRef, isOver } = useDroppable({ id: 'root' });
+  const pointerIdRef = useRef<number | null>(null);
+  const startContentPosRef = useRef<PosState | null>(null);
+  const pointerViewportPosRef = useRef<PosState | null>(null);
+  const selectedIdsRef = useRef<Set<string>>(new Set());
+  const frameRef = useRef<number | null>(null);
+  const [selectionRect, setSelectionRect] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
+
+  const setRootRef = (node: HTMLDivElement | null) => {
+    rootRef.current = node;
+    setNodeRef(node);
+  };
+
+  const updateMarquee = useCallback(() => {
+    const root = rootRef.current;
+    const pointerViewport = pointerViewportPosRef.current;
+    const startContent = startContentPosRef.current;
+    if (!root || !pointerViewport || !startContent || pointerIdRef.current === null) {
+      frameRef.current = null;
+      return;
+    }
+
+    const rootRect = root.getBoundingClientRect();
+    const viewportTop = rootRect.top + root.clientTop;
+    const viewportBottom = viewportTop + root.clientHeight;
+    const edgeSize = 48;
+    const maxScrollPerFrame = 16;
+    const distanceFromTop = pointerViewport.posY - viewportTop;
+    const distanceFromBottom = viewportBottom - pointerViewport.posY;
+    let didScroll = false;
+
+    if (distanceFromTop < edgeSize && root.scrollTop > 0) {
+      const strength = Math.min(1, (edgeSize - distanceFromTop) / edgeSize);
+      root.scrollTop -= Math.max(1, maxScrollPerFrame * strength);
+      didScroll = true;
+    } else if (distanceFromBottom < edgeSize && root.scrollTop < root.scrollHeight - root.clientHeight) {
+      const strength = Math.min(1, (edgeSize - distanceFromBottom) / edgeSize);
+      root.scrollTop += Math.max(1, maxScrollPerFrame * strength);
+      didScroll = true;
+    }
+
+    const currentContentX = pointerViewport.posX - rootRect.left - root.clientLeft + root.scrollLeft;
+    const currentContentY = pointerViewport.posY - viewportTop + root.scrollTop;
+    const nextSelectionRect = {
+      left: Math.min(startContent.posX, currentContentX),
+      top: Math.min(startContent.posY, currentContentY),
+      width: Math.abs(currentContentX - startContent.posX),
+      height: Math.abs(currentContentY - startContent.posY),
+    };
+    setSelectionRect(nextSelectionRect);
+
+    const nextSelectedIds = new Set<string>();
+    root.querySelectorAll<HTMLElement>('[data-selection-id]').forEach((item) => {
+      const itemRect = item.getBoundingClientRect();
+      const itemLeft = itemRect.left - rootRect.left - root.clientLeft + root.scrollLeft;
+      const itemTop = itemRect.top - rootRect.top - root.clientTop + root.scrollTop;
+      const intersects =
+        nextSelectionRect.left < itemLeft + itemRect.width &&
+        nextSelectionRect.left + nextSelectionRect.width > itemLeft &&
+        nextSelectionRect.top < itemTop + itemRect.height &&
+        nextSelectionRect.top + nextSelectionRect.height > itemTop;
+
+      if (intersects) nextSelectedIds.add(item.dataset.selectionId!);
+    });
+
+    const selectionChanged =
+      nextSelectedIds.size !== selectedIdsRef.current.size ||
+      [...nextSelectedIds].some((id) => !selectedIdsRef.current.has(id));
+    if (selectionChanged) {
+      selectedIdsRef.current = nextSelectedIds;
+      onSelectionChange(nextSelectedIds);
+    }
+
+    frameRef.current = didScroll ? requestAnimationFrame(updateMarquee) : null;
+  }, [onSelectionChange]);
+
+  const scheduleMarqueeUpdate = useCallback(() => {
+    if (frameRef.current === null) frameRef.current = requestAnimationFrame(updateMarquee);
+  }, [updateMarquee]);
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    if (event.button !== 0 || target.closest('[data-selection-id], [data-folder-header]')) return;
+
+    const root = event.currentTarget;
+    const rootRect = root.getBoundingClientRect();
+    pointerIdRef.current = event.pointerId;
+    pointerViewportPosRef.current = { posX: event.clientX, posY: event.clientY };
+    startContentPosRef.current = {
+      posX: event.clientX - rootRect.left - root.clientLeft + root.scrollLeft,
+      posY: event.clientY - rootRect.top - root.clientTop + root.scrollTop,
+    };
+    selectedIdsRef.current = new Set();
+    onSelectionChange(new Set());
+    root.setPointerCapture(event.pointerId);
+    scheduleMarqueeUpdate();
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (pointerIdRef.current !== event.pointerId) return;
+    pointerViewportPosRef.current = { posX: event.clientX, posY: event.clientY };
+    scheduleMarqueeUpdate();
+  };
+
+  const finishPointerSelection = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (pointerIdRef.current !== event.pointerId) return;
+    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+    frameRef.current = null;
+    pointerIdRef.current = null;
+    startContentPosRef.current = null;
+    pointerViewportPosRef.current = null;
+    setSelectionRect(null);
+  };
+
+  useEffect(
+    () => () => {
+      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+    },
+    [],
+  );
+
+  const visibleSelectionRect = (() => {
+    const root = rootRef.current;
+    if (!root || !selectionRect) return null;
+
+    const rootRect = root.getBoundingClientRect();
+    const viewportLeft = rootRect.left + root.clientLeft;
+    const viewportTop = rootRect.top + root.clientTop;
+    const viewportRight = viewportLeft + root.clientWidth;
+    const viewportBottom = viewportTop + root.clientHeight;
+    const contentLeft = viewportLeft - root.scrollLeft;
+    const contentTop = viewportTop - root.scrollTop;
+    const selectionLeft = contentLeft + selectionRect.left;
+    const selectionTop = contentTop + selectionRect.top;
+    const selectionRight = selectionLeft + selectionRect.width;
+    const selectionBottom = selectionTop + selectionRect.height;
+    const left = Math.max(selectionLeft, viewportLeft);
+    const top = Math.max(selectionTop, viewportTop);
+    const right = Math.min(selectionRight, viewportRight);
+    const bottom = Math.min(selectionBottom, viewportBottom);
+
+    if (right <= left || bottom <= top) return null;
+    return { left, top, width: right - left, height: bottom - top };
+  })();
 
   return (
     <div
-      className={`grow overflow-y-auto p-3 space-y-2 rounded-lg transition-colors ${isOver ? 'bg-surface-hover' : ''}`}
+      id="preset-selection-area"
+      className={`relative grow overflow-y-auto p-3 space-y-2 rounded-lg transition-colors ${isOver ? 'bg-surface-hover' : ''}`}
       onContextMenu={onContextMenu}
-      ref={setNodeRef}
+      ref={setRootRef}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={finishPointerSelection}
+      onPointerCancel={finishPointerSelection}
     >
       {children}
+      {visibleSelectionRect && (
+        <div
+          id="preset-selected-area"
+          className="fixed z-10 pointer-events-none border border-accent rounded-lg bg-accent/10"
+          style={{
+            left: visibleSelectionRect.left,
+            top: visibleSelectionRect.top,
+            width: visibleSelectionRect.width,
+            height: visibleSelectionRect.height,
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -560,11 +739,14 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     addPreset,
     configurePreset,
     deleteItem,
+    deletePresets,
     duplicatePreset,
+    duplicatePresets,
     exportPresetsToFile,
     importPresetsFromFiles,
     isLoading,
     movePreset,
+    movePresets,
     overwritePreset,
     presets,
     renameItem,
@@ -579,8 +761,12 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   const [renameFolderState, setRenameFolderState] = useState<FolderState>({ isOpen: false, folder: null });
   const [expandedFolders, setExpandedFolders] = useState(new Set<string>());
   const [activeItem, setActiveItem] = useState<any>(null);
+  const [activePresetItems, setActivePresetItems] = useState<Preset[]>([]);
+  const [draggingPresetIds, setDraggingPresetIds] = useState<Set<string>>(new Set());
+  const suppressPresetClickRef = useRef(false);
   const [folderPreviewsGenerated, setFolderPreviewsGenerated] = useState<Set<string>>(new Set());
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
+  const [selectedPresetIds, setSelectedPresetIds] = useState<Set<string>>(new Set());
 
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [presetIntensity, setPresetIntensity] = useState<number>(100);
@@ -1033,16 +1219,62 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   };
 
   const handleDragStart = (event: any) => {
-    setActiveItem(allItemsMap.get(event.active.id) ?? null);
+    const item = allItemsMap.get(event.active.id) ?? null;
+    suppressPresetClickRef.current = item?.type === PresetListType.Preset;
+    setActiveItem(item);
+    if (item?.type === PresetListType.Preset && !selectedPresetIds.has(event.active.id)) {
+      setSelectedPresetIds(new Set());
+    }
+    setDraggingPresetIds(
+      item?.type === PresetListType.Preset && selectedPresetIds.has(event.active.id)
+        ? new Set(selectedPresetIds)
+        : new Set([event.active.id]),
+    );
+    setActivePresetItems(
+      item?.type === PresetListType.Preset && selectedPresetIds.has(event.active.id)
+        ? [...selectedPresetIds]
+            .map((id) => allItemsMap.get(id))
+            .filter((selectedItem) => selectedItem?.type === PresetListType.Preset)
+            .map((selectedItem) => selectedItem.data)
+        : [],
+    );
   };
 
   const handleDragEnd = (event: any) => {
     const { active, over } = event;
     setActiveItem(null);
+    setActivePresetItems([]);
+    setDraggingPresetIds(new Set());
+    setTimeout(() => {
+      suppressPresetClickRef.current = false;
+    }, 0);
 
     const activeId = active.id;
     const activeParentId = itemParentMap.get(activeId);
     const activeType = active.data.current?.type;
+    const draggedPresetIds =
+      activeType === PresetListType.Preset && selectedPresetIds.has(activeId)
+        ? selectedPresetIds
+        : new Set<string>([activeId]);
+
+    if (activeType === PresetListType.Preset && draggedPresetIds.size > 1) {
+      if (!over) {
+        movePresets(draggedPresetIds, null);
+        return;
+      }
+
+      const overType = over.data.current?.type;
+      const overParentId = itemParentMap.get(over.id);
+      const targetFolderId = overType === PresetListType.Folder ? over.id : overParentId;
+      if (draggedPresetIds.has(over.id)) return;
+
+      movePresets(draggedPresetIds, targetFolderId ?? null, targetFolderId ? null : over.id);
+      if (targetFolderId) {
+        setExpandedFolders((prev: Set<string>) => new Set(prev).add(targetFolderId));
+        if (!folderPreviewsGenerated.has(targetFolderId)) generateFolderPreviews(targetFolderId);
+      }
+      return;
+    }
 
     if (!over) {
       if (activeParentId !== null) {
@@ -1083,6 +1315,13 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
       reorderItems(activeId, overId);
       return;
     }
+  };
+
+  const handleDragCancel = () => {
+    setActiveItem(null);
+    setActivePresetItems([]);
+    setDraggingPresetIds(new Set());
+    suppressPresetClickRef.current = false;
   };
 
   const handleImportPresets = async () => {
@@ -1166,6 +1405,28 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
 
     const isFolder = !!item.folder;
     const data = isFolder ? item.folder : item.preset;
+
+    if (!isFolder && data?.id && selectedPresetIds.size > 1 && selectedPresetIds.has(data.id)) {
+      const selectedIds = new Set(selectedPresetIds);
+      showContextMenu(event.clientX, event.clientY, [
+        {
+          icon: CopyPlus,
+          label: t('editor.presets.menu.duplicatePresets'),
+          onClick: () => duplicatePresets(selectedIds),
+        },
+        { type: OPTION_SEPARATOR },
+        {
+          icon: Trash2,
+          isDestructive: true,
+          label: t('editor.presets.menu.deletePresets'),
+          onClick: () => {
+            deletePresets(selectedIds);
+            setSelectedPresetIds(new Set());
+          },
+        },
+      ]);
+      return;
+    }
 
     let options = [];
     if (isFolder) {
@@ -1265,7 +1526,13 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   const rootPresets = useMemo(() => presets.filter((item: UserPreset) => item.preset), [presets]);
 
   return (
-    <DndContext id="presets-panel-dnd" sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext
+      id="presets-panel-dnd"
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
+    >
       <div className="flex flex-col h-full">
         <div className="p-3 flex justify-between items-center shrink-0 border-b border-surface">
           <Text variant={TextVariants.title}>{t('editor.presets.title')}</Text>
@@ -1304,7 +1571,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
           </div>
         </div>
 
-        <RootDroppableArea onContextMenu={handleBackgroundContextMenu}>
+        <RootDroppableArea onContextMenu={handleBackgroundContextMenu} onSelectionChange={setSelectedPresetIds}>
           {!selectedImage ? (
             <div className="flex items-center justify-center h-full">
               <Text
@@ -1366,11 +1633,17 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
                               >
                                 <DraggablePresetItem
                                   isGeneratingPreviews={isGeneratingPreviews}
-                                  onApply={handleApplyPreset}
+                                  onApply={(selectedPreset) => {
+                                    if (suppressPresetClickRef.current) return;
+                                    setSelectedPresetIds(new Set());
+                                    handleApplyPreset(selectedPreset);
+                                  }}
                                   onContextMenu={(e: any) => handleContextMenu(e, { preset })}
                                   preset={preset}
                                   previewUrl={previews[preset.id] || ''}
                                   isActive={preset.id === activePresetId}
+                                  isSelected={selectedPresetIds.has(preset.id)}
+                                  isGroupDragging={draggingPresetIds.has(preset.id)}
                                   intensity={preset.id === activePresetId ? presetIntensity : 100}
                                   onIntensityChange={(val) => handleIntensityChange(preset, val)}
                                   onDragStateChange={handleDragStateChange}
@@ -1397,11 +1670,17 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
                     >
                       <DraggablePresetItem
                         isGeneratingPreviews={isGeneratingPreviews}
-                        onApply={handleApplyPreset}
+                        onApply={(selectedPreset) => {
+                          if (suppressPresetClickRef.current) return;
+                          setSelectedPresetIds(new Set());
+                          handleApplyPreset(selectedPreset);
+                        }}
                         onContextMenu={(e: any) => handleContextMenu(e, item)}
                         preset={item.preset}
                         previewUrl={(item.preset?.id ? previews[item.preset.id] : '') || ''}
                         isActive={item.preset?.id === activePresetId}
+                        isSelected={item.preset?.id ? selectedPresetIds.has(item.preset.id) : false}
+                        isGroupDragging={item.preset?.id ? draggingPresetIds.has(item.preset.id) : false}
                         intensity={item.preset?.id === activePresetId ? presetIntensity : 100}
                         onIntensityChange={(val) => handleIntensityChange(item.preset as Preset, val)}
                       />
@@ -1431,7 +1710,26 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
         />
       </div>
       <DragOverlay>
-        {activeItem ? (
+        {activePresetItems.length > 1 ? (
+          <div className="relative w-64">
+            {activePresetItems.slice(0, 3).map((preset, index) => (
+              <div
+                key={preset.id}
+                className={index === 0 ? 'relative' : 'absolute inset-0'}
+                style={{
+                  transform: `translate(${index * 16}px, ${index * 16}px)`,
+                  zIndex: 3 - index,
+                }}
+              >
+                <PresetItemDisplay
+                  isGeneratingPreviews={false}
+                  preset={preset}
+                  previewUrl={previews[preset.id] || ''}
+                />
+              </div>
+            ))}
+          </div>
+        ) : activeItem ? (
           activeItem.type === 'preset' ? (
             <PresetItemDisplay
               isGeneratingPreviews={false}
