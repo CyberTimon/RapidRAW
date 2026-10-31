@@ -996,12 +996,12 @@ pub async fn load_image(
             .unwrap_or_else(|e| e.into_inner()) = None;
     }
 
-    let (source_path, sidecar_path) = parse_virtual_path(&path);
+    let (source_path, key) = parse_virtual_path(&path);
     let source_path_str = source_path.to_string_lossy().to_string();
 
     crate::immich::ensure_local(&app_handle, &source_path).await?;
 
-    let metadata: ImageMetadata = crate::exif_processing::load_sidecar(&sidecar_path);
+    let metadata: ImageMetadata = crate::metadata_store::load(&key);
 
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let baseline_options = BaselineOptions::from_settings(&settings);

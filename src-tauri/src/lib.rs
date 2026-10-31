@@ -58,6 +58,7 @@ mod lens_correction;
 mod lut_processing;
 mod mask_generation;
 mod memory_budget;
+mod metadata_store;
 mod multi_exposure;
 mod negative_conversion;
 mod panorama_stitching;
@@ -1478,10 +1479,9 @@ async fn generate_preset_preview(
 
         let mut js_adjustments = js_adjustments;
         if ai_jobs::has_ai_results(&js_adjustments) {
-            let (source_path, sidecar_path) =
-                file_management::parse_virtual_path(&loaded_image.path);
+            let (source_path, key) = file_management::parse_virtual_path(&loaded_image.path);
             if let Some(source_id) = ai_jobs::source_id(&source_path) {
-                let existing = exif_processing::load_sidecar(&sidecar_path).adjustments;
+                let existing = crate::metadata_store::load(&key).adjustments;
                 ai_jobs::reconcile_ai_results(&mut js_adjustments, &existing, &source_id, false);
             }
         }
