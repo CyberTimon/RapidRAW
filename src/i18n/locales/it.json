@@ -976,6 +976,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "conflict": {
+      "createUnique": "Crea versione univoca (_1, _2)",
+      "label": "In caso di conflitto",
+      "overwrite": "Sovrascrivi",
+      "overwriteIfChanged": "Sovrascrivi se modificata",
+      "skip": "Salta"
+    },
     "destination": {
       "customFolder": "Cartella personalizzata",
       "originalFolder": "Cartella dell'immagine originale",
@@ -1037,9 +1044,13 @@
       "watermark": "Filigrana"
     },
     "status": {
+      "allSkipped": "Tutte saltate ({{count}})",
+      "allSkippedSingle": "Saltata (invariata)",
       "cancelExport": "Annulla Esportazione",
       "cancelled": "Esportazione annullata",
       "cancelling": "Annullamento esportazione…",
+      "detailAllSkipped": "{{count}} su {{total}} immagini saltate (nessuna modifica)",
+      "detailWithSkipped": "{{exported}} esportate, {{skipped}} saltate (invariate)",
       "estimatedAverageSize": " ({{size}} media)",
       "estimatedSize": "Dimensione file stimata: ~{{size}}",
       "estimatedTotalSize": "Dimensione totale stimata: ~{{size}}",
@@ -1054,7 +1065,11 @@
       "failed": "Esportazione fallita",
       "noImageSelected": "Nessuna immagine selezionata per l'esportazione.",
       "noImagesSelected": "Nessuna immagine selezionata.",
-      "success": "Esportazione completata con successo!"
+      "success": "Esportazione completata con successo!",
+      "successWithSkipped": "{{exported}} esportate, {{skipped}} saltate",
+      "toastAllSkipped": "Tutte le {{count}} immagini sono state saltate (nessuna modifica).",
+      "toastAllSkippedSingle": "L'immagine è stata saltata (nessuna modifica).",
+      "toastWithSkipped": "Esportazione completata: {{exported}} esportate, {{skipped}} saltate."
     },
     "title": "Esporta",
     "watermark": {
