@@ -1,35 +1,5 @@
 # UI Performance Benchmark
 
-## Influence preview contract tests
-
-Run `npm run test:influence` from the repository root. Node assertion tests cover
-current Alt-slider eligibility and presentation policies, bounded/stale protocol
-validation, session lifecycle, fixed curve compilation and the latest-sample pump.
-A jsdom integration test mounts the actual React Slider, ColorWheel, CurveGraph,
-Effects/Details panels and preview coordinator,
-with only the native boundary and image decoding mocked. It exercises a continuous
-Alt-drag, Shift/Alt combinations, release/re-entry without movement, AltGr, compare,
-blur, exclusion, stale frames and object-URL cleanup. It also checks wheel pointers,
-existing/new curve anchors, armed-picker Relight controls, Fog Amount and all four
-noise-reduction exclusions. It does not measure native
-window input latency or GPU throughput.
-
-Run diagnostic renderer and resource tests with `cargo test --manifest-path
-src-tauri/Cargo.toml --lib -- --test-threads=1`. A compute-capable GPU adapter is required for the GPU
-cases. Run tests serially to avoid concurrent diagnostic-device initialisation
-contending on the same adapter. Run the optional same-machine benchmark separately:
-
-```powershell
-cargo test --manifest-path src-tauri/Cargo.toml --lib diagnostic_benchmark -- --ignored --nocapture
-node bench/influence-regression.mjs <pinned-before-executable> <after-executable>
-```
-
-The regression script generates its own PNG and recipes, exports JPEG and 16-bit
-TIFF, and requires byte equality. Both children use one Rayon thread to pin
-upstream fog's floating-point reduction order. It writes evidence under ignored
-`bench/out/influence-regression/`. `INFLUENCE_CASES` may select comma-separated cases
-for investigation; omit it for the complete seven-recipe matrix.
-
 Deterministic replay for comparing UI smoothness before/after a change.
 
 ## Usage
@@ -67,7 +37,7 @@ Deterministic replay for comparing UI smoothness before/after a change.
   is bigger than the run-to-run noise.
 - **Per-phase frame attribution.** Frame timing is bucketed into the `scroll`, `open`,
   and `edit` windows separately (not just one number for the whole run), so a result
-  points at _which_ interaction got slower instead of just "the run as a whole".
+  points at *which* interaction got slower instead of just "the run as a whole".
 
 ## Known limitations
 
@@ -91,7 +61,7 @@ Deterministic replay for comparing UI smoothness before/after a change.
   phase still times out, check `document.querySelectorAll('[data-bench-id]')` in the
   console to confirm the build you're testing actually contains the marker.
 - This is a general smoothness/regression check, not a profiler. It won't tell you
-  _why_ something is slow — use devtools Timeline/Performance recording by hand for
+  *why* something is slow — use devtools Timeline/Performance recording by hand for
   root-causing, and this script for confirming a fix actually helped.
 - Still requires a manual paste-and-save per run (devtools console access, `copy()` to
   clipboard, write `bench/out/<name>.json` by hand). There's no CI/headless runner —

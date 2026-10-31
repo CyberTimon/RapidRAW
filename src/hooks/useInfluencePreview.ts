@@ -8,8 +8,7 @@ import { useInfluencePreviewStore } from '../store/useInfluencePreviewStore';
 import { prepareAdjustmentsPayload } from '../utils/backendPayload';
 import { decodeInfluencePreview } from '../utils/influencePreviewProtocol';
 import { curvePointProbe } from '../utils/curvePointProbe';
-import { buildParametricPoints } from '../utils/curveMath';
-import { DEFAULT_PARAMETRIC_CURVE_SETTINGS } from '../utils/adjustments';
+import { parametricCurveProbe } from '../utils/parametricCurveProbe';
 let generation = Date.now() * 1000;
 export function useInfluencePreview() {
   const target = useInfluencePreviewStore((s) => s.preview.target);
@@ -83,23 +82,13 @@ export function useInfluencePreview() {
       const scoped = scopeId ? recipe.masks.find((m) => m.id === scopeId)?.adjustments : recipe;
       const pointProbe =
         target.kind === 'curvePoint' ? curvePointProbe(scoped?.curves?.[target.channel], target.index) : null;
-      const baselineCurve =
+      const parametricProbe =
         target.kind === 'parametric'
-          ? buildParametricPoints({
-              ...DEFAULT_PARAMETRIC_CURVE_SETTINGS,
-              ...scoped?.parametricCurve?.[target.channel],
-              [target.parameter]: 0,
-            })
-          : (pointProbe?.baseline ?? null);
+          ? parametricCurveProbe(scoped?.parametricCurve?.[target.channel], target.parameter)
+          : null;
+      const baselineCurve = parametricProbe?.baseline ?? pointProbe?.baseline ?? null;
       const presentation = store.getState().drag?.presentation ?? 0;
-      const coverageCurve =
-        target.kind === 'parametric'
-          ? buildParametricPoints({
-              ...DEFAULT_PARAMETRIC_CURVE_SETTINGS,
-              ...scoped?.parametricCurve?.[target.channel],
-              [target.parameter]: target.parameter === 'whiteLevel' ? -50 : 50,
-            })
-          : (pointProbe?.coverage ?? null);
+      const coverageCurve = parametricProbe?.coverage ?? pointProbe?.coverage ?? null;
       try {
         const buffer = await invoke<ArrayBuffer>('request_influence_preview', {
           request: {

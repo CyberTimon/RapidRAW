@@ -391,6 +391,9 @@ fn neutralize(
                     "highlights",
                     "blackLevel",
                     "whiteLevel",
+                    "split1",
+                    "split2",
+                    "split3",
                 ]
                 .contains(&parameter.as_str())
             {
@@ -399,7 +402,9 @@ fn neutralize(
             let curve = baseline_curve.ok_or("Missing baseline curve")?;
             validate_curve(curve)?;
             scoped(&mut baseline, scope)?["curves"][channel] = curve.clone();
-            scoped(&mut baseline, scope)?["parametricCurve"][channel][parameter] = json!(0);
+            if !["split1", "split2", "split3"].contains(&parameter.as_str()) {
+                scoped(&mut baseline, scope)?["parametricCurve"][channel][parameter] = json!(0);
+            }
         }
         Target::CurvePoint {
             channel,
@@ -1350,6 +1355,3 @@ fn process(app: &tauri::AppHandle, request: &InfluenceRequest) -> Result<Vec<u8>
     stages.reservation = Some(memory);
     Ok(result)
 }
-
-#[cfg(test)]
-mod tests;

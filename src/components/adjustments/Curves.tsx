@@ -989,6 +989,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                           lastPointerRef.current = { x: e.clientX, y: e.clientY };
                           accumulatedSplitRef.current = activeParametricSettings[key];
                           localParametricSettingsRef.current = { ...activeParametricSettings };
+                          curveGesture.current = true;
+                          selectInfluence('parametric.' + key, e.altKey && !e.ctrlKey);
                           setDraggingSplitKey(key);
                         }}
                         onTouchStart={(e) => {
@@ -997,6 +999,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                           lastPointerRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
                           accumulatedSplitRef.current = activeParametricSettings[key];
                           localParametricSettingsRef.current = { ...activeParametricSettings };
+                          curveGesture.current = true;
+                          selectInfluence('parametric.' + key);
                           setDraggingSplitKey(key);
                         }}
                         onDoubleClick={(e) => {

@@ -45,7 +45,8 @@ export type InfluenceTarget =
   | {
       kind: 'parametric';
       channel: CurveChannel;
-      parameter: 'shadows' | 'darks' | 'lights' | 'highlights' | 'blackLevel' | 'whiteLevel';
+      parameter:
+        'shadows' | 'darks' | 'lights' | 'highlights' | 'blackLevel' | 'whiteLevel' | 'split1' | 'split2' | 'split3';
       scope: InfluenceScope;
     }
   | { kind: 'curvePoint'; channel: CurveChannel; index: number; scope: InfluenceScope }
@@ -96,7 +97,10 @@ export function isInfluenceTarget(value: unknown): value is InfluenceTarget {
       return (
         keysAre(value, ['kind', 'channel', 'parameter', 'scope']) &&
         contains(CURVE_CHANNELS, value.channel) &&
-        contains(['shadows', 'darks', 'lights', 'highlights', 'blackLevel', 'whiteLevel'], value.parameter) &&
+        contains(
+          ['shadows', 'darks', 'lights', 'highlights', 'blackLevel', 'whiteLevel', 'split1', 'split2', 'split3'],
+          value.parameter,
+        ) &&
         validScope(value.scope)
       );
     case 'curvePoint':

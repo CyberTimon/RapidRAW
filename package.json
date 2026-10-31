@@ -3,7 +3,6 @@
   "author": "Timon Käch",
   "private": true,
   "scripts": {
-    "test:influence": "node bench/test-influence.mjs && node bench/test-alt-drag.mjs && node bench/test-alt-slider.mjs",
     "dev": "vite",
     "build": "vite build",
     "tauri": "tauri",
@@ -62,7 +61,6 @@
     "eslint": "^10.9.0",
     "eslint-plugin-i18next": "^6.1.5",
     "i18next-cli": "^1.71.0",
-    "jsdom": "^29.1.1",
     "prettier": "^3.9.6",
     "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3",

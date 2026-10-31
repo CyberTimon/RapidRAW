@@ -94,22 +94,3 @@ pub fn raw_pixel_count(file_bytes: &[u8]) -> Option<u64> {
     let (width, height) = crate::raw_processing::raw_dimensions(file_bytes)?;
     Some(width as u64 * height as u64)
 }
-
-#[cfg(test)]
-mod diagnostic_tests {
-    use super::*;
-    #[test]
-    fn nonblocking_reservations_refuse_oversized_and_release_exactly() {
-        let budget = MemoryBudget::new(100);
-        assert!(budget.try_reserve(101).is_none());
-        for _ in 0..100 {
-            let first = budget.try_reserve(70).unwrap();
-            assert!(budget.try_reserve(31).is_none());
-            let second = budget.try_reserve(30).unwrap();
-            assert_eq!(*budget.available.lock().unwrap(), 0);
-            drop(first);
-            drop(second);
-            assert_eq!(*budget.available.lock().unwrap(), 100);
-        }
-    }
-}

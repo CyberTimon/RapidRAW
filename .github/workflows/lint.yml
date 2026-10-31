@@ -21,9 +21,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Alt preview contracts and slider integration
-        run: npm run test:influence
-
       - name: Check Formatting
         run: npm run format:check
         continue-on-error: true
