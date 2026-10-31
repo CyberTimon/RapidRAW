@@ -828,6 +828,7 @@
       "camera": {
         "aperture": "Apertura",
         "focalLength": "Lunghezza Focale",
+        "focusDistance": "Distanza di messa a fuoco",
         "iso": "ISO",
         "lens": "Obiettivo",
         "shutterSpeed": "Tempo di Esposizione",

@@ -804,6 +804,7 @@
       "camera": {
         "aperture": "Diafragma",
         "focalLength": "Brandpuntsafstand",
+        "focusDistance": "Scherpstelafstand",
         "iso": "ISO",
         "lens": "Lens",
         "shutterSpeed": "Sluitertijd",

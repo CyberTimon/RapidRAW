@@ -801,6 +801,7 @@
       "camera": {
         "aperture": "光圈",
         "focalLength": "焦距",
+        "focusDistance": "對焦距離",
         "iso": "ISO",
         "lens": "鏡頭",
         "shutterSpeed": "快門速度",

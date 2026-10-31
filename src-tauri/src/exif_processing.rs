@@ -908,6 +908,9 @@ pub fn extract_metadata(file_bytes: &[u8]) -> Option<HashMap<String, String>> {
         {
             insert_missing_lens_fields(&mut map, &lens);
         }
+        if let Some(distance) = crate::sony_focus::focus_distance(file_bytes) {
+            map.insert("FocusDistance".to_string(), distance);
+        }
         return Some(map);
     }
 
@@ -1155,6 +1158,10 @@ pub fn extract_metadata(file_bytes: &[u8]) -> Option<HashMap<String, String>> {
 
     if let Some(lens) = &metadata.lens {
         insert_missing_lens_fields(&mut map, lens);
+    }
+
+    if let Some(distance) = crate::sony_focus::focus_distance(file_bytes) {
+        map.insert("FocusDistance".to_string(), distance);
     }
 
     Some(map)

@@ -67,6 +67,7 @@ mod preset_converter;
 mod preview_jpeg;
 mod raw_processing;
 mod relight;
+mod sony_focus;
 mod storage;
 mod tagging;
 mod tagging_utils;

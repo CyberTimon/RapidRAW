@@ -804,6 +804,7 @@
       "camera": {
         "aperture": "Aperture",
         "focalLength": "Focal Length",
+        "focusDistance": "Focus Distance",
         "iso": "ISO",
         "lens": "Lens",
         "shutterSpeed": "Shutter Speed",
