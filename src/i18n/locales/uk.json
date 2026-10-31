@@ -847,6 +847,7 @@
       "camera": {
         "aperture": "Діафрагма",
         "focalLength": "Фокусна відстань",
+        "focusDistance": "Дистанція фокусування",
         "iso": "ISO",
         "lens": "Об'єктив",
         "shutterSpeed": "Витримка",

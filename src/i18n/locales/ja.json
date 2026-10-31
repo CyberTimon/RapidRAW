@@ -796,6 +796,7 @@
       "camera": {
         "aperture": "絞り値",
         "focalLength": "焦点距離",
+        "focusDistance": "フォーカス距離",
         "iso": "ISO感度",
         "lens": "レンズ",
         "shutterSpeed": "シャッタースピード",
