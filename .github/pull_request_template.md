@@ -24,7 +24,7 @@
 ## Testing
 
 - [ ] These changes were tested locally by a human and confirmed to work.
-- [ ] I haven't added any automated tests to the code because the codebase currently lacks a test suite.
+- [ ] I added or updated tests in `tests/` where it makes sense, and `npm test` passes.
 
 **Test Configuration:**
 
