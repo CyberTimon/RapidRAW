@@ -1,34 +1,44 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { RotateCcw, Copy, ClipboardPaste, PencilSparkles, ChartArea, LayoutList } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
-import BasicAdjustments from '../../adjustments/Basic';
-import CurveGraph from '../../adjustments/Curves';
-import ColorPanel from '../../adjustments/Color';
-import DetailsPanel from '../../adjustments/Details';
-import EffectsPanel from '../../adjustments/Effects';
 import CollapsibleSection from '../../ui/CollapsibleSection';
-import Waveform from '../editor/Waveform';
+import AdjustmentSection from '../../adjustments/AdjustmentSection';
+import ConnectedWaveform from '../editor/ConnectedWaveform';
 import Resizer from '../../ui/Resizer';
 import AdjustmentSectionsSubMenu from './AdjustmentSectionsSubMenu';
 import {
+  ActiveTools,
   Adjustments,
-  SectionVisibility,
   INITIAL_ADJUSTMENTS,
   ADJUSTMENT_SECTIONS,
+  getActiveTools,
   getVisibleAdjustmentSections,
+  isToolActive,
+  setToolActive,
+  toggleToolActive,
 } from '../../../utils/adjustments';
 import { useContextMenu } from '../../../context/ContextMenuContext';
 import { OPTION_SEPARATOR, Orientation } from '../../ui/AppProperties';
 import Text from '../../ui/Text';
 import { TextVariants, TextColors, TextWeights } from '../../../types/typography';
 import { useShallow } from 'zustand/react/shallow';
-import { useEditorStore } from '../../../store/useEditorStore';
+import { canvasToolState, useEditorStore } from '../../../store/useEditorStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useUIStore } from '../../../store/useUIStore';
-import { useEditorActions } from '../../../hooks/useEditorActions';
+import { buildAutoAdjustModeOptions, useEditorActions } from '../../../hooks/useEditorActions';
 import { useWaveformControls } from '../../../hooks/useWaveformControls';
+
+function AdjustmentSectionContent(props: {
+  sectionName: string;
+  activeTools: ActiveTools;
+  onToggleTool(id: string): void;
+  [key: string]: unknown;
+}) {
+  const adjustments = useEditorStore((state) => state.adjustments);
+  return <AdjustmentSection {...props} adjustments={adjustments} />;
+}
 
 export default function Controls() {
   const { t } = useTranslation();
@@ -54,29 +64,30 @@ export default function Controls() {
   );
 
   const {
-    adjustments,
+    activeToolsState,
+    sectionVisibility,
     copiedSectionAdjustments,
-    histogram,
     selectedImage,
     isWbPickerActive,
     isWaveformVisible,
-    waveform,
-    activeWaveformChannel,
     waveformHeight,
     setEditor,
   } = useEditorStore(
     useShallow((state) => ({
-      adjustments: state.adjustments,
+      activeToolsState: state.adjustments.activeTools,
+      sectionVisibility: state.adjustments.sectionVisibility,
       copiedSectionAdjustments: state.copiedSectionAdjustments,
-      histogram: state.histogram,
       selectedImage: state.selectedImage,
       isWbPickerActive: state.isWbPickerActive,
       isWaveformVisible: state.isWaveformVisible,
-      waveform: state.waveform,
-      activeWaveformChannel: state.activeWaveformChannel,
       waveformHeight: state.waveformHeight,
       setEditor: state.setEditor,
     })),
+  );
+
+  const activeTools = useMemo(
+    () => getActiveTools({ activeTools: activeToolsState, sectionVisibility }),
+    [activeToolsState, sectionVisibility],
   );
 
   const setCopiedSectionAdjustments = useCallback(
@@ -85,7 +96,7 @@ export default function Controls() {
   );
 
   const toggleWbPicker = useCallback(
-    () => setEditor((state) => ({ isWbPickerActive: !state.isWbPickerActive, isRelightPickerActive: false })),
+    () => setEditor((state) => canvasToolState({ isWbPickerActive: !state.isWbPickerActive })),
     [setEditor],
   );
 
@@ -102,30 +113,36 @@ export default function Controls() {
     [setUI],
   );
 
-  const handleToggleVisibility = (sectionName: string) => {
-    setAdjustments((prev: Adjustments) => {
-      const currentVisibility: SectionVisibility = prev.sectionVisibility || INITIAL_ADJUSTMENTS.sectionVisibility;
-      return {
+  const handleToggleVisibility = useCallback(
+    (id: string) => {
+      setAdjustments((prev: Adjustments) => ({
         ...prev,
-        sectionVisibility: {
-          ...currentVisibility,
-          [sectionName]: !currentVisibility[sectionName],
-        },
-      };
-    });
-  };
+        activeTools: toggleToolActive(getActiveTools(prev), id),
+      }));
+    },
+    [setAdjustments],
+  );
 
   const handleResetAdjustments = () => {
-    setAdjustments((prev: Adjustments) => ({
-      ...prev,
-      ...Object.keys(ADJUSTMENT_SECTIONS)
-        .flatMap((s) => ADJUSTMENT_SECTIONS[s])
-        .reduce((acc: any, key: string) => {
-          acc[key] = INITIAL_ADJUSTMENTS[key as keyof Adjustments];
-          return acc;
-        }, {}),
-      sectionVisibility: { ...INITIAL_ADJUSTMENTS.sectionVisibility },
-    }));
+    setAdjustments(
+      (prev: Adjustments) => ({
+        ...prev,
+        ...Object.keys(ADJUSTMENT_SECTIONS)
+          .flatMap((s) => ADJUSTMENT_SECTIONS[s])
+          .reduce((acc: any, key: string) => {
+            acc[key] = INITIAL_ADJUSTMENTS[key as keyof Adjustments];
+            return acc;
+          }, {}),
+        activeTools: { ...INITIAL_ADJUSTMENTS.activeTools },
+      }),
+      t('contextMenus.editor.resetAdjustments'),
+    );
+  };
+
+  const handleAutoAdjustContextMenu = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    showContextMenu(event.clientX, event.clientY, buildAutoAdjustModeOptions(t, handleAutoAdjustments));
   };
 
   const handleToggleSection = (section: string) => {
@@ -153,6 +170,7 @@ export default function Controls() {
     }
 
     const handleCopy = () => {
+      const { adjustments } = useEditorStore.getState();
       const adjustmentsToCopy: any = {};
       for (const key of sectionKeys) {
         if (Object.prototype.hasOwnProperty.call(adjustments, key)) {
@@ -169,10 +187,7 @@ export default function Controls() {
       setAdjustments((prev: Adjustments) => ({
         ...prev,
         ...copiedSectionAdjustments.values,
-        sectionVisibility: {
-          ...(prev.sectionVisibility || INITIAL_ADJUSTMENTS.sectionVisibility),
-          [sectionName]: true,
-        },
+        activeTools: setToolActive(getActiveTools(prev), sectionName, true),
       }));
     };
 
@@ -184,10 +199,7 @@ export default function Controls() {
       setAdjustments((prev: Adjustments) => ({
         ...prev,
         ...resetValues,
-        sectionVisibility: {
-          ...(prev.sectionVisibility || INITIAL_ADJUSTMENTS.sectionVisibility),
-          [sectionName]: true,
-        },
+        activeTools: setToolActive(getActiveTools(prev), sectionName, true),
       }));
     };
 
@@ -230,7 +242,8 @@ export default function Controls() {
           <button
             className="p-2 rounded-full hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             disabled={!selectedImage}
-            onClick={handleAutoAdjustments}
+            onClick={() => handleAutoAdjustments()}
+            onContextMenu={handleAutoAdjustContextMenu}
             data-tooltip={t('editor.adjustments.tooltips.autoAdjust')}
           >
             <PencilSparkles size={18} />
@@ -266,18 +279,9 @@ export default function Controls() {
             className="shrink-0 flex flex-col relative border-b border-surface overflow-hidden"
           >
             <div className="grow w-full h-full p-3 pb-2 min-h-0">
-              <Waveform
-                waveformData={waveform || null}
-                histogram={histogram}
-                displayMode={activeWaveformChannel || 'luma'}
+              <ConnectedWaveform
                 setDisplayMode={setActiveWaveformChannel}
-                showClipping={adjustments.showClipping || false}
-                onToggleClipping={() => {
-                  setAdjustments((prev: Adjustments) => ({
-                    ...prev,
-                    showClipping: !prev.showClipping,
-                  }));
-                }}
+                setAdjustments={setAdjustments}
                 theme={theme}
               />
             </div>
@@ -289,31 +293,23 @@ export default function Controls() {
       <div className="grow overflow-y-scroll p-3 flex flex-col gap-2">
         {selectedImage ? (
           visibleSections.map((sectionName: string) => {
-            const SectionComponent: any = {
-              basic: BasicAdjustments,
-              curves: CurveGraph,
-              color: ColorPanel,
-              details: DetailsPanel,
-              effects: EffectsPanel,
-            }[sectionName];
-
             const title = t(`editor.adjustments.sections.${sectionName}`);
-            const sectionVisibility = adjustments.sectionVisibility || INITIAL_ADJUSTMENTS.sectionVisibility;
 
             return (
               <div className="shrink-0 group" key={sectionName}>
                 <CollapsibleSection
-                  isContentVisible={sectionVisibility[sectionName as keyof SectionVisibility]}
+                  isContentVisible={isToolActive(activeTools, sectionName)}
                   isOpen={collapsibleSectionsState[sectionName as keyof typeof collapsibleSectionsState]}
                   onContextMenu={(e: any) => handleSectionContextMenu(e, sectionName)}
                   onToggle={() => handleToggleSection(sectionName)}
                   onToggleVisibility={() => handleToggleVisibility(sectionName)}
                   title={title}
                 >
-                  <SectionComponent
-                    adjustments={adjustments}
+                  <AdjustmentSectionContent
+                    sectionName={sectionName}
+                    activeTools={activeTools}
+                    onToggleTool={handleToggleVisibility}
                     setAdjustments={setAdjustments}
-                    histogram={histogram}
                     theme={theme}
                     handleLutSelect={handleLutSelect}
                     onLutHover={setLutPreviewOverride}

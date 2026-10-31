@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicI32, Ordering};
 use tauri::Emitter;
 
 use crate::export_processing::TiffBitDepth;
@@ -31,6 +32,23 @@ pub enum LaunchRequest {
     EditSession(ExternalEditSession),
     HeadlessExport(HeadlessExportSession),
     InvalidHeadless(String),
+}
+
+static PROCESS_EXIT_CODE: AtomicI32 = AtomicI32::new(0);
+
+pub fn set_process_exit_code(code: i32) {
+    PROCESS_EXIT_CODE.store(code, Ordering::SeqCst);
+}
+
+pub fn process_exit_code() -> i32 {
+    PROCESS_EXIT_CODE.load(Ordering::SeqCst)
+}
+
+pub fn resolve_exit_code(requested: Option<i32>, recorded: i32) -> i32 {
+    match requested {
+        Some(code) if code != 0 => code,
+        _ => recorded,
+    }
 }
 
 #[derive(Serialize, Default)]
@@ -159,6 +177,27 @@ pub fn parse_launch_args(args: &[String]) -> LaunchRequest {
             Some(path) => LaunchRequest::OpenFile(path),
             None => LaunchRequest::None,
         },
+    }
+}
+
+pub fn resolve_gui_launch_paths(request: LaunchRequest, cwd: &Path) -> LaunchRequest {
+    let resolve = |path: String| {
+        if path.is_empty() || Path::new(&path).is_absolute() || !cwd.is_absolute() {
+            return path;
+        }
+        let joined = cwd.join(&path);
+        std::path::absolute(&joined)
+            .unwrap_or(joined)
+            .to_string_lossy()
+            .into_owned()
+    };
+    match request {
+        LaunchRequest::OpenFile(path) => LaunchRequest::OpenFile(resolve(path)),
+        LaunchRequest::EditSession(mut session) => {
+            session.source = resolve(session.source);
+            LaunchRequest::EditSession(session)
+        }
+        other => other,
     }
 }
 

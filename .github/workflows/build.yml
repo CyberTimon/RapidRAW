@@ -46,7 +46,7 @@ jobs:
     runs-on: ${{ inputs.platform }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
@@ -64,7 +64,7 @@ jobs:
           key: ${{ inputs.mobile == '' && inputs.platform || format('{0}-{1}', inputs.platform, inputs.mobile) }}-${{ contains(inputs.build-args, 'tethering') && 'tethering' || 'standard' }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: 'npm'
@@ -98,14 +98,14 @@ jobs:
       # ------------- Android Setup -------------
       - name: Set up JDK
         if: inputs.mobile == 'android'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '17'
           distribution: 'temurin'
 
       - name: Setup Android SDK
         if: inputs.mobile == 'android'
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
         with:
           packages: 'platform-tools'
 
@@ -164,53 +164,6 @@ jobs:
           releaseId: ${{ inputs.release-id }}
           retryAttempts: 3
 
-      # Android-only: roll the tauri stack back to the versions that shipped in
-      # v1.6.4, the last release where the APK launched. v1.6.5 bumped tauri to
-      # 2.12 (tao 0.37, wry 0.57), which is the only change in that release that
-      # touches Android's activity/webview glue, and the APK now dies before the
-      # webview appears (issue #1858).
-      #
-      # This runs as a lockfile-only pin so desktop builds keep 2.12.1: the
-      # committed Cargo.lock is untouched on every other platform. Cargo resolves
-      # the union of all targets, so the plugins that transitively require
-      # tauri ^2.12 (http -> fs) have to come down with it. Drop this whole step,
-      # and restore the exact requirements in src-tauri/Cargo.toml, once the
-      # upstream Android regression is identified and fixed.
-      - name: Pin tauri stack to 2.11 (Android)
-        if: ${{ inputs.mobile == 'android' }}
-        shell: bash
-        working-directory: src-tauri
-        run: |
-          set -euo pipefail
-          # Order matters: each parent has to come down before its pinned children.
-          pin() {
-            echo "::group::pin $1 -> $2"
-            cargo update -p "$1" --precise "$2"
-            echo "::endgroup::"
-          }
-          pin tauri-plugin-http   2.7.0
-          pin tauri-plugin-fs     2.5.2
-          pin tauri-plugin-store  2.4.0
-          pin tauri               2.11.5
-          pin tauri-runtime-wry   2.11.4
-          pin tauri-runtime       2.11.3
-          pin wry                 0.55.1
-          pin tao                 0.35.3
-          pin tauri-build         2.6.3
-          pin tauri-macros        2.6.3
-          pin tauri-plugin        2.6.3
-          pin tauri-codegen       2.6.3
-          pin tauri-utils         2.9.3
-
-          echo "Resolved tauri stack:"
-          cargo tree --target aarch64-linux-android --depth 0 -p tauri -p wry -p tao 2>/dev/null || true
-
-      # The npm CLI generates the Gradle glue and must match the Rust crates.
-      - name: Pin @tauri-apps CLI and API to 2.11 (Android)
-        if: ${{ inputs.mobile == 'android' }}
-        shell: bash
-        run: npm install --no-save @tauri-apps/cli@2.11.4 @tauri-apps/api@2.11.1
-
       - name: Build Android
         if: ${{ inputs.mobile == 'android' }}
         shell: bash
@@ -260,7 +213,7 @@ jobs:
 
       - name: Upload Android Artifacts
         if: ${{ inputs.mobile == 'android' && inputs.release-id == '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.asset-prefix }}_android${{ inputs.target && format('_{0}', inputs.target) || '' }}_artifacts
           path: |
@@ -272,7 +225,7 @@ jobs:
 
       - name: Upload Windows Artifacts
         if: ${{ startsWith(inputs.platform, 'windows') && inputs.release-id == '' && inputs.mobile == '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.asset-prefix }}_${{ inputs.platform }}${{ inputs.target && format('_{0}', inputs.target) || '' }}_artifacts
           path: |
@@ -284,7 +237,7 @@ jobs:
 
       - name: Upload Linux/macOS Artifacts
         if: ${{ !startsWith(inputs.platform, 'windows') && inputs.release-id == '' && inputs.mobile == '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.asset-prefix }}_${{ inputs.platform }}${{ inputs.target && format('_{0}', inputs.target) || '' }}${{ contains(inputs.build-args, 'tethering') && '_tethering' || '' }}_artifacts
           path: |

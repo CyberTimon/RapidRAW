@@ -811,8 +811,8 @@
 
     <lens>
         <maker>Sony</maker>
-        <model>E PZ 16-50mm f/3.5-5.6 OSS</model>
-        <model lang="en">E 16-50mm f/3.5-5.6 OSS PZ</model>
+        <model>E PZ 16-50mm f/3.5-5.6 OSS I/II</model>
+        <model lang="en">E 16-50mm f/3.5-5.6 OSS PZ (Vers. I/II)</model>
         <mount>Sony E</mount>
         <cropfactor>1.534</cropfactor>
         <calibration>

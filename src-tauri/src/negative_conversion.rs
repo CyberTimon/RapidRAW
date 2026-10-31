@@ -1,49 +1,72 @@
-use crate::file_management::{parse_virtual_path, read_file_mapped};
-use crate::image_loader::load_base_image_from_bytes;
-use base64::{Engine as _, engine::general_purpose};
-use image::codecs::jpeg::JpegEncoder;
-use image::{DynamicImage, Rgb32FImage};
+use image::DynamicImage;
 use rayon::prelude::*;
-use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::borrow::Cow;
 use std::cmp::Ordering;
-use std::collections::hash_map::DefaultHasher;
-use std::fs;
-use std::hash::{Hash, Hasher};
-use std::io::Cursor;
-use std::path::Path;
-use tauri::AppHandle;
 
-use crate::AppState;
-use crate::image_processing::downscale_f32_image;
-use crate::load_settings;
-use tauri::Emitter;
+use crate::image_processing::downscale_f32_image_if_needed;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
-pub struct NegativeConversionParams {
-    pub red_weight: f32,
-    pub green_weight: f32,
-    pub blue_weight: f32,
+pub const PARAM_KEYS: &[&str] = &[
+    "negativeRedWeight",
+    "negativeGreenWeight",
+    "negativeBlueWeight",
+    "negativeExposure",
+    "negativeContrast",
+];
 
-    pub exposure: f32,
-    pub contrast: f32,
+const BOUNDS_REFERENCE_DIM: u32 = 1080;
+const PIXEL_CHUNK: usize = 3 * 4096;
+
+#[derive(Debug, Clone, Copy)]
+struct NegativeConversionParams {
+    red_weight: f32,
+    green_weight: f32,
+    blue_weight: f32,
+
+    exposure: f32,
+    contrast: f32,
 }
 
-impl Default for NegativeConversionParams {
-    fn default() -> Self {
+impl NegativeConversionParams {
+    fn from_adjustments(adjustments: &Value) -> Self {
+        let get = |key: &str, default: f32| adjustments[key].as_f64().map_or(default, |v| v as f32);
         Self {
-            red_weight: 1.0,
-            green_weight: 1.0,
-            blue_weight: 1.0,
-            exposure: 0.0,
-            contrast: 1.0,
+            red_weight: get("negativeRedWeight", 1.0),
+            green_weight: get("negativeGreenWeight", 1.0),
+            blue_weight: get("negativeBlueWeight", 1.0),
+            exposure: get("negativeExposure", 0.0),
+            contrast: get("negativeContrast", 1.0),
         }
     }
 }
 
+pub fn is_enabled(adjustments: &Value) -> bool {
+    crate::image_processing::is_effect_enabled(
+        adjustments,
+        "negativeConversion",
+        "negativeConversionEnabled",
+    )
+}
+
+pub fn effective_is_raw(is_raw: bool, adjustments: &Value) -> bool {
+    is_raw && !is_enabled(adjustments)
+}
+
+pub fn apply_negative_conversion<'a>(
+    image: Cow<'a, DynamicImage>,
+    adjustments: &Value,
+) -> Cow<'a, DynamicImage> {
+    if !is_enabled(adjustments) {
+        return image;
+    }
+    let params = NegativeConversionParams::from_adjustments(adjustments);
+    Cow::Owned(convert(image.into_owned(), &params))
+}
+
 #[derive(Debug, Clone, Copy)]
-pub struct ChannelBounds {
-    pub min: f32,
-    pub max: f32,
+struct ChannelBounds {
+    min: f32,
+    max: f32,
 }
 
 fn analyze_bounds(log_data: &[f32], width: usize, height: usize) -> [ChannelBounds; 3] {
@@ -104,27 +127,30 @@ fn analyze_bounds(log_data: &[f32], width: usize, height: usize) -> [ChannelBoun
     [get_bounds(r_vals), get_bounds(g_vals), get_bounds(b_vals)]
 }
 
-fn run_pipeline(
-    input: &DynamicImage,
-    params: &NegativeConversionParams,
-    override_bounds: Option<[ChannelBounds; 3]>,
-) -> DynamicImage {
-    let rgb = input.to_rgb32f();
-    let (width, height) = rgb.dimensions();
-    let raw_pixels = rgb.as_raw();
+fn density(v: f32) -> f32 {
+    -v.clamp(1e-6, 1.0).log10()
+}
 
-    let log_pixels: Vec<f32> = raw_pixels
-        .par_iter()
-        .map(|&v| -v.clamp(1e-6, 1.0).log10())
-        .collect();
-
-    let bounds = if let Some(b) = override_bounds {
-        b
-    } else {
-        analyze_bounds(&log_pixels, width as usize, height as usize)
+fn channel_bounds(image: &DynamicImage) -> [ChannelBounds; 3] {
+    let downscaled =
+        downscale_f32_image_if_needed(image, BOUNDS_REFERENCE_DIM, BOUNDS_REFERENCE_DIM);
+    let reference = downscaled.as_ref().unwrap_or(image);
+    let converted;
+    let rgb = match reference.as_rgb32f() {
+        Some(buf) => buf,
+        None => {
+            converted = reference.to_rgb32f();
+            &converted
+        }
     };
+    let (width, height) = rgb.dimensions();
+    let log_pixels: Vec<f32> = rgb.as_raw().par_iter().map(|&v| density(v)).collect();
+    analyze_bounds(&log_pixels, width as usize, height as usize)
+}
 
-    let mut out_buffer = vec![0.0f32; raw_pixels.len()];
+fn convert(input: DynamicImage, params: &NegativeConversionParams) -> DynamicImage {
+    let bounds = channel_bounds(&input);
+    let mut rgb = input.into_rgb32f();
 
     let k = 4.0 * params.contrast.max(0.1);
     let x0 = 0.6 - (params.exposure * 0.25);
@@ -134,29 +160,19 @@ fn run_pipeline(
     let y1 = 1.0 / (1.0 + (-k * (1.0 - x0)).exp());
     let scale = 1.0 / (y1 - y0);
 
-    out_buffer
-        .par_chunks_mut(3)
-        .enumerate()
-        .for_each(|(i, out_pixel)| {
-            let idx = i * 3;
+    let apply_curve = |x: f32| -> f32 {
+        let sigmoid = 1.0 / (1.0 + (-k * (x - x0)).exp());
+        let s_norm = (sigmoid - y0) * scale;
+        s_norm.clamp(0.0, 1.0)
+    };
+    let weights = [params.red_weight, params.green_weight, params.blue_weight];
 
-            let mut n_r = (log_pixels[idx] - bounds[0].min) / (bounds[0].max - bounds[0].min);
-            let mut n_g = (log_pixels[idx + 1] - bounds[1].min) / (bounds[1].max - bounds[1].min);
-            let mut n_b = (log_pixels[idx + 2] - bounds[2].min) / (bounds[2].max - bounds[2].min);
-
-            n_r = n_r.max(0.0) * params.red_weight;
-            n_g = n_g.max(0.0) * params.green_weight;
-            n_b = n_b.max(0.0) * params.blue_weight;
-
-            let apply_curve = |x: f32| -> f32 {
-                let sigmoid = 1.0 / (1.0 + (-k * (x - x0)).exp());
-                let s_norm = (sigmoid - y0) * scale;
-                s_norm.clamp(0.0, 1.0)
-            };
-
-            let mut r = apply_curve(n_r);
-            let mut g = apply_curve(n_g);
-            let mut b = apply_curve(n_b);
+    rgb.par_chunks_mut(PIXEL_CHUNK).for_each(|chunk| {
+        for px in chunk.as_chunks_mut::<3>().0 {
+            let [mut r, mut g, mut b] = [0, 1, 2].map(|c| {
+                let n = (density(px[c]) - bounds[c].min) / (bounds[c].max - bounds[c].min);
+                apply_curve(n.max(0.0) * weights[c])
+            });
 
             let luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
             let max_ch = r.max(g).max(b);
@@ -170,178 +186,11 @@ fn run_pipeline(
                 b = b + (luma - b) * sat_reduction;
             }
 
-            out_pixel[0] = r.clamp(0.0, 1.0).powf(gamma_inv);
-            out_pixel[1] = g.clamp(0.0, 1.0).powf(gamma_inv);
-            out_pixel[2] = b.clamp(0.0, 1.0).powf(gamma_inv);
-        });
-
-    let out_img = Rgb32FImage::from_vec(width, height, out_buffer).unwrap();
-    DynamicImage::ImageRgb32F(out_img)
-}
-
-#[tauri::command]
-pub async fn preview_negative_conversion(
-    path: String,
-    params: NegativeConversionParams,
-    state: tauri::State<'_, AppState>,
-    app_handle: AppHandle,
-) -> Result<String, String> {
-    let (source_path, _) = parse_virtual_path(&path);
-    let source_path_str = source_path.to_string_lossy().to_string();
-
-    let mut hasher = DefaultHasher::new();
-    source_path_str.hash(&mut hasher);
-    "negative_preview_base".hash(&mut hasher);
-    let cache_key = hasher.finish();
-
-    let base_image_for_processing = {
-        let mut cache = state.geometry_cache.lock().unwrap();
-
-        if let Some(cached_img) = cache.get(&cache_key) {
-            cached_img.clone()
-        } else {
-            let image_to_downscale = {
-                let original_lock = state.original_image.lock().unwrap();
-                if let Some(loaded) = original_lock.as_ref() {
-                    if loaded.path == source_path_str {
-                        loaded.image.clone().as_ref().clone()
-                    } else {
-                        drop(original_lock);
-                        let settings = load_settings(app_handle.clone()).unwrap_or_default();
-
-                        match read_file_mapped(Path::new(&source_path_str)) {
-                            Ok(mmap) => load_base_image_from_bytes(
-                                &mmap,
-                                &source_path_str,
-                                false,
-                                &settings,
-                                None,
-                            )
-                            .map_err(|e| e.to_string())?,
-                            Err(_e) => {
-                                let bytes = fs::read(&source_path_str)
-                                    .map_err(|io_err| io_err.to_string())?;
-                                load_base_image_from_bytes(
-                                    &bytes,
-                                    &source_path_str,
-                                    false,
-                                    &settings,
-                                    None,
-                                )
-                                .map_err(|e| e.to_string())?
-                            }
-                        }
-                    }
-                } else {
-                    drop(original_lock);
-                    let settings = load_settings(app_handle.clone()).unwrap_or_default();
-
-                    match read_file_mapped(Path::new(&source_path_str)) {
-                        Ok(mmap) => load_base_image_from_bytes(
-                            &mmap,
-                            &source_path_str,
-                            false,
-                            &settings,
-                            None,
-                        )
-                        .map_err(|e| e.to_string())?,
-                        Err(_e) => {
-                            let bytes =
-                                fs::read(&source_path_str).map_err(|io_err| io_err.to_string())?;
-                            load_base_image_from_bytes(
-                                &bytes,
-                                &source_path_str,
-                                false,
-                                &settings,
-                                None,
-                            )
-                            .map_err(|e| e.to_string())?
-                        }
-                    }
-                }
-            };
-
-            let downscaled = downscale_f32_image(&image_to_downscale, 1080, 1080);
-
-            cache.insert(cache_key, downscaled.clone());
-            downscaled
+            px[0] = r.clamp(0.0, 1.0).powf(gamma_inv);
+            px[1] = g.clamp(0.0, 1.0).powf(gamma_inv);
+            px[2] = b.clamp(0.0, 1.0).powf(gamma_inv);
         }
-    };
+    });
 
-    let processed = run_pipeline(&base_image_for_processing, &params, None);
-
-    let mut buf = Cursor::new(Vec::new());
-    processed
-        .to_rgb8()
-        .write_with_encoder(JpegEncoder::new_with_quality(&mut buf, 80))
-        .map_err(|e| e.to_string())?;
-
-    let base64_str = general_purpose::STANDARD.encode(buf.get_ref());
-    Ok(format!("data:image/jpeg;base64,{}", base64_str))
-}
-
-#[tauri::command]
-pub async fn convert_negatives(
-    paths: Vec<String>,
-    params: NegativeConversionParams,
-    app_handle: AppHandle,
-) -> Result<Vec<String>, String> {
-    tokio::task::spawn_blocking(move || {
-        let mut results = Vec::new();
-
-        for (i, path_str) in paths.iter().enumerate() {
-            let _ = app_handle.emit(
-                "negative-batch-progress",
-                serde_json::json!({
-                    "current": i + 1,
-                    "total": paths.len(),
-                    "path": path_str
-                }),
-            );
-
-            let (source_path, _) = parse_virtual_path(path_str);
-            let real_path = source_path.to_string_lossy().to_string();
-
-            let settings = load_settings(app_handle.clone()).unwrap_or_default();
-
-            let img = match read_file_mapped(Path::new(&real_path)) {
-                Ok(mmap) => load_base_image_from_bytes(&mmap, &real_path, false, &settings, None),
-                Err(_) => {
-                    let bytes = fs::read(&real_path).unwrap_or_default();
-                    load_base_image_from_bytes(&bytes, &real_path, false, &settings, None)
-                }
-            }
-            .map_err(|e| e.to_string())?;
-
-            let bounds_ref = downscale_f32_image(&img, 1080, 1080);
-            let ref_rgb = bounds_ref.to_rgb32f();
-            let (ref_w, ref_h) = ref_rgb.dimensions();
-            let log_pixels: Vec<f32> = ref_rgb
-                .as_raw()
-                .par_iter()
-                .map(|&v| -v.clamp(1e-6, 1.0).log10())
-                .collect();
-            let bounds = analyze_bounds(&log_pixels, ref_w as usize, ref_h as usize);
-
-            let processed = run_pipeline(&img, &params, Some(bounds));
-
-            let p = Path::new(&real_path);
-            let parent = p.parent().unwrap_or(Path::new(""));
-            let stem = p.file_stem().unwrap_or_default().to_string_lossy();
-            let filename = format!("{}_Positive.tiff", stem);
-            let out_path = parent.join(&filename);
-
-            processed
-                .to_rgb16()
-                .save(&out_path)
-                .map_err(|e| format!("Failed to save {}: {}", filename, e))?;
-
-            let _ = crate::exif_processing::write_rrexif_sidecar(&real_path, &out_path);
-            results.push(out_path.to_string_lossy().to_string());
-        }
-
-        Ok(results)
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    DynamicImage::ImageRgb32F(rgb)
 }

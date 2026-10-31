@@ -12,7 +12,7 @@ import { TextVariants } from '../../types/typography';
 import { Adjustments, AiPatch } from '../../utils/adjustments';
 import { Mask, SubMaskMode } from '../panel/right/Masks';
 import { useEditorStore } from '../../store/useEditorStore';
-import { useProcessStore } from '../../store/useProcessStore';
+import { selectAiModelDownloadStatus, useProcessStore } from '../../store/useProcessStore';
 
 interface DetectedFace {
   centerX: number;
@@ -83,7 +83,7 @@ export default function FacialRefine({ adjustments, setAdjustments, onDragStateC
   // Slider edits live here until their result is ready, so the image is only reprocessed
   // once per change, when the settings and the retouched face are committed together.
   const [drafts, setDrafts] = useState<Record<string, FaceSettings>>({});
-  const aiModelDownloadStatus = useProcessStore((state) => state.aiModelDownloadStatus);
+  const aiModelDownloadStatus = useProcessStore(selectAiModelDownloadStatus);
 
   const draftsRef = useRef(drafts);
   draftsRef.current = drafts;

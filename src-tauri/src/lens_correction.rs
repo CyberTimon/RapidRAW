@@ -4,8 +4,12 @@ use fuzzy_matcher::FuzzyMatcher;
 use include_dir::{Dir, include_dir};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
+#[cfg(not(target_os = "android"))]
 use std::fs;
-use tauri::{Manager, State};
+#[cfg(not(target_os = "android"))]
+use tauri::Manager;
+use tauri::State;
+#[cfg(not(target_os = "android"))]
 use walkdir::WalkDir;
 #[cfg(target_os = "android")]
 static LENS_DB_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/lensfun_db");
@@ -558,6 +562,7 @@ pub fn load_lensfun_db(app_handle: &tauri::AppHandle) -> LensDatabase {
 
     #[cfg(target_os = "android")]
     {
+        let _ = app_handle;
         log::info!("Loading Lensfun DB from embedded assets (Android path)");
 
         for file in LENS_DB_DIR.files() {

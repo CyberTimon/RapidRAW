@@ -1,21 +1,23 @@
-import { useEffect, useState } from 'react';
+import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
-import { Loader2, Sparkles, Trash2 } from 'lucide-react';
-import Slider from '../ui/Slider';
-import Switch from '../ui/Switch';
+import { Loader2 } from 'lucide-react';
+import Slider, { SliderChangeEvent } from '../ui/Slider';
 import Text from '../ui/Text';
-import { TextColors, TextVariants } from '../../types/typography';
+import { TextVariants } from '../../types/typography';
+import { SpatialEffect } from './Effects';
 import {
   Adjustments,
+  DenoiseMethod,
   DetailsAdjustment,
   getAdjustmentToolOrder,
+  getAiDenoiseEnablePatch,
   getHiddenAdjustmentTools,
 } from '../../utils/adjustments';
-import { AppSettings, Invokes } from '../ui/AppProperties';
-import { useEditorStore } from '../../store/useEditorStore';
+import { AppSettings } from '../ui/AppProperties';
 import AdjustmentSubSection from './AdjustmentSubSection';
+import { canvasToolState, useEditorStore } from '../../store/useEditorStore';
+import { selectAiModelDownloadStatus, useProcessStore } from '../../store/useProcessStore';
+import { areSectionPropsEqual } from '../../utils/adjustments';
 
 interface DetailsPanelProps {
   adjustments: Adjustments;
@@ -25,7 +27,7 @@ interface DetailsPanelProps {
   onDragStateChange?: (isDragging: boolean) => void;
 }
 
-export default function DetailsPanel({
+function DetailsPanel({
   adjustments,
   setAdjustments,
   appSettings,
@@ -33,91 +35,27 @@ export default function DetailsPanel({
   onDragStateChange,
 }: DetailsPanelProps) {
   const { t } = useTranslation();
-  const selectedImagePath = useEditorStore((s) => s.selectedImage?.path);
-  const isRawImage = useEditorStore((s) => !!s.selectedImage?.isRaw);
-  const [hasDenoiseLayer, setHasDenoiseLayer] = useState(false);
-  const [isGeneratingDenoise, setIsGeneratingDenoise] = useState(false);
-  const [denoiseProgress, setDenoiseProgress] = useState<string | null>(null);
-  const [denoiseError, setDenoiseError] = useState<string | null>(null);
+  const setEditor = useEditorStore((state) => state.setEditor);
+  const aiDenoiseProgress = useEditorStore((state) =>
+    state.selectedImage ? state.aiDenoiseProgress[state.selectedImage.path] : undefined,
+  );
+  const aiModelDownloadStatus = useProcessStore(selectAiModelDownloadStatus);
 
   const handleAdjustmentChange = (key: string, value: string) => {
     const numericValue = parseInt(value, 10);
     setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: numericValue }));
   };
 
-  useEffect(() => {
-    setDenoiseError(null);
-    if (isForMask || !selectedImagePath) {
-      setHasDenoiseLayer(false);
-      return;
-    }
-    let cancelled = false;
-    invoke<boolean>(Invokes.GetAiDenoiseLayerStatus, { path: selectedImagePath })
-      .then((exists) => {
-        if (!cancelled) setHasDenoiseLayer(exists);
-      })
-      .catch(() => {
-        if (!cancelled) setHasDenoiseLayer(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedImagePath, isForMask]);
-
-  useEffect(() => {
-    if (!isGeneratingDenoise) return;
-    const unlisten = listen<string>('denoise-progress', (event) => setDenoiseProgress(event.payload));
-    return () => {
-      unlisten.then((stop) => stop());
-    };
-  }, [isGeneratingDenoise]);
-
-  const setDenoiseEnabled = (enabled: boolean) => {
-    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, aiDenoiseEnabled: enabled }));
+  const handleFloatAdjustmentChange = (key: string, value: string) => {
+    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: parseFloat(value) }));
   };
 
-  const isStillSelected = (path: string) => useEditorStore.getState().selectedImage?.path === path;
-
-  const handleGenerateDenoise = async () => {
-    if (!selectedImagePath || isGeneratingDenoise) return;
-    const path = selectedImagePath;
-    const wasEnabled = !!adjustments.aiDenoiseEnabled;
-    setIsGeneratingDenoise(true);
-    setDenoiseError(null);
-    setDenoiseProgress(null);
-    try {
-      await invoke(Invokes.GenerateAiDenoiseLayer, { path });
-      if (isStillSelected(path)) {
-        setHasDenoiseLayer(true);
-        if (wasEnabled) {
-          setDenoiseEnabled(false);
-          requestAnimationFrame(() => setDenoiseEnabled(true));
-        } else {
-          setDenoiseEnabled(true);
-        }
-      }
-    } catch (err) {
-      if (isStillSelected(path)) setDenoiseError(String(err));
-    } finally {
-      setIsGeneratingDenoise(false);
-      setDenoiseProgress(null);
-    }
-  };
-
-  const handleRemoveDenoise = async () => {
-    if (!selectedImagePath) return;
-    const path = selectedImagePath;
-    try {
-      await invoke(Invokes.DeleteAiDenoiseLayer, { path });
-      if (isStillSelected(path)) {
-        setHasDenoiseLayer(false);
-        setDenoiseEnabled(false);
-      }
-    } catch (err) {
-      if (isStillSelected(path)) setDenoiseError(String(err));
-    }
-  };
-
+  const isAiFree = appSettings?.aiProvider === 'ai-free';
+  const denoiseMethod = adjustments.aiDenoiseEnabled
+    ? (adjustments.aiDenoiseMethod ?? DenoiseMethod.Ai)
+    : isAiFree
+      ? DenoiseMethod.Bm3d
+      : DenoiseMethod.Ai;
   const hiddenTools = getHiddenAdjustmentTools(appSettings?.adjustmentLayout);
   const toolOrder = getAdjustmentToolOrder('details', appSettings?.adjustmentLayout?.toolOrder);
 
@@ -165,6 +103,7 @@ export default function DetailsPanel({
             max={100}
             min={-100}
             onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Clarity, e.target.value)}
+            speedEditId={DetailsAdjustment.Clarity}
             step={1}
             value={adjustments.clarity}
             onDragStateChange={onDragStateChange}
@@ -174,6 +113,7 @@ export default function DetailsPanel({
             max={100}
             min={-100}
             onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Dehaze, e.target.value)}
+            speedEditId={DetailsAdjustment.Dehaze}
             step={1}
             value={adjustments.dehaze}
             onDragStateChange={onDragStateChange}
@@ -183,20 +123,26 @@ export default function DetailsPanel({
             max={100}
             min={-100}
             onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Structure, e.target.value)}
+            speedEditId={DetailsAdjustment.Structure}
             step={1}
             value={adjustments.structure}
             onDragStateChange={onDragStateChange}
           />
           {!isForMask && (
-            <Slider
-              label={t('adjustments.details.centre')}
-              max={100}
-              min={-100}
-              onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Centré, e.target.value)}
-              step={1}
-              value={adjustments.centré}
-              onDragStateChange={onDragStateChange}
-            />
+            <div
+              data-center-marker-controls="centre"
+              onPointerDown={() => setEditor(canvasToolState({ activeCenterMarker: 'centre' }))}
+            >
+              <Slider
+                label={t('adjustments.details.centre')}
+                max={100}
+                min={-100}
+                onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Centré, e.target.value)}
+                step={1}
+                value={adjustments.centré}
+                onDragStateChange={onDragStateChange}
+              />
+            </div>
           )}
         </AdjustmentSubSection>
       )}
@@ -226,80 +172,77 @@ export default function DetailsPanel({
             onDragStateChange={onDragStateChange}
           />
           {!isForMask && (
-            <div className="mt-2 flex flex-col gap-2">
-              {hasDenoiseLayer ? (
-                <div className="flex items-center gap-2">
-                  <Switch
-                    className="flex-1"
-                    label={t('adjustments.details.aiDenoise')}
-                    checked={!!adjustments.aiDenoiseEnabled}
-                    onChange={setDenoiseEnabled}
-                  />
-                  <button
-                    onClick={handleRemoveDenoise}
-                    data-tooltip={t('adjustments.details.aiDenoiseRemove')}
-                    className="p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-card-active transition-colors"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={handleGenerateDenoise}
-                  disabled={!isRawImage || isGeneratingDenoise}
-                  data-tooltip={isRawImage ? undefined : t('adjustments.details.aiDenoiseRawOnly')}
-                  className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-md text-sm bg-surface text-text-primary hover:bg-card-active transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isGeneratingDenoise ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                  <span>
-                    {isGeneratingDenoise
-                      ? denoiseProgress || t('adjustments.details.aiDenoiseGenerating')
-                      : t('adjustments.details.aiDenoiseGenerate')}
-                  </span>
-                </button>
-              )}
-              {hasDenoiseLayer && adjustments.aiDenoiseEnabled && (
-                <>
-                  <Slider
-                    label={t('adjustments.details.aiDenoiseAmount')}
-                    max={100}
-                    min={0}
-                    onChange={(e: any) => handleAdjustmentChange('aiDenoiseAmount', e.target.value)}
-                    step={1}
-                    value={adjustments.aiDenoiseAmount ?? 100}
-                    defaultValue={100}
-                    fillOrigin="min"
-                    onDragStateChange={onDragStateChange}
-                  />
-                  <Slider
-                    label={t('adjustments.details.aiDenoiseColor')}
-                    max={100}
-                    min={0}
-                    onChange={(e: any) => handleAdjustmentChange('aiDenoiseColor', e.target.value)}
-                    step={1}
-                    value={adjustments.aiDenoiseColor ?? 100}
-                    defaultValue={100}
-                    fillOrigin="min"
-                    onDragStateChange={onDragStateChange}
-                  />
-                  <Slider
-                    label={t('adjustments.details.aiDenoiseDetail')}
-                    max={100}
-                    min={0}
-                    onChange={(e: any) => handleAdjustmentChange('aiDenoiseDetail', e.target.value)}
-                    step={1}
-                    value={adjustments.aiDenoiseDetail ?? 0}
-                    defaultValue={0}
-                    fillOrigin="min"
-                    onDragStateChange={onDragStateChange}
-                  />
-                </>
-              )}
-              {denoiseError && (
-                <Text variant={TextVariants.small} color={TextColors.error}>
-                  {denoiseError}
-                </Text>
-              )}
+            <div className="mt-2">
+              <SpatialEffect
+                enabled={!!adjustments.aiDenoiseEnabled}
+                label={
+                  denoiseMethod === DenoiseMethod.Ai
+                    ? t('adjustments.details.aiDenoise')
+                    : t('adjustments.details.classicDenoise')
+                }
+                onToggle={(enabled: boolean) =>
+                  setAdjustments((prev: Partial<Adjustments>) => ({
+                    ...prev,
+                    ...(enabled ? getAiDenoiseEnablePatch(appSettings?.aiProvider) : { aiDenoiseEnabled: false }),
+                  }))
+                }
+              >
+                {aiDenoiseProgress !== undefined ? (
+                  <div className="flex flex-col items-center justify-center gap-1 p-4 text-text-secondary text-center">
+                    <div className="flex items-center gap-2">
+                      <Loader2 size={16} className="animate-spin shrink-0" />
+                      <Text variant={TextVariants.label}>
+                        {aiModelDownloadStatus
+                          ? t('editor.masks.settings.aiModelDownloading')
+                          : t('editor.ai.denoising')}
+                      </Text>
+                    </div>
+                    <Text variant={TextVariants.small} className="text-accent">
+                      {aiModelDownloadStatus || `${Math.round(aiDenoiseProgress * 100)}%`}
+                    </Text>
+                  </div>
+                ) : (
+                  <>
+                    <Slider
+                      label={t('adjustments.effects.amount')}
+                      max={100}
+                      min={0}
+                      defaultValue={100}
+                      onChange={(e: SliderChangeEvent) =>
+                        handleAdjustmentChange(DetailsAdjustment.AiDenoiseAmount, String(e.target.value))
+                      }
+                      step={1}
+                      value={adjustments.aiDenoiseAmount ?? 100}
+                      onDragStateChange={onDragStateChange}
+                      fillOrigin="min"
+                    />
+                    <Slider
+                      label={t('adjustments.details.aiDenoiseColor')}
+                      max={100}
+                      min={0}
+                      defaultValue={100}
+                      onChange={(e: SliderChangeEvent) =>
+                        handleAdjustmentChange(DetailsAdjustment.AiDenoiseColor, String(e.target.value))
+                      }
+                      step={1}
+                      value={adjustments.aiDenoiseColor ?? 100}
+                      onDragStateChange={onDragStateChange}
+                      fillOrigin="min"
+                    />
+                    <Slider
+                      label={t('adjustments.details.aiDenoiseDetail')}
+                      max={100}
+                      min={0}
+                      onChange={(e: SliderChangeEvent) =>
+                        handleAdjustmentChange(DetailsAdjustment.AiDenoiseDetail, String(e.target.value))
+                      }
+                      step={1}
+                      value={adjustments.aiDenoiseDetail ?? 0}
+                      onDragStateChange={onDragStateChange}
+                    />
+                  </>
+                )}
+              </SpatialEffect>
             </div>
           )}
         </AdjustmentSubSection>
@@ -333,6 +276,88 @@ export default function DetailsPanel({
           />
         </AdjustmentSubSection>
       )}
+
+      {!isForMask && !hiddenTools.includes('negativeConversion') && (
+        <AdjustmentSubSection
+          id="negativeConversion"
+          order={toolOrder.indexOf('negativeConversion')}
+          title={t('adjustments.details.negativeConversion')}
+        >
+          <SpatialEffect
+            enabled={!!adjustments.negativeConversionEnabled}
+            label={t('adjustments.details.convertNegative')}
+            onToggle={(enabled: boolean) =>
+              setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, negativeConversionEnabled: enabled }))
+            }
+          >
+            <Slider
+              label={t('adjustments.details.negativeRed')}
+              max={2}
+              min={0.5}
+              defaultValue={1}
+              onChange={(e: SliderChangeEvent) =>
+                handleFloatAdjustmentChange(DetailsAdjustment.NegativeRedWeight, String(e.target.value))
+              }
+              step={0.01}
+              value={adjustments.negativeRedWeight ?? 1}
+              onDragStateChange={onDragStateChange}
+              fillOrigin="min"
+            />
+            <Slider
+              label={t('adjustments.details.negativeGreen')}
+              max={2}
+              min={0.5}
+              defaultValue={1}
+              onChange={(e: SliderChangeEvent) =>
+                handleFloatAdjustmentChange(DetailsAdjustment.NegativeGreenWeight, String(e.target.value))
+              }
+              step={0.01}
+              value={adjustments.negativeGreenWeight ?? 1}
+              onDragStateChange={onDragStateChange}
+              fillOrigin="min"
+            />
+            <Slider
+              label={t('adjustments.details.negativeBlue')}
+              max={2}
+              min={0.5}
+              defaultValue={1}
+              onChange={(e: SliderChangeEvent) =>
+                handleFloatAdjustmentChange(DetailsAdjustment.NegativeBlueWeight, String(e.target.value))
+              }
+              step={0.01}
+              value={adjustments.negativeBlueWeight ?? 1}
+              onDragStateChange={onDragStateChange}
+              fillOrigin="min"
+            />
+            <Slider
+              label={t('adjustments.details.negativeExposure')}
+              max={2}
+              min={-2}
+              onChange={(e: SliderChangeEvent) =>
+                handleFloatAdjustmentChange(DetailsAdjustment.NegativeExposure, String(e.target.value))
+              }
+              step={0.05}
+              value={adjustments.negativeExposure ?? 0}
+              onDragStateChange={onDragStateChange}
+            />
+            <Slider
+              label={t('adjustments.details.negativeContrast')}
+              max={2.5}
+              min={0.5}
+              defaultValue={1}
+              onChange={(e: SliderChangeEvent) =>
+                handleFloatAdjustmentChange(DetailsAdjustment.NegativeContrast, String(e.target.value))
+              }
+              step={0.05}
+              value={adjustments.negativeContrast ?? 1}
+              onDragStateChange={onDragStateChange}
+              fillOrigin="min"
+            />
+          </SpatialEffect>
+        </AdjustmentSubSection>
+      )}
     </div>
   );
 }
+
+export default memo(DetailsPanel, areSectionPropsEqual('details'));

@@ -142,7 +142,10 @@ function SubMenu({ cancelCloseSubmenu, closeSubmenu, hideContextMenu, options, p
         transition={{ duration: 0.1, ease: 'easeOut' }}
       >
         <div
-          className={clsx('backdrop-blur-md rounded-lg shadow-xl', !CustomComponent && 'bg-surface/95 p-2 w-56')}
+          className={clsx(
+            'backdrop-blur-md rounded-lg shadow-xl',
+            !CustomComponent && 'bg-surface/95 p-2 w-max min-w-56 max-w-72',
+          )}
           role="menu"
         >
           {CustomComponent && customOption ? (
@@ -239,7 +242,7 @@ function MenuItem({ option, path, hideContextMenu }: MenuItemProps) {
           {option.icon && <option.icon size={16} />}
           <span>{option.label}</span>
         </div>
-        {option.submenu && <ChevronRight size={16} />}
+        {option.submenu && <ChevronRight className="shrink-0" size={16} />}
       </button>
 
       <AnimatePresence>
@@ -276,7 +279,7 @@ function ContextMenu() {
           style={{ top: y, left: x }}
           transition={{ duration: 0.1, ease: 'easeOut' }}
         >
-          <div className="bg-surface/95 backdrop-blur-md rounded-lg shadow-xl p-2 w-64" role="menu">
+          <div className="bg-surface/95 backdrop-blur-md rounded-lg shadow-xl p-2 w-max min-w-64 max-w-80" role="menu">
             {options.map((option: any, index: number) => (
               <MenuItem hideContextMenu={hideContextMenu} key={index} option={option} path={[index]} />
             ))}
@@ -295,7 +298,7 @@ export function ContextMenuProvider({ children }: ContextMenuProviderProps) {
   const submenuTimeoutRef = useRef<any>(null);
 
   const showContextMenu = useCallback((x: number, y: number, options: Array<Option>) => {
-    const menuWidth = 256;
+    const menuWidth = 320;
     const menuHeight =
       options.reduce((acc: number, opt: Option) => acc + (opt.type === OPTION_SEPARATOR ? 9 : 40), 0) + 16;
     const adjustedX = x + menuWidth > window.innerWidth ? window.innerWidth - menuWidth - 10 : x;
