@@ -41,11 +41,12 @@ import Button from '../../ui/Button';
 import Text from '../../ui/Text';
 import Slider from '../../ui/Slider';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
-import { Adjustments, INITIAL_ADJUSTMENTS, ADJUSTMENT_GROUPS } from '../../../utils/adjustments';
+import { Adjustments, INITIAL_ADJUSTMENTS, ADJUSTMENT_GROUPS, MaskContainer } from '../../../utils/adjustments';
+import { hasAiSubMasks, mergeAiMaskResults, stripAiMaskResults } from '../../../utils/maskUtils';
 import { Invokes, OPTION_SEPARATOR, Panel, Preset, SelectedImage } from '../../ui/AppProperties';
 import { useEditorStore, ActivePresetState } from '../../../store/useEditorStore';
 import { useUIStore } from '../../../store/useUIStore';
-import { useEditorActions } from '../../../hooks/useEditorActions';
+import { debouncedSave, useEditorActions } from '../../../hooks/useEditorActions';
 
 interface DroppableFolderItemProps {
   children: any;
@@ -197,7 +198,9 @@ const mixAdjustments = (presetObj: any, intensity: number, initialObj: any = INI
     const presetVal = presetObj[key];
     const initialVal = initialObj[key] !== undefined ? initialObj[key] : (INITIAL_ADJUSTMENTS as any)[key];
 
-    if (typeof presetVal === 'number') {
+    if (fraction === 0) {
+      result[key] = initialVal;
+    } else if (typeof presetVal === 'number') {
       result[key] = typeof initialVal === 'number' ? initialVal + (presetVal - initialVal) * fraction : presetVal;
     } else if (Array.isArray(presetVal)) {
       if (!Array.isArray(initialVal)) {
@@ -260,18 +263,18 @@ const applyPresetStack = (base: Adjustments, activeList: ActivePresetState[]): A
   let current = { ...base };
   for (const { preset, intensity } of activeList) {
     if (!preset.adjustments) continue;
-    if (intensity === 100) {
-      current = {
-        ...current,
-        ...preset.adjustments,
-      };
-    } else {
-      const mixed = mixAdjustments(preset.adjustments, intensity, current);
-      current = {
-        ...current,
-        ...mixed,
-      };
+    const { masks: presetMasks, ...presetAdjustments } = preset.adjustments;
+    current = {
+      ...current,
+      ...(intensity === 100 ? presetAdjustments : mixAdjustments(presetAdjustments, intensity, current)),
+    };
+    // Masks cannot be blended: they apply unless the preset is fully off. Their AI results are per image.
+    if (presetMasks !== undefined && intensity > 0) {
+      current.masks = stripAiMaskResults(presetMasks);
     }
+  }
+  if (current.masks) {
+    current.masks = mergeAiMaskResults(current.masks, useEditorStore.getState().adjustments.masks || []);
   }
   return current;
 };
@@ -924,6 +927,28 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     setEditor,
   ]);
 
+  const resolvePresetAiMasks = useCallback(
+    (presetMasks: Array<MaskContainer>) => {
+      const path = useEditorStore.getState().selectedImage?.path;
+      if (!path) return;
+
+      debouncedSave.flush();
+      invoke(Invokes.ApplyAdjustmentsToPaths, { paths: [path], adjustments: { masks: presetMasks } })
+        .then(() => invoke<any>(Invokes.LoadMetadata, { path }))
+        .then((meta) => {
+          if (!meta?.adjustments?.masks || useEditorStore.getState().selectedImage?.path !== path) return;
+          setEditor((state) => ({
+            adjustments: {
+              ...state.adjustments,
+              masks: mergeAiMaskResults(state.adjustments.masks || [], meta.adjustments.masks),
+            },
+          }));
+        })
+        .catch((err) => console.error('Failed to resolve preset AI masks:', err));
+    },
+    [setEditor],
+  );
+
   const handleApplyPreset = useCallback(
     (preset: Preset) => {
       const currentActive = activePresetsRef.current;
@@ -957,27 +982,37 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
       const nextActive = [...currentActive, { preset, intensity: 100 }];
       const nextAdjustments = applyPresetStack(base, nextActive);
 
-      setAdjustments(nextAdjustments);
+      const presetMasks = preset.adjustments?.masks || [];
+      if (hasAiSubMasks(presetMasks)) {
+        resolvePresetAiMasks(presetMasks);
+      }
+
+      setAdjustments(nextAdjustments, `${t('editor.presets.types.preset')}: ${preset.name}`);
       setEditor({
         activePresets: nextActive,
         ...(presetBaseAdjustmentsRef.current ? {} : { presetBaseAdjustments: base }),
       });
     },
-    [setAdjustments, setEditor],
+    [setAdjustments, setEditor, resolvePresetAiMasks, t],
   );
 
   const handleIntensityChange = useCallback(
     (preset: Preset, intensity: number) => {
       const base = presetBaseAdjustmentsRef.current ?? adjustmentsRef.current;
+      const previous = activePresetsRef.current.find((p) => p.preset.id === preset.id);
       const nextActive = activePresetsRef.current.map((p) => (p.preset.id === preset.id ? { ...p, intensity } : p));
       const nextAdjustments = applyPresetStack(base, nextActive);
+      const presetMasks = preset.adjustments?.masks;
+      if (previous?.intensity === 0 && intensity > 0 && presetMasks && hasAiSubMasks(presetMasks)) {
+        resolvePresetAiMasks(presetMasks);
+      }
       setAdjustments(nextAdjustments);
       setEditor({
         activePresets: nextActive,
         ...(presetBaseAdjustmentsRef.current ? {} : { presetBaseAdjustments: base }),
       });
     },
-    [setAdjustments, setEditor],
+    [setAdjustments, setEditor, resolvePresetAiMasks],
   );
 
   const handleSaveConfiguredPreset = async (

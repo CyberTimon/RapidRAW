@@ -2,8 +2,9 @@ import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import Slider from '../ui/Slider';
 import { Adjustments, BasicAdjustment } from '../../utils/adjustments';
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { areSectionPropsEqual } from '../../utils/adjustments';
 
 interface BasicAdjustmentsProps {
   adjustments: Adjustments;
@@ -143,6 +144,7 @@ const ToneMapperSwitch = ({
             max={5}
             min={-5}
             onChange={(e: any) => onExposureChange(parseFloat(e.target.value))}
+            speedEditId={BasicAdjustment.Exposure}
             step={0.01}
             value={exposureValue}
             trackClassName="bg-surface"
@@ -154,7 +156,7 @@ const ToneMapperSwitch = ({
   );
 };
 
-export default function BasicAdjustments({
+function BasicAdjustments({
   adjustments,
   setAdjustments,
   isForMask = false,
@@ -185,6 +187,7 @@ export default function BasicAdjustments({
           max={5}
           min={-5}
           onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Exposure, e.target.value)}
+          speedEditId={BasicAdjustment.Exposure}
           step={0.01}
           value={adjustments.exposure}
           onDragStateChange={onDragStateChange}
@@ -203,6 +206,7 @@ export default function BasicAdjustments({
         max={100}
         min={-100}
         onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Contrast, e.target.value)}
+        speedEditId={BasicAdjustment.Contrast}
         step={1}
         value={adjustments.contrast}
         onDragStateChange={onDragStateChange}
@@ -212,6 +216,7 @@ export default function BasicAdjustments({
         max={100}
         min={-100}
         onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Highlights, e.target.value)}
+        speedEditId={BasicAdjustment.Highlights}
         step={1}
         value={adjustments.highlights}
         onDragStateChange={onDragStateChange}
@@ -221,6 +226,7 @@ export default function BasicAdjustments({
         max={100}
         min={-100}
         onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Shadows, e.target.value)}
+        speedEditId={BasicAdjustment.Shadows}
         step={1}
         value={adjustments.shadows}
         onDragStateChange={onDragStateChange}
@@ -230,6 +236,7 @@ export default function BasicAdjustments({
         max={100}
         min={-100}
         onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Whites, e.target.value)}
+        speedEditId={BasicAdjustment.Whites}
         step={1}
         value={adjustments.whites}
         onDragStateChange={onDragStateChange}
@@ -239,6 +246,7 @@ export default function BasicAdjustments({
         max={100}
         min={-100}
         onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Blacks, e.target.value)}
+        speedEditId={BasicAdjustment.Blacks}
         step={1}
         value={adjustments.blacks}
         onDragStateChange={onDragStateChange}
@@ -255,3 +263,5 @@ export default function BasicAdjustments({
     </div>
   );
 }
+
+export default memo(BasicAdjustments, areSectionPropsEqual('basic'));

@@ -2,12 +2,14 @@ import { create } from 'zustand';
 import {
   FilterCriteria,
   ImageFile,
+  ImageFlag,
   RawStatus,
   SortCriteria,
   SortDirection,
   AlbumItem,
 } from '../components/ui/AppProperties';
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../utils/adjustments';
+import { ScopeFlags } from '../utils/imageFlags';
 import { ColumnWidths } from '../components/panel/MainLibrary';
 
 export interface NavHistoryItem {
@@ -15,6 +17,7 @@ export interface NavHistoryItem {
   path: string;
   albumName?: string;
   images?: string[];
+  flagView?: ImageFlag | null;
 }
 
 interface SearchCriteria {
@@ -39,10 +42,16 @@ interface LibraryState {
   // Images & Selection
   imageList: Array<ImageFile>;
   imageRatings: Record<string, number>;
+  exifByPath: Record<string, Record<string, string>>;
   multiSelectedPaths: Array<string>;
   selectionAnchorPath: string | null;
   libraryActivePath: string | null;
   libraryActiveAdjustments: Adjustments;
+
+  // Sidebar flag view: shows only images with this flag from the current folder and its subfolders, or album.
+  flagView: ImageFlag | null;
+  // Flagged images in the current folder and its subfolders; null until they have been scanned.
+  scopeFlags: ScopeFlags | null;
 
   // Sorting & Filtering
   sortCriteria: SortCriteria;
@@ -54,6 +63,7 @@ interface LibraryState {
   isViewLoading: boolean;
   libraryScrollTop: number;
   listColumnWidths: ColumnWidths;
+  libraryGridRows: Array<Array<{ path: string; center: number }>>;
 
   // Navigation History
   navHistory: NavHistoryItem[];
@@ -81,10 +91,14 @@ export const useLibraryStore = create<LibraryState>((set) => ({
 
   imageList: [],
   imageRatings: {},
+  exifByPath: {},
   multiSelectedPaths: [],
   selectionAnchorPath: null,
   libraryActivePath: null,
   libraryActiveAdjustments: INITIAL_ADJUSTMENTS,
+
+  flagView: null,
+  scopeFlags: null,
 
   sortCriteria: { key: 'name', order: SortDirection.Ascending },
   filterCriteria: { colors: [], rating: 0, rawStatus: RawStatus.All },
@@ -93,6 +107,7 @@ export const useLibraryStore = create<LibraryState>((set) => ({
   isTreeLoading: false,
   isViewLoading: false,
   libraryScrollTop: 0,
+  libraryGridRows: [],
   listColumnWidths: {
     thumbnail: 4,
     name: 20,
@@ -133,7 +148,14 @@ export const useLibraryStore = create<LibraryState>((set) => ({
   pushNavHistory: (item) =>
     set((state) => {
       const current = state.navHistory[state.navIndex];
-      if (current && current.path === item.path && current.type === item.type) return state;
+      if (
+        current &&
+        current.path === item.path &&
+        current.type === item.type &&
+        (current.flagView ?? null) === (item.flagView ?? null)
+      ) {
+        return state;
+      }
 
       const newHistory = state.navHistory.slice(0, state.navIndex + 1);
       newHistory.push(item);

@@ -21,6 +21,7 @@ import {
   Status,
   ExportState,
   FileFormats,
+  MAX_EXPORT_DPI,
   TiffBitDepth,
   WatermarkAnchor,
 } from '../../ui/ExportImportProperties';
@@ -32,6 +33,9 @@ import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useUIStore } from '../../../store/useUIStore';
+import ImmichExportOptions, { useImmichExportAvailable, useImmichExportChoice } from '../../immich/ImmichExportOptions';
+import { prepareImmichExport } from '../../immich/immichApi';
+import { formatBytes } from '../../../utils/formatBytes';
 
 interface ExportPanelProps {
   exportState: ExportState;
@@ -59,6 +63,11 @@ function parsePercent(value: string): number | null {
   return Number.isFinite(parsed) && parsed >= 0 && parsed <= MAX_BORDER_PERCENT ? parsed : null;
 }
 
+function parseDpi(value: string): number | null {
+  const parsed = Number(value.trim());
+  return Number.isInteger(parsed) && parsed > 0 && parsed <= MAX_EXPORT_DPI ? parsed : null;
+}
+
 interface ValidatedNumberInputProps {
   ariaLabel: string;
   disabled: boolean;
@@ -77,6 +86,9 @@ function ValidatedNumberInput({ ariaLabel, disabled, field, max }: ValidatedNumb
       max={max}
       min="0"
       onChange={(e) => field.handleChange(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur();
+      }}
       step="any"
       type="number"
       value={field.text}
@@ -200,21 +212,6 @@ function WatermarkPreview({
   );
 }
 
-const formatBytes = (bytes: number, t: any, decimals = 2) => {
-  if (!+bytes) return `0 ${t('export.bytes.bytes')}`;
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = [
-    t('export.bytes.bytes'),
-    t('export.bytes.kb'),
-    t('export.bytes.mb'),
-    t('export.bytes.gb'),
-    t('export.bytes.tb'),
-  ];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
-};
-
 export default function ExportPanel({
   exportState,
   multiSelectedPaths,
@@ -262,6 +259,8 @@ export default function ExportPanel({
     setJpegQuality,
     tiffBitDepth,
     setTiffBitDepth,
+    dpi,
+    setDpi,
     enableResize,
     setEnableResize,
     resizeMode,
@@ -364,6 +363,8 @@ export default function ExportPanel({
       ? { ratioWidth: padRatioWidthValue, ratioHeight: padRatioHeightValue, color: padColor }
       : null;
 
+  const dpiField = useParsedTextField(dpi, setDpi, parseDpi);
+
   const borderHorizontalField = useParsedTextField(borderHorizontalPercent, setBorderHorizontalPercent, parsePercent);
   const borderVerticalField = useParsedTextField(borderVerticalPercent, setBorderVerticalPercent, parsePercent);
   const borderColorField = useParsedTextField(borderColor, setBorderColor, normalizeHexColor);
@@ -388,6 +389,9 @@ export default function ExportPanel({
   const filenameInputRef = useRef<HTMLInputElement>(null);
   const osPlatform = useOsPlatform();
   const isAndroid = osPlatform === 'android';
+  const canExportToImmich = useImmichExportAvailable() && !isAndroid;
+  const destination = destinationType === 'immich' && !canExportToImmich ? 'customFolder' : destinationType;
+  const immichExport = useImmichExportChoice();
   const activePanels = useUIStore((state) => state.activePanels);
   const isPanelReallyActive = Object.values(activePanels).includes(Panel.Export);
 
@@ -494,7 +498,7 @@ export default function ExportPanel({
       keepMetadata,
       preserveTimestamps,
       preserveFolders,
-      destinationType,
+      destinationType: destination,
       subfolder,
       resize: enableResize ? { mode: resizeMode, value: resizeValue, dontEnlarge } : null,
       border: borderSettings,
@@ -591,7 +595,7 @@ export default function ExportPanel({
       keepMetadata,
       preserveTimestamps,
       preserveFolders,
-      destinationType,
+      destinationType: destination,
       subfolder,
       resize: enableResize ? { mode: resizeMode, value: resizeValue, dontEnlarge } : null,
       border: borderSettings,
@@ -608,6 +612,7 @@ export default function ExportPanel({
               opacity: watermarkOpacity,
             }
           : null,
+      dpi,
     };
 
     const lastExportPath = appSettings?.exportPresets?.find((p) => p.id === '__last_used__')?.lastExportPath;
@@ -616,10 +621,14 @@ export default function ExportPanel({
       const selectedFormat: any = FILE_FORMATS.find((f) => f.id === fileFormat);
 
       let outputFolderOrFile = '';
-      const isOriginalFolder = destinationType === 'originalFolder';
-      const shouldChooseOutputFile = numImages === 1 && !preserveFolders && !isOriginalFolder;
+      const isOriginalFolder = destination === 'originalFolder';
+      const isImmich = destination === 'immich';
+      const shouldChooseOutputFile = numImages === 1 && !preserveFolders && !isOriginalFolder && !isImmich;
 
-      if (isOriginalFolder) {
+      if (isImmich) {
+        exportSettings.preserveFolders = false;
+        outputFolderOrFile = await prepareImmichExport(immichExport.album, immichExport.withOriginal);
+      } else if (isOriginalFolder) {
         outputFolderOrFile = 'originalFolderDummy';
       } else if (shouldChooseOutputFile) {
         const originalFilename = pathsToExport[0].split(/[\\/]/).pop() || '';
@@ -652,7 +661,7 @@ export default function ExportPanel({
 
       if (isAndroid || outputFolderOrFile) {
         if (!isAndroid) {
-          if (isOriginalFolder) {
+          if (isOriginalFolder || isImmich) {
             saveLastUsedPreset(lastExportPath || '');
           } else {
             const dir = shouldChooseOutputFile
@@ -665,7 +674,12 @@ export default function ExportPanel({
           }
         }
 
-        setExportState({ status: Status.Exporting, progress: { current: 0, total: numImages }, errorMessage: '' });
+        setExportState({
+          destination: isOriginalFolder || isImmich || isAndroid ? null : outputFolderOrFile,
+          errorMessage: '',
+          progress: { current: 0, total: numImages },
+          status: Status.Exporting,
+        });
         await invoke(Invokes.ExportImages, {
           paths: pathsToExport,
           outputFolderOrFile: outputFolderOrFile,
@@ -777,14 +791,17 @@ export default function ExportPanel({
                   options={[
                     { label: t('export.destination.customFolder'), value: 'customFolder' },
                     { label: t('export.destination.originalFolder'), value: 'originalFolder' },
+                    ...(canExportToImmich ? [{ label: t('immich.export.destination'), value: 'immich' }] : []),
                   ]}
-                  value={destinationType || 'customFolder'}
+                  value={destination || 'customFolder'}
                   onChange={(val) => setDestinationType(val as string)}
                   disabled={isExporting}
                   className="w-full"
                 />
 
-                {destinationType === 'originalFolder' && (
+                {destination === 'immich' && <ImmichExportOptions disabled={isExporting} />}
+
+                {destination === 'originalFolder' && (
                   <div className="flex items-center gap-3 pl-2 border-l-2 border-surface">
                     <Text variant={TextVariants.label} className="whitespace-nowrap min-w-[70px]">
                       {t('export.destination.subfolder')}
@@ -966,7 +983,7 @@ export default function ExportPanel({
                   )}
                 </Section>
 
-                {fileFormat == FileFormats.Jpeg && (
+                {[FileFormats.Jpeg, FileFormats.Png, FileFormats.Webp].includes(fileFormat as FileFormats) && (
                   <Section title={t('export.sections.metadata')}>
                     <Switch
                       checked={keepMetadata}
@@ -1118,6 +1135,20 @@ export default function ExportPanel({
                               disabled={isExporting}
                             />
                           </>
+                        )}
+                        {[FileFormats.Jpeg, FileFormats.Png, FileFormats.Tiff].includes(fileFormat as FileFormats) && (
+                          <div className="flex items-center gap-2">
+                            <Text variant={TextVariants.label} className="flex-1">
+                              {t('export.file.resolution')}
+                            </Text>
+                            <ValidatedNumberInput
+                              ariaLabel={t('export.file.resolution')}
+                              disabled={isExporting}
+                              field={dpiField}
+                              max={MAX_EXPORT_DPI}
+                            />
+                            <Text variant={TextVariants.label}>{t('export.file.dpi')}</Text>
+                          </div>
                         )}
                       </div>
                     </motion.div>

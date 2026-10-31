@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -59,13 +59,13 @@ import {
   getSubMaskName,
   NewMaskDropZone,
 } from './Masks';
-import { Adjustments, AiPatch } from '../../../utils/adjustments';
+import { Adjustments, AiPatch, insertAiPatch } from '../../../utils/adjustments';
 import { OPTION_SEPARATOR } from '../../ui/AppProperties';
 import { createSubMask } from '../../../utils/maskUtils';
 import Text from '../../ui/Text';
 import { TEXT_COLOR_KEYS, TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useEditorStore } from '../../../store/useEditorStore';
-import { useProcessStore } from '../../../store/useProcessStore';
+import { selectAiModelDownloadStatus, useProcessStore } from '../../../store/useProcessStore';
 import { useUIStore } from '../../../store/useUIStore';
 import { useEditorActions } from '../../../hooks/useEditorActions';
 import { useAiMasking } from '../../../hooks/useAiMasking';
@@ -109,7 +109,14 @@ const SUB_MASK_CONFIG: any = {
   },
   [Mask.Retouch]: {
     showBrushTools: true,
-    parameters: [{ key: 'intensity', min: 1, max: 100, step: 1, defaultValue: 40 }],
+    parameters: [
+      { key: 'intensity', min: 0, max: 100, step: 1, defaultValue: 40 },
+      { key: 'texture', min: 0, max: 100, step: 1, defaultValue: 75 },
+      { key: 'blemish', min: 0, max: 100, step: 1, defaultValue: 50 },
+      { key: 'shine', min: 0, max: 100, step: 1, defaultValue: 40 },
+      { key: 'evenTone', min: 0, max: 100, step: 1, defaultValue: 35 },
+      { key: 'skinProtection', min: 0, max: 100, step: 1, defaultValue: 85 },
+    ],
   },
   [Mask.Linear]: { parameters: [] },
   [Mask.AiSubject]: {
@@ -132,7 +139,7 @@ const SUB_MASK_CONFIG: any = {
   },
   [Mask.QuickEraser]: {
     parameters: [
-      { key: 'grow', min: -100, max: 100, step: 1, defaultValue: 75 },
+      { key: 'grow', min: -100, max: 200, step: 1, defaultValue: 150 },
       { key: 'feather', min: 0, max: 100, step: 1, defaultValue: 75 },
     ],
   },
@@ -336,14 +343,21 @@ export default function AIPanel() {
   const { t } = useTranslation();
   const activePatchContainerId = useEditorStore((s) => s.activeAiPatchContainerId);
   const activeSubMaskId = useEditorStore((s) => s.activeAiSubMaskId);
-  const adjustments = useEditorStore((s) => s.adjustments);
+  const storeAdjustments = useEditorStore((s) => s.adjustments);
+  const adjustments = useMemo(
+    () => ({
+      ...storeAdjustments,
+      aiPatches: (storeAdjustments.aiPatches || []).filter((p: AiPatch) => !p.faceRefine),
+    }),
+    [storeAdjustments],
+  );
   const brushSettings = useEditorStore((s) => s.brushSettings);
   const isAIConnectorConnected = useEditorStore((s) => s.isAIConnectorConnected);
   const selectedImage = useEditorStore((s) => s.selectedImage);
   const setEditor = useEditorStore((s) => s.setEditor);
 
   const activeAiTasks = useProcessStore((s) => s.activeAiTasks);
-  const aiModelDownloadStatus = useProcessStore((s) => s.aiModelDownloadStatus);
+  const aiModelDownloadStatus = useProcessStore(selectAiModelDownloadStatus);
   const setCustomEscapeHandler = useUIStore((s) => s.setCustomEscapeHandler);
 
   const { setAdjustments } = useEditorActions();
@@ -500,7 +514,10 @@ export default function AIPanel() {
       });
     });
     handleDeselect();
-    setAdjustments((prev: Adjustments) => ({ ...prev, aiPatches: [] }));
+    setAdjustments((prev: Adjustments) => ({
+      ...prev,
+      aiPatches: (prev.aiPatches || []).filter((p: AiPatch) => p.faceRefine),
+    }));
   };
 
   const createMaskLogic = (type: Mask, mode: SubMaskMode = SubMaskMode.Additive) => {
@@ -586,7 +603,10 @@ export default function AIPanel() {
       visible: true,
     };
 
-    setAdjustments((prev: Adjustments) => ({ ...prev, aiPatches: [...(prev.aiPatches || []), newContainer] }));
+    setAdjustments((prev: Adjustments) => ({
+      ...prev,
+      aiPatches: insertAiPatch(prev.aiPatches || [], newContainer),
+    }));
     onSelectPatchContainer(newContainer.id);
 
     const isStandalone = isStandaloneMask(type);
@@ -704,10 +724,11 @@ export default function AIPanel() {
   const updateSubMask = (id: string, data: any) =>
     setAdjustments((prev: Adjustments) => ({
       ...prev,
-      aiPatches: prev.aiPatches.map((p) => ({
-        ...p,
-        subMasks: p.subMasks.map((sm) => (sm.id === id ? { ...sm, ...data } : sm)),
-      })),
+      aiPatches: prev.aiPatches.map((p) =>
+        p.subMasks.some((sm) => sm.id === id)
+          ? { ...p, subMasks: p.subMasks.map((sm) => (sm.id === id ? { ...sm, ...data } : sm)) }
+          : p,
+      ),
     }));
 
   const handleDeleteContainer = (id: string) => {
@@ -776,11 +797,7 @@ export default function AIPanel() {
 
   const insertPatchContainer = (container: AiPatch, insertIndex?: number) => {
     setAdjustments((prev: Adjustments) => {
-      const newPatches = [...(prev.aiPatches || [])];
-      const targetIndex = Math.max(0, Math.min(insertIndex ?? newPatches.length, newPatches.length));
-
-      newPatches.splice(targetIndex, 0, container);
-      return { ...prev, aiPatches: newPatches };
+      return { ...prev, aiPatches: insertAiPatch(prev.aiPatches || [], container, insertIndex) };
     });
 
     onSelectPatchContainer(container.id);
@@ -974,7 +991,7 @@ export default function AIPanel() {
         const oldIndex = prev.aiPatches.findIndex((p) => p.id === dragData.item!.id);
         let newIndex = -1;
 
-        if (overId === 'ai-list-root') newIndex = prev.aiPatches.length - 1;
+        if (overId === 'ai-list-root') newIndex = prev.aiPatches.filter((p) => !p.faceRefine).length - 1;
         else if (overData?.type === 'Container') newIndex = prev.aiPatches.findIndex((p) => p.id === overId);
         else if (overData?.type === 'SubMask') newIndex = prev.aiPatches.findIndex((p) => p.id === overData.parentId);
 

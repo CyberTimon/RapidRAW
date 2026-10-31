@@ -1,23 +1,23 @@
-use crate::image_processing::apply_orientation;
+use crate::as_shot::AsShot;
+use crate::highlight_reconstruction::{self, Region};
+use crate::image_processing::{apply_orientation, oriented_rgb32f};
 use crate::white_balance::WhiteBalance;
 use anyhow::{Result, anyhow};
-use image::{DynamicImage, ImageBuffer, Rgb32FImage, Rgba};
+use image::{DynamicImage, ImageBuffer, Rgb};
 use rawler::{
-    decoders::{Decoder, Orientation, RawDecodeParams, RawMetadata},
-    dng::{
-        CropMode, DNG_VERSION_V1_4, DngCompression, DngPhotometricConversion, writer::DngWriter,
-    },
+    decoders::{Decoder, Orientation, RawDecodeParams},
     imgop::{
+        Dim2, Point, Rect,
         develop::{DemosaicAlgorithm, Intermediate, ProcessingStep, RawDevelop},
-        matrix::{multiply, normalize},
-        xyz::{Illuminant, SRGB_TO_XYZ_D65},
+        xyz::{FlatColorMatrix, Illuminant},
     },
-    rawimage::{BlackLevel, RawImage, RawImageData, RawPhotometricInterpretation, WhiteLevel},
+    pixarray::Color2D,
+    rawimage::{RawImage, RawPhotometricInterpretation},
     rawsource::RawSource,
-    tags::{ExifTag, TiffCommonTag},
 };
 use rayon::prelude::*;
-use std::io::Cursor;
+use std::cell::Cell;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
@@ -49,15 +49,59 @@ fn metadata_orientation(decoder: &dyn Decoder, source: &RawSource) -> Result<Ori
         .unwrap_or(Orientation::Normal))
 }
 
+thread_local! {
+    static READING_PREFIX: Cell<bool> = const { Cell::new(false) };
+    static PREFIX_WARNED: Cell<bool> = const { Cell::new(false) };
+}
+
+pub fn is_reading_prefix() -> bool {
+    READING_PREFIX.with(Cell::get)
+}
+
+pub fn swallow_prefix_log(metadata: &log::Metadata) -> bool {
+    if !metadata.target().starts_with("rawler") || !is_reading_prefix() {
+        return false;
+    }
+    if metadata.level() <= log::Level::Warn {
+        PREFIX_WARNED.with(|warned| warned.set(true));
+    }
+    true
+}
+
+pub fn read_from_prefix<T>(
+    file_bytes: &[u8],
+    read: impl Fn(&[u8], bool) -> Option<T>,
+) -> Option<T> {
+    let mut len = 256 * 1024;
+    while len < file_bytes.len() && len <= 16 * 1024 * 1024 {
+        READING_PREFIX.with(|reading| reading.set(true));
+        PREFIX_WARNED.with(|warned| warned.set(false));
+        let found = catch_unwind(AssertUnwindSafe(|| read(&file_bytes[..len], false)));
+        READING_PREFIX.with(|reading| reading.set(false));
+        if let Ok(Some(found)) = found
+            && !PREFIX_WARNED.with(Cell::get)
+        {
+            return Some(found);
+        }
+        len *= 4;
+    }
+    read(file_bytes, true)
+}
+
 pub fn extract_embedded_preview(file_bytes: &[u8]) -> Option<DynamicImage> {
-    let source = RawSource::new_from_slice(file_bytes);
-    let decoder = rawler::get_decoder(&source).ok()?;
-    let preview = decoder
-        .full_image(&source, &RawDecodeParams::default())
-        .ok()??;
-    let orientation =
-        metadata_orientation(decoder.as_ref(), &source).unwrap_or(Orientation::Normal);
-    Some(apply_orientation(preview, orientation))
+    read_from_prefix(file_bytes, |bytes, whole_file| {
+        let source = RawSource::new_from_slice(bytes);
+        let decoder = rawler::get_decoder(&source).ok()?;
+        let orientation = match metadata_orientation(decoder.as_ref(), &source) {
+            Ok(orientation) => orientation,
+            Err(_) if whole_file => Orientation::Normal,
+            Err(_) => return None,
+        };
+        let preview = decoder
+            .full_image(&source, &RawDecodeParams::default())
+            .ok()??;
+        Some(apply_orientation(preview, orientation))
+    })
 }
 
 fn is_linear_raw_format(raw_image: &RawImage) -> bool {
@@ -138,6 +182,119 @@ fn recover_clipped_pixel(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
     (cur_r, cur_g, cur_b)
 }
 
+fn primary_color_matrix(raw_image: &RawImage) -> Option<&FlatColorMatrix> {
+    let matrices = &raw_image.color_matrix;
+    matrices
+        .get(&Illuminant::D65)
+        .or_else(|| matrices.values().next())
+}
+
+struct GamutCompression {
+    threshold: f32,
+    scale: f32,
+}
+
+impl GamutCompression {
+    const THRESHOLD: f32 = 0.8;
+    const POWER: f32 = 1.2;
+
+    fn new(limit: f32) -> Option<Self> {
+        if limit <= 1.0 {
+            return None;
+        }
+        let threshold = Self::THRESHOLD;
+        let span = limit - threshold;
+        let scale =
+            span / (((1.0 - threshold) / span).powf(-Self::POWER) - 1.0).powf(1.0 / Self::POWER);
+        Some(Self { threshold, scale })
+    }
+
+    #[inline]
+    fn compress(&self, distance: f32) -> f32 {
+        if distance <= self.threshold {
+            return distance;
+        }
+        let excess = distance - self.threshold;
+        self.threshold
+            + excess / (1.0 + (excess / self.scale).powf(Self::POWER)).powf(1.0 / Self::POWER)
+    }
+}
+
+struct CameraToSrgb {
+    matrix: [[f32; 4]; 3],
+    compression: [Option<GamutCompression>; 3],
+}
+
+impl CameraToSrgb {
+    fn new(raw_image: &RawImage) -> Option<Self> {
+        let color_matrix = as_shot_color(raw_image)
+            .map(|(_, color_matrix)| color_matrix)
+            .or_else(|| primary_color_matrix(raw_image).cloned())?;
+        if color_matrix.len() % 3 != 0 || color_matrix.len() > 12 {
+            return None;
+        }
+        let primaries =
+            crate::white_balance::camera_to_srgb(&color_matrix, &camera_neutral(raw_image))?;
+
+        let mut matrix = [[0.0f32; 4]; 3];
+        let mut limits = [0.0f32; 3];
+        for (channel, primary) in primaries.iter().enumerate() {
+            for (row, value) in matrix.iter_mut().zip(primary) {
+                row[channel] = *value;
+            }
+            let peak = primary[0].max(primary[1]).max(primary[2]);
+            if peak > 0.0 {
+                for (limit, value) in limits.iter_mut().zip(primary) {
+                    *limit = limit.max((peak - value) / peak);
+                }
+            }
+        }
+
+        Some(Self {
+            matrix,
+            compression: limits.map(GamutCompression::new),
+        })
+    }
+
+    #[inline]
+    fn pixel<const N: usize>(&self, camera: &[f32; N]) -> [f32; 3] {
+        let mut rgb = self
+            .matrix
+            .map(|row| row.iter().zip(camera).map(|(m, c)| m * c).sum::<f32>());
+        let achromatic = rgb[0].max(rgb[1]).max(rgb[2]);
+        if achromatic <= 0.0 {
+            return [0.0; 3];
+        }
+        for (value, compression) in rgb.iter_mut().zip(&self.compression) {
+            if let Some(compression) = compression {
+                let distance = (achromatic - *value) / achromatic;
+                *value = achromatic - compression.compress(distance) * achromatic;
+            }
+        }
+        rgb
+    }
+
+    fn convert_pixels<const N: usize>(&self, pixels: &Color2D<f32, N>) -> Color2D<f32, 3> {
+        Color2D::new_with(
+            pixels.data.par_iter().map(|p| self.pixel(p)).collect(),
+            pixels.width,
+            pixels.height,
+        )
+    }
+
+    fn apply(&self, intermediate: Intermediate) -> Intermediate {
+        match intermediate {
+            Intermediate::ThreeColor(pixels) => {
+                Intermediate::ThreeColor(self.convert_pixels(&pixels))
+            }
+            Intermediate::FourColor(pixels) => {
+                Intermediate::ThreeColor(self.convert_pixels(&pixels))
+            }
+            monochrome => monochrome,
+        }
+    }
+}
+
 fn develop_internal(
     file_bytes: &[u8],
     fast_demosaic: bool,
@@ -191,27 +348,46 @@ fn develop_internal(
     }
 
     let mut developer = RawDevelop::default();
+    developer
+        .steps
+        .retain(|&step| step != ProcessingStep::SRgb && step != ProcessingStep::Calibrate);
 
     if is_linear_format {
-        developer.steps.retain(|&step| {
-            step != ProcessingStep::SRgb
-                && step != ProcessingStep::Demosaic
-                && (apply_calibration || step != ProcessingStep::Calibrate)
-        });
+        developer
+            .steps
+            .retain(|&step| step != ProcessingStep::Demosaic);
     } else if fast_demosaic {
         developer.demosaic_algorithm = DemosaicAlgorithm::Speed;
-        developer.steps.retain(|&step| step != ProcessingStep::SRgb);
-    } else {
-        developer.steps.retain(|&step| step != ProcessingStep::SRgb);
     }
 
     raw_image.wb_coeffs =
         crate::multi_exposure::neutralize_wb_if_multiexposure(raw_image.wb_coeffs, file_bytes);
 
+    let camera_to_srgb = (apply_calibration || !is_linear_format)
+        .then(|| CameraToSrgb::new(&raw_image))
+        .flatten();
+    let cfa_balance = (!is_linear_format && camera_to_srgb.is_some())
+        .then(|| cfa_white_balance(&raw_image))
+        .flatten();
+    if cfa_balance.is_some() {
+        developer
+            .steps
+            .retain(|&step| step != ProcessingStep::CropDefault);
+    }
+
     check_cancel()?;
     let mut developed_intermediate = developer.develop_intermediate(&raw_image)?;
 
+    let (crop_area, active_area, raw_dim) =
+        (raw_image.crop_area, raw_image.active_area, raw_image.dim());
     drop(raw_image);
+
+    if cfa_balance.is_none()
+        && let Some(camera_to_srgb) = &camera_to_srgb
+    {
+        check_cancel()?;
+        developed_intermediate = camera_to_srgb.apply(developed_intermediate);
+    }
 
     let denominator = (original_white_level - original_black_level).max(1.0);
     let rescale_factor = (u32::MAX as f32 - original_black_level) / denominator;
@@ -233,7 +409,7 @@ fn develop_internal(
 
     match &mut developed_intermediate {
         Intermediate::Monochrome(pixels) => {
-            pixels.data.iter_mut().for_each(|p| {
+            pixels.data.par_iter_mut().for_each(|p| {
                 let mut linear_val = *p * rescale_factor;
                 if is_linear_format && apply_ungamma {
                     linear_val = srgb_to_linear(linear_val.max(0.0));
@@ -241,8 +417,49 @@ fn develop_internal(
                 *p = linear_val.clamp(0.0, clamp_limit);
             });
         }
+        Intermediate::ThreeColor(pixels) if cfa_balance.is_some() => {
+            let wb = cfa_balance.unwrap();
+            let camera_to_srgb = camera_to_srgb.as_ref().unwrap();
+            let crop = default_crop(crop_area, active_area, raw_dim, pixels.dim());
+            let region = Region {
+                stride: pixels.width,
+                x: crop.p.x,
+                y: crop.p.y,
+                width: crop.d.w,
+                height: crop.d.h,
+            };
+
+            let levels =
+                highlight_reconstruction::detect_clip_levels(&pixels.data, region, rescale_factor);
+            let clips: [f32; 3] = std::array::from_fn(|c| wb[c] * levels[c]);
+
+            pixels
+                .data
+                .par_chunks_exact_mut(region.stride)
+                .skip(region.y)
+                .take(region.height)
+                .for_each(|row| {
+                    for p in &mut row[region.x..region.x + region.width] {
+                        for c in 0..3 {
+                            p[c] = (p[c] * rescale_factor).max(0.0) * wb[c];
+                        }
+                    }
+                });
+            highlight_reconstruction::reconstruct_highlights(&mut pixels.data, region, clips);
+            check_cancel()?;
+
+            let neutral = wb.map(|c| 1.0 / c);
+            let data = &pixels.data;
+            let image = oriented_rgb32f(region.width, region.height, orientation, |x, y| {
+                let [r, g, b] = data[(region.y + y) * region.stride + region.x + x];
+                camera_to_srgb
+                    .pixel(&[r * neutral[0], g * neutral[1], b * neutral[2]])
+                    .map(|value| value.clamp(0.0, clamp_limit))
+            });
+            return Ok((DynamicImage::ImageRgb32F(image), Orientation::Normal));
+        }
         Intermediate::ThreeColor(pixels) => {
-            pixels.data.iter_mut().for_each(|p| {
+            pixels.data.par_iter_mut().for_each(|p| {
                 let mut r = (p[0] * rescale_factor).max(0.0);
                 let mut g = (p[1] * rescale_factor).max(0.0);
                 let mut b = (p[2] * rescale_factor).max(0.0);
@@ -261,7 +478,7 @@ fn develop_internal(
             });
         }
         Intermediate::FourColor(pixels) => {
-            pixels.data.iter_mut().for_each(|p| {
+            pixels.data.par_iter_mut().for_each(|p| {
                 p.iter_mut().for_each(|c| {
                     let mut linear_val = *c * rescale_factor;
                     if is_linear_format && apply_ungamma {
@@ -277,18 +494,10 @@ fn develop_internal(
 
     let dynamic_image = match developed_intermediate {
         Intermediate::ThreeColor(pixels) => {
-            let buffer = ImageBuffer::<Rgba<f32>, _>::from_fn(width, height, |x, y| {
-                let p = pixels.data[(y * width + x) as usize];
-                Rgba([p[0], p[1], p[2], 1.0])
-            });
-            DynamicImage::ImageRgba32F(buffer)
+            DynamicImage::ImageRgb32F(rgb_pixels_to_rgb(pixels.data, width, height)?)
         }
         Intermediate::Monochrome(pixels) => {
-            let buffer = ImageBuffer::<Rgba<f32>, _>::from_fn(width, height, |x, y| {
-                let p = pixels.data[(y * width + x) as usize];
-                Rgba([p, p, p, 1.0])
-            });
-            DynamicImage::ImageRgba32F(buffer)
+            DynamicImage::ImageRgb32F(mono_pixels_to_rgb(&pixels.data, width, height)?)
         }
         _ => {
             return Err(anyhow!("Unsupported intermediate format for conversion"));
@@ -298,24 +507,83 @@ fn develop_internal(
     Ok((dynamic_image, orientation))
 }
 
-pub fn read_as_shot_white_balance(file_bytes: &[u8]) -> Option<WhiteBalance> {
-    let source = RawSource::new_from_slice(file_bytes);
-    let decoder = rawler::get_decoder(&source).ok()?;
-    let raw_image = decoder
-        .raw_image(&source, &RawDecodeParams::default(), true)
-        .ok()?;
-    if raw_image.cpp == 1 && !matches!(raw_image.photometric, RawPhotometricInterpretation::Cfa(_))
-    {
+fn default_crop(
+    crop_area: Option<Rect>,
+    active_area: Option<Rect>,
+    raw_dim: Dim2,
+    dim: Dim2,
+) -> Rect {
+    let full = Rect::new(Point::zero(), dim);
+    let Some(mut crop) = crop_area else {
+        return full;
+    };
+    if let Some(active_area) = active_area {
+        crop = crop.intersection(&active_area).adapt(&active_area);
+    }
+    let original_width = active_area.map(|area| area.d.w).unwrap_or(raw_dim.w);
+    if original_width > 0 {
+        let scale_factor = dim.w as f32 / original_width as f32;
+        if (scale_factor - 1.0).abs() > 1e-6 {
+            crop.scale(scale_factor);
+        }
+    }
+    let in_bounds = crop.p.x + crop.d.w <= dim.w && crop.p.y + crop.d.h <= dim.h;
+    if crop.is_empty() || crop.d == dim || !in_bounds {
+        full
+    } else {
+        crop
+    }
+}
+
+fn cfa_white_balance(raw_image: &RawImage) -> Option<[f32; 3]> {
+    let RawPhotometricInterpretation::Cfa(config) = &raw_image.photometric else {
+        return None;
+    };
+    if raw_image.cpp != 1 || !config.cfa.is_rgb() || config.cfa.unique_colors() != 3 {
         return None;
     }
+    if raw_image.wb_coeffs[0].is_nan() {
+        Some([1.0; 3])
+    } else {
+        Some([
+            raw_image.wb_coeffs[0],
+            raw_image.wb_coeffs[1],
+            raw_image.wb_coeffs[2],
+        ])
+    }
+}
 
-    let wb_coeffs =
+pub fn read_as_shot(file_bytes: &[u8]) -> Option<AsShot> {
+    let source = RawSource::new_from_slice(file_bytes);
+    let decoder = rawler::get_decoder(&source).ok()?;
+    let mut raw_image = decoder
+        .raw_image(&source, &RawDecodeParams::default(), true)
+        .ok()?;
+    raw_image.wb_coeffs =
         crate::multi_exposure::neutralize_wb_if_multiexposure(raw_image.wb_coeffs, file_bytes);
-    let neutral = if wb_coeffs[0].is_nan() {
+    let is_monochrome = raw_image.cpp == 1
+        && !matches!(raw_image.photometric, RawPhotometricInterpretation::Cfa(_));
+
+    Some(AsShot {
+        white_balance: (!is_monochrome)
+            .then(|| as_shot_color(&raw_image))
+            .flatten()
+            .map(|(white_balance, _)| white_balance)
+            .unwrap_or_else(WhiteBalance::reference),
+        exposure: crate::baseline_exposure::read(decoder.as_ref(), file_bytes, is_monochrome),
+    })
+}
+
+fn camera_neutral(raw_image: &RawImage) -> [f32; 4] {
+    if raw_image.wb_coeffs[0].is_nan() {
         [1.0; 4]
     } else {
-        wb_coeffs.map(|c| 1.0 / c)
-    };
+        raw_image.wb_coeffs.map(|c| 1.0 / c)
+    }
+}
+
+fn as_shot_color(raw_image: &RawImage) -> Option<(WhiteBalance, FlatColorMatrix)> {
+    let neutral = camera_neutral(raw_image);
 
     let matrices = &raw_image.color_matrix;
     if let (Some(matrix_a), Some(matrix_d65)) =
@@ -324,10 +592,40 @@ pub fn read_as_shot_white_balance(file_bytes: &[u8]) -> Option<WhiteBalance> {
         return WhiteBalance::from_dual_illuminant_camera_neutral(matrix_a, matrix_d65, &neutral);
     }
 
-    let color_matrix = matrices
-        .get(&Illuminant::D65)
-        .or_else(|| matrices.values().next())?;
+    let color_matrix = primary_color_matrix(raw_image)?;
     WhiteBalance::from_camera_neutral(color_matrix, &neutral)
+        .map(|white_balance| (white_balance, color_matrix.clone()))
+}
+
+fn rgb_pixels_to_rgb(
+    data: Vec<[f32; 3]>,
+    width: u32,
+    height: u32,
+) -> Result<ImageBuffer<Rgb<f32>, Vec<f32>>> {
+    ImageBuffer::from_raw(width, height, data.into_flattened())
+        .ok_or_else(|| anyhow!("Developed image size does not match its dimensions"))
+}
+
+fn mono_pixels_to_rgb(
+    data: &[f32],
+    width: u32,
+    height: u32,
+) -> Result<ImageBuffer<Rgb<f32>, Vec<f32>>> {
+    let mut rgb = vec![0.0f32; data.len() * 3];
+    rgb.par_chunks_exact_mut(3)
+        .zip(data.par_iter())
+        .for_each(|(dst, &p)| dst.fill(p));
+    ImageBuffer::from_raw(width, height, rgb)
+        .ok_or_else(|| anyhow!("Developed image size does not match its dimensions"))
+}
+
+pub fn raw_dimensions(file_bytes: &[u8]) -> Option<(usize, usize)> {
+    let source = RawSource::new_from_slice(file_bytes);
+    let decoder = rawler::get_decoder(&source).ok()?;
+    let raw_img = decoder
+        .raw_image(&source, &RawDecodeParams::default(), true)
+        .ok()?;
+    Some((raw_img.width, raw_img.height))
 }
 
 pub fn get_fast_demosaic_scale_factor(
@@ -335,11 +633,8 @@ pub fn get_fast_demosaic_scale_factor(
     decoded_width: u32,
     decoded_height: u32,
 ) -> f32 {
-    let source = RawSource::new_from_slice(file_bytes);
-    if let Ok(decoder) = rawler::get_decoder(&source)
-        && let Ok(raw_img) = decoder.raw_image(&source, &RawDecodeParams::default(), true)
-    {
-        let max_orig = (raw_img.width as f32).max(raw_img.height as f32);
+    if let Some((raw_width, raw_height)) = raw_dimensions(file_bytes) {
+        let max_orig = (raw_width as f32).max(raw_height as f32);
         let max_comp = (decoded_width as f32).max(decoded_height as f32);
         if max_orig > 0.0 {
             let ratio = max_comp / max_orig;
@@ -351,203 +646,4 @@ pub fn get_fast_demosaic_scale_factor(
         }
     }
     1.0
-}
-
-const DNG_MAX_HEADROOM: f32 = 4.0;
-
-pub struct LinearRawFrame {
-    pub image: Rgb32FImage,
-    pub orientation: Orientation,
-    raw_image: RawImage,
-    metadata: RawMetadata,
-    rgb_to_cam: [[f32; 3]; 3],
-    wb: [f32; 3],
-}
-
-pub fn develop_linear_frame(file_bytes: &[u8]) -> Result<Option<LinearRawFrame>> {
-    let source = RawSource::new_from_slice(file_bytes);
-    let decoder = rawler::get_decoder(&source)?;
-    let params = RawDecodeParams::default();
-    let mut raw_image: RawImage = decoder.raw_image(&source, &params, false)?;
-    let metadata = decoder.raw_metadata(&source, &params)?;
-    let orientation = metadata
-        .exif
-        .orientation
-        .map(Orientation::from_u16)
-        .unwrap_or(Orientation::Normal);
-
-    if !matches!(raw_image.photometric, RawPhotometricInterpretation::Cfa(_)) {
-        return Ok(None);
-    }
-
-    raw_image.wb_coeffs =
-        crate::multi_exposure::neutralize_wb_if_multiexposure(raw_image.wb_coeffs, file_bytes);
-    let wb = [
-        raw_image.wb_coeffs[0],
-        raw_image.wb_coeffs[1],
-        raw_image.wb_coeffs[2],
-    ];
-    if wb.iter().any(|c| !c.is_finite() || *c <= 0.0) {
-        return Ok(None);
-    }
-
-    if !raw_image.color_matrix.contains_key(&Illuminant::D65) {
-        let Some(illuminant) = raw_image.color_matrix.keys().min().copied() else {
-            return Ok(None);
-        };
-        raw_image.color_matrix.retain(|key, _| *key == illuminant);
-    }
-    let Some(color_matrix) = raw_image
-        .color_matrix
-        .get(&Illuminant::D65)
-        .or_else(|| raw_image.color_matrix.values().next())
-    else {
-        return Ok(None);
-    };
-    if color_matrix.len() != 9 {
-        return Ok(None);
-    }
-    let mut xyz_to_cam = [[0.0f32; 3]; 3];
-    for (i, row) in xyz_to_cam.iter_mut().enumerate() {
-        row.copy_from_slice(&color_matrix[i * 3..i * 3 + 3]);
-    }
-    let rgb_to_cam = normalize(multiply(&xyz_to_cam, &SRGB_TO_XYZ_D65));
-
-    let original_white_level = raw_image
-        .whitelevel
-        .0
-        .first()
-        .cloned()
-        .unwrap_or(u16::MAX as u32) as f32;
-    let original_black_level = raw_image
-        .blacklevel
-        .levels
-        .first()
-        .map(|r| r.as_f32())
-        .unwrap_or(0.0);
-    let denominator = (original_white_level - original_black_level).max(1.0);
-    let rescale_factor = (u32::MAX as f32 - original_black_level) / denominator;
-
-    let mut scaled_raw = raw_image.clone();
-    for level in scaled_raw.whitelevel.0.iter_mut() {
-        *level = u32::MAX;
-    }
-    let mut developer = RawDevelop::default();
-    developer.steps.retain(|&step| step != ProcessingStep::SRgb);
-    let Intermediate::ThreeColor(pixels) = developer.develop_intermediate(&scaled_raw)? else {
-        return Ok(None);
-    };
-    drop(scaled_raw);
-
-    let dim = pixels.dim();
-    let mut data = vec![0.0f32; dim.w * dim.h * 3];
-    data.par_chunks_mut(3)
-        .zip(pixels.data.par_iter())
-        .for_each(|(out, p)| {
-            for c in 0..3 {
-                let value = p[c] * rescale_factor;
-                out[c] = if value.is_finite() {
-                    value.max(0.0)
-                } else {
-                    0.0
-                };
-            }
-        });
-    let image = Rgb32FImage::from_raw(dim.w as u32, dim.h as u32, data)
-        .ok_or_else(|| anyhow!("Failed to build linear frame buffer"))?;
-
-    raw_image.data = RawImageData::Integer(Vec::new());
-
-    Ok(Some(LinearRawFrame {
-        image,
-        orientation,
-        raw_image,
-        metadata,
-        rgb_to_cam,
-        wb,
-    }))
-}
-
-pub fn encode_linear_dng(
-    frame: &LinearRawFrame,
-    image: &Rgb32FImage,
-    preview: &DynamicImage,
-) -> Result<Vec<u8>> {
-    let (width, height) = (image.width() as usize, image.height() as usize);
-    let matrix = frame.rgb_to_cam;
-    let wb = frame.wb;
-
-    let to_camera = |rgb: &[f32], c: usize| {
-        (matrix[c][0] * rgb[0] + matrix[c][1] * rgb[1] + matrix[c][2] * rgb[2]) / wb[c]
-    };
-
-    let peak = image
-        .as_raw()
-        .par_chunks(3)
-        .map(|rgb| {
-            to_camera(rgb, 0)
-                .max(to_camera(rgb, 1))
-                .max(to_camera(rgb, 2))
-        })
-        .reduce(|| 1.0f32, f32::max);
-    let headroom = if peak.is_finite() {
-        peak.clamp(1.0, DNG_MAX_HEADROOM)
-    } else {
-        1.0
-    };
-    let white_level = (u16::MAX as f32 / headroom).floor();
-
-    let mut data = vec![0u16; width * height * 3];
-    data.par_chunks_mut(3)
-        .zip(image.as_raw().par_chunks(3))
-        .for_each(|(out, rgb)| {
-            for (c, sample) in out.iter_mut().enumerate() {
-                let value = (to_camera(rgb, c) * white_level).round();
-                *sample = value.clamp(0.0, u16::MAX as f32) as u16;
-            }
-        });
-
-    let mut raw_image = frame.raw_image.clone();
-    raw_image.width = width;
-    raw_image.height = height;
-    raw_image.cpp = 3;
-    raw_image.bps = 16;
-    raw_image.photometric = RawPhotometricInterpretation::LinearRaw;
-    raw_image.whitelevel = WhiteLevel::new(vec![white_level as u32; 3]);
-    raw_image.blacklevel = BlackLevel::zero(1, 1, 3);
-    raw_image.active_area = None;
-    raw_image.crop_area = None;
-    raw_image.blackareas.clear();
-    raw_image.data = RawImageData::Integer(data);
-
-    let mut buffer = Cursor::new(Vec::new());
-    let mut dng = DngWriter::new(&mut buffer, DNG_VERSION_V1_4)?;
-
-    let mut raw = dng.subframe(0);
-    raw.raw_image(
-        &raw_image,
-        CropMode::None,
-        DngCompression::Lossless,
-        DngPhotometricConversion::Original,
-        1,
-    )?;
-    raw.finalize()?;
-    drop(raw_image);
-
-    let mut preview_frame = dng.subframe(1);
-    preview_frame.preview(preview, 0.85)?;
-    preview_frame.finalize()?;
-    dng.thumbnail(preview)?;
-
-    dng.load_base_tags(&frame.raw_image)?;
-    dng.load_metadata(&frame.metadata)?;
-    if !dng.root_ifd().contains(ExifTag::Orientation) {
-        dng.root_ifd_mut()
-            .add_tag(ExifTag::Orientation, frame.orientation.to_u16());
-    }
-    dng.root_ifd_mut()
-        .add_tag(TiffCommonTag::Software, "RapidRAW");
-    dng.close()?;
-
-    Ok(buffer.into_inner())
 }
