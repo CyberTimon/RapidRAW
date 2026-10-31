@@ -131,7 +131,10 @@ fn resolve_image_metadata(
         ImageMetadata::default()
     };
 
-    if enable_xmp_sync && sync_metadata_from_xmp(image_path, &mut metadata) {
+    if enable_xmp_sync
+        && !is_virtual_copy(sidecar_path, image_path)
+        && sync_metadata_from_xmp(image_path, &mut metadata)
+    {
         let _ = crate::exif_processing::update_sidecar(sidecar_path, image_path, |current| {
             sync_metadata_from_xmp(image_path, current);
         });
@@ -2789,7 +2792,7 @@ pub fn save_metadata_and_update_thumbnail(
         && settings.enable_xmp_sync.unwrap_or(false)
     {
         let create_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
-        sync_metadata_to_xmp(&source_path, &metadata, create_if_missing);
+        sync_metadata_to_xmp(&sidecar_path, &source_path, &metadata, create_if_missing);
     }
 
     let loaded_image_lock = state.original_image.lock().unwrap();
@@ -2984,7 +2987,12 @@ fn update_sidecars_and_thumbnails(
                         resolved_ai.lock().unwrap().push(path.clone());
                     }
                     if enable_xmp_sync {
-                        sync_metadata_to_xmp(&source_path, &metadata, create_xmp_if_missing);
+                        sync_metadata_to_xmp(
+                            &sidecar_path,
+                            &source_path,
+                            &metadata,
+                            create_xmp_if_missing,
+                        );
                     }
                 }
                 Err(e) => log::error!("Failed to update sidecar for {}: {}", path, e),
@@ -3177,7 +3185,12 @@ async fn update_sidecars_from_images(
                 .map_err(|e| e.to_string())?;
 
                 if enable_xmp_sync {
-                    sync_metadata_to_xmp(&source_path, &updated_metadata, create_xmp_if_missing);
+                    sync_metadata_to_xmp(
+                        &sidecar_path,
+                        &source_path,
+                        &updated_metadata,
+                        create_xmp_if_missing,
+                    );
                 }
                 Ok(image)
             })()
@@ -3302,7 +3315,12 @@ fn update_metadata_for_paths(
 
         match crate::exif_processing::update_sidecar(&sidecar_path, &source_path, &update) {
             Ok(metadata) if enable_xmp_sync => {
-                sync_metadata_to_xmp(&source_path, &metadata, create_xmp_if_missing);
+                sync_metadata_to_xmp(
+                    &sidecar_path,
+                    &source_path,
+                    &metadata,
+                    create_xmp_if_missing,
+                );
             }
             Ok(_) => {}
             Err(e) => log::error!("Failed to update sidecar for {}: {}", path, e),
@@ -3375,7 +3393,10 @@ pub async fn load_metadata(path: String, app_handle: AppHandle) -> Result<ImageM
         let (source_path, sidecar_path) = parse_virtual_path(&path);
         let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
-        if enable_xmp_sync && sync_metadata_from_xmp(&source_path, &mut metadata) {
+        if enable_xmp_sync
+            && !is_virtual_copy(&sidecar_path, &source_path)
+            && sync_metadata_from_xmp(&source_path, &mut metadata)
+        {
             let _ =
                 crate::exif_processing::update_sidecar(&sidecar_path, &source_path, |current| {
                     sync_metadata_from_xmp(&source_path, current);
@@ -4612,7 +4633,67 @@ pub fn sync_metadata_from_xmp(source_path: &Path, metadata: &mut ImageMetadata) 
     changed
 }
 
-pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create_if_missing: bool) {
+pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+
+    if let Ok(link) = fs::symlink_metadata(path)
+        && link.file_type().is_symlink()
+        && !path.exists()
+    {
+        return Err(std::io::Error::from(std::io::ErrorKind::NotFound));
+    }
+
+    let existing = path.exists();
+    let target = if existing {
+        fs::canonicalize(path)?
+    } else {
+        path.to_path_buf()
+    };
+
+    if existing {
+        fs::OpenOptions::new().write(true).open(&target)?;
+    }
+
+    let parent = match target.parent() {
+        Some(p) if !p.as_os_str().is_empty() => p,
+        _ => Path::new("."),
+    };
+
+    let mut builder = tempfile::Builder::new();
+    builder.prefix(".rapidraw-").suffix(".xmp.tmp");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        builder.permissions(fs::Permissions::from_mode(0o666));
+    }
+
+    let mut tmp = builder.tempfile_in(parent)?;
+    tmp.write_all(bytes)?;
+    tmp.as_file().sync_all()?;
+
+    if existing {
+        let perms = fs::metadata(&target)?.permissions();
+        tmp.as_file().set_permissions(perms)?;
+    }
+
+    tmp.persist(&target).map_err(|e| e.error)?;
+    Ok(())
+}
+
+pub(crate) fn is_virtual_copy(sidecar_path: &Path, source_path: &Path) -> bool {
+    sidecar_path != crate::exif_processing::get_primary_sidecar_path(source_path)
+}
+
+pub fn sync_metadata_to_xmp(
+    sidecar_path: &Path,
+    source_path: &Path,
+    metadata: &ImageMetadata,
+    create_if_missing: bool,
+) {
+    if is_virtual_copy(sidecar_path, source_path) {
+        return;
+    }
+
     let xmp_path = source_path.with_extension("xmp");
     let xmp_path_upper = source_path.with_extension("XMP");
 
@@ -4624,6 +4705,7 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
         None
     };
 
+    let mut new_content: Option<String> = None;
     if actual_xmp.is_none() {
         if !create_if_missing {
             return;
@@ -4637,16 +4719,23 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
   </rdf:Description>
  </rdf:RDF>
 </x:xmpmeta>"#;
-        if let Err(e) = fs::write(&xmp_path, skeleton) {
-            log::error!("Failed to create skeleton XMP: {}", e);
-            return;
-        }
+        new_content = Some(skeleton.to_string());
         actual_xmp = Some(xmp_path);
     }
 
-    if let Some(xmp_file) = actual_xmp
-        && let Ok(mut content) = fs::read_to_string(&xmp_file)
-    {
+    if let Some(xmp_file) = actual_xmp {
+        let file_existed = new_content.is_none();
+        let original = match new_content {
+            Some(skeleton) => skeleton,
+            None => match fs::read_to_string(&xmp_file) {
+                Ok(c) => c,
+                Err(e) => {
+                    log::warn!("Failed to read XMP {}: {}", xmp_file.display(), e);
+                    return;
+                }
+            },
+        };
+        let mut content = original.clone();
         let rating_str = xmp_rating(metadata);
         let re_rating_attr = regex!(r#"xmp:Rating\s*=\s*"[^"]*""#);
         let re_rating_tag = regex!(r#"<xmp:Rating\s*>[^<]*</xmp:Rating>"#);
@@ -4713,6 +4802,10 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
             }
         }
 
-        let _ = fs::write(&xmp_file, content);
+        if (!file_existed || content != original)
+            && let Err(e) = write_atomic(&xmp_file, content.as_bytes())
+        {
+            log::error!("Failed to write XMP {}: {}", xmp_file.display(), e);
+        }
     }
 }
