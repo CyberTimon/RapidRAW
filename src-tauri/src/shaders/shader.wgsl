@@ -135,6 +135,7 @@ struct GlobalAdjustments {
     sharpness_threshold: f32,
 
     monochrome: MonochromeSettings,
+    color_harmony: ColorHarmony,
 }
 
 struct MaskAdjustments {
@@ -187,6 +188,16 @@ struct MaskAdjustments {
     _pad_end5: f32,
     _pad_end6: f32,
     _pad_end7: f32,
+    color_harmony: ColorHarmony,
+}
+
+// Binary-identical to Rust ColorHarmonyGpu (64 bytes).
+struct ColorHarmony {
+    nodes: vec4<f32>,
+    saturation: vec4<f32>,
+    params: vec4<f32>,
+    count: u32,
+    _padding: array<u32, 3>,
 }
 
 struct AllAdjustments {
@@ -277,6 +288,7 @@ const F_LUT: u32 = 256u;
 const F_CA: u32 = 512u;
 const F_AGX: u32 = 1024u;
 const F_MONOCHROME: u32 = 2048u;
+const F_COLOR_HARMONY: u32 = 4096u;
 
 fn has_feature(f: u32) -> bool {
     return (FEATURES & f) != 0u;
@@ -350,6 +362,84 @@ fn hsv_to_rgb(c: vec3<f32>) -> vec3<f32> {
     else if (h < 300.0) { rgb_prime = vec3<f32>(X, 0.0, C); }
     else { rgb_prime = vec3<f32>(C, 0.0, X); }
     return rgb_prime + vec3<f32>(m, m, m);
+}
+
+
+fn harmony_rgb_to_lab(c: vec3<f32>) -> vec3<f32> {
+    let rgb = max(c, vec3<f32>(0.0));
+    let lms = vec3<f32>(
+        dot(rgb, vec3<f32>(0.4122214708, 0.5363325363, 0.0514459929)),
+        dot(rgb, vec3<f32>(0.2119034982, 0.6806995451, 0.1073969566)),
+        dot(rgb, vec3<f32>(0.0883024619, 0.2817188376, 0.6299787005))
+    );
+    let root = pow(lms, vec3<f32>(1.0 / 3.0));
+    return vec3<f32>(
+        dot(root, vec3<f32>(0.2104542553, 0.7936177850, -0.0040720468)),
+        dot(root, vec3<f32>(1.9779984951, -2.4285922050, 0.4505937099)),
+        dot(root, vec3<f32>(0.0259040371, 0.7827717662, -0.8086757660))
+    );
+}
+
+fn harmony_lab_to_rgb(lab: vec3<f32>) -> vec3<f32> {
+    let l = lab.x + 0.3963377774 * lab.y + 0.2158037573 * lab.z;
+    let m = lab.x - 0.1055613458 * lab.y - 0.0638541728 * lab.z;
+    let s = lab.x - 0.0894841775 * lab.y - 1.2914855480 * lab.z;
+    let l3 = l * l * l;
+    let m3 = m * m * m;
+    let s3 = s * s * s;
+    return vec3<f32>(
+        4.0767416621 * l3 - 3.3077115913 * m3 + 0.2309699292 * s3,
+        -1.2684380046 * l3 + 2.6097574011 * m3 - 0.3413193965 * s3,
+        -0.0041960863 * l3 - 0.7034186147 * m3 + 1.7076147010 * s3
+    );
+}
+
+// Perceptual attraction adapted from the technique documented in darktable's
+// colorharmonizer.c: Gaussian nearest-node hue displacement, neutral
+// protection, and independent per-node chroma. This implementation uses
+// OKLab rather than darktable UCS and intentionally has no spatial smoothing.
+fn apply_color_harmonizer(color: vec3<f32>, h: ColorHarmony) -> vec3<f32> {
+    if (h.params.w < 0.5 || h.count == 0u) { return color; }
+    let count = min(h.count, 4u);
+    let strength = h.params.x;
+    var has_chroma = false;
+    for (var i = 0u; i < count; i = i + 1u) {
+        if (abs(h.saturation[i] - 1.0) > 0.0001) { has_chroma = true; }
+    }
+    if (strength < 0.00001 && !has_chroma) { return color; }
+
+    let lab = harmony_rgb_to_lab(color);
+    let chroma = length(lab.yz);
+    if (chroma < 0.00001) { return color; }
+
+    let hue = fract(atan2(lab.z, lab.y) / 6.28318530718 + 1.0);
+    let sigma = max(0.001, h.params.y * 0.5 / f32(count));
+    let inv2sigma = 0.5 / (sigma * sigma);
+    var winning_weight = 0.0;
+    var winning_delta = 0.0;
+    var nearest = 0u;
+
+    for (var i = 0u; i < count; i = i + 1u) {
+        let difference = h.nodes[i] - hue;
+        let wrapped = difference - floor(difference + 0.5);
+        let weight = exp(-(wrapped * wrapped) * inv2sigma);
+        if (weight > winning_weight) {
+            winning_weight = weight;
+            winning_delta = wrapped;
+            nearest = i;
+        }
+    }
+
+    let np = h.params.z;
+    let chroma_cutoff = np * np * np * 0.03;
+    let protection = chroma / (chroma + chroma_cutoff + 0.00001);
+    let angle = (hue + winning_delta * winning_weight * strength * protection) * 6.28318530718;
+    let new_chroma = max(0.0, chroma * (1.0 + (h.saturation[nearest] - 1.0) * winning_weight * protection));
+    return max(harmony_lab_to_rgb(vec3<f32>(
+        lab.x,
+        cos(angle) * new_chroma,
+        sin(angle) * new_chroma
+    )), vec3<f32>(0.0));
 }
 
 fn apply_hue_shift(color: vec3<f32>, shift_degrees: f32) -> vec3<f32> {
@@ -2074,6 +2164,9 @@ fn main(
         }
         composite_rgb_linear = apply_hue_shift(composite_rgb_linear, t_hue);
         composite_rgb_linear = apply_creative_color(composite_rgb_linear, t_saturation, t_vibrance);
+        if (has_feature(F_COLOR_HARMONY)) {
+            composite_rgb_linear = apply_color_harmonizer(composite_rgb_linear, adjustments.global.color_harmony);
+        }
     }
 
     composite_rgb_linear = apply_color_grading(
@@ -2095,6 +2188,10 @@ fn main(
                 m.color_grading_shadows, m.color_grading_midtones, m.color_grading_highlights, m.color_grading_global, m.color_grading_blending, m.color_grading_balance
             );
             composite_rgb_linear = mix(composite_rgb_linear, mask_graded, influence);
+            if (has_feature(F_COLOR_HARMONY)) {
+                let harmonized = apply_color_harmonizer(composite_rgb_linear, m.color_harmony);
+                composite_rgb_linear = mix(composite_rgb_linear, harmonized, influence);
+            }
         }
     }
 

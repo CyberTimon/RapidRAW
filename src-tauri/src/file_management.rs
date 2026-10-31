@@ -2744,6 +2744,62 @@ pub async fn move_files(
     Ok(())
 }
 
+/** Whether a harmonizer can modify pixel values (independent of its UI state).
+ * The setting may have arbitrary hue nodes/width with zero pull strength;
+ * the color result is still unchanged when every node has unit saturation.
+ */
+fn neutral_color_harmony(value: &serde_json::Value) -> bool {
+    let harmony = &value["colorHarmony"];
+    let strength = harmony["strength"].as_f64().unwrap_or(0.0);
+    let neutral_saturation = harmony["nodeSaturation"].as_array().is_none_or(|nodes| {
+        nodes.iter().all(|node| {
+            node.as_f64()
+                .is_some_and(|value| (value - 1.0).abs() < 0.00001)
+        })
+    });
+    strength.abs() < 0.00001 && neutral_saturation
+}
+
+fn strip_neutral_harmony_for_thumbnail_comparison(adjustments: &mut serde_json::Value) {
+    if !neutral_color_harmony(adjustments) {
+        return;
+    }
+    let Some(object) = adjustments.as_object_mut() else {
+        return;
+    };
+    object.remove("colorHarmony");
+    if let Some(tools) = object
+        .get_mut("activeTools")
+        .and_then(|v| v.as_object_mut())
+    {
+        tools.remove("colorHarmonizer");
+    }
+}
+
+fn image_adjustments_equal_for_thumbnail(
+    before: &serde_json::Value,
+    after: &serde_json::Value,
+) -> bool {
+    let mut before = before.clone();
+    let mut after = after.clone();
+
+    strip_neutral_harmony_for_thumbnail_comparison(&mut before);
+    strip_neutral_harmony_for_thumbnail_comparison(&mut after);
+
+    // Mask-local harmony toggles do not need a thumbnail refresh either when
+    // their strength and per-node saturation are neutral.
+    for value in [&mut before, &mut after] {
+        if let Some(masks) = value.get_mut("masks").and_then(|v| v.as_array_mut()) {
+            for mask in masks {
+                if let Some(mask_adjustments) = mask.get_mut("adjustments") {
+                    strip_neutral_harmony_for_thumbnail_comparison(mask_adjustments);
+                }
+            }
+        }
+    }
+    before == after
+}
+
 #[tauri::command]
 pub fn save_metadata_and_update_thumbnail(
     path: String,
@@ -2756,6 +2812,7 @@ pub fn save_metadata_and_update_thumbnail(
     let source_id = crate::ai_jobs::source_id(&source_path);
     let mut stripped_ai_results = false;
     let mut had_ai_work = false;
+    let mut regenerate_thumbnail = true;
 
     let metadata =
         crate::exif_processing::update_sidecar(&sidecar_path, &source_path, |metadata| {
@@ -2775,6 +2832,8 @@ pub fn save_metadata_and_update_thumbnail(
                 &metadata.exif,
                 lens_db.as_deref(),
             );
+            regenerate_thumbnail =
+                !image_adjustments_equal_for_thumbnail(&metadata.adjustments, &final_adjustments);
             metadata.adjustments = final_adjustments;
         })
         .map_err(|e| e.to_string())?;
@@ -2791,6 +2850,13 @@ pub fn save_metadata_and_update_thumbnail(
     {
         let create_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
         sync_metadata_to_xmp(&source_path, &metadata, create_if_missing);
+    }
+
+    // A neutral harmonizer eye toggle changes sidecar metadata but not pixels.
+    // Avoid replacing the filmstrip thumbnail with a fresh differently decoded
+    // version of the same photo (and avoid needless RAW decode/GPU work).
+    if !regenerate_thumbnail {
+        return Ok(());
     }
 
     let loaded_image_lock = state.original_image.lock().unwrap();

@@ -1,0 +1,90 @@
+name: Color Harmonizer — CI
+
+on:
+  push:
+    branches:
+      - feature/color-harmonizer
+      - pr/color-harmonizer
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: color-harmonizer-validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend build and regression checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Color harmony behavior regression tests
+        run: node scripts/test-color-harmony.mjs
+      - name: TypeScript diagnostics vs upstream parent
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/rapidraw-main" HEAD^
+          ln -s "$GITHUB_WORKSPACE/node_modules" "$RUNNER_TEMP/rapidraw-main/node_modules"
+          node scripts/check-typecheck-regressions.mjs "$GITHUB_WORKSPACE" "$RUNNER_TEMP/rapidraw-main"
+      - name: ESLint diagnostics vs upstream parent
+        if: success() || failure()
+        run: node scripts/check-eslint-regressions.mjs "$GITHUB_WORKSPACE" "$RUNNER_TEMP/rapidraw-main"
+      - name: Frontend production build
+        if: success() || failure()
+        run: npm run build
+      - name: Formatting of changed frontend files
+        if: success() || failure()
+        run: |
+          npx prettier --check \
+            scripts/check-eslint-regressions.mjs \
+            scripts/check-typecheck-regressions.mjs \
+            scripts/test-color-harmony.mjs \
+            src/components/adjustments/HarmonyRulePicker.tsx \
+            src/components/adjustments/ColorHarmonizer.tsx \
+            src/components/adjustments/AdjustmentSubSection.tsx \
+            src/components/adjustments/Color.tsx \
+            src/components/panel/right/ControlsPanel.tsx \
+            src/components/panel/right/MasksPanel.tsx \
+            src/components/ui/AppProperties.tsx \
+            src/components/ui/Slider.tsx \
+            src/utils/colorHarmony.ts \
+            src/utils/adjustments.ts \
+            src/utils/defaultAdjustments.json \
+            src/store/useUIStore.ts \
+            src/i18n/locales/en.json \
+            src/i18n/locales/de.json \
+            docs/color-harmonizer.md \
+            .github/workflows/color-harmonizer-validation.yml
+
+  rust:
+    name: Rust format and compile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt
+          rustflags: ''
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev pkg-config patchelf libgphoto2-dev
+      - name: Rust formatter
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+      - name: Rust compiler
+        if: success() || failure()
+        run: cargo check --locked --manifest-path src-tauri/Cargo.toml

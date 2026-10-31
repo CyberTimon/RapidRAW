@@ -290,6 +290,7 @@ export interface Adjustments {
   chromaticAberrationRedCyan: number;
   colorCalibration: ColorCalibration;
   colorGrading: ColorGradingProps;
+  colorHarmony: ColorHarmonySettings;
   colorNoiseReduction: number;
   contrast: number;
   curves: Curves;
@@ -495,6 +496,40 @@ export interface MonochromeToning {
   shadowSaturation: number;
 }
 
+export type HarmonyRule =
+  | 'monochromatic'
+  | 'analogous'
+  | 'analogousComplementary'
+  | 'complementary'
+  | 'splitComplementary'
+  | 'dyad'
+  | 'triad'
+  | 'tetrad'
+  | 'square'
+  | 'custom';
+
+export interface ColorHarmonySettings {
+  enabled: boolean;
+  rule: HarmonyRule;
+  anchor: number; // degrees, perceptual OKLCH
+  nodes: number[]; // degrees; persisted for exact shader/UI sync
+  nodeSaturation: number[];
+  strength: number;
+  width: number;
+  neutralProtection: number;
+}
+
+export const DEFAULT_COLOR_HARMONY: ColorHarmonySettings = {
+  enabled: true,
+  rule: 'complementary',
+  anchor: 0,
+  nodes: [0, 180],
+  nodeSaturation: [1, 1, 1, 1],
+  strength: 0,
+  width: 1,
+  neutralProtection: 0.5,
+};
+
 export interface MaskAdjustments {
   activeTools: ActiveTools;
   [index: string]: any;
@@ -502,6 +537,7 @@ export interface MaskAdjustments {
   brightness: number;
   clarity: number;
   colorGrading: ColorGradingProps;
+  colorHarmony: ColorHarmonySettings;
   colorNoiseReduction: number;
   contrast: number;
   curves: Curves;
@@ -613,6 +649,11 @@ export const INITIAL_MASK_ADJUSTMENTS: MaskAdjustments = {
   brightness: 0,
   clarity: 0,
   colorGrading: { ...INITIAL_COLOR_GRADING },
+  colorHarmony: {
+    ...DEFAULT_COLOR_HARMONY,
+    nodes: [...DEFAULT_COLOR_HARMONY.nodes],
+    nodeSaturation: [...DEFAULT_COLOR_HARMONY.nodeSaturation],
+  },
   colorNoiseReduction: 0,
   contrast: 0,
   curves: getDefaultCurves(),
@@ -736,6 +777,7 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
         halationAmount: containerAdjustments.halationAmount ?? INITIAL_MASK_ADJUSTMENTS.halationAmount,
         hue: containerAdjustments.hue ?? INITIAL_MASK_ADJUSTMENTS.hue,
         colorGrading: { ...INITIAL_MASK_ADJUSTMENTS.colorGrading, ...(containerAdjustments.colorGrading || {}) },
+        colorHarmony: { ...DEFAULT_COLOR_HARMONY, ...(containerAdjustments.colorHarmony || {}) },
         hsl: { ...INITIAL_MASK_ADJUSTMENTS.hsl, ...(containerAdjustments.hsl || {}) },
         curves: containerAdjustments.curves ? deepCloneCurves(containerAdjustments.curves) : getDefaultCurves(),
         pointCurves: containerAdjustments.pointCurves
@@ -832,6 +874,7 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     transformYOffset: loadedAdjustments.transformYOffset ?? INITIAL_ADJUSTMENTS.transformYOffset,
     colorCalibration: { ...INITIAL_ADJUSTMENTS.colorCalibration, ...(loadedAdjustments.colorCalibration || {}) },
     colorGrading: { ...INITIAL_ADJUSTMENTS.colorGrading, ...(loadedAdjustments.colorGrading || {}) },
+    colorHarmony: { ...DEFAULT_COLOR_HARMONY, ...(loadedAdjustments.colorHarmony || {}) },
     hsl: { ...INITIAL_ADJUSTMENTS.hsl, ...(loadedAdjustments.hsl || {}) },
     monochromeMix: { ...INITIAL_ADJUSTMENTS.monochromeMix, ...(loadedAdjustments.monochromeMix || {}) },
     monochromeToning: { ...INITIAL_ADJUSTMENTS.monochromeToning, ...(loadedAdjustments.monochromeToning || {}) },
@@ -890,6 +933,7 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
     },
     { label: 'modals.copyPaste.groups.colorGrading', keys: [ColorAdjustment.ColorGrading] },
     { label: 'modals.copyPaste.groups.colorMixer', keys: [ColorAdjustment.Hsl] },
+    { label: 'adjustments.colorHarmonizer.title', keys: ['colorHarmony'] },
     { label: 'modals.copyPaste.groups.colorCalibration', keys: ['colorCalibration'] },
     {
       label: 'modals.copyPaste.groups.blackWhite',
@@ -1102,6 +1146,7 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     ColorAdjustment.WhiteBalance,
     ColorAdjustment.Vibrance,
     ColorAdjustment.Hsl,
+    'colorHarmony',
     ColorAdjustment.ColorGrading,
     'colorCalibration',
     ColorAdjustment.Hue,
@@ -1263,6 +1308,7 @@ export const ADJUSTMENT_SECTION_TOOLS: Record<string, Array<AdjustmentSectionToo
     { id: 'hue', label: 'adjustments.color.hue' },
     { id: 'colorGrading', label: 'adjustments.color.colorGrading' },
     { id: 'colorMixer', label: 'adjustments.color.colorMixer' },
+    { id: 'colorHarmonizer', label: 'adjustments.colorHarmonizer.title' },
     { id: 'colorCalibration', label: 'adjustments.color.calibration.title' },
   ],
   details: [
@@ -1327,20 +1373,41 @@ export const toggleToolActive = (activeTools: ActiveTools, id: string): ActiveTo
   setToolActive(activeTools, id, !isToolActive(activeTools, id));
 
 interface ToolStateSource {
+  colorHarmony?: { enabled?: boolean };
   activeTools?: ActiveTools;
   sectionVisibility?: Record<string, boolean>;
 }
 
-export const getActiveTools = (adjustments: ToolStateSource): ActiveTools =>
-  adjustments.activeTools ??
-  Object.entries(adjustments.sectionVisibility ?? {})
-    .filter(([, visible]) => !visible)
-    .reduce((activeTools, [id]) => setToolActive(activeTools, id, false), {});
+export const getActiveTools = (adjustments: ToolStateSource): ActiveTools => {
+  const tools =
+    adjustments.activeTools ??
+    Object.entries(adjustments.sectionVisibility ?? {})
+      .filter(([, visible]) => !visible)
+      .reduce((active, [id]) => setToolActive(active, id, false), {} as ActiveTools);
+  // Default on for new images, but preserve explicit visibility and legacy off states.
+  return {
+    ...tools,
+    colorHarmonizer: tools.colorHarmonizer ?? adjustments.colorHarmony?.enabled ?? DEFAULT_COLOR_HARMONY.enabled,
+  };
+};
 
 export const mergeActiveTools = (base: ToolStateSource, overrides: ToolStateSource): ActiveTools => ({
   ...getActiveTools(base),
   ...getActiveTools(overrides),
 });
 
-export const getAdjustmentToolOrder = (section: string, toolOrder?: Record<string, string[]>): string[] =>
-  reconcileOrder(getAdjustmentSectionToolIds(section), toolOrder?.[section]);
+export const getAdjustmentToolOrder = (section: string, toolOrder?: Record<string, string[]>): string[] => {
+  const saved = toolOrder?.[section];
+  const order = reconcileOrder(getAdjustmentSectionToolIds(section), saved);
+  // Existing saved color layouts predate this tool. Insert it after Color
+  // Mixer unless the user has explicitly customized its position.
+  if (section === 'color' && !saved?.includes('colorHarmonizer')) {
+    const currentIndex = order.indexOf('colorHarmonizer');
+    const mixerIndex = order.indexOf('colorMixer');
+    if (currentIndex !== -1 && mixerIndex !== -1) {
+      order.splice(currentIndex, 1);
+      order.splice(order.indexOf('colorMixer') + 1, 0, 'colorHarmonizer');
+    }
+  }
+  return order;
+};

@@ -1141,6 +1141,7 @@ const F_LUT: u32 = 256;
 const F_CA: u32 = 512;
 const F_AGX: u32 = 1024;
 const F_MONOCHROME: u32 = 2048;
+const F_COLOR_HARMONY: u32 = 4096;
 
 fn shader_features(adjustments: &AllAdjustments) -> u32 {
     let g = &adjustments.global;
@@ -1188,6 +1189,17 @@ fn shader_features(adjustments: &AllAdjustments) -> u32 {
     );
     set(F_AGX, g.tonemapper_mode == 1);
     set(F_MONOCHROME, g.monochrome.enabled == 1);
+    let harmony_active = |h: &crate::image_processing::ColorHarmonyGpu| {
+        h.params[3] > 0.5
+            && (h.params[0] > 0.00001
+                || h.saturation[..(h.count as usize).min(4)]
+                    .iter()
+                    .any(|v| (v - 1.0).abs() > 0.0001))
+    };
+    set(
+        F_COLOR_HARMONY,
+        harmony_active(&g.color_harmony) || masks.iter().any(|m| harmony_active(&m.color_harmony)),
+    );
     features
 }
 
