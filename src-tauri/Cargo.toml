@@ -74,6 +74,7 @@ imgref = "1.12.2"
 sysinfo = "0.39.6"
 tauri-plugin-http = "2.8.0"
 tauri-plugin-store = "2.5.0"
+sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "migrate", "macros"] }
 
 [target.'cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))'.dependencies]
 trash = "5.2.6"

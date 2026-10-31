@@ -603,8 +603,8 @@ pub fn enqueue(app_handle: &AppHandle, paths: &[String], front: bool) {
 }
 
 pub fn prioritize(app_handle: &AppHandle, path: &str) {
-    let (_, sidecar_path) = parse_virtual_path(path);
-    let metadata = crate::exif_processing::load_sidecar(&sidecar_path);
+    let (_, key) = parse_virtual_path(path);
+    let metadata = crate::metadata_store::load(&key);
     let has_jobs =
         source_id_for(path).is_some_and(|id| has_pending_jobs(&metadata.adjustments, path, &id));
     if has_jobs {
@@ -838,12 +838,12 @@ fn process_path(
     path: &str,
     interrupt_generation: Option<u64>,
 ) -> Result<Outcome, String> {
-    let (source_path, sidecar_path) = parse_virtual_path(path);
+    let (source_path, key) = parse_virtual_path(path);
     if !source_path.exists() {
         return Ok(Outcome::Finished);
     }
     let source_id = source_id(&source_path).ok_or("Unable to read the source image")?;
-    let adjustments = crate::exif_processing::load_sidecar(&sidecar_path).adjustments;
+    let adjustments = crate::metadata_store::load(&key).adjustments;
 
     let jobs = plan(&adjustments, path, &source_id);
     if jobs.is_empty() {
@@ -1123,9 +1123,9 @@ fn commit_results(
     source_id: &str,
     results: JobResults,
 ) -> Result<(), String> {
-    let (source_path, sidecar_path) = parse_virtual_path(path);
+    let (_, key) = parse_virtual_path(path);
     let mut committed = Default::default();
-    crate::exif_processing::update_sidecar(&sidecar_path, &source_path, |metadata| {
+    crate::metadata_store::update(&key, |metadata| {
         committed = apply_results(&mut metadata.adjustments, source_id, &results);
     })
     .map_err(|e| e.to_string())?;
@@ -1196,7 +1196,7 @@ pub async fn queue_ai_jobs(paths: Vec<String>, app_handle: AppHandle) -> Result<
     tauri::async_runtime::spawn_blocking(move || {
         let (with_work, resolved): (Vec<String>, Vec<String>) =
             paths.into_iter().partition(|path| {
-                let metadata = crate::exif_processing::load_sidecar(&parse_virtual_path(path).1);
+                let metadata = crate::metadata_store::load(&parse_virtual_path(path).1);
                 source_id_for(path)
                     .is_some_and(|id| has_pending_jobs(&metadata.adjustments, path, &id))
             });
