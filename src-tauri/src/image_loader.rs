@@ -998,6 +998,7 @@ pub async fn load_image(
 
     let (source_path, sidecar_path) = parse_virtual_path(&path);
     let source_path_str = source_path.to_string_lossy().to_string();
+    crate::image_preload::cancel_unless_preloading(&state, &source_path_str);
 
     crate::immich::ensure_local(&app_handle, &source_path).await?;
 
