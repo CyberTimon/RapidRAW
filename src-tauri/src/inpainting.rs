@@ -13,8 +13,9 @@ use crate::image_loader::prepare_base_image_cow;
 use crate::image_processing::apply_linear_to_srgb;
 use crate::mask_generation::{AiPatchDefinition, MaskDefinition, generate_mask_bitmap};
 use crate::resolve_warped_image_for_masks;
+use crate::skin_retouch::SkinRetouchParams;
 
-fn prepare_source_image(
+pub(crate) fn prepare_source_image(
     patch_id: &str,
     current_adjustments: &Value,
     state: &tauri::State<'_, AppState>,
@@ -113,7 +114,7 @@ fn calculate_mask_bounds(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn encode_patch_result(
+pub(crate) fn encode_patch_result(
     color_image: &RgbImage,
     mask_image: &image::GrayImage,
     offset_x: u32,
@@ -1144,7 +1145,14 @@ pub async fn generate_retouch_patch(
     let mut max_x = 0.0_f32;
     let mut max_y = 0.0_f32;
     let mut max_radius = 0.0_f32;
-    let mut intensity = 50.0_f32;
+    let mut retouch_params = SkinRetouchParams {
+        smoothing: 0.4,
+        texture: 0.75,
+        blemish: 0.5,
+        shine: 0.4,
+        even_tone: 0.35,
+        skin_protection: 0.85,
+    };
 
     let sub_masks_val = serde_json::to_value(&patch_definition.sub_masks).unwrap_or(Value::Null);
     let mut mask_canvas = vec![0u8; (img_w * img_h) as usize];
@@ -1154,10 +1162,20 @@ pub async fn generate_retouch_patch(
             if sm.get("type").and_then(|v| v.as_str()) == Some("retouch")
                 && let Some(params) = sm.get("parameters")
             {
-                intensity = params
-                    .get("intensity")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(50.0) as f32;
+                let percent = |key: &str, default: f32| {
+                    params
+                        .get(key)
+                        .and_then(|v| v.as_f64())
+                        .map_or(default, |v| (v as f32 / 100.0).clamp(0.0, 1.0))
+                };
+                retouch_params = SkinRetouchParams {
+                    smoothing: percent("intensity", retouch_params.smoothing),
+                    texture: percent("texture", retouch_params.texture),
+                    blemish: percent("blemish", retouch_params.blemish),
+                    shine: percent("shine", retouch_params.shine),
+                    even_tone: percent("evenTone", retouch_params.even_tone),
+                    skin_protection: percent("skinProtection", retouch_params.skin_protection),
+                };
 
                 if let Some(lines) = params.get("lines").and_then(|v| v.as_array()) {
                     for line in lines {
@@ -1239,7 +1257,9 @@ pub async fn generate_retouch_patch(
         return Err("No brush strokes found for Retouch.".to_string());
     }
 
-    let pad = (max_radius * 3.0 + 30.0).ceil();
+    let painted_area: f32 = mask_canvas.par_iter().map(|&v| v as f32 / 255.0).sum();
+    let retouch_scale = painted_area.sqrt().max(max_radius * 6.0);
+    let pad = (max_radius + retouch_scale / 12.0 + 16.0).ceil();
     let min_x_u32 = (min_x - pad).clamp(0.0, img_w as f32 - 1.0) as u32;
     let min_y_u32 = (min_y - pad).clamp(0.0, img_h as f32 - 1.0) as u32;
     let max_x_u32 = (max_x + pad).clamp(0.0, img_w as f32 - 1.0) as u32;
@@ -1259,112 +1279,15 @@ pub async fn generate_retouch_patch(
         }
     }
 
-    let norm_intensity = (intensity / 100.0).clamp(0.05, 1.0);
-    let sig_s = (1.0 + norm_intensity * 6.0).clamp(1.2, 8.0);
-    let sig_c = (8.0 + norm_intensity * 20.0).clamp(8.0, 28.0);
-
-    let sig_s_sq = sig_s * sig_s;
-    let sig_c_sq = sig_c * sig_c;
-
-    let r = (sig_s * 2.0).ceil() as i32;
-    let window_size = (2 * r + 1) as usize;
-
-    let mut spatial_weights = vec![0.0_f32; window_size * window_size];
-    for dy in -r..=r {
-        for dx in -r..=r {
-            let dist_s = (dx * dx + dy * dy) as f32;
-            let w = (-dist_s / (2.0 * sig_s_sq)).exp();
-            let idx = ((dy + r) as usize) * window_size + ((dx + r) as usize);
-            spatial_weights[idx] = w;
-        }
-    }
-
-    let max_color_dist_sq = 3 * 255 * 255;
-    let color_weights: Vec<f32> = (0..=max_color_dist_sq)
-        .map(|i| (-(i as f32) / (2.0 * sig_c_sq)).exp())
-        .collect();
-
-    let mut color_pixels = vec![0u8; (crop_w * crop_h * 3) as usize];
-    let crop_w_i32 = crop_w as i32;
-    let crop_h_i32 = crop_h as i32;
-    let crop_w_usize = crop_w as usize;
-
-    color_pixels
-        .par_chunks_mut(crop_w_usize * 3)
-        .enumerate()
-        .for_each(|(y, row_out)| {
-            let y_i32 = y as i32;
-
-            for x in 0..crop_w_usize {
-                let m_val = mask_pixels[y * crop_w_usize + x];
-                let px_idx = (y * crop_w_usize + x) * 3;
-
-                if m_val == 0 {
-                    row_out[x * 3] = orig_raw[px_idx];
-                    row_out[x * 3 + 1] = orig_raw[px_idx + 1];
-                    row_out[x * 3 + 2] = orig_raw[px_idx + 2];
-                    continue;
-                }
-
-                let m = m_val as f32 / 255.0;
-                let smooth_m = m * m * (3.0 - 2.0 * m);
-                let blend_factor = smooth_m * (0.3 + norm_intensity * 0.7);
-
-                let ctr_r = orig_raw[px_idx] as i32;
-                let ctr_g = orig_raw[px_idx + 1] as i32;
-                let ctr_b = orig_raw[px_idx + 2] as i32;
-
-                let mut sum_w = 0.0_f32;
-                let mut sum_r = 0.0_f32;
-                let mut sum_g = 0.0_f32;
-                let mut sum_b = 0.0_f32;
-
-                let x_i32 = x as i32;
-                let y_min = (y_i32 - r).max(0);
-                let y_max = (y_i32 + r).min(crop_h_i32 - 1);
-                let x_min = (x_i32 - r).max(0);
-                let x_max = (x_i32 + r).min(crop_w_i32 - 1);
-
-                for ny in y_min..=y_max {
-                    let dy = ny - y_i32;
-                    let wy_offset = (dy + r) as usize * window_size;
-                    let row_offset = (ny as usize) * crop_w_usize;
-
-                    for nx in x_min..=x_max {
-                        let dx = nx - x_i32;
-                        let spatial_w = spatial_weights[wy_offset + (dx + r) as usize];
-
-                        let n_idx = (row_offset + nx as usize) * 3;
-                        let pr = orig_raw[n_idx] as i32;
-                        let pg = orig_raw[n_idx + 1] as i32;
-                        let pb = orig_raw[n_idx + 2] as i32;
-
-                        let dr = pr - ctr_r;
-                        let dg = pg - ctr_g;
-                        let db = pb - ctr_b;
-
-                        let color_dist_sq = (dr * dr + dg * dg + db * db) as usize;
-                        let w = spatial_w * color_weights[color_dist_sq];
-
-                        sum_w += w;
-                        sum_r += (pr as f32) * w;
-                        sum_g += (pg as f32) * w;
-                        sum_b += (pb as f32) * w;
-                    }
-                }
-
-                let base_r = sum_r / sum_w;
-                let base_g = sum_g / sum_w;
-                let base_b = sum_b / sum_w;
-
-                row_out[x * 3] = ((ctr_r as f32) * (1.0 - blend_factor) + base_r * blend_factor)
-                    .clamp(0.0, 255.0) as u8;
-                row_out[x * 3 + 1] = ((ctr_g as f32) * (1.0 - blend_factor) + base_g * blend_factor)
-                    .clamp(0.0, 255.0) as u8;
-                row_out[x * 3 + 2] = ((ctr_b as f32) * (1.0 - blend_factor) + base_b * blend_factor)
-                    .clamp(0.0, 255.0) as u8;
-            }
-        });
+    let color_pixels = crate::skin_retouch::retouch_skin_scaled(
+        orig_raw,
+        &mask_pixels,
+        crop_w as usize,
+        crop_h as usize,
+        retouch_scale,
+        &retouch_params,
+        None,
+    );
 
     let color_image = RgbImage::from_raw(crop_w, crop_h, color_pixels).unwrap();
     let mask_image = image::GrayImage::from_raw(crop_w, crop_h, mask_pixels).unwrap();

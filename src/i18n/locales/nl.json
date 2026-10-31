@@ -147,6 +147,7 @@
     },
     "details": {
       "aiDenoise": "AI-ruisonderdrukking",
+      "aiDenoiseColor": "Kleurruis",
       "classicDenoise": "Klassieke ruisonderdrukking",
       "aiDenoiseDetail": "Detail",
       "blueYellow": "Blauw/Geel",
@@ -1241,12 +1242,18 @@
       "albumsEmpty": "Rechtermuisknop om een album te maken.",
       "collapseSection": "{{section}} inklappen",
       "expandSection": "{{section}} uitklappen",
+      "flagViews": {
+        "empty": "Geen afbeeldingen met deze markering in deze map of submappen.",
+        "picked": "Gekozen",
+        "rejected": "Afgewezen"
+      },
       "loading": "Mappen laden...",
       "noFoldersFound": "Geen mappen gevonden.",
       "openFolderInstruction": "Open een map om de structuur te zien.",
       "searchPlaceholder": "Mappen zoeken...",
       "sections": {
         "albums": "Albums",
+        "flags": "Markeringen",
         "folders": "Mappen",
         "pinned": "Vastgezet"
       },

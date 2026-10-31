@@ -217,6 +217,19 @@ function DetailsPanel({
                       fillOrigin="min"
                     />
                     <Slider
+                      label={t('adjustments.details.aiDenoiseColor')}
+                      max={100}
+                      min={0}
+                      defaultValue={100}
+                      onChange={(e: SliderChangeEvent) =>
+                        handleAdjustmentChange(DetailsAdjustment.AiDenoiseColor, String(e.target.value))
+                      }
+                      step={1}
+                      value={adjustments.aiDenoiseColor ?? 100}
+                      onDragStateChange={onDragStateChange}
+                      fillOrigin="min"
+                    />
+                    <Slider
                       label={t('adjustments.details.aiDenoiseDetail')}
                       max={100}
                       min={0}

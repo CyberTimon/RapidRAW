@@ -40,6 +40,8 @@ mod edit_in;
 mod effect_maps;
 mod exif_processing;
 mod export_processing;
+mod face_parsing;
+mod face_refine;
 mod face_masking;
 mod file_management;
 mod focus_stacking;
@@ -67,6 +69,7 @@ mod preset_converter;
 mod preview_jpeg;
 mod raw_processing;
 mod relight;
+mod skin_retouch;
 mod storage;
 mod tagging;
 mod tagging_utils;
@@ -2853,6 +2856,8 @@ pub fn run() {
             inpainting::generate_manual_cleanup_patch,
             inpainting::generate_liquify_patch,
             inpainting::generate_retouch_patch,
+            face_refine::detect_faces_for_refine,
+            face_refine::generate_face_refine_patch,
             focus_stacking::stitch_focus_stack,
             focus_stacking::save_focus_stack,
             image_loader::load_image,
@@ -2874,6 +2879,7 @@ pub fn run() {
             file_management::read_exif_for_paths,
             file_management::list_images_in_dir,
             file_management::list_images_recursive,
+            file_management::get_flagged_paths,
             file_management::get_folder_tree,
             file_management::get_folder_children,
             file_management::get_pinned_folder_trees,

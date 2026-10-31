@@ -356,6 +356,7 @@ function App() {
     handleImageSelect,
     handleSelectSubfolder,
     handleSelectAlbum,
+    handleSelectFlagView,
     handleOpenFolder,
     handleNavBack,
     handleNavForward,
@@ -730,6 +731,7 @@ function App() {
               onFolderSelect={(path, skipHistory) =>
                 handleSelectSubfolder(path, false, undefined, true, false, skipHistory)
               }
+              onSelectFlagView={handleSelectFlagView}
               onToggleFolder={handleToggleFolder}
               onOpenFolder={handleOpenFolder}
               onNavBack={handleNavBack}
@@ -776,6 +778,7 @@ function App() {
       handleAlbumTreeContextMenu,
       handleSelectAlbum,
       handleSelectSubfolder,
+      handleSelectFlagView,
       handleToggleFolder,
       handleOpenFolder,
       handleNavBack,

@@ -307,6 +307,8 @@ pub fn apply_ai_denoise<'a>(
         (adjustments["aiDenoiseAmount"].as_f64().unwrap_or(100.0) as f32 / 100.0).clamp(0.0, 1.0);
     let detail =
         (adjustments["aiDenoiseDetail"].as_f64().unwrap_or(0.0) as f32 / 100.0).clamp(0.0, 1.0);
+    let color =
+        (adjustments["aiDenoiseColor"].as_f64().unwrap_or(100.0) as f32 / 100.0).clamp(0.0, 1.0);
     if amount <= 0.0 {
         return Cow::Borrowed(base);
     }
@@ -336,7 +338,7 @@ pub fn apply_ai_denoise<'a>(
     let denoised: &[f16] = resized.as_deref().unwrap_or(&entry.data);
 
     let luma_keep = 1.0 - amount * (1.0 - detail);
-    let chroma_keep = 1.0 - amount;
+    let chroma_keep = 1.0 - amount * color;
 
     let mut out = base.to_rgb32f();
     out.par_chunks_mut(BLEND_CHUNK)

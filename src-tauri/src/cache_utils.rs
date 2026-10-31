@@ -94,7 +94,12 @@ fn hash_ai_denoise(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) 
     if enabled {
         hash_effect_keys(
             adjustments,
-            &["aiDenoiseMethod", "aiDenoiseAmount", "aiDenoiseDetail"],
+            &[
+                "aiDenoiseMethod",
+                "aiDenoiseAmount",
+                "aiDenoiseColor",
+                "aiDenoiseDetail",
+            ],
             hasher,
         );
         crate::ai_denoise::cache_epoch().hash(hasher);

@@ -44,7 +44,7 @@ import { TextColors, TextVariants, TextWeights } from '../../../types/typography
 import { Adjustments, INITIAL_ADJUSTMENTS, ADJUSTMENT_GROUPS, MaskContainer } from '../../../utils/adjustments';
 import { hasAiSubMasks, mergeAiMaskResults, stripAiMaskResults } from '../../../utils/maskUtils';
 import { Invokes, OPTION_SEPARATOR, Panel, Preset, SelectedImage } from '../../ui/AppProperties';
-import { useEditorStore } from '../../../store/useEditorStore';
+import { useEditorStore, ActivePresetState } from '../../../store/useEditorStore';
 import { useUIStore } from '../../../store/useUIStore';
 import { debouncedSave, useEditorActions } from '../../../hooks/useEditorActions';
 
@@ -259,6 +259,26 @@ const mixAdjustments = (presetObj: any, intensity: number, initialObj: any = INI
   return result;
 };
 
+const applyPresetStack = (base: Adjustments, activeList: ActivePresetState[]): Adjustments => {
+  let current = { ...base };
+  for (const { preset, intensity } of activeList) {
+    if (!preset.adjustments) continue;
+    const { masks: presetMasks, ...presetAdjustments } = preset.adjustments;
+    current = {
+      ...current,
+      ...(intensity === 100 ? presetAdjustments : mixAdjustments(presetAdjustments, intensity, current)),
+    };
+    // Masks cannot be blended: they apply unless the preset is fully off. Their AI results are per image.
+    if (presetMasks !== undefined && intensity > 0) {
+      current.masks = stripAiMaskResults(presetMasks);
+    }
+  }
+  if (current.masks) {
+    current.masks = mergeAiMaskResults(current.masks, useEditorStore.getState().adjustments.masks || []);
+  }
+  return current;
+};
+
 function PresetItemDisplay({
   preset,
   previewUrl,
@@ -285,7 +305,11 @@ function PresetItemDisplay({
   }, [supportsMasks, supportsGeometry, t]);
 
   return (
-    <div className="flex flex-col p-2 rounded-lg bg-surface cursor-grabbing">
+    <div
+      className={`flex flex-col p-2 rounded-lg bg-surface cursor-grabbing border-2 transition-all duration-150 ${
+        isActive ? 'border-accent shadow-xs' : 'border-transparent'
+      }`}
+    >
       <div className="flex items-center gap-3">
         <div
           className="w-20 h-14 bg-bg-tertiary rounded-md flex items-center justify-center shrink-0 relative overflow-hidden"
@@ -413,7 +437,7 @@ function DraggablePresetItem({
   const style = {
     borderRadius: '10px',
     opacity: isDragging ? 0.4 : 1,
-    outline: isOver ? '2px solid var(--color-primary)' : '2px solid transparent',
+    outline: isOver ? '2px solid var(--color-accent)' : '2px solid transparent',
     outlineOffset: '-2px',
     touchAction: 'none',
   };
@@ -552,6 +576,8 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   const { t } = useTranslation();
   const selectedImage = useEditorStore((s) => s.selectedImage);
   const adjustments = useEditorStore((s) => s.adjustments);
+  const activePresets = useEditorStore((s) => s.activePresets);
+  const presetBaseAdjustments = useEditorStore((s) => s.presetBaseAdjustments);
   const setEditor = useEditorStore((s) => s.setEditor);
   const { setAdjustments } = useEditorActions();
 
@@ -582,9 +608,20 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   const [folderPreviewsGenerated, setFolderPreviewsGenerated] = useState<Set<string>>(new Set());
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
 
-  const [activePresetId, setActivePresetId] = useState<string | null>(null);
-  const [presetIntensity, setPresetIntensity] = useState<number>(100);
-  const [baseAdjustments, setBaseAdjustments] = useState<Adjustments | null>(null);
+  const activePresetsRef = useRef(activePresets);
+  activePresetsRef.current = activePresets;
+  const presetBaseAdjustmentsRef = useRef(presetBaseAdjustments);
+  presetBaseAdjustmentsRef.current = presetBaseAdjustments;
+  const adjustmentsRef = useRef(adjustments);
+  adjustmentsRef.current = adjustments;
+
+  const activePresetMap = useMemo(() => {
+    const map = new Map<string, ActivePresetState>();
+    for (const item of activePresets) {
+      map.set(item.preset.id, item);
+    }
+    return map;
+  }, [activePresets]);
 
   const previewsRef = useRef(previews);
   previewsRef.current = previews;
@@ -593,7 +630,6 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   const previewQueue = useRef<Array<any>>([]);
   const isProcessingQueue = useRef(false);
   const currentImagePathRef = useRef<string | null>(selectedImage?.path || null);
-  const hiddenPresetMasks = useRef<Array<MaskContainer> | null>(null);
 
   const handleDragStateChange = useCallback(
     (isDragging: boolean) => {
@@ -865,8 +901,10 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
       setPreviews({});
       setFolderPreviewsGenerated(new Set<string>());
 
-      setActivePresetId(null);
-      setBaseAdjustments(null);
+      setEditor({
+        activePresets: [],
+        presetBaseAdjustments: null,
+      });
 
       if (isPathChanged && selectedImage?.path) {
         currentImagePathRef.current = selectedImage.path;
@@ -886,6 +924,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     generateRootPreviews,
     generateFolderPreviews,
     expandedFolders,
+    setEditor,
   ]);
 
   const resolvePresetAiMasks = useCallback(
@@ -910,65 +949,70 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     [setEditor],
   );
 
-  const handleApplyPreset = (preset: Preset) => {
-    hiddenPresetMasks.current = null;
+  const handleApplyPreset = useCallback(
+    (preset: Preset) => {
+      const currentActive = activePresetsRef.current;
+      const isAlreadyActive = currentActive.some((p) => p.preset.id === preset.id);
 
-    if (activePresetId === preset.id) {
-      setActivePresetId(null);
-      if (baseAdjustments) {
-        setAdjustments(baseAdjustments);
+      if (isAlreadyActive) {
+        // Deactivate this preset
+        const nextActive = currentActive.filter((p) => p.preset.id !== preset.id);
+
+        if (nextActive.length === 0) {
+          if (presetBaseAdjustmentsRef.current) {
+            setAdjustments(presetBaseAdjustmentsRef.current);
+          }
+          setEditor({
+            activePresets: [],
+            presetBaseAdjustments: null,
+          });
+        } else {
+          const base = presetBaseAdjustmentsRef.current ?? adjustmentsRef.current;
+          const nextAdjustments = applyPresetStack(base, nextActive);
+          setAdjustments(nextAdjustments);
+          setEditor({
+            activePresets: nextActive,
+          });
+        }
+        return;
       }
-      setBaseAdjustments(null);
-      return;
-    }
 
-    setBaseAdjustments(adjustments);
-    setActivePresetId(preset.id);
-    setPresetIntensity(100);
+      // Activate this preset
+      const base = presetBaseAdjustmentsRef.current ?? adjustmentsRef.current;
+      const nextActive = [...currentActive, { preset, intensity: 100 }];
+      const nextAdjustments = applyPresetStack(base, nextActive);
 
-    const presetMasks = preset.adjustments.masks || [];
-    const hasAiMasks = hasAiSubMasks(presetMasks);
-    if (hasAiMasks) {
-      resolvePresetAiMasks(presetMasks);
-    }
+      const presetMasks = preset.adjustments?.masks || [];
+      if (hasAiSubMasks(presetMasks)) {
+        resolvePresetAiMasks(presetMasks);
+      }
 
-    setAdjustments(
-      (prevAdjustments: Adjustments) => ({
-        ...prevAdjustments,
-        ...preset.adjustments,
-        ...(hasAiMasks ? { masks: stripAiMaskResults(presetMasks) } : {}),
-      }),
-      `${t('editor.presets.types.preset')}: ${preset.name}`,
-    );
-  };
+      setAdjustments(nextAdjustments, `${t('editor.presets.types.preset')}: ${preset.name}`);
+      setEditor({
+        activePresets: nextActive,
+        ...(presetBaseAdjustmentsRef.current ? {} : { presetBaseAdjustments: base }),
+      });
+    },
+    [setAdjustments, setEditor, resolvePresetAiMasks, t],
+  );
 
   const handleIntensityChange = useCallback(
     (preset: Preset, intensity: number) => {
-      setPresetIntensity(intensity);
-      const { masks: presetMasks, ...presetAdjustments } = preset.adjustments;
-      const mixed = mixAdjustments(presetAdjustments, intensity);
-
-      if (presetMasks !== undefined) {
-        const currentMasks = useEditorStore.getState().adjustments.masks;
-        if (intensity === 0) {
-          if (currentMasks?.length) hiddenPresetMasks.current = currentMasks;
-          mixed.masks = INITIAL_ADJUSTMENTS.masks;
-        } else if (hiddenPresetMasks.current || !currentMasks?.length) {
-          const restoredMasks = hiddenPresetMasks.current || stripAiMaskResults(presetMasks);
-          hiddenPresetMasks.current = null;
-          if (hasAiSubMasks(restoredMasks, true)) {
-            resolvePresetAiMasks(presetMasks);
-          }
-          mixed.masks = restoredMasks;
-        }
+      const base = presetBaseAdjustmentsRef.current ?? adjustmentsRef.current;
+      const previous = activePresetsRef.current.find((p) => p.preset.id === preset.id);
+      const nextActive = activePresetsRef.current.map((p) => (p.preset.id === preset.id ? { ...p, intensity } : p));
+      const nextAdjustments = applyPresetStack(base, nextActive);
+      const presetMasks = preset.adjustments?.masks;
+      if (previous?.intensity === 0 && intensity > 0 && presetMasks && hasAiSubMasks(presetMasks)) {
+        resolvePresetAiMasks(presetMasks);
       }
-
-      setAdjustments((prev: Adjustments) => ({
-        ...prev,
-        ...mixed,
-      }));
+      setAdjustments(nextAdjustments);
+      setEditor({
+        activePresets: nextActive,
+        ...(presetBaseAdjustmentsRef.current ? {} : { presetBaseAdjustments: base }),
+      });
     },
-    [setAdjustments, resolvePresetAiMasks],
+    [setAdjustments, setEditor, resolvePresetAiMasks],
   );
 
   const handleSaveConfiguredPreset = async (
@@ -986,6 +1030,17 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
         presetType,
       );
       if (updated) {
+        if (activePresetsRef.current.some((p) => p.preset.id === updated.id)) {
+          const nextActive = activePresetsRef.current.map((p) =>
+            p.preset.id === updated.id ? { ...p, preset: updated } : p,
+          );
+          const base = presetBaseAdjustmentsRef.current ?? adjustmentsRef.current;
+          const nextAdjustments = applyPresetStack(base, nextActive);
+          setAdjustments(nextAdjustments);
+          setEditor({
+            activePresets: nextActive,
+          });
+        }
         await generateSinglePreview(updated);
       }
     } else {
@@ -1013,6 +1068,34 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     setDeletingItemId(id);
     if (!id) {
       return;
+    }
+
+    const currentActive = activePresetsRef.current;
+    const nextActive = isFolder
+      ? (() => {
+          const folderItem = presets.find((item: any) => item.folder && item.folder.id === id);
+          const childIds = new Set((folderItem?.folder?.children || []).map((c: any) => c.id));
+          return currentActive.filter((p) => !childIds.has(p.preset.id));
+        })()
+      : currentActive.filter((p) => p.preset.id !== id);
+
+    if (nextActive.length !== currentActive.length) {
+      if (nextActive.length === 0) {
+        if (presetBaseAdjustmentsRef.current) {
+          setAdjustments(presetBaseAdjustmentsRef.current);
+        }
+        setEditor({
+          activePresets: [],
+          presetBaseAdjustments: null,
+        });
+      } else {
+        const base = presetBaseAdjustmentsRef.current ?? adjustmentsRef.current;
+        const nextAdjustments = applyPresetStack(base, nextActive);
+        setAdjustments(nextAdjustments);
+        setEditor({
+          activePresets: nextActive,
+        });
+      }
     }
 
     setTimeout(() => {
@@ -1196,6 +1279,13 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
           onClick: async () => {
             const updated = overwritePreset(data?.id ?? null);
             if (updated) {
+              if (activePresetsRef.current.some((p) => p.preset.id === updated.id)) {
+                setEditor({
+                  activePresets: activePresetsRef.current.map((p) =>
+                    p.preset.id === updated.id ? { ...p, preset: updated } : p,
+                  ),
+                });
+              }
               await generateSinglePreview(updated);
             }
           },
@@ -1370,8 +1460,8 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
                                   onContextMenu={(e: any) => handleContextMenu(e, { preset })}
                                   preset={preset}
                                   previewUrl={previews[preset.id] || ''}
-                                  isActive={preset.id === activePresetId}
-                                  intensity={preset.id === activePresetId ? presetIntensity : 100}
+                                  isActive={activePresetMap.has(preset.id)}
+                                  intensity={activePresetMap.get(preset.id)?.intensity ?? 100}
                                   onIntensityChange={(val) => handleIntensityChange(preset, val)}
                                   onDragStateChange={handleDragStateChange}
                                 />
@@ -1401,9 +1491,10 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
                         onContextMenu={(e: any) => handleContextMenu(e, item)}
                         preset={item.preset}
                         previewUrl={(item.preset?.id ? previews[item.preset.id] : '') || ''}
-                        isActive={item.preset?.id === activePresetId}
-                        intensity={item.preset?.id === activePresetId ? presetIntensity : 100}
+                        isActive={item.preset?.id ? activePresetMap.has(item.preset.id) : false}
+                        intensity={item.preset?.id ? (activePresetMap.get(item.preset.id)?.intensity ?? 100) : 100}
                         onIntensityChange={(val) => handleIntensityChange(item.preset as Preset, val)}
+                        onDragStateChange={handleDragStateChange}
                       />
                     </motion.div>
                   ))}

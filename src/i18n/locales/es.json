@@ -147,6 +147,7 @@
     },
     "details": {
       "aiDenoise": "Reducción de ruido IA",
+      "aiDenoiseColor": "Ruido de color",
       "classicDenoise": "Reducción de ruido clásica",
       "aiDenoiseDetail": "Detalle",
       "blueYellow": "Azul/Amarillo",
@@ -179,6 +180,25 @@
       "bokehRing": "Burbuja (Anillo)",
       "bokehShape": "Forma del bokeh",
       "creative": "Creativo",
+      "facialRefine": "Facial Refine",
+      "facialRefineApplyToAll": "Aplicar estos ajustes a todas las caras",
+      "facialRefineDetect": "Detectar caras",
+      "facialRefineDetecting": "Detectando caras...",
+      "facialRefineFace": "Cara {{index}}",
+      "facialRefineFailed": "Facial Refine falló: {{error}}",
+      "facialRefineHint": "Detecta las caras de esta foto para retocar cada una con sus propios ajustes.",
+      "facialRefineNoFaces": "No se encontraron caras en esta foto.",
+      "facialRefineParams": {
+        "blemish": "Eliminar imperfecciones (frente y pómulos)",
+        "evenTone": "Unificar tono de piel",
+        "eyes": "Realzar ojos",
+        "intensity": "Suavizar piel",
+        "shine": "Reducir brillos y sudor",
+        "teeth": "Blanquear dientes",
+        "texture": "Textura de la piel"
+      },
+      "facialRefineRedetect": "Volver a detectar caras",
+      "facialRefineRemove": "Quitar esta cara",
       "feather": "Desvanecimiento",
       "fog": "Niebla",
       "fogDensity": "Densidad",
@@ -518,10 +538,15 @@
       "manualCleanupTitle": "Limpieza manual",
       "noImageSelected": "No hay imagen seleccionada.",
       "params": {
+        "blemish": "Eliminar imperfecciones",
+        "evenTone": "Unificar tono de piel",
         "feather": "Desvanecimiento",
         "grow": "Expandir",
         "intensity": "Intensidad",
-        "pressure": "Presión"
+        "pressure": "Presión",
+        "shine": "Reducir brillos y sudor",
+        "skinProtection": "Proteger ojos, labios y pelo",
+        "texture": "Textura de la piel"
       },
       "patches": {
         "aiEdit": "Edición IA {{count}}",
@@ -1269,12 +1294,18 @@
       "albumsEmpty": "Clic derecho para crear un álbum.",
       "collapseSection": "Contraer {{section}}",
       "expandSection": "Expandir {{section}}",
+      "flagViews": {
+        "empty": "No hay imágenes con esta marca en esta carpeta ni en sus subcarpetas.",
+        "picked": "Elegidas",
+        "rejected": "Rechazadas"
+      },
       "loading": "Cargando carpetas...",
       "noFoldersFound": "No se encontraron carpetas.",
       "openFolderInstruction": "Abre una carpeta para ver su estructura.",
       "searchPlaceholder": "Buscar carpetas...",
       "sections": {
         "albums": "Álbumes",
+        "flags": "Marcas",
         "folders": "Carpetas",
         "pinned": "Fijadas"
       },

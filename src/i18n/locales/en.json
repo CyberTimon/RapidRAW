@@ -147,6 +147,7 @@
     },
     "details": {
       "aiDenoise": "AI Denoise",
+      "aiDenoiseColor": "Color Noise",
       "classicDenoise": "Classic Denoise",
       "aiDenoiseDetail": "Detail",
       "blueYellow": "Blue/Yellow",
@@ -179,6 +180,25 @@
       "bokehRing": "Bubble (Ring)",
       "bokehShape": "Bokeh Shape",
       "creative": "Creative",
+      "facialRefine": "Facial Refine",
+      "facialRefineApplyToAll": "Apply These Settings to All Faces",
+      "facialRefineDetect": "Detect Faces",
+      "facialRefineDetecting": "Detecting faces...",
+      "facialRefineFace": "Face {{index}}",
+      "facialRefineFailed": "Facial Refine failed: {{error}}",
+      "facialRefineHint": "Detect the faces in this photo to retouch each one with its own settings.",
+      "facialRefineNoFaces": "No faces were found in this photo.",
+      "facialRefineParams": {
+        "blemish": "Blemish Removal (Forehead & Cheeks)",
+        "evenTone": "Even Skin Tone",
+        "eyes": "Eye Enhancement",
+        "intensity": "Skin Smoothing",
+        "shine": "Shine & Sweat Reduction",
+        "teeth": "Teeth Whitening",
+        "texture": "Skin Texture"
+      },
+      "facialRefineRedetect": "Detect Faces Again",
+      "facialRefineRemove": "Remove this face",
       "feather": "Feather",
       "fog": "Fog",
       "fogDensity": "Density",
@@ -501,10 +521,15 @@
       "manualCleanupTitle": "Manual Cleanup",
       "noImageSelected": "No image selected.",
       "params": {
+        "blemish": "Blemish Removal",
+        "evenTone": "Even Skin Tone",
         "feather": "Feather",
         "grow": "Grow",
         "intensity": "Intensity",
-        "pressure": "Pressure"
+        "pressure": "Pressure",
+        "shine": "Shine & Sweat Reduction",
+        "skinProtection": "Protect Eyes, Lips & Hair",
+        "texture": "Skin Texture"
       },
       "patches": {
         "aiEdit": "AI Edit {{count}}",
@@ -1241,12 +1266,18 @@
       "albumsEmpty": "Right-click to create an album.",
       "collapseSection": "Collapse {{section}}",
       "expandSection": "Expand {{section}}",
+      "flagViews": {
+        "empty": "No images with this flag in this folder or its subfolders.",
+        "picked": "Picked",
+        "rejected": "Rejected"
+      },
       "loading": "Loading folders...",
       "noFoldersFound": "No folders found.",
       "openFolderInstruction": "Open a folder to see its structure.",
       "searchPlaceholder": "Search folders...",
       "sections": {
         "albums": "Albums",
+        "flags": "Flags",
         "folders": "Folders",
         "pinned": "Pinned"
       },

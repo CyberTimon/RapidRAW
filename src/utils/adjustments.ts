@@ -81,6 +81,7 @@ export const getAiDenoiseEnablePatch = (aiProvider?: string): Partial<Adjustment
 
 export enum DetailsAdjustment {
   AiDenoiseAmount = 'aiDenoiseAmount',
+  AiDenoiseColor = 'aiDenoiseColor',
   AiDenoiseDetail = 'aiDenoiseDetail',
   AiDenoiseEnabled = 'aiDenoiseEnabled',
   AiDenoiseMethod = 'aiDenoiseMethod',
@@ -274,6 +275,7 @@ export interface Adjustments {
   activeTools: ActiveTools;
   [index: string]: any;
   aiDenoiseAmount: number;
+  aiDenoiseColor: number;
   aiDenoiseDetail: number;
   aiDenoiseEnabled: boolean;
   aiDenoiseMethod: DenoiseMethod;
@@ -409,6 +411,8 @@ export interface Adjustments {
 }
 
 export interface AiPatch {
+  /** Set on the per-face patches that the Facial Refine effect creates and manages. */
+  faceRefine?: boolean;
   id: string;
   isLoading: boolean;
   invert: boolean;
@@ -418,6 +422,14 @@ export interface AiPatch {
   subMasks: Array<SubMask>;
   visible: boolean;
 }
+
+/** Inserts a patch at `index` (or last) among the regular patches, keeping Facial Refine patches at the end. */
+export const insertAiPatch = (patches: Array<AiPatch>, patch: AiPatch, index?: number): Array<AiPatch> => {
+  const regular = patches.filter((p) => !p.faceRefine);
+  const target = Math.max(0, Math.min(index ?? regular.length, regular.length));
+  regular.splice(target, 0, patch);
+  return [...regular, ...patches.filter((p) => p.faceRefine)];
+};
 
 export interface Color {
   color: string;
@@ -787,6 +799,10 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     lensBlurDiffusion: loadedAdjustments.lensBlurDiffusion ?? INITIAL_ADJUSTMENTS.lensBlurDiffusion,
     lensBlurShape: loadedAdjustments.lensBlurShape ?? INITIAL_ADJUSTMENTS.lensBlurShape,
     lensBlurDepthMap: loadedAdjustments.lensBlurDepthMap ?? INITIAL_ADJUSTMENTS.lensBlurDepthMap,
+    aiDenoiseAmount: loadedAdjustments.aiDenoiseAmount ?? INITIAL_ADJUSTMENTS.aiDenoiseAmount,
+    aiDenoiseColor: loadedAdjustments.aiDenoiseColor ?? INITIAL_ADJUSTMENTS.aiDenoiseColor,
+    aiDenoiseDetail: loadedAdjustments.aiDenoiseDetail ?? INITIAL_ADJUSTMENTS.aiDenoiseDetail,
+    aiDenoiseEnabled: loadedAdjustments.aiDenoiseEnabled ?? INITIAL_ADJUSTMENTS.aiDenoiseEnabled,
     lensBlurEnabled: loadedAdjustments.lensBlurEnabled ?? INITIAL_ADJUSTMENTS.lensBlurEnabled,
     lensBlurMaxDepth: loadedAdjustments.lensBlurMaxDepth ?? INITIAL_ADJUSTMENTS.lensBlurMaxDepth,
     lensBlurMaxFade: loadedAdjustments.lensBlurMaxFade ?? INITIAL_ADJUSTMENTS.lensBlurMaxFade,
@@ -922,6 +938,7 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
         DetailsAdjustment.AiDenoiseEnabled,
         DetailsAdjustment.AiDenoiseMethod,
         DetailsAdjustment.AiDenoiseAmount,
+        DetailsAdjustment.AiDenoiseColor,
         DetailsAdjustment.AiDenoiseDetail,
       ],
     },
@@ -1121,6 +1138,7 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     DetailsAdjustment.AiDenoiseEnabled,
     DetailsAdjustment.AiDenoiseMethod,
     DetailsAdjustment.AiDenoiseAmount,
+    DetailsAdjustment.AiDenoiseColor,
     DetailsAdjustment.AiDenoiseDetail,
     DetailsAdjustment.ChromaticAberrationRedCyan,
     DetailsAdjustment.ChromaticAberrationBlueYellow,
@@ -1275,6 +1293,7 @@ export const ADJUSTMENT_SECTION_TOOLS: Record<string, Array<AdjustmentSectionToo
   effects: [
     { id: 'creative', label: 'adjustments.effects.creative' },
     { id: 'spatial', label: 'adjustments.effects.spatial', subTools: ['lensBlur', 'relight', 'fog'] },
+    { id: 'facialRefine', label: 'adjustments.effects.facialRefine' },
     { id: 'lut', label: 'adjustments.effects.lut' },
     { id: 'vignette', label: 'adjustments.effects.vignette' },
     { id: 'grain', label: 'adjustments.effects.grain' },
