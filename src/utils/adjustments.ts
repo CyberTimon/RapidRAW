@@ -1050,6 +1050,35 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
   masks: [{ label: 'modals.copyPaste.groups.masks', keys: ['masks'] }],
 };
 
+export const SPEED_EDIT_ADJUSTMENTS = [
+  { id: BasicAdjustment.Exposure, label: 'adjustments.basic.exposure' },
+  { id: BasicAdjustment.Contrast, label: 'adjustments.basic.contrast' },
+  { id: BasicAdjustment.Highlights, label: 'adjustments.basic.highlights' },
+  { id: BasicAdjustment.Shadows, label: 'adjustments.basic.shadows' },
+  { id: BasicAdjustment.Whites, label: 'adjustments.basic.whites' },
+  { id: BasicAdjustment.Blacks, label: 'adjustments.basic.blacks' },
+  { id: ColorAdjustment.Temperature, label: 'adjustments.color.temperature' },
+  { id: ColorAdjustment.Tint, label: 'adjustments.color.tint' },
+  { id: ColorAdjustment.Vibrance, label: 'adjustments.color.vibrance' },
+  { id: ColorAdjustment.Saturation, label: 'adjustments.color.saturation' },
+  { id: DetailsAdjustment.Clarity, label: 'adjustments.details.clarity' },
+  { id: DetailsAdjustment.Dehaze, label: 'adjustments.details.dehaze' },
+  { id: DetailsAdjustment.Structure, label: 'adjustments.details.structure' },
+  { id: Effect.VignetteAmount, label: 'adjustments.effects.vignette' },
+  { id: 'rotation', label: 'editor.crop.rotationHeading' },
+] as const;
+
+export const DEFAULT_SPEED_EDIT_ADJUSTMENTS: string[] = [
+  BasicAdjustment.Exposure,
+  BasicAdjustment.Contrast,
+  BasicAdjustment.Highlights,
+  BasicAdjustment.Shadows,
+  ColorAdjustment.Temperature,
+  ColorAdjustment.Tint,
+  ColorAdjustment.Saturation,
+  'rotation',
+];
+
 export const COPYABLE_ADJUSTMENT_KEYS: string[] = Object.values(ADJUSTMENT_GROUPS)
   .flat()
   .flatMap((group) => group.keys);

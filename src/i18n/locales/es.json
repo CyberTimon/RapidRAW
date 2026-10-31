@@ -917,7 +917,8 @@
       }
     },
     "speedEdit": {
-      "noTarget": "Usa primero un deslizador"
+      "copied": "<0>{{label}}</0> <1>{{value}}</1> copiado",
+      "pasted": "<0>{{label}}</0> <1>{{value}}</1> pegado"
     },
     "switcher": {
       "tooltips": {
@@ -1803,6 +1804,8 @@
       "pressKey": "Presiona una tecla... (Esc para borrar)",
       "resetDefaults": "Restablecer todo a los valores predeterminados",
       "speed": "Velocidad",
+      "speedEditAdjustments": "Ajustes de edición rápida",
+      "speedEditAdjustmentsDesc": "Mientras mantienes pulsada la tecla de edición rápida, pulsa A y D para cambiar entre estos ajustes, ← y → para ajustarlos paso a paso, Q y E para cambiar de imagen, R para restablecerlos y C y V para copiar y pegar un valor.",
       "title": "Controles del ratón",
       "zoom": "Multiplicador de velocidad de zoom",
       "zoomClick": "Zoom de foto al 100%",

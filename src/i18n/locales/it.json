@@ -917,7 +917,8 @@
       }
     },
     "speedEdit": {
-      "noTarget": "Usa prima un cursore"
+      "copied": "<0>{{label}}</0> <1>{{value}}</1> copiato",
+      "pasted": "<0>{{label}}</0> <1>{{value}}</1> incollato"
     },
     "switcher": {
       "tooltips": {
@@ -1803,6 +1804,8 @@
       "pressKey": "Premi un tasto... (Esc per cancellare)",
       "resetDefaults": "Ripristina Tutto ai Valori Predefiniti",
       "speed": "Velocità",
+      "speedEditAdjustments": "Regolazioni della modifica rapida",
+      "speedEditAdjustmentsDesc": "Tenendo premuto il tasto di modifica rapida, premi A e D per passare da una regolazione all'altra, ← e → per regolarle a piccoli passi, Q ed E per cambiare immagine, R per reimpostarle e C e V per copiare e incollare un valore.",
       "title": "Controlli Mouse",
       "zoom": "Moltiplicatore Velocità Zoom",
       "zoomClick": "Zoom foto al 100%",

@@ -917,7 +917,8 @@
       }
     },
     "speedEdit": {
-      "noTarget": "Fes servir primer un control lliscant"
+      "copied": "<0>{{label}}</0> <1>{{value}}</1> copiat",
+      "pasted": "<0>{{label}}</0> <1>{{value}}</1> enganxat"
     },
     "switcher": {
       "tooltips": {
@@ -1803,6 +1804,8 @@
       "pressKey": "Premeu una tecla... (Esc per esborrar)",
       "resetDefaults": "Restablir-ho tot als valors per defecte",
       "speed": "Velocitat",
+      "speedEditAdjustments": "Ajustos d'edició ràpida",
+      "speedEditAdjustmentsDesc": "Mentre mantens premuda la tecla d'edició ràpida, prem A i D per canviar entre aquests ajustos, ← i → per ajustar-los pas a pas, Q i E per canviar d'imatge, R per restablir-los i C i V per copiar i enganxar un valor.",
       "title": "Controls del ratolí",
       "zoom": "Multiplicador de velocitat del zoom",
       "zoomClick": "Amplia la foto al 100%",

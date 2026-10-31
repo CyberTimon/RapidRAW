@@ -890,7 +890,8 @@
       }
     },
     "speedEdit": {
-      "noTarget": "먼저 슬라이더를 사용하세요"
+      "copied": "<0>{{label}}</0> <1>{{value}}</1> 복사됨",
+      "pasted": "<0>{{label}}</0> <1>{{value}}</1> 붙여넣음"
     },
     "switcher": {
       "tooltips": {
@@ -1759,6 +1760,8 @@
       "pressKey": "키를 누르세요... (Esc로 지우기)",
       "resetDefaults": "모두 기본값으로 초기화",
       "speed": "속도",
+      "speedEditAdjustments": "빠른 편집 조정 항목",
+      "speedEditAdjustmentsDesc": "빠른 편집 키를 누른 상태에서 A와 D로 조정 항목을 전환하고, ←와 →로 미세 조정하며, Q와 E로 이미지를 전환하고, R로 초기화하고, C와 V로 값을 복사하고 붙여넣습니다.",
       "title": "마우스 컨트롤",
       "zoom": "확대/축소 속도 배율",
       "zoomClick": "사진 100% 확대",

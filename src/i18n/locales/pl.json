@@ -941,7 +941,8 @@
       }
     },
     "speedEdit": {
-      "noTarget": "Najpierw użyj suwaka"
+      "copied": "Skopiowano: <0>{{label}}</0> <1>{{value}}</1>",
+      "pasted": "Wklejono: <0>{{label}}</0> <1>{{value}}</1>"
     },
     "switcher": {
       "tooltips": {
@@ -1841,6 +1842,8 @@
       "pressKey": "Naciśnij klawisz... (Esc by anulować)",
       "resetDefaults": "Przywróć wszystkie domyślne",
       "speed": "Prędkość",
+      "speedEditAdjustments": "Korekty szybkiej edycji",
+      "speedEditAdjustmentsDesc": "Przytrzymując klawisz szybkiej edycji, naciskaj A i D, aby przełączać się między tymi korektami, ← i →, aby zmieniać je o krok, Q i E, aby zmieniać zdjęcie, R, aby je zresetować, oraz C i V, aby skopiować i wkleić wartość.",
       "title": "Sterowanie myszą",
       "zoom": "Mnożnik szybkości przybliżania",
       "zoomClick": "Powiększ zdjęcie do 100%",

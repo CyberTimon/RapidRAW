@@ -890,7 +890,8 @@
       }
     },
     "speedEdit": {
-      "noTarget": "先にスライダーを操作してください"
+      "copied": "<0>{{label}}</0> <1>{{value}}</1> をコピーしました",
+      "pasted": "<0>{{label}}</0> <1>{{value}}</1> を貼り付けました"
     },
     "switcher": {
       "tooltips": {
@@ -1759,6 +1760,8 @@
       "pressKey": "キーを押してください... (Escでクリア)",
       "resetDefaults": "すべてデフォルトに戻す",
       "speed": "速度",
+      "speedEditAdjustments": "クイック編集の調整項目",
+      "speedEditAdjustmentsDesc": "クイック編集キーを押している間、A と D でこれらの調整項目を切り替え、← と → で微調整、Q と E で画像を切り替え、R でリセット、C と V で値をコピー＆ペーストします。",
       "title": "マウス操作設定",
       "zoom": "ズーム速度の倍率",
       "zoomClick": "写真を100%にズーム",

@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, memo, RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GLOBAL_KEYS } from './AppProperties';
 import { useEditorStore } from '../../store/useEditorStore';
+import { SPEED_EDIT_ADJUSTMENTS } from '../../utils/adjustments';
 
 export type SliderChangeEvent =
   | React.ChangeEvent<HTMLInputElement>
@@ -25,10 +26,11 @@ export interface SpeedEditTarget {
   label: string | null;
   value: number;
   defaultValue: number;
-  position: number;
+  step: number;
   minPosition: number;
   maxPosition: number;
   format(value: number): string;
+  toPosition(value: number): number;
   toValue(position: number): number;
   onChange(value: number): void;
   onDragStateChange(state: boolean): void;
@@ -51,6 +53,7 @@ interface SliderProps {
   onDragStateChange?(state: boolean): void;
   onPointerUp?(): void;
   scale?: SliderScale;
+  speedEditId?: string;
   step: number;
   value: number;
   trackClassName?: string;
@@ -64,6 +67,10 @@ const TOUCH_DRAG_THRESHOLD_PX = 10;
 const TOUCH_THUMB_HIT_RADIUS_PX = 24;
 
 const getFraction = (value: number, min: number, max: number) => (max !== min ? (value - min) / (max - min) : 0);
+
+const speedEditTargets = new WeakMap<Element, RefObject<SpeedEditTarget | null>>();
+
+export const getSpeedEditTarget = (element: Element) => speedEditTargets.get(element) ?? null;
 
 export const hasFineAdjustmentModifier = (event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) =>
   'shiftKey' in event && (event.shiftKey || event.altKey);
@@ -80,6 +87,7 @@ const Slider = ({
   onDragStateChange = () => {},
   onPointerUp,
   scale = LINEAR_SCALE,
+  speedEditId,
   step = 1,
   value,
   trackClassName,
@@ -149,34 +157,6 @@ const Slider = ({
   const numericValue = isNaN(Number(value)) ? 0 : Number(value);
   const formatValue = (val: number) => (decimalPlaces > 0 && val === 0 ? '0' : val.toFixed(decimalPlaces));
 
-  const speedEditTargetRef = useRef<SpeedEditTarget | null>(null);
-  speedEditTargetRef.current = disabled
-    ? null
-    : {
-        label: typeof label === 'string' ? label : null,
-        value: numericValue,
-        defaultValue,
-        position: scale.toPosition(numericValue),
-        minPosition,
-        maxPosition,
-        format: (val) => `${formatValue(val)}${suffix}`,
-        toValue: (position) => snapToStep(scale.fromPosition(position)),
-        onChange: (val) => onChange({ target: { value: val } }),
-        onDragStateChange: (state) => {
-          onDragStateChange(state);
-          if (!state) onPointerUp?.();
-        },
-      };
-
-  const claimSpeedEdit = () => useEditorStore.getState().setEditor({ speedEditTarget: speedEditTargetRef });
-
-  useEffect(() => {
-    return () => {
-      const { speedEditTarget, setEditor } = useEditorStore.getState();
-      if (speedEditTarget === speedEditTargetRef) setEditor({ speedEditTarget: null });
-    };
-  }, []);
-
   const onChangeRef = useRef(onChange);
   const snapToStepRef = useRef(snapToStep);
   const rangeRef = useRef({ min: minPosition, max: maxPosition });
@@ -190,6 +170,37 @@ const Slider = ({
   const onDragStateChangeRef = useRef(onDragStateChange);
   onDragStateChangeRef.current = onDragStateChange;
   isDraggingRef.current = isDragging;
+
+  const speedEditLabel = SPEED_EDIT_ADJUSTMENTS.find((adjustment) => adjustment.id === speedEditId)?.label;
+  const speedEditTargetRef = useRef<SpeedEditTarget | null>(null);
+  speedEditTargetRef.current = disabled
+    ? null
+    : {
+        label: speedEditLabel ? t(speedEditLabel) : typeof label === 'string' ? label : null,
+        value: numericValue,
+        defaultValue,
+        step,
+        minPosition,
+        maxPosition,
+        format: (val) => `${formatValue(val)}${suffix}`,
+        toPosition: scale.toPosition,
+        toValue: (position) => snapToStep(scale.fromPosition(position)),
+        onChange: (val) => onChangeRef.current({ target: { value: val } }),
+        onDragStateChange: (state) => {
+          onDragStateChangeRef.current(state);
+          if (!state) onPointerUp?.();
+        },
+      };
+
+  const claimSpeedEdit = () => useEditorStore.getState().setEditor({ speedEditTarget: speedEditTargetRef });
+
+  useEffect(() => {
+    if (containerRef.current) speedEditTargets.set(containerRef.current, speedEditTargetRef);
+    return () => {
+      const { speedEditTarget, setEditor } = useEditorStore.getState();
+      if (speedEditTarget === speedEditTargetRef) setEditor({ speedEditTarget: null });
+    };
+  }, []);
 
   useEffect(() => {
     if (!hasReportedDragStateRef.current && !isDragging) return;
@@ -651,6 +662,7 @@ const Slider = ({
     <div
       className={`mb-2 group ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
       ref={containerRef}
+      data-speed-edit-id={speedEditId}
       onPointerDownCapture={disabled ? undefined : claimSpeedEdit}
     >
       <div className="flex justify-between items-center mb-1">

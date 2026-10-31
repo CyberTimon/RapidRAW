@@ -890,7 +890,8 @@
       }
     },
     "speedEdit": {
-      "noTarget": "請先使用一個滑桿"
+      "copied": "已複製 <0>{{label}}</0> <1>{{value}}</1>",
+      "pasted": "已貼上 <0>{{label}}</0> <1>{{value}}</1>"
     },
     "switcher": {
       "tooltips": {
@@ -1759,6 +1760,8 @@
       "pressKey": "按下按鍵...（Esc 清除）",
       "resetDefaults": "全部重置為預設值",
       "speed": "速度",
+      "speedEditAdjustments": "快速編輯調整項目",
+      "speedEditAdjustmentsDesc": "按住快速編輯鍵時，按 A 和 D 在這些調整項目之間切換，按 ← 和 → 微調，按 Q 和 E 切換影像，按 R 重設，按 C 和 V 複製和貼上數值。",
       "title": "滑鼠控制",
       "zoom": "縮放速度倍率",
       "zoomClick": "縮放照片至 100%",

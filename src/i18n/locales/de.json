@@ -893,7 +893,8 @@
       }
     },
     "speedEdit": {
-      "noTarget": "Zuerst einen Regler verwenden"
+      "copied": "<0>{{label}}</0> <1>{{value}}</1> kopiert",
+      "pasted": "<0>{{label}}</0> <1>{{value}}</1> eingefügt"
     },
     "switcher": {
       "tooltips": {
@@ -1765,6 +1766,8 @@
       "pressKey": "Taste drücken... (Esc zum Löschen)",
       "resetDefaults": "Alles auf Standard zurücksetzen",
       "speed": "Geschwindigkeit",
+      "speedEditAdjustments": "Schnellbearbeitungs-Anpassungen",
+      "speedEditAdjustmentsDesc": "Halte die Schnellbearbeitungstaste gedrückt und wechsle mit A und D zwischen diesen Anpassungen, ändere sie mit ← und → schrittweise, wechsle mit Q und E das Bild, setze sie mit R zurück und kopiere und füge mit C und V einen Wert ein.",
       "title": "Maussteuerung",
       "zoom": "Zoom-Geschwindigkeitsfaktor",
       "zoomClick": "Foto auf 100% zoomen",

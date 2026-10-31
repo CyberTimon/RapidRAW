@@ -893,7 +893,8 @@
       }
     },
     "speedEdit": {
-      "noTarget": "Gebruik eerst een schuifregelaar"
+      "copied": "<0>{{label}}</0> <1>{{value}}</1> gekopieerd",
+      "pasted": "<0>{{label}}</0> <1>{{value}}</1> geplakt"
     },
     "switcher": {
       "tooltips": {
@@ -1765,6 +1766,8 @@
       "pressKey": "Druk op een toets... (Esc om te wissen)",
       "resetDefaults": "Alles herstellen naar standaard",
       "speed": "Snelheid",
+      "speedEditAdjustments": "Aanpassingen voor snel bewerken",
+      "speedEditAdjustmentsDesc": "Houd de sneltoets voor snel bewerken ingedrukt en druk op A en D om tussen deze aanpassingen te wisselen, op ← en → om ze stapsgewijs aan te passen, op Q en E om van afbeelding te wisselen, op R om ze te herstellen en op C en V om een waarde te kopiëren en te plakken.",
       "title": "Muisbesturing",
       "zoom": "Zoomsnelheidsmultiplicator",
       "zoomClick": "Foto zoomen naar 100%",

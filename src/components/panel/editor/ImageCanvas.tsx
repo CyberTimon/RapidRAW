@@ -5,6 +5,7 @@ import { Stage, Layer, Ellipse, Line, Transformer, Group, Circle, Rect, Arrow } 
 import type Konva from 'konva';
 import { PercentCrop, Crop } from 'react-image-crop';
 import { Stamp, Bandage, Spline, BrushCleaning } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/core';
 import {
   Adjustments,
@@ -3840,40 +3841,50 @@ const ImageCanvas = memo(
               </div>
             )}
 
-          {wbSwatchAnchor && wbSample && (
-            <div
-              className="flex items-center gap-2 p-2 rounded-md bg-surface shadow-2xl ring-1 ring-black/10 text-xs text-text-primary whitespace-nowrap"
-              style={{
-                position: 'absolute',
-                left: imageRenderSize.offsetX + wbSwatchAnchor.x + (wbSwatchFlipX ? -wbSwatchOffset : wbSwatchOffset),
-                top: imageRenderSize.offsetY + wbSwatchAnchor.y + (wbSwatchFlipY ? -wbSwatchOffset : wbSwatchOffset),
-                transformOrigin: '0 0',
-                transform: `scale(${1 / effectiveZoomScale}) translate(${wbSwatchFlipX ? '-100%' : '0'}, ${
-                  wbSwatchFlipY ? '-100%' : '0'
-                })`,
-                pointerEvents: 'none',
-                zIndex: 5,
-              }}
-            >
+          <AnimatePresence>
+            {wbSwatchAnchor && wbSample && (
               <div
-                className="w-6 h-6 rounded-sm ring-1 ring-black/20"
-                style={{ backgroundColor: `rgb(${wbSwatchRgb.join(', ')})` }}
-              />
-              <div className="flex flex-col gap-0.5 font-mono tabular-nums">
-                <span className="text-text-secondary">
-                  R {wbSwatchRgb[0]} G {wbSwatchRgb[1]} B {wbSwatchRgb[2]}
-                </span>
-                {wbSwatchWhiteBalance && (
-                  <span className="flex gap-1">
-                    <span>{t('adjustments.color.temperature')}</span>
-                    <span>{`${Math.round(wbSwatchWhiteBalance.temperature)}${isKelvinWhiteBalance ? 'K' : ''}`}</span>
-                    <span className="ml-1">{t('adjustments.color.tint')}</span>
-                    <span>{Math.round(wbSwatchWhiteBalance.tint)}</span>
-                  </span>
-                )}
+                key="wbSwatch"
+                style={{
+                  position: 'absolute',
+                  left: imageRenderSize.offsetX + wbSwatchAnchor.x + (wbSwatchFlipX ? -wbSwatchOffset : wbSwatchOffset),
+                  top: imageRenderSize.offsetY + wbSwatchAnchor.y + (wbSwatchFlipY ? -wbSwatchOffset : wbSwatchOffset),
+                  transformOrigin: '0 0',
+                  transform: `scale(${1 / effectiveZoomScale}) translate(${wbSwatchFlipX ? '-100%' : '0'}, ${
+                    wbSwatchFlipY ? '-100%' : '0'
+                  })`,
+                  pointerEvents: 'none',
+                  zIndex: 5,
+                }}
+              >
+                <motion.div
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="flex items-center gap-2 p-2 rounded-lg bg-surface/95 backdrop-blur-md shadow-xl text-xs text-text-primary whitespace-nowrap"
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.1, ease: 'easeOut' }}
+                >
+                  <div
+                    className="w-6 h-6 rounded-sm ring-1 ring-black/20"
+                    style={{ backgroundColor: `rgb(${wbSwatchRgb.join(', ')})` }}
+                  />
+                  <div className="flex flex-col gap-0.5 font-mono tabular-nums">
+                    <span className="text-text-secondary">
+                      R {wbSwatchRgb[0]} G {wbSwatchRgb[1]} B {wbSwatchRgb[2]}
+                    </span>
+                    {wbSwatchWhiteBalance && (
+                      <span className="flex gap-1">
+                        <span>{t('adjustments.color.temperature')}</span>
+                        <span>{`${Math.round(wbSwatchWhiteBalance.temperature)}${isKelvinWhiteBalance ? 'K' : ''}`}</span>
+                        <span className="ml-1">{t('adjustments.color.tint')}</span>
+                        <span>{Math.round(wbSwatchWhiteBalance.tint)}</span>
+                      </span>
+                    )}
+                  </div>
+                </motion.div>
               </div>
-            </div>
-          )}
+            )}
+          </AnimatePresence>
         </div>
 
         <div

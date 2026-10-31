@@ -893,7 +893,8 @@
       }
     },
     "speedEdit": {
-      "noTarget": "Use a slider first"
+      "copied": "Copied <0>{{label}}</0> <1>{{value}}</1>",
+      "pasted": "Pasted <0>{{label}}</0> <1>{{value}}</1>"
     },
     "switcher": {
       "tooltips": {
@@ -1765,6 +1766,8 @@
       "pressKey": "Press a key... (Esc to clear)",
       "resetDefaults": "Reset All to Defaults",
       "speed": "Speed",
+      "speedEditAdjustments": "Speed Edit Adjustments",
+      "speedEditAdjustmentsDesc": "While holding the speed edit key, press A and D to switch between these adjustments, ← and → to nudge them, Q and E to change images, R to reset, and C and V to copy and paste a value.",
       "title": "Mouse Controls",
       "zoom": "Zoom Speed Multiplier",
       "zoomClick": "Zoom photo to 100%",

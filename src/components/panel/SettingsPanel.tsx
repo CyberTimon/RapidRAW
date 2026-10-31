@@ -48,6 +48,7 @@ import {
   KEYBIND_SECTIONS,
   normalizeCombo,
 } from '../../utils/keyboardUtils';
+import { DEFAULT_SPEED_EDIT_ADJUSTMENTS, SPEED_EDIT_ADJUSTMENTS } from '../../utils/adjustments';
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { useOsPlatform } from '../../hooks/useOsPlatform';
@@ -643,6 +644,7 @@ export default function SettingsPanel({
 
   const customAiTags = Array.from(new Set<string>(appSettings?.customAiTags || []));
   const taggingShortcuts = Array.from(new Set<string>(appSettings?.taggingShortcuts || []));
+  const speedEditAdjustments: string[] = appSettings?.speedEditAdjustments ?? DEFAULT_SPEED_EDIT_ADJUSTMENTS;
 
   useEffect(() => {
     if (appSettings?.aiConnectorAddress !== aiConnectorAddress) {
@@ -2406,6 +2408,29 @@ export default function SettingsPanel({
                             onSettingsChange({ ...appSettings, zoomPhotoToPixelClick: checked });
                           }}
                         />
+                      </SettingItem>
+                      <SettingItem
+                        label={t('settings.controls.speedEditAdjustments')}
+                        description={t('settings.controls.speedEditAdjustmentsDesc')}
+                      >
+                        <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                          {SPEED_EDIT_ADJUSTMENTS.map(({ id, label }) => (
+                            <Switch
+                              checked={speedEditAdjustments.includes(id)}
+                              id={`speed-edit-${id}`}
+                              key={id}
+                              label={t(label)}
+                              onChange={(checked) =>
+                                onSettingsChange({
+                                  ...appSettings,
+                                  speedEditAdjustments: checked
+                                    ? [...speedEditAdjustments, id]
+                                    : speedEditAdjustments.filter((item) => item !== id),
+                                })
+                              }
+                            />
+                          ))}
+                        </div>
                       </SettingItem>
                     </div>
                   </div>

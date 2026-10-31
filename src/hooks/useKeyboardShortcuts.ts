@@ -10,6 +10,8 @@ import { useProcessStore } from '../store/useProcessStore';
 import { applyCrop, cancelCrop, useEditorActions } from './useEditorActions';
 import { useLibraryActions } from './useLibraryActions';
 
+const SPEED_EDIT_IMAGE_DIRECTIONS: Record<string, number> = { KeyQ: -1, KeyE: 1 };
+
 const getParentFolder = (path: string) => {
   const physicalPath = path.split('?vc=')[0];
   const separator = physicalPath.includes('/') ? '/' : '\\';
@@ -86,6 +88,13 @@ export const useKeyboardShortcuts = ({
         comboMap.set(combo.join('+'), def.action);
       }
     }
+
+    const selectAdjacentImage = (s: ShortcutState, direction: number) => {
+      const list = sortedListRef.current;
+      const currentIndex = list.findIndex((img) => img.path === s.editor.selectedImage!.path);
+      if (currentIndex === -1) return;
+      handleImageSelect(list[(currentIndex + direction + list.length) % list.length].path, true);
+    };
 
     const getImagePathsForCopy = (s: any): Array<string> => {
       if (s.editor.selectedImage) {
@@ -175,20 +184,14 @@ export const useKeyboardShortcuts = ({
         shouldFire: (s: any) => s.ui.activeView === 'editor' && !!s.editor.selectedImage,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          const currentIndex = sortedListRef.current.findIndex((img) => img.path === s.editor.selectedImage!.path);
-          if (currentIndex === -1) return;
-          const nextIndex = currentIndex - 1 < 0 ? sortedListRef.current.length - 1 : currentIndex - 1;
-          handleImageSelect(sortedListRef.current[nextIndex].path, true);
+          selectAdjacentImage(s, -1);
         },
       },
       preview_next: {
         shouldFire: (s: any) => s.ui.activeView === 'editor' && !!s.editor.selectedImage,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          const currentIndex = sortedListRef.current.findIndex((img) => img.path === s.editor.selectedImage!.path);
-          if (currentIndex === -1) return;
-          const nextIndex = currentIndex + 1 >= sortedListRef.current.length ? 0 : currentIndex + 1;
-          handleImageSelect(sortedListRef.current[nextIndex].path, true);
+          selectAdjacentImage(s, 1);
         },
       },
       zoom_in_step: {
@@ -629,6 +632,16 @@ export const useKeyboardShortcuts = ({
     };
 
     const builtinShortcuts = [
+      {
+        match: (e: KeyboardEvent, s: ShortcutState) =>
+          s.editor.isSpeedEditHeld &&
+          !!s.editor.selectedImage &&
+          (normalizeCombo(e, s.settings.osPlatform).at(-1) ?? '') in SPEED_EDIT_IMAGE_DIRECTIONS,
+        execute: (e: KeyboardEvent, s: ShortcutState) => {
+          e.preventDefault();
+          selectAdjacentImage(s, SPEED_EDIT_IMAGE_DIRECTIONS[normalizeCombo(e, s.settings.osPlatform).at(-1)!]);
+        },
+      },
       {
         match: (e: KeyboardEvent) => e.code === 'Escape',
         execute: (e: KeyboardEvent, s: any) => {
