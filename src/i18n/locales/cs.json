@@ -117,6 +117,8 @@
       "whiteBalance": "Vyvážení bílé"
     },
     "curves": {
+      "showProcessedHistogram": "Zobrazit histogram zpracovaného snímku",
+      "cubicSpline": "Kubický splajn",
       "channelTitle": "{{channel}} kanál",
       "channels": {
         "blue": "Modrý",

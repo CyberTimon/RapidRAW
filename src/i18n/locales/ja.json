@@ -117,6 +117,8 @@
       "whiteBalance": "ホワイトバランス"
     },
     "curves": {
+      "showProcessedHistogram": "処理後のヒストグラムを表示",
+      "cubicSpline": "3次スプライン",
       "channelTitle": "{{channel}} チャンネル",
       "channels": {
         "blue": "ブルー",

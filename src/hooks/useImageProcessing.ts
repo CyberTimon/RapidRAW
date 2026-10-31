@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import debounce from 'lodash.debounce';
 import throttle from 'lodash.throttle';
 import { useEditorStore } from '../store/useEditorStore';
-import { useUIStore } from '../store/useUIStore';
+import { isPanelVisible, useUIStore } from '../store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { Adjustments, COPYABLE_ADJUSTMENT_KEYS } from '../utils/adjustments';
@@ -41,6 +41,7 @@ export function useImageProcessing(
   const previewOverride = useEditorStore((state) => state.previewOverride);
   const isWaveformVisible = useEditorStore((state) => state.isWaveformVisible);
   const activeWaveformChannel = useEditorStore((state) => state.activeWaveformChannel);
+  const activeMaskContainerId = useEditorStore((state) => state.activeMaskContainerId);
   const displaySize = useEditorStore((state) => state.displaySize);
   const baseRenderSize = useEditorStore((state) => state.baseRenderSize);
   const originalSize = useEditorStore((state) => state.originalSize);
@@ -50,6 +51,7 @@ export function useImageProcessing(
 
   const activeView = useUIStore((state) => state.activeView);
   const activePanel = useUIStore((state) => state.activePanel);
+  const isMaskPanelVisible = useUIStore((state) => isPanelVisible(state, Panel.Masks));
   const isViewerOpen = useUIStore((state) => state.isViewerOpen);
   const appSettings = useSettingsStore((state) => state.appSettings);
   const multiSelectedPaths = useLibraryStore((state) => state.multiSelectedPaths);
@@ -183,6 +185,9 @@ export function useImageProcessing(
           targetResolution: targetRes || null,
           roi: roi || null,
           requestAnalytics: true,
+          curveHistogramMaskId: isPanelVisible(useUIStore.getState(), Panel.Masks)
+            ? useEditorStore.getState().activeMaskContainerId
+            : null,
           computeWaveform: !!isWaveformVisible,
           activeWaveformChannel: activeWaveformChannelRef.current || null,
         });
@@ -516,6 +521,9 @@ export function useImageProcessing(
     appSettings?.copyPasteSettings?.includedAdjustments,
     appSettings?.copyPasteSettings?.autoSync,
     isWaveformVisible,
+    activePanel,
+    activeMaskContainerId,
+    isMaskPanelVisible,
   ]);
 
   return {

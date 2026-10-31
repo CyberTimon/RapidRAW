@@ -117,6 +117,8 @@
       "whiteBalance": "화이트 밸런스"
     },
     "curves": {
+      "showProcessedHistogram": "처리 후 히스토그램 표시",
+      "cubicSpline": "3차 스플라인",
       "channelTitle": "{{channel}} 채널",
       "channels": {
         "blue": "파랑",
