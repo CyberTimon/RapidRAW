@@ -56,6 +56,7 @@
         "reds": "紅色",
         "yellows": "黃色"
       },
+      "mixerPickerTooltip": "顏色混合器滴管：在相片上按住並上下拖曳",
       "monochrome": {
         "badge": "黑白",
         "balance": "平衡",

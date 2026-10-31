@@ -56,6 +56,7 @@
         "reds": "Vermells",
         "yellows": "Grocs"
       },
+      "mixerPickerTooltip": "Selector del mesclador de colors: feu clic i arrossegueu amunt o avall a la foto",
       "monochrome": {
         "badge": "B/N",
         "balance": "Balanç",

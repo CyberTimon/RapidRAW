@@ -56,6 +56,7 @@
         "reds": "レッド",
         "yellows": "イエロー"
       },
+      "mixerPickerTooltip": "カラーミキサーのスポイト：写真をクリックして上下にドラッグ",
       "monochrome": {
         "badge": "白黒",
         "balance": "バランス",

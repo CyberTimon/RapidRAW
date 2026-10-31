@@ -56,6 +56,7 @@
         "reds": "Rot",
         "yellows": "Gelb"
       },
+      "mixerPickerTooltip": "Farbmischer-Pipette: Auf das Foto klicken und nach oben oder unten ziehen",
       "monochrome": {
         "badge": "S/W",
         "balance": "Abgleich",

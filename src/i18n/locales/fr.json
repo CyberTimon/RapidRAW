@@ -56,6 +56,7 @@
         "reds": "Rouges",
         "yellows": "Jaunes"
       },
+      "mixerPickerTooltip": "Pipette du mélangeur de couleurs : cliquez et faites glisser vers le haut ou le bas sur la photo",
       "monochrome": {
         "badge": "N&B",
         "balance": "Balance",

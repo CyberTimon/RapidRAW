@@ -56,6 +56,7 @@
         "reds": "Červená",
         "yellows": "Žlutá"
       },
+      "mixerPickerTooltip": "Pipeta míchání barev: klikněte na fotografii a táhněte nahoru nebo dolů",
       "monochrome": {
         "badge": "Č/B",
         "balance": "Vyvážení",

@@ -56,6 +56,7 @@
         "reds": "Czerwone",
         "yellows": "Żółte"
       },
+      "mixerPickerTooltip": "Pipeta miksera kolorów: kliknij i przeciągnij w górę lub w dół na zdjęciu",
       "monochrome": {
         "badge": "Cz-b",
         "balance": "Balans",

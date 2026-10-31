@@ -15,7 +15,7 @@ import {
 } from '../../utils/adjustments';
 import { AppSettings } from '../ui/AppProperties';
 import AdjustmentSubSection from './AdjustmentSubSection';
-import { useEditorStore } from '../../store/useEditorStore';
+import { canvasToolState, useEditorStore } from '../../store/useEditorStore';
 import { selectAiModelDownloadStatus, useProcessStore } from '../../store/useProcessStore';
 import { areSectionPropsEqual } from '../../utils/adjustments';
 
@@ -128,9 +128,7 @@ function DetailsPanel({
           {!isForMask && (
             <div
               data-center-marker-controls="centre"
-              onPointerDown={() =>
-                setEditor({ activeCenterMarker: 'centre', isRelightPickerActive: false, isWbPickerActive: false })
-              }
+              onPointerDown={() => setEditor(canvasToolState({ activeCenterMarker: 'centre' }))}
             >
               <Slider
                 label={t('adjustments.details.centre')}

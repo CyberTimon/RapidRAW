@@ -56,6 +56,7 @@
         "reds": "红色",
         "yellows": "黄色"
       },
+      "mixerPickerTooltip": "颜色混合器吸管：在照片上按住并上下拖动",
       "monochrome": {
         "badge": "黑白",
         "balance": "平衡",
