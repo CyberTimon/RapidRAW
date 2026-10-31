@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fs;
-use std::io::{Cursor, Seek, Write};
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -20,8 +20,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::Emitter;
 use tauri::Manager;
-use tiff::encoder::{Rational, TiffEncoder, TiffValue, colortype};
-use tiff::tags::ResolutionUnit;
 
 use crate::AppState;
 use crate::baseline_exposure::BaselineOptions;
@@ -41,6 +39,7 @@ use crate::lut_processing::{
     convert_image_to_cube_lut, generate_identity_lut_image, get_or_load_lut,
 };
 use crate::mask_generation::{MaskDefinition, build_warped_image_for_masks, generate_mask_bitmap};
+use crate::tiff_metadata::{TiffSamples, encode_tiff_with_metadata};
 
 use crate::as_shot::as_shot;
 use crate::cache_utils::{calculate_full_job_hash, calculate_transform_hash};
@@ -1176,7 +1175,19 @@ fn save_image_with_metadata(
         .unwrap_or("")
         .to_lowercase();
 
-    let mut image_bytes = encode_image_to_bytes(image, &extension, export_settings)?;
+    let tiff_metadata =
+        if export_settings.keep_metadata && matches!(extension.as_str(), "tif" | "tiff") {
+            exif_processing::collect_metadata_from_source(
+                source_path_str,
+                export_settings.strip_gps,
+                Some(image.dimensions()),
+            )
+        } else {
+            None
+        };
+
+    let mut image_bytes =
+        encode_image_to_bytes(image, &extension, export_settings, tiff_metadata.as_ref())?;
 
     exif_processing::write_image_with_metadata(
         &mut image_bytes,
@@ -1280,12 +1291,14 @@ fn encode_grayscale_to_png(bitmap: &GrayImage) -> Result<Vec<u8>, String> {
     Ok(buf)
 }
 
-const SRGB_ICC_PROFILE: &[u8] = include_bytes!("../icc/sRGB-v2-magic.icc");
+/// Exports are sRGB-encoded; tagging them lets color-managed apps read them correctly.
+pub(crate) const SRGB_ICC_PROFILE: &[u8] = include_bytes!("../icc/sRGB-v2-magic.icc");
 
 fn encode_image_to_bytes(
     image: &DynamicImage,
     output_format: &str,
     export_settings: &ExportSettings,
+    tiff_metadata: Option<&little_exif::metadata::Metadata>,
 ) -> Result<Vec<u8>, String> {
     let jpeg_quality = export_settings.jpeg_quality;
     let mut image_bytes = Vec::new();
@@ -1369,31 +1382,21 @@ fn encode_image_to_bytes(
                 insert_png_phys_chunk(&mut image_bytes, dpi);
             }
         }
+        // Unlike the formats above, TIFF gets its metadata here rather than
+        // afterwards: patching an encoded TIFF would move its pixel data away
+        // from the offsets recorded in the IFD.
         "tif" | "tiff" => {
-            let (width, height) = image.dimensions();
-            let mut encoder = TiffEncoder::new(&mut cursor).map_err(|e| e.to_string())?;
-            match export_settings.tiff_bit_depth {
-                TiffBitDepth::Eight => write_tiff::<colortype::RGB8, _>(
-                    &mut encoder,
-                    width,
-                    height,
-                    image
-                        .as_rgb8()
-                        .map_or_else(|| Cow::Owned(image.to_rgb8()), Cow::Borrowed)
-                        .as_raw(),
-                    export_settings.dpi,
-                )?,
-                TiffBitDepth::Sixteen => write_tiff::<colortype::RGB16, _>(
-                    &mut encoder,
-                    width,
-                    height,
-                    image
-                        .as_rgb16()
-                        .map_or_else(|| Cow::Owned(image.to_rgb16()), Cow::Borrowed)
-                        .as_raw(),
-                    export_settings.dpi,
-                )?,
-            }
+            let samples = match export_settings.tiff_bit_depth {
+                TiffBitDepth::Eight => TiffSamples::Eight,
+                TiffBitDepth::Sixteen => TiffSamples::Sixteen,
+            };
+            return encode_tiff_with_metadata(
+                image,
+                samples,
+                tiff_metadata,
+                Some(SRGB_ICC_PROFILE),
+                export_settings.dpi,
+            );
         }
         "avif" => {
             image
@@ -1403,31 +1406,6 @@ fn encode_image_to_bytes(
         _ => return Err(format!("Unsupported file format: {}", output_format)),
     };
     Ok(image_bytes)
-}
-
-fn write_tiff<C: colortype::ColorType, W: Write + Seek>(
-    encoder: &mut TiffEncoder<W>,
-    width: u32,
-    height: u32,
-    data: &[C::Inner],
-    dpi: Option<u16>,
-) -> Result<(), String>
-where
-    [C::Inner]: TiffValue,
-{
-    let mut image = encoder
-        .new_image::<C>(width, height)
-        .map_err(|e| e.to_string())?;
-    if let Some(dpi) = dpi {
-        image.resolution(
-            ResolutionUnit::Inch,
-            Rational {
-                n: dpi.into(),
-                d: 1,
-            },
-        );
-    }
-    image.write_data(data).map_err(|e| e.to_string())
 }
 
 fn insert_png_phys_chunk(image_bytes: &mut Vec<u8>, dpi: u16) {
@@ -2443,7 +2421,7 @@ pub async fn estimate_export_sizes(
         )?;
 
         let preview_bytes =
-            encode_image_to_bytes(&processed_preview, &output_format, &export_settings)?;
+            encode_image_to_bytes(&processed_preview, &output_format, &export_settings, None)?;
         let preview_byte_size = preview_bytes.len();
 
         let (full_w, full_h) = crate::adjustment_utils::transformed_dimensions(
@@ -2580,7 +2558,7 @@ pub async fn estimate_export_sizes(
         )?;
 
         let preview_bytes =
-            encode_image_to_bytes(&processed_preview, &output_format, &export_settings)?;
+            encode_image_to_bytes(&processed_preview, &output_format, &export_settings, None)?;
         let single_image_estimated_size = preview_bytes.len();
 
         let full_w = (shrunk_w as f32 / raw_scale_factor).round() as u32;
