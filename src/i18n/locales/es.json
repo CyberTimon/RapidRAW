@@ -916,6 +916,9 @@
         "tool": "Herramienta"
       }
     },
+    "speedEdit": {
+      "noTarget": "Usa primero un deslizador"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "Ajustar",
@@ -1952,6 +1955,7 @@
         "rotate_right": "Rotar 90° en sentido horario",
         "select_all": "Seleccionar todas las imágenes",
         "show_original": "Mostrar original (antes/después)",
+        "speed_edit": "Edición rápida del último deslizador (mantener y arrastrar)",
         "toggle_adjustments": "Alternar panel de Ajustes",
         "toggle_ai": "Alternar panel de IA",
         "toggle_analytics": "Alternar vista de análisis",

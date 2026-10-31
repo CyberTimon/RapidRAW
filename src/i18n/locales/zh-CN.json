@@ -889,6 +889,9 @@
         "tool": "工具"
       }
     },
+    "speedEdit": {
+      "noTarget": "请先使用一个滑块"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "调整",
@@ -1905,6 +1908,7 @@
         "rotate_right": "顺时针旋转 90°",
         "select_all": "选择所有图像",
         "show_original": "显示原始图像（前后对比）",
+        "speed_edit": "快速编辑上次使用的滑块（按住并拖动）",
         "toggle_adjustments": "切换调整面板",
         "toggle_ai": "切换 AI 面板",
         "toggle_analytics": "切换分析显示",

@@ -940,6 +940,9 @@
         "tool": "Nástroj"
       }
     },
+    "speedEdit": {
+      "noTarget": "Nejprve použijte posuvník"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "Upravit",
@@ -1993,6 +1996,7 @@
         "rotate_right": "Otočit o 90° ve směru hodinových ručiček",
         "select_all": "Vybrat všechny snímky",
         "show_original": "Zobrazit originál (před/po)",
+        "speed_edit": "Rychlá úprava posledního posuvníku (podržet a táhnout)",
         "toggle_adjustments": "Přepnout panel úprav",
         "toggle_ai": "Přepnout panel AI",
         "toggle_analytics": "Přepnout zobrazení analýzy",

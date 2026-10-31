@@ -1,3 +1,4 @@
+import { RefObject } from 'react';
 import { create } from 'zustand';
 import {
   Adjustments,
@@ -14,6 +15,7 @@ import { ToolType } from '../components/panel/right/Masks';
 import { OverlayMode } from '../components/panel/right/CropPanel';
 import { describeHistoryChange } from '../utils/editHistory';
 import { HslMixerProperty } from '../utils/hslMixer';
+import type { SpeedEditTarget } from '../components/ui/Slider';
 
 export type CenterMarker = 'vignette' | 'centre';
 
@@ -61,6 +63,7 @@ interface EditorState {
 
   // Interaction State
   isSliderDragging: boolean;
+  speedEditTarget: RefObject<SpeedEditTarget | null> | null;
   zoom: number;
   displaySize: ImageDimensions;
   previewSize: ImageDimensions;
@@ -144,6 +147,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   waveformHeight: 220,
 
   isSliderDragging: false,
+  speedEditTarget: null,
   interactivePatch: null,
   activeMaskContainerId: null,
   activeMaskId: null,

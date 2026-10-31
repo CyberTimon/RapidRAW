@@ -916,6 +916,9 @@
         "tool": "Strumento"
       }
     },
+    "speedEdit": {
+      "noTarget": "Usa prima un cursore"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "Regola",
@@ -1952,6 +1955,7 @@
         "rotate_right": "Ruota 90° in senso orario",
         "select_all": "Seleziona tutte le immagini",
         "show_original": "Mostra originale (prima/dopo)",
+        "speed_edit": "Modifica rapida dell'ultimo cursore (tieni premuto e trascina)",
         "toggle_adjustments": "Attiva/Disattiva pannello Regolazioni",
         "toggle_ai": "Attiva/Disattiva pannello AI",
         "toggle_analytics": "Attiva/Disattiva visualizzazione Analitiche",

@@ -892,6 +892,9 @@
         "tool": "Werkzeug"
       }
     },
+    "speedEdit": {
+      "noTarget": "Zuerst einen Regler verwenden"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "Anpassen",
@@ -1911,6 +1914,7 @@
         "rotate_right": "90° im Uhrzeigersinn drehen",
         "select_all": "Alle Bilder auswählen",
         "show_original": "Original anzeigen (Vorher/Nachher)",
+        "speed_edit": "Schnellbearbeitung des letzten Reglers (halten und ziehen)",
         "toggle_adjustments": "Anpassungen-Panel ein-/ausblenden",
         "toggle_ai": "KI-Panel ein-/ausblenden",
         "toggle_analytics": "Analyseanzeige ein-/ausblenden",

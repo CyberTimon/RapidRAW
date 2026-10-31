@@ -916,6 +916,9 @@
         "tool": "Outil"
       }
     },
+    "speedEdit": {
+      "noTarget": "Utilisez d'abord un curseur"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "Ajuster",
@@ -1953,6 +1956,7 @@
         "rotate_right": "Pivoter de 90° à droite",
         "select_all": "Sélectionner toutes les images",
         "show_original": "Afficher l'original (avant/après)",
+        "speed_edit": "Édition rapide du dernier curseur (maintenir et glisser)",
         "toggle_adjustments": "Basculer le panneau des ajustements",
         "toggle_ai": "Basculer le panneau IA",
         "toggle_analytics": "Basculer l'affichage des analyses",

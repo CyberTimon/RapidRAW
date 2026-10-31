@@ -916,6 +916,9 @@
         "tool": "Eina"
       }
     },
+    "speedEdit": {
+      "noTarget": "Fes servir primer un control lliscant"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "Ajustar",
@@ -1952,6 +1955,7 @@
         "rotate_right": "Girar 90° en sentit horari",
         "select_all": "Seleccionar totes les imatges",
         "show_original": "Mostrar original (abans/després)",
+        "speed_edit": "Edició ràpida de l'últim control lliscant (mantén i arrossega)",
         "toggle_adjustments": "Alternar tauler d'Ajustaments",
         "toggle_ai": "Alternar tauler d'IA",
         "toggle_analytics": "Alternar visualització d'anàlisi",

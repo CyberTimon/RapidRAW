@@ -892,6 +892,9 @@
         "tool": "Tool"
       }
     },
+    "speedEdit": {
+      "noTarget": "Use a slider first"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "Adjust",
@@ -1911,6 +1914,7 @@
         "rotate_right": "Rotate 90° clockwise",
         "select_all": "Select all images",
         "show_original": "Show original (before/after)",
+        "speed_edit": "Speed edit last used slider (hold and drag)",
         "toggle_adjustments": "Toggle Adjustments panel",
         "toggle_ai": "Toggle AI panel",
         "toggle_analytics": "Toggle Analytics display",

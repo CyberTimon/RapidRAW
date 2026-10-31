@@ -889,6 +889,9 @@
         "tool": "工具"
       }
     },
+    "speedEdit": {
+      "noTarget": "請先使用一個滑桿"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "調整",
@@ -1905,6 +1908,7 @@
         "rotate_right": "順時針旋轉 90°",
         "select_all": "選擇所有影像",
         "show_original": "顯示原始影像（前後對比）",
+        "speed_edit": "快速編輯上次使用的滑桿（按住並拖曳）",
         "toggle_adjustments": "切換調整面板",
         "toggle_ai": "切換 AI 面板",
         "toggle_analytics": "切換分析顯示",

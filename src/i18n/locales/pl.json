@@ -940,6 +940,9 @@
         "tool": "Narzędzie"
       }
     },
+    "speedEdit": {
+      "noTarget": "Najpierw użyj suwaka"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "Dopasuj",
@@ -1993,6 +1996,7 @@
         "rotate_right": "Obróć o 90° w prawo",
         "select_all": "Zaznacz wszystkie obrazy",
         "show_original": "Pokaż oryginał (przed/po)",
+        "speed_edit": "Szybka edycja ostatniego suwaka (przytrzymaj i przeciągnij)",
         "toggle_adjustments": "Przełącz panel Ustawienia",
         "toggle_ai": "Przełącz panel AI",
         "toggle_analytics": "Przełącz wyświetlanie analityki",

@@ -889,6 +889,9 @@
         "tool": "도구"
       }
     },
+    "speedEdit": {
+      "noTarget": "먼저 슬라이더를 사용하세요"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "조정",
@@ -1905,6 +1908,7 @@
         "rotate_right": "90° 시계 방향 회전",
         "select_all": "모든 이미지 선택",
         "show_original": "원본 표시 (전/후)",
+        "speed_edit": "마지막 슬라이더 빠른 편집 (누른 채 드래그)",
         "toggle_adjustments": "조정 패널 전환",
         "toggle_ai": "AI 패널 전환",
         "toggle_analytics": "분석 표시 전환",

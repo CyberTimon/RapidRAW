@@ -27,6 +27,7 @@ import {
 } from '../../utils/cropUtils';
 import EditorToolbar from './editor/EditorToolbar';
 import ImageCanvas from './editor/ImageCanvas';
+import SpeedEditOverlay from './editor/overlays/SpeedEditOverlay';
 import { Mask, SubMask } from './right/Masks';
 import { CompareView, Panel, TransformState, Invokes } from '../ui/AppProperties';
 import { useEditorStore } from '../../store/useEditorStore';
@@ -2641,6 +2642,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
           )}
           {straightenOverlay}
         </div>
+        <SpeedEditOverlay />
       </div>
     </div>
   );

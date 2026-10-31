@@ -916,6 +916,9 @@
         "tool": "Ferramenta"
       }
     },
+    "speedEdit": {
+      "noTarget": "Use primeiro um controle deslizante"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "Ajustar",
@@ -1952,6 +1955,7 @@
         "rotate_right": "Girar 90° no sentido horário",
         "select_all": "Selecionar todas as imagens",
         "show_original": "Mostrar original (antes/depois)",
+        "speed_edit": "Edição rápida do último controle deslizante (segurar e arrastar)",
         "toggle_adjustments": "Alternar painel de Ajustes",
         "toggle_ai": "Alternar painel de IA",
         "toggle_analytics": "Alternar exibição de Análises",

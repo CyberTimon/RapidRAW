@@ -889,6 +889,9 @@
         "tool": "ツール"
       }
     },
+    "speedEdit": {
+      "noTarget": "先にスライダーを操作してください"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "補正",
@@ -1905,6 +1908,7 @@
         "rotate_right": "時計回りに90°回転",
         "select_all": "すべての画像を選択",
         "show_original": "オリジナルを表示 (比較)",
+        "speed_edit": "最後に使ったスライダーをクイック編集（押したままドラッグ）",
         "toggle_adjustments": "補正設定パネルの表示/非表示",
         "toggle_ai": "AIパネルの表示/非表示",
         "toggle_analytics": "アナリティクス表示の表示/非表示",

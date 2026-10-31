@@ -892,6 +892,9 @@
         "tool": "Gereedschap"
       }
     },
+    "speedEdit": {
+      "noTarget": "Gebruik eerst een schuifregelaar"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "Aanpassen",
@@ -1910,6 +1913,7 @@
         "rotate_right": "90° met de klok mee roteren",
         "select_all": "Alle afbeeldingen selecteren",
         "show_original": "Origineel weergeven (voor/na)",
+        "speed_edit": "Laatste schuifregelaar snel bewerken (ingedrukt houden en slepen)",
         "toggle_adjustments": "Aanpassingspaneel aan/uit",
         "toggle_ai": "AI-paneel aan/uit",
         "toggle_analytics": "Analyseweergave aan/uit",
