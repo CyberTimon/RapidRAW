@@ -2181,7 +2181,8 @@
     "themes": {
       "dark": "ダーク",
       "grey": "グレー",
-      "light": "ライト"
+      "light": "ライト",
+      "oled": "OLED"
     },
     "title": "設定",
     "tooltips": {

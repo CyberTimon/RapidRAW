@@ -2269,7 +2269,8 @@
     "themes": {
       "dark": "Tmavý",
       "grey": "Šedý",
-      "light": "Světlý"
+      "light": "Světlý",
+      "oled": "OLED"
     },
     "title": "Nastavení",
     "tooltips": {

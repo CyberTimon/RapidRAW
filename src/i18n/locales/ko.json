@@ -2181,7 +2181,8 @@
     "themes": {
       "dark": "다크",
       "grey": "그레이",
-      "light": "라이트"
+      "light": "라이트",
+      "oled": "OLED"
     },
     "title": "설정",
     "tooltips": {

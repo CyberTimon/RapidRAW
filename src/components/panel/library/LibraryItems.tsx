@@ -809,7 +809,7 @@ const ListItemComponent = ({
             variant={TextVariants.small}
             color={TextColors.secondary}
             weight={TextWeights.bold}
-            className="shrink-0 bg-bg-primary px-1.5 py-0.5 rounded-full leading-none border border-border-color"
+            className="shrink-0 bg-bg-inset px-1.5 py-0.5 rounded-full leading-none border border-border-color"
             data-tooltip={t('library.items.tooltipVirtualCopy')}
           >
             VC

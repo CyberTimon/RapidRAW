@@ -406,7 +406,7 @@ export default function MetadataPanel() {
               <Text variant={TextVariants.heading} className="mb-3">
                 {t('editor.metadata.fileInfo.title')}
               </Text>
-              <div className="bg-surface border border-surface rounded-xl p-3.5 flex flex-col gap-2 cursor-default relative min-h-[5.5rem] overflow-hidden">
+              <div className="bg-bg-card border border-bg-card rounded-xl p-3.5 flex flex-col gap-2 cursor-default relative min-h-[5.5rem] overflow-hidden">
                 {(liveThumbnailUrl || selectedImage?.thumbnailUrl) && (
                   <div
                     className="absolute inset-y-0 right-0 w-2/3 pointer-events-none opacity-20"
@@ -516,7 +516,7 @@ export default function MetadataPanel() {
               <Text variant={TextVariants.heading} className="mb-3">
                 {t('editor.metadata.author.title')}
               </Text>
-              <div className="bg-surface rounded-xl overflow-hidden">
+              <div className="bg-bg-card rounded-xl overflow-hidden">
                 <button
                   onClick={() => setIsAuthorExpanded(!isAuthorExpanded)}
                   className="w-full flex items-center justify-between p-3 hover:bg-card-active transition-colors"
@@ -570,7 +570,7 @@ export default function MetadataPanel() {
               <Text variant={TextVariants.heading} className="mb-3">
                 {t('editor.metadata.organization.title')}
               </Text>
-              <div className="bg-surface rounded-xl overflow-hidden">
+              <div className="bg-bg-card rounded-xl overflow-hidden">
                 <button
                   onClick={() => setIsOrganizationExpanded(!isOrganizationExpanded)}
                   className="w-full flex items-center justify-between p-3 hover:bg-card-active transition-colors"
@@ -765,7 +765,7 @@ export default function MetadataPanel() {
                 <Text variant={TextVariants.heading} className="mb-3">
                   {t('editor.metadata.gps.title')}
                 </Text>
-                <div className="bg-surface border border-surface rounded-xl p-3 flex flex-col gap-3">
+                <div className="bg-bg-card border border-bg-card rounded-xl p-3 flex flex-col gap-3">
                   <div className="relative rounded-md overflow-hidden shadow-sm">
                     <iframe
                       className="pointer-events-none"
@@ -806,7 +806,7 @@ export default function MetadataPanel() {
                 <Text variant={TextVariants.heading} className="mb-3">
                   {t('editor.metadata.extendedExif.title')}
                 </Text>
-                <div className="bg-surface border border-surface rounded-xl p-3 flex flex-col gap-0.5 overflow-hidden">
+                <div className="bg-bg-card border border-bg-card rounded-xl p-3 flex flex-col gap-0.5 overflow-hidden">
                   {otherExifEntries.map(([tag, value]) => (
                     <MetadataItem key={tag} label={formatExifTag(tag)} value={value} />
                   ))}

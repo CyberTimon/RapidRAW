@@ -2183,7 +2183,8 @@
     "themes": {
       "dark": "Donker",
       "grey": "Grijs",
-      "light": "Licht"
+      "light": "Licht",
+      "oled": "OLED"
     },
     "title": "Instellingen",
     "tooltips": {

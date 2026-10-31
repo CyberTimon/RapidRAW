@@ -2269,7 +2269,8 @@
     "themes": {
       "dark": "Темная",
       "grey": "Серая",
-      "light": "Светлая"
+      "light": "Светлая",
+      "oled": "OLED"
     },
     "title": "Настройки",
     "tooltips": {

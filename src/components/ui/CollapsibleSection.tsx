@@ -49,7 +49,7 @@ export default function CollapsibleSection({
   };
 
   return (
-    <div className="bg-surface rounded-lg overflow-hidden shrink-0" onContextMenu={onContextMenu}>
+    <div className="bg-bg-card rounded-lg overflow-hidden shrink-0" onContextMenu={onContextMenu}>
       <div
         className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-card-active transition-colors duration-200"
         onClick={onToggle}

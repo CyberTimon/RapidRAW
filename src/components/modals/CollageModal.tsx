@@ -739,7 +739,7 @@ export default function CollageModal({ isOpen, onClose, onSave, sourceImages }: 
             type="number"
             value={exportWidth}
             onChange={(e) => handleExportDimChange(e, 'width')}
-            className="w-full bg-bg-primary text-center rounded-md p-1 border border-surface focus:border-accent focus:ring-accent"
+            className="w-full bg-bg-inset text-center rounded-md p-1 border border-surface focus:border-accent focus:ring-accent"
             placeholder="W"
           />
           <span className="text-text-tertiary">×</span>
@@ -747,7 +747,7 @@ export default function CollageModal({ isOpen, onClose, onSave, sourceImages }: 
             type="number"
             value={exportHeight}
             onChange={(e) => handleExportDimChange(e, 'height')}
-            className="w-full bg-bg-primary text-center rounded-md p-1 border border-surface focus:border-accent focus:ring-accent"
+            className="w-full bg-bg-inset text-center rounded-md p-1 border border-surface focus:border-accent focus:ring-accent"
             placeholder="H"
           />
         </div>
@@ -858,7 +858,7 @@ export default function CollageModal({ isOpen, onClose, onSave, sourceImages }: 
             </div>
           </div>
 
-          <div className="h-28 shrink-0 border-t border-surface bg-bg-primary/50 flex items-center px-4 gap-3 overflow-x-auto z-20 select-none">
+          <div className="h-28 shrink-0 border-t border-surface bg-bg-inset/50 flex items-center px-4 gap-3 overflow-x-auto z-20 select-none">
             {sourceImages.map((sourceImg, idx) => {
               const loadedData = loadedImages.find((l) => l.path === sourceImg.path);
               if (!loadedData) return null;

@@ -4,11 +4,14 @@
 @theme {
   --color-bg-primary: var(--app-bg-primary);
   --color-bg-secondary: var(--app-bg-secondary);
+  --color-bg-inset: var(--app-bg-inset);
+  --color-bg-card: var(--app-bg-card);
   --color-surface: var(--app-surface);
   --color-card-active: var(--app-card-active);
   --color-button-text: var(--app-button-text);
   --color-text-primary: var(--app-text-primary);
   --color-text-secondary: var(--app-text-secondary);
+  --color-text-glow: var(--app-text-glow);
   --color-accent: var(--app-accent);
   --color-border-color: var(--app-border-color);
   --color-hover-color: var(--app-hover-color);
@@ -93,7 +96,7 @@
 }
 
 @utility text-shadow-shiny {
-  text-shadow: 0 0 18px rgba(255, 255, 255, 0.35);
+  text-shadow: 0 0 18px var(--color-text-glow);
 }
 
 @layer base {
@@ -441,6 +444,6 @@
 
 @layer utilities {
   .text-shadow-shiny {
-    text-shadow: 0 0 18px rgba(255, 255, 255, 0.3);
+    text-shadow: 0 0 18px var(--color-text-glow);
   }
 }

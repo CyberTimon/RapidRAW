@@ -2187,7 +2187,8 @@
     "themes": {
       "dark": "Dunkel",
       "grey": "Grau",
-      "light": "Hell"
+      "light": "Hell",
+      "oled": "OLED"
     },
     "title": "Einstellungen",
     "tooltips": {

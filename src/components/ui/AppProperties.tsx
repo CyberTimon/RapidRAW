@@ -189,6 +189,7 @@ export enum Theme {
   Grey = 'grey',
   Light = 'light',
   MutedGreen = 'muted-green',
+  Oled = 'oled',
   Sepia = 'sepia',
   Snow = 'snow',
 }

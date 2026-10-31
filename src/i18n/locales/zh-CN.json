@@ -2181,7 +2181,8 @@
     "themes": {
       "dark": "深色",
       "grey": "灰色",
-      "light": "浅色"
+      "light": "浅色",
+      "oled": "OLED"
     },
     "title": "设置",
     "tooltips": {

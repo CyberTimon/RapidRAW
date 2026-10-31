@@ -2229,7 +2229,8 @@
     "themes": {
       "dark": "Sombre",
       "grey": "Gris",
-      "light": "Clair"
+      "light": "Clair",
+      "oled": "OLED"
     },
     "title": "Paramètres",
     "tooltips": {

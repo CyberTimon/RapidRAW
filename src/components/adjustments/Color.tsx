@@ -194,7 +194,7 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
               className={`w-7 h-7 rounded-full flex items-center justify-center transition-all focus:outline-none
                 ${
                   isActive
-                    ? 'ring-2 ring-offset-2 ring-offset-surface ring-accent text-text-primary'
+                    ? 'ring-2 ring-offset-2 ring-offset-bg-card ring-accent text-text-primary'
                     : 'bg-bg-secondary text-text-secondary hover:text-text-primary hover:bg-bg-secondary/80'
                 }`}
             >

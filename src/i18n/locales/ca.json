@@ -2228,7 +2228,8 @@
     "themes": {
       "dark": "Fosc",
       "grey": "Gris",
-      "light": "Clar"
+      "light": "Clar",
+      "oled": "OLED"
     },
     "title": "Configuració",
     "tooltips": {

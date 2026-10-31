@@ -688,7 +688,7 @@ export default function BottomBar({
                       onChange={(e) => setPercentInputValue(e.target.value)}
                       onKeyDown={handlePercentKeyDown}
                       onBlur={handlePercentSubmit}
-                      className="w-full text-xs text-text-primary bg-bg-primary border border-border-color rounded-sm px-1 text-right"
+                      className="w-full text-xs text-text-primary bg-bg-inset border border-border-color rounded-sm px-1 text-right"
                       style={{ fontSize: '12px', height: '18px' }}
                     />
                   ) : (
