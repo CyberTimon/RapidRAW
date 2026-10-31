@@ -258,7 +258,7 @@ async fn upload_original(
         &session.client,
         &id,
         &target,
-        &crate::exif_processing::get_primary_sidecar_path(source),
+        source,
         uploaded.status == "duplicate",
     )
     .await?;

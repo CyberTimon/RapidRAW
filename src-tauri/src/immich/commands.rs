@@ -152,23 +152,9 @@ fn placeholder_file(path: &str, file_modified_at: Option<&str>) -> ImageFile {
 }
 
 fn virtual_copies(path: &Path) -> Vec<String> {
-    let (Some(folder), Some(name)) = (path.parent(), path.file_name()) else {
-        return Vec::new();
-    };
-    let name = name.to_string_lossy();
-    let Ok(files) = std::fs::read_dir(folder) else {
-        return Vec::new();
-    };
-    files
-        .flatten()
-        .filter_map(|file| {
-            let file_name = file.file_name().to_string_lossy().into_owned();
-            match crate::file_management::parse_sidecar_name(&file_name) {
-                Some((base, Some(id))) if base == name => {
-                    Some(format!("{}?vc={id}", path.display()))
-                }
-                _ => None,
-            }
-        })
+    crate::metadata_store::records_for(path)
+        .into_iter()
+        .filter(|key| !key.is_primary())
+        .map(|key| key.virtual_path())
         .collect()
 }

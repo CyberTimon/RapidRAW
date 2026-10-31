@@ -259,13 +259,13 @@ impl ThumbnailManager {
 pub struct PendingMetadata {
     pub virtual_path: String,
     pub image_path: PathBuf,
-    pub sidecar_path: PathBuf,
+    pub key: crate::metadata_store::ImageKey,
 }
 
 pub struct MetadataManager {
     pub queue: Mutex<VecDeque<PendingMetadata>>,
     pub cvar: Condvar,
-    pub pending: Mutex<HashSet<PathBuf>>,
+    pub pending: Mutex<HashSet<crate::metadata_store::ImageKey>>,
 }
 
 impl MetadataManager {

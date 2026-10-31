@@ -20,6 +20,7 @@ use crate::export_processing::{
 use crate::file_management::parse_virtual_path;
 use crate::formats::{is_raw_file, is_supported_image_file};
 use crate::lut_processing::unique_destination;
+use crate::metadata_store::{self, ImageKey};
 
 type Fingerprint = (SystemTime, u64);
 
@@ -98,22 +99,19 @@ fn was_resized(source: &Path, output: &Path) -> bool {
     differs(before.0, after.0) || differs(before.1, after.1)
 }
 
-fn copy_sidecar(source: &Path, dest: &Path, drop_crop: bool) -> Result<(), String> {
+fn copy_metadata(source: &ImageKey, dest: &ImageKey, drop_crop: bool) -> Result<(), String> {
     if !drop_crop {
-        return fs::copy(source, dest)
-            .map(|_| ())
-            .map_err(|e| e.to_string());
+        return metadata_store::copy(source, dest).map_err(|e| e.to_string());
     }
-    let content = fs::read_to_string(source).map_err(|e| e.to_string())?;
-    let mut metadata: Value = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+    let mut metadata = metadata_store::read_json(source)
+        .ok_or_else(|| format!("Could not read metadata for {}", source.virtual_path()))?;
     if let Some(adjustments) = metadata
         .get_mut("adjustments")
         .and_then(|a| a.as_object_mut())
     {
         adjustments.insert("crop".to_string(), Value::Null);
     }
-    let json = serde_json::to_string_pretty(&metadata).map_err(|e| e.to_string())?;
-    fs::write(dest, json).map_err(|e| e.to_string())
+    metadata_store::write_json(dest, &metadata).map_err(|e| e.to_string())
 }
 
 fn output_destination(app: &EditInApp, source_path: &Path, extension: &str) -> PathBuf {
@@ -206,7 +204,7 @@ fn wait_for_output(
 fn finish_original(
     app: &EditInApp,
     source_path: &Path,
-    source_sidecar: &Path,
+    source_key: &ImageKey,
     output: &Path,
 ) -> Result<PathBuf, String> {
     let extension = output
@@ -221,11 +219,11 @@ fn finish_original(
     let _ =
         crate::exif_processing::write_rrexif_sidecar(&source_path.to_string_lossy(), &output_path);
 
-    if source_sidecar.exists() {
-        let (_, dest_sidecar) = parse_virtual_path(&output_path.to_string_lossy());
+    if metadata_store::exists(source_key) {
+        let dest_key = ImageKey::primary(&output_path);
         let drop_crop = was_resized(source_path, &output_path);
-        if let Err(e) = copy_sidecar(source_sidecar, &dest_sidecar, drop_crop) {
-            log::warn!("Failed to copy sidecar file for {} output: {}", app.name, e);
+        if let Err(e) = copy_metadata(source_key, &dest_key, drop_crop) {
+            log::warn!("Failed to copy metadata for {} output: {}", app.name, e);
         }
     }
 
@@ -315,7 +313,7 @@ async fn run_edit_in(
     state: State<'_, AppState>,
     app_handle: AppHandle,
 ) -> Result<Option<String>, String> {
-    let (source_path, source_sidecar) = parse_virtual_path(&path);
+    let (source_path, source_key) = parse_virtual_path(&path);
     let dir = source_path
         .parent()
         .ok_or_else(|| "Could not determine parent directory.".to_string())?
@@ -338,7 +336,7 @@ async fn run_edit_in(
         let output = match app.mode {
             EditInMode::Original => {
                 wait_for_output(&app, &launch_target, &dir, |p| p != source_path, &cancelled)?
-                    .map(|output| finish_original(&app, &source_path, &source_sidecar, &output))
+                    .map(|output| finish_original(&app, &source_path, &source_key, &output))
                     .transpose()?
             }
             EditInMode::Rendered => wait_for_output(
