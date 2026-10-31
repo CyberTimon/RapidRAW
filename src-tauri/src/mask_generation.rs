@@ -795,6 +795,23 @@ fn generate_ai_bitmap_from_full_mask(
 ) -> GrayImage {
     let (full_mask_w, full_mask_h) = full_mask_image.dimensions();
     let mut final_mask = GrayImage::new(tf.width, tf.height);
+    if full_mask_w == 0 || full_mask_h == 0 || !tf.scale.is_finite() || tf.scale <= 0.0 {
+        return final_mask;
+    }
+
+    // Filter before downscaling so thin edges keep their coverage.
+    let sampled_mask = if tf.scale < 1.0 {
+        Cow::Owned(image::imageops::resize(
+            full_mask_image,
+            (full_mask_w as f32 * tf.scale).round().max(1.0) as u32,
+            (full_mask_h as f32 * tf.scale).round().max(1.0) as u32,
+            image::imageops::FilterType::Triangle,
+        ))
+    } else {
+        Cow::Borrowed(full_mask_image)
+    };
+    let sample_scale_x = sampled_mask.width() as f32 / full_mask_w as f32;
+    let sample_scale_y = sampled_mask.height() as f32 / full_mask_h as f32;
 
     let angle_rad = tf.rotation.to_radians();
     let cos_a = angle_rad.cos();
@@ -813,8 +830,8 @@ fn generate_ai_bitmap_from_full_mask(
 
     for_each_mask_row(&mut final_mask, |y_out, row| {
         for (x_out, value) in row.iter_mut().enumerate() {
-            let x_uncrop = x_out as f32 + tf.crop_offset.0;
-            let y_uncrop = y_out as f32 + tf.crop_offset.1;
+            let x_uncrop = x_out as f32 + 0.5 + tf.crop_offset.0;
+            let y_uncrop = y_out as f32 + 0.5 + tf.crop_offset.1;
 
             let x_centered = x_uncrop - center_x;
             let y_centered = y_uncrop - center_y;
@@ -844,23 +861,41 @@ fn generate_ai_bitmap_from_full_mask(
                 _ => (x_unflipped, y_unflipped),
             };
 
-            let x_src = x_unrotated_coarse / tf.scale;
-            let y_src = y_unrotated_coarse / tf.scale;
-
-            if x_src >= 0.0
-                && x_src < full_mask_w as f32
-                && y_src >= 0.0
-                && y_src < full_mask_h as f32
-            {
-                *value = full_mask_image.get_pixel(x_src as u32, y_src as u32)[0];
-            }
+            let x_src = x_unrotated_coarse / tf.scale * sample_scale_x - 0.5;
+            let y_src = y_unrotated_coarse / tf.scale * sample_scale_y - 0.5;
+            *value = sample_ai_mask_bilinear(&sampled_mask, x_src, y_src);
         }
     });
 
     final_mask
 }
 
+fn sample_ai_mask_bilinear(mask: &GrayImage, x: f32, y: f32) -> u8 {
+    let (width, height) = mask.dimensions();
+    if x < -0.5 || x >= width as f32 - 0.5 || y < -0.5 || y >= height as f32 - 0.5 {
+        return 0;
+    }
+    // Clamp at the frame edge so masks reaching the border don't fade out.
+    let x = x.clamp(0.0, (width - 1) as f32);
+    let y = y.clamp(0.0, (height - 1) as f32);
+    let x0 = x.floor() as u32;
+    let y0 = y.floor() as u32;
+    let x1 = (x0 + 1).min(width - 1);
+    let y1 = (y0 + 1).min(height - 1);
+    let dx = x - x0 as f32;
+    let dy = y - y0 as f32;
+    let top = mask.get_pixel(x0, y0)[0] as f32 * (1.0 - dx) + mask.get_pixel(x1, y0)[0] as f32 * dx;
+    let bottom =
+        mask.get_pixel(x0, y1)[0] as f32 * (1.0 - dx) + mask.get_pixel(x1, y1)[0] as f32 * dx;
+    (top * (1.0 - dy) + bottom * dy).round() as u8
+}
+
 pub fn generate_ai_bitmap_from_base64(data_url: &str, tf: &TransformParams) -> Option<GrayImage> {
+    let full_mask_image = decode_ai_bitmap(data_url)?;
+    Some(generate_ai_bitmap_from_full_mask(&full_mask_image, tf))
+}
+
+fn decode_ai_bitmap(data_url: &str) -> Option<GrayImage> {
     let b64_data = if let Some(idx) = data_url.find(',') {
         &data_url[idx + 1..]
     } else {
@@ -868,9 +903,7 @@ pub fn generate_ai_bitmap_from_base64(data_url: &str, tf: &TransformParams) -> O
     };
 
     let decoded_bytes = general_purpose::STANDARD.decode(b64_data).ok()?;
-    let full_mask_image = image::load_from_memory(&decoded_bytes).ok()?.to_luma8();
-
-    Some(generate_ai_bitmap_from_full_mask(&full_mask_image, tf))
+    Some(image::load_from_memory(&decoded_bytes).ok()?.to_luma8())
 }
 
 fn generate_ai_sky_bitmap(
@@ -931,7 +964,9 @@ fn generate_ai_depth_bitmap(
         crop_offset,
     };
 
-    let depth_map = generate_ai_bitmap_from_base64(&data_url, &tf)?;
+    // Select depth ranges at native resolution; filtering raw depth values
+    // first could create selected mid-range values between excluded depths.
+    let depth_map = decode_ai_bitmap(&data_url)?;
 
     let (w, h) = depth_map.dimensions();
 
@@ -960,7 +995,8 @@ fn generate_ai_depth_bitmap(
             (final_intensity * 255.0) as u8
         })
         .collect();
-    let mut mask = GrayImage::from_raw(w, h, data)?;
+    let mask = GrayImage::from_raw(w, h, data)?;
+    let mut mask = generate_ai_bitmap_from_full_mask(&mask, &tf);
 
     if params.feather > 0.0 {
         mask = image::imageops::blur(&mask, params.feather * 0.1);
