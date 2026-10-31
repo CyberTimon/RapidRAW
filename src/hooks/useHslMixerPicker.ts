@@ -7,10 +7,10 @@ import { Adjustments, HueSatLum, INITIAL_ADJUSTMENTS, INITIAL_MASK_ADJUSTMENTS }
 import { HslMixerBand, HslMixerProperty, HslPresence, sampleHslPresence } from '../utils/hslMixer';
 import { RenderSize } from './useImageRenderSize';
 import { Invokes } from '../components/ui/AppProperties';
-import { FINE_ADJUSTMENT_MULTIPLIER } from '../components/ui/Slider';
+import { FINE_ADJUSTMENT_MULTIPLIER, hasFineAdjustmentModifier } from '../components/ui/Slider';
 import { prepareAdjustmentsPayload } from '../utils/backendPayload';
 
-const SAMPLE_SCREEN_SIZE = 16;
+export const MIXER_SAMPLE_SCREEN_SIZE = 16;
 const DRAG_GAIN = 0.5;
 
 interface Coord {
@@ -21,7 +21,7 @@ interface Coord {
 interface PickerDrag {
   property: HslMixerProperty;
   maskId: string | null;
-  lastY: number;
+  last: Coord;
   offset: number;
   appliedKey: string | null;
   base: Record<string, HueSatLum>;
@@ -40,12 +40,35 @@ interface HslMixerPickerOptions {
 
 const clampOffset = ({ offsetRange: [min, max] }: PickerDrag, offset: number) => Math.max(min, Math.min(max, offset));
 
-const getClientY = (e: MouseEvent | TouchEvent) => ('touches' in e ? e.touches[0]?.clientY : e.clientY);
+const getClientPoint = (e: MouseEvent | TouchEvent): Coord | undefined => {
+  const point = 'touches' in e ? e.touches[0] : e;
+  return point && { x: point.clientX, y: point.clientY };
+};
 
 const getTargetHsl = (adjustments: Adjustments, maskId: string | null): Adjustments['hsl'] =>
   maskId
     ? { ...INITIAL_MASK_ADJUSTMENTS.hsl, ...adjustments.masks.find((mask) => mask.id === maskId)?.adjustments.hsl }
     : { ...INITIAL_ADJUSTMENTS.hsl, ...adjustments.hsl };
+
+const withBandValues = (
+  adjustments: Adjustments,
+  maskId: string | null,
+  key: HslMixerProperty,
+  values: Array<[string, number]>,
+): Adjustments => {
+  const hsl = getTargetHsl(adjustments, maskId);
+  values.forEach(([band, value]) => {
+    hsl[band] = { ...hsl[band], [key]: value };
+  });
+  return maskId
+    ? {
+        ...adjustments,
+        masks: adjustments.masks.map((mask) =>
+          mask.id === maskId ? { ...mask, adjustments: { ...mask.adjustments, hsl } } : mask,
+        ),
+      }
+    : { ...adjustments, hsl };
+};
 
 export function useHslMixerPicker({
   activeMaskContainerId,
@@ -68,6 +91,23 @@ export function useHslMixerPicker({
     return new Uint8Array(probe);
   }, []);
 
+  const getPick = useCallback(
+    (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
+      const stage = e.target.getStage();
+      const pos = stage && getCanvasPointer(stage);
+      const maskId = isMasking ? activeMaskContainerId : null;
+      if (!property || !pos || (isMasking && !maskId)) return null;
+      if (pos.x < 0 || pos.y < 0 || pos.x > imageRenderSize.width || pos.y > imageRenderSize.height) return null;
+      const radius = MIXER_SAMPLE_SCREEN_SIZE / 2 / zoomScale / imageRenderSize.width;
+      return {
+        property,
+        maskId,
+        sample: () => sampleArea(pos.x / imageRenderSize.width, pos.y / imageRenderSize.height, radius),
+      };
+    },
+    [property, isMasking, activeMaskContainerId, imageRenderSize, zoomScale, getCanvasPointer, sampleArea],
+  );
+
   const applyDrag = useCallback(
     (drag: PickerDrag) => {
       const { presence, base, property: key, maskId } = drag;
@@ -79,20 +119,7 @@ export function useHslMixerPicker({
       const appliedKey = values.join();
       if (appliedKey === drag.appliedKey) return;
       drag.appliedKey = appliedKey;
-      setAdjustments((prev) => {
-        const hsl = getTargetHsl(prev, maskId);
-        values.forEach(([band, value]) => {
-          hsl[band] = { ...hsl[band], [key]: value };
-        });
-        return maskId
-          ? {
-              ...prev,
-              masks: prev.masks.map((mask) =>
-                mask.id === maskId ? { ...mask, adjustments: { ...mask.adjustments, hsl } } : mask,
-              ),
-            }
-          : { ...prev, hsl };
-      });
+      setAdjustments((prev) => withBandValues(prev, maskId, key, values));
     },
     [setAdjustments],
   );
@@ -108,21 +135,18 @@ export function useHslMixerPicker({
 
   const start = useCallback(
     (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
-      const stage = e.target.getStage();
-      const pos = stage && getCanvasPointer(stage);
-      const clientY = getClientY(e.evt);
-      const maskId = isMasking ? activeMaskContainerId : null;
-      if (!property || !pos || clientY === undefined || (isMasking && !maskId)) return;
-      if (pos.x < 0 || pos.y < 0 || pos.x > imageRenderSize.width || pos.y > imageRenderSize.height) return;
+      const pick = getPick(e);
+      const clientPoint = getClientPoint(e.evt);
+      if (!pick || !clientPoint) return;
 
       end();
       const drag: PickerDrag = {
-        property,
-        maskId,
-        lastY: clientY,
+        property: pick.property,
+        maskId: pick.maskId,
+        last: clientPoint,
         offset: 0,
         appliedKey: null,
-        base: getTargetHsl(useEditorStore.getState().adjustments, maskId),
+        base: getTargetHsl(useEditorStore.getState().adjustments, pick.maskId),
         presence: null,
         offsetRange: [-Infinity, Infinity],
       };
@@ -131,12 +155,13 @@ export function useHslMixerPicker({
       setEditor({ isSliderDragging: true });
 
       const onMove = (ev: MouseEvent | TouchEvent) => {
-        const y = getClientY(ev);
-        if (y === undefined) return;
+        const point = getClientPoint(ev);
+        if (!point) return;
         if (ev.cancelable) ev.preventDefault();
-        const multiplier = ev.altKey ? FINE_ADJUSTMENT_MULTIPLIER : 1;
-        drag.offset = clampOffset(drag, drag.offset + (drag.lastY - y) * DRAG_GAIN * multiplier);
-        drag.lastY = y;
+        const multiplier = hasFineAdjustmentModifier(ev) ? FINE_ADJUSTMENT_MULTIPLIER : 1;
+        const delta = point.x - drag.last.x - (point.y - drag.last.y);
+        drag.offset = clampOffset(drag, drag.offset + delta * DRAG_GAIN * multiplier);
+        drag.last = point;
         applyDrag(drag);
       };
       window.addEventListener('mousemove', onMove);
@@ -152,8 +177,8 @@ export function useHslMixerPicker({
         window.removeEventListener('touchcancel', end);
       };
 
-      const radius = SAMPLE_SCREEN_SIZE / 2 / zoomScale / imageRenderSize.width;
-      sampleArea(pos.x / imageRenderSize.width, pos.y / imageRenderSize.height, radius)
+      pick
+        .sample()
         .then((pixels) => {
           if (dragRef.current !== drag) return;
           drag.presence = sampleHslPresence(pixels, drag.property);
@@ -167,18 +192,24 @@ export function useHslMixerPicker({
         })
         .catch((err) => console.error('Failed to sample preview for color mixer picker:', err));
     },
-    [
-      property,
-      isMasking,
-      activeMaskContainerId,
-      imageRenderSize,
-      zoomScale,
-      getCanvasPointer,
-      sampleArea,
-      setEditor,
-      applyDrag,
-      end,
-    ],
+    [getPick, setEditor, applyDrag, end],
+  );
+
+  const reset = useCallback(
+    (e: KonvaEventObject<MouseEvent>) => {
+      const pick = getPick(e);
+      if (!pick) return;
+      pick
+        .sample()
+        .then((pixels) => {
+          const values = Object.entries(sampleHslPresence(pixels, pick.property))
+            .filter(([, weight]) => (weight as number) > 0)
+            .map(([band]): [string, number] => [band, 0]);
+          setAdjustments((prev) => withBandValues(prev, pick.maskId, pick.property, values));
+        })
+        .catch((err) => console.error('Failed to sample preview for color mixer picker:', err));
+    },
+    [getPick, setAdjustments],
   );
 
   useEffect(() => {
@@ -187,5 +218,5 @@ export function useHslMixerPicker({
 
   useEffect(() => end, [end]);
 
-  return { isActive: property !== null, isDragging, start };
+  return { isActive: property !== null, isDragging, start, reset };
 }
