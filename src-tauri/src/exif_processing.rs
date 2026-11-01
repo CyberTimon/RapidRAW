@@ -1517,7 +1517,7 @@ fn write_exif_metadata(
         .and_then(|s| s.to_str())
         .unwrap_or("")
         .to_lowercase();
-    if original_ext == "tiff" || original_ext == "tif" {
+    if (original_ext == "tiff" || original_ext == "tif") && !is_raw_file(original_path_str) {
         return Ok(());
     }
 
