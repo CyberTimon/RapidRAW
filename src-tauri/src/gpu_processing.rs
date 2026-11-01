@@ -426,12 +426,30 @@ pub fn build_wgpu_display(
     platform: PlatformSurface,
 ) -> Result<WgpuDisplay, String> {
     let swapchain_caps = surface.get_capabilities(adapter);
-    let swapchain_format = swapchain_caps
-        .formats
-        .iter()
-        .copied()
-        .find(|f| !f.is_srgb())
-        .or_else(|| swapchain_caps.formats.first().copied())
+    // Skip formats that need device features we haven't enabled. Mesa lists
+    // Rgba16Unorm early, and it needs TEXTURE_FORMAT_16BIT_NORM.
+    let usable = |f: &wgpu::TextureFormat| device.features().contains(f.required_features());
+    // On Linux prefer 10-bit to reduce banding. Float formats are skipped, as some
+    // compositors read them as linear HDR.
+    #[cfg(target_os = "linux")]
+    let preferred = [
+        wgpu::TextureFormat::Rgb10a2Unorm,
+        wgpu::TextureFormat::Bgra8Unorm,
+        wgpu::TextureFormat::Rgba8Unorm,
+    ]
+    .into_iter()
+    .find(|f| swapchain_caps.formats.contains(f) && usable(f));
+    #[cfg(not(target_os = "linux"))]
+    let preferred: Option<wgpu::TextureFormat> = None;
+    let swapchain_format = preferred
+        .or_else(|| {
+            swapchain_caps
+                .formats
+                .iter()
+                .copied()
+                .find(|f| !f.is_srgb() && usable(f))
+        })
+        .or_else(|| swapchain_caps.formats.iter().copied().find(usable))
         .ok_or("Surface is not supported by the GPU adapter")?;
 
     let alpha_mode = if cfg!(target_os = "windows")
@@ -454,7 +472,9 @@ pub fn build_wgpu_display(
         swapchain_caps.alpha_modes[0]
     };
 
-    let present_mode = if standalone
+    // On Wayland, Fifo waits for a frame callback that a hidden window never gets, which
+    // stalls each present (including on the main thread) until it times out.
+    let present_mode = if (standalone || cfg!(target_os = "linux"))
         && swapchain_caps
             .present_modes
             .contains(&wgpu::PresentMode::Mailbox)
@@ -475,6 +495,11 @@ pub fn build_wgpu_display(
         desired_maximum_frame_latency: 2,
     };
     surface.configure(device, &config);
+    log::info!(
+        "WGPU display surface: {:?}, {:?}",
+        swapchain_format,
+        present_mode
+    );
 
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("Display Shader"),
