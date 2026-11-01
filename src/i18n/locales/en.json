@@ -19,6 +19,7 @@
     },
     "color": {
       "ariaSelectColor": "Select {{name}} color",
+      "blackAndWhiteTooltip": "Black & White (set all mixer colors' saturation to -100)",
       "calibration": {
         "colors": {
           "blue": "Blue",

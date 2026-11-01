@@ -19,6 +19,7 @@
     },
     "color": {
       "ariaSelectColor": "Sélectionner la couleur {{name}}",
+      "blackAndWhiteTooltip": "Noir & blanc (sature à -100 toutes les couleurs de la balance)",
       "calibration": {
         "colors": {
           "blue": "Bleu",
