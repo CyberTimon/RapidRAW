@@ -27,6 +27,7 @@ import { MIXER_SAMPLE_SCREEN_SIZE, useHslMixerPicker } from '../../../hooks/useH
 import { isPanelVisible, useUIStore } from '../../../store/useUIStore';
 import type { OverlayMode } from '../right/CropPanel';
 import CompositionOverlays from './overlays/CompositionOverlays';
+import CropRotateArea, { CROP_ROTATE_MARGIN } from './overlays/CropRotateArea';
 import RelightLightShape, { RelightBasis } from './overlays/RelightLightShape';
 import CenterMarkerShape, { CENTER_MARKERS } from './overlays/CenterMarkerShape';
 import { calculateStraightenAngle, resolveAspectRatio } from '../../../utils/cropUtils';
@@ -1999,8 +2000,9 @@ const ImageCanvas = memo(
         return null;
       }
 
-      const viewportWidth = imageRenderSize.width + 2 * imageRenderSize.offsetX;
-      const viewportHeight = imageRenderSize.height + 2 * imageRenderSize.offsetY;
+      const margin = isCropping ? 2 * CROP_ROTATE_MARGIN : 0;
+      const viewportWidth = imageRenderSize.width + 2 * imageRenderSize.offsetX - margin;
+      const viewportHeight = imageRenderSize.height + 2 * imageRenderSize.offsetY - margin;
 
       let uncroppedEffectiveWidth = selectedImage.width;
       let uncroppedEffectiveHeight = selectedImage.height;
@@ -2019,7 +2021,7 @@ const ImageCanvas = memo(
       const renderHeight = uncroppedEffectiveHeight * scale;
 
       return { width: renderWidth, height: renderHeight };
-    }, [selectedImage?.width, selectedImage?.height, imageRenderSize, adjustments.orientationSteps]);
+    }, [selectedImage?.width, selectedImage?.height, imageRenderSize, adjustments.orientationSteps, isCropping]);
 
     useEffect(() => {
       const calcMatrix = async () => {
@@ -3378,10 +3380,24 @@ const ImageCanvas = memo(
       }
     }, [baseIsReady, interactivePatch]);
 
-    const cropImageTransforms = useMemo(() => {
-      const rotation = liveRotation !== null && liveRotation !== undefined ? liveRotation : adjustments.rotation || 0;
-      return `rotate(${rotation}deg)`;
-    }, [adjustments.rotation, liveRotation]);
+    const effectiveRotation = liveRotation ?? adjustments.rotation ?? 0;
+
+    const cropImageTransforms = useMemo(() => `rotate(${effectiveRotation}deg)`, [effectiveRotation]);
+
+    const handleRotateHandleChange = useCallback(
+      (rotation: number) => setEditor({ isRotationActive: true, liveRotation: rotation }),
+      [setEditor],
+    );
+
+    const handleRotateHandleEnd = useCallback(
+      (rotation: number | null) => {
+        setEditor({ isRotationActive: false, liveRotation: null });
+        if (rotation !== null) {
+          setAdjustments((prev: Adjustments) => ({ ...prev, rotation }));
+        }
+      },
+      [setAdjustments, setEditor],
+    );
 
     const getCropDimensions = () => {
       if (!crop || !uncroppedImageRenderSize?.width || !uncroppedImageRenderSize?.height) {
@@ -3935,6 +3951,14 @@ const ImageCanvas = memo(
                 }
               }}
             >
+              {!isStraightenActive && !isGuidedPerspectiveActive && (
+                <CropRotateArea
+                  crop={crop}
+                  rotation={effectiveRotation}
+                  onRotate={handleRotateHandleChange}
+                  onRotateEnd={handleRotateHandleEnd}
+                />
+              )}
               <ReactCrop
                 aspect={
                   resolveAspectRatio(adjustments.aspectRatio, selectedImage, adjustments.orientationSteps || 0) ??
