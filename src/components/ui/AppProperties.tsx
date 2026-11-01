@@ -70,6 +70,7 @@ export enum Invokes {
   GeneratePresetPreview = 'generate_preset_preview',
   GenerateUncroppedPreview = 'generate_uncropped_preview',
   GetStorageUsage = 'get_storage_usage',
+  GetDefaultMetadataDatabasePath = 'get_default_metadata_database_path',
   ClearAiMapsCache = 'clear_ai_maps_cache',
   ClearAiModels = 'clear_ai_models',
   ClearImmichCache = 'clear_immich_cache',
@@ -279,6 +280,8 @@ export interface AppSettings {
   linearRawMode?: string;
   enableXmpSync?: boolean;
   createXmpIfMissing?: boolean;
+  metadataStorage?: 'sidecar' | 'database';
+  metadataDatabasePath?: string | null;
   isWaveformVisible?: boolean;
   waveformHeight?: number;
   activeWaveformChannel?: string;

@@ -621,6 +621,12 @@ pub struct AppSettings {
     pub enable_xmp_sync: Option<bool>,
     #[serde(default)]
     pub create_xmp_if_missing: Option<bool>,
+    /// "sidecar" (default) or "database".
+    #[serde(default)]
+    pub metadata_storage: Option<String>,
+    /// Database file used when `metadata_storage` is "database"; unset means the default location.
+    #[serde(default)]
+    pub metadata_database_path: Option<String>,
     #[serde(default)]
     pub is_waveform_visible: Option<bool>,
     #[serde(default)]
@@ -780,6 +786,8 @@ impl Default for AppSettings {
             linear_raw_mode: default_linear_raw_mode(),
             enable_xmp_sync: Some(true),
             create_xmp_if_missing: Some(false),
+            metadata_storage: None,
+            metadata_database_path: None,
             is_waveform_visible: Some(false),
             waveform_height: Some(220),
             active_waveform_channel: Some("luma".to_string()),
@@ -960,6 +968,7 @@ pub fn save_settings(settings: AppSettings, app_handle: AppHandle) -> Result<(),
         .unwrap()
         .set_capacity(cache_size);
     crate::storage::apply_cache_limits(&settings);
+    crate::metadata_store::apply_settings(&app_handle, &settings);
 
     if previous_gpu_acceleration != Some(settings.ai_gpu_acceleration) {
         crate::ai_processing::reset_ai_sessions(&state.ai_state);

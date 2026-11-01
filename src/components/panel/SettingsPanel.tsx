@@ -29,6 +29,7 @@ import {
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { relaunch } from '@tauri-apps/plugin-process';
+import { save as saveDialog } from '@tauri-apps/plugin-dialog';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import clsx from 'clsx';
 import { ClerkProvider, SignIn, useClerk } from '@clerk/react';
@@ -612,6 +613,8 @@ export default function SettingsPanel({
 
   const [aiProvider, setAiProvider] = useState(appSettings?.aiProvider || 'cpu');
   const [aiConnectorAddress, setAiConnectorAddress] = useState<string>(appSettings?.aiConnectorAddress || '');
+  const [databasePath, setDatabasePath] = useState<string>(appSettings?.metadataDatabasePath || '');
+  const [defaultDatabasePath, setDefaultDatabasePath] = useState('');
   const [newShortcut, setNewShortcut] = useState('');
   const [newAiTag, setNewAiTag] = useState('');
 
@@ -731,8 +734,34 @@ export default function SettingsPanel({
   const speedEditAdjustments: string[] = appSettings?.speedEditAdjustments ?? DEFAULT_SPEED_EDIT_ADJUSTMENTS;
 
   useEffect(() => {
+    invoke<string>(Invokes.GetDefaultMetadataDatabasePath)
+      .then(setDefaultDatabasePath)
+      .catch((err) => console.error('Failed to get the default database path:', err));
+  }, []);
+
+  const saveDatabasePath = (path: string) => {
+    const trimmed = path.trim();
+    setDatabasePath(trimmed);
+    onSettingsChange({ ...appSettings, metadataDatabasePath: trimmed || null });
+  };
+
+  const handleChooseDatabaseFile = async () => {
+    const filePath = await saveDialog({
+      defaultPath: databasePath || defaultDatabasePath || undefined,
+      filters: [{ name: t('settings.general.databaseFileFilter'), extensions: ['db'] }],
+      title: t('settings.general.chooseDatabaseFile'),
+    });
+    if (filePath) {
+      saveDatabasePath(filePath);
+    }
+  };
+
+  useEffect(() => {
     if (appSettings?.aiConnectorAddress !== aiConnectorAddress) {
       setAiConnectorAddress(appSettings?.aiConnectorAddress || '');
+    }
+    if ((appSettings?.metadataDatabasePath || '') !== databasePath) {
+      setDatabasePath(appSettings?.metadataDatabasePath || '');
     }
     if (appSettings?.aiProvider !== aiProvider) {
       setAiProvider(appSettings?.aiProvider || 'cpu');
@@ -1096,6 +1125,61 @@ export default function SettingsPanel({
                                       onSettingsChange({ ...appSettings, createXmpIfMissing: checked })
                                     }
                                   />
+                                </SettingItem>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
+                      <div className="space-y-4">
+                        <SettingItem
+                          label={t('settings.general.metadataStorage')}
+                          description={t('settings.general.metadataStorageDesc')}
+                        >
+                          <Dropdown
+                            onChange={(value: 'sidecar' | 'database') =>
+                              onSettingsChange({ ...appSettings, metadataStorage: value })
+                            }
+                            options={[
+                              { value: 'sidecar', label: t('settings.general.metadataStorageSidecar') },
+                              { value: 'database', label: t('settings.general.metadataStorageDatabase') },
+                            ]}
+                            value={appSettings?.metadataStorage || 'sidecar'}
+                            triggerClassName="bg-bg-primary"
+                          />
+                        </SettingItem>
+
+                        <AnimatePresence initial={false}>
+                          {appSettings?.metadataStorage === 'database' && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.3, ease: 'easeInOut' }}
+                              className="overflow-hidden"
+                            >
+                              <div className="pl-4 border-l-2 border-border-color ml-1">
+                                <SettingItem
+                                  label={t('settings.general.databaseFile')}
+                                  description={t('settings.general.databaseFileDesc')}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      className="grow"
+                                      id="metadata-database-path"
+                                      onBlur={() => saveDatabasePath(databasePath)}
+                                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDatabasePath(e.target.value)}
+                                      onKeyDown={(e: React.KeyboardEvent) => e.stopPropagation()}
+                                      placeholder={defaultDatabasePath}
+                                      type="text"
+                                      value={databasePath}
+                                      bgClassName="bg-bg-primary"
+                                    />
+                                    <Button className="shrink-0" onClick={handleChooseDatabaseFile}>
+                                      {t('settings.general.chooseDatabaseFile')}
+                                    </Button>
+                                  </div>
                                 </SettingItem>
                               </div>
                             </motion.div>
