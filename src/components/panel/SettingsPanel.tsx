@@ -621,6 +621,12 @@ export default function SettingsPanel({
   const [tempLensModel, setTempLensModel] = useState<string>('');
 
   const osPlatform = useOsPlatform();
+  const [isWgpuSupported, setIsWgpuSupported] = useState(true);
+  useEffect(() => {
+    invoke<boolean>(Invokes.IsWgpuRendererSupported)
+      .then(setIsWgpuSupported)
+      .catch(() => setIsWgpuSupported(false));
+  }, []);
   const [processingSettings, setProcessingSettings] = useState({
     editorPreviewResolution: appSettings?.editorPreviewResolution || 1920,
     smallThumbnailResolution: appSettings?.smallThumbnailResolution || 480,
@@ -747,7 +753,8 @@ export default function SettingsPanel({
       linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
       highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
       useFullDpiRendering: appSettings?.useFullDpiRendering ?? false,
-      useWgpuRenderer: appSettings?.useWgpuRenderer ?? true,
+      useWgpuRenderer:
+        appSettings?.useWgpuRenderer ?? (osPlatform === 'linux' || osPlatform === 'android' ? false : true),
       thumbnailWorkerThreads: appSettings?.thumbnailWorkerThreads ?? 4,
       imageCacheSize: appSettings?.imageCacheSize ?? 5,
       rawPreprocessingColorNr: appSettings?.rawPreprocessingColorNr ?? 0.5,
@@ -2032,16 +2039,18 @@ export default function SettingsPanel({
                       <SettingItem
                         label={t('settings.processing.wgpu')}
                         description={
-                          osPlatform === 'linux'
-                            ? t('settings.processing.wgpuDescLinux')
-                            : osPlatform === 'android'
-                              ? t('settings.processing.wgpuDescAndroid')
+                          osPlatform === 'android'
+                            ? t('settings.processing.wgpuDescAndroid')
+                            : osPlatform === 'linux'
+                              ? isWgpuSupported
+                                ? t('settings.processing.wgpuDescLinuxExperimental')
+                                : t('settings.processing.wgpuDescLinuxX11')
                               : t('settings.processing.wgpuDescRecommended')
                         }
                       >
                         <Switch
                           checked={processingSettings.useWgpuRenderer}
-                          disabled={osPlatform === 'linux' || osPlatform === 'android'}
+                          disabled={osPlatform === 'android' || !isWgpuSupported}
                           id="wgpu-renderer-toggle"
                           label={t('settings.processing.wgpuLabel')}
                           onChange={(checked) => handleProcessingSettingChange('useWgpuRenderer', checked)}

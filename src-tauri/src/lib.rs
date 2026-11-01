@@ -71,6 +71,8 @@ mod storage;
 mod tagging;
 mod tagging_utils;
 mod viewer_window;
+#[cfg(target_os = "linux")]
+mod wayland_subsurface;
 mod white_balance;
 mod window_customizer;
 
@@ -2829,6 +2831,7 @@ pub fn run() {
             app_settings::load_settings,
             app_settings::save_settings,
             app_settings::is_tethering_supported,
+            app_settings::is_wgpu_renderer_supported,
             ai_commands::generate_ai_subject_mask,
             ai_commands::precompute_ai_subject_mask,
             ai_commands::generate_ai_foreground_mask,
