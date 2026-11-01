@@ -92,6 +92,7 @@
         "highlights": "ハイライト",
         "hue": "色相",
         "mix": "白黒ミックス",
+        "mixPickerTooltip": "白黒ミックスのスポイト：写真をクリックして上下にドラッグ",
         "saturation": "彩度",
         "shadows": "シャドウ",
         "strength": "強度",

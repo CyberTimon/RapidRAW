@@ -3,8 +3,8 @@ import { invoke } from '@tauri-apps/api/core';
 import type Konva from 'konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { useEditorStore } from '../store/useEditorStore';
-import { Adjustments, HueSatLum, INITIAL_ADJUSTMENTS, INITIAL_MASK_ADJUSTMENTS } from '../utils/adjustments';
-import { HslMixerBand, HslMixerProperty, HslPresence, sampleHslPresence } from '../utils/hslMixer';
+import { Adjustments, INITIAL_ADJUSTMENTS, INITIAL_MASK_ADJUSTMENTS } from '../utils/adjustments';
+import { HslMixerBand, HslMixerProperty, HslPresence, HslPresenceMode, sampleHslPresence } from '../utils/hslMixer';
 import { RenderSize } from './useImageRenderSize';
 import { Invokes } from '../components/ui/AppProperties';
 import { FINE_ADJUSTMENT_MULTIPLIER, hasFineAdjustmentModifier } from '../components/ui/Slider';
@@ -18,13 +18,18 @@ interface Coord {
   y: number;
 }
 
-interface PickerDrag {
+interface MixerTarget {
   property: HslMixerProperty;
+  presenceMode: HslPresenceMode;
   maskId: string | null;
+  editsMonochromeMix: boolean;
+}
+
+interface PickerDrag extends MixerTarget {
   last: Coord;
   offset: number;
   appliedKey: string | null;
-  base: Record<string, HueSatLum>;
+  base: Record<string, number>;
   presence: HslPresence | null;
   offsetRange: [number, number];
 }
@@ -50,15 +55,32 @@ const getTargetHsl = (adjustments: Adjustments, maskId: string | null): Adjustme
     ? { ...INITIAL_MASK_ADJUSTMENTS.hsl, ...adjustments.masks.find((mask) => mask.id === maskId)?.adjustments.hsl }
     : { ...INITIAL_ADJUSTMENTS.hsl, ...adjustments.hsl };
 
+const getMonochromeMix = (adjustments: Adjustments) => ({
+  ...INITIAL_ADJUSTMENTS.monochromeMix,
+  ...adjustments.monochromeMix,
+});
+
+const getTargetValues = (
+  adjustments: Adjustments,
+  { editsMonochromeMix, maskId, property }: MixerTarget,
+): Record<string, number> =>
+  editsMonochromeMix
+    ? getMonochromeMix(adjustments)
+    : Object.fromEntries(
+        Object.entries(getTargetHsl(adjustments, maskId)).map(([band, values]) => [band, values[property]]),
+      );
+
 const withBandValues = (
   adjustments: Adjustments,
-  maskId: string | null,
-  key: HslMixerProperty,
+  { editsMonochromeMix, maskId, property }: MixerTarget,
   values: Array<[string, number]>,
 ): Adjustments => {
+  if (editsMonochromeMix) {
+    return { ...adjustments, monochromeMix: { ...getMonochromeMix(adjustments), ...Object.fromEntries(values) } };
+  }
   const hsl = getTargetHsl(adjustments, maskId);
   values.forEach(([band, value]) => {
-    hsl[band] = { ...hsl[band], [key]: value };
+    hsl[band] = { ...hsl[band], [property]: value };
   });
   return maskId
     ? {
@@ -99,9 +121,15 @@ export function useHslMixerPicker({
       if (!property || !pos || (isMasking && !maskId)) return null;
       if (pos.x < 0 || pos.y < 0 || pos.x > imageRenderSize.width || pos.y > imageRenderSize.height) return null;
       const radius = MIXER_SAMPLE_SCREEN_SIZE / 2 / zoomScale / imageRenderSize.width;
-      return {
-        property,
+      const isMonochrome = !!useEditorStore.getState().adjustments.monochromeEnabled;
+      const target: MixerTarget = {
+        property: isMonochrome ? 'luminance' : property,
+        presenceMode: isMonochrome ? 'monochrome' : property,
         maskId,
+        editsMonochromeMix: isMonochrome && !maskId,
+      };
+      return {
+        ...target,
         sample: () => sampleArea(pos.x / imageRenderSize.width, pos.y / imageRenderSize.height, radius),
       };
     },
@@ -110,16 +138,16 @@ export function useHslMixerPicker({
 
   const applyDrag = useCallback(
     (drag: PickerDrag) => {
-      const { presence, base, property: key, maskId } = drag;
+      const { presence, base } = drag;
       if (!presence) return;
       const values = Object.entries(presence).map(([band, weight]): [string, number] => [
         band,
-        Math.max(-100, Math.min(100, Math.round(base[band][key] + drag.offset * (weight as number)))),
+        Math.max(-100, Math.min(100, Math.round(base[band] + drag.offset * (weight as number)))),
       ]);
       const appliedKey = values.join();
       if (appliedKey === drag.appliedKey) return;
       drag.appliedKey = appliedKey;
-      setAdjustments((prev) => withBandValues(prev, maskId, key, values));
+      setAdjustments((prev) => withBandValues(prev, drag, values));
     },
     [setAdjustments],
   );
@@ -142,11 +170,13 @@ export function useHslMixerPicker({
       end();
       const drag: PickerDrag = {
         property: pick.property,
+        presenceMode: pick.presenceMode,
         maskId: pick.maskId,
+        editsMonochromeMix: pick.editsMonochromeMix,
         last: clientPoint,
         offset: 0,
         appliedKey: null,
-        base: getTargetHsl(useEditorStore.getState().adjustments, pick.maskId),
+        base: getTargetValues(useEditorStore.getState().adjustments, pick),
         presence: null,
         offsetRange: [-Infinity, Infinity],
       };
@@ -181,10 +211,10 @@ export function useHslMixerPicker({
         .sample()
         .then((pixels) => {
           if (dragRef.current !== drag) return;
-          drag.presence = sampleHslPresence(pixels, drag.property);
+          drag.presence = sampleHslPresence(pixels, drag.presenceMode);
           const dominant = Object.keys(drag.presence).find((band) => drag.presence?.[band as HslMixerBand] === 1);
           if (dominant) {
-            const value = drag.base[dominant][drag.property];
+            const value = drag.base[dominant];
             drag.offsetRange = [-100 - value, 100 - value];
             drag.offset = clampOffset(drag, drag.offset);
           }
@@ -202,10 +232,10 @@ export function useHslMixerPicker({
       pick
         .sample()
         .then((pixels) => {
-          const values = Object.entries(sampleHslPresence(pixels, pick.property))
+          const values = Object.entries(sampleHslPresence(pixels, pick.presenceMode))
             .filter(([, weight]) => (weight as number) > 0)
             .map(([band]): [string, number] => [band, 0]);
-          setAdjustments((prev) => withBandValues(prev, pick.maskId, pick.property, values));
+          setAdjustments((prev) => withBandValues(prev, pick, values));
         })
         .catch((err) => console.error('Failed to sample preview for color mixer picker:', err));
     },

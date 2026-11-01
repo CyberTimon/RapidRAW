@@ -92,6 +92,7 @@
         "highlights": "Highlights",
         "hue": "Hue",
         "mix": "B&W Mix",
+        "mixPickerTooltip": "B&W Mix Picker: click and drag up or down on the photo",
         "saturation": "Saturation",
         "shadows": "Shadows",
         "strength": "Strength",

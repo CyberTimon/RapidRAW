@@ -92,6 +92,7 @@
         "highlights": "Hautes lumières",
         "hue": "Teinte",
         "mix": "Mélange N&B",
+        "mixPickerTooltip": "Pipette du mélange N&B : cliquez et faites glisser vers le haut ou le bas sur la photo",
         "saturation": "Saturation",
         "shadows": "Ombres",
         "strength": "Intensité",

@@ -92,6 +92,7 @@
         "highlights": "高光",
         "hue": "色相",
         "mix": "黑白混合",
+        "mixPickerTooltip": "黑白混合吸管：在照片上按住并上下拖动",
         "saturation": "饱和度",
         "shadows": "阴影",
         "strength": "强度",

@@ -12,6 +12,7 @@ export const HSL_MIXER_BANDS = [
 export type HslMixerBand = (typeof HSL_MIXER_BANDS)[number];
 export type HslMixerProperty = 'hue' | 'saturation' | 'luminance';
 export type HslPresence = Partial<Record<HslMixerBand, number>>;
+export type HslPresenceMode = HslMixerProperty | 'monochrome';
 
 const HSL_RANGES: Array<[number, number]> = [
   [358, 35],
@@ -37,18 +38,24 @@ const bandInfluence = (hue: number, center: number, width: number) => {
   return Math.exp(-1.5 * falloff * falloff);
 };
 
-const hslBandWeights = (hue: number, saturation: number, property: HslMixerProperty): number[] => {
-  const gate = property === 'luminance' ? smoothstep(0, 1, saturation) : smoothstep(0.05, 0.2, saturation);
+const presenceGate = (saturation: number, value: number, mode: HslPresenceMode) => {
+  if (mode === 'monochrome') return smoothstep(0.05, 0.4, saturation) * smoothstep(0, 0.1, saturation * value);
+  if (mode === 'luminance') return smoothstep(0, 1, saturation);
+  return smoothstep(0.05, 0.2, saturation);
+};
+
+const hslBandWeights = (hue: number, saturation: number, value: number, mode: HslPresenceMode): number[] => {
+  const gate = presenceGate(saturation, value, mode);
   const raw = HSL_RANGES.map(([center, width]) => bandInfluence(hue, center, width));
   const total = raw.reduce((sum, v) => sum + v, 0);
   return raw.map((v) => (v / total) * gate);
 };
 
-export const sampleHslPresence = (probe: Uint8Array, property: HslMixerProperty): HslPresence => {
+export const sampleHslPresence = (probe: Uint8Array, mode: HslPresenceMode): HslPresence => {
   const totals = HSL_RANGES.map(() => 0);
   const count = probe.length / 4;
   for (let i = 0; i < probe.length; i += 4) {
-    hslBandWeights((probe[i] / 255) * 360, probe[i + 1] / 255, property).forEach((w, band) => {
+    hslBandWeights((probe[i] / 255) * 360, probe[i + 1] / 255, probe[i + 2] / 255, mode).forEach((w, band) => {
       totals[band] += w;
     });
   }

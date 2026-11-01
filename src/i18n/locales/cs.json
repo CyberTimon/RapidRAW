@@ -92,6 +92,7 @@
         "highlights": "Světla",
         "hue": "Odstín",
         "mix": "Č/B mix",
+        "mixPickerTooltip": "Pipeta Č/B mixu: klikněte na fotografii a táhněte nahoru nebo dolů",
         "saturation": "Sytost",
         "shadows": "Stíny",
         "strength": "Síla",

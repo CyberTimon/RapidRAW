@@ -92,6 +92,7 @@
         "highlights": "Realces",
         "hue": "Matiz",
         "mix": "Mistura P&B",
+        "mixPickerTooltip": "Seletor da Mistura P&B: clique e arraste para cima ou para baixo na foto",
         "saturation": "Saturação",
         "shadows": "Sombras",
         "strength": "Intensidade",

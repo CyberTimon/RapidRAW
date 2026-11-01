@@ -92,6 +92,7 @@
         "highlights": "하이라이트",
         "hue": "색조",
         "mix": "흑백 믹스",
+        "mixPickerTooltip": "흑백 믹스 스포이트: 사진을 클릭한 채 위아래로 드래그",
         "saturation": "채도",
         "shadows": "섀도우",
         "strength": "강도",

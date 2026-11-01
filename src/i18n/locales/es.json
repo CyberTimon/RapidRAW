@@ -92,6 +92,7 @@
         "highlights": "Iluminaciones",
         "hue": "Tono",
         "mix": "Mezcla B/N",
+        "mixPickerTooltip": "Selector de la mezcla B/N: haz clic y arrastra hacia arriba o abajo en la foto",
         "saturation": "Saturación",
         "shadows": "Sombras",
         "strength": "Intensidad",
