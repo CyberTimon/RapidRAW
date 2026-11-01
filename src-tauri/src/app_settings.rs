@@ -717,6 +717,8 @@ pub struct AppSettings {
     pub workspace: WorkspaceState,
     #[serde(default)]
     pub immich: crate::immich::ImmichSettings,
+    #[serde(default)]
+    pub auto_apply_lens_correction: Option<bool>,
 }
 
 impl AppSettings {
@@ -836,6 +838,7 @@ impl Default for AppSettings {
             adjustment_layout: AdjustmentLayout::default(),
             workspace: WorkspaceState::default(),
             immich: crate::immich::ImmichSettings::default(),
+            auto_apply_lens_correction: Some(false),
         }
     }
 }

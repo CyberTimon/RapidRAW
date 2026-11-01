@@ -3225,6 +3225,96 @@ async fn update_sidecars_from_images(
     .map_err(|e| e.to_string())
 }
 
+/// Silently resolves and applies a lens correction profile for every RAW path that has
+/// never been touched before (no sidecar adjustments yet), without requiring the
+/// image to be opened in the editor. Used to auto-correct a whole folder as soon as
+/// it's listed, when the `autoApplyLensCorrection` setting is enabled. Images that
+/// already have an edit history (even an empty one) are left untouched.
+#[tauri::command]
+pub async fn auto_apply_lens_correction_to_paths(
+    paths: Vec<String>,
+    app_handle: AppHandle,
+) -> Result<(), String> {
+    let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    if !settings.auto_apply_lens_correction.unwrap_or(false) {
+        return Ok(());
+    }
+
+    let lens_db = app_handle
+        .state::<AppState>()
+        .lens_db
+        .lock()
+        .unwrap()
+        .clone();
+    let Some(lens_db) = lens_db else {
+        return Ok(());
+    };
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let detect_lens = |exif: &Option<HashMap<String, String>>| {
+            let exif = exif.as_ref()?;
+            crate::lens_correction::find_best_lens_match(
+                &lens_db,
+                exif.get("Make").map(|s| s.as_str()).unwrap_or(""),
+                exif.get("LensModel").map(|s| s.as_str()).unwrap_or(""),
+                exif.get("Model").map(|s| s.as_str()).unwrap_or(""),
+            )
+        };
+
+        // Pre-filter so only the sidecars (and thumbnails) we actually change get
+        // rewritten. Camera-generated JPEGs typically already have the manufacturer's
+        // own lens correction baked in; only RAW files need ours. The manual Lens
+        // button still works on any format if the user wants it anyway.
+        let candidates: Vec<String> = paths
+            .into_par_iter()
+            .filter(|path| {
+                let (source_path, sidecar_path) = parse_virtual_path(path);
+                if !crate::formats::is_raw_file(&source_path) {
+                    return false;
+                }
+                let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
+                if !metadata.adjustments.is_null() {
+                    return false;
+                }
+                crate::exif_processing::fill_missing_exif(&mut metadata, &source_path);
+                detect_lens(&metadata.exif).is_some()
+            })
+            .collect();
+
+        if candidates.is_empty() {
+            return;
+        }
+
+        update_sidecars_and_thumbnails(candidates, app_handle, |_, source_path, metadata| {
+            // Re-checked under the sidecar lock: the editor (or another bulk command)
+            // may have written this image since the pre-filter above.
+            if !metadata.adjustments.is_null() {
+                return;
+            }
+            crate::exif_processing::fill_missing_exif(metadata, source_path);
+
+            let mut adjustments = default_adjustments();
+            if let Some(obj) = adjustments.as_object_mut() {
+                obj.insert("lensCorrectionMode".to_string(), serde_json::json!("auto"));
+                obj.insert("lensDistortionEnabled".to_string(), serde_json::json!(true));
+                obj.insert("lensTcaEnabled".to_string(), serde_json::json!(true));
+                obj.insert("lensVignetteEnabled".to_string(), serde_json::json!(true));
+            }
+            resolve_lens_params_in_adjustments(&mut adjustments, &metadata.exif, Some(&lens_db));
+
+            if adjustments
+                .get("lensMaker")
+                .and_then(|v| v.as_str())
+                .is_some()
+            {
+                metadata.adjustments = adjustments;
+            }
+        });
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub async fn apply_auto_adjustments_to_paths(
     paths: Vec<String>,
@@ -4715,5 +4805,69 @@ pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create
         }
 
         let _ = fs::write(&xmp_file, content);
+    }
+}
+
+#[cfg(test)]
+mod lens_resolution_tests {
+    use super::*;
+    use crate::lens_correction::LensDatabase;
+    use walkdir::WalkDir;
+
+    fn load_test_db() -> LensDatabase {
+        let mut combined_db = LensDatabase {
+            cameras: Vec::new(),
+            lenses: Vec::new(),
+        };
+        let db_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("lensfun_db");
+        for entry in WalkDir::new(db_dir)
+            .into_iter()
+            .filter_map(Result::ok)
+            .filter(|e| e.path().extension().is_some_and(|ext| ext == "xml"))
+        {
+            let xml_content = fs::read_to_string(entry.path()).expect("failed to read lensfun XML");
+            let mut db: LensDatabase =
+                quick_xml::de::from_str(&xml_content).expect("failed to parse lensfun XML");
+            combined_db.cameras.append(&mut db.cameras);
+            combined_db.lenses.append(&mut db.lenses);
+        }
+        combined_db
+    }
+
+    /// Regression test for the bug where every save of a fixed-lens compact's
+    /// (e.g. Sony RX10 IV) auto-detected lens correction got silently stripped
+    /// back out on the very next save: `resolve_lens_params_in_adjustments`
+    /// re-validates the lens on each save, but used to only try matching via the
+    /// (empty, for fixed lenses) EXIF LensModel, with no camera-mount fallback.
+    #[test]
+    fn auto_mode_survives_resave_for_fixed_lens_camera() {
+        let db = load_test_db();
+
+        let mut exif = HashMap::new();
+        exif.insert("Make".to_string(), "Sony".to_string());
+        exif.insert("Model".to_string(), "DSC-RX10M4".to_string());
+        exif.insert("FocalLength".to_string(), "8.8 mm".to_string());
+        // Deliberately no "LensModel" entry: fixed-lens compacts don't populate it.
+
+        let mut adjustments = serde_json::json!({
+            "lensCorrectionMode": "auto",
+            "lensMaker": "Sony",
+            "lensModel": "RX10III & compatibles",
+        });
+
+        resolve_lens_params_in_adjustments(&mut adjustments, &Some(exif), Some(&db));
+
+        assert_eq!(
+            adjustments.get("lensMaker").and_then(|v| v.as_str()),
+            Some("Sony"),
+            "lensMaker should survive re-validation on save, got: {adjustments:?}"
+        );
+        assert!(
+            adjustments
+                .get("lensModel")
+                .and_then(|v| v.as_str())
+                .is_some_and(|s| s.contains("RX10")),
+            "lensModel should survive re-validation on save, got: {adjustments:?}"
+        );
     }
 }
