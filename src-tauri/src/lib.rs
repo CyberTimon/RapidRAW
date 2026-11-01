@@ -824,9 +824,11 @@ fn process_preview_job(
         .lock()
         .unwrap_or_else(|e| e.into_inner());
 
-    let base_valid = cached_preview_lock
-        .as_ref()
-        .is_some_and(|c| c.transform_hash == new_transform_hash && c.preview_dim == preview_dim);
+    let base_valid = cached_preview_lock.as_ref().is_some_and(|c| {
+        c.source_path == loaded_image.path
+            && c.transform_hash == new_transform_hash
+            && c.preview_dim == preview_dim
+    });
     let small_valid = base_valid
         && cached_preview_lock
             .as_ref()
@@ -881,6 +883,7 @@ fn process_preview_job(
     };
 
     *cached_preview_lock = Some(CachedPreview {
+        source_path: loaded_image.path.clone(),
         image: Arc::clone(&final_preview_base),
         small_image: Arc::clone(&small_preview_base),
         transform_hash: new_transform_hash,
@@ -2866,6 +2869,7 @@ pub fn run() {
             edit_in::cancel_edit_in_app,
             image_processing::calculate_auto_adjustments,
             image_processing::sample_white_balance,
+            image_processing::sample_color_harmony_histogram,
             auto_straighten::calculate_auto_straighten,
             file_management::apply_auto_straighten_to_paths,
             mask_generation::generate_mask_overlay,

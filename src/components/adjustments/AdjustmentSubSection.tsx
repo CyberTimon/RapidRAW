@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import clsx from 'clsx';
 import { useShallow } from 'zustand/react/shallow';
@@ -12,13 +12,21 @@ import { withToolCollapsed } from '../../utils/adjustments';
 
 interface AdjustmentSubSectionProps {
   actions?: ReactNode;
-  children: ReactNode;
+  children: ReactNode | ((expanded: boolean) => ReactNode);
+  initiallyCollapsed?: boolean;
   id: string;
   order: number;
   title: string;
 }
 
-export default function AdjustmentSubSection({ actions, children, id, order, title }: AdjustmentSubSectionProps) {
+export default function AdjustmentSubSection({
+  actions,
+  children,
+  id,
+  order,
+  title,
+  initiallyCollapsed = false,
+}: AdjustmentSubSectionProps) {
   const visibility = useToolVisibility(id);
   const { appSettings, handleSettingsChange } = useSettingsStore(
     useShallow((state) => ({
@@ -28,13 +36,18 @@ export default function AdjustmentSubSection({ actions, children, id, order, tit
   );
 
   const collapsedTools = appSettings?.adjustmentLayout?.collapsedTools ?? [];
-  const isCollapsed = collapsedTools.includes(id);
+  // Expensive, opt-in tools should not start analyzing images just because
+  // their parent section was opened. Treat the first explicit expansion as
+  // the activation point; other tools keep their existing saved behavior.
+  const [hasBeenExpanded, setHasBeenExpanded] = useState(false);
+  const isCollapsed = collapsedTools.includes(id) || (initiallyCollapsed && !hasBeenExpanded);
   const { contentRef, wrapperRef } = useCollapsibleHeight(!isCollapsed);
 
   const handleToggle = () => {
     if (!appSettings) {
       return;
     }
+    if (initiallyCollapsed && isCollapsed) setHasBeenExpanded(true);
     handleSettingsChange(withToolCollapsed(appSettings, id, !isCollapsed));
   };
 
@@ -60,7 +73,7 @@ export default function AdjustmentSubSection({ actions, children, id, order, tit
           className={clsx('pt-2 transition-opacity duration-300', visibility?.isDimmed && HIDDEN_CONTENT_CLASS)}
           ref={contentRef}
         >
-          {children}
+          {typeof children === 'function' ? children(!isCollapsed) : children}
         </div>
       </div>
     </div>

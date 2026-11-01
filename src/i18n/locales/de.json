@@ -117,6 +117,42 @@
       "wbPickerWgpuDisabled": "WA-Pipette: WGPU in den Einstellungen deaktivieren.",
       "whiteBalance": "Weißabgleich"
     },
+    "colorHarmonizer": {
+      "title": "Farbharmonisierer",
+      "description": "Farbtöne sanft zu einer harmonischen Palette ziehen",
+      "on": "An",
+      "off": "Aus",
+      "rule": "Farbharmonie",
+      "wheel": "Interaktives Farbharmonie-Rad",
+      "unlink": "Farbknoten verbinden oder lösen",
+      "unlinked": "Unabhängige Farbknoten einzeln verschieben",
+      "linked": "Verknüpfte Farbknoten gemeinsam drehen",
+      "free": "Frei",
+      "rotate": "Drehen",
+      "nodes": "Knoten",
+      "sampling": "Quellfarben werden analysiert …",
+      "histogram": "Farbtonverteilung der Quelle",
+      "match": "Hauptfarbe übernehmen",
+      "nodeCount": "Anzahl Farbknoten",
+      "strength": "Anziehung",
+      "width": "Einflussbreite",
+      "neutral": "Neutrale Farben schützen",
+      "saturation": "Sättigung je Knoten",
+      "node": "Knoten",
+      "reset": "Zurücksetzen",
+      "rules": {
+        "monochromatic": "Monochrom",
+        "analogous": "Analog",
+        "analogousComplementary": "Analog + Komplementär",
+        "complementary": "Komplementär",
+        "splitComplementary": "Geteilt komplementär",
+        "dyad": "Dyade",
+        "triad": "Triade",
+        "tetrad": "Tetrade",
+        "square": "Quadrat",
+        "custom": "Frei / Unverknüpft"
+      }
+    },
     "curves": {
       "channelTitle": "{{channel}}-Kanal",
       "channels": {
@@ -420,6 +456,7 @@
       "sections": {
         "basic": "Basis",
         "color": "Farbe",
+        "colorHarmonizer": "Farbharmonisierer",
         "curves": "Kurven",
         "details": "Details",
         "effects": "Effekte"

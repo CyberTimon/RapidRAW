@@ -307,6 +307,7 @@ export default function Controls() {
                 >
                   <AdjustmentSectionContent
                     sectionName={sectionName}
+                    isSectionOpen={collapsibleSectionsState[sectionName as keyof typeof collapsibleSectionsState]}
                     activeTools={activeTools}
                     onToggleTool={handleToggleVisibility}
                     setAdjustments={setAdjustments}

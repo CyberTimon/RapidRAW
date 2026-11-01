@@ -117,6 +117,42 @@
       "wbPickerWgpuDisabled": "WB Picker: Disable WGPU in Settings.",
       "whiteBalance": "White Balance"
     },
+    "colorHarmonizer": {
+      "title": "Color Harmonizer",
+      "description": "Pull off-palette hues toward a cohesive palette",
+      "on": "On",
+      "off": "Off",
+      "rule": "Harmony pattern",
+      "wheel": "Interactive color harmony wheel",
+      "unlink": "Link or unlink harmony nodes",
+      "unlinked": "Independent nodes; drag them individually",
+      "linked": "Linked nodes; drag to rotate the palette",
+      "free": "Free nodes",
+      "rotate": "Rotate",
+      "nodes": "nodes",
+      "sampling": "Analyzing source colors…",
+      "histogram": "Source hue distribution",
+      "match": "Match dominant hue",
+      "nodeCount": "Harmony nodes",
+      "strength": "Pull strength",
+      "width": "Pull width",
+      "neutral": "Neutral protection",
+      "saturation": "Per-node saturation",
+      "node": "Node",
+      "reset": "Reset",
+      "rules": {
+        "monochromatic": "Monochromatic",
+        "analogous": "Analogous",
+        "analogousComplementary": "Analogous + Complement",
+        "complementary": "Complementary",
+        "splitComplementary": "Split complementary",
+        "dyad": "Dyad",
+        "triad": "Triad",
+        "tetrad": "Tetrad",
+        "square": "Square",
+        "custom": "Custom / Unlinked"
+      }
+    },
     "curves": {
       "channelTitle": "{{channel}} Channel",
       "channels": {
@@ -420,6 +456,7 @@
       "sections": {
         "basic": "Basic",
         "color": "Color",
+        "colorHarmonizer": "Color Harmonizer",
         "curves": "Curves",
         "details": "Details",
         "effects": "Effects"
