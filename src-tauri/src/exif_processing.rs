@@ -1,16 +1,15 @@
 use std::borrow::Cow;
-use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::hash::{Hash, Hasher};
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, MutexGuard, OnceLock, PoisonError};
+use std::sync::{Mutex, OnceLock, PoisonError};
 use std::time::Duration;
 
 use crate::file_management;
 use crate::formats::is_raw_file;
 use crate::image_processing::{ImageFlag, ImageMetadata};
+use crate::metadata_store::{self, ImageKey};
 use crate::tagging::{COLOR_TAG_PREFIX, USER_TAG_PREFIX};
 use chrono::{DateTime, Local, LocalResult, NaiveDateTime, TimeZone, Utc};
 use exif::{Exif, In, Value};
@@ -241,100 +240,6 @@ pub fn truncate_large_exif(value: &str) -> String {
     value.to_string()
 }
 
-const SIDECAR_LOCK_STRIPES: usize = 64;
-static SIDECAR_LOCKS: [Mutex<()>; SIDECAR_LOCK_STRIPES] =
-    [const { Mutex::new(()) }; SIDECAR_LOCK_STRIPES];
-
-fn sidecar_lock_stripe(sidecar_path: &Path) -> &'static Mutex<()> {
-    let mut hasher = DefaultHasher::new();
-    sidecar_path.hash(&mut hasher);
-    &SIDECAR_LOCKS[hasher.finish() as usize % SIDECAR_LOCK_STRIPES]
-}
-
-pub fn lock_sidecar(sidecar_path: &Path) -> MutexGuard<'static, ()> {
-    sidecar_lock_stripe(sidecar_path)
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner)
-}
-
-fn heal_bloated_exif(meta: &mut ImageMetadata) -> bool {
-    let mut healed = false;
-    if let Some(ref mut exif_map) = meta.exif {
-        for val in exif_map.values_mut() {
-            if val.len() > 500 {
-                *val = truncate_large_exif(val);
-                healed = true;
-            }
-        }
-    }
-    healed
-}
-
-fn quarantine_sidecar(sidecar_path: &Path, error: &serde_json::Error) {
-    let mut quarantined = sidecar_path.as_os_str().to_os_string();
-    quarantined.push(format!(".corrupt-{}", Utc::now().format("%Y%m%d%H%M%S")));
-    match fs::rename(sidecar_path, &quarantined) {
-        Ok(()) => log::error!(
-            "Unreadable sidecar {} ({}), moved to {}",
-            sidecar_path.display(),
-            error,
-            Path::new(&quarantined).display()
-        ),
-        Err(e) => log::error!(
-            "Unreadable sidecar {} ({}), could not move it aside: {}",
-            sidecar_path.display(),
-            error,
-            e
-        ),
-    }
-}
-
-fn read_sidecar(sidecar_path: &Path) -> std::io::Result<(ImageMetadata, bool)> {
-    let content = match fs::read_to_string(sidecar_path) {
-        Ok(content) => content,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            return Ok((ImageMetadata::default(), false));
-        }
-        Err(e) => return Err(e),
-    };
-
-    match serde_json::from_str::<ImageMetadata>(&content) {
-        Ok(mut meta) => {
-            let healed = heal_bloated_exif(&mut meta);
-            Ok((meta, healed))
-        }
-        Err(e) => {
-            quarantine_sidecar(sidecar_path, &e);
-            Ok((ImageMetadata::default(), false))
-        }
-    }
-}
-
-fn write_sidecar_json(sidecar_path: &Path, metadata: &ImageMetadata) -> std::io::Result<()> {
-    let json = serde_json::to_string_pretty(metadata).map_err(std::io::Error::other)?;
-    file_management::write_file_atomic(sidecar_path, json.as_bytes())
-}
-
-pub fn load_sidecar(sidecar_path: &Path) -> ImageMetadata {
-    let (meta, healed) = read_sidecar(sidecar_path).unwrap_or_else(|e| {
-        log::warn!("Failed to read sidecar {}: {}", sidecar_path.display(), e);
-        (ImageMetadata::default(), false)
-    });
-
-    if healed
-        && let Ok(_guard) = sidecar_lock_stripe(sidecar_path).try_lock()
-        && let Ok((current, true)) = read_sidecar(sidecar_path)
-        && write_sidecar_json(sidecar_path, &current).is_ok()
-    {
-        log::info!(
-            "Auto-healed bloated sidecar for: {}",
-            sidecar_path.display()
-        );
-    }
-
-    meta
-}
-
 pub fn fill_missing_exif(meta: &mut ImageMetadata, source_path: &Path) {
     if meta.exif.is_some() {
         return;
@@ -353,66 +258,8 @@ pub fn fill_missing_exif(meta: &mut ImageMetadata, source_path: &Path) {
     meta.exif = exif;
 }
 
-pub static SIDECAR_LAYOUT_LOCK: Mutex<()> = Mutex::new(());
-
-fn write_sidecar(
-    sidecar_path: &Path,
-    source_path: &Path,
-    metadata: &ImageMetadata,
-) -> std::io::Result<()> {
-    if is_default_sidecar(sidecar_path, source_path, metadata) {
-        let _layout = SIDECAR_LAYOUT_LOCK.lock().unwrap();
-        if !has_virtual_copy_sidecars(source_path) {
-            return match fs::remove_file(sidecar_path) {
-                Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e),
-                _ => Ok(()),
-            };
-        }
-    }
-
-    write_sidecar_json(sidecar_path, metadata)
-}
-
-pub fn update_sidecar(
-    sidecar_path: &Path,
-    source_path: &Path,
-    update: impl FnOnce(&mut ImageMetadata),
-) -> std::io::Result<ImageMetadata> {
-    let _guard = lock_sidecar(sidecar_path);
-    let (mut metadata, _) = read_sidecar(sidecar_path)?;
-    update(&mut metadata);
-    if crate::immich::is_placeholder(source_path)
-        && let Some(parent) = sidecar_path.parent()
-    {
-        fs::create_dir_all(parent)?;
-    }
-    write_sidecar(sidecar_path, source_path, &metadata)?;
-    Ok(metadata)
-}
-
-fn has_virtual_copy_sidecars(source_path: &Path) -> bool {
-    let (Some(parent), Some(file_name)) = (source_path.parent(), source_path.file_name()) else {
-        return true;
-    };
-    let file_name = file_name.to_string_lossy();
-
-    let Ok(entries) = fs::read_dir(parent) else {
-        return true;
-    };
-    entries.filter_map(Result::ok).any(|entry| {
-        let name = entry.file_name();
-        let name = name.to_string_lossy();
-        matches!(
-            file_management::parse_sidecar_name(&name),
-            Some((source, Some(_))) if source == file_name
-        )
-    })
-}
-
-fn is_default_sidecar(sidecar_path: &Path, source_path: &Path, metadata: &ImageMetadata) -> bool {
-    if sidecar_path != get_primary_sidecar_path(source_path) {
-        return false;
-    }
+/// True when a primary record holds nothing beyond what the image file already says.
+pub fn is_default_metadata(source_path: &Path, metadata: &ImageMetadata) -> bool {
     if metadata.rating != 0
         || metadata.flag.is_some()
         || metadata.tags.as_ref().is_some_and(|tags| !tags.is_empty())
@@ -2078,39 +1925,24 @@ fn update_riff_size(image_bytes: &mut [u8]) {
     image_bytes[4..8].copy_from_slice(&riff_size.to_le_bytes());
 }
 
-pub fn get_primary_sidecar_path(image_path: &Path) -> PathBuf {
-    let mut filename = image_path.file_name().unwrap_or_default().to_os_string();
-    filename.push(".rrdata");
-    image_path.with_file_name(filename)
-}
-
 pub fn get_rrexif_path(image_path: &Path) -> PathBuf {
     let mut filename = image_path.file_name().unwrap_or_default().to_os_string();
     filename.push(".rrexif");
     image_path.with_file_name(filename)
 }
 
-fn load_primary_metadata(image_path: &Path) -> ImageMetadata {
-    let primary = get_primary_sidecar_path(image_path);
-    load_sidecar(&primary)
-}
-
 fn update_primary_metadata(
     image_path: &Path,
     update: impl FnOnce(&mut ImageMetadata),
 ) -> std::io::Result<()> {
-    let primary = get_primary_sidecar_path(image_path);
-    let _guard = lock_sidecar(&primary);
-    let (mut metadata, _) = read_sidecar(&primary)?;
-    update(&mut metadata);
-    write_sidecar_json(&primary, &metadata)
+    metadata_store::update_keeping_record(&ImageKey::primary(image_path), update)
 }
 
 pub fn read_rrexif_sidecar(image_path: &Path) -> Option<HashMap<String, String>> {
-    let primary = get_primary_sidecar_path(image_path);
+    let primary = ImageKey::primary(image_path);
 
-    if primary.exists() {
-        let metadata = load_primary_metadata(image_path);
+    if metadata_store::exists(&primary) {
+        let metadata = metadata_store::load(&primary);
         if let Some(exif) = metadata.exif {
             return Some(exif);
         }
@@ -2171,8 +2003,7 @@ pub fn read_exif_data(path: &str, file_bytes: &[u8]) -> HashMap<String, String> 
 
     let exif_map = read_exif_data_from_bytes(path, file_bytes);
     if !exif_map.is_empty() {
-        let primary = get_primary_sidecar_path(source_path);
-        if primary.exists() {
+        if metadata_store::exists(&ImageKey::primary(source_path)) {
             let _ = update_primary_metadata(source_path, |metadata| {
                 metadata.exif = Some(exif_map.clone());
             });
@@ -2194,9 +2025,7 @@ pub fn persist_exif_if_missing(source_path: &Path, source_path_str: &str, file_b
         return;
     }
 
-    let primary = get_primary_sidecar_path(source_path);
-
-    if primary.exists() {
+    if metadata_store::exists(&ImageKey::primary(source_path)) {
         let _ = update_primary_metadata(source_path, |metadata| {
             metadata.exif.get_or_insert(exif_map);
         });
