@@ -1269,12 +1269,18 @@
       "albumsEmpty": "Clic derecho para crear un álbum.",
       "collapseSection": "Contraer {{section}}",
       "expandSection": "Expandir {{section}}",
+      "flagViews": {
+        "empty": "No hay imágenes con esta marca en esta carpeta ni en sus subcarpetas.",
+        "picked": "Elegidas",
+        "rejected": "Rechazadas"
+      },
       "loading": "Cargando carpetas...",
       "noFoldersFound": "No se encontraron carpetas.",
       "openFolderInstruction": "Abre una carpeta para ver su estructura.",
       "searchPlaceholder": "Buscar carpetas...",
       "sections": {
         "albums": "Álbumes",
+        "flags": "Marcas",
         "folders": "Carpetas",
         "pinned": "Fijadas"
       },

@@ -1241,12 +1241,18 @@
       "albumsEmpty": "Right-click to create an album.",
       "collapseSection": "Collapse {{section}}",
       "expandSection": "Expand {{section}}",
+      "flagViews": {
+        "empty": "No images with this flag in this folder or its subfolders.",
+        "picked": "Picked",
+        "rejected": "Rejected"
+      },
       "loading": "Loading folders...",
       "noFoldersFound": "No folders found.",
       "openFolderInstruction": "Open a folder to see its structure.",
       "searchPlaceholder": "Search folders...",
       "sections": {
         "albums": "Albums",
+        "flags": "Flags",
         "folders": "Folders",
         "pinned": "Pinned"
       },

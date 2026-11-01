@@ -79,7 +79,7 @@ function computeGroupedLibrary(
   settingsState: any,
   options: { includeBadges: boolean } = { includeBadges: true },
 ): GroupedLibrary {
-  const { imageList, imageRatings, filterCriteria, searchCriteria, sortCriteria } = libraryState;
+  const { imageList, imageRatings, filterCriteria, searchCriteria, sortCriteria, flagView } = libraryState;
   const exifByPath: Record<string, Record<string, string>> = libraryState.exifByPath ?? NO_EXIF;
   const { appSettings } = settingsState;
 
@@ -108,7 +108,9 @@ function computeGroupedLibrary(
       if (filterCriteria.editedStatus === EditedStatus.UneditedOnly && image.is_edited) return false;
     }
 
-    if (filterCriteria.flagStatus && filterCriteria.flagStatus !== FlagStatus.All) {
+    if (flagView) {
+      if (image.flag !== flagView) return false;
+    } else if (filterCriteria.flagStatus && filterCriteria.flagStatus !== FlagStatus.All) {
       if (filterCriteria.flagStatus === FlagStatus.Picked && image.flag !== ImageFlag.Pick) return false;
       if (filterCriteria.flagStatus === FlagStatus.ExcludeRejected && image.flag === ImageFlag.Reject) return false;
       if (filterCriteria.flagStatus === FlagStatus.Rejected && image.flag !== ImageFlag.Reject) return false;
@@ -330,6 +332,7 @@ export function useSortedLibrary() {
   const filterCriteria = useLibraryStore((state) => state.filterCriteria);
   const searchCriteria = useLibraryStore((state) => state.searchCriteria);
   const sortCriteria = useLibraryStore((state) => state.sortCriteria);
+  const flagView = useLibraryStore((state) => state.flagView);
   const needsExif = useLibraryStore((state) => usesExif(state.sortCriteria, state.searchCriteria));
   const exifByPath = useLibraryStore((state) => (needsExif ? state.exifByPath : NO_EXIF));
 
@@ -340,11 +343,11 @@ export function useSortedLibrary() {
 
   const displayList = useMemo(() => {
     return computeGroupedLibrary(
-      { imageList, imageRatings, filterCriteria, searchCriteria, sortCriteria, exifByPath },
+      { imageList, imageRatings, filterCriteria, searchCriteria, sortCriteria, flagView, exifByPath },
       { appSettings },
       { includeBadges: false },
     ).displayList;
-  }, [imageList, sortCriteria, imageRatings, filterCriteria, searchCriteria, appSettings, exifByPath]);
+  }, [imageList, sortCriteria, imageRatings, filterCriteria, searchCriteria, flagView, appSettings, exifByPath]);
 
   const badges = useMemo(
     () => (groupingMode !== 'off' ? buildImageGroups(imageList, groupingMode, groupEditedFiles).badges : null),

@@ -1270,12 +1270,18 @@
       "albumsEmpty": "Faites un clic droit pour créer un album.",
       "collapseSection": "Réduire {{section}}",
       "expandSection": "Développer {{section}}",
+      "flagViews": {
+        "empty": "Aucune image avec ce marqueur dans ce dossier ou ses sous-dossiers.",
+        "picked": "Retenues",
+        "rejected": "Rejetées"
+      },
       "loading": "Chargement des dossiers...",
       "noFoldersFound": "Aucun dossier trouvé.",
       "openFolderInstruction": "Ouvrez un dossier pour voir sa structure.",
       "searchPlaceholder": "Rechercher des dossiers...",
       "sections": {
         "albums": "Albums",
+        "flags": "Marqueurs",
         "folders": "Dossiers",
         "pinned": "Épinglés"
       },

@@ -1269,12 +1269,18 @@
       "albumsEmpty": "Clique com o botão direito para criar um álbum.",
       "collapseSection": "Recolher {{section}}",
       "expandSection": "Expandir {{section}}",
+      "flagViews": {
+        "empty": "Não há imagens com esta marca nesta pasta nem nas suas subpastas.",
+        "picked": "Escolhidas",
+        "rejected": "Rejeitadas"
+      },
       "loading": "Carregando pastas...",
       "noFoldersFound": "Nenhuma pasta encontrada.",
       "openFolderInstruction": "Abra uma pasta para ver sua estrutura.",
       "searchPlaceholder": "Pesquisar pastas...",
       "sections": {
         "albums": "Álbuns",
+        "flags": "Marcas",
         "folders": "Pastas",
         "pinned": "Fixados"
       },

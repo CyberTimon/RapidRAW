@@ -1236,12 +1236,18 @@
       "albumsEmpty": "右クリックでアルバムを作成します。",
       "collapseSection": "{{section}}をたたむ",
       "expandSection": "{{section}}を展開",
+      "flagViews": {
+        "empty": "このフォルダとサブフォルダに、このフラグの画像はありません。",
+        "picked": "採用",
+        "rejected": "不採用"
+      },
       "loading": "フォルダを読み込み中...",
       "noFoldersFound": "フォルダが見つかりません。",
       "openFolderInstruction": "フォルダを開くと、その構造が表示されます。",
       "searchPlaceholder": "フォルダを検索...",
       "sections": {
         "albums": "アルバム",
+        "flags": "フラグ",
         "folders": "フォルダ",
         "pinned": "ピン留め"
       },

@@ -1269,12 +1269,18 @@
       "albumsEmpty": "Feu clic amb el botó dret per crear un àlbum.",
       "collapseSection": "Contraure {{section}}",
       "expandSection": "Expandir {{section}}",
+      "flagViews": {
+        "empty": "No hi ha imatges amb aquesta marca en aquesta carpeta ni a les seves subcarpetes.",
+        "picked": "Triades",
+        "rejected": "Rebutjades"
+      },
       "loading": "S'estan carregant les carpetes...",
       "noFoldersFound": "No s'han trobat carpetes.",
       "openFolderInstruction": "Obriu una carpeta per veure la seva estructura.",
       "searchPlaceholder": "Cercar carpetes...",
       "sections": {
         "albums": "Àlbums",
+        "flags": "Marques",
         "folders": "Carpetes",
         "pinned": "Fixades"
       },
