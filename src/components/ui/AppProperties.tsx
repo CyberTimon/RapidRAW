@@ -37,6 +37,7 @@ export enum Invokes {
   ApplyAdjustmentsToPaths = 'apply_adjustments_to_paths',
   ApplyAutoAdjustmentsToPaths = 'apply_auto_adjustments_to_paths',
   ApplyAutoStraightenToPaths = 'apply_auto_straighten_to_paths',
+  AutoApplyLensCorrectionToPaths = 'auto_apply_lens_correction_to_paths',
   CalculateAutoAdjustments = 'calculate_auto_adjustments',
   SampleWhiteBalance = 'sample_white_balance',
   CalculateAutoStraighten = 'calculate_auto_straighten',
@@ -316,6 +317,7 @@ export interface AppSettings {
   alwaysDecodeRawThumbnails?: boolean;
   workspace?: WorkspaceState;
   immich?: ImmichSettings;
+  autoApplyLensCorrection?: boolean;
 }
 
 export interface BrushSettings {

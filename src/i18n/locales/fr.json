@@ -2023,6 +2023,8 @@
     "lenses": {
       "addButton": "Ajouter à mes objectifs",
       "addNew": "Ajouter un nouvel objectif",
+      "autoApplyOnImport": "Appliquer automatiquement la correction d'objectif",
+      "autoApplyOnImportDescription": "Lors de la première ouverture d'une photo, détecte son objectif à partir des données EXIF et applique automatiquement le profil de correction de distorsion, d'aberration chromatique et de vignettage correspondant.",
       "description": "Créez une liste de vos objectifs fréquemment utilisés pour y accéder rapidement dans le panneau de correction de l'objectif.",
       "manufacturerPlaceholder": "Sélectionner le fabricant",
       "modelPlaceholder": "Sélectionner le modèle d'objectif",

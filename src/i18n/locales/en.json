@@ -1981,6 +1981,8 @@
     "lenses": {
       "addButton": "Add to My Lenses",
       "addNew": "Add New Lens",
+      "autoApplyOnImport": "Automatically apply lens correction",
+      "autoApplyOnImportDescription": "When opening a photo for the first time, detect its lens from EXIF data and automatically apply the matching distortion, chromatic aberration and vignetting correction profile.",
       "description": "Create a list of your frequently used lenses to quickly access them in the Lens Correction panel.",
       "manufacturerPlaceholder": "Select Manufacturer",
       "modelPlaceholder": "Select Lens Model",
