@@ -25,15 +25,21 @@ import FlagBadges from '../../ui/FlagBadges';
 import { Thumbnail } from './LibraryItems';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
+import { useEditorStore } from '../../../store/useEditorStore';
 import { useProcessStore } from '../../../store/useProcessStore';
+import { loadCullingPreview } from '../../../utils/cullingPreview';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
+import { useUIStore } from '../../../store/useUIStore';
 import { useLibraryActions } from '../../../hooks/useLibraryActions';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
 import { expandGroupedPaths } from '../../../utils/imageGrouping';
 import { IconAperture, IconFocalLength, IconIso, IconShutter } from '../editor/ExifIcons';
 
 const NOOP = () => {};
+
+const EDITED_PREVIEW_DELAY_MS = 800;
+const LIVE_PREVIEW_SETTLE_MS = 3000;
 
 interface SyncViewport {
   isActive: boolean;
@@ -83,6 +89,16 @@ function CullingPreview({
   const [highResSrc, setHighResSrc] = useState<string | null>(
     initialPreview?.thumbKey === safeThumbKey ? initialPreview.url : null,
   );
+  const isEditorOpen = useUIStore((s) => s.activeView === 'editor');
+  const hasSelectedImage = useEditorStore((s) => !!s.selectedImage);
+  const isHidden = isEditorOpen && hasSelectedImage;
+
+  const editorPatchUrl = useEditorStore((s) =>
+    s.selectedImage?.path === image.path ? (s.interactivePatch?.url ?? null) : null,
+  );
+  const editorPreviewUrl = useEditorStore((s) => (s.selectedImage?.path === image.path ? s.finalPreviewUrl : null));
+  const [liveSrc, setLiveSrc] = useState<string | null>(null);
+  const lastLiveEditRef = useRef(0);
   const [isLoading, setIsLoading] = useState(!highResSrc);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -242,12 +258,42 @@ function CullingPreview({
     return () => observer.disconnect();
   }, [updateFitScale]);
 
+  const clearLivePreview = useCallback(() => {
+    lastLiveEditRef.current = 0;
+    setLiveSrc(null);
+  }, []);
+
   useEffect(() => {
+    if (!editorPatchUrl) return;
+    lastLiveEditRef.current = Date.now();
+    setLiveSrc(editorPatchUrl);
+  }, [editorPatchUrl]);
+
+  useEffect(() => {
+    if (editorPreviewUrl && lastLiveEditRef.current) setLiveSrc(editorPreviewUrl);
+  }, [editorPreviewUrl]);
+
+  // A drag that ends where it started keeps the thumbnail, so no new render would clear the overlay.
+  useEffect(() => {
+    if (!liveSrc || isLoading || !highResSrc) return;
+    const editAt = lastLiveEditRef.current;
+    const timer = setTimeout(() => {
+      if (lastLiveEditRef.current === editAt && !useEditorStore.getState().isSliderDragging) {
+        clearLivePreview();
+      }
+    }, LIVE_PREVIEW_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [liveSrc, isLoading, highResSrc, clearLivePreview]);
+
+  useEffect(() => {
+    if (isHidden) return;
+    const thumbKeyAt = Date.now();
     const currentPreview = useProcessStore.getState().previews[image.path];
     if (currentPreview && currentPreview.thumbKey === safeThumbKey) {
       setHighResSrc(currentPreview.url);
       setIsLoading(false);
       setPreview(image.path, currentPreview.url, safeThumbKey);
+      clearLivePreview();
       return;
     }
 
@@ -255,60 +301,31 @@ function CullingPreview({
     setIsLoading(true);
     setHighResSrc(null);
 
-    const fetchPreviewWithAdjustments = async () => {
-      try {
-        const metadata: any = await invoke(Invokes.LoadMetadata, { path: image.path });
-        if (!active) return;
-
-        const adjustments = metadata?.adjustments ?? null;
-
-        const bytes = await invoke<Uint8Array>(Invokes.GeneratePreviewForPath, {
-          path: image.path,
-          jsAdjustments: adjustments,
-        });
-        if (!active) return;
-
-        const blob = new Blob([new Uint8Array(bytes)], { type: 'image/jpeg' });
-        const localBlobUrl = URL.createObjectURL(blob);
-
-        setPreview(image.path, localBlobUrl, safeThumbKey);
-
-        if (active) {
-          setHighResSrc(localBlobUrl);
-          setIsLoading(false);
-        }
-      } catch (err) {
-        console.error('Error loading culling preview with adjustments:', err);
-
-        if (active) {
-          try {
-            const fallbackBytes = await invoke<Uint8Array>(Invokes.GeneratePreviewForPath, {
-              path: image.path,
-              jsAdjustments: null,
-            });
-            if (!active) return;
-            const blob = new Blob([new Uint8Array(fallbackBytes)], { type: 'image/jpeg' });
-            const localBlobUrl = URL.createObjectURL(blob);
-
-            setPreview(image.path, localBlobUrl, safeThumbKey);
-            setHighResSrc(localBlobUrl);
-          } catch (fallbackErr) {
-            console.error('Fallback preview generation also failed:', fallbackErr);
-          }
-          setIsLoading(false);
-        }
+    const load = () => {
+      if (useEditorStore.getState().isSliderDragging) {
+        delayTimeout = setTimeout(load, EDITED_PREVIEW_DELAY_MS);
+        return;
       }
+      loadCullingPreview(image.path, safeThumbKey)
+        .then((url) => {
+          if (!active) return;
+          setHighResSrc(url);
+          if (lastLiveEditRef.current <= thumbKeyAt) clearLivePreview();
+        })
+        .catch((err) => console.error('Fallback preview generation also failed:', err))
+        .finally(() => {
+          if (active) setIsLoading(false);
+        });
     };
 
-    const delayTimeout = setTimeout(() => {
-      fetchPreviewWithAdjustments();
-    }, 200);
+    const delay = lastLiveEditRef.current ? EDITED_PREVIEW_DELAY_MS : 200;
+    let delayTimeout = setTimeout(load, delay);
 
     return () => {
       active = false;
       clearTimeout(delayTimeout);
     };
-  }, [image.path, safeThumbKey, setPreview]);
+  }, [image.path, safeThumbKey, setPreview, isHidden, clearLivePreview]);
 
   useEffect(() => {
     if (syncViewport.isActive) {
@@ -532,6 +549,16 @@ function CullingPreview({
               src={highResSrc}
               className="absolute inset-0 w-full h-full object-contain"
               alt={t('library.culling.altCullingPreviewHighRes')}
+              draggable={false}
+            />
+          )}
+
+          {liveSrc && (
+            <img
+              src={liveSrc}
+              className="absolute inset-0 w-full h-full object-contain"
+              alt=""
+              aria-hidden
               draggable={false}
             />
           )}
