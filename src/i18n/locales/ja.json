@@ -2350,6 +2350,7 @@
       "selectImageFile": "画像ファイルを選択"
     },
     "lut": {
+      "cameraLook": "カメラの仕上がり",
       "clearLut": "LUTをクリア",
       "customLuts": "カスタム LUT",
       "empty": "LUTはまだありません — インポートしてください",
@@ -2359,6 +2360,8 @@
       "importFailed": "LUTのインポートに失敗しました",
       "intensity": "適用度",
       "label": "LUT",
+      "matchCamera": "カメラJPEGに合わせる",
+      "matchCameraFailed": "カメラJPEGに合わせられませんでした: {{error}}",
       "removeLut": "LUTを削除",
       "select": "選択",
       "selectLutFile": "LUTファイルを選択",
