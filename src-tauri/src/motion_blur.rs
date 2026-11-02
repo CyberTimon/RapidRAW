@@ -10,7 +10,7 @@ use serde_json::Value;
 use wgpu::util::DeviceExt;
 
 use crate::image_processing::{GpuContext, MAX_MASKS, is_tool_active};
-use crate::mask_generation::{TransformParams, generate_ai_bitmap_from_full_mask};
+use crate::mask_generation::{TransformParams, generate_edge_clamped_bitmap};
 
 const MAX_LINEAR_LENGTH: f32 = 0.15;
 const MAX_SMOOTH_LENGTH: f32 = 0.05;
@@ -202,7 +202,7 @@ fn depth_map(
         return None;
     }
     let density = (longest as f32 / extent).min(1.0);
-    Some(generate_ai_bitmap_from_full_mask(
+    Some(generate_edge_clamped_bitmap(
         &map,
         &TransformParams {
             rotation: adjustments["rotation"].as_f64().unwrap_or(0.0) as f32,

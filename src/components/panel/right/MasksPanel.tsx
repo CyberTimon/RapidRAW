@@ -1192,7 +1192,7 @@ export default function MasksPanel() {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.2, ease: 'easeOut' }}
-                    className="flex-1 min-h-0"
+                    className="grow shrink-0"
                   >
                     <Text variant={TextVariants.heading} className="mb-2">
                       {t('editor.masks.maskAdjustmentsTitle')}
