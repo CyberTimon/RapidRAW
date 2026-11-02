@@ -56,6 +56,7 @@
         "reds": "Červená",
         "yellows": "Žlutá"
       },
+      "mixerPickerTooltip": "Pipeta míchání barev: klikněte na fotografii a táhněte nahoru nebo dolů",
       "monochrome": {
         "badge": "Č/B",
         "balance": "Vyvážení",
@@ -91,6 +92,7 @@
         "highlights": "Světla",
         "hue": "Odstín",
         "mix": "Č/B mix",
+        "mixPickerTooltip": "Pipeta Č/B mixu: klikněte na fotografii a táhněte nahoru nebo dolů",
         "saturation": "Sytost",
         "shadows": "Stíny",
         "strength": "Síla",
@@ -220,7 +222,25 @@
       "roundness": "Kulatost",
       "size": "Velikost",
       "spatial": "Prostorové",
-      "vignette": "Viněta"
+      "vignette": "Viněta",
+      "motionBlur": "Pohybové rozmazání",
+      "motionBlurAngle": "Úhel",
+      "motionBlurDepth": "Hloubka",
+      "motionBlurHighlights": "Světla",
+      "motionBlurLayer": "Pohyb",
+      "motionBlurLayers": {
+        "auto": "Automaticky",
+        "panning": "Švenkování",
+        "subject": "Pohybující se objekt",
+        "uniform": "Rovnoměrně"
+      },
+      "motionBlurType": "Typ",
+      "motionBlurTypes": {
+        "linear": "Lineární",
+        "zoom": "Zoom",
+        "spin": "Otáčení",
+        "smooth": "Vyhlazení"
+      }
     }
   },
   "contextMenus": {
@@ -285,6 +305,7 @@
       "cullImage": "Automatické třídění",
       "denoise": "Odšumit",
       "editImage": "Upravit snímek",
+      "editIn": "Upravit v",
       "exportImage": "Export snímku",
       "flag": "Vlajka",
       "flagPick": "Vybrané",
@@ -421,6 +442,9 @@
     "toasts": {
       "couldNotShowExplorer": "Nelze zobrazit soubor v průzkumníku: {{err}}",
       "couldNotShowFolder": "Nelze zobrazit složku: {{err}}",
+      "editInFailed": "{{app}} selhal: {{err}}",
+      "editInNoOutput": "{{app}} byl zavřen bez uložení.",
+      "editInWaiting": "Čekání na {{app}}. Uložte tam soubor, aby se vrátil zpět, nebo zavřete tuto zprávu a čekání ukončete.",
       "failedAddToAlbum": "Nepodařilo se přidat do alba: {{err}}",
       "failedApplyAuto": "Nepodařilo se použít automatické úpravy: {{err}}",
       "failedChangeIcon": "Ikonu se nepodařilo změnit: {{err}}",
@@ -490,6 +514,15 @@
         "erase": "Vymazat",
         "feather": "Prolnutí štětce",
         "size": "Velikost štětce"
+      },
+      "cloneHeal": {
+        "cloneTooltip": "Zkopíruje zdroj přesně, včetně jasu a barvy",
+        "dragSource": "Tažením přesunete zdroj",
+        "healTooltip": "Zkopíruje texturu zdroje a přizpůsobí ji jasu a barvě okolí",
+        "hintActive": "Tažením obrysu zdroje zvolíte, odkud se pixely berou. Každý nový tah vytvoří samostatnou oblast. Podržením Shift přidáte k této.",
+        "hintEmpty": "Přemalujte skvrnu, drát nebo rušivý prvek. Vhodný zdroj se najde automaticky.",
+        "mode": "Režim",
+        "newSource": "Najít jiný zdroj"
       },
       "comingSoon": "Již brzy",
       "connection": {
@@ -835,8 +868,7 @@
       "toggleAnalyticsTooltip": "Přepnout zobrazení Analytics",
       "tooltips": {
         "addToCurrent": "Přidat {{name}} na aktuální masku nebo vytvořit novou (klikněte pravým tlačítkem)",
-        "createNew": "Vytvořit novou {{name}} masku",
-        "selectNewSourcePoint": "{{modifier}} + kliknutím vyberete nový zdrojový bod"
+        "createNew": "Vytvořit novou {{name}} masku"
       }
     },
     "metadata": {
@@ -938,6 +970,10 @@
         "style": "Styl",
         "tool": "Nástroj"
       }
+    },
+    "speedEdit": {
+      "copied": "Zkopírováno: <0>{{label}}</0> <1>{{value}}</1>",
+      "pasted": "Vloženo: <0>{{label}}</0> <1>{{value}}</1>"
     },
     "switcher": {
       "tooltips": {
@@ -1154,6 +1190,7 @@
       "pending": "Úpravy čekající na Immich: {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} patří někomu jinému, proto pro něj Immich nepřijímá úpravy. Tvé úpravy zůstanou v tomto počítači.",
       "backOnline": "Immich je opět dostupný a všechny úpravy jsou v něm uložené.",
       "downloadFailed": "Stažení z Immiche se nezdařilo: {{error}}",
       "editsConflict": "{{fileName}} byl upraven také na jiném počítači. Vaše úpravy zůstávají a druhá verze je uložena jako virtuální kopie.",
@@ -1589,6 +1626,7 @@
         "halationGlow": "Halace a záře",
         "hueShift": "Globální posun odstínu",
         "lensBlur": "Rozostření objektivu",
+        "motionBlur": "Pohybové rozmazání",
         "lensCorrection": "Korekce objektivu",
         "lut": "LUT",
         "masks": "Masky",
@@ -1836,6 +1874,27 @@
       "pressKey": "Stiskněte klávesu... (Esc pro vymazání)",
       "resetDefaults": "Obnovit vše na výchozí",
       "speed": "Rychlost",
+      "speedEdit": {
+        "adjustments": "Úpravy",
+        "gestures": {
+          "doubleClick": "Dvojklikem obnovíte",
+          "drag": "Tažením po plátně upravíte",
+          "fine": "Shift pro jemnost"
+        },
+        "keys": {
+          "hold": "Klepnout / Držet",
+          "previousImage": "Předch. snímek",
+          "nextImage": "Další snímek",
+          "reset": "Obnovit",
+          "previousAdjustment": "Předch. posuvník",
+          "nextAdjustment": "Další posuvník",
+          "copy": "Kopírovat",
+          "paste": "Vložit",
+          "stepDown": "−1 krok",
+          "stepUp": "+1 krok"
+        },
+        "title": "Rychlá úprava"
+      },
       "title": "Ovládání myší",
       "zoom": "Rychlost zoomu",
       "zoomClick": "Přiblížit snímek na 100 %",
@@ -2130,6 +2189,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "Editor vykresluje náhled tak, aby odpovídal skutečné hustotě pixelů vašeho displeje. Tím je zajištěno, že každý detail je zobrazen s přesností pixelů 1:1, což poskytuje maximální jasnost při přibližování a kontrole zaostření.",
+      "editIn": {
+        "add": "Přidat program",
+        "args": "Argumenty ({file} = cesta k obrázku)",
+        "browse": "Procházet",
+        "description": "Programy pro nabídku „Upravit v“.",
+        "executable": "Programy",
+        "modes": {
+          "original": "Odeslat původní soubor",
+          "rendered": "Odeslat upravený TIFF"
+        },
+        "name": "Název",
+        "path": "Cesta k programu",
+        "remove": "Odebrat",
+        "title": "Upravit v"
+      },
       "enableLivePreviews": "Povolit živé náhledy",
       "highDpi": "High-DPI rendering",
       "highDpiDesc": "Vykreslovat náhledy v nativním {{dpr}}x fyzickém rozlišení pixelů obrazovky. Poskytuje nejostřejší možný náhled, ale spotřebovává výrazně více paměti.",
@@ -2215,7 +2289,8 @@
       "title": "Engine zpracování",
       "wgpu": "Přímé vykreslování WGPU",
       "wgpuDescAndroid": "Obchází kódování prohlížeče pro okamžitě reagující živé náhledy. (Na Androidu zakázáno: nativní tvorba povrchů WGPU není v současnosti podporována vedle mobilního webview.)",
-      "wgpuDescLinux": "Obchází kódování prohlížeče pro okamžitě reagující živé náhledy. (Na Linuxu zakázáno: Tauri používá GTK pro webview, což je v konfliktu s WGPU na stejném povrchu X11 a způsobuje blikání.)",
+      "wgpuDescLinuxExperimental": "Experimentální na Linuxu a může být nestabilní.",
+      "wgpuDescLinuxX11": "Není k dispozici na X11.",
       "wgpuDescRecommended": "Obchází kódování prohlížeče pro okamžitě reagující živé náhledy. Důrazně doporučeno pro výkon.",
       "wgpuLabel": "Povolit přímé vykreslování WGPU",
       "workerThreads": "Pracovní vlákna miniatur",

@@ -56,6 +56,7 @@
         "reds": "Rot",
         "yellows": "Gelb"
       },
+      "mixerPickerTooltip": "Farbmischer-Pipette: Auf das Foto klicken und nach oben oder unten ziehen",
       "monochrome": {
         "badge": "S/W",
         "balance": "Abgleich",
@@ -91,6 +92,7 @@
         "highlights": "Lichter",
         "hue": "Farbton",
         "mix": "S/W-Mischer",
+        "mixPickerTooltip": "S/W-Mischer-Pipette: Auf das Foto klicken und nach oben oder unten ziehen",
         "saturation": "Sättigung",
         "shadows": "Tiefen",
         "strength": "Stärke",
@@ -192,6 +194,24 @@
       "lightFlares": "Blendenflecke",
       "lut": "LUT",
       "midpoint": "Mittelpunkt",
+      "motionBlur": "Bewegungsunschärfe",
+      "motionBlurAngle": "Winkel",
+      "motionBlurDepth": "Tiefe",
+      "motionBlurHighlights": "Lichter",
+      "motionBlurLayer": "Bewegung",
+      "motionBlurLayers": {
+        "auto": "Automatisch",
+        "panning": "Mitziehen",
+        "subject": "Bewegtes Motiv",
+        "uniform": "Gleichmäßig"
+      },
+      "motionBlurType": "Typ",
+      "motionBlurTypes": {
+        "linear": "Linear",
+        "zoom": "Zoom",
+        "spin": "Drehung",
+        "smooth": "Weich"
+      },
       "relight": "Neu beleuchten",
       "relightAddLight": "Licht hinzufügen",
       "relightAmbient": "Umgebungslicht",
@@ -285,6 +305,7 @@
       "cullImage": "Autom. aussortieren",
       "denoise": "Entrauschen",
       "editImage": "Bild bearbeiten",
+      "editIn": "Bearbeiten in",
       "exportImage": "Bild exportieren",
       "flag": "Markierung",
       "flagPick": "Ausgewählt",
@@ -387,6 +408,9 @@
     "toasts": {
       "couldNotShowExplorer": "Datei konnte nicht im Explorer angezeigt werden: {{err}}",
       "couldNotShowFolder": "Ordner konnte nicht angezeigt werden: {{err}}",
+      "editInFailed": "{{app}} fehlgeschlagen: {{err}}",
+      "editInNoOutput": "{{app}} wurde ohne Speichern geschlossen.",
+      "editInWaiting": "Warte auf {{app}}. Speichere die Datei dort, um sie zurückzuholen, oder schließe diese Meldung, um das Warten zu beenden.",
       "failedAddToAlbum": "Fehler beim Hinzufügen zum Album: {{err}}",
       "failedApplyAuto": "Fehler bei der autom. Anpassung: {{err}}",
       "failedChangeIcon": "Fehler beim Ändern des Symbols: {{err}}",
@@ -456,6 +480,15 @@
         "erase": "Löschen",
         "feather": "Weiche Kante",
         "size": "Pinselgröße"
+      },
+      "cloneHeal": {
+        "cloneTooltip": "Kopiert die Quelle exakt, inklusive Helligkeit und Farbe",
+        "dragSource": "Ziehen, um die Quelle zu verschieben",
+        "healTooltip": "Kopiert die Struktur der Quelle und passt sie an Helligkeit und Farbe der Umgebung an",
+        "hintActive": "Ziehe den Quellumriss, um festzulegen, woher die Pixel kommen. Jeder neue Strich wird zu einem eigenen Bereich. Halte Shift gedrückt, um diesen zu erweitern.",
+        "hintEmpty": "Male über einen Fleck, ein Kabel oder eine Störung. Eine passende Quelle wird automatisch gefunden.",
+        "mode": "Modus",
+        "newSource": "Andere Quelle suchen"
       },
       "comingSoon": "Demnächst",
       "connection": {
@@ -787,8 +820,7 @@
       "toggleAnalyticsTooltip": "Analyseanzeige umschalten",
       "tooltips": {
         "addToCurrent": "{{name}} zur aktuellen Maske hinzufügen oder neu erstellen (Rechtsklick)",
-        "createNew": "Neue {{name}}-Maske erstellen",
-        "selectNewSourcePoint": "{{modifier}} + Klicken, um einen neuen Quellpunkt auszuwählen"
+        "createNew": "Neue {{name}}-Maske erstellen"
       }
     },
     "metadata": {
@@ -890,6 +922,10 @@
         "style": "Stil",
         "tool": "Werkzeug"
       }
+    },
+    "speedEdit": {
+      "copied": "<0>{{label}}</0> <1>{{value}}</1> kopiert",
+      "pasted": "<0>{{label}}</0> <1>{{value}}</1> eingefügt"
     },
     "switcher": {
       "tooltips": {
@@ -1102,6 +1138,7 @@
       "pending": "Bearbeitungen, die auf Immich warten: {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} gehört jemand anderem, deshalb nimmt Immich keine Bearbeitungen dafür an. Deine Bearbeitung bleibt auf diesem Computer.",
       "backOnline": "Immich ist wieder erreichbar, alle Bearbeitungen sind dort gespeichert.",
       "downloadFailed": "Download aus Immich fehlgeschlagen: {{error}}",
       "editsConflict": "{{fileName}} wurde auch auf einem anderen Rechner bearbeitet. Deine Bearbeitung bleibt, die andere Fassung liegt als virtuelle Kopie daneben.",
@@ -1525,6 +1562,7 @@
         "halationGlow": "Lichthof & Glühen",
         "hueShift": "Globaler Farbton-Shift",
         "lensBlur": "Objektivunschärfe",
+        "motionBlur": "Bewegungsunschärfe",
         "lensCorrection": "Objektivkorrektur",
         "lut": "LUT",
         "masks": "Masken",
@@ -1760,6 +1798,27 @@
       "pressKey": "Taste drücken... (Esc zum Löschen)",
       "resetDefaults": "Alles auf Standard zurücksetzen",
       "speed": "Geschwindigkeit",
+      "speedEdit": {
+        "adjustments": "Anpassungen",
+        "gestures": {
+          "doubleClick": "Doppelklick zum Zurücksetzen",
+          "drag": "Auf der Leinwand ziehen zum Anpassen",
+          "fine": "Umschalt für fein"
+        },
+        "keys": {
+          "hold": "Tippen / Halten",
+          "previousImage": "Vorh. Bild",
+          "nextImage": "Nächstes Bild",
+          "reset": "Zurücksetzen",
+          "previousAdjustment": "Vorh. Regler",
+          "nextAdjustment": "Nächster Regler",
+          "copy": "Kopieren",
+          "paste": "Einfügen",
+          "stepDown": "−1 Schritt",
+          "stepUp": "+1 Schritt"
+        },
+        "title": "Schnellbearbeitung"
+      },
       "title": "Maussteuerung",
       "zoom": "Zoom-Geschwindigkeitsfaktor",
       "zoomClick": "Foto auf 100% zoomen",
@@ -2048,6 +2107,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "Der Editor rendert die Vorschau passend zur tatsächlichen Pixeldichte Ihres Displays. Dies sorgt für 1:1 Pixelgenauigkeit und maximale Klarheit beim Zoomen.",
+      "editIn": {
+        "add": "Programm hinzufügen",
+        "args": "Argumente ({file} = Bildpfad)",
+        "browse": "Durchsuchen",
+        "description": "Programme für das Menü „Bearbeiten in“.",
+        "executable": "Programme",
+        "modes": {
+          "original": "Originaldatei senden",
+          "rendered": "Bearbeitetes TIFF senden"
+        },
+        "name": "Name",
+        "path": "Programmpfad",
+        "remove": "Entfernen",
+        "title": "Bearbeiten in"
+      },
       "enableLivePreviews": "Live-Vorschauen aktivieren",
       "highDpi": "High-DPI Rendering",
       "highDpiDesc": "Rendern Sie Vorschauen in der nativen {{dpr}}x Auflösung Ihres Bildschirms. Erzeugt die schärfste Vorschau, verbraucht aber mehr Speicher.",
@@ -2133,7 +2207,8 @@
       "title": "Verarbeitungs-Engine",
       "wgpu": "WGPU Direkt-Rendering",
       "wgpuDescAndroid": "Umgeht die Browser-Kodierung für sofort reagierende Live-Vorschauen. (Auf Android deaktiviert: Native WGPU-Erstellung wird neben dem mobilen Webview nicht unterstützt.)",
-      "wgpuDescLinux": "Umgeht die Browser-Kodierung für sofort reagierende Live-Vorschauen. (Auf Linux deaktiviert: Tauri nutzt GTK, was mit WGPU kollidiert.)",
+      "wgpuDescLinuxExperimental": "Experimentell unter Linux und möglicherweise instabil.",
+      "wgpuDescLinuxX11": "Unter X11 nicht verfügbar.",
       "wgpuDescRecommended": "Umgeht die Browser-Kodierung für sofort reagierende Live-Vorschauen. Sehr empfehlenswert für die Leistung.",
       "wgpuLabel": "Direktes WGPU-Rendern aktivieren",
       "workerThreads": "Miniaturbild-Worker-Threads",

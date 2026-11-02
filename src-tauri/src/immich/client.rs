@@ -33,6 +33,8 @@ pub struct Asset {
     pub created_at: Option<String>,
     #[serde(default)]
     pub is_trashed: bool,
+    #[serde(default)]
+    pub owner_id: String,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -54,6 +56,8 @@ pub struct Album {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct User {
+    #[serde(default)]
+    pub id: String,
     pub name: String,
     pub email: String,
 }
@@ -196,6 +200,16 @@ impl ImmichClient {
     pub async fn me(&self) -> Result<User, String> {
         self.json(self.request(Method::GET, "/users/me"), "user")
             .await
+    }
+
+    pub async fn owns(&self, asset_id: &str) -> Result<bool, String> {
+        let asset: Asset = self
+            .json(
+                self.request(Method::GET, &format!("/assets/{asset_id}")),
+                "asset",
+            )
+            .await?;
+        Ok(asset.owner_id == self.me().await?.id)
     }
 
     pub async fn albums(&self) -> Result<Vec<Album>, String> {

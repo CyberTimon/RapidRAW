@@ -1,6 +1,7 @@
 use crate::cache_utils::GEOMETRY_KEYS;
 use crate::image_processing::{
-    GeometryParams, get_geometry_params_from_json, is_geometry_identity, warp_image_geometry,
+    GeometryParams, get_geometry_params_from_json, is_effect_enabled, is_geometry_identity,
+    warp_image_geometry,
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use image::{DynamicImage, GrayImage, Luma, Rgb, Rgb32FImage, Rgba, RgbaImage};
@@ -23,6 +24,60 @@ static RGBA_MAP_CACHE: Mutex<Vec<(u64, Arc<RgbaImage>)>> = Mutex::new(Vec::new()
 static MAP_CACHE_DIR: Mutex<Option<PathBuf>> = Mutex::new(None);
 static MAP_DISK_CACHE_LIMIT_BYTES: AtomicU64 = AtomicU64::new(u64::MAX);
 
+enum EffectMapOwner {
+    Global {
+        tool: &'static str,
+        enabled_key: &'static str,
+    },
+    MotionBlurMasks,
+}
+
+pub struct EffectMapUse {
+    pub map_key: &'static str,
+    owner: EffectMapOwner,
+}
+
+impl EffectMapUse {
+    const fn global(tool: &'static str, enabled_key: &'static str, map_key: &'static str) -> Self {
+        Self {
+            map_key,
+            owner: EffectMapOwner::Global { tool, enabled_key },
+        }
+    }
+
+    pub fn is_requested(&self, adjustments: &serde_json::Value) -> bool {
+        match self.owner {
+            EffectMapOwner::Global { enabled_key, .. } => {
+                adjustments[enabled_key].as_bool().unwrap_or(false)
+            }
+            EffectMapOwner::MotionBlurMasks => crate::motion_blur::requests_depth_map(adjustments),
+        }
+    }
+
+    pub fn is_enabled(&self, adjustments: &serde_json::Value) -> bool {
+        match self.owner {
+            EffectMapOwner::Global { tool, enabled_key } => {
+                is_effect_enabled(adjustments, tool, enabled_key)
+            }
+            EffectMapOwner::MotionBlurMasks => crate::motion_blur::needs_depth_map(adjustments),
+        }
+    }
+}
+
+const DEPTH_MAP_USES: &[EffectMapUse] = &[
+    EffectMapUse::global("lensBlur", "lensBlurEnabled", "lensBlurDepthMap"),
+    EffectMapUse::global("fog", "fogEnabled", "fogDepthMap"),
+    EffectMapUse {
+        map_key: "motionBlurDepthMap",
+        owner: EffectMapOwner::MotionBlurMasks,
+    },
+];
+const NORMAL_MAP_USES: &[EffectMapUse] = &[EffectMapUse::global(
+    "relight",
+    "relightEnabled",
+    "relightNormalMap",
+)];
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EffectMapKind {
     Depth,
@@ -39,13 +94,10 @@ impl EffectMapKind {
         }
     }
 
-    pub fn adjustment_keys(self) -> &'static [(&'static str, &'static str, &'static str)] {
+    pub fn uses(self) -> &'static [EffectMapUse] {
         match self {
-            EffectMapKind::Depth => &[
-                ("lensBlur", "lensBlurEnabled", "lensBlurDepthMap"),
-                ("fog", "fogEnabled", "fogDepthMap"),
-            ],
-            EffectMapKind::Normal => &[("relight", "relightEnabled", "relightNormalMap")],
+            EffectMapKind::Depth => DEPTH_MAP_USES,
+            EffectMapKind::Normal => NORMAL_MAP_USES,
         }
     }
 }

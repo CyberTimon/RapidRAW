@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fs;
-use std::io::{Cursor, Seek, Write};
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -20,8 +20,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::Emitter;
 use tauri::Manager;
-use tiff::encoder::{Rational, TiffEncoder, TiffValue, colortype};
-use tiff::tags::ResolutionUnit;
 
 use crate::AppState;
 use crate::baseline_exposure::BaselineOptions;
@@ -41,6 +39,7 @@ use crate::lut_processing::{
     convert_image_to_cube_lut, generate_identity_lut_image, get_or_load_lut,
 };
 use crate::mask_generation::{MaskDefinition, build_warped_image_for_masks, generate_mask_bitmap};
+use crate::tiff_metadata::{TiffSamples, encode_tiff_with_metadata};
 
 use crate::as_shot::as_shot;
 use crate::cache_utils::{calculate_full_job_hash, calculate_transform_hash};
@@ -922,6 +921,8 @@ fn estimate_export_memory(
     is_raw: bool,
     loaded_dimensions: Option<(u32, u32)>,
     mask_count: usize,
+    output_format: &str,
+    jpeg_quality: u8,
 ) -> u64 {
     let pixels = loaded_dimensions
         .map(|(w, h)| w as u64 * h as u64)
@@ -932,8 +933,17 @@ fn estimate_export_memory(
     };
 
     let bytes_per_pixel = if is_raw { 48 } else { 40 }
-        + 6 * mask_count.min(crate::image_processing::MAX_MASKS) as u64;
+        + 6 * mask_count.min(crate::image_processing::MAX_MASKS) as u64
+        + encoder_bytes_per_pixel(output_format, jpeg_quality);
     pixels * bytes_per_pixel
+}
+
+fn encoder_bytes_per_pixel(output_format: &str, jpeg_quality: u8) -> u64 {
+    match output_format.to_lowercase().as_str() {
+        "jxl" if jpeg_quality == 100 => 90,
+        "jxl" => 170,
+        _ => 0,
+    }
 }
 
 fn ensure_export_not_cancelled(cancellation_token: &AtomicBool) -> Result<(), String> {
@@ -1113,6 +1123,13 @@ fn process_image_for_export_pipeline(
             mask_cache_key: None,
             lut,
             roi: None,
+            hsl_probe: false,
+            motion_blur: crate::motion_blur::MotionBlurs::new(
+                js_adjustments,
+                (img_w, img_h),
+                unscaled_crop_offset,
+                base_image.width().max(base_image.height()) as f32,
+            ),
         },
         debug_tag,
         output_precision,
@@ -1165,7 +1182,19 @@ fn save_image_with_metadata(
         .unwrap_or("")
         .to_lowercase();
 
-    let mut image_bytes = encode_image_to_bytes(image, &extension, export_settings)?;
+    let tiff_metadata =
+        if export_settings.keep_metadata && matches!(extension.as_str(), "tif" | "tiff") {
+            exif_processing::collect_metadata_from_source(
+                source_path_str,
+                export_settings.strip_gps,
+                Some(image.dimensions()),
+            )
+        } else {
+            None
+        };
+
+    let mut image_bytes =
+        encode_image_to_bytes(image, &extension, export_settings, tiff_metadata.as_ref())?;
 
     exif_processing::write_image_with_metadata(
         &mut image_bytes,
@@ -1269,12 +1298,13 @@ fn encode_grayscale_to_png(bitmap: &GrayImage) -> Result<Vec<u8>, String> {
     Ok(buf)
 }
 
-const SRGB_ICC_PROFILE: &[u8] = include_bytes!("../icc/sRGB-v2-magic.icc");
+pub(crate) const SRGB_ICC_PROFILE: &[u8] = include_bytes!("../icc/sRGB-v2-magic.icc");
 
 fn encode_image_to_bytes(
     image: &DynamicImage,
     output_format: &str,
     export_settings: &ExportSettings,
+    tiff_metadata: Option<&little_exif::metadata::Metadata>,
 ) -> Result<Vec<u8>, String> {
     let jpeg_quality = export_settings.jpeg_quality;
     let mut image_bytes = Vec::new();
@@ -1286,14 +1316,15 @@ fn encode_image_to_bytes(
             let has_alpha = image.color().has_alpha();
 
             let jxl_data = if jpeg_quality == 100 {
+                let config = LosslessConfig::new().with_tree_learning(false);
                 if has_alpha {
                     let rgba = image.to_rgba8();
-                    LosslessConfig::new()
+                    config
                         .encode(rgba.as_raw(), width, height, PixelLayout::Rgba8)
                         .map_err(|e| format!("Failed to encode lossless JXL: {}", e))?
                 } else {
                     let rgb = image.to_rgb8();
-                    LosslessConfig::new()
+                    config
                         .encode(rgb.as_raw(), width, height, PixelLayout::Rgb8)
                         .map_err(|e| format!("Failed to encode lossless JXL: {}", e))?
                 }
@@ -1358,30 +1389,17 @@ fn encode_image_to_bytes(
             }
         }
         "tif" | "tiff" => {
-            let (width, height) = image.dimensions();
-            let mut encoder = TiffEncoder::new(&mut cursor).map_err(|e| e.to_string())?;
-            match export_settings.tiff_bit_depth {
-                TiffBitDepth::Eight => write_tiff::<colortype::RGB8, _>(
-                    &mut encoder,
-                    width,
-                    height,
-                    image
-                        .as_rgb8()
-                        .map_or_else(|| Cow::Owned(image.to_rgb8()), Cow::Borrowed)
-                        .as_raw(),
-                    export_settings.dpi,
-                )?,
-                TiffBitDepth::Sixteen => write_tiff::<colortype::RGB16, _>(
-                    &mut encoder,
-                    width,
-                    height,
-                    image
-                        .as_rgb16()
-                        .map_or_else(|| Cow::Owned(image.to_rgb16()), Cow::Borrowed)
-                        .as_raw(),
-                    export_settings.dpi,
-                )?,
-            }
+            let samples = match export_settings.tiff_bit_depth {
+                TiffBitDepth::Eight => TiffSamples::Eight,
+                TiffBitDepth::Sixteen => TiffSamples::Sixteen,
+            };
+            return encode_tiff_with_metadata(
+                image,
+                samples,
+                tiff_metadata,
+                Some(SRGB_ICC_PROFILE),
+                export_settings.dpi,
+            );
         }
         "avif" => {
             image
@@ -1391,31 +1409,6 @@ fn encode_image_to_bytes(
         _ => return Err(format!("Unsupported file format: {}", output_format)),
     };
     Ok(image_bytes)
-}
-
-fn write_tiff<C: colortype::ColorType, W: Write + Seek>(
-    encoder: &mut TiffEncoder<W>,
-    width: u32,
-    height: u32,
-    data: &[C::Inner],
-    dpi: Option<u16>,
-) -> Result<(), String>
-where
-    [C::Inner]: TiffValue,
-{
-    let mut image = encoder
-        .new_image::<C>(width, height)
-        .map_err(|e| e.to_string())?;
-    if let Some(dpi) = dpi {
-        image.resolution(
-            ResolutionUnit::Inch,
-            Rational {
-                n: dpi.into(),
-                d: 1,
-            },
-        );
-    }
-    image.write_data(data).map_err(|e| e.to_string())
 }
 
 fn insert_png_phys_chunk(image_bytes: &mut Vec<u8>, dpi: u16) {
@@ -1503,6 +1496,8 @@ fn export_masks_for_image(
                     mask_cache_key: None,
                     lut: lut.clone(),
                     roi: None,
+                    hsl_probe: false,
+                    motion_blur: Default::default(),
                 },
                 "export_mask_image",
                 render_output_precision(extension, export_settings),
@@ -1616,6 +1611,8 @@ fn export_adjustments_as_lut(
             mask_cache_key: None,
             lut,
             roi: None,
+            hsl_probe: false,
+            motion_blur: Default::default(),
         },
         "export_lut",
     )?;
@@ -1775,7 +1772,7 @@ pub(crate) async fn export_images_impl(
 
                 let is_current_edit = match &adjustments_mode {
                     ExportAdjustmentsMode::UseSidecars { active_path, .. } => {
-                        Some(&source_path_str) == active_path.as_ref()
+                        Some(&image_path_str) == active_path.as_ref()
                     }
                     ExportAdjustmentsMode::GlobalOverride(_) => false,
                 };
@@ -1952,6 +1949,8 @@ pub(crate) async fn export_images_impl(
                             .as_ref()
                             .map(|loaded| (loaded.image.width(), loaded.image.height())),
                         js_adjustments["masks"].as_array().map_or(0, |m| m.len()),
+                        &output_format,
+                        export_settings.jpeg_quality,
                     );
                     let Some(_export_reservation) =
                         memory_budget.reserve(estimated_memory, Some(&cancellation_token_clone))
@@ -2153,6 +2152,40 @@ pub(crate) async fn export_images_impl(
 }
 
 #[allow(clippy::too_many_arguments)]
+pub(crate) async fn export_images_and_wait(
+    paths: Vec<String>,
+    output_folder_or_file: String,
+    is_explicit_file_path: bool,
+    base_origin_folders: Vec<String>,
+    export_settings: ExportSettings,
+    output_format: String,
+    adjustments_mode: ExportAdjustmentsMode,
+    state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    export_images_impl(
+        paths,
+        output_folder_or_file,
+        is_explicit_file_path,
+        base_origin_folders,
+        export_settings,
+        output_format,
+        adjustments_mode,
+        state,
+        app_handle,
+        Some(tx),
+    )
+    .await?;
+
+    match rx.await {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(errors)) => Err(format!("Export completed with {} errors.", errors)),
+        Err(_) => Err("Export task panicked or was cancelled.".to_string()),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn export_images(
     paths: Vec<String>,
@@ -2259,8 +2292,6 @@ pub async fn run_headless_export(
         );
     }
 
-    let (tx, rx) = tokio::sync::oneshot::channel();
-
     let mode = if let Some(adj) = custom_adjustments {
         ExportAdjustmentsMode::GlobalOverride(adj)
     } else {
@@ -2270,7 +2301,7 @@ pub async fn run_headless_export(
         }
     };
 
-    export_images_impl(
+    export_images_and_wait(
         paths,
         session.output,
         is_explicit_file_path,
@@ -2280,15 +2311,8 @@ pub async fn run_headless_export(
         mode,
         state.clone(),
         app_handle.clone(),
-        Some(tx),
     )
-    .await?;
-
-    match rx.await {
-        Ok(Ok(())) => Ok(()),
-        Ok(Err(errors)) => Err(format!("Export completed with {} errors.", errors)),
-        Err(_) => Err("Export task panicked or was cancelled.".to_string()),
-    }
+    .await
 }
 
 #[tauri::command]
@@ -2335,7 +2359,7 @@ pub async fn estimate_export_sizes(
     let source_path_str = source_path.to_string_lossy().to_string();
 
     let context = get_or_init_gpu_context(&state, &app_handle)?;
-    let is_current_edit = Some(&source_path_str) == current_edit_path.as_ref();
+    let is_current_edit = Some(first_path) == current_edit_path.as_ref();
     let is_raw = is_raw_file(&source_path_str);
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
 
@@ -2423,13 +2447,20 @@ pub async fn estimate_export_sizes(
                 mask_cache_key: None,
                 lut,
                 roi: None,
+                hsl_probe: false,
+                motion_blur: crate::motion_blur::MotionBlurs::new(
+                    &adjustments_clone,
+                    (img_w, img_h),
+                    scaled_crop_offset,
+                    loaded_image.image.width().max(loaded_image.image.height()) as f32 * scale,
+                ),
             },
             "estimate_export_size",
             render_output_precision(&output_format, &export_settings),
         )?;
 
         let preview_bytes =
-            encode_image_to_bytes(&processed_preview, &output_format, &export_settings)?;
+            encode_image_to_bytes(&processed_preview, &output_format, &export_settings, None)?;
         let preview_byte_size = preview_bytes.len();
 
         let (full_w, full_h) = crate::adjustment_utils::transformed_dimensions(
@@ -2560,13 +2591,20 @@ pub async fn estimate_export_sizes(
                 mask_cache_key: None,
                 lut,
                 roi: None,
+                hsl_probe: false,
+                motion_blur: crate::motion_blur::MotionBlurs::new(
+                    &js_adjustments,
+                    (preview_w, preview_h),
+                    scaled_crop_offset,
+                    original_image.width().max(original_image.height()) as f32 * gpu_scale,
+                ),
             },
             "estimate_batch_export_size",
             render_output_precision(&output_format, &export_settings),
         )?;
 
         let preview_bytes =
-            encode_image_to_bytes(&processed_preview, &output_format, &export_settings)?;
+            encode_image_to_bytes(&processed_preview, &output_format, &export_settings, None)?;
         let single_image_estimated_size = preview_bytes.len();
 
         let full_w = (shrunk_w as f32 / raw_scale_factor).round() as u32;

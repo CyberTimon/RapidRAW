@@ -1,4 +1,5 @@
 use std::io::Cursor;
+use std::sync::Arc;
 
 use base64::{Engine as _, engine::general_purpose};
 use image::{DynamicImage, GenericImageView, Rgb, RgbImage, RgbaImage};
@@ -10,22 +11,27 @@ use crate::ai_processing;
 use crate::app_settings::load_settings;
 use crate::app_state::AppState;
 use crate::image_loader::prepare_base_image_cow;
-use crate::image_processing::apply_linear_to_srgb;
-use crate::mask_generation::{AiPatchDefinition, MaskDefinition, generate_mask_bitmap};
+use crate::image_processing::{Crop, apply_linear_to_srgb};
+use crate::mask_generation::{AiPatchDefinition, MaskDefinition, SubMask, generate_mask_bitmap};
 use crate::resolve_warped_image_for_masks;
+
+fn adjustments_without_patch(patch_id: &str, current_adjustments: &Value) -> Value {
+    let mut adjustments = current_adjustments.clone();
+    if let Some(patches) = adjustments
+        .get_mut("aiPatches")
+        .and_then(|v| v.as_array_mut())
+    {
+        patches.retain(|p| p.get("id").and_then(|id| id.as_str()) != Some(patch_id));
+    }
+    adjustments
+}
 
 fn prepare_source_image(
     patch_id: &str,
     current_adjustments: &Value,
     state: &tauri::State<'_, AppState>,
 ) -> Result<(DynamicImage, bool), String> {
-    let mut source_image_adjustments = current_adjustments.clone();
-    if let Some(patches) = source_image_adjustments
-        .get_mut("aiPatches")
-        .and_then(|v| v.as_array_mut())
-    {
-        patches.retain(|p| p.get("id").and_then(|id| id.as_str()) != Some(patch_id));
-    }
+    let source_image_adjustments = adjustments_without_patch(patch_id, current_adjustments);
 
     let loaded_image = state
         .original_image
@@ -52,6 +58,31 @@ fn prepare_source_image(
         composited
     };
 
+    Ok((source_image, is_raw))
+}
+
+fn cached_source_image(
+    patch_id: &str,
+    current_adjustments: &Value,
+    state: &tauri::State<'_, AppState>,
+) -> Result<(Arc<RgbImage>, bool), String> {
+    let loaded_image = state
+        .original_image
+        .lock()
+        .unwrap()
+        .clone()
+        .ok_or("No original image loaded")?;
+    let is_raw =
+        crate::negative_conversion::effective_is_raw(loaded_image.is_raw, current_adjustments);
+    let key = crate::patched_cache_key(
+        &loaded_image.path,
+        &adjustments_without_patch(patch_id, current_adjustments),
+    );
+
+    let source_image = crate::get_or_compute_stage(&state.cleanup_source_cache, key, || {
+        prepare_source_image(patch_id, current_adjustments, state)
+            .map(|(image, _)| Arc::new(image.into_rgb8()))
+    })?;
     Ok((source_image, is_raw))
 }
 
@@ -123,7 +154,7 @@ fn encode_patch_result(
     is_srgb: bool,
     quality: u8,
     mask_as_png: bool,
-) -> Result<String, String> {
+) -> Result<Value, String> {
     let mut color_buf = Cursor::new(Vec::with_capacity(32768));
     color_image
         .write_with_encoder(image::codecs::jpeg::JpegEncoder::new_with_quality(
@@ -148,7 +179,7 @@ fn encode_patch_result(
     }
     let mask_base64 = general_purpose::STANDARD.encode(mask_buf.get_ref());
 
-    let result_json = serde_json::json!({
+    Ok(serde_json::json!({
         "color": color_base64,
         "mask": mask_base64,
         "offsetX": offset_x,
@@ -156,22 +187,112 @@ fn encode_patch_result(
         "width": width,
         "height": height,
         "isSrgbEncoded": is_srgb
-    })
-    .to_string();
+    }))
+}
 
-    Ok(result_json)
+fn stroke_anchor(sub_masks: &[SubMask]) -> Option<(f64, f64)> {
+    let mut bounds = (
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+    );
+    let points = sub_masks
+        .iter()
+        .filter_map(|sm| sm.parameters.get("lines").and_then(|v| v.as_array()))
+        .flatten()
+        .filter_map(|line| line.get("points").and_then(|v| v.as_array()))
+        .flatten();
+    for point in points {
+        if let (Some(x), Some(y)) = (
+            point.get("x").and_then(|v| v.as_f64()),
+            point.get("y").and_then(|v| v.as_f64()),
+        ) {
+            bounds = (
+                bounds.0.min(x),
+                bounds.1.max(x),
+                bounds.2.min(y),
+                bounds.3.max(y),
+            );
+        }
+    }
+    bounds
+        .0
+        .is_finite()
+        .then(|| ((bounds.0 + bounds.1) / 2.0, (bounds.2 + bounds.3) / 2.0))
+}
+
+fn display_point_for(
+    target: (f64, f64),
+    guess: (f64, f64),
+    width: f64,
+    height: f64,
+    adjustments: &Value,
+) -> (f64, f64) {
+    let to_raw = |p: (f64, f64)| {
+        crate::image_processing::inverse_transform_point(p.0, p.1, width, height, adjustments)
+    };
+    let mut point = guess;
+    for _ in 0..8 {
+        let raw = to_raw(point);
+        let error = (target.0 - raw.0, target.1 - raw.1);
+        if error.0.abs() < 0.01 && error.1.abs() < 0.01 {
+            break;
+        }
+        let dx = to_raw((point.0 + 1.0, point.1));
+        let dy = to_raw((point.0, point.1 + 1.0));
+        let (j00, j01, j10, j11) = (dx.0 - raw.0, dy.0 - raw.0, dx.1 - raw.1, dy.1 - raw.1);
+        let det = j00 * j11 - j01 * j10;
+        if det.abs() < 1e-9 {
+            break;
+        }
+        point.0 += (j11 * error.0 - j01 * error.1) / det;
+        point.1 += (j00 * error.1 - j10 * error.0) / det;
+    }
+    point
+}
+
+fn visible_area(
+    adjustments: &Value,
+    width: f64,
+    height: f64,
+    full_area: (i64, i64, i64, i64),
+) -> (i64, i64, i64, i64) {
+    let Ok(Crop {
+        x,
+        y,
+        width: w,
+        height: h,
+    }) = serde_json::from_value::<Crop>(adjustments["crop"].clone())
+    else {
+        return full_area;
+    };
+    let (mut min_x, mut min_y) = (f64::INFINITY, f64::INFINITY);
+    let (mut max_x, mut max_y) = (f64::NEG_INFINITY, f64::NEG_INFINITY);
+    for (cx, cy) in [(x, y), (x + w, y), (x, y + h), (x + w, y + h)] {
+        let (rx, ry) =
+            crate::image_processing::inverse_transform_point(cx, cy, width, height, adjustments);
+        (min_x, max_x) = (min_x.min(rx), max_x.max(rx));
+        (min_y, max_y) = (min_y.min(ry), max_y.max(ry));
+    }
+    (
+        (min_x.ceil() as i64).max(full_area.0),
+        (min_y.ceil() as i64).max(full_area.1),
+        (max_x.floor() as i64).min(full_area.2),
+        (max_y.floor() as i64).min(full_area.3),
+    )
 }
 
 #[tauri::command]
 pub async fn generate_manual_cleanup_patch(
     patch_definition: AiPatchDefinition,
     current_adjustments: Value,
-    source_point: (f64, f64),
-    _task_id: Option<String>,
+    source_point: Option<(f64, f64)>,
+    source_variant: Option<u32>,
     state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
     let (source_image, is_raw) =
-        prepare_source_image(&patch_definition.id, &current_adjustments, &state)?;
+        cached_source_image(&patch_definition.id, &current_adjustments, &state)?;
     let (img_w, img_h) = source_image.dimensions();
 
     let orientation_steps = current_adjustments
@@ -213,168 +334,98 @@ pub async fn generate_manual_cleanup_patch(
     let mask_bitmap =
         crate::image_processing::inverse_transform_mask(mask_bitmap, &current_adjustments);
 
-    let (min_x, max_x, min_y, max_y) = calculate_mask_bounds(&mask_bitmap)?;
+    let bounds = calculate_mask_bounds(&mask_bitmap)?;
+    let (min_x, max_x, min_y, max_y) = bounds;
 
-    let center_x = (min_x + max_x) as f64 / 2.0;
-    let center_y = (min_y + max_y) as f64 / 2.0;
-
-    let source_point_untransformed = crate::image_processing::inverse_transform_point(
-        source_point.0,
-        source_point.1,
-        trans_w as f64,
-        trans_h as f64,
+    let anchor = stroke_anchor(&patch_definition.sub_masks)
+        .ok_or("No brush strokes found for this spot.")?;
+    let (trans_w, trans_h) = (trans_w as f64, trans_h as f64);
+    let raw_anchor = crate::image_processing::inverse_transform_point(
+        anchor.0,
+        anchor.1,
+        trans_w,
+        trans_h,
         &current_adjustments,
     );
 
-    let offset_x = (source_point_untransformed.0 - center_x).round() as i32;
-    let offset_y = (source_point_untransformed.1 - center_y).round() as i32;
+    let is_heal = patch_definition
+        .sub_masks
+        .iter()
+        .any(|sm| sm.mask_type.eq_ignore_ascii_case("heal"));
 
-    let min_x_u32 = min_x as u32;
-    let min_y_u32 = min_y as u32;
+    let (offset, picked_source) = match source_point {
+        Some((x, y)) => {
+            let raw = crate::image_processing::inverse_transform_point(
+                x,
+                y,
+                trans_w,
+                trans_h,
+                &current_adjustments,
+            );
+            let offset = (
+                (raw.0 - raw_anchor.0).round() as i32,
+                (raw.1 - raw_anchor.1).round() as i32,
+            );
+            (offset, None)
+        }
+        None => {
+            let search = |area| {
+                crate::clone_heal::find_source_offset(
+                    &source_image,
+                    &mask_bitmap,
+                    bounds,
+                    area,
+                    is_heal,
+                    source_variant.unwrap_or(0) as usize,
+                )
+            };
+            let full_area = (0, 0, img_w as i64, img_h as i64);
+            let offset = search(visible_area(
+                &current_adjustments,
+                trans_w,
+                trans_h,
+                full_area,
+            ))
+            .or_else(|| search(full_area))
+            .ok_or("Could not find a matching source area for this spot.")?;
+            let target = (
+                raw_anchor.0 + offset.0 as f64,
+                raw_anchor.1 + offset.1 as f64,
+            );
+            let guess = (anchor.0 + offset.0 as f64, anchor.1 + offset.1 as f64);
+            let display = display_point_for(target, guess, trans_w, trans_h, &current_adjustments);
+            (offset, Some(display))
+        }
+    };
+
+    let color_image = if is_heal {
+        crate::clone_heal::heal_patch(&source_image, &mask_bitmap, bounds, offset)
+    } else {
+        crate::clone_heal::clone_patch(&source_image, &mask_bitmap, bounds, offset)
+    };
+
     let crop_w = (max_x - min_x + 1) as u32;
     let crop_h = (max_y - min_y + 1) as u32;
-
-    let sub_masks_val = serde_json::to_value(&patch_definition.sub_masks).unwrap_or(Value::Null);
-    let mut is_heal = false;
-    if let Some(arr) = sub_masks_val.as_array() {
-        for sm in arr {
-            if let Some(t) = sm.get("type").and_then(|v| v.as_str())
-                && t.eq_ignore_ascii_case("heal")
-            {
-                is_heal = true;
-                break;
-            }
-        }
-    }
-    if !is_heal && patch_definition.name.to_lowercase().contains("heal") {
-        is_heal = true;
-    }
-
-    let mut color_image = RgbImage::new(crop_w, crop_h);
-
-    if !is_heal {
-        for y in min_y..=max_y {
-            for x in min_x..=max_x {
-                let px_x = x as u32;
-                let px_y = y as u32;
-                if mask_bitmap.get_pixel(px_x, px_y)[0] > 0 {
-                    let src_x = (px_x as i32 + offset_x).clamp(0, img_w as i32 - 1) as u32;
-                    let src_y = (px_y as i32 + offset_y).clamp(0, img_h as i32 - 1) as u32;
-                    let src_px = source_image.get_pixel(src_x, src_y);
-
-                    let dest_x = px_x - min_x_u32;
-                    let dest_y = px_y - min_y_u32;
-                    color_image.put_pixel(dest_x, dest_y, Rgb([src_px[0], src_px[1], src_px[2]]));
-                }
-            }
-        }
-    } else {
-        let bw = max_x - min_x + 3;
-        let bh = max_y - min_y + 3;
-
-        let mut v_r = vec![0.0f32; bw * bh];
-        let mut v_g = vec![0.0f32; bw * bh];
-        let mut v_b = vec![0.0f32; bw * bh];
-
-        let mut region = vec![0u8; bw * bh];
-
-        for y in 0..bh {
-            for x in 0..bw {
-                let img_x = min_x as i32 + x as i32 - 1;
-                let img_y = min_y as i32 + y as i32 - 1;
-
-                if img_x >= 0
-                    && img_x < img_w as i32
-                    && img_y >= 0
-                    && img_y < img_h as i32
-                    && mask_bitmap.get_pixel(img_x as u32, img_y as u32)[0] > 0
-                {
-                    region[y * bw + x] = 1;
-                }
-            }
-        }
-
-        let mut omega_coords = Vec::new();
-
-        for y in 1..(bh - 1) {
-            for x in 1..(bw - 1) {
-                if region[y * bw + x] == 0 {
-                    if region[(y - 1) * bw + x] == 1
-                        || region[(y + 1) * bw + x] == 1
-                        || region[y * bw + x - 1] == 1
-                        || region[y * bw + x + 1] == 1
-                    {
-                        region[y * bw + x] = 2;
-
-                        let img_x = (min_x as i32 + x as i32 - 1) as u32;
-                        let img_y = (min_y as i32 + y as i32 - 1) as u32;
-
-                        let src_x = (img_x as i32 + offset_x).clamp(0, img_w as i32 - 1) as u32;
-                        let src_y = (img_y as i32 + offset_y).clamp(0, img_h as i32 - 1) as u32;
-
-                        let dest_px = source_image.get_pixel(img_x, img_y);
-                        let src_px = source_image.get_pixel(src_x, src_y);
-
-                        v_r[y * bw + x] = dest_px[0] as f32 - src_px[0] as f32;
-                        v_g[y * bw + x] = dest_px[1] as f32 - src_px[1] as f32;
-                        v_b[y * bw + x] = dest_px[2] as f32 - src_px[2] as f32;
-                    }
-                } else if region[y * bw + x] == 1 {
-                    omega_coords.push((x, y));
-                }
-            }
-        }
-
-        let omega = 1.6f32;
-        let iterations = 400;
-
-        for _ in 0..iterations {
-            for &(x, y) in &omega_coords {
-                let idx = y * bw + x;
-                let sum_r = v_r[idx - bw] + v_r[idx + bw] + v_r[idx - 1] + v_r[idx + 1];
-                let sum_g = v_g[idx - bw] + v_g[idx + bw] + v_g[idx - 1] + v_g[idx + 1];
-                let sum_b = v_b[idx - bw] + v_b[idx + bw] + v_b[idx - 1] + v_b[idx + 1];
-
-                v_r[idx] = (1.0 - omega) * v_r[idx] + omega * 0.25 * sum_r;
-                v_g[idx] = (1.0 - omega) * v_g[idx] + omega * 0.25 * sum_g;
-                v_b[idx] = (1.0 - omega) * v_b[idx] + omega * 0.25 * sum_b;
-            }
-        }
-        for &(x, y) in &omega_coords {
-            let img_x = (min_x as i32 + x as i32 - 1) as u32;
-            let img_y = (min_y as i32 + y as i32 - 1) as u32;
-
-            let src_x = (img_x as i32 + offset_x).clamp(0, img_w as i32 - 1) as u32;
-            let src_y = (img_y as i32 + offset_y).clamp(0, img_h as i32 - 1) as u32;
-            let src_px = source_image.get_pixel(src_x, src_y);
-
-            let idx = y * bw + x;
-            let out_r = (src_px[0] as f32 + v_r[idx]).clamp(0.0, 255.0) as u8;
-            let out_g = (src_px[1] as f32 + v_g[idx]).clamp(0.0, 255.0) as u8;
-            let out_b = (src_px[2] as f32 + v_b[idx]).clamp(0.0, 255.0) as u8;
-
-            let out_x = img_x as i32 - min_x as i32;
-            let out_y = img_y as i32 - min_y as i32;
-            if out_x >= 0 && out_x < crop_w as i32 && out_y >= 0 && out_y < crop_h as i32 {
-                color_image.put_pixel(out_x as u32, out_y as u32, Rgb([out_r, out_g, out_b]));
-            }
-        }
-    }
-
     let output_mask =
-        image::imageops::crop_imm(&mask_bitmap, min_x_u32, min_y_u32, crop_w, crop_h).to_image();
+        image::imageops::crop_imm(&mask_bitmap, min_x as u32, min_y as u32, crop_w, crop_h)
+            .to_image();
 
-    encode_patch_result(
+    let mut result = encode_patch_result(
         &color_image,
         &output_mask,
-        min_x_u32,
-        min_y_u32,
+        min_x as u32,
+        min_y as u32,
         crop_w,
         crop_h,
         is_raw,
         100,
         false,
-    )
+    )?;
+    if let Some((x, y)) = picked_source {
+        result["sourceX"] = serde_json::json!(x);
+        result["sourceY"] = serde_json::json!(y);
+    }
+    Ok(result.to_string())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -686,6 +737,7 @@ pub async fn invoke_generative_replace_with_mask_def(
         95,
         true,
     )
+    .map(|v| v.to_string())
 }
 
 fn point_to_segment_dist_sq(px: f32, py: f32, x1: f32, y1: f32, x2: f32, y2: f32) -> (f32, f32) {
@@ -740,14 +792,12 @@ fn bilinear_sample(img: &RgbImage, x: f32, y: f32) -> Rgb<u8> {
 pub async fn generate_liquify_patch(
     patch_definition: AiPatchDefinition,
     current_adjustments: Value,
-    _source_point: (f64, f64),
     _task_id: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
-    let (source_dynamic, is_raw) =
-        prepare_source_image(&patch_definition.id, &current_adjustments, &state)?;
-    let (img_w, img_h) = source_dynamic.dimensions();
-    let source_image = source_dynamic.into_rgb8();
+    let (source_image, is_raw) =
+        cached_source_image(&patch_definition.id, &current_adjustments, &state)?;
+    let (img_w, img_h) = source_image.dimensions();
 
     let mut all_points = Vec::new();
 
@@ -1068,6 +1118,7 @@ pub async fn generate_liquify_patch(
         100,
         false,
     )
+    .map(|v| v.to_string())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1134,10 +1185,9 @@ pub async fn generate_retouch_patch(
     _task_id: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
-    let (source_dynamic, is_raw) =
-        prepare_source_image(&patch_definition.id, &current_adjustments, &state)?;
-    let (img_w, img_h) = source_dynamic.dimensions();
-    let source_image = source_dynamic.into_rgb8();
+    let (source_image, is_raw) =
+        cached_source_image(&patch_definition.id, &current_adjustments, &state)?;
+    let (img_w, img_h) = source_image.dimensions();
 
     let mut min_x = img_w as f32;
     let mut min_y = img_h as f32;
@@ -1248,7 +1298,8 @@ pub async fn generate_retouch_patch(
     let crop_h = max_y_u32 - min_y_u32 + 1;
 
     let orig_crop =
-        image::imageops::crop_imm(&source_image, min_x_u32, min_y_u32, crop_w, crop_h).to_image();
+        image::imageops::crop_imm(source_image.as_ref(), min_x_u32, min_y_u32, crop_w, crop_h)
+            .to_image();
     let orig_raw = orig_crop.as_raw();
 
     let mut mask_pixels = vec![0u8; (crop_w * crop_h) as usize];
@@ -1380,4 +1431,5 @@ pub async fn generate_retouch_patch(
         100,
         false,
     )
+    .map(|v| v.to_string())
 }

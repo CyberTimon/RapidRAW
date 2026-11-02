@@ -50,12 +50,17 @@ fn hash_ai_patches(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) 
             is_visible.hash(hasher);
 
             let mask_from_sub_masks = if let Some(patch_data) = patch.get("patchData") {
-                let color_len = patch_data
+                let color = patch_data
                     .get("color")
                     .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .len();
+                    .unwrap_or("");
+                let color_len = color.len();
                 color_len.hash(hasher);
+                color
+                    .as_bytes()
+                    .iter()
+                    .step_by((color_len / 256).max(1))
+                    .for_each(|b| b.hash(hasher));
 
                 let mask_len = patch_data
                     .get("mask")
@@ -690,6 +695,10 @@ impl DecodeFlights {
 pub fn clear_preview_stage_caches(state: &AppState) {
     *state
         .patched_cache
+        .lock()
+        .unwrap_or_else(|e| e.into_inner()) = None;
+    *state
+        .cleanup_source_cache
         .lock()
         .unwrap_or_else(|e| e.into_inner()) = None;
     *state.warped_cache.lock().unwrap_or_else(|e| e.into_inner()) = None;

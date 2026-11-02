@@ -2442,6 +2442,9 @@ pub fn is_image_edited(
     {
         return true;
     }
+    if is_tool_active(adj, "motionBlur") && adj["motionBlurAmount"].as_f64().unwrap_or(0.0) > 0.0 {
+        return true;
+    }
 
     if let Some(crop_val) = adj.get("crop")
         && !crop_val.is_null()
@@ -2536,7 +2539,14 @@ const LEGACY_SECTION_TOOLS: &[(&str, &[&str])] = &[
     (
         "effects",
         &[
-            "creative", "lensBlur", "relight", "fog", "lut", "vignette", "grain",
+            "creative",
+            "motionBlur",
+            "lensBlur",
+            "relight",
+            "fog",
+            "lut",
+            "vignette",
+            "grain",
         ],
     ),
 ];

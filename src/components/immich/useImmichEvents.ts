@@ -104,6 +104,9 @@ export function useImmichEvents(refreshLibrary: () => void) {
         toast.info(t('immich.toasts.editsConflict', { fileName: payload.fileName }));
         refreshRef.current();
       }),
+      listen<ConflictEvent>('immich-edits-local', ({ payload }) => {
+        toast.info(t('immich.toasts.editsStayLocal', { fileName: payload.fileName }));
+      }),
       listen<ConflictEvent>('immich-upload-kept-copy', ({ payload }) => {
         toast.info(t('immich.toasts.uploadKeptCopy', { fileName: payload.fileName }));
         refreshRef.current();

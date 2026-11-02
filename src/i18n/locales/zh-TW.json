@@ -56,6 +56,7 @@
         "reds": "紅色",
         "yellows": "黃色"
       },
+      "mixerPickerTooltip": "顏色混合器滴管：在相片上按住並上下拖曳",
       "monochrome": {
         "badge": "黑白",
         "balance": "平衡",
@@ -91,6 +92,7 @@
         "highlights": "亮部",
         "hue": "色相",
         "mix": "黑白混合",
+        "mixPickerTooltip": "黑白混合滴管：在相片上按住並上下拖曳",
         "saturation": "飽和度",
         "shadows": "陰影",
         "strength": "強度",
@@ -220,7 +222,25 @@
       "roundness": "圓度",
       "size": "大小",
       "spatial": "空間",
-      "vignette": "暗角"
+      "vignette": "暗角",
+      "motionBlur": "動態模糊",
+      "motionBlurAngle": "角度",
+      "motionBlurDepth": "深度",
+      "motionBlurHighlights": "亮部",
+      "motionBlurLayer": "運動",
+      "motionBlurLayers": {
+        "auto": "自動",
+        "panning": "追焦",
+        "subject": "移動主體",
+        "uniform": "均勻"
+      },
+      "motionBlurType": "類型",
+      "motionBlurTypes": {
+        "linear": "線性",
+        "zoom": "縮放",
+        "spin": "旋轉",
+        "smooth": "平滑"
+      }
     }
   },
   "contextMenus": {
@@ -285,6 +305,7 @@
       "cullImage": "自動篩選",
       "denoise": "降噪",
       "editImage": "編輯影像",
+      "editIn": "在其他程式中編輯",
       "exportImage": "匯出影像",
       "flag": "標記",
       "flagPick": "留用",
@@ -387,6 +408,9 @@
     "toasts": {
       "couldNotShowExplorer": "無法在檔案資源管理器中顯示檔案：{{err}}",
       "couldNotShowFolder": "無法顯示資料夾：{{err}}",
+      "editInFailed": "{{app}} 失敗：{{err}}",
+      "editInNoOutput": "{{app}} 已關閉，未儲存。",
+      "editInWaiting": "正在等待 {{app}}。在該程式中儲存檔案即可將其帶回，關閉此訊息可停止等待。",
       "failedAddToAlbum": "新增到相簿失敗：{{err}}",
       "failedApplyAuto": "應用自動調整失敗：{{err}}",
       "failedChangeIcon": "更換圖示失敗：{{err}}",
@@ -456,6 +480,15 @@
         "erase": "擦除",
         "feather": "畫筆羽化",
         "size": "畫筆大小"
+      },
+      "cloneHeal": {
+        "cloneTooltip": "精確複製來源，包括其亮度與顏色",
+        "dragSource": "拖曳以移動來源",
+        "healTooltip": "複製來源的紋理，並使其融入周圍的亮度與顏色",
+        "hintActive": "拖曳來源輪廓以選擇像素的來源位置。每一筆新的塗抹都會成為獨立的區域。按住 Shift 可加入目前的區域。",
+        "hintEmpty": "在污點、電線或干擾物上塗抹，會自動找到合適的來源。",
+        "mode": "模式",
+        "newSource": "尋找其他來源"
       },
       "comingSoon": "即將推出",
       "connection": {
@@ -784,8 +817,7 @@
       "toggleAnalyticsTooltip": "切換分析顯示",
       "tooltips": {
         "addToCurrent": "將 {{name}} 新增到當前遮色片或建立新遮色片（右鍵單擊）",
-        "createNew": "建立新 {{name}} 遮色片",
-        "selectNewSourcePoint": "{{modifier}} + 點擊選擇新的來源點"
+        "createNew": "建立新 {{name}} 遮色片"
       }
     },
     "metadata": {
@@ -887,6 +919,10 @@
         "style": "風格",
         "tool": "工具"
       }
+    },
+    "speedEdit": {
+      "copied": "已複製 <0>{{label}}</0> <1>{{value}}</1>",
+      "pasted": "已貼上 <0>{{label}}</0> <1>{{value}}</1>"
     },
     "switcher": {
       "tooltips": {
@@ -1099,6 +1135,7 @@
       "pending": "等待同步到 Immich 的編輯：{{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} 屬於其他人，因此 Immich 不接受對它的編輯。你的編輯會保留在這台電腦上。",
       "backOnline": "Immich 已重新連線，所有編輯內容都已儲存。",
       "downloadFailed": "無法從 Immich 下載：{{error}}",
       "editsConflict": "{{fileName}} 也在另一台電腦上被編輯過。你的編輯內容會保留，另一個版本已儲存為虛擬副本。",
@@ -1519,6 +1556,7 @@
         "halationGlow": "光暈與發光",
         "hueShift": "全域色相偏移",
         "lensBlur": "鏡頭模糊",
+        "motionBlur": "動態模糊",
         "lensCorrection": "鏡頭校正",
         "lut": "LUT",
         "masks": "遮色片",
@@ -1754,6 +1792,27 @@
       "pressKey": "按下按鍵...（Esc 清除）",
       "resetDefaults": "全部重置為預設值",
       "speed": "速度",
+      "speedEdit": {
+        "adjustments": "調整項目",
+        "gestures": {
+          "doubleClick": "按兩下重設",
+          "drag": "在畫布上拖曳調整",
+          "fine": "按 Shift 精細調整"
+        },
+        "keys": {
+          "hold": "單擊 / 按住",
+          "previousImage": "上一張",
+          "nextImage": "下一張",
+          "reset": "重設",
+          "previousAdjustment": "上一個滑桿",
+          "nextAdjustment": "下一個滑桿",
+          "copy": "複製",
+          "paste": "貼上",
+          "stepDown": "−1 步",
+          "stepUp": "+1 步"
+        },
+        "title": "快速編輯"
+      },
       "title": "滑鼠控制",
       "zoom": "縮放速度倍率",
       "zoomClick": "縮放照片至 100%",
@@ -2042,6 +2101,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "編輯器根據顯示器實際畫素密度渲染預覽。這確保每個細節都以 1:1 畫素精度呈現，在縮放和檢查焦點時提供最大清晰度。",
+      "editIn": {
+        "add": "新增程式",
+        "args": "參數（{file} = 影像路徑）",
+        "browse": "瀏覽",
+        "description": "「在其他程式中編輯」選單中的程式。",
+        "executable": "程式",
+        "modes": {
+          "original": "傳送原始檔案",
+          "rendered": "傳送編輯後的 TIFF"
+        },
+        "name": "名稱",
+        "path": "程式路徑",
+        "remove": "移除",
+        "title": "在其他程式中編輯"
+      },
       "enableLivePreviews": "啟用即時預覽",
       "highDpi": "高 DPI 渲染",
       "highDpiDesc": "以螢幕原生 {{dpr}}x 物理畫素解析度渲染預覽。產生最清晰的預覽，但會顯著增加記憶體使用。",
@@ -2127,7 +2201,8 @@
       "title": "處理引擎",
       "wgpu": "WGPU 直接渲染",
       "wgpuDescAndroid": "繞過瀏覽器編碼，實現即時回應的即時預覽。（在 Android 上已停用：原生 WGPU 表面建立目前不支援與移動端 Webview 同時執行。）",
-      "wgpuDescLinux": "繞過瀏覽器編碼，實現即時回應的即時預覽。（在 Linux 上已停用：Tauri 使用 GTK 作為 Webview，與同一 X11 表面上的 WGPU 衝突並導致閃爍。）",
+      "wgpuDescLinuxExperimental": "在 Linux 上為實驗性功能，可能不穩定。",
+      "wgpuDescLinuxX11": "在 X11 上無法使用。",
       "wgpuDescRecommended": "繞過瀏覽器編碼，實現即時回應的即時預覽。強烈推薦以獲得最佳效能。",
       "wgpuLabel": "啟用直接 WGPU 渲染",
       "workerThreads": "縮圖工作執行緒數",

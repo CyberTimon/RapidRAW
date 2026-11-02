@@ -56,6 +56,7 @@
         "reds": "Rood",
         "yellows": "Geel"
       },
+      "mixerPickerTooltip": "Kleurenmixer-pipet: klik en sleep omhoog of omlaag op de foto",
       "monochrome": {
         "badge": "Z/W",
         "balance": "Balans",
@@ -91,6 +92,7 @@
         "highlights": "Hooglichten",
         "hue": "Kleurtoon",
         "mix": "Z/W-mix",
+        "mixPickerTooltip": "Z/W-mix-pipet: klik en sleep omhoog of omlaag op de foto",
         "saturation": "Verzadiging",
         "shadows": "Schaduwen",
         "strength": "Sterkte",
@@ -220,7 +222,25 @@
       "roundness": "Rondheid",
       "size": "Grootte",
       "spatial": "Ruimtelijk",
-      "vignette": "Vignet"
+      "vignette": "Vignet",
+      "motionBlur": "Bewegingsonscherpte",
+      "motionBlurAngle": "Hoek",
+      "motionBlurDepth": "Diepte",
+      "motionBlurHighlights": "Hoge lichten",
+      "motionBlurLayer": "Beweging",
+      "motionBlurLayers": {
+        "auto": "Automatisch",
+        "panning": "Meetrekken",
+        "subject": "Bewegend onderwerp",
+        "uniform": "Gelijkmatig"
+      },
+      "motionBlurType": "Type",
+      "motionBlurTypes": {
+        "linear": "Lineair",
+        "zoom": "Zoom",
+        "spin": "Draaiing",
+        "smooth": "Zacht"
+      }
     }
   },
   "contextMenus": {
@@ -285,6 +305,7 @@
       "cullImage": "Autom. selecteren",
       "denoise": "Ruis verwijderen",
       "editImage": "Afbeelding bewerken",
+      "editIn": "Bewerken in",
       "exportImage": "Afbeelding exporteren",
       "flag": "Markering",
       "flagPick": "Gekozen",
@@ -387,6 +408,9 @@
     "toasts": {
       "couldNotShowExplorer": "Kon bestand niet weergeven in Verkenner: {{err}}",
       "couldNotShowFolder": "Kon map niet weergeven: {{err}}",
+      "editInFailed": "{{app}} mislukt: {{err}}",
+      "editInNoOutput": "{{app}} is gesloten zonder op te slaan.",
+      "editInWaiting": "Wachten op {{app}}. Sla het bestand daar op om het terug te halen, of sluit dit bericht om te stoppen met wachten.",
       "failedAddToAlbum": "Kan niet aan album toevoegen: {{err}}",
       "failedApplyAuto": "Automatische aanpassingen konden niet worden toegepast: {{err}}",
       "failedChangeIcon": "Pictogram kon niet worden gewijzigd: {{err}}",
@@ -456,6 +480,15 @@
         "erase": "Wissen",
         "feather": "Penseelrandvervaging",
         "size": "Penseelgrootte"
+      },
+      "cloneHeal": {
+        "cloneTooltip": "Kopieert de bron exact, inclusief helderheid en kleur",
+        "dragSource": "Sleep om de bron te verplaatsen",
+        "healTooltip": "Kopieert de textuur van de bron en past die aan de omliggende helderheid en kleur aan",
+        "hintActive": "Sleep de bronomtrek om te kiezen waar de pixels vandaan komen. Elke nieuwe streek wordt een eigen plek. Houd Shift ingedrukt om aan deze toe te voegen.",
+        "hintEmpty": "Schilder over een vlek, draad of storend element. Er wordt automatisch een passende bron gevonden.",
+        "mode": "Modus",
+        "newSource": "Andere bron zoeken"
       },
       "comingSoon": "Binnenkort beschikbaar",
       "connection": {
@@ -787,8 +820,7 @@
       "toggleAnalyticsTooltip": "Analytische weergave aan/uit",
       "tooltips": {
         "addToCurrent": "{{name}} toevoegen aan huidig masker of nieuw masker maken (rechtermuisknop)",
-        "createNew": "Nieuw {{name}} masker maken",
-        "selectNewSourcePoint": "{{modifier}} + klik om een nieuw bronpunt te selecteren"
+        "createNew": "Nieuw {{name}} masker maken"
       }
     },
     "metadata": {
@@ -890,6 +922,10 @@
         "style": "Stijl",
         "tool": "Gereedschap"
       }
+    },
+    "speedEdit": {
+      "copied": "<0>{{label}}</0> <1>{{value}}</1> gekopieerd",
+      "pasted": "<0>{{label}}</0> <1>{{value}}</1> geplakt"
     },
     "switcher": {
       "tooltips": {
@@ -1102,6 +1138,7 @@
       "pending": "Bewerkingen die op Immich wachten: {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} is van iemand anders, dus Immich accepteert er geen bewerkingen voor. Je bewerkingen blijven op deze computer.",
       "backOnline": "Immich is weer bereikbaar en alle bewerkingen zijn daar opgeslagen.",
       "downloadFailed": "Downloaden van Immich mislukt: {{error}}",
       "editsConflict": "{{fileName}} is ook op een andere computer bewerkt. Je bewerkingen blijven en de andere versie wordt bewaard als virtuele kopie.",
@@ -1525,6 +1562,7 @@
         "halationGlow": "Halatie & gloed",
         "hueShift": "Globale kleurtoonwijziging",
         "lensBlur": "Lensvervaging",
+        "motionBlur": "Bewegingsonscherpte",
         "lensCorrection": "Lenscorrectie",
         "lut": "LUT",
         "masks": "Maskers",
@@ -1760,6 +1798,27 @@
       "pressKey": "Druk op een toets... (Esc om te wissen)",
       "resetDefaults": "Alles herstellen naar standaard",
       "speed": "Snelheid",
+      "speedEdit": {
+        "adjustments": "Aanpassingen",
+        "gestures": {
+          "doubleClick": "Dubbelklik om te herstellen",
+          "drag": "Sleep op het canvas om aan te passen",
+          "fine": "Shift voor fijn"
+        },
+        "keys": {
+          "hold": "Tikken / Houden",
+          "previousImage": "Vorige afb.",
+          "nextImage": "Volgende afb.",
+          "reset": "Herstellen",
+          "previousAdjustment": "Vorige regelaar",
+          "nextAdjustment": "Volgende regelaar",
+          "copy": "Kopiëren",
+          "paste": "Plakken",
+          "stepDown": "−1 stap",
+          "stepUp": "+1 stap"
+        },
+        "title": "Snel bewerken"
+      },
       "title": "Muisbesturing",
       "zoom": "Zoomsnelheidsmultiplicator",
       "zoomClick": "Foto zoomen naar 100%",
@@ -2044,6 +2103,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "De editor rendert het voorbeeld om overeen te komen met de werkelijke pixeldichtheid van uw beeldscherm. Dit zorgt ervoor dat elk detail wordt weergegeven met 1:1 pixelnauwkeurigheid, wat maximale helderheid biedt bij zoomen en scherpte controleren.",
+      "editIn": {
+        "add": "Programma toevoegen",
+        "args": "Argumenten ({file} = pad van de afbeelding)",
+        "browse": "Bladeren",
+        "description": "Programma's voor het menu \"Bewerken in\".",
+        "executable": "Programma's",
+        "modes": {
+          "original": "Origineel bestand sturen",
+          "rendered": "Bewerkte TIFF sturen"
+        },
+        "name": "Naam",
+        "path": "Programmapad",
+        "remove": "Verwijderen",
+        "title": "Bewerken in"
+      },
       "enableLivePreviews": "Live voorbeelden inschakelen",
       "highDpi": "High-DPI-rendering",
       "highDpiDesc": "Voorbeelden renderen op de native {{dpr}}x fysieke pixelresolutie van uw scherm. Produceert het scherpste mogelijk voorbeeld maar gebruikt aanzienlijk meer geheugen.",
@@ -2129,7 +2203,8 @@
       "title": "Verwerkingsmotor",
       "wgpu": "WGPU directe rendering",
       "wgpuDescAndroid": "Omzeilt browsercodering voor direct responsieve live voorbeelden. (Uitgeschakeld op Android: native WGPU-surface creatie wordt momenteel niet ondersteund naast de mobiele webweergave.)",
-      "wgpuDescLinux": "Omzeilt browsercodering voor direct responsieve live voorbeelden. (Uitgeschakeld op Linux: Tauri gebruikt GTK voor webweergaven, wat conflicteert met WGPU op hetzelfde X11-surface en flikkering veroorzaakt.)",
+      "wgpuDescLinuxExperimental": "Experimenteel op Linux en mogelijk instabiel.",
+      "wgpuDescLinuxX11": "Niet beschikbaar op X11.",
       "wgpuDescRecommended": "Omzeilt browsercodering voor direct responsieve live voorbeelden. Sterk aanbevolen voor prestaties.",
       "wgpuLabel": "Directe WGPU-rendering inschakelen",
       "workerThreads": "Miniatuurwerkerthreads",

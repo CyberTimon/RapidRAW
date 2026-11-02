@@ -1,6 +1,8 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
+#[cfg(target_os = "linux")]
+use std::sync::OnceLock;
 use std::sync::{LazyLock, Mutex};
 
 use serde::{Deserialize, Serialize};
@@ -83,6 +85,25 @@ pub struct MyLens {
 pub struct CustomAspectRatio {
     pub width: f64,
     pub height: f64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum EditInMode {
+    #[default]
+    Original,
+    Rendered,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct EditInApp {
+    pub name: String,
+    pub path: String,
+    #[serde(default)]
+    pub args: String,
+    #[serde(default)]
+    pub mode: EditInMode,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -587,6 +608,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub linux_gpu_optimization_migrated_v1: Option<bool>,
     #[serde(default)]
+    pub linux_wgpu_renderer_migrated_v1: Option<bool>,
+    #[serde(default)]
     pub library_view_mode: Option<String>,
     #[serde(default = "default_export_presets")]
     pub export_presets: Vec<ExportPreset>,
@@ -690,6 +713,8 @@ pub struct AppSettings {
     pub always_decode_raw_thumbnails: Option<bool>,
     #[serde(default)]
     pub custom_aspect_ratios: Vec<CustomAspectRatio>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub edit_in_apps: Vec<EditInApp>,
     #[serde(default)]
     pub adjustment_layout: AdjustmentLayout,
     #[serde(default)]
@@ -700,9 +725,36 @@ pub struct AppSettings {
 
 impl AppSettings {
     pub fn wgpu_renderer_enabled(&self) -> bool {
-        cfg!(not(any(target_os = "linux", target_os = "android")))
-            && self.use_wgpu_renderer.unwrap_or(true)
+        cfg!(not(target_os = "android"))
+            && wgpu_renderer_available()
+            && self
+                .use_wgpu_renderer
+                .unwrap_or(cfg!(not(target_os = "linux")))
     }
+}
+
+pub fn wgpu_renderer_available() -> bool {
+    wgpu_renderer_supported() && !crate::gpu_processing::wgpu_display_failed()
+}
+
+#[cfg(target_os = "linux")]
+pub fn wgpu_renderer_supported() -> bool {
+    static SUPPORTED: OnceLock<bool> = OnceLock::new();
+    *SUPPORTED.get_or_init(|| {
+        let has_env = |name| std::env::var_os(name).is_some_and(|v| !v.is_empty());
+        let preferred = std::env::var("GDK_BACKEND").ok().and_then(|list| {
+            list.split(',')
+                .map(str::trim)
+                .find(|b| *b == "wayland" || *b == "x11")
+                .map(|b| b == "wayland")
+        });
+        preferred.unwrap_or_else(|| has_env("WAYLAND_DISPLAY") || has_env("WAYLAND_SOCKET"))
+    })
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn wgpu_renderer_supported() -> bool {
+    true
 }
 
 impl Default for AppSettings {
@@ -747,6 +799,7 @@ impl Default for AppSettings {
             processing_backend: Some("auto".to_string()),
             linux_gpu_optimization: Some(false),
             linux_gpu_optimization_migrated_v1: Some(true),
+            linux_wgpu_renderer_migrated_v1: Some(true),
             library_view_mode: Some("flat".to_string()),
             export_presets: default_export_presets(),
             my_lenses: Some(Vec::new()),
@@ -811,6 +864,7 @@ impl Default for AppSettings {
             group_preferred_type: Some("raw".to_string()),
             always_decode_raw_thumbnails: Some(false),
             custom_aspect_ratios: Vec::new(),
+            edit_in_apps: Vec::new(),
             adjustment_layout: AdjustmentLayout::default(),
             workspace: WorkspaceState::default(),
             immich: crate::immich::ImmichSettings::default(),
@@ -843,13 +897,24 @@ fn settings_cache() -> std::sync::MutexGuard<'static, Option<AppSettings>> {
 }
 
 #[tauri::command]
-pub fn load_settings(app_handle: AppHandle) -> Result<AppSettings, String> {
-    if let Some(settings) = settings_cache().as_ref() {
-        return Ok(settings.clone());
-    }
+pub fn is_wgpu_renderer_supported() -> bool {
+    wgpu_renderer_available()
+}
 
-    let settings = read_settings_from_disk(&app_handle)?;
-    *settings_cache() = Some(settings.clone());
+#[tauri::command]
+pub fn load_settings(app_handle: AppHandle) -> Result<AppSettings, String> {
+    let cached = settings_cache().clone();
+    let mut settings = match cached {
+        Some(settings) => settings,
+        None => {
+            let settings = read_settings_from_disk(&app_handle)?;
+            *settings_cache() = Some(settings.clone());
+            settings
+        }
+    };
+    if !wgpu_renderer_available() {
+        settings.use_wgpu_renderer = Some(false);
+    }
     Ok(settings)
 }
 
@@ -880,6 +945,13 @@ fn read_settings_from_disk(app_handle: &AppHandle) -> Result<AppSettings, String
             settings.linux_gpu_optimization = Some(false);
         }
         settings.linux_gpu_optimization_migrated_v1 = Some(true);
+        settings_modified = true;
+    }
+
+    #[cfg(target_os = "linux")]
+    if !settings.linux_wgpu_renderer_migrated_v1.unwrap_or(false) {
+        settings.use_wgpu_renderer = Some(false);
+        settings.linux_wgpu_renderer_migrated_v1 = Some(true);
         settings_modified = true;
     }
 
@@ -920,10 +992,15 @@ fn read_settings_from_disk(app_handle: &AppHandle) -> Result<AppSettings, String
 }
 
 #[tauri::command]
-pub fn save_settings(settings: AppSettings, app_handle: AppHandle) -> Result<(), String> {
+pub fn save_settings(mut settings: AppSettings, app_handle: AppHandle) -> Result<(), String> {
     let previous_gpu_acceleration = load_settings(app_handle.clone())
         .map(|previous| previous.ai_gpu_acceleration)
         .ok();
+    if !wgpu_renderer_available()
+        && let Some(stored) = settings_cache().as_ref()
+    {
+        settings.use_wgpu_renderer = stored.use_wgpu_renderer;
+    }
     let path = get_settings_path(&app_handle)?;
     let json_string = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
     crate::file_management::write_file_atomic(&path, json_string.as_bytes())

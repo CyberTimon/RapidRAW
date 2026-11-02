@@ -21,6 +21,7 @@ struct SyncState {
     local_modified_ms: Option<u64>,
     local_hash: Option<String>,
     remote_updated_at: Option<String>,
+    shared_by_others: bool,
 }
 
 #[derive(Serialize, Clone, Copy, PartialEq, Default)]
@@ -304,6 +305,9 @@ pub async fn push(
     source: &Path,
 ) -> Result<bool, String> {
     let state = load_state(source);
+    if state.shared_by_others {
+        return Ok(false);
+    }
     let modified = modified_ms(&sidecar_of(source));
     let Some(local) = local_changes(source, &state) else {
         return Ok(false);
@@ -319,7 +323,24 @@ pub async fn push(
         keep_as_virtual_copy(app_handle, source, &remote.value)?;
     }
 
-    let updated_at = client.set_metadata(asset_id, EDITS_KEY, &local).await?;
+    let updated_at = match client.set_metadata(asset_id, EDITS_KEY, &local).await {
+        Ok(updated_at) => updated_at,
+        Err(e) if client.owns(asset_id).await == Ok(false) => {
+            log::info!("{} belongs to someone else: {e}", source.display());
+            let mut state = load_state(source);
+            state.shared_by_others = true;
+            save_state(source, &state);
+            let _ = app_handle.emit(
+                "immich-edits-local",
+                json!({
+                    "path": source,
+                    "fileName": source.file_name().map(|n| n.to_string_lossy()),
+                }),
+            );
+            return Ok(false);
+        }
+        Err(e) => return Err(e),
+    };
     remember(source, modified, &local, Some(updated_at));
     Ok(true)
 }
@@ -340,9 +361,9 @@ fn unsent_edits(cache_dir: &Path) -> Vec<(String, PathBuf)> {
                 .flatten()
                 .map(|file| file.path())
                 .find(|path| crate::formats::is_supported_image_file(path))?;
-            let changed =
-                modified_ms(&sidecar_of(&source)) != load_state(&source).local_modified_ms;
-            changed.then_some((asset_id, source))
+            let state = load_state(&source);
+            let changed = modified_ms(&sidecar_of(&source)) != state.local_modified_ms;
+            (changed && !state.shared_by_others).then_some((asset_id, source))
         })
         .collect()
 }

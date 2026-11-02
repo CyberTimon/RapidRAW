@@ -56,6 +56,7 @@
         "reds": "Rouges",
         "yellows": "Jaunes"
       },
+      "mixerPickerTooltip": "Pipette du mélangeur de couleurs : cliquez et faites glisser vers le haut ou le bas sur la photo",
       "monochrome": {
         "badge": "N&B",
         "balance": "Balance",
@@ -91,6 +92,7 @@
         "highlights": "Hautes lumières",
         "hue": "Teinte",
         "mix": "Mélange N&B",
+        "mixPickerTooltip": "Pipette du mélange N&B : cliquez et faites glisser vers le haut ou le bas sur la photo",
         "saturation": "Saturation",
         "shadows": "Ombres",
         "strength": "Intensité",
@@ -220,7 +222,25 @@
       "roundness": "Arrondi",
       "size": "Taille",
       "spatial": "Spatial",
-      "vignette": "Vignettage"
+      "vignette": "Vignettage",
+      "motionBlur": "Flou de mouvement",
+      "motionBlurAngle": "Angle",
+      "motionBlurDepth": "Profondeur",
+      "motionBlurHighlights": "Hautes lumières",
+      "motionBlurLayer": "Mouvement",
+      "motionBlurLayers": {
+        "auto": "Auto",
+        "panning": "Filé",
+        "subject": "Sujet en mouvement",
+        "uniform": "Uniforme"
+      },
+      "motionBlurType": "Type",
+      "motionBlurTypes": {
+        "linear": "Linéaire",
+        "zoom": "Zoom",
+        "spin": "Rotation",
+        "smooth": "Lisse"
+      }
     }
   },
   "contextMenus": {
@@ -285,6 +305,7 @@
       "cullImage": "Tri automatique",
       "denoise": "Débruiter",
       "editImage": "Modifier l'image",
+      "editIn": "Modifier dans",
       "exportImage": "Exporter l'image",
       "flag": "Marquage",
       "flagPick": "Retenue",
@@ -404,6 +425,9 @@
     "toasts": {
       "couldNotShowExplorer": "Impossible d'afficher le fichier dans l'explorateur : {{err}}",
       "couldNotShowFolder": "Impossible d'afficher le dossier : {{err}}",
+      "editInFailed": "{{app}} a échoué : {{err}}",
+      "editInNoOutput": "{{app}} a été fermé sans enregistrer.",
+      "editInWaiting": "En attente de {{app}}. Enregistrez le fichier dans ce programme pour le récupérer, ou fermez ce message pour arrêter d'attendre.",
       "failedAddToAlbum": "Échec de l'ajout à l'album : {{err}}",
       "failedApplyAuto": "Échec de l'ajustement automatique : {{err}}",
       "failedChangeIcon": "Échec de la modification de l'icône : {{err}}",
@@ -473,6 +497,15 @@
         "erase": "Gommer",
         "feather": "Contour progressif du pinceau",
         "size": "Taille du pinceau"
+      },
+      "cloneHeal": {
+        "cloneTooltip": "Copie la source à l'identique, luminosité et couleur comprises",
+        "dragSource": "Faites glisser pour déplacer la source",
+        "healTooltip": "Copie la texture de la source et l'adapte à la luminosité et à la couleur environnantes",
+        "hintActive": "Faites glisser le contour de la source pour choisir d'où proviennent les pixels. Chaque nouveau trait devient une zone distincte. Maintenez Maj pour compléter celle-ci.",
+        "hintEmpty": "Peignez sur une tache, un câble ou un élément gênant. Une source correspondante est trouvée automatiquement.",
+        "mode": "Mode",
+        "newSource": "Trouver une autre source"
       },
       "comingSoon": "Bientôt disponible",
       "connection": {
@@ -811,8 +844,7 @@
       "toggleAnalyticsTooltip": "Basculer l'affichage des analyses",
       "tooltips": {
         "addToCurrent": "Ajouter {{name}} au masque actuel ou en créer un nouveau (Clic-droit)",
-        "createNew": "Créer un nouveau masque {{name}}",
-        "selectNewSourcePoint": "{{modifier}} + Clic pour sélectionner un nouveau point source"
+        "createNew": "Créer un nouveau masque {{name}}"
       }
     },
     "metadata": {
@@ -914,6 +946,10 @@
         "style": "Style",
         "tool": "Outil"
       }
+    },
+    "speedEdit": {
+      "copied": "<0>{{label}}</0> <1>{{value}}</1> copié",
+      "pasted": "<0>{{label}}</0> <1>{{value}}</1> collé"
     },
     "switcher": {
       "tooltips": {
@@ -1128,6 +1164,7 @@
       "pending": "Retouches en attente d'envoi vers Immich : {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} appartient à quelqu'un d'autre, Immich n'accepte donc pas de retouches pour cette image. Vos retouches restent sur cet ordinateur.",
       "backOnline": "Immich est de nouveau joignable et toutes les retouches y sont enregistrées.",
       "downloadFailed": "Échec du téléchargement depuis Immich : {{error}}",
       "editsConflict": "{{fileName}} a aussi été retouchée sur un autre ordinateur. Vos retouches sont conservées et l'autre version est gardée comme copie virtuelle.",
@@ -1558,6 +1595,7 @@
         "halationGlow": "Halo & Lueur",
         "hueShift": "Décalage de teinte global",
         "lensBlur": "Flou d'objectif",
+        "motionBlur": "Flou de mouvement",
         "lensCorrection": "Correction de l'objectif",
         "lut": "LUT",
         "masks": "Masques",
@@ -1799,6 +1837,27 @@
       "pressKey": "Appuyez sur une touche... (Échap pour effacer)",
       "resetDefaults": "Réinitialiser aux valeurs par défaut",
       "speed": "Vitesse",
+      "speedEdit": {
+        "adjustments": "Réglages",
+        "gestures": {
+          "doubleClick": "Double-clic pour réinitialiser",
+          "drag": "Glisser sur le canevas pour ajuster",
+          "fine": "Maj pour affiner"
+        },
+        "keys": {
+          "hold": "Appuyer / Maintenir",
+          "previousImage": "Image préc.",
+          "nextImage": "Image suiv.",
+          "reset": "Réinit.",
+          "previousAdjustment": "Curseur préc.",
+          "nextAdjustment": "Curseur suiv.",
+          "copy": "Copier",
+          "paste": "Coller",
+          "stepDown": "−1 pas",
+          "stepUp": "+1 pas"
+        },
+        "title": "Édition rapide"
+      },
       "title": "Contrôles de la souris",
       "zoom": "Multiplicateur de vitesse de zoom",
       "zoomClick": "Zoomer la photo à 100 %",
@@ -2090,6 +2149,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "L'éditeur effectue le rendu de l'aperçu pour correspondre à la densité de pixels réelle de votre écran. Cela garantit que chaque détail est représenté avec une précision au pixel près, offrant une clarté maximale lors du zoom et de la vérification de la mise au point.",
+      "editIn": {
+        "add": "Ajouter un programme",
+        "args": "Arguments ({file} = chemin de l'image)",
+        "browse": "Parcourir",
+        "description": "Programmes du menu « Modifier dans ».",
+        "executable": "Programmes",
+        "modes": {
+          "original": "Envoyer le fichier original",
+          "rendered": "Envoyer un TIFF modifié"
+        },
+        "name": "Nom",
+        "path": "Chemin du programme",
+        "remove": "Supprimer",
+        "title": "Modifier dans"
+      },
       "enableLivePreviews": "Activer les aperçus en direct",
       "highDpi": "Rendu haute résolution (DPI)",
       "highDpiDesc": "Rendez les aperçus à la résolution native de {{dpr}}x pixels physiques de votre écran. Produit l'aperçu le plus net possible mais utilise beaucoup plus de mémoire.",
@@ -2175,7 +2249,8 @@
       "title": "Moteur de traitement",
       "wgpu": "Rendu Direct WGPU",
       "wgpuDescAndroid": "Contourne l'encodage du navigateur pour des aperçus en direct instantanément réactifs. (Désactivé sur Android : La création native de surface WGPU n'est actuellement pas prise en charge avec le webview mobile.)",
-      "wgpuDescLinux": "Contourne l'encodage du navigateur pour des aperçus en direct instantanément réactifs. (Désactivé sur Linux : Tauri utilise GTK pour les webviews, ce qui entre en conflit avec WGPU sur la même surface X11 et provoque des clignotements.)",
+      "wgpuDescLinuxExperimental": "Expérimental sous Linux et peut être instable.",
+      "wgpuDescLinuxX11": "Non disponible sous X11.",
       "wgpuDescRecommended": "Contourne l'encodage du navigateur pour des aperçus en direct instantanément réactifs. Fortement recommandé pour les performances.",
       "wgpuLabel": "Activer le rendu direct WGPU",
       "workerThreads": "Threads de traitement des miniatures",

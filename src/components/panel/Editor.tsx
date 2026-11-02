@@ -27,6 +27,7 @@ import {
 } from '../../utils/cropUtils';
 import EditorToolbar from './editor/EditorToolbar';
 import ImageCanvas from './editor/ImageCanvas';
+import SpeedEditOverlay from './editor/overlays/SpeedEditOverlay';
 import { Mask, SubMask } from './right/Masks';
 import { CompareView, Panel, TransformState, Invokes } from '../ui/AppProperties';
 import { useEditorStore } from '../../store/useEditorStore';
@@ -184,6 +185,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const isStraightenActive = useEditorStore((s) => s.isStraightenActive);
   const isWbPickerActive = useEditorStore((s) => s.isWbPickerActive);
   const isRelightPickerActive = useEditorStore((s) => s.isRelightPickerActive);
+  const isMixerPickerActive = useEditorStore((s) => s.mixerPickerProperty !== null);
   const liveRotation = useEditorStore((s) => s.liveRotation);
   const brushSettings = useEditorStore((s) => s.brushSettings);
   const activeMaskContainerId = useEditorStore((s) => s.activeMaskContainerId);
@@ -806,7 +808,15 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   }, [adjustments.masks, adjustments.aiPatches, activeMaskId, activeAiSubMaskId, isMasking, isAiEditing]);
 
   const isBrushActive = useMemo(() => {
-    return (isMasking || isAiEditing) && (activeSubMask?.type === Mask.Brush || activeSubMask?.type === Mask.Flow);
+    return (
+      (isMasking || isAiEditing) &&
+      (activeSubMask?.type === Mask.Brush ||
+        activeSubMask?.type === Mask.Flow ||
+        activeSubMask?.type === Mask.Clone ||
+        activeSubMask?.type === Mask.Heal ||
+        activeSubMask?.type === Mask.Liquify ||
+        activeSubMask?.type === Mask.Retouch)
+    );
   }, [isMasking, isAiEditing, activeSubMask?.type]);
 
   const isPanningDisabled =
@@ -833,7 +843,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         activeSubMask?.type === Mask.Luminance ||
         activeSubMask?.parameters?.isInitialDraw)) ||
     isWbPickerActive ||
-    isRelightPickerActive;
+    isRelightPickerActive ||
+    isMixerPickerActive;
 
   useEffect(() => {
     const container = imageContainerRef.current;
@@ -2428,7 +2439,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const isMaxZoom = transformScale >= maxScaleRef.current - 0.5;
 
   let cursorStyle = 'default';
-  if ((isShiftPressed && !isCropping) || straightenDragLine) {
+  if ((isShiftPressed && !isBrushActive && !isCropping) || straightenDragLine) {
     cursorStyle = 'crosshair';
   } else if (isCtrlPressed && !isBrushActive && !isCropping) {
     cursorStyle = isCropPanningRef.current ? 'grabbing' : 'move';
@@ -2639,6 +2650,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
           )}
           {straightenOverlay}
         </div>
+        <SpeedEditOverlay />
       </div>
     </div>
   );

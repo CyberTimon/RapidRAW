@@ -56,6 +56,7 @@
         "reds": "Reds",
         "yellows": "Yellows"
       },
+      "mixerPickerTooltip": "Color Mixer Picker: click and drag up or down on the photo",
       "monochrome": {
         "badge": "B&W",
         "balance": "Balance",
@@ -91,6 +92,7 @@
         "highlights": "Highlights",
         "hue": "Hue",
         "mix": "B&W Mix",
+        "mixPickerTooltip": "B&W Mix Picker: click and drag up or down on the photo",
         "saturation": "Saturation",
         "shadows": "Shadows",
         "strength": "Strength",
@@ -192,6 +194,24 @@
       "lightFlares": "Light Flares",
       "lut": "LUT",
       "midpoint": "Midpoint",
+      "motionBlur": "Motion Blur",
+      "motionBlurAngle": "Angle",
+      "motionBlurDepth": "Depth",
+      "motionBlurHighlights": "Highlights",
+      "motionBlurLayer": "Motion",
+      "motionBlurLayers": {
+        "auto": "Auto",
+        "panning": "Panning",
+        "subject": "Moving Subject",
+        "uniform": "Uniform"
+      },
+      "motionBlurType": "Type",
+      "motionBlurTypes": {
+        "linear": "Linear",
+        "zoom": "Zoom",
+        "spin": "Spin",
+        "smooth": "Smooth"
+      },
       "relight": "Relight",
       "relightAddLight": "Add Light",
       "relightAmbient": "Ambient",
@@ -285,6 +305,7 @@
       "cullImage": "Auto Cull",
       "denoise": "Denoise",
       "editImage": "Edit Image",
+      "editIn": "Edit In",
       "exportImage": "Export Image",
       "flag": "Flag",
       "flagPick": "Picked",
@@ -387,6 +408,9 @@
     "toasts": {
       "couldNotShowExplorer": "Could not show file in explorer: {{err}}",
       "couldNotShowFolder": "Could not show folder: {{err}}",
+      "editInFailed": "{{app}} failed: {{err}}",
+      "editInNoOutput": "{{app}} closed without saving.",
+      "editInWaiting": "Waiting for {{app}}. Save the file there to bring it back, or close this message to stop waiting.",
       "failedAddToAlbum": "Failed to add to album: {{err}}",
       "failedApplyAuto": "Failed to apply auto adjustments: {{err}}",
       "failedChangeIcon": "Failed to change icon: {{err}}",
@@ -456,6 +480,15 @@
         "erase": "Erase",
         "feather": "Brush Feather",
         "size": "Brush Size"
+      },
+      "cloneHeal": {
+        "cloneTooltip": "Copy the source exactly, including its brightness and color",
+        "dragSource": "Drag to move the source",
+        "healTooltip": "Copy the source texture and blend it into the surrounding brightness and color",
+        "hintActive": "Drag the source outline to choose where pixels come from. Every new stroke becomes its own spot. Hold Shift to add to this one.",
+        "hintEmpty": "Paint over a spot, wire or distraction. A matching source is found automatically.",
+        "mode": "Mode",
+        "newSource": "Find Another Source"
       },
       "comingSoon": "Coming Soon",
       "connection": {
@@ -787,8 +820,7 @@
       "toggleAnalyticsTooltip": "Toggle Analytics Display",
       "tooltips": {
         "addToCurrent": "Add {{name}} to Current Mask or Create New (Right-click)",
-        "createNew": "Create New {{name}} Mask",
-        "selectNewSourcePoint": "{{modifier}} + Click to select a new source point"
+        "createNew": "Create New {{name}} Mask"
       }
     },
     "metadata": {
@@ -890,6 +922,10 @@
         "style": "Style",
         "tool": "Tool"
       }
+    },
+    "speedEdit": {
+      "copied": "Copied <0>{{label}}</0> <1>{{value}}</1>",
+      "pasted": "Pasted <0>{{label}}</0> <1>{{value}}</1>"
     },
     "switcher": {
       "tooltips": {
@@ -1102,6 +1138,7 @@
       "pending": "Edits waiting for Immich: {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} belongs to someone else, so Immich doesn't accept edits for it. Your edits stay on this computer.",
       "backOnline": "Immich is reachable again, and all edits are saved there.",
       "downloadFailed": "Could not download from Immich: {{error}}",
       "editsConflict": "{{fileName}} was also edited on another computer. Your edits stay, and the other version is kept as a virtual copy.",
@@ -1525,6 +1562,7 @@
         "halationGlow": "Halation & Glow",
         "hueShift": "Global Hue Shift",
         "lensBlur": "Lens Blur",
+        "motionBlur": "Motion Blur",
         "lensCorrection": "Lens Correction",
         "lut": "LUT",
         "masks": "Masks",
@@ -1760,6 +1798,27 @@
       "pressKey": "Press a key... (Esc to clear)",
       "resetDefaults": "Reset All to Defaults",
       "speed": "Speed",
+      "speedEdit": {
+        "adjustments": "Adjustments",
+        "gestures": {
+          "doubleClick": "Double-click to reset",
+          "drag": "Drag on canvas to adjust",
+          "fine": "Shift for fine"
+        },
+        "keys": {
+          "hold": "Tap / hold",
+          "previousImage": "Prev. image",
+          "nextImage": "Next image",
+          "reset": "Reset",
+          "previousAdjustment": "Prev. slider",
+          "nextAdjustment": "Next slider",
+          "copy": "Copy",
+          "paste": "Paste",
+          "stepDown": "−1 step",
+          "stepUp": "+1 step"
+        },
+        "title": "Speed Edit"
+      },
       "title": "Mouse Controls",
       "zoom": "Zoom Speed Multiplier",
       "zoomClick": "Zoom photo to 100%",
@@ -2048,6 +2107,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "The editor renders the preview to match your display's actual pixel density. This ensures that every detail is represented with 1:1 pixel accuracy, providing maximum clarity when zooming and checking focus.",
+      "editIn": {
+        "add": "Add Program",
+        "args": "Arguments ({file} = image path)",
+        "browse": "Browse",
+        "description": "Programs for the \"Edit In\" menu.",
+        "executable": "Programs",
+        "modes": {
+          "original": "Send original file",
+          "rendered": "Send edited TIFF"
+        },
+        "name": "Name",
+        "path": "Program path",
+        "remove": "Remove",
+        "title": "Edit In"
+      },
       "enableLivePreviews": "Enable Live Previews",
       "highDpi": "High-DPI Rendering",
       "highDpiDesc": "Render previews at your screen's native {{dpr}}x physical pixel resolution. Produces the sharpest possible preview but uses significantly more memory.",
@@ -2133,7 +2207,8 @@
       "title": "Processing Engine",
       "wgpu": "WGPU Direct Rendering",
       "wgpuDescAndroid": "Bypasses browser encoding for instantly responsive live previews. (Disabled on Android: Native WGPU surface creation is currently not supported alongside the mobile webview.)",
-      "wgpuDescLinux": "Bypasses browser encoding for instantly responsive live previews. (Disabled on Linux: Tauri uses GTK for webviews, which conflicts with WGPU on the same X11 surface and causes flickering.)",
+      "wgpuDescLinuxExperimental": "Experimental on Linux and may be unstable.",
+      "wgpuDescLinuxX11": "Not available on X11.",
       "wgpuDescRecommended": "Bypasses browser encoding for instantly responsive live previews. Highly recommended for performance.",
       "wgpuLabel": "Enable Direct WGPU Render",
       "workerThreads": "Thumbnail Worker Threads",

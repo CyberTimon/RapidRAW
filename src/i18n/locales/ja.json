@@ -56,6 +56,7 @@
         "reds": "レッド",
         "yellows": "イエロー"
       },
+      "mixerPickerTooltip": "カラーミキサーのスポイト：写真をクリックして上下にドラッグ",
       "monochrome": {
         "badge": "白黒",
         "balance": "バランス",
@@ -91,6 +92,7 @@
         "highlights": "ハイライト",
         "hue": "色相",
         "mix": "白黒ミックス",
+        "mixPickerTooltip": "白黒ミックスのスポイト：写真をクリックして上下にドラッグ",
         "saturation": "彩度",
         "shadows": "シャドウ",
         "strength": "強度",
@@ -220,7 +222,25 @@
       "roundness": "丸み",
       "size": "サイズ",
       "spatial": "空間",
-      "vignette": "周辺光量補正"
+      "vignette": "周辺光量補正",
+      "motionBlur": "モーションブラー",
+      "motionBlurAngle": "角度",
+      "motionBlurDepth": "奥行き",
+      "motionBlurHighlights": "ハイライト",
+      "motionBlurLayer": "動き",
+      "motionBlurLayers": {
+        "auto": "自動",
+        "panning": "流し撮り",
+        "subject": "被写体の動き",
+        "uniform": "均一"
+      },
+      "motionBlurType": "種類",
+      "motionBlurTypes": {
+        "linear": "直線",
+        "zoom": "ズーム",
+        "spin": "回転",
+        "smooth": "なめらか"
+      }
     }
   },
   "contextMenus": {
@@ -285,6 +305,7 @@
       "cullImage": "自動選別",
       "denoise": "ノイズ低減",
       "editImage": "画像を編集",
+      "editIn": "外部アプリで編集",
       "exportImage": "画像を書き出し",
       "flag": "フラグ",
       "flagPick": "採用",
@@ -387,6 +408,9 @@
     "toasts": {
       "couldNotShowExplorer": "エクスプローラーでファイルを表示できませんでした: {{err}}",
       "couldNotShowFolder": "フォルダを表示できませんでした: {{err}}",
+      "editInFailed": "{{app}} が失敗しました: {{err}}",
+      "editInNoOutput": "{{app}} は保存せずに終了しました。",
+      "editInWaiting": "{{app}} を待っています。そちらでファイルを保存すると取り込まれます。待機をやめるにはこのメッセージを閉じてください。",
       "failedAddToAlbum": "アルバムへの追加に失敗しました: {{err}}",
       "failedApplyAuto": "自動補正の適用に失敗しました: {{err}}",
       "failedChangeIcon": "アイコンの変更に失敗しました: {{err}}",
@@ -456,6 +480,15 @@
         "erase": "消去",
         "feather": "ブラシのぼかし",
         "size": "ブラシサイズ"
+      },
+      "cloneHeal": {
+        "cloneTooltip": "明るさと色を含め、ソースをそのままコピーします",
+        "dragSource": "ドラッグしてソースを移動",
+        "healTooltip": "ソースの質感をコピーし、周囲の明るさと色になじませます",
+        "hintActive": "ソースの輪郭をドラッグしてピクセルのコピー元を選びます。新しいストロークごとに個別のスポットになります。Shift を押しながら描くとこのスポットに追加されます。",
+        "hintEmpty": "シミ、電線、気になる部分の上をなぞってください。合うソースが自動で見つかります。",
+        "mode": "モード",
+        "newSource": "別のソースを探す"
       },
       "comingSoon": "近日公開",
       "connection": {
@@ -784,8 +817,7 @@
       "toggleAnalyticsTooltip": "アナリティクス表示の切り替え",
       "tooltips": {
         "addToCurrent": "{{name}}を現在のマスクに追加、または新規作成 (右クリック)",
-        "createNew": "新規の {{name}} マスクを作成",
-        "selectNewSourcePoint": "{{modifier}} + クリックで新しいソースポイントを選択"
+        "createNew": "新規の {{name}} マスクを作成"
       }
     },
     "metadata": {
@@ -887,6 +919,10 @@
         "style": "スタイル",
         "tool": "ツール"
       }
+    },
+    "speedEdit": {
+      "copied": "<0>{{label}}</0> <1>{{value}}</1> をコピーしました",
+      "pasted": "<0>{{label}}</0> <1>{{value}}</1> を貼り付けました"
     },
     "switcher": {
       "tooltips": {
@@ -1099,6 +1135,7 @@
       "pending": "Immich への送信待ちの編集: {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} は他のユーザーのものなので、Immich は編集を受け付けません。編集内容はこのコンピューターに残ります。",
       "backOnline": "Immich に再び接続でき、すべての編集内容が保存されました。",
       "downloadFailed": "Immich からダウンロードできませんでした: {{error}}",
       "editsConflict": "{{fileName}} は別のコンピューターでも編集されています。あなたの編集内容はそのまま残り、もう一方のバージョンは仮想コピーとして保存されます。",
@@ -1519,6 +1556,7 @@
         "halationGlow": "ハレーションとグロー",
         "hueShift": "グローバル色相シフト",
         "lensBlur": "レンズぼかし",
+        "motionBlur": "モーションブラー",
         "lensCorrection": "レンズ補正",
         "lut": "LUT",
         "masks": "マスク",
@@ -1754,6 +1792,27 @@
       "pressKey": "キーを押してください... (Escでクリア)",
       "resetDefaults": "すべてデフォルトに戻す",
       "speed": "速度",
+      "speedEdit": {
+        "adjustments": "調整項目",
+        "gestures": {
+          "doubleClick": "ダブルクリックでリセット",
+          "drag": "キャンバス上でドラッグして調整",
+          "fine": "Shift で微調整"
+        },
+        "keys": {
+          "hold": "タップ / 長押し",
+          "previousImage": "前の画像",
+          "nextImage": "次の画像",
+          "reset": "リセット",
+          "previousAdjustment": "前のスライダー",
+          "nextAdjustment": "次のスライダー",
+          "copy": "コピー",
+          "paste": "ペースト",
+          "stepDown": "−1 ステップ",
+          "stepUp": "+1 ステップ"
+        },
+        "title": "クイック編集"
+      },
       "title": "マウス操作設定",
       "zoom": "ズーム速度の倍率",
       "zoomClick": "写真を100%にズーム",
@@ -2042,6 +2101,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "編集画面は、ディスプレイの実際の画素密度に合わせたプレビューをレンダリングします。これにより、ズーム時やピント合わせ時に1:1のピクセル精度で細部まで鮮明に表現されます。",
+      "editIn": {
+        "add": "プログラムを追加",
+        "args": "引数（{file} = 画像のパス）",
+        "browse": "参照",
+        "description": "「外部アプリで編集」メニューのプログラム。",
+        "executable": "プログラム",
+        "modes": {
+          "original": "元のファイルを送る",
+          "rendered": "編集済み TIFF を送る"
+        },
+        "name": "名前",
+        "path": "プログラムのパス",
+        "remove": "削除",
+        "title": "外部アプリで編集"
+      },
       "enableLivePreviews": "リアルタイムプレビューを有効化",
       "highDpi": "高DPIレンダリング",
       "highDpiDesc": "画面本来の物理解像度である {{dpr}}x でプレビューをレンダリングします。極めて鮮明なプレビューが得られますが、メモリ消費が大幅に増加します。",
@@ -2127,7 +2201,8 @@
       "title": "処理エンジン",
       "wgpu": "WGPUダイレクトレンダリング",
       "wgpuDescAndroid": "ブラウザエンコードをバイパスし、即座に反応するプレビューを実現します。（Androidでは無効: モバイルのWebview環境下でのネイティブWGPUサーフェスの作成は現在サポートされていません。）",
-      "wgpuDescLinux": "ブラウザエンコードをバイパスし、即座に反応するプレビューを実現します。（Linuxでは無効: TauriはGTKウェブビューを使用しており、同一X11サーフェス上でWGPUと競合してちらつきが発生するためです。）",
+      "wgpuDescLinuxExperimental": "Linuxでは実験的な機能で、不安定な場合があります。",
+      "wgpuDescLinuxX11": "X11では利用できません。",
       "wgpuDescRecommended": "ブラウザエンコードをバイパスし、即座に反応するライブプレビューを実現します。パフォーマンス向上のため、強く推奨します。",
       "wgpuLabel": "WGPUダイレクトレンダリングを有効化",
       "workerThreads": "サムネイルワーカー数",
