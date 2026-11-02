@@ -222,7 +222,25 @@
       "roundness": "丸み",
       "size": "サイズ",
       "spatial": "空間",
-      "vignette": "周辺光量補正"
+      "vignette": "周辺光量補正",
+      "motionBlur": "モーションブラー",
+      "motionBlurAngle": "角度",
+      "motionBlurDepth": "奥行き",
+      "motionBlurHighlights": "ハイライト",
+      "motionBlurLayer": "動き",
+      "motionBlurLayers": {
+        "auto": "自動",
+        "panning": "流し撮り",
+        "subject": "被写体の動き",
+        "uniform": "均一"
+      },
+      "motionBlurType": "種類",
+      "motionBlurTypes": {
+        "linear": "直線",
+        "zoom": "ズーム",
+        "spin": "回転",
+        "smooth": "なめらか"
+      }
     }
   },
   "contextMenus": {
@@ -1530,6 +1548,7 @@
         "halationGlow": "ハレーションとグロー",
         "hueShift": "グローバル色相シフト",
         "lensBlur": "レンズぼかし",
+        "motionBlur": "モーションブラー",
         "lensCorrection": "レンズ補正",
         "lut": "LUT",
         "masks": "マスク",

@@ -59,6 +59,7 @@ mod lens_correction;
 mod lut_processing;
 mod mask_generation;
 mod memory_budget;
+mod motion_blur;
 mod multi_exposure;
 mod negative_conversion;
 mod panorama_stitching;
@@ -621,6 +622,7 @@ struct EditorRender {
     masks: mask_generation::GeneratedMasks,
     mask_cache_key: u64,
     lut: Option<Arc<lut_processing::Lut>>,
+    motion_blur: motion_blur::MotionBlurs,
 }
 
 impl EditorRender {
@@ -639,6 +641,10 @@ impl EditorRender {
             .get("masks")
             .and_then(|m| serde_json::from_value(m.clone()).ok())
             .unwrap_or_default();
+        let crop_offset = (
+            unscaled_crop_offset.0 * scale,
+            unscaled_crop_offset.1 * scale,
+        );
         let masks = get_cached_or_generate_masks(
             state,
             &loaded_image.path,
@@ -646,12 +652,10 @@ impl EditorRender {
             width,
             height,
             scale,
-            (
-                unscaled_crop_offset.0 * scale,
-                unscaled_crop_offset.1 * scale,
-            ),
+            crop_offset,
             adjustments,
         );
+        let (full_w, full_h) = loaded_image.image.dimensions();
         Self {
             adjustments: get_all_adjustments_from_json(
                 adjustments,
@@ -664,6 +668,12 @@ impl EditorRender {
             lut: adjustments["lutPath"]
                 .as_str()
                 .and_then(|p| lut_processing::get_or_load_lut(state, p).ok()),
+            motion_blur: motion_blur::MotionBlurs::new(
+                adjustments,
+                (width, height),
+                crop_offset,
+                full_w.max(full_h) as f32 * scale,
+            ),
         }
     }
 
@@ -675,6 +685,7 @@ impl EditorRender {
             lut: self.lut.clone(),
             roi,
             hsl_probe,
+            motion_blur: self.motion_blur.clone(),
         }
     }
 }
@@ -1427,6 +1438,12 @@ async fn generate_uncropped_preview(
                 lut,
                 roi: None,
                 hsl_probe: false,
+                motion_blur: crate::motion_blur::MotionBlurs::new(
+                    &adjustments_clone,
+                    (preview_width, preview_height),
+                    (0.0, 0.0),
+                    preview_width.max(preview_height) as f32,
+                ),
             },
             "generate_uncropped_preview",
         ) {
@@ -1541,6 +1558,13 @@ async fn generate_preset_preview(
                 lut,
                 roi: None,
                 hsl_probe: false,
+                motion_blur: crate::motion_blur::MotionBlurs::new(
+                    &js_adjustments,
+                    (img_w, img_h),
+                    scaled_crop_offset,
+                    loaded_image.image.width().max(loaded_image.image.height()) as f32
+                        * scale_for_gpu,
+                ),
             },
             "generate_preset_preview",
         )?;
@@ -1732,6 +1756,12 @@ async fn generate_all_community_previews(
                             lut,
                             roi: None,
                             hsl_probe: false,
+                            motion_blur: crate::motion_blur::MotionBlurs::new(
+                                &scaled_adjustments,
+                                (img_w, img_h),
+                                actual_scaled_crop_offset,
+                                base_image.width().max(base_image.height()) as f32,
+                            ),
                         },
                         "generate_all_community_previews",
                     )?;
@@ -2007,6 +2037,12 @@ async fn generate_preview_for_path(
                 lut,
                 roi: None,
                 hsl_probe: false,
+                motion_blur: crate::motion_blur::MotionBlurs::new(
+                    &js_adjustments,
+                    (img_w, img_h),
+                    unscaled_crop_offset,
+                    base_image.width().max(base_image.height()) as f32,
+                ),
             },
             "generate_preview_for_path",
         )?;

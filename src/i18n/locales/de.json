@@ -194,6 +194,24 @@
       "lightFlares": "Blendenflecke",
       "lut": "LUT",
       "midpoint": "Mittelpunkt",
+      "motionBlur": "Bewegungsunschärfe",
+      "motionBlurAngle": "Winkel",
+      "motionBlurDepth": "Tiefe",
+      "motionBlurHighlights": "Lichter",
+      "motionBlurLayer": "Bewegung",
+      "motionBlurLayers": {
+        "auto": "Automatisch",
+        "panning": "Mitziehen",
+        "subject": "Bewegtes Motiv",
+        "uniform": "Gleichmäßig"
+      },
+      "motionBlurType": "Typ",
+      "motionBlurTypes": {
+        "linear": "Linear",
+        "zoom": "Zoom",
+        "spin": "Drehung",
+        "smooth": "Weich"
+      },
       "relight": "Neu beleuchten",
       "relightAddLight": "Licht hinzufügen",
       "relightAmbient": "Umgebungslicht",
@@ -1536,6 +1554,7 @@
         "halationGlow": "Lichthof & Glühen",
         "hueShift": "Globaler Farbton-Shift",
         "lensBlur": "Objektivunschärfe",
+        "motionBlur": "Bewegungsunschärfe",
         "lensCorrection": "Objektivkorrektur",
         "lut": "LUT",
         "masks": "Masken",

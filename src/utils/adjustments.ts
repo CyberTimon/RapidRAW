@@ -147,7 +147,17 @@ export enum Effect {
   FogGlow = 'fogGlow',
   FogTemperature = 'fogTemperature',
   FogTint = 'fogTint',
+  MotionBlurAmount = 'motionBlurAmount',
+  MotionBlurAngle = 'motionBlurAngle',
+  MotionBlurDepth = 'motionBlurDepth',
+  MotionBlurDepthEnabled = 'motionBlurDepthEnabled',
+  MotionBlurHighlights = 'motionBlurHighlights',
+  MotionBlurLayer = 'motionBlurLayer',
+  MotionBlurType = 'motionBlurType',
 }
+
+export type MotionBlurType = 'linear' | 'zoom' | 'spin' | 'smooth';
+export type MotionBlurLayer = 'auto' | 'subject' | 'panning' | 'uniform';
 
 export interface RelightLight {
   id: string;
@@ -330,6 +340,14 @@ export interface Adjustments {
   relightShadowSoftness: number;
   fogEnabled: boolean;
   fogDepthMap: string | null;
+  motionBlurAmount: number;
+  motionBlurAngle: number;
+  motionBlurDepth: number;
+  motionBlurDepthEnabled: boolean;
+  motionBlurDepthMap: string | null;
+  motionBlurHighlights: number;
+  motionBlurLayer: MotionBlurLayer;
+  motionBlurType: MotionBlurType;
   fogAmount: number;
   fogStart: number;
   fogDensity: number;
@@ -518,6 +536,13 @@ export interface MaskAdjustments {
   hue: number;
   id?: string;
   lumaNoiseReduction: number;
+  motionBlurAmount: number;
+  motionBlurAngle: number;
+  motionBlurDepth: number;
+  motionBlurDepthEnabled: boolean;
+  motionBlurHighlights: number;
+  motionBlurLayer: MotionBlurLayer;
+  motionBlurType: MotionBlurType;
   saturation: number;
   shadows: number;
   sharpness: number;
@@ -637,6 +662,13 @@ export const INITIAL_MASK_ADJUSTMENTS: MaskAdjustments = {
   },
   hue: 0,
   lumaNoiseReduction: 0,
+  motionBlurAmount: 0,
+  motionBlurAngle: 0,
+  motionBlurDepth: 50,
+  motionBlurDepthEnabled: false,
+  motionBlurHighlights: 30,
+  motionBlurLayer: 'auto',
+  motionBlurType: 'linear',
   saturation: 0,
   shadows: 0,
   sharpness: 0,
@@ -804,6 +836,14 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     relightShadowSoftness: loadedAdjustments.relightShadowSoftness ?? INITIAL_ADJUSTMENTS.relightShadowSoftness,
     fogEnabled: loadedAdjustments.fogEnabled ?? INITIAL_ADJUSTMENTS.fogEnabled,
     fogDepthMap: loadedAdjustments.fogDepthMap ?? INITIAL_ADJUSTMENTS.fogDepthMap,
+    motionBlurAmount: loadedAdjustments.motionBlurAmount ?? INITIAL_ADJUSTMENTS.motionBlurAmount,
+    motionBlurAngle: loadedAdjustments.motionBlurAngle ?? INITIAL_ADJUSTMENTS.motionBlurAngle,
+    motionBlurDepth: loadedAdjustments.motionBlurDepth ?? INITIAL_ADJUSTMENTS.motionBlurDepth,
+    motionBlurDepthEnabled: loadedAdjustments.motionBlurDepthEnabled ?? INITIAL_ADJUSTMENTS.motionBlurDepthEnabled,
+    motionBlurDepthMap: loadedAdjustments.motionBlurDepthMap ?? INITIAL_ADJUSTMENTS.motionBlurDepthMap,
+    motionBlurHighlights: loadedAdjustments.motionBlurHighlights ?? INITIAL_ADJUSTMENTS.motionBlurHighlights,
+    motionBlurLayer: loadedAdjustments.motionBlurLayer ?? INITIAL_ADJUSTMENTS.motionBlurLayer,
+    motionBlurType: loadedAdjustments.motionBlurType ?? INITIAL_ADJUSTMENTS.motionBlurType,
     fogAmount: loadedAdjustments.fogAmount ?? INITIAL_ADJUSTMENTS.fogAmount,
     fogStart: loadedAdjustments.fogStart ?? INITIAL_ADJUSTMENTS.fogStart,
     fogDensity: loadedAdjustments.fogDensity ?? INITIAL_ADJUSTMENTS.fogDensity,
@@ -997,6 +1037,17 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
       ],
     },
     {
+      label: 'modals.copyPaste.groups.motionBlur',
+      keys: [
+        Effect.MotionBlurAmount,
+        Effect.MotionBlurAngle,
+        Effect.MotionBlurType,
+        Effect.MotionBlurHighlights,
+        Effect.MotionBlurDepthEnabled,
+        Effect.MotionBlurDepth,
+      ],
+    },
+    {
       label: 'modals.copyPaste.groups.relight',
       keys: [
         Effect.RelightEnabled,
@@ -1176,6 +1227,13 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     Effect.FogGlow,
     Effect.FogTemperature,
     Effect.FogTint,
+    Effect.MotionBlurAmount,
+    Effect.MotionBlurAngle,
+    Effect.MotionBlurDepth,
+    Effect.MotionBlurDepthEnabled,
+    Effect.MotionBlurHighlights,
+    Effect.MotionBlurLayer,
+    Effect.MotionBlurType,
   ],
 };
 
@@ -1274,6 +1332,7 @@ export const ADJUSTMENT_SECTION_TOOLS: Record<string, Array<AdjustmentSectionToo
   ],
   effects: [
     { id: 'creative', label: 'adjustments.effects.creative' },
+    { id: 'motionBlur', label: 'adjustments.effects.motionBlur' },
     { id: 'spatial', label: 'adjustments.effects.spatial', subTools: ['lensBlur', 'relight', 'fog'] },
     { id: 'lut', label: 'adjustments.effects.lut' },
     { id: 'vignette', label: 'adjustments.effects.vignette' },

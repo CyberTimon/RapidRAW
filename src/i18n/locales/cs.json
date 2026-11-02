@@ -222,7 +222,25 @@
       "roundness": "Kulatost",
       "size": "Velikost",
       "spatial": "Prostorové",
-      "vignette": "Viněta"
+      "vignette": "Viněta",
+      "motionBlur": "Pohybové rozmazání",
+      "motionBlurAngle": "Úhel",
+      "motionBlurDepth": "Hloubka",
+      "motionBlurHighlights": "Světla",
+      "motionBlurLayer": "Pohyb",
+      "motionBlurLayers": {
+        "auto": "Automaticky",
+        "panning": "Švenkování",
+        "subject": "Pohybující se objekt",
+        "uniform": "Rovnoměrně"
+      },
+      "motionBlurType": "Typ",
+      "motionBlurTypes": {
+        "linear": "Lineární",
+        "zoom": "Zoom",
+        "spin": "Otáčení",
+        "smooth": "Vyhlazení"
+      }
     }
   },
   "contextMenus": {
@@ -1600,6 +1618,7 @@
         "halationGlow": "Halace a záře",
         "hueShift": "Globální posun odstínu",
         "lensBlur": "Rozostření objektivu",
+        "motionBlur": "Pohybové rozmazání",
         "lensCorrection": "Korekce objektivu",
         "lut": "LUT",
         "masks": "Masky",

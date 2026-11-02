@@ -222,7 +222,25 @@
       "roundness": "Округлость",
       "size": "Размер",
       "spatial": "Пространственные",
-      "vignette": "Виньетирование"
+      "vignette": "Виньетирование",
+      "motionBlur": "Размытие в движении",
+      "motionBlurAngle": "Угол",
+      "motionBlurDepth": "Глубина",
+      "motionBlurHighlights": "Света",
+      "motionBlurLayer": "Движение",
+      "motionBlurLayers": {
+        "auto": "Авто",
+        "panning": "Проводка",
+        "subject": "Движущийся объект",
+        "uniform": "Равномерное"
+      },
+      "motionBlurType": "Тип",
+      "motionBlurTypes": {
+        "linear": "Линейное",
+        "zoom": "Зум",
+        "spin": "Вращение",
+        "smooth": "Сглаживание"
+      }
     }
   },
   "contextMenus": {
@@ -1600,6 +1618,7 @@
         "halationGlow": "Ореол и свечение",
         "hueShift": "Глобальный сдвиг цветового тона",
         "lensBlur": "Размытие объектива",
+        "motionBlur": "Размытие в движении",
         "lensCorrection": "Коррекция объектива",
         "lut": "LUT",
         "masks": "Маски",

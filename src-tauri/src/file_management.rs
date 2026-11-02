@@ -1865,6 +1865,17 @@ fn generate_thumbnail_data_with_metadata(
                 lut,
                 roi: None,
                 hsl_probe: false,
+                motion_blur: crate::motion_blur::MotionBlurs::new(
+                    &meta.adjustments,
+                    (preview_w, preview_h),
+                    (
+                        unscaled_crop_offset.0 * total_scale,
+                        unscaled_crop_offset.1 * total_scale,
+                    ),
+                    processing_base_arc
+                        .width()
+                        .max(processing_base_arc.height()) as f32,
+                ),
             },
             "generate_thumbnail_data",
         ) {

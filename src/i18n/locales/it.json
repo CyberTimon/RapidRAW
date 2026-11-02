@@ -222,7 +222,25 @@
       "roundness": "Rotondità",
       "size": "Dimensione",
       "spatial": "Spaziale",
-      "vignette": "Vignettatura"
+      "vignette": "Vignettatura",
+      "motionBlur": "Sfocatura di movimento",
+      "motionBlurAngle": "Angolo",
+      "motionBlurDepth": "Profondità",
+      "motionBlurHighlights": "Luci",
+      "motionBlurLayer": "Movimento",
+      "motionBlurLayers": {
+        "auto": "Automatico",
+        "panning": "Panning",
+        "subject": "Soggetto in movimento",
+        "uniform": "Uniforme"
+      },
+      "motionBlurType": "Tipo",
+      "motionBlurTypes": {
+        "linear": "Lineare",
+        "zoom": "Zoom",
+        "spin": "Rotazione",
+        "smooth": "Morbido"
+      }
     }
   },
   "contextMenus": {
@@ -1568,6 +1586,7 @@
         "halationGlow": "Alonatura e Bagliore",
         "hueShift": "Spostamento tonalità globale",
         "lensBlur": "Sfocatura obiettivo",
+        "motionBlur": "Sfocatura di movimento",
         "lensCorrection": "Correzione Obiettivo",
         "lut": "LUT",
         "masks": "Maschere",

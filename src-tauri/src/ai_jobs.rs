@@ -18,7 +18,6 @@ use crate::app_state::AppState;
 use crate::cache_utils::GEOMETRY_KEYS;
 use crate::effect_maps::{EffectMapKind, is_map_reference, is_map_valid_for};
 use crate::file_management::{parse_virtual_path, read_file_mapped};
-use crate::image_processing::is_effect_enabled;
 
 const JOURNAL_FILE: &str = "ai_jobs.json";
 const MAX_ATTEMPTS: u32 = 3;
@@ -227,8 +226,8 @@ pub fn has_ai_results(adjustments: &Value) -> bool {
         || adjustments["aiDenoiseEnabled"].as_bool().unwrap_or(false)
         || EffectMapKind::ALL
             .iter()
-            .flat_map(|map| map.adjustment_keys())
-            .any(|(_, enabled_key, _)| adjustments[*enabled_key].as_bool().unwrap_or(false))
+            .flat_map(|map| map.uses())
+            .any(|map_use| map_use.is_requested(adjustments))
 }
 
 fn sub_mask_id(sub_mask: &Value) -> Option<&str> {
@@ -246,13 +245,10 @@ fn plan(adjustments: &Value, path: &str, source_id: &str) -> Vec<Job> {
     }
 
     for map in EffectMapKind::ALL {
-        let needed = map
-            .adjustment_keys()
-            .iter()
-            .any(|(tool, enabled_key, map_key)| {
-                is_effect_enabled(adjustments, tool, enabled_key)
-                    && !is_map_valid_for(&adjustments[*map_key], map, source_id)
-            });
+        let needed = map.uses().iter().any(|map_use| {
+            map_use.is_enabled(adjustments)
+                && !is_map_valid_for(&adjustments[map_use.map_key], map, source_id)
+        });
         if needed {
             jobs.push(Job::EffectMap(map));
         }
@@ -395,18 +391,18 @@ pub fn reconcile_ai_results(
     }
 
     for map in EffectMapKind::ALL {
-        for (_, _, map_key) in map.adjustment_keys() {
-            let Some(value) = incoming.get(*map_key) else {
+        for map_key in map.uses().iter().map(|map_use| map_use.map_key) {
+            let Some(value) = incoming.get(map_key) else {
                 continue;
             };
             let trusted = trust_unstamped || is_map_reference(value);
             if trusted && is_map_valid_for(value, map, source_id) {
                 continue;
             }
-            if is_map_valid_for(&existing[*map_key], map, source_id) {
-                incoming[*map_key] = existing[*map_key].clone();
+            if is_map_valid_for(&existing[map_key], map, source_id) {
+                incoming[map_key] = existing[map_key].clone();
             } else if !value.is_null() {
-                incoming[*map_key] = Value::Null;
+                incoming[map_key] = Value::Null;
                 stripped = true;
             }
         }
@@ -1089,12 +1085,12 @@ fn apply_results(
     let mut committed_maps = serde_json::Map::new();
 
     for (map, reference) in &results.maps {
-        for (tool, enabled_key, map_key) in map.adjustment_keys() {
-            if is_effect_enabled(adjustments, tool, enabled_key)
-                && !is_map_valid_for(&adjustments[*map_key], *map, source_id)
+        for map_use in map.uses() {
+            if map_use.is_enabled(adjustments)
+                && !is_map_valid_for(&adjustments[map_use.map_key], *map, source_id)
             {
-                adjustments[*map_key] = json!(reference);
-                committed_maps.insert(map_key.to_string(), json!(reference));
+                adjustments[map_use.map_key] = json!(reference);
+                committed_maps.insert(map_use.map_key.to_string(), json!(reference));
             }
         }
     }

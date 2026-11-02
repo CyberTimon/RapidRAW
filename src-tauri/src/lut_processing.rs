@@ -643,6 +643,7 @@ fn render_lut_swatch(
             lut: Some(lut),
             roi: None,
             hsl_probe: false,
+            motion_blur: Default::default(),
         },
         "generate_lut_previews",
     )

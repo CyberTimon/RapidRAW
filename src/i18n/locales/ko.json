@@ -222,7 +222,25 @@
       "roundness": "둥글기",
       "size": "크기",
       "spatial": "공간",
-      "vignette": "비네트"
+      "vignette": "비네트",
+      "motionBlur": "모션 블러",
+      "motionBlurAngle": "각도",
+      "motionBlurDepth": "깊이",
+      "motionBlurHighlights": "하이라이트",
+      "motionBlurLayer": "움직임",
+      "motionBlurLayers": {
+        "auto": "자동",
+        "panning": "패닝",
+        "subject": "움직이는 피사체",
+        "uniform": "균일"
+      },
+      "motionBlurType": "유형",
+      "motionBlurTypes": {
+        "linear": "선형",
+        "zoom": "줌",
+        "spin": "회전",
+        "smooth": "부드럽게"
+      }
     }
   },
   "contextMenus": {
@@ -1530,6 +1548,7 @@
         "halationGlow": "헐레이션 및 글로우",
         "hueShift": "글로벌 색조 시프트",
         "lensBlur": "렌즈 블러",
+        "motionBlur": "모션 블러",
         "lensCorrection": "렌즈 보정",
         "lut": "LUT",
         "masks": "마스크",

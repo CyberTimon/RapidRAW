@@ -38,6 +38,7 @@ pub struct RenderRequest<'a> {
     pub lut: Option<Arc<Lut>>,
     pub roi: Option<Roi>,
     pub hsl_probe: bool,
+    pub motion_blur: crate::motion_blur::MotionBlurs,
 }
 
 #[repr(C)]
@@ -995,6 +996,8 @@ pub struct GpuProcessor {
     tile_output_size: wgpu::Extent3d,
     adjustments_buffer: wgpu::Buffer,
     mask_cache: std::sync::Mutex<Option<MaskCache>>,
+    motion_cache: std::sync::Mutex<Vec<(u64, Arc<MotionBlurred>)>>,
+    motion_grain: std::sync::Mutex<Vec<(u64, f32)>>,
     lut_cache: std::sync::Mutex<Option<LutCache>>,
     ping_pong_view: wgpu::TextureView,
     sharpness_blur_view: wgpu::TextureView,
@@ -1211,6 +1214,11 @@ struct LutCache {
     sampler: wgpu::Sampler,
 }
 
+struct MotionBlurred {
+    entry: GpuImageEntry,
+    mask_view: Option<wgpu::TextureView>,
+}
+
 enum RenderedPixels {
     U8(Vec<u8>),
     U16(Vec<u16>),
@@ -1263,6 +1271,7 @@ pub struct GpuPipelines {
     hz_max_h_pipeline: wgpu::ComputePipeline,
     hz_max_v_pipeline: wgpu::ComputePipeline,
     hz_coeffs_pipeline: wgpu::ComputePipeline,
+    motion_blur: std::sync::OnceLock<crate::motion_blur::MotionBlurPipelines>,
 
     main_bgl: wgpu::BindGroupLayout,
     main_pipeline: wgpu::ComputePipeline,
@@ -1796,6 +1805,7 @@ impl GpuPipelines {
             hz_max_h_pipeline,
             hz_max_v_pipeline,
             hz_coeffs_pipeline,
+            motion_blur: std::sync::OnceLock::new(),
             main_bgl,
             main_pipeline,
             main_shader_module,
@@ -1949,6 +1959,8 @@ impl GpuProcessor {
             tile_output_size: clamped_tile_size,
             adjustments_buffer,
             mask_cache: std::sync::Mutex::new(None),
+            motion_cache: std::sync::Mutex::new(Vec::new()),
+            motion_grain: std::sync::Mutex::new(Vec::new()),
             lut_cache: std::sync::Mutex::new(None),
             ping_pong_view,
             sharpness_blur_view,
@@ -2362,7 +2374,9 @@ impl GpuProcessor {
                     sample_count: 1,
                     dimension: wgpu::TextureDimension::D2,
                     format: wgpu::TextureFormat::R8Unorm,
-                    usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING
+                        | wgpu::TextureUsages::COPY_DST
+                        | wgpu::TextureUsages::COPY_SRC,
                     view_formats: &[],
                 },
                 TextureDataOrder::MipMajor,
@@ -2384,6 +2398,102 @@ impl GpuProcessor {
             });
         }
         view
+    }
+
+    fn motion_blurred(
+        &self,
+        input: &GpuImageEntry,
+        base_image: &DynamicImage,
+        request: &RenderRequest,
+        mask_view: &wgpu::TextureView,
+    ) -> Result<Option<Arc<MotionBlurred>>, String> {
+        let mut cache = self.motion_cache.lock().unwrap_or_else(|e| e.into_inner());
+        let motion = &request.motion_blur;
+        if motion.blurs.is_empty() {
+            if request.mask_cache_key.is_some() {
+                cache.clear();
+            }
+            return Ok(None);
+        }
+
+        let key = request.mask_cache_key.map(|mask_key| {
+            crate::motion_blur::cache_key(
+                input.id,
+                mask_key,
+                motion.depth.as_deref(),
+                &motion.blurs,
+            )
+        });
+        if let Some((_, blurred)) = key.and_then(|key| cache.iter().find(|(k, _)| *k == key)) {
+            return Ok(Some(Arc::clone(blurred)));
+        }
+
+        let grain = {
+            let mut grains = self.motion_grain.lock().unwrap_or_else(|e| e.into_inner());
+            match grains.iter().find(|(id, _)| *id == input.id) {
+                Some((_, grain)) => *grain,
+                None => {
+                    let grain = crate::motion_blur::estimate_grain(base_image, input.is_raw == 1);
+                    if grains.len() >= GPU_IMAGE_CACHE_ENTRIES {
+                        grains.remove(0);
+                    }
+                    grains.push((input.id, grain));
+                    grain
+                }
+            }
+        };
+        let pipelines = self
+            .pipelines
+            .motion_blur
+            .get_or_init(|| crate::motion_blur::MotionBlurPipelines::new(&self.context.device));
+        let depth = motion.depth.as_deref().map(|map| {
+            (
+                pipelines.upload_depth(&self.context.device, &self.context.queue, map),
+                map,
+            )
+        });
+
+        let Some(output) = crate::motion_blur::render(
+            &self.context,
+            pipelines,
+            &input.texture_view,
+            (input.width, input.height),
+            input.is_raw,
+            grain,
+            &motion.blurs,
+            request.mask_bitmaps,
+            mask_view,
+            depth.as_ref().map(|(view, map)| (view, *map)),
+        )?
+        else {
+            return Ok(None);
+        };
+        let guided =
+            self.build_guided_coeffs(&output.view, input.width, input.height, input.is_raw);
+        let blurred = Arc::new(MotionBlurred {
+            entry: GpuImageEntry {
+                id: NEXT_GPU_IMAGE_ID.fetch_add(1, Ordering::Relaxed),
+                texture: output.texture,
+                texture_view: output.view,
+                gf_coeffs_view: guided.coeffs,
+                gf_structure_view: guided.structure,
+                haze_view: guided.haze,
+                airlight_view: guided.airlight,
+                is_raw: input.is_raw,
+                width: input.width,
+                height: input.height,
+                transform_hash: input.transform_hash,
+                source: input.source,
+            },
+            mask_view: output.mask_view,
+        });
+        if let Some(key) = key {
+            if cache.len() >= GPU_IMAGE_CACHE_ENTRIES {
+                cache.remove(0);
+            }
+            cache.push((key, Arc::clone(&blurred)));
+        }
+        Ok(Some(blurred))
     }
 
     fn lut_view(&self, lut: &Arc<Lut>) -> (wgpu::TextureView, wgpu::Sampler) {
@@ -2619,6 +2729,7 @@ impl GpuProcessor {
     fn run(
         &self,
         input: &GpuImageEntry,
+        mask_texture_view: &wgpu::TextureView,
         request: RenderRequest,
         output_to_display: bool,
         output_precision: RenderOutputPrecision,
@@ -2679,8 +2790,6 @@ impl GpuProcessor {
         });
         let out_width = bounds.width;
         let out_height = bounds.height;
-        let mask_texture_view =
-            self.mask_view(request.mask_bitmaps, width, height, request.mask_cache_key);
         let (lut_texture_view, lut_sampler) = match &request.lut {
             Some(lut) => self.lut_view(lut),
             None => (
@@ -2989,7 +3098,7 @@ impl GpuProcessor {
                 ];
                 bind_group_entries.push(wgpu::BindGroupEntry {
                     binding: 3,
-                    resource: wgpu::BindingResource::TextureView(&mask_texture_view),
+                    resource: wgpu::BindingResource::TextureView(mask_texture_view),
                 });
                 bind_group_entries.push(wgpu::BindGroupEntry {
                     binding: 3 + MAX_MASK_BINDINGS,
@@ -3401,11 +3510,26 @@ fn process_and_get_dynamic_image_inner(
     }
 
     let cache = cache.entries.last().unwrap();
+    let mask_view =
+        processor.mask_view(request.mask_bitmaps, width, height, request.mask_cache_key);
+    let motion = processor.motion_blurred(cache, base_image, &request, &mask_view)?;
+    let (input, mask_view) = match &motion {
+        Some(blurred) => (
+            &blurred.entry,
+            blurred.mask_view.clone().unwrap_or(mask_view),
+        ),
+        None => (cache, mask_view),
+    };
 
     let skip_readback = output_to_display;
 
-    let (processed_pixels, out_w, out_h, out_x, out_y) =
-        processor.run(cache, request, output_to_display, output_precision)?;
+    let (processed_pixels, out_w, out_h, out_x, out_y) = processor.run(
+        input,
+        &mask_view,
+        request,
+        output_to_display,
+        output_precision,
+    )?;
 
     let mut final_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
         label: Some("Final Passes Encoder"),

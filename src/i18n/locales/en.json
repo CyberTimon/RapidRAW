@@ -194,6 +194,24 @@
       "lightFlares": "Light Flares",
       "lut": "LUT",
       "midpoint": "Midpoint",
+      "motionBlur": "Motion Blur",
+      "motionBlurAngle": "Angle",
+      "motionBlurDepth": "Depth",
+      "motionBlurHighlights": "Highlights",
+      "motionBlurLayer": "Motion",
+      "motionBlurLayers": {
+        "auto": "Auto",
+        "panning": "Panning",
+        "subject": "Moving Subject",
+        "uniform": "Uniform"
+      },
+      "motionBlurType": "Type",
+      "motionBlurTypes": {
+        "linear": "Linear",
+        "zoom": "Zoom",
+        "spin": "Spin",
+        "smooth": "Smooth"
+      },
       "relight": "Relight",
       "relightAddLight": "Add Light",
       "relightAmbient": "Ambient",
@@ -1536,6 +1554,7 @@
         "halationGlow": "Halation & Glow",
         "hueShift": "Global Hue Shift",
         "lensBlur": "Lens Blur",
+        "motionBlur": "Motion Blur",
         "lensCorrection": "Lens Correction",
         "lut": "LUT",
         "masks": "Masks",

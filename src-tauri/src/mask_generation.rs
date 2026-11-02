@@ -789,7 +789,7 @@ pub struct TransformParams {
     pub crop_offset: (f32, f32),
 }
 
-fn generate_ai_bitmap_from_full_mask(
+pub fn generate_ai_bitmap_from_full_mask(
     full_mask_image: &GrayImage,
     tf: &TransformParams,
 ) -> GrayImage {

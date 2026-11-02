@@ -194,6 +194,24 @@
       "lightFlares": "Відблиски",
       "lut": "LUT",
       "midpoint": "Середня точка",
+      "motionBlur": "Розмиття руху",
+      "motionBlurAngle": "Кут",
+      "motionBlurDepth": "Глибина",
+      "motionBlurHighlights": "Світла",
+      "motionBlurLayer": "Рух",
+      "motionBlurLayers": {
+        "auto": "Авто",
+        "panning": "Проводка",
+        "subject": "Рухомий об'єкт",
+        "uniform": "Рівномірне"
+      },
+      "motionBlurType": "Тип",
+      "motionBlurTypes": {
+        "linear": "Лінійне",
+        "zoom": "Зум",
+        "spin": "Обертання",
+        "smooth": "Згладжування"
+      },
       "relight": "Переосвітлення",
       "relightAddLight": "Додати світло",
       "relightAmbient": "Навколишнє світло",
@@ -1600,6 +1618,7 @@
         "halationGlow": "Ореол і світіння",
         "hueShift": "Глобальний зсув тону",
         "lensBlur": "Розмиття об'єктива",
+        "motionBlur": "Розмиття руху",
         "lensCorrection": "Корекція об'єктива",
         "lut": "LUT",
         "masks": "Маски",

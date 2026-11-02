@@ -222,7 +222,25 @@
       "roundness": "Rondheid",
       "size": "Grootte",
       "spatial": "Ruimtelijk",
-      "vignette": "Vignet"
+      "vignette": "Vignet",
+      "motionBlur": "Bewegingsonscherpte",
+      "motionBlurAngle": "Hoek",
+      "motionBlurDepth": "Diepte",
+      "motionBlurHighlights": "Hoge lichten",
+      "motionBlurLayer": "Beweging",
+      "motionBlurLayers": {
+        "auto": "Automatisch",
+        "panning": "Meetrekken",
+        "subject": "Bewegend onderwerp",
+        "uniform": "Gelijkmatig"
+      },
+      "motionBlurType": "Type",
+      "motionBlurTypes": {
+        "linear": "Lineair",
+        "zoom": "Zoom",
+        "spin": "Draaiing",
+        "smooth": "Zacht"
+      }
     }
   },
   "contextMenus": {
@@ -1536,6 +1554,7 @@
         "halationGlow": "Halatie & gloed",
         "hueShift": "Globale kleurtoonwijziging",
         "lensBlur": "Lensvervaging",
+        "motionBlur": "Bewegingsonscherpte",
         "lensCorrection": "Lenscorrectie",
         "lut": "LUT",
         "masks": "Maskers",

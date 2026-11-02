@@ -222,7 +222,25 @@
       "roundness": "Rodonesa",
       "size": "Mida",
       "spatial": "Espacial",
-      "vignette": "Vinyetatge"
+      "vignette": "Vinyetatge",
+      "motionBlur": "Desenfocament de moviment",
+      "motionBlurAngle": "Angle",
+      "motionBlurDepth": "Profunditat",
+      "motionBlurHighlights": "Llums",
+      "motionBlurLayer": "Moviment",
+      "motionBlurLayers": {
+        "auto": "Automàtic",
+        "panning": "Escombratge",
+        "subject": "Subjecte en moviment",
+        "uniform": "Uniforme"
+      },
+      "motionBlurType": "Tipus",
+      "motionBlurTypes": {
+        "linear": "Lineal",
+        "zoom": "Zoom",
+        "spin": "Gir",
+        "smooth": "Suau"
+      }
     }
   },
   "contextMenus": {
@@ -1568,6 +1586,7 @@
         "halationGlow": "Halació i Resplendor",
         "hueShift": "Canvi de to global",
         "lensBlur": "Desenfocament d'objectiu",
+        "motionBlur": "Desenfocament de moviment",
         "lensCorrection": "Correcció de l'objectiu",
         "lut": "LUT",
         "masks": "Màscares",

@@ -222,7 +222,25 @@
       "roundness": "圓度",
       "size": "大小",
       "spatial": "空間",
-      "vignette": "暗角"
+      "vignette": "暗角",
+      "motionBlur": "動態模糊",
+      "motionBlurAngle": "角度",
+      "motionBlurDepth": "深度",
+      "motionBlurHighlights": "亮部",
+      "motionBlurLayer": "運動",
+      "motionBlurLayers": {
+        "auto": "自動",
+        "panning": "追焦",
+        "subject": "移動主體",
+        "uniform": "均勻"
+      },
+      "motionBlurType": "類型",
+      "motionBlurTypes": {
+        "linear": "線性",
+        "zoom": "縮放",
+        "spin": "旋轉",
+        "smooth": "平滑"
+      }
     }
   },
   "contextMenus": {
@@ -1530,6 +1548,7 @@
         "halationGlow": "光暈與發光",
         "hueShift": "全域色相偏移",
         "lensBlur": "鏡頭模糊",
+        "motionBlur": "動態模糊",
         "lensCorrection": "鏡頭校正",
         "lut": "LUT",
         "masks": "遮色片",

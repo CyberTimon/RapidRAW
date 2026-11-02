@@ -8,7 +8,12 @@ use crate::image_processing::{
     apply_rotation,
 };
 
-const EFFECT_MAP_KEYS: [&str; 3] = ["lensBlurDepthMap", "fogDepthMap", "relightNormalMap"];
+const EFFECT_MAP_KEYS: [&str; 4] = [
+    "lensBlurDepthMap",
+    "fogDepthMap",
+    "motionBlurDepthMap",
+    "relightNormalMap",
+];
 const CACHED_EFFECT_MAP_PREFIX: &str = "__cached__:";
 
 pub fn hydrate_sub_masks(
