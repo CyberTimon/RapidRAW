@@ -63,6 +63,7 @@ mod memory_budget;
 mod motion_blur;
 mod multi_exposure;
 mod negative_conversion;
+mod output_files;
 mod panorama_stitching;
 mod panorama_utils;
 mod preset_converter;
@@ -1936,20 +1937,21 @@ async fn save_hdr(
         ("png", DynamicImage::ImageRgb8(hdr_image.to_rgb8()))
     };
 
-    let output_path =
-        crate::file_management::unique_output_path(parent_dir, &format!("{}_Hdr", stem), extension);
-
-    let (real_path, _) = crate::file_management::parse_virtual_path(&first_path_str);
-
-    crate::exif_processing::save_converted_image(
+    let bytes = crate::exif_processing::encode_converted_image(
         &image_to_save,
-        &output_path,
-        &real_path.to_string_lossy(),
+        extension,
+        &first_path.to_string_lossy(),
+    )?;
+    let output_path = crate::output_files::write_unique_output(
+        parent_dir,
+        &format!("{}_Hdr", stem),
+        extension,
+        &bytes,
     )
     .map_err(|e| format!("Failed to save hdr image: {}", e))?;
 
     let _ =
-        crate::exif_processing::write_rrexif_sidecar(&real_path.to_string_lossy(), &output_path);
+        crate::exif_processing::write_rrexif_sidecar(&first_path.to_string_lossy(), &output_path);
 
     Ok(output_path.to_string_lossy().to_string())
 }
@@ -1975,11 +1977,13 @@ async fn save_collage(base64_data: String, first_path_str: String) -> Result<Str
         .and_then(|s| s.to_str())
         .unwrap_or("collage");
 
-    let output_path =
-        crate::file_management::unique_output_path(parent_dir, &format!("{}_Collage", stem), "png");
-
-    fs::write(&output_path, &decoded_bytes)
-        .map_err(|e| format!("Failed to save collage image: {}", e))?;
+    let output_path = crate::output_files::write_unique_output(
+        parent_dir,
+        &format!("{}_Collage", stem),
+        "png",
+        &decoded_bytes,
+    )
+    .map_err(|e| format!("Failed to save collage image: {}", e))?;
 
     Ok(output_path.to_string_lossy().to_string())
 }

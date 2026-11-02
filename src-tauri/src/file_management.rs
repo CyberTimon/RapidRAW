@@ -1406,17 +1406,6 @@ pub fn read_file_mapped(path: &Path) -> Result<Mmap, ReadFileError> {
     Ok(mmap)
 }
 
-/// Returns `dir/stem.ext`, or `dir/stem_N.ext` with the first free N if that file exists.
-pub fn unique_output_path(dir: &Path, stem: &str, extension: &str) -> PathBuf {
-    let mut path = dir.join(format!("{}.{}", stem, extension));
-    let mut counter = 1;
-    while path.exists() {
-        path = dir.join(format!("{}_{}.{}", stem, counter, extension));
-        counter += 1;
-    }
-    path
-}
-
 pub fn write_file_atomic(path: &Path, contents: &[u8]) -> std::io::Result<()> {
     use std::io::Write;
 

@@ -153,23 +153,21 @@ pub async fn save_panorama(
         ("png", DynamicImage::ImageRgb8(panorama_image.to_rgb8()))
     };
 
-    let output_path = crate::file_management::unique_output_path(
+    let bytes = crate::exif_processing::encode_converted_image(
+        &image_to_save,
+        extension,
+        &first_path.to_string_lossy(),
+    )?;
+    let output_path = crate::output_files::write_unique_output(
         parent_dir,
         &format!("{}_Pano", stem),
         extension,
-    );
-
-    let (real_path, _) = crate::file_management::parse_virtual_path(&first_path_str);
-
-    crate::exif_processing::save_converted_image(
-        &image_to_save,
-        &output_path,
-        &real_path.to_string_lossy(),
+        &bytes,
     )
     .map_err(|e| format!("Failed to save panorama image: {}", e))?;
 
     let _ =
-        crate::exif_processing::write_rrexif_sidecar(&real_path.to_string_lossy(), &output_path);
+        crate::exif_processing::write_rrexif_sidecar(&first_path.to_string_lossy(), &output_path);
 
     Ok(output_path.to_string_lossy().to_string())
 }
