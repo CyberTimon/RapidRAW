@@ -498,6 +498,15 @@
         "feather": "Contour progressif du pinceau",
         "size": "Taille du pinceau"
       },
+      "cloneHeal": {
+        "cloneTooltip": "Copie la source à l'identique, luminosité et couleur comprises",
+        "dragSource": "Faites glisser pour déplacer la source",
+        "healTooltip": "Copie la texture de la source et l'adapte à la luminosité et à la couleur environnantes",
+        "hintActive": "Faites glisser le contour de la source pour choisir d'où proviennent les pixels. Chaque nouveau trait devient une zone distincte. Maintenez Maj pour compléter celle-ci.",
+        "hintEmpty": "Peignez sur une tache, un câble ou un élément gênant. Une source correspondante est trouvée automatiquement.",
+        "mode": "Mode",
+        "newSource": "Trouver une autre source"
+      },
       "comingSoon": "Bientôt disponible",
       "connection": {
         "backendLabel": "Moteur IA :",
@@ -835,8 +844,7 @@
       "toggleAnalyticsTooltip": "Basculer l'affichage des analyses",
       "tooltips": {
         "addToCurrent": "Ajouter {{name}} au masque actuel ou en créer un nouveau (Clic-droit)",
-        "createNew": "Créer un nouveau masque {{name}}",
-        "selectNewSourcePoint": "{{modifier}} + Clic pour sélectionner un nouveau point source"
+        "createNew": "Créer un nouveau masque {{name}}"
       }
     },
     "metadata": {

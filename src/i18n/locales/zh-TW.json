@@ -481,6 +481,15 @@
         "feather": "畫筆羽化",
         "size": "畫筆大小"
       },
+      "cloneHeal": {
+        "cloneTooltip": "精確複製來源，包括其亮度與顏色",
+        "dragSource": "拖曳以移動來源",
+        "healTooltip": "複製來源的紋理，並使其融入周圍的亮度與顏色",
+        "hintActive": "拖曳來源輪廓以選擇像素的來源位置。每一筆新的塗抹都會成為獨立的區域。按住 Shift 可加入目前的區域。",
+        "hintEmpty": "在污點、電線或干擾物上塗抹，會自動找到合適的來源。",
+        "mode": "模式",
+        "newSource": "尋找其他來源"
+      },
       "comingSoon": "即將推出",
       "connection": {
         "backendLabel": "AI 後端：",
@@ -808,8 +817,7 @@
       "toggleAnalyticsTooltip": "切換分析顯示",
       "tooltips": {
         "addToCurrent": "將 {{name}} 新增到當前遮色片或建立新遮色片（右鍵單擊）",
-        "createNew": "建立新 {{name}} 遮色片",
-        "selectNewSourcePoint": "{{modifier}} + 點擊選擇新的來源點"
+        "createNew": "建立新 {{name}} 遮色片"
       }
     },
     "metadata": {

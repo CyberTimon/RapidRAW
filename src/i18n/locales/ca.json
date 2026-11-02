@@ -498,6 +498,15 @@
         "feather": "Esvaïment del pinzell",
         "size": "Mida del pinzell"
       },
+      "cloneHeal": {
+        "cloneTooltip": "Copia l'origen exactament, inclosos la brillantor i el color",
+        "dragSource": "Arrossega per moure l'origen",
+        "healTooltip": "Copia la textura de l'origen i l'adapta a la brillantor i el color de l'entorn",
+        "hintActive": "Arrossega el contorn de l'origen per triar d'on provenen els píxels. Cada traç nou esdevé una zona pròpia. Mantén Maj premut per afegir-hi.",
+        "hintEmpty": "Pinta sobre una taca, un cable o una distracció. Es troba automàticament un origen adequat.",
+        "mode": "Mode",
+        "newSource": "Cerca un altre origen"
+      },
       "comingSoon": "Aviat disponible",
       "connection": {
         "backendLabel": "Rerefons d'IA:",
@@ -835,8 +844,7 @@
       "toggleAnalyticsTooltip": "Alternar visualització d'anàlisi",
       "tooltips": {
         "addToCurrent": "Afegir {{name}} a la màscara actual o crear-ne una de nova (Clic dret)",
-        "createNew": "Crear nova màscara de {{name}}",
-        "selectNewSourcePoint": "{{modifier}} + Clic per seleccionar un nou punt d'origen"
+        "createNew": "Crear nova màscara de {{name}}"
       }
     },
     "metadata": {

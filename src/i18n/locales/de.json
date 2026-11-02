@@ -481,6 +481,15 @@
         "feather": "Weiche Kante",
         "size": "Pinselgröße"
       },
+      "cloneHeal": {
+        "cloneTooltip": "Kopiert die Quelle exakt, inklusive Helligkeit und Farbe",
+        "dragSource": "Ziehen, um die Quelle zu verschieben",
+        "healTooltip": "Kopiert die Struktur der Quelle und passt sie an Helligkeit und Farbe der Umgebung an",
+        "hintActive": "Ziehe den Quellumriss, um festzulegen, woher die Pixel kommen. Jeder neue Strich wird zu einem eigenen Bereich. Halte Shift gedrückt, um diesen zu erweitern.",
+        "hintEmpty": "Male über einen Fleck, ein Kabel oder eine Störung. Eine passende Quelle wird automatisch gefunden.",
+        "mode": "Modus",
+        "newSource": "Andere Quelle suchen"
+      },
       "comingSoon": "Demnächst",
       "connection": {
         "backendLabel": "KI-Backend:",
@@ -811,8 +820,7 @@
       "toggleAnalyticsTooltip": "Analyseanzeige umschalten",
       "tooltips": {
         "addToCurrent": "{{name}} zur aktuellen Maske hinzufügen oder neu erstellen (Rechtsklick)",
-        "createNew": "Neue {{name}}-Maske erstellen",
-        "selectNewSourcePoint": "{{modifier}} + Klicken, um einen neuen Quellpunkt auszuwählen"
+        "createNew": "Neue {{name}}-Maske erstellen"
       }
     },
     "metadata": {

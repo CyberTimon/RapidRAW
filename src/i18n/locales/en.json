@@ -481,6 +481,15 @@
         "feather": "Brush Feather",
         "size": "Brush Size"
       },
+      "cloneHeal": {
+        "cloneTooltip": "Copy the source exactly, including its brightness and color",
+        "dragSource": "Drag to move the source",
+        "healTooltip": "Copy the source texture and blend it into the surrounding brightness and color",
+        "hintActive": "Drag the source outline to choose where pixels come from. Every new stroke becomes its own spot. Hold Shift to add to this one.",
+        "hintEmpty": "Paint over a spot, wire or distraction. A matching source is found automatically.",
+        "mode": "Mode",
+        "newSource": "Find Another Source"
+      },
       "comingSoon": "Coming Soon",
       "connection": {
         "backendLabel": "AI Backend:",
@@ -811,8 +820,7 @@
       "toggleAnalyticsTooltip": "Toggle Analytics Display",
       "tooltips": {
         "addToCurrent": "Add {{name}} to Current Mask or Create New (Right-click)",
-        "createNew": "Create New {{name}} Mask",
-        "selectNewSourcePoint": "{{modifier}} + Click to select a new source point"
+        "createNew": "Create New {{name}} Mask"
       }
     },
     "metadata": {

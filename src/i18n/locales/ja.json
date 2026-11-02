@@ -481,6 +481,15 @@
         "feather": "ブラシのぼかし",
         "size": "ブラシサイズ"
       },
+      "cloneHeal": {
+        "cloneTooltip": "明るさと色を含め、ソースをそのままコピーします",
+        "dragSource": "ドラッグしてソースを移動",
+        "healTooltip": "ソースの質感をコピーし、周囲の明るさと色になじませます",
+        "hintActive": "ソースの輪郭をドラッグしてピクセルのコピー元を選びます。新しいストロークごとに個別のスポットになります。Shift を押しながら描くとこのスポットに追加されます。",
+        "hintEmpty": "シミ、電線、気になる部分の上をなぞってください。合うソースが自動で見つかります。",
+        "mode": "モード",
+        "newSource": "別のソースを探す"
+      },
       "comingSoon": "近日公開",
       "connection": {
         "backendLabel": "AI バックエンド:",
@@ -808,8 +817,7 @@
       "toggleAnalyticsTooltip": "アナリティクス表示の切り替え",
       "tooltips": {
         "addToCurrent": "{{name}}を現在のマスクに追加、または新規作成 (右クリック)",
-        "createNew": "新規の {{name}} マスクを作成",
-        "selectNewSourcePoint": "{{modifier}} + クリックで新しいソースポイントを選択"
+        "createNew": "新規の {{name}} マスクを作成"
       }
     },
     "metadata": {

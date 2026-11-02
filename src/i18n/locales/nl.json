@@ -481,6 +481,15 @@
         "feather": "Penseelrandvervaging",
         "size": "Penseelgrootte"
       },
+      "cloneHeal": {
+        "cloneTooltip": "Kopieert de bron exact, inclusief helderheid en kleur",
+        "dragSource": "Sleep om de bron te verplaatsen",
+        "healTooltip": "Kopieert de textuur van de bron en past die aan de omliggende helderheid en kleur aan",
+        "hintActive": "Sleep de bronomtrek om te kiezen waar de pixels vandaan komen. Elke nieuwe streek wordt een eigen plek. Houd Shift ingedrukt om aan deze toe te voegen.",
+        "hintEmpty": "Schilder over een vlek, draad of storend element. Er wordt automatisch een passende bron gevonden.",
+        "mode": "Modus",
+        "newSource": "Andere bron zoeken"
+      },
       "comingSoon": "Binnenkort beschikbaar",
       "connection": {
         "backendLabel": "AI-backend:",
@@ -811,8 +820,7 @@
       "toggleAnalyticsTooltip": "Analytische weergave aan/uit",
       "tooltips": {
         "addToCurrent": "{{name}} toevoegen aan huidig masker of nieuw masker maken (rechtermuisknop)",
-        "createNew": "Nieuw {{name}} masker maken",
-        "selectNewSourcePoint": "{{modifier}} + klik om een nieuw bronpunt te selecteren"
+        "createNew": "Nieuw {{name}} masker maken"
       }
     },
     "metadata": {

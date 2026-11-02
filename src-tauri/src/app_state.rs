@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Condvar, Mutex};
 
-use image::{DynamicImage, GrayImage};
+use image::{DynamicImage, GrayImage, RgbImage};
 use serde::{Deserialize, Serialize};
 use sysinfo::Disks;
 use tokio::sync::Mutex as TokioMutex;
@@ -318,6 +318,7 @@ pub struct AppState {
     pub full_warped_cache: Mutex<Option<(u64, Arc<DynamicImage>)>>,
     pub full_warped_build_lock: Mutex<()>,
     pub patched_cache: Mutex<Option<(u64, Arc<DynamicImage>)>>,
+    pub cleanup_source_cache: Mutex<Option<(u64, Arc<RgbImage>)>>,
     pub warped_cache: Mutex<Option<(u64, Arc<DynamicImage>)>>,
     pub working_cache: Mutex<Option<(u64, Arc<DynamicImage>)>>,
     pub effects_cache: Mutex<Option<(u64, Arc<DynamicImage>)>>,

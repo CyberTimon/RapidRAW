@@ -515,6 +515,15 @@
         "feather": "Wtapianie pędzla",
         "size": "Rozmiar pędzla"
       },
+      "cloneHeal": {
+        "cloneTooltip": "Kopiuje źródło dokładnie, łącznie z jasnością i kolorem",
+        "dragSource": "Przeciągnij, aby przesunąć źródło",
+        "healTooltip": "Kopiuje teksturę źródła i dopasowuje ją do jasności i koloru otoczenia",
+        "hintActive": "Przeciągnij obrys źródła, aby wybrać, skąd pochodzą piksele. Każde nowe pociągnięcie tworzy osobny obszar. Przytrzymaj Shift, aby dodać do tego.",
+        "hintEmpty": "Zamaluj plamkę, przewód lub rozpraszający element. Pasujące źródło zostanie znalezione automatycznie.",
+        "mode": "Tryb",
+        "newSource": "Znajdź inne źródło"
+      },
       "comingSoon": "Wkrótce",
       "connection": {
         "backendLabel": "Backend AI:",
@@ -859,8 +868,7 @@
       "toggleAnalyticsTooltip": "Przełącz widok analityki",
       "tooltips": {
         "addToCurrent": "Dodaj {{name}} do bieżącej maski lub utwórz nową (Prawy przycisk)",
-        "createNew": "Utwórz nową maskę {{name}}",
-        "selectNewSourcePoint": "{{modifier}} + Kliknij, aby wybrać nowy punkt źródłowy"
+        "createNew": "Utwórz nową maskę {{name}}"
       }
     },
     "metadata": {

@@ -498,6 +498,15 @@
         "feather": "Sfumatura Pennello",
         "size": "Dimensione Pennello"
       },
+      "cloneHeal": {
+        "cloneTooltip": "Copia la sorgente esattamente, inclusi luminosità e colore",
+        "dragSource": "Trascina per spostare la sorgente",
+        "healTooltip": "Copia la texture della sorgente e la adatta a luminosità e colore circostanti",
+        "hintActive": "Trascina il contorno della sorgente per scegliere da dove provengono i pixel. Ogni nuovo tratto diventa un'area separata. Tieni premuto Maiusc per aggiungere a questa.",
+        "hintEmpty": "Dipingi su una macchia, un cavo o un elemento di disturbo. Una sorgente adatta viene trovata automaticamente.",
+        "mode": "Modalità",
+        "newSource": "Trova un'altra sorgente"
+      },
       "comingSoon": "Prossimamente",
       "connection": {
         "backendLabel": "Backend AI:",
@@ -835,8 +844,7 @@
       "toggleAnalyticsTooltip": "Attiva/Disattiva Visualizzazione Analitiche",
       "tooltips": {
         "addToCurrent": "Aggiungi {{name}} alla Maschera Attuale o Crea Nuova (Tasto Destro)",
-        "createNew": "Crea Nuova Maschera {{name}}",
-        "selectNewSourcePoint": "{{modifier}} + Clic per selezionare un nuovo punto di origine"
+        "createNew": "Crea Nuova Maschera {{name}}"
       }
     },
     "metadata": {

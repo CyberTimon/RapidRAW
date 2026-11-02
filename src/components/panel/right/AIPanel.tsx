@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import {
@@ -34,6 +35,7 @@ import {
   FolderIcon,
   SquaresIntersect,
   X,
+  Shuffle,
 } from 'lucide-react';
 
 import CollapsibleSection from '../../ui/CollapsibleSection';
@@ -59,9 +61,9 @@ import {
   getSubMaskName,
   NewMaskDropZone,
 } from './Masks';
-import { Adjustments, AiPatch } from '../../../utils/adjustments';
+import { Adjustments, AiPatch, Coord } from '../../../utils/adjustments';
 import { OPTION_SEPARATOR } from '../../ui/AppProperties';
-import { createSubMask } from '../../../utils/maskUtils';
+import { countPatchesOfType, createSubMask } from '../../../utils/maskUtils';
 import Text from '../../ui/Text';
 import { TEXT_COLOR_KEYS, TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useEditorStore } from '../../../store/useEditorStore';
@@ -70,6 +72,7 @@ import { useUIStore } from '../../../store/useUIStore';
 import { useEditorActions } from '../../../hooks/useEditorActions';
 import { useAiMasking } from '../../../hooks/useAiMasking';
 import { useCloudUsage } from '../../../hooks/useCloudUsage';
+import { useDelayedLoading } from '../../../hooks/useDelayedLoading';
 
 export const STANDALONE_MASK_TYPES: Mask[] = [Mask.Clone, Mask.Heal, Mask.Liquify, Mask.Retouch];
 
@@ -101,8 +104,8 @@ const SUB_MASK_CONFIG: any = {
     parameters: [{ key: 'feather', min: 0, max: 100, step: 1, multiplier: 100, defaultValue: 50 }],
   },
   [Mask.Brush]: { showBrushTools: true },
-  [Mask.Clone]: { showBrushTools: true },
-  [Mask.Heal]: { showBrushTools: true },
+  [Mask.Clone]: { showBrushTools: true, hideToolSwitch: true, defaultFeather: 35 },
+  [Mask.Heal]: { showBrushTools: true, hideToolSwitch: true, defaultFeather: 35 },
   [Mask.Liquify]: {
     showBrushTools: true,
     parameters: [{ key: 'pressure', min: 1, max: 100, step: 1, defaultValue: 40 }],
@@ -138,7 +141,17 @@ const SUB_MASK_CONFIG: any = {
   },
 };
 
-const BrushTools = ({ settings, onSettingsChange }: { settings: any; onSettingsChange: any }) => {
+const BrushTools = ({
+  settings,
+  onSettingsChange,
+  showToolSwitch = true,
+  defaultFeather = 50,
+}: {
+  settings: any;
+  onSettingsChange: any;
+  showToolSwitch?: boolean;
+  defaultFeather?: number;
+}) => {
   const { t } = useTranslation();
 
   return (
@@ -154,7 +167,7 @@ const BrushTools = ({ settings, onSettingsChange }: { settings: any; onSettingsC
         fillOrigin="min"
       />
       <Slider
-        defaultValue={50}
+        defaultValue={defaultFeather}
         label={t('editor.ai.brush.feather')}
         max={100}
         min={0}
@@ -163,28 +176,170 @@ const BrushTools = ({ settings, onSettingsChange }: { settings: any; onSettingsC
         value={settings.feather}
         fillOrigin="min"
       />
-      <div className="grid grid-cols-2 gap-2 pt-2">
-        <button
-          className={`p-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-            settings.tool === ToolType.Brush
-              ? 'text-primary bg-surface'
-              : 'bg-surface text-text-secondary hover:bg-card-active'
-          }`}
-          onClick={() => onSettingsChange((s: any) => ({ ...s, tool: ToolType.Brush }))}
-        >
-          {t('editor.ai.brush.add')}
-        </button>
-        <button
-          className={`p-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-            settings.tool === ToolType.Eraser
-              ? 'text-primary bg-surface'
-              : 'bg-surface text-text-secondary hover:bg-card-active'
-          }`}
-          onClick={() => onSettingsChange((s: any) => ({ ...s, tool: ToolType.Eraser }))}
-        >
-          {t('editor.ai.brush.erase')}
-        </button>
+      {showToolSwitch && (
+        <div className="grid grid-cols-2 gap-2 pt-2">
+          <button
+            className={`p-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+              settings.tool === ToolType.Brush
+                ? 'text-primary bg-surface'
+                : 'bg-surface text-text-secondary hover:bg-card-active'
+            }`}
+            onClick={() => onSettingsChange((s: any) => ({ ...s, tool: ToolType.Brush }))}
+          >
+            {t('editor.ai.brush.add')}
+          </button>
+          <button
+            className={`p-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+              settings.tool === ToolType.Eraser
+                ? 'text-primary bg-surface'
+                : 'bg-surface text-text-secondary hover:bg-card-active'
+            }`}
+            onClick={() => onSettingsChange((s: any) => ({ ...s, tool: ToolType.Eraser }))}
+          >
+            {t('editor.ai.brush.erase')}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const CloneHealControls = ({
+  subMask,
+  container,
+  updateSubMask,
+  updateContainer,
+  onRegenerate,
+}: {
+  subMask: SubMask;
+  container: AiPatch;
+  updateSubMask(id: string, data: Partial<SubMask>): void;
+  updateContainer(id: string, data: Partial<AiPatch>): void;
+  onRegenerate(id: string, source?: Coord | null, sourceVariant?: number): void;
+}) => {
+  const { t } = useTranslation();
+  const hasStrokes = (subMask.parameters?.lines?.length ?? 0) > 0;
+  const isGenerating = useDelayedLoading(!!container.isLoading);
+  const source =
+    subMask.parameters?.sourceX !== undefined && subMask.parameters?.sourceY !== undefined
+      ? { x: subMask.parameters.sourceX, y: subMask.parameters.sourceY }
+      : null;
+  const opacity = subMask.opacity ?? 100;
+  const lastOpacity = useRef({ id: subMask.id, opacity });
+
+  useEffect(() => {
+    if (lastOpacity.current.id !== subMask.id) {
+      lastOpacity.current = { id: subMask.id, opacity };
+      return;
+    }
+    if (lastOpacity.current.opacity === opacity || !hasStrokes) return;
+    const timer = setTimeout(() => {
+      lastOpacity.current = { id: subMask.id, opacity };
+      onRegenerate(subMask.id, source);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [subMask.id, opacity]);
+
+  const patchNameKey = (type: Mask) => (type === Mask.Heal ? 'editor.ai.patches.heal' : 'editor.ai.patches.clone');
+
+  const switchMode = (type: Mask) => {
+    if (type === subMask.type) return;
+    const count = Number(/(\d+)\s*$/.exec(container.name)?.[1]);
+    if (count && container.name === t(patchNameKey(subMask.type), { count })) {
+      updateContainer(container.id, { name: t(patchNameKey(type), { count }) });
+    }
+    updateSubMask(subMask.id, { type, name: formatMaskTypeName(type) });
+    if (hasStrokes) setTimeout(() => onRegenerate(subMask.id, source), 0);
+  };
+
+  const modes = useMemo(
+    () => [
+      { type: Mask.Clone, label: t('masks.types.clone'), title: t('editor.ai.cloneHeal.cloneTooltip') },
+      { type: Mask.Heal, label: t('masks.types.heal'), title: t('editor.ai.cloneHeal.healTooltip') },
+    ],
+    [t],
+  );
+  const [bubbleStyle, setBubbleStyle] = useState({});
+  const isInitialAnimation = useRef(true);
+
+  useEffect(() => {
+    const selectedIndex = modes.findIndex((m) => m.type === subMask.type);
+    const safeIndex = selectedIndex >= 0 ? selectedIndex : 0;
+
+    const widthPercent = 100 / modes.length;
+    const targetX = `${safeIndex * 100}%`;
+    const targetWidth = `${widthPercent}%`;
+
+    if (isInitialAnimation.current) {
+      const initialX = subMask.type === Mask.Heal ? `${modes.length * 100}%` : '-25%';
+      setBubbleStyle({
+        x: [initialX, targetX],
+        width: targetWidth,
+      });
+      isInitialAnimation.current = false;
+    } else {
+      setBubbleStyle({
+        x: targetX,
+        width: targetWidth,
+      });
+    }
+  }, [subMask.type, modes]);
+
+  return (
+    <div className="space-y-3">
+      <Text variant={TextVariants.small} className="leading-relaxed">
+        {hasStrokes ? t('editor.ai.cloneHeal.hintActive') : t('editor.ai.cloneHeal.hintEmpty')}
+      </Text>
+      <div>
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-sm font-medium text-text-secondary select-none">{t('editor.ai.cloneHeal.mode')}</span>
+        </div>
+        <div className="w-full p-2 bg-card-active rounded-md">
+          <div className="relative flex w-full">
+            <motion.div
+              className="absolute top-0 bottom-0 z-0 bg-accent"
+              style={{ borderRadius: 6 }}
+              animate={bubbleStyle}
+              transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+            />
+            {modes.map((mode) => (
+              <button
+                key={mode.type}
+                data-tooltip={mode.title}
+                onClick={() => switchMode(mode.type)}
+                className={clsx(
+                  'relative flex-1 flex items-center justify-center gap-2 px-3 p-1.5 text-sm font-medium rounded-md transition-colors',
+                  {
+                    'text-text-primary hover:bg-surface': subMask.type !== mode.type,
+                    'text-button-text': subMask.type === mode.type,
+                  },
+                )}
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+              >
+                <span className="relative z-10 flex items-center">{mode.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
+      <Slider
+        defaultValue={100}
+        label={t('editor.masks.settings.opacity')}
+        max={100}
+        min={1}
+        onChange={(e: any) => updateSubMask(subMask.id, { opacity: Number(e.target.value) })}
+        step={1}
+        value={opacity}
+        fillOrigin="min"
+      />
+      <Button
+        className="w-full"
+        disabled={!hasStrokes || isGenerating}
+        onClick={() => onRegenerate(subMask.id, null, (subMask.parameters?.sourceVariant ?? 0) + 1)}
+      >
+        <Shuffle size={16} />
+        <span className="ml-2">{t('editor.ai.cloneHeal.newSource')}</span>
+      </Button>
     </div>
   );
 };
@@ -370,11 +525,12 @@ export default function AIPanel() {
   );
 
   const selectBrushToolForNewMask = useCallback(
-    (forcedSize: number = 100) => {
+    (forcedSize: number = 100, forcedFeather?: number) => {
       setEditor((state) => ({
         brushSettings: {
           ...(state.brushSettings ?? { size: 100, feather: 50, tool: ToolType.Brush }),
           size: forcedSize,
+          ...(forcedFeather !== undefined && { feather: forcedFeather }),
           tool: ToolType.Brush,
         },
       }));
@@ -545,30 +701,19 @@ export default function AIPanel() {
 
     let name: string;
     if (type === Mask.QuickEraser) {
-      const count =
-        (adjustments.aiPatches || []).filter((p: AiPatch) =>
-          p.subMasks.some((sm: SubMask) => sm.type === Mask.QuickEraser),
-        ).length + 1;
+      const count = countPatchesOfType(adjustments.aiPatches, Mask.QuickEraser) + 1;
       name = t('editor.ai.patches.quickErase', { count });
     } else if (type === Mask.Clone) {
-      const count =
-        (adjustments.aiPatches || []).filter((p: AiPatch) => p.subMasks.some((sm: SubMask) => sm.type === Mask.Clone))
-          .length + 1;
+      const count = countPatchesOfType(adjustments.aiPatches, Mask.Clone) + 1;
       name = t('editor.ai.patches.clone', { count });
     } else if (type === Mask.Heal) {
-      const count =
-        (adjustments.aiPatches || []).filter((p: AiPatch) => p.subMasks.some((sm: SubMask) => sm.type === Mask.Heal))
-          .length + 1;
+      const count = countPatchesOfType(adjustments.aiPatches, Mask.Heal) + 1;
       name = t('editor.ai.patches.heal', { count });
     } else if (type === Mask.Liquify) {
-      const count =
-        (adjustments.aiPatches || []).filter((p: AiPatch) => p.subMasks.some((sm: SubMask) => sm.type === Mask.Liquify))
-          .length + 1;
+      const count = countPatchesOfType(adjustments.aiPatches, Mask.Liquify) + 1;
       name = t('editor.ai.patches.liquify', { count });
     } else if (type === Mask.Retouch) {
-      const count =
-        (adjustments.aiPatches || []).filter((p: AiPatch) => p.subMasks.some((sm: SubMask) => sm.type === Mask.Retouch))
-          .length + 1;
+      const count = countPatchesOfType(adjustments.aiPatches, Mask.Retouch) + 1;
       name = t('editor.ai.patches.retouch', { count });
     } else {
       const count = (adjustments.aiPatches || []).length + 1;
@@ -597,7 +742,7 @@ export default function AIPanel() {
     }
 
     if (type === Mask.Brush || isStandalone) {
-      selectBrushToolForNewMask(100);
+      selectBrushToolForNewMask(100, SUB_MASK_CONFIG[type]?.defaultFeather);
     }
 
     if (type === Mask.AiForeground) handleGenerateAiForegroundMask(subMask.id);
@@ -627,7 +772,7 @@ export default function AIPanel() {
     setExpandedContainers((prev) => new Set(prev).add(containerId));
 
     if (type === Mask.Brush || isStandaloneMask(type)) {
-      selectBrushToolForNewMask(100);
+      selectBrushToolForNewMask(100, SUB_MASK_CONFIG[type]?.defaultFeather);
     }
     if (type === Mask.AiForeground) handleGenerateAiForegroundMask(subMask.id);
   };
@@ -1447,7 +1592,7 @@ function ContainerRow({
   const firstSubMask = container.subMasks[0];
   const isRowSelected = isStandalone ? container.id === activePatchContainerId : isSelected;
 
-  const isContainerGenerating = Boolean(activeAiTasks[container.id]) || Boolean(container.isLoading);
+  const isContainerGenerating = useDelayedLoading(Boolean(activeAiTasks[container.id]) || Boolean(container.isLoading));
 
   const setCombinedRef = (node: HTMLElement | null) => {
     setDroppableRef(node);
@@ -2173,6 +2318,16 @@ function SettingsPanel({
                 </Text>
               )}
 
+              {(activeSubMask.type === Mask.Clone || activeSubMask.type === Mask.Heal) && (
+                <CloneHealControls
+                  subMask={activeSubMask}
+                  container={displayContainer}
+                  updateSubMask={updateSubMask}
+                  updateContainer={updateContainer}
+                  onRegenerate={onManualCleanup}
+                />
+              )}
+
               {subMaskConfig.parameters?.map((param: any) => (
                 <Slider
                   key={param.key}
@@ -2195,7 +2350,7 @@ function SettingsPanel({
 
                     if (isDirectTool && activeSubMask.parameters?.lines?.length > 0) {
                       setTimeout(() => {
-                        onManualCleanup(activeSubMask.id, 0, 0);
+                        onManualCleanup(activeSubMask.id);
                       }, 0);
                     }
                   }}
@@ -2223,7 +2378,7 @@ function SettingsPanel({
 
                       setTimeout(() => {
                         if (activeSubMask.parameters?.lines?.length > 0) {
-                          onManualCleanup(activeSubMask.id, 0, 0);
+                          onManualCleanup(activeSubMask.id);
                         }
                       }, 0);
                     }}
@@ -2232,7 +2387,12 @@ function SettingsPanel({
               )}
 
               {subMaskConfig.showBrushTools && brushSettings && (
-                <BrushTools settings={brushSettings} onSettingsChange={setBrushSettings} />
+                <BrushTools
+                  settings={brushSettings}
+                  onSettingsChange={setBrushSettings}
+                  showToolSwitch={!subMaskConfig.hideToolSwitch}
+                  defaultFeather={subMaskConfig.defaultFeather}
+                />
               )}
             </>
           )}

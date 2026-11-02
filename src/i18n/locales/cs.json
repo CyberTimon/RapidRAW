@@ -515,6 +515,15 @@
         "feather": "Prolnutí štětce",
         "size": "Velikost štětce"
       },
+      "cloneHeal": {
+        "cloneTooltip": "Zkopíruje zdroj přesně, včetně jasu a barvy",
+        "dragSource": "Tažením přesunete zdroj",
+        "healTooltip": "Zkopíruje texturu zdroje a přizpůsobí ji jasu a barvě okolí",
+        "hintActive": "Tažením obrysu zdroje zvolíte, odkud se pixely berou. Každý nový tah vytvoří samostatnou oblast. Podržením Shift přidáte k této.",
+        "hintEmpty": "Přemalujte skvrnu, drát nebo rušivý prvek. Vhodný zdroj se najde automaticky.",
+        "mode": "Režim",
+        "newSource": "Najít jiný zdroj"
+      },
       "comingSoon": "Již brzy",
       "connection": {
         "backendLabel": "AI Backend:",
@@ -859,8 +868,7 @@
       "toggleAnalyticsTooltip": "Přepnout zobrazení Analytics",
       "tooltips": {
         "addToCurrent": "Přidat {{name}} na aktuální masku nebo vytvořit novou (klikněte pravým tlačítkem)",
-        "createNew": "Vytvořit novou {{name}} masku",
-        "selectNewSourcePoint": "{{modifier}} + kliknutím vyberete nový zdrojový bod"
+        "createNew": "Vytvořit novou {{name}} masku"
       }
     },
     "metadata": {

@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { Mask, SubMask, SubMaskMode, formatMaskTypeName } from '../components/panel/right/Masks';
 import { ImageDimensions } from '../hooks/useImageRenderSize';
-import { MaskContainer } from './adjustments';
+import { AiPatch, Coord, MaskContainer } from './adjustments';
 
 const AI_MASK_TYPES = new Set<string>([
   Mask.AiDepth,
@@ -105,3 +105,22 @@ export const createSubMask = (
       return { ...common, parameters: {} };
   }
 };
+
+export const getStrokeCenter = (lines: Array<{ points: Array<Coord> }> | undefined): Coord | null => {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const line of lines || []) {
+    for (const pt of line.points) {
+      if (pt.x < minX) minX = pt.x;
+      if (pt.x > maxX) maxX = pt.x;
+      if (pt.y < minY) minY = pt.y;
+      if (pt.y > maxY) maxY = pt.y;
+    }
+  }
+  return minX === Infinity ? null : { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+};
+
+export const countPatchesOfType = (patches: Array<AiPatch> | undefined, type: Mask) =>
+  (patches || []).filter((p) => p.subMasks.some((sm: SubMask) => sm.type === type)).length;

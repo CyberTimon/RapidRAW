@@ -481,6 +481,15 @@
         "feather": "브러시 페더",
         "size": "브러시 크기"
       },
+      "cloneHeal": {
+        "cloneTooltip": "밝기와 색상을 포함해 소스를 그대로 복사합니다",
+        "dragSource": "드래그하여 소스 이동",
+        "healTooltip": "소스의 질감을 복사해 주변 밝기와 색상에 자연스럽게 맞춥니다",
+        "hintActive": "소스 윤곽을 드래그해 픽셀을 가져올 위치를 고르세요. 새 스트로크마다 별도의 스팟이 됩니다. Shift를 누른 채 칠하면 이 스팟에 추가됩니다.",
+        "hintEmpty": "얼룩, 전선 또는 방해 요소 위를 칠하세요. 어울리는 소스를 자동으로 찾습니다.",
+        "mode": "모드",
+        "newSource": "다른 소스 찾기"
+      },
       "comingSoon": "출시 예정",
       "connection": {
         "backendLabel": "AI 백엔드:",
@@ -808,8 +817,7 @@
       "toggleAnalyticsTooltip": "분석 표시 전환",
       "tooltips": {
         "addToCurrent": "{{name}}을(를) 현재 마스크에 추가하거나 새로 만들기 (우클릭)",
-        "createNew": "새 {{name}} 마스크 만들기",
-        "selectNewSourcePoint": "{{modifier}} + 클릭하여 새 소스 포인트 선택"
+        "createNew": "새 {{name}} 마스크 만들기"
       }
     },
     "metadata": {

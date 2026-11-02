@@ -498,6 +498,15 @@
         "feather": "Desvanecimiento de pincel",
         "size": "Tamaño de pincel"
       },
+      "cloneHeal": {
+        "cloneTooltip": "Copia el origen exactamente, incluido su brillo y color",
+        "dragSource": "Arrastra para mover el origen",
+        "healTooltip": "Copia la textura del origen y la adapta al brillo y color del entorno",
+        "hintActive": "Arrastra el contorno del origen para elegir de dónde provienen los píxeles. Cada trazo nuevo se convierte en una zona propia. Mantén Mayús para añadir a esta.",
+        "hintEmpty": "Pinta sobre una mancha, un cable o una distracción. Se encuentra automáticamente un origen adecuado.",
+        "mode": "Modo",
+        "newSource": "Buscar otro origen"
+      },
       "comingSoon": "Próximamente",
       "connection": {
         "backendLabel": "Backend de IA:",
@@ -835,8 +844,7 @@
       "toggleAnalyticsTooltip": "Alternar vista de análisis",
       "tooltips": {
         "addToCurrent": "Añadir {{name}} a la máscara actual o crear nueva (Clic derecho)",
-        "createNew": "Crear nueva máscara {{name}}",
-        "selectNewSourcePoint": "{{modifier}} + Clic para seleccionar un nuevo punto de origen"
+        "createNew": "Crear nueva máscara {{name}}"
       }
     },
     "metadata": {

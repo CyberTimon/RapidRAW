@@ -73,14 +73,18 @@ export function useAiMasking() {
   );
 
   const handleDirectPatch = useCallback(
-    async (subMaskId: string, sourceX: number, sourceY: number) => {
+    async (subMaskId: string, source: Coord | null = null, sourceVariant: number = 0) => {
       const { selectedImage, adjustments, patchesSentToBackend } = useEditorStore.getState();
       if (!selectedImage?.path) return;
 
-      const patchId = adjustments.aiPatches?.find((p: AiPatch) =>
+      const patchDefinitionForBackend = adjustments.aiPatches?.find((p: AiPatch) =>
         p.subMasks.some((sm: SubMask) => sm.id === subMaskId),
-      )?.id;
-      if (!patchId) return;
+      );
+      if (!patchDefinitionForBackend) return;
+      const patchId = patchDefinitionForBackend.id;
+      const previousParameters = patchDefinitionForBackend.subMasks.find(
+        (sm: SubMask) => sm.id === subMaskId,
+      )?.parameters;
 
       patchesSentToBackend.add(patchId);
       setAdjustments((prev: Partial<Adjustments>) => ({
@@ -89,9 +93,8 @@ export function useAiMasking() {
       }));
 
       try {
-        const patchDefinitionForBackend = adjustments.aiPatches?.find((p: AiPatch) => p.id === patchId);
-        const isLiquify = patchDefinitionForBackend?.subMasks.some((sm: SubMask) => sm.type === 'liquify');
-        const isRetouch = patchDefinitionForBackend?.subMasks.some((sm: SubMask) => sm.type === 'retouch');
+        const isLiquify = patchDefinitionForBackend.subMasks.some((sm: SubMask) => sm.type === 'liquify');
+        const isRetouch = patchDefinitionForBackend.subMasks.some((sm: SubMask) => sm.type === 'retouch');
         const command = isLiquify
           ? 'generate_liquify_patch'
           : isRetouch
@@ -101,16 +104,34 @@ export function useAiMasking() {
         const newPatchDataJson: any = await invoke(command, {
           currentAdjustments: adjustments,
           patchDefinition: patchDefinitionForBackend,
-          sourcePoint: [sourceX, sourceY],
+          sourcePoint: source ? [source.x, source.y] : null,
+          sourceVariant,
         });
 
-        const newPatchData = JSON.parse(newPatchDataJson);
+        const { sourceX, sourceY, ...newPatchData } = JSON.parse(newPatchDataJson);
         patchesSentToBackend.delete(patchId);
+
+        const adoptPickedSource = (sm: SubMask) =>
+          sourceX !== undefined &&
+          sm.id === subMaskId &&
+          sm.parameters?.sourceX === previousParameters?.sourceX &&
+          sm.parameters?.sourceY === previousParameters?.sourceY;
 
         setAdjustments((prev: Partial<Adjustments>) => ({
           ...prev,
           aiPatches: prev.aiPatches?.map((p: AiPatch) =>
-            p.id === patchId ? { ...p, patchData: newPatchData, isLoading: false } : p,
+            p.id === patchId
+              ? {
+                  ...p,
+                  patchData: newPatchData,
+                  isLoading: false,
+                  subMasks: p.subMasks.map((sm: SubMask) =>
+                    adoptPickedSource(sm)
+                      ? { ...sm, parameters: { ...sm.parameters, sourceX, sourceY, sourceVariant } }
+                      : sm,
+                  ),
+                }
+              : p,
           ),
         }));
       } catch (err: any) {
