@@ -11,7 +11,7 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { useTranslation } from 'react-i18next';
-import { PresetListType, usePresets, UserPreset } from '../../../hooks/usePresets';
+import { PresetImportFailure, PresetListType, usePresets, UserPreset } from '../../../hooks/usePresets';
 import { useContextMenu } from '../../../context/ContextMenuContext';
 import {
   CopyPlus,
@@ -41,11 +41,12 @@ import Button from '../../ui/Button';
 import Text from '../../ui/Text';
 import Slider from '../../ui/Slider';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
-import { Adjustments, INITIAL_ADJUSTMENTS, ADJUSTMENT_GROUPS } from '../../../utils/adjustments';
+import { Adjustments, INITIAL_ADJUSTMENTS, ADJUSTMENT_GROUPS, MaskContainer } from '../../../utils/adjustments';
+import { hasAiSubMasks, mergeAiMaskResults, stripAiMaskResults } from '../../../utils/maskUtils';
 import { Invokes, OPTION_SEPARATOR, Panel, Preset, SelectedImage } from '../../ui/AppProperties';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useUIStore } from '../../../store/useUIStore';
-import { useEditorActions } from '../../../hooks/useEditorActions';
+import { debouncedSave, useEditorActions } from '../../../hooks/useEditorActions';
 
 interface DroppableFolderItemProps {
   children: any;
@@ -95,6 +96,65 @@ interface PresetsPanelProps {
   onNavigateToCommunity(): void;
 }
 
+interface ImageLayer {
+  id: string;
+  url: string;
+  opacity: number;
+}
+
+function PreviewImage({ src, alt }: { src: string; alt: string }) {
+  const [layers, setLayers] = useState<ImageLayer[]>([]);
+
+  useEffect(() => {
+    if (!src) {
+      setLayers([]);
+      return;
+    }
+
+    setLayers((prev) => {
+      if (prev.some((l) => l.id === src)) return prev;
+
+      return [...prev, { id: src, url: src, opacity: 0 }];
+    });
+  }, [src]);
+
+  useEffect(() => {
+    const layerToFadeIn = layers.find((l) => l.opacity === 0);
+    if (layerToFadeIn) {
+      const frame = requestAnimationFrame(() => {
+        setLayers((prev) => prev.map((l) => (l.id === layerToFadeIn.id ? { ...l, opacity: 1 } : l)));
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+  }, [layers]);
+
+  const handleTransitionEnd = useCallback((finishedId: string) => {
+    setLayers((prev) => {
+      const finishedIndex = prev.findIndex((l) => l.id === finishedId);
+      if (finishedIndex < 0 || prev.length <= 1) return prev;
+      return prev.slice(finishedIndex);
+    });
+  }, []);
+
+  return (
+    <div className="absolute inset-0 w-full h-full overflow-hidden rounded-md">
+      {layers.map((layer) => (
+        <div
+          key={layer.id}
+          className="absolute inset-0 w-full h-full"
+          style={{
+            opacity: layer.opacity,
+            transition: 'opacity 300ms ease-in-out',
+          }}
+          onTransitionEnd={() => handleTransitionEnd(layer.id)}
+        >
+          <img src={layer.url} alt={alt} className="w-full h-full object-cover rounded-md pointer-events-none" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const itemVariants = {
   hidden: { opacity: 0, x: -15 },
   visible: (i: number) => ({
@@ -129,7 +189,6 @@ const mixAdjustments = (presetObj: any, intensity: number, initialObj: any = INI
   const fraction = intensity / 100;
 
   if (fraction === 1) return { ...presetObj };
-  if (fraction === 0) return { ...initialObj };
 
   const result: any = {};
   const keys = Object.keys(presetObj);
@@ -139,7 +198,9 @@ const mixAdjustments = (presetObj: any, intensity: number, initialObj: any = INI
     const presetVal = presetObj[key];
     const initialVal = initialObj[key] !== undefined ? initialObj[key] : (INITIAL_ADJUSTMENTS as any)[key];
 
-    if (typeof presetVal === 'number') {
+    if (fraction === 0) {
+      result[key] = initialVal;
+    } else if (typeof presetVal === 'number') {
       result[key] = typeof initialVal === 'number' ? initialVal + (presetVal - initialVal) * fraction : presetVal;
     } else if (Array.isArray(presetVal)) {
       if (!Array.isArray(initialVal)) {
@@ -230,14 +291,8 @@ function PresetItemDisplay({
           className="w-20 h-14 bg-bg-tertiary rounded-md flex items-center justify-center shrink-0 relative overflow-hidden"
           data-tooltip={tooltipContent}
         >
-          {isGeneratingPreviews && !previewUrl ? (
-            <Loader2 size={20} className="animate-spin text-text-secondary" />
-          ) : previewUrl ? (
-            <img
-              src={previewUrl}
-              alt={`${preset.name} preview`}
-              className="w-full h-full object-cover rounded-md pointer-events-none"
-            />
+          {previewUrl ? (
+            <PreviewImage src={previewUrl} alt={`${preset.name} preview`} />
           ) : (
             <Loader2 size={20} className="animate-spin text-text-secondary" />
           )}
@@ -461,7 +516,7 @@ function DroppableFolderItem({ folder, onContextMenu, children, onToggle, isExpa
         {isExpanded && hasChildren && (
           <motion.div
             animate={{ height: 'auto', opacity: 1 }}
-            className="ml-5 pl-4 border-l-[1.5px] border-border-color/50 space-y-2 overflow-hidden pt-2"
+            className="ml-4 pl-2 border-l-[1.5px] border-border-color/50 space-y-2 overflow-hidden pt-2"
             exit={{ height: 0, opacity: 0 }}
             initial={{ height: 0, opacity: 0 }}
           >
@@ -473,11 +528,30 @@ function DroppableFolderItem({ folder, onContextMenu, children, onToggle, isExpa
   );
 }
 
+function RootDroppableArea({
+  children,
+  onContextMenu,
+}: {
+  children: React.ReactNode;
+  onContextMenu: (e: any) => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: 'root' });
+
+  return (
+    <div
+      className={`grow overflow-y-auto p-3 space-y-2 rounded-lg transition-colors ${isOver ? 'bg-surface-hover' : ''}`}
+      onContextMenu={onContextMenu}
+      ref={setNodeRef}
+    >
+      {children}
+    </div>
+  );
+}
+
 export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProps) {
   const { t } = useTranslation();
   const selectedImage = useEditorStore((s) => s.selectedImage);
   const adjustments = useEditorStore((s) => s.adjustments);
-  const activePanel = useUIStore((s) => s.activeRightPanel);
   const setEditor = useEditorStore((s) => s.setEditor);
   const { setAdjustments } = useEditorActions();
 
@@ -488,8 +562,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     deleteItem,
     duplicatePreset,
     exportPresetsToFile,
-    importPresetsFromFile,
-    importLegacyPresetsFromFile,
+    importPresetsFromFiles,
     isLoading,
     movePreset,
     overwritePreset,
@@ -520,6 +593,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   const previewQueue = useRef<Array<any>>([]);
   const isProcessingQueue = useRef(false);
   const currentImagePathRef = useRef<string | null>(selectedImage?.path || null);
+  const hiddenPresetMasks = useRef<Array<MaskContainer> | null>(null);
 
   const handleDragStateChange = useCallback(
     (isDragging: boolean) => {
@@ -576,8 +650,6 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     }),
   );
 
-  const { setNodeRef: setRootNodeRef, isOver: isRootOver } = useDroppable({ id: 'root' });
-
   const allItemsMap = useMemo(() => {
     const map = new Map();
     presets.forEach((item: any) => {
@@ -617,13 +689,8 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     isProcessingQueue.current = true;
     setIsGeneratingPreviews(true);
 
-    const pathAtStart = currentImagePathRef.current;
-
     while (previewQueue.current.length > 0) {
-      if (pathAtStart !== currentImagePathRef.current) {
-        previewQueue.current = [];
-        break;
-      }
+      const itemPath = currentImagePathRef.current;
 
       const item = previewQueue.current.shift();
       if (!item) break;
@@ -643,9 +710,8 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
           jsAdjustments: fullPresetAdjustments,
         });
 
-        if (pathAtStart !== currentImagePathRef.current) {
-          previewQueue.current = [];
-          break;
+        if (itemPath !== currentImagePathRef.current) {
+          continue;
         }
 
         const blob = new Blob([new Uint8Array(imageData)], { type: 'image/jpeg' });
@@ -658,8 +724,17 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
           return { ...prev, [preset.id]: url };
         });
       } catch (error) {
+        const errStr = String(error);
+        if (errStr.includes('No original image loaded') || errStr.includes('cancelled')) {
+          if (itemPath !== currentImagePathRef.current) {
+            continue;
+          }
+          previewQueue.current = [];
+          break;
+        }
+
         console.error(`Failed to generate preview for preset ${preset.name}:`, error);
-        if (pathAtStart === currentImagePathRef.current) {
+        if (itemPath === currentImagePathRef.current) {
           setPreviews((prev: Record<string, string | null>) => ({ ...prev, [preset.id]: null }));
         }
       }
@@ -725,9 +800,12 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
           return { ...prev, [preset.id]: url };
         });
       } catch (error) {
-        console.error(`Failed to generate preview for preset ${preset.name}:`, error);
-        if (pathAtStart === currentImagePathRef.current) {
-          setPreviews((prev: Record<string, string | null>) => ({ ...prev, [preset.id]: null }));
+        const errStr = String(error);
+        if (!errStr.includes('No original image loaded') && !errStr.includes('cancelled')) {
+          console.error(`Failed to generate preview for preset ${preset.name}:`, error);
+          if (pathAtStart === currentImagePathRef.current) {
+            setPreviews((prev: Record<string, string | null>) => ({ ...prev, [preset.id]: null }));
+          }
         }
       } finally {
         if (pathAtStart === currentImagePathRef.current) {
@@ -795,14 +873,13 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
       }
     }
 
-    if (activePanel === Panel.Presets && selectedImage?.isReady && presets.length > 0) {
+    if (selectedImage?.isReady && presets.length > 0) {
       generateRootPreviews();
       expandedFolders.forEach((folderId: string) => {
         generateFolderPreviews(folderId);
       });
     }
   }, [
-    activePanel,
     selectedImage?.isReady,
     selectedImage?.path,
     presets.length,
@@ -811,7 +888,31 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     expandedFolders,
   ]);
 
+  const resolvePresetAiMasks = useCallback(
+    (presetMasks: Array<MaskContainer>) => {
+      const path = useEditorStore.getState().selectedImage?.path;
+      if (!path) return;
+
+      debouncedSave.flush();
+      invoke(Invokes.ApplyAdjustmentsToPaths, { paths: [path], adjustments: { masks: presetMasks } })
+        .then(() => invoke<any>(Invokes.LoadMetadata, { path }))
+        .then((meta) => {
+          if (!meta?.adjustments?.masks || useEditorStore.getState().selectedImage?.path !== path) return;
+          setEditor((state) => ({
+            adjustments: {
+              ...state.adjustments,
+              masks: mergeAiMaskResults(state.adjustments.masks || [], meta.adjustments.masks),
+            },
+          }));
+        })
+        .catch((err) => console.error('Failed to resolve preset AI masks:', err));
+    },
+    [setEditor],
+  );
+
   const handleApplyPreset = (preset: Preset) => {
+    hiddenPresetMasks.current = null;
+
     if (activePresetId === preset.id) {
       setActivePresetId(null);
       if (baseAdjustments) {
@@ -825,22 +926,49 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     setActivePresetId(preset.id);
     setPresetIntensity(100);
 
-    setAdjustments((prevAdjustments: Adjustments) => ({
-      ...prevAdjustments,
-      ...preset.adjustments,
-    }));
+    const presetMasks = preset.adjustments.masks || [];
+    const hasAiMasks = hasAiSubMasks(presetMasks);
+    if (hasAiMasks) {
+      resolvePresetAiMasks(presetMasks);
+    }
+
+    setAdjustments(
+      (prevAdjustments: Adjustments) => ({
+        ...prevAdjustments,
+        ...preset.adjustments,
+        ...(hasAiMasks ? { masks: stripAiMaskResults(presetMasks) } : {}),
+      }),
+      `${t('editor.presets.types.preset')}: ${preset.name}`,
+    );
   };
 
   const handleIntensityChange = useCallback(
     (preset: Preset, intensity: number) => {
       setPresetIntensity(intensity);
-      const mixed = mixAdjustments(preset.adjustments, intensity);
+      const { masks: presetMasks, ...presetAdjustments } = preset.adjustments;
+      const mixed = mixAdjustments(presetAdjustments, intensity);
+
+      if (presetMasks !== undefined) {
+        const currentMasks = useEditorStore.getState().adjustments.masks;
+        if (intensity === 0) {
+          if (currentMasks?.length) hiddenPresetMasks.current = currentMasks;
+          mixed.masks = INITIAL_ADJUSTMENTS.masks;
+        } else if (hiddenPresetMasks.current || !currentMasks?.length) {
+          const restoredMasks = hiddenPresetMasks.current || stripAiMaskResults(presetMasks);
+          hiddenPresetMasks.current = null;
+          if (hasAiSubMasks(restoredMasks, true)) {
+            resolvePresetAiMasks(presetMasks);
+          }
+          mixed.masks = restoredMasks;
+        }
+      }
+
       setAdjustments((prev: Adjustments) => ({
         ...prev,
         ...mixed,
       }));
     },
-    [setAdjustments],
+    [setAdjustments, resolvePresetAiMasks],
   );
 
   const handleSaveConfiguredPreset = async (
@@ -959,29 +1087,33 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
 
   const handleImportPresets = async () => {
     try {
-      const selectedPath = await openDialog({
+      const selectedPaths = await openDialog({
         filters: [
           { name: t('editor.presets.dialog.allPresetFiles'), extensions: ['rrpreset', 'xmp', 'lrtemplate'] },
           { name: t('editor.presets.dialog.rapidRawPreset'), extensions: ['rrpreset'] },
           { name: t('editor.presets.dialog.legacyPreset'), extensions: ['xmp', 'lrtemplate'] },
         ],
-        multiple: false,
+        multiple: true,
         title: t('editor.presets.dialog.importPresetsTitle'),
       });
 
-      if (typeof selectedPath === 'string') {
-        const isLegacy =
-          selectedPath.toLowerCase().endsWith('.xmp') || selectedPath.toLowerCase().endsWith('.lrtemplate');
-
-        if (isLegacy) {
-          await importLegacyPresetsFromFile(selectedPath);
-        } else {
-          await importPresetsFromFile(selectedPath);
-        }
-
-        setFolderPreviewsGenerated(new Set<string>());
-        setPreviews({});
+      if (!selectedPaths) {
+        return;
       }
+
+      const paths = Array.isArray(selectedPaths) ? selectedPaths : [selectedPaths];
+      if (paths.length === 0) {
+        return;
+      }
+
+      const { failures } = await importPresetsFromFiles(paths);
+
+      setFolderPreviewsGenerated(new Set<string>());
+      setPreviews({});
+
+      failures.forEach((failure: PresetImportFailure) =>
+        console.error(`Failed to import ${failure.fileName}: ${failure.error}`),
+      );
     } catch (error) {
       console.error('Failed to import presets:', error);
     }
@@ -1133,9 +1265,9 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   const rootPresets = useMemo(() => presets.filter((item: UserPreset) => item.preset), [presets]);
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext id="presets-panel-dnd" sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="flex flex-col h-full">
-        <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
+        <div className="p-3 flex justify-between items-center shrink-0 border-b border-surface">
           <Text variant={TextVariants.title}>{t('editor.presets.title')}</Text>
           <div className="flex items-center gap-1">
             <button
@@ -1172,14 +1304,19 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
           </div>
         </div>
 
-        <div
-          className={`grow overflow-y-auto p-4 space-y-2 rounded-lg transition-colors ${
-            isRootOver ? 'bg-surface-hover' : ''
-          }`}
-          onContextMenu={handleBackgroundContextMenu}
-          ref={setRootNodeRef}
-        >
-          {isLoading && presets.length === 0 && (
+        <RootDroppableArea onContextMenu={handleBackgroundContextMenu}>
+          {!selectedImage ? (
+            <div className="flex items-center justify-center h-full">
+              <Text
+                variant={TextVariants.heading}
+                color={TextColors.secondary}
+                weight={TextWeights.normal}
+                className="text-center"
+              >
+                {t('editor.ai.noImageSelected')}
+              </Text>
+            </div>
+          ) : isLoading && presets.length === 0 ? (
             <Text
               as="div"
               variant={TextVariants.heading}
@@ -1189,8 +1326,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
             >
               <Loader2 size={14} className="animate-spin inline-block mr-2" /> {t('editor.presets.status.loading')}
             </Text>
-          )}
-          {!isLoading && presets.length === 0 ? (
+          ) : !isLoading && presets.length === 0 ? (
             <div className="text-center text-text-secondary flex flex-col items-center gap-4 pt-4">
               <Text className="max-w-xs">{t('editor.presets.status.empty')}</Text>
               <Button variant="secondary" onClick={onNavigateToCommunity}>
@@ -1274,7 +1410,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
               </AnimatePresence>
             </>
           )}
-        </div>
+        </RootDroppableArea>
 
         <ConfigurePresetModal
           isOpen={configureModalState.isOpen}

@@ -350,6 +350,13 @@
         <cropfactor>2.70</cropfactor>
     </camera>
 
+    <camera>
+        <maker>Sony</maker>
+        <model>ZV-1A</model>
+        <mount>sonyZV1</mount>
+        <cropfactor>2.70</cropfactor>
+    </camera>
+
     <lens>
         <maker>Carl Zeiss</maker>
         <model>DSC-R1 &amp; compatibles (Standard)</model>

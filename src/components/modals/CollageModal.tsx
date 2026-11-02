@@ -29,7 +29,7 @@ interface CollageModalProps {
   onClose(): void;
   onSave(base64Data: string, firstPath: string): Promise<string>;
   sourceImages: Array<Pick<ImageFile, 'path'>>;
-  thumbnails: Record<string, string>;
+  thumbnails?: Record<string, string>;
 }
 
 interface LoadedImage {

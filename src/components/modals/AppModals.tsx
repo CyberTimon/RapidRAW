@@ -1,17 +1,13 @@
 import { useShallow } from 'zustand/react/shallow';
-import { invoke } from '@tauri-apps/api/core';
-import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useProcessStore } from '../../store/useProcessStore';
-import { useEditorStore } from '../../store/useEditorStore';
 import CopyPasteSettingsModal from './CopyPasteSettingsModal';
 import PanoramaModal from './PanoramaModal';
 import HdrModal from './HdrModal';
-import NegativeConversionModal from './NegativeConversionModal';
-import DenoiseModal from './DenoiseModal';
+import FocusStackModal from './FocusStackModal';
 import CreateFolderModal from './CreateFolderModal';
 import RenameFolderModal from './RenameFolderModal';
 import RenameFileModal from './RenameFileModal';
@@ -19,7 +15,7 @@ import ConfirmModal from './ConfirmModal';
 import ImportSettingsModal from './ImportSettingsModal';
 import CullingModal from './CullingModal';
 import CollageModal from './CollageModal';
-import { AppSettings, Invokes, AlbumItem, Album, AlbumGroup } from '../ui/AppProperties';
+import { AppSettings, Invokes, ImageFlag, AlbumItem, Album, AlbumGroup } from '../ui/AppProperties';
 import { CopyPasteSettings } from '../../utils/adjustments';
 
 export interface AppModalsProps {
@@ -28,15 +24,13 @@ export interface AppModalsProps {
   handleStartPanorama: (paths: string[]) => void;
   handleSaveHdr: () => Promise<string>;
   handleStartHdr: (paths: string[]) => void;
-  refreshImageList: () => Promise<void>;
-  handleApplyDenoise: (intensity: number, method: 'ai' | 'bm3d') => Promise<void>;
-  handleBatchDenoise: (intensity: number, method: 'ai' | 'bm3d', paths: string[]) => Promise<string[]>;
-  handleSaveDenoisedImage: () => Promise<string>;
+  handleStartFocusStack: (paths: string[]) => void;
+  handleSaveFocusStack: () => Promise<string>;
   handleCreateFolder: (folderName: string) => Promise<void>;
   handleRenameFolder: (newName: string) => Promise<void>;
   handleSaveRename: (nameTemplate: string) => Promise<void>;
   handleStartImport: (settings: any) => Promise<void>;
-  handleSetColorLabel: (color: string | null, paths?: string[]) => Promise<void>;
+  handleSetFlag: (flag: ImageFlag | null, paths?: string[]) => void;
   handleRate: (rating: number, paths?: string[]) => void;
   executeDelete: (paths: string[], options: any) => Promise<void>;
   handleSaveCollage: (base64Data: string, firstPath: string) => Promise<string>;
@@ -69,8 +63,7 @@ export default function AppModals(props: AppModalsProps) {
     confirmModalState,
     panoramaModalState,
     hdrModalState,
-    negativeModalState,
-    denoiseModalState,
+    focusStackModalState,
     cullingModalState,
     collageModalState,
     setUI,
@@ -91,25 +84,23 @@ export default function AppModals(props: AppModalsProps) {
       confirmModalState: state.confirmModalState,
       panoramaModalState: state.panoramaModalState,
       hdrModalState: state.hdrModalState,
-      negativeModalState: state.negativeModalState,
-      denoiseModalState: state.denoiseModalState,
+      focusStackModalState: state.focusStackModalState,
       cullingModalState: state.cullingModalState,
       collageModalState: state.collageModalState,
       setUI: state.setUI,
     })),
   );
 
-  const { thumbnails, aiModelDownloadStatus } = useProcessStore(
-    useShallow((state) => ({
-      thumbnails: state.thumbnails,
-      aiModelDownloadStatus: state.aiModelDownloadStatus,
-    })),
-  );
+  const middlePath = (paths: string[]) => (paths.length > 0 ? paths[Math.floor(paths.length / 2)] : null);
+  const panoramaLoadingPath = middlePath(panoramaModalState.stitchingSourcePaths);
+  const hdrLoadingPath = middlePath(hdrModalState.stitchingSourcePaths);
+  const focusStackLoadingPath = middlePath(focusStackModalState.sourcePaths);
 
-  const { selectedImage, finalPreviewUrl } = useEditorStore(
+  const { panoramaThumbnail, hdrThumbnail, focusStackThumbnail } = useProcessStore(
     useShallow((state) => ({
-      selectedImage: state.selectedImage,
-      finalPreviewUrl: state.finalPreviewUrl,
+      panoramaThumbnail: panoramaLoadingPath ? state.thumbnails[panoramaLoadingPath] : undefined,
+      hdrThumbnail: hdrLoadingPath ? state.thumbnails[hdrLoadingPath] : undefined,
+      focusStackThumbnail: focusStackLoadingPath ? state.thumbnails[focusStackLoadingPath] : undefined,
     })),
   );
 
@@ -152,13 +143,7 @@ export default function AppModals(props: AppModalsProps) {
         imageCount={panoramaModalState.stitchingSourcePaths.length}
         isOpen={panoramaModalState.isOpen}
         isProcessing={panoramaModalState.isProcessing}
-        loadingImageUrl={
-          panoramaModalState.stitchingSourcePaths.length > 0
-            ? thumbnails[
-                panoramaModalState.stitchingSourcePaths[Math.floor(panoramaModalState.stitchingSourcePaths.length / 2)]
-              ] || null
-            : null
-        }
+        loadingImageUrl={panoramaModalState.stitchingSourcePaths.length > 0 ? panoramaThumbnail || null : null}
         onClose={() =>
           setUI({
             panoramaModalState: {
@@ -182,13 +167,7 @@ export default function AppModals(props: AppModalsProps) {
         imageCount={hdrModalState.stitchingSourcePaths.length}
         isOpen={hdrModalState.isOpen}
         isProcessing={hdrModalState.isProcessing}
-        loadingImageUrl={
-          hdrModalState.stitchingSourcePaths.length > 0
-            ? thumbnails[
-                hdrModalState.stitchingSourcePaths[Math.floor(hdrModalState.stitchingSourcePaths.length / 2)]
-              ] || null
-            : null
-        }
+        loadingImageUrl={hdrModalState.stitchingSourcePaths.length > 0 ? hdrThumbnail || null : null}
         onClose={() =>
           setUI({
             hdrModalState: {
@@ -206,39 +185,31 @@ export default function AppModals(props: AppModalsProps) {
         onMerge={() => props.handleStartHdr(hdrModalState.stitchingSourcePaths)}
         progressMessage={hdrModalState.progressMessage}
       />
-      <NegativeConversionModal
-        isOpen={negativeModalState.isOpen}
-        onClose={() => setUI((state) => ({ negativeModalState: { ...state.negativeModalState, isOpen: false } }))}
-        targetPaths={negativeModalState.targetPaths}
-        onSave={(savedPaths) => {
-          props.refreshImageList().then(() => {
-            if (selectedImage && negativeModalState.targetPaths.includes(selectedImage.path) && savedPaths.length > 0) {
-              props.handleImageSelect(savedPaths[0]);
-            }
-          });
-        }}
-      />
-      <DenoiseModal
-        isOpen={denoiseModalState.isOpen}
-        onClose={() => setUI((state) => ({ denoiseModalState: { ...state.denoiseModalState, isOpen: false } }))}
-        onDenoise={props.handleApplyDenoise}
-        onBatchDenoise={props.handleBatchDenoise}
-        onSave={props.handleSaveDenoisedImage}
-        onOpenFile={props.handleImageSelect}
-        previewBase64={denoiseModalState.previewBase64}
-        originalBase64={denoiseModalState.originalBase64 || null}
-        isProcessing={denoiseModalState.isProcessing}
-        error={denoiseModalState.error}
-        progressMessage={denoiseModalState.progressMessage}
-        aiModelDownloadStatus={aiModelDownloadStatus}
-        isRaw={denoiseModalState.isRaw}
-        targetPaths={denoiseModalState.targetPaths}
-        loadingImageUrl={
-          denoiseModalState.targetPaths.length > 0
-            ? thumbnails[denoiseModalState.targetPaths[0]] ||
-              (selectedImage?.path === denoiseModalState.targetPaths[0] ? finalPreviewUrl : null)
-            : null
+      <FocusStackModal
+        error={focusStackModalState.error}
+        finalImageBase64={focusStackModalState.finalImageBase64}
+        imageCount={focusStackModalState.sourcePaths.length}
+        isOpen={focusStackModalState.isOpen}
+        isProcessing={focusStackModalState.isProcessing}
+        loadingImageUrl={focusStackModalState.sourcePaths.length > 0 ? focusStackThumbnail || null : null}
+        depthMapBase64={focusStackModalState.depthMapBase64}
+        onClose={() =>
+          setUI({
+            focusStackModalState: {
+              isOpen: false,
+              isProcessing: false,
+              progressMessage: '',
+              finalImageBase64: null,
+              depthMapBase64: null,
+              error: null,
+              sourcePaths: [],
+            },
+          })
         }
+        onOpenFile={(path: string) => props.handleImageSelect(path)}
+        onSave={props.handleSaveFocusStack}
+        onMerge={() => props.handleStartFocusStack(focusStackModalState.sourcePaths)}
+        progressMessage={focusStackModalState.progressMessage}
       />
       <CreateFolderModal
         isOpen={isCreateFolderModalOpen}
@@ -299,10 +270,9 @@ export default function AppModals(props: AppModalsProps) {
         suggestions={cullingModalState.suggestions}
         error={cullingModalState.error}
         imagePaths={cullingModalState.pathsToCull}
-        thumbnails={thumbnails}
         onApply={(action, paths) => {
           if (action === 'reject') {
-            props.handleSetColorLabel('red', paths);
+            props.handleSetFlag(ImageFlag.Reject, paths);
           } else if (action === 'rate_zero') {
             props.handleRate(1, paths);
           } else if (action === 'delete') {
@@ -321,7 +291,6 @@ export default function AppModals(props: AppModalsProps) {
         onClose={() => setUI({ collageModalState: { isOpen: false, sourceImages: [] } })}
         onSave={props.handleSaveCollage}
         sourceImages={collageModalState.sourceImages}
-        thumbnails={thumbnails}
       />
     </>
   );

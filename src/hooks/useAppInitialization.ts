@@ -2,18 +2,19 @@ import { useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useShallow } from 'zustand/react/shallow';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { useUIStore } from '../store/useUIStore';
+import { useUIStore, reconcileWorkspace } from '../store/useUIStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useEditorStore } from '../store/useEditorStore';
 import { useProcessStore } from '../store/useProcessStore';
 import { THEMES, DEFAULT_THEME_ID, ThemeProps } from '../utils/themes';
-import { COPYABLE_ADJUSTMENT_KEYS } from '../utils/adjustments';
+import { COPYABLE_ADJUSTMENT_KEYS, withAdjustmentLayout } from '../utils/adjustments';
 import {
   FilterCriteria,
   Invokes,
   LibraryViewMode,
   RawStatus,
   EditedStatus,
+  FlagStatus,
   Theme,
   ThumbnailSize,
   ThumbnailAspectRatio,
@@ -80,10 +81,23 @@ export const useAppInitialization = ({
     })),
   );
 
-  const { uiVisibility, setUI } = useUIStore(
+  const { uiVisibility, collapsibleSectionsState, setUI } = useUIStore(
     useShallow((state) => ({
       uiVisibility: state.uiVisibility,
+      collapsibleSectionsState: state.collapsibleSectionsState,
       setUI: state.setUI,
+    })),
+  );
+
+  const workspaceProps = useUIStore(
+    useShallow((state) => ({
+      leftPanelWidth: state.leftPanelWidth,
+      rightPanelWidth: state.rightPanelWidth,
+      leftTopHeight: state.leftTopHeight,
+      rightTopHeight: state.rightTopHeight,
+      panelLayout: state.panelLayout,
+      activePanels: state.activePanels,
+      panelSwitcherPlacement: state.panelSwitcherPlacement,
     })),
   );
 
@@ -133,8 +147,8 @@ export const useAppInitialization = ({
   }, [setSupportedTypes]);
 
   useEffect(() => {
-    invoke(Invokes.LoadSettings)
-      .then(async (settings: any) => {
+    Promise.all([invoke(Invokes.LoadSettings), invoke<boolean>(Invokes.IsTetheringSupported).catch(() => false)])
+      .then(async ([settings, isTetheringSupported]: [any, boolean]) => {
         if (
           !settings.copyPasteSettings ||
           !settings.copyPasteSettings.includedAdjustments ||
@@ -148,7 +162,6 @@ export const useAppInitialization = ({
           handleSettingsChange(settings);
         }
 
-        // legacy
         const savedRawStatus = settings?.filterCriteria?.rawStatus as string | undefined;
         if (savedRawStatus === 'groupVariants' || savedRawStatus === 'rawOverNonRaw') {
           const legacyPref = settings?.groupPreferredType === 'jpeg' ? 'jpeg' : 'raw';
@@ -156,6 +169,9 @@ export const useAppInitialization = ({
           settings.filterCriteria = { ...settings.filterCriteria, rawStatus: 'all' };
           handleSettingsChange(settings);
         }
+
+        const reconciledWorkspace = reconcileWorkspace(settings?.workspace, isTetheringSupported);
+        settings.workspace = reconciledWorkspace;
 
         setAppSettings(settings);
         i18n.changeLanguage(settings.language);
@@ -168,14 +184,32 @@ export const useAppInitialization = ({
             ...settings.filterCriteria,
             rawStatus: settings.filterCriteria.rawStatus || RawStatus.All,
             editedStatus: settings.filterCriteria.editedStatus || EditedStatus.All,
+            flagStatus: settings.filterCriteria.flagStatus || FlagStatus.All,
             colors: settings.filterCriteria.colors || [],
           }));
         }
 
         if (settings?.theme) setTheme(settings.theme);
 
-        if (settings?.uiVisibility)
+        if (settings?.uiVisibility) {
           setUI((state) => ({ uiVisibility: { ...state.uiVisibility, ...settings.uiVisibility } }));
+        }
+
+        if (settings?.adjustmentLayout?.openSections) {
+          setUI((state) => ({
+            collapsibleSectionsState: { ...state.collapsibleSectionsState, ...settings.adjustmentLayout.openSections },
+          }));
+        }
+
+        setUI({
+          leftPanelWidth: reconciledWorkspace.leftPanelWidth,
+          rightPanelWidth: reconciledWorkspace.rightPanelWidth,
+          leftTopHeight: reconciledWorkspace.leftTopHeight,
+          rightTopHeight: reconciledWorkspace.rightTopHeight,
+          panelLayout: reconciledWorkspace.panelLayout,
+          activePanels: reconciledWorkspace.activePanels,
+          panelSwitcherPlacement: reconciledWorkspace.panelSwitcherPlacement,
+        });
 
         if (settings?.isWaveformVisible !== undefined) setEditor({ isWaveformVisible: settings.isWaveformVisible });
         if (settings?.activeWaveformChannel) setEditor({ activeWaveformChannel: settings.activeWaveformChannel });
@@ -272,10 +306,32 @@ export const useAppInitialization = ({
 
   useEffect(() => {
     if (isInitialMount.current || !appSettings) return;
+
+    const currentWorkspaceStr = JSON.stringify(appSettings.workspace || {});
+    const newWorkspaceStr = JSON.stringify(workspaceProps);
+
+    if (currentWorkspaceStr !== newWorkspaceStr) {
+      const timeoutId = setTimeout(() => {
+        handleSettingsChange({ ...appSettings, workspace: workspaceProps });
+      }, 500);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [workspaceProps, appSettings, handleSettingsChange]);
+
+  useEffect(() => {
+    if (isInitialMount.current || !appSettings) return;
     if (JSON.stringify(appSettings.uiVisibility) !== JSON.stringify(uiVisibility)) {
       handleSettingsChange({ ...appSettings, uiVisibility });
     }
   }, [uiVisibility, appSettings, handleSettingsChange]);
+
+  useEffect(() => {
+    if (isInitialMount.current || !appSettings) return;
+    if (JSON.stringify(appSettings.adjustmentLayout?.openSections) !== JSON.stringify(collapsibleSectionsState)) {
+      handleSettingsChange(withAdjustmentLayout(appSettings, { openSections: collapsibleSectionsState }));
+    }
+  }, [collapsibleSectionsState, appSettings, handleSettingsChange]);
 
   useEffect(() => {
     if (isInitialMount.current || !appSettings) return;
@@ -428,7 +484,7 @@ export const useAppInitialization = ({
       THEMES.find((t: ThemeProps) => t.id === DEFAULT_THEME_ID);
     if (!baseTheme) return;
 
-    let finalCssVariables: any = { ...baseTheme.cssVariables };
+    const finalCssVariables: any = { ...baseTheme.cssVariables };
 
     Object.entries(finalCssVariables).forEach(([key, value]) => {
       root.style.setProperty(key, value as string);

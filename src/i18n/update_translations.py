@@ -4,111 +4,228 @@ from pathlib import Path
 LOCALES_DIR = Path("./locales")
 
 TRANSLATIONS = {
+    "ca": {
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Connectant…",
+                            "retry": "Tornar a intentar la connexió",
+                            "unsupported": "L'inici de sessió al núvol actualment només està disponible a l'escriptori."
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "cs": {
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Připojování…",
+                            "retry": "Opakovat připojení",
+                            "unsupported": "Přihlášení do cloudu je momentálně k dispozici pouze na počítači."
+                        }
+                    }
+                }
+            }
+        }
+    },
     "de": {
         "settings": {
             "processing": {
-                "alwaysDecodeRaw": "RAW immer decodieren",
-                "alwaysDecodeRawDesc": "Erzwingt die vollständige RAW-Decodierung für Vorschaubilder, anstatt eingebettete JPEG-Vorschauen zu verwenden. Aktiviere diese Option, wenn sich die Vorschaubilder farblich oder im Kontrast vom geöffneten Bild unterscheiden.",
-                "alwaysDecodeRawLabel": "RAW für Vorschaubilder immer decodieren"
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Verbinden…",
+                            "retry": "Verbindung erneut versuchen",
+                            "unsupported": "Die Cloud-Anmeldung ist derzeit nur auf dem Desktop verfügbar."
+                        }
+                    }
+                }
             }
         }
     },
     "en": {
         "settings": {
             "processing": {
-                "alwaysDecodeRaw": "Always Decode RAW",
-                "alwaysDecodeRawDesc": "Force full RAW decoding for thumbnails instead of using embedded JPEG previews. Enable this if your thumbnails look different in color or contrast compared to the opened image.",
-                "alwaysDecodeRawLabel": "Always decode RAW for thumbnails"
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Connecting…",
+                            "retry": "Retry connection",
+                            "unsupported": "Cloud sign-in is currently only available on desktop."
+                        }
+                    }
+                }
             }
         }
     },
     "es": {
         "settings": {
             "processing": {
-                "alwaysDecodeRaw": "Decodificar RAW siempre",
-                "alwaysDecodeRawDesc": "Fuerza la decodificación RAW completa para las miniaturas en lugar de usar vistas previas JPEG incrustadas. Activa esta opción si las miniaturas tienen colores o contrastes diferentes a la imagen abierta.",
-                "alwaysDecodeRawLabel": "Decodificar RAW siempre para miniaturas"
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Conectando…",
+                            "retry": "Reintentar conexión",
+                            "unsupported": "El inicio de sesión en la nube actualmente solo está disponible en escritorio."
+                        }
+                    }
+                }
             }
         }
     },
     "fr": {
         "settings": {
             "processing": {
-                "alwaysDecodeRaw": "Toujours décoder le RAW",
-                "alwaysDecodeRawDesc": "Force le décodage RAW complet pour les miniatures au lieu d'utiliser les aperçus JPEG intégrés. Activez cette option si vos miniatures ont des couleurs ou des contrastes différents de l'image ouverte.",
-                "alwaysDecodeRawLabel": "Toujours décoder le RAW pour les miniatures"
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Connexion…",
+                            "retry": "Réessayer la connexion",
+                            "unsupported": "La connexion au cloud n'est actuellement disponible que sur ordinateur."
+                        }
+                    }
+                }
             }
         }
     },
     "it": {
         "settings": {
             "processing": {
-                "alwaysDecodeRaw": "Decodifica RAW sempre",
-                "alwaysDecodeRawDesc": "Forza la decodifica RAW completa per le miniature invece di usare le anteprime JPEG incorporate. Attiva questa opzione se i colori o il contrasto delle miniature sono diversi dall'immagine aperta.",
-                "alwaysDecodeRawLabel": "Decodifica RAW sempre per le miniature"
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Connessione in corso…",
+                            "retry": "Riprova connessione",
+                            "unsupported": "L'accesso al cloud è attualmente disponibile solo su desktop."
+                        }
+                    }
+                }
             }
         }
     },
     "ja": {
         "settings": {
             "processing": {
-                "alwaysDecodeRaw": "常にRAWをデコード",
-                "alwaysDecodeRawDesc": "埋め込まれたJPEGプレビューを使用する代わりに、サムネイルの完全なRAWデコードを強制します。サムネイルの色やコントラストが開いた画像と異なる場合に有効にしてください。",
-                "alwaysDecodeRawLabel": "サムネイル用に常にRAWをデコード"
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "接続中…",
+                            "retry": "接続を再試行",
+                            "unsupported": "クラウドへのサインインは現在、デスクトップでのみ利用可能です。"
+                        }
+                    }
+                }
             }
         }
     },
     "ko": {
         "settings": {
             "processing": {
-                "alwaysDecodeRaw": "항상 RAW 디코딩",
-                "alwaysDecodeRawDesc": "포함된 JPEG 미리보기를 사용하는 대신 썸네일에 대해 전체 RAW 디코딩을 강제합니다. 썸네일의 색상이나 대비가 열린 이미지와 다르게 보이는 경우 이 옵션을 활성화하세요.",
-                "alwaysDecodeRawLabel": "썸네일에 대해 항상 RAW 디코딩"
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "연결 중…",
+                            "retry": "연결 재시도",
+                            "unsupported": "클라우드 로그인은 현재 데스크톱에서만 사용할 수 있습니다."
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "nl": {
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Verbinden…",
+                            "retry": "Verbinding opnieuw proberen",
+                            "unsupported": "Aanmelden bij de cloud is momenteel alleen beschikbaar op desktop."
+                        }
+                    }
+                }
             }
         }
     },
     "pl": {
         "settings": {
             "processing": {
-                "alwaysDecodeRaw": "Zawsze dekoduj RAW",
-                "alwaysDecodeRawDesc": "Wymusza pełne dekodowanie RAW dla miniatur zamiast korzystania z osadzonych podglądów JPEG. Włącz tę opcję, jeśli miniatury różnią się kolorami lub kontrastem od otwartego obrazu.",
-                "alwaysDecodeRawLabel": "Zawsze dekoduj RAW dla miniatur"
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Łączenie…",
+                            "retry": "Ponów próbę połączenia",
+                            "unsupported": "Logowanie w chmurze jest obecnie dostępne tylko na komputerach."
+                        }
+                    }
+                }
             }
         }
     },
     "pt": {
         "settings": {
             "processing": {
-                "alwaysDecodeRaw": "Sempre decodificar RAW",
-                "alwaysDecodeRawDesc": "Força a decodificação RAW completa para miniaturas em vez de usar visualizações JPEG incorporadas. Ative esta opção se as suas miniaturas tiverem cores ou contrastes diferentes em comparação com a imagem aberta.",
-                "alwaysDecodeRawLabel": "Sempre decodificar RAW para miniaturas"
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Conectando…",
+                            "retry": "Tentar conexão novamente",
+                            "unsupported": "O login na nuvem está atualmente disponível apenas no desktop."
+                        }
+                    }
+                }
             }
         }
     },
     "ru": {
         "settings": {
             "processing": {
-                "alwaysDecodeRaw": "Всегда декодировать RAW",
-                "alwaysDecodeRawDesc": "Принудительно использовать полное декодирование RAW для миниатюр вместо встроенных превью JPEG. Включите эту опцию, если цвета или контрастность миниатюр отличаются от открытого изображения.",
-                "alwaysDecodeRawLabel": "Всегда декодировать RAW для миниатюр"
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Подключение…",
+                            "retry": "Повторить попытку подключения",
+                            "unsupported": "Вход в облако в настоящее время доступен только на ПК."
+                        }
+                    }
+                }
             }
         }
     },
     "zh-CN": {
         "settings": {
             "processing": {
-                "alwaysDecodeRaw": "始终解码 RAW",
-                "alwaysDecodeRawDesc": "强制对缩略图进行完整的 RAW 解码，而不是使用内置的 JPEG 预览。如果您的缩略图在颜色或对比度上与打开的图像不同，请启用此选项。",
-                "alwaysDecodeRawLabel": "始终为缩略图解码 RAW"
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "正在连接…",
+                            "retry": "重试连接",
+                            "unsupported": "云端登录目前仅在桌面设备上可用。"
+                        }
+                    }
+                }
             }
         }
     },
     "zh-TW": {
         "settings": {
             "processing": {
-                "alwaysDecodeRaw": "始終解碼 RAW",
-                "alwaysDecodeRawDesc": "強制對縮圖進行完整的 RAW 解碼，而不是使用內建的 JPEG 預覽。如果您的縮圖在顏色或對比度上與打開的影像不同，請啟用此選項。",
-                "alwaysDecodeRawLabel": "始終為縮圖解碼 RAW"
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "連線中…",
+                            "retry": "重試連線",
+                            "unsupported": "雲端登入目前僅在桌面裝置上可用。"
+                        }
+                    }
+                }
             }
         }
     }
@@ -144,6 +261,7 @@ def update_json_file(file_path: Path, trans: dict):
         return
 
     deep_merge(data, trans)
+
     sorted_data = sort_dict_recursively(data)
 
     with open(file_path, "w", encoding="utf-8") as f:
@@ -157,7 +275,7 @@ def main():
         print(f"Error: Locales directory '{LOCALES_DIR}' does not exist.")
         return
 
-    print("Starting thumbnail RAW decoding translation updates...")
+    print("Starting translation updates for Cloud Statuses...")
     for lang, trans in TRANSLATIONS.items():
         file_path = LOCALES_DIR / f"{lang}.json"
         update_json_file(file_path, trans)

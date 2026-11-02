@@ -50,6 +50,15 @@
     <camera>
         <maker>Leica Camera AG</maker>
         <maker lang="en">Leica</maker>
+        <model>Leica SL3-P</model>
+        <model lang="en">SL3-P</model>
+        <mount>Leica L</mount>
+        <cropfactor>1</cropfactor>
+    </camera>
+
+    <camera>
+        <maker>Leica Camera AG</maker>
+        <maker lang="en">Leica</maker>
         <model>Leica SL3-S</model>
         <model lang="en">SL3-S</model>
         <mount>Leica L</mount>

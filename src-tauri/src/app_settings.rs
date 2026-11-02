@@ -1,6 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
+use std::sync::{LazyLock, Mutex};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -18,12 +19,16 @@ pub struct SortCriteria {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct FilterCriteria {
-    pub rating: u8,
+    pub rating: i8,
     pub raw_status: String,
     #[serde(default)]
     pub edited_status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub flag_status: Option<String>,
     #[serde(default)]
     pub colors: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rating_operator: Option<String>,
 }
 
 impl Default for FilterCriteria {
@@ -32,7 +37,9 @@ impl Default for FilterCriteria {
             rating: 0,
             raw_status: "all".to_string(),
             edited_status: Some("all".to_string()),
+            flag_status: None,
             colors: Vec::new(),
+            rating_operator: None,
         }
     }
 }
@@ -73,6 +80,31 @@ pub struct MyLens {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct CustomAspectRatio {
+    pub width: f64,
+    pub height: f64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum EditInMode {
+    #[default]
+    Original,
+    Rendered,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct EditInApp {
+    pub name: String,
+    pub path: String,
+    #[serde(default)]
+    pub args: String,
+    #[serde(default)]
+    pub mode: EditInMode,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum PasteMode {
     Merge,
@@ -95,26 +127,47 @@ pub fn all_available_adjustments() -> HashSet<String> {
         "toneMapper",
         "temperature",
         "tint",
+        "whiteBalance",
         "saturation",
         "vibrance",
         "hsl",
         "hue",
         "colorGrading",
         "colorCalibration",
+        "monochromeEnabled",
+        "monochromeFilm",
+        "monochromeFilterHue",
+        "monochromeFilterStrength",
+        "monochromeMix",
+        "monochromeToning",
         "clarity",
         "structure",
         "dehaze",
         "sharpness",
         "sharpnessThreshold",
         "centré",
+        "centréX",
+        "centréY",
         "lumaNoiseReduction",
         "colorNoiseReduction",
+        "aiDenoiseEnabled",
+        "aiDenoiseMethod",
+        "aiDenoiseAmount",
+        "aiDenoiseDetail",
         "chromaticAberrationRedCyan",
         "chromaticAberrationBlueYellow",
+        "negativeConversionEnabled",
+        "negativeRedWeight",
+        "negativeGreenWeight",
+        "negativeBlueWeight",
+        "negativeExposure",
+        "negativeContrast",
         "vignetteAmount",
         "vignetteFeather",
         "vignetteMidpoint",
         "vignetteRoundness",
+        "vignetteCenterX",
+        "vignetteCenterY",
         "grainAmount",
         "grainRoughness",
         "grainSize",
@@ -123,9 +176,34 @@ pub fn all_available_adjustments() -> HashSet<String> {
         "lutPath",
         "lutSize",
         "lutData",
+        "lutIsSceneReferred",
         "glowAmount",
         "halationAmount",
         "flareAmount",
+        "lensBlurEnabled",
+        "lensBlurAmount",
+        "lensBlurDiffusion",
+        "lensBlurShape",
+        "lensBlurMinDepth",
+        "lensBlurMaxDepth",
+        "lensBlurMinFade",
+        "lensBlurMaxFade",
+        "fogEnabled",
+        "fogAmount",
+        "fogStart",
+        "fogDensity",
+        "fogHeight",
+        "fogVariation",
+        "fogGlow",
+        "fogTemperature",
+        "fogTint",
+        "relightEnabled",
+        "relightLights",
+        "relightAmbient",
+        "relightSoftness",
+        "relightShine",
+        "relightShadows",
+        "relightShadowSoftness",
         "crop",
         "aspectRatio",
         "rotation",
@@ -150,6 +228,7 @@ pub fn all_available_adjustments() -> HashSet<String> {
         "lensDistortionEnabled",
         "lensTcaEnabled",
         "lensVignetteEnabled",
+        "guidedPerspective",
     ]
     .iter()
     .map(|s| s.to_string())
@@ -184,6 +263,7 @@ pub fn default_included_adjustments() -> HashSet<String> {
         "lensDistortionEnabled",
         "lensTcaEnabled",
         "lensVignetteEnabled",
+        "guidedPerspective",
     ];
 
     for item in off_by_default.iter() {
@@ -241,7 +321,33 @@ pub struct ExportPreset {
     #[serde(default)]
     pub preserve_folders: Option<bool>,
     #[serde(default)]
+    pub enable_pad: Option<bool>,
+    #[serde(default)]
+    pub pad_ratio_width: Option<f32>,
+    #[serde(default)]
+    pub pad_ratio_height: Option<f32>,
+    #[serde(default)]
+    pub pad_color: Option<String>,
+    #[serde(default)]
+    pub enable_border: Option<bool>,
+    #[serde(default)]
+    pub border_basis: Option<String>,
+    #[serde(default)]
+    pub border_horizontal_percent: Option<f32>,
+    #[serde(default)]
+    pub border_vertical_percent: Option<f32>,
+    #[serde(default)]
+    pub border_color: Option<String>,
+    #[serde(default)]
     pub last_export_path: Option<String>,
+    #[serde(default)]
+    pub destination_type: Option<String>,
+    #[serde(default)]
+    pub subfolder: Option<String>,
+    #[serde(default)]
+    pub tiff_bit_depth: Option<u8>,
+    #[serde(default)]
+    pub preserve_timestamps: Option<bool>,
 }
 
 pub fn default_export_presets() -> Vec<ExportPreset> {
@@ -266,7 +372,20 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             watermark_opacity: 75,
             export_masks: Some(false),
             preserve_folders: Some(false),
+            enable_pad: Some(false),
+            pad_ratio_width: Some(1.0),
+            pad_ratio_height: Some(1.0),
+            pad_color: Some("#ffffff".to_string()),
+            enable_border: Some(false),
+            border_basis: Some("longEdge".to_string()),
+            border_horizontal_percent: Some(2.0),
+            border_vertical_percent: Some(2.0),
+            border_color: Some("#ffffff".to_string()),
             last_export_path: None,
+            destination_type: Some("customFolder".to_string()),
+            subfolder: Some("".to_string()),
+            tiff_bit_depth: Some(16),
+            preserve_timestamps: Some(false),
         },
         ExportPreset {
             id: "default-fast".to_string(),
@@ -288,13 +407,126 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             watermark_opacity: 75,
             export_masks: Some(false),
             preserve_folders: Some(false),
+            enable_pad: Some(false),
+            pad_ratio_width: Some(1.0),
+            pad_ratio_height: Some(1.0),
+            pad_color: Some("#ffffff".to_string()),
+            enable_border: Some(false),
+            border_basis: Some("longEdge".to_string()),
+            border_horizontal_percent: Some(2.0),
+            border_vertical_percent: Some(2.0),
+            border_color: Some("#ffffff".to_string()),
             last_export_path: None,
+            destination_type: Some("customFolder".to_string()),
+            subfolder: Some("".to_string()),
+            tiff_bit_depth: Some(16),
+            preserve_timestamps: Some(false),
         },
     ]
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct AdjustmentLayout {
+    pub section_order: Vec<String>,
+    pub hidden_sections: Vec<String>,
+    pub open_sections: BTreeMap<String, bool>,
+    pub tool_order: HashMap<String, Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hidden_tools: Option<Vec<String>>,
+    pub collapsed_tools: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceState {
+    pub left_panel_width: u32,
+    pub right_panel_width: u32,
+    pub left_top_height: u32,
+    pub right_top_height: u32,
+    pub panel_layout: HashMap<String, Vec<String>>,
+    pub active_panels: HashMap<String, Option<String>>,
+    pub panel_switcher_placement: HashMap<String, String>,
+}
+
+impl Default for WorkspaceState {
+    fn default() -> Self {
+        let mut panel_layout = HashMap::new();
+        #[allow(unused)]
+        let mut left_top = vec![
+            "metadata".to_string(),
+            "folderTree".to_string(),
+            "export".to_string(),
+        ];
+
+        #[cfg(feature = "tethering")]
+        left_top.push("tethering".to_string());
+
+        panel_layout.insert("leftTop".to_string(), left_top);
+        panel_layout.insert("leftBottom".to_string(), vec![]);
+
+        panel_layout.insert(
+            "rightTop".to_string(),
+            vec![
+                "adjustments".to_string(),
+                "crop".to_string(),
+                "masks".to_string(),
+                "ai".to_string(),
+                "presets".to_string(),
+            ],
+        );
+        panel_layout.insert("rightBottom".to_string(), vec![]);
+
+        let mut active_panels = HashMap::new();
+        active_panels.insert("leftTop".to_string(), Some("folderTree".to_string()));
+        active_panels.insert("leftBottom".to_string(), None);
+        active_panels.insert("rightTop".to_string(), Some("adjustments".to_string()));
+        active_panels.insert("rightBottom".to_string(), None);
+
+        let mut panel_switcher_placement = HashMap::new();
+        panel_switcher_placement.insert("leftTop".to_string(), "bottom".to_string());
+        panel_switcher_placement.insert("leftBottom".to_string(), "bottom".to_string());
+        panel_switcher_placement.insert("rightTop".to_string(), "right".to_string());
+        panel_switcher_placement.insert("rightBottom".to_string(), "right".to_string());
+
+        Self {
+            left_panel_width: 320,
+            right_panel_width: 320,
+            left_top_height: 450,
+            right_top_height: 450,
+            panel_layout,
+            active_panels,
+            panel_switcher_placement,
+        }
+    }
+}
+
 pub fn default_linear_raw_mode() -> String {
     "auto".to_string()
+}
+
+pub fn default_baseline_exposure() -> f32 {
+    0.7
+}
+
+pub fn default_compensate_highlight_preservation() -> bool {
+    true
+}
+
+pub fn default_ai_gpu_acceleration() -> bool {
+    true
+}
+
+pub fn default_ai_cache_limit_gb() -> u32 {
+    10
+}
+
+pub fn default_ai_maps_cache_limit_gb() -> u32 {
+    4
+}
+
+pub fn default_thumbnail_cache_limit_gb() -> u32 {
+    10
 }
 
 pub fn default_tagging_shortcuts_option() -> Option<Vec<String>> {
@@ -311,18 +543,6 @@ pub fn default_tagging_shortcuts_option() -> Option<Vec<String>> {
     ])
 }
 
-pub fn default_adjustment_visibility() -> HashMap<String, bool> {
-    let mut map = HashMap::new();
-    map.insert("sharpening".to_string(), true);
-    map.insert("presence".to_string(), true);
-    map.insert("noiseReduction".to_string(), true);
-    map.insert("chromaticAberration".to_string(), false);
-    map.insert("vignette".to_string(), true);
-    map.insert("colorCalibration".to_string(), false);
-    map.insert("grain".to_string(), true);
-    map
-}
-
 pub fn default_open_tree_sections() -> Vec<String> {
     vec!["current".to_string()]
 }
@@ -337,7 +557,9 @@ pub struct AppSettings {
     pub pinned_folders: Vec<String>,
     pub editor_preview_resolution: Option<u32>,
     #[serde(default)]
-    pub thumbnail_resolution: Option<u32>,
+    pub small_thumbnail_resolution: Option<u32>,
+    #[serde(default)]
+    pub medium_thumbnail_resolution: Option<u32>,
     #[serde(default)]
     pub enable_zoom_hifi: Option<bool>,
     #[serde(default)]
@@ -369,8 +591,8 @@ pub struct AppSettings {
     pub thumbnail_size: Option<String>,
     pub thumbnail_aspect_ratio: Option<String>,
     pub ai_provider: Option<String>,
-    #[serde(default = "default_adjustment_visibility")]
-    pub adjustment_visibility: HashMap<String, bool>,
+    #[serde(default = "default_ai_gpu_acceleration")]
+    pub ai_gpu_acceleration: bool,
     #[serde(default = "default_open_tree_sections")]
     pub open_tree_sections: Vec<String>,
     #[serde(default)]
@@ -408,15 +630,39 @@ pub struct AppSettings {
     #[serde(default)]
     pub use_wgpu_renderer: Option<bool>,
     #[serde(default)]
+    pub editor_neutral_grey_bg: Option<bool>,
+    #[serde(default)]
     pub canvas_input_mode: Option<String>,
     #[serde(default)]
+    pub compare_mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub white_balance_mode: Option<String>,
+    #[serde(default)]
     pub zoom_speed_multiplier: Option<f32>,
+    #[serde(default)]
+    pub zoom_photo_to_pixel_click: Option<bool>,
     #[serde(default)]
     pub keybinds: HashMap<String, Vec<String>>,
     #[serde(default)]
     pub thumbnail_worker_threads: Option<u32>,
     #[serde(default)]
     pub image_cache_size: Option<u32>,
+    #[serde(default)]
+    pub ai_cache_limit_gb: Option<u32>,
+    #[serde(default)]
+    pub thumbnail_cache_limit_gb: Option<u32>,
+    #[serde(default)]
+    pub ai_maps_cache_limit_gb: Option<u32>,
+    #[serde(default)]
+    pub export_worker_threads: Option<u32>,
+    #[serde(default)]
+    pub export_memory_limit: Option<u32>,
+    #[serde(default)]
+    pub enable_baseline_exposure: bool,
+    #[serde(default = "default_baseline_exposure")]
+    pub baseline_exposure: f32,
+    #[serde(default = "default_compensate_highlight_preservation")]
+    pub compensate_highlight_preservation: bool,
     #[serde(default)]
     pub tonemapper_override_enabled: Option<bool>,
     #[serde(default)]
@@ -426,6 +672,10 @@ pub struct AppSettings {
     #[serde(default)]
     pub enable_focus_mode: Option<bool>,
     #[serde(default)]
+    pub enable_tool_focus_mode: Option<bool>,
+    #[serde(default)]
+    pub hide_collapsed_panels: Option<bool>,
+    #[serde(default)]
     pub folder_icons: Option<HashMap<String, String>>,
     #[serde(default)]
     pub raw_preprocessing_color_nr: Option<f32>,
@@ -433,6 +683,8 @@ pub struct AppSettings {
     pub raw_preprocessing_sharpening: Option<f32>,
     #[serde(default)]
     pub apply_preprocessing_to_non_raws: Option<bool>,
+    #[serde(default)]
+    pub use_apple_raw9: Option<bool>,
     #[serde(default)]
     pub exif_overlay: Option<String>,
     #[serde(default)]
@@ -455,6 +707,23 @@ pub struct AppSettings {
     pub group_preferred_type: Option<String>,
     #[serde(default)]
     pub always_decode_raw_thumbnails: Option<bool>,
+    #[serde(default)]
+    pub custom_aspect_ratios: Vec<CustomAspectRatio>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub edit_in_apps: Vec<EditInApp>,
+    #[serde(default)]
+    pub adjustment_layout: AdjustmentLayout,
+    #[serde(default)]
+    pub workspace: WorkspaceState,
+    #[serde(default)]
+    pub immich: crate::immich::ImmichSettings,
+}
+
+impl AppSettings {
+    pub fn wgpu_renderer_enabled(&self) -> bool {
+        cfg!(not(any(target_os = "linux", target_os = "android")))
+            && self.use_wgpu_renderer.unwrap_or(true)
+    }
 }
 
 impl Default for AppSettings {
@@ -463,7 +732,8 @@ impl Default for AppSettings {
             last_root_path: None,
             root_folders: Vec::new(),
             pinned_folders: Vec::new(),
-            thumbnail_resolution: Some(720),
+            small_thumbnail_resolution: Some(480),
+            medium_thumbnail_resolution: Some(1280),
             #[cfg(target_os = "android")]
             editor_preview_resolution: Some(1280),
             #[cfg(not(target_os = "android"))]
@@ -489,9 +759,9 @@ impl Default for AppSettings {
             thumbnail_size: Some("small".to_string()),
             #[cfg(not(target_os = "android"))]
             thumbnail_size: Some("medium".to_string()),
-            thumbnail_aspect_ratio: Some("cover".to_string()),
+            thumbnail_aspect_ratio: Some("contain".to_string()),
             ai_provider: Some("cpu".to_string()),
-            adjustment_visibility: default_adjustment_visibility(),
+            ai_gpu_acceleration: default_ai_gpu_acceleration(),
             open_tree_sections: default_open_tree_sections(),
             copy_paste_settings: CopyPasteSettings::default(),
             raw_highlight_compression: Some(2.5),
@@ -517,8 +787,12 @@ impl Default for AppSettings {
             use_wgpu_renderer: Some(false),
             #[cfg(not(any(target_os = "linux", target_os = "android")))]
             use_wgpu_renderer: Some(true),
+            editor_neutral_grey_bg: Some(false),
             canvas_input_mode: Some("mouse".to_string()),
+            compare_mode: None,
+            white_balance_mode: None,
             zoom_speed_multiplier: Some(1.0),
+            zoom_photo_to_pixel_click: Some(false),
             keybinds: HashMap::new(),
             #[cfg(target_os = "android")]
             thumbnail_worker_threads: Some(2),
@@ -528,14 +802,25 @@ impl Default for AppSettings {
             image_cache_size: Some(2),
             #[cfg(not(target_os = "android"))]
             image_cache_size: Some(5),
+            ai_cache_limit_gb: Some(default_ai_cache_limit_gb()),
+            thumbnail_cache_limit_gb: Some(default_thumbnail_cache_limit_gb()),
+            ai_maps_cache_limit_gb: Some(default_ai_maps_cache_limit_gb()),
+            export_worker_threads: None,
+            export_memory_limit: None,
+            enable_baseline_exposure: false,
+            baseline_exposure: default_baseline_exposure(),
+            compensate_highlight_preservation: default_compensate_highlight_preservation(),
             tonemapper_override_enabled: Some(false),
             default_raw_tonemapper: Some("agx".to_string()),
             default_non_raw_tonemapper: Some("basic".to_string()),
             enable_focus_mode: Some(false),
+            enable_tool_focus_mode: Some(false),
+            hide_collapsed_panels: Some(false),
             folder_icons: Some(HashMap::new()),
             raw_preprocessing_color_nr: Some(0.5),
             raw_preprocessing_sharpening: Some(0.35),
             apply_preprocessing_to_non_raws: Some(false),
+            use_apple_raw9: Some(false),
             exif_overlay: Some("off".to_string()),
             language: Some("en".to_string()),
             folder_tree_sort: Some(FolderTreeSort::default()),
@@ -546,6 +831,11 @@ impl Default for AppSettings {
             group_associated_files: Some(false),
             group_preferred_type: Some("raw".to_string()),
             always_decode_raw_thumbnails: Some(false),
+            custom_aspect_ratios: Vec::new(),
+            edit_in_apps: Vec::new(),
+            adjustment_layout: AdjustmentLayout::default(),
+            workspace: WorkspaceState::default(),
+            immich: crate::immich::ImmichSettings::default(),
         }
     }
 }
@@ -564,8 +854,29 @@ pub fn get_settings_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
 }
 
 #[tauri::command]
+pub fn is_tethering_supported() -> bool {
+    cfg!(feature = "tethering")
+}
+
+static SETTINGS_CACHE: LazyLock<Mutex<Option<AppSettings>>> = LazyLock::new(|| Mutex::new(None));
+
+fn settings_cache() -> std::sync::MutexGuard<'static, Option<AppSettings>> {
+    SETTINGS_CACHE.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+#[tauri::command]
 pub fn load_settings(app_handle: AppHandle) -> Result<AppSettings, String> {
-    let path = get_settings_path(&app_handle)?;
+    if let Some(settings) = settings_cache().as_ref() {
+        return Ok(settings.clone());
+    }
+
+    let settings = read_settings_from_disk(&app_handle)?;
+    *settings_cache() = Some(settings.clone());
+    Ok(settings)
+}
+
+fn read_settings_from_disk(app_handle: &AppHandle) -> Result<AppSettings, String> {
+    let path = get_settings_path(app_handle)?;
 
     let mut settings: AppSettings = if path.exists() {
         let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
@@ -632,9 +943,14 @@ pub fn load_settings(app_handle: AppHandle) -> Result<AppSettings, String> {
 
 #[tauri::command]
 pub fn save_settings(settings: AppSettings, app_handle: AppHandle) -> Result<(), String> {
+    let previous_gpu_acceleration = load_settings(app_handle.clone())
+        .map(|previous| previous.ai_gpu_acceleration)
+        .ok();
     let path = get_settings_path(&app_handle)?;
     let json_string = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
     fs::write(path, json_string).map_err(|e| e.to_string())?;
+    *settings_cache() = None;
+    crate::immich::apply_settings(&settings.immich);
 
     let state = app_handle.state::<AppState>();
     let cache_size = settings.image_cache_size.unwrap_or(5) as usize;
@@ -643,5 +959,10 @@ pub fn save_settings(settings: AppSettings, app_handle: AppHandle) -> Result<(),
         .lock()
         .unwrap()
         .set_capacity(cache_size);
+    crate::storage::apply_cache_limits(&settings);
+
+    if previous_gpu_acceleration != Some(settings.ai_gpu_acceleration) {
+        crate::ai_processing::reset_ai_sessions(&state.ai_state);
+    }
     Ok(())
 }

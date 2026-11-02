@@ -56,10 +56,15 @@ export function useExternalEditSession(handleImageSelect: (path: string) => void
     const exportSettings: ExportSettings = {
       filenameTemplate: null,
       jpegQuality: session.jpegQuality,
+      tiffBitDepth: 16,
       keepMetadata: true,
       preserveTimestamps: false,
       preserveFolders: false,
+      destinationType: 'customFolder',
+      subfolder: '',
       resize: null,
+      border: null,
+      pad: null,
       stripGps: false,
       exportMasks: false,
       watermark: null,
@@ -67,6 +72,7 @@ export function useExternalEditSession(handleImageSelect: (path: string) => void
 
     setIsFinishing(true);
     useProcessStore.getState().setExportState({
+      destination: session.output,
       status: Status.Exporting,
       progress: { current: 0, total: 1 },
       errorMessage: '',

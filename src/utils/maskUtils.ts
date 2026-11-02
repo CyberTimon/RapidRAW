@@ -1,6 +1,57 @@
 import { v4 as uuidv4 } from 'uuid';
-import { Mask, SubMaskMode, formatMaskTypeName } from '../components/panel/right/Masks';
+import { Mask, SubMask, SubMaskMode, formatMaskTypeName } from '../components/panel/right/Masks';
 import { ImageDimensions } from '../hooks/useImageRenderSize';
+import { MaskContainer } from './adjustments';
+
+const AI_MASK_TYPES = new Set<string>([
+  Mask.AiDepth,
+  Mask.AiForeground,
+  Mask.AiSky,
+  Mask.AiSubject,
+  Mask.AiText,
+  Mask.AiFace,
+]);
+
+const isAiSubMask = (subMask: SubMask) => AI_MASK_TYPES.has(subMask.type);
+
+const hasAiResult = (subMask: SubMask) => !!subMask.parameters?.maskDataBase64;
+
+export const hasAiSubMasks = (masks: Array<MaskContainer> | undefined, missingResultOnly: boolean = false) =>
+  !!masks?.some((container) =>
+    container.subMasks.some((subMask) => isAiSubMask(subMask) && (!missingResultOnly || !hasAiResult(subMask))),
+  );
+
+export const stripAiMaskResults = (masks: Array<MaskContainer>): Array<MaskContainer> =>
+  masks.map((container) => ({
+    ...container,
+    subMasks: container.subMasks.map((subMask) => {
+      if (!isAiSubMask(subMask)) return subMask;
+      const parameters = { ...subMask.parameters, maskDataBase64: null };
+      delete parameters.aiSource;
+      return { ...subMask, parameters };
+    }),
+  }));
+
+export const mergeAiMaskResults = (
+  masks: Array<MaskContainer>,
+  source: Array<MaskContainer>,
+): Array<MaskContainer> => {
+  const results = new Map(
+    source
+      .flatMap((container) => container.subMasks)
+      .filter((subMask) => isAiSubMask(subMask) && hasAiResult(subMask))
+      .map((subMask) => [subMask.id, subMask.parameters]),
+  );
+  if (results.size === 0) return masks;
+  return masks.map((container) => ({
+    ...container,
+    subMasks: container.subMasks.map((subMask) =>
+      results.has(subMask.id) && !hasAiResult(subMask)
+        ? { ...subMask, parameters: { ...subMask.parameters, ...results.get(subMask.id) } }
+        : subMask,
+    ),
+  }));
+};
 
 export const createSubMask = (
   type: Mask,
@@ -44,8 +95,12 @@ export const createSubMask = (
       return { ...common, parameters: { maskDataBase64: null, grow: 0, feather: 0 } };
     case Mask.AiForeground:
       return { ...common, parameters: { maskDataBase64: null, grow: 0, feather: 0 } };
+    case Mask.AiText:
+      return { ...common, name: '', parameters: { maskDataBase64: null, prompt: '', grow: 0, feather: 0 } };
+    case Mask.AiFace:
+      return { ...common, parameters: { maskDataBase64: null, parts: ['faceSkin'], grow: 0, feather: 0 } };
     case Mask.QuickEraser:
-      return { ...common, parameters: { maskDataBase64: null, grow: 50, feather: 50 } };
+      return { ...common, parameters: { maskDataBase64: null, grow: 150, feather: 75 } };
     default:
       return { ...common, parameters: {} };
   }

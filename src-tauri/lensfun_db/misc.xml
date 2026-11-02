@@ -1849,6 +1849,9 @@
         <calibration>
             <!-- Taken with Panasonic DC-S5M2 -->
             <distortion model="ptlens" focal="18" a="0.0598779" b="-0.1336256" c="0.0579053"/>
+			<!-- Taken with Nikon Z6M2 -->
+            <vignetting model="pa" focal="18" aperture="5.6" distance="10" k1="-2.1036" k2="2.0044" k3="-0.7755"/>
+            <vignetting model="pa" focal="18" aperture="5.6" distance="1000" k1="-2.1036" k2="2.0044" k3="-0.7755"/>
         </calibration>
     </lens>
 
@@ -2796,6 +2799,16 @@
         <calibration>
             <!-- Taken with Nikon Z5 -->
             <distortion model="ptlens" focal="40" a="0.00777613" b="-0.0172556" c="0.0143621"/>
+            <vignetting model="pa" focal="40.0" aperture="2.0" distance="10" k1="-1.5061840" k2="1.0333813" k3="-0.3803857" />
+            <vignetting model="pa" focal="40.0" aperture="2.0" distance="1000" k1="-1.5061840" k2="1.0333813" k3="-0.3803857" />
+            <vignetting model="pa" focal="40.0" aperture="2.8" distance="10" k1="-0.5151243" k2="-0.6530992" k3="0.4336096" />
+            <vignetting model="pa" focal="40.0" aperture="2.8" distance="1000" k1="-0.5151243" k2="-0.6530992" k3="0.4336096" />
+            <vignetting model="pa" focal="40.0" aperture="4.0" distance="10" k1="-0.5884751" k2="0.1114576" k3="-0.1576988" />
+            <vignetting model="pa" focal="40.0" aperture="4.0" distance="1000" k1="-0.5884751" k2="0.1114576" k3="-0.1576988" />
+            <vignetting model="pa" focal="40.0" aperture="5.6" distance="10" k1="-0.7169158" k2="0.4763204" k3="-0.3457353" />
+            <vignetting model="pa" focal="40.0" aperture="5.6" distance="1000" k1="-0.7169158" k2="0.4763204" k3="-0.3457353" />
+            <vignetting model="pa" focal="40.0" aperture="16.0" distance="10" k1="-0.5765391" k2="-0.0595856" k3="0.1372440" />
+            <vignetting model="pa" focal="40.0" aperture="16.0" distance="1000" k1="-0.5765391" k2="-0.0595856" k3="0.1372440" />
         </calibration>
     </lens>
 
@@ -2845,4 +2858,69 @@
             <vignetting model="pa" focal="50" aperture="16" distance="1000" k1="-0.4257" k2="0.0740" k3="0.0221"/>
         </calibration>
     </lens>
+
+	<lens>
+        <maker>TTArtisan</maker>
+        <model>TTArtisan 50mm f/2</model>
+        <mount>Sony E</mount>
+        <mount>Fujifilm X</mount>
+        <mount>Canon RF</mount>
+        <mount>Nikon Z</mount>
+        <mount>Micro 4/3 System</mount>
+        <mount>Leica L</mount>
+        <mount>Canon RF</mount>
+        <cropfactor>1.0</cropfactor>
+        <calibration>
+            <!-- Taken with Sony Alpha 7 -->
+            <distortion model="ptlens" focal="50" a="-0.017" b="0.052" c="-0.025" />
+            <tca model="poly3" focal="50.0" vr="1.0000303" vb="0.9997727" />
+        </calibration>
+    </lens>
+
+	<lens>
+        <maker>Meike</maker>
+        <model>E 33mm F1.4 STM NEO</model>
+		<model lang="en">Meike E 33mm F1.4 STM NEO</model>
+        <mount>Sony E</mount>
+		<mount>Nikon Z</mount>
+		<mount>Fujifilm X</mount>
+        <cropfactor>1.534</cropfactor>
+        <calibration>
+            <!-- Taken with Sony ILCE-6400 -->
+            <distortion model="ptlens" focal="33" a="-0.00027" b="-0.00687" c="0.0015"/>
+        </calibration>
+    </lens>
+
+	<lens>
+        <maker>TTArtisan</maker>
+        <model>TTArtisan APS-C 35mm F1.4</model>
+        <mount>Leica L</mount>
+        <mount>Sony E</mount>
+        <mount>Nikon Z</mount>
+        <mount>Fujifilm X</mount>
+        <mount>Canon RF</mount>
+        <mount>Canon EF-M</mount>
+        <mount>Micro 4/3 System</mount>
+        <cropfactor>1.534</cropfactor>
+        <calibration>
+            <!-- Taken with Fujifilm X-A10 -->
+            <distortion model="ptlens" focal="35" a="0.005844" b="-0.0236362" c="0.0151378"/>
+            <tca model="poly3" focal="35" vr="1.0000029" vb="1.0000623"/>
+            <tca model="poly3" focal="35" vr="1.0000118" vb="1.0000790"/>
+        </calibration>
+    </lens>
+
+	<lens>
+        <maker>Viltrox</maker>
+        <model>Viltrox AF 14mm f/4.0 Z/FE</model>
+        <model lang="en">Viltrox AF 14mm f/4.0</model>
+        <mount>Nikon Z</mount>
+        <mount>Sony E</mount>
+        <cropfactor>1.0</cropfactor>
+        <calibration>
+            <!-- Taken with Nikon Z6M3 -->
+            <distortion model="ptlens" focal="14" a="0.03431" b="-0.11264" c="0.09647"/>
+        </calibration>
+    </lens>
+
 </lensdatabase>

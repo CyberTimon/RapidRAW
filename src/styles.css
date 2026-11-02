@@ -1,5 +1,5 @@
-@import 'tailwindcss';
-@source not "../src-tauri";
+@import 'tailwindcss' source('.');
+@source '../index.html';
 
 @theme {
   --color-bg-primary: var(--app-bg-primary);
@@ -37,7 +37,6 @@
     transition:
       transform 150ms ease-in-out,
       background-color 400ms ease-in-out;
-    margin-top: -5px;
   }
 
   &::-moz-range-thumb {
@@ -158,7 +157,6 @@
     transition:
       transform 150ms ease-in-out,
       background-color 400ms ease-in-out;
-    margin-top: -5px;
   }
 
   .slider-input::-moz-range-thumb {
@@ -198,6 +196,13 @@
       hsl(300, 55%, 55%) 83.3%,
       hsl(330, 55%, 55%) 91.7%,
       hsl(360, 55%, 55%) 100%
+    ) !important;
+  }
+  .toning-saturation-track {
+    background: linear-gradient(
+      to right,
+      hsl(var(--toning-hue, 40), 0%, 50%),
+      hsl(var(--toning-hue, 40), 70%, 50%)
     ) !important;
   }
 

@@ -2,18 +2,23 @@ use crate::ai_processing::{
     AiDepthMaskParameters, AiForegroundMaskParameters, AiSkyMaskParameters, AiSubjectMaskParameters,
 };
 use base64::{Engine as _, engine::general_purpose};
-use image::{DynamicImage, GenericImageView, GrayImage, ImageFormat, Luma, Rgba, RgbaImage};
+use image::codecs::png::{CompressionType, FilterType as PngFilterType, PngEncoder};
+use image::{DynamicImage, ExtendedColorType, GenericImageView, GrayImage, ImageEncoder, Luma};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::borrow::Cow;
 use std::collections::hash_map::DefaultHasher;
 use std::f32::consts::PI;
 use std::hash::{Hash, Hasher};
-use std::io::Cursor;
-use std::sync::Arc; // Required for parallel rasterization
+use std::sync::Arc;
+use tauri::ipc::Response;
 
 use crate::app_state::AppState;
-use crate::get_cached_full_warped_image;
+use crate::image_processing::{apply_cpu_default_raw_processing, apply_geometry_warp};
+use crate::{get_cached_full_warped_image, get_cached_full_warped_image_for_path};
+
+const MASK_CACHE_LIMIT_BYTES: usize = 128 * 1024 * 1024;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(crate = "serde")]
@@ -241,30 +246,31 @@ fn grayscale_dilate(image: &GrayImage, k: u8) -> GrayImage {
     let mut temp = vec![0u8; w * h];
     let mut out = vec![0u8; w * h];
 
-    for y in 0..h {
-        let row_offset = y * w;
-        for x in 0..w {
-            let mut max_val = 0;
-            let start = (x as i32 - r).max(0) as usize;
-            let end = (x as i32 + r).min((w - 1) as i32) as usize;
-            for xi in start..=end {
-                max_val = max_val.max(src[row_offset + xi]);
+    temp.par_chunks_mut(w)
+        .zip(src.par_chunks(w))
+        .for_each(|(temp_row, src_row)| {
+            for (x, slot) in temp_row.iter_mut().enumerate() {
+                let mut max_val = 0;
+                let start = (x as i32 - r).max(0) as usize;
+                let end = (x as i32 + r).min((w - 1) as i32) as usize;
+                for &value in &src_row[start..=end] {
+                    max_val = max_val.max(value);
+                }
+                *slot = max_val;
             }
-            temp[row_offset + x] = max_val;
-        }
-    }
+        });
 
-    for x in 0..w {
-        for y in 0..h {
-            let mut max_val = 0;
-            let start = (y as i32 - r).max(0) as usize;
-            let end = (y as i32 + r).min((h - 1) as i32) as usize;
-            for yi in start..=end {
-                max_val = max_val.max(temp[yi * w + x]);
+    let r = r as usize;
+    out.par_chunks_mut(w).enumerate().for_each(|(y, out_row)| {
+        let start = y.saturating_sub(r);
+        let end = (y + r).min(h - 1);
+        out_row.copy_from_slice(&temp[start * w..(start + 1) * w]);
+        for yi in (start + 1)..=end {
+            for (o, &t) in out_row.iter_mut().zip(&temp[yi * w..(yi + 1) * w]) {
+                *o = (*o).max(t);
             }
-            out[y * w + x] = max_val;
         }
-    }
+    });
 
     GrayImage::from_raw(width, height, out).unwrap()
 }
@@ -282,30 +288,31 @@ fn grayscale_erode(image: &GrayImage, k: u8) -> GrayImage {
     let mut temp = vec![0u8; w * h];
     let mut out = vec![0u8; w * h];
 
-    for y in 0..h {
-        let row_offset = y * w;
-        for x in 0..w {
-            let mut min_val = 255;
-            let start = (x as i32 - r).max(0) as usize;
-            let end = (x as i32 + r).min((w - 1) as i32) as usize;
-            for xi in start..=end {
-                min_val = min_val.min(src[row_offset + xi]);
+    temp.par_chunks_mut(w)
+        .zip(src.par_chunks(w))
+        .for_each(|(temp_row, src_row)| {
+            for (x, slot) in temp_row.iter_mut().enumerate() {
+                let mut min_val = 255;
+                let start = (x as i32 - r).max(0) as usize;
+                let end = (x as i32 + r).min((w - 1) as i32) as usize;
+                for &value in &src_row[start..=end] {
+                    min_val = min_val.min(value);
+                }
+                *slot = min_val;
             }
-            temp[row_offset + x] = min_val;
-        }
-    }
+        });
 
-    for x in 0..w {
-        for y in 0..h {
-            let mut min_val = 255;
-            let start = (y as i32 - r).max(0) as usize;
-            let end = (y as i32 + r).min((h - 1) as i32) as usize;
-            for yi in start..=end {
-                min_val = min_val.min(temp[yi * w + x]);
+    let r = r as usize;
+    out.par_chunks_mut(w).enumerate().for_each(|(y, out_row)| {
+        let start = y.saturating_sub(r);
+        let end = (y + r).min(h - 1);
+        out_row.copy_from_slice(&temp[start * w..(start + 1) * w]);
+        for yi in (start + 1)..=end {
+            for (o, &t) in out_row.iter_mut().zip(&temp[yi * w..(yi + 1) * w]) {
+                *o = (*o).min(t);
             }
-            out[y * w + x] = min_val;
         }
-    }
+    });
 
     GrayImage::from_raw(width, height, out).unwrap()
 }
@@ -552,14 +559,14 @@ fn generate_radial_bitmap(
     let radius_x = params.radius_x as f32 * scale;
     let radius_y = params.radius_y as f32 * scale;
     let rotation_rad = params.rotation * PI / 180.0;
+    let cos_rot = rotation_rad.cos();
+    let sin_rot = rotation_rad.sin();
+    let inner_bound = 1.0 - params.feather.clamp(0.0, 1.0);
 
-    for y in 0..height {
-        for x in 0..width {
+    for_each_mask_row(&mut mask, |y, row| {
+        for (x, value) in row.iter_mut().enumerate() {
             let dx = x as f32 - center_x as f32;
             let dy = y as f32 - center_y as f32;
-
-            let cos_rot = rotation_rad.cos();
-            let sin_rot = rotation_rad.sin();
 
             let rot_dx = dx * cos_rot + dy * sin_rot;
             let rot_dy = -dx * sin_rot + dy * cos_rot;
@@ -569,13 +576,12 @@ fn generate_radial_bitmap(
 
             let dist = (norm_x.powi(2) + norm_y.powi(2)).sqrt();
 
-            let inner_bound = 1.0 - params.feather.clamp(0.0, 1.0);
             let intensity = 1.0 - (dist - inner_bound) / (1.0 - inner_bound).max(0.01);
             let clamped_intensity = intensity.clamp(0.0, 1.0);
 
-            mask.put_pixel(x, y, Luma([(clamped_intensity * 255.0) as u8]));
+            *value = (clamped_intensity * 255.0) as u8;
         }
-    }
+    });
 
     mask
 }
@@ -611,10 +617,10 @@ fn generate_linear_bitmap(
 
     let half_width = range.max(0.01);
 
-    for y_u in 0..height {
-        for x_u in 0..width {
+    for_each_mask_row(&mut mask, |y_u, row| {
+        let y = y_u as f32;
+        for (x_u, value) in row.iter_mut().enumerate() {
             let x = x_u as f32;
-            let y = y_u as f32;
 
             let pixel_vec_x = x - start_x;
             let pixel_vec_y = y - start_y;
@@ -627,9 +633,9 @@ fn generate_linear_bitmap(
 
             let clamped_intensity = intensity.clamp(0.0, 1.0);
 
-            mask.put_pixel(x_u, y_u, Luma([(clamped_intensity * 255.0) as u8]));
+            *value = (clamped_intensity * 255.0) as u8;
         }
-    }
+    });
 
     mask
 }
@@ -805,8 +811,8 @@ fn generate_ai_bitmap_from_full_mask(
     let center_x = scaled_coarse_rotated_w / 2.0;
     let center_y = scaled_coarse_rotated_h / 2.0;
 
-    for y_out in 0..tf.height {
-        for x_out in 0..tf.width {
+    for_each_mask_row(&mut final_mask, |y_out, row| {
+        for (x_out, value) in row.iter_mut().enumerate() {
             let x_uncrop = x_out as f32 + tf.crop_offset.0;
             let y_uncrop = y_out as f32 + tf.crop_offset.1;
 
@@ -846,11 +852,10 @@ fn generate_ai_bitmap_from_full_mask(
                 && y_src >= 0.0
                 && y_src < full_mask_h as f32
             {
-                let pixel = full_mask_image.get_pixel(x_src as u32, y_src as u32);
-                final_mask.put_pixel(x_out, y_out, *pixel);
+                *value = full_mask_image.get_pixel(x_src as u32, y_src as u32)[0];
             }
         }
-    }
+    });
 
     final_mask
 }
@@ -929,7 +934,6 @@ fn generate_ai_depth_bitmap(
     let depth_map = generate_ai_bitmap_from_base64(&data_url, &tf)?;
 
     let (w, h) = depth_map.dimensions();
-    let mut mask = GrayImage::new(w, h);
 
     fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
         let t = ((x - edge0) / (edge1 - edge0).max(0.0001)).clamp(0.0, 1.0);
@@ -939,18 +943,24 @@ fn generate_ai_depth_bitmap(
     let min_fade = params.min_fade;
     let max_fade = params.max_fade;
 
-    for (x, y, p) in depth_map.enumerate_pixels() {
-        let val_pct = (p[0] as f32 / 255.0) * 100.0;
+    let data: Vec<u8> = depth_map
+        .as_raw()
+        .par_iter()
+        .map(|&p| {
+            let val_pct = (p as f32 / 255.0) * 100.0;
 
-        let lower_bound = smoothstep(params.min_depth - min_fade, params.min_depth, val_pct);
-        let upper_bound = 1.0 - smoothstep(params.max_depth, params.max_depth + max_fade, val_pct);
-        let bandpass_weight = lower_bound * upper_bound;
+            let lower_bound = smoothstep(params.min_depth - min_fade, params.min_depth, val_pct);
+            let upper_bound =
+                1.0 - smoothstep(params.max_depth, params.max_depth + max_fade, val_pct);
+            let bandpass_weight = lower_bound * upper_bound;
 
-        let depth_intensity = val_pct / 100.0;
-        let final_intensity = bandpass_weight * depth_intensity;
+            let depth_intensity = val_pct / 100.0;
+            let final_intensity = bandpass_weight * depth_intensity;
 
-        mask.put_pixel(x, y, Luma([(final_intensity * 255.0) as u8]));
-    }
+            (final_intensity * 255.0) as u8
+        })
+        .collect();
+    let mut mask = GrayImage::from_raw(w, h, data)?;
 
     if params.feather > 0.0 {
         mask = image::imageops::blur(&mask, params.feather * 0.1);
@@ -1080,13 +1090,13 @@ fn generate_color_bitmap(
     let tolerance_sq = (params.tolerance * 2.55).max(1.0).powi(2) * 3.0;
     let inv_scale = 1.0 / scale;
 
-    for y_out in 0..height {
+    for_each_mask_row(&mut mask, |y_out, row| {
         let y_uncrop = y_out as f32 + crop_offset.1;
         let y_centered = y_uncrop - center_y;
         let y_sin = y_centered * sin_a;
         let y_cos = y_centered * cos_a;
 
-        for x_out in 0..width {
+        for (x_out, value) in row.iter_mut().enumerate() {
             let x_uncrop = x_out as f32 + crop_offset.0;
             let x_centered = x_uncrop - center_x;
 
@@ -1127,12 +1137,12 @@ fn generate_color_bitmap(
 
                     if dist_sq <= tolerance_sq {
                         let intensity = 1.0 - (dist_sq.sqrt() / tolerance_sq.sqrt());
-                        mask.put_pixel(x_out, y_out, Luma([(intensity * 255.0) as u8]));
+                        *value = (intensity * 255.0) as u8;
                     }
                 }
             }
         }
-    }
+    });
 
     apply_grow_and_feather(&mut mask, params.grow, params.feather, width, height);
     Some(mask)
@@ -1180,13 +1190,13 @@ fn generate_luminance_bitmap(
     let tolerance_val = (params.tolerance * 2.55).max(1.0);
     let inv_scale = 1.0 / scale;
 
-    for y_out in 0..height {
+    for_each_mask_row(&mut mask, |y_out, row| {
         let y_uncrop = y_out as f32 + crop_offset.1;
         let y_centered = y_uncrop - center_y;
         let y_sin = y_centered * sin_a;
         let y_cos = y_centered * cos_a;
 
-        for x_out in 0..width {
+        for (x_out, value) in row.iter_mut().enumerate() {
             let x_uncrop = x_out as f32 + crop_offset.0;
             let x_centered = x_uncrop - center_x;
 
@@ -1227,15 +1237,25 @@ fn generate_luminance_bitmap(
 
                     if dist <= tolerance_val {
                         let intensity = 1.0 - (dist / tolerance_val);
-                        mask.put_pixel(x_out, y_out, Luma([(intensity * 255.0) as u8]));
+                        *value = (intensity * 255.0) as u8;
                     }
                 }
             }
         }
-    }
+    });
 
     apply_grow_and_feather(&mut mask, params.grow, params.feather, width, height);
     Some(mask)
+}
+
+fn for_each_mask_row(mask: &mut GrayImage, fill_row: impl Fn(u32, &mut [u8]) + Sync) {
+    let width = mask.width() as usize;
+    if width == 0 {
+        return;
+    }
+    mask.par_chunks_mut(width)
+        .enumerate()
+        .for_each(|(y, row)| fill_row(y as u32, row));
 }
 
 fn generate_all_bitmap(width: u32, height: u32) -> GrayImage {
@@ -1269,7 +1289,7 @@ fn generate_sub_mask_bitmap(
             scale,
             crop_offset,
         )),
-        "brush" | "clone" | "heal" => Some(generate_brush_bitmap(
+        "brush" | "clone" | "heal" | "liquify" | "retouch" => Some(generate_brush_bitmap(
             &sub_mask.parameters,
             width,
             height,
@@ -1305,7 +1325,9 @@ fn generate_sub_mask_bitmap(
         "ai-foreground" => {
             generate_ai_foreground_bitmap(&sub_mask.parameters, width, height, scale, crop_offset)
         }
-        "ai-sky" => generate_ai_sky_bitmap(&sub_mask.parameters, width, height, scale, crop_offset),
+        "ai-sky" | "ai-text" | "ai-face" => {
+            generate_ai_sky_bitmap(&sub_mask.parameters, width, height, scale, crop_offset)
+        }
         "ai-depth" => {
             generate_ai_depth_bitmap(&sub_mask.parameters, width, height, scale, crop_offset)
         }
@@ -1335,59 +1357,46 @@ pub fn generate_mask_bitmap(
         if let Some(mut sub_bitmap) =
             generate_sub_mask_bitmap(sub_mask, width, height, scale, crop_offset, warped_image)
         {
-            if sub_mask.invert {
-                for p in sub_bitmap.pixels_mut() {
-                    p[0] = 255 - p[0];
-                }
-            }
-
+            let invert = sub_mask.invert;
             let opacity_multiplier = (sub_mask.opacity / 100.0).clamp(0.0, 1.0);
-            if opacity_multiplier < 1.0 {
-                for pixel in sub_bitmap.pixels_mut() {
-                    pixel[0] = (pixel[0] as f32 * opacity_multiplier) as u8;
-                }
-            }
+            let mode = sub_mask.mode;
 
-            match sub_mask.mode {
-                SubMaskMode::Additive => {
-                    for (x, y, pixel) in final_mask.enumerate_pixels_mut() {
-                        let sub_pixel = sub_bitmap.get_pixel(x, y);
-                        pixel[0] = pixel[0].max(sub_pixel[0]);
+            final_mask
+                .par_iter_mut()
+                .zip(sub_bitmap.par_iter_mut())
+                .for_each(|(pixel, sub_pixel)| {
+                    if invert {
+                        *sub_pixel = 255 - *sub_pixel;
                     }
-                }
-                SubMaskMode::Subtractive => {
-                    for (x, y, pixel) in final_mask.enumerate_pixels_mut() {
-                        let sub_pixel = sub_bitmap.get_pixel(x, y);
-                        pixel[0] = pixel[0].saturating_sub(sub_pixel[0]);
+                    if opacity_multiplier < 1.0 {
+                        *sub_pixel = (*sub_pixel as f32 * opacity_multiplier) as u8;
                     }
-                }
-                SubMaskMode::Intersect => {
-                    for (x, y, pixel) in final_mask.enumerate_pixels_mut() {
-                        let sub_pixel = sub_bitmap.get_pixel(x, y);
-                        pixel[0] = pixel[0].min(sub_pixel[0]);
-                    }
-                }
-            }
+                    *pixel = match mode {
+                        SubMaskMode::Additive => (*pixel).max(*sub_pixel),
+                        SubMaskMode::Subtractive => pixel.saturating_sub(*sub_pixel),
+                        SubMaskMode::Intersect => (*pixel).min(*sub_pixel),
+                    };
+                });
         }
     }
 
-    if mask_def.invert {
-        for pixel in final_mask.pixels_mut() {
-            pixel[0] = 255 - pixel[0];
-        }
-    }
-
+    let invert = mask_def.invert;
     let opacity_multiplier = (mask_def.opacity / 100.0).clamp(0.0, 1.0);
-    if opacity_multiplier < 1.0 {
-        for pixel in final_mask.pixels_mut() {
-            pixel[0] = (pixel[0] as f32 * opacity_multiplier) as u8;
-        }
+    if invert || opacity_multiplier < 1.0 {
+        final_mask.par_iter_mut().for_each(|pixel| {
+            if invert {
+                *pixel = 255 - *pixel;
+            }
+            if opacity_multiplier < 1.0 {
+                *pixel = (*pixel as f32 * opacity_multiplier) as u8;
+            }
+        });
     }
 
     Some(final_mask)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn generate_mask_overlay(
     mut mask_def: serde_json::Value,
     width: u32,
@@ -1396,13 +1405,13 @@ pub fn generate_mask_overlay(
     crop_offset: (f32, f32),
     mut js_adjustments: Option<serde_json::Value>,
     state: tauri::State<'_, AppState>,
-) -> Result<String, String> {
+) -> Result<Response, String> {
     if let Some(ref mut adj) = js_adjustments {
         crate::adjustment_utils::hydrate_adjustments(&state, adj);
     }
 
     if let Some(sub_masks) = mask_def.get_mut("subMasks").and_then(|v| v.as_array_mut()) {
-        let mut cache = state.patch_cache.lock().unwrap();
+        let mut cache = state.patch_cache.lock().unwrap_or_else(|e| e.into_inner());
         crate::adjustment_utils::hydrate_sub_masks(sub_masks, &mut cache);
     }
 
@@ -1423,24 +1432,20 @@ pub fn generate_mask_overlay(
         scaled_crop_offset,
         warped_image.as_deref(),
     ) {
-        let mut rgba_mask = RgbaImage::new(width, height);
-        for (x, y, pixel) in gray_mask.enumerate_pixels() {
-            let intensity = pixel[0];
-            let alpha = (intensity as f32 * 0.5) as u8;
-            rgba_mask.put_pixel(x, y, Rgba([255, 0, 0, alpha]));
-        }
+        let rgba_mask: Vec<u8> = gray_mask
+            .as_raw()
+            .par_iter()
+            .flat_map_iter(|&intensity| [255, 0, 0, (intensity as f32 * 0.5) as u8])
+            .collect();
 
-        let mut buf = Cursor::new(Vec::new());
-        rgba_mask
-            .write_to(&mut buf, ImageFormat::Png)
+        let mut buf = Vec::new();
+        PngEncoder::new_with_quality(&mut buf, CompressionType::Fast, PngFilterType::Adaptive)
+            .write_image(&rgba_mask, width, height, ExtendedColorType::Rgba8)
             .map_err(|e| e.to_string())?;
 
-        let base64_str = general_purpose::STANDARD.encode(buf.get_ref());
-        let data_url = format!("data:image/png;base64,{}", base64_str);
-
-        Ok(data_url)
+        Ok(Response::new(buf))
     } else {
-        Ok("".to_string())
+        Ok(Response::new(Vec::new()))
     }
 }
 
@@ -1456,56 +1461,153 @@ pub fn resolve_warped_image_for_masks(
     }
 }
 
-pub fn get_cached_or_generate_mask(
+fn build_full_source_image(base_image: &DynamicImage, is_raw: bool) -> Cow<'_, DynamicImage> {
+    let mut image = Cow::Borrowed(base_image);
+    if is_raw {
+        apply_cpu_default_raw_processing(image.to_mut());
+    }
+    image
+}
+
+pub fn build_converted_source_image<'a>(
+    base_image: &'a DynamicImage,
+    is_raw: bool,
+    adjustments: &serde_json::Value,
+) -> Cow<'a, DynamicImage> {
+    let mut image = crate::negative_conversion::apply_negative_conversion(
+        Cow::Borrowed(base_image),
+        adjustments,
+    );
+    if crate::negative_conversion::effective_is_raw(is_raw, adjustments) {
+        apply_cpu_default_raw_processing(image.to_mut());
+    }
+    image
+}
+
+pub fn build_full_warped_image<'a>(
+    base_image: &'a DynamicImage,
+    is_raw: bool,
+    adjustments: &serde_json::Value,
+) -> Cow<'a, DynamicImage> {
+    apply_geometry_warp(build_full_source_image(base_image, is_raw), adjustments)
+}
+
+pub fn build_full_warped_image_rgb8(
+    base_image: &DynamicImage,
+    is_raw: bool,
+    adjustments: &serde_json::Value,
+) -> DynamicImage {
+    let warped = build_full_warped_image(base_image, is_raw, adjustments);
+    let rgb8 = match warped.as_rgb32f() {
+        Some(buffer) => {
+            let data: Vec<u8> = buffer
+                .as_raw()
+                .par_iter()
+                .map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
+                .collect();
+            image::RgbImage::from_raw(buffer.width(), buffer.height(), data)
+                .expect("RGB8 buffer matches image dimensions")
+        }
+        None => warped.to_rgb8(),
+    };
+    DynamicImage::ImageRgb8(rgb8)
+}
+
+pub fn build_warped_image_for_masks<'a>(
+    base_image: &'a DynamicImage,
+    is_raw: bool,
+    adjustments: &serde_json::Value,
+    masks: &[MaskDefinition],
+) -> Option<Cow<'a, DynamicImage>> {
+    if masks.iter().any(|m| m.requires_warped_image()) {
+        Some(Cow::Owned(build_full_warped_image_rgb8(
+            base_image,
+            crate::negative_conversion::effective_is_raw(is_raw, adjustments),
+            adjustments,
+        )))
+    } else {
+        None
+    }
+}
+
+pub struct GeneratedMasks {
+    pub bitmaps: Vec<GrayImage>,
+    pub cache_key: u64,
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn get_cached_or_generate_masks(
     state: &tauri::State<AppState>,
-    def: &MaskDefinition,
+    path: &str,
+    definitions: &[MaskDefinition],
     width: u32,
     height: u32,
     scale: f32,
     crop_offset: (f32, f32),
     adjustments: &serde_json::Value,
-) -> Option<GrayImage> {
-    let mut hasher = DefaultHasher::new();
+) -> GeneratedMasks {
+    let mut combined_hasher = DefaultHasher::new();
+    let mut bitmaps = Vec::with_capacity(definitions.len());
 
-    let mut def_for_hash = def.clone();
-    def_for_hash.adjustments = serde_json::Value::Null;
-    let def_json = serde_json::to_string(&def_for_hash).unwrap_or_default();
-    def_json.hash(&mut hasher);
-
-    width.hash(&mut hasher);
-    height.hash(&mut hasher);
-    scale.to_bits().hash(&mut hasher);
-    crop_offset.0.to_bits().hash(&mut hasher);
-    crop_offset.1.to_bits().hash(&mut hasher);
-
-    let key = hasher.finish();
-
-    {
-        let cache = state.mask_cache.lock().unwrap();
-        if let Some(img) = cache.get(&key) {
-            return Some(img.clone());
+    for def in definitions {
+        let mut hasher = DefaultHasher::new();
+        let def_json = serde_json::to_string(&(
+            &def.id,
+            &def.name,
+            def.visible,
+            def.invert,
+            def.opacity,
+            &def.sub_masks,
+        ))
+        .unwrap_or_default();
+        def_json.hash(&mut hasher);
+        path.hash(&mut hasher);
+        if def.requires_warped_image() {
+            crate::cache_utils::calculate_geometry_hash(adjustments).hash(&mut hasher);
         }
+        width.hash(&mut hasher);
+        height.hash(&mut hasher);
+        scale.to_bits().hash(&mut hasher);
+        crop_offset.0.to_bits().hash(&mut hasher);
+        crop_offset.1.to_bits().hash(&mut hasher);
+        let key = hasher.finish();
+
+        let cached = state
+            .mask_cache
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&key)
+            .cloned();
+
+        let bitmap = cached.or_else(|| {
+            let warped_image = def
+                .requires_warped_image()
+                .then(|| get_cached_full_warped_image_for_path(state, Some(path), adjustments).ok())
+                .flatten();
+            let generated = generate_mask_bitmap(
+                def,
+                width,
+                height,
+                scale,
+                crop_offset,
+                warped_image.as_deref(),
+            )?;
+
+            let mut cache = state.mask_cache.lock().unwrap_or_else(|e| e.into_inner());
+            let cached_bytes: usize = cache.values().map(|m| m.as_raw().len()).sum();
+            if cache.len() > 50 || cached_bytes > MASK_CACHE_LIMIT_BYTES {
+                cache.clear();
+            }
+            cache.insert(key, generated.clone());
+            Some(generated)
+        });
+
+        (key, bitmap.is_some()).hash(&mut combined_hasher);
+        bitmaps.extend(bitmap);
     }
 
-    let warped_image =
-        resolve_warped_image_for_masks(state, adjustments, std::slice::from_ref(def));
-
-    let generated = generate_mask_bitmap(
-        def,
-        width,
-        height,
-        scale,
-        crop_offset,
-        warped_image.as_deref(),
-    );
-
-    if let Some(img) = &generated {
-        let mut cache = state.mask_cache.lock().unwrap();
-        if cache.len() > 50 {
-            cache.clear();
-        }
-        cache.insert(key, img.clone());
+    GeneratedMasks {
+        bitmaps,
+        cache_key: combined_hasher.finish(),
     }
-
-    generated
 }
