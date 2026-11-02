@@ -6,6 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { Invokes } from '../components/ui/AppProperties';
 import Text from '../components/ui/Text';
 import { TextVariants } from '../types/typography';
+import { useLibraryStore } from '../store/useLibraryStore';
+import { expandGroupedPaths } from '../utils/imageGrouping';
 
 interface TaggingSubMenuProps {
   paths: string[];
@@ -42,12 +44,16 @@ export default function TaggingSubMenu({
     inputRef.current?.focus();
   }, []);
 
+  const getPathsToUpdate = () =>
+    expandGroupedPaths(useLibraryStore.getState().imageList, paths, appSettings?.grouping ?? 'off');
+
   const handleAddTag = async (tagToAdd: string) => {
     const newTagValue = tagToAdd.trim().toLowerCase();
     if (newTagValue && !tags.some((t) => t.tag === newTagValue)) {
       try {
         const prefixedTag = `${USER_TAG_PREFIX}${newTagValue}`;
-        await invoke(Invokes.AddTagForPaths, { paths, tag: prefixedTag });
+        const pathsToUpdate = getPathsToUpdate();
+        await invoke(Invokes.AddTagForPaths, { paths: pathsToUpdate, tag: prefixedTag });
         const newTags = [...tags, { tag: newTagValue, isUser: true }].sort((a, b) => a.tag.localeCompare(b.tag));
         setTags(newTags);
         onTagsChanged(paths, newTags);
@@ -61,7 +67,8 @@ export default function TaggingSubMenu({
   const handleRemoveTag = async (tagToRemove: { tag: string; isUser: boolean }) => {
     try {
       const prefixedTag = tagToRemove.isUser ? `${USER_TAG_PREFIX}${tagToRemove.tag}` : tagToRemove.tag;
-      await invoke(Invokes.RemoveTagForPaths, { paths, tag: prefixedTag });
+      const pathsToUpdate = getPathsToUpdate();
+      await invoke(Invokes.RemoveTagForPaths, { paths: pathsToUpdate, tag: prefixedTag });
       const newTags = tags.filter((t) => t.tag !== tagToRemove.tag);
       setTags(newTags);
       onTagsChanged(paths, newTags);

@@ -1,4 +1,4 @@
-import { GroupPreference, ImageFile } from '../components/ui/AppProperties';
+import { GroupPreference, GroupingMode, ImageFile } from '../components/ui/AppProperties';
 
 export type GroupId = string;
 
@@ -69,7 +69,7 @@ function pickPrimary(files: ImageFile[], preference: GroupPreference): ImageFile
   }
 }
 
-export function getFileExtension(path: string): string {
+function getFileExtension(path: string): string {
   const clean = path.split('?')[0];
   const dot = clean.lastIndexOf('.');
   if (dot === -1) return '';
@@ -84,4 +84,31 @@ export function getVariantLabel(path: string): string {
 export function findGroupVariants(images: ImageFile[], groupId: string | null | undefined): ImageFile[] {
   if (!groupId) return [];
   return images.filter((img) => img.group_id === groupId && !img.is_virtual_copy);
+}
+
+export function expandGroupedPaths(images: ImageFile[], paths: string[], groupingMode: GroupingMode): string[] {
+  const expandedPaths = new Set(paths);
+  if (groupingMode === 'off') return Array.from(expandedPaths);
+
+  const groupIdByPath = new Map<string, string | null | undefined>();
+  const variantsByGroup = new Map<string, string[]>();
+  for (const image of images) {
+    if (!groupIdByPath.has(image.path)) groupIdByPath.set(image.path, image.group_id);
+    if (image.group_id && !image.is_virtual_copy) {
+      const variants = variantsByGroup.get(image.group_id);
+      if (variants) variants.push(image.path);
+      else variantsByGroup.set(image.group_id, [image.path]);
+    }
+  }
+
+  for (const path of paths) {
+    const groupId = groupIdByPath.get(path);
+    if (!groupId) continue;
+
+    for (const variantPath of variantsByGroup.get(groupId) ?? []) {
+      expandedPaths.add(variantPath);
+    }
+  }
+
+  return Array.from(expandedPaths);
 }

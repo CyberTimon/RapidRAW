@@ -1,15 +1,27 @@
 import { useState, useEffect, useRef } from 'react';
-import { Star, Copy, ClipboardPaste, ChevronUp, ChevronDown, Check, FileInput, Settings, Filter } from 'lucide-react';
+import { Star, Copy, ClipboardPaste, Check, Settings, Filter, PanelLeft, PanelBottom, PanelRight } from 'lucide-react';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 
 import Filmstrip from './Filmstrip';
-import { GLOBAL_KEYS, ImageFile, SelectedImage, ThumbnailAspectRatio } from '../ui/AppProperties';
+import {
+  GLOBAL_KEYS,
+  ImageFile,
+  ImageFlag,
+  FlagStatus,
+  RATING_OPERATORS,
+  SelectedImage,
+  ThumbnailAspectRatio,
+} from '../ui/AppProperties';
+import { FLAG_ICONS } from '../../utils/imageFlags';
+import FlagToggles from '../ui/FlagToggles';
 import Text from '../ui/Text';
 import { useEditorStore } from '../../store/useEditorStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
+import { useLibraryActions } from '../../hooks/useLibraryActions';
+import { getReopenedPanelWidth, useUIStore } from '../../store/useUIStore';
 import { COLOR_LABELS } from '../../utils/adjustments';
 
 interface BottomBarProps {
@@ -25,11 +37,13 @@ interface BottomBarProps {
   isPasted: boolean;
   isPasteDisabled: boolean;
   isRatingDisabled?: boolean;
+  flag?: ImageFlag | null;
   isResetDisabled?: boolean;
   isResizing?: boolean;
   multiSelectedPaths?: Array<string>;
   onClearSelection?(): void;
   onContextMenu?(event: any, path: string): void;
+  onEmptyAreaContextMenu?(event: any): void;
   onCopy(): void;
   onExportClick?(): void;
   onImageSelect?(path: string, event: any): void;
@@ -41,8 +55,8 @@ interface BottomBarProps {
   onZoomChange?(zoomValue: number, fitToWindow?: boolean): void;
   rating: number;
   selectedImage?: SelectedImage;
-  setIsFilmstripVisible?(isVisible: boolean): void;
   showFilmstrip?: boolean;
+  layoutMode: 'compact' | 'wide' | 'full';
   showZoomControls?: boolean;
   thumbnailAspectRatio: ThumbnailAspectRatio;
   totalImages?: number;
@@ -66,7 +80,7 @@ const StarRating = ({ rating, onRate, disabled }: StarRatingProps) => {
             className="disabled:cursor-not-allowed"
             disabled={disabled}
             key={starValue}
-            onClick={() => !disabled && onRate(starValue === rating ? 0 : starValue)}
+            onClick={() => !disabled && onRate(starValue)}
             data-tooltip={
               disabled
                 ? t('ui.bottomBar.tooltips.selectToRate')
@@ -91,42 +105,109 @@ const StarRating = ({ rating, onRate, disabled }: StarRatingProps) => {
   );
 };
 
+interface PanelToggleButtonProps {
+  onClick: () => void;
+  Icon: React.ElementType;
+  tooltip: string;
+  disabled?: boolean;
+}
+
+const PanelToggleButton = ({ onClick, Icon, tooltip, disabled = false }: PanelToggleButtonProps) => (
+  <button
+    className={clsx(
+      'p-1.5 rounded-md transition-colors',
+      disabled
+        ? 'text-text-secondary opacity-40 cursor-not-allowed'
+        : 'text-text-secondary hover:bg-surface hover:text-text-primary',
+    )}
+    onClick={() => !disabled && onClick()}
+    disabled={disabled}
+    data-tooltip={tooltip}
+  >
+    <Icon size={18} />
+  </button>
+);
+
 export default function BottomBar({
   filmstripHeight,
   imageList = [],
   imageRatings,
   isCopied,
   isCopyDisabled,
-  isExportDisabled,
   isFilmstripVisible,
   isLibraryView = false,
   isLoading = false,
   isPasted,
   isPasteDisabled,
   isRatingDisabled = false,
-  isResetDisabled = false,
+  flag = null,
   isResizing,
   multiSelectedPaths = [],
   onClearSelection,
   onContextMenu,
+  onEmptyAreaContextMenu,
   onCopy,
-  onExportClick,
   onImageSelect,
   onOpenCopyPasteSettings,
   onRequestThumbnails,
   onPaste,
   onRate,
-  onReset,
   onZoomChange = () => {},
   rating,
   selectedImage,
-  setIsFilmstripVisible,
   showFilmstrip = true,
+  layoutMode,
   showZoomControls = true,
   thumbnailAspectRatio,
   totalImages,
 }: BottomBarProps) {
   const { t } = useTranslation();
+  const { handleToggleFlag } = useLibraryActions();
+  const handleToggleFlagFilter = (status: FlagStatus) => {
+    setFilterCriteria((prev) => ({
+      ...prev,
+      flagStatus: prev.flagStatus === status ? FlagStatus.All : status,
+    }));
+  };
+
+  const { isInstantTransition, uiVisibility, setUI } = useUIStore(
+    useShallow((state) => ({
+      isInstantTransition: state.isInstantTransition,
+      uiVisibility: state.uiVisibility,
+      setUI: state.setUI,
+    })),
+  );
+
+  const isLeftOpen = uiVisibility.leftPanel;
+  const isRightOpen = uiVisibility.rightPanel;
+  const isBottomOpen = uiVisibility.filmstrip;
+  const showLeftPanelToggle = layoutMode === 'full';
+  const showRightPanelToggle = layoutMode === 'full' || layoutMode === 'wide';
+  const showBottomPanelToggle = layoutMode !== 'compact';
+
+  const toggleLeft = () =>
+    setUI((s) => {
+      const isOpening = !s.uiVisibility.leftPanel;
+      return {
+        uiVisibility: { ...s.uiVisibility, leftPanel: isOpening },
+        leftPanelWidth: isOpening ? getReopenedPanelWidth(s.leftPanelWidth) : s.leftPanelWidth,
+      };
+    });
+
+  const toggleRight = () =>
+    setUI((s) => {
+      const isOpening = !s.uiVisibility.rightPanel;
+      return {
+        uiVisibility: { ...s.uiVisibility, rightPanel: isOpening },
+        rightPanelWidth: isOpening ? getReopenedPanelWidth(s.rightPanelWidth) : s.rightPanelWidth,
+      };
+    });
+
+  const toggleBottom = () =>
+    setUI((s) => ({
+      uiVisibility: { ...s.uiVisibility, filmstrip: !s.uiVisibility.filmstrip },
+    }));
+
   const { displaySize, originalSize } = useEditorStore(
     useShallow((state) => ({
       displaySize: state.displaySize,
@@ -154,15 +235,29 @@ export default function BottomBar({
   const total = totalImages ?? 0;
   const showSelectionCounter = numSelected > 1;
 
-  const [isFilterExpanded, setIsFilterExpanded] = useState(false);
+  const isFilterExpanded = Boolean(uiVisibility.quickFilter);
+
+  const toggleQuickFilter = () => {
+    setUI((s) => ({
+      uiVisibility: {
+        ...s.uiVisibility,
+        quickFilter: !s.uiVisibility.quickFilter,
+      },
+    }));
+  };
   const { filterCriteria, setFilterCriteria } = useLibraryStore(
     useShallow((state) => ({
       filterCriteria: state.filterCriteria,
       setFilterCriteria: state.setFilterCriteria,
     })),
   );
+  const ratingOp = RATING_OPERATORS[filterCriteria.ratingOperator ?? 'gte'];
 
   const allColors = [...COLOR_LABELS, { name: 'none', color: '#9ca3af' }];
+  const currentHeight = filmstripHeight ?? 120;
+  const isCollapsed = !isFilmstripVisible;
+  const effectiveHeight = isFilmstripVisible ? currentHeight : 0;
+  const shouldAnimate = !isInstantTransition && (!isResizing || isCollapsed);
 
   useEffect(() => {
     if (isZoomReady && !isDraggingSlider.current) {
@@ -261,10 +356,20 @@ export default function BottomBar({
     <div className="shrink-0 bg-bg-secondary rounded-lg flex flex-col">
       {!isLibraryView && showFilmstrip && (
         <div
-          className={clsx('overflow-hidden', !isResizing && 'transition-all duration-300 ease-in-out')}
-          style={{ height: isFilmstripVisible ? `${filmstripHeight}px` : '0px' }}
+          className={clsx(
+            'overflow-hidden shrink-0 relative',
+            shouldAnimate && 'transition-all duration-300 ease-in-out',
+          )}
+          style={{ height: `${effectiveHeight}px` }}
         >
-          <div className="w-full p-2" style={{ height: `${filmstripHeight}px` }}>
+          <div
+            className={clsx(
+              'w-full p-2 duration-300 ease-in-out',
+              shouldAnimate ? 'transition-all' : 'transition-opacity',
+              isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto',
+            )}
+            style={{ height: `${currentHeight}px` }}
+          >
             <Filmstrip
               imageList={imageList}
               imageRatings={imageRatings}
@@ -272,6 +377,7 @@ export default function BottomBar({
               multiSelectedPaths={multiSelectedPaths}
               onClearSelection={onClearSelection}
               onContextMenu={onContextMenu}
+              onEmptyAreaContextMenu={onEmptyAreaContextMenu}
               onImageSelect={onImageSelect}
               onRequestThumbnails={onRequestThumbnails}
               selectedImage={selectedImage}
@@ -283,13 +389,19 @@ export default function BottomBar({
 
       <div
         className={clsx(
-          'shrink-0 h-10 flex items-center justify-between px-3',
-          !isLibraryView && 'border-t',
+          'shrink-0 h-12 flex items-center justify-between px-3',
+          !isLibraryView && 'border-t transition-colors duration-300',
           !isLibraryView && showFilmstrip && isFilmstripVisible ? 'border-surface' : 'border-transparent',
         )}
       >
         <div className="flex items-center gap-4">
           <StarRating rating={rating} onRate={onRate} disabled={isRatingDisabled} />
+          <FlagToggles
+            flag={flag}
+            onToggle={(option) => handleToggleFlag(option)}
+            inactiveClassName="text-text-secondary hover:text-accent"
+            disabled={isRatingDisabled}
+          />
           <div className="h-5 w-px bg-surface"></div>
           <div className="flex items-center gap-2">
             <button
@@ -380,8 +492,8 @@ export default function BottomBar({
                 'relative w-8 h-8 flex items-center justify-center rounded-md transition-colors shrink-0',
                 isFilterExpanded ? 'text-text-primary' : 'text-text-secondary hover:bg-surface hover:text-text-primary',
               )}
-              onClick={() => setIsFilterExpanded(!isFilterExpanded)}
-              data-tooltip={t('ui.bottomBar.tooltips.quickFilter', 'Quick Filter')}
+              onClick={toggleQuickFilter}
+              data-tooltip={t('ui.bottomBar.tooltips.quickFilter')}
             >
               <Filter size={18} />
             </button>
@@ -389,16 +501,19 @@ export default function BottomBar({
             <div
               className={clsx(
                 'flex items-center transition-all duration-300 ease-in-out overflow-hidden',
-                isFilterExpanded ? 'max-w-100 opacity-100 pr-2 ml-1' : 'max-w-0 opacity-0 pr-0 ml-0',
+                // Increased max-w so stars + flags + colors all fit without clipping
+                isFilterExpanded ? 'max-w-xl opacity-100 pr-2 ml-1' : 'max-w-0 opacity-0 pr-0 ml-0',
               )}
             >
               <div className="flex items-center gap-3 whitespace-nowrap">
+                {/* 1. Star Rating Filter */}
                 <div className="flex items-center gap-0.5">
                   {[1, 2, 3, 4, 5].map((starValue) => {
                     const isFilled = filterCriteria.rating > 0 && starValue <= filterCriteria.rating;
                     return (
                       <button
                         key={`qf-star-${starValue}`}
+                        data-tooltip={`${starValue} ${t(ratingOp.suffixKey)}`}
                         onClick={() =>
                           setFilterCriteria((prev) => ({
                             ...prev,
@@ -417,6 +532,62 @@ export default function BottomBar({
                       </button>
                     );
                   })}
+                  {(() => {
+                    const op = ratingOp;
+                    return (
+                      <button
+                        onClick={() => setFilterCriteria((prev) => ({ ...prev, ratingOperator: op.next }))}
+                        data-tooltip={t(op.labelKey)}
+                        className="ml-1 w-5 h-5 flex items-center justify-center rounded text-sm font-semibold text-text-secondary hover:text-text-primary focus:outline-none"
+                      >
+                        {op.symbol}
+                      </button>
+                    );
+                  })()}
+                </div>
+
+                <div className="h-4 w-px bg-border-color"></div>
+
+                <div className="flex items-center gap-1.5">
+                  {(() => {
+                    const PickIcon = FLAG_ICONS[ImageFlag.Pick];
+                    const isPickedActive = filterCriteria.flagStatus === FlagStatus.Picked;
+                    return (
+                      <button
+                        className="focus:outline-none transition-transform active:scale-95 hover:scale-110"
+                        onClick={() => handleToggleFlagFilter(FlagStatus.Picked)}
+                        data-tooltip={t('library.filters.flag.picked')}
+                      >
+                        <PickIcon
+                          size={16}
+                          className={clsx(
+                            'transition-colors duration-150',
+                            isPickedActive ? 'text-accent fill-accent' : 'text-text-secondary hover:text-accent',
+                          )}
+                        />
+                      </button>
+                    );
+                  })()}
+
+                  {(() => {
+                    const RejectIcon = FLAG_ICONS[ImageFlag.Reject];
+                    const isRejectActive = filterCriteria.flagStatus === FlagStatus.Rejected;
+                    return (
+                      <button
+                        className="focus:outline-none transition-transform active:scale-95 hover:scale-110"
+                        onClick={() => handleToggleFlagFilter(FlagStatus.Rejected)}
+                        data-tooltip={t('library.filters.flag.rejected')}
+                      >
+                        <RejectIcon
+                          size={16}
+                          className={clsx(
+                            'transition-colors duration-150',
+                            isRejectActive ? 'text-accent' : 'text-text-secondary hover:text-accent',
+                          )}
+                        />
+                      </button>
+                    );
+                  })()}
                 </div>
 
                 <div className="h-4 w-px bg-border-color"></div>
@@ -470,95 +641,111 @@ export default function BottomBar({
             </Text>
           </div>
         </div>
-        <div className="grow" />
-        {isLibraryView ? (
-          <div className="flex items-center gap-2">
-            <button
-              className="w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-              disabled={isExportDisabled}
-              onClick={onExportClick}
-              data-tooltip={t('ui.bottomBar.tooltips.export')}
-            >
-              <FileInput size={18} />
-            </button>
-          </div>
-        ) : showZoomControls ? (
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 w-56">
-              <div
-                className="relative w-12 h-full flex items-center justify-end cursor-pointer"
-                onClick={handleResetZoom}
-                onMouseEnter={() => setIsZoomLabelHovered(true)}
-                onMouseLeave={() => setIsZoomLabelHovered(false)}
-                data-tooltip={t('ui.bottomBar.tooltips.resetZoom')}
-              >
-                <span className="absolute right-0 text-xs text-text-secondary select-none text-right w-max transition-colors hover:text-text-primary">
-                  {isZoomLabelHovered ? t('ui.bottomBar.zoomLabelReset') : t('ui.bottomBar.zoomLabel')}
-                </span>
-              </div>
 
-              <div className="relative flex-1 h-5">
-                <div className="absolute top-1/2 left-0 w-full h-1.5 -translate-y-1/2 bg-surface rounded-full pointer-events-none" />
-                <input
-                  type="range"
-                  min={0.1}
-                  max={2.0}
-                  step="0.05"
-                  value={latchedSliderValue}
-                  onChange={handleSliderChange}
-                  onKeyDown={handleZoomKeyDown}
-                  onMouseDown={handleMouseDown}
-                  onMouseUp={handleMouseUp}
-                  onTouchStart={handleMouseDown}
-                  onTouchEnd={handleMouseUp}
-                  onDoubleClick={handleResetZoom}
-                  className={`absolute top-1/2 left-0 w-full h-1.5 mt-[-1.5px] appearance-none bg-transparent cursor-pointer p-0 slider-input z-10 ${
-                    isZoomActive ? 'slider-thumb-active' : ''
-                  }`}
-                />
-              </div>
-
-              <div className="relative text-xs text-text-secondary w-6 text-right flex items-center justify-end h-5 gap-1">
-                {isEditingPercent ? (
-                  <input
-                    ref={percentInputRef}
-                    type="text"
-                    value={percentInputValue}
-                    onChange={(e) => setPercentInputValue(e.target.value)}
-                    onKeyDown={handlePercentKeyDown}
-                    onBlur={handlePercentSubmit}
-                    className="w-full text-xs text-text-primary bg-bg-primary border border-border-color rounded-sm px-1 text-right"
-                    style={{ fontSize: '12px', height: '18px' }}
-                  />
-                ) : (
-                  <span
-                    onClick={handlePercentClick}
-                    className="cursor-pointer hover:text-text-primary transition-colors select-none"
-                    data-tooltip={t('ui.bottomBar.tooltips.customZoom')}
-                  >
-                    {latchedDisplayPercent}%
-                  </span>
-                )}
-              </div>
-            </div>
-            {showFilmstrip && (
-              <>
-                <div className="h-5 w-px bg-surface"></div>
-                <button
-                  className="p-1.5 rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors"
-                  onClick={() => setIsFilmstripVisible?.(!isFilmstripVisible)}
-                  data-tooltip={
-                    isFilmstripVisible
-                      ? t('ui.bottomBar.tooltips.collapseFilmstrip')
-                      : t('ui.bottomBar.tooltips.expandFilmstrip')
-                  }
+        <div className="flex-1 flex items-center justify-end gap-4">
+          {!isLibraryView && showZoomControls && (
+            <>
+              <div className="flex-1 max-w-56 flex items-center gap-2">
+                <div
+                  className="relative w-12 h-full shrink-0 flex items-center justify-end cursor-pointer"
+                  onClick={handleResetZoom}
+                  onMouseEnter={() => setIsZoomLabelHovered(true)}
+                  onMouseLeave={() => setIsZoomLabelHovered(false)}
+                  data-tooltip={t('ui.bottomBar.tooltips.resetZoom')}
                 >
-                  {isFilmstripVisible ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-                </button>
+                  <span className="absolute right-0 text-xs text-text-secondary select-none text-right w-max transition-colors hover:text-text-primary">
+                    {isZoomLabelHovered ? t('ui.bottomBar.zoomLabelReset') : t('ui.bottomBar.zoomLabel')}
+                  </span>
+                </div>
+
+                <div className="relative flex-1 min-w-0 h-5">
+                  <div className="absolute top-1/2 left-0 w-full h-1.5 -translate-y-1/2 bg-surface rounded-full pointer-events-none" />
+                  <input
+                    type="range"
+                    min={0.1}
+                    max={2.0}
+                    step="0.05"
+                    value={latchedSliderValue}
+                    onChange={handleSliderChange}
+                    onKeyDown={handleZoomKeyDown}
+                    onMouseDown={handleMouseDown}
+                    onMouseUp={handleMouseUp}
+                    onTouchStart={handleMouseDown}
+                    onTouchEnd={handleMouseUp}
+                    onDoubleClick={handleResetZoom}
+                    className={`absolute top-1/2 left-0 w-full h-1.5 mt-[-1.5px] appearance-none bg-transparent cursor-pointer p-0 slider-input z-10 ${
+                      isZoomActive ? 'slider-thumb-active' : ''
+                    }`}
+                  />
+                </div>
+
+                <div className="relative text-xs text-text-secondary w-6 shrink-0 text-right flex items-center justify-end h-5 gap-1">
+                  {isEditingPercent ? (
+                    <input
+                      ref={percentInputRef}
+                      type="text"
+                      value={percentInputValue}
+                      onChange={(e) => setPercentInputValue(e.target.value)}
+                      onKeyDown={handlePercentKeyDown}
+                      onBlur={handlePercentSubmit}
+                      className="w-full text-xs text-text-primary bg-bg-primary border border-border-color rounded-sm px-1 text-right"
+                      style={{ fontSize: '12px', height: '18px' }}
+                    />
+                  ) : (
+                    <span
+                      onClick={handlePercentClick}
+                      className="cursor-pointer hover:text-text-primary transition-colors select-none"
+                      data-tooltip={t('ui.bottomBar.tooltips.customZoom')}
+                    >
+                      {latchedDisplayPercent}%
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="h-5 w-px shrink-0 bg-surface"></div>
+            </>
+          )}
+
+          <div className="flex items-center gap-1 shrink-0">
+            {(showLeftPanelToggle || showRightPanelToggle || showBottomPanelToggle) && (
+              <>
+                {showLeftPanelToggle && (
+                  <PanelToggleButton
+                    onClick={toggleLeft}
+                    Icon={PanelLeft}
+                    tooltip={
+                      isLeftOpen ? t('ui.bottomBar.tooltips.collapseLeft') : t('ui.bottomBar.tooltips.expandLeft')
+                    }
+                  />
+                )}
+
+                {showBottomPanelToggle && showFilmstrip && (
+                  <PanelToggleButton
+                    onClick={toggleBottom}
+                    Icon={PanelBottom}
+                    tooltip={
+                      isBottomOpen
+                        ? t('ui.bottomBar.tooltips.collapseFilmstrip')
+                        : t('ui.bottomBar.tooltips.expandFilmstrip')
+                    }
+                    disabled={isLibraryView}
+                  />
+                )}
+
+                {showRightPanelToggle && (
+                  <PanelToggleButton
+                    onClick={toggleRight}
+                    Icon={PanelRight}
+                    tooltip={
+                      isRightOpen ? t('ui.bottomBar.tooltips.collapseRight') : t('ui.bottomBar.tooltips.expandRight')
+                    }
+                  />
+                )}
               </>
             )}
           </div>
-        ) : null}
+        </div>
       </div>
     </div>
   );

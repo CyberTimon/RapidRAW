@@ -4,91 +4,242 @@ from pathlib import Path
 LOCALES_DIR = Path("./locales")
 
 TRANSLATIONS = {
+    "ca": {
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Connectant…",
+                            "retry": "Tornar a intentar la connexió",
+                            "unsupported": "L'inici de sessió al núvol actualment només està disponible a l'escriptori."
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "cs": {
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Připojování…",
+                            "retry": "Opakovat připojení",
+                            "unsupported": "Přihlášení do cloudu je momentálně k dispozici pouze na počítači."
+                        }
+                    }
+                }
+            }
+        }
+    },
     "de": {
-        "copyPaste": {
-            "autoSyncTitle": "Anpassungen automatisch synchronisieren",
-            "autoSyncLabel": "Auto-Sync aktivieren",
-            "autoSyncDesc": "Wendet Anpassungen automatisch auf alle ausgewählten Bilder an."
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Verbinden…",
+                            "retry": "Verbindung erneut versuchen",
+                            "unsupported": "Die Cloud-Anmeldung ist derzeit nur auf dem Desktop verfügbar."
+                        }
+                    }
+                }
+            }
         }
     },
     "en": {
-        "copyPaste": {
-            "autoSyncTitle": "Auto-sync adjustments",
-            "autoSyncLabel": "Enable auto-sync",
-            "autoSyncDesc": "Automatically apply adjustments to all selected images."
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Connecting…",
+                            "retry": "Retry connection",
+                            "unsupported": "Cloud sign-in is currently only available on desktop."
+                        }
+                    }
+                }
+            }
         }
     },
     "es": {
-        "copyPaste": {
-            "autoSyncTitle": "Sincronizar ajustes automáticamente",
-            "autoSyncLabel": "Habilitar sincronización automática",
-            "autoSyncDesc": "Aplica automáticamente los ajustes a todas las imágenes seleccionadas."
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Conectando…",
+                            "retry": "Reintentar conexión",
+                            "unsupported": "El inicio de sesión en la nube actualmente solo está disponible en escritorio."
+                        }
+                    }
+                }
+            }
         }
     },
     "fr": {
-        "copyPaste": {
-            "autoSyncTitle": "Synchronisation automatique des réglages",
-            "autoSyncLabel": "Activer la synchronisation automatique",
-            "autoSyncDesc": "Applique automatiquement les réglages à toutes les images sélectionnées."
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Connexion…",
+                            "retry": "Réessayer la connexion",
+                            "unsupported": "La connexion au cloud n'est actuellement disponible que sur ordinateur."
+                        }
+                    }
+                }
+            }
         }
     },
     "it": {
-        "copyPaste": {
-            "autoSyncTitle": "Sincronizzazione automatica regolazioni",
-            "autoSyncLabel": "Abilita sincronizzazione automatica",
-            "autoSyncDesc": "Applica automaticamente le regolazioni a tutte le immagini selezionate."
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Connessione in corso…",
+                            "retry": "Riprova connessione",
+                            "unsupported": "L'accesso al cloud è attualmente disponibile solo su desktop."
+                        }
+                    }
+                }
+            }
         }
     },
     "ja": {
-        "copyPaste": {
-            "autoSyncTitle": "調整の自動同期",
-            "autoSyncLabel": "自動同期を有効にする",
-            "autoSyncDesc": "選択したすべての画像に調整を自動的に適用します。"
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "接続中…",
+                            "retry": "接続を再試行",
+                            "unsupported": "クラウドへのサインインは現在、デスクトップでのみ利用可能です。"
+                        }
+                    }
+                }
+            }
         }
     },
     "ko": {
-        "copyPaste": {
-            "autoSyncTitle": "조정 자동 동기화",
-            "autoSyncLabel": "자동 동기화 활성화",
-            "autoSyncDesc": "선택한 모든 이미지에 조정을 자동으로 적용합니다."
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "연결 중…",
+                            "retry": "연결 재시도",
+                            "unsupported": "클라우드 로그인은 현재 데스크톱에서만 사용할 수 있습니다."
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "nl": {
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Verbinden…",
+                            "retry": "Verbinding opnieuw proberen",
+                            "unsupported": "Aanmelden bij de cloud is momenteel alleen beschikbaar op desktop."
+                        }
+                    }
+                }
+            }
         }
     },
     "pl": {
-        "copyPaste": {
-            "autoSyncTitle": "Automatyczna synchronizacja dostosowań",
-            "autoSyncLabel": "Włącz auto-synchronizację",
-            "autoSyncDesc": "Automatycznie stosuje dostosowania do wszystkich wybranych obrazów."
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Łączenie…",
+                            "retry": "Ponów próbę połączenia",
+                            "unsupported": "Logowanie w chmurze jest obecnie dostępne tylko na komputerach."
+                        }
+                    }
+                }
+            }
         }
     },
     "pt": {
-        "copyPaste": {
-            "autoSyncTitle": "Sincronização automática de ajustes",
-            "autoSyncLabel": "Ativar sincronização automática",
-            "autoSyncDesc": "Aplica automaticamente os ajustes a todas as imagens selecionadas."
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Conectando…",
+                            "retry": "Tentar conexão novamente",
+                            "unsupported": "O login na nuvem está atualmente disponível apenas no desktop."
+                        }
+                    }
+                }
+            }
         }
     },
     "ru": {
-        "copyPaste": {
-            "autoSyncTitle": "Автосинхронизация коррекций",
-            "autoSyncLabel": "Включить автосинхронизацию",
-            "autoSyncDesc": "Автоматически применяет коррекции ко всем выбранным изображениям."
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "Подключение…",
+                            "retry": "Повторить попытку подключения",
+                            "unsupported": "Вход в облако в настоящее время доступен только на ПК."
+                        }
+                    }
+                }
+            }
         }
     },
     "zh-CN": {
-        "copyPaste": {
-            "autoSyncTitle": "自动同步调整",
-            "autoSyncLabel": "启用自动同步",
-            "autoSyncDesc": "自动将调整应用于所有选定的图像。"
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "正在连接…",
+                            "retry": "重试连接",
+                            "unsupported": "云端登录目前仅在桌面设备上可用。"
+                        }
+                    }
+                }
+            }
         }
     },
     "zh-TW": {
-        "copyPaste": {
-            "autoSyncTitle": "自動同步調整",
-            "autoSyncLabel": "啟用自動同步",
-            "autoSyncDesc": "自動將調整套用於所有選取的影像。"
+        "settings": {
+            "processing": {
+                "ai": {
+                    "cloud": {
+                        "statuses": {
+                            "connecting": "連線中…",
+                            "retry": "重試連線",
+                            "unsupported": "雲端登入目前僅在桌面裝置上可用。"
+                        }
+                    }
+                }
+            }
         }
     }
 }
+
+def deep_merge(target: dict, source: dict):
+    """Recursively merges source dict into target dict."""
+    for key, value in source.items():
+        if isinstance(value, dict):
+            node = target.setdefault(key, {})
+            if isinstance(node, dict):
+                deep_merge(node, value)
+        else:
+            target[key] = value
 
 def sort_dict_recursively(item):
     if isinstance(item, dict):
@@ -109,12 +260,7 @@ def update_json_file(file_path: Path, trans: dict):
         print(f"Error parsing JSON in {file_path.name}. Skipping.")
         return
 
-    # Navigate to or create modals -> copyPaste node
-    modals_node = data.setdefault("modals", {})
-    copy_paste_node = modals_node.setdefault("copyPaste", {})
-
-    for key, value in trans["copyPaste"].items():
-        copy_paste_node[key] = value
+    deep_merge(data, trans)
 
     sorted_data = sort_dict_recursively(data)
 
@@ -129,7 +275,7 @@ def main():
         print(f"Error: Locales directory '{LOCALES_DIR}' does not exist.")
         return
 
-    print("Starting sorted translation updates...")
+    print("Starting translation updates for Cloud Statuses...")
     for lang, trans in TRANSLATIONS.items():
         file_path = LOCALES_DIR / f"{lang}.json"
         update_json_file(file_path, trans)

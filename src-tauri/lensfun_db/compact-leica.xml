@@ -44,6 +44,32 @@
     </camera>
 
     <camera>
+        <maker>Leica</maker>
+        <model>D-Lux (Typ 109)</model>
+        <!--  Lens DC Vario-Summilux 1:1.7-2.8 / 10.9-34 ASPH. - same as Panasonic DMC-LX100/DC-LX100M2 -->
+        <mount>panasonicDMCLX100</mount>
+        <cropfactor>2.21</cropfactor>
+    </camera>
+
+    <camera>
+        <maker>Leica Camera AG</maker>
+        <maker lang="en">Leica</maker>
+        <model>D-Lux 7</model>
+        <!--  Lens DC Vario-Summilux 1:1.7-2.8 / 10.9-34 ASPH. - same as Panasonic DMC-LX100/DC-LX100M2 -->
+        <mount>panasonicDMCLX100</mount>
+        <cropfactor>2.21</cropfactor>
+    </camera>
+
+    <camera>
+        <maker>Leica Camera AG</maker>
+        <maker lang="en">Leica</maker>
+        <model>D-Lux 8</model>
+        <!--  Lens DC Vario-Summilux 1:1.7-2.8 / 10.9-34 ASPH. - same as Panasonic DMC-LX100/DC-LX100M2 -->
+        <mount>panasonicDMCLX100</mount>
+        <cropfactor>2.21</cropfactor>
+    </camera>
+
+    <camera>
         <maker>Leica Camera AG</maker>
         <maker lang="en">Leica</maker>
         <model>Leica Q (Typ 116)</model>

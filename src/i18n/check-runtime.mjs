@@ -36,6 +36,7 @@ const localeFiles = fs
   .sort();
 const resources = {};
 const pluralKeysByLocale = new Map();
+const leavesByLocale = new Map();
 const failures = [];
 
 for (const filename of localeFiles) {
@@ -55,6 +56,7 @@ for (const filename of localeFiles) {
 
   resources[locale] = { translation: translations };
   pluralKeysByLocale.set(locale, pluralKeys);
+  leavesByLocale.set(locale, leaves);
 }
 
 const i18n = i18next.createInstance();
@@ -107,10 +109,43 @@ for (const filename of localeFiles) {
   }
 }
 
+// Placeholders: a translation must keep every {{variable}} its English source passes. A plural form may
+// drop {{count}} only when its category covers nothing but 0 and 1 (Russian `one` also covers 21, 31…).
+const variables = (value) =>
+  new Set(typeof value === 'string' ? [...value.matchAll(/{{\s*([\w.]+)[^}]*}}/g)].map((m) => m[1]) : []);
+const english = leavesByLocale.get('en');
+let checkedPlaceholders = 0;
+
+for (const [locale, leaves] of leavesByLocale) {
+  if (locale === 'en') continue;
+  const pluralRules = new Intl.PluralRules(locale);
+  const onlyZeroOrOne = (category) =>
+    Array.from({ length: 201 }, (_, n) => n)
+      .filter((n) => pluralRules.select(n) === category)
+      .every((n) => n <= 1);
+
+  for (const [key, value] of leaves) {
+    const match = key.match(pluralSuffix);
+    const base = match ? key.replace(pluralSuffix, '') : key;
+    // a plural form is checked against English `_other`, which carries every variable the call passes
+    const source = match ? (english.get(`${base}_other`) ?? english.get(base)) : english.get(key);
+    if (source === undefined) continue;
+    checkedPlaceholders += 1;
+    const kept = variables(value);
+    for (const name of variables(source)) {
+      if (kept.has(name)) continue;
+      if (name === 'count' && match && onlyZeroOrOne(match[1])) continue;
+      failures.push(`${locale}:${key} drops {{${name}}}`);
+    }
+  }
+}
+
 if (failures.length > 0) {
   console.error(`i18n runtime validation failed with ${failures.length} issue(s):`);
   failures.forEach((failure) => console.error(`- ${failure}`));
   process.exitCode = 1;
 } else {
-  console.log(`Validated ${checkedResolutions} plural resolutions across ${localeFiles.length} locales.`);
+  console.log(
+    `Validated ${checkedResolutions} plural resolutions and ${checkedPlaceholders} placeholder sets across ${localeFiles.length} locales.`,
+  );
 }

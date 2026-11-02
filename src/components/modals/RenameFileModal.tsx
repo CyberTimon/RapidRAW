@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FILENAME_VARIABLES } from '../ui/ExportImportProperties';
+import { FILENAME_VARIABLES, isUniqueFilenameTemplate } from '../ui/ExportImportProperties';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
 
@@ -46,22 +46,22 @@ export default function RenameFileModal({ filesToRename, isOpen, onClose, onSave
   }, [isOpen, filesToRename, isSingleFile]);
 
   const handleSave = useCallback(() => {
-    if (nameTemplate.trim()) {
-      let finalTemplate = nameTemplate.trim();
-      if (!isSingleFile && !finalTemplate.includes('{sequence}') && !finalTemplate.includes('{original_filename}')) {
-        finalTemplate = `${finalTemplate}_{sequence}`;
-      }
-      onSave(finalTemplate);
+    const trimmed = nameTemplate.trim();
+    if (trimmed) {
+      onSave(trimmed);
+      onClose();
     }
-    onClose();
-  }, [nameTemplate, onSave, onClose, isSingleFile]);
+  }, [nameTemplate, onSave, onClose]);
 
   const handleKeyDown = useCallback(
-    (e: any) => {
+    (e: React.KeyboardEvent) => {
       if (e.key === 'Enter') {
         e.preventDefault();
+        e.stopPropagation();
         handleSave();
       } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
         onClose();
       }
     },
@@ -120,6 +120,7 @@ export default function RenameFileModal({ filesToRename, isOpen, onClose, onSave
               autoFocus
               className="w-full bg-bg-primary border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
               onChange={(e: any) => setNameTemplate(e.target.value)}
+              onKeyDown={handleKeyDown}
               ref={nameInputRef}
               type="text"
               value={nameTemplate}
@@ -136,6 +137,11 @@ export default function RenameFileModal({ filesToRename, isOpen, onClose, onSave
                   </button>
                 ))}
               </div>
+            )}
+            {!isSingleFile && !isUniqueFilenameTemplate(nameTemplate) && (
+              <Text variant={TextVariants.small} className="mt-2">
+                {t('modals.renameFile.notUniqueWarning')}
+              </Text>
             )}
           </div>
         </div>

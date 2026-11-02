@@ -46,6 +46,47 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
     }
   }, [refreshImageList, setUI]);
 
+  const handleStartFocusStack = useCallback(
+    (paths: string[]) => {
+      setUI((state) => ({
+        focusStackModalState: {
+          ...state.focusStackModalState,
+          isProcessing: true,
+          error: null,
+          finalImageBase64: null,
+          depthMapBase64: null,
+          progressMessage: 'Starting focus stacking process...',
+        },
+      }));
+      invoke(Invokes.StitchFocusStack, { paths }).catch((err) => {
+        setUI((state) => ({
+          focusStackModalState: { ...state.focusStackModalState, isProcessing: false, error: String(err) },
+        }));
+      });
+    },
+    [setUI],
+  );
+
+  const handleSaveFocusStack = useCallback(async (): Promise<string> => {
+    const { focusStackModalState } = useUIStore.getState();
+    if (focusStackModalState.sourcePaths.length === 0) {
+      const err = 'Source paths for focus stack not found.';
+      setUI((state) => ({ focusStackModalState: { ...state.focusStackModalState, error: err } }));
+      throw new Error(err);
+    }
+    try {
+      const savedPath: string = await invoke(Invokes.SaveFocusStack, {
+        firstPathStr: focusStackModalState.sourcePaths[0],
+      });
+      await refreshImageList();
+      return savedPath;
+    } catch (err) {
+      console.error('Failed to save focus stack:', err);
+      setUI((state) => ({ focusStackModalState: { ...state.focusStackModalState, error: String(err) } }));
+      throw err;
+    }
+  }, [refreshImageList, setUI]);
+
   const handleStartHdr = useCallback(
     (paths: string[]) => {
       setUI((state) => ({
@@ -82,59 +123,6 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
     }
   }, [refreshImageList, setUI]);
 
-  const handleApplyDenoise = useCallback(
-    async (intensity: number, method: 'ai' | 'bm3d') => {
-      const { denoiseModalState } = useUIStore.getState();
-      if (denoiseModalState.targetPaths.length === 0) return;
-
-      setUI((state) => ({
-        denoiseModalState: {
-          ...state.denoiseModalState,
-          isProcessing: true,
-          error: null,
-          progressMessage: 'Starting engine...',
-        },
-      }));
-
-      try {
-        await invoke(Invokes.ApplyDenoising, {
-          path: denoiseModalState.targetPaths[0],
-          intensity: intensity,
-          method: method,
-        });
-      } catch (err) {
-        setUI((state) => ({
-          denoiseModalState: { ...state.denoiseModalState, isProcessing: false, error: String(err) },
-        }));
-      }
-    },
-    [setUI],
-  );
-
-  const handleBatchDenoise = useCallback(
-    async (intensity: number, method: 'ai' | 'bm3d', paths: string[]) => {
-      try {
-        const savedPaths: string[] = await invoke('batch_denoise_images', { paths, intensity, method });
-        await refreshImageList();
-        return savedPaths;
-      } catch (err) {
-        setUI((state) => ({ denoiseModalState: { ...state.denoiseModalState, error: String(err) } }));
-        throw err;
-      }
-    },
-    [refreshImageList, setUI],
-  );
-
-  const handleSaveDenoisedImage = useCallback(async (): Promise<string> => {
-    const { denoiseModalState } = useUIStore.getState();
-    if (denoiseModalState.targetPaths.length === 0) throw new Error('No target path');
-    const savedPath = await invoke<string>(Invokes.SaveDenoisedImage, {
-      originalPathStr: denoiseModalState.targetPaths[0],
-    });
-    await refreshImageList();
-    return savedPath;
-  }, [refreshImageList]);
-
   const handleSaveCollage = useCallback(
     async (base64Data: string, firstPath: string): Promise<string> => {
       try {
@@ -154,9 +142,8 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
     handleSavePanorama,
     handleStartHdr,
     handleSaveHdr,
-    handleApplyDenoise,
-    handleBatchDenoise,
-    handleSaveDenoisedImage,
     handleSaveCollage,
+    handleStartFocusStack,
+    handleSaveFocusStack,
   };
 }

@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import { Invokes } from '../../ui/AppProperties';
+import FlagToggles from '../../ui/FlagToggles';
+import { getImageFlag } from '../../../utils/imageFlags';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
@@ -14,6 +16,7 @@ import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useProcessStore } from '../../../store/useProcessStore';
 import { useLibraryActions } from '../../../hooks/useLibraryActions';
+import { expandGroupedPaths } from '../../../utils/imageGrouping';
 
 interface CameraSetting {
   format?(value: number): string | number;
@@ -41,6 +44,7 @@ interface MetaDataItemProps {
 }
 
 const USER_TAG_PREFIX = 'user:';
+const EMPTY_TAGS: string[] = [];
 
 function formatExifTag(str: string) {
   if (!str) return '';
@@ -237,18 +241,26 @@ export default function MetadataPanel() {
   const [isTagInputFocused, setIsTagInputFocused] = useState(false);
   const selectedImage = useEditorStore((s) => s.selectedImage);
   const multiSelectedPaths = useLibraryStore((s) => s.multiSelectedPaths);
-  const imageList = useLibraryStore((s) => s.imageList);
   const imageRatings = useLibraryStore((s) => s.imageRatings);
   const appSettings = useSettingsStore((s) => s.appSettings);
-  const thumbnails = useProcessStore((s) => s.thumbnails);
+  const liveThumbnailUrl = useProcessStore((s) => (selectedImage ? s.thumbnails[selectedImage.path] : undefined));
 
-  const { handleRate, handleSetColorLabel, handleTagsChanged, handleUpdateExif } = useLibraryActions();
+  const { handleRate, handleToggleFlag, handleSetColorLabel, handleTagsChanged, handleUpdateExif } =
+    useLibraryActions();
 
   const rating = selectedImage ? imageRatings[selectedImage.path] || 0 : 0;
-  const tags = selectedImage ? imageList.find((img) => img.path === selectedImage.path)?.tags || [] : [];
-  const liveThumbnailUrl = selectedImage ? thumbnails[selectedImage.path] : undefined;
+  const flag = useLibraryStore((state) => getImageFlag(state.imageList, selectedImage?.path));
+  const tags = useLibraryStore((state) => {
+    if (!selectedImage) return EMPTY_TAGS;
+    return state.imageList.find((img) => img.path === selectedImage.path)?.tags ?? EMPTY_TAGS;
+  });
 
   const targetPaths = multiSelectedPaths?.length > 0 ? multiSelectedPaths : selectedImage ? [selectedImage.path] : [];
+  const getPathsToUpdate = () => {
+    const { imageList } = useLibraryStore.getState();
+    const groupingMode = useSettingsStore.getState().appSettings?.grouping ?? 'off';
+    return expandGroupedPaths(imageList, targetPaths, groupingMode);
+  };
 
   const { cameraGridSettings, lensSetting, gpsData, otherExifEntries } = useMemo(() => {
     const exif = selectedImage?.exif || {};
@@ -347,7 +359,8 @@ export default function MetadataPanel() {
     if (newTagValue && !currentTags.some((t) => t.tag === newTagValue)) {
       try {
         const prefixedTag = `${USER_TAG_PREFIX}${newTagValue}`;
-        await invoke(Invokes.AddTagForPaths, { paths: targetPaths, tag: prefixedTag });
+        const pathsToUpdate = getPathsToUpdate();
+        await invoke(Invokes.AddTagForPaths, { paths: pathsToUpdate, tag: prefixedTag });
 
         const newTags = [...currentTags, { tag: newTagValue, isUser: true }];
         handleTagsChanged(targetPaths, newTags);
@@ -361,7 +374,8 @@ export default function MetadataPanel() {
   const handleRemoveTag = async (tagToRemove: { tag: string; isUser: boolean }) => {
     try {
       const prefixedTag = tagToRemove.isUser ? `${USER_TAG_PREFIX}${tagToRemove.tag}` : tagToRemove.tag;
-      await invoke(Invokes.RemoveTagForPaths, { paths: targetPaths, tag: prefixedTag });
+      const pathsToUpdate = getPathsToUpdate();
+      await invoke(Invokes.RemoveTagForPaths, { paths: pathsToUpdate, tag: prefixedTag });
 
       const newTags = currentTags.filter((t) => t.tag !== tagToRemove.tag);
       handleTagsChanged(targetPaths, newTags);
@@ -382,10 +396,10 @@ export default function MetadataPanel() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-4 flex justify-between items-center shrink-0 border-b border-surface">
+      <div className="p-3 flex justify-between items-center shrink-0 border-b border-surface">
         <Text variant={TextVariants.title}>{t('editor.metadata.title')}</Text>
       </div>
-      <div className="grow overflow-y-auto p-4 custom-scrollbar">
+      <div className="grow overflow-y-auto p-3 custom-scrollbar">
         {selectedImage ? (
           <div className="flex flex-col gap-6">
             <div>
@@ -611,6 +625,13 @@ export default function MetadataPanel() {
                                 />
                               </button>
                             ))}
+                            <div className="w-px h-4 bg-surface mx-1" />
+                            <FlagToggles
+                              flag={flag}
+                              onToggle={(option) => handleToggleFlag(option, targetPaths)}
+                              inactiveClassName="text-text-secondary hover:text-text-primary"
+                              size={20}
+                            />
                           </div>
                         </div>
                         <div>
@@ -794,14 +815,16 @@ export default function MetadataPanel() {
             )}
           </div>
         ) : (
-          <Text
-            variant={TextVariants.heading}
-            color={TextColors.secondary}
-            weight={TextWeights.normal}
-            className="text-center mt-4"
-          >
-            {t('editor.ai.noImageSelected')}
-          </Text>
+          <div className="flex items-center justify-center h-full">
+            <Text
+              variant={TextVariants.heading}
+              color={TextColors.secondary}
+              weight={TextWeights.normal}
+              className="text-center"
+            >
+              {t('editor.ai.noImageSelected')}
+            </Text>
+          </div>
         )}
       </div>
     </div>

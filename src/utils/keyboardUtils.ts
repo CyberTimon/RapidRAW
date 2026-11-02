@@ -2,6 +2,7 @@ export interface KeybindDefinition {
   action: string;
   description: string;
   defaultCombo: string[];
+  macDefaultCombo?: string[];
   section: 'library' | 'view' | 'rating' | 'panels' | 'editing';
 }
 
@@ -38,6 +39,12 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     section: 'library',
   },
   {
+    action: 'copy_image_path',
+    description: 'settings.keybinds.actions.copy_image_path',
+    defaultCombo: ['ctrl', 'KeyL'],
+    section: 'library',
+  },
+  {
     action: 'select_all',
     description: 'settings.keybinds.actions.select_all',
     defaultCombo: ['ctrl', 'KeyA'],
@@ -47,6 +54,13 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     action: 'delete_selected',
     description: 'settings.keybinds.actions.delete_selected',
     defaultCombo: ['Delete'],
+    section: 'library',
+  },
+  {
+    action: 'delete_rejected',
+    description: 'settings.keybinds.actions.delete_rejected',
+    defaultCombo: ['ctrl', 'Backspace'],
+    macDefaultCombo: ['alt', 'Delete'],
     section: 'library',
   },
   {
@@ -110,6 +124,12 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     section: 'view',
   },
   {
+    action: 'toggle_viewer_window',
+    description: 'settings.keybinds.actions.toggle_viewer_window',
+    defaultCombo: ['shift', 'KeyF'],
+    section: 'view',
+  },
+  {
     action: 'show_original',
     description: 'settings.keybinds.actions.show_original',
     defaultCombo: ['KeyB'],
@@ -121,6 +141,24 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
   { action: 'rate_3', description: 'settings.keybinds.actions.rate_3', defaultCombo: ['Digit3'], section: 'rating' },
   { action: 'rate_4', description: 'settings.keybinds.actions.rate_4', defaultCombo: ['Digit4'], section: 'rating' },
   { action: 'rate_5', description: 'settings.keybinds.actions.rate_5', defaultCombo: ['Digit5'], section: 'rating' },
+  {
+    action: 'toggle_pick',
+    description: 'settings.keybinds.actions.toggle_pick',
+    defaultCombo: ['shift', 'KeyP'],
+    section: 'rating',
+  },
+  {
+    action: 'toggle_reject',
+    description: 'settings.keybinds.actions.toggle_reject',
+    defaultCombo: ['KeyX'],
+    section: 'rating',
+  },
+  {
+    action: 'unflag',
+    description: 'settings.keybinds.actions.unflag',
+    defaultCombo: ['KeyU'],
+    section: 'rating',
+  },
   {
     action: 'color_label_none',
     description: 'settings.keybinds.actions.color_label_none',
@@ -194,6 +232,12 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     section: 'panels',
   },
   {
+    action: 'toggle_folder_tree',
+    description: 'settings.keybinds.actions.toggle_folder_tree',
+    defaultCombo: ['KeyL'],
+    section: 'panels',
+  },
+  {
     action: 'toggle_analytics',
     description: 'settings.keybinds.actions.toggle_analytics',
     defaultCombo: ['KeyA'],
@@ -203,6 +247,24 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     action: 'toggle_export',
     description: 'settings.keybinds.actions.toggle_export',
     defaultCombo: ['KeyE'],
+    section: 'panels',
+  },
+  {
+    action: 'toggle_left_panel',
+    description: 'settings.keybinds.actions.toggle_left_panel',
+    defaultCombo: ['ctrl', 'shift', 'KeyB'],
+    section: 'panels',
+  },
+  {
+    action: 'toggle_right_panel',
+    description: 'settings.keybinds.actions.toggle_right_panel',
+    defaultCombo: ['ctrl', 'KeyB'],
+    section: 'panels',
+  },
+  {
+    action: 'toggle_bottom_panel',
+    description: 'settings.keybinds.actions.toggle_bottom_panel',
+    defaultCombo: ['ctrl', 'KeyJ'],
     section: 'panels',
   },
   {
@@ -253,6 +315,18 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     action: 'toggle_crop',
     description: 'settings.keybinds.actions.toggle_crop',
     defaultCombo: ['KeyS'],
+    section: 'editing',
+  },
+  {
+    action: 'auto_straighten',
+    description: 'settings.keybinds.actions.auto_straighten',
+    defaultCombo: ['shift', 'KeyS'],
+    section: 'editing',
+  },
+  {
+    action: 'toggle_black_white',
+    description: 'settings.keybinds.actions.toggle_black_white',
+    defaultCombo: ['KeyV'],
     section: 'editing',
   },
   {
@@ -308,7 +382,36 @@ const symMap: Record<string, string> = {
   PrintScreen: 'PrtSc',
 };
 
+export function getDefaultCombo(def: KeybindDefinition, osPlatform?: string): string[] {
+  return (osPlatform === 'macos' && def.macDefaultCombo) || def.defaultCombo;
+}
+
+export function getEffectiveCombo(
+  def: KeybindDefinition,
+  keybinds: Record<string, string[]> | undefined,
+  osPlatform?: string,
+): string[] {
+  return keybinds?.[def.action] ?? getDefaultCombo(def, osPlatform);
+}
+
+// Canonical identifiers keep stored shortcuts compatible while the symbol
+// comes from the active keyboard layout rather than a physical QWERTY key.
+const punctuationCodes: Record<string, string> = {
+  '[': 'BracketLeft',
+  ']': 'BracketRight',
+  '-': 'Minus',
+  '=': 'Equal',
+  ',': 'Comma',
+  '.': 'Period',
+  '/': 'Slash',
+  ';': 'Semicolon',
+  "'": 'Quote',
+  '`': 'Backquote',
+  '\\': 'Backslash',
+};
+
 export function normalizeCombo(event: KeyboardEvent, osPlatform?: string): string[] {
+  if (event.isComposing || event.key === 'Dead' || event.key === 'Process') return [];
   const isMacDelete = osPlatform === 'macos' && event.code === 'Backspace' && (event.ctrlKey || event.metaKey);
   const parts: string[] = [];
   if ((event.ctrlKey || event.metaKey) && !isMacDelete) parts.push('ctrl');
@@ -323,6 +426,12 @@ export function normalizeCombo(event: KeyboardEvent, osPlatform?: string): strin
     code = 'Equal';
   } else if (code === 'NumpadSubtract') {
     code = 'Minus';
+  } else if (
+    !code.startsWith('Numpad') &&
+    !(/^Digit[0-9]$/.test(code) && !event.ctrlKey && !event.metaKey && !event.altKey) &&
+    punctuationCodes[event.key]
+  ) {
+    code = punctuationCodes[event.key];
   }
   if (isValidShortcutKey(code)) {
     parts.push(code);
@@ -330,7 +439,7 @@ export function normalizeCombo(event: KeyboardEvent, osPlatform?: string): strin
   return parts;
 }
 
-export function codeToDisplayLabel(code: string): string | null {
+function codeToDisplayLabel(code: string): string | null {
   if (/^Key[A-Z]$/.test(code) || /^Digit[0-9]$/.test(code)) {
     return code[code.length - 1].toUpperCase();
   }
@@ -340,7 +449,7 @@ export function codeToDisplayLabel(code: string): string | null {
   return symMap[code] ?? null;
 }
 
-export function isValidShortcutKey(code: string): boolean {
+function isValidShortcutKey(code: string): boolean {
   if (code.startsWith('Key') || code.startsWith('Digit')) return true;
   if (code.startsWith('F') && /^\d+$/.test(code.slice(1))) return true;
   if (/^Numpad[0-9]$/.test(code)) return true;
@@ -354,8 +463,4 @@ export function formatKeyCode(key: string, osPlatform: string): string {
   if (key === 'Delete' && osPlatform === 'macos') return 'Delete / ⌘+⌫';
   const label = codeToDisplayLabel(key);
   return label || key;
-}
-
-export function arraysEqual(a: string[], b: string[]): boolean {
-  return a.length === b.length && a.every((v, i) => v === b[i]);
 }

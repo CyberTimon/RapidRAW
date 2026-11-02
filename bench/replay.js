@@ -287,7 +287,7 @@
   console.log(json);
   console.log('BENCH_RESULT_JSON_END');
   try {
-    copy(json); // eslint-disable-line no-undef -- devtools console global
+    copy(json);  
     console.log('bench: result copied to clipboard. Paste into bench/out/<name>.json');
   } catch {
     console.log('bench: clipboard copy() unavailable in this console, copy the JSON above manually');

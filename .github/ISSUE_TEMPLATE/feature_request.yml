@@ -34,3 +34,5 @@ body:
       options:
         - label: I have searched existing issues and discussions and didn't find a duplicate
           required: true
+        - label: If I'm requesting support for a new camera or RAW format, I have uploaded a CC-0 licensed sample set to [RawDB](https://rawdb.dnglab.org) following the [sample guidelines](https://github.com/dnglab/dnglab/blob/main/CONTRIBUTE_SAMPLES.md#important-notes-on-how-to-properly-shoot-samples).
+          required: true

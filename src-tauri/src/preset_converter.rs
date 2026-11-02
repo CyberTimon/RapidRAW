@@ -1,9 +1,11 @@
 use regex::Regex;
+use regex::regex;
 use serde_json::{Map, Value, json};
 use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::file_management::Preset;
+use crate::white_balance::{MIRED_PER_RELATIVE_UNIT, TINT_PER_RELATIVE_UNIT};
 
 #[derive(Copy, Clone, Debug)]
 enum Num {
@@ -35,10 +37,8 @@ fn get_attr_as_f64(attrs: &HashMap<String, String>, key: &str) -> Option<f64> {
 }
 
 fn extract_xmp_name(xmp_content: &str) -> Option<String> {
-    let re =
-        Regex::new(r#"(?s)<crs:Name>.*?<rdf:Alt>.*?<rdf:li[^>]*>([^<]+)</rdf:li>.*?</crs:Name>"#)
-            .ok()?;
-    re.captures(xmp_content)
+    regex!(r#"(?s)<crs:Name>.*?<rdf:Alt>.*?<rdf:li[^>]*>([^<]+)</rdf:li>.*?</crs:Name>"#)
+        .captures(xmp_content)
         .and_then(|c| c.get(1).map(|m| m.as_str().trim().to_string()))
 }
 
@@ -51,7 +51,7 @@ fn extract_tone_curve_points(xmp_str: &str, curve_name: &str) -> Option<Vec<Valu
     let captures = re.captures(xmp_str)?;
     let seq_content = captures.get(1)?.as_str();
 
-    let point_re = Regex::new(r"<rdf:li>(\d+),\s*(\d+)</rdf:li>").ok()?;
+    let point_re = regex!(r"<rdf:li>(\d+),\s*(\d+)</rdf:li>");
     let mut points = Vec::new();
 
     for point_cap in point_re.captures_iter(seq_content) {
@@ -94,8 +94,7 @@ fn extract_tone_curve_points(xmp_str: &str, curve_name: &str) -> Option<Vec<Valu
 pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
     let xmp_one_line = xmp_content.split('\n').collect::<Vec<_>>().join(" ");
 
-    let attr_re = Regex::new(r#"crs:([A-Za-z0-9]+)="([^"]*)""#)
-        .map_err(|e| format!("Regex compilation failed: {}", e))?;
+    let attr_re = regex!(r#"crs:([A-Za-z0-9]+)="([^"]*)""#);
     let mut attrs: HashMap<String, String> = HashMap::new();
     for cap in attr_re.captures_iter(&xmp_one_line) {
         attrs.insert(cap[1].to_string(), cap[2].to_string());
@@ -167,12 +166,11 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
 
     if let Some(adjusted_k) = get_attr_as_f64(&attrs, "Temperature") {
         const AS_SHOT_DEFAULT: f64 = 5500.0;
-        const MAX_MIRED_SHIFT: f64 = 150.0;
         let as_shot_k = get_attr_as_f64(&attrs, "AsShotTemperature").unwrap_or(AS_SHOT_DEFAULT);
         let mired_adjusted = 1_000_000.0 / adjusted_k;
         let mired_as_shot = 1_000_000.0 / as_shot_k;
         let mired_delta = mired_adjusted - mired_as_shot;
-        let temp_value = (-mired_delta / MAX_MIRED_SHIFT) * 100.0;
+        let temp_value = -mired_delta / MIRED_PER_RELATIVE_UNIT;
         adjustments.insert(
             "temperature".to_string(),
             json!(temp_value.clamp(-100.0, 100.0)),
@@ -180,7 +178,7 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
     }
 
     if let Some(tint_val) = get_attr_as_f64(&attrs, "Tint") {
-        let scaled_tint = (tint_val / 150.0) * 100.0;
+        let scaled_tint = tint_val / TINT_PER_RELATIVE_UNIT;
         adjustments.insert("tint".to_string(), json!(scaled_tint.clamp(-100.0, 100.0)));
     }
 
@@ -222,6 +220,40 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
     }
     if !hsl_map.is_empty() {
         adjustments.insert("hsl".to_string(), Value::Object(hsl_map));
+    }
+
+    let grayscale = attrs
+        .get("ConvertToGrayscale")
+        .map(|v| v.eq_ignore_ascii_case("true"));
+    if let Some(is_monochrome) = grayscale {
+        adjustments.insert("monochromeEnabled".to_string(), json!(is_monochrome));
+    }
+    if grayscale == Some(true) {
+        let mut mix_map = Map::new();
+        for (src, dst) in colors {
+            if let Some(val) = get_attr_as_f64(&attrs, &format!("GrayMixer{}", src)) {
+                mix_map.insert(dst.to_string(), json!(val.clamp(-100.0, 100.0)));
+            }
+        }
+        if !mix_map.is_empty() {
+            adjustments.insert("monochromeMix".to_string(), Value::Object(mix_map));
+        }
+
+        let mut toning_map = Map::new();
+        for (xmp_key, rr_key) in [
+            ("SplitToningShadowHue", "shadowHue"),
+            ("SplitToningShadowSaturation", "shadowSaturation"),
+            ("SplitToningHighlightHue", "highlightHue"),
+            ("SplitToningHighlightSaturation", "highlightSaturation"),
+            ("SplitToningBalance", "balance"),
+        ] {
+            if let Some(val) = get_attr_as_f64(&attrs, xmp_key) {
+                toning_map.insert(rr_key.to_string(), json!(val));
+            }
+        }
+        if !toning_map.is_empty() {
+            adjustments.insert("monochromeToning".to_string(), Value::Object(toning_map));
+        }
     }
 
     let mut shadows_map = Map::new();
