@@ -131,6 +131,8 @@ pub struct WgpuDisplay {
     pub standalone: bool,
     pub view: DisplayView,
     pub frame: Option<DisplayFrame>,
+    #[cfg(target_os = "linux")]
+    pub wayland: Option<crate::wayland_subsurface::WaylandSubsurface>,
 }
 
 impl WgpuDisplay {
@@ -415,21 +417,36 @@ impl WgpuDisplay {
     }
 }
 
-#[cfg(not(any(target_os = "android", target_os = "linux")))]
+#[cfg(not(target_os = "android"))]
 pub fn build_wgpu_display(
     surface: wgpu::Surface<'static>,
     adapter: &wgpu::Adapter,
     device: &wgpu::Device,
     size: tauri::PhysicalSize<u32>,
     standalone: bool,
+    platform: PlatformSurface,
 ) -> Result<WgpuDisplay, String> {
     let swapchain_caps = surface.get_capabilities(adapter);
-    let swapchain_format = swapchain_caps
-        .formats
-        .iter()
-        .copied()
-        .find(|f| !f.is_srgb())
-        .or_else(|| swapchain_caps.formats.first().copied())
+    let usable = |f: &wgpu::TextureFormat| device.features().contains(f.required_features());
+    #[cfg(target_os = "linux")]
+    let preferred = [
+        wgpu::TextureFormat::Rgb10a2Unorm,
+        wgpu::TextureFormat::Bgra8Unorm,
+        wgpu::TextureFormat::Rgba8Unorm,
+    ]
+    .into_iter()
+    .find(|f| swapchain_caps.formats.contains(f) && usable(f));
+    #[cfg(not(target_os = "linux"))]
+    let preferred: Option<wgpu::TextureFormat> = None;
+    let swapchain_format = preferred
+        .or_else(|| {
+            swapchain_caps
+                .formats
+                .iter()
+                .copied()
+                .find(|f| !f.is_srgb() && usable(f))
+        })
+        .or_else(|| swapchain_caps.formats.iter().copied().find(usable))
         .ok_or("Surface is not supported by the GPU adapter")?;
 
     let alpha_mode = if cfg!(target_os = "windows")
@@ -452,7 +469,7 @@ pub fn build_wgpu_display(
         swapchain_caps.alpha_modes[0]
     };
 
-    let present_mode = if standalone
+    let present_mode = if (standalone || cfg!(target_os = "linux"))
         && swapchain_caps
             .present_modes
             .contains(&wgpu::PresentMode::Mailbox)
@@ -473,6 +490,11 @@ pub fn build_wgpu_display(
         desired_maximum_frame_latency: 2,
     };
     surface.configure(device, &config);
+    log::info!(
+        "WGPU display surface: {:?}, {:?}",
+        swapchain_format,
+        present_mode
+    );
 
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("Display Shader"),
@@ -586,20 +608,57 @@ pub fn build_wgpu_display(
         standalone,
         view: DisplayView::default(),
         frame: None,
+        #[cfg(target_os = "linux")]
+        wayland: platform,
     })
 }
 
+#[cfg(target_os = "linux")]
+pub type PlatformSurface = Option<crate::wayland_subsurface::WaylandSubsurface>;
+#[cfg(not(target_os = "linux"))]
+pub type PlatformSurface = ();
+
+#[cfg(target_os = "linux")]
+fn surface_for_window(
+    instance: &wgpu::Instance,
+    window: &tauri::WebviewWindow,
+) -> Result<(wgpu::Surface<'static>, PlatformSurface), String> {
+    use gtk::prelude::WidgetExt;
+
+    if !gtk::is_initialized_main_thread() {
+        return Err("Wayland subsurface must be created on the main thread".to_string());
+    }
+
+    if let Ok(gtk_window) = window.gtk_window() {
+        gtk_window.realize();
+    }
+    let wayland = crate::wayland_subsurface::create(window)?;
+    let surface = wayland.create_surface(instance)?;
+    Ok((surface, Some(wayland)))
+}
+
 #[cfg(not(any(target_os = "android", target_os = "linux")))]
+fn surface_for_window(
+    instance: &wgpu::Instance,
+    window: &tauri::WebviewWindow,
+) -> Result<(wgpu::Surface<'static>, PlatformSurface), String> {
+    let surface = instance
+        .create_surface(window.clone())
+        .map_err(|e| e.to_string())?;
+    Ok((surface, ()))
+}
+
+#[cfg(not(target_os = "android"))]
 pub fn create_window_surface(
     instance: &wgpu::Instance,
     window: &tauri::WebviewWindow,
-) -> Result<wgpu::Surface<'static>, String> {
+) -> Result<(wgpu::Surface<'static>, PlatformSurface), String> {
     let (tx, rx) = std::sync::mpsc::channel();
     let instance = instance.clone();
     let target = window.clone();
     window
         .run_on_main_thread(move || {
-            let _ = tx.send(instance.create_surface(target).map_err(|e| e.to_string()));
+            let _ = tx.send(surface_for_window(&instance, &target));
         })
         .map_err(|e| e.to_string())?;
     rx.recv().map_err(|e| e.to_string())?
@@ -644,11 +703,17 @@ fn update_display_size(window: &tauri::Window, size: tauri::PhysicalSize<u32>, w
 
 static GPU_DEVICE_LOST: AtomicBool = AtomicBool::new(false);
 
+static WGPU_DISPLAY_FAILED: AtomicBool = AtomicBool::new(false);
+
+pub fn wgpu_display_failed() -> bool {
+    WGPU_DISPLAY_FAILED.load(Ordering::Acquire)
+}
+
 pub fn get_or_init_gpu_context(
     state: &tauri::State<AppState>,
     _app_handle: &tauri::AppHandle,
 ) -> Result<GpuContext, String> {
-    #[cfg(not(any(target_os = "android", target_os = "linux")))]
+    #[cfg(not(target_os = "android"))]
     let app_handle = _app_handle;
 
     let mut context_lock = match state.gpu_context.lock() {
@@ -662,9 +727,20 @@ pub fn get_or_init_gpu_context(
             guard
         }
     };
+    #[cfg(target_os = "linux")]
+    let mut reused_wayland = None;
     if GPU_DEVICE_LOST.load(Ordering::Acquire) {
         log::warn!("Recreating GPU context after the device was lost.");
         if let Some(context) = context_lock.take() {
+            #[cfg(target_os = "linux")]
+            {
+                reused_wayland = context
+                    .display
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .take()
+                    .and_then(|mut display| display.wayland.take());
+            }
             *context.display.lock().unwrap_or_else(|e| e.into_inner()) = None;
             *context
                 .viewer_display
@@ -699,18 +775,29 @@ pub fn get_or_init_gpu_context(
 
     let instance = wgpu::Instance::new(instance_desc);
 
-    #[cfg(not(any(target_os = "android", target_os = "linux")))]
+    #[cfg(not(target_os = "android"))]
     let surface_opt = {
         let settings = crate::app_settings::load_settings(app_handle.clone()).unwrap_or_default();
         if settings.wgpu_renderer_enabled() {
             if let Some(window) = app_handle.get_webview_window("main") {
-                match instance.create_surface(window) {
+                #[cfg(target_os = "linux")]
+                let created = match reused_wayland {
+                    Some(wayland) => wayland
+                        .create_surface(&instance)
+                        .map(|surface| (surface, Some(wayland))),
+                    None => surface_for_window(&instance, &window),
+                };
+                #[cfg(not(target_os = "linux"))]
+                let created = surface_for_window(&instance, &window);
+                match created {
                     Ok(surface) => Some(surface),
                     Err(e) => {
                         log::warn!(
                             "Failed to create surface, falling back to compute-only: {}",
                             e
                         );
+                        #[cfg(target_os = "linux")]
+                        WGPU_DISPLAY_FAILED.store(true, Ordering::Release);
                         if let Some(p) = &flag_path {
                             let _ = std::fs::remove_file(p);
                         }
@@ -725,12 +812,12 @@ pub fn get_or_init_gpu_context(
         }
     };
 
-    #[cfg(any(target_os = "android", target_os = "linux"))]
-    let surface_opt: Option<wgpu::Surface> = None;
+    #[cfg(target_os = "android")]
+    let surface_opt: Option<(wgpu::Surface, PlatformSurface)> = None;
 
     let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::HighPerformance,
-        compatible_surface: surface_opt.as_ref(),
+        compatible_surface: surface_opt.as_ref().map(|(surface, _)| surface),
         ..Default::default()
     }))
     .map_err(|e| {
@@ -789,20 +876,22 @@ pub fn get_or_init_gpu_context(
         let _ = std::fs::remove_file(p);
     }
 
-    #[cfg(not(any(target_os = "android", target_os = "linux")))]
-    let display_opt = if let Some(surface) = surface_opt {
+    #[cfg(not(target_os = "android"))]
+    let display_opt = if let Some((surface, platform)) = surface_opt {
         let window = app_handle
             .get_webview_window("main")
             .ok_or("Failed to get main window")?;
         let size = window
             .inner_size()
             .unwrap_or(tauri::PhysicalSize::new(1280, 720));
-        Some(build_wgpu_display(surface, &adapter, &device, size, false)?)
+        Some(build_wgpu_display(
+            surface, &adapter, &device, size, false, platform,
+        )?)
     } else {
         None
     };
 
-    #[cfg(any(target_os = "android", target_os = "linux"))]
+    #[cfg(target_os = "android")]
     let display_opt = None;
 
     let new_context = GpuContext {

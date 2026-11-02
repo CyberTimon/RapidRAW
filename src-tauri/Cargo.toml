@@ -125,6 +125,9 @@ zbus-secret-service-keyring-store = { version = "1", features = ["rt-tokio-crypt
 gtk = "0.18.2"
 webkit2gtk = "=2.0.2"
 tauri-plugin-wayland-nvidia-quirk = "0.1.0"
+wayland-client = "0.31"
+wayland-backend = { version = "0.3", features = ["client_system"] }
+wayland-protocols = { version = "0.32", features = ["client"] }
 
 [build-dependencies]
 tauri-build = { version = "2.6", features = [] }
