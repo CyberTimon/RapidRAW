@@ -386,6 +386,14 @@ export function getDefaultCombo(def: KeybindDefinition, osPlatform?: string): st
   return (osPlatform === 'macos' && def.macDefaultCombo) || def.defaultCombo;
 }
 
+export function getEffectiveCombo(
+  def: KeybindDefinition,
+  keybinds: Record<string, string[]> | undefined,
+  osPlatform?: string,
+): string[] {
+  return keybinds?.[def.action] ?? getDefaultCombo(def, osPlatform);
+}
+
 // Canonical identifiers keep stored shortcuts compatible while the symbol
 // comes from the active keyboard layout rather than a physical QWERTY key.
 const punctuationCodes: Record<string, string> = {

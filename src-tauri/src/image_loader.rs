@@ -350,14 +350,11 @@ fn largest_tiff_jpeg_preview(buf: &[u8]) -> Option<DynamicImage> {
 pub fn tiff_embedded_preview(bytes: &[u8]) -> Option<DynamicImage> {
     let img = largest_tiff_jpeg_preview(bytes)?;
 
-    let orientation = ExifReader::new()
-        .read_from_container(&mut Cursor::new(bytes))
-        .ok()
-        .and_then(|exif| {
-            exif.get_field(Tag::Orientation, exif::In::PRIMARY)?
-                .value
-                .get_uint(0)
-        });
+    let orientation = exif_processing::read_exif(bytes).and_then(|exif| {
+        exif.get_field(Tag::Orientation, exif::In::PRIMARY)?
+            .value
+            .get_uint(0)
+    });
 
     Some(match orientation {
         Some(o) if o > 1 => apply_orientation(img, Orientation::from_u16(o as u16)),
@@ -904,6 +901,7 @@ pub fn get_or_decode_pristine(
             let image =
                 load_base_image_from_bytes(bytes, &path_str, false, settings, cancel_token.clone())
                     .map_err(|e| e.to_string())?;
+            crate::as_shot::as_shot_from_bytes(&path_str, bytes);
             Ok((image, exif_processing::read_exif_data(&path_str, bytes)))
         };
         let (image, exif) = match read_file_mapped(source_path) {

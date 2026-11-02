@@ -56,6 +56,7 @@
         "reds": "紅色",
         "yellows": "黃色"
       },
+      "mixerPickerTooltip": "顏色混合器滴管：在相片上按住並上下拖曳",
       "monochrome": {
         "badge": "黑白",
         "balance": "平衡",
@@ -91,6 +92,7 @@
         "highlights": "亮部",
         "hue": "色相",
         "mix": "黑白混合",
+        "mixPickerTooltip": "黑白混合滴管：在相片上按住並上下拖曳",
         "saturation": "飽和度",
         "shadows": "陰影",
         "strength": "強度",
@@ -285,6 +287,7 @@
       "cullImage": "自動篩選",
       "denoise": "降噪",
       "editImage": "編輯影像",
+      "editIn": "在其他程式中編輯",
       "exportImage": "匯出影像",
       "flag": "標記",
       "flagPick": "留用",
@@ -387,6 +390,9 @@
     "toasts": {
       "couldNotShowExplorer": "無法在檔案資源管理器中顯示檔案：{{err}}",
       "couldNotShowFolder": "無法顯示資料夾：{{err}}",
+      "editInFailed": "{{app}} 失敗：{{err}}",
+      "editInNoOutput": "{{app}} 已關閉，未儲存。",
+      "editInWaiting": "正在等待 {{app}}。在該程式中儲存檔案即可將其帶回，關閉此訊息可停止等待。",
       "failedAddToAlbum": "新增到相簿失敗：{{err}}",
       "failedApplyAuto": "應用自動調整失敗：{{err}}",
       "failedChangeIcon": "更換圖示失敗：{{err}}",
@@ -888,6 +894,10 @@
         "tool": "工具"
       }
     },
+    "speedEdit": {
+      "copied": "已複製 <0>{{label}}</0> <1>{{value}}</1>",
+      "pasted": "已貼上 <0>{{label}}</0> <1>{{value}}</1>"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "調整",
@@ -1099,6 +1109,7 @@
       "pending": "等待同步到 Immich 的編輯：{{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} 屬於其他人，因此 Immich 不接受對它的編輯。你的編輯會保留在這台電腦上。",
       "backOnline": "Immich 已重新連線，所有編輯內容都已儲存。",
       "downloadFailed": "無法從 Immich 下載：{{error}}",
       "editsConflict": "{{fileName}} 也在另一台電腦上被編輯過。你的編輯內容會保留，另一個版本已儲存為虛擬副本。",
@@ -1754,6 +1765,27 @@
       "pressKey": "按下按鍵...（Esc 清除）",
       "resetDefaults": "全部重置為預設值",
       "speed": "速度",
+      "speedEdit": {
+        "adjustments": "調整項目",
+        "gestures": {
+          "doubleClick": "按兩下重設",
+          "drag": "在畫布上拖曳調整",
+          "fine": "按 Shift 精細調整"
+        },
+        "keys": {
+          "hold": "按住",
+          "previousImage": "上一張",
+          "nextImage": "下一張",
+          "reset": "重設",
+          "previousAdjustment": "上一個滑桿",
+          "nextAdjustment": "下一個滑桿",
+          "copy": "複製",
+          "paste": "貼上",
+          "stepDown": "−1 步",
+          "stepUp": "+1 步"
+        },
+        "title": "快速編輯"
+      },
       "title": "滑鼠控制",
       "zoom": "縮放速度倍率",
       "zoomClick": "縮放照片至 100%",
@@ -2042,6 +2074,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "編輯器根據顯示器實際畫素密度渲染預覽。這確保每個細節都以 1:1 畫素精度呈現，在縮放和檢查焦點時提供最大清晰度。",
+      "editIn": {
+        "add": "新增程式",
+        "args": "參數（{file} = 影像路徑）",
+        "browse": "瀏覽",
+        "description": "「在其他程式中編輯」選單中的程式。",
+        "executable": "程式",
+        "modes": {
+          "original": "傳送原始檔案",
+          "rendered": "傳送編輯後的 TIFF"
+        },
+        "name": "名稱",
+        "path": "程式路徑",
+        "remove": "移除",
+        "title": "在其他程式中編輯"
+      },
       "enableLivePreviews": "啟用即時預覽",
       "highDpi": "高 DPI 渲染",
       "highDpiDesc": "以螢幕原生 {{dpr}}x 物理畫素解析度渲染預覽。產生最清晰的預覽，但會顯著增加記憶體使用。",
@@ -2071,7 +2118,7 @@
         "baselineExposure": "基礎曝光",
         "baselineExposureAmount": "基礎量",
         "baselineExposureAmountDesc": "加到 RAW 檔案的曝光量。darktable 使用 +0.7 EV。",
-        "baselineExposureDesc": "將所有 RAW 檔案提亮一個固定值（與 darktable 場景參考模式的預設值相同），如有 DNG BaselineExposure 標籤也會一併加上。在此選項推出之前編輯的影像不受影響。",
+        "baselineExposureDesc": "將 RAW 檔案提亮一個固定值，如有 DNG BaselineExposure 標籤也會一併加上。",
         "colorNr": "基礎顏色降噪",
         "colorNrDesc": "在管線早期應用交叉雙邊濾波器以去除彩色噪點。值越高 = 降噪越強。",
         "defaultNonRawTonemapper": "預設非 RAW 色調映射",
@@ -2084,7 +2131,7 @@
         "enablePreprocessingNonRaws": "對非 RAW 影像啟用",
         "enableTonemapperOverride": "啟用色調映射覆蓋",
         "highlightPreservation": "高光保護補償",
-        "highlightPreservationDesc": "從 RAW 檔案讀取相機在高光保護模式下保留的曝光並予以恢復（富士 DR200/DR400、Canon 高光色調優先與自動亮度優化、Nikon 動態 D-Lighting、Olympus 層次、Pentax 動態範圍擴展）。在此選項推出之前編輯的影像不受影響。",
+        "highlightPreservationDesc": "恢復相機高光保護模式（如富士 DR200/DR400、Nikon 動態 D-Lighting）降低的曝光。",
         "highlightRecovery": "RAW 亮部恢復",
         "highlightRecoveryDesc": "控制從 RAW 檔案的裁剪亮部中恢復細節的程度。較高的值可恢復更多細節，但可能引入紫色偽影。",
         "linearOptions": {

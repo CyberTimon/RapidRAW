@@ -56,6 +56,7 @@
         "reds": "Czerwone",
         "yellows": "Żółte"
       },
+      "mixerPickerTooltip": "Pipeta miksera kolorów: kliknij i przeciągnij w górę lub w dół na zdjęciu",
       "monochrome": {
         "badge": "Cz-b",
         "balance": "Balans",
@@ -91,6 +92,7 @@
         "highlights": "Światła",
         "hue": "Odcień",
         "mix": "Mikser cz-b",
+        "mixPickerTooltip": "Pipeta miksera cz-b: kliknij i przeciągnij w górę lub w dół na zdjęciu",
         "saturation": "Nasycenie",
         "shadows": "Cienie",
         "strength": "Siła",
@@ -285,6 +287,7 @@
       "cullImage": "Automatyczna selekcja",
       "denoise": "Odszumianie",
       "editImage": "Edytuj obraz",
+      "editIn": "Edytuj w",
       "exportImage": "Eksportuj obraz",
       "flag": "Oznaczenie",
       "flagPick": "Wybrane",
@@ -421,6 +424,9 @@
     "toasts": {
       "couldNotShowExplorer": "Nie można pokazać pliku w eksploratorze: {{err}}",
       "couldNotShowFolder": "Nie można pokazać folderu: {{err}}",
+      "editInFailed": "{{app}} – błąd: {{err}}",
+      "editInNoOutput": "{{app}} zamknięto bez zapisywania.",
+      "editInWaiting": "Oczekiwanie na {{app}}. Zapisz tam plik, aby go przywrócić, lub zamknij ten komunikat, aby przestać czekać.",
       "failedAddToAlbum": "Nie udało się dodać do albumu: {{err}}",
       "failedApplyAuto": "Nie udało się zastosować auto-korekty: {{err}}",
       "failedChangeIcon": "Nie udało się zmienić ikony: {{err}}",
@@ -939,6 +945,10 @@
         "tool": "Narzędzie"
       }
     },
+    "speedEdit": {
+      "copied": "Skopiowano: <0>{{label}}</0> <1>{{value}}</1>",
+      "pasted": "Wklejono: <0>{{label}}</0> <1>{{value}}</1>"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "Dopasuj",
@@ -1154,6 +1164,7 @@
       "pending": "Edycje czekające na Immich: {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} należy do kogoś innego, więc Immich nie przyjmuje dla niego edycji. Twoje edycje zostaną na tym komputerze.",
       "backOnline": "Immich jest znowu dostępny, a wszystkie edycje zostały w nim zapisane.",
       "downloadFailed": "Nie udało się pobrać z Immich: {{error}}",
       "editsConflict": "{{fileName}} edytowano także na innym komputerze. Twoje edycje pozostają, a druga wersja jest zachowana jako kopia wirtualna.",
@@ -1836,6 +1847,27 @@
       "pressKey": "Naciśnij klawisz... (Esc by anulować)",
       "resetDefaults": "Przywróć wszystkie domyślne",
       "speed": "Prędkość",
+      "speedEdit": {
+        "adjustments": "Korekty",
+        "gestures": {
+          "doubleClick": "Dwuklik, aby zresetować",
+          "drag": "Przeciągnij po płótnie, aby zmienić",
+          "fine": "Shift – precyzyjnie"
+        },
+        "keys": {
+          "hold": "Przytrzymaj",
+          "previousImage": "Poprz. zdjęcie",
+          "nextImage": "Nast. zdjęcie",
+          "reset": "Resetuj",
+          "previousAdjustment": "Poprz. suwak",
+          "nextAdjustment": "Nast. suwak",
+          "copy": "Kopiuj",
+          "paste": "Wklej",
+          "stepDown": "−1 krok",
+          "stepUp": "+1 krok"
+        },
+        "title": "Szybka edycja"
+      },
       "title": "Sterowanie myszą",
       "zoom": "Mnożnik szybkości przybliżania",
       "zoomClick": "Powiększ zdjęcie do 100%",
@@ -2130,6 +2162,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "Edytor renderuje podgląd tak, aby odpowiadał rzeczywistej gęstości pikseli twojego wyświetlacza. Zapewnia to oddanie każdego szczegółu w proporcji 1:1, dostarczając maksymalnej jasności przy zbliżaniu i sprawdzaniu ostrości.",
+      "editIn": {
+        "add": "Dodaj program",
+        "args": "Argumenty ({file} = ścieżka obrazu)",
+        "browse": "Przeglądaj",
+        "description": "Programy w menu „Edytuj w”.",
+        "executable": "Programy",
+        "modes": {
+          "original": "Wyślij oryginalny plik",
+          "rendered": "Wyślij edytowany TIFF"
+        },
+        "name": "Nazwa",
+        "path": "Ścieżka programu",
+        "remove": "Usuń",
+        "title": "Edytuj w"
+      },
       "enableLivePreviews": "Włącz interaktywny podgląd na żywo",
       "highDpi": "Renderowanie High-DPI",
       "highDpiDesc": "Renderuj podglądy w natywnej {{dpr}}x rozdzielczości pikseli fizycznych twojego ekranu. Zapewnia najostrzejszy z możliwych podglądów, ale zużywa znacznie więcej pamięci.",
@@ -2159,7 +2206,7 @@
         "baselineExposure": "Ekspozycja bazowa",
         "baselineExposureAmount": "Wartość bazowa",
         "baselineExposureAmountDesc": "Ekspozycja dodawana do plików RAW. darktable używa +0,7 EV.",
-        "baselineExposureDesc": "Rozjaśnia wszystkie pliki RAW o stałą wartość, podobnie jak domyślne ustawienie darktable w trybie scene-referred, oraz uwzględnia znacznik DNG BaselineExposure, jeśli występuje. Nie wpływa na zdjęcia edytowane przed wprowadzeniem tej opcji.",
+        "baselineExposureDesc": "Rozjaśnia pliki RAW o stałą wartość oraz uwzględnia znacznik DNG BaselineExposure, jeśli występuje.",
         "colorNr": "Bazowa redukcja szumu koloru",
         "colorNrDesc": "Stosuje filtr na wczesnym etapie w celu usunięcia szumu koloru (Chroma). Wyższa wartość = Silniejsza redukcja szumów.",
         "defaultNonRawTonemapper": "Domyślne mapowanie tonów (Non-RAW)",
@@ -2172,7 +2219,7 @@
         "enablePreprocessingNonRaws": "Włącz dla innych niż RAW",
         "enableTonemapperOverride": "Włącz nadpisywanie mapowania tonów",
         "highlightPreservation": "Kompensacja ochrony świateł",
-        "highlightPreservationDesc": "Przywraca ekspozycję, którą aparat ograniczył w trybach ochrony świateł, odczytaną z pliku RAW (Fujifilm DR200/DR400, Canon Priorytet jasnych partii obrazu i Auto Lighting Optimizer, Nikon Aktywna funkcja D-Lighting, gradacja Olympus, rozszerzenie zakresu dynamiki Pentax). Nie wpływa na zdjęcia edytowane przed wprowadzeniem tej opcji.",
+        "highlightPreservationDesc": "Przywraca ekspozycję obniżoną przez tryby ochrony świateł aparatu, np. Fujifilm DR200/DR400 lub Nikon Aktywna funkcja D-Lighting.",
         "highlightRecovery": "Odzyskiwanie świateł w RAW",
         "highlightRecoveryDesc": "Decyduje o tym, ile detali zostanie odzyskanych z obciętych świateł w plikach RAW. Wyższe wartości odzyskują więcej, ale mogą wprowadzać fioletowe artefakty.",
         "linearOptions": {

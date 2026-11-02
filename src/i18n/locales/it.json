@@ -56,6 +56,7 @@
         "reds": "Rossi",
         "yellows": "Gialli"
       },
+      "mixerPickerTooltip": "Contagocce del Mixer Colori: fai clic e trascina in alto o in basso sulla foto",
       "monochrome": {
         "badge": "B/N",
         "balance": "Bilanciamento",
@@ -91,6 +92,7 @@
         "highlights": "Luci",
         "hue": "Tonalità",
         "mix": "Mixer B/N",
+        "mixPickerTooltip": "Contagocce del Mixer B/N: fai clic e trascina in alto o in basso sulla foto",
         "saturation": "Saturazione",
         "shadows": "Ombre",
         "strength": "Intensità",
@@ -285,6 +287,7 @@
       "cullImage": "Selezione Automatica",
       "denoise": "Riduci Rumore",
       "editImage": "Modifica Immagine",
+      "editIn": "Modifica in",
       "exportImage": "Esporta Immagine",
       "flag": "Flag",
       "flagPick": "Scelta",
@@ -404,6 +407,9 @@
     "toasts": {
       "couldNotShowExplorer": "Impossibile mostrare il file in esplora risorse: {{err}}",
       "couldNotShowFolder": "Impossibile mostrare la cartella: {{err}}",
+      "editInFailed": "{{app}} non riuscito: {{err}}",
+      "editInNoOutput": "{{app}} è stato chiuso senza salvare.",
+      "editInWaiting": "In attesa di {{app}}. Salva il file lì per riportarlo indietro, oppure chiudi questo messaggio per smettere di attendere.",
       "failedAddToAlbum": "Impossibile aggiungere all'album: {{err}}",
       "failedApplyAuto": "Impossibile applicare le regolazioni automatiche: {{err}}",
       "failedChangeIcon": "Impossibile cambiare l'icona: {{err}}",
@@ -915,6 +921,10 @@
         "tool": "Strumento"
       }
     },
+    "speedEdit": {
+      "copied": "<0>{{label}}</0> <1>{{value}}</1> copiato",
+      "pasted": "<0>{{label}}</0> <1>{{value}}</1> incollato"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "Regola",
@@ -1128,6 +1138,7 @@
       "pending": "Modifiche in attesa di Immich: {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} appartiene a un'altra persona, quindi Immich non accetta modifiche. Le tue modifiche restano su questo computer.",
       "backOnline": "Immich è di nuovo raggiungibile e tutte le modifiche sono salvate lì.",
       "downloadFailed": "Impossibile scaricare da Immich: {{error}}",
       "editsConflict": "{{fileName}} è stata modificata anche su un altro computer. Le tue modifiche restano e l'altra versione viene conservata come copia virtuale.",
@@ -1798,6 +1809,27 @@
       "pressKey": "Premi un tasto... (Esc per cancellare)",
       "resetDefaults": "Ripristina Tutto ai Valori Predefiniti",
       "speed": "Velocità",
+      "speedEdit": {
+        "adjustments": "Regolazioni",
+        "gestures": {
+          "doubleClick": "Doppio clic per reimpostare",
+          "drag": "Trascina sulla tela per regolare",
+          "fine": "Maiusc per precisione"
+        },
+        "keys": {
+          "hold": "Tieni premuto",
+          "previousImage": "Immagine prec.",
+          "nextImage": "Immagine succ.",
+          "reset": "Reimposta",
+          "previousAdjustment": "Cursore prec.",
+          "nextAdjustment": "Cursore succ.",
+          "copy": "Copia",
+          "paste": "Incolla",
+          "stepDown": "−1 passo",
+          "stepUp": "+1 passo"
+        },
+        "title": "Modifica rapida"
+      },
       "title": "Controlli Mouse",
       "zoom": "Moltiplicatore Velocità Zoom",
       "zoomClick": "Zoom foto al 100%",
@@ -2089,6 +2121,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "L'editor renderizza l'anteprima per adattarla all'effettiva densità di pixel del tuo display. Questo garantisce che ogni dettaglio sia rappresentato con un'accuratezza pixel 1:1, fornendo la massima chiarezza durante lo zoom e il controllo della messa a fuoco.",
+      "editIn": {
+        "add": "Aggiungi programma",
+        "args": "Argomenti ({file} = percorso dell'immagine)",
+        "browse": "Sfoglia",
+        "description": "Programmi del menu «Modifica in».",
+        "executable": "Programmi",
+        "modes": {
+          "original": "Invia file originale",
+          "rendered": "Invia TIFF modificato"
+        },
+        "name": "Nome",
+        "path": "Percorso del programma",
+        "remove": "Rimuovi",
+        "title": "Modifica in"
+      },
       "enableLivePreviews": "Abilita Anteprime dal Vivo",
       "highDpi": "Rendering High-DPI",
       "highDpiDesc": "Renderizza le anteprime alla risoluzione nativa in pixel fisici {{dpr}}x del tuo schermo. Produce l'anteprima più nitida possibile ma utilizza molta più memoria.",
@@ -2118,7 +2165,7 @@
         "baselineExposure": "Esposizione di base",
         "baselineExposureAmount": "Valore di base",
         "baselineExposureAmountDesc": "Esposizione aggiunta ai file RAW. darktable usa +0,7 EV.",
-        "baselineExposureDesc": "Schiarisce tutti i file RAW di un valore fisso, come l'impostazione predefinita di darktable in modalità scene-referred, più il tag DNG BaselineExposure se presente. Le immagini modificate prima dell'introduzione di questa opzione non cambiano.",
+        "baselineExposureDesc": "Schiarisce i file RAW di un valore fisso, più il tag DNG BaselineExposure se presente.",
         "colorNr": "Riduzione Rumore Cromatico di Base",
         "colorNrDesc": "Applica un filtro bilaterale incrociato all'inizio del processo per rimuovere il rumore cromatico. Valore più alto = Riduzione Rumore (NR) più forte.",
         "defaultNonRawTonemapper": "Tonemapper Predefinito per Non-RAW",
@@ -2131,7 +2178,7 @@
         "enablePreprocessingNonRaws": "Abilita per Non-RAW",
         "enableTonemapperOverride": "Abilita Sovrascrittura Tonemapper",
         "highlightPreservation": "Compensazione della protezione delle alte luci",
-        "highlightPreservationDesc": "Ripristina l'esposizione trattenuta dalla fotocamera nelle modalità di protezione delle alte luci, letta dal file RAW (Fujifilm DR200/DR400, Priorità tonalità chiare e Auto Lighting Optimizer Canon, D-Lighting attivo Nikon, gradazione Olympus, espansione della gamma dinamica Pentax). Le immagini modificate prima dell'introduzione di questa opzione non cambiano.",
+        "highlightPreservationDesc": "Ripristina l'esposizione ridotta dalle modalità di protezione delle alte luci, come Fujifilm DR200/DR400 o D-Lighting attivo Nikon.",
         "highlightRecovery": "Recupero Luci RAW",
         "highlightRecoveryDesc": "Controlla quanti dettagli vengono recuperati dalle luci bruciate nei file RAW. Valori più alti recuperano più dettagli ma possono introdurre artefatti viola.",
         "linearOptions": {

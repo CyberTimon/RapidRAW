@@ -173,7 +173,12 @@ function RegionDroppableContainer({
       >
         {showSwitcherFirst && <PanelSwitcher region={region} side={side} placement={placement} />}
 
-        <div className="flex-1 overflow-hidden relative min-w-0" onPointerDownCapture={handleContentInteraction}>
+        <div
+          className="flex-1 overflow-hidden relative min-w-0"
+          data-panel={activePanel ?? undefined}
+          data-panel-region={region}
+          onPointerDownCapture={handleContentInteraction}
+        >
           <AnimatePresence mode="wait">
             {activePanel && (
               <motion.div

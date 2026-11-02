@@ -3,7 +3,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::hash::{Hash, Hasher};
-use std::io::{BufReader, Cursor};
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::Duration;
@@ -599,24 +599,48 @@ fn format_lens_specification(components: &[exif::Rational]) -> Option<String> {
     Some(format_lens_spec(focal_min, focal_max, aperture))
 }
 
+pub fn is_tiff(file_bytes: &[u8]) -> bool {
+    file_bytes.starts_with(b"II*\0") || file_bytes.starts_with(b"MM\0*")
+}
+
 pub fn read_exif(file_bytes: &[u8]) -> Option<Exif> {
     let exifreader = exif::Reader::new();
+    if is_tiff(file_bytes) {
+        let mut len = 64 * 1024;
+        while len < file_bytes.len() && len <= 16 * 1024 * 1024 {
+            if let Ok(exif) = exifreader.read_raw(file_bytes[..len].to_vec()) {
+                return Some(exif);
+            }
+            len *= 4;
+        }
+    }
     exifreader
         .read_from_container(&mut Cursor::new(file_bytes))
         .ok()
 }
 
+pub fn read_exif_from_path(path: &Path) -> Option<Exif> {
+    match file_management::read_file_mapped(path) {
+        Ok(mmap) => read_exif(&mmap),
+        Err(_) => read_exif(&fs::read(path).ok()?),
+    }
+}
+
 pub fn read_raw_metadata(file_bytes: &[u8]) -> Option<RawMetadata> {
-    raw_metadata_from_source(&rawler::rawsource::RawSource::new_from_slice(file_bytes))
+    crate::raw_processing::read_from_prefix(file_bytes, |bytes, _| {
+        raw_metadata_from_source(&rawler::rawsource::RawSource::new_from_slice(bytes))
+    })
 }
 
 fn read_raw_metadata_from_path(path_str: &str) -> Option<RawMetadata> {
-    raw_metadata_from_source(&rawler::rawsource::RawSource::new(Path::new(path_str)).ok()?)
+    match file_management::read_file_mapped(Path::new(path_str)) {
+        Ok(mmap) => read_raw_metadata(&mmap),
+        Err(_) => read_raw_metadata(&fs::read(path_str).ok()?),
+    }
 }
 
 fn raw_metadata_from_source(raw_source: &rawler::rawsource::RawSource) -> Option<RawMetadata> {
-    let loader = rawler::RawLoader::new();
-    let decoder = loader.get_decoder(raw_source).ok()?;
+    let decoder = rawler::get_decoder(raw_source).ok()?;
     decoder.raw_metadata(raw_source, &Default::default()).ok()
 }
 
@@ -1156,33 +1180,24 @@ pub fn try_get_exif_creation_date(path: &Path) -> Option<DateTime<Utc>> {
         return Some(creation_datetime_to_utc(dt));
     }
 
-    if let Ok(file) = std::fs::File::open(path) {
-        let mut bufreader = BufReader::new(&file);
-        let exifreader = exif::Reader::new();
-
-        if let Ok(exif_obj) = exifreader.read_from_container(&mut bufreader) {
-            for tag in [exif::Tag::DateTimeOriginal, exif::Tag::DateTime] {
-                if let Some(field) = exif_obj.get_field(tag, exif::In::PRIMARY)
-                    && let Some(dt) = parse_creation_field(field)
-                {
-                    return Some(dt);
-                }
+    if let Some(exif_obj) = read_exif_from_path(path) {
+        for tag in [exif::Tag::DateTimeOriginal, exif::Tag::DateTime] {
+            if let Some(field) = exif_obj.get_field(tag, exif::In::PRIMARY)
+                && let Some(dt) = parse_creation_field(field)
+            {
+                return Some(dt);
             }
         }
     }
 
-    if is_raw_file(path) {
-        let loader = rawler::RawLoader::new();
-        if let Ok(raw_source) = rawler::rawsource::RawSource::new(path)
-            && let Ok(decoder) = loader.get_decoder(&raw_source)
-            && let Ok(metadata) = decoder.raw_metadata(&raw_source, &Default::default())
-        {
-            if let Some(dt) = parse_raw_creation_date(metadata.exif.date_time_original.as_deref()) {
-                return Some(dt);
-            }
-            if let Some(dt) = parse_raw_creation_date(metadata.exif.create_date.as_deref()) {
-                return Some(dt);
-            }
+    if is_raw_file(path)
+        && let Some(metadata) = read_raw_metadata_from_path(&path.to_string_lossy())
+    {
+        if let Some(dt) = parse_raw_creation_date(metadata.exif.date_time_original.as_deref()) {
+            return Some(dt);
+        }
+        if let Some(dt) = parse_raw_creation_date(metadata.exif.create_date.as_deref()) {
+            return Some(dt);
         }
     }
 

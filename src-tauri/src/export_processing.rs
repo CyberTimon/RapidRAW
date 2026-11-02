@@ -922,6 +922,8 @@ fn estimate_export_memory(
     is_raw: bool,
     loaded_dimensions: Option<(u32, u32)>,
     mask_count: usize,
+    output_format: &str,
+    jpeg_quality: u8,
 ) -> u64 {
     let pixels = loaded_dimensions
         .map(|(w, h)| w as u64 * h as u64)
@@ -932,8 +934,17 @@ fn estimate_export_memory(
     };
 
     let bytes_per_pixel = if is_raw { 48 } else { 40 }
-        + 6 * mask_count.min(crate::image_processing::MAX_MASKS) as u64;
+        + 6 * mask_count.min(crate::image_processing::MAX_MASKS) as u64
+        + encoder_bytes_per_pixel(output_format, jpeg_quality);
     pixels * bytes_per_pixel
+}
+
+fn encoder_bytes_per_pixel(output_format: &str, jpeg_quality: u8) -> u64 {
+    match output_format.to_lowercase().as_str() {
+        "jxl" if jpeg_quality == 100 => 90,
+        "jxl" => 170,
+        _ => 0,
+    }
 }
 
 fn ensure_export_not_cancelled(cancellation_token: &AtomicBool) -> Result<(), String> {
@@ -1113,6 +1124,7 @@ fn process_image_for_export_pipeline(
             mask_cache_key: None,
             lut,
             roi: None,
+            hsl_probe: false,
         },
         debug_tag,
         output_precision,
@@ -1191,8 +1203,14 @@ fn save_image_with_metadata(
     }
 
     #[cfg(not(target_os = "android"))]
-    fs::write(output_path, image_bytes)
-        .map_err(|e| format!("Failed to write file to '{}': {}", output_path.display(), e))?;
+    {
+        if let Some(parent) = output_path.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create folder '{}': {}", parent.display(), e))?;
+        }
+        fs::write(output_path, image_bytes)
+            .map_err(|e| format!("Failed to write file to '{}': {}", output_path.display(), e))?;
+    }
 
     Ok(())
 }
@@ -1280,14 +1298,15 @@ fn encode_image_to_bytes(
             let has_alpha = image.color().has_alpha();
 
             let jxl_data = if jpeg_quality == 100 {
+                let config = LosslessConfig::new().with_tree_learning(false);
                 if has_alpha {
                     let rgba = image.to_rgba8();
-                    LosslessConfig::new()
+                    config
                         .encode(rgba.as_raw(), width, height, PixelLayout::Rgba8)
                         .map_err(|e| format!("Failed to encode lossless JXL: {}", e))?
                 } else {
                     let rgb = image.to_rgb8();
-                    LosslessConfig::new()
+                    config
                         .encode(rgb.as_raw(), width, height, PixelLayout::Rgb8)
                         .map_err(|e| format!("Failed to encode lossless JXL: {}", e))?
                 }
@@ -1497,6 +1516,7 @@ fn export_masks_for_image(
                     mask_cache_key: None,
                     lut: lut.clone(),
                     roi: None,
+                    hsl_probe: false,
                 },
                 "export_mask_image",
                 render_output_precision(extension, export_settings),
@@ -1610,6 +1630,7 @@ fn export_adjustments_as_lut(
             mask_cache_key: None,
             lut,
             roi: None,
+            hsl_probe: false,
         },
         "export_lut",
     )?;
@@ -1769,7 +1790,7 @@ pub(crate) async fn export_images_impl(
 
                 let is_current_edit = match &adjustments_mode {
                     ExportAdjustmentsMode::UseSidecars { active_path, .. } => {
-                        Some(&source_path_str) == active_path.as_ref()
+                        Some(&image_path_str) == active_path.as_ref()
                     }
                     ExportAdjustmentsMode::GlobalOverride(_) => false,
                 };
@@ -1946,6 +1967,8 @@ pub(crate) async fn export_images_impl(
                             .as_ref()
                             .map(|loaded| (loaded.image.width(), loaded.image.height())),
                         js_adjustments["masks"].as_array().map_or(0, |m| m.len()),
+                        &output_format,
+                        export_settings.jpeg_quality,
                     );
                     let Some(_export_reservation) =
                         memory_budget.reserve(estimated_memory, Some(&cancellation_token_clone))
@@ -2147,6 +2170,40 @@ pub(crate) async fn export_images_impl(
 }
 
 #[allow(clippy::too_many_arguments)]
+pub(crate) async fn export_images_and_wait(
+    paths: Vec<String>,
+    output_folder_or_file: String,
+    is_explicit_file_path: bool,
+    base_origin_folders: Vec<String>,
+    export_settings: ExportSettings,
+    output_format: String,
+    adjustments_mode: ExportAdjustmentsMode,
+    state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    export_images_impl(
+        paths,
+        output_folder_or_file,
+        is_explicit_file_path,
+        base_origin_folders,
+        export_settings,
+        output_format,
+        adjustments_mode,
+        state,
+        app_handle,
+        Some(tx),
+    )
+    .await?;
+
+    match rx.await {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(errors)) => Err(format!("Export completed with {} errors.", errors)),
+        Err(_) => Err("Export task panicked or was cancelled.".to_string()),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn export_images(
     paths: Vec<String>,
@@ -2253,8 +2310,6 @@ pub async fn run_headless_export(
         );
     }
 
-    let (tx, rx) = tokio::sync::oneshot::channel();
-
     let mode = if let Some(adj) = custom_adjustments {
         ExportAdjustmentsMode::GlobalOverride(adj)
     } else {
@@ -2264,7 +2319,7 @@ pub async fn run_headless_export(
         }
     };
 
-    export_images_impl(
+    export_images_and_wait(
         paths,
         session.output,
         is_explicit_file_path,
@@ -2274,15 +2329,8 @@ pub async fn run_headless_export(
         mode,
         state.clone(),
         app_handle.clone(),
-        Some(tx),
     )
-    .await?;
-
-    match rx.await {
-        Ok(Ok(())) => Ok(()),
-        Ok(Err(errors)) => Err(format!("Export completed with {} errors.", errors)),
-        Err(_) => Err("Export task panicked or was cancelled.".to_string()),
-    }
+    .await
 }
 
 #[tauri::command]
@@ -2329,7 +2377,7 @@ pub async fn estimate_export_sizes(
     let source_path_str = source_path.to_string_lossy().to_string();
 
     let context = get_or_init_gpu_context(&state, &app_handle)?;
-    let is_current_edit = Some(&source_path_str) == current_edit_path.as_ref();
+    let is_current_edit = Some(first_path) == current_edit_path.as_ref();
     let is_raw = is_raw_file(&source_path_str);
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
 
@@ -2417,6 +2465,7 @@ pub async fn estimate_export_sizes(
                 mask_cache_key: None,
                 lut,
                 roi: None,
+                hsl_probe: false,
             },
             "estimate_export_size",
             render_output_precision(&output_format, &export_settings),
@@ -2554,6 +2603,7 @@ pub async fn estimate_export_sizes(
                 mask_cache_key: None,
                 lut,
                 roi: None,
+                hsl_probe: false,
             },
             "estimate_batch_export_size",
             render_output_precision(&output_format, &export_settings),

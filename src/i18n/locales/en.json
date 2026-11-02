@@ -56,6 +56,7 @@
         "reds": "Reds",
         "yellows": "Yellows"
       },
+      "mixerPickerTooltip": "Color Mixer Picker: click and drag up or down on the photo",
       "monochrome": {
         "badge": "B&W",
         "balance": "Balance",
@@ -91,6 +92,7 @@
         "highlights": "Highlights",
         "hue": "Hue",
         "mix": "B&W Mix",
+        "mixPickerTooltip": "B&W Mix Picker: click and drag up or down on the photo",
         "saturation": "Saturation",
         "shadows": "Shadows",
         "strength": "Strength",
@@ -285,6 +287,7 @@
       "cullImage": "Auto Cull",
       "denoise": "Denoise",
       "editImage": "Edit Image",
+      "editIn": "Edit In",
       "exportImage": "Export Image",
       "flag": "Flag",
       "flagPick": "Picked",
@@ -387,6 +390,9 @@
     "toasts": {
       "couldNotShowExplorer": "Could not show file in explorer: {{err}}",
       "couldNotShowFolder": "Could not show folder: {{err}}",
+      "editInFailed": "{{app}} failed: {{err}}",
+      "editInNoOutput": "{{app}} closed without saving.",
+      "editInWaiting": "Waiting for {{app}}. Save the file there to bring it back, or close this message to stop waiting.",
       "failedAddToAlbum": "Failed to add to album: {{err}}",
       "failedApplyAuto": "Failed to apply auto adjustments: {{err}}",
       "failedChangeIcon": "Failed to change icon: {{err}}",
@@ -891,6 +897,10 @@
         "tool": "Tool"
       }
     },
+    "speedEdit": {
+      "copied": "Copied <0>{{label}}</0> <1>{{value}}</1>",
+      "pasted": "Pasted <0>{{label}}</0> <1>{{value}}</1>"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "Adjust",
@@ -1102,6 +1112,7 @@
       "pending": "Edits waiting for Immich: {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} belongs to someone else, so Immich doesn't accept edits for it. Your edits stay on this computer.",
       "backOnline": "Immich is reachable again, and all edits are saved there.",
       "downloadFailed": "Could not download from Immich: {{error}}",
       "editsConflict": "{{fileName}} was also edited on another computer. Your edits stay, and the other version is kept as a virtual copy.",
@@ -1760,6 +1771,27 @@
       "pressKey": "Press a key... (Esc to clear)",
       "resetDefaults": "Reset All to Defaults",
       "speed": "Speed",
+      "speedEdit": {
+        "adjustments": "Adjustments",
+        "gestures": {
+          "doubleClick": "Double-click to reset",
+          "drag": "Drag on canvas to adjust",
+          "fine": "Shift for fine"
+        },
+        "keys": {
+          "hold": "Hold",
+          "previousImage": "Prev. image",
+          "nextImage": "Next image",
+          "reset": "Reset",
+          "previousAdjustment": "Prev. slider",
+          "nextAdjustment": "Next slider",
+          "copy": "Copy",
+          "paste": "Paste",
+          "stepDown": "−1 step",
+          "stepUp": "+1 step"
+        },
+        "title": "Speed Edit"
+      },
       "title": "Mouse Controls",
       "zoom": "Zoom Speed Multiplier",
       "zoomClick": "Zoom photo to 100%",
@@ -2048,6 +2080,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "The editor renders the preview to match your display's actual pixel density. This ensures that every detail is represented with 1:1 pixel accuracy, providing maximum clarity when zooming and checking focus.",
+      "editIn": {
+        "add": "Add Program",
+        "args": "Arguments ({file} = image path)",
+        "browse": "Browse",
+        "description": "Programs for the \"Edit In\" menu.",
+        "executable": "Programs",
+        "modes": {
+          "original": "Send original file",
+          "rendered": "Send edited TIFF"
+        },
+        "name": "Name",
+        "path": "Program path",
+        "remove": "Remove",
+        "title": "Edit In"
+      },
       "enableLivePreviews": "Enable Live Previews",
       "highDpi": "High-DPI Rendering",
       "highDpiDesc": "Render previews at your screen's native {{dpr}}x physical pixel resolution. Produces the sharpest possible preview but uses significantly more memory.",
@@ -2077,7 +2124,7 @@
         "baselineExposure": "Baseline Exposure",
         "baselineExposureAmount": "Baseline Amount",
         "baselineExposureAmountDesc": "Exposure added to RAW files. darktable uses +0.7 EV.",
-        "baselineExposureDesc": "Brightens every RAW file by a fixed amount, like darktable's scene-referred default, plus the DNG BaselineExposure tag when present. Images edited before this option existed are not affected.",
+        "baselineExposureDesc": "Brightens RAW files by a fixed amount, plus the DNG BaselineExposure tag if present.",
         "colorNr": "Base Color Noise Reduction",
         "colorNrDesc": "Applies a cross-bilateral filter early in the pipeline to remove chroma noise. Higher value = Stronger NR.",
         "defaultNonRawTonemapper": "Default Non-RAW Tonemapper",
@@ -2090,7 +2137,7 @@
         "enablePreprocessingNonRaws": "Enable for Non-RAWs",
         "enableTonemapperOverride": "Enable Tonemapper Override",
         "highlightPreservation": "Highlight Preservation Compensation",
-        "highlightPreservationDesc": "Restores the exposure the camera held back in highlight-preserving modes, read from the RAW file (Fujifilm DR200/DR400, Canon Highlight Tone Priority and Auto Lighting Optimizer, Nikon Active D-Lighting, Olympus gradation, Pentax DR expansion). Images edited before this option existed are not affected.",
+        "highlightPreservationDesc": "Restores exposure lowered by highlight-preserving camera modes, such as Fujifilm DR200/DR400 or Nikon Active D-Lighting.",
         "highlightRecovery": "RAW Highlight Recovery",
         "highlightRecoveryDesc": "Controls how much detail is recovered from clipped highlights in RAW files. Higher values recover more detail but can introduce purple artefacts.",
         "linearOptions": {

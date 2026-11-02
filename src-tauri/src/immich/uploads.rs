@@ -65,8 +65,9 @@ pub fn on_exported(
     output_path: &Path,
 ) -> Result<(), String> {
     let Some(target) = output_path
-        .parent()
-        .and_then(|folder| EXPORT_TARGETS.lock().unwrap().get(folder).cloned())
+        .ancestors()
+        .skip(1)
+        .find_map(|folder| EXPORT_TARGETS.lock().unwrap().get(folder).cloned())
     else {
         return Ok(());
     };
@@ -140,7 +141,15 @@ async fn upload_export(
                 ids.push(asset.id);
             }
         }
-        client.create_stack(&ids).await?;
+        if let Err(e) = client.create_stack(&ids).await {
+            if client.owns(&ids[1]).await != Ok(false) {
+                return Err(e);
+            }
+            log::info!(
+                "Not stacking {}, its original belongs to someone else: {e}",
+                output.display()
+            );
+        }
     }
     if entry.is_some() {
         registry::set_listed_asset(source, &new_id);

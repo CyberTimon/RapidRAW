@@ -56,6 +56,7 @@
         "reds": "Vermells",
         "yellows": "Grocs"
       },
+      "mixerPickerTooltip": "Selector del mesclador de colors: feu clic i arrossegueu amunt o avall a la foto",
       "monochrome": {
         "badge": "B/N",
         "balance": "Balanç",
@@ -91,6 +92,7 @@
         "highlights": "Altes llums",
         "hue": "To",
         "mix": "Mescla B/N",
+        "mixPickerTooltip": "Selector de la mescla B/N: feu clic i arrossegueu amunt o avall a la foto",
         "saturation": "Saturació",
         "shadows": "Ombres",
         "strength": "Intensitat",
@@ -285,6 +287,7 @@
       "cullImage": "Cribratge automàtic",
       "denoise": "Reduir soroll",
       "editImage": "Editar imatge",
+      "editIn": "Edita a",
       "exportImage": "Exportar imatge",
       "flag": "Marca",
       "flagPick": "Seleccionada",
@@ -404,6 +407,9 @@
     "toasts": {
       "couldNotShowExplorer": "No s'ha pogut mostrar el fitxer a l'explorador: {{err}}",
       "couldNotShowFolder": "No s'ha pogut mostrar la carpeta: {{err}}",
+      "editInFailed": "{{app}} ha fallat: {{err}}",
+      "editInNoOutput": "{{app}} s'ha tancat sense desar.",
+      "editInWaiting": "S'està esperant {{app}}. Deseu el fitxer allà per recuperar-lo, o tanqueu aquest missatge per deixar d'esperar.",
       "failedAddToAlbum": "No s'ha pogut afegir a l'àlbum: {{err}}",
       "failedApplyAuto": "No s'han pogut aplicar els ajustaments automàtics: {{err}}",
       "failedChangeIcon": "No s'ha pogut canviar la icona: {{err}}",
@@ -915,6 +921,10 @@
         "tool": "Eina"
       }
     },
+    "speedEdit": {
+      "copied": "<0>{{label}}</0> <1>{{value}}</1> copiat",
+      "pasted": "<0>{{label}}</0> <1>{{value}}</1> enganxat"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "Ajustar",
@@ -1128,6 +1138,7 @@
       "pending": "Edicions pendents d'enviar a Immich: {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} pertany a una altra persona, així que Immich no n'accepta edicions. Les teves edicions es queden en aquest ordinador.",
       "backOnline": "Immich torna a estar disponible i totes les edicions s'hi han desat.",
       "downloadFailed": "No s'ha pogut descarregar d'Immich: {{error}}",
       "editsConflict": "{{fileName}} també s'ha editat en un altre ordinador. Les teves edicions es mantenen i l'altra versió es conserva com a còpia virtual.",
@@ -1798,6 +1809,27 @@
       "pressKey": "Premeu una tecla... (Esc per esborrar)",
       "resetDefaults": "Restablir-ho tot als valors per defecte",
       "speed": "Velocitat",
+      "speedEdit": {
+        "adjustments": "Ajustos",
+        "gestures": {
+          "doubleClick": "Doble clic per restablir",
+          "drag": "Arrossega al llenç per ajustar",
+          "fine": "Maj per afinar"
+        },
+        "keys": {
+          "hold": "Mantenir",
+          "previousImage": "Imatge ant.",
+          "nextImage": "Imatge seg.",
+          "reset": "Restablir",
+          "previousAdjustment": "Control ant.",
+          "nextAdjustment": "Control seg.",
+          "copy": "Copiar",
+          "paste": "Enganxar",
+          "stepDown": "−1 pas",
+          "stepUp": "+1 pas"
+        },
+        "title": "Edició ràpida"
+      },
       "title": "Controls del ratolí",
       "zoom": "Multiplicador de velocitat del zoom",
       "zoomClick": "Amplia la foto al 100%",
@@ -2089,6 +2121,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "L'editor renderitza la vista prèvia perquè coincideixi amb la densitat real de píxels de la vostra pantalla. Això assegura que cada detall es representi amb precisió 1:1, proporcionant la màxima claredat a l'hora de fer zoom i comprovar l'enfocament.",
+      "editIn": {
+        "add": "Afegeix un programa",
+        "args": "Arguments ({file} = camí de la imatge)",
+        "browse": "Navega",
+        "description": "Programes del menú «Edita a».",
+        "executable": "Programes",
+        "modes": {
+          "original": "Envia el fitxer original",
+          "rendered": "Envia un TIFF editat"
+        },
+        "name": "Nom",
+        "path": "Camí del programa",
+        "remove": "Elimina",
+        "title": "Edita a"
+      },
       "enableLivePreviews": "Activar vistes prèvies en directe",
       "highDpi": "Renderització High-DPI",
       "highDpiDesc": "Renderitzar vistes prèvies a la resolució nativa de {{dpr}}x píxels de la pantalla. Produeix la vista prèvia més nítida possible, però utilitza molta més memòria.",
@@ -2118,7 +2165,7 @@
         "baselineExposure": "Exposició base",
         "baselineExposureAmount": "Quantitat base",
         "baselineExposureAmountDesc": "Exposició afegida als fitxers RAW. darktable utilitza +0,7 EV.",
-        "baselineExposureDesc": "Aclareix tots els fitxers RAW en una quantitat fixa, com el valor per defecte de darktable en mode referit a l'escena, més l'etiqueta DNG BaselineExposure si n'hi ha. Les imatges editades abans que existís aquesta opció no es veuen afectades.",
+        "baselineExposureDesc": "Aclareix els fitxers RAW en una quantitat fixa, més l'etiqueta DNG BaselineExposure si n'hi ha.",
         "colorNr": "Reducció de soroll de color base",
         "colorNrDesc": "Aplica un filtre bilateral creuat d'hora a la canonada per eliminar el soroll de croma. Valor més alt = Més reducció.",
         "defaultNonRawTonemapper": "Mapejador de tons predeterminat No-RAW",
@@ -2131,7 +2178,7 @@
         "enablePreprocessingNonRaws": "Activar per a No-RAW",
         "enableTonemapperOverride": "Activar la sobreescriptura del mapejador de tons",
         "highlightPreservation": "Compensació de la preservació de llums",
-        "highlightPreservationDesc": "Restaura l'exposició que la càmera ha reservat en els modes de preservació de les llums, llegida del fitxer RAW (Fujifilm DR200/DR400, Prioritat de to de les llums i Optimitzador automàtic de la il·luminació de Canon, D-Lighting actiu de Nikon, gradació d'Olympus, expansió de rang dinàmic de Pentax). Les imatges editades abans que existís aquesta opció no es veuen afectades.",
+        "highlightPreservationDesc": "Restaura l'exposició reduïda pels modes de preservació de llums de la càmera, com Fujifilm DR200/DR400 o D-Lighting actiu de Nikon.",
         "highlightRecovery": "Recuperació de llums altes RAW",
         "highlightRecoveryDesc": "Controla la quantitat de detalls que es recuperen de les llums altes retallades als fitxers RAW. Valors més alts recuperen més detalls però poden introduir artefactes de color porpra.",
         "linearOptions": {

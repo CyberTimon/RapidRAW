@@ -36,6 +36,7 @@ mod bm3d;
 mod cache_utils;
 mod camera_tethering;
 mod culling;
+mod edit_in;
 mod effect_maps;
 mod exif_processing;
 mod export_processing;
@@ -63,6 +64,7 @@ mod negative_conversion;
 mod panorama_stitching;
 mod panorama_utils;
 mod preset_converter;
+mod preview_jpeg;
 mod raw_processing;
 mod relight;
 mod storage;
@@ -614,6 +616,142 @@ async fn release_original_preview(state: tauri::State<'_, AppState>) -> Result<(
     .map_err(|e| format!("Task panicked: {}", e))
 }
 
+struct EditorRender {
+    adjustments: image_processing::AllAdjustments,
+    masks: mask_generation::GeneratedMasks,
+    mask_cache_key: u64,
+    lut: Option<Arc<lut_processing::Lut>>,
+}
+
+impl EditorRender {
+    #[allow(clippy::too_many_arguments)]
+    fn prepare(
+        state: &tauri::State<AppState>,
+        loaded_image: &LoadedImage,
+        adjustments: &serde_json::Value,
+        (width, height): (u32, u32),
+        scale: f32,
+        unscaled_crop_offset: (f32, f32),
+        render: image_processing::RenderOptions,
+        image_generation: usize,
+    ) -> Self {
+        let mask_definitions: Vec<MaskDefinition> = adjustments
+            .get("masks")
+            .and_then(|m| serde_json::from_value(m.clone()).ok())
+            .unwrap_or_default();
+        let masks = get_cached_or_generate_masks(
+            state,
+            &loaded_image.path,
+            &mask_definitions,
+            width,
+            height,
+            scale,
+            (
+                unscaled_crop_offset.0 * scale,
+                unscaled_crop_offset.1 * scale,
+            ),
+            adjustments,
+        );
+        Self {
+            adjustments: get_all_adjustments_from_json(
+                adjustments,
+                loaded_image.is_raw,
+                loaded_image.as_shot,
+                render,
+            ),
+            mask_cache_key: masks.cache_key ^ image_generation as u64,
+            masks,
+            lut: adjustments["lutPath"]
+                .as_str()
+                .and_then(|p| lut_processing::get_or_load_lut(state, p).ok()),
+        }
+    }
+
+    fn request(&self, roi: Option<gpu_processing::Roi>, hsl_probe: bool) -> RenderRequest<'_> {
+        RenderRequest {
+            adjustments: self.adjustments,
+            mask_bitmaps: &self.masks.bitmaps,
+            mask_cache_key: Some(self.mask_cache_key),
+            lut: self.lut.clone(),
+            roi,
+            hsl_probe,
+        }
+    }
+}
+
+#[tauri::command]
+async fn sample_hsl_mixer_area(
+    js_adjustments: serde_json::Value,
+    x: f32,
+    y: f32,
+    radius: f32,
+    app_handle: tauri::AppHandle,
+) -> Result<Response, String> {
+    tokio::task::spawn_blocking(move || {
+        let state = app_handle.state::<AppState>();
+        let context = get_or_init_gpu_context(&state, &app_handle)?;
+        let loaded_image = state
+            .original_image
+            .lock()
+            .unwrap()
+            .clone()
+            .ok_or("No original image loaded")?;
+        let mut adjustments = js_adjustments;
+        hydrate_adjustments(&state, &mut adjustments);
+
+        let transform_hash = calculate_transform_hash(&adjustments);
+        let (image, scale, crop_offset) = state
+            .cached_preview_for(PreviewTarget::Editor)
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .filter(|cached| cached.transform_hash == transform_hash)
+            .map(|cached| {
+                (
+                    Arc::clone(&cached.image),
+                    cached.scale,
+                    cached.unscaled_crop_offset,
+                )
+            })
+            .ok_or("Editor preview is not ready")?;
+
+        let (width, height) = image.dimensions();
+        let half = (radius * width as f32).max(1.0);
+        let x0 = (x * width as f32 - half).clamp(0.0, width as f32 - 1.0) as u32;
+        let y0 = (y * height as f32 - half).clamp(0.0, height as f32 - 1.0) as u32;
+        let x1 = ((x * width as f32 + half).ceil() as u32).clamp(x0 + 1, width);
+        let y1 = ((y * height as f32 + half).ceil() as u32).clamp(y0 + 1, height);
+
+        let editor_render = EditorRender::prepare(
+            &state,
+            &loaded_image,
+            &adjustments,
+            (width, height),
+            scale,
+            crop_offset,
+            resolve_render_options_from_handle(&app_handle, loaded_image.is_raw),
+            state.load_image_generation.load(Ordering::SeqCst),
+        );
+        let roi = gpu_processing::Roi {
+            x: x0,
+            y: y0,
+            width: x1 - x0,
+            height: y1 - y0,
+        };
+        let probe = process_and_get_dynamic_image(
+            &context,
+            &state,
+            &image,
+            transform_hash,
+            editor_render.request(Some(roi), true),
+            "sample_hsl_mixer_area",
+        )?;
+        Ok(Response::new(probe.into_bytes()))
+    })
+    .await
+    .map_err(|e| format!("Task panicked: {}", e))?
+}
+
 #[allow(clippy::too_many_arguments)]
 fn process_preview_job(
     app_handle: &tauri::AppHandle,
@@ -792,31 +930,16 @@ fn process_preview_job(
         None
     };
 
-    let mask_definitions: Vec<MaskDefinition> = adjustments_clone
-        .get("masks")
-        .and_then(|m| serde_json::from_value(m.clone()).ok())
-        .unwrap_or_default();
-
-    let scaled_crop_offset = (
-        unscaled_crop_offset.0 * effective_scale,
-        unscaled_crop_offset.1 * effective_scale,
-    );
-
-    let masks = get_cached_or_generate_masks(
+    let editor_render = EditorRender::prepare(
         &state,
-        &loaded_image.path,
-        &mask_definitions,
-        preview_width,
-        preview_height,
-        effective_scale,
-        scaled_crop_offset,
+        &loaded_image,
         &adjustments_clone,
+        (preview_width, preview_height),
+        effective_scale,
+        unscaled_crop_offset,
+        render,
+        image_generation,
     );
-
-    let final_adjustments =
-        get_all_adjustments_from_json(&adjustments_clone, is_raw, loaded_image.as_shot, render);
-    let lut_path = adjustments_clone["lutPath"].as_str();
-    let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
 
     let wants_analytics = !(is_interactive && pixel_roi.is_some()) && request_analytics;
     let channel_filter = if is_interactive {
@@ -867,13 +990,7 @@ fn process_preview_job(
             &state,
             &processing_image,
             new_transform_hash,
-            RenderRequest {
-                adjustments: final_adjustments,
-                mask_bitmaps: &masks.bitmaps,
-                mask_cache_key: Some(masks.cache_key ^ image_generation as u64),
-                lut,
-                roi: pixel_roi,
-            },
+            editor_render.request(pixel_roi, false),
             caller_id,
             use_wgpu_renderer.then_some(gpu_processing::DisplayOutput {
                 target,
@@ -932,10 +1049,7 @@ fn process_preview_job(
 
         let step_start = std::time::Instant::now();
 
-        let encode_result = Encoder::new(Preset::BaselineFastest)
-            .quality(jpeg_quality)
-            .fast_color(true)
-            .encode_imgref(img_ref);
+        let encode_result = preview_jpeg::encode_rgba(img_ref, jpeg_quality, true);
 
         match encode_result {
             Ok(jpeg_bytes) => {
@@ -1312,6 +1426,7 @@ async fn generate_uncropped_preview(
                 mask_cache_key: None,
                 lut,
                 roi: None,
+                hsl_probe: false,
             },
             "generate_uncropped_preview",
         ) {
@@ -1425,6 +1540,7 @@ async fn generate_preset_preview(
                 mask_cache_key: None,
                 lut,
                 roi: None,
+                hsl_probe: false,
             },
             "generate_preset_preview",
         )?;
@@ -1615,6 +1731,7 @@ async fn generate_all_community_previews(
                             mask_cache_key: None,
                             lut,
                             roi: None,
+                            hsl_probe: false,
                         },
                         "generate_all_community_previews",
                     )?;
@@ -1889,16 +2006,15 @@ async fn generate_preview_for_path(
                 mask_cache_key: None,
                 lut,
                 roi: None,
+                hsl_probe: false,
             },
             "generate_preview_for_path",
         )?;
 
-        let (width, height) = final_image.dimensions();
-        let rgb_pixels = final_image.to_rgb8().into_vec();
-
-        let bytes = Encoder::new(Preset::BaselineFastest)
-            .quality(92)
-            .encode_rgb(&rgb_pixels, width, height)
+        let rgba = final_image.into_rgba8();
+        let (width, height) = rgba.dimensions();
+        let pixels = ImgRef::new(rgba.as_raw().as_rgba(), width as usize, height as usize);
+        let bytes = preview_jpeg::encode_rgba(pixels, 92, false)
             .map_err(|e| format!("Failed to encode with mozjpeg-rs: {}", e))?;
 
         Ok(Response::new(bytes))
@@ -1941,7 +2057,10 @@ fn setup_logging(app_handle: &tauri::AppHandle) {
                 message
             ))
         })
-        .level(level)
+        .level(level.max(log::LevelFilter::Warn))
+        .filter(move |metadata| {
+            !raw_processing::swallow_prefix_log(metadata) && metadata.level() <= level
+        })
         .chain(fern::Output::call(|record| {
             let _ = writeln!(std::io::stderr(), "{}", record.args());
         }));
@@ -1960,6 +2079,9 @@ fn setup_logging(app_handle: &tauri::AppHandle) {
     }
 
     panic::set_hook(Box::new(|info| {
+        if raw_processing::is_reading_prefix() {
+            return;
+        }
         let message = if let Some(s) = info.payload().downcast_ref::<&'static str>() {
             s.to_string()
         } else if let Some(s) = info.payload().downcast_ref::<String>() {
@@ -2700,6 +2822,7 @@ pub fn run() {
             viewer_window::set_viewer_view,
             viewer_window::get_viewer_info,
             viewer_window::get_viewer_frame,
+            sample_hsl_mixer_area,
             android_integration::resolve_android_content_uri_name,
             cache_utils::clear_session_caches,
             cache_utils::clear_image_caches,
@@ -2739,6 +2862,8 @@ pub fn run() {
             export_processing::export_images,
             export_processing::cancel_export,
             export_processing::estimate_export_sizes,
+            edit_in::edit_in_app,
+            edit_in::cancel_edit_in_app,
             image_processing::calculate_auto_adjustments,
             image_processing::sample_white_balance,
             auto_straighten::calculate_auto_straighten,

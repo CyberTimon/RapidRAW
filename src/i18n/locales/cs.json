@@ -56,6 +56,7 @@
         "reds": "Červená",
         "yellows": "Žlutá"
       },
+      "mixerPickerTooltip": "Pipeta míchání barev: klikněte na fotografii a táhněte nahoru nebo dolů",
       "monochrome": {
         "badge": "Č/B",
         "balance": "Vyvážení",
@@ -91,6 +92,7 @@
         "highlights": "Světla",
         "hue": "Odstín",
         "mix": "Č/B mix",
+        "mixPickerTooltip": "Pipeta Č/B mixu: klikněte na fotografii a táhněte nahoru nebo dolů",
         "saturation": "Sytost",
         "shadows": "Stíny",
         "strength": "Síla",
@@ -285,6 +287,7 @@
       "cullImage": "Automatické třídění",
       "denoise": "Odšumit",
       "editImage": "Upravit snímek",
+      "editIn": "Upravit v",
       "exportImage": "Export snímku",
       "flag": "Vlajka",
       "flagPick": "Vybrané",
@@ -421,6 +424,9 @@
     "toasts": {
       "couldNotShowExplorer": "Nelze zobrazit soubor v průzkumníku: {{err}}",
       "couldNotShowFolder": "Nelze zobrazit složku: {{err}}",
+      "editInFailed": "{{app}} selhal: {{err}}",
+      "editInNoOutput": "{{app}} byl zavřen bez uložení.",
+      "editInWaiting": "Čekání na {{app}}. Uložte tam soubor, aby se vrátil zpět, nebo zavřete tuto zprávu a čekání ukončete.",
       "failedAddToAlbum": "Nepodařilo se přidat do alba: {{err}}",
       "failedApplyAuto": "Nepodařilo se použít automatické úpravy: {{err}}",
       "failedChangeIcon": "Ikonu se nepodařilo změnit: {{err}}",
@@ -939,6 +945,10 @@
         "tool": "Nástroj"
       }
     },
+    "speedEdit": {
+      "copied": "Zkopírováno: <0>{{label}}</0> <1>{{value}}</1>",
+      "pasted": "Vloženo: <0>{{label}}</0> <1>{{value}}</1>"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "Upravit",
@@ -1154,6 +1164,7 @@
       "pending": "Úpravy čekající na Immich: {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} patří někomu jinému, proto pro něj Immich nepřijímá úpravy. Tvé úpravy zůstanou v tomto počítači.",
       "backOnline": "Immich je opět dostupný a všechny úpravy jsou v něm uložené.",
       "downloadFailed": "Stažení z Immiche se nezdařilo: {{error}}",
       "editsConflict": "{{fileName}} byl upraven také na jiném počítači. Vaše úpravy zůstávají a druhá verze je uložena jako virtuální kopie.",
@@ -1836,6 +1847,27 @@
       "pressKey": "Stiskněte klávesu... (Esc pro vymazání)",
       "resetDefaults": "Obnovit vše na výchozí",
       "speed": "Rychlost",
+      "speedEdit": {
+        "adjustments": "Úpravy",
+        "gestures": {
+          "doubleClick": "Dvojklikem obnovíte",
+          "drag": "Tažením po plátně upravíte",
+          "fine": "Shift pro jemnost"
+        },
+        "keys": {
+          "hold": "Podržet",
+          "previousImage": "Předch. snímek",
+          "nextImage": "Další snímek",
+          "reset": "Obnovit",
+          "previousAdjustment": "Předch. posuvník",
+          "nextAdjustment": "Další posuvník",
+          "copy": "Kopírovat",
+          "paste": "Vložit",
+          "stepDown": "−1 krok",
+          "stepUp": "+1 krok"
+        },
+        "title": "Rychlá úprava"
+      },
       "title": "Ovládání myší",
       "zoom": "Rychlost zoomu",
       "zoomClick": "Přiblížit snímek na 100 %",
@@ -2130,6 +2162,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "Editor vykresluje náhled tak, aby odpovídal skutečné hustotě pixelů vašeho displeje. Tím je zajištěno, že každý detail je zobrazen s přesností pixelů 1:1, což poskytuje maximální jasnost při přibližování a kontrole zaostření.",
+      "editIn": {
+        "add": "Přidat program",
+        "args": "Argumenty ({file} = cesta k obrázku)",
+        "browse": "Procházet",
+        "description": "Programy pro nabídku „Upravit v“.",
+        "executable": "Programy",
+        "modes": {
+          "original": "Odeslat původní soubor",
+          "rendered": "Odeslat upravený TIFF"
+        },
+        "name": "Název",
+        "path": "Cesta k programu",
+        "remove": "Odebrat",
+        "title": "Upravit v"
+      },
       "enableLivePreviews": "Povolit živé náhledy",
       "highDpi": "High-DPI rendering",
       "highDpiDesc": "Vykreslovat náhledy v nativním {{dpr}}x fyzickém rozlišení pixelů obrazovky. Poskytuje nejostřejší možný náhled, ale spotřebovává výrazně více paměti.",
@@ -2159,7 +2206,7 @@
         "baselineExposure": "Základní expozice",
         "baselineExposureAmount": "Velikost základu",
         "baselineExposureAmountDesc": "Expozice přidaná k souborům RAW. darktable používá +0,7 EV.",
-        "baselineExposureDesc": "Zesvětlí všechny soubory RAW o pevnou hodnotu, podobně jako výchozí nastavení darktable pro scene-referred zpracování, a přičte značku DNG BaselineExposure, pokud ji soubor obsahuje. Snímky upravené před zavedením této volby nejsou ovlivněny.",
+        "baselineExposureDesc": "Zesvětlí soubory RAW o pevnou hodnotu a přičte značku DNG BaselineExposure, pokud existuje.",
         "colorNr": "Redukce šumu základní barvy",
         "colorNrDesc": "Aplikuje křížový bilaterální filtr na začátku procesu k odstranění barevného šumu. Vyšší hodnota = silnější redukce šumu.",
         "defaultNonRawTonemapper": "Výchozí Non-RAW Tonemapper",
@@ -2172,7 +2219,7 @@
         "enablePreprocessingNonRaws": "Povolit pro soubory bez RAW",
         "enableTonemapperOverride": "Povolte přepsání Tonemapperu",
         "highlightPreservation": "Kompenzace ochrany světel",
-        "highlightPreservationDesc": "Vrátí expozici, kterou fotoaparát ubral v režimech ochrany světel, načtenou ze souboru RAW (Fujifilm DR200/DR400, Canon Priorita jasných tónů a Auto Lighting Optimizer, Nikon Active D-Lighting, gradace Olympus, rozšíření dynamického rozsahu Pentax). Snímky upravené před zavedením této volby nejsou ovlivněny.",
+        "highlightPreservationDesc": "Vrátí expozici sníženou režimy ochrany světel fotoaparátu, např. Fujifilm DR200/DR400 nebo Nikon Active D-Lighting.",
         "highlightRecovery": "RAW Highlight Recovery",
         "highlightRecoveryDesc": "Řídí, kolik detailů se obnoví z přepálených světel v souborech RAW. Vyšší hodnoty obnoví více detailů, ale mohou způsobit fialové artefakty.",
         "linearOptions": {

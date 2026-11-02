@@ -1,6 +1,6 @@
 use crate::as_shot::AsShot;
 use crate::baseline_exposure::BaselineOptions;
-use crate::gpu_processing::WgpuDisplay;
+use crate::gpu_processing::{GpuPipelines, WgpuDisplay};
 use crate::guided_perspective::{GuideLine, compute_guided_homography, count_valid_lines};
 use crate::white_balance::{self, WhiteBalance};
 use bytemuck::{Pod, Zeroable};
@@ -3121,6 +3121,7 @@ pub struct GpuContext {
     pub adapter_info: wgpu::AdapterInfo,
     pub display: Arc<std::sync::Mutex<Option<WgpuDisplay>>>,
     pub viewer_display: Arc<std::sync::Mutex<Option<WgpuDisplay>>>,
+    pub pipelines: Arc<OnceLock<Arc<GpuPipelines>>>,
 }
 
 impl GpuContext {

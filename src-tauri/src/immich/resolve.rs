@@ -103,11 +103,28 @@ impl StackIndex {
         if is_raw(listed) {
             return listed;
         }
-        self.companions(listed)
+        if let Some(raw) = self
+            .companions(listed)
             .filter(|a| is_raw(a))
             .max_by_key(|raw| cache_path(raw, cache_dir).exists())
+        {
+            return raw;
+        }
+        let taken = instant(&listed.file_created_at);
+        let uploaded = instant(&listed.created_at);
+        self.companions(listed)
+            .filter(|a| {
+                taken.is_some()
+                    && instant(&a.file_created_at) == taken
+                    && instant(&a.created_at) < uploaded
+            })
+            .min_by_key(|a| instant(&a.created_at))
             .unwrap_or(listed)
     }
+}
+
+fn instant(time: &Option<String>) -> Option<chrono::DateTime<chrono::FixedOffset>> {
+    chrono::DateTime::parse_from_rfc3339(time.as_deref()?).ok()
 }
 
 fn is_raw(asset: &Asset) -> bool {

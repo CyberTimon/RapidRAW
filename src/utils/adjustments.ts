@@ -691,6 +691,20 @@ const deepCloneParametric = (pCurve: any): ParametricCurve => ({
   blue: { ...DEFAULT_PARAMETRIC_CURVE_SETTINGS, ...(pCurve?.blue || {}) },
 });
 
+export const CROP_GEOMETRY_KEYS = [
+  'crop',
+  'aspectRatio',
+  'rotation',
+  'orientationSteps',
+  'flipHorizontal',
+  'flipVertical',
+] as const satisfies ReadonlyArray<keyof Adjustments>;
+
+export type CropGeometry = Pick<Adjustments, (typeof CROP_GEOMETRY_KEYS)[number]>;
+
+export const pickCropGeometry = (adjustments: Adjustments): CropGeometry =>
+  Object.fromEntries(CROP_GEOMETRY_KEYS.map((key) => [key, structuredClone(adjustments[key])])) as CropGeometry;
+
 export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any => {
   if (!loadedAdjustments) {
     return INITIAL_ADJUSTMENTS;
@@ -1036,6 +1050,35 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
   masks: [{ label: 'modals.copyPaste.groups.masks', keys: ['masks'] }],
 };
 
+export const SPEED_EDIT_ADJUSTMENTS = [
+  { id: BasicAdjustment.Exposure, label: 'adjustments.basic.exposure' },
+  { id: BasicAdjustment.Contrast, label: 'adjustments.basic.contrast' },
+  { id: BasicAdjustment.Highlights, label: 'adjustments.basic.highlights' },
+  { id: BasicAdjustment.Shadows, label: 'adjustments.basic.shadows' },
+  { id: BasicAdjustment.Whites, label: 'adjustments.basic.whites' },
+  { id: BasicAdjustment.Blacks, label: 'adjustments.basic.blacks' },
+  { id: ColorAdjustment.Temperature, label: 'adjustments.color.temperature' },
+  { id: ColorAdjustment.Tint, label: 'adjustments.color.tint' },
+  { id: ColorAdjustment.Vibrance, label: 'adjustments.color.vibrance' },
+  { id: ColorAdjustment.Saturation, label: 'adjustments.color.saturation' },
+  { id: DetailsAdjustment.Clarity, label: 'adjustments.details.clarity' },
+  { id: DetailsAdjustment.Dehaze, label: 'adjustments.details.dehaze' },
+  { id: DetailsAdjustment.Structure, label: 'adjustments.details.structure' },
+  { id: Effect.VignetteAmount, label: 'adjustments.effects.vignette' },
+  { id: 'rotation', label: 'editor.crop.rotationHeading' },
+] as const;
+
+export const DEFAULT_SPEED_EDIT_ADJUSTMENTS: string[] = [
+  BasicAdjustment.Exposure,
+  BasicAdjustment.Contrast,
+  BasicAdjustment.Highlights,
+  BasicAdjustment.Shadows,
+  ColorAdjustment.Temperature,
+  ColorAdjustment.Tint,
+  ColorAdjustment.Saturation,
+  'rotation',
+];
+
 export const COPYABLE_ADJUSTMENT_KEYS: string[] = Object.values(ADJUSTMENT_GROUPS)
   .flat()
   .flatMap((group) => group.keys);
@@ -1246,6 +1289,21 @@ export const ADJUSTMENT_TOOLS_BY_ID: Record<string, AdjustmentSectionTool> = Obj
 
 export const getAdjustmentSectionToolIds = (section: string): string[] =>
   (ADJUSTMENT_SECTION_TOOLS[section] ?? []).map((tool) => tool.id);
+
+export const withToolCollapsed = (settings: AppSettings, id: string, isCollapsed: boolean): AppSettings => {
+  const collapsedTools = settings.adjustmentLayout?.collapsedTools ?? [];
+  if (isCollapsed) {
+    return withAdjustmentLayout(settings, { collapsedTools: [...collapsedTools, id] });
+  }
+  const siblingTools = settings.enableToolFocusMode
+    ? (Object.keys(ADJUSTMENT_SECTION_TOOLS)
+        .map(getAdjustmentSectionToolIds)
+        .find((tools) => tools.includes(id)) ?? [])
+    : [];
+  return withAdjustmentLayout(settings, {
+    collapsedTools: [...new Set([...collapsedTools, ...siblingTools])].filter((tool) => tool !== id),
+  });
+};
 
 const getToolIds = (id: string): Array<string> => {
   const expand = (tool: AdjustmentSectionTool) => tool.subTools ?? [tool.id];

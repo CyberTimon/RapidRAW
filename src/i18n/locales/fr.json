@@ -56,6 +56,7 @@
         "reds": "Rouges",
         "yellows": "Jaunes"
       },
+      "mixerPickerTooltip": "Pipette du mélangeur de couleurs : cliquez et faites glisser vers le haut ou le bas sur la photo",
       "monochrome": {
         "badge": "N&B",
         "balance": "Balance",
@@ -91,6 +92,7 @@
         "highlights": "Hautes lumières",
         "hue": "Teinte",
         "mix": "Mélange N&B",
+        "mixPickerTooltip": "Pipette du mélange N&B : cliquez et faites glisser vers le haut ou le bas sur la photo",
         "saturation": "Saturation",
         "shadows": "Ombres",
         "strength": "Intensité",
@@ -285,6 +287,7 @@
       "cullImage": "Tri automatique",
       "denoise": "Débruiter",
       "editImage": "Modifier l'image",
+      "editIn": "Modifier dans",
       "exportImage": "Exporter l'image",
       "flag": "Marquage",
       "flagPick": "Retenue",
@@ -404,6 +407,9 @@
     "toasts": {
       "couldNotShowExplorer": "Impossible d'afficher le fichier dans l'explorateur : {{err}}",
       "couldNotShowFolder": "Impossible d'afficher le dossier : {{err}}",
+      "editInFailed": "{{app}} a échoué : {{err}}",
+      "editInNoOutput": "{{app}} a été fermé sans enregistrer.",
+      "editInWaiting": "En attente de {{app}}. Enregistrez le fichier dans ce programme pour le récupérer, ou fermez ce message pour arrêter d'attendre.",
       "failedAddToAlbum": "Échec de l'ajout à l'album : {{err}}",
       "failedApplyAuto": "Échec de l'ajustement automatique : {{err}}",
       "failedChangeIcon": "Échec de la modification de l'icône : {{err}}",
@@ -915,6 +921,10 @@
         "tool": "Outil"
       }
     },
+    "speedEdit": {
+      "copied": "<0>{{label}}</0> <1>{{value}}</1> copié",
+      "pasted": "<0>{{label}}</0> <1>{{value}}</1> collé"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "Ajuster",
@@ -1128,6 +1138,7 @@
       "pending": "Retouches en attente d'envoi vers Immich : {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} appartient à quelqu'un d'autre, Immich n'accepte donc pas de retouches pour cette image. Vos retouches restent sur cet ordinateur.",
       "backOnline": "Immich est de nouveau joignable et toutes les retouches y sont enregistrées.",
       "downloadFailed": "Échec du téléchargement depuis Immich : {{error}}",
       "editsConflict": "{{fileName}} a aussi été retouchée sur un autre ordinateur. Vos retouches sont conservées et l'autre version est gardée comme copie virtuelle.",
@@ -1799,6 +1810,27 @@
       "pressKey": "Appuyez sur une touche... (Échap pour effacer)",
       "resetDefaults": "Réinitialiser aux valeurs par défaut",
       "speed": "Vitesse",
+      "speedEdit": {
+        "adjustments": "Réglages",
+        "gestures": {
+          "doubleClick": "Double-clic pour réinitialiser",
+          "drag": "Glisser sur le canevas pour ajuster",
+          "fine": "Maj pour affiner"
+        },
+        "keys": {
+          "hold": "Maintenir",
+          "previousImage": "Image préc.",
+          "nextImage": "Image suiv.",
+          "reset": "Réinit.",
+          "previousAdjustment": "Curseur préc.",
+          "nextAdjustment": "Curseur suiv.",
+          "copy": "Copier",
+          "paste": "Coller",
+          "stepDown": "−1 pas",
+          "stepUp": "+1 pas"
+        },
+        "title": "Édition rapide"
+      },
       "title": "Contrôles de la souris",
       "zoom": "Multiplicateur de vitesse de zoom",
       "zoomClick": "Zoomer la photo à 100 %",
@@ -2090,6 +2122,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "L'éditeur effectue le rendu de l'aperçu pour correspondre à la densité de pixels réelle de votre écran. Cela garantit que chaque détail est représenté avec une précision au pixel près, offrant une clarté maximale lors du zoom et de la vérification de la mise au point.",
+      "editIn": {
+        "add": "Ajouter un programme",
+        "args": "Arguments ({file} = chemin de l'image)",
+        "browse": "Parcourir",
+        "description": "Programmes du menu « Modifier dans ».",
+        "executable": "Programmes",
+        "modes": {
+          "original": "Envoyer le fichier original",
+          "rendered": "Envoyer un TIFF modifié"
+        },
+        "name": "Nom",
+        "path": "Chemin du programme",
+        "remove": "Supprimer",
+        "title": "Modifier dans"
+      },
       "enableLivePreviews": "Activer les aperçus en direct",
       "highDpi": "Rendu haute résolution (DPI)",
       "highDpiDesc": "Rendez les aperçus à la résolution native de {{dpr}}x pixels physiques de votre écran. Produit l'aperçu le plus net possible mais utilise beaucoup plus de mémoire.",
@@ -2119,7 +2166,7 @@
         "baselineExposure": "Exposition de base",
         "baselineExposureAmount": "Valeur de base",
         "baselineExposureAmountDesc": "Exposition ajoutée aux fichiers RAW. darktable utilise +0,7 IL.",
-        "baselineExposureDesc": "Éclaircit tous les fichiers RAW d'une valeur fixe, comme le réglage par défaut de darktable en mode relatif à la scène, plus la balise DNG BaselineExposure si elle est présente. Les images retouchées avant l'ajout de cette option ne sont pas modifiées.",
+        "baselineExposureDesc": "Éclaircit les fichiers RAW d'une valeur fixe, plus la balise DNG BaselineExposure si présente.",
         "colorNr": "Réduction du bruit colorimétrique de base",
         "colorNrDesc": "Applique un filtre bilatéral croisé tôt dans le traitement pour éliminer le bruit de chrominance. Valeur plus élevée = Réduction plus forte.",
         "defaultNonRawTonemapper": "Mappeur de tons par défaut (Non-RAW)",
@@ -2132,7 +2179,7 @@
         "enablePreprocessingNonRaws": "Activer pour les Non-RAW",
         "enableTonemapperOverride": "Activer la surcharge du mappeur de tons",
         "highlightPreservation": "Compensation de la préservation des hautes lumières",
-        "highlightPreservationDesc": "Rétablit l'exposition retenue par l'appareil dans les modes de préservation des hautes lumières, lue dans le fichier RAW (Fujifilm DR200/DR400, Priorité hautes lumières et Correction auto de luminosité Canon, D-Lighting actif Nikon, gradation Olympus, extension de plage dynamique Pentax). Les images retouchées avant l'ajout de cette option ne sont pas modifiées.",
+        "highlightPreservationDesc": "Rétablit l'exposition réduite par les modes de préservation des hautes lumières, comme Fujifilm DR200/DR400 ou D-Lighting actif Nikon.",
         "highlightRecovery": "Récupération des hautes lumières RAW",
         "highlightRecoveryDesc": "Contrôle la quantité de détails récupérés des hautes lumières écrêtées dans les fichiers RAW. Des valeurs plus élevées récupèrent plus de détails mais peuvent introduire des artefacts violets.",
         "linearOptions": {

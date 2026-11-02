@@ -56,6 +56,7 @@
         "reds": "레드",
         "yellows": "옐로우"
       },
+      "mixerPickerTooltip": "컬러 믹서 스포이트: 사진을 클릭한 채 위아래로 드래그",
       "monochrome": {
         "badge": "흑백",
         "balance": "밸런스",
@@ -91,6 +92,7 @@
         "highlights": "하이라이트",
         "hue": "색조",
         "mix": "흑백 믹스",
+        "mixPickerTooltip": "흑백 믹스 스포이트: 사진을 클릭한 채 위아래로 드래그",
         "saturation": "채도",
         "shadows": "섀도우",
         "strength": "강도",
@@ -285,6 +287,7 @@
       "cullImage": "자동 선별",
       "denoise": "노이즈 제거",
       "editImage": "이미지 편집",
+      "editIn": "다른 프로그램에서 편집",
       "exportImage": "이미지 내보내기",
       "flag": "플래그",
       "flagPick": "선택됨",
@@ -387,6 +390,9 @@
     "toasts": {
       "couldNotShowExplorer": "탐색기에서 파일을 표시할 수 없습니다: {{err}}",
       "couldNotShowFolder": "폴더를 표시할 수 없습니다: {{err}}",
+      "editInFailed": "{{app}} 실패: {{err}}",
+      "editInNoOutput": "{{app}}이(가) 저장하지 않고 종료되었습니다.",
+      "editInWaiting": "{{app}}을(를) 기다리는 중입니다. 그 프로그램에서 파일을 저장하면 다시 가져옵니다. 기다리지 않으려면 이 메시지를 닫으세요.",
       "failedAddToAlbum": "앨범에 추가하지 못했습니다: {{err}}",
       "failedApplyAuto": "자동 조정을 적용하지 못했습니다: {{err}}",
       "failedChangeIcon": "아이콘을 변경하지 못했습니다: {{err}}",
@@ -888,6 +894,10 @@
         "tool": "도구"
       }
     },
+    "speedEdit": {
+      "copied": "<0>{{label}}</0> <1>{{value}}</1> 복사됨",
+      "pasted": "<0>{{label}}</0> <1>{{value}}</1> 붙여넣음"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "조정",
@@ -1099,6 +1109,7 @@
       "pending": "Immich 전송 대기 중인 편집: {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}}은(는) 다른 사람의 이미지라 Immich가 편집을 받지 않습니다. 편집 내용은 이 컴퓨터에 남습니다.",
       "backOnline": "Immich에 다시 연결되었으며 모든 편집 내용이 저장되었습니다.",
       "downloadFailed": "Immich에서 다운로드하지 못했습니다: {{error}}",
       "editsConflict": "{{fileName}}이(가) 다른 컴퓨터에서도 편집되었습니다. 내 편집 내용은 유지되고, 다른 버전은 가상 사본으로 보관됩니다.",
@@ -1754,6 +1765,27 @@
       "pressKey": "키를 누르세요... (Esc로 지우기)",
       "resetDefaults": "모두 기본값으로 초기화",
       "speed": "속도",
+      "speedEdit": {
+        "adjustments": "조정 항목",
+        "gestures": {
+          "doubleClick": "더블클릭하여 초기화",
+          "drag": "캔버스에서 드래그하여 조정",
+          "fine": "Shift로 미세 조정"
+        },
+        "keys": {
+          "hold": "누르기",
+          "previousImage": "이전 이미지",
+          "nextImage": "다음 이미지",
+          "reset": "초기화",
+          "previousAdjustment": "이전 슬라이더",
+          "nextAdjustment": "다음 슬라이더",
+          "copy": "복사",
+          "paste": "붙여넣기",
+          "stepDown": "−1 단계",
+          "stepUp": "+1 단계"
+        },
+        "title": "빠른 편집"
+      },
       "title": "마우스 컨트롤",
       "zoom": "확대/축소 속도 배율",
       "zoomClick": "사진 100% 확대",
@@ -2042,6 +2074,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "편집기는 디스플레이의 실제 픽셀 밀도에 맞춰 미리보기를 렌더링합니다. 이를 통해 모든 디테일이 1:1 픽셀 정확도로 표현되어, 확대하고 초점을 확인할 때 최대의 선명도를 제공합니다.",
+      "editIn": {
+        "add": "프로그램 추가",
+        "args": "인수 ({file} = 이미지 경로)",
+        "browse": "찾아보기",
+        "description": "\"다른 프로그램에서 편집\" 메뉴의 프로그램입니다.",
+        "executable": "프로그램",
+        "modes": {
+          "original": "원본 파일 보내기",
+          "rendered": "편집된 TIFF 보내기"
+        },
+        "name": "이름",
+        "path": "프로그램 경로",
+        "remove": "제거",
+        "title": "다른 프로그램에서 편집"
+      },
       "enableLivePreviews": "실시간 미리보기 활성화",
       "highDpi": "고해상도(High-DPI) 렌더링",
       "highDpiDesc": "화면의 네이티브 {{dpr}}배 물리적 픽셀 해상도로 미리보기를 렌더링합니다. 가능한 가장 선명한 미리보기를 제공하지만 메모리를 훨씬 많이 사용합니다.",
@@ -2071,7 +2118,7 @@
         "baselineExposure": "기본 노출",
         "baselineExposureAmount": "기본량",
         "baselineExposureAmountDesc": "RAW 파일에 더하는 노출입니다. darktable은 +0.7 EV를 사용합니다.",
-        "baselineExposureDesc": "모든 RAW 파일을 일정량 밝힙니다(darktable의 장면 기준 기본값과 같은 방식). DNG BaselineExposure 태그가 있으면 그 값도 더합니다. 이 옵션이 생기기 전에 편집한 이미지는 영향을 받지 않습니다.",
+        "baselineExposureDesc": "RAW 파일을 일정량 밝힙니다. DNG BaselineExposure 태그가 있으면 그 값도 더합니다.",
         "colorNr": "기본 색상 노이즈 감소",
         "colorNrDesc": "파이프라인 초기에 교차 양방향 필터를 적용하여 색차 노이즈를 제거합니다. 값이 높을수록 노이즈 감소가 강해집니다.",
         "defaultNonRawTonemapper": "기본 비RAW 톤매퍼",
@@ -2084,7 +2131,7 @@
         "enablePreprocessingNonRaws": "RAW가 아닌 이미지에 활성화",
         "enableTonemapperOverride": "톤매퍼 재정의 활성화",
         "highlightPreservation": "하이라이트 보호 보정",
-        "highlightPreservationDesc": "하이라이트 보호 모드에서 카메라가 낮춘 노출을 RAW 파일에서 읽어 되돌립니다(후지필름 DR200/DR400, 캐논 하이라이트 톤 우선 및 자동 밝기 최적화, 니콘 액티브 D-라이팅, 올림푸스 계조, 펜탁스 DR 확장). 이 옵션이 생기기 전에 편집한 이미지는 영향을 받지 않습니다.",
+        "highlightPreservationDesc": "카메라 하이라이트 보호 모드(후지필름 DR200/DR400, 니콘 액티브 D-라이팅 등)에서 낮춘 노출을 되돌립니다.",
         "highlightRecovery": "RAW 하이라이트 복구",
         "highlightRecoveryDesc": "RAW 파일에서 클리핑된 하이라이트로부터 얼마나 많은 디테일을 복구할지 제어합니다. 값이 높을수록 더 많은 디테일을 복구하지만 보라색 아티팩트가 생길 수 있습니다.",
         "linearOptions": {

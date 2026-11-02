@@ -56,6 +56,7 @@
         "reds": "Rood",
         "yellows": "Geel"
       },
+      "mixerPickerTooltip": "Kleurenmixer-pipet: klik en sleep omhoog of omlaag op de foto",
       "monochrome": {
         "badge": "Z/W",
         "balance": "Balans",
@@ -91,6 +92,7 @@
         "highlights": "Hooglichten",
         "hue": "Kleurtoon",
         "mix": "Z/W-mix",
+        "mixPickerTooltip": "Z/W-mix-pipet: klik en sleep omhoog of omlaag op de foto",
         "saturation": "Verzadiging",
         "shadows": "Schaduwen",
         "strength": "Sterkte",
@@ -285,6 +287,7 @@
       "cullImage": "Autom. selecteren",
       "denoise": "Ruis verwijderen",
       "editImage": "Afbeelding bewerken",
+      "editIn": "Bewerken in",
       "exportImage": "Afbeelding exporteren",
       "flag": "Markering",
       "flagPick": "Gekozen",
@@ -387,6 +390,9 @@
     "toasts": {
       "couldNotShowExplorer": "Kon bestand niet weergeven in Verkenner: {{err}}",
       "couldNotShowFolder": "Kon map niet weergeven: {{err}}",
+      "editInFailed": "{{app}} mislukt: {{err}}",
+      "editInNoOutput": "{{app}} is gesloten zonder op te slaan.",
+      "editInWaiting": "Wachten op {{app}}. Sla het bestand daar op om het terug te halen, of sluit dit bericht om te stoppen met wachten.",
       "failedAddToAlbum": "Kan niet aan album toevoegen: {{err}}",
       "failedApplyAuto": "Automatische aanpassingen konden niet worden toegepast: {{err}}",
       "failedChangeIcon": "Pictogram kon niet worden gewijzigd: {{err}}",
@@ -891,6 +897,10 @@
         "tool": "Gereedschap"
       }
     },
+    "speedEdit": {
+      "copied": "<0>{{label}}</0> <1>{{value}}</1> gekopieerd",
+      "pasted": "<0>{{label}}</0> <1>{{value}}</1> geplakt"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "Aanpassen",
@@ -1102,6 +1112,7 @@
       "pending": "Bewerkingen die op Immich wachten: {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} is van iemand anders, dus Immich accepteert er geen bewerkingen voor. Je bewerkingen blijven op deze computer.",
       "backOnline": "Immich is weer bereikbaar en alle bewerkingen zijn daar opgeslagen.",
       "downloadFailed": "Downloaden van Immich mislukt: {{error}}",
       "editsConflict": "{{fileName}} is ook op een andere computer bewerkt. Je bewerkingen blijven en de andere versie wordt bewaard als virtuele kopie.",
@@ -1760,6 +1771,27 @@
       "pressKey": "Druk op een toets... (Esc om te wissen)",
       "resetDefaults": "Alles herstellen naar standaard",
       "speed": "Snelheid",
+      "speedEdit": {
+        "adjustments": "Aanpassingen",
+        "gestures": {
+          "doubleClick": "Dubbelklik om te herstellen",
+          "drag": "Sleep op het canvas om aan te passen",
+          "fine": "Shift voor fijn"
+        },
+        "keys": {
+          "hold": "Vasthouden",
+          "previousImage": "Vorige afb.",
+          "nextImage": "Volgende afb.",
+          "reset": "Herstellen",
+          "previousAdjustment": "Vorige regelaar",
+          "nextAdjustment": "Volgende regelaar",
+          "copy": "Kopiëren",
+          "paste": "Plakken",
+          "stepDown": "−1 stap",
+          "stepUp": "+1 stap"
+        },
+        "title": "Snel bewerken"
+      },
       "title": "Muisbesturing",
       "zoom": "Zoomsnelheidsmultiplicator",
       "zoomClick": "Foto zoomen naar 100%",
@@ -2044,6 +2076,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "De editor rendert het voorbeeld om overeen te komen met de werkelijke pixeldichtheid van uw beeldscherm. Dit zorgt ervoor dat elk detail wordt weergegeven met 1:1 pixelnauwkeurigheid, wat maximale helderheid biedt bij zoomen en scherpte controleren.",
+      "editIn": {
+        "add": "Programma toevoegen",
+        "args": "Argumenten ({file} = pad van de afbeelding)",
+        "browse": "Bladeren",
+        "description": "Programma's voor het menu \"Bewerken in\".",
+        "executable": "Programma's",
+        "modes": {
+          "original": "Origineel bestand sturen",
+          "rendered": "Bewerkte TIFF sturen"
+        },
+        "name": "Naam",
+        "path": "Programmapad",
+        "remove": "Verwijderen",
+        "title": "Bewerken in"
+      },
       "enableLivePreviews": "Live voorbeelden inschakelen",
       "highDpi": "High-DPI-rendering",
       "highDpiDesc": "Voorbeelden renderen op de native {{dpr}}x fysieke pixelresolutie van uw scherm. Produceert het scherpste mogelijk voorbeeld maar gebruikt aanzienlijk meer geheugen.",
@@ -2073,7 +2120,7 @@
         "baselineExposure": "Basisbelichting",
         "baselineExposureAmount": "Basiswaarde",
         "baselineExposureAmountDesc": "Belichting die aan RAW-bestanden wordt toegevoegd. darktable gebruikt +0,7 EV.",
-        "baselineExposureDesc": "Maakt alle RAW-bestanden een vaste hoeveelheid lichter, zoals de scene-referred standaard van darktable, plus de DNG-tag BaselineExposure als die aanwezig is. Afbeeldingen die vóór deze optie zijn bewerkt, veranderen niet.",
+        "baselineExposureDesc": "Maakt RAW-bestanden een vaste hoeveelheid lichter, plus de DNG-tag BaselineExposure indien aanwezig.",
         "colorNr": "Basis kleurruisonderdrukking",
         "colorNrDesc": "Past een cross-bilateraal filter vroeg in de pijplijn toe om chroominantieruis te verwijderen. Hogere waarde = Sterkere ruisonderdrukking.",
         "defaultNonRawTonemapper": "Standaard niet-RAW-toonmapping",
@@ -2086,7 +2133,7 @@
         "enablePreprocessingNonRaws": "Inschakelen voor niet-RAW-bestanden",
         "enableTonemapperOverride": "Toonmappingoverride inschakelen",
         "highlightPreservation": "Compensatie voor bescherming van hoge lichten",
-        "highlightPreservationDesc": "Herstelt de belichting die de camera inhield in modi die de hoge lichten beschermen, uitgelezen uit het RAW-bestand (Fujifilm DR200/DR400, Canon Prioriteit hoge lichten en Auto Lighting Optimizer, Nikon Actieve D-Lighting, Olympus gradatie, Pentax DR-uitbreiding). Afbeeldingen die vóór deze optie zijn bewerkt, veranderen niet.",
+        "highlightPreservationDesc": "Herstelt de belichting die cameramodi voor bescherming van hoge lichten verlagen, zoals Fujifilm DR200/DR400 of Nikon Actieve D-Lighting.",
         "highlightRecovery": "RAW-hooglichtenherstel",
         "highlightRecoveryDesc": "Bepaalt hoeveel detail wordt hersteld van uitgeknipte hooglichten in RAW-bestanden. Hogere waarden herstellen meer detail maar kunnen paarse artefacten introduceren.",
         "linearOptions": {

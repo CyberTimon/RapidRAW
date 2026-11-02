@@ -5,6 +5,7 @@ import { Stage, Layer, Ellipse, Line, Transformer, Group, Circle, Rect, Arrow } 
 import type Konva from 'konva';
 import { PercentCrop, Crop } from 'react-image-crop';
 import { Stamp, Bandage, Spline, BrushCleaning } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/core';
 import {
   Adjustments,
@@ -22,6 +23,7 @@ import { RenderSize } from '../../../hooks/useImageRenderSize';
 import { useOsPlatform } from '../../../hooks/useOsPlatform';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../../store/useEditorStore';
+import { MIXER_SAMPLE_SCREEN_SIZE, useHslMixerPicker } from '../../../hooks/useHslMixerPicker';
 import { isPanelVisible, useUIStore } from '../../../store/useUIStore';
 import type { OverlayMode } from '../right/CropPanel';
 import CompositionOverlays from './overlays/CompositionOverlays';
@@ -147,7 +149,7 @@ const linearToSrgb8 = (value: number) => {
   return Math.round(encoded * 255);
 };
 
-interface WbSampleOutlineProps {
+interface SampleOutlineProps {
   x: number;
   y: number;
   width: number;
@@ -156,7 +158,7 @@ interface WbSampleOutlineProps {
   dashed?: boolean;
 }
 
-const WbSampleOutline = ({ x, y, width, height, zoomScale, dashed = false }: WbSampleOutlineProps) => (
+const SampleOutline = ({ x, y, width, height, zoomScale, dashed = false }: SampleOutlineProps) => (
   <>
     <Rect
       x={x}
@@ -1517,7 +1519,7 @@ const ImageCanvas = memo(
     const [isCursorPreviewVisible, setIsCursorPreviewVisible] = useState(false);
     const cursorPreviewPosRef = useRef({ x: 0, y: 0 });
     const cursorPreviewRef = useRef<Konva.Circle>(null);
-    const [wbHover, setWbHover] = useState<CursorPreview>({ x: 0, y: 0, visible: false });
+    const [pickerHover, setPickerHover] = useState<CursorPreview>({ x: 0, y: 0, visible: false });
     const wbDragRef = useRef<WbDrag | null>(null);
     const [wbBox, setWbBox] = useState<WbDrag | null>(null);
     const [wbSample, setWbSample] = useState<WbSample | null>(null);
@@ -1772,6 +1774,20 @@ const ImageCanvas = memo(
       : 0;
 
     const effectiveZoomScale = transformScale > 0 ? transformScale : 1;
+
+    const {
+      isActive: isMixerPickerActive,
+      isDragging: isMixerPickerDragging,
+      start: startMixerPick,
+      reset: resetMixerPick,
+    } = useHslMixerPicker({
+      activeMaskContainerId,
+      getCanvasPointer,
+      imageRenderSize,
+      isMasking,
+      zoomScale: effectiveZoomScale,
+      setAdjustments,
+    });
     const brushStageSize = (brushSettings?.size ?? 0) / effectiveZoomScale;
     const brushImageSpaceSize = brushStageSize / (imageRenderSize.scale || 1);
 
@@ -2150,6 +2166,7 @@ const ImageCanvas = memo(
     );
 
     const wbSquareStage = WB_SAMPLE_SCREEN_SIZE / effectiveZoomScale;
+    const mixerSquareStage = MIXER_SAMPLE_SCREEN_SIZE / effectiveZoomScale;
 
     const isInsideImage = useCallback(
       (pos: Coord | null | undefined): pos is Coord =>
@@ -2376,7 +2393,7 @@ const ImageCanvas = memo(
       state.generation += 1;
       state.pending = null;
       setWbSample(null);
-      setWbHover((p: CursorPreview) => (p.visible ? { ...p, visible: false } : p));
+      setPickerHover((p: CursorPreview) => (p.visible ? { ...p, visible: false } : p));
     }, []);
 
     const isKelvinWhiteBalance = getWhiteBalanceMode(appSettings) === WhiteBalanceMode.Kelvin;
@@ -2466,6 +2483,11 @@ const ImageCanvas = memo(
           wbDragRef.current = { start: pos, end: pos, isBox: false };
           drawingStageRef.current = stage;
           isDrawing.current = true;
+          return;
+        }
+
+        if (isMixerPickerActive) {
+          startMixerPick(e);
           return;
         }
 
@@ -2669,6 +2691,8 @@ const ImageCanvas = memo(
         moveRelightLight,
         isWbPickerActive,
         isInsideImage,
+        isMixerPickerActive,
+        startMixerPick,
         isInitialDrawing,
         isBrushActive,
         isCloneOrHealActive,
@@ -2722,6 +2746,15 @@ const ImageCanvas = memo(
           }
         }
 
+        if (isMixerPickerActive) {
+          if (pos && isInsideImage(pos)) {
+            setPickerHover({ x: pos.x, y: pos.y, visible: true });
+          } else {
+            setPickerHover((p: CursorPreview) => (p.visible ? { ...p, visible: false } : p));
+          }
+          return;
+        }
+
         if (isWbPickerActive) {
           const drag = wbDragRef.current;
           if (drag && isDrawing.current) {
@@ -2742,7 +2775,7 @@ const ImageCanvas = memo(
           }
 
           if (isInsideImage(pos)) {
-            setWbHover({ x: pos.x, y: pos.y, visible: true });
+            setPickerHover({ x: pos.x, y: pos.y, visible: true });
             requestWbSample(getWbSquareCorners(pos));
           } else {
             resetWbSample();
@@ -2944,6 +2977,7 @@ const ImageCanvas = memo(
         mapScreenToUv,
         isToolActive,
         isWbPickerActive,
+        isMixerPickerActive,
         isInitialDrawing,
         activeMaskId,
         activeAiSubMaskId,
@@ -2988,7 +3022,7 @@ const ImageCanvas = memo(
         wbDragRef.current = null;
         setWbBox(null);
         if (isInsideImage(end)) {
-          setWbHover({ x: end.x, y: end.y, visible: true });
+          setPickerHover({ x: end.x, y: end.y, visible: true });
         }
         applyWbPick(isBox ? getWbCorners(start.x, start.y, end.x, end.y) : getWbSquareCorners(start));
         return;
@@ -3316,17 +3350,16 @@ const ImageCanvas = memo(
       isWbPickerActive && wbSample && !isShowingOriginal
         ? wbBox
           ? wbBox.end
-          : wbHover.visible
-            ? wbHover
+          : pickerHover.visible
+            ? pickerHover
             : null
         : null;
     const wbSwatchNorm = wbSample ? Math.max(1, wbSample.r, wbSample.g, wbSample.b) : 1;
     const wbSwatchRgb = wbSample
       ? [wbSample.r, wbSample.g, wbSample.b].map((v) => linearToSrgb8(v / wbSwatchNorm))
       : [0, 0, 0];
-    const wbSwatchFlipX = !!wbSwatchAnchor && wbSwatchAnchor.x > imageRenderSize.width * 0.75;
-    const wbSwatchFlipY = !!wbSwatchAnchor && wbSwatchAnchor.y > imageRenderSize.height * 0.75;
-    const wbSwatchOffset = WB_SWATCH_OFFSET / effectiveZoomScale;
+    const getWbSwatchShift = (isFlipped: boolean) =>
+      isFlipped ? `calc(-100% - ${WB_SWATCH_OFFSET}px)` : `${WB_SWATCH_OFFSET}px`;
     const wbSwatchWhiteBalance =
       wbSample && asShotWhiteBalance
         ? isKelvinWhiteBalance
@@ -3365,9 +3398,11 @@ const ImageCanvas = memo(
       if (isGuidedPerspectiveActive && isCropping) return 'crosshair';
       if (isRelightPickerActive) return 'crosshair';
       if (isWbPickerActive) {
-        if (wbBox || wbHover.visible) return 'none';
+        if (wbBox || pickerHover.visible) return 'none';
         return 'crosshair';
       }
+      if (isMixerPickerDragging) return 'move';
+      if (isMixerPickerActive) return pickerHover.visible ? 'none' : 'crosshair';
       if (isParametricActive) return 'crosshair';
       if (isInitialDrawing) return 'crosshair';
 
@@ -3397,7 +3432,9 @@ const ImageCanvas = memo(
       isRelightPickerActive,
       isWbPickerActive,
       wbBox,
-      wbHover.visible,
+      pickerHover.visible,
+      isMixerPickerDragging,
+      isMixerPickerActive,
       isInitialDrawing,
       isBrushActive,
       isCloneOrHealActive,
@@ -3623,7 +3660,12 @@ const ImageCanvas = memo(
             </div>
           </div>
 
-          {(isMasking || isAiEditing || isWbPickerActive || showRelightLights || showCenterMarker) &&
+          {(isMasking ||
+            isAiEditing ||
+            isWbPickerActive ||
+            isMixerPickerActive ||
+            showRelightLights ||
+            showCenterMarker) &&
             stageWidth > 0 &&
             stageHeight > 0 && (
               <div
@@ -3647,6 +3689,7 @@ const ImageCanvas = memo(
                   width={stageWidth * maxSafeScale}
                   height={stageHeight * maxSafeScale}
                   onMouseDown={handleStart}
+                  onDblClick={isMixerPickerActive ? resetMixerPick : undefined}
                   onTouchStart={handleStart}
                   onMouseEnter={handleMouseEnter}
                   onMouseLeave={handleMouseLeave}
@@ -3727,7 +3770,7 @@ const ImageCanvas = memo(
                           />
                         )}
                         {isWbPickerActive && wbBox && (
-                          <WbSampleOutline
+                          <SampleOutline
                             x={Math.min(wbBox.start.x, wbBox.end.x)}
                             y={Math.min(wbBox.start.y, wbBox.end.y)}
                             width={Math.max(0.1, Math.abs(wbBox.end.x - wbBox.start.x))}
@@ -3736,12 +3779,21 @@ const ImageCanvas = memo(
                             dashed
                           />
                         )}
-                        {isWbPickerActive && wbHover.visible && !wbBox && (
-                          <WbSampleOutline
-                            x={wbHover.x - wbSquareStage / 2}
-                            y={wbHover.y - wbSquareStage / 2}
+                        {isWbPickerActive && pickerHover.visible && !wbBox && (
+                          <SampleOutline
+                            x={pickerHover.x - wbSquareStage / 2}
+                            y={pickerHover.y - wbSquareStage / 2}
                             width={wbSquareStage}
                             height={wbSquareStage}
+                            zoomScale={effectiveZoomScale}
+                          />
+                        )}
+                        {isMixerPickerActive && pickerHover.visible && !isMixerPickerDragging && (
+                          <SampleOutline
+                            x={pickerHover.x - mixerSquareStage / 2}
+                            y={pickerHover.y - mixerSquareStage / 2}
+                            width={mixerSquareStage}
+                            height={mixerSquareStage}
                             zoomScale={effectiveZoomScale}
                           />
                         )}
@@ -3805,40 +3857,57 @@ const ImageCanvas = memo(
               </div>
             )}
 
-          {wbSwatchAnchor && wbSample && (
-            <div
-              className="flex items-center gap-2 p-2 rounded-md bg-surface shadow-2xl ring-1 ring-black/10 text-xs text-text-primary whitespace-nowrap"
-              style={{
-                position: 'absolute',
-                left: imageRenderSize.offsetX + wbSwatchAnchor.x + (wbSwatchFlipX ? -wbSwatchOffset : wbSwatchOffset),
-                top: imageRenderSize.offsetY + wbSwatchAnchor.y + (wbSwatchFlipY ? -wbSwatchOffset : wbSwatchOffset),
-                transformOrigin: '0 0',
-                transform: `scale(${1 / effectiveZoomScale}) translate(${wbSwatchFlipX ? '-100%' : '0'}, ${
-                  wbSwatchFlipY ? '-100%' : '0'
-                })`,
-                pointerEvents: 'none',
-                zIndex: 5,
-              }}
-            >
+          <AnimatePresence>
+            {wbSwatchAnchor && wbSample && (
               <div
-                className="w-6 h-6 rounded-sm ring-1 ring-black/20"
-                style={{ backgroundColor: `rgb(${wbSwatchRgb.join(', ')})` }}
-              />
-              <div className="flex flex-col gap-0.5 font-mono tabular-nums">
-                <span className="text-text-secondary">
-                  R {wbSwatchRgb[0]} G {wbSwatchRgb[1]} B {wbSwatchRgb[2]}
-                </span>
-                {wbSwatchWhiteBalance && (
-                  <span className="flex gap-1">
-                    <span>{t('adjustments.color.temperature')}</span>
-                    <span>{`${Math.round(wbSwatchWhiteBalance.temperature)}${isKelvinWhiteBalance ? 'K' : ''}`}</span>
-                    <span className="ml-1">{t('adjustments.color.tint')}</span>
-                    <span>{Math.round(wbSwatchWhiteBalance.tint)}</span>
-                  </span>
-                )}
+                key="wbSwatch"
+                style={{
+                  position: 'absolute',
+                  left: imageRenderSize.offsetX + wbSwatchAnchor.x,
+                  top: imageRenderSize.offsetY + wbSwatchAnchor.y,
+                  transformOrigin: '0 0',
+                  transform: `scale(${1 / effectiveZoomScale})`,
+                  pointerEvents: 'none',
+                  zIndex: 5,
+                }}
+              >
+                <div
+                  className="transition-transform duration-150 ease-out"
+                  style={{
+                    transform: `translate(${getWbSwatchShift(wbSwatchAnchor.x > imageRenderSize.width * 0.75)}, ${getWbSwatchShift(
+                      wbSwatchAnchor.y > imageRenderSize.height * 0.75,
+                    )})`,
+                  }}
+                >
+                  <motion.div
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex items-center gap-2 p-2 rounded-lg bg-surface/95 backdrop-blur-md shadow-xl text-xs text-text-primary whitespace-nowrap"
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.1, ease: 'easeOut' }}
+                  >
+                    <div
+                      className="w-6 h-6 rounded-sm ring-1 ring-black/20"
+                      style={{ backgroundColor: `rgb(${wbSwatchRgb.join(', ')})` }}
+                    />
+                    <div className="flex flex-col gap-0.5 font-mono tabular-nums">
+                      <span className="text-text-secondary">
+                        R {wbSwatchRgb[0]} G {wbSwatchRgb[1]} B {wbSwatchRgb[2]}
+                      </span>
+                      {wbSwatchWhiteBalance && (
+                        <span className="flex gap-1">
+                          <span>{t('adjustments.color.temperature')}</span>
+                          <span>{`${Math.round(wbSwatchWhiteBalance.temperature)}${isKelvinWhiteBalance ? 'K' : ''}`}</span>
+                          <span className="ml-1">{t('adjustments.color.tint')}</span>
+                          <span>{Math.round(wbSwatchWhiteBalance.tint)}</span>
+                        </span>
+                      )}
+                    </div>
+                  </motion.div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </AnimatePresence>
         </div>
 
         <div
