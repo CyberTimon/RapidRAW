@@ -25,6 +25,7 @@ import { ColorSwatch } from './Color';
 import { AppSettings } from '../ui/AppProperties';
 import Text from '../ui/Text';
 import AdjustmentSubSection from './AdjustmentSubSection';
+import FacialRefine from './FacialRefine';
 import { TextVariants } from '../../types/typography';
 import { DepthRangePicker } from '../ui/DepthRangePicker';
 import { selectAiModelDownloadStatus, useProcessStore } from '../../store/useProcessStore';
@@ -932,6 +933,20 @@ function EffectsPanel({
                   )}
                 </SpatialEffect>
               </div>
+            </AdjustmentSubSection>
+          )}
+
+          {!isAiFree && !hiddenTools.includes('facialRefine') && (
+            <AdjustmentSubSection
+              id="facialRefine"
+              order={toolOrder.indexOf('facialRefine')}
+              title={t('adjustments.effects.facialRefine')}
+            >
+              <FacialRefine
+                adjustments={adjustments}
+                setAdjustments={setAdjustments}
+                onDragStateChange={onDragStateChange}
+              />
             </AdjustmentSubSection>
           )}
 

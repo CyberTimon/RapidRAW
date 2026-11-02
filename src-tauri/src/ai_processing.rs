@@ -26,6 +26,9 @@ use tauri::Manager;
 use tokenizers::Tokenizer;
 use tokio::sync::Mutex as TokioMutex;
 
+use crate::face_parsing::{FaceModels, load_face_parser_session};
+use crate::face_refine::FaceCropCache;
+
 use crate::face_masking::FaceAnalysis;
 
 const ENCODER_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/sam_vit_b_01ec64_encoder.onnx?download=true";
@@ -124,6 +127,16 @@ const NORMAL_MAX_SIZE: u32 = 768;
 const NORMAL_NUM_TOKENS: i64 = 2500;
 const NORMAL_SHA256: &str = "24eacb5dc7a2c54c7bc98f7de085ffbed79ad006ea5b664c2c2cdc02ff3a52f0";
 
+const FACE_DETECTOR_URL: &str = "https://huggingface.co/opencv/face_detection_yunet/resolve/main/face_detection_yunet_2023mar.onnx?download=true";
+const FACE_DETECTOR_FILENAME: &str = "face_detection_yunet_2023mar.onnx";
+const FACE_DETECTOR_SHA256: &str =
+    "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4";
+
+const FACE_PARSER_URL: &str =
+    "https://github.com/yakhyo/face-parsing/releases/download/v0.0.1/resnet18.onnx";
+const FACE_PARSER_FILENAME: &str = "face_parsing_resnet18.onnx";
+const FACE_PARSER_SHA256: &str = "0d9bd318e46987c3bdbfacae9e2c0f461cae1c6ac6ea6d43bbe541a91727e33f";
+
 type SharedSession = Arc<Mutex<Session>>;
 
 const GPU_IDLE: u8 = 0;
@@ -139,6 +152,20 @@ struct ModelAsset {
     sha256: Option<&'static str>,
     name: &'static str,
 }
+
+const FACE_DETECTOR_ASSET: ModelAsset = ModelAsset {
+    filename: FACE_DETECTOR_FILENAME,
+    url: FACE_DETECTOR_URL,
+    sha256: Some(FACE_DETECTOR_SHA256),
+    name: "Face Detection Model",
+};
+
+const FACE_PARSER_ASSET: ModelAsset = ModelAsset {
+    filename: FACE_PARSER_FILENAME,
+    url: FACE_PARSER_URL,
+    sha256: Some(FACE_PARSER_SHA256),
+    name: "Face Regions Model",
+};
 
 const SAM_ENCODER_ASSET: ModelAsset = ModelAsset {
     filename: ENCODER_FILENAME,
@@ -691,6 +718,8 @@ pub struct AiState {
     pub esam3_features: Option<Arc<Esam3Features>>,
     pub face_analysis: Option<Arc<FaceAnalysis>>,
     pub depth_map: Option<CachedDepthMap>,
+    pub face_models: Option<Arc<FaceModels>>,
+    pub face_crops: Option<Arc<FaceCropCache>>,
 }
 
 impl AiState {
@@ -1354,6 +1383,51 @@ pub async fn get_or_init_lama_model(
         .lama_model = Some(lama_model.clone());
 
     Ok(lama_model)
+}
+
+pub async fn get_or_init_face_models(
+    app_handle: &tauri::AppHandle,
+    ai_state_mutex: &Mutex<Option<AiState>>,
+    ai_init_lock: &TokioMutex<()>,
+) -> Result<Arc<FaceModels>> {
+    let loaded = || {
+        ai_state_mutex
+            .lock()
+            .unwrap()
+            .as_ref()
+            .and_then(|state| state.face_models.clone())
+    };
+    if let Some(face_models) = loaded() {
+        return Ok(face_models);
+    }
+
+    let _guard = ai_init_lock.lock().await;
+
+    if let Some(face_models) = loaded() {
+        return Ok(face_models);
+    }
+
+    let models_dir = get_models_dir(app_handle)?;
+    download_and_verify_model(app_handle, &models_dir, &FACE_DETECTOR_ASSET).await?;
+    download_and_verify_model(app_handle, &models_dir, &FACE_PARSER_ASSET).await?;
+
+    let _ = ort::init().with_name("AI-Face").commit();
+    let detector = Session::builder()?.commit_from_file(models_dir.join(FACE_DETECTOR_FILENAME))?;
+    let parser = load_face_parser_session(&models_dir.join(FACE_PARSER_FILENAME))?;
+    let face_models = Arc::new(FaceModels {
+        detector: Mutex::new(detector),
+        parser: Mutex::new(parser),
+    });
+
+    crate::register_exit_handler();
+
+    ai_state_mutex
+        .lock()
+        .unwrap()
+        .get_or_insert_with(AiState::default)
+        .face_models = Some(face_models.clone());
+
+    Ok(face_models)
 }
 
 pub async fn get_or_init_normal_model(

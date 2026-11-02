@@ -193,7 +193,7 @@ export function usePresets(currentAdjustments: Adjustments) {
     includeMasks: boolean,
     includeCropTransform: boolean,
     presetType: 'tool' | 'style',
-  ) => {
+  ): Preset | null => {
     let existingPreset: Preset | null = null;
 
     for (const item of presets) {
@@ -243,17 +243,17 @@ export function usePresets(currentAdjustments: Adjustments) {
       for (const k of GEOMETRY_KEYS) delete newAdjustments[k];
     }
 
-    let updatedPreset: Preset | null = null;
+    const updatedPreset: Preset = {
+      ...existingPreset,
+      name,
+      adjustments: newAdjustments,
+      includeMasks,
+      includeCropTransform,
+      presetType,
+    };
+
     const updatedPresets = presets.map((item: UserPreset) => {
       if (item.preset?.id === id) {
-        updatedPreset = {
-          ...item.preset,
-          name,
-          adjustments: newAdjustments,
-          includeMasks,
-          includeCropTransform,
-          presetType,
-        };
         return { preset: updatedPreset };
       }
       if (item.folder) {
@@ -261,14 +261,6 @@ export function usePresets(currentAdjustments: Adjustments) {
         const newChildren = item.folder.children.map((child: Preset) => {
           if (child.id === id) {
             found = true;
-            updatedPreset = {
-              ...child,
-              name,
-              adjustments: newAdjustments,
-              includeMasks,
-              includeCropTransform,
-              presetType,
-            };
             return updatedPreset;
           }
           return child;
@@ -285,7 +277,7 @@ export function usePresets(currentAdjustments: Adjustments) {
     return updatedPreset;
   };
 
-  const overwritePreset = (id: string | null) => {
+  const overwritePreset = (id: string | null): Preset | null => {
     let existingPreset: Preset | null = null;
 
     for (const item of presets) {
@@ -337,16 +329,16 @@ export function usePresets(currentAdjustments: Adjustments) {
       }
     }
 
-    let updatedPreset: Preset | null = null;
+    const updatedPreset: Preset = {
+      ...existingPreset,
+      adjustments: presetAdjustments,
+      includeMasks,
+      includeCropTransform,
+      presetType,
+    };
+
     const updatedPresets = presets.map((item: UserPreset) => {
       if (item.preset?.id === id) {
-        updatedPreset = {
-          ...item.preset,
-          adjustments: presetAdjustments,
-          includeMasks,
-          includeCropTransform,
-          presetType,
-        };
         return { preset: updatedPreset };
       }
       if (item.folder) {
@@ -354,13 +346,6 @@ export function usePresets(currentAdjustments: Adjustments) {
         const newChildren = item.folder.children.map((child: Preset) => {
           if (child.id === id) {
             found = true;
-            updatedPreset = {
-              ...child,
-              adjustments: presetAdjustments,
-              includeMasks,
-              includeCropTransform,
-              presetType,
-            };
             return updatedPreset;
           }
           return child;

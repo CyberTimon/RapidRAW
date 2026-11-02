@@ -1,6 +1,7 @@
 {
   "activeTools": {},
   "aiDenoiseAmount": 100,
+  "aiDenoiseColor": 100,
   "aiDenoiseDetail": 0,
   "aiDenoiseEnabled": false,
   "aiDenoiseMethod": "ai",

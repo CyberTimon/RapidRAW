@@ -6,7 +6,24 @@ on:
       - main
 
 jobs:
+  # Forks do not have the Android signing secrets, so the Android build is skipped there.
+  android-signing:
+    runs-on: ubuntu-latest
+    outputs:
+      available: ${{ steps.check.outputs.available }}
+    steps:
+      - id: check
+        env:
+          ANDROID_KEY_BASE64: ${{ secrets.ANDROID_KEY_BASE64 }}
+        run: |
+          if [ -n "$ANDROID_KEY_BASE64" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: android-signing
     strategy:
       fail-fast: false
       matrix:
@@ -65,6 +82,7 @@ jobs:
       build-args: ${{ matrix.args }}
       asset-prefix: ${{ matrix.asset-prefix }}
       mobile: ${{ matrix.mobile }}
+      android-signing: ${{ needs.android-signing.outputs.available }}
     secrets: inherit
     permissions:
       contents: write

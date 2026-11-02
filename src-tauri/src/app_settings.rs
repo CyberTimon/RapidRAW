@@ -153,6 +153,7 @@ pub fn all_available_adjustments() -> HashSet<String> {
         "aiDenoiseEnabled",
         "aiDenoiseMethod",
         "aiDenoiseAmount",
+        "aiDenoiseColor",
         "aiDenoiseDetail",
         "chromaticAberrationRedCyan",
         "chromaticAberrationBlueYellow",
