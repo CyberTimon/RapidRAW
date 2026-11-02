@@ -330,13 +330,13 @@ const AiProviderSwitch = ({ selectedProvider, onProviderChange }: AiProviderSwit
   );
 
   return (
-    <div className="relative flex w-full p-1 bg-bg-primary rounded-md border border-border-color">
+    <div className="relative grid w-full grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] p-1 bg-bg-primary rounded-md border border-border-color">
       {aiProviders.map((provider) => (
         <button
           key={provider.id}
           onClick={() => onProviderChange(provider.id)}
           className={clsx(
-            'relative flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+            'relative min-w-0 flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
             {
               'text-text-primary hover:bg-surface': selectedProvider !== provider.id,
               'text-button-text': selectedProvider === provider.id,
@@ -352,9 +352,9 @@ const AiProviderSwitch = ({ selectedProvider, onProviderChange }: AiProviderSwit
               transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
             />
           )}
-          <span className="relative z-10 flex items-center">
-            <provider.icon size={16} className="mr-2" />
-            {provider.label}
+          <span className="relative z-10 flex min-w-0 items-center justify-center">
+            <provider.icon size={16} className="mr-2 shrink-0" />
+            <span className="[overflow-wrap:anywhere]">{provider.label}</span>
           </span>
         </button>
       ))}
