@@ -1800,7 +1800,7 @@
           "fine": "Shift로 미세 조정"
         },
         "keys": {
-          "hold": "누르기",
+          "hold": "탭 / 길게 누르기",
           "previousImage": "이전 이미지",
           "nextImage": "다음 이미지",
           "reset": "초기화",

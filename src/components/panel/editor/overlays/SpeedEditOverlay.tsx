@@ -23,7 +23,9 @@ const NEXT_KEY = 'KeyD';
 const RESET_KEY = 'KeyR';
 const COPY_KEY = 'KeyC';
 const PASTE_KEY = 'KeyV';
+const EXIT_KEY = 'Escape';
 const NOTICE_DURATION_MS = 1200;
+const TAP_DURATION_MS = 250;
 const CYCLE_DIRECTIONS: Record<string, number> = { [PREVIOUS_KEY]: -1, [NEXT_KEY]: 1 };
 const NUDGE_DIRECTIONS: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1 };
 const HUD_TRANSITION = { type: 'spring', bounce: 0, duration: 0.3 } as const;
@@ -45,6 +47,11 @@ interface SpeedEditCopy {
   value: number;
 }
 
+interface SpeedEditPress {
+  time: number;
+  isUsed: boolean;
+}
+
 interface SpeedEditDrag {
   target: SpeedEditTarget;
   position: number;
@@ -52,8 +59,11 @@ interface SpeedEditDrag {
   last: Coord;
 }
 
-const isTextInputFocused = () =>
-  document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA';
+const canSpeedEdit = () => {
+  const { activeView, isSettingsOpen } = useUIStore.getState();
+  const focusedTag = document.activeElement?.tagName;
+  return activeView === 'editor' && !isSettingsOpen && focusedTag !== 'INPUT' && focusedTag !== 'TEXTAREA';
+};
 
 const toLocalPoint = (element: HTMLElement | null, client: Coord | null): Coord | null => {
   if (!element || !client) return null;
@@ -64,13 +74,16 @@ const toLocalPoint = (element: HTMLElement | null, client: Coord | null): Coord 
 };
 
 const placeHud = (hud: HTMLElement | null, overlay: HTMLElement | null, client: Coord | null) => {
-  const point = toLocalPoint(overlay, client);
-  if (!hud || !overlay || !point) return;
+  if (!hud || !overlay || !client) return;
+  if (hud.style.transform && !toLocalPoint(overlay, client)) return;
+  const rect = overlay.getBoundingClientRect();
+  const x = Math.min(Math.max(client.x - rect.left, 0), rect.width);
+  const y = Math.min(Math.max(client.y - rect.top, 0), rect.height);
   const shift = (isFlipped: boolean) => (isFlipped ? `calc(-100% - ${HUD_OFFSET}px)` : `${HUD_OFFSET}px`);
   hud.style.transition = hud.style.transform ? 'transform 150ms ease-out' : 'none';
-  hud.style.left = `${point.x}px`;
-  hud.style.top = `${point.y}px`;
-  hud.style.transform = `translate(${shift(point.x > overlay.clientWidth * 0.75)}, ${shift(point.y > overlay.clientHeight * 0.75)})`;
+  hud.style.left = `${x}px`;
+  hud.style.top = `${y}px`;
+  hud.style.transform = `translate(${shift(x > rect.width * 0.75)}, ${shift(y > rect.height * 0.75)})`;
 };
 
 const getActivePanelArea = () =>
@@ -94,7 +107,7 @@ const getAdjacentElement = (
   return elements[(start + direction + elements.length) % elements.length];
 };
 
-const setIsHeld = (isSpeedEditHeld: boolean) => useEditorStore.getState().setEditor({ isSpeedEditHeld });
+const setIsSpeedEditing = (isSpeedEditActive: boolean) => useEditorStore.getState().setEditor({ isSpeedEditActive });
 
 const activateOwningPanel = (element: Element | undefined) => {
   const area = element?.closest<HTMLElement>('[data-panel-region]');
@@ -110,8 +123,8 @@ export default function SpeedEditOverlay() {
   const speedEditTarget = useEditorStore((state) => state.speedEditTarget);
   const adjustments = useEditorStore((state) => state.adjustments);
   const liveRotation = useEditorStore((state) => state.liveRotation);
-  const isHeld = useEditorStore((state) => state.isSpeedEditHeld);
-  const [isPointerInside, setIsPointerInside] = useState(false);
+  const isSpeedEditing = useEditorStore((state) => state.isSpeedEditActive);
+  const [isLatched, setIsLatched] = useState(false);
   const [value, setValue] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [cycleDirection, setCycleDirection] = useState(1);
@@ -124,6 +137,23 @@ export default function SpeedEditOverlay() {
   const copyRef = useRef<SpeedEditCopy | null>(null);
   const nudgeRef = useRef<SpeedEditTarget | null>(null);
   const noticeTimeoutRef = useRef<number | undefined>(undefined);
+  const pressRef = useRef<SpeedEditPress | null>(null);
+  const latchedRef = useRef(false);
+
+  const markUsed = () => {
+    if (pressRef.current) pressRef.current.isUsed = true;
+  };
+
+  const setLatched = (isLatchedNext: boolean) => {
+    latchedRef.current = isLatchedNext;
+    setIsLatched(isLatchedNext);
+  };
+
+  const exitSpeedEdit = () => {
+    pressRef.current = null;
+    setLatched(false);
+    setIsSpeedEditing(false);
+  };
 
   const showNotice = (key: SpeedEditNotice['key'], target: SpeedEditTarget, value: number) => {
     window.clearTimeout(noticeTimeoutRef.current);
@@ -132,6 +162,7 @@ export default function SpeedEditOverlay() {
   };
 
   const beginDrag = (target: SpeedEditTarget, point: Coord) => {
+    markUsed();
     dragRef.current = { target, position: target.toPosition(target.value), value: target.value, last: point };
     target.onDragStateChange(true);
     setIsDragging(true);
@@ -184,14 +215,20 @@ export default function SpeedEditOverlay() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const { activeView, isSettingsOpen } = useUIStore.getState();
-      if (activeView !== 'editor' || isSettingsOpen || isTextInputFocused()) return;
+      if (!canSpeedEdit()) return;
       const pressed = normalizeCombo(e, osPlatform).filter((part) => !FINE_ADJUSTMENT_KEYS.includes(part));
-      if (pressed.join('+') !== SPEED_EDIT_KEY) return;
+      if (pressed.join('+') !== SPEED_EDIT_KEY) {
+        markUsed();
+        return;
+      }
       e.preventDefault();
       if (e.repeat) return;
-      setIsHeld(true);
-      setIsPointerInside(toLocalPoint(overlayRef.current, lastPointerRef.current) !== null);
+      if (latchedRef.current) {
+        exitSpeedEdit();
+        return;
+      }
+      pressRef.current = { time: e.timeStamp, isUsed: false };
+      setIsSpeedEditing(true);
       const { speedEditTarget: current, setEditor } = useEditorStore.getState();
       const element = current?.current
         ? getSpeedEditElements().find((item) => getSpeedEditTarget(item) === current)
@@ -200,9 +237,18 @@ export default function SpeedEditOverlay() {
       activateOwningPanel(element);
     };
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (normalizeCombo(e, osPlatform).at(-1) === SPEED_EDIT_KEY) setIsHeld(false);
+      const press = pressRef.current;
+      if (!press || normalizeCombo(e, osPlatform).at(-1) !== SPEED_EDIT_KEY) return;
+      pressRef.current = null;
+      if (!press.isUsed && e.timeStamp - press.time < TAP_DURATION_MS) {
+        setLatched(true);
+      } else {
+        setIsSpeedEditing(false);
+      }
     };
-    const handleBlur = () => setIsHeld(false);
+    const handleBlur = () => {
+      if (!latchedRef.current) exitSpeedEdit();
+    };
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
@@ -215,13 +261,25 @@ export default function SpeedEditOverlay() {
   }, [osPlatform]);
 
   useEffect(() => {
-    if (!isHeld) return;
+    if (!isSpeedEditing) return;
     const handleHeldKey = (e: KeyboardEvent) => {
       const key = normalizeCombo(e, osPlatform).at(-1) ?? '';
-      if (!(key in CYCLE_DIRECTIONS || key in NUDGE_DIRECTIONS || [RESET_KEY, COPY_KEY, PASTE_KEY].includes(key)))
+      if (
+        !canSpeedEdit() ||
+        !(
+          key in CYCLE_DIRECTIONS ||
+          key in NUDGE_DIRECTIONS ||
+          [RESET_KEY, COPY_KEY, PASTE_KEY, EXIT_KEY].includes(key)
+        )
+      )
         return;
       e.preventDefault();
       e.stopPropagation();
+      markUsed();
+      if (key === EXIT_KEY) {
+        exitSpeedEdit();
+        return;
+      }
       const { speedEditTarget: current, setEditor } = useEditorStore.getState();
       const target = current?.current;
       const drag = dragRef.current;
@@ -278,7 +336,7 @@ export default function SpeedEditOverlay() {
       window.removeEventListener('blur', endNudge);
       endNudge();
     };
-  }, [isHeld, osPlatform]);
+  }, [isSpeedEditing, osPlatform]);
 
   useEffect(() => {
     const handlePointerMove = (e: PointerEvent) => {
@@ -301,10 +359,7 @@ export default function SpeedEditOverlay() {
           target.onChange(nextValue);
         }
       }
-      if (isHeld || drag) {
-        placeHud(hudRef.current, overlayRef.current, point);
-        setIsPointerInside(toLocalPoint(overlayRef.current, point) !== null);
-      }
+      if (isSpeedEditing || drag) placeHud(hudRef.current, overlayRef.current, point);
     };
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', endDrag);
@@ -316,7 +371,7 @@ export default function SpeedEditOverlay() {
       window.removeEventListener('pointercancel', endDrag);
       window.removeEventListener('blur', endDrag);
     };
-  }, [isHeld]);
+  }, [isSpeedEditing]);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const target = speedEditTarget?.current;
@@ -327,12 +382,13 @@ export default function SpeedEditOverlay() {
 
   const handleDoubleClick = () => {
     const target = speedEditTarget?.current;
+    markUsed();
     target?.onChange(target.defaultValue);
   };
 
-  const isActive = isHeld || isDragging;
+  const isActive = isSpeedEditing || isDragging;
   const target = speedEditTarget?.current;
-  const elements = isHeld && target ? getSpeedEditElements(getActivePanelArea()) : [];
+  const elements = isSpeedEditing && target ? getSpeedEditElements(getActivePanelArea()) : [];
 
   const getNeighborLabel = (direction: number) => {
     const element = getAdjacentElement(elements, speedEditTarget, direction);
@@ -382,7 +438,7 @@ export default function SpeedEditOverlay() {
       onDoubleClick={handleDoubleClick}
     >
       <AnimatePresence>
-        {isActive && isPointerInside && target && (
+        {isActive && target && (
           <div className="absolute pointer-events-none" key="hud" ref={hudRef}>
             <motion.div
               animate={{ opacity: 1, scale: 1, width: hudWidth ?? 'auto' }}
@@ -393,6 +449,11 @@ export default function SpeedEditOverlay() {
               transition={{ duration: 0.1, ease: 'easeOut', width: HUD_TRANSITION }}
             >
               <div className="relative flex items-center gap-2 p-2 w-max" ref={measureHud}>
+                {isLatched && (
+                  <kbd className="px-1 rounded-sm bg-accent text-button-text font-sans text-[10px] font-semibold">
+                    {formatKeyCode(SPEED_EDIT_KEY, osPlatform)}
+                  </kbd>
+                )}
                 {previousLabel && renderKey(PREVIOUS_KEY)}
                 <span className="relative flex items-center gap-3 overflow-hidden">
                   {notice ? (

@@ -1800,7 +1800,7 @@
           "fine": "Shift で微調整"
         },
         "keys": {
-          "hold": "押し続ける",
+          "hold": "タップ / 長押し",
           "previousImage": "前の画像",
           "nextImage": "次の画像",
           "reset": "リセット",

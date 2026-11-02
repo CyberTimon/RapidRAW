@@ -1800,7 +1800,7 @@
           "fine": "按 Shift 精细调整"
         },
         "keys": {
-          "hold": "按住",
+          "hold": "单击 / 按住",
           "previousImage": "上一张",
           "nextImage": "下一张",
           "reset": "重置",

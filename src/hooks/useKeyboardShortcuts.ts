@@ -634,7 +634,7 @@ export const useKeyboardShortcuts = ({
     const builtinShortcuts = [
       {
         match: (e: KeyboardEvent, s: ShortcutState) =>
-          s.editor.isSpeedEditHeld &&
+          s.editor.isSpeedEditActive &&
           !!s.editor.selectedImage &&
           (normalizeCombo(e, s.settings.osPlatform).at(-1) ?? '') in SPEED_EDIT_IMAGE_DIRECTIONS,
         execute: (e: KeyboardEvent, s: ShortcutState) => {
