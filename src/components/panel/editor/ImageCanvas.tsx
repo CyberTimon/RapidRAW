@@ -4113,7 +4113,7 @@ const ImageCanvas = memo(
                       }
                     }}
                   >
-                    {!isStraightenActive && !isGuidedPerspectiveActive && (
+                    {isCropViewVisible && !isStraightenActive && !isGuidedPerspectiveActive && (
                       <CropRotateArea
                         crop={crop}
                         rotation={effectiveRotation}
