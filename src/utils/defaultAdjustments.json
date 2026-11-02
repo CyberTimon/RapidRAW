@@ -182,6 +182,7 @@
     }
   },
   "curveMode": "point",
+  "curveInterpolation": "standard",
   "dehaze": 0,
   "exposure": 0,
   "flipHorizontal": false,

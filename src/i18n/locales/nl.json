@@ -118,6 +118,8 @@
       "whiteBalance": "Witbalans"
     },
     "curves": {
+      "showProcessedHistogram": "Histogram na bewerking tonen",
+      "cubicSpline": "Kubische spline",
       "channelTitle": "{{channel}} kanaal",
       "channels": {
         "blue": "Blauw",

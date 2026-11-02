@@ -207,6 +207,7 @@ pub struct PreviewJob {
     pub target_resolution: Option<u32>,
     pub roi: Option<(f32, f32, f32, f32)>,
     pub request_analytics: bool,
+    pub curve_histogram_mask_id: Option<String>,
     pub compute_waveform: bool,
     pub active_waveform_channel: Option<String>,
     pub responder: tokio::sync::oneshot::Sender<Vec<u8>>,
@@ -220,12 +221,16 @@ pub enum PreviewTask {
 pub struct AnalyticsJob {
     pub path: String,
     pub frame: crate::image_processing::AnalyticsFrame,
+    pub curve_histogram: Vec<u32>,
+    pub curve_histogram_mask_id: Option<String>,
     pub compute_waveform: bool,
     pub active_waveform_channel: Option<String>,
 }
 
 pub struct AnalyticsConfig {
     pub path: String,
+    pub curve_histogram_source: u32,
+    pub curve_histogram_mask_id: Option<String>,
     pub compute_waveform: bool,
     pub active_waveform_channel: Option<String>,
     pub sender: Sender<AnalyticsJob>,
