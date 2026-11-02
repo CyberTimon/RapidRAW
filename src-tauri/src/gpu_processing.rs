@@ -424,7 +424,7 @@ pub fn build_wgpu_display(
     device: &wgpu::Device,
     size: tauri::PhysicalSize<u32>,
     standalone: bool,
-    platform: PlatformSurface,
+    _platform: PlatformSurface,
 ) -> Result<WgpuDisplay, String> {
     let swapchain_caps = surface.get_capabilities(adapter);
     let usable = |f: &wgpu::TextureFormat| device.features().contains(f.required_features());

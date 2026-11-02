@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
-use std::sync::{LazyLock, Mutex, OnceLock};
+use std::sync::{LazyLock, Mutex};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -994,10 +994,10 @@ pub fn save_settings(mut settings: AppSettings, app_handle: AppHandle) -> Result
     let previous_gpu_acceleration = load_settings(app_handle.clone())
         .map(|previous| previous.ai_gpu_acceleration)
         .ok();
-    if !wgpu_renderer_available() {
-        if let Some(stored) = settings_cache().as_ref() {
-            settings.use_wgpu_renderer = stored.use_wgpu_renderer;
-        }
+    if !wgpu_renderer_available()
+        && let Some(stored) = settings_cache().as_ref()
+    {
+        settings.use_wgpu_renderer = stored.use_wgpu_renderer;
     }
     let path = get_settings_path(&app_handle)?;
     let json_string = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
