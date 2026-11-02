@@ -5,7 +5,7 @@ use rawler::formats::bmff::Bmff;
 use rawler::formats::tiff::reader::TiffReader;
 use rawler::formats::tiff::{IFD, Value, ifd::OffsetMode};
 use rawler::tags::{DngTag, ExifTag};
-use std::io::Cursor;
+use std::io::{Cursor, Read, Seek};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
 const HIGHLIGHT_BIAS_MIN: f32 = -1.0;
@@ -118,8 +118,13 @@ fn makernote_start(exif: &IFD) -> Option<u32> {
 
 fn tiff_makernote(file_bytes: &[u8]) -> Option<IFD> {
     let mut cursor = Cursor::new(file_bytes);
-    exif_with_makernote(&mut cursor, 0)?
-        .parse_makernote(&mut cursor, OffsetMode::Absolute, &[])
+    let root = IFD::new_root(&mut cursor, 0).ok()?;
+    makernote(&root, &mut cursor)
+}
+
+pub fn makernote<R: Read + Seek>(root: &IFD, reader: &mut R) -> Option<IFD> {
+    root.find_first_ifd_with_tag(ExifTag::MakerNotes)?
+        .parse_makernote(reader, OffsetMode::Absolute, &[])
         .ok()?
 }
 
