@@ -710,19 +710,15 @@ impl AppSettings {
     }
 }
 
-/// Supported by the session and, if a display surface was attempted, it was created.
 pub fn wgpu_renderer_available() -> bool {
     wgpu_renderer_supported() && !crate::gpu_processing::wgpu_display_failed()
 }
 
-// On Linux the WGPU display lives in a Wayland subsurface below the webview. X11 has no
-// equivalent, so GTK and WGPU fight over the same window and the image disappears.
 #[cfg(target_os = "linux")]
 pub fn wgpu_renderer_supported() -> bool {
     static SUPPORTED: OnceLock<bool> = OnceLock::new();
     *SUPPORTED.get_or_init(|| {
         let has_env = |name| std::env::var_os(name).is_some_and(|v| !v.is_empty());
-        // GDK picks the first backend in the list it can open.
         let preferred = std::env::var("GDK_BACKEND").ok().and_then(|list| {
             list.split(',')
                 .map(str::trim)
@@ -892,8 +888,6 @@ pub fn load_settings(app_handle: AppHandle) -> Result<AppSettings, String> {
             settings
         }
     };
-    // The frontend reads `use_wgpu_renderer` directly, so it must not claim WGPU where it
-    // cannot run. The stored choice is kept for sessions where it can.
     if !wgpu_renderer_available() {
         settings.use_wgpu_renderer = Some(false);
     }
@@ -930,8 +924,6 @@ fn read_settings_from_disk(app_handle: &AppHandle) -> Result<AppSettings, String
         settings_modified = true;
     }
 
-    // WGPU used to be unavailable on Linux, so a stored `true` was never a real choice
-    // (the settings panel saved it by default). Make the experimental renderer opt-in.
     #[cfg(target_os = "linux")]
     if !settings.linux_wgpu_renderer_migrated_v1.unwrap_or(false) {
         settings.use_wgpu_renderer = Some(false);
@@ -981,7 +973,6 @@ pub fn save_settings(mut settings: AppSettings, app_handle: AppHandle) -> Result
         .map(|previous| previous.ai_gpu_acceleration)
         .ok();
     if !wgpu_renderer_available() {
-        // Don't persist the forced-off value from `load_settings`.
         if let Some(stored) = settings_cache().as_ref() {
             settings.use_wgpu_renderer = stored.use_wgpu_renderer;
         }

@@ -1,8 +1,3 @@
-// On Wayland, GTK draws the transparent webview into the toplevel wl_surface. If wgpu
-// presents to that same surface, every GTK commit overwrites the image. Instead wgpu
-// renders into its own wl_subsurface stacked below the toplevel, so the image shows
-// through the transparent parts of the webview.
-
 use std::ffi::c_void;
 use std::ptr::NonNull;
 use std::sync::{Arc, Mutex, Weak};
@@ -55,10 +50,6 @@ struct Inner {
 }
 
 impl Inner {
-    // Places the subsurface exactly under the webview container. With client-side
-    // decorations GTK draws the title bar and shadow inside the toplevel surface, so the
-    // container is offset from the surface origin. The viewport keeps the on-screen size
-    // in logical pixels while wgpu renders at the physical size.
     fn sync_geometry(&self, content: &gtk::Box, toplevel: &gtk::ApplicationWindow) {
         let (x, y) = content
             .translate_coordinates(toplevel, 0, 0)
@@ -78,7 +69,6 @@ impl Inner {
             let _ = queue.dispatch_pending(&mut State);
         }
         let _ = self.conn.flush();
-        // The position is applied on the parent's next commit.
         toplevel.queue_draw();
     }
 }
@@ -93,14 +83,31 @@ impl Drop for Inner {
 }
 
 pub struct WaylandSubsurface {
-    _inner: Arc<Inner>,
+    inner: Arc<Inner>,
 }
 
-/// Must run on the GTK main thread. Fails when the window is not on Wayland.
-pub fn create(
-    instance: &wgpu::Instance,
-    window: &tauri::WebviewWindow,
-) -> Result<(wgpu::Surface<'static>, WaylandSubsurface), String> {
+impl WaylandSubsurface {
+    pub fn create_surface(
+        &self,
+        instance: &wgpu::Instance,
+    ) -> Result<wgpu::Surface<'static>, String> {
+        let display = NonNull::new(self.inner.conn.backend().display_ptr() as *mut c_void)
+            .ok_or("Wayland connection has no wl_display")?;
+        let surface = NonNull::new(self.inner.surface.id().as_ptr() as *mut c_void)
+            .ok_or("Subsurface has no wl_surface")?;
+        unsafe {
+            instance.create_surface_unsafe(wgpu::SurfaceTargetUnsafe::RawHandle {
+                raw_display_handle: Some(RawDisplayHandle::Wayland(WaylandDisplayHandle::new(
+                    display,
+                ))),
+                raw_window_handle: RawWindowHandle::Wayland(WaylandWindowHandle::new(surface)),
+            })
+        }
+        .map_err(|e| e.to_string())
+    }
+}
+
+pub fn create(window: &tauri::WebviewWindow) -> Result<WaylandSubsurface, String> {
     let RawDisplayHandle::Wayland(display) =
         window.display_handle().map_err(|e| e.to_string())?.as_raw()
     else {
@@ -126,8 +133,6 @@ pub fn create(
     let qh = queue.handle();
     let compositor: WlCompositor = globals.bind(&qh, 1..=4, ()).map_err(|e| e.to_string())?;
     let subcompositor: WlSubcompositor = globals.bind(&qh, 1..=1, ()).map_err(|e| e.to_string())?;
-    // Without a viewport the buffer size would have to be a multiple of the scale, and
-    // getting that wrong is a protocol error that takes down GTK's connection too.
     let viewporter: WpViewporter = globals
         .bind(&qh, 1..=1, ())
         .map_err(|_| "Compositor lacks wp_viewporter".to_string())?;
@@ -137,26 +142,12 @@ pub fn create(
     subsurface.place_below(&parent);
     subsurface.set_desync();
 
-    // Let all input fall through to the webview above.
     let region = compositor.create_region(&qh, ());
     surface.set_input_region(Some(&region));
     region.destroy();
 
     let viewport = viewporter.get_viewport(&surface, &qh, ());
     queue.roundtrip(&mut State).map_err(|e| e.to_string())?;
-
-    let wgpu_surface = unsafe {
-        instance.create_surface_unsafe(wgpu::SurfaceTargetUnsafe::RawHandle {
-            raw_display_handle: Some(RawDisplayHandle::Wayland(WaylandDisplayHandle::new(
-                display.display,
-            ))),
-            raw_window_handle: RawWindowHandle::Wayland(WaylandWindowHandle::new(
-                NonNull::new(surface.id().as_ptr() as *mut c_void)
-                    .ok_or("Subsurface has no wl_surface")?,
-            )),
-        })
-    }
-    .map_err(|e| e.to_string())?;
 
     let inner = Arc::new(Inner {
         conn,
@@ -168,8 +159,6 @@ pub fn create(
     });
     inner.sync_geometry(&content, &toplevel);
 
-    // Follows resizes, maximize/fullscreen and decoration changes. Holds only a weak
-    // reference so the handler goes inert once the display is dropped.
     let weak: Weak<Inner> = Arc::downgrade(&inner);
     let signal_toplevel = toplevel.clone();
     content.connect_size_allocate(move |content, _| {
@@ -179,5 +168,5 @@ pub fn create(
     });
 
     log::info!("Created Wayland subsurface for WGPU display");
-    Ok((wgpu_surface, WaylandSubsurface { _inner: inner }))
+    Ok(WaylandSubsurface { inner })
 }

@@ -129,7 +129,6 @@ pub struct WgpuDisplay {
     pub standalone: bool,
     pub view: DisplayView,
     pub frame: Option<DisplayFrame>,
-    // Declared after `surface` so the wgpu surface is dropped before its wl_surface.
     #[cfg(target_os = "linux")]
     pub wayland: Option<crate::wayland_subsurface::WaylandSubsurface>,
 }
@@ -426,11 +425,7 @@ pub fn build_wgpu_display(
     platform: PlatformSurface,
 ) -> Result<WgpuDisplay, String> {
     let swapchain_caps = surface.get_capabilities(adapter);
-    // Skip formats that need device features we haven't enabled. Mesa lists
-    // Rgba16Unorm early, and it needs TEXTURE_FORMAT_16BIT_NORM.
     let usable = |f: &wgpu::TextureFormat| device.features().contains(f.required_features());
-    // On Linux prefer 10-bit to reduce banding. Float formats are skipped, as some
-    // compositors read them as linear HDR.
     #[cfg(target_os = "linux")]
     let preferred = [
         wgpu::TextureFormat::Rgb10a2Unorm,
@@ -472,8 +467,6 @@ pub fn build_wgpu_display(
         swapchain_caps.alpha_modes[0]
     };
 
-    // On Wayland, Fifo waits for a frame callback that a hidden window never gets, which
-    // stalls each present (including on the main thread) until it times out.
     let present_mode = if (standalone || cfg!(target_os = "linux"))
         && swapchain_caps
             .present_modes
@@ -630,25 +623,15 @@ fn surface_for_window(
 ) -> Result<(wgpu::Surface<'static>, PlatformSurface), String> {
     use gtk::prelude::WidgetExt;
 
-    // GTK and the Wayland objects shared with it must be touched on the main thread.
     if !gtk::is_initialized_main_thread() {
-        let (tx, rx) = std::sync::mpsc::channel();
-        let instance = instance.clone();
-        let target = window.clone();
-        window
-            .run_on_main_thread(move || {
-                let _ = tx.send(surface_for_window(&instance, &target));
-            })
-            .map_err(|e| e.to_string())?;
-        return rx.recv().map_err(|e| e.to_string())?;
+        return Err("Wayland subsurface must be created on the main thread".to_string());
     }
 
-    // A hidden GTK window has no GdkWindow until it is realized, so there is no
-    // Wayland surface to attach to yet.
     if let Ok(gtk_window) = window.gtk_window() {
         gtk_window.realize();
     }
-    let (surface, wayland) = crate::wayland_subsurface::create(instance, window)?;
+    let wayland = crate::wayland_subsurface::create(window)?;
+    let surface = wayland.create_surface(instance)?;
     Ok((surface, Some(wayland)))
 }
 
@@ -718,8 +701,6 @@ fn update_display_size(window: &tauri::Window, size: tauri::PhysicalSize<u32>, w
 
 static GPU_DEVICE_LOST: AtomicBool = AtomicBool::new(false);
 
-// Set when the Linux display surface could not be created, so settings stop reporting
-// WGPU as active and the frontend keeps drawing the image itself.
 static WGPU_DISPLAY_FAILED: AtomicBool = AtomicBool::new(false);
 
 pub fn wgpu_display_failed() -> bool {
@@ -744,9 +725,20 @@ pub fn get_or_init_gpu_context(
             guard
         }
     };
+    #[cfg(target_os = "linux")]
+    let mut reused_wayland = None;
     if GPU_DEVICE_LOST.load(Ordering::Acquire) {
         log::warn!("Recreating GPU context after the device was lost.");
         if let Some(context) = context_lock.take() {
+            #[cfg(target_os = "linux")]
+            {
+                reused_wayland = context
+                    .display
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .take()
+                    .and_then(|mut display| display.wayland.take());
+            }
             *context.display.lock().unwrap_or_else(|e| e.into_inner()) = None;
             *context
                 .viewer_display
@@ -786,7 +778,16 @@ pub fn get_or_init_gpu_context(
         let settings = crate::app_settings::load_settings(app_handle.clone()).unwrap_or_default();
         if settings.wgpu_renderer_enabled() {
             if let Some(window) = app_handle.get_webview_window("main") {
-                match surface_for_window(&instance, &window) {
+                #[cfg(target_os = "linux")]
+                let created = match reused_wayland {
+                    Some(wayland) => wayland
+                        .create_surface(&instance)
+                        .map(|surface| (surface, Some(wayland))),
+                    None => surface_for_window(&instance, &window),
+                };
+                #[cfg(not(target_os = "linux"))]
+                let created = surface_for_window(&instance, &window);
+                match created {
                     Ok(surface) => Some(surface),
                     Err(e) => {
                         log::warn!(
