@@ -424,7 +424,7 @@ pub fn build_wgpu_display(
     device: &wgpu::Device,
     size: tauri::PhysicalSize<u32>,
     standalone: bool,
-    _platform: PlatformSurface,
+    #[cfg_attr(not(target_os = "linux"), allow(unused_variables))] platform: PlatformSurface,
 ) -> Result<WgpuDisplay, String> {
     let swapchain_caps = surface.get_capabilities(adapter);
     let usable = |f: &wgpu::TextureFormat| device.features().contains(f.required_features());
@@ -711,11 +711,8 @@ pub fn wgpu_display_failed() -> bool {
 
 pub fn get_or_init_gpu_context(
     state: &tauri::State<AppState>,
-    _app_handle: &tauri::AppHandle,
+    #[cfg_attr(target_os = "android", allow(unused_variables))] app_handle: &tauri::AppHandle,
 ) -> Result<GpuContext, String> {
-    #[cfg(not(target_os = "android"))]
-    let app_handle = _app_handle;
-
     let mut context_lock = match state.gpu_context.lock() {
         Ok(guard) => guard,
         Err(poisoned) => {

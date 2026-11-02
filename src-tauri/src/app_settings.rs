@@ -737,7 +737,7 @@ pub fn wgpu_renderer_available() -> bool {
 
 #[cfg(target_os = "linux")]
 pub fn wgpu_renderer_supported() -> bool {
-    static SUPPORTED: OnceLock<bool> = OnceLock::new();
+    static SUPPORTED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
     *SUPPORTED.get_or_init(|| {
         let has_env = |name| std::env::var_os(name).is_some_and(|v| !v.is_empty());
         let preferred = std::env::var("GDK_BACKEND").ok().and_then(|list| {
