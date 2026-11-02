@@ -148,12 +148,12 @@
     },
     "details": {
       "aiDenoise": "AI-ruisonderdrukking",
+      "classicDenoise": "Klassieke ruisonderdrukking",
       "aiDenoiseDetail": "Detail",
       "blueYellow": "Blauw/Geel",
       "centre": "Centrum",
       "chromaticAberration": "Chromatische aberratie",
       "clarity": "Lokaal contrast",
-      "classicDenoise": "Klassieke ruisonderdrukking",
       "color": "Kleur",
       "convertNegative": "Negatief omzetten",
       "dehaze": "Nevel verwijderen",
@@ -208,8 +208,8 @@
       "relightIntensity": "Intensiteit",
       "relightLight": "Licht {{index}}",
       "relightRemoveLight": "Licht verwijderen",
-      "relightShadowSoftness": "Schaduwzachtheid",
       "relightShadows": "Schaduwen",
+      "relightShadowSoftness": "Schaduwzachtheid",
       "relightShine": "Glans",
       "relightSoftness": "Zachtheid",
       "relightType": "Lichttype",
@@ -1071,12 +1071,12 @@
       "title": "Bewerkingen nog niet in Immich"
     },
     "export": {
-      "album": "Album",
-      "createAlbum": "Aanmaken",
-      "destination": "Immich",
       "newAlbum": "Nieuw album…",
-      "newAlbumFailed": "Kan het album niet aanmaken: {{error}}",
       "newAlbumName": "Albumnaam",
+      "createAlbum": "Aanmaken",
+      "newAlbumFailed": "Kan het album niet aanmaken: {{error}}",
+      "album": "Album",
+      "destination": "Immich",
       "noAlbum": "Geen album",
       "sourceAlbum": "Album waaruit de afbeelding is geopend",
       "withOriginal": "Origineel ook uploaden",
@@ -1113,17 +1113,17 @@
       "pending": "Bewerkingen die op Immich wachten: {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} is van iemand anders, dus Immich accepteert er geen bewerkingen voor. Je bewerkingen blijven op deze computer.",
       "backOnline": "Immich is weer bereikbaar en alle bewerkingen zijn daar opgeslagen.",
       "downloadFailed": "Downloaden van Immich mislukt: {{error}}",
       "editsConflict": "{{fileName}} is ook op een andere computer bewerkt. Je bewerkingen blijven en de andere versie wordt bewaard als virtuele kopie.",
-      "editsStayLocal": "{{fileName}} is van iemand anders, dus Immich accepteert er geen bewerkingen voor. Je bewerkingen blijven op deze computer.",
       "offline": "Immich is niet bereikbaar. Je bewerkingen blijven hier en worden verstuurd zodra het weer bereikbaar is.",
       "transferFailed": "Niet toegevoegd aan Immich: {{number}} ({{error}})",
       "transferred": "Toegevoegd aan Immich: {{number}}",
       "transferring": "Toevoegen aan Immich… {{current}}/{{total}}",
       "trashFailed": "Verplaatsen naar de prullenbak van Immich mislukt: {{error}}",
-      "uploadKeptCopy": "{{fileName}} staat al in Immich met andere bewerkingen. Die blijven, en jouw bewerkingen worden als virtuele kopie bewaard.",
-      "uploaded": "Geüpload naar Immich: {{number}}"
+      "uploaded": "Geüpload naar Immich: {{number}}",
+      "uploadKeptCopy": "{{fileName}} staat al in Immich met andere bewerkingen. Die blijven, en jouw bewerkingen worden als virtuele kopie bewaard."
     }
   },
   "library": {
@@ -1202,9 +1202,9 @@
       "vc": "VK"
     },
     "filterExit": {
+      "hiddenSingle": "{{name}} komt niet meer overeen met het filter",
       "hiddenMultiple_one": "{{count}} afbeeldingen komen niet meer overeen met het filter",
       "hiddenMultiple_other": "{{count}} afbeeldingen komen niet meer overeen met het filter",
-      "hiddenSingle": "{{name}} komt niet meer overeen met het filter",
       "undo": "Ongedaan maken"
     },
     "filters": {
@@ -1307,6 +1307,11 @@
         "filterByFileType": "Filteren op bestandstype",
         "filterByFlag": "Filteren op markering",
         "filterByRating": "Filteren op beoordeling",
+        "ratingOperator": {
+          "eq": "Precies deze beoordeling",
+          "gte": "Deze beoordeling of hoger",
+          "lte": "Deze beoordeling of lager"
+        },
         "groupEditedFiles": "Bewerkte bestanden in groepen opnemen",
         "groupIgnoreMetadata": "Niet-overeenkomende EXIF-datums negeren",
         "groupOff": "Uit",
@@ -1317,11 +1322,6 @@
         "metadataHover": "Bij aanwijzen",
         "metadataOff": "Uit",
         "noLabel": "Geen label",
-        "ratingOperator": {
-          "eq": "Precies deze beoordeling",
-          "gte": "Deze beoordeling of hoger",
-          "lte": "Deze beoordeling of lager"
-        },
         "recursive": "Recursief",
         "showMetadata": "Metadata weergeven",
         "sortAscending": "Oplopend sorteren",
@@ -1334,12 +1334,12 @@
     },
     "items": {
       "cloudPlaceholder": "Opgeslagen in iCloud — niet gedownload",
+      "immichPlaceholder": "Opgeslagen in Immich — niet gedownload",
       "collapseFolder": "Map inklappen",
       "currentFolder": "Huidige map",
       "expandFolder": "Map uitklappen",
       "imagesCount_one": "1 afbeelding",
       "imagesCount_other": "{{count}} afbeeldingen",
-      "immichPlaceholder": "Opgeslagen in Immich — niet gedownload",
       "rejected": "Afgewezen",
       "tooltipAperture": "Diafragma",
       "tooltipFocalLength": "Brandpuntsafstand",
@@ -1643,6 +1643,13 @@
       "dateFormatPlaceholder": "bijv. YYYY/MM-DD",
       "deleteAfterImport": "Originelen verwijderen na succesvolle import",
       "deleteWarning": "Bestanden worden verplaatst naar de systeemprullenbak.",
+      "fileNaming": "Bestandsnaamgeving",
+      "folderOrganization": "Maporganisatie",
+      "notUniqueWarning": "Zonder {original_filename}, {original_filename_number} of {sequence} kunnen bestanden dezelfde naam krijgen. Die bestanden worden niet geïmporteerd.",
+      "organizeByDate": "Ordenen in submappen op datum",
+      "sourceFiles": "Bronbestanden",
+      "startImport": "Import starten",
+      "title": "Importinstellingen",
       "fileDialog": {
         "allFiles": "Alle bestanden",
         "allSupportedImages": "Alle ondersteunde afbeeldingen",
@@ -1650,14 +1657,7 @@
         "selectFilesTitle": "Selecteer bestanden om te importeren",
         "standardImages": "Standaardafbeeldingen (JPEG, PNG enz.)",
         "unsupportedFormats": "Niet-ondersteunde bestandsformaten gevonden: {{formats}}"
-      },
-      "fileNaming": "Bestandsnaamgeving",
-      "folderOrganization": "Maporganisatie",
-      "notUniqueWarning": "Zonder {original_filename}, {original_filename_number} of {sequence} kunnen bestanden dezelfde naam krijgen. Die bestanden worden niet geïmporteerd.",
-      "organizeByDate": "Ordenen in submappen op datum",
-      "sourceFiles": "Bronbestanden",
-      "startImport": "Import starten",
-      "title": "Importinstellingen"
+      }
     },
     "lensCorrection": {
       "amount": "Hoeveelheid",
@@ -1788,14 +1788,14 @@
           "fine": "Shift voor fijn"
         },
         "keys": {
-          "copy": "Kopiëren",
           "hold": "Vasthouden",
-          "nextAdjustment": "Volgende regelaar",
-          "nextImage": "Volgende afb.",
-          "paste": "Plakken",
-          "previousAdjustment": "Vorige regelaar",
           "previousImage": "Vorige afb.",
+          "nextImage": "Volgende afb.",
           "reset": "Herstellen",
+          "previousAdjustment": "Vorige regelaar",
+          "nextAdjustment": "Volgende regelaar",
+          "copy": "Kopiëren",
+          "paste": "Plakken",
           "stepDown": "−1 stap",
           "stepUp": "+1 stap"
         },
@@ -1997,23 +1997,16 @@
     },
     "processing": {
       "advanced": {
-        "auto": "Automatisch",
-        "exportMemoryLimit": "Geheugenlimiet voor exports",
-        "exportMemoryLimitDesc": "Deel van het vrije RAM dat batch-exports mogen gebruiken. Verlaag dit om andere apps responsief te houden tijdens grote exports.",
-        "exportThreads": "Parallelle exports",
-        "exportThreadsDesc": "Aantal afbeeldingen dat tegelijk wordt geëxporteerd. Automatisch kiest een waarde op basis van je CPU. Verlaag dit als grote exports mislukken of je GPU weinig geheugen heeft.",
         "heading": "Geavanceerd",
         "headingDesc": "Prestatie-instellingen voor miniaturen, cache en exports. De standaardwaarden werken voor de meeste gebruikers.",
-        "title": "Geavanceerde instellingen"
+        "title": "Geavanceerde instellingen",
+        "auto": "Automatisch",
+        "exportThreads": "Parallelle exports",
+        "exportThreadsDesc": "Aantal afbeeldingen dat tegelijk wordt geëxporteerd. Automatisch kiest een waarde op basis van je CPU. Verlaag dit als grote exports mislukken of je GPU weinig geheugen heeft.",
+        "exportMemoryLimit": "Geheugenlimiet voor exports",
+        "exportMemoryLimitDesc": "Deel van het vrije RAM dat batch-exports mogen gebruiken. Verlaag dit om andere apps responsief te houden tijdens grote exports."
       },
       "ai": {
-        "aiFree": {
-          "description": "Schakelt alle AI-functies uit. Alle AI-gerelateerde bedieningselementen worden verborgen, zodat RapidRAW werkt als een puur traditionele RAW-editor.",
-          "feature1": "Geen AI-maskers, lensonscherpte of generatieve bewerkingen in de interface",
-          "feature2": "Bestaande AI-bewerkingen worden nog gewoon weergegeven",
-          "feature3": "Een overzichtelijkere, meer gerichte interface",
-          "title": "Zonder AI"
-        },
         "cloud": {
           "description": "Voor wie een eenvoudigere oplossing wil, biedt een optioneel abonnement dezelfde hoogwaardige resultaten als zelfhosting zonder gedoe. Dit is de meest handige optie en de beste manier om het project te ondersteunen.",
           "feature1": "Maximaal gemak, geen installatie",
@@ -2062,6 +2055,13 @@
           "gpuAccelerationDesc": "Voert ingebouwde AI-functies zoals ruisonderdrukking, maskers, diepte- en normaalkaarten en taggen uit op de grafische kaart voor veel snellere resultaten. Schakel dit uit als je crashes of onjuiste AI-resultaten ervaart.",
           "gpuAccelerationLabel": "GPU gebruiken voor AI-modellen",
           "title": "Ingebouwde AI"
+        },
+        "aiFree": {
+          "description": "Schakelt alle AI-functies uit. Alle AI-gerelateerde bedieningselementen worden verborgen, zodat RapidRAW werkt als een puur traditionele RAW-editor.",
+          "feature1": "Geen AI-maskers, lensonscherpte of generatieve bewerkingen in de interface",
+          "feature2": "Bestaande AI-bewerkingen worden nog gewoon weergegeven",
+          "feature3": "Een overzichtelijkere, meer gerichte interface",
+          "title": "Zonder AI"
         },
         "description": "De AI van RapidRAW is gebouwd voor flexibiliteit. Kies uw ideale workflow, van snelle lokale tools tot krachtige zelfhosting.",
         "providers": {
@@ -2322,17 +2322,6 @@
       "zoomLabel": "Zoom",
       "zoomLabelReset": "Zoom herstellen"
     },
-    "builtInTags": {
-      "architecture": "architectuur",
-      "event": "evenement",
-      "family": "familie",
-      "food": "eten",
-      "landscape": "landschap",
-      "nature": "natuur",
-      "portrait": "portret",
-      "street": "straat",
-      "travel": "reizen"
-    },
     "collapsibleSection": {
       "disableSection": "Sectie uitschakelen",
       "enableSection": "Sectie inschakelen"
@@ -2353,16 +2342,6 @@
       "presetNamePlaceholder": "Naam voorinstelling",
       "saveAsNewTooltip": "Huidige instellingen opslaan als nieuwe voorinstelling",
       "savedTooltip": "Opgeslagen!"
-    },
-    "filenameVariables": {
-      "day": "Dag",
-      "hour": "Uur",
-      "minute": "Minuut",
-      "month": "Maand",
-      "originalFilename": "Oorspronkelijke bestandsnaam",
-      "originalFilenameNumber": "Nummer in oorspronkelijke bestandsnaam",
-      "sequence": "Volgnummer",
-      "year": "Jaar"
     },
     "filmstrip": {
       "tooltips": {
@@ -2406,6 +2385,27 @@
         "showClipping": "Uitknipwaarschuwingen weergeven",
         "vectorscope": "Vectoroscoop"
       }
+    },
+    "filenameVariables": {
+      "day": "Dag",
+      "hour": "Uur",
+      "minute": "Minuut",
+      "month": "Maand",
+      "originalFilename": "Oorspronkelijke bestandsnaam",
+      "originalFilenameNumber": "Nummer in oorspronkelijke bestandsnaam",
+      "sequence": "Volgnummer",
+      "year": "Jaar"
+    },
+    "builtInTags": {
+      "architecture": "architectuur",
+      "event": "evenement",
+      "family": "familie",
+      "food": "eten",
+      "landscape": "landschap",
+      "nature": "natuur",
+      "portrait": "portret",
+      "street": "straat",
+      "travel": "reizen"
     }
   }
 }

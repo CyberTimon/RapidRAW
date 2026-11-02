@@ -148,12 +148,12 @@
     },
     "details": {
       "aiDenoise": "Reducció de soroll IA",
+      "classicDenoise": "Reducció de soroll clàssica",
       "aiDenoiseDetail": "Detall",
       "blueYellow": "Blau/Groc",
       "centre": "Centre",
       "chromaticAberration": "Aberració cromàtica",
       "clarity": "Claredat",
-      "classicDenoise": "Reducció de soroll clàssica",
       "color": "Color",
       "convertNegative": "Convertir negatiu",
       "dehaze": "Eliminar boira",
@@ -208,8 +208,8 @@
       "relightIntensity": "Intensitat",
       "relightLight": "Llum {{index}}",
       "relightRemoveLight": "Elimina la llum",
-      "relightShadowSoftness": "Suavitat de les ombres",
       "relightShadows": "Ombres",
+      "relightShadowSoftness": "Suavitat de les ombres",
       "relightShine": "Brillantor",
       "relightSoftness": "Suavitat",
       "relightType": "Tipus de llum",
@@ -1097,12 +1097,12 @@
       "title": "Edicions encara no a Immich"
     },
     "export": {
-      "album": "Àlbum",
-      "createAlbum": "Crea",
-      "destination": "Immich",
       "newAlbum": "Àlbum nou…",
-      "newAlbumFailed": "No s'ha pogut crear l'àlbum: {{error}}",
       "newAlbumName": "Nom de l'àlbum",
+      "createAlbum": "Crea",
+      "newAlbumFailed": "No s'ha pogut crear l'àlbum: {{error}}",
+      "album": "Àlbum",
+      "destination": "Immich",
       "noAlbum": "Sense àlbum",
       "sourceAlbum": "Àlbum des del qual s'ha obert la imatge",
       "withOriginal": "Puja també l'original",
@@ -1139,17 +1139,17 @@
       "pending": "Edicions pendents d'enviar a Immich: {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} pertany a una altra persona, així que Immich no n'accepta edicions. Les teves edicions es queden en aquest ordinador.",
       "backOnline": "Immich torna a estar disponible i totes les edicions s'hi han desat.",
       "downloadFailed": "No s'ha pogut descarregar d'Immich: {{error}}",
       "editsConflict": "{{fileName}} també s'ha editat en un altre ordinador. Les teves edicions es mantenen i l'altra versió es conserva com a còpia virtual.",
-      "editsStayLocal": "{{fileName}} pertany a una altra persona, així que Immich no n'accepta edicions. Les teves edicions es queden en aquest ordinador.",
       "offline": "No es pot accedir a Immich. Les teves edicions es guarden aquí i s'enviaran quan torni a estar disponible.",
       "transferFailed": "No afegides a Immich: {{number}} ({{error}})",
       "transferred": "Afegides a Immich: {{number}}",
       "transferring": "S'està afegint a Immich… {{current}}/{{total}}",
       "trashFailed": "No s'ha pogut moure a la paperera d'Immich: {{error}}",
-      "uploadKeptCopy": "{{fileName}} ja és a Immich amb altres edicions. Aquestes es mantenen i les teves es desen com a còpia virtual.",
-      "uploaded": "Pujades a Immich: {{number}}"
+      "uploaded": "Pujades a Immich: {{number}}",
+      "uploadKeptCopy": "{{fileName}} ja és a Immich amb altres edicions. Aquestes es mantenen i les teves es desen com a còpia virtual."
     }
   },
   "library": {
@@ -1229,10 +1229,10 @@
       "vc": "CV"
     },
     "filterExit": {
+      "hiddenSingle": "{{name}} ja no coincideix amb el filtre",
       "hiddenMultiple_many": "{{count}} imatges ja no coincideixen amb el filtre",
       "hiddenMultiple_one": "{{count}} imatges ja no coincideixen amb el filtre",
       "hiddenMultiple_other": "{{count}} imatges ja no coincideixen amb el filtre",
-      "hiddenSingle": "{{name}} ja no coincideix amb el filtre",
       "undo": "Desfés"
     },
     "filters": {
@@ -1335,6 +1335,11 @@
         "filterByFileType": "Filtrar per tipus de fitxer",
         "filterByFlag": "Filtrar per marca",
         "filterByRating": "Filtrar per puntuació",
+        "ratingOperator": {
+          "eq": "Exactament aquesta puntuació",
+          "gte": "Aquesta puntuació o superior",
+          "lte": "Aquesta puntuació o inferior"
+        },
         "groupEditedFiles": "Incloure fitxers editats als grups",
         "groupIgnoreMetadata": "Ignorar dates EXIF no coincidents",
         "groupOff": "Desactivat",
@@ -1345,11 +1350,6 @@
         "metadataHover": "En passar el ratolí",
         "metadataOff": "Desactivat",
         "noLabel": "Sense etiqueta",
-        "ratingOperator": {
-          "eq": "Exactament aquesta puntuació",
-          "gte": "Aquesta puntuació o superior",
-          "lte": "Aquesta puntuació o inferior"
-        },
         "recursive": "Recursiu",
         "showMetadata": "Mostrar metadades",
         "sortAscending": "Ordenació ascendent",
@@ -1362,13 +1362,13 @@
     },
     "items": {
       "cloudPlaceholder": "Emmagatzemat a iCloud — no baixat",
+      "imagesCount_many": "{{count}} imatges",
+      "immichPlaceholder": "Emmagatzemat a Immich — no baixat",
       "collapseFolder": "Contraure carpeta",
       "currentFolder": "Carpeta actual",
       "expandFolder": "Expandir carpeta",
-      "imagesCount_many": "{{count}} imatges",
       "imagesCount_one": "1 imatge",
       "imagesCount_other": "{{count}} imatges",
-      "immichPlaceholder": "Emmagatzemat a Immich — no baixat",
       "rejected": "Rebutjada",
       "tooltipAperture": "Obertura",
       "tooltipFocalLength": "Distància focal",
@@ -1679,6 +1679,13 @@
       "dateFormatPlaceholder": "p. ex., AAAA/MM-DD",
       "deleteAfterImport": "Eliminar els originals després d'una importació correcta",
       "deleteWarning": "Els fitxers es mouran a la paperera del sistema.",
+      "fileNaming": "Nomenclatura de fitxers",
+      "folderOrganization": "Organització de carpetes",
+      "notUniqueWarning": "Sense {original_filename}, {original_filename_number} o {sequence}, diversos fitxers poden rebre el mateix nom. Aquests fitxers no s'importen.",
+      "organizeByDate": "Organitzar en subcarpetes per data",
+      "sourceFiles": "Fitxers d'origen",
+      "startImport": "Iniciar importació",
+      "title": "Configuració d'importació",
       "fileDialog": {
         "allFiles": "Tots els fitxers",
         "allSupportedImages": "Totes les imatges compatibles",
@@ -1686,14 +1693,7 @@
         "selectFilesTitle": "Seleccioneu els fitxers per importar",
         "standardImages": "Imatges estàndard (JPEG, PNG, etc.)",
         "unsupportedFormats": "S’han detectat formats de fitxer no compatibles: {{formats}}"
-      },
-      "fileNaming": "Nomenclatura de fitxers",
-      "folderOrganization": "Organització de carpetes",
-      "notUniqueWarning": "Sense {original_filename}, {original_filename_number} o {sequence}, diversos fitxers poden rebre el mateix nom. Aquests fitxers no s'importen.",
-      "organizeByDate": "Organitzar en subcarpetes per data",
-      "sourceFiles": "Fitxers d'origen",
-      "startImport": "Iniciar importació",
-      "title": "Configuració d'importació"
+      }
     },
     "lensCorrection": {
       "amount": "Quantitat",
@@ -1826,14 +1826,14 @@
           "fine": "Maj per afinar"
         },
         "keys": {
-          "copy": "Copiar",
           "hold": "Mantenir",
-          "nextAdjustment": "Control seg.",
-          "nextImage": "Imatge seg.",
-          "paste": "Enganxar",
-          "previousAdjustment": "Control ant.",
           "previousImage": "Imatge ant.",
+          "nextImage": "Imatge seg.",
           "reset": "Restablir",
+          "previousAdjustment": "Control ant.",
+          "nextAdjustment": "Control seg.",
+          "copy": "Copiar",
+          "paste": "Enganxar",
           "stepDown": "−1 pas",
           "stepUp": "+1 pas"
         },
@@ -2042,23 +2042,16 @@
     },
     "processing": {
       "advanced": {
-        "auto": "Automàtic",
-        "exportMemoryLimit": "Límit de memòria d'exportació",
-        "exportMemoryLimitDesc": "Part de la RAM lliure que poden fer servir les exportacions per lots. Redueix-la perquè les altres aplicacions continuïn responent durant exportacions grans.",
-        "exportThreads": "Exportacions en paral·lel",
-        "exportThreadsDesc": "Nombre d'imatges que s'exporten alhora. Automàtic tria un valor segons la CPU. Redueix-lo si les exportacions grans fallen o la GPU té poca memòria.",
         "heading": "Avançat",
         "headingDesc": "Ajustos de rendiment per a miniatures, memòria cau i exportacions. Els valors predeterminats funcionen bé per a la majoria.",
-        "title": "Configuració avançada"
+        "title": "Configuració avançada",
+        "auto": "Automàtic",
+        "exportThreads": "Exportacions en paral·lel",
+        "exportThreadsDesc": "Nombre d'imatges que s'exporten alhora. Automàtic tria un valor segons la CPU. Redueix-lo si les exportacions grans fallen o la GPU té poca memòria.",
+        "exportMemoryLimit": "Límit de memòria d'exportació",
+        "exportMemoryLimitDesc": "Part de la RAM lliure que poden fer servir les exportacions per lots. Redueix-la perquè les altres aplicacions continuïn responent durant exportacions grans."
       },
       "ai": {
-        "aiFree": {
-          "description": "Desactiva totes les funcions d'IA. Tots els controls relacionats amb la IA s'oculten de la interfície perquè RapidRAW funcioni com un editor RAW purament tradicional.",
-          "feature1": "Sense màscares d'IA, desenfocament de lent ni edicions generatives a la interfície",
-          "feature2": "Les edicions d'IA existents es continuen mostrant amb normalitat",
-          "feature3": "Una interfície més neta i enfocada",
-          "title": "Sense IA"
-        },
         "cloud": {
           "description": "Per a aquells que desitgin una solució més senzilla, una subscripció opcional ofereix els mateixos resultats d'alta qualitat que l'autoallotjament sense cap molèstia. Aquesta és l'opció més convenient i la millor manera de donar suport al projecte.",
           "feature1": "Comoditat màxima, sense configuració",
@@ -2107,6 +2100,13 @@
           "gpuAccelerationDesc": "Executa les funcions d'IA integrades, com la reducció de soroll, les màscares, els mapes de profunditat i de normals i l'etiquetatge, a la targeta gràfica per obtenir resultats molt més ràpids. Desactiva-ho si tens bloquejos o resultats d'IA incorrectes.",
           "gpuAccelerationLabel": "Utilitza la GPU per als models d'IA",
           "title": "IA integrada"
+        },
+        "aiFree": {
+          "description": "Desactiva totes les funcions d'IA. Tots els controls relacionats amb la IA s'oculten de la interfície perquè RapidRAW funcioni com un editor RAW purament tradicional.",
+          "feature1": "Sense màscares d'IA, desenfocament de lent ni edicions generatives a la interfície",
+          "feature2": "Les edicions d'IA existents es continuen mostrant amb normalitat",
+          "feature3": "Una interfície més neta i enfocada",
+          "title": "Sense IA"
         },
         "description": "L'IA de RapidRAW està dissenyada per ser flexible. Trieu el vostre flux de treball ideal, des d'eines locals ràpides fins a un autoallotjament potent.",
         "providers": {
@@ -2368,17 +2368,6 @@
       "zoomLabel": "Zoom",
       "zoomLabelReset": "Restablir zoom"
     },
-    "builtInTags": {
-      "architecture": "arquitectura",
-      "event": "esdeveniment",
-      "family": "família",
-      "food": "menjar",
-      "landscape": "paisatge",
-      "nature": "natura",
-      "portrait": "retrat",
-      "street": "carrer",
-      "travel": "viatges"
-    },
     "collapsibleSection": {
       "disableSection": "Desactivar secció",
       "enableSection": "Activar secció"
@@ -2399,16 +2388,6 @@
       "presetNamePlaceholder": "Nom de l'ajust preestablert",
       "saveAsNewTooltip": "Desar la configuració actual com a nou ajust preestablert",
       "savedTooltip": "Desat!"
-    },
-    "filenameVariables": {
-      "day": "Dia",
-      "hour": "Hora",
-      "minute": "Minut",
-      "month": "Mes",
-      "originalFilename": "Nom original del fitxer",
-      "originalFilenameNumber": "Número del nom original del fitxer",
-      "sequence": "Seqüència",
-      "year": "Any"
     },
     "filmstrip": {
       "tooltips": {
@@ -2456,6 +2435,27 @@
         "showClipping": "Mostrar advertiments de retall",
         "vectorscope": "Vectorscopi"
       }
+    },
+    "filenameVariables": {
+      "day": "Dia",
+      "hour": "Hora",
+      "minute": "Minut",
+      "month": "Mes",
+      "originalFilename": "Nom original del fitxer",
+      "originalFilenameNumber": "Número del nom original del fitxer",
+      "sequence": "Seqüència",
+      "year": "Any"
+    },
+    "builtInTags": {
+      "architecture": "arquitectura",
+      "event": "esdeveniment",
+      "family": "família",
+      "food": "menjar",
+      "landscape": "paisatge",
+      "nature": "natura",
+      "portrait": "retrat",
+      "street": "carrer",
+      "travel": "viatges"
     }
   }
 }

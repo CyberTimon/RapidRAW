@@ -148,12 +148,12 @@
     },
     "details": {
       "aiDenoise": "AI odšumění",
+      "classicDenoise": "Klasické odšumění",
       "aiDenoiseDetail": "Detail",
       "blueYellow": "Modrá/Žlutá",
       "centre": "Střed",
       "chromaticAberration": "Chromatická aberace",
       "clarity": "Zřetelnost",
-      "classicDenoise": "Klasické odšumění",
       "color": "Barva",
       "convertNegative": "Převést negativ",
       "dehaze": "Odmlžení",
@@ -208,8 +208,8 @@
       "relightIntensity": "Intenzita",
       "relightLight": "Světlo {{index}}",
       "relightRemoveLight": "Odebrat světlo",
-      "relightShadowSoftness": "Měkkost stínů",
       "relightShadows": "Stíny",
+      "relightShadowSoftness": "Měkkost stínů",
       "relightShine": "Lesk",
       "relightSoftness": "Měkkost",
       "relightType": "Typ světla",
@@ -1123,12 +1123,12 @@
       "title": "Úpravy ještě nejsou v Immichi"
     },
     "export": {
-      "album": "Album",
-      "createAlbum": "Vytvořit",
-      "destination": "Immich",
       "newAlbum": "Nové album…",
-      "newAlbumFailed": "Album se nepodařilo vytvořit: {{error}}",
       "newAlbumName": "Název alba",
+      "createAlbum": "Vytvořit",
+      "newAlbumFailed": "Album se nepodařilo vytvořit: {{error}}",
+      "album": "Album",
+      "destination": "Immich",
       "noAlbum": "Žádné album",
       "sourceAlbum": "Album, ze kterého byl obrázek otevřen",
       "withOriginal": "Nahrát i originál",
@@ -1165,17 +1165,17 @@
       "pending": "Úpravy čekající na Immich: {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} patří někomu jinému, proto pro něj Immich nepřijímá úpravy. Tvé úpravy zůstanou v tomto počítači.",
       "backOnline": "Immich je opět dostupný a všechny úpravy jsou v něm uložené.",
       "downloadFailed": "Stažení z Immiche se nezdařilo: {{error}}",
       "editsConflict": "{{fileName}} byl upraven také na jiném počítači. Vaše úpravy zůstávají a druhá verze je uložena jako virtuální kopie.",
-      "editsStayLocal": "{{fileName}} patří někomu jinému, proto pro něj Immich nepřijímá úpravy. Tvé úpravy zůstanou v tomto počítači.",
       "offline": "Immich není dostupný. Vaše úpravy zůstávají zde a odešlou se, jakmile bude opět dostupný.",
       "transferFailed": "Nepřidáno do Immiche: {{number}} ({{error}})",
       "transferred": "Přidáno do Immiche: {{number}}",
       "transferring": "Přidávání do Immiche… {{current}}/{{total}}",
       "trashFailed": "Přesun do koše Immiche se nezdařil: {{error}}",
-      "uploadKeptCopy": "{{fileName}} už je v Immichu s jinými úpravami. Ty zůstanou a tvé úpravy se uloží jako virtuální kopie.",
-      "uploaded": "Nahráno do Immiche: {{number}}"
+      "uploaded": "Nahráno do Immiche: {{number}}",
+      "uploadKeptCopy": "{{fileName}} už je v Immichu s jinými úpravami. Ty zůstanou a tvé úpravy se uloží jako virtuální kopie."
     }
   },
   "library": {
@@ -1256,11 +1256,11 @@
       "vc": "VC"
     },
     "filterExit": {
+      "hiddenSingle": "{{name}} již neodpovídá filtru",
       "hiddenMultiple_few": "Snímky ({{count}}) již neodpovídají filtru",
       "hiddenMultiple_many": "Snímky ({{count}}) již neodpovídají filtru",
       "hiddenMultiple_one": "Snímky ({{count}}) již neodpovídají filtru",
       "hiddenMultiple_other": "Snímky ({{count}}) již neodpovídají filtru",
-      "hiddenSingle": "{{name}} již neodpovídá filtru",
       "undo": "Zpět"
     },
     "filters": {
@@ -1363,6 +1363,11 @@
         "filterByFileType": "Filtrovat podle typu souboru",
         "filterByFlag": "Filtrovat podle příznaku",
         "filterByRating": "Filtrovat podle hodnocení",
+        "ratingOperator": {
+          "eq": "Přesně toto hodnocení",
+          "gte": "Toto hodnocení nebo vyšší",
+          "lte": "Toto hodnocení nebo nižší"
+        },
         "groupEditedFiles": "Zahrnout upravené soubory do skupin",
         "groupIgnoreMetadata": "Ignorovat neshodná data EXIF",
         "groupOff": "Vypnuto",
@@ -1373,11 +1378,6 @@
         "metadataHover": "Při najetí myší",
         "metadataOff": "Vypnuto",
         "noLabel": "Žádný štítek",
-        "ratingOperator": {
-          "eq": "Přesně toto hodnocení",
-          "gte": "Toto hodnocení nebo vyšší",
-          "lte": "Toto hodnocení nebo nižší"
-        },
         "recursive": "Rekurzivní",
         "showMetadata": "Zobrazit metadata",
         "sortAscending": "Seřadit vzestupně",
@@ -1390,14 +1390,14 @@
     },
     "items": {
       "cloudPlaceholder": "Uloženo na iCloudu — nestaženo",
+      "imagesCount_few": "{{count}} snímky",
+      "imagesCount_many": "{{count}} snímku",
+      "immichPlaceholder": "Uloženo v Immichi — nestaženo",
       "collapseFolder": "Sbalit složku",
       "currentFolder": "Aktuální složka",
       "expandFolder": "Rozbalit složku",
-      "imagesCount_few": "{{count}} snímky",
-      "imagesCount_many": "{{count}} snímku",
       "imagesCount_one": "1 snímek",
       "imagesCount_other": "{{count}} snímků",
-      "immichPlaceholder": "Uloženo v Immichi — nestaženo",
       "rejected": "Odmítnuté",
       "tooltipAperture": "Clona",
       "tooltipFocalLength": "Ohnisková vzdálenost",
@@ -1715,6 +1715,13 @@
       "dateFormatPlaceholder": "např. RRRR/MM-DD",
       "deleteAfterImport": "Po úspěšném importu smazat originály",
       "deleteWarning": "Soubory budou přesunuty do koše systému.",
+      "fileNaming": "Pojmenování souborů",
+      "folderOrganization": "Organizace složek",
+      "notUniqueWarning": "Bez {original_filename}, {original_filename_number} nebo {sequence} mohou soubory dostat stejný název. Takové soubory se neimportují.",
+      "organizeByDate": "Uspořádejte do podsložek podle data",
+      "sourceFiles": "Zdrojové soubory",
+      "startImport": "Spustit import",
+      "title": "Nastavení importu",
       "fileDialog": {
         "allFiles": "Všechny soubory",
         "allSupportedImages": "Všechny podporované obrázky",
@@ -1722,14 +1729,7 @@
         "selectFilesTitle": "Vyberte soubory k importu",
         "standardImages": "Běžné obrázky (JPEG, PNG atd.)",
         "unsupportedFormats": "Zjištěny nepodporované formáty souborů: {{formats}}"
-      },
-      "fileNaming": "Pojmenování souborů",
-      "folderOrganization": "Organizace složek",
-      "notUniqueWarning": "Bez {original_filename}, {original_filename_number} nebo {sequence} mohou soubory dostat stejný název. Takové soubory se neimportují.",
-      "organizeByDate": "Uspořádejte do podsložek podle data",
-      "sourceFiles": "Zdrojové soubory",
-      "startImport": "Spustit import",
-      "title": "Nastavení importu"
+      }
     },
     "lensCorrection": {
       "amount": "Míra",
@@ -1864,14 +1864,14 @@
           "fine": "Shift pro jemnost"
         },
         "keys": {
-          "copy": "Kopírovat",
           "hold": "Podržet",
-          "nextAdjustment": "Další posuvník",
-          "nextImage": "Další snímek",
-          "paste": "Vložit",
-          "previousAdjustment": "Předch. posuvník",
           "previousImage": "Předch. snímek",
+          "nextImage": "Další snímek",
           "reset": "Obnovit",
+          "previousAdjustment": "Předch. posuvník",
+          "nextAdjustment": "Další posuvník",
+          "copy": "Kopírovat",
+          "paste": "Vložit",
           "stepDown": "−1 krok",
           "stepUp": "+1 krok"
         },
@@ -2083,23 +2083,16 @@
     },
     "processing": {
       "advanced": {
-        "auto": "Automaticky",
-        "exportMemoryLimit": "Limit paměti pro export",
-        "exportMemoryLimitDesc": "Podíl volné paměti RAM, který mohou dávkové exporty využít. Snižte jej, aby ostatní aplikace zůstaly při velkých exportech svižné.",
-        "exportThreads": "Paralelní exporty",
-        "exportThreadsDesc": "Počet obrázků exportovaných současně. Automaticky zvolí hodnotu podle procesoru. Snižte ji, pokud velké exporty selhávají nebo má grafická karta málo paměti.",
         "heading": "Pokročilé",
         "headingDesc": "Ladění výkonu náhledů, mezipaměti a exportů. Výchozí hodnoty vyhovují většině uživatelů.",
-        "title": "Pokročilá nastavení"
+        "title": "Pokročilá nastavení",
+        "auto": "Automaticky",
+        "exportThreads": "Paralelní exporty",
+        "exportThreadsDesc": "Počet obrázků exportovaných současně. Automaticky zvolí hodnotu podle procesoru. Snižte ji, pokud velké exporty selhávají nebo má grafická karta málo paměti.",
+        "exportMemoryLimit": "Limit paměti pro export",
+        "exportMemoryLimitDesc": "Podíl volné paměti RAM, který mohou dávkové exporty využít. Snižte jej, aby ostatní aplikace zůstaly při velkých exportech svižné."
       },
       "ai": {
-        "aiFree": {
-          "description": "Vypne všechny funkce AI. Všechny ovládací prvky související s AI jsou v rozhraní skryty, takže RapidRAW funguje jako čistě tradiční editor RAW.",
-          "feature1": "Žádné AI masky, rozostření objektivu ani generativní úpravy v rozhraní",
-          "feature2": "Stávající AI úpravy se nadále zobrazují normálně",
-          "feature3": "Přehlednější a soustředěnější rozhraní",
-          "title": "Bez AI"
-        },
         "cloud": {
           "description": "Pro ty, kteří chtějí jednodušší řešení, poskytuje volitelné předplatné stejně vysoce kvalitní výsledky jako vlastní hosting bez jakýchkoli starostí. Je to nejpohodlnější možnost a nejlepší způsob, jak podpořit projekt.",
           "feature1": "Maximální pohodlí, žádné nastavování",
@@ -2148,6 +2141,13 @@
           "gpuAccelerationDesc": "Spouští vestavěné funkce AI, jako je odšumění, masky, hloubkové a normálové mapy a štítkování, na grafické kartě pro výrazně rychlejší výsledky. Vypněte, pokud dochází k pádům nebo nesprávným výsledkům AI.",
           "gpuAccelerationLabel": "Používat GPU pro modely AI",
           "title": "Vestavěná AI"
+        },
+        "aiFree": {
+          "description": "Vypne všechny funkce AI. Všechny ovládací prvky související s AI jsou v rozhraní skryty, takže RapidRAW funguje jako čistě tradiční editor RAW.",
+          "feature1": "Žádné AI masky, rozostření objektivu ani generativní úpravy v rozhraní",
+          "feature2": "Stávající AI úpravy se nadále zobrazují normálně",
+          "feature3": "Přehlednější a soustředěnější rozhraní",
+          "title": "Bez AI"
         },
         "description": "AI v RapidRAW je vytvořena pro flexibilitu. Vyberte si ideální pracovní postup, od rychlých místních nástrojů po výkonný vlastní hosting.",
         "providers": {
@@ -2410,17 +2410,6 @@
       "zoomLabel": "Přiblížení",
       "zoomLabelReset": "Obnovit přiblížení"
     },
-    "builtInTags": {
-      "architecture": "architektura",
-      "event": "událost",
-      "family": "rodina",
-      "food": "jídlo",
-      "landscape": "krajina",
-      "nature": "příroda",
-      "portrait": "portrét",
-      "street": "ulice",
-      "travel": "cestování"
-    },
     "collapsibleSection": {
       "disableSection": "Zakázat sekci",
       "enableSection": "Povolit sekci"
@@ -2441,16 +2430,6 @@
       "presetNamePlaceholder": "Název presetu",
       "saveAsNewTooltip": "Uložit aktuální nastavení jako nový preset",
       "savedTooltip": "Uloženo!"
-    },
-    "filenameVariables": {
-      "day": "Den",
-      "hour": "Hodina",
-      "minute": "Minuta",
-      "month": "Měsíc",
-      "originalFilename": "Původní název souboru",
-      "originalFilenameNumber": "Číslo v původním názvu souboru",
-      "sequence": "Pořadové číslo",
-      "year": "Rok"
     },
     "filmstrip": {
       "tooltips": {
@@ -2498,6 +2477,27 @@
         "showClipping": "Zobrazit upozornění na oříznutí",
         "vectorscope": "Vektoroskop"
       }
+    },
+    "filenameVariables": {
+      "day": "Den",
+      "hour": "Hodina",
+      "minute": "Minuta",
+      "month": "Měsíc",
+      "originalFilename": "Původní název souboru",
+      "originalFilenameNumber": "Číslo v původním názvu souboru",
+      "sequence": "Pořadové číslo",
+      "year": "Rok"
+    },
+    "builtInTags": {
+      "architecture": "architektura",
+      "event": "událost",
+      "family": "rodina",
+      "food": "jídlo",
+      "landscape": "krajina",
+      "nature": "příroda",
+      "portrait": "portrét",
+      "street": "ulice",
+      "travel": "cestování"
     }
   }
 }

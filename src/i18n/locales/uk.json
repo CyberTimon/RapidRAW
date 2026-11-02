@@ -1123,12 +1123,12 @@
       "title": "Редагування ще не в Immich"
     },
     "export": {
-      "album": "Альбом",
-      "createAlbum": "Створити",
-      "destination": "Immich",
       "newAlbum": "Новий альбом…",
-      "newAlbumFailed": "Не вдалося створити альбом: {{error}}",
       "newAlbumName": "Назва альбому",
+      "createAlbum": "Створити",
+      "newAlbumFailed": "Не вдалося створити альбом: {{error}}",
+      "album": "Альбом",
+      "destination": "Immich",
       "noAlbum": "Без альбому",
       "sourceAlbum": "Альбом, з якого відкрито зображення",
       "withOriginal": "Вивантажити також оригінал",
@@ -1136,14 +1136,14 @@
     },
     "section": {
       "albums": "Альбоми",
+      "unassigned": "Без альбому",
+      "unassignedHint": "Перетягніть сюди зображення, щоб вивантажити їх без додавання до альбому.",
       "empty": "На сервері немає альбомів.",
       "error": "Immich недоступний.",
       "loading": "Завантаження альбомів…",
       "refresh": "Оновити альбоми",
       "timeline": "Хронологія",
-      "title": "Immich",
-      "unassigned": "Без альбому",
-      "unassignedHint": "Перетягніть сюди зображення, щоб вивантажити їх без додавання до альбому."
+      "title": "Immich"
     },
     "settings": {
       "apiKey": "Ключ API",
@@ -1165,16 +1165,16 @@
       "pending": "Редагувань, що очікують надсилання в Immich: {{number}}"
     },
     "toasts": {
-      "backOnline": "Immich знову доступний, і всі редагування збережено в ньому.",
-      "downloadFailed": "Не вдалося завантажити з Immich: {{error}}",
-      "editsConflict": "{{fileName}} також редагували на іншому комп'ютері. Ваші редагування залишаються, а іншу версію збережено як віртуальну копію.",
       "editsStayLocal": "{{fileName}} належить іншій людині, тому Immich не приймає для нього редагування. Ваші редагування залишаються на цьому комп'ютері.",
-      "offline": "Immich недоступний. Ваші редагування зберігаються тут і будуть надіслані, щойно він знову стане доступним.",
       "transferFailed": "Не додано до Immich: {{number}} ({{error}})",
       "transferred": "Додано до Immich: {{number}}",
       "transferring": "Додавання до Immich… {{current}}/{{total}}",
-      "trashFailed": "Не вдалося перемістити до кошика Immich: {{error}}",
       "uploadKeptCopy": "{{fileName}} уже є в Immich з іншими редагуваннями. Вони залишаються, а ваші редагування збережено як віртуальну копію.",
+      "backOnline": "Immich знову доступний, і всі редагування збережено в ньому.",
+      "downloadFailed": "Не вдалося завантажити з Immich: {{error}}",
+      "editsConflict": "{{fileName}} також редагували на іншому комп'ютері. Ваші редагування залишаються, а іншу версію збережено як віртуальну копію.",
+      "offline": "Immich недоступний. Ваші редагування зберігаються тут і будуть надіслані, щойно він знову стане доступним.",
+      "trashFailed": "Не вдалося перемістити до кошика Immich: {{error}}",
       "uploaded": "Вивантажено в Immich: {{number}}"
     }
   },
@@ -1715,6 +1715,13 @@
       "dateFormatPlaceholder": "напр., YYYY/MM-DD",
       "deleteAfterImport": "Видаляти оригінали після успішного імпорту",
       "deleteWarning": "Файли буде переміщено до системного кошика.",
+      "fileNaming": "Найменування файлів",
+      "folderOrganization": "Структура папок",
+      "notUniqueWarning": "Без {original_filename}, {original_filename_number} або {sequence} файли можуть отримати однакові імена. Такі файли не імпортуються.",
+      "organizeByDate": "Розкладати в підпапки за датою",
+      "sourceFiles": "Вихідні файли",
+      "startImport": "Почати імпорт",
+      "title": "Параметри імпорту",
       "fileDialog": {
         "allFiles": "Усі файли",
         "allSupportedImages": "Усі підтримувані зображення",
@@ -1722,14 +1729,7 @@
         "selectFilesTitle": "Виберіть файли для імпорту",
         "standardImages": "Стандартні зображення (JPEG, PNG тощо)",
         "unsupportedFormats": "Виявлено непідтримувані формати файлів: {{formats}}"
-      },
-      "fileNaming": "Найменування файлів",
-      "folderOrganization": "Структура папок",
-      "notUniqueWarning": "Без {original_filename}, {original_filename_number} або {sequence} файли можуть отримати однакові імена. Такі файли не імпортуються.",
-      "organizeByDate": "Розкладати в підпапки за датою",
-      "sourceFiles": "Вихідні файли",
-      "startImport": "Почати імпорт",
-      "title": "Параметри імпорту"
+      }
     },
     "lensCorrection": {
       "amount": "Інтенсивність",
@@ -1864,14 +1864,14 @@
           "fine": "Shift — точно"
         },
         "keys": {
-          "copy": "Копіювати",
           "hold": "Утримувати",
-          "nextAdjustment": "Наст. повзунок",
-          "nextImage": "Наст. знімок",
-          "paste": "Вставити",
-          "previousAdjustment": "Попер. повзунок",
           "previousImage": "Попер. знімок",
+          "nextImage": "Наст. знімок",
           "reset": "Скинути",
+          "previousAdjustment": "Попер. повзунок",
+          "nextAdjustment": "Наст. повзунок",
+          "copy": "Копіювати",
+          "paste": "Вставити",
           "stepDown": "−1 крок",
           "stepUp": "+1 крок"
         },
@@ -2408,17 +2408,6 @@
       "zoomLabel": "Масштаб",
       "zoomLabelReset": "Скинути масштаб"
     },
-    "builtInTags": {
-      "architecture": "архітектура",
-      "event": "подія",
-      "family": "сім’я",
-      "food": "їжа",
-      "landscape": "пейзаж",
-      "nature": "природа",
-      "portrait": "портрет",
-      "street": "вулиця",
-      "travel": "подорожі"
-    },
     "collapsibleSection": {
       "disableSection": "Вимкнути розділ",
       "enableSection": "Увімкнути розділ"
@@ -2439,16 +2428,6 @@
       "presetNamePlaceholder": "Назва пресета",
       "saveAsNewTooltip": "Зберегти поточні налаштування як новий пресет",
       "savedTooltip": "Збережено!"
-    },
-    "filenameVariables": {
-      "day": "День",
-      "hour": "Година",
-      "minute": "Хвилина",
-      "month": "Місяць",
-      "originalFilename": "Початкова назва файлу",
-      "originalFilenameNumber": "Номер у початковій назві файлу",
-      "sequence": "Послідовність",
-      "year": "Рік"
     },
     "filmstrip": {
       "tooltips": {
@@ -2496,6 +2475,27 @@
         "showClipping": "Показати попередження про відсічення",
         "vectorscope": "Вектороскоп"
       }
+    },
+    "filenameVariables": {
+      "day": "День",
+      "hour": "Година",
+      "minute": "Хвилина",
+      "month": "Місяць",
+      "originalFilename": "Початкова назва файлу",
+      "originalFilenameNumber": "Номер у початковій назві файлу",
+      "sequence": "Послідовність",
+      "year": "Рік"
+    },
+    "builtInTags": {
+      "architecture": "архітектура",
+      "event": "подія",
+      "family": "сім’я",
+      "food": "їжа",
+      "landscape": "пейзаж",
+      "nature": "природа",
+      "portrait": "портрет",
+      "street": "вулиця",
+      "travel": "подорожі"
     }
   }
 }
