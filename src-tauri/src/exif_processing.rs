@@ -1248,10 +1248,6 @@ fn copy_full_exif_from_source(
             continue;
         }
         for tag in ifd.get_tags() {
-            // Tags describing the source's own pixel layout (and its maker
-            // notes, which point into it) would be wrong or broken in the
-            // exported file. This matters for TIFF sources in particular,
-            // since those carry the full set of them.
             if !tag.is_writable() || crate::tiff_metadata::is_structural_tag(tag.as_u16()) {
                 continue;
             }
@@ -1492,8 +1488,6 @@ pub fn write_image_with_metadata(
             as_zTXt_chunk: true,
         },
         "webp" => FileExtension::WEBP,
-        // TIFF is not patched in afterwards; its tags are written while the
-        // file is encoded, see `tiff_metadata::encode_tiff_with_metadata`.
         _ => return Ok(()),
     };
 
@@ -1544,13 +1538,6 @@ fn write_exif_metadata(
     Ok(())
 }
 
-/// Gathers everything that should end up in an exported image: the source's own
-/// EXIF, RapidRAW's sidecar, GPS, and the fields RapidRAW sets itself. Returns
-/// `None` when the source is gone, since there is nothing to copy then.
-///
-/// `dimensions` are those of the encoded image and are written as
-/// `ExifImageWidth`/`ExifImageHeight`. Callers that let the TIFF encoder record
-/// the size pass `None`.
 pub fn collect_metadata_from_source(
     original_path_str: &str,
     strip_gps: bool,
@@ -2225,13 +2212,6 @@ pub fn persist_exif_if_missing(source_path: &Path, source_path_str: &str, file_b
     }
 }
 
-/// Saves an image produced by one of the conversions (denoising, negative
-/// conversion, panorama stitching, HDR merging, focus stacking) with the
-/// metadata of the image it was derived from embedded in it.
-///
-/// These conversions also drop a RapidRAW sidecar next to their output, which
-/// is what RapidRAW itself reads. Embedding the same data makes the file say
-/// the same thing to everything else.
 pub fn save_converted_image(
     image: &image::DynamicImage,
     output_path: &Path,

@@ -1280,7 +1280,6 @@ fn encode_grayscale_to_png(bitmap: &GrayImage) -> Result<Vec<u8>, String> {
     Ok(buf)
 }
 
-/// Exports are sRGB-encoded; tagging them lets color-managed apps read them correctly.
 pub(crate) const SRGB_ICC_PROFILE: &[u8] = include_bytes!("../icc/sRGB-v2-magic.icc");
 
 fn encode_image_to_bytes(
@@ -1370,9 +1369,6 @@ fn encode_image_to_bytes(
                 insert_png_phys_chunk(&mut image_bytes, dpi);
             }
         }
-        // Unlike the formats above, TIFF gets its metadata here rather than
-        // afterwards: patching an encoded TIFF would move its pixel data away
-        // from the offsets recorded in the IFD.
         "tif" | "tiff" => {
             let samples = match export_settings.tiff_bit_depth {
                 TiffBitDepth::Eight => TiffSamples::Eight,

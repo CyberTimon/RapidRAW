@@ -1,18 +1,3 @@
-//! Writes TIFF files with their EXIF metadata baked in at encode time.
-//!
-//! Every other output format gets its metadata patched in afterwards by
-//! `little_exif` (see `exif_processing::write_image_with_metadata`), which is
-//! safe there because EXIF lives in an independent segment or chunk. TIFF
-//! references its pixel data through absolute `StripOffsets` stored in the IFD
-//! itself, so inserting entries into a finished file shifts the pixel data out
-//! from under those offsets and corrupts the image.
-//!
-//! Writing the tags through the `tiff` crate before `write_data()` avoids that:
-//! the encoder lays out the strips once, after every tag is known. The EXIF
-//! shooting tags go into a proper Exif sub-IFD (0x8769) and the GPS tags into a
-//! GPS sub-IFD (0x8825), both written first so their file offsets are known by
-//! the time the main IFD needs to point at them.
-
 use image::{DynamicImage, GenericImageView};
 use little_exif::endian::Endian;
 use little_exif::exif_tag::ExifTag;
@@ -25,8 +10,6 @@ use tiff::encoder::colortype::{RGB8, RGB16, RGB32Float};
 use tiff::encoder::{DirectoryEncoder, Rational, SRational, TiffEncoder, TiffValue};
 use tiff::tags::{ResolutionUnit, Tag, Type};
 
-/// Sample format of the TIFF to write. Exports pick eight or sixteen bit,
-/// panorama stitching and HDR merging keep their float data.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TiffSamples {
     Eight,
@@ -37,54 +20,44 @@ pub enum TiffSamples {
 const TAG_EXIF_IFD: u16 = 0x8769;
 const TAG_GPS_IFD: u16 = 0x8825;
 
-/// Tags that describe how the pixel data is laid out in the file. The encoder
-/// writes these itself for the image it is encoding, so carrying them over from
-/// the source would describe the wrong image at best and break readers at
-/// worst. `MakerNote` is dropped for a related reason: it holds offsets into
-/// the source file that mean nothing here.
 pub fn is_structural_tag(tag: u16) -> bool {
     matches!(
         tag,
-        0x00FE // NewSubfileType
-            | 0x00FF // SubfileType
-            | 0x0100 // ImageWidth
-            | 0x0101 // ImageLength
-            | 0x0102 // BitsPerSample
-            | 0x0103 // Compression
-            | 0x0106 // PhotometricInterpretation
-            | 0x0107 // Thresholding
-            | 0x010A // FillOrder
-            | 0x0111 // StripOffsets
-            | 0x0115 // SamplesPerPixel
-            | 0x0116 // RowsPerStrip
-            | 0x0117 // StripByteCounts
-            | 0x011A // XResolution
-            | 0x011B // YResolution
-            | 0x011C // PlanarConfiguration
-            | 0x0128 // ResolutionUnit
-            | 0x013D // Predictor
-            | 0x0140 // ColorMap
-            | 0x0142 // TileWidth
-            | 0x0143 // TileLength
-            | 0x0144 // TileOffsets
-            | 0x0145 // TileByteCounts
-            | 0x014A // SubIFDs
-            | 0x0152 // ExtraSamples
-            | 0x0153 // SampleFormat
-            | 0x0201 // ThumbnailOffset
-            | 0x0202 // ThumbnailLength
-            | 0x8769 // ExifIFDPointer
-            | 0x8825 // GPSInfoIFDPointer
-            | 0xA005 // InteroperabilityIFDPointer
-            | 0x927C // MakerNote
+        0x00FE
+            | 0x00FF
+            | 0x0100
+            | 0x0101
+            | 0x0102
+            | 0x0103
+            | 0x0106
+            | 0x0107
+            | 0x010A
+            | 0x0111
+            | 0x0115
+            | 0x0116
+            | 0x0117
+            | 0x011A
+            | 0x011B
+            | 0x011C
+            | 0x0128
+            | 0x013D
+            | 0x0140
+            | 0x0142
+            | 0x0143
+            | 0x0144
+            | 0x0145
+            | 0x014A
+            | 0x0152
+            | 0x0153
+            | 0x0201
+            | 0x0202
+            | 0x8769
+            | 0x8825
+            | 0xA005
+            | 0x927C
     )
 }
 
-/// Encodes `image` as a TIFF with `metadata` written into the IFDs it belongs
-/// in, `icc_profile` tagged in the main IFD, and `dpi` recorded as the image
-/// resolution for print exports. Passing `None` for the metadata produces a
-/// TIFF without any, which is what export does when the user turns metadata
-/// off.
 pub fn encode_tiff_with_metadata(
     image: &DynamicImage,
     samples: TiffSamples,
@@ -97,14 +70,14 @@ pub fn encode_tiff_with_metadata(
     let mut encoder = TiffEncoder::new(&mut buffer)
         .map_err(|e| format!("Failed to create TIFF encoder: {}", e))?;
 
-    // The sub-IFDs have to exist before the main IFD can point at them, so
-    // they are written first and only their offsets are kept.
     let exif_ifd = write_sub_ifd(&mut encoder, metadata, ExifTagGroup::EXIF)?;
     let gps_ifd = write_sub_ifd(&mut encoder, metadata, ExifTagGroup::GPS)?;
 
     match samples {
         TiffSamples::Eight => {
-            let pixels = image.to_rgb8();
+            let pixels = image
+                .as_rgb8()
+                .map_or_else(|| Cow::Owned(image.to_rgb8()), Cow::Borrowed);
             let mut image_encoder = encoder
                 .new_image::<RGB8>(width, height)
                 .map_err(|e| format!("Failed to start TIFF image: {}", e))?;
@@ -121,7 +94,9 @@ pub fn encode_tiff_with_metadata(
                 .map_err(|e| format!("Failed to write TIFF pixel data: {}", e))?;
         }
         TiffSamples::Sixteen => {
-            let pixels = image.to_rgb16();
+            let pixels = image
+                .as_rgb16()
+                .map_or_else(|| Cow::Owned(image.to_rgb16()), Cow::Borrowed);
             let mut image_encoder = encoder
                 .new_image::<RGB16>(width, height)
                 .map_err(|e| format!("Failed to start TIFF image: {}", e))?;
@@ -138,7 +113,9 @@ pub fn encode_tiff_with_metadata(
                 .map_err(|e| format!("Failed to write TIFF pixel data: {}", e))?;
         }
         TiffSamples::ThirtyTwoFloat => {
-            let pixels = image.to_rgb32f();
+            let pixels = image
+                .as_rgb32f()
+                .map_or_else(|| Cow::Owned(image.to_rgb32f()), Cow::Borrowed);
             let mut image_encoder = encoder
                 .new_image::<RGB32Float>(width, height)
                 .map_err(|e| format!("Failed to start TIFF image: {}", e))?;
@@ -159,9 +136,6 @@ pub fn encode_tiff_with_metadata(
     Ok(buffer.into_inner())
 }
 
-/// Writes every tag of `group` into a directory of its own, unlinked from the
-/// image IFD chain, and returns where it landed. Returns `None` when the group
-/// holds no writable tag, so no empty sub-IFD is left behind.
 fn write_sub_ifd<W: Write + Seek>(
     encoder: &mut TiffEncoder<W>,
     metadata: Option<&Metadata>,
@@ -170,6 +144,10 @@ fn write_sub_ifd<W: Write + Seek>(
     let Some(metadata) = metadata else {
         return Ok(None);
     };
+
+    if tags_of_group(metadata, group).next().is_none() {
+        return Ok(None);
+    }
 
     let mut directory = encoder
         .extra_directory()
@@ -181,7 +159,6 @@ fn write_sub_ifd<W: Write + Seek>(
     }
 
     if !wrote_any {
-        drop(directory);
         return Ok(None);
     }
 
@@ -189,14 +166,9 @@ fn write_sub_ifd<W: Write + Seek>(
         .finish_with_offsets()
         .map_err(|e| format!("Failed to write TIFF sub-IFD: {}", e))?;
 
-    // Written as LONG rather than the IFD type: the Exif specification asks
-    // for LONG here, and readers reject a sub-IFD pointer of any other type.
     Ok(Some(offset.pointer.0 as u32))
 }
 
-/// Writes the descriptive tags of IFD0 plus the pointers to the sub-IFDs. This
-/// runs on the directory of the image itself, so it has to stay clear of the
-/// structural tags the encoder maintains.
 fn write_main_ifd<W: Write + Seek>(
     directory: &mut DirectoryEncoder<'_, W, tiff::encoder::TiffKindStandard>,
     metadata: Option<&Metadata>,
@@ -204,12 +176,8 @@ fn write_main_ifd<W: Write + Seek>(
     gps_ifd: Option<u32>,
     icc_profile: Option<&[u8]>,
 ) -> Result<(), String> {
-    // The colour profile belongs in the main IFD, with the `UNDEFINED` type the
-    // TIFF specification asks for. Exports are sRGB, so tagging them lets
-    // colour-managed applications show them correctly.
     if let Some(profile) = icc_profile {
-        directory
-            .write_tag(Tag::IccProfile, Undefined(profile))
+        write_aligned(directory, Tag::IccProfile, Undefined(profile))
             .map_err(|e| format!("Failed to write ICC profile: {}", e))?;
     }
 
@@ -235,9 +203,6 @@ fn write_main_ifd<W: Write + Seek>(
     Ok(())
 }
 
-/// Collects the tags of one IFD group that are worth carrying over. Only the
-/// first generic IFD is considered; later ones describe thumbnails and other
-/// sub-images that do not exist in the file being written.
 fn tags_of_group(metadata: &Metadata, group: ExifTagGroup) -> impl Iterator<Item = &ExifTag> {
     metadata
         .get_ifds()
@@ -249,19 +214,10 @@ fn tags_of_group(metadata: &Metadata, group: ExifTagGroup) -> impl Iterator<Item
         })
 }
 
-/// Tags that describe the image the way JPEG does it. TIFF states the same
-/// facts through its own baseline tags, and the Exif specification does not
-/// allow these inside a TIFF, so callers may pass them without harm.
 fn is_jpeg_only_tag(tag: u16) -> bool {
-    matches!(
-        tag,
-        0xA002 // ExifImageWidth
-            | 0xA003 // ExifImageHeight
-    )
+    matches!(tag, 0xA002 | 0xA003)
 }
 
-/// Converts one `little_exif` tag into the matching TIFF value and writes it.
-/// Returns whether the tag made it into the directory.
 fn write_tag<W: Write + Seek>(
     directory: &mut DirectoryEncoder<'_, W, tiff::encoder::TiffKindStandard>,
     tag: &ExifTag,
@@ -271,17 +227,17 @@ fn write_tag<W: Write + Seek>(
 
     let result = match tag.format() {
         ExifTagFormat::STRING => {
-            let text = ascii_value(&bytes);
+            let text = text_value(&bytes);
             if text.is_empty() {
                 return Ok(false);
             }
-            directory.write_tag(id, Ascii::from(text.as_str()))
+            write_aligned(directory, id, Ascii::from(text))
         }
-        ExifTagFormat::UNDEF => directory.write_tag(id, Undefined(&bytes)),
-        ExifTagFormat::INT8U => directory.write_tag(id, bytes.as_slice()),
+        ExifTagFormat::UNDEF => write_aligned(directory, id, Undefined(&bytes)),
+        ExifTagFormat::INT8U => write_aligned(directory, id, bytes.as_slice()),
         ExifTagFormat::INT8S => {
             let values: Vec<i8> = bytes.iter().map(|&b| b as i8).collect();
-            directory.write_tag(id, values.as_slice())
+            write_aligned(directory, id, values.as_slice())
         }
         ExifTagFormat::INT16U => {
             let values = convert::<2, u16>(&bytes, u16::from_le_bytes);
@@ -346,9 +302,19 @@ fn write_tag<W: Write + Seek>(
         .map_err(|e| format!("Failed to write TIFF tag {:#06x}: {}", tag.as_u16(), e))
 }
 
-/// Splits raw little-endian bytes into values. The `tiff` crate writes them out
-/// in the host's byte order afterwards, so going through native values here
-/// keeps this correct on big-endian machines too.
+fn write_aligned<W: Write + Seek, T: TiffValue>(
+    directory: &mut DirectoryEncoder<'_, W, tiff::encoder::TiffKindStandard>,
+    id: Tag,
+    value: T,
+) -> tiff::TiffResult<()> {
+    let len = value.bytes();
+    directory.write_tag(id, value)?;
+    if len > 4 && len % 2 == 1 {
+        directory.write_data(&[0u8][..])?;
+    }
+    Ok(())
+}
+
 fn convert<const N: usize, T>(bytes: &[u8], from_le_bytes: fn([u8; N]) -> T) -> Vec<T> {
     bytes
         .as_chunks::<N>()
@@ -358,37 +324,17 @@ fn convert<const N: usize, T>(bytes: &[u8], from_le_bytes: fn([u8; N]) -> T) -> 
         .collect()
 }
 
-/// EXIF strings arrive null-terminated, and the `tiff` crate rejects strings
-/// that are not plain ASCII or that contain a null byte. Non-ASCII bytes are
-/// dropped rather than replaced, so a name with an umlaut still comes through
-/// readable instead of failing the whole export.
-fn ascii_value(bytes: &[u8]) -> String {
-    bytes
-        .iter()
-        .copied()
-        .take_while(|&b| b != 0)
-        .filter(|b| b.is_ascii() && *b != 0)
-        .map(char::from)
-        .collect::<String>()
-        .trim()
-        .to_string()
+fn text_value(bytes: &[u8]) -> &[u8] {
+    let end = bytes.iter().position(|&b| b == 0).unwrap_or(bytes.len());
+    bytes[..end].trim_ascii()
 }
 
-/// A null-terminated ASCII value, padded to an even length.
-///
-/// TIFF expects every value to start on a word boundary. An odd-length string
-/// pushes everything written after it onto an odd offset, which validators
-/// complain about, so the padding keeps the rest of the file aligned. A
-/// trailing null beyond the first is ignored by readers.
 struct Ascii(Vec<u8>);
 
-impl From<&str> for Ascii {
-    fn from(text: &str) -> Self {
-        let mut bytes = text.as_bytes().to_vec();
+impl From<&[u8]> for Ascii {
+    fn from(text: &[u8]) -> Self {
+        let mut bytes = text.to_vec();
         bytes.push(0);
-        if !bytes.len().is_multiple_of(2) {
-            bytes.push(0);
-        }
         Ascii(bytes)
     }
 }
@@ -406,9 +352,6 @@ impl TiffValue for Ascii {
     }
 }
 
-/// A byte string written with EXIF's `UNDEFINED` type, which `tiff` has no
-/// value type for. Used for tags like `ExifVersion` and `UserComment`, where
-/// writing plain bytes instead would make validators complain about the type.
 struct Undefined<'a>(&'a [u8]);
 
 impl TiffValue for Undefined<'_> {
@@ -424,8 +367,6 @@ impl TiffValue for Undefined<'_> {
     }
 }
 
-/// Records the export's DPI as the image resolution. The encoder writes its own
-/// placeholder resolution otherwise, which says nothing about print size.
 fn set_resolution<W: Write + Seek, C: tiff::encoder::colortype::ColorType>(
     image_encoder: &mut tiff::encoder::ImageEncoder<'_, W, C, tiff::encoder::TiffKindStandard>,
     dpi: Option<u16>,
