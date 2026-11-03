@@ -1821,6 +1821,7 @@
       "sizeUnknown": "La taille de l'image n'a pas pu être lue, l'assemblage ne peut pas démarrer.",
       "starting": "Démarrage du panorama...",
       "taskFailed": "Le panorama n'a pas pu démarrer. {{detail}}",
+      "reprojectFailed": "La projection n'a pas pu être modifiée. {{detail}}",
       "unknownProjection": "Cette projection n'est pas disponible.",
       "writingTiff": "Écriture du fichier..."
     },

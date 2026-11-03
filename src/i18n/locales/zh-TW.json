@@ -1777,6 +1777,7 @@
       "sizeUnknown": "無法讀取影像尺寸，因此不能開始拼接。",
       "starting": "正在開始全景拼接...",
       "taskFailed": "無法開始全景拼接。{{detail}}",
+      "reprojectFailed": "無法變更投影。{{detail}}",
       "unknownProjection": "這種投影無法使用。",
       "writingTiff": "正在寫入檔案..."
     },

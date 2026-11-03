@@ -1820,6 +1820,7 @@
       "sizeUnknown": "Non è stato possibile leggere la dimensione dell'immagine, quindi l'unione non può iniziare.",
       "starting": "Avvio del panorama...",
       "taskFailed": "Non è stato possibile avviare il panorama. {{detail}}",
+      "reprojectFailed": "Non è stato possibile cambiare la proiezione. {{detail}}",
       "unknownProjection": "Questa proiezione non è disponibile.",
       "writingTiff": "Scrittura del file..."
     },

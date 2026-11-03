@@ -1783,6 +1783,7 @@
       "sizeUnknown": "De afbeeldingsgrootte kon niet worden gelezen, dus samenvoegen kan niet starten.",
       "starting": "Panorama starten...",
       "taskFailed": "Het panorama kon niet worden gestart. {{detail}}",
+      "reprojectFailed": "De projectie kon niet worden gewijzigd. {{detail}}",
       "unknownProjection": "Die projectie is niet beschikbaar.",
       "writingTiff": "Bestand schrijven..."
     },

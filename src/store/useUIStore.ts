@@ -66,6 +66,8 @@ interface PanoramaModalState {
   filenames: Array<string>;
   saveProgressPercent: number | null;
   saveProgressMessage: string | null;
+  previewError: string | null;
+  pendingProjection: string | null;
   quality: number;
   frames: Array<PanoramaFrameInfo> | null;
 }
@@ -159,6 +161,8 @@ export const initialPanoramaModalState: PanoramaModalState = {
   filenames: [],
   saveProgressPercent: null,
   saveProgressMessage: null,
+  previewError: null,
+  pendingProjection: null,
   quality: 1,
 };
 

@@ -1857,6 +1857,7 @@
       "sizeUnknown": "Velikost snímku se nepodařilo přečíst, skládání nemůže začít.",
       "starting": "Spouštění panoramatu...",
       "taskFailed": "Panorama se nepodařilo spustit. {{detail}}",
+      "reprojectFailed": "Projekci se nepodařilo změnit. {{detail}}",
       "unknownProjection": "Tahle projekce není k dispozici.",
       "writingTiff": "Zápis souboru..."
     },

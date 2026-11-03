@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { CheckCircle, XCircle, Loader2, Save } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, RefreshCw, Save } from 'lucide-react';
 import { motion } from 'framer-motion';
 import ReactCrop, { type PercentCrop, type Crop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
@@ -52,12 +52,15 @@ interface PanoramaModalProps {
   isOpen: boolean;
   isProcessing: boolean;
   loadingImageUrls?: string[];
+  onCancelSave(): void;
   onClose(): void;
   onOpenFile(path: string): void;
   onProjectionChange(projection: PanoramaProjection): void;
   onSave(crop: PanoramaCropRect | null): Promise<string>;
   onStitch(): void;
   overlayBase64: string | null;
+  pendingProjection: string | null;
+  previewError: string | null;
   previewHeight: number;
   previewWidth: number;
   progressMessage: string | null;
@@ -385,12 +388,15 @@ export default function PanoramaModal({
   isOpen,
   isProcessing,
   loadingImageUrls,
+  onCancelSave,
   onClose,
   onOpenFile,
   onProjectionChange,
   onSave,
   onStitch,
   overlayBase64,
+  pendingProjection,
+  previewError,
   previewHeight,
   previewWidth,
   progressMessage,
@@ -426,13 +432,11 @@ export default function PanoramaModal({
       return () => clearTimeout(timer);
     }
     setShow(false);
-    const timer = setTimeout(() => {
-      setIsMounted(false);
-      setSavedPath(null);
-      setIsSaving(false);
-      startedRef.current = false;
-      setHovered(null);
-    }, 300);
+    setSavedPath(null);
+    setIsSaving(false);
+    startedRef.current = false;
+    setHovered(null);
+    const timer = setTimeout(() => setIsMounted(false), 300);
     return () => clearTimeout(timer);
   }, [isOpen]);
   useEffect(() => {
@@ -460,6 +464,9 @@ export default function PanoramaModal({
       winnerImgRef.current = img;
     };
     img.src = winnerMapBase64.startsWith('data:') ? winnerMapBase64 : `data:image/png;base64,${winnerMapBase64}`;
+    return () => {
+      img.onload = null;
+    };
   }, [winnerMapBase64]);
 
   const handleClose = useCallback(() => {
@@ -613,6 +620,12 @@ export default function PanoramaModal({
                 {hoveredFrame.dropped && <div className="text-amber-300">{droppedReason(hoveredFrame.name)}</div>}
               </div>
             )}
+            {pendingProjection && (
+              <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-black/50 text-white">
+                <Loader2 className="animate-spin" size={28} />
+                <span className="text-xs font-mono">{panoramaMessage(t, progressMessage)}</span>
+              </div>
+            )}
           </div>
           <div ref={sidebarRef} className="col-start-2 row-start-1 w-max">
             <div>
@@ -625,7 +638,8 @@ export default function PanoramaModal({
                     <input
                       type="radio"
                       name="projection"
-                      checked={(selectedProjection || recommendedProjection) === p}
+                      checked={(pendingProjection || selectedProjection || recommendedProjection) === p}
+                      disabled={isSaving}
                       onChange={() => onProjectionChange(p)}
                     />
                     <span className="capitalize whitespace-nowrap">
@@ -664,7 +678,7 @@ export default function PanoramaModal({
                     {dropped.map((d, i) => (
                       <li key={i} className="font-mono">
                         <div className="truncate">{d.filename}</div>
-                        <div className="text-amber-200/80 text-[11px] leading-snug">{d.reason}</div>
+                        <div className="text-amber-200/80 text-[11px] leading-snug">{panoramaMessage(t, d.reason)}</div>
                       </li>
                     ))}
                   </ul>
@@ -724,19 +738,25 @@ export default function PanoramaModal({
             ) : (
               <>
                 <button
-                  onClick={handleClose}
+                  onClick={isSaving ? onCancelSave : handleClose}
                   className="px-4 py-2 rounded-md text-text-secondary hover:bg-card-active transition-colors text-sm"
                 >
                   {isSaving ? t('modals.panorama.cancel') : t('modals.panorama.close')}
                 </button>
-                <Button onClick={handleSave} disabled={isSaving || isProcessing}>
+                <Button onClick={handleSave} disabled={isSaving || Boolean(pendingProjection)}>
                   {isSaving ? <Loader2 className="animate-spin mr-2" size={16} /> : <Save className="mr-2" size={16} />}
                   {t('modals.panorama.save')}
                 </Button>
               </>
             )}
           </div>
-          <div className="col-start-1 row-start-4 min-w-0" />
+          <div className="col-start-1 row-start-4 min-w-0">
+            {previewError && (
+              <Text variant={TextVariants.small} color={TextColors.error} className="whitespace-pre-line">
+                {panoramaMessage(t, previewError)}
+              </Text>
+            )}
+          </div>
         </div>
       );
     }
@@ -789,70 +809,22 @@ export default function PanoramaModal({
       </div>
     );
   };
-  const renderButtons = () => {
-    if (error) {
-      return (
-        <div className="w-full flex items-center justify-end gap-2">
-          <button
-            onClick={handleClose}
-            className="px-4 py-2 rounded-md text-text-secondary hover:bg-card-active transition-colors text-sm"
-          >
-            {t('modals.panorama.close')}
-          </button>
-        </div>
-      );
-    }
-    if (savedPath) {
-      return (
-        <>
-          <button
-            onClick={handleClose}
-            className="px-4 py-2 rounded-md text-text-secondary hover:bg-card-active transition-colors"
-          >
-            {t('modals.panorama.close')}
-          </button>
-          <Button onClick={handleOpen}>{t('modals.panorama.openInEditor')}</Button>
-        </>
-      );
-    }
-
-    const percent = saveProgressPercent ?? 0;
-    return (
-      <div className="w-full flex flex-col gap-2">
-        {showSaveProgress && (
-          <div className="w-full min-w-0 flex flex-col justify-center gap-1.5 pr-1">
-            <div className="flex items-center justify-between gap-3 text-xs text-text-secondary">
-              <span className="truncate font-mono">
-                {panoramaMessage(t, saveProgressMessage) ||
-                  t('modals.panorama.savingProgress', { percent: Math.round(percent) })}
-              </span>
-              <span className="shrink-0 tabular-nums">{Math.round(percent)}%</span>
-            </div>
-            <div className="h-1.5 w-full rounded-full bg-surface overflow-hidden">
-              <div
-                className="h-full rounded-full bg-accent transition-[width] duration-200 ease-out"
-                style={{ width: `${Math.max(2, Math.min(100, percent))}%` }}
-              />
-            </div>
-          </div>
-        )}
-        <div className="flex items-center justify-end gap-2 shrink-0 w-full">
-          <button
-            onClick={handleClose}
-            className="px-4 py-2 rounded-md text-text-secondary hover:bg-card-active transition-colors text-sm"
-          >
-            {finalImageBase64 && !isSaving ? t('modals.panorama.close') : t('modals.panorama.cancel')}
-          </button>
-          {finalImageBase64 && (
-            <Button onClick={handleSave} disabled={isSaving || isProcessing}>
-              {isSaving ? <Loader2 className="animate-spin mr-2" size={16} /> : <Save className="mr-2" size={16} />}
-              {t('modals.panorama.save')}
-            </Button>
-          )}
-        </div>
-      </div>
-    );
-  };
+  const renderButtons = () => (
+    <div className="w-full flex items-center justify-end gap-2">
+      <button
+        onClick={handleClose}
+        className="px-4 py-2 rounded-md text-text-secondary hover:bg-card-active transition-colors text-sm"
+      >
+        {error ? t('modals.panorama.close') : t('modals.panorama.cancel')}
+      </button>
+      {error && (
+        <Button onClick={onStitch}>
+          <RefreshCw className="mr-2" size={16} />
+          {t('modals.panorama.retry')}
+        </Button>
+      )}
+    </div>
+  );
   if (!isMounted) return null;
   return (
     <div
@@ -872,9 +844,7 @@ export default function PanoramaModal({
         <div className={`flex flex-col ${showingPreview ? 'w-max' : ''}`}>
           {renderContent()}
           {!(showingPreview && !error) && (
-            <div className={`mt-4 flex w-full ${savedPath ? 'justify-end gap-3' : 'pt-4 border-t border-surface/50'}`}>
-              {renderButtons()}
-            </div>
+            <div className="mt-4 flex w-full pt-4 border-t border-surface/50">{renderButtons()}</div>
           )}
         </div>
       </div>

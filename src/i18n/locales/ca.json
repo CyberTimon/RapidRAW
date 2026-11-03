@@ -1820,6 +1820,7 @@
       "sizeUnknown": "No s'ha pogut llegir la mida de la imatge, així que la unió no pot començar.",
       "starting": "S'està iniciant el panorama...",
       "taskFailed": "No s'ha pogut iniciar el panorama. {{detail}}",
+      "reprojectFailed": "No s'ha pogut canviar la projecció. {{detail}}",
       "unknownProjection": "Aquesta projecció no està disponible.",
       "writingTiff": "S'està escrivint el fitxer..."
     },

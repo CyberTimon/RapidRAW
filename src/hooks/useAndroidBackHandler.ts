@@ -49,7 +49,7 @@ export function useAndroidBackHandler() {
         return;
       }
       if (ui.panoramaModalState.isOpen) {
-        invoke(Invokes.CancelPanorama).catch(() => {});
+        invoke(Invokes.CancelPanorama, { keepSession: false }).catch(() => {});
         ui.setUI({ panoramaModalState: initialPanoramaModalState });
         return;
       }

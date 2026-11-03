@@ -1820,6 +1820,7 @@
       "sizeUnknown": "No se pudo leer el tamaño de la imagen, así que no se puede empezar a unir.",
       "starting": "Iniciando el panorama...",
       "taskFailed": "No se pudo iniciar el panorama. {{detail}}",
+      "reprojectFailed": "No se pudo cambiar la proyección. {{detail}}",
       "unknownProjection": "Esa proyección no está disponible.",
       "writingTiff": "Escribiendo el archivo..."
     },

@@ -1820,6 +1820,7 @@
       "sizeUnknown": "Não foi possível ler o tamanho da imagem, então a montagem não pode começar.",
       "starting": "Iniciando o panorama...",
       "taskFailed": "Não foi possível iniciar o panorama. {{detail}}",
+      "reprojectFailed": "Não foi possível alterar a projeção. {{detail}}",
       "unknownProjection": "Essa projeção não está disponível.",
       "writingTiff": "Gravando o arquivo..."
     },

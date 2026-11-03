@@ -423,23 +423,24 @@ export function useTauriListeners({
       listen('panorama-progress', (event: any) => {
         if (isEffectActive) {
           useUIStore.getState().setUI((state) => {
-            if (!state.panoramaModalState.isOpen) return state;
-            if (state.panoramaModalState.finalImageBase64 || state.panoramaModalState.error) return state;
+            if (!state.panoramaModalState.isOpen || state.panoramaModalState.error) return state;
             return { panoramaModalState: { ...state.panoramaModalState, progressMessage: event.payload } };
           });
         }
       }),
-      listen('panorama-save-progress', (event: any) => {
+      listen<{ percent: number; message: string }>('panorama-save-progress', (event) => {
         if (isEffectActive) {
-          const percent = typeof event.payload?.percent === 'number' ? event.payload.percent : 0;
-          const message = typeof event.payload?.message === 'string' ? event.payload.message : null;
-          useUIStore.getState().setUI((state) => ({
-            panoramaModalState: {
-              ...state.panoramaModalState,
-              saveProgressPercent: Math.max(0, Math.min(100, percent)),
-              saveProgressMessage: message,
-            },
-          }));
+          const { percent, message } = event.payload;
+          useUIStore.getState().setUI((state) => {
+            if (!state.panoramaModalState.isOpen) return state;
+            return {
+              panoramaModalState: {
+                ...state.panoramaModalState,
+                saveProgressPercent: Math.max(0, Math.min(100, percent)),
+                saveProgressMessage: message,
+              },
+            };
+          });
         }
       }),
       listen('panorama-complete', (event: any) => {
@@ -461,7 +462,7 @@ export function useTauriListeners({
                 previewHeight: event.payload.previewHeight ?? 0,
                 filenames: event.payload.filenames ?? [],
                 frames: event.payload.frames ?? null,
-
+                pendingProjection: null,
                 isProcessing: false,
                 progressMessage: null,
                 saveProgressPercent: null,

@@ -124,10 +124,9 @@ pub async fn reproject_panorama(
             };
             (session.frames.clone(), session.registration.clone(), opts)
         };
-        let _ = app_handle.emit("panorama-progress", "Reprojecting preview...");
-        let progress = |msg: &str, _frac: f64| {
-            let _ = app_handle.emit("panorama-progress", msg.to_string());
-        };
+        let emit = progress_emitter(&app_handle, &stop);
+        emit("Reprojecting preview...");
+        let progress = |msg: &str, _frac: f64| emit(msg);
         let rendered = match stitch::compose_frames(&frames, &reg, proj, &opts, &progress, &stop) {
             Ok(r) => r,
             Err(e) if e == "stopped" || stop.halted() => {
@@ -161,18 +160,25 @@ pub async fn reproject_panorama(
 }
 
 #[tauri::command]
-pub async fn cancel_panorama(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    let stop = state
-        .panorama_stop
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
-    stop.store(true, Ordering::SeqCst);
-    drop_session(
-        &mut state
-            .panorama_session
+pub async fn cancel_panorama(
+    keep_session: bool,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    if keep_session {
+        state
+            .panorama_stop
             .lock()
-            .unwrap_or_else(|e| e.into_inner()),
-    );
+            .unwrap_or_else(|e| e.into_inner())
+            .store(true, Ordering::SeqCst);
+    } else {
+        arm_stop(&state);
+        drop_session(
+            &mut state
+                .panorama_session
+                .lock()
+                .unwrap_or_else(|e| e.into_inner()),
+        );
+    }
     Ok(())
 }
 
@@ -195,7 +201,9 @@ pub async fn save_panorama(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<String, String> {
-    let stop = StitchLog::new(arm_stop(&state));
+    let flag = arm_stop(&state);
+    let stop = StitchLog::new(flag.clone());
+    let stop_slot = state.panorama_stop.clone();
     let session_slot = state.panorama_session.clone();
     let mut session = state
         .panorama_session
@@ -208,15 +216,15 @@ pub async fn save_panorama(
     let task = tokio::task::spawn_blocking(move || {
         stitch_log::phase("save started");
         let result = save_composite(&mut session, &first_path_str, &crop, &app_handle, &stop);
-        match &result {
-            Ok(_) => {}
-            Err(e) if e == "stopped" || stop.halted() => stop.note_stop(),
-            Err(e) => {
+        if let Err(e) = &result {
+            if e == "stopped" || stop.halted() {
+                stop.note_stop();
+            } else {
                 log::error!("Panorama save failed:\n{}", e);
-                let mut slot = session_slot.lock().unwrap_or_else(|e| e.into_inner());
-                if !stop.halted() {
-                    *slot = Some(session);
-                }
+            }
+            let current = stop_slot.lock().unwrap_or_else(|e| e.into_inner());
+            if Arc::ptr_eq(&current, &flag) {
+                *session_slot.lock().unwrap_or_else(|e| e.into_inner()) = Some(session);
             }
         }
         result
@@ -234,6 +242,14 @@ const BAR_AFTER_BLEND: f64 = 64.0;
 const BAR_AFTER_FINISH: f64 = 68.0;
 
 const PREFETCH: usize = 1;
+
+fn progress_emitter<'a>(app: &'a AppHandle, stop: &'a StitchLog) -> impl Fn(&str) + Sync + 'a {
+    move |msg| {
+        if !stop.halted() {
+            let _ = app.emit("panorama-progress", msg);
+        }
+    }
+}
 
 fn save_phase_percent(msg: &str, frac: f64) -> f64 {
     let frac = frac.clamp(0.0, 1.0);
@@ -354,17 +370,9 @@ fn run_stitch(
     stop: &StitchLog,
 ) -> Result<PanoramaSession, String> {
     let settings = load_settings(app.clone()).unwrap_or_default();
-    let frames = load_frames(
-        source_paths,
-        &settings,
-        &|m| {
-            let _ = app.emit("panorama-progress", m.to_string());
-        },
-        stop,
-    )?;
-    let progress = |msg: &str, _frac: f64| {
-        let _ = app.emit("panorama-progress", msg.to_string());
-    };
+    let emit = progress_emitter(app, stop);
+    let frames = load_frames(source_paths, &settings, &emit, stop)?;
+    let progress = |msg: &str, _frac: f64| emit(msg);
     let reg = stitch::register(&frames, stop)?;
     stitch_log::phase(&format!(
         "registered used={} rmsPx {:.3} -> {:.3}",
@@ -547,6 +555,9 @@ fn save_composite(
 ) -> Result<String, String> {
     let shown = AtomicU64::new(0);
     let emit_save = |percent: f64, message: &str| {
+        if stop.halted() {
+            return;
+        }
         let bits = shown.fetch_max(percent.to_bits(), Ordering::Relaxed);
         let _ = app.emit(
             "panorama-save-progress",
@@ -629,19 +640,14 @@ fn save_composite(
         .clamp(y0 as f64 + 1.0, h as f64) as u32;
     let cw = x1 - x0;
     let ch = y1 - y0;
-    let _ = app.emit(
-        "panorama-save-progress",
-        serde_json::json!({ "percent": 70, "message": "Encoding image..." }),
-    );
+    emit_save(70.0, "Encoding image...");
     stitch_log::line(&format!("save encode {cw}x{ch}"));
     let Composed { image, label, .. } = rendered;
     drop(label);
     let rgb16 = encode_cropped_16(&image.data, w, (x0, y0), (cw, ch))?;
     drop(image);
-    let _ = app.emit(
-        "panorama-save-progress",
-        serde_json::json!({ "percent": 95, "message": "Writing TIFF..." }),
-    );
+    stop.gate()?;
+    emit_save(95.0, "Writing TIFF...");
     let (real_path, _) = parse_virtual_path(first_path_str);
     crate::exif_processing::save_converted_image(
         &DynamicImage::ImageRgb16(rgb16),
@@ -652,13 +658,7 @@ fn save_composite(
     let _ =
         crate::exif_processing::write_rrexif_sidecar(&real_path.to_string_lossy(), &output_path);
     stitch_log::phase(&format!("saved {}", output_path.display()));
-    let _ = app.emit(
-        "panorama-save-progress",
-        serde_json::json!({
-            "percent": 100,
-            "message": "Save complete",
-        }),
-    );
+    emit_save(100.0, "Save complete");
     Ok(output_path.to_string_lossy().to_string())
 }
 

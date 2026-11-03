@@ -1777,6 +1777,7 @@
       "sizeUnknown": "이미지 크기를 읽지 못해 이어 붙이기를 시작할 수 없습니다.",
       "starting": "파노라마를 시작하는 중...",
       "taskFailed": "파노라마를 시작하지 못했습니다. {{detail}}",
+      "reprojectFailed": "투영을 변경하지 못했습니다. {{detail}}",
       "unknownProjection": "그 투영은 사용할 수 없습니다.",
       "writingTiff": "파일을 쓰는 중..."
     },

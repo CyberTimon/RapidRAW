@@ -23,7 +23,7 @@ export interface AppModalsProps {
   handleSavePanorama: (crop?: { x: number; y: number; width: number; height: number } | null) => Promise<string>;
   handleStartPanorama: (paths: string[]) => void;
   handleReprojectPanorama: (projection: string) => void;
-  handleCancelPanorama: () => void;
+  handleCancelPanorama: (keepSession: boolean) => void;
   handleSaveHdr: () => Promise<string>;
   handleStartHdr: (paths: string[]) => void;
   handleStartFocusStack: (paths: string[]) => void;
@@ -157,8 +157,9 @@ export default function AppModals(props: AppModalsProps) {
         isOpen={panoramaModalState.isOpen}
         isProcessing={panoramaModalState.isProcessing}
         loadingImageUrls={panoramaThumbnails}
+        onCancelSave={() => props.handleCancelPanorama(true)}
         onClose={() => {
-          props.handleCancelPanorama();
+          props.handleCancelPanorama(false);
           setUI({ panoramaModalState: initialPanoramaModalState });
         }}
         onOpenFile={(path: string) => props.handleImageSelect(path)}
@@ -166,6 +167,8 @@ export default function AppModals(props: AppModalsProps) {
         onSave={(crop) => props.handleSavePanorama(crop)}
         onStitch={() => props.handleStartPanorama(panoramaModalState.stitchingSourcePaths)}
         overlayBase64={panoramaModalState.overlayBase64}
+        pendingProjection={panoramaModalState.pendingProjection}
+        previewError={panoramaModalState.previewError}
         previewHeight={panoramaModalState.previewHeight}
         previewWidth={panoramaModalState.previewWidth}
         progressMessage={panoramaModalState.progressMessage}

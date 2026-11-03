@@ -1783,6 +1783,7 @@
       "sizeUnknown": "Die Bildgröße konnte nicht gelesen werden, daher kann das Zusammenfügen nicht starten.",
       "starting": "Panorama wird gestartet...",
       "taskFailed": "Das Panorama konnte nicht gestartet werden. {{detail}}",
+      "reprojectFailed": "Die Projektion konnte nicht geändert werden. {{detail}}",
       "unknownProjection": "Diese Projektion ist nicht verfügbar.",
       "writingTiff": "Datei wird geschrieben..."
     },

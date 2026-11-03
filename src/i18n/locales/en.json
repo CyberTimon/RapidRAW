@@ -1768,6 +1768,7 @@
       "loadingFile": "Loading {{current}}/{{total}}: {{name}}",
       "needTwo": "Select at least two photos to stitch.",
       "taskFailed": "The panorama could not be started. {{detail}}",
+      "reprojectFailed": "The projection could not be changed. {{detail}}",
       "unknownProjection": "That projection is not available.",
       "noSession": "Stitch the photos before changing the projection.",
       "noSessionSave": "Stitch the photos before saving.",

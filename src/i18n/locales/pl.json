@@ -1857,6 +1857,7 @@
       "sizeUnknown": "Nie udało się odczytać rozmiaru obrazu, więc składanie nie może się zacząć.",
       "starting": "Uruchamianie panoramy...",
       "taskFailed": "Nie udało się uruchomić panoramy. {{detail}}",
+      "reprojectFailed": "Nie udało się zmienić rzutu. {{detail}}",
       "unknownProjection": "Ten rzut nie jest dostępny.",
       "writingTiff": "Zapisywanie pliku..."
     },

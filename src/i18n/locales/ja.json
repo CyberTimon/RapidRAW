@@ -1777,6 +1777,7 @@
       "sizeUnknown": "画像のサイズを読めなかったため、つなぎを始められません。",
       "starting": "パノラマを開始しています...",
       "taskFailed": "パノラマを開始できませんでした。{{detail}}",
+      "reprojectFailed": "投影を変更できませんでした。{{detail}}",
       "unknownProjection": "その投影は使えません。",
       "writingTiff": "ファイルを書き出しています..."
     },

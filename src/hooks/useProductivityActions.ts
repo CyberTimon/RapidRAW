@@ -37,8 +37,8 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
       setUI((state) => ({
         panoramaModalState: {
           ...state.panoramaModalState,
-          isProcessing: true,
-          selectedProjection: projection,
+          pendingProjection: projection,
+          previewError: null,
           progressMessage: 'Reprojecting preview...',
         },
       }));
@@ -46,7 +46,7 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
         setUI((state) => {
           if (!state.panoramaModalState.isOpen) return state;
           return {
-            panoramaModalState: { ...state.panoramaModalState, isProcessing: false, error: String(err) },
+            panoramaModalState: { ...state.panoramaModalState, pendingProjection: null, previewError: String(err) },
           };
         });
       });
@@ -54,8 +54,8 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
     [setUI],
   );
 
-  const handleCancelPanorama = useCallback(() => {
-    invoke(Invokes.CancelPanorama).catch(() => {});
+  const handleCancelPanorama = useCallback((keepSession: boolean) => {
+    invoke(Invokes.CancelPanorama, { keepSession }).catch(() => {});
   }, []);
 
   const handleSavePanorama = useCallback(
@@ -63,7 +63,7 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
       const { panoramaModalState } = useUIStore.getState();
       if (panoramaModalState.stitchingSourcePaths.length === 0) {
         const err = 'Source paths for panorama not found.';
-        setUI((state) => ({ panoramaModalState: { ...state.panoramaModalState, error: err } }));
+        setUI((state) => ({ panoramaModalState: { ...state.panoramaModalState, previewError: err } }));
         throw new Error(err);
       }
       try {
@@ -71,8 +71,8 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
           panoramaModalState: {
             ...state.panoramaModalState,
             saveProgressPercent: 0,
-            saveProgressMessage: 'Starting save...',
-            error: null,
+            saveProgressMessage: null,
+            previewError: null,
           },
         }));
         const savedPath: string = await invoke(Invokes.SavePanorama, {
@@ -91,14 +91,17 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
         return savedPath;
       } catch (err) {
         console.error('Failed to save panorama:', err);
-        setUI((state) => ({
-          panoramaModalState: {
-            ...state.panoramaModalState,
-            error: String(err),
-            saveProgressPercent: null,
-            saveProgressMessage: null,
-          },
-        }));
+        setUI((state) => {
+          if (!state.panoramaModalState.isOpen) return state;
+          return {
+            panoramaModalState: {
+              ...state.panoramaModalState,
+              previewError: String(err),
+              saveProgressPercent: null,
+              saveProgressMessage: null,
+            },
+          };
+        });
         throw err;
       }
     },
