@@ -53,6 +53,8 @@ export interface PanoramaPreview {
   minQuality: number;
 }
 
+export const PANORAMA_FULL_QUALITY = 1;
+
 export type PanoramaFailureCode = Extract<PanoramaMessageCode, 'taskFailed' | 'reprojectFailed' | 'saveFailed'>;
 
 export function toPanoramaMessage(err: unknown, fallback: PanoramaFailureCode): PanoramaMessage {
