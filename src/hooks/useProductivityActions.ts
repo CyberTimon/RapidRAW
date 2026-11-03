@@ -2,33 +2,23 @@ import { useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useUIStore } from '../store/useUIStore';
 import { Invokes } from '../components/ui/AppProperties';
-import { toPanoramaMessage, type PanoramaCropRect, type PanoramaProjection } from '../utils/panorama';
+import {
+  toPanoramaMessage,
+  updateOpenPanorama,
+  type PanoramaCropRect,
+  type PanoramaProjection,
+} from '../utils/panorama';
 
 export function useProductivityActions(refreshImageList: () => Promise<void>) {
   const setUI = useUIStore((state) => state.setUI);
 
   const handleStartPanorama = useCallback(
     (paths: string[]) => {
-      setUI((state) => ({
-        panoramaModalState: {
-          ...state.panoramaModalState,
-          isProcessing: true,
-          error: null,
-          preview: null,
-          progressMessage: { code: 'starting' },
-        },
-      }));
+      setUI(
+        updateOpenPanorama({ isProcessing: true, error: null, preview: null, progressMessage: { code: 'starting' } }),
+      );
       invoke(Invokes.StitchPanorama, { paths }).catch((err) => {
-        setUI((state) => {
-          if (!state.panoramaModalState.isOpen) return state;
-          return {
-            panoramaModalState: {
-              ...state.panoramaModalState,
-              isProcessing: false,
-              error: toPanoramaMessage(err, 'taskFailed'),
-            },
-          };
-        });
+        setUI(updateOpenPanorama({ isProcessing: false, error: toPanoramaMessage(err, 'taskFailed') }));
       });
     },
     [setUI],
@@ -36,25 +26,15 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
 
   const handleReprojectPanorama = useCallback(
     (projection: PanoramaProjection) => {
-      setUI((state) => ({
-        panoramaModalState: {
-          ...state.panoramaModalState,
+      setUI(
+        updateOpenPanorama({
           pendingProjection: projection,
           previewError: null,
           progressMessage: { code: 'reprojecting' },
-        },
-      }));
+        }),
+      );
       invoke(Invokes.ReprojectPanorama, { projection }).catch((err) => {
-        setUI((state) => {
-          if (!state.panoramaModalState.isOpen) return state;
-          return {
-            panoramaModalState: {
-              ...state.panoramaModalState,
-              pendingProjection: null,
-              previewError: toPanoramaMessage(err, 'reprojectFailed'),
-            },
-          };
-        });
+        setUI(updateOpenPanorama({ pendingProjection: null, previewError: toPanoramaMessage(err, 'reprojectFailed') }));
       });
     },
     [setUI],
@@ -67,37 +47,20 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
   const handleSavePanorama = useCallback(
     async (crop: PanoramaCropRect, quality: number): Promise<string> => {
       try {
-        setUI((state) => ({
-          panoramaModalState: {
-            ...state.panoramaModalState,
-            saveProgressPercent: 0,
-            saveProgressMessage: null,
-            previewError: null,
-          },
-        }));
+        setUI(updateOpenPanorama({ saveProgressPercent: 0, saveProgressMessage: null, previewError: null }));
         const savedPath: string = await invoke(Invokes.SavePanorama, { crop, quality });
         await refreshImageList();
-        setUI((state) => ({
-          panoramaModalState: {
-            ...state.panoramaModalState,
-            saveProgressPercent: null,
-            saveProgressMessage: null,
-          },
-        }));
+        setUI(updateOpenPanorama({ saveProgressPercent: null, saveProgressMessage: null }));
         return savedPath;
       } catch (err) {
         console.error('Failed to save panorama:', err);
-        setUI((state) => {
-          if (!state.panoramaModalState.isOpen) return state;
-          return {
-            panoramaModalState: {
-              ...state.panoramaModalState,
-              previewError: toPanoramaMessage(err, 'saveFailed'),
-              saveProgressPercent: null,
-              saveProgressMessage: null,
-            },
-          };
-        });
+        setUI(
+          updateOpenPanorama({
+            previewError: toPanoramaMessage(err, 'saveFailed'),
+            saveProgressPercent: null,
+            saveProgressMessage: null,
+          }),
+        );
         throw err;
       }
     },

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle, XCircle, Loader2, RefreshCw, Save } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -113,17 +113,13 @@ export default function PanoramaModal({
     onStitch();
   }, [isOpen, sourcePaths.join('\n')]);
 
-  const handleClose = useCallback(() => {
-    onClose();
-  }, [onClose]);
-
   const handleBackdropMouseDown = (e: React.MouseEvent) => {
     mouseDownTarget.current = e.target;
   };
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget && mouseDownTarget.current === e.currentTarget) {
-      handleClose();
+      onClose();
     }
     mouseDownTarget.current = null;
   };
@@ -144,7 +140,7 @@ export default function PanoramaModal({
   const handleOpen = () => {
     if (savedPath) {
       onOpenFile(savedPath);
-      handleClose();
+      onClose();
     }
   };
 
@@ -291,7 +287,7 @@ export default function PanoramaModal({
     if (error) {
       return (
         <>
-          {renderTextButton(t('modals.panorama.close'), handleClose)}
+          {renderTextButton(t('modals.panorama.close'), onClose)}
           <Button onClick={onStitch}>
             <RefreshCw className="mr-2" size={16} />
             {t('modals.panorama.retry')}
@@ -302,7 +298,7 @@ export default function PanoramaModal({
     if (savedPath) {
       return (
         <>
-          {renderTextButton(t('modals.panorama.close'), handleClose)}
+          {renderTextButton(t('modals.panorama.close'), onClose)}
           <Button onClick={handleOpen}>{t('modals.panorama.openInEditor')}</Button>
         </>
       );
@@ -312,7 +308,7 @@ export default function PanoramaModal({
         <>
           {isSaving
             ? renderTextButton(t('modals.panorama.cancel'), onCancelSave)
-            : renderTextButton(t('modals.panorama.close'), handleClose)}
+            : renderTextButton(t('modals.panorama.close'), onClose)}
           <Button onClick={handleSave} disabled={isSaving || Boolean(pendingProjection)}>
             {isSaving ? <Loader2 className="animate-spin mr-2" size={16} /> : <Save className="mr-2" size={16} />}
             {t('modals.panorama.save')}
@@ -320,7 +316,7 @@ export default function PanoramaModal({
         </>
       );
     }
-    return renderTextButton(t('modals.panorama.cancel'), handleClose);
+    return renderTextButton(t('modals.panorama.cancel'), onClose);
   };
 
   if (!isMounted) return null;

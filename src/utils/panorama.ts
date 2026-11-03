@@ -1,5 +1,6 @@
 import type { TFunction } from 'i18next';
 import type en from '../i18n/locales/en.json';
+import type { UIState } from '../store/useUIStore';
 
 export type PanoramaMessageCode = keyof (typeof en)['modals']['panorama']['messages'];
 
@@ -65,4 +66,9 @@ export function toPanoramaMessage(err: unknown, fallback: PanoramaFailureCode): 
 export function panoramaMessage(t: TFunction, message: PanoramaMessage | null | undefined): string {
   if (!message) return '';
   return String(t(`modals.panorama.messages.${message.code}`, message.params ?? {}));
+}
+
+export function updateOpenPanorama(patch: Partial<UIState['panoramaModalState']>) {
+  return (state: UIState): Partial<UIState> =>
+    state.panoramaModalState.isOpen ? { panoramaModalState: { ...state.panoramaModalState, ...patch } } : state;
 }

@@ -9,7 +9,7 @@ import { AiJobsStatus, JobKind, JobStatus, useProcessStore } from '../store/useP
 import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
 import { useLibraryStore } from '../store/useLibraryStore';
-import type { PanoramaMessage, PanoramaPreview } from '../utils/panorama';
+import { updateOpenPanorama, type PanoramaMessage, type PanoramaPreview } from '../utils/panorama';
 
 const parseAnalyticsPacket = async (buffer: ArrayBuffer) => {
   const view = new DataView(buffer);
@@ -422,63 +422,48 @@ export function useTauriListeners({
         }
       }),
       listen<PanoramaMessage>('panorama-progress', (event) => {
-        if (isEffectActive) {
-          useUIStore.getState().setUI((state) => {
-            if (!state.panoramaModalState.isOpen || state.panoramaModalState.error) return state;
-            return { panoramaModalState: { ...state.panoramaModalState, progressMessage: event.payload } };
-          });
+        const ui = useUIStore.getState();
+        if (isEffectActive && !ui.panoramaModalState.error) {
+          ui.setUI(updateOpenPanorama({ progressMessage: event.payload }));
         }
       }),
       listen<{ percent: number; message: PanoramaMessage }>('panorama-save-progress', (event) => {
         if (isEffectActive) {
-          const { percent, message } = event.payload;
-          useUIStore.getState().setUI((state) => {
-            if (!state.panoramaModalState.isOpen) return state;
-            return {
-              panoramaModalState: {
-                ...state.panoramaModalState,
-                saveProgressPercent: Math.max(0, Math.min(100, percent)),
-                saveProgressMessage: message,
-              },
-            };
-          });
+          useUIStore.getState().setUI(
+            updateOpenPanorama({
+              saveProgressPercent: event.payload.percent,
+              saveProgressMessage: event.payload.message,
+            }),
+          );
         }
       }),
       listen<PanoramaPreview>('panorama-complete', (event) => {
         if (isEffectActive) {
-          useUIStore.getState().setUI((state) => {
-            if (!state.panoramaModalState.isOpen) return state;
-            return {
-              panoramaModalState: {
-                ...state.panoramaModalState,
-                error: null,
-                preview: event.payload,
-                pendingProjection: null,
-                isProcessing: false,
-                progressMessage: null,
-                saveProgressPercent: null,
-                saveProgressMessage: null,
-              },
-            };
-          });
+          useUIStore.getState().setUI(
+            updateOpenPanorama({
+              error: null,
+              preview: event.payload,
+              pendingProjection: null,
+              isProcessing: false,
+              progressMessage: null,
+              saveProgressPercent: null,
+              saveProgressMessage: null,
+            }),
+          );
         }
       }),
       listen<PanoramaMessage>('panorama-error', (event) => {
         if (isEffectActive) {
-          useUIStore.getState().setUI((state) => {
-            if (!state.panoramaModalState.isOpen) return state;
-            return {
-              panoramaModalState: {
-                ...state.panoramaModalState,
-                error: event.payload,
-                preview: null,
-                isProcessing: false,
-                progressMessage: null,
-                saveProgressPercent: null,
-                saveProgressMessage: null,
-              },
-            };
-          });
+          useUIStore.getState().setUI(
+            updateOpenPanorama({
+              error: event.payload,
+              preview: null,
+              isProcessing: false,
+              progressMessage: null,
+              saveProgressPercent: null,
+              saveProgressMessage: null,
+            }),
+          );
         }
       }),
       listen('hdr-progress', (event: any) => {
