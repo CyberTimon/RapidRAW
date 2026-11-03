@@ -131,11 +131,7 @@ async fn upload_export(
     }
     if let Some(original) = original {
         let mut ids = vec![new_id.clone(), original];
-        let stacked = client
-            .stacks()
-            .await?
-            .into_iter()
-            .find(|stack| stack.assets.iter().any(|asset| asset.id == ids[1]));
+        let stacked = client.stack_of(&ids[1]).await?;
         for asset in stacked.map(|stack| stack.assets).unwrap_or_default() {
             if !ids.contains(&asset.id) {
                 ids.push(asset.id);

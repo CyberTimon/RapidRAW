@@ -131,22 +131,99 @@ fn is_raw(asset: &Asset) -> bool {
     crate::formats::is_raw_file(&asset.original_file_name)
 }
 
+fn month(day: Option<&str>) -> Option<&str> {
+    day.map(str::trim).and_then(|day| day.get(..7))
+}
+
+/// The stacks that contain any of the listed assets, without asking Immich
+/// for every stack of the library (`GET /stacks` is huge on big libraries).
+///
+/// The timeline with collapsed stacks gives, for the album or the months of
+/// the filter, which assets are unstacked and the stack id of every primary
+/// asset. Only those stacks are fetched. Listed assets the timeline did not
+/// show and that are not in one of those stacks (non-primary assets whose
+/// primary is not listed, assets near a month border) are looked up one by
+/// one.
+async fn stacks_for(
+    client: &ImmichClient,
+    filter: &Filter,
+    assets: &[Asset],
+) -> Result<Vec<Stack>, String> {
+    let timeline = client
+        .timeline_stacks(
+            filter.album_id.as_deref(),
+            month(filter.taken_from.as_deref()),
+            month(filter.taken_until.as_deref()),
+        )
+        .await
+        .unwrap_or_else(|e| {
+            log::warn!("Immich timeline unavailable, looking up stacks per asset: {e}");
+            HashMap::new()
+        });
+
+    let mut stack_ids: Vec<String> = assets
+        .iter()
+        .filter_map(|a| timeline.get(&a.id).cloned().flatten())
+        .collect();
+    stack_ids.sort();
+    stack_ids.dedup();
+    let mut stacks = client.stacks_by_id(stack_ids.iter().cloned()).await?;
+
+    let known: HashSet<&str> = timeline
+        .keys()
+        .map(String::as_str)
+        .chain(
+            stacks
+                .iter()
+                .flat_map(|s| s.assets.iter().map(|a| a.id.as_str())),
+        )
+        .collect();
+    let unknown: Vec<String> = assets
+        .iter()
+        .filter(|a| !known.contains(a.id.as_str()))
+        .map(|a| a.id.clone())
+        .collect();
+    if !unknown.is_empty() {
+        let more: Vec<String> = client
+            .stack_ids_of(&unknown)
+            .await?
+            .into_iter()
+            .filter(|id| !stack_ids.contains(id))
+            .collect();
+        stacks.extend(client.stacks_by_id(more).await?);
+    }
+    Ok(stacks)
+}
+
+async fn listed_assets(client: &ImmichClient, filter: &Filter) -> Result<Vec<Asset>, String> {
+    let mut query = filter.to_query();
+    query["order"] = json!("desc");
+    Ok(client
+        .search(query)
+        .await?
+        .into_iter()
+        .filter(|asset| asset.kind == "IMAGE" && !registry::is_trashing(&asset.id))
+        .collect())
+}
+
 pub async fn listing(
     client: &ImmichClient,
     filter: &Filter,
     cache_dir: &Path,
 ) -> Result<Vec<Resolved>, String> {
-    let mut query = filter.to_query();
-    query["order"] = json!("desc");
-    let assets: Vec<Asset> = client
-        .search(query)
-        .await?
-        .into_iter()
-        .filter(|asset| asset.kind == "IMAGE" && !registry::is_trashing(&asset.id))
-        .collect();
-    let stacks = StackIndex::new(client.stacks().await?);
+    let assets = listed_assets(client, filter).await?;
+    let stacks = StackIndex::new(stacks_for(client, filter, &assets).await?);
+    Ok(resolve(assets, &stacks, filter, cache_dir))
+}
+
+fn resolve(
+    assets: Vec<Asset>,
+    stacks: &StackIndex,
+    filter: &Filter,
+    cache_dir: &Path,
+) -> Vec<Resolved> {
     let assets = if filter.not_in_album {
-        without_sorted_stacks(assets, &stacks)
+        without_sorted_stacks(assets, stacks)
     } else {
         assets
     };
@@ -176,7 +253,7 @@ pub async fn listing(
             },
         });
     }
-    Ok(resolved)
+    resolved
 }
 
 fn without_sorted_stacks(assets: Vec<Asset>, stacks: &StackIndex) -> Vec<Asset> {
@@ -194,4 +271,194 @@ fn without_sorted_stacks(assets: Vec<Asset>, stacks: &StackIndex) -> Vec<Asset> 
         .into_iter()
         .filter(|a| !sorted.contains(&a.id))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Instant;
+
+    fn summary(resolved: &[Resolved]) -> Vec<(String, String, String)> {
+        let mut rows: Vec<_> = resolved
+            .iter()
+            .map(|r| {
+                (
+                    r.image.listed_asset_id.clone(),
+                    r.image.asset_id.clone(),
+                    r.path.to_string_lossy().into_owned(),
+                )
+            })
+            .collect();
+        rows.sort();
+        rows
+    }
+
+    fn uuid(n: u8) -> String {
+        format!("00000000-0000-0000-0000-{n:012}")
+    }
+
+    fn asset(n: u8, name: &str) -> Asset {
+        serde_json::from_value(json!({
+            "id": uuid(n),
+            "type": "IMAGE",
+            "originalFileName": name,
+        }))
+        .unwrap()
+    }
+
+    fn stack(primary: &Asset, assets: &[&Asset]) -> Stack {
+        serde_json::from_value(json!({
+            "primaryAssetId": primary.id,
+            "assets": assets.iter().map(|a| json!({
+                "id": a.id,
+                "type": "IMAGE",
+                "originalFileName": a.original_file_name,
+            })).collect::<Vec<_>>(),
+        }))
+        .unwrap()
+    }
+
+    fn listed_and_source(resolved: &[Resolved]) -> Vec<(String, String)> {
+        resolved
+            .iter()
+            .map(|r| (r.image.listed_asset_id.clone(), r.image.asset_id.clone()))
+            .collect()
+    }
+
+    #[test]
+    fn unrelated_stacks_do_not_change_the_listing() {
+        let cache_dir = std::env::temp_dir().join("rapidraw-immich-resolve-unit");
+        let raw = asset(1, "a.CR3");
+        let jpg = asset(2, "a.jpg");
+        let single = asset(3, "b.jpg");
+        let other_raw = asset(4, "c.CR3");
+        let other_jpg = asset(5, "c.jpg");
+        let listed = vec![jpg.clone(), raw.clone(), single.clone()];
+        let needed = stack(&jpg, &[&jpg, &raw]);
+        let unrelated = stack(&other_jpg, &[&other_jpg, &other_raw]);
+
+        for filter in [
+            Filter::default(),
+            Filter {
+                not_in_album: true,
+                ..Default::default()
+            },
+        ] {
+            let only_needed = resolve(
+                listed.clone(),
+                &StackIndex::new(vec![needed.clone()]),
+                &filter,
+                &cache_dir,
+            );
+            let all = resolve(
+                listed.clone(),
+                &StackIndex::new(vec![needed.clone(), unrelated.clone()]),
+                &filter,
+                &cache_dir,
+            );
+            assert_eq!(summary(&only_needed), summary(&all));
+            assert_eq!(
+                listed_and_source(&only_needed),
+                vec![(uuid(2), uuid(1)), (uuid(3), uuid(3))]
+            );
+        }
+    }
+
+    #[test]
+    fn not_in_album_drops_stacks_partly_in_an_album() {
+        let cache_dir = std::env::temp_dir().join("rapidraw-immich-resolve-unit");
+        let raw = asset(1, "a.CR3");
+        let jpg = asset(2, "a.jpg");
+        let single = asset(3, "b.jpg");
+        let stacks = StackIndex::new(vec![stack(&jpg, &[&jpg, &raw])]);
+        let filter = Filter {
+            not_in_album: true,
+            ..Default::default()
+        };
+        let resolved = resolve(vec![raw, single], &stacks, &filter, &cache_dir);
+        assert_eq!(listed_and_source(&resolved), vec![(uuid(3), uuid(3))]);
+    }
+
+    #[test]
+    fn month_of_a_day() {
+        assert_eq!(month(Some(" 2019-11-30 ")), Some("2019-11"));
+        assert_eq!(month(Some("2019")), None);
+        assert_eq!(month(None), None);
+    }
+
+    /// Same listing as with the full `GET /stacks`, for an album
+    /// (IMMICH_TEST_ALBUM), a month (IMMICH_TEST_MONTH, "YYYY-MM", also with
+    /// only the images that are in no album) and/or every image in no album
+    /// (IMMICH_TEST_UNASSIGNED=1).
+    #[test]
+    #[ignore = "needs IMMICH_TEST_URL and IMMICH_API_KEY"]
+    fn live_listing_matches_full_stack_list() {
+        let url = std::env::var("IMMICH_TEST_URL").expect("IMMICH_TEST_URL");
+        let key = std::env::var("IMMICH_API_KEY").expect("IMMICH_API_KEY");
+        let client = ImmichClient::new(&url, &key).unwrap();
+        let cache_dir = std::env::temp_dir().join("rapidraw-immich-resolve-test");
+
+        let mut filters = Vec::new();
+        if let Ok(album) = std::env::var("IMMICH_TEST_ALBUM") {
+            filters.push(Filter {
+                album_id: Some(album),
+                ..Default::default()
+            });
+        }
+        if let Ok(month) = std::env::var("IMMICH_TEST_MONTH") {
+            let first =
+                chrono::NaiveDate::parse_from_str(&format!("{month}-01"), "%Y-%m-%d").unwrap();
+            let last = first
+                .checked_add_months(chrono::Months::new(1))
+                .unwrap()
+                .pred_opt()
+                .unwrap();
+            let month = Filter {
+                taken_from: Some(first.to_string()),
+                taken_until: Some(last.to_string()),
+                ..Default::default()
+            };
+            filters.push(Filter {
+                not_in_album: true,
+                ..month.clone()
+            });
+            filters.push(month);
+        }
+        if std::env::var("IMMICH_TEST_UNASSIGNED").is_ok_and(|v| v == "1") {
+            filters.push(Filter {
+                not_in_album: true,
+                ..Default::default()
+            });
+        }
+        assert!(
+            !filters.is_empty(),
+            "set IMMICH_TEST_ALBUM, IMMICH_TEST_MONTH and/or IMMICH_TEST_UNASSIGNED"
+        );
+
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        runtime.block_on(async {
+            let started = Instant::now();
+            let all = StackIndex::new(client.all_stacks().await.unwrap());
+            println!(
+                "full GET /stacks: {} stacks in {:?}",
+                all.stacks.len(),
+                started.elapsed()
+            );
+            for filter in &filters {
+                let assets = listed_assets(&client, filter).await.unwrap();
+                let started = Instant::now();
+                let stacks = stacks_for(&client, filter, &assets).await.unwrap();
+                let took = started.elapsed();
+                let count = stacks.len();
+                let new = resolve(assets.clone(), &StackIndex::new(stacks), filter, &cache_dir);
+                let old = resolve(assets.clone(), &all, filter, &cache_dir);
+                println!(
+                    "{filter:?}: {} assets, {} listed, {count} stacks fetched in {took:?}",
+                    assets.len(),
+                    new.len()
+                );
+                assert_eq!(summary(&new), summary(&old));
+            }
+        });
+    }
 }
