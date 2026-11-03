@@ -14,15 +14,16 @@ fn edges(alpha: &Plane, vertical: bool) -> Option<(Vec<f64>, Vec<f64>)> {
             alpha.get(k, i)
         }
     };
-    let mut lo = vec![f64::NAN; n];
-    let mut hi = vec![f64::NAN; n];
-    for i in 0..n {
-        if let Some(a) = (0..len).find(|&k| at(i, k) >= 0.5) {
-            let b = (0..len).rev().find(|&k| at(i, k) >= 0.5).unwrap_or(a);
-            lo[i] = a as f64;
-            hi[i] = b as f64 + 1.0;
-        }
-    }
+    let (mut lo, mut hi): (Vec<f64>, Vec<f64>) = (0..n)
+        .into_par_iter()
+        .map(|i| match (0..len).find(|&k| at(i, k) >= 0.5) {
+            Some(a) => {
+                let b = (0..len).rev().find(|&k| at(i, k) >= 0.5).unwrap_or(a);
+                (a as f64, b as f64 + 1.0)
+            }
+            None => (f64::NAN, f64::NAN),
+        })
+        .unzip();
     let known: Vec<usize> = (0..n).filter(|&i| lo[i].is_finite()).collect();
     if known.len() < 2 {
         return None;
@@ -31,8 +32,9 @@ fn edges(alpha: &Plane, vertical: bool) -> Option<(Vec<f64>, Vec<f64>)> {
         if lo[i].is_finite() {
             continue;
         }
-        let p = known.iter().rev().find(|&&k| k < i).copied();
-        let q = known.iter().find(|&&k| k > i).copied();
+        let at_or_after = known.partition_point(|&k| k < i);
+        let p = at_or_after.checked_sub(1).map(|k| known[k]);
+        let q = known.get(at_or_after).copied();
         let (a, b) = match (p, q) {
             (Some(p), Some(q)) => {
                 let t = (i - p) as f64 / (q - p) as f64;
@@ -48,6 +50,7 @@ fn edges(alpha: &Plane, vertical: bool) -> Option<(Vec<f64>, Vec<f64>)> {
     let r = (n / 40).max(1) as isize;
     let smooth = |v: &[f64]| -> Vec<f64> {
         (0..n as isize)
+            .into_par_iter()
             .map(|i| {
                 let (a, b) = ((i - r).max(0) as usize, ((i + r) as usize).min(n - 1));
                 v[a..=b].iter().sum::<f64>() / (b - a + 1) as f64

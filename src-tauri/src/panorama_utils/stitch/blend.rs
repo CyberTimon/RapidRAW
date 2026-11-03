@@ -1,5 +1,6 @@
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 
+use crate::panorama_utils::log::StitchLog;
 use crate::panorama_utils::raster::try_zeroed;
 use rayon::prelude::*;
 
@@ -110,14 +111,6 @@ impl Buf {
             data: try_zeroed(w * h * c)?,
         })
     }
-    pub fn empty() -> Buf {
-        Buf {
-            w: 0,
-            h: 0,
-            c: 0,
-            data: Vec::new(),
-        }
-    }
     #[inline]
     fn at(&self, x: isize, y: isize, ch: usize) -> f32 {
         let x = x.clamp(0, self.w as isize - 1) as usize;
@@ -210,49 +203,57 @@ pub fn down(b: &Buf, covered: Option<&Buf>, tick: Option<&BlendTick>) -> Buf {
     reduce_axis(&tmp, Some(&painted), false, tick).0
 }
 
+fn up_row(b: &Buf, y: usize, w: usize, mut put: impl FnMut(usize, usize, f32)) {
+    let fy = (y as f32 + 0.5) / 2.0 - 0.5;
+    let y0 = fy.floor();
+    let ty = fy - y0;
+    let y0 = y0 as isize;
+    for x in 0..w {
+        let fx = (x as f32 + 0.5) / 2.0 - 0.5;
+        let x0 = fx.floor();
+        let tx = fx - x0;
+        let x0 = x0 as isize;
+        for ch in 0..b.c {
+            let a = b.at(x0, y0, ch);
+            let bb = b.at(x0 + 1, y0, ch);
+            let c = b.at(x0, y0 + 1, ch);
+            let d = b.at(x0 + 1, y0 + 1, ch);
+            let top = a + (bb - a) * tx;
+            let bot = c + (d - c) * tx;
+            put(x, ch, top + (bot - top) * ty);
+        }
+    }
+}
+
 pub fn up(b: &Buf, w: usize, h: usize, tick: Option<&BlendTick>) -> Buf {
     let mut out = Buf::new(w, h, b.c);
     out.data
         .par_chunks_mut(w * b.c)
         .enumerate()
         .for_each(|(y, row)| {
-            let fy = (y as f32 + 0.5) / 2.0 - 0.5;
-            let y0 = fy.floor();
-            let ty = fy - y0;
-            let y0 = y0 as isize;
-            for x in 0..w {
-                let fx = (x as f32 + 0.5) / 2.0 - 0.5;
-                let x0 = fx.floor();
-                let tx = fx - x0;
-                let x0 = x0 as isize;
-                for ch in 0..b.c {
-                    let a = b.at(x0, y0, ch);
-                    let bb = b.at(x0 + 1, y0, ch);
-                    let c = b.at(x0, y0 + 1, ch);
-                    let d = b.at(x0 + 1, y0 + 1, ch);
-                    let top = a + (bb - a) * tx;
-                    let bot = c + (d - c) * tx;
-                    row[x * b.c + ch] = top + (bot - top) * ty;
-                }
-            }
+            up_row(b, y, w, |x, ch, v| row[x * b.c + ch] = v);
             tick_row(tick);
         });
     out
 }
 
 pub fn push_pull(vals: &mut Buf, wgt: &[f32]) {
-    if wgt.iter().all(|&w| w > 0.0) || !wgt.iter().any(|&w| w > 0.0) {
+    if wgt.par_iter().all(|&w| w > 0.0) || !wgt.par_iter().any(|&w| w > 0.0) {
         return;
     }
     let (w, h, c) = (vals.w, vals.h, vals.c);
     let mut pm = Buf::new(w, h, c + 1);
-    for (i, &wi) in wgt.iter().enumerate() {
-        let a = wi.clamp(0.0, 1.0);
-        for ch in 0..c {
-            pm.data[i * (c + 1) + ch] = vals.data[i * c + ch] * a;
-        }
-        pm.data[i * (c + 1) + c] = a;
-    }
+    pm.data
+        .par_chunks_mut(c + 1)
+        .zip(vals.data.par_chunks(c))
+        .zip(wgt.par_iter())
+        .for_each(|((o, v), &wi)| {
+            let a = wi.clamp(0.0, 1.0);
+            for (o, &v) in o.iter_mut().zip(v) {
+                *o = v * a;
+            }
+            o[c] = a;
+        });
     let (mut levels, mut l) = (Vec::new(), pm);
     while l.w > 1 || l.h > 1 {
         let d = down(&l, None, None);
@@ -275,26 +276,28 @@ pub fn push_pull(vals: &mut Buf, wgt: &[f32]) {
     for l in levels.iter().rev() {
         let coarse = up(&filled, l.w, l.h, None);
         let mut f = Buf::new(l.w, l.h, c);
-        for i in 0..l.w * l.h {
-            let a = l.data[i * (c + 1) + c].min(1.0);
-            for ch in 0..c {
-                let v = if a > 1e-12 {
-                    l.data[i * (c + 1) + ch] / l.data[i * (c + 1) + c]
-                } else {
-                    0.0
-                };
-                f.data[i * c + ch] = v * a + coarse.data[i * c + ch] * (1.0 - a);
-            }
-        }
+        f.data
+            .par_chunks_mut(c)
+            .zip(l.data.par_chunks(c + 1))
+            .zip(coarse.data.par_chunks(c))
+            .for_each(|((o, p), q)| {
+                let a = p[c].min(1.0);
+                for ch in 0..c {
+                    let v = if a > 1e-12 { p[ch] / p[c] } else { 0.0 };
+                    o[ch] = v * a + q[ch] * (1.0 - a);
+                }
+            });
         filled = f;
     }
-    for (i, &wi) in wgt.iter().enumerate() {
-        if wi <= 0.0 {
-            for ch in 0..c {
-                vals.data[i * c + ch] = filled.data[i * c + ch];
+    vals.data
+        .par_chunks_mut(c)
+        .zip(filled.data.par_chunks(c))
+        .zip(wgt.par_iter())
+        .for_each(|((v, f), &wi)| {
+            if wi <= 0.0 {
+                v.copy_from_slice(f);
             }
-        }
-    }
+        });
 }
 
 pub struct Blender {
@@ -393,42 +396,37 @@ impl Blender {
             }
         }
     }
-    pub fn finish(self, tick: Option<&BlendTick>) -> Buf {
+    pub fn finish(self, tick: Option<&BlendTick>, stop: &StitchLog) -> Result<Buf, String> {
         let mut res: Option<Buf> = None;
-        let mut acc = self.acc;
-        for l in (0..=self.levels).rev() {
-            let mut b = std::mem::replace(&mut acc[l], Buf::empty());
-            let ws = &self.wsum[l];
-            for y in 0..b.h {
-                for x in 0..b.w {
-                    let i = y * b.w + x;
-                    let s = ws.data[i];
-                    for ch in 0..3 {
-                        b.data[i * 3 + ch] = if s > 1e-8 {
-                            b.data[i * 3 + ch] / s
-                        } else {
-                            0.0
-                        };
+        for (mut b, ws) in self.acc.into_iter().zip(&self.wsum).rev() {
+            stop.gate()?;
+            let coarse = res.take();
+            let w = b.w;
+            b.data
+                .par_chunks_mut(w * 3)
+                .zip(ws.data.par_chunks(w))
+                .enumerate()
+                .for_each(|(y, (row, wrow))| {
+                    for (p, &s) in row.chunks_mut(3).zip(wrow) {
+                        for v in p.iter_mut() {
+                            *v = if s > 1e-8 { *v / s } else { 0.0 };
+                        }
                     }
-                }
-                tick_row(tick);
-            }
-            if let Some(r) = res {
-                let u = up(&r, b.w, b.h, tick);
-                for i in 0..b.w * b.h {
-                    if ws.data[i] <= 1e-8 {
-                        continue;
+                    tick_row(tick);
+                    if let Some(r) = &coarse {
+                        up_row(r, y, w, |x, ch, v| {
+                            if wrow[x] > 1e-8 {
+                                row[x * 3 + ch] += v;
+                            }
+                        });
+                        tick_row(tick);
                     }
-                    for ch in 0..3 {
-                        b.data[i * 3 + ch] += u.data[i * 3 + ch];
-                    }
-                }
-            }
+                });
             if let Some(tick) = tick {
                 tick.flush();
             }
             res = Some(b);
         }
-        res.unwrap_or_else(|| Buf::new(self.w, self.h, 3))
+        Ok(res.unwrap_or_else(|| Buf::new(self.w, self.h, 3)))
     }
 }

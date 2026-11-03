@@ -723,11 +723,7 @@ fn load_linear(
     let rgb = dynamic.into_rgb32f();
     let (w, h) = rgb.dimensions();
     let mut data = into_pixels(rgb.into_raw());
-    for p in data.iter_mut() {
-        for v in p.iter_mut() {
-            *v = v.max(0.0);
-        }
-    }
+    data.par_iter_mut().for_each(|p| *p = p.map(|v| v.max(0.0)));
     Ok((
         Rgb32f {
             width: w as usize,

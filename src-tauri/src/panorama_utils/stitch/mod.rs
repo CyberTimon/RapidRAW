@@ -17,6 +17,7 @@ use project::Projection;
 pub const DISPLAY_LONG_SIDE: u32 = 1920;
 const WORK_EDGE: usize = 1000;
 const MAX_FEATURES: usize = 1200;
+const SOURCE_MARGIN: f64 = 1.2;
 
 #[derive(Clone, Debug)]
 pub struct Frame {
@@ -293,7 +294,8 @@ pub fn register(frames: &[Frame], stop: &log::StitchLog) -> Result<Registration,
         .find(|&i| initial[i].is_some())
         .unwrap_or(ids[0]);
     stop.gate()?;
-    let adj = camera::bundle_adjust(&initial, &pairs, anchor, 60);
+    let adj = camera::bundle_adjust(&initial, &pairs, anchor, 60, stop);
+    stop.gate()?;
     log::line(&format!(
         "bundle adjust: {} iterations, rmsPx {:.3} -> {:.3}",
         adj.iterations, adj.rms_before, adj.rms
@@ -486,22 +488,27 @@ pub struct Composed {
 pub fn detect_clip(img: &Rgb32f) -> f32 {
     let maxv = img
         .data
-        .iter()
+        .par_iter()
         .map(|p| p[0].max(p[1]).max(p[2]))
-        .fold(0.0f32, f32::max);
+        .reduce(|| 0.0f32, f32::max);
     if maxv.is_nan() || maxv <= 0.0 {
         return 1.0;
     }
     let level = maxv.min(1.0);
-    let (mut near, mut below) = (0usize, 0usize);
-    for p in &img.data {
-        let m = p[0].max(p[1]).max(p[2]);
-        if m >= level * 0.995 {
-            near += 1;
-        } else if m >= level * 0.97 && m < level * 0.99 {
-            below += 1;
-        }
-    }
+    let (near, below) = img
+        .data
+        .par_iter()
+        .map(|p| {
+            let m = p[0].max(p[1]).max(p[2]);
+            if m >= level * 0.995 {
+                (1usize, 0usize)
+            } else if m >= level * 0.97 && m < level * 0.99 {
+                (0, 1)
+            } else {
+                (0, 0)
+            }
+        })
+        .reduce(|| (0, 0), |a, b| (a.0 + b.0, a.1 + b.1));
     let piled = near as f64 > img.data.len() as f64 * 1e-4
         && near >= 4
         && near as f64 / 0.005 > 4.0 * below as f64 / 0.02;
@@ -521,6 +528,7 @@ pub struct Layout {
     cams: Vec<Option<Camera>>,
     sizes: Vec<(usize, usize)>,
     rects: Vec<Vec<Rect>>,
+    columns: Vec<(f64, f64)>,
     f_out: f64,
     origin: (f64, f64),
     levels: usize,
@@ -598,6 +606,10 @@ pub fn layout(
             })
         })
         .collect();
+    let columns = (0..cw)
+        .into_par_iter()
+        .map(|x| projection.column(x as f64 + 0.5 + origin.0, f_out))
+        .collect();
     log::phase(&format!(
         "compose {:.1} MP at {:.0}% ({}x{}) levels {}",
         cw as f64 * ch as f64 / 1e6,
@@ -614,6 +626,7 @@ pub fn layout(
         cams: cams.clone(),
         sizes: sizes.to_vec(),
         rects,
+        columns,
         f_out,
         origin,
         levels,
@@ -628,7 +641,17 @@ impl Layout {
         (0..self.rects.len()).filter(|&i| !self.rects[i].is_empty())
     }
     pub fn source_size(&self, i: usize) -> (usize, usize) {
-        self.sizes[i]
+        let (w, h) = self.sizes[i];
+        match self.cams[i] {
+            Some(c) if self.scale < 1.0 => {
+                let k = (SOURCE_MARGIN * self.f_out / c.f).min(1.0);
+                (
+                    ((w as f64 * k).round() as usize).max(1),
+                    ((h as f64 * k).round() as usize).max(1),
+                )
+            }
+            _ => (w, h),
+        }
     }
     fn trace(
         &self,
@@ -641,11 +664,15 @@ impl Layout {
             return;
         };
         let (fw, fh) = (self.sizes[i].0 as f64, self.sizes[i].1 as f64);
-        let v = y as f64 + 0.5 + self.origin.1;
-        for x in x0..x1 {
-            let u = x as f64 + 0.5 + self.origin.0;
-            let d = self.projection.inverse(u, v, self.f_out);
-            let Some((px, py)) = c.project(d) else {
+        let r = &c.r;
+        let (s, t) = self
+            .projection
+            .row(y as f64 + 0.5 + self.origin.1, self.f_out);
+        let tr1 = [0, 1, 2].map(|k| t * r[k][1]);
+        for (x, &(a, b)) in self.columns[x0..x1].iter().enumerate() {
+            let x = x0 + x;
+            let p = [0, 1, 2].map(|k| s * (a * r[k][0] + b * r[k][2]) + tr1[k]);
+            let Some((px, py)) = c.pixel(p) else {
                 continue;
             };
             if px < 0.0 || py < 0.0 || px > fw || py > fh {
@@ -797,27 +824,33 @@ pub fn compose<S: std::borrow::Borrow<Rgb32f>>(
             let mut vals = Buf::new(t.w, t.h, 3);
             let mut mask = Buf::new(t.w, t.h, 1);
             let mut covered = Buf::new(t.w, t.h, 1);
-            for ty in 0..t.h {
-                for tx in 0..t.w {
-                    let k = ty * t.w + tx;
-                    if t.wgt[k] > 0.0 {
-                        covered.data[k] = 1.0;
-                        for c in 0..3 {
-                            vals.data[k * 3 + c] = (t.rgb[k * 3 + c] * g).max(1e-6).ln();
+            vals.data
+                .par_chunks_mut(t.w * 3)
+                .zip(mask.data.par_chunks_mut(t.w))
+                .zip(covered.data.par_chunks_mut(t.w))
+                .zip(t.rgb.par_chunks(t.w * 3).zip(t.wgt.par_chunks(t.w)))
+                .enumerate()
+                .for_each(|(ty, (((vrow, mrow), crow), (rrow, wrow)))| {
+                    let lrow = &label[(t.y0 + ty) * cw + t.x0..][..t.w];
+                    for (tx, (v, &w)) in vrow.chunks_mut(3).zip(wrow).enumerate() {
+                        if w > 0.0 {
+                            crow[tx] = 1.0;
+                            for (o, &c) in v.iter_mut().zip(&rrow[tx * 3..tx * 3 + 3]) {
+                                *o = (c * g).max(1e-6).ln();
+                            }
+                        }
+                        if lrow[tx] == i as u16 {
+                            mrow[tx] = 1.0;
                         }
                     }
-                    if label[(t.y0 + ty) * cw + t.x0 + tx] == i as u16 {
-                        mask.data[k] = 1.0;
-                    }
-                }
-            }
+                });
             push_pull(&mut vals, &t.wgt);
             blender.add(t.x0, t.y0, vals, mask, covered, Some(&tick));
             log::line(&format!("blended tile {} at {}x{}", i, t.w, t.h));
         }
     }
     stop.gate()?;
-    let out = blender.finish(Some(&tick));
+    let out = blender.finish(Some(&tick), stop)?;
     progress("Blending", 1.0);
     let mut image = Rgb32f {
         width: cw,
@@ -872,36 +905,47 @@ pub fn compose<S: std::borrow::Borrow<Rgb32f>>(
 fn compensate_gains(tiles: &[Vec<Tile>], gains: &mut [f64], frames: &[Frame]) {
     let n = tiles.len();
     let lum = |p: [f32; 3]| 0.25 * p[0] as f64 + 0.6 * p[1] as f64 + 0.15 * p[2] as f64;
-    let mut nij = vec![0f64; n * n];
-    let mut iij = vec![0f64; n * n];
-    for i in 0..n {
-        for j in (0..n).filter(|&j| j != i) {
-            let (mut cnt, mut sum) = (0usize, 0f64);
-            for (a, b) in tiles[i]
-                .iter()
-                .flat_map(|a| tiles[j].iter().map(move |b| (a, b)))
-            {
-                let (x0, y0) = (a.x0.max(b.x0), a.y0.max(b.y0));
-                let (x1, y1) = ((a.x0 + a.w).min(b.x0 + b.w), (a.y0 + a.h).min(b.y0 + b.h));
-                for y in (y0..y1).step_by(2) {
-                    for x in (x0..x1).step_by(2) {
-                        let ka = (y - a.y0) * a.w + x - a.x0;
-                        let kb = (y - b.y0) * b.w + x - b.x0;
-                        if a.wgt[ka] > 0.0 && b.wgt[kb] > 0.0 {
-                            let pa = [a.rgb[ka * 3], a.rgb[ka * 3 + 1], a.rgb[ka * 3 + 2]];
-                            if pa.iter().any(|v| *v >= frames[i].clip * 0.95)
-                                || [b.rgb[kb * 3], b.rgb[kb * 3 + 1], b.rgb[kb * 3 + 2]]
-                                    .iter()
-                                    .any(|v| *v >= frames[j].clip * 0.95)
-                            {
-                                continue;
-                            }
-                            cnt += 1;
-                            sum += lum(pa);
+    let overlap = |i: usize, j: usize| {
+        let (mut cnt, mut sum) = (0usize, 0f64);
+        for (a, b) in tiles[i]
+            .iter()
+            .flat_map(|a| tiles[j].iter().map(move |b| (a, b)))
+        {
+            let (x0, y0) = (a.x0.max(b.x0), a.y0.max(b.y0));
+            let (x1, y1) = ((a.x0 + a.w).min(b.x0 + b.w), (a.y0 + a.h).min(b.y0 + b.h));
+            for y in (y0..y1).step_by(2) {
+                for x in (x0..x1).step_by(2) {
+                    let ka = (y - a.y0) * a.w + x - a.x0;
+                    let kb = (y - b.y0) * b.w + x - b.x0;
+                    if a.wgt[ka] > 0.0 && b.wgt[kb] > 0.0 {
+                        let pa = [a.rgb[ka * 3], a.rgb[ka * 3 + 1], a.rgb[ka * 3 + 2]];
+                        if pa.iter().any(|v| *v >= frames[i].clip * 0.95)
+                            || [b.rgb[kb * 3], b.rgb[kb * 3 + 1], b.rgb[kb * 3 + 2]]
+                                .iter()
+                                .any(|v| *v >= frames[j].clip * 0.95)
+                        {
+                            continue;
                         }
+                        cnt += 1;
+                        sum += lum(pa);
                     }
                 }
             }
+        }
+        (cnt, sum)
+    };
+    let overlaps: Vec<Vec<(usize, f64)>> = (0..n)
+        .into_par_iter()
+        .map(|i| {
+            (0..n)
+                .map(|j| if j == i { (0, 0.0) } else { overlap(i, j) })
+                .collect()
+        })
+        .collect();
+    let mut nij = vec![0f64; n * n];
+    let mut iij = vec![0f64; n * n];
+    for (i, row) in overlaps.iter().enumerate() {
+        for (j, &(cnt, sum)) in row.iter().enumerate() {
             if cnt > 50 {
                 nij[i * n + j] = cnt as f64;
                 iij[i * n + j] = sum / cnt as f64;

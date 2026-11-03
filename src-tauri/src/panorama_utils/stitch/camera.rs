@@ -36,7 +36,10 @@ impl Camera {
     }
     #[inline]
     pub fn project(&self, d: [f64; 3]) -> Option<(f64, f64)> {
-        let p = linalg::apply3(&self.r, d);
+        self.pixel(linalg::apply3(&self.r, d))
+    }
+    #[inline]
+    pub fn pixel(&self, p: [f64; 3]) -> Option<(f64, f64)> {
         (p[2] > 1e-9).then(|| {
             (
                 self.f * p[0] / p[2] + self.cx,
@@ -344,6 +347,7 @@ pub fn bundle_adjust(
     pairs: &[PairMatch],
     anchor: usize,
     max_per_pair: usize,
+    stop: &crate::panorama_utils::log::StitchLog,
 ) -> Adjusted {
     let idx: Vec<Option<usize>> = {
         let mut k = 0;
@@ -407,6 +411,9 @@ pub fn bundle_adjust(
     let mut lambda = 1e-3;
     let mut iterations = 0;
     for _ in 0..100 {
+        if stop.halted() {
+            break;
+        }
         iterations += 1;
         let (jtj, jtr) = {
             let parts: Vec<(Vec<f64>, Vec<f64>)> = obs

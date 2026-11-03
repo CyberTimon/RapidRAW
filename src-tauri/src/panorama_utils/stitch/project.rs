@@ -54,17 +54,26 @@ impl Projection {
         }
     }
     #[inline]
-    pub fn inverse(self, x: f64, y: f64, f: f64) -> [f64; 3] {
+    pub fn column(self, x: f64, f: f64) -> (f64, f64) {
         match self {
-            Projection::Perspective => [x / f, y / f, 1.0],
-            Projection::Cylindrical => {
-                let t = x / f;
-                [t.sin(), y / f, t.cos()]
-            }
+            Projection::Perspective => (x / f, 1.0),
+            Projection::Cylindrical | Projection::Spherical | Projection::Auto => (x / f).sin_cos(),
+        }
+    }
+    #[inline]
+    pub fn row(self, y: f64, f: f64) -> (f64, f64) {
+        match self {
+            Projection::Perspective | Projection::Cylindrical => (1.0, y / f),
             Projection::Spherical | Projection::Auto => {
-                let (t, p) = (x / f, y / f);
-                [t.sin() * p.cos(), p.sin(), t.cos() * p.cos()]
+                let (s, c) = (y / f).sin_cos();
+                (c, s)
             }
         }
+    }
+    #[inline]
+    pub fn inverse(self, x: f64, y: f64, f: f64) -> [f64; 3] {
+        let (a, b) = self.column(x, f);
+        let (s, t) = self.row(y, f);
+        [s * a, t, s * b]
     }
 }
