@@ -116,10 +116,11 @@ impl<T: Copy + Default> From<Vec<T>> for Store<T> {
     }
 }
 
+const SPILL_ALIGN: u64 = 4096;
+
 pub struct SpillFile {
     file: File,
-    cursor: std::sync::atomic::AtomicU64,
-    capacity: std::sync::atomic::AtomicU64,
+    end: std::sync::Mutex<u64>,
 }
 
 impl SpillFile {
@@ -130,29 +131,26 @@ impl SpillFile {
             .map_err(|e| format!("Could not create scratch file in {}: {e}", dir.display()))?;
         Ok(SpillFile {
             file,
-            cursor: std::sync::atomic::AtomicU64::new(0),
-            capacity: std::sync::atomic::AtomicU64::new(0),
+            end: std::sync::Mutex::new(0),
         })
     }
     pub fn used(&self) -> u64 {
-        self.cursor.load(std::sync::atomic::Ordering::Relaxed)
+        *self.end.lock().unwrap_or_else(|e| e.into_inner())
     }
     pub fn map(&self, bytes: usize) -> Result<memmap2::MmapMut, String> {
-        let offset = self
-            .cursor
-            .fetch_add(bytes as u64, std::sync::atomic::Ordering::Relaxed);
-        let total = offset.saturating_add(bytes as u64);
-        super::log::line(&format!(
-            "SPILL map off={offset} bytes={bytes} total={total}"
-        ));
-        let want = total;
-        if want > self.capacity.load(std::sync::atomic::Ordering::Relaxed) {
-            self.capacity
-                .store(want, std::sync::atomic::Ordering::Relaxed);
+        let offset = {
+            let mut end = self.end.lock().unwrap_or_else(|e| e.into_inner());
+            let offset = end.next_multiple_of(SPILL_ALIGN);
+            let total = offset.saturating_add(bytes as u64);
             self.file
-                .set_len(want)
+                .set_len(total)
                 .map_err(|e| format!("Could not grow the scratch file: {e}"))?;
-        }
+            *end = total;
+            super::log::line(&format!(
+                "SPILL map off={offset} bytes={bytes} total={total}"
+            ));
+            offset
+        };
         unsafe {
             memmap2::MmapOptions::new()
                 .len(bytes)
