@@ -296,14 +296,6 @@ fn load_frames(
                 } else {
                     img
                 };
-                stitch_log::line(&format!(
-                    "loaded {}/{} {name} {}x{} clip {:.4}",
-                    i + 1,
-                    source_paths.len(),
-                    img.width,
-                    img.height,
-                    clip
-                ));
                 Ok(Frame {
                     name,
                     image: img,
@@ -381,9 +373,8 @@ fn run_stitch(
     let progress = |msg: PanoMessage, _frac: f64| emit(msg);
     let reg = stitch::register(&frames, stop)?;
     stitch_log::phase(&format!(
-        "registered used={} rmsPx {:.3} -> {:.3}",
+        "registered used={} rmsPx {:.3}",
         reg.used.len(),
-        reg.rms_before,
         reg.rms
     ));
     let recommended = stitch::choose_projection(&stitch::frame_sizes(&frames), &reg.cameras);
@@ -512,17 +503,9 @@ fn scale_registration(
             })
         })
         .collect();
-    let focal_px = reg
-        .focal_px
-        .iter()
-        .zip(frames)
-        .map(|(focal, f)| Some((*focal)? * ratio(f)?))
-        .collect();
     Ok(stitch::Registration {
         cameras,
-        focal_px,
         used: reg.used.clone(),
-        rms_before: reg.rms_before,
         rms: reg.rms,
         focal_outlier: reg.focal_outlier.clone(),
     })
@@ -558,11 +541,6 @@ fn save_composite(
         .map(|f| (f.native_width, f.native_height))
         .collect();
     let save_scale = session.options.frame_scale;
-    stitch_log::line(&format!(
-        "save scaled preview cameras x{save_scale:.4} used={} rmsPx {:.3}",
-        reg.used.len(),
-        reg.rms
-    ));
     let first_path = Path::new(session.source_paths.first().ok_or(PanoMessage::NoParent)?);
     let parent_dir = first_path.parent().ok_or(PanoMessage::NoParent)?;
     let stem = first_path
@@ -581,7 +559,6 @@ fn save_composite(
             session.composite_height as usize,
         )),
     };
-    stitch_log::line(&format!("save starting at {:.0}% quality", quality * 100.0));
     let progress = |msg: PanoMessage, frac: f64| emit_save(save_phase_percent(&msg, frac), msg);
     let load_progress = |msg: PanoMessage| emit_save(0.0, msg);
     let layout = stitch::layout(&sizes, &reg, &opts)?;
@@ -600,10 +577,6 @@ fn save_composite(
         quality * 100.0
     ));
     let (w, h) = (rendered.width, rendered.height);
-    stitch_log::line(&format!(
-        "save crop rect {:.4},{:.4} {:.4}x{:.4}",
-        crop.x, crop.y, crop.width, crop.height
-    ));
     let x0 = (crop.x * w as f64).round().clamp(0.0, w as f64) as u32;
     let y0 = (crop.y * h as f64).round().clamp(0.0, h as f64) as u32;
     let x1 = ((crop.x + crop.width) * w as f64)
@@ -615,7 +588,6 @@ fn save_composite(
     let cw = x1 - x0;
     let ch = y1 - y0;
     emit_save(70.0, PanoMessage::Encoding);
-    stitch_log::line(&format!("save encode {cw}x{ch}"));
     let Composed { image, label, .. } = rendered;
     drop(label);
     let rgb16 = encode_cropped_16(&image.data, w, (x0, y0), (cw, ch))?;

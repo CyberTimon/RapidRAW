@@ -310,9 +310,7 @@ pub fn initial_cameras(
 #[derive(Clone, Debug)]
 pub struct Adjusted {
     pub cameras: Vec<Option<Camera>>,
-    pub rms_before: f64,
     pub rms: f64,
-    pub iterations: usize,
 }
 
 struct Obs {
@@ -408,14 +406,12 @@ pub fn bundle_adjust(
         }
         (c, (sq / (obs.len().max(1) * 4) as f64).sqrt())
     };
-    let (mut c0, rms_before) = cost(&cur);
+    let (mut c0, _) = cost(&cur);
     let mut lambda = 1e-3;
-    let mut iterations = 0;
     for _ in 0..100 {
         if stop.halted() {
             break;
         }
-        iterations += 1;
         let (jtj, jtr) = {
             let parts: Vec<(Vec<f64>, Vec<f64>)> = obs
                 .par_chunks(obs.len().div_ceil(BA_CHUNKS).max(1))
@@ -520,12 +516,7 @@ pub fn bundle_adjust(
         }
     }
     let (_, rms) = cost(&cur);
-    Adjusted {
-        cameras: cur,
-        rms_before,
-        rms,
-        iterations,
-    }
+    Adjusted { cameras: cur, rms }
 }
 
 fn flatten(v: Vector3<f64>, axis: Vector3<f64>) -> Vector3<f64> {

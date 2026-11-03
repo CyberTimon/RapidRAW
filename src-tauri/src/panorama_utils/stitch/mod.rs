@@ -155,10 +155,8 @@ pub struct PanoOptions {
 pub struct Registration {
     pub cameras: Vec<Option<Camera>>,
     pub used: Vec<usize>,
-    pub rms_before: f64,
     pub rms: f64,
     pub focal_outlier: Vec<bool>,
-    pub focal_px: Vec<Option<f64>>,
 }
 
 pub const FOCAL_OUTLIER_TOLERANCE: f64 = 0.10;
@@ -167,7 +165,7 @@ pub const MIN_QUALITY: f64 = 0.25;
 
 pub fn register(frames: &[Frame], stop: &log::StitchLog) -> Result<Registration, PanoMessage> {
     let n = frames.len();
-    let work: Vec<(features::Features, f64)> = frames
+    let (feats, scales): (Vec<features::Features>, Vec<f64>) = frames
         .par_iter()
         .map(|f| {
             stop.gate()?;
@@ -175,25 +173,11 @@ pub fn register(frames: &[Frame], stop: &log::StitchLog) -> Result<Registration,
             let (p, s) = features::work_image(&f.image, 0.18 / med.max(1e-6), WORK_EDGE);
             Ok((features::detect(&p, MAX_FEATURES), s))
         })
-        .collect::<Result<_, PanoMessage>>()?;
-    log::line(&format!(
-        "features done ({} per frame)",
-        work.iter().map(|(f, _)| f.len()).max().unwrap_or(0)
-    ));
-    let feats: Vec<_> = work.iter().map(|(f, _)| f.clone()).collect();
-    let scales: Vec<f64> = work.iter().map(|(_, s)| *s).collect();
+        .collect::<Result<Vec<_>, PanoMessage>>()?
+        .into_iter()
+        .unzip();
     let pairs = camera::match_pairs(&feats, &scales, stop);
     stop.gate()?;
-    log::line(&format!("matched {} pairs", pairs.len()));
-    for p in &pairs {
-        log::line(&format!(
-            "pair {} {}: {} inliers rmsPx {:.2}",
-            p.i,
-            p.j,
-            p.pts.len(),
-            ransac_rms(p)
-        ));
-    }
     let ids = connected_set(n, &pairs)?;
     let sizes = frame_sizes(frames);
     let mut fs = Vec::new();
@@ -215,13 +199,6 @@ pub fn register(frames: &[Frame], stop: &log::StitchLog) -> Result<Registration,
         .then(|| median(fs.clone()))
         .filter(|f| *f > 0.1 * long && *f < 20.0 * long);
     let f0 = exif_f.or(hom_f).unwrap_or(long * 1.07);
-    log::line(&format!(
-        "focal0 {:.1}px (exif {} homography {} fallback {:.1})",
-        f0,
-        exif_f.is_some(),
-        hom_f.is_some(),
-        long * 1.07
-    ));
     let priors: Vec<f64> = (0..n)
         .map(|i| {
             frames[i]
@@ -234,26 +211,6 @@ pub fn register(frames: &[Frame], stop: &log::StitchLog) -> Result<Registration,
                 .unwrap_or(f0)
         })
         .collect();
-    let spread: Vec<f64> = (0..n)
-        .map(|i| if priors[i] > 0.0 { priors[i] / f0 } else { 1.0 })
-        .collect();
-    let (lo, hi) = spread
-        .iter()
-        .fold((f64::MAX, 0.0f64), |(a, b), &v| (a.min(v), b.max(v)));
-    if hi > lo * 1.05 {
-        log::line(&format!(
-            "mixed focal lengths: {} distinct, {:.0}%..{:.0}% of {:.1}px",
-            spread
-                .iter()
-                .filter(|v| (**v - lo).abs() > 0.05 || (**v - hi).abs() > 0.05)
-                .count()
-                + 1,
-            lo * 100.0,
-            hi * 100.0,
-            f0
-        ));
-    }
-    let found = pairs.len();
     let pairs: Vec<camera::PairMatch> = pairs
         .into_iter()
         .filter(|p| {
@@ -261,12 +218,6 @@ pub fn register(frames: &[Frame], stop: &log::StitchLog) -> Result<Registration,
                 .is_some()
         })
         .collect();
-    if pairs.len() < found {
-        log::line(&format!(
-            "dropped {} pair(s) that are not a camera rotation",
-            found - pairs.len()
-        ));
-    }
     let ids = connected_set(n, &pairs)?;
     let initial = camera::initial_cameras(&ids, &sizes, &pairs, &priors, f0);
     let anchor = ids
@@ -277,33 +228,17 @@ pub fn register(frames: &[Frame], stop: &log::StitchLog) -> Result<Registration,
     stop.gate()?;
     let adj = camera::bundle_adjust(&initial, &pairs, anchor, 60, stop);
     stop.gate()?;
-    log::line(&format!(
-        "bundle adjust: {} iterations, rmsPx {:.3} -> {:.3}",
-        adj.iterations, adj.rms_before, adj.rms
-    ));
     let mut cams = adj.cameras;
-    for (i, (c, start)) in cams.iter_mut().zip(&initial).enumerate() {
+    for (c, start) in cams.iter_mut().zip(&initial) {
         let (Some(c), Some(start)) = (c, start) else {
             continue;
         };
         if !c.f.is_finite() || c.f < start.f * 0.25 || c.f > start.f * 4.0 {
-            log::line(&format!(
-                "frame {i} focal {:.1}px out of range, holding its initial pose and prior {:.1}px",
-                c.f, start.f
-            ));
             *c = *start;
         }
     }
     camera::straighten(&mut cams);
     let used: Vec<usize> = (0..n).filter(|&i| cams[i].is_some()).collect();
-    for (i, c) in cams.iter().enumerate() {
-        if let Some(c) = c {
-            log::line(&format!(
-                "camera {} focalPx {:.2} cx {:.1} cy {:.1}",
-                i, c.f, c.cx, c.cy
-            ));
-        }
-    }
     let focal_px: Vec<Option<f64>> = cams.iter().map(|c| c.map(|c| c.f)).collect();
     let dev = |med: f64, v: Option<f64>| -> bool {
         match (v, med > 0.0) {
@@ -327,25 +262,11 @@ pub fn register(frames: &[Frame], stop: &log::StitchLog) -> Result<Registration,
     let focal_outlier: Vec<bool> = (0..n)
         .map(|i| dev(med_refined, focal_px[i]) || dev(med_exif, exif[i]))
         .collect();
-    let n_out = focal_outlier.iter().filter(|b| **b).count();
-    if n_out > 0 {
-        let names: Vec<String> = (0..n)
-            .filter(|&i| focal_outlier[i])
-            .map(|i| frames[i].name.clone())
-            .collect();
-        log::line(&format!(
-            "focal outlier(s) >{:.0}%: {}",
-            FOCAL_OUTLIER_TOLERANCE * 100.0,
-            names.join(", ")
-        ));
-    }
     Ok(Registration {
         cameras: cams,
         used,
-        rms_before: adj.rms_before,
         rms: adj.rms,
         focal_outlier,
-        focal_px,
     })
 }
 
@@ -354,18 +275,7 @@ fn connected_set(n: usize, pairs: &[camera::PairMatch]) -> Result<Vec<usize>, Pa
     if ids.len() < 2 {
         return Err(PanoMessage::NoOverlap);
     }
-    log::line(&format!("connected set: {} of {} photos", ids.len(), n));
     Ok(ids)
-}
-
-fn ransac_rms(p: &camera::PairMatch) -> f64 {
-    let n = p.pts.len().max(1) as f64;
-    (p.pts
-        .iter()
-        .map(|(a, b)| super::ransac::transfer_error2(&p.h, *a, *b))
-        .sum::<f64>()
-        / n)
-        .sqrt()
 }
 
 fn bounds_of(
@@ -526,10 +436,6 @@ pub fn layout(
     let used = &reg.used;
     let fovd = fov(sizes, cams);
     let projection = opts.projection;
-    log::line(&format!(
-        "projection {projection:?} fov {:.1}° x {:.1}°",
-        fovd.0, fovd.1
-    ));
     let fmed = median(used.iter().filter_map(|&i| cams[i].map(|c| c.f)).collect());
     let Some((bx0, by0, bx1, by1)) = bounds_of(sizes, cams, projection, fmed) else {
         return Err(PanoMessage::FovTooWide {
@@ -589,9 +495,6 @@ pub fn layout(
         cw,
         ch,
         levels
-    ));
-    log::line(&format!(
-        "canvas {cw}x{ch} levels {levels} focalOut {f_out:.1}px scale {s:.4}"
     ));
     Ok(Layout {
         projection,
@@ -748,14 +651,6 @@ pub fn exposure_gains(
         })
         .collect::<Result<_, PanoMessage>>()?;
     compensate_gains(&tiles, &mut gains, frames);
-    log::line(&format!(
-        "gains {}",
-        gains
-            .iter()
-            .map(|g| format!("{g:.3}"))
-            .collect::<Vec<_>>()
-            .join(" ")
-    ));
     progress(PanoMessage::Exposure, 1.0);
     Ok(gains)
 }
@@ -822,7 +717,6 @@ pub fn compose<S: std::borrow::Borrow<Rgb32f>>(
                 });
             push_pull(&mut vals, &t.wgt);
             blender.add(t.x0, t.y0, vals, mask, covered, Some(&tick));
-            log::line(&format!("blended tile {} at {}x{}", i, t.w, t.h));
         }
     }
     stop.gate()?;

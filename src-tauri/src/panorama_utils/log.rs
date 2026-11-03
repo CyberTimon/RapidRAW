@@ -35,10 +35,6 @@ impl StitchLog {
     }
 }
 
-pub fn line(msg: &str) {
-    log::debug!(target: TARGET, "{msg}");
-}
-
 pub fn phase(msg: &str) {
     let (used, total) = super::ram::used_and_total_system();
     let ours = super::ram::process_resident_bytes();
