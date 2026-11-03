@@ -52,7 +52,11 @@ pub struct PairMatch {
     pub levels: Vec<u8>,
 }
 
-pub fn match_pairs(feats: &[Features], scales: &[f64]) -> Vec<PairMatch> {
+pub fn match_pairs(
+    feats: &[Features],
+    scales: &[f64],
+    stop: &crate::panorama_utils::log::StitchLog,
+) -> Vec<PairMatch> {
     let n = feats.len();
     let pairs: Vec<(usize, usize)> = (0..n)
         .flat_map(|i| (i + 1..n).map(move |j| (i, j)))
@@ -60,6 +64,9 @@ pub fn match_pairs(feats: &[Features], scales: &[f64]) -> Vec<PairMatch> {
     let mut out: Vec<PairMatch> = pairs
         .par_iter()
         .filter_map(|&(i, j)| {
+            if stop.halted() {
+                return None;
+            }
             let m = features::match_features(&feats[i], &feats[j], 0.8);
             if m.len() < 12 {
                 return None;

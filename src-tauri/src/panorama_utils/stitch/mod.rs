@@ -192,25 +192,26 @@ pub struct Registration {
 
 pub const FOCAL_OUTLIER_TOLERANCE: f64 = 0.10;
 
-pub fn register(frames: &[Frame]) -> Result<Registration, String> {
+pub fn register(frames: &[Frame], stop: &log::StitchLog) -> Result<Registration, String> {
     let n = frames.len();
     let work: Vec<(features::Features, f64)> = frames
         .par_iter()
         .map(|f| {
+            stop.gate()?;
             let img = f.image();
             let med = features::median_luma(&img, f.clip);
             let (p, s) = features::work_image(&img, 0.18 / med.max(1e-6), WORK_EDGE);
-            (features::detect(&p, MAX_FEATURES), s)
+            Ok((features::detect(&p, MAX_FEATURES), s))
         })
-        .collect();
+        .collect::<Result<_, String>>()?;
     log::line(&format!(
         "features done ({} per frame)",
         work.iter().map(|(f, _)| f.len()).max().unwrap_or(0)
     ));
-    log::gate()?;
     let feats: Vec<_> = work.iter().map(|(f, _)| f.clone()).collect();
     let scales: Vec<f64> = work.iter().map(|(_, s)| *s).collect();
-    let pairs = camera::match_pairs(&feats, &scales);
+    let pairs = camera::match_pairs(&feats, &scales, stop);
+    stop.gate()?;
     log::line(&format!("matched {} pairs", pairs.len()));
     for p in &pairs {
         log::line(&format!(
@@ -221,7 +222,6 @@ pub fn register(frames: &[Frame]) -> Result<Registration, String> {
             ransac_rms(p)
         ));
     }
-    log::gate()?;
     let ids = camera::largest_component(n, &pairs);
     if ids.len() < 2 {
         return Err("The photos don't overlap enough to be stitched.".into());
@@ -295,7 +295,7 @@ pub fn register(frames: &[Frame]) -> Result<Registration, String> {
         .copied()
         .find(|&i| cams[i].is_some())
         .unwrap_or(ids[0]);
-    log::gate()?;
+    stop.gate()?;
     let adj = camera::bundle_adjust(&cams, &pairs, anchor, 60);
     log::line(&format!(
         "bundle adjust: {} iterations, rmsPx {:.3} -> {:.3}",
@@ -597,6 +597,7 @@ pub fn compose(
     opts: &PanoOptions,
     scratch: Option<&crate::panorama_utils::spill::Scratch>,
     progress: &ComposeProgress<'_>,
+    stop: &log::StitchLog,
 ) -> Result<Composed, String> {
     let n = frames.len();
     let cams = &reg.cameras;
@@ -693,7 +694,7 @@ pub fn compose(
     let tiles: Vec<Option<Tile>> = (0..n)
         .into_par_iter()
         .map(|i| -> Result<Option<Tile>, String> {
-            log::gate()?;
+            stop.gate()?;
             let Some(c) = cams[i] else { return Ok(None) };
             let fr = &frames[i];
             let (mut x0, mut y0, mut x1, mut y1) = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
@@ -727,6 +728,9 @@ pub fn compose(
                 .zip(wgt[..].par_chunks_mut(tw))
                 .enumerate()
                 .for_each(|(ty, (row, wrow))| {
+                    if stop.halted() {
+                        return;
+                    }
                     let v = (ty0 + ty) as f64 + 0.5 + oy;
                     for tx in 0..tw {
                         let u = (tx0 + tx) as f64 + 0.5 + ox;
@@ -749,6 +753,7 @@ pub fn compose(
                         wrow[tx] = w;
                     }
                 });
+            stop.gate()?;
             Ok(Some(Tile {
                 x0: tx0,
                 y0: ty0,
@@ -759,7 +764,7 @@ pub fn compose(
             }))
         })
         .collect::<Result<Vec<_>, String>>()?;
-    log::gate()?;
+    stop.gate()?;
     log::phase(&format!(
         "warped {} tiles",
         tiles.iter().filter(|t| t.is_some()).count()
@@ -846,7 +851,7 @@ pub fn compose(
     let blend_rows = blend::blend_work_rows(tiles.iter().flatten().map(|t| t.h), levels, ph);
     let tick = blend::BlendTick::new(blend_rows, progress);
     for (i, t) in tiles.into_iter().enumerate() {
-        log::gate()?;
+        stop.gate()?;
         let Some(t) = t else { continue };
         let g = gains[i] as f32;
         let mut vals = Buf::new(t.w, t.h, 3);

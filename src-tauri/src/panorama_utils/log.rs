@@ -10,11 +10,11 @@ pub struct StitchLog {
 }
 
 impl StitchLog {
-    pub fn new(stop: Arc<AtomicBool>) -> Arc<Self> {
-        Arc::new(Self {
+    pub fn new(stop: Arc<AtomicBool>) -> Self {
+        Self {
             noted: AtomicBool::new(false),
             stop,
-        })
+        }
     }
     pub fn halted(&self) -> bool {
         self.stop.load(Ordering::SeqCst)
@@ -22,6 +22,14 @@ impl StitchLog {
     pub fn note_stop(&self) {
         if self.halted() && !self.noted.swap(true, Ordering::SeqCst) {
             phase("stopped");
+        }
+    }
+    pub fn gate(&self) -> Result<(), String> {
+        if self.halted() {
+            self.note_stop();
+            Err("stopped".into())
+        } else {
+            Ok(())
         }
     }
 }
@@ -45,51 +53,4 @@ pub fn phase(msg: &str) {
         },
         ours as f64 / GB,
     );
-}
-
-std::thread_local! {
-    static ACTIVE: std::cell::RefCell<Option<Arc<StitchLog>>> = const { std::cell::RefCell::new(None) };
-}
-
-pub struct LogGuard;
-
-impl Drop for LogGuard {
-    fn drop(&mut self) {
-        ACTIVE.with(|slot| *slot.borrow_mut() = None);
-    }
-}
-
-pub fn install(log: Arc<StitchLog>) -> LogGuard {
-    ACTIVE.with(|slot| *slot.borrow_mut() = Some(log));
-    LogGuard
-}
-
-pub fn current() -> Option<Arc<StitchLog>> {
-    ACTIVE.with(|slot| slot.borrow().clone())
-}
-
-pub fn halted() -> bool {
-    ACTIVE.with(|slot| {
-        slot.borrow()
-            .as_ref()
-            .map(|log| log.halted())
-            .unwrap_or(false)
-    })
-}
-
-pub fn note_stop() {
-    ACTIVE.with(|slot| {
-        if let Some(log) = slot.borrow().as_ref() {
-            log.note_stop();
-        }
-    });
-}
-
-pub fn gate() -> Result<(), String> {
-    if halted() {
-        note_stop();
-        Err("stopped".into())
-    } else {
-        Ok(())
-    }
 }
