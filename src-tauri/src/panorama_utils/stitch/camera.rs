@@ -5,6 +5,9 @@ use crate::panorama_utils::geom::{Homography, Point};
 use crate::panorama_utils::linalg::{self, M3};
 use crate::panorama_utils::ransac;
 
+const MAX_ROTATION_SKEW: f64 = 4.0;
+const BA_CHUNKS: usize = 64;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Camera {
     pub f: f64,
@@ -195,6 +198,37 @@ fn centred(h: &Homography, ci: (f64, f64), cj: (f64, f64)) -> Homography {
     tj_inv.mul(h).mul(&ti)
 }
 
+pub fn relative_rotation(
+    h: &Homography,
+    size_i: (usize, usize),
+    size_j: (usize, usize),
+    fi: f64,
+    fj: f64,
+) -> Option<M3> {
+    let c = |s: (usize, usize)| (s.0 as f64 / 2.0, s.1 as f64 / 2.0);
+    let hc = centred(h, c(size_i), c(size_j));
+    let k = [[fi, 0.0, 0.0], [0.0, fi, 0.0], [0.0, 0.0, 1.0]];
+    let kinv = [[1.0 / fj, 0.0, 0.0], [0.0, 1.0 / fj, 0.0], [0.0, 0.0, 1.0]];
+    let hm = [
+        [hc.0[0], hc.0[1], hc.0[2]],
+        [hc.0[3], hc.0[4], hc.0[5]],
+        [hc.0[6], hc.0[7], hc.0[8]],
+    ];
+    let rel = linalg::mul3(&linalg::mul3(&kinv, &hm), &k);
+    let d = linalg::det3(&rel);
+    if !d.is_finite() || d.abs() < 1e-12 {
+        return None;
+    }
+    let s = d.cbrt();
+    let rel = rel.map(|r| r.map(|v| v / s));
+    if rel[2][2] <= 0.0 {
+        return None;
+    }
+    let rtr = linalg::mul3(&linalg::transpose3(&rel), &rel);
+    let (sv, _) = linalg::sym_eigen(rtr.as_flattened(), 3);
+    (sv[2] <= MAX_ROTATION_SKEW * MAX_ROTATION_SKEW * sv[0]).then(|| linalg::orthonormalize(&rel))
+}
+
 pub fn initial_cameras(
     ids: &[usize],
     sizes: &[(usize, usize)],
@@ -242,23 +276,15 @@ pub fn initial_cameras(
                 ),
                 _ => continue,
             };
-            let hc = centred(&h, c(known), c(new));
-            let (fi, fj) = (focal_for(e.i), focal_for(e.j));
-            let k = [[fi, 0.0, 0.0], [0.0, fi, 0.0], [0.0, 0.0, 1.0]];
-            let kinv = [[1.0 / fj, 0.0, 0.0], [0.0, 1.0 / fj, 0.0], [0.0, 0.0, 1.0]];
-            let hm = [
-                [hc.0[0], hc.0[1], hc.0[2]],
-                [hc.0[3], hc.0[4], hc.0[5]],
-                [hc.0[6], hc.0[7], hc.0[8]],
-            ];
-            let rel = linalg::mul3(&linalg::mul3(&kinv, &hm), &k);
-            let d = linalg::det3(&rel);
-            if !d.is_finite() || d.abs() < 1e-12 {
+            let Some(rel) = relative_rotation(
+                &h,
+                sizes[known],
+                sizes[new],
+                focal_for(known),
+                focal_for(new),
+            ) else {
                 continue;
-            }
-            let s = d.signum() * d.abs().cbrt();
-            let rel = rel.map(|r| r.map(|v| v / s));
-            let rel = linalg::orthonormalize(&rel);
+            };
             let Some(rk) = cams[known].map(|c| c.r) else {
                 continue;
             };
@@ -384,44 +410,47 @@ pub fn bundle_adjust(
         iterations += 1;
         let (jtj, jtr) = {
             let parts: Vec<(Vec<f64>, Vec<f64>)> = obs
-                .par_iter()
-                .map(|o| {
-                    let (Some(ci), Some(cj)) = (cur[o.i].as_ref(), cur[o.j].as_ref()) else {
-                        return (vec![0.0f64; np * np], vec![0.0f64; np]);
-                    };
-                    let r = residual(ci, cj, o.a, o.b);
+                .par_chunks(obs.len().div_ceil(BA_CHUNKS).max(1))
+                .map(|chunk| {
                     let mut jtj = vec![0.0f64; np * np];
                     let mut jtr = vec![0.0f64; np];
                     let mut cols: Vec<(usize, [f64; 4])> = Vec::with_capacity(8);
-                    for (cam, which) in [(o.i, 0), (o.j, 1)] {
-                        let Some(i) = idx[cam] else { continue };
-                        let base = 4 * i;
-                        for k in 0..4 {
-                            if k < 3 && cam == anchor {
-                                continue;
+                    for o in chunk {
+                        let (Some(ci), Some(cj)) = (cur[o.i].as_ref(), cur[o.j].as_ref()) else {
+                            continue;
+                        };
+                        let r = residual(ci, cj, o.a, o.b);
+                        cols.clear();
+                        for (cam, which) in [(o.i, 0), (o.j, 1)] {
+                            let Some(i) = idx[cam] else { continue };
+                            let base = 4 * i;
+                            for k in 0..4 {
+                                if k < 3 && cam == anchor {
+                                    continue;
+                                }
+                                let c = if which == 0 { ci } else { cj };
+                                let eps = if k < 3 { 1e-6 } else { 1e-4 * c.f };
+                                let pc = perturb(c, k, eps);
+                                let rr = if which == 0 {
+                                    residual(&pc, cj, o.a, o.b)
+                                } else {
+                                    residual(ci, &pc, o.a, o.b)
+                                };
+                                let mut d = [0.0; 4];
+                                for t in 0..4 {
+                                    d[t] = (rr[t] - r[t]) / eps;
+                                }
+                                cols.push((base + k, d));
                             }
-                            let c = if which == 0 { ci } else { cj };
-                            let eps = if k < 3 { 1e-6 } else { 1e-4 * c.f };
-                            let pc = perturb(c, k, eps);
-                            let rr = if which == 0 {
-                                residual(&pc, cj, o.a, o.b)
-                            } else {
-                                residual(ci, &pc, o.a, o.b)
-                            };
-                            let mut d = [0.0; 4];
-                            for t in 0..4 {
-                                d[t] = (rr[t] - r[t]) / eps;
-                            }
-                            cols.push((base + k, d));
                         }
-                    }
-                    for t in 0..4 {
-                        let a = r[t].abs();
-                        let w = if a <= sigma { 1.0 } else { sigma / a };
-                        for &(p, dp) in &cols {
-                            jtr[p] += w * dp[t] * r[t];
-                            for &(q, dq) in &cols {
-                                jtj[p * np + q] += w * dp[t] * dq[t];
+                        for t in 0..4 {
+                            let a = r[t].abs();
+                            let w = if a <= sigma { 1.0 } else { sigma / a };
+                            for &(p, dp) in &cols {
+                                jtr[p] += w * dp[t] * r[t];
+                                for &(q, dq) in &cols {
+                                    jtj[p * np + q] += w * dp[t] * dq[t];
+                                }
                             }
                         }
                     }
@@ -489,6 +518,11 @@ pub fn bundle_adjust(
     }
 }
 
+fn flatten(v: [f64; 3], axis: [f64; 3]) -> [f64; 3] {
+    let k = linalg::dot(v, axis);
+    [v[0] - k * axis[0], v[1] - k * axis[1], v[2] - k * axis[2]]
+}
+
 pub fn straighten(cams: &mut [Option<Camera>]) {
     let rs: Vec<M3> = cams.iter().flatten().map(|c| c.r).collect();
     if rs.is_empty() {
@@ -508,20 +542,22 @@ pub fn straighten(cams: &mut [Option<Camera>]) {
         }
     }
     let (vals, vecs) = linalg::sym_eigen(&cov, 3);
-    let total = vals.iter().sum::<f64>().max(1e-12);
     let mut down = [vecs[0][0], vecs[0][1], vecs[0][2]];
-    if vals[1] < 1e-3 * total {
-        let xa = linalg::normalize(xsum);
-        let y = linalg::normalize(ysum);
-        let k = linalg::dot(y, xa);
-        down = linalg::normalize([y[0] - k * xa[0], y[1] - k * xa[1], y[2] - k * xa[2]]);
+    if vals[1] < 0.05 * vals[2] {
+        down = linalg::normalize(flatten(ysum, linalg::normalize(xsum)));
     }
     if linalg::dot(down, ysum) < 0.0 {
         down = down.map(|v| -v);
     }
-    let z = linalg::normalize(zsum);
-    let k = linalg::dot(z, down);
-    let fwd = linalg::normalize([z[0] - k * down[0], z[1] - k * down[1], z[2] - k * down[2]]);
+    let mut fwd = flatten(zsum, down);
+    if linalg::norm(fwd) < 1e-3 * rs.len() as f64 {
+        fwd = rs
+            .iter()
+            .map(|r| flatten(r[2], down))
+            .max_by(|a, b| linalg::norm(*a).total_cmp(&linalg::norm(*b)))
+            .unwrap_or(fwd);
+    }
+    let fwd = linalg::normalize(fwd);
     let right = linalg::cross(down, fwd);
     let w = [right, down, fwd];
     let wt = linalg::transpose3(&w);

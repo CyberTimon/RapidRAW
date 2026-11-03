@@ -222,11 +222,7 @@ pub fn register(frames: &[Frame], stop: &log::StitchLog) -> Result<Registration,
             ransac_rms(p)
         ));
     }
-    let ids = camera::largest_component(n, &pairs);
-    if ids.len() < 2 {
-        return Err("The photos don't overlap enough to be stitched.".into());
-    }
-    log::line(&format!("connected set: {} of {} photos", ids.len(), n));
+    let ids = connected_set(n, &pairs)?;
     let sizes: Vec<(usize, usize)> = frames.iter().map(|f| (f.width(), f.height())).collect();
     let mut fs = Vec::new();
     for p in &pairs {
@@ -289,28 +285,44 @@ pub fn register(frames: &[Frame], stop: &log::StitchLog) -> Result<Registration,
             f0
         ));
     }
-    let cams = camera::initial_cameras(&ids, &sizes, &pairs, &priors, f0);
+    let found = pairs.len();
+    let pairs: Vec<camera::PairMatch> = pairs
+        .into_iter()
+        .filter(|p| {
+            camera::relative_rotation(&p.h, sizes[p.i], sizes[p.j], priors[p.i], priors[p.j])
+                .is_some()
+        })
+        .collect();
+    if pairs.len() < found {
+        log::line(&format!(
+            "dropped {} pair(s) that are not a camera rotation",
+            found - pairs.len()
+        ));
+    }
+    let ids = connected_set(n, &pairs)?;
+    let initial = camera::initial_cameras(&ids, &sizes, &pairs, &priors, f0);
     let anchor = ids
         .iter()
         .copied()
-        .find(|&i| cams[i].is_some())
+        .find(|&i| initial[i].is_some())
         .unwrap_or(ids[0]);
     stop.gate()?;
-    let adj = camera::bundle_adjust(&cams, &pairs, anchor, 60);
+    let adj = camera::bundle_adjust(&initial, &pairs, anchor, 60);
     log::line(&format!(
         "bundle adjust: {} iterations, rmsPx {:.3} -> {:.3}",
         adj.iterations, adj.rms_before, adj.rms
     ));
     let mut cams = adj.cameras;
-    for (i, c) in cams.iter_mut().enumerate() {
-        let Some(c) = c else { continue };
-        let prior = priors.get(i).copied().filter(|v| *v > 0.0).unwrap_or(f0);
-        if !c.f.is_finite() || c.f < prior * 0.25 || c.f > prior * 4.0 {
+    for (i, (c, start)) in cams.iter_mut().zip(&initial).enumerate() {
+        let (Some(c), Some(start)) = (c, start) else {
+            continue;
+        };
+        if !c.f.is_finite() || c.f < start.f * 0.25 || c.f > start.f * 4.0 {
             log::line(&format!(
-                "frame {i} focal {:.1}px out of range, holding its own prior {:.1}px",
-                c.f, prior
+                "frame {i} focal {:.1}px out of range, holding its initial pose and prior {:.1}px",
+                c.f, start.f
             ));
-            c.f = prior;
+            *c = *start;
         }
     }
     camera::straighten(&mut cams);
@@ -366,6 +378,15 @@ pub fn register(frames: &[Frame], stop: &log::StitchLog) -> Result<Registration,
         focal_outlier,
         focal_px,
     })
+}
+
+fn connected_set(n: usize, pairs: &[camera::PairMatch]) -> Result<Vec<usize>, String> {
+    let ids = camera::largest_component(n, pairs);
+    if ids.len() < 2 {
+        return Err("The photos don't overlap enough to be stitched.".into());
+    }
+    log::line(&format!("connected set: {} of {} photos", ids.len(), n));
+    Ok(ids)
 }
 
 fn ransac_rms(p: &camera::PairMatch) -> f64 {

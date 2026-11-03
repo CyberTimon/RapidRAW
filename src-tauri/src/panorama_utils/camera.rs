@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-const DEFAULT_FOCAL_MM_35EQ: f64 = 50.0;
 const MIN_FOCAL_MM_35EQ: f64 = 8.0;
 const MAX_FOCAL_MM_35EQ: f64 = 400.0;
 
@@ -28,46 +27,12 @@ fn sanitize_focal_mm_35eq(v: f64) -> Option<f64> {
     }
 }
 
-pub fn parse_focal_mm_35eq(exif: &HashMap<String, String>) -> f64 {
-    let fl = exif.get("FocalLength").and_then(|s| parse_mm(s));
-    let fl35 = exif
-        .get("FocalLengthIn35mmFilm")
-        .and_then(|s| parse_mm(s))
-        .and_then(sanitize_focal_mm_35eq);
-    let scale = exif
-        .get("ScaleFactor35efl")
-        .or_else(|| exif.get("ScaleFactor35Efl"))
-        .and_then(|s| parse_mm(s))
-        .filter(|s| *s > 0.5 && *s < 10.0);
-    let candidate = match (fl, fl35) {
-        (Some(a), Some(b)) if (a - b).abs() >= 0.05 => Some(b),
-        (_, Some(b)) => {
-            if let Some(a) = fl {
-                if (a - b).abs() < 0.05 {
-                    if let Some(s) = scale {
-                        sanitize_focal_mm_35eq(a * s)
-                    } else if a < 24.0 {
-                        sanitize_focal_mm_35eq(a * 1.5)
-                    } else {
-                        sanitize_focal_mm_35eq(a)
-                    }
-                } else {
-                    Some(b)
-                }
-            } else {
-                Some(b)
-            }
-        }
-        (Some(a), None) => {
-            if let Some(s) = scale {
-                sanitize_focal_mm_35eq(a * s)
-            } else {
-                sanitize_focal_mm_35eq(a)
-            }
-        }
-        _ => None,
-    };
-    candidate
-        .and_then(sanitize_focal_mm_35eq)
-        .unwrap_or(DEFAULT_FOCAL_MM_35EQ)
+pub fn parse_focal_mm_35eq(exif: &HashMap<String, String>) -> Option<f64> {
+    ["FocalLengthIn35mmFilm", "FocalLength"]
+        .iter()
+        .find_map(|k| {
+            exif.get(*k)
+                .and_then(|s| parse_mm(s))
+                .and_then(sanitize_focal_mm_35eq)
+        })
 }

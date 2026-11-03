@@ -477,7 +477,7 @@ fn load_frames(
                     rgb: img.data.iter().flat_map(|p| p.to_vec()).collect(),
                     clip,
                     exposure: exposure_value(&exif),
-                    focal35: Some(parse_focal_mm_35eq(&exif)),
+                    focal35: parse_focal_mm_35eq(&exif),
                     meta: Some(frame_meta(&exif)),
                 })
             })
@@ -746,8 +746,12 @@ fn scale_registration(
         .zip(preview)
         .zip(full)
         .map(|((cam, prev), frame)| {
-            let cam = (*cam)?;
-            Some(cam.scaled(ratio(prev, frame)?))
+            let cam = (*cam)?.scaled(ratio(prev, frame)?);
+            Some(stitch::camera::Camera {
+                cx: frame.width as f64 / 2.0,
+                cy: frame.height as f64 / 2.0,
+                ..cam
+            })
         })
         .collect();
     let focal_px = reg
