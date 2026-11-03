@@ -1787,7 +1787,6 @@
         "needTwo": "Sélectionnez au moins deux photos à assembler.",
         "noSession": "Assemblez les photos avant de changer la projection.",
         "noSessionSave": "Assemblez les photos avant d'enregistrer.",
-        "unknownProjection": "Cette projection n'est pas disponible.",
         "noOverlap": "Les photos ne se chevauchent pas assez pour être assemblées.",
         "fovTooWide": "Le champ est trop large ({{degrees}}°) pour une projection rectilinéaire.",
         "noPreview": "L'aperçu n'a pas pu être créé.",
@@ -1802,7 +1801,6 @@
         "saveWriteFailed": "Le fichier du panorama n'a pas pu être écrit. {{detail}}",
         "encodeFailed": "L'image d'aperçu n'a pas pu être encodée. {{detail}}",
         "readFailed": "Impossible de lire {{file}}. {{detail}}",
-        "decodeFailed": "Impossible de lire {{file}}. {{detail}}",
         "droppedNoOverlap": "Pas de chevauchement avec les autres photos",
         "droppedNoOverlapFocal": "Pas de chevauchement avec les autres photos ({{focal}} mm)"
       }

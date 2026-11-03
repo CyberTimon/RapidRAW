@@ -1822,7 +1822,6 @@
         "needTwo": "Wybierz co najmniej dwa zdjęcia do złożenia.",
         "noSession": "Złóż zdjęcia, zanim zmienisz rzut.",
         "noSessionSave": "Złóż zdjęcia, zanim zapiszesz.",
-        "unknownProjection": "Ten rzut nie jest dostępny.",
         "noOverlap": "Zdjęcia nie nakładają się wystarczająco, aby je złożyć.",
         "fovTooWide": "Kadr jest za szeroki ({{degrees}}°) na rzut prostoliniowy.",
         "noPreview": "Nie udało się utworzyć podglądu.",
@@ -1837,7 +1836,6 @@
         "saveWriteFailed": "Nie udało się zapisać pliku panoramy. {{detail}}",
         "encodeFailed": "Nie udało się zakodować podglądu. {{detail}}",
         "readFailed": "Nie udało się odczytać {{file}}. {{detail}}",
-        "decodeFailed": "Nie udało się odczytać {{file}}. {{detail}}",
         "droppedNoOverlap": "Brak nakładania z pozostałymi zdjęciami",
         "droppedNoOverlapFocal": "Brak nakładania z pozostałymi zdjęciami ({{focal}} mm)"
       }

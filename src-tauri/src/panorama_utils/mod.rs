@@ -1,4 +1,3 @@
-pub mod camera;
 pub mod features;
 pub mod geom;
 pub mod linalg;

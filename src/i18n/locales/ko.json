@@ -1744,7 +1744,6 @@
         "needTwo": "이어 붙일 사진을 두 장 이상 선택하세요.",
         "noSession": "투영을 바꾸기 전에 사진을 이어 붙이세요.",
         "noSessionSave": "저장하기 전에 사진을 이어 붙이세요.",
-        "unknownProjection": "그 투영은 사용할 수 없습니다.",
         "noOverlap": "사진이 충분히 겹치지 않아 이어 붙일 수 없습니다.",
         "fovTooWide": "화각이 너무 넓어({{degrees}}°) 직선 투영에 맞지 않습니다.",
         "noPreview": "미리보기를 만들지 못했습니다.",
@@ -1759,7 +1758,6 @@
         "saveWriteFailed": "파노라마 파일을 쓰지 못했습니다. {{detail}}",
         "encodeFailed": "미리보기 이미지를 인코딩하지 못했습니다. {{detail}}",
         "readFailed": "{{file}}을(를) 읽지 못했습니다. {{detail}}",
-        "decodeFailed": "{{file}}을(를) 읽지 못했습니다. {{detail}}",
         "droppedNoOverlap": "다른 사진과 겹치지 않음",
         "droppedNoOverlapFocal": "다른 사진과 겹치지 않음 ({{focal}} mm)"
       }

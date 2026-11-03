@@ -3,28 +3,29 @@ use crate::app_state::AppState;
 use crate::file_management::parse_virtual_path;
 use crate::formats::is_raw_file;
 use crate::image_processing::{apply_linear_to_srgb, apply_srgb_to_linear, linear_channel_to_srgb};
-use crate::panorama_utils::camera::parse_focal_mm_35eq;
 use crate::panorama_utils::log::{self as stitch_log, StitchLog};
 use crate::panorama_utils::message::PanoMessage;
-use crate::panorama_utils::overlay::generate_overlay;
-use crate::panorama_utils::raster::{Rgb32f, fit_long_edge, into_pixels, resize_box};
-use crate::panorama_utils::session::{DroppedImage, NormalizedCrop, PanoramaSession, drop_session};
+use crate::panorama_utils::overlay::{encode_png, generate_overlay};
+use crate::panorama_utils::raster::{
+    Rgb32f, fit_long_edge, into_pixels, long_edge_size, resize_box,
+};
+use crate::panorama_utils::session::{DroppedImage, NormalizedCrop, PanoramaSession};
 use crate::panorama_utils::stitch::project::Projection;
 use crate::panorama_utils::stitch::{self, Composed, Frame, FrameMeta, PanoOptions};
 use base64::{Engine as _, engine::general_purpose};
-use image::{DynamicImage, ImageFormat, Rgb32FImage};
+use image::{DynamicImage, Rgb32FImage};
 
 type Rgb16Buf = image::ImageBuffer<image::Rgb<u16>, Vec<u16>>;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::fs;
-use std::io::Cursor;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use tauri::{AppHandle, Emitter};
 
 pub const PREVIEW_EDGE: usize = 1024;
+const DISPLAY_EDGE: usize = 1920;
 
 pub const BRIEF_DESCRIPTOR_SIZE: usize = 256;
 
@@ -104,14 +105,13 @@ pub async fn stitch_panorama(
 
 #[tauri::command]
 pub async fn reproject_panorama(
-    projection: String,
+    projection: Projection,
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), PanoMessage> {
-    let proj = Projection::parse(&projection).ok_or(PanoMessage::UnknownProjection)?;
     let session_handle = state.panorama_session.clone();
     let stop = StitchLog::new(arm_stop(&state));
-    stitch_log::phase(&format!("reproject {projection}"));
+    stitch_log::phase(&format!("reproject {projection:?}"));
     let task = tokio::task::spawn_blocking(move || {
         if stop.halted() {
             stop.note_stop();
@@ -121,7 +121,7 @@ pub async fn reproject_panorama(
             let guard = session_handle.lock().unwrap_or_else(|e| e.into_inner());
             let session = guard.as_ref().ok_or(PanoMessage::NoSession)?;
             let opts = PanoOptions {
-                projection: proj,
+                projection,
                 ..session.options.clone()
             };
             (session.frames.clone(), session.registration.clone(), opts)
@@ -129,7 +129,7 @@ pub async fn reproject_panorama(
         let emit = progress_emitter(&app_handle, &stop);
         emit(PanoMessage::Reprojecting);
         let progress = |msg: PanoMessage, _frac: f64| emit(msg);
-        let rendered = match stitch::compose_frames(&frames, &reg, proj, &opts, &progress, &stop) {
+        let rendered = match stitch::compose_frames(&frames, &reg, &opts, &progress, &stop) {
             Ok(r) => r,
             Err(e) if e == PanoMessage::Cancelled || stop.halted() => {
                 stop.note_stop();
@@ -145,7 +145,7 @@ pub async fn reproject_panorama(
                 return Ok(());
             }
             let session = guard.as_mut().ok_or(PanoMessage::NoSession)?;
-            session.selected_projection = proj;
+            session.options.projection = projection;
             fill_preview(session, &rendered, preview);
             complete_payload(session)
         };
@@ -175,12 +175,10 @@ pub async fn cancel_panorama(
             .store(true, Ordering::SeqCst);
     } else {
         arm_stop(&state);
-        drop_session(
-            &mut state
-                .panorama_session
-                .lock()
-                .unwrap_or_else(|e| e.into_inner()),
-        );
+        *state
+            .panorama_session
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = None;
     }
     Ok(())
 }
@@ -277,7 +275,7 @@ fn load_frames(
         .map_err(|e| PanoMessage::LoaderFailed {
             detail: e.to_string(),
         })?;
-    let loaded: Result<Vec<Frame>, PanoMessage> = pool.install(|| {
+    pool.install(|| {
         source_paths
             .par_iter()
             .enumerate()
@@ -290,6 +288,7 @@ fn load_frames(
                     name: name.clone(),
                 });
                 let (img, exif) = load_linear(path, settings)?;
+                let meta = frame_meta(&exif);
                 let (fw, fh) = (img.width, img.height);
                 let clip = stitch::detect_clip(&img);
                 let img = if img.width.max(img.height) > PREVIEW_EDGE {
@@ -311,14 +310,16 @@ fn load_frames(
                     native_width: fw,
                     native_height: fh,
                     clip,
-                    exposure: exposure_value(&exif),
-                    focal35: parse_focal_mm_35eq(&exif),
-                    meta: Some(frame_meta(&exif)),
+                    exposure: exposure_value(&meta),
+                    focal35: [meta.focal35, meta.native_mm]
+                        .into_iter()
+                        .flatten()
+                        .find(|mm| (8.0..=400.0).contains(mm)),
+                    meta,
                 })
             })
             .collect()
-    });
-    loaded
+    })
 }
 
 fn stream_sources<R>(
@@ -385,21 +386,21 @@ fn run_stitch(
         reg.rms_before,
         reg.rms
     ));
+    let recommended = stitch::choose_projection(&stitch::frame_sizes(&frames), &reg.cameras);
     let opts = PanoOptions {
-        projection: Projection::Auto,
-        boundary_warp: 0.0,
+        projection: recommended,
         auto_crop: true,
-        fill_edges: false,
         quality: 1.0,
         preview_canvas: None,
         save_scale: 1.0,
-        frame_scale: median_ratio(
+        frame_scale: stitch::median(
             frames
                 .iter()
-                .filter_map(|f| native_scale(f.native_width, f.width())),
+                .filter_map(|f| native_scale(f.native_width, f.width()))
+                .filter(|r| r.is_finite() && *r > 0.0)
+                .collect(),
         ),
     };
-    let recommended = stitch::choose_projection(&stitch::frame_sizes(&frames), &reg.cameras);
     let focal_outliers: std::collections::HashMap<String, bool> = frames
         .iter()
         .enumerate()
@@ -412,13 +413,13 @@ fn run_stitch(
             filename: frames[i].name.clone(),
             reason: frames[i]
                 .meta
-                .as_ref()
-                .and_then(|m| m.focal35.or(m.native_mm))
+                .focal35
+                .or(frames[i].meta.native_mm)
                 .map(|f| PanoMessage::DroppedNoOverlapFocal { focal: f.round() })
                 .unwrap_or(PanoMessage::DroppedNoOverlap),
         })
         .collect();
-    let rendered = stitch::compose_frames(&frames, &reg, recommended, &opts, &progress, stop)?;
+    let rendered = stitch::compose_frames(&frames, &reg, &opts, &progress, stop)?;
     let preview = render_display(&rendered)?;
     let mut session = PanoramaSession {
         source_paths: source_paths.to_vec(),
@@ -428,7 +429,6 @@ fn run_stitch(
         overlay_png: String::new(),
         winner_map_png: String::new(),
         recommended_projection: recommended,
-        selected_projection: recommended,
         crop: NormalizedCrop::default(),
         registration: reg,
         preview_width: 0,
@@ -453,8 +453,9 @@ struct PreviewImages {
 
 fn render_display(rendered: &Composed) -> Result<PreviewImages, PanoMessage> {
     let (w, h) = (rendered.width as u32, rendered.height as u32);
-    let (dw, dh) = display_size(w, h);
-    let small = resize_box(&rendered.image, dw as usize, dh as usize);
+    let (dw, dh) = long_edge_size(rendered.width, rendered.height, DISPLAY_EDGE);
+    let small = resize_box(&rendered.image, dw, dh);
+    let (dw, dh) = (dw as u32, dh as u32);
     let img =
         Rgb32FImage::from_raw(dw, dh, small.data.into_flattened()).ok_or(PanoMessage::NoPreview)?;
     let display = apply_linear_to_srgb(DynamicImage::ImageRgb32F(img));
@@ -462,7 +463,7 @@ fn render_display(rendered: &Composed) -> Result<PreviewImages, PanoMessage> {
     let winners = resize_winners(&rendered.label, w, h, dw, dh);
     let overlay = generate_overlay(&winners, dw, dh)?;
     Ok(PreviewImages {
-        png,
+        png: png_data_url(&png),
         overlay: png_data_url(&overlay.boundary_png),
         winner_map: png_data_url(&overlay.winner_map_png),
         width: dw,
@@ -527,18 +528,6 @@ fn scale_registration(
     })
 }
 
-fn median_ratio(ratios: impl IntoIterator<Item = f64>) -> f64 {
-    let mut v: Vec<f64> = ratios
-        .into_iter()
-        .filter(|r| r.is_finite() && *r > 0.0)
-        .collect();
-    if v.is_empty() {
-        return 1.0;
-    }
-    v.sort_by(|a, b| a.total_cmp(b));
-    v[v.len() / 2]
-}
-
 fn save_composite(
     session: &PanoramaSession,
     crop: &NormalizedCrop,
@@ -582,7 +571,7 @@ fn save_composite(
         .unwrap_or("panorama");
     let output_path = parent_dir.join(format!("{stem}_Pano.tiff"));
     let opts = PanoOptions {
-        projection: session.selected_projection,
+        projection: session.options.projection,
         quality,
         auto_crop: false,
         frame_scale: 1.0,
@@ -591,12 +580,11 @@ fn save_composite(
             session.composite_width as usize,
             session.composite_height as usize,
         )),
-        ..session.options.clone()
     };
     stitch_log::line(&format!("save starting at {:.0}% quality", quality * 100.0));
     let progress = |msg: PanoMessage, frac: f64| emit_save(save_phase_percent(&msg, frac), msg);
     let load_progress = |msg: PanoMessage| emit_save(0.0, msg);
-    let layout = stitch::layout(&sizes, &reg, opts.projection, &opts)?;
+    let layout = stitch::layout(&sizes, &reg, &opts)?;
     let rendered = stream_sources(
         &session.source_paths,
         &layout,
@@ -659,7 +647,7 @@ fn complete_payload(session: &PanoramaSession) -> serde_json::Value {
         "crop": session.crop,
         "dropped": session.dropped,
         "recommendedProjection": session.recommended_projection,
-        "selectedProjection": session.selected_projection,
+        "selectedProjection": session.options.projection,
         "projections": Projection::CHOICES,
         "minQuality": stitch::MIN_QUALITY,
         "frames": session
@@ -687,7 +675,7 @@ fn load_linear(
     let exif = crate::exif_processing::read_exif_data_from_bytes(path, &bytes);
     let mut dynamic =
         crate::image_loader::load_base_image_from_bytes(&bytes, path, false, settings, None)
-            .map_err(|e| PanoMessage::DecodeFailed {
+            .map_err(|e| PanoMessage::ReadFailed {
                 file: file_name(path),
                 detail: e.to_string(),
             })?;
@@ -726,52 +714,30 @@ fn frame_meta(exif: &HashMap<String, String>) -> FrameMeta {
     }
 }
 
-fn exposure_value(exif: &HashMap<String, String>) -> Option<f64> {
-    let shutter = exif
-        .get("ExposureTime")
-        .and_then(|s| parse_shutter(s))
+fn exposure_value(meta: &FrameMeta) -> Option<f64> {
+    let shutter = meta
+        .shutter
+        .as_deref()
+        .and_then(parse_shutter)
         .filter(|t| *t > 0.0 && t.is_finite())?;
-    let iso = exif
-        .get("PhotographicSensitivity")
-        .or_else(|| exif.get("ISOSpeed"))
-        .and_then(|s| first_number(s))
-        .filter(|i| *i > 0.0)
-        .unwrap_or(100.0);
-    let fnum = exif
-        .get("FNumber")
-        .or_else(|| exif.get("ApertureValue"))
-        .and_then(|s| first_number(s))
+    let iso = meta.iso.filter(|i| *i > 0.0).unwrap_or(100.0);
+    let fnum = meta
+        .aperture
         .filter(|n| *n > 0.0 && n.is_finite())
         .unwrap_or(1.0);
     Some((shutter * iso / (fnum * fnum)).log2())
 }
 
 fn is_already_linear(path: &str) -> bool {
-    is_linear_ext(
-        std::path::Path::new(path)
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or(""),
-    )
-}
-
-pub fn is_linear_ext(ext: &str) -> bool {
-    matches!(
-        ext.to_ascii_lowercase().as_str(),
-        "exr" | "hdr" | "pfm" | "dpx" | "cin"
-    )
-}
-
-fn display_size(w: u32, h: u32) -> (u32, u32) {
-    let long = w.max(h).max(1);
-    if long <= stitch::DISPLAY_LONG_SIDE {
-        return (w.max(1), h.max(1));
-    }
-    let s = stitch::DISPLAY_LONG_SIDE as f64 / long as f64;
-    (
-        ((w as f64) * s).round().max(1.0) as u32,
-        ((h as f64) * s).round().max(1.0) as u32,
-    )
+    Path::new(path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| {
+            matches!(
+                e.to_ascii_lowercase().as_str(),
+                "exr" | "hdr" | "pfm" | "dpx" | "cin"
+            )
+        })
 }
 
 fn resize_winners(src: &[u16], sw: u32, sh: u32, dw: u32, dh: u32) -> Vec<u16> {
@@ -784,13 +750,6 @@ fn resize_winners(src: &[u16], sw: u32, sh: u32, dw: u32, dh: u32) -> Vec<u16> {
         }
     }
     out
-}
-
-fn encode_png(img: &image::RgbImage) -> Result<String, PanoMessage> {
-    let mut buf = Cursor::new(Vec::new());
-    img.write_to(&mut buf, ImageFormat::Png)
-        .map_err(PanoMessage::encode_failed)?;
-    Ok(png_data_url(buf.get_ref()))
 }
 
 fn png_data_url(png: &[u8]) -> String {

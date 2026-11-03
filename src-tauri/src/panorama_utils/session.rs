@@ -36,7 +36,6 @@ pub struct PanoramaSession {
     pub overlay_png: String,
     pub winner_map_png: String,
     pub recommended_projection: Projection,
-    pub selected_projection: Projection,
     pub crop: NormalizedCrop,
     pub registration: Registration,
     pub preview_width: u32,
@@ -47,8 +46,4 @@ pub struct PanoramaSession {
     pub focal_outliers: std::collections::HashMap<String, bool>,
     pub options: PanoOptions,
     pub gains: Vec<f64>,
-}
-
-pub fn drop_session(session: &mut Option<PanoramaSession>) {
-    *session = None;
 }

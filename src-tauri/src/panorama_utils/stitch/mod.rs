@@ -10,12 +10,11 @@ use super::features;
 use super::linalg;
 use super::log;
 use super::message::PanoMessage;
-use super::raster::{Plane, Rgb32f, into_pixels, try_zeroed};
+use super::raster::{Rgb32f, into_pixels, try_zeroed};
 use blend::{Blender, Buf, push_pull};
 use camera::Camera;
 use project::Projection;
 
-pub const DISPLAY_LONG_SIDE: u32 = 1920;
 const WORK_EDGE: usize = 1000;
 const MAX_FEATURES: usize = 1200;
 const SOURCE_MARGIN: f64 = 1.2;
@@ -29,7 +28,7 @@ pub struct Frame {
     pub clip: f32,
     pub exposure: Option<f64>,
     pub focal35: Option<f64>,
-    pub meta: Option<FrameMeta>,
+    pub meta: FrameMeta,
 }
 
 #[derive(Clone, Debug, Default, serde::Serialize)]
@@ -52,21 +51,6 @@ impl Frame {
 }
 
 const MAX_LONG_EDGE: f64 = 65_000.0;
-
-impl Default for PanoOptions {
-    fn default() -> Self {
-        PanoOptions {
-            projection: Projection::Auto,
-            boundary_warp: 0.0,
-            auto_crop: false,
-            fill_edges: false,
-            quality: 1.0,
-            preview_canvas: None,
-            save_scale: 1.0,
-            frame_scale: 1.0,
-        }
-    }
-}
 
 pub fn frame_sizes(frames: &[Frame]) -> Vec<(usize, usize)> {
     frames.iter().map(|f| (f.width(), f.height())).collect()
@@ -99,7 +83,7 @@ fn outline(
         .into_iter()
         .map(|(x, y)| proj.forward(c.ray(x, y), f))
         .collect::<Option<Vec<_>>>()?;
-    if matches!(proj, Projection::Spherical | Projection::Auto) {
+    if proj == Projection::Spherical {
         for pole in [-1.0, 1.0] {
             if c.project([0.0, pole, 0.0]).is_some_and(|(x, y)| {
                 (0.0..=w as f64).contains(&x) && (0.0..=h as f64).contains(&y)
@@ -138,7 +122,7 @@ pub fn choose_projection(sizes: &[(usize, usize)], cams: &[Option<Camera>]) -> P
     }
 }
 
-fn median(mut v: Vec<f64>) -> f64 {
+pub fn median(mut v: Vec<f64>) -> f64 {
     if v.is_empty() {
         return 1.0;
     }
@@ -158,9 +142,7 @@ struct Tile {
 #[derive(Clone, Debug)]
 pub struct PanoOptions {
     pub projection: Projection,
-    pub boundary_warp: f64,
     pub auto_crop: bool,
-    pub fill_edges: bool,
     pub quality: f64,
     pub preview_canvas: Option<(usize, usize)>,
     pub save_scale: f64,
@@ -540,21 +522,15 @@ pub struct Layout {
 pub fn layout(
     sizes: &[(usize, usize)],
     reg: &Registration,
-    projection: Projection,
     opts: &PanoOptions,
 ) -> Result<Layout, PanoMessage> {
     let cams = &reg.cameras;
     let used = &reg.used;
     let fovd = fov(sizes, cams);
-    let projection = match projection {
-        Projection::Auto => choose_projection(sizes, cams),
-        p => p,
-    };
+    let projection = opts.projection;
     log::line(&format!(
-        "projection {} fov {:.1}° x {:.1}°",
-        projection.as_str(),
-        fovd.0,
-        fovd.1
+        "projection {projection:?} fov {:.1}° x {:.1}°",
+        fovd.0, fovd.1
     ));
     let fmed = median(used.iter().filter_map(|&i| cams[i].map(|c| c.f)).collect());
     let Some((bx0, by0, bx1, by1)) = bounds_of(sizes, cams, projection, fmed) else {
@@ -789,12 +765,11 @@ pub fn exposure_gains(
 pub fn compose_frames(
     frames: &[Frame],
     reg: &Registration,
-    projection: Projection,
     opts: &PanoOptions,
     progress: &ComposeProgress<'_>,
     stop: &log::StitchLog,
 ) -> Result<Composed, PanoMessage> {
-    let layout = layout(&frame_sizes(frames), reg, projection, opts)?;
+    let layout = layout(&frame_sizes(frames), reg, opts)?;
     let gains = exposure_gains(&layout, frames, progress, stop)?;
     let sources = layout.frames().map(|i| Ok((i, &frames[i].image)));
     compose(&layout, &gains, sources, opts, progress, stop)
@@ -872,26 +847,10 @@ pub fn compose<S: std::borrow::Borrow<Rgb32f>>(
             };
         });
     progress(PanoMessage::Finishing, 0.0);
-    let crop = if opts.boundary_warp > 0.0 || opts.auto_crop || opts.fill_edges {
-        let alpha = Plane {
-            width: cw,
-            height: ch,
-            data: label
-                .par_iter()
-                .map(|&l| if l != u16::MAX { 1.0 } else { 0.0 })
-                .collect(),
-        };
-        let (warped, alpha) = finish::boundary_warp(image, alpha, opts.boundary_warp / 100.0);
-        image = warped;
-        if opts.fill_edges {
-            finish::fill_edges(&mut image, &alpha)?;
-        }
-        opts.auto_crop
-            .then(|| finish::coverage_crop(&alpha))
-            .flatten()
-    } else {
-        None
-    };
+    let crop = opts
+        .auto_crop
+        .then(|| finish::coverage_crop(&label, cw, ch))
+        .flatten();
     progress(PanoMessage::Finishing, 1.0);
     log::phase(&format!("composed {}x{} crop {:?}", cw, ch, crop));
     Ok(Composed {

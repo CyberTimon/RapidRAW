@@ -1750,7 +1750,6 @@
         "needTwo": "Select at least two photos to stitch.",
         "noSession": "Stitch the photos before changing the projection.",
         "noSessionSave": "Stitch the photos before saving.",
-        "unknownProjection": "That projection is not available.",
         "noOverlap": "The photos do not overlap enough to be stitched.",
         "fovTooWide": "The view is too wide ({{degrees}}°) for a rectilinear projection.",
         "noPreview": "The preview could not be built.",
@@ -1765,7 +1764,6 @@
         "saveWriteFailed": "The panorama file could not be written. {{detail}}",
         "encodeFailed": "The preview image could not be encoded. {{detail}}",
         "readFailed": "Could not read {{file}}. {{detail}}",
-        "decodeFailed": "Could not read {{file}}. {{detail}}",
         "droppedNoOverlap": "No overlap with the other photos",
         "droppedNoOverlapFocal": "No overlap with the other photos ({{focal}} mm)"
       }

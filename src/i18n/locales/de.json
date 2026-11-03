@@ -1750,7 +1750,6 @@
         "needTwo": "Wählen Sie mindestens zwei Fotos zum Zusammenfügen.",
         "noSession": "Fügen Sie die Fotos zusammen, bevor Sie die Projektion ändern.",
         "noSessionSave": "Fügen Sie die Fotos zusammen, bevor Sie speichern.",
-        "unknownProjection": "Diese Projektion ist nicht verfügbar.",
         "noOverlap": "Die Fotos überlappen nicht genug, um sie zusammenzufügen.",
         "fovTooWide": "Der Blickwinkel ist für eine Rektilinearprojektion zu weit ({{degrees}}°).",
         "noPreview": "Die Vorschau konnte nicht erzeugt werden.",
@@ -1765,7 +1764,6 @@
         "saveWriteFailed": "Die Panoramadatei konnte nicht geschrieben werden. {{detail}}",
         "encodeFailed": "Das Vorschaubild konnte nicht kodiert werden. {{detail}}",
         "readFailed": "{{file}} konnte nicht gelesen werden. {{detail}}",
-        "decodeFailed": "{{file}} konnte nicht gelesen werden. {{detail}}",
         "droppedNoOverlap": "Keine Überlappung mit den anderen Fotos",
         "droppedNoOverlapFocal": "Keine Überlappung mit den anderen Fotos ({{focal}} mm)"
       }

@@ -1786,7 +1786,6 @@
         "needTwo": "Selecione pelo menos duas fotos para montar.",
         "noSession": "Monte as fotos antes de mudar a projeção.",
         "noSessionSave": "Monte as fotos antes de salvar.",
-        "unknownProjection": "Essa projeção não está disponível.",
         "noOverlap": "As fotos não se sobrepõem o suficiente para serem montadas.",
         "fovTooWide": "A visão é larga demais ({{degrees}}°) para uma projeção retilinear.",
         "noPreview": "Não foi possível criar a prévia.",
@@ -1801,7 +1800,6 @@
         "saveWriteFailed": "Não foi possível gravar o arquivo do panorama. {{detail}}",
         "encodeFailed": "Não foi possível codificar a imagem de prévia. {{detail}}",
         "readFailed": "Não foi possível ler {{file}}. {{detail}}",
-        "decodeFailed": "Não foi possível ler {{file}}. {{detail}}",
         "droppedNoOverlap": "Sem sobreposição com as outras fotos",
         "droppedNoOverlapFocal": "Sem sobreposição com as outras fotos ({{focal}} mm)"
       }

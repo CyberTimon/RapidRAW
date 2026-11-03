@@ -1786,7 +1786,6 @@
         "needTwo": "Seleccioneu almenys dues fotos per unir.",
         "noSession": "Uniu les fotos abans de canviar la projecció.",
         "noSessionSave": "Uniu les fotos abans de desar.",
-        "unknownProjection": "Aquesta projecció no està disponible.",
         "noOverlap": "Les fotos no se superposen prou per unir-les.",
         "fovTooWide": "La vista és massa àmplia ({{degrees}}°) per a una projecció rectilínia.",
         "noPreview": "No s'ha pogut crear la previsualització.",
@@ -1801,7 +1800,6 @@
         "saveWriteFailed": "No s'ha pogut escriure el fitxer del panorama. {{detail}}",
         "encodeFailed": "No s'ha pogut codificar la imatge de previsualització. {{detail}}",
         "readFailed": "No s'ha pogut llegir {{file}}. {{detail}}",
-        "decodeFailed": "No s'ha pogut llegir {{file}}. {{detail}}",
         "droppedNoOverlap": "Sense superposició amb les altres fotos",
         "droppedNoOverlapFocal": "Sense superposició amb les altres fotos ({{focal}} mm)"
       }

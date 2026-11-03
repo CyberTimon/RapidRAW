@@ -1786,7 +1786,6 @@
         "needTwo": "Selecciona al menos dos fotos para unir.",
         "noSession": "Une las fotos antes de cambiar la proyección.",
         "noSessionSave": "Une las fotos antes de guardar.",
-        "unknownProjection": "Esa proyección no está disponible.",
         "noOverlap": "Las fotos no se solapan lo suficiente para unirlas.",
         "fovTooWide": "La vista es demasiado amplia ({{degrees}}°) para una proyección rectilínea.",
         "noPreview": "No se pudo crear la vista previa.",
@@ -1801,7 +1800,6 @@
         "saveWriteFailed": "No se pudo escribir el archivo del panorama. {{detail}}",
         "encodeFailed": "No se pudo codificar la imagen de vista previa. {{detail}}",
         "readFailed": "No se pudo leer {{file}}. {{detail}}",
-        "decodeFailed": "No se pudo leer {{file}}. {{detail}}",
         "droppedNoOverlap": "Sin solapamiento con las otras fotos",
         "droppedNoOverlapFocal": "Sin solapamiento con las otras fotos ({{focal}} mm)"
       }

@@ -21,7 +21,6 @@ pub enum PanoMessage {
     NeedTwo,
     NoSession,
     NoSessionSave,
-    UnknownProjection,
     NoOverlap,
     FovTooWide {
         degrees: f64,
@@ -50,10 +49,6 @@ pub enum PanoMessage {
         detail: String,
     },
     ReadFailed {
-        file: String,
-        detail: String,
-    },
-    DecodeFailed {
         file: String,
         detail: String,
     },

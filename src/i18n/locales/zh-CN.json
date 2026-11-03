@@ -1744,7 +1744,6 @@
         "needTwo": "请至少选择两张照片进行拼接。",
         "noSession": "请先拼接照片，再更改投影。",
         "noSessionSave": "请先拼接照片，再保存。",
-        "unknownProjection": "这种投影不可用。",
         "noOverlap": "照片重叠不够，无法拼接。",
         "fovTooWide": "视角太宽（{{degrees}}°），不适合直线投影。",
         "noPreview": "无法生成预览。",
@@ -1759,7 +1758,6 @@
         "saveWriteFailed": "无法写入全景文件。{{detail}}",
         "encodeFailed": "无法编码预览图像。{{detail}}",
         "readFailed": "无法读取 {{file}}。{{detail}}",
-        "decodeFailed": "无法读取 {{file}}。{{detail}}",
         "droppedNoOverlap": "与其他照片没有重叠",
         "droppedNoOverlapFocal": "与其他照片没有重叠（{{focal}} mm）"
       }

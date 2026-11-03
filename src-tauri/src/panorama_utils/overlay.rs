@@ -1,5 +1,5 @@
 use super::message::PanoMessage;
-use image::{GrayImage, Rgba, RgbaImage};
+use image::{GrayImage, ImageBuffer, PixelWithColorType, Rgba, RgbaImage};
 
 pub struct OverlayResult {
     pub boundary_png: Vec<u8>,
@@ -44,19 +44,14 @@ pub fn generate_overlay(
         }
     }
     Ok(OverlayResult {
-        boundary_png: encode_png_rgba(&boundary)?,
-        winner_map_png: encode_png_gray(&map)?,
+        boundary_png: encode_png(&boundary)?,
+        winner_map_png: encode_png(&map)?,
     })
 }
 
-fn encode_png_rgba(img: &RgbaImage) -> Result<Vec<u8>, PanoMessage> {
-    let mut buf = std::io::Cursor::new(Vec::new());
-    img.write_to(&mut buf, image::ImageFormat::Png)
-        .map_err(PanoMessage::encode_failed)?;
-    Ok(buf.into_inner())
-}
-
-fn encode_png_gray(img: &GrayImage) -> Result<Vec<u8>, PanoMessage> {
+pub fn encode_png<P: PixelWithColorType<Subpixel = u8>>(
+    img: &ImageBuffer<P, Vec<u8>>,
+) -> Result<Vec<u8>, PanoMessage> {
     let mut buf = std::io::Cursor::new(Vec::new());
     img.write_to(&mut buf, image::ImageFormat::Png)
         .map_err(PanoMessage::encode_failed)?;

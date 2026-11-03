@@ -1822,7 +1822,6 @@
         "needTwo": "Vyberte alespoň dvě fotografie ke složení.",
         "noSession": "Nejdřív fotografie složte, teprve potom změňte projekci.",
         "noSessionSave": "Nejdřív fotografie složte, teprve potom uložte.",
-        "unknownProjection": "Tahle projekce není k dispozici.",
         "noOverlap": "Fotografie se nepřekrývají dost na to, aby šly složit.",
         "fovTooWide": "Záběr je pro rektilineární projekci příliš široký ({{degrees}}°).",
         "noPreview": "Náhled se nepodařilo vytvořit.",
@@ -1837,7 +1836,6 @@
         "saveWriteFailed": "Soubor panoramatu se nepodařilo zapsat. {{detail}}",
         "encodeFailed": "Náhled se nepodařilo zakódovat. {{detail}}",
         "readFailed": "Soubor {{file}} se nepodařilo přečíst. {{detail}}",
-        "decodeFailed": "Soubor {{file}} se nepodařilo přečíst. {{detail}}",
         "droppedNoOverlap": "Žádný překryv s ostatními fotografiemi",
         "droppedNoOverlapFocal": "Žádný překryv s ostatními fotografiemi ({{focal}} mm)"
       }

@@ -1744,7 +1744,6 @@
         "needTwo": "つなぐ写真を2枚以上選んでください。",
         "noSession": "投影を変える前に、写真をつないでください。",
         "noSessionSave": "保存する前に、写真をつないでください。",
-        "unknownProjection": "その投影は使えません。",
         "noOverlap": "写真の重なりが足りないため、つなげられません。",
         "fovTooWide": "画角が広すぎて（{{degrees}}°）、直線投影には向きません。",
         "noPreview": "プレビューを作れませんでした。",
@@ -1759,7 +1758,6 @@
         "saveWriteFailed": "パノラマのファイルを書き出せませんでした。{{detail}}",
         "encodeFailed": "プレビュー画像を符号化できませんでした。{{detail}}",
         "readFailed": "{{file}} を読み取れませんでした。{{detail}}",
-        "decodeFailed": "{{file}} を読み取れませんでした。{{detail}}",
         "droppedNoOverlap": "他の写真と重なっていません",
         "droppedNoOverlapFocal": "他の写真と重なっていません（{{focal}} mm）"
       }

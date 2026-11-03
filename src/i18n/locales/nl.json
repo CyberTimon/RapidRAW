@@ -1750,7 +1750,6 @@
         "needTwo": "Selecteer minstens twee foto's om samen te voegen.",
         "noSession": "Voeg de foto's samen voordat u de projectie wijzigt.",
         "noSessionSave": "Voeg de foto's samen voordat u opslaat.",
-        "unknownProjection": "Die projectie is niet beschikbaar.",
         "noOverlap": "De foto's overlappen niet genoeg om ze samen te voegen.",
         "fovTooWide": "Het beeld is te breed ({{degrees}}°) voor een rechtlijnige projectie.",
         "noPreview": "Het voorbeeld kon niet worden gemaakt.",
@@ -1765,7 +1764,6 @@
         "saveWriteFailed": "Het panoramabestand kon niet worden geschreven. {{detail}}",
         "encodeFailed": "De voorbeeldafbeelding kon niet worden gecodeerd. {{detail}}",
         "readFailed": "{{file}} kon niet worden gelezen. {{detail}}",
-        "decodeFailed": "{{file}} kon niet worden gelezen. {{detail}}",
         "droppedNoOverlap": "Geen overlap met de andere foto's",
         "droppedNoOverlapFocal": "Geen overlap met de andere foto's ({{focal}} mm)"
       }
