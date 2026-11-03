@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useUIStore } from '../store/useUIStore';
 import { Invokes } from '../components/ui/AppProperties';
+import { toPanoramaMessage } from '../utils/panorama';
 
 export function useProductivityActions(refreshImageList: () => Promise<void>) {
   const setUI = useUIStore((state) => state.setUI);
@@ -17,14 +18,18 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
           overlayBase64: null,
           winnerMapBase64: null,
           dropped: [],
-          progressMessage: 'Starting panorama process...',
+          progressMessage: { code: 'starting' },
         },
       }));
       invoke(Invokes.StitchPanorama, { paths }).catch((err) => {
         setUI((state) => {
           if (!state.panoramaModalState.isOpen) return state;
           return {
-            panoramaModalState: { ...state.panoramaModalState, isProcessing: false, error: String(err) },
+            panoramaModalState: {
+              ...state.panoramaModalState,
+              isProcessing: false,
+              error: toPanoramaMessage(err, 'taskFailed'),
+            },
           };
         });
       });
@@ -39,14 +44,18 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
           ...state.panoramaModalState,
           pendingProjection: projection,
           previewError: null,
-          progressMessage: 'Reprojecting preview...',
+          progressMessage: { code: 'reprojecting' },
         },
       }));
       invoke(Invokes.ReprojectPanorama, { projection }).catch((err) => {
         setUI((state) => {
           if (!state.panoramaModalState.isOpen) return state;
           return {
-            panoramaModalState: { ...state.panoramaModalState, pendingProjection: null, previewError: String(err) },
+            panoramaModalState: {
+              ...state.panoramaModalState,
+              pendingProjection: null,
+              previewError: toPanoramaMessage(err, 'reprojectFailed'),
+            },
           };
         });
       });
@@ -62,9 +71,10 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
     async (crop?: { x: number; y: number; width: number; height: number } | null): Promise<string> => {
       const { panoramaModalState } = useUIStore.getState();
       if (panoramaModalState.stitchingSourcePaths.length === 0) {
-        const err = 'Source paths for panorama not found.';
-        setUI((state) => ({ panoramaModalState: { ...state.panoramaModalState, previewError: err } }));
-        throw new Error(err);
+        setUI((state) => ({
+          panoramaModalState: { ...state.panoramaModalState, previewError: { code: 'noSessionSave' } },
+        }));
+        throw new Error('Source paths for panorama not found.');
       }
       try {
         setUI((state) => ({
@@ -96,7 +106,7 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
           return {
             panoramaModalState: {
               ...state.panoramaModalState,
-              previewError: String(err),
+              previewError: toPanoramaMessage(err, 'saveFailed'),
               saveProgressPercent: null,
               saveProgressMessage: null,
             },

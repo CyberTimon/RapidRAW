@@ -3,6 +3,7 @@ pub mod features;
 pub mod geom;
 pub mod linalg;
 pub mod log;
+pub mod message;
 pub mod overlay;
 pub mod processing;
 pub mod ram;

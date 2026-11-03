@@ -9,6 +9,7 @@ const MAX_TOTAL_PIXELS: f64 = 512e6;
 use super::features;
 use super::linalg;
 use super::log;
+use super::message::PanoMessage;
 use super::raster::{Plane, Rgb32f, into_pixels, try_zeroed};
 use blend::{Blender, Buf, push_pull};
 use camera::Camera;
@@ -180,7 +181,7 @@ pub const FOCAL_OUTLIER_TOLERANCE: f64 = 0.10;
 
 pub const MIN_QUALITY: f64 = 0.25;
 
-pub fn register(frames: &[Frame], stop: &log::StitchLog) -> Result<Registration, String> {
+pub fn register(frames: &[Frame], stop: &log::StitchLog) -> Result<Registration, PanoMessage> {
     let n = frames.len();
     let work: Vec<(features::Features, f64)> = frames
         .par_iter()
@@ -190,7 +191,7 @@ pub fn register(frames: &[Frame], stop: &log::StitchLog) -> Result<Registration,
             let (p, s) = features::work_image(&f.image, 0.18 / med.max(1e-6), WORK_EDGE);
             Ok((features::detect(&p, MAX_FEATURES), s))
         })
-        .collect::<Result<_, String>>()?;
+        .collect::<Result<_, PanoMessage>>()?;
     log::line(&format!(
         "features done ({} per frame)",
         work.iter().map(|(f, _)| f.len()).max().unwrap_or(0)
@@ -368,10 +369,10 @@ pub fn register(frames: &[Frame], stop: &log::StitchLog) -> Result<Registration,
     })
 }
 
-fn connected_set(n: usize, pairs: &[camera::PairMatch]) -> Result<Vec<usize>, String> {
+fn connected_set(n: usize, pairs: &[camera::PairMatch]) -> Result<Vec<usize>, PanoMessage> {
     let ids = camera::largest_component(n, pairs);
     if ids.len() < 2 {
-        return Err("The photos don't overlap enough to be stitched.".into());
+        return Err(PanoMessage::NoOverlap);
     }
     log::line(&format!("connected set: {} of {} photos", ids.len(), n));
     Ok(ids)
@@ -519,7 +520,7 @@ pub fn detect_clip(img: &Rgb32f) -> f32 {
     }
 }
 
-pub type ComposeProgress<'a> = dyn Fn(&str, f64) + Sync + 'a;
+pub type ComposeProgress<'a> = dyn Fn(PanoMessage, f64) + Sync + 'a;
 
 type Rect = (usize, usize, usize, usize);
 
@@ -542,7 +543,7 @@ pub fn layout(
     reg: &Registration,
     projection: Projection,
     opts: &PanoOptions,
-) -> Result<Layout, String> {
+) -> Result<Layout, PanoMessage> {
     let cams = &reg.cameras;
     let used = &reg.used;
     let fovd = fov(sizes, cams);
@@ -558,17 +559,15 @@ pub fn layout(
     ));
     let fmed = median(used.iter().filter_map(|&i| cams[i].map(|c| c.f)).collect());
     let Some((bx0, by0, bx1, by1)) = bounds_of(sizes, cams, projection, fmed) else {
-        return Err(format!(
-            "The field of view ({:.0}°) is too wide for a rectilinear projection.",
-            fovd.0
-        ));
+        return Err(PanoMessage::FovTooWide {
+            degrees: fovd.0.round(),
+        });
     };
     let area: f64 = used.iter().map(|&i| (sizes[i].0 * sizes[i].1) as f64).sum();
     if projection == Projection::Perspective && (bx1 - bx0) * (by1 - by0) > 12.0 * area {
-        return Err(format!(
-            "The field of view ({:.0}°) is too wide for a rectilinear projection.",
-            fovd.0
-        ));
+        return Err(PanoMessage::FovTooWide {
+            degrees: fovd.0.round(),
+        });
     }
     let (bw, bh) = if let Some((vw, vh)) = opts.preview_canvas {
         let r = if opts.save_scale.is_finite() && opts.save_scale > 0.0 {
@@ -683,7 +682,7 @@ impl Layout {
             hit(x, px, py, (wx * wy).max(1e-6) as f32);
         }
     }
-    fn labels(&self) -> Result<Vec<u16>, String> {
+    fn labels(&self) -> Result<Vec<u16>, PanoMessage> {
         let w = self.width;
         let mut label = try_zeroed(w * self.height)?;
         label.par_chunks_mut(w).enumerate().for_each_init(
@@ -707,7 +706,12 @@ impl Layout {
         );
         Ok(label)
     }
-    fn warp(&self, i: usize, src: &Rgb32f, stop: &log::StitchLog) -> Result<Vec<Tile>, String> {
+    fn warp(
+        &self,
+        i: usize,
+        src: &Rgb32f,
+        stop: &log::StitchLog,
+    ) -> Result<Vec<Tile>, PanoMessage> {
         let (fw, fh) = self.sizes[i];
         let (kx, ky) = (src.width as f64 / fw as f64, src.height as f64 / fh as f64);
         self.rects[i]
@@ -748,8 +752,8 @@ pub fn exposure_gains(
     frames: &[Frame],
     progress: &ComposeProgress<'_>,
     stop: &log::StitchLog,
-) -> Result<Vec<f64>, String> {
-    progress("Exposure compensation", 0.0);
+) -> Result<Vec<f64>, PanoMessage> {
+    progress(PanoMessage::Exposure, 0.0);
     let ev0 = layout
         .cams
         .iter()
@@ -769,7 +773,7 @@ pub fn exposure_gains(
             stop.gate()?;
             layout.warp(i, &f.image, stop)
         })
-        .collect::<Result<_, String>>()?;
+        .collect::<Result<_, PanoMessage>>()?;
     compensate_gains(&tiles, &mut gains, frames);
     log::line(&format!(
         "gains {}",
@@ -779,7 +783,7 @@ pub fn exposure_gains(
             .collect::<Vec<_>>()
             .join(" ")
     ));
-    progress("Exposure compensation", 1.0);
+    progress(PanoMessage::Exposure, 1.0);
     Ok(gains)
 }
 
@@ -790,7 +794,7 @@ pub fn compose_frames(
     opts: &PanoOptions,
     progress: &ComposeProgress<'_>,
     stop: &log::StitchLog,
-) -> Result<Composed, String> {
+) -> Result<Composed, PanoMessage> {
     let layout = layout(&frame_sizes(frames), reg, projection, opts)?;
     let gains = exposure_gains(&layout, frames, progress, stop)?;
     let sources = layout.frames().map(|i| Ok((i, &frames[i].image)));
@@ -800,16 +804,16 @@ pub fn compose_frames(
 pub fn compose<S: std::borrow::Borrow<Rgb32f>>(
     layout: &Layout,
     gains: &[f64],
-    sources: impl Iterator<Item = Result<(usize, S), String>>,
+    sources: impl Iterator<Item = Result<(usize, S), PanoMessage>>,
     opts: &PanoOptions,
     progress: &ComposeProgress<'_>,
     stop: &log::StitchLog,
-) -> Result<Composed, String> {
+) -> Result<Composed, PanoMessage> {
     let (cw, ch, levels) = (layout.width, layout.height, layout.levels);
-    progress("Projecting", 0.0);
+    progress(PanoMessage::Projecting, 0.0);
     let label = layout.labels()?;
-    progress("Projecting", 1.0);
-    progress("Blending", 0.0);
+    progress(PanoMessage::Projecting, 1.0);
+    progress(PanoMessage::Blending, 0.0);
     let mut blender = Blender::try_new(cw, ch, levels)?;
     let blend_rows = blend::blend_work_rows(layout.rects.iter().flatten().map(|r| r.3), levels, ch);
     let tick = blend::BlendTick::new(blend_rows, progress);
@@ -851,7 +855,7 @@ pub fn compose<S: std::borrow::Borrow<Rgb32f>>(
     }
     stop.gate()?;
     let out = blender.finish(Some(&tick), stop)?;
-    progress("Blending", 1.0);
+    progress(PanoMessage::Blending, 1.0);
     let mut image = Rgb32f {
         width: cw,
         height: ch,
@@ -868,7 +872,7 @@ pub fn compose<S: std::borrow::Borrow<Rgb32f>>(
                 [0.0; 3]
             };
         });
-    progress("Finishing", 0.0);
+    progress(PanoMessage::Finishing, 0.0);
     let crop = if opts.boundary_warp > 0.0 || opts.auto_crop || opts.fill_edges {
         let alpha = Plane {
             width: cw,
@@ -889,7 +893,7 @@ pub fn compose<S: std::borrow::Borrow<Rgb32f>>(
     } else {
         None
     };
-    progress("Finishing", 1.0);
+    progress(PanoMessage::Finishing, 1.0);
     log::phase(&format!("composed {}x{} crop {:?}", cw, ch, crop));
     Ok(Composed {
         image,

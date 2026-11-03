@@ -14,6 +14,7 @@ import {
 } from '../components/ui/AppProperties';
 import { useEditorStore } from './useEditorStore';
 import { pickCropGeometry } from '../utils/adjustments';
+import type { PanoramaMessage } from '../utils/panorama';
 
 export type SwitcherPlacement = 'bottom' | 'right' | 'left' | 'top';
 
@@ -45,15 +46,15 @@ interface PanoramaCrop {
 
 interface PanoramaDroppedImage {
   filename: string;
-  reason: string;
+  reason: PanoramaMessage;
 }
 
 interface PanoramaModalState {
-  error: string | null;
+  error: PanoramaMessage | null;
   finalImageBase64: string | null;
   isOpen: boolean;
   isProcessing: boolean;
-  progressMessage: string | null;
+  progressMessage: PanoramaMessage | null;
   stitchingSourcePaths: Array<string>;
   overlayBase64: string | null;
   winnerMapBase64: string | null;
@@ -65,8 +66,8 @@ interface PanoramaModalState {
   previewHeight: number;
   filenames: Array<string>;
   saveProgressPercent: number | null;
-  saveProgressMessage: string | null;
-  previewError: string | null;
+  saveProgressMessage: PanoramaMessage | null;
+  previewError: PanoramaMessage | null;
   pendingProjection: string | null;
   quality: number;
   frames: Array<PanoramaFrameInfo> | null;

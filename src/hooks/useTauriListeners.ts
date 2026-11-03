@@ -9,6 +9,7 @@ import { AiJobsStatus, JobKind, JobStatus, useProcessStore } from '../store/useP
 import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
 import { useLibraryStore } from '../store/useLibraryStore';
+import type { PanoramaMessage } from '../utils/panorama';
 
 const parseAnalyticsPacket = async (buffer: ArrayBuffer) => {
   const view = new DataView(buffer);
@@ -420,7 +421,7 @@ export function useTauriListeners({
           editorState.setEditor({ hasRenderedFirstFrame: true });
         }
       }),
-      listen('panorama-progress', (event: any) => {
+      listen<PanoramaMessage>('panorama-progress', (event) => {
         if (isEffectActive) {
           useUIStore.getState().setUI((state) => {
             if (!state.panoramaModalState.isOpen || state.panoramaModalState.error) return state;
@@ -428,7 +429,7 @@ export function useTauriListeners({
           });
         }
       }),
-      listen<{ percent: number; message: string }>('panorama-save-progress', (event) => {
+      listen<{ percent: number; message: PanoramaMessage }>('panorama-save-progress', (event) => {
         if (isEffectActive) {
           const { percent, message } = event.payload;
           useUIStore.getState().setUI((state) => {
@@ -472,14 +473,14 @@ export function useTauriListeners({
           });
         }
       }),
-      listen('panorama-error', (event: any) => {
+      listen<PanoramaMessage>('panorama-error', (event) => {
         if (isEffectActive) {
           useUIStore.getState().setUI((state) => {
             if (!state.panoramaModalState.isOpen) return state;
             return {
               panoramaModalState: {
                 ...state.panoramaModalState,
-                error: String(event.payload),
+                error: event.payload,
                 finalImageBase64: null,
                 overlayBase64: null,
                 winnerMapBase64: null,

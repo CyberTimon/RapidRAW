@@ -2,6 +2,7 @@ use rayon::prelude::*;
 
 use super::blend::{Buf, push_pull};
 use crate::panorama_utils::features::bilinear;
+use crate::panorama_utils::message::PanoMessage;
 use crate::panorama_utils::raster::{Plane, Rgb32f};
 
 fn edges(alpha: &Plane, vertical: bool) -> Option<(Vec<f64>, Vec<f64>)> {
@@ -147,7 +148,7 @@ fn largest_covered(usable: &[bool], w: usize, h: usize) -> Option<(usize, usize,
     (best_area > 0).then_some(best)
 }
 
-pub fn fill_edges(img: &mut Rgb32f, alpha: &Plane) -> Result<(), String> {
+pub fn fill_edges(img: &mut Rgb32f, alpha: &Plane) -> Result<(), PanoMessage> {
     let (w, h) = (img.width, img.height);
     let mut b = Buf::try_new(w, h, 3)?;
     b.data

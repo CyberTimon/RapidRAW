@@ -1,3 +1,4 @@
+use super::message::PanoMessage;
 use rayon::prelude::*;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -7,10 +8,10 @@ pub struct Plane {
     pub data: Vec<f32>,
 }
 
-pub fn try_zeroed<T: Clone + Default>(len: usize) -> Result<Vec<T>, String> {
+pub fn try_zeroed<T: Clone + Default>(len: usize) -> Result<Vec<T>, PanoMessage> {
     let mut data: Vec<T> = Vec::new();
     data.try_reserve_exact(len)
-        .map_err(|_| "Not enough memory for the stitched image.".to_string())?;
+        .map_err(|_| PanoMessage::OutOfMemory)?;
     data.resize(len, T::default());
     Ok(data)
 }

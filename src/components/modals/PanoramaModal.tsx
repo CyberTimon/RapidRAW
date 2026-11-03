@@ -1,6 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { TFunction } from 'i18next';
 import { CheckCircle, XCircle, Loader2, RefreshCw, Save } from 'lucide-react';
 import { motion } from 'framer-motion';
 import ReactCrop, { type PercentCrop, type Crop } from 'react-image-crop';
@@ -9,6 +8,7 @@ import Button from '../ui/Button';
 import Slider, { SliderChangeEvent } from '../ui/Slider';
 import Text from '../ui/Text';
 import { TextColors, TextVariants } from '../../types/typography';
+import { panoramaMessage, type PanoramaMessage } from '../../utils/panorama';
 
 export type PanoramaProjection = 'spherical' | 'cylindrical' | 'perspective';
 
@@ -21,7 +21,7 @@ export interface PanoramaCropRect {
 
 export interface PanoramaDroppedImage {
   filename: string;
-  reason: string;
+  reason: PanoramaMessage;
 }
 
 export interface PanoramaFrameMeta {
@@ -43,7 +43,7 @@ export interface PanoramaFrameInfo {
 interface PanoramaModalProps {
   crop: PanoramaCropRect | null;
   dropped: Array<PanoramaDroppedImage>;
-  error: string | null;
+  error: PanoramaMessage | null;
   filenames: Array<string>;
   frames?: Array<PanoramaFrameInfo> | null;
   finalImageBase64: string | null;
@@ -60,12 +60,12 @@ interface PanoramaModalProps {
   onStitch(): void;
   overlayBase64: string | null;
   pendingProjection: string | null;
-  previewError: string | null;
+  previewError: PanoramaMessage | null;
   previewHeight: number;
   previewWidth: number;
-  progressMessage: string | null;
+  progressMessage: PanoramaMessage | null;
   recommendedProjection: string | null;
-  saveProgressMessage: string | null;
+  saveProgressMessage: PanoramaMessage | null;
   saveProgressPercent: number | null;
   quality?: number;
   onQualityChange?(value: number): void;
@@ -306,64 +306,6 @@ const BAR_ROW = 40;
 const NOTE_ROW = 40;
 const FOOTER_PX = ROW_GAP + STATUS_ROW + ROW_GAP + BAR_ROW + ROW_GAP + NOTE_ROW;
 
-type Translate = TFunction;
-
-const EXACT_MESSAGES: Record<string, string> = {
-  'Starting panorama process...': 'modals.panorama.starting',
-  'Reprojecting preview...': 'modals.panorama.reprojecting',
-  Projecting: 'modals.panorama.projecting',
-  'Exposure compensation': 'modals.panorama.exposure',
-  Blending: 'modals.panorama.blending',
-  Finishing: 'modals.panorama.finishing',
-  'Rendering full resolution...': 'modals.panorama.rendering',
-  'Encoding image...': 'modals.panorama.encoding',
-  'Writing TIFF...': 'modals.panorama.writingTiff',
-  'Save complete': 'modals.panorama.saveComplete',
-  'Please select at least two images to stitch.': 'modals.panorama.needTwo',
-  'No panorama session. Run stitch first.': 'modals.panorama.noSession',
-  'No panorama session found to save.': 'modals.panorama.noSessionSave',
-  "The photos don't overlap enough to be stitched.": 'modals.panorama.noOverlap',
-  'Could not build preview.': 'modals.panorama.noPreview',
-  'The preview alignment does not match the photos being saved.': 'modals.panorama.alignmentMismatch',
-  'Could not determine parent directory.': 'modals.panorama.noParent',
-  'Could not crop the panorama.': 'modals.panorama.cropFailed',
-  stopped: 'modals.panorama.cancelled',
-  'no overlap with the rest of the set': 'modals.panorama.droppedNoOverlap',
-};
-
-function panoramaMessage(t: Translate, raw: string | null | undefined): string {
-  if (!raw) return '';
-  const exact = EXACT_MESSAGES[raw];
-  if (exact) return String(t(exact as never));
-  let match = raw.match(/^Loading (\d+)\/(\d+): (.*)$/);
-  if (match) {
-    return String(t('modals.panorama.loadingFile' as never, { current: match[1], total: match[2], name: match[3] }));
-  }
-  match = raw.match(/^The field of view \(([0-9]+)°\) is too wide for a rectilinear projection\.$/);
-  if (match) return String(t('modals.panorama.fovTooWide' as never, { degrees: match[1] }));
-  match = raw.match(/^Panorama task failed: (.*)$/);
-  if (match) return String(t('modals.panorama.taskFailed' as never, { detail: match[1] }));
-  match = raw.match(/^Unknown projection: .*$/);
-  if (match) return String(t('modals.panorama.unknownProjection' as never));
-  match = raw.match(/^Reproject task failed: (.*)$/);
-  if (match) return String(t('modals.panorama.reprojectFailed' as never, { detail: match[1] }));
-  match = raw.match(/^Save panorama failed: (.*)$/);
-  if (match) return String(t('modals.panorama.saveFailed' as never, { detail: match[1] }));
-  match = raw.match(/^Could not start the loader: (.*)$/);
-  if (match) return String(t('modals.panorama.loaderFailed' as never, { detail: match[1] }));
-  match = raw.match(/^Failed to save panorama: (.*)$/);
-  if (match) return String(t('modals.panorama.saveWriteFailed' as never, { detail: match[1] }));
-  match = raw.match(/^Failed to encode panorama preview: (.*)$/);
-  if (match) return String(t('modals.panorama.encodeFailed' as never, { detail: match[1] }));
-  match = raw.match(/^Failed to read ([^:]+): (.*)$/);
-  if (match) return String(t('modals.panorama.readFailed' as never, { file: match[1], detail: match[2] }));
-  match = raw.match(/^Failed to decode ([^:]+): (.*)$/);
-  if (match) return String(t('modals.panorama.decodeFailed' as never, { file: match[1], detail: match[2] }));
-  match = raw.match(/^no overlap with the rest of the set \((.+) mm 35mm-equivalent\)$/);
-  if (match) return String(t('modals.panorama.droppedNoOverlapFocal' as never, { focal: match[1] }));
-  return raw;
-}
-
 function fitPreviewFrame(aspect: number, vw: number, vh: number, sidebarPx: number): { width: number; height: number } {
   const ratio = aspect > 0 && Number.isFinite(aspect) ? aspect : 2;
   const maxW = Math.max(160, vw * 0.8 - sidebarPx - DIALOG_PAD - COLUMN_GAP);
@@ -417,7 +359,7 @@ export default function PanoramaModal({
   const [localCrop, setLocalCrop] = useState<PercentCrop>(cropToPercent(crop));
   const [hovered, setHovered] = useState<number | null>(null);
   const hoveredFrame = hovered != null ? (frames?.[hovered] ?? null) : null;
-  const droppedReason = (name: string) => panoramaMessage(t, dropped.find((d) => d.filename === name)?.reason ?? '');
+  const droppedReason = (name: string) => panoramaMessage(t, dropped.find((d) => d.filename === name)?.reason);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const startedRef = useRef(false);
   const mouseDownTarget = useRef<EventTarget | null>(null);
@@ -570,7 +512,7 @@ export default function PanoramaModal({
             {t('modals.panorama.failed')}
           </Text>
           <Text className="text-left p-4 rounded-lg bg-bg-primary max-w-2xl mt-2 leading-relaxed whitespace-pre-wrap font-mono text-xs max-h-[320px] overflow-y-auto">
-            {panoramaMessage(t, String(error))}
+            {panoramaMessage(t, error)}
           </Text>
         </div>
       );

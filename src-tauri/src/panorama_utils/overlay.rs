@@ -1,3 +1,4 @@
+use super::message::PanoMessage;
 use image::{GrayImage, Rgba, RgbaImage};
 
 pub struct OverlayResult {
@@ -5,7 +6,11 @@ pub struct OverlayResult {
     pub winner_map_png: Vec<u8>,
 }
 
-pub fn generate_overlay(winners: &[u16], width: u32, height: u32) -> Result<OverlayResult, String> {
+pub fn generate_overlay(
+    winners: &[u16],
+    width: u32,
+    height: u32,
+) -> Result<OverlayResult, PanoMessage> {
     let w = width as usize;
     let h = height as usize;
     assert_eq!(winners.len(), w * h);
@@ -44,16 +49,16 @@ pub fn generate_overlay(winners: &[u16], width: u32, height: u32) -> Result<Over
     })
 }
 
-fn encode_png_rgba(img: &RgbaImage) -> Result<Vec<u8>, String> {
+fn encode_png_rgba(img: &RgbaImage) -> Result<Vec<u8>, PanoMessage> {
     let mut buf = std::io::Cursor::new(Vec::new());
     img.write_to(&mut buf, image::ImageFormat::Png)
-        .map_err(|e| format!("Failed to encode overlay: {}", e))?;
+        .map_err(PanoMessage::encode_failed)?;
     Ok(buf.into_inner())
 }
 
-fn encode_png_gray(img: &GrayImage) -> Result<Vec<u8>, String> {
+fn encode_png_gray(img: &GrayImage) -> Result<Vec<u8>, PanoMessage> {
     let mut buf = std::io::Cursor::new(Vec::new());
     img.write_to(&mut buf, image::ImageFormat::Png)
-        .map_err(|e| format!("Failed to encode winner map: {}", e))?;
+        .map_err(PanoMessage::encode_failed)?;
     Ok(buf.into_inner())
 }

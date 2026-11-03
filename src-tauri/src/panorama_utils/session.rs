@@ -1,12 +1,13 @@
+use crate::panorama_utils::message::PanoMessage;
 use crate::panorama_utils::stitch::project::Projection;
 use crate::panorama_utils::stitch::{Frame, PanoOptions, Registration};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct DroppedImage {
     pub filename: String,
-    pub reason: String,
+    pub reason: PanoMessage,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

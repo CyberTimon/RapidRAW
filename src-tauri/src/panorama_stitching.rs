@@ -5,6 +5,7 @@ use crate::formats::is_raw_file;
 use crate::image_processing::{apply_linear_to_srgb, apply_srgb_to_linear, linear_channel_to_srgb};
 use crate::panorama_utils::camera::parse_focal_mm_35eq;
 use crate::panorama_utils::log::{self as stitch_log, StitchLog};
+use crate::panorama_utils::message::PanoMessage;
 use crate::panorama_utils::overlay::generate_overlay;
 use crate::panorama_utils::raster::{Rgb32f, fit_long_edge, into_pixels, resize_box};
 use crate::panorama_utils::session::{DroppedImage, NormalizedCrop, PanoramaSession, drop_session};
@@ -50,9 +51,9 @@ pub async fn stitch_panorama(
     paths: Vec<String>,
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
-) -> Result<(), String> {
+) -> Result<(), PanoMessage> {
     if paths.len() < 2 {
-        return Err("Please select at least two images to stitch.".to_string());
+        return Err(PanoMessage::NeedTwo);
     }
     let source_paths: Vec<String> = paths
         .iter()
@@ -81,12 +82,12 @@ pub async fn stitch_panorama(
                 let _ = app_handle.emit("panorama-complete", payload);
                 Ok(())
             }
-            Err(e) if e == "stopped" || stop.halted() => {
+            Err(e) if e == PanoMessage::Cancelled || stop.halted() => {
                 stop.note_stop();
                 Ok(())
             }
             Err(e) => {
-                log::error!("Panorama failed:\n{}", e);
+                log::error!("Panorama failed: {e:?}");
                 let _ = app_handle.emit("panorama-error", e.clone());
                 Err(e)
             }
@@ -95,7 +96,9 @@ pub async fn stitch_panorama(
     match task.await {
         Ok(Ok(_)) => Ok(()),
         Ok(Err(e)) => Err(e),
-        Err(join_err) => Err(format!("Panorama task failed: {}", join_err)),
+        Err(join_err) => Err(PanoMessage::TaskFailed {
+            detail: join_err.to_string(),
+        }),
     }
 }
 
@@ -104,9 +107,8 @@ pub async fn reproject_panorama(
     projection: String,
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
-) -> Result<(), String> {
-    let proj = Projection::parse(&projection)
-        .ok_or_else(|| format!("Unknown projection: {}", projection))?;
+) -> Result<(), PanoMessage> {
+    let proj = Projection::parse(&projection).ok_or(PanoMessage::UnknownProjection)?;
     let session_handle = state.panorama_session.clone();
     let stop = StitchLog::new(arm_stop(&state));
     stitch_log::phase(&format!("reproject {projection}"));
@@ -117,7 +119,7 @@ pub async fn reproject_panorama(
         }
         let (frames, reg, opts) = {
             let guard = session_handle.lock().unwrap_or_else(|e| e.into_inner());
-            let session = guard.as_ref().ok_or_else(|| NO_SESSION.to_string())?;
+            let session = guard.as_ref().ok_or(PanoMessage::NoSession)?;
             let opts = PanoOptions {
                 projection: proj,
                 ..session.options.clone()
@@ -125,11 +127,11 @@ pub async fn reproject_panorama(
             (session.frames.clone(), session.registration.clone(), opts)
         };
         let emit = progress_emitter(&app_handle, &stop);
-        emit("Reprojecting preview...");
-        let progress = |msg: &str, _frac: f64| emit(msg);
+        emit(PanoMessage::Reprojecting);
+        let progress = |msg: PanoMessage, _frac: f64| emit(msg);
         let rendered = match stitch::compose_frames(&frames, &reg, proj, &opts, &progress, &stop) {
             Ok(r) => r,
-            Err(e) if e == "stopped" || stop.halted() => {
+            Err(e) if e == PanoMessage::Cancelled || stop.halted() => {
                 stop.note_stop();
                 return Ok(());
             }
@@ -142,7 +144,7 @@ pub async fn reproject_panorama(
                 stop.note_stop();
                 return Ok(());
             }
-            let session = guard.as_mut().ok_or_else(|| NO_SESSION.to_string())?;
+            let session = guard.as_mut().ok_or(PanoMessage::NoSession)?;
             session.selected_projection = proj;
             session.crop_edited = false;
             fill_preview(session, &rendered, preview);
@@ -155,7 +157,9 @@ pub async fn reproject_panorama(
     match task.await {
         Ok(Ok(_)) => Ok(()),
         Ok(Err(e)) => Err(e),
-        Err(join_err) => Err(format!("Reproject task failed: {}", join_err)),
+        Err(join_err) => Err(PanoMessage::ReprojectFailed {
+            detail: join_err.to_string(),
+        }),
     }
 }
 
@@ -163,7 +167,7 @@ pub async fn reproject_panorama(
 pub async fn cancel_panorama(
     keep_session: bool,
     state: tauri::State<'_, AppState>,
-) -> Result<(), String> {
+) -> Result<(), PanoMessage> {
     if keep_session {
         state
             .panorama_stop
@@ -200,7 +204,7 @@ pub async fn save_panorama(
     quality: Option<f64>,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
-) -> Result<String, String> {
+) -> Result<String, PanoMessage> {
     let flag = arm_stop(&state);
     let stop = StitchLog::new(flag.clone());
     let stop_slot = state.panorama_stop.clone();
@@ -210,17 +214,17 @@ pub async fn save_panorama(
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .take()
-        .ok_or_else(|| "No panorama session found to save.".to_string())?;
+        .ok_or(PanoMessage::NoSessionSave)?;
     let crop = crop.unwrap_or_else(|| session.crop.copy());
     session.quality = quality.unwrap_or(1.0).clamp(stitch::MIN_QUALITY, 1.0);
     let task = tokio::task::spawn_blocking(move || {
         stitch_log::phase("save started");
         let result = save_composite(&mut session, &first_path_str, &crop, &app_handle, &stop);
         if let Err(e) = &result {
-            if e == "stopped" || stop.halted() {
+            if *e == PanoMessage::Cancelled || stop.halted() {
                 stop.note_stop();
             } else {
-                log::error!("Panorama save failed:\n{}", e);
+                log::error!("Panorama save failed: {e:?}");
             }
             let current = stop_slot.lock().unwrap_or_else(|e| e.into_inner());
             if Arc::ptr_eq(&current, &flag) {
@@ -231,11 +235,11 @@ pub async fn save_panorama(
     });
     match task.await {
         Ok(result) => result,
-        Err(join_err) => Err(format!("Save panorama failed: {}", join_err)),
+        Err(join_err) => Err(PanoMessage::SaveFailed {
+            detail: join_err.to_string(),
+        }),
     }
 }
-
-const NO_SESSION: &str = "No panorama session. Run stitch first.";
 
 const BAR_AFTER_PROJECT: f64 = 4.0;
 const BAR_AFTER_BLEND: f64 = 64.0;
@@ -243,7 +247,10 @@ const BAR_AFTER_FINISH: f64 = 68.0;
 
 const PREFETCH: usize = 1;
 
-fn progress_emitter<'a>(app: &'a AppHandle, stop: &'a StitchLog) -> impl Fn(&str) + Sync + 'a {
+fn progress_emitter<'a>(
+    app: &'a AppHandle,
+    stop: &'a StitchLog,
+) -> impl Fn(PanoMessage) + Sync + 'a {
     move |msg| {
         if !stop.halted() {
             let _ = app.emit("panorama-progress", msg);
@@ -251,12 +258,12 @@ fn progress_emitter<'a>(app: &'a AppHandle, stop: &'a StitchLog) -> impl Fn(&str
     }
 }
 
-fn save_phase_percent(msg: &str, frac: f64) -> f64 {
+fn save_phase_percent(msg: &PanoMessage, frac: f64) -> f64 {
     let frac = frac.clamp(0.0, 1.0);
     let (start, end) = match msg {
-        "Projecting" => (0.0, BAR_AFTER_PROJECT),
-        "Blending" => (BAR_AFTER_PROJECT, BAR_AFTER_BLEND),
-        "Finishing" => (BAR_AFTER_BLEND, BAR_AFTER_FINISH),
+        PanoMessage::Projecting => (0.0, BAR_AFTER_PROJECT),
+        PanoMessage::Blending => (BAR_AFTER_PROJECT, BAR_AFTER_BLEND),
+        PanoMessage::Finishing => (BAR_AFTER_BLEND, BAR_AFTER_FINISH),
         _ => (0.0, 0.0),
     };
     start + (end - start) * frac
@@ -265,26 +272,27 @@ fn save_phase_percent(msg: &str, frac: f64) -> f64 {
 fn load_frames(
     source_paths: &[String],
     settings: &crate::app_settings::AppSettings,
-    progress: &(dyn Fn(&str) + Sync),
+    progress: &(dyn Fn(PanoMessage) + Sync),
     stop: &StitchLog,
-) -> Result<Vec<Frame>, String> {
+) -> Result<Vec<Frame>, PanoMessage> {
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(4)
         .build()
-        .map_err(|e| format!("Could not start the loader: {e}"))?;
-    let loaded: Result<Vec<Frame>, String> = pool.install(|| {
+        .map_err(|e| PanoMessage::LoaderFailed {
+            detail: e.to_string(),
+        })?;
+    let loaded: Result<Vec<Frame>, PanoMessage> = pool.install(|| {
         source_paths
             .par_iter()
             .enumerate()
             .map(|(i, path)| {
                 stop.gate()?;
                 let name = file_name(path);
-                progress(&format!(
-                    "Loading {}/{}: {}",
-                    i + 1,
-                    source_paths.len(),
-                    name
-                ));
+                progress(PanoMessage::LoadingFile {
+                    current: i + 1,
+                    total: source_paths.len(),
+                    name: name.clone(),
+                });
                 let (img, exif) = load_linear(path, settings)?;
                 let (fw, fh) = (img.width, img.height);
                 let clip = stitch::detect_clip(&img);
@@ -321,10 +329,12 @@ fn stream_sources<R>(
     paths: &[String],
     layout: &stitch::Layout,
     settings: &crate::app_settings::AppSettings,
-    progress: &(dyn Fn(&str) + Sync),
+    progress: &(dyn Fn(PanoMessage) + Sync),
     stop: &StitchLog,
-    consume: impl FnOnce(&mut dyn Iterator<Item = Result<(usize, Rgb32f), String>>) -> Result<R, String>,
-) -> Result<R, String> {
+    consume: impl FnOnce(
+        &mut dyn Iterator<Item = Result<(usize, Rgb32f), PanoMessage>>,
+    ) -> Result<R, PanoMessage>,
+) -> Result<R, PanoMessage> {
     let order: Vec<usize> = layout.frames().collect();
     std::thread::scope(|scope| {
         let (tx, rx) = std::sync::mpsc::sync_channel(PREFETCH);
@@ -334,12 +344,11 @@ fn stream_sources<R>(
                     break;
                 }
                 let path = &paths[i];
-                progress(&format!(
-                    "Loading {}/{}: {}",
-                    k + 1,
-                    order.len(),
-                    file_name(path)
-                ));
+                progress(PanoMessage::LoadingFile {
+                    current: k + 1,
+                    total: order.len(),
+                    name: file_name(path),
+                });
                 let item = load_linear(path, settings)
                     .map(|(img, _)| (i, fit_source(img, layout.source_size(i))));
                 let failed = item.is_err();
@@ -368,11 +377,11 @@ fn run_stitch(
     source_paths: &[String],
     app: &AppHandle,
     stop: &StitchLog,
-) -> Result<PanoramaSession, String> {
+) -> Result<PanoramaSession, PanoMessage> {
     let settings = load_settings(app.clone()).unwrap_or_default();
     let emit = progress_emitter(app, stop);
     let frames = load_frames(source_paths, &settings, &emit, stop)?;
-    let progress = |msg: &str, _frac: f64| emit(msg);
+    let progress = |msg: PanoMessage, _frac: f64| emit(msg);
     let reg = stitch::register(&frames, stop)?;
     stitch_log::phase(&format!(
         "registered used={} rmsPx {:.3} -> {:.3}",
@@ -409,8 +418,8 @@ fn run_stitch(
                 .meta
                 .as_ref()
                 .and_then(|m| m.focal35.or(m.native_mm))
-                .map(|f| format!("no overlap with the rest of the set ({f:.0} mm 35mm-equivalent)"))
-                .unwrap_or_else(|| "no overlap with the rest of the set".to_string()),
+                .map(|f| PanoMessage::DroppedNoOverlapFocal { focal: f.round() })
+                .unwrap_or(PanoMessage::DroppedNoOverlap),
         })
         .collect();
     let rendered = stitch::compose_frames(&frames, &reg, recommended, &opts, &progress, stop)?;
@@ -455,12 +464,12 @@ struct PreviewImages {
     height: u32,
 }
 
-fn render_display(rendered: &Composed) -> Result<PreviewImages, String> {
+fn render_display(rendered: &Composed) -> Result<PreviewImages, PanoMessage> {
     let (w, h) = (rendered.width as u32, rendered.height as u32);
     let (dw, dh) = display_size(w, h);
     let small = resize_box(&rendered.image, dw as usize, dh as usize);
-    let img = Rgb32FImage::from_raw(dw, dh, small.data.into_flattened())
-        .ok_or_else(|| "Could not build preview.".to_string())?;
+    let img =
+        Rgb32FImage::from_raw(dw, dh, small.data.into_flattened()).ok_or(PanoMessage::NoPreview)?;
     let display = apply_linear_to_srgb(DynamicImage::ImageRgb32F(img));
     let png = encode_png(&display.to_rgb8())?;
     let winners = resize_winners(&rendered.label, w, h, dw, dh);
@@ -500,9 +509,9 @@ fn fill_preview(session: &mut PanoramaSession, rendered: &Composed, preview: Pre
 fn scale_registration(
     reg: &stitch::Registration,
     frames: &[Frame],
-) -> Result<stitch::Registration, String> {
+) -> Result<stitch::Registration, PanoMessage> {
     if reg.cameras.len() != frames.len() {
-        return Err("The preview alignment does not match the photos being saved.".into());
+        return Err(PanoMessage::AlignmentMismatch);
     }
     let ratio = |f: &Frame| native_scale(f.native_width, f.width());
     let cameras = reg
@@ -552,9 +561,9 @@ fn save_composite(
     crop: &NormalizedCrop,
     app: &AppHandle,
     stop: &StitchLog,
-) -> Result<String, String> {
+) -> Result<String, PanoMessage> {
     let shown = AtomicU64::new(0);
-    let emit_save = |percent: f64, message: &str| {
+    let emit_save = |percent: f64, message: PanoMessage| {
         if stop.halted() {
             return;
         }
@@ -567,7 +576,7 @@ fn save_composite(
             }),
         );
     };
-    emit_save(0.0, "Rendering full resolution...");
+    emit_save(0.0, PanoMessage::Rendering);
     let settings = load_settings(app.clone()).unwrap_or_default();
     let reg = scale_registration(&session.registration, &session.frames)?;
     let sizes: Vec<(usize, usize)> = session
@@ -582,9 +591,7 @@ fn save_composite(
         reg.rms
     ));
     let (first_path, _) = parse_virtual_path(first_path_str);
-    let parent_dir = first_path
-        .parent()
-        .ok_or_else(|| "Could not determine parent directory.".to_string())?;
+    let parent_dir = first_path.parent().ok_or(PanoMessage::NoParent)?;
     let stem = first_path
         .file_stem()
         .and_then(|s| s.to_str())
@@ -606,10 +613,8 @@ fn save_composite(
         "save starting at {:.0}% quality",
         session.quality * 100.0
     ));
-    let progress = |msg: &str, frac: f64| {
-        emit_save(save_phase_percent(msg, frac), msg);
-    };
-    let load_progress = |msg: &str| emit_save(0.0, msg);
+    let progress = |msg: PanoMessage, frac: f64| emit_save(save_phase_percent(&msg, frac), msg);
+    let load_progress = |msg: PanoMessage| emit_save(0.0, msg);
     let layout = stitch::layout(&sizes, &reg, opts.projection, &opts)?;
     let rendered = stream_sources(
         &session.source_paths,
@@ -640,25 +645,27 @@ fn save_composite(
         .clamp(y0 as f64 + 1.0, h as f64) as u32;
     let cw = x1 - x0;
     let ch = y1 - y0;
-    emit_save(70.0, "Encoding image...");
+    emit_save(70.0, PanoMessage::Encoding);
     stitch_log::line(&format!("save encode {cw}x{ch}"));
     let Composed { image, label, .. } = rendered;
     drop(label);
     let rgb16 = encode_cropped_16(&image.data, w, (x0, y0), (cw, ch))?;
     drop(image);
     stop.gate()?;
-    emit_save(95.0, "Writing TIFF...");
+    emit_save(95.0, PanoMessage::WritingTiff);
     let (real_path, _) = parse_virtual_path(first_path_str);
     crate::exif_processing::save_converted_image(
         &DynamicImage::ImageRgb16(rgb16),
         &output_path,
         &real_path.to_string_lossy(),
     )
-    .map_err(|e| format!("Failed to save panorama: {}", e))?;
+    .map_err(|e| PanoMessage::SaveWriteFailed {
+        detail: e.to_string(),
+    })?;
     let _ =
         crate::exif_processing::write_rrexif_sidecar(&real_path.to_string_lossy(), &output_path);
     stitch_log::phase(&format!("saved {}", output_path.display()));
-    emit_save(100.0, "Save complete");
+    emit_save(100.0, PanoMessage::SaveComplete);
     Ok(output_path.to_string_lossy().to_string())
 }
 
@@ -693,12 +700,18 @@ fn complete_payload(session: &PanoramaSession) -> serde_json::Value {
 fn load_linear(
     path: &str,
     settings: &crate::app_settings::AppSettings,
-) -> Result<(Rgb32f, HashMap<String, String>), String> {
-    let bytes = fs::read(path).map_err(|e| format!("Failed to read {}: {}", file_name(path), e))?;
+) -> Result<(Rgb32f, HashMap<String, String>), PanoMessage> {
+    let bytes = fs::read(path).map_err(|e| PanoMessage::ReadFailed {
+        file: file_name(path),
+        detail: e.to_string(),
+    })?;
     let exif = crate::exif_processing::read_exif_data_from_bytes(path, &bytes);
     let mut dynamic =
         crate::image_loader::load_base_image_from_bytes(&bytes, path, false, settings, None)
-            .map_err(|e| format!("Failed to decode {}: {}", file_name(path), e))?;
+            .map_err(|e| PanoMessage::DecodeFailed {
+                file: file_name(path),
+                detail: e.to_string(),
+            })?;
     if !is_raw_file(path) && !is_already_linear(path) {
         dynamic = apply_srgb_to_linear(dynamic);
     }
@@ -794,10 +807,10 @@ fn resize_winners(src: &[u16], sw: u32, sh: u32, dw: u32, dh: u32) -> Vec<u16> {
     out
 }
 
-fn encode_png(img: &image::RgbImage) -> Result<String, String> {
+fn encode_png(img: &image::RgbImage) -> Result<String, PanoMessage> {
     let mut buf = Cursor::new(Vec::new());
     img.write_to(&mut buf, ImageFormat::Png)
-        .map_err(|e| format!("Failed to encode panorama preview: {}", e))?;
+        .map_err(PanoMessage::encode_failed)?;
     Ok(format!(
         "data:image/png;base64,{}",
         general_purpose::STANDARD.encode(buf.get_ref())
@@ -840,7 +853,7 @@ pub fn encode_cropped_16(
     w: usize,
     (x0, y0): (u32, u32),
     (cw, ch): (u32, u32),
-) -> Result<Rgb16Buf, String> {
+) -> Result<Rgb16Buf, PanoMessage> {
     let (x0, y0, cw) = (x0 as usize, y0 as usize, cw as usize);
     let mut out: Vec<u16> = vec![0; cw * ch as usize * 3];
     out.par_chunks_mut(cw * 3).enumerate().for_each(|(y, row)| {
@@ -849,5 +862,5 @@ pub fn encode_cropped_16(
             *o = p.map(|v| (linear_channel_to_srgb(v).clamp(0.0, 1.0) * 65535.0).round() as u16);
         }
     });
-    Rgb16Buf::from_raw(cw as u32, ch, out).ok_or_else(|| "Could not crop the panorama.".to_string())
+    Rgb16Buf::from_raw(cw as u32, ch, out).ok_or(PanoMessage::CropFailed)
 }

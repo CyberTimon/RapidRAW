@@ -1,3 +1,4 @@
+use super::message::PanoMessage;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -24,10 +25,10 @@ impl StitchLog {
             phase("stopped");
         }
     }
-    pub fn gate(&self) -> Result<(), String> {
+    pub fn gate(&self) -> Result<(), PanoMessage> {
         if self.halted() {
             self.note_stop();
-            Err("stopped".into())
+            Err(PanoMessage::Cancelled)
         } else {
             Ok(())
         }

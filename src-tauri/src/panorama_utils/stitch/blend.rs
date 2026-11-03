@@ -1,6 +1,8 @@
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 
+use super::ComposeProgress;
 use crate::panorama_utils::log::StitchLog;
+use crate::panorama_utils::message::PanoMessage;
 use crate::panorama_utils::raster::try_zeroed;
 use rayon::prelude::*;
 
@@ -8,11 +10,11 @@ pub struct BlendTick<'a> {
     done: AtomicU64,
     total: u64,
     last_pct: AtomicU32,
-    report: &'a (dyn Fn(&str, f64) + Sync + 'a),
+    report: &'a ComposeProgress<'a>,
 }
 
 impl<'a> BlendTick<'a> {
-    pub fn new(total: u64, report: &'a (dyn Fn(&str, f64) + Sync + 'a)) -> Self {
+    pub fn new(total: u64, report: &'a ComposeProgress<'a>) -> Self {
         Self {
             done: AtomicU64::new(0),
             total: total.max(1),
@@ -37,7 +39,7 @@ impl<'a> BlendTick<'a> {
         let prev = self.last_pct.fetch_max(pct, Ordering::Relaxed);
         if pct > prev {
             let frac = (now as f64 / self.total as f64).min(1.0);
-            (self.report)("Blending", frac);
+            (self.report)(PanoMessage::Blending, frac);
         }
     }
 }
@@ -103,7 +105,7 @@ impl Buf {
             data: vec![0.0; w * h * c],
         }
     }
-    pub fn try_new(w: usize, h: usize, c: usize) -> Result<Buf, String> {
+    pub fn try_new(w: usize, h: usize, c: usize) -> Result<Buf, PanoMessage> {
         Ok(Buf {
             w,
             h,
@@ -313,7 +315,7 @@ pub struct Blender {
 }
 
 impl Blender {
-    pub fn try_new(w: usize, h: usize, levels: usize) -> Result<Blender, String> {
+    pub fn try_new(w: usize, h: usize, levels: usize) -> Result<Blender, PanoMessage> {
         let mut acc = Vec::new();
         let mut wsum = Vec::new();
         for l in 0..=levels {
@@ -392,7 +394,7 @@ impl Blender {
             }
         }
     }
-    pub fn finish(self, tick: Option<&BlendTick>, stop: &StitchLog) -> Result<Buf, String> {
+    pub fn finish(self, tick: Option<&BlendTick>, stop: &StitchLog) -> Result<Buf, PanoMessage> {
         let mut res: Option<Buf> = None;
         for (mut b, ws) in self.acc.into_iter().zip(&self.wsum).rev() {
             stop.gate()?;
