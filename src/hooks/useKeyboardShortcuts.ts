@@ -609,8 +609,8 @@ export const useKeyboardShortcuts = ({
           (s.ui.activePanel === Panel.Masks || s.ui.activePanel === Panel.Ai),
         execute: (e: any, s: any) => {
           e.preventDefault();
-          const currentSettings = s.editor.brushSettings || { size: 50 };
-          const newSize = Math.min((currentSettings.size || 50) + 10, 200);
+          const currentSettings = s.editor.brushSettings || { size: 100 };
+          const newSize = Math.min((currentSettings.size || 100) + 10, 200);
           s.editor.setEditor({
             brushSettings: { ...currentSettings, size: newSize },
           });
@@ -623,8 +623,8 @@ export const useKeyboardShortcuts = ({
           (s.ui.activePanel === Panel.Masks || s.ui.activePanel === Panel.Ai),
         execute: (e: any, s: any) => {
           e.preventDefault();
-          const currentSettings = s.editor.brushSettings || { size: 50 };
-          const newSize = Math.max((currentSettings.size || 50) - 10, 1);
+          const currentSettings = s.editor.brushSettings || { size: 100 };
+          const newSize = Math.max((currentSettings.size || 100) - 10, 1);
           s.editor.setEditor({
             brushSettings: { ...currentSettings, size: newSize },
           });

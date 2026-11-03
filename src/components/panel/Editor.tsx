@@ -812,6 +812,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       (isMasking || isAiEditing) &&
       (activeSubMask?.type === Mask.Brush ||
         activeSubMask?.type === Mask.Flow ||
+        activeSubMask?.type === Mask.MatchBrush ||
         activeSubMask?.type === Mask.Clone ||
         activeSubMask?.type === Mask.Heal ||
         activeSubMask?.type === Mask.Liquify ||
@@ -826,6 +827,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     (isMasking &&
       (activeSubMask?.type === Mask.Brush ||
         activeSubMask?.type === Mask.Flow ||
+        activeSubMask?.type === Mask.MatchBrush ||
         activeSubMask?.type === Mask.AiSubject ||
         activeSubMask?.type === Mask.Color ||
         activeSubMask?.type === Mask.Luminance ||

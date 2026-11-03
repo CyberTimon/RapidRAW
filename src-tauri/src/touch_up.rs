@@ -322,7 +322,7 @@ pub fn liquify_patch(
     ))
 }
 
-fn box_mean(src: &[f32], width: usize, height: usize, radius: usize) -> Vec<f32> {
+pub(crate) fn box_mean(src: &[f32], width: usize, height: usize, radius: usize) -> Vec<f32> {
     let mut horizontal = vec![0.0_f32; src.len()];
     horizontal
         .par_chunks_mut(width)

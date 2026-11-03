@@ -91,6 +91,18 @@ export const createSubMask = (
       return { ...common, parameters: { lines: [] } };
     case Mask.Flow:
       return { ...common, parameters: { lines: [], flow: 10 } };
+    case Mask.MatchBrush:
+      return {
+        ...common,
+        parameters: {
+          lines: [],
+          tolerance: 30,
+          rotation: 0,
+          flipHorizontal: false,
+          flipVertical: false,
+          orientationSteps: 0,
+        },
+      };
     case Mask.AiSubject:
       return { ...common, parameters: { maskDataBase64: null, grow: 0, feather: 0 } };
     case Mask.AiForeground:
