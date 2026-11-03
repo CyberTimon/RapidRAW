@@ -25,6 +25,7 @@ import {
   ArrowRight,
   FolderPlus,
   RefreshCw,
+  CircleAlert,
   Menu,
 } from 'lucide-react';
 import clsx from 'clsx';
@@ -32,6 +33,7 @@ import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
+import { toast } from 'react-toastify';
 import { useDroppable } from '@dnd-kit/core';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
@@ -52,6 +54,7 @@ export interface FolderTree {
   hasSubdirs?: boolean;
   modified?: number;
   created?: number;
+  unavailable?: boolean;
 }
 
 interface FolderTreeProps {
@@ -509,6 +512,8 @@ function TreeNode({
   folderIcons,
   isLayoutDragging,
 }: TreeNodeProps) {
+  const { t } = useTranslation();
+  const [isRetrying, setIsRetrying] = useState(false);
   const hasChildren = node.hasSubdirs || (node.children && node.children.length > 0);
   const isOpen = isExpanded && hasChildren;
   const isSelected = node.path === selectedPath;
@@ -517,7 +522,7 @@ function TreeNode({
   const { setNodeRef, isOver, active } = useDroppable({
     id: `folder-${sectionId}-${node.path}`,
     data: { type: 'folder', path: node.path },
-    disabled: isLayoutDragging,
+    disabled: isLayoutDragging || node.unavailable,
   });
 
   const isImageDrag = active?.data?.current?.type === 'library-image';
@@ -531,7 +536,35 @@ function TreeNode({
   };
 
   const handleNameClick = () => {
-    onFolderSelect(node.path);
+    if (!node.unavailable) onFolderSelect(node.path);
+  };
+
+  const retryFolder = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    if (isRetrying) return;
+    setIsRetrying(true);
+    try {
+      const { expandedFolders } = useLibraryStore.getState();
+      const settings = useSettingsStore.getState().appSettings;
+      const tree = await invoke<FolderTree>(Invokes.GetFolderTree, {
+        path: node.path,
+        expandedFolders: Array.from(expandedFolders),
+        showImageCounts: Boolean(settings?.enableFolderImageCounts || settings?.folderTreeSort?.key === 'imageCount'),
+      });
+      useLibraryStore.getState().setLibrary((state) => ({
+        folderTrees: state.folderTrees.map((item: FolderTree) =>
+          item.path === node.path && item.unavailable ? tree : item,
+        ),
+        pinnedFolderTrees: state.pinnedFolderTrees.map((item: FolderTree) =>
+          item.path === node.path && item.unavailable ? tree : item,
+        ),
+      }));
+    } catch (error) {
+      console.warn('Folder is still unavailable:', error);
+      toast.error(`${node.path}: ${t('library.folders.folderUnavailable')}`);
+    } finally {
+      setIsRetrying(false);
+    }
   };
 
   const handleNameDoubleClick = () => {
@@ -608,7 +641,26 @@ function TreeNode({
 
         <span onDoubleClick={handleNameDoubleClick} className="min-w-0 flex-1 select-none">
           <span className="block truncate">{node.name}</span>
+          {node.unavailable && (
+            <span className="block truncate text-xs text-text-secondary">{t('library.folders.folderUnavailable')}</span>
+          )}
         </span>
+
+        {node.unavailable && (
+          <>
+            <CircleAlert size={16} className="shrink-0 text-text-secondary" aria-hidden="true" />
+            <button
+              type="button"
+              onClick={retryFolder}
+              disabled={isRetrying}
+              title={t('library.folders.retryFolder')}
+              aria-label={`${t('library.folders.retryFolder')}: ${node.path}`}
+              className="shrink-0 rounded-sm p-1 hover:bg-surface-hover disabled:opacity-50"
+            >
+              <RefreshCw size={16} className={isRetrying ? 'animate-spin' : undefined} />
+            </button>
+          </>
+        )}
 
         {typeof node.imageCount === 'number' && node.imageCount > 0 && (
           <Text
@@ -634,7 +686,7 @@ function TreeNode({
             {isOpen ? <ChevronUp size={16} className="shrink-0" /> : <ChevronDown size={16} className="shrink-0" />}
           </Text>
         )}
-        {!hasChildren && <div className="w-5 h-5 shrink-0" aria-hidden="true" />}
+        {!hasChildren && !node.unavailable && <div className="w-5 h-5 shrink-0" aria-hidden="true" />}
       </div>
 
       <AnimatePresence initial={false}>

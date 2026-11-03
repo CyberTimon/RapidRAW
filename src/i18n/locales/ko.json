@@ -1263,9 +1263,11 @@
       "albumsEmpty": "우클릭하여 앨범을 만드세요.",
       "collapseSection": "{{section}} 접기",
       "expandSection": "{{section}} 펼치기",
+      "folderUnavailable": "사용할 수 없음",
       "loading": "폴더 로딩 중...",
       "noFoldersFound": "폴더를 찾을 수 없습니다.",
       "openFolderInstruction": "폴더를 열어 구조를 확인하세요.",
+      "retryFolder": "다시 시도",
       "searchPlaceholder": "폴더 검색...",
       "sections": {
         "albums": "앨범",
