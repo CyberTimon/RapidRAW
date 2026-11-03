@@ -7,6 +7,19 @@ pub struct Plane {
     pub data: Vec<f32>,
 }
 
+pub fn try_zeroed<T: Clone + Default>(len: usize) -> Result<Vec<T>, String> {
+    let mut data: Vec<T> = Vec::new();
+    data.try_reserve_exact(len)
+        .map_err(|_| "Not enough memory for the stitched image.".to_string())?;
+    data.resize(len, T::default());
+    Ok(data)
+}
+
+pub fn into_pixels(raw: Vec<f32>) -> Vec<[f32; 3]> {
+    bytemuck::allocation::try_cast_vec(raw)
+        .unwrap_or_else(|(_, raw)| raw.as_chunks::<3>().0.to_vec())
+}
+
 impl Plane {
     pub fn new(width: usize, height: usize) -> Self {
         Self {
@@ -14,17 +27,6 @@ impl Plane {
             height,
             data: vec![0.0; width * height],
         }
-    }
-    pub fn try_new(width: usize, height: usize) -> Result<Self, String> {
-        let mut data: Vec<f32> = Vec::new();
-        data.try_reserve_exact(width * height)
-            .map_err(|_| "Not enough memory for the stitched image.".to_string())?;
-        data.resize(width * height, 0.0);
-        Ok(Self {
-            width,
-            height,
-            data,
-        })
     }
     pub fn from_fn(
         width: usize,
@@ -84,17 +86,6 @@ impl Rgb32f {
             height,
             data: vec![[0.0; 3]; width * height],
         }
-    }
-    pub fn try_new(width: usize, height: usize) -> Result<Self, String> {
-        let mut data: Vec<[f32; 3]> = Vec::new();
-        data.try_reserve_exact(width * height)
-            .map_err(|_| "Not enough memory for the stitched image.".to_string())?;
-        data.resize(width * height, [0.0; 3]);
-        Ok(Self {
-            width,
-            height,
-            data,
-        })
     }
     #[inline]
     pub fn get(&self, x: usize, y: usize) -> [f32; 3] {

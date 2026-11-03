@@ -9,8 +9,7 @@ const MAX_TOTAL_PIXELS: f64 = 512e6;
 use super::features;
 use super::linalg;
 use super::log;
-use super::raster::{Plane, Rgb32f};
-use crate::panorama_utils::spill::Store;
+use super::raster::{Plane, Rgb32f, into_pixels, try_zeroed};
 use blend::{Blender, Buf, push_pull};
 use camera::Camera;
 use project::Projection;
@@ -150,8 +149,8 @@ struct Tile {
     y0: usize,
     w: usize,
     h: usize,
-    rgb: crate::panorama_utils::spill::Store<f32>,
-    wgt: crate::panorama_utils::spill::Store<f32>,
+    rgb: Vec<f32>,
+    wgt: Vec<f32>,
 }
 
 #[derive(Clone, Debug)]
@@ -177,6 +176,8 @@ pub struct Registration {
 }
 
 pub const FOCAL_OUTLIER_TOLERANCE: f64 = 0.10;
+
+pub const MIN_QUALITY: f64 = 0.25;
 
 pub fn register(frames: &[Frame], stop: &log::StitchLog) -> Result<Registration, String> {
     let n = frames.len();
@@ -403,80 +404,6 @@ fn bounds_of(
     (x1 > x0 && y1 > y0).then_some((x0, y0, x1, y1))
 }
 
-pub struct Measure {
-    sizes: Vec<(usize, usize)>,
-    cams: Vec<Option<Camera>>,
-    projection: Projection,
-    fmed: f64,
-    b: (f64, f64, f64, f64),
-    n_used: u32,
-    frame_w: u32,
-    frame_h: u32,
-}
-
-impl Measure {
-    pub fn new(
-        sizes: &[(usize, usize)],
-        cams: &[Option<Camera>],
-        projection: Projection,
-        fmed: f64,
-    ) -> Option<Self> {
-        let b = bounds_of(sizes, cams, projection, fmed)?;
-        Some(Self {
-            sizes: sizes.to_vec(),
-            cams: cams.to_vec(),
-            projection,
-            fmed,
-            b,
-            n_used: cams.iter().filter(|c| c.is_some()).count() as u32,
-            frame_w: sizes.iter().map(|s| s.0 as u32).max().unwrap_or(1),
-            frame_h: sizes.iter().map(|s| s.1 as u32).max().unwrap_or(1),
-        })
-    }
-    pub fn canvas_pixels(&self, sc: f64) -> f64 {
-        self.measure(sc).0
-    }
-    fn measure(&self, sc: f64) -> (f64, u64) {
-        let (b0, b1, b2, b3) = self.b;
-        let (unit, (pw, ph)) = pyramid_units(
-            ((b2 - b0) * sc).ceil() as usize,
-            ((b3 - b1) * sc).ceil() as usize,
-        );
-        let ox = b0 * sc;
-        let oy = b1 * sc;
-        let tile_px: u64 = self
-            .cams
-            .iter()
-            .enumerate()
-            .filter_map(|(i, c)| c.map(|c| (i, c)))
-            .flat_map(|(i, c)| {
-                tile_rects(
-                    &c,
-                    self.sizes[i],
-                    self.projection,
-                    self.fmed * sc,
-                    (ox, oy),
-                    unit,
-                    (pw, ph),
-                )
-            })
-            .map(|(_, _, w, h)| (w * h) as u64)
-            .sum();
-        let canvas_px = ((b2 - b0) * sc * (b3 - b1) * sc).max(1.0);
-        (canvas_px, tile_px)
-    }
-    pub fn cost_at(&self, sc: f64) -> crate::panorama_utils::memory::StitchCost {
-        let (canvas_px, tile_px) = self.measure(sc);
-        crate::panorama_utils::memory::stitch_cost(
-            self.n_used,
-            self.frame_w,
-            self.frame_h,
-            tile_px,
-            canvas_px as u64,
-        )
-    }
-}
-
 fn levels_for(short: f64) -> usize {
     if !short.is_finite() || short <= 1.0 {
         return 1;
@@ -496,12 +423,6 @@ fn pyramid_levels(short: usize, frame_scale: f64) -> usize {
     }
     let drop = scale.log2().round() as i32;
     (file_levels as i32 - drop).clamp(1, file_levels as i32) as usize
-}
-
-fn pyramid_units(w: usize, h: usize) -> (usize, (usize, usize)) {
-    let levels = levels_for(w.min(h) as f64);
-    let unit = 1usize << levels;
-    (unit, (w, h))
 }
 
 fn tile_rects(
@@ -558,8 +479,6 @@ pub struct Composed {
     pub gains: Vec<f64>,
     pub crop: Option<[f64; 4]>,
     pub scale: f64,
-    pub saved_quality: f64,
-    pub saved_attempts: u32,
     pub width: usize,
     pub height: usize,
 }
@@ -643,10 +562,6 @@ pub fn layout(
             fovd.0
         ));
     }
-    let used_cams: Vec<Option<Camera>> = used.iter().map(|&i| cams[i]).collect();
-    let used_sizes: Vec<(usize, usize)> = used.iter().map(|&i| sizes[i]).collect();
-    Measure::new(&used_sizes, &used_cams, projection, fmed)
-        .ok_or_else(|| "Could not measure the projected canvas.".to_string())?;
     let (bw, bh) = if let Some((vw, vh)) = opts.preview_canvas {
         let r = if opts.save_scale.is_finite() && opts.save_scale > 0.0 {
             opts.save_scale
@@ -659,7 +574,7 @@ pub fn layout(
     };
     let s = opts
         .quality
-        .clamp(0.25, 1.0)
+        .clamp(MIN_QUALITY, 1.0)
         .min((MAX_TOTAL_PIXELS / (bw * bh).max(1.0)).sqrt())
         .min(MAX_LONG_EDGE / bw.max(bh).max(1.0))
         .clamp(0.0, 1.0);
@@ -741,13 +656,9 @@ impl Layout {
             hit(x, px, py, (wx * wy).max(1e-6) as f32);
         }
     }
-    fn labels(
-        &self,
-        scratch: &crate::panorama_utils::spill::Scratch,
-    ) -> Result<Store<u16>, String> {
+    fn labels(&self) -> Result<Vec<u16>, String> {
         let w = self.width;
-        scratch.check();
-        let mut label = <Store<u16>>::try_mapped(w * self.height, scratch.file())?;
+        let mut label = try_zeroed(w * self.height)?;
         label.par_chunks_mut(w).enumerate().for_each_init(
             || vec![0f32; w],
             |best, (y, row)| {
@@ -769,21 +680,14 @@ impl Layout {
         );
         Ok(label)
     }
-    fn warp(
-        &self,
-        i: usize,
-        src: &Rgb32f,
-        scratch: &crate::panorama_utils::spill::Scratch,
-        stop: &log::StitchLog,
-    ) -> Result<Vec<Tile>, String> {
+    fn warp(&self, i: usize, src: &Rgb32f, stop: &log::StitchLog) -> Result<Vec<Tile>, String> {
         let (fw, fh) = self.sizes[i];
         let (kx, ky) = (src.width as f64 / fw as f64, src.height as f64 / fh as f64);
         self.rects[i]
             .iter()
             .map(|&(x0, y0, w, h)| {
-                scratch.check();
-                let mut rgb = <Store<f32>>::try_mapped(w * h * 3, scratch.file())?;
-                let mut wgt = <Store<f32>>::try_mapped(w * h, scratch.file())?;
+                let mut rgb = try_zeroed(w * h * 3)?;
+                let mut wgt = try_zeroed(w * h)?;
                 rgb.par_chunks_mut(w * 3)
                     .zip(wgt.par_chunks_mut(w))
                     .enumerate()
@@ -831,13 +735,12 @@ pub fn exposure_gains(
             _ => 1.0,
         })
         .collect();
-    let scratch = crate::panorama_utils::spill::Scratch::in_ram_only();
     let tiles: Vec<Vec<Tile>> = frames
         .par_iter()
         .enumerate()
         .map(|(i, f)| {
             stop.gate()?;
-            layout.warp(i, &f.image, &scratch, stop)
+            layout.warp(i, &f.image, stop)
         })
         .collect::<Result<_, String>>()?;
     compensate_gains(&tiles, &mut gains, frames);
@@ -864,7 +767,7 @@ pub fn compose_frames(
     let layout = layout(&frame_sizes(frames), reg, projection, opts)?;
     let gains = exposure_gains(&layout, frames, progress, stop)?;
     let sources = layout.frames().map(|i| Ok((i, &frames[i].image)));
-    compose(&layout, &gains, sources, opts, None, progress, stop)
+    compose(&layout, &gains, sources, opts, progress, stop)
 }
 
 pub fn compose<S: std::borrow::Borrow<Rgb32f>>(
@@ -872,36 +775,21 @@ pub fn compose<S: std::borrow::Borrow<Rgb32f>>(
     gains: &[f64],
     sources: impl Iterator<Item = Result<(usize, S), String>>,
     opts: &PanoOptions,
-    scratch: Option<&crate::panorama_utils::spill::Scratch>,
     progress: &ComposeProgress<'_>,
     stop: &log::StitchLog,
 ) -> Result<Composed, String> {
     let (cw, ch, levels) = (layout.width, layout.height, layout.levels);
-    let owned_scratch;
-    let scratch = match scratch {
-        Some(s) => s,
-        None => {
-            owned_scratch = crate::panorama_utils::spill::Scratch::in_ram_only();
-            &owned_scratch
-        }
-    };
     progress("Projecting", 0.0);
-    let label = layout.labels(scratch)?;
+    let label = layout.labels()?;
     progress("Projecting", 1.0);
     progress("Blending", 0.0);
-    let mut blender = Blender::try_new(cw, ch, levels, scratch.file())?;
-    if scratch.is_spilling() {
-        let over = scratch.over_by();
-        if over > 0 {
-            blender.spill_levels(scratch.file().expect("spilling"), over);
-        }
-    }
+    let mut blender = Blender::try_new(cw, ch, levels)?;
     let blend_rows = blend::blend_work_rows(layout.rects.iter().flatten().map(|r| r.3), levels, ch);
     let tick = blend::BlendTick::new(blend_rows, progress);
     for source in sources {
         stop.gate()?;
         let (i, src) = source?;
-        let tiles = layout.warp(i, src.borrow(), scratch, stop)?;
+        let tiles = layout.warp(i, src.borrow(), stop)?;
         drop(src);
         let g = gains.get(i).copied().unwrap_or(1.0) as f32;
         for t in tiles {
@@ -931,35 +819,51 @@ pub fn compose<S: std::borrow::Borrow<Rgb32f>>(
     stop.gate()?;
     let out = blender.finish(Some(&tick));
     progress("Blending", 1.0);
-    let mut image = Rgb32f::try_new(cw, ch)?;
-    let mut alpha = Plane::try_new(cw, ch)?;
-    for k in 0..cw * ch {
-        if label[k] != u16::MAX {
-            image.data[k] = [0, 1, 2].map(|c| out.data[k * 3 + c].exp());
-            alpha.data[k] = 1.0;
-        }
-    }
-    drop(out);
+    let mut image = Rgb32f {
+        width: cw,
+        height: ch,
+        data: into_pixels(out.data),
+    };
+    image
+        .data
+        .par_iter_mut()
+        .zip(label.par_iter())
+        .for_each(|(p, &l)| {
+            *p = if l != u16::MAX {
+                p.map(f32::exp)
+            } else {
+                [0.0; 3]
+            };
+        });
     progress("Finishing", 0.0);
-    let (mut image, alpha) = finish::boundary_warp(image, alpha, opts.boundary_warp / 100.0);
-    let crop = if opts.auto_crop {
-        finish::coverage_crop(&alpha)
+    let crop = if opts.boundary_warp > 0.0 || opts.auto_crop || opts.fill_edges {
+        let alpha = Plane {
+            width: cw,
+            height: ch,
+            data: label
+                .par_iter()
+                .map(|&l| if l != u16::MAX { 1.0 } else { 0.0 })
+                .collect(),
+        };
+        let (warped, alpha) = finish::boundary_warp(image, alpha, opts.boundary_warp / 100.0);
+        image = warped;
+        if opts.fill_edges {
+            finish::fill_edges(&mut image, &alpha)?;
+        }
+        opts.auto_crop
+            .then(|| finish::coverage_crop(&alpha))
+            .flatten()
     } else {
         None
     };
-    if opts.fill_edges {
-        finish::fill_edges(&mut image, &alpha)?;
-    }
     progress("Finishing", 1.0);
     log::phase(&format!("composed {}x{} crop {:?}", cw, ch, crop));
     Ok(Composed {
         image,
-        label: label.to_vec(),
+        label,
         gains: gains.to_vec(),
         crop,
         scale: layout.scale,
-        saved_quality: 1.0,
-        saved_attempts: 1,
         width: cw,
         height: ch,
     })

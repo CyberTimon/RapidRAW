@@ -6,11 +6,10 @@ use crate::image_processing::{apply_linear_to_srgb, apply_srgb_to_linear, linear
 use crate::panorama_utils::camera::parse_focal_mm_35eq;
 use crate::panorama_utils::log::{self as stitch_log, StitchLog};
 use crate::panorama_utils::overlay::generate_overlay;
-use crate::panorama_utils::raster::{Rgb32f, fit_long_edge, resize_box};
+use crate::panorama_utils::raster::{Rgb32f, fit_long_edge, into_pixels, resize_box};
 use crate::panorama_utils::session::{
     DroppedImage, NormalizedCrop, PanoramaSession, WorkingFrame, drop_session,
 };
-use crate::panorama_utils::spill::Scratch;
 use crate::panorama_utils::stitch::project::Projection;
 use crate::panorama_utils::stitch::{self, Composed, Frame, FrameMeta, PanoOptions};
 use base64::{Engine as _, engine::general_purpose};
@@ -24,7 +23,7 @@ use std::io::Cursor;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 
 pub const PREVIEW_EDGE: usize = 1024;
 
@@ -212,7 +211,7 @@ pub async fn save_panorama(
         .take()
         .ok_or_else(|| "No panorama session found to save.".to_string())?;
     let crop = crop.unwrap_or_else(|| session.crop.copy());
-    session.quality = quality.unwrap_or(1.0).clamp(MIN_QUALITY, 1.0);
+    session.quality = quality.unwrap_or(1.0).clamp(stitch::MIN_QUALITY, 1.0);
     let task = tokio::task::spawn_blocking(move || {
         stitch_log::phase("save started");
         let result = save_composite(&mut session, &first_path_str, &crop, &app_handle, &stop);
@@ -237,115 +236,6 @@ pub async fn save_panorama(
 
 const NO_SESSION: &str = "No panorama session. Run stitch first.";
 
-const MIN_QUALITY: f64 = 0.25;
-
-const QUALITY_STEP: f64 = 0.90;
-
-const MAX_ATTEMPTS: usize = 5;
-
-fn compose_with_retries(
-    render: &dyn Fn(&PanoOptions, &Scratch) -> Result<Composed, String>,
-    sizes: &[(usize, usize)],
-    reg: &stitch::Registration,
-    opts: &PanoOptions,
-    note: &std::sync::Mutex<Option<serde_json::Value>>,
-    app: &AppHandle,
-    stop: &StitchLog,
-) -> Result<stitch::Composed, String> {
-    let spill_dir = app
-        .path()
-        .app_cache_dir()
-        .map_err(|e| e.to_string())?
-        .join("panorama-spill");
-    let gb = 1e9;
-    let mut quality = opts.quality.clamp(MIN_QUALITY, 1.0);
-    let mut last_error = String::new();
-    for attempt in 1..=MAX_ATTEMPTS {
-        let attempt_opts = PanoOptions {
-            quality,
-            ..opts.clone()
-        };
-        let scratch = Scratch::new(&spill_dir, SPILL_PERCENT);
-        let result = render(&attempt_opts, &scratch);
-        match result {
-            Ok(mut rendered) => {
-                if let Some(at) = scratch.spilled_at() {
-                    let note_payload = Some(serde_json::json!({
-                        "code": "spilling",
-                        "percent": (at as f64 / 1e9 * 10.0).round() / 10.0,
-                    }));
-                    *note.lock().unwrap_or_else(|e| e.into_inner()) = note_payload.clone();
-                    let _ = app.emit(
-                        "panorama-save-progress",
-                        serde_json::json!({
-                            "percent": BAR_AFTER_FINISH,
-                            "message": "spilling",
-                            "note": note_payload,
-                        }),
-                    );
-                }
-                if attempt > 1 {
-                    stitch_log::phase(&format!(
-                        "save succeeded at {:.0}% after {attempt} attempts",
-                        quality * 100.0
-                    ));
-                }
-                rendered.saved_quality = quality;
-                rendered.saved_attempts = attempt as u32;
-                return Ok(rendered);
-            }
-            Err(err) if err == "stopped" || stop.halted() => {
-                stop.note_stop();
-                return Err("stopped".to_string());
-            }
-            Err(err) => {
-                last_error = err.clone();
-                let peak = scratch.peak_resident();
-                let disk = scratch.disk_bytes();
-                stitch_log::phase(&format!(
-                    "attempt {attempt} at {:.0}% failed: {err} (peak {:.1} GB, disk {:.1} GB)",
-                    quality * 100.0,
-                    peak as f64 / gb,
-                    disk as f64 / gb
-                ));
-                let step = if attempt >= MAX_ATTEMPTS {
-                    MIN_QUALITY
-                } else if attempt == 1 {
-                    fit_quality(sizes, reg, opts.projection, quality, peak)
-                } else {
-                    quality * QUALITY_STEP
-                };
-                let next = step.clamp(MIN_QUALITY, quality * QUALITY_STEP);
-                if next >= quality {
-                    break;
-                }
-                let from = quality;
-                quality = next;
-                let note_payload = Some(serde_json::json!({
-                    "code": "retrying",
-                    "percent": (from * 100.0).round(),
-                    "next": (quality * 100.0).round(),
-                }));
-                *note.lock().unwrap_or_else(|e| e.into_inner()) = note_payload.clone();
-                let _ = app.emit(
-                    "panorama-save-progress",
-                    serde_json::json!({
-                        "percent": 10,
-                        "message": "retrying",
-                        "note": note_payload,
-                    }),
-                );
-            }
-        }
-    }
-    stitch_log::phase(&format!(
-        "impossible after {MAX_ATTEMPTS} attempts: {last_error}"
-    ));
-    Err("impossible".to_string())
-}
-
-const SPILL_PERCENT: u64 = 95;
-
 const BAR_AFTER_PROJECT: f64 = 4.0;
 const BAR_AFTER_BLEND: f64 = 64.0;
 const BAR_AFTER_FINISH: f64 = 68.0;
@@ -361,44 +251,6 @@ fn save_phase_percent(msg: &str, frac: f64) -> f64 {
         _ => (0.0, 0.0),
     };
     start + (end - start) * frac
-}
-
-fn fit_quality(
-    sizes: &[(usize, usize)],
-    reg: &stitch::Registration,
-    projection: Projection,
-    tried: f64,
-    measured_peak: u64,
-) -> f64 {
-    let used_cams: Vec<Option<stitch::camera::Camera>> =
-        reg.used.iter().map(|&i| reg.cameras[i]).collect();
-    let sizes: Vec<(usize, usize)> = reg.used.iter().map(|&i| sizes[i]).collect();
-    let fmed = {
-        let mut f: Vec<f64> = used_cams.iter().flatten().map(|c| c.f).collect();
-        f.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-        f.get(f.len() / 2).copied().unwrap_or(1.0)
-    };
-    let Some(m) = stitch::Measure::new(&sizes, &used_cams, projection, fmed) else {
-        return tried * QUALITY_STEP;
-    };
-    if measured_peak == 0 {
-        return tried * QUALITY_STEP;
-    }
-    let ceiling = measured_peak.saturating_mul(9) / 10;
-    let (mut lo, mut hi) = (0.0f64, tried);
-    for _ in 0..40 {
-        let mid = 0.5 * (lo + hi);
-        let cost = m.cost_at(mid).total(m.canvas_pixels(mid) as u64);
-        if cost <= ceiling {
-            lo = mid;
-        } else {
-            hi = mid;
-        }
-        if (hi - lo).abs() < 0.01 {
-            break;
-        }
-    }
-    lo.clamp(MIN_QUALITY, tried)
 }
 
 fn load_frames(
@@ -772,7 +624,6 @@ fn save_composite(
     app: &AppHandle,
     stop: &StitchLog,
 ) -> Result<String, String> {
-    let note: std::sync::Mutex<Option<serde_json::Value>> = std::sync::Mutex::new(None);
     let shown = AtomicU64::new(0);
     let emit_save = |percent: f64, message: &str| {
         let bits = shown.fetch_max(percent.to_bits(), Ordering::Relaxed);
@@ -781,7 +632,6 @@ fn save_composite(
             serde_json::json!({
                 "percent": f64::from_bits(bits.max(percent.to_bits())),
                 "message": message,
-                "note": note.lock().ok().and_then(|g| g.clone()),
             }),
         );
     };
@@ -828,35 +678,20 @@ fn save_composite(
         emit_save(save_phase_percent(msg, frac), msg);
     };
     let load_progress = |msg: &str| emit_save(0.0, msg);
-    let render = |attempt_opts: &PanoOptions, scratch: &Scratch| {
-        progress("Rendering full resolution...", 0.0);
-        let layout = stitch::layout(&sizes, &reg, attempt_opts.projection, attempt_opts)?;
-        stream_sources(
-            &session.source_paths,
-            &layout,
-            &settings,
-            &load_progress,
-            stop,
-            |sources| {
-                stitch::compose(
-                    &layout,
-                    &session.gains,
-                    sources,
-                    attempt_opts,
-                    Some(scratch),
-                    &progress,
-                    stop,
-                )
-            },
-        )
-    };
-    let rendered = compose_with_retries(&render, &sizes, &reg, &opts, &note, app, stop)?;
+    let layout = stitch::layout(&sizes, &reg, opts.projection, &opts)?;
+    let rendered = stream_sources(
+        &session.source_paths,
+        &layout,
+        &settings,
+        &load_progress,
+        stop,
+        |sources| stitch::compose(&layout, &session.gains, sources, &opts, &progress, stop),
+    )?;
     stitch_log::phase(&format!(
-        "save rendered {}x{} at {:.0}% in {attempt_no} attempt(s)",
+        "save rendered {}x{} at {:.0}%",
         rendered.width,
         rendered.height,
-        rendered.saved_quality * 100.0,
-        attempt_no = rendered.saved_attempts
+        session.quality * 100.0
     ));
     let (w, h) = (rendered.width, rendered.height);
     stitch_log::line(&format!(
@@ -896,16 +731,11 @@ fn save_composite(
     let _ =
         crate::exif_processing::write_rrexif_sidecar(&real_path.to_string_lossy(), &output_path);
     stitch_log::phase(&format!("saved {}", output_path.display()));
-    let reduced = rendered.saved_attempts > 1 || rendered.saved_quality < 0.999;
     let _ = app.emit(
         "panorama-save-progress",
         serde_json::json!({
             "percent": 100,
             "message": "Save complete",
-            "savedQuality": rendered.saved_quality,
-            "savedAttempts": rendered.saved_attempts,
-            "reduced": reduced,
-            "note": note.lock().ok().and_then(|g| g.clone()),
         }),
     );
     Ok(output_path.to_string_lossy().to_string())
@@ -953,8 +783,7 @@ fn load_linear(
     }
     let rgb = dynamic.into_rgb32f();
     let (w, h) = rgb.dimensions();
-    let mut data: Vec<[f32; 3]> = bytemuck::allocation::try_cast_vec(rgb.into_raw())
-        .unwrap_or_else(|(_, raw)| raw.as_chunks::<3>().0.to_vec());
+    let mut data = into_pixels(rgb.into_raw());
     for p in data.iter_mut() {
         for v in p.iter_mut() {
             *v = v.max(0.0);

@@ -146,7 +146,7 @@ fn largest_covered(usable: &[bool], w: usize, h: usize) -> Option<(usize, usize,
 
 pub fn fill_edges(img: &mut Rgb32f, alpha: &Plane) -> Result<(), String> {
     let (w, h) = (img.width, img.height);
-    let mut b = Buf::try_new(w, h, 3, None)?;
+    let mut b = Buf::try_new(w, h, 3)?;
     b.data
         .par_chunks_mut(3)
         .zip(img.data.par_iter())

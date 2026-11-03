@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 
-use crate::panorama_utils::spill::Store;
+use crate::panorama_utils::raster::try_zeroed;
 use rayon::prelude::*;
 
 pub struct BlendTick<'a> {
@@ -90,7 +90,7 @@ pub struct Buf {
     pub w: usize,
     pub h: usize,
     pub c: usize,
-    pub data: Store<f32>,
+    pub data: Vec<f32>,
 }
 
 impl Buf {
@@ -99,20 +99,15 @@ impl Buf {
             w,
             h,
             c,
-            data: Store::zeroes(w * h * c),
+            data: vec![0.0; w * h * c],
         }
     }
-    pub fn try_new(
-        w: usize,
-        h: usize,
-        c: usize,
-        scratch: Option<&crate::panorama_utils::spill::SpillFile>,
-    ) -> Result<Buf, String> {
+    pub fn try_new(w: usize, h: usize, c: usize) -> Result<Buf, String> {
         Ok(Buf {
             w,
             h,
             c,
-            data: Store::try_mapped(w * h * c, scratch)?,
+            data: try_zeroed(w * h * c)?,
         })
     }
     pub fn empty() -> Buf {
@@ -120,7 +115,7 @@ impl Buf {
             w: 0,
             h: 0,
             c: 0,
-            data: Store::empty(),
+            data: Vec::new(),
         }
     }
     #[inline]
@@ -311,17 +306,12 @@ pub struct Blender {
 }
 
 impl Blender {
-    pub fn try_new(
-        w: usize,
-        h: usize,
-        levels: usize,
-        scratch: Option<&crate::panorama_utils::spill::SpillFile>,
-    ) -> Result<Blender, String> {
+    pub fn try_new(w: usize, h: usize, levels: usize) -> Result<Blender, String> {
         let mut acc = Vec::new();
         let mut wsum = Vec::new();
         for l in 0..=levels {
-            acc.push(Buf::try_new(level_dim(w, l), level_dim(h, l), 3, scratch)?);
-            wsum.push(Buf::try_new(level_dim(w, l), level_dim(h, l), 1, scratch)?);
+            acc.push(Buf::try_new(level_dim(w, l), level_dim(h, l), 3)?);
+            wsum.push(Buf::try_new(level_dim(w, l), level_dim(h, l), 1)?);
         }
         Ok(Blender {
             levels,
@@ -330,25 +320,6 @@ impl Blender {
             acc,
             wsum,
         })
-    }
-    pub fn spill_levels(
-        &mut self,
-        file: &crate::panorama_utils::spill::SpillFile,
-        mut needed: u64,
-    ) {
-        for l in 0..=self.levels {
-            if needed == 0 {
-                break;
-            }
-            let size = ((self.acc[l].data.len() + self.wsum[l].data.len())
-                * std::mem::size_of::<f32>()) as u64;
-            if size >= needed {
-                continue;
-            }
-            let _ = self.acc[l].data.move_to_disk(file);
-            let _ = self.wsum[l].data.move_to_disk(file);
-            needed = needed.saturating_sub(size);
-        }
     }
     pub fn add(
         &mut self,
@@ -377,7 +348,7 @@ impl Blender {
                 Some(gn) => {
                     let u = up(gn, g.w, g.h, tick);
                     let mut lap = g.clone();
-                    for (a, b) in lap.data.iter_mut().zip(&u.data[..]) {
+                    for (a, b) in lap.data.iter_mut().zip(&u.data) {
                         *a -= b;
                     }
                     lap
