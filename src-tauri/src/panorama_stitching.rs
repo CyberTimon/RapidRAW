@@ -6,10 +6,11 @@ use crate::image_processing::{apply_linear_to_srgb, apply_srgb_to_linear, linear
 use crate::panorama_utils::camera::parse_focal_mm_35eq;
 use crate::panorama_utils::log::{self as stitch_log, StitchLog};
 use crate::panorama_utils::overlay::generate_overlay;
-use crate::panorama_utils::raster::{Rgb32f, fit_long_edge, fit_rgb};
+use crate::panorama_utils::raster::{Rgb32f, fit_long_edge, resize_box};
 use crate::panorama_utils::session::{
     DroppedImage, NormalizedCrop, PanoramaSession, WorkingFrame, drop_session,
 };
+use crate::panorama_utils::spill::Scratch;
 use crate::panorama_utils::stitch::project::Projection;
 use crate::panorama_utils::stitch::{self, Composed, Frame, FrameMeta, PanoOptions};
 use base64::{Engine as _, engine::general_purpose};
@@ -22,7 +23,7 @@ use std::fs;
 use std::io::Cursor;
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use tauri::{AppHandle, Emitter, Manager};
 
 pub const PREVIEW_EDGE: usize = 1024;
@@ -57,7 +58,7 @@ pub async fn stitch_panorama(
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    let _ = (&crop_factor, &focal35, &estimate_intrinsics);
+    let _ = (&crop_factor, &focal35, &estimate_intrinsics, &scale);
     if paths.len() < 2 {
         return Err("Please select at least two images to stitch.".to_string());
     }
@@ -76,7 +77,7 @@ pub async fn stitch_panorama(
             stop.note_stop();
             return Ok(());
         }
-        match run_stitch(&source_paths, &scale, true, &app_handle, &stop) {
+        match run_stitch(&source_paths, &app_handle, &stop) {
             Ok(session) => {
                 let payload = complete_payload(&session);
                 {
@@ -243,10 +244,10 @@ const QUALITY_STEP: f64 = 0.90;
 const MAX_ATTEMPTS: usize = 5;
 
 fn compose_with_retries(
-    frames: &[stitch::Frame],
+    render: &dyn Fn(&PanoOptions, &Scratch) -> Result<Composed, String>,
+    sizes: &[(usize, usize)],
     reg: &stitch::Registration,
     opts: &PanoOptions,
-    progress: &stitch::ComposeProgress<'_>,
     note: &std::sync::Mutex<Option<serde_json::Value>>,
     app: &AppHandle,
     stop: &StitchLog,
@@ -264,17 +265,8 @@ fn compose_with_retries(
             quality,
             ..opts.clone()
         };
-        let scratch = crate::panorama_utils::spill::Scratch::new(&spill_dir, SPILL_PERCENT);
-        progress("Rendering full resolution...", 0.0);
-        let result = stitch::compose(
-            frames,
-            reg,
-            opts.projection,
-            &attempt_opts,
-            Some(&scratch),
-            progress,
-            stop,
-        );
+        let scratch = Scratch::new(&spill_dir, SPILL_PERCENT);
+        let result = render(&attempt_opts, &scratch);
         match result {
             Ok(mut rendered) => {
                 if let Some(at) = scratch.spilled_at() {
@@ -319,7 +311,7 @@ fn compose_with_retries(
                 let step = if attempt >= MAX_ATTEMPTS {
                     MIN_QUALITY
                 } else if attempt == 1 {
-                    fit_quality(frames, reg, opts.projection, quality, peak)
+                    fit_quality(sizes, reg, opts.projection, quality, peak)
                 } else {
                     quality * QUALITY_STEP
                 };
@@ -354,27 +346,25 @@ fn compose_with_retries(
 
 const SPILL_PERCENT: u64 = 95;
 
-const BAR_AFTER_LOAD: f64 = 8.0;
-const BAR_AFTER_REGISTER: f64 = 12.0;
-const BAR_AFTER_PROJECT: f64 = 18.0;
-const BAR_AFTER_EXPOSURE: f64 = 22.0;
+const BAR_AFTER_PROJECT: f64 = 4.0;
 const BAR_AFTER_BLEND: f64 = 64.0;
 const BAR_AFTER_FINISH: f64 = 68.0;
+
+const PREFETCH: usize = 1;
 
 fn save_phase_percent(msg: &str, frac: f64) -> f64 {
     let frac = frac.clamp(0.0, 1.0);
     let (start, end) = match msg {
-        "Projecting" => (BAR_AFTER_REGISTER, BAR_AFTER_PROJECT),
-        "Exposure compensation" => (BAR_AFTER_PROJECT, BAR_AFTER_EXPOSURE),
-        "Blending" => (BAR_AFTER_EXPOSURE, BAR_AFTER_BLEND),
+        "Projecting" => (0.0, BAR_AFTER_PROJECT),
+        "Blending" => (BAR_AFTER_PROJECT, BAR_AFTER_BLEND),
         "Finishing" => (BAR_AFTER_BLEND, BAR_AFTER_FINISH),
-        _ => (BAR_AFTER_REGISTER, BAR_AFTER_REGISTER),
+        _ => (0.0, 0.0),
     };
     start + (end - start) * frac
 }
 
 fn fit_quality(
-    frames: &[stitch::Frame],
+    sizes: &[(usize, usize)],
     reg: &stitch::Registration,
     projection: Projection,
     tried: f64,
@@ -382,11 +372,7 @@ fn fit_quality(
 ) -> f64 {
     let used_cams: Vec<Option<stitch::camera::Camera>> =
         reg.used.iter().map(|&i| reg.cameras[i]).collect();
-    let sizes: Vec<(usize, usize)> = reg
-        .used
-        .iter()
-        .map(|&i| (frames[i].width(), frames[i].height()))
-        .collect();
+    let sizes: Vec<(usize, usize)> = reg.used.iter().map(|&i| sizes[i]).collect();
     let fmed = {
         let mut f: Vec<f64> = used_cams.iter().flatten().map(|c| c.f).collect();
         f.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
@@ -418,8 +404,6 @@ fn fit_quality(
 fn load_frames(
     source_paths: &[String],
     settings: &crate::app_settings::AppSettings,
-    preview: bool,
-    half: bool,
     progress: &(dyn Fn(&str) + Sync),
     stop: &StitchLog,
 ) -> Result<Vec<Frame>, String> {
@@ -427,7 +411,6 @@ fn load_frames(
         .num_threads(4)
         .build()
         .map_err(|e| format!("Could not start the loader: {e}"))?;
-    let edge = if preview { Some(PREVIEW_EDGE) } else { None };
     let loaded: Result<Vec<Frame>, String> = pool.install(|| {
         source_paths
             .par_iter()
@@ -441,23 +424,16 @@ fn load_frames(
                     source_paths.len(),
                     name
                 ));
-                let (mut img, exif) = load_linear(path, settings)?;
+                let (img, exif) = load_linear(path, settings)?;
                 let (fw, fh) = (img.width, img.height);
-                for p in img.data.iter_mut() {
-                    for v in p.iter_mut() {
-                        *v = v.max(0.0);
-                    }
-                }
                 let clip = stitch::detect_clip(&img);
-                if let Some(m) = edge
-                    && img.width.max(img.height) > m
-                {
-                    img = fit_long_edge(&img, m);
-                } else if half {
-                    img = fit_rgb(&img, (img.width / 2).max(1), (img.height / 2).max(1));
-                }
+                let img = if img.width.max(img.height) > PREVIEW_EDGE {
+                    fit_long_edge(&img, PREVIEW_EDGE)
+                } else {
+                    img
+                };
                 stitch_log::line(&format!(
-                    "loaded {}/{} {name} {}x{} clip {:.4} half={half} preview={preview}",
+                    "loaded {}/{} {name} {}x{} clip {:.4}",
                     i + 1,
                     source_paths.len(),
                     img.width,
@@ -480,35 +456,62 @@ fn load_frames(
     loaded
 }
 
-fn plan_scale(source_paths: &[String], scale: &str, app: &AppHandle) -> Result<bool, String> {
-    if source_paths.is_empty() {
-        return Err("No photos to stitch.".into());
+fn stream_sources<R>(
+    paths: &[String],
+    layout: &stitch::Layout,
+    settings: &crate::app_settings::AppSettings,
+    progress: &(dyn Fn(&str) + Sync),
+    stop: &StitchLog,
+    consume: impl FnOnce(&mut dyn Iterator<Item = Result<(usize, Rgb32f), String>>) -> Result<R, String>,
+) -> Result<R, String> {
+    let order: Vec<usize> = layout.frames().collect();
+    std::thread::scope(|scope| {
+        let (tx, rx) = std::sync::mpsc::sync_channel(PREFETCH);
+        scope.spawn(move || {
+            for (k, &i) in order.iter().enumerate() {
+                if stop.halted() {
+                    break;
+                }
+                let path = &paths[i];
+                progress(&format!(
+                    "Loading {}/{}: {}",
+                    k + 1,
+                    order.len(),
+                    file_name(path)
+                ));
+                let item = load_linear(path, settings)
+                    .map(|(img, _)| (i, fit_source(img, layout.source_size(i))));
+                let failed = item.is_err();
+                if tx.send(item).is_err() || failed {
+                    break;
+                }
+            }
+        });
+        consume(&mut rx.into_iter())
+    })
+}
+
+fn fit_source(img: Rgb32f, (w, h): (usize, usize)) -> Rgb32f {
+    if (img.width, img.height) == (w, h) {
+        img
+    } else {
+        resize_box(&img, w, h)
     }
-    if scale == "half" {
-        let _ = app.emit("panorama-progress", "Using half size as requested.");
-        return Ok(true);
-    }
-    Ok(false)
+}
+
+fn native_scale(native_width: usize, width: usize) -> Option<f64> {
+    (width > 0).then_some(native_width as f64 / width as f64)
 }
 
 fn run_stitch(
     source_paths: &[String],
-    scale: &str,
-    preview: bool,
     app: &AppHandle,
     stop: &StitchLog,
 ) -> Result<PanoramaSession, String> {
-    let half = if preview {
-        false
-    } else {
-        plan_scale(source_paths, scale, app)?
-    };
     let settings = load_settings(app.clone()).unwrap_or_default();
     let frames = load_frames(
         source_paths,
         &settings,
-        preview,
-        half,
         &|m| {
             let _ = app.emit("panorama-progress", m.to_string());
         },
@@ -517,7 +520,6 @@ fn run_stitch(
     let progress = |msg: &str, _frac: f64| {
         let _ = app.emit("panorama-progress", msg.to_string());
     };
-    stitch_log::line(&format!("run preview={preview} half={half}"));
     let reg = stitch::register(&frames, stop)?;
     stitch_log::phase(&format!(
         "registered used={} rmsPx {:.3} -> {:.3}",
@@ -533,18 +535,13 @@ fn run_stitch(
         quality: 1.0,
         preview_canvas: None,
         save_scale: 1.0,
-        frame_scale: if preview {
-            median_ratio(
-                frames
-                    .iter()
-                    .filter(|f| f.width() > 0)
-                    .map(|f| f.native_width as f64 / f.width() as f64),
-            )
-        } else {
-            1.0
-        },
+        frame_scale: median_ratio(
+            frames
+                .iter()
+                .filter_map(|f| native_scale(f.native_width, f.width())),
+        ),
     };
-    let recommended = stitch::choose_projection(&frames, &reg.cameras);
+    let recommended = stitch::choose_projection(&stitch::frame_sizes(&frames), &reg.cameras);
     let meta: std::collections::HashMap<String, FrameMeta> = frames
         .iter()
         .filter_map(|f| f.meta.clone().map(|m| (f.name.clone(), m)))
@@ -605,15 +602,14 @@ fn run_stitch(
             })
             .collect(),
         options: opts,
-        half,
+        gains: Vec::new(),
         preview_scale: 1.0,
     };
-    let rendered = stitch::compose(
+    let rendered = stitch::compose_frames(
         &frames,
         &reg,
         recommended,
-        &session.options.clone(),
-        None,
+        &session.options,
         &progress,
         stop,
     )?;
@@ -659,6 +655,7 @@ fn render_display(rendered: &Composed) -> Result<PreviewImages, String> {
 
 fn fill_preview(session: &mut PanoramaSession, rendered: &Composed, preview: PreviewImages) {
     session.preview_scale = rendered.scale;
+    session.gains = rendered.gains.clone();
     session.composite = preview.composite;
     session.composite_width = rendered.width as u32;
     session.composite_height = rendered.height as u32;
@@ -715,31 +712,27 @@ fn render_preview(
         projection,
         ..options.clone()
     };
-    let rendered = stitch::compose(frames, &reg, projection, &opts, None, progress, stop)?;
+    let rendered = stitch::compose_frames(frames, &reg, projection, &opts, progress, stop)?;
     Ok((reg, rendered))
 }
 
 fn scale_registration(
     reg: &stitch::Registration,
-    preview: &[WorkingFrame],
-    full: &[Frame],
+    frames: &[WorkingFrame],
 ) -> Result<stitch::Registration, String> {
-    if preview.len() != full.len() || reg.cameras.len() != full.len() {
+    if reg.cameras.len() != frames.len() {
         return Err("The preview alignment does not match the photos being saved.".into());
     }
-    let ratio = |prev: &WorkingFrame, frame: &Frame| -> Option<f64> {
-        (prev.image.width > 0).then_some(frame.width() as f64 / prev.image.width as f64)
-    };
+    let ratio = |f: &WorkingFrame| native_scale(f.native_width, f.image.width);
     let cameras = reg
         .cameras
         .iter()
-        .zip(preview)
-        .zip(full)
-        .map(|((cam, prev), frame)| {
-            let cam = (*cam)?.scaled(ratio(prev, frame)?);
+        .zip(frames)
+        .map(|(cam, f)| {
+            let cam = (*cam)?.scaled(ratio(f)?);
             Some(stitch::camera::Camera {
-                cx: frame.width() as f64 / 2.0,
-                cy: frame.height() as f64 / 2.0,
+                cx: f.native_width as f64 / 2.0,
+                cy: f.native_height as f64 / 2.0,
                 ..cam
             })
         })
@@ -747,12 +740,8 @@ fn scale_registration(
     let focal_px = reg
         .focal_px
         .iter()
-        .zip(preview)
-        .zip(full)
-        .map(|((f, prev), frame)| {
-            let f = (*f)?;
-            Some(f * ratio(prev, frame)?)
-        })
+        .zip(frames)
+        .map(|(focal, f)| Some((*focal)? * ratio(f)?))
         .collect();
     Ok(stitch::Registration {
         cameras,
@@ -784,11 +773,13 @@ fn save_composite(
     stop: &StitchLog,
 ) -> Result<String, String> {
     let note: std::sync::Mutex<Option<serde_json::Value>> = std::sync::Mutex::new(None);
+    let shown = AtomicU64::new(0);
     let emit_save = |percent: f64, message: &str| {
+        let bits = shown.fetch_max(percent.to_bits(), Ordering::Relaxed);
         let _ = app.emit(
             "panorama-save-progress",
             serde_json::json!({
-                "percent": percent,
+                "percent": f64::from_bits(bits.max(percent.to_bits())),
                 "message": message,
                 "note": note.lock().ok().and_then(|g| g.clone()),
             }),
@@ -796,33 +787,13 @@ fn save_composite(
     };
     emit_save(0.0, "Rendering full resolution...");
     let settings = load_settings(app.clone()).unwrap_or_default();
-    let paths = session.source_paths.clone();
-    let loaded = AtomicUsize::new(0);
-    let frame_count = paths.len().max(1);
-    let frames = load_frames(
-        &paths,
-        &settings,
-        false,
-        session.half,
-        &|m| {
-            let i = loaded.fetch_add(1, Ordering::Relaxed) + 1;
-            let pct = BAR_AFTER_LOAD * (i as f64 / frame_count as f64);
-            emit_save(pct, m);
-        },
-        stop,
-    )?;
-    stitch_log::line(&format!(
-        "save scaling preview cameras onto {} frames at {}x{}",
-        frames.len(),
-        frames.first().map_or(0, |f| f.width()),
-        frames.first().map_or(0, |f| f.height())
-    ));
-    emit_save(BAR_AFTER_LOAD, "Registering");
-    let reg = scale_registration(&session.registration, &session.frames, &frames)?;
-    emit_save(BAR_AFTER_REGISTER, "Registering");
-    let save_scale = median_ratio(session.frames.iter().zip(&frames).filter_map(|(p, f)| {
-        (p.image.width > 0).then_some(f.width() as f64 / p.image.width as f64)
-    }));
+    let reg = scale_registration(&session.registration, &session.frames)?;
+    let sizes: Vec<(usize, usize)> = session
+        .frames
+        .iter()
+        .map(|f| (f.native_width, f.native_height))
+        .collect();
+    let save_scale = session.options.frame_scale;
     stitch_log::line(&format!(
         "save scaled preview cameras x{save_scale:.4} used={} rmsPx {:.3}",
         reg.used.len(),
@@ -850,16 +821,36 @@ fn save_composite(
         ..session.options.clone()
     };
     stitch_log::line(&format!(
-        "save starting at {:.0}% quality, {}x{} sources",
-        session.quality * 100.0,
-        frames.first().map_or(0, |f| f.width()),
-        frames.first().map_or(0, |f| f.height())
+        "save starting at {:.0}% quality",
+        session.quality * 100.0
     ));
     let progress = |msg: &str, frac: f64| {
         emit_save(save_phase_percent(msg, frac), msg);
     };
-    let rendered = compose_with_retries(&frames, &reg, &opts, &progress, &note, app, stop)?;
-    drop(frames);
+    let load_progress = |msg: &str| emit_save(0.0, msg);
+    let render = |attempt_opts: &PanoOptions, scratch: &Scratch| {
+        progress("Rendering full resolution...", 0.0);
+        let layout = stitch::layout(&sizes, &reg, attempt_opts.projection, attempt_opts)?;
+        stream_sources(
+            &session.source_paths,
+            &layout,
+            &settings,
+            &load_progress,
+            stop,
+            |sources| {
+                stitch::compose(
+                    &layout,
+                    &session.gains,
+                    sources,
+                    attempt_opts,
+                    Some(scratch),
+                    &progress,
+                    stop,
+                )
+            },
+        )
+    };
+    let rendered = compose_with_retries(&render, &sizes, &reg, &opts, &note, app, stop)?;
     stitch_log::phase(&format!(
         "save rendered {}x{} at {:.0}% in {attempt_no} attempt(s)",
         rendered.width,
@@ -962,8 +953,13 @@ fn load_linear(
     }
     let rgb = dynamic.into_rgb32f();
     let (w, h) = rgb.dimensions();
-    let data = bytemuck::allocation::try_cast_vec(rgb.into_raw())
+    let mut data: Vec<[f32; 3]> = bytemuck::allocation::try_cast_vec(rgb.into_raw())
         .unwrap_or_else(|(_, raw)| raw.as_chunks::<3>().0.to_vec());
+    for p in data.iter_mut() {
+        for v in p.iter_mut() {
+            *v = v.max(0.0);
+        }
+    }
     Ok((
         Rgb32f {
             width: w as usize,

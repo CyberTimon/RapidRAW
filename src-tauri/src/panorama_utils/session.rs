@@ -71,7 +71,7 @@ pub struct PanoramaSession {
     pub meta: std::collections::HashMap<String, FrameMeta>,
     pub focal_outliers: std::collections::HashMap<String, bool>,
     pub options: PanoOptions,
-    pub half: bool,
+    pub gains: Vec<f64>,
     pub preview_scale: f64,
     pub quality: f64,
 }

@@ -1,9 +1,3 @@
-pub fn available_and_total() -> (u64, u64) {
-    let mut sys = sysinfo::System::new();
-    sys.refresh_memory();
-    available_and_total_from(&mut sys)
-}
-
 pub fn process_resident_bytes() -> u64 {
     let Ok(pid) = sysinfo::get_current_pid() else {
         return 0;

@@ -67,7 +67,7 @@ impl Default for PanoOptions {
     }
 }
 
-fn frame_sizes(frames: &[Frame]) -> Vec<(usize, usize)> {
+pub fn frame_sizes(frames: &[Frame]) -> Vec<(usize, usize)> {
     frames.iter().map(|f| (f.width(), f.height())).collect()
 }
 
@@ -114,19 +114,18 @@ fn outline(
     Some(pts)
 }
 
-pub fn choose_projection(frames: &[Frame], cams: &[Option<Camera>]) -> Projection {
-    let sizes = frame_sizes(frames);
-    let (h, v) = fov(&sizes, cams);
-    let area: f64 = frames
+pub fn choose_projection(sizes: &[(usize, usize)], cams: &[Option<Camera>]) -> Projection {
+    let (h, v) = fov(sizes, cams);
+    let area: f64 = sizes
         .iter()
         .zip(cams)
         .filter(|(_, c)| c.is_some())
-        .map(|(f, _)| (f.width() * f.height()) as f64)
+        .map(|(s, _)| (s.0 * s.1) as f64)
         .sum();
     let fmed = median(cams.iter().flatten().map(|c| c.f).collect());
     if h < 110.0
         && v < 110.0
-        && let Some((x0, y0, x1, y1)) = bounds_of(&sizes, cams, Projection::Perspective, fmed)
+        && let Some((x0, y0, x1, y1)) = bounds_of(sizes, cams, Projection::Perspective, fmed)
         && (x1 - x0) * (y1 - y0) < 2.5 * area
     {
         return Projection::Perspective;
@@ -556,6 +555,7 @@ fn tile_rects(
 pub struct Composed {
     pub image: Rgb32f,
     pub label: Vec<u16>,
+    pub gains: Vec<f64>,
     pub crop: Option<[f64; 4]>,
     pub scale: f64,
     pub saved_quality: f64,
@@ -595,22 +595,32 @@ pub fn detect_clip(img: &Rgb32f) -> f32 {
 
 pub type ComposeProgress<'a> = dyn Fn(&str, f64) + Sync + 'a;
 
-pub fn compose(
-    frames: &[Frame],
+type Rect = (usize, usize, usize, usize);
+
+pub struct Layout {
+    projection: Projection,
+    cams: Vec<Option<Camera>>,
+    sizes: Vec<(usize, usize)>,
+    rects: Vec<Vec<Rect>>,
+    f_out: f64,
+    origin: (f64, f64),
+    levels: usize,
+    pub scale: f64,
+    pub width: usize,
+    pub height: usize,
+}
+
+pub fn layout(
+    sizes: &[(usize, usize)],
     reg: &Registration,
     projection: Projection,
     opts: &PanoOptions,
-    scratch: Option<&crate::panorama_utils::spill::Scratch>,
-    progress: &ComposeProgress<'_>,
-    stop: &log::StitchLog,
-) -> Result<Composed, String> {
-    let n = frames.len();
+) -> Result<Layout, String> {
     let cams = &reg.cameras;
     let used = &reg.used;
-    let sizes = frame_sizes(frames);
-    let fovd = fov(&sizes, cams);
+    let fovd = fov(sizes, cams);
     let projection = match projection {
-        Projection::Auto => choose_projection(frames, cams),
+        Projection::Auto => choose_projection(sizes, cams),
         p => p,
     };
     log::line(&format!(
@@ -620,16 +630,13 @@ pub fn compose(
         fovd.1
     ));
     let fmed = median(used.iter().filter_map(|&i| cams[i].map(|c| c.f)).collect());
-    let Some((bx0, by0, bx1, by1)) = bounds_of(&sizes, cams, projection, fmed) else {
+    let Some((bx0, by0, bx1, by1)) = bounds_of(sizes, cams, projection, fmed) else {
         return Err(format!(
             "The field of view ({:.0}°) is too wide for a rectilinear projection.",
             fovd.0
         ));
     };
-    let area: f64 = used
-        .iter()
-        .map(|&i| (frames[i].width() * frames[i].height()) as f64)
-        .sum();
+    let area: f64 = used.iter().map(|&i| (sizes[i].0 * sizes[i].1) as f64).sum();
     if projection == Projection::Perspective && (bx1 - bx0) * (by1 - by0) > 12.0 * area {
         return Err(format!(
             "The field of view ({:.0}°) is too wide for a rectilinear projection.",
@@ -656,7 +663,7 @@ pub fn compose(
         .min((MAX_TOTAL_PIXELS / (bw * bh).max(1.0)).sqrt())
         .min(MAX_LONG_EDGE / bw.max(bh).max(1.0))
         .clamp(0.0, 1.0);
-    let (f_out, (ox, oy)) = (fmed * s, (bx0 * s, by0 * s));
+    let (f_out, origin) = (fmed * s, (bx0 * s, by0 * s));
     let (cw, ch) = if opts.preview_canvas.is_some() {
         (
             (bw * s).round().max(1.0) as usize,
@@ -667,15 +674,15 @@ pub fn compose(
     };
     let levels = pyramid_levels(cw.min(ch), opts.frame_scale);
     let unit = 1usize << levels;
-    let (pw, ph) = (cw, ch);
-    let owned_scratch;
-    let scratch = match scratch {
-        Some(s) => s,
-        None => {
-            owned_scratch = crate::panorama_utils::spill::Scratch::in_ram_only();
-            &owned_scratch
-        }
-    };
+    let rects = cams
+        .iter()
+        .zip(sizes)
+        .map(|(c, &size)| {
+            c.map_or_else(Vec::new, |c| {
+                tile_rects(&c, size, projection, f_out, origin, unit, (cw, ch))
+            })
+        })
+        .collect();
     log::phase(&format!(
         "compose {:.1} MP at {:.0}% ({}x{}) levels {}",
         cw as f64 * ch as f64 / 1e6,
@@ -684,78 +691,155 @@ pub fn compose(
         ch,
         levels
     ));
-    let memory_scale = s;
     log::line(&format!(
         "canvas {cw}x{ch} levels {levels} focalOut {f_out:.1}px scale {s:.4}"
     ));
-    progress("Projecting", 0.0);
-    let ev0 = frames[used[0]].exposure;
-    let mut gains: Vec<f64> = (0..n)
-        .map(|i| match (frames[i].exposure, ev0) {
+    Ok(Layout {
+        projection,
+        cams: cams.clone(),
+        sizes: sizes.to_vec(),
+        rects,
+        f_out,
+        origin,
+        levels,
+        scale: s,
+        width: cw,
+        height: ch,
+    })
+}
+
+impl Layout {
+    pub fn frames(&self) -> impl Iterator<Item = usize> + '_ {
+        (0..self.rects.len()).filter(|&i| !self.rects[i].is_empty())
+    }
+    pub fn source_size(&self, i: usize) -> (usize, usize) {
+        self.sizes[i]
+    }
+    fn trace(
+        &self,
+        i: usize,
+        (x0, x1): (usize, usize),
+        y: usize,
+        mut hit: impl FnMut(usize, f64, f64, f32),
+    ) {
+        let Some(c) = self.cams[i] else {
+            return;
+        };
+        let (fw, fh) = (self.sizes[i].0 as f64, self.sizes[i].1 as f64);
+        let v = y as f64 + 0.5 + self.origin.1;
+        for x in x0..x1 {
+            let u = x as f64 + 0.5 + self.origin.0;
+            let d = self.projection.inverse(u, v, self.f_out);
+            let Some((px, py)) = c.project(d) else {
+                continue;
+            };
+            if px < 0.0 || py < 0.0 || px > fw || py > fh {
+                continue;
+            }
+            let wx = 1.0 - (2.0 * px / fw - 1.0).abs();
+            let wy = 1.0 - (2.0 * py / fh - 1.0).abs();
+            hit(x, px, py, (wx * wy).max(1e-6) as f32);
+        }
+    }
+    fn labels(
+        &self,
+        scratch: &crate::panorama_utils::spill::Scratch,
+    ) -> Result<Store<u16>, String> {
+        let w = self.width;
+        scratch.check();
+        let mut label = <Store<u16>>::try_mapped(w * self.height, scratch.file())?;
+        label.par_chunks_mut(w).enumerate().for_each_init(
+            || vec![0f32; w],
+            |best, (y, row)| {
+                best.fill(0.0);
+                row.fill(u16::MAX);
+                for (i, rects) in self.rects.iter().enumerate() {
+                    for &(x0, y0, rw, rh) in rects {
+                        if (y0..y0 + rh).contains(&y) {
+                            self.trace(i, (x0, x0 + rw), y, |x, _, _, wt| {
+                                if wt > best[x] {
+                                    best[x] = wt;
+                                    row[x] = i as u16;
+                                }
+                            });
+                        }
+                    }
+                }
+            },
+        );
+        Ok(label)
+    }
+    fn warp(
+        &self,
+        i: usize,
+        src: &Rgb32f,
+        scratch: &crate::panorama_utils::spill::Scratch,
+        stop: &log::StitchLog,
+    ) -> Result<Vec<Tile>, String> {
+        let (fw, fh) = self.sizes[i];
+        let (kx, ky) = (src.width as f64 / fw as f64, src.height as f64 / fh as f64);
+        self.rects[i]
+            .iter()
+            .map(|&(x0, y0, w, h)| {
+                scratch.check();
+                let mut rgb = <Store<f32>>::try_mapped(w * h * 3, scratch.file())?;
+                let mut wgt = <Store<f32>>::try_mapped(w * h, scratch.file())?;
+                rgb.par_chunks_mut(w * 3)
+                    .zip(wgt.par_chunks_mut(w))
+                    .enumerate()
+                    .for_each(|(ty, (row, wrow))| {
+                        if stop.halted() {
+                            return;
+                        }
+                        self.trace(i, (x0, x0 + w), y0 + ty, |x, px, py, wt| {
+                            let tx = x - x0;
+                            let c = src.sample_bilinear((px * kx) as f32, (py * ky) as f32);
+                            row[tx * 3..tx * 3 + 3].copy_from_slice(&c);
+                            wrow[tx] = wt;
+                        });
+                    });
+                stop.gate()?;
+                Ok(Tile {
+                    x0,
+                    y0,
+                    w,
+                    h,
+                    rgb,
+                    wgt,
+                })
+            })
+            .collect()
+    }
+}
+
+pub fn exposure_gains(
+    layout: &Layout,
+    frames: &[Frame],
+    progress: &ComposeProgress<'_>,
+    stop: &log::StitchLog,
+) -> Result<Vec<f64>, String> {
+    progress("Exposure compensation", 0.0);
+    let ev0 = layout
+        .cams
+        .iter()
+        .position(Option::is_some)
+        .and_then(|i| frames[i].exposure);
+    let mut gains: Vec<f64> = frames
+        .iter()
+        .map(|f| match (f.exposure, ev0) {
             (Some(e), Some(e0)) => 2f64.powf(e0 - e),
             _ => 1.0,
         })
         .collect();
-    let tiles: Vec<Vec<Tile>> = (0..n)
-        .into_par_iter()
-        .map(|i| -> Result<Vec<Tile>, String> {
+    let scratch = crate::panorama_utils::spill::Scratch::in_ram_only();
+    let tiles: Vec<Vec<Tile>> = frames
+        .par_iter()
+        .enumerate()
+        .map(|(i, f)| {
             stop.gate()?;
-            let Some(c) = cams[i] else {
-                return Ok(Vec::new());
-            };
-            let fr = &frames[i];
-            let (fw, fh) = (fr.width() as f64, fr.height() as f64);
-            tile_rects(&c, sizes[i], projection, f_out, (ox, oy), unit, (pw, ph))
-                .into_iter()
-                .map(|(tx0, ty0, tw, th)| {
-                    scratch.check();
-                    let mut rgb = <Store<f32>>::try_mapped(tw * th * 3, scratch.file())?;
-                    let mut wgt = <Store<f32>>::try_mapped(tw * th, scratch.file())?;
-                    rgb[..]
-                        .par_chunks_mut(tw * 3)
-                        .zip(wgt[..].par_chunks_mut(tw))
-                        .enumerate()
-                        .for_each(|(ty, (row, wrow))| {
-                            if stop.halted() {
-                                return;
-                            }
-                            let v = (ty0 + ty) as f64 + 0.5 + oy;
-                            for tx in 0..tw {
-                                let u = (tx0 + tx) as f64 + 0.5 + ox;
-                                let d = projection.inverse(u, v, f_out);
-                                let Some((px, py)) = c.project(d) else {
-                                    continue;
-                                };
-                                if px < 0.0 || py < 0.0 || px > fw || py > fh {
-                                    continue;
-                                }
-                                let wx = 1.0 - (2.0 * px / fw - 1.0).abs();
-                                let wy = 1.0 - (2.0 * py / fh - 1.0).abs();
-                                let w = (wx * wy).max(1e-6) as f32;
-                                let c = fr.image.sample_bilinear(px as f32, py as f32);
-                                row[tx * 3] = c[0];
-                                row[tx * 3 + 1] = c[1];
-                                row[tx * 3 + 2] = c[2];
-                                wrow[tx] = w;
-                            }
-                        });
-                    stop.gate()?;
-                    Ok(Tile {
-                        x0: tx0,
-                        y0: ty0,
-                        w: tw,
-                        h: th,
-                        rgb,
-                        wgt,
-                    })
-                })
-                .collect()
+            layout.warp(i, &f.image, &scratch, stop)
         })
-        .collect::<Result<Vec<_>, String>>()?;
-    stop.gate()?;
-    log::phase(&format!("warped {} tiles", tiles.iter().flatten().count()));
-    progress("Projecting", 1.0);
-    progress("Exposure compensation", 0.0);
+        .collect::<Result<_, String>>()?;
     compensate_gains(&tiles, &mut gains, frames);
     log::line(&format!(
         "gains {}",
@@ -766,122 +850,96 @@ pub fn compose(
             .join(" ")
     ));
     progress("Exposure compensation", 1.0);
-    scratch.check();
-    let mut best = <Store<f32>>::try_mapped(pw * ph, scratch.file())?;
-    let mut label = <Store<u16>>::try_mapped(pw * ph, scratch.file())?;
-    label.fill(u16::MAX);
-    for (i, t) in tiles
-        .iter()
-        .enumerate()
-        .flat_map(|(i, ts)| ts.iter().map(move |t| (i, t)))
-    {
-        for ty in 0..t.h {
-            let row = (t.y0 + ty) * pw + t.x0;
-            for tx in 0..t.w {
-                let w = t.wgt[ty * t.w + tx];
-                if w > 0.0 && w > best[row + tx] {
-                    best[row + tx] = w;
-                    label[row + tx] = i as u16;
-                }
-            }
+    Ok(gains)
+}
+
+pub fn compose_frames(
+    frames: &[Frame],
+    reg: &Registration,
+    projection: Projection,
+    opts: &PanoOptions,
+    progress: &ComposeProgress<'_>,
+    stop: &log::StitchLog,
+) -> Result<Composed, String> {
+    let layout = layout(&frame_sizes(frames), reg, projection, opts)?;
+    let gains = exposure_gains(&layout, frames, progress, stop)?;
+    let sources = layout.frames().map(|i| Ok((i, &frames[i].image)));
+    compose(&layout, &gains, sources, opts, None, progress, stop)
+}
+
+pub fn compose<S: std::borrow::Borrow<Rgb32f>>(
+    layout: &Layout,
+    gains: &[f64],
+    sources: impl Iterator<Item = Result<(usize, S), String>>,
+    opts: &PanoOptions,
+    scratch: Option<&crate::panorama_utils::spill::Scratch>,
+    progress: &ComposeProgress<'_>,
+    stop: &log::StitchLog,
+) -> Result<Composed, String> {
+    let (cw, ch, levels) = (layout.width, layout.height, layout.levels);
+    let owned_scratch;
+    let scratch = match scratch {
+        Some(s) => s,
+        None => {
+            owned_scratch = crate::panorama_utils::spill::Scratch::in_ram_only();
+            &owned_scratch
         }
-    }
+    };
+    progress("Projecting", 0.0);
+    let label = layout.labels(scratch)?;
+    progress("Projecting", 1.0);
     progress("Blending", 0.0);
-    let tile_bytes: u64 = tiles
-        .iter()
-        .flatten()
-        .map(|t| (t.w * t.h) as u64 * 16)
-        .sum();
-    let source_bytes: u64 = used
-        .iter()
-        .map(|&i| frames[i].image.data.len() as u64 * 12)
-        .sum();
-    let mut blender = Blender::try_new(pw, ph, levels, scratch.file())?;
+    let mut blender = Blender::try_new(cw, ch, levels, scratch.file())?;
     if scratch.is_spilling() {
         let over = scratch.over_by();
         if over > 0 {
             blender.spill_levels(scratch.file().expect("spilling"), over);
         }
     }
-    let pyramid_bytes: u64 = blender
-        .acc
-        .iter()
-        .map(|b| b.data.len() as u64 * 4)
-        .sum::<u64>()
-        + blender
-            .wsum
-            .iter()
-            .map(|b| b.data.len() as u64 * 4)
-            .sum::<u64>();
-    let canvas_bytes = (cw * ch * 16) as u64;
-    let label_bytes = (pw * ph * 6) as u64;
-    let total_bytes = source_bytes + tile_bytes + canvas_bytes + pyramid_bytes + label_bytes;
-    let peak_bytes = source_bytes + tile_bytes + pyramid_bytes + label_bytes;
-    let (available_ram, total_ram) = crate::panorama_utils::ram::available_and_total();
-    let breakdown = format!(
-        "MEMBREAK sources={:.2} tiles={:.2} labels={:.2} pyramid={:.2} | peak-during-blend={:.2}GB \
-         canvas-comes-later={:.2}GB sum-of-all={:.2}GB | rss={:.2}GB used-of-total={:.2}/{:.2}GB \
-         spill={} disk={:.2}GB canvas={}x{} levels={}",
-        source_bytes as f64 / 1e9,
-        tile_bytes as f64 / 1e9,
-        label_bytes as f64 / 1e9,
-        pyramid_bytes as f64 / 1e9,
-        peak_bytes as f64 / 1e9,
-        canvas_bytes as f64 / 1e9,
-        total_bytes as f64 / 1e9,
-        crate::panorama_utils::ram::process_resident_bytes() as f64 / 1e9,
-        total_ram.saturating_sub(available_ram) as f64 / 1e9,
-        total_ram as f64 / 1e9,
-        if scratch.is_spilling() { "YES" } else { "no" },
-        scratch.disk_bytes() as f64 / 1e9,
-        pw,
-        ph,
-        levels,
-    );
-    log::line(&breakdown);
-    let blend_rows = blend::blend_work_rows(tiles.iter().flatten().map(|t| t.h), levels, ph);
+    let blend_rows = blend::blend_work_rows(layout.rects.iter().flatten().map(|r| r.3), levels, ch);
     let tick = blend::BlendTick::new(blend_rows, progress);
-    for (i, t) in tiles
-        .into_iter()
-        .enumerate()
-        .flat_map(|(i, ts)| ts.into_iter().map(move |t| (i, t)))
-    {
+    for source in sources {
         stop.gate()?;
-        let g = gains[i] as f32;
-        let mut vals = Buf::new(t.w, t.h, 3);
-        let mut mask = Buf::new(t.w, t.h, 1);
-        let mut covered = Buf::new(t.w, t.h, 1);
-        for ty in 0..t.h {
-            for tx in 0..t.w {
-                let k = ty * t.w + tx;
-                if t.wgt[k] > 0.0 {
-                    covered.data[k] = 1.0;
-                    for c in 0..3 {
-                        vals.data[k * 3 + c] = (t.rgb[k * 3 + c] * g).max(1e-6).ln();
+        let (i, src) = source?;
+        let tiles = layout.warp(i, src.borrow(), scratch, stop)?;
+        drop(src);
+        let g = gains.get(i).copied().unwrap_or(1.0) as f32;
+        for t in tiles {
+            stop.gate()?;
+            let mut vals = Buf::new(t.w, t.h, 3);
+            let mut mask = Buf::new(t.w, t.h, 1);
+            let mut covered = Buf::new(t.w, t.h, 1);
+            for ty in 0..t.h {
+                for tx in 0..t.w {
+                    let k = ty * t.w + tx;
+                    if t.wgt[k] > 0.0 {
+                        covered.data[k] = 1.0;
+                        for c in 0..3 {
+                            vals.data[k * 3 + c] = (t.rgb[k * 3 + c] * g).max(1e-6).ln();
+                        }
+                    }
+                    if label[(t.y0 + ty) * cw + t.x0 + tx] == i as u16 {
+                        mask.data[k] = 1.0;
                     }
                 }
-                if label[(t.y0 + ty) * pw + t.x0 + tx] == i as u16 {
-                    mask.data[k] = 1.0;
-                }
             }
+            push_pull(&mut vals, &t.wgt);
+            blender.add(t.x0, t.y0, vals, mask, covered, Some(&tick));
+            log::line(&format!("blended tile {} at {}x{}", i, t.w, t.h));
         }
-        push_pull(&mut vals, &t.wgt);
-        blender.add(t.x0, t.y0, vals, mask, covered, Some(&tick));
-        log::line(&format!("blended tile {} at {}x{}", i, t.w, t.h));
     }
+    stop.gate()?;
     let out = blender.finish(Some(&tick));
     progress("Blending", 1.0);
     let mut image = Rgb32f::try_new(cw, ch)?;
     let mut alpha = Plane::try_new(cw, ch)?;
-    for y in 0..ch {
-        for x in 0..cw {
-            let k = y * pw + x;
-            if label[k] != u16::MAX {
-                image.data[y * cw + x] = [0, 1, 2].map(|c| out.data[k * 3 + c].exp());
-                alpha.data[y * cw + x] = 1.0;
-            }
+    for k in 0..cw * ch {
+        if label[k] != u16::MAX {
+            image.data[k] = [0, 1, 2].map(|c| out.data[k * 3 + c].exp());
+            alpha.data[k] = 1.0;
         }
     }
+    drop(out);
     progress("Finishing", 0.0);
     let (mut image, alpha) = finish::boundary_warp(image, alpha, opts.boundary_warp / 100.0);
     let crop = if opts.auto_crop {
@@ -894,15 +952,12 @@ pub fn compose(
     }
     progress("Finishing", 1.0);
     log::phase(&format!("composed {}x{} crop {:?}", cw, ch, crop));
-    let mut label_out = vec![u16::MAX; cw * ch];
-    for y in 0..ch {
-        label_out[y * cw..(y + 1) * cw].copy_from_slice(&label[y * pw..y * pw + cw]);
-    }
     Ok(Composed {
         image,
-        label: label_out,
+        label: label.to_vec(),
+        gains: gains.to_vec(),
         crop,
-        scale: memory_scale,
+        scale: layout.scale,
         saved_quality: 1.0,
         saved_attempts: 1,
         width: cw,
