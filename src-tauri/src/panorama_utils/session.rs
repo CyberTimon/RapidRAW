@@ -18,17 +18,6 @@ pub struct NormalizedCrop {
     pub height: f64,
 }
 
-impl NormalizedCrop {
-    pub fn copy(&self) -> Self {
-        Self {
-            x: self.x,
-            y: self.y,
-            width: self.width,
-            height: self.height,
-        }
-    }
-}
-
 impl Default for NormalizedCrop {
     fn default() -> Self {
         Self {
@@ -42,16 +31,13 @@ impl Default for NormalizedCrop {
 
 pub struct PanoramaSession {
     pub source_paths: Vec<String>,
-    pub kept_indices: Vec<usize>,
     pub dropped: Vec<DroppedImage>,
-    pub preview_png_base64: String,
-    pub overlay_png_base64: String,
-    pub winner_map_png_base64: String,
-    pub filenames: Vec<String>,
+    pub preview_png: String,
+    pub overlay_png: String,
+    pub winner_map_png: String,
     pub recommended_projection: Projection,
     pub selected_projection: Projection,
     pub crop: NormalizedCrop,
-    pub crop_edited: bool,
     pub registration: Registration,
     pub preview_width: u32,
     pub preview_height: u32,
@@ -61,8 +47,6 @@ pub struct PanoramaSession {
     pub focal_outliers: std::collections::HashMap<String, bool>,
     pub options: PanoOptions,
     pub gains: Vec<f64>,
-    pub preview_scale: f64,
-    pub quality: f64,
 }
 
 pub fn drop_session(session: &mut Option<PanoramaSession>) {

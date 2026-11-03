@@ -146,7 +146,6 @@ pub async fn reproject_panorama(
             }
             let session = guard.as_mut().ok_or(PanoMessage::NoSession)?;
             session.selected_projection = proj;
-            session.crop_edited = false;
             fill_preview(session, &rendered, preview);
             complete_payload(session)
         };
@@ -199,9 +198,8 @@ fn arm_stop(state: &AppState) -> Arc<AtomicBool> {
 
 #[tauri::command]
 pub async fn save_panorama(
-    first_path_str: String,
-    crop: Option<NormalizedCrop>,
-    quality: Option<f64>,
+    crop: NormalizedCrop,
+    quality: f64,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<String, PanoMessage> {
@@ -209,17 +207,15 @@ pub async fn save_panorama(
     let stop = StitchLog::new(flag.clone());
     let stop_slot = state.panorama_stop.clone();
     let session_slot = state.panorama_session.clone();
-    let mut session = state
+    let session = state
         .panorama_session
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .take()
         .ok_or(PanoMessage::NoSessionSave)?;
-    let crop = crop.unwrap_or_else(|| session.crop.copy());
-    session.quality = quality.unwrap_or(1.0).clamp(stitch::MIN_QUALITY, 1.0);
     let task = tokio::task::spawn_blocking(move || {
         stitch_log::phase("save started");
-        let result = save_composite(&mut session, &first_path_str, &crop, &app_handle, &stop);
+        let result = save_composite(&session, &crop, quality, &app_handle, &stop);
         if let Err(e) = &result {
             if *e == PanoMessage::Cancelled || stop.halted() {
                 stop.note_stop();
@@ -425,23 +421,15 @@ fn run_stitch(
     let rendered = stitch::compose_frames(&frames, &reg, recommended, &opts, &progress, stop)?;
     let preview = render_display(&rendered)?;
     let mut session = PanoramaSession {
-        quality: 1.0,
         source_paths: source_paths.to_vec(),
-        kept_indices: reg.used.clone(),
         focal_outliers,
         dropped,
-        preview_png_base64: String::new(),
-        overlay_png_base64: String::new(),
-        winner_map_png_base64: String::new(),
-        filenames: reg
-            .used
-            .iter()
-            .filter_map(|&i| frames.get(i).map(|f| f.name.clone()))
-            .collect(),
+        preview_png: String::new(),
+        overlay_png: String::new(),
+        winner_map_png: String::new(),
         recommended_projection: recommended,
         selected_projection: recommended,
         crop: NormalizedCrop::default(),
-        crop_edited: false,
         registration: reg,
         preview_width: 0,
         preview_height: 0,
@@ -450,7 +438,6 @@ fn run_stitch(
         frames: frames.into(),
         options: opts,
         gains: Vec::new(),
-        preview_scale: 1.0,
     };
     fill_preview(&mut session, &rendered, preview);
     Ok(session)
@@ -476,32 +463,29 @@ fn render_display(rendered: &Composed) -> Result<PreviewImages, PanoMessage> {
     let overlay = generate_overlay(&winners, dw, dh)?;
     Ok(PreviewImages {
         png,
-        overlay: general_purpose::STANDARD.encode(overlay.boundary_png),
-        winner_map: general_purpose::STANDARD.encode(overlay.winner_map_png),
+        overlay: png_data_url(&overlay.boundary_png),
+        winner_map: png_data_url(&overlay.winner_map_png),
         width: dw,
         height: dh,
     })
 }
 
 fn fill_preview(session: &mut PanoramaSession, rendered: &Composed, preview: PreviewImages) {
-    session.preview_scale = rendered.scale;
     session.gains = rendered.gains.clone();
     session.composite_width = rendered.width as u32;
     session.composite_height = rendered.height as u32;
-    if !session.crop_edited {
-        session.crop = match rendered.crop {
-            Some(c) => NormalizedCrop {
-                x: c[0],
-                y: c[1],
-                width: c[2],
-                height: c[3],
-            },
-            None => NormalizedCrop::default(),
-        };
-    }
-    session.preview_png_base64 = preview.png;
-    session.overlay_png_base64 = preview.overlay;
-    session.winner_map_png_base64 = preview.winner_map;
+    session.crop = match rendered.crop {
+        Some(c) => NormalizedCrop {
+            x: c[0],
+            y: c[1],
+            width: c[2],
+            height: c[3],
+        },
+        None => NormalizedCrop::default(),
+    };
+    session.preview_png = preview.png;
+    session.overlay_png = preview.overlay;
+    session.winner_map_png = preview.winner_map;
     session.preview_width = preview.width;
     session.preview_height = preview.height;
 }
@@ -556,9 +540,9 @@ fn median_ratio(ratios: impl IntoIterator<Item = f64>) -> f64 {
 }
 
 fn save_composite(
-    session: &mut PanoramaSession,
-    first_path_str: &str,
+    session: &PanoramaSession,
     crop: &NormalizedCrop,
+    quality: f64,
     app: &AppHandle,
     stop: &StitchLog,
 ) -> Result<String, PanoMessage> {
@@ -590,7 +574,7 @@ fn save_composite(
         reg.used.len(),
         reg.rms
     ));
-    let (first_path, _) = parse_virtual_path(first_path_str);
+    let first_path = Path::new(session.source_paths.first().ok_or(PanoMessage::NoParent)?);
     let parent_dir = first_path.parent().ok_or(PanoMessage::NoParent)?;
     let stem = first_path
         .file_stem()
@@ -599,7 +583,7 @@ fn save_composite(
     let output_path = parent_dir.join(format!("{stem}_Pano.tiff"));
     let opts = PanoOptions {
         projection: session.selected_projection,
-        quality: session.quality,
+        quality,
         auto_crop: false,
         frame_scale: 1.0,
         save_scale,
@@ -609,10 +593,7 @@ fn save_composite(
         )),
         ..session.options.clone()
     };
-    stitch_log::line(&format!(
-        "save starting at {:.0}% quality",
-        session.quality * 100.0
-    ));
+    stitch_log::line(&format!("save starting at {:.0}% quality", quality * 100.0));
     let progress = |msg: PanoMessage, frac: f64| emit_save(save_phase_percent(&msg, frac), msg);
     let load_progress = |msg: PanoMessage| emit_save(0.0, msg);
     let layout = stitch::layout(&sizes, &reg, opts.projection, &opts)?;
@@ -628,7 +609,7 @@ fn save_composite(
         "save rendered {}x{} at {:.0}%",
         rendered.width,
         rendered.height,
-        session.quality * 100.0
+        quality * 100.0
     ));
     let (w, h) = (rendered.width, rendered.height);
     stitch_log::line(&format!(
@@ -653,17 +634,16 @@ fn save_composite(
     drop(image);
     stop.gate()?;
     emit_save(95.0, PanoMessage::WritingTiff);
-    let (real_path, _) = parse_virtual_path(first_path_str);
+    let source = first_path.to_string_lossy();
     crate::exif_processing::save_converted_image(
         &DynamicImage::ImageRgb16(rgb16),
         &output_path,
-        &real_path.to_string_lossy(),
+        &source,
     )
     .map_err(|e| PanoMessage::SaveWriteFailed {
         detail: e.to_string(),
     })?;
-    let _ =
-        crate::exif_processing::write_rrexif_sidecar(&real_path.to_string_lossy(), &output_path);
+    let _ = crate::exif_processing::write_rrexif_sidecar(&source, &output_path);
     stitch_log::phase(&format!("saved {}", output_path.display()));
     emit_save(100.0, PanoMessage::SaveComplete);
     Ok(output_path.to_string_lossy().to_string())
@@ -671,15 +651,17 @@ fn save_composite(
 
 fn complete_payload(session: &PanoramaSession) -> serde_json::Value {
     serde_json::json!({
-        "base64": session.preview_png_base64.clone(),
-        "overlayBase64": format!("data:image/png;base64,{}", session.overlay_png_base64),
-        "winnerMapBase64": format!("data:image/png;base64,{}", session.winner_map_png_base64),
-        "dropped": session.dropped,
-        "recommendedProjection": session.recommended_projection.as_str(),
-        "selectedProjection": session.selected_projection.as_str(),
+        "image": session.preview_png,
+        "overlay": session.overlay_png,
+        "winnerMap": session.winner_map_png,
+        "width": session.preview_width,
+        "height": session.preview_height,
         "crop": session.crop,
-        "previewWidth": session.preview_width,
-        "previewHeight": session.preview_height,
+        "dropped": session.dropped,
+        "recommendedProjection": session.recommended_projection,
+        "selectedProjection": session.selected_projection,
+        "projections": Projection::CHOICES,
+        "minQuality": stitch::MIN_QUALITY,
         "frames": session
             .frames
             .iter()
@@ -691,9 +673,6 @@ fn complete_payload(session: &PanoramaSession) -> serde_json::Value {
                 "dropped": session.dropped.iter().any(|d| d.filename == f.name),
             }))
             .collect::<Vec<_>>(),
-        "filenames": session.filenames,
-        "cropEdited": session.crop_edited,
-        "previewScale": session.preview_scale,
     })
 }
 
@@ -811,10 +790,14 @@ fn encode_png(img: &image::RgbImage) -> Result<String, PanoMessage> {
     let mut buf = Cursor::new(Vec::new());
     img.write_to(&mut buf, ImageFormat::Png)
         .map_err(PanoMessage::encode_failed)?;
-    Ok(format!(
+    Ok(png_data_url(buf.get_ref()))
+}
+
+fn png_data_url(png: &[u8]) -> String {
+    format!(
         "data:image/png;base64,{}",
-        general_purpose::STANDARD.encode(buf.get_ref())
-    ))
+        general_purpose::STANDARD.encode(png)
+    )
 }
 
 fn file_name(path: &str) -> String {

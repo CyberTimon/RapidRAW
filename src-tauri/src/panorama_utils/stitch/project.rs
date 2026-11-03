@@ -11,6 +11,11 @@ pub enum Projection {
 }
 
 impl Projection {
+    pub const CHOICES: [Projection; 3] = [
+        Projection::Spherical,
+        Projection::Cylindrical,
+        Projection::Perspective,
+    ];
     pub fn as_str(self) -> &'static str {
         match self {
             Projection::Auto => "auto",

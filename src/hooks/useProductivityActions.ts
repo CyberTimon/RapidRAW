@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useUIStore } from '../store/useUIStore';
 import { Invokes } from '../components/ui/AppProperties';
-import { toPanoramaMessage } from '../utils/panorama';
+import { toPanoramaMessage, type PanoramaCropRect, type PanoramaProjection } from '../utils/panorama';
 
 export function useProductivityActions(refreshImageList: () => Promise<void>) {
   const setUI = useUIStore((state) => state.setUI);
@@ -14,10 +14,7 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
           ...state.panoramaModalState,
           isProcessing: true,
           error: null,
-          finalImageBase64: null,
-          overlayBase64: null,
-          winnerMapBase64: null,
-          dropped: [],
+          preview: null,
           progressMessage: { code: 'starting' },
         },
       }));
@@ -38,7 +35,7 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
   );
 
   const handleReprojectPanorama = useCallback(
-    (projection: string) => {
+    (projection: PanoramaProjection) => {
       setUI((state) => ({
         panoramaModalState: {
           ...state.panoramaModalState,
@@ -68,14 +65,7 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
   }, []);
 
   const handleSavePanorama = useCallback(
-    async (crop?: { x: number; y: number; width: number; height: number } | null): Promise<string> => {
-      const { panoramaModalState } = useUIStore.getState();
-      if (panoramaModalState.stitchingSourcePaths.length === 0) {
-        setUI((state) => ({
-          panoramaModalState: { ...state.panoramaModalState, previewError: { code: 'noSessionSave' } },
-        }));
-        throw new Error('Source paths for panorama not found.');
-      }
+    async (crop: PanoramaCropRect, quality: number): Promise<string> => {
       try {
         setUI((state) => ({
           panoramaModalState: {
@@ -85,11 +75,7 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
             previewError: null,
           },
         }));
-        const savedPath: string = await invoke(Invokes.SavePanorama, {
-          firstPathStr: panoramaModalState.stitchingSourcePaths[0],
-          crop: crop ?? panoramaModalState.crop,
-          quality: panoramaModalState.quality,
-        });
+        const savedPath: string = await invoke(Invokes.SavePanorama, { crop, quality });
         await refreshImageList();
         setUI((state) => ({
           panoramaModalState: {

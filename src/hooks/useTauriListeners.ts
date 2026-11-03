@@ -9,7 +9,7 @@ import { AiJobsStatus, JobKind, JobStatus, useProcessStore } from '../store/useP
 import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
 import { useLibraryStore } from '../store/useLibraryStore';
-import type { PanoramaMessage } from '../utils/panorama';
+import type { PanoramaMessage, PanoramaPreview } from '../utils/panorama';
 
 const parseAnalyticsPacket = async (buffer: ArrayBuffer) => {
   const view = new DataView(buffer);
@@ -444,7 +444,7 @@ export function useTauriListeners({
           });
         }
       }),
-      listen('panorama-complete', (event: any) => {
+      listen<PanoramaPreview>('panorama-complete', (event) => {
         if (isEffectActive) {
           useUIStore.getState().setUI((state) => {
             if (!state.panoramaModalState.isOpen) return state;
@@ -452,17 +452,7 @@ export function useTauriListeners({
               panoramaModalState: {
                 ...state.panoramaModalState,
                 error: null,
-                finalImageBase64: event.payload.base64,
-                overlayBase64: event.payload.overlayBase64 ?? null,
-                winnerMapBase64: event.payload.winnerMapBase64 ?? null,
-                dropped: event.payload.dropped ?? [],
-                recommendedProjection: event.payload.recommendedProjection ?? null,
-                selectedProjection: event.payload.selectedProjection ?? null,
-                crop: event.payload.crop ?? null,
-                previewWidth: event.payload.previewWidth ?? 0,
-                previewHeight: event.payload.previewHeight ?? 0,
-                filenames: event.payload.filenames ?? [],
-                frames: event.payload.frames ?? null,
+                preview: event.payload,
                 pendingProjection: null,
                 isProcessing: false,
                 progressMessage: null,
@@ -481,9 +471,7 @@ export function useTauriListeners({
               panoramaModalState: {
                 ...state.panoramaModalState,
                 error: event.payload,
-                finalImageBase64: null,
-                overlayBase64: null,
-                winnerMapBase64: null,
+                preview: null,
                 isProcessing: false,
                 progressMessage: null,
                 saveProgressPercent: null,

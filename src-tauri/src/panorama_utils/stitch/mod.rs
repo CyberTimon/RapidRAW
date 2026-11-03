@@ -481,7 +481,6 @@ pub struct Composed {
     pub label: Vec<u16>,
     pub gains: Vec<f64>,
     pub crop: Option<[f64; 4]>,
-    pub scale: f64,
     pub width: usize,
     pub height: usize,
 }
@@ -900,7 +899,6 @@ pub fn compose<S: std::borrow::Borrow<Rgb32f>>(
         label,
         gains: gains.to_vec(),
         crop,
-        scale: layout.scale,
         width: cw,
         height: ch,
     })

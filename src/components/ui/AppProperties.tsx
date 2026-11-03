@@ -119,7 +119,6 @@ export enum Invokes {
   SetFlagForPaths = 'set_flag_for_paths',
   ShowInFinder = 'show_in_finder',
   StartBackgroundIndexing = 'start_background_indexing',
-  ProbePanoramaLenses = 'probe_panorama_lenses',
   StitchPanorama = 'stitch_panorama',
   StitchFocusStack = 'stitch_focus_stack',
   SubscribeAnalytics = 'subscribe_analytics',

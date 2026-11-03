@@ -14,7 +14,7 @@ import {
 } from '../components/ui/AppProperties';
 import { useEditorStore } from './useEditorStore';
 import { pickCropGeometry } from '../utils/adjustments';
-import type { PanoramaMessage } from '../utils/panorama';
+import type { PanoramaMessage, PanoramaPreview, PanoramaProjection } from '../utils/panorama';
 
 export type SwitcherPlacement = 'bottom' | 'right' | 'left' | 'top';
 
@@ -37,54 +37,17 @@ interface CollageModalState {
   sourceImages: Array<Pick<ImageFile, 'path'>>;
 }
 
-interface PanoramaCrop {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-interface PanoramaDroppedImage {
-  filename: string;
-  reason: PanoramaMessage;
-}
-
 interface PanoramaModalState {
   error: PanoramaMessage | null;
-  finalImageBase64: string | null;
   isOpen: boolean;
   isProcessing: boolean;
   progressMessage: PanoramaMessage | null;
   stitchingSourcePaths: Array<string>;
-  overlayBase64: string | null;
-  winnerMapBase64: string | null;
-  dropped: Array<PanoramaDroppedImage>;
-  recommendedProjection: string | null;
-  selectedProjection: string | null;
-  crop: PanoramaCrop | null;
-  previewWidth: number;
-  previewHeight: number;
-  filenames: Array<string>;
+  preview: PanoramaPreview | null;
   saveProgressPercent: number | null;
   saveProgressMessage: PanoramaMessage | null;
   previewError: PanoramaMessage | null;
-  pendingProjection: string | null;
-  quality: number;
-  frames: Array<PanoramaFrameInfo> | null;
-}
-
-interface PanoramaFrameInfo {
-  name: string;
-  focal35?: number | null;
-  meta: {
-    nativeMm?: number | null;
-    focal35?: number | null;
-    shutter?: string | null;
-    aperture?: number | null;
-    iso?: number | null;
-  } | null;
-  focalOutlier: boolean;
-  dropped: boolean;
+  pendingProjection: PanoramaProjection | null;
 }
 
 interface FocusStackModalState {
@@ -145,26 +108,15 @@ const MIN_REOPENED_PANEL_WIDTH = 250;
 
 export const initialPanoramaModalState: PanoramaModalState = {
   error: null,
-  finalImageBase64: null,
   isOpen: false,
   isProcessing: false,
   progressMessage: null,
   stitchingSourcePaths: [],
-  overlayBase64: null,
-  winnerMapBase64: null,
-  frames: null,
-  dropped: [],
-  recommendedProjection: null,
-  selectedProjection: null,
-  crop: null,
-  previewWidth: 0,
-  previewHeight: 0,
-  filenames: [],
+  preview: null,
   saveProgressPercent: null,
   saveProgressMessage: null,
   previewError: null,
   pendingProjection: null,
-  quality: 1,
 };
 
 export const getReopenedPanelWidth = (width: number) =>

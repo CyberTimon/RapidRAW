@@ -17,12 +17,13 @@ import CullingModal from './CullingModal';
 import CollageModal from './CollageModal';
 import { AppSettings, Invokes, ImageFlag, AlbumItem, Album, AlbumGroup } from '../ui/AppProperties';
 import { CopyPasteSettings } from '../../utils/adjustments';
+import type { PanoramaCropRect, PanoramaProjection } from '../../utils/panorama';
 
 export interface AppModalsProps {
   handleImageSelect: (path: string) => void;
-  handleSavePanorama: (crop?: { x: number; y: number; width: number; height: number } | null) => Promise<string>;
+  handleSavePanorama: (crop: PanoramaCropRect, quality: number) => Promise<string>;
   handleStartPanorama: (paths: string[]) => void;
-  handleReprojectPanorama: (projection: string) => void;
+  handleReprojectPanorama: (projection: PanoramaProjection) => void;
   handleCancelPanorama: (keepSession: boolean) => void;
   handleSaveHdr: () => Promise<string>;
   handleStartHdr: (paths: string[]) => void;
@@ -146,13 +147,8 @@ export default function AppModals(props: AppModalsProps) {
         }
       />
       <PanoramaModal
-        crop={panoramaModalState.crop}
-        dropped={panoramaModalState.dropped}
         error={panoramaModalState.error}
-        filenames={panoramaModalState.filenames}
-        frames={panoramaModalState.frames ?? null}
-        finalImageBase64={panoramaModalState.finalImageBase64}
-        imageCount={panoramaModalState.stitchingSourcePaths.length}
+        preview={panoramaModalState.preview}
         sourcePaths={panoramaModalState.stitchingSourcePaths}
         isOpen={panoramaModalState.isOpen}
         isProcessing={panoramaModalState.isProcessing}
@@ -163,22 +159,14 @@ export default function AppModals(props: AppModalsProps) {
           setUI({ panoramaModalState: initialPanoramaModalState });
         }}
         onOpenFile={(path: string) => props.handleImageSelect(path)}
-        onProjectionChange={(projection) => props.handleReprojectPanorama(projection)}
-        onSave={(crop) => props.handleSavePanorama(crop)}
+        onProjectionChange={props.handleReprojectPanorama}
+        onSave={props.handleSavePanorama}
         onStitch={() => props.handleStartPanorama(panoramaModalState.stitchingSourcePaths)}
-        overlayBase64={panoramaModalState.overlayBase64}
         pendingProjection={panoramaModalState.pendingProjection}
         previewError={panoramaModalState.previewError}
-        previewHeight={panoramaModalState.previewHeight}
-        previewWidth={panoramaModalState.previewWidth}
         progressMessage={panoramaModalState.progressMessage}
-        recommendedProjection={panoramaModalState.recommendedProjection}
         saveProgressMessage={panoramaModalState.saveProgressMessage}
-        quality={panoramaModalState.quality}
-        onQualityChange={(v) => setUI((st) => ({ panoramaModalState: { ...st.panoramaModalState, quality: v } }))}
         saveProgressPercent={panoramaModalState.saveProgressPercent}
-        selectedProjection={panoramaModalState.selectedProjection}
-        winnerMapBase64={panoramaModalState.winnerMapBase64}
       />
       <HdrModal
         error={hdrModalState.error}

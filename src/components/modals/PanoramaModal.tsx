@@ -2,83 +2,44 @@ import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } fr
 import { useTranslation } from 'react-i18next';
 import { CheckCircle, XCircle, Loader2, RefreshCw, Save } from 'lucide-react';
 import { motion } from 'framer-motion';
-import ReactCrop, { type PercentCrop, type Crop } from 'react-image-crop';
+import ReactCrop, { type PercentCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import Button from '../ui/Button';
 import Slider, { SliderChangeEvent } from '../ui/Slider';
 import Text from '../ui/Text';
 import { TextColors, TextVariants } from '../../types/typography';
-import { panoramaMessage, type PanoramaMessage } from '../../utils/panorama';
-
-export type PanoramaProjection = 'spherical' | 'cylindrical' | 'perspective';
-
-export interface PanoramaCropRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-export interface PanoramaDroppedImage {
-  filename: string;
-  reason: PanoramaMessage;
-}
-
-export interface PanoramaFrameMeta {
-  nativeMm?: number | null;
-  focal35?: number | null;
-  shutter?: string | null;
-  aperture?: number | null;
-  iso?: number | null;
-}
-
-export interface PanoramaFrameInfo {
-  name: string;
-  focal35?: number | null;
-  meta: PanoramaFrameMeta | null;
-  focalOutlier: boolean;
-  dropped: boolean;
-}
+import {
+  panoramaMessage,
+  type PanoramaCropRect,
+  type PanoramaFrameInfo,
+  type PanoramaMessage,
+  type PanoramaPreview,
+  type PanoramaProjection,
+} from '../../utils/panorama';
 
 interface PanoramaModalProps {
-  crop: PanoramaCropRect | null;
-  dropped: Array<PanoramaDroppedImage>;
   error: PanoramaMessage | null;
-  filenames: Array<string>;
-  frames?: Array<PanoramaFrameInfo> | null;
-  finalImageBase64: string | null;
-  imageCount?: number;
+  preview: PanoramaPreview | null;
   sourcePaths: string[];
   isOpen: boolean;
   isProcessing: boolean;
-  loadingImageUrls?: string[];
+  loadingImageUrls: string[];
   onCancelSave(): void;
   onClose(): void;
   onOpenFile(path: string): void;
   onProjectionChange(projection: PanoramaProjection): void;
-  onSave(crop: PanoramaCropRect | null): Promise<string>;
+  onSave(crop: PanoramaCropRect, quality: number): Promise<string>;
   onStitch(): void;
-  overlayBase64: string | null;
-  pendingProjection: string | null;
+  pendingProjection: PanoramaProjection | null;
   previewError: PanoramaMessage | null;
-  previewHeight: number;
-  previewWidth: number;
   progressMessage: PanoramaMessage | null;
-  recommendedProjection: string | null;
   saveProgressMessage: PanoramaMessage | null;
   saveProgressPercent: number | null;
-  quality?: number;
-  onQualityChange?(value: number): void;
-  selectedProjection: string | null;
-  winnerMapBase64: string | null;
 }
 
-const PROJECTIONS: PanoramaProjection[] = ['spherical', 'cylindrical', 'perspective'];
+const FULL_QUALITY = 1;
 
-function cropToPercent(crop: PanoramaCropRect | null): PercentCrop {
-  if (!crop) {
-    return { unit: '%', x: 0, y: 0, width: 100, height: 100 };
-  }
+function cropToPercent(crop: PanoramaCropRect): PercentCrop {
   return {
     unit: '%',
     x: crop.x * 100,
@@ -88,16 +49,14 @@ function cropToPercent(crop: PanoramaCropRect | null): PercentCrop {
   };
 }
 
-function percentToCrop(crop: Crop): PanoramaCropRect {
-  const x = (crop.unit === '%' ? crop.x : crop.x) / (crop.unit === '%' ? 100 : 1);
-  const y = (crop.unit === '%' ? crop.y : crop.y) / (crop.unit === '%' ? 100 : 1);
-  const width = (crop.unit === '%' ? crop.width : crop.width) / (crop.unit === '%' ? 100 : 1);
-  const height = (crop.unit === '%' ? crop.height : crop.height) / (crop.unit === '%' ? 100 : 1);
+function percentToCrop(crop: PercentCrop): PanoramaCropRect {
+  const x = crop.x / 100;
+  const y = crop.y / 100;
   return {
     x: Math.max(0, Math.min(1, x)),
     y: Math.max(0, Math.min(1, y)),
-    width: Math.max(0.01, Math.min(1 - x, width)),
-    height: Math.max(0.01, Math.min(1 - y, height)),
+    width: Math.max(0.01, Math.min(1 - x, crop.width / 100)),
+    height: Math.max(0.01, Math.min(1 - y, crop.height / 100)),
   };
 }
 
@@ -320,12 +279,8 @@ function fitPreviewFrame(aspect: number, vw: number, vh: number, sidebarPx: numb
 }
 
 export default function PanoramaModal({
-  crop,
-  dropped,
   error,
-  filenames,
-  frames,
-  finalImageBase64,
+  preview,
   sourcePaths,
   isOpen,
   isProcessing,
@@ -336,29 +291,27 @@ export default function PanoramaModal({
   onProjectionChange,
   onSave,
   onStitch,
-  overlayBase64,
   pendingProjection,
   previewError,
-  previewHeight,
-  previewWidth,
   progressMessage,
-  recommendedProjection,
   saveProgressMessage,
   saveProgressPercent,
-  quality,
-  onQualityChange,
-  selectedProjection,
-  winnerMapBase64,
 }: PanoramaModalProps) {
+  const frames = preview?.frames ?? [];
+  const dropped = preview?.dropped ?? [];
+  const previewWidth = preview?.width ?? 0;
+  const previewHeight = preview?.height ?? 0;
+  const recommendedProjection = preview?.recommendedProjection ?? null;
   const { t, i18n } = useTranslation();
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [savedPath, setSavedPath] = useState<string | null>(null);
   const [viewport, setViewport] = useState({ w: 1280, h: 800 });
-  const [localCrop, setLocalCrop] = useState<PercentCrop>(cropToPercent(crop));
+  const [localCrop, setLocalCrop] = useState<PercentCrop | null>(null);
+  const [quality, setQuality] = useState(FULL_QUALITY);
   const [hovered, setHovered] = useState<number | null>(null);
-  const hoveredFrame = hovered != null ? (frames?.[hovered] ?? null) : null;
+  const hoveredFrame: PanoramaFrameInfo | null = hovered != null ? (frames[hovered] ?? null) : null;
   const droppedReason = (name: string) => panoramaMessage(t, dropped.find((d) => d.filename === name)?.reason);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const startedRef = useRef(false);
@@ -376,6 +329,7 @@ export default function PanoramaModal({
     setShow(false);
     setSavedPath(null);
     setIsSaving(false);
+    setQuality(FULL_QUALITY);
     startedRef.current = false;
     setHovered(null);
     const timer = setTimeout(() => setIsMounted(false), 300);
@@ -388,16 +342,17 @@ export default function PanoramaModal({
     return () => window.removeEventListener('resize', measure);
   }, []);
   useEffect(() => {
-    setLocalCrop(cropToPercent(crop));
-  }, [crop]);
+    setLocalCrop(preview ? cropToPercent(preview.crop) : null);
+  }, [preview]);
 
   useEffect(() => {
     if (!isOpen || sourcePaths.length < 2 || startedRef.current) return;
     startedRef.current = true;
     onStitch();
   }, [isOpen, sourcePaths.join('\n')]);
+  const winnerMap = preview?.winnerMap ?? null;
   useEffect(() => {
-    if (!winnerMapBase64) {
+    if (!winnerMap) {
       winnerImgRef.current = null;
       return;
     }
@@ -405,11 +360,11 @@ export default function PanoramaModal({
     img.onload = () => {
       winnerImgRef.current = img;
     };
-    img.src = winnerMapBase64.startsWith('data:') ? winnerMapBase64 : `data:image/png;base64,${winnerMapBase64}`;
+    img.src = winnerMap;
     return () => {
       img.onload = null;
     };
-  }, [winnerMapBase64]);
+  }, [winnerMap]);
 
   const handleClose = useCallback(() => {
     onClose();
@@ -424,9 +379,10 @@ export default function PanoramaModal({
     mouseDownTarget.current = null;
   };
   const handleSave = async () => {
+    if (!localCrop) return;
     setIsSaving(true);
     try {
-      const path = await onSave(percentToCrop(localCrop));
+      const path = await onSave(percentToCrop(localCrop), quality);
       setSavedPath(path);
     } catch (e) {
       console.error(e);
@@ -479,14 +435,14 @@ export default function PanoramaModal({
       return;
     }
     const idx = pixel - 1;
-    if (idx >= 0 && idx < (frames?.length ?? filenames.length)) {
+    if (idx >= 0 && idx < frames.length) {
       setHovered(idx);
       setTooltipPos({ x: e.clientX - rect.left + 12, y: e.clientY - rect.top - 20 });
     } else {
       setHovered(null);
     }
   };
-  const showingPreview = Boolean(finalImageBase64) && !isProcessing;
+  const showingPreview = Boolean(preview) && !isProcessing;
   const showSaveProgress = isSaving || saveProgressPercent != null;
   useLayoutEffect(() => {
     const el = sidebarRef.current;
@@ -517,7 +473,7 @@ export default function PanoramaModal({
         </div>
       );
     }
-    if (finalImageBase64 && !isProcessing) {
+    if (preview && localCrop && !isProcessing) {
       return (
         <div
           className="grid w-max items-start"
@@ -537,18 +493,16 @@ export default function PanoramaModal({
             <ReactCrop crop={localCrop} onChange={(_, percent) => setLocalCrop(percent)} keepSelection>
               <div className="relative block" style={{ width: previewFrame.width, height: previewFrame.height }}>
                 <img
-                  src={finalImageBase64}
+                  src={preview.image}
                   alt={t('modals.panorama.previewAlt')}
                   className="block"
                   style={{ width: previewFrame.width, height: previewFrame.height }}
                 />
-                {overlayBase64 && (
-                  <img
-                    src={overlayBase64.startsWith('data:') ? overlayBase64 : `data:image/png;base64,${overlayBase64}`}
-                    alt=""
-                    className="absolute inset-0 w-full h-full object-contain pointer-events-none opacity-80"
-                  />
-                )}
+                <img
+                  src={preview.overlay}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-contain pointer-events-none opacity-80"
+                />
               </div>
             </ReactCrop>
             {hoveredFrame && (
@@ -575,12 +529,12 @@ export default function PanoramaModal({
                 {t('modals.panorama.projection')}
               </Text>
               <div className="space-y-2">
-                {PROJECTIONS.map((p) => (
+                {preview.projections.map((p) => (
                   <label key={p} className="flex items-center gap-2 text-sm cursor-pointer whitespace-nowrap">
                     <input
                       type="radio"
                       name="projection"
-                      checked={(pendingProjection || selectedProjection || recommendedProjection) === p}
+                      checked={(pendingProjection ?? preview.selectedProjection) === p}
                       disabled={isSaving}
                       onChange={() => onProjectionChange(p)}
                     />
@@ -593,18 +547,18 @@ export default function PanoramaModal({
               </div>
             </div>
             <div className="w-0 min-w-full">
-              {finalImageBase64 && !isSaving && (
+              {!isSaving && (
                 <div className="min-w-0 max-w-full pt-4 pb-1">
                   <Slider
-                    defaultValue={100}
+                    defaultValue={FULL_QUALITY * 100}
                     fillOrigin="min"
                     label={t('modals.panorama.quality')}
-                    max={100}
-                    min={25}
+                    max={FULL_QUALITY * 100}
+                    min={preview.minQuality * 100}
                     step={5}
                     suffix="%"
-                    value={(quality ?? 1) * 100}
-                    onChange={(e: SliderChangeEvent) => onQualityChange?.(Number(e.target.value) / 100)}
+                    value={quality * 100}
+                    onChange={(e: SliderChangeEvent) => setQuality(Number(e.target.value) / 100)}
                     trackClassName="bg-white/30"
                   />
                   <p className="mt-1.5 text-[11px] leading-snug text-text-tertiary">
