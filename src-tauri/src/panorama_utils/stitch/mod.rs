@@ -82,20 +82,14 @@ impl Default for PanoOptions {
     }
 }
 
-fn fov(frames: &[Frame], cams: &[Option<Camera>]) -> (f64, f64) {
-    let (mut tmin, mut tmax, mut pmin, mut pmax) = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
-    for (f, c) in frames.iter().zip(cams) {
-        let Some(c) = c else { continue };
-        for (x, y) in border(f.width(), f.height(), 16) {
-            if let Some((t, p)) = Projection::Spherical.forward(c.ray(x, y), 1.0) {
-                tmin = tmin.min(t);
-                tmax = tmax.max(t);
-                pmin = pmin.min(p);
-                pmax = pmax.max(p);
-            }
-        }
-    }
-    ((tmax - tmin).to_degrees(), (pmax - pmin).to_degrees())
+fn frame_sizes(frames: &[Frame]) -> Vec<(usize, usize)> {
+    frames.iter().map(|f| (f.width(), f.height())).collect()
+}
+
+fn fov(sizes: &[(usize, usize)], cams: &[Option<Camera>]) -> (f64, f64) {
+    bounds_of(sizes, cams, Projection::Spherical, 1.0).map_or((0.0, 0.0), |(x0, y0, x1, y1)| {
+        ((x1 - x0).to_degrees(), (y1 - y0).to_degrees())
+    })
 }
 
 fn border(w: usize, h: usize, per_edge: usize) -> Vec<(f64, f64)> {
@@ -108,28 +102,36 @@ fn border(w: usize, h: usize, per_edge: usize) -> Vec<(f64, f64)> {
     v
 }
 
-fn bounds(
-    frames: &[Frame],
-    cams: &[Option<Camera>],
+fn outline(
+    c: &Camera,
+    (w, h): (usize, usize),
     proj: Projection,
     f: f64,
-) -> Option<(f64, f64, f64, f64)> {
-    let (mut x0, mut y0, mut x1, mut y1) = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
-    for (fr, c) in frames.iter().zip(cams) {
-        let Some(c) = c else { continue };
-        for (x, y) in border(fr.width(), fr.height(), 24) {
-            let (u, v) = proj.forward(c.ray(x, y), f)?;
-            x0 = x0.min(u);
-            y0 = y0.min(v);
-            x1 = x1.max(u);
-            y1 = y1.max(v);
+    per_edge: usize,
+) -> Option<Vec<(f64, f64)>> {
+    let mut pts = border(w, h, per_edge)
+        .into_iter()
+        .map(|(x, y)| proj.forward(c.ray(x, y), f))
+        .collect::<Option<Vec<_>>>()?;
+    if matches!(proj, Projection::Spherical | Projection::Auto) {
+        for pole in [-1.0, 1.0] {
+            if c.project([0.0, pole, 0.0]).is_some_and(|(x, y)| {
+                (0.0..=w as f64).contains(&x) && (0.0..=h as f64).contains(&y)
+            }) {
+                let (t, p) = (
+                    std::f64::consts::PI * f,
+                    pole * std::f64::consts::FRAC_PI_2 * f,
+                );
+                pts.extend([(-t, p), (t, p)]);
+            }
         }
     }
-    (x1 > x0 && y1 > y0).then_some((x0, y0, x1, y1))
+    Some(pts)
 }
 
 pub fn choose_projection(frames: &[Frame], cams: &[Option<Camera>]) -> Projection {
-    let (h, v) = fov(frames, cams);
+    let sizes = frame_sizes(frames);
+    let (h, v) = fov(&sizes, cams);
     let area: f64 = frames
         .iter()
         .zip(cams)
@@ -139,7 +141,7 @@ pub fn choose_projection(frames: &[Frame], cams: &[Option<Camera>]) -> Projectio
     let fmed = median(cams.iter().flatten().map(|c| c.f).collect());
     if h < 110.0
         && v < 110.0
-        && let Some((x0, y0, x1, y1)) = bounds(frames, cams, Projection::Perspective, fmed)
+        && let Some((x0, y0, x1, y1)) = bounds_of(&sizes, cams, Projection::Perspective, fmed)
         && (x1 - x0) * (y1 - y0) < 2.5 * area
     {
         return Projection::Perspective;
@@ -223,7 +225,7 @@ pub fn register(frames: &[Frame], stop: &log::StitchLog) -> Result<Registration,
         ));
     }
     let ids = connected_set(n, &pairs)?;
-    let sizes: Vec<(usize, usize)> = frames.iter().map(|f| (f.width(), f.height())).collect();
+    let sizes = frame_sizes(frames);
     let mut fs = Vec::new();
     for p in &pairs {
         if !(ids.contains(&p.i) && ids.contains(&p.j)) {
@@ -406,10 +408,9 @@ fn bounds_of(
     f: f64,
 ) -> Option<(f64, f64, f64, f64)> {
     let (mut x0, mut y0, mut x1, mut y1) = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
-    for (&(w, h), c) in sizes.iter().zip(cams) {
+    for (&size, c) in sizes.iter().zip(cams) {
         let Some(c) = c else { continue };
-        for (x, y) in border(w, h, 24) {
-            let (u, v) = proj.forward(c.ray(x, y), f)?;
+        for (u, v) in outline(c, size, proj, f, 24)? {
             x0 = x0.min(u);
             y0 = y0.min(v);
             x1 = x1.max(u);
@@ -465,20 +466,18 @@ impl Measure {
             .iter()
             .enumerate()
             .filter_map(|(i, c)| c.map(|c| (i, c)))
-            .map(|(i, c)| {
-                tile_px(
+            .flat_map(|(i, c)| {
+                tile_rects(
                     &c,
                     self.sizes[i],
                     self.projection,
                     self.fmed * sc,
-                    ox,
-                    oy,
+                    (ox, oy),
                     unit,
-                    pw,
-                    ph,
+                    (pw, ph),
                 )
-                .unwrap_or(0)
             })
+            .map(|(_, _, w, h)| (w * h) as u64)
             .sum();
         let canvas_px = ((b2 - b0) * sc * (b3 - b1) * sc).max(1.0);
         (canvas_px, tile_px)
@@ -502,21 +501,6 @@ fn levels_for(short: f64) -> usize {
     (short.log2() - 3.0).floor().clamp(1.0, 7.0) as usize
 }
 
-fn fit_canvas_ceilings(cw: usize, ch: usize) -> (usize, usize) {
-    let long = (cw.max(ch) as f64).max(1.0);
-    let px = (cw as f64 * ch as f64).max(1.0);
-    let fit = (MAX_LONG_EDGE / long)
-        .min((MAX_TOTAL_PIXELS / px).sqrt())
-        .min(1.0);
-    if fit >= 1.0 {
-        return (cw, ch);
-    }
-    (
-        (cw as f64 * fit).round().max(1.0) as usize,
-        (ch as f64 * fit).round().max(1.0) as usize,
-    )
-}
-
 fn pyramid_levels(short: usize, frame_scale: f64) -> usize {
     let scale = if frame_scale.is_finite() && frame_scale > 1.0 {
         frame_scale
@@ -537,36 +521,52 @@ fn pyramid_units(w: usize, h: usize) -> (usize, (usize, usize)) {
     (unit, (w, h))
 }
 
-#[allow(clippy::too_many_arguments)]
-fn tile_px(
+fn tile_rects(
     cam: &Camera,
     size: (usize, usize),
     projection: Projection,
     f_out: f64,
-    ox: f64,
-    oy: f64,
+    (ox, oy): (f64, f64),
     unit: usize,
-    pw_max: usize,
-    ph_max: usize,
-) -> Option<u64> {
-    let (mut x0, mut y0, mut x1, mut y1) = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
-    for (x, y) in border(size.0, size.1, 32) {
-        let (u, v) = projection.forward(cam.ray(x, y), f_out)?;
-        x0 = x0.min(u - ox);
-        y0 = y0.min(v - oy);
-        x1 = x1.max(u - ox);
-        y1 = y1.max(v - oy);
-    }
+    (pw, ph): (usize, usize),
+) -> Vec<(usize, usize, usize, usize)> {
+    let Some(pts) = outline(cam, size, projection, f_out, 32) else {
+        return Vec::new();
+    };
+    let (y0, y1) = pts.iter().fold((f64::MAX, f64::MIN), |(a, b), p| {
+        (a.min(p.1 - oy), b.max(p.1 - oy))
+    });
+    let mut us: Vec<f64> = pts.iter().map(|p| p.0 - ox).collect();
+    us.sort_by(f64::total_cmp);
+    let (Some(&first), Some(&last)) = (us.first(), us.last()) else {
+        return Vec::new();
+    };
+    let gap = us
+        .windows(2)
+        .enumerate()
+        .map(|(k, w)| (w[1] - w[0], k))
+        .max_by(|a, b| a.0.total_cmp(&b.0));
+    let spans = match gap {
+        Some((g, k))
+            if projection != Projection::Perspective && g > std::f64::consts::PI * f_out =>
+        {
+            vec![(first, us[k]), (us[k + 1], last)]
+        }
+        _ => vec![(first, last)],
+    };
     let pad = 2.0 * unit as f64;
-    let tw = ((((x1 + pad).max(0.0) as usize).min(pw_max)).div_ceil(unit) * unit)
-        .saturating_sub((((x0 - pad).max(0.0) as usize) / unit) * unit);
-    let th = ((((y1 + pad).max(0.0) as usize).min(ph_max)).div_ceil(unit) * unit)
-        .saturating_sub((((y0 - pad).max(0.0) as usize) / unit) * unit);
-    if tw == 0 || th == 0 {
-        None
-    } else {
-        Some((tw as u64) * (th as u64))
-    }
+    let ty0 = (((y0 - pad).max(0.0) as usize) / unit) * unit;
+    let ty1 = (((y1 + pad).max(0.0) as usize).min(ph)).div_ceil(unit) * unit;
+    let th = ty1.min(ph).saturating_sub(ty0);
+    spans
+        .into_iter()
+        .filter_map(|(x0, x1)| {
+            let tx0 = (((x0 - pad).max(0.0) as usize) / unit) * unit;
+            let tx1 = (((x1 + pad).max(0.0) as usize).min(pw)).div_ceil(unit) * unit;
+            let tw = tx1.min(pw).saturating_sub(tx0);
+            (tw > 0 && th > 0).then_some((tx0, ty0, tw, th))
+        })
+        .collect()
 }
 
 pub struct Composed {
@@ -623,7 +623,8 @@ pub fn compose(
     let n = frames.len();
     let cams = &reg.cameras;
     let used = &reg.used;
-    let fovd = fov(frames, cams);
+    let sizes = frame_sizes(frames);
+    let fovd = fov(&sizes, cams);
     let projection = match projection {
         Projection::Auto => choose_projection(frames, cams),
         p => p,
@@ -635,7 +636,7 @@ pub fn compose(
         fovd.1
     ));
     let fmed = median(used.iter().filter_map(|&i| cams[i].map(|c| c.f)).collect());
-    let Some((bx0, by0, bx1, by1)) = bounds(frames, cams, projection, fmed) else {
+    let Some((bx0, by0, bx1, by1)) = bounds_of(&sizes, cams, projection, fmed) else {
         return Err(format!(
             "The field of view ({:.0}°) is too wide for a rectilinear projection.",
             fovd.0
@@ -651,36 +652,35 @@ pub fn compose(
             fovd.0
         ));
     }
-    let native_area = (bx1 - bx0) * (by1 - by0);
-    let sizes: Vec<(usize, usize)> = frames.iter().map(|f| (f.width(), f.height())).collect();
     let used_cams: Vec<Option<Camera>> = used.iter().map(|&i| cams[i]).collect();
     let used_sizes: Vec<(usize, usize)> = used.iter().map(|&i| sizes[i]).collect();
     Measure::new(&used_sizes, &used_cams, projection, fmed)
         .ok_or_else(|| "Could not measure the projected canvas.".to_string())?;
-    let quality = opts.quality.clamp(0.25, 1.0);
-    let allowed_px = (native_area * quality * quality).min(MAX_TOTAL_PIXELS);
-    let s = (allowed_px / native_area)
-        .sqrt()
-        .min(MAX_LONG_EDGE / (bx1 - bx0).max(bx1 - by0))
-        .clamp(0.0, 1.0);
-    let (f_out, (ox, oy)) = (fmed * s, (bx0 * s, by0 * s));
-    let (cw, ch) = if let Some((vw, vh)) = opts.preview_canvas {
+    let (bw, bh) = if let Some((vw, vh)) = opts.preview_canvas {
         let r = if opts.save_scale.is_finite() && opts.save_scale > 0.0 {
             opts.save_scale
         } else {
             1.0
         };
+        (vw as f64 * r, vh as f64 * r)
+    } else {
+        (bx1 - bx0, by1 - by0)
+    };
+    let s = opts
+        .quality
+        .clamp(0.25, 1.0)
+        .min((MAX_TOTAL_PIXELS / (bw * bh).max(1.0)).sqrt())
+        .min(MAX_LONG_EDGE / bw.max(bh).max(1.0))
+        .clamp(0.0, 1.0);
+    let (f_out, (ox, oy)) = (fmed * s, (bx0 * s, by0 * s));
+    let (cw, ch) = if opts.preview_canvas.is_some() {
         (
-            (vw as f64 * r * s).round().max(1.0) as usize,
-            (vh as f64 * r * s).round().max(1.0) as usize,
+            (bw * s).round().max(1.0) as usize,
+            (bh * s).round().max(1.0) as usize,
         )
     } else {
-        (
-            ((bx1 - bx0) * s).ceil() as usize + 1,
-            ((by1 - by0) * s).ceil() as usize + 1,
-        )
+        ((bw * s).ceil() as usize + 1, (bh * s).ceil() as usize + 1)
     };
-    let (cw, ch) = fit_canvas_ceilings(cw, ch);
     let levels = pyramid_levels(cw.min(ch), opts.frame_scale);
     let unit = 1usize << levels;
     let (pw, ph) = (cw, ch);
@@ -712,84 +712,66 @@ pub fn compose(
             _ => 1.0,
         })
         .collect();
-    let tiles: Vec<Option<Tile>> = (0..n)
+    let tiles: Vec<Vec<Tile>> = (0..n)
         .into_par_iter()
-        .map(|i| -> Result<Option<Tile>, String> {
+        .map(|i| -> Result<Vec<Tile>, String> {
             stop.gate()?;
-            let Some(c) = cams[i] else { return Ok(None) };
+            let Some(c) = cams[i] else {
+                return Ok(Vec::new());
+            };
             let fr = &frames[i];
-            let (mut x0, mut y0, mut x1, mut y1) = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
-            for (x, y) in border(fr.width(), fr.height(), 32) {
-                let Some((u, v)) = projection.forward(c.ray(x, y), f_out) else {
-                    return Ok(None);
-                };
-                x0 = x0.min(u - ox);
-                y0 = y0.min(v - oy);
-                x1 = x1.max(u - ox);
-                y1 = y1.max(v - oy);
-            }
-            let pad = 2.0 * unit as f64;
-            let tx0 = (((x0 - pad).max(0.0) as usize) / unit) * unit;
-            let ty0 = (((y0 - pad).max(0.0) as usize) / unit) * unit;
-            let tx1 = (((x1 + pad).max(0.0) as usize).min(pw)).div_ceil(unit) * unit;
-            let ty1 = (((y1 + pad).max(0.0) as usize).min(ph)).div_ceil(unit) * unit;
-            let (tw, th) = (
-                tx1.min(pw).saturating_sub(tx0),
-                ty1.min(ph).saturating_sub(ty0),
-            );
-            if tw == 0 || th == 0 {
-                return Ok(None);
-            }
             let (fw, fh) = (fr.width as f64, fr.height as f64);
-            scratch.check();
-            let mut rgb = <Store<f32>>::try_mapped(tw * th * 3, scratch.file())?;
-            let mut wgt = <Store<f32>>::try_mapped(tw * th, scratch.file())?;
-            rgb[..]
-                .par_chunks_mut(tw * 3)
-                .zip(wgt[..].par_chunks_mut(tw))
-                .enumerate()
-                .for_each(|(ty, (row, wrow))| {
-                    if stop.halted() {
-                        return;
-                    }
-                    let v = (ty0 + ty) as f64 + 0.5 + oy;
-                    for tx in 0..tw {
-                        let u = (tx0 + tx) as f64 + 0.5 + ox;
-                        let d = projection.inverse(u, v, f_out);
-                        let Some((px, py)) = c.project(d) else {
-                            continue;
-                        };
-                        if px < 0.0 || py < 0.0 || px > fw || py > fh {
-                            continue;
-                        }
-                        let wx = 1.0 - (2.0 * px / fw - 1.0).abs();
-                        let wy = 1.0 - (2.0 * py / fh - 1.0).abs();
-                        let w = (wx * wy).max(1e-6) as f32;
-                        let c = crate::panorama_utils::raster::sample_interleaved(
-                            &fr.rgb, fr.width, fr.height, px as f32, py as f32,
-                        );
-                        row[tx * 3] = c[0];
-                        row[tx * 3 + 1] = c[1];
-                        row[tx * 3 + 2] = c[2];
-                        wrow[tx] = w;
-                    }
-                });
-            stop.gate()?;
-            Ok(Some(Tile {
-                x0: tx0,
-                y0: ty0,
-                w: tw,
-                h: th,
-                rgb,
-                wgt,
-            }))
+            tile_rects(&c, sizes[i], projection, f_out, (ox, oy), unit, (pw, ph))
+                .into_iter()
+                .map(|(tx0, ty0, tw, th)| {
+                    scratch.check();
+                    let mut rgb = <Store<f32>>::try_mapped(tw * th * 3, scratch.file())?;
+                    let mut wgt = <Store<f32>>::try_mapped(tw * th, scratch.file())?;
+                    rgb[..]
+                        .par_chunks_mut(tw * 3)
+                        .zip(wgt[..].par_chunks_mut(tw))
+                        .enumerate()
+                        .for_each(|(ty, (row, wrow))| {
+                            if stop.halted() {
+                                return;
+                            }
+                            let v = (ty0 + ty) as f64 + 0.5 + oy;
+                            for tx in 0..tw {
+                                let u = (tx0 + tx) as f64 + 0.5 + ox;
+                                let d = projection.inverse(u, v, f_out);
+                                let Some((px, py)) = c.project(d) else {
+                                    continue;
+                                };
+                                if px < 0.0 || py < 0.0 || px > fw || py > fh {
+                                    continue;
+                                }
+                                let wx = 1.0 - (2.0 * px / fw - 1.0).abs();
+                                let wy = 1.0 - (2.0 * py / fh - 1.0).abs();
+                                let w = (wx * wy).max(1e-6) as f32;
+                                let c = crate::panorama_utils::raster::sample_interleaved(
+                                    &fr.rgb, fr.width, fr.height, px as f32, py as f32,
+                                );
+                                row[tx * 3] = c[0];
+                                row[tx * 3 + 1] = c[1];
+                                row[tx * 3 + 2] = c[2];
+                                wrow[tx] = w;
+                            }
+                        });
+                    stop.gate()?;
+                    Ok(Tile {
+                        x0: tx0,
+                        y0: ty0,
+                        w: tw,
+                        h: th,
+                        rgb,
+                        wgt,
+                    })
+                })
+                .collect()
         })
         .collect::<Result<Vec<_>, String>>()?;
     stop.gate()?;
-    log::phase(&format!(
-        "warped {} tiles",
-        tiles.iter().filter(|t| t.is_some()).count()
-    ));
+    log::phase(&format!("warped {} tiles", tiles.iter().flatten().count()));
     progress("Projecting", 1.0);
     progress("Exposure compensation", 0.0);
     compensate_gains(&tiles, &mut gains, frames);
@@ -806,8 +788,11 @@ pub fn compose(
     let mut best = <Store<f32>>::try_mapped(pw * ph, scratch.file())?;
     let mut label = <Store<u16>>::try_mapped(pw * ph, scratch.file())?;
     label.fill(u16::MAX);
-    for (i, t) in tiles.iter().enumerate() {
-        let Some(t) = t else { continue };
+    for (i, t) in tiles
+        .iter()
+        .enumerate()
+        .flat_map(|(i, ts)| ts.iter().map(move |t| (i, t)))
+    {
         for ty in 0..t.h {
             let row = (t.y0 + ty) * pw + t.x0;
             for tx in 0..t.w {
@@ -847,7 +832,7 @@ pub fn compose(
     let label_bytes = (pw * ph * 6) as u64;
     let total_bytes = source_bytes + tile_bytes + canvas_bytes + pyramid_bytes + label_bytes;
     let peak_bytes = source_bytes + tile_bytes + pyramid_bytes + label_bytes;
-    let (total_ram, available_ram) = crate::panorama_utils::ram::available_and_total();
+    let (available_ram, total_ram) = crate::panorama_utils::ram::available_and_total();
     let breakdown = format!(
         "MEMBREAK sources={:.2} tiles={:.2} labels={:.2} pyramid={:.2} | peak-during-blend={:.2}GB \
          canvas-comes-later={:.2}GB sum-of-all={:.2}GB | rss={:.2}GB used-of-total={:.2}/{:.2}GB \
@@ -871,9 +856,12 @@ pub fn compose(
     log::line(&breakdown);
     let blend_rows = blend::blend_work_rows(tiles.iter().flatten().map(|t| t.h), levels, ph);
     let tick = blend::BlendTick::new(blend_rows, progress);
-    for (i, t) in tiles.into_iter().enumerate() {
+    for (i, t) in tiles
+        .into_iter()
+        .enumerate()
+        .flat_map(|(i, ts)| ts.into_iter().map(move |t| (i, t)))
+    {
         stop.gate()?;
-        let Some(t) = t else { continue };
         let g = gains[i] as f32;
         let mut vals = Buf::new(t.w, t.h, 3);
         let mut mask = Buf::new(t.w, t.h, 1);
@@ -937,35 +925,36 @@ pub fn compose(
     })
 }
 
-fn compensate_gains(tiles: &[Option<Tile>], gains: &mut [f64], frames: &[Frame]) {
+fn compensate_gains(tiles: &[Vec<Tile>], gains: &mut [f64], frames: &[Frame]) {
     let n = tiles.len();
     let lum = |p: [f32; 3]| 0.25 * p[0] as f64 + 0.6 * p[1] as f64 + 0.15 * p[2] as f64;
     let mut nij = vec![0f64; n * n];
     let mut iij = vec![0f64; n * n];
     for i in 0..n {
-        let Some(a) = &tiles[i] else { continue };
-        for j in 0..n {
-            let Some(b) = tiles[j].as_ref().filter(|_| i != j) else {
-                continue;
-            };
-            let (x0, y0) = (a.x0.max(b.x0), a.y0.max(b.y0));
-            let (x1, y1) = ((a.x0 + a.w).min(b.x0 + b.w), (a.y0 + a.h).min(b.y0 + b.h));
+        for j in (0..n).filter(|&j| j != i) {
             let (mut cnt, mut sum) = (0usize, 0f64);
-            for y in (y0..y1).step_by(2) {
-                for x in (x0..x1).step_by(2) {
-                    let ka = (y - a.y0) * a.w + x - a.x0;
-                    let kb = (y - b.y0) * b.w + x - b.x0;
-                    if a.wgt[ka] > 0.0 && b.wgt[kb] > 0.0 {
-                        let pa = [a.rgb[ka * 3], a.rgb[ka * 3 + 1], a.rgb[ka * 3 + 2]];
-                        if pa.iter().any(|v| *v >= frames[i].clip * 0.95)
-                            || [b.rgb[kb * 3], b.rgb[kb * 3 + 1], b.rgb[kb * 3 + 2]]
-                                .iter()
-                                .any(|v| *v >= frames[j].clip * 0.95)
-                        {
-                            continue;
+            for (a, b) in tiles[i]
+                .iter()
+                .flat_map(|a| tiles[j].iter().map(move |b| (a, b)))
+            {
+                let (x0, y0) = (a.x0.max(b.x0), a.y0.max(b.y0));
+                let (x1, y1) = ((a.x0 + a.w).min(b.x0 + b.w), (a.y0 + a.h).min(b.y0 + b.h));
+                for y in (y0..y1).step_by(2) {
+                    for x in (x0..x1).step_by(2) {
+                        let ka = (y - a.y0) * a.w + x - a.x0;
+                        let kb = (y - b.y0) * b.w + x - b.x0;
+                        if a.wgt[ka] > 0.0 && b.wgt[kb] > 0.0 {
+                            let pa = [a.rgb[ka * 3], a.rgb[ka * 3 + 1], a.rgb[ka * 3 + 2]];
+                            if pa.iter().any(|v| *v >= frames[i].clip * 0.95)
+                                || [b.rgb[kb * 3], b.rgb[kb * 3 + 1], b.rgb[kb * 3 + 2]]
+                                    .iter()
+                                    .any(|v| *v >= frames[j].clip * 0.95)
+                            {
+                                continue;
+                            }
+                            cnt += 1;
+                            sum += lum(pa);
                         }
-                        cnt += 1;
-                        sum += lum(pa);
                     }
                 }
             }
@@ -991,7 +980,7 @@ fn compensate_gains(tiles: &[Option<Tile>], gains: &mut [f64], frames: &[Frame])
     let mut a = vec![0f64; n * n];
     let mut b = vec![0f64; n];
     for i in 0..n {
-        if tiles[i].is_none() {
+        if tiles[i].is_empty() {
             a[i * n + i] = 1.0;
             b[i] = g0[i];
             continue;
