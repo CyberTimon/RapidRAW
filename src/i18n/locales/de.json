@@ -1723,7 +1723,8 @@
       "stitchingProgress": "Panorama wird zusammengefügt",
       "projection": "Projektion",
       "recommended": "empfohlen",
-      "excluded": "Ausgeschlossene Bilder ({{count}})",
+      "excluded_one": "Ausgeschlossene Bilder ({{count}})",
+      "excluded_other": "Ausgeschlossene Bilder ({{count}})",
       "projections": {
         "spherical": "Sphärisch",
         "cylindrical": "Zylindrisch",

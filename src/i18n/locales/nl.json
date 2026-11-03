@@ -1724,7 +1724,8 @@
       "focalDiffers": "De brandpuntsafstand wijkt af van de rest van de set",
       "quality": "Uitvoerkwaliteit",
       "qualityHint": "Verlaag dit voor zeer grote panorama’s. 100% gebruikt de volledige resolutie van de bronfoto’s.",
-      "excluded": "Uitgesloten afbeeldingen ({{count}})",
+      "excluded_one": "Uitgesloten afbeeldingen ({{count}})",
+      "excluded_other": "Uitgesloten afbeeldingen ({{count}})",
       "previewAlt": "Samengevoegd panorama",
       "projection": "Projectie",
       "projections": {

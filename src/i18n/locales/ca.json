@@ -1759,7 +1759,9 @@
       "stitchingProgress": "S'està unint el panorama",
       "projection": "Projecció",
       "recommended": "recomanada",
-      "excluded": "Imatges excloses ({{count}})",
+      "excluded_one": "Imatges excloses ({{count}})",
+      "excluded_many": "Imatges excloses ({{count}})",
+      "excluded_other": "Imatges excloses ({{count}})",
       "projections": {
         "spherical": "Esfèrica",
         "cylindrical": "Cilíndrica",

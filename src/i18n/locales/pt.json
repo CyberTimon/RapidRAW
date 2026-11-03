@@ -1759,7 +1759,9 @@
       "stitchingProgress": "Montando Panorama",
       "projection": "Projeção",
       "recommended": "recomendada",
-      "excluded": "Imagens excluídas ({{count}})",
+      "excluded_one": "Imagens excluídas ({{count}})",
+      "excluded_many": "Imagens excluídas ({{count}})",
+      "excluded_other": "Imagens excluídas ({{count}})",
       "projections": {
         "spherical": "Esférica",
         "cylindrical": "Cilíndrica",

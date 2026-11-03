@@ -1717,7 +1717,7 @@
       "stitchingProgress": "파노라마 스티칭 중",
       "projection": "투영",
       "recommended": "권장",
-      "excluded": "제외된 이미지 ({{count}})",
+      "excluded_other": "제외된 이미지 ({{count}})",
       "projections": {
         "spherical": "구면",
         "cylindrical": "원통",

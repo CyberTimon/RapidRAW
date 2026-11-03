@@ -1796,7 +1796,10 @@
       "focalDiffers": "Ohnisková vzdálenost se liší od zbytku sady",
       "quality": "Kvalita výstupu",
       "qualityHint": "Snižte pro velmi velké panorama. 100 % využije plné rozlišení zdrojových fotografií.",
-      "excluded": "Vyloučené snímky ({{count}})",
+      "excluded_one": "Vyloučené snímky ({{count}})",
+      "excluded_few": "Vyloučené snímky ({{count}})",
+      "excluded_many": "Vyloučené snímky ({{count}})",
+      "excluded_other": "Vyloučené snímky ({{count}})",
       "previewAlt": "Složené panorama",
       "projection": "Projekce",
       "projections": {

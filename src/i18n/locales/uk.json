@@ -1796,7 +1796,10 @@
       "stitchingProgress": "Зшивання панорами",
       "projection": "Проєкція",
       "recommended": "рекомендовано",
-      "excluded": "Виключені зображення ({{count}})",
+      "excluded_one": "Виключені зображення ({{count}})",
+      "excluded_few": "Виключені зображення ({{count}})",
+      "excluded_many": "Виключені зображення ({{count}})",
+      "excluded_other": "Виключені зображення ({{count}})",
       "projections": {
         "spherical": "Сферична",
         "cylindrical": "Циліндрична",

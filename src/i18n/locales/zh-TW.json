@@ -1717,7 +1717,7 @@
       "stitchingProgress": "拼接全景圖中",
       "projection": "投影",
       "recommended": "推薦",
-      "excluded": "已排除的影像（{{count}}）",
+      "excluded_other": "已排除的影像（{{count}}）",
       "projections": {
         "spherical": "球面",
         "cylindrical": "柱面",

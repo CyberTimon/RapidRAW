@@ -1795,7 +1795,10 @@
       "stitchingProgress": "Składanie panoramy",
       "projection": "Rzut",
       "recommended": "zalecany",
-      "excluded": "Wykluczone zdjęcia ({{count}})",
+      "excluded_one": "Wykluczone zdjęcia ({{count}})",
+      "excluded_few": "Wykluczone zdjęcia ({{count}})",
+      "excluded_many": "Wykluczone zdjęcia ({{count}})",
+      "excluded_other": "Wykluczone zdjęcia ({{count}})",
       "projections": {
         "spherical": "Sferyczny",
         "cylindrical": "Cylindryczny",

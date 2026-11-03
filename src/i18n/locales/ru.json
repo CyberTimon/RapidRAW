@@ -1795,7 +1795,10 @@
       "stitchingProgress": "Сшивание панорамы",
       "projection": "Проекция",
       "recommended": "рекомендуется",
-      "excluded": "Исключённые изображения ({{count}})",
+      "excluded_one": "Исключённые изображения ({{count}})",
+      "excluded_few": "Исключённые изображения ({{count}})",
+      "excluded_many": "Исключённые изображения ({{count}})",
+      "excluded_other": "Исключённые изображения ({{count}})",
       "projections": {
         "spherical": "Сферическая",
         "cylindrical": "Цилиндрическая",

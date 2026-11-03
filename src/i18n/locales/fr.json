@@ -1760,7 +1760,9 @@
       "stitchingProgress": "Assemblage du panorama",
       "projection": "Projection",
       "recommended": "recommandé",
-      "excluded": "Images exclues ({{count}})",
+      "excluded_one": "Images exclues ({{count}})",
+      "excluded_many": "Images exclues ({{count}})",
+      "excluded_other": "Images exclues ({{count}})",
       "projections": {
         "spherical": "Sphérique",
         "cylindrical": "Cylindrique",

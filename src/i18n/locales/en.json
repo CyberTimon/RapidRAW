@@ -1724,7 +1724,8 @@
       "stitchingProgress": "Stitching Panorama",
       "projection": "Projection",
       "recommended": "recommended",
-      "excluded": "Excluded images ({{count}})",
+      "excluded_one": "Excluded images ({{count}})",
+      "excluded_other": "Excluded images ({{count}})",
       "projections": {
         "spherical": "Spherical",
         "cylindrical": "Cylindrical",

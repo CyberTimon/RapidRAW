@@ -1717,7 +1717,7 @@
       "stitchingProgress": "パノラマ写真を作成中",
       "projection": "投影",
       "recommended": "推奨",
-      "excluded": "除外した画像（{{count}}）",
+      "excluded_other": "除外した画像（{{count}}）",
       "projections": {
         "spherical": "球面",
         "cylindrical": "円筒",
