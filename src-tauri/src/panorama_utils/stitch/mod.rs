@@ -670,7 +670,7 @@ pub fn compose(
             &owned_scratch
         }
     };
-    log::line(&format!(
+    log::phase(&format!(
         "compose {:.1} MP at {:.0}% ({}x{}) levels {}",
         cw as f64 * ch as f64 / 1e6,
         s * 100.0,
@@ -760,7 +760,7 @@ pub fn compose(
         })
         .collect::<Result<Vec<_>, String>>()?;
     log::gate()?;
-    log::line(&format!(
+    log::phase(&format!(
         "warped {} tiles",
         tiles.iter().filter(|t| t.is_some()).count()
     ));
@@ -894,7 +894,7 @@ pub fn compose(
         image = finish::fill_edges(&image, &alpha)?;
     }
     progress("Finishing", 1.0);
-    log::line(&format!("composed {}x{} crop {:?}", cw, ch, crop));
+    log::phase(&format!("composed {}x{} crop {:?}", cw, ch, crop));
     let mut label_out = vec![u16::MAX; cw * ch];
     for y in 0..ch {
         label_out[y * cw..(y + 1) * cw].copy_from_slice(&label[y * pw..y * pw + cw]);

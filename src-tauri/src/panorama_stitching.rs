@@ -20,10 +20,10 @@ use rayon::prelude::*;
 use std::collections::HashMap;
 use std::fs;
 use std::io::Cursor;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 pub const PREVIEW_EDGE: usize = 1024;
 
@@ -66,10 +66,8 @@ pub async fn stitch_panorama(
         .map(|p| parse_virtual_path(p).0.to_string_lossy().into_owned())
         .collect();
     let session_handle = state.panorama_session.clone();
-    let stop = arm_stop(&state);
-    let log_path = pano_log_path(&source_paths[0]);
-    let log = StitchLog::create(&log_path, stop.clone())?;
-    log.line(&format!(
+    let log = StitchLog::new(arm_stop(&state));
+    stitch_log::phase(&format!(
         "merge started files={} scale={scale}",
         source_paths.len()
     ));
@@ -98,7 +96,7 @@ pub async fn stitch_panorama(
                     stitch_log::note_stop();
                     return Ok(());
                 }
-                stitch_log::line("preview ready");
+                stitch_log::phase("preview ready");
                 let _ = app_handle.emit("panorama-complete", payload);
                 Ok(())
             }
@@ -107,7 +105,6 @@ pub async fn stitch_panorama(
                 Ok(())
             }
             Err(e) => {
-                stitch_log::line(&format!("failed: {e}"));
                 log::error!("Panorama failed:\n{}", e);
                 let _ = app_handle.emit("panorama-error", e.clone());
                 Err(e)
@@ -130,18 +127,8 @@ pub async fn reproject_panorama(
     let proj = Projection::parse(&projection)
         .ok_or_else(|| format!("Unknown projection: {}", projection))?;
     let session_handle = state.panorama_session.clone();
-    let stop = arm_stop(&state);
-    let log_path = {
-        let guard = state.panorama_session.lock().unwrap();
-        guard
-            .as_ref()
-            .and_then(|session| session.source_paths.first().map(|p| pano_log_path(p)))
-    };
-    let log = match log_path {
-        Some(path) => StitchLog::append(&path, stop.clone())?,
-        None => return Err("No panorama session. Run stitch first.".into()),
-    };
-    log.line(&format!("reproject {projection}"));
+    let log = StitchLog::new(arm_stop(&state));
+    stitch_log::phase(&format!("reproject {projection}"));
     let task = tokio::task::spawn_blocking(move || {
         let _guard = stitch_log::install(log);
         if stitch_log::halted() {
@@ -172,7 +159,7 @@ pub async fn reproject_panorama(
         }
         fill_preview(session, &rendered)?;
         let payload = complete_payload(session);
-        stitch_log::line("preview ready");
+        stitch_log::phase("preview ready");
         let _ = app_handle.emit("panorama-complete", payload);
         Ok(())
     });
@@ -204,19 +191,6 @@ fn arm_stop(state: &AppState) -> Arc<AtomicBool> {
     flag
 }
 
-fn pano_log_path(first: &str) -> PathBuf {
-    let (path, _) = parse_virtual_path(first);
-    let parent = path
-        .parent()
-        .map(|p| p.to_path_buf())
-        .unwrap_or_else(|| PathBuf::from("."));
-    let stem = path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("panorama");
-    parent.join(format!("{stem}_Pano.pano.log"))
-}
-
 #[tauri::command]
 pub async fn save_panorama(
     first_path_str: String,
@@ -225,7 +199,7 @@ pub async fn save_panorama(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<String, String> {
-    let stop = arm_stop(&state);
+    let log = StitchLog::new(arm_stop(&state));
     let session_slot = state.panorama_session.clone();
     let mut session = {
         let mut guard = state.panorama_session.lock().unwrap();
@@ -233,37 +207,17 @@ pub async fn save_panorama(
             .take()
             .ok_or_else(|| "No panorama session found to save.".to_string())?
     };
-    let log_path = match session.source_paths.first() {
-        Some(path) => pano_log_path(path),
-        None => {
-            if let Ok(mut guard) = session_slot.lock() {
-                *guard = Some(session);
-            }
-            return Err("No panorama session found to save.".to_string());
-        }
-    };
-    let log = match StitchLog::append_since(&log_path, stop, session.log_origin) {
-        Ok(log) => log,
-        Err(err) => {
-            if let Ok(mut guard) = session_slot.lock() {
-                *guard = Some(session);
-            }
-            return Err(err);
-        }
-    };
     let crop = crop.unwrap_or_else(|| session.crop.copy());
     session.quality = quality.unwrap_or(1.0).clamp(MIN_QUALITY, 1.0);
     let task = tokio::task::spawn_blocking(move || {
         let _guard = stitch_log::install(log);
-        stitch_log::line("save started");
+        stitch_log::phase("save started");
         let result = save_composite(&mut session, &first_path_str, &crop, &app_handle);
         match &result {
             Ok(_) => {}
             Err(e) if e == "stopped" || stitch_log::halted() => stitch_log::note_stop(),
-            Err(e) => stitch_log::line(&format!("failed: {e}")),
+            Err(e) => log::error!("Panorama save failed:\n{}", e),
         }
-        let mut session = session;
-        session.clear_temps();
         (result, session)
     });
     match task.await {
@@ -288,11 +242,15 @@ fn compose_with_retries(
     frames: &[stitch::Frame],
     reg: &stitch::Registration,
     opts: &PanoOptions,
-    output_path: &std::path::Path,
     progress: &stitch::ComposeProgress<'_>,
     note: &std::sync::Mutex<Option<serde_json::Value>>,
     app: &AppHandle,
 ) -> Result<stitch::Composed, String> {
+    let spill_dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(|e| e.to_string())?
+        .join("panorama-spill");
     let gb = 1e9;
     let mut quality = opts.quality.clamp(MIN_QUALITY, 1.0);
     let mut last_error = String::new();
@@ -301,7 +259,7 @@ fn compose_with_retries(
             quality,
             ..opts.clone()
         };
-        let scratch = crate::panorama_utils::spill::Scratch::new(output_path, SPILL_PERCENT);
+        let scratch = crate::panorama_utils::spill::Scratch::new(&spill_dir, SPILL_PERCENT);
         progress("Rendering full resolution...", 0.0);
         let result = stitch::compose(
             frames,
@@ -329,7 +287,7 @@ fn compose_with_retries(
                     );
                 }
                 if attempt > 1 {
-                    stitch_log::line(&format!(
+                    stitch_log::phase(&format!(
                         "save succeeded at {:.0}% after {attempt} attempts",
                         quality * 100.0
                     ));
@@ -346,7 +304,7 @@ fn compose_with_retries(
                 last_error = err.clone();
                 let peak = scratch.peak_resident();
                 let disk = scratch.disk_bytes();
-                stitch_log::line(&format!(
+                stitch_log::phase(&format!(
                     "attempt {attempt} at {:.0}% failed: {err} (peak {:.1} GB, disk {:.1} GB)",
                     quality * 100.0,
                     peak as f64 / gb,
@@ -382,7 +340,7 @@ fn compose_with_retries(
             }
         }
     }
-    stitch_log::line(&format!(
+    stitch_log::phase(&format!(
         "impossible after {MAX_ATTEMPTS} attempts: {last_error}"
     ));
     Err("impossible".to_string())
@@ -554,7 +512,7 @@ fn run_stitch(
     };
     stitch_log::line(&format!("run preview={preview} half={half}"));
     let reg = stitch::register(&frames)?;
-    stitch_log::line(&format!(
+    stitch_log::phase(&format!(
         "registered used={} rmsPx {:.3} -> {:.3}",
         reg.used.len(),
         reg.rms_before,
@@ -624,7 +582,6 @@ fn run_stitch(
         registration: reg.clone(),
         preview_width: 0,
         preview_height: 0,
-        temp_dir: None,
         composite: Vec::new(),
         composite_width: 0,
         composite_height: 0,
@@ -645,7 +602,6 @@ fn run_stitch(
         options: opts,
         half,
         preview_scale: 1.0,
-        log_origin: stitch_log::started().unwrap_or_else(std::time::Instant::now),
     };
     let rendered = stitch::compose(
         &frames,
@@ -718,7 +674,7 @@ fn render_preview(
         })
         .collect();
     let reg = stitch::register(&frames)?;
-    stitch_log::line(&format!(
+    stitch_log::phase(&format!(
         "reproject registered used={} rmsPx {:.3} -> {:.3}",
         reg.used.len(),
         reg.rms_before,
@@ -864,8 +820,8 @@ fn save_composite(
     let progress = |msg: &str, frac: f64| {
         emit_save(save_phase_percent(msg, frac), msg);
     };
-    let rendered = compose_with_retries(&frames, &reg, &opts, &output_path, &progress, &note, app)?;
-    stitch_log::line(&format!(
+    let rendered = compose_with_retries(&frames, &reg, &opts, &progress, &note, app)?;
+    stitch_log::phase(&format!(
         "save rendered {}x{} at {:.0}% in {attempt_no} attempt(s)",
         rendered.width,
         rendered.height,
@@ -906,7 +862,7 @@ fn save_composite(
     .map_err(|e| format!("Failed to save panorama: {}", e))?;
     let _ =
         crate::exif_processing::write_rrexif_sidecar(&real_path.to_string_lossy(), &output_path);
-    stitch_log::line(&format!("saved {}", output_path.display()));
+    stitch_log::phase(&format!("saved {}", output_path.display()));
     let reduced = rendered.saved_attempts > 1 || rendered.saved_quality < 0.999;
     let _ = app.emit(
         "panorama-save-progress",

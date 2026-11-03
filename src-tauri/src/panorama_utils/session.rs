@@ -1,7 +1,6 @@
 use crate::panorama_utils::stitch::project::Projection;
 use crate::panorama_utils::stitch::{FrameMeta, PanoOptions, Registration};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DroppedImage {
@@ -66,7 +65,6 @@ pub struct PanoramaSession {
     pub registration: Registration,
     pub preview_width: u32,
     pub preview_height: u32,
-    pub temp_dir: Option<PathBuf>,
     pub composite: Vec<f32>,
     pub composite_width: u32,
     pub composite_height: u32,
@@ -77,19 +75,8 @@ pub struct PanoramaSession {
     pub half: bool,
     pub preview_scale: f64,
     pub quality: f64,
-    pub log_origin: std::time::Instant,
-}
-
-impl PanoramaSession {
-    pub fn clear_temps(&mut self) {
-        if let Some(dir) = self.temp_dir.take() {
-            let _ = std::fs::remove_dir_all(dir);
-        }
-    }
 }
 
 pub fn drop_session(session: &mut Option<PanoramaSession>) {
-    if let Some(mut s) = session.take() {
-        s.clear_temps();
-    }
+    *session = None;
 }

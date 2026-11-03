@@ -1,6 +1,4 @@
-const SIX_HOURS_SECS: u64 = 6 * 60 * 60;
-
-use std::fs::{File, OpenOptions};
+use std::fs::File;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
@@ -53,9 +51,6 @@ impl<T: Copy + Default> Store<T> {
             .checked_mul(std::mem::size_of::<T>())
             .ok_or_else(|| "Spill buffer size overflows.".to_string())?;
         if bytes > i64::MAX as usize {
-            return Ok(Store::Ram(vec![T::default(); len]));
-        }
-        if !scratch.is_some() {
             return Ok(Store::Ram(vec![T::default(); len]));
         }
         let map = scratch.map(bytes)?;
@@ -122,51 +117,27 @@ impl<T: Copy + Default> From<Vec<T>> for Store<T> {
 }
 
 pub struct SpillFile {
-    path: Option<PathBuf>,
-    file: Option<File>,
+    file: File,
     cursor: std::sync::atomic::AtomicU64,
     capacity: std::sync::atomic::AtomicU64,
 }
 
 impl SpillFile {
-    pub fn beside(output_path: &Path) -> Result<Self, String> {
-        let dir = output_path
-            .parent()
-            .ok_or_else(|| "Could not determine the output directory.".to_string())?;
-        let stem = output_path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("panorama");
-        let swept = sweep_stale_spill(dir, SIX_HOURS_SECS);
-        if swept > 0 {
-            super::log::line(&format!(
-                "SPILL removed {swept} stale scratch file(s) from {}",
-                dir.display()
-            ));
-        }
-        let path = dir.join(format!("{stem}.spill"));
-        let file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&path)
-            .map_err(|e| format!("Could not create scratch file {}: {e}", path.display()))?;
+    pub fn in_dir(dir: &Path) -> Result<Self, String> {
+        std::fs::create_dir_all(dir)
+            .map_err(|e| format!("Could not create scratch folder {}: {e}", dir.display()))?;
+        let file = tempfile::tempfile_in(dir)
+            .map_err(|e| format!("Could not create scratch file in {}: {e}", dir.display()))?;
         Ok(SpillFile {
-            path: Some(path),
-            file: Some(file),
+            file,
             cursor: std::sync::atomic::AtomicU64::new(0),
             capacity: std::sync::atomic::AtomicU64::new(0),
         })
-    }
-    pub fn is_some(&self) -> bool {
-        self.file.is_some()
     }
     pub fn used(&self) -> u64 {
         self.cursor.load(std::sync::atomic::Ordering::Relaxed)
     }
     pub fn map(&self, bytes: usize) -> Result<memmap2::MmapMut, String> {
-        let file = self.file.as_ref().ok_or("No scratch file open.")?;
         let offset = self
             .cursor
             .fetch_add(bytes as u64, std::sync::atomic::Ordering::Relaxed);
@@ -178,60 +149,22 @@ impl SpillFile {
         if want > self.capacity.load(std::sync::atomic::Ordering::Relaxed) {
             self.capacity
                 .store(want, std::sync::atomic::Ordering::Relaxed);
-            file.set_len(want)
+            self.file
+                .set_len(want)
                 .map_err(|e| format!("Could not grow the scratch file: {e}"))?;
         }
         unsafe {
             memmap2::MmapOptions::new()
                 .len(bytes)
                 .offset(offset)
-                .map_mut(file)
+                .map_mut(&self.file)
                 .map_err(|e| format!("Could not map the scratch file: {e}"))
         }
     }
 }
 
-impl Drop for SpillFile {
-    fn drop(&mut self) {
-        self.file = None;
-        if let Some(p) = self.path.take() {
-            let _ = std::fs::remove_file(p);
-        }
-    }
-}
-
-pub fn sweep_stale_spill(dir: &Path, older_than_secs: u64) -> usize {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return 0;
-    };
-    let now = std::time::SystemTime::now();
-    let mut removed = 0;
-    for entry in entries.flatten() {
-        let path = entry.path();
-        let is_spill = path
-            .extension()
-            .and_then(|s| s.to_str())
-            .is_some_and(|e| e.eq_ignore_ascii_case("spill"));
-        if !is_spill {
-            continue;
-        }
-        let Ok(meta) = entry.metadata() else { continue };
-        let Ok(modified) = meta.modified() else {
-            continue;
-        };
-        if now
-            .duration_since(modified)
-            .is_ok_and(|d| d.as_secs() > older_than_secs)
-            && std::fs::remove_file(&path).is_ok()
-        {
-            removed += 1;
-        }
-    }
-    removed
-}
-
 pub struct Scratch {
-    path: std::path::PathBuf,
+    dir: PathBuf,
     trigger_percent: u64,
     file: std::sync::OnceLock<SpillFile>,
     spilling: std::sync::atomic::AtomicBool,
@@ -241,9 +174,9 @@ pub struct Scratch {
 }
 
 impl Scratch {
-    pub fn new(output_path: &std::path::Path, trigger_percent: u64) -> Self {
+    pub fn new(dir: &Path, trigger_percent: u64) -> Self {
         Self {
-            path: output_path.to_path_buf(),
+            dir: dir.to_path_buf(),
             trigger_percent,
             file: std::sync::OnceLock::new(),
             spilling: std::sync::atomic::AtomicBool::new(false),
@@ -262,7 +195,7 @@ impl Scratch {
     }
     pub fn in_ram_only() -> Self {
         Self {
-            path: std::path::PathBuf::new(),
+            dir: PathBuf::new(),
             trigger_percent: u64::MAX,
             file: std::sync::OnceLock::new(),
             spilling: std::sync::atomic::AtomicBool::new(false),
@@ -293,18 +226,18 @@ impl Scratch {
                 std::sync::atomic::Ordering::Relaxed,
             )
             .is_ok()
-            && let Ok(file) = SpillFile::beside(&self.path)
+            && let Ok(file) = SpillFile::in_dir(&self.dir)
         {
             let _ = self.file.set(file);
             self.spilled_at
                 .store(used, std::sync::atomic::Ordering::Relaxed);
-            super::log::line(&format!(
+            super::log::phase(&format!(
                 "SPILL switching to disk: system {:.2} GB used of {:.2} GB ({}%), app {:.2} GB, scratch {}",
                 used as f64 / 1e9,
                 trigger as f64 / 1e9,
                 self.trigger_percent,
                 self.meter.lock().map(|m| m.resident()).unwrap_or_default() as f64 / 1e9,
-                self.path.display()
+                self.dir.display()
             ));
         }
     }
