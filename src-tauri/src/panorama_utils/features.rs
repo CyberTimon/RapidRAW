@@ -1,7 +1,7 @@
 use rayon::prelude::*;
 
-use super::raster::{Rgb32f, fit_long_edge, gaussian_plane, half_plane};
-use crate::focus_stacking::Plane;
+use super::raster::{Rgb32f, fit_long_edge, half_plane};
+use crate::focus_stacking::{Plane, gaussian_blur};
 
 pub const DESC_LEN: usize = 64;
 
@@ -43,8 +43,8 @@ pub fn detect(img: &Plane, max: usize) -> Features {
         .enumerate()
         .map(|(li, lvl)| {
             let cands = harris(lvl);
-            let orient_img = gaussian_plane(lvl, 4.5);
-            let desc_img = gaussian_plane(lvl, 2.5);
+            let orient_img = gaussian_blur(lvl, 4.5);
+            let desc_img = gaussian_blur(lvl, 2.5);
             let (gx, gy) = orient_img.gradients();
             let scale = (1u32 << li) as f32;
             let mut pts = Vec::new();
@@ -91,14 +91,14 @@ fn harris(lvl: &Plane) -> Vec<(f32, f32, f32)> {
     if w < 24 || h < 24 {
         return vec![];
     }
-    let (gx, gy) = gaussian_plane(lvl, 1.0).gradients();
+    let (gx, gy) = gaussian_blur(lvl, 1.0).gradients();
     let product = |a: &Plane, b: &Plane| {
         let mut p = Plane::new(w, h);
         p.data
             .par_iter_mut()
             .zip(a.data.par_iter().zip(&b.data))
             .for_each(|(o, (a, b))| *o = a * b);
-        gaussian_plane(&p, 1.5)
+        gaussian_blur(&p, 1.5)
     };
     let (xx, yy, xy) = (product(&gx, &gx), product(&gy, &gy), product(&gx, &gy));
     let mut r = Plane::new(w, h);
