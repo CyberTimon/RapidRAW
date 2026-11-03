@@ -7,9 +7,7 @@ use crate::panorama_utils::camera::parse_focal_mm_35eq;
 use crate::panorama_utils::log::{self as stitch_log, StitchLog};
 use crate::panorama_utils::overlay::generate_overlay;
 use crate::panorama_utils::raster::{Rgb32f, fit_long_edge, into_pixels, resize_box};
-use crate::panorama_utils::session::{
-    DroppedImage, NormalizedCrop, PanoramaSession, WorkingFrame, drop_session,
-};
+use crate::panorama_utils::session::{DroppedImage, NormalizedCrop, PanoramaSession, drop_session};
 use crate::panorama_utils::stitch::project::Projection;
 use crate::panorama_utils::stitch::{self, Composed, Frame, FrameMeta, PanoOptions};
 use base64::{Engine as _, engine::general_purpose};
@@ -125,16 +123,20 @@ pub async fn reproject_panorama(
             stop.note_stop();
             return Ok(());
         }
-        let (frames, options) = {
+        let (frames, reg, opts) = {
             let guard = session_handle.lock().unwrap_or_else(|e| e.into_inner());
             let session = guard.as_ref().ok_or_else(|| NO_SESSION.to_string())?;
-            (session_frames(session), session.options.clone())
+            let opts = PanoOptions {
+                projection: proj,
+                ..session.options.clone()
+            };
+            (session.frames.clone(), session.registration.clone(), opts)
         };
         let _ = app_handle.emit("panorama-progress", "Reprojecting preview...");
         let progress = |msg: &str, _frac: f64| {
             let _ = app_handle.emit("panorama-progress", msg.to_string());
         };
-        let (reg, rendered) = match render_preview(&frames, &options, proj, &progress, &stop) {
+        let rendered = match stitch::compose_frames(&frames, &reg, proj, &opts, &progress, &stop) {
             Ok(r) => r,
             Err(e) if e == "stopped" || stop.halted() => {
                 stop.note_stop();
@@ -152,7 +154,6 @@ pub async fn reproject_panorama(
             let session = guard.as_mut().ok_or_else(|| NO_SESSION.to_string())?;
             session.selected_projection = proj;
             session.crop_edited = false;
-            session.registration = reg;
             fill_preview(session, &rendered, preview);
             complete_payload(session)
         };
@@ -394,10 +395,6 @@ fn run_stitch(
         ),
     };
     let recommended = stitch::choose_projection(&stitch::frame_sizes(&frames), &reg.cameras);
-    let meta: std::collections::HashMap<String, FrameMeta> = frames
-        .iter()
-        .filter_map(|f| f.meta.clone().map(|m| (f.name.clone(), m)))
-        .collect();
     let focal_outliers: std::collections::HashMap<String, bool> = frames
         .iter()
         .enumerate()
@@ -416,11 +413,12 @@ fn run_stitch(
                 .unwrap_or_else(|| "no overlap with the rest of the set".to_string()),
         })
         .collect();
+    let rendered = stitch::compose_frames(&frames, &reg, recommended, &opts, &progress, stop)?;
+    let preview = render_display(&rendered)?;
     let mut session = PanoramaSession {
         quality: 1.0,
         source_paths: source_paths.to_vec(),
         kept_indices: reg.used.clone(),
-        meta,
         focal_outliers,
         dropped,
         preview_png_base64: String::new(),
@@ -435,37 +433,17 @@ fn run_stitch(
         selected_projection: recommended,
         crop: NormalizedCrop::default(),
         crop_edited: false,
-        registration: reg.clone(),
+        registration: reg,
         preview_width: 0,
         preview_height: 0,
         composite: Vec::new(),
         composite_width: 0,
         composite_height: 0,
-        frames: frames
-            .iter()
-            .map(|f| WorkingFrame {
-                name: f.name.clone(),
-                image: f.image.clone(),
-                native_width: f.native_width,
-                native_height: f.native_height,
-                clip: f.clip,
-                exposure: f.exposure,
-                focal35: f.focal35,
-            })
-            .collect(),
+        frames: frames.into(),
         options: opts,
         gains: Vec::new(),
         preview_scale: 1.0,
     };
-    let rendered = stitch::compose_frames(
-        &frames,
-        &reg,
-        recommended,
-        &session.options,
-        &progress,
-        stop,
-    )?;
-    let preview = render_display(&rendered)?;
     fill_preview(&mut session, &rendered, preview);
     Ok(session)
 }
@@ -529,53 +507,14 @@ fn fill_preview(session: &mut PanoramaSession, rendered: &Composed, preview: Pre
     session.preview_height = preview.height;
 }
 
-fn session_frames(session: &PanoramaSession) -> Vec<Frame> {
-    session
-        .frames
-        .iter()
-        .map(|f| Frame {
-            name: f.name.clone(),
-            image: f.image.clone(),
-            native_width: f.native_width,
-            native_height: f.native_height,
-            clip: f.clip,
-            exposure: f.exposure,
-            focal35: f.focal35,
-            meta: session.meta.get(&f.name).cloned(),
-        })
-        .collect()
-}
-
-fn render_preview(
-    frames: &[Frame],
-    options: &PanoOptions,
-    projection: Projection,
-    progress: &stitch::ComposeProgress<'_>,
-    stop: &StitchLog,
-) -> Result<(stitch::Registration, Composed), String> {
-    let reg = stitch::register(frames, stop)?;
-    stitch_log::phase(&format!(
-        "reproject registered used={} rmsPx {:.3} -> {:.3}",
-        reg.used.len(),
-        reg.rms_before,
-        reg.rms
-    ));
-    let opts = PanoOptions {
-        projection,
-        ..options.clone()
-    };
-    let rendered = stitch::compose_frames(frames, &reg, projection, &opts, progress, stop)?;
-    Ok((reg, rendered))
-}
-
 fn scale_registration(
     reg: &stitch::Registration,
-    frames: &[WorkingFrame],
+    frames: &[Frame],
 ) -> Result<stitch::Registration, String> {
     if reg.cameras.len() != frames.len() {
         return Err("The preview alignment does not match the photos being saved.".into());
     }
-    let ratio = |f: &WorkingFrame| native_scale(f.native_width, f.image.width);
+    let ratio = |f: &Frame| native_scale(f.native_width, f.width());
     let cameras = reg
         .cameras
         .iter()
@@ -758,7 +697,7 @@ fn complete_payload(session: &PanoramaSession) -> serde_json::Value {
             .map(|f| serde_json::json!({
                 "name": f.name,
                 "focal35": f.focal35,
-                "meta": session.meta.get(&f.name).cloned(),
+                "meta": f.meta,
                 "focalOutlier": session.focal_outliers.get(&f.name).copied().unwrap_or(false),
                 "dropped": session.dropped.iter().any(|d| d.filename == f.name),
             }))

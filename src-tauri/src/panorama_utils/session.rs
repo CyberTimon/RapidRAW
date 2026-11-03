@@ -1,7 +1,7 @@
-use crate::panorama_utils::raster::Rgb32f;
 use crate::panorama_utils::stitch::project::Projection;
-use crate::panorama_utils::stitch::{FrameMeta, PanoOptions, Registration};
+use crate::panorama_utils::stitch::{Frame, PanoOptions, Registration};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DroppedImage {
@@ -39,16 +39,6 @@ impl Default for NormalizedCrop {
     }
 }
 
-pub struct WorkingFrame {
-    pub name: String,
-    pub image: Rgb32f,
-    pub native_width: usize,
-    pub native_height: usize,
-    pub clip: f32,
-    pub exposure: Option<f64>,
-    pub focal35: Option<f64>,
-}
-
 pub struct PanoramaSession {
     pub source_paths: Vec<String>,
     pub kept_indices: Vec<usize>,
@@ -67,8 +57,7 @@ pub struct PanoramaSession {
     pub composite: Vec<f32>,
     pub composite_width: u32,
     pub composite_height: u32,
-    pub frames: Vec<WorkingFrame>,
-    pub meta: std::collections::HashMap<String, FrameMeta>,
+    pub frames: Arc<[Frame]>,
     pub focal_outliers: std::collections::HashMap<String, bool>,
     pub options: PanoOptions,
     pub gains: Vec<f64>,
