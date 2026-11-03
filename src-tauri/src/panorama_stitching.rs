@@ -158,7 +158,7 @@ pub async fn save_panorama(
         extension,
         &first_path.to_string_lossy(),
     )?;
-    let output_path = crate::output_files::write_unique_output(
+    let output_path = crate::file_management::write_unique_output(
         parent_dir,
         &format!("{}_Pano", stem),
         extension,

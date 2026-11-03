@@ -128,7 +128,6 @@ fn analyze_image(
 ) -> Result<ImageAnalysisData, String> {
     const ANALYSIS_DIM: u32 = 720; // FIXME: How should we calculate good focus if it's downscaled?!?
 
-    // Virtual copies share the file of their original.
     let (source_path, _) = crate::file_management::parse_virtual_path(path);
     if crate::file_management::is_cloud_placeholder(&source_path) {
         return Err(format!("'{}' is stored in iCloud and not downloaded", path));
@@ -310,7 +309,6 @@ pub async fn cull_images(
 
     if settings.filter_blurry {
         for i in 0..successful_analyses.len() {
-            // Images already reported in a similar group are not listed again.
             if !grouped_indices[i] {
                 let item = &successful_analyses[i];
                 if item.result.sharpness_metric < settings.blur_threshold {

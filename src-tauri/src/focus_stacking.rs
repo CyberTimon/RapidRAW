@@ -2157,7 +2157,7 @@ pub async fn save_focus_stack(
         "tiff",
         &first_path.to_string_lossy(),
     )?;
-    let output_path = crate::output_files::write_unique_output(
+    let output_path = crate::file_management::write_unique_output(
         parent_dir,
         &format!("{}_Stacked", stem),
         "tiff",

@@ -115,7 +115,6 @@ interface EditorState {
   goToHistoryIndex: (index: number) => void;
 }
 
-// Undo, redo and history jumps flush this first so a pending edit is recorded before moving.
 export const debouncedSetHistory = debounce((newAdj: Adjustments, label?: string) => {
   useEditorStore.getState().pushHistory(newAdj, label);
 }, 500);

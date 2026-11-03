@@ -240,7 +240,6 @@ export function useFileOperations(
             currentFolderPath &&
             (oldPath.startsWith(`${currentFolderPath}/`) || oldPath.startsWith(`${currentFolderPath}\\`))
           ) {
-            // The recursive view of a parent folder still lists the old paths.
             await refreshImageList();
           }
 

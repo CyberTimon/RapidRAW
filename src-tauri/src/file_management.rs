@@ -1406,6 +1406,71 @@ pub fn read_file_mapped(path: &Path) -> Result<Mmap, ReadFileError> {
     Ok(mmap)
 }
 
+pub fn write_unique_output(
+    dir: &Path,
+    stem: &str,
+    extension: &str,
+    contents: &[u8],
+) -> std::io::Result<PathBuf> {
+    use std::io::{self, Write};
+
+    let mut builder = tempfile::Builder::new();
+    builder.prefix(".rr-output-").suffix(".tmp");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        builder.permissions(fs::Permissions::from_mode(0o666));
+    }
+    let mut temporary = builder.tempfile_in(dir)?;
+    temporary.write_all(contents)?;
+    temporary.as_file().sync_all()?;
+
+    let mut sidecar_sources = HashSet::new();
+    for entry in fs::read_dir(dir)? {
+        let name = entry?.file_name();
+        if let Some(name) = name.to_str() {
+            let name = name.to_lowercase();
+            let source = parse_sidecar_name(&name)
+                .map(|(source, _)| source)
+                .or_else(|| name.strip_suffix(".rrexif"));
+            if let Some(source) = source {
+                sidecar_sources.insert(source.to_owned());
+            }
+        }
+    }
+
+    let mut counter = 0_u64;
+    loop {
+        let name = if counter == 0 {
+            format!("{stem}.{extension}")
+        } else {
+            format!("{stem}_{counter}.{extension}")
+        };
+        let path = dir.join(&name);
+        let mut has_sidecar = sidecar_sources.contains(&name.to_lowercase());
+        for suffix in [".rrdata", ".rrexif"] {
+            if has_sidecar {
+                break;
+            }
+            let mut sidecar = path.as_os_str().to_owned();
+            sidecar.push(suffix);
+            has_sidecar = Path::new(&sidecar).try_exists()?;
+        }
+        if !has_sidecar {
+            match temporary.persist_noclobber(&path) {
+                Ok(_) => return Ok(path),
+                Err(error) if error.error.kind() == io::ErrorKind::AlreadyExists => {
+                    temporary = error.file;
+                }
+                Err(error) => return Err(error.error),
+            }
+        }
+        counter = counter
+            .checked_add(1)
+            .ok_or_else(|| io::Error::other("No available output filename"))?;
+    }
+}
+
 pub fn write_file_atomic(path: &Path, contents: &[u8]) -> std::io::Result<()> {
     use std::io::Write;
 
@@ -4584,7 +4649,6 @@ pub fn sync_metadata_from_xmp(
     sidecar_path: &Path,
     metadata: &mut ImageMetadata,
 ) -> bool {
-    // The XMP describes the file itself, not a virtual copy.
     if sidecar_path != crate::exif_processing::get_primary_sidecar_path(source_path) {
         return false;
     }
@@ -4654,7 +4718,6 @@ pub fn sync_metadata_to_xmp(
     metadata: &ImageMetadata,
     create_if_missing: bool,
 ) {
-    // The XMP describes the file itself, so a virtual copy must not overwrite it.
     if sidecar_path != crate::exif_processing::get_primary_sidecar_path(source_path) {
         return;
     }

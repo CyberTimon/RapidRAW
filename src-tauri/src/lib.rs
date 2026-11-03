@@ -63,7 +63,6 @@ mod memory_budget;
 mod motion_blur;
 mod multi_exposure;
 mod negative_conversion;
-mod output_files;
 mod panorama_stitching;
 mod panorama_utils;
 mod preset_converter;
@@ -1857,7 +1856,6 @@ async fn merge_hdr(
         return Err("Please select at least two images to merge.".to_string());
     }
 
-    // Virtual copies share the file of their original.
     let paths: Vec<String> = paths
         .iter()
         .map(|p| {
@@ -1942,7 +1940,7 @@ async fn save_hdr(
         extension,
         &first_path.to_string_lossy(),
     )?;
-    let output_path = crate::output_files::write_unique_output(
+    let output_path = crate::file_management::write_unique_output(
         parent_dir,
         &format!("{}_Hdr", stem),
         extension,
@@ -1977,7 +1975,7 @@ async fn save_collage(base64_data: String, first_path_str: String) -> Result<Str
         .and_then(|s| s.to_str())
         .unwrap_or("collage");
 
-    let output_path = crate::output_files::write_unique_output(
+    let output_path = crate::file_management::write_unique_output(
         parent_dir,
         &format!("{}_Collage", stem),
         "png",

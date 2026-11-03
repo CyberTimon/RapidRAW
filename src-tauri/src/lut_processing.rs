@@ -356,7 +356,6 @@ pub fn parse_lut_file(path_str: &str) -> anyhow::Result<Lut> {
     }
 
     let path = std::path::Path::new(path_str);
-    // Only a ".." path component is traversal; file names may contain "..".
     if path
         .components()
         .any(|component| component == std::path::Component::ParentDir)

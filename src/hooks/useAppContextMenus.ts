@@ -1264,7 +1264,6 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
                     currentFolderPath &&
                     (targetPath.startsWith(currentFolderPath + '/') || targetPath.startsWith(currentFolderPath + '\\'))
                   ) {
-                    // The recursive view of a parent folder still lists the deleted images.
                     props.refreshImageList();
                   }
 

@@ -306,7 +306,6 @@ export const useKeyboardShortcuts = ({
         shouldFire: (s: any) =>
           s.ui.activeView === 'editor' &&
           !!s.editor.selectedImage &&
-          // A different object than the current history entry means an edit is still waiting to be recorded.
           (s.editor.historyIndex > 0 || s.editor.adjustments !== s.editor.history[s.editor.historyIndex]),
         execute: (e: any, s: any) => {
           e.preventDefault();
@@ -670,7 +669,6 @@ export const useKeyboardShortcuts = ({
         },
         execute: (e: KeyboardEvent, s: any) => {
           e.preventDefault();
-          // setAdjustments records the deletion in the undo history.
           if (s.editor.activeMaskContainerId) {
             setAdjustments((prev: any) => ({
               ...prev,
