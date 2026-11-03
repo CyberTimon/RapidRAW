@@ -498,6 +498,7 @@ fn exif_read_pool() -> Option<&'static rayon::ThreadPool> {
 pub async fn read_exif_for_paths(
     paths: Vec<String>,
     state: tauri::State<'_, AppState>,
+    app_handle: AppHandle,
 ) -> Result<HashMap<String, HashMap<String, String>>, String> {
     let is_hdd = state
         .thumbnail_manager
@@ -505,9 +506,24 @@ pub async fn read_exif_for_paths(
         .load(Ordering::Relaxed);
 
     tauri::async_runtime::spawn_blocking(move || {
+        let settings = load_settings(app_handle.clone()).unwrap_or_default();
+        let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
+
         let process_path = |virtual_path: &String| {
             let (source_path, _) = parse_virtual_path(virtual_path);
             let source_path_str = source_path.to_string_lossy().to_string();
+
+            let read_unseen = |bytes: &[u8]| {
+                let map = crate::exif_processing::read_exif_data(&source_path_str, bytes);
+                if enable_xmp_sync && import_embedded_xmp(&source_path, bytes) {
+                    let sidecar_path =
+                        crate::exif_processing::get_primary_sidecar_path(&source_path);
+                    let metadata =
+                        resolve_image_metadata(&source_path, &sidecar_path, true, false, &settings);
+                    emit_image_metadata_loaded(&app_handle, &source_path_str, &metadata);
+                }
+                map
+            };
 
             let map = if let Some(sidecar_exif) =
                 crate::exif_processing::read_rrexif_sidecar(&source_path)
@@ -516,9 +532,9 @@ pub async fn read_exif_for_paths(
             } else if is_cloud_placeholder(&source_path) {
                 HashMap::new()
             } else if let Ok(mmap) = read_file_mapped(&source_path) {
-                crate::exif_processing::read_exif_data(&source_path_str, &mmap)
+                read_unseen(&mmap)
             } else if let Ok(bytes) = fs::read(&source_path) {
-                crate::exif_processing::read_exif_data(&source_path_str, &bytes)
+                read_unseen(&bytes)
             } else {
                 HashMap::new()
             };
@@ -4565,61 +4581,91 @@ pub fn resolve_xmp_path(image_path: &Path) -> Option<PathBuf> {
 }
 
 pub fn sync_metadata_from_xmp(source_path: &Path, metadata: &mut ImageMetadata) -> bool {
-    let actual_xmp = resolve_xmp_path(source_path);
+    resolve_xmp_path(source_path)
+        .and_then(|xmp_file| fs::read_to_string(xmp_file).ok())
+        .is_some_and(|content| apply_xmp_metadata(&content, metadata))
+}
 
+const EMBEDDED_XMP_SCAN_LEN: usize = 256 * 1024;
+
+fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack.windows(needle.len()).position(|w| w == needle)
+}
+
+fn find_embedded_xmp(file_bytes: &[u8]) -> Option<Cow<'_, str>> {
+    const END_TAG: &[u8] = b"</x:xmpmeta>";
+    let prefix = &file_bytes[..file_bytes.len().min(EMBEDDED_XMP_SCAN_LEN)];
+    let start = find_bytes(prefix, b"<x:xmpmeta")?;
+    let end = start + find_bytes(&prefix[start..], END_TAG)? + END_TAG.len();
+    Some(String::from_utf8_lossy(&prefix[start..end]))
+}
+
+pub fn import_embedded_xmp(source_path: &Path, file_bytes: &[u8]) -> bool {
+    if resolve_xmp_path(source_path).is_some() {
+        return false;
+    }
+    let Some(content) = find_embedded_xmp(file_bytes) else {
+        return false;
+    };
+    let sidecar_path = exif_processing::get_primary_sidecar_path(source_path);
+    let mut metadata = exif_processing::load_sidecar(&sidecar_path);
+    apply_xmp_metadata(&content, &mut metadata)
+        && exif_processing::update_sidecar(&sidecar_path, source_path, |current| {
+            apply_xmp_metadata(&content, current);
+        })
+        .is_ok()
+}
+
+fn apply_xmp_metadata(content: &str, metadata: &mut ImageMetadata) -> bool {
     let mut changed = false;
 
-    if let Some(xmp_file) = actual_xmp
-        && let Ok(content) = fs::read_to_string(&xmp_file)
+    let xmp_rating = extract_xmp_rating(content);
+
+    if xmp_rating == Some(XMP_REJECTED_RATING) && metadata.flag.is_none() {
+        metadata.flag = Some(ImageFlag::Reject);
+        changed = true;
+    }
+
+    if metadata.rating == 0
+        && let Some(rating) = xmp_rating.and_then(|r| u8::try_from(r).ok())
+        && rating != 0
     {
-        let xmp_rating = extract_xmp_rating(&content);
-
-        if xmp_rating == Some(XMP_REJECTED_RATING) && metadata.flag.is_none() {
-            metadata.flag = Some(ImageFlag::Reject);
-            changed = true;
+        metadata.rating = rating;
+        if !metadata.adjustments.is_object() {
+            metadata.adjustments = default_adjustments();
         }
-
-        if metadata.rating == 0
-            && let Some(rating) = xmp_rating.and_then(|r| u8::try_from(r).ok())
-            && rating != 0
-        {
-            metadata.rating = rating;
-            if !metadata.adjustments.is_object() {
-                metadata.adjustments = default_adjustments();
-            }
-            if let Some(obj) = metadata.adjustments.as_object_mut() {
-                obj.insert("rating".to_string(), serde_json::json!(rating));
-            }
-            changed = true;
+        if let Some(obj) = metadata.adjustments.as_object_mut() {
+            obj.insert("rating".to_string(), serde_json::json!(rating));
         }
+        changed = true;
+    }
 
-        let xmp_label = extract_xmp_label(&content);
-        let xmp_tags = extract_xmp_tags(&content);
+    let xmp_label = extract_xmp_label(content);
+    let xmp_tags = extract_xmp_tags(content);
 
-        let mut current_tags = metadata.tags.clone().unwrap_or_default();
-        let original_len = current_tags.len();
-        let had_no_tags = metadata.tags.is_none();
+    let mut current_tags = metadata.tags.clone().unwrap_or_default();
+    let original_len = current_tags.len();
+    let had_no_tags = metadata.tags.is_none();
 
-        for tag in xmp_tags {
-            let tag = unescape(&tag).map_or(tag.clone(), Cow::into_owned);
-            if !current_tags.contains(&tag) {
-                current_tags.push(tag);
-            }
+    for tag in xmp_tags {
+        let tag = unescape(&tag).map_or(tag.clone(), Cow::into_owned);
+        if !current_tags.contains(&tag) {
+            current_tags.push(tag);
         }
+    }
 
-        if let Some(label) = xmp_label {
-            let label = unescape(&label).map_or(label.clone(), Cow::into_owned);
-            let label_tag = format!("{}{}", COLOR_TAG_PREFIX, label.to_lowercase());
-            if !current_tags.contains(&label_tag) {
-                current_tags.retain(|t| !t.starts_with(COLOR_TAG_PREFIX));
-                current_tags.push(label_tag);
-            }
+    if let Some(label) = xmp_label {
+        let label = unescape(&label).map_or(label.clone(), Cow::into_owned);
+        let label_tag = format!("{}{}", COLOR_TAG_PREFIX, label.to_lowercase());
+        if !current_tags.contains(&label_tag) {
+            current_tags.retain(|t| !t.starts_with(COLOR_TAG_PREFIX));
+            current_tags.push(label_tag);
         }
+    }
 
-        if current_tags.len() != original_len || (had_no_tags && !current_tags.is_empty()) {
-            metadata.tags = Some(current_tags);
-            changed = true;
-        }
+    if current_tags.len() != original_len || (had_no_tags && !current_tags.is_empty()) {
+        metadata.tags = Some(current_tags);
+        changed = true;
     }
     changed
 }

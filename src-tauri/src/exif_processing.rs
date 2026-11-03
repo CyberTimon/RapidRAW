@@ -363,6 +363,9 @@ fn write_sidecar(
     if is_default_sidecar(sidecar_path, source_path, metadata) {
         let _layout = SIDECAR_LAYOUT_LOCK.lock().unwrap();
         if !has_virtual_copy_sidecars(source_path) {
+            if let Some(exif) = &metadata.exif {
+                save_exif_to_rrcache(source_path, exif.clone());
+            }
             return match fs::remove_file(sidecar_path) {
                 Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e),
                 _ => Ok(()),
@@ -2191,14 +2194,18 @@ pub fn read_exif_data(path: &str, file_bytes: &[u8]) -> HashMap<String, String> 
     exif_map
 }
 
-pub fn persist_exif_if_missing(source_path: &Path, source_path_str: &str, file_bytes: &[u8]) {
+pub fn persist_exif_if_missing(
+    source_path: &Path,
+    source_path_str: &str,
+    file_bytes: &[u8],
+) -> bool {
     if read_rrexif_sidecar(source_path).is_some() {
-        return;
+        return false;
     }
 
     let exif_map = read_exif_data_from_bytes(source_path_str, file_bytes);
     if exif_map.is_empty() {
-        return;
+        return true;
     }
 
     let primary = get_primary_sidecar_path(source_path);
@@ -2210,6 +2217,7 @@ pub fn persist_exif_if_missing(source_path: &Path, source_path_str: &str, file_b
     } else {
         save_exif_to_rrcache(source_path, exif_map);
     }
+    true
 }
 
 pub fn save_converted_image(

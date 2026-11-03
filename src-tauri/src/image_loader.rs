@@ -121,11 +121,12 @@ pub fn load_base_image_from_bytes(
     let sharpening_amount = settings.raw_preprocessing_sharpening.unwrap_or(0.35);
     let apply_to_non_raws = settings.apply_preprocessing_to_non_raws.unwrap_or(false);
 
-    crate::exif_processing::persist_exif_if_missing(
-        Path::new(path_for_ext_check),
-        path_for_ext_check,
-        bytes,
-    );
+    let source_path = Path::new(path_for_ext_check);
+    if crate::exif_processing::persist_exif_if_missing(source_path, path_for_ext_check, bytes)
+        && settings.enable_xmp_sync.unwrap_or(false)
+    {
+        crate::file_management::import_embedded_xmp(source_path, bytes);
+    }
 
     if is_raw_file(path_for_ext_check)
         && !use_fast_raw_dev
