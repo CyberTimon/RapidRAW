@@ -2,7 +2,7 @@ use crate::app_settings::load_settings;
 use crate::app_state::AppState;
 use crate::file_management::parse_virtual_path;
 use crate::formats::is_raw_file;
-use crate::image_processing::{apply_linear_to_srgb, apply_srgb_to_linear};
+use crate::image_processing::{apply_linear_to_srgb, apply_srgb_to_linear, linear_channel_to_srgb};
 use crate::panorama_utils::camera::parse_focal_mm_35eq;
 use crate::panorama_utils::log::{self as stitch_log, StitchLog};
 use crate::panorama_utils::overlay::generate_overlay;
@@ -441,12 +441,8 @@ fn load_frames(
                     source_paths.len(),
                     name
                 ));
-                let (rgb, fw, fh, exif) = load_linear(path, settings)?;
-                let mut img = Rgb32f {
-                    width: fw as usize,
-                    height: fh as usize,
-                    data: rgb_to_pixels(&rgb),
-                };
+                let (mut img, exif) = load_linear(path, settings)?;
+                let (fw, fh) = (img.width, img.height);
                 for p in img.data.iter_mut() {
                     for v in p.iter_mut() {
                         *v = v.max(0.0);
@@ -470,11 +466,9 @@ fn load_frames(
                 ));
                 Ok(Frame {
                     name,
-                    width: img.width,
-                    height: img.height,
-                    native_width: fw as usize,
-                    native_height: fh as usize,
-                    rgb: img.data.iter().flat_map(|p| p.to_vec()).collect(),
+                    image: img,
+                    native_width: fw,
+                    native_height: fh,
                     clip,
                     exposure: exposure_value(&exif),
                     focal35: parse_focal_mm_35eq(&exif),
@@ -543,8 +537,8 @@ fn run_stitch(
             median_ratio(
                 frames
                     .iter()
-                    .filter(|f| f.width > 0)
-                    .map(|f| f.native_width as f64 / f.width as f64),
+                    .filter(|f| f.width() > 0)
+                    .map(|f| f.native_width as f64 / f.width() as f64),
             )
         } else {
             1.0
@@ -602,11 +596,9 @@ fn run_stitch(
             .iter()
             .map(|f| WorkingFrame {
                 name: f.name.clone(),
-                width: f.width,
-                height: f.height,
+                image: f.image.clone(),
                 native_width: f.native_width,
                 native_height: f.native_height,
-                rgb: f.rgb.clone(),
                 clip: f.clip,
                 exposure: f.exposure,
                 focal35: f.focal35,
@@ -694,11 +686,9 @@ fn session_frames(session: &PanoramaSession) -> Vec<Frame> {
         .iter()
         .map(|f| Frame {
             name: f.name.clone(),
-            width: f.width,
-            height: f.height,
+            image: f.image.clone(),
             native_width: f.native_width,
             native_height: f.native_height,
-            rgb: f.rgb.clone(),
             clip: f.clip,
             exposure: f.exposure,
             focal35: f.focal35,
@@ -738,7 +728,7 @@ fn scale_registration(
         return Err("The preview alignment does not match the photos being saved.".into());
     }
     let ratio = |prev: &WorkingFrame, frame: &Frame| -> Option<f64> {
-        (prev.width > 0).then_some(frame.width as f64 / prev.width as f64)
+        (prev.image.width > 0).then_some(frame.width() as f64 / prev.image.width as f64)
     };
     let cameras = reg
         .cameras
@@ -748,8 +738,8 @@ fn scale_registration(
         .map(|((cam, prev), frame)| {
             let cam = (*cam)?.scaled(ratio(prev, frame)?);
             Some(stitch::camera::Camera {
-                cx: frame.width as f64 / 2.0,
-                cy: frame.height as f64 / 2.0,
+                cx: frame.width() as f64 / 2.0,
+                cy: frame.height() as f64 / 2.0,
                 ..cam
             })
         })
@@ -824,19 +814,15 @@ fn save_composite(
     stitch_log::line(&format!(
         "save scaling preview cameras onto {} frames at {}x{}",
         frames.len(),
-        frames.first().map_or(0, |f| f.width),
-        frames.first().map_or(0, |f| f.height)
+        frames.first().map_or(0, |f| f.width()),
+        frames.first().map_or(0, |f| f.height())
     ));
     emit_save(BAR_AFTER_LOAD, "Registering");
     let reg = scale_registration(&session.registration, &session.frames, &frames)?;
     emit_save(BAR_AFTER_REGISTER, "Registering");
-    let save_scale = median_ratio(
-        session
-            .frames
-            .iter()
-            .zip(&frames)
-            .filter_map(|(p, f)| (p.width > 0).then_some(f.width as f64 / p.width as f64)),
-    );
+    let save_scale = median_ratio(session.frames.iter().zip(&frames).filter_map(|(p, f)| {
+        (p.image.width > 0).then_some(f.width() as f64 / p.image.width as f64)
+    }));
     stitch_log::line(&format!(
         "save scaled preview cameras x{save_scale:.4} used={} rmsPx {:.3}",
         reg.used.len(),
@@ -866,13 +852,14 @@ fn save_composite(
     stitch_log::line(&format!(
         "save starting at {:.0}% quality, {}x{} sources",
         session.quality * 100.0,
-        frames.first().map_or(0, |f| f.width),
-        frames.first().map_or(0, |f| f.height)
+        frames.first().map_or(0, |f| f.width()),
+        frames.first().map_or(0, |f| f.height())
     ));
     let progress = |msg: &str, frac: f64| {
         emit_save(save_phase_percent(msg, frac), msg);
     };
     let rendered = compose_with_retries(&frames, &reg, &opts, &progress, &note, app, stop)?;
+    drop(frames);
     stitch_log::phase(&format!(
         "save rendered {}x{} at {:.0}% in {attempt_no} attempt(s)",
         rendered.width,
@@ -900,7 +887,10 @@ fn save_composite(
         serde_json::json!({ "percent": 70, "message": "Encoding image..." }),
     );
     stitch_log::line(&format!("save encode {cw}x{ch}"));
-    let rgb16 = encode_cropped_16(&rendered.image.data, w, h, (x0, y0), (cw, ch))?;
+    let Composed { image, label, .. } = rendered;
+    drop(label);
+    let rgb16 = encode_cropped_16(&image.data, w, (x0, y0), (cw, ch))?;
+    drop(image);
     let _ = app.emit(
         "panorama-save-progress",
         serde_json::json!({ "percent": 95, "message": "Writing TIFF..." }),
@@ -958,20 +948,10 @@ fn complete_payload(session: &PanoramaSession) -> serde_json::Value {
     })
 }
 
-type LinearPixels = (Vec<f32>, u32, u32, HashMap<String, String>);
-
-fn rgb_to_pixels(rgb: &[f32]) -> Vec<[f32; 3]> {
-    rgb.as_chunks::<3>()
-        .0
-        .iter()
-        .map(|c| [c[0], c[1], c[2]])
-        .collect()
-}
-
 fn load_linear(
     path: &str,
     settings: &crate::app_settings::AppSettings,
-) -> Result<LinearPixels, String> {
+) -> Result<(Rgb32f, HashMap<String, String>), String> {
     let bytes = fs::read(path).map_err(|e| format!("Failed to read {}: {}", file_name(path), e))?;
     let exif = crate::exif_processing::read_exif_data_from_bytes(path, &bytes);
     let mut dynamic =
@@ -980,9 +960,18 @@ fn load_linear(
     if !is_raw_file(path) && !is_already_linear(path) {
         dynamic = apply_srgb_to_linear(dynamic);
     }
-    let rgb = dynamic.to_rgb32f();
+    let rgb = dynamic.into_rgb32f();
     let (w, h) = rgb.dimensions();
-    Ok((rgb.into_raw(), w, h, exif))
+    let data = bytemuck::allocation::try_cast_vec(rgb.into_raw())
+        .unwrap_or_else(|(_, raw)| raw.as_chunks::<3>().0.to_vec());
+    Ok((
+        Rgb32f {
+            width: w as usize,
+            height: h as usize,
+            data,
+        },
+        exif,
+    ))
 }
 
 fn frame_meta(exif: &HashMap<String, String>) -> FrameMeta {
@@ -1107,30 +1096,16 @@ fn parse_shutter(s: &str) -> Option<f64> {
 pub fn encode_cropped_16(
     data: &[[f32; 3]],
     w: usize,
-    h: usize,
     (x0, y0): (u32, u32),
     (cw, ch): (u32, u32),
 ) -> Result<Rgb16Buf, String> {
-    let mut rgb: Vec<f32> = Vec::with_capacity(data.len() * 3);
-    for p in data {
-        rgb.push(p[0]);
-        rgb.push(p[1]);
-        rgb.push(p[2]);
-    }
-    let img = Rgb32FImage::from_raw(w as u32, h as u32, rgb)
-        .ok_or_else(|| "Could not build the stitched image.".to_string())?;
-    let display = apply_linear_to_srgb(DynamicImage::ImageRgb32F(img));
-    let full16 = display.to_rgb16();
-    drop(display);
-    if x0 == 0 && y0 == 0 && cw == w as u32 && ch == h as u32 {
-        return Ok(full16);
-    }
-    let mut out: Vec<u16> = vec![0; (cw as usize) * (ch as usize) * 3];
-    for y in 0..ch {
-        let s = ((y0 + y) as usize * w + x0 as usize) * 3;
-        let d = (y as usize * cw as usize) * 3;
-        let row = &full16.as_raw()[s..s + cw as usize * 3];
-        out[d..d + row.len()].copy_from_slice(row);
-    }
-    Rgb16Buf::from_raw(cw, ch, out).ok_or_else(|| "Could not crop the panorama.".to_string())
+    let (x0, y0, cw) = (x0 as usize, y0 as usize, cw as usize);
+    let mut out: Vec<u16> = vec![0; cw * ch as usize * 3];
+    out.par_chunks_mut(cw * 3).enumerate().for_each(|(y, row)| {
+        let src = &data[(y0 + y) * w + x0..][..cw];
+        for (o, p) in row.as_chunks_mut::<3>().0.iter_mut().zip(src) {
+            *o = p.map(|v| (linear_channel_to_srgb(v).clamp(0.0, 1.0) * 65535.0).round() as u16);
+        }
+    });
+    Rgb16Buf::from_raw(cw as u32, ch, out).ok_or_else(|| "Could not crop the panorama.".to_string())
 }

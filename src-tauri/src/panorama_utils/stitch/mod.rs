@@ -22,11 +22,9 @@ const MAX_FEATURES: usize = 1200;
 #[derive(Clone, Debug)]
 pub struct Frame {
     pub name: String,
-    pub width: usize,
-    pub height: usize,
+    pub image: Rgb32f,
     pub native_width: usize,
     pub native_height: usize,
-    pub rgb: Vec<f32>,
     pub clip: f32,
     pub exposure: Option<f64>,
     pub focal35: Option<f64>,
@@ -45,23 +43,10 @@ pub struct FrameMeta {
 
 impl Frame {
     pub fn width(&self) -> usize {
-        self.width
+        self.image.width
     }
     pub fn height(&self) -> usize {
-        self.height
-    }
-    pub fn image(&self) -> Rgb32f {
-        Rgb32f {
-            width: self.width,
-            height: self.height,
-            data: self
-                .rgb
-                .as_chunks::<3>()
-                .0
-                .iter()
-                .map(|c| [c[0], c[1], c[2]])
-                .collect(),
-        }
+        self.image.height
     }
 }
 
@@ -200,9 +185,8 @@ pub fn register(frames: &[Frame], stop: &log::StitchLog) -> Result<Registration,
         .par_iter()
         .map(|f| {
             stop.gate()?;
-            let img = f.image();
-            let med = features::median_luma(&img, f.clip);
-            let (p, s) = features::work_image(&img, 0.18 / med.max(1e-6), WORK_EDGE);
+            let med = features::median_luma(&f.image, f.clip);
+            let (p, s) = features::work_image(&f.image, 0.18 / med.max(1e-6), WORK_EDGE);
             Ok((features::detect(&p, MAX_FEATURES), s))
         })
         .collect::<Result<_, String>>()?;
@@ -720,7 +704,7 @@ pub fn compose(
                 return Ok(Vec::new());
             };
             let fr = &frames[i];
-            let (fw, fh) = (fr.width as f64, fr.height as f64);
+            let (fw, fh) = (fr.width() as f64, fr.height() as f64);
             tile_rects(&c, sizes[i], projection, f_out, (ox, oy), unit, (pw, ph))
                 .into_iter()
                 .map(|(tx0, ty0, tw, th)| {
@@ -748,9 +732,7 @@ pub fn compose(
                                 let wx = 1.0 - (2.0 * px / fw - 1.0).abs();
                                 let wy = 1.0 - (2.0 * py / fh - 1.0).abs();
                                 let w = (wx * wy).max(1e-6) as f32;
-                                let c = crate::panorama_utils::raster::sample_interleaved(
-                                    &fr.rgb, fr.width, fr.height, px as f32, py as f32,
-                                );
+                                let c = fr.image.sample_bilinear(px as f32, py as f32);
                                 row[tx * 3] = c[0];
                                 row[tx * 3 + 1] = c[1];
                                 row[tx * 3 + 2] = c[2];
@@ -810,7 +792,10 @@ pub fn compose(
         .flatten()
         .map(|t| (t.w * t.h) as u64 * 16)
         .sum();
-    let source_bytes: u64 = used.iter().map(|&i| frames[i].rgb.len() as u64 * 4).sum();
+    let source_bytes: u64 = used
+        .iter()
+        .map(|&i| frames[i].image.data.len() as u64 * 12)
+        .sum();
     let mut blender = Blender::try_new(pw, ph, levels, scratch.file())?;
     if scratch.is_spilling() {
         let over = scratch.over_by();
@@ -898,14 +883,14 @@ pub fn compose(
         }
     }
     progress("Finishing", 0.0);
-    let (mut image, alpha) = finish::boundary_warp(&image, &alpha, opts.boundary_warp / 100.0);
+    let (mut image, alpha) = finish::boundary_warp(image, alpha, opts.boundary_warp / 100.0);
     let crop = if opts.auto_crop {
         finish::coverage_crop(&alpha)
     } else {
         None
     };
     if opts.fill_edges {
-        image = finish::fill_edges(&image, &alpha)?;
+        finish::fill_edges(&mut image, &alpha)?;
     }
     progress("Finishing", 1.0);
     log::phase(&format!("composed {}x{} crop {:?}", cw, ch, crop));

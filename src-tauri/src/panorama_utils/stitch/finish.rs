@@ -57,9 +57,9 @@ fn edges(alpha: &Plane, vertical: bool) -> Option<(Vec<f64>, Vec<f64>)> {
     Some((smooth(&lo), smooth(&hi)))
 }
 
-fn stretch(img: &Rgb32f, alpha: &Plane, amount: f64, vertical: bool) -> (Rgb32f, Plane) {
-    let Some((lo, hi)) = edges(alpha, vertical) else {
-        return (img.clone(), alpha.clone());
+fn stretch(img: Rgb32f, alpha: Plane, amount: f64, vertical: bool) -> (Rgb32f, Plane) {
+    let Some((lo, hi)) = edges(&alpha, vertical) else {
+        return (img, alpha);
     };
     let (w, h) = (img.width, img.height);
     let len = if vertical { h } else { w } as f64;
@@ -81,19 +81,19 @@ fn stretch(img: &Rgb32f, alpha: &Plane, amount: f64, vertical: bool) -> (Rgb32f,
                     (s as f32, y as f32 + 0.5)
                 };
                 row[x] = img.sample_bilinear(sx, sy);
-                arow[x] = bilinear(alpha, sx, sy);
+                arow[x] = bilinear(&alpha, sx, sy);
             }
         });
     (out, oa)
 }
 
-pub fn boundary_warp(img: &Rgb32f, alpha: &Plane, amount: f64) -> (Rgb32f, Plane) {
+pub fn boundary_warp(img: Rgb32f, alpha: Plane, amount: f64) -> (Rgb32f, Plane) {
     if amount <= 0.0 {
-        return (img.clone(), alpha.clone());
+        return (img, alpha);
     }
     let amount = amount.min(1.0);
     let (i1, a1) = stretch(img, alpha, amount, true);
-    stretch(&i1, &a1, amount, false)
+    stretch(i1, a1, amount, false)
 }
 
 pub fn coverage_crop(alpha: &Plane) -> Option<[f64; 4]> {
@@ -144,28 +144,33 @@ fn largest_covered(usable: &[bool], w: usize, h: usize) -> Option<(usize, usize,
     (best_area > 0).then_some(best)
 }
 
-pub fn fill_edges(img: &Rgb32f, alpha: &Plane) -> Result<Rgb32f, String> {
+pub fn fill_edges(img: &mut Rgb32f, alpha: &Plane) -> Result<(), String> {
     let (w, h) = (img.width, img.height);
     let mut b = Buf::try_new(w, h, 3, None)?;
-    for (i, p) in img.data.iter().enumerate() {
-        for (c, &v) in p.iter().enumerate() {
-            b.data[i * 3 + c] = v.max(1e-6).ln();
-        }
-    }
+    b.data
+        .par_chunks_mut(3)
+        .zip(img.data.par_iter())
+        .for_each(|(o, p)| {
+            for (o, &v) in o.iter_mut().zip(p) {
+                *o = v.max(1e-6).ln();
+            }
+        });
     let wgt: Vec<f32> = alpha
         .data
-        .iter()
+        .par_iter()
         .map(|a| if *a >= 0.999 { 1.0 } else { 0.0 })
         .collect();
     push_pull(&mut b, &wgt);
-    let mut out = img.clone();
-    for (i, p) in out.data.iter_mut().enumerate() {
-        let a = alpha.data[i].clamp(0.0, 1.0);
-        if a < 0.999 {
-            let f = [0, 1, 2].map(|c| b.data[i * 3 + c].exp());
-            let v = if a > 1e-3 { p.map(|v| v / a) } else { [0.0; 3] };
-            *p = [0, 1, 2].map(|c| v[c] * a + f[c] * (1.0 - a));
-        }
-    }
-    Ok(out)
+    img.data
+        .par_iter_mut()
+        .zip(b.data.par_chunks(3))
+        .zip(alpha.data.par_iter())
+        .for_each(|((p, f), a)| {
+            let a = a.clamp(0.0, 1.0);
+            if a < 0.999 {
+                let v = if a > 1e-3 { p.map(|v| v / a) } else { [0.0; 3] };
+                *p = [0, 1, 2].map(|c| v[c] * a + f[c].exp() * (1.0 - a));
+            }
+        });
+    Ok(())
 }

@@ -26,7 +26,7 @@ rayon = "1.12.0"
 blake3 = "1.8.7"
 wgpu = "29.0" # Downgraded to prevent P3 color shifts on Apple devices
 pollster = "1.0"
-bytemuck = { version = "1.25", features = ["derive"] }
+bytemuck = { version = "1.25", features = ["derive", "extern_crate_alloc"] }
 anyhow = "1.0.104"
 kamadak-exif = "0.6.1"
 rawler = { git = "https://github.com/CyberTimon/RapidRAW-DngLab.git" }

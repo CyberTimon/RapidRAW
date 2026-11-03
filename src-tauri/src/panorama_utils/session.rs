@@ -1,3 +1,4 @@
+use crate::panorama_utils::raster::Rgb32f;
 use crate::panorama_utils::stitch::project::Projection;
 use crate::panorama_utils::stitch::{FrameMeta, PanoOptions, Registration};
 use serde::{Deserialize, Serialize};
@@ -40,11 +41,9 @@ impl Default for NormalizedCrop {
 
 pub struct WorkingFrame {
     pub name: String,
-    pub width: usize,
-    pub height: usize,
+    pub image: Rgb32f,
     pub native_width: usize,
     pub native_height: usize,
-    pub rgb: Vec<f32>,
     pub clip: f32,
     pub exposure: Option<f64>,
     pub focal35: Option<f64>,

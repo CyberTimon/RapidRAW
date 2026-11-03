@@ -70,31 +70,6 @@ impl Plane {
     }
 }
 
-#[inline]
-pub fn sample_interleaved(data: &[f32], width: usize, height: usize, x: f32, y: f32) -> [f32; 3] {
-    let fx = x - 0.5;
-    let fy = y - 0.5;
-    let x0 = fx.floor();
-    let y0 = fy.floor();
-    let (tx, ty) = (fx - x0, fy - y0);
-    let (xi, yi) = (x0 as isize, y0 as isize);
-    let at = |x: isize, y: isize| -> [f32; 3] {
-        let x = x.clamp(0, width as isize - 1) as usize;
-        let y = y.clamp(0, height as isize - 1) as usize;
-        let i = (y * width + x) * 3;
-        [data[i], data[i + 1], data[i + 2]]
-    };
-    let a = at(xi, yi);
-    let b = at(xi + 1, yi);
-    let c = at(xi, yi + 1);
-    let d = at(xi + 1, yi + 1);
-    [0, 1, 2].map(|i| {
-        let top = a[i] + (b[i] - a[i]) * tx;
-        let bot = c[i] + (d[i] - c[i]) * tx;
-        top + (bot - top) * ty
-    })
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct Rgb32f {
     pub width: usize,
