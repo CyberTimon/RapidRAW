@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { AlertTriangle, CheckCircle, XCircle, Loader2, Save } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, Save } from 'lucide-react';
 import { motion } from 'framer-motion';
 import ReactCrop, { type PercentCrop, type Crop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
@@ -11,13 +11,6 @@ import Text from '../ui/Text';
 import { TextColors, TextVariants } from '../../types/typography';
 
 export type PanoramaProjection = 'spherical' | 'cylindrical' | 'perspective';
-
-export interface PanoramaStitchOptions {
-  cropFactor: number;
-  focal35: number;
-  estimateIntrinsics: boolean;
-  scale: 'full' | 'half';
-}
 
 export interface PanoramaCropRect {
   x: number;
@@ -63,7 +56,7 @@ interface PanoramaModalProps {
   onOpenFile(path: string): void;
   onProjectionChange(projection: PanoramaProjection): void;
   onSave(crop: PanoramaCropRect | null): Promise<string>;
-  onStitch(options: PanoramaStitchOptions): void;
+  onStitch(): void;
   overlayBase64: string | null;
   previewHeight: number;
   previewWidth: number;
@@ -71,13 +64,8 @@ interface PanoramaModalProps {
   recommendedProjection: string | null;
   saveProgressMessage: string | null;
   saveProgressPercent: number | null;
-  saveNote: string | null;
-  saveNoteCode?: { code: string; percent?: number; next?: number } | null;
   quality?: number;
   onQualityChange?(value: number): void;
-  savedQuality?: number | null;
-  savedAttempts?: number | null;
-  saveReduced?: boolean;
   selectedProjection: string | null;
   winnerMapBase64: string | null;
 }
@@ -324,27 +312,19 @@ const EXACT_MESSAGES: Record<string, string> = {
   'Exposure compensation': 'modals.panorama.exposure',
   Blending: 'modals.panorama.blending',
   Finishing: 'modals.panorama.finishing',
-  Registering: 'modals.panorama.registering',
   'Rendering full resolution...': 'modals.panorama.rendering',
   'Encoding image...': 'modals.panorama.encoding',
   'Writing TIFF...': 'modals.panorama.writingTiff',
   'Save complete': 'modals.panorama.saveComplete',
-  'Using half size as requested.': 'modals.panorama.halfSize',
-  spilling: 'modals.panorama.writingToDisk',
   'Please select at least two images to stitch.': 'modals.panorama.needTwo',
   'No panorama session. Run stitch first.': 'modals.panorama.noSession',
   'No panorama session found to save.': 'modals.panorama.noSessionSave',
   "The photos don't overlap enough to be stitched.": 'modals.panorama.noOverlap',
-  'Could not measure the projected canvas.': 'modals.panorama.noCanvas',
-  'No photos to stitch.': 'modals.panorama.noPhotos',
   'Could not build preview.': 'modals.panorama.noPreview',
   'The preview alignment does not match the photos being saved.': 'modals.panorama.alignmentMismatch',
   'Could not determine parent directory.': 'modals.panorama.noParent',
-  'Could not build the panorama.': 'modals.panorama.buildFailed',
-  'Could not build the stitched image.': 'modals.panorama.buildFailed',
   'Could not crop the panorama.': 'modals.panorama.cropFailed',
   stopped: 'modals.panorama.cancelled',
-  impossible: 'modals.panorama.errImpossible',
   'no overlap with the rest of the set': 'modals.panorama.droppedNoOverlap',
 };
 
@@ -376,8 +356,6 @@ function panoramaMessage(t: Translate, raw: string | null | undefined): string {
   if (match) return String(t('modals.panorama.readFailed' as never, { file: match[1], detail: match[2] }));
   match = raw.match(/^Failed to decode ([^:]+): (.*)$/);
   if (match) return String(t('modals.panorama.decodeFailed' as never, { file: match[1], detail: match[2] }));
-  match = raw.match(/^No embedded preview in (.*)$/);
-  if (match) return String(t('modals.panorama.noEmbedded' as never, { file: match[1] }));
   match = raw.match(/^no overlap with the rest of the set \((.+) mm 35mm-equivalent\)$/);
   if (match) return String(t('modals.panorama.droppedNoOverlapFocal' as never, { focal: match[1] }));
   return raw;
@@ -419,13 +397,8 @@ export default function PanoramaModal({
   recommendedProjection,
   saveProgressMessage,
   saveProgressPercent,
-  saveNote,
-  saveNoteCode,
   quality,
   onQualityChange,
-  savedQuality,
-  savedAttempts,
-  saveReduced,
   selectedProjection,
   winnerMapBase64,
 }: PanoramaModalProps) {
@@ -475,12 +448,7 @@ export default function PanoramaModal({
   useEffect(() => {
     if (!isOpen || sourcePaths.length < 2 || startedRef.current) return;
     startedRef.current = true;
-    onStitch({
-      cropFactor: 0,
-      focal35: 0,
-      estimateIntrinsics: false,
-      scale: 'full',
-    });
+    onStitch();
   }, [isOpen, sourcePaths.join('\n')]);
   useEffect(() => {
     if (!winnerMapBase64) {
@@ -577,14 +545,6 @@ export default function PanoramaModal({
     const width = Math.ceil(el.getBoundingClientRect().width);
     if (width > 0) setSidebarPx((prev) => (prev === width ? prev : width));
   }, [showingPreview, i18n.language, recommendedProjection]);
-  const noteText = saveNoteCode
-    ? String(
-        t(`modals.panorama.${saveNoteCode.code}` as never, {
-          percent: saveNoteCode.percent ?? 0,
-          next: saveNoteCode.next ?? 0,
-        }),
-      )
-    : saveNote;
   const percent = saveProgressPercent ?? 0;
   const previewFrame = fitPreviewFrame(
     previewWidth > 0 && previewHeight > 0 ? previewWidth / previewHeight : 2,
@@ -722,22 +682,8 @@ export default function PanoramaModal({
                     color={TextColors.success}
                     className="flex items-center gap-2"
                   >
-                    {saveReduced ? (
-                      <>
-                        <AlertTriangle className="w-5 h-5 text-amber-400" />
-                        <span>
-                          {t('modals.panorama.savedReduced', {
-                            percent: Math.round((savedQuality ?? 1) * 100),
-                            attempts: savedAttempts ?? 1,
-                          })}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="w-5 h-5" />
-                        <span>{t('modals.panorama.savedSuccess')}</span>
-                      </>
-                    )}
+                    <CheckCircle className="w-5 h-5" />
+                    <span>{t('modals.panorama.savedSuccess')}</span>
                   </Text>
                 </motion.div>
               )}
@@ -790,9 +736,7 @@ export default function PanoramaModal({
               </>
             )}
           </div>
-          <div className="col-start-1 row-start-4 min-w-0">
-            {noteText && <p className="text-[11px] leading-snug text-amber-200/90 whitespace-pre-line">{noteText}</p>}
-          </div>
+          <div className="col-start-1 row-start-4 min-w-0" />
         </div>
       );
     }
@@ -872,12 +816,6 @@ export default function PanoramaModal({
       );
     }
 
-    const noteText = saveNoteCode
-      ? t(`modals.panorama.${saveNoteCode.code}` as never, {
-          percent: saveNoteCode.percent ?? 0,
-          next: saveNoteCode.next ?? 0,
-        })
-      : saveNote;
     const percent = saveProgressPercent ?? 0;
     return (
       <div className="w-full flex flex-col gap-2">
@@ -896,7 +834,6 @@ export default function PanoramaModal({
                 style={{ width: `${Math.max(2, Math.min(100, percent))}%` }}
               />
             </div>
-            {noteText && <p className="text-[11px] leading-snug text-amber-200/90 whitespace-pre-line">{noteText}</p>}
           </div>
         )}
         <div className="flex items-center justify-end gap-2 shrink-0 w-full">

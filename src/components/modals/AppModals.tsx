@@ -1,6 +1,6 @@
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
-import { useUIStore } from '../../store/useUIStore';
+import { initialPanoramaModalState, useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useProcessStore } from '../../store/useProcessStore';
@@ -21,10 +21,7 @@ import { CopyPasteSettings } from '../../utils/adjustments';
 export interface AppModalsProps {
   handleImageSelect: (path: string) => void;
   handleSavePanorama: (crop?: { x: number; y: number; width: number; height: number } | null) => Promise<string>;
-  handleStartPanorama: (
-    paths: string[],
-    options: { cropFactor: number; focal35: number; estimateIntrinsics: boolean; scale: 'full' | 'half' },
-  ) => void;
+  handleStartPanorama: (paths: string[]) => void;
   handleReprojectPanorama: (projection: string) => void;
   handleCancelPanorama: () => void;
   handleSaveHdr: () => Promise<string>;
@@ -162,52 +159,20 @@ export default function AppModals(props: AppModalsProps) {
         loadingImageUrls={panoramaThumbnails}
         onClose={() => {
           props.handleCancelPanorama();
-          setUI({
-            panoramaModalState: {
-              isOpen: false,
-              isProcessing: false,
-              progressMessage: '',
-              finalImageBase64: null,
-              error: null,
-              stitchingSourcePaths: [],
-              overlayBase64: null,
-              winnerMapBase64: null,
-              frames: null,
-              dropped: [],
-              recommendedProjection: null,
-              selectedProjection: null,
-              crop: null,
-              previewWidth: 0,
-              previewHeight: 0,
-              filenames: [],
-              saveProgressPercent: null,
-              saveProgressMessage: null,
-              saveNote: null,
-              saveNoteCode: null,
-              quality: 1,
-              savedQuality: null,
-              savedAttempts: null,
-              saveReduced: false,
-            },
-          });
+          setUI({ panoramaModalState: initialPanoramaModalState });
         }}
         onOpenFile={(path: string) => props.handleImageSelect(path)}
         onProjectionChange={(projection) => props.handleReprojectPanorama(projection)}
         onSave={(crop) => props.handleSavePanorama(crop)}
-        onStitch={(options) => props.handleStartPanorama(panoramaModalState.stitchingSourcePaths, options)}
+        onStitch={() => props.handleStartPanorama(panoramaModalState.stitchingSourcePaths)}
         overlayBase64={panoramaModalState.overlayBase64}
         previewHeight={panoramaModalState.previewHeight}
         previewWidth={panoramaModalState.previewWidth}
         progressMessage={panoramaModalState.progressMessage}
         recommendedProjection={panoramaModalState.recommendedProjection}
         saveProgressMessage={panoramaModalState.saveProgressMessage}
-        saveNote={panoramaModalState.saveNote}
-        saveNoteCode={panoramaModalState.saveNoteCode}
         quality={panoramaModalState.quality}
         onQualityChange={(v) => setUI((st) => ({ panoramaModalState: { ...st.panoramaModalState, quality: v } }))}
-        savedQuality={panoramaModalState.savedQuality}
-        savedAttempts={panoramaModalState.savedAttempts}
-        saveReduced={panoramaModalState.saveReduced}
         saveProgressPercent={panoramaModalState.saveProgressPercent}
         selectedProjection={panoramaModalState.selectedProjection}
         winnerMapBase64={panoramaModalState.winnerMapBase64}

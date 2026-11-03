@@ -58,7 +58,7 @@ import { useContextMenu } from '../context/ContextMenuContext';
 import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { JobKind, useProcessStore } from '../store/useProcessStore';
-import { useUIStore } from '../store/useUIStore';
+import { initialPanoramaModalState, useUIStore } from '../store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import {
   Invokes,
@@ -844,30 +844,9 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
               onClick: () => {
                 setUI({
                   panoramaModalState: {
-                    error: null,
-                    finalImageBase64: null,
+                    ...initialPanoramaModalState,
                     isOpen: true,
-                    isProcessing: false,
-                    progressMessage: null,
                     stitchingSourcePaths: finalSelection,
-                    overlayBase64: null,
-                    winnerMapBase64: null,
-                    frames: null,
-                    dropped: [],
-                    recommendedProjection: null,
-                    selectedProjection: null,
-                    crop: null,
-                    previewWidth: 0,
-                    previewHeight: 0,
-                    filenames: [],
-                    saveProgressPercent: null,
-                    saveProgressMessage: null,
-                    saveNote: null,
-                    saveNoteCode: null,
-                    quality: 1,
-                    savedQuality: null,
-                    savedAttempts: null,
-                    saveReduced: false,
                   },
                 });
               },

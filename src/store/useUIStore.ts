@@ -66,12 +66,7 @@ interface PanoramaModalState {
   filenames: Array<string>;
   saveProgressPercent: number | null;
   saveProgressMessage: string | null;
-  saveNote: string | null;
-  saveNoteCode: { code: string; percent?: number; next?: number } | null;
   quality: number;
-  savedQuality: number | null;
-  savedAttempts: number | null;
-  saveReduced: boolean;
   frames: Array<PanoramaFrameInfo> | null;
 }
 
@@ -144,6 +139,28 @@ export const DEFAULT_PANEL_WIDTH = 350;
 export const DEFAULT_PANEL_SECTION_HEIGHT = 450;
 export const DEFAULT_BOTTOM_PANEL_HEIGHT = 144;
 const MIN_REOPENED_PANEL_WIDTH = 250;
+
+export const initialPanoramaModalState: PanoramaModalState = {
+  error: null,
+  finalImageBase64: null,
+  isOpen: false,
+  isProcessing: false,
+  progressMessage: null,
+  stitchingSourcePaths: [],
+  overlayBase64: null,
+  winnerMapBase64: null,
+  frames: null,
+  dropped: [],
+  recommendedProjection: null,
+  selectedProjection: null,
+  crop: null,
+  previewWidth: 0,
+  previewHeight: 0,
+  filenames: [],
+  saveProgressPercent: null,
+  saveProgressMessage: null,
+  quality: 1,
+};
 
 export const getReopenedPanelWidth = (width: number) =>
   width < MIN_REOPENED_PANEL_WIDTH ? DEFAULT_PANEL_WIDTH : width;
@@ -384,32 +401,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   albumActionTarget: null,
 
   confirmModalState: { isOpen: false },
-  panoramaModalState: {
-    error: null,
-    finalImageBase64: null,
-    isOpen: false,
-    isProcessing: false,
-    progressMessage: '',
-    stitchingSourcePaths: [],
-    overlayBase64: null,
-    winnerMapBase64: null,
-    frames: null,
-    dropped: [],
-    recommendedProjection: null,
-    selectedProjection: null,
-    crop: null,
-    previewWidth: 0,
-    previewHeight: 0,
-    filenames: [],
-    saveProgressPercent: null,
-    saveProgressMessage: null,
-    saveNote: null,
-    saveNoteCode: null,
-    quality: 1,
-    savedQuality: null,
-    savedAttempts: null,
-    saveReduced: false,
-  },
+  panoramaModalState: initialPanoramaModalState,
   focusStackModalState: {
     error: null,
     finalImageBase64: null,

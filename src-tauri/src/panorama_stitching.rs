@@ -48,14 +48,9 @@ pub struct Match {
 #[tauri::command]
 pub async fn stitch_panorama(
     paths: Vec<String>,
-    crop_factor: f64,
-    focal35: f64,
-    estimate_intrinsics: bool,
-    scale: String,
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    let _ = (&crop_factor, &focal35, &estimate_intrinsics, &scale);
     if paths.len() < 2 {
         return Err("Please select at least two images to stitch.".to_string());
     }
@@ -65,10 +60,7 @@ pub async fn stitch_panorama(
         .collect();
     let session_handle = state.panorama_session.clone();
     let stop = StitchLog::new(arm_stop(&state));
-    stitch_log::phase(&format!(
-        "merge started files={} scale={scale}",
-        source_paths.len()
-    ));
+    stitch_log::phase(&format!("merge started files={}", source_paths.len()));
     let task = tokio::task::spawn_blocking(move || {
         if stop.halted() {
             stop.note_stop();

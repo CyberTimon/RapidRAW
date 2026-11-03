@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { useUIStore } from '../store/useUIStore';
+import { initialPanoramaModalState, useUIStore } from '../store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { Invokes } from '../components/ui/AppProperties';
 
@@ -50,34 +50,7 @@ export function useAndroidBackHandler() {
       }
       if (ui.panoramaModalState.isOpen) {
         invoke(Invokes.CancelPanorama).catch(() => {});
-        ui.setUI({
-          panoramaModalState: {
-            isOpen: false,
-            isProcessing: false,
-            progressMessage: '',
-            finalImageBase64: null,
-            error: null,
-            stitchingSourcePaths: [],
-            overlayBase64: null,
-            winnerMapBase64: null,
-            frames: null,
-            dropped: [],
-            recommendedProjection: null,
-            selectedProjection: null,
-            crop: null,
-            previewWidth: 0,
-            previewHeight: 0,
-            filenames: [],
-            saveProgressPercent: null,
-            saveProgressMessage: null,
-            saveNote: null,
-            saveNoteCode: null,
-            quality: 1,
-            savedQuality: null,
-            savedAttempts: null,
-            saveReduced: false,
-          },
-        });
+        ui.setUI({ panoramaModalState: initialPanoramaModalState });
         return;
       }
       if (ui.hdrModalState.isOpen) {
