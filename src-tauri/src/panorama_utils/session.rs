@@ -54,7 +54,6 @@ pub struct PanoramaSession {
     pub registration: Registration,
     pub preview_width: u32,
     pub preview_height: u32,
-    pub composite: Vec<f32>,
     pub composite_width: u32,
     pub composite_height: u32,
     pub frames: Arc<[Frame]>,

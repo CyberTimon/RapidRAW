@@ -198,9 +198,13 @@ fn reduce_axis(
     (out, painted)
 }
 
+fn down_painted(b: &Buf, covered: Option<&[f32]>, tick: Option<&BlendTick>) -> (Buf, Vec<f32>) {
+    let (tmp, painted) = reduce_axis(b, covered, true, tick);
+    reduce_axis(&tmp, Some(&painted), false, tick)
+}
+
 pub fn down(b: &Buf, covered: Option<&Buf>, tick: Option<&BlendTick>) -> Buf {
-    let (tmp, painted) = reduce_axis(b, covered.map(|m| &m.data[..]), true, tick);
-    reduce_axis(&tmp, Some(&painted), false, tick).0
+    down_painted(b, covered.map(|m| &m.data[..]), tick).0
 }
 
 fn up_row(b: &Buf, y: usize, w: usize, mut put: impl FnMut(usize, usize, f32)) {
@@ -338,58 +342,50 @@ impl Blender {
         let mut c = covered;
         for l in 0..=self.levels {
             let (ox, oy) = (x0 >> l, y0 >> l);
-            let (gn, mn, cn) = if l < self.levels {
-                (
-                    Some(down(&g, Some(&c), tick)),
-                    Some(down(&m, Some(&c), tick)),
-                    Some(down(&c, Some(&c), tick)),
-                )
-            } else {
-                (None, None, None)
-            };
-            let lap = match &gn {
-                Some(gn) => {
-                    let u = up(gn, g.w, g.h, tick);
-                    let mut lap = g.clone();
-                    for (a, b) in lap.data.iter_mut().zip(&u.data) {
-                        *a -= b;
-                    }
-                    lap
-                }
-                None => g.clone(),
-            };
+            let next = (l < self.levels).then(|| {
+                let (gn, painted) = down_painted(&g, Some(&c.data), tick);
+                let mn = down(&m, Some(&c), tick);
+                let u = up(&gn, g.w, g.h, tick);
+                g.data
+                    .par_iter_mut()
+                    .zip(u.data.par_iter())
+                    .for_each(|(a, b)| *a -= b);
+                let cn = Buf {
+                    w: gn.w,
+                    h: gn.h,
+                    c: 1,
+                    data: painted,
+                };
+                (gn, mn, cn)
+            });
             let (acc, ws) = (&mut self.acc[l], &mut self.wsum[l]);
             let aw = acc.w;
-            let tw = lap.w;
-            acc.data
+            let rows = g.h.min(acc.h.saturating_sub(oy));
+            acc.data[oy * aw * 3..(oy + rows) * aw * 3]
                 .par_chunks_mut(aw * 3)
-                .zip(ws.data.par_chunks_mut(aw))
-                .enumerate()
-                .for_each(|(y, (arow, wrow))| {
-                    if y < oy || y >= oy + lap.h {
-                        return;
-                    }
-                    let ty = y - oy;
-                    for tx in 0..tw {
-                        let x = ox + tx;
-                        if x >= aw {
-                            break;
-                        }
-                        let mk = m.data[ty * tw + tx];
+                .zip(ws.data[oy * aw..(oy + rows) * aw].par_chunks_mut(aw))
+                .zip(g.data.par_chunks(g.w * 3).zip(m.data.par_chunks(g.w)))
+                .for_each(|((arow, wrow), (lrow, mrow))| {
+                    for (((a, w), lap), &mk) in arow[ox * 3..]
+                        .chunks_mut(3)
+                        .zip(&mut wrow[ox..])
+                        .zip(lrow.chunks(3))
+                        .zip(mrow)
+                    {
                         if mk <= 0.0 {
                             continue;
                         }
-                        for ch in 0..3 {
-                            arow[x * 3 + ch] += lap.data[(ty * tw + tx) * 3 + ch] * mk;
+                        for (a, &v) in a.iter_mut().zip(lap) {
+                            *a += v * mk;
                         }
-                        wrow[x] += mk;
+                        *w += mk;
                     }
                     tick_row(tick);
                 });
             if let Some(tick) = tick {
                 tick.flush();
             }
-            if let (Some(gn), Some(mn), Some(cn)) = (gn, mn, cn) {
+            if let Some((gn, mn, cn)) = next {
                 g = gn;
                 m = mn;
                 c = cn;

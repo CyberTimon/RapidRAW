@@ -243,36 +243,42 @@ fn dist2(a: &[f32; DESC_LEN], b: &[f32; DESC_LEN]) -> f32 {
     s
 }
 
-fn nearest(a: &Features, b: &Features) -> Vec<(usize, f32, f32)> {
-    a.desc
-        .par_iter()
-        .map(|da| {
-            let (mut bi, mut d1, mut d2) = (usize::MAX, f32::INFINITY, f32::INFINITY);
-            for (j, db) in b.desc.iter().enumerate() {
-                let d = dist2(da, db);
-                if d < d1 {
-                    d2 = d1;
-                    d1 = d;
-                    bi = j;
-                } else if d < d2 {
-                    d2 = d;
-                }
-            }
-            (bi, d1, d2)
-        })
-        .collect()
+fn nearest_two(dists: impl Iterator<Item = f32>) -> (usize, f32, f32) {
+    let (mut bi, mut d1, mut d2) = (usize::MAX, f32::INFINITY, f32::INFINITY);
+    for (j, d) in dists.enumerate() {
+        if d < d1 {
+            d2 = d1;
+            d1 = d;
+            bi = j;
+        } else if d < d2 {
+            d2 = d;
+        }
+    }
+    (bi, d1, d2)
 }
 
 pub fn match_features(a: &Features, b: &Features, ratio: f32) -> Vec<(usize, usize)> {
     if a.is_empty() || b.is_empty() {
         return vec![];
     }
-    let ab = nearest(a, b);
-    let ba = nearest(b, a);
+    let nb = b.len();
+    let dist: Vec<f32> = a
+        .desc
+        .par_iter()
+        .flat_map_iter(|da| b.desc.iter().map(move |db| dist2(da, db)))
+        .collect();
+    let ab: Vec<(usize, f32, f32)> = dist
+        .par_chunks(nb)
+        .map(|row| nearest_two(row.iter().copied()))
+        .collect();
+    let ba: Vec<usize> = (0..nb)
+        .into_par_iter()
+        .map(|j| nearest_two(dist[j..].iter().step_by(nb).copied()).0)
+        .collect();
     let r2 = ratio * ratio;
     ab.iter()
         .enumerate()
-        .filter(|(i, (j, d1, d2))| *j != usize::MAX && *d1 < r2 * *d2 && ba[*j].0 == *i)
+        .filter(|(i, (j, d1, d2))| *j != usize::MAX && *d1 < r2 * *d2 && ba[*j] == *i)
         .map(|(i, (j, _, _))| (i, *j))
         .collect()
 }

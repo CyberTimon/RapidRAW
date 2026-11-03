@@ -436,7 +436,6 @@ fn run_stitch(
         registration: reg,
         preview_width: 0,
         preview_height: 0,
-        composite: Vec::new(),
         composite_width: 0,
         composite_height: 0,
         frames: frames.into(),
@@ -449,7 +448,6 @@ fn run_stitch(
 }
 
 struct PreviewImages {
-    composite: Vec<f32>,
     png: String,
     overlay: String,
     winner_map: String,
@@ -459,22 +457,15 @@ struct PreviewImages {
 
 fn render_display(rendered: &Composed) -> Result<PreviewImages, String> {
     let (w, h) = (rendered.width as u32, rendered.height as u32);
-    let composite = rendered
-        .image
-        .data
-        .iter()
-        .flat_map(|p| p.to_vec())
-        .collect();
     let (dw, dh) = display_size(w, h);
-    let img = Rgb32FImage::from_raw(w, h, composite)
+    let small = resize_box(&rendered.image, dw as usize, dh as usize);
+    let img = Rgb32FImage::from_raw(dw, dh, small.data.into_flattened())
         .ok_or_else(|| "Could not build preview.".to_string())?;
-    let small = image::imageops::resize(&img, dw, dh, image::imageops::FilterType::Lanczos3);
-    let display = apply_linear_to_srgb(DynamicImage::ImageRgb32F(small));
+    let display = apply_linear_to_srgb(DynamicImage::ImageRgb32F(img));
     let png = encode_png(&display.to_rgb8())?;
     let winners = resize_winners(&rendered.label, w, h, dw, dh);
     let overlay = generate_overlay(&winners, dw, dh)?;
     Ok(PreviewImages {
-        composite: img.into_raw(),
         png,
         overlay: general_purpose::STANDARD.encode(overlay.boundary_png),
         winner_map: general_purpose::STANDARD.encode(overlay.winner_map_png),
@@ -486,7 +477,6 @@ fn render_display(rendered: &Composed) -> Result<PreviewImages, String> {
 fn fill_preview(session: &mut PanoramaSession, rendered: &Composed, preview: PreviewImages) {
     session.preview_scale = rendered.scale;
     session.gains = rendered.gains.clone();
-    session.composite = preview.composite;
     session.composite_width = rendered.width as u32;
     session.composite_height = rendered.height as u32;
     if !session.crop_edited {
