@@ -609,7 +609,7 @@ pub fn build_wgpu_display(
         view: DisplayView::default(),
         frame: None,
         #[cfg(target_os = "linux")]
-        wayland: platform,
+        wayland: _platform,
     })
 }
 

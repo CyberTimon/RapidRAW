@@ -1,6 +1,8 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
+#[cfg(target_os = "linux")]
+use std::sync::OnceLock;
 use std::sync::{LazyLock, Mutex};
 
 use serde::{Deserialize, Serialize};
