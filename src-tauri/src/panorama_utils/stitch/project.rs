@@ -1,3 +1,4 @@
+use nalgebra::Vector3;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -15,7 +16,7 @@ impl Projection {
         Projection::Perspective,
     ];
     #[inline]
-    pub fn forward(self, d: [f64; 3], f: f64) -> Option<(f64, f64)> {
+    pub fn forward(self, d: Vector3<f64>, f: f64) -> Option<(f64, f64)> {
         match self {
             Projection::Perspective => {
                 if d[2] <= 1e-6 {

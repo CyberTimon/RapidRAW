@@ -3,11 +3,11 @@ pub mod camera;
 pub mod finish;
 pub mod project;
 
+use nalgebra::{DMatrix, DVector, Vector3};
 use rayon::prelude::*;
 const MAX_TOTAL_PIXELS: f64 = 512e6;
 
 use super::features;
-use super::linalg;
 use super::log;
 use super::message::PanoMessage;
 use super::raster::{Rgb32f, into_pixels, try_zeroed};
@@ -85,9 +85,11 @@ fn outline(
         .collect::<Option<Vec<_>>>()?;
     if proj == Projection::Spherical {
         for pole in [-1.0, 1.0] {
-            if c.project([0.0, pole, 0.0]).is_some_and(|(x, y)| {
-                (0.0..=w as f64).contains(&x) && (0.0..=h as f64).contains(&y)
-            }) {
+            if c.project(Vector3::new(0.0, pole, 0.0))
+                .is_some_and(|(x, y)| {
+                    (0.0..=w as f64).contains(&x) && (0.0..=h as f64).contains(&y)
+                })
+            {
                 let (t, p) = (
                     std::f64::consts::PI * f,
                     pole * std::f64::consts::FRAC_PI_2 * f,
@@ -199,11 +201,7 @@ pub fn register(frames: &[Frame], stop: &log::StitchLog) -> Result<Registration,
         if !(ids.contains(&p.i) && ids.contains(&p.j)) {
             continue;
         }
-        let ci = (sizes[p.i].0 as f64 / 2.0, sizes[p.i].1 as f64 / 2.0);
-        let cj = (sizes[p.j].0 as f64 / 2.0, sizes[p.j].1 as f64 / 2.0);
-        let ti = super::geom::Homography([1.0, 0.0, ci.0, 0.0, 1.0, ci.1, 0.0, 0.0, 1.0]);
-        let tj = super::geom::Homography([1.0, 0.0, -cj.0, 0.0, 1.0, -cj.1, 0.0, 0.0, 1.0]);
-        let hc = tj.mul(&p.h).mul(&ti);
+        let hc = camera::centred(&p.h, sizes[p.i], sizes[p.j]);
         if let (Some(a), Some(b)) = camera::focals_from_homography(&hc) {
             fs.push((a * b).sqrt());
         }
@@ -642,10 +640,10 @@ impl Layout {
         let (s, t) = self
             .projection
             .row(y as f64 + 0.5 + self.origin.1, self.f_out);
-        let tr1 = [0, 1, 2].map(|k| t * r[k][1]);
+        let tr1 = r.column(1) * t;
         for (x, &(a, b)) in self.columns[x0..x1].iter().enumerate() {
             let x = x0 + x;
-            let p = [0, 1, 2].map(|k| s * (a * r[k][0] + b * r[k][2]) + tr1[k]);
+            let p = (r.column(0) * a + r.column(2) * b) * s + tr1;
             let Some((px, py)) = c.pixel(p) else {
                 continue;
             };
@@ -950,9 +948,11 @@ fn compensate_gains(tiles: &[Vec<Tile>], gains: &mut [f64], frames: &[Frame]) {
             b[i] = g0[i];
         }
     }
-    if let Some(g) = linalg::solve(a, b, n)
+    if let Some(g) = DMatrix::from_row_slice(n, n, &a)
+        .lu()
+        .solve(&DVector::from_vec(b))
         && g.iter().all(|v| v.is_finite() && *v > 0.0)
     {
-        gains.copy_from_slice(&g);
+        gains.copy_from_slice(g.as_slice());
     }
 }

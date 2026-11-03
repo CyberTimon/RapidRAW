@@ -1,107 +1,99 @@
-use crate::panorama_utils::geom::{Homography, Point};
+use nalgebra::{Matrix3, Point2, SMatrix, SVector, Vector2};
+use rand::SeedableRng;
+use rand::rngs::SmallRng;
+use rand::seq::index;
 
-use super::linalg::sym_eigen;
+pub type Point = Point2<f64>;
 
 const SAMPLE_SIZE: usize = 4;
 
 #[derive(Clone, Debug)]
 pub struct Fit {
-    pub h: Homography,
+    pub h: Matrix3<f64>,
     pub inliers: Vec<usize>,
 }
 
-pub struct Rng(u64);
-
-impl Rng {
-    pub fn new(seed: u64) -> Rng {
-        Rng(seed.max(1))
-    }
-    pub fn next_u64(&mut self) -> u64 {
-        let mut x = self.0;
-        x ^= x >> 12;
-        x ^= x << 25;
-        x ^= x >> 27;
-        self.0 = x;
-        x.wrapping_mul(0x2545_f491_4f6c_dd1d)
-    }
-    pub fn below(&mut self, n: usize) -> usize {
-        (self.next_u64() % n.max(1) as u64) as usize
-    }
-}
-
-fn centroid(p: &[Point]) -> Point {
+fn normaliser(p: &[Point]) -> Matrix3<f64> {
     let n = p.len().max(1) as f64;
-    Point::new(
-        p.iter().map(|q| q.x).sum::<f64>() / n,
-        p.iter().map(|q| q.y).sum::<f64>() / n,
-    )
-}
-
-fn normaliser(p: &[Point]) -> [f64; 3] {
-    let c = centroid(p);
-    let md = p
-        .iter()
-        .map(|q| ((q.x - c.x).powi(2) + (q.y - c.y).powi(2)).sqrt())
-        .sum::<f64>()
-        / p.len().max(1) as f64;
+    let c = p.iter().map(|q| q.coords).sum::<Vector2<f64>>() / n;
+    let md = p.iter().map(|q| (q.coords - c).norm()).sum::<f64>() / n;
     let s = if md > 1e-12 {
         std::f64::consts::SQRT_2 / md
     } else {
         1.0
     };
-    [s, -s * c.x, -s * c.y]
+    Matrix3::new(s, 0.0, -s * c.x, 0.0, s, -s * c.y, 0.0, 0.0, 1.0)
 }
 
-pub fn dlt(a: &[Point], b: &[Point]) -> Option<Homography> {
-    let n = a.len();
-    if n < 4 {
+pub fn dlt(a: &[Point], b: &[Point]) -> Option<Matrix3<f64>> {
+    if a.len() < 4 {
         return None;
     }
     let ta = normaliser(a);
     let tb = normaliser(b);
-    let mut ata = [0.0f64; 81];
-    for i in 0..n {
-        let (x, y) = (a[i].x * ta[0] + ta[1], a[i].y * ta[0] + ta[2]);
-        let (u, v) = (b[i].x * tb[0] + tb[1], b[i].y * tb[0] + tb[2]);
-        let r1 = [-x, -y, -1.0, 0.0, 0.0, 0.0, u * x, u * y, u];
-        let r2 = [0.0, 0.0, 0.0, -x, -y, -1.0, v * x, v * y, v];
-        for r in [r1, r2] {
-            for p in 0..9 {
-                if r[p] == 0.0 {
-                    continue;
-                }
-                for q in 0..9 {
-                    ata[p * 9 + q] += r[p] * r[q];
-                }
-            }
+    let mut ata = SMatrix::<f64, 9, 9>::zeros();
+    for (p, q) in a.iter().zip(b) {
+        let (p, q) = (ta.transform_point(p), tb.transform_point(q));
+        let (x, y, u, v) = (p.x, p.y, q.x, q.y);
+        for r in [
+            SVector::<f64, 9>::from([-x, -y, -1.0, 0.0, 0.0, 0.0, u * x, u * y, u]),
+            SVector::<f64, 9>::from([0.0, 0.0, 0.0, -x, -y, -1.0, v * x, v * y, v]),
+        ] {
+            ata += r * r.transpose();
         }
     }
-    let (_, vecs) = sym_eigen(&ata, 9);
-    let h = &vecs[0];
-    let hn = Homography([h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7], h[8]]);
-    let ta_m = Homography([ta[0], 0.0, ta[1], 0.0, ta[0], ta[2], 0.0, 0.0, 1.0]);
-    let tb_inv = Homography([
-        1.0 / tb[0],
-        0.0,
-        -tb[1] / tb[0],
-        0.0,
-        1.0 / tb[0],
-        -tb[2] / tb[0],
-        0.0,
-        0.0,
-        1.0,
-    ]);
-    let h = tb_inv.mul(&hn).mul(&ta_m);
-    let s = h.0[8];
-    if s.abs() < 1e-14 || h.0.iter().any(|v| !v.is_finite()) {
+    let eig = ata.symmetric_eigen();
+    let h = eig.eigenvectors.column(eig.eigenvalues.imin());
+    let hn = Matrix3::from_row_iterator(h.iter().copied());
+    let h = tb.try_inverse()? * hn * ta;
+    let s = h[(2, 2)];
+    if s.abs() < 1e-14 || h.iter().any(|v| !v.is_finite()) {
         return None;
     }
-    Some(Homography(h.0.map(|v| v / s)))
+    Some(h / s)
 }
 
-pub fn transfer_error2(h: &Homography, a: Point, b: Point) -> f64 {
-    let p = h.apply(a);
-    (p.x - b.x).powi(2) + (p.y - b.y).powi(2)
+pub fn apply(h: &Matrix3<f64>, p: Point) -> Point {
+    let v = h * p.to_homogeneous();
+    Point::from(v.xy() / v.z.clamp(1e-300, f64::MAX))
+}
+
+pub fn transfer_error2(h: &Matrix3<f64>, a: Point, b: Point) -> f64 {
+    (apply(h, a) - b).norm_squared()
+}
+
+fn from_quads(src: &[Point; 4], dst: &[Point; 4]) -> Option<Matrix3<f64>> {
+    let mut a = [0.0; 64];
+    let mut rhs = [0.0; 8];
+    for (i, (p, q)) in src.iter().zip(dst).enumerate() {
+        let (x, y, u, v) = (p.x, p.y, q.x, q.y);
+        a[16 * i..16 * i + 16].copy_from_slice(&[
+            x,
+            y,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            -u * x,
+            -u * y,
+            0.0,
+            0.0,
+            0.0,
+            x,
+            y,
+            1.0,
+            -v * x,
+            -v * y,
+        ]);
+        rhs[2 * i] = u;
+        rhs[2 * i + 1] = v;
+    }
+    let h = SMatrix::<f64, 8, 8>::from_row_slice(&a)
+        .lu()
+        .solve(&SVector::from(rhs))?;
+    Some(Matrix3::new(
+        h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7], 1.0,
+    ))
 }
 
 pub fn ransac(a: &[Point], b: &[Point], thresh: f64, min_inliers: usize, seed: u64) -> Option<Fit> {
@@ -111,41 +103,20 @@ pub fn ransac(a: &[Point], b: &[Point], thresh: f64, min_inliers: usize, seed: u
         return None;
     }
     let t2 = thresh * thresh;
-    let mut rng = Rng::new(seed ^ 0x9e37_79b9_7f4a_7c15);
+    let mut rng = SmallRng::seed_from_u64(seed);
     let mut best: Vec<usize> = Vec::new();
     let mut best_h = None;
     let mut iters = 2000usize;
     let mut it = 0;
     while it < iters {
         it += 1;
-        let mut src = [Point::default(); SAMPLE_SIZE];
-        let mut dst = [Point::default(); SAMPLE_SIZE];
-        let mut idx = [usize::MAX; SAMPLE_SIZE];
-        let mut ok = true;
-        for s in 0..k {
-            let mut tries = 0;
-            let i = loop {
-                let i = rng.below(n);
-                if !idx[..s].contains(&i) {
-                    break i;
-                }
-                tries += 1;
-                if tries > 20 {
-                    ok = false;
-                    break i;
-                }
-            };
-            idx[s] = i;
-            src[s] = a[i];
-            dst[s] = b[i];
-        }
-        if !ok {
-            continue;
-        }
+        let idx = index::sample(&mut rng, n, SAMPLE_SIZE);
+        let src: [Point; SAMPLE_SIZE] = std::array::from_fn(|s| a[idx.index(s)]);
+        let dst: [Point; SAMPLE_SIZE] = std::array::from_fn(|s| b[idx.index(s)]);
         if degenerate(&src) || degenerate(&dst) {
             continue;
         }
-        let Some(h) = Homography::from_quads(&src, &dst) else {
+        let Some(h) = from_quads(&src, &dst) else {
             continue;
         };
         let inl: Vec<usize> = (0..n)
@@ -196,7 +167,9 @@ fn degenerate(p: &[Point; 4]) -> bool {
     for (i, j, k) in [(0, 1, 2), (0, 1, 3), (0, 2, 3), (1, 2, 3)] {
         let area =
             ((p[j].x - p[i].x) * (p[k].y - p[i].y) - (p[j].y - p[i].y) * (p[k].x - p[i].x)).abs();
-        let scale = p[i].dist(p[j]).max(p[i].dist(p[k])).max(1e-9);
+        let scale = nalgebra::distance(&p[i], &p[j])
+            .max(nalgebra::distance(&p[i], &p[k]))
+            .max(1e-9);
         if area < 1e-3 * scale * scale {
             return true;
         }

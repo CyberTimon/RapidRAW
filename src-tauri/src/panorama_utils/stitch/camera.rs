@@ -1,9 +1,8 @@
+use nalgebra::{DMatrix, DVector, Matrix3, Rotation3, Vector2, Vector3};
 use rayon::prelude::*;
 
 use crate::panorama_utils::features::{self, Features};
-use crate::panorama_utils::geom::{Homography, Point};
-use crate::panorama_utils::linalg::{self, M3};
-use crate::panorama_utils::ransac;
+use crate::panorama_utils::ransac::{self, Point};
 
 const MAX_ROTATION_SKEW: f64 = 4.0;
 const BA_CHUNKS: usize = 64;
@@ -11,7 +10,7 @@ const BA_CHUNKS: usize = 64;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Camera {
     pub f: f64,
-    pub r: M3,
+    pub r: Matrix3<f64>,
     pub cx: f64,
     pub cy: f64,
 }
@@ -30,16 +29,19 @@ impl Camera {
         }
     }
     #[inline]
-    pub fn ray(&self, x: f64, y: f64) -> [f64; 3] {
-        let d = [(x - self.cx) / self.f, (y - self.cy) / self.f, 1.0];
-        linalg::apply3(&linalg::transpose3(&self.r), d)
+    pub fn ray(&self, x: f64, y: f64) -> Vector3<f64> {
+        self.r.tr_mul(&Vector3::new(
+            (x - self.cx) / self.f,
+            (y - self.cy) / self.f,
+            1.0,
+        ))
     }
     #[inline]
-    pub fn project(&self, d: [f64; 3]) -> Option<(f64, f64)> {
-        self.pixel(linalg::apply3(&self.r, d))
+    pub fn project(&self, d: Vector3<f64>) -> Option<(f64, f64)> {
+        self.pixel(self.r * d)
     }
     #[inline]
-    pub fn pixel(&self, p: [f64; 3]) -> Option<(f64, f64)> {
+    pub fn pixel(&self, p: Vector3<f64>) -> Option<(f64, f64)> {
         (p[2] > 1e-9).then(|| {
             (
                 self.f * p[0] / p[2] + self.cx,
@@ -53,7 +55,7 @@ impl Camera {
 pub struct PairMatch {
     pub i: usize,
     pub j: usize,
-    pub h: Homography,
+    pub h: Matrix3<f64>,
     pub pts: Vec<(Point, Point)>,
     pub levels: Vec<u8>,
 }
@@ -113,12 +115,11 @@ pub fn match_pairs(
                         .max(feats[j].points[m[k].1].level)
                 })
                 .collect();
-            let s_i = Homography([si, 0.0, 0.0, 0.0, si, 0.0, 0.0, 0.0, 1.0]);
-            let s_j_inv = Homography([1.0 / sj, 0.0, 0.0, 0.0, 1.0 / sj, 0.0, 0.0, 0.0, 1.0]);
+            let scale = |s: f64| Matrix3::new_nonuniform_scaling(&Vector2::new(s, s));
             Some(PairMatch {
                 i,
                 j,
-                h: s_j_inv.mul(&fit.h).mul(&s_i),
+                h: scale(1.0 / sj) * fit.h * scale(si),
                 pts,
                 levels,
             })
@@ -160,9 +161,10 @@ pub fn largest_component(n: usize, pairs: &[PairMatch]) -> Vec<usize> {
         .unwrap_or_default()
 }
 
-pub fn focals_from_homography(h: &Homography) -> (Option<f64>, Option<f64>) {
-    let m = h.0;
-    let (h00, h01, h02, h10, h11, h12, h20, h21) = (m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7]);
+pub fn focals_from_homography(h: &Matrix3<f64>) -> (Option<f64>, Option<f64>) {
+    let (h00, h01, h02) = (h[(0, 0)], h[(0, 1)], h[(0, 2)]);
+    let (h10, h11, h12) = (h[(1, 0)], h[(1, 1)], h[(1, 2)]);
+    let (h20, h21) = (h[(2, 0)], h[(2, 1)]);
     let pick = |n1: f64, d1: f64, n2: f64, d2: f64| -> Option<f64> {
         let a = (d1.abs() > 1e-12).then(|| n1 / d1).filter(|v| *v > 0.0);
         let b = (d2.abs() > 1e-12).then(|| n2 / d2).filter(|v| *v > 0.0);
@@ -195,41 +197,40 @@ pub fn focals_from_homography(h: &Homography) -> (Option<f64>, Option<f64>) {
     (f0, f1)
 }
 
-fn centred(h: &Homography, ci: (f64, f64), cj: (f64, f64)) -> Homography {
-    let ti = Homography([1.0, 0.0, ci.0, 0.0, 1.0, ci.1, 0.0, 0.0, 1.0]);
-    let tj_inv = Homography([1.0, 0.0, -cj.0, 0.0, 1.0, -cj.1, 0.0, 0.0, 1.0]);
-    tj_inv.mul(h).mul(&ti)
+pub fn centred(h: &Matrix3<f64>, size_i: (usize, usize), size_j: (usize, usize)) -> Matrix3<f64> {
+    let shift = |(w, h): (usize, usize), s: f64| {
+        Matrix3::new_translation(&Vector2::new(s * w as f64 / 2.0, s * h as f64 / 2.0))
+    };
+    shift(size_j, -1.0) * h * shift(size_i, 1.0)
+}
+
+fn orthonormalize(m: &Matrix3<f64>) -> Matrix3<f64> {
+    let svd = m.svd(true, true);
+    match (svd.u, svd.v_t) {
+        (Some(u), Some(v_t)) => u * v_t,
+        _ => Matrix3::identity(),
+    }
 }
 
 pub fn relative_rotation(
-    h: &Homography,
+    h: &Matrix3<f64>,
     size_i: (usize, usize),
     size_j: (usize, usize),
     fi: f64,
     fj: f64,
-) -> Option<M3> {
-    let c = |s: (usize, usize)| (s.0 as f64 / 2.0, s.1 as f64 / 2.0);
-    let hc = centred(h, c(size_i), c(size_j));
-    let k = [[fi, 0.0, 0.0], [0.0, fi, 0.0], [0.0, 0.0, 1.0]];
-    let kinv = [[1.0 / fj, 0.0, 0.0], [0.0, 1.0 / fj, 0.0], [0.0, 0.0, 1.0]];
-    let hm = [
-        [hc.0[0], hc.0[1], hc.0[2]],
-        [hc.0[3], hc.0[4], hc.0[5]],
-        [hc.0[6], hc.0[7], hc.0[8]],
-    ];
-    let rel = linalg::mul3(&linalg::mul3(&kinv, &hm), &k);
-    let d = linalg::det3(&rel);
+) -> Option<Matrix3<f64>> {
+    let k = |f: f64| Matrix3::from_diagonal(&Vector3::new(f, f, 1.0));
+    let rel = k(1.0 / fj) * centred(h, size_i, size_j) * k(fi);
+    let d = rel.determinant();
     if !d.is_finite() || d.abs() < 1e-12 {
         return None;
     }
-    let s = d.cbrt();
-    let rel = rel.map(|r| r.map(|v| v / s));
-    if rel[2][2] <= 0.0 {
+    let rel = rel / d.cbrt();
+    if rel[(2, 2)] <= 0.0 {
         return None;
     }
-    let rtr = linalg::mul3(&linalg::transpose3(&rel), &rel);
-    let (sv, _) = linalg::sym_eigen(rtr.as_flattened(), 3);
-    (sv[2] <= MAX_ROTATION_SKEW * MAX_ROTATION_SKEW * sv[0]).then(|| linalg::orthonormalize(&rel))
+    let sv = (rel.transpose() * rel).symmetric_eigenvalues();
+    (sv.max() <= MAX_ROTATION_SKEW * MAX_ROTATION_SKEW * sv.min()).then(|| orthonormalize(&rel))
 }
 
 pub fn initial_cameras(
@@ -255,7 +256,7 @@ pub fn initial_cameras(
     let c = |k: usize| (sizes[k].0 as f64 / 2.0, sizes[k].1 as f64 / 2.0);
     cams[root] = Some(Camera {
         f: focal_for(root),
-        r: linalg::I3,
+        r: Matrix3::identity(),
         cx: c(root).0,
         cy: c(root).1,
     });
@@ -272,7 +273,7 @@ pub fn initial_cameras(
                 (false, true) => (
                     e.j,
                     e.i,
-                    match e.h.inverse() {
+                    match e.h.try_inverse() {
                         Some(h) => h,
                         None => continue,
                     },
@@ -293,7 +294,7 @@ pub fn initial_cameras(
             };
             cams[new] = Some(Camera {
                 f: focal_for(new),
-                r: linalg::mul3(&rel, &rk),
+                r: rel * rk,
                 cx: c(new).0,
                 cy: c(new).1,
             });
@@ -333,9 +334,9 @@ fn residual(ci: &Camera, cj: &Camera, a: Point, b: Point) -> [f64; 4] {
 fn perturb(c: &Camera, k: usize, eps: f64) -> Camera {
     let mut c = *c;
     if k < 3 {
-        let mut w = [0.0; 3];
+        let mut w = Vector3::zeros();
         w[k] = eps;
-        c.r = linalg::mul3(&linalg::rodrigues(w), &c.r);
+        c.r = Rotation3::new(w).into_inner() * c.r;
     } else {
         c.f += eps;
     }
@@ -483,7 +484,11 @@ pub fn bundle_adjust(
                 let d = a[p * np + p];
                 a[p * np + p] = d + lambda * d.max(1e-9) + 1e-12;
             }
-            let Some(delta) = linalg::solve(a, jtr.iter().map(|v| -v).collect(), np) else {
+            let Some(delta) = DMatrix::from_row_slice(np, np, &a)
+                .lu()
+                .solve(&-DVector::from_column_slice(&jtr))
+                .filter(|d| d.iter().all(|v| v.is_finite()))
+            else {
                 lambda *= 10.0;
                 continue;
             };
@@ -494,10 +499,8 @@ pub fn bundle_adjust(
                 };
                 let b = 4 * b;
                 if cam != anchor {
-                    c.r = linalg::orthonormalize(&linalg::mul3(
-                        &linalg::rodrigues([delta[b], delta[b + 1], delta[b + 2]]),
-                        &c.r,
-                    ));
+                    let w = delta.fixed_rows::<3>(b).into_owned();
+                    c.r = orthonormalize(&(Rotation3::new(w).into_inner() * c.r));
                 }
                 c.f = (c.f + delta[b + 3]).max(1.0);
             }
@@ -525,50 +528,45 @@ pub fn bundle_adjust(
     }
 }
 
-fn flatten(v: [f64; 3], axis: [f64; 3]) -> [f64; 3] {
-    let k = linalg::dot(v, axis);
-    [v[0] - k * axis[0], v[1] - k * axis[1], v[2] - k * axis[2]]
+fn flatten(v: Vector3<f64>, axis: Vector3<f64>) -> Vector3<f64> {
+    v - axis * v.dot(&axis)
+}
+
+fn unit(v: Vector3<f64>) -> Vector3<f64> {
+    v.try_normalize(0.0).unwrap_or(v)
 }
 
 pub fn straighten(cams: &mut [Option<Camera>]) {
-    let rs: Vec<M3> = cams.iter().flatten().map(|c| c.r).collect();
+    let rs: Vec<Matrix3<f64>> = cams.iter().flatten().map(|c| c.r).collect();
     if rs.is_empty() {
         return;
     }
-    let mut cov = [0.0f64; 9];
-    let (mut ysum, mut zsum, mut xsum) = ([0.0; 3], [0.0; 3], [0.0; 3]);
-    for r in &rs {
-        let (x, y, z) = (r[0], r[1], r[2]);
-        for a in 0..3 {
-            for b in 0..3 {
-                cov[a * 3 + b] += x[a] * x[b];
-            }
-            ysum[a] += y[a];
-            zsum[a] += z[a];
-            xsum[a] += x[a];
-        }
+    let row = |r: &Matrix3<f64>, k: usize| r.row(k).transpose();
+    let cov: Matrix3<f64> = rs.iter().map(|r| row(r, 0) * row(r, 0).transpose()).sum();
+    let xsum: Vector3<f64> = rs.iter().map(|r| row(r, 0)).sum();
+    let ysum: Vector3<f64> = rs.iter().map(|r| row(r, 1)).sum();
+    let zsum: Vector3<f64> = rs.iter().map(|r| row(r, 2)).sum();
+    let eig = cov.symmetric_eigen();
+    let mut order = [0, 1, 2];
+    order.sort_by(|&a, &b| eig.eigenvalues[a].total_cmp(&eig.eigenvalues[b]));
+    let mut down = eig.eigenvectors.column(order[0]).into_owned();
+    if eig.eigenvalues[order[1]] < 0.05 * eig.eigenvalues[order[2]] {
+        down = unit(flatten(ysum, unit(xsum)));
     }
-    let (vals, vecs) = linalg::sym_eigen(&cov, 3);
-    let mut down = [vecs[0][0], vecs[0][1], vecs[0][2]];
-    if vals[1] < 0.05 * vals[2] {
-        down = linalg::normalize(flatten(ysum, linalg::normalize(xsum)));
-    }
-    if linalg::dot(down, ysum) < 0.0 {
-        down = down.map(|v| -v);
+    if down.dot(&ysum) < 0.0 {
+        down = -down;
     }
     let mut fwd = flatten(zsum, down);
-    if linalg::norm(fwd) < 1e-3 * rs.len() as f64 {
+    if fwd.norm() < 1e-3 * rs.len() as f64 {
         fwd = rs
             .iter()
-            .map(|r| flatten(r[2], down))
-            .max_by(|a, b| linalg::norm(*a).total_cmp(&linalg::norm(*b)))
+            .map(|r| flatten(row(r, 2), down))
+            .max_by(|a, b| a.norm().total_cmp(&b.norm()))
             .unwrap_or(fwd);
     }
-    let fwd = linalg::normalize(fwd);
-    let right = linalg::cross(down, fwd);
-    let w = [right, down, fwd];
-    let wt = linalg::transpose3(&w);
+    let fwd = unit(fwd);
+    let wt = Matrix3::from_columns(&[down.cross(&fwd), down, fwd]);
     for c in cams.iter_mut().flatten() {
-        c.r = linalg::mul3(&c.r, &wt);
+        c.r *= wt;
     }
 }
