@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import ReactCrop, { type PercentCrop } from 'react-image-crop';
@@ -20,6 +20,24 @@ interface PanoramaPreviewPaneProps {
   reprojecting: boolean;
 }
 
+interface FrameTooltipProps {
+  frameRef: RefObject<HTMLDivElement | null>;
+  preview: PanoramaPreview;
+  stageRef: RefObject<HTMLDivElement | null>;
+}
+
+interface WinnerMap {
+  data: Uint8ClampedArray;
+  width: number;
+  height: number;
+}
+
+interface Hover {
+  index: number;
+  x: number;
+  y: number;
+}
+
 function exifLine(f: PanoramaFrameInfo): string {
   const m = f.meta;
   if (!m) return '';
@@ -32,6 +50,93 @@ function exifLine(f: PanoramaFrameInfo): string {
   return parts.join('  ');
 }
 
+function FrameTooltip({ frameRef, preview, stageRef }: FrameTooltipProps) {
+  const { t } = useTranslation();
+  const mapRef = useRef<WinnerMap | null>(null);
+  const [hover, setHover] = useState<Hover | null>(null);
+  const frameCount = preview.frames.length;
+
+  useEffect(() => {
+    mapRef.current = null;
+    setHover(null);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) return;
+      ctx.drawImage(img, 0, 0);
+      mapRef.current = {
+        data: ctx.getImageData(0, 0, canvas.width, canvas.height).data,
+        width: canvas.width,
+        height: canvas.height,
+      };
+    };
+    img.src = preview.winnerMap;
+    return () => {
+      img.onload = null;
+    };
+  }, [preview.winnerMap]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const handleMove = (e: PointerEvent) => {
+      const map = mapRef.current;
+      const frame = frameRef.current;
+      if (!map || !frame) {
+        setHover(null);
+        return;
+      }
+      const rect = frame.getBoundingClientRect();
+      const lx = e.clientX - rect.left;
+      const ly = e.clientY - rect.top;
+      if (lx < 0 || ly < 0 || lx >= rect.width || ly >= rect.height) {
+        setHover(null);
+        return;
+      }
+      const gx = Math.floor((lx / rect.width) * map.width);
+      const gy = Math.floor((ly / rect.height) * map.height);
+      const index = map.data[(gy * map.width + gx) * 4] - 1;
+      if (index < 0 || index >= frameCount) {
+        setHover(null);
+        return;
+      }
+      const stageRect = stage.getBoundingClientRect();
+      setHover({ index, x: e.clientX - stageRect.left + 12, y: e.clientY - stageRect.top - 20 });
+    };
+    const handleLeave = () => setHover(null);
+    stage.addEventListener('pointermove', handleMove);
+    stage.addEventListener('pointerleave', handleLeave);
+    return () => {
+      stage.removeEventListener('pointermove', handleMove);
+      stage.removeEventListener('pointerleave', handleLeave);
+    };
+  }, [stageRef, frameRef, frameCount]);
+
+  const frame = hover ? preview.frames[hover.index] : null;
+  if (!hover || !frame) return null;
+
+  return (
+    <div
+      className="absolute z-20 max-w-xs space-y-0.5 rounded-md border border-text-secondary/10 bg-surface/80 px-2.5 py-1.5 font-mono text-xs text-text-primary shadow-xl backdrop-blur-xs pointer-events-none"
+      style={{ left: hover.x, top: hover.y }}
+    >
+      <div className="font-semibold truncate">{frame.name}</div>
+      <div className="text-text-secondary">{exifLine(frame)}</div>
+      {frame.focalOutlier && (
+        <div className={TEXT_COLOR_KEYS[TextColors.error]}>{t('modals.panorama.focalDiffers')}</div>
+      )}
+      {frame.dropped && (
+        <div className={TEXT_COLOR_KEYS[TextColors.error]}>
+          {panoramaMessage(t, preview.dropped.find((d) => d.filename === frame.name)?.reason)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PanoramaPreviewPane({
   crop,
   onCropChange,
@@ -42,62 +147,11 @@ export default function PanoramaPreviewPane({
   const { t } = useTranslation();
   const stageRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
-  const winnerImgRef = useRef<HTMLImageElement | null>(null);
-  const [hovered, setHovered] = useState<number | null>(null);
-  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const size = useImageRenderSize(stageRef, { width: preview.width, height: preview.height });
-  const hoveredFrame = hovered != null ? (preview.frames[hovered] ?? null) : null;
-
-  useEffect(() => {
-    winnerImgRef.current = null;
-    const img = new Image();
-    img.onload = () => {
-      winnerImgRef.current = img;
-    };
-    img.src = preview.winnerMap;
-    return () => {
-      img.onload = null;
-    };
-  }, [preview.winnerMap]);
-
-  const handlePointer = (e: React.PointerEvent<HTMLDivElement>) => {
-    const stage = stageRef.current;
-    const frame = frameRef.current;
-    const map = winnerImgRef.current;
-    if (!stage || !frame || !map) {
-      setHovered(null);
-      return;
-    }
-    const rect = frame.getBoundingClientRect();
-    const lx = e.clientX - rect.left;
-    const ly = e.clientY - rect.top;
-    if (lx < 0 || ly < 0 || lx >= rect.width || ly >= rect.height) {
-      setHovered(null);
-      return;
-    }
-    const gx = Math.floor((lx / rect.width) * map.width);
-    const gy = Math.floor((ly / rect.height) * map.height);
-    const canvas = document.createElement('canvas');
-    canvas.width = 1;
-    canvas.height = 1;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.drawImage(map, gx, gy, 1, 1, 0, 0, 1, 1);
-    const idx = ctx.getImageData(0, 0, 1, 1).data[0] - 1;
-    if (idx < 0 || idx >= preview.frames.length) {
-      setHovered(null);
-      return;
-    }
-    const stageRect = stage.getBoundingClientRect();
-    setHovered(idx);
-    setTooltipPos({ x: e.clientX - stageRect.left + 12, y: e.clientY - stageRect.top - 20 });
-  };
 
   return (
     <div
       ref={stageRef}
-      onPointerMove={handlePointer}
-      onPointerLeave={() => setHovered(null)}
       className="relative flex min-w-0 flex-1 items-center justify-center overflow-hidden rounded-lg bg-bg-primary"
     >
       <ReactCrop crop={crop} onChange={(_, percent) => onCropChange(percent)} keepSelection>
@@ -106,23 +160,7 @@ export default function PanoramaPreviewPane({
           <img src={preview.overlay} alt="" className="pointer-events-none absolute inset-0 h-full w-full opacity-80" />
         </div>
       </ReactCrop>
-      {hoveredFrame && (
-        <div
-          className="absolute z-20 max-w-xs space-y-0.5 rounded-md border border-text-secondary/10 bg-surface/80 px-2.5 py-1.5 font-mono text-xs text-text-primary shadow-xl backdrop-blur-xs pointer-events-none"
-          style={{ left: tooltipPos.x, top: tooltipPos.y }}
-        >
-          <div className="font-semibold truncate">{hoveredFrame.name}</div>
-          <div className="text-text-secondary">{exifLine(hoveredFrame)}</div>
-          {hoveredFrame.focalOutlier && (
-            <div className={TEXT_COLOR_KEYS[TextColors.error]}>{t('modals.panorama.focalDiffers')}</div>
-          )}
-          {hoveredFrame.dropped && (
-            <div className={TEXT_COLOR_KEYS[TextColors.error]}>
-              {panoramaMessage(t, preview.dropped.find((d) => d.filename === hoveredFrame.name)?.reason)}
-            </div>
-          )}
-        </div>
-      )}
+      <FrameTooltip frameRef={frameRef} preview={preview} stageRef={stageRef} />
       {reprojecting && (
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-bg-primary/60 text-text-primary">
           <Loader2 className="animate-spin" size={28} />
