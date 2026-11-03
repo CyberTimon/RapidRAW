@@ -96,7 +96,6 @@ pub fn boundary_warp(img: &Rgb32f, alpha: &Plane, amount: f64) -> (Rgb32f, Plane
     stretch(&i1, &a1, amount, false)
 }
 
-// Largest rectangle that stays inside the painted area.
 pub fn coverage_crop(alpha: &Plane) -> Option<[f64; 4]> {
     let (w, h) = (alpha.width, alpha.height);
     if w == 0 || h == 0 {

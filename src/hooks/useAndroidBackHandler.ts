@@ -70,12 +70,12 @@ export function useAndroidBackHandler() {
             filenames: [],
             saveProgressPercent: null,
             saveProgressMessage: null,
-    saveNote: null,
-    saveNoteCode: null,
-    quality: 1,
-    savedQuality: null,
-    savedAttempts: null,
-    saveReduced: false,
+            saveNote: null,
+            saveNoteCode: null,
+            quality: 1,
+            savedQuality: null,
+            savedAttempts: null,
+            saveReduced: false,
           },
         });
         return;

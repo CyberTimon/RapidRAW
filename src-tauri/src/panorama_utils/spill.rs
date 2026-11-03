@@ -6,18 +6,13 @@ use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 
 pub enum Store<T> {
-
     Ram(Vec<T>),
     Disk(memmap2::MmapMut, PhantomData<T>),
 }
 
 impl<T: Copy + Default> Store<T> {
-
     pub fn zeroes(len: usize) -> Self {
         Store::Ram(vec![T::default(); len])
-    }
-    pub fn ram(v: Vec<T>) -> Self {
-        Store::Ram(v)
     }
     pub fn empty() -> Self {
         Store::Ram(Vec::new())
@@ -35,7 +30,7 @@ impl<T: Copy + Default> Store<T> {
             None => Store::try_zeroes(len),
         }
     }
-    pub fn to_disk(&mut self, scratch: &SpillFile) -> Result<(), String> {
+    pub fn move_to_disk(&mut self, scratch: &SpillFile) -> Result<(), String> {
         let Store::Ram(data) = self else {
             return Ok(());
         };
@@ -69,10 +64,6 @@ impl<T: Copy + Default> Store<T> {
     pub fn is_disk(&self) -> bool {
         matches!(self, Store::Disk(..))
     }
-    pub fn bytes(&self) -> usize {
-        self.len() * std::mem::size_of::<T>()
-    }
-
 }
 
 impl<T: Copy + Default> Default for Store<T> {
@@ -124,13 +115,6 @@ impl<T> DerefMut for Store<T> {
     }
 }
 
-impl<T: Copy + Default> Store<T> {
-
-    pub fn to_vec(&self) -> Vec<T> {
-        self[..].to_vec()
-    }
-}
-
 impl<T: Copy + Default> From<Vec<T>> for Store<T> {
     fn from(v: Vec<T>) -> Self {
         Store::Ram(v)
@@ -145,7 +129,6 @@ pub struct SpillFile {
 }
 
 impl SpillFile {
-
     pub fn beside(output_path: &Path) -> Result<Self, String> {
         let dir = output_path
             .parent()
@@ -175,14 +158,6 @@ impl SpillFile {
             cursor: std::sync::atomic::AtomicU64::new(0),
             capacity: std::sync::atomic::AtomicU64::new(0),
         })
-    }
-    pub fn none() -> Self {
-        SpillFile {
-            path: None,
-            file: None,
-            cursor: std::sync::atomic::AtomicU64::new(0),
-            capacity: std::sync::atomic::AtomicU64::new(0),
-        }
     }
     pub fn is_some(&self) -> bool {
         self.file.is_some()
@@ -225,30 +200,6 @@ impl Drop for SpillFile {
     }
 }
 
-pub fn disk_free_space(path: &Path) -> Option<u64> {
-    let target = std::fs::canonicalize(path)
-        .ok()
-        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
-        .or_else(|| path.parent().map(|d| d.to_path_buf()))?;
-    let disks = sysinfo::Disks::new_with_refreshed_list();
-    let mut best: Option<(usize, u64)> = None;
-    for disk in &disks {
-        let mount = disk.mount_point();
-        let matches = target.starts_with(mount)
-            || std::fs::canonicalize(mount)
-                .map(|m| target.starts_with(m))
-                .unwrap_or(false);
-        if !matches {
-            continue;
-        }
-        let len = mount.as_os_str().len();
-        if best.is_none_or(|(bl, _)| len > bl) {
-            best = Some((len, disk.available_space()));
-        }
-    }
-    best.map(|(_, free)| free)
-}
-
 pub fn sweep_stale_spill(dir: &Path, older_than_secs: u64) -> usize {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return 0;
@@ -282,7 +233,6 @@ pub fn sweep_stale_spill(dir: &Path, older_than_secs: u64) -> usize {
 pub struct Scratch {
     path: std::path::PathBuf,
     trigger_percent: u64,
-    forced_used: std::sync::atomic::AtomicU64,
     file: std::sync::OnceLock<SpillFile>,
     spilling: std::sync::atomic::AtomicBool,
     meter: std::sync::Mutex<crate::panorama_utils::ram::ResidentMeter>,
@@ -291,12 +241,10 @@ pub struct Scratch {
 }
 
 impl Scratch {
-
     pub fn new(output_path: &std::path::Path, trigger_percent: u64) -> Self {
         Self {
             path: output_path.to_path_buf(),
             trigger_percent,
-            forced_used: std::sync::atomic::AtomicU64::new(0),
             file: std::sync::OnceLock::new(),
             spilling: std::sync::atomic::AtomicBool::new(false),
             meter: std::sync::Mutex::new(crate::panorama_utils::ram::ResidentMeter::new()),
@@ -304,25 +252,18 @@ impl Scratch {
             spilled_at: std::sync::atomic::AtomicU64::new(0),
         }
     }
-    pub fn force_used(&self, bytes: u64) {
-        self.forced_used
-            .store(bytes, std::sync::atomic::Ordering::Relaxed);
-    }
     fn used_and_trigger(&self) -> (u64, u64) {
         let (used, total) = self
             .system
             .lock()
             .map(|m| m.used_and_total())
             .unwrap_or((0, 0));
-        let forced = self.forced_used.load(std::sync::atomic::Ordering::Relaxed);
-        let used = used.max(forced);
         (used, total.saturating_mul(self.trigger_percent) / 100)
     }
     pub fn in_ram_only() -> Self {
         Self {
             path: std::path::PathBuf::new(),
             trigger_percent: u64::MAX,
-            forced_used: std::sync::atomic::AtomicU64::new(0),
             file: std::sync::OnceLock::new(),
             spilling: std::sync::atomic::AtomicBool::new(false),
             meter: std::sync::Mutex::new(crate::panorama_utils::ram::ResidentMeter::new()),

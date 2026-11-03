@@ -3,7 +3,7 @@ use rayon::prelude::*;
 use crate::panorama_utils::features::{self, Features};
 use crate::panorama_utils::geom::{Homography, Point};
 use crate::panorama_utils::linalg::{self, M3};
-use crate::panorama_utils::ransac::{self, Model};
+use crate::panorama_utils::ransac;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Camera {
@@ -76,7 +76,7 @@ pub fn match_pairs(feats: &[Features], scales: &[f64]) -> Vec<PairMatch> {
                     Point::new(feats[j].points[*q].x as f64, feats[j].points[*q].y as f64)
                 })
                 .collect();
-            let fit = ransac::ransac(Model::Homography, &a, &b, 3.0, 12, (i * 1000 + j) as u64)?;
+            let fit = ransac::ransac(&a, &b, 3.0, 12, (i * 1000 + j) as u64)?;
             if (fit.inliers.len() as f64) <= 8.0 + 0.3 * m.len() as f64 {
                 return None;
             }

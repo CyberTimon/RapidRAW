@@ -1,15 +1,13 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { invoke } from '@tauri-apps/api/core';
 import { AlertTriangle, CheckCircle, XCircle, Loader2, Save } from 'lucide-react';
 import { motion } from 'framer-motion';
 import ReactCrop, { type PercentCrop, type Crop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import Button from '../ui/Button';
-import Slider from '../ui/Slider';
+import Slider, { SliderChangeEvent } from '../ui/Slider';
 import Text from '../ui/Text';
-import { Invokes } from '../ui/AppProperties';
 import { TextColors, TextVariants } from '../../types/typography';
 
 export type PanoramaProjection = 'spherical' | 'cylindrical' | 'perspective';
@@ -19,23 +17,6 @@ export interface PanoramaStitchOptions {
   focal35: number;
   estimateIntrinsics: boolean;
   scale: 'full' | 'half';
-}
-
-interface LensProbe {
-  fullBytes: number;
-  halfBytes: number;
-  limitBytes: number;
-  scale: 'full' | 'half' | 'blocked';
-  sizeKnown: boolean;
-  sourceWidth: number;
-  sourceHeight: number;
-  ramAvailable: number;
-  lensMaker: string;
-  lensModel: string;
-  cropFactor: number;
-  focal35: number;
-  nativeMm: number;
-  disagreements: string[];
 }
 
 export interface PanoramaCropRect {
@@ -155,8 +136,7 @@ function landscapeGrid(count: number): { rows: number; cols: number } {
     const bestLonger = Math.max(best.rows, best.cols);
     const closer =
       score < best.score - 1e-9 ||
-      (Math.abs(score - best.score) <= 1e-9 &&
-        (longer < bestLonger || (longer === bestLonger && cols > best.cols)));
+      (Math.abs(score - best.score) <= 1e-9 && (longer < bestLonger || (longer === bestLonger && cols > best.cols)));
     if (closer) best = { rows, cols, score };
   }
   return { rows: best.rows, cols: best.cols };
@@ -403,13 +383,7 @@ function panoramaMessage(t: Translate, raw: string | null | undefined): string {
   return raw;
 }
 
-// Largest photo box of this shape that fits the window.
-function fitPreviewFrame(
-  aspect: number,
-  vw: number,
-  vh: number,
-  sidebarPx: number,
-): { width: number; height: number } {
+function fitPreviewFrame(aspect: number, vw: number, vh: number, sidebarPx: number): { width: number; height: number } {
   const ratio = aspect > 0 && Number.isFinite(aspect) ? aspect : 2;
   const maxW = Math.max(160, vw * 0.8 - sidebarPx - DIALOG_PAD - COLUMN_GAP);
   const maxH = Math.max(160, vh * 0.74 - DIALOG_PAD - FOOTER_PX);
@@ -464,8 +438,7 @@ export default function PanoramaModal({
   const [localCrop, setLocalCrop] = useState<PercentCrop>(cropToPercent(crop));
   const [hovered, setHovered] = useState<number | null>(null);
   const hoveredFrame = hovered != null ? (frames?.[hovered] ?? null) : null;
-  const droppedReason = (name: string) =>
-    panoramaMessage(t, dropped.find((d) => d.filename === name)?.reason ?? '');
+  const droppedReason = (name: string) => panoramaMessage(t, dropped.find((d) => d.filename === name)?.reason ?? '');
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const startedRef = useRef(false);
   const mouseDownTarget = useRef<EventTarget | null>(null);
@@ -518,9 +491,7 @@ export default function PanoramaModal({
     img.onload = () => {
       winnerImgRef.current = img;
     };
-    img.src = winnerMapBase64.startsWith('data:')
-      ? winnerMapBase64
-      : `data:image/png;base64,${winnerMapBase64}`;
+    img.src = winnerMapBase64.startsWith('data:') ? winnerMapBase64 : `data:image/png;base64,${winnerMapBase64}`;
   }, [winnerMapBase64]);
 
   const handleClose = useCallback(() => {
@@ -607,10 +578,12 @@ export default function PanoramaModal({
     if (width > 0) setSidebarPx((prev) => (prev === width ? prev : width));
   }, [showingPreview, i18n.language, recommendedProjection]);
   const noteText = saveNoteCode
-    ? String(t(`modals.panorama.${saveNoteCode.code}` as never, {
-        percent: saveNoteCode.percent ?? 0,
-        next: saveNoteCode.next ?? 0,
-      }))
+    ? String(
+        t(`modals.panorama.${saveNoteCode.code}` as never, {
+          percent: saveNoteCode.percent ?? 0,
+          next: saveNoteCode.next ?? 0,
+        }),
+      )
     : saveNote;
   const percent = saveProgressPercent ?? 0;
   const previewFrame = fitPreviewFrame(
@@ -676,14 +649,8 @@ export default function PanoramaModal({
               >
                 <div className="font-semibold truncate">{hoveredFrame.name}</div>
                 <div className="text-white/80">{exifLine(hoveredFrame)}</div>
-                {hoveredFrame.focalOutlier && (
-                  <div className="text-amber-300">
-                    {t('modals.panorama.focalDiffers')}
-                  </div>
-                )}
-                {hoveredFrame.dropped && (
-                  <div className="text-amber-300">{droppedReason(hoveredFrame.name)}</div>
-                )}
+                {hoveredFrame.focalOutlier && <div className="text-amber-300">{t('modals.panorama.focalDiffers')}</div>}
+                {hoveredFrame.dropped && <div className="text-amber-300">{droppedReason(hoveredFrame.name)}</div>}
               </div>
             )}
           </div>
@@ -710,75 +677,78 @@ export default function PanoramaModal({
               </div>
             </div>
             <div className="w-0 min-w-full">
-            {finalImageBase64 && !isSaving && (
-              <div className="min-w-0 max-w-full pt-4 pb-1">
-                <Slider
-                  defaultValue={100}
-                  fillOrigin="min"
-                  label={t('modals.panorama.quality')}
-                  max={100}
-                  min={25}
-                  step={5}
-                  suffix="%"
-                  value={(quality ?? 1) * 100}
-                  onChange={(e: any) => onQualityChange?.(parseFloat(e.target.value) / 100)}
-                  trackClassName="bg-white/30"
-                />
-                <p className="mt-1.5 text-[11px] leading-snug text-text-tertiary">
-                  {t('modals.panorama.qualityHint')}
-                </p>
-              </div>
-            )}
-
-            {dropped.length > 0 && (
-              <div className="p-2 rounded-lg border border-amber-700/40 bg-amber-950/30 text-xs text-amber-200">
-                <div className="font-semibold mb-1">
-                  {t('modals.panorama.excluded', { count: dropped.length })}
+              {finalImageBase64 && !isSaving && (
+                <div className="min-w-0 max-w-full pt-4 pb-1">
+                  <Slider
+                    defaultValue={100}
+                    fillOrigin="min"
+                    label={t('modals.panorama.quality')}
+                    max={100}
+                    min={25}
+                    step={5}
+                    suffix="%"
+                    value={(quality ?? 1) * 100}
+                    onChange={(e: SliderChangeEvent) => onQualityChange?.(Number(e.target.value) / 100)}
+                    trackClassName="bg-white/30"
+                  />
+                  <p className="mt-1.5 text-[11px] leading-snug text-text-tertiary">
+                    {t('modals.panorama.qualityHint')}
+                  </p>
                 </div>
-                <ul className="space-y-1.5">
-                  {dropped.map((d, i) => (
-                    <li key={i} className="font-mono">
-                      <div className="truncate">{d.filename}</div>
-                      <div className="text-amber-200/80 text-[11px] leading-snug">{d.reason}</div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {savedPath && (
-              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-                <Text
-                  as="div"
-                  variant={TextVariants.heading}
-                  color={TextColors.success}
-                  className="flex items-center gap-2"
+              )}
+
+              {dropped.length > 0 && (
+                <div className="p-2 rounded-lg border border-amber-700/40 bg-amber-950/30 text-xs text-amber-200">
+                  <div className="font-semibold mb-1">{t('modals.panorama.excluded', { count: dropped.length })}</div>
+                  <ul className="space-y-1.5">
+                    {dropped.map((d, i) => (
+                      <li key={i} className="font-mono">
+                        <div className="truncate">{d.filename}</div>
+                        <div className="text-amber-200/80 text-[11px] leading-snug">{d.reason}</div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {savedPath && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
                 >
-                  {saveReduced ? (
-                    <>
-                      <AlertTriangle className="w-5 h-5 text-amber-400" />
-                      <span>
-                        {t('modals.panorama.savedReduced', {
-                          percent: Math.round((savedQuality ?? 1) * 100),
-                          attempts: savedAttempts ?? 1,
-                        })}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="w-5 h-5" />
-                      <span>{t('modals.panorama.savedSuccess')}</span>
-                    </>
-                  )}
-                </Text>
-              </motion.div>
-            )}
+                  <Text
+                    as="div"
+                    variant={TextVariants.heading}
+                    color={TextColors.success}
+                    className="flex items-center gap-2"
+                  >
+                    {saveReduced ? (
+                      <>
+                        <AlertTriangle className="w-5 h-5 text-amber-400" />
+                        <span>
+                          {t('modals.panorama.savedReduced', {
+                            percent: Math.round((savedQuality ?? 1) * 100),
+                            attempts: savedAttempts ?? 1,
+                          })}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-5 h-5" />
+                        <span>{t('modals.panorama.savedSuccess')}</span>
+                      </>
+                    )}
+                  </Text>
+                </motion.div>
+              )}
             </div>
           </div>
           <div className="col-start-1 row-start-2 flex items-center justify-between gap-3 text-xs text-text-secondary">
             {showSaveProgress && (
               <>
                 <span className="truncate font-mono">
-                  {panoramaMessage(t, saveProgressMessage) || t('modals.panorama.savingProgress', { percent: Math.round(percent) })}
+                  {panoramaMessage(t, saveProgressMessage) ||
+                    t('modals.panorama.savingProgress', { percent: Math.round(percent) })}
                 </span>
                 <span className="shrink-0 tabular-nums">{Math.round(percent)}%</span>
               </>
@@ -821,11 +791,7 @@ export default function PanoramaModal({
             )}
           </div>
           <div className="col-start-1 row-start-4 min-w-0">
-            {noteText && (
-              <p className="text-[11px] leading-snug text-amber-200/90 whitespace-pre-line">
-                {noteText}
-              </p>
-            )}
+            {noteText && <p className="text-[11px] leading-snug text-amber-200/90 whitespace-pre-line">{noteText}</p>}
           </div>
         </div>
       );
@@ -871,7 +837,6 @@ export default function PanoramaModal({
         </div>
       );
     }
-    const gb = (bytes: number) => (bytes / (1024 * 1024 * 1024)).toFixed(1);
     return (
       <div className="flex flex-col items-center justify-center py-10 h-[460px]">
         <Text variant={TextVariants.small} className="text-text-secondary">
@@ -908,7 +873,7 @@ export default function PanoramaModal({
     }
 
     const noteText = saveNoteCode
-      ? t(`modals.panorama.${saveNoteCode.code}` as any, {
+      ? t(`modals.panorama.${saveNoteCode.code}` as never, {
           percent: saveNoteCode.percent ?? 0,
           next: saveNoteCode.next ?? 0,
         })
@@ -920,7 +885,8 @@ export default function PanoramaModal({
           <div className="w-full min-w-0 flex flex-col justify-center gap-1.5 pr-1">
             <div className="flex items-center justify-between gap-3 text-xs text-text-secondary">
               <span className="truncate font-mono">
-                {panoramaMessage(t, saveProgressMessage) || t('modals.panorama.savingProgress', { percent: Math.round(percent) })}
+                {panoramaMessage(t, saveProgressMessage) ||
+                  t('modals.panorama.savingProgress', { percent: Math.round(percent) })}
               </span>
               <span className="shrink-0 tabular-nums">{Math.round(percent)}%</span>
             </div>
@@ -930,11 +896,7 @@ export default function PanoramaModal({
                 style={{ width: `${Math.max(2, Math.min(100, percent))}%` }}
               />
             </div>
-            {noteText && (
-              <p className="text-[11px] leading-snug text-amber-200/90 whitespace-pre-line">
-                {noteText}
-              </p>
-            )}
+            {noteText && <p className="text-[11px] leading-snug text-amber-200/90 whitespace-pre-line">{noteText}</p>}
           </div>
         )}
         <div className="flex items-center justify-end gap-2 shrink-0 w-full">
@@ -942,15 +904,10 @@ export default function PanoramaModal({
             onClick={handleClose}
             className="px-4 py-2 rounded-md text-text-secondary hover:bg-card-active transition-colors text-sm"
           >
-            {finalImageBase64 && !isSaving
-              ? t('modals.panorama.close')
-              : t('modals.panorama.cancel')}
+            {finalImageBase64 && !isSaving ? t('modals.panorama.close') : t('modals.panorama.cancel')}
           </button>
           {finalImageBase64 && (
-            <Button
-              onClick={handleSave}
-              disabled={isSaving || isProcessing}
-            >
+            <Button onClick={handleSave} disabled={isSaving || isProcessing}>
               {isSaving ? <Loader2 className="animate-spin mr-2" size={16} /> : <Save className="mr-2" size={16} />}
               {t('modals.panorama.save')}
             </Button>
@@ -971,9 +928,7 @@ export default function PanoramaModal({
       <div
         className={`bg-surface rounded-xl shadow-2xl p-6 transform transition-all duration-300 ease-out ${
           showingPreview ? 'w-max' : 'w-full max-w-5xl'
-        } ${
-          show ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 -translate-y-4'
-        }`}
+        } ${show ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 -translate-y-4'}`}
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
       >

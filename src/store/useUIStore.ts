@@ -66,21 +66,13 @@ interface PanoramaModalState {
   filenames: Array<string>;
   saveProgressPercent: number | null;
   saveProgressMessage: string | null;
-  /** Persistent explanation of how the image was rendered, or null. */
   saveNote: string | null;
-  /** Structured form of `saveNote` when the backend sends a code rather than prose. */
   saveNoteCode: { code: string; percent?: number; next?: number } | null;
-  /** Fraction of native resolution to save, 0.25 to 1. */
   quality: number;
-  /** Set once a save finishes: how it went, so the modal can colour the outcome. */
   savedQuality: number | null;
   savedAttempts: number | null;
-  /** True when the save needed retries or produced less than the requested quality. */
   saveReduced: boolean;
-  /** Per source photo, indexed by frame index (the order the winner map uses). */
   frames: Array<PanoramaFrameInfo> | null;
-  /** Human-readable RAM summary for the preview. */
-  /** Set when RAM forced the output below full resolution. */
 }
 
 interface PanoramaFrameInfo {

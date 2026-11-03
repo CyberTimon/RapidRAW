@@ -24,7 +24,6 @@ pub fn registration_bytes(n: u32, width: u32, height: u32) -> u64 {
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct StitchCost {
-
     pub sources: u64,
     pub registration: u64,
     pub resident: u64,
@@ -32,7 +31,6 @@ pub struct StitchCost {
 }
 
 impl StitchCost {
-
     pub fn total(&self, canvas_pixels: u64) -> u64 {
         let canvas_bytes = canvas_pixels.saturating_mul(CANVAS_BYTES_PER_PIXEL);
         let label_out = canvas_pixels.saturating_mul(2);

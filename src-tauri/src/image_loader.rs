@@ -254,7 +254,7 @@ fn classify_raw_develop_error(path: &str, err: anyhow::Error) -> anyhow::Error {
     err
 }
 
-pub(crate) fn largest_tiff_jpeg_preview(buf: &[u8]) -> Option<DynamicImage> {
+fn largest_tiff_jpeg_preview(buf: &[u8]) -> Option<DynamicImage> {
     let le = match buf.get(..4)? {
         [0x49, 0x49, 0x2A, 0x00] => true,
         [0x4D, 0x4D, 0x00, 0x2A] => false,

@@ -88,26 +88,6 @@ pub fn rodrigues(w: [f64; 3]) -> M3 {
     ]
 }
 
-pub fn rotation_vector(r: &M3) -> [f64; 3] {
-    let tr = (r[0][0] + r[1][1] + r[2][2] - 1.0) / 2.0;
-    let th = tr.clamp(-1.0, 1.0).acos();
-    let a = [r[2][1] - r[1][2], r[0][2] - r[2][0], r[1][0] - r[0][1]];
-    if th < 1e-9 {
-        return a.map(|v| v / 2.0);
-    }
-    if (std::f64::consts::PI - th).abs() < 1e-6 {
-        let b =
-            [0, 1, 2].map(|i| [0, 1, 2].map(|j| (r[i][j] + if i == j { 1.0 } else { 0.0 }) / 2.0));
-        let i = (0..3)
-            .max_by(|&x, &y| b[x][x].total_cmp(&b[y][y]))
-            .unwrap_or(0);
-        let axis = normalize(b[i]);
-        return axis.map(|v| v * th);
-    }
-    let s = th / (2.0 * th.sin());
-    a.map(|v| v * s)
-}
-
 pub fn orthonormalize(m: &M3) -> M3 {
     let mut x = *m;
     for _ in 0..20 {

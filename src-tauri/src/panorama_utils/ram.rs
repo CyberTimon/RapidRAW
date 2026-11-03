@@ -5,7 +5,6 @@ pub fn available_and_total() -> (u64, u64) {
 }
 
 pub fn process_resident_bytes() -> u64 {
-
     let Ok(pid) = sysinfo::get_current_pid() else {
         return 0;
     };
@@ -41,7 +40,6 @@ impl ResidentMeter {
     pub fn peak(&self) -> u64 {
         self.peak.load(std::sync::atomic::Ordering::Relaxed)
     }
-
 }
 
 impl Default for ResidentMeter {
@@ -67,12 +65,6 @@ impl SystemMeter {
         sys.refresh_memory();
         let (available, total) = available_and_total_from(&mut sys);
         (total.saturating_sub(available), total)
-    }
-    pub fn used(&self) -> u64 {
-        self.used_and_total().0
-    }
-    pub fn total(&self) -> u64 {
-        self.used_and_total().1
     }
 }
 

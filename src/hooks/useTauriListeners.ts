@@ -434,17 +434,13 @@ export function useTauriListeners({
           const percent = typeof event.payload?.percent === 'number' ? event.payload.percent : 0;
           const message = typeof event.payload?.message === 'string' ? event.payload.message : null;
           const rawNote = event.payload?.note ?? null;
-          // The backend sends either prose or `{code, ...}`, so the user sees their own language.
-          const codeNote =
-            rawNote && typeof rawNote === 'object' ? (rawNote as Record<string, unknown>) : null;
+          const codeNote = rawNote && typeof rawNote === 'object' ? (rawNote as Record<string, unknown>) : null;
           const note = typeof rawNote === 'string' ? rawNote : null;
           useUIStore.getState().setUI((state) => ({
             panoramaModalState: {
               ...state.panoramaModalState,
               saveProgressPercent: Math.max(0, Math.min(100, percent)),
               saveProgressMessage: message,
-              // Sticky: once the backend has explained how the image was rendered, that stays put
-              // while the later progress messages scroll past it.
               saveNote: note ?? state.panoramaModalState.saveNote,
               saveNoteCode: codeNote
                 ? (codeNote as unknown as { code: string; percent?: number; next?: number })
@@ -467,27 +463,27 @@ export function useTauriListeners({
           useUIStore.getState().setUI((state) => {
             if (!state.panoramaModalState.isOpen) return state;
             return {
-            panoramaModalState: {
-              ...state.panoramaModalState,
-              error: null,
-              finalImageBase64: event.payload.base64,
-              overlayBase64: event.payload.overlayBase64 ?? null,
-              winnerMapBase64: event.payload.winnerMapBase64 ?? null,
-              dropped: event.payload.dropped ?? [],
-              recommendedProjection: event.payload.recommendedProjection ?? null,
-              selectedProjection: event.payload.selectedProjection ?? null,
-              crop: event.payload.crop ?? null,
-              previewWidth: event.payload.previewWidth ?? 0,
-              previewHeight: event.payload.previewHeight ?? 0,
-              filenames: event.payload.filenames ?? [],
-              frames: event.payload.frames ?? null,
+              panoramaModalState: {
+                ...state.panoramaModalState,
+                error: null,
+                finalImageBase64: event.payload.base64,
+                overlayBase64: event.payload.overlayBase64 ?? null,
+                winnerMapBase64: event.payload.winnerMapBase64 ?? null,
+                dropped: event.payload.dropped ?? [],
+                recommendedProjection: event.payload.recommendedProjection ?? null,
+                selectedProjection: event.payload.selectedProjection ?? null,
+                crop: event.payload.crop ?? null,
+                previewWidth: event.payload.previewWidth ?? 0,
+                previewHeight: event.payload.previewHeight ?? 0,
+                filenames: event.payload.filenames ?? [],
+                frames: event.payload.frames ?? null,
 
-              isProcessing: false,
-              progressMessage: null,
-              saveProgressPercent: null,
-              saveProgressMessage: null,
-            },
-          };
+                isProcessing: false,
+                progressMessage: null,
+                saveProgressPercent: null,
+                saveProgressMessage: null,
+              },
+            };
           });
         }
       }),

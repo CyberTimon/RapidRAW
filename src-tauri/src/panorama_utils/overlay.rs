@@ -5,7 +5,6 @@ pub struct OverlayResult {
     pub winner_map_png: Vec<u8>,
 }
 
-// Draws the seam lines on the preview.
 pub fn generate_overlay(winners: &[u16], width: u32, height: u32) -> Result<OverlayResult, String> {
     let w = width as usize;
     let h = height as usize;

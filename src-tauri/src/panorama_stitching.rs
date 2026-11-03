@@ -48,7 +48,6 @@ pub struct Match {
     pub index2: usize,
 }
 #[tauri::command]
-// Builds a preview from the selected photos.
 pub async fn stitch_panorama(
     paths: Vec<String>,
     crop_factor: f64,
@@ -123,7 +122,6 @@ pub async fn stitch_panorama(
 }
 
 #[tauri::command]
-// Rebuilds the preview in another projection.
 pub async fn reproject_panorama(
     projection: String,
     app_handle: tauri::AppHandle,
@@ -186,7 +184,6 @@ pub async fn reproject_panorama(
 }
 
 #[tauri::command]
-// Stops the stitch that is running.
 pub async fn cancel_panorama(state: tauri::State<'_, AppState>) -> Result<(), String> {
     state
         .panorama_stop
@@ -221,7 +218,6 @@ fn pano_log_path(first: &str) -> PathBuf {
 }
 
 #[tauri::command]
-// Writes the full panorama so it matches the preview.
 pub async fn save_panorama(
     first_path_str: String,
     crop: Option<NormalizedCrop>,
@@ -796,7 +792,6 @@ fn save_composite(
     crop: &NormalizedCrop,
     app: &AppHandle,
 ) -> Result<String, String> {
-
     let note: std::sync::Mutex<Option<serde_json::Value>> = std::sync::Mutex::new(None);
     let emit_save = |percent: f64, message: &str| {
         let _ = app.emit(
@@ -971,10 +966,6 @@ fn load_linear(
 ) -> Result<LinearPixels, String> {
     let bytes = fs::read(path).map_err(|e| format!("Failed to read {}: {}", file_name(path), e))?;
     let exif = crate::exif_processing::read_exif_data_from_bytes(path, &bytes);
-    if let Some((rgb, w, h)) = prepared_linear(path) {
-        stitch_log::line(&format!("prepared {} {w}x{h}", file_name(path)));
-        return Ok((rgb, w, h, exif));
-    }
     let mut dynamic =
         crate::image_loader::load_base_image_from_bytes(&bytes, path, false, settings, None)
             .map_err(|e| format!("Failed to decode {}: {}", file_name(path), e))?;
@@ -984,29 +975,6 @@ fn load_linear(
     let rgb = dynamic.to_rgb32f();
     let (w, h) = rgb.dimensions();
     Ok((rgb.into_raw(), w, h, exif))
-}
-
-fn prepared_linear(path: &str) -> Option<(Vec<f32>, u32, u32)> {
-    let dir = std::env::var("PANORAMA_LINEAR_DIR").ok()?;
-    let name = file_name(path);
-    let stem = Path::new(&name).file_stem()?.to_string_lossy();
-    let bytes = fs::read(Path::new(&dir).join(format!("{stem}.f32"))).ok()?;
-    if bytes.len() < 8 {
-        return None;
-    }
-    let w = u32::from_le_bytes(bytes[0..4].try_into().ok()?);
-    let h = u32::from_le_bytes(bytes[4..8].try_into().ok()?);
-    let count = (w as usize).checked_mul(h as usize)?.checked_mul(3)?;
-    if bytes.len() != 8 + count * 4 {
-        return None;
-    }
-    let rgb = bytes[8..]
-        .as_chunks::<4>()
-        .0
-        .iter()
-        .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
-        .collect();
-    Some((rgb, w, h))
 }
 
 fn frame_meta(exif: &HashMap<String, String>) -> FrameMeta {
@@ -1128,7 +1096,6 @@ fn parse_shutter(s: &str) -> Option<f64> {
     }
 }
 
-// Crops the stitched image and prepares it for the file.
 pub fn encode_cropped_16(
     data: &[[f32; 3]],
     w: usize,

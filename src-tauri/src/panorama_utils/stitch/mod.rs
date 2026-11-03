@@ -82,21 +82,6 @@ impl Default for PanoOptions {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct PanoResult {
-    pub image: Rgb32f,
-    pub alpha: Plane,
-    pub crop: Option<[f64; 4]>,
-    pub projection: Projection,
-    pub used: Vec<usize>,
-    pub cameras: Vec<Option<Camera>>,
-    pub gains: Vec<f64>,
-    pub rms_before: f64,
-    pub rms: f64,
-    pub fov: (f64, f64),
-    pub focal: f64,
-}
-
 fn fov(frames: &[Frame], cams: &[Option<Camera>]) -> (f64, f64) {
     let (mut tmin, mut tmax, mut pmin, mut pmax) = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
     for (f, c) in frames.iter().zip(cams) {
@@ -143,7 +128,6 @@ fn bounds(
     (x1 > x0 && y1 > y0).then_some((x0, y0, x1, y1))
 }
 
-// Picks a projection from how wide the photos look together.
 pub fn choose_projection(frames: &[Frame], cams: &[Option<Camera>]) -> Projection {
     let (h, v) = fov(frames, cams);
     let area: f64 = frames
@@ -208,7 +192,6 @@ pub struct Registration {
 
 pub const FOCAL_OUTLIER_TOLERANCE: f64 = 0.10;
 
-// Aligns the photos that overlap.
 pub fn register(frames: &[Frame]) -> Result<Registration, String> {
     let n = frames.len();
     let work: Vec<(features::Features, f64)> = frames
@@ -445,12 +428,6 @@ impl Measure {
             frame_h: sizes.iter().map(|s| s.1 as u32).max().unwrap_or(1),
         })
     }
-    pub fn native_area(&self) -> f64 {
-        (self.b.2 - self.b.0) * (self.b.3 - self.b.1)
-    }
-    pub fn bounds(&self) -> (f64, f64, f64, f64) {
-        self.b
-    }
     pub fn canvas_pixels(&self, sc: f64) -> f64 {
         self.measure(sc).0
     }
@@ -573,12 +550,8 @@ fn tile_px(
 
 pub struct Composed {
     pub image: Rgb32f,
-    pub alpha: Plane,
     pub label: Vec<u16>,
     pub crop: Option<[f64; 4]>,
-    pub projection: Projection,
-    pub focal: f64,
-    pub gains: Vec<f64>,
     pub scale: f64,
     pub saved_quality: f64,
     pub saved_attempts: u32,
@@ -617,7 +590,6 @@ pub fn detect_clip(img: &Rgb32f) -> f32 {
 
 pub type ComposeProgress<'a> = dyn Fn(&str, f64) + Sync + 'a;
 
-// Projects the aligned photos and blends them.
 pub fn compose(
     frames: &[Frame],
     reg: &Registration,
@@ -929,15 +901,11 @@ pub fn compose(
     }
     Ok(Composed {
         image,
-        alpha,
         label: label_out,
         crop,
-        projection,
-        focal: f_out,
         scale: memory_scale,
         saved_quality: 1.0,
         saved_attempts: 1,
-        gains,
         width: cw,
         height: ch,
     })

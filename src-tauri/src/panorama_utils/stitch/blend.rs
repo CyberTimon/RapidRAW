@@ -94,7 +94,6 @@ pub struct Buf {
 }
 
 impl Buf {
-
     pub fn new(w: usize, h: usize, c: usize) -> Buf {
         Buf {
             w,
@@ -312,7 +311,6 @@ pub struct Blender {
 }
 
 impl Blender {
-
     pub fn try_new(
         w: usize,
         h: usize,
@@ -347,8 +345,8 @@ impl Blender {
             if size >= needed {
                 continue;
             }
-            let _ = self.acc[l].data.to_disk(file);
-            let _ = self.wsum[l].data.to_disk(file);
+            let _ = self.acc[l].data.move_to_disk(file);
+            let _ = self.wsum[l].data.move_to_disk(file);
             needed = needed.saturating_sub(size);
         }
     }

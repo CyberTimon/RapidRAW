@@ -26,13 +26,6 @@ impl Plane {
             data,
         })
     }
-    pub fn filled(width: usize, height: usize, v: f32) -> Self {
-        Self {
-            width,
-            height,
-            data: vec![v; width * height],
-        }
-    }
     pub fn from_fn(
         width: usize,
         height: usize,
@@ -59,12 +52,6 @@ impl Plane {
         let x = x.clamp(0, self.width as isize - 1) as usize;
         let y = y.clamp(0, self.height as isize - 1) as usize;
         self.data[y * self.width + x]
-    }
-    pub fn set(&mut self, x: usize, y: usize, v: f32) {
-        self.data[y * self.width + x] = v;
-    }
-    pub fn len(&self) -> usize {
-        self.data.len()
     }
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
@@ -134,23 +121,6 @@ impl Rgb32f {
             data,
         })
     }
-    pub fn from_fn(
-        width: usize,
-        height: usize,
-        f: impl Fn(usize, usize) -> [f32; 3] + Sync + Send,
-    ) -> Self {
-        let mut data = vec![[0.0; 3]; width * height];
-        data.par_chunks_mut(width).enumerate().for_each(|(y, row)| {
-            for (x, o) in row.iter_mut().enumerate() {
-                *o = f(x, y);
-            }
-        });
-        Self {
-            width,
-            height,
-            data,
-        }
-    }
     #[inline]
     pub fn get(&self, x: usize, y: usize) -> [f32; 3] {
         self.data[y * self.width + x]
@@ -178,13 +148,6 @@ impl Rgb32f {
         let x = x.clamp(0, self.width as isize - 1) as usize;
         let y = y.clamp(0, self.height as isize - 1) as usize;
         self.data[y * self.width + x]
-    }
-    pub fn map(&self, f: impl Fn([f32; 3]) -> [f32; 3] + Sync + Send) -> Rgb32f {
-        Rgb32f {
-            width: self.width,
-            height: self.height,
-            data: self.data.par_iter().map(|&v| f(v)).collect(),
-        }
     }
 }
 

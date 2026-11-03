@@ -2,28 +2,12 @@ use crate::panorama_utils::geom::{Homography, Point};
 
 use super::linalg::sym_eigen;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Model {
-    Translation,
-    Similarity,
-    Homography,
-}
-
-impl Model {
-    fn min_samples(self) -> usize {
-        match self {
-            Model::Translation => 1,
-            Model::Similarity => 2,
-            Model::Homography => 4,
-        }
-    }
-}
+const SAMPLE_SIZE: usize = 4;
 
 #[derive(Clone, Debug)]
 pub struct Fit {
     pub h: Homography,
     pub inliers: Vec<usize>,
-    pub rms: f64,
 }
 
 pub struct Rng(u64);
@@ -42,56 +26,6 @@ impl Rng {
     }
     pub fn below(&mut self, n: usize) -> usize {
         (self.next_u64() % n.max(1) as u64) as usize
-    }
-    pub fn unit(&mut self) -> f64 {
-        (self.next_u64() >> 11) as f64 / (1u64 << 53) as f64
-    }
-}
-
-pub fn fit_model(model: Model, a: &[Point], b: &[Point]) -> Option<Homography> {
-    let n = a.len().min(b.len());
-    if n < model.min_samples() {
-        return None;
-    }
-    match model {
-        Model::Translation => {
-            let (mut dx, mut dy) = (0.0, 0.0);
-            for i in 0..n {
-                dx += b[i].x - a[i].x;
-                dy += b[i].y - a[i].y;
-            }
-            Some(Homography([
-                1.0,
-                0.0,
-                dx / n as f64,
-                0.0,
-                1.0,
-                dy / n as f64,
-                0.0,
-                0.0,
-                1.0,
-            ]))
-        }
-        Model::Similarity => {
-            let ca = centroid(&a[..n]);
-            let cb = centroid(&b[..n]);
-            let (mut sxx, mut sxy, mut var) = (0.0, 0.0, 0.0);
-            for i in 0..n {
-                let (ax, ay) = (a[i].x - ca.x, a[i].y - ca.y);
-                let (bx, by) = (b[i].x - cb.x, b[i].y - cb.y);
-                sxx += ax * bx + ay * by;
-                sxy += ax * by - ay * bx;
-                var += ax * ax + ay * ay;
-            }
-            if var < 1e-12 {
-                return None;
-            }
-            let (c, s) = (sxx / var, sxy / var);
-            let tx = cb.x - (c * ca.x - s * ca.y);
-            let ty = cb.y - (s * ca.x + c * ca.y);
-            Some(Homography([c, -s, tx, s, c, ty, 0.0, 0.0, 1.0]))
-        }
-        Model::Homography => dlt(&a[..n], &b[..n]),
     }
 }
 
@@ -170,16 +104,9 @@ pub fn transfer_error2(h: &Homography, a: Point, b: Point) -> f64 {
     (p.x - b.x).powi(2) + (p.y - b.y).powi(2)
 }
 
-pub fn ransac(
-    model: Model,
-    a: &[Point],
-    b: &[Point],
-    thresh: f64,
-    min_inliers: usize,
-    seed: u64,
-) -> Option<Fit> {
+pub fn ransac(a: &[Point], b: &[Point], thresh: f64, min_inliers: usize, seed: u64) -> Option<Fit> {
     let n = a.len().min(b.len());
-    let k = model.min_samples();
+    let k = SAMPLE_SIZE;
     if n < k.max(min_inliers) {
         return None;
     }
@@ -188,13 +115,11 @@ pub fn ransac(
     let mut best: Vec<usize> = Vec::new();
     let mut iters = 2000usize;
     let mut it = 0;
-    let mut sa = Vec::with_capacity(k);
-    let mut sb = Vec::with_capacity(k);
     while it < iters {
         it += 1;
-        sa.clear();
-        sb.clear();
-        let mut idx = [usize::MAX; 4];
+        let mut src = [Point::default(); SAMPLE_SIZE];
+        let mut dst = [Point::default(); SAMPLE_SIZE];
+        let mut idx = [usize::MAX; SAMPLE_SIZE];
         let mut ok = true;
         for s in 0..k {
             let mut tries = 0;
@@ -210,28 +135,17 @@ pub fn ransac(
                 }
             };
             idx[s] = i;
-            sa.push(a[i]);
-            sb.push(b[i]);
+            src[s] = a[i];
+            dst[s] = b[i];
         }
         if !ok {
             continue;
         }
-        let h = match model {
-            Model::Homography => {
-                let src = [sa[0], sa[1], sa[2], sa[3]];
-                let dst = [sb[0], sb[1], sb[2], sb[3]];
-                if degenerate(&src) || degenerate(&dst) {
-                    continue;
-                }
-                match Homography::from_quads(&src, &dst) {
-                    Some(h) => h,
-                    None => continue,
-                }
-            }
-            _ => match fit_model(model, &sa, &sb) {
-                Some(h) => h,
-                None => continue,
-            },
+        if degenerate(&src) || degenerate(&dst) {
+            continue;
+        }
+        let Some(h) = Homography::from_quads(&src, &dst) else {
+            continue;
         };
         let inl: Vec<usize> = (0..n)
             .filter(|&i| transfer_error2(&h, a[i], b[i]) < t2)
@@ -255,7 +169,7 @@ pub fn ransac(
     for _ in 0..3 {
         let ia: Vec<Point> = best.iter().map(|&i| a[i]).collect();
         let ib: Vec<Point> = best.iter().map(|&i| b[i]).collect();
-        let Some(hh) = fit_model(model, &ia, &ib) else {
+        let Some(hh) = dlt(&ia, &ib) else {
             break;
         };
         let inl: Vec<usize> = (0..n)
@@ -271,17 +185,7 @@ pub fn ransac(
     if best.len() < min_inliers.max(k) {
         return None;
     }
-    let rms = (best
-        .iter()
-        .map(|&i| transfer_error2(&h, a[i], b[i]))
-        .sum::<f64>()
-        / best.len() as f64)
-        .sqrt();
-    Some(Fit {
-        h,
-        inliers: best,
-        rms,
-    })
+    Some(Fit { h, inliers: best })
 }
 
 fn degenerate(p: &[Point; 4]) -> bool {
