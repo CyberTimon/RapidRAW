@@ -1,12 +1,6 @@
 use super::message::PanoMessage;
+use crate::focus_stacking::Plane;
 use rayon::prelude::*;
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct Plane {
-    pub width: usize,
-    pub height: usize,
-    pub data: Vec<f32>,
-}
 
 pub fn try_zeroed<T: Clone + Default>(len: usize) -> Result<Vec<T>, PanoMessage> {
     let mut data: Vec<T> = Vec::new();
@@ -19,58 +13,6 @@ pub fn try_zeroed<T: Clone + Default>(len: usize) -> Result<Vec<T>, PanoMessage>
 pub fn into_pixels(raw: Vec<f32>) -> Vec<[f32; 3]> {
     bytemuck::allocation::try_cast_vec(raw)
         .unwrap_or_else(|(_, raw)| raw.as_chunks::<3>().0.to_vec())
-}
-
-impl Plane {
-    pub fn new(width: usize, height: usize) -> Self {
-        Self {
-            width,
-            height,
-            data: vec![0.0; width * height],
-        }
-    }
-    pub fn from_fn(
-        width: usize,
-        height: usize,
-        f: impl Fn(usize, usize) -> f32 + Sync + Send,
-    ) -> Self {
-        let mut data = vec![0.0; width * height];
-        data.par_chunks_mut(width).enumerate().for_each(|(y, row)| {
-            for (x, o) in row.iter_mut().enumerate() {
-                *o = f(x, y);
-            }
-        });
-        Self {
-            width,
-            height,
-            data,
-        }
-    }
-    #[inline]
-    pub fn get(&self, x: usize, y: usize) -> f32 {
-        self.data[y * self.width + x]
-    }
-    #[inline]
-    pub fn get_clamped(&self, x: isize, y: isize) -> f32 {
-        let x = x.clamp(0, self.width as isize - 1) as usize;
-        let y = y.clamp(0, self.height as isize - 1) as usize;
-        self.data[y * self.width + x]
-    }
-    pub fn is_empty(&self) -> bool {
-        self.data.is_empty()
-    }
-    pub fn zip_map(&self, other: &Plane, f: impl Fn(f32, f32) -> f32 + Sync + Send) -> Plane {
-        Plane {
-            width: self.width,
-            height: self.height,
-            data: self
-                .data
-                .par_iter()
-                .zip(&other.data)
-                .map(|(a, b)| f(*a, *b))
-                .collect(),
-        }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -204,11 +146,11 @@ fn madd_f32(a: f32, b: f32, w: f32) -> f32 {
 }
 
 pub fn gaussian_plane(img: &Plane, sigma: f32) -> Plane {
-    if sigma <= 0.3 || img.is_empty() {
+    if sigma <= 0.3 || img.data.is_empty() {
         return img.clone();
     }
     let radii = box_radii(sigma);
-    let (w, h) = (img.width, img.height);
+    let (w, h) = (img.w, img.h);
     let mut a = img.clone();
     a.data.par_chunks_mut(w).for_each(|row| {
         let mut tmp = Vec::with_capacity(w);
@@ -228,17 +170,17 @@ pub fn gaussian_plane(img: &Plane, sigma: f32) -> Plane {
 }
 
 pub fn half_plane(img: &Plane) -> Plane {
-    let w = img.width.div_ceil(2).max(1);
-    let h = img.height.div_ceil(2).max(1);
+    let w = img.w.div_ceil(2).max(1);
+    let h = img.h.div_ceil(2).max(1);
     let mut out = Plane::new(w, h);
     out.data.par_chunks_mut(w).enumerate().for_each(|(y, row)| {
         for (x, o) in row.iter_mut().enumerate() {
-            let sx = (2 * x) as isize;
-            let sy = (2 * y) as isize;
-            *o = 0.25 * img.get_clamped(sx, sy)
-                + 0.25 * img.get_clamped(sx + 1, sy)
-                + 0.25 * img.get_clamped(sx, sy + 1)
-                + 0.25 * img.get_clamped(sx + 1, sy + 1);
+            let sx = (2 * x) as i64;
+            let sy = (2 * y) as i64;
+            *o = 0.25 * img.clamped(sx, sy)
+                + 0.25 * img.clamped(sx + 1, sy)
+                + 0.25 * img.clamped(sx, sy + 1)
+                + 0.25 * img.clamped(sx + 1, sy + 1);
         }
     });
     out
@@ -308,15 +250,6 @@ pub fn resize_box(img: &Rgb32f, w: usize, h: usize) -> Rgb32f {
         }
     });
     out
-}
-
-pub fn fit_rgb(img: &Rgb32f, max_w: usize, max_h: usize) -> Rgb32f {
-    let s = (max_w as f64 / img.width as f64)
-        .min(max_h as f64 / img.height as f64)
-        .min(1.0);
-    let w = ((img.width as f64 * s).round() as usize).max(1);
-    let h = ((img.height as f64 * s).round() as usize).max(1);
-    resize_box(img, w, h)
 }
 
 pub fn long_edge_size(width: usize, height: usize, max_edge: usize) -> (usize, usize) {

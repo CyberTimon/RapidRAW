@@ -1,6 +1,7 @@
 use rayon::prelude::*;
 
-use super::raster::{Plane, Rgb32f, gaussian_plane, half_plane};
+use super::raster::{Rgb32f, fit_long_edge, gaussian_plane, half_plane};
+use crate::focus_stacking::Plane;
 
 pub const DESC_LEN: usize = 64;
 
@@ -32,7 +33,7 @@ pub fn detect(img: &Plane, max: usize) -> Features {
     let mut levels = vec![img.clone()];
     while levels.len() < 4 {
         let Some(l) = levels.last() else { break };
-        if l.width.min(l.height) < 96 {
+        if l.w.min(l.h) < 96 {
             break;
         }
         levels.push(half_plane(l));
@@ -44,15 +45,15 @@ pub fn detect(img: &Plane, max: usize) -> Features {
             let cands = harris(lvl);
             let orient_img = gaussian_plane(lvl, 4.5);
             let desc_img = gaussian_plane(lvl, 2.5);
-            let (gx, gy) = gradients(&orient_img);
+            let (gx, gy) = orient_img.gradients();
             let scale = (1u32 << li) as f32;
             let mut pts = Vec::new();
             let mut descs = Vec::new();
             for (x, y, s) in cands {
                 let (xi, yi) = (x as usize, y as usize);
                 let (dx, dy) = (
-                    gx.get(xi.min(gx.width - 1), yi.min(gy.height - 1)),
-                    gy.get(xi.min(gx.width - 1), yi.min(gy.height - 1)),
+                    gx.at(xi.min(gx.w - 1), yi.min(gy.h - 1)),
+                    gy.at(xi.min(gx.w - 1), yi.min(gy.h - 1)),
                 );
                 let angle = dy.atan2(dx);
                 let Some(d) = descriptor(&desc_img, x, y, angle) else {
@@ -85,29 +86,21 @@ pub fn detect(img: &Plane, max: usize) -> Features {
     f
 }
 
-fn gradients(p: &Plane) -> (Plane, Plane) {
-    let (w, h) = (p.width, p.height);
-    let gx = Plane::from_fn(w, h, |x, y| {
-        (p.get_clamped(x as isize + 1, y as isize) - p.get_clamped(x as isize - 1, y as isize))
-            * 0.5
-    });
-    let gy = Plane::from_fn(w, h, |x, y| {
-        (p.get_clamped(x as isize, y as isize + 1) - p.get_clamped(x as isize, y as isize - 1))
-            * 0.5
-    });
-    (gx, gy)
-}
-
 fn harris(lvl: &Plane) -> Vec<(f32, f32, f32)> {
-    let (w, h) = (lvl.width, lvl.height);
+    let (w, h) = (lvl.w, lvl.h);
     if w < 24 || h < 24 {
         return vec![];
     }
-    let s = gaussian_plane(lvl, 1.0);
-    let (gx, gy) = gradients(&s);
-    let xx = gaussian_plane(&gx.zip_map(&gx, |a, b| a * b), 1.5);
-    let yy = gaussian_plane(&gy.zip_map(&gy, |a, b| a * b), 1.5);
-    let xy = gaussian_plane(&gx.zip_map(&gy, |a, b| a * b), 1.5);
+    let (gx, gy) = gaussian_plane(lvl, 1.0).gradients();
+    let product = |a: &Plane, b: &Plane| {
+        let mut p = Plane::new(w, h);
+        p.data
+            .par_iter_mut()
+            .zip(a.data.par_iter().zip(&b.data))
+            .for_each(|(o, (a, b))| *o = a * b);
+        gaussian_plane(&p, 1.5)
+    };
+    let (xx, yy, xy) = (product(&gx, &gx), product(&gy, &gy), product(&gx, &gy));
     let mut r = Plane::new(w, h);
     for i in 0..r.data.len() {
         let (a, b, c) = (xx.data[i], yy.data[i], xy.data[i]);
@@ -128,7 +121,7 @@ fn harris(lvl: &Plane) -> Vec<(f32, f32, f32)> {
         .map(|y| {
             let mut out = Vec::new();
             for x in border..w.saturating_sub(border) {
-                let v = r.get(x, y);
+                let v = r.at(x, y);
                 if v <= thr {
                     continue;
                 }
@@ -136,7 +129,7 @@ fn harris(lvl: &Plane) -> Vec<(f32, f32, f32)> {
                 'n: for dy in -1i32..=1 {
                     for dx in -1i32..=1 {
                         if (dx, dy) != (0, 0) {
-                            let o = r.get((x as i32 + dx) as usize, (y as i32 + dy) as usize);
+                            let o = r.at((x as i32 + dx) as usize, (y as i32 + dy) as usize);
                             if o > v || (o == v && (dy < 0 || (dy == 0 && dx < 0))) {
                                 is_max = false;
                                 break 'n;
@@ -155,8 +148,8 @@ fn harris(lvl: &Plane) -> Vec<(f32, f32, f32)> {
                         0.0
                     }
                 };
-                let ox = sub(r.get(x - 1, y), v, r.get(x + 1, y));
-                let oy = sub(r.get(x, y - 1), v, r.get(x, y + 1));
+                let ox = sub(r.at(x - 1, y), v, r.at(x + 1, y));
+                let oy = sub(r.at(x, y - 1), v, r.at(x, y + 1));
                 out.push((x as f32 + 0.5 + ox, y as f32 + 0.5 + oy, v));
             }
             out
@@ -192,7 +185,7 @@ fn anms(pts: &[Keypoint], max: usize) -> Vec<usize> {
 fn descriptor(img: &Plane, x: f32, y: f32, angle: f32) -> Option<[f32; DESC_LEN]> {
     let (s, c) = angle.sin_cos();
     let mut d = [0f32; DESC_LEN];
-    let (w, h) = (img.width as f32, img.height as f32);
+    let (w, h) = (img.w as f32, img.h as f32);
     for j in 0..8 {
         for i in 0..8 {
             let u = (i as f32 - 3.5) * 5.0;
@@ -202,7 +195,7 @@ fn descriptor(img: &Plane, x: f32, y: f32, angle: f32) -> Option<[f32; DESC_LEN]
             if sx < 0.5 || sy < 0.5 || sx > w - 0.5 || sy > h - 0.5 {
                 return None;
             }
-            d[j * 8 + i] = bilinear(img, sx, sy);
+            d[j * 8 + i] = img.sample_bilinear(sx - 0.5, sy - 0.5);
         }
     }
     let mean = d.iter().sum::<f32>() / DESC_LEN as f32;
@@ -215,23 +208,6 @@ fn descriptor(img: &Plane, x: f32, y: f32, angle: f32) -> Option<[f32; DESC_LEN]
         *v = (*v - mean) * inv;
     }
     Some(d)
-}
-
-#[inline]
-pub fn bilinear(img: &Plane, x: f32, y: f32) -> f32 {
-    let fx = x - 0.5;
-    let fy = y - 0.5;
-    let x0 = fx.floor();
-    let y0 = fy.floor();
-    let (tx, ty) = (fx - x0, fy - y0);
-    let (x0, y0) = (x0 as isize, y0 as isize);
-    let a = img.get_clamped(x0, y0);
-    let b = img.get_clamped(x0 + 1, y0);
-    let c = img.get_clamped(x0, y0 + 1);
-    let d = img.get_clamped(x0 + 1, y0 + 1);
-    let top = a + (b - a) * tx;
-    let bot = c + (d - c) * tx;
-    top + (bot - top) * ty
 }
 
 fn dist2(a: &[f32; DESC_LEN], b: &[f32; DESC_LEN]) -> f32 {
@@ -284,17 +260,21 @@ pub fn match_features(a: &Features, b: &Features, ratio: f32) -> Vec<(usize, usi
 }
 
 pub fn work_image(img: &Rgb32f, gain: f32, max_edge: usize) -> (Plane, f64) {
-    let small = if img.width.max(img.height) > max_edge {
-        super::raster::fit_rgb(img, max_edge, max_edge)
-    } else {
-        img.clone()
-    };
+    let small = fit_long_edge(img, max_edge);
     let scale = small.width as f64 / img.width as f64;
-    let p = Plane::from_fn(small.width, small.height, |x, y| {
-        let c = small.get(x, y);
-        let l = (0.25 * c[0] + 0.6 * c[1] + 0.15 * c[2]) * gain;
-        l.clamp(0.0, 1.0).powf(1.0 / 2.2)
-    });
+    let p = Plane {
+        w: small.width,
+        h: small.height,
+        data: small
+            .data
+            .par_iter()
+            .map(|c| {
+                ((0.25 * c[0] + 0.6 * c[1] + 0.15 * c[2]) * gain)
+                    .clamp(0.0, 1.0)
+                    .powf(1.0 / 2.2)
+            })
+            .collect(),
+    };
     (p, scale)
 }
 
