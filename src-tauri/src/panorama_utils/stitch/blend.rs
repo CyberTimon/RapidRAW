@@ -130,15 +130,10 @@ fn tap_covered(covered: Option<&[f32]>, w: usize, h: usize, x: isize, y: isize) 
     if w == 0 || h == 0 {
         return false;
     }
-    let inside = x >= 0 && y >= 0 && (x as usize) < w && (y as usize) < h;
-    let (x, y) = if inside {
-        (x as usize, y as usize)
-    } else {
-        (
-            x.clamp(0, w as isize - 1) as usize,
-            y.clamp(0, h as isize - 1) as usize,
-        )
-    };
+    let (x, y) = (
+        x.clamp(0, w as isize - 1) as usize,
+        y.clamp(0, h as isize - 1) as usize,
+    );
     covered[y * w + x] > 0.0
 }
 

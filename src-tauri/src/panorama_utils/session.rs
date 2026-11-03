@@ -43,7 +43,6 @@ pub struct PanoramaSession {
     pub composite_width: u32,
     pub composite_height: u32,
     pub frames: Arc<[Frame]>,
-    pub focal_outliers: std::collections::HashMap<String, bool>,
     pub options: PanoOptions,
     pub gains: Vec<f64>,
 }

@@ -392,12 +392,6 @@ fn run_stitch(
                 .collect(),
         ),
     };
-    let focal_outliers: std::collections::HashMap<String, bool> = frames
-        .iter()
-        .enumerate()
-        .filter(|(i, _)| reg.focal_outlier.get(*i).copied().unwrap_or(false))
-        .map(|(_, f)| (f.name.clone(), true))
-        .collect();
     let dropped: Vec<DroppedImage> = (0..frames.len())
         .filter(|i| !reg.used.contains(i))
         .map(|i| DroppedImage {
@@ -414,7 +408,6 @@ fn run_stitch(
     let preview = render_display(&rendered)?;
     let mut session = PanoramaSession {
         source_paths: source_paths.to_vec(),
-        focal_outliers,
         dropped,
         preview_png: String::new(),
         overlay_png: String::new(),
@@ -625,12 +618,13 @@ fn complete_payload(session: &PanoramaSession) -> serde_json::Value {
         "frames": session
             .frames
             .iter()
-            .map(|f| serde_json::json!({
+            .enumerate()
+            .map(|(i, f)| serde_json::json!({
                 "name": f.name,
                 "focal35": f.focal35,
                 "meta": f.meta,
-                "focalOutlier": session.focal_outliers.get(&f.name).copied().unwrap_or(false),
-                "dropped": session.dropped.iter().any(|d| d.filename == f.name),
+                "focalOutlier": session.registration.focal_outlier[i],
+                "dropped": !session.registration.used.contains(&i),
             }))
             .collect::<Vec<_>>(),
     })
