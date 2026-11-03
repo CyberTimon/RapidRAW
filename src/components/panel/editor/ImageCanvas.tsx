@@ -2562,6 +2562,10 @@ const ImageCanvas = memo(
               },
             });
 
+            if (isDirectPatchActive && activeId) {
+              triggerDirectPatch(activeId);
+            }
+
             lastBrushPoint.current = endImageSpace;
             isDrawing.current = false;
             currentLine.current = null;
@@ -2629,6 +2633,7 @@ const ImageCanvas = memo(
         getCloneOffset,
         createCloneSpot,
         activeLineFlow,
+        triggerDirectPatch,
         isAiSubjectActive,
         isParametricActive,
         brushSettings,

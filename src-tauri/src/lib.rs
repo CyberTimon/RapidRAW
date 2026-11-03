@@ -73,6 +73,7 @@ mod storage;
 mod tagging;
 mod tagging_utils;
 mod tiff_metadata;
+mod touch_up;
 mod viewer_window;
 #[cfg(target_os = "linux")]
 mod wayland_subsurface;
