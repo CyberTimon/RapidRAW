@@ -259,7 +259,7 @@ export default function PanoramaModal({
             </span>
             <span className="shrink-0 tabular-nums">{percent}%</span>
           </div>
-          <div className="h-1.5 w-full rounded-full bg-white/20 overflow-hidden">
+          <div className="h-1.5 w-full rounded-full bg-bg-primary overflow-hidden">
             <div
               className="h-full rounded-full bg-accent transition-[width] duration-200 ease-out"
               style={{ width: `${Math.max(2, Math.min(100, percent))}%` }}

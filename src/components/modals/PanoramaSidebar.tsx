@@ -1,3 +1,4 @@
+import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import Slider, { SliderChangeEvent } from '../ui/Slider';
 import Text from '../ui/Text';
@@ -35,21 +36,26 @@ export default function PanoramaSidebar({
         <Text variant={TextVariants.small} className="uppercase tracking-wide opacity-60 mb-2">
           {t('modals.panorama.projection')}
         </Text>
-        <div className="space-y-2">
+        <div role="radiogroup" aria-label={t('modals.panorama.projection')} className="flex flex-col gap-1.5">
           {preview.projections.map((p) => (
-            <label key={p} className="flex items-center gap-2 text-sm cursor-pointer">
-              <input
-                type="radio"
-                name="projection"
-                checked={activeProjection === p}
-                disabled={disabled}
-                onChange={() => onProjectionChange(p)}
-              />
-              <span className="capitalize">
-                {t(`modals.panorama.projections.${p}`)}
-                {preview.recommendedProjection === p ? ` (${t('modals.panorama.recommended')})` : ''}
-              </span>
-            </label>
+            <button
+              key={p}
+              role="radio"
+              aria-checked={activeProjection === p}
+              disabled={disabled}
+              onClick={() => p !== activeProjection && onProjectionChange(p)}
+              className={clsx(
+                'px-3 py-1.5 text-sm text-left rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
+                activeProjection === p
+                  ? 'bg-accent text-button-text'
+                  : 'bg-bg-primary text-text-primary hover:bg-card-active',
+              )}
+            >
+              {t(`modals.panorama.projections.${p}`)}
+              {preview.recommendedProjection === p && (
+                <span className="ml-1 opacity-70">({t('modals.panorama.recommended')})</span>
+              )}
+            </button>
           ))}
         </div>
       </div>
@@ -65,18 +71,17 @@ export default function PanoramaSidebar({
           suffix="%"
           value={quality * 100}
           onChange={(e: SliderChangeEvent) => onQualityChange(Number(e.target.value) / 100)}
-          trackClassName="bg-white/30"
         />
-        <p className="mt-1.5 text-[11px] leading-snug text-text-tertiary">{t('modals.panorama.qualityHint')}</p>
+        <p className="mt-1.5 text-[11px] leading-snug text-text-secondary">{t('modals.panorama.qualityHint')}</p>
       </div>
       {preview.dropped.length > 0 && (
-        <div className="p-2 rounded-lg border border-amber-700/40 bg-amber-950/30 text-xs text-amber-200">
+        <div className="p-2 rounded-lg bg-bg-primary text-xs text-text-primary">
           <div className="font-semibold mb-1">{t('modals.panorama.excluded', { count: preview.dropped.length })}</div>
           <ul className="space-y-1.5">
             {preview.dropped.map((d, i) => (
               <li key={i} className="font-mono">
                 <div className="truncate">{d.filename}</div>
-                <div className="text-amber-200/80 text-[11px] leading-snug">{panoramaMessage(t, d.reason)}</div>
+                <div className="text-text-secondary text-[11px] leading-snug">{panoramaMessage(t, d.reason)}</div>
               </li>
             ))}
           </ul>

@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react';
 import ReactCrop, { type PercentCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { useImageRenderSize } from '../../hooks/useImageRenderSize';
+import { TextColors, TEXT_COLOR_KEYS } from '../../types/typography';
 import {
   panoramaMessage,
   type PanoramaFrameInfo,
@@ -97,7 +98,7 @@ export default function PanoramaPreviewPane({
       ref={stageRef}
       onPointerMove={handlePointer}
       onPointerLeave={() => setHovered(null)}
-      className="relative flex min-w-0 flex-1 items-center justify-center overflow-hidden rounded-lg bg-black"
+      className="relative flex min-w-0 flex-1 items-center justify-center overflow-hidden rounded-lg bg-bg-primary"
     >
       <ReactCrop crop={crop} onChange={(_, percent) => onCropChange(percent)} keepSelection>
         <div ref={frameRef} className="relative block" style={{ width: size.width, height: size.height }}>
@@ -107,21 +108,23 @@ export default function PanoramaPreviewPane({
       </ReactCrop>
       {hoveredFrame && (
         <div
-          className="absolute z-20 bg-black/85 text-white text-xs font-mono px-2 py-1.5 rounded pointer-events-none space-y-0.5 max-w-xs"
+          className="absolute z-20 max-w-xs space-y-0.5 rounded-md border border-text-secondary/10 bg-surface/80 px-2.5 py-1.5 font-mono text-xs text-text-primary shadow-xl backdrop-blur-xs pointer-events-none"
           style={{ left: tooltipPos.x, top: tooltipPos.y }}
         >
           <div className="font-semibold truncate">{hoveredFrame.name}</div>
-          <div className="text-white/80">{exifLine(hoveredFrame)}</div>
-          {hoveredFrame.focalOutlier && <div className="text-amber-300">{t('modals.panorama.focalDiffers')}</div>}
+          <div className="text-text-secondary">{exifLine(hoveredFrame)}</div>
+          {hoveredFrame.focalOutlier && (
+            <div className={TEXT_COLOR_KEYS[TextColors.error]}>{t('modals.panorama.focalDiffers')}</div>
+          )}
           {hoveredFrame.dropped && (
-            <div className="text-amber-300">
+            <div className={TEXT_COLOR_KEYS[TextColors.error]}>
               {panoramaMessage(t, preview.dropped.find((d) => d.filename === hoveredFrame.name)?.reason)}
             </div>
           )}
         </div>
       )}
       {reprojecting && (
-        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-black/50 text-white">
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-bg-primary/60 text-text-primary">
           <Loader2 className="animate-spin" size={28} />
           <span className="text-xs font-mono">{panoramaMessage(t, progressMessage)}</span>
         </div>
