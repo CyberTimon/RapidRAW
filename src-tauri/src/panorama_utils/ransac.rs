@@ -113,6 +113,7 @@ pub fn ransac(a: &[Point], b: &[Point], thresh: f64, min_inliers: usize, seed: u
     let t2 = thresh * thresh;
     let mut rng = Rng::new(seed ^ 0x9e37_79b9_7f4a_7c15);
     let mut best: Vec<usize> = Vec::new();
+    let mut best_h = None;
     let mut iters = 2000usize;
     let mut it = 0;
     while it < iters {
@@ -152,6 +153,7 @@ pub fn ransac(a: &[Point], b: &[Point], thresh: f64, min_inliers: usize, seed: u
             .collect();
         if inl.len() > best.len() {
             best = inl;
+            best_h = Some(h);
             let w = best.len() as f64 / n as f64;
             let p_fail = 1.0 - w.powi(k as i32);
             if p_fail <= 1e-12 {
@@ -165,7 +167,7 @@ pub fn ransac(a: &[Point], b: &[Point], thresh: f64, min_inliers: usize, seed: u
     if best.len() < min_inliers.max(k) {
         return None;
     }
-    let mut h = None;
+    let mut h = best_h?;
     for _ in 0..3 {
         let ia: Vec<Point> = best.iter().map(|&i| a[i]).collect();
         let ib: Vec<Point> = best.iter().map(|&i| b[i]).collect();
@@ -175,13 +177,15 @@ pub fn ransac(a: &[Point], b: &[Point], thresh: f64, min_inliers: usize, seed: u
         let inl: Vec<usize> = (0..n)
             .filter(|&i| transfer_error2(&hh, a[i], b[i]) < t2)
             .collect();
-        h = Some(hh);
-        if inl.len() < best.len() || inl == best {
+        if inl.len() < best.len() {
+            break;
+        }
+        h = hh;
+        if inl == best {
             break;
         }
         best = inl;
     }
-    let h = h?;
     if best.len() < min_inliers.max(k) {
         return None;
     }
