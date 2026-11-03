@@ -941,13 +941,21 @@ pub async fn generate_effect_map(
     crate::effect_maps::store_source_map(kind, source_id, &map)
 }
 
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GeneratedImageMap {
+    pub image_path: String,
+    pub data_url: String,
+}
+
 async fn generate_loaded_effect_map(
     kind: EffectMapKind,
+    image_path: String,
     js_adjustments: serde_json::Value,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
-) -> Result<String, String> {
-    let loaded_image = get_loaded_image(&state)?;
+) -> Result<GeneratedImageMap, String> {
+    let loaded_image = get_map_source(&state, &image_path)?;
     let source_id = crate::ai_jobs::source_id_for(&loaded_image.path)
         .ok_or("Unable to identify the loaded image")?;
     let source_image = crate::mask_generation::build_converted_source_image(
@@ -955,34 +963,66 @@ async fn generate_loaded_effect_map(
         loaded_image.is_raw,
         &js_adjustments,
     );
-    generate_effect_map(&app_handle, kind, &source_image, &source_id).await
+    Ok(GeneratedImageMap {
+        data_url: generate_effect_map(&app_handle, kind, &source_image, &source_id).await?,
+        image_path: loaded_image.path,
+    })
 }
 
 #[tauri::command]
 pub async fn generate_full_image_depth_map(
+    image_path: String,
     js_adjustments: serde_json::Value,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
-) -> Result<String, String> {
-    generate_loaded_effect_map(EffectMapKind::Depth, js_adjustments, state, app_handle).await
+) -> Result<GeneratedImageMap, String> {
+    generate_loaded_effect_map(
+        EffectMapKind::Depth,
+        image_path,
+        js_adjustments,
+        state,
+        app_handle,
+    )
+    .await
 }
 
 #[tauri::command]
 pub async fn generate_relight_normal_map(
+    image_path: String,
     js_adjustments: serde_json::Value,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
-) -> Result<String, String> {
-    generate_loaded_effect_map(EffectMapKind::Normal, js_adjustments, state, app_handle).await
+) -> Result<GeneratedImageMap, String> {
+    generate_loaded_effect_map(
+        EffectMapKind::Normal,
+        image_path,
+        js_adjustments,
+        state,
+        app_handle,
+    )
+    .await
 }
 
-fn get_loaded_image(state: &tauri::State<'_, AppState>) -> Result<crate::LoadedImage, String> {
-    state
+fn get_map_source(
+    state: &tauri::State<'_, AppState>,
+    image_path: &str,
+) -> Result<crate::LoadedImage, String> {
+    let loaded_image = state
         .original_image
         .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .clone()
-        .ok_or_else(|| "No original image loaded".to_string())
+        .unwrap_or_else(|e| e.into_inner());
+    capture_map_source(loaded_image.as_ref(), image_path)
+}
+
+fn capture_map_source(
+    loaded_image: Option<&crate::LoadedImage>,
+    image_path: &str,
+) -> Result<crate::LoadedImage, String> {
+    let image = loaded_image.ok_or("No original image loaded")?;
+    if image.path != image_path {
+        return Err("Effect map source is no longer the loaded image".to_string());
+    }
+    Ok(image.clone())
 }
 
 #[tauri::command]
