@@ -251,6 +251,10 @@ function EffectsPanel({
         ...prev,
         relightNormalMap: b64,
       }));
+      const { relightEnabled, relightLights } = useEditorStore.getState().adjustments;
+      if (relightEnabled) {
+        focusRelightLight(relightLights);
+      }
     } catch (e) {
       toast.error(`Failed to generate normal map: ${e}`);
       setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, relightEnabled: false }));
@@ -339,9 +343,10 @@ function EffectsPanel({
     handleAdjustmentChange(Effect.RelightEnabled, enabled);
     if (!enabled) {
       setEditor({ isRelightPickerActive: false });
-    }
-    if (enabled && !adjustments.relightNormalMap) {
+    } else if (!adjustments.relightNormalMap) {
       handleGenerateRelightNormalMap();
+    } else {
+      focusRelightLight(adjustments.relightLights);
     }
   };
 
@@ -367,6 +372,17 @@ function EffectsPanel({
     }));
     setEditor({
       activeRelightLightId: light.id,
+      ...canvasToolState({ isRelightPickerActive: true }),
+    });
+  };
+
+  const focusRelightLight = (lights: Array<RelightLight> = []) => {
+    if (!lights.length) {
+      handleAddLight();
+      return;
+    }
+    setEditor({
+      activeRelightLightId: lights[0].id,
       ...canvasToolState({ isRelightPickerActive: true }),
     });
   };
@@ -688,11 +704,12 @@ function EffectsPanel({
                           label={t('adjustments.effects.relightAmbient')}
                           max={100}
                           min={-100}
+                          defaultValue={-50}
                           onChange={(e: SliderChangeEvent) =>
                             handleAdjustmentChange(Effect.RelightAmbient, e.target.value)
                           }
                           step={1}
-                          value={adjustments.relightAmbient ?? 0}
+                          value={adjustments.relightAmbient ?? -50}
                           onDragStateChange={onDragStateChange}
                         />
 
@@ -817,7 +834,7 @@ function EffectsPanel({
                                 label={t('adjustments.effects.relightIntensity')}
                                 max={100}
                                 min={0}
-                                defaultValue={60}
+                                defaultValue={40}
                                 onChange={handleLightSliderChange('intensity')}
                                 step={1}
                                 value={activeLight.intensity}

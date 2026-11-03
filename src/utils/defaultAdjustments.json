@@ -253,7 +253,7 @@
   "relightEnabled": false,
   "relightNormalMap": null,
   "relightLights": [],
-  "relightAmbient": 0,
+  "relightAmbient": -50,
   "relightSoftness": 25,
   "relightShine": 0,
   "relightShadows": false,

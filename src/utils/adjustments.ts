@@ -182,7 +182,7 @@ export const createRelightLight = (x: number, y: number): RelightLight => ({
   x,
   y,
   depth: 0,
-  intensity: 60,
+  intensity: 40,
   radius: 30,
   angle: 135,
   elevation: 60,

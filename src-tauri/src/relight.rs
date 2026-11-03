@@ -295,7 +295,7 @@ pub fn apply_relight<'a>(
         return image;
     }
 
-    let ambient = adjustments["relightAmbient"].as_f64().unwrap_or(0.0) as f32;
+    let ambient = adjustments["relightAmbient"].as_f64().unwrap_or(-50.0) as f32;
     let softness =
         (adjustments["relightSoftness"].as_f64().unwrap_or(25.0) as f32 / 100.0).clamp(0.0, 1.0);
     let shine =
@@ -337,7 +337,7 @@ pub fn apply_relight<'a>(
                         base[2] * (1.0 - 0.45 * temperature + 0.15 * tint),
                     ];
                     let luma = 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
-                    let strength = get("intensity", 60.0).max(0.0) / 100.0 * 4.0 / luma.max(1e-3);
+                    let strength = get("intensity", 40.0).max(0.0) / 100.0 * 4.0 / luma.max(1e-3);
                     let radius = 0.05 + get("radius", 30.0) / 100.0 * 1.45;
                     let angle = get("angle", 135.0).to_radians();
                     let elevation = get("elevation", 60.0).clamp(-180.0, 180.0).to_radians();
