@@ -80,20 +80,12 @@ pub async fn stitch_panorama(
             Ok(session) => {
                 let payload = complete_payload(&session);
                 {
-                    let mut slot = session_handle.lock().unwrap();
+                    let mut slot = session_handle.lock().unwrap_or_else(|e| e.into_inner());
                     if stop.halted() {
-                        drop_session(&mut slot);
                         stop.note_stop();
                         return Ok(());
                     }
                     *slot = Some(session);
-                }
-                if stop.halted() {
-                    if let Ok(mut slot) = session_handle.try_lock() {
-                        drop_session(&mut slot);
-                    }
-                    stop.note_stop();
-                    return Ok(());
                 }
                 stitch_log::phase("preview ready");
                 let _ = app_handle.emit("panorama-complete", payload);
@@ -133,17 +125,16 @@ pub async fn reproject_panorama(
             stop.note_stop();
             return Ok(());
         }
-        let mut guard = session_handle.lock().unwrap();
-        let session = guard
-            .as_mut()
-            .ok_or_else(|| "No panorama session. Run stitch first.".to_string())?;
-        session.selected_projection = proj;
-        session.crop_edited = false;
+        let (frames, options) = {
+            let guard = session_handle.lock().unwrap_or_else(|e| e.into_inner());
+            let session = guard.as_ref().ok_or_else(|| NO_SESSION.to_string())?;
+            (session_frames(session), session.options.clone())
+        };
         let _ = app_handle.emit("panorama-progress", "Reprojecting preview...");
         let progress = |msg: &str, _frac: f64| {
             let _ = app_handle.emit("panorama-progress", msg.to_string());
         };
-        let rendered = match render_preview(session, proj, &progress, &stop) {
+        let (reg, rendered) = match render_preview(&frames, &options, proj, &progress, &stop) {
             Ok(r) => r,
             Err(e) if e == "stopped" || stop.halted() => {
                 stop.note_stop();
@@ -151,12 +142,20 @@ pub async fn reproject_panorama(
             }
             Err(e) => return Err(e),
         };
-        if stop.halted() {
-            stop.note_stop();
-            return Ok(());
-        }
-        fill_preview(session, &rendered)?;
-        let payload = complete_payload(session);
+        let preview = render_display(&rendered)?;
+        let payload = {
+            let mut guard = session_handle.lock().unwrap_or_else(|e| e.into_inner());
+            if stop.halted() {
+                stop.note_stop();
+                return Ok(());
+            }
+            let session = guard.as_mut().ok_or_else(|| NO_SESSION.to_string())?;
+            session.selected_projection = proj;
+            session.crop_edited = false;
+            session.registration = reg;
+            fill_preview(session, &rendered, preview);
+            complete_payload(session)
+        };
         stitch_log::phase("preview ready");
         let _ = app_handle.emit("panorama-complete", payload);
         Ok(())
@@ -170,20 +169,26 @@ pub async fn reproject_panorama(
 
 #[tauri::command]
 pub async fn cancel_panorama(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    state
+    let stop = state
         .panorama_stop
         .lock()
-        .unwrap()
-        .store(true, Ordering::SeqCst);
-    if let Ok(mut guard) = state.panorama_session.try_lock() {
-        drop_session(&mut guard);
-    }
+        .unwrap_or_else(|e| e.into_inner());
+    stop.store(true, Ordering::SeqCst);
+    drop_session(
+        &mut state
+            .panorama_session
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()),
+    );
     Ok(())
 }
 
 fn arm_stop(state: &AppState) -> Arc<AtomicBool> {
     let flag = Arc::new(AtomicBool::new(false));
-    let mut slot = state.panorama_stop.lock().unwrap();
+    let mut slot = state
+        .panorama_stop
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     slot.store(true, Ordering::SeqCst);
     *slot = flag.clone();
     flag
@@ -199,12 +204,12 @@ pub async fn save_panorama(
 ) -> Result<String, String> {
     let stop = StitchLog::new(arm_stop(&state));
     let session_slot = state.panorama_session.clone();
-    let mut session = {
-        let mut guard = state.panorama_session.lock().unwrap();
-        guard
-            .take()
-            .ok_or_else(|| "No panorama session found to save.".to_string())?
-    };
+    let mut session = state
+        .panorama_session
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .take()
+        .ok_or_else(|| "No panorama session found to save.".to_string())?;
     let crop = crop.unwrap_or_else(|| session.crop.copy());
     session.quality = quality.unwrap_or(1.0).clamp(MIN_QUALITY, 1.0);
     let task = tokio::task::spawn_blocking(move || {
@@ -213,21 +218,23 @@ pub async fn save_panorama(
         match &result {
             Ok(_) => {}
             Err(e) if e == "stopped" || stop.halted() => stop.note_stop(),
-            Err(e) => log::error!("Panorama save failed:\n{}", e),
+            Err(e) => {
+                log::error!("Panorama save failed:\n{}", e);
+                let mut slot = session_slot.lock().unwrap_or_else(|e| e.into_inner());
+                if !stop.halted() {
+                    *slot = Some(session);
+                }
+            }
         }
-        (result, session)
+        result
     });
     match task.await {
-        Ok((Ok(path), _session)) => Ok(path),
-        Ok((Err(e), session)) => {
-            if let Ok(mut guard) = session_slot.lock() {
-                *guard = Some(session);
-            }
-            Err(e)
-        }
+        Ok(result) => result,
         Err(join_err) => Err(format!("Save panorama failed: {}", join_err)),
     }
 }
+
+const NO_SESSION: &str = "No panorama session. Run stitch first.";
 
 const MIN_QUALITY: f64 = 0.25;
 
@@ -275,7 +282,7 @@ fn compose_with_retries(
                         "code": "spilling",
                         "percent": (at as f64 / 1e9 * 10.0).round() / 10.0,
                     }));
-                    *note.lock().unwrap() = note_payload.clone();
+                    *note.lock().unwrap_or_else(|e| e.into_inner()) = note_payload.clone();
                     let _ = app.emit(
                         "panorama-save-progress",
                         serde_json::json!({
@@ -327,7 +334,7 @@ fn compose_with_retries(
                     "percent": (from * 100.0).round(),
                     "next": (quality * 100.0).round(),
                 }));
-                *note.lock().unwrap() = note_payload.clone();
+                *note.lock().unwrap_or_else(|e| e.into_inner()) = note_payload.clone();
                 let _ = app.emit(
                     "panorama-save-progress",
                     serde_json::json!({
@@ -618,21 +625,51 @@ fn run_stitch(
         &progress,
         stop,
     )?;
-    fill_preview(&mut session, &rendered)?;
+    let preview = render_display(&rendered)?;
+    fill_preview(&mut session, &rendered, preview);
     Ok(session)
 }
 
-fn fill_preview(session: &mut PanoramaSession, rendered: &Composed) -> Result<(), String> {
-    session.preview_scale = rendered.scale;
-    let (w, h) = (rendered.width, rendered.height);
-    session.composite = rendered
+struct PreviewImages {
+    composite: Vec<f32>,
+    png: String,
+    overlay: String,
+    winner_map: String,
+    width: u32,
+    height: u32,
+}
+
+fn render_display(rendered: &Composed) -> Result<PreviewImages, String> {
+    let (w, h) = (rendered.width as u32, rendered.height as u32);
+    let composite = rendered
         .image
         .data
         .iter()
         .flat_map(|p| p.to_vec())
         .collect();
-    session.composite_width = w as u32;
-    session.composite_height = h as u32;
+    let (dw, dh) = display_size(w, h);
+    let img = Rgb32FImage::from_raw(w, h, composite)
+        .ok_or_else(|| "Could not build preview.".to_string())?;
+    let small = image::imageops::resize(&img, dw, dh, image::imageops::FilterType::Lanczos3);
+    let display = apply_linear_to_srgb(DynamicImage::ImageRgb32F(small));
+    let png = encode_png(&display.to_rgb8())?;
+    let winners = resize_winners(&rendered.label, w, h, dw, dh);
+    let overlay = generate_overlay(&winners, dw, dh)?;
+    Ok(PreviewImages {
+        composite: img.into_raw(),
+        png,
+        overlay: general_purpose::STANDARD.encode(overlay.boundary_png),
+        winner_map: general_purpose::STANDARD.encode(overlay.winner_map_png),
+        width: dw,
+        height: dh,
+    })
+}
+
+fn fill_preview(session: &mut PanoramaSession, rendered: &Composed, preview: PreviewImages) {
+    session.preview_scale = rendered.scale;
+    session.composite = preview.composite;
+    session.composite_width = rendered.width as u32;
+    session.composite_height = rendered.height as u32;
     if !session.crop_edited {
         session.crop = match rendered.crop {
             Some(c) => NormalizedCrop {
@@ -644,28 +681,15 @@ fn fill_preview(session: &mut PanoramaSession, rendered: &Composed) -> Result<()
             None => NormalizedCrop::default(),
         };
     }
-    let (dw, dh) = display_size(w as u32, h as u32);
-    let img = Rgb32FImage::from_raw(w as u32, h as u32, session.composite.clone())
-        .ok_or_else(|| "Could not build preview.".to_string())?;
-    let small = image::imageops::resize(&img, dw, dh, image::imageops::FilterType::Lanczos3);
-    let display = apply_linear_to_srgb(DynamicImage::ImageRgb32F(small));
-    session.preview_png_base64 = encode_png(&display.to_rgb8())?;
-    let winners = resize_winners(&rendered.label, w as u32, h as u32, dw, dh);
-    let overlay = generate_overlay(&winners, dw, dh)?;
-    session.overlay_png_base64 = general_purpose::STANDARD.encode(overlay.boundary_png);
-    session.winner_map_png_base64 = general_purpose::STANDARD.encode(overlay.winner_map_png);
-    session.preview_width = dw;
-    session.preview_height = dh;
-    Ok(())
+    session.preview_png_base64 = preview.png;
+    session.overlay_png_base64 = preview.overlay;
+    session.winner_map_png_base64 = preview.winner_map;
+    session.preview_width = preview.width;
+    session.preview_height = preview.height;
 }
 
-fn render_preview(
-    session: &mut PanoramaSession,
-    projection: Projection,
-    progress: &stitch::ComposeProgress<'_>,
-    stop: &StitchLog,
-) -> Result<Composed, String> {
-    let frames: Vec<Frame> = session
+fn session_frames(session: &PanoramaSession) -> Vec<Frame> {
+    session
         .frames
         .iter()
         .map(|f| Frame {
@@ -680,8 +704,17 @@ fn render_preview(
             focal35: f.focal35,
             meta: session.meta.get(&f.name).cloned(),
         })
-        .collect();
-    let reg = stitch::register(&frames, stop)?;
+        .collect()
+}
+
+fn render_preview(
+    frames: &[Frame],
+    options: &PanoOptions,
+    projection: Projection,
+    progress: &stitch::ComposeProgress<'_>,
+    stop: &StitchLog,
+) -> Result<(stitch::Registration, Composed), String> {
+    let reg = stitch::register(frames, stop)?;
     stitch_log::phase(&format!(
         "reproject registered used={} rmsPx {:.3} -> {:.3}",
         reg.used.len(),
@@ -690,11 +723,10 @@ fn render_preview(
     ));
     let opts = PanoOptions {
         projection,
-        ..session.options.clone()
+        ..options.clone()
     };
-    let rendered = stitch::compose(&frames, &reg, projection, &opts, None, progress, stop)?;
-    session.registration = reg;
-    Ok(rendered)
+    let rendered = stitch::compose(frames, &reg, projection, &opts, None, progress, stop)?;
+    Ok((reg, rendered))
 }
 
 fn scale_registration(
