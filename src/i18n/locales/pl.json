@@ -879,6 +879,7 @@
       "camera": {
         "aperture": "Przysłona",
         "focalLength": "Ogniskowa",
+        "focusDistance": "Odległość ostrzenia",
         "iso": "ISO",
         "lens": "Obiektyw",
         "shutterSpeed": "Czas otwarcia migawki",

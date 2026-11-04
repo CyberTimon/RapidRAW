@@ -879,6 +879,7 @@
       "camera": {
         "aperture": "Clona",
         "focalLength": "Ohnisková vzdálenost",
+        "focusDistance": "Vzdálenost zaostření",
         "iso": "ISO",
         "lens": "Objektiv",
         "shutterSpeed": "Rychlost závěrky",
