@@ -57,6 +57,7 @@ import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { useOsPlatform } from '../../hooks/useOsPlatform';
 import { useCloudUsage } from '../../hooks/useCloudUsage';
 import { open } from '@tauri-apps/plugin-shell';
+import { translateBuiltInTag } from '../../i18n/translateBuiltInTag';
 import ImmichSettings from '../immich/ImmichSettings';
 import DataManagementSettings from './settings/DataManagementSettings';
 import EditInAppsSettings from './settings/EditInAppsSettings';
@@ -1622,11 +1623,13 @@ export default function SettingsPanel({
                                     animate="visible"
                                     exit="exit"
                                     onClick={() => handleRemoveShortcut(shortcut)}
-                                    data-tooltip={t('settings.tagging.removeShortcutTooltip', { shortcut })}
+                                    data-tooltip={t('settings.tagging.removeShortcutTooltip', {
+                                      shortcut: translateBuiltInTag(shortcut),
+                                    })}
                                     className="flex items-center gap-1 bg-surface px-2 py-1 rounded-sm group cursor-pointer"
                                   >
                                     <Text variant={TextVariants.label} color={TextColors.primary}>
-                                      {shortcut}
+                                      {translateBuiltInTag(shortcut)}
                                     </Text>
                                     <span className="rounded-full group-hover:bg-black/20 p-0.5 transition-colors">
                                       <X size={14} />

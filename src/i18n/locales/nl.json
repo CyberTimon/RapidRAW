@@ -841,7 +841,8 @@
       "copy": "Kopiëren",
       "emptyClickToAdd": "Leeg (klik om toe te voegen)",
       "extendedExif": {
-        "title": "Uitgebreide EXIF"
+        "title": "Uitgebreide EXIF",
+        "unknownTiffTag": "Onbekende TIFF-tag ({{id}})"
       },
       "fields": {
         "author": "Auteur",
@@ -1676,7 +1677,15 @@
       "organizeByDate": "Ordenen in submappen op datum",
       "sourceFiles": "Bronbestanden",
       "startImport": "Import starten",
-      "title": "Importinstellingen"
+      "title": "Importinstellingen",
+      "fileDialog": {
+        "allFiles": "Alle bestanden",
+        "allSupportedImages": "Alle ondersteunde afbeeldingen",
+        "rawImages": "RAW-afbeeldingen",
+        "selectFilesTitle": "Selecteer bestanden om te importeren",
+        "standardImages": "Standaardafbeeldingen (JPEG, PNG enz.)",
+        "unsupportedFormats": "Niet-ondersteunde bestandsformaten gevonden: {{formats}}"
+      }
     },
     "lensCorrection": {
       "amount": "Hoeveelheid",
@@ -2405,6 +2414,27 @@
         "showClipping": "Uitknipwaarschuwingen weergeven",
         "vectorscope": "Vectoroscoop"
       }
+    },
+    "filenameVariables": {
+      "day": "Dag",
+      "hour": "Uur",
+      "minute": "Minuut",
+      "month": "Maand",
+      "originalFilename": "Oorspronkelijke bestandsnaam",
+      "originalFilenameNumber": "Nummer in oorspronkelijke bestandsnaam",
+      "sequence": "Volgnummer",
+      "year": "Jaar"
+    },
+    "builtInTags": {
+      "architecture": "architectuur",
+      "event": "evenement",
+      "family": "familie",
+      "food": "eten",
+      "landscape": "landschap",
+      "nature": "natuur",
+      "portrait": "portret",
+      "street": "straat",
+      "travel": "reizen"
     }
   }
 }

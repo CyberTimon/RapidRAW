@@ -889,7 +889,8 @@
       "copy": "Kopírovat",
       "emptyClickToAdd": "Prázdné (přidejte kliknutím)",
       "extendedExif": {
-        "title": "Rozšířený EXIF"
+        "title": "Rozšířený EXIF",
+        "unknownTiffTag": "Neznámá značka TIFF ({{id}})"
       },
       "fields": {
         "author": "Autor",
@@ -1748,7 +1749,15 @@
       "organizeByDate": "Uspořádejte do podsložek podle data",
       "sourceFiles": "Zdrojové soubory",
       "startImport": "Spustit import",
-      "title": "Nastavení importu"
+      "title": "Nastavení importu",
+      "fileDialog": {
+        "allFiles": "Všechny soubory",
+        "allSupportedImages": "Všechny podporované obrázky",
+        "rawImages": "Obrázky RAW",
+        "selectFilesTitle": "Vyberte soubory k importu",
+        "standardImages": "Běžné obrázky (JPEG, PNG atd.)",
+        "unsupportedFormats": "Zjištěny nepodporované formáty souborů: {{formats}}"
+      }
     },
     "lensCorrection": {
       "amount": "Míra",
@@ -2497,6 +2506,27 @@
         "showClipping": "Zobrazit upozornění na oříznutí",
         "vectorscope": "Vektoroskop"
       }
+    },
+    "filenameVariables": {
+      "day": "Den",
+      "hour": "Hodina",
+      "minute": "Minuta",
+      "month": "Měsíc",
+      "originalFilename": "Původní název souboru",
+      "originalFilenameNumber": "Číslo v původním názvu souboru",
+      "sequence": "Pořadové číslo",
+      "year": "Rok"
+    },
+    "builtInTags": {
+      "architecture": "architektura",
+      "event": "událost",
+      "family": "rodina",
+      "food": "jídlo",
+      "landscape": "krajina",
+      "nature": "příroda",
+      "portrait": "portrét",
+      "street": "ulice",
+      "travel": "cestování"
     }
   }
 }

@@ -865,7 +865,8 @@
       "copy": "Copiar",
       "emptyClickToAdd": "Buit (Feu clic per afegir)",
       "extendedExif": {
-        "title": "EXIF ampliat"
+        "title": "EXIF ampliat",
+        "unknownTiffTag": "Etiqueta TIFF desconeguda ({{id}})"
       },
       "fields": {
         "author": "Autor",
@@ -1712,7 +1713,15 @@
       "organizeByDate": "Organitzar en subcarpetes per data",
       "sourceFiles": "Fitxers d'origen",
       "startImport": "Iniciar importació",
-      "title": "Configuració d'importació"
+      "title": "Configuració d'importació",
+      "fileDialog": {
+        "allFiles": "Tots els fitxers",
+        "allSupportedImages": "Totes les imatges compatibles",
+        "rawImages": "Imatges RAW",
+        "selectFilesTitle": "Seleccioneu els fitxers per importar",
+        "standardImages": "Imatges estàndard (JPEG, PNG, etc.)",
+        "unsupportedFormats": "S’han detectat formats de fitxer no compatibles: {{formats}}"
+      }
     },
     "lensCorrection": {
       "amount": "Quantitat",
@@ -2455,6 +2464,27 @@
         "showClipping": "Mostrar advertiments de retall",
         "vectorscope": "Vectorscopi"
       }
+    },
+    "filenameVariables": {
+      "day": "Dia",
+      "hour": "Hora",
+      "minute": "Minut",
+      "month": "Mes",
+      "originalFilename": "Nom original del fitxer",
+      "originalFilenameNumber": "Número del nom original del fitxer",
+      "sequence": "Seqüència",
+      "year": "Any"
+    },
+    "builtInTags": {
+      "architecture": "arquitectura",
+      "event": "esdeveniment",
+      "family": "família",
+      "food": "menjar",
+      "landscape": "paisatge",
+      "nature": "natura",
+      "portrait": "retrat",
+      "street": "carrer",
+      "travel": "viatges"
     }
   }
 }

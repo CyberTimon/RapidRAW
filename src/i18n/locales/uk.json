@@ -889,7 +889,8 @@
       "copy": "Копіювати",
       "emptyClickToAdd": "Порожньо (клацніть, щоб додати)",
       "extendedExif": {
-        "title": "Розширені EXIF"
+        "title": "Розширені EXIF",
+        "unknownTiffTag": "Невідомий тег TIFF ({{id}})"
       },
       "fields": {
         "author": "Автор",
@@ -1748,7 +1749,15 @@
       "organizeByDate": "Розкладати в підпапки за датою",
       "sourceFiles": "Вихідні файли",
       "startImport": "Почати імпорт",
-      "title": "Параметри імпорту"
+      "title": "Параметри імпорту",
+      "fileDialog": {
+        "allFiles": "Усі файли",
+        "allSupportedImages": "Усі підтримувані зображення",
+        "rawImages": "Зображення RAW",
+        "selectFilesTitle": "Виберіть файли для імпорту",
+        "standardImages": "Стандартні зображення (JPEG, PNG тощо)",
+        "unsupportedFormats": "Виявлено непідтримувані формати файлів: {{formats}}"
+      }
     },
     "lensCorrection": {
       "amount": "Інтенсивність",
@@ -2495,6 +2504,27 @@
         "showClipping": "Показати попередження про відсічення",
         "vectorscope": "Вектороскоп"
       }
+    },
+    "filenameVariables": {
+      "day": "День",
+      "hour": "Година",
+      "minute": "Хвилина",
+      "month": "Місяць",
+      "originalFilename": "Початкова назва файлу",
+      "originalFilenameNumber": "Номер у початковій назві файлу",
+      "sequence": "Послідовність",
+      "year": "Рік"
+    },
+    "builtInTags": {
+      "architecture": "архітектура",
+      "event": "подія",
+      "family": "сім’я",
+      "food": "їжа",
+      "landscape": "пейзаж",
+      "nature": "природа",
+      "portrait": "портрет",
+      "street": "вулиця",
+      "travel": "подорожі"
     }
   }
 }

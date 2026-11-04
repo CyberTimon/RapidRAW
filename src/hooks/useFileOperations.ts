@@ -351,16 +351,22 @@ export function useFileOperations(
         const typeFilters = isAndroid
           ? []
           : [
-              { name: 'All Supported Images', extensions: allImageExtensions },
-              { name: 'RAW Images', extensions: processedRaw },
-              { name: 'Standard Images (JPEG, PNG, etc.)', extensions: processedNonRaw },
-              { name: 'All Files', extensions: ['*'] },
+              {
+                name: t('modals.importSettings.fileDialog.allSupportedImages'),
+                extensions: allImageExtensions,
+              },
+              { name: t('modals.importSettings.fileDialog.rawImages'), extensions: processedRaw },
+              {
+                name: t('modals.importSettings.fileDialog.standardImages'),
+                extensions: processedNonRaw,
+              },
+              { name: t('modals.importSettings.fileDialog.allFiles'), extensions: ['*'] },
             ];
 
         const selected = await open({
           filters: typeFilters,
           multiple: true,
-          title: 'Select files to import',
+          title: t('modals.importSettings.fileDialog.selectFilesTitle'),
         });
 
         if (Array.isArray(selected) && selected.length > 0) {
@@ -394,7 +400,7 @@ export function useFileOperations(
 
           if (invalidExtensions.size > 0) {
             const extList = Array.from(invalidExtensions).join(', ');
-            toast.error(`Unsupported file format(s) detected: ${extList}`);
+            toast.error(t('modals.importSettings.fileDialog.unsupportedFormats', { formats: extList }));
             return;
           }
 
@@ -415,7 +421,7 @@ export function useFileOperations(
         console.error('Failed to open file dialog for import:', err);
       }
     },
-    [startImportFiles],
+    [startImportFiles, t],
   );
 
   const handlePasteFiles = useCallback(
