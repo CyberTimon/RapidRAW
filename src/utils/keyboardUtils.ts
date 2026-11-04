@@ -391,7 +391,7 @@ export function getDefaultCombo(def: KeybindDefinition, osPlatform?: Platform): 
 export function getEffectiveCombo(
   def: KeybindDefinition,
   keybinds: Record<string, string[]> | undefined,
-  osPlatform?: string,
+  osPlatform?: Platform,
 ): string[] {
   return keybinds?.[def.action] ?? getDefaultCombo(def, osPlatform);
 }

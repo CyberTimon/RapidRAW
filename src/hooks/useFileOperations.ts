@@ -28,6 +28,8 @@ export function useFileOperations(
 ) {
   const { t } = useTranslation();
 
+  const { isAndroid } = useOsPlatform();
+
   const getParentDir = (filePath: string): string => {
     const separator = filePath.includes('/') ? '/' : '\\';
     const lastSeparatorIndex = filePath.lastIndexOf(separator);
@@ -334,7 +336,6 @@ export function useFileOperations(
   const handleImportClick = useCallback(
     async (targetPath: string) => {
       const { supportedTypes } = useSettingsStore.getState();
-      const { isAndroid } = useOsPlatform();
       const { setUI } = useUIStore.getState();
 
       try {

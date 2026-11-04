@@ -116,6 +116,8 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
     prevAdjustmentsRef,
   } = refs;
 
+  const { isAndroid } = useOsPlatform();
+
   const handleGoHome = useCallback(() => {
     useLibraryStore.getState().setLibrary({
       rootPaths: [],
@@ -551,7 +553,6 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
   const handleOpenFolder = useCallback(async () => {
     const { appSettings, handleSettingsChange } = useSettingsStore.getState();
     const { rootPaths, folderTrees, setLibrary } = useLibraryStore.getState();
-    const { isAndroid } = useOsPlatform();
 
     try {
       let selectedPath = '';

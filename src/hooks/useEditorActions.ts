@@ -171,6 +171,8 @@ export function useEditorActions() {
   const { t } = useTranslation();
   const setEditor = useEditorStore((s) => s.setEditor);
 
+  const { isAndroid } = useOsPlatform();
+
   const setAdjustments = useCallback(
     (value: Partial<Adjustments> | ((prev: Adjustments) => Adjustments), label?: string) => {
       // A labelled action gets its own history step instead of merging with pending slider edits.
@@ -280,7 +282,6 @@ export function useEditorActions() {
 
   const handleLutSelect = useCallback(
     async (path: string, isBuiltIn: boolean = false) => {
-      const { isAndroid } = useOsPlatform();
       try {
         const result: { size: number } = await invoke('load_and_parse_lut', { path });
         const name =
