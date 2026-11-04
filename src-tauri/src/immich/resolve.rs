@@ -135,31 +135,70 @@ fn month(day: Option<&str>) -> Option<&str> {
     day.map(str::trim).and_then(|day| day.get(..7))
 }
 
-/// The stacks that contain any of the listed assets, without asking Immich
-/// for every stack of the library (`GET /stacks` is huge on big libraries).
+/// Above this many stacks, fetching them one by one (measured ~1.8 ms per
+/// stack with 16 in flight) gets close to downloading the full list of a
+/// 35k-stack library (~6 s), so desktop downloads the full list instead.
+const FULL_LIST_ABOVE_STACKS: usize = 1500;
+/// Above this many timeline entries desktop goes straight to the full list
+/// without reading the timeline (~27 µs per entry, ~2 s for 80k entries).
+const FULL_LIST_ABOVE_TIMELINE_ENTRIES: usize = 10_000;
+/// Phones always fetch single stacks: the full list can be too big for them
+/// to download and parse.
+const MOBILE: bool = cfg!(any(target_os = "android", target_os = "ios"));
+
+fn use_full_list(mobile: bool, count: usize, limit: usize) -> bool {
+    !mobile && count > limit
+}
+
+struct FetchedStacks {
+    stacks: Vec<Stack>,
+    full_list: bool,
+}
+
+/// The stacks that contain any of the listed assets.
 ///
 /// The timeline with collapsed stacks gives, for the album or the months of
 /// the filter, which assets are unstacked and the stack id of every primary
 /// asset. Only those stacks are fetched. Listed assets the timeline did not
 /// show and that are not in one of those stacks (non-primary assets whose
 /// primary is not listed, assets near a month border) are looked up one by
-/// one.
+/// one. On desktop, a view that needs many stacks downloads the full list
+/// (`GET /stacks`) instead, which is faster there.
 async fn stacks_for(
     client: &ImmichClient,
     filter: &Filter,
     assets: &[Asset],
-) -> Result<Vec<Stack>, String> {
-    let timeline = client
-        .timeline_stacks(
-            filter.album_id.as_deref(),
+    mobile: bool,
+) -> Result<FetchedStacks, String> {
+    let full_list = || async {
+        Ok(FetchedStacks {
+            stacks: client.all_stacks().await?,
+            full_list: true,
+        })
+    };
+    let album = filter.album_id.as_deref();
+    let months = client
+        .stacked_timeline_months(
+            album,
             month(filter.taken_from.as_deref()),
             month(filter.taken_until.as_deref()),
         )
-        .await
-        .unwrap_or_else(|e| {
-            log::warn!("Immich timeline unavailable, looking up stacks per asset: {e}");
-            HashMap::new()
-        });
+        .await;
+    let entries = match &months {
+        Ok(months) => months.iter().map(|m| m.count as usize).sum(),
+        Err(_) => assets.len(),
+    };
+    if use_full_list(mobile, entries, FULL_LIST_ABOVE_TIMELINE_ENTRIES) {
+        return full_list().await;
+    }
+    let timeline = match months {
+        Ok(months) => client.timeline_stacks(album, &months).await,
+        Err(e) => Err(e),
+    }
+    .unwrap_or_else(|e| {
+        log::warn!("Immich timeline unavailable, looking up stacks per asset: {e}");
+        HashMap::new()
+    });
 
     let mut stack_ids: Vec<String> = assets
         .iter()
@@ -167,6 +206,9 @@ async fn stacks_for(
         .collect();
     stack_ids.sort();
     stack_ids.dedup();
+    if use_full_list(mobile, stack_ids.len(), FULL_LIST_ABOVE_STACKS) {
+        return full_list().await;
+    }
     let mut stacks = client.stacks_by_id(stack_ids.iter().cloned()).await?;
 
     let known: HashSet<&str> = timeline
@@ -183,6 +225,13 @@ async fn stacks_for(
         .filter(|a| !known.contains(a.id.as_str()))
         .map(|a| a.id.clone())
         .collect();
+    if use_full_list(
+        mobile,
+        stack_ids.len() + unknown.len(),
+        FULL_LIST_ABOVE_STACKS,
+    ) {
+        return full_list().await;
+    }
     if !unknown.is_empty() {
         let more: Vec<String> = client
             .stack_ids_of(&unknown)
@@ -192,7 +241,10 @@ async fn stacks_for(
             .collect();
         stacks.extend(client.stacks_by_id(more).await?);
     }
-    Ok(stacks)
+    Ok(FetchedStacks {
+        stacks,
+        full_list: false,
+    })
 }
 
 async fn listed_assets(client: &ImmichClient, filter: &Filter) -> Result<Vec<Asset>, String> {
@@ -212,7 +264,11 @@ pub async fn listing(
     cache_dir: &Path,
 ) -> Result<Vec<Resolved>, String> {
     let assets = listed_assets(client, filter).await?;
-    let stacks = StackIndex::new(stacks_for(client, filter, &assets).await?);
+    let fetched = stacks_for(client, filter, &assets, MOBILE).await?;
+    if fetched.full_list {
+        log::info!("Immich: many stacks in this view, used the full stack list");
+    }
+    let stacks = StackIndex::new(fetched.stacks);
     Ok(resolve(assets, &stacks, filter, cache_dir))
 }
 
@@ -380,6 +436,22 @@ mod tests {
     }
 
     #[test]
+    fn full_list_only_on_desktop_above_the_limit() {
+        assert!(!use_full_list(
+            false,
+            FULL_LIST_ABOVE_STACKS,
+            FULL_LIST_ABOVE_STACKS
+        ));
+        assert!(use_full_list(
+            false,
+            FULL_LIST_ABOVE_STACKS + 1,
+            FULL_LIST_ABOVE_STACKS
+        ));
+        assert!(!use_full_list(true, 1_000_000, FULL_LIST_ABOVE_STACKS));
+        assert_eq!(MOBILE, cfg!(any(target_os = "android", target_os = "ios")));
+    }
+
+    #[test]
     fn month_of_a_day() {
         assert_eq!(month(Some(" 2019-11-30 ")), Some("2019-11"));
         assert_eq!(month(Some("2019")), None);
@@ -389,7 +461,8 @@ mod tests {
     /// Same listing as with the full `GET /stacks`, for an album
     /// (IMMICH_TEST_ALBUM), a month (IMMICH_TEST_MONTH, "YYYY-MM", also with
     /// only the images that are in no album) and/or every image in no album
-    /// (IMMICH_TEST_UNASSIGNED=1).
+    /// (IMMICH_TEST_UNASSIGNED=1). Each view is resolved as on desktop and as
+    /// on a phone (skip the phone run with IMMICH_TEST_DESKTOP_ONLY=1).
     #[test]
     #[ignore = "needs IMMICH_TEST_URL and IMMICH_API_KEY"]
     fn live_listing_matches_full_stack_list() {
@@ -444,20 +517,38 @@ mod tests {
                 all.stacks.len(),
                 started.elapsed()
             );
+            let old_desktop_only = std::env::var("IMMICH_TEST_DESKTOP_ONLY").is_ok_and(|v| v == "1");
             for filter in &filters {
                 let assets = listed_assets(&client, filter).await.unwrap();
-                let started = Instant::now();
-                let stacks = stacks_for(&client, filter, &assets).await.unwrap();
-                let took = started.elapsed();
-                let count = stacks.len();
-                let new = resolve(assets.clone(), &StackIndex::new(stacks), filter, &cache_dir);
                 let old = resolve(assets.clone(), &all, filter, &cache_dir);
-                println!(
-                    "{filter:?}: {} assets, {} listed, {count} stacks fetched in {took:?}",
-                    assets.len(),
-                    new.len()
-                );
-                assert_eq!(summary(&new), summary(&old));
+                for mobile in [false, true] {
+                    if mobile && old_desktop_only {
+                        continue;
+                    }
+                    let started = Instant::now();
+                    let fetched = stacks_for(&client, filter, &assets, mobile).await.unwrap();
+                    let took = started.elapsed();
+                    let count = fetched.stacks.len();
+                    let new = resolve(
+                        assets.clone(),
+                        &StackIndex::new(fetched.stacks),
+                        filter,
+                        &cache_dir,
+                    );
+                    println!(
+                        "{filter:?} mobile={mobile}: {} assets, {} listed, {count} stacks{} in {took:?}",
+                        assets.len(),
+                        new.len(),
+                        if fetched.full_list { " (full list)" } else { "" }
+                    );
+                    assert_eq!(summary(&new), summary(&old));
+                    if mobile {
+                        assert!(!fetched.full_list);
+                    }
+                    if !mobile && filter.not_in_album && filter.taken_from.is_none() {
+                        assert!(fetched.full_list, "Unassigned uses the full list on desktop");
+                    }
+                }
             }
         });
     }

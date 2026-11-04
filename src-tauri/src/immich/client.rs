@@ -121,6 +121,12 @@ impl TimelineBucket {
     }
 }
 
+fn album_query(album_id: Option<&str>) -> String {
+    album_id
+        .map(|id| format!("&albumId={id}"))
+        .unwrap_or_default()
+}
+
 /// Whether a time bucket ("YYYY-MM-DD...") falls within the months `from`..=`until`
 /// ("YYYY-MM", both optional).
 fn in_months(bucket: &str, from: Option<&str>, until: Option<&str>) -> bool {
@@ -317,10 +323,9 @@ impl ImmichClient {
         Ok((result.assets.items, result.assets.next_page.is_some()))
     }
 
-    /// Every stack of the library with all its assets. Only for tests: on a
-    /// big library this is a huge answer (35k stacks = 116 MB), so the app
-    /// asks for single stacks instead.
-    #[cfg(test)]
+    /// Every stack of the library with all its assets. A huge answer on a big
+    /// library (35k stacks = 116 MB), so it is only used on desktop when a
+    /// view needs many stacks.
     pub async fn all_stacks(&self) -> Result<Vec<Stack>, String> {
         self.json(self.request(Method::GET, "/stacks"), "stacks")
             .await
@@ -380,20 +385,16 @@ impl ImmichClient {
         }
     }
 
-    /// Stack of every asset shown in the timeline of an album (or of the whole
-    /// library) with stacks collapsed, for the months `from`..=`until`
-    /// ("YYYY-MM", both optional). Unstacked assets map to `None`; stacked
-    /// ones appear only through their primary asset.
-    pub async fn timeline_stacks(
+    /// Months of the timeline of an album (or of the whole library) with
+    /// stacks collapsed, within `from`..=`until` ("YYYY-MM", both optional).
+    pub async fn stacked_timeline_months(
         &self,
         album_id: Option<&str>,
         from: Option<&str>,
         until: Option<&str>,
-    ) -> Result<HashMap<String, Option<String>>, String> {
-        let album = album_id
-            .map(|id| format!("&albumId={id}"))
-            .unwrap_or_default();
-        let buckets: Vec<TimelineMonth> = self
+    ) -> Result<Vec<TimelineMonth>, String> {
+        let album = album_query(album_id);
+        let months: Vec<TimelineMonth> = self
             .json(
                 self.request(
                     Method::GET,
@@ -402,18 +403,31 @@ impl ImmichClient {
                 "timeline",
             )
             .await?;
-        let months: Vec<String> = buckets
+        Ok(months
             .into_iter()
-            .map(|b| b.time_bucket)
-            .filter(|bucket| in_months(bucket, from, until))
-            .collect();
+            .filter(|m| in_months(&m.time_bucket, from, until))
+            .collect())
+    }
+
+    /// Stack of every asset shown in those months of the timeline with stacks
+    /// collapsed. Unstacked assets map to `None`; stacked ones appear only
+    /// through their primary asset.
+    pub async fn timeline_stacks(
+        &self,
+        album_id: Option<&str>,
+        months: &[TimelineMonth],
+    ) -> Result<HashMap<String, Option<String>>, String> {
+        let album = album_query(album_id);
         let mut stacks = HashMap::new();
         for chunk in months.chunks(PARALLEL_PAGES as usize) {
-            let buckets = futures::future::try_join_all(chunk.iter().map(|bucket| {
+            let buckets = futures::future::try_join_all(chunk.iter().map(|month| {
                 self.json::<TimelineBucket>(
                     self.request(
                         Method::GET,
-                        &format!("/timeline/bucket?withStacked=true&timeBucket={bucket}{album}"),
+                        &format!(
+                            "/timeline/bucket?withStacked=true&timeBucket={}{album}",
+                            month.time_bucket
+                        ),
                     ),
                     "timeline",
                 )
