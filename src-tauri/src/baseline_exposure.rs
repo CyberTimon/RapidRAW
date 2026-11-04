@@ -241,3 +241,34 @@ fn pentax(makernote: &IFD) -> f32 {
         _ => 0.0,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rawler::formats::tiff::Entry;
+
+    #[test]
+    fn nikon_only_hlg_overrides_active_d_lighting() {
+        for (color_space, expected_ev) in
+            [(None, 1.0), (Some(1), 1.0), (Some(2), 1.0), (Some(4), 2.0)]
+        {
+            let mut note = IFD::default();
+            for (tag, value) in [
+                (NIKON_COLOR_SPACE, color_space),
+                (NIKON_ACTIVE_D_LIGHTING, Some(7)),
+            ] {
+                if let Some(value) = value {
+                    note.entries.insert(
+                        tag,
+                        Entry {
+                            tag,
+                            value: Value::Short(vec![value]),
+                            embedded: None,
+                        },
+                    );
+                }
+            }
+            assert_eq!(nikon(&note), expected_ev, "ColorSpace={color_space:?}");
+        }
+    }
+}

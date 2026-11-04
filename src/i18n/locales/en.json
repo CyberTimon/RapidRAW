@@ -15,6 +15,7 @@
       "reset": "Reset",
       "shadows": "Shadows",
       "toneMapper": "Tone Mapper",
+      "applyCameraExposureCompensation": "Apply camera exposure compensation",
       "whites": "Whites"
     },
     "color": {

@@ -15,6 +15,7 @@
       "reset": "重置",
       "shadows": "阴影",
       "toneMapper": "色调映射",
+      "applyCameraExposureCompensation": "应用相机曝光补偿",
       "whites": "白色"
     },
     "color": {

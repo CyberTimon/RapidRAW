@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import Slider from '../ui/Slider';
+import Switch from '../ui/Switch';
 import { Adjustments, BasicAdjustment } from '../../utils/adjustments';
 import { useEffect, useRef, useState, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +11,7 @@ interface BasicAdjustmentsProps {
   adjustments: Adjustments;
   setAdjustments(adjustments: Partial<Adjustments>): any;
   isForMask?: boolean;
+  isRaw?: boolean;
   onDragStateChange?: (isDragging: boolean) => void;
   appSettings?: any;
 }
@@ -160,6 +162,7 @@ function BasicAdjustments({
   adjustments,
   setAdjustments,
   isForMask = false,
+  isRaw = false,
   onDragStateChange,
   appSettings,
 }: BasicAdjustmentsProps) {
@@ -199,6 +202,14 @@ function BasicAdjustments({
           exposureValue={adjustments.exposure}
           onExposureChange={(value) => handleAdjustmentChange(BasicAdjustment.Exposure, value)}
           onDragStateChange={onDragStateChange}
+        />
+      )}
+      {isRaw && !isForMask && (
+        <Switch
+          checked={adjustments.baselineExposure}
+          className="mb-3"
+          label={t('adjustments.basic.applyCameraExposureCompensation')}
+          onChange={(checked) => setAdjustments({ baselineExposure: checked })}
         />
       )}
       <Slider
