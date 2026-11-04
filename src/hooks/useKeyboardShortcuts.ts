@@ -764,11 +764,11 @@ export const useKeyboardShortcuts = ({
         return;
       }
 
-      const focused = document.activeElement;
-      const isInputFocused =
-        focused?.tagName === 'TEXTAREA' ||
-        (focused instanceof HTMLInputElement && !NON_TEXT_INPUT_TYPES.has(focused.type));
-      if (isInputFocused) return;
+      const target = event.target;
+      const isInputTarget =
+        target instanceof HTMLTextAreaElement ||
+        (target instanceof HTMLInputElement && !NON_TEXT_INPUT_TYPES.has(target.type));
+      if (isInputTarget) return;
 
       for (const builtin of builtinShortcuts) {
         if (builtin.match(event, state)) {
