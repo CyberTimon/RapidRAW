@@ -13,6 +13,7 @@ import {
 import { Coord, DEFAULT_SPEED_EDIT_ADJUSTMENTS } from '../../../../utils/adjustments';
 import { Panel, PanelRegion } from '../../../ui/AppProperties';
 import { formatKeyCode, normalizeCombo } from '../../../../utils/keyboardUtils';
+import { useOsPlatform } from '../../../../hooks/useOsPlatform';
 
 const DRAG_RANGE_PX = 400;
 const HUD_OFFSET = 16;
@@ -119,7 +120,7 @@ const getFraction = (target: SpeedEditTarget, value: number) =>
   (target.toPosition(value) - target.minPosition) / (target.maxPosition - target.minPosition);
 
 export default function SpeedEditOverlay() {
-  const osPlatform = useSettingsStore((state) => state.osPlatform);
+  const { osPlatform } = useOsPlatform();
   const speedEditTarget = useEditorStore((state) => state.speedEditTarget);
   const adjustments = useEditorStore((state) => state.adjustments);
   const liveRotation = useEditorStore((state) => state.liveRotation);

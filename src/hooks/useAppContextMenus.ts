@@ -95,6 +95,7 @@ import {
   removeFromImmichAlbum,
 } from '../components/immich/immichApi';
 import { useImmichStore } from '../components/immich/useImmichStore';
+import { useOsPlatform } from './useOsPlatform';
 
 export interface UseAppContextMenusProps {
   handleImageSelect: (path: string) => void;
@@ -129,6 +130,7 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
   );
   const { t } = useTranslation();
   const { showContextMenu } = useContextMenu();
+  const { isAndroid } = useOsPlatform();
 
   const {
     handleAutoAdjustments,
@@ -310,7 +312,7 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
         copiedAdjustments,
         setEditor,
       } = useEditorStore.getState();
-      const { appSettings, osPlatform } = useSettingsStore.getState();
+      const { appSettings } = useSettingsStore.getState();
       const { setPanel, setUI, isViewerOpen, toggleViewerWindow } = useUIStore.getState();
 
       if (!selectedImage) return;
@@ -326,7 +328,7 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
           onClick: () => setPanel(Panel.Export),
         },
         ...buildEditInOptions(selectedImage.path),
-        ...(osPlatform !== 'android'
+        ...(!isAndroid
           ? [
               {
                 label: isViewerOpen ? t('contextMenus.editor.closeViewer') : t('contextMenus.editor.openViewer'),
@@ -501,6 +503,7 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
       handleTagsChanged,
       buildEditInOptions,
       showContextMenu,
+      isAndroid,
       t,
     ],
   );

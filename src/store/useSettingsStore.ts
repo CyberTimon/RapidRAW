@@ -8,10 +8,8 @@ interface SettingsState {
   appSettings: AppSettings | null;
   theme: string;
   supportedTypes: SupportedTypes | null;
-  osPlatform: string;
 
   // Actions
-  initPlatform: () => void;
   setAppSettings: (settings: AppSettings | null) => void;
   setTheme: (theme: string) => void;
   setSupportedTypes: (types: SupportedTypes | null) => void;
@@ -22,15 +20,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   appSettings: null,
   theme: DEFAULT_THEME_ID,
   supportedTypes: null,
-  osPlatform: '',
-
-  initPlatform: () => {
-    try {
-      set({ osPlatform: platform() });
-    } catch (_err) {
-      set({ osPlatform: '' });
-    }
-  },
 
   setAppSettings: (settings) => set({ appSettings: settings }),
 
