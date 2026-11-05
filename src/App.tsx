@@ -56,6 +56,7 @@ import { useTauriListeners } from './hooks/useTauriListeners';
 import { transferFiles, useFileOperations } from './hooks/useFileOperations';
 import { useAppContextMenus } from './hooks/useAppContextMenus';
 import { useSortedLibrary } from './hooks/useSortedLibrary';
+import { useImagePreloader } from './hooks/useImagePreloader';
 import { useAppNavigation } from './hooks/useAppNavigation';
 import { useExternalEditSession } from './hooks/useExternalEditSession';
 import ExternalEditBar from './components/ui/ExternalEditBar';
@@ -390,6 +391,7 @@ function App() {
   }, [handleImageSelect]);
 
   const { displayList: sortedImageList, badges: groupBadgeInfo } = useSortedLibrary();
+  useImagePreloader(sortedImageList);
 
   const handleLibraryRefresh = useCallback(async () => {
     if (currentFolderPath) {

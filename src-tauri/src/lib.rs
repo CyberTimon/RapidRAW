@@ -51,6 +51,7 @@ mod guided_perspective;
 mod hdr_deghosting;
 mod highlight_reconstruction;
 mod image_loader;
+mod image_preload;
 mod image_processing;
 mod immich;
 mod inpainting;
@@ -1182,6 +1183,18 @@ fn catch_render_panic(render: impl FnOnce() -> Result<Vec<u8>, String>) -> Resul
 fn run_editor_job(app_handle: &tauri::AppHandle, job: PreviewJob) {
     let state = app_handle.state::<AppState>();
     let responder = job.responder;
+    let rendered_source = (job.layer == DisplayLayer::Edited
+        && state.image_preloader.is_awaiting_frame())
+    .then(|| {
+        let generation = state.load_image_generation.load(Ordering::SeqCst);
+        state
+            .original_image
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .map(|loaded| (generation, loaded.path.clone()))
+    })
+    .flatten();
     let result = catch_render_panic(|| {
         process_preview_job(
             app_handle,
@@ -1200,6 +1213,12 @@ fn run_editor_job(app_handle: &tauri::AppHandle, job: PreviewJob) {
     match result {
         Ok(bytes) => {
             let _ = responder.send(bytes);
+            let state = app_handle.state::<AppState>();
+            if let Some((generation, path)) = rendered_source
+                && state.load_image_generation.load(Ordering::SeqCst) == generation
+            {
+                state.image_preloader.frame_rendered(&path);
+            }
             if job.layer == DisplayLayer::Edited && !job.is_interactive {
                 viewer_window::schedule_viewer_render(app_handle);
             }
@@ -2594,6 +2613,7 @@ pub fn run() {
 
             start_preview_worker(app_handle.clone());
             start_analytics_worker(app_handle.clone());
+            image_preload::start_preload_worker(app_handle.clone());
             file_management::start_thumbnail_workers(app_handle.clone());
             file_management::start_metadata_workers(app_handle.clone());
             ai_jobs::start_worker(app_handle.clone());
@@ -2830,6 +2850,7 @@ pub fn run() {
             full_transformed_cache: Mutex::new(None),
             decoded_image_cache: Mutex::new(DecodedImageCache::new(5)),
             decode_flights: Default::default(),
+            image_preloader: Default::default(),
             thumbnail_manager: ThumbnailManager::new(),
             memory_budget: crate::memory_budget::MemoryBudget::from_total_ram(0.6),
             metadata_manager: MetadataManager::new(),
@@ -2906,6 +2927,7 @@ pub fn run() {
             focus_stacking::save_focus_stack,
             image_loader::load_image,
             image_loader::is_image_cached,
+            image_preload::preload_images,
             panorama_stitching::stitch_panorama,
             panorama_stitching::save_panorama,
             export_processing::export_images,

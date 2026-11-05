@@ -325,6 +325,7 @@ pub struct AppState {
     pub full_transformed_cache: Mutex<Option<TransformedImageCache>>,
     pub decoded_image_cache: Mutex<DecodedImageCache>,
     pub decode_flights: DecodeFlights,
+    pub image_preloader: crate::image_preload::ImagePreloader,
     pub thumbnail_manager: Arc<ThumbnailManager>,
     pub memory_budget: Arc<crate::memory_budget::MemoryBudget>,
     pub metadata_manager: Arc<MetadataManager>,
