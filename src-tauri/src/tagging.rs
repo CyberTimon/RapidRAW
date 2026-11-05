@@ -12,12 +12,10 @@ use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokenizers::Tokenizer;
 use tokio::task::JoinHandle;
-use walkdir::WalkDir;
 
 use crate::file_management::{self, parse_virtual_path};
 use crate::formats::is_supported_image_file;
 use crate::hierarchy::TAG_HIERARCHY;
-use crate::image_processing::ImageMetadata;
 use crate::{AppState, candidates::TAG_CANDIDATES};
 
 pub const COLOR_TAG_PREFIX: &str = "color:";
@@ -262,8 +260,8 @@ fn limit_tags(
 }
 
 fn needs_ai_tags(path: &Path) -> bool {
-    let (_, sidecar_path) = parse_virtual_path(&path.to_string_lossy());
-    match crate::exif_processing::load_sidecar(&sidecar_path).tags {
+    let (_, key) = parse_virtual_path(&path.to_string_lossy());
+    match crate::metadata_store::load(&key).tags {
         None => true,
         Some(tags) => !tags
             .iter()
@@ -366,7 +364,7 @@ pub async fn start_background_indexing(
 
                 async move {
                     let path_str = path.to_string_lossy().to_string();
-                    let (source_path, sidecar_path) = parse_virtual_path(&path_str);
+                    let (_, key) = parse_virtual_path(&path_str);
 
                     match file_management::get_cached_or_generate_thumbnail_image(
                         &path_str,
@@ -383,26 +381,22 @@ pub async fn start_background_indexing(
                             ) {
                                 println!("Found AI tags for {}: {:?}", path_str, ai_tags);
 
-                                let _ = crate::exif_processing::update_sidecar(
-                                    &sidecar_path,
-                                    &source_path,
-                                    |metadata| {
-                                        let mut existing_tags: HashSet<String> = metadata
-                                            .tags
-                                            .take()
-                                            .unwrap_or_default()
-                                            .into_iter()
-                                            .collect();
+                                let _ = crate::metadata_store::update(&key, |metadata| {
+                                    let mut existing_tags: HashSet<String> = metadata
+                                        .tags
+                                        .take()
+                                        .unwrap_or_default()
+                                        .into_iter()
+                                        .collect();
 
-                                        existing_tags.extend(ai_tags);
+                                    existing_tags.extend(ai_tags);
 
-                                        let mut final_tags: Vec<String> =
-                                            existing_tags.into_iter().collect();
-                                        final_tags.sort_unstable();
+                                    let mut final_tags: Vec<String> =
+                                        existing_tags.into_iter().collect();
+                                    final_tags.sort_unstable();
 
-                                        metadata.tags = Some(final_tags);
-                                    },
-                                );
+                                    metadata.tags = Some(final_tags);
+                                });
                             }
                         }
                         Err(e) => {
@@ -446,21 +440,20 @@ fn modify_tags_for_path(
     app_handle: &AppHandle,
     modify_fn: impl Fn(&mut Vec<String>),
 ) -> Result<(), String> {
-    let (source_path, sidecar_path) = parse_virtual_path(path_str);
+    let (source_path, key) = parse_virtual_path(path_str);
 
-    let metadata =
-        crate::exif_processing::update_sidecar(&sidecar_path, &source_path, |metadata| {
-            let mut tags = metadata.tags.take().unwrap_or_default();
-            modify_fn(&mut tags);
+    let metadata = crate::metadata_store::update(&key, |metadata| {
+        let mut tags = metadata.tags.take().unwrap_or_default();
+        modify_fn(&mut tags);
 
-            tags.sort_unstable();
-            tags.dedup();
+        tags.sort_unstable();
+        tags.dedup();
 
-            if !tags.is_empty() {
-                metadata.tags = Some(tags);
-            }
-        })
-        .map_err(|e| e.to_string())?;
+        if !tags.is_empty() {
+            metadata.tags = Some(tags);
+        }
+    })
+    .map_err(|e| e.to_string())?;
 
     if let Ok(settings) = crate::load_settings(app_handle.clone())
         && settings.enable_xmp_sync.unwrap_or(false)
@@ -508,27 +501,6 @@ pub fn remove_tag_for_paths(
     Ok(())
 }
 
-fn rrdata_source_path(rrdata: &Path) -> Option<PathBuf> {
-    let name = rrdata.file_name()?.to_str()?;
-    let (source_filename, _) = crate::file_management::parse_sidecar_name(name)?;
-
-    Some(rrdata.with_file_name(source_filename))
-}
-
-fn sync_xmp_for_rrdata(
-    rrdata_path: &Path,
-    metadata: &ImageMetadata,
-    enable_xmp_sync: bool,
-    create_xmp_if_missing: bool,
-) {
-    if !enable_xmp_sync {
-        return;
-    }
-    if let Some(source_path) = rrdata_source_path(rrdata_path) {
-        file_management::sync_metadata_to_xmp(&source_path, metadata, create_xmp_if_missing);
-    }
-}
-
 fn retain_tags_under(
     root_path: &str,
     app_handle: &AppHandle,
@@ -543,25 +515,16 @@ fn retain_tags_under(
     let create_xmp_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
 
     let mut updated_count = 0;
-    let walker = WalkDir::new(root_path).into_iter();
 
-    for entry in walker.filter_map(|e| e.ok()) {
-        let path = entry.path();
-        if !path.is_file() || path.extension().and_then(|s| s.to_str()) != Some("rrdata") {
-            continue;
-        }
-        let Some(source_path) = rrdata_source_path(path) else {
-            continue;
-        };
-
-        let has_removable_tags = crate::exif_processing::load_sidecar(path)
+    for key in crate::metadata_store::records_under(Path::new(root_path)) {
+        let has_removable_tags = crate::metadata_store::load(&key)
             .tags
             .is_some_and(|tags| tags.iter().any(|tag| !keep(tag)));
         if !has_removable_tags {
             continue;
         }
 
-        let updated = crate::exif_processing::update_sidecar(path, &source_path, |metadata| {
+        let updated = crate::metadata_store::update(&key, |metadata| {
             if let Some(tags) = &mut metadata.tags {
                 tags.retain(|tag| keep(tag));
                 if tags.is_empty() {
@@ -571,7 +534,13 @@ fn retain_tags_under(
         });
         if let Ok(metadata) = updated {
             updated_count += 1;
-            sync_xmp_for_rrdata(path, &metadata, enable_xmp_sync, create_xmp_if_missing);
+            if enable_xmp_sync {
+                file_management::sync_metadata_to_xmp(
+                    &key.source,
+                    &metadata,
+                    create_xmp_if_missing,
+                );
+            }
         }
     }
     Ok(updated_count)

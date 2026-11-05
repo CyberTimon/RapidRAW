@@ -5,11 +5,12 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::{Duration, UNIX_EPOCH};
+use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 
 use super::client::{ImmichClient, MetadataEntry, is_asset_id};
 use super::{Session, current_session};
+use crate::metadata_store::{self, ImageKey};
 
 const EDITS_KEY: &str = "rapidraw";
 const STATE_FILE: &str = ".immich-sync.json";
@@ -60,8 +61,8 @@ fn report(app_handle: &AppHandle, status: SyncStatus) {
     }
 }
 
-fn sidecar_of(source: &Path) -> PathBuf {
-    crate::exif_processing::get_primary_sidecar_path(source)
+fn record_of(source: &Path) -> ImageKey {
+    ImageKey::primary(source)
 }
 
 fn state_file(source: &Path) -> PathBuf {
@@ -81,13 +82,12 @@ fn save_state(source: &Path, state: &SyncState) {
     }
 }
 
-fn modified_ms(path: &Path) -> Option<u64> {
-    let modified = fs::metadata(path).ok()?.modified().ok()?;
-    Some(modified.duration_since(UNIX_EPOCH).ok()?.as_millis() as u64)
+fn modified_ms(source: &Path) -> Option<u64> {
+    metadata_store::modified_ms(&record_of(source))
 }
 
-fn read_sidecar(source: &Path) -> Option<Value> {
-    serde_json::from_str(&fs::read_to_string(sidecar_of(source)).ok()?).ok()
+fn read_record(source: &Path) -> Option<Value> {
+    metadata_store::read_json(&record_of(source))
 }
 
 fn shared(mut value: Value) -> Value {
@@ -130,12 +130,12 @@ fn remember(
 }
 
 fn local_changes(source: &Path, state: &SyncState) -> Option<Value> {
-    let modified = modified_ms(&sidecar_of(source));
+    let modified = modified_ms(source);
     if state.local_modified_ms == modified {
         return None;
     }
     let local = match modified {
-        Some(_) => shared(read_sidecar(source)?),
+        Some(_) => shared(read_record(source)?),
         None => json!({}),
     };
     let unchanged = state.local_hash.as_deref() == Some(fingerprint(&local).as_str());
@@ -147,18 +147,15 @@ fn local_changes(source: &Path, state: &SyncState) -> Option<Value> {
     Some(local)
 }
 
-fn write_sidecar(source: &Path, value: &Value) -> Result<(), String> {
+fn write_record(source: &Path, value: &Value) -> Result<(), String> {
     let mut value = value.clone();
     if let (Some(map), Some(exif)) = (
         value.as_object_mut(),
-        read_sidecar(source).and_then(|old| old.get("exif").cloned()),
+        read_record(source).and_then(|old| old.get("exif").cloned()),
     ) {
         map.insert("exif".to_string(), exif);
     }
-    let json = serde_json::to_string_pretty(&value).map_err(|e| e.to_string())?;
-    let _layout = crate::exif_processing::SIDECAR_LAYOUT_LOCK.lock().unwrap();
-    crate::file_management::write_file_atomic(&sidecar_of(source), json.as_bytes())
-        .map_err(|e| e.to_string())
+    metadata_store::write_json(&record_of(source), &value).map_err(|e| e.to_string())
 }
 
 fn keep_as_virtual_copy(
@@ -180,21 +177,7 @@ fn write_virtual_copy(source: &Path, value: &Value) -> Result<String, String> {
         .ok_or("Invalid file name")?
         .to_string_lossy()
         .into_owned();
-    let copy_id: String = uuid::Uuid::new_v4()
-        .simple()
-        .to_string()
-        .chars()
-        .take(6)
-        .collect();
-    let json = serde_json::to_string_pretty(value).map_err(|e| e.to_string())?;
-    {
-        let _layout = crate::exif_processing::SIDECAR_LAYOUT_LOCK.lock().unwrap();
-        crate::file_management::write_file_atomic(
-            &source.with_file_name(format!("{file_name}.{copy_id}.rrdata")),
-            json.as_bytes(),
-        )
-        .map_err(|e| e.to_string())?;
-    }
+    metadata_store::add_virtual_copy(source, value).map_err(|e| e.to_string())?;
     Ok(file_name)
 }
 
@@ -236,7 +219,7 @@ fn apply_remote(
     source: &Path,
     remote: &MetadataEntry,
 ) -> Result<bool, String> {
-    let _guard = crate::exif_processing::lock_sidecar(&sidecar_of(source));
+    let _guard = metadata_store::lock(&record_of(source));
     let mut state = load_state(source);
     if state.remote_updated_at.as_deref() == Some(remote.updated_at.as_str()) {
         return Ok(false);
@@ -252,10 +235,10 @@ fn apply_remote(
             if let Some(parent) = source.parent() {
                 fs::create_dir_all(parent).map_err(|e| e.to_string())?;
             }
-            write_sidecar(source, &remote.value)?;
+            write_record(source, &remote.value)?;
             remember(
                 source,
-                modified_ms(&sidecar_of(source)),
+                modified_ms(source),
                 &remote.value,
                 Some(remote.updated_at.clone()),
             );
@@ -269,13 +252,10 @@ pub async fn adopt_upload(
     client: &ImmichClient,
     asset_id: &str,
     target: &Path,
-    local_sidecar: &Path,
+    local_source: &Path,
     duplicate: bool,
 ) -> Result<(), String> {
-    let local = fs::read_to_string(local_sidecar)
-        .ok()
-        .and_then(|content| serde_json::from_str::<Value>(&content).ok())
-        .map(shared);
+    let local = read_record(local_source).map(shared);
     let remote = if duplicate {
         client.metadata(asset_id, EDITS_KEY).await?
     } else {
@@ -291,7 +271,8 @@ pub async fn adopt_upload(
             pull(app_handle, client, asset_id, target).await
         }
         (Some(_), _) => {
-            fs::copy(local_sidecar, sidecar_of(target)).map_err(|e| e.to_string())?;
+            metadata_store::copy(&record_of(local_source), &record_of(target))
+                .map_err(|e| e.to_string())?;
             push(app_handle, client, asset_id, target).await.map(|_| ())
         }
         (None, _) => pull(app_handle, client, asset_id, target).await,
@@ -308,7 +289,7 @@ pub async fn push(
     if state.shared_by_others {
         return Ok(false);
     }
-    let modified = modified_ms(&sidecar_of(source));
+    let modified = modified_ms(source);
     let Some(local) = local_changes(source, &state) else {
         return Ok(false);
     };
@@ -362,7 +343,7 @@ fn unsent_edits(cache_dir: &Path) -> Vec<(String, PathBuf)> {
                 .map(|file| file.path())
                 .find(|path| crate::formats::is_supported_image_file(path))?;
             let state = load_state(&source);
-            let changed = modified_ms(&sidecar_of(&source)) != state.local_modified_ms;
+            let changed = modified_ms(&source) != state.local_modified_ms;
             (changed && !state.shared_by_others).then_some((asset_id, source))
         })
         .collect()
