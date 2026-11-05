@@ -273,7 +273,7 @@ export default function MetadataPanel() {
     return expandGroupedPaths(imageList, targetPaths, groupingMode);
   };
 
-  const { cameraGridSettings, lensSetting, cameraModelSetting, gpsData, otherExifEntries } = useMemo(() => {
+  const { cameraGridSettings, lensSetting, cameraMakeModelSetting, gpsData, otherExifEntries } = useMemo(() => {
     const exif = selectedImage?.exif || {};
 
     const cameraGridKeys = ['ExposureTime', 'FNumber', 'PhotographicSensitivity', 'FocalLengthIn35mmFilm'];
@@ -319,7 +319,7 @@ export default function MetadataPanel() {
 
     const hasCameraMake = exif['Make'] !== undefined && exif['Make'] !== null && exif['Make'] !== '';
     const hasCameraModel = exif['Model'] !== undefined && exif['Model'] !== null && exif['Model'] !== '';
-    const cameraModelSetting = {
+    const cameraMakeModelSetting = {
       key: 'Model',
       label: t('editor.metadata.camera.model'),
       value:
@@ -357,7 +357,7 @@ export default function MetadataPanel() {
       .filter(([key]) => !handledKeys.includes(key))
       .sort(([keyA], [keyB]) => keyA.localeCompare(keyB));
 
-    return { cameraGridSettings, lensSetting, cameraModelSetting, gpsData, otherExifEntries };
+    return { cameraGridSettings, lensSetting, cameraMakeModelSetting, gpsData, otherExifEntries };
   }, [selectedImage?.exif, t]);
 
   const currentColor = useMemo(() => {
@@ -523,7 +523,7 @@ export default function MetadataPanel() {
                 </div>
                 <div
                   className="flex items-center gap-2 bg-surface border border-surface px-3 py-2 rounded-xl cursor-default"
-                  data-tooltip={cameraModelSetting.label}
+                  data-tooltip={cameraMakeModelSetting.label}
                 >
                   {CameraIcon && (
                     <span className="text-text-secondary opacity-90 flex items-center justify-center shrink-0">
@@ -537,7 +537,7 @@ export default function MetadataPanel() {
                     color={TextColors.primary}
                     className="truncate"
                   >
-                    {cameraModelSetting.value}
+                    {cameraMakeModelSetting.value}
                   </Text>
                 </div>
                 <div
