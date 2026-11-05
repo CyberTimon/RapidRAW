@@ -23,7 +23,7 @@ pub const GEOMETRY_KEYS: &[&str] = &[
     "lensDistortionAmount",
     "lensVignetteAmount",
     "lensTcaAmount",
-    "lensDistortionParams",
+    "lensCorrectionMode",
     "lensMaker",
     "lensModel",
     "lensDistortionEnabled",
@@ -265,11 +265,11 @@ pub fn calculate_effects_hash(adjustments: &serde_json::Value) -> u64 {
     hasher.finish()
 }
 
-pub fn calculate_thumbnail_source_hash(adjustments: &serde_json::Value) -> u64 {
+pub fn calculate_thumbnail_source_hash(path: &str, adjustments: &serde_json::Value) -> u64 {
     let mut hasher = DefaultHasher::new();
     calculate_patch_hash(adjustments).hash(&mut hasher);
     (!crate::image_processing::is_geometry_identity(
-        &crate::image_processing::get_geometry_params_from_json(adjustments),
+        &crate::image_processing::get_geometry_params_from_json(path, adjustments),
     ))
     .hash(&mut hasher);
     hasher.finish()

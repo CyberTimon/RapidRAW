@@ -13,10 +13,9 @@ use crate::image_processing::{
 
 const FRAME_ROTATE: u32 = 1;
 const WARP_LENS: u32 = 1;
-const WARP_PTLENS: u32 = 2;
-const WARP_TCA: u32 = 4;
-const WARP_VIGNETTE: u32 = 8;
-const WARP_DISTORTION: u32 = 16;
+const WARP_TCA: u32 = 2;
+const WARP_VIGNETTE: u32 = 4;
+const WARP_DISTORTION: u32 = 8;
 const IDENTITY_SAMPLES: usize = 4096;
 static NO_ADJUSTMENTS: Value = Value::Null;
 
@@ -28,17 +27,19 @@ pub(crate) struct TransformParams {
     inverse_y: [f32; 4],
     inverse_z: [f32; 4],
     center: [f32; 2],
-    half_diagonal: f32,
+    lens_scale: f32,
     max_radius_sq_inv: f32,
     distortion: f32,
-    lens_amount: f32,
     auto_crop_scale: f32,
-    vignette_amount: f32,
-    lens_k: [f32; 4],
-    vignette_k: [f32; 4],
-    tca: [f32; 2],
     warp_flags: u32,
     orientation: u32,
+    lens_k: [f32; 4],
+    vignette_k: [f32; 3],
+    vignette_amount: f32,
+    tca_red: [f32; 3],
+    tca_scale: f32,
+    tca_blue: [f32; 3],
+    vignette_scale: f32,
     rotation: [f32; 4],
     rotation_offset: [f32; 2],
     crop_origin: [u32; 2],
@@ -137,8 +138,8 @@ fn fit(size: (u32, u32), target: Option<(u32, u32)>) -> (u32, u32) {
 }
 
 impl SourceTransform {
-    pub fn from_adjustments(adjustments: &Value) -> Self {
-        let geometry = get_geometry_params_from_json(adjustments);
+    pub fn from_adjustments(path: &str, adjustments: &Value) -> Self {
+        let geometry = get_geometry_params_from_json(path, adjustments);
         Self {
             warp: (!is_geometry_identity(&geometry)).then_some(geometry),
             effects: true,
@@ -189,12 +190,12 @@ impl<'a> RenderSource<'a> {
         )
     }
 
-    pub fn edited(image: &'a DynamicImage, id: u64, adjustments: &'a Value) -> Self {
+    pub fn edited(image: &'a DynamicImage, id: u64, path: &str, adjustments: &'a Value) -> Self {
         Self::new(
             image,
             id,
             adjustments,
-            SourceTransform::from_adjustments(adjustments),
+            SourceTransform::from_adjustments(path, adjustments),
         )
     }
 
@@ -263,17 +264,23 @@ impl<'a> RenderSource<'a> {
         }
         if transform.effects {
             let adjustments = self.adjustments;
-            if let Some(job) = crate::relight::prepare(adjustments, working_size) {
+            if let Some(job) =
+                crate::relight::prepare(adjustments, transform.warp.as_ref(), working_size)
+            {
                 stage(enc, &mut current, working_size, &|enc, src, dst| {
                     crate::relight::encode(enc, &job, src, dst)
                 });
             }
-            if let Some(job) = crate::fog::prepare(adjustments, working_size) {
+            if let Some(job) =
+                crate::fog::prepare(adjustments, transform.warp.as_ref(), working_size)
+            {
                 stage(enc, &mut current, working_size, &|enc, src, dst| {
                     crate::fog::encode(enc, &job, src, dst)
                 });
             }
-            if let Some(job) = crate::lens_blur::prepare(adjustments, working_size) {
+            if let Some(job) =
+                crate::lens_blur::prepare(adjustments, transform.warp.as_ref(), working_size)
+            {
                 stage(enc, &mut current, working_size, &|enc, src, dst| {
                     crate::lens_blur::encode(enc, &job, src, dst)
                 });
@@ -341,7 +348,6 @@ fn warp(enc: &mut ComputeEncoder, geometry: &GeometryParams, src: &Slot, dst: &S
     };
     let flags = [
         (model.has_lens_correction, WARP_LENS),
-        (model.is_ptlens, WARP_PTLENS),
         (model.has_tca, WARP_TCA),
         (model.has_vignetting, WARP_VIGNETTE),
         (model.k_distortion.abs() > 1e-5, WARP_DISTORTION),
@@ -349,24 +355,24 @@ fn warp(enc: &mut ComputeEncoder, geometry: &GeometryParams, src: &Slot, dst: &S
     .iter()
     .filter(|(on, _)| *on)
     .fold(0, |acc, (_, flag)| acc | flag);
-    let [k1, k2, k3] = model.lens_k.map(|k| k as f32);
-    let [v1, v2, v3] = model.vignette_k.map(|k| k as f32);
     let params = TransformParams {
         grid: Grid::new(dst.size),
         inverse_x: column(0),
         inverse_y: column(1),
         inverse_z: column(2),
         center: [model.cx, model.cy],
-        half_diagonal: model.half_diagonal as f32,
+        lens_scale: model.lens_scale as f32,
         max_radius_sq_inv: model.max_radius_sq_inv as f32,
         distortion: model.k_distortion as f32,
-        lens_amount: model.lens_amount as f32,
         auto_crop_scale: model.auto_crop_scale,
-        vignette_amount: model.vignette_amount as f32,
-        lens_k: [k1, k2, k3, 0.0],
-        vignette_k: [v1, v2, v3, 0.0],
-        tca: [model.vr, model.vb],
         warp_flags: flags,
+        lens_k: model.lens_k.map(|k| k as f32),
+        vignette_k: model.vignette_k.map(|k| k as f32),
+        vignette_amount: model.vignette_amount as f32,
+        tca_red: model.tca_red.map(|k| k as f32),
+        tca_scale: model.tca_scale as f32,
+        tca_blue: model.tca_blue.map(|k| k as f32),
+        vignette_scale: model.vignette_scale as f32,
         ..Default::default()
     };
     enc.run(

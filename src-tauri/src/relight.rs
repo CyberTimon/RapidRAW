@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use crate::image_processing::GeometryParams;
+
 use image::RgbaImage;
 
 use crate::gpu_compute::{Bind, ComputeEncoder, Grid, Group, Out, Slot, Tex};
@@ -93,7 +95,11 @@ fn parse_light(l: &serde_json::Value, aspect: [f32; 2]) -> [f32; 16] {
     ]
 }
 
-pub fn prepare(adjustments: &serde_json::Value, (w, h): (u32, u32)) -> Option<Relight> {
+pub fn prepare(
+    adjustments: &serde_json::Value,
+    geometry: Option<&GeometryParams>,
+    (w, h): (u32, u32),
+) -> Option<Relight> {
     if !crate::image_processing::is_effect_enabled(adjustments, "relight", "relightEnabled") {
         return None;
     }
@@ -120,7 +126,7 @@ pub fn prepare(adjustments: &serde_json::Value, (w, h): (u32, u32)) -> Option<Re
         return None;
     }
 
-    let normal_map = crate::effect_maps::resolve_rgba_map(normal_b64, adjustments)?;
+    let normal_map = crate::effect_maps::resolve_rgba_map(normal_b64, adjustments, geometry)?;
     if normal_map.width() < 2 || normal_map.height() < 2 {
         return None;
     }

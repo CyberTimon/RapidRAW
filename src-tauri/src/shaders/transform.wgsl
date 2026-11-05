@@ -4,17 +4,19 @@ struct Params {
     inverse_y: vec4<f32>,
     inverse_z: vec4<f32>,
     center: vec2<f32>,
-    half_diagonal: f32,
+    lens_scale: f32,
     max_radius_sq_inv: f32,
     distortion: f32,
-    lens_amount: f32,
     auto_crop_scale: f32,
-    vignette_amount: f32,
-    lens_k: vec4<f32>,
-    vignette_k: vec4<f32>,
-    tca: vec2<f32>,
     warp_flags: u32,
     orientation: u32,
+    lens_k: vec4<f32>,
+    vignette_k: vec3<f32>,
+    vignette_amount: f32,
+    tca_red: vec3<f32>,
+    tca_scale: f32,
+    tca_blue: vec3<f32>,
+    vignette_scale: f32,
     rotation: vec4<f32>,
     rotation_offset: vec2<f32>,
     crop_origin: vec2<u32>,
@@ -26,10 +28,9 @@ struct Params {
 @group(0) @binding(7) var<uniform> params: Params;
 
 const WARP_LENS: u32 = 1u;
-const WARP_PTLENS: u32 = 2u;
-const WARP_TCA: u32 = 4u;
-const WARP_VIGNETTE: u32 = 8u;
-const WARP_DISTORTION: u32 = 16u;
+const WARP_TCA: u32 = 2u;
+const WARP_VIGNETTE: u32 = 4u;
+const WARP_DISTORTION: u32 = 8u;
 const FRAME_ROTATE: u32 = 1u;
 
 fn sample_inside(p: vec2<f32>, size: vec2<u32>) -> vec3<f32> {
@@ -62,8 +63,10 @@ fn sample_channel(p: vec2<f32>, size: vec2<u32>, channel: u32) -> f32 {
     return top * (1.0 - w.y) + bot * w.y;
 }
 
-fn radial(r2: f32, k: vec4<f32>) -> f32 {
-    return 1.0 + k.x * r2 + k.y * (r2 * r2) + k.z * (r2 * r2 * r2);
+fn tca_point(c: vec2<f32>, p: vec2<f32>, k: vec3<f32>) -> vec2<f32> {
+    let d = p - c;
+    let r = length(d) * params.tca_scale;
+    return c + d * (k.x + r * (k.y + r * k.z));
 }
 
 @compute @workgroup_size(8, 8, 1)
@@ -79,42 +82,32 @@ fn tf_warp(@builtin(global_invocation_id) id: vec3<u32>) {
         if (params.auto_crop_scale > 1.0) {
             p = c + (p - c) / params.auto_crop_scale;
         }
-        if ((flags & WARP_LENS) != 0u) {
-            let d = p - c;
-            let ru = sqrt(d.x * d.x + d.y * d.y);
-            if (ru > 1e-6) {
-                let r = ru / params.half_diagonal;
-                let r2 = r * r;
-                let k = params.lens_k;
-                var rd: f32;
-                if ((flags & WARP_PTLENS) != 0u) {
-                    rd = r * (k.x * r2 * r + k.y * r2 + k.z * r + (1.0 - k.x - k.y - k.z));
-                } else {
-                    rd = r * radial(r2, k);
-                }
-                let effective = r + (rd - r) * params.lens_amount;
-                p = c + d * (effective / r);
-            }
-        }
         if ((flags & WARP_DISTORTION) != 0u) {
             let d = p - c;
-            p = c + d * (1.0 + params.distortion * ((d.x * d.x + d.y * d.y) * params.max_radius_sq_inv));
+            p = c + d * (1.0 + params.distortion * (dot(d, d) * params.max_radius_sq_inv));
+        }
+        if ((flags & WARP_LENS) != 0u) {
+            let d = p - c;
+            let r = length(d) * params.lens_scale;
+            let k = params.lens_k;
+            p = c + d * (1.0 + r * (k.x + r * (k.y + r * (k.z + r * k.w))));
         }
         if ((flags & WARP_TCA) != 0u) {
             rgb = vec3<f32>(
-                sample_channel(c + (p - c) * params.tca.x, size, 0u),
+                sample_channel(tca_point(c, p, params.tca_red), size, 0u),
                 sample_channel(p, size, 1u),
-                sample_channel(c + (p - c) * params.tca.y, size, 2u),
+                sample_channel(tca_point(c, p, params.tca_blue), size, 2u),
             );
         } else {
             rgb = sample_inside(p, size);
         }
         if ((flags & WARP_VIGNETTE) != 0u) {
-            let d = p - c;
-            let r = sqrt(d.x * d.x + d.y * d.y) / params.half_diagonal;
-            let factor = radial(r * r, params.vignette_k);
-            if (factor > 1e-6) {
-                rgb *= 1.0 + (1.0 / factor - 1.0) * params.vignette_amount;
+            let r = length(p - c) * params.vignette_scale;
+            let r2 = r * r;
+            let k = params.vignette_k;
+            let falloff = 1.0 + r2 * (k.x + r2 * (k.y + r2 * k.z));
+            if (falloff > 1e-6) {
+                rgb *= 1.0 + (1.0 / falloff - 1.0) * params.vignette_amount;
             }
         }
     }

@@ -19,7 +19,6 @@ use crate::camera_tethering::CameraSession;
 use crate::gpu_processing::{DisplayLayer, GpuProcessor};
 use crate::image_processing::{GpuContext, RenderOptions};
 use crate::launch_request::ExternalEditSession;
-use crate::lens_correction::LensDatabase;
 use crate::lut_processing::Lut;
 
 pub struct AiTaskToken {
@@ -346,7 +345,6 @@ pub struct AppState {
     pub patch_cache: Mutex<HashMap<String, serde_json::Value>>,
     pub uncropped_source_cache: Mutex<HashMap<u64, Arc<DynamicImage>>>,
     pub thumbnail_source_cache: Mutex<HashMap<String, Arc<ThumbnailSource>>>,
-    pub lens_db: Mutex<Option<Arc<LensDatabase>>>,
     pub load_image_generation: Arc<AtomicUsize>,
     pub wgpu_presented_generation: AtomicUsize,
     pub full_warped_cache: Mutex<Option<(u64, Arc<DynamicImage>)>>,

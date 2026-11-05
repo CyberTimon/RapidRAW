@@ -569,6 +569,7 @@ pub async fn update_exif_fields(
                         }
                     }
                 });
+            crate::lens_correction::forget_lens_profiles(path);
         });
         Ok(())
     })
@@ -1615,13 +1616,13 @@ fn generate_thumbnail_data_with_metadata(
         let target_res = settings.medium_thumbnail_resolution.unwrap_or(1280);
 
         let base_cache_hash =
-            crate::cache_utils::calculate_thumbnail_source_hash(&meta.adjustments);
+            crate::cache_utils::calculate_thumbnail_source_hash(path_str, &meta.adjustments);
 
         let crop_data: Option<Crop> = serde_json::from_value(meta.adjustments["crop"].clone()).ok();
 
         let thumbnail_transform = |base: &ThumbnailSource| {
             let geometry =
-                crate::image_processing::get_geometry_params_from_json(&meta.adjustments);
+                crate::image_processing::get_geometry_params_from_json(path_str, &meta.adjustments);
             let warp =
                 (!crate::image_processing::is_geometry_identity(&geometry)).then_some(geometry);
             let mut transform = SourceTransform {
@@ -1733,7 +1734,10 @@ fn generate_thumbnail_data_with_metadata(
             }
 
             let has_geometry = !crate::image_processing::is_geometry_identity(
-                &crate::image_processing::get_geometry_params_from_json(&meta.adjustments),
+                &crate::image_processing::get_geometry_params_from_json(
+                    path_str,
+                    &meta.adjustments,
+                ),
             );
             let processing_dim = processing_dim.min(texture_limit);
             let working_dim = if has_geometry {
@@ -1838,6 +1842,7 @@ fn generate_thumbnail_data_with_metadata(
                 roi: None,
                 hsl_probe: false,
                 motion_blur: crate::motion_blur::MotionBlurs::new(
+                    path_str,
                     &meta.adjustments,
                     (preview_w, preview_h),
                     (
@@ -2248,107 +2253,6 @@ fn emit_thumbnail_generated(
     );
 }
 
-pub fn resolve_lens_params_in_adjustments(
-    adjustments: &mut Value,
-    exif_data: &Option<HashMap<String, String>>,
-    lens_db: Option<&crate::lens_correction::LensDatabase>,
-) {
-    if let Some(map) = adjustments.as_object_mut() {
-        let mode = map
-            .get("lensCorrectionMode")
-            .and_then(|v| v.as_str())
-            .unwrap_or("manual");
-
-        if mode == "auto" {
-            if let Some(exif) = exif_data {
-                let exif_maker = exif.get("Make").map(|s| s.as_str()).unwrap_or("");
-                let exif_model = exif.get("LensModel").map(|s| s.as_str()).unwrap_or("");
-                let exif_camera_model = exif.get("Model").map(|s| s.as_str()).unwrap_or("");
-                if let Some(db) = lens_db {
-                    if let Some((detected_maker, detected_model)) =
-                        crate::lens_correction::find_best_lens_match(
-                            db,
-                            exif_maker,
-                            exif_model,
-                            exif_camera_model,
-                        )
-                    {
-                        map.insert(
-                            "lensMaker".to_string(),
-                            serde_json::to_value(&detected_maker).unwrap(),
-                        );
-                        map.insert(
-                            "lensModel".to_string(),
-                            serde_json::to_value(&detected_model).unwrap(),
-                        );
-                    } else {
-                        map.remove("lensMaker");
-                        map.remove("lensModel");
-                    }
-                }
-            } else {
-                map.remove("lensMaker");
-                map.remove("lensModel");
-            }
-        }
-
-        if let Some(db) = lens_db {
-            let has_valid_lens = match (
-                map.get("lensMaker").and_then(|v| v.as_str()),
-                map.get("lensModel").and_then(|v| v.as_str()),
-            ) {
-                (Some(maker), Some(model)) if !maker.is_empty() && !model.is_empty() => {
-                    let mut focal_length = 50.0;
-                    let mut aperture = None;
-                    let mut distance = None;
-
-                    if let Some(exif) = exif_data {
-                        if let Some(fl_str) = exif
-                            .get("FocalLength")
-                            .or(exif.get("FocalLengthIn35mmFilm"))
-                            && let Ok(fl) = fl_str.replace(" mm", "").trim().parse::<f32>()
-                        {
-                            focal_length = fl;
-                        }
-                        if let Some(ap_str) = exif.get("ApertureValue").or(exif.get("FNumber"))
-                            && let Ok(ap) = ap_str.replace("f/", "").trim().parse::<f32>()
-                        {
-                            aperture = Some(ap);
-                        }
-                        if let Some(dist_str) = exif.get("SubjectDistance")
-                            && let Ok(dist) = dist_str.replace(" m", "").trim().parse::<f32>()
-                        {
-                            distance = Some(dist);
-                        }
-                    }
-
-                    if let Some(params) = crate::lens_correction::resolve_lens_params(
-                        db,
-                        maker,
-                        model,
-                        focal_length,
-                        aperture,
-                        distance,
-                    ) {
-                        map.insert(
-                            "lensDistortionParams".to_string(),
-                            serde_json::to_value(params).unwrap(),
-                        );
-                        true
-                    } else {
-                        false
-                    }
-                }
-                _ => false,
-            };
-
-            if !has_valid_lens {
-                map.remove("lensDistortionParams");
-            }
-        }
-    }
-}
-
 #[tauri::command]
 pub fn get_supported_file_types() -> Result<serde_json::Value, String> {
     let raw_extensions: Vec<&str> = crate::formats::RAW_EXTENSIONS
@@ -2733,7 +2637,6 @@ pub fn save_metadata_and_update_thumbnail(
     state: tauri::State<AppState>,
 ) -> Result<(), String> {
     let (source_path, sidecar_path) = parse_virtual_path(&path);
-    let lens_db = state.lens_db.lock().unwrap().clone();
     let source_id = crate::ai_jobs::source_id(&source_path);
     let mut stripped_ai_results = false;
     let mut had_ai_work = false;
@@ -2751,11 +2654,6 @@ pub fn save_metadata_and_update_thumbnail(
                     true,
                 );
             }
-            resolve_lens_params_in_adjustments(
-                &mut final_adjustments,
-                &metadata.exif,
-                lens_db.as_deref(),
-            );
             metadata.adjustments = final_adjustments;
         })
         .map_err(|e| e.to_string())?;
@@ -2844,13 +2742,6 @@ pub async fn apply_adjustments_to_paths(
     adjustments: Value,
     app_handle: AppHandle,
 ) -> Result<(), String> {
-    let lens_db = app_handle
-        .state::<AppState>()
-        .lens_db
-        .lock()
-        .unwrap()
-        .clone();
-
     let regenerates_ai = crate::ai_jobs::has_ai_results(&adjustments);
     if regenerates_ai {
         crate::ai_jobs::reserve(&paths);
@@ -2888,12 +2779,6 @@ pub async fn apply_adjustments_to_paths(
                     new_map.insert(k.clone(), v.clone());
                 }
             }
-
-            resolve_lens_params_in_adjustments(
-                &mut metadata.adjustments,
-                &metadata.exif,
-                lens_db.as_deref(),
-            );
 
             if let Some(source_id) = &source_id
                 && crate::ai_jobs::has_pending_jobs(&metadata.adjustments, path, source_id)
@@ -3059,13 +2944,6 @@ pub async fn apply_auto_lens_correction_to_paths(
     paths: Vec<String>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    let lens_db = app_handle
-        .state::<AppState>()
-        .lens_db
-        .lock()
-        .unwrap()
-        .clone();
-
     tauri::async_runtime::spawn_blocking(move || {
         update_sidecars_and_thumbnails(paths, app_handle, move |_, source_path, metadata| {
             crate::exif_processing::fill_missing_exif(metadata, source_path);
@@ -3080,12 +2958,6 @@ pub async fn apply_auto_lens_correction_to_paths(
                 obj.insert("lensTcaEnabled".to_string(), serde_json::json!(true));
                 obj.insert("lensVignetteEnabled".to_string(), serde_json::json!(true));
             }
-
-            resolve_lens_params_in_adjustments(
-                &mut metadata.adjustments,
-                &metadata.exif,
-                lens_db.as_deref(),
-            );
         });
     })
     .await

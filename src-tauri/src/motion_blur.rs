@@ -9,7 +9,9 @@ use rayon::prelude::*;
 use serde_json::Value;
 use wgpu::util::DeviceExt;
 
-use crate::image_processing::{GpuContext, MAX_MASKS, is_tool_active};
+use crate::image_processing::{
+    GpuContext, MAX_MASKS, get_geometry_params_from_json, is_tool_active,
+};
 use crate::mask_generation::{TransformParams, generate_edge_clamped_bitmap};
 
 const MAX_LINEAR_LENGTH: f32 = 0.15;
@@ -93,6 +95,7 @@ pub struct MotionBlurs {
 
 impl MotionBlurs {
     pub fn new(
+        path: &str,
         adjustments: &Value,
         size: (u32, u32),
         crop_offset: (f32, f32),
@@ -100,7 +103,7 @@ impl MotionBlurs {
     ) -> Self {
         let blurs = from_adjustments(adjustments);
         let depth = uses_depth(&blurs)
-            .then(|| depth_map(adjustments, size, crop_offset, extent))
+            .then(|| depth_map(path, adjustments, size, crop_offset, extent))
             .flatten()
             .map(Arc::new);
         Self { blurs, depth }
@@ -186,6 +189,7 @@ fn uses_depth(blurs: &[MotionBlur]) -> bool {
 }
 
 fn depth_map(
+    path: &str,
     adjustments: &Value,
     (width, height): (u32, u32),
     crop_offset: (f32, f32),
@@ -194,7 +198,8 @@ fn depth_map(
     let data_url = adjustments["motionBlurDepthMap"]
         .as_str()
         .filter(|map| !map.is_empty())?;
-    let map = crate::effect_maps::resolve_luma_map(data_url, adjustments)?;
+    let geometry = get_geometry_params_from_json(path, adjustments);
+    let map = crate::effect_maps::resolve_luma_map(data_url, adjustments, Some(&geometry))?;
     let longest = map.width().max(map.height());
     if map.width() < 2 || map.height() < 2 || extent < 1.0 {
         return None;

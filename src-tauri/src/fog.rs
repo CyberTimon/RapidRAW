@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use crate::image_processing::GeometryParams;
+
 use image::GrayImage;
 
 use crate::gpu_compute::{Bind, ComputeEncoder, Grid, Group, Out, RGB_MODE, Slot};
@@ -47,7 +49,11 @@ pub struct Fog {
     flip_v: bool,
 }
 
-pub fn prepare(adjustments: &serde_json::Value, (w, h): (u32, u32)) -> Option<Fog> {
+pub fn prepare(
+    adjustments: &serde_json::Value,
+    geometry: Option<&GeometryParams>,
+    (w, h): (u32, u32),
+) -> Option<Fog> {
     if !crate::image_processing::is_effect_enabled(adjustments, "fog", "fogEnabled") {
         return None;
     }
@@ -72,7 +78,7 @@ pub fn prepare(adjustments: &serde_json::Value, (w, h): (u32, u32)) -> Option<Fo
     .map(|c| c.max(0.0));
     let tint_luma = (0.2126 * tint[0] + 0.7152 * tint[1] + 0.0722 * tint[2]).max(1e-3);
 
-    let depth_map = crate::effect_maps::resolve_luma_map(depth_b64, adjustments)?;
+    let depth_map = crate::effect_maps::resolve_luma_map(depth_b64, adjustments, geometry)?;
     let depth_size = depth_map.dimensions();
     if depth_size.0 < 2 || depth_size.1 < 2 || w < 2 || h < 2 {
         return None;

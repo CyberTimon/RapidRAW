@@ -65,7 +65,7 @@ fn cached_source_image(
     patch_id: &str,
     current_adjustments: &Value,
     state: &tauri::State<'_, AppState>,
-) -> Result<(Arc<RgbImage>, bool), String> {
+) -> Result<(Arc<RgbImage>, bool, String), String> {
     let loaded_image = state
         .original_image
         .lock()
@@ -83,7 +83,7 @@ fn cached_source_image(
         prepare_source_image(patch_id, current_adjustments, state)
             .map(|(image, _)| Arc::new(image.into_rgb8()))
     })?;
-    Ok((source_image, is_raw))
+    Ok((source_image, is_raw, loaded_image.path))
 }
 
 fn transformed_dimensions(img_w: u32, img_h: u32, adjustments: &Value) -> (u32, u32) {
@@ -100,6 +100,7 @@ fn transformed_dimensions(img_w: u32, img_h: u32, adjustments: &Value) -> (u32, 
 
 fn raw_patch_mask(
     patch_definition: &AiPatchDefinition,
+    path: &str,
     current_adjustments: &Value,
     state: &tauri::State<'_, AppState>,
     (trans_w, trans_h): (u32, u32),
@@ -129,6 +130,7 @@ fn raw_patch_mask(
 
     Ok(crate::image_processing::inverse_transform_mask(
         mask_bitmap,
+        path,
         current_adjustments,
     ))
 }
@@ -274,10 +276,11 @@ fn display_point_for(
     guess: (f64, f64),
     width: f64,
     height: f64,
+    path: &str,
     adjustments: &Value,
 ) -> (f64, f64) {
     let to_raw = |p: (f64, f64)| {
-        crate::image_processing::inverse_transform_point(p.0, p.1, width, height, adjustments)
+        crate::image_processing::inverse_transform_point(p.0, p.1, width, height, path, adjustments)
     };
     let mut point = guess;
     for _ in 0..8 {
@@ -300,6 +303,7 @@ fn display_point_for(
 }
 
 fn visible_area(
+    path: &str,
     adjustments: &Value,
     width: f64,
     height: f64,
@@ -317,8 +321,14 @@ fn visible_area(
     let (mut min_x, mut min_y) = (f64::INFINITY, f64::INFINITY);
     let (mut max_x, mut max_y) = (f64::NEG_INFINITY, f64::NEG_INFINITY);
     for (cx, cy) in [(x, y), (x + w, y), (x, y + h), (x + w, y + h)] {
-        let (rx, ry) =
-            crate::image_processing::inverse_transform_point(cx, cy, width, height, adjustments);
+        let (rx, ry) = crate::image_processing::inverse_transform_point(
+            cx,
+            cy,
+            width,
+            height,
+            path,
+            adjustments,
+        );
         (min_x, max_x) = (min_x.min(rx), max_x.max(rx));
         (min_y, max_y) = (min_y.min(ry), max_y.max(ry));
     }
@@ -338,13 +348,14 @@ pub async fn generate_manual_cleanup_patch(
     source_variant: Option<u32>,
     state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
-    let (source_image, is_raw) =
+    let (source_image, is_raw, path) =
         cached_source_image(&patch_definition.id, &current_adjustments, &state)?;
     let (img_w, img_h) = source_image.dimensions();
     let (trans_w, trans_h) = transformed_dimensions(img_w, img_h, &current_adjustments);
 
     let mask_bitmap = raw_patch_mask(
         &patch_definition,
+        &path,
         &current_adjustments,
         &state,
         (trans_w, trans_h),
@@ -361,6 +372,7 @@ pub async fn generate_manual_cleanup_patch(
         anchor.1,
         trans_w,
         trans_h,
+        &path,
         &current_adjustments,
     );
 
@@ -376,6 +388,7 @@ pub async fn generate_manual_cleanup_patch(
                 y,
                 trans_w,
                 trans_h,
+                &path,
                 &current_adjustments,
             );
             let offset = (
@@ -397,6 +410,7 @@ pub async fn generate_manual_cleanup_patch(
             };
             let full_area = (0, 0, img_w as i64, img_h as i64);
             let offset = search(visible_area(
+                &path,
                 &current_adjustments,
                 trans_w,
                 trans_h,
@@ -409,7 +423,8 @@ pub async fn generate_manual_cleanup_patch(
                 raw_anchor.1 + offset.1 as f64,
             );
             let guess = (anchor.0 + offset.0 as f64, anchor.1 + offset.1 as f64);
-            let display = display_point_for(target, guess, trans_w, trans_h, &current_adjustments);
+            let display =
+                display_point_for(target, guess, trans_w, trans_h, &path, &current_adjustments);
             (offset, Some(display))
         }
     };
@@ -510,7 +525,7 @@ pub async fn invoke_generative_replace_with_mask_def(
     .ok_or("Failed to generate mask bitmap for AI replace")?;
 
     let mask_bitmap =
-        crate::image_processing::inverse_transform_mask(mask_bitmap, &current_adjustments);
+        crate::image_processing::inverse_transform_mask(mask_bitmap, &path, &current_adjustments);
 
     let (min_x, max_x, min_y, max_y) = calculate_mask_bounds(&mask_bitmap)?;
 
@@ -786,7 +801,7 @@ pub async fn generate_liquify_patch(
     _task_id: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
-    let (source_image, is_raw) =
+    let (source_image, is_raw, path) =
         cached_source_image(&patch_definition.id, &current_adjustments, &state)?;
     let (img_w, img_h) = source_image.dimensions();
     let (trans_w, trans_h) = transformed_dimensions(img_w, img_h, &current_adjustments);
@@ -796,6 +811,7 @@ pub async fn generate_liquify_patch(
             y,
             trans_w as f64,
             trans_h as f64,
+            &path,
             &current_adjustments,
         )
     };
@@ -877,7 +893,7 @@ pub async fn generate_retouch_patch(
     _task_id: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
-    let (source_image, is_raw) =
+    let (source_image, is_raw, path) =
         cached_source_image(&patch_definition.id, &current_adjustments, &state)?;
     let (img_w, img_h) = source_image.dimensions();
 
@@ -903,6 +919,7 @@ pub async fn generate_retouch_patch(
 
     let mask_bitmap = raw_patch_mask(
         &patch_definition,
+        &path,
         &current_adjustments,
         &state,
         transformed_dimensions(img_w, img_h, &current_adjustments),

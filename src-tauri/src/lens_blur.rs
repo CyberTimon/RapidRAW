@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use crate::image_processing::GeometryParams;
+
 use image::GrayImage;
 
 use crate::gpu_compute::{Bind, ComputeEncoder, Grid, Group, KEEP_ZW, Out, Slot, Tex};
@@ -54,7 +56,11 @@ struct BokehTap {
     weight: f32,
 }
 
-pub fn prepare(adjustments: &serde_json::Value, (w, h): (u32, u32)) -> Option<LensBlur> {
+pub fn prepare(
+    adjustments: &serde_json::Value,
+    geometry: Option<&GeometryParams>,
+    (w, h): (u32, u32),
+) -> Option<LensBlur> {
     if !crate::image_processing::is_effect_enabled(adjustments, "lensBlur", "lensBlurEnabled") {
         return None;
     }
@@ -65,7 +71,7 @@ pub fn prepare(adjustments: &serde_json::Value, (w, h): (u32, u32)) -> Option<Le
     if amount <= 0.0 {
         return None;
     }
-    let depth_map = crate::effect_maps::resolve_luma_map(depth_b64, adjustments)?;
+    let depth_map = crate::effect_maps::resolve_luma_map(depth_b64, adjustments, geometry)?;
     if depth_map.width() < 2 || depth_map.height() < 2 || w < 8 || h < 8 {
         return None;
     }

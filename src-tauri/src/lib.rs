@@ -268,7 +268,7 @@ pub fn prepare_preview_source(
     let target_w = ((full_w_px as f64 * target_scale).round() as u32).max(1);
     let target_h = ((full_h_px as f64 * target_scale).round() as u32).max(1);
 
-    let geometry = get_geometry_params_from_json(adjustments);
+    let geometry = get_geometry_params_from_json(&loaded_image.path, adjustments);
     let warp = (!is_geometry_identity(&geometry)).then_some(geometry);
     let texture_scale =
         context.limits.max_texture_dimension_2d as f64 / full_w_px.max(full_h_px).max(1) as f64;
@@ -415,6 +415,7 @@ fn cancel_thumbnail_generation(
 pub fn build_ai_source_image(
     image: &DynamicImage,
     is_raw: bool,
+    path: &str,
     js_adjustments: &serde_json::Value,
 ) -> DynamicImage {
     let source =
@@ -422,6 +423,7 @@ pub fn build_ai_source_image(
     build_full_warped_image_rgb8(
         &source,
         crate::negative_conversion::effective_is_raw(is_raw, js_adjustments),
+        path,
         js_adjustments,
     )
 }
@@ -487,6 +489,7 @@ pub fn get_cached_full_warped_image_for_path(
     let warped_arc = Arc::new(build_ai_source_image(
         &loaded_image.image,
         loaded_image.is_raw,
+        &loaded_image.path,
         js_adjustments,
     ));
     *state
@@ -613,6 +616,7 @@ impl EditorRender {
                 .as_str()
                 .and_then(|p| lut_processing::get_or_load_lut(state, p).ok()),
             motion_blur: motion_blur::MotionBlurs::new(
+                &loaded_image.path,
                 adjustments,
                 (width, height),
                 crop_offset,
@@ -1315,10 +1319,9 @@ async fn generate_uncropped_preview(
             1.0
         };
 
-        let mut geometry =
-            crate::image_processing::get_geometry_params_from_json(&adjustments_clone);
+        let geometry =
+            crate::image_processing::get_geometry_params_from_json(&path, &adjustments_clone);
         let has_geometry = !is_geometry_identity(&geometry);
-        geometry.lens_vignette_amount *= if is_raw { 0.4 } else { 0.8 };
         let source = RenderSource::new(
             &source_image,
             source_key,
@@ -1372,6 +1375,7 @@ async fn generate_uncropped_preview(
                 roi: None,
                 hsl_probe: false,
                 motion_blur: crate::motion_blur::MotionBlurs::new(
+                    &path,
                     &adjustments_clone,
                     (preview_width, preview_height),
                     (0.0, 0.0),
@@ -1491,6 +1495,7 @@ async fn generate_preset_preview(
                 roi: None,
                 hsl_probe: false,
                 motion_blur: crate::motion_blur::MotionBlurs::new(
+                    &loaded_image.path,
                     &js_adjustments,
                     (img_w, img_h),
                     scaled_crop_offset,
@@ -1558,8 +1563,14 @@ async fn generate_all_community_previews(
 
         let settings = load_settings(app_handle.clone()).unwrap_or_default();
 
-        let mut base_thumbnails: Vec<(DynamicImage, bool, crate::as_shot::AsShot, f32, u64)> =
-            Vec::new();
+        let mut base_thumbnails: Vec<(
+            DynamicImage,
+            bool,
+            crate::as_shot::AsShot,
+            f32,
+            u64,
+            String,
+        )> = Vec::new();
         for image_path in image_paths.iter() {
             if is_superseded() {
                 return Ok(());
@@ -1596,6 +1607,7 @@ async fn generate_all_community_previews(
                 crate::as_shot::as_shot(&source_path_str),
                 base_scale,
                 sample_hasher.finish(),
+                image_path.clone(),
             ));
         }
 
@@ -1607,7 +1619,9 @@ async fn generate_all_community_previews(
             let mut processed_tiles: Vec<RgbImage> = Vec::new();
             let js_adjustments = &preset.adjustments;
 
-            for (base_image, is_raw, as_shot, base_scale, sample_id) in base_thumbnails.iter() {
+            for (base_image, is_raw, as_shot, base_scale, sample_id, image_path) in
+                base_thumbnails.iter()
+            {
                 let mut scaled_adjustments = js_adjustments.clone();
                 if let Some(crop_val) = scaled_adjustments.get_mut("crop")
                     && let Ok(c) = serde_json::from_value::<Crop>(crop_val.clone())
@@ -1631,7 +1645,8 @@ async fn generate_all_community_previews(
                     calculate_patch_hash(&scaled_adjustments).hash(&mut hasher);
                     hasher.finish()
                 };
-                let source = RenderSource::edited(&converted, source_id, &scaled_adjustments);
+                let source =
+                    RenderSource::edited(&converted, source_id, image_path, &scaled_adjustments);
                 let (img_w, img_h) = source.size();
 
                 let mask_definitions: Vec<MaskDefinition> = scaled_adjustments
@@ -1681,6 +1696,7 @@ async fn generate_all_community_previews(
                             roi: None,
                             hsl_probe: false,
                             motion_blur: crate::motion_blur::MotionBlurs::new(
+                                image_path,
                                 &scaled_adjustments,
                                 (img_w, img_h),
                                 actual_scaled_crop_offset,
@@ -1921,6 +1937,7 @@ async fn generate_preview_for_path(
         let source = RenderSource::edited(
             &fitted,
             crate::render_source::source_id("preview-for-path", &source_path_str, &js_adjustments),
+            &path,
             &js_adjustments,
         )
         .scaled(scale);
@@ -1931,8 +1948,13 @@ async fn generate_preview_for_path(
             .and_then(|m| serde_json::from_value(m.clone()).ok())
             .unwrap_or_default();
 
-        let warped_image =
-            build_warped_image_for_masks(&base_image, is_raw, &js_adjustments, &mask_definitions);
+        let warped_image = build_warped_image_for_masks(
+            &base_image,
+            is_raw,
+            &path,
+            &js_adjustments,
+            &mask_definitions,
+        );
         let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
             .iter()
             .filter_map(|def| {
@@ -1969,6 +1991,7 @@ async fn generate_preview_for_path(
                 roi: None,
                 hsl_probe: false,
                 motion_blur: crate::motion_blur::MotionBlurs::new(
+                    &path,
                     &js_adjustments,
                     (img_w, img_h),
                     crop_offset,
@@ -2428,11 +2451,7 @@ pub fn run() {
                 let _ = std::fs::remove_file(&crash_flag_path);
             }
 
-            let lens_db = lens_correction::load_lensfun_db(&app_handle);
-            {
-                let state = app.state::<AppState>();
-                *state.lens_db.lock().unwrap() = Some(Arc::new(lens_db));
-            }
+            lens_correction::init_lensfun_db(&app_handle);
 
             unsafe {
                 if let Some(backend) = &settings.processing_backend
@@ -2738,7 +2757,6 @@ pub fn run() {
             patch_cache: Mutex::new(HashMap::new()),
             uncropped_source_cache: Mutex::new(HashMap::new()),
             thumbnail_source_cache: Mutex::new(HashMap::new()),
-            lens_db: Mutex::new(None),
             load_image_generation: Arc::new(AtomicUsize::new(0)),
             full_warped_cache: Mutex::new(None),
             full_warped_build_lock: Mutex::new(()),
@@ -2895,8 +2913,7 @@ pub fn run() {
             culling::cull_images,
             lens_correction::get_lensfun_makers,
             lens_correction::get_lensfun_lenses_for_maker,
-            lens_correction::autodetect_lens,
-            lens_correction::get_lens_distortion_params,
+            lens_correction::get_lens_correction_info,
             camera_tethering::tether_list_cameras,
             camera_tethering::tether_connect,
             camera_tethering::tether_get_settings,

@@ -101,7 +101,7 @@ pub fn prepare_base_image_cow<'a>(
     let denoised = crate::ai_denoise::apply_ai_denoise(base_image, path, adjustments);
     match crate::negative_conversion::apply_negative_conversion(denoised, adjustments) {
         Cow::Owned(prepared) if !has_patches => Ok(Cow::Owned(prepared)),
-        prepared => composite_patches_cow(prepared, adjustments),
+        prepared => composite_patches_cow(prepared, path, adjustments),
     }
 }
 
@@ -434,6 +434,7 @@ pub fn load_image_with_orientation(
 
 fn composite_patches_cow<'a>(
     base_image: Cow<'a, DynamicImage>,
+    path: &str,
     current_adjustments: &Value,
 ) -> Result<Cow<'a, DynamicImage>> {
     let patches_val = match current_adjustments.get("aiPatches") {
@@ -537,8 +538,11 @@ fn composite_patches_cow<'a>(
                     generate_mask_bitmap(&mask_def, trans_w, trans_h, 1.0, (0.0, 0.0), None)
                         .context("Failed to generate mask from sub_masks for compositing")?;
 
-                gen_mask =
-                    crate::image_processing::inverse_transform_mask(gen_mask, current_adjustments);
+                gen_mask = crate::image_processing::inverse_transform_mask(
+                    gen_mask,
+                    path,
+                    current_adjustments,
+                );
 
                 if let (Some(ox), Some(oy)) = (offset_x, offset_y) {
                     let w = patch_data

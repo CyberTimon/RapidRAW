@@ -14,7 +14,6 @@ import {
   ChevronDown,
   ChevronRight,
   Cuboid,
-  Search,
   Check,
   Loader,
   SquareDashed,
@@ -66,17 +65,19 @@ interface CropPreset {
   tooltip: string;
 }
 
+interface LensCorrectionInfo {
+  maker: string;
+  model: string;
+  distortion: boolean;
+  tca: boolean;
+  vignetting: boolean;
+}
+
 interface OverlayOption {
   id: OverlayMode;
   name: string;
   tooltip: string;
 }
-
-const parseExifNumber = (val: any): number => {
-  if (val === undefined || val === null) return 0;
-  const parsed = parseFloat(val);
-  return isNaN(parsed) ? 0 : parsed;
-};
 
 const greatestCommonDivisor = (a: number, b: number): number => (b === 0 ? a : greatestCommonDivisor(b, a % b));
 
@@ -119,7 +120,7 @@ export default function CropPanel() {
   const [makers, setMakers] = useState<string[]>([]);
   const [lenses, setLenses] = useState<string[]>([]);
   const [myLenses, setMyLenses] = useState<any[]>([]);
-  const [detectionStatus, setDetectionStatus] = useState<'idle' | 'detecting' | 'not_found' | 'success'>('idle');
+  const [lensInfo, setLensInfo] = useState<LensCorrectionInfo | null | undefined>(undefined);
   const [localRotation, setLocalRotation] = useState<number | null>(null);
   const localRotationRef = useRef<number | null>(null);
 
@@ -263,6 +264,23 @@ export default function CropPanel() {
       setLenses([]);
     }
   }, [adjustments.lensMaker]);
+
+  useEffect(() => {
+    if (!selectedImage?.path) {
+      setLensInfo(null);
+      return;
+    }
+    let active = true;
+    invoke<LensCorrectionInfo | null>('get_lens_correction_info', {
+      path: selectedImage.path,
+      selection: { lensCorrectionMode: lensMode, lensMaker: adjustments.lensMaker, lensModel: adjustments.lensModel },
+    })
+      .then((info) => active && setLensInfo(info))
+      .catch(() => active && setLensInfo(null));
+    return () => {
+      active = false;
+    };
+  }, [selectedImage?.path, lensMode, adjustments.lensMaker, adjustments.lensModel]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -535,7 +553,6 @@ export default function CropPanel() {
       lensDistortionEnabled: INITIAL_ADJUSTMENTS.lensDistortionEnabled,
       lensTcaEnabled: INITIAL_ADJUSTMENTS.lensTcaEnabled,
       lensVignetteEnabled: INITIAL_ADJUSTMENTS.lensVignetteEnabled,
-      lensDistortionParams: INITIAL_ADJUSTMENTS.lensDistortionParams,
       lensCorrectionMode: INITIAL_ADJUSTMENTS.lensCorrectionMode,
     }));
   };
@@ -604,125 +621,37 @@ export default function CropPanel() {
     [setEditor, updateLocalRotation, setAdjustments],
   );
 
-  const fetchDistortionParams = useCallback(
-    async (maker: string, model: string) => {
-      try {
-        const distParams: any = await invoke('get_lens_distortion_params', {
-          maker,
-          model,
-          focalLength: parseExifNumber(selectedImage?.exif?.FocalLength),
-          aperture: parseExifNumber(selectedImage?.exif?.FNumber),
-          distance: parseExifNumber(selectedImage?.exif?.SubjectDistance),
-        });
-        return distParams;
-      } catch (error) {
-        console.error('Failed to fetch lens distortion params', error);
-        return null;
-      }
-    },
-    [selectedImage?.exif],
-  );
-
-  const handleAutoDetectLens = useCallback(async () => {
-    const exifMaker = selectedImage?.exif?.Make;
-    const exifModel = selectedImage?.exif?.LensModel;
-    const exifCameraModel = selectedImage?.exif?.Model;
-
-    if (!exifMaker || (!exifModel && !exifCameraModel)) {
-      setDetectionStatus('not_found');
-      return;
-    }
-
-    setDetectionStatus('detecting');
-    try {
-      const result: [string, string] | null = await invoke('autodetect_lens', {
-        maker: exifMaker,
-        model: exifModel ?? '',
-        cameraModel: exifCameraModel ?? '',
-      });
-
-      if (result) {
-        const [detectedMaker, detectedModel] = result;
-        const distParams = await fetchDistortionParams(detectedMaker, detectedModel);
-
-        setAdjustments((prev) => ({
-          ...prev,
-          lensMaker: detectedMaker,
-          lensModel: detectedModel,
-          lensDistortionParams: distParams,
-          lensCorrectionMode: 'auto',
-        }));
-
-        setDetectionStatus('success');
-        setTimeout(() => setDetectionStatus('idle'), 2000);
-      } else {
-        setDetectionStatus('not_found');
-      }
-    } catch {
-      setDetectionStatus('not_found');
-    }
-  }, [selectedImage?.exif, fetchDistortionParams, setAdjustments]);
-
   const handleMakerChange = useCallback(
     (maker: string) => {
-      setAdjustments((prev) => ({
-        ...prev,
-        lensMaker: maker,
-        lensModel: null,
-        lensDistortionParams: null,
-      }));
+      setAdjustments((prev) => ({ ...prev, lensMaker: maker, lensModel: null }));
       setLenses([]);
     },
     [setAdjustments],
   );
 
   const handleModelChange = useCallback(
-    async (model: string) => {
-      if (!adjustments.lensMaker) return;
-      const distParams = await fetchDistortionParams(adjustments.lensMaker, model);
-      setAdjustments((prev) => ({
-        ...prev,
-        lensModel: model,
-        lensDistortionParams: distParams,
-      }));
-    },
-    [adjustments.lensMaker, fetchDistortionParams, setAdjustments],
+    (model: string) => setAdjustments((prev) => ({ ...prev, lensModel: model })),
+    [setAdjustments],
   );
 
   const handleMyLensSelect = useCallback(
-    async (val: string) => {
+    (val: string) => {
       if (!val || val === 'none') return;
-      const index = parseInt(val);
-      const selected = myLenses[index];
+      const selected = myLenses[parseInt(val)];
       if (!selected) return;
 
       invoke('get_lensfun_lenses_for_maker', { maker: selected.maker })
         .then((l: any) => setLenses(l))
         .catch(console.error);
 
-      const distParams = await fetchDistortionParams(selected.maker, selected.model);
-
-      setAdjustments((prev) => ({
-        ...prev,
-        lensMaker: selected.maker,
-        lensModel: selected.model,
-        lensDistortionParams: distParams,
-      }));
+      setAdjustments((prev) => ({ ...prev, lensMaker: selected.maker, lensModel: selected.model }));
     },
-    [myLenses, fetchDistortionParams, setAdjustments],
+    [myLenses, setAdjustments],
   );
 
-  const hasDistortion =
-    Math.abs(adjustments.lensDistortionParams?.k1 || 0) > 1e-6 ||
-    Math.abs(adjustments.lensDistortionParams?.k2 || 0) > 1e-6 ||
-    Math.abs(adjustments.lensDistortionParams?.k3 || 0) > 1e-6;
-  const hasTca =
-    Math.abs((adjustments.lensDistortionParams?.tca_vr || 1) - 1) > 1e-5 ||
-    Math.abs((adjustments.lensDistortionParams?.tca_vb || 1) - 1) > 1e-5;
-  const hasVignetting =
-    Math.abs(adjustments.lensDistortionParams?.vig_k1 || 0) > 1e-6 ||
-    Math.abs(adjustments.lensDistortionParams?.vig_k2 || 0) > 1e-6 ||
-    Math.abs(adjustments.lensDistortionParams?.vig_k3 || 0) > 1e-6;
+  const hasDistortion = !!lensInfo?.distortion;
+  const hasTca = !!lensInfo?.tca;
+  const hasVignetting = !!lensInfo?.vignetting;
 
   const myLensOptions = useMemo(() => {
     if (myLenses.length === 0) {
@@ -755,13 +684,8 @@ export default function CropPanel() {
   }, [lensMode]);
 
   const handleModeChange = useCallback(
-    (mode: 'auto' | 'manual') => {
-      setAdjustments((prev) => ({ ...prev, lensCorrectionMode: mode }));
-      if (mode === 'auto') {
-        handleAutoDetectLens();
-      }
-    },
-    [handleAutoDetectLens, setAdjustments],
+    (mode: 'auto' | 'manual') => setAdjustments((prev) => ({ ...prev, lensCorrectionMode: mode })),
+    [setAdjustments],
   );
 
   const handleTransformContextMenu = (e: React.MouseEvent) => {
@@ -800,7 +724,6 @@ export default function CropPanel() {
     e.stopPropagation();
 
     const handleResetLens = () => {
-      setDetectionStatus('idle');
       setLenses([]);
       setAdjustments((prev: Adjustments) => ({
         ...prev,
@@ -812,7 +735,6 @@ export default function CropPanel() {
         lensDistortionEnabled: INITIAL_ADJUSTMENTS.lensDistortionEnabled,
         lensTcaEnabled: INITIAL_ADJUSTMENTS.lensTcaEnabled,
         lensVignetteEnabled: INITIAL_ADJUSTMENTS.lensVignetteEnabled,
-        lensDistortionParams: INITIAL_ADJUSTMENTS.lensDistortionParams,
         lensCorrectionMode: INITIAL_ADJUSTMENTS.lensCorrectionMode,
       }));
     };
@@ -1436,26 +1358,22 @@ export default function CropPanel() {
                           <div
                             className={clsx(
                               'w-full flex items-center justify-center gap-2 p-3 text-sm rounded-md border transition-colors',
-                              detectionStatus === 'not_found'
+                              lensInfo === null
                                 ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                                : adjustments.lensMaker
+                                : lensInfo
                                   ? 'bg-green-500/10 text-green-400 border-green-500/20'
                                   : 'bg-bg-primary border-surface text-text-secondary',
                             )}
                           >
-                            {detectionStatus === 'detecting' ? (
+                            {lensInfo === undefined ? (
                               <>
                                 <Loader size={16} className="animate-spin" /> {t('modals.lensCorrection.detectingExif')}
                               </>
-                            ) : detectionStatus === 'not_found' ? (
+                            ) : lensInfo === null ? (
                               t('modals.lensCorrection.lensProfileNotFound')
-                            ) : adjustments.lensMaker && adjustments.lensModel ? (
-                              <>
-                                <Check size={16} /> {adjustments.lensMaker} - {adjustments.lensModel}
-                              </>
                             ) : (
                               <>
-                                <Search size={16} /> {t('modals.lensCorrection.waitingAutoDetect')}
+                                <Check size={16} /> {lensInfo.maker} - {lensInfo.model}
                               </>
                             )}
                           </div>

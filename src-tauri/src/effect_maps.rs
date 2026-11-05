@@ -1,7 +1,6 @@
 use crate::cache_utils::GEOMETRY_KEYS;
 use crate::image_processing::{
-    GeometryParams, get_geometry_params_from_json, is_effect_enabled, is_geometry_identity,
-    warp_image_geometry,
+    GeometryParams, is_effect_enabled, is_geometry_identity, warp_image_geometry,
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use image::{DynamicImage, GrayImage, Luma, Rgb, Rgb32FImage, Rgba, RgbaImage};
@@ -235,14 +234,18 @@ pub fn effect_map_key(data_url: &str, adjustments: &serde_json::Value) -> u64 {
     hasher.finish()
 }
 
-pub fn resolve_luma_map(data_url: &str, adjustments: &serde_json::Value) -> Option<Arc<GrayImage>> {
+pub fn resolve_luma_map(
+    data_url: &str,
+    adjustments: &serde_json::Value,
+    geometry: Option<&GeometryParams>,
+) -> Option<Arc<GrayImage>> {
     cached_map(
         &LUMA_MAP_CACHE,
         effect_map_key(data_url, adjustments),
         || {
             let map = decode_data_url(data_url)?;
             Some(if is_source_space_map(data_url) {
-                warp_effect_map(&map, adjustments).into_luma8()
+                warp_effect_map(&map, geometry).into_luma8()
             } else {
                 map.into_luma8()
             })
@@ -250,7 +253,11 @@ pub fn resolve_luma_map(data_url: &str, adjustments: &serde_json::Value) -> Opti
     )
 }
 
-pub fn resolve_rgba_map(data_url: &str, adjustments: &serde_json::Value) -> Option<Arc<RgbaImage>> {
+pub fn resolve_rgba_map(
+    data_url: &str,
+    adjustments: &serde_json::Value,
+    geometry: Option<&GeometryParams>,
+) -> Option<Arc<RgbaImage>> {
     cached_map(
         &RGBA_MAP_CACHE,
         effect_map_key(data_url, adjustments),
@@ -263,13 +270,12 @@ pub fn resolve_rgba_map(data_url: &str, adjustments: &serde_json::Value) -> Opti
             let alpha = GrayImage::from_fn(map.width(), map.height(), |x, y| {
                 Luma([map.get_pixel(x, y)[3]])
             });
-            let warped_rgb =
-                warp_effect_map(&DynamicImage::ImageRgba8(map), adjustments).into_rgb8();
+            let warped_rgb = warp_effect_map(&DynamicImage::ImageRgba8(map), geometry).into_rgb8();
             let warped_alpha =
-                warp_effect_map(&DynamicImage::ImageLuma8(alpha), adjustments).into_luma8();
+                warp_effect_map(&DynamicImage::ImageLuma8(alpha), geometry).into_luma8();
 
             let (width, height) = warped_rgb.dimensions();
-            let rotations = local_warp_rotations(width, height, adjustments);
+            let rotations = local_warp_rotations(width, height, geometry);
 
             Some(RgbaImage::from_fn(width, height, |x, y| {
                 let [r, g, b] = warped_rgb.get_pixel(x, y).0;
@@ -283,32 +289,26 @@ pub fn resolve_rgba_map(data_url: &str, adjustments: &serde_json::Value) -> Opti
     )
 }
 
-fn effect_map_geometry_params(adjustments: &serde_json::Value) -> GeometryParams {
-    let mut params = get_geometry_params_from_json(adjustments);
+fn effect_map_geometry(geometry: Option<&GeometryParams>) -> Option<GeometryParams> {
+    let mut params = geometry?.clone();
     params.lens_vignette_enabled = false;
     params.lens_tca_enabled = false;
-    params
+    (!is_geometry_identity(&params)).then_some(params)
 }
 
-fn warp_effect_map(map: &DynamicImage, adjustments: &serde_json::Value) -> DynamicImage {
-    let params = effect_map_geometry_params(adjustments);
-
-    if is_geometry_identity(&params) {
-        map.clone()
-    } else {
-        warp_image_geometry(map, params)
+fn warp_effect_map(map: &DynamicImage, geometry: Option<&GeometryParams>) -> DynamicImage {
+    match effect_map_geometry(geometry) {
+        Some(params) => warp_image_geometry(map, params),
+        None => map.clone(),
     }
 }
 
 fn local_warp_rotations(
     width: u32,
     height: u32,
-    adjustments: &serde_json::Value,
+    geometry: Option<&GeometryParams>,
 ) -> Option<Vec<(f32, f32)>> {
-    let params = effect_map_geometry_params(adjustments);
-    if is_geometry_identity(&params) {
-        return None;
-    }
+    let params = effect_map_geometry(geometry)?;
 
     let coords = Rgb32FImage::from_fn(width, height, |x, y| Rgb([x as f32, y as f32, 1.0]));
     let warped = warp_image_geometry(&DynamicImage::ImageRgb32F(coords), params).into_rgb32f();

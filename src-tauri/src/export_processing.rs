@@ -1080,6 +1080,7 @@ fn process_image_for_export_pipeline(
     let source = RenderSource::edited(
         &fitted,
         source_id("export", path, js_adjustments),
+        path,
         js_adjustments,
     )
     .scaled(scale);
@@ -1092,7 +1093,7 @@ fn process_image_for_export_pipeline(
         .unwrap_or_default();
 
     let warped_image =
-        build_warped_image_for_masks(base_image, is_raw, js_adjustments, &mask_definitions);
+        build_warped_image_for_masks(base_image, is_raw, path, js_adjustments, &mask_definitions);
     let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
         .iter()
         .filter_map(|def| {
@@ -1127,6 +1128,7 @@ fn process_image_for_export_pipeline(
             roi: None,
             hsl_probe: false,
             motion_blur: crate::motion_blur::MotionBlurs::new(
+                path,
                 js_adjustments,
                 (img_w, img_h),
                 crop_offset,
@@ -1441,6 +1443,7 @@ fn export_masks_for_image(
     let source = RenderSource::edited(
         &fitted,
         source_id("export", source_path_str, js_adjustments),
+        source_path_str,
         js_adjustments,
     )
     .scaled(scale);
@@ -1451,8 +1454,13 @@ fn export_masks_for_image(
         .and_then(|m| serde_json::from_value(m.clone()).ok())
         .unwrap_or_default();
 
-    let warped_image =
-        build_warped_image_for_masks(base_image, is_raw, js_adjustments, &mask_definitions);
+    let warped_image = build_warped_image_for_masks(
+        base_image,
+        is_raw,
+        source_path_str,
+        js_adjustments,
+        &mask_definitions,
+    );
     let mut mask_bitmaps = Vec::with_capacity(mask_definitions.len());
     for definition in &mask_definitions {
         ensure_export_not_cancelled(cancellation_token)?;
@@ -2441,6 +2449,7 @@ pub async fn estimate_export_sizes(
                 roi: None,
                 hsl_probe: false,
                 motion_blur: crate::motion_blur::MotionBlurs::new(
+                    &loaded_image.path,
                     &adjustments_clone,
                     (img_w, img_h),
                     scaled_crop_offset,
@@ -2522,6 +2531,7 @@ pub async fn estimate_export_sizes(
         let source = RenderSource::edited(
             &fitted,
             source_id("batch-estimate", &source_path_str, &js_adjustments),
+            &source_path_str,
             &js_adjustments,
         );
         let unscaled_crop_offset = source.crop_offset();
@@ -2585,6 +2595,7 @@ pub async fn estimate_export_sizes(
                 roi: None,
                 hsl_probe: false,
                 motion_blur: crate::motion_blur::MotionBlurs::new(
+                    &source_path_str,
                     &js_adjustments,
                     (preview_w, preview_h),
                     scaled_crop_offset,

@@ -2212,17 +2212,23 @@ pub fn build_converted_source_image<'a>(
 pub fn build_full_warped_image<'a>(
     base_image: &'a DynamicImage,
     is_raw: bool,
+    path: &str,
     adjustments: &serde_json::Value,
 ) -> Cow<'a, DynamicImage> {
-    apply_geometry_warp(build_full_source_image(base_image, is_raw), adjustments)
+    apply_geometry_warp(
+        build_full_source_image(base_image, is_raw),
+        path,
+        adjustments,
+    )
 }
 
 pub fn build_full_warped_image_rgb8(
     base_image: &DynamicImage,
     is_raw: bool,
+    path: &str,
     adjustments: &serde_json::Value,
 ) -> DynamicImage {
-    let warped = build_full_warped_image(base_image, is_raw, adjustments);
+    let warped = build_full_warped_image(base_image, is_raw, path, adjustments);
     let rgb8 = match warped.as_rgb32f() {
         Some(buffer) => {
             let data: Vec<u8> = buffer
@@ -2241,6 +2247,7 @@ pub fn build_full_warped_image_rgb8(
 pub fn build_warped_image_for_masks<'a>(
     base_image: &'a DynamicImage,
     is_raw: bool,
+    path: &str,
     adjustments: &serde_json::Value,
     masks: &[MaskDefinition],
 ) -> Option<Cow<'a, DynamicImage>> {
@@ -2248,6 +2255,7 @@ pub fn build_warped_image_for_masks<'a>(
         Some(Cow::Owned(build_full_warped_image_rgb8(
             base_image,
             crate::negative_conversion::effective_is_raw(is_raw, adjustments),
+            path,
             adjustments,
         )))
     } else {
