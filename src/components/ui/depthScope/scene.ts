@@ -358,7 +358,7 @@ export const applyHandle = (
 };
 
 export const clickHandle = (scene: DepthScene, handles: Array<Handle>) => {
-  const id = scene.kind === 'lensBlur' ? 'range' : scene.kind === 'fog' ? 'start' : 'lightZ';
+  const id = scene.kind === 'lensBlur' ? 'range' : scene.kind === 'fog' ? 'start' : null;
   return handles.find((h) => h.id === id) ?? null;
 };
 

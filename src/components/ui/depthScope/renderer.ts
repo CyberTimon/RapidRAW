@@ -9,6 +9,8 @@ export interface DepthPreview {
 export interface Camera {
   yaw: number;
   pitch: number;
+  zoom: number;
+  offset: [number, number, number];
 }
 
 export interface Frame {
@@ -368,6 +370,8 @@ export class DepthScopeRenderer {
   private preview: DepthPreview | null = null;
   private mvp: Mat4 = new Float32Array(16);
   private inverse: Mat4 = new Float32Array(16);
+  private eye: [number, number, number] = [0, 0, 1];
+  private target: [number, number, number] = [0, 0, 0];
   private viewport = { width: 1, height: 1, dpr: 1 };
 
   constructor(canvas: HTMLCanvasElement) {
@@ -479,9 +483,13 @@ export class DepthScopeRenderer {
     const span = DEPTH_SCALE * (1 + front);
     const radius = 0.5 * Math.hypot(ex, ey, span) * (front > 0 ? 0.8 : 0.74);
     const halfFov = Math.min(FOV / 2, Math.atan(Math.tan(FOV / 2) * aspect));
-    const distance = radius / Math.sin(halfFov);
-    const target = [0, 0, DEPTH_SCALE * (front - 1) * 0.5];
-    const eye = [
+    const distance = radius / Math.sin(halfFov) / camera.zoom;
+    const target: [number, number, number] = [
+      camera.offset[0],
+      camera.offset[1],
+      DEPTH_SCALE * (front - 1) * 0.5 + camera.offset[2],
+    ];
+    const eye: [number, number, number] = [
       target[0] + distance * Math.sin(camera.yaw) * Math.cos(camera.pitch),
       target[1] + distance * Math.sin(camera.pitch),
       target[2] + distance * Math.cos(camera.yaw) * Math.cos(camera.pitch),
@@ -489,6 +497,28 @@ export class DepthScopeRenderer {
     const projection = perspective(FOV, aspect, 0.05, 20);
     this.mvp = multiply(projection, lookAt(eye, target, [0, 1, 0]));
     this.inverse = invert(this.mvp);
+    this.eye = eye;
+    this.target = target;
+  }
+
+  pivot(): [number, number, number] {
+    return this.target;
+  }
+
+  focusPoint(sx: number, sy: number): { point: [number, number, number]; target: [number, number, number] } | null {
+    const { origin, direction } = this.ray(sx, sy);
+    const n = [this.eye[0] - this.target[0], this.eye[1] - this.target[1], this.eye[2] - this.target[2]];
+    const denom = direction[0] * n[0] + direction[1] * n[1] + direction[2] * n[2];
+    if (Math.abs(denom) < 1e-9) return null;
+    const t =
+      ((this.target[0] - origin[0]) * n[0] +
+        (this.target[1] - origin[1]) * n[1] +
+        (this.target[2] - origin[2]) * n[2]) /
+      denom;
+    return {
+      point: [origin[0] + direction[0] * t, origin[1] + direction[1] * t, origin[2] + direction[2] * t],
+      target: this.target,
+    };
   }
 
   ray(sx: number, sy: number): { origin: [number, number, number]; direction: [number, number, number] } {

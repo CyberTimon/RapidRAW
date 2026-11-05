@@ -41,13 +41,15 @@ interface Drag {
   pixelsPerUnit: [number, number];
   offset: [number, number, number];
   camera: Camera;
+  pan: number | null;
 }
 
 const PREVIEW_SIZE = 192;
 const PREVIEW_CACHE_LIMIT = 6;
 const HEIGHT = 136;
-const DEFAULT_CAMERA: Camera = { yaw: 0.62, pitch: 0.3 };
-const SIDE_CAMERA: Camera = { yaw: 1.35, pitch: 0.06 };
+const DEFAULT_CAMERA: Camera = { yaw: 0.62, pitch: 0.3, zoom: 1, offset: [0, 0, 0] };
+const SIDE_CAMERA: Camera = { yaw: 1.35, pitch: 0.06, zoom: 1, offset: [0, 0, 0] };
+const MAX_ZOOM = 4;
 const CLICK_DELAY = 230;
 const FLASH_DURATION = 900;
 const WARP_KEYS = [
@@ -162,6 +164,11 @@ const readPalette = (): Palette => {
 };
 
 const easeOut = (t: number) => 1 - (1 - t) ** 3;
+
+const clampOffset = (offset: Vec3, [ex, ey]: [number, number]): Vec3 => {
+  const limits = [ex / 2, ey / 2, DEPTH_SCALE / 2];
+  return offset.map((v, i) => Math.max(-limits[i], Math.min(limits[i], v))) as Vec3;
+};
 
 export default function DepthScope({ mapKey, scene, onChange, onDragStateChange }: DepthScopeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -294,10 +301,38 @@ export default function DepthScope({ mapKey, scene, onChange, onDragStateChange 
     const onLost = (e: Event) => e.preventDefault();
     canvas.addEventListener('webglcontextlost', onLost);
 
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const from = s.camera.zoom;
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 120 : 1;
+      const zoom = Math.min(MAX_ZOOM, Math.max(1, from * Math.exp(-e.deltaY * unit * 0.0025)));
+      if (zoom === from) return;
+      let offset = s.camera.offset;
+      if (zoom < from) {
+        const k = from > 1 ? (zoom - 1) / (from - 1) : 0;
+        offset = offset.map((v) => v * k) as Vec3;
+      } else {
+        const rect = container.getBoundingClientRect();
+        const focus = renderer.focusPoint(e.clientX - rect.left, e.clientY - rect.top);
+        if (focus) {
+          const k = 1 - from / zoom;
+          offset = offset.map((v, i) => v + (focus.point[i] - focus.target[i]) * k) as Vec3;
+        }
+      }
+      offset = clampOffset(offset, renderer.extent(s.frame));
+      cancelAnimationFrame(s.animation);
+      s.camera = { ...s.camera, zoom, offset };
+      cameras.set(s.scene.kind, s.camera);
+      requestDraw();
+    };
+    container.addEventListener('wheel', onWheel, { passive: false });
+
     return () => {
       resizeObserver.disconnect();
       intersection.disconnect();
       canvas.removeEventListener('webglcontextlost', onLost);
+      container.removeEventListener('wheel', onWheel);
       cancelAnimationFrame(s.raf);
       cancelAnimationFrame(s.animation);
       cancelAnimationFrame(s.patchRaf);
@@ -439,7 +474,8 @@ export default function DepthScope({ mapKey, scene, onChange, onDragStateChange 
     if (!renderer) return;
     e.preventDefault();
     const start = localPoint(e);
-    const handle = hitTest(start);
+    const pan = e.ctrlKey || e.metaKey ? renderer.pixelsPerUnit(...renderer.pivot()) : null;
+    const handle = pan === null ? hitTest(start) : null;
     let pixelsPerUnit: [number, number] = [0, 0];
     let offset: Vec3 = [0, 0, 0];
     if (handle?.drag === 'free') {
@@ -461,9 +497,10 @@ export default function DepthScope({ mapKey, scene, onChange, onDragStateChange 
       pixelsPerUnit,
       offset,
       camera: { ...s.camera },
+      pan,
     };
     e.currentTarget.setPointerCapture(e.pointerId);
-    setCursor(handle ? 'grabbing' : 'move');
+    setCursor(handle || pan !== null ? 'grabbing' : 'move');
     requestDraw();
   };
 
@@ -512,7 +549,22 @@ export default function DepthScope({ mapKey, scene, onChange, onDragStateChange 
       return;
     }
 
+    if (drag.pan !== null) {
+      const renderer = rendererRef.current;
+      if (!renderer) return;
+      const { yaw, pitch, offset } = drag.camera;
+      const right = [Math.cos(yaw), 0, -Math.sin(yaw)];
+      const up = [-Math.sin(pitch) * Math.sin(yaw), Math.cos(pitch), -Math.sin(pitch) * Math.cos(yaw)];
+      const scale = 1 / Math.max(drag.pan, 1e-3);
+      const moved = offset.map((v, i) => v + (-right[i] * dx + up[i] * dy) * scale) as Vec3;
+      s.camera = { ...s.camera, offset: clampOffset(moved, renderer.extent(s.frame)) };
+      cameras.set(s.scene.kind, s.camera);
+      requestDraw();
+      return;
+    }
+
     s.camera = {
+      ...s.camera,
       yaw: Math.max(-1.4, Math.min(1.4, drag.camera.yaw - dx * 0.01)),
       pitch: Math.max(-1.2, Math.min(1.2, drag.camera.pitch + dy * 0.008)),
     };
@@ -532,10 +584,11 @@ export default function DepthScope({ mapKey, scene, onChange, onDragStateChange 
       flushPatch();
       callbacks.current.onDragStateChange?.(false);
     } else if (
+      drag.pan === null &&
       Math.hypot(end[0] - drag.start[0], end[1] - drag.start[1]) < 4 &&
       performance.now() - drag.startTime < 350
     ) {
-      s.camera = drag.camera;
+      s.camera = { ...s.camera, yaw: drag.camera.yaw, pitch: drag.camera.pitch };
       clearTimeout(s.clickTimer);
       s.clickTimer = window.setTimeout(() => placeAt(end), CLICK_DELAY);
     }
@@ -557,7 +610,9 @@ export default function DepthScope({ mapKey, scene, onChange, onDragStateChange 
     clearTimeout(s.clickTimer);
     const from = { ...s.camera };
     const isAt = (camera: Camera) =>
-      Math.abs(from.yaw - camera.yaw) < 0.05 && Math.abs(from.pitch - camera.pitch) < 0.05;
+      Math.abs(from.yaw - camera.yaw) < 0.05 &&
+      Math.abs(from.pitch - camera.pitch) < 0.05 &&
+      Math.abs(from.zoom - camera.zoom) < 0.01;
     const goal = isAt(DEFAULT_CAMERA) ? SIDE_CAMERA : DEFAULT_CAMERA;
     const started = performance.now();
     cancelAnimationFrame(s.animation);
@@ -566,6 +621,8 @@ export default function DepthScope({ mapKey, scene, onChange, onDragStateChange 
       s.camera = {
         yaw: from.yaw + (goal.yaw - from.yaw) * t,
         pitch: from.pitch + (goal.pitch - from.pitch) * t,
+        zoom: from.zoom + (goal.zoom - from.zoom) * t,
+        offset: from.offset.map((v, i) => v + (goal.offset[i] - v) * t) as Vec3,
       };
       cameras.set(s.scene.kind, s.camera);
       draw();
