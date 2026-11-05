@@ -291,18 +291,21 @@ export function useImageProcessing(
           const jobId = ++uncroppedJobIdRef.current;
           const { payload, markSent } = prepareAdjustmentsPayload(adj);
           invoke<ArrayBuffer>(Invokes.GenerateUncroppedPreview, { jsAdjustments: payload, targetResolution })
-            .then((buffer) => {
+            .then(async (buffer) => {
               markSent();
+              if (!buffer || buffer.byteLength === 0) return;
+              const url = URL.createObjectURL(new Blob([buffer], { type: 'image/jpeg' }));
+              const image = new Image();
+              image.src = url;
+              await image.decode().catch(() => {});
               if (
                 jobId < latestUncroppedJobIdRef.current ||
-                !buffer ||
-                buffer.byteLength === 0 ||
                 useEditorStore.getState().selectedImage?.path !== requestedImage.path
               ) {
+                URL.revokeObjectURL(url);
                 return;
               }
               latestUncroppedJobIdRef.current = jobId;
-              const url = URL.createObjectURL(new Blob([buffer], { type: 'image/jpeg' }));
               useEditorStore.getState().setEditor((state) => {
                 releasePreviewUrl(state.uncroppedAdjustedPreviewUrl);
                 return { uncroppedAdjustedPreviewUrl: url };

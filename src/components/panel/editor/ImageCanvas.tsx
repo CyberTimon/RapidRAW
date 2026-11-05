@@ -4100,8 +4100,8 @@ const ImageCanvas = memo(
                             : overlayMode || 'none';
                         return (
                           <CompositionOverlays
-                            width={width * effectiveZoomScale}
-                            height={height * effectiveZoomScale}
+                            width={width}
+                            height={height}
                             mode={currentOverlayMode}
                             rotation={overlayRotation || 0}
                             denseVisible={showDenseGrid}
