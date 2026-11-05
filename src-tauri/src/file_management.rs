@@ -49,6 +49,10 @@ use crate::mask_generation::MaskDefinition;
 use crate::preset_converter;
 use crate::tagging::COLOR_TAG_PREFIX;
 
+// Increment whenever thumbnail rendering semantics change so stale previews
+// cannot survive an application update.
+const THUMBNAIL_CACHE_SCHEMA_VERSION: u32 = 2;
+
 fn resolve_thumbnail_cache_dir(app_handle: &AppHandle) -> std::result::Result<PathBuf, String> {
     let cache_dir = app_handle
         .path()
@@ -66,6 +70,25 @@ fn emit_thumbnail_cache_setup_error(app_handle: &AppHandle, path: &str, reason: 
         "thumbnail-generation-error",
         serde_json::json!({ "path": path, "reason": reason }),
     );
+}
+
+fn thumbnail_cache_hash_from_parts(
+    schema_version: u32,
+    path_str: &str,
+    img_mod_time: u64,
+    adjustments_bytes: &[u8],
+    render_key: &str,
+) -> String {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(&schema_version.to_le_bytes());
+    hasher.update(&(path_str.len() as u64).to_le_bytes());
+    hasher.update(path_str.as_bytes());
+    hasher.update(&img_mod_time.to_le_bytes());
+    hasher.update(&(adjustments_bytes.len() as u64).to_le_bytes());
+    hasher.update(adjustments_bytes);
+    hasher.update(&(render_key.len() as u64).to_le_bytes());
+    hasher.update(render_key.as_bytes());
+    hasher.finalize().to_hex().to_string()
 }
 
 fn compute_thumbnail_cache_hash(
@@ -89,12 +112,38 @@ fn compute_thumbnail_cache_hash(
         .ok()?
         .as_secs();
 
-    let mut hasher = blake3::Hasher::new();
-    hasher.update(path_str.as_bytes());
-    hasher.update(&img_mod_time.to_le_bytes());
-    hasher.update(adjustments_bytes);
-    hasher.update(render_key.as_bytes());
-    Some(hasher.finalize().to_hex().to_string())
+    Some(thumbnail_cache_hash_from_parts(
+        THUMBNAIL_CACHE_SCHEMA_VERSION,
+        path_str,
+        img_mod_time,
+        adjustments_bytes,
+        &render_key,
+    ))
+}
+
+#[cfg(test)]
+mod thumbnail_cache_tests {
+    use super::*;
+
+    #[test]
+    fn renderer_schema_version_invalidates_thumbnail_cache_key() {
+        let current = thumbnail_cache_hash_from_parts(
+            THUMBNAIL_CACHE_SCHEMA_VERSION,
+            "/photos/sample.dng",
+            1_750_000_000,
+            br#"{"exposure":0}"#,
+            "default-render-settings",
+        );
+        let previous = thumbnail_cache_hash_from_parts(
+            THUMBNAIL_CACHE_SCHEMA_VERSION - 1,
+            "/photos/sample.dng",
+            1_750_000_000,
+            br#"{"exposure":0}"#,
+            "default-render-settings",
+        );
+
+        assert_ne!(current, previous);
+    }
 }
 
 struct ImageFileMetadata {
