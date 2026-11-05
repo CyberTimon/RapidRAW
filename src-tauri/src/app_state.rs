@@ -166,6 +166,9 @@ pub struct LoadedImage {
 
 #[derive(Clone)]
 pub struct CachedPreview {
+    // Image identity is part of the preview cache key; geometry can be equal
+    // for two completely different photos.
+    pub source_path: String,
     pub image: Arc<DynamicImage>,
     pub small_image: Arc<DynamicImage>,
     pub transform_hash: u64,

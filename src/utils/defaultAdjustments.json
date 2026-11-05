@@ -24,6 +24,16 @@
     "blueHue": 0,
     "blueSaturation": 0
   },
+  "colorHarmony": {
+    "enabled": true,
+    "rule": "complementary",
+    "anchor": 0,
+    "nodes": [0, 180],
+    "nodeSaturation": [1, 1, 1, 1],
+    "strength": 0,
+    "width": 1,
+    "neutralProtection": 0.5
+  },
   "colorGrading": {
     "balance": 0,
     "blending": 50,

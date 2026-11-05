@@ -39,6 +39,7 @@ export enum Invokes {
   ApplyAutoStraightenToPaths = 'apply_auto_straighten_to_paths',
   CalculateAutoAdjustments = 'calculate_auto_adjustments',
   SampleWhiteBalance = 'sample_white_balance',
+  SampleColorHarmonyHistogram = 'sample_color_harmony_histogram',
   CalculateAutoStraighten = 'calculate_auto_straighten',
   CancelAiTask = 'cancel_ai_task',
   CancelEditInApp = 'cancel_edit_in_app',
