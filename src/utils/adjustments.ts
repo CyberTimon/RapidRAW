@@ -1320,10 +1320,10 @@ export const ADJUSTMENT_SECTION_TOOLS: Record<string, Array<AdjustmentSectionToo
   ],
   effects: [
     { id: 'creative', label: 'adjustments.effects.creative' },
-    { id: 'motionBlur', label: 'adjustments.effects.motionBlur' },
     { id: 'spatial', label: 'adjustments.effects.spatial', subTools: ['lensBlur', 'relight', 'fog'] },
     { id: 'lut', label: 'adjustments.effects.lut' },
     { id: 'vignette', label: 'adjustments.effects.vignette' },
+    { id: 'motionBlur', label: 'adjustments.effects.motionBlur' },
     { id: 'grain', label: 'adjustments.effects.grain' },
   ],
 };
