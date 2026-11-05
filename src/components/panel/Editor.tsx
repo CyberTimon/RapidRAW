@@ -238,6 +238,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const splitBoundsRef = useRef<HTMLDivElement>(null);
   const splitLayoutRef = useRef<{ view: CompareView; position: number }>({ view: 'off', position: 0.5 });
   const transformStateRef = useRef<TransformState>({ scale: 1, positionX: 0, positionY: 0 });
+  const viewTransformListenersRef = useRef(new Set<(state: TransformState) => void>());
+  const [overlayRoot, setOverlayRoot] = useState<HTMLDivElement | null>(null);
   const [isPanningState, setIsPanningState] = useState(false);
   const isClickAnimating = useRef(false);
   const clickAnimationTime = 250;
@@ -592,6 +594,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       if (originalContentRef.current) {
         originalContentRef.current.style.transform = transform;
       }
+      viewTransformListenersRef.current.forEach((listener) => listener(transformStateRef.current));
       syncSplitOverlay();
       syncWgpuRef.current();
 
@@ -618,6 +621,15 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     },
     [handleZoomed, syncSplitOverlay],
   );
+
+  const subscribeViewTransform = useCallback((listener: (state: TransformState) => void) => {
+    const listeners = viewTransformListenersRef.current;
+    listeners.add(listener);
+    listener(transformStateRef.current);
+    return () => {
+      listeners.delete(listener);
+    };
+  }, []);
 
   const animateTransform = useCallback(
     (targetX: number, targetY: number, targetScale: number, duration: number) => {
@@ -2635,8 +2647,11 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
               liveRotation={liveRotation}
               transformScale={transformScale}
               hasRenderedFirstFrame={hasRenderedFirstFrame}
+              overlayRoot={overlayRoot}
+              subscribeViewTransform={subscribeViewTransform}
             />
           </div>
+          <div ref={setOverlayRoot} className="absolute inset-0 overflow-hidden pointer-events-none" />
           {isSplitActive && (
             <>
               <div ref={originalClipRef} className="absolute inset-0 pointer-events-none">
