@@ -171,41 +171,25 @@ impl WhiteBalance {
     }
 
     pub fn from_camera_neutral(xyz_to_camera: &[f32], neutral: &[f32]) -> Option<Self> {
-        let channels = xyz_to_camera.len() / 3;
-        if channels < 3 || neutral.len() < channels {
-            return None;
-        }
-        let (normal, rhs) = xyz_to_camera.as_chunks::<3>().0.iter().zip(neutral).fold(
-            (DMat3::ZERO, DVec3::ZERO),
-            |(normal, rhs), (row, &n)| {
-                let r = DVec3::from_array(row.map(f64::from));
-                (
-                    normal + DMat3::from_cols(r * r.x, r * r.y, r * r.z),
-                    rhs + r * n as f64,
-                )
-            },
-        );
-        if normal.determinant().abs() < 1e-12 {
-            return None;
-        }
-        Self::from_xyz(normal.inverse() * rhs)
+        Self::from_xyz(neutral_xyz(&camera_to_xyz(xyz_to_camera)?, neutral)?)
     }
 
     pub fn from_dual_illuminant_camera_neutral(
         xyz_to_camera_a: &[f32],
         xyz_to_camera_d65: &[f32],
         neutral: &[f32],
-    ) -> Option<Self> {
+    ) -> Option<(Self, Vec<f32>)> {
+        let mut xyz_to_camera = xyz_to_camera_d65.to_vec();
+        let mut estimate = Self::from_camera_neutral(&xyz_to_camera, neutral)?;
         if xyz_to_camera_a.len() != xyz_to_camera_d65.len() {
-            return Self::from_camera_neutral(xyz_to_camera_d65, neutral);
+            return Some((estimate, xyz_to_camera));
         }
 
-        let mut estimate = Self::from_camera_neutral(xyz_to_camera_d65, neutral)?;
         for _ in 0..20 {
             let weight = ((1.0 / estimate.temperature - 1.0 / ILLUMINANT_D65_TEMPERATURE)
                 / (1.0 / ILLUMINANT_A_TEMPERATURE - 1.0 / ILLUMINANT_D65_TEMPERATURE))
                 .clamp(0.0, 1.0) as f32;
-            let xyz_to_camera: Vec<f32> = xyz_to_camera_a
+            xyz_to_camera = xyz_to_camera_a
                 .iter()
                 .zip(xyz_to_camera_d65)
                 .map(|(a, d65)| weight * a + (1.0 - weight) * d65)
@@ -217,8 +201,59 @@ impl WhiteBalance {
                 break;
             }
         }
-        Some(estimate)
+        Some((estimate, xyz_to_camera))
     }
+}
+
+fn camera_to_xyz(xyz_to_camera: &[f32]) -> Option<Vec<DVec3>> {
+    let rows: Vec<DVec3> = xyz_to_camera
+        .as_chunks::<3>()
+        .0
+        .iter()
+        .map(|row| DVec3::from_array(row.map(f64::from)))
+        .collect();
+    if rows.len() < 3 {
+        return None;
+    }
+    let normal = rows.iter().fold(DMat3::ZERO, |normal, r| {
+        normal + DMat3::from_cols(*r * r.x, *r * r.y, *r * r.z)
+    });
+    if normal.determinant().abs() < 1e-12 {
+        return None;
+    }
+    let inverse = normal.inverse();
+    Some(rows.iter().map(|r| inverse * *r).collect())
+}
+
+fn neutral_xyz(camera_to_xyz: &[DVec3], neutral: &[f32]) -> Option<DVec3> {
+    (neutral.len() >= camera_to_xyz.len()).then(|| {
+        camera_to_xyz
+            .iter()
+            .zip(neutral)
+            .map(|(column, &n)| *column * n as f64)
+            .sum()
+    })
+}
+
+pub fn camera_to_srgb(xyz_to_camera: &[f32], neutral: &[f32]) -> Option<Vec<[f32; 3]>> {
+    let columns = camera_to_xyz(xyz_to_camera)?;
+    let white_lms = BRADFORD * neutral_xyz(&columns, neutral)?;
+    if !white_lms.is_finite() || white_lms.min_element() <= 0.0 {
+        return None;
+    }
+    let (x, y) = (WP_D65.x as f64, WP_D65.y as f64);
+    let d65_lms = BRADFORD * DVec3::new(x / y, 1.0, (1.0 - x - y) / y);
+    let xyz_to_srgb = primaries_to_xyz_matrix(&PRIMARIES_SRGB, WP_D65)
+        .as_dmat3()
+        .inverse();
+    let transform =
+        xyz_to_srgb * BRADFORD.inverse() * DMat3::from_diagonal(d65_lms / white_lms) * BRADFORD;
+    Some(
+        columns
+            .iter()
+            .map(|column| (transform * *column).as_vec3().to_array())
+            .collect(),
+    )
 }
 
 pub fn adaptation_log_gains(current: WhiteBalance, target: WhiteBalance) -> [f32; 3] {

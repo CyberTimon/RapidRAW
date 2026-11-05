@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useUIStore } from '../store/useUIStore';
 import { Invokes } from '../components/ui/AppProperties';
-import type { DenoiseMethod } from '../components/modals/DenoiseModal';
 
 export function useProductivityActions(refreshImageList: () => Promise<void>) {
   const setUI = useUIStore((state) => state.setUI);
@@ -124,59 +123,6 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
     }
   }, [refreshImageList, setUI]);
 
-  const handleApplyDenoise = useCallback(
-    async (intensity: number, method: DenoiseMethod) => {
-      const { denoiseModalState } = useUIStore.getState();
-      if (denoiseModalState.targetPaths.length === 0) return;
-
-      setUI((state) => ({
-        denoiseModalState: {
-          ...state.denoiseModalState,
-          isProcessing: true,
-          error: null,
-          progressMessage: 'Starting engine...',
-        },
-      }));
-
-      try {
-        await invoke(Invokes.ApplyDenoising, {
-          path: denoiseModalState.targetPaths[0],
-          intensity: intensity,
-          method: method,
-        });
-      } catch (err) {
-        setUI((state) => ({
-          denoiseModalState: { ...state.denoiseModalState, isProcessing: false, error: String(err) },
-        }));
-      }
-    },
-    [setUI],
-  );
-
-  const handleBatchDenoise = useCallback(
-    async (intensity: number, method: DenoiseMethod, paths: string[]) => {
-      try {
-        const savedPaths: string[] = await invoke('batch_denoise_images', { paths, intensity, method });
-        await refreshImageList();
-        return savedPaths;
-      } catch (err) {
-        setUI((state) => ({ denoiseModalState: { ...state.denoiseModalState, error: String(err) } }));
-        throw err;
-      }
-    },
-    [refreshImageList, setUI],
-  );
-
-  const handleSaveDenoisedImage = useCallback(async (): Promise<string> => {
-    const { denoiseModalState } = useUIStore.getState();
-    if (denoiseModalState.targetPaths.length === 0) throw new Error('No target path');
-    const savedPath = await invoke<string>(Invokes.SaveDenoisedImage, {
-      originalPathStr: denoiseModalState.targetPaths[0],
-    });
-    await refreshImageList();
-    return savedPath;
-  }, [refreshImageList]);
-
   const handleSaveCollage = useCallback(
     async (base64Data: string, firstPath: string): Promise<string> => {
       try {
@@ -196,9 +142,6 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
     handleSavePanorama,
     handleStartHdr,
     handleSaveHdr,
-    handleApplyDenoise,
-    handleBatchDenoise,
-    handleSaveDenoisedImage,
     handleSaveCollage,
     handleStartFocusStack,
     handleSaveFocusStack,

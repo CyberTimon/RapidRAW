@@ -10,13 +10,15 @@ use std::collections::HashSet;
 use std::fs::{self, File};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{Emitter, Manager};
 
 const MODEL_TAG: &str = "nind-v3";
+const BM3D_TAG: &str = "bm3d-v1";
+const BM3D_INTENSITY: f32 = 0.15;
 const FILE_MAGIC: &[u8; 8] = b"RRDN0002";
-const DISK_CACHE_LIMIT_BYTES: u64 = 4 * 1024 * 1024 * 1024;
 const MEMORY_CACHE_CAPACITY: usize = 2;
 const BLEND_CHUNK: usize = 3 * 16 * 1024;
 
@@ -38,6 +40,7 @@ struct DenoiseCache {
 }
 
 static CACHE: LazyLock<Mutex<DenoiseCache>> = LazyLock::new(Default::default);
+static DISK_CACHE_LIMIT_BYTES: AtomicU64 = AtomicU64::new(u64::MAX);
 
 fn cache() -> std::sync::MutexGuard<'static, DenoiseCache> {
     CACHE.lock().unwrap_or_else(|e| e.into_inner())
@@ -49,9 +52,44 @@ pub fn initialize_cache_dir(cache_dir: PathBuf) {
     cache().dir = Some(dir);
 }
 
+pub fn set_disk_cache_limit_gb(limit_gb: u32) {
+    let limit = u64::from(limit_gb.max(1)) * 1024 * 1024 * 1024;
+    if DISK_CACHE_LIMIT_BYTES.swap(limit, Ordering::Relaxed) > limit
+        && let Some(dir) = cache().dir.clone()
+    {
+        std::thread::spawn(move || evict_disk_cache(&dir, None));
+    }
+}
+
 pub fn is_enabled(adjustments: &serde_json::Value) -> bool {
     crate::image_processing::is_effect_enabled(adjustments, "noiseReduction", "aiDenoiseEnabled")
 }
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum DenoiseMethod {
+    Nind,
+    Bm3d,
+}
+
+impl DenoiseMethod {
+    const ALL: [Self; 2] = [Self::Nind, Self::Bm3d];
+
+    pub fn from_adjustments(adjustments: &serde_json::Value) -> Self {
+        match adjustments["aiDenoiseMethod"].as_str() {
+            Some("bm3d") => Self::Bm3d,
+            _ => Self::Nind,
+        }
+    }
+
+    fn tag(self) -> &'static str {
+        match self {
+            Self::Nind => MODEL_TAG,
+            Self::Bm3d => BM3D_TAG,
+        }
+    }
+}
+
+type Session = Arc<Mutex<ort::session::Session>>;
 
 pub fn cache_epoch() -> u64 {
     cache().epoch
@@ -78,9 +116,9 @@ fn source_string(path: &str) -> String {
     parse_virtual_path(path).0.to_string_lossy().to_string()
 }
 
-fn entry_key(source: &str) -> String {
+fn entry_key(source: &str, method: DenoiseMethod) -> String {
     let mut hasher = blake3::Hasher::new();
-    hasher.update(MODEL_TAG.as_bytes());
+    hasher.update(method.tag().as_bytes());
     hasher.update(source.as_bytes());
     if let Ok(meta) = fs::metadata(source) {
         hasher.update(&meta.len().to_le_bytes());
@@ -204,14 +242,17 @@ fn write_to_disk(entry: &DenoisedBase) -> Result<(), String> {
     drop(file);
 
     fs::rename(&tmp_path, &path).map_err(|e| e.to_string())?;
-    evict_disk_cache(&path);
+    if let Some(dir) = path.parent() {
+        evict_disk_cache(dir, Some(&path));
+    }
     Ok(())
 }
 
-fn evict_disk_cache(keep: &Path) {
-    let Some(read_dir) = keep.parent().and_then(|dir| fs::read_dir(dir).ok()) else {
+fn evict_disk_cache(dir: &Path, keep: Option<&Path>) {
+    let Ok(read_dir) = fs::read_dir(dir) else {
         return;
     };
+    let limit = DISK_CACHE_LIMIT_BYTES.load(Ordering::Relaxed);
 
     let mut entries: Vec<(PathBuf, u64, SystemTime)> = read_dir
         .filter_map(|e| e.ok())
@@ -226,10 +267,10 @@ fn evict_disk_cache(keep: &Path) {
     entries.sort_by_key(|(_, _, modified)| *modified);
 
     for (path, len, _) in entries {
-        if total <= DISK_CACHE_LIMIT_BYTES {
+        if total <= limit {
             break;
         }
-        if path != keep && fs::remove_file(&path).is_ok() {
+        if Some(path.as_path()) != keep && fs::remove_file(&path).is_ok() {
             total = total.saturating_sub(len);
         }
     }
@@ -271,7 +312,8 @@ pub fn apply_ai_denoise<'a>(
     }
 
     let source = source_string(path);
-    let Some(entry) = load_entry(&entry_key(&source), &source) else {
+    let method = DenoiseMethod::from_adjustments(adjustments);
+    let Some(entry) = load_entry(&entry_key(&source, method), &source) else {
         return Cow::Borrowed(base);
     };
 
@@ -370,15 +412,18 @@ fn restore_low_frequencies(denoised: &mut Rgb32FImage, source: &Rgb32FImage) {
         });
 }
 
-fn run_model(
+fn run_denoiser(
     base: &DynamicImage,
-    session: &Mutex<ort::session::Session>,
-    on_progress: &dyn Fn(f32),
+    session: Option<&Session>,
+    on_progress: &(dyn Fn(f32) + Sync),
 ) -> Result<Rgb32FImage, String> {
     let source = base.to_rgb32f();
-    let mut output = crate::ai_processing::run_ai_denoise(&source, 0.5, session, on_progress)
-        .map_err(|e| e.to_string())?
-        .into_rgb32f();
+    let mut output = match session {
+        Some(session) => crate::ai_processing::run_ai_denoise(&source, session, on_progress)
+            .map_err(|e| e.to_string())?
+            .into_rgb32f(),
+        None => crate::bm3d::denoise(&source, BM3D_INTENSITY, on_progress),
+    };
 
     output
         .par_iter_mut()
@@ -389,56 +434,86 @@ fn run_model(
     Ok(output)
 }
 
-async fn generate(
-    app_handle: &tauri::AppHandle,
-    loaded_image: LoadedImage,
+fn denoise_into_cache(
+    base: &DynamicImage,
+    session: Option<&Session>,
     key: String,
     source: String,
     fingerprint: u64,
+    on_progress: &(dyn Fn(f32) + Sync),
 ) -> Result<(), String> {
+    let image = run_denoiser(base, session, on_progress)?;
+
+    let (width, height) = image.dimensions();
+    let mut data = vec![f16::ZERO; image.as_raw().len()];
+    data.par_chunks_mut(BLEND_CHUNK)
+        .zip(image.as_raw().par_chunks(BLEND_CHUNK))
+        .for_each(|(dst, src)| dst.convert_from_f32_slice(src));
+    drop(image);
+
+    let entry = Arc::new(DenoisedBase {
+        key,
+        source,
+        fingerprint,
+        width,
+        height,
+        data,
+    });
+    if let Err(e) = write_to_disk(&entry) {
+        log::warn!("Failed to persist AI denoise cache: {}", e);
+    }
+
+    let mut cache = cache();
+    cache.insert(entry);
+    cache.epoch += 1;
+    Ok(())
+}
+
+async fn load_session(
+    app_handle: &tauri::AppHandle,
+    method: DenoiseMethod,
+) -> Result<Option<Session>, String> {
+    if method != DenoiseMethod::Nind {
+        return Ok(None);
+    }
     let state = app_handle.state::<AppState>();
-    let session = crate::ai_processing::get_or_init_denoise_model(
+    crate::ai_processing::get_or_init_denoise_model(
         app_handle,
         &state.ai_state,
         &state.ai_init_lock,
     )
     .await
-    .map_err(|e| e.to_string())?;
+    .map(Some)
+    .map_err(|e| e.to_string())
+}
+
+async fn generate(
+    app_handle: &tauri::AppHandle,
+    loaded_image: LoadedImage,
+    method: DenoiseMethod,
+    key: String,
+    source: String,
+    fingerprint: u64,
+) -> Result<(), String> {
+    let state = app_handle.state::<AppState>();
+    let session = load_session(app_handle, method).await?;
 
     let progress_handle = app_handle.clone();
     let loaded_path = loaded_image.path.clone();
-    let path = loaded_path.clone();
-    tokio::task::spawn_blocking(move || -> Result<(), String> {
-        let image = run_model(&loaded_image.image, &session, &|progress| {
-            let _ = progress_handle.emit(
-                "ai-denoise-progress",
-                serde_json::json!({ "path": path, "progress": progress }),
-            );
-        })?;
-
-        let (width, height) = image.dimensions();
-        let mut data = vec![f16::ZERO; image.as_raw().len()];
-        data.par_chunks_mut(BLEND_CHUNK)
-            .zip(image.as_raw().par_chunks(BLEND_CHUNK))
-            .for_each(|(dst, src)| dst.convert_from_f32_slice(src));
-        drop(image);
-
-        let entry = Arc::new(DenoisedBase {
+    tokio::task::spawn_blocking(move || {
+        denoise_into_cache(
+            &loaded_image.image,
+            session.as_ref(),
             key,
             source,
             fingerprint,
-            width,
-            height,
-            data,
-        });
-        if let Err(e) = write_to_disk(&entry) {
-            log::warn!("Failed to persist AI denoise cache: {}", e);
-        }
-
-        let mut cache = cache();
-        cache.insert(entry);
-        cache.epoch += 1;
-        Ok(())
+            &|progress| {
+                let _ = progress_handle.emit(
+                    "ai-denoise-progress",
+                    serde_json::json!({ "path": loaded_image.path, "progress": progress }),
+                );
+            },
+        )
     })
     .await
     .map_err(|e| format!("AI denoise task failed: {}", e))??;
@@ -456,9 +531,10 @@ async fn generate(
             let settings =
                 crate::app_settings::load_settings(thumbnail_handle.clone()).unwrap_or_default();
             crate::file_management::regenerate_thumbnails(
-                &[loaded_path],
+                std::iter::once(loaded_path),
                 &thumbnail_handle,
                 &settings,
+                true,
             );
         });
     }
@@ -476,7 +552,8 @@ pub fn ensure_generated(
     }
 
     let source = source_string(&loaded_image.path);
-    let key = entry_key(&source);
+    let method = DenoiseMethod::from_adjustments(adjustments);
+    let key = entry_key(&source, method);
     if cache().pending.contains(&key)
         || is_ready(&key, &source, base_fingerprints(&loaded_image.image))
         || !cache().pending.insert(key.clone())
@@ -494,8 +571,17 @@ pub fn ensure_generated(
     );
 
     tauri::async_runtime::spawn(async move {
-        let result = generate(&app_handle, loaded_image, key.clone(), source, fingerprint).await;
+        let result = generate(
+            &app_handle,
+            loaded_image,
+            method,
+            key.clone(),
+            source,
+            fingerprint,
+        )
+        .await;
         cache().pending.remove(&key);
+        crate::ai_jobs::release_deferred(&path);
         match result {
             Ok(()) => {
                 let _ = app_handle.emit("ai-denoise-ready", &path);
@@ -511,6 +597,74 @@ pub fn ensure_generated(
     });
 }
 
+pub fn has_cached_entry(path: &str, method: DenoiseMethod) -> bool {
+    let source = source_string(path);
+    let key = entry_key(&source, method);
+    cache().get(&key).is_some_and(|e| e.source == source)
+        || read_disk_header(&key).is_some_and(|h| h.source == source)
+}
+
+pub fn is_generating(path: &str) -> bool {
+    let source = source_string(path);
+    DenoiseMethod::ALL
+        .iter()
+        .any(|&method| cache().pending.contains(&entry_key(&source, method)))
+}
+
+pub fn generate_for_base(
+    app_handle: &tauri::AppHandle,
+    path: &str,
+    base: &DynamicImage,
+    method: DenoiseMethod,
+) -> Result<bool, String> {
+    let source = source_string(path);
+    let key = entry_key(&source, method);
+    if !cache().pending.insert(key.clone()) {
+        return Ok(false);
+    }
+
+    let fingerprints = base_fingerprints(base);
+    if is_ready(&key, &source, fingerprints) {
+        cache().pending.remove(&key);
+        return Ok(true);
+    }
+
+    let _ = app_handle.emit(
+        "ai-denoise-progress",
+        serde_json::json!({ "path": path, "progress": 0.0 }),
+    );
+    let result =
+        tauri::async_runtime::block_on(load_session(app_handle, method)).and_then(|session| {
+            denoise_into_cache(
+                base,
+                session.as_ref(),
+                key.clone(),
+                source,
+                fingerprints[0],
+                &|progress| {
+                    let _ = app_handle.emit(
+                        "ai-denoise-progress",
+                        serde_json::json!({ "path": path, "progress": progress }),
+                    );
+                },
+            )
+        });
+
+    cache().pending.remove(&key);
+    match &result {
+        Ok(()) => {
+            let _ = app_handle.emit("ai-denoise-ready", path);
+        }
+        Err(error) => {
+            let _ = app_handle.emit(
+                "ai-denoise-error",
+                serde_json::json!({ "path": path, "error": error }),
+            );
+        }
+    }
+    result.map(|()| true)
+}
+
 fn cache_files() -> Vec<(PathBuf, u64)> {
     let Some(read_dir) = cache().dir.clone().and_then(|dir| fs::read_dir(dir).ok()) else {
         return Vec::new();
@@ -524,11 +678,6 @@ fn cache_files() -> Vec<(PathBuf, u64)> {
         })
         .filter_map(|e| Some((e.path(), e.metadata().ok()?.len())))
         .collect()
-}
-
-#[tauri::command]
-pub fn get_ai_denoise_cache_size() -> u64 {
-    cache_files().iter().map(|(_, len)| len).sum()
 }
 
 #[tauri::command]

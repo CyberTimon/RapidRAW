@@ -72,6 +72,7 @@ export function useExternalEditSession(handleImageSelect: (path: string) => void
 
     setIsFinishing(true);
     useProcessStore.getState().setExportState({
+      destination: session.output,
       status: Status.Exporting,
       progress: { current: 0, total: 1 },
       errorMessage: '',

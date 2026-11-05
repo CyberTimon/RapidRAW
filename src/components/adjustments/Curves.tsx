@@ -17,6 +17,7 @@ import Text from '../ui/Text';
 import Slider from '../ui/Slider';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { areSectionPropsEqual } from '../../utils/adjustments';
+import { useEditorStore } from '../../store/useEditorStore';
 
 let curveClipboard: Array<Coord> | null = null;
 let parametricClipboard: any = null;
@@ -36,7 +37,6 @@ interface ColorData {
 
 interface CurveGraphProps {
   adjustments: Adjustments | any;
-  histogram: ChannelConfig | null;
   isForMask?: boolean;
   setAdjustments(updater: (prev: any) => any): void;
   theme: string;
@@ -44,6 +44,13 @@ interface CurveGraphProps {
 }
 
 const DEFAULT_POINT_CURVES = getDefaultCurves();
+
+const CHANNEL_COLORS: Record<ActiveChannel, string> = {
+  [ActiveChannel.Luma]: 'var(--color-accent)',
+  [ActiveChannel.Red]: '#FF6B6B',
+  [ActiveChannel.Green]: '#6BCB77',
+  [ActiveChannel.Blue]: '#4D96FF',
+};
 
 function buildParametricPoints(settings: ParametricCurveSettings): Array<Coord> {
   const vH = settings.highlights / 100;
@@ -195,6 +202,34 @@ function getZeroHistogramPath(data: Array<any>) {
   return `M0,255 L${pathData} L255,255 Z`;
 }
 
+const HistogramFill = memo(({ channel, opacity }: { channel: ActiveChannel; opacity: number }) => {
+  const data: number[] | undefined = useEditorStore((state) => state.histogram?.[channel]) as any;
+  const histogramPath = useMemo(() => getHistogramPath(data ?? []), [data]);
+  const zeroHistogramPath = useMemo(() => getZeroHistogramPath(data ?? []), [data]);
+
+  return (
+    <AnimatePresence>
+      {data && (
+        <motion.path
+          key={channel}
+          fill={CHANNEL_COLORS[channel]}
+          initial={{ d: zeroHistogramPath, opacity: 0 }}
+          animate={{
+            d: histogramPath,
+            opacity,
+            transition: { d: { duration: 0.5, ease: [0.22, 1, 0.36, 1] }, opacity: { duration: 1 } },
+          }}
+          exit={{
+            d: zeroHistogramPath,
+            opacity: 0,
+            transition: { d: { duration: 0.3, ease: [0.55, 0, 0.78, 0.34] }, opacity: { duration: 1 } },
+          }}
+        />
+      )}
+    </AnimatePresence>
+  );
+});
+
 function isDefaultCurve(points: Array<Coord> | undefined) {
   if (!points || points.length !== 2) return false;
   const [p1, p2] = points;
@@ -242,7 +277,7 @@ const MIN_POINT_GAP_X = 1;
 const hasFineAdjustmentModifier = (event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) =>
   'shiftKey' in event && (event.shiftKey || event.altKey);
 
-function CurveGraph({ adjustments, setAdjustments, histogram, theme, onDragStateChange }: CurveGraphProps) {
+function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: CurveGraphProps) {
   const { t } = useTranslation();
   const { showContextMenu } = useContextMenu();
   const [curveMode, setCurveMode] = useState<'point' | 'parametric'>(adjustments.curveMode || 'point');
@@ -472,25 +507,15 @@ function CurveGraph({ adjustments, setAdjustments, histogram, theme, onDragState
   const isLightTheme = theme === Theme.Light || theme === Theme.Arctic;
   const histogramOpacity = isLightTheme ? 0.6 : 0.15;
 
-  const channelConfig: ChannelConfig = useMemo(
-    () => ({
-      luma: { color: 'var(--color-accent)', data: histogram?.luma },
-      red: { color: '#FF6B6B', data: histogram?.red },
-      green: { color: '#6BCB77', data: histogram?.green },
-      blue: { color: '#4D96FF', data: histogram?.blue },
-    }),
-    [histogram],
+  const inactiveChannels = (Object.keys(CHANNEL_COLORS) as Array<ActiveChannel>).filter(
+    (channel) => channel !== activeChannel,
   );
-
-  const inactiveChannels = Object.keys(channelConfig).filter((channel) => channel !== activeChannel);
 
   const activePoints: Array<Coord> = isParametricMode
     ? buildParametricPoints(activeParametricSettings)
     : (localPoints ?? adjustments?.curves?.[activeChannel]);
 
-  const { color, data: histogramData } = channelConfig[activeChannel];
-  const histogramPath = useMemo(() => getHistogramPath(histogramData), [histogramData]);
-  const zeroHistogramPath = useMemo(() => getZeroHistogramPath(histogramData), [histogramData]);
+  const color = CHANNEL_COLORS[activeChannel];
 
   const handlePointStart = (e: any, index: number) => {
     if (isParametricMode || e.button === 2) return;
@@ -791,7 +816,7 @@ function CurveGraph({ adjustments, setAdjustments, histogram, theme, onDragState
   const getParametricMarkers = (key: keyof ParametricCurveSettings) =>
     inactiveChannels
       .filter((channel) => parametricCurves[channel]?.[key] !== DEFAULT_PARAMETRIC_CURVE_SETTINGS[key])
-      .map((channel) => ({ channel, color: channelConfig[channel].color, value: parametricCurves[channel][key] }));
+      .map((channel) => ({ channel, color: CHANNEL_COLORS[channel], value: parametricCurves[channel][key] }));
 
   if (!activePoints) {
     return (
@@ -832,7 +857,7 @@ function CurveGraph({ adjustments, setAdjustments, histogram, theme, onDragState
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
-          {(Object.keys(channelConfig) as Array<ActiveChannel>).map((channel) => {
+          {(Object.keys(CHANNEL_COLORS) as Array<ActiveChannel>).map((channel) => {
             const selected = activeChannel === channel;
             const channelLabel = t(`adjustments.curves.channels.${channel}`);
             return (
@@ -845,7 +870,7 @@ function CurveGraph({ adjustments, setAdjustments, histogram, theme, onDragState
                 type="button"
                 style={{
                   backgroundColor:
-                    channel !== ActiveChannel.Luma && !selected ? channelConfig[channel].color + '40' : undefined,
+                    channel !== ActiveChannel.Luma && !selected ? CHANNEL_COLORS[channel] + '40' : undefined,
                 }}
                 title={t('adjustments.curves.channelTitle', { channel: channelLabel })}
               >
@@ -876,25 +901,7 @@ function CurveGraph({ adjustments, setAdjustments, histogram, theme, onDragState
               stroke="rgba(255,255,255,0.1)"
               strokeWidth="0.5"
             />
-            <AnimatePresence>
-              {histogramData && (
-                <motion.path
-                  key={activeChannel}
-                  fill={color}
-                  initial={{ d: zeroHistogramPath, opacity: 0 }}
-                  animate={{
-                    d: histogramPath,
-                    opacity: histogramOpacity,
-                    transition: { d: { duration: 0.5, ease: [0.22, 1, 0.36, 1] }, opacity: { duration: 1 } },
-                  }}
-                  exit={{
-                    d: zeroHistogramPath,
-                    opacity: 0,
-                    transition: { d: { duration: 0.3, ease: [0.55, 0, 0.78, 0.34] }, opacity: { duration: 1 } },
-                  }}
-                />
-              )}
-            </AnimatePresence>
+            <HistogramFill channel={activeChannel} opacity={histogramOpacity} />
             <line
               x1="0"
               y1="255"
@@ -923,7 +930,7 @@ function CurveGraph({ adjustments, setAdjustments, histogram, theme, onDragState
                   fill="none"
                   key={channel}
                   pointerEvents="none"
-                  stroke={channelConfig[channel].color}
+                  stroke={CHANNEL_COLORS[channel]}
                   strokeOpacity={0.5}
                   strokeWidth="1.5"
                 />

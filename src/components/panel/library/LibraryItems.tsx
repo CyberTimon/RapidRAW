@@ -9,6 +9,8 @@ import {
   SlidersHorizontal,
   CloudOff,
   Layers,
+  Loader2,
+  Pause,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
@@ -22,7 +24,11 @@ import { ColumnWidths } from '../MainLibrary';
 import { useProcessStore } from '../../../store/useProcessStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useLibraryStore } from '../../../store/useLibraryStore';
+import { isImmichAlbumId } from '../../immich/immichApi';
 import { IconAperture, IconFocalLength, IconIso, IconShutter } from '../editor/ExifIcons';
+
+const LIST_DATE_FORMAT = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+const LIST_TIME_FORMAT = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit' });
 
 interface ImageLayer {
   id: string;
@@ -45,13 +51,18 @@ const ThumbnailComponent = ({
   tags,
   aspectRatio: thumbnailAspectRatio,
   isEdited,
-  exif,
   isCloudPlaceholder,
   groupBadgeLabel,
   onAspectRatioLoaded,
 }: any) => {
   const { t } = useTranslation();
   const data = useProcessStore((s) => s.thumbnails[path]);
+  const exif = useLibraryStore((s) => s.exifByPath[path]);
+  const isAiPending = useProcessStore((s) => !!s.aiPendingPaths[path]);
+  const isAiPaused = useProcessStore((s) => s.aiJobs.paused);
+  const cloudTooltip = useLibraryStore((s) =>
+    isImmichAlbumId(s.activeAlbumId) ? 'library.items.immichPlaceholder' : 'library.items.cloudPlaceholder',
+  );
   const exifOverlay = useSettingsStore((s) => s.appSettings?.exifOverlay || ExifOverlay.Off);
   const displayEditIcon = useSettingsStore((s) => s.appSettings?.displayEditIcon ?? true);
   const showEditIcon = isEdited && displayEditIcon;
@@ -168,7 +179,8 @@ const ThumbnailComponent = ({
   const isRejected = flag === ImageFlag.Reject;
   const hasRating = rating > 0 && !isRejected;
   const hasGroupBadge = !!groupBadgeLabel;
-  const hasAnyOverlay = hasEditIcon || hasColorLabel || hasRating || !!flag || hasGroupBadge;
+  const hasOtherBadge = hasEditIcon || hasColorLabel || hasRating || !!flag || hasGroupBadge;
+  const hasAnyOverlay = hasOtherBadge || isAiPending;
 
   return (
     <div
@@ -264,7 +276,7 @@ const ThumbnailComponent = ({
           (isCloudPlaceholder ? (
             <div
               className="absolute inset-0 w-full h-full flex items-center justify-center bg-surface"
-              data-tooltip={t('library.items.cloudPlaceholder')}
+              data-tooltip={t(cloudTooltip)}
             >
               <CloudOff className="text-text-secondary" />
             </div>
@@ -277,7 +289,7 @@ const ThumbnailComponent = ({
         {isCloudPlaceholder && layers.length > 0 && (
           <div
             className="absolute top-1.5 left-1.5 z-10 rounded-full h-5 w-5 flex items-center justify-center bg-black/40 shadow-md pointer-events-none"
-            data-tooltip={t('library.items.cloudPlaceholder')}
+            data-tooltip={t(cloudTooltip)}
           >
             <CloudOff size={12} className="text-white" />
           </div>
@@ -344,6 +356,21 @@ const ThumbnailComponent = ({
             data-tooltip={groupBadgeLabel}
           >
             <Layers size={12} className="text-white" />
+          </div>
+
+          <div
+            className={clsx(
+              'flex items-center shrink-0 transition-all duration-200 ease-out overflow-hidden',
+              isAiPending ? 'max-w-4 opacity-100 scale-100' : 'max-w-0 opacity-0 scale-75 pointer-events-none',
+              isAiPending && hasOtherBadge ? 'ml-1.5' : 'ml-0',
+            )}
+            data-tooltip={t(isAiPaused ? 'library.aiJobs.thumbnailPaused' : 'library.aiJobs.thumbnailPending')}
+          >
+            {isAiPaused ? (
+              <Pause size={12} className="text-white" />
+            ) : (
+              <Loader2 size={12} className="text-white animate-spin" />
+            )}
           </div>
         </div>
       </div>
@@ -522,13 +549,16 @@ const ListItemComponent = ({
   modified,
   aspectRatio: thumbnailAspectRatio,
   columnWidths,
-  exif,
   isCloudPlaceholder,
   isPrevSelected,
   isNextSelected,
 }: any) => {
   const { t } = useTranslation();
   const data = useProcessStore((s) => s.thumbnails[path]);
+  const exif = useLibraryStore((s) => s.exifByPath[path]);
+  const cloudTooltip = useLibraryStore((s) =>
+    isImmichAlbumId(s.activeAlbumId) ? 'library.items.immichPlaceholder' : 'library.items.cloudPlaceholder',
+  );
   const exifOverlay = useSettingsStore((s) => s.appSettings?.exifOverlay || ExifOverlay.Off);
 
   const [showPlaceholder, setShowPlaceholder] = useState(false);
@@ -639,10 +669,11 @@ const ListItemComponent = ({
   const isRejected = flag === ImageFlag.Reject;
 
   const dateObj = new Date(modified > 1e11 ? modified : modified * 1000);
-  const dateStr =
-    dateObj.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) +
-    ' ' +
-    dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const dateStr = Number.isNaN(dateObj.getTime())
+    ? dateObj.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) +
+      ' ' +
+      dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : LIST_DATE_FORMAT.format(dateObj) + ' ' + LIST_TIME_FORMAT.format(dateObj);
 
   let roundingClass = 'rounded-md';
   if (isSelected || isActive) {
@@ -747,7 +778,7 @@ const ListItemComponent = ({
             (isCloudPlaceholder ? (
               <div
                 className="absolute inset-0 w-full h-full flex items-center justify-center"
-                data-tooltip={t('library.items.cloudPlaceholder')}
+                data-tooltip={t(cloudTooltip)}
               >
                 <CloudOff size={14} className="text-text-secondary" />
               </div>
@@ -760,7 +791,7 @@ const ListItemComponent = ({
           {isCloudPlaceholder && layers.length > 0 && (
             <div
               className="absolute top-0.5 left-0.5 z-10 rounded-full h-3.5 w-3.5 flex items-center justify-center bg-black/40 pointer-events-none"
-              data-tooltip={t('library.items.cloudPlaceholder')}
+              data-tooltip={t(cloudTooltip)}
             >
               <CloudOff size={9} className="text-white" />
             </div>
@@ -896,18 +927,26 @@ const RowComponent = ({
     row.images.forEach((img: ImageFile) => {
       queueThumbnailRequest(img.path);
     });
+  }, [row, queueThumbnailRequest]);
 
-    const cloudPaths = row.images
-      .filter((img: ImageFile) => img.is_cloud_placeholder)
-      .map((img: ImageFile) => img.path);
-    if (cloudPaths.length === 0) return;
+  const cloudPathsKey =
+    row && row.type === 'images'
+      ? row.images
+          .filter((img: ImageFile) => img.is_cloud_placeholder)
+          .map((img: ImageFile) => img.path)
+          .join('\n')
+      : '';
+
+  useEffect(() => {
+    if (!cloudPathsKey) return;
+    const cloudPaths = cloudPathsKey.split('\n');
 
     const interval = setInterval(() => {
       cloudPaths.forEach((path: string) => queueThumbnailRequest(path));
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [row, queueThumbnailRequest]);
+  }, [cloudPathsKey, queueThumbnailRequest]);
 
   if (row.type === 'footer') return null;
   const shiftedStyle = {
@@ -1016,7 +1055,6 @@ const RowComponent = ({
                 rating={imageRatings?.[imageFile.path] || 0}
                 flag={imageFile.flag}
                 tags={imageFile.tags}
-                exif={imageFile.exif}
                 aspectRatio={thumbnailAspectRatio}
                 modified={imageFile.modified}
                 columnWidths={columnWidths}
@@ -1037,7 +1075,6 @@ const RowComponent = ({
                 rating={imageRatings?.[imageFile.path] || 0}
                 flag={imageFile.flag}
                 tags={imageFile.tags}
-                exif={imageFile.exif}
                 isEdited={imageFile.is_edited}
                 aspectRatio={thumbnailAspectRatio}
                 isCloudPlaceholder={imageFile.is_cloud_placeholder}

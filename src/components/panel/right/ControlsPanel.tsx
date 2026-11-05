@@ -24,10 +24,10 @@ import { OPTION_SEPARATOR, Orientation } from '../../ui/AppProperties';
 import Text from '../../ui/Text';
 import { TextVariants, TextColors, TextWeights } from '../../../types/typography';
 import { useShallow } from 'zustand/react/shallow';
-import { useEditorStore } from '../../../store/useEditorStore';
+import { canvasToolState, useEditorStore } from '../../../store/useEditorStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useUIStore } from '../../../store/useUIStore';
-import { useEditorActions } from '../../../hooks/useEditorActions';
+import { buildAutoAdjustModeOptions, useEditorActions } from '../../../hooks/useEditorActions';
 import { useWaveformControls } from '../../../hooks/useWaveformControls';
 
 function AdjustmentSectionContent(props: {
@@ -96,12 +96,7 @@ export default function Controls() {
   );
 
   const toggleWbPicker = useCallback(
-    () =>
-      setEditor((state) => ({
-        isWbPickerActive: !state.isWbPickerActive,
-        isRelightPickerActive: false,
-        activeCenterMarker: null,
-      })),
+    () => setEditor((state) => canvasToolState({ isWbPickerActive: !state.isWbPickerActive })),
     [setEditor],
   );
 
@@ -129,16 +124,25 @@ export default function Controls() {
   );
 
   const handleResetAdjustments = () => {
-    setAdjustments((prev: Adjustments) => ({
-      ...prev,
-      ...Object.keys(ADJUSTMENT_SECTIONS)
-        .flatMap((s) => ADJUSTMENT_SECTIONS[s])
-        .reduce((acc: any, key: string) => {
-          acc[key] = INITIAL_ADJUSTMENTS[key as keyof Adjustments];
-          return acc;
-        }, {}),
-      activeTools: { ...INITIAL_ADJUSTMENTS.activeTools },
-    }));
+    setAdjustments(
+      (prev: Adjustments) => ({
+        ...prev,
+        ...Object.keys(ADJUSTMENT_SECTIONS)
+          .flatMap((s) => ADJUSTMENT_SECTIONS[s])
+          .reduce((acc: any, key: string) => {
+            acc[key] = INITIAL_ADJUSTMENTS[key as keyof Adjustments];
+            return acc;
+          }, {}),
+        activeTools: { ...INITIAL_ADJUSTMENTS.activeTools },
+      }),
+      t('contextMenus.editor.resetAdjustments'),
+    );
+  };
+
+  const handleAutoAdjustContextMenu = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    showContextMenu(event.clientX, event.clientY, buildAutoAdjustModeOptions(t, handleAutoAdjustments));
   };
 
   const handleToggleSection = (section: string) => {
@@ -238,7 +242,8 @@ export default function Controls() {
           <button
             className="p-2 rounded-full hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             disabled={!selectedImage}
-            onClick={handleAutoAdjustments}
+            onClick={() => handleAutoAdjustments()}
+            onContextMenu={handleAutoAdjustContextMenu}
             data-tooltip={t('editor.adjustments.tooltips.autoAdjust')}
           >
             <PencilSparkles size={18} />

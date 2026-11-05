@@ -1,7 +1,23 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import {
+  AlertTriangle,
+  Ban,
+  CircleCheck,
+  CircleDashed,
+  Copy,
+  Download,
+  FileOutput,
+  FolderInput,
+  FolderSymlink,
+  Inbox,
+  ListX,
+  LucideIcon,
+  Tags,
+  Pause,
+  Play,
+  RotateCcw,
   Search,
   Loader2,
   X,
@@ -12,10 +28,15 @@ import {
   ChevronDown,
   HelpCircle,
 } from 'lucide-react';
+import { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'react-toastify';
 import { useShallow } from 'zustand/react/shallow';
+import { invoke } from '@tauri-apps/api/core';
 import { useLibraryStore } from '../../../store/useLibraryStore';
+import { isJobActive, Job, JobKind, JobStatus, useProcessStore } from '../../../store/useProcessStore';
 import {
+  Invokes,
   FilterCriteria,
   RawStatus,
   EditedStatus,
@@ -28,10 +49,11 @@ import {
   GroupingMode,
   ThumbnailSize,
   ThumbnailAspectRatio,
+  Progress,
 } from '../../ui/AppProperties';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
 import Text from '../../ui/Text';
-import { TextColors, TextVariants, TextWeights, TEXT_COLOR_KEYS } from '../../../types/typography';
+import { TextColor, TextColors, TextVariants, TextWeights, TEXT_COLOR_KEYS } from '../../../types/typography';
 import Button from '../../ui/Button';
 import Switch from '../../ui/Switch';
 import Dropdown from '../../ui/Dropdown';
@@ -39,19 +61,27 @@ import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useUIStore } from '../../../store/useUIStore';
 import { ADVANCED_QUERY_REGEX } from '../../../hooks/useSortedLibrary';
 
-function DropdownMenu({ buttonContent, buttonTitle, children, contentClassName = 'w-56' }: any) {
+function DropdownMenu({ buttonContent, buttonTitle, children, contentClassName = 'w-56', onOpenChange }: any) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<any>(null);
+  const onOpenChangeRef = useRef(onOpenChange);
+  onOpenChangeRef.current = onOpenChange;
+
+  const setOpen = useCallback((open: boolean) => {
+    setIsOpen(open);
+    onOpenChangeRef.current?.(open);
+  }, []);
 
   useEffect(() => {
+    if (!isOpen) return;
     const handleClickOutside = (event: any) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsOpen(false);
+        setOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [isOpen, setOpen]);
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -59,7 +89,7 @@ function DropdownMenu({ buttonContent, buttonTitle, children, contentClassName =
         aria-expanded={isOpen}
         aria-haspopup="true"
         className="h-12 w-12 bg-surface text-text-primary shadow-none p-0 flex items-center justify-center"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => setOpen(!isOpen)}
         data-tooltip={buttonTitle}
       >
         {buttonContent}
@@ -837,6 +867,557 @@ export function ViewOptionsDropdown({
             </div>
           </div>
         </div>
+      </div>
+    </DropdownMenu>
+  );
+}
+
+const fileName = (path: string) => path.split('?vc=')[0].split(/[\\/]/).pop() ?? path;
+
+const MAX_LISTED_AI_JOBS = 50;
+const AI_JOB_ICON_BUTTON_CLASS =
+  'shrink-0 p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-primary transition-colors';
+
+const AI_JOB_COLLAPSE_ANIMATION = {
+  initial: { opacity: 0, height: 0 },
+  animate: { opacity: 1, height: 'auto' },
+  exit: { opacity: 0, height: 0 },
+  transition: { duration: 0.2, ease: 'easeOut' },
+} as const;
+
+function AiJobRow({ path, active, children }: { path: string; active?: boolean; children?: React.ReactNode }) {
+  return (
+    <motion.div className="overflow-hidden shrink-0" {...AI_JOB_COLLAPSE_ANIMATION}>
+      <div className="px-1 py-0.5">
+        <div
+          className={clsx('px-3 py-2 rounded-md flex items-center gap-3 transition-colors', active && 'bg-bg-primary')}
+          data-tooltip={path}
+        >
+          <Text
+            as="span"
+            color={active ? TextColors.primary : TextColors.secondary}
+            className="flex-1 min-w-0 truncate"
+          >
+            {fileName(path)}
+          </Text>
+          <div className="shrink-0 w-20 flex justify-end">{children}</div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+const ICON_SWAP_ANIMATION = {
+  initial: { opacity: 0, scale: 0.5 },
+  animate: { opacity: 1, scale: 1 },
+  exit: { opacity: 0, scale: 0.5 },
+  transition: { duration: 0.15 },
+} as const;
+
+const JOB_KINDS_WITH_FOLDER = [JobKind.Copy, JobKind.Import, JobKind.Move];
+
+const JOB_ICONS: Record<JobKind, LucideIcon> = {
+  [JobKind.AiTagging]: Tags,
+  [JobKind.Copy]: Copy,
+  [JobKind.Export]: FileOutput,
+  [JobKind.Import]: FolderInput,
+  [JobKind.ModelDownload]: Download,
+  [JobKind.Move]: FolderSymlink,
+};
+
+const progressFraction = ({ current = 0, total }: Progress) => (total > 0 ? Math.min(current / total, 1) : 0);
+
+const hasStepProgress = ({ current, total }: Progress) => current !== undefined && total > 0;
+
+const formatJobAmount = (job: Job, t: TFunction, language: string) =>
+  job.kind === JobKind.ModelDownload
+    ? new Intl.NumberFormat(language, { style: 'unit', unit: 'megabyte', maximumFractionDigits: 0 }).format(
+        job.progress.total / 1_000_000,
+      )
+    : t('library.jobs.images', { count: job.progress.total });
+
+const formatJobProgress = (job: Job, t: TFunction, language: string) =>
+  job.kind === JobKind.ModelDownload
+    ? new Intl.NumberFormat(language, { style: 'percent' }).format(progressFraction(job.progress))
+    : t('library.aiJobs.progress', { current: job.progress.current ?? 0, total: job.progress.total });
+
+const formatRelativeTime = (timestamp: number, language: string) => {
+  const format = new Intl.RelativeTimeFormat(language, { numeric: 'auto' });
+  const seconds = Math.round((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return format.format(0, 'second');
+  if (seconds < 3600) return format.format(-Math.floor(seconds / 60), 'minute');
+  if (seconds < 86400) return format.format(-Math.floor(seconds / 3600), 'hour');
+  return format.format(-Math.floor(seconds / 86400), 'day');
+};
+
+function ProgressBar({ fraction }: { fraction: number }) {
+  return (
+    <div className="flex-1 h-1 rounded-full bg-bg-primary overflow-hidden">
+      <div
+        className="h-full rounded-full bg-accent transition-[width] duration-300 ease-out"
+        style={{ width: `${fraction * 100}%` }}
+      />
+    </div>
+  );
+}
+
+function ProgressRing({ fraction }: { fraction: number }) {
+  const circumference = 2 * Math.PI * 8;
+  return (
+    <svg className="w-5 h-5 -rotate-90" viewBox="0 0 20 20">
+      <circle cx="10" cy="10" r="8" fill="none" strokeWidth="2.5" stroke="currentColor" className="opacity-20" />
+      <circle
+        cx="10"
+        cy="10"
+        r="8"
+        fill="none"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        stroke="currentColor"
+        className="text-accent transition-[stroke-dashoffset] duration-300 ease-out"
+        strokeDasharray={circumference}
+        strokeDashoffset={circumference * (1 - fraction)}
+      />
+    </svg>
+  );
+}
+
+function SectionTitle({ children, color }: { children: React.ReactNode; color?: TextColor }) {
+  return (
+    <Text
+      as="div"
+      variant={TextVariants.small}
+      weight={TextWeights.semibold}
+      color={color}
+      className="flex-1 truncate uppercase"
+    >
+      {children}
+    </Text>
+  );
+}
+
+function JobProgressCount({ job }: { job: Job }) {
+  const { t, i18n } = useTranslation();
+  return (
+    <Text as="span" variant={TextVariants.small} color={TextColors.secondary} className="tabular-nums">
+      {formatJobProgress(job, t, i18n.language)}
+    </Text>
+  );
+}
+
+function JobAction({ job }: { job: Job }) {
+  const { t } = useTranslation();
+
+  switch (job.status) {
+    case JobStatus.Running:
+      if (job.kind === JobKind.Export) {
+        return (
+          <>
+            <button
+              className={AI_JOB_ICON_BUTTON_CLASS}
+              onClick={() => invoke(Invokes.CancelExport)}
+              data-tooltip={t('library.jobs.cancel')}
+            >
+              <X size={16} />
+            </button>
+            {hasStepProgress(job.progress) && <JobProgressCount job={job} />}
+          </>
+        );
+      }
+      return hasStepProgress(job.progress) ? (
+        <JobProgressCount job={job} />
+      ) : (
+        <Loader2 size={14} className="animate-spin text-text-secondary" />
+      );
+    case JobStatus.Cancelling:
+      return <Loader2 size={14} className="animate-spin text-text-secondary" />;
+    case JobStatus.Success:
+      return <CircleCheck size={14} className="text-green-400" />;
+    case JobStatus.Error:
+      return <AlertTriangle size={14} className="text-red-400" />;
+    case JobStatus.Cancelled:
+      return <Ban size={14} className="text-text-secondary" />;
+  }
+}
+
+function JobRow({ job, onNavigateToFolder }: { job: Job; onNavigateToFolder(path: string): void }) {
+  const { t, i18n } = useTranslation();
+  const Icon = JOB_ICONS[job.kind];
+  const isActive = isJobActive(job.status);
+  const showProgress = isActive && hasStepProgress(job.progress);
+  const { detail, error } = job;
+  const subtitle = [
+    job.status === JobStatus.Cancelling ? t('library.jobs.cancelling') : null,
+    !showProgress && job.progress.total > 0 ? formatJobAmount(job, t, i18n.language) : null,
+    detail ? fileName(detail) : null,
+    job.finishedAt !== null ? formatRelativeTime(job.finishedAt, i18n.language) : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  const action =
+    job.status === JobStatus.Error && error
+      ? {
+          tooltip: `${error} · ${t('library.jobs.copyError')}`,
+          run: () => navigator.clipboard.writeText(error).then(() => toast.success(t('library.jobs.errorCopied'))),
+        }
+      : isActive || !detail
+        ? null
+        : job.kind === JobKind.Export
+          ? {
+              tooltip: t('contextMenus.thumbnail.showExplorer'),
+              run: () =>
+                invoke(Invokes.ShowInFinder, { path: detail }).catch((err) =>
+                  toast.error(t('contextMenus.toasts.couldNotShowExplorer', { err })),
+                ),
+            }
+          : job.status === JobStatus.Success && JOB_KINDS_WITH_FOLDER.includes(job.kind)
+            ? { tooltip: t('library.jobs.openInLibrary'), run: () => onNavigateToFolder(detail) }
+            : null;
+  const RowElement = action ? 'button' : 'div';
+
+  return (
+    <motion.div className="overflow-hidden shrink-0" {...AI_JOB_COLLAPSE_ANIMATION}>
+      <div className="px-1 py-0.5">
+        <RowElement
+          className={clsx(
+            'w-full px-3 py-2 rounded-md flex items-center gap-3 text-left',
+            action && 'cursor-pointer hover:bg-bg-primary transition-colors',
+          )}
+          onClick={action?.run}
+          data-tooltip={action?.tooltip ?? detail ?? undefined}
+        >
+          <Icon size={16} className="shrink-0 text-text-secondary" />
+          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+            <Text as="div" color={isActive ? TextColors.primary : TextColors.secondary} className="truncate leading-5">
+              {t(`library.jobs.kinds.${job.kind}`)}
+            </Text>
+            {subtitle && (
+              <Text as="div" variant={TextVariants.small} color={TextColors.secondary} className="truncate leading-4">
+                {subtitle}
+              </Text>
+            )}
+            {showProgress && (
+              <div className="flex items-center h-1 mt-1">
+                <ProgressBar fraction={progressFraction(job.progress)} />
+              </div>
+            )}
+          </div>
+          <div className="shrink-0 min-w-7 flex flex-col items-center justify-center">
+            <JobAction job={job} />
+          </div>
+        </RowElement>
+      </div>
+    </motion.div>
+  );
+}
+
+function AiJobsSection({ unprocessedPaths }: { unprocessedPaths: string[] }) {
+  const { t } = useTranslation();
+  const { current, queued, completed, paused, failed } = useProcessStore((state) => state.aiJobs);
+  const aiPendingPaths = useProcessStore((state) => state.aiPendingPaths);
+
+  const queuedPaths = useMemo(() => {
+    const paths = Object.keys(aiPendingPaths);
+    return current ? [current.path, ...paths.filter((path) => path !== current.path)] : paths;
+  }, [aiPendingPaths, current]);
+
+  const task = current ? t(`library.aiJobs.kinds.${current.kind}`) : null;
+  const statusLabel = paused
+    ? current
+      ? t('library.aiJobs.pausing')
+      : t('library.aiJobs.paused', { remaining: queued })
+    : task && current?.maskName
+      ? t('library.aiJobs.taskWithMask', { task, mask: current.maskName })
+      : (task ?? t('library.aiJobs.waiting'));
+  const total = completed + queued;
+  const hiddenJobs = Math.max(0, queuedPaths.length - MAX_LISTED_AI_JOBS);
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="px-4 flex items-center gap-1 h-8">
+        <SectionTitle>{t('library.aiJobs.title')}</SectionTitle>
+        {queued > 0 && (
+          <>
+            <button
+              className={AI_JOB_ICON_BUTTON_CLASS}
+              onClick={() => invoke(paused ? Invokes.ResumeAiJobs : Invokes.PauseAiJobs)}
+              data-tooltip={paused ? t('library.aiJobs.resume') : t('library.aiJobs.pause')}
+            >
+              {paused ? <Play size={16} /> : <Pause size={16} />}
+            </button>
+            <button
+              className={AI_JOB_ICON_BUTTON_CLASS}
+              onClick={() => invoke(Invokes.DiscardAiJobs)}
+              data-tooltip={t('library.aiJobs.discard')}
+            >
+              <X size={16} />
+            </button>
+          </>
+        )}
+      </div>
+
+      <AnimatePresence initial={false}>
+        {queued > 0 && (
+          <motion.div key="queue" className="overflow-hidden flex flex-col gap-3" {...AI_JOB_COLLAPSE_ANIMATION}>
+            <div className="px-4 space-y-2">
+              <Text as="div" color={TextColors.primary} className="truncate">
+                {statusLabel}
+              </Text>
+              <div className="flex items-center gap-3">
+                <ProgressBar fraction={progressFraction({ current: completed, total })} />
+                <Text
+                  as="span"
+                  variant={TextVariants.small}
+                  color={TextColors.secondary}
+                  className="shrink-0 w-16 text-right tabular-nums"
+                >
+                  {t('library.aiJobs.progress', { current: completed, total })}
+                </Text>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <Text as="div" variant={TextVariants.small} weight={TextWeights.semibold} className="px-4 py-1 uppercase">
+                {t('library.aiJobs.queue')}
+              </Text>
+              <div className="max-h-64 overflow-y-auto custom-scrollbar flex flex-col px-1">
+                <AnimatePresence initial={false}>
+                  {queuedPaths.slice(0, MAX_LISTED_AI_JOBS).map((path) => {
+                    const isCurrent = current?.path === path;
+                    return (
+                      <AiJobRow key={path} path={path} active={isCurrent}>
+                        {isCurrent && !paused ? (
+                          <Loader2 size={14} className="animate-spin text-text-secondary" />
+                        ) : (
+                          <Text
+                            as="span"
+                            variant={TextVariants.small}
+                            color={TextColors.secondary}
+                            className="truncate"
+                          >
+                            {paused ? t('library.aiJobs.pausedItem') : t('library.aiJobs.queuedItem')}
+                          </Text>
+                        )}
+                      </AiJobRow>
+                    );
+                  })}
+                </AnimatePresence>
+                {hiddenJobs > 0 && (
+                  <Text as="div" variant={TextVariants.small} color={TextColors.secondary} className="px-4 py-1">
+                    {t('library.aiJobs.more', { moreCount: hiddenJobs })}
+                  </Text>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {failed.length > 0 && (
+        <div className="flex flex-col gap-1 pt-3 border-t border-border-color/40">
+          <div className="px-4 flex items-center gap-3 h-8">
+            <SectionTitle color={TextColors.error}>
+              {t('library.aiJobs.failed', { failedCount: failed.length })}
+            </SectionTitle>
+            <button
+              className={AI_JOB_ICON_BUTTON_CLASS}
+              onClick={() => invoke(Invokes.RetryFailedAiJobs)}
+              data-tooltip={t('library.aiJobs.retry')}
+            >
+              <RotateCcw size={16} />
+            </button>
+          </div>
+          <div className="max-h-40 overflow-y-auto custom-scrollbar flex flex-col px-1">
+            <AnimatePresence initial={false}>
+              {failed.slice(0, MAX_LISTED_AI_JOBS).map((job) => (
+                <AiJobRow key={job.path} path={job.path}>
+                  <span data-tooltip={job.error} className="text-red-400">
+                    <AlertTriangle size={14} />
+                  </span>
+                </AiJobRow>
+              ))}
+            </AnimatePresence>
+          </div>
+        </div>
+      )}
+
+      {unprocessedPaths.length > 0 && (
+        <div className="px-4 pt-3 flex items-center gap-3 border-t border-border-color/40">
+          <CircleDashed size={16} className="shrink-0 text-text-secondary" />
+          <Text as="div" color={TextColors.secondary} className="flex-1 min-w-0">
+            {t('library.aiJobs.unprocessed', { count: unprocessedPaths.length })}
+          </Text>
+          <button
+            className={AI_JOB_ICON_BUTTON_CLASS}
+            onClick={() => invoke(Invokes.QueueAiJobs, { paths: unprocessedPaths })}
+            data-tooltip={t('library.aiJobs.process')}
+          >
+            <Play size={16} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function JobsMenu({ onNavigateToFolder }: { onNavigateToFolder(path: string): void }) {
+  const { t, i18n } = useTranslation();
+  const jobs = useProcessStore((state) => state.jobs);
+  const jobsSeenAt = useProcessStore((state) => state.jobsSeenAt);
+  const markJobsSeen = useProcessStore((state) => state.markJobsSeen);
+  const clearFinishedJobs = useProcessStore((state) => state.clearFinishedJobs);
+  const { queued, completed, paused, failed } = useProcessStore((state) => state.aiJobs);
+  const aiPendingPaths = useProcessStore((state) => state.aiPendingPaths);
+  const imageList = useLibraryStore((state) => state.imageList);
+
+  const unprocessedPaths = useMemo(
+    () => imageList.filter((image) => image.needs_ai && !aiPendingPaths[image.path]).map((image) => image.path),
+    [imageList, aiPendingPaths],
+  );
+  const { activeJobs, finishedJobs } = useMemo(() => {
+    const sorted = Object.values(jobs).sort((a, b) => b.startedAt - a.startedAt);
+    return {
+      activeJobs: sorted.filter((job) => isJobActive(job.status)),
+      finishedJobs: sorted
+        .filter((job) => !isJobActive(job.status))
+        .sort((a, b) => (b.finishedAt ?? 0) - (a.finishedAt ?? 0)),
+    };
+  }, [jobs]);
+
+  const hasAiSection = queued > 0 || failed.length > 0 || unprocessedPaths.length > 0;
+  const isAiRunning = queued > 0 && !paused;
+  const hasFailures =
+    failed.length > 0 ||
+    finishedJobs.some((job) => job.status === JobStatus.Error && (job.finishedAt ?? 0) > jobsSeenAt);
+
+  const progressFractions = [
+    ...activeJobs.filter((job) => hasStepProgress(job.progress)).map((job) => progressFraction(job.progress)),
+    ...(isAiRunning ? [progressFraction({ current: completed, total: completed + queued })] : []),
+  ];
+  const overallProgress =
+    progressFractions.length > 0
+      ? progressFractions.reduce((sum, fraction) => sum + fraction, 0) / progressFractions.length
+      : null;
+  const isBusy = activeJobs.length > 0 || isAiRunning;
+  const buttonIcon = isBusy
+    ? overallProgress !== null
+      ? 'progress'
+      : 'busy'
+    : paused && queued > 0
+      ? 'paused'
+      : 'idle';
+
+  const buttonTooltip = isBusy
+    ? [
+        ...activeJobs.map((job) =>
+          hasStepProgress(job.progress)
+            ? `${t(`library.jobs.kinds.${job.kind}`)} ${formatJobProgress(job, t, i18n.language)}`
+            : t(`library.jobs.kinds.${job.kind}`),
+        ),
+        isAiRunning
+          ? `${t('library.aiJobs.title')} ${t('library.aiJobs.progress', { current: completed, total: completed + queued })}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : t('library.jobs.title');
+
+  return (
+    <DropdownMenu
+      buttonTitle={buttonTooltip}
+      contentClassName="w-80"
+      onOpenChange={markJobsSeen}
+      buttonContent={
+        <>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div key={buttonIcon} className="absolute flex items-center justify-center" {...ICON_SWAP_ANIMATION}>
+              {buttonIcon === 'progress' ? (
+                <ProgressRing fraction={overallProgress ?? 0} />
+              ) : buttonIcon === 'busy' ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : buttonIcon === 'paused' ? (
+                <Pause className="w-5 h-5" />
+              ) : (
+                <Inbox className="w-4.5 h-4.5" />
+              )}
+            </motion.div>
+          </AnimatePresence>
+          <AnimatePresence initial={false}>
+            {(hasFailures || (!isBusy && unprocessedPaths.length > 0)) && (
+              <motion.div
+                key="notice"
+                className={clsx(
+                  'absolute top-1 right-1 rounded-full w-2.5 h-2.5 transition-colors',
+                  hasFailures ? 'bg-red-500' : 'bg-accent',
+                )}
+                {...ICON_SWAP_ANIMATION}
+              />
+            )}
+          </AnimatePresence>
+        </>
+      }
+    >
+      <div className="py-3 flex flex-col gap-3 max-h-[70vh] overflow-y-auto custom-scrollbar">
+        {activeJobs.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <div className="px-4 flex items-center h-8">
+              <SectionTitle>{t('library.jobs.active')}</SectionTitle>
+            </div>
+            <div className="flex flex-col px-1">
+              <AnimatePresence initial={false}>
+                {activeJobs.map((job) => (
+                  <JobRow key={job.id} job={job} onNavigateToFolder={onNavigateToFolder} />
+                ))}
+              </AnimatePresence>
+            </div>
+          </div>
+        )}
+
+        {hasAiSection && (
+          <div className={clsx(activeJobs.length > 0 && 'pt-3 border-t border-border-color/40')}>
+            <AiJobsSection unprocessedPaths={unprocessedPaths} />
+          </div>
+        )}
+
+        {finishedJobs.length > 0 && (
+          <div
+            className={clsx(
+              'flex flex-col gap-1',
+              (activeJobs.length > 0 || hasAiSection) && 'pt-3 border-t border-border-color/40',
+            )}
+          >
+            <div className="px-4 flex items-center gap-1 h-8">
+              <SectionTitle>{t('library.jobs.recent')}</SectionTitle>
+              <button
+                className={AI_JOB_ICON_BUTTON_CLASS}
+                onClick={clearFinishedJobs}
+                data-tooltip={t('library.jobs.clear')}
+              >
+                <ListX size={16} />
+              </button>
+            </div>
+            <div className="flex flex-col px-1">
+              <AnimatePresence initial={false}>
+                {finishedJobs.map((job) => (
+                  <JobRow key={job.id} job={job} onNavigateToFolder={onNavigateToFolder} />
+                ))}
+              </AnimatePresence>
+            </div>
+          </div>
+        )}
+
+        {!hasAiSection && activeJobs.length === 0 && finishedJobs.length === 0 && (
+          <div className="px-4 py-4 flex flex-col items-center gap-2 text-center">
+            <Inbox size={24} className="text-text-secondary" />
+            <Text as="div" color={TextColors.primary}>
+              {t('library.jobs.empty')}
+            </Text>
+            <Text as="div" variant={TextVariants.small} color={TextColors.secondary}>
+              {t('library.jobs.emptyHint')}
+            </Text>
+          </div>
+        )}
       </div>
     </DropdownMenu>
   );

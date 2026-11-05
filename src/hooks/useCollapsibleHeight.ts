@@ -11,18 +11,18 @@ export function useCollapsibleHeight(isOpen: boolean) {
       return;
     }
 
-    const updateMaxHeight = () => {
+    const updateHeight = () => {
       if (isOpen) {
         const contentHeight = content.scrollHeight;
-        wrapper.style.maxHeight = `${contentHeight}px`;
+        wrapper.style.height = `${contentHeight}px`;
       } else {
-        wrapper.style.maxHeight = '0px';
+        wrapper.style.height = '0px';
       }
     };
 
-    updateMaxHeight();
+    updateHeight();
 
-    const resizeObserver = new ResizeObserver(updateMaxHeight);
+    const resizeObserver = new ResizeObserver(updateHeight);
     resizeObserver.observe(content);
 
     return () => resizeObserver.disconnect();

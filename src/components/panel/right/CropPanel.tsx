@@ -25,7 +25,7 @@ import {
   Info,
   Ban,
   Save,
-  Wand2,
+  ScanLine,
 } from 'lucide-react';
 import { useTranslation, Trans } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
@@ -415,9 +415,11 @@ export default function CropPanel() {
   const handleCustomInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      e.stopPropagation();
       handleApplyCustomRatio();
       (e.target as HTMLInputElement).blur();
     } else if (e.key === 'Escape') {
+      e.stopPropagation();
       setIsEditingCustom(false);
       if (aspectRatio) {
         const h = 100;
@@ -1004,7 +1006,7 @@ export default function CropPanel() {
                         data-tooltip={t('editor.crop.tooltips.autoStraighten')}
                         disabled={isAutoStraightening}
                       >
-                        {isAutoStraightening ? <Loader size={14} className="animate-spin" /> : <Wand2 size={14} />}
+                        {isAutoStraightening ? <Loader size={14} className="animate-spin" /> : <ScanLine size={14} />}
                       </button>
                       <button
                         className="p-1.5 rounded-md text-text-secondary transition-colors cursor-pointer hover:bg-card-active hover:text-text-primary"
@@ -1024,6 +1026,7 @@ export default function CropPanel() {
                   suffix="°"
                   onChange={handleFineRotationChange}
                   onDragStateChange={handleDragStateChange}
+                  speedEditId="rotation"
                 />
               </div>
             </div>

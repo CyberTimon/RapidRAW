@@ -1,66 +1,13 @@
-use anyhow::Result;
-use image::DynamicImage;
-
-#[derive(Clone, Copy, Debug)]
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
-pub struct Raw9Options {
-    pub luminance_noise_reduction: Option<f32>,
-    pub sharpness: f32,
-}
-
-impl Raw9Options {
-    pub fn for_loading() -> Self {
-        Self {
-            luminance_noise_reduction: None,
-            sharpness: 0.0,
-        }
-    }
-
-    pub fn for_denoise(intensity: f32) -> Self {
-        Self {
-            luminance_noise_reduction: Some(intensity.clamp(0.0, 1.0)),
-            sharpness: 0.0,
-        }
-    }
-}
-
-pub fn denoise_raw9(bytes: &[u8], path: &str, intensity: f32) -> Result<DynamicImage> {
-    let img = develop_raw9(bytes, path, &Raw9Options::for_denoise(intensity))?;
-    Ok(DynamicImage::ImageRgb32F(img.to_rgb32f()))
-}
-
-#[tauri::command]
-pub async fn is_raw9_available(paths: Vec<String>) -> bool {
-    if paths.is_empty() {
-        return false;
-    }
-    tokio::task::spawn_blocking(move || {
-        paths.iter().all(|p| {
-            let (source_path, _) = crate::file_management::parse_virtual_path(p);
-            let source = source_path.to_string_lossy();
-            crate::formats::is_raw_file(&source_path) && is_raw9_supported_for_path(&source)
-        })
-    })
-    .await
-    .unwrap_or(false)
-}
-
 #[cfg(not(target_os = "macos"))]
-pub fn develop_raw9(_bytes: &[u8], _path: &str, _opts: &Raw9Options) -> Result<DynamicImage> {
+pub fn develop_raw9(_bytes: &[u8], _path: &str) -> anyhow::Result<image::DynamicImage> {
     Err(anyhow::anyhow!("Apple RAW 9 is only available on macOS"))
 }
 
-#[cfg(not(target_os = "macos"))]
-pub fn is_raw9_supported_for_path(_path: &str) -> bool {
-    false
-}
-
 #[cfg(target_os = "macos")]
-pub use imp::{develop_raw9, is_raw9_supported_for_path};
+pub use imp::develop_raw9;
 
 #[cfg(target_os = "macos")]
 mod imp {
-    use super::Raw9Options;
     use anyhow::{Result, anyhow};
     use image::{DynamicImage, ImageBuffer, Rgba};
     use objc2::rc::{Retained, autoreleasepool};
@@ -135,7 +82,7 @@ mod imp {
         }
     }
 
-    fn configure(filter: &CIRAWFilter, opts: &Raw9Options) {
+    fn configure(filter: &CIRAWFilter) {
         unsafe {
             filter.setBoostAmount(0.0);
             filter.setBaselineExposure(0.0);
@@ -148,18 +95,13 @@ mod imp {
                 filter.setContrastAmount(0.0);
             }
             if filter.isSharpnessSupported() {
-                filter.setSharpnessAmount(opts.sharpness);
+                filter.setSharpnessAmount(0.0);
             }
             if filter.isLensCorrectionSupported() {
                 filter.setLensCorrectionEnabled(false);
             }
             if filter.isHighlightRecoverySupported() {
                 filter.setHighlightRecoveryEnabled(true);
-            }
-            if let Some(amount) = opts.luminance_noise_reduction
-                && filter.isLuminanceNoiseReductionSupported()
-            {
-                filter.setLuminanceNoiseReductionAmount(amount);
             }
         }
     }
@@ -221,7 +163,7 @@ mod imp {
         }
     }
 
-    pub fn develop_raw9(bytes: &[u8], path: &str, opts: &Raw9Options) -> Result<DynamicImage> {
+    pub fn develop_raw9(bytes: &[u8], path: &str) -> Result<DynamicImage> {
         if !core_image_raw_available() {
             return Err(anyhow!(
                 "CIRAWFilter is not available on this macOS version"
@@ -240,7 +182,7 @@ mod imp {
             })?;
 
             unsafe { filter.setDecoderVersion(&version) };
-            configure(&filter, opts);
+            configure(&filter);
 
             let start = Instant::now();
             let image = render_rgba_f32(&filter)?;
@@ -253,17 +195,6 @@ mod imp {
                 start.elapsed()
             );
             Ok(image)
-        })
-    }
-
-    pub fn is_raw9_supported_for_path(path: &str) -> bool {
-        if !core_image_raw_available() {
-            return false;
-        }
-        autoreleasepool(|_| {
-            make_filter(None, path)
-                .map(|filter| pick_raw9_version(&filter, is_dng(path)).is_some())
-                .unwrap_or(false)
         })
     }
 }

@@ -1,9 +1,11 @@
 use std::borrow::Cow;
+use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::io::{BufReader, Cursor};
+use std::hash::{Hash, Hasher};
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::Duration;
 
 use crate::file_management;
@@ -93,16 +95,34 @@ pub fn flush_all_dirty_caches() {
         }
     }
 
-    drop(state);
-
     for (path, map) in to_write {
         if let Ok(json) = serde_json::to_string(&map) {
-            let tmp_path = path.with_extension("tmp");
-            if std::fs::write(&tmp_path, json).is_ok() {
-                let _ = std::fs::rename(tmp_path, path);
-            }
+            let _ = file_management::write_file_atomic(&path, json.as_bytes());
         }
     }
+    drop(state);
+}
+
+pub fn clear_disk_cache() -> Result<(), String> {
+    let mut state = get_exif_cache()
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
+    state.cache.clear();
+    state.dirty.clear();
+    let Some(read_dir) = state
+        .cache_dir
+        .as_ref()
+        .and_then(|dir| fs::read_dir(dir).ok())
+    else {
+        return Ok(());
+    };
+    for path in read_dir.filter_map(|e| e.ok()).map(|e| e.path()) {
+        if path.is_file() {
+            fs::remove_file(&path)
+                .map_err(|e| format!("Failed to remove {}: {}", path.display(), e))?;
+        }
+    }
+    Ok(())
 }
 
 fn load_rrcache_for_folder(folder: &Path) {
@@ -221,18 +241,24 @@ pub fn truncate_large_exif(value: &str) -> String {
     value.to_string()
 }
 
-pub fn load_sidecar(sidecar_path: &Path) -> ImageMetadata {
-    if !sidecar_path.exists() {
-        return ImageMetadata::default();
-    }
+const SIDECAR_LOCK_STRIPES: usize = 64;
+static SIDECAR_LOCKS: [Mutex<()>; SIDECAR_LOCK_STRIPES] =
+    [const { Mutex::new(()) }; SIDECAR_LOCK_STRIPES];
 
-    let Ok(content) = fs::read_to_string(sidecar_path) else {
-        return ImageMetadata::default();
-    };
+fn sidecar_lock_stripe(sidecar_path: &Path) -> &'static Mutex<()> {
+    let mut hasher = DefaultHasher::new();
+    sidecar_path.hash(&mut hasher);
+    &SIDECAR_LOCKS[hasher.finish() as usize % SIDECAR_LOCK_STRIPES]
+}
 
-    let mut meta = serde_json::from_str::<ImageMetadata>(&content).unwrap_or_default();
+pub fn lock_sidecar(sidecar_path: &Path) -> MutexGuard<'static, ()> {
+    sidecar_lock_stripe(sidecar_path)
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+}
+
+fn heal_bloated_exif(meta: &mut ImageMetadata) -> bool {
     let mut healed = false;
-
     if let Some(ref mut exif_map) = meta.exif {
         for val in exif_map.values_mut() {
             if val.len() > 500 {
@@ -241,9 +267,65 @@ pub fn load_sidecar(sidecar_path: &Path) -> ImageMetadata {
             }
         }
     }
+    healed
+}
 
-    if healed && let Ok(json) = serde_json::to_string_pretty(&meta) {
-        let _ = fs::write(sidecar_path, json);
+fn quarantine_sidecar(sidecar_path: &Path, error: &serde_json::Error) {
+    let mut quarantined = sidecar_path.as_os_str().to_os_string();
+    quarantined.push(format!(".corrupt-{}", Utc::now().format("%Y%m%d%H%M%S")));
+    match fs::rename(sidecar_path, &quarantined) {
+        Ok(()) => log::error!(
+            "Unreadable sidecar {} ({}), moved to {}",
+            sidecar_path.display(),
+            error,
+            Path::new(&quarantined).display()
+        ),
+        Err(e) => log::error!(
+            "Unreadable sidecar {} ({}), could not move it aside: {}",
+            sidecar_path.display(),
+            error,
+            e
+        ),
+    }
+}
+
+fn read_sidecar(sidecar_path: &Path) -> std::io::Result<(ImageMetadata, bool)> {
+    let content = match fs::read_to_string(sidecar_path) {
+        Ok(content) => content,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            return Ok((ImageMetadata::default(), false));
+        }
+        Err(e) => return Err(e),
+    };
+
+    match serde_json::from_str::<ImageMetadata>(&content) {
+        Ok(mut meta) => {
+            let healed = heal_bloated_exif(&mut meta);
+            Ok((meta, healed))
+        }
+        Err(e) => {
+            quarantine_sidecar(sidecar_path, &e);
+            Ok((ImageMetadata::default(), false))
+        }
+    }
+}
+
+fn write_sidecar_json(sidecar_path: &Path, metadata: &ImageMetadata) -> std::io::Result<()> {
+    let json = serde_json::to_string_pretty(metadata).map_err(std::io::Error::other)?;
+    file_management::write_file_atomic(sidecar_path, json.as_bytes())
+}
+
+pub fn load_sidecar(sidecar_path: &Path) -> ImageMetadata {
+    let (meta, healed) = read_sidecar(sidecar_path).unwrap_or_else(|e| {
+        log::warn!("Failed to read sidecar {}: {}", sidecar_path.display(), e);
+        (ImageMetadata::default(), false)
+    });
+
+    if healed
+        && let Ok(_guard) = sidecar_lock_stripe(sidecar_path).try_lock()
+        && let Ok((current, true)) = read_sidecar(sidecar_path)
+        && write_sidecar_json(sidecar_path, &current).is_ok()
+    {
         log::info!(
             "Auto-healed bloated sidecar for: {}",
             sidecar_path.display()
@@ -253,35 +335,27 @@ pub fn load_sidecar(sidecar_path: &Path) -> ImageMetadata {
     meta
 }
 
-pub fn load_sidecar_with_exif(sidecar_path: &Path, source_path: &Path) -> ImageMetadata {
-    let mut meta = load_sidecar(sidecar_path);
-
-    if meta.exif.is_none() {
-        if let Some(cached_exif) = read_rrexif_sidecar(source_path) {
-            meta.exif = Some(cached_exif);
-        } else {
-            let source_path_str = source_path.to_string_lossy();
-            let extracted_exif =
-                if let Ok(mmap) = crate::file_management::read_file_mapped(source_path) {
-                    read_exif_data(&source_path_str, &mmap)
-                } else if let Ok(bytes) = std::fs::read(source_path) {
-                    read_exif_data(&source_path_str, &bytes)
-                } else {
-                    std::collections::HashMap::new()
-                };
-
-            if !extracted_exif.is_empty() {
-                meta.exif = Some(extracted_exif);
-            }
-        }
+pub fn fill_missing_exif(meta: &mut ImageMetadata, source_path: &Path) {
+    if meta.exif.is_some() {
+        return;
     }
 
-    meta
+    let exif = read_rrexif_sidecar(source_path).or_else(|| {
+        let source_path_str = source_path.to_string_lossy();
+        let extracted = if let Ok(mmap) = file_management::read_file_mapped(source_path) {
+            read_exif_data_from_bytes(&source_path_str, &mmap)
+        } else {
+            read_exif_data_from_bytes(&source_path_str, &fs::read(source_path).ok()?)
+        };
+        (!extracted.is_empty()).then_some(extracted)
+    });
+
+    meta.exif = exif;
 }
 
 pub static SIDECAR_LAYOUT_LOCK: Mutex<()> = Mutex::new(());
 
-pub fn write_sidecar(
+fn write_sidecar(
     sidecar_path: &Path,
     source_path: &Path,
     metadata: &ImageMetadata,
@@ -296,8 +370,24 @@ pub fn write_sidecar(
         }
     }
 
-    let json = serde_json::to_string_pretty(metadata).map_err(std::io::Error::other)?;
-    fs::write(sidecar_path, json)
+    write_sidecar_json(sidecar_path, metadata)
+}
+
+pub fn update_sidecar(
+    sidecar_path: &Path,
+    source_path: &Path,
+    update: impl FnOnce(&mut ImageMetadata),
+) -> std::io::Result<ImageMetadata> {
+    let _guard = lock_sidecar(sidecar_path);
+    let (mut metadata, _) = read_sidecar(sidecar_path)?;
+    update(&mut metadata);
+    if crate::immich::is_placeholder(source_path)
+        && let Some(parent) = sidecar_path.parent()
+    {
+        fs::create_dir_all(parent)?;
+    }
+    write_sidecar(sidecar_path, source_path, &metadata)?;
+    Ok(metadata)
 }
 
 fn has_virtual_copy_sidecars(source_path: &Path) -> bool {
@@ -509,24 +599,48 @@ fn format_lens_specification(components: &[exif::Rational]) -> Option<String> {
     Some(format_lens_spec(focal_min, focal_max, aperture))
 }
 
+pub fn is_tiff(file_bytes: &[u8]) -> bool {
+    file_bytes.starts_with(b"II*\0") || file_bytes.starts_with(b"MM\0*")
+}
+
 pub fn read_exif(file_bytes: &[u8]) -> Option<Exif> {
     let exifreader = exif::Reader::new();
+    if is_tiff(file_bytes) {
+        let mut len = 64 * 1024;
+        while len < file_bytes.len() && len <= 16 * 1024 * 1024 {
+            if let Ok(exif) = exifreader.read_raw(file_bytes[..len].to_vec()) {
+                return Some(exif);
+            }
+            len *= 4;
+        }
+    }
     exifreader
         .read_from_container(&mut Cursor::new(file_bytes))
         .ok()
 }
 
+pub fn read_exif_from_path(path: &Path) -> Option<Exif> {
+    match file_management::read_file_mapped(path) {
+        Ok(mmap) => read_exif(&mmap),
+        Err(_) => read_exif(&fs::read(path).ok()?),
+    }
+}
+
 pub fn read_raw_metadata(file_bytes: &[u8]) -> Option<RawMetadata> {
-    raw_metadata_from_source(&rawler::rawsource::RawSource::new_from_slice(file_bytes))
+    crate::raw_processing::read_from_prefix(file_bytes, |bytes, _| {
+        raw_metadata_from_source(&rawler::rawsource::RawSource::new_from_slice(bytes))
+    })
 }
 
 fn read_raw_metadata_from_path(path_str: &str) -> Option<RawMetadata> {
-    raw_metadata_from_source(&rawler::rawsource::RawSource::new(Path::new(path_str)).ok()?)
+    match file_management::read_file_mapped(Path::new(path_str)) {
+        Ok(mmap) => read_raw_metadata(&mmap),
+        Err(_) => read_raw_metadata(&fs::read(path_str).ok()?),
+    }
 }
 
 fn raw_metadata_from_source(raw_source: &rawler::rawsource::RawSource) -> Option<RawMetadata> {
-    let loader = rawler::RawLoader::new();
-    let decoder = loader.get_decoder(raw_source).ok()?;
+    let decoder = rawler::get_decoder(raw_source).ok()?;
     decoder.raw_metadata(raw_source, &Default::default()).ok()
 }
 
@@ -1066,33 +1180,24 @@ pub fn try_get_exif_creation_date(path: &Path) -> Option<DateTime<Utc>> {
         return Some(creation_datetime_to_utc(dt));
     }
 
-    if let Ok(file) = std::fs::File::open(path) {
-        let mut bufreader = BufReader::new(&file);
-        let exifreader = exif::Reader::new();
-
-        if let Ok(exif_obj) = exifreader.read_from_container(&mut bufreader) {
-            for tag in [exif::Tag::DateTimeOriginal, exif::Tag::DateTime] {
-                if let Some(field) = exif_obj.get_field(tag, exif::In::PRIMARY)
-                    && let Some(dt) = parse_creation_field(field)
-                {
-                    return Some(dt);
-                }
+    if let Some(exif_obj) = read_exif_from_path(path) {
+        for tag in [exif::Tag::DateTimeOriginal, exif::Tag::DateTime] {
+            if let Some(field) = exif_obj.get_field(tag, exif::In::PRIMARY)
+                && let Some(dt) = parse_creation_field(field)
+            {
+                return Some(dt);
             }
         }
     }
 
-    if is_raw_file(path) {
-        let loader = rawler::RawLoader::new();
-        if let Ok(raw_source) = rawler::rawsource::RawSource::new(path)
-            && let Ok(decoder) = loader.get_decoder(&raw_source)
-            && let Ok(metadata) = decoder.raw_metadata(&raw_source, &Default::default())
-        {
-            if let Some(dt) = parse_raw_creation_date(metadata.exif.date_time_original.as_deref()) {
-                return Some(dt);
-            }
-            if let Some(dt) = parse_raw_creation_date(metadata.exif.create_date.as_deref()) {
-                return Some(dt);
-            }
+    if is_raw_file(path)
+        && let Some(metadata) = read_raw_metadata_from_path(&path.to_string_lossy())
+    {
+        if let Some(dt) = parse_raw_creation_date(metadata.exif.date_time_original.as_deref()) {
+            return Some(dt);
+        }
+        if let Some(dt) = parse_raw_creation_date(metadata.exif.create_date.as_deref()) {
+            return Some(dt);
         }
     }
 
@@ -1143,6 +1248,9 @@ fn copy_full_exif_from_source(
             continue;
         }
         for tag in ifd.get_tags() {
+            if !tag.is_writable() || crate::tiff_metadata::is_structural_tag(tag.as_u16()) {
+                continue;
+            }
             metadata.set_tag(tag.clone());
             copied_any = true;
         }
@@ -1370,8 +1478,7 @@ pub fn write_image_with_metadata(
     xmp: &ExportXmp,
     dpi: Option<u16>,
 ) -> Result<(), String> {
-    // FIXME: temporary solution until I find a way to write metadata to TIFF
-    if !keep_metadata || output_format.to_lowercase() == "tiff" {
+    if !keep_metadata {
         return Ok(());
     }
 
@@ -1380,7 +1487,6 @@ pub fn write_image_with_metadata(
         "png" => FileExtension::PNG {
             as_zTXt_chunk: true,
         },
-        "tiff" => FileExtension::TIFF,
         "webp" => FileExtension::WEBP,
         _ => return Ok(()),
     };
@@ -1401,19 +1507,45 @@ fn write_exif_metadata(
     strip_gps: bool,
     dpi: Option<u16>,
 ) -> Result<(), String> {
-    let original_path = Path::new(original_path_str);
-    if !original_path.exists() {
+    let dimensions = image::ImageReader::new(Cursor::new(image_bytes.as_slice()))
+        .with_guessed_format()
+        .ok()
+        .and_then(|reader| reader.into_dimensions().ok());
+
+    let Some(mut metadata) = collect_metadata_from_source(original_path_str, strip_gps, dimensions)
+    else {
         return Ok(());
+    };
+
+    if matches!(file_type, FileExtension::JPEG) {
+        metadata.set_tag(ExifTag::ComponentsConfiguration(vec![1, 2, 3, 0]));
     }
 
-    // Skip TIFF sources to avoid potential tag corruption issues
-    let original_ext = original_path
-        .extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("")
-        .to_lowercase();
-    if original_ext == "tiff" || original_ext == "tif" {
-        return Ok(());
+    if let Some(dpi) = dpi {
+        let resolution = vec![uR64 {
+            nominator: dpi.into(),
+            denominator: 1,
+        }];
+        metadata.set_tag(ExifTag::XResolution(resolution.clone()));
+        metadata.set_tag(ExifTag::YResolution(resolution));
+        metadata.set_tag(ExifTag::ResolutionUnit(vec![2u16]));
+    }
+
+    if let Err(e) = metadata.write_to_vec(image_bytes, file_type) {
+        log::warn!("Failed to write metadata: {}", e);
+    }
+
+    Ok(())
+}
+
+pub fn collect_metadata_from_source(
+    original_path_str: &str,
+    strip_gps: bool,
+    dimensions: Option<(u32, u32)>,
+) -> Option<Metadata> {
+    let original_path = Path::new(original_path_str);
+    if !original_path.exists() {
+        return None;
     }
 
     let mut metadata = Metadata::new();
@@ -1647,33 +1779,13 @@ fn write_exif_metadata(
     metadata.set_tag(ExifTag::ColorSpace(vec![1u16]));
     metadata.set_tag(ExifTag::ExifVersion(b"0232".to_vec()));
     metadata.set_tag(ExifTag::FlashpixVersion(b"0100".to_vec()));
-    if matches!(file_type, FileExtension::JPEG) {
-        metadata.set_tag(ExifTag::ComponentsConfiguration(vec![1, 2, 3, 0]));
-    }
 
-    if let Some(dpi) = dpi {
-        let resolution = vec![uR64 {
-            nominator: dpi.into(),
-            denominator: 1,
-        }];
-        metadata.set_tag(ExifTag::XResolution(resolution.clone()));
-        metadata.set_tag(ExifTag::YResolution(resolution));
-        metadata.set_tag(ExifTag::ResolutionUnit(vec![2u16]));
-    }
-
-    if let Ok(reader) =
-        image::ImageReader::new(Cursor::new(image_bytes.as_slice())).with_guessed_format()
-        && let Ok((width, height)) = reader.into_dimensions()
-    {
+    if let Some((width, height)) = dimensions {
         metadata.set_tag(ExifTag::ExifImageWidth(vec![width]));
         metadata.set_tag(ExifTag::ExifImageHeight(vec![height]));
     }
 
-    if let Err(e) = metadata.write_to_vec(image_bytes, file_type) {
-        log::warn!("Failed to write metadata: {}", e);
-    }
-
-    Ok(())
+    Some(metadata)
 }
 
 pub struct ExportXmp {
@@ -1990,10 +2102,15 @@ fn load_primary_metadata(image_path: &Path) -> ImageMetadata {
     load_sidecar(&primary)
 }
 
-fn save_primary_metadata(image_path: &Path, metadata: &ImageMetadata) -> std::io::Result<()> {
+fn update_primary_metadata(
+    image_path: &Path,
+    update: impl FnOnce(&mut ImageMetadata),
+) -> std::io::Result<()> {
     let primary = get_primary_sidecar_path(image_path);
-    let json = serde_json::to_string_pretty(metadata).map_err(std::io::Error::other)?;
-    fs::write(&primary, json)
+    let _guard = lock_sidecar(&primary);
+    let (mut metadata, _) = read_sidecar(&primary)?;
+    update(&mut metadata);
+    write_sidecar_json(&primary, &metadata)
 }
 
 pub fn read_rrexif_sidecar(image_path: &Path) -> Option<HashMap<String, String>> {
@@ -2063,9 +2180,9 @@ pub fn read_exif_data(path: &str, file_bytes: &[u8]) -> HashMap<String, String> 
     if !exif_map.is_empty() {
         let primary = get_primary_sidecar_path(source_path);
         if primary.exists() {
-            let mut metadata = load_primary_metadata(source_path);
-            metadata.exif = Some(exif_map.clone());
-            let _ = save_primary_metadata(source_path, &metadata);
+            let _ = update_primary_metadata(source_path, |metadata| {
+                metadata.exif = Some(exif_map.clone());
+            });
         } else {
             save_exif_to_rrcache(source_path, exif_map.clone());
         }
@@ -2087,14 +2204,78 @@ pub fn persist_exif_if_missing(source_path: &Path, source_path_str: &str, file_b
     let primary = get_primary_sidecar_path(source_path);
 
     if primary.exists() {
-        let mut metadata = load_primary_metadata(source_path);
-        if metadata.exif.is_none() {
-            metadata.exif = Some(exif_map);
-            let _ = save_primary_metadata(source_path, &metadata);
-        }
+        let _ = update_primary_metadata(source_path, |metadata| {
+            metadata.exif.get_or_insert(exif_map);
+        });
     } else {
         save_exif_to_rrcache(source_path, exif_map);
     }
+}
+
+pub fn save_converted_image(
+    image: &image::DynamicImage,
+    output_path: &Path,
+    source_path_str: &str,
+) -> Result<(), String> {
+    let dimensions = image::GenericImageView::dimensions(image);
+    let metadata = collect_metadata_from_source(source_path_str, false, Some(dimensions));
+
+    let extension = output_path
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    let bytes = match extension.as_str() {
+        "tif" | "tiff" => {
+            let samples = match image {
+                image::DynamicImage::ImageRgb32F(_) | image::DynamicImage::ImageRgba32F(_) => {
+                    crate::tiff_metadata::TiffSamples::ThirtyTwoFloat
+                }
+                image::DynamicImage::ImageRgb16(_)
+                | image::DynamicImage::ImageRgba16(_)
+                | image::DynamicImage::ImageLuma16(_)
+                | image::DynamicImage::ImageLumaA16(_) => {
+                    crate::tiff_metadata::TiffSamples::Sixteen
+                }
+                _ => crate::tiff_metadata::TiffSamples::Eight,
+            };
+            crate::tiff_metadata::encode_tiff_with_metadata(
+                image,
+                samples,
+                metadata.as_ref(),
+                Some(crate::export_processing::SRGB_ICC_PROFILE),
+                None,
+            )?
+        }
+        "png" => {
+            let mut bytes = Vec::new();
+            image
+                .write_to(&mut Cursor::new(&mut bytes), image::ImageFormat::Png)
+                .map_err(|e| format!("Failed to encode image: {}", e))?;
+
+            if let Some(metadata) = metadata
+                && let Err(e) = metadata.write_to_vec(
+                    &mut bytes,
+                    FileExtension::PNG {
+                        as_zTXt_chunk: true,
+                    },
+                )
+            {
+                log::warn!("Failed to write metadata: {}", e);
+            }
+            bytes
+        }
+        other => {
+            return Err(format!(
+                "Unsupported format for a converted image: '{}'",
+                other
+            ));
+        }
+    };
+
+    fs::write(output_path, bytes)
+        .map_err(|e| format!("Failed to write file to '{}': {}", output_path.display(), e))
 }
 
 pub fn write_rrexif_sidecar(source_path_str: &str, target_image_path: &Path) -> Result<(), String> {
@@ -2112,8 +2293,8 @@ pub fn write_rrexif_sidecar(source_path_str: &str, target_image_path: &Path) -> 
         return Ok(());
     }
 
-    let mut metadata = load_primary_metadata(target_image_path);
-    metadata.exif = Some(exif_data);
-    save_primary_metadata(target_image_path, &metadata)
-        .map_err(|e| format!("Failed to write sidecar: {}", e))
+    update_primary_metadata(target_image_path, |metadata| {
+        metadata.exif = Some(exif_data);
+    })
+    .map_err(|e| format!("Failed to write sidecar: {}", e))
 }

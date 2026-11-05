@@ -38,7 +38,7 @@ export const isUniqueFilenameTemplate = (template: string): boolean =>
 
 export type TiffBitDepth = 8 | 16;
 
-export const DEFAULT_EXPORT_DPI = 300;
+export const DEFAULT_EXPORT_DPI = 96;
 export const MAX_EXPORT_DPI = 65535;
 
 export interface ExportSettings {
@@ -99,6 +99,7 @@ interface WatermarkSettings {
 }
 
 export interface ExportState {
+  destination?: string | null;
   errorMessage: string;
   progress: Progress;
   status: Status;
@@ -111,6 +112,7 @@ export interface FileFormat {
 }
 
 export interface ImportState {
+  destination?: string | null;
   errorMessage: string;
   path?: string;
   progress?: Progress;

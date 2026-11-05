@@ -8,11 +8,16 @@ struct Transform {
     _pad: f32,
     bg_primary: vec4<f32>,
     bg_secondary: vec4<f32>,
+    original_size: vec2<f32>,
+    split_origin: vec2<f32>,
+    split_normal: vec2<f32>,
+    split_offset: vec2<f32>,
 };
 
 @group(0) @binding(0) var<uniform> transform: Transform;
 @group(0) @binding(1) var tex: texture_2d<f32>;
 @group(0) @binding(2) var samp: sampler;
+@group(0) @binding(3) var original_tex: texture_2d<f32>;
 
 struct VertexOutput {
     @builtin(position) pos: vec4<f32>,
@@ -52,26 +57,36 @@ fn vs_main(@builtin(vertex_index) id: u32) -> VertexOutput {
     return out;
 }
 
+fn sample_layer(layer: texture_2d<f32>, uv: vec2<f32>, image_size: vec2<f32>, texture_size: vec2<f32>) -> vec4<f32> {
+    let adjusted_uv = uv * (image_size / texture_size);
+    let half_texel = vec2<f32>(0.5, 0.5) / texture_size;
+
+    let min_uv = half_texel;
+    let max_uv = (image_size / texture_size) - half_texel;
+
+    if (transform.pixelated > 0.5) {
+        let texel_coords = floor(adjusted_uv * texture_size);
+        let nearest_uv = (texel_coords + vec2<f32>(0.5, 0.5)) / texture_size;
+
+        let clamped_nearest = clamp(nearest_uv, min_uv, max_uv);
+        return textureSampleLevel(layer, samp, clamped_nearest, 0.0);
+    } else {
+        let clamped_uv = clamp(adjusted_uv, min_uv, max_uv);
+        return textureSampleLevel(layer, samp, clamped_uv, 0.0);
+    }
+}
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    if (in.uv.x < 0.0 || in.uv.x > 1.0 || in.uv.y < 0.0 || in.uv.y > 1.0) {
+    let is_original = dot(in.pos.xy - transform.split_origin, transform.split_normal) < 0.0;
+    let uv = select(in.uv, in.uv + transform.split_offset / transform.rect.zw, is_original);
+
+    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
         return transform.bg_secondary;
     }
 
-    let adjusted_uv = in.uv * (transform.image_size / transform.texture_size);
-    let half_texel = vec2<f32>(0.5, 0.5) / transform.texture_size;
-
-    let min_uv = half_texel;
-    let max_uv = (transform.image_size / transform.texture_size) - half_texel;
-
-    if (transform.pixelated > 0.5) {
-        let texel_coords = floor(adjusted_uv * transform.texture_size);
-        let nearest_uv = (texel_coords + vec2<f32>(0.5, 0.5)) / transform.texture_size;
-
-        let clamped_nearest = clamp(nearest_uv, min_uv, max_uv);
-        return textureSample(tex, samp, clamped_nearest);
-    } else {
-        let clamped_uv = clamp(adjusted_uv, min_uv, max_uv);
-        return textureSample(tex, samp, clamped_uv);
+    if (is_original) {
+        return sample_layer(original_tex, uv, transform.original_size, transform.original_size);
     }
+    return sample_layer(tex, uv, transform.image_size, transform.texture_size);
 }
