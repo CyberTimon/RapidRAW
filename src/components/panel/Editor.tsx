@@ -776,6 +776,50 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     [animateTransform, applyTransform, clampToBounds],
   );
 
+  const isCropViewShown = isCropping && !!uncroppedAdjustedPreviewUrl;
+  const wasCropViewShownRef = useRef(isCropViewShown);
+
+  useLayoutEffect(() => {
+    if (wasCropViewShownRef.current === isCropViewShown) return;
+    wasCropViewShownRef.current = isCropViewShown;
+
+    const container = imageContainerRef.current;
+    const crop = getEffectiveCrop();
+    const irs = imageRenderSizeRef.current;
+    const { positionX, positionY, scale } = transformStateRef.current;
+    if (!container || !crop || !selectedImage || !irs.width || !crop.width || scale <= 1.01) return;
+
+    const { width: W, height: H } = getOrientedDimensions(
+      selectedImage.width,
+      selectedImage.height,
+      adjustments.orientationSteps || 0,
+    );
+    const viewportW = irs.width + 2 * irs.offsetX;
+    const viewportH = irs.height + 2 * irs.offsetY;
+    const uncroppedScale = Math.min(viewportW / W, viewportH / H);
+    const uncroppedLeft = (viewportW - W * uncroppedScale) / 2;
+    const uncroppedTop = (viewportH - H * uncroppedScale) / 2;
+    const croppedScale = irs.width / crop.width;
+
+    const centerX = container.clientWidth / 2;
+    const centerY = container.clientHeight / 2;
+    const contentX = (centerX - positionX) / scale;
+    const contentY = (centerY - positionY) / scale;
+
+    const target = isCropViewShown
+      ? {
+          x: uncroppedLeft + (crop.x + (contentX - irs.offsetX) / croppedScale) * uncroppedScale,
+          y: uncroppedTop + (crop.y + (contentY - irs.offsetY) / croppedScale) * uncroppedScale,
+        }
+      : {
+          x: irs.offsetX + ((contentX - uncroppedLeft) / uncroppedScale - crop.x) * croppedScale,
+          y: irs.offsetY + ((contentY - uncroppedTop) / uncroppedScale - crop.y) * croppedScale,
+        };
+
+    const bounded = clampToBounds(centerX - target.x * scale, centerY - target.y * scale, scale);
+    applyTransform(bounded.x, bounded.y, bounded.scale);
+  }, [isCropViewShown, getEffectiveCrop, selectedImage, adjustments.orientationSteps, applyTransform, clampToBounds]);
+
   useImperativeHandle(
     transformWrapperRef,
     () => ({

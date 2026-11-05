@@ -173,7 +173,17 @@ pub fn register_exit_handler() {
 #[cfg(not(target_os = "macos"))]
 pub fn register_exit_handler() {}
 
-const GEOMETRY_PREVIEW_SUPERSAMPLE: f64 = 2.0;
+const PREVIEW_SOURCE_SUPERSAMPLE: f64 = 4.0;
+const WARPED_PREVIEW_MAX_PIXELS: f64 = 50_000_000.0;
+const WORKING_SCALE_STEPS_PER_OCTAVE: f64 = 2.0;
+
+fn working_scale_step(scale: f64) -> f64 {
+    if scale >= 1.0 {
+        return 1.0;
+    }
+    let steps = (scale.log2() * WORKING_SCALE_STEPS_PER_OCTAVE).ceil();
+    2f64.powf(steps / WORKING_SCALE_STEPS_PER_OCTAVE)
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CommunityPreset {
@@ -272,13 +282,14 @@ pub fn prepare_preview_source(
     let warp = (!is_geometry_identity(&geometry)).then_some(geometry);
     let texture_scale =
         context.limits.max_texture_dimension_2d as f64 / full_w_px.max(full_h_px).max(1) as f64;
-    let working_target_scale = if warp.is_some() {
-        target_scale * GEOMETRY_PREVIEW_SUPERSAMPLE
+    let budget_scale = if warp.is_some() {
+        (WARPED_PREVIEW_MAX_PIXELS / (full_w_px as f64 * full_h_px as f64).max(1.0)).sqrt()
     } else {
-        target_scale
-    }
-    .min(texture_scale)
-    .min(1.0);
+        1.0
+    };
+    let working_target_scale = working_scale_step(target_scale * PREVIEW_SOURCE_SUPERSAMPLE)
+        .min(budget_scale.max(working_scale_step(target_scale)))
+        .min(texture_scale);
 
     let working = if working_target_scale < 1.0 {
         let working_w = ((full_w_px as f64 * working_target_scale).round() as u32).max(1);
@@ -304,7 +315,7 @@ pub fn prepare_preview_source(
 
     let working_size = working.dimensions();
     let mut transform = SourceTransform {
-        working_fit: (warp.is_some() && working_size.0 > target_w).then_some((target_w, target_h)),
+        working_fit: (working_size.0 > target_w).then_some((target_w, target_h)),
         warp,
         effects: true,
         ..Default::default()
