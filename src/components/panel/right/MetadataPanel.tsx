@@ -318,25 +318,23 @@ export default function MetadataPanel() {
     };
 
     const hasCameraMake = exif['Make'] !== undefined && exif['Make'] !== null && exif['Make'] !== '';
+    const cameraMake = hasCameraMake
+      ? (KEY_CAMERA_SETTINGS_MAP['Make'].format
+          ? KEY_CAMERA_SETTINGS_MAP['Make'].format(exif['Make'] as number)
+          : exif['Make'])
+      : '-';
     const hasCameraModel = exif['Model'] !== undefined && exif['Model'] !== null && exif['Model'] !== '';
+    const cameraModel = hasCameraModel
+      ? (KEY_CAMERA_SETTINGS_MAP['Model'].format
+          ? KEY_CAMERA_SETTINGS_MAP['Model'].format(exif['Model'] as number)
+          : exif['Model'])
+      : '-';
     const cameraMakeModelSetting = {
       key: 'Model',
       label: t('editor.metadata.camera.model'),
-      value:
-        (hasCameraMake && KEY_CAMERA_SETTINGS_MAP['Make'].format
-          ? KEY_CAMERA_SETTINGS_MAP['Make'].format(exif['Make'] as number)
-          : hasCameraMake
-            ? exif['Make']
-            : '-' )
-        +
-        (hasCameraMake && hasCameraModel ? " " : "")
-        +
-        (hasCameraModel && KEY_CAMERA_SETTINGS_MAP['Model'].format
-          ? KEY_CAMERA_SETTINGS_MAP['Model'].format(exif['Model'] as number)
-          : hasCameraModel
-            ? exif['Model']
-            : '-'),
+      value: `${cameraMake}${hasCameraMake && hasCameraModel ? ' ' : ''}${cameraModel}`,
     };
+    
     const latStr = exif.GPSLatitude;
     const latRef = exif.GPSLatitudeRef;
     const lonStr = exif.GPSLongitude;
