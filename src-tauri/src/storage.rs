@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{LazyLock, Mutex};
+use std::sync::{LazyLock, Mutex, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager};
 use walkdir::WalkDir;
@@ -13,6 +13,80 @@ use crate::app_settings::{
     default_thumbnail_cache_limit_gb,
 };
 use crate::app_state::AppState;
+
+static CACHE_DIR: OnceLock<PathBuf> = OnceLock::new();
+static CACHE_DIRECTORY_ERROR: OnceLock<String> = OnceLock::new();
+
+pub fn prepare_custom_cache_dir(parent: &str) -> Result<PathBuf, String> {
+    let parent = Path::new(parent);
+    if !parent.is_absolute() {
+        return Err("Choose an absolute cache folder path".to_string());
+    }
+    let root = parent.join("RapidRAW-cache");
+    let marker = root.join(".rapidraw-cache-v1");
+    if root.exists() && !marker.exists() {
+        let mut entries = fs::read_dir(&root).map_err(|e| e.to_string())?;
+        if entries.next().is_some() {
+            return Err(
+                "The cache folder already contains files not managed by RapidRAW".to_string(),
+            );
+        }
+    }
+    fs::create_dir_all(&root).map_err(|e| format!("Cannot create cache folder: {e}"))?;
+    if marker.exists() {
+        if fs::read_to_string(&marker).map_err(|e| e.to_string())? != "RapidRAW cache v1\n" {
+            return Err("The cache ownership marker is invalid".to_string());
+        }
+    } else {
+        use std::io::Write;
+        let mut file = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&marker)
+            .map_err(|e| e.to_string())?;
+        file.write_all(b"RapidRAW cache v1\n")
+            .map_err(|e| e.to_string())?;
+        file.sync_all().map_err(|e| e.to_string())?;
+    }
+    let probe = tempfile::NamedTempFile::new_in(&root)
+        .map_err(|e| format!("The cache folder is not writable: {e}"))?;
+    drop(probe);
+    root.canonicalize().map_err(|e| e.to_string())
+}
+
+pub fn initialize_cache_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
+    let custom = crate::app_settings::load_settings(app_handle.clone())
+        .ok()
+        .and_then(|settings| settings.cache_directory);
+    let root = match custom.filter(|path| !path.trim().is_empty()) {
+        Some(parent) => match prepare_custom_cache_dir(&parent) {
+            Ok(root) => root,
+            Err(error) => {
+                log::warn!("Custom cache unavailable, using the default folder: {error}");
+                let _ = CACHE_DIRECTORY_ERROR.set(error);
+                app_handle
+                    .path()
+                    .app_cache_dir()
+                    .map_err(|e| e.to_string())?
+            }
+        },
+        None => app_handle
+            .path()
+            .app_cache_dir()
+            .map_err(|e| e.to_string())?,
+    };
+    fs::create_dir_all(&root).map_err(|e| e.to_string())?;
+    let _ = CACHE_DIR.set(root.clone());
+    Ok(root)
+}
+
+pub fn cache_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
+    CACHE_DIR
+        .get()
+        .cloned()
+        .map(Ok)
+        .unwrap_or_else(|| app_handle.path().app_cache_dir().map_err(|e| e.to_string()))
+}
 
 struct ThumbnailCache {
     dir: Mutex<Option<PathBuf>>,
@@ -199,6 +273,9 @@ fn prune_thumbnails(dir: &Path, limit_bytes: u64) -> u64 {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StorageUsage {
+    cache_path: String,
+    cache_restart_required: bool,
+    cache_directory_error: Option<String>,
     thumbnails: u64,
     ai_denoise: u64,
     ai_maps: u64,
@@ -212,14 +289,19 @@ struct StorageDirs {
     cache: PathBuf,
     data: PathBuf,
     logs: PathBuf,
+    immich: PathBuf,
 }
 
 fn storage_dirs(app_handle: &AppHandle) -> Result<StorageDirs, String> {
     let path = app_handle.path();
     Ok(StorageDirs {
-        cache: path.app_cache_dir().map_err(|e| e.to_string())?,
+        cache: cache_dir(app_handle)?,
         data: path.app_data_dir().map_err(|e| e.to_string())?,
         logs: path.app_log_dir().map_err(|e| e.to_string())?,
+        immich: path
+            .app_cache_dir()
+            .map_err(|e| e.to_string())?
+            .join("immich"),
     })
 }
 
@@ -236,12 +318,31 @@ fn dir_size(path: &Path) -> u64 {
 #[tauri::command]
 pub async fn get_storage_usage(app_handle: AppHandle) -> Result<StorageUsage, String> {
     let dirs = storage_dirs(&app_handle)?;
+    let settings = crate::app_settings::load_settings(app_handle.clone())?;
+    let configured = match settings
+        .cache_directory
+        .filter(|path| !path.trim().is_empty())
+    {
+        Some(parent) => PathBuf::from(parent).join("RapidRAW-cache"),
+        None => app_handle
+            .path()
+            .app_cache_dir()
+            .map_err(|e| e.to_string())?,
+    };
+    let restart_required = configured.canonicalize().unwrap_or(configured)
+        != dirs
+            .cache
+            .canonicalize()
+            .unwrap_or_else(|_| dirs.cache.clone());
     tauri::async_runtime::spawn_blocking(move || StorageUsage {
+        cache_path: dirs.cache.to_string_lossy().into_owned(),
+        cache_restart_required: restart_required,
+        cache_directory_error: CACHE_DIRECTORY_ERROR.get().cloned(),
         thumbnails: dir_size(&dirs.cache.join("thumbnails")),
         ai_denoise: dir_size(&dirs.cache.join("ai_denoise")),
         ai_maps: dir_size(&dirs.cache.join("ai_maps")),
         metadata: dir_size(&dirs.cache.join("exif")),
-        immich: dir_size(&dirs.cache.join("immich")),
+        immich: dir_size(&dirs.immich),
         models: dir_size(&dirs.data.join("models")),
         logs: dir_size(&dirs.logs),
     })

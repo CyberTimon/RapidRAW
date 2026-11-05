@@ -1891,7 +1891,12 @@
       },
       "storageTitle": "저장 공간",
       "title": "데이터 관리",
-      "totalUsed": "RapidRAW가 이 기기에서 {{size}}를 사용하고 있습니다."
+      "totalUsed": "RapidRAW가 이 기기에서 {{size}}를 사용하고 있습니다.",
+      "cacheLocation": "Cache location",
+      "cacheLocationDescription": "Choose an SSD for thumbnails and processing caches. RapidRAW creates a dedicated subfolder. Photos, edits, albums and Immich files stay where they are.",
+      "chooseCacheFolder": "Choose cache folder",
+      "defaultCacheFolder": "Use default",
+      "cacheRestartRequired": "Restart RapidRAW to use the new cache folder. The previous cache is kept; previews rebuild as needed."
     },
     "general": {
       "createXmp": "누락된 XMP 파일 생성",

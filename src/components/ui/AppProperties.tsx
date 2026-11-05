@@ -241,6 +241,7 @@ export interface AppSettings {
   aiCacheLimitGb?: number;
   aiMapsCacheLimitGb?: number;
   thumbnailCacheLimitGb?: number;
+  cacheDirectory?: string;
   aiConnectorAddress?: string;
   aiGpuAcceleration?: boolean;
   aiProvider?: string;

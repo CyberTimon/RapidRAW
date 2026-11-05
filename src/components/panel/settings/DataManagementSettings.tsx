@@ -10,6 +10,7 @@ import { useUIStore } from '../../../store/useUIStore';
 import { formatBytes } from '../../../utils/formatBytes';
 import { DEFAULT_IMMICH_SETTINGS } from '../../immich/immichApi';
 import { useImmichStore } from '../../immich/useImmichStore';
+import CacheLocationSettings from './CacheLocationSettings';
 
 interface StorageUsage {
   thumbnails: number;
@@ -19,9 +20,12 @@ interface StorageUsage {
   immich: number;
   models: number;
   logs: number;
+  cachePath: string;
+  cacheRestartRequired: boolean;
+  cacheDirectoryError: string | null;
 }
 
-type StorageKey = keyof StorageUsage;
+type StorageKey = keyof Omit<StorageUsage, 'cachePath' | 'cacheRestartRequired' | 'cacheDirectoryError'>;
 
 interface StorageItem {
   key: StorageKey;
@@ -448,6 +452,12 @@ export default function DataManagementSettings({
               ))}
         </div>
 
+        <CacheLocationSettings
+          cachePath={usage?.cachePath}
+          restartRequired={usage?.cacheRestartRequired}
+          directoryError={usage?.cacheDirectoryError}
+          onSaved={refreshUsage}
+        />
         <div className="divide-y divide-border-color mt-5">
           {visibleItems.map((item) => {
             const { key, color, limit } = item;

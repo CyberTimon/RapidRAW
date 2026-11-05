@@ -2422,7 +2422,7 @@ pub fn run() {
                 crate::immich::start(&app_handle);
             }
 
-            if let Ok(cache_dir) = app_handle.path().app_cache_dir() {
+            if let Ok(cache_dir) = crate::storage::initialize_cache_dir(&app_handle) {
                 crate::ai_denoise::initialize_cache_dir(cache_dir.clone());
                 crate::effect_maps::initialize_cache_dir(cache_dir.clone());
                 crate::exif_processing::initialize_cache_dir(cache_dir.clone());
