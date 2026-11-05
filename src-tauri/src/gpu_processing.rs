@@ -14,7 +14,8 @@ use crate::image_processing::{
     AllAdjustments, AnalyticsFrame, AnalyticsPixels, GpuContext, MAX_MASKS, MaskAdjustments,
 };
 use crate::lut_processing::Lut;
-use crate::{AppState, GpuImageCache, GpuImageEntry, PreviewTarget};
+use crate::render_source::RenderSource;
+use crate::{AppState, GpuImageCache, GpuImageEntry, PreviewTarget, UploadedSource};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Roi {
@@ -901,7 +902,15 @@ pub fn get_or_init_gpu_context(
         display: Arc::new(std::sync::Mutex::new(display_opt)),
         viewer_display: Arc::new(std::sync::Mutex::new(None)),
         pipelines: Arc::new(std::sync::OnceLock::new()),
+        compute: Arc::new(std::sync::OnceLock::new()),
     };
+    let device = Arc::clone(&new_context.device);
+    let compute = Arc::clone(&new_context.compute);
+    std::thread::spawn(move || {
+        compute
+            .get_or_init(|| crate::gpu_compute::ComputePipelines::new(&device))
+            .warm(&device);
+    });
     *context_lock = Some(new_context.clone());
     Ok(new_context)
 }
@@ -980,31 +989,6 @@ fn read_texture_data_roi(
         data
     }))
     .map_err(|_| "GPU device was lost while reading back the image".to_string())
-}
-
-fn to_rgba_f16(img: &DynamicImage) -> Vec<f16> {
-    use rayon::prelude::*;
-    let convert = |src: &[f32], channels: usize| {
-        let mut out = vec![f16::ZERO; src.len() / channels * 4];
-        out.par_chunks_exact_mut(4)
-            .zip(src.par_chunks_exact(channels))
-            .for_each(|(dst, p)| {
-                dst[0] = f16::from_f32(p[0]);
-                dst[1] = f16::from_f32(p[1]);
-                dst[2] = f16::from_f32(p[2]);
-                dst[3] = if channels == 4 {
-                    f16::from_f32(p[3])
-                } else {
-                    f16::ONE
-                };
-            });
-        out
-    };
-    match img {
-        DynamicImage::ImageRgba32F(buffer) => convert(buffer.as_raw(), 4),
-        DynamicImage::ImageRgb32F(buffer) => convert(buffer.as_raw(), 3),
-        other => convert(other.to_rgba32f().as_raw(), 4),
-    }
 }
 
 #[repr(C)]
@@ -1317,6 +1301,7 @@ fn high_precision_shader_source() -> String {
 const FLARE_MAP_SIZE: u32 = 512;
 const GPU_IMAGE_CACHE_ENTRIES: usize = 3;
 const GPU_IMAGE_CACHE_PIXELS: u64 = 50_000_000;
+const GPU_SOURCE_CACHE_ENTRIES: usize = 2;
 
 fn lock_or_reset<'a, T>(
     mutex: &'a std::sync::Mutex<Option<T>>,
@@ -2489,7 +2474,6 @@ impl GpuProcessor {
     fn motion_blurred(
         &self,
         input: &GpuImageEntry,
-        base_image: &DynamicImage,
         request: &RenderRequest,
         mask_view: &wgpu::TextureView,
     ) -> Result<Option<Arc<MotionBlurred>>, String> {
@@ -2519,7 +2503,16 @@ impl GpuProcessor {
             match grains.iter().find(|(id, _)| *id == input.id) {
                 Some((_, grain)) => *grain,
                 None => {
-                    let grain = crate::motion_blur::estimate_grain(base_image, input.is_raw == 1);
+                    let grain = crate::motion_blur::estimate_grain(
+                        &self.context,
+                        &input.texture_view,
+                        (input.width, input.height),
+                        input.is_raw == 1,
+                    )
+                    .unwrap_or_else(|error| {
+                        log::warn!("Motion blur grain estimate failed: {}", error);
+                        0.0
+                    });
                     if grains.len() >= GPU_IMAGE_CACHE_ENTRIES {
                         grains.remove(0);
                     }
@@ -2568,8 +2561,8 @@ impl GpuProcessor {
                 is_raw: input.is_raw,
                 width: input.width,
                 height: input.height,
-                transform_hash: input.transform_hash,
-                source: input.source,
+                transform_key: input.transform_key,
+                source_identity: input.source_identity,
             },
             mask_view: output.mask_view,
         });
@@ -3372,16 +3365,14 @@ impl GpuProcessor {
 pub fn process_and_get_dynamic_image(
     context: &GpuContext,
     state: &tauri::State<AppState>,
-    base_image: &DynamicImage,
-    transform_hash: u64,
+    source: &RenderSource,
     request: RenderRequest,
     caller_id: &str,
 ) -> Result<DynamicImage, String> {
     process_and_get_dynamic_image_inner(
         context,
         state,
-        base_image,
-        transform_hash,
+        source,
         request,
         caller_id,
         RenderOutputPrecision::EightBit,
@@ -3393,8 +3384,7 @@ pub fn process_and_get_dynamic_image(
 pub fn process_and_get_dynamic_image_with_precision(
     context: &GpuContext,
     state: &tauri::State<AppState>,
-    base_image: &DynamicImage,
-    transform_hash: u64,
+    source: &RenderSource,
     request: RenderRequest,
     caller_id: &str,
     output_precision: RenderOutputPrecision,
@@ -3402,8 +3392,7 @@ pub fn process_and_get_dynamic_image_with_precision(
     process_and_get_dynamic_image_inner(
         context,
         state,
-        base_image,
-        transform_hash,
+        source,
         request,
         caller_id,
         output_precision,
@@ -3412,12 +3401,10 @@ pub fn process_and_get_dynamic_image_with_precision(
     )
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn process_and_get_dynamic_image_with_analytics(
     context: &GpuContext,
     state: &tauri::State<AppState>,
-    base_image: &DynamicImage,
-    transform_hash: u64,
+    source: &RenderSource,
     request: RenderRequest,
     caller_id: &str,
     display_output: Option<DisplayOutput>,
@@ -3426,8 +3413,7 @@ pub fn process_and_get_dynamic_image_with_analytics(
     process_and_get_dynamic_image_inner(
         context,
         state,
-        base_image,
-        transform_hash,
+        source,
         request,
         caller_id,
         RenderOutputPrecision::EightBit,
@@ -3440,8 +3426,7 @@ pub fn process_and_get_dynamic_image_with_analytics(
 fn process_and_get_dynamic_image_inner(
     context: &GpuContext,
     state: &tauri::State<AppState>,
-    base_image: &DynamicImage,
-    transform_hash: u64,
+    source: &RenderSource,
     request: RenderRequest,
     caller_id: &str,
     output_precision: RenderOutputPrecision,
@@ -3453,48 +3438,46 @@ fn process_and_get_dynamic_image_inner(
         .filter(|output| output.target == PreviewTarget::Editor)
         .map(|output| output.layer);
     let output_to_display = display_output.is_some();
-    let (width, height) = base_image.dimensions();
+    let (width, height) = source.size();
+    let source_size = source.image.dimensions();
     let device = &context.device;
     let queue = &context.queue;
 
     let max_dim = context.limits.max_texture_dimension_2d;
-    if width > max_dim || height > max_dim {
+    if width.max(source_size.0) > max_dim || height.max(source_size.1) > max_dim {
         return Err(format!(
             "Image dimensions ({}x{}) exceed the GPU texture limit ({}). The image could not be processed; try reducing its dimensions.",
-            width, height, max_dim
+            source_size.0, source_size.1, max_dim
         ));
     }
 
     let is_raw = request.adjustments.global.is_raw_image;
-    let source = (
-        base_image.as_bytes().as_ptr() as usize,
-        base_image.as_bytes().len(),
-    );
+    let identity = source.identity();
+    let transform_key = source.key();
     let matches = |e: &GpuImageEntry| {
-        e.transform_hash == transform_hash
+        e.transform_key == transform_key
             && e.width == width
             && e.height == height
             && e.is_raw == is_raw
-            && e.source == source
+            && e.source_identity == identity
+    };
+    let has_input = |cache: &Option<GpuImageCache>| {
+        cache.as_ref().is_some_and(|c| {
+            c.entries.iter().any(matches) || c.sources.iter().any(|s| s.identity == identity)
+        })
     };
 
     let cache_target = display_output.map_or(PreviewTarget::Editor, |output| output.target);
     let image_cache = state.gpu_image_cache_for(cache_target);
-    let mut img_rgba_f16: Option<Vec<f16>> = None;
+    let mut source_halves: Option<Vec<f16>> = None;
     let (mut processor_lock, mut cache_lock) = loop {
-        let is_cached = lock_or_reset(image_cache, "GPU image cache")
-            .as_ref()
-            .is_some_and(|c| c.entries.iter().any(matches));
-        if !is_cached && img_rgba_f16.is_none() {
-            img_rgba_f16 = Some(to_rgba_f16(base_image));
+        if !has_input(&lock_or_reset(image_cache, "GPU image cache")) && source_halves.is_none() {
+            source_halves = Some(crate::gpu_compute::rgba_halves(source.image));
         }
 
         let processor_lock = lock_or_reset(&state.gpu_processor, "GPU processor");
         let cache_lock = lock_or_reset(image_cache, "GPU image cache");
-        let is_cached = cache_lock
-            .as_ref()
-            .is_some_and(|c| c.entries.iter().any(matches));
-        if is_cached || img_rgba_f16.is_some() {
+        if has_input(&cache_lock) || source_halves.is_some() {
             break (processor_lock, cache_lock);
         }
     };
@@ -3535,43 +3518,41 @@ fn process_and_get_dynamic_image_inner(
     let processor_state = processor_lock.as_ref().unwrap();
     let processor = &processor_state.processor;
 
-    let cache = cache_lock.get_or_insert_with(|| GpuImageCache {
-        entries: Vec::new(),
-    });
+    let cache = cache_lock.get_or_insert_with(GpuImageCache::default);
 
     if let Some(index) = cache.entries.iter().position(matches) {
         let entry = cache.entries.remove(index);
         cache.entries.push(entry);
-    } else if let Some(img_rgba_f16) = img_rgba_f16.take() {
-        let texture_size = wgpu::Extent3d {
-            width,
-            height,
-            depth_or_array_layers: 1,
-        };
-        let texture = device.create_texture_with_data(
-            queue,
-            &wgpu::TextureDescriptor {
-                label: Some("Input Texture"),
-                size: texture_size,
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba16Float,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-                view_formats: &[],
+    } else {
+        let uploaded = match cache.sources.iter().position(|s| s.identity == identity) {
+            Some(index) => cache.sources.remove(index),
+            None => UploadedSource {
+                identity,
+                slot: crate::gpu_compute::upload_image(
+                    context,
+                    source_size,
+                    &source_halves
+                        .take()
+                        .ok_or("Source image was not prepared for upload")?,
+                ),
             },
-            TextureDataOrder::MipMajor,
-            bytemuck::cast_slice(&img_rgba_f16),
-        );
-        drop(img_rgba_f16);
-        let texture_view = texture.create_view(&Default::default());
+        };
+        let input = source.render(context, &uploaded.slot)?;
+        cache.sources.push(uploaded);
+        let pixels = |s: &UploadedSource| s.slot.size.0 as u64 * s.slot.size.1 as u64;
+        while cache.sources.len() > GPU_SOURCE_CACHE_ENTRIES
+            || (cache.sources.len() > 1
+                && cache.sources.iter().map(pixels).sum::<u64>() > GPU_IMAGE_CACHE_PIXELS)
+        {
+            cache.sources.remove(0);
+        }
 
-        let guided = processor.build_guided_coeffs(&texture_view, width, height, is_raw);
+        let guided = processor.build_guided_coeffs(&input.view, width, height, is_raw);
 
         cache.entries.push(GpuImageEntry {
             id: NEXT_GPU_IMAGE_ID.fetch_add(1, Ordering::Relaxed),
-            texture,
-            texture_view,
+            texture: input.texture,
+            texture_view: input.view,
             gf_coeffs_view: guided.coeffs,
             gf_structure_view: guided.structure,
             haze_view: guided.haze,
@@ -3579,8 +3560,8 @@ fn process_and_get_dynamic_image_inner(
             is_raw,
             width,
             height,
-            transform_hash,
-            source,
+            transform_key,
+            source_identity: identity,
         });
 
         let pixels = |e: &GpuImageEntry| e.width as u64 * e.height as u64;
@@ -3595,7 +3576,7 @@ fn process_and_get_dynamic_image_inner(
     let cache = cache.entries.last().unwrap();
     let mask_view =
         processor.mask_view(request.mask_bitmaps, width, height, request.mask_cache_key);
-    let motion = processor.motion_blurred(cache, base_image, &request, &mask_view)?;
+    let motion = processor.motion_blurred(cache, &request, &mask_view)?;
     let (input, mask_view) = match &motion {
         Some(blurred) => (
             &blurred.entry,

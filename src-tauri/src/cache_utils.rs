@@ -196,15 +196,6 @@ pub fn calculate_geometry_hash(adjustments: &serde_json::Value) -> u64 {
     hasher.finish()
 }
 
-pub fn calculate_patched_warped_hash(adjustments: &serde_json::Value) -> u64 {
-    let mut hasher = DefaultHasher::new();
-
-    calculate_geometry_hash(adjustments).hash(&mut hasher);
-    calculate_effects_hash(adjustments).hash(&mut hasher);
-
-    hasher.finish()
-}
-
 pub fn calculate_effects_hash(adjustments: &serde_json::Value) -> u64 {
     let mut hasher = DefaultHasher::new();
 
@@ -274,16 +265,13 @@ pub fn calculate_effects_hash(adjustments: &serde_json::Value) -> u64 {
     hasher.finish()
 }
 
-pub fn calculate_thumbnail_base_hash(adjustments: &serde_json::Value) -> u64 {
+pub fn calculate_thumbnail_source_hash(adjustments: &serde_json::Value) -> u64 {
     let mut hasher = DefaultHasher::new();
-
-    calculate_patched_warped_hash(adjustments).hash(&mut hasher);
-
-    adjustments["orientationSteps"]
-        .as_u64()
-        .unwrap_or(0)
-        .hash(&mut hasher);
-
+    calculate_patch_hash(adjustments).hash(&mut hasher);
+    (!crate::image_processing::is_geometry_identity(
+        &crate::image_processing::get_geometry_params_from_json(adjustments),
+    ))
+    .hash(&mut hasher);
     hasher.finish()
 }
 
@@ -775,17 +763,8 @@ pub fn clear_preview_stage_caches(state: &AppState) {
         .cleanup_source_cache
         .lock()
         .unwrap_or_else(|e| e.into_inner()) = None;
-    *state.warped_cache.lock().unwrap_or_else(|e| e.into_inner()) = None;
     *state
         .working_cache
-        .lock()
-        .unwrap_or_else(|e| e.into_inner()) = None;
-    *state
-        .effects_cache
-        .lock()
-        .unwrap_or_else(|e| e.into_inner()) = None;
-    *state
-        .full_transformed_cache
         .lock()
         .unwrap_or_else(|e| e.into_inner()) = None;
 }
@@ -823,7 +802,7 @@ pub fn clear_session_caches(state: tauri::State<AppState>) {
     if let Ok(mut mask_cache) = state.mask_cache.lock() {
         mask_cache.clear();
     }
-    if let Ok(mut geometry_cache) = state.geometry_cache.lock() {
-        geometry_cache.clear();
+    if let Ok(mut uncropped_source_cache) = state.uncropped_source_cache.lock() {
+        uncropped_source_cache.clear();
     }
 }

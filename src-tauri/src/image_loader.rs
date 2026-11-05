@@ -1011,7 +1011,7 @@ pub async fn load_image(
             .unwrap_or_else(|e| e.into_inner())
             .clear();
         state
-            .geometry_cache
+            .uncropped_source_cache
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .clear();

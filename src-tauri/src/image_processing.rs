@@ -345,14 +345,10 @@ fn u8_to_f32_lut() -> &'static [f32; 256] {
     })
 }
 
-pub fn downscale_f32_image_if_needed(
-    image: &DynamicImage,
-    nwidth: u32,
-    nheight: u32,
-) -> Option<DynamicImage> {
-    let start = std::time::Instant::now();
-
-    let (width, height) = image.dimensions();
+pub fn fitted_size(
+    (width, height): (u32, u32),
+    (nwidth, nheight): (u32, u32),
+) -> Option<(u32, u32)> {
     if nwidth == 0 || nheight == 0 || (nwidth >= width && nheight >= height) {
         return None;
     }
@@ -361,9 +357,18 @@ pub fn downscale_f32_image_if_needed(
     let new_w = (width as f32 * ratio).round() as u32;
     let new_h = (height as f32 * ratio).round() as u32;
 
-    if new_w == 0 || new_h == 0 {
-        return None;
-    }
+    (new_w > 0 && new_h > 0).then_some((new_w, new_h))
+}
+
+pub fn downscale_f32_image_if_needed(
+    image: &DynamicImage,
+    nwidth: u32,
+    nheight: u32,
+) -> Option<DynamicImage> {
+    let start = std::time::Instant::now();
+
+    let (width, height) = image.dimensions();
+    let (new_w, new_h) = fitted_size((width, height), (nwidth, nheight))?;
 
     let x_ratio = width as f32 / new_w as f32;
     let y_ratio = height as f32 / new_h as f32;
@@ -859,6 +864,91 @@ fn compute_lens_auto_crop_scale(params: &GeometryParams, width: f32, height: f32
     }
 }
 
+pub struct WarpModel {
+    pub inverse: NaMatrix3<f32>,
+    pub cx: f32,
+    pub cy: f32,
+    pub half_diagonal: f64,
+    pub max_radius_sq_inv: f64,
+    pub k_distortion: f64,
+    pub lens_k: [f64; 3],
+    pub lens_amount: f64,
+    pub has_lens_correction: bool,
+    pub is_ptlens: bool,
+    pub auto_crop_scale: f32,
+    pub vr: f32,
+    pub vb: f32,
+    pub has_tca: bool,
+    pub vignette_k: [f64; 3],
+    pub vignette_amount: f64,
+    pub has_vignetting: bool,
+}
+
+impl WarpModel {
+    pub fn new(params: &GeometryParams, width: u32, height: u32) -> Self {
+        let (forward_transform, cx, cy, half_diagonal) =
+            build_transform_matrices(params, width as f32, height as f32);
+        let inverse = forward_transform
+            .try_inverse()
+            .unwrap_or(NaMatrix3::identity());
+
+        let k_distortion = (params.distortion as f64 / 100.0) * 2.5;
+        let lens_k = [
+            params.lens_dist_k1 as f64,
+            params.lens_dist_k2 as f64,
+            params.lens_dist_k3 as f64,
+        ];
+        let has_lens_correction =
+            params.lens_distortion_enabled && lens_k.iter().any(|k| k.abs() > 1e-6);
+
+        let auto_crop_scale = if has_lens_correction || k_distortion.abs() > 1e-5 {
+            compute_lens_auto_crop_scale(params, width as f32, height as f32) as f32
+        } else {
+            1.0
+        };
+
+        let tca_scale = |v: f32| {
+            if (v - 1.0).abs() > 1e-5 {
+                v + (1.0 - v) * (1.0 - params.lens_tca_amount)
+            } else {
+                1.0
+            }
+        };
+        let vr = tca_scale(params.tca_vr);
+        let vb = tca_scale(params.tca_vb);
+
+        let vignette_k = [
+            params.vig_k1 as f64,
+            params.vig_k2 as f64,
+            params.vig_k3 as f64,
+        ];
+        let vignette_amount = (params.lens_vignette_amount as f64) * 0.8;
+
+        Self {
+            inverse,
+            cx,
+            cy,
+            half_diagonal,
+            max_radius_sq_inv: 1.0 / ((cx * cx + cy * cy) as f64),
+            k_distortion,
+            lens_k,
+            lens_amount: (params.lens_distortion_amount as f64) * 2.5,
+            has_lens_correction,
+            is_ptlens: params.lens_model == 1,
+            auto_crop_scale,
+            vr,
+            vb,
+            has_tca: params.lens_tca_enabled
+                && ((vr - 1.0).abs() > 1e-5 || (vb - 1.0).abs() > 1e-5),
+            vignette_k,
+            vignette_amount,
+            has_vignetting: params.lens_vignette_enabled
+                && vignette_k.iter().any(|k| k.abs() > 1e-6)
+                && vignette_amount > 0.01,
+        }
+    }
+}
+
 pub fn warp_image_geometry(image: &DynamicImage, params: GeometryParams) -> DynamicImage {
     let converted;
     let src_img = match image.as_rgb32f() {
@@ -871,54 +961,26 @@ pub fn warp_image_geometry(image: &DynamicImage, params: GeometryParams) -> Dyna
     let (width, height) = src_img.dimensions();
     let mut out_buffer = vec![0.0f32; (width * height * 3) as usize];
 
-    let (forward_transform, cx, cy, half_diagonal) =
-        build_transform_matrices(&params, width as f32, height as f32);
-    let inv = forward_transform
-        .try_inverse()
-        .unwrap_or(NaMatrix3::identity());
-
+    let model = WarpModel::new(&params, width, height);
+    let inv = model.inverse;
     let step_vec_x = NaVector3::new(inv[(0, 0)], inv[(1, 0)], inv[(2, 0)]);
     let step_vec_y = NaVector3::new(inv[(0, 1)], inv[(1, 1)], inv[(2, 1)]);
     let origin_vec = NaVector3::new(inv[(0, 2)], inv[(1, 2)], inv[(2, 2)]);
 
-    let max_radius_sq_inv = 1.0 / ((cx * cx + cy * cy) as f64);
-    let hd = half_diagonal;
-
-    let k_distortion = (params.distortion as f64 / 100.0) * 2.5;
-    let lk1 = params.lens_dist_k1 as f64;
-    let lk2 = params.lens_dist_k2 as f64;
-    let lk3 = params.lens_dist_k3 as f64;
-    let lens_dist_amt = (params.lens_distortion_amount as f64) * 2.5;
-
-    let has_lens_correction = params.lens_distortion_enabled
-        && (lk1.abs() > 1e-6 || lk2.abs() > 1e-6 || lk3.abs() > 1e-6);
-    let is_ptlens = params.lens_model == 1;
-
-    let auto_crop_scale = if has_lens_correction || k_distortion.abs() > 1e-5 {
-        compute_lens_auto_crop_scale(&params, width as f32, height as f32) as f32
-    } else {
-        1.0
-    };
-
-    let vr = if (params.tca_vr - 1.0).abs() > 1e-5 {
-        params.tca_vr + (1.0 - params.tca_vr) * (1.0 - params.lens_tca_amount)
-    } else {
-        1.0
-    };
-    let vb = if (params.tca_vb - 1.0).abs() > 1e-5 {
-        params.tca_vb + (1.0 - params.tca_vb) * (1.0 - params.lens_tca_amount)
-    } else {
-        1.0
-    };
-    let has_tca = params.lens_tca_enabled && ((vr - 1.0).abs() > 1e-5 || (vb - 1.0).abs() > 1e-5);
-
-    let vk1 = params.vig_k1 as f64;
-    let vk2 = params.vig_k2 as f64;
-    let vk3 = params.vig_k3 as f64;
-    let lens_vig_amt = (params.lens_vignette_amount as f64) * 0.8;
-    let has_vignetting = params.lens_vignette_enabled
-        && (vk1.abs() > 1e-6 || vk2.abs() > 1e-6 || vk3.abs() > 1e-6)
-        && lens_vig_amt > 0.01;
+    let (cx, cy) = (model.cx, model.cy);
+    let max_radius_sq_inv = model.max_radius_sq_inv;
+    let hd = model.half_diagonal;
+    let k_distortion = model.k_distortion;
+    let [lk1, lk2, lk3] = model.lens_k;
+    let lens_dist_amt = model.lens_amount;
+    let has_lens_correction = model.has_lens_correction;
+    let is_ptlens = model.is_ptlens;
+    let auto_crop_scale = model.auto_crop_scale;
+    let (vr, vb) = (model.vr, model.vb);
+    let has_tca = model.has_tca;
+    let [vk1, vk2, vk3] = model.vignette_k;
+    let lens_vig_amt = model.vignette_amount;
+    let has_vignetting = model.has_vignetting;
 
     let src_raw = src_img.as_raw();
     let width_usize = width as usize;
@@ -936,9 +998,10 @@ pub fn warp_image_geometry(image: &DynamicImage, params: GeometryParams) -> Dyna
         .enumerate()
         .for_each(|(y, row_pixel_data)| {
             let y_f = y as f32;
-            let mut current_vec = origin_vec + (step_vec_y * y_f);
+            let row_origin = origin_vec + (step_vec_y * y_f);
 
-            for pixel in row_pixel_data.as_chunks_mut::<3>().0.iter_mut() {
+            for (x, pixel) in row_pixel_data.as_chunks_mut::<3>().0.iter_mut().enumerate() {
+                let current_vec = row_origin + step_vec_x * x as f32;
                 if current_vec.z.abs() > 1e-6 {
                     let inv_z = 1.0 / current_vec.z;
                     let mut src_x = current_vec.x * inv_z;
@@ -1018,7 +1081,6 @@ pub fn warp_image_geometry(image: &DynamicImage, params: GeometryParams) -> Dyna
                         }
                     }
                 }
-                current_vec += step_vec_x;
             }
         });
 
@@ -1554,34 +1616,11 @@ pub fn apply_rotation<'a>(
     Cow::Owned(DynamicImage::ImageRgba32F(rotated))
 }
 
-pub fn apply_crop<'a>(image: impl IntoCowImage<'a>, crop_value: &Value) -> Cow<'a, DynamicImage> {
-    let image = image.into_cow();
-    if crop_value.is_null() {
-        return image;
-    }
-
-    if let Ok(crop) = serde_json::from_value::<Crop>(crop_value.clone()) {
-        let x = crop.x.round() as u32;
-        let y = crop.y.round() as u32;
-        let width = crop.width.round() as u32;
-        let height = crop.height.round() as u32;
-
-        if width > 0 && height > 0 {
-            let (img_w, img_h) = image.dimensions();
-            if x < img_w && y < img_h {
-                let new_width = (img_w - x).min(width);
-                let new_height = (img_h - y).min(height);
-
-                if new_width > 0 && new_height > 0 {
-                    if x == 0 && y == 0 && new_width == img_w && new_height == img_h {
-                        return image;
-                    }
-                    return Cow::Owned(image.crop_imm(x, y, new_width, new_height));
-                }
-            }
-        }
-    }
-    image
+pub fn crop_rect(crop: &Crop, (img_w, img_h): (u32, u32)) -> Option<(u32, u32, u32, u32)> {
+    let (x, y) = (crop.x.round() as u32, crop.y.round() as u32);
+    let (width, height) = (crop.width.round() as u32, crop.height.round() as u32);
+    (width > 0 && height > 0 && x < img_w && y < img_h)
+        .then(|| (x, y, (img_w - x).min(width), (img_h - y).min(height)))
 }
 
 pub fn apply_flip<'a>(
@@ -3132,6 +3171,7 @@ pub struct GpuContext {
     pub display: Arc<std::sync::Mutex<Option<WgpuDisplay>>>,
     pub viewer_display: Arc<std::sync::Mutex<Option<WgpuDisplay>>>,
     pub pipelines: Arc<OnceLock<Arc<GpuPipelines>>>,
+    pub compute: Arc<OnceLock<crate::gpu_compute::ComputePipelines>>,
 }
 
 impl GpuContext {

@@ -1,10 +1,8 @@
 use memmap2::{Mmap, MmapOptions};
 use std::borrow::Cow;
-use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs;
-use std::hash::{Hash, Hasher};
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
@@ -27,7 +25,6 @@ use tauri::{AppHandle, Emitter, Manager};
 use uuid::Uuid;
 use walkdir::WalkDir;
 
-use crate::AppState;
 use crate::PendingMetadata;
 #[cfg(target_os = "android")]
 use crate::android_integration::*;
@@ -41,13 +38,15 @@ use crate::image_loader;
 use crate::image_processing::GpuContext;
 use crate::image_processing::{
     AutoAdjustMode, Crop, ImageFlag, ImageMetadata, apply_coarse_rotation,
-    apply_cpu_default_raw_processing, apply_crop, apply_exposure, apply_flip, apply_geometry_warp,
-    apply_rotation, auto_results_to_json, default_adjustments, effective_baseline_exposure,
-    get_all_adjustments_from_json, perform_auto_analysis, resolve_render_options,
+    apply_cpu_default_raw_processing, apply_exposure, auto_results_to_json, default_adjustments,
+    effective_baseline_exposure, get_all_adjustments_from_json, perform_auto_analysis,
+    resolve_render_options,
 };
 use crate::mask_generation::MaskDefinition;
 use crate::preset_converter;
+use crate::render_source::{Frame, RenderSource, SourceTransform};
 use crate::tagging::COLOR_TAG_PREFIX;
+use crate::{AppState, ThumbnailSource};
 
 fn resolve_thumbnail_cache_dir(app_handle: &AppHandle) -> std::result::Result<PathBuf, String> {
     let cache_dir = app_handle
@@ -193,6 +192,8 @@ fn enqueue_metadata(
 // materialize a file, not burning CPU — so a small fixed pool is enough and
 // doesn't need a user-facing setting the way thumbnail_worker_threads does.
 const METADATA_WORKER_THREADS: usize = 4;
+const THUMBNAIL_SOURCE_CACHE_ENTRIES: usize = 8;
+const THUMBNAIL_SOURCE_CACHE_BYTES: usize = 256 << 20;
 
 pub fn start_metadata_workers(app_handle: tauri::AppHandle) {
     let state = app_handle.state::<crate::AppState>();
@@ -1613,37 +1614,52 @@ fn generate_thumbnail_data_with_metadata(
         let state = app_handle.state::<AppState>();
         let target_res = settings.medium_thumbnail_resolution.unwrap_or(1280);
 
-        let base_cache_hash = crate::cache_utils::calculate_thumbnail_base_hash(&meta.adjustments);
+        let base_cache_hash =
+            crate::cache_utils::calculate_thumbnail_source_hash(&meta.adjustments);
 
         let crop_data: Option<Crop> = serde_json::from_value(meta.adjustments["crop"].clone()).ok();
 
-        let cached_base: Option<(Arc<DynamicImage>, f32)> = {
-            let cache = state.thumbnail_geometry_cache.lock().unwrap();
-            if let Some((cached_hash, img, scale)) = cache.get(path_str) {
-                let mut sufficient_resolution = true;
-                if let Some(c) = &crop_data
-                    && c.width > 0.0
-                    && c.height > 0.0
-                {
-                    let final_crop_max_dim =
-                        (c.width as f32 * *scale).max(c.height as f32 * *scale);
-                    if final_crop_max_dim < (target_res as f32 * 0.95) {
-                        sufficient_resolution = false;
-                    }
-                }
-
-                if *cached_hash == base_cache_hash && sufficient_resolution {
-                    Some((Arc::clone(img), *scale))
-                } else {
-                    None
-                }
+        let thumbnail_transform = |base: &ThumbnailSource| {
+            let geometry =
+                crate::image_processing::get_geometry_params_from_json(&meta.adjustments);
+            let warp =
+                (!crate::image_processing::is_geometry_identity(&geometry)).then_some(geometry);
+            let mut transform = SourceTransform {
+                warp,
+                working_fit: Some((base.processing_dim, base.processing_dim)),
+                effects: true,
+                ..Default::default()
+            };
+            let (w, h) = transform.working_size(base.image.dimensions());
+            let scale = if base.full_max_dim > 0 {
+                w.max(h) as f32 / base.full_max_dim as f32
             } else {
-                None
-            }
+                1.0
+            } * base.raw_scale_factor;
+            transform.frame = Frame::from_adjustments(&meta.adjustments).scale_crop(scale as f64);
+            (transform, scale)
         };
 
-        let (processing_base_arc, total_scale) = if let Some((arc_img, scale)) = cached_base {
-            (arc_img, scale)
+        let cached_base: Option<Arc<ThumbnailSource>> = {
+            let cache = state.thumbnail_source_cache.lock().unwrap();
+            cache
+                .get(path_str)
+                .filter(|base| {
+                    let (_, scale) = thumbnail_transform(base);
+                    let sufficient_resolution = crop_data
+                        .as_ref()
+                        .filter(|c| c.width > 0.0 && c.height > 0.0)
+                        .is_none_or(|c| {
+                            (c.width as f32 * scale).max(c.height as f32 * scale)
+                                >= target_res as f32 * 0.95
+                        });
+                    base.hash == base_cache_hash && sufficient_resolution
+                })
+                .cloned()
+        };
+
+        let base = if let Some(base) = cached_base {
+            base
         } else {
             let mut raw_scale_factor = 1.0f32;
 
@@ -1700,6 +1716,7 @@ fn generate_thumbnail_data_with_metadata(
             };
 
             let full_max_dim = composite_image.width().max(composite_image.height());
+            let texture_limit = context.limits.max_texture_dimension_2d;
 
             let mut processing_dim = target_res;
             if let Some(c) = &crop_data
@@ -1718,93 +1735,54 @@ fn generate_thumbnail_data_with_metadata(
             let has_geometry = !crate::image_processing::is_geometry_identity(
                 &crate::image_processing::get_geometry_params_from_json(&meta.adjustments),
             );
+            let processing_dim = processing_dim.min(texture_limit);
             let working_dim = if has_geometry {
                 processing_dim.saturating_mul(2).min(full_max_dim)
             } else {
                 processing_dim
-            };
+            }
+            .min(texture_limit);
 
             let working_image = if full_max_dim > working_dim {
-                Cow::Owned(crate::image_processing::downscale_f32_image(
+                crate::image_processing::downscale_f32_image(
                     &composite_image,
                     working_dim,
                     working_dim,
-                ))
+                )
             } else {
-                Cow::Borrowed(&*composite_image)
+                composite_image.into_owned()
             };
 
-            let warped_image = apply_geometry_warp(working_image, &meta.adjustments);
-            let warped_image = if warped_image.width().max(warped_image.height()) > processing_dim {
-                Cow::Owned(crate::image_processing::downscale_f32_image(
-                    &warped_image,
-                    processing_dim,
-                    processing_dim,
-                ))
-            } else {
-                warped_image
-            };
-
-            let relit_image = crate::relight::apply_relight(warped_image, &meta.adjustments);
-            let fogged_image = crate::fog::apply_fog(relit_image, &meta.adjustments);
-            let blurred_image = crate::lens_blur::apply_lens_blur(fogged_image, &meta.adjustments);
-
-            let orientation_steps =
-                meta.adjustments["orientationSteps"].as_u64().unwrap_or(0) as u8;
-            let base = apply_coarse_rotation(blurred_image, orientation_steps).into_owned();
-
-            let gpu_scale = if full_max_dim > 0 {
-                base.width().max(base.height()) as f32 / full_max_dim as f32
-            } else {
-                1.0
-            };
-
-            let total_scale = gpu_scale * raw_scale_factor;
-
-            let mut cache = state.thumbnail_geometry_cache.lock().unwrap();
-            if cache.len() >= 8 {
-                let key_to_remove = cache.keys().next().cloned();
-                if let Some(key) = key_to_remove {
-                    cache.remove(&key);
-                }
+            let base = Arc::new(ThumbnailSource {
+                hash: base_cache_hash,
+                image: Arc::new(working_image),
+                full_max_dim,
+                processing_dim,
+                raw_scale_factor,
+            });
+            let mut cache = state.thumbnail_source_cache.lock().unwrap();
+            cache.remove(path_str);
+            let bytes = |entry: &ThumbnailSource| entry.image.as_bytes().len();
+            let mut total: usize = cache.values().map(|entry| bytes(entry)).sum();
+            while !cache.is_empty()
+                && (cache.len() >= THUMBNAIL_SOURCE_CACHE_ENTRIES
+                    || total + bytes(&base) > THUMBNAIL_SOURCE_CACHE_BYTES)
+            {
+                let key = cache.keys().next().cloned().unwrap();
+                total -= cache.remove(&key).map_or(0, |entry| bytes(&entry));
             }
-
-            let base_arc = Arc::new(base);
-            cache.insert(
-                path_str.to_string(),
-                (base_cache_hash, Arc::clone(&base_arc), total_scale),
-            );
-
-            (base_arc, total_scale)
+            cache.insert(path_str.to_string(), Arc::clone(&base));
+            base
         };
 
-        let rotation_degrees = meta.adjustments["rotation"].as_f64().unwrap_or(0.0) as f32;
-        let flip_horizontal = meta.adjustments["flipHorizontal"]
-            .as_bool()
-            .unwrap_or(false);
-        let flip_vertical = meta.adjustments["flipVertical"].as_bool().unwrap_or(false);
-
-        let flipped_image = apply_flip(
-            Cow::Borrowed(&*processing_base_arc),
-            flip_horizontal,
-            flip_vertical,
-        );
-        let rotated_image = apply_rotation(flipped_image, rotation_degrees);
-
-        let scaled_crop_json = if let Some(c) = &crop_data {
-            serde_json::to_value(Crop {
-                x: c.x * total_scale as f64,
-                y: c.y * total_scale as f64,
-                width: c.width * total_scale as f64,
-                height: c.height * total_scale as f64,
-            })
-            .unwrap_or(serde_json::Value::Null)
-        } else {
-            serde_json::Value::Null
+        let (transform, total_scale) = thumbnail_transform(&base);
+        let source_id = {
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            std::hash::Hash::hash(&(path_str, base.hash), &mut hasher);
+            std::hash::Hasher::finish(&hasher)
         };
-
-        let cropped_preview = apply_crop(rotated_image, &scaled_crop_json);
-        let (preview_w, preview_h) = cropped_preview.dimensions();
+        let source = RenderSource::new(&base.image, source_id, &meta.adjustments, transform);
+        let (preview_w, preview_h) = source.size();
         let unscaled_crop_offset = crop_data.map_or((0.0, 0.0), |c| (c.x as f32, c.y as f32));
 
         let mask_definitions: Vec<MaskDefinition> = meta
@@ -1848,16 +1826,10 @@ fn generate_thumbnail_data_with_metadata(
             None
         });
 
-        let mut hasher = DefaultHasher::new();
-        path_str.hash(&mut hasher);
-        meta.adjustments.to_string().hash(&mut hasher);
-        let unique_hash = hasher.finish();
-
-        if let Ok(processed_image) = gpu_processing::process_and_get_dynamic_image(
+        let processed_image = gpu_processing::process_and_get_dynamic_image(
             context,
             &state,
-            cropped_preview.as_ref(),
-            unique_hash,
+            &source,
             gpu_processing::RenderRequest {
                 adjustments: gpu_adjustments,
                 mask_bitmaps: &mask_bitmaps,
@@ -1872,17 +1844,15 @@ fn generate_thumbnail_data_with_metadata(
                         unscaled_crop_offset.0 * total_scale,
                         unscaled_crop_offset.1 * total_scale,
                     ),
-                    processing_base_arc
-                        .width()
-                        .max(processing_base_arc.height()) as f32,
+                    {
+                        let (w, h) = source.transform.working_size(base.image.dimensions());
+                        w.max(h) as f32
+                    },
                 ),
             },
             "generate_thumbnail_data",
-        ) {
-            return Ok(processed_image);
-        } else {
-            return Ok(cropped_preview.into_owned());
-        }
+        );
+        return processed_image.map_err(|e| anyhow::anyhow!(e));
     }
 
     let _decode_reservation;

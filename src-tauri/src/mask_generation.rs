@@ -352,6 +352,74 @@ fn grayscale_erode(image: &GrayImage, k: u8) -> GrayImage {
     GrayImage::from_raw(width, height, out).unwrap()
 }
 
+fn gaussian_kernel(sigma: f32) -> Vec<f32> {
+    let radius = (2.0 * sigma).ceil() as usize;
+    let pdf =
+        |x: f32| (sigma * (2.0 * PI).sqrt()).recip() * (-x.powi(2) / (2.0 * sigma.powi(2))).exp();
+    let mut kernel = vec![0.0f32; 2 * radius + 1];
+    for i in 0..=radius {
+        let value = pdf(i as f32);
+        kernel[radius + i] = value;
+        kernel[radius - i] = value;
+    }
+    let sum: f32 = kernel.iter().sum();
+    kernel.iter_mut().for_each(|k| *k /= sum);
+    kernel
+}
+
+fn saturate_u8(value: f32) -> u8 {
+    if value < 255.0 {
+        if value > 0.0 { value as u8 } else { 0 }
+    } else {
+        255
+    }
+}
+
+fn gaussian_blur_mask(mask: &GrayImage, sigma: f32) -> GrayImage {
+    let (w, h) = (mask.width() as usize, mask.height() as usize);
+    if w == 0 || h == 0 {
+        return mask.clone();
+    }
+    let kernel = gaussian_kernel(sigma);
+    let radius = (kernel.len() / 2) as isize;
+    let tap = |center: usize, offset: usize, len: usize| {
+        (center as isize + offset as isize - radius).clamp(0, len as isize - 1) as usize
+    };
+
+    let mut horizontal = vec![0u8; w * h];
+    horizontal
+        .par_chunks_exact_mut(w)
+        .zip(mask.as_raw().par_chunks_exact(w))
+        .for_each(|(out, row)| {
+            for (x, value) in out.iter_mut().enumerate() {
+                let mut acc = 0.0f32;
+                for (i, k) in kernel.iter().enumerate() {
+                    acc += row[tap(x, i, w)] as f32 * k;
+                }
+                *value = saturate_u8(acc);
+            }
+        });
+
+    let mut blurred = vec![0u8; w * h];
+    blurred
+        .par_chunks_exact_mut(w)
+        .enumerate()
+        .for_each(|(y, out)| {
+            let mut acc = vec![0.0f32; w];
+            for (i, k) in kernel.iter().enumerate() {
+                let row = &horizontal[tap(y, i, h) * w..][..w];
+                for (a, &v) in acc.iter_mut().zip(row) {
+                    *a += v as f32 * k;
+                }
+            }
+            for (value, a) in out.iter_mut().zip(acc) {
+                *value = saturate_u8(a);
+            }
+        });
+
+    GrayImage::from_raw(w as u32, h as u32, blurred).expect("mask buffer size")
+}
+
 fn apply_grow_and_feather(mask: &mut GrayImage, grow: f32, feather: f32, width: u32, height: u32) {
     let base_dimension = width.min(height) as f32;
 
@@ -375,7 +443,7 @@ fn apply_grow_and_feather(mask: &mut GrayImage, grow: f32, feather: f32, width: 
         let sigma = (feather / 100.0) * base_dimension * MAX_FEATHER_SIGMA_PERCENTAGE;
 
         if sigma > 0.01 {
-            *mask = imageproc::filter::gaussian_blur_f32(mask, sigma);
+            *mask = gaussian_blur_mask(mask, sigma);
         }
     }
 }
