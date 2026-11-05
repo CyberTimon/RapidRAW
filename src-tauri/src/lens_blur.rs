@@ -89,10 +89,10 @@ pub fn prepare(
             .as_str()
             .unwrap_or("circle")
             .to_string(),
-        min_depth: get("lensBlurMinDepth", 20.0),
-        max_depth: get("lensBlurMaxDepth", 100.0),
-        min_fade: get("lensBlurMinFade", 15.0),
-        max_fade: get("lensBlurMaxFade", 15.0),
+        min_depth: get("lensBlurMinDepth", 10.0),
+        max_depth: get("lensBlurMaxDepth", 90.0),
+        min_fade: get("lensBlurMinFade", 10.0),
+        max_fade: get("lensBlurMaxFade", 10.0),
         diffusion: get("lensBlurDiffusion", 0.0).clamp(0.0, 1.0),
     })
 }

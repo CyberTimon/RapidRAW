@@ -1,8 +1,10 @@
 use crate::cache_utils::GEOMETRY_KEYS;
 use crate::image_processing::{
-    GeometryParams, is_effect_enabled, is_geometry_identity, warp_image_geometry,
+    GeometryParams, get_geometry_params_from_json, is_effect_enabled, is_geometry_identity,
+    warp_image_geometry,
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+use image::imageops::FilterType;
 use image::{DynamicImage, GrayImage, Luma, Rgb, Rgb32FImage, Rgba, RgbaImage};
 use rayon::prelude::*;
 use std::collections::hash_map::DefaultHasher;
@@ -287,6 +289,71 @@ pub fn resolve_rgba_map(
             }))
         },
     )
+}
+
+pub fn build_depth_preview(
+    image: &DynamicImage,
+    is_raw: bool,
+    path: &str,
+    adjustments: &serde_json::Value,
+    map_key: &str,
+    max_size: u32,
+) -> Option<Vec<u8>> {
+    let data_url = adjustments[map_key]
+        .as_str()
+        .filter(|map| !map.is_empty())?;
+    let geometry = get_geometry_params_from_json(path, adjustments);
+    let geometry = (!is_geometry_identity(&geometry)).then_some(geometry);
+    let with_normals = map_key == "relightNormalMap";
+
+    let fit = |(mw, mh): (u32, u32)| {
+        let scale = (max_size as f32 / mw.max(mh) as f32).min(1.0);
+        (
+            ((mw as f32 * scale).round() as u32).max(2),
+            ((mh as f32 * scale).round() as u32).max(2),
+        )
+    };
+    let (map, (w, h)) = if with_normals {
+        let normals = resolve_rgba_map(data_url, adjustments, geometry.as_ref())?;
+        let (w, h) = fit(normals.dimensions());
+        let resized = image::imageops::resize(&*normals, w, h, FilterType::Triangle);
+        (DynamicImage::ImageRgba8(resized), (w, h))
+    } else {
+        let depth = resolve_luma_map(data_url, adjustments, geometry.as_ref())?;
+        let (w, h) = fit(depth.dimensions());
+        let resized = image::imageops::resize(&*depth, w, h, FilterType::Triangle);
+        (DynamicImage::ImageLuma8(resized), (w, h))
+    };
+
+    let sampled = image.resize_exact(w * 2, h * 2, FilterType::Nearest);
+    let converted =
+        crate::mask_generation::build_converted_source_image(&sampled, is_raw, adjustments);
+    let color = warp_effect_map(&converted, geometry.as_ref())
+        .resize_exact(w, h, FilterType::Triangle)
+        .into_rgb8();
+
+    let pixels = (w * h) as usize;
+    let mut out = Vec::with_capacity(12 + pixels * if with_normals { 8 } else { 4 });
+    for value in [w, h, with_normals as u32] {
+        out.extend_from_slice(&value.to_le_bytes());
+    }
+    match &map {
+        DynamicImage::ImageRgba8(normals) => {
+            for (c, n) in color.pixels().zip(normals.pixels()) {
+                out.extend_from_slice(&[c[0], c[1], c[2], 255 - n[3]]);
+            }
+            for n in normals.pixels() {
+                out.extend_from_slice(&[n[0], n[1], n[2], 255]);
+            }
+        }
+        _ => {
+            let depth = map.to_luma8();
+            for (c, d) in color.pixels().zip(depth.pixels()) {
+                out.extend_from_slice(&[c[0], c[1], c[2], d[0]]);
+            }
+        }
+    }
+    Some(out)
 }
 
 fn effect_map_geometry(geometry: Option<&GeometryParams>) -> Option<GeometryParams> {

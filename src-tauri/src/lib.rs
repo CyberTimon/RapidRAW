@@ -2837,6 +2837,7 @@ pub fn run() {
             ai_commands::test_ai_connector_connection,
             ai_commands::generate_full_image_depth_map,
             ai_commands::generate_relight_normal_map,
+            ai_commands::get_depth_preview,
             ai_denoise::clear_ai_denoise_cache,
             ai_jobs::get_ai_jobs_status,
             ai_jobs::get_pending_ai_paths,
