@@ -49,7 +49,8 @@ export const useKeyboardShortcuts = ({
     handleEnableAdjustments,
     toggleCompare,
   } = useEditorActions();
-  const { handleRate, handleSetFlag, handleToggleFlag, handleSetColorLabel } = useLibraryActions();
+  const { handleRate, handleSetFlag, handleToggleFlag, handleSetColorLabel, handleClearSelection } =
+    useLibraryActions();
 
   const sortedListRef = useRef(sortedImageList);
   useEffect(() => {
@@ -159,6 +160,11 @@ export const useKeyboardShortcuts = ({
         shouldFire: () => sortedListRef.current.length > 0,
         execute: (e: any, s: any) => {
           e.preventDefault();
+          const selected = new Set(s.library.multiSelectedPaths);
+          if (sortedListRef.current.every((f: ImageFile) => selected.has(f.path))) {
+            handleClearSelection();
+            return;
+          }
           s.library.setLibrary({ multiSelectedPaths: sortedListRef.current.map((f: ImageFile) => f.path) });
           if (s.ui.activeView === 'library') {
             const lastPath = sortedListRef.current[sortedListRef.current.length - 1].path;
@@ -811,6 +817,7 @@ export const useKeyboardShortcuts = ({
     handleSetFlag,
     handleToggleFlag,
     handleSetColorLabel,
+    handleClearSelection,
     toggleCompare,
   ]);
 };
