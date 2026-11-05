@@ -177,7 +177,7 @@ const ThumbnailComponent = ({
   const hasEditIcon = !!showEditIcon;
   const hasColorLabel = !!colorLabel;
   const isRejected = flag === ImageFlag.Reject;
-  const hasRating = rating > 0 && !isRejected;
+  const hasRating = rating > 0;
   const hasGroupBadge = !!groupBadgeLabel;
   const hasOtherBadge = hasEditIcon || hasColorLabel || hasRating || !!flag || hasGroupBadge;
   const hasAnyOverlay = hasOtherBadge || isAiPending;
@@ -824,26 +824,18 @@ const ListItemComponent = ({
       </div>
 
       <div style={{ width: getW('rating') }} className="flex items-center px-3 h-full overflow-hidden">
-        {isRejected ? (
-          <div className="flex items-center gap-1">
-            <Ban size={12} className="text-text-secondary" />
-            <Text variant={TextVariants.small} color={TextColors.secondary} className="truncate">
-              {t('library.items.rejected')}
-            </Text>
-          </div>
-        ) : (
-          <div className="flex items-center gap-1">
-            {flag === ImageFlag.Pick && <Flag size={12} className="text-accent fill-accent" />}
-            {rating > 0 && (
-              <>
-                <StarIcon size={12} className="text-accent fill-accent" />
-                <Text variant={TextVariants.small} color={TextColors.primary} weight={TextWeights.medium}>
-                  {rating}
-                </Text>
-              </>
-            )}
-          </div>
-        )}
+        <div className="flex items-center gap-1">
+          {isRejected && <Ban size={12} className="text-text-secondary" data-tooltip={t('library.items.rejected')} />}
+          {flag === ImageFlag.Pick && <Flag size={12} className="text-accent fill-accent" />}
+          {rating > 0 && (
+            <>
+              <StarIcon size={12} className="text-accent fill-accent" />
+              <Text variant={TextVariants.small} color={TextColors.primary} weight={TextWeights.medium}>
+                {rating}
+              </Text>
+            </>
+          )}
+        </div>
       </div>
 
       <div style={{ width: getW('color') }} className="flex items-center px-3 h-full overflow-hidden">

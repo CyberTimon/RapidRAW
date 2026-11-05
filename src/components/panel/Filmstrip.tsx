@@ -96,7 +96,7 @@ const FilmstripThumbnail = memo(
     const hasEditIcon = !!showEditIcon;
     const hasColorLabel = !!colorLabel;
     const isRejected = flag === ImageFlag.Reject;
-    const hasRating = rating > 0 && !isRejected;
+    const hasRating = rating > 0;
     const hasOtherBadge = hasEditIcon || hasColorLabel || hasRating || !!flag;
     const hasAnyOverlay = hasOtherBadge || isAiPending;
 

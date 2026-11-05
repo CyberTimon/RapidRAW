@@ -3196,9 +3196,6 @@ pub fn set_rating_for_paths(
 ) -> Result<(), String> {
     update_metadata_for_paths(&paths, &app_handle, |metadata| {
         metadata.rating = rating;
-        if rating > 0 && metadata.flag == Some(ImageFlag::Reject) {
-            metadata.flag = None;
-        }
     });
 
     Ok(())
