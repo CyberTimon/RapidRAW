@@ -833,6 +833,7 @@
         "focalLength": "Brandpuntsafstand",
         "iso": "ISO",
         "lens": "Lens",
+        "model": "Model",
         "shutterSpeed": "Sluitertijd",
         "title": "Cameradetails"
       },

@@ -10,7 +10,7 @@ import { getImageFlag } from '../../../utils/imageFlags';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
-import { IconAperture, IconShutter, IconIso, IconFocalLength, IconLens } from '../editor/ExifIcons';
+import { IconAperture, IconShutter, IconIso, IconFocalLength, IconLens, IconCamera } from '../../editor/ExifIcons';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
@@ -29,6 +29,8 @@ interface CameraSettings {
   FNumber: CameraSetting;
   FocalLengthIn35mmFilm: CameraSetting;
   LensModel: CameraSetting;
+  Make: CameraSetting;
+  Model: CameraSetting;
   PhotographicSensitivity: CameraSetting;
 }
 
@@ -66,6 +68,7 @@ const CAMERA_ICONS: Record<string, React.FC> = {
   ExposureTime: IconShutter,
   PhotographicSensitivity: IconIso,
   FocalLengthIn35mmFilm: IconFocalLength,
+  Model: IconCamera,
   LensModel: IconLens,
 };
 
@@ -227,6 +230,14 @@ const KEY_CAMERA_SETTINGS_MAP: CameraSettings = {
     format: (value: number) => (String(value).endsWith('mm') ? value : `${value} mm`),
     label: 'Focal Length',
   },
+  Make: {
+    format: (value: number) => String(value).replace(/"/g, ''),
+    label: 'Camera Make',
+  },
+  Model: {
+    format: (value: number) => String(value).replace(/"/g, ''),
+    label: 'Camera Model',
+  },
   LensModel: {
     format: (value: number) => String(value).replace(/"/g, ''),
     label: 'Lens',
@@ -262,7 +273,7 @@ export default function MetadataPanel() {
     return expandGroupedPaths(imageList, targetPaths, groupingMode);
   };
 
-  const { cameraGridSettings, lensSetting, gpsData, otherExifEntries } = useMemo(() => {
+  const { cameraGridSettings, lensSetting, cameraModelSetting, gpsData, otherExifEntries } = useMemo(() => {
     const exif = selectedImage?.exif || {};
 
     const cameraGridKeys = ['ExposureTime', 'FNumber', 'PhotographicSensitivity', 'FocalLengthIn35mmFilm'];
@@ -306,6 +317,26 @@ export default function MetadataPanel() {
             : '-',
     };
 
+    const hasCameraMake = exif['Make'] !== undefined && exif['Make'] !== null && exif['Make'] !== '';
+    const hasCameraModel = exif['Model'] !== undefined && exif['Model'] !== null && exif['Model'] !== '';
+    const cameraModelSetting = {
+      key: 'Model',
+      label: t('editor.metadata.camera.model'),
+      value:
+        (hasCameraMake && KEY_CAMERA_SETTINGS_MAP['Make'].format
+          ? KEY_CAMERA_SETTINGS_MAP['Make'].format(exif['Make'] as number)
+          : hasCameraMake
+            ? exif['Make']
+            : '-' )
+        +
+        (hasCameraMake && hasCameraModel ? " " : "")
+        +
+        (hasCameraModel && KEY_CAMERA_SETTINGS_MAP['Model'].format
+          ? KEY_CAMERA_SETTINGS_MAP['Model'].format(exif['Model'] as number)
+          : hasCameraModel
+            ? exif['Model']
+            : '-'),
+    };
     const latStr = exif.GPSLatitude;
     const latRef = exif.GPSLatitudeRef;
     const lonStr = exif.GPSLongitude;
@@ -326,7 +357,7 @@ export default function MetadataPanel() {
       .filter(([key]) => !handledKeys.includes(key))
       .sort(([keyA], [keyB]) => keyA.localeCompare(keyB));
 
-    return { cameraGridSettings, lensSetting, gpsData, otherExifEntries };
+    return { cameraGridSettings, lensSetting, cameraModelSetting, gpsData, otherExifEntries };
   }, [selectedImage?.exif, t]);
 
   const currentColor = useMemo(() => {
@@ -393,6 +424,7 @@ export default function MetadataPanel() {
   };
 
   const LensIcon = CAMERA_ICONS['LensModel'];
+  const CameraIcon = CAMERA_ICONS['Model'];
 
   return (
     <div className="flex flex-col h-full">
@@ -489,7 +521,25 @@ export default function MetadataPanel() {
                     );
                   })}
                 </div>
-
+                <div
+                  className="flex items-center gap-2 bg-surface border border-surface px-3 py-2 rounded-xl cursor-default"
+                  data-tooltip={cameraModelSetting.label}
+                >
+                  {CameraIcon && (
+                    <span className="text-text-secondary opacity-90 flex items-center justify-center shrink-0">
+                      <CameraIcon />
+                    </span>
+                  )}
+                  <Text
+                    as="span"
+                    variant={TextVariants.small}
+                    weight={TextWeights.medium}
+                    color={TextColors.primary}
+                    className="truncate"
+                  >
+                    {cameraModelSetting.value}
+                  </Text>
+                </div>
                 <div
                   className="flex items-center gap-2 bg-surface border border-surface px-3 py-2 rounded-xl cursor-default"
                   data-tooltip={lensSetting.label}

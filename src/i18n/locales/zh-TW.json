@@ -830,6 +830,7 @@
         "focalLength": "焦距",
         "iso": "ISO",
         "lens": "鏡頭",
+        "model": "型號",
         "shutterSpeed": "快門速度",
         "title": "相機詳情"
       },

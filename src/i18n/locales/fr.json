@@ -857,6 +857,7 @@
         "focalLength": "Longueur focale",
         "iso": "ISO",
         "lens": "Objectif",
+        "model": "Modèle",
         "shutterSpeed": "Vitesse d'obturation",
         "title": "Détails de l'appareil"
       },

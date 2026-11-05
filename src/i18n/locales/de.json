@@ -833,6 +833,7 @@
         "focalLength": "Brennweite",
         "iso": "ISO",
         "lens": "Objektiv",
+        "model": "Modell",
         "shutterSpeed": "Verschlusszeit",
         "title": "Kamera-Details"
       },

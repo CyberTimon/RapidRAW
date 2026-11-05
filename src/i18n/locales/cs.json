@@ -881,6 +881,7 @@
         "focalLength": "Ohnisková vzdálenost",
         "iso": "ISO",
         "lens": "Objektiv",
+        "model": "Model",
         "shutterSpeed": "Rychlost závěrky",
         "title": "Podrobnosti o fotoaparátu"
       },
