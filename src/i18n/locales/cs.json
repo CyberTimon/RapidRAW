@@ -1695,7 +1695,17 @@
       "similarityThresholdDesc": "Nižší hodnota je přísnější (přesné duplikáty). Vyšší hodnota je volnější (téměř duplikáty). Doporučená hodnota je 24–32.",
       "startCulling": "Spustit třídění",
       "starting": "Spouštění...",
-      "title": "Třídění snímků"
+      "title": "Třídění snímků",
+      "provisionalNotice": "Preview-based suggestions. Check important detail at 100% before deciding.",
+      "detailReason": "The suggested frame has a higher detail score.",
+      "exposureReason": "The suggested frame has a more balanced exposure score.",
+      "chooseKeeper": "Suggest this frame instead",
+      "reviewSelectionNotice": "Select only the frames you want to reject. Unselected frames are kept. Nothing is deleted.",
+      "rejectSelected": "Reject selected ({{count}})",
+      "suggestedKeeper": "Suggested keeper",
+      "similarAlternatives": "Similar alternatives ({{count}})",
+      "burstWindow": "Capture window (seconds)",
+      "partialFailure": "Could not analyze {{count}} photo(s). These photos were left unchanged."
     },
     "focusStack": {
       "cancel": "Zrušit",
