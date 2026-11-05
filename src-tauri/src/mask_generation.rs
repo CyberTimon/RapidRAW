@@ -2,10 +2,7 @@ use crate::ai_processing::{
     AiDepthMaskParameters, AiForegroundMaskParameters, AiSkyMaskParameters, AiSubjectMaskParameters,
 };
 use base64::{Engine as _, engine::general_purpose};
-use image::codecs::png::{CompressionType, FilterType as PngFilterType, PngEncoder};
-use image::{
-    DynamicImage, ExtendedColorType, GenericImageView, GrayImage, ImageEncoder, Luma, RgbImage,
-};
+use image::{DynamicImage, GenericImageView, GrayImage, Luma, RgbImage};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -2084,16 +2081,24 @@ pub fn generate_mask_overlay(
         scaled_crop_offset,
         warped_image.as_deref(),
     ) {
-        let rgba_mask: Vec<u8> = gray_mask
-            .as_raw()
-            .par_iter()
-            .flat_map_iter(|&intensity| [255, 0, 0, (intensity as f32 * 0.5) as u8])
-            .collect();
+        let palette = [255u8, 0, 0].repeat(256);
+        let transparency: Vec<u8> = (0..=255u8).map(|i| (i as f32 * 0.5) as u8).collect();
 
         let mut buf = Vec::new();
-        PngEncoder::new_with_quality(&mut buf, CompressionType::Fast, PngFilterType::Adaptive)
-            .write_image(&rgba_mask, width, height, ExtendedColorType::Rgba8)
-            .map_err(|e| e.to_string())?;
+        {
+            let mut encoder = png::Encoder::new(&mut buf, width, height);
+            encoder.set_color(png::ColorType::Indexed);
+            encoder.set_depth(png::BitDepth::Eight);
+            encoder.set_palette(palette);
+            encoder.set_trns(transparency);
+            encoder.set_compression(png::Compression::Fast);
+            encoder.set_filter(png::Filter::Adaptive);
+            let mut writer = encoder.write_header().map_err(|e| e.to_string())?;
+            writer
+                .write_image_data(gray_mask.as_raw())
+                .map_err(|e| e.to_string())?;
+            writer.finish().map_err(|e| e.to_string())?;
+        }
 
         Ok(Response::new(buf))
     } else {

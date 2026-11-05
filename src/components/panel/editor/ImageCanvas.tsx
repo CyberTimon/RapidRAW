@@ -76,7 +76,7 @@ interface ImageCanvasProps {
   isSliderDragging: boolean;
   isStraightenActive: boolean;
   isRotationActive?: boolean;
-  maskOverlayUrl: string | null;
+  maskOverlay: MaskOverlayImage | null;
   onGenerateAiMask(id: string | null, start: Coord, end: Coord): void;
   onLiveMaskPreview?: (previewMaskDef: any) => void;
   onDirectPatch?(subMaskId: string, source?: Coord | null): Promise<void> | void;
@@ -272,11 +272,18 @@ const PatchMarkerIcon = ({ type, isLoading }: { type: Mask; isLoading: boolean }
   return <BrushCleaning size={16} />;
 };
 
-interface ScreenRect {
+export type ImageRegion = [number, number, number, number];
+
+interface RectBounds {
   left: number;
   top: number;
   width: number;
   height: number;
+}
+
+export interface MaskOverlayImage {
+  url: string;
+  region: ImageRegion;
 }
 
 const EDGE_FADE_PX = 128;
@@ -298,14 +305,14 @@ const placeGroup = (group: Konva.Group | null, x: number, y: number, scale: numb
   group.getLayer()?.batchDraw();
 };
 
-const toScreenRect = (rect: ScreenRect, { positionX, positionY, scale }: TransformState): ScreenRect => ({
+const toScreenRect = (rect: RectBounds, { positionX, positionY, scale }: TransformState): RectBounds => ({
   left: positionX + rect.left * scale,
   top: positionY + rect.top * scale,
   width: rect.width * scale,
   height: rect.height * scale,
 });
 
-const getClipPath = (rect: ScreenRect, viewportWidth: number, viewportHeight: number) => {
+const getClipPath = (rect: RectBounds, viewportWidth: number, viewportHeight: number) => {
   const top = Math.max(0, rect.top);
   const left = Math.max(0, rect.left);
   const right = Math.max(0, viewportWidth - rect.left - rect.width);
@@ -313,7 +320,7 @@ const getClipPath = (rect: ScreenRect, viewportWidth: number, viewportHeight: nu
   return `inset(${top}px ${right}px ${bottom}px ${left}px)`;
 };
 
-const getEdgeFadeStyles = (rect: ScreenRect, viewportWidth: number, viewportHeight: number) => {
+const getEdgeFadeStyles = (rect: RectBounds, viewportWidth: number, viewportHeight: number) => {
   const fade = (start: number, end: number, size: number, direction: string) => {
     const from = Math.max(start, -EDGE_FADE_PX);
     const to = Math.min(end, size + EDGE_FADE_PX);
@@ -353,7 +360,19 @@ const OptimizedBrushLine = memo(
 );
 
 const LiquifyPreviewLine = memo(
-  ({ line, scale, cropX, cropY }: { line: DrawnLine; scale: number; cropX: number; cropY: number }) => {
+  ({
+    line,
+    scale,
+    cropX,
+    cropY,
+    zoomScale,
+  }: {
+    line: DrawnLine;
+    scale: number;
+    cropX: number;
+    cropY: number;
+    zoomScale: number;
+  }) => {
     const { flattenedPoints, flowArrows } = useMemo(() => {
       const rawPts: Array<{ x: number; y: number }> = [];
       const ptsArray = new Float32Array(line.points.length * 2);
@@ -367,8 +386,8 @@ const LiquifyPreviewLine = memo(
       }
 
       const arrows: Array<{ startX: number; startY: number; endX: number; endY: number; key: number }> = [];
-      const ARROW_SPACING = 48;
-      const ARROW_HALF_LEN = 4;
+      const ARROW_SPACING = 48 / zoomScale;
+      const ARROW_HALF_LEN = 4 / zoomScale;
 
       let accumulatedDist = ARROW_SPACING / 2;
 
@@ -410,7 +429,7 @@ const LiquifyPreviewLine = memo(
         const dx = p2.x - p1.x;
         const dy = p2.y - p1.y;
         const len = Math.hypot(dx, dy);
-        if (len > 2) {
+        if (len > 2 / zoomScale) {
           arrows.push({
             startX: p1.x,
             startY: p1.y,
@@ -425,7 +444,7 @@ const LiquifyPreviewLine = memo(
         flattenedPoints: Array.from(ptsArray),
         flowArrows: arrows,
       };
-    }, [line.points, scale, cropX, cropY]);
+    }, [line.points, scale, cropX, cropY, zoomScale]);
 
     if (flattenedPoints.length < 4) return null;
 
@@ -446,8 +465,8 @@ const LiquifyPreviewLine = memo(
           <Arrow
             key={arr.key}
             points={[arr.startX, arr.startY, arr.endX, arr.endY]}
-            pointerLength={6}
-            pointerWidth={6}
+            pointerLength={6 / zoomScale}
+            pointerWidth={6 / zoomScale}
             fill="#0ea5e9"
             stroke="#0ea5e9"
             strokeWidth={1.5}
@@ -456,7 +475,7 @@ const LiquifyPreviewLine = memo(
             strokeScaleEnabled={false}
             perfectDrawEnabled={false}
             shadowColor="rgba(0, 0, 0, 0.4)"
-            shadowBlur={2}
+            shadowBlur={2 / zoomScale}
           />
         ))}
       </Group>
@@ -1004,7 +1023,14 @@ const MaskOverlay = memo(
                   line.tool === ToolType.Eraser ? (
                     <LiquifyEraserPreviewLine key={i} line={line} scale={scale} cropX={cropX} cropY={cropY} />
                   ) : (
-                    <LiquifyPreviewLine key={i} line={line} scale={scale} cropX={cropX} cropY={cropY} />
+                    <LiquifyPreviewLine
+                      key={i}
+                      line={line}
+                      scale={scale}
+                      cropX={cropX}
+                      cropY={cropY}
+                      zoomScale={zoomScale}
+                    />
                   ),
                 )
               : lines.map((line: DrawnLine, i: number) => (
@@ -1385,7 +1411,7 @@ const ImageCanvas = memo(
     isSliderDragging,
     isStraightenActive,
     isRotationActive,
-    maskOverlayUrl,
+    maskOverlay,
     onGenerateAiMask,
     onLiveMaskPreview,
     onDirectPatch,
@@ -1438,7 +1464,7 @@ const ImageCanvas = memo(
 
     const [isCropViewVisible, setIsCropViewVisible] = useState(false);
     const cropImageRef = useRef<HTMLImageElement>(null);
-    const [displayedMaskUrl, setDisplayedMaskUrl] = useState<string | null>(null);
+    const [displayedMaskOverlay, setDisplayedMaskOverlay] = useState<MaskOverlayImage | null>(null);
     const [localInitialDrawParams, setLocalInitialDrawParams] = useState<any>(null);
     const [isMaskInteractionActive, setIsMaskInteractionActive] = useState(false);
     const [hoveredMarkerId, setHoveredMarkerId] = useState<string | null>(null);
@@ -1896,12 +1922,12 @@ const ImageCanvas = memo(
     const isToolActive = isBrushActive || isAiSubjectActive || isInitialDrawing || isParametricActive;
 
     useEffect(() => {
-      if (maskOverlayUrl && (isMasking || isAiEditing)) {
-        setDisplayedMaskUrl(maskOverlayUrl);
+      if (maskOverlay && (isMasking || isAiEditing)) {
+        setDisplayedMaskOverlay(maskOverlay);
       } else {
-        setDisplayedMaskUrl(null);
+        setDisplayedMaskOverlay(null);
       }
-    }, [maskOverlayUrl, isMasking, isAiEditing]);
+    }, [maskOverlay, isMasking, isAiEditing]);
 
     useEffect(() => {
       if (isToolActive) {
@@ -2035,7 +2061,7 @@ const ImageCanvas = memo(
       return { width: renderWidth, height: renderHeight };
     }, [selectedImage?.width, selectedImage?.height, imageRenderSize, adjustments.orientationSteps]);
 
-    const cropRect = useMemo<ScreenRect | null>(() => {
+    const cropRect = useMemo<RectBounds | null>(() => {
       if (!uncroppedImageRenderSize?.width || !uncroppedImageRenderSize?.height) return null;
       return {
         left: (viewportWidth - uncroppedImageRenderSize.width) / 2,
@@ -2891,7 +2917,7 @@ const ImageCanvas = memo(
           const distX = x - dragStartPointer.current.x;
           const distY = y - dragStartPointer.current.y;
           const screenThreshold = 15;
-          if (Math.sqrt(distX * distX + distY * distY) < screenThreshold / scale) {
+          if (Math.sqrt(distX * distX + distY * distY) < screenThreshold / (scale * effectiveZoomScale)) {
             return;
           }
 
@@ -2950,7 +2976,8 @@ const ImageCanvas = memo(
           if (lastPoint) {
             const dx = pos.x - lastPoint.x;
             const dy = pos.y - lastPoint.y;
-            if (dx * dx + dy * dy < 4) {
+            const minDistance = Math.max(2 / effectiveZoomScale, imageRenderSize.scale);
+            if (dx * dx + dy * dy < minDistance * minDistance) {
               if (e.evt && e.evt.cancelable) e.evt.preventDefault();
               return;
             }
@@ -3119,7 +3146,7 @@ const ImageCanvas = memo(
         const dx = sc2.x - sc1.x;
         const dy = sc2.y - sc1.y;
 
-        if (Math.hypot(dx, dy) >= 15) {
+        if (Math.hypot(dx, dy) >= 15 / effectiveZoomScale) {
           const tan35 = Math.tan((35 * Math.PI) / 180);
           const isVert = Math.abs(dx) <= Math.abs(dy) * tan35;
           const isHoriz = Math.abs(dy) <= Math.abs(dx) * tan35;
@@ -3169,12 +3196,17 @@ const ImageCanvas = memo(
 
         const newParams = { ...localInitialDrawParams };
         delete newParams.isInitialDraw;
+        const minDrawnSize = 10 / (imageRenderSize.scale * effectiveZoomScale);
 
-        if (activeSubMask.type === Mask.Radial && newParams.radiusX < 10 && newParams.radiusY < 10) {
+        if (
+          activeSubMask.type === Mask.Radial &&
+          newParams.radiusX < minDrawnSize &&
+          newParams.radiusY < minDrawnSize
+        ) {
           newParams.radiusX = 100;
           newParams.radiusY = 100;
         } else if (activeSubMask.type === Mask.Linear) {
-          if (!newParams.range || newParams.range < 10) {
+          if (!newParams.range || newParams.range < minDrawnSize) {
             const handleDist = Math.min(effectiveImageDimensions.width, effectiveImageDimensions.height) * 0.2;
             newParams.startX = dragStartPointer.current!.x + handleDist;
             newParams.startY = dragStartPointer.current!.y;
@@ -3214,7 +3246,7 @@ const ImageCanvas = memo(
 
         const dx = box.end.x - box.start.x;
         const dy = box.end.y - box.start.y;
-        if (Math.sqrt(dx * dx + dy * dy) < 5) {
+        if (Math.sqrt(dx * dx + dy * dy) < 5 / effectiveZoomScale) {
           endPoint = { x: startPoint.x, y: startPoint.y };
         }
 
@@ -3346,6 +3378,7 @@ const ImageCanvas = memo(
       applyWbPick,
       getWbCorners,
       getWbSquareCorners,
+      effectiveZoomScale,
     ]);
 
     const handleMouseEnter = useCallback(() => {
@@ -3647,18 +3680,18 @@ const ImageCanvas = memo(
                 )}
               </svg>
 
-              {displayedMaskUrl && (
+              {displayedMaskOverlay && (
                 <img
                   alt="Mask Overlay"
-                  className="absolute object-contain pointer-events-none"
-                  src={displayedMaskUrl}
+                  className="absolute pointer-events-none"
+                  src={displayedMaskOverlay.url}
                   style={{
-                    height: `${imageRenderSize.height}px`,
-                    left: `${imageRenderSize.offsetX}px`,
+                    height: `${displayedMaskOverlay.region[3] * imageRenderSize.height}px`,
+                    left: `${imageRenderSize.offsetX + displayedMaskOverlay.region[0] * imageRenderSize.width}px`,
                     opacity: maskOpacity,
-                    top: `${imageRenderSize.offsetY}px`,
+                    top: `${imageRenderSize.offsetY + displayedMaskOverlay.region[1] * imageRenderSize.height}px`,
                     transition: 'opacity 300ms ease-in-out',
-                    width: `${imageRenderSize.width}px`,
+                    width: `${displayedMaskOverlay.region[2] * imageRenderSize.width}px`,
                     imageRendering: isMaxZoom ? 'pixelated' : 'auto',
                     zIndex: 3,
                   }}

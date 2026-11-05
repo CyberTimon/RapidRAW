@@ -1325,6 +1325,7 @@ async fn apply_adjustments(
 #[tauri::command]
 async fn generate_uncropped_preview(
     js_adjustments: serde_json::Value,
+    target_resolution: Option<u32>,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<Response, String> {
@@ -1344,7 +1345,8 @@ async fn generate_uncropped_preview(
         let path = loaded_image.path.clone();
         let is_raw = loaded_image.is_raw;
         let settings = load_settings(app_handle.clone()).unwrap_or_default();
-        let target_dim = settings.editor_preview_resolution.unwrap_or(1920);
+        let target_dim =
+            target_resolution.unwrap_or_else(|| settings.editor_preview_resolution.unwrap_or(1920));
 
         let mut hasher = DefaultHasher::new();
         path.hash(&mut hasher);
