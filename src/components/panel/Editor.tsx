@@ -1337,7 +1337,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
-      if (suppressContextMenuRef.current) {
+      if (suppressContextMenuRef.current && e.ctrlKey) {
         suppressContextMenuRef.current = false;
         e.preventDefault();
         return;
