@@ -160,6 +160,7 @@ pub fn expose_calibrated(
     exposure_factor: f64,
     preflash: [f64; 3],
     bw_print_correction: f64,
+    print_exposure_map_ev: Option<&[f32]>,
 ) -> ImageBuf {
     // Python parity — `channel_density` and `base_density` are f64 in the profile JSON.
     let channel_density: Vec<[f64; 3]> = film
@@ -223,6 +224,28 @@ pub fn expose_calibrated(
             preflash,
         )
     };
+
+    // RapidRAW mask extension: per-pixel print exposure (dodging/burning),
+    // additive in the log domain: log10(raw * 2^ev) = log10(raw) + ev*log10(2).
+    if let Some(map) = print_exposure_map_ev {
+        if map.len() == cmy_film.pixel_count() {
+            const LOG10_2: f32 = 0.3010299956639812;
+            log_raw_print
+                .data
+                .par_chunks_mut(3)
+                .zip(map.par_iter())
+                .for_each(|(px, &ev)| {
+                    if ev != 0.0 {
+                        let d = spektrafilm_math::precision::from_f32(ev * LOG10_2);
+                        px[0] += d;
+                        px[1] += d;
+                        px[2] += d;
+                    }
+                });
+        } else {
+            tracing::warn!("print exposure map size mismatch, ignoring");
+        }
+    }
 
     // Stage 2: 10^log_raw_print, scale by print_exposure × bw, then
     // the outer log10. With print_exposure=1 and bw=1 the operations
@@ -334,6 +357,7 @@ pub fn develop(
 
 /// Full printing stage with pre-calibrated enlarger.
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments)]
 pub fn process_with_calibration(
     cmy_film: &ImageBuf,
     film: &Profile,
@@ -344,6 +368,7 @@ pub fn process_with_calibration(
     exposure_factor: f64,
     preflash: [f64; 3],
     bw_print_correction: f64,
+    print_exposure_map_ev: Option<&[f32]>,
 ) -> ImageBuf {
     let log_raw = expose_calibrated(
         cmy_film,
@@ -355,6 +380,7 @@ pub fn process_with_calibration(
         exposure_factor,
         preflash,
         bw_print_correction,
+        print_exposure_map_ev,
     );
     develop(&log_raw, print, params, backend)
 }

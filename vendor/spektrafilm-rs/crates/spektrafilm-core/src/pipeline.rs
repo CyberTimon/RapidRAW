@@ -93,8 +93,26 @@ fn apply_film_specific_params(film: &Profile, params: &mut RuntimeParams) {
     }
 }
 
+/// Per-pixel exposure-offset maps in EV (RapidRAW mask extension).
+/// One f32 per pixel, row-major, `width*height` elements. The maps are
+/// resolution-tied: they must match the working image size at render time
+/// (after `io.upscale_factor` rescaling), otherwise they are ignored.
+#[derive(Debug, Clone, Default)]
+pub struct ExposureMaps {
+    /// Local film exposure offsets (multiplicative on linear input RGB,
+    /// applied after auto-exposure metering).
+    pub film_ev: Vec<f32>,
+    /// Local print exposure offsets (dodging/burning; additive in the print
+    /// log-exposure domain).
+    pub print_ev: Vec<f32>,
+    pub width: u32,
+    pub height: u32,
+}
+
 #[derive(Clone)]
 pub struct Pipeline {
+    /// Optional per-pixel exposure maps (RapidRAW mask extension).
+    exposure_maps: Option<ExposureMaps>,
     pub film: Profile,
     pub print: Profile,
     pub params: RuntimeParams,
@@ -171,6 +189,7 @@ impl Pipeline {
         );
         let front_illuminant = film.info.reference_illuminant.clone();
         Self {
+            exposure_maps: None,
             film,
             print,
             params,
@@ -446,6 +465,7 @@ impl Pipeline {
             &params.io.output_color_space,
         );
         Ok(Self {
+            exposure_maps: None,
             film,
             print,
             params,
@@ -457,6 +477,12 @@ impl Pipeline {
             preflash_raw,
             output_gamut,
         })
+    }
+
+    /// Attach (or clear) per-pixel exposure maps. The maps apply to both the
+    /// GPU-resident fast path and the staged CPU path.
+    pub fn set_exposure_maps(&mut self, maps: Option<ExposureMaps>) {
+        self.exposure_maps = maps;
     }
 
     pub fn process(&self, image: ImageBuf, backend: &dyn ComputeBackend) -> ImageBuf {
@@ -500,6 +526,7 @@ impl Pipeline {
             }
         }
 
+        let (film_map, print_map) = self.validated_maps(image.width, image.height);
         let t = Instant::now();
         let log_raw = stages::filming::expose(
             &image,
@@ -510,6 +537,7 @@ impl Pipeline {
             self.mallett_core.as_ref(),
             select_illuminant(&self.front_illuminant),
             color_ref.filming_exposure_correction,
+            film_map,
         );
         print_stage_timing(stage_timings, "filming_expose", t);
         dump_if_env("SPEKTRAFILM_DUMP_FILM_LOG_RAW", &log_raw);
@@ -544,6 +572,7 @@ impl Pipeline {
                 self.print_exposure_factor,
                 self.preflash_raw,
                 color_ref.printing_exposure_correction,
+                print_map,
             );
             print_stage_timing(stage_timings, "printing", t);
             tracing::info!("pipeline: printing complete");
@@ -624,12 +653,32 @@ impl Pipeline {
     /// Try the GPU-resident fast path. Builds all the per-stage data and
     /// hands it to the backend's `try_run_film_chain`. The output is linear RGB
     /// (clipped to [0,1]) — sRGB encoding is applied by `apply_post_scan`.
+    /// Validated exposure-map slices for a working image of the given size.
+    fn validated_maps(&self, width: u32, height: u32) -> (Option<&[f32]>, Option<&[f32]>) {
+        match &self.exposure_maps {
+            Some(m)
+                if m.width == width
+                    && m.height == height
+                    && m.film_ev.len() == (width as usize) * (height as usize)
+                    && m.print_ev.len() == (width as usize) * (height as usize) =>
+            {
+                (Some(m.film_ev.as_slice()), Some(m.print_ev.as_slice()))
+            }
+            Some(_) => {
+                tracing::warn!("exposure map dimensions mismatch working image, ignoring");
+                (None, None)
+            }
+            None => (None, None),
+        }
+    }
+
     fn try_gpu_resident(
         &self,
         image: &ImageBuf,
         backend: &dyn ComputeBackend,
         color_ref: &crate::color_reference::ColorReference,
     ) -> Option<ImageBuf> {
+        let (film_map, print_map) = self.validated_maps(image.width, image.height);
         // Bake the exposure scale (auto-exposure × manual EV compensation)
         // into the front-pass matrix. Both upsamplers (hanatos and mallett)
         // are homogeneous in the input RGB, so scaling the matrix is
@@ -1160,6 +1209,8 @@ impl Pipeline {
             enlarger_diffusion,
             print_exposure_scale,
             output_cctf_encoding: self.params.io.output_cctf_encoding,
+            film_exposure_map_ev: film_map,
+            print_exposure_map_ev: print_map,
         };
         backend.try_run_film_chain(&params)
     }

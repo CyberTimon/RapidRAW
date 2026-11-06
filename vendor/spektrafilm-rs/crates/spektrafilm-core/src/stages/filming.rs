@@ -278,6 +278,7 @@ fn apply_mallett_matrix(image: &ImageBuf, m: &[[f64; 3]; 3]) -> ImageBuf {
 /// (when `mallett_core` is set), the full Hanatos2025 spectral path (when a
 /// TC LUT is provided), or a simplified RGB → log10 fallback.
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments)]
 pub fn expose(
     image: &ImageBuf,
     _film: &Profile,
@@ -287,6 +288,7 @@ pub fn expose(
     mallett_core: Option<&[[f64; 3]; 3]>,
     front_illuminant: &[f32],
     bw_filming_correction: f64,
+    film_exposure_map_ev: Option<&[f32]>,
 ) -> ImageBuf {
     let pix_um = pixel_size_um(params.camera.film_format_mm, image.width, image.height);
     let rgb_to_xyz = input_colorspace_to_xyz(&params.io.input_color_space);
@@ -302,6 +304,26 @@ pub fn expose(
     // Exposure compensation
     let exp_comp = from_f32(2.0f32.powf(params.camera.exposure_compensation_ev));
     rgb.data.par_iter_mut().for_each(|v| *v *= exp_comp);
+
+    // RapidRAW mask extension: per-pixel film exposure offsets (after AE
+    // metering + global compensation, before spectral upsampling).
+    if let Some(map) = film_exposure_map_ev {
+        if map.len() == image.pixel_count() {
+            rgb.data
+                .par_chunks_mut(3)
+                .zip(map.par_iter())
+                .for_each(|(px, &ev)| {
+                    if ev != 0.0 {
+                        let s = from_f32(2.0f32.powf(ev));
+                        px[0] *= s;
+                        px[1] *= s;
+                        px[2] *= s;
+                    }
+                });
+        } else {
+            tracing::warn!("film exposure map size mismatch, ignoring");
+        }
+    }
 
     // RGB → film raw exposure
     let mut raw = if let Some(core) = mallett_core {
@@ -503,7 +525,7 @@ pub fn process(
     tc_lut: Option<&TcLut>,
 ) -> ImageBuf {
     let ref_illuminant = select_illuminant(&film.info.reference_illuminant);
-    let log_raw = expose(image, film, params, backend, tc_lut, None, ref_illuminant, 1.0);
+    let log_raw = expose(image, film, params, backend, tc_lut, None, ref_illuminant, 1.0, None);
     develop(&log_raw, film, params, backend)
 }
 

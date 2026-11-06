@@ -107,6 +107,21 @@ struct CachedPipeline {
 
 #[cfg(feature = "wgpu-backend")]
 impl WgpuBackend {
+    /// Create a backend that shares an existing wgpu device/queue (e.g. the
+    /// host application's render device) instead of owning a private one.
+    ///
+    /// The caller's device must have been created with sufficiently high
+    /// limits (RapidRAW requests the adapter's hardware limits, which cover
+    /// our large storage buffers and 1024-wide workgroups). Optional
+    /// features such as MAPPABLE_PRIMARY_BUFFERS are probed at runtime.
+    pub fn from_device(device: wgpu::Device, queue: wgpu::Queue) -> Self {
+        Self {
+            device,
+            queue,
+            pipeline_cache: std::sync::Mutex::new(std::collections::HashMap::new()),
+        }
+    }
+
     pub fn new() -> Option<Self> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,
@@ -1510,6 +1525,88 @@ impl WgpuBackend {
         let post_scan_state =
             build_post_scan_state(&self.device, n_pixels, p.output_cctf_encoding, &buf_b, self);
 
+        // ── RapidRAW per-pixel exposure maps (fork extension) ───────────
+        // film map: multiplicative on buf_a (linear RGB in), before the
+        // front pass; print map: additive in log domain on buf_b, right
+        // after print_spectral.
+        struct EvMapDispatch {
+            params_buf: wgpu::Buffer,
+            map_buf: wgpu::Buffer,
+            bg: wgpu::BindGroup,
+        }
+        let ev_map_state = if p.film_exposure_map_ev.is_some()
+            || p.print_exposure_map_ev.is_some()
+        {
+            #[repr(C)]
+            #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+            struct EvMapParams {
+                n_pixels: u32,
+                mode: u32,
+                _pad: [u32; 2],
+            }
+            let pipe = self.cached_pipeline(
+                include_str!("../../spektrafilm-shaders/wgsl/ev_map.wgsl"),
+                &[
+                    wgpu::BufferBindingType::Uniform,
+                    wgpu::BufferBindingType::Storage { read_only: true },
+                    wgpu::BufferBindingType::Storage { read_only: false },
+                ],
+            );
+            let mk = |mode: u32, map: &[f32], img: &wgpu::Buffer| -> Option<EvMapDispatch> {
+                if map.len() != n_pixels as usize {
+                    tracing::warn!(
+                        expected = n_pixels,
+                        got = map.len(),
+                        "exposure map size mismatch, ignoring"
+                    );
+                    return None;
+                }
+                let params_buf = mk_uniform(
+                    "ev_map_params",
+                    bytemuck::bytes_of(&EvMapParams {
+                        n_pixels,
+                        mode,
+                        _pad: [0; 2],
+                    }),
+                );
+                let map_buf = mk_storage("ev_map", bytemuck::cast_slice(map));
+                let bg = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("bg_ev_map"),
+                    layout: &pipe.layout,
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: params_buf.as_entire_binding(),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: map_buf.as_entire_binding(),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 2,
+                            resource: img.as_entire_binding(),
+                        },
+                    ],
+                });
+                Some(EvMapDispatch {
+                    params_buf,
+                    map_buf,
+                    bg,
+                })
+            };
+            let film_ev = p
+                .film_exposure_map_ev
+                .and_then(|m| mk(0, m, &buf_a));
+            let print_ev = if p.scan_film {
+                None
+            } else {
+                p.print_exposure_map_ev.and_then(|m| mk(1, m, &buf_b))
+            };
+            Some((pipe, film_ev, print_ev))
+        } else {
+            None
+        };
+
         // ── Single command buffer chaining everything ────────────────────
         let mut encoder = self.device.create_command_encoder(&Default::default());
         let dispatch = |encoder: &mut wgpu::CommandEncoder,
@@ -1525,6 +1622,12 @@ impl WgpuBackend {
             pass.dispatch_workgroups((n + workgroup_size - 1) / workgroup_size, 1, 1);
         };
 
+        // 0. RapidRAW fork: per-pixel film-exposure map on buf_a (linear
+        //    input RGB), before spectral upsampling.
+        if let Some((ev_pipe, Some(film_ev), _)) = ev_map_state.as_ref() {
+            let _ = (&film_ev.params_buf, &film_ev.map_buf); // keepalive
+            dispatch(&mut encoder, &ev_pipe.pipeline, &film_ev.bg, n_pixels);
+        }
         // 1. Front pass (hanatos or mallett): buf_a (rgb in) → buf_b (raw)
         dispatch(&mut encoder, &front_pipe.pipeline, &bg_front, n_pixels);
         // 1a. Highlight boost on raw, before optical scatter.
@@ -1575,6 +1678,12 @@ impl WgpuBackend {
         if !p.scan_film {
             // 4. Print spectral: buf_a → buf_b (log_raw_print)
             dispatch(&mut encoder, &print_pipe.pipeline, &bg_print, n_pixels);
+            // 4a. RapidRAW fork: per-pixel print-exposure map (dodging /
+            //     burning), additive in the log domain on buf_b.
+            if let Some((ev_pipe, _, Some(print_ev))) = ev_map_state.as_ref() {
+                let _ = (&print_ev.params_buf, &print_ev.map_buf); // keepalive
+                dispatch(&mut encoder, &ev_pipe.pipeline, &print_ev.bg, n_pixels);
+            }
             if let (Some(l2l), Some(ds), Some(l2g)) = (
                 enlarger_log_to_linear_state.as_ref(),
                 enlarger_diffusion_state.as_ref(),

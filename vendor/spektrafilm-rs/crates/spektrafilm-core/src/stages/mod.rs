@@ -317,7 +317,7 @@ mod debug_tests {
 
         let ref_illuminant = stages::filming::select_illuminant(&film.info.reference_illuminant);
         let log_raw =
-            stages::filming::expose(&img, &film, &params, &backend, None, None, ref_illuminant, 1.0);
+            stages::filming::expose(&img, &film, &params, &backend, None, None, ref_illuminant, 1.0, None);
         eprintln!("log_raw: {:?}", log_raw.get(0, 0));
 
         let density_cmy = stages::filming::develop(&log_raw, &film, &params, &backend);

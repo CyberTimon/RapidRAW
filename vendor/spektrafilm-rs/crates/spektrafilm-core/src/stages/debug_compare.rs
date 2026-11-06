@@ -358,6 +358,7 @@ mod tests {
             None,
             crate::stages::filming::select_illuminant(&pipeline.film.info.reference_illuminant),
             1.0,
+            None,
         );
         check(
             "log_e_film",
@@ -391,6 +392,7 @@ mod tests {
             pipeline.print_exposure_factor(),
             pipeline.preflash_raw(),
             1.0,
+            None,
         );
         check(
             "log_e_print",

@@ -239,6 +239,16 @@ pub struct FilmChainParams<'a> {
     /// Whether the final output should be sRGB-encoded after clamping. Mirrors
     /// `RuntimeParams::io.output_cctf_encoding`.
     pub output_cctf_encoding: bool,
+    /// Per-pixel film-exposure offsets in EV (RapidRAW mask extension), one
+    /// f32 per pixel (row-major, width*height). Applied multiplicatively on
+    /// the linear input RGB after auto-exposure metering and before the
+    /// spectral front pass. `None` = no local film exposure.
+    pub film_exposure_map_ev: Option<&'a [f32]>,
+    /// Per-pixel print-exposure offsets in EV (RapidRAW mask extension —
+    /// darkroom dodging/burning), one f32 per pixel. Applied additively in
+    /// the print log-exposure domain, right after the print spectral pass.
+    /// Ignored when `scan_film` is set. `None` = no local print exposure.
+    pub print_exposure_map_ev: Option<&'a [f32]>,
 }
 
 /// RGB → film-raw front pass of the GPU-resident chain. Both variants are
