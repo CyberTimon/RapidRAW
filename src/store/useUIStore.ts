@@ -77,6 +77,7 @@ const ALL_PANELS: Panel[] = [
   Panel.FolderTree,
   Panel.Export,
   Panel.Tethering,
+  Panel.Film,
   Panel.Adjustments,
   Panel.Crop,
   Panel.Masks,
