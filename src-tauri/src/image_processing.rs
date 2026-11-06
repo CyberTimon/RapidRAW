@@ -3538,6 +3538,23 @@ pub struct HistogramData {
     green: Vec<f32>,
     blue: Vec<f32>,
     luma: Vec<f32>,
+    luma_median: u8,
+}
+
+fn histogram_median(counts: &[u32; 256]) -> u8 {
+    let total: u64 = counts.iter().map(|count| *count as u64).sum();
+    if total == 0 {
+        return 128;
+    }
+    let target = (total + 1) / 2;
+    let mut cumulative = 0u64;
+    for (bin, count) in counts.iter().enumerate() {
+        cumulative += *count as u64;
+        if cumulative >= target {
+            return bin as u8;
+        }
+    }
+    255
 }
 
 pub enum AnalyticsPixels {
@@ -3604,6 +3621,7 @@ pub fn calculate_histogram(frame: &AnalyticsFrame) -> Result<HistogramData, Stri
             a
         });
 
+    let luma_median = histogram_median(&counts[3]);
     let [mut red, mut green, mut blue, mut luma] =
         counts.map(|channel| channel.map(|c| c as f32).to_vec());
 
@@ -3623,6 +3641,7 @@ pub fn calculate_histogram(frame: &AnalyticsFrame) -> Result<HistogramData, Stri
         green,
         blue,
         luma,
+        luma_median,
     })
 }
 
@@ -3723,8 +3742,12 @@ pub fn encode_analytics_packet(
                     out.extend_from_slice(&v.to_le_bytes());
                 }
             }
+            put_u32(&mut out, h.luma_median as usize);
         }
-        None => put_u32(&mut out, 0),
+        None => {
+            put_u32(&mut out, 0);
+            put_u32(&mut out, 256);
+        }
     }
 
     match waveform {

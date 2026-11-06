@@ -118,6 +118,9 @@
       "whiteBalance": "Bilanciamento del Bianco"
     },
     "curves": {
+      "adaptiveContrast": "Contrasto adattivo",
+      "adaptiveContrastTooltip": "Aggiunge contrasto intorno al tono mediano senza cambiare l'esposizione",
+      "anchorMedian": "Ancora alla mediana",
       "channelTitle": "Canale {{channel}}",
       "channels": {
         "blue": "Blu",
@@ -128,6 +131,7 @@
       "copyParametric": "Copia Curva Parametrica {{channel}}",
       "copyPoint": "Copia Curva per Punti {{channel}}",
       "curveDataUnavailable": "Dati curva non disponibili.",
+      "median": "Mediana {{value}}",
       "parametricCurve": "Curva Parametrica",
       "params": {
         "blackLevel": "Livello del Nero",

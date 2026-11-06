@@ -118,6 +118,9 @@
       "whiteBalance": "ホワイトバランス"
     },
     "curves": {
+      "adaptiveContrast": "適応コントラスト",
+      "adaptiveContrastTooltip": "露出を保ったまま、中央値のトーンを基準にコントラストを足します",
+      "anchorMedian": "中央値に固定",
       "channelTitle": "{{channel}} チャンネル",
       "channels": {
         "blue": "ブルー",
@@ -128,6 +131,7 @@
       "copyParametric": "{{channel}} パラメトリックカーブをコピー",
       "copyPoint": "{{channel}} ポイントカーブをコピー",
       "curveDataUnavailable": "カーブデータがありません。",
+      "median": "中央値 {{value}}",
       "parametricCurve": "パラメトリックカーブ",
       "params": {
         "blackLevel": "黒レベル",

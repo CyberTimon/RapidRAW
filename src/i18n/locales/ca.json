@@ -118,6 +118,9 @@
       "whiteBalance": "Balanç de blancs"
     },
     "curves": {
+      "adaptiveContrast": "Contrast adaptatiu",
+      "adaptiveContrastTooltip": "Afegeix contrast al voltant del to medià sense canviar l'exposició",
+      "anchorMedian": "Ancora a la mediana",
       "channelTitle": "Canal {{channel}}",
       "channels": {
         "blue": "Blau",
@@ -128,6 +131,7 @@
       "copyParametric": "Copiar corba paramètrica de {{channel}}",
       "copyPoint": "Copiar corba de punts de {{channel}}",
       "curveDataUnavailable": "Dades de la corba no disponibles.",
+      "median": "Mediana {{value}}",
       "parametricCurve": "Corba paramètrica",
       "params": {
         "blackLevel": "Nivell de negre",

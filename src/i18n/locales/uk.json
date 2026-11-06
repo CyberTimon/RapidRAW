@@ -118,6 +118,9 @@
       "whiteBalance": "Баланс білого"
     },
     "curves": {
+      "adaptiveContrast": "Адаптивний контраст",
+      "adaptiveContrastTooltip": "Додає контраст навколо медіанного тону, не зсуваючи експозицію",
+      "anchorMedian": "Закріпити на медіані",
       "channelTitle": "Канал {{channel}}",
       "channels": {
         "blue": "Синій",
@@ -128,6 +131,7 @@
       "copyParametric": "Копіювати параметричну криву ({{channel}})",
       "copyPoint": "Копіювати точкову криву ({{channel}})",
       "curveDataUnavailable": "Дані кривої недоступні.",
+      "median": "Медіана {{value}}",
       "parametricCurve": "Параметрична крива",
       "params": {
         "blackLevel": "Рівень чорного",

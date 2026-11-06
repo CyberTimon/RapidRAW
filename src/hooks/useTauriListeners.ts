@@ -24,7 +24,7 @@ const parseAnalyticsPacket = async (buffer: ArrayBuffer) => {
   offset += pathLength;
 
   const bins = readU32();
-  let histogram: { red: number[]; green: number[]; blue: number[]; luma: number[] } | null = null;
+  let histogram: { red: number[]; green: number[]; blue: number[]; luma: number[]; lumaMedian?: number } | null = null;
   if (bins > 0) {
     const readChannel = () => {
       const channel = new Array<number>(bins);
@@ -36,6 +36,9 @@ const parseAnalyticsPacket = async (buffer: ArrayBuffer) => {
     };
     histogram = { red: readChannel(), green: readChannel(), blue: readChannel(), luma: readChannel() };
   }
+
+  const lumaMedian = readU32();
+  if (histogram && lumaMedian <= 255) histogram.lumaMedian = lumaMedian;
 
   const width = readU32();
   const height = readU32();
