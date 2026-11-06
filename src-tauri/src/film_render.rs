@@ -38,7 +38,7 @@ use tauri::Manager;
 
 use crate::app_state::AppState;
 use crate::gpu_processing::DisplayOutput;
-use crate::image_processing::{GpuContext, RenderOutputPrecision, get_geometry_params_from_json};
+use crate::image_processing::{GpuContext, RenderOutputPrecision};
 use crate::gpu_processing::RenderRequest;
 use crate::render_source::RenderSource;
 
@@ -363,6 +363,45 @@ fn image_buf_to_dynamic(img: &ImageBuf, precision: RenderOutputPrecision) -> Dyn
     }
 }
 
+/// CPU equivalent of `RenderSource`'s GPU transform chain (film mode skips
+/// the effect stages by construction). Uses the pre-computed `SourceTransform`
+/// so lens profiles and crop scaling match the GPU path exactly.
+fn apply_transform_cpu(source: &RenderSource) -> DynamicImage {
+    use crate::image_processing::{
+        apply_coarse_rotation, apply_flip, apply_rotation, crop_rect, downscale_f32_image,
+        warp_image_geometry,
+    };
+
+    let transform = &source.transform;
+    let mut current = match &transform.warp {
+        Some(warp) => warp_image_geometry(source.image, warp.clone()),
+        None => source.image.clone(),
+    };
+
+    let working = transform.working_size((source.image.width(), source.image.height()));
+    if working != (current.width(), current.height()) {
+        current = downscale_f32_image(&current, working.0, working.1);
+    }
+
+    let frame = &transform.frame;
+    current = apply_coarse_rotation(current, frame.orientation).into_owned();
+    current = apply_flip(current, frame.flip_horizontal, frame.flip_vertical).into_owned();
+    current = apply_rotation(current, frame.rotation).into_owned();
+    if let Some((x, y, w, h)) = frame
+        .crop
+        .as_ref()
+        .and_then(|c| crop_rect(c, (current.width(), current.height())))
+    {
+        current = current.crop_imm(x, y, w, h);
+    }
+
+    let output = transform.output_size((source.image.width(), source.image.height()));
+    if output != (current.width(), current.height()) {
+        current = downscale_f32_image(&current, output.0, output.1);
+    }
+    current
+}
+
 /// Film-mode replacement for the whole GPU adjustment pass. Produces the
 /// final display-ready image and optionally updates the on-screen display.
 pub fn render_film_frame(
@@ -378,9 +417,10 @@ pub fn render_film_frame(
     let start = std::time::Instant::now();
     let (width, height) = source.size();
 
-    // 1. Geometry: film mode applies the full warp (crop/rotate/lens) on CPU.
-    let geometry = get_geometry_params_from_json("", source.adjustments);
-    let warped = crate::image_processing::warp_image_geometry(source.image, geometry);
+    // 1. Geometry: mirror the GPU transform chain on CPU (warp → working fit
+    //    → frame → output fit), effects excluded — the film engine replaces
+    //    the entire adjustment pipeline, including relight/fog/lens-blur.
+    let warped = apply_transform_cpu(source);
     if (warped.width(), warped.height()) != (width, height) {
         log::warn!(
             "[{}] film warp dims {:?} != expected {:?}",
@@ -416,8 +456,9 @@ pub fn render_film_frame(
         Some(g) => g,
         None => &engine.cpu,
     };
-    let out = pipeline.process_resident_borrowed(&img, backend)
-        .ok_or("film pipeline resident path unavailable")?;
+    // `process` prefers the GPU-resident fast path when the backend supports
+    // it and falls back to the staged CPU path automatically.
+    let out = pipeline.process(img, backend);
     drop(engine_guard);
 
     log::info!(

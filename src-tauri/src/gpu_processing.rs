@@ -842,6 +842,12 @@ pub fn get_or_init_gpu_context(
     {
         required_features |= wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
     }
+    // Zero-copy uploads/readbacks for the film engine's storage buffers on
+    // unified-memory GPUs (no-op elsewhere). Matches spektrafilm-rs upstream.
+    if adapter_info.device_type == wgpu::DeviceType::IntegratedGpu {
+        required_features |=
+            wgpu::Features::MAPPABLE_PRIMARY_BUFFERS & adapter.features();
+    }
 
     let limits = adapter.limits();
 
