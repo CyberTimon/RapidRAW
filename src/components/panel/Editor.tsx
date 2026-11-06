@@ -38,6 +38,7 @@ import { useAiMasking } from '../../hooks/useAiMasking';
 import { useEditorActions, withRotation } from '../../hooks/useEditorActions';
 import { clickZoomTarget, interpretWheel, movedBeyondClick } from '../../utils/canvasControls';
 import { getVisibleImageRegion } from '../../utils/previewResolution';
+import { getDevicePixelRatio } from '../../utils/displayScale';
 
 const parseRgb = (rgbStr: string): [number, number, number, number] => {
   const match = rgbStr.match(/[\d.]+/g);
@@ -497,7 +498,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       return { minScale: 0.1, maxScale: 20 };
     }
 
-    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    const dpr = getDevicePixelRatio();
     const scaleFor100Percent = 1 / imageRenderSize.scale;
 
     const minScale = (0.1 / dpr) * scaleFor100Percent;
@@ -1391,7 +1392,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+        const dpr = getDevicePixelRatio();
         const scaleForCss100 = imageRenderSizeRef.current.scale ? 1 / imageRenderSizeRef.current.scale : 1;
         const zoomTarget = clickZoomTarget(
           currentScale,
@@ -1515,7 +1516,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     const region = getVisibleImageRegion(view, renderSize, padding);
     if (!region) return null;
 
-    const pixelRatio = useSettingsStore.getState().appSettings?.useFullDpiRendering ? window.devicePixelRatio || 1 : 1;
+    const pixelRatio = useSettingsStore.getState().appSettings?.useFullDpiRendering ? getDevicePixelRatio() : 1;
     const density = Math.max(1, view.scale) * pixelRatio;
     const [x, y, w, h] = region;
     const width = Math.max(1, Math.ceil(w * renderSize.width * density));
@@ -1754,7 +1755,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       }
 
       const currentRect = container.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = getDevicePixelRatio();
       const windowWidth = Math.max(window.innerWidth * dpr, 1);
       const windowHeight = Math.max(window.innerHeight * dpr, 1);
 

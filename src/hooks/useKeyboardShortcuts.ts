@@ -9,6 +9,7 @@ import { getReopenedPanelWidth, useUIStore } from '../store/useUIStore';
 import { useProcessStore } from '../store/useProcessStore';
 import { applyCrop, cancelCrop, useEditorActions } from './useEditorActions';
 import { useLibraryActions } from './useLibraryActions';
+import { getDevicePixelRatio } from '../utils/displayScale';
 
 const SPEED_EDIT_IMAGE_DIRECTIONS: Record<string, number> = { KeyQ: -1, KeyE: 1 };
 const NON_TEXT_INPUT_TYPES = new Set(['checkbox', 'radio', 'range', 'button', 'submit', 'reset', 'color', 'file']);
@@ -205,7 +206,7 @@ export const useKeyboardShortcuts = ({
         shouldFire: (s: any) => s.ui.activeView === 'editor' && !!s.editor.selectedImage,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+          const dpr = getDevicePixelRatio();
           const currentPercent =
             s.editor.originalSize?.width > 0 && s.editor.displaySize?.width > 0
               ? (s.editor.displaySize.width * dpr) / s.editor.originalSize.width
@@ -217,7 +218,7 @@ export const useKeyboardShortcuts = ({
         shouldFire: (s: any) => s.ui.activeView === 'editor' && !!s.editor.selectedImage,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+          const dpr = getDevicePixelRatio();
           const currentPercent =
             s.editor.originalSize?.width > 0 && s.editor.displaySize?.width > 0
               ? (s.editor.displaySize.width * dpr) / s.editor.originalSize.width
@@ -229,7 +230,7 @@ export const useKeyboardShortcuts = ({
         shouldFire: (s: any) => s.ui.activeView === 'editor' && !!s.editor.selectedImage,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+          const dpr = getDevicePixelRatio();
           const { originalSize, displaySize, baseRenderSize } = s.editor;
           const currentPercent =
             originalSize?.width > 0 && displaySize?.width > 0
@@ -260,7 +261,7 @@ export const useKeyboardShortcuts = ({
         shouldFire: (s: any) => s.ui.activeView === 'editor' && !!s.editor.selectedImage,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+          const dpr = getDevicePixelRatio();
           const currentPercent =
             s.editor.originalSize?.width > 0 && s.editor.displaySize?.width > 0
               ? (s.editor.displaySize.width * dpr) / s.editor.originalSize.width
@@ -272,7 +273,7 @@ export const useKeyboardShortcuts = ({
         shouldFire: (s: any) => s.ui.activeView === 'editor' && !!s.editor.selectedImage,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+          const dpr = getDevicePixelRatio();
           const currentPercent =
             s.editor.originalSize?.width > 0 && s.editor.displaySize?.width > 0
               ? (s.editor.displaySize.width * dpr) / s.editor.originalSize.width

@@ -1971,6 +1971,11 @@
       "title": "Configuració general",
       "toolFocusMode": "Mode de concentració en eines",
       "toolFocusModeDesc": "Replega automàticament les altres eines d'un tauler quan n'amplieu una.",
+      "uiScale": "Escala de la interfície",
+      "uiScaleCompact": "Compacta",
+      "uiScaleDefault": "Per defecte",
+      "uiScaleDesc": "Fes la interfície més petita o més gran, independentment de l'escalat de pantalla del sistema. Les mides compactes aprofiten millor les pantalles petites de portàtil.",
+      "uiScaleLarge": "Gran",
       "xmpSync": "Sincronització de metadades XMP",
       "xmpSyncDesc": "Sincronitzar puntuacions, etiquetes de color i etiquetes amb fitxers sidecar XMP estàndard per a la compatibilitat amb altres editors de fotos."
     },

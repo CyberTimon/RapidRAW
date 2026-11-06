@@ -2012,6 +2012,11 @@
       "title": "Obecná nastavení",
       "toolFocusMode": "Režim zaměření na nástroj",
       "toolFocusModeDesc": "Při rozbalení jednoho nástroje v panelu automaticky sbalí ostatní nástroje.",
+      "uiScale": "Měřítko rozhraní",
+      "uiScaleCompact": "Kompaktní",
+      "uiScaleDefault": "Výchozí",
+      "uiScaleDesc": "Zmenšete nebo zvětšete rozhraní nezávisle na systémovém škálování displeje. Kompaktní velikosti se lépe hodí na malé obrazovky notebooků.",
+      "uiScaleLarge": "Velké",
       "xmpSync": "Synchronizace metadat XMP",
       "xmpSyncDesc": "Synchronizujte hodnocení, barevné štítky a značky se standardními doprovodnými soubory XMP pro kompatibilitu s jinými editory fotografií."
     },

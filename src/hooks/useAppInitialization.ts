@@ -8,6 +8,7 @@ import { useEditorStore } from '../store/useEditorStore';
 import { useProcessStore } from '../store/useProcessStore';
 import { THEMES, DEFAULT_THEME_ID, ThemeProps } from '../utils/themes';
 import { COPYABLE_ADJUSTMENT_KEYS, withAdjustmentLayout } from '../utils/adjustments';
+import { setLocalUiScale } from '../utils/displayScale';
 import {
   FilterCriteria,
   Invokes,
@@ -173,6 +174,7 @@ export const useAppInitialization = ({
         const reconciledWorkspace = reconcileWorkspace(settings?.workspace, isTetheringSupported);
         settings.workspace = reconciledWorkspace;
 
+        setLocalUiScale(settings.uiScale);
         setAppSettings(settings);
         i18n.changeLanguage(settings.language);
 

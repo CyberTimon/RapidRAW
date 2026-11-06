@@ -2576,6 +2576,9 @@ pub fn run() {
 
             let window = window_builder.build().expect("Failed to build window");
 
+            #[cfg(not(target_os = "android"))]
+            app_settings::apply_saved_ui_scale(&window, &settings);
+
             #[cfg(target_os = "android")]
             android_integration::initialize_android(&window);
 
@@ -2824,6 +2827,7 @@ pub fn run() {
             cache_utils::clear_image_caches,
             app_settings::load_settings,
             app_settings::save_settings,
+            app_settings::set_ui_scale,
             app_settings::is_tethering_supported,
             app_settings::is_wgpu_renderer_supported,
             ai_commands::generate_ai_subject_mask,

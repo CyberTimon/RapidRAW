@@ -24,6 +24,7 @@ import {
   sceneOverlay,
   sceneUniforms,
 } from './scene';
+import { getDevicePixelRatio } from '../../../utils/displayScale';
 
 export type DepthMapKey = 'lensBlurDepthMap' | 'fogDepthMap' | 'motionBlurDepthMap' | 'relightNormalMap';
 
@@ -290,7 +291,7 @@ export default function DepthScope({ mapKey, scene, onChange, onDragStateChange 
     const s = state.current;
 
     const resize = () => {
-      renderer.resize(container.clientWidth, container.clientHeight, Math.min(window.devicePixelRatio || 1, 2));
+      renderer.resize(container.clientWidth, container.clientHeight, Math.min(getDevicePixelRatio(), 2));
       draw();
     };
     const resizeObserver = new ResizeObserver(resize);

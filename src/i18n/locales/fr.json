@@ -1972,6 +1972,11 @@
       "title": "Paramètres généraux",
       "toolFocusMode": "Mode de concentration sur les outils",
       "toolFocusModeDesc": "Replie automatiquement les autres outils d'un panneau lorsque vous en déployez un.",
+      "uiScale": "Échelle de l'interface",
+      "uiScaleCompact": "Compacte",
+      "uiScaleDefault": "Par défaut",
+      "uiScaleDesc": "Réduire ou agrandir l'interface, indépendamment de la mise à l'échelle de l'affichage du système. Les tailles compactes conviennent mieux aux petits écrans d'ordinateur portable.",
+      "uiScaleLarge": "Grande",
       "xmpSync": "Synchronisation des métadonnées XMP",
       "xmpSyncDesc": "Synchroniser les notes, les étiquettes de couleur et les tags vers des fichiers annexes XMP standard pour la compatibilité avec d'autres éditeurs de photos."
     },

@@ -2012,6 +2012,11 @@
       "title": "Ustawienia ogólne",
       "toolFocusMode": "Tryb skupienia na narzędziach",
       "toolFocusModeDesc": "Automatycznie zwija inne narzędzia w panelu, gdy rozwijasz jedno z nich.",
+      "uiScale": "Skala interfejsu",
+      "uiScaleCompact": "Kompaktowy",
+      "uiScaleDefault": "Domyślny",
+      "uiScaleDesc": "Zmniejsz lub powiększ interfejs niezależnie od skalowania ekranu w systemie. Kompaktowe rozmiary mieszczą więcej na małych ekranach laptopów.",
+      "uiScaleLarge": "Duży",
       "xmpSync": "Synchronizacja metadanych XMP",
       "xmpSyncDesc": "Synchronizuj oceny, etykiety kolorów i tagi do standardowych plików XMP w celu zachowania kompatybilności z innymi edytorami zdjęć."
     },

@@ -12,6 +12,7 @@ import { debouncedSave, getOriginalAdjustments } from './useEditorActions';
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { prepareAdjustmentsPayload } from '../utils/backendPayload';
 import { calculateTargetResolution, getVisibleImageRegion } from '../utils/previewResolution';
+import { getDevicePixelRatio } from '../utils/displayScale';
 
 const isWgpuRender = (buffer: ArrayBuffer) => new TextDecoder().decode(buffer.slice(0, 11)) === 'WGPU_RENDER';
 
@@ -321,7 +322,7 @@ export function useImageProcessing(
 
   const calculateTargetRes = useCallback(
     (displayMax: number = displaySize.width === 0 ? 0 : Math.max(displaySize.width, displaySize.height)) => {
-      const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+      const dpr = getDevicePixelRatio();
       const originalMax =
         originalSize.width > 0 && originalSize.height > 0 ? Math.max(originalSize.width, originalSize.height) : 0;
       return calculateTargetResolution(

@@ -1924,6 +1924,11 @@
       "title": "일반 설정",
       "toolFocusMode": "도구 집중 모드",
       "toolFocusModeDesc": "도구를 펼치면 같은 패널의 다른 도구를 자동으로 접습니다.",
+      "uiScale": "인터페이스 배율",
+      "uiScaleCompact": "컴팩트",
+      "uiScaleDefault": "기본값",
+      "uiScaleDesc": "시스템 디스플레이 배율과 관계없이 인터페이스를 작게 또는 크게 만듭니다. 컴팩트 크기는 작은 노트북 화면에 더 많은 내용을 표시합니다.",
+      "uiScaleLarge": "크게",
       "xmpSync": "XMP 메타데이터 동기화",
       "xmpSyncDesc": "다른 사진 편집기와의 호환성을 위해 평점, 색상 레이블, 태그를 표준 XMP 사이드카 파일에 동기화합니다."
     },
