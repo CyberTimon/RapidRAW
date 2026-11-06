@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import { Invokes, ImageFile, ImageFlag, ThumbnailAspectRatio } from '../../ui/AppProperties';
+import { Invokes, ImageFile, ThumbnailAspectRatio } from '../../ui/AppProperties';
 import FlagToggles from '../../ui/FlagToggles';
 import FlagBadges from '../../ui/FlagBadges';
 import { Thumbnail } from './LibraryItems';
@@ -115,7 +115,7 @@ function CullingPreview({
 
   const displayEditIcon = useSettingsStore((s) => s.appSettings?.displayEditIcon ?? true);
   const showEditIcon = image.is_edited && displayEditIcon;
-  const hasRating = rating > 0 && image.flag !== ImageFlag.Reject;
+  const hasRating = rating > 0;
   const hasAnyOverlay = showEditIcon || !!colorLabel || hasRating || !!image.flag;
 
   const currentTags = useMemo(() => {
