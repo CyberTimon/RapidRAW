@@ -119,7 +119,7 @@
     },
     "curves": {
       "adaptiveContrast": "Imposta punti curva",
-      "adaptiveContrastTooltip": "Inserisce punti curva su ombre, mezzi toni e luci dell'immagine o della maschera attiva. Restano sulla curva finché non li sposti",
+      "adaptiveContrastTooltip": "Posiziona l'ancora dei mezzitoni sulla mediana dell'immagine. I valori dei cursori restano invariati e gli intervalli dei toni scuri e chiari mantengono la larghezza abituale",
       "anchorMedian": "Ancora alla mediana",
       "channelTitle": "Canale {{channel}}",
       "channels": {

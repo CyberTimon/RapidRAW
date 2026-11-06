@@ -119,7 +119,7 @@
     },
     "curves": {
       "adaptiveContrast": "Col·locar punts",
-      "adaptiveContrastTooltip": "Col·loca punts de corba a les ombres, els tons mitjans i les llums de la imatge o de la màscara activa. Es queden a la corba fins que els moguis",
+      "adaptiveContrastTooltip": "Col·loca l'àncora dels tons mitjans a la mediana de la imatge. Els valors dels controls es mantenen, i els rangs de tons foscos i clars conserven l'amplada habitual",
       "anchorMedian": "Ancora a la mediana",
       "channelTitle": "Canal {{channel}}",
       "channels": {

@@ -119,7 +119,7 @@
     },
     "curves": {
       "adaptiveContrast": "Placer les points",
-      "adaptiveContrastTooltip": "Place des points de courbe sur les ombres, les tons moyens et les hautes lumières de l'image ou du masque actif. Ils restent sur la courbe tant que vous ne les déplacez pas",
+      "adaptiveContrastTooltip": "Place l'ancre des tons moyens sur la médiane de l'image. Les valeurs des curseurs restent inchangées, et les plages des tons sombres et clairs gardent leur largeur habituelle",
       "anchorMedian": "Ancrer sur la médiane",
       "channelTitle": "Canal {{channel}}",
       "channels": {

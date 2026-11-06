@@ -119,7 +119,7 @@
     },
     "curves": {
       "adaptiveContrast": "Curve-punten plaatsen",
-      "adaptiveContrastTooltip": "Plaatst curvepunten op schaduwen, middentonen en hooglichten van de afbeelding of het actieve masker. Ze blijven op de curve tot je ze verplaatst",
+      "adaptiveContrastTooltip": "Zet het middentoonanker op de mediaan van de afbeelding. De schuifwaarden blijven gelijk, en de donkere en lichte bereiken houden hun gebruikelijke breedte",
       "anchorMedian": "Veranker op de mediaan",
       "channelTitle": "{{channel}} kanaal",
       "channels": {

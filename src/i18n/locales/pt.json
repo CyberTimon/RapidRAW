@@ -119,7 +119,7 @@
     },
     "curves": {
       "adaptiveContrast": "Definir pontos da curva",
-      "adaptiveContrastTooltip": "Coloca pontos da curva nas sombras, meios-tons e realces da imagem ou da máscara ativa. Ficam na curva até você movê-los",
+      "adaptiveContrastTooltip": "Coloca a âncora dos meios-tons na mediana da imagem. Os valores dos controles permanecem, e as faixas de tons escuros e claros mantêm a largura habitual",
       "anchorMedian": "Ancorar na mediana",
       "channelTitle": "Canal {{channel}}",
       "channels": {
