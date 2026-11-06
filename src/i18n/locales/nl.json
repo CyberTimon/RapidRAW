@@ -118,6 +118,9 @@
       "whiteBalance": "Witbalans"
     },
     "curves": {
+      "adaptiveContrast": "Adaptief contrast",
+      "adaptiveContrastTooltip": "Voeg contrast toe rond de mediaan, zonder de belichting te verschuiven",
+      "anchorMedian": "Veranker op de mediaan",
       "channelTitle": "{{channel}} kanaal",
       "channels": {
         "blue": "Blauw",
@@ -128,6 +131,7 @@
       "copyParametric": "Kopieer {{channel}} parametrische curve",
       "copyPoint": "Kopieer {{channel}} puntcurve",
       "curveDataUnavailable": "Curvegegevens niet beschikbaar.",
+      "median": "Mediaan {{value}}",
       "parametricCurve": "Parametrische curve",
       "params": {
         "blackLevel": "Zwartniveau",

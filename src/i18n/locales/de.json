@@ -118,6 +118,9 @@
       "whiteBalance": "Weißabgleich"
     },
     "curves": {
+      "adaptiveContrast": "Adaptiver Kontrast",
+      "adaptiveContrastTooltip": "Kontrast um den Median legen, damit die Belichtung gleich bleibt",
+      "anchorMedian": "Am Median verankern",
       "channelTitle": "{{channel}}-Kanal",
       "channels": {
         "blue": "Blau",
@@ -128,6 +131,7 @@
       "copyParametric": "Parametrische {{channel}}-Kurve kopieren",
       "copyPoint": "Punktkurve ({{channel}}) kopieren",
       "curveDataUnavailable": "Kurvendaten nicht verfügbar.",
+      "median": "Median {{value}}",
       "parametricCurve": "Parametrische Kurve",
       "params": {
         "blackLevel": "Schwarzpunkt",

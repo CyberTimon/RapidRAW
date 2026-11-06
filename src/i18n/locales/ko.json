@@ -118,6 +118,9 @@
       "whiteBalance": "화이트 밸런스"
     },
     "curves": {
+      "adaptiveContrast": "적응형 대비",
+      "adaptiveContrastTooltip": "노출은 유지한 채 중간 톤을 기준으로 대비를 더합니다",
+      "anchorMedian": "중간값에 고정",
       "channelTitle": "{{channel}} 채널",
       "channels": {
         "blue": "파랑",
@@ -128,6 +131,7 @@
       "copyParametric": "{{channel}} 파라메트릭 커브 복사",
       "copyPoint": "{{channel}} 포인트 커브 복사",
       "curveDataUnavailable": "커브 데이터를 사용할 수 없습니다.",
+      "median": "중간값 {{value}}",
       "parametricCurve": "파라메트릭 커브",
       "params": {
         "blackLevel": "블랙 레벨",

@@ -118,6 +118,9 @@
       "whiteBalance": "Balans bieli"
     },
     "curves": {
+      "adaptiveContrast": "Kontrast adaptacyjny",
+      "adaptiveContrastTooltip": "Dodaj kontrast wokół mediany, bez zmiany ekspozycji",
+      "anchorMedian": "Zakotwicz na medianie",
       "channelTitle": "Kanał {{channel}}",
       "channels": {
         "blue": "Niebieski",
@@ -128,6 +131,7 @@
       "copyParametric": "Kopiuj krzywą parametryczną ({{channel}})",
       "copyPoint": "Kopiuj krzywą punktową ({{channel}})",
       "curveDataUnavailable": "Dane krzywej są niedostępne.",
+      "median": "Mediana {{value}}",
       "parametricCurve": "Krzywa parametryczna",
       "params": {
         "blackLevel": "Poziom czerni",
