@@ -16,14 +16,14 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
   const uncroppedAdjustedPreviewUrl = useEditorStore((s) => s.uncroppedAdjustedPreviewUrl);
   const originalSize = useEditorStore((s) => s.originalSize);
   const previewSize = useEditorStore((s) => s.previewSize);
-  const hasRenderedFirstFrame = useEditorStore((s) => s.hasRenderedFirstFrame);
+  const wgpuPhase = useEditorStore((s) => s.wgpuPhase);
 
   const setEditor = useEditorStore((s) => s.setEditor);
   const resetHistory = useEditorStore((s) => s.resetHistory);
   const setLibrary = useLibraryStore((s) => s.setLibrary);
   const appSettings = useSettingsStore((s) => s.appSettings);
 
-  const isWgpuActive = appSettings?.useWgpuRenderer !== false && selectedImage?.isReady && hasRenderedFirstFrame;
+  const isWgpuActive = appSettings?.useWgpuRenderer !== false && selectedImage?.isReady && wgpuPhase === 'live';
 
   useEffect(() => {
     if (selectedImage && !selectedImage.isReady && selectedImage.path) {

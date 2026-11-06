@@ -30,7 +30,7 @@ import ImageCanvas, { ImageRegion, MaskOverlayImage } from './editor/ImageCanvas
 import SpeedEditOverlay from './editor/overlays/SpeedEditOverlay';
 import { Mask, SubMask } from './right/Masks';
 import { CompareView, Panel, TransformState, Invokes } from '../ui/AppProperties';
-import { useEditorStore } from '../../store/useEditorStore';
+import { useEditorStore, WgpuPhase } from '../../store/useEditorStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
@@ -154,8 +154,9 @@ function SplitDivider({ boundsRef, isVertical, position, onPositionChange }: Spl
 
 interface WgpuRenderState {
   useWgpuRenderer: boolean | undefined;
+  path: string | null;
   isReady: boolean;
-  hasRenderedFirstFrame: boolean;
+  wgpuPhase: WgpuPhase;
   isCropping: boolean;
   uncroppedAdjustedPreviewUrl: string | null;
   showOriginal: boolean;
@@ -208,7 +209,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const activeAiPatchContainerId = useEditorStore((s) => s.activeAiPatchContainerId);
   const activeAiSubMaskId = useEditorStore((s) => s.activeAiSubMaskId);
   const isMaskControlHovered = useEditorStore((s) => s.isMaskControlHovered);
-  const hasRenderedFirstFrame = useEditorStore((s) => s.hasRenderedFirstFrame);
+  const wgpuPhase = useEditorStore((s) => s.wgpuPhase);
 
   const setEditor = useEditorStore((s) => s.setEditor);
   const toggleFullScreen = useUIStore((s) => s.toggleFullScreen);
@@ -1670,8 +1671,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
   const wgpuStateRef = useRef<WgpuRenderState>({
     useWgpuRenderer: appSettings?.useWgpuRenderer,
+    path: selectedImage?.path ?? null,
     isReady: selectedImage?.isReady ?? false,
-    hasRenderedFirstFrame,
+    wgpuPhase,
     isCropping,
     uncroppedAdjustedPreviewUrl,
     showOriginal,
@@ -1690,8 +1692,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
     wgpuStateRef.current = {
       useWgpuRenderer: appSettings?.useWgpuRenderer,
+      path: selectedImage?.path ?? null,
       isReady: selectedImage?.isReady ?? false,
-      hasRenderedFirstFrame,
+      wgpuPhase,
       isCropping,
       uncroppedAdjustedPreviewUrl,
       showOriginal,
@@ -1703,8 +1706,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   }, [
     appSettings?.useWgpuRenderer,
     appSettings?.editorNeutralGreyBg,
+    selectedImage?.path,
     selectedImage?.isReady,
-    hasRenderedFirstFrame,
+    wgpuPhase,
     isCropping,
     uncroppedAdjustedPreviewUrl,
     showOriginal,
@@ -1719,8 +1723,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   }, [
     appSettings?.useWgpuRenderer,
     appSettings?.editorNeutralGreyBg,
+    selectedImage?.path,
     selectedImage?.isReady,
-    hasRenderedFirstFrame,
+    wgpuPhase,
     isCropping,
     uncroppedAdjustedPreviewUrl,
     showOriginal,
@@ -1767,16 +1772,17 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       const clipH = Math.max((viewportRect.height + OVERLAP * 2) * dpr, 1);
       const irs = imageRenderSizeRef.current;
 
-      if (
+      const shouldHide =
         currentRect.width < 10 ||
         currentRect.height < 10 ||
         state.useWgpuRenderer === false ||
-        !state.isReady ||
-        !state.hasRenderedFirstFrame ||
-        irs.width === 0 ||
-        irs.height === 0
-      ) {
-        const hiddenTransform = `${windowWidth},${windowHeight},-999999,-999999,1,1,${clipX},${clipY},${clipW},${clipH},${state.bgPrimary?.join(',')},${state.bgSecondary?.join(',')}`;
+        state.wgpuPhase === 'hidden';
+      const isLayoutPending = !state.isReady || irs.width === 0 || irs.height === 0;
+
+      if (shouldHide || isLayoutPending) {
+        if (!shouldHide) return;
+
+        const hiddenTransform = `${state.path},hidden,${windowWidth},${windowHeight},-999999,-999999,1,1,${clipX},${clipY},${clipW},${clipH},${state.bgPrimary?.join(',')},${state.bgSecondary?.join(',')}`;
 
         if (lastWgpuTransformRef.current !== hiddenTransform && !isInvoking) {
           lastWgpuTransformRef.current = hiddenTransform;
@@ -1797,6 +1803,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
               bgSecondary: state.bgSecondary || [0, 0, 0, 1],
               pixelated: false,
               ...NO_SPLIT,
+              path: state.path,
             },
           })
             .catch(() => {})
@@ -1861,7 +1868,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
                 }
               : NO_SPLIT;
 
-      const currentTransform = `${windowWidth},${windowHeight},${screenX},${screenY},${screenW},${screenH},${clipX},${clipY},${clipW},${clipH},${state.bgPrimary?.join(',')},${state.bgSecondary?.join(',')},${split.splitOrigin},${split.splitNormal},${split.splitOffset}`;
+      const isArming = state.wgpuPhase === 'arming';
+      const currentTransform = `${state.path},${isArming},${windowWidth},${windowHeight},${screenX},${screenY},${screenW},${screenH},${clipX},${clipY},${clipW},${clipH},${state.bgPrimary?.join(',')},${state.bgSecondary?.join(',')},${split.splitOrigin},${split.splitNormal},${split.splitOffset}`;
 
       if (lastWgpuTransformRef.current !== currentTransform && !isInvoking) {
         lastWgpuTransformRef.current = currentTransform;
@@ -1869,7 +1877,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
         const isZoomedIn = scale >= maxScaleRef.current - 0.5;
 
-        invoke(Invokes.UpdateWgpuTransform, {
+        const sentPath = state.path;
+
+        invoke<boolean>(Invokes.UpdateWgpuTransform, {
           payload: {
             windowWidth,
             windowHeight,
@@ -1885,8 +1895,24 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
             bgSecondary: state.bgSecondary || [0, 0, 0, 1],
             pixelated: isZoomedIn,
             ...split,
+            path: sentPath,
+            awaitPresent: isArming,
           },
         })
+          .then((presented) => {
+            if (!isArming) return;
+            if (!presented) {
+              lastWgpuTransformRef.current = null;
+              return;
+            }
+            requestAnimationFrame(() => {
+              useEditorStore
+                .getState()
+                .setEditor((s) =>
+                  s.wgpuPhase === 'arming' && s.selectedImage?.path === sentPath ? { wgpuPhase: 'live' } : {},
+                );
+            });
+          })
           .catch((err) => console.warn('WGPU Sync Error:', err))
           .finally(() => {
             isInvoking = false;
@@ -2594,7 +2620,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     }
   }
 
-  const isWgpuActive = appSettings?.useWgpuRenderer !== false && hasRenderedFirstFrame;
+  const isWgpuActive = appSettings?.useWgpuRenderer !== false && wgpuPhase === 'live';
   const isSplitActive = activeCompareView === 'vertical' || activeCompareView === 'horizontal';
   const contentTransform = `translate(${transformStateRef.current.positionX}px, ${transformStateRef.current.positionY}px) scale(${transformStateRef.current.scale})`;
   const originalLayer = originalPreview?.url && (
@@ -2630,7 +2656,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       />
     </svg>
   );
-  const hasRenderedAnyPreview = hasRenderedFirstFrame || !!finalPreviewUrl;
+  const hasRenderedAnyPreview = wgpuPhase === 'live' || !!finalPreviewUrl;
 
   return (
     <div
@@ -2771,7 +2797,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
               isMaxZoom={isMaxZoom}
               liveRotation={liveRotation}
               transformScale={transformScale}
-              hasRenderedFirstFrame={hasRenderedFirstFrame}
+              wgpuPhase={wgpuPhase}
               overlayRoot={overlayRoot}
               subscribeViewTransform={subscribeViewTransform}
             />

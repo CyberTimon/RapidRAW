@@ -112,6 +112,14 @@ pub struct DisplayOutput {
     pub target: PreviewTarget,
     pub layer: DisplayLayer,
     pub to_viewer: bool,
+    pub content: u64,
+}
+
+pub fn display_content_key(path: &str) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    path.hash(&mut hasher);
+    hasher.finish()
 }
 
 pub fn align_texture_dimension(value: u32) -> u32 {
@@ -132,6 +140,9 @@ pub struct WgpuDisplay {
     pub standalone: bool,
     pub view: DisplayView,
     pub frame: Option<DisplayFrame>,
+    pub content_key: Option<u64>,
+    pub rect_key: Option<u64>,
+    pub pending_rect: Option<(u64, [f32; 4])>,
     #[cfg(target_os = "linux")]
     pub wayland: Option<crate::wayland_subsurface::WaylandSubsurface>,
 }
@@ -207,10 +218,21 @@ impl WgpuDisplay {
         view: &wgpu::TextureView,
         image_size: [f32; 2],
         texture_size: [f32; 2],
+        content: Option<u64>,
     ) {
         self.latest_transform.image_size = image_size;
         self.latest_transform.texture_size = texture_size;
         self.edited_view = Some(view.clone());
+        if let Some(key) = content {
+            self.content_key = Some(key);
+            if let Some((pending_key, rect)) = self.pending_rect
+                && pending_key == key
+            {
+                self.latest_transform.rect = rect;
+                self.rect_key = Some(key);
+                self.pending_rect = None;
+            }
+        }
         self.place_image();
         self.rebind(device);
         self.flush(device, queue);
@@ -277,6 +299,7 @@ impl WgpuDisplay {
             &view,
             size.map(|dim| dim as f32),
             capacity.map(|dim| dim as f32),
+            None,
         );
     }
 
@@ -301,13 +324,28 @@ impl WgpuDisplay {
         self.place_image();
     }
 
-    pub fn flush(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+    pub fn place_editor_rect(&mut self, content: Option<u64>, rect: [f32; 4]) -> bool {
+        match content {
+            Some(key) if self.content_key != Some(key) => {
+                self.pending_rect = Some((key, rect));
+                false
+            }
+            _ => {
+                self.latest_transform.rect = rect;
+                self.rect_key = self.content_key;
+                self.pending_rect = None;
+                true
+            }
+        }
+    }
+
+    pub fn flush(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) -> bool {
         queue.write_buffer(
             &self.transform_buffer,
             0,
             bytemuck::bytes_of(&self.latest_transform),
         );
-        self.render(device, queue);
+        self.render(device, queue)
     }
 
     fn place_image(&mut self) {
@@ -334,9 +372,12 @@ impl WgpuDisplay {
         self.latest_transform.window = [surface_w, surface_h];
     }
 
-    fn render(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+    fn render(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) -> bool {
         if self.current_bind_group.is_none() && !self.standalone {
-            return;
+            return false;
+        }
+        if !self.standalone && self.rect_key != self.content_key {
+            return false;
         }
         let output = match self.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(tex)
@@ -346,10 +387,10 @@ impl WgpuDisplay {
                 match self.surface.get_current_texture() {
                     wgpu::CurrentSurfaceTexture::Success(tex)
                     | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
-                    _ => return,
+                    _ => return false,
                 }
             }
-            _ => return,
+            _ => return false,
         };
         let view = output
             .texture
@@ -415,6 +456,7 @@ impl WgpuDisplay {
         }
         queue.submit(Some(encoder.finish()));
         output.present();
+        true
     }
 }
 
@@ -609,6 +651,9 @@ pub fn build_wgpu_display(
         standalone,
         view: DisplayView::default(),
         frame: None,
+        content_key: None,
+        rect_key: None,
+        pending_rect: None,
         #[cfg(target_os = "linux")]
         wayland: platform,
     })
@@ -3728,6 +3773,7 @@ fn process_and_get_dynamic_image_inner(
                 &processor.display_textures().output_texture_view,
                 image_size,
                 texture_size,
+                display_output.map(|output| output.content),
             ),
             DisplayLayer::Original => {
                 display.latest_transform.original_size = image_size;

@@ -414,10 +414,10 @@ export function useTauriListeners({
         const editorState = useEditorStore.getState();
         if (
           isEffectActive &&
-          !editorState.hasRenderedFirstFrame &&
+          editorState.wgpuPhase === 'hidden' &&
           event.payload?.path === editorState.selectedImage?.path
         ) {
-          editorState.setEditor({ hasRenderedFirstFrame: true });
+          editorState.setEditor({ wgpuPhase: 'arming' });
         }
       }),
       listen('panorama-progress', (event: any) => {
