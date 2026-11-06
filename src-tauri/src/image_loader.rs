@@ -1022,7 +1022,7 @@ pub async fn load_image(
 
         *state.hdr_result.lock().unwrap_or_else(|e| e.into_inner()) = None;
         *state
-            .panorama_result
+            .panorama_session
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = None;
     }

@@ -110,6 +110,8 @@ export enum Invokes {
   SaveMetadataAndUpdateThumbnail = 'save_metadata_and_update_thumbnail',
   SaveCollage = 'save_collage',
   SavePanorama = 'save_panorama',
+  ReprojectPanorama = 'reproject_panorama',
+  CancelPanorama = 'cancel_panorama',
   SaveHdr = 'save_hdr',
   SavePresets = 'save_presets',
   SaveSettings = 'save_settings',

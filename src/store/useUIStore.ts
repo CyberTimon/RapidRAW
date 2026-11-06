@@ -14,6 +14,7 @@ import {
 } from '../components/ui/AppProperties';
 import { useEditorStore } from './useEditorStore';
 import { pickCropGeometry } from '../utils/adjustments';
+import type { PanoramaMessage, PanoramaPreview, PanoramaProjection } from '../utils/panorama';
 
 export type SwitcherPlacement = 'bottom' | 'right' | 'left' | 'top';
 
@@ -37,12 +38,16 @@ interface CollageModalState {
 }
 
 interface PanoramaModalState {
-  error: string | null;
-  finalImageBase64: string | null;
+  error: PanoramaMessage | null;
   isOpen: boolean;
   isProcessing: boolean;
-  progressMessage: string | null;
+  progressMessage: PanoramaMessage | null;
   stitchingSourcePaths: Array<string>;
+  preview: PanoramaPreview | null;
+  saveProgressPercent: number | null;
+  saveProgressMessage: PanoramaMessage | null;
+  previewError: PanoramaMessage | null;
+  pendingProjection: PanoramaProjection | null;
 }
 
 interface FocusStackModalState {
@@ -100,6 +105,19 @@ export const DEFAULT_PANEL_WIDTH = 350;
 export const DEFAULT_PANEL_SECTION_HEIGHT = 450;
 export const DEFAULT_BOTTOM_PANEL_HEIGHT = 144;
 const MIN_REOPENED_PANEL_WIDTH = 250;
+
+export const initialPanoramaModalState: PanoramaModalState = {
+  error: null,
+  isOpen: false,
+  isProcessing: false,
+  progressMessage: null,
+  stitchingSourcePaths: [],
+  preview: null,
+  saveProgressPercent: null,
+  saveProgressMessage: null,
+  previewError: null,
+  pendingProjection: null,
+};
 
 export const getReopenedPanelWidth = (width: number) =>
   width < MIN_REOPENED_PANEL_WIDTH ? DEFAULT_PANEL_WIDTH : width;
@@ -340,14 +358,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   albumActionTarget: null,
 
   confirmModalState: { isOpen: false },
-  panoramaModalState: {
-    error: null,
-    finalImageBase64: null,
-    isOpen: false,
-    isProcessing: false,
-    progressMessage: '',
-    stitchingSourcePaths: [],
-  },
+  panoramaModalState: initialPanoramaModalState,
   focusStackModalState: {
     error: null,
     finalImageBase64: null,

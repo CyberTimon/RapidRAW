@@ -2,49 +2,70 @@ import { useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useUIStore } from '../store/useUIStore';
 import { Invokes } from '../components/ui/AppProperties';
+import {
+  toPanoramaMessage,
+  updateOpenPanorama,
+  type PanoramaCropRect,
+  type PanoramaProjection,
+} from '../utils/panorama';
 
 export function useProductivityActions(refreshImageList: () => Promise<void>) {
   const setUI = useUIStore((state) => state.setUI);
 
   const handleStartPanorama = useCallback(
     (paths: string[]) => {
-      setUI((state) => ({
-        panoramaModalState: {
-          ...state.panoramaModalState,
-          isProcessing: true,
-          error: null,
-          finalImageBase64: null,
-          progressMessage: 'Starting panorama process...',
-        },
-      }));
+      setUI(
+        updateOpenPanorama({ isProcessing: true, error: null, preview: null, progressMessage: { code: 'starting' } }),
+      );
       invoke(Invokes.StitchPanorama, { paths }).catch((err) => {
-        setUI((state) => ({
-          panoramaModalState: { ...state.panoramaModalState, isProcessing: false, error: String(err) },
-        }));
+        setUI(updateOpenPanorama({ isProcessing: false, error: toPanoramaMessage(err, 'taskFailed') }));
       });
     },
     [setUI],
   );
 
-  const handleSavePanorama = useCallback(async (): Promise<string> => {
-    const { panoramaModalState } = useUIStore.getState();
-    if (panoramaModalState.stitchingSourcePaths.length === 0) {
-      const err = 'Source paths for panorama not found.';
-      setUI((state) => ({ panoramaModalState: { ...state.panoramaModalState, error: err } }));
-      throw new Error(err);
-    }
-    try {
-      const savedPath: string = await invoke(Invokes.SavePanorama, {
-        firstPathStr: panoramaModalState.stitchingSourcePaths[0],
+  const handleReprojectPanorama = useCallback(
+    (projection: PanoramaProjection) => {
+      setUI(
+        updateOpenPanorama({
+          pendingProjection: projection,
+          previewError: null,
+          progressMessage: { code: 'reprojecting' },
+        }),
+      );
+      invoke(Invokes.ReprojectPanorama, { projection }).catch((err) => {
+        setUI(updateOpenPanorama({ pendingProjection: null, previewError: toPanoramaMessage(err, 'reprojectFailed') }));
       });
-      await refreshImageList();
-      return savedPath;
-    } catch (err) {
-      console.error('Failed to save panorama:', err);
-      setUI((state) => ({ panoramaModalState: { ...state.panoramaModalState, error: String(err) } }));
-      throw err;
-    }
-  }, [refreshImageList, setUI]);
+    },
+    [setUI],
+  );
+
+  const handleCancelPanorama = useCallback((keepSession: boolean) => {
+    invoke(Invokes.CancelPanorama, { keepSession }).catch(() => {});
+  }, []);
+
+  const handleSavePanorama = useCallback(
+    async (crop: PanoramaCropRect, quality: number): Promise<string> => {
+      try {
+        setUI(updateOpenPanorama({ saveProgressPercent: 0, saveProgressMessage: null, previewError: null }));
+        const savedPath: string = await invoke(Invokes.SavePanorama, { crop, quality });
+        await refreshImageList();
+        setUI(updateOpenPanorama({ saveProgressPercent: null, saveProgressMessage: null }));
+        return savedPath;
+      } catch (err) {
+        console.error('Failed to save panorama:', err);
+        setUI(
+          updateOpenPanorama({
+            previewError: toPanoramaMessage(err, 'saveFailed'),
+            saveProgressPercent: null,
+            saveProgressMessage: null,
+          }),
+        );
+        throw err;
+      }
+    },
+    [refreshImageList, setUI],
+  );
 
   const handleStartFocusStack = useCallback(
     (paths: string[]) => {
@@ -139,6 +160,8 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
 
   return {
     handleStartPanorama,
+    handleReprojectPanorama,
+    handleCancelPanorama,
     handleSavePanorama,
     handleStartHdr,
     handleSaveHdr,

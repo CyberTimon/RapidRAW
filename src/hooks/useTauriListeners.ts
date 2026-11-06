@@ -9,6 +9,7 @@ import { AiJobsStatus, JobKind, JobStatus, useProcessStore } from '../store/useP
 import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
 import { useLibraryStore } from '../store/useLibraryStore';
+import { updateOpenPanorama, type PanoramaMessage, type PanoramaPreview } from '../utils/panorama';
 
 const parseAnalyticsPacket = async (buffer: ArrayBuffer) => {
   const view = new DataView(buffer);
@@ -420,38 +421,49 @@ export function useTauriListeners({
           editorState.setEditor({ wgpuPhase: 'arming' });
         }
       }),
-      listen('panorama-progress', (event: any) => {
-        if (isEffectActive) {
-          useUIStore.getState().setUI((state) => {
-            if (state.panoramaModalState.finalImageBase64 || state.panoramaModalState.error) return state;
-            return { panoramaModalState: { ...state.panoramaModalState, progressMessage: event.payload } };
-          });
+      listen<PanoramaMessage>('panorama-progress', (event) => {
+        const ui = useUIStore.getState();
+        if (isEffectActive && !ui.panoramaModalState.error) {
+          ui.setUI(updateOpenPanorama({ progressMessage: event.payload }));
         }
       }),
-      listen('panorama-complete', (event: any) => {
+      listen<{ percent: number; message: PanoramaMessage }>('panorama-save-progress', (event) => {
         if (isEffectActive) {
-          useUIStore.getState().setUI((state) => ({
-            panoramaModalState: {
-              ...state.panoramaModalState,
+          useUIStore.getState().setUI(
+            updateOpenPanorama({
+              saveProgressPercent: event.payload.percent,
+              saveProgressMessage: event.payload.message,
+            }),
+          );
+        }
+      }),
+      listen<PanoramaPreview>('panorama-complete', (event) => {
+        if (isEffectActive) {
+          useUIStore.getState().setUI(
+            updateOpenPanorama({
               error: null,
-              finalImageBase64: event.payload.base64,
+              preview: event.payload,
+              pendingProjection: null,
               isProcessing: false,
               progressMessage: null,
-            },
-          }));
+              saveProgressPercent: null,
+              saveProgressMessage: null,
+            }),
+          );
         }
       }),
-      listen('panorama-error', (event: any) => {
+      listen<PanoramaMessage>('panorama-error', (event) => {
         if (isEffectActive) {
-          useUIStore.getState().setUI((state) => ({
-            panoramaModalState: {
-              ...state.panoramaModalState,
-              error: String(event.payload),
-              finalImageBase64: null,
+          useUIStore.getState().setUI(
+            updateOpenPanorama({
+              error: event.payload,
+              preview: null,
               isProcessing: false,
               progressMessage: null,
-            },
-          }));
+              saveProgressPercent: null,
+              saveProgressMessage: null,
+            }),
+          );
         }
       }),
       listen('hdr-progress', (event: any) => {

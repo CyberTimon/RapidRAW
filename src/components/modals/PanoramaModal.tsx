@@ -1,44 +1,91 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle, XCircle, Loader2, Save, RefreshCw, Layers } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, RefreshCw, Save } from 'lucide-react';
 import { motion } from 'framer-motion';
+import type { PercentCrop } from 'react-image-crop';
 import Button from '../ui/Button';
+import LoadingCollage from '../ui/LoadingCollage';
 import Text from '../ui/Text';
-import { TextColors, TextVariants, TextWeights } from '../../types/typography';
+import PanoramaPreviewPane from './PanoramaPreviewPane';
+import PanoramaSidebar from './PanoramaSidebar';
+import { TextColors, TextVariants } from '../../types/typography';
+import {
+  PANORAMA_FULL_QUALITY,
+  panoramaMessage,
+  type PanoramaCropRect,
+  type PanoramaMessage,
+  type PanoramaPreview,
+  type PanoramaProjection,
+} from '../../utils/panorama';
 
 interface PanoramaModalProps {
-  error: string | null;
-  finalImageBase64: string | null;
-  imageCount?: number;
+  error: PanoramaMessage | null;
+  preview: PanoramaPreview | null;
+  sourcePaths: string[];
   isOpen: boolean;
   isProcessing: boolean;
-  loadingImageUrl?: string | null;
+  loadingImageUrls: string[];
+  onCancelSave(): void;
   onClose(): void;
   onOpenFile(path: string): void;
-  onSave(): Promise<string>;
+  onProjectionChange(projection: PanoramaProjection): void;
+  onSave(crop: PanoramaCropRect, quality: number): Promise<string>;
   onStitch(): void;
-  progressMessage: string | null;
+  pendingProjection: PanoramaProjection | null;
+  previewError: PanoramaMessage | null;
+  progressMessage: PanoramaMessage | null;
+  saveProgressMessage: PanoramaMessage | null;
+  saveProgressPercent: number | null;
+}
+
+function cropToPercent(crop: PanoramaCropRect): PercentCrop {
+  return {
+    unit: '%',
+    x: crop.x * 100,
+    y: crop.y * 100,
+    width: crop.width * 100,
+    height: crop.height * 100,
+  };
+}
+
+function percentToCrop(crop: PercentCrop): PanoramaCropRect {
+  const x = crop.x / 100;
+  const y = crop.y / 100;
+  return {
+    x: Math.max(0, Math.min(1, x)),
+    y: Math.max(0, Math.min(1, y)),
+    width: Math.max(0.01, Math.min(1 - x, crop.width / 100)),
+    height: Math.max(0.01, Math.min(1 - y, crop.height / 100)),
+  };
 }
 
 export default function PanoramaModal({
   error,
-  finalImageBase64,
-  imageCount,
+  preview,
+  sourcePaths,
   isOpen,
   isProcessing,
-  loadingImageUrl,
+  loadingImageUrls,
+  onCancelSave,
   onClose,
   onOpenFile,
+  onProjectionChange,
   onSave,
   onStitch,
+  pendingProjection,
+  previewError,
   progressMessage,
+  saveProgressMessage,
+  saveProgressPercent,
 }: PanoramaModalProps) {
   const { t } = useTranslation();
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [savedPath, setSavedPath] = useState<string | null>(null);
-
+  const [crop, setCrop] = useState<PercentCrop | null>(null);
+  const [quality, setQuality] = useState(PANORAMA_FULL_QUALITY);
+  const startedRef = useRef(false);
   const mouseDownTarget = useRef<EventTarget | null>(null);
 
   useEffect(() => {
@@ -46,21 +93,25 @@ export default function PanoramaModal({
       setIsMounted(true);
       const timer = setTimeout(() => setShow(true), 10);
       return () => clearTimeout(timer);
-    } else {
-      setShow(false);
-      const timer = setTimeout(() => {
-        setIsMounted(false);
-        setSavedPath(null);
-        setIsSaving(false);
-      }, 300);
-      return () => clearTimeout(timer);
     }
+    setShow(false);
+    setSavedPath(null);
+    setIsSaving(false);
+    setQuality(PANORAMA_FULL_QUALITY);
+    startedRef.current = false;
+    const timer = setTimeout(() => setIsMounted(false), 300);
+    return () => clearTimeout(timer);
   }, [isOpen]);
 
-  const handleClose = useCallback(() => {
-    if (isSaving) return;
-    onClose();
-  }, [onClose, isSaving]);
+  useEffect(() => {
+    setCrop(preview ? cropToPercent(preview.crop) : null);
+  }, [preview]);
+
+  useEffect(() => {
+    if (!isOpen || sourcePaths.length < 2 || startedRef.current) return;
+    startedRef.current = true;
+    onStitch();
+  }, [isOpen, sourcePaths.join('\n')]);
 
   const handleBackdropMouseDown = (e: React.MouseEvent) => {
     mouseDownTarget.current = e.target;
@@ -68,15 +119,16 @@ export default function PanoramaModal({
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget && mouseDownTarget.current === e.currentTarget) {
-      handleClose();
+      onClose();
     }
     mouseDownTarget.current = null;
   };
 
   const handleSave = async () => {
+    if (!crop) return;
     setIsSaving(true);
     try {
-      const path = await onSave();
+      const path = await onSave(percentToCrop(crop), quality);
       setSavedPath(path);
     } catch (e) {
       console.error(e);
@@ -88,9 +140,13 @@ export default function PanoramaModal({
   const handleOpen = () => {
     if (savedPath) {
       onOpenFile(savedPath);
-      handleClose();
+      onClose();
     }
   };
+
+  const showingPreview = Boolean(preview && crop) && !isProcessing;
+  const showSaveProgress = isSaving || saveProgressPercent != null;
+  const percent = Math.round(saveProgressPercent ?? 0);
 
   const renderContent = () => {
     if (error) {
@@ -102,46 +158,39 @@ export default function PanoramaModal({
           <Text variant={TextVariants.title} className="mb-2 text-center">
             {t('modals.panorama.failed')}
           </Text>
-          <Text className="text-center p-4 rounded-lg bg-bg-primary max-w-md mt-2 leading-relaxed">
-            {String(error)}
+          <Text className="text-left p-4 rounded-lg bg-bg-primary max-w-2xl mt-2 leading-relaxed whitespace-pre-wrap font-mono text-xs max-h-[320px] overflow-y-auto">
+            {panoramaMessage(t, error)}
           </Text>
         </div>
       );
     }
-
-    if (finalImageBase64 && !isProcessing) {
+    if (preview && crop && !isProcessing) {
       return (
-        <div className="w-full">
-          <div className="w-full max-h-[500px] bg-[#111] rounded-lg overflow-hidden border border-surface flex items-center justify-center">
-            <img
-              src={finalImageBase64}
-              alt="Stitched Panorama"
-              className="w-full h-full object-contain max-h-[500px]"
-            />
-          </div>
-          {savedPath && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-              <Text
-                as="div"
-                variant={TextVariants.heading}
-                color={TextColors.success}
-                className="flex items-center justify-center gap-2 mt-4"
-              >
-                <CheckCircle className="w-5 h-5" />
-                <span>{t('modals.panorama.savedSuccess')}</span>
-              </Text>
-            </motion.div>
-          )}
+        <div className="flex min-h-0 flex-1 gap-6">
+          <PanoramaPreviewPane
+            crop={crop}
+            onCropChange={setCrop}
+            preview={preview}
+            progressMessage={progressMessage}
+            reprojecting={Boolean(pendingProjection)}
+          />
+          <PanoramaSidebar
+            disabled={isSaving}
+            onProjectionChange={onProjectionChange}
+            onQualityChange={setQuality}
+            pendingProjection={pendingProjection}
+            preview={preview}
+            quality={quality}
+          />
         </div>
       );
     }
-
     if (isProcessing) {
       return (
         <div className="flex h-[460px] overflow-hidden rounded-lg border border-surface">
-          <div className="w-2/5 relative overflow-hidden shrink-0 bg-[#0a0a0a] flex items-center justify-center">
-            {loadingImageUrl ? (
-              <img src={loadingImageUrl} alt="Source preview" className="w-full h-full object-cover" />
+          <div className="w-2/5 relative overflow-hidden shrink-0 bg-[#0a0a0a]">
+            {loadingImageUrls.length > 0 ? (
+              <LoadingCollage urls={loadingImageUrls} />
             ) : (
               <div className="w-full h-full bg-surface/50" />
             )}
@@ -157,9 +206,8 @@ export default function PanoramaModal({
                 {t('modals.panorama.stitchingProgress')}
               </Text>
               <Text className="text-center font-mono h-6 flex justify-center items-center">
-                {progressMessage || t('modals.panorama.initializing')}
+                {panoramaMessage(t, progressMessage) || t('modals.panorama.initializing')}
               </Text>
-
               <div className="mt-8 w-64 relative">
                 <div className="h-1 bg-surface rounded-full overflow-hidden relative w-full shadow-xs">
                   <motion.div
@@ -168,15 +216,8 @@ export default function PanoramaModal({
                     animate={{ x: ['-150%', '150%'] }}
                     transition={{ repeat: Infinity, duration: 1.5, ease: [0.4, 0, 0.2, 1] }}
                   />
-                  <motion.div
-                    className="absolute inset-y-0 w-[40%] bg-linear-to-r from-transparent via-white/90 to-transparent"
-                    style={{ filter: 'blur(1px)' }}
-                    animate={{ x: ['-250%', '250%'] }}
-                    transition={{ repeat: Infinity, duration: 1.5, ease: [0.4, 0, 0.2, 1] }}
-                  />
                 </div>
               </div>
-
               <Text variant={TextVariants.small} className="mt-6 text-center max-w-xs opacity-60">
                 {t('modals.panorama.speedNotice')}
               </Text>
@@ -185,75 +226,97 @@ export default function PanoramaModal({
         </div>
       );
     }
-
     return (
-      <div className="flex flex-col items-center justify-center h-[460px]">
-        <div className="flex items-center justify-center mb-6">
-          <Layers className="w-12 h-12 text-accent" />
-        </div>
-        <Text variant={TextVariants.title} className="mb-3 text-center">
-          {t('modals.panorama.title')}
-        </Text>
-        <Text className="text-center max-w-md leading-relaxed text-text-secondary">
-          {imageCount ? t('modals.panorama.descCount', { count: imageCount }) : t('modals.panorama.descGeneric')}
+      <div className="flex flex-col items-center justify-center py-10 h-[460px]">
+        <Text variant={TextVariants.small} className="text-text-secondary">
+          {t('modals.panorama.initializing')}
         </Text>
       </div>
     );
   };
 
+  const renderStatus = () => {
+    if (savedPath) {
+      return (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+          <Text as="div" variant={TextVariants.heading} color={TextColors.success} className="flex items-center gap-2">
+            <CheckCircle className="w-5 h-5" />
+            <span>{t('modals.panorama.savedSuccess')}</span>
+          </Text>
+        </motion.div>
+      );
+    }
+    if (showSaveProgress) {
+      return (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3 text-xs text-text-secondary">
+            <span className="truncate font-mono">
+              {panoramaMessage(t, saveProgressMessage) || t('modals.panorama.savingProgress', { percent })}
+            </span>
+            <span className="shrink-0 tabular-nums">{percent}%</span>
+          </div>
+          <div className="h-1.5 w-full rounded-full bg-bg-primary overflow-hidden">
+            <div
+              className="h-full rounded-full bg-accent transition-[width] duration-200 ease-out"
+              style={{ width: `${Math.max(2, Math.min(100, percent))}%` }}
+            />
+          </div>
+        </div>
+      );
+    }
+    if (previewError) {
+      return (
+        <Text variant={TextVariants.small} color={TextColors.error} className="whitespace-pre-line">
+          {panoramaMessage(t, previewError)}
+        </Text>
+      );
+    }
+    return null;
+  };
+
+  const renderTextButton = (label: string, onClick: () => void) => (
+    <button
+      onClick={onClick}
+      className="px-4 py-2 rounded-md text-text-secondary hover:bg-card-active transition-colors text-sm"
+    >
+      {label}
+    </button>
+  );
+
   const renderButtons = () => {
     if (error) {
       return (
-        <Button onClick={handleClose} className="w-full">
-          {t('modals.panorama.close')}
-        </Button>
+        <>
+          {renderTextButton(t('modals.panorama.close'), onClose)}
+          <Button onClick={onStitch}>
+            <RefreshCw className="mr-2" size={16} />
+            {t('modals.panorama.retry')}
+          </Button>
+        </>
       );
     }
-
     if (savedPath) {
       return (
         <>
-          <button
-            onClick={handleClose}
-            className="px-4 py-2 rounded-md text-text-secondary hover:bg-card-active transition-colors"
-          >
-            {t('modals.panorama.close')}
-          </button>
+          {renderTextButton(t('modals.panorama.close'), onClose)}
           <Button onClick={handleOpen}>{t('modals.panorama.openInEditor')}</Button>
         </>
       );
     }
-
-    const disabled = isProcessing || isSaving;
-
-    return (
-      <div className={`w-full flex items-center justify-end gap-2 ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
-        <button
-          onClick={handleClose}
-          className="px-4 py-2 rounded-md text-text-secondary hover:bg-card-active transition-colors text-sm"
-        >
-          {finalImageBase64 ? t('modals.panorama.close') : t('modals.panorama.cancel')}
-        </button>
-
-        <Button onClick={onStitch} disabled={isProcessing} variant={finalImageBase64 ? 'secondary' : 'primary'}>
-          {isProcessing ? (
-            <Loader2 className="animate-spin mr-2" size={16} />
-          ) : finalImageBase64 ? (
-            <RefreshCw className="mr-2" size={16} />
-          ) : (
-            <Layers className="mr-2" size={16} />
-          )}
-          {finalImageBase64 ? t('modals.panorama.retry') : t('modals.panorama.start')}
-        </Button>
-
-        {finalImageBase64 && (
-          <Button onClick={handleSave} disabled={isSaving || isProcessing}>
+    if (showingPreview) {
+      return (
+        <>
+          {isSaving
+            ? renderTextButton(t('modals.panorama.cancel'), onCancelSave)
+            : renderTextButton(t('modals.panorama.close'), onClose)}
+          <Button onClick={handleSave} disabled={isSaving || Boolean(pendingProjection)}>
             {isSaving ? <Loader2 className="animate-spin mr-2" size={16} /> : <Save className="mr-2" size={16} />}
             {t('modals.panorama.save')}
           </Button>
-        )}
-      </div>
-    );
+        </>
+      );
+    }
+    return renderTextButton(t('modals.panorama.cancel'), onClose);
   };
 
   if (!isMounted) return null;
@@ -267,17 +330,16 @@ export default function PanoramaModal({
       onClick={handleBackdropClick}
     >
       <div
-        className={`bg-surface rounded-xl shadow-2xl p-6 w-full max-w-4xl transform transition-all duration-300 ease-out ${
-          show ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 -translate-y-4'
-        }`}
+        className={`bg-surface rounded-xl shadow-2xl p-6 flex flex-col transform transition-all duration-300 ease-out ${
+          showingPreview ? 'w-[90vw] h-[85vh]' : 'w-full max-w-5xl'
+        } ${show ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 -translate-y-4'}`}
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex flex-col">
-          {renderContent()}
-          <div className={`mt-4 flex justify-end gap-3 ${savedPath ? '' : 'pt-4 border-t border-surface/50'}`}>
-            {renderButtons()}
-          </div>
+        {renderContent()}
+        <div className="mt-4 flex items-center gap-4 pt-4 border-t border-surface/50">
+          <div className="min-w-0 flex-1">{renderStatus()}</div>
+          <div className="flex shrink-0 items-center gap-2">{renderButtons()}</div>
         </div>
       </div>
     </div>

@@ -1,2 +1,11 @@
+pub mod features;
+pub mod log;
+pub mod message;
+pub mod overlay;
 pub mod processing;
+pub mod ram;
+pub mod ransac;
+pub mod raster;
+pub mod session;
+pub mod stitch;
 pub mod stitching;

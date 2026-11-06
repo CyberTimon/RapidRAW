@@ -1,6 +1,6 @@
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
-import { useUIStore } from '../../store/useUIStore';
+import { initialPanoramaModalState, useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useProcessStore } from '../../store/useProcessStore';
@@ -17,11 +17,14 @@ import CullingModal from './CullingModal';
 import CollageModal from './CollageModal';
 import { AppSettings, Invokes, ImageFlag, AlbumItem, Album, AlbumGroup } from '../ui/AppProperties';
 import { CopyPasteSettings } from '../../utils/adjustments';
+import type { PanoramaCropRect, PanoramaProjection } from '../../utils/panorama';
 
 export interface AppModalsProps {
   handleImageSelect: (path: string) => void;
-  handleSavePanorama: () => Promise<string>;
+  handleSavePanorama: (crop: PanoramaCropRect, quality: number) => Promise<string>;
   handleStartPanorama: (paths: string[]) => void;
+  handleReprojectPanorama: (projection: PanoramaProjection) => void;
+  handleCancelPanorama: (keepSession: boolean) => void;
   handleSaveHdr: () => Promise<string>;
   handleStartHdr: (paths: string[]) => void;
   handleStartFocusStack: (paths: string[]) => void;
@@ -92,13 +95,19 @@ export default function AppModals(props: AppModalsProps) {
   );
 
   const middlePath = (paths: string[]) => (paths.length > 0 ? paths[Math.floor(paths.length / 2)] : null);
-  const panoramaLoadingPath = middlePath(panoramaModalState.stitchingSourcePaths);
   const hdrLoadingPath = middlePath(hdrModalState.stitchingSourcePaths);
   const focusStackLoadingPath = middlePath(focusStackModalState.sourcePaths);
 
-  const { panoramaThumbnail, hdrThumbnail, focusStackThumbnail } = useProcessStore(
+  const panoramaThumbnails = useProcessStore(
+    useShallow((state) =>
+      panoramaModalState.stitchingSourcePaths
+        .map((path) => state.thumbnails[path])
+        .filter((url): url is string => Boolean(url)),
+    ),
+  );
+
+  const { hdrThumbnail, focusStackThumbnail } = useProcessStore(
     useShallow((state) => ({
-      panoramaThumbnail: panoramaLoadingPath ? state.thumbnails[panoramaLoadingPath] : undefined,
       hdrThumbnail: hdrLoadingPath ? state.thumbnails[hdrLoadingPath] : undefined,
       focusStackThumbnail: focusStackLoadingPath ? state.thumbnails[focusStackLoadingPath] : undefined,
     })),
@@ -139,27 +148,25 @@ export default function AppModals(props: AppModalsProps) {
       />
       <PanoramaModal
         error={panoramaModalState.error}
-        finalImageBase64={panoramaModalState.finalImageBase64}
-        imageCount={panoramaModalState.stitchingSourcePaths.length}
+        preview={panoramaModalState.preview}
+        sourcePaths={panoramaModalState.stitchingSourcePaths}
         isOpen={panoramaModalState.isOpen}
         isProcessing={panoramaModalState.isProcessing}
-        loadingImageUrl={panoramaModalState.stitchingSourcePaths.length > 0 ? panoramaThumbnail || null : null}
-        onClose={() =>
-          setUI({
-            panoramaModalState: {
-              isOpen: false,
-              isProcessing: false,
-              progressMessage: '',
-              finalImageBase64: null,
-              error: null,
-              stitchingSourcePaths: [],
-            },
-          })
-        }
+        loadingImageUrls={panoramaThumbnails}
+        onCancelSave={() => props.handleCancelPanorama(true)}
+        onClose={() => {
+          props.handleCancelPanorama(false);
+          setUI({ panoramaModalState: initialPanoramaModalState });
+        }}
         onOpenFile={(path: string) => props.handleImageSelect(path)}
+        onProjectionChange={props.handleReprojectPanorama}
         onSave={props.handleSavePanorama}
         onStitch={() => props.handleStartPanorama(panoramaModalState.stitchingSourcePaths)}
+        pendingProjection={panoramaModalState.pendingProjection}
+        previewError={panoramaModalState.previewError}
         progressMessage={panoramaModalState.progressMessage}
+        saveProgressMessage={panoramaModalState.saveProgressMessage}
+        saveProgressPercent={panoramaModalState.saveProgressPercent}
       />
       <HdrModal
         error={hdrModalState.error}

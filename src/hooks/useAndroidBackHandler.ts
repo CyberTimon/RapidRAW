@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
-import { useUIStore } from '../store/useUIStore';
+import { invoke } from '@tauri-apps/api/core';
+import { initialPanoramaModalState, useUIStore } from '../store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { Invokes } from '../components/ui/AppProperties';
 
 export function useAndroidBackHandler() {
   useEffect(() => {
@@ -47,16 +49,8 @@ export function useAndroidBackHandler() {
         return;
       }
       if (ui.panoramaModalState.isOpen) {
-        ui.setUI({
-          panoramaModalState: {
-            isOpen: false,
-            isProcessing: false,
-            progressMessage: '',
-            finalImageBase64: null,
-            error: null,
-            stitchingSourcePaths: [],
-          },
-        });
+        invoke(Invokes.CancelPanorama, { keepSession: false }).catch(() => {});
+        ui.setUI({ panoramaModalState: initialPanoramaModalState });
         return;
       }
       if (ui.hdrModalState.isOpen) {
