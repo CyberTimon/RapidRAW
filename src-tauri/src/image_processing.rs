@@ -1450,9 +1450,9 @@ pub struct MonochromeSettings {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable)]
 #[repr(C)]
 pub struct GpuMat3 {
-    col0: [f32; 4],
-    col1: [f32; 4],
-    col2: [f32; 4],
+    pub col0: [f32; 4],
+    pub col1: [f32; 4],
+    pub col2: [f32; 4],
 }
 
 impl Default for GpuMat3 {

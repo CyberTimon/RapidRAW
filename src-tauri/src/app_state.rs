@@ -334,6 +334,7 @@ pub struct AppState {
     pub focus_stack_result: Arc<Mutex<Option<DynamicImage>>>,
     pub indexing_task_handle: Mutex<Option<JoinHandle<()>>>,
     pub lut_cache: Mutex<HashMap<String, Arc<Lut>>>,
+    pub film_engine: Mutex<Option<crate::film_render::FilmEngineState>>,
     pub initial_file_path: Mutex<Option<String>>,
     pub pending_edit_session: Mutex<Option<ExternalEditSession>>,
     pub thumbnail_cancellation_token: Arc<AtomicBool>,

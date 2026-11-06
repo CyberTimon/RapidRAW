@@ -27,6 +27,9 @@ rayon = "1.12.0"
 blake3 = "1.8.7"
 wgpu = "29.0" # Downgraded to prevent P3 color shifts on Apple devices
 pollster = "1.0"
+spektrafilm-core = { path = "../vendor/spektrafilm-rs/crates/spektrafilm-core" }
+spektrafilm-gpu = { path = "../vendor/spektrafilm-rs/crates/spektrafilm-gpu" }
+spektrafilm-math = { path = "../vendor/spektrafilm-rs/crates/spektrafilm-math" }
 bytemuck = { version = "1.25", features = ["derive"] }
 anyhow = "1.0.104"
 kamadak-exif = "0.6.1"

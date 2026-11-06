@@ -3452,6 +3452,22 @@ fn process_and_get_dynamic_image_inner(
     }
 
     let is_raw = request.adjustments.global.is_raw_image;
+
+    // Film simulation mode: the spektrafilm engine replaces the entire
+    // built-in adjustment pipeline (scene-referred film/print/scan chain).
+    if crate::film_render::film_mode_active(source.adjustments) {
+        return crate::film_render::render_film_frame(
+            context,
+            state,
+            source,
+            &request,
+            caller_id,
+            output_precision,
+            display_output,
+            None,
+        );
+    }
+
     let identity = source.identity();
     let transform_key = source.key();
     let matches = |e: &GpuImageEntry| {

@@ -54,7 +54,7 @@ dependencies = [
  "once_cell",
  "ort",
  "png 0.18.1",
- "pollster",
+ "pollster 1.0.1",
  "quick-xml 0.41.0",
  "rand 0.10.2",
  "rawler",
@@ -66,6 +66,9 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.11.0",
+ "spektrafilm-core",
+ "spektrafilm-gpu",
+ "spektrafilm-math",
  "sysinfo",
  "tauri",
  "tauri-build",
@@ -3080,7 +3083,7 @@ dependencies = [
  "nalgebra",
  "num",
  "rand 0.10.2",
- "rand_distr",
+ "rand_distr 0.6.0",
  "rayon",
  "rustdct",
 ]
@@ -5090,6 +5093,12 @@ dependencies = [
 
 [[package]]
 name = "pollster"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f3a9f18d041e6d0e102a0a46750538147e5e8992d3b4873aaafee2520b00ce3"
+
+[[package]]
+name = "pollster"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc6355899e1c9462875b6757c79f3caa011a1fdae12bbb1a2e72dd1f234f8336"
@@ -5450,12 +5459,31 @@ checksum = "63b8176103e19a2643978565ca18b50549f6101881c443590420e4dc998a3c69"
 
 [[package]]
 name = "rand_distr"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a8615d50dcf34fa31f7ab52692afec947c4dd0ab803cc87cb3b0b4570ff7463"
+dependencies = [
+ "num-traits",
+ "rand 0.9.5",
+]
+
+[[package]]
+name = "rand_distr"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4d431c2703ccf129de4d45253c03f49ebb22b97d6ad79ee3ecfc7e3f4862c1d8"
 dependencies = [
  "num-traits",
  "rand 0.10.2",
+]
+
+[[package]]
+name = "rand_mt"
+version = "5.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9375873db1061df25ed185eb584cd8839196db7a43803daa0612c5ae53be5b5"
+dependencies = [
+ "rand_core 0.9.5",
 ]
 
 [[package]]
@@ -6552,6 +6580,64 @@ dependencies = [
  "gobject-sys",
  "libc",
  "system-deps",
+]
+
+[[package]]
+name = "spektrafilm-core"
+version = "0.1.2"
+dependencies = [
+ "image",
+ "libm",
+ "rayon",
+ "serde",
+ "serde_json",
+ "spektrafilm-gpu",
+ "spektrafilm-math",
+ "spektrafilm-model",
+ "thiserror 2.0.20",
+ "tracing",
+]
+
+[[package]]
+name = "spektrafilm-gpu"
+version = "0.1.2"
+dependencies = [
+ "bytemuck",
+ "pollster 0.4.0",
+ "rayon",
+ "spektrafilm-math",
+ "thiserror 2.0.20",
+ "tracing",
+ "wgpu",
+]
+
+[[package]]
+name = "spektrafilm-math"
+version = "0.1.2"
+dependencies = [
+ "byteorder",
+ "half",
+ "libm",
+ "rand 0.9.5",
+ "rand_distr 0.5.1",
+ "rand_mt",
+ "rayon",
+ "rustfft",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "spektrafilm-model"
+version = "0.1.2"
+dependencies = [
+ "rand 0.9.5",
+ "rand_distr 0.5.1",
+ "rand_mt",
+ "rayon",
+ "spektrafilm-gpu",
+ "spektrafilm-math",
+ "thiserror 2.0.20",
+ "tracing",
 ]
 
 [[package]]

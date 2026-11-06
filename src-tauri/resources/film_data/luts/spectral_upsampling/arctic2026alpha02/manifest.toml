@@ -1,0 +1,39 @@
+# arctic2026 spectral-upsampling release — gain-field smoothest-metamer reflectance LUT
+# plus the low-rank linear forward model. Written by arctic2026.release.export_entry.
+# Consumed by study a13 and the production copy.
+identifier = "arctic2026alpha02"
+version = "alpha02"
+created = "2026-06-11"
+kind = "reflectance"
+
+[colorimetry]
+scene_illuminant = "D65"      # recovery + chromaticity projection white
+relight_illuminant = "D55"  # film reference, applied at deploy-time relight (R*E)
+lut_size = 192
+wavelength_start = 380
+wavelength_end = 780
+wavelength_step = 5
+n_bands = 81
+bounded = false              # arctic reflectance is super-unity (peaks ~4) by design
+midgray = 0.184
+
+[files]
+spectra = "reflectance_xy_tc.npy"            # (S, S, 81) float16 unit-bright reflectance
+basis = "reflectance_basis.npy"              # (32, 81) float32 shared PCA basis V
+basis_mean = "reflectance_basis_mean.npy"    # (81,) float32 mean mu
+weights = "reflectance_xy_weights.npy"       # (S, S, 32) float16 per-cell weights
+
+[forward_model]
+# R(lambda) = mu + weights @ basis   (arctic2026.forward.reflectance_from_weights)
+kind = "linear_basis"
+rank = 32
+recon_rmse_in_locus_mean = 0.0052
+recon_rmse_in_locus_p99 = 0.0225
+recon_rmse_in_locus_max = 0.0459
+
+[tuning]
+# Shape fine-tuning applied at bake time (config.BAKE_VARIANT). realism_emphasis_bands are
+# (lo_nm, hi_nm, W_vis_boost) multipliers strengthening the realism pull toward measured mu.
+bake_variant = "alpha"
+realism_emphasis_bands = "()"
+smoothness_lam = 0.005

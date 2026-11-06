@@ -43,6 +43,7 @@ mod exif_processing;
 mod export_processing;
 mod face_masking;
 mod file_management;
+mod film_render;
 mod focus_stacking;
 mod fog;
 mod formats;
@@ -2380,6 +2381,7 @@ pub fn run() {
             _ => {}
         })
         .setup(move |app| {
+            film_render::init_film_data_dir(app);
             #[cfg(feature = "tethering")]
             {
                 std::thread::spawn(|| {
@@ -2757,6 +2759,7 @@ pub fn run() {
             focus_stack_result: Arc::new(Mutex::new(None)),
             indexing_task_handle: Mutex::new(None),
             lut_cache: Mutex::new(HashMap::new()),
+            film_engine: Mutex::new(None),
             initial_file_path: Mutex::new(None),
             pending_edit_session: Mutex::new(None),
             thumbnail_cancellation_token: Arc::new(AtomicBool::new(false)),
@@ -2802,6 +2805,7 @@ pub fn run() {
             save_hdr,
             lut_processing::load_and_parse_lut,
             lut_processing::list_luts,
+            film_render::list_film_profiles,
             lut_processing::import_luts,
             lut_processing::remove_lut,
             lut_processing::generate_lut_previews,
