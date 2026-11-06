@@ -2441,31 +2441,32 @@ function SettingsPanel({
             </div>
           </CollapsibleSection>
         )}
-        {visibleSections.map((sectionName) => {
-          const title = t(`editor.adjustments.sections.${sectionName}`);
-          return (
-            <CollapsibleSection
-              key={sectionName}
-              title={title}
-              isOpen={collapsibleState[sectionName]}
-              isContentVisible={isToolActive(activeTools, sectionName)}
-              onToggle={() => handleToggleSection(sectionName)}
-              onToggleVisibility={() => handleToggleVisibility(sectionName)}
-              onContextMenu={(e: any) => handleSectionContextMenu(e, sectionName)}
-            >
-              <AdjustmentSection
-                sectionName={sectionName}
-                activeTools={activeTools}
-                onToggleTool={handleToggleVisibility}
-                adjustments={displayContainer.adjustments}
-                setAdjustments={setMaskContainerAdjustments}
-                isForMask={true}
-                appSettings={appSettings}
-                onDragStateChange={onDragStateChange}
-              />
-            </CollapsibleSection>
-          );
-        })}
+        {!filmModeEnabled &&
+          visibleSections.map((sectionName) => {
+            const title = t(`editor.adjustments.sections.${sectionName}`);
+            return (
+              <CollapsibleSection
+                key={sectionName}
+                title={title}
+                isOpen={collapsibleState[sectionName]}
+                isContentVisible={isToolActive(activeTools, sectionName)}
+                onToggle={() => handleToggleSection(sectionName)}
+                onToggleVisibility={() => handleToggleVisibility(sectionName)}
+                onContextMenu={(e: any) => handleSectionContextMenu(e, sectionName)}
+              >
+                <AdjustmentSection
+                  sectionName={sectionName}
+                  activeTools={activeTools}
+                  onToggleTool={handleToggleVisibility}
+                  adjustments={displayContainer.adjustments}
+                  setAdjustments={setMaskContainerAdjustments}
+                  isForMask={true}
+                  appSettings={appSettings}
+                  onDragStateChange={onDragStateChange}
+                />
+              </CollapsibleSection>
+            );
+          })}
       </div>
     </div>
   );

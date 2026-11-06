@@ -109,6 +109,8 @@ const ORIGINAL_PRESERVED_KEYS: Array<keyof Adjustments> = [
 
 export const getOriginalAdjustments = (adjustments: Adjustments): Adjustments => {
   const original = { ...INITIAL_ADJUSTMENTS };
+  // "Original" means the plain decode: never route through the film engine.
+  original.filmSimulation = { ...original.filmSimulation, enabled: false };
   ORIGINAL_PRESERVED_KEYS.forEach((key) => {
     (original as any)[key] = adjustments[key];
   });
