@@ -305,6 +305,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const cropPanStartCropRef = useRef<Crop | null>(null);
   const cropWheelTimeoutRef = useRef<number | null>(null);
   const lastCtrlClickTimeRef = useRef<number>(0);
+  const suppressContextMenuRef = useRef(false);
 
   const getEffectiveCrop = useCallback(() => {
     if (!selectedImage) return null;
@@ -1046,6 +1047,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     (e: React.PointerEvent<HTMLDivElement>) => {
       if ((e.target as HTMLElement).closest('[data-split-divider]')) return;
       wasPanningDisabledOnDown.current = isPanningDisabled;
+      suppressContextMenuRef.current = false;
 
       const isCropHandle = isCropping && e.button === 0 && !!(e.target as HTMLElement).closest('[data-ord]');
       cropResizeStartRef.current = isCropHandle ? lastValidCropRef.current : null;
@@ -1065,6 +1067,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       }
 
       if (e.pointerType === 'mouse' && e.button === 0 && (e.ctrlKey || e.metaKey) && !isBrushActive) {
+        suppressContextMenuRef.current = e.ctrlKey;
         if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
         if (physicsFrameId.current) cancelAnimationFrame(physicsFrameId.current);
 
@@ -1330,6 +1333,18 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       }
     },
     [getTransformBounds, startPhysicsLoop, handleStraighten],
+  );
+
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      if (suppressContextMenuRef.current) {
+        suppressContextMenuRef.current = false;
+        e.preventDefault();
+        return;
+      }
+      onContextMenu(e);
+    },
+    [onContextMenu],
   );
 
   const handleClick = useCallback(
@@ -2672,7 +2687,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
             ref={originalPaneRef}
             className="flex-1 relative overflow-hidden touch-none border-r border-border-color"
             style={{ cursor: cursorStyle }}
-            onContextMenu={onContextMenu}
+            onContextMenu={handleContextMenu}
             onPointerDownCapture={forwardFromOriginalPane(handlePointerDown)}
             onPointerMove={forwardFromOriginalPane(handlePointerMove)}
             onPointerUp={forwardFromOriginalPane(handlePointerUp)}
@@ -2686,7 +2701,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         <div
           className="flex-1 relative overflow-hidden touch-none"
           style={{ cursor: cursorStyle }}
-          onContextMenu={onContextMenu}
+          onContextMenu={handleContextMenu}
           ref={imageContainerRef}
           onPointerDownCapture={handlePointerDown}
           onPointerMove={handlePointerMove}
