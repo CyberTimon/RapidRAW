@@ -554,6 +554,11 @@ pub struct FilmProfileEntry {
     pub label: String,
     pub kind: String,
     pub target_print: String,
+    /// "color" or "bw" — lets the frontend gate B&W-only controls.
+    pub channel_model: String,
+    /// Development-time family axis (minutes). Empty for colour profiles;
+    /// more than one entry means `*.development_time` is meaningful.
+    pub development_times: Vec<f64>,
 }
 
 #[tauri::command]
@@ -575,6 +580,8 @@ pub fn list_film_profiles(app_handle: tauri::AppHandle) -> Result<Value, String>
             label: p.info.name.clone().unwrap_or_default(),
             kind: p.info.film_type.clone(),
             target_print: p.info.target_print.clone().unwrap_or_default(),
+            channel_model: p.info.channel_model.clone(),
+            development_times: p.data.development_time.clone(),
         };
         match p.info.support.as_str() {
             "paper" => papers.push(item),
@@ -584,4 +591,154 @@ pub fn list_film_profiles(app_handle: tauri::AppHandle) -> Result<Value, String>
     films.sort_by(|a, b| a.label.cmp(&b.label));
     papers.sort_by(|a, b| a.label.cmp(&b.label));
     Ok(serde_json::json!({ "films": films, "papers": papers }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every RuntimeParams path exposed by the frontend film panel
+    /// (`FilmPanel.tsx`). serde silently drops unknown keys during the
+    /// deep-merge in `parse_film_params`, so a typo'd path would look
+    /// adjustable in the UI while doing nothing — this test turns that
+    /// class of bug into a compile-time-CI failure. Keep in sync with the
+    /// panel descriptors.
+    const PANEL_PARAM_PATHS: &[&str] = &[
+        // FILM tab
+        "camera.auto_exposure",
+        "camera.auto_exposure_method",
+        "camera.exposure_compensation_ev",
+        "camera.lens_blur_um",
+        "camera.film_format_mm",
+        "camera.filter_uv",
+        "camera.filter_ir",
+        "camera.diffusion_filter.active",
+        "camera.diffusion_filter.filter_family",
+        "camera.diffusion_filter.strength",
+        "camera.diffusion_filter.spatial_scale",
+        "camera.diffusion_filter.halo_warmth",
+        "camera.diffusion_filter.core_intensity",
+        "camera.diffusion_filter.core_size",
+        "camera.diffusion_filter.halo_intensity",
+        "camera.diffusion_filter.halo_size",
+        "camera.diffusion_filter.bloom_intensity",
+        "camera.diffusion_filter.bloom_size",
+        "film_render.density_curve_gamma",
+        "film_render.development_time",
+        "film_render.dir_couplers.active",
+        "film_render.dir_couplers.amount",
+        "film_render.dir_couplers.inhibition_samelayer",
+        "film_render.dir_couplers.inhibition_interlayer",
+        "film_render.dir_couplers.diffusion_size_um",
+        "film_render.dir_couplers.gamma_samelayer_rgb",
+        "film_render.dir_couplers.gamma_interlayer_r_to_gb",
+        "film_render.dir_couplers.gamma_interlayer_g_to_rb",
+        "film_render.dir_couplers.gamma_interlayer_b_to_rg",
+        "film_render.dir_couplers.diffusion_tail_um",
+        "film_render.dir_couplers.diffusion_tail_weight",
+        "film_render.halation.active",
+        "film_render.halation.scatter_amount",
+        "film_render.halation.scatter_spatial_scale",
+        "film_render.halation.halation_amount",
+        "film_render.halation.halation_spatial_scale",
+        "film_render.halation.boost_ev",
+        "film_render.halation.boost_range",
+        "film_render.halation.protect_ev",
+        "film_render.halation.scatter_core_um",
+        "film_render.halation.scatter_tail_um",
+        "film_render.halation.scatter_tail_weight",
+        "film_render.halation.halation_strength",
+        "film_render.halation.halation_first_sigma_um",
+        "film_render.halation.halation_n_bounces",
+        "film_render.halation.halation_bounce_decay",
+        "film_render.halation.halation_renormalize",
+        "film_render.grain.active",
+        "film_render.grain.sublayers_active",
+        "film_render.grain.agx_particle_area_um2",
+        "film_render.grain.blur",
+        "film_render.grain.agx_particle_scale",
+        "film_render.grain.agx_particle_scale_layers",
+        "film_render.grain.density_min",
+        "film_render.grain.uniformity",
+        "film_render.grain.blur_dye_clouds_um",
+        "film_render.grain.micro_structure",
+        "film_render.grain.n_sub_layers",
+        "film_render.glare.active",
+        "film_render.glare.percent",
+        "film_render.glare.roughness",
+        "film_render.glare.blur",
+        // PRINT tab
+        "enlarger.illuminant",
+        "enlarger.print_exposure_compensation",
+        "enlarger.normalize_print_exposure",
+        "enlarger.print_exposure",
+        "enlarger.y_filter_shift",
+        "enlarger.m_filter_shift",
+        "enlarger.preflash_exposure",
+        "enlarger.preflash_y_filter_shift",
+        "enlarger.preflash_m_filter_shift",
+        "enlarger.lens_blur",
+        "enlarger.diffusion_filter.active",
+        "enlarger.diffusion_filter.filter_family",
+        "enlarger.diffusion_filter.strength",
+        "enlarger.diffusion_filter.spatial_scale",
+        "enlarger.diffusion_filter.halo_warmth",
+        "enlarger.diffusion_filter.core_intensity",
+        "enlarger.diffusion_filter.core_size",
+        "enlarger.diffusion_filter.halo_intensity",
+        "enlarger.diffusion_filter.halo_size",
+        "enlarger.diffusion_filter.bloom_intensity",
+        "enlarger.diffusion_filter.bloom_size",
+        "print_render.density_curve_gamma",
+        "print_render.development_time",
+        "print_render.density_curves_morph.active",
+        "print_render.density_curves_morph.gamma_factor",
+        "print_render.density_curves_morph.gamma_factor_fast",
+        "print_render.density_curves_morph.gamma_factor_slow",
+        "print_render.density_curves_morph.gamma_factor_red",
+        "print_render.density_curves_morph.gamma_factor_green",
+        "print_render.density_curves_morph.gamma_factor_blue",
+        "print_render.density_curves_morph.developer_exhaustion",
+        "print_render.glare.active",
+        "print_render.glare.percent",
+        "print_render.glare.roughness",
+        "print_render.glare.blur",
+        "io.scan_film",
+        "scanner.white_correction",
+        "scanner.white_level",
+        "scanner.black_correction",
+        "scanner.black_level",
+        "scanner.lens_blur",
+        "scanner.unsharp_mask",
+        // ADVANCED tab (color management)
+        "io.input_gamut_compress.algorithm",
+        "io.input_gamut_compress.knee",
+        "io.output_gamut_compress.algorithm",
+        "io.output_gamut_compress.knee",
+        "io.output_gamut_compress.lightness_compression",
+        // CONFIG tab
+        "settings.rgb_to_raw_method",
+        "settings.use_cat16",
+        "settings.apply_hanatos2025_adaptation_window",
+        "settings.apply_hanatos2025_adaptation_surface",
+        "settings.spectral_gaussian_blur",
+        "settings.use_enlarger_lut",
+        "settings.use_scanner_lut",
+        "settings.lut_resolution",
+        "settings.use_fast_stats",
+        "settings.neutral_print_filters_from_database",
+    ];
+
+    #[test]
+    fn panel_param_paths_resolve_in_runtime_params() {
+        let defaults = serde_json::to_value(RuntimeParams::default()).unwrap();
+        for path in PANEL_PARAM_PATHS {
+            let mut cur = &defaults;
+            for key in path.split('.') {
+                cur = cur
+                    .get(key)
+                    .unwrap_or_else(|| panic!("panel path '{path}' does not exist in RuntimeParams (missing segment '{key}')"));
+            }
+        }
+    }
 }

@@ -3,7 +3,7 @@ import { ChevronDown } from 'lucide-react';
 import clsx from 'clsx';
 import Text from './Text';
 import VisibilityToggle, { HIDDEN_CONTENT_CLASS } from './VisibilityToggle';
-import { TextVariants, TextWeights } from '../../types/typography';
+import { TextVariants, TextWeights, TextWeight, VariantConfig } from '../../types/typography';
 import { useCollapsibleHeight } from '../../hooks/useCollapsibleHeight';
 
 interface CollapsibleSectionProps {
@@ -15,6 +15,10 @@ interface CollapsibleSectionProps {
   onToggle(): void;
   onToggleVisibility?(): void;
   title: string;
+  /** Title typography — defaults to the app-wide `title` variant (text-xl).
+   *  Dense sub-grouped panels (e.g. the Film panel) can pass `heading`. */
+  titleVariant?: VariantConfig;
+  titleWeight?: TextWeight;
 }
 
 export default function CollapsibleSection({
@@ -26,6 +30,8 @@ export default function CollapsibleSection({
   onToggle,
   onToggleVisibility = () => {},
   title,
+  titleVariant = TextVariants.title,
+  titleWeight = TextWeights.normal,
 }: CollapsibleSectionProps) {
   const { contentRef, wrapperRef } = useCollapsibleHeight(isOpen);
   const [isHovering, setIsHovering] = useState(false);
@@ -57,7 +63,7 @@ export default function CollapsibleSection({
         onMouseLeave={handleMouseLeave}
       >
         <div className="flex items-center gap-2">
-          <Text variant={TextVariants.title} weight={TextWeights.normal}>
+          <Text variant={titleVariant} weight={titleWeight}>
             {title}
           </Text>
           {canToggleVisibility && (
