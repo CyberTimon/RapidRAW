@@ -438,10 +438,10 @@ fn run_culling(
             .map(|image| image.path.as_str())
             .collect();
         for item in &successful_analyses {
-            if !grouped_paths.contains(item.result.path.as_str()) {
-                if item.result.sharpness_metric < settings.blur_threshold {
-                    suggestions.blurry_images.push(item.result.clone());
-                }
+            if !grouped_paths.contains(item.result.path.as_str())
+                && item.result.sharpness_metric < settings.blur_threshold
+            {
+                suggestions.blurry_images.push(item.result.clone());
             }
         }
         suggestions.blurry_images.sort_by(|a, b| {
