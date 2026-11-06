@@ -440,7 +440,8 @@
         "color": "颜色",
         "curves": "曲线",
         "details": "细节",
-        "effects": "效果"
+        "effects": "效果",
+        "film": "胶片"
       },
       "title": "调整",
       "tooltips": {
@@ -1024,7 +1025,8 @@
         "io.input_gamut_compress.active": "输入色域压缩",
         "io.output_gamut_compress.algorithm": "输出色域压缩",
         "settings.rgb_to_raw_method": "光谱上采样方式"
-      }
+      },
+      "engineActiveNotice": "胶片引擎已启用：以下经典调整不生效。白平衡仍在上游生效；局部胶片/相纸曝光请使用蒙板。"
     }
   },
   "export": {

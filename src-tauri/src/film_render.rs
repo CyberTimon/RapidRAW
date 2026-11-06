@@ -412,6 +412,7 @@ pub fn render_film_frame(
     caller_id: &str,
     output_precision: RenderOutputPrecision,
     display_output: Option<DisplayOutput>,
+    analytics_config: Option<crate::AnalyticsConfig>,
     app_handle: Option<&tauri::AppHandle>,
 ) -> Result<DynamicImage, String> {
     let start = std::time::Instant::now();
@@ -473,6 +474,23 @@ pub fn render_film_frame(
         height,
         start.elapsed()
     );
+
+    // 3b. Analytics (histogram/waveform): the film chain always read back
+    //     through the CPU, so we can feed the analyzer directly.
+    if let Some(analytics) = analytics_config {
+        let rgba8 = image_buf_to_dynamic(&out, RenderOutputPrecision::EightBit).into_rgba8();
+        let _ = analytics.sender.send(crate::AnalyticsJob {
+            path: analytics.path,
+            frame: crate::image_processing::AnalyticsFrame {
+                data: crate::image_processing::AnalyticsPixels::Owned(rgba8.into_raw()),
+                width: out.width,
+                height: out.height,
+                row_stride: out.width as usize * 4,
+            },
+            compute_waveform: analytics.compute_waveform,
+            active_waveform_channel: analytics.active_waveform_channel,
+        });
+    }
 
     // 4. Display: upload to a texture and present.
     let output_to_display = display_output.is_some();

@@ -42,6 +42,7 @@ function AdjustmentSectionContent(props: {
 
 export default function Controls() {
   const { t } = useTranslation();
+  const filmModeEnabled = useEditorStore((state) => !!state.adjustments?.filmSimulation?.enabled);
   const { showContextMenu } = useContextMenu();
   const { isResizingWaveform, onToggleWaveform, setActiveWaveformChannel, handleWaveformResize } =
     useWaveformControls();
@@ -291,6 +292,13 @@ export default function Controls() {
       </AnimatePresence>
 
       <div className="grow overflow-y-scroll p-3 flex flex-col gap-2">
+        {selectedImage && filmModeEnabled && (
+          <div className="shrink-0 p-3 rounded-md bg-accent/10 border border-accent/30">
+            <Text variant={TextVariants.small} color={TextColors.secondary} className="leading-relaxed">
+              {t('editor.film.engineActiveNotice')}
+            </Text>
+          </div>
+        )}
         {selectedImage ? (
           visibleSections.map((sectionName: string) => {
             const title = t(`editor.adjustments.sections.${sectionName}`);

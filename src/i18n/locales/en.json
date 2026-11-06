@@ -440,7 +440,8 @@
         "color": "Color",
         "curves": "Curves",
         "details": "Details",
-        "effects": "Effects"
+        "effects": "Effects",
+        "film": "Film"
       },
       "title": "Adjustments",
       "tooltips": {
@@ -1027,7 +1028,8 @@
         "io.input_gamut_compress.active": "Input gamut compression",
         "io.output_gamut_compress.algorithm": "Output gamut compression",
         "settings.rgb_to_raw_method": "Spectral upsampling"
-      }
+      },
+      "engineActiveNotice": "Film engine is active: classic adjustments below are bypassed. White balance still applies upstream; use masks for local film/print exposure."
     }
   },
   "export": {

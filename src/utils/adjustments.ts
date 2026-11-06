@@ -1190,6 +1190,7 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     DetailsAdjustment.NegativeExposure,
     DetailsAdjustment.NegativeContrast,
   ],
+  film: ['filmSimulation'],
   effects: [
     CreativeAdjustment.GlowAmount,
     CreativeAdjustment.HalationAmount,

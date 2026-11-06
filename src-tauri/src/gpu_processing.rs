@@ -3470,6 +3470,7 @@ fn process_and_get_dynamic_image_inner(
             caller_id,
             output_precision,
             display_output,
+            analytics_config,
             None,
         );
     }
