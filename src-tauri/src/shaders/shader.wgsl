@@ -124,7 +124,7 @@ struct GlobalAdjustments {
     red_curve_count: u32,
     green_curve_count: u32,
     blue_curve_count: u32,
-    _pad_end1: f32,
+    contrast_pivot: f32,
     _pad_end2: f32,
     _pad_end3: f32,
     _pad_end4: f32,
@@ -164,7 +164,7 @@ struct MaskAdjustments {
     wb_log_gain_l: f32,
     wb_log_gain_m: f32,
     wb_log_gain_s: f32,
-    _pad_wb: f32,
+    contrast_pivot: f32,
     color_grading_shadows: ColorGradeSettings,
     color_grading_midtones: ColorGradeSettings,
     color_grading_highlights: ColorGradeSettings,
@@ -586,10 +586,19 @@ fn apply_curve(val: f32, src: u32, ch: u32, count: u32) -> f32 {
     return last.y / 255.0;
 }
 
+fn contrast_around_pivot(x: f32, pivot: f32, strength: f32) -> f32 {
+    let p = select(clamp(pivot, 0.02, 0.98), 0.5, pivot <= 0.0);
+    if (x <= p) {
+        return p * pow(max(x, 0.0) / p, strength);
+    }
+    return 1.0 - (1.0 - p) * pow(max(1.0 - x, 0.0) / (1.0 - p), strength);
+}
+
 fn tone_ramp(x: f32, knee: f32) -> f32 {
     let u = max(x, 0.0);
     return u * u / (u + knee);
 }
+
 
 fn tone_ramp_slope(x: f32, knee: f32) -> f32 {
     let u = max(x, 0.0);
@@ -727,7 +736,7 @@ fn apply_tone_ends(
     return rgb + vec3<f32>(black_floor(get_luma(max(rgb, vec3<f32>(0.0))), bl));
 }
 
-fn apply_contrast(color: vec3<f32>, con: f32) -> vec3<f32> {
+fn apply_contrast(color: vec3<f32>, con: f32, pivot: f32) -> vec3<f32> {
     if (con == 0.0) {
         return color;
     }
@@ -736,10 +745,11 @@ fn apply_contrast(color: vec3<f32>, con: f32) -> vec3<f32> {
     let perceptual = pow(safe_rgb, vec3<f32>(1.0 / g));
     let clamped_perceptual = clamp(perceptual, vec3<f32>(0.0), vec3<f32>(1.0));
     let strength = pow(2.0, con * 1.25);
-    let condition = clamped_perceptual < vec3<f32>(0.5);
-    let high_part = 1.0 - 0.5 * pow(2.0 * (1.0 - clamped_perceptual), vec3<f32>(strength));
-    let low_part = 0.5 * pow(2.0 * clamped_perceptual, vec3<f32>(strength));
-    let curved_perceptual = select(high_part, low_part, condition);
+    let curved_perceptual = vec3<f32>(
+        contrast_around_pivot(clamped_perceptual.r, pivot, strength),
+        contrast_around_pivot(clamped_perceptual.g, pivot, strength),
+        contrast_around_pivot(clamped_perceptual.b, pivot, strength),
+    );
     let contrast_adjusted_rgb = pow(curved_perceptual, vec3<f32>(g));
     let mix_factor = smoothstep(vec3<f32>(1.0), vec3<f32>(1.01), safe_rgb);
     return mix(contrast_adjusted_rgb, color, mix_factor);
@@ -2007,7 +2017,9 @@ fn main(
 
             t_exposure += m.exposure * influence;
             t_brightness += m.brightness * influence;
-            t_contrast += m.contrast * influence;
+            if (m.contrast_pivot <= 0.0) {
+                t_contrast += m.contrast * influence;
+            }
             t_highlights += m.highlights * influence;
             t_shadows += m.shadows * influence;
             t_whites += m.whites * influence;
@@ -2139,7 +2151,19 @@ fn main(
     let white_level = textureLoad(airlight_texture, vec2<i32>(2, 0), 0).x + t_exposure;
     let tone_broad = sampled_base.tone_detail * max(detail_core(sampled_base.tone_detail, LC_BROAD_CORE), textured);
     let toned = apply_tonal_adjustments(composite_rgb_linear, detail_fine + lc_log_gain, detail_broad, tone_broad, sampled_base.clipped, t_highlights, t_shadows, white_level);
-    composite_rgb_linear = apply_contrast(toned.rgb, t_contrast);
+    composite_rgb_linear = apply_contrast(toned.rgb, t_contrast, adjustments.global.contrast_pivot);
+    for (var mask_i = 0u; has_feature(F_MASKS) && mask_i < adjustments.mask_count; mask_i = mask_i + 1u) {
+        let m = adjustments.mask_adjustments[mask_i];
+        if (m.contrast_pivot > 0.0 && m.contrast != 0.0) {
+            let influence = get_mask_influence(mask_i, absolute_coord);
+            if (influence > 0.001) {
+                let global_strength = pow(2.0, t_contrast * 1.25);
+                let moved_pivot = contrast_around_pivot(m.contrast_pivot, adjustments.global.contrast_pivot, global_strength);
+                let pivot = clamp(moved_pivot, 16.0 / 255.0, 239.0 / 255.0);
+                composite_rgb_linear = apply_contrast(composite_rgb_linear, m.contrast * influence, pivot);
+            }
+        }
+    }
     composite_rgb_linear = apply_tone_ends(composite_rgb_linear, toned.w, detail_fine + lc_log_gain, tone_broad, t_highlights, t_whites, t_blacks);
     let is_monochrome = has_feature(F_MONOCHROME) && adjustments.global.monochrome.enabled == 1u;
     if (!is_monochrome) {

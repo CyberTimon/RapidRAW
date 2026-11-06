@@ -1,6 +1,8 @@
 {
   "adjustments": {
     "basic": {
+      "adaptiveContrast": "Adaptive Contrast",
+      "adaptiveContrastTooltip": "Pivot this slider on the image median. Click again to use middle gray",
       "blacks": "Blacks",
       "brightness": "Brightness",
       "contrast": "Contrast",
@@ -118,8 +120,14 @@
       "whiteBalance": "White Balance"
     },
     "curves": {
-      "adaptiveContrast": "Adaptive Contrast",
-      "adaptiveContrastTooltip": "Add contrast around the median tone so the exposure stays put",
+      "adaptiveContrast": "Set Curve Points",
+      "adaptiveContrastImage": "Set Curve Points from Image",
+      "adaptiveContrastImageTooltip": "Place the midtone anchor on the image median and pivot the contrast slider there",
+      "adaptiveContrastMask": "Set Curve Points from Selection",
+      "adaptiveContrastMaskTooltip": "Place the midtone anchor on this selection's median and pivot the contrast slider there",
+      "maskLocalTone": "Selection Median",
+      "maskLocalToneTooltip": "Pivot contrast on this selection's median. Click again to use middle gray",
+      "adaptiveContrastTooltip": "Place the midtone anchor on the median of the image. Slider amounts stay as they are, and the dark and light ranges keep their usual width",
       "anchorMedian": "Anchor at Median",
       "channelTitle": "{{channel}} Channel",
       "channels": {

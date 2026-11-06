@@ -1,9 +1,8 @@
 import { Coord, ParametricCurveSettings } from './adjustments';
 
-export const ADAPTIVE_CONTRAST_STRENGTH = 0.25;
-const SHOULDER_GAIN = 0.22;
 const MIN_FULCRUM = 16;
 const MAX_FULCRUM = 239;
+const MEDIAN_BAND = 25;
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
@@ -17,52 +16,82 @@ export const isIdentityCurve = (points: Array<Coord> | undefined): boolean => {
 
 export const contrastFulcrum = (median: number) => clamp(median, MIN_FULCRUM, MAX_FULCRUM);
 
-export const buildAdaptivePointCurve = (median: number, strength = ADAPTIVE_CONTRAST_STRENGTH): Array<Coord> => {
-  const fulcrum = contrastFulcrum(median);
-  const shadowX = fulcrum * 0.5;
-  const highlightX = fulcrum + (255 - fulcrum) * 0.5;
-  const shadowY = shadowX - strength * SHOULDER_GAIN * fulcrum;
-  const highlightY = highlightX + strength * SHOULDER_GAIN * (255 - fulcrum);
-  return [
-    { x: 0, y: 0 },
-    { x: shadowX, y: clamp(shadowY, 0, fulcrum) },
-    { x: fulcrum, y: fulcrum },
-    { x: highlightX, y: clamp(highlightY, fulcrum, 255) },
-    { x: 255, y: 255 },
-  ];
+export const toneMedian = (median: number | null | undefined): number | null => {
+  if (typeof median !== 'number' || Number.isNaN(median)) return null;
+  return median;
 };
 
-export const buildAnchoredPointCurve = (median: number): Array<Coord> => {
-  const fulcrum = contrastFulcrum(median);
-  return [
-    { x: 0, y: 0 },
-    { x: fulcrum, y: fulcrum },
-    { x: 255, y: 255 },
-  ];
+export type ContrastSource = 'image' | 'selection';
+
+export interface ContrastPivotSnapshot {
+  image: number | null;
+  mask: number | null;
+}
+
+const EMPTY_PIVOTS: ContrastPivotSnapshot = { image: null, mask: null };
+const pivotSnapshots = new Map<string, ContrastPivotSnapshot>();
+
+/** Remember medians only while contrast is zero. The rendered histogram already includes contrast. */
+export const contrastPivotSnapshot = (
+  key: string,
+  contrast: number,
+  imageMedian: number | null,
+  maskMedian: number | null,
+): ContrastPivotSnapshot => {
+  const previous = pivotSnapshots.get(key) ?? EMPTY_PIVOTS;
+  if (contrast !== 0 || (imageMedian == null && maskMedian == null)) return previous;
+  const next = {
+    image: imageMedian != null ? contrastFulcrum(imageMedian) : previous.image,
+    mask: maskMedian != null ? contrastFulcrum(maskMedian) : previous.mask,
+  };
+  if (previous.image === next.image && previous.mask === next.mask && pivotSnapshots.has(key)) return previous;
+  pivotSnapshots.set(key, next);
+  return next;
 };
 
-const medianSplits = (median: number) => {
+export const storedContrastPivot = (
+  snapshot: ContrastPivotSnapshot,
+  source: ContrastSource,
+  contrast: number,
+  liveMedian: number | null,
+): number | null => {
+  const stored = source === 'selection' ? snapshot.mask : snapshot.image;
+  if (stored != null) return stored;
+  if (contrast === 0 && liveMedian != null) return contrastFulcrum(liveMedian);
+  return null;
+};
+
+/** Midtone at the median. The dark and light ranges keep the default width of 25. */
+export const medianBandSplits = (median: number) => {
   const split2 = clamp(Math.round((contrastFulcrum(median) / 255) * 100), 20, 80);
-  const split1 = Math.max(10, Math.min(split2 - 10, Math.round(split2 / 2)));
-  const split3 = Math.min(90, Math.max(split2 + 10, Math.round((split2 + 100) / 2)));
+  const split1 = clamp(split2 - MEDIAN_BAND, 10, split2 - 10);
+  const split3 = clamp(split2 + MEDIAN_BAND, split2 + 10, 90);
   return { split1, split2, split3 };
 };
 
-export const adaptiveParametricSettings = (
-  current: ParametricCurveSettings,
-  median: number,
-  amount = 25,
-): ParametricCurveSettings => ({
-  ...current,
-  ...medianSplits(median),
-  lights: amount,
-  darks: -amount,
-});
+const onDiagonal = (split: number): Coord => {
+  const x = (split / 100) * 255;
+  return { x, y: x };
+};
+
+export const medianBandPoints = (median: number): Array<Coord> => {
+  const { split1, split2, split3 } = medianBandSplits(median);
+  return [{ x: 0, y: 0 }, onDiagonal(split1), onDiagonal(split2), onDiagonal(split3), { x: 255, y: 255 }];
+};
+
+export const medianAnchorPoints = (median: number): Array<Coord> => {
+  const x = contrastFulcrum(median);
+  return [
+    { x: 0, y: 0 },
+    { x, y: x },
+    { x: 255, y: 255 },
+  ];
+};
 
 export const anchorParametricSettings = (
   current: ParametricCurveSettings,
   median: number,
 ): ParametricCurveSettings => ({
   ...current,
-  ...medianSplits(median),
+  ...medianBandSplits(median),
 });

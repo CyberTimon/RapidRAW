@@ -28,6 +28,17 @@ interface InteractivePatch {
   normH: number;
 }
 
+export interface MaskToneHistogram {
+  id: string;
+  red: number[];
+  green: number[];
+  blue: number[];
+  luma: number[];
+  lumaMedian: number;
+  lumaQ25: number;
+  lumaQ75: number;
+}
+
 interface BaseRenderSize extends ImageDimensions {
   containerHeight: number;
   containerWidth: number;
@@ -59,6 +70,7 @@ interface EditorState {
 
   // Analytics
   histogram: ChannelConfig | null;
+  maskHistogram: MaskToneHistogram | null;
   waveform: WaveformData | null;
   isWaveformVisible: boolean;
   activeWaveformChannel: string;
@@ -148,6 +160,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   splitPosition: 0.5,
   originalPreview: null,
   histogram: null,
+  maskHistogram: null,
   waveform: null,
   isWaveformVisible: false,
   activeWaveformChannel: 'luma',

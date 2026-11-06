@@ -118,8 +118,8 @@
       "whiteBalance": "Balans bieli"
     },
     "curves": {
-      "adaptiveContrast": "Kontrast adaptacyjny",
-      "adaptiveContrastTooltip": "Dodaj kontrast wokół mediany, bez zmiany ekspozycji",
+      "adaptiveContrast": "Ustaw punkty krzywej",
+      "adaptiveContrastTooltip": "Stawia punkty krzywej na cieniach, śródtonach i światłach obrazu albo aktywnej maski. Zostają na krzywej, dopóki ich nie przesuniesz",
       "anchorMedian": "Zakotwicz na medianie",
       "channelTitle": "Kanał {{channel}}",
       "channels": {

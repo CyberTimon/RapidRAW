@@ -118,8 +118,8 @@
       "whiteBalance": "Witbalans"
     },
     "curves": {
-      "adaptiveContrast": "Adaptief contrast",
-      "adaptiveContrastTooltip": "Voeg contrast toe rond de mediaan, zonder de belichting te verschuiven",
+      "adaptiveContrast": "Curve-punten plaatsen",
+      "adaptiveContrastTooltip": "Plaatst curvepunten op schaduwen, middentonen en hooglichten van de afbeelding of het actieve masker. Ze blijven op de curve tot je ze verplaatst",
       "anchorMedian": "Veranker op de mediaan",
       "channelTitle": "{{channel}} kanaal",
       "channels": {
