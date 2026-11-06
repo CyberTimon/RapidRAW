@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
-import { ImageFile, ImageFlag, Panel, ExifOverlay, LibraryViewMode } from '../components/ui/AppProperties';
+import {
+  ImageFile,
+  ImageFlag,
+  Panel,
+  ExifOverlay,
+  LibraryViewMode,
+  LibraryDisplayMode,
+} from '../components/ui/AppProperties';
 import { KEYBIND_DEFINITIONS, getEffectiveCombo, normalizeCombo } from '../utils/keyboardUtils';
 import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
@@ -640,6 +647,41 @@ export const useKeyboardShortcuts = ({
 
     const builtinShortcuts = [
       {
+        match: (event: KeyboardEvent, state: ShortcutState) =>
+          state.ui.activeView === 'library' &&
+          state.settings.appSettings?.libraryDisplayMode === LibraryDisplayMode.Cull &&
+          state.library.multiSelectedPaths.length > 0 &&
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.altKey &&
+          !event.shiftKey &&
+          /^(KeyP|KeyX|KeyU|Digit[0-5]|Numpad[0-5])$/.test(event.code),
+        execute: (event: KeyboardEvent, state: ShortcutState) => {
+          event.preventDefault();
+          const current = state.library.libraryActivePath;
+          const currentIndex = sortedListRef.current.findIndex((image) => image.path === current);
+          const next = currentIndex >= 0 ? sortedListRef.current[currentIndex + 1] : undefined;
+          if (event.code === 'KeyP') handleSetFlag(ImageFlag.Pick);
+          else if (event.code === 'KeyX') handleSetFlag(ImageFlag.Reject);
+          else if (event.code === 'KeyU') handleSetFlag(null);
+          else handleRate(Number(event.code.at(-1)), undefined, false);
+          if (
+            state.settings.appSettings?.cullAutoAdvance &&
+            state.library.multiSelectedPaths.length === 1 &&
+            current &&
+            next &&
+            useLibraryStore.getState().libraryActivePath === current
+          ) {
+            useLibraryStore.getState().setLibrary({
+              libraryActivePath: next.path,
+              multiSelectedPaths: [next.path],
+              selectionAnchorPath: next.path,
+            });
+            handleImageSelect(next.path, false);
+          }
+        },
+      },
+      {
         match: (e: KeyboardEvent, s: ShortcutState) =>
           s.editor.isSpeedEditActive &&
           !!s.editor.selectedImage &&
@@ -747,6 +789,7 @@ export const useKeyboardShortcuts = ({
     ];
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.isComposing) return;
       const state = getStoreState();
 
       const isModalOpen =
@@ -774,7 +817,7 @@ export const useKeyboardShortcuts = ({
       const isInputTarget =
         target instanceof HTMLTextAreaElement ||
         (target instanceof HTMLInputElement && !NON_TEXT_INPUT_TYPES.has(target.type));
-      if (isInputTarget) return;
+      if (isInputTarget || (target instanceof HTMLElement && target.isContentEditable)) return;
 
       for (const builtin of builtinShortcuts) {
         if (builtin.match(event, state)) {

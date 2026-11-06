@@ -1220,7 +1220,8 @@
       "syncZoomAndPan": "줌 및 이동 동기화",
       "tags": "태그",
       "toggleFit": "1:1 / 맞춤 전환",
-      "vc": "VC"
+      "vc": "VC",
+      "autoAdvanceDecisions": "Advance after a rating or flag (P / X / U / 0–5)"
     },
     "filterExit": {
       "hiddenSingle": "{{name}}이(가) 더 이상 필터와 일치하지 않습니다",

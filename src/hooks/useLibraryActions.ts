@@ -202,14 +202,14 @@ const applyWithAutoAdvance = (changedPaths: string[], undoable: boolean, applyCh
 };
 
 export function useLibraryActions(handleImageSelect?: (path: string, openInEditor?: boolean) => void) {
-  const handleRate = useCallback((newRating: number, paths?: string[]) => {
+  const handleRate = useCallback((newRating: number, paths?: string[], toggle = true) => {
     const { imageRatings, setLibrary } = useLibraryStore.getState();
 
     const { selectedPaths, expandedPaths: pathsToRate } = resolveTargetPaths(paths);
     if (selectedPaths.length === 0) return;
 
     const currentRating = imageRatings[selectedPaths[0]] || 0;
-    const finalRating = newRating === currentRating ? 0 : newRating;
+    const finalRating = toggle && newRating === currentRating ? 0 : newRating;
 
     applyWithAutoAdvance(pathsToRate, true, () =>
       setLibrary((state) => {

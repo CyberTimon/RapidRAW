@@ -1278,7 +1278,8 @@
       "syncZoomAndPan": "Synchronizovat přiblížení a posun",
       "tags": "Tagy",
       "toggleFit": "Přepnout 1:1 / Přizpůsobit",
-      "vc": "VC"
+      "vc": "VC",
+      "autoAdvanceDecisions": "Advance after a rating or flag (P / X / U / 0–5)"
     },
     "filterExit": {
       "hiddenSingle": "{{name}} již neodpovídá filtru",

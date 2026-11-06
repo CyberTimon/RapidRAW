@@ -1220,7 +1220,8 @@
       "syncZoomAndPan": "同步縮放與平移",
       "tags": "標籤",
       "toggleFit": "切換 1:1 / 適應",
-      "vc": "VC"
+      "vc": "VC",
+      "autoAdvanceDecisions": "Advance after a rating or flag (P / X / U / 0–5)"
     },
     "filterExit": {
       "hiddenSingle": "{{name}} 已不再符合篩選條件",

@@ -1278,7 +1278,8 @@
       "syncZoomAndPan": "Synchronizuj powiększenie i przesuwanie",
       "tags": "Tagi",
       "toggleFit": "Przełącz 1:1 / Dopasuj",
-      "vc": "KW"
+      "vc": "KW",
+      "autoAdvanceDecisions": "Advance after a rating or flag (P / X / U / 0–5)"
     },
     "filterExit": {
       "hiddenSingle": "{{name}} nie pasuje już do filtra",
