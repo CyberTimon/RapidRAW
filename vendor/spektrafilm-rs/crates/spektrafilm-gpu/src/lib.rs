@@ -149,6 +149,13 @@ pub trait ComputeBackend: Send + Sync {
         false
     }
 
+    /// Largest single storage-buffer binding the backend supports. `None`
+    /// for CPU backends (unbounded). Used by the pipeline to divert oversized
+    /// renders to the CPU before hitting wgpu validation limits.
+    fn max_storage_binding(&self) -> Option<u64> {
+        None
+    }
+
     fn name(&self) -> &str;
 }
 

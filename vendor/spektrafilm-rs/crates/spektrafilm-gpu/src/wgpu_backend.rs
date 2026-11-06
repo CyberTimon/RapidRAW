@@ -2223,6 +2223,20 @@ impl ComputeBackend for WgpuBackend {
     }
 
     fn try_run_film_chain(&self, params: &crate::FilmChainParams<'_>) -> Option<ImageBuf> {
+        // Guard: the resident chain binds whole-image storage buffers; on
+        // adapters with a low binding-size cap (e.g. llvmpipe, some iGPUs)
+        // large images exceed the limit and wgpu validation would panic.
+        // Return None so the caller falls back to the staged path.
+        let img_bytes = params.image.pixel_count() as u64 * 3 * 4;
+        let limit = self.device.limits().max_storage_buffer_binding_size as u64;
+        if img_bytes > limit {
+            tracing::warn!(
+                img_bytes,
+                limit,
+                "image exceeds max storage buffer binding size, skipping resident chain"
+            );
+            return None;
+        }
         Some(self.run_film_chain(params))
     }
 
@@ -2232,6 +2246,10 @@ impl ComputeBackend for WgpuBackend {
 
     fn is_gpu(&self) -> bool {
         true
+    }
+
+    fn max_storage_binding(&self) -> Option<u64> {
+        Some(self.device.limits().max_storage_buffer_binding_size as u64)
     }
 
     fn name(&self) -> &str {

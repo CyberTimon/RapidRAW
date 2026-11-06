@@ -497,6 +497,24 @@ impl Pipeline {
         print_stage_timing(stage_timings, "rescale", t);
         tracing::info!(backend = backend.name(), "pipeline: start");
 
+        // RapidRAW fork: if the GPU backend cannot bind whole-image buffers
+        // for this render size, run the staged path on the CPU backend
+        // instead of panicking in wgpu validation.
+        let cpu_fallback;
+        let backend: &dyn ComputeBackend = match backend.max_storage_binding() {
+            Some(limit)
+                if (image.pixel_count() as u64 * 3 * 4) > limit =>
+            {
+                tracing::warn!(
+                    limit,
+                    "image exceeds GPU storage binding limit; staged path on CPU"
+                );
+                cpu_fallback = spektrafilm_gpu::cpu_backend::CpuBackend;
+                &cpu_fallback
+            }
+            _ => backend,
+        };
+
         // Scanner B&W/slide exposure correction (no-op unless scanner
         // white/black correction is on for a slide or print scan). Computed
         // up front so both the GPU-resident and per-stage paths share it.

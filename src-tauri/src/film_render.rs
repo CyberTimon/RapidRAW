@@ -452,9 +452,14 @@ pub fn render_film_frame(
     let mut pipeline = get_or_build_pipeline(engine, &sel)?.as_ref().clone();
     pipeline.set_exposure_maps(maps);
 
+    // Whole-image storage buffers must fit a single binding: on adapters
+    // with a low max_storage_buffer_binding_size (llvmpipe, some iGPUs),
+    // large renders go to the staged CPU path instead.
+    let img_bytes = img.pixel_count() as u64 * 3 * 4;
+    let gpu_fits = img_bytes <= context.limits.max_storage_buffer_binding_size as u64;
     let backend: &dyn ComputeBackend = match &engine.gpu {
-        Some(g) => g,
-        None => &engine.cpu,
+        Some(g) if gpu_fits => g,
+        _ => &engine.cpu,
     };
     // `process` prefers the GPU-resident fast path when the backend supports
     // it and falls back to the staged CPU path automatically.
