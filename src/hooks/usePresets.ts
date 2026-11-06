@@ -434,6 +434,124 @@ export function usePresets(currentAdjustments: Adjustments) {
     [presets, savePresetsToBackend],
   );
 
+  const duplicatePresets = useCallback(
+    (presetIds: Set<string>) => {
+      const duplicates: Preset[] = [];
+      const makeDuplicate = (preset: Preset) => {
+        const duplicate: Preset = {
+          adjustments: JSON.parse(JSON.stringify(preset.adjustments)),
+          id: crypto.randomUUID(),
+          name: `${preset.name} Copy`,
+          includeMasks: preset.includeMasks,
+          includeCropTransform: preset.includeCropTransform,
+          presetType: preset.presetType || 'style',
+        };
+        duplicates.push(duplicate);
+        return duplicate;
+      };
+
+      setPresets((currentPresets) => {
+        const updatedPresets = currentPresets.flatMap((item) => {
+          if (item.preset) {
+            return presetIds.has(item.preset.id) ? [item, { preset: makeDuplicate(item.preset) }] : [item];
+          }
+          if (item.folder) {
+            return [
+              {
+                folder: {
+                  ...item.folder,
+                  children: item.folder.children.flatMap((preset: Preset) =>
+                    presetIds.has(preset.id) ? [preset, makeDuplicate(preset)] : [preset],
+                  ),
+                },
+              },
+            ];
+          }
+          return [item];
+        });
+        savePresetsToBackend(updatedPresets);
+        return updatedPresets;
+      });
+
+      return duplicates;
+    },
+    [savePresetsToBackend],
+  );
+
+  const deletePresets = useCallback(
+    (presetIds: Set<string>) => {
+      setPresets((currentPresets) => {
+        const updatedPresets = currentPresets
+          .filter((item) => !item.preset || !presetIds.has(item.preset.id))
+          .map((item) =>
+            item.folder
+              ? {
+                  folder: {
+                    ...item.folder,
+                    children: item.folder.children.filter((preset: Preset) => !presetIds.has(preset.id)),
+                  },
+                }
+              : item,
+          );
+        savePresetsToBackend(updatedPresets);
+        return updatedPresets;
+      });
+    },
+    [savePresetsToBackend],
+  );
+
+  const movePresets = useCallback(
+    (presetIds: Set<string>, targetFolderId: string | null, overId: string | null = null) => {
+      setPresets((currentPresets) => {
+        const presetsToMove: Preset[] = [];
+        currentPresets.forEach((item) => {
+          if (item.preset && presetIds.has(item.preset.id)) presetsToMove.push(item.preset);
+          if (item.folder)
+            item.folder.children.forEach((preset: Preset) => {
+              if (presetIds.has(preset.id)) presetsToMove.push(preset);
+            });
+        });
+        if (presetsToMove.length === 0) return currentPresets;
+
+        let updatedPresets = currentPresets
+          .filter((item) => !item.preset || !presetIds.has(item.preset.id))
+          .map((item) =>
+            item.folder
+              ? {
+                  folder: {
+                    ...item.folder,
+                    children: item.folder.children.filter((preset: Preset) => !presetIds.has(preset.id)),
+                  },
+                }
+              : item,
+          );
+
+        if (targetFolderId) {
+          updatedPresets = updatedPresets.map((item) => {
+            if (item.folder?.id !== targetFolderId) return item;
+            const children = [...item.folder.children];
+            const overIndex = overId ? children.findIndex((preset) => preset.id === overId) : -1;
+            children.splice(overIndex === -1 ? children.length : overIndex, 0, ...presetsToMove);
+            return { folder: { ...item.folder, children } };
+          });
+        } else {
+          const overIndex = overId
+            ? updatedPresets.findIndex((item) => item.preset?.id === overId || item.folder?.id === overId)
+            : -1;
+          updatedPresets.splice(
+            overIndex === -1 ? updatedPresets.length : overIndex,
+            0,
+            ...presetsToMove.map((preset) => ({ preset })),
+          );
+        }
+
+        savePresetsToBackend(updatedPresets);
+        return updatedPresets;
+      });
+    },
+    [savePresetsToBackend],
+  );
+
   const movePreset = useCallback(
     (presetId: string, targetFolderId: string | null, overId = null) => {
       let presetToMove: Preset | null = null;
@@ -642,13 +760,16 @@ export function usePresets(currentAdjustments: Adjustments) {
     addPreset,
     configurePreset,
     deleteItem,
+    deletePresets,
     duplicatePreset,
+    duplicatePresets,
     exportPresetsToFile,
     importPresetsFromFile,
     importPresetsFromFiles,
     importLegacyPresetsFromFile,
     isLoading,
     movePreset,
+    movePresets,
     overwritePreset,
     presets,
     refreshPresets: loadPresets,
