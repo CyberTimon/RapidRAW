@@ -155,6 +155,13 @@ export const useAppInitialization = ({
           settings.copyPasteSettings.includedAdjustments.length === 0
         ) {
           settings.copyPasteSettings = { mode: 'merge', includedAdjustments: COPYABLE_ADJUSTMENT_KEYS };
+        } else if (!settings.copyPasteSettings.includedAdjustments.includes('filmSimulation')) {
+          // Migration: fold the film simulation group into existing settings
+          // snapshots so batch copy/paste carries film configs by default.
+          settings.copyPasteSettings.includedAdjustments = [
+            ...settings.copyPasteSettings.includedAdjustments,
+            'filmSimulation',
+          ];
         }
 
         if (!settings.language) {
