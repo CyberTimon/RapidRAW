@@ -51,7 +51,7 @@ pub fn prepare_custom_cache_dir(parent: &str) -> Result<PathBuf, String> {
     let probe = tempfile::NamedTempFile::new_in(&root)
         .map_err(|e| format!("The cache folder is not writable: {e}"))?;
     drop(probe);
-    root.canonicalize().map_err(|e| e.to_string())
+    root.canonicalize().map(|_| root).map_err(|e| e.to_string())
 }
 
 pub fn initialize_cache_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
@@ -76,6 +76,12 @@ pub fn initialize_cache_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
             .map_err(|e| e.to_string())?,
     };
     fs::create_dir_all(&root).map_err(|e| e.to_string())?;
+    let thumbnails = root.join("thumbnails");
+    fs::create_dir_all(&thumbnails).map_err(|e| e.to_string())?;
+    app_handle
+        .asset_protocol_scope()
+        .allow_directory(&thumbnails, false)
+        .map_err(|e| e.to_string())?;
     let _ = CACHE_DIR.set(root.clone());
     Ok(root)
 }
