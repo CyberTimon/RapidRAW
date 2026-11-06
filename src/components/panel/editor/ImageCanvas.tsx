@@ -1506,7 +1506,7 @@ const ImageCanvas = memo(
     const [isAltPressed, setIsAltPressed] = useState(false);
     const retainedPatchRef = useRef<typeof interactivePatch>(null);
 
-    const isWgpuActive = appSettings?.useWgpuRenderer !== false && !!selectedImage?.isReady && wgpuPhase === 'live';
+    const isWgpuActive = appSettings?.useWgpuRenderer !== false && wgpuPhase === 'live';
 
     const [prevIsWgpuActive, setPrevIsWgpuActive] = useState(isWgpuActive);
     const [isWgpuHandoffFading, setIsWgpuHandoffFading] = useState(false);

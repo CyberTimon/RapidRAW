@@ -798,7 +798,7 @@ function App() {
 
   const shouldHideFolderTree = useCompactPanels || useWidePanels;
   const isWgpuActive =
-    activeView === 'editor' && appSettings?.useWgpuRenderer !== false && selectedImage?.isReady && wgpuPhase === 'live';
+    activeView === 'editor' && appSettings?.useWgpuRenderer !== false && !!selectedImage && wgpuPhase === 'live';
   const useMacWindowShell = osPlatform === 'macos' && !appSettings?.decorations && !isWindowFullScreen && !isFullScreen;
 
   const layoutSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));

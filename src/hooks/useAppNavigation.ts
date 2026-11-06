@@ -193,24 +193,17 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
 
       const cached = globalImageCache.get(path);
       const isFrontendCached = Boolean(cached && cached.selectedImage?.isReady);
-      const isCachedInBackend = isFrontendCached
+      const canKeepWgpuLive =
+        useSettingsStore.getState().appSettings?.useWgpuRenderer !== false &&
+        wasEditorVisible &&
+        useEditorStore.getState().wgpuPhase === 'live';
+      const isCachedInBackend = canKeepWgpuLive
         ? await invoke<boolean>('is_image_cached', { path }).catch(() => false)
         : false;
 
       if (generation !== imageSelectGeneration) return;
 
-      const hasDifferentResolution =
-        cached &&
-        (useEditorStore.getState().originalSize.width !== cached.originalSize.width ||
-          useEditorStore.getState().originalSize.height !== cached.originalSize.height);
-
-      const useWgpu = useSettingsStore.getState().appSettings?.useWgpuRenderer !== false;
-      const keepWgpuLive =
-        useWgpu &&
-        wasEditorVisible &&
-        isCachedInBackend &&
-        !hasDifferentResolution &&
-        useEditorStore.getState().wgpuPhase === 'live';
+      const keepWgpuLive = canKeepWgpuLive && isCachedInBackend && useEditorStore.getState().wgpuPhase === 'live';
 
       if (!keepWgpuLive) {
         await decodeImage((isFrontendCached && cached?.finalPreviewUrl) || cachedMedium);
