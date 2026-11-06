@@ -1627,7 +1627,20 @@
       "similarityThresholdDesc": "Niedriger ist strenger (exakte Duplikate). Höher ist lockerer. 24-32 wird empfohlen.",
       "startCulling": "Aussortieren starten",
       "starting": "Wird gestartet...",
-      "title": "Bilder aussortieren"
+      "title": "Bilder aussortieren",
+      "provisionalNotice": "Preview-based suggestions. Check important detail at 100% before deciding.",
+      "detailReason": "The suggested frame has a higher detail score.",
+      "exposureReason": "The suggested frame has a more balanced exposure score.",
+      "chooseKeeper": "Suggest this frame instead",
+      "reviewSelectionNotice": "Select only the frames you want to reject. Unselected frames are kept. Nothing is deleted.",
+      "suggestedKeeper": "Suggested keeper",
+      "burstWindow": "Capture window (seconds)",
+      "rejectSelected_one": "Reject selected ({{count}})",
+      "similarAlternatives_one": "Similar alternative ({{count}})",
+      "partialFailure_one": "Could not analyze {{count}} photo. It was left unchanged.",
+      "rejectSelected_other": "Reject selected ({{count}})",
+      "similarAlternatives_other": "Similar alternatives ({{count}})",
+      "partialFailure_other": "Could not analyze {{count}} photos. They were left unchanged."
     },
     "focusStack": {
       "cancel": "Abbrechen",

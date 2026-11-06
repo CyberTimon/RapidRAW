@@ -53,6 +53,7 @@ export enum Invokes {
   CreateFolder = 'create_folder',
   CreateVirtualCopy = 'create_virtual_copy',
   CullImages = 'cull_images',
+  CancelCulling = 'cancel_culling',
   DeleteFolder = 'delete_folder',
   DiscardAiJobs = 'discard_ai_jobs',
   DuplicateFile = 'duplicate_file',
@@ -526,6 +527,7 @@ export interface CullingSettings {
   blurThreshold: number;
   groupSimilar: boolean;
   filterBlurry: boolean;
+  burstWindowSeconds?: number;
 }
 
 interface ImageAnalysisResult {
@@ -536,9 +538,14 @@ interface ImageAnalysisResult {
   exposureMetric: number;
   width: number;
   height: number;
+  captureTime?: number;
+  cameraIdentity?: string;
+  analysisSource?: string;
 }
 
 interface CullGroup {
+  id: string;
+  reasons: string[];
   representative: ImageAnalysisResult;
   duplicates: ImageAnalysisResult[];
 }

@@ -270,14 +270,8 @@ export default function AppModals(props: AppModalsProps) {
         suggestions={cullingModalState.suggestions}
         error={cullingModalState.error}
         imagePaths={cullingModalState.pathsToCull}
-        onApply={(action, paths) => {
-          if (action === 'reject') {
-            props.handleSetFlag(ImageFlag.Reject, paths);
-          } else if (action === 'rate_zero') {
-            props.handleRate(1, paths);
-          } else if (action === 'delete') {
-            props.executeDelete(paths, { includeAssociated: false });
-          }
+        onApply={(paths) => {
+          props.handleSetFlag(ImageFlag.Reject, paths);
           setUI({
             cullingModalState: { isOpen: false, progress: null, suggestions: null, error: null, pathsToCull: [] },
           });
