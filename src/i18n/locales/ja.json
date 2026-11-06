@@ -1220,7 +1220,8 @@
       "syncZoomAndPan": "ズームとパンを同期",
       "tags": "タグ",
       "toggleFit": "1:1 / 全体表示の切り替え",
-      "vc": "VC"
+      "vc": "VC",
+      "autoAdvanceDecisions": "Advance after a rating or flag (P / X / U / 0–5)"
     },
     "filterExit": {
       "hiddenSingle": "{{name}} はフィルターに一致しなくなりました",

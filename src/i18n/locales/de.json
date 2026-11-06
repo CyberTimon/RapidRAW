@@ -1224,7 +1224,8 @@
       "syncZoomAndPan": "Zoom und Schwenken synchronisieren",
       "tags": "Tags",
       "toggleFit": "1:1 / Einpassen umschalten",
-      "vc": "VK"
+      "vc": "VK",
+      "autoAdvanceDecisions": "Advance after a rating or flag (P / X / U / 0–5)"
     },
     "filterExit": {
       "hiddenSingle": "{{name}} entspricht nicht mehr dem Filter",

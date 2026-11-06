@@ -314,6 +314,7 @@ export interface AppSettings {
   folderTreeSort?: FolderTreeSort;
   taggingShortcuts?: string[];
   libraryDisplayMode?: LibraryDisplayMode;
+  cullAutoAdvance?: boolean;
   grouping?: GroupingMode;
   requireMatchingExif?: boolean;
   groupEditedFiles?: boolean;

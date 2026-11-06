@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import { Invokes, ImageFile, ImageFlag, ThumbnailAspectRatio } from '../../ui/AppProperties';
+import { Invokes, ImageFile, ThumbnailAspectRatio } from '../../ui/AppProperties';
 import FlagToggles from '../../ui/FlagToggles';
 import FlagBadges from '../../ui/FlagBadges';
 import { Thumbnail } from './LibraryItems';
@@ -115,7 +115,7 @@ function CullingPreview({
 
   const displayEditIcon = useSettingsStore((s) => s.appSettings?.displayEditIcon ?? true);
   const showEditIcon = image.is_edited && displayEditIcon;
-  const hasRating = rating > 0 && image.flag !== ImageFlag.Reject;
+  const hasRating = rating > 0;
   const hasAnyOverlay = showEditIcon || !!colorLabel || hasRating || !!image.flag;
 
   const currentTags = useMemo(() => {
@@ -1008,6 +1008,8 @@ const Row = React.memo(
 
 export default function CullingView(props: any) {
   const { t } = useTranslation();
+  const appSettings = useSettingsStore((state) => state.appSettings);
+  const handleSettingsChange = useSettingsStore((state) => state.handleSettingsChange);
   const {
     imageList,
     multiSelectedPaths,
@@ -1210,7 +1212,17 @@ export default function CullingView(props: any) {
   };
 
   return (
-    <div className="flex w-full h-full min-h-0 bg-transparent">
+    <div className="flex w-full h-full min-h-0 bg-transparent relative pt-9">
+      <label className="absolute left-3 top-2 flex items-center gap-2 text-xs text-text-secondary">
+        <input
+          type="checkbox"
+          checked={appSettings?.cullAutoAdvance ?? false}
+          onChange={(event) =>
+            appSettings && handleSettingsChange({ ...appSettings, cullAutoAdvance: event.target.checked })
+          }
+        />
+        {t('library.culling.autoAdvanceDecisions')}
+      </label>
       <div className="flex-1 flex overflow-hidden relative bg-transparent">
         {displayCount === 0 ? (
           <div className="m-auto text-center">

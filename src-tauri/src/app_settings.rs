@@ -650,6 +650,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub thumbnail_worker_threads: Option<u32>,
     #[serde(default)]
+    pub cull_auto_advance: bool,
+    #[serde(default)]
     pub image_cache_size: Option<u32>,
     #[serde(default)]
     pub ai_cache_limit_gb: Option<u32>,
@@ -855,6 +857,7 @@ impl Default for AppSettings {
             zoom_speed_multiplier: Some(1.0),
             zoom_photo_to_pixel_click: Some(false),
             keybinds: HashMap::new(),
+            cull_auto_advance: false,
             #[cfg(target_os = "android")]
             thumbnail_worker_threads: Some(2),
             #[cfg(not(target_os = "android"))]

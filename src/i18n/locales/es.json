@@ -1251,7 +1251,8 @@
       "syncZoomAndPan": "Sincronizar zoom y desplazamiento",
       "tags": "Etiquetas",
       "toggleFit": "Alternar 1:1 / Ajustar",
-      "vc": "CV"
+      "vc": "CV",
+      "autoAdvanceDecisions": "Advance after a rating or flag (P / X / U / 0–5)"
     },
     "filterExit": {
       "hiddenSingle": "{{name}} ya no coincide con el filtro",
