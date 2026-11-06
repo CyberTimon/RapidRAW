@@ -1,0 +1,42 @@
+[package]
+name = "spektrafilm-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "spektrafilm"
+path = "src/main.rs"
+
+[[bin]]
+name = "spektrafilm-f64"
+path = "src/main.rs"
+required-features = ["precision-f64"]
+
+[[bin]]
+name = "decode_raw_gui"
+path = "src/bin/decode_raw_gui.rs"
+
+[features]
+precision-f64 = [
+    "spektrafilm-math/precision-f64",
+    "spektrafilm-core/precision-f64",
+    "spektrafilm-gpu/precision-f64",
+]
+
+[dependencies]
+spektrafilm-core.workspace = true
+spektrafilm-gpu.workspace = true
+spektrafilm-math.workspace = true
+clap.workspace = true
+serde_json.workspace = true
+image.workspace = true
+exr.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+rayon.workspace = true
+imagepipe = "0.5"
+rawloader = "0.37"
+rawler = "0.7"
+tiff = "0.10"

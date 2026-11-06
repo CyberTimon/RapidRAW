@@ -1,0 +1,21 @@
+[package]
+name = "spektrafilm-model"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+precision-f64 = [
+    "spektrafilm-math/precision-f64",
+    "spektrafilm-gpu/precision-f64",
+]
+
+[dependencies]
+spektrafilm-math.workspace = true
+spektrafilm-gpu.workspace = true
+rayon.workspace = true
+rand.workspace = true
+rand_distr.workspace = true
+rand_mt = "5"
+thiserror.workspace = true
+tracing.workspace = true

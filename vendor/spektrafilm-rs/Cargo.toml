@@ -1,0 +1,45 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/spektrafilm-core",
+    "crates/spektrafilm-gpu",
+    "crates/spektrafilm-math",
+    "crates/spektrafilm-model",
+    "crates/spektrafilm-cli",
+]
+
+[workspace.package]
+version = "0.1.2"
+edition = "2024"
+license = "GPL-3.0"
+rust-version = "1.85"
+
+[workspace.dependencies]
+spektrafilm-core = { path = "crates/spektrafilm-core" }
+spektrafilm-gpu = { path = "crates/spektrafilm-gpu" }
+spektrafilm-math = { path = "crates/spektrafilm-math" }
+spektrafilm-model = { path = "crates/spektrafilm-model" }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rayon = "1.10"
+rand = "0.9"
+rand_distr = "0.5"
+image = { version = "0.25", default-features = false, features = ["tiff", "png", "jpeg"] }
+exr = "1.73"
+wgpu = "29"
+clap = { version = "4", features = ["derive"] }
+eframe = { version = "0.31", default-features = false, features = ["wgpu", "glow", "default_fonts", "wayland", "x11"] }
+egui = "0.31"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+thiserror = "2"
+anyhow = "1"
+byteorder = "1"
+libm = "0.2"
+rustfft = "6"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+opt-level = 3

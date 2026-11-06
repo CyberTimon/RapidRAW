@@ -1,0 +1,26 @@
+[package]
+name = "spektrafilm-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+precision-f64 = [
+    "spektrafilm-math/precision-f64",
+    "spektrafilm-gpu/precision-f64",
+    "spektrafilm-model/precision-f64",
+]
+
+[dependencies]
+spektrafilm-math.workspace = true
+spektrafilm-gpu.workspace = true
+spektrafilm-model.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rayon.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+libm.workspace = true
+image.workspace = true
+
+

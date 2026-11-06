@@ -1,0 +1,20 @@
+[package]
+name = "spektrafilm-math"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = []
+precision-f64 = []
+
+[dependencies]
+rayon.workspace = true
+rand.workspace = true
+rand_distr.workspace = true
+byteorder.workspace = true
+thiserror.workspace = true
+half = "2.7"
+libm.workspace = true
+rand_mt = "5"
+rustfft.workspace = true
