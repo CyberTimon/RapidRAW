@@ -280,6 +280,21 @@ export interface ParametricCurve {
   red: ParametricCurveSettings;
 }
 
+export interface FilmSimulationSettings {
+  enabled: boolean;
+  filmStock: string;
+  printPaper: string;
+  /** Partial spektrafilm RuntimeParams overrides (snake_case keys). */
+  params: Record<string, any>;
+}
+
+export const INITIAL_FILM_SIMULATION: FilmSimulationSettings = {
+  enabled: true,
+  filmStock: 'kodak_portra_400',
+  printPaper: '',
+  params: {},
+};
+
 export interface Adjustments {
   activeTools: ActiveTools;
   [index: string]: any;
@@ -372,6 +387,7 @@ export interface Adjustments {
   lutPath?: string | null;
   lutSize?: number;
   lutIsSceneReferred?: boolean;
+  filmSimulation: FilmSimulationSettings;
   masks: Array<MaskContainer>;
   monochromeEnabled: boolean;
   monochromeFilm: MonochromeFilm;
@@ -517,6 +533,8 @@ export interface MaskAdjustments {
   curveMode?: 'point' | 'parametric';
   dehaze: number;
   exposure: number;
+  filmEv: number;
+  printEv: number;
   flareAmount: number;
   glowAmount: number;
   halationAmount: number;
@@ -635,6 +653,8 @@ export const INITIAL_MASK_ADJUSTMENTS: MaskAdjustments = {
   curveMode: 'point',
   dehaze: 0,
   exposure: 0,
+  filmEv: 0,
+  printEv: 0,
   flareAmount: 0,
   glowAmount: 0,
   halationAmount: 0,

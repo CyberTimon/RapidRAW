@@ -1945,6 +1945,7 @@ function SettingsPanel({
 }: any) {
   const { t } = useTranslation();
   const { showContextMenu } = useContextMenu();
+  const filmModeEnabled = useEditorStore((s) => s.adjustments?.filmSimulation?.enabled ?? false);
   const isActive = !!container;
   const presetButtonRef = useRef<HTMLButtonElement>(null);
   const faceMaskTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -2398,6 +2399,48 @@ function SettingsPanel({
         onMouseLeave={() => setIsMaskControlHovered(false)}
         className="flex flex-col gap-2"
       >
+        {filmModeEnabled && (
+          <CollapsibleSection
+            key="filmExposure"
+            title={t('editor.masks.filmExposure.title')}
+            isOpen={collapsibleState['filmExposure'] ?? true}
+            isContentVisible={true}
+            canToggleVisibility={false}
+            onToggle={() =>
+              setCollapsibleState((prev: any) => ({ ...prev, filmExposure: !(prev['filmExposure'] ?? true) }))
+            }
+          >
+            <div className="flex flex-col gap-2.5 pt-1">
+              <Slider
+                label={t('editor.masks.filmExposure.printEv')}
+                min={-3}
+                max={3}
+                step={0.05}
+                defaultValue={0}
+                value={displayContainer.adjustments.printEv ?? 0}
+                onChange={(e: any) =>
+                  setMaskContainerAdjustments((cur: any) => ({ ...cur, printEv: parseFloat(e.target.value) }))
+                }
+                onDragStateChange={onDragStateChange}
+              />
+              <Slider
+                label={t('editor.masks.filmExposure.filmEv')}
+                min={-3}
+                max={3}
+                step={0.05}
+                defaultValue={0}
+                value={displayContainer.adjustments.filmEv ?? 0}
+                onChange={(e: any) =>
+                  setMaskContainerAdjustments((cur: any) => ({ ...cur, filmEv: parseFloat(e.target.value) }))
+                }
+                onDragStateChange={onDragStateChange}
+              />
+              <Text variant={TextVariants.small} color={TextColors.secondary} className="leading-relaxed">
+                {t('editor.masks.filmExposure.hint')}
+              </Text>
+            </div>
+          </CollapsibleSection>
+        )}
         {visibleSections.map((sectionName) => {
           const title = t(`editor.adjustments.sections.${sectionName}`);
           return (

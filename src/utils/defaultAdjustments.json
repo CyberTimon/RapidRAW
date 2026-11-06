@@ -348,5 +348,11 @@
   "vignetteMidpoint": 50,
   "vignetteRoundness": 0,
   "whiteBalance": null,
-  "whites": 0
+  "whites": 0,
+  "filmSimulation": {
+    "enabled": true,
+    "filmStock": "kodak_portra_400",
+    "printPaper": "",
+    "params": {}
+  }
 }

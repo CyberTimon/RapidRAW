@@ -26,6 +26,7 @@ import AppModals from './components/modals/AppModals';
 import SidePanelArea from './components/panel/SidePanelArea';
 import { PANEL_ICONS } from './components/panel/PanelSwitcher';
 import Controls from './components/panel/right/ControlsPanel';
+import FilmPanel from './components/panel/right/FilmPanel';
 import MetadataPanel from './components/panel/right/MetadataPanel';
 import CropPanel from './components/panel/right/CropPanel';
 import MasksPanel from './components/panel/right/MasksPanel';
@@ -754,6 +755,8 @@ function App() {
               onClose={() => setUI({ isLibraryExportPanelVisible: false })}
             />
           );
+        case Panel.Film:
+          return <FilmPanel />;
         case Panel.Adjustments:
           return <Controls />;
         case Panel.Metadata:

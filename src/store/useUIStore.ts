@@ -90,6 +90,7 @@ const DEFAULT_PANEL_DEFAULT_REGIONS: Record<Panel, PanelRegion> = {
   [Panel.Export]: 'leftTop',
   [Panel.Tethering]: 'leftTop',
   [Panel.Adjustments]: 'rightTop',
+  [Panel.Film]: 'rightTop',
   [Panel.Crop]: 'rightTop',
   [Panel.Masks]: 'rightTop',
   [Panel.Ai]: 'rightTop',
@@ -118,7 +119,7 @@ export function reconcileWorkspace(
     panelLayout: {
       leftTop: [Panel.Metadata, Panel.FolderTree, Panel.Export, ...(isTetheringSupported ? [Panel.Tethering] : [])],
       leftBottom: [],
-      rightTop: [Panel.Adjustments, Panel.Crop, Panel.Masks, Panel.Ai, Panel.Presets],
+      rightTop: [Panel.Film, Panel.Adjustments, Panel.Crop, Panel.Masks, Panel.Ai, Panel.Presets],
       rightBottom: [],
     },
     activePanels: {

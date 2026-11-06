@@ -818,6 +818,12 @@
       "tooltips": {
         "addToCurrent": "将 {{name}} 添加到当前蒙版或创建新蒙版（右键单击）",
         "createNew": "创建新 {{name}} 蒙版"
+      },
+      "filmExposure": {
+        "title": "局部曝光",
+        "printEv": "相纸曝光（遮挡 / 加光）",
+        "filmEv": "胶片曝光",
+        "hint": "相纸曝光等效于暗房遮挡（-）与加光（+）；胶片曝光在印片之前改变底片密度。"
       }
     },
     "metadata": {
@@ -933,7 +939,8 @@
         "inpaint": "修复",
         "masks": "蒙版",
         "presets": "预设",
-        "tethering": "联机拍摄"
+        "tethering": "联机拍摄",
+        "film": "胶片"
       }
     },
     "toolbar": {
@@ -955,6 +962,69 @@
     "viewer": {
       "openFailed": "无法打开第二窗口：{{error}}",
       "windowTitle": "RapidRAW 查看器"
+    },
+    "film": {
+      "enable": "胶片模拟引擎",
+      "filmStock": "胶片型号",
+      "printPaper": "相纸",
+      "autoPaper": "自动（胶片默认配纸）",
+      "searchStock": "搜索胶片…",
+      "searchPaper": "搜索相纸…",
+      "sections": {
+        "exposure": "曝光",
+        "development": "显影",
+        "halation": "光晕与散射",
+        "grain": "颗粒",
+        "diffusion": "柔焦滤镜",
+        "enlarger": "放大机",
+        "printChemistry": "相纸化学与眩光",
+        "scanner": "扫描仪",
+        "colorManagement": "色彩管理"
+      },
+      "fields": {
+        "camera.auto_exposure": "自动曝光",
+        "camera.exposure_compensation_ev": "曝光补偿 (EV)",
+        "enlarger.print_exposure_compensation": "印片自动补偿",
+        "enlarger.print_exposure": "印片曝光",
+        "film_render.density_curve_gamma": "胶片 gamma（推拉）",
+        "film_render.dir_couplers.active": "DIR 耦合剂",
+        "film_render.dir_couplers.amount": "耦合剂强度",
+        "film_render.dir_couplers.inhibition_samelayer": "同层抑制",
+        "film_render.dir_couplers.inhibition_interlayer": "层间抑制",
+        "film_render.dir_couplers.diffusion_size_um": "耦合剂扩散 (µm)",
+        "film_render.halation.active": "光晕与散射",
+        "film_render.halation.scatter_amount": "散射强度",
+        "film_render.halation.scatter_spatial_scale": "散射尺寸",
+        "film_render.halation.halation_amount": "光晕强度",
+        "film_render.halation.halation_spatial_scale": "光晕尺寸",
+        "film_render.halation.boost_ev": "高光提升 (EV)",
+        "film_render.grain.active": "颗粒",
+        "film_render.grain.sublayers_active": "亚层颗粒",
+        "film_render.grain.particle_area_um2": "颗粒面积（≈ISO）",
+        "film_render.grain.blur": "颗粒模糊",
+        "camera.diffusion_filter.active": "机前柔焦滤镜",
+        "camera.diffusion_filter.filter_family": "滤镜类型",
+        "camera.diffusion_filter.strength": "滤镜强度",
+        "camera.diffusion_filter.halo_warmth": "光晕暖调",
+        "enlarger.diffusion_filter.active": "放大机柔焦",
+        "enlarger.diffusion_filter.strength": "放大机柔焦强度",
+        "enlarger.y_filter_shift": "Y 滤镜偏移 (CC)",
+        "enlarger.m_filter_shift": "M 滤镜偏移 (CC)",
+        "enlarger.preflash_exposure": "预闪光曝光",
+        "print_render.density_curves_morph.active": "密度曲线 morph",
+        "print_render.density_curves_morph.gamma_factor": "相纸 gamma 系数",
+        "print_render.density_curves_morph.developer_exhaustion": "显影液耗尽",
+        "print_render.glare.active": "相纸眩光",
+        "print_render.glare.percent": "眩光比例",
+        "io.scan_film": "直接扫描底片",
+        "scanner.white_correction": "白点校正",
+        "scanner.white_level": "白点电平",
+        "scanner.black_correction": "黑点校正",
+        "scanner.black_level": "黑点电平",
+        "io.input_gamut_compress.active": "输入色域压缩",
+        "io.output_gamut_compress.algorithm": "输出色域压缩",
+        "settings.rgb_to_raw_method": "光谱上采样方式"
+      }
     }
   },
   "export": {

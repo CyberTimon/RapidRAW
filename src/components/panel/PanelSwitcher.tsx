@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import { useDraggable, useDroppable, useDndMonitor } from '@dnd-kit/core';
 import {
+  Film,
   SlidersHorizontal,
   Info,
   Crop,
@@ -21,6 +22,7 @@ import { SwitcherPlacement, useUIStore } from '../../store/useUIStore';
 export const PANEL_ICONS: Record<Panel, LucideIcon> = {
   [Panel.Metadata]: Info,
   [Panel.Adjustments]: SlidersHorizontal,
+  [Panel.Film]: Film,
   [Panel.Crop]: Crop,
   [Panel.Masks]: Layers,
   [Panel.Ai]: Paintbrush,
@@ -33,6 +35,7 @@ export const PANEL_ICONS: Record<Panel, LucideIcon> = {
 const PANEL_TITLES: Record<Panel, string> = {
   [Panel.Metadata]: 'editor.switcher.tooltips.info',
   [Panel.Adjustments]: 'editor.switcher.tooltips.adjust',
+  [Panel.Film]: 'editor.switcher.tooltips.film',
   [Panel.Crop]: 'editor.switcher.tooltips.crop',
   [Panel.Masks]: 'editor.switcher.tooltips.masks',
   [Panel.Ai]: 'editor.switcher.tooltips.inpaint',
@@ -251,6 +254,7 @@ export function MobilePanelSwitcher({
 }) {
   const MOBILE_PANELS = [
     Panel.Metadata,
+    Panel.Film,
     Panel.Adjustments,
     Panel.Crop,
     Panel.Masks,

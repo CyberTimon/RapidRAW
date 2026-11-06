@@ -158,6 +158,7 @@ export enum ExifOverlay {
 
 export enum Panel {
   Adjustments = 'adjustments',
+  Film = 'film',
   Ai = 'ai',
   Crop = 'crop',
   Export = 'export',
