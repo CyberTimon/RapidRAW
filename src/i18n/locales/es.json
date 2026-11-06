@@ -119,7 +119,7 @@
     },
     "curves": {
       "adaptiveContrast": "Colocar puntos",
-      "adaptiveContrastTooltip": "Coloca puntos de curva en las sombras, los medios tonos y las altas luces de la imagen o de la máscara activa. Se quedan en la curva hasta que los muevas",
+      "adaptiveContrastTooltip": "Coloca el ancla de medios tonos en la mediana de la imagen. Los valores de los controles se mantienen, y los rangos de tonos oscuros y claros conservan su anchura habitual",
       "anchorMedian": "Anclar en la mediana",
       "channelTitle": "Canal {{channel}}",
       "channels": {

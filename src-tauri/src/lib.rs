@@ -1119,7 +1119,9 @@ fn start_analytics_worker(app_handle: tauri::AppHandle) {
 
             let histogram_data = image_processing::calculate_histogram(
                 &job.frame,
-                job.mask.as_ref().map(|(id, bitmap)| (id.as_str(), bitmap.as_ref())),
+                job.mask
+                    .as_ref()
+                    .map(|(id, bitmap)| (id.as_str(), bitmap.as_ref())),
             )
             .ok();
 

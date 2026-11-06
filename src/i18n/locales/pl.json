@@ -119,7 +119,7 @@
     },
     "curves": {
       "adaptiveContrast": "Ustaw punkty krzywej",
-      "adaptiveContrastTooltip": "Stawia punkty krzywej na cieniach, śródtonach i światłach obrazu albo aktywnej maski. Zostają na krzywej, dopóki ich nie przesuniesz",
+      "adaptiveContrastTooltip": "Ustawia kotwicę śródtonów na medianie obrazu. Wartości suwaków zostają, a zakresy ciemnych i jasnych tonów zachowują zwykłą szerokość",
       "anchorMedian": "Zakotwicz na medianie",
       "channelTitle": "Kanał {{channel}}",
       "channels": {

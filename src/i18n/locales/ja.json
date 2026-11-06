@@ -119,7 +119,7 @@
     },
     "curves": {
       "adaptiveContrast": "カーブポイントを置く",
-      "adaptiveContrastTooltip": "画像またはアクティブなマスクのシャドウ、中間調、ハイライトにカーブポイントを置きます。動かすまでポイントはカーブ上に残ります",
+      "adaptiveContrastTooltip": "中間調のアンカーを画像の中央値に置きます。スライダーの量はそのまま、暗いトーンと明るいトーンの幅も通常のままです",
       "anchorMedian": "中央値に固定",
       "channelTitle": "{{channel}} チャンネル",
       "channels": {

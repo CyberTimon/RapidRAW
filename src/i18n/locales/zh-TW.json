@@ -119,7 +119,7 @@
     },
     "curves": {
       "adaptiveContrast": "放置曲線點",
-      "adaptiveContrastTooltip": "在影像或使用中遮罩的陰影、中間調與亮部放置曲線點。移動之前，這些點會留在曲線上",
+      "adaptiveContrastTooltip": "將中間調錨點放在影像的中位數上。滑桿數值保持不變，暗部與亮部範圍維持原有寬度",
       "anchorMedian": "錨定到中位數",
       "channelTitle": "{{channel}} 通道",
       "channels": {

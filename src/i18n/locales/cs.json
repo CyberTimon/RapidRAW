@@ -119,7 +119,7 @@
     },
     "curves": {
       "adaptiveContrast": "Nastavit body křivky",
-      "adaptiveContrastTooltip": "Umístí body křivky na stíny, střední tóny a světla snímku nebo aktivní masky. Zůstanou na křivce, dokud je neposunete",
+      "adaptiveContrastTooltip": "Umístí kotvu středních tónů na medián snímku. Hodnoty posuvníků zůstanou a rozsahy tmavých a světlých tónů si zachovají obvyklou šířku",
       "anchorMedian": "Ukotvit na medián",
       "channelTitle": "{{channel}} kanál",
       "channels": {

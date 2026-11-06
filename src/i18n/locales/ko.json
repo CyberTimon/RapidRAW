@@ -119,7 +119,7 @@
     },
     "curves": {
       "adaptiveContrast": "곡선 포인트 배치",
-      "adaptiveContrastTooltip": "이미지 또는 활성 마스크의 그림자, 중간 톤, 하이라이트에 곡선 포인트를 놓습니다. 점을 옮기기 전까지는 곡선 위에 있습니다",
+      "adaptiveContrastTooltip": "중간 톤 앵커를 이미지 중앙값에 놓습니다. 슬라이더 값은 그대로 두고, 어두운 톤과 밝은 톤 범위는 기본 너비를 유지합니다",
       "anchorMedian": "중간값에 고정",
       "channelTitle": "{{channel}} 채널",
       "channels": {
