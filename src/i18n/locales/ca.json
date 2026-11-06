@@ -118,8 +118,8 @@
       "whiteBalance": "Balanç de blancs"
     },
     "curves": {
-      "adaptiveContrast": "Contrast adaptatiu",
-      "adaptiveContrastTooltip": "Afegeix contrast al voltant del to medià sense canviar l'exposició",
+      "adaptiveContrast": "Col·locar punts",
+      "adaptiveContrastTooltip": "Col·loca punts de corba a les ombres, els tons mitjans i les llums de la imatge o de la màscara activa. Es queden a la corba fins que els moguis",
       "anchorMedian": "Ancora a la mediana",
       "channelTitle": "Canal {{channel}}",
       "channels": {

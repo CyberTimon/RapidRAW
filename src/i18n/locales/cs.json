@@ -118,8 +118,8 @@
       "whiteBalance": "Vyvážení bílé"
     },
     "curves": {
-      "adaptiveContrast": "Adaptivní kontrast",
-      "adaptiveContrastTooltip": "Přidá kontrast kolem mediánu, aniž by se změnila expozice",
+      "adaptiveContrast": "Nastavit body křivky",
+      "adaptiveContrastTooltip": "Umístí body křivky na stíny, střední tóny a světla snímku nebo aktivní masky. Zůstanou na křivce, dokud je neposunete",
       "anchorMedian": "Ukotvit na medián",
       "channelTitle": "{{channel}} kanál",
       "channels": {

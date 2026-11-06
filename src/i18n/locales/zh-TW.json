@@ -118,8 +118,8 @@
       "whiteBalance": "白平衡"
     },
     "curves": {
-      "adaptiveContrast": "自適應對比度",
-      "adaptiveContrastTooltip": "以亮度中位數為支點增加對比度，同時保持曝光不變",
+      "adaptiveContrast": "放置曲線點",
+      "adaptiveContrastTooltip": "在影像或使用中遮罩的陰影、中間調與亮部放置曲線點。移動之前，這些點會留在曲線上",
       "anchorMedian": "錨定到中位數",
       "channelTitle": "{{channel}} 通道",
       "channels": {

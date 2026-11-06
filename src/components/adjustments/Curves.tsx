@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Contrast, Copy, ClipboardPaste, Crosshair, RotateCcw, Settings2, Spline } from 'lucide-react';
+import { Contrast, Copy, ClipboardPaste, Crosshair, RotateCcw, Scan, Settings2, Spline } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   ActiveChannel,
@@ -18,12 +18,15 @@ import Slider from '../ui/Slider';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { areSectionPropsEqual } from '../../utils/adjustments';
 import {
-  adaptiveParametricSettings,
   anchorParametricSettings,
-  buildAdaptivePointCurve,
-  buildAnchoredPointCurve,
   contrastFulcrum,
+  contrastPivotSnapshot,
   isIdentityCurve,
+  medianBandPoints,
+  medianBandSplits,
+  medianAnchorPoints,
+  storedContrastPivot,
+  toneMedian,
 } from '../../utils/adaptiveContrast';
 import { useEditorStore } from '../../store/useEditorStore';
 
@@ -210,33 +213,37 @@ function getZeroHistogramPath(data: Array<any>) {
   return `M0,255 L${pathData} L255,255 Z`;
 }
 
-const HistogramFill = memo(({ channel, opacity }: { channel: ActiveChannel; opacity: number }) => {
-  const data: number[] | undefined = useEditorStore((state) => state.histogram?.[channel]) as any;
-  const histogramPath = useMemo(() => getHistogramPath(data ?? []), [data]);
-  const zeroHistogramPath = useMemo(() => getZeroHistogramPath(data ?? []), [data]);
+const HistogramFill = memo(
+  ({ channel, opacity, isForMask = false }: { channel: ActiveChannel; opacity: number; isForMask?: boolean }) => {
+    const data: number[] | undefined = useEditorStore((state) =>
+      isForMask ? state.maskHistogram?.[channel] : state.histogram?.[channel],
+    ) as number[] | undefined;
+    const histogramPath = useMemo(() => getHistogramPath(data ?? []), [data]);
+    const zeroHistogramPath = useMemo(() => getZeroHistogramPath(data ?? []), [data]);
 
-  return (
-    <AnimatePresence>
-      {data && (
-        <motion.path
-          key={channel}
-          fill={CHANNEL_COLORS[channel]}
-          initial={{ d: zeroHistogramPath, opacity: 0 }}
-          animate={{
-            d: histogramPath,
-            opacity,
-            transition: { d: { duration: 0.5, ease: [0.22, 1, 0.36, 1] }, opacity: { duration: 1 } },
-          }}
-          exit={{
-            d: zeroHistogramPath,
-            opacity: 0,
-            transition: { d: { duration: 0.3, ease: [0.55, 0, 0.78, 0.34] }, opacity: { duration: 1 } },
-          }}
-        />
-      )}
-    </AnimatePresence>
-  );
-});
+    return (
+      <AnimatePresence>
+        {data && (
+          <motion.path
+            key={channel}
+            fill={CHANNEL_COLORS[channel]}
+            initial={{ d: zeroHistogramPath, opacity: 0 }}
+            animate={{
+              d: histogramPath,
+              opacity,
+              transition: { d: { duration: 0.5, ease: [0.22, 1, 0.36, 1] }, opacity: { duration: 1 } },
+            }}
+            exit={{
+              d: zeroHistogramPath,
+              opacity: 0,
+              transition: { d: { duration: 0.3, ease: [0.55, 0, 0.78, 0.34] }, opacity: { duration: 1 } },
+            }}
+          />
+        )}
+      </AnimatePresence>
+    );
+  },
+);
 
 function isDefaultCurve(points: Array<Coord> | undefined) {
   if (!points || points.length !== 2) return false;
@@ -289,11 +296,17 @@ function CurveGraph({ adjustments, isForMask = false, setAdjustments, theme, onD
   const { t } = useTranslation();
   const { showContextMenu } = useContextMenu();
   const imagePath = useEditorStore((state) => state.selectedImage?.path ?? null);
-  const liveMedian = useEditorStore((state) => {
-    const histogram = state.histogram as { lumaMedian?: unknown } | null;
-    return typeof histogram?.lumaMedian === 'number' ? histogram.lumaMedian : null;
-  });
-  const baselineMedianRef = useRef<{ path: string | null; value: number | null }>({ path: null, value: null });
+  const activeMaskContainerId = useEditorStore((state) => state.activeMaskContainerId);
+  const toneSource = useEditorStore((state) =>
+    isForMask
+      ? state.maskHistogram?.id === state.activeMaskContainerId
+        ? state.maskHistogram
+        : null
+      : state.histogram,
+  ) as { lumaMedian?: unknown } | null;
+  const liveMedian = toneMedian(typeof toneSource?.lumaMedian === 'number' ? toneSource.lumaMedian : null);
+  const statsKey = `${imagePath ?? ''}|${isForMask ? (activeMaskContainerId ?? '') : 'global'}`;
+  const baselineMedianRef = useRef<{ key: string | null; value: number | null }>({ key: null, value: null });
   const [curveMode, setCurveMode] = useState<'point' | 'parametric'>(adjustments.curveMode || 'point');
   const [activeChannel, setActiveChannel] = useState<ActiveChannel>(ActiveChannel.Luma);
   const [draggingPointIndex, setDraggingPointIndex] = useState<number | null>(null);
@@ -324,17 +337,6 @@ function CurveGraph({ adjustments, isForMask = false, setAdjustments, theme, onD
   useEffect(() => {
     setCurveMode(adjustments.curveMode || 'point');
   }, [adjustments.curveMode]);
-
-  useEffect(() => {
-    if (isForMask) return;
-    if (baselineMedianRef.current.path !== imagePath) {
-      baselineMedianRef.current = { path: imagePath, value: null };
-    }
-    const renderedLuma = adjustments?.curves?.[ActiveChannel.Luma] as Array<Coord> | undefined;
-    if (liveMedian != null && isIdentityCurve(renderedLuma)) {
-      baselineMedianRef.current.value = liveMedian;
-    }
-  }, [adjustments?.curves, imagePath, isForMask, liveMedian]);
 
   const activeParametricSettings =
     (draggingSplitKey ? localParametricSettings : null) ?? parametricCurves[activeChannel];
@@ -648,16 +650,23 @@ function CurveGraph({ adjustments, isForMask = false, setAdjustments, theme, onD
   };
 
   const renderedLuma = adjustments?.curves?.[ActiveChannel.Luma] as Array<Coord> | undefined;
-  const shownMedian = isForMask
-    ? null
-    : isIdentityCurve(renderedLuma)
-      ? liveMedian
-      : baselineMedianRef.current.path === imagePath
-        ? (baselineMedianRef.current.value ?? liveMedian)
-        : liveMedian;
+  if (baselineMedianRef.current.key !== statsKey) {
+    baselineMedianRef.current = { key: statsKey, value: null };
+  }
+  if (liveMedian != null && isIdentityCurve(renderedLuma)) {
+    baselineMedianRef.current.value = liveMedian;
+  }
+  const shownMedian =
+    liveMedian == null
+      ? null
+      : isIdentityCurve(renderedLuma)
+        ? liveMedian
+        : baselineMedianRef.current.key === statsKey
+          ? (baselineMedianRef.current.value ?? liveMedian)
+          : liveMedian;
   const displayFulcrum = shownMedian == null ? null : contrastFulcrum(shownMedian);
 
-  const writeLumaPoints = (points: Array<Coord>, label: string) => {
+  const writeLumaPoints = (points: Array<Coord>, label?: string, extra?: Partial<Adjustments>) => {
     const nextPoints = points.map((point) => ({ ...point }));
     setActiveChannel(ActiveChannel.Luma);
     setLocalPoints(nextPoints);
@@ -666,6 +675,7 @@ function CurveGraph({ adjustments, isForMask = false, setAdjustments, theme, onD
       const pointCurves = prev.pointCurves || prev.curves || DEFAULT_POINT_CURVES;
       return {
         ...prev,
+        ...extra,
         curveMode: 'point',
         curves: { ...prev.curves, [ActiveChannel.Luma]: nextPoints },
         pointCurves: { ...pointCurves, [ActiveChannel.Luma]: nextPoints.map((point) => ({ ...point })) },
@@ -673,12 +683,13 @@ function CurveGraph({ adjustments, isForMask = false, setAdjustments, theme, onD
     }, label);
   };
 
-  const writeLumaParametric = (settings: ParametricCurveSettings, label: string) => {
+  const writeLumaParametric = (settings: ParametricCurveSettings, label?: string, extra?: Partial<Adjustments>) => {
     setActiveChannel(ActiveChannel.Luma);
     setAdjustments((prev: any) => {
       const parametric = prev.parametricCurve || DEFAULT_PARAMETRIC_CURVE;
       return {
         ...prev,
+        ...extra,
         curveMode: 'parametric',
         parametricCurve: { ...parametric, [ActiveChannel.Luma]: settings },
         curves: { ...prev.curves, [ActiveChannel.Luma]: buildParametricPoints(settings) },
@@ -686,46 +697,94 @@ function CurveGraph({ adjustments, isForMask = false, setAdjustments, theme, onD
     }, label);
   };
 
-  const applyAdaptiveContrast = () => {
-    if (displayFulcrum == null) return;
+  const imageMedian = useEditorStore((state) => {
+    const median = (state.histogram as { lumaMedian?: unknown } | null)?.lumaMedian;
+    return typeof median === 'number' ? median : null;
+  });
+  const maskMedian = useEditorStore((state) => {
+    if (!isForMask) return null;
+    const histogram = state.maskHistogram;
+    if (!histogram || histogram.id !== state.activeMaskContainerId) return null;
+    return histogram.lumaMedian;
+  });
+  const maskLocal = isForMask && adjustments.maskLocalTone === true;
+  const toneMode = adjustments.contrastAdaptive === true ? (maskLocal ? 'selection' : 'image') : 'off';
+  const pivots = contrastPivotSnapshot(statsKey, adjustments.contrast, imageMedian, maskMedian);
+
+  const readImageMedian = (): number | null => {
+    const histogram = useEditorStore.getState().histogram as { lumaMedian?: unknown } | null;
+    return toneMedian(typeof histogram?.lumaMedian === 'number' ? histogram.lumaMedian : null);
+  };
+
+  const anchorMedian = (): number | null => {
+    if (!isForMask || toneMode !== 'selection') return isForMask ? readImageMedian() : shownMedian;
+    return shownMedian;
+  };
+
+  const sourcePatch = (source: 'image' | 'selection'): Partial<Adjustments> | null => {
+    const live = source === 'selection' ? maskMedian : imageMedian;
+    const pivot = storedContrastPivot(pivots, source, adjustments.contrast, live);
+    if (pivot == null) return null;
+    return {
+      contrastAdaptive: true,
+      maskLocalTone: source === 'selection',
+      contrastPivot: pivot,
+    };
+  };
+
+  const placeToneAnchors = (median: number, label: string, extra?: Partial<Adjustments>) => {
     if (isParametricMode) {
       const current = parametricCurves[ActiveChannel.Luma] || DEFAULT_PARAMETRIC_CURVE_SETTINGS;
-      writeLumaParametric(
-        adaptiveParametricSettings(current, displayFulcrum),
-        t('adjustments.curves.adaptiveContrast'),
-      );
+      writeLumaParametric({ ...current, ...medianBandSplits(median) }, label, extra);
       return;
     }
-    writeLumaPoints(buildAdaptivePointCurve(displayFulcrum), t('adjustments.curves.adaptiveContrast'));
+    writeLumaPoints(medianBandPoints(median), label, extra);
+  };
+
+  const applyImageAnchors = () => {
+    const median = isForMask ? readImageMedian() : shownMedian;
+    if (median == null) return;
+    const patch = isForMask ? sourcePatch('image') : undefined;
+    if (isForMask && patch == null) return;
+    placeToneAnchors(median, t('adjustments.curves.adaptiveContrast'), patch ?? undefined);
+  };
+
+  const applySelectionAnchors = () => {
+    if (shownMedian == null) return;
+    const patch = sourcePatch('selection');
+    if (patch == null) return;
+    placeToneAnchors(shownMedian, t('adjustments.curves.adaptiveContrastMask'), patch);
   };
 
   const applyAnchorMedian = () => {
-    if (displayFulcrum == null) return;
+    const median = anchorMedian();
+    if (median == null) return;
     if (isParametricMode) {
       const current = parametricCurves[ActiveChannel.Luma] || DEFAULT_PARAMETRIC_CURVE_SETTINGS;
-      writeLumaParametric(anchorParametricSettings(current, displayFulcrum), t('adjustments.curves.anchorMedian'));
+      writeLumaParametric(anchorParametricSettings(current, median), t('adjustments.curves.anchorMedian'));
       return;
     }
-    writeLumaPoints(buildAnchoredPointCurve(displayFulcrum), t('adjustments.curves.anchorMedian'));
+    writeLumaPoints(medianAnchorPoints(median), t('adjustments.curves.anchorMedian'));
   };
 
-  const medianMenuItems = isForMask
-    ? []
-    : [
-        {
-          label: t('adjustments.curves.adaptiveContrast'),
-          icon: Contrast,
-          onClick: applyAdaptiveContrast,
-          disabled: displayFulcrum == null,
-        },
-        {
-          label: t('adjustments.curves.anchorMedian'),
-          icon: Crosshair,
-          onClick: applyAnchorMedian,
-          disabled: displayFulcrum == null,
-        },
-        { type: OPTION_SEPARATOR },
-      ];
+  const imageAnchorsUnavailable = isForMask ? imageMedian == null : shownMedian == null;
+  const selectionAnchorsUnavailable = shownMedian == null;
+
+  const medianMenuItems = [
+    {
+      label: t('adjustments.curves.adaptiveContrast'),
+      icon: Contrast,
+      onClick: applyImageAnchors,
+      disabled: imageAnchorsUnavailable,
+    },
+    {
+      label: t('adjustments.curves.anchorMedian'),
+      icon: Crosshair,
+      onClick: applyAnchorMedian,
+      disabled: anchorMedian() == null,
+    },
+    { type: OPTION_SEPARATOR },
+  ];
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -963,15 +1022,38 @@ function CurveGraph({ adjustments, isForMask = false, setAdjustments, theme, onD
               <Settings2 size={16} />
             </button>
           </div>
-          {!isForMask && (
+          <button
+            className={`w-8 h-8 rounded-md border flex items-center justify-center shrink-0 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+              isForMask && toneMode === 'image'
+                ? 'bg-accent border-accent text-button-text'
+                : 'bg-card-active border-white/25 text-text-primary hover:border-white/50'
+            }`}
+            data-tooltip={t(
+              isForMask
+                ? 'adjustments.curves.adaptiveContrastImageTooltip'
+                : 'adjustments.curves.adaptiveContrastTooltip',
+            )}
+            disabled={imageAnchorsUnavailable}
+            onClick={applyImageAnchors}
+            aria-pressed={isForMask && toneMode === 'image'}
+            type="button"
+          >
+            <Contrast size={16} />
+          </button>
+          {isForMask && (
             <button
-              className="w-8 h-8 rounded-md flex items-center justify-center bg-surface-secondary text-text-secondary hover:text-text-primary disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-              data-tooltip={t('adjustments.curves.adaptiveContrastTooltip')}
-              disabled={displayFulcrum == null}
-              onClick={applyAdaptiveContrast}
+              className={`w-8 h-8 rounded-md border flex items-center justify-center shrink-0 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                toneMode === 'selection'
+                  ? 'bg-accent border-accent text-button-text'
+                  : 'bg-card-active border-white/25 text-text-primary hover:border-white/50'
+              }`}
+              data-tooltip={t('adjustments.curves.adaptiveContrastMaskTooltip')}
+              disabled={selectionAnchorsUnavailable}
+              onClick={applySelectionAnchors}
+              aria-pressed={toneMode === 'selection'}
               type="button"
             >
-              <Contrast size={16} />
+              <Scan size={16} />
             </button>
           )}
         </div>
@@ -1021,7 +1103,7 @@ function CurveGraph({ adjustments, isForMask = false, setAdjustments, theme, onD
               stroke="rgba(255,255,255,0.1)"
               strokeWidth="0.5"
             />
-            <HistogramFill channel={activeChannel} opacity={histogramOpacity} />
+            <HistogramFill channel={activeChannel} isForMask={isForMask} opacity={histogramOpacity} />
             {activeChannel === ActiveChannel.Luma && displayFulcrum != null && (
               <g
                 aria-label={t('adjustments.curves.median', { value: Math.round(displayFulcrum) })}

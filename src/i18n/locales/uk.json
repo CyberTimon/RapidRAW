@@ -118,8 +118,8 @@
       "whiteBalance": "Баланс білого"
     },
     "curves": {
-      "adaptiveContrast": "Адаптивний контраст",
-      "adaptiveContrastTooltip": "Додає контраст навколо медіанного тону, не зсуваючи експозицію",
+      "adaptiveContrast": "Поставити точки кривої",
+      "adaptiveContrastTooltip": "Ставить точки кривої на тіні, середні тони і світла зображення або активної маски. Точки лишаються на кривій, доки ви їх не зрушите",
       "anchorMedian": "Закріпити на медіані",
       "channelTitle": "Канал {{channel}}",
       "channels": {

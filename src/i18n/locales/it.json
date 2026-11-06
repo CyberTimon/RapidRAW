@@ -118,8 +118,8 @@
       "whiteBalance": "Bilanciamento del Bianco"
     },
     "curves": {
-      "adaptiveContrast": "Contrasto adattivo",
-      "adaptiveContrastTooltip": "Aggiunge contrasto intorno al tono mediano senza cambiare l'esposizione",
+      "adaptiveContrast": "Imposta punti curva",
+      "adaptiveContrastTooltip": "Inserisce punti curva su ombre, mezzi toni e luci dell'immagine o della maschera attiva. Restano sulla curva finché non li sposti",
       "anchorMedian": "Ancora alla mediana",
       "channelTitle": "Canale {{channel}}",
       "channels": {

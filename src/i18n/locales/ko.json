@@ -118,8 +118,8 @@
       "whiteBalance": "화이트 밸런스"
     },
     "curves": {
-      "adaptiveContrast": "적응형 대비",
-      "adaptiveContrastTooltip": "노출은 유지한 채 중간 톤을 기준으로 대비를 더합니다",
+      "adaptiveContrast": "곡선 포인트 배치",
+      "adaptiveContrastTooltip": "이미지 또는 활성 마스크의 그림자, 중간 톤, 하이라이트에 곡선 포인트를 놓습니다. 점을 옮기기 전까지는 곡선 위에 있습니다",
       "anchorMedian": "중간값에 고정",
       "channelTitle": "{{channel}} 채널",
       "channels": {

@@ -56,6 +56,7 @@ interface SliderProps {
   speedEditId?: string;
   step: number;
   value: number;
+  headerAction?: React.ReactNode;
   trackClassName?: string;
   fillOrigin?: 'min' | 'default';
   suffix?: string;
@@ -90,6 +91,7 @@ const Slider = ({
   speedEditId,
   step = 1,
   value,
+  headerAction,
   trackClassName,
   fillOrigin = 'default',
   suffix = '',
@@ -663,16 +665,25 @@ const Slider = ({
       className={`mb-2 group ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
       ref={containerRef}
       data-speed-edit-id={speedEditId}
-      onPointerDownCapture={disabled ? undefined : claimSpeedEdit}
+      onPointerDownCapture={
+        disabled
+          ? undefined
+          : (event) => {
+              const target = event.target as HTMLElement | null;
+              if (target?.closest?.('[data-slider-action]')) return;
+              claimSpeedEdit();
+            }
+      }
     >
-      <div className="flex justify-between items-center mb-1">
-        <div
-          className={`grid ${typeof label === 'string' && !disabled ? 'cursor-pointer' : ''}`}
-          onClick={typeof label === 'string' && !disabled ? handleReset : undefined}
-          onDoubleClick={typeof label === 'string' && !disabled ? handleReset : undefined}
-          onMouseEnter={typeof label === 'string' && !disabled ? () => setIsLabelHovered(true) : undefined}
-          onMouseLeave={typeof label === 'string' && !disabled ? () => setIsLabelHovered(false) : undefined}
-        >
+      <div className="flex justify-between items-center mb-1 gap-2">
+        <div className="flex items-center gap-1 min-w-0">
+          <div
+            className={`grid ${typeof label === 'string' && !disabled ? 'cursor-pointer' : ''}`}
+            onClick={typeof label === 'string' && !disabled ? handleReset : undefined}
+            onDoubleClick={typeof label === 'string' && !disabled ? handleReset : undefined}
+            onMouseEnter={typeof label === 'string' && !disabled ? () => setIsLabelHovered(true) : undefined}
+            onMouseLeave={typeof label === 'string' && !disabled ? () => setIsLabelHovered(false) : undefined}
+          >
           <span
             aria-hidden={isLabelHovered && typeof label === 'string'}
             className={`col-start-1 row-start-1 text-sm font-medium text-text-secondary select-none transition-opacity duration-200 ease-in-out ${
@@ -691,8 +702,11 @@ const Slider = ({
               {t('ui.slider.reset')}
             </span>
           )}
+          </div>
         </div>
-        <div className="w-14 text-right shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
+          {headerAction}
+          <div className="w-14 text-right">
           {isEditing ? (
             <input
               className="w-full text-sm text-right bg-card-active border border-gray-500 rounded-sm px-1 py-0 outline-none focus:ring-1 focus:ring-blue-500 text-text-primary"
@@ -718,6 +732,7 @@ const Slider = ({
               {suffix && <span className="text-[10px] align-top inline ml-0.5">{suffix}</span>}
             </span>
           )}
+          </div>
         </div>
       </div>
 

@@ -124,7 +124,7 @@ struct GlobalAdjustments {
     red_curve_count: u32,
     green_curve_count: u32,
     blue_curve_count: u32,
-    _pad_end1: f32,
+    contrast_pivot: f32,
     _pad_end2: f32,
     _pad_end3: f32,
     _pad_end4: f32,
@@ -164,7 +164,7 @@ struct MaskAdjustments {
     wb_log_gain_l: f32,
     wb_log_gain_m: f32,
     wb_log_gain_s: f32,
-    _pad_wb: f32,
+    contrast_pivot: f32,
     color_grading_shadows: ColorGradeSettings,
     color_grading_midtones: ColorGradeSettings,
     color_grading_highlights: ColorGradeSettings,
@@ -493,6 +493,14 @@ fn apply_curve(val: f32, src: u32, ch: u32, count: u32) -> f32 {
     return last.y / 255.0;
 }
 
+fn contrast_around_pivot(x: f32, pivot: f32, strength: f32) -> f32 {
+    let p = select(clamp(pivot, 0.02, 0.98), 0.5, pivot <= 0.0);
+    if (x <= p) {
+        return p * pow(max(x, 0.0) / p, strength);
+    }
+    return 1.0 - (1.0 - p) * pow(max(1.0 - x, 0.0) / (1.0 - p), strength);
+}
+
 fn apply_tonal_adjustments(
     color: vec3<f32>,
     local_log_detail: f32,
@@ -501,7 +509,8 @@ fn apply_tonal_adjustments(
     con: f32,
     sh: f32,
     wh: f32,
-    bl: f32
+    bl: f32,
+    pivot: f32
 ) -> vec3<f32> {
     var rgb = color;
 
@@ -587,10 +596,11 @@ fn apply_tonal_adjustments(
         let perceptual = pow(safe_rgb, vec3<f32>(1.0 / g));
         let clamped_perceptual = clamp(perceptual, vec3<f32>(0.0), vec3<f32>(1.0));
         let strength = pow(2.0, con * 1.25);
-        let condition = clamped_perceptual < vec3<f32>(0.5);
-        let high_part = 1.0 - 0.5 * pow(2.0 * (1.0 - clamped_perceptual), vec3<f32>(strength));
-        let low_part = 0.5 * pow(2.0 * clamped_perceptual, vec3<f32>(strength));
-        let curved_perceptual = select(high_part, low_part, condition);
+        let curved_perceptual = vec3<f32>(
+            contrast_around_pivot(clamped_perceptual.r, pivot, strength),
+            contrast_around_pivot(clamped_perceptual.g, pivot, strength),
+            contrast_around_pivot(clamped_perceptual.b, pivot, strength),
+        );
         let contrast_adjusted_rgb = pow(curved_perceptual, vec3<f32>(g));
         let mix_factor = smoothstep(vec3<f32>(1.0), vec3<f32>(1.01), safe_rgb);
         rgb = mix(contrast_adjusted_rgb, rgb, mix_factor);
@@ -1733,7 +1743,7 @@ fn apply_glow_bloom(
 
     blurred_linear = apply_linear_exposure(blurred_linear, exp);
     blurred_linear = apply_filmic_exposure(blurred_linear, bright);
-    blurred_linear = apply_tonal_adjustments(blurred_linear, 0.0, 0.0, is_raw, 0.0, 0.0, wh, 0.0);
+    blurred_linear = apply_tonal_adjustments(blurred_linear, 0.0, 0.0, is_raw, 0.0, 0.0, wh, 0.0, 0.5);
 
     let linear_luma = get_luma(max(blurred_linear, vec3<f32>(0.0)));
 
@@ -1801,7 +1811,7 @@ fn apply_halation(
 
     blurred_linear = apply_linear_exposure(blurred_linear, exp);
     blurred_linear = apply_filmic_exposure(blurred_linear, bright);
-    blurred_linear = apply_tonal_adjustments(blurred_linear, 0.0, 0.0, is_raw, 0.0, 0.0, wh, 0.0);
+    blurred_linear = apply_tonal_adjustments(blurred_linear, 0.0, 0.0, is_raw, 0.0, 0.0, wh, 0.0, 0.5);
 
     let linear_luma = get_luma(max(blurred_linear, vec3<f32>(0.0)));
 
@@ -1922,7 +1932,9 @@ fn main(
 
             t_exposure += m.exposure * influence;
             t_brightness += m.brightness * influence;
-            t_contrast += m.contrast * influence;
+            if (m.contrast_pivot <= 0.0) {
+                t_contrast += m.contrast * influence;
+            }
             t_highlights += m.highlights * influence;
             t_shadows += m.shadows * influence;
             t_whites += m.whites * influence;
@@ -2058,7 +2070,29 @@ fn main(
         let gf_broad = sample_gf_tex(gf_structure_texture, absolute_coord).xy;
         tonal_mid_detail = (gf.z * gf_i + gf.w) - (gf_broad.x * gf_i + gf_broad.y);
     }
-    composite_rgb_linear = apply_tonal_adjustments(composite_rgb_linear, tonal_log_detail, tonal_mid_detail, is_raw, t_contrast, t_shadows, t_whites, t_blacks);
+    composite_rgb_linear = apply_tonal_adjustments(composite_rgb_linear, tonal_log_detail, tonal_mid_detail, is_raw, t_contrast, t_shadows, t_whites, t_blacks, adjustments.global.contrast_pivot);
+    for (var mask_i = 0u; has_feature(F_MASKS) && mask_i < adjustments.mask_count; mask_i = mask_i + 1u) {
+        let m = adjustments.mask_adjustments[mask_i];
+        if (m.contrast_pivot > 0.0 && m.contrast != 0.0) {
+            let influence = get_mask_influence(mask_i, absolute_coord);
+            if (influence > 0.001) {
+                let global_strength = pow(2.0, t_contrast * 1.25);
+                let moved_pivot = contrast_around_pivot(m.contrast_pivot, adjustments.global.contrast_pivot, global_strength);
+                let pivot = clamp(moved_pivot, 16.0 / 255.0, 239.0 / 255.0);
+                composite_rgb_linear = apply_tonal_adjustments(
+                    composite_rgb_linear,
+                    tonal_log_detail,
+                    tonal_mid_detail,
+                    is_raw,
+                    m.contrast * influence,
+                    0.0,
+                    0.0,
+                    0.0,
+                    pivot
+                );
+            }
+        }
+    }
     composite_rgb_linear = apply_highlights_adjustment(composite_rgb_linear, tonal_log_detail, tonal_mid_detail, is_raw, t_highlights);
     let is_monochrome = has_feature(F_MONOCHROME) && adjustments.global.monochrome.enabled == 1u;
     if (!is_monochrome) {

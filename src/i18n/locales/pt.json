@@ -118,8 +118,8 @@
       "whiteBalance": "Balanço de Branco"
     },
     "curves": {
-      "adaptiveContrast": "Contraste adaptativo",
-      "adaptiveContrastTooltip": "Adiciona contraste em torno do tom mediano sem mudar a exposição",
+      "adaptiveContrast": "Definir pontos da curva",
+      "adaptiveContrastTooltip": "Coloca pontos da curva nas sombras, meios-tons e realces da imagem ou da máscara ativa. Ficam na curva até você movê-los",
       "anchorMedian": "Ancorar na mediana",
       "channelTitle": "Canal {{channel}}",
       "channels": {
