@@ -1473,6 +1473,22 @@
       "noResultsAiHint": " Для повнішого пошуку ввімкніть автоматичне тегування в налаштуваннях.",
       "noResultsDesc": "Не вдалося знайти зображення за назвою файлу або тегами."
     },
+    "sharedImports": {
+      "error": "Не вдалося відкрити отримані файли: {{error}}",
+      "failed_few": "Не вдалося скопіювати {{count}} файли.",
+      "failed_many": "Не вдалося скопіювати {{count}} файлів.",
+      "failed_one": "Не вдалося скопіювати {{count}} файл.",
+      "failed_other": "Не вдалося скопіювати {{count}} файлу.",
+      "opened_few": "{{count}} отримані фото в Imports/Shared/{{folder}}",
+      "opened_many": "{{count}} отриманих фото в Imports/Shared/{{folder}}",
+      "opened_one": "{{count}} отримане фото в Imports/Shared/{{folder}}",
+      "opened_other": "{{count}} отриманих фото в Imports/Shared/{{folder}}",
+      "receiving_few": "Отримання {{count}} спільних файлів…",
+      "receiving_many": "Отримання {{count}} спільних файлів…",
+      "receiving_one": "Отримання {{count}} спільного файлу…",
+      "receiving_other": "Отримання {{count}} спільних файлів…",
+      "unsupported": "RapidRAW не може відкрити: {{names}}"
+    },
     "sort": {
       "aperture": "Діафрагма",
       "dateModified": "Дата зміни",

@@ -1409,6 +1409,16 @@
       "noResultsAiHint": " For a more comprehensive search, enable automatic tagging in Settings.",
       "noResultsDesc": "Could not find an image based on filename or tags."
     },
+    "sharedImports": {
+      "error": "Could not open the shared files: {{error}}",
+      "failed_one": "1 shared file could not be copied.",
+      "failed_other": "{{count}} shared files could not be copied.",
+      "opened_one": "1 shared photo in Imports/Shared/{{folder}}",
+      "opened_other": "{{count}} shared photos in Imports/Shared/{{folder}}",
+      "receiving_one": "Receiving 1 shared file…",
+      "receiving_other": "Receiving {{count}} shared files…",
+      "unsupported": "RapidRAW can't open: {{names}}"
+    },
     "sort": {
       "aperture": "Aperture",
       "dateModified": "Date Modified",

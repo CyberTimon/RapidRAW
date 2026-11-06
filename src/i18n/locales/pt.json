@@ -1441,6 +1441,19 @@
       "noResultsAiHint": " Para uma pesquisa mais abrangente, ative o tagging automático em Configurações.",
       "noResultsDesc": "Não foi possível encontrar uma imagem com base no nome do arquivo ou nas etiquetas."
     },
+    "sharedImports": {
+      "error": "Não foi possível abrir os ficheiros partilhados: {{error}}",
+      "failed_many": "Não foi possível copiar {{count}} ficheiros partilhados.",
+      "failed_one": "Não foi possível copiar 1 ficheiro partilhado.",
+      "failed_other": "Não foi possível copiar {{count}} ficheiros partilhados.",
+      "opened_many": "{{count}} fotos partilhadas em Imports/Shared/{{folder}}",
+      "opened_one": "1 foto partilhada em Imports/Shared/{{folder}}",
+      "opened_other": "{{count}} fotos partilhadas em Imports/Shared/{{folder}}",
+      "receiving_many": "A receber {{count}} ficheiros partilhados…",
+      "receiving_one": "A receber 1 ficheiro partilhado…",
+      "receiving_other": "A receber {{count}} ficheiros partilhados…",
+      "unsupported": "O RapidRAW não consegue abrir: {{names}}"
+    },
     "sort": {
       "aperture": "Abertura",
       "dateModified": "Data de Modificação",
