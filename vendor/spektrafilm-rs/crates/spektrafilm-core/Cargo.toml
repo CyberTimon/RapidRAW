@@ -24,3 +24,7 @@ libm.workspace = true
 image.workspace = true
 
 
+
+[dev-dependencies]
+wgpu = { workspace = true, features = ["wgsl"] }
+pollster = "0.4"

@@ -2393,6 +2393,7 @@ version = "0.1.2"
 dependencies = [
  "image",
  "libm",
+ "pollster",
  "rayon",
  "serde",
  "serde_json",
@@ -2401,6 +2402,7 @@ dependencies = [
  "spektrafilm-model",
  "thiserror",
  "tracing",
+ "wgpu",
 ]
 
 [[package]]
