@@ -1701,11 +1701,20 @@
       "exposureReason": "The suggested frame has a more balanced exposure score.",
       "chooseKeeper": "Suggest this frame instead",
       "reviewSelectionNotice": "Select only the frames you want to reject. Unselected frames are kept. Nothing is deleted.",
-      "rejectSelected": "Reject selected ({{count}})",
       "suggestedKeeper": "Suggested keeper",
-      "similarAlternatives": "Similar alternatives ({{count}})",
       "burstWindow": "Capture window (seconds)",
-      "partialFailure": "Could not analyze {{count}} photo(s). These photos were left unchanged."
+      "rejectSelected_few": "Reject selected ({{count}})",
+      "similarAlternatives_few": "Similar alternatives ({{count}})",
+      "partialFailure_few": "Could not analyze {{count}} photos. They were left unchanged.",
+      "rejectSelected_many": "Reject selected ({{count}})",
+      "similarAlternatives_many": "Similar alternatives ({{count}})",
+      "partialFailure_many": "Could not analyze {{count}} photos. They were left unchanged.",
+      "rejectSelected_one": "Reject selected ({{count}})",
+      "similarAlternatives_one": "Similar alternative ({{count}})",
+      "partialFailure_one": "Could not analyze {{count}} photo. It was left unchanged.",
+      "rejectSelected_other": "Reject selected ({{count}})",
+      "similarAlternatives_other": "Similar alternatives ({{count}})",
+      "partialFailure_other": "Could not analyze {{count}} photos. They were left unchanged."
     },
     "focusStack": {
       "cancel": "Zrušit",

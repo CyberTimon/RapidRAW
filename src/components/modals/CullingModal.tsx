@@ -279,9 +279,9 @@ export default function CullingModal({
             {t(suggestions.failedPaths.length > 0 ? 'modals.culling.cullingFailed' : 'modals.culling.noIssuesFound')}
           </Text>
           <Text>
-            {t(suggestions.failedPaths.length > 0 ? 'modals.culling.partialFailure' : 'modals.culling.noIssuesDesc', {
-              count: suggestions.failedPaths.length,
-            })}
+            {suggestions.failedPaths.length > 0
+              ? t('modals.culling.partialFailure', { count: suggestions.failedPaths.length })
+              : t('modals.culling.noIssuesDesc')}
           </Text>
           <div className="mt-6">
             <Button onClick={onClose}>{t('modals.culling.done')}</Button>
