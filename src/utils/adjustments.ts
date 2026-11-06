@@ -1107,6 +1107,7 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
     },
   ],
   masks: [{ label: 'modals.copyPaste.groups.masks', keys: ['masks'] }],
+  film: [{ label: 'modals.copyPaste.groups.film', keys: ['filmSimulation'] }],
 };
 
 export const SPEED_EDIT_ADJUSTMENTS = [
@@ -1190,7 +1191,6 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     DetailsAdjustment.NegativeExposure,
     DetailsAdjustment.NegativeContrast,
   ],
-  film: ['filmSimulation'],
   effects: [
     CreativeAdjustment.GlowAmount,
     CreativeAdjustment.HalationAmount,

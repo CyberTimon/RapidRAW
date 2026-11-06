@@ -1646,7 +1646,8 @@
         "sharpness": "Sharpness",
         "transformRotation": "Transform & Rotation",
         "vignette": "Vignette",
-        "whiteBalance": "White Balance"
+        "whiteBalance": "White Balance",
+        "film": "Film simulation"
       },
       "includedAdjustments": "Included Adjustments",
       "modeMerge": "Merge",
