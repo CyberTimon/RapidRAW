@@ -571,6 +571,7 @@ export default function AIPanel() {
 
   const activeContainer = (adjustments.aiPatches || []).find((p) => p.id === activePatchContainerId);
   const activeSubMaskData = activeContainer?.subMasks.find((sm) => sm.id === activeSubMaskId);
+  const isActiveContainerStandalone = isStandaloneContainer(activeContainer);
 
   useEffect(() => {
     if (activePatchContainerId) {
@@ -614,10 +615,11 @@ export default function AIPanel() {
         setTempName('');
       } else if (activePatchContainerId && activeAiTasks[activePatchContainerId]) {
         handleCancelAiTask(activePatchContainerId);
-      } else if (activeSubMaskId) {
+      } else if (activeSubMaskId && !isActiveContainerStandalone) {
         onSelectSubMask(null);
       } else if (activePatchContainerId) {
         onSelectPatchContainer(null);
+        onSelectSubMask(null);
       }
     };
     if (activePatchContainerId || renamingId) setCustomEscapeHandler(handler);
@@ -626,6 +628,7 @@ export default function AIPanel() {
   }, [
     activePatchContainerId,
     activeSubMaskId,
+    isActiveContainerStandalone,
     renamingId,
     activeAiTasks,
     handleCancelAiTask,

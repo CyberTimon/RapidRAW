@@ -21,7 +21,7 @@ const getTransformAdjustments = (adj: Adjustments) => ({
   lensDistortionAmount: adj.lensDistortionAmount,
   lensVignetteAmount: adj.lensVignetteAmount,
   lensTcaAmount: adj.lensTcaAmount,
-  lensDistortionParams: adj.lensDistortionParams,
+  lensCorrectionMode: adj.lensCorrectionMode,
   lensMaker: adj.lensMaker,
   lensModel: adj.lensModel,
   lensDistortionEnabled: adj.lensDistortionEnabled,

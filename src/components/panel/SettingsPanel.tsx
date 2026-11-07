@@ -60,6 +60,7 @@ import { open } from '@tauri-apps/plugin-shell';
 import ImmichSettings from '../immich/ImmichSettings';
 import DataManagementSettings from './settings/DataManagementSettings';
 import EditInAppsSettings from './settings/EditInAppsSettings';
+import { applyUiScale, clampUiScale, getDevicePixelRatio, UI_SCALE_PRESETS } from '../../utils/displayScale';
 
 interface ConfirmModalState {
   confirmText: string;
@@ -648,7 +649,7 @@ export default function SettingsPanel({
   });
   const [restartRequired, setRestartRequired] = useState(false);
   const [activeCategory, setActiveCategory] = useState('general');
-  const [dpr, setDpr] = useState(() => (typeof window !== 'undefined' ? window.devicePixelRatio : 1));
+  const [dpr, setDpr] = useState(() => getDevicePixelRatio());
 
   const settingCategories = useMemo(
     () => [
@@ -716,10 +717,22 @@ export default function SettingsPanel({
     [t],
   );
 
+  const uiScaleOptions = useMemo<OptionItem<number>[]>(() => {
+    const presetNames: Record<number, string> = {
+      0.8: t('settings.general.uiScaleCompact'),
+      1: t('settings.general.uiScaleDefault'),
+      1.25: t('settings.general.uiScaleLarge'),
+    };
+    return UI_SCALE_PRESETS.map((scale) => {
+      const percent = `${Math.round(scale * 100)}%`;
+      return { value: scale, label: presetNames[scale] ? `${percent} · ${presetNames[scale]}` : percent };
+    });
+  }, [t]);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const updateDpr = () => setDpr(window.devicePixelRatio);
+    const updateDpr = () => setDpr(getDevicePixelRatio());
 
     const mediaQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
     mediaQuery.addEventListener('change', updateDpr);
@@ -1054,6 +1067,7 @@ export default function SettingsPanel({
                             { value: 'ja', label: '日本語' },
                             { value: 'ko', label: '한국어' },
                             { value: 'cs', label: 'Čeština' },
+                            { value: 'lt', label: 'Lietuvių' },
                             { value: 'zh-CN', label: '简体中文' },
                             { value: 'zh-TW', label: '繁體中文' },
                           ]}
@@ -1187,6 +1201,21 @@ export default function SettingsPanel({
                           onChange={(value: any) => onSettingsChange({ ...appSettings, fontFamily: value })}
                           options={fontOptions}
                           value={appSettings?.fontFamily || 'poppins'}
+                          triggerClassName="bg-bg-primary"
+                        />
+                      </SettingItem>
+
+                      <SettingItem
+                        label={t('settings.general.uiScale')}
+                        description={t('settings.general.uiScaleDesc')}
+                      >
+                        <Dropdown
+                          onChange={(value: number) => {
+                            onSettingsChange({ ...appSettings, uiScale: value });
+                            applyUiScale(value);
+                          }}
+                          options={uiScaleOptions}
+                          value={clampUiScale(appSettings?.uiScale)}
                           triggerClassName="bg-bg-primary"
                         />
                       </SettingItem>

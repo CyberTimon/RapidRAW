@@ -182,7 +182,7 @@ export const createRelightLight = (x: number, y: number): RelightLight => ({
   x,
   y,
   depth: 0,
-  intensity: 60,
+  intensity: 40,
   radius: 30,
   angle: 135,
   elevation: 60,
@@ -363,17 +363,6 @@ export interface Adjustments {
   lensDistortionEnabled: boolean;
   lensTcaEnabled: boolean;
   lensVignetteEnabled: boolean;
-  lensDistortionParams: {
-    k1: number;
-    k2: number;
-    k3: number;
-    model: number;
-    tca_vr: number;
-    tca_vb: number;
-    vig_k1: number;
-    vig_k2: number;
-    vig_k3: number;
-  } | null;
   lensMaker: string | null;
   lensModel: string | null;
   lumaNoiseReduction: number;
@@ -861,7 +850,6 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     lensDistortionEnabled: loadedAdjustments.lensDistortionEnabled ?? INITIAL_ADJUSTMENTS.lensDistortionEnabled,
     lensTcaEnabled: loadedAdjustments.lensTcaEnabled ?? INITIAL_ADJUSTMENTS.lensTcaEnabled,
     lensVignetteEnabled: loadedAdjustments.lensVignetteEnabled ?? INITIAL_ADJUSTMENTS.lensVignetteEnabled,
-    lensDistortionParams: loadedAdjustments.lensDistortionParams ?? INITIAL_ADJUSTMENTS.lensDistortionParams,
     transformDistortion: loadedAdjustments.transformDistortion ?? INITIAL_ADJUSTMENTS.transformDistortion,
     transformVertical: loadedAdjustments.transformVertical ?? INITIAL_ADJUSTMENTS.transformVertical,
     transformHorizontal: loadedAdjustments.transformHorizontal ?? INITIAL_ADJUSTMENTS.transformHorizontal,
@@ -1332,10 +1320,10 @@ export const ADJUSTMENT_SECTION_TOOLS: Record<string, Array<AdjustmentSectionToo
   ],
   effects: [
     { id: 'creative', label: 'adjustments.effects.creative' },
-    { id: 'motionBlur', label: 'adjustments.effects.motionBlur' },
     { id: 'spatial', label: 'adjustments.effects.spatial', subTools: ['lensBlur', 'relight', 'fog'] },
     { id: 'lut', label: 'adjustments.effects.lut' },
     { id: 'vignette', label: 'adjustments.effects.vignette' },
+    { id: 'motionBlur', label: 'adjustments.effects.motionBlur' },
     { id: 'grain', label: 'adjustments.effects.grain' },
   ],
 };

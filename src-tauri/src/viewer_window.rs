@@ -448,10 +448,11 @@ pub async fn open_viewer_window(title: String, app_handle: AppHandle) -> Result<
         .map_err(|e| e.to_string())?;
 
         let saved = place_viewer(&app_handle, &window);
+        let settings = load_settings(app_handle.clone()).unwrap_or_default();
 
-        if load_settings(app_handle.clone())
-            .unwrap_or_default()
-            .wgpu_renderer_enabled()
+        crate::app_settings::apply_saved_ui_scale(&window, &settings);
+
+        if settings.wgpu_renderer_enabled()
             && let Err(e) = attach_viewer_display(&app_handle, &window)
         {
             let _ = window.destroy();

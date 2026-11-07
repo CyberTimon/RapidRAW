@@ -1516,6 +1516,7 @@
       "linear": "Lineal",
       "liquify": "Licuar",
       "luminance": "Luminancia",
+      "matchBrush": "Pincel de coincidencia",
       "others": "Otros",
       "quickErase": "Borrado rápido",
       "quickEraser": "Borrador rápido",
@@ -1742,7 +1743,6 @@
       "selectManufacturer": "Seleccionar fabricante",
       "title": "Corrección de lente",
       "vignetting": "Viñeteo",
-      "waitingAutoDetect": "Esperando autodetección...",
       "zoomInTooltip": "Acercar",
       "zoomOutTooltip": "Alejar"
     },
@@ -1971,6 +1971,11 @@
       "title": "Ajustes generales",
       "toolFocusMode": "Modo de enfoque de herramientas",
       "toolFocusModeDesc": "Contrae automáticamente las demás herramientas de un panel cuando expandes una.",
+      "uiScale": "Escala de la interfaz",
+      "uiScaleCompact": "Compacta",
+      "uiScaleDefault": "Predeterminada",
+      "uiScaleDesc": "Haz la interfaz más pequeña o más grande, independientemente del escalado de pantalla del sistema. Los tamaños compactos aprovechan mejor las pantallas pequeñas de portátil.",
+      "uiScaleLarge": "Grande",
       "xmpSync": "Sincronización de metadatos XMP",
       "xmpSyncDesc": "Sincroniza puntuaciones, etiquetas de color y etiquetas a archivos sidecar XMP estándar para compatibilidad con otros editores de fotos."
     },

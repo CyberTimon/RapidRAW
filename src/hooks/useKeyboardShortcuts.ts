@@ -9,8 +9,10 @@ import { getReopenedPanelWidth, useUIStore } from '../store/useUIStore';
 import { useProcessStore } from '../store/useProcessStore';
 import { applyCrop, cancelCrop, useEditorActions } from './useEditorActions';
 import { useLibraryActions } from './useLibraryActions';
+import { getDevicePixelRatio } from '../utils/displayScale';
 
 const SPEED_EDIT_IMAGE_DIRECTIONS: Record<string, number> = { KeyQ: -1, KeyE: 1 };
+const NON_TEXT_INPUT_TYPES = new Set(['checkbox', 'radio', 'range', 'button', 'submit', 'reset', 'color', 'file']);
 
 const getParentFolder = (path: string) => {
   const physicalPath = path.split('?vc=')[0];
@@ -49,7 +51,8 @@ export const useKeyboardShortcuts = ({
     setAdjustments,
     toggleCompare,
   } = useEditorActions();
-  const { handleRate, handleSetFlag, handleToggleFlag, handleSetColorLabel } = useLibraryActions();
+  const { handleRate, handleSetFlag, handleToggleFlag, handleSetColorLabel, handleClearSelection } =
+    useLibraryActions();
 
   const sortedListRef = useRef(sortedImageList);
   useEffect(() => {
@@ -159,6 +162,11 @@ export const useKeyboardShortcuts = ({
         shouldFire: () => sortedListRef.current.length > 0,
         execute: (e: any, s: any) => {
           e.preventDefault();
+          const selected = new Set(s.library.multiSelectedPaths);
+          if (sortedListRef.current.every((f: ImageFile) => selected.has(f.path))) {
+            handleClearSelection();
+            return;
+          }
           s.library.setLibrary({ multiSelectedPaths: sortedListRef.current.map((f: ImageFile) => f.path) });
           if (s.ui.activeView === 'library') {
             const lastPath = sortedListRef.current[sortedListRef.current.length - 1].path;
@@ -199,7 +207,7 @@ export const useKeyboardShortcuts = ({
         shouldFire: (s: any) => s.ui.activeView === 'editor' && !!s.editor.selectedImage,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+          const dpr = getDevicePixelRatio();
           const currentPercent =
             s.editor.originalSize?.width > 0 && s.editor.displaySize?.width > 0
               ? (s.editor.displaySize.width * dpr) / s.editor.originalSize.width
@@ -211,7 +219,7 @@ export const useKeyboardShortcuts = ({
         shouldFire: (s: any) => s.ui.activeView === 'editor' && !!s.editor.selectedImage,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+          const dpr = getDevicePixelRatio();
           const currentPercent =
             s.editor.originalSize?.width > 0 && s.editor.displaySize?.width > 0
               ? (s.editor.displaySize.width * dpr) / s.editor.originalSize.width
@@ -223,7 +231,7 @@ export const useKeyboardShortcuts = ({
         shouldFire: (s: any) => s.ui.activeView === 'editor' && !!s.editor.selectedImage,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+          const dpr = getDevicePixelRatio();
           const { originalSize, displaySize, baseRenderSize } = s.editor;
           const currentPercent =
             originalSize?.width > 0 && displaySize?.width > 0
@@ -254,7 +262,7 @@ export const useKeyboardShortcuts = ({
         shouldFire: (s: any) => s.ui.activeView === 'editor' && !!s.editor.selectedImage,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+          const dpr = getDevicePixelRatio();
           const currentPercent =
             s.editor.originalSize?.width > 0 && s.editor.displaySize?.width > 0
               ? (s.editor.displaySize.width * dpr) / s.editor.originalSize.width
@@ -266,7 +274,7 @@ export const useKeyboardShortcuts = ({
         shouldFire: (s: any) => s.ui.activeView === 'editor' && !!s.editor.selectedImage,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+          const dpr = getDevicePixelRatio();
           const currentPercent =
             s.editor.originalSize?.width > 0 && s.editor.displaySize?.width > 0
               ? (s.editor.displaySize.width * dpr) / s.editor.originalSize.width
@@ -612,8 +620,8 @@ export const useKeyboardShortcuts = ({
           (s.ui.activePanel === Panel.Masks || s.ui.activePanel === Panel.Ai),
         execute: (e: any, s: any) => {
           e.preventDefault();
-          const currentSettings = s.editor.brushSettings || { size: 50 };
-          const newSize = Math.min((currentSettings.size || 50) + 10, 200);
+          const currentSettings = s.editor.brushSettings || { size: 100 };
+          const newSize = Math.min((currentSettings.size || 100) + 10, 200);
           s.editor.setEditor({
             brushSettings: { ...currentSettings, size: newSize },
           });
@@ -626,8 +634,8 @@ export const useKeyboardShortcuts = ({
           (s.ui.activePanel === Panel.Masks || s.ui.activePanel === Panel.Ai),
         execute: (e: any, s: any) => {
           e.preventDefault();
-          const currentSettings = s.editor.brushSettings || { size: 50 };
-          const newSize = Math.max((currentSettings.size || 50) - 10, 1);
+          const currentSettings = s.editor.brushSettings || { size: 100 };
+          const newSize = Math.max((currentSettings.size || 100) - 10, 1);
           s.editor.setEditor({
             brushSettings: { ...currentSettings, size: newSize },
           });
@@ -761,9 +769,11 @@ export const useKeyboardShortcuts = ({
         return;
       }
 
-      const isInputFocused =
-        document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA';
-      if (isInputFocused) return;
+      const target = event.target;
+      const isInputTarget =
+        target instanceof HTMLTextAreaElement ||
+        (target instanceof HTMLInputElement && !NON_TEXT_INPUT_TYPES.has(target.type));
+      if (isInputTarget) return;
 
       for (const builtin of builtinShortcuts) {
         if (builtin.match(event, state)) {
@@ -807,6 +817,7 @@ export const useKeyboardShortcuts = ({
     handleToggleFlag,
     handleSetColorLabel,
     setAdjustments,
+    handleClearSelection,
     toggleCompare,
   ]);
 };

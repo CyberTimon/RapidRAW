@@ -48,6 +48,7 @@ class MainActivity : TauriActivity() {
 
     webView.setBackgroundColor(safeMarginBackgroundColor)
     webView.fitsSystemWindows = true
+    webView.settings.useWideViewPort = true
 
     onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
       override fun handleOnBackPressed() {

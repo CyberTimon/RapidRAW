@@ -902,7 +902,12 @@ fn process_path(
                 sub_mask_id, kind, ..
             } => {
                 let warped = warped_image.get_or_insert_with(|| {
-                    crate::build_ai_source_image(&base, is_raw, &geometry_adjustments(&adjustments))
+                    crate::build_ai_source_image(
+                        &base,
+                        is_raw,
+                        path,
+                        &geometry_adjustments(&adjustments),
+                    )
                 });
                 generate_mask(
                     app_handle,
