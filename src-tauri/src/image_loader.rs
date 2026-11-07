@@ -8,7 +8,7 @@ use crate::file_management::{parse_virtual_path, read_file_mapped};
 use crate::formats::is_raw_file;
 use crate::image_processing::ImageMetadata;
 use crate::image_processing::{
-    apply_orientation, apply_srgb_to_linear, effective_baseline_exposure,
+    apply_orientation, apply_srgb_to_linear, effective_baseline_exposure, linear_channel_to_srgb,
     remove_raw_artifacts_and_enhance,
 };
 use crate::mask_generation::{MaskDefinition, SubMask, generate_mask_bitmap};
@@ -16,7 +16,11 @@ use crate::white_balance::WhiteBalance;
 use anyhow::{Context, Result, anyhow};
 use base64::{Engine as _, engine::general_purpose};
 use exif::{Reader as ExifReader, Tag};
-use image::{DynamicImage, GenericImageView, ImageReader, imageops};
+use glam::{DMat3, Mat3, Vec3};
+use image::{DynamicImage, GenericImageView, ImageDecoder, ImageReader, Rgb32FImage, imageops};
+use moxcms::{
+    ColorProfile, DataColorSpace, Layout, RenderingIntent, ToneReprCurve, TransformOptions,
+};
 use rawler::Orientation;
 use rayon::prelude::*;
 use serde::Deserialize;
@@ -409,27 +413,147 @@ pub fn load_image_with_orientation(
 
     check_cancel()?;
 
-    let image = reader.decode().context("Failed to decode image")?;
+    let mut decoder = reader.into_decoder().context("Failed to decode image")?;
+    let icc_profile = decoder.icc_profile().ok().flatten();
+    let image = DynamicImage::from_decoder(decoder).context("Failed to decode image")?;
     check_cancel()?;
 
-    let oriented_image = {
-        let exif_reader = ExifReader::new();
-        if let Ok(exif) = exif_reader.read_from_container(&mut cursor.clone()) {
-            if let Some(orientation) = exif
-                .get_field(Tag::Orientation, exif::In::PRIMARY)
-                .and_then(|f| f.value.get_uint(0))
-            {
-                check_cancel()?;
-                apply_orientation(image, Orientation::from_u16(orientation as u16))
-            } else {
-                image
-            }
-        } else {
-            image
-        }
+    let exif = ExifReader::new()
+        .read_from_container(&mut cursor.clone())
+        .ok();
+    let orientation = exif.as_ref().and_then(|exif| {
+        exif.get_field(Tag::Orientation, exif::In::PRIMARY)?
+            .value
+            .get_uint(0)
+    });
+    let oriented_image = match orientation {
+        Some(orientation) => apply_orientation(image, Orientation::from_u16(orientation as u16)),
+        None => image,
     };
 
-    Ok(DynamicImage::ImageRgb32F(oriented_image.to_rgb32f()))
+    let mut rgb = oriented_image.to_rgb32f();
+    let source_profile = match icc_profile {
+        Some(icc) => ColorProfile::new_from_slice(&icc).ok(),
+        None => exif
+            .as_ref()
+            .is_some_and(is_exif_adobe_rgb)
+            .then(ColorProfile::new_adobe_rgb),
+    };
+    if let Some(profile) = source_profile {
+        check_cancel()?;
+        convert_profile_to_srgb(&mut rgb, &profile);
+    }
+
+    Ok(DynamicImage::ImageRgb32F(rgb))
+}
+
+fn is_exif_adobe_rgb(exif: &exif::Exif) -> bool {
+    let uncalibrated = exif
+        .get_field(Tag::ColorSpace, exif::In::PRIMARY)
+        .and_then(|f| f.value.get_uint(0))
+        == Some(0xFFFF);
+    let interop_r03 = exif
+        .get_field(Tag::InteroperabilityIndex, exif::In::PRIMARY)
+        .is_some_and(|f| f.display_value().to_string().contains("R03"));
+    uncalibrated && interop_r03
+}
+
+fn with_linear_trc(mut profile: ColorProfile) -> ColorProfile {
+    let identity = ToneReprCurve::Lut(Vec::new());
+    profile.red_trc = Some(identity.clone());
+    profile.green_trc = Some(identity.clone());
+    profile.blue_trc = Some(identity);
+    profile.cicp = None;
+    profile
+}
+
+fn colorants(profile: &ColorProfile) -> DMat3 {
+    DMat3::from_cols_array_2d(&profile.colorant_matrix().v).transpose()
+}
+
+fn convert_profile_to_srgb(image: &mut Rgb32FImage, source: &ColorProfile) {
+    if source.color_space != DataColorSpace::Rgb || image.width() == 0 {
+        return;
+    }
+    let srgb = ColorProfile::new_srgb();
+    let (target, to_srgb) = if source.is_matrix_shaper() {
+        let matrix = (colorants(&srgb).inverse() * colorants(source)).as_mat3();
+        (with_linear_trc(source.clone()), matrix)
+    } else {
+        (with_linear_trc(srgb), Mat3::IDENTITY)
+    };
+
+    let options = TransformOptions {
+        rendering_intent: RenderingIntent::RelativeColorimetric,
+        ..TransformOptions::default()
+    };
+    let Ok(transform) = source.create_transform_f32(Layout::Rgb, &target, Layout::Rgb, options)
+    else {
+        log::warn!("Unsupported embedded color profile, assuming sRGB");
+        return;
+    };
+    let to_linear_srgb = |src: &[f32], dst: &mut [f32]| {
+        transform.transform(src, dst)?;
+        for rgb in dst.as_chunks_mut::<3>().0 {
+            *rgb = (to_srgb * Vec3::from_array(*rgb)).to_array();
+        }
+        Ok::<_, moxcms::CmsError>(())
+    };
+
+    const STEPS: usize = 16;
+    let probe: Vec<f32> = (0..(STEPS + 1).pow(3))
+        .flat_map(|i| {
+            [
+                i % (STEPS + 1),
+                i / (STEPS + 1) % (STEPS + 1),
+                i / (STEPS + 1).pow(2),
+            ]
+            .map(|c| c as f32 / STEPS as f32)
+        })
+        .collect();
+    let mut probe_out = vec![0.0f32; probe.len()];
+    if to_linear_srgb(&probe, &mut probe_out).is_err() {
+        return;
+    }
+    let is_srgb = probe.iter().zip(&probe_out).all(|(input, linear)| {
+        (linear_channel_to_srgb(*linear).min(1.0) - input).abs() < 2.0 / 255.0
+    });
+    if is_srgb {
+        return;
+    }
+
+    let row_len = image.width() as usize * 3;
+    let mut linear = vec![0.0f32; image.as_raw().len()];
+    let converted = linear
+        .par_chunks_mut(row_len)
+        .zip(image.as_raw().par_chunks(row_len))
+        .try_for_each(|(dst, src)| to_linear_srgb(src, dst));
+    if converted.is_err() {
+        log::warn!("Failed to apply embedded color profile, assuming sRGB");
+        return;
+    }
+
+    image
+        .as_mut()
+        .par_chunks_exact_mut(3)
+        .zip(linear.par_chunks_exact(3))
+        .for_each(|(out, rgb)| {
+            let peak = rgb[0].max(rgb[1]).max(rgb[2]);
+            if peak <= 0.0 {
+                out.fill(0.0);
+                return;
+            }
+            let floor = rgb[0].min(rgb[1]).min(rgb[2]);
+            let saturation = if floor < 0.0 {
+                peak / (peak - floor)
+            } else {
+                1.0
+            };
+            let scale = peak.max(1.0);
+            for (o, c) in out.iter_mut().zip(rgb) {
+                *o = linear_channel_to_srgb((peak - (peak - c) * saturation) / scale);
+            }
+        });
 }
 
 fn composite_patches_cow<'a>(

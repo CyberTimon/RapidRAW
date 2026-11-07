@@ -41,6 +41,7 @@ dependencies = [
  "lsdetect",
  "memmap2",
  "mimalloc",
+ "moxcms",
  "mozjpeg-rs",
  "nalgebra",
  "ndarray",

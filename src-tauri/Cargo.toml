@@ -19,6 +19,7 @@ tauri-plugin-dialog = "2.7.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 image = "0.25.10"
+moxcms = "0.8.1"
 png = "0.18.1"
 tiff = "0.11.3"
 base64 = "0.23"
