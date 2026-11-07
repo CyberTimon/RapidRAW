@@ -2458,34 +2458,42 @@ pub async fn estimate_export_sizes(
     current_edit_adjustments: Option<Value>,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
-) -> Result<usize, String> {
+) -> Result<Option<usize>, String> {
     if output_format.to_lowercase() == "cube" {
-        return Ok(1_050_000 * paths.len());
+        return Ok(Some(1_050_000 * paths.len()));
     }
 
     if paths.is_empty() {
-        return Ok(0);
+        return Ok(Some(0));
     }
 
     let first_path = &paths[0];
     let (source_path, sidecar_path) = parse_virtual_path(first_path);
     let source_path_str = source_path.to_string_lossy().to_string();
 
+    let current_edit = match current_edit_adjustments {
+        Some(adjustments) if Some(first_path) == current_edit_path.as_ref() => {
+            let loaded_image = state
+                .original_image
+                .lock()
+                .unwrap()
+                .clone()
+                .filter(|image| image.path == *first_path);
+            match loaded_image {
+                Some(loaded_image) => Some((loaded_image, adjustments)),
+                None => return Ok(None),
+            }
+        }
+        _ => None,
+    };
+
     let context = get_or_init_gpu_context(&state, &app_handle)?;
-    let is_current_edit = Some(first_path) == current_edit_path.as_ref();
     let is_raw = is_raw_file(&source_path_str);
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
 
-    let single_image_extrapolated_size: usize = if is_current_edit
-        && current_edit_adjustments.is_some()
+    let single_image_extrapolated_size: usize = if let Some((loaded_image, mut adjustments_clone)) =
+        current_edit
     {
-        let loaded_image = state
-            .original_image
-            .lock()
-            .unwrap()
-            .clone()
-            .ok_or("No original image loaded")?;
-        let mut adjustments_clone = current_edit_adjustments.clone().unwrap();
         hydrate_adjustments(&state, &mut adjustments_clone);
 
         const ESTIMATE_DIM: u32 = 1920;
@@ -2733,5 +2741,5 @@ pub async fn estimate_export_sizes(
         (single_image_estimated_size as f64 * pixel_ratio) as usize
     };
 
-    Ok(single_image_extrapolated_size * paths.len())
+    Ok(Some(single_image_extrapolated_size * paths.len()))
 }
