@@ -998,32 +998,32 @@ function CurveGraph({ adjustments, isForMask = false, setAdjustments, theme, onD
 
   return (
     <div className="select-none touch-none" ref={containerRef}>
-      <div className="flex items-center justify-between gap-2 mb-2 mt-2">
+      <div className="flex items-center gap-1.5 mb-3 mt-2">
         <div className="flex items-center gap-1 shrink-0">
-          <div className="flex items-center gap-1 p-1 rounded-lg bg-surface-secondary">
+          <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-surface-secondary">
             <button
-              className={`w-8 h-8 rounded-md flex items-center justify-center transition-all ${
+              className={`w-7 h-7 rounded-md flex items-center justify-center transition-all ${
                 !isParametricMode ? 'bg-surface text-text-primary' : 'text-text-secondary hover:text-text-primary'
               }`}
               onClick={() => handleToggleMode('point')}
               data-tooltip={t('adjustments.curves.pointCurve')}
               type="button"
             >
-              <Spline size={16} />
+              <Spline size={14} />
             </button>
             <button
-              className={`w-8 h-8 rounded-md flex items-center justify-center transition-all ${
+              className={`w-7 h-7 rounded-md flex items-center justify-center transition-all ${
                 isParametricMode ? 'bg-surface text-text-primary' : 'text-text-secondary hover:text-text-primary'
               }`}
               onClick={() => handleToggleMode('parametric')}
               data-tooltip={t('adjustments.curves.parametricCurve')}
               type="button"
             >
-              <Settings2 size={16} />
+              <Settings2 size={14} />
             </button>
           </div>
           <button
-            className={`w-8 h-8 rounded-md border flex items-center justify-center shrink-0 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+            className={`w-7 h-7 rounded-md border flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
               isForMask && toneMode === 'image'
                 ? 'bg-accent border-accent text-button-text'
                 : 'bg-card-active border-white/25 text-text-primary hover:border-white/50'
@@ -1038,11 +1038,11 @@ function CurveGraph({ adjustments, isForMask = false, setAdjustments, theme, onD
             aria-pressed={isForMask && toneMode === 'image'}
             type="button"
           >
-            <Contrast size={16} />
+            <Contrast size={14} />
           </button>
           {isForMask && (
             <button
-              className={`w-8 h-8 rounded-md border flex items-center justify-center shrink-0 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+              className={`w-7 h-7 rounded-md border flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                 toneMode === 'selection'
                   ? 'bg-accent border-accent text-button-text'
                   : 'bg-card-active border-white/25 text-text-primary hover:border-white/50'
@@ -1053,20 +1053,19 @@ function CurveGraph({ adjustments, isForMask = false, setAdjustments, theme, onD
               aria-pressed={toneMode === 'selection'}
               type="button"
             >
-              <Scan size={16} />
+              <Scan size={14} />
             </button>
           )}
         </div>
-
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-0.5 shrink-0 ml-auto">
           {(Object.keys(CHANNEL_COLORS) as Array<ActiveChannel>).map((channel) => {
             const selected = activeChannel === channel;
             const channelLabel = t(`adjustments.curves.channels.${channel}`);
             return (
               <button
                 key={channel}
-                className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
-                  selected ? 'ring-2 ring-offset-2 ring-offset-surface ring-accent' : 'bg-surface-secondary'
+                className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${
+                  selected ? 'ring-2 ring-offset-1 ring-offset-surface ring-accent bg-surface' : 'bg-surface-secondary'
                 } ${channel === ActiveChannel.Luma ? 'text-text-primary' : ''}`}
                 onClick={() => setActiveChannel(channel)}
                 type="button"
@@ -1121,7 +1120,7 @@ function CurveGraph({ adjustments, isForMask = false, setAdjustments, theme, onD
                 />
                 <text
                   x={displayFulcrum > 220 ? displayFulcrum - 4 : displayFulcrum + 4}
-                  y={14}
+                  y={22}
                   fill="currentColor"
                   fontSize={9}
                   textAnchor={displayFulcrum > 220 ? 'end' : 'start'}
