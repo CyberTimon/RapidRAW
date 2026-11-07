@@ -6,6 +6,7 @@ import {
   MAX_LIGHTS,
   MODE_FOG,
   MODE_LENS,
+  MODE_MASK,
   MODE_MOTION,
   MODE_RELIGHT,
   Overlay,
@@ -16,6 +17,7 @@ import {
 
 export type DepthScene =
   | { kind: 'lensBlur'; minDepth: number; maxDepth: number; minFade: number; maxFade: number; amount: number }
+  | { kind: 'depthMask'; minDepth: number; maxDepth: number; minFade: number; maxFade: number }
   | {
       kind: 'fog';
       amount: number;
@@ -27,6 +29,10 @@ export type DepthScene =
     }
   | { kind: 'relight'; lights: Array<RelightLight>; activeId: string | null; ambient: number; softness: number }
   | { kind: 'motion'; amount: number; parallax: number; angle: number; radial: boolean };
+
+type RangeScene = Extract<DepthScene, { kind: 'lensBlur' | 'depthMask' }>;
+
+const isRange = (scene: DepthScene): scene is RangeScene => scene.kind === 'lensBlur' || scene.kind === 'depthMask';
 
 export type ScenePatch = Record<string, number>;
 
@@ -189,6 +195,18 @@ export const sceneUniforms = (
           amount: 0.35 + 0.65 * clamp(scene.amount / 100, 0, 1),
         },
       };
+    case 'depthMask':
+      return {
+        mode: MODE_MASK,
+        reveal,
+        lens: {
+          min: scene.minDepth / 100,
+          max: scene.maxDepth / 100,
+          minFade: scene.minFade / 100,
+          maxFade: scene.maxFade / 100,
+          amount: 1,
+        },
+      };
     case 'fog':
       return {
         mode: MODE_FOG,
@@ -228,15 +246,21 @@ export const sceneUniforms = (
   }
 };
 
-const lensRange = (scene: Extract<DepthScene, { kind: 'lensBlur' }>, center: number): ScenePatch => {
+const rangeKeys = (scene: RangeScene) =>
+  scene.kind === 'lensBlur'
+    ? { min: 'lensBlurMinDepth', max: 'lensBlurMaxDepth', minFade: 'lensBlurMinFade', maxFade: 'lensBlurMaxFade' }
+    : { min: 'minDepth', max: 'maxDepth', minFade: 'minFade', maxFade: 'maxFade' };
+
+const lensRange = (scene: RangeScene, center: number): ScenePatch => {
+  const keys = rangeKeys(scene);
   const width = scene.maxDepth - scene.minDepth;
   const min = Math.round(clamp(center * 100 - width / 2, 0, 100 - width));
   const max = min + width;
   return {
-    lensBlurMinDepth: min,
-    lensBlurMaxDepth: max,
-    lensBlurMinFade: Math.min(scene.minFade, min),
-    lensBlurMaxFade: Math.min(scene.maxFade, 100 - max),
+    [keys.min]: min,
+    [keys.max]: max,
+    [keys.minFade]: Math.min(scene.minFade, min),
+    [keys.maxFade]: Math.min(scene.maxFade, 100 - max),
   };
 };
 
@@ -254,7 +278,8 @@ export const sceneHandles = (
     return { id, z, style, drag: 'depth', origin: knob, knob, arms: [], label, contour: [z, z] };
   };
   switch (scene.kind) {
-    case 'lensBlur': {
+    case 'lensBlur':
+    case 'depthMask': {
       const { minDepth, maxDepth, minFade, maxFade } = scene;
       const near = 1 - maxDepth / 100;
       const far = 1 - minDepth / 100;
@@ -326,22 +351,23 @@ export const applyHandle = (
   extent: [number, number],
 ): ScenePatch | null => {
   const { z } = target;
-  if (scene.kind === 'lensBlur') {
+  if (isRange(scene)) {
     const v = Math.round(clamp((1 - z) * 100, 0, 100));
     const { minDepth, maxDepth, minFade, maxFade } = scene;
+    const keys = rangeKeys(scene);
     switch (handle.id) {
       case 'far': {
         const next = clamp(v, 0, maxDepth);
-        return { lensBlurMinDepth: next, lensBlurMinFade: Math.min(minFade, next) };
+        return { [keys.min]: next, [keys.minFade]: Math.min(minFade, next) };
       }
       case 'near': {
         const next = clamp(v, minDepth, 100);
-        return { lensBlurMaxDepth: next, lensBlurMaxFade: Math.min(maxFade, 100 - next) };
+        return { [keys.max]: next, [keys.maxFade]: Math.min(maxFade, 100 - next) };
       }
       case 'farFade':
-        return { lensBlurMinFade: minDepth - clamp(v, 0, minDepth) };
+        return { [keys.minFade]: minDepth - clamp(v, 0, minDepth) };
       case 'nearFade':
-        return { lensBlurMaxFade: clamp(v, maxDepth, 100) - maxDepth };
+        return { [keys.maxFade]: clamp(v, maxDepth, 100) - maxDepth };
       case 'range':
         return lensRange(scene, 1 - z);
     }
@@ -358,7 +384,7 @@ export const applyHandle = (
 };
 
 export const clickHandle = (scene: DepthScene, handles: Array<Handle>) => {
-  const id = scene.kind === 'lensBlur' ? 'range' : scene.kind === 'fog' ? 'start' : null;
+  const id = isRange(scene) ? 'range' : scene.kind === 'fog' ? 'start' : null;
   return handles.find((h) => h.id === id) ?? null;
 };
 
@@ -458,7 +484,7 @@ export const sceneOverlay = (
 
   const fogColor: RGB | null = scene.kind === 'fog' ? tintColor(scene.temperature, scene.tint) : null;
 
-  if (scene.kind === 'lensBlur') {
+  if (isRange(scene)) {
     const near = handles.find((h) => h.id === 'near')!;
     const far = handles.find((h) => h.id === 'far')!;
     const rangeHot = hoverId === 'range' || activeId === 'range';

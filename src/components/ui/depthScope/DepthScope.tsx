@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import clsx from 'clsx';
 import { Invokes } from '../AppProperties';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useCtrlClickMenuGuard } from '../../../hooks/useCtrlClickMenuGuard';
@@ -28,12 +29,11 @@ import { getDevicePixelRatio } from '../../../utils/displayScale';
 
 export type DepthMapKey = 'lensBlurDepthMap' | 'fogDepthMap' | 'motionBlurDepthMap' | 'relightNormalMap';
 
-interface DepthScopeProps {
-  mapKey: DepthMapKey;
+type DepthScopeProps = {
   scene: DepthScene;
   onChange?(patch: ScenePatch): void;
   onDragStateChange?(isDragging: boolean): void;
-}
+} & ({ mapKey: DepthMapKey; mapData?: never } | { mapData: string; mapKey?: never });
 
 interface Drag {
   pointerId: number;
@@ -103,8 +103,15 @@ const parsePreview = (buffer: ArrayBuffer): DepthPreview => {
   return { width, height, pixels, normals, meanNearness: sum / Math.max(count, 1) / 255 };
 };
 
-const fetchPreview = (mapKey: DepthMapKey, mapValue: string, signature: string) => {
-  const key = `${mapKey}|${mapValue}|${signature}`;
+const fingerprint = (value: string) => {
+  let hash = 0x811c9dc5;
+  const step = Math.max(1, Math.floor(value.length / 8192));
+  for (let i = 0; i < value.length; i += step) hash = Math.imul(hash ^ value.charCodeAt(i), 0x01000193);
+  return `${value.length}:${(hash >>> 0).toString(36)}`;
+};
+
+const fetchPreview = (mapKey: DepthMapKey | undefined, mapValue: string, signature: string) => {
+  const key = `${mapKey ? `${mapKey}|${mapValue}` : `data|${fingerprint(mapValue)}`}|${signature}`;
   const cached = previewCache.get(key);
   if (cached) {
     previewCache.delete(key);
@@ -113,10 +120,11 @@ const fetchPreview = (mapKey: DepthMapKey, mapValue: string, signature: string) 
   }
   const payload: Record<string, unknown> = { ...useEditorStore.getState().adjustments };
   for (const omitted of OMITTED_KEYS) delete payload[omitted];
-  payload[mapKey] = mapValue;
+  if (mapKey) payload[mapKey] = mapValue;
   const request = invoke<ArrayBuffer>(Invokes.GetDepthPreview, {
     jsAdjustments: payload,
-    mapKey,
+    mapKey: mapKey ?? null,
+    mapData: mapKey ? null : mapValue,
     maxSize: PREVIEW_SIZE,
   }).then(parsePreview);
   request.catch(() => previewCache.delete(key));
@@ -128,8 +136,9 @@ const fetchPreview = (mapKey: DepthMapKey, mapValue: string, signature: string) 
   return request;
 };
 
-const useDepthPreview = (mapKey: DepthMapKey) => {
-  const mapValue = useEditorStore((state) => state.adjustments[mapKey] as string | null | undefined);
+const useDepthPreview = (mapKey: DepthMapKey | undefined, mapData: string | undefined) => {
+  const storeValue = useEditorStore((state) => (mapKey ? state.adjustments[mapKey] : null));
+  const mapValue = mapKey ? storeValue : mapData;
   const signature = useEditorStore((state) =>
     WARP_KEYS.map((key) => JSON.stringify((state.adjustments as Record<string, unknown>)[key] ?? null)).join('|'),
   );
@@ -175,11 +184,11 @@ const clampOffset = (offset: Vec3, [ex, ey]: [number, number]): Vec3 => {
   return offset.map((v, i) => Math.max(-limits[i], Math.min(limits[i], v))) as Vec3;
 };
 
-export default function DepthScope({ mapKey, scene, onChange, onDragStateChange }: DepthScopeProps) {
+export default function DepthScope({ mapKey, mapData, scene, onChange, onDragStateChange }: DepthScopeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const readoutRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<DepthScopeRenderer | null>(null);
-  const preview = useDepthPreview(mapKey);
+  const preview = useDepthPreview(mapKey, mapData);
   const orientation = useEditorStore((state) => (state.adjustments.orientationSteps ?? 0) % 4);
   const flipH = useEditorStore((state) => !!state.adjustments.flipHorizontal);
   const flipV = useEditorStore((state) => !!state.adjustments.flipVertical);
@@ -642,39 +651,40 @@ export default function DepthScope({ mapKey, scene, onChange, onDragStateChange 
 
   return (
     <div
-      ref={containerRef}
-      className="relative w-full overflow-hidden rounded-md bg-bg-primary select-none"
-      style={{
-        aspectRatio: ASPECT_RATIO,
-        minHeight: MIN_HEIGHT,
-        maxHeight: MAX_HEIGHT,
-        touchAction: 'none',
-        cursor: 'move',
-      }}
-      {...ctrlClickMenuGuard}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={endDrag}
-      onPointerCancel={endDrag}
-      onPointerLeave={handlePointerLeave}
-      onDoubleClick={handleDoubleClick}
+      className={clsx(
+        'grid transition-all duration-300 ease-in-out',
+        preview ? 'grid-rows-[1fr] opacity-100' : 'my-0! grid-rows-[0fr] opacity-0',
+      )}
     >
-      <div
-        className="pointer-events-none absolute inset-0 transition-opacity duration-500"
-        style={{
-          opacity: preview ? 0 : 1,
-          background:
-            'repeating-linear-gradient(0deg, transparent 0 7px, color-mix(in srgb, var(--app-text-secondary) 8%, transparent) 7px 8px)',
-        }}
-      />
-      <div
-        ref={readoutRef}
-        className="pointer-events-none absolute left-0 top-0 rounded-sm px-1.5 py-0.5 font-mono text-[10px] leading-none tabular-nums text-text-primary transition-opacity duration-150"
-        style={{
-          opacity: 0,
-          background: 'color-mix(in srgb, var(--app-bg-secondary) 82%, transparent)',
-        }}
-      />
+      <div className="overflow-hidden">
+        <div
+          ref={containerRef}
+          className="relative w-full overflow-hidden rounded-md bg-bg-primary select-none"
+          style={{
+            aspectRatio: ASPECT_RATIO,
+            minHeight: MIN_HEIGHT,
+            maxHeight: MAX_HEIGHT,
+            touchAction: 'none',
+            cursor: 'move',
+          }}
+          {...ctrlClickMenuGuard}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          onPointerLeave={handlePointerLeave}
+          onDoubleClick={handleDoubleClick}
+        >
+          <div
+            ref={readoutRef}
+            className="pointer-events-none absolute left-0 top-0 rounded-sm px-1.5 py-0.5 font-mono text-[10px] leading-none tabular-nums text-text-primary transition-opacity duration-150"
+            style={{
+              opacity: 0,
+              background: 'color-mix(in srgb, var(--app-bg-secondary) 82%, transparent)',
+            }}
+          />
+        </div>
+      </div>
     </div>
   );
 }

@@ -296,15 +296,20 @@ pub fn build_depth_preview(
     is_raw: bool,
     path: &str,
     adjustments: &serde_json::Value,
-    map_key: &str,
+    map_key: Option<&str>,
+    map_data: Option<&str>,
     max_size: u32,
 ) -> Option<Vec<u8>> {
-    let data_url = adjustments[map_key]
-        .as_str()
-        .filter(|map| !map.is_empty())?;
+    let data_url = match map_data {
+        Some(data) => data,
+        None => adjustments[map_key?].as_str()?,
+    };
+    if data_url.is_empty() {
+        return None;
+    }
     let geometry = get_geometry_params_from_json(path, adjustments);
     let geometry = (!is_geometry_identity(&geometry)).then_some(geometry);
-    let with_normals = map_key == "relightNormalMap";
+    let with_normals = map_key == Some("relightNormalMap");
 
     let fit = |(mw, mh): (u32, u32)| {
         let scale = (max_size as f32 / mw.max(mh) as f32).min(1.0);
@@ -313,7 +318,20 @@ pub fn build_depth_preview(
             ((mh as f32 * scale).round() as u32).max(2),
         )
     };
-    let (map, (w, h)) = if with_normals {
+    let (map, (w, h)) = if map_data.is_some() {
+        let decoded = decode_data_url(data_url)?;
+        let depth = if is_source_space_map(data_url) {
+            warp_effect_map(&decoded, geometry.as_ref())
+        } else {
+            decoded
+        }
+        .into_luma8();
+        let (w, h) = fit(depth.dimensions());
+        (
+            DynamicImage::ImageLuma8(image::imageops::thumbnail(&depth, w, h)),
+            (w, h),
+        )
+    } else if with_normals {
         let normals = resolve_rgba_map(data_url, adjustments, geometry.as_ref())?;
         let (w, h) = fit(normals.dimensions());
         let resized = image::imageops::resize(&*normals, w, h, FilterType::Triangle);

@@ -979,7 +979,8 @@ pub async fn generate_relight_normal_map(
 #[tauri::command]
 pub async fn get_depth_preview(
     js_adjustments: serde_json::Value,
-    map_key: String,
+    map_key: Option<String>,
+    map_data: Option<String>,
     max_size: u32,
     state: tauri::State<'_, AppState>,
 ) -> Result<tauri::ipc::Response, String> {
@@ -990,7 +991,8 @@ pub async fn get_depth_preview(
             loaded_image.is_raw,
             &loaded_image.path,
             &js_adjustments,
-            &map_key,
+            map_key.as_deref(),
+            map_data.as_deref(),
             max_size.clamp(16, 512),
         )
     })

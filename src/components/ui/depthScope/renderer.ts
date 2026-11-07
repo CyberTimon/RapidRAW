@@ -39,6 +39,7 @@ export const MODE_LENS = 0;
 export const MODE_FOG = 1;
 export const MODE_RELIGHT = 2;
 export const MODE_MOTION = 3;
+export const MODE_MASK = 4;
 export const MAX_LIGHTS = 8;
 export const DEPTH_SCALE = 0.85;
 const FOV = (32 * Math.PI) / 180;
@@ -109,6 +110,13 @@ void main() {
     float fog = clamp(u_fog.x * (1.0 - exp(-optical)) / max(norm, 1e-4), 0.0, 1.0);
     color = mix(color, u_fogColor, fog);
     size = 1.0 + 0.6 * fog;
+  } else if (u_mode == ${MODE_MASK}) {
+    float lower = smoothstep(u_lens.x - max(u_lens.z, 1e-4), u_lens.x, n);
+    float upper = 1.0 - smoothstep(u_lens.y, u_lens.y + max(u_lens.w, 1e-4), n);
+    float band = lower * upper;
+    float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    color = mix(vec3(luma) * 0.3, color, band);
+    alpha = mix(0.4, 1.0, band);
   } else if (u_mode == ${MODE_RELIGHT}) {
     vec3 raw = texelFetch(u_normal, cell, 0).rgb * (255.0 / 127.5);
     vec3 nrm = normalize(vec3(raw.x - 1.0, 1.0 - raw.y, 1.0 - raw.z) + vec3(0.0, 0.0, 1e-5));
