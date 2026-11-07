@@ -1027,12 +1027,14 @@
       }
     },
     "toolbar": {
+      "embeddedPreview": "Įterptas JPEG",
       "history": "Istorija",
       "switchToVariant": "Perjungti į {{label}}",
       "tooltips": {
         "aperture": "Diafragma",
         "backToLibrary": "Grįžti į biblioteką",
         "compare": "Prieš / Po (B) arba režimai (dešiniuoju pelės klavišu)",
+        "embeddedPreview": "Redaguojama įterpta JPEG peržiūra: nepavyko iškoduoti RAW",
         "focalLength": "Židinio nuotolis",
         "fullscreen": "Visas ekranas (F)",
         "iso": "ISO",

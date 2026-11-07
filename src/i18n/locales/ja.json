@@ -937,12 +937,14 @@
       }
     },
     "toolbar": {
+      "embeddedPreview": "埋め込みJPEG",
       "history": "履歴",
       "switchToVariant": "Switch to {{label}}",
       "tooltips": {
         "aperture": "絞り値",
         "backToLibrary": "ライブラリに戻る",
         "compare": "補正前 / 補正後 (B) またはモード (右クリック)",
+        "embeddedPreview": "埋め込みJPEGプレビューを編集中：RAWのデコードに失敗しました",
         "focalLength": "焦点距離",
         "fullscreen": "全画面表示切り替え (F)",
         "iso": "ISO感度",

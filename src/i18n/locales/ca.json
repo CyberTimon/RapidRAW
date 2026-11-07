@@ -964,12 +964,14 @@
       }
     },
     "toolbar": {
+      "embeddedPreview": "JPEG incrustat",
       "history": "Historial",
       "switchToVariant": "Canviar a {{label}}",
       "tooltips": {
         "aperture": "Obertura",
         "backToLibrary": "Tornar a la Biblioteca",
         "compare": "Abans / després (B) o modes (clic dret)",
+        "embeddedPreview": "S'està editant la previsualització JPEG incrustada: la descodificació RAW ha fallat",
         "focalLength": "Distància focal",
         "fullscreen": "Alternar pantalla completa (F)",
         "iso": "ISO",

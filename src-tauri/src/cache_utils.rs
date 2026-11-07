@@ -520,6 +520,7 @@ struct DecodedEntry {
     fingerprint: DecodeFingerprint,
     image: CachedImage,
     exif: HashMap<String, String>,
+    used_embedded_preview: bool,
 }
 
 pub struct DecodedImageCache {
@@ -556,7 +557,7 @@ impl DecodedImageCache {
         &mut self,
         path: &str,
         fingerprint: &DecodeFingerprint,
-    ) -> Option<(Arc<DynamicImage>, HashMap<String, String>)> {
+    ) -> Option<(Arc<DynamicImage>, HashMap<String, String>, bool)> {
         let pos = self.items.iter().position(|e| e.path == path)?;
         let entry = self.items.remove(pos);
         if entry.fingerprint != *fingerprint {
@@ -564,11 +565,12 @@ impl DecodedImageCache {
         }
         let image = entry.image.expand();
         let exif = entry.exif.clone();
+        let used_embedded_preview = entry.used_embedded_preview;
         self.items.push(DecodedEntry {
             image: CachedImage::Full(Arc::clone(&image)),
             ..entry
         });
-        Some((image, exif))
+        Some((image, exif, used_embedded_preview))
     }
 
     pub fn promote(&mut self, path: &str) {
@@ -609,6 +611,7 @@ impl DecodedImageCache {
         fingerprint: DecodeFingerprint,
         image: Arc<DynamicImage>,
         exif: HashMap<String, String>,
+        used_embedded_preview: bool,
     ) {
         if let Some(pos) = self.items.iter().position(|e| e.path == path) {
             self.items.remove(pos);
@@ -618,6 +621,7 @@ impl DecodedImageCache {
             fingerprint,
             image: CachedImage::Full(image),
             exif,
+            used_embedded_preview,
         });
         self.evict();
     }

@@ -940,12 +940,14 @@
       }
     },
     "toolbar": {
+      "embeddedPreview": "Eingebettetes JPEG",
       "history": "Verlauf",
       "switchToVariant": "Switch to {{label}}",
       "tooltips": {
         "aperture": "Blende",
         "backToLibrary": "Zurück zur Bibliothek",
         "compare": "Vorher / Nachher (B) oder Modi (Rechtsklick)",
+        "embeddedPreview": "Bearbeitung der eingebetteten JPEG-Vorschau: RAW-Dekodierung fehlgeschlagen",
         "focalLength": "Brennweite",
         "fullscreen": "Vollbild umschalten (F)",
         "iso": "ISO",

@@ -988,12 +988,14 @@
       }
     },
     "toolbar": {
+      "embeddedPreview": "Osadzony JPEG",
       "history": "Historia",
       "switchToVariant": "Switch to {{label}}",
       "tooltips": {
         "aperture": "Przysłona",
         "backToLibrary": "Wróć do biblioteki",
         "compare": "Przed / po (B) lub tryby (prawy przycisk)",
+        "embeddedPreview": "Edytujesz osadzony podgląd JPEG: dekodowanie RAW nie powiodło się",
         "focalLength": "Ogniskowa",
         "fullscreen": "Przełącz pełny ekran (F)",
         "iso": "ISO",

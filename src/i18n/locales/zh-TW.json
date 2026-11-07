@@ -937,12 +937,14 @@
       }
     },
     "toolbar": {
+      "embeddedPreview": "內嵌 JPEG",
       "history": "歷史記錄",
       "switchToVariant": "Switch to {{label}}",
       "tooltips": {
         "aperture": "光圈",
         "backToLibrary": "返回相簿",
         "compare": "前後對比（B）或模式（右鍵）",
+        "embeddedPreview": "正在編輯內嵌的 JPEG 預覽：RAW 解碼失敗",
         "focalLength": "焦距",
         "fullscreen": "切換全屏（F）",
         "iso": "ISO",
