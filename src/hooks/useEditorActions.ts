@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
 import { TFunction } from 'i18next';
 import { SignalHigh, SignalLow, SignalMedium } from 'lucide-react';
-import { useEditorStore } from '../store/useEditorStore';
+import { useEditorStore, debouncedSetHistory } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useProcessStore } from '../store/useProcessStore';
@@ -28,9 +28,7 @@ import { CompareMode, Invokes, Option, Panel, SelectedImage } from '../component
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { getDevicePixelRatio } from '../utils/displayScale';
 
-export const debouncedSetHistory = debounce((newAdj: Adjustments, label?: string) => {
-  useEditorStore.getState().pushHistory(newAdj, label);
-}, 500);
+export { debouncedSetHistory };
 
 export const debouncedSave = debounce((path: string, adjustmentsToSave: Adjustments) => {
   invoke(Invokes.SaveMetadataAndUpdateThumbnail, { path, adjustments: adjustmentsToSave }).catch((err) => {

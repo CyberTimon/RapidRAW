@@ -1822,6 +1822,16 @@ async fn merge_hdr(
         return Err("Please select at least two images to merge.".to_string());
     }
 
+    let paths: Vec<String> = paths
+        .iter()
+        .map(|p| {
+            crate::file_management::parse_virtual_path(p)
+                .0
+                .to_string_lossy()
+                .into_owned()
+        })
+        .collect();
+
     let hdr_result_handle = state.hdr_result.clone();
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
 
@@ -1883,34 +1893,29 @@ async fn save_hdr(
         .and_then(|s| s.to_str())
         .unwrap_or("hdr");
 
-    let (output_filename, image_to_save): (String, DynamicImage) = if hdr_image.color().has_alpha()
-    {
-        (
-            format!("{}_Hdr.png", stem),
-            DynamicImage::ImageRgba8(hdr_image.to_rgba8()),
-        )
+    let (extension, image_to_save): (&str, DynamicImage) = if hdr_image.color().has_alpha() {
+        ("png", DynamicImage::ImageRgba8(hdr_image.to_rgba8()))
     } else if hdr_image.as_rgb32f().is_some() {
-        (format!("{}_Hdr.tiff", stem), hdr_image)
+        ("tiff", hdr_image)
     } else {
-        (
-            format!("{}_Hdr.png", stem),
-            DynamicImage::ImageRgb8(hdr_image.to_rgb8()),
-        )
+        ("png", DynamicImage::ImageRgb8(hdr_image.to_rgb8()))
     };
 
-    let output_path = parent_dir.join(output_filename);
-
-    let (real_path, _) = crate::file_management::parse_virtual_path(&first_path_str);
-
-    crate::exif_processing::save_converted_image(
+    let bytes = crate::exif_processing::encode_converted_image(
         &image_to_save,
-        &output_path,
-        &real_path.to_string_lossy(),
+        extension,
+        &first_path.to_string_lossy(),
+    )?;
+    let output_path = crate::file_management::write_unique_output(
+        parent_dir,
+        &format!("{}_Hdr", stem),
+        extension,
+        &bytes,
     )
     .map_err(|e| format!("Failed to save hdr image: {}", e))?;
 
     let _ =
-        crate::exif_processing::write_rrexif_sidecar(&real_path.to_string_lossy(), &output_path);
+        crate::exif_processing::write_rrexif_sidecar(&first_path.to_string_lossy(), &output_path);
 
     Ok(output_path.to_string_lossy().to_string())
 }
@@ -1936,11 +1941,13 @@ async fn save_collage(base64_data: String, first_path_str: String) -> Result<Str
         .and_then(|s| s.to_str())
         .unwrap_or("collage");
 
-    let output_filename = format!("{}_Collage.png", stem);
-    let output_path = parent_dir.join(output_filename);
-
-    fs::write(&output_path, &decoded_bytes)
-        .map_err(|e| format!("Failed to save collage image: {}", e))?;
+    let output_path = crate::file_management::write_unique_output(
+        parent_dir,
+        &format!("{}_Collage", stem),
+        "png",
+        &decoded_bytes,
+    )
+    .map_err(|e| format!("Failed to save collage image: {}", e))?;
 
     Ok(output_path.to_string_lossy().to_string())
 }

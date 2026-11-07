@@ -130,9 +130,9 @@ fn resolve_image_metadata(
         ImageMetadata::default()
     };
 
-    if enable_xmp_sync && sync_metadata_from_xmp(image_path, &mut metadata) {
+    if enable_xmp_sync && sync_metadata_from_xmp(image_path, sidecar_path, &mut metadata) {
         let _ = crate::exif_processing::update_sidecar(sidecar_path, image_path, |current| {
-            sync_metadata_from_xmp(image_path, current);
+            sync_metadata_from_xmp(image_path, sidecar_path, current);
         });
     }
 
@@ -920,7 +920,7 @@ pub fn save_albums(mut tree: Vec<AlbumItem>, app_handle: AppHandle) -> Result<()
     let path = get_albums_path(&app_handle)?;
     sort_album_tree(&mut tree);
     let json_string = serde_json::to_string_pretty(&tree).map_err(|e| e.to_string())?;
-    fs::write(path, json_string).map_err(|e| e.to_string())
+    write_file_atomic(&path, json_string.as_bytes()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -1406,6 +1406,71 @@ pub fn read_file_mapped(path: &Path) -> Result<Mmap, ReadFileError> {
             .map_err(ReadFileError::Io)?
     };
     Ok(mmap)
+}
+
+pub fn write_unique_output(
+    dir: &Path,
+    stem: &str,
+    extension: &str,
+    contents: &[u8],
+) -> std::io::Result<PathBuf> {
+    use std::io::{self, Write};
+
+    let mut builder = tempfile::Builder::new();
+    builder.prefix(".rr-output-").suffix(".tmp");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        builder.permissions(fs::Permissions::from_mode(0o666));
+    }
+    let mut temporary = builder.tempfile_in(dir)?;
+    temporary.write_all(contents)?;
+    sync_file(temporary.as_file())?;
+
+    let mut sidecar_sources = HashSet::new();
+    for entry in fs::read_dir(dir)? {
+        let name = entry?.file_name();
+        if let Some(name) = name.to_str() {
+            let name = name.to_lowercase();
+            let source = parse_sidecar_name(&name)
+                .map(|(source, _)| source)
+                .or_else(|| name.strip_suffix(".rrexif"));
+            if let Some(source) = source {
+                sidecar_sources.insert(source.to_owned());
+            }
+        }
+    }
+
+    let mut counter = 0_u64;
+    loop {
+        let name = if counter == 0 {
+            format!("{stem}.{extension}")
+        } else {
+            format!("{stem}_{counter}.{extension}")
+        };
+        let path = dir.join(&name);
+        let mut has_sidecar = sidecar_sources.contains(&name.to_lowercase());
+        for suffix in [".rrdata", ".rrexif"] {
+            if has_sidecar {
+                break;
+            }
+            let mut sidecar = path.as_os_str().to_owned();
+            sidecar.push(suffix);
+            has_sidecar = Path::new(&sidecar).try_exists()?;
+        }
+        if !has_sidecar {
+            match temporary.persist_noclobber(&path) {
+                Ok(_) => return Ok(path),
+                Err(error) if error.error.kind() == io::ErrorKind::AlreadyExists => {
+                    temporary = error.file;
+                }
+                Err(error) => return Err(error.error),
+            }
+        }
+        counter = counter
+            .checked_add(1)
+            .ok_or_else(|| io::Error::other("No available output filename"))?;
+    }
 }
 
 pub fn write_file_atomic(path: &Path, contents: &[u8]) -> std::io::Result<()> {
@@ -2669,7 +2734,7 @@ pub fn save_metadata_and_update_thumbnail(
         && settings.enable_xmp_sync.unwrap_or(false)
     {
         let create_if_missing = settings.create_xmp_if_missing.unwrap_or(false);
-        sync_metadata_to_xmp(&source_path, &metadata, create_if_missing);
+        sync_metadata_to_xmp(&source_path, &sidecar_path, &metadata, create_if_missing);
     }
 
     let loaded_image_lock = state.original_image.lock().unwrap();
@@ -2851,7 +2916,12 @@ fn update_sidecars_and_thumbnails(
                         resolved_ai.lock().unwrap().push(path.clone());
                     }
                     if enable_xmp_sync {
-                        sync_metadata_to_xmp(&source_path, &metadata, create_xmp_if_missing);
+                        sync_metadata_to_xmp(
+                            &source_path,
+                            &sidecar_path,
+                            &metadata,
+                            create_xmp_if_missing,
+                        );
                     }
                 }
                 Err(e) => log::error!("Failed to update sidecar for {}: {}", path, e),
@@ -3031,7 +3101,12 @@ async fn update_sidecars_from_images(
                 .map_err(|e| e.to_string())?;
 
                 if enable_xmp_sync {
-                    sync_metadata_to_xmp(&source_path, &updated_metadata, create_xmp_if_missing);
+                    sync_metadata_to_xmp(
+                        &source_path,
+                        &sidecar_path,
+                        &updated_metadata,
+                        create_xmp_if_missing,
+                    );
                 }
                 Ok(image)
             })()
@@ -3156,7 +3231,12 @@ fn update_metadata_for_paths(
 
         match crate::exif_processing::update_sidecar(&sidecar_path, &source_path, &update) {
             Ok(metadata) if enable_xmp_sync => {
-                sync_metadata_to_xmp(&source_path, &metadata, create_xmp_if_missing);
+                sync_metadata_to_xmp(
+                    &source_path,
+                    &sidecar_path,
+                    &metadata,
+                    create_xmp_if_missing,
+                );
             }
             Ok(_) => {}
             Err(e) => log::error!("Failed to update sidecar for {}: {}", path, e),
@@ -3229,10 +3309,10 @@ pub async fn load_metadata(path: String, app_handle: AppHandle) -> Result<ImageM
         let (source_path, sidecar_path) = parse_virtual_path(&path);
         let mut metadata = crate::exif_processing::load_sidecar(&sidecar_path);
 
-        if enable_xmp_sync && sync_metadata_from_xmp(&source_path, &mut metadata) {
+        if enable_xmp_sync && sync_metadata_from_xmp(&source_path, &sidecar_path, &mut metadata) {
             let _ =
                 crate::exif_processing::update_sidecar(&sidecar_path, &source_path, |current| {
-                    sync_metadata_from_xmp(&source_path, current);
+                    sync_metadata_from_xmp(&source_path, &sidecar_path, current);
                 });
         }
 
@@ -3281,7 +3361,7 @@ pub fn load_presets(app_handle: AppHandle) -> Result<Vec<PresetItem>, String> {
 pub fn save_presets(presets: Vec<PresetItem>, app_handle: AppHandle) -> Result<(), String> {
     let path = get_presets_path(&app_handle)?;
     let json_string = serde_json::to_string_pretty(&presets).map_err(|e| e.to_string())?;
-    fs::write(path, json_string).map_err(|e| e.to_string())
+    write_file_atomic(&path, json_string.as_bytes()).map_err(|e| e.to_string())
 }
 
 fn get_internal_library_root_path(app_handle: &AppHandle) -> Result<std::path::PathBuf, String> {
@@ -4406,7 +4486,15 @@ pub fn resolve_xmp_path(image_path: &Path) -> Option<PathBuf> {
     }
 }
 
-pub fn sync_metadata_from_xmp(source_path: &Path, metadata: &mut ImageMetadata) -> bool {
+pub fn sync_metadata_from_xmp(
+    source_path: &Path,
+    sidecar_path: &Path,
+    metadata: &mut ImageMetadata,
+) -> bool {
+    if sidecar_path != crate::exif_processing::get_primary_sidecar_path(source_path) {
+        return false;
+    }
+
     let actual_xmp = resolve_xmp_path(source_path);
 
     let mut changed = false;
@@ -4466,7 +4554,16 @@ pub fn sync_metadata_from_xmp(source_path: &Path, metadata: &mut ImageMetadata) 
     changed
 }
 
-pub fn sync_metadata_to_xmp(source_path: &Path, metadata: &ImageMetadata, create_if_missing: bool) {
+pub fn sync_metadata_to_xmp(
+    source_path: &Path,
+    sidecar_path: &Path,
+    metadata: &ImageMetadata,
+    create_if_missing: bool,
+) {
+    if sidecar_path != crate::exif_processing::get_primary_sidecar_path(source_path) {
+        return;
+    }
+
     let xmp_path = source_path.with_extension("xmp");
     let xmp_path_upper = source_path.with_extension("XMP");
 

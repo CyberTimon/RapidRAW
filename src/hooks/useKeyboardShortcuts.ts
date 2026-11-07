@@ -48,6 +48,7 @@ export const useKeyboardShortcuts = ({
     handleCopyAdjustments,
     handlePasteAdjustments,
     handleEnableAdjustments,
+    setAdjustments,
     toggleCompare,
   } = useEditorActions();
   const { handleRate, handleSetFlag, handleToggleFlag, handleSetColorLabel, handleClearSelection } =
@@ -310,7 +311,10 @@ export const useKeyboardShortcuts = ({
         },
       },
       undo: {
-        shouldFire: (s: any) => s.ui.activeView === 'editor' && !!s.editor.selectedImage && s.editor.historyIndex > 0,
+        shouldFire: (s: any) =>
+          s.ui.activeView === 'editor' &&
+          !!s.editor.selectedImage &&
+          (s.editor.historyIndex > 0 || s.editor.adjustments !== s.editor.history[s.editor.historyIndex]),
         execute: (e: any, s: any) => {
           e.preventDefault();
           s.editor.undo();
@@ -674,23 +678,17 @@ export const useKeyboardShortcuts = ({
         execute: (e: KeyboardEvent, s: any) => {
           e.preventDefault();
           if (s.editor.activeMaskContainerId) {
-            s.editor.setEditor((state: any) => ({
-              adjustments: {
-                ...state.adjustments,
-                masks: state.adjustments.masks.filter((c: any) => c.id !== s.editor.activeMaskContainerId),
-              },
-              activeMaskContainerId: null,
-              activeMaskId: null,
+            setAdjustments((prev: any) => ({
+              ...prev,
+              masks: prev.masks.filter((c: any) => c.id !== s.editor.activeMaskContainerId),
             }));
+            s.editor.setEditor({ activeMaskContainerId: null, activeMaskId: null });
           } else if (s.editor.activeAiPatchContainerId) {
-            s.editor.setEditor((state: any) => ({
-              adjustments: {
-                ...state.adjustments,
-                aiPatches: state.adjustments.aiPatches.filter((c: any) => c.id !== s.editor.activeAiPatchContainerId),
-              },
-              activeAiPatchContainerId: null,
-              activeAiSubMaskId: null,
+            setAdjustments((prev: any) => ({
+              ...prev,
+              aiPatches: prev.aiPatches.filter((c: any) => c.id !== s.editor.activeAiPatchContainerId),
             }));
+            s.editor.setEditor({ activeAiPatchContainerId: null, activeAiSubMaskId: null });
           }
         },
       },
@@ -818,6 +816,7 @@ export const useKeyboardShortcuts = ({
     handleSetFlag,
     handleToggleFlag,
     handleSetColorLabel,
+    setAdjustments,
     handleClearSelection,
     toggleCompare,
   ]);
