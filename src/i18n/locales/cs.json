@@ -1476,6 +1476,22 @@
       "noResultsAiHint": " Pro komplexnější vyhledávání povolte automatické značkování v Nastavení.",
       "noResultsDesc": "Nelze najít snímek podle názvu souboru nebo značek."
     },
+    "sharedImports": {
+      "error": "Sdílené soubory se nepodařilo otevřít: {{error}}",
+      "failed_few": "{{count}} sdílené soubory se nepodařilo zkopírovat.",
+      "failed_many": "{{count}} sdílené soubory se nepodařilo zkopírovat.",
+      "failed_one": "1 sdílený soubor se nepodařilo zkopírovat.",
+      "failed_other": "{{count}} sdílených souborů se nepodařilo zkopírovat.",
+      "opened_few": "{{count}} sdílené fotky v Imports/Shared/{{folder}}",
+      "opened_many": "{{count}} sdílené fotky v Imports/Shared/{{folder}}",
+      "opened_one": "1 sdílená fotka v Imports/Shared/{{folder}}",
+      "opened_other": "{{count}} sdílených fotek v Imports/Shared/{{folder}}",
+      "receiving_few": "Přijímají se {{count}} sdílené soubory…",
+      "receiving_many": "Přijímá se {{count}} sdíleného souboru…",
+      "receiving_one": "Přijímá se 1 sdílený soubor…",
+      "receiving_other": "Přijímá se {{count}} sdílených souborů…",
+      "unsupported": "RapidRAW nemůže otevřít: {{names}}"
+    },
     "sort": {
       "aperture": "Clona",
       "dateModified": "Datum změny",

@@ -1476,6 +1476,22 @@
       "noResultsAiHint": " Aby uzyskać dokładniejsze wyszukiwanie, włącz automatyczne tagowanie w Ustawieniach.",
       "noResultsDesc": "Nie można znaleźć obrazu na podstawie nazwy pliku lub tagów."
     },
+    "sharedImports": {
+      "error": "Nie udało się otworzyć udostępnionych plików: {{error}}",
+      "failed_few": "Nie udało się skopiować {{count}} udostępnionych plików.",
+      "failed_many": "Nie udało się skopiować {{count}} udostępnionych plików.",
+      "failed_one": "Nie udało się skopiować 1 udostępnionego pliku.",
+      "failed_other": "Nie udało się skopiować {{count}} udostępnionych plików.",
+      "opened_few": "{{count}} udostępnione zdjęcia w Imports/Shared/{{folder}}",
+      "opened_many": "{{count}} udostępnionych zdjęć w Imports/Shared/{{folder}}",
+      "opened_one": "1 udostępnione zdjęcie w Imports/Shared/{{folder}}",
+      "opened_other": "{{count}} udostępnionego zdjęcia w Imports/Shared/{{folder}}",
+      "receiving_few": "Odbieranie {{count}} udostępnionych plików…",
+      "receiving_many": "Odbieranie {{count}} udostępnionych plików…",
+      "receiving_one": "Odbieranie 1 udostępnionego pliku…",
+      "receiving_other": "Odbieranie {{count}} udostępnionych plików…",
+      "unsupported": "RapidRAW nie może otworzyć: {{names}}"
+    },
     "sort": {
       "aperture": "Przysłona",
       "dateModified": "Data modyfikacji",

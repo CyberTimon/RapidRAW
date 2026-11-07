@@ -1412,6 +1412,16 @@
       "noResultsAiHint": " Für eine umfassendere Suche aktivieren Sie das automatische Tagging in den Einstellungen.",
       "noResultsDesc": "Es konnte kein Bild basierend auf Dateinamen oder Tags gefunden werden."
     },
+    "sharedImports": {
+      "error": "Die geteilten Dateien konnten nicht geöffnet werden: {{error}}",
+      "failed_one": "1 geteilte Datei konnte nicht kopiert werden.",
+      "failed_other": "{{count}} geteilte Dateien konnten nicht kopiert werden.",
+      "opened_one": "1 geteiltes Foto in Imports/Shared/{{folder}}",
+      "opened_other": "{{count}} geteilte Fotos in Imports/Shared/{{folder}}",
+      "receiving_one": "1 geteilte Datei wird empfangen…",
+      "receiving_other": "{{count}} geteilte Dateien werden empfangen…",
+      "unsupported": "RapidRAW kann nicht öffnen: {{names}}"
+    },
     "sort": {
       "aperture": "Blende",
       "dateModified": "Änderungsdatum",

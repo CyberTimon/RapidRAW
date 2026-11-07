@@ -22,6 +22,32 @@
                 <!-- AndroidTV support -->
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
+            <!-- Share → RapidRAW and Open with → RapidRAW for photos and RAW files (MainActivity.kt copies them into
+                 the library's Imports/Shared/YYYY-MM-DD). Many apps share RAW files as application/octet-stream. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="application/x-adobe-dng" />
+                <data android:mimeType="application/dng" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="application/x-adobe-dng" />
+                <data android:mimeType="application/dng" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="application/x-adobe-dng" />
+                <data android:mimeType="application/dng" />
+            </intent-filter>
         </activity>
 
         <provider
