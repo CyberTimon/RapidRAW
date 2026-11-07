@@ -30,7 +30,7 @@ import ImageCanvas, { ImageRegion, MaskOverlayImage } from './editor/ImageCanvas
 import SpeedEditOverlay from './editor/overlays/SpeedEditOverlay';
 import { Mask, SubMask } from './right/Masks';
 import { CompareView, Panel, TransformState, Invokes } from '../ui/AppProperties';
-import { useEditorStore } from '../../store/useEditorStore';
+import { useEditorStore, WgpuPhase } from '../../store/useEditorStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
@@ -38,6 +38,7 @@ import { useAiMasking } from '../../hooks/useAiMasking';
 import { useEditorActions, withRotation } from '../../hooks/useEditorActions';
 import { clickZoomTarget, interpretWheel, movedBeyondClick } from '../../utils/canvasControls';
 import { getVisibleImageRegion } from '../../utils/previewResolution';
+import { getDevicePixelRatio } from '../../utils/displayScale';
 
 const parseRgb = (rgbStr: string): [number, number, number, number] => {
   const match = rgbStr.match(/[\d.]+/g);
@@ -153,8 +154,9 @@ function SplitDivider({ boundsRef, isVertical, position, onPositionChange }: Spl
 
 interface WgpuRenderState {
   useWgpuRenderer: boolean | undefined;
+  path: string | null;
   isReady: boolean;
-  hasRenderedFirstFrame: boolean;
+  wgpuPhase: WgpuPhase;
   isCropping: boolean;
   uncroppedAdjustedPreviewUrl: string | null;
   showOriginal: boolean;
@@ -207,7 +209,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const activeAiPatchContainerId = useEditorStore((s) => s.activeAiPatchContainerId);
   const activeAiSubMaskId = useEditorStore((s) => s.activeAiSubMaskId);
   const isMaskControlHovered = useEditorStore((s) => s.isMaskControlHovered);
-  const hasRenderedFirstFrame = useEditorStore((s) => s.hasRenderedFirstFrame);
+  const wgpuPhase = useEditorStore((s) => s.wgpuPhase);
 
   const setEditor = useEditorStore((s) => s.setEditor);
   const toggleFullScreen = useUIStore((s) => s.toggleFullScreen);
@@ -305,6 +307,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const cropPanStartCropRef = useRef<Crop | null>(null);
   const cropWheelTimeoutRef = useRef<number | null>(null);
   const lastCtrlClickTimeRef = useRef<number>(0);
+  const suppressContextMenuRef = useRef(false);
 
   const getEffectiveCrop = useCallback(() => {
     if (!selectedImage) return null;
@@ -496,7 +499,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       return { minScale: 0.1, maxScale: 20 };
     }
 
-    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    const dpr = getDevicePixelRatio();
     const scaleFor100Percent = 1 / imageRenderSize.scale;
 
     const minScale = (0.1 / dpr) * scaleFor100Percent;
@@ -1046,6 +1049,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     (e: React.PointerEvent<HTMLDivElement>) => {
       if ((e.target as HTMLElement).closest('[data-split-divider]')) return;
       wasPanningDisabledOnDown.current = isPanningDisabled;
+      suppressContextMenuRef.current = false;
 
       const isCropHandle = isCropping && e.button === 0 && !!(e.target as HTMLElement).closest('[data-ord]');
       cropResizeStartRef.current = isCropHandle ? lastValidCropRef.current : null;
@@ -1065,6 +1069,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       }
 
       if (e.pointerType === 'mouse' && e.button === 0 && (e.ctrlKey || e.metaKey) && !isBrushActive) {
+        suppressContextMenuRef.current = e.ctrlKey;
         if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
         if (physicsFrameId.current) cancelAnimationFrame(physicsFrameId.current);
 
@@ -1332,6 +1337,18 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     [getTransformBounds, startPhysicsLoop, handleStraighten],
   );
 
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      if (suppressContextMenuRef.current && e.ctrlKey) {
+        suppressContextMenuRef.current = false;
+        e.preventDefault();
+        return;
+      }
+      onContextMenu(e);
+    },
+    [onContextMenu],
+  );
+
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       if (
@@ -1376,7 +1393,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+        const dpr = getDevicePixelRatio();
         const scaleForCss100 = imageRenderSizeRef.current.scale ? 1 / imageRenderSizeRef.current.scale : 1;
         const zoomTarget = clickZoomTarget(
           currentScale,
@@ -1500,7 +1517,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     const region = getVisibleImageRegion(view, renderSize, padding);
     if (!region) return null;
 
-    const pixelRatio = useSettingsStore.getState().appSettings?.useFullDpiRendering ? window.devicePixelRatio || 1 : 1;
+    const pixelRatio = useSettingsStore.getState().appSettings?.useFullDpiRendering ? getDevicePixelRatio() : 1;
     const density = Math.max(1, view.scale) * pixelRatio;
     const [x, y, w, h] = region;
     const width = Math.max(1, Math.ceil(w * renderSize.width * density));
@@ -1654,8 +1671,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
   const wgpuStateRef = useRef<WgpuRenderState>({
     useWgpuRenderer: appSettings?.useWgpuRenderer,
+    path: selectedImage?.path ?? null,
     isReady: selectedImage?.isReady ?? false,
-    hasRenderedFirstFrame,
+    wgpuPhase,
     isCropping,
     uncroppedAdjustedPreviewUrl,
     showOriginal,
@@ -1674,8 +1692,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
     wgpuStateRef.current = {
       useWgpuRenderer: appSettings?.useWgpuRenderer,
+      path: selectedImage?.path ?? null,
       isReady: selectedImage?.isReady ?? false,
-      hasRenderedFirstFrame,
+      wgpuPhase,
       isCropping,
       uncroppedAdjustedPreviewUrl,
       showOriginal,
@@ -1687,8 +1706,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   }, [
     appSettings?.useWgpuRenderer,
     appSettings?.editorNeutralGreyBg,
+    selectedImage?.path,
     selectedImage?.isReady,
-    hasRenderedFirstFrame,
+    wgpuPhase,
     isCropping,
     uncroppedAdjustedPreviewUrl,
     showOriginal,
@@ -1703,8 +1723,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   }, [
     appSettings?.useWgpuRenderer,
     appSettings?.editorNeutralGreyBg,
+    selectedImage?.path,
     selectedImage?.isReady,
-    hasRenderedFirstFrame,
+    wgpuPhase,
     isCropping,
     uncroppedAdjustedPreviewUrl,
     showOriginal,
@@ -1739,7 +1760,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       }
 
       const currentRect = container.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = getDevicePixelRatio();
       const windowWidth = Math.max(window.innerWidth * dpr, 1);
       const windowHeight = Math.max(window.innerHeight * dpr, 1);
 
@@ -1751,16 +1772,17 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       const clipH = Math.max((viewportRect.height + OVERLAP * 2) * dpr, 1);
       const irs = imageRenderSizeRef.current;
 
-      if (
+      const shouldHide =
         currentRect.width < 10 ||
         currentRect.height < 10 ||
         state.useWgpuRenderer === false ||
-        !state.isReady ||
-        !state.hasRenderedFirstFrame ||
-        irs.width === 0 ||
-        irs.height === 0
-      ) {
-        const hiddenTransform = `${windowWidth},${windowHeight},-999999,-999999,1,1,${clipX},${clipY},${clipW},${clipH},${state.bgPrimary?.join(',')},${state.bgSecondary?.join(',')}`;
+        state.wgpuPhase === 'hidden';
+      const isLayoutPending = !state.isReady || irs.width === 0 || irs.height === 0;
+
+      if (shouldHide || isLayoutPending) {
+        if (!shouldHide) return;
+
+        const hiddenTransform = `${state.path},hidden,${windowWidth},${windowHeight},-999999,-999999,1,1,${clipX},${clipY},${clipW},${clipH},${state.bgPrimary?.join(',')},${state.bgSecondary?.join(',')}`;
 
         if (lastWgpuTransformRef.current !== hiddenTransform && !isInvoking) {
           lastWgpuTransformRef.current = hiddenTransform;
@@ -1781,6 +1803,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
               bgSecondary: state.bgSecondary || [0, 0, 0, 1],
               pixelated: false,
               ...NO_SPLIT,
+              path: state.path,
             },
           })
             .catch(() => {})
@@ -1845,7 +1868,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
                 }
               : NO_SPLIT;
 
-      const currentTransform = `${windowWidth},${windowHeight},${screenX},${screenY},${screenW},${screenH},${clipX},${clipY},${clipW},${clipH},${state.bgPrimary?.join(',')},${state.bgSecondary?.join(',')},${split.splitOrigin},${split.splitNormal},${split.splitOffset}`;
+      const isArming = state.wgpuPhase === 'arming';
+      const currentTransform = `${state.path},${isArming},${windowWidth},${windowHeight},${screenX},${screenY},${screenW},${screenH},${clipX},${clipY},${clipW},${clipH},${state.bgPrimary?.join(',')},${state.bgSecondary?.join(',')},${split.splitOrigin},${split.splitNormal},${split.splitOffset}`;
 
       if (lastWgpuTransformRef.current !== currentTransform && !isInvoking) {
         lastWgpuTransformRef.current = currentTransform;
@@ -1853,7 +1877,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
         const isZoomedIn = scale >= maxScaleRef.current - 0.5;
 
-        invoke(Invokes.UpdateWgpuTransform, {
+        const sentPath = state.path;
+
+        invoke<boolean>(Invokes.UpdateWgpuTransform, {
           payload: {
             windowWidth,
             windowHeight,
@@ -1869,8 +1895,24 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
             bgSecondary: state.bgSecondary || [0, 0, 0, 1],
             pixelated: isZoomedIn,
             ...split,
+            path: sentPath,
+            awaitPresent: isArming,
           },
         })
+          .then((presented) => {
+            if (!isArming) return;
+            if (!presented) {
+              lastWgpuTransformRef.current = null;
+              return;
+            }
+            requestAnimationFrame(() => {
+              useEditorStore
+                .getState()
+                .setEditor((s) =>
+                  s.wgpuPhase === 'arming' && s.selectedImage?.path === sentPath ? { wgpuPhase: 'live' } : {},
+                );
+            });
+          })
           .catch((err) => console.warn('WGPU Sync Error:', err))
           .finally(() => {
             isInvoking = false;
@@ -2578,7 +2620,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     }
   }
 
-  const isWgpuActive = appSettings?.useWgpuRenderer !== false && hasRenderedFirstFrame;
+  const isWgpuActive = appSettings?.useWgpuRenderer !== false && wgpuPhase === 'live';
   const isSplitActive = activeCompareView === 'vertical' || activeCompareView === 'horizontal';
   const contentTransform = `translate(${transformStateRef.current.positionX}px, ${transformStateRef.current.positionY}px) scale(${transformStateRef.current.scale})`;
   const originalLayer = originalPreview?.url && (
@@ -2614,7 +2656,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       />
     </svg>
   );
-  const hasRenderedAnyPreview = hasRenderedFirstFrame || !!finalPreviewUrl;
+  const hasRenderedAnyPreview = wgpuPhase === 'live' || !!finalPreviewUrl;
 
   return (
     <div
@@ -2672,7 +2714,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
             ref={originalPaneRef}
             className="flex-1 relative overflow-hidden touch-none border-r border-border-color"
             style={{ cursor: cursorStyle }}
-            onContextMenu={onContextMenu}
+            onContextMenu={handleContextMenu}
             onPointerDownCapture={forwardFromOriginalPane(handlePointerDown)}
             onPointerMove={forwardFromOriginalPane(handlePointerMove)}
             onPointerUp={forwardFromOriginalPane(handlePointerUp)}
@@ -2686,7 +2728,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         <div
           className="flex-1 relative overflow-hidden touch-none"
           style={{ cursor: cursorStyle }}
-          onContextMenu={onContextMenu}
+          onContextMenu={handleContextMenu}
           ref={imageContainerRef}
           onPointerDownCapture={handlePointerDown}
           onPointerMove={handlePointerMove}
@@ -2755,7 +2797,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
               isMaxZoom={isMaxZoom}
               liveRotation={liveRotation}
               transformScale={transformScale}
-              hasRenderedFirstFrame={hasRenderedFirstFrame}
+              wgpuPhase={wgpuPhase}
               overlayRoot={overlayRoot}
               subscribeViewTransform={subscribeViewTransform}
             />

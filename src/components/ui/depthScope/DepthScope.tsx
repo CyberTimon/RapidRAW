@@ -9,6 +9,7 @@ import {
 import { invoke } from '@tauri-apps/api/core';
 import { Invokes } from '../AppProperties';
 import { useEditorStore } from '../../../store/useEditorStore';
+import { useCtrlClickMenuGuard } from '../../../hooks/useCtrlClickMenuGuard';
 import { Camera, DEPTH_SCALE, DepthPreview, DepthScopeRenderer, Frame, toDisplay } from './renderer';
 import {
   DepthScene,
@@ -23,6 +24,7 @@ import {
   sceneOverlay,
   sceneUniforms,
 } from './scene';
+import { getDevicePixelRatio } from '../../../utils/displayScale';
 
 export type DepthMapKey = 'lensBlurDepthMap' | 'fogDepthMap' | 'motionBlurDepthMap' | 'relightNormalMap';
 
@@ -46,7 +48,10 @@ interface Drag {
 
 const PREVIEW_SIZE = 192;
 const PREVIEW_CACHE_LIMIT = 6;
-const HEIGHT = 136;
+// Grows with the panel width (via aspect ratio) between these heights.
+const MIN_HEIGHT = 136;
+const MAX_HEIGHT = 300;
+const ASPECT_RATIO = 1.6;
 const DEFAULT_CAMERA: Camera = { yaw: 0.62, pitch: 0.3, zoom: 1, offset: [0, 0, 0] };
 const SIDE_CAMERA: Camera = { yaw: 1.35, pitch: 0.06, zoom: 1, offset: [0, 0, 0] };
 const MAX_ZOOM = 4;
@@ -179,6 +184,7 @@ export default function DepthScope({ mapKey, scene, onChange, onDragStateChange 
   const flipH = useEditorStore((state) => !!state.adjustments.flipHorizontal);
   const flipV = useEditorStore((state) => !!state.adjustments.flipVertical);
   const [failed, setFailed] = useState(false);
+  const ctrlClickMenuGuard = useCtrlClickMenuGuard();
 
   const state = useRef({
     scene,
@@ -285,7 +291,7 @@ export default function DepthScope({ mapKey, scene, onChange, onDragStateChange 
     const s = state.current;
 
     const resize = () => {
-      renderer.resize(container.clientWidth, container.clientHeight, Math.min(window.devicePixelRatio || 1, 2));
+      renderer.resize(container.clientWidth, container.clientHeight, Math.min(getDevicePixelRatio(), 2));
       draw();
     };
     const resizeObserver = new ResizeObserver(resize);
@@ -535,7 +541,8 @@ export default function DepthScope({ mapKey, scene, onChange, onDragStateChange 
       } else {
         const [px, py] = drag.pixelsPerUnit;
         const lengthSq = px * px + py * py;
-        const fallback = mode === 'x' ? dx / (HEIGHT * 1.2) : -dy / (HEIGHT * (mode === 'y' ? 1.2 : 0.9));
+        const height = containerRef.current?.clientHeight || MIN_HEIGHT;
+        const fallback = mode === 'x' ? dx / (height * 1.2) : -dy / (height * (mode === 'y' ? 1.2 : 0.9));
         const delta = lengthSq > 900 ? (dx * px + dy * py) / lengthSq : fallback;
         if (mode === 'x') target.x += delta;
         else if (mode === 'y') target.y += delta;
@@ -637,7 +644,14 @@ export default function DepthScope({ mapKey, scene, onChange, onDragStateChange 
     <div
       ref={containerRef}
       className="relative w-full overflow-hidden rounded-md bg-bg-primary select-none"
-      style={{ height: HEIGHT, touchAction: 'none', cursor: 'move' }}
+      style={{
+        aspectRatio: ASPECT_RATIO,
+        minHeight: MIN_HEIGHT,
+        maxHeight: MAX_HEIGHT,
+        touchAction: 'none',
+        cursor: 'move',
+      }}
+      {...ctrlClickMenuGuard}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={endDrag}

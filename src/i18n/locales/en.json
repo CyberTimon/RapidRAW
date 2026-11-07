@@ -1930,6 +1930,11 @@
       "title": "General Settings",
       "toolFocusMode": "Tool Focus Mode",
       "toolFocusModeDesc": "Automatically collapses the other tools in a panel when you expand one.",
+      "uiScale": "Interface Scale",
+      "uiScaleCompact": "Compact",
+      "uiScaleDefault": "Default",
+      "uiScaleDesc": "Make the interface smaller or larger, independent of your system display scaling. Compact sizes fit more on small laptop screens.",
+      "uiScaleLarge": "Large",
       "xmpSync": "XMP Metadata Sync",
       "xmpSyncDesc": "Sync ratings, color labels and tags to standard XMP sidecar files for compatibility with other photo editors."
     },

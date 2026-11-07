@@ -24,7 +24,7 @@ import { AppSettings, BrushSettings, Invokes, Panel, SelectedImage, TransformSta
 import { RenderSize } from '../../../hooks/useImageRenderSize';
 import { useDelayedLoading } from '../../../hooks/useDelayedLoading';
 import { useTranslation } from 'react-i18next';
-import { useEditorStore } from '../../../store/useEditorStore';
+import { useEditorStore, WgpuPhase } from '../../../store/useEditorStore';
 import { MIXER_SAMPLE_SCREEN_SIZE, useHslMixerPicker } from '../../../hooks/useHslMixerPicker';
 import { isPanelVisible, useUIStore } from '../../../store/useUIStore';
 import type { OverlayMode } from '../right/CropPanel';
@@ -42,6 +42,8 @@ import {
   withKelvinWhiteBalance,
   withRelativeWhiteBalance,
 } from '../../../utils/whiteBalance';
+
+const WGPU_HANDOFF_FADE_MS = 180;
 
 interface CursorPreview {
   visible: boolean;
@@ -102,7 +104,7 @@ interface ImageCanvasProps {
   isMaxZoom?: boolean;
   liveRotation?: number | null;
   transformScale: number;
-  hasRenderedFirstFrame: boolean;
+  wgpuPhase: WgpuPhase;
   overlayRoot: HTMLElement | null;
   subscribeViewTransform(listener: (state: TransformState) => void): () => void;
 }
@@ -1437,7 +1439,7 @@ const ImageCanvas = memo(
     isMaxZoom,
     liveRotation,
     transformScale,
-    hasRenderedFirstFrame,
+    wgpuPhase,
     overlayRoot,
     subscribeViewTransform,
   }: ImageCanvasProps) => {
@@ -1504,7 +1506,19 @@ const ImageCanvas = memo(
     const [isAltPressed, setIsAltPressed] = useState(false);
     const retainedPatchRef = useRef<typeof interactivePatch>(null);
 
-    const isWgpuActive = appSettings?.useWgpuRenderer !== false && selectedImage?.isReady && hasRenderedFirstFrame;
+    const isWgpuActive = appSettings?.useWgpuRenderer !== false && wgpuPhase === 'live';
+
+    const [prevIsWgpuActive, setPrevIsWgpuActive] = useState(isWgpuActive);
+    const [isWgpuHandoffFading, setIsWgpuHandoffFading] = useState(false);
+    if (prevIsWgpuActive !== isWgpuActive) {
+      setPrevIsWgpuActive(isWgpuActive);
+      setIsWgpuHandoffFading(isWgpuActive && !!displayState.base);
+    }
+    useEffect(() => {
+      if (!isWgpuHandoffFading) return;
+      const timer = setTimeout(() => setIsWgpuHandoffFading(false), WGPU_HANDOFF_FADE_MS + 50);
+      return () => clearTimeout(timer);
+    }, [isWgpuHandoffFading]);
     const { t } = useTranslation();
 
     const directPatchStateRef = useRef({
@@ -1670,6 +1684,7 @@ const ImageCanvas = memo(
         prevImageIdentityRef.current = selectedImage.thumbnailUrl;
         setDisplayState({ base: newSrc, fade: null });
         setIsFadingIn(false);
+        setIsWgpuHandoffFading(false);
         return;
       }
 
@@ -3641,14 +3656,18 @@ const ImageCanvas = memo(
                       }
                 }
               >
-                {displayState.base && !isWgpuActive && (
+                {displayState.base && (!isWgpuActive || isWgpuHandoffFading) && (
                   <image
                     href={displayState.base}
                     x="0"
                     y="0"
                     width="100%"
                     height="100%"
-                    style={{ imageRendering: isMaxZoom ? 'pixelated' : 'auto' }}
+                    style={{
+                      imageRendering: isMaxZoom ? 'pixelated' : 'auto',
+                      opacity: isWgpuActive ? 0 : 1,
+                      transition: isWgpuActive ? `opacity ${WGPU_HANDOFF_FADE_MS}ms ease-out` : 'none',
+                    }}
                   />
                 )}
 

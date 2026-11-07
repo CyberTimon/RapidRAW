@@ -2052,6 +2052,11 @@
       "title": "Bendrieji nustatymai",
       "toolFocusMode": "Įrankių susikaupimo režimas",
       "toolFocusModeDesc": "Automatiškai suskleidžia kitus įrankius skydelyje, kai išskleidžiate vieną iš jų.",
+      "uiScale": "Sąsajos mastelis",
+      "uiScaleCompact": "Kompaktiškas",
+      "uiScaleDefault": "Numatytasis",
+      "uiScaleDesc": "Sumažinkite arba padidinkite sąsają nepriklausomai nuo sistemos ekrano mastelio. Kompaktiški dydžiai geriau tinka mažiems nešiojamųjų kompiuterių ekranams.",
+      "uiScaleLarge": "Didelis",
       "xmpSync": "XMP metaduomenų sinchronizavimas",
       "xmpSyncDesc": "Sinchronizuoti įvertinimus, spalvines žymas ir žymas į standartinius XMP failus suderinamumui su kitomis programomis."
     },

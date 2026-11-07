@@ -1924,6 +1924,11 @@
       "title": "通用设置",
       "toolFocusMode": "工具专注模式",
       "toolFocusModeDesc": "展开某个工具时，自动折叠同一面板中的其他工具。",
+      "uiScale": "界面缩放",
+      "uiScaleCompact": "紧凑",
+      "uiScaleDefault": "默认",
+      "uiScaleDesc": "独立于系统显示缩放，调整界面大小。紧凑尺寸可在小尺寸笔记本屏幕上显示更多内容。",
+      "uiScaleLarge": "大",
       "xmpSync": "XMP 元数据同步",
       "xmpSyncDesc": "将评分、颜色标签和标签同步到标准 XMP 附属文件，以便与其他照片编辑器兼容。"
     },

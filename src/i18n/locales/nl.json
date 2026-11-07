@@ -1930,6 +1930,11 @@
       "title": "Algemene instellingen",
       "toolFocusMode": "Toolfocusmodus",
       "toolFocusModeDesc": "Vouw automatisch de overige gereedschappen in een paneel samen wanneer je er één uitvouwt.",
+      "uiScale": "Interfaceschaal",
+      "uiScaleCompact": "Compact",
+      "uiScaleDefault": "Standaard",
+      "uiScaleDesc": "Maak de interface kleiner of groter, los van de schermschaal van het systeem. Compacte formaten passen beter op kleine laptopschermen.",
+      "uiScaleLarge": "Groot",
       "xmpSync": "XMP-metadatasynchronisatie",
       "xmpSyncDesc": "Synchroniseer beoordelingen, kleurlabels en tags naar standaard XMP-sidecar-bestanden voor compatibiliteit met andere foto-editors."
     },

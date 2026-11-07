@@ -34,6 +34,8 @@ interface BaseRenderSize extends ImageDimensions {
   offsetY: number;
 }
 
+export type WgpuPhase = 'hidden' | 'arming' | 'live';
+
 interface EditorState {
   // Core Image & Adjustments
   selectedImage: SelectedImage | null;
@@ -97,7 +99,7 @@ interface EditorState {
   isGeneratingAi: boolean;
   aiDenoiseProgress: Record<string, number>;
   isAIConnectorConnected: boolean;
-  hasRenderedFirstFrame: boolean;
+  wgpuPhase: WgpuPhase;
   patchesSentToBackend: Set<string>;
 
   // Clipboard
@@ -186,7 +188,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   isGeneratingAi: false,
   aiDenoiseProgress: {},
   isMaskControlHovered: false,
-  hasRenderedFirstFrame: false,
+  wgpuPhase: 'hidden',
   patchesSentToBackend: new Set<string>(),
 
   setEditor: (updater) => set((state) => (typeof updater === 'function' ? updater(state) : updater)),

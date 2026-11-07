@@ -127,6 +127,7 @@ export enum Invokes {
   SampleHslMixerArea = 'sample_hsl_mixer_area',
   GetDepthPreview = 'get_depth_preview',
   UpdateWgpuTransform = 'update_wgpu_transform',
+  SetUiScale = 'set_ui_scale',
   ReleaseOriginalPreview = 'release_original_preview',
   OpenViewerWindow = 'open_viewer_window',
   CloseViewerWindow = 'close_viewer_window',
@@ -250,6 +251,7 @@ export interface AppSettings {
   mediumThumbnailResolution?: number;
   enableZoomHifi?: boolean;
   useFullDpiRendering?: boolean;
+  uiScale?: number;
   highResZoomMultiplier?: number;
   enableLivePreviews?: boolean;
   livePreviewQuality?: string;

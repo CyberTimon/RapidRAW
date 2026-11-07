@@ -221,6 +221,10 @@ pub struct WgpuTransformPayload {
     pub split_origin: [f32; 2],
     pub split_normal: [f32; 2],
     pub split_offset: [f32; 2],
+    #[serde(default)]
+    pub path: Option<String>,
+    #[serde(default)]
+    pub await_present: bool,
 }
 
 fn get_or_compute_stage<T>(
@@ -516,37 +520,51 @@ async fn update_wgpu_transform(
     payload: WgpuTransformPayload,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
-) -> Result<(), String> {
+) -> Result<bool, String> {
     viewer_window::set_viewer_background(&app_handle, payload.bg_secondary);
 
     let Some(context) = gpu_processing::current_gpu_context(&state) else {
-        return Ok(());
+        return Ok(false);
     };
 
     tokio::task::spawn_blocking(move || {
         let mut display_lock = context.display.lock().unwrap_or_else(|e| e.into_inner());
-        if let Some(display) = display_lock.as_mut() {
-            display.latest_transform.rect = [payload.x, payload.y, payload.width, payload.height];
-            display.latest_transform.clip = [
-                payload.clip_x,
-                payload.clip_y,
-                payload.clip_width,
-                payload.clip_height,
-            ];
-            display.latest_transform.window = [payload.window_width, payload.window_height];
-            display.latest_transform.bg_primary = payload.bg_primary;
-            display.latest_transform.bg_secondary = payload.bg_secondary;
-            display.latest_transform.pixelated = if payload.pixelated { 1.0 } else { 0.0 };
-            display.latest_transform.split_origin = payload.split_origin;
-            display.latest_transform.split_normal = payload.split_normal;
-            display.latest_transform.split_offset = payload.split_offset;
-            display.flush(&context.device, &context.queue);
+        let Some(display) = display_lock.as_mut() else {
+            return false;
+        };
+        let content = payload
+            .path
+            .as_deref()
+            .map(gpu_processing::display_content_key);
+        let rect_applied = display.place_editor_rect(
+            content,
+            [payload.x, payload.y, payload.width, payload.height],
+        );
+        display.latest_transform.clip = [
+            payload.clip_x,
+            payload.clip_y,
+            payload.clip_width,
+            payload.clip_height,
+        ];
+        display.latest_transform.window = [payload.window_width, payload.window_height];
+        display.latest_transform.bg_primary = payload.bg_primary;
+        display.latest_transform.bg_secondary = payload.bg_secondary;
+        display.latest_transform.pixelated = if payload.pixelated { 1.0 } else { 0.0 };
+        display.latest_transform.split_origin = payload.split_origin;
+        display.latest_transform.split_normal = payload.split_normal;
+        display.latest_transform.split_offset = payload.split_offset;
+        let presented = display.flush(&context.device, &context.queue);
+        drop(display_lock);
+        if presented && payload.await_present {
+            let _ = context.device.poll(wgpu::PollType::Wait {
+                submission_index: None,
+                timeout: Some(std::time::Duration::from_millis(250)),
+            });
         }
+        rect_applied && presented
     })
     .await
-    .map_err(|e| format!("Task panicked: {}", e))?;
-
-    Ok(())
+    .map_err(|e| format!("Task panicked: {}", e))
 }
 
 #[tauri::command]
@@ -936,6 +954,7 @@ fn process_preview_job(
                 target,
                 layer,
                 to_viewer,
+                content: gpu_processing::display_content_key(&loaded_image.path),
             }),
             analytics_config,
         );
@@ -2577,6 +2596,9 @@ pub fn run() {
 
             let window = window_builder.build().expect("Failed to build window");
 
+            #[cfg(not(target_os = "android"))]
+            app_settings::apply_saved_ui_scale(&window, &settings);
+
             #[cfg(target_os = "android")]
             android_integration::initialize_android(&window);
 
@@ -2825,6 +2847,7 @@ pub fn run() {
             cache_utils::clear_image_caches,
             app_settings::load_settings,
             app_settings::save_settings,
+            app_settings::set_ui_scale,
             app_settings::is_tethering_supported,
             app_settings::is_wgpu_renderer_supported,
             ai_commands::generate_ai_subject_mask,
