@@ -29,6 +29,7 @@ export const FILENAME_VARIABLES: Array<string> = [
   '{DD}',
   '{hh}',
   '{mm}',
+  '{ss}',
 ];
 
 const UNIQUE_FILENAME_VARIABLES: Array<string> = ['{original_filename}', '{original_filename_number}', '{sequence}'];
