@@ -319,6 +319,12 @@ pub struct ExportPreset {
     #[serde(default)]
     pub export_masks: Option<bool>,
     #[serde(default)]
+    pub export_original: Option<bool>,
+    #[serde(default)]
+    pub original_crop: Option<bool>,
+    #[serde(default)]
+    pub original_keep_exposure: Option<bool>,
+    #[serde(default)]
     pub preserve_folders: Option<bool>,
     #[serde(default)]
     pub enable_pad: Option<bool>,
@@ -371,6 +377,9 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             watermark_spacing: 5,
             watermark_opacity: 75,
             export_masks: Some(false),
+            export_original: Some(false),
+            original_crop: Some(true),
+            original_keep_exposure: Some(false),
             preserve_folders: Some(false),
             enable_pad: Some(false),
             pad_ratio_width: Some(1.0),
@@ -406,6 +415,9 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             watermark_spacing: 5,
             watermark_opacity: 75,
             export_masks: Some(false),
+            export_original: Some(false),
+            original_crop: Some(true),
+            original_keep_exposure: Some(false),
             preserve_folders: Some(false),
             enable_pad: Some(false),
             pad_ratio_width: Some(1.0),

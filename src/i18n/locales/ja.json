@@ -960,6 +960,9 @@
   "export": {
     "advanced": {
       "exportMasks": "マスクを個別ファイルとして書き出す",
+      "exportOriginal": "オリジナルも書き出す",
+      "originalCrop": "切り抜きを適用",
+      "originalKeepExposure": "露光量を維持",
       "preserveFolders": "フォルダ構造を維持",
       "preserveTimestamps": "EXIFの撮影日時からファイルタイムスタンプを設定",
       "title": "書き出し設定"

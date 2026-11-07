@@ -960,6 +960,9 @@
   "export": {
     "advanced": {
       "exportMasks": "将蒙版导出为单独文件",
+      "exportOriginal": "同时导出原图",
+      "originalCrop": "应用裁剪",
+      "originalKeepExposure": "保留曝光",
       "preserveFolders": "保留文件夹结构",
       "preserveTimestamps": "将文件时间戳设为 EXIF 拍摄日期",
       "title": "导出设置"

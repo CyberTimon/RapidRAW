@@ -1011,6 +1011,9 @@
   "export": {
     "advanced": {
       "exportMasks": "Eksportuj maski jako osobne pliki",
+      "exportOriginal": "Eksportuj również oryginał",
+      "originalCrop": "Zastosuj kadrowanie",
+      "originalKeepExposure": "Zachowaj ekspozycję",
       "preserveFolders": "Zachowaj strukturę folderów",
       "preserveTimestamps": "Ustaw datę modyfikacji pliku na podstawie daty wykonania (EXIF)",
       "title": "Ustawienia eksportu"

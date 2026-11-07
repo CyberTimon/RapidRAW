@@ -23,6 +23,7 @@ import {
   setToolActive,
 } from '../utils/adjustments';
 import { calculateAutoCropForRotation, calculateCenteredCrop } from '../utils/cropUtils';
+import originalAdjustmentKeys from '../utils/originalAdjustmentKeys.json';
 import { CompareMode, Invokes, Option, Panel, SelectedImage } from '../components/ui/AppProperties';
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { getDevicePixelRatio } from '../utils/displayScale';
@@ -81,32 +82,9 @@ export const withRotation = (adjustments: Adjustments, image: SelectedImage | nu
       : adjustments.crop,
 });
 
-const ORIGINAL_PRESERVED_KEYS: Array<keyof Adjustments> = [
-  'baselineExposure',
-  'crop',
-  'rotation',
-  'flipHorizontal',
-  'flipVertical',
-  'orientationSteps',
-  'aspectRatio',
-  'transformDistortion',
-  'transformVertical',
-  'transformHorizontal',
-  'transformRotate',
-  'transformAspect',
-  'transformScale',
-  'transformXOffset',
-  'transformYOffset',
-  'lensDistortionAmount',
-  'lensVignetteAmount',
-  'lensTcaAmount',
-  'lensCorrectionMode',
-  'lensMaker',
-  'lensModel',
-  'lensDistortionEnabled',
-  'lensTcaEnabled',
-  'lensVignetteEnabled',
-];
+const ORIGINAL_PRESERVED_KEYS = [...originalAdjustmentKeys.preserved, ...originalAdjustmentKeys.crop] as Array<
+  keyof Adjustments
+>;
 
 export const getOriginalAdjustments = (adjustments: Adjustments): Adjustments => {
   const original = { ...INITIAL_ADJUSTMENTS };

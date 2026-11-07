@@ -1050,6 +1050,9 @@
   "export": {
     "advanced": {
       "exportMasks": "Eksportuoti kaukes kaip atskirus failus",
+      "exportOriginal": "Taip pat eksportuoti originalą",
+      "originalCrop": "Taikyti apkarpymą",
+      "originalKeepExposure": "Išlaikyti ekspoziciją",
       "preserveFolders": "Išsaugoti aplankų struktūrą",
       "preserveTimestamps": "Nustatyti failų laiko žymas pagal EXIF fiksavimo datą",
       "title": "Eksporto nustatymai"

@@ -1,0 +1,31 @@
+{
+  "preserved": [
+    "baselineExposure",
+    "orientationSteps",
+    "flipHorizontal",
+    "flipVertical",
+    "lensCorrectionMode",
+    "lensMaker",
+    "lensModel",
+    "lensDistortionAmount",
+    "lensVignetteAmount",
+    "lensTcaAmount",
+    "lensDistortionEnabled",
+    "lensTcaEnabled",
+    "lensVignetteEnabled"
+  ],
+  "crop": [
+    "crop",
+    "aspectRatio",
+    "rotation",
+    "guidedPerspective",
+    "transformDistortion",
+    "transformVertical",
+    "transformHorizontal",
+    "transformRotate",
+    "transformAspect",
+    "transformScale",
+    "transformXOffset",
+    "transformYOffset"
+  ]
+}

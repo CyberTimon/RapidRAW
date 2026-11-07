@@ -1011,6 +1011,9 @@
   "export": {
     "advanced": {
       "exportMasks": "Exportovat masky jako samostatné soubory",
+      "exportOriginal": "Exportovat také originál",
+      "originalCrop": "Použít ořez",
+      "originalKeepExposure": "Zachovat expozici",
       "preserveFolders": "Zachovat strukturu složek",
       "preserveTimestamps": "Nastavit časová razítka souborů z data pořízení EXIF",
       "title": "Nastavení exportu"

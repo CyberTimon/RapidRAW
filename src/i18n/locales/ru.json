@@ -1011,6 +1011,9 @@
   "export": {
     "advanced": {
       "exportMasks": "Экспортировать маски отдельными файлами",
+      "exportOriginal": "Также экспортировать оригинал",
+      "originalCrop": "Применить кадрирование",
+      "originalKeepExposure": "Сохранить экспозицию",
       "preserveFolders": "Сохранять структуру папок",
       "preserveTimestamps": "Установить дату файла из EXIF даты съемки",
       "title": "Настройки экспорта"

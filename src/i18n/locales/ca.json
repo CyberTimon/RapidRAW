@@ -987,6 +987,9 @@
   "export": {
     "advanced": {
       "exportMasks": "Exportar màscares com a fitxers separats",
+      "exportOriginal": "Exporta també l'original",
+      "originalCrop": "Aplica el retall",
+      "originalKeepExposure": "Mantén l'exposició",
       "preserveFolders": "Mantenir l'estructura de carpetes",
       "preserveTimestamps": "Establir les marques de temps dels fitxers des de la data de captura EXIF",
       "title": "Configuració d'exportació"

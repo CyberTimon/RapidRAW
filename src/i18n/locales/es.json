@@ -987,6 +987,9 @@
   "export": {
     "advanced": {
       "exportMasks": "Exportar máscaras como archivos separados",
+      "exportOriginal": "Exportar también el original",
+      "originalCrop": "Aplicar recorte",
+      "originalKeepExposure": "Mantener exposición",
       "preserveFolders": "Preservar estructura de carpetas",
       "preserveTimestamps": "Establecer marcas de tiempo del archivo desde la fecha de captura EXIF",
       "title": "Ajustes de exportación"

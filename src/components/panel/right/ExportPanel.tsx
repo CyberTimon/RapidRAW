@@ -295,6 +295,12 @@ export default function ExportPanel({
     setStripGps,
     exportMasks,
     setExportMasks,
+    exportOriginal,
+    setExportOriginal,
+    originalCrop,
+    setOriginalCrop,
+    originalKeepExposure,
+    setOriginalKeepExposure,
     filenameTemplate,
     setFilenameTemplate,
     enableWatermark,
@@ -602,6 +608,7 @@ export default function ExportPanel({
       pad: padSettings,
       stripGps,
       exportMasks: exportMasks,
+      exportOriginal: exportOriginal ? { crop: originalCrop, keepExposure: originalKeepExposure } : null,
       watermark:
         enableWatermark && watermarkPath
           ? {
@@ -627,6 +634,7 @@ export default function ExportPanel({
 
       if (isImmich) {
         exportSettings.preserveFolders = false;
+        exportSettings.exportOriginal = null;
         outputFolderOrFile = await prepareImmichExport(immichExport.album, immichExport.withOriginal);
       } else if (isOriginalFolder) {
         outputFolderOrFile = 'originalFolderDummy';
@@ -1134,6 +1142,32 @@ export default function ExportPanel({
                               onChange={setExportMasks}
                               disabled={isExporting}
                             />
+                            {destination !== 'immich' && (
+                              <>
+                                <Switch
+                                  label={t('export.advanced.exportOriginal')}
+                                  checked={exportOriginal}
+                                  onChange={setExportOriginal}
+                                  disabled={isExporting}
+                                />
+                                {exportOriginal && (
+                                  <div className="pl-2 border-l-2 border-card-active flex flex-col gap-4">
+                                    <Switch
+                                      label={t('export.advanced.originalCrop')}
+                                      checked={originalCrop}
+                                      onChange={setOriginalCrop}
+                                      disabled={isExporting}
+                                    />
+                                    <Switch
+                                      label={t('export.advanced.originalKeepExposure')}
+                                      checked={originalKeepExposure}
+                                      onChange={setOriginalKeepExposure}
+                                      disabled={isExporting}
+                                    />
+                                  </div>
+                                )}
+                              </>
+                            )}
                           </>
                         )}
                         {[FileFormats.Jpeg, FileFormats.Png, FileFormats.Tiff].includes(fileFormat as FileFormats) && (

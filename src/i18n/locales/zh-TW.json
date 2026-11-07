@@ -960,6 +960,9 @@
   "export": {
     "advanced": {
       "exportMasks": "將遮色片匯出為單獨檔案",
+      "exportOriginal": "同時匯出原圖",
+      "originalCrop": "套用裁切",
+      "originalKeepExposure": "保留曝光",
       "preserveFolders": "保留資料夾結構",
       "preserveTimestamps": "將檔案時間戳設為 EXIF 拍攝日期",
       "title": "匯出設定"

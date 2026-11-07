@@ -963,6 +963,9 @@
   "export": {
     "advanced": {
       "exportMasks": "Export masks as separate files",
+      "exportOriginal": "Also export the original",
+      "originalCrop": "Apply crop",
+      "originalKeepExposure": "Keep exposure",
       "preserveFolders": "Preserve Folder Structure",
       "preserveTimestamps": "Set File Timestamps from EXIF Capture Date",
       "title": "Export Settings"

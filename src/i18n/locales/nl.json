@@ -963,6 +963,9 @@
   "export": {
     "advanced": {
       "exportMasks": "Maskers exporteren als afzonderlijke bestanden",
+      "exportOriginal": "Ook het origineel exporteren",
+      "originalCrop": "Uitsnede toepassen",
+      "originalKeepExposure": "Belichting behouden",
       "preserveFolders": "Mapstructuur behouden",
       "preserveTimestamps": "Bestandstijdstempels instellen vanuit EXIF-opnamedatum",
       "title": "Exportinstellingen"
