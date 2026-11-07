@@ -118,6 +118,9 @@
       "whiteBalance": "화이트 밸런스"
     },
     "curves": {
+      "adaptiveContrast": "곡선 포인트 배치",
+      "adaptiveContrastTooltip": "중간 톤 앵커를 이미지 중앙값에 놓습니다. 슬라이더 값은 그대로 두고, 어두운 톤과 밝은 톤 범위는 기본 너비를 유지합니다",
+      "anchorMedian": "중간값에 고정",
       "channelTitle": "{{channel}} 채널",
       "channels": {
         "blue": "파랑",
@@ -128,6 +131,7 @@
       "copyParametric": "{{channel}} 파라메트릭 커브 복사",
       "copyPoint": "{{channel}} 포인트 커브 복사",
       "curveDataUnavailable": "커브 데이터를 사용할 수 없습니다.",
+      "median": "중간값 {{value}}",
       "parametricCurve": "파라메트릭 커브",
       "params": {
         "blackLevel": "블랙 레벨",

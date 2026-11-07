@@ -118,6 +118,9 @@
       "whiteBalance": "Witbalans"
     },
     "curves": {
+      "adaptiveContrast": "Curve-punten plaatsen",
+      "adaptiveContrastTooltip": "Zet het middentoonanker op de mediaan van de afbeelding. De schuifwaarden blijven gelijk, en de donkere en lichte bereiken houden hun gebruikelijke breedte",
+      "anchorMedian": "Veranker op de mediaan",
       "channelTitle": "{{channel}} kanaal",
       "channels": {
         "blue": "Blauw",
@@ -128,6 +131,7 @@
       "copyParametric": "Kopieer {{channel}} parametrische curve",
       "copyPoint": "Kopieer {{channel}} puntcurve",
       "curveDataUnavailable": "Curvegegevens niet beschikbaar.",
+      "median": "Mediaan {{value}}",
       "parametricCurve": "Parametrische curve",
       "params": {
         "blackLevel": "Zwartniveau",

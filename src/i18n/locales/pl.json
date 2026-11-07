@@ -118,6 +118,9 @@
       "whiteBalance": "Balans bieli"
     },
     "curves": {
+      "adaptiveContrast": "Ustaw punkty krzywej",
+      "adaptiveContrastTooltip": "Ustawia kotwicę śródtonów na medianie obrazu. Wartości suwaków zostają, a zakresy ciemnych i jasnych tonów zachowują zwykłą szerokość",
+      "anchorMedian": "Zakotwicz na medianie",
       "channelTitle": "Kanał {{channel}}",
       "channels": {
         "blue": "Niebieski",
@@ -128,6 +131,7 @@
       "copyParametric": "Kopiuj krzywą parametryczną ({{channel}})",
       "copyPoint": "Kopiuj krzywą punktową ({{channel}})",
       "curveDataUnavailable": "Dane krzywej są niedostępne.",
+      "median": "Mediana {{value}}",
       "parametricCurve": "Krzywa parametryczna",
       "params": {
         "blackLevel": "Poziom czerni",

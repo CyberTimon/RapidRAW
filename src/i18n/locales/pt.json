@@ -118,6 +118,9 @@
       "whiteBalance": "Balanço de Branco"
     },
     "curves": {
+      "adaptiveContrast": "Definir pontos da curva",
+      "adaptiveContrastTooltip": "Coloca a âncora dos meios-tons na mediana da imagem. Os valores dos controles permanecem, e as faixas de tons escuros e claros mantêm a largura habitual",
+      "anchorMedian": "Ancorar na mediana",
       "channelTitle": "Canal {{channel}}",
       "channels": {
         "blue": "Azul",
@@ -128,6 +131,7 @@
       "copyParametric": "Copiar Curva Paramétrica {{channel}}",
       "copyPoint": "Copiar Curva de Pontos {{channel}}",
       "curveDataUnavailable": "Dados da curva indisponíveis.",
+      "median": "Mediana {{value}}",
       "parametricCurve": "Curva Paramétrica",
       "params": {
         "blackLevel": "Nível de Preto",

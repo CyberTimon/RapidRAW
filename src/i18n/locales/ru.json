@@ -118,6 +118,9 @@
       "whiteBalance": "Баланс белого"
     },
     "curves": {
+      "adaptiveContrast": "Поставить точки кривой",
+      "adaptiveContrastTooltip": "Ставит якорь средних тонов на медиану изображения. Значения ползунков сохраняются, а диапазоны тёмных и светлых тонов остаются обычной ширины",
+      "anchorMedian": "Закрепить на медиане",
       "channelTitle": "Канал {{channel}}",
       "channels": {
         "blue": "Синий",
@@ -128,6 +131,7 @@
       "copyParametric": "Копировать параметрическую кривую ({{channel}})",
       "copyPoint": "Копировать точечную кривую ({{channel}})",
       "curveDataUnavailable": "Данные кривой недоступны.",
+      "median": "Медиана {{value}}",
       "parametricCurve": "Параметрическая кривая",
       "params": {
         "blackLevel": "Точка черного",

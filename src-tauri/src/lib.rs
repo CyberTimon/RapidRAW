@@ -734,6 +734,28 @@ async fn sample_hsl_mixer_area(
     .map_err(|e| format!("Task panicked: {}", e))?
 }
 
+fn mask_bitmap_for_id(
+    definitions: &[MaskDefinition],
+    bitmaps: &[image::GrayImage],
+    active_id: &str,
+) -> Option<Arc<image::GrayImage>> {
+    if active_id.is_empty() {
+        return None;
+    }
+
+    let mut index = 0usize;
+    for definition in definitions {
+        if !definition.visible || definition.sub_masks.is_empty() {
+            continue;
+        }
+        if definition.id == active_id {
+            return bitmaps.get(index).cloned().map(Arc::new);
+        }
+        index += 1;
+    }
+    None
+}
+
 #[allow(clippy::too_many_arguments)]
 fn process_preview_job(
     app_handle: &tauri::AppHandle,
@@ -746,6 +768,7 @@ fn process_preview_job(
     request_analytics: bool,
     compute_waveform: bool,
     active_waveform_channel: Option<&str>,
+    active_mask_id: Option<&str>,
     target: PreviewTarget,
 ) -> Result<Vec<u8>, String> {
     let fn_start = std::time::Instant::now();
@@ -918,6 +941,14 @@ fn process_preview_job(
                 compute_waveform,
                 active_waveform_channel: channel_filter,
                 sender: tx,
+                mask: active_mask_id.and_then(|id| {
+                    let definitions: Vec<MaskDefinition> = adjustments_clone
+                        .get("masks")
+                        .and_then(|masks| serde_json::from_value(masks.clone()).ok())
+                        .unwrap_or_default();
+                    mask_bitmap_for_id(&definitions, &editor_render.masks.bitmaps, id)
+                        .map(|bitmap| (id.to_string(), bitmap))
+                }),
             })
     } else {
         None
@@ -1084,7 +1115,13 @@ fn start_analytics_worker(app_handle: tauri::AppHandle) {
             }
             last_run = Some(std::time::Instant::now());
 
-            let histogram_data = image_processing::calculate_histogram(&job.frame).ok();
+            let histogram_data = image_processing::calculate_histogram(
+                &job.frame,
+                job.mask
+                    .as_ref()
+                    .map(|(id, bitmap)| (id.as_str(), bitmap.as_ref())),
+            )
+            .ok();
 
             let waveform_data = if job.compute_waveform {
                 image_processing::calculate_waveform(
@@ -1149,6 +1186,7 @@ fn run_editor_job(app_handle: &tauri::AppHandle, job: PreviewJob) {
             job.request_analytics,
             job.compute_waveform,
             job.active_waveform_channel.as_deref(),
+            job.active_mask_id.as_deref(),
             PreviewTarget::Editor,
         )
     });
@@ -1187,6 +1225,7 @@ fn run_viewer_job(app_handle: &tauri::AppHandle) {
             None,
             false,
             false,
+            None,
             None,
             PreviewTarget::Viewer,
         )
@@ -1247,6 +1286,7 @@ async fn apply_adjustments(
     request_analytics: bool,
     compute_waveform: bool,
     active_waveform_channel: Option<String>,
+    active_mask_id: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> Result<Response, String> {
     let (tx, rx) = tokio::sync::oneshot::channel();
@@ -1267,6 +1307,7 @@ async fn apply_adjustments(
                 request_analytics,
                 compute_waveform,
                 active_waveform_channel,
+                active_mask_id,
                 responder: tx,
             };
             worker_tx

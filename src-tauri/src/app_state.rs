@@ -238,6 +238,7 @@ pub struct PreviewJob {
     pub request_analytics: bool,
     pub compute_waveform: bool,
     pub active_waveform_channel: Option<String>,
+    pub active_mask_id: Option<String>,
     pub responder: tokio::sync::oneshot::Sender<Vec<u8>>,
 }
 
@@ -251,6 +252,7 @@ pub struct AnalyticsJob {
     pub frame: crate::image_processing::AnalyticsFrame,
     pub compute_waveform: bool,
     pub active_waveform_channel: Option<String>,
+    pub mask: Option<(String, Arc<GrayImage>)>,
 }
 
 pub struct AnalyticsConfig {
@@ -258,6 +260,7 @@ pub struct AnalyticsConfig {
     pub compute_waveform: bool,
     pub active_waveform_channel: Option<String>,
     pub sender: Sender<AnalyticsJob>,
+    pub mask: Option<(String, Arc<GrayImage>)>,
 }
 
 pub struct ThumbnailProgressTracker {

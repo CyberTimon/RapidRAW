@@ -118,6 +118,9 @@
       "whiteBalance": "Vyvážení bílé"
     },
     "curves": {
+      "adaptiveContrast": "Nastavit body křivky",
+      "adaptiveContrastTooltip": "Umístí kotvu středních tónů na medián snímku. Hodnoty posuvníků zůstanou a rozsahy tmavých a světlých tónů si zachovají obvyklou šířku",
+      "anchorMedian": "Ukotvit na medián",
       "channelTitle": "{{channel}} kanál",
       "channels": {
         "blue": "Modrý",
@@ -128,6 +131,7 @@
       "copyParametric": "Kopírovat parametrickou křivku ({{channel}})",
       "copyPoint": "Kopírovat bodovou křivku ({{channel}})",
       "curveDataUnavailable": "Údaje o křivce nejsou k dispozici.",
+      "median": "Medián {{value}}",
       "parametricCurve": "Parametrická křivka",
       "params": {
         "blackLevel": "Úroveň černé",

@@ -118,6 +118,9 @@
       "whiteBalance": "ホワイトバランス"
     },
     "curves": {
+      "adaptiveContrast": "カーブポイントを置く",
+      "adaptiveContrastTooltip": "中間調のアンカーを画像の中央値に置きます。スライダーの量はそのまま、暗いトーンと明るいトーンの幅も通常のままです",
+      "anchorMedian": "中央値に固定",
       "channelTitle": "{{channel}} チャンネル",
       "channels": {
         "blue": "ブルー",
@@ -128,6 +131,7 @@
       "copyParametric": "{{channel}} パラメトリックカーブをコピー",
       "copyPoint": "{{channel}} ポイントカーブをコピー",
       "curveDataUnavailable": "カーブデータがありません。",
+      "median": "中央値 {{value}}",
       "parametricCurve": "パラメトリックカーブ",
       "params": {
         "blackLevel": "黒レベル",

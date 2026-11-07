@@ -118,6 +118,9 @@
       "whiteBalance": "白平衡"
     },
     "curves": {
+      "adaptiveContrast": "放置曲线点",
+      "adaptiveContrastTooltip": "将中间调锚点放在图像的中位数上。滑块数值保持不变，暗部和亮部范围保持原有宽度",
+      "anchorMedian": "锚定到中位数",
       "channelTitle": "{{channel}} 通道",
       "channels": {
         "blue": "蓝色",
@@ -128,6 +131,7 @@
       "copyParametric": "复制 {{channel}} 参数曲线",
       "copyPoint": "复制 {{channel}} 点曲线",
       "curveDataUnavailable": "曲线数据不可用。",
+      "median": "中位数 {{value}}",
       "parametricCurve": "参数曲线",
       "params": {
         "blackLevel": "黑色色阶",
