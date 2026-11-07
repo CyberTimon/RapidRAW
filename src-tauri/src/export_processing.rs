@@ -1811,7 +1811,16 @@ pub(crate) async fn export_images_impl(
                             sidecar.adjustments
                         }
                     }
-                    ExportAdjustmentsMode::GlobalOverride(adj) => adj.clone(),
+                    ExportAdjustmentsMode::GlobalOverride(adj) => {
+                        let mut adj = adj.clone();
+                        crate::ai_jobs::resolve_detached(
+                            &app_handle_clone,
+                            &image_path_str,
+                            &mut adj,
+                        )
+                        .map_err(|e| format!("Failed to generate AI results for export: {}", e))?;
+                        adj
+                    }
                 };
 
                 hydrate_adjustments(&state, &mut js_adjustments);

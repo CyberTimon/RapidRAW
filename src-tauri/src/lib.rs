@@ -2519,6 +2519,8 @@ pub fn run() {
                 );
             }
 
+            jxl_oxide::integration::register_image_decoding_hook();
+
             match launch_req {
                 LaunchRequest::HeadlessExport(session) => {
                     let app_handle_clone = app_handle.clone();
@@ -2548,7 +2550,6 @@ pub fn run() {
             file_management::start_thumbnail_workers(app_handle.clone());
             file_management::start_metadata_workers(app_handle.clone());
             ai_jobs::start_worker(app_handle.clone());
-            jxl_oxide::integration::register_image_decoding_hook();
 
             let window_cfg = app.config().app.windows.first().unwrap().clone();
             let decorations = settings.decorations.unwrap_or(window_cfg.decorations);
