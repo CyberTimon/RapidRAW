@@ -57,6 +57,23 @@ RapidRAW is for photographers who love to edit their photos in a <strong>clean, 
 <details>
 <summary><strong>Recent Changes</strong></summary>
 
+- **2026-11-07:** Rebuilt glow, halation and lens flare with realistic glare and aperture ghosts, rebuilt film grain, convert embedded ICC profiles of non-RAW images to sRGB, render previews at the real display size, and added the option to export the original alongside edits
+- **2026-11-06:** Added an interface scale setting for a compact UI, and fixed macOS context menus and canvas flicker when switching images
+- **2026-11-05:** Reworked lens correction to match Lensfun exactly with per-image lens profiles, moved relight, fog, lens blur and all transforms to the GPU, added next/previous image preloading and interactive 3D depth views
+- **2026-11-04:** Fixed macOS local network access with ad-hoc signing, Let's Encrypt certificates on Android, and export panel validation
+- **2026-11-03:** Added Match Brush mask with adaptive color, tone and texture matching, and reworked liquify and retouch with frequency separation smoothing
+- **2026-11-02:** Added Motion Blur with panning, moving subject, spin and depth parallax, reworked clone and heal with automatic source matching, enabled the GPU renderer on Linux Wayland, and added EXIF and ICC metadata to TIFF exports
+- **2026-11-01:** Added an on-image picker to the B&W mix
+- **2026-10-31:** Added Speed Edit for keyboard and drag-based slider editing, an expanded color mixer with targeted pipette, and "Edit In" for external editors
+- **2026-10-30:** Bounded JPEG XL export memory, fixed virtual copy exports, and kept edits of shared Immich images on this computer
+- **2026-10-29:** Much faster folder loading from network shares, cached GPU pipelines and parallel preview encoding, readable edit history labels, and Enter / Escape to apply or cancel a crop
+
+<details>
+<summary><strong>Expand further</strong></summary>
+
+- **2026-10-28:** Added a second window viewer for multi-monitor setups, a setting to hide collapsed side panels, and drag and drop sorting into Immich albums
+- **2026-10-27:** Added Black & White mode with film responses, lens filters, B&W mix and toning, and added Ukrainian translation
+- **2026-10-25:** Published the technical reference that explains the full processing pipeline
 - **2026-10-24:** Rewrote dehaze with edge-aware haze estimation, added dual-illuminant RAW color matrices and gamut compression, improved denoise in shadows and highlights, and added arrow key grid navigation in the library
 - **2026-10-23:** Redesigned data management as a storage page with cache limits, rewrote noise reduction and sharpening, and fixed AI hangs on macOS
 - **2026-10-22:** Added split and side-by-side before/after compare modes, a global job tracker, AI face and text masks, new sky and foreground models, and non-destructive BM3D denoise
@@ -67,10 +84,6 @@ RapidRAW is for photographers who love to edit their photos in a <strong>clean, 
 - **2026-10-17:** Added movable on-canvas center controls for vignette and centré adjustments, touch multi-selection mode for Android, and cleaned default-only sidecar file handling
 - **2026-10-16:** Parallelized RAW post-processing and pixel format conversion for faster image rendering
 - **2026-10-15:** Added auto-straighten powered by horizon and line segment detection, and added DPI settings for print exports
-
-<details>
-<summary><strong>Expand further</strong></summary>
-
 - **2026-10-13:** Added individual visibility toggles to every adjustment tool in the editor panel
 - **2026-10-12:** Added optional RAW baseline exposure and highlight preservation compensation
 - **2026-10-11:** Embed keywords, ratings, and color labels as standard XMP metadata during export, alongside improved RAW EXIF writing
@@ -555,7 +568,7 @@ Explore example edits processed entirely within RapidRAW. You can download the `
       <h4>Core Editing Engine</h4>
       <ul>
         <li><strong>GPU-Accelerated:</strong> Full 32-bit image processing pipeline written in WGSL for instant feedback.</li>
-        <li><strong>Layered Masking:</strong> AI subject, sky, foreground, depth, text prompt, and face part masks, combined with parametric color and luminance masks.</li>
+        <li><strong>Layered Masking:</strong> AI subject, sky, foreground, depth, text prompt, and face part masks, a Match Brush that follows similar colors and textures, and parametric color and luminance masks.</li>
         <li><strong>Retouching Tools:</strong> Clone, Heal, Retouch, and Liquify tools for dust removal, skin smoothing, and reshaping.</li>
         <li><strong>Noise Reduction:</strong> Non-destructive AI Denoise, classic BM3D denoise, and manual luma and color noise reduction.</li>
         <li><strong>Generative Edits:</strong> Remove or add elements using text prompts, powered by an optional AI backend.</li>
@@ -571,7 +584,7 @@ Explore example edits processed entirely within RapidRAW. You can download the `
         <li><strong>Immich Integration:</strong> Browse, edit, and export photos on your Immich server, with edits synced across all your computers.</li>
         <li><strong>Culling View:</strong> Compare images side-by-side with star ratings, pick/reject flags, color labels, and metadata.</li>
         <li><strong>Organization:</strong> Recursive folder view, virtual copies, color labels, star ratings, and custom tags.</li>
-        <li><strong>File Operations:</strong> Import, copy, move, rename, and duplicate images/folders.</li>
+        <li><strong>File Operations:</strong> Import, copy, move, rename, and duplicate images/folders, or open them in external editors like GIMP.</li>
         <li><strong>Filmstrip View:</strong> Quickly navigate between images in your current folder while editing.</li>
         <li><strong>Batch Operations:</strong> Apply adjustments or export entire batches of images simultaneously, tracked in a background job queue.</li>
         <li><strong>EXIF Data & CLI:</strong> Full metadata viewer and headless CLI batch exporter for scripting/terminal use.</li>
@@ -587,9 +600,10 @@ Explore example edits processed entirely within RapidRAW. You can download the `
         <li><strong>Tonal Controls:</strong> Exposure, Tone Mapping (including AgX!), Contrast, Highlights, Shadows, Whites, and Blacks.</li>
         <li><strong>Tone Curves:</strong> Full control over Luma/RGB and parametric curves.</li>
         <li><strong>Color Grading:</strong> Temperature, Tint, Vibrance, Saturation, color wheels, and a full HSL color mixer.</li>
+        <li><strong>Black & White:</strong> Film responses, color filters, a B&W mix, and toning like sepia, selenium, and split tone.</li>
         <li><strong>Detail Enhancement:</strong> Sharpening, Clarity, Structure, and Dehaze.</li>
         <li><strong>Creative Effects:</strong> Film emulations, LUTs, Vignette, Glow, Halation, Flares, and Film Grain.</li>
-        <li><strong>Spatial Effects:</strong> Depth-based Lens Blur, Relight with point, spot, and directional lights, and Fog.</li>
+        <li><strong>Spatial Effects:</strong> Depth-based Lens Blur, Relight with point, spot, and directional lights, Fog, and Motion Blur.</li>
         <li><strong>Transform Tools:</strong> Perspective correction, auto straighten, rotation, crop, and warping tools.</li>
       </ul>
     </td>
@@ -599,6 +613,7 @@ Explore example edits processed entirely within RapidRAW. You can download the `
         <li><strong>Preset System:</strong> Create, save, import, share, and adjust preset intensity.</li>
         <li><strong>Image Analytics:</strong> Real-time Vectorscope, Waveform, RGB Parade, and Histogram displays.</li>
         <li><strong>Copy & Paste Settings:</strong> Quickly transfer adjustments and masks between images. AI masks are generated again for every image.</li>
+        <li><strong>Speed Edit:</strong> Hold W and drag on the photo to change sliders, with keyboard shortcuts to switch sliders and images.</li>
         <li><strong>Before / After Compare:</strong> Full original, split, and side-by-side compare modes.</li>
         <li><strong>Undo/Redo History:</strong> Robust history tracking for every edit step.</li>
         <li><strong>Compositions & Merging:</strong> Bracketed HDR merging, Focus Stacking, seamless Panorama Stitcher, and Collage Maker.</li>
@@ -672,7 +687,7 @@ RapidRAW supports automatic lens profile detection, distortion, transverse chrom
 <details>
 <summary><strong>Supported Languages</strong></summary>
 
-RapidRAW is fully translated into the following 16 languages:
+RapidRAW is fully translated into the following 17 languages:
 
 - 🇬🇧 **English**
 - 🇪🇸 **Català**
@@ -686,6 +701,7 @@ RapidRAW is fully translated into the following 16 languages:
 - 🇵🇱 **Polski**
 - 🇵🇹 **Português**
 - 🇷🇺 **Русский**
+- 🇺🇦 **Українська**
 - 🇯🇵 **日本語**
 - 🇰🇷 **한국어**
 - 🇨🇳 **简体中文**
@@ -717,7 +733,7 @@ These features are integrated directly into RapidRAW and run entirely on your lo
 - **AI Masking:** Instantly detect and mask subjects, skies, foregrounds, and depth (powered by SAM, EfficientSAM3, BiRefNet, and Depth Anything V2).
 - **AI Text & Face Masks:** Select anything by typing what you want, like "car" or "water", or pick individual face and body parts like skin, hair, eyes, or teeth (powered by EfficientSAM3 and MediaPipe).
 - **AI Denoise:** Non-destructive noise reduction for RAW files using the NIND model.
-- **Spatial Effects:** Depth and surface normal estimation for Lens Blur, Relight, and Fog (powered by Depth Anything V2 and MoGe-2).
+- **Spatial Effects:** Depth and surface normal estimation for Lens Blur, Relight, Fog, and Motion Blur, with an interactive 3D view of the depth (powered by Depth Anything V2 and MoGe-2).
 - **Automatic Tagging:** The image library is automatically indexed with keywords using a local CLIP model for effortless search.
 - **Simple Generative Replace:** A lightweight inpainting tool (via LaMa) for removing sensor dust, blemishes, and small distractions.
 
@@ -969,7 +985,7 @@ rapidraw export /path/to/photos --output /path/to/output_dir --adjustments /path
 rapidraw export /path/to/photos --output /path/to/output_dir --export-original
 ```
 
-> **Note:** By default, headless export automatically detects and applies edits stored in `.rrdata` sidecar files located alongside your source images. You can override sidecars for all exported images by passing a custom JSON file using the `--adjustments` flag.
+> **Note:** By default, headless export automatically detects and applies edits stored in `.rrdata` sidecar files located alongside your source images. You can override sidecars for all exported images by passing a custom JSON file using the `--adjustments` flag. AI masks and AI effects in that file are generated for each image during the export.
 
 | Option                     | Description                                                            | Default           |
 | :------------------------- | :--------------------------------------------------------------------- | :---------------- |
@@ -1042,6 +1058,19 @@ WEBKIT_DISABLE_COMPOSITING_MODE=1 RapidRAW
 This issue is related to **WebKit** and **NVIDIA drivers**, not RapidRAW directly. Switching to **X11** or using **AMD / Intel GPUs** may also help.
 
 See [#306](https://github.com/CyberTimon/RapidRAW/issues/306) for more information.
+
+</details>
+
+<details>
+<summary>Slow live preview on Linux</summary>
+
+On Linux, the image preview is drawn by the webview by default, which is slower than the direct GPU renderer used on Windows and macOS. On **Wayland**, you can turn on the direct GPU renderer:
+
+1.  Open **Settings** and go to the **Processing** tab.
+2.  Turn on **Enable Direct WGPU Render**.
+3.  Click **Save & Relaunch**.
+
+This option is still experimental on Linux. It is not available on **X11**.
 
 </details>
 
