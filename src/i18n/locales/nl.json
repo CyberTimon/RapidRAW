@@ -965,6 +965,9 @@
   "export": {
     "advanced": {
       "exportMasks": "Maskers exporteren als afzonderlijke bestanden",
+      "exportOriginal": "Ook het origineel exporteren",
+      "originalCrop": "Uitsnede toepassen",
+      "originalKeepExposure": "Belichting behouden",
       "preserveFolders": "Mapstructuur behouden",
       "preserveTimestamps": "Bestandstijdstempels instellen vanuit EXIF-opnamedatum",
       "title": "Exportinstellingen"
@@ -1709,7 +1712,6 @@
       "selectManufacturer": "Fabrikant selecteren",
       "title": "Lenscorrectie",
       "vignetting": "Vignettering",
-      "waitingAutoDetect": "Wachten op automatische detectie...",
       "zoomInTooltip": "Inzoomen",
       "zoomOutTooltip": "Uitzoomen"
     },
@@ -1933,6 +1935,11 @@
       "title": "Algemene instellingen",
       "toolFocusMode": "Toolfocusmodus",
       "toolFocusModeDesc": "Vouw automatisch de overige gereedschappen in een paneel samen wanneer je er één uitvouwt.",
+      "uiScale": "Interfaceschaal",
+      "uiScaleCompact": "Compact",
+      "uiScaleDefault": "Standaard",
+      "uiScaleDesc": "Maak de interface kleiner of groter, los van de schermschaal van het systeem. Compacte formaten passen beter op kleine laptopschermen.",
+      "uiScaleLarge": "Groot",
       "xmpSync": "XMP-metadatasynchronisatie",
       "xmpSyncDesc": "Synchroniseer beoordelingen, kleurlabels en tags naar standaard XMP-sidecar-bestanden voor compatibiliteit met andere foto-editors."
     },
@@ -2198,8 +2205,6 @@
       "smallThumbnailRes": "Rasterminiatuurresolutie",
       "smallThumbnailResDesc": "Resolutie van miniaturen weergegeven in het bibliotheekoverzicht.",
       "staticDesc": "De editor rendert de afbeelding op een vaste resolutie. Deze modus is het snelst en meest consistent, waardoor het ideaal is voor minder krachtige hardware waar vloeiende prestaties prioriteit hebben boven pixelperfecte zoom.",
-      "staticPreviewRes": "Statische voorbeeldresolutie",
-      "staticPreviewResDesc": "Stelt de resolutie in voor statische voorbeelden zoals bijsnijdmodus, lenscorrectie en perspectief-tools. Heeft geen invloed op het hoofdeditorvoorbeeld.",
       "threads": "Threads",
       "thumbnailRes": "Miniatuurresolutie",
       "thumbnailResDesc": "Bepaalt de resolutie van gegenereerde bibliotheekminiaturen. Hogere waarden produceren scherpere afbeeldingen tijdens het laden.",

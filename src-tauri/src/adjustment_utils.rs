@@ -3,10 +3,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 
 use crate::app_state::AppState;
-use crate::image_processing::{
-    Crop, IntoCowImage, apply_coarse_rotation, apply_crop, apply_flip, apply_geometry_warp,
-    apply_rotation,
-};
+use crate::image_processing::{Crop, IntoCowImage, apply_coarse_rotation, apply_flip};
 
 const EFFECT_MAP_KEYS: [&str; 4] = [
     "lensBlurDepthMap",
@@ -136,24 +133,6 @@ pub fn apply_orientation_and_flip<'a, I: IntoCowImage<'a>>(
     apply_flip(coarse_rotated_image, flip_horizontal, flip_vertical)
 }
 
-pub fn apply_spatial_transformations<'a, I: IntoCowImage<'a>>(
-    image: I,
-    adjustments: &serde_json::Value,
-) -> (Cow<'a, DynamicImage>, (f32, f32)) {
-    let rotation_degrees = adjustments["rotation"].as_f64().unwrap_or(0.0) as f32;
-
-    let flipped_image = apply_orientation_and_flip(image, adjustments);
-    let rotated_image = apply_rotation(flipped_image, rotation_degrees);
-
-    let crop_data: Option<Crop> = serde_json::from_value(adjustments["crop"].clone()).ok();
-    let crop_json = serde_json::to_value(crop_data).unwrap_or(serde_json::Value::Null);
-    let cropped_image = apply_crop(rotated_image, &crop_json);
-
-    let unscaled_crop_offset = crop_data.map_or((0.0, 0.0), |c| (c.x as f32, c.y as f32));
-
-    (cropped_image, unscaled_crop_offset)
-}
-
 pub fn transformed_dimensions(
     width: u32,
     height: u32,
@@ -166,33 +145,8 @@ pub fn transformed_dimensions(
         (width, height)
     };
 
-    let crop: Option<Crop> = serde_json::from_value(adjustments["crop"].clone()).ok();
-    crop.and_then(|c| {
-        let (x, y) = (c.x.round() as u32, c.y.round() as u32);
-        let (crop_w, crop_h) = (c.width.round() as u32, c.height.round() as u32);
-        (crop_w > 0 && crop_h > 0 && x < w && y < h)
-            .then(|| ((w - x).min(crop_w), (h - y).min(crop_h)))
-    })
-    .unwrap_or((w, h))
-}
-
-pub fn apply_all_transformations<'a, I: IntoCowImage<'a>>(
-    image: I,
-    adjustments: &serde_json::Value,
-) -> (Cow<'a, DynamicImage>, (f32, f32)) {
-    let start_time = std::time::Instant::now();
-    let image = image.into_cow();
-
-    let warped_image = apply_geometry_warp(image, adjustments);
-    let relit_image = crate::relight::apply_relight(warped_image, adjustments);
-    let fogged_image = crate::fog::apply_fog(relit_image, adjustments);
-    let blurred_image = crate::lens_blur::apply_lens_blur(fogged_image, adjustments);
-
-    let (cropped_image, unscaled_crop_offset) =
-        apply_spatial_transformations(blurred_image, adjustments);
-
-    let total_duration = start_time.elapsed();
-    log::info!("apply_all_transformations took {:.2?}", total_duration);
-
-    (cropped_image, unscaled_crop_offset)
+    serde_json::from_value::<Crop>(adjustments["crop"].clone())
+        .ok()
+        .and_then(|crop| crate::image_processing::crop_rect(&crop, (w, h)))
+        .map_or((w, h), |(_, _, width, height)| (width, height))
 }

@@ -168,6 +168,7 @@ const Dropdown = <T extends React.Key>({
               ref={menuRef}
               animate={{ opacity: 1, scale: 1 }}
               className={clsx('fixed z-60', opensUp ? 'origin-bottom-right' : 'origin-top-right')}
+              data-dropdown-menu
               exit={{ opacity: 0, scale: 0.95 }}
               initial={{ opacity: 0, scale: 0.95 }}
               onMouseDown={(e) => e.stopPropagation()}

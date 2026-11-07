@@ -672,7 +672,7 @@ RapidRAW supports automatic lens profile detection, distortion, transverse chrom
 <details>
 <summary><strong>Supported Languages</strong></summary>
 
-RapidRAW is fully translated into the following 15 languages:
+RapidRAW is fully translated into the following 16 languages:
 
 - 🇬🇧 **English**
 - 🇪🇸 **Català**
@@ -681,6 +681,7 @@ RapidRAW is fully translated into the following 15 languages:
 - 🇪🇸 **Español**
 - 🇫🇷 **Français**
 - 🇮🇹 **Italiano**
+- 🇱🇹 **Lietuvių**
 - 🇳🇱 **Nederlands**
 - 🇵🇱 **Polski**
 - 🇵🇹 **Português**
@@ -963,19 +964,25 @@ rapidraw export /path/to/photo.raw --output /path/to/output.tiff --format tiff -
 
 # Batch export a folder using a custom adjustments JSON file to override sidecars
 rapidraw export /path/to/photos --output /path/to/output_dir --adjustments /path/to/preset.json
+
+# Export before/after pairs (writes <name>_original next to each edited file)
+rapidraw export /path/to/photos --output /path/to/output_dir --export-original
 ```
 
 > **Note:** By default, headless export automatically detects and applies edits stored in `.rrdata` sidecar files located alongside your source images. You can override sidecars for all exported images by passing a custom JSON file using the `--adjustments` flag.
 
-| Option                 | Description                                                            | Default           |
-| :--------------------- | :--------------------------------------------------------------------- | :---------------- |
-| `<source>`             | Path to an image file or directory containing images                   | _(Required)_      |
-| `--output <path>`      | Target directory or specific output file path                          | _(Required)_      |
-| `--format <fmt>`       | Output format (`jpeg`, `png`, `webp`, `avif`, `tiff`, `jxl`, `cube`)   | `jpeg`            |
-| `--quality <1-100>`    | Image export quality                                                   | `90`              |
-| `--tiff-bit-depth <n>` | TIFF channel depth (`8` or `16`)                                       | `16`              |
-| `--keep-metadata`      | Retain EXIF/capture metadata in exported files                         | `false`           |
-| `--adjustments <path>` | Path to a custom JSON file containing adjustments to override sidecars | _(Auto-detected)_ |
+| Option                     | Description                                                            | Default           |
+| :------------------------- | :--------------------------------------------------------------------- | :---------------- |
+| `<source>`                 | Path to an image file or directory containing images                   | _(Required)_      |
+| `--output <path>`          | Target directory or specific output file path                          | _(Required)_      |
+| `--format <fmt>`           | Output format (`jpeg`, `png`, `webp`, `avif`, `tiff`, `jxl`, `cube`)   | `jpeg`            |
+| `--quality <1-100>`        | Image export quality                                                   | `90`              |
+| `--tiff-bit-depth <n>`     | TIFF channel depth (`8` or `16`)                                       | `16`              |
+| `--keep-metadata`          | Retain EXIF/capture metadata in exported files                         | `false`           |
+| `--adjustments <path>`     | Path to a custom JSON file containing adjustments to override sidecars | _(Auto-detected)_ |
+| `--export-original`        | Also export the unedited original as `<name>_original`                 | `false`           |
+| `--original-no-crop`       | Export the original uncropped instead of with the edit's crop          | `false`           |
+| `--original-keep-exposure` | Keep the edit's exposure on the original                               | `false`           |
 
 ## Companion Apps & Ecosystem
 

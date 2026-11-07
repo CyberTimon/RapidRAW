@@ -976,6 +976,32 @@ pub async fn generate_relight_normal_map(
     generate_loaded_effect_map(EffectMapKind::Normal, js_adjustments, state, app_handle).await
 }
 
+#[tauri::command]
+pub async fn get_depth_preview(
+    js_adjustments: serde_json::Value,
+    map_key: Option<String>,
+    map_data: Option<String>,
+    max_size: u32,
+    state: tauri::State<'_, AppState>,
+) -> Result<tauri::ipc::Response, String> {
+    let loaded_image = get_loaded_image(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::effect_maps::build_depth_preview(
+            &loaded_image.image,
+            loaded_image.is_raw,
+            &loaded_image.path,
+            &js_adjustments,
+            map_key.as_deref(),
+            map_data.as_deref(),
+            max_size.clamp(16, 512),
+        )
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map(tauri::ipc::Response::new)
+    .ok_or_else(|| "Depth map unavailable".to_string())
+}
+
 fn get_loaded_image(state: &tauri::State<'_, AppState>) -> Result<crate::LoadedImage, String> {
     state
         .original_image

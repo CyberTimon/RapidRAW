@@ -82,7 +82,7 @@ struct GlobalAdjustments {
     chromatic_aberration_blue_yellow: f32,
     show_clipping: u32,
     is_raw_image: u32,
-    _pad_ca1: f32,
+    grain_softness: f32,
 
     has_lut: u32,
     lut_intensity: f32,
@@ -225,11 +225,9 @@ const HSL_RANGES: array<HslRange, 8> = array<HslRange, 8>(
 
 @group(0) @binding(6) var sharpness_blur_texture: texture_2d<f32>;
 @group(0) @binding(7) var tonal_blur_texture: texture_2d<f32>;
-@group(0) @binding(8) var clarity_blur_texture: texture_2d<f32>;
-@group(0) @binding(9) var structure_blur_texture: texture_2d<f32>;
-
+@group(0) @binding(9) var bloom_texture: texture_2d<f32>;
 @group(0) @binding(10) var flare_texture: texture_2d<f32>;
-@group(0) @binding(11) var flare_sampler: sampler;
+@group(0) @binding(11) var light_sampler: sampler;
 
 @group(0) @binding(12) var gf_coeffs_texture: texture_2d<f32>;
 @group(0) @binding(13) var gf_structure_texture: texture_2d<f32>;
@@ -371,31 +369,68 @@ fn get_raw_hsl_influence(hue: f32, center: f32, width: f32) -> f32 {
     return exp(-sharpness * falloff * falloff);
 }
 
-fn hash(p: vec2<f32>) -> f32 {
-    var p3  = fract(vec3<f32>(p.xyx) * .1031);
-    p3 += dot(p3, p3.yzx + 33.33);
-    return fract((p3.x + p3.y) * p3.z);
+fn grain_hash(cell: vec2<i32>, seed: u32) -> vec4<f32> {
+    var v = vec4<u32>(bitcast<u32>(cell.x), bitcast<u32>(cell.y), seed, 0x9e3779b9u) * 1664525u + 1013904223u;
+    v.x += v.y * v.w;
+    v.y += v.z * v.x;
+    v.z += v.x * v.y;
+    v.w += v.y * v.z;
+    v ^= v >> vec4<u32>(16u);
+    v.x += v.y * v.w;
+    v.y += v.z * v.x;
+    v.z += v.x * v.y;
+    v.w += v.y * v.z;
+    return vec4<f32>(v >> vec4<u32>(8u)) / 16777216.0;
 }
 
-fn gradient_noise(p: vec2<f32>) -> f32 {
-    let i = floor(p);
-    let f = fract(p);
-    let u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+fn grain_layer(p: vec2<f32>, cell: f32, seed: u32) -> f32 {
+    const LAYER_STD: f32 = 0.4018;
+    let size = max(cell, 1.0);
+    let q = p / size;
+    let base = vec2<i32>(floor(q));
+    var sum = 0.0;
+    for (var y = -1; y <= 1; y = y + 1) {
+        for (var x = -1; x <= 1; x = x + 1) {
+            let n = base + vec2<i32>(x, y);
+            let h = grain_hash(n, seed);
+            let offset = q - vec2<f32>(n) - h.xy;
+            let radius = 0.75 + 0.25 * h.z;
+            let falloff = max(1.0 - dot(offset, offset) / (radius * radius), 0.0);
+            sum += (h.w * 2.0 - 1.0) * falloff * falloff;
+        }
+    }
+    return sum * min(cell, 1.0) / LAYER_STD;
+}
 
-    let ga = vec2<f32>(hash(i + vec2(0.0, 0.0)), hash(i + vec2(0.0, 0.0) + vec2(11.0, 37.0))) * 2.0 - 1.0;
-    let gb = vec2<f32>(hash(i + vec2(1.0, 0.0)), hash(i + vec2(1.0, 0.0) + vec2(11.0, 37.0))) * 2.0 - 1.0;
-    let gc = vec2<f32>(hash(i + vec2(0.0, 1.0)), hash(i + vec2(0.0, 1.0) + vec2(11.0, 37.0))) * 2.0 - 1.0;
-    let gd = vec2<f32>(hash(i + vec2(1.0, 1.0)), hash(i + vec2(1.0, 1.0) + vec2(11.0, 37.0))) * 2.0 - 1.0;
+fn grain_clumps(p: vec2<f32>, cell: f32, seed: u32) -> f32 {
+    let size = max(cell, 1.0);
+    let q = p / size;
+    let i = vec2<i32>(floor(q));
+    let f = smoothstep(vec2<f32>(0.0), vec2<f32>(1.0), fract(q));
+    let a = grain_hash(i, seed).x;
+    let b = grain_hash(i + vec2<i32>(1, 0), seed).x;
+    let c = grain_hash(i + vec2<i32>(0, 1), seed).x;
+    let d = grain_hash(i + vec2<i32>(1, 1), seed).x;
+    return (mix(mix(a, b, f.x), mix(c, d, f.x), f.y) * 2.0 - 1.0) * min(cell, 1.0);
+}
 
-    let dot_00 = dot(ga, f - vec2(0.0, 0.0));
-    let dot_10 = dot(gb, f - vec2(1.0, 0.0));
-    let dot_01 = dot(gc, f - vec2(0.0, 1.0));
-    let dot_11 = dot(gd, f - vec2(1.0, 1.0));
+fn grain_octave(p: vec2<f32>, cell: f32, roughness: f32, seed: u32) -> f32 {
+    let fine = grain_layer(p, cell, seed * 3u);
+    let coarse = grain_layer(p, cell * 2.3, seed * 3u + 1u);
+    let clumps = grain_clumps(p, cell * 4.0, seed * 3u + 2u);
+    let layered = (fine + 0.7 * roughness * coarse) * (1.0 + 0.9 * roughness * clumps);
+    let r2 = roughness * roughness;
+    return layered / sqrt((1.0 + 0.49 * r2) * (1.0 + 0.149 * r2));
+}
 
-    let bottom_interp = mix(dot_00, dot_10, u.x);
-    let top_interp = mix(dot_01, dot_11, u.x);
-
-    return mix(bottom_interp, top_interp, u.y);
+fn film_grain(p: vec2<f32>, cell: f32, scale: f32, roughness: f32) -> f32 {
+    let level = log2(cell);
+    let base = floor(level);
+    let t = level - base;
+    let seed = u32(i32(base) + 64);
+    let a = grain_octave(p, exp2(base) * scale, roughness, seed);
+    let b = grain_octave(p, exp2(base + 1.0) * scale, roughness, seed + 1u);
+    return (a * (1.0 - t) + b * t) / sqrt((1.0 - t) * (1.0 - t) + t * t);
 }
 
 fn dither(coords: vec2<u32>) -> f32 {
@@ -1713,129 +1748,50 @@ fn sample_lut_tetrahedral(uv: vec3<f32>) -> vec3<f32> {
     return res;
 }
 
-fn apply_glow_bloom(
-    color: vec3<f32>,
-    blurred_color_input_space: vec3<f32>,
-    amount: f32,
-    is_raw: u32,
-    exp: f32, bright: f32, con: f32, wh: f32
-) -> vec3<f32> {
-    if (amount <= 0.0) {
-        return color;
-    }
-
-    var blurred_linear: vec3<f32>;
-    if (is_raw == 1u) {
-        blurred_linear = blurred_color_input_space;
-    } else {
-        blurred_linear = srgb_to_linear(blurred_color_input_space);
-    }
-
-    blurred_linear = apply_linear_exposure(blurred_linear, exp);
-    blurred_linear = apply_filmic_exposure(blurred_linear, bright);
-    blurred_linear = apply_tonal_adjustments(blurred_linear, 0.0, 0.0, is_raw, 0.0, 0.0, wh, 0.0);
-
-    let linear_luma = get_luma(max(blurred_linear, vec3<f32>(0.0)));
-
-    var perceptual_luma: f32;
-    if (linear_luma <= 1.0) {
-        perceptual_luma = pow(max(linear_luma, 0.0), 1.0 / 2.2);
-    } else {
-        perceptual_luma = 1.0 + pow(linear_luma - 1.0, 1.0 / 2.2);
-    }
-
-    let luma_cutoff = mix(0.75, 0.08, clamp(amount, 0.0, 1.0));
-
-    let cutoff_fade = smoothstep(
-        luma_cutoff,
-        luma_cutoff + 0.15,
-        perceptual_luma
-    );
-
-    let excess = max(perceptual_luma - luma_cutoff, 0.0);
-
-    let falloff_range = 5.5;
-    let normalized = excess / falloff_range;
-
-    let bloom_intensity =
-        pow(smoothstep(0.0, 1.0, normalized), 0.45);
-
-    var bloom_color: vec3<f32>;
-    if (linear_luma > 0.01) {
-        let color_ratio = blurred_linear / linear_luma;
-        let warm_tint = vec3<f32>(1.03, 1.0, 0.97);
-        bloom_color = color_ratio * warm_tint;
-    } else {
-        bloom_color = vec3<f32>(1.0, 0.99, 0.98);
-    }
-
-    let luma_factor = pow(linear_luma, 0.6);
-
-    let black_gate_width = 0.5;
-    let black_gate_raw = smoothstep(0.0, black_gate_width, linear_luma);
-    let black_gate = pow(black_gate_raw, 0.5);
-
-    bloom_color *= bloom_intensity * luma_factor * cutoff_fade * black_gate;
-
-    let current_luma = get_luma(max(color, vec3<f32>(0.0)));
-    let protection = 1.0 - smoothstep(1.0, 2.2, current_luma);
-
-    return color + bloom_color * amount * 3.8 * protection;
+fn sample_light(t: texture_2d<f32>, uv: vec2<f32>) -> vec4<f32> {
+    let dims = vec2<f32>(textureDimensions(t));
+    let p = uv * dims - 0.5;
+    let i = floor(p);
+    let f = p - i;
+    let f2 = f * f;
+    let f3 = f2 * f;
+    let w0 = (1.0 - 3.0 * f + 3.0 * f2 - f3) / 6.0;
+    let w1 = (4.0 - 6.0 * f2 + 3.0 * f3) / 6.0;
+    let w2 = (1.0 + 3.0 * f + 3.0 * f2 - 3.0 * f3) / 6.0;
+    let w3 = f3 / 6.0;
+    let g0 = w0 + w1;
+    let g1 = w2 + w3;
+    let c0 = (i - 0.5 + w1 / g0) / dims;
+    let c1 = (i + 1.5 + w3 / g1) / dims;
+    let a = textureSampleLevel(t, light_sampler, c0, 0.0);
+    let b = textureSampleLevel(t, light_sampler, vec2<f32>(c1.x, c0.y), 0.0);
+    let c = textureSampleLevel(t, light_sampler, vec2<f32>(c0.x, c1.y), 0.0);
+    let d = textureSampleLevel(t, light_sampler, c1, 0.0);
+    return g0.y * (g0.x * a + g1.x * b) + g1.y * (g0.x * c + g1.x * d);
 }
 
-fn apply_halation(
-    color: vec3<f32>,
-    blurred_color_input_space: vec3<f32>,
-    amount: f32,
-    is_raw: u32,
-    exp: f32, bright: f32, con: f32, wh: f32
-) -> vec3<f32> {
-    if (amount <= 0.0) { return color; }
+fn light_protection(color: vec3<f32>) -> f32 {
+    return 1.0 - smoothstep(1.0, 2.2, get_luma(max(color, vec3<f32>(0.0))));
+}
 
-    var blurred_linear: vec3<f32>;
-    if (is_raw == 1u) {
-        blurred_linear = blurred_color_input_space;
-    } else {
-        blurred_linear = srgb_to_linear(blurred_color_input_space);
-    }
+fn apply_glow_bloom(color: vec3<f32>, bloom: vec3<f32>, amount: f32) -> vec3<f32> {
+    let luma = get_luma(max(color, vec3<f32>(0.0)));
+    let depth = 0.5 + 0.5 * smoothstep(0.0, 0.2, luma);
+    let strength = amount * (0.35 + 0.85 * amount) * depth;
+    return color + bloom * vec3<f32>(1.03, 1.0, 0.97) * strength * light_protection(color);
+}
 
-    blurred_linear = apply_linear_exposure(blurred_linear, exp);
-    blurred_linear = apply_filmic_exposure(blurred_linear, bright);
-    blurred_linear = apply_tonal_adjustments(blurred_linear, 0.0, 0.0, is_raw, 0.0, 0.0, wh, 0.0);
-
-    let linear_luma = get_luma(max(blurred_linear, vec3<f32>(0.0)));
-
-    var perceptual_luma: f32;
-    if (linear_luma <= 1.0) {
-        perceptual_luma = pow(max(linear_luma, 0.0), 1.0 / 2.2);
-    } else {
-        perceptual_luma = 1.0 + pow(linear_luma - 1.0, 1.0 / 2.2);
-    }
-
-    let luma_cutoff = mix(0.85, 0.1, clamp(amount, 0.0, 1.0));
-
-    if (perceptual_luma <= luma_cutoff) { return color; }
-
-    let excess = perceptual_luma - luma_cutoff;
-    let range = max(1.5 - luma_cutoff, 0.1);
-    let halation_mask = smoothstep(0.0, range * 0.6, excess);
-
+fn apply_halation(color: vec3<f32>, energy: f32, amount: f32) -> vec3<f32> {
+    let mask = clamp(energy, 0.0, 1.0);
     let halation_core = vec3<f32>(1.0, 0.15, 0.03);
     let halation_fringe = vec3<f32>(1.0, 0.32, 0.10);
-
-    let intensity_blend = smoothstep(0.0, 0.7, halation_mask);
-    let halation_tint = mix(halation_fringe, halation_core, intensity_blend);
-
-    let glow_intensity = halation_mask * linear_luma;
-    let halation_glow = halation_tint * glow_intensity;
+    let tint = mix(halation_fringe, halation_core, smoothstep(0.0, 0.7, mask));
 
     let color_luma = get_luma(max(color, vec3<f32>(0.0)));
-    let desat_strength = halation_mask * 0.12;
-    let affected_color = mix(color, vec3<f32>(color_luma), desat_strength);
+    let affected_color = mix(color, vec3<f32>(color_luma), mask * 0.12);
+    let contrast_reduced = mix(vec3<f32>(0.5), affected_color, 1.0 - mask * 0.06);
 
-    let contrast_reduced = mix(vec3<f32>(0.5), affected_color, 1.0 - halation_mask * 0.06);
-
-    return contrast_reduced + halation_glow * amount * 2.5;
+    return contrast_reduced + tint * max(energy, 0.0) * amount * 2.5;
 }
 
 @compute @workgroup_size(8, 8, 1)
@@ -1972,8 +1928,6 @@ fn main(
 
     let sharpness_blurred = textureLoad(sharpness_blur_texture, id.xy, 0).rgb;
     let tonal_blurred = textureLoad(tonal_blur_texture, id.xy, 0).rgb;
-    let clarity_blurred = textureLoad(clarity_blur_texture, id.xy, 0).rgb;
-    let structure_blurred = textureLoad(structure_blur_texture, id.xy, 0).rgb;
 
     var locally_contrasted_rgb = initial_linear_rgb;
 
@@ -1983,6 +1937,12 @@ fn main(
             sharpness_blurred, tonal_blurred,
             absolute_coord_i, t_sharpness, t_sharp_thresh, is_raw
         );
+    }
+
+    if (has_feature(F_GRAIN) && adjustments.global.grain_softness > 0.0) {
+        var grain_soft = sharpness_blurred;
+        if (is_raw == 0u) { grain_soft = srgb_to_linear(sharpness_blurred); }
+        locally_contrasted_rgb = mix(locally_contrasted_rgb, grain_soft, adjustments.global.grain_softness);
     }
 
     let gf = sample_gf_coeffs(absolute_coord);
@@ -2020,32 +1980,22 @@ fn main(
 
     var processed_rgb = apply_linear_exposure(locally_contrasted_rgb, t_exposure);
 
-    if (has_feature(F_GLOW_HALATION_FLARE) && t_glow > 0.0) {
-        processed_rgb = apply_glow_bloom(
-            processed_rgb, structure_blurred, t_glow, is_raw,
-            t_exposure, t_brightness, t_contrast, t_whites
-        );
-    }
-    if (has_feature(F_GLOW_HALATION_FLARE) && t_halation > 0.0) {
-        processed_rgb = apply_halation(
-            processed_rgb, clarity_blurred, t_halation, is_raw,
-            t_exposure, t_brightness, t_contrast, t_whites
-        );
-    }
-    if (has_feature(F_GLOW_HALATION_FLARE) && t_flare > 0.0) {
-        let uv = vec2<f32>(absolute_coord) / full_dims;
-        var flare_color = textureSampleLevel(flare_texture, flare_sampler, uv, 0.0).rgb;
-        flare_color *= 1.4;
-        flare_color = flare_color * flare_color;
-        let linear_luma = get_luma(max(processed_rgb, vec3<f32>(0.0)));
-        var perceptual_luma: f32;
-        if (linear_luma <= 1.0) {
-            perceptual_luma = pow(max(linear_luma, 0.0), 1.0 / 2.2);
-        } else {
-            perceptual_luma = 1.0 + pow(linear_luma - 1.0, 1.0 / 2.2);
+    if (has_feature(F_GLOW_HALATION_FLARE)) {
+        let light_uv = (vec2<f32>(absolute_coord) + 0.5) / full_dims;
+        let light_exposure = exp2(t_exposure - adjustments.global.exposure);
+        if (t_glow > 0.0 || t_halation > 0.0) {
+            let bloom = sample_light(bloom_texture, light_uv) * light_exposure;
+            if (t_glow > 0.0) {
+                processed_rgb = apply_glow_bloom(processed_rgb, bloom.rgb, t_glow);
+            }
+            if (t_halation > 0.0) {
+                processed_rgb = apply_halation(processed_rgb, bloom.a, t_halation);
+            }
         }
-        let protection = 1.0 - smoothstep(0.7, 1.8, perceptual_luma);
-        processed_rgb += flare_color * t_flare * protection;
+        if (t_flare > 0.0) {
+            let flare = sample_light(flare_texture, light_uv).rgb * light_exposure;
+            processed_rgb += flare * t_flare * light_protection(processed_rgb);
+        }
     }
 
     var composite_rgb_linear = processed_rgb;
@@ -2166,18 +2116,11 @@ fn main(
     }
 
     if (has_feature(F_GRAIN) && adjustments.global.grain_amount > 0.0) {
-        let coord = vec2<f32>(absolute_coord_i);
-        let amount = adjustments.global.grain_amount * 0.5;
-        let grain_frequency = (1.0 / max(adjustments.global.grain_size, 0.1)) / scale;
-        let roughness = adjustments.global.grain_roughness;
-        let luma = max(0.0, get_luma(final_rgb));
-        let luma_mask = smoothstep(0.0, 0.15, luma) * (1.0 - smoothstep(0.6, 1.0, luma));
-        let base_coord = coord * grain_frequency;
-        let rough_coord = coord * grain_frequency * 0.6;
-        let noise_base = gradient_noise(base_coord);
-        let noise_rough = gradient_noise(rough_coord + vec2<f32>(5.2, 1.3));
-        let noise_val = mix(noise_base, noise_rough, roughness);
-        final_rgb += vec3<f32>(noise_val) * amount * luma_mask;
+        let coord = vec2<f32>(absolute_coord_i) + 0.5 - full_dims * 0.5;
+        let grain = film_grain(coord, adjustments.global.grain_size, scale, adjustments.global.grain_roughness);
+        let luma = clamp(get_luma(final_rgb), 0.0005, 0.9995);
+        let grained = luma / (luma + (1.0 - luma) * exp(-grain * adjustments.global.grain_amount));
+        final_rgb += vec3<f32>(grained - luma);
     }
 
     if (adjustments.global.show_clipping == 1u) {

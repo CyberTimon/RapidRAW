@@ -23,6 +23,7 @@ import clsx from 'clsx';
 import { LAYOUTS, type Layout, type LayoutDefinition } from '../../utils/CollageVariants';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
+import { getDevicePixelRatio } from '../../utils/displayScale';
 
 interface CollageModalProps {
   isOpen: boolean;
@@ -249,7 +250,7 @@ export default function CollageModal({ isOpen, onClose, onSave, sourceImages }: 
       let canvasWidth,
         canvasHeight,
         exportScale = 1;
-      const dpr = isExport ? 1 : window.devicePixelRatio || 1;
+      const dpr = isExport ? 1 : getDevicePixelRatio();
 
       if (isExport) {
         canvasWidth = exportWidth;

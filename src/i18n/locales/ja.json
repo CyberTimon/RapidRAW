@@ -962,6 +962,9 @@
   "export": {
     "advanced": {
       "exportMasks": "マスクを個別ファイルとして書き出す",
+      "exportOriginal": "オリジナルも書き出す",
+      "originalCrop": "切り抜きを適用",
+      "originalKeepExposure": "露光量を維持",
       "preserveFolders": "フォルダ構造を維持",
       "preserveTimestamps": "EXIFの撮影日時からファイルタイムスタンプを設定",
       "title": "書き出し設定"
@@ -1703,7 +1706,6 @@
       "selectManufacturer": "メーカーを選択",
       "title": "レンズ補正",
       "vignetting": "周辺光量",
-      "waitingAutoDetect": "自動検出を待機中...",
       "zoomInTooltip": "拡大",
       "zoomOutTooltip": "縮小"
     },
@@ -1927,6 +1929,11 @@
       "title": "全般設定",
       "toolFocusMode": "ツールフォーカスモード",
       "toolFocusModeDesc": "ツールを展開すると、同じパネル内の他のツールを自動的に折りたたみます。",
+      "uiScale": "インターフェースの拡大縮小",
+      "uiScaleCompact": "コンパクト",
+      "uiScaleDefault": "デフォルト",
+      "uiScaleDesc": "システムの表示スケーリングとは別に、インターフェースを小さく、または大きくします。コンパクトなサイズは小型ノートPCの画面に適しています。",
+      "uiScaleLarge": "大",
       "xmpSync": "XMPメタデータ同期",
       "xmpSyncDesc": "他の写真編集ソフトとの互換性のために、評価、カラーラベル、タグを標準のXMPサイドカーファイルと同期します。"
     },
@@ -2196,8 +2203,6 @@
       "smallThumbnailRes": "グリッドサムネイルの解像度",
       "smallThumbnailResDesc": "ライブラリのグリッドに表示されるサムネイルの解像度。",
       "staticDesc": "画像を固定の解像度でレンダリングします。このモードは最も軽量かつ安定しており、ズーム精度よりも軽快な動作を優先する低スペック環境に最適です。",
-      "staticPreviewRes": "静的プレビュー解像度",
-      "staticPreviewResDesc": "切り抜き、レンズ補正、変形ツールなどを使用する際のプレビュー解像度を設定します。メインエディタのプレビューには影響しません。",
       "threads": "スレッド数",
       "thumbnailRes": "サムネイル解像度",
       "thumbnailResDesc": "生成されるライブラリ用サムネイルの解像度を指定します。高い値にすると、ロード中もシャープに表示されます。",

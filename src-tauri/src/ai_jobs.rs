@@ -462,6 +462,12 @@ enum Outcome {
 }
 
 impl Queue {
+    fn clear_current(&mut self, path: &str) {
+        if self.status.current.as_ref().is_some_and(|c| c.path == path) {
+            self.status.current = None;
+        }
+    }
+
     fn next_path(&self, open_path: Option<String>) -> Option<String> {
         let mut ready = self
             .pending
@@ -654,14 +660,7 @@ fn finish_path(app_handle: &AppHandle, path: &str, result: Result<Outcome, Strin
         queue.processing = None;
         requeue = std::mem::take(&mut queue.requeue_processing);
     }
-    if queue
-        .status
-        .current
-        .as_ref()
-        .is_some_and(|c| c.path == path)
-    {
-        queue.status.current = None;
-    }
+    queue.clear_current(path);
     let Some(pos) = queue.pending.iter().position(|p| p == path) else {
         emit_status(app_handle, &mut queue);
         return;
@@ -829,6 +828,13 @@ fn open_image_path(app_handle: &AppHandle) -> Option<String> {
         .map(|loaded| loaded.path.clone())
 }
 
+struct JobRun {
+    outcome: Outcome,
+    results: JobResults,
+    generated_any: bool,
+    error: Option<String>,
+}
+
 fn process_path(
     app_handle: &AppHandle,
     path: &str,
@@ -841,15 +847,95 @@ fn process_path(
     let source_id = source_id(&source_path).ok_or("Unable to read the source image")?;
     let adjustments = crate::exif_processing::load_sidecar(&sidecar_path).adjustments;
 
-    let jobs = plan(&adjustments, path, &source_id);
-    if jobs.is_empty() {
-        return Ok(Outcome::Finished);
+    let run = run_jobs(
+        app_handle,
+        path,
+        &adjustments,
+        &source_id,
+        interrupt_generation,
+    )?;
+
+    if !run.results.sub_masks.is_empty() || !run.results.maps.is_empty() {
+        commit_results(app_handle, path, &source_id, run.results)?;
     }
 
+    if run.generated_any {
+        let state = app_handle.state::<AppState>();
+        crate::file_management::add_to_thumbnail_queue(&state, 1, app_handle);
+        let settings = crate::app_settings::load_settings(app_handle.clone()).unwrap_or_default();
+        crate::file_management::regenerate_thumbnails(
+            std::iter::once(path.to_string()),
+            app_handle,
+            &settings,
+            true,
+        );
+    }
+
+    match run.error {
+        Some(error) => Err(error),
+        None => Ok(run.outcome),
+    }
+}
+
+pub fn resolve_detached(
+    app_handle: &AppHandle,
+    path: &str,
+    adjustments: &mut Value,
+) -> Result<(), String> {
+    let (source_path, sidecar_path) = parse_virtual_path(path);
+    if !has_ai_results(adjustments) || !source_path.exists() {
+        return Ok(());
+    }
+    let source_id = source_id(&source_path).ok_or("Unable to read the source image")?;
+    let existing = crate::exif_processing::load_sidecar(&sidecar_path).adjustments;
+    reconcile_ai_results(adjustments, &existing, &source_id, false);
+
+    let result = {
+        let _lane = JOBS.lane.lock().unwrap_or_else(|e| e.into_inner());
+        loop {
+            let run = match run_jobs(app_handle, path, adjustments, &source_id, None) {
+                Ok(run) => run,
+                Err(error) => break Err(error),
+            };
+            apply_results(adjustments, &source_id, &run.results);
+            if let Some(error) = run.error {
+                break Err(error);
+            }
+            if !matches!(run.outcome, Outcome::Deferred) {
+                break Ok(());
+            }
+            std::thread::sleep(std::time::Duration::from_millis(200));
+        }
+    };
+
+    let mut queue = queue();
+    queue.clear_current(path);
+    emit_status(app_handle, &mut queue);
+    result
+}
+
+fn run_jobs(
+    app_handle: &AppHandle,
+    path: &str,
+    adjustments: &Value,
+    source_id: &str,
+    interrupt_generation: Option<u64>,
+) -> Result<JobRun, String> {
+    let mut results = JobResults::default();
+    let jobs = plan(adjustments, path, source_id);
+    if jobs.is_empty() {
+        return Ok(JobRun {
+            outcome: Outcome::Finished,
+            results,
+            generated_any: false,
+            error: None,
+        });
+    }
+
+    let source_path = parse_virtual_path(path).0;
     let base = decode_source(app_handle, &source_path)?;
     let is_raw = crate::formats::is_raw_file(&source_path);
     let mut warped_image: Option<DynamicImage> = None;
-    let mut results = JobResults::default();
     let mut errors = Vec::new();
     let mut generated_any = false;
     let mut outcome = Outcome::Finished;
@@ -888,13 +974,13 @@ fn process_path(
                 let source_image = crate::mask_generation::build_converted_source_image(
                     &base,
                     is_raw,
-                    &adjustments,
+                    adjustments,
                 );
                 tauri::async_runtime::block_on(ai_commands::generate_effect_map(
                     app_handle,
                     *map,
                     &source_image,
-                    &source_id,
+                    source_id,
                 ))
                 .map(|reference| results.maps.push((*map, reference)))
             }
@@ -902,16 +988,21 @@ fn process_path(
                 sub_mask_id, kind, ..
             } => {
                 let warped = warped_image.get_or_insert_with(|| {
-                    crate::build_ai_source_image(&base, is_raw, &geometry_adjustments(&adjustments))
+                    crate::build_ai_source_image(
+                        &base,
+                        is_raw,
+                        path,
+                        &geometry_adjustments(adjustments),
+                    )
                 });
                 generate_mask(
                     app_handle,
                     path,
-                    &adjustments,
+                    adjustments,
                     sub_mask_id,
                     *kind,
                     warped,
-                    &source_id,
+                    source_id,
                 )
                 .map(|(original, result, no_result)| {
                     if let Some(no_result) = no_result {
@@ -931,26 +1022,12 @@ fn process_path(
     drop(warped_image);
     drop(base);
 
-    if !results.sub_masks.is_empty() || !results.maps.is_empty() {
-        commit_results(app_handle, path, &source_id, results)?;
-    }
-
-    if generated_any {
-        let state = app_handle.state::<AppState>();
-        crate::file_management::add_to_thumbnail_queue(&state, 1, app_handle);
-        let settings = crate::app_settings::load_settings(app_handle.clone()).unwrap_or_default();
-        crate::file_management::regenerate_thumbnails(
-            std::iter::once(path.to_string()),
-            app_handle,
-            &settings,
-            true,
-        );
-    }
-
-    match errors.into_iter().next() {
-        Some(error) => Err(error),
-        None => Ok(outcome),
-    }
+    Ok(JobRun {
+        outcome,
+        results,
+        generated_any,
+        error: errors.into_iter().next(),
+    })
 }
 
 fn generate_mask(

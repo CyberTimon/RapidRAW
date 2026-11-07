@@ -2152,16 +2152,20 @@ pub async fn save_focus_stack(
         .ok_or_else(|| "Could not determine output directory.".to_string())?;
     let stem = first_path.file_stem().unwrap_or_default().to_string_lossy();
 
-    let output_path = parent_dir.join(format!("{}_Stacked.tiff", stem));
-
-    crate::exif_processing::save_converted_image(
+    let bytes = crate::exif_processing::encode_converted_image(
         &image::DynamicImage::ImageRgb16(focus_image.to_rgb16()),
-        &output_path,
+        "tiff",
         &first_path.to_string_lossy(),
+    )?;
+    let output_path = crate::file_management::write_unique_output(
+        parent_dir,
+        &format!("{}_Stacked", stem),
+        "tiff",
+        &bytes,
     )
-    .map_err(|e| format!("Failed to save {}: {}", output_path.display(), e))?;
+    .map_err(|e| format!("Failed to save focus stack: {}", e))?;
 
-    crate::exif_processing::write_rrexif_sidecar(&first_path_str, &output_path).ok();
+    crate::exif_processing::write_rrexif_sidecar(&first_path.to_string_lossy(), &output_path).ok();
 
     Ok(output_path.to_string_lossy().to_string())
 }

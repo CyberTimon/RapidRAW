@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicI32, Ordering};
 use tauri::Emitter;
 
-use crate::export_processing::TiffBitDepth;
+use crate::export_processing::{OriginalExportOptions, TiffBitDepth};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -23,6 +23,7 @@ pub struct HeadlessExportSession {
     pub tiff_bit_depth: TiffBitDepth,
     pub keep_metadata: bool,
     pub adjustments_override: Option<String>,
+    pub export_original: Option<OriginalExportOptions>,
 }
 
 #[derive(Clone, Debug)]
@@ -69,6 +70,9 @@ pub fn parse_launch_args(args: &[String]) -> LaunchRequest {
         let mut tiff_bit_depth = TiffBitDepth::default();
         let mut keep_metadata = false;
         let mut adjustments_override = None;
+        let mut export_original = false;
+        let mut original_crop = true;
+        let mut original_keep_exposure = false;
 
         if let Some(src) = iter.next()
             && !src.starts_with('-')
@@ -114,6 +118,9 @@ pub fn parse_launch_args(args: &[String]) -> LaunchRequest {
                     tiff_bit_depth = value;
                 }
                 "--keep-metadata" => keep_metadata = true,
+                "--export-original" => export_original = true,
+                "--original-no-crop" => original_crop = false,
+                "--original-keep-exposure" => original_keep_exposure = true,
                 "--adjustments" => {
                     if let Some(adj) = iter.next() {
                         adjustments_override = Some(adj.clone());
@@ -131,6 +138,10 @@ pub fn parse_launch_args(args: &[String]) -> LaunchRequest {
             tiff_bit_depth,
             keep_metadata,
             adjustments_override,
+            export_original: export_original.then_some(OriginalExportOptions {
+                crop: original_crop,
+                keep_exposure: original_keep_exposure,
+            }),
         });
     }
 

@@ -315,7 +315,7 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
 
       if (!selectedImage) return;
 
-      const canUndo = historyIndex > 0;
+      const canUndo = historyIndex > 0 || adjustments !== history[historyIndex];
       const canRedo = historyIndex < history.length - 1;
       const commonTags = getCommonTags([selectedImage.path]);
 
@@ -1260,6 +1260,11 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
                     if (appSettings) {
                       handleSettingsChange({ ...appSettings, lastFolderState: null } as any);
                     }
+                  } else if (
+                    currentFolderPath &&
+                    (targetPath.startsWith(currentFolderPath + '/') || targetPath.startsWith(currentFolderPath + '\\'))
+                  ) {
+                    props.refreshImageList();
                   }
 
                   props.refreshAllFolderTrees();

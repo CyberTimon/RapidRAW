@@ -4,6 +4,7 @@ use crate::image_processing::{
     warp_image_geometry,
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+use image::imageops::FilterType;
 use image::{DynamicImage, GrayImage, Luma, Rgb, Rgb32FImage, Rgba, RgbaImage};
 use rayon::prelude::*;
 use std::collections::hash_map::DefaultHasher;
@@ -235,14 +236,18 @@ pub fn effect_map_key(data_url: &str, adjustments: &serde_json::Value) -> u64 {
     hasher.finish()
 }
 
-pub fn resolve_luma_map(data_url: &str, adjustments: &serde_json::Value) -> Option<Arc<GrayImage>> {
+pub fn resolve_luma_map(
+    data_url: &str,
+    adjustments: &serde_json::Value,
+    geometry: Option<&GeometryParams>,
+) -> Option<Arc<GrayImage>> {
     cached_map(
         &LUMA_MAP_CACHE,
         effect_map_key(data_url, adjustments),
         || {
             let map = decode_data_url(data_url)?;
             Some(if is_source_space_map(data_url) {
-                warp_effect_map(&map, adjustments).into_luma8()
+                warp_effect_map(&map, geometry).into_luma8()
             } else {
                 map.into_luma8()
             })
@@ -250,7 +255,11 @@ pub fn resolve_luma_map(data_url: &str, adjustments: &serde_json::Value) -> Opti
     )
 }
 
-pub fn resolve_rgba_map(data_url: &str, adjustments: &serde_json::Value) -> Option<Arc<RgbaImage>> {
+pub fn resolve_rgba_map(
+    data_url: &str,
+    adjustments: &serde_json::Value,
+    geometry: Option<&GeometryParams>,
+) -> Option<Arc<RgbaImage>> {
     cached_map(
         &RGBA_MAP_CACHE,
         effect_map_key(data_url, adjustments),
@@ -263,13 +272,12 @@ pub fn resolve_rgba_map(data_url: &str, adjustments: &serde_json::Value) -> Opti
             let alpha = GrayImage::from_fn(map.width(), map.height(), |x, y| {
                 Luma([map.get_pixel(x, y)[3]])
             });
-            let warped_rgb =
-                warp_effect_map(&DynamicImage::ImageRgba8(map), adjustments).into_rgb8();
+            let warped_rgb = warp_effect_map(&DynamicImage::ImageRgba8(map), geometry).into_rgb8();
             let warped_alpha =
-                warp_effect_map(&DynamicImage::ImageLuma8(alpha), adjustments).into_luma8();
+                warp_effect_map(&DynamicImage::ImageLuma8(alpha), geometry).into_luma8();
 
             let (width, height) = warped_rgb.dimensions();
-            let rotations = local_warp_rotations(width, height, adjustments);
+            let rotations = local_warp_rotations(width, height, geometry);
 
             Some(RgbaImage::from_fn(width, height, |x, y| {
                 let [r, g, b] = warped_rgb.get_pixel(x, y).0;
@@ -283,32 +291,109 @@ pub fn resolve_rgba_map(data_url: &str, adjustments: &serde_json::Value) -> Opti
     )
 }
 
-fn effect_map_geometry_params(adjustments: &serde_json::Value) -> GeometryParams {
-    let mut params = get_geometry_params_from_json(adjustments);
-    params.lens_vignette_enabled = false;
-    params.lens_tca_enabled = false;
-    params
+pub fn build_depth_preview(
+    image: &DynamicImage,
+    is_raw: bool,
+    path: &str,
+    adjustments: &serde_json::Value,
+    map_key: Option<&str>,
+    map_data: Option<&str>,
+    max_size: u32,
+) -> Option<Vec<u8>> {
+    let data_url = match map_data {
+        Some(data) => data,
+        None => adjustments[map_key?].as_str()?,
+    };
+    if data_url.is_empty() {
+        return None;
+    }
+    let geometry = get_geometry_params_from_json(path, adjustments);
+    let geometry = (!is_geometry_identity(&geometry)).then_some(geometry);
+    let with_normals = map_key == Some("relightNormalMap");
+
+    let fit = |(mw, mh): (u32, u32)| {
+        let scale = (max_size as f32 / mw.max(mh) as f32).min(1.0);
+        (
+            ((mw as f32 * scale).round() as u32).max(2),
+            ((mh as f32 * scale).round() as u32).max(2),
+        )
+    };
+    let (map, (w, h)) = if map_data.is_some() {
+        let decoded = decode_data_url(data_url)?;
+        let depth = if is_source_space_map(data_url) {
+            warp_effect_map(&decoded, geometry.as_ref())
+        } else {
+            decoded
+        }
+        .into_luma8();
+        let (w, h) = fit(depth.dimensions());
+        (
+            DynamicImage::ImageLuma8(image::imageops::thumbnail(&depth, w, h)),
+            (w, h),
+        )
+    } else if with_normals {
+        let normals = resolve_rgba_map(data_url, adjustments, geometry.as_ref())?;
+        let (w, h) = fit(normals.dimensions());
+        let resized = image::imageops::resize(&*normals, w, h, FilterType::Triangle);
+        (DynamicImage::ImageRgba8(resized), (w, h))
+    } else {
+        let depth = resolve_luma_map(data_url, adjustments, geometry.as_ref())?;
+        let (w, h) = fit(depth.dimensions());
+        let resized = image::imageops::resize(&*depth, w, h, FilterType::Triangle);
+        (DynamicImage::ImageLuma8(resized), (w, h))
+    };
+
+    let sampled = image.resize_exact(w * 2, h * 2, FilterType::Nearest);
+    let converted =
+        crate::mask_generation::build_converted_source_image(&sampled, is_raw, adjustments);
+    let color = warp_effect_map(&converted, geometry.as_ref())
+        .resize_exact(w, h, FilterType::Triangle)
+        .into_rgb8();
+
+    let pixels = (w * h) as usize;
+    let mut out = Vec::with_capacity(12 + pixels * if with_normals { 8 } else { 4 });
+    for value in [w, h, with_normals as u32] {
+        out.extend_from_slice(&value.to_le_bytes());
+    }
+    match &map {
+        DynamicImage::ImageRgba8(normals) => {
+            for (c, n) in color.pixels().zip(normals.pixels()) {
+                out.extend_from_slice(&[c[0], c[1], c[2], 255 - n[3]]);
+            }
+            for n in normals.pixels() {
+                out.extend_from_slice(&[n[0], n[1], n[2], 255]);
+            }
+        }
+        _ => {
+            let depth = map.to_luma8();
+            for (c, d) in color.pixels().zip(depth.pixels()) {
+                out.extend_from_slice(&[c[0], c[1], c[2], d[0]]);
+            }
+        }
+    }
+    Some(out)
 }
 
-fn warp_effect_map(map: &DynamicImage, adjustments: &serde_json::Value) -> DynamicImage {
-    let params = effect_map_geometry_params(adjustments);
+fn effect_map_geometry(geometry: Option<&GeometryParams>) -> Option<GeometryParams> {
+    let mut params = geometry?.clone();
+    params.lens_vignette_enabled = false;
+    params.lens_tca_enabled = false;
+    (!is_geometry_identity(&params)).then_some(params)
+}
 
-    if is_geometry_identity(&params) {
-        map.clone()
-    } else {
-        warp_image_geometry(map, params)
+fn warp_effect_map(map: &DynamicImage, geometry: Option<&GeometryParams>) -> DynamicImage {
+    match effect_map_geometry(geometry) {
+        Some(params) => warp_image_geometry(map, params),
+        None => map.clone(),
     }
 }
 
 fn local_warp_rotations(
     width: u32,
     height: u32,
-    adjustments: &serde_json::Value,
+    geometry: Option<&GeometryParams>,
 ) -> Option<Vec<(f32, f32)>> {
-    let params = effect_map_geometry_params(adjustments);
-    if is_geometry_identity(&params) {
-        return None;
-    }
+    let params = effect_map_geometry(geometry)?;
 
     let coords = Rgb32FImage::from_fn(width, height, |x, y| Rgb([x as f32, y as f32, 1.0]));
     let warped = warp_image_geometry(&DynamicImage::ImageRgb32F(coords), params).into_rgb32f();

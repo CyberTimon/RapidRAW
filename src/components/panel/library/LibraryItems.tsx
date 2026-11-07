@@ -26,6 +26,7 @@ import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { isImmichAlbumId } from '../../immich/immichApi';
 import { IconAperture, IconFocalLength, IconIso, IconShutter } from '../editor/ExifIcons';
+import { useCtrlClickMenuGuard } from '../../../hooks/useCtrlClickMenuGuard';
 
 const LIST_DATE_FORMAT = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 const LIST_TIME_FORMAT = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit' });
@@ -58,6 +59,19 @@ const ThumbnailComponent = ({
   const { t } = useTranslation();
   const data = useProcessStore((s) => s.thumbnails[path]);
   const exif = useLibraryStore((s) => s.exifByPath[path]);
+  const handleClick = (e: React.MouseEvent) => {
+    if (selectionModeActive) {
+      const state = useLibraryStore.getState();
+      const newSet = new Set(state.multiSelectedPaths);
+      if (newSet.has(path)) newSet.delete(path);
+      else newSet.add(path);
+      const newArr = Array.from(newSet);
+      state.setLibrary({ multiSelectedPaths: newArr });
+    } else {
+      onImageClick(path, e);
+    }
+  };
+  const ctrlClickMenuGuard = useCtrlClickMenuGuard(handleClick);
   const isAiPending = useProcessStore((s) => !!s.aiPendingPaths[path]);
   const isAiPaused = useProcessStore((s) => s.aiJobs.paused);
   const cloudTooltip = useLibraryStore((s) =>
@@ -192,18 +206,10 @@ const ThumbnailComponent = ({
         isDragging && 'opacity-50 ring-2 ring-accent z-50',
       )}
       data-bench-id="thumbnail"
+      {...ctrlClickMenuGuard}
       onClick={(e: any) => {
         e.stopPropagation();
-        if (selectionModeActive) {
-          const state = useLibraryStore.getState();
-          const newSet = new Set(state.multiSelectedPaths);
-          if (newSet.has(path)) newSet.delete(path);
-          else newSet.add(path);
-          const newArr = Array.from(newSet);
-          state.setLibrary({ multiSelectedPaths: newArr });
-        } else {
-          onImageClick(path, e);
-        }
+        handleClick(e);
       }}
       onContextMenu={(e: any) => onContextMenu(e, path)}
       onDoubleClick={() => onImageDoubleClick(path)}
@@ -556,6 +562,19 @@ const ListItemComponent = ({
   const { t } = useTranslation();
   const data = useProcessStore((s) => s.thumbnails[path]);
   const exif = useLibraryStore((s) => s.exifByPath[path]);
+  const handleClick = (e: React.MouseEvent) => {
+    if (selectionModeActive) {
+      const state = useLibraryStore.getState();
+      const newSet = new Set(state.multiSelectedPaths);
+      if (newSet.has(path)) newSet.delete(path);
+      else newSet.add(path);
+      const newArr = Array.from(newSet);
+      state.setLibrary({ multiSelectedPaths: newArr });
+    } else {
+      onImageClick(path, e);
+    }
+  };
+  const ctrlClickMenuGuard = useCtrlClickMenuGuard(handleClick);
   const cloudTooltip = useLibraryStore((s) =>
     isImmichAlbumId(s.activeAlbumId) ? 'library.items.immichPlaceholder' : 'library.items.cloudPlaceholder',
   );
@@ -701,18 +720,10 @@ const ListItemComponent = ({
       {...listeners}
       {...attributes}
       className={`flex items-center w-full h-full cursor-pointer transition-all duration-150 ${borderClass} ${roundingClass} ${stateClass} ${isDragging ? 'opacity-50 ring-2 ring-accent z-50' : ''}`}
+      {...ctrlClickMenuGuard}
       onClick={(e: any) => {
         e.stopPropagation();
-        if (selectionModeActive) {
-          const state = useLibraryStore.getState();
-          const newSet = new Set(state.multiSelectedPaths);
-          if (newSet.has(path)) newSet.delete(path);
-          else newSet.add(path);
-          const newArr = Array.from(newSet);
-          state.setLibrary({ multiSelectedPaths: newArr });
-        } else {
-          onImageClick(path, e);
-        }
+        handleClick(e);
       }}
       onContextMenu={(e: any) => onContextMenu(e, path)}
       onDoubleClick={() => onImageDoubleClick(path)}

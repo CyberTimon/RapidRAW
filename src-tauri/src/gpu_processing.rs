@@ -14,7 +14,8 @@ use crate::image_processing::{
     AllAdjustments, AnalyticsFrame, AnalyticsPixels, GpuContext, MAX_MASKS, MaskAdjustments,
 };
 use crate::lut_processing::Lut;
-use crate::{AppState, GpuImageCache, GpuImageEntry, PreviewTarget};
+use crate::render_source::RenderSource;
+use crate::{AppState, GpuImageCache, GpuImageEntry, PreviewTarget, UploadedSource};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Roi {
@@ -111,6 +112,14 @@ pub struct DisplayOutput {
     pub target: PreviewTarget,
     pub layer: DisplayLayer,
     pub to_viewer: bool,
+    pub content: u64,
+}
+
+pub fn display_content_key(path: &str) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    path.hash(&mut hasher);
+    hasher.finish()
 }
 
 pub fn align_texture_dimension(value: u32) -> u32 {
@@ -131,6 +140,9 @@ pub struct WgpuDisplay {
     pub standalone: bool,
     pub view: DisplayView,
     pub frame: Option<DisplayFrame>,
+    pub content_key: Option<u64>,
+    pub rect_key: Option<u64>,
+    pub pending_rect: Option<(u64, [f32; 4])>,
     #[cfg(target_os = "linux")]
     pub wayland: Option<crate::wayland_subsurface::WaylandSubsurface>,
 }
@@ -206,10 +218,21 @@ impl WgpuDisplay {
         view: &wgpu::TextureView,
         image_size: [f32; 2],
         texture_size: [f32; 2],
+        content: Option<u64>,
     ) {
         self.latest_transform.image_size = image_size;
         self.latest_transform.texture_size = texture_size;
         self.edited_view = Some(view.clone());
+        if let Some(key) = content {
+            self.content_key = Some(key);
+            if let Some((pending_key, rect)) = self.pending_rect
+                && pending_key == key
+            {
+                self.latest_transform.rect = rect;
+                self.rect_key = Some(key);
+                self.pending_rect = None;
+            }
+        }
         self.place_image();
         self.rebind(device);
         self.flush(device, queue);
@@ -276,6 +299,7 @@ impl WgpuDisplay {
             &view,
             size.map(|dim| dim as f32),
             capacity.map(|dim| dim as f32),
+            None,
         );
     }
 
@@ -300,13 +324,28 @@ impl WgpuDisplay {
         self.place_image();
     }
 
-    pub fn flush(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+    pub fn place_editor_rect(&mut self, content: Option<u64>, rect: [f32; 4]) -> bool {
+        match content {
+            Some(key) if self.content_key != Some(key) => {
+                self.pending_rect = Some((key, rect));
+                false
+            }
+            _ => {
+                self.latest_transform.rect = rect;
+                self.rect_key = self.content_key;
+                self.pending_rect = None;
+                true
+            }
+        }
+    }
+
+    pub fn flush(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) -> bool {
         queue.write_buffer(
             &self.transform_buffer,
             0,
             bytemuck::bytes_of(&self.latest_transform),
         );
-        self.render(device, queue);
+        self.render(device, queue)
     }
 
     fn place_image(&mut self) {
@@ -333,9 +372,12 @@ impl WgpuDisplay {
         self.latest_transform.window = [surface_w, surface_h];
     }
 
-    fn render(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+    fn render(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) -> bool {
         if self.current_bind_group.is_none() && !self.standalone {
-            return;
+            return false;
+        }
+        if !self.standalone && self.rect_key != self.content_key {
+            return false;
         }
         let output = match self.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(tex)
@@ -345,10 +387,10 @@ impl WgpuDisplay {
                 match self.surface.get_current_texture() {
                     wgpu::CurrentSurfaceTexture::Success(tex)
                     | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
-                    _ => return,
+                    _ => return false,
                 }
             }
-            _ => return,
+            _ => return false,
         };
         let view = output
             .texture
@@ -414,6 +456,7 @@ impl WgpuDisplay {
         }
         queue.submit(Some(encoder.finish()));
         output.present();
+        true
     }
 }
 
@@ -608,6 +651,9 @@ pub fn build_wgpu_display(
         standalone,
         view: DisplayView::default(),
         frame: None,
+        content_key: None,
+        rect_key: None,
+        pending_rect: None,
         #[cfg(target_os = "linux")]
         wayland: platform,
     })
@@ -901,7 +947,15 @@ pub fn get_or_init_gpu_context(
         display: Arc::new(std::sync::Mutex::new(display_opt)),
         viewer_display: Arc::new(std::sync::Mutex::new(None)),
         pipelines: Arc::new(std::sync::OnceLock::new()),
+        compute: Arc::new(std::sync::OnceLock::new()),
     };
+    let device = Arc::clone(&new_context.device);
+    let compute = Arc::clone(&new_context.compute);
+    std::thread::spawn(move || {
+        compute
+            .get_or_init(|| crate::gpu_compute::ComputePipelines::new(&device))
+            .warm(&device);
+    });
     *context_lock = Some(new_context.clone());
     Ok(new_context)
 }
@@ -982,31 +1036,6 @@ fn read_texture_data_roi(
     .map_err(|_| "GPU device was lost while reading back the image".to_string())
 }
 
-fn to_rgba_f16(img: &DynamicImage) -> Vec<f16> {
-    use rayon::prelude::*;
-    let convert = |src: &[f32], channels: usize| {
-        let mut out = vec![f16::ZERO; src.len() / channels * 4];
-        out.par_chunks_exact_mut(4)
-            .zip(src.par_chunks_exact(channels))
-            .for_each(|(dst, p)| {
-                dst[0] = f16::from_f32(p[0]);
-                dst[1] = f16::from_f32(p[1]);
-                dst[2] = f16::from_f32(p[2]);
-                dst[3] = if channels == 4 {
-                    f16::from_f32(p[3])
-                } else {
-                    f16::ONE
-                };
-            });
-        out
-    };
-    match img {
-        DynamicImage::ImageRgba32F(buffer) => convert(buffer.as_raw(), 4),
-        DynamicImage::ImageRgb32F(buffer) => convert(buffer.as_raw(), 3),
-        other => convert(other.to_rgba32f().as_raw(), 4),
-    }
-}
-
 #[repr(C)]
 #[derive(Debug, Copy, Clone, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 struct BlurParams {
@@ -1055,28 +1084,16 @@ struct GfParams {
     _pad: f32,
 }
 
-#[repr(C)]
-#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct FlareParams {
-    amount: f32,
-    is_raw: u32,
-    exposure: f32,
-    brightness: f32,
-    contrast: f32,
-    whites: f32,
-    aspect_ratio: f32,
-    _pad: f32,
-}
-
 pub struct GpuProcessor {
     context: GpuContext,
     pipelines: Arc<GpuPipelines>,
     blur_params_buffer: wgpu::Buffer,
-
-    flare_params_buffer: wgpu::Buffer,
-    flare_threshold_view: wgpu::TextureView,
-    flare_ghosts_view: wgpu::TextureView,
-    flare_final_view: wgpu::TextureView,
+    light_cache: std::sync::Mutex<
+        Option<(
+            crate::light_effects::LightJob,
+            Arc<crate::light_effects::LightMaps>,
+        )>,
+    >,
 
     high_precision_tile: std::sync::OnceLock<HighPrecisionTile>,
     tile_output_size: wgpu::Extent3d,
@@ -1088,9 +1105,7 @@ pub struct GpuProcessor {
     ping_pong_view: wgpu::TextureView,
     sharpness_blur_view: wgpu::TextureView,
     tonal_blur_view: wgpu::TextureView,
-    clarity_blur_view: wgpu::TextureView,
-    structure_blur_view: wgpu::TextureView,
-    blur_sources: std::sync::Mutex<[Option<(u64, BlurParams)>; 4]>,
+    blur_sources: std::sync::Mutex<[Option<(u64, BlurParams)>; 2]>,
 
     pub tile_output_texture: wgpu::Texture,
     pub tile_output_texture_view: wgpu::TextureView,
@@ -1314,9 +1329,9 @@ fn high_precision_shader_source() -> String {
     include_str!("shaders/shader.wgsl").replace("rgba8unorm, write>", "rgba16float, write>")
 }
 
-const FLARE_MAP_SIZE: u32 = 512;
 const GPU_IMAGE_CACHE_ENTRIES: usize = 3;
 const GPU_IMAGE_CACHE_PIXELS: u64 = 50_000_000;
+const GPU_SOURCE_CACHE_ENTRIES: usize = 2;
 
 fn lock_or_reset<'a, T>(
     mutex: &'a std::sync::Mutex<Option<T>>,
@@ -1337,11 +1352,7 @@ pub struct GpuPipelines {
     h_blur_direct_pipeline: wgpu::ComputePipeline,
     v_blur_direct_pipeline: wgpu::ComputePipeline,
 
-    flare_bgl_0: wgpu::BindGroupLayout,
-    flare_bgl_1: wgpu::BindGroupLayout,
-    flare_threshold_pipeline: wgpu::ComputePipeline,
-    flare_ghosts_pipeline: wgpu::ComputePipeline,
-    flare_sampler: wgpu::Sampler,
+    light_sampler: wgpu::Sampler,
 
     gf_bgl: wgpu::BindGroupLayout,
     gf_downsample_pipeline: wgpu::ComputePipeline,
@@ -1462,114 +1473,8 @@ impl GpuPipelines {
                 cache: None,
             });
 
-        let flare_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Flare Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/flare.wgsl").into()),
-        });
-
-        let flare_bgl_0 = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Flare BGL 0"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::StorageTexture {
-                        access: wgpu::StorageTextureAccess::WriteOnly,
-                        format: wgpu::TextureFormat::Rgba16Float,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 3,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-        });
-
-        let flare_bgl_1 = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Flare BGL 1"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::StorageTexture {
-                        access: wgpu::StorageTextureAccess::WriteOnly,
-                        format: wgpu::TextureFormat::Rgba16Float,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                    },
-                    count: None,
-                },
-            ],
-        });
-
-        let flare_threshold_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Flare Threshold Layout"),
-                bind_group_layouts: &[Some(&flare_bgl_0)],
-                immediate_size: 0,
-            });
-
-        let flare_ghosts_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Flare Ghosts Layout"),
-            bind_group_layouts: &[Some(&flare_bgl_0), Some(&flare_bgl_1)],
-            immediate_size: 0,
-        });
-
-        let flare_threshold_pipeline =
-            device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                label: Some("Flare Threshold Pipeline"),
-                layout: Some(&flare_threshold_layout),
-                module: &flare_shader,
-                entry_point: Some("threshold_main"),
-                compilation_options: Default::default(),
-                cache: None,
-            });
-
-        let flare_ghosts_pipeline =
-            device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                label: Some("Flare Ghosts Pipeline"),
-                layout: Some(&flare_ghosts_layout),
-                module: &flare_shader,
-                entry_point: Some("ghosts_main"),
-                compilation_options: Default::default(),
-                cache: None,
-            });
-
-        let flare_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("Flare Sampler"),
+        let light_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("Light Sampler"),
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Linear,
@@ -1739,20 +1644,10 @@ impl GpuPipelines {
             count: None,
         });
         bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 7 + MAX_MASK_BINDINGS,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Texture {
-                sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                view_dimension: wgpu::TextureViewDimension::D2,
-                multisampled: false,
-            },
-            count: None,
-        });
-        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
             binding: 8 + MAX_MASK_BINDINGS,
             visibility: wgpu::ShaderStages::COMPUTE,
             ty: wgpu::BindingType::Texture {
-                sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                sample_type: wgpu::TextureSampleType::Float { filterable: true },
                 view_dimension: wgpu::TextureViewDimension::D2,
                 multisampled: false,
             },
@@ -1872,11 +1767,7 @@ impl GpuPipelines {
             v_blur_pipeline,
             h_blur_direct_pipeline,
             v_blur_direct_pipeline,
-            flare_bgl_0,
-            flare_bgl_1,
-            flare_threshold_pipeline,
-            flare_ghosts_pipeline,
-            flare_sampler,
+            light_sampler,
             gf_bgl,
             gf_downsample_pipeline,
             gf_box_down_pipeline,
@@ -1923,35 +1814,6 @@ impl GpuProcessor {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-
-        let flare_params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Flare Params Buffer"),
-            size: std::mem::size_of::<FlareParams>() as u64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-
-        let flare_tex_desc = wgpu::TextureDescriptor {
-            label: Some("Flare Tex"),
-            size: wgpu::Extent3d {
-                width: FLARE_MAP_SIZE,
-                height: FLARE_MAP_SIZE,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba16Float,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::STORAGE_BINDING,
-            view_formats: &[],
-        };
-
-        let flare_threshold_texture = device.create_texture(&flare_tex_desc);
-        let flare_threshold_view = flare_threshold_texture.create_view(&Default::default());
-        let flare_ghosts_texture = device.create_texture(&flare_tex_desc);
-        let flare_ghosts_view = flare_ghosts_texture.create_view(&Default::default());
-        let flare_final_texture = device.create_texture(&flare_tex_desc);
-        let flare_final_view = flare_final_texture.create_view(&Default::default());
 
         let adjustments_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Adjustments Buffer"),
@@ -2007,18 +1869,6 @@ impl GpuProcessor {
         });
         let tonal_blur_view = tonal_blur_texture.create_view(&Default::default());
 
-        let clarity_blur_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Clarity Blur Texture"),
-            ..reusable_texture_desc
-        });
-        let clarity_blur_view = clarity_blur_texture.create_view(&Default::default());
-
-        let structure_blur_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Structure Blur Texture"),
-            ..reusable_texture_desc
-        });
-        let structure_blur_view = structure_blur_texture.create_view(&Default::default());
-
         let tile_output_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Tile Output Texture"),
             size: clamped_tile_size,
@@ -2037,10 +1887,7 @@ impl GpuProcessor {
             context,
             pipelines,
             blur_params_buffer,
-            flare_params_buffer,
-            flare_threshold_view,
-            flare_ghosts_view,
-            flare_final_view,
+            light_cache: std::sync::Mutex::new(None),
             high_precision_tile: std::sync::OnceLock::new(),
             tile_output_size: clamped_tile_size,
             adjustments_buffer,
@@ -2051,9 +1898,7 @@ impl GpuProcessor {
             ping_pong_view,
             sharpness_blur_view,
             tonal_blur_view,
-            clarity_blur_view,
-            structure_blur_view,
-            blur_sources: std::sync::Mutex::new([None; 4]),
+            blur_sources: std::sync::Mutex::new([None; 2]),
             tile_output_texture,
             tile_output_texture_view,
             full_image_size,
@@ -2489,7 +2334,6 @@ impl GpuProcessor {
     fn motion_blurred(
         &self,
         input: &GpuImageEntry,
-        base_image: &DynamicImage,
         request: &RenderRequest,
         mask_view: &wgpu::TextureView,
     ) -> Result<Option<Arc<MotionBlurred>>, String> {
@@ -2519,7 +2363,16 @@ impl GpuProcessor {
             match grains.iter().find(|(id, _)| *id == input.id) {
                 Some((_, grain)) => *grain,
                 None => {
-                    let grain = crate::motion_blur::estimate_grain(base_image, input.is_raw == 1);
+                    let grain = crate::motion_blur::estimate_grain(
+                        &self.context,
+                        &input.texture_view,
+                        (input.width, input.height),
+                        input.is_raw == 1,
+                    )
+                    .unwrap_or_else(|error| {
+                        log::warn!("Motion blur grain estimate failed: {}", error);
+                        0.0
+                    });
                     if grains.len() >= GPU_IMAGE_CACHE_ENTRIES {
                         grains.remove(0);
                     }
@@ -2568,8 +2421,8 @@ impl GpuProcessor {
                 is_raw: input.is_raw,
                 width: input.width,
                 height: input.height,
-                transform_hash: input.transform_hash,
-                source: input.source,
+                transform_key: input.transform_key,
+                source_identity: input.source_identity,
             },
             mask_view: output.mask_view,
         });
@@ -2812,6 +2665,28 @@ impl GpuProcessor {
         })
     }
 
+    fn light_maps(
+        &self,
+        input: &GpuImageEntry,
+        job: crate::light_effects::LightJob,
+    ) -> Result<Arc<crate::light_effects::LightMaps>, String> {
+        let mut cache = self.light_cache.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some((key, maps)) = cache.as_ref()
+            && *key == job
+        {
+            return Ok(Arc::clone(maps));
+        }
+        *cache = None;
+        let maps = Arc::new(crate::light_effects::render(
+            &self.context,
+            &input.texture_view,
+            (input.width, input.height),
+            &job,
+        )?);
+        *cache = Some((job, Arc::clone(&maps)));
+        Ok(maps)
+    }
+
     fn run(
         &self,
         input: &GpuImageEntry,
@@ -2885,104 +2760,17 @@ impl GpuProcessor {
         };
 
         let adjustments = request.adjustments;
-        if adjustments.global.flare_amount > 0.0 {
-            let mut encoder = device.create_command_encoder(&Default::default());
-
-            let aspect_ratio = if height > 0 {
-                width as f32 / height as f32
-            } else {
-                1.0
+        let light = match crate::light_effects::LightJob::new(input.id, &adjustments) {
+            Some(job) => Some(self.light_maps(input, job)?),
+            None => None,
+        };
+        let light_view =
+            |pick: fn(&crate::light_effects::LightMaps) -> Option<&crate::gpu_compute::Slot>| {
+                light
+                    .as_deref()
+                    .and_then(pick)
+                    .map_or(&self.pipelines.dummy_blur_view, |slot| &slot.view)
             };
-            let f_params = FlareParams {
-                amount: adjustments.global.flare_amount,
-                is_raw: adjustments.global.is_raw_image,
-                exposure: adjustments.global.exposure,
-                brightness: adjustments.global.brightness,
-                contrast: adjustments.global.contrast,
-                whites: adjustments.global.whites,
-                aspect_ratio,
-                _pad: 0.0,
-            };
-            queue.write_buffer(&self.flare_params_buffer, 0, bytemuck::bytes_of(&f_params));
-
-            let bg0 = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("Flare BG0"),
-                layout: &self.pipelines.flare_bgl_0,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(input_texture_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::TextureView(&self.flare_threshold_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 2,
-                        resource: self.flare_params_buffer.as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 3,
-                        resource: wgpu::BindingResource::Sampler(&self.pipelines.flare_sampler),
-                    },
-                ],
-            });
-
-            {
-                let mut cpass = encoder.begin_compute_pass(&Default::default());
-                cpass.set_pipeline(&self.pipelines.flare_threshold_pipeline);
-                cpass.set_bind_group(0, &bg0, &[]);
-                cpass.dispatch_workgroups(FLARE_MAP_SIZE / 16, FLARE_MAP_SIZE / 16, 1);
-            }
-
-            let bg0_ghosts = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("Flare BG0 Ghosts"),
-                layout: &self.pipelines.flare_bgl_0,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(input_texture_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::TextureView(&self.flare_final_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 2,
-                        resource: self.flare_params_buffer.as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 3,
-                        resource: wgpu::BindingResource::Sampler(&self.pipelines.flare_sampler),
-                    },
-                ],
-            });
-
-            let bg1 = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("Flare BG1"),
-                layout: &self.pipelines.flare_bgl_1,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&self.flare_threshold_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::TextureView(&self.flare_ghosts_view),
-                    },
-                ],
-            });
-
-            {
-                let mut cpass = encoder.begin_compute_pass(&Default::default());
-                cpass.set_pipeline(&self.pipelines.flare_ghosts_pipeline);
-                cpass.set_bind_group(0, &bg0_ghosts, &[]);
-                cpass.set_bind_group(1, &bg1, &[]);
-                cpass.dispatch_workgroups(FLARE_MAP_SIZE / 16, FLARE_MAP_SIZE / 16, 1);
-            }
-
-            queue.submit(Some(encoder.finish()));
-        }
 
         const TILE_SIZE: u32 = 2048;
         const TILE_OVERLAP: u32 = 128;
@@ -3141,21 +2929,11 @@ impl GpuProcessor {
                         hit(global) || active_masks.clone().any(|m| hit(pick(m)))
                     };
                 let need_sharpen = any_term(adjustments.global.sharpness, &|m| m.sharpness, false);
-                let need_halation = any_term(
-                    adjustments.global.halation_amount,
-                    &|m| m.halation_amount,
-                    true,
-                );
-                let need_structure =
-                    any_term(adjustments.global.glow_amount, &|m| m.glow_amount, true);
 
-                let did_create_sharpness_blur =
-                    need_sharpen && run_blur(0, 1.0, &self.sharpness_blur_view);
+                let need_grain_softness = adjustments.global.grain_softness > 0.0;
+                let did_create_sharpness_blur = (need_sharpen || need_grain_softness)
+                    && run_blur(0, 1.0, &self.sharpness_blur_view);
                 let did_create_tonal_blur = need_sharpen && run_blur(1, 3.5, &self.tonal_blur_view);
-                let did_create_clarity_blur =
-                    need_halation && run_blur(2, 8.0, &self.clarity_blur_view);
-                let did_create_structure_blur =
-                    need_structure && run_blur(3, 40.0, &self.structure_blur_view);
 
                 let mut main_encoder = device.create_command_encoder(&Default::default());
 
@@ -3212,34 +2990,20 @@ impl GpuProcessor {
                     }),
                 });
                 bind_group_entries.push(wgpu::BindGroupEntry {
-                    binding: 7 + MAX_MASK_BINDINGS,
-                    resource: wgpu::BindingResource::TextureView(if did_create_clarity_blur {
-                        &self.clarity_blur_view
-                    } else {
-                        &self.pipelines.dummy_blur_view
-                    }),
-                });
-                bind_group_entries.push(wgpu::BindGroupEntry {
                     binding: 8 + MAX_MASK_BINDINGS,
-                    resource: wgpu::BindingResource::TextureView(if did_create_structure_blur {
-                        &self.structure_blur_view
-                    } else {
-                        &self.pipelines.dummy_blur_view
-                    }),
+                    resource: wgpu::BindingResource::TextureView(light_view(|maps| {
+                        maps.bloom.as_ref()
+                    })),
                 });
-
-                let use_flare = adjustments.global.flare_amount > 0.0;
                 bind_group_entries.push(wgpu::BindGroupEntry {
                     binding: 9 + MAX_MASK_BINDINGS,
-                    resource: wgpu::BindingResource::TextureView(if use_flare {
-                        &self.flare_ghosts_view
-                    } else {
-                        &self.pipelines.dummy_blur_view
-                    }),
+                    resource: wgpu::BindingResource::TextureView(light_view(|maps| {
+                        maps.flare.as_ref()
+                    })),
                 });
                 bind_group_entries.push(wgpu::BindGroupEntry {
                     binding: 10 + MAX_MASK_BINDINGS,
-                    resource: wgpu::BindingResource::Sampler(&self.pipelines.flare_sampler),
+                    resource: wgpu::BindingResource::Sampler(&self.pipelines.light_sampler),
                 });
                 bind_group_entries.push(wgpu::BindGroupEntry {
                     binding: 11 + MAX_MASK_BINDINGS,
@@ -3372,16 +3136,14 @@ impl GpuProcessor {
 pub fn process_and_get_dynamic_image(
     context: &GpuContext,
     state: &tauri::State<AppState>,
-    base_image: &DynamicImage,
-    transform_hash: u64,
+    source: &RenderSource,
     request: RenderRequest,
     caller_id: &str,
 ) -> Result<DynamicImage, String> {
     process_and_get_dynamic_image_inner(
         context,
         state,
-        base_image,
-        transform_hash,
+        source,
         request,
         caller_id,
         RenderOutputPrecision::EightBit,
@@ -3393,8 +3155,7 @@ pub fn process_and_get_dynamic_image(
 pub fn process_and_get_dynamic_image_with_precision(
     context: &GpuContext,
     state: &tauri::State<AppState>,
-    base_image: &DynamicImage,
-    transform_hash: u64,
+    source: &RenderSource,
     request: RenderRequest,
     caller_id: &str,
     output_precision: RenderOutputPrecision,
@@ -3402,8 +3163,7 @@ pub fn process_and_get_dynamic_image_with_precision(
     process_and_get_dynamic_image_inner(
         context,
         state,
-        base_image,
-        transform_hash,
+        source,
         request,
         caller_id,
         output_precision,
@@ -3412,12 +3172,10 @@ pub fn process_and_get_dynamic_image_with_precision(
     )
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn process_and_get_dynamic_image_with_analytics(
     context: &GpuContext,
     state: &tauri::State<AppState>,
-    base_image: &DynamicImage,
-    transform_hash: u64,
+    source: &RenderSource,
     request: RenderRequest,
     caller_id: &str,
     display_output: Option<DisplayOutput>,
@@ -3426,8 +3184,7 @@ pub fn process_and_get_dynamic_image_with_analytics(
     process_and_get_dynamic_image_inner(
         context,
         state,
-        base_image,
-        transform_hash,
+        source,
         request,
         caller_id,
         RenderOutputPrecision::EightBit,
@@ -3440,8 +3197,7 @@ pub fn process_and_get_dynamic_image_with_analytics(
 fn process_and_get_dynamic_image_inner(
     context: &GpuContext,
     state: &tauri::State<AppState>,
-    base_image: &DynamicImage,
-    transform_hash: u64,
+    source: &RenderSource,
     request: RenderRequest,
     caller_id: &str,
     output_precision: RenderOutputPrecision,
@@ -3453,48 +3209,46 @@ fn process_and_get_dynamic_image_inner(
         .filter(|output| output.target == PreviewTarget::Editor)
         .map(|output| output.layer);
     let output_to_display = display_output.is_some();
-    let (width, height) = base_image.dimensions();
+    let (width, height) = source.size();
+    let source_size = source.image.dimensions();
     let device = &context.device;
     let queue = &context.queue;
 
     let max_dim = context.limits.max_texture_dimension_2d;
-    if width > max_dim || height > max_dim {
+    if width.max(source_size.0) > max_dim || height.max(source_size.1) > max_dim {
         return Err(format!(
             "Image dimensions ({}x{}) exceed the GPU texture limit ({}). The image could not be processed; try reducing its dimensions.",
-            width, height, max_dim
+            source_size.0, source_size.1, max_dim
         ));
     }
 
     let is_raw = request.adjustments.global.is_raw_image;
-    let source = (
-        base_image.as_bytes().as_ptr() as usize,
-        base_image.as_bytes().len(),
-    );
+    let identity = source.identity();
+    let transform_key = source.key();
     let matches = |e: &GpuImageEntry| {
-        e.transform_hash == transform_hash
+        e.transform_key == transform_key
             && e.width == width
             && e.height == height
             && e.is_raw == is_raw
-            && e.source == source
+            && e.source_identity == identity
+    };
+    let has_input = |cache: &Option<GpuImageCache>| {
+        cache.as_ref().is_some_and(|c| {
+            c.entries.iter().any(matches) || c.sources.iter().any(|s| s.identity == identity)
+        })
     };
 
     let cache_target = display_output.map_or(PreviewTarget::Editor, |output| output.target);
     let image_cache = state.gpu_image_cache_for(cache_target);
-    let mut img_rgba_f16: Option<Vec<f16>> = None;
+    let mut source_halves: Option<Vec<f16>> = None;
     let (mut processor_lock, mut cache_lock) = loop {
-        let is_cached = lock_or_reset(image_cache, "GPU image cache")
-            .as_ref()
-            .is_some_and(|c| c.entries.iter().any(matches));
-        if !is_cached && img_rgba_f16.is_none() {
-            img_rgba_f16 = Some(to_rgba_f16(base_image));
+        if !has_input(&lock_or_reset(image_cache, "GPU image cache")) && source_halves.is_none() {
+            source_halves = Some(crate::gpu_compute::rgba_halves(source.image));
         }
 
         let processor_lock = lock_or_reset(&state.gpu_processor, "GPU processor");
         let cache_lock = lock_or_reset(image_cache, "GPU image cache");
-        let is_cached = cache_lock
-            .as_ref()
-            .is_some_and(|c| c.entries.iter().any(matches));
-        if is_cached || img_rgba_f16.is_some() {
+        if has_input(&cache_lock) || source_halves.is_some() {
             break (processor_lock, cache_lock);
         }
     };
@@ -3535,43 +3289,41 @@ fn process_and_get_dynamic_image_inner(
     let processor_state = processor_lock.as_ref().unwrap();
     let processor = &processor_state.processor;
 
-    let cache = cache_lock.get_or_insert_with(|| GpuImageCache {
-        entries: Vec::new(),
-    });
+    let cache = cache_lock.get_or_insert_with(GpuImageCache::default);
 
     if let Some(index) = cache.entries.iter().position(matches) {
         let entry = cache.entries.remove(index);
         cache.entries.push(entry);
-    } else if let Some(img_rgba_f16) = img_rgba_f16.take() {
-        let texture_size = wgpu::Extent3d {
-            width,
-            height,
-            depth_or_array_layers: 1,
-        };
-        let texture = device.create_texture_with_data(
-            queue,
-            &wgpu::TextureDescriptor {
-                label: Some("Input Texture"),
-                size: texture_size,
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba16Float,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-                view_formats: &[],
+    } else {
+        let uploaded = match cache.sources.iter().position(|s| s.identity == identity) {
+            Some(index) => cache.sources.remove(index),
+            None => UploadedSource {
+                identity,
+                slot: crate::gpu_compute::upload_image(
+                    context,
+                    source_size,
+                    &source_halves
+                        .take()
+                        .ok_or("Source image was not prepared for upload")?,
+                ),
             },
-            TextureDataOrder::MipMajor,
-            bytemuck::cast_slice(&img_rgba_f16),
-        );
-        drop(img_rgba_f16);
-        let texture_view = texture.create_view(&Default::default());
+        };
+        let input = source.render(context, &uploaded.slot)?;
+        cache.sources.push(uploaded);
+        let pixels = |s: &UploadedSource| s.slot.size.0 as u64 * s.slot.size.1 as u64;
+        while cache.sources.len() > GPU_SOURCE_CACHE_ENTRIES
+            || (cache.sources.len() > 1
+                && cache.sources.iter().map(pixels).sum::<u64>() > GPU_IMAGE_CACHE_PIXELS)
+        {
+            cache.sources.remove(0);
+        }
 
-        let guided = processor.build_guided_coeffs(&texture_view, width, height, is_raw);
+        let guided = processor.build_guided_coeffs(&input.view, width, height, is_raw);
 
         cache.entries.push(GpuImageEntry {
             id: NEXT_GPU_IMAGE_ID.fetch_add(1, Ordering::Relaxed),
-            texture,
-            texture_view,
+            texture: input.texture,
+            texture_view: input.view,
             gf_coeffs_view: guided.coeffs,
             gf_structure_view: guided.structure,
             haze_view: guided.haze,
@@ -3579,8 +3331,8 @@ fn process_and_get_dynamic_image_inner(
             is_raw,
             width,
             height,
-            transform_hash,
-            source,
+            transform_key,
+            source_identity: identity,
         });
 
         let pixels = |e: &GpuImageEntry| e.width as u64 * e.height as u64;
@@ -3595,7 +3347,7 @@ fn process_and_get_dynamic_image_inner(
     let cache = cache.entries.last().unwrap();
     let mask_view =
         processor.mask_view(request.mask_bitmaps, width, height, request.mask_cache_key);
-    let motion = processor.motion_blurred(cache, base_image, &request, &mask_view)?;
+    let motion = processor.motion_blurred(cache, &request, &mask_view)?;
     let (input, mask_view) = match &motion {
         Some(blurred) => (
             &blurred.entry,
@@ -3747,6 +3499,7 @@ fn process_and_get_dynamic_image_inner(
                 &processor.display_textures().output_texture_view,
                 image_size,
                 texture_size,
+                display_output.map(|output| output.content),
             ),
             DisplayLayer::Original => {
                 display.latest_transform.original_size = image_size;

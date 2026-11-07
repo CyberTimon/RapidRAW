@@ -1013,6 +1013,9 @@
   "export": {
     "advanced": {
       "exportMasks": "Exportovat masky jako samostatné soubory",
+      "exportOriginal": "Exportovat také originál",
+      "originalCrop": "Použít ořez",
+      "originalKeepExposure": "Zachovat expozici",
       "preserveFolders": "Zachovat strukturu složek",
       "preserveTimestamps": "Nastavit časová razítka souborů z data pořízení EXIF",
       "title": "Nastavení exportu"
@@ -1781,7 +1784,6 @@
       "selectManufacturer": "Vyberte výrobce",
       "title": "Korekce objektivu",
       "vignetting": "Vinětace",
-      "waitingAutoDetect": "Čekání na automatickou detekci...",
       "zoomInTooltip": "Přiblížit",
       "zoomOutTooltip": "Oddálit"
     },
@@ -2015,6 +2017,11 @@
       "title": "Obecná nastavení",
       "toolFocusMode": "Režim zaměření na nástroj",
       "toolFocusModeDesc": "Při rozbalení jednoho nástroje v panelu automaticky sbalí ostatní nástroje.",
+      "uiScale": "Měřítko rozhraní",
+      "uiScaleCompact": "Kompaktní",
+      "uiScaleDefault": "Výchozí",
+      "uiScaleDesc": "Zmenšete nebo zvětšete rozhraní nezávisle na systémovém škálování displeje. Kompaktní velikosti se lépe hodí na malé obrazovky notebooků.",
+      "uiScaleLarge": "Velké",
       "xmpSync": "Synchronizace metadat XMP",
       "xmpSyncDesc": "Synchronizujte hodnocení, barevné štítky a značky se standardními doprovodnými soubory XMP pro kompatibilitu s jinými editory fotografií."
     },
@@ -2284,8 +2291,6 @@
       "smallThumbnailRes": "Rozlišení miniatur mřížky",
       "smallThumbnailResDesc": "Rozlišení miniatur zobrazených v mřížce knihovny.",
       "staticDesc": "Editor vykresluje snímek v pevném rozlišení. Tento režim je nejrychlejší a nejkonzistentnější, takže je ideální pro slabší hardware, kde je plynulý výkon důležitější než pixelově přesné přiblížení.",
-      "staticPreviewRes": "Rozlišení statického náhledu",
-      "staticPreviewResDesc": "Nastaví rozlišení pro statické náhledy, jako je režim oříznutí, korekce objektivu a nástroje perspektivy. Neovlivňuje hlavní náhled editoru.",
       "threads": "Vlákna",
       "thumbnailRes": "Rozlišení miniatur",
       "thumbnailResDesc": "Určuje rozlišení generovaných miniatur knihovny. Vyšší hodnoty produkují ostřejší snímky během načítání.",

@@ -962,6 +962,9 @@
   "export": {
     "advanced": {
       "exportMasks": "마스크를 별도 파일로 내보내기",
+      "exportOriginal": "원본도 내보내기",
+      "originalCrop": "자르기 적용",
+      "originalKeepExposure": "노출 유지",
       "preserveFolders": "폴더 구조 유지",
       "preserveTimestamps": "EXIF 촬영 날짜로 파일 타임스탬프 설정",
       "title": "내보내기 설정"
@@ -1703,7 +1706,6 @@
       "selectManufacturer": "제조사 선택",
       "title": "렌즈 보정",
       "vignetting": "비네팅",
-      "waitingAutoDetect": "자동 감지 대기 중...",
       "zoomInTooltip": "확대",
       "zoomOutTooltip": "축소"
     },
@@ -1927,6 +1929,11 @@
       "title": "일반 설정",
       "toolFocusMode": "도구 집중 모드",
       "toolFocusModeDesc": "도구를 펼치면 같은 패널의 다른 도구를 자동으로 접습니다.",
+      "uiScale": "인터페이스 배율",
+      "uiScaleCompact": "컴팩트",
+      "uiScaleDefault": "기본값",
+      "uiScaleDesc": "시스템 디스플레이 배율과 관계없이 인터페이스를 작게 또는 크게 만듭니다. 컴팩트 크기는 작은 노트북 화면에 더 많은 내용을 표시합니다.",
+      "uiScaleLarge": "크게",
       "xmpSync": "XMP 메타데이터 동기화",
       "xmpSyncDesc": "다른 사진 편집기와의 호환성을 위해 평점, 색상 레이블, 태그를 표준 XMP 사이드카 파일에 동기화합니다."
     },
@@ -2196,8 +2203,6 @@
       "smallThumbnailRes": "그리드 썸네일 해상도",
       "smallThumbnailResDesc": "라이브러리 그리드에 표시되는 썸네일의 해상도입니다.",
       "staticDesc": "편집기가 고정된 해상도로 이미지를 렌더링합니다. 이 모드는 가장 빠르고 일관성이 있어, 픽셀 단위 정밀 확대보다 부드러운 성능이 우선시되는 저사양 하드웨어에 이상적입니다.",
-      "staticPreviewRes": "정적 미리보기 해상도",
-      "staticPreviewResDesc": "자르기 모드, 렌즈 보정, 원근 도구 등 정적 미리보기의 해상도를 설정합니다. 메인 편집기 미리보기에는 영향을 주지 않습니다.",
       "threads": "스레드",
       "thumbnailRes": "썸네일 해상도",
       "thumbnailResDesc": "생성되는 라이브러리 썸네일의 해상도를 결정합니다. 값이 높을수록 로딩 중 더 선명한 이미지를 제공합니다.",

@@ -4,7 +4,7 @@ use std::fs;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use image::codecs::jpeg::{JpegEncoder, PixelDensity};
 use image::codecs::png::PngEncoder;
@@ -22,18 +22,18 @@ use tauri::Emitter;
 use tauri::Manager;
 
 use crate::AppState;
+use crate::app_settings::AppSettings;
 use crate::baseline_exposure::BaselineOptions;
 use crate::exif_processing;
 use crate::file_management::{
     generate_filename_from_template, parse_virtual_path, read_file_mapped,
 };
 use crate::formats::is_raw_file;
-use crate::image_loader::{load_and_composite, load_base_image_from_bytes, prepare_base_image_cow};
+use crate::image_loader::{load_base_image_from_bytes, prepare_base_image_cow};
 use crate::image_processing::{
     AllAdjustments, Crop, GpuContext, RenderOptions, RenderOutputPrecision, RenderRequest,
-    downscale_f32_image, get_all_adjustments_from_json, get_or_init_gpu_context,
-    process_and_get_dynamic_image, process_and_get_dynamic_image_with_precision,
-    resolve_render_options_from_handle,
+    get_all_adjustments_from_json, get_or_init_gpu_context, process_and_get_dynamic_image,
+    process_and_get_dynamic_image_with_precision, resolve_render_options_from_handle,
 };
 use crate::lut_processing::{
     convert_image_to_cube_lut, generate_identity_lut_image, get_or_load_lut,
@@ -42,10 +42,10 @@ use crate::mask_generation::{MaskDefinition, build_warped_image_for_masks, gener
 use crate::tiff_metadata::{TiffSamples, encode_tiff_with_metadata};
 
 use crate::as_shot::as_shot;
-use crate::cache_utils::{calculate_full_job_hash, calculate_transform_hash};
+use crate::cache_utils::calculate_transform_hash;
+use crate::render_source::{RenderSource, fit_to_gpu, source_id};
 use crate::{
-    apply_all_transformations, generate_transformed_preview, get_cached_or_generate_masks,
-    hydrate_adjustments, load_settings,
+    get_cached_or_generate_masks, hydrate_adjustments, load_settings, prepare_preview_source,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -149,6 +149,67 @@ pub struct ExportSettings {
     pub subfolder: Option<String>,
     #[serde(default)]
     pub dpi: Option<u16>,
+    #[serde(default)]
+    pub export_original: Option<OriginalExportOptions>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[serde(rename_all = "camelCase")]
+pub struct OriginalExportOptions {
+    pub crop: bool,
+    pub keep_exposure: bool,
+}
+
+#[derive(Deserialize)]
+struct OriginalAdjustmentKeys {
+    preserved: Vec<String>,
+    crop: Vec<String>,
+}
+
+fn original_adjustment_keys() -> &'static OriginalAdjustmentKeys {
+    static KEYS: OnceLock<OriginalAdjustmentKeys> = OnceLock::new();
+    KEYS.get_or_init(|| {
+        serde_json::from_str(include_str!("../../src/utils/originalAdjustmentKeys.json"))
+            .expect("originalAdjustmentKeys.json must be valid")
+    })
+}
+
+fn original_export_adjustments(adjustments: &Value, options: &OriginalExportOptions) -> Value {
+    let keys = original_adjustment_keys();
+    let crop_keys: &[String] = if options.crop { &keys.crop } else { &[] };
+    Value::Object(
+        keys.preserved
+            .iter()
+            .chain(crop_keys)
+            .map(String::as_str)
+            .chain(options.keep_exposure.then_some("exposure"))
+            .filter_map(|key| adjustments.get(key).map(|v| (key.to_string(), v.clone())))
+            .collect(),
+    )
+}
+
+fn original_output_path(output_path: &Path) -> PathBuf {
+    let stem = output_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("export");
+    let file_name = match output_path.extension().and_then(|e| e.to_str()) {
+        Some(extension) => format!("{}_original.{}", stem, extension),
+        None => format!("{}_original", stem),
+    };
+    output_path.with_file_name(file_name)
+}
+
+fn load_export_source_image(path: &str, settings: &AppSettings) -> Result<DynamicImage, String> {
+    match read_file_mapped(Path::new(path)) {
+        Ok(mmap) => load_base_image_from_bytes(&mmap, path, false, settings, None)
+            .map_err(|e| format!("Failed to load from mmap: {}", e)),
+        Err(_) => {
+            let bytes = fs::read(path).map_err(|e| e.to_string())?;
+            load_base_image_from_bytes(&bytes, path, false, settings, None)
+                .map_err(|e| format!("Failed to load from bytes: {}", e))
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -1077,9 +1138,16 @@ fn process_image_for_export_pipeline(
     app_handle: &tauri::AppHandle,
     output_precision: RenderOutputPrecision,
 ) -> Result<DynamicImage, String> {
-    let (transformed_image, unscaled_crop_offset) =
-        apply_all_transformations(Cow::Borrowed(base_image), js_adjustments);
-    let (img_w, img_h) = transformed_image.dimensions();
+    let (fitted, scale) = fit_to_gpu(context, base_image);
+    let source = RenderSource::edited(
+        &fitted,
+        source_id("export", path, js_adjustments),
+        path,
+        js_adjustments,
+    )
+    .scaled(scale);
+    let crop_offset = source.crop_offset();
+    let (img_w, img_h) = source.size();
 
     let mask_definitions: Vec<MaskDefinition> = js_adjustments
         .get("masks")
@@ -1087,7 +1155,7 @@ fn process_image_for_export_pipeline(
         .unwrap_or_default();
 
     let warped_image =
-        build_warped_image_for_masks(base_image, is_raw, js_adjustments, &mask_definitions);
+        build_warped_image_for_masks(base_image, is_raw, path, js_adjustments, &mask_definitions);
     let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
         .iter()
         .filter_map(|def| {
@@ -1095,8 +1163,8 @@ fn process_image_for_export_pipeline(
                 def,
                 img_w,
                 img_h,
-                1.0,
-                unscaled_crop_offset,
+                scale,
+                crop_offset,
                 warped_image.as_deref(),
             )
         })
@@ -1110,13 +1178,10 @@ fn process_image_for_export_pipeline(
     let lut_path = js_adjustments["lutPath"].as_str();
     let lut = lut_path.and_then(|p| get_or_load_lut(state, p).ok());
 
-    let unique_hash = calculate_full_job_hash(path, js_adjustments);
-
     process_and_get_dynamic_image_with_precision(
         context,
         state,
-        transformed_image.as_ref(),
-        unique_hash,
+        &source,
         RenderRequest {
             adjustments: all_adjustments,
             mask_bitmaps: &mask_bitmaps,
@@ -1125,10 +1190,11 @@ fn process_image_for_export_pipeline(
             roi: None,
             hsl_probe: false,
             motion_blur: crate::motion_blur::MotionBlurs::new(
+                path,
                 js_adjustments,
                 (img_w, img_h),
-                unscaled_crop_offset,
-                base_image.width().max(base_image.height()) as f32,
+                crop_offset,
+                base_image.width().max(base_image.height()) as f32 * scale,
             ),
         },
         debug_tag,
@@ -1435,17 +1501,28 @@ fn export_masks_for_image(
     cancellation_token: &AtomicBool,
 ) -> Result<(), String> {
     ensure_export_not_cancelled(cancellation_token)?;
-    let (transformed_image, unscaled_crop_offset) =
-        apply_all_transformations(Cow::Borrowed(base_image), js_adjustments);
-    ensure_export_not_cancelled(cancellation_token)?;
-    let (img_w, img_h) = transformed_image.dimensions();
+    let (fitted, scale) = fit_to_gpu(context, base_image);
+    let source = RenderSource::edited(
+        &fitted,
+        source_id("export", source_path_str, js_adjustments),
+        source_path_str,
+        js_adjustments,
+    )
+    .scaled(scale);
+    let crop_offset = source.crop_offset();
+    let (img_w, img_h) = source.size();
     let mask_definitions: Vec<MaskDefinition> = js_adjustments
         .get("masks")
         .and_then(|m| serde_json::from_value(m.clone()).ok())
         .unwrap_or_default();
 
-    let warped_image =
-        build_warped_image_for_masks(base_image, is_raw, js_adjustments, &mask_definitions);
+    let warped_image = build_warped_image_for_masks(
+        base_image,
+        is_raw,
+        source_path_str,
+        js_adjustments,
+        &mask_definitions,
+    );
     let mut mask_bitmaps = Vec::with_capacity(mask_definitions.len());
     for definition in &mask_definitions {
         ensure_export_not_cancelled(cancellation_token)?;
@@ -1453,8 +1530,8 @@ fn export_masks_for_image(
             definition,
             img_w,
             img_h,
-            1.0,
-            unscaled_crop_offset,
+            scale,
+            crop_offset,
             warped_image.as_deref(),
         ) {
             mask_bitmaps.push(bitmap);
@@ -1468,7 +1545,6 @@ fn export_masks_for_image(
             get_all_adjustments_from_json(js_adjustments, is_raw, as_shot(source_path_str), render);
         let lut_path = js_adjustments["lutPath"].as_str();
         let lut = lut_path.and_then(|p| get_or_load_lut(state, p).ok());
-        let unique_hash = calculate_full_job_hash(source_path_str, js_adjustments);
         let output_dir = output_path_obj.parent().unwrap_or(output_path_obj);
         let stem = output_path_obj
             .file_stem()
@@ -1488,8 +1564,7 @@ fn export_masks_for_image(
             let processed = process_and_get_dynamic_image_with_precision(
                 context,
                 state,
-                transformed_image.as_ref(),
-                unique_hash,
+                &source,
                 RenderRequest {
                     adjustments: single_adjustments,
                     mask_bitmaps: &single_bitmaps,
@@ -1583,6 +1658,7 @@ fn export_adjustments_as_lut(
     all_adjustments.global.show_clipping = 0;
     all_adjustments.global.vignette_amount = 0.0;
     all_adjustments.global.grain_amount = 0.0;
+    all_adjustments.global.grain_softness = 0.0;
     all_adjustments.global.sharpness = 0.0;
     all_adjustments.global.clarity = 0.0;
     all_adjustments.global.dehaze = 0.0;
@@ -1598,13 +1674,10 @@ fn export_adjustments_as_lut(
 
     let lut_path = js_adjustments["lutPath"].as_str();
     let lut = lut_path.and_then(|p| get_or_load_lut(state, p).ok());
-    let unique_hash = calculate_full_job_hash(source_path_str, js_adjustments);
-
     let processed_lut = process_and_get_dynamic_image(
         context,
         state,
-        &identity_image,
-        unique_hash,
+        &RenderSource::plain(&identity_image),
         RenderRequest {
             adjustments: all_adjustments,
             mask_bitmaps: &[],
@@ -1801,7 +1874,16 @@ pub(crate) async fn export_images_impl(
                             sidecar.adjustments
                         }
                     }
-                    ExportAdjustmentsMode::GlobalOverride(adj) => adj.clone(),
+                    ExportAdjustmentsMode::GlobalOverride(adj) => {
+                        let mut adj = adj.clone();
+                        crate::ai_jobs::resolve_detached(
+                            &app_handle_clone,
+                            &image_path_str,
+                            &mut adj,
+                        )
+                        .map_err(|e| format!("Failed to generate AI results for export: {}", e))?;
+                        adj
+                    }
                 };
 
                 hydrate_adjustments(&state, &mut js_adjustments);
@@ -1889,12 +1971,19 @@ pub(crate) async fn export_images_impl(
                         .unwrap_or(std::path::Path::new(""))
                         .to_path_buf();
                     let mut counter = 1;
+                    let export_original = export_settings.export_original.is_some();
+                    let is_taken = |path: &PathBuf| path.exists() || used.contains(path);
 
-                    while output_path.exists() || used.contains(&output_path) {
+                    while is_taken(&output_path)
+                        || (export_original && is_taken(&original_output_path(&output_path)))
+                    {
                         let incremented_filename =
                             format!("{}_{}.{}", new_stem, counter, extension);
                         output_path = parent_dir.join(&incremented_filename);
                         counter += 1;
+                    }
+                    if export_original {
+                        used.insert(original_output_path(&output_path));
                     }
                     used.insert(output_path.clone());
                 }
@@ -1968,41 +2057,37 @@ pub(crate) async fn export_images_impl(
                         crate::cached_patched_image(&state, &loaded_image.image, &js_adjustments)
                     });
 
-                    let base_image: Cow<DynamicImage> = if let Some(patched) = &cached_patched {
-                        Cow::Borrowed(patched)
-                    } else if let Some(loaded_image) = &loaded_image {
-                        prepare_base_image_cow(
-                            &loaded_image.image,
-                            &loaded_image.path,
-                            &js_adjustments,
-                        )
-                        .map_err(|e| format!("Failed to composite AI patches: {}", e))?
-                    } else {
-                        Cow::Owned(match read_file_mapped(Path::new(&source_path_str)) {
-                            Ok(mmap) => load_and_composite(
-                                &mmap,
-                                &source_path_str,
-                                &js_adjustments,
-                                false,
-                                &settings,
-                                None,
-                            )
-                            .map_err(|e| format!("Failed to load from mmap: {}", e))?,
-                            Err(_) => {
-                                let bytes =
-                                    fs::read(&source_path_str).map_err(|e| e.to_string())?;
-                                load_and_composite(
-                                    &bytes,
-                                    &source_path_str,
-                                    &js_adjustments,
-                                    false,
-                                    &settings,
-                                    None,
-                                )
-                                .map_err(|e| format!("Failed to load from bytes: {}", e))?
-                            }
-                        })
+                    let (source_image, source_image_path) = match &loaded_image {
+                        Some(loaded_image) => {
+                            (Arc::clone(&loaded_image.image), loaded_image.path.as_str())
+                        }
+                        None => (
+                            Arc::new(load_export_source_image(&source_path_str, &settings)?),
+                            source_path_str.as_str(),
+                        ),
                     };
+                    let prepare_base = |adjustments: &Value| -> Result<Arc<DynamicImage>, String> {
+                        match prepare_base_image_cow(&source_image, source_image_path, adjustments)
+                            .map_err(|e| format!("Failed to composite AI patches: {}", e))?
+                        {
+                            Cow::Owned(prepared) => Ok(Arc::new(prepared)),
+                            Cow::Borrowed(_) => Ok(Arc::clone(&source_image)),
+                        }
+                    };
+
+                    let base_image = match cached_patched {
+                        Some(patched) => patched,
+                        None => prepare_base(&js_adjustments)?,
+                    };
+                    let original_render = export_settings
+                        .export_original
+                        .as_ref()
+                        .map(|options| {
+                            let adjustments = original_export_adjustments(&js_adjustments, options);
+                            prepare_base(&adjustments).map(|base| (base, adjustments))
+                        })
+                        .transpose()?;
+                    drop(source_image);
                     let mut base_image = Some(base_image);
                     ensure_export_not_cancelled(&cancellation_token_clone)?;
 
@@ -2020,7 +2105,7 @@ pub(crate) async fn export_images_impl(
 
                     let final_image = process_image_for_export(
                         &source_path_str,
-                        base_image.as_ref().unwrap(),
+                        base_image.as_deref().unwrap(),
                         &main_export_adjustments,
                         &export_settings,
                         &context_clone,
@@ -2046,6 +2131,34 @@ pub(crate) async fn export_images_impl(
                         set_timestamps_from_exif(Path::new(&source_path_str), &output_path);
                     }
                     ensure_export_not_cancelled(&cancellation_token_clone)?;
+
+                    if let Some((original_base, original_adjustments)) = original_render {
+                        let original_image = process_image_for_export(
+                            &source_path_str,
+                            &original_base,
+                            &original_adjustments,
+                            &export_settings,
+                            &context_clone,
+                            &state,
+                            is_raw,
+                            &app_handle_clone,
+                            actual_output_format,
+                        )?;
+                        drop(original_base);
+                        ensure_export_not_cancelled(&cancellation_token_clone)?;
+                        let original_path = original_output_path(&output_path);
+                        save_image_with_metadata(
+                            &original_image,
+                            &original_path,
+                            &source_path_str,
+                            &export_xmp,
+                            &export_settings,
+                        )?;
+                        if export_settings.preserve_timestamps {
+                            set_timestamps_from_exif(Path::new(&source_path_str), &original_path);
+                        }
+                        ensure_export_not_cancelled(&cancellation_token_clone)?;
+                    }
 
                     if export_settings.export_masks
                         && let Some(base_image) = &base_image
@@ -2277,6 +2390,7 @@ pub async fn run_headless_export(
         destination_type: None,
         subfolder: None,
         dpi: None,
+        export_original: session.export_original,
     };
 
     let mut custom_adjustments = None;
@@ -2345,64 +2459,69 @@ pub async fn estimate_export_sizes(
     current_edit_adjustments: Option<Value>,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
-) -> Result<usize, String> {
+) -> Result<Option<usize>, String> {
     if output_format.to_lowercase() == "cube" {
-        return Ok(1_050_000 * paths.len());
+        return Ok(Some(1_050_000 * paths.len()));
     }
 
     if paths.is_empty() {
-        return Ok(0);
+        return Ok(Some(0));
     }
 
     let first_path = &paths[0];
     let (source_path, sidecar_path) = parse_virtual_path(first_path);
     let source_path_str = source_path.to_string_lossy().to_string();
 
+    let current_edit = match current_edit_adjustments {
+        Some(adjustments) if Some(first_path) == current_edit_path.as_ref() => {
+            let loaded_image = state
+                .original_image
+                .lock()
+                .unwrap()
+                .clone()
+                .filter(|image| image.path == *first_path);
+            match loaded_image {
+                Some(loaded_image) => Some((loaded_image, adjustments)),
+                None => return Ok(None),
+            }
+        }
+        _ => None,
+    };
+
     let context = get_or_init_gpu_context(&state, &app_handle)?;
-    let is_current_edit = Some(first_path) == current_edit_path.as_ref();
     let is_raw = is_raw_file(&source_path_str);
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
 
-    let single_image_extrapolated_size: usize = if is_current_edit
-        && current_edit_adjustments.is_some()
+    let single_image_extrapolated_size: usize = if let Some((loaded_image, mut adjustments_clone)) =
+        current_edit
     {
-        let loaded_image = state
-            .original_image
-            .lock()
-            .unwrap()
-            .clone()
-            .ok_or("No original image loaded")?;
-        let mut adjustments_clone = current_edit_adjustments.clone().unwrap();
         hydrate_adjustments(&state, &mut adjustments_clone);
+
+        const ESTIMATE_DIM: u32 = 1920;
 
         let new_transform_hash = calculate_transform_hash(&adjustments_clone);
         let cached_preview_lock = state.cached_preview.lock().unwrap();
-        let preview_dim = settings.editor_preview_resolution.unwrap_or(1920);
-
-        let (preview_image, scale, unscaled_crop_offset) = if let Some(cached) =
-            &*cached_preview_lock
-        {
-            if cached.transform_hash == new_transform_hash && cached.preview_dim == preview_dim {
-                let img = Arc::clone(&cached.image);
-                let s = cached.scale;
-                let offset = cached.unscaled_crop_offset;
-                drop(cached_preview_lock);
-                (img, s, offset)
-            } else {
-                drop(cached_preview_lock);
-                generate_transformed_preview(
-                    &state,
-                    &loaded_image,
-                    &adjustments_clone,
-                    preview_dim,
-                )?
-            }
-        } else {
-            drop(cached_preview_lock);
-            generate_transformed_preview(&state, &loaded_image, &adjustments_clone, preview_dim)?
+        let cached = cached_preview_lock
+            .as_ref()
+            .filter(|c| c.transform_hash == new_transform_hash)
+            .map(|c| c.preview.clone());
+        drop(cached_preview_lock);
+        let preview = match cached {
+            Some(preview) => preview,
+            None => prepare_preview_source(
+                &state,
+                &context,
+                &loaded_image,
+                &adjustments_clone,
+                ESTIMATE_DIM,
+            )?,
         };
-
-        let (img_w, img_h) = preview_image.dimensions();
+        let unscaled_crop_offset = preview.unscaled_crop_offset;
+        let mut source = preview.render_source(&adjustments_clone);
+        let (source_w, _) = source.size();
+        source.transform.output_fit = Some((ESTIMATE_DIM, ESTIMATE_DIM));
+        let (img_w, img_h) = source.size();
+        let scale = preview.scale * img_w as f32 / source_w.max(1) as f32;
         let mask_definitions: Vec<MaskDefinition> = adjustments_clone
             .get("masks")
             .and_then(|m| serde_json::from_value(m.clone()).ok())
@@ -2433,14 +2552,10 @@ pub async fn estimate_export_sizes(
         let lut = adjustments_clone["lutPath"]
             .as_str()
             .and_then(|p| get_or_load_lut(&state, p).ok());
-        let unique_hash =
-            calculate_full_job_hash(&loaded_image.path, &adjustments_clone).wrapping_add(1);
-
         let processed_preview = process_and_get_dynamic_image_with_precision(
             &context,
             &state,
-            &preview_image,
-            unique_hash,
+            &source,
             RenderRequest {
                 adjustments: all_adjustments,
                 mask_bitmaps: &mask_bitmaps,
@@ -2449,6 +2564,7 @@ pub async fn estimate_export_sizes(
                 roi: None,
                 hsl_probe: false,
                 motion_blur: crate::motion_blur::MotionBlurs::new(
+                    &loaded_image.path,
                     &adjustments_clone,
                     (img_w, img_h),
                     scaled_crop_offset,
@@ -2526,17 +2642,22 @@ pub async fn estimate_export_sizes(
             .unwrap_or(serde_json::Value::Null);
         }
 
-        let (transformed_shrunk_res, unscaled_crop_offset) =
-            apply_all_transformations(Cow::Borrowed(&original_image), &js_adjustments);
-        let (shrunk_w, shrunk_h) = transformed_shrunk_res.dimensions();
-
-        let preview_base = if shrunk_w > ESTIMATE_DIM || shrunk_h > ESTIMATE_DIM {
-            downscale_f32_image(transformed_shrunk_res.as_ref(), ESTIMATE_DIM, ESTIMATE_DIM)
-        } else {
-            transformed_shrunk_res.into_owned()
-        };
-
-        let (preview_w, preview_h) = preview_base.dimensions();
+        let (fitted, fit_scale) = fit_to_gpu(&context, &original_image);
+        let source = RenderSource::edited(
+            &fitted,
+            source_id("batch-estimate", &source_path_str, &js_adjustments),
+            &source_path_str,
+            &js_adjustments,
+        );
+        let unscaled_crop_offset = source.crop_offset();
+        let mut source = source.scaled(fit_scale);
+        let (fitted_w, fitted_h) = source.size();
+        let (shrunk_w, shrunk_h) = (
+            (fitted_w as f32 / fit_scale).round() as u32,
+            (fitted_h as f32 / fit_scale).round() as u32,
+        );
+        source.transform.output_fit = Some((ESTIMATE_DIM, ESTIMATE_DIM));
+        let (preview_w, preview_h) = source.size();
         let gpu_scale = if shrunk_w > 0 {
             preview_w as f32 / shrunk_w as f32
         } else {
@@ -2577,14 +2698,10 @@ pub async fn estimate_export_sizes(
         let lut = js_adjustments["lutPath"]
             .as_str()
             .and_then(|p| get_or_load_lut(&state, p).ok());
-        let unique_hash =
-            calculate_full_job_hash(&source_path_str, &js_adjustments).wrapping_add(1);
-
         let processed_preview = process_and_get_dynamic_image_with_precision(
             &context,
             &state,
-            &preview_base,
-            unique_hash,
+            &source,
             RenderRequest {
                 adjustments: all_adjustments,
                 mask_bitmaps: &mask_bitmaps,
@@ -2593,6 +2710,7 @@ pub async fn estimate_export_sizes(
                 roi: None,
                 hsl_probe: false,
                 motion_blur: crate::motion_blur::MotionBlurs::new(
+                    &source_path_str,
                     &js_adjustments,
                     (preview_w, preview_h),
                     scaled_crop_offset,
@@ -2624,5 +2742,5 @@ pub async fn estimate_export_sizes(
         (single_image_estimated_size as f64 * pixel_ratio) as usize
     };
 
-    Ok(single_image_extrapolated_size * paths.len())
+    Ok(Some(single_image_extrapolated_size * paths.len()))
 }

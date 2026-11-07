@@ -11,9 +11,18 @@ import { Invokes, Panel } from '../components/ui/AppProperties';
 import { debouncedSave, getOriginalAdjustments } from './useEditorActions';
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { prepareAdjustmentsPayload } from '../utils/backendPayload';
-import { calculateTargetResolution } from '../utils/previewResolution';
+import { calculateTargetResolution, getVisibleImageRegion } from '../utils/previewResolution';
+import { getDevicePixelRatio } from '../utils/displayScale';
 
 const isWgpuRender = (buffer: ArrayBuffer) => new TextDecoder().decode(buffer.slice(0, 11)) === 'WGPU_RENDER';
+
+const isSameIgnoringCrop = (a: Adjustments, b: Adjustments) => {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)] as Array<keyof Adjustments>);
+  for (const key of keys) {
+    if (key !== 'crop' && a[key] !== b[key]) return false;
+  }
+  return true;
+};
 
 const releasePreviewUrl = (url: string | null | undefined) => {
   if (url && url.startsWith('blob:') && !globalImageCache.isProtected(url)) {
@@ -56,6 +65,7 @@ export function useImageProcessing(
 
   const uncroppedJobIdRef = useRef(0);
   const latestUncroppedJobIdRef = useRef(0);
+  const lastUncroppedRequestRef = useRef<{ path: string; adjustments: Adjustments; res: number } | null>(null);
 
   const originalRequestKeyRef = useRef<string | null>(null);
   const inFlightCountRef = useRef(0);
@@ -74,55 +84,20 @@ export function useImageProcessing(
     const state = transformWrapperRef.current.instance.transformState;
     if (!state) return null;
 
-    if (!baseRenderSize) return null;
+    if (!baseRenderSize || state.scale <= 1.01) return null;
 
-    const { scale, positionX, positionY } = state;
-    const { width: baseW, height: baseH, offsetX, offsetY, containerWidth, containerHeight } = baseRenderSize;
+    const region = getVisibleImageRegion(state, baseRenderSize);
+    if (!region) return null;
 
-    if (!baseW || !baseH || !containerWidth || !containerHeight) return null;
-    if (scale <= 1.01) return null;
+    const paddingX = 2 / baseRenderSize.width;
+    const paddingY = 2 / baseRenderSize.height;
+    const x = Math.max(0, region[0] - paddingX);
+    const y = Math.max(0, region[1] - paddingY);
+    const width = Math.min(1 - x, region[2] + paddingX * 2);
+    const height = Math.min(1 - y, region[3] + paddingY * 2);
+    if (width > 0.999 && height > 0.999) return null;
 
-    const paddingPixels = 2.0;
-    const paddingX = paddingPixels / baseW;
-    const paddingY = paddingPixels / baseH;
-
-    const visibleLeft = -positionX / scale;
-    const visibleTop = -positionY / scale;
-    const visibleRight = visibleLeft + containerWidth / scale;
-    const visibleBottom = visibleTop + containerHeight / scale;
-
-    const imgLeft = offsetX;
-    const imgTop = offsetY;
-    const imgRight = offsetX + baseW;
-    const imgBottom = offsetY + baseH;
-
-    const intersectLeft = Math.max(visibleLeft, imgLeft);
-    const intersectTop = Math.max(visibleTop, imgTop);
-    const intersectRight = Math.min(visibleRight, imgRight);
-    const intersectBottom = Math.min(visibleBottom, imgBottom);
-
-    if (intersectLeft >= intersectRight || intersectTop >= intersectBottom) {
-      return null;
-    }
-
-    const roiX = (intersectLeft - imgLeft) / baseW;
-    const roiY = (intersectTop - imgTop) / baseH;
-    const roiW = (intersectRight - intersectLeft) / baseW;
-    const roiH = (intersectBottom - intersectTop) / baseH;
-
-    const newRoiX = roiX - paddingX;
-    const newRoiY = roiY - paddingY;
-    const newRoiW = roiW + paddingX * 2;
-    const newRoiH = roiH + paddingY * 2;
-
-    const clampedX = Math.max(0, newRoiX);
-    const clampedY = Math.max(0, newRoiY);
-    const clampedW = Math.min(1 - clampedX, newRoiW);
-    const clampedH = Math.min(1 - clampedY, newRoiH);
-
-    if (clampedW > 0.999 && clampedH > 0.999) return null;
-
-    return [clampedX, clampedY, clampedW, clampedH] as [number, number, number, number];
+    return [x, y, width, height] as [number, number, number, number];
   }, [baseRenderSize, transformWrapperRef]);
 
   const renderOriginal = useCallback(
@@ -311,24 +286,27 @@ export function useImageProcessing(
   const throttledUncroppedPreview = useMemo(
     () =>
       throttle(
-        (adj: Adjustments) => {
+        (adj: Adjustments, targetResolution: number) => {
           const requestedImage = useEditorStore.getState().selectedImage;
           if (!requestedImage?.isReady) return;
           const jobId = ++uncroppedJobIdRef.current;
           const { payload, markSent } = prepareAdjustmentsPayload(adj);
-          invoke<ArrayBuffer>(Invokes.GenerateUncroppedPreview, { jsAdjustments: payload })
-            .then((buffer) => {
+          invoke<ArrayBuffer>(Invokes.GenerateUncroppedPreview, { jsAdjustments: payload, targetResolution })
+            .then(async (buffer) => {
               markSent();
+              if (!buffer || buffer.byteLength === 0) return;
+              const url = URL.createObjectURL(new Blob([buffer], { type: 'image/jpeg' }));
+              const image = new Image();
+              image.src = url;
+              await image.decode().catch(() => {});
               if (
                 jobId < latestUncroppedJobIdRef.current ||
-                !buffer ||
-                buffer.byteLength === 0 ||
                 useEditorStore.getState().selectedImage?.path !== requestedImage.path
               ) {
+                URL.revokeObjectURL(url);
                 return;
               }
               latestUncroppedJobIdRef.current = jobId;
-              const url = URL.createObjectURL(new Blob([buffer], { type: 'image/jpeg' }));
               useEditorStore.getState().setEditor((state) => {
                 releasePreviewUrl(state.uncroppedAdjustedPreviewUrl);
                 return { uncroppedAdjustedPreviewUrl: url };
@@ -342,26 +320,77 @@ export function useImageProcessing(
     [],
   );
 
-  const generateUncroppedPreview = useCallback(
-    (currentAdjustments: Adjustments) => {
-      throttledUncroppedPreview(currentAdjustments);
+  const fittedDisplayMax = useMemo(() => {
+    if (!selectedImage?.width || !selectedImage?.height) return 0;
+    const isSwapped = (adjustments.orientationSteps || 0) % 2 === 1;
+    const width = adjustments.crop ? adjustments.crop.width : isSwapped ? selectedImage.height : selectedImage.width;
+    const height = adjustments.crop ? adjustments.crop.height : isSwapped ? selectedImage.width : selectedImage.height;
+    const containerWidth = baseRenderSize.containerWidth || window.innerWidth;
+    const containerHeight = baseRenderSize.containerHeight || window.innerHeight;
+    if (!width || !height || !containerWidth || !containerHeight) return 0;
+    return Math.max(width, height) * Math.min(containerWidth / width, containerHeight / height);
+  }, [
+    selectedImage?.width,
+    selectedImage?.height,
+    adjustments.crop,
+    adjustments.orientationSteps,
+    baseRenderSize.containerWidth,
+    baseRenderSize.containerHeight,
+  ]);
+
+  const calculateTargetRes = useCallback(
+    (displayMax: number = fittedDisplayMax * (transformWrapperRef.current?.instance.transformState?.scale || 1)) => {
+      const dpr = getDevicePixelRatio();
+      const originalMax =
+        originalSize.width > 0 && originalSize.height > 0 ? Math.max(originalSize.width, originalSize.height) : 0;
+      return calculateTargetResolution(
+        appSettings,
+        displayMax,
+        appSettings?.useFullDpiRendering ? dpr : 1,
+        originalMax,
+      );
     },
-    [throttledUncroppedPreview],
+    [appSettings, fittedDisplayMax, transformWrapperRef, originalSize],
   );
 
-  useEffect(() => {
-    if (activeView === 'editor' && activePanel === Panel.Crop && selectedImage?.isReady) {
-      generateUncroppedPreview(adjustments);
-    }
-  }, [activeView, adjustments, activePanel, selectedImage?.isReady, generateUncroppedPreview]);
+  const uncroppedTargetRes = useMemo(() => {
+    const { width: baseWidth, containerWidth, containerHeight } = baseRenderSize;
+    const isSwapped = (adjustments.orientationSteps || 0) % 2 === 1;
+    const width = (isSwapped ? selectedImage?.height : selectedImage?.width) || 0;
+    const height = (isSwapped ? selectedImage?.width : selectedImage?.height) || 0;
+    if (!width || !height || !baseWidth || !containerWidth || !containerHeight) return calculateTargetRes(0);
+    const zoom = displaySize.width / baseWidth;
+    const fitScale = Math.min(containerWidth / width, containerHeight / height);
+    return calculateTargetRes(Math.max(width, height) * fitScale * zoom);
+  }, [
+    baseRenderSize,
+    adjustments.orientationSteps,
+    selectedImage?.width,
+    selectedImage?.height,
+    displaySize.width,
+    calculateTargetRes,
+  ]);
 
-  const calculateTargetRes = useCallback(() => {
-    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-    const displayMax = displaySize.width === 0 ? 0 : Math.max(displaySize.width, displaySize.height);
-    const originalMax =
-      originalSize.width > 0 && originalSize.height > 0 ? Math.max(originalSize.width, originalSize.height) : 0;
-    return calculateTargetResolution(appSettings, displayMax, appSettings?.useFullDpiRendering ? dpr : 1, originalMax);
-  }, [appSettings, displaySize.width, displaySize.height, originalSize]);
+  useEffect(() => {
+    const path = selectedImage?.path;
+    if (activeView !== 'editor' || activePanel !== Panel.Crop || !selectedImage?.isReady || !path) {
+      lastUncroppedRequestRef.current = null;
+      return;
+    }
+    const last = lastUncroppedRequestRef.current?.path === path ? lastUncroppedRequestRef.current : null;
+    const res = Math.max(uncroppedTargetRes, last?.res ?? 0);
+    if (last && last.res === res && isSameIgnoringCrop(last.adjustments, adjustments)) return;
+    lastUncroppedRequestRef.current = { path, adjustments, res };
+    throttledUncroppedPreview(adjustments, res);
+  }, [
+    activeView,
+    adjustments,
+    activePanel,
+    selectedImage?.path,
+    selectedImage?.isReady,
+    uncroppedTargetRes,
+    throttledUncroppedPreview,
+  ]);
 
   const requestHiFiZoom = useMemo(
     () =>

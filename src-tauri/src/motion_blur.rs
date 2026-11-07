@@ -3,13 +3,15 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use image::imageops::FilterType;
-use image::{DynamicImage, GrayImage, Luma};
+use image::{GrayImage, Luma};
 use imageproc::region_labelling::{Connectivity, connected_components};
 use rayon::prelude::*;
 use serde_json::Value;
 use wgpu::util::DeviceExt;
 
-use crate::image_processing::{GpuContext, MAX_MASKS, is_tool_active};
+use crate::image_processing::{
+    GpuContext, MAX_MASKS, get_geometry_params_from_json, is_tool_active,
+};
 use crate::mask_generation::{TransformParams, generate_edge_clamped_bitmap};
 
 const MAX_LINEAR_LENGTH: f32 = 0.15;
@@ -52,8 +54,6 @@ const STATS_SAMPLES: f32 = 1_048_576.0;
 const SPIN_GRID: u32 = 256;
 const SPIN_MIN_SHARE: f64 = 0.05;
 const MAX_SPINS: usize = 8;
-const GRAIN_BLOCK: usize = 8;
-const GRAIN_BLOCKS: f32 = 4096.0;
 const GRAIN_PERCENTILE: f32 = 0.1;
 const GRAIN_RESIDUAL_GAIN: f32 = 1.118;
 const WORKGROUP: u32 = 8;
@@ -95,6 +95,7 @@ pub struct MotionBlurs {
 
 impl MotionBlurs {
     pub fn new(
+        path: &str,
         adjustments: &Value,
         size: (u32, u32),
         crop_offset: (f32, f32),
@@ -102,7 +103,7 @@ impl MotionBlurs {
     ) -> Self {
         let blurs = from_adjustments(adjustments);
         let depth = uses_depth(&blurs)
-            .then(|| depth_map(adjustments, size, crop_offset, extent))
+            .then(|| depth_map(path, adjustments, size, crop_offset, extent))
             .flatten()
             .map(Arc::new);
         Self { blurs, depth }
@@ -188,6 +189,7 @@ fn uses_depth(blurs: &[MotionBlur]) -> bool {
 }
 
 fn depth_map(
+    path: &str,
     adjustments: &Value,
     (width, height): (u32, u32),
     crop_offset: (f32, f32),
@@ -196,7 +198,8 @@ fn depth_map(
     let data_url = adjustments["motionBlurDepthMap"]
         .as_str()
         .filter(|map| !map.is_empty())?;
-    let map = crate::effect_maps::resolve_luma_map(data_url, adjustments)?;
+    let geometry = get_geometry_params_from_json(path, adjustments);
+    let map = crate::effect_maps::resolve_luma_map(data_url, adjustments, Some(&geometry))?;
     let longest = map.width().max(map.height());
     if map.width() < 2 || map.height() < 2 || extent < 1.0 {
         return None;
@@ -237,60 +240,70 @@ pub fn cache_key(
     hasher.finish()
 }
 
-fn perceptual(is_raw: bool) -> impl Fn(f32) -> f32 + Sync {
-    move |v: f32| {
-        let v = v.max(0.0);
-        if !is_raw {
-            v
-        } else if v <= 0.0031308 {
-            v * 12.92
-        } else {
-            1.055 * v.powf(1.0 / 2.4) - 0.055
-        }
+pub fn estimate_grain(
+    context: &crate::image_processing::GpuContext,
+    image: &wgpu::TextureView,
+    (w, h): (u32, u32),
+    is_raw: bool,
+) -> Result<f32, String> {
+    const BLOCK: u32 = 8;
+    if w <= BLOCK + 2 || h <= BLOCK + 2 {
+        return Ok(0.0);
     }
+    let stride = ((w as f32 * h as f32 / 4096.0).sqrt().max(BLOCK as f32) as u32).max(1);
+    let blocks = (
+        (w - BLOCK - 2).div_ceil(stride),
+        (h - BLOCK - 2).div_ceil(stride),
+    );
+    let count = (blocks.0 * blocks.1) as usize;
+    let bytes = count as u64 * 4;
+    let readback = context.device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("Grain Readback"),
+        size: bytes,
+        usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+        mapped_at_creation: false,
+    });
+    crate::gpu_compute::encode(context, |enc| {
+        let energies = enc.buffer("Grain Blocks", &vec![0u8; bytes as usize]);
+        enc.run(
+            crate::gpu_compute::Group::Transform,
+            "tf_grain",
+            &crate::render_source::TransformParams::grain(stride, blocks, is_raw),
+            blocks,
+            &[image],
+            crate::gpu_compute::Out::None,
+            crate::gpu_compute::Bind {
+                scratch: Some(&energies),
+                ..Default::default()
+            },
+        );
+        enc.encoder
+            .copy_buffer_to_buffer(&energies, 0, &readback, 0, bytes);
+    })?;
+
+    let (tx, rx) = std::sync::mpsc::channel();
+    readback
+        .slice(..)
+        .map_async(wgpu::MapMode::Read, move |result| {
+            let _ = tx.send(result);
+        });
+    context
+        .device
+        .poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: Some(std::time::Duration::from_secs(10)),
+        })
+        .map_err(|e| e.to_string())?;
+    rx.recv()
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?;
+    let mut energies: Vec<f32> =
+        bytemuck::cast_slice(&readback.slice(..).get_mapped_range()).to_vec();
+    readback.unmap();
+    Ok(grain_from_blocks(&mut energies))
 }
 
-pub fn estimate_grain(image: &DynamicImage, is_raw: bool) -> f32 {
-    let owned;
-    let (raw, channels) = match image {
-        DynamicImage::ImageRgb32F(buffer) => (buffer.as_raw(), 3),
-        DynamicImage::ImageRgba32F(buffer) => (buffer.as_raw(), 4),
-        _ => {
-            owned = image.to_rgb32f();
-            (owned.as_raw(), 3)
-        }
-    };
-    let (w, h) = (image.width() as usize, image.height() as usize);
-    if w < GRAIN_BLOCK + 2 || h < GRAIN_BLOCK + 2 {
-        return 0.0;
-    }
-    let encode = perceptual(is_raw);
-    let luma = |x: usize, y: usize| {
-        let i = (y * w + x) * channels;
-        encode(0.2126 * raw[i] + 0.7152 * raw[i + 1] + 0.0722 * raw[i + 2])
-    };
-    let stride = ((w * h) as f32 / GRAIN_BLOCKS)
-        .sqrt()
-        .max(GRAIN_BLOCK as f32) as usize;
-
-    let mut blocks: Vec<f32> = (1..h - GRAIN_BLOCK - 1)
-        .into_par_iter()
-        .step_by(stride)
-        .flat_map_iter(|y0| {
-            (1..w - GRAIN_BLOCK - 1).step_by(stride).map(move |x0| {
-                let mut energy = 0.0;
-                for y in y0..y0 + GRAIN_BLOCK {
-                    for x in x0..x0 + GRAIN_BLOCK {
-                        let around =
-                            luma(x - 1, y) + luma(x + 1, y) + luma(x, y - 1) + luma(x, y + 1);
-                        let r = luma(x, y) - 0.25 * around;
-                        energy += r * r;
-                    }
-                }
-                (energy / (GRAIN_BLOCK * GRAIN_BLOCK) as f32).sqrt()
-            })
-        })
-        .collect();
+fn grain_from_blocks(blocks: &mut [f32]) -> f32 {
     if blocks.is_empty() {
         return 0.0;
     }

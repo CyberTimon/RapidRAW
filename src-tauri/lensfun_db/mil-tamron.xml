@@ -1132,4 +1132,26 @@
         </calibration>
     </lens>
 
+	<lens>
+        <maker>Tamron</maker>
+        <model>Tamron 70-300mm F/4.5-6.3 Di III RXD A047Z/E</model>
+        <model lang="en">Tamron 70-300mm F/4.5-6.3 Di III RXD</model>
+        <mount>Nikon Z</mount>
+        <mount>Sony E</mount>
+        <cropfactor>1</cropfactor>
+        <calibration>
+            <!-- Taken with Nikon Z5 MII -->
+            <distortion model="ptlens" focal="70" a="0.0014354" b="-0.0042749" c="0.0018292"/>
+            <distortion model="ptlens" focal="100" a="-0.0042268" b="0.0210729" c="-0.0056595"/>
+            <distortion model="ptlens" focal="135" a="0.0028748" b="0.0079077" c="0.0041324"/>
+            <distortion model="ptlens" focal="200" a="-0.0108953" b="0.0541951" c="-0.0436445"/>
+            <distortion model="ptlens" focal="300" a="0.003306" b="0.0040682" c="0.0065768"/>
+            <tca model="poly3" focal="70" vr="1.0000829" vb="1.0000258"/>
+            <tca model="poly3" focal="100" vr="1.0000199" vb="0.9999705"/>
+            <tca model="poly3" focal="135" vr="0.9999919" vb="0.9999382"/>
+            <tca model="poly3" focal="200" vr="0.9999501" vb="0.9999018"/>
+            <tca model="poly3" focal="300" vr="0.9999011" vb="0.9998533"/>
+        </calibration>
+    </lens>
+
 </lensdatabase>
