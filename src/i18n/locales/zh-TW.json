@@ -2201,8 +2201,6 @@
       "smallThumbnailRes": "網格縮圖解析度",
       "smallThumbnailResDesc": "圖庫網格中顯示的縮圖解析度。",
       "staticDesc": "編輯器以固定解析度渲染影像。此模式最快且最一致，非常適合低端硬體，優先考慮流暢效能而非畫素完美的縮放。",
-      "staticPreviewRes": "靜態預覽解析度",
-      "staticPreviewResDesc": "設定靜態預覽的解析度，如裁剪模式、鏡頭校正和透視工具。不影響主編輯器預覽。",
       "threads": "執行緒數",
       "thumbnailRes": "縮圖解析度",
       "thumbnailResDesc": "確定生成的相簿縮圖的解析度。較高的值可在載入時產生更清晰的影像。",

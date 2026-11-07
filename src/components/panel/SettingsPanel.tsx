@@ -1931,20 +1931,6 @@ export default function SettingsPanel({
                                 </Text>
                                 <div className="pl-4 border-l-2 border-border-color ml-1 space-y-3">
                                   <SettingItem
-                                    description={t('settings.processing.staticPreviewResDesc')}
-                                    label={t('settings.processing.staticPreviewRes')}
-                                  >
-                                    <Dropdown
-                                      onChange={(value: any) =>
-                                        handleProcessingSettingChange('editorPreviewResolution', value)
-                                      }
-                                      options={resolutions}
-                                      value={processingSettings.editorPreviewResolution}
-                                      triggerClassName="bg-bg-primary"
-                                    />
-                                  </SettingItem>
-
-                                  <SettingItem
                                     label={t('settings.processing.renderScale')}
                                     description={t('settings.processing.renderScaleDesc')}
                                   >

@@ -2207,8 +2207,6 @@
       "smallThumbnailRes": "Grid Thumbnail Resolution",
       "smallThumbnailResDesc": "Resolution of thumbnails shown in the library grid.",
       "staticDesc": "The editor renders the image at a fixed resolution. This mode is the fastest and most consistent, making it ideal for lower-end hardware where smooth performance is prioritized over pixel-perfect zoom.",
-      "staticPreviewRes": "Static Preview Resolution",
-      "staticPreviewResDesc": "Sets the resolution for static previews like crop mode, lens correction, and perspective tools. Does not affect the main editor preview.",
       "threads": "Threads",
       "thumbnailRes": "Thumbnail Resolution",
       "thumbnailResDesc": "Determines the resolution of generated library thumbnails. Higher values produce sharper images during loading.",

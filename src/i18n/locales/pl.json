@@ -2289,8 +2289,6 @@
       "smallThumbnailRes": "Rozdzielczość miniatur w siatce",
       "smallThumbnailResDesc": "Rozdzielczość miniatur wyświetlanych w siatce biblioteki.",
       "staticDesc": "Edytor renderuje obraz w stałej rozdzielczości. Ten tryb jest najszybszy i najbardziej spójny, idealny dla słabszych komputerów, gdzie priorytetem jest płynne działanie a nie perfekcyjna jakość po zbliżeniu.",
-      "staticPreviewRes": "Rozdzielczość statycznego podglądu",
-      "staticPreviewResDesc": "Określa rozdzielczość dla statycznych podglądów, takich jak tryb kadrowania i narzędzia perspektywy. Nie wpływa to na podgląd głównego edytora.",
       "threads": "Wątki",
       "thumbnailRes": "Rozdzielczość miniatur",
       "thumbnailResDesc": "Decyduje o rozdzielczości generowanych miniatur w bibliotece. Wyższa wartość da ostrzejszy obraz po wczytaniu.",

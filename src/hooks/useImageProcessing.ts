@@ -320,8 +320,26 @@ export function useImageProcessing(
     [],
   );
 
+  const fittedDisplayMax = useMemo(() => {
+    if (!selectedImage?.width || !selectedImage?.height) return 0;
+    const isSwapped = (adjustments.orientationSteps || 0) % 2 === 1;
+    const width = adjustments.crop ? adjustments.crop.width : isSwapped ? selectedImage.height : selectedImage.width;
+    const height = adjustments.crop ? adjustments.crop.height : isSwapped ? selectedImage.width : selectedImage.height;
+    const containerWidth = baseRenderSize.containerWidth || window.innerWidth;
+    const containerHeight = baseRenderSize.containerHeight || window.innerHeight;
+    if (!width || !height || !containerWidth || !containerHeight) return 0;
+    return Math.max(width, height) * Math.min(containerWidth / width, containerHeight / height);
+  }, [
+    selectedImage?.width,
+    selectedImage?.height,
+    adjustments.crop,
+    adjustments.orientationSteps,
+    baseRenderSize.containerWidth,
+    baseRenderSize.containerHeight,
+  ]);
+
   const calculateTargetRes = useCallback(
-    (displayMax: number = displaySize.width === 0 ? 0 : Math.max(displaySize.width, displaySize.height)) => {
+    (displayMax: number = fittedDisplayMax * (transformWrapperRef.current?.instance.transformState?.scale || 1)) => {
       const dpr = getDevicePixelRatio();
       const originalMax =
         originalSize.width > 0 && originalSize.height > 0 ? Math.max(originalSize.width, originalSize.height) : 0;
@@ -332,7 +350,7 @@ export function useImageProcessing(
         originalMax,
       );
     },
-    [appSettings, displaySize.width, displaySize.height, originalSize],
+    [appSettings, fittedDisplayMax, transformWrapperRef, originalSize],
   );
 
   const uncroppedTargetRes = useMemo(() => {

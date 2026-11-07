@@ -70,7 +70,6 @@ interface EditorState {
   isSpeedEditActive: boolean;
   zoom: number;
   displaySize: ImageDimensions;
-  previewSize: ImageDimensions;
   baseRenderSize: BaseRenderSize;
   originalSize: ImageDimensions;
 
@@ -165,7 +164,6 @@ export const useEditorStore = create<EditorState>((set) => ({
 
   zoom: 1,
   displaySize: { width: 0, height: 0 },
-  previewSize: { width: 0, height: 0 },
   baseRenderSize: { width: 0, height: 0, offsetX: 0, offsetY: 0, containerWidth: 0, containerHeight: 0 },
   originalSize: { width: 0, height: 0 },
 

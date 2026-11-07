@@ -2341,8 +2341,6 @@
       "smallThumbnailRes": "Tinklelio miniatiūrų raiška",
       "smallThumbnailResDesc": "Bibliotekos tinklelyje rodomų miniatiūrų raiška.",
       "staticDesc": "Redaktorius atvaizduoja nuotrauką fiksuota raiška. Šis režimas yra greičiausias ir nuosekliausias, idealiai tinkantis silpnesnei įrangai.",
-      "staticPreviewRes": "Statinės peržiūros raiška",
-      "staticPreviewResDesc": "Nustato raišką statinėms peržiūroms (kadravimo, objektyvo korekcijos ir perspektyvos įrankiuose). Nepaveikia pagrindinės redaktoriaus peržiūros.",
       "threads": "Gijos",
       "thumbnailRes": "Miniatiūrų raiška",
       "thumbnailResDesc": "Nustato generuojamų bibliotekos miniatiūrų raišką. Didesnės reikšmės užtikrina ryškesnį vaizdą įkeliant.",

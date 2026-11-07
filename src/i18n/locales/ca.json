@@ -2248,8 +2248,6 @@
       "smallThumbnailRes": "Resolució de les miniatures de la quadrícula",
       "smallThumbnailResDesc": "Resolució de les miniatures que es mostren a la quadrícula de la biblioteca.",
       "staticDesc": "L'editor renderitza la imatge a una resolució fixa. Aquest mode és el més ràpid i consistent, la qual cosa el fa ideal per a maquinari de gamma baixa on es prioritza el rendiment suau per damunt d'un zoom amb píxels perfectes.",
-      "staticPreviewRes": "Resolució de la vista prèvia estàtica",
-      "staticPreviewResDesc": "Estableix la resolució per a les vistes prèvies estàtiques com ara el mode de retall, la correcció de l'objectiu i les eines de perspectiva. No afecta la vista prèvia principal de l'editor.",
       "threads": "Fils (Threads)",
       "thumbnailRes": "Resolució de la miniatura",
       "thumbnailResDesc": "Determina la resolució de les miniatures generades per a la biblioteca. Valors més alts produeixen imatges més nítides durant la càrrega.",

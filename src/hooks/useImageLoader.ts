@@ -15,7 +15,6 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
   const finalPreviewUrl = useEditorStore((s) => s.finalPreviewUrl);
   const uncroppedAdjustedPreviewUrl = useEditorStore((s) => s.uncroppedAdjustedPreviewUrl);
   const originalSize = useEditorStore((s) => s.originalSize);
-  const previewSize = useEditorStore((s) => s.previewSize);
   const wgpuPhase = useEditorStore((s) => s.wgpuPhase);
 
   const setEditor = useEditorStore((s) => s.setEditor);
@@ -58,23 +57,6 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
 
           const { width, height } = loadImageResult;
           setEditor({ originalSize: { width, height } });
-
-          if (appSettings?.editorPreviewResolution) {
-            const maxSize = appSettings.editorPreviewResolution;
-            const aspectRatio = width / height;
-
-            if (width > height) {
-              const pWidth = Math.min(width, maxSize);
-              const pHeight = Math.round(pWidth / aspectRatio);
-              setEditor({ previewSize: { width: pWidth, height: pHeight } });
-            } else {
-              const pHeight = Math.min(height, maxSize);
-              const pWidth = Math.round(pHeight * aspectRatio);
-              setEditor({ previewSize: { width: pWidth, height: pHeight } });
-            }
-          } else {
-            setEditor({ previewSize: { width: 0, height: 0 } });
-          }
 
           setEditor((state) => {
             if (state.selectedImage && state.selectedImage.path === selectedImage.path) {
@@ -122,7 +104,6 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
   }, [
     selectedImage?.path,
     selectedImage?.isReady,
-    appSettings?.editorPreviewResolution,
     resetHistory,
     setEditor,
     setLibrary,
@@ -138,7 +119,6 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
         uncroppedPreviewUrl: uncroppedAdjustedPreviewUrl,
         selectedImage,
         originalSize,
-        previewSize,
       };
     } else {
       cachedEditStateRef.current = null;
@@ -151,7 +131,6 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
     finalPreviewUrl,
     uncroppedAdjustedPreviewUrl,
     originalSize,
-    previewSize,
     isWgpuActive,
     cachedEditStateRef,
   ]);

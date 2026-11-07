@@ -2248,8 +2248,6 @@
       "smallThumbnailRes": "Risoluzione delle miniature della griglia",
       "smallThumbnailResDesc": "Risoluzione delle miniature mostrate nella griglia della libreria.",
       "staticDesc": "L'editor renderizza l'immagine a una risoluzione fissa. Questa modalità è la più veloce e coerente, rendendola ideale per hardware meno potenti dove si privilegia una prestazione fluida rispetto a uno zoom perfetto al pixel.",
-      "staticPreviewRes": "Risoluzione Anteprima Statica",
-      "staticPreviewResDesc": "Imposta la risoluzione per le anteprime statiche come la modalità ritaglio, la correzione obiettivo e gli strumenti di prospettiva. Non influisce sull'anteprima principale dell'editor.",
       "threads": "Thread",
       "thumbnailRes": "Risoluzione Miniatura",
       "thumbnailResDesc": "Determina la risoluzione delle miniature della libreria generate. Valori più alti producono immagini più nitide durante il caricamento.",

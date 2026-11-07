@@ -2207,8 +2207,6 @@
       "smallThumbnailRes": "Raster-Miniaturbild-Auflösung",
       "smallThumbnailResDesc": "Auflösung der Miniaturbilder, die im Bibliotheksraster angezeigt werden.",
       "staticDesc": "Der Editor rendert das Bild in einer festen Auflösung. Dieser Modus ist am schnellsten und am besten für schwächere Hardware geeignet.",
-      "staticPreviewRes": "Statische Vorschauauflösung",
-      "staticPreviewResDesc": "Legt die Auflösung für statische Vorschauen wie Zuschnitt und Perspektive fest. Beeinflusst nicht die Hauptvorschau.",
       "threads": "Threads",
       "thumbnailRes": "Miniaturbild-Auflösung",
       "thumbnailResDesc": "Bestimmt die Auflösung der generierten Bibliothek-Miniaturbilder. Höhere Werte erzeugen schärfere Bilder.",

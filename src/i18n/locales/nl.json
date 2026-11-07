@@ -2203,8 +2203,6 @@
       "smallThumbnailRes": "Rasterminiatuurresolutie",
       "smallThumbnailResDesc": "Resolutie van miniaturen weergegeven in het bibliotheekoverzicht.",
       "staticDesc": "De editor rendert de afbeelding op een vaste resolutie. Deze modus is het snelst en meest consistent, waardoor het ideaal is voor minder krachtige hardware waar vloeiende prestaties prioriteit hebben boven pixelperfecte zoom.",
-      "staticPreviewRes": "Statische voorbeeldresolutie",
-      "staticPreviewResDesc": "Stelt de resolutie in voor statische voorbeelden zoals bijsnijdmodus, lenscorrectie en perspectief-tools. Heeft geen invloed op het hoofdeditorvoorbeeld.",
       "threads": "Threads",
       "thumbnailRes": "Miniatuurresolutie",
       "thumbnailResDesc": "Bepaalt de resolutie van gegenereerde bibliotheekminiaturen. Hogere waarden produceren scherpere afbeeldingen tijdens het laden.",

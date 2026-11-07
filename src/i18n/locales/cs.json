@@ -2289,8 +2289,6 @@
       "smallThumbnailRes": "Rozlišení miniatur mřížky",
       "smallThumbnailResDesc": "Rozlišení miniatur zobrazených v mřížce knihovny.",
       "staticDesc": "Editor vykresluje snímek v pevném rozlišení. Tento režim je nejrychlejší a nejkonzistentnější, takže je ideální pro slabší hardware, kde je plynulý výkon důležitější než pixelově přesné přiblížení.",
-      "staticPreviewRes": "Rozlišení statického náhledu",
-      "staticPreviewResDesc": "Nastaví rozlišení pro statické náhledy, jako je režim oříznutí, korekce objektivu a nástroje perspektivy. Neovlivňuje hlavní náhled editoru.",
       "threads": "Vlákna",
       "thumbnailRes": "Rozlišení miniatur",
       "thumbnailResDesc": "Určuje rozlišení generovaných miniatur knihovny. Vyšší hodnoty produkují ostřejší snímky během načítání.",

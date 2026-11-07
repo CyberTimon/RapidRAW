@@ -2249,8 +2249,6 @@
       "smallThumbnailRes": "Résolution des vignettes de la grille",
       "smallThumbnailResDesc": "Résolution des vignettes affichées dans la grille de la bibliothèque.",
       "staticDesc": "L'éditeur effectue le rendu de l'image à une résolution fixe. Ce mode est le plus rapide et le plus constant, ce qui le rend idéal pour le matériel moins puissant où une performance fluide est privilégiée par rapport à un zoom au pixel près.",
-      "staticPreviewRes": "Résolution d'aperçu statique",
-      "staticPreviewResDesc": "Définit la résolution pour les aperçus statiques comme le mode recadrage, la correction de l'objectif et les outils de perspective. N'affecte pas l'aperçu principal de l'éditeur.",
       "threads": "Threads",
       "thumbnailRes": "Résolution des miniatures",
       "thumbnailResDesc": "Détermine la résolution des miniatures générées dans la bibliothèque. Des valeurs plus élevées produisent des images plus nettes pendant le chargement.",

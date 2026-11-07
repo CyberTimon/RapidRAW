@@ -2201,8 +2201,6 @@
       "smallThumbnailRes": "网格缩略图分辨率",
       "smallThumbnailResDesc": "图库网格中显示的缩略图分辨率。",
       "staticDesc": "编辑器以固定分辨率渲染图像。此模式最快且最一致，非常适合低端硬件，优先考虑流畅性能而非像素完美的缩放。",
-      "staticPreviewRes": "静态预览分辨率",
-      "staticPreviewResDesc": "设置静态预览的分辨率，如裁剪模式、镜头校正和透视工具。不影响主编辑器预览。",
       "threads": "线程数",
       "thumbnailRes": "缩略图分辨率",
       "thumbnailResDesc": "确定生成的图库缩略图的分辨率。较高的值可在加载时产生更清晰的图像。",

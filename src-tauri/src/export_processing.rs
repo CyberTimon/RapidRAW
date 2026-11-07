@@ -2488,13 +2488,13 @@ pub async fn estimate_export_sizes(
         let mut adjustments_clone = current_edit_adjustments.clone().unwrap();
         hydrate_adjustments(&state, &mut adjustments_clone);
 
+        const ESTIMATE_DIM: u32 = 1920;
+
         let new_transform_hash = calculate_transform_hash(&adjustments_clone);
         let cached_preview_lock = state.cached_preview.lock().unwrap();
-        let preview_dim = settings.editor_preview_resolution.unwrap_or(1920);
-
         let cached = cached_preview_lock
             .as_ref()
-            .filter(|c| c.transform_hash == new_transform_hash && c.preview_dim == preview_dim)
+            .filter(|c| c.transform_hash == new_transform_hash)
             .map(|c| c.preview.clone());
         drop(cached_preview_lock);
         let preview = match cached {
@@ -2504,12 +2504,15 @@ pub async fn estimate_export_sizes(
                 &context,
                 &loaded_image,
                 &adjustments_clone,
-                preview_dim,
+                ESTIMATE_DIM,
             )?,
         };
-        let (scale, unscaled_crop_offset) = (preview.scale, preview.unscaled_crop_offset);
-        let source = preview.render_source(&adjustments_clone);
+        let unscaled_crop_offset = preview.unscaled_crop_offset;
+        let mut source = preview.render_source(&adjustments_clone);
+        let (source_w, _) = source.size();
+        source.transform.output_fit = Some((ESTIMATE_DIM, ESTIMATE_DIM));
         let (img_w, img_h) = source.size();
+        let scale = preview.scale * img_w as f32 / source_w.max(1) as f32;
         let mask_definitions: Vec<MaskDefinition> = adjustments_clone
             .get("masks")
             .and_then(|m| serde_json::from_value(m.clone()).ok())

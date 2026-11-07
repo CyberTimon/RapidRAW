@@ -2248,8 +2248,6 @@
       "smallThumbnailRes": "Resolução das miniaturas da grade",
       "smallThumbnailResDesc": "Resolução das miniaturas exibidas na grade da biblioteca.",
       "staticDesc": "O editor renderiza a imagem em uma resolução fixa. Esse modo é o mais rápido e consistente, tornando-o ideal para hardware de baixo desempenho, onde o desempenho suave é priorizado sobre o zoom com pixels perfeitos.",
-      "staticPreviewRes": "Resolução de Visualização Estática",
-      "staticPreviewResDesc": "Define a resolução para visualizações estáticas como modo de corte, correção de lente e ferramentas de perspectiva. Não afeta a visualização principal do editor.",
       "threads": "Threads",
       "thumbnailRes": "Resolução da Miniatura",
       "thumbnailResDesc": "Determina a resolução das miniaturas da biblioteca geradas. Valores mais altos produzem imagens mais nítidas durante o carregamento.",
