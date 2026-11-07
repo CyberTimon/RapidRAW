@@ -1425,7 +1425,7 @@ pub fn write_unique_output(
     }
     let mut temporary = builder.tempfile_in(dir)?;
     temporary.write_all(contents)?;
-    temporary.as_file().sync_all()?;
+    sync_file(temporary.as_file())?;
 
     let mut sidecar_sources = HashSet::new();
     for entry in fs::read_dir(dir)? {
