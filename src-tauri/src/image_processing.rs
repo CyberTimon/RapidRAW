@@ -1505,7 +1505,7 @@ pub struct GlobalAdjustments {
     pub chromatic_aberration_blue_yellow: f32,
     pub show_clipping: u32,
     pub is_raw_image: u32,
-    _pad_ca1: f32,
+    pub grain_softness: f32,
 
     pub has_lut: u32,
     pub lut_intensity: f32,
@@ -1701,8 +1701,8 @@ const SCALES: AdjustmentScales = AdjustmentScales {
     vignette_midpoint: 100.0,
     vignette_roundness: 100.0,
     vignette_feather: 100.0,
-    grain_amount: 200.0,
-    grain_size: 50.0,
+    grain_amount: 250.0,
+    grain_size: 60.0,
     grain_roughness: 100.0,
 
     chromatic_aberration: 10000.0,
@@ -2448,6 +2448,9 @@ fn get_global_adjustments_from_json(
         (0, 1.0, 0)
     };
 
+    let grain_amount = get_val("grain", "grainAmount", SCALES.grain_amount, None);
+    let grain_size = 0.243 * get_val("grain", "grainSize", SCALES.grain_size, Some(25.0)).exp2();
+
     GlobalAdjustments {
         exposure: get_val("basic", "exposure", SCALES.exposure, None) + baseline_exposure,
         brightness: get_val("basic", "brightness", SCALES.brightness, None),
@@ -2515,8 +2518,8 @@ fn get_global_adjustments_from_json(
             SCALES.vignette_feather,
             Some(50.0),
         ),
-        grain_amount: get_val("grain", "grainAmount", SCALES.grain_amount, None),
-        grain_size: get_val("grain", "grainSize", SCALES.grain_size, Some(25.0)),
+        grain_amount,
+        grain_size,
         grain_roughness: get_val(
             "grain",
             "grainRoughness",
@@ -2542,7 +2545,7 @@ fn get_global_adjustments_from_json(
             0
         },
         is_raw_image: if is_raw { 1 } else { 0 },
-        _pad_ca1: 0.0,
+        grain_softness: (grain_amount * 3.75).min(1.0) * grain_size.min(1.0) * 0.75,
 
         has_lut,
         lut_intensity,

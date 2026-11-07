@@ -82,7 +82,7 @@ struct GlobalAdjustments {
     chromatic_aberration_blue_yellow: f32,
     show_clipping: u32,
     is_raw_image: u32,
-    _pad_ca1: f32,
+    grain_softness: f32,
 
     has_lut: u32,
     lut_intensity: f32,
@@ -371,31 +371,68 @@ fn get_raw_hsl_influence(hue: f32, center: f32, width: f32) -> f32 {
     return exp(-sharpness * falloff * falloff);
 }
 
-fn hash(p: vec2<f32>) -> f32 {
-    var p3  = fract(vec3<f32>(p.xyx) * .1031);
-    p3 += dot(p3, p3.yzx + 33.33);
-    return fract((p3.x + p3.y) * p3.z);
+fn grain_hash(cell: vec2<i32>, seed: u32) -> vec4<f32> {
+    var v = vec4<u32>(bitcast<u32>(cell.x), bitcast<u32>(cell.y), seed, 0x9e3779b9u) * 1664525u + 1013904223u;
+    v.x += v.y * v.w;
+    v.y += v.z * v.x;
+    v.z += v.x * v.y;
+    v.w += v.y * v.z;
+    v ^= v >> vec4<u32>(16u);
+    v.x += v.y * v.w;
+    v.y += v.z * v.x;
+    v.z += v.x * v.y;
+    v.w += v.y * v.z;
+    return vec4<f32>(v >> vec4<u32>(8u)) / 16777216.0;
 }
 
-fn gradient_noise(p: vec2<f32>) -> f32 {
-    let i = floor(p);
-    let f = fract(p);
-    let u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+fn grain_layer(p: vec2<f32>, cell: f32, seed: u32) -> f32 {
+    const LAYER_STD: f32 = 0.4018;
+    let size = max(cell, 1.0);
+    let q = p / size;
+    let base = vec2<i32>(floor(q));
+    var sum = 0.0;
+    for (var y = -1; y <= 1; y = y + 1) {
+        for (var x = -1; x <= 1; x = x + 1) {
+            let n = base + vec2<i32>(x, y);
+            let h = grain_hash(n, seed);
+            let offset = q - vec2<f32>(n) - h.xy;
+            let radius = 0.75 + 0.25 * h.z;
+            let falloff = max(1.0 - dot(offset, offset) / (radius * radius), 0.0);
+            sum += (h.w * 2.0 - 1.0) * falloff * falloff;
+        }
+    }
+    return sum * min(cell, 1.0) / LAYER_STD;
+}
 
-    let ga = vec2<f32>(hash(i + vec2(0.0, 0.0)), hash(i + vec2(0.0, 0.0) + vec2(11.0, 37.0))) * 2.0 - 1.0;
-    let gb = vec2<f32>(hash(i + vec2(1.0, 0.0)), hash(i + vec2(1.0, 0.0) + vec2(11.0, 37.0))) * 2.0 - 1.0;
-    let gc = vec2<f32>(hash(i + vec2(0.0, 1.0)), hash(i + vec2(0.0, 1.0) + vec2(11.0, 37.0))) * 2.0 - 1.0;
-    let gd = vec2<f32>(hash(i + vec2(1.0, 1.0)), hash(i + vec2(1.0, 1.0) + vec2(11.0, 37.0))) * 2.0 - 1.0;
+fn grain_clumps(p: vec2<f32>, cell: f32, seed: u32) -> f32 {
+    let size = max(cell, 1.0);
+    let q = p / size;
+    let i = vec2<i32>(floor(q));
+    let f = smoothstep(vec2<f32>(0.0), vec2<f32>(1.0), fract(q));
+    let a = grain_hash(i, seed).x;
+    let b = grain_hash(i + vec2<i32>(1, 0), seed).x;
+    let c = grain_hash(i + vec2<i32>(0, 1), seed).x;
+    let d = grain_hash(i + vec2<i32>(1, 1), seed).x;
+    return (mix(mix(a, b, f.x), mix(c, d, f.x), f.y) * 2.0 - 1.0) * min(cell, 1.0);
+}
 
-    let dot_00 = dot(ga, f - vec2(0.0, 0.0));
-    let dot_10 = dot(gb, f - vec2(1.0, 0.0));
-    let dot_01 = dot(gc, f - vec2(0.0, 1.0));
-    let dot_11 = dot(gd, f - vec2(1.0, 1.0));
+fn grain_octave(p: vec2<f32>, cell: f32, roughness: f32, seed: u32) -> f32 {
+    let fine = grain_layer(p, cell, seed * 3u);
+    let coarse = grain_layer(p, cell * 2.3, seed * 3u + 1u);
+    let clumps = grain_clumps(p, cell * 4.0, seed * 3u + 2u);
+    let layered = (fine + 0.7 * roughness * coarse) * (1.0 + 0.9 * roughness * clumps);
+    let r2 = roughness * roughness;
+    return layered / sqrt((1.0 + 0.49 * r2) * (1.0 + 0.149 * r2));
+}
 
-    let bottom_interp = mix(dot_00, dot_10, u.x);
-    let top_interp = mix(dot_01, dot_11, u.x);
-
-    return mix(bottom_interp, top_interp, u.y);
+fn film_grain(p: vec2<f32>, cell: f32, scale: f32, roughness: f32) -> f32 {
+    let level = log2(cell);
+    let base = floor(level);
+    let t = level - base;
+    let seed = u32(i32(base) + 64);
+    let a = grain_octave(p, exp2(base) * scale, roughness, seed);
+    let b = grain_octave(p, exp2(base + 1.0) * scale, roughness, seed + 1u);
+    return (a * (1.0 - t) + b * t) / sqrt((1.0 - t) * (1.0 - t) + t * t);
 }
 
 fn dither(coords: vec2<u32>) -> f32 {
@@ -1985,6 +2022,12 @@ fn main(
         );
     }
 
+    if (has_feature(F_GRAIN) && adjustments.global.grain_softness > 0.0) {
+        var grain_soft = sharpness_blurred;
+        if (is_raw == 0u) { grain_soft = srgb_to_linear(sharpness_blurred); }
+        locally_contrasted_rgb = mix(locally_contrasted_rgb, grain_soft, adjustments.global.grain_softness);
+    }
+
     let gf = sample_gf_coeffs(absolute_coord);
     let gf_luma = max(get_luma(max(locally_contrasted_rgb, vec3<f32>(0.0))), GF_LUMA_FLOOR);
     let gf_i = log2(gf_luma);
@@ -2166,18 +2209,11 @@ fn main(
     }
 
     if (has_feature(F_GRAIN) && adjustments.global.grain_amount > 0.0) {
-        let coord = vec2<f32>(absolute_coord_i);
-        let amount = adjustments.global.grain_amount * 0.5;
-        let grain_frequency = (1.0 / max(adjustments.global.grain_size, 0.1)) / scale;
-        let roughness = adjustments.global.grain_roughness;
-        let luma = max(0.0, get_luma(final_rgb));
-        let luma_mask = smoothstep(0.0, 0.15, luma) * (1.0 - smoothstep(0.6, 1.0, luma));
-        let base_coord = coord * grain_frequency;
-        let rough_coord = coord * grain_frequency * 0.6;
-        let noise_base = gradient_noise(base_coord);
-        let noise_rough = gradient_noise(rough_coord + vec2<f32>(5.2, 1.3));
-        let noise_val = mix(noise_base, noise_rough, roughness);
-        final_rgb += vec3<f32>(noise_val) * amount * luma_mask;
+        let coord = vec2<f32>(absolute_coord_i) + 0.5 - full_dims * 0.5;
+        let grain = film_grain(coord, adjustments.global.grain_size, scale, adjustments.global.grain_roughness);
+        let luma = clamp(get_luma(final_rgb), 0.0005, 0.9995);
+        let grained = luma / (luma + (1.0 - luma) * exp(-grain * adjustments.global.grain_amount));
+        final_rgb += vec3<f32>(grained - luma);
     }
 
     if (adjustments.global.show_clipping == 1u) {

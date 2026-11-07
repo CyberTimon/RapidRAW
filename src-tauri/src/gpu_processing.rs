@@ -3187,8 +3187,9 @@ impl GpuProcessor {
                 let need_structure =
                     any_term(adjustments.global.glow_amount, &|m| m.glow_amount, true);
 
-                let did_create_sharpness_blur =
-                    need_sharpen && run_blur(0, 1.0, &self.sharpness_blur_view);
+                let need_grain_softness = adjustments.global.grain_softness > 0.0;
+                let did_create_sharpness_blur = (need_sharpen || need_grain_softness)
+                    && run_blur(0, 1.0, &self.sharpness_blur_view);
                 let did_create_tonal_blur = need_sharpen && run_blur(1, 3.5, &self.tonal_blur_view);
                 let did_create_clarity_blur =
                     need_halation && run_blur(2, 8.0, &self.clarity_blur_view);
