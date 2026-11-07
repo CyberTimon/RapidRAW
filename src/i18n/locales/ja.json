@@ -1894,7 +1894,12 @@
       },
       "storageTitle": "ストレージ",
       "title": "データ管理",
-      "totalUsed": "RapidRAW はこのデバイスで {{size}} を使用しています。"
+      "totalUsed": "RapidRAW はこのデバイスで {{size}} を使用しています。",
+      "cacheLocation": "Cache location",
+      "cacheLocationDescription": "Choose an SSD for thumbnails and processing caches. RapidRAW creates a dedicated subfolder. Photos, edits, albums and Immich files stay where they are.",
+      "chooseCacheFolder": "Choose cache folder",
+      "defaultCacheFolder": "Use default",
+      "cacheRestartRequired": "Restart RapidRAW to use the new cache folder. The previous cache is kept; previews rebuild as needed."
     },
     "general": {
       "createXmp": "見つからないXMPファイルを作成",

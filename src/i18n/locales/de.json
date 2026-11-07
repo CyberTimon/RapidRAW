@@ -1900,7 +1900,12 @@
       },
       "storageTitle": "Speicher",
       "title": "Datenverwaltung",
-      "totalUsed": "RapidRAW belegt {{size}} auf diesem Gerät."
+      "totalUsed": "RapidRAW belegt {{size}} auf diesem Gerät.",
+      "cacheLocation": "Cache location",
+      "cacheLocationDescription": "Choose an SSD for thumbnails and processing caches. RapidRAW creates a dedicated subfolder. Photos, edits, albums and Immich files stay where they are.",
+      "chooseCacheFolder": "Choose cache folder",
+      "defaultCacheFolder": "Use default",
+      "cacheRestartRequired": "Restart RapidRAW to use the new cache folder. The previous cache is kept; previews rebuild as needed."
     },
     "general": {
       "createXmp": "Fehlende XMP-Dateien erstellen",

@@ -667,6 +667,8 @@ pub struct AppSettings {
     pub ai_cache_limit_gb: Option<u32>,
     #[serde(default)]
     pub thumbnail_cache_limit_gb: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_directory: Option<String>,
     #[serde(default)]
     pub ai_maps_cache_limit_gb: Option<u32>,
     #[serde(default)]
@@ -877,6 +879,7 @@ impl Default for AppSettings {
             image_cache_size: Some(5),
             ai_cache_limit_gb: Some(default_ai_cache_limit_gb()),
             thumbnail_cache_limit_gb: Some(default_thumbnail_cache_limit_gb()),
+            cache_directory: None,
             ai_maps_cache_limit_gb: Some(default_ai_maps_cache_limit_gb()),
             export_worker_threads: None,
             export_memory_limit: None,
@@ -1043,6 +1046,17 @@ pub fn set_ui_scale(scale: f64, app_handle: AppHandle) {
 
 #[tauri::command]
 pub fn save_settings(mut settings: AppSettings, app_handle: AppHandle) -> Result<(), String> {
+    let previous_cache_directory = load_settings(app_handle.clone())
+        .ok()
+        .and_then(|previous| previous.cache_directory);
+    settings.cache_directory = settings
+        .cache_directory
+        .filter(|path| !path.trim().is_empty());
+    if settings.cache_directory != previous_cache_directory
+        && let Some(parent) = &settings.cache_directory
+    {
+        crate::storage::prepare_custom_cache_dir(parent)?;
+    }
     let previous_gpu_acceleration = load_settings(app_handle.clone())
         .map(|previous| previous.ai_gpu_acceleration)
         .ok();
