@@ -1,7 +1,7 @@
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronDown, ImageOff, Upload, X, Trash2 } from 'lucide-react';
+import { Camera, ChevronDown, ImageOff, Loader2, Upload, X, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useContextMenu } from '../../context/ContextMenuContext';
@@ -49,8 +49,10 @@ export default function LUTControl({
   const { showContextMenu } = useContextMenu();
   const selectedImagePath = useEditorStore((state) => state.selectedImage?.path ?? null);
   const isImageReady = useEditorStore((state) => state.selectedImage?.isReady ?? false);
+  const isRawImage = useEditorStore((state) => state.selectedImage?.isRaw ?? false);
 
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isMatchingCamera, setIsMatchingCamera] = useState(false);
   const [entries, setEntries] = useState<LutEntry[]>([]);
   const [previews, setPreviews] = useState<Record<string, string | null>>({});
   const [isLoadingPreviews, setIsLoadingPreviews] = useState(false);
@@ -196,6 +198,20 @@ export default function LUTControl({
     }
   };
 
+  const handleMatchCamera = async () => {
+    setIsMatchingCamera(true);
+    try {
+      const path = await invoke<string>('fit_camera_look', {
+        jsAdjustments: useEditorStore.getState().adjustments,
+      });
+      onLutSelect(path, false);
+    } catch (err) {
+      toast.error(t('ui.lut.matchCameraFailed', { error: String(err) }));
+    } finally {
+      setIsMatchingCamera(false);
+    }
+  };
+
   const handleSwatchClick = (entry: LutEntry) => {
     onLutHover?.(null);
     if (entry.path === lutPath) {
@@ -300,6 +316,22 @@ export default function LUTControl({
             className="overflow-hidden"
           >
             <div className={`${lutName ? '' : 'mt-3'} pb-1 space-y-4`}>
+              {isRawImage && (
+                <div>
+                  <span className="text-sm font-medium text-text-secondary select-none block mb-2">
+                    {t('ui.lut.cameraLook')}
+                  </span>
+                  <button
+                    onClick={handleMatchCamera}
+                    disabled={isMatchingCamera || !isImageReady}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 rounded-md bg-bg-tertiary hover:bg-surface text-sm text-text-primary transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-default"
+                  >
+                    {isMatchingCamera ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
+                    {t('ui.lut.matchCamera')}
+                  </button>
+                </div>
+              )}
+
               {builtInLuts.length > 0 && (
                 <div>
                   <span className="text-sm font-medium text-text-secondary select-none block mb-2">
