@@ -1104,6 +1104,7 @@ pub struct FolderNode {
     pub has_subdirs: bool,
     pub modified: u64,
     pub created: u64,
+    pub unavailable: bool,
 }
 
 fn has_subdirs(path: &Path) -> bool {
@@ -1220,6 +1221,7 @@ fn scan_dir_lazy(
                 has_subdirs: has_any_subdirs,
                 modified: to_secs(mod_time),
                 created: to_secs(cre_time),
+                unavailable: false,
             }))
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -1286,6 +1288,7 @@ fn get_folder_tree_sync(
         has_subdirs,
         modified,
         created,
+        unavailable: false,
     })
 }
 
@@ -1337,20 +1340,30 @@ pub async fn get_pinned_folder_trees(
     show_image_counts: bool,
 ) -> Result<Vec<FolderNode>, String> {
     let result = tauri::async_runtime::spawn_blocking(move || {
-        let results: Vec<Result<FolderNode, String>> = paths
+        let folder_nodes: Vec<FolderNode> = paths
             .par_iter()
             .map(|path| {
                 get_folder_tree_sync(path.clone(), expanded_folders.clone(), show_image_counts)
+                    .unwrap_or_else(|error| {
+                        log::warn!("Failed to get folder tree for {}: {}", path, error);
+                        let name = Path::new(path)
+                            .file_name()
+                            .map(|name| name.to_string_lossy().into_owned())
+                            .unwrap_or_else(|| path.clone());
+                        FolderNode {
+                            name,
+                            path: path.clone(),
+                            children: Vec::new(),
+                            is_dir: true,
+                            image_count: 0,
+                            has_subdirs: false,
+                            modified: 0,
+                            created: 0,
+                            unavailable: true,
+                        }
+                    })
             })
             .collect();
-
-        let mut folder_nodes = Vec::new();
-        for result in results {
-            match result {
-                Ok(node) => folder_nodes.push(node),
-                Err(e) => log::warn!("Failed to get tree for pinned folder: {}", e),
-            }
-        }
         folder_nodes
     })
     .await;

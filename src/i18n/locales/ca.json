@@ -1296,9 +1296,11 @@
       "albumsEmpty": "Feu clic amb el botó dret per crear un àlbum.",
       "collapseSection": "Contraure {{section}}",
       "expandSection": "Expandir {{section}}",
+      "folderUnavailable": "No disponible",
       "loading": "S'estan carregant les carpetes...",
       "noFoldersFound": "No s'han trobat carpetes.",
       "openFolderInstruction": "Obriu una carpeta per veure la seva estructura.",
+      "retryFolder": "Torna-ho a provar",
       "searchPlaceholder": "Cercar carpetes...",
       "sections": {
         "albums": "Àlbums",
