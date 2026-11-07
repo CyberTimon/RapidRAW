@@ -444,3 +444,38 @@
     text-shadow: 0 0 18px rgba(255, 255, 255, 0.3);
   }
 }
+
+.ReactCrop {
+  --rc-drag-handle-size: 28px;
+  --rc-drag-handle-mobile-size: 40px;
+  --rc-drag-bar-size: 16px;
+}
+
+.ReactCrop .ReactCrop__drag-handle,
+.ReactCrop .ReactCrop__drag-handle:focus {
+  background: none;
+  border: none;
+}
+
+.ReactCrop .ReactCrop__drag-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+  background-color: var(--rc-drag-handle-bg-colour);
+  border: 1px solid var(--rc-border-color);
+}
+
+.ReactCrop .ReactCrop__drag-handle:focus::after {
+  background-color: var(--rc-focus-color);
+}
+
+@media (pointer: coarse) {
+  .ReactCrop .ReactCrop__drag-handle::after {
+    width: 24px;
+    height: 24px;
+  }
+}
