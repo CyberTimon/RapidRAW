@@ -26,6 +26,7 @@ import {
   FolderPlus,
   RefreshCw,
   Menu,
+  Target,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
@@ -356,6 +357,7 @@ function AlbumTreeNode({
   onSelectAlbum,
   onContextMenu,
   selectedAlbumId,
+  targetAlbumId,
   showImageCounts,
   isLayoutDragging,
 }: {
@@ -366,12 +368,15 @@ function AlbumTreeNode({
   onSelectAlbum: (id: string, name: string, images: string[]) => void;
   onContextMenu: (e: any, item: AlbumItem) => void;
   selectedAlbumId: string | null;
+  targetAlbumId: string | null;
   showImageCounts: boolean;
   isLayoutDragging: boolean;
 }) {
+  const { t } = useTranslation();
   const isGroup = item.type === 'group';
   const isExpanded = expandedGroups.has(item.id);
   const isSelected = item.id === selectedAlbumId;
+  const isTargetAlbum = !isGroup && item.id === targetAlbumId;
   const imageCount = getAlbumImageCount(item);
 
   const { setNodeRef, isOver, active } = useDroppable({
@@ -451,7 +456,15 @@ function AlbumTreeNode({
             {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </div>
         )}
-        {!isGroup && <div className="w-5 h-5 shrink-0" aria-hidden="true" />}
+        {!isGroup && (
+          <div
+            className="w-5 h-5 shrink-0 flex items-center justify-center"
+            aria-hidden={!isTargetAlbum}
+            data-tooltip={isTargetAlbum ? t('library.folders.targetAlbum') : undefined}
+          >
+            {isTargetAlbum && <Target size={14} className="text-accent" />}
+          </div>
+        )}
       </div>
 
       <AnimatePresence>
@@ -480,6 +493,7 @@ function AlbumTreeNode({
                       onSelectAlbum={onSelectAlbum}
                       onContextMenu={onContextMenu}
                       selectedAlbumId={selectedAlbumId}
+                      targetAlbumId={targetAlbumId}
                       showImageCounts={showImageCounts}
                       isLayoutDragging={isLayoutDragging}
                     />
@@ -716,6 +730,7 @@ export default function FolderTree({
     isTreeLoading: isLoading,
     albumTree,
     activeAlbumId,
+    targetAlbumId,
     expandedAlbumGroups,
     navHistory,
     navIndex,
@@ -728,6 +743,7 @@ export default function FolderTree({
       isTreeLoading: state.isTreeLoading,
       albumTree: state.albumTree,
       activeAlbumId: state.activeAlbumId,
+      targetAlbumId: state.targetAlbumId,
       expandedAlbumGroups: state.expandedAlbumGroups,
       navHistory: state.navHistory,
       navIndex: state.navIndex,
@@ -1035,6 +1051,7 @@ export default function FolderTree({
                                 onSelectAlbum={onSelectAlbum}
                                 onContextMenu={onAlbumContextMenu}
                                 selectedAlbumId={activeAlbumId}
+                                targetAlbumId={targetAlbumId}
                                 showImageCounts={showImageCounts && isHovering}
                                 isLayoutDragging={isLayoutDragging}
                               />

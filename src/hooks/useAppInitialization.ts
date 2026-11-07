@@ -3,13 +3,14 @@ import { invoke } from '@tauri-apps/api/core';
 import { useShallow } from 'zustand/react/shallow';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useUIStore, reconcileWorkspace } from '../store/useUIStore';
-import { useLibraryStore } from '../store/useLibraryStore';
+import { useLibraryStore, findAlbumById } from '../store/useLibraryStore';
 import { useEditorStore } from '../store/useEditorStore';
 import { useProcessStore } from '../store/useProcessStore';
 import { THEMES, DEFAULT_THEME_ID, ThemeProps } from '../utils/themes';
 import { COPYABLE_ADJUSTMENT_KEYS, withAdjustmentLayout } from '../utils/adjustments';
 import { setLocalUiScale } from '../utils/displayScale';
 import {
+  AlbumItem,
   FilterCriteria,
   Invokes,
   LibraryViewMode,
@@ -108,6 +109,7 @@ export const useAppInitialization = ({
     currentFolderPath,
     expandedFolders,
     activeAlbumId,
+    targetAlbumId,
     expandedAlbumGroups,
     setSortCriteria,
     setFilterCriteria,
@@ -119,6 +121,7 @@ export const useAppInitialization = ({
       currentFolderPath: state.currentFolderPath,
       expandedFolders: state.expandedFolders,
       activeAlbumId: state.activeAlbumId,
+      targetAlbumId: state.targetAlbumId,
       expandedAlbumGroups: state.expandedAlbumGroups,
       setSortCriteria: state.setSortCriteria,
       setFilterCriteria: state.setFilterCriteria,
@@ -148,8 +151,12 @@ export const useAppInitialization = ({
   }, [setSupportedTypes]);
 
   useEffect(() => {
-    Promise.all([invoke(Invokes.LoadSettings), invoke<boolean>(Invokes.IsTetheringSupported).catch(() => false)])
-      .then(async ([settings, isTetheringSupported]: [any, boolean]) => {
+    Promise.all([
+      invoke(Invokes.LoadSettings),
+      invoke<boolean>(Invokes.IsTetheringSupported).catch(() => false),
+      invoke<AlbumItem[]>(Invokes.GetAlbums).catch(() => [] as AlbumItem[]),
+    ])
+      .then(async ([settings, isTetheringSupported, albums]: [any, boolean, AlbumItem[]]) => {
         if (
           !settings.copyPasteSettings ||
           !settings.copyPasteSettings.includedAdjustments ||
@@ -267,6 +274,13 @@ export const useAppInitialization = ({
           });
         }
 
+        const initialTargetAlbumId =
+          settings?.targetAlbumId && findAlbumById(albums, settings.targetAlbumId) ? settings.targetAlbumId : null;
+        setLibrary({
+          albumTree: albums,
+          targetAlbumId: initialTargetAlbumId,
+        });
+
         invoke('frontend_ready')
           .then((launch: any) => {
             if (launch?.editSession) {
@@ -369,6 +383,13 @@ export const useAppInitialization = ({
       handleSettingsChange({ ...appSettings, filterCriteria });
     }
   }, [filterCriteria, appSettings, handleSettingsChange]);
+
+  useEffect(() => {
+    if (isInitialMount.current || !appSettings) return;
+    if ((appSettings.targetAlbumId ?? null) !== targetAlbumId) {
+      handleSettingsChange({ ...appSettings, targetAlbumId });
+    }
+  }, [targetAlbumId, appSettings, handleSettingsChange]);
 
   useEffect(() => {
     if (isInitialMount.current || !appSettings) return;

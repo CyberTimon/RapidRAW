@@ -51,8 +51,14 @@ export const useKeyboardShortcuts = ({
     setAdjustments,
     toggleCompare,
   } = useEditorActions();
-  const { handleRate, handleSetFlag, handleToggleFlag, handleSetColorLabel, handleClearSelection } =
-    useLibraryActions();
+  const {
+    handleRate,
+    handleSetFlag,
+    handleToggleFlag,
+    handleSetColorLabel,
+    handleClearSelection,
+    handleToggleTargetAlbum,
+  } = useLibraryActions();
 
   const sortedListRef = useRef(sortedImageList);
   useEffect(() => {
@@ -201,6 +207,14 @@ export const useKeyboardShortcuts = ({
         execute: (e: any, s: any) => {
           e.preventDefault();
           selectAdjacentImage(s, 1);
+        },
+      },
+      toggle_target_album: {
+        shouldFire: (s: ShortcutState) =>
+          !!s.editor.selectedImage || s.library.multiSelectedPaths.length > 0 || s.library.libraryActivePath !== null,
+        execute: (e: KeyboardEvent) => {
+          e.preventDefault();
+          handleToggleTargetAlbum();
         },
       },
       zoom_in_step: {

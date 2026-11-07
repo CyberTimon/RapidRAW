@@ -264,6 +264,7 @@
     "albums": {
       "alreadyAtRoot": "Již v kořenovém adresáři",
       "alreadyHere": "Již zde",
+      "clearTargetAlbum": "Zrušit cílové album",
       "confirmDeleteAlbum": "Potvrďte smazání alba",
       "confirmDeleteGroupEmpty": "Potvrďte odstranění skupiny alb",
       "confirmDeleteGroupNested": "Potvrďte smazání skupiny a všechna vnořená alba",
@@ -275,7 +276,8 @@
       "newGroup": "Nová skupina",
       "renameAlbum": "Přejmenovat album",
       "renameGroup": "Přejmenovat skupinu",
-      "rootDir": "Kořenový adresář"
+      "rootDir": "Kořenový adresář",
+      "setTargetAlbum": "Nastavit jako cílové album"
     },
     "autoAdjustModes": {
       "normal": "Normální",
@@ -456,7 +458,8 @@
       "failedMove": "Nepodařilo se přesunout soubory: {{err}}",
       "failedMoveError": "Přesun se nezdařil: {{err}}",
       "failedMoveInvalid": "Přesun se nezdařil: Cílová skupina nebyla nalezena nebo je neplatná.",
-      "failedRemoveImages": "Nepodařilo se odstranit snímky: {{err}}"
+      "failedRemoveImages": "Nepodařilo se odstranit snímky: {{err}}",
+      "noTargetAlbumSet": "Není nastaveno žádné cílové album. Klikněte pravým tlačítkem na album a vyberte „Nastavit jako cílové album“."
     }
   },
   "editor": {
@@ -1343,6 +1346,7 @@
         "name": "Abecedně"
       },
       "sourcesTitle": "Zdroje",
+      "targetAlbum": "Cílové album",
       "tooltips": {
         "clearSearch": "Vymazat vyhledávání",
         "collapse": "Sbalit",
@@ -1426,6 +1430,7 @@
       "expandFolder": "Rozbalit složku",
       "imagesCount_one": "1 snímek",
       "imagesCount_other": "{{count}} snímků",
+      "inTargetAlbum": "V cílovém albu: {{album}}",
       "rejected": "Odmítnuté",
       "tooltipAperture": "Clona",
       "tooltipFocalLength": "Ohnisková vzdálenost",
@@ -2076,6 +2081,7 @@
         "toggle_presets": "Přepnout panel předvolby",
         "toggle_reject": "Přepnout odmítnutí",
         "toggle_right_panel": "Přepnout pravý panel",
+        "toggle_target_album": "Přidat / odebrat z cílového alba",
         "toggle_viewer_window": "Přepnout druhé okno",
         "undo": "Zrušit úpravu",
         "unflag": "Odebrat příznak",

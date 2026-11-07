@@ -264,6 +264,7 @@
     "albums": {
       "alreadyAtRoot": "Already at Root",
       "alreadyHere": "Already Here",
+      "clearTargetAlbum": "Clear Target Album",
       "confirmDeleteAlbum": "Confirm Delete Album",
       "confirmDeleteGroupEmpty": "Confirm Delete Album Group",
       "confirmDeleteGroupNested": "Confirm Delete Group & All Nested Albums",
@@ -275,7 +276,8 @@
       "newGroup": "New Group",
       "renameAlbum": "Rename Album",
       "renameGroup": "Rename Group",
-      "rootDir": "Root Directory"
+      "rootDir": "Root Directory",
+      "setTargetAlbum": "Set Target Album"
     },
     "autoAdjustModes": {
       "normal": "Normal",
@@ -422,7 +424,8 @@
       "failedMove": "Failed to move files: {{err}}",
       "failedMoveError": "Failed to move: {{err}}",
       "failedMoveInvalid": "Failed to move: Target group not found or invalid.",
-      "failedRemoveImages": "Failed to remove images: {{err}}"
+      "failedRemoveImages": "Failed to remove images: {{err}}",
+      "noTargetAlbumSet": "No target album set. Right-click an album and select \"Set Target Album\"."
     }
   },
   "editor": {
@@ -1287,6 +1290,7 @@
         "name": "Alphabetically"
       },
       "sourcesTitle": "Sources",
+      "targetAlbum": "Target Album",
       "tooltips": {
         "clearSearch": "Clear search",
         "collapse": "Collapse",
@@ -1368,6 +1372,7 @@
       "expandFolder": "Expand Folder",
       "imagesCount_one": "1 image",
       "imagesCount_other": "{{count}} images",
+      "inTargetAlbum": "In Target Album: {{album}}",
       "rejected": "Rejected",
       "tooltipAperture": "Aperture",
       "tooltipFocalLength": "Focal Length",
@@ -1994,6 +1999,7 @@
         "toggle_presets": "Toggle Presets panel",
         "toggle_reject": "Toggle reject flag",
         "toggle_right_panel": "Toggle Right Panel",
+        "toggle_target_album": "Add / remove from Target Album",
         "toggle_viewer_window": "Toggle second window",
         "undo": "Undo adjustment",
         "unflag": "Remove flag",

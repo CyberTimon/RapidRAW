@@ -264,6 +264,7 @@
     "albums": {
       "alreadyAtRoot": "Al in de hoofdmap",
       "alreadyHere": "Al hier",
+      "clearTargetAlbum": "Doelalbum wissen",
       "confirmDeleteAlbum": "Album verwijderen bevestigen",
       "confirmDeleteGroupEmpty": "Albumgroep verwijderen bevestigen",
       "confirmDeleteGroupNested": "Groep en alle geneste albums verwijderen bevestigen",
@@ -275,7 +276,8 @@
       "newGroup": "Nieuwe groep",
       "renameAlbum": "Album hernoemen",
       "renameGroup": "Groep hernoemen",
-      "rootDir": "Hoofdmap"
+      "rootDir": "Hoofdmap",
+      "setTargetAlbum": "Instellen als doelalbum"
     },
     "autoAdjustModes": {
       "normal": "Normaal",
@@ -422,7 +424,8 @@
       "failedMove": "Bestanden verplaatsen mislukt: {{err}}",
       "failedMoveError": "Verplaatsen mislukt: {{err}}",
       "failedMoveInvalid": "Verplaatsen mislukt: doelgroep niet gevonden of ongeldig.",
-      "failedRemoveImages": "Afbeeldingen verwijderen mislukt: {{err}}"
+      "failedRemoveImages": "Afbeeldingen verwijderen mislukt: {{err}}",
+      "noTargetAlbumSet": "Geen doelalbum ingesteld. Klik met de rechtermuisknop op een album en kies \"Instellen als doelalbum\"."
     }
   },
   "editor": {
@@ -1287,6 +1290,7 @@
         "name": "Alfabetisch"
       },
       "sourcesTitle": "Bronnen",
+      "targetAlbum": "Doelalbum",
       "tooltips": {
         "clearSearch": "Zoekopdracht wissen",
         "collapse": "Inklappen",
@@ -1368,6 +1372,7 @@
       "expandFolder": "Map uitklappen",
       "imagesCount_one": "1 afbeelding",
       "imagesCount_other": "{{count}} afbeeldingen",
+      "inTargetAlbum": "In doelalbum: {{album}}",
       "rejected": "Afgewezen",
       "tooltipAperture": "Diafragma",
       "tooltipFocalLength": "Brandpuntsafstand",
@@ -1991,6 +1996,7 @@
         "toggle_metadata": "Metadatapaneel aan/uit",
         "toggle_presets": "Voorinstellingspaneel aan/uit",
         "toggle_right_panel": "Rechterpaneel aan/uit",
+        "toggle_target_album": "Toevoegen aan / verwijderen uit doelalbum",
         "toggle_viewer_window": "Tweede venster in-/uitschakelen",
         "undo": "Aanpassing ongedaan maken",
         "zoom_100": "Zoomen naar 100%",

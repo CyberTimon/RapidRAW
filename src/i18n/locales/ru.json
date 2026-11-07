@@ -264,6 +264,7 @@
     "albums": {
       "alreadyAtRoot": "Уже в корневом каталоге",
       "alreadyHere": "Уже здесь",
+      "clearTargetAlbum": "Сбросить целевой альбом",
       "confirmDeleteAlbum": "Подтвердить удаление альбома",
       "confirmDeleteGroupEmpty": "Подтвердить удаление группы альбомов",
       "confirmDeleteGroupNested": "Удалить группу и все вложенные альбомы",
@@ -275,7 +276,8 @@
       "newGroup": "Новая группа",
       "renameAlbum": "Переименовать альбом",
       "renameGroup": "Переименовать группу",
-      "rootDir": "Корневой каталог"
+      "rootDir": "Корневой каталог",
+      "setTargetAlbum": "Назначить целевым альбомом"
     },
     "autoAdjustModes": {
       "normal": "Обычная",
@@ -456,7 +458,8 @@
       "failedMove": "Не удалось переместить файлы: {{err}}",
       "failedMoveError": "Не удалось переместить: {{err}}",
       "failedMoveInvalid": "Не удалось переместить: целевая группа не найдена или недействительна.",
-      "failedRemoveImages": "Не удалось удалить изображения: {{err}}"
+      "failedRemoveImages": "Не удалось удалить изображения: {{err}}",
+      "noTargetAlbumSet": "Целевой альбом не выбран. Нажмите правой кнопкой мыши на альбом и выберите «Назначить целевым альбомом»."
     }
   },
   "editor": {
@@ -1343,6 +1346,7 @@
         "name": "По алфавиту"
       },
       "sourcesTitle": "Источники",
+      "targetAlbum": "Целевой альбом",
       "tooltips": {
         "clearSearch": "Очистить поиск",
         "collapse": "Свернуть",
@@ -1426,6 +1430,7 @@
       "imagesCount_many": "{{count}} изображений",
       "imagesCount_one": "{{count}} изображение",
       "imagesCount_other": "{{count}} изображений",
+      "inTargetAlbum": "В целевом альбоме: {{album}}",
       "rejected": "Отклонено",
       "tooltipAperture": "Диафрагма",
       "tooltipFocalLength": "Фокусное расстояние",
@@ -2076,6 +2081,7 @@
         "toggle_presets": "Панель пресетов",
         "toggle_reject": "Переключить отметку «отклонено»",
         "toggle_right_panel": "Показать/скрыть правую панель",
+        "toggle_target_album": "Добавить / удалить из целевого альбома",
         "toggle_viewer_window": "Переключить второе окно",
         "undo": "Отменить действие",
         "unflag": "Снять отметку",

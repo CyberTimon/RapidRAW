@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
-import { Image as ImageIcon, Star, SlidersHorizontal, Loader2, Pause } from 'lucide-react';
+import { Image as ImageIcon, Star, SlidersHorizontal, Loader2, Pause, Target } from 'lucide-react';
 import clsx from 'clsx';
 import { Grid, useGridCallbackRef } from 'react-window';
 import { useTranslation } from 'react-i18next';
@@ -10,7 +10,7 @@ import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { useProcessStore } from '../../store/useProcessStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
-import { useLibraryStore } from '../../store/useLibraryStore';
+import { useLibraryStore, getTargetAlbumInfo } from '../../store/useLibraryStore';
 import { useDraggable } from '@dnd-kit/core';
 import { useCtrlClickMenuGuard } from '../../hooks/useCtrlClickMenuGuard';
 
@@ -94,12 +94,17 @@ const FilmstripThumbnail = memo(
     const isVirtualCopy = path.includes('?vc=');
     const displayEditIcon = useSettingsStore((s) => s.appSettings?.displayEditIcon ?? true);
     const showEditIcon = isEdited && displayEditIcon;
+    const isInTargetAlbum = useLibraryStore((s) => getTargetAlbumInfo(s.albumTree, s.targetAlbumId).images.has(path));
+    const targetAlbumName = useLibraryStore((s) =>
+      isInTargetAlbum ? getTargetAlbumInfo(s.albumTree, s.targetAlbumId).name : null,
+    );
 
     const hasEditIcon = !!showEditIcon;
     const hasColorLabel = !!colorLabel;
     const isRejected = flag === ImageFlag.Reject;
     const hasRating = rating > 0 && !isRejected;
-    const hasOtherBadge = hasEditIcon || hasColorLabel || hasRating || !!flag;
+    const hasTargetAlbumBadge = isInTargetAlbum;
+    const hasOtherBadge = hasEditIcon || hasColorLabel || hasRating || !!flag || hasTargetAlbumBadge;
     const hasAnyOverlay = hasOtherBadge || isAiPending;
 
     const cleanPath = path.split('?')[0];
@@ -289,6 +294,23 @@ const FilmstripThumbnail = memo(
             </div>
 
             <FlagBadges flag={flag} hasPrecedingBadge={hasEditIcon || hasColorLabel || hasRating} />
+
+            <div
+              className={clsx(
+                'flex items-center shrink-0 transition-all duration-200 ease-out overflow-hidden',
+                hasTargetAlbumBadge
+                  ? 'max-w-4 opacity-100 scale-100'
+                  : 'max-w-0 opacity-0 scale-75 pointer-events-none',
+                hasTargetAlbumBadge && (hasEditIcon || hasColorLabel || hasRating || !!flag) ? 'ml-1.5' : 'ml-0',
+              )}
+              data-tooltip={
+                hasTargetAlbumBadge && targetAlbumName
+                  ? t('library.items.inTargetAlbum', { album: targetAlbumName })
+                  : undefined
+              }
+            >
+              <Target size={12} className="text-white" />
+            </div>
 
             <div
               className={clsx(

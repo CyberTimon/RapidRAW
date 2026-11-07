@@ -25,6 +25,7 @@ import {
   SquaresUnite,
   Palette,
   Tag,
+  Target,
   Trash2,
   Undo,
   X,
@@ -56,7 +57,7 @@ import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
 import { useContextMenu } from '../context/ContextMenuContext';
 import { useEditorStore } from '../store/useEditorStore';
-import { useLibraryStore } from '../store/useLibraryStore';
+import { useLibraryStore, findAlbumById } from '../store/useLibraryStore';
 import { JobKind, useProcessStore } from '../store/useProcessStore';
 import { useUIStore } from '../store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
@@ -1287,7 +1288,7 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
       event.stopPropagation();
 
       const { setUI } = useUIStore.getState();
-      const { albumTree, setLibrary } = useLibraryStore.getState();
+      const { albumTree, targetAlbumId, setLibrary } = useLibraryStore.getState();
 
       const findParentId = (
         nodes: AlbumItem[],
@@ -1413,6 +1414,19 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
         ...(item
           ? [
               { type: OPTION_SEPARATOR },
+              ...(item.type === 'album'
+                ? [
+                    {
+                      label:
+                        targetAlbumId === item.id
+                          ? t('contextMenus.albums.clearTargetAlbum')
+                          : t('contextMenus.albums.setTargetAlbum'),
+                      icon: Target,
+                      onClick: () => setLibrary({ targetAlbumId: targetAlbumId === item.id ? null : item.id }),
+                    },
+                    { type: OPTION_SEPARATOR },
+                  ]
+                : []),
               {
                 label:
                   item.type === 'group' ? t('contextMenus.albums.renameGroup') : t('contextMenus.albums.renameAlbum'),
@@ -1491,9 +1505,11 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
                           });
                       };
                       del(newTree);
+                      const nextTargetAlbumId =
+                        targetAlbumId && !findAlbumById(newTree, targetAlbumId) ? null : targetAlbumId;
                       invoke(Invokes.SaveAlbums, { tree: newTree })
-                        .then(() => invoke(Invokes.GetAlbums))
-                        .then((sorted: any) => setLibrary({ albumTree: sorted }))
+                        .then(() => invoke<AlbumItem[]>(Invokes.GetAlbums))
+                        .then((sorted) => setLibrary({ albumTree: sorted, targetAlbumId: nextTargetAlbumId }))
                         .catch((err) => toast.error(t('contextMenus.toasts.failedDelete', { err })));
                     },
                   },

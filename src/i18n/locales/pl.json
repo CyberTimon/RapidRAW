@@ -264,6 +264,7 @@
     "albums": {
       "alreadyAtRoot": "Już w katalogu głównym",
       "alreadyHere": "Już tutaj",
+      "clearTargetAlbum": "Wyczyść album docelowy",
       "confirmDeleteAlbum": "Potwierdź usunięcie albumu",
       "confirmDeleteGroupEmpty": "Potwierdź usunięcie grupy albumów",
       "confirmDeleteGroupNested": "Potwierdź usunięcie grupy i wszystkich albumów wewnątrz",
@@ -275,7 +276,8 @@
       "newGroup": "Nowa grupa",
       "renameAlbum": "Zmień nazwę albumu",
       "renameGroup": "Zmień nazwę grupy",
-      "rootDir": "Katalog główny"
+      "rootDir": "Katalog główny",
+      "setTargetAlbum": "Ustaw jako album docelowy"
     },
     "autoAdjustModes": {
       "normal": "Normalne",
@@ -456,7 +458,8 @@
       "failedMove": "Nie udało się przenieść plików: {{err}}",
       "failedMoveError": "Nie udało się przenieść: {{err}}",
       "failedMoveInvalid": "Nie udało się przenieść: Grupa docelowa nie znaleziona lub nieprawidłowa.",
-      "failedRemoveImages": "Nie udało się usunąć obrazów: {{err}}"
+      "failedRemoveImages": "Nie udało się usunąć obrazów: {{err}}",
+      "noTargetAlbumSet": "Nie ustawiono albumu docelowego. Kliknij album prawym przyciskiem myszy i wybierz „Ustaw jako album docelowy”."
     }
   },
   "editor": {
@@ -1343,6 +1346,7 @@
         "name": "Alfabetycznie"
       },
       "sourcesTitle": "Źródła",
+      "targetAlbum": "Album docelowy",
       "tooltips": {
         "clearSearch": "Wyczyść wyszukiwanie",
         "collapse": "Zwiń",
@@ -1426,6 +1430,7 @@
       "imagesCount_many": "{{count}} obrazów",
       "imagesCount_one": "1 obraz",
       "imagesCount_other": "{{count}} obrazów",
+      "inTargetAlbum": "W albumie docelowym: {{album}}",
       "rejected": "Odrzucone",
       "tooltipAperture": "Przysłona",
       "tooltipFocalLength": "Ogniskowa",
@@ -2076,6 +2081,7 @@
         "toggle_presets": "Przełącz panel Presety",
         "toggle_reject": "Przełącz oznaczenie odrzucenia",
         "toggle_right_panel": "Przełącz prawy panel",
+        "toggle_target_album": "Dodaj / usuń z albumu docelowego",
         "toggle_viewer_window": "Przełącz drugie okno",
         "undo": "Cofnij korektę",
         "unflag": "Usuń oznaczenie",

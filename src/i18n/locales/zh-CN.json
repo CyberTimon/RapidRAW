@@ -264,6 +264,7 @@
     "albums": {
       "alreadyAtRoot": "已在根目录",
       "alreadyHere": "已在此处",
+      "clearTargetAlbum": "取消目标相册",
       "confirmDeleteAlbum": "确认删除相册",
       "confirmDeleteGroupEmpty": "确认删除相册组",
       "confirmDeleteGroupNested": "确认删除组及所有嵌套相册",
@@ -275,7 +276,8 @@
       "newGroup": "新建组",
       "renameAlbum": "重命名相册",
       "renameGroup": "重命名组",
-      "rootDir": "根目录"
+      "rootDir": "根目录",
+      "setTargetAlbum": "设为目标相册"
     },
     "autoAdjustModes": {
       "normal": "标准",
@@ -422,7 +424,8 @@
       "failedMove": "移动文件失败：{{err}}",
       "failedMoveError": "移动失败：{{err}}",
       "failedMoveInvalid": "移动失败：未找到目标组或目标组无效。",
-      "failedRemoveImages": "移除图像失败：{{err}}"
+      "failedRemoveImages": "移除图像失败：{{err}}",
+      "noTargetAlbumSet": "未设置目标相册。请右键点击相册并选择“设为目标相册”。"
     }
   },
   "editor": {
@@ -942,7 +945,7 @@
       "tooltips": {
         "aperture": "光圈",
         "backToLibrary": "返回图库",
-        "compare": "前后对比（B）或模式（右键）",
+        "compare": "前后对比（Shift+B）或模式（右键）",
         "focalLength": "焦距",
         "fullscreen": "切换全屏（F）",
         "iso": "ISO",
@@ -1282,6 +1285,7 @@
         "name": "按字母顺序"
       },
       "sourcesTitle": "来源",
+      "targetAlbum": "目标相册",
       "tooltips": {
         "clearSearch": "清除搜索",
         "collapse": "折叠",
@@ -1363,6 +1367,7 @@
       "expandFolder": "展开文件夹",
       "imagesCount_one": "1 张图像",
       "imagesCount_other": "{{count}} 张图像",
+      "inTargetAlbum": "已在目标相册中：{{album}}",
       "rejected": "已拒绝",
       "tooltipAperture": "光圈",
       "tooltipFocalLength": "焦距",
@@ -1988,6 +1993,7 @@
         "toggle_presets": "切换预设面板",
         "toggle_reject": "切换拒绝标记",
         "toggle_right_panel": "切换右侧面板",
+        "toggle_target_album": "添加 / 从目标相册移除",
         "toggle_viewer_window": "切换第二窗口",
         "undo": "撤销调整",
         "unflag": "取消标记",

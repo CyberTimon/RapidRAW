@@ -16,6 +16,7 @@ import {
   Plus,
   SlidersHorizontal,
   Info,
+  Target,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
@@ -26,7 +27,7 @@ import { Thumbnail } from './LibraryItems';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useProcessStore } from '../../../store/useProcessStore';
-import { useLibraryStore } from '../../../store/useLibraryStore';
+import { useLibraryStore, getTargetAlbumInfo } from '../../../store/useLibraryStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useLibraryActions } from '../../../hooks/useLibraryActions';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
@@ -116,7 +117,13 @@ function CullingPreview({
   const displayEditIcon = useSettingsStore((s) => s.appSettings?.displayEditIcon ?? true);
   const showEditIcon = image.is_edited && displayEditIcon;
   const hasRating = rating > 0 && image.flag !== ImageFlag.Reject;
-  const hasAnyOverlay = showEditIcon || !!colorLabel || hasRating || !!image.flag;
+  const isInTargetAlbum = useLibraryStore((s) =>
+    getTargetAlbumInfo(s.albumTree, s.targetAlbumId).images.has(image.path),
+  );
+  const targetAlbumName = useLibraryStore((s) =>
+    isInTargetAlbum ? getTargetAlbumInfo(s.albumTree, s.targetAlbumId).name : null,
+  );
+  const hasAnyOverlay = showEditIcon || !!colorLabel || hasRating || !!image.flag || isInTargetAlbum;
 
   const currentTags = useMemo(() => {
     return (image.tags || [])
@@ -852,6 +859,20 @@ function CullingPreview({
             )}
 
             <FlagBadges flag={image.flag} hasPrecedingBadge={!!showEditIcon || !!colorLabel || hasRating} />
+
+            {isInTargetAlbum && (
+              <div
+                className={clsx(
+                  'flex items-center shrink-0 text-white',
+                  (showEditIcon || colorLabel || hasRating || !!image.flag) && 'ml-1.5',
+                )}
+                data-tooltip={
+                  targetAlbumName ? t('library.items.inTargetAlbum', { album: targetAlbumName }) : undefined
+                }
+              >
+                <Target size={12} />
+              </div>
+            )}
           </div>
         )}
 

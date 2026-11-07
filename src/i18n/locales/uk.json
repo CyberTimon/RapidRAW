@@ -264,6 +264,7 @@
     "albums": {
       "alreadyAtRoot": "Уже в кореневому каталозі",
       "alreadyHere": "Уже тут",
+      "clearTargetAlbum": "Скинути цільовий альбом",
       "confirmDeleteAlbum": "Підтвердити видалення альбому",
       "confirmDeleteGroupEmpty": "Підтвердити видалення групи альбомів",
       "confirmDeleteGroupNested": "Підтвердити видалення групи й усіх вкладених альбомів",
@@ -275,7 +276,8 @@
       "newGroup": "Нова група",
       "renameAlbum": "Перейменувати альбом",
       "renameGroup": "Перейменувати групу",
-      "rootDir": "Кореневий каталог"
+      "rootDir": "Кореневий каталог",
+      "setTargetAlbum": "Призначити цільовим альбомом"
     },
     "autoAdjustModes": {
       "normal": "Звичайне",
@@ -456,7 +458,8 @@
       "failedMove": "Не вдалося перемістити файли: {{err}}",
       "failedMoveError": "Не вдалося перемістити: {{err}}",
       "failedMoveInvalid": "Не вдалося перемістити: цільову групу не знайдено або вона недійсна.",
-      "failedRemoveImages": "Не вдалося вилучити зображення: {{err}}"
+      "failedRemoveImages": "Не вдалося вилучити зображення: {{err}}",
+      "noTargetAlbumSet": "Цільовий альбом не вибрано. Натисніть правою кнопкою миші на альбом і виберіть «Призначити цільовим альбомом»."
     }
   },
   "editor": {
@@ -1343,6 +1346,7 @@
         "name": "За абеткою"
       },
       "sourcesTitle": "Джерела",
+      "targetAlbum": "Цільовий альбом",
       "tooltips": {
         "clearSearch": "Очистити пошук",
         "collapse": "Згорнути",
@@ -1425,6 +1429,7 @@
       "imagesCount_many": "{{count}} зображень",
       "imagesCount_one": "{{count}} зображення",
       "imagesCount_other": "{{count}} зображення",
+      "inTargetAlbum": "У цільовому альбомі: {{album}}",
       "immichPlaceholder": "Зберігається в Immich — не завантажено",
       "rejected": "Відхилено",
       "tooltipAperture": "Діафрагма",
@@ -2074,6 +2079,7 @@
         "toggle_presets": "Показати/сховати панель пресетів",
         "toggle_reject": "Перемкнути позначку «відхилено»",
         "toggle_right_panel": "Показати/сховати праву панель",
+        "toggle_target_album": "Додати / видалити з цільового альбому",
         "toggle_viewer_window": "Перемкнути друге вікно",
         "undo": "Скасувати коригування",
         "unflag": "Зняти позначку",

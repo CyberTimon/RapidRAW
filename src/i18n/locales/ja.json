@@ -264,6 +264,7 @@
     "albums": {
       "alreadyAtRoot": "すでにルートに存在します",
       "alreadyHere": "すでにここに存在します",
+      "clearTargetAlbum": "ターゲットアルバムを解除",
       "confirmDeleteAlbum": "アルバムの削除を確認",
       "confirmDeleteGroupEmpty": "アルバムグループの削除を確認",
       "confirmDeleteGroupNested": "グループとすべてのネストされたアルバムの削除を確認",
@@ -275,7 +276,8 @@
       "newGroup": "新規グループ",
       "renameAlbum": "アルバム名を変更",
       "renameGroup": "グループ名を変更",
-      "rootDir": "ルートディレクトリ"
+      "rootDir": "ルートディレクトリ",
+      "setTargetAlbum": "ターゲットアルバムに設定"
     },
     "autoAdjustModes": {
       "normal": "標準",
@@ -422,7 +424,8 @@
       "failedMove": "ファイルの移動に失敗しました: {{err}}",
       "failedMoveError": "移動に失敗しました: {{err}}",
       "failedMoveInvalid": "移動に失敗しました: 対象グループが見つからないか無効です。",
-      "failedRemoveImages": "画像の削除に失敗しました: {{err}}"
+      "failedRemoveImages": "画像の削除に失敗しました: {{err}}",
+      "noTargetAlbumSet": "ターゲットアルバムが設定されていません。アルバムを右クリックして「ターゲットアルバムに設定」を選択してください。"
     }
   },
   "editor": {
@@ -1282,6 +1285,7 @@
         "name": "アルファベット順"
       },
       "sourcesTitle": "ソース",
+      "targetAlbum": "ターゲットアルバム",
       "tooltips": {
         "clearSearch": "検索をクリア",
         "collapse": "折りたたむ",
@@ -1363,6 +1367,7 @@
       "expandFolder": "フォルダを展開",
       "imagesCount_one": "1 枚の画像",
       "imagesCount_other": "{{count}} 枚の画像",
+      "inTargetAlbum": "ターゲットアルバム内: {{album}}",
       "rejected": "除外",
       "tooltipAperture": "絞り値",
       "tooltipFocalLength": "焦点距離",
@@ -1988,6 +1993,7 @@
         "toggle_presets": "プリセットパネルの表示/非表示",
         "toggle_reject": "除外フラグを切り替え",
         "toggle_right_panel": "右パネルの表示/非表示",
+        "toggle_target_album": "ターゲットアルバムに追加 / 削除",
         "toggle_viewer_window": "セカンドウィンドウの切り替え",
         "undo": "操作を元に戻す",
         "unflag": "フラグを解除",

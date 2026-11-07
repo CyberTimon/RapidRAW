@@ -71,6 +71,7 @@ import { useAndroidBackHandler } from './hooks/useAndroidBackHandler';
 import './i18n';
 
 import {
+  AlbumItem,
   Invokes,
   ImageFile,
   LibraryViewMode,
@@ -393,6 +394,9 @@ function App() {
   useImagePreloader(sortedImageList);
 
   const handleLibraryRefresh = useCallback(async () => {
+    await invoke<AlbumItem[]>(Invokes.GetAlbums)
+      .then((res) => useLibraryStore.getState().setLibrary({ albumTree: res }))
+      .catch(() => {});
     if (currentFolderPath) {
       if (currentFolderPath.startsWith('Album: ')) {
         const { activeAlbumId, albumTree } = useLibraryStore.getState();

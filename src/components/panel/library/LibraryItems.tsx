@@ -11,6 +11,7 @@ import {
   Layers,
   Loader2,
   Pause,
+  Target,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
@@ -23,7 +24,7 @@ import { TextColors, TextVariants, TextWeights, TEXT_COLOR_KEYS } from '../../..
 import { ColumnWidths } from '../MainLibrary';
 import { useProcessStore } from '../../../store/useProcessStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
-import { useLibraryStore } from '../../../store/useLibraryStore';
+import { useLibraryStore, getTargetAlbumInfo } from '../../../store/useLibraryStore';
 import { isImmichAlbumId } from '../../immich/immichApi';
 import { IconAperture, IconFocalLength, IconIso, IconShutter } from '../editor/ExifIcons';
 import { useCtrlClickMenuGuard } from '../../../hooks/useCtrlClickMenuGuard';
@@ -80,6 +81,10 @@ const ThumbnailComponent = ({
   const exifOverlay = useSettingsStore((s) => s.appSettings?.exifOverlay || ExifOverlay.Off);
   const displayEditIcon = useSettingsStore((s) => s.appSettings?.displayEditIcon ?? true);
   const showEditIcon = isEdited && displayEditIcon;
+  const isInTargetAlbum = useLibraryStore((s) => getTargetAlbumInfo(s.albumTree, s.targetAlbumId).images.has(path));
+  const targetAlbumName = useLibraryStore((s) =>
+    isInTargetAlbum ? getTargetAlbumInfo(s.albumTree, s.targetAlbumId).name : null,
+  );
 
   const [showPlaceholder, setShowPlaceholder] = useState(false);
   const [layers, setLayers] = useState<ImageLayer[]>([]);
@@ -193,7 +198,8 @@ const ThumbnailComponent = ({
   const isRejected = flag === ImageFlag.Reject;
   const hasRating = rating > 0 && !isRejected;
   const hasGroupBadge = !!groupBadgeLabel;
-  const hasOtherBadge = hasEditIcon || hasColorLabel || hasRating || !!flag || hasGroupBadge;
+  const hasTargetAlbumBadge = isInTargetAlbum;
+  const hasOtherBadge = hasEditIcon || hasColorLabel || hasRating || !!flag || hasGroupBadge || hasTargetAlbumBadge;
   const hasAnyOverlay = hasOtherBadge || isAiPending;
 
   return (
@@ -362,6 +368,23 @@ const ThumbnailComponent = ({
             data-tooltip={groupBadgeLabel}
           >
             <Layers size={12} className="text-white" />
+          </div>
+
+          <div
+            className={clsx(
+              'flex items-center shrink-0 transition-all duration-200 ease-out overflow-hidden',
+              hasTargetAlbumBadge ? 'max-w-4 opacity-100 scale-100' : 'max-w-0 opacity-0 scale-75 pointer-events-none',
+              hasTargetAlbumBadge && (hasEditIcon || hasColorLabel || hasRating || !!flag || hasGroupBadge)
+                ? 'ml-1.5'
+                : 'ml-0',
+            )}
+            data-tooltip={
+              hasTargetAlbumBadge && targetAlbumName
+                ? t('library.items.inTargetAlbum', { album: targetAlbumName })
+                : undefined
+            }
+          >
+            <Target size={12} className="text-white" />
           </div>
 
           <div
@@ -579,6 +602,10 @@ const ListItemComponent = ({
     isImmichAlbumId(s.activeAlbumId) ? 'library.items.immichPlaceholder' : 'library.items.cloudPlaceholder',
   );
   const exifOverlay = useSettingsStore((s) => s.appSettings?.exifOverlay || ExifOverlay.Off);
+  const isInTargetAlbum = useLibraryStore((s) => getTargetAlbumInfo(s.albumTree, s.targetAlbumId).images.has(path));
+  const targetAlbumName = useLibraryStore((s) =>
+    isInTargetAlbum ? getTargetAlbumInfo(s.albumTree, s.targetAlbumId).name : null,
+  );
 
   const [showPlaceholder, setShowPlaceholder] = useState(false);
   const [layers, setLayers] = useState<ImageLayer[]>([]);
@@ -825,6 +852,14 @@ const ListItemComponent = ({
           >
             VC
           </Text>
+        )}
+        {isInTargetAlbum && (
+          <div
+            className="shrink-0 flex items-center text-accent"
+            data-tooltip={targetAlbumName ? t('library.items.inTargetAlbum', { album: targetAlbumName }) : undefined}
+          >
+            <Target size={13} />
+          </div>
         )}
       </div>
 
