@@ -1,3 +1,4 @@
+use super::bounds::{CanvasInput, plan_canvas};
 use crate::panorama_stitching::ImageInfo;
 use image::{GrayImage, Rgb, Rgb32FImage};
 use nalgebra::{Matrix3, Point3};
@@ -13,6 +14,7 @@ struct SeamContext<'a> {
     pano_mask: &'a GrayImage,
     img_to_add: &'a Rgb32FImage,
     h_add: &'a Matrix3<f64>,
+    h_add_inv: &'a Matrix3<f64>,
     offset_x: f64,
     offset_y: f64,
     out_width: u32,
@@ -35,48 +37,40 @@ pub fn progressive_seam_stitcher(
     images: &[&ImageInfo],
     global_homographies: &HashMap<usize, Matrix3<f64>>,
     app_handle: AppHandle,
-) -> Rgb32FImage {
-    if images.is_empty() {
-        return Rgb32FImage::new(0, 0);
-    }
-
-    let mut min_x = f64::INFINITY;
-    let mut max_x = f64::NEG_INFINITY;
-    let mut min_y = f64::INFINITY;
-    let mut max_y = f64::NEG_INFINITY;
-
-    for &img_info in images {
-        let h = global_homographies[&img_info.id];
-        let (w, h_img) = img_info.image.dimensions();
-        let corners = [
-            Point3::new(0.0, 0.0, 1.0),
-            Point3::new(w as f64, 0.0, 1.0),
-            Point3::new(w as f64, h_img as f64, 1.0),
-            Point3::new(0.0, h_img as f64, 1.0),
-        ];
-        for p in corners.iter() {
-            let tp = h * p;
-            let tx = tp.x / tp.z;
-            let ty = tp.y / tp.z;
-            min_x = min_x.min(tx);
-            max_x = max_x.max(tx);
-            min_y = min_y.min(ty);
-            max_y = max_y.max(ty);
-        }
-    }
-
-    let offset_x = -min_x;
-    let offset_y = -min_y;
-    let out_width = (max_x - min_x).ceil() as u32;
-    let out_height = (max_y - min_y).ceil() as u32;
-    println!("  - Output canvas size: {}x{}", out_width, out_height);
+) -> Result<Rgb32FImage, String> {
+    let inputs: Vec<_> = images
+        .iter()
+        .map(|image| {
+            let homography = global_homographies.get(&image.id).copied().ok_or_else(|| {
+                format!("Missing panorama alignment for image {}.", image.filename)
+            })?;
+            Ok(CanvasInput {
+                width: image.image.width(),
+                height: image.image.height(),
+                homography,
+            })
+        })
+        .collect::<Result<_, String>>()?;
+    let mut system = sysinfo::System::new();
+    system.refresh_memory();
+    let plan = plan_canvas(&inputs, system.available_memory())?;
+    let out_width = plan.width;
+    let out_height = plan.height;
+    let offset_x = plan.offset_x;
+    let offset_y = plan.offset_y;
+    log::info!(
+        "Panorama canvas: {}x{}; estimated working buffers {} MiB, limit {} MiB",
+        out_width,
+        out_height,
+        plan.working_bytes.div_ceil(1024 * 1024),
+        plan.memory_limit / (1024 * 1024),
+    );
 
     let mut panorama = Rgb32FImage::new(out_width, out_height);
     let mut panorama_mask = GrayImage::new(out_width, out_height);
 
     let base_img_info = images[0];
-    let h_base = &global_homographies[&base_img_info.id];
-    let h_base_inv = h_base.try_inverse().unwrap();
+    let h_base_inv = &plan.inverses[0];
     println!("  - Placing base image: '{}'", base_img_info.filename);
 
     let num_pixels_per_row = out_width as usize * 3;
@@ -117,8 +111,8 @@ pub fn progressive_seam_stitcher(
         let _ = app_handle.emit("panorama-progress", &progress_msg);
         println!("  - Progressively stitching '{}'", img_to_add_info.filename);
 
-        let h_add = &global_homographies[&img_to_add_info.id];
-        let h_add_inv = h_add.try_inverse().unwrap();
+        let h_add = &inputs[i + 1].homography;
+        let h_add_inv = &plan.inverses[i + 1];
         let img_to_add = &img_to_add_info.image;
 
         let ctx = SeamContext {
@@ -126,6 +120,7 @@ pub fn progressive_seam_stitcher(
             pano_mask: &panorama_mask,
             img_to_add,
             h_add,
+            h_add_inv,
             offset_x,
             offset_y,
             out_width,
@@ -361,11 +356,11 @@ pub fn progressive_seam_stitcher(
         }
     }
 
-    panorama
+    Ok(panorama)
 }
 
 fn find_adaptive_seam(ctx: &SeamContext) -> Option<SeamInfo> {
-    let h_add_inv = ctx.h_add.try_inverse().unwrap();
+    let h_add_inv = ctx.h_add_inv;
     let (w_add, h_add_img) = ctx.img_to_add.dimensions();
 
     let mut min_ox = u32::MAX;
@@ -429,7 +424,7 @@ fn find_adaptive_seam(ctx: &SeamContext) -> Option<SeamInfo> {
 }
 
 fn find_pairwise_seam_dp_vertical(ctx: &SeamContext) -> Vec<i32> {
-    let h_add_inv = ctx.h_add.try_inverse().unwrap();
+    let h_add_inv = ctx.h_add_inv;
     let (w_add, h_add_img) = ctx.img_to_add.dimensions();
     let out_width = ctx.out_width;
     let out_height = ctx.out_height;
@@ -532,7 +527,7 @@ fn find_pairwise_seam_dp_vertical(ctx: &SeamContext) -> Vec<i32> {
 }
 
 fn find_pairwise_seam_dp_horizontal(ctx: &SeamContext) -> Vec<i32> {
-    let h_add_inv = ctx.h_add.try_inverse().unwrap();
+    let h_add_inv = ctx.h_add_inv;
     let (w_add, h_add_img) = ctx.img_to_add.dimensions();
     let out_width = ctx.out_width;
     let out_height = ctx.out_height;

@@ -1012,6 +1012,13 @@ RapidRAW is built to be lightweight and cross-platform. The minimum (tested) req
 ### Common Problems
 
 <details>
+<summary>Panorama rejected because its canvas is too large</summary>
+
+The current stitcher rejects invalid projections and canvases larger than eight times the combined input pixel count. Its estimated working buffers, including seam-finding matrices, must fit within half the currently available RAM and a 4 GiB ceiling. It reports the reason instead of attempting an unbounded allocation. Try a smaller group with more consistent overlap, or free memory. These checks do not change the resolution of accepted panoramas.
+
+</details>
+
+<details>
 <summary>App crashes when opening an image / entering edit mode</summary>
 
 If the application crashes immediately when you try to start editing a picture, it is often due to the automatic selection of the GPU backend.
