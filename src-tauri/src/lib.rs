@@ -59,6 +59,7 @@ mod inpainting;
 mod launch_request;
 mod lens_blur;
 mod lens_correction;
+mod light_effects;
 mod lut_processing;
 mod mask_generation;
 mod memory_budget;

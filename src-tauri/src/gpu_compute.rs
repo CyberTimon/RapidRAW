@@ -60,15 +60,17 @@ pub enum Group {
     Relight,
     Fog,
     LensBlur,
+    Light,
 }
 
 impl Group {
-    const ALL: [Group; 5] = [
+    const ALL: [Group; 6] = [
         Group::Common,
         Group::Transform,
         Group::Relight,
         Group::Fog,
         Group::LensBlur,
+        Group::Light,
     ];
 
     fn source(self) -> (&'static str, &'static [&'static str]) {
@@ -108,6 +110,17 @@ impl Group {
                     "lb_final",
                 ],
             ),
+            Group::Light => (
+                include_str!("shaders/light_effects.wgsl"),
+                &[
+                    "lt_prefilter",
+                    "lt_down",
+                    "lt_up",
+                    "lt_source",
+                    "lt_aperture",
+                    "lt_flare",
+                ],
+            ),
         }
     }
 }
@@ -115,7 +128,7 @@ impl Group {
 pub struct ComputePipelines {
     layout: wgpu::PipelineLayout,
     bgl: wgpu::BindGroupLayout,
-    groups: [OnceLock<HashMap<&'static str, wgpu::ComputePipeline>>; 5],
+    groups: [OnceLock<HashMap<&'static str, wgpu::ComputePipeline>>; 6],
     dummy_view: wgpu::TextureView,
     dummy_layers: wgpu::TextureView,
     dummy_f32: wgpu::TextureView,
@@ -327,6 +340,7 @@ pub enum Out<'a> {
     F32(&'a wgpu::TextureView),
     F16(&'a wgpu::TextureView),
     R32(&'a wgpu::TextureView),
+    Both(&'a wgpu::TextureView, &'a wgpu::TextureView),
     None,
 }
 
@@ -642,6 +656,7 @@ impl<'a> ComputeEncoder<'a> {
             Out::F32(v) => (v, &pipes.dummy_f16, &pipes.dummy_r32),
             Out::F16(v) => (&pipes.dummy_f32, v, &pipes.dummy_r32),
             Out::R32(v) => (&pipes.dummy_f32, &pipes.dummy_f16, v),
+            Out::Both(f32_view, f16_view) => (f32_view, f16_view, &pipes.dummy_r32),
             Out::None => (&pipes.dummy_f32, &pipes.dummy_f16, &pipes.dummy_r32),
         };
         entries.extend([
