@@ -4008,7 +4008,10 @@ pub async fn import_files(
                             .replace("YYYY", "%Y")
                             .replace("MM", "%m")
                             .replace("DD", "%d");
-                        let subfolder = file_date.format(&date_format_str).to_string();
+                        let subfolder = file_date
+                            .with_timezone(&chrono::Local)
+                            .format(&date_format_str)
+                            .to_string();
                         final_dest_folder.push(subfolder);
                     }
 
@@ -4062,7 +4065,10 @@ pub async fn import_files(
                         .replace("YYYY", "%Y")
                         .replace("MM", "%m")
                         .replace("DD", "%d");
-                    let subfolder = file_date.format(&date_format_str).to_string();
+                    let subfolder = file_date
+                        .with_timezone(&chrono::Local)
+                        .format(&date_format_str)
+                        .to_string();
                     final_dest_folder.push(subfolder);
                 }
 
