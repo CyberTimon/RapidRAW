@@ -2790,25 +2790,38 @@ export default function MapView(props: MapViewProps) {
 
         if (!isInputField && isDockOpen && unlocatedPhotos.length > 0) {
           e.preventDefault();
+          e.stopPropagation();
           isInternalDockSelectionRef.current = true;
           const allPaths = unlocatedPhotos.map((p) => p.path);
-          setSelectedDockPaths(new Set(allPaths));
-          dockSelectionAnchorRef.current = allPaths[0] || null;
-          useLibraryStore.getState().setLibrary({
-            multiSelectedPaths: allPaths,
-            libraryActivePath: allPaths[0] || null,
-            selectionAnchorPath: allPaths[0] || null,
-          });
-          const photo = imageList.find((p) => p.path === allPaths[0]);
-          if (photo) {
-            useEditorStore.getState().setEditor({ selectedImage: photo });
+          const allSelected = allPaths.every((path) => selectedDockPaths.has(path));
+          if (allSelected) {
+            setSelectedDockPaths(new Set());
+            dockSelectionAnchorRef.current = null;
+            useLibraryStore.getState().setLibrary({
+              multiSelectedPaths: [],
+              libraryActivePath: null,
+              selectionAnchorPath: null,
+            });
+            useEditorStore.getState().setEditor({ selectedImage: null });
+          } else {
+            setSelectedDockPaths(new Set(allPaths));
+            dockSelectionAnchorRef.current = allPaths[0] || null;
+            useLibraryStore.getState().setLibrary({
+              multiSelectedPaths: allPaths,
+              libraryActivePath: allPaths[0] || null,
+              selectionAnchorPath: allPaths[0] || null,
+            });
+            const photo = imageList.find((p) => p.path === allPaths[0]);
+            if (photo) {
+              useEditorStore.getState().setEditor({ selectedImage: photo });
+            }
           }
         }
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isDockOpen, unlocatedPhotos, imageList, selectedDockPaths.size]);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [isDockOpen, unlocatedPhotos, imageList, selectedDockPaths]);
 
   const handlePhotoSelect = useCallback(
     (path: string, e: React.MouseEvent) => {

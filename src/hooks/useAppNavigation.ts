@@ -213,8 +213,11 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
 
       selectedImagePathRef.current = path;
 
+      const { multiSelectedPaths } = useLibraryStore.getState();
+      const newMultiSelectedPaths = multiSelectedPaths.includes(path) ? multiSelectedPaths : [path];
+
       setLibrary({
-        multiSelectedPaths: [path],
+        multiSelectedPaths: newMultiSelectedPaths,
         libraryActivePath: path,
         selectionAnchorPath: path,
       });
