@@ -8,7 +8,6 @@ interface ImageCacheEntry {
   uncroppedPreviewUrl: string | null;
   selectedImage: any;
   originalSize: { width: number; height: number };
-  previewSize: { width: number; height: number };
 }
 
 class ImageLRUCache {

@@ -24,7 +24,7 @@ import { OPTION_SEPARATOR, Orientation } from '../../ui/AppProperties';
 import Text from '../../ui/Text';
 import { TextVariants, TextColors, TextWeights } from '../../../types/typography';
 import { useShallow } from 'zustand/react/shallow';
-import { useEditorStore } from '../../../store/useEditorStore';
+import { canvasToolState, useEditorStore } from '../../../store/useEditorStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useUIStore } from '../../../store/useUIStore';
 import { buildAutoAdjustModeOptions, useEditorActions } from '../../../hooks/useEditorActions';
@@ -102,12 +102,7 @@ export default function Controls() {
   );
 
   const toggleWbPicker = useCallback(
-    () =>
-      setEditor((state) => ({
-        isWbPickerActive: !state.isWbPickerActive,
-        isRelightPickerActive: false,
-        activeCenterMarker: null,
-      })),
+    () => setEditor((state) => canvasToolState({ isWbPickerActive: !state.isWbPickerActive })),
     [setEditor],
   );
 
@@ -138,16 +133,19 @@ export default function Controls() {
     if (selectedImage?.path) {
       handleResetAdjustmentsAction([selectedImage.path]);
     } else {
-      setAdjustments((prev: Adjustments) => ({
-        ...prev,
-        ...Object.keys(ADJUSTMENT_SECTIONS)
-          .flatMap((s) => ADJUSTMENT_SECTIONS[s])
-          .reduce((acc: any, key: string) => {
-            acc[key] = INITIAL_ADJUSTMENTS[key as keyof Adjustments];
-            return acc;
-          }, {}),
-        activeTools: { ...INITIAL_ADJUSTMENTS.activeTools },
-      }));
+      setAdjustments(
+        (prev: Adjustments) => ({
+          ...prev,
+          ...Object.keys(ADJUSTMENT_SECTIONS)
+            .flatMap((s) => ADJUSTMENT_SECTIONS[s])
+            .reduce((acc: any, key: string) => {
+              acc[key] = INITIAL_ADJUSTMENTS[key as keyof Adjustments];
+              return acc;
+            }, {}),
+          activeTools: { ...INITIAL_ADJUSTMENTS.activeTools },
+        }),
+        t('contextMenus.editor.resetAdjustments'),
+      );
     }
   };
 

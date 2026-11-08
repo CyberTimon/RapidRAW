@@ -147,7 +147,17 @@ export enum Effect {
   FogGlow = 'fogGlow',
   FogTemperature = 'fogTemperature',
   FogTint = 'fogTint',
+  MotionBlurAmount = 'motionBlurAmount',
+  MotionBlurAngle = 'motionBlurAngle',
+  MotionBlurDepth = 'motionBlurDepth',
+  MotionBlurDepthEnabled = 'motionBlurDepthEnabled',
+  MotionBlurHighlights = 'motionBlurHighlights',
+  MotionBlurLayer = 'motionBlurLayer',
+  MotionBlurType = 'motionBlurType',
 }
+
+export type MotionBlurType = 'linear' | 'zoom' | 'spin' | 'smooth';
+export type MotionBlurLayer = 'auto' | 'subject' | 'panning' | 'uniform';
 
 export interface RelightLight {
   id: string;
@@ -172,7 +182,7 @@ export const createRelightLight = (x: number, y: number): RelightLight => ({
   x,
   y,
   depth: 0,
-  intensity: 60,
+  intensity: 40,
   radius: 30,
   angle: 135,
   elevation: 60,
@@ -330,6 +340,14 @@ export interface Adjustments {
   relightShadowSoftness: number;
   fogEnabled: boolean;
   fogDepthMap: string | null;
+  motionBlurAmount: number;
+  motionBlurAngle: number;
+  motionBlurDepth: number;
+  motionBlurDepthEnabled: boolean;
+  motionBlurDepthMap: string | null;
+  motionBlurHighlights: number;
+  motionBlurLayer: MotionBlurLayer;
+  motionBlurType: MotionBlurType;
   fogAmount: number;
   fogStart: number;
   fogDensity: number;
@@ -345,17 +363,6 @@ export interface Adjustments {
   lensDistortionEnabled: boolean;
   lensTcaEnabled: boolean;
   lensVignetteEnabled: boolean;
-  lensDistortionParams: {
-    k1: number;
-    k2: number;
-    k3: number;
-    model: number;
-    tca_vr: number;
-    tca_vb: number;
-    vig_k1: number;
-    vig_k2: number;
-    vig_k3: number;
-  } | null;
   lensMaker: string | null;
   lensModel: string | null;
   lumaNoiseReduction: number;
@@ -366,6 +373,12 @@ export interface Adjustments {
   lutSize?: number;
   lutIsSceneReferred?: boolean;
   masks: Array<MaskContainer>;
+  monochromeEnabled: boolean;
+  monochromeFilm: MonochromeFilm;
+  monochromeFilterHue: number;
+  monochromeFilterStrength: number;
+  monochromeMix: MonochromeMix;
+  monochromeToning: MonochromeToning;
   negativeBlueWeight: number;
   negativeContrast: number;
   negativeConversionEnabled: boolean;
@@ -459,6 +472,36 @@ interface Hsl {
   yellows: HueSatLum;
 }
 
+export enum MonochromeFilm {
+  Neutral = 'neutral',
+  Panchromatic = 'panchromatic',
+  Balanced = 'balanced',
+  OrthoPanchromatic = 'orthoPanchromatic',
+  ExtendedRed = 'extendedRed',
+  Orthochromatic = 'orthochromatic',
+  Infrared = 'infrared',
+}
+
+export interface MonochromeMix {
+  [index: string]: number;
+  aquas: number;
+  blues: number;
+  greens: number;
+  magentas: number;
+  oranges: number;
+  purples: number;
+  reds: number;
+  yellows: number;
+}
+
+export interface MonochromeToning {
+  balance: number;
+  highlightHue: number;
+  highlightSaturation: number;
+  shadowHue: number;
+  shadowSaturation: number;
+}
+
 export interface MaskAdjustments {
   activeTools: ActiveTools;
   [index: string]: any;
@@ -482,6 +525,13 @@ export interface MaskAdjustments {
   hue: number;
   id?: string;
   lumaNoiseReduction: number;
+  motionBlurAmount: number;
+  motionBlurAngle: number;
+  motionBlurDepth: number;
+  motionBlurDepthEnabled: boolean;
+  motionBlurHighlights: number;
+  motionBlurLayer: MotionBlurLayer;
+  motionBlurType: MotionBlurType;
   saturation: number;
   shadows: number;
   sharpness: number;
@@ -601,6 +651,13 @@ export const INITIAL_MASK_ADJUSTMENTS: MaskAdjustments = {
   },
   hue: 0,
   lumaNoiseReduction: 0,
+  motionBlurAmount: 0,
+  motionBlurAngle: 0,
+  motionBlurDepth: 50,
+  motionBlurDepthEnabled: false,
+  motionBlurHighlights: 30,
+  motionBlurLayer: 'auto',
+  motionBlurType: 'linear',
   saturation: 0,
   shadows: 0,
   sharpness: 0,
@@ -654,6 +711,20 @@ const deepCloneParametric = (pCurve: any): ParametricCurve => ({
   green: { ...DEFAULT_PARAMETRIC_CURVE_SETTINGS, ...(pCurve?.green || {}) },
   blue: { ...DEFAULT_PARAMETRIC_CURVE_SETTINGS, ...(pCurve?.blue || {}) },
 });
+
+export const CROP_GEOMETRY_KEYS = [
+  'crop',
+  'aspectRatio',
+  'rotation',
+  'orientationSteps',
+  'flipHorizontal',
+  'flipVertical',
+] as const satisfies ReadonlyArray<keyof Adjustments>;
+
+export type CropGeometry = Pick<Adjustments, (typeof CROP_GEOMETRY_KEYS)[number]>;
+
+export const pickCropGeometry = (adjustments: Adjustments): CropGeometry =>
+  Object.fromEntries(CROP_GEOMETRY_KEYS.map((key) => [key, structuredClone(adjustments[key])])) as CropGeometry;
 
 export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any => {
   if (!loadedAdjustments) {
@@ -754,6 +825,14 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     relightShadowSoftness: loadedAdjustments.relightShadowSoftness ?? INITIAL_ADJUSTMENTS.relightShadowSoftness,
     fogEnabled: loadedAdjustments.fogEnabled ?? INITIAL_ADJUSTMENTS.fogEnabled,
     fogDepthMap: loadedAdjustments.fogDepthMap ?? INITIAL_ADJUSTMENTS.fogDepthMap,
+    motionBlurAmount: loadedAdjustments.motionBlurAmount ?? INITIAL_ADJUSTMENTS.motionBlurAmount,
+    motionBlurAngle: loadedAdjustments.motionBlurAngle ?? INITIAL_ADJUSTMENTS.motionBlurAngle,
+    motionBlurDepth: loadedAdjustments.motionBlurDepth ?? INITIAL_ADJUSTMENTS.motionBlurDepth,
+    motionBlurDepthEnabled: loadedAdjustments.motionBlurDepthEnabled ?? INITIAL_ADJUSTMENTS.motionBlurDepthEnabled,
+    motionBlurDepthMap: loadedAdjustments.motionBlurDepthMap ?? INITIAL_ADJUSTMENTS.motionBlurDepthMap,
+    motionBlurHighlights: loadedAdjustments.motionBlurHighlights ?? INITIAL_ADJUSTMENTS.motionBlurHighlights,
+    motionBlurLayer: loadedAdjustments.motionBlurLayer ?? INITIAL_ADJUSTMENTS.motionBlurLayer,
+    motionBlurType: loadedAdjustments.motionBlurType ?? INITIAL_ADJUSTMENTS.motionBlurType,
     fogAmount: loadedAdjustments.fogAmount ?? INITIAL_ADJUSTMENTS.fogAmount,
     fogStart: loadedAdjustments.fogStart ?? INITIAL_ADJUSTMENTS.fogStart,
     fogDensity: loadedAdjustments.fogDensity ?? INITIAL_ADJUSTMENTS.fogDensity,
@@ -771,7 +850,6 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     lensDistortionEnabled: loadedAdjustments.lensDistortionEnabled ?? INITIAL_ADJUSTMENTS.lensDistortionEnabled,
     lensTcaEnabled: loadedAdjustments.lensTcaEnabled ?? INITIAL_ADJUSTMENTS.lensTcaEnabled,
     lensVignetteEnabled: loadedAdjustments.lensVignetteEnabled ?? INITIAL_ADJUSTMENTS.lensVignetteEnabled,
-    lensDistortionParams: loadedAdjustments.lensDistortionParams ?? INITIAL_ADJUSTMENTS.lensDistortionParams,
     transformDistortion: loadedAdjustments.transformDistortion ?? INITIAL_ADJUSTMENTS.transformDistortion,
     transformVertical: loadedAdjustments.transformVertical ?? INITIAL_ADJUSTMENTS.transformVertical,
     transformHorizontal: loadedAdjustments.transformHorizontal ?? INITIAL_ADJUSTMENTS.transformHorizontal,
@@ -783,6 +861,8 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     colorCalibration: { ...INITIAL_ADJUSTMENTS.colorCalibration, ...(loadedAdjustments.colorCalibration || {}) },
     colorGrading: { ...INITIAL_ADJUSTMENTS.colorGrading, ...(loadedAdjustments.colorGrading || {}) },
     hsl: { ...INITIAL_ADJUSTMENTS.hsl, ...(loadedAdjustments.hsl || {}) },
+    monochromeMix: { ...INITIAL_ADJUSTMENTS.monochromeMix, ...(loadedAdjustments.monochromeMix || {}) },
+    monochromeToning: { ...INITIAL_ADJUSTMENTS.monochromeToning, ...(loadedAdjustments.monochromeToning || {}) },
     curves: loadedAdjustments.curves ? deepCloneCurves(loadedAdjustments.curves) : getDefaultCurves(),
     pointCurves: loadedAdjustments.pointCurves ? deepCloneCurves(loadedAdjustments.pointCurves) : getDefaultCurves(),
     parametricCurve: loadedAdjustments.parametricCurve
@@ -796,6 +876,15 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     sharpnessThreshold: loadedAdjustments.sharpnessThreshold ?? INITIAL_ADJUSTMENTS.sharpnessThreshold,
   };
 };
+
+export const MONOCHROME_ADJUSTMENT_KEYS = [
+  'monochromeEnabled',
+  'monochromeFilm',
+  'monochromeFilterHue',
+  'monochromeFilterStrength',
+  'monochromeMix',
+  'monochromeToning',
+] as const;
 
 export interface AdjustmentGroup {
   label: string;
@@ -830,6 +919,10 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
     { label: 'modals.copyPaste.groups.colorGrading', keys: [ColorAdjustment.ColorGrading] },
     { label: 'modals.copyPaste.groups.colorMixer', keys: [ColorAdjustment.Hsl] },
     { label: 'modals.copyPaste.groups.colorCalibration', keys: ['colorCalibration'] },
+    {
+      label: 'modals.copyPaste.groups.blackWhite',
+      keys: [...MONOCHROME_ADJUSTMENT_KEYS],
+    },
   ],
   details: [
     {
@@ -932,6 +1025,17 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
       ],
     },
     {
+      label: 'modals.copyPaste.groups.motionBlur',
+      keys: [
+        Effect.MotionBlurAmount,
+        Effect.MotionBlurAngle,
+        Effect.MotionBlurType,
+        Effect.MotionBlurHighlights,
+        Effect.MotionBlurDepthEnabled,
+        Effect.MotionBlurDepth,
+      ],
+    },
+    {
       label: 'modals.copyPaste.groups.relight',
       keys: [
         Effect.RelightEnabled,
@@ -985,6 +1089,35 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
   masks: [{ label: 'modals.copyPaste.groups.masks', keys: ['masks'] }],
 };
 
+export const SPEED_EDIT_ADJUSTMENTS = [
+  { id: BasicAdjustment.Exposure, label: 'adjustments.basic.exposure' },
+  { id: BasicAdjustment.Contrast, label: 'adjustments.basic.contrast' },
+  { id: BasicAdjustment.Highlights, label: 'adjustments.basic.highlights' },
+  { id: BasicAdjustment.Shadows, label: 'adjustments.basic.shadows' },
+  { id: BasicAdjustment.Whites, label: 'adjustments.basic.whites' },
+  { id: BasicAdjustment.Blacks, label: 'adjustments.basic.blacks' },
+  { id: ColorAdjustment.Temperature, label: 'adjustments.color.temperature' },
+  { id: ColorAdjustment.Tint, label: 'adjustments.color.tint' },
+  { id: ColorAdjustment.Vibrance, label: 'adjustments.color.vibrance' },
+  { id: ColorAdjustment.Saturation, label: 'adjustments.color.saturation' },
+  { id: DetailsAdjustment.Clarity, label: 'adjustments.details.clarity' },
+  { id: DetailsAdjustment.Dehaze, label: 'adjustments.details.dehaze' },
+  { id: DetailsAdjustment.Structure, label: 'adjustments.details.structure' },
+  { id: Effect.VignetteAmount, label: 'adjustments.effects.vignette' },
+  { id: 'rotation', label: 'editor.crop.rotationHeading' },
+] as const;
+
+export const DEFAULT_SPEED_EDIT_ADJUSTMENTS: string[] = [
+  BasicAdjustment.Exposure,
+  BasicAdjustment.Contrast,
+  BasicAdjustment.Highlights,
+  BasicAdjustment.Shadows,
+  ColorAdjustment.Temperature,
+  ColorAdjustment.Tint,
+  ColorAdjustment.Saturation,
+  'rotation',
+];
+
 export const COPYABLE_ADJUSTMENT_KEYS: string[] = Object.values(ADJUSTMENT_GROUPS)
   .flat()
   .flatMap((group) => group.keys);
@@ -1011,6 +1144,7 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     ColorAdjustment.ColorGrading,
     'colorCalibration',
     ColorAdjustment.Hue,
+    ...MONOCHROME_ADJUSTMENT_KEYS,
   ],
   details: [
     DetailsAdjustment.Clarity,
@@ -1081,6 +1215,13 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     Effect.FogGlow,
     Effect.FogTemperature,
     Effect.FogTint,
+    Effect.MotionBlurAmount,
+    Effect.MotionBlurAngle,
+    Effect.MotionBlurDepth,
+    Effect.MotionBlurDepthEnabled,
+    Effect.MotionBlurHighlights,
+    Effect.MotionBlurLayer,
+    Effect.MotionBlurType,
   ],
 };
 
@@ -1182,6 +1323,7 @@ export const ADJUSTMENT_SECTION_TOOLS: Record<string, Array<AdjustmentSectionToo
     { id: 'spatial', label: 'adjustments.effects.spatial', subTools: ['lensBlur', 'relight', 'fog'] },
     { id: 'lut', label: 'adjustments.effects.lut' },
     { id: 'vignette', label: 'adjustments.effects.vignette' },
+    { id: 'motionBlur', label: 'adjustments.effects.motionBlur' },
     { id: 'grain', label: 'adjustments.effects.grain' },
   ],
 };
@@ -1194,6 +1336,21 @@ export const ADJUSTMENT_TOOLS_BY_ID: Record<string, AdjustmentSectionTool> = Obj
 
 export const getAdjustmentSectionToolIds = (section: string): string[] =>
   (ADJUSTMENT_SECTION_TOOLS[section] ?? []).map((tool) => tool.id);
+
+export const withToolCollapsed = (settings: AppSettings, id: string, isCollapsed: boolean): AppSettings => {
+  const collapsedTools = settings.adjustmentLayout?.collapsedTools ?? [];
+  if (isCollapsed) {
+    return withAdjustmentLayout(settings, { collapsedTools: [...collapsedTools, id] });
+  }
+  const siblingTools = settings.enableToolFocusMode
+    ? (Object.keys(ADJUSTMENT_SECTION_TOOLS)
+        .map(getAdjustmentSectionToolIds)
+        .find((tools) => tools.includes(id)) ?? [])
+    : [];
+  return withAdjustmentLayout(settings, {
+    collapsedTools: [...new Set([...collapsedTools, ...siblingTools])].filter((tool) => tool !== id),
+  });
+};
 
 const getToolIds = (id: string): Array<string> => {
   const expand = (tool: AdjustmentSectionTool) => tool.subTools ?? [tool.id];

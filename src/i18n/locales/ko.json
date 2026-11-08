@@ -56,6 +56,57 @@
         "reds": "레드",
         "yellows": "옐로우"
       },
+      "mixerPickerTooltip": "컬러 믹서 스포이트: 사진을 클릭한 채 위아래로 드래그",
+      "monochrome": {
+        "badge": "흑백",
+        "balance": "밸런스",
+        "blackWhite": "흑백",
+        "film": "필름",
+        "filmDescriptions": {
+          "balanced": "모든 색상에 고른 감도로 빨강과 피부가 더 밝아집니다",
+          "extendedRed": "빨강에 민감한 필름으로 피부는 밝고 하늘은 어둡습니다",
+          "infrared": "빛나는 나뭇잎과 거의 검은 하늘",
+          "neutral": "각 색상의 인지 밝기와 일치합니다",
+          "orthoPanchromatic": "약간 어두운 빨강과 선명한 초록",
+          "orthochromatic": "빨강에 감광하지 않아 빨강은 어둡고 하늘은 밝습니다",
+          "panchromatic": "푸른 하늘이 더 밝은 클래식 필름 응답"
+        },
+        "films": {
+          "balanced": "균형",
+          "extendedRed": "확장 레드",
+          "infrared": "적외선",
+          "neutral": "뉴트럴",
+          "orthoPanchromatic": "오르소 팬",
+          "orthochromatic": "오르소크로매틱",
+          "panchromatic": "팬크로매틱"
+        },
+        "filter": "필터",
+        "filters": {
+          "blue": "파랑",
+          "green": "초록",
+          "none": "없음",
+          "orange": "주황",
+          "red": "빨강",
+          "yellow": "노랑"
+        },
+        "highlights": "하이라이트",
+        "hue": "색조",
+        "mix": "흑백 믹스",
+        "mixPickerTooltip": "흑백 믹스 스포이트: 사진을 클릭한 채 위아래로 드래그",
+        "saturation": "채도",
+        "shadows": "섀도우",
+        "strength": "강도",
+        "toning": "토닝",
+        "tonings": {
+          "cyanotype": "시아노타입",
+          "gold": "골드",
+          "none": "없음",
+          "platinum": "플래티넘",
+          "selenium": "셀레늄",
+          "sepia": "세피아",
+          "split": "스플릿 톤"
+        }
+      },
       "presence": "외관",
       "saturation": "채도",
       "temperature": "색온도",
@@ -171,7 +222,25 @@
       "roundness": "둥글기",
       "size": "크기",
       "spatial": "공간",
-      "vignette": "비네트"
+      "vignette": "비네트",
+      "motionBlur": "모션 블러",
+      "motionBlurAngle": "각도",
+      "motionBlurDepth": "깊이",
+      "motionBlurHighlights": "하이라이트",
+      "motionBlurLayer": "움직임",
+      "motionBlurLayers": {
+        "auto": "자동",
+        "panning": "패닝",
+        "subject": "움직이는 피사체",
+        "uniform": "균일"
+      },
+      "motionBlurType": "유형",
+      "motionBlurTypes": {
+        "linear": "선형",
+        "zoom": "줌",
+        "spin": "회전",
+        "smooth": "부드럽게"
+      }
     }
   },
   "contextMenus": {
@@ -227,13 +296,16 @@
       "autoLensCorrection": "자동 렌즈 교정",
       "autoStraighten": "자동 수평 맞추기",
       "cancel": "취소",
+      "closeViewer": "보조 창 닫기",
       "colorLabel": "색상 레이블",
       "confirmReset": "초기화 확인",
+      "convertBlackWhite": "흑백으로 변환",
       "convertNegative": "네거티브 변환",
       "copyAdjustments": "조정값 복사",
       "cullImage": "자동 선별",
       "denoise": "노이즈 제거",
       "editImage": "이미지 편집",
+      "editIn": "다른 프로그램에서 편집",
       "exportImage": "이미지 내보내기",
       "flag": "플래그",
       "flagPick": "선택됨",
@@ -242,12 +314,14 @@
       "mergeHdr": "HDR로 병합",
       "noLabel": "레이블 없음",
       "noRating": "평점 없음",
+      "openViewer": "보조 창에서 열기",
       "pasteAdjustments": "조정값 붙여넣기",
       "productivity": "생산성",
       "rating": "평점",
       "ratingLabel_one": "{{count}}점",
       "ratingLabel_other": "{{count}}점",
       "redo": "다시 실행",
+      "removeBlackWhite": "흑백 해제",
       "removeDenoise": "노이즈 제거 해제",
       "removeNegativeConversion": "네거티브 변환 해제",
       "resetAdjustments": "조정값 초기화",
@@ -334,6 +408,9 @@
     "toasts": {
       "couldNotShowExplorer": "탐색기에서 파일을 표시할 수 없습니다: {{err}}",
       "couldNotShowFolder": "폴더를 표시할 수 없습니다: {{err}}",
+      "editInFailed": "{{app}} 실패: {{err}}",
+      "editInNoOutput": "{{app}}이(가) 저장하지 않고 종료되었습니다.",
+      "editInWaiting": "{{app}}을(를) 기다리는 중입니다. 그 프로그램에서 파일을 저장하면 다시 가져옵니다. 기다리지 않으려면 이 메시지를 닫으세요.",
       "failedAddToAlbum": "앨범에 추가하지 못했습니다: {{err}}",
       "failedApplyAuto": "자동 조정을 적용하지 못했습니다: {{err}}",
       "failedChangeIcon": "아이콘을 변경하지 못했습니다: {{err}}",
@@ -404,6 +481,15 @@
         "feather": "브러시 페더",
         "size": "브러시 크기"
       },
+      "cloneHeal": {
+        "cloneTooltip": "밝기와 색상을 포함해 소스를 그대로 복사합니다",
+        "dragSource": "드래그하여 소스 이동",
+        "healTooltip": "소스의 질감을 복사해 주변 밝기와 색상에 자연스럽게 맞춥니다",
+        "hintActive": "소스 윤곽을 드래그해 픽셀을 가져올 위치를 고르세요. 새 스트로크마다 별도의 스팟이 됩니다. Shift를 누른 채 칠하면 이 스팟에 추가됩니다.",
+        "hintEmpty": "얼룩, 전선 또는 방해 요소 위를 칠하세요. 어울리는 소스를 자동으로 찾습니다.",
+        "mode": "모드",
+        "newSource": "다른 소스 찾기"
+      },
       "comingSoon": "출시 예정",
       "connection": {
         "backendLabel": "AI 백엔드:",
@@ -463,7 +549,8 @@
         "quickErase": "빠른 지우기 {{count}}",
         "quickErase_one": "빠른 지우기 {{count}}",
         "quickErase_other": "빠른 지우기 {{count}}",
-        "retouch": "리터칭 {{count}}"
+        "retouch": "리터칭 {{count}}",
+        "retouch_other": "리터칭 {{count}}"
       },
       "resetInpaintingTooltip": "인페인팅 초기화",
       "settings": {
@@ -730,8 +817,7 @@
       "toggleAnalyticsTooltip": "분석 표시 전환",
       "tooltips": {
         "addToCurrent": "{{name}}을(를) 현재 마스크에 추가하거나 새로 만들기 (우클릭)",
-        "createNew": "새 {{name}} 마스크 만들기",
-        "selectNewSourcePoint": "{{modifier}} + 클릭하여 새 소스 포인트 선택"
+        "createNew": "새 {{name}} 마스크 만들기"
       }
     },
     "metadata": {
@@ -834,6 +920,10 @@
         "tool": "도구"
       }
     },
+    "speedEdit": {
+      "copied": "<0>{{label}}</0> <1>{{value}}</1> 복사됨",
+      "pasted": "<0>{{label}}</0> <1>{{value}}</1> 붙여넣음"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "조정",
@@ -861,11 +951,18 @@
         "undo": "실행 취소 (Ctrl+Z) 또는 기록 (우클릭)"
       },
       "vc": "VC"
+    },
+    "viewer": {
+      "openFailed": "보조 창을 열 수 없습니다: {{error}}",
+      "windowTitle": "RapidRAW 뷰어"
     }
   },
   "export": {
     "advanced": {
       "exportMasks": "마스크를 별도 파일로 내보내기",
+      "exportOriginal": "원본도 내보내기",
+      "originalCrop": "자르기 적용",
+      "originalKeepExposure": "노출 유지",
       "preserveFolders": "폴더 구조 유지",
       "preserveTimestamps": "EXIF 촬영 날짜로 파일 타임스탬프 설정",
       "title": "내보내기 설정"
@@ -999,6 +1096,10 @@
       "title": "아직 Immich에 없는 편집"
     },
     "export": {
+      "newAlbum": "새 앨범…",
+      "newAlbumName": "앨범 이름",
+      "createAlbum": "만들기",
+      "newAlbumFailed": "앨범을 만들 수 없습니다: {{error}}",
       "album": "앨범",
       "destination": "Immich",
       "noAlbum": "앨범 없음",
@@ -1007,16 +1108,19 @@
       "withOriginalDesc": "로컬 폴더의 이미지: 원본이 편집 내용과 함께 업로드되고 내보낸 파일이 그 위에 스택됩니다. Immich의 이미지는 항상 원본 위에 스택됩니다."
     },
     "section": {
+      "albums": "앨범",
       "empty": "서버에 앨범이 없습니다.",
       "error": "Immich에 연결할 수 없습니다.",
       "loading": "앨범 불러오는 중…",
       "refresh": "앨범 새로고침",
       "timeline": "타임라인",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "앨범 없음",
+      "unassignedHint": "이미지를 여기에 놓으면 앨범에 추가하지 않고 업로드합니다."
     },
     "settings": {
       "apiKey": "API 키",
-      "apiKeyDesc": "Immich의 계정 설정 → API 키에서 다음 권한으로 만드세요: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create, user.read",
+      "apiKeyDesc": "Immich의 계정 설정 → API 키에서 다음 권한으로 만드세요: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create, user.read",
       "connected": "{{user}}(으)로 연결됨 (Immich {{version}})",
       "description": "Immich 서버의 사진을 라이브러리에서 둘러보고 바로 편집하세요. 원본은 열 때 다운로드되며, 편집 내용은 Immich에 저장되어 모든 컴퓨터에서 똑같이 보입니다.",
       "keyInFile": "본인만 읽을 수 있는 파일에 저장됨: 사용 가능한 자격 증명 저장소가 없습니다. KDE에서는 KDE 지갑 설정에서 Secret Service 인터페이스를 켠 뒤 다시 저장하세요.",
@@ -1034,12 +1138,17 @@
       "pending": "Immich 전송 대기 중인 편집: {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}}은(는) 다른 사람의 이미지라 Immich가 편집을 받지 않습니다. 편집 내용은 이 컴퓨터에 남습니다.",
       "backOnline": "Immich에 다시 연결되었으며 모든 편집 내용이 저장되었습니다.",
       "downloadFailed": "Immich에서 다운로드하지 못했습니다: {{error}}",
       "editsConflict": "{{fileName}}이(가) 다른 컴퓨터에서도 편집되었습니다. 내 편집 내용은 유지되고, 다른 버전은 가상 사본으로 보관됩니다.",
       "offline": "Immich에 연결할 수 없습니다. 편집 내용은 여기에 보관되며 다시 연결되면 전송됩니다.",
+      "transferFailed": "Immich에 추가하지 못함: {{number}} ({{error}})",
+      "transferred": "Immich에 추가됨: {{number}}",
+      "transferring": "Immich에 추가하는 중… {{current}}/{{total}}",
       "trashFailed": "Immich 휴지통으로 이동하지 못했습니다: {{error}}",
-      "uploaded": "Immich에 업로드됨: {{number}}"
+      "uploaded": "Immich에 업로드됨: {{number}}",
+      "uploadKeptCopy": "{{fileName}}은(는) 이미 다른 편집 내용으로 Immich에 있습니다. 해당 편집은 유지되고, 내 편집은 가상 사본으로 보관됩니다."
     }
   },
   "library": {
@@ -1351,6 +1460,11 @@
       "goHome": "홈으로 이동",
       "importImages": "이미지 가져오기",
       "select": "선택"
+    },
+    "viewMode": {
+      "culling": "선별 보기",
+      "grid": "그리드 보기",
+      "list": "목록 보기"
     }
   },
   "masks": {
@@ -1367,6 +1481,7 @@
       "linear": "선형",
       "liquify": "픽셀 유동화",
       "luminance": "휘도",
+      "matchBrush": "매치 브러시",
       "others": "기타",
       "quickErase": "빠른 지우기",
       "quickEraser": "빠른 지우개",
@@ -1431,6 +1546,7 @@
       "descReplace": "선택한 모든 설정을 덮어쓰고 나머지는 기본값으로 초기화합니다.",
       "groups": {
         "aiDenoise": "AI 노이즈 제거",
+        "blackWhite": "흑백",
         "chromaticAberration": "색수차",
         "clarityDehaze": "명료도 및 디헤이즈",
         "colorCalibration": "색상 보정",
@@ -1444,6 +1560,7 @@
         "halationGlow": "헐레이션 및 글로우",
         "hueShift": "글로벌 색조 시프트",
         "lensBlur": "렌즈 블러",
+        "motionBlur": "모션 블러",
         "lensCorrection": "렌즈 보정",
         "lut": "LUT",
         "masks": "마스크",
@@ -1587,7 +1704,6 @@
       "selectManufacturer": "제조사 선택",
       "title": "렌즈 보정",
       "vignetting": "비네팅",
-      "waitingAutoDetect": "자동 감지 대기 중...",
       "zoomInTooltip": "확대",
       "zoomOutTooltip": "축소"
     },
@@ -1679,6 +1795,27 @@
       "pressKey": "키를 누르세요... (Esc로 지우기)",
       "resetDefaults": "모두 기본값으로 초기화",
       "speed": "속도",
+      "speedEdit": {
+        "adjustments": "조정 항목",
+        "gestures": {
+          "doubleClick": "더블클릭하여 초기화",
+          "drag": "캔버스에서 드래그하여 조정",
+          "fine": "Shift로 미세 조정"
+        },
+        "keys": {
+          "hold": "탭 / 길게 누르기",
+          "previousImage": "이전 이미지",
+          "nextImage": "다음 이미지",
+          "reset": "초기화",
+          "previousAdjustment": "이전 슬라이더",
+          "nextAdjustment": "다음 슬라이더",
+          "copy": "복사",
+          "paste": "붙여넣기",
+          "stepDown": "−1 단계",
+          "stepUp": "+1 단계"
+        },
+        "title": "빠른 편집"
+      },
       "title": "마우스 컨트롤",
       "zoom": "확대/축소 속도 배율",
       "zoomClick": "사진 100% 확대",
@@ -1776,6 +1913,8 @@
       "folderImageCountsDesc": "폴더 트리 위에 마우스를 올리면 폴더 내 이미지 개수를 표시합니다.",
       "font": "글꼴",
       "fontDesc": "애플리케이션 글꼴을 변경합니다.",
+      "hideCollapsedPanels": "접힌 패널 숨기기",
+      "hideCollapsedPanelsDesc": "접힌 사이드 패널을 좁은 띠로 남기지 않고 완전히 숨깁니다. 하단 바 또는 키보드 단축키로 다시 열 수 있습니다.",
       "nativeTitlebar": "네이티브 제목 표시줄",
       "nativeTitlebarDesc": "RapidRAW의 사용자 지정 제목 표시줄 대신 시스템 기본 창 제목 표시줄을 사용합니다.",
       "neutralGreyCanvas": "뉴트럴 그레이 캔버스",
@@ -1788,6 +1927,11 @@
       "title": "일반 설정",
       "toolFocusMode": "도구 집중 모드",
       "toolFocusModeDesc": "도구를 펼치면 같은 패널의 다른 도구를 자동으로 접습니다.",
+      "uiScale": "인터페이스 배율",
+      "uiScaleCompact": "컴팩트",
+      "uiScaleDefault": "기본값",
+      "uiScaleDesc": "시스템 디스플레이 배율과 관계없이 인터페이스를 작게 또는 크게 만듭니다. 컴팩트 크기는 작은 노트북 화면에 더 많은 내용을 표시합니다.",
+      "uiScaleLarge": "크게",
       "xmpSync": "XMP 메타데이터 동기화",
       "xmpSyncDesc": "다른 사진 편집기와의 호환성을 위해 평점, 색상 레이블, 태그를 표준 XMP 사이드카 파일에 동기화합니다."
     },
@@ -1829,6 +1973,7 @@
         "toggle_adjustments": "조정 패널 전환",
         "toggle_ai": "AI 패널 전환",
         "toggle_analytics": "분석 표시 전환",
+        "toggle_black_white": "흑백 전환",
         "toggle_bottom_panel": "필름스트립 토글",
         "toggle_crop": "자르기 / 수평 맞추기 전환",
         "toggle_crop_panel": "자르기 패널 전환",
@@ -1843,6 +1988,7 @@
         "toggle_presets": "프리셋 패널 전환",
         "toggle_reject": "거부 플래그 전환",
         "toggle_right_panel": "오른쪽 패널 토글",
+        "toggle_viewer_window": "보조 창 전환",
         "undo": "조정 실행 취소",
         "unflag": "플래그 해제",
         "zoom_100": "100%로 확대/축소",
@@ -1963,6 +2109,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "편집기는 디스플레이의 실제 픽셀 밀도에 맞춰 미리보기를 렌더링합니다. 이를 통해 모든 디테일이 1:1 픽셀 정확도로 표현되어, 확대하고 초점을 확인할 때 최대의 선명도를 제공합니다.",
+      "editIn": {
+        "add": "프로그램 추가",
+        "args": "인수 ({file} = 이미지 경로)",
+        "browse": "찾아보기",
+        "description": "\"다른 프로그램에서 편집\" 메뉴의 프로그램입니다.",
+        "executable": "프로그램",
+        "modes": {
+          "original": "원본 파일 보내기",
+          "rendered": "편집된 TIFF 보내기"
+        },
+        "name": "이름",
+        "path": "프로그램 경로",
+        "remove": "제거",
+        "title": "다른 프로그램에서 편집"
+      },
       "enableLivePreviews": "실시간 미리보기 활성화",
       "highDpi": "고해상도(High-DPI) 렌더링",
       "highDpiDesc": "화면의 네이티브 {{dpr}}배 물리적 픽셀 해상도로 미리보기를 렌더링합니다. 가능한 가장 선명한 미리보기를 제공하지만 메모리를 훨씬 많이 사용합니다.",
@@ -1992,7 +2153,7 @@
         "baselineExposure": "기본 노출",
         "baselineExposureAmount": "기본량",
         "baselineExposureAmountDesc": "RAW 파일에 더하는 노출입니다. darktable은 +0.7 EV를 사용합니다.",
-        "baselineExposureDesc": "모든 RAW 파일을 일정량 밝힙니다(darktable의 장면 기준 기본값과 같은 방식). DNG BaselineExposure 태그가 있으면 그 값도 더합니다. 이 옵션이 생기기 전에 편집한 이미지는 영향을 받지 않습니다.",
+        "baselineExposureDesc": "RAW 파일을 일정량 밝힙니다. DNG BaselineExposure 태그가 있으면 그 값도 더합니다.",
         "colorNr": "기본 색상 노이즈 감소",
         "colorNrDesc": "파이프라인 초기에 교차 양방향 필터를 적용하여 색차 노이즈를 제거합니다. 값이 높을수록 노이즈 감소가 강해집니다.",
         "defaultNonRawTonemapper": "기본 비RAW 톤매퍼",
@@ -2005,7 +2166,7 @@
         "enablePreprocessingNonRaws": "RAW가 아닌 이미지에 활성화",
         "enableTonemapperOverride": "톤매퍼 재정의 활성화",
         "highlightPreservation": "하이라이트 보호 보정",
-        "highlightPreservationDesc": "하이라이트 보호 모드에서 카메라가 낮춘 노출을 RAW 파일에서 읽어 되돌립니다(후지필름 DR200/DR400, 캐논 하이라이트 톤 우선 및 자동 밝기 최적화, 니콘 액티브 D-라이팅, 올림푸스 계조, 펜탁스 DR 확장). 이 옵션이 생기기 전에 편집한 이미지는 영향을 받지 않습니다.",
+        "highlightPreservationDesc": "카메라 하이라이트 보호 모드(후지필름 DR200/DR400, 니콘 액티브 D-라이팅 등)에서 낮춘 노출을 되돌립니다.",
         "highlightRecovery": "RAW 하이라이트 복구",
         "highlightRecoveryDesc": "RAW 파일에서 클리핑된 하이라이트로부터 얼마나 많은 디테일을 복구할지 제어합니다. 값이 높을수록 더 많은 디테일을 복구하지만 보라색 아티팩트가 생길 수 있습니다.",
         "linearOptions": {
@@ -2040,15 +2201,14 @@
       "smallThumbnailRes": "그리드 썸네일 해상도",
       "smallThumbnailResDesc": "라이브러리 그리드에 표시되는 썸네일의 해상도입니다.",
       "staticDesc": "편집기가 고정된 해상도로 이미지를 렌더링합니다. 이 모드는 가장 빠르고 일관성이 있어, 픽셀 단위 정밀 확대보다 부드러운 성능이 우선시되는 저사양 하드웨어에 이상적입니다.",
-      "staticPreviewRes": "정적 미리보기 해상도",
-      "staticPreviewResDesc": "자르기 모드, 렌즈 보정, 원근 도구 등 정적 미리보기의 해상도를 설정합니다. 메인 편집기 미리보기에는 영향을 주지 않습니다.",
       "threads": "스레드",
       "thumbnailRes": "썸네일 해상도",
       "thumbnailResDesc": "생성되는 라이브러리 썸네일의 해상도를 결정합니다. 값이 높을수록 로딩 중 더 선명한 이미지를 제공합니다.",
       "title": "처리 엔진",
       "wgpu": "WGPU 직접 렌더링",
       "wgpuDescAndroid": "브라우저 인코딩을 우회하여 즉각적으로 반응하는 실시간 미리보기를 제공합니다. (Android에서 비활성화됨: 네이티브 WGPU 서피스 생성이 현재 모바일 웹뷰와 함께 지원되지 않습니다.)",
-      "wgpuDescLinux": "브라우저 인코딩을 우회하여 즉각적으로 반응하는 실시간 미리보기를 제공합니다. (Linux에서 비활성화됨: Tauri는 웹뷰에 GTK를 사용하는데, 이는 동일한 X11 서피스에서 WGPU와 충돌하여 깜박임을 유발합니다.)",
+      "wgpuDescLinuxExperimental": "Linux에서는 실험적 기능이며 불안정할 수 있습니다.",
+      "wgpuDescLinuxX11": "X11에서는 사용할 수 없습니다.",
       "wgpuDescRecommended": "브라우저 인코딩을 우회하여 즉각적으로 반응하는 실시간 미리보기를 제공합니다. 성능을 위해 적극 권장합니다.",
       "wgpuLabel": "직접 WGPU 렌더링 활성화",
       "workerThreads": "썸네일 워커 스레드",

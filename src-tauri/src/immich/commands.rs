@@ -58,6 +58,12 @@ pub async fn immich_list_albums(app_handle: AppHandle) -> Result<Vec<Album>, Str
 }
 
 #[tauri::command]
+pub async fn immich_create_album(app_handle: AppHandle, name: String) -> Result<Album, String> {
+    let session = session(&app_handle)?;
+    session.client.create_album(name.trim()).await
+}
+
+#[tauri::command]
 pub async fn immich_timeline(app_handle: AppHandle) -> Result<Vec<TimelineMonth>, String> {
     session(&app_handle)?.client.timeline_months().await
 }

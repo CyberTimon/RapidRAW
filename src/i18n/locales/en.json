@@ -56,6 +56,57 @@
         "reds": "Reds",
         "yellows": "Yellows"
       },
+      "mixerPickerTooltip": "Color Mixer Picker: click and drag up or down on the photo",
+      "monochrome": {
+        "badge": "B&W",
+        "balance": "Balance",
+        "blackWhite": "Black & White",
+        "film": "Film",
+        "filmDescriptions": {
+          "balanced": "Even sensitivity across colors, with lighter reds and skin",
+          "extendedRed": "Red-sensitive film with luminous skin and darker skies",
+          "infrared": "Glowing foliage and near-black skies",
+          "neutral": "Matches the perceived brightness of each color",
+          "orthoPanchromatic": "Slightly darker reds with crisp greens",
+          "orthochromatic": "Blind to red, with dark reds and bright skies",
+          "panchromatic": "Classic film response with lighter blue skies"
+        },
+        "films": {
+          "balanced": "Balanced",
+          "extendedRed": "Extended Red",
+          "infrared": "Infrared",
+          "neutral": "Neutral",
+          "orthoPanchromatic": "Ortho-Pan",
+          "orthochromatic": "Orthochromatic",
+          "panchromatic": "Panchromatic"
+        },
+        "filter": "Filter",
+        "filters": {
+          "blue": "Blue",
+          "green": "Green",
+          "none": "None",
+          "orange": "Orange",
+          "red": "Red",
+          "yellow": "Yellow"
+        },
+        "highlights": "Highlights",
+        "hue": "Hue",
+        "mix": "B&W Mix",
+        "mixPickerTooltip": "B&W Mix Picker: click and drag up or down on the photo",
+        "saturation": "Saturation",
+        "shadows": "Shadows",
+        "strength": "Strength",
+        "toning": "Toning",
+        "tonings": {
+          "cyanotype": "Cyanotype",
+          "gold": "Gold",
+          "none": "None",
+          "platinum": "Platinum",
+          "selenium": "Selenium",
+          "sepia": "Sepia",
+          "split": "Split Tone"
+        }
+      },
       "presence": "Presence",
       "saturation": "Saturation",
       "temperature": "Temperature",
@@ -143,6 +194,24 @@
       "lightFlares": "Light Flares",
       "lut": "LUT",
       "midpoint": "Midpoint",
+      "motionBlur": "Motion Blur",
+      "motionBlurAngle": "Angle",
+      "motionBlurDepth": "Depth",
+      "motionBlurHighlights": "Highlights",
+      "motionBlurLayer": "Motion",
+      "motionBlurLayers": {
+        "auto": "Auto",
+        "panning": "Panning",
+        "subject": "Moving Subject",
+        "uniform": "Uniform"
+      },
+      "motionBlurType": "Type",
+      "motionBlurTypes": {
+        "linear": "Linear",
+        "zoom": "Zoom",
+        "spin": "Spin",
+        "smooth": "Smooth"
+      },
       "relight": "Relight",
       "relightAddLight": "Add Light",
       "relightAmbient": "Ambient",
@@ -227,13 +296,16 @@
       "autoLensCorrection": "Auto Lens Correction",
       "autoStraighten": "Auto Straighten",
       "cancel": "Cancel",
+      "closeViewer": "Close second window",
       "colorLabel": "Color Label",
       "confirmReset": "Confirm Reset",
+      "convertBlackWhite": "Convert to Black & White",
       "convertNegative": "Convert Negative",
       "copyAdjustments": "Copy Adjustments",
       "cullImage": "Auto Cull",
       "denoise": "Denoise",
       "editImage": "Edit Image",
+      "editIn": "Edit In",
       "exportImage": "Export Image",
       "flag": "Flag",
       "flagPick": "Picked",
@@ -242,12 +314,14 @@
       "mergeHdr": "Merge to HDR",
       "noLabel": "No Label",
       "noRating": "No Rating",
+      "openViewer": "Open in second window",
       "pasteAdjustments": "Paste Adjustments",
       "productivity": "Productivity",
       "rating": "Rating",
       "ratingLabel_one": "{{count}} Star",
       "ratingLabel_other": "{{count}} Stars",
       "redo": "Redo",
+      "removeBlackWhite": "Remove Black & White",
       "removeDenoise": "Remove Denoise",
       "removeNegativeConversion": "Remove Negative Conversion",
       "resetAdjustments": "Reset Adjustments",
@@ -334,6 +408,9 @@
     "toasts": {
       "couldNotShowExplorer": "Could not show file in explorer: {{err}}",
       "couldNotShowFolder": "Could not show folder: {{err}}",
+      "editInFailed": "{{app}} failed: {{err}}",
+      "editInNoOutput": "{{app}} closed without saving.",
+      "editInWaiting": "Waiting for {{app}}. Save the file there to bring it back, or close this message to stop waiting.",
       "failedAddToAlbum": "Failed to add to album: {{err}}",
       "failedApplyAuto": "Failed to apply auto adjustments: {{err}}",
       "failedChangeIcon": "Failed to change icon: {{err}}",
@@ -404,6 +481,15 @@
         "feather": "Brush Feather",
         "size": "Brush Size"
       },
+      "cloneHeal": {
+        "cloneTooltip": "Copy the source exactly, including its brightness and color",
+        "dragSource": "Drag to move the source",
+        "healTooltip": "Copy the source texture and blend it into the surrounding brightness and color",
+        "hintActive": "Drag the source outline to choose where pixels come from. Every new stroke becomes its own spot. Hold Shift to add to this one.",
+        "hintEmpty": "Paint over a spot, wire or distraction. A matching source is found automatically.",
+        "mode": "Mode",
+        "newSource": "Find Another Source"
+      },
       "comingSoon": "Coming Soon",
       "connection": {
         "backendLabel": "AI Backend:",
@@ -465,7 +551,9 @@
         "quickErase": "Quick Erase {{count}}",
         "quickErase_one": "Quick Erase {{count}}",
         "quickErase_other": "Quick Erase {{count}}",
-        "retouch": "Retouch {{count}}"
+        "retouch": "Retouch {{count}}",
+        "retouch_one": "Retouch {{count}}",
+        "retouch_other": "Retouch {{count}}"
       },
       "resetInpaintingTooltip": "Reset Inpainting",
       "settings": {
@@ -732,8 +820,7 @@
       "toggleAnalyticsTooltip": "Toggle Analytics Display",
       "tooltips": {
         "addToCurrent": "Add {{name}} to Current Mask or Create New (Right-click)",
-        "createNew": "Create New {{name}} Mask",
-        "selectNewSourcePoint": "{{modifier}} + Click to select a new source point"
+        "createNew": "Create New {{name}} Mask"
       }
     },
     "metadata": {
@@ -836,6 +923,10 @@
         "tool": "Tool"
       }
     },
+    "speedEdit": {
+      "copied": "Copied <0>{{label}}</0> <1>{{value}}</1>",
+      "pasted": "Pasted <0>{{label}}</0> <1>{{value}}</1>"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "Adjust",
@@ -863,11 +954,18 @@
         "undo": "Undo (Ctrl+Z) or History (Right-click)"
       },
       "vc": "VC"
+    },
+    "viewer": {
+      "openFailed": "Could not open the second window: {{error}}",
+      "windowTitle": "RapidRAW Viewer"
     }
   },
   "export": {
     "advanced": {
       "exportMasks": "Export masks as separate files",
+      "exportOriginal": "Also export the original",
+      "originalCrop": "Apply crop",
+      "originalKeepExposure": "Keep exposure",
       "preserveFolders": "Preserve Folder Structure",
       "preserveTimestamps": "Set File Timestamps from EXIF Capture Date",
       "title": "Export Settings"
@@ -1001,6 +1099,10 @@
       "title": "Edits not in Immich yet"
     },
     "export": {
+      "newAlbum": "New album…",
+      "newAlbumName": "Album name",
+      "createAlbum": "Create",
+      "newAlbumFailed": "Could not create the album: {{error}}",
       "album": "Album",
       "destination": "Immich",
       "noAlbum": "No album",
@@ -1009,16 +1111,19 @@
       "withOriginalDesc": "For images from a local folder: the original is uploaded with its edits and the export is stacked on top of it. Images from Immich are always stacked on their original."
     },
     "section": {
+      "albums": "Albums",
       "empty": "No albums on the server.",
       "error": "Immich is not reachable.",
       "loading": "Loading albums…",
       "refresh": "Refresh albums",
       "timeline": "Timeline",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "In no album",
+      "unassignedHint": "Drop images here to upload them without adding them to an album."
     },
     "settings": {
       "apiKey": "API key",
-      "apiKeyDesc": "Create one in Immich under Account Settings → API Keys with these permissions: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create and user.read.",
+      "apiKeyDesc": "Create one in Immich under Account Settings → API Keys with these permissions: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create and user.read.",
       "connected": "Connected as {{user}} (Immich {{version}})",
       "description": "Browse the photos of your Immich server in the library and edit them directly. Originals are downloaded when you open them, and your edits are saved in Immich, so they look the same on every computer.",
       "keyInFile": "Stored in a file only you can read: no credential store is available. On KDE, turn on the Secret Service interface in the KDE Wallet settings and save again.",
@@ -1036,12 +1141,17 @@
       "pending": "Edits waiting for Immich: {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} belongs to someone else, so Immich doesn't accept edits for it. Your edits stay on this computer.",
       "backOnline": "Immich is reachable again, and all edits are saved there.",
       "downloadFailed": "Could not download from Immich: {{error}}",
       "editsConflict": "{{fileName}} was also edited on another computer. Your edits stay, and the other version is kept as a virtual copy.",
       "offline": "Immich is not reachable. Your edits are kept here and sent as soon as it's back.",
+      "transferFailed": "Not added to Immich: {{number}} ({{error}})",
+      "transferred": "Added to Immich: {{number}}",
+      "transferring": "Adding to Immich… {{current}}/{{total}}",
       "trashFailed": "Could not move to Immich's trash: {{error}}",
-      "uploaded": "Uploaded to Immich: {{number}}"
+      "uploaded": "Uploaded to Immich: {{number}}",
+      "uploadKeptCopy": "{{fileName}} is already in Immich with other edits. Those stay, and your edits are kept as a virtual copy."
     }
   },
   "library": {
@@ -1358,9 +1468,9 @@
       "select": "Select"
     },
     "viewMode": {
+      "culling": "Culling View",
       "grid": "Grid View",
       "list": "List View",
-      "culling": "Culling View",
       "map": "Map View"
     },
     "map": {
@@ -1420,6 +1530,7 @@
       "linear": "Linear",
       "liquify": "Liquify",
       "luminance": "Luminance",
+      "matchBrush": "Match Brush",
       "others": "Others",
       "quickErase": "Quick Erase",
       "quickEraser": "Quick Eraser",
@@ -1484,6 +1595,7 @@
       "descReplace": "Overwrites all selected settings, resetting the rest to their defaults.",
       "groups": {
         "aiDenoise": "AI Denoise",
+        "blackWhite": "Black & White",
         "chromaticAberration": "Chromatic Aberration",
         "clarityDehaze": "Clarity & Dehaze",
         "colorCalibration": "Color Calibration",
@@ -1497,6 +1609,7 @@
         "halationGlow": "Halation & Glow",
         "hueShift": "Global Hue Shift",
         "lensBlur": "Lens Blur",
+        "motionBlur": "Motion Blur",
         "lensCorrection": "Lens Correction",
         "lut": "LUT",
         "masks": "Masks",
@@ -1640,7 +1753,6 @@
       "selectManufacturer": "Select Manufacturer",
       "title": "Lens Correction",
       "vignetting": "Vignetting",
-      "waitingAutoDetect": "Waiting for Auto-Detect...",
       "zoomInTooltip": "Zoom In",
       "zoomOutTooltip": "Zoom Out"
     },
@@ -1732,6 +1844,27 @@
       "pressKey": "Press a key... (Esc to clear)",
       "resetDefaults": "Reset All to Defaults",
       "speed": "Speed",
+      "speedEdit": {
+        "adjustments": "Adjustments",
+        "gestures": {
+          "doubleClick": "Double-click to reset",
+          "drag": "Drag on canvas to adjust",
+          "fine": "Shift for fine"
+        },
+        "keys": {
+          "hold": "Tap / hold",
+          "previousImage": "Prev. image",
+          "nextImage": "Next image",
+          "reset": "Reset",
+          "previousAdjustment": "Prev. slider",
+          "nextAdjustment": "Next slider",
+          "copy": "Copy",
+          "paste": "Paste",
+          "stepDown": "−1 step",
+          "stepUp": "+1 step"
+        },
+        "title": "Speed Edit"
+      },
       "title": "Mouse Controls",
       "zoom": "Zoom Speed Multiplier",
       "zoomClick": "Zoom photo to 100%",
@@ -1829,6 +1962,8 @@
       "folderImageCountsDesc": "Show the number of images inside folders when hovering over the folder tree.",
       "font": "Font",
       "fontDesc": "Change the application font.",
+      "hideCollapsedPanels": "Hide Collapsed Panels",
+      "hideCollapsedPanelsDesc": "Collapsed side panels hide completely instead of leaving a narrow strip. Reopen them from the bottom bar or with their keyboard shortcuts.",
       "nativeTitlebar": "Native Titlebar",
       "nativeTitlebarDesc": "Use your system's default window titlebar instead of RapidRAW's custom one.",
       "neutralGreyCanvas": "Neutral Grey Canvas",
@@ -1841,6 +1976,11 @@
       "title": "General Settings",
       "toolFocusMode": "Tool Focus Mode",
       "toolFocusModeDesc": "Automatically collapses the other tools in a panel when you expand one.",
+      "uiScale": "Interface Scale",
+      "uiScaleCompact": "Compact",
+      "uiScaleDefault": "Default",
+      "uiScaleDesc": "Make the interface smaller or larger, independent of your system display scaling. Compact sizes fit more on small laptop screens.",
+      "uiScaleLarge": "Large",
       "xmpSync": "XMP Metadata Sync",
       "xmpSyncDesc": "Sync ratings, color labels and tags to standard XMP sidecar files for compatibility with other photo editors."
     },
@@ -1882,6 +2022,7 @@
         "toggle_adjustments": "Toggle Adjustments panel",
         "toggle_ai": "Toggle AI panel",
         "toggle_analytics": "Toggle Analytics display",
+        "toggle_black_white": "Toggle Black & White",
         "toggle_bottom_panel": "Toggle Filmstrip",
         "toggle_crop": "Toggle Crop / Straighten",
         "toggle_crop_panel": "Toggle Crop panel",
@@ -1896,6 +2037,7 @@
         "toggle_presets": "Toggle Presets panel",
         "toggle_reject": "Toggle reject flag",
         "toggle_right_panel": "Toggle Right Panel",
+        "toggle_viewer_window": "Toggle second window",
         "undo": "Undo adjustment",
         "unflag": "Remove flag",
         "zoom_100": "Zoom to 100%",
@@ -2016,6 +2158,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "The editor renders the preview to match your display's actual pixel density. This ensures that every detail is represented with 1:1 pixel accuracy, providing maximum clarity when zooming and checking focus.",
+      "editIn": {
+        "add": "Add Program",
+        "args": "Arguments ({file} = image path)",
+        "browse": "Browse",
+        "description": "Programs for the \"Edit In\" menu.",
+        "executable": "Programs",
+        "modes": {
+          "original": "Send original file",
+          "rendered": "Send edited TIFF"
+        },
+        "name": "Name",
+        "path": "Program path",
+        "remove": "Remove",
+        "title": "Edit In"
+      },
       "enableLivePreviews": "Enable Live Previews",
       "highDpi": "High-DPI Rendering",
       "highDpiDesc": "Render previews at your screen's native {{dpr}}x physical pixel resolution. Produces the sharpest possible preview but uses significantly more memory.",
@@ -2045,7 +2202,7 @@
         "baselineExposure": "Baseline Exposure",
         "baselineExposureAmount": "Baseline Amount",
         "baselineExposureAmountDesc": "Exposure added to RAW files. darktable uses +0.7 EV.",
-        "baselineExposureDesc": "Brightens every RAW file by a fixed amount, like darktable's scene-referred default, plus the DNG BaselineExposure tag when present. Images edited before this option existed are not affected.",
+        "baselineExposureDesc": "Brightens RAW files by a fixed amount, plus the DNG BaselineExposure tag if present.",
         "colorNr": "Base Color Noise Reduction",
         "colorNrDesc": "Applies a cross-bilateral filter early in the pipeline to remove chroma noise. Higher value = Stronger NR.",
         "defaultNonRawTonemapper": "Default Non-RAW Tonemapper",
@@ -2058,7 +2215,7 @@
         "enablePreprocessingNonRaws": "Enable for Non-RAWs",
         "enableTonemapperOverride": "Enable Tonemapper Override",
         "highlightPreservation": "Highlight Preservation Compensation",
-        "highlightPreservationDesc": "Restores the exposure the camera held back in highlight-preserving modes, read from the RAW file (Fujifilm DR200/DR400, Canon Highlight Tone Priority and Auto Lighting Optimizer, Nikon Active D-Lighting, Olympus gradation, Pentax DR expansion). Images edited before this option existed are not affected.",
+        "highlightPreservationDesc": "Restores exposure lowered by highlight-preserving camera modes, such as Fujifilm DR200/DR400 or Nikon Active D-Lighting.",
         "highlightRecovery": "RAW Highlight Recovery",
         "highlightRecoveryDesc": "Controls how much detail is recovered from clipped highlights in RAW files. Higher values recover more detail but can introduce purple artefacts.",
         "linearOptions": {
@@ -2093,15 +2250,14 @@
       "smallThumbnailRes": "Grid Thumbnail Resolution",
       "smallThumbnailResDesc": "Resolution of thumbnails shown in the library grid.",
       "staticDesc": "The editor renders the image at a fixed resolution. This mode is the fastest and most consistent, making it ideal for lower-end hardware where smooth performance is prioritized over pixel-perfect zoom.",
-      "staticPreviewRes": "Static Preview Resolution",
-      "staticPreviewResDesc": "Sets the resolution for static previews like crop mode, lens correction, and perspective tools. Does not affect the main editor preview.",
       "threads": "Threads",
       "thumbnailRes": "Thumbnail Resolution",
       "thumbnailResDesc": "Determines the resolution of generated library thumbnails. Higher values produce sharper images during loading.",
       "title": "Processing Engine",
       "wgpu": "WGPU Direct Rendering",
       "wgpuDescAndroid": "Bypasses browser encoding for instantly responsive live previews. (Disabled on Android: Native WGPU surface creation is currently not supported alongside the mobile webview.)",
-      "wgpuDescLinux": "Bypasses browser encoding for instantly responsive live previews. (Disabled on Linux: Tauri uses GTK for webviews, which conflicts with WGPU on the same X11 surface and causes flickering.)",
+      "wgpuDescLinuxExperimental": "Experimental on Linux and may be unstable.",
+      "wgpuDescLinuxX11": "Not available on X11.",
       "wgpuDescRecommended": "Bypasses browser encoding for instantly responsive live previews. Highly recommended for performance.",
       "wgpuLabel": "Enable Direct WGPU Render",
       "workerThreads": "Thumbnail Worker Threads",

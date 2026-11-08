@@ -5,7 +5,7 @@ use std::sync::{LazyLock, Mutex};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::app_state::AppState;
 
@@ -85,6 +85,25 @@ pub struct CustomAspectRatio {
     pub height: f64,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum EditInMode {
+    #[default]
+    Original,
+    Rendered,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct EditInApp {
+    pub name: String,
+    pub path: String,
+    #[serde(default)]
+    pub args: String,
+    #[serde(default)]
+    pub mode: EditInMode,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum PasteMode {
@@ -115,6 +134,12 @@ pub fn all_available_adjustments() -> HashSet<String> {
         "hue",
         "colorGrading",
         "colorCalibration",
+        "monochromeEnabled",
+        "monochromeFilm",
+        "monochromeFilterHue",
+        "monochromeFilterStrength",
+        "monochromeMix",
+        "monochromeToning",
         "clarity",
         "structure",
         "dehaze",
@@ -294,6 +319,12 @@ pub struct ExportPreset {
     #[serde(default)]
     pub export_masks: Option<bool>,
     #[serde(default)]
+    pub export_original: Option<bool>,
+    #[serde(default)]
+    pub original_crop: Option<bool>,
+    #[serde(default)]
+    pub original_keep_exposure: Option<bool>,
+    #[serde(default)]
     pub preserve_folders: Option<bool>,
     #[serde(default)]
     pub enable_pad: Option<bool>,
@@ -346,6 +377,9 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             watermark_spacing: 5,
             watermark_opacity: 75,
             export_masks: Some(false),
+            export_original: Some(false),
+            original_crop: Some(true),
+            original_keep_exposure: Some(false),
             preserve_folders: Some(false),
             enable_pad: Some(false),
             pad_ratio_width: Some(1.0),
@@ -381,6 +415,9 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             watermark_spacing: 5,
             watermark_opacity: 75,
             export_masks: Some(false),
+            export_original: Some(false),
+            original_crop: Some(true),
+            original_keep_exposure: Some(false),
             preserve_folders: Some(false),
             enable_pad: Some(false),
             pad_ratio_width: Some(1.0),
@@ -581,6 +618,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub linux_gpu_optimization_migrated_v1: Option<bool>,
     #[serde(default)]
+    pub linux_wgpu_renderer_migrated_v1: Option<bool>,
+    #[serde(default)]
     pub library_view_mode: Option<String>,
     #[serde(default = "default_export_presets")]
     pub export_presets: Vec<ExportPreset>,
@@ -612,6 +651,8 @@ pub struct AppSettings {
     pub compare_mode: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub white_balance_mode: Option<String>,
+    #[serde(default)]
+    pub ui_scale: Option<f64>,
     #[serde(default)]
     pub zoom_speed_multiplier: Option<f32>,
     #[serde(default)]
@@ -649,6 +690,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub enable_tool_focus_mode: Option<bool>,
     #[serde(default)]
+    pub hide_collapsed_panels: Option<bool>,
+    #[serde(default)]
     pub folder_icons: Option<HashMap<String, String>>,
     #[serde(default)]
     pub raw_preprocessing_color_nr: Option<f32>,
@@ -682,12 +725,76 @@ pub struct AppSettings {
     pub always_decode_raw_thumbnails: Option<bool>,
     #[serde(default)]
     pub custom_aspect_ratios: Vec<CustomAspectRatio>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub edit_in_apps: Vec<EditInApp>,
     #[serde(default)]
     pub adjustment_layout: AdjustmentLayout,
     #[serde(default)]
     pub workspace: WorkspaceState,
     #[serde(default)]
     pub immich: crate::immich::ImmichSettings,
+}
+
+const UI_SCALE_MIN: f64 = 0.5;
+const UI_SCALE_MAX: f64 = 2.0;
+
+fn clamp_ui_scale(scale: f64) -> f64 {
+    if scale.is_finite() {
+        scale.clamp(UI_SCALE_MIN, UI_SCALE_MAX)
+    } else {
+        1.0
+    }
+}
+
+fn set_window_zoom(window: &tauri::WebviewWindow, scale: f64) {
+    if let Err(e) = window.set_zoom(scale) {
+        log::warn!(
+            "Failed to set UI scale on window '{}': {}",
+            window.label(),
+            e
+        );
+    }
+}
+
+pub fn apply_saved_ui_scale(window: &tauri::WebviewWindow, settings: &AppSettings) {
+    let scale = clamp_ui_scale(settings.ui_scale.unwrap_or(1.0));
+    if scale != 1.0 {
+        set_window_zoom(window, scale);
+    }
+}
+
+impl AppSettings {
+    pub fn wgpu_renderer_enabled(&self) -> bool {
+        cfg!(not(target_os = "android"))
+            && wgpu_renderer_available()
+            && self
+                .use_wgpu_renderer
+                .unwrap_or(cfg!(not(target_os = "linux")))
+    }
+}
+
+pub fn wgpu_renderer_available() -> bool {
+    wgpu_renderer_supported() && !crate::gpu_processing::wgpu_display_failed()
+}
+
+#[cfg(target_os = "linux")]
+pub fn wgpu_renderer_supported() -> bool {
+    static SUPPORTED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *SUPPORTED.get_or_init(|| {
+        let has_env = |name| std::env::var_os(name).is_some_and(|v| !v.is_empty());
+        let preferred = std::env::var("GDK_BACKEND").ok().and_then(|list| {
+            list.split(',')
+                .map(str::trim)
+                .find(|b| *b == "wayland" || *b == "x11")
+                .map(|b| b == "wayland")
+        });
+        preferred.unwrap_or_else(|| has_env("WAYLAND_DISPLAY") || has_env("WAYLAND_SOCKET"))
+    })
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn wgpu_renderer_supported() -> bool {
+    true
 }
 
 impl Default for AppSettings {
@@ -732,6 +839,7 @@ impl Default for AppSettings {
             processing_backend: Some("auto".to_string()),
             linux_gpu_optimization: Some(false),
             linux_gpu_optimization_migrated_v1: Some(true),
+            linux_wgpu_renderer_migrated_v1: Some(true),
             library_view_mode: Some("flat".to_string()),
             export_presets: default_export_presets(),
             my_lenses: Some(Vec::new()),
@@ -755,6 +863,7 @@ impl Default for AppSettings {
             canvas_input_mode: Some("mouse".to_string()),
             compare_mode: None,
             white_balance_mode: None,
+            ui_scale: Some(1.0),
             zoom_speed_multiplier: Some(1.0),
             zoom_photo_to_pixel_click: Some(false),
             keybinds: HashMap::new(),
@@ -779,6 +888,7 @@ impl Default for AppSettings {
             default_non_raw_tonemapper: Some("basic".to_string()),
             enable_focus_mode: Some(false),
             enable_tool_focus_mode: Some(false),
+            hide_collapsed_panels: Some(false),
             folder_icons: Some(HashMap::new()),
             raw_preprocessing_color_nr: Some(0.5),
             raw_preprocessing_sharpening: Some(0.35),
@@ -795,6 +905,7 @@ impl Default for AppSettings {
             group_preferred_type: Some("raw".to_string()),
             always_decode_raw_thumbnails: Some(false),
             custom_aspect_ratios: Vec::new(),
+            edit_in_apps: Vec::new(),
             adjustment_layout: AdjustmentLayout::default(),
             workspace: WorkspaceState::default(),
             immich: crate::immich::ImmichSettings::default(),
@@ -827,13 +938,24 @@ fn settings_cache() -> std::sync::MutexGuard<'static, Option<AppSettings>> {
 }
 
 #[tauri::command]
-pub fn load_settings(app_handle: AppHandle) -> Result<AppSettings, String> {
-    if let Some(settings) = settings_cache().as_ref() {
-        return Ok(settings.clone());
-    }
+pub fn is_wgpu_renderer_supported() -> bool {
+    wgpu_renderer_available()
+}
 
-    let settings = read_settings_from_disk(&app_handle)?;
-    *settings_cache() = Some(settings.clone());
+#[tauri::command]
+pub fn load_settings(app_handle: AppHandle) -> Result<AppSettings, String> {
+    let cached = settings_cache().clone();
+    let mut settings = match cached {
+        Some(settings) => settings,
+        None => {
+            let settings = read_settings_from_disk(&app_handle)?;
+            *settings_cache() = Some(settings.clone());
+            settings
+        }
+    };
+    if !wgpu_renderer_available() {
+        settings.use_wgpu_renderer = Some(false);
+    }
     Ok(settings)
 }
 
@@ -867,6 +989,13 @@ fn read_settings_from_disk(app_handle: &AppHandle) -> Result<AppSettings, String
         settings_modified = true;
     }
 
+    #[cfg(target_os = "linux")]
+    if !settings.linux_wgpu_renderer_migrated_v1.unwrap_or(false) {
+        settings.use_wgpu_renderer = Some(false);
+        settings.linux_wgpu_renderer_migrated_v1 = Some(true);
+        settings_modified = true;
+    }
+
     let is_first_migration = settings.copy_paste_settings.known_adjustments.is_empty();
 
     if is_first_migration {
@@ -897,20 +1026,35 @@ fn read_settings_from_disk(app_handle: &AppHandle) -> Result<AppSettings, String
     }
 
     if settings_modified && let Ok(json_string) = serde_json::to_string_pretty(&settings) {
-        let _ = fs::write(&path, json_string);
+        let _ = crate::file_management::write_file_atomic(&path, json_string.as_bytes());
     }
 
     Ok(settings)
 }
 
 #[tauri::command]
-pub fn save_settings(settings: AppSettings, app_handle: AppHandle) -> Result<(), String> {
+pub fn set_ui_scale(scale: f64, app_handle: AppHandle) {
+    let scale = clamp_ui_scale(scale);
+    for window in app_handle.webview_windows().values() {
+        set_window_zoom(window, scale);
+    }
+    let _ = app_handle.emit("ui-scale-changed", scale);
+}
+
+#[tauri::command]
+pub fn save_settings(mut settings: AppSettings, app_handle: AppHandle) -> Result<(), String> {
     let previous_gpu_acceleration = load_settings(app_handle.clone())
         .map(|previous| previous.ai_gpu_acceleration)
         .ok();
+    if !wgpu_renderer_available()
+        && let Some(stored) = settings_cache().as_ref()
+    {
+        settings.use_wgpu_renderer = stored.use_wgpu_renderer;
+    }
     let path = get_settings_path(&app_handle)?;
     let json_string = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
-    fs::write(path, json_string).map_err(|e| e.to_string())?;
+    crate::file_management::write_file_atomic(&path, json_string.as_bytes())
+        .map_err(|e| e.to_string())?;
     *settings_cache() = None;
     crate::immich::apply_settings(&settings.immich);
 

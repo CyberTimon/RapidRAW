@@ -22,16 +22,17 @@ export const useMenuDismiss = (
 
 interface ToolbarMenuProps {
   children: React.ReactNode;
+  className?: string;
   isOpen: boolean;
   title: string;
 }
 
-export function ToolbarMenu({ children, isOpen, title }: ToolbarMenuProps) {
+export function ToolbarMenu({ children, className = 'w-64', isOpen, title }: ToolbarMenuProps) {
   return (
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="absolute top-full right-0 mt-3 w-64 origin-top-right z-50"
+          className={clsx('absolute top-full right-0 mt-3 origin-top-right z-50', className)}
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
@@ -46,7 +47,9 @@ export function ToolbarMenu({ children, isOpen, title }: ToolbarMenuProps) {
             >
               {title}
             </Text>
-            <div className="max-h-80 overflow-y-auto custom-scrollbar flex flex-col px-1">{children}</div>
+            <div className="max-h-[min(20rem,calc(100vh-8rem))] overflow-y-auto custom-scrollbar flex flex-col px-1">
+              {children}
+            </div>
           </div>
         </motion.div>
       )}
@@ -62,6 +65,8 @@ interface ToolbarMenuItemProps {
   label: string;
   onClick(): void;
   onKeyDown(e: React.KeyboardEvent<HTMLButtonElement>): void;
+  tooltip?: string;
+  wrap?: boolean;
 }
 
 export function ToolbarMenuItem({
@@ -72,6 +77,8 @@ export function ToolbarMenuItem({
   label,
   onClick,
   onKeyDown,
+  tooltip,
+  wrap,
 }: ToolbarMenuItemProps) {
   const textColor = isSelected ? TextColors.button : isDimmed ? TextColors.secondary : TextColors.primary;
   const textWeight = isSelected ? TextWeights.medium : TextWeights.normal;
@@ -91,9 +98,15 @@ export function ToolbarMenuItem({
       )}
       onClick={onClick}
       onKeyDown={onKeyDown}
+      data-tooltip={tooltip}
     >
       {Icon && <Icon size={16} className={clsx('shrink-0', isSelected ? 'text-button-text' : 'text-text-secondary')} />}
-      <Text as="span" color={textColor} weight={textWeight} className="flex-1 truncate">
+      <Text
+        as="span"
+        color={textColor}
+        weight={textWeight}
+        className={clsx('flex-1', wrap ? 'line-clamp-2 wrap-break-word' : 'truncate')}
+      >
         {label}
       </Text>
       {detail !== undefined && (

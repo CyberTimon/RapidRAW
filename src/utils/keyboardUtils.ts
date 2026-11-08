@@ -124,6 +124,12 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     section: 'view',
   },
   {
+    action: 'toggle_viewer_window',
+    description: 'settings.keybinds.actions.toggle_viewer_window',
+    defaultCombo: ['shift', 'KeyF'],
+    section: 'view',
+  },
+  {
     action: 'show_original',
     description: 'settings.keybinds.actions.show_original',
     defaultCombo: ['KeyB'],
@@ -318,6 +324,12 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     section: 'editing',
   },
   {
+    action: 'toggle_black_white',
+    description: 'settings.keybinds.actions.toggle_black_white',
+    defaultCombo: ['KeyV'],
+    section: 'editing',
+  },
+  {
     action: 'brush_size_up',
     description: 'settings.keybinds.actions.brush_size_up',
     defaultCombo: ['ctrl', 'ArrowUp'],
@@ -372,6 +384,14 @@ const symMap: Record<string, string> = {
 
 export function getDefaultCombo(def: KeybindDefinition, osPlatform?: string): string[] {
   return (osPlatform === 'macos' && def.macDefaultCombo) || def.defaultCombo;
+}
+
+export function getEffectiveCombo(
+  def: KeybindDefinition,
+  keybinds: Record<string, string[]> | undefined,
+  osPlatform?: string,
+): string[] {
+  return keybinds?.[def.action] ?? getDefaultCombo(def, osPlatform);
 }
 
 // Canonical identifiers keep stored shortcuts compatible while the symbol

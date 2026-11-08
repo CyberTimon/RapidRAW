@@ -68,13 +68,14 @@ impl Drop for MemoryReservation {
 }
 
 pub fn image_pixel_count(path: &Path, is_raw: bool) -> Option<u64> {
-    let (width, height) = if is_raw {
-        let mmap = read_file_mapped(path).ok()?;
-        crate::raw_processing::raw_dimensions(&mmap).map(|(w, h)| (w as u64, h as u64))?
-    } else {
-        image::image_dimensions(path)
-            .ok()
-            .map(|(w, h)| (w as u64, h as u64))?
-    };
-    Some(width * height)
+    if is_raw {
+        return raw_pixel_count(&read_file_mapped(path).ok()?);
+    }
+    let (width, height) = image::image_dimensions(path).ok()?;
+    Some(width as u64 * height as u64)
+}
+
+pub fn raw_pixel_count(file_bytes: &[u8]) -> Option<u64> {
+    let (width, height) = crate::raw_processing::raw_dimensions(file_bytes)?;
+    Some(width as u64 * height as u64)
 }

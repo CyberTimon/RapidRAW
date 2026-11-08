@@ -1,5 +1,5 @@
-use crate::AppState;
 use crate::app_settings::AppSettings;
+use crate::{AppState, PreviewTarget};
 use half::f16;
 use half::slice::HalfFloatSliceExt;
 use image::{DynamicImage, GenericImageView, Rgb32FImage, Rgba32FImage};
@@ -23,7 +23,7 @@ pub const GEOMETRY_KEYS: &[&str] = &[
     "lensDistortionAmount",
     "lensVignetteAmount",
     "lensTcaAmount",
-    "lensDistortionParams",
+    "lensCorrectionMode",
     "lensMaker",
     "lensModel",
     "lensDistortionEnabled",
@@ -50,12 +50,17 @@ fn hash_ai_patches(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) 
             is_visible.hash(hasher);
 
             let mask_from_sub_masks = if let Some(patch_data) = patch.get("patchData") {
-                let color_len = patch_data
+                let color = patch_data
                     .get("color")
                     .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .len();
+                    .unwrap_or("");
+                let color_len = color.len();
                 color_len.hash(hasher);
+                color
+                    .as_bytes()
+                    .iter()
+                    .step_by((color_len / 256).max(1))
+                    .for_each(|b| b.hash(hasher));
 
                 let mask_len = patch_data
                     .get("mask")
@@ -191,15 +196,6 @@ pub fn calculate_geometry_hash(adjustments: &serde_json::Value) -> u64 {
     hasher.finish()
 }
 
-pub fn calculate_patched_warped_hash(adjustments: &serde_json::Value) -> u64 {
-    let mut hasher = DefaultHasher::new();
-
-    calculate_geometry_hash(adjustments).hash(&mut hasher);
-    calculate_effects_hash(adjustments).hash(&mut hasher);
-
-    hasher.finish()
-}
-
 pub fn calculate_effects_hash(adjustments: &serde_json::Value) -> u64 {
     let mut hasher = DefaultHasher::new();
 
@@ -269,16 +265,13 @@ pub fn calculate_effects_hash(adjustments: &serde_json::Value) -> u64 {
     hasher.finish()
 }
 
-pub fn calculate_thumbnail_base_hash(adjustments: &serde_json::Value) -> u64 {
+pub fn calculate_thumbnail_source_hash(path: &str, adjustments: &serde_json::Value) -> u64 {
     let mut hasher = DefaultHasher::new();
-
-    calculate_patched_warped_hash(adjustments).hash(&mut hasher);
-
-    adjustments["orientationSteps"]
-        .as_u64()
-        .unwrap_or(0)
-        .hash(&mut hasher);
-
+    calculate_patch_hash(adjustments).hash(&mut hasher);
+    (!crate::image_processing::is_geometry_identity(
+        &crate::image_processing::get_geometry_params_from_json(path, adjustments),
+    ))
+    .hash(&mut hasher);
     hasher.finish()
 }
 
@@ -428,19 +421,19 @@ impl CachedImage {
         }
     }
 
-    fn compact(self) -> Self {
-        let CachedImage::Full(image) = self else {
-            return self;
-        };
-        if Arc::strong_count(&image) > 1 {
-            return CachedImage::Full(image);
+    fn full_byte_size(&self) -> usize {
+        match self {
+            CachedImage::Full(image) => image.as_bytes().len(),
+            CachedImage::Half { data, .. } => data.len() * std::mem::size_of::<f32>(),
         }
+    }
 
+    fn to_half(image: &DynamicImage) -> Option<Self> {
         let (width, height) = image.dimensions();
-        let (channels, raw) = match image.as_ref() {
+        let (channels, raw) = match image {
             DynamicImage::ImageRgb32F(buffer) => (3, buffer.as_raw()),
             DynamicImage::ImageRgba32F(buffer) => (4, buffer.as_raw()),
-            _ => return CachedImage::Full(image),
+            _ => return None,
         };
 
         let mut data = vec![f16::ZERO; raw.len()];
@@ -448,12 +441,12 @@ impl CachedImage {
             .zip(raw.par_chunks(HALF_CONVERSION_CHUNK))
             .for_each(|(dst, src)| dst.convert_from_f32_slice(src));
 
-        CachedImage::Half {
+        Some(CachedImage::Half {
             width,
             height,
             channels,
             data,
-        }
+        })
     }
 
     fn expand(&self) -> Arc<DynamicImage> {
@@ -532,6 +525,7 @@ struct DecodedEntry {
 pub struct DecodedImageCache {
     capacity: usize,
     items: Vec<DecodedEntry>,
+    current: Option<String>,
 }
 
 impl DecodedImageCache {
@@ -539,7 +533,12 @@ impl DecodedImageCache {
         Self {
             capacity,
             items: Vec::with_capacity(capacity),
+            current: None,
         }
+    }
+
+    fn capacity(&self) -> usize {
+        self.capacity.max(1)
     }
 
     pub fn set_capacity(&mut self, capacity: usize) {
@@ -572,18 +571,32 @@ impl DecodedImageCache {
         Some((image, exif))
     }
 
-    pub fn compact_except(&mut self, keep_path: &str) {
-        if let Some(pos) = self.items.iter().position(|e| e.path == keep_path) {
+    pub fn promote(&mut self, path: &str) {
+        self.current = Some(path.to_string());
+        if let Some(pos) = self.items.iter().position(|e| e.path == path) {
             let item = self.items.remove(pos);
             self.items.push(item);
         }
-        for item in self.items.iter_mut() {
-            if item.path != keep_path {
-                let cached = std::mem::replace(&mut item.image, CachedImage::Full(Arc::default()));
-                item.image = cached.compact();
-            }
-        }
         self.evict();
+    }
+
+    pub fn has_room_for(&self, keep: &[String]) -> bool {
+        let Some(estimate) = self
+            .items
+            .iter()
+            .find(|e| self.current.as_ref() == Some(&e.path))
+            .map(|e| e.image.full_byte_size())
+        else {
+            return false;
+        };
+        let (kept_count, kept_bytes) = self
+            .items
+            .iter()
+            .filter(|e| self.current.as_ref() == Some(&e.path) || keep.contains(&e.path))
+            .fold((0, 0), |(count, bytes), e| {
+                (count + 1, bytes + e.image.byte_size())
+            });
+        kept_count < self.capacity() && kept_bytes + estimate <= *DECODED_CACHE_BUDGET_BYTES
     }
 
     pub fn clear(&mut self) {
@@ -609,20 +622,74 @@ impl DecodedImageCache {
         self.evict();
     }
 
+    fn oldest_evictable(&self) -> Option<usize> {
+        let newest = self.items.len().checked_sub(1)?;
+        self.items[..newest]
+            .iter()
+            .position(|e| self.current.as_ref() != Some(&e.path))
+    }
+
     fn evict(&mut self) {
-        while self.items.len() > self.capacity.max(1) {
-            self.items.remove(0);
-        }
-        while self.items.len() > 1
-            && self
-                .items
-                .iter()
-                .map(|e| e.image.byte_size())
-                .sum::<usize>()
-                > *DECODED_CACHE_BUDGET_BYTES
+        while self.items.len() > self.capacity()
+            && let Some(pos) = self.oldest_evictable()
         {
-            self.items.remove(0);
+            self.items.remove(pos);
         }
+        while self
+            .items
+            .iter()
+            .map(|e| e.image.byte_size())
+            .sum::<usize>()
+            > *DECODED_CACHE_BUDGET_BYTES
+            && let Some(pos) = self.oldest_evictable()
+        {
+            self.items.remove(pos);
+        }
+    }
+
+    pub fn compaction_candidates(&self, keep: &[String]) -> Vec<String> {
+        self.items
+            .iter()
+            .filter(|e| {
+                matches!(e.image, CachedImage::Full(_))
+                    && self.current.as_ref() != Some(&e.path)
+                    && !keep.contains(&e.path)
+            })
+            .map(|e| e.path.clone())
+            .collect()
+    }
+
+    pub fn take_for_compaction(&self, path: &str) -> Option<Arc<DynamicImage>> {
+        if self.current.as_deref() == Some(path) {
+            return None;
+        }
+        match &self.items.iter().find(|e| e.path == path)?.image {
+            CachedImage::Full(image) if Arc::strong_count(image) == 1 => Some(Arc::clone(image)),
+            _ => None,
+        }
+    }
+
+    pub fn store_compacted(&mut self, path: &str, source: &Arc<DynamicImage>, half: HalfImage) {
+        if self.current.as_deref() == Some(path) {
+            return;
+        }
+        let Some(entry) = self.items.iter_mut().find(|e| e.path == path) else {
+            return;
+        };
+        if let CachedImage::Full(image) = &entry.image
+            && Arc::ptr_eq(image, source)
+            && Arc::strong_count(image) == 2
+        {
+            entry.image = half.0;
+        }
+    }
+}
+
+pub struct HalfImage(CachedImage);
+
+impl HalfImage {
+    pub fn from_image(image: &DynamicImage) -> Option<Self> {
+        CachedImage::to_half(image).map(Self)
     }
 }
 
@@ -692,17 +759,23 @@ pub fn clear_preview_stage_caches(state: &AppState) {
         .patched_cache
         .lock()
         .unwrap_or_else(|e| e.into_inner()) = None;
-    *state.warped_cache.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    *state
+        .cleanup_source_cache
+        .lock()
+        .unwrap_or_else(|e| e.into_inner()) = None;
     *state
         .working_cache
         .lock()
         .unwrap_or_else(|e| e.into_inner()) = None;
+}
+
+pub fn clear_preview_slot(state: &AppState, target: PreviewTarget) {
     *state
-        .effects_cache
+        .gpu_image_cache_for(target)
         .lock()
         .unwrap_or_else(|e| e.into_inner()) = None;
     *state
-        .full_transformed_cache
+        .cached_preview_for(target)
         .lock()
         .unwrap_or_else(|e| e.into_inner()) = None;
 }
@@ -712,11 +785,8 @@ pub fn clear_image_caches(state: tauri::State<AppState>) {
     if let Ok(mut decoded_cache) = state.decoded_image_cache.lock() {
         decoded_cache.clear();
     }
-    if let Ok(mut gpu_cache) = state.gpu_image_cache.lock() {
-        *gpu_cache = None;
-    }
-    if let Ok(mut preview_cache) = state.cached_preview.lock() {
-        *preview_cache = None;
+    for target in PreviewTarget::ALL {
+        clear_preview_slot(&state, target);
     }
     if let Ok(mut warped_cache) = state.full_warped_cache.lock() {
         *warped_cache = None;
@@ -732,7 +802,7 @@ pub fn clear_session_caches(state: tauri::State<AppState>) {
     if let Ok(mut mask_cache) = state.mask_cache.lock() {
         mask_cache.clear();
     }
-    if let Ok(mut geometry_cache) = state.geometry_cache.lock() {
-        geometry_cache.clear();
+    if let Ok(mut uncropped_source_cache) = state.uncropped_source_cache.lock() {
+        uncropped_source_cache.clear();
     }
 }

@@ -1,10 +1,13 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Check, ChevronDown } from 'lucide-react';
 import Input from './Input';
 import Text from './Text';
 import { TEXT_COLOR_KEYS, TextColors, TextVariants, TextWeights } from '../../types/typography';
 import clsx from 'clsx';
+
+const MENU_GAP = 8;
 
 export interface OptionItem<T extends React.Key> {
   label: string;
@@ -35,6 +38,9 @@ const Dropdown = <T extends React.Key>({
 }: DropdownProps<T>) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
+  const [opensUp, setOpensUp] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showSearch, setShowSearch] = useState(false);
@@ -42,7 +48,8 @@ const Dropdown = <T extends React.Key>({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (!dropdownRef.current?.contains(target) && !menuRef.current?.contains(target)) {
         setIsOpen(false);
       }
     };
@@ -68,6 +75,35 @@ const Dropdown = <T extends React.Key>({
     if (!searchTerm) return options;
     return options.filter((opt) => opt.label.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [options, searchTerm]);
+
+  useLayoutEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const place = () => {
+      const trigger = dropdownRef.current?.getBoundingClientRect();
+      if (!trigger) {
+        return;
+      }
+      const height = menuRef.current?.offsetHeight ?? 0;
+      const up = trigger.bottom + MENU_GAP + height > window.innerHeight && trigger.top - MENU_GAP - height >= 0;
+      setOpensUp(up);
+      setMenuStyle({
+        left: trigger.left,
+        width: trigger.width,
+        ...(up ? { bottom: window.innerHeight - trigger.top + MENU_GAP } : { top: trigger.bottom + MENU_GAP }),
+      });
+    };
+
+    place();
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
+    return () => {
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+    };
+  }, [isOpen, filteredOptions.length, showSearch]);
 
   const isPrintableKey = (e: React.KeyboardEvent<Element>): boolean => {
     if (e.metaKey || e.ctrlKey || e.altKey) return false;
@@ -125,61 +161,68 @@ const Dropdown = <T extends React.Key>({
         />
       </button>
 
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            animate={{ opacity: 1, scale: 1 }}
-            className="absolute right-0 mt-2 w-full origin-top-right z-20"
-            exit={{ opacity: 0, scale: 0.95 }}
-            initial={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.1, ease: 'easeOut' }}
-          >
-            <div
-              aria-orientation="vertical"
-              className="bg-surface/95 backdrop-blur-md rounded-lg shadow-xl p-2 max-h-80 overflow-y-auto"
-              role="listbox"
+      {createPortal(
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              ref={menuRef}
+              animate={{ opacity: 1, scale: 1 }}
+              className={clsx('fixed z-60', opensUp ? 'origin-bottom-right' : 'origin-top-right')}
+              data-dropdown-menu
+              exit={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.95 }}
+              onMouseDown={(e) => e.stopPropagation()}
+              style={menuStyle}
+              transition={{ duration: 0.1, ease: 'easeOut' }}
             >
-              {showSearch && (
-                <Input
-                  ref={searchInputRef}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder={searchPlaceholder}
-                  autoFocus={true}
-                  className="mb-2"
-                />
-              )}
+              <div
+                aria-orientation="vertical"
+                className="bg-surface/95 backdrop-blur-md rounded-lg shadow-xl p-2 max-h-80 overflow-y-auto"
+                role="listbox"
+              >
+                {showSearch && (
+                  <Input
+                    ref={searchInputRef}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder={searchPlaceholder}
+                    autoFocus={true}
+                    className="mb-2"
+                  />
+                )}
 
-              {filteredOptions.map((option: OptionItem<T>) => {
-                const isSelected = value === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    onClick={() => handleSelect(option)}
-                    disabled={option.disabled}
-                    className={clsx(
-                      'w-full text-left px-3 py-2 rounded-md flex items-center justify-between',
-                      'transition-colors duration-150',
-                      {
-                        'bg-bg-primary': isSelected,
-                        'hover:bg-bg-primary': !option.disabled,
-                        'opacity-40 cursor-not-allowed': option.disabled,
-                      },
-                    )}
-                    role="option"
-                    aria-selected={isSelected}
-                  >
-                    <Text color={TextColors.primary} weight={isSelected ? TextWeights.semibold : TextWeights.normal}>
-                      {option.label}
-                    </Text>
-                    {isSelected && <Check size={16} className={TEXT_COLOR_KEYS[TextColors.primary]} />}
-                  </button>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                {filteredOptions.map((option: OptionItem<T>) => {
+                  const isSelected = value === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      onClick={() => handleSelect(option)}
+                      disabled={option.disabled}
+                      className={clsx(
+                        'w-full text-left px-3 py-2 rounded-md flex items-center justify-between',
+                        'transition-colors duration-150',
+                        {
+                          'bg-bg-primary': isSelected,
+                          'hover:bg-bg-primary': !option.disabled,
+                          'opacity-40 cursor-not-allowed': option.disabled,
+                        },
+                      )}
+                      role="option"
+                      aria-selected={isSelected}
+                    >
+                      <Text color={TextColors.primary} weight={isSelected ? TextWeights.semibold : TextWeights.normal}>
+                        {option.label}
+                      </Text>
+                      {isSelected && <Check size={16} className={TEXT_COLOR_KEYS[TextColors.primary]} />}
+                    </button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
     </div>
   );
 };

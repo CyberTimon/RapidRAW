@@ -405,14 +405,19 @@ export function useTauriListeners({
           }));
         },
       ),
+      listen('viewer-closed', () => {
+        if (isEffectActive) {
+          useUIStore.getState().setUI({ isViewerOpen: false });
+        }
+      }),
       listen('wgpu-frame-ready', (event: any) => {
         const editorState = useEditorStore.getState();
         if (
           isEffectActive &&
-          !editorState.hasRenderedFirstFrame &&
+          editorState.wgpuPhase === 'hidden' &&
           event.payload?.path === editorState.selectedImage?.path
         ) {
-          editorState.setEditor({ hasRenderedFirstFrame: true });
+          editorState.setEditor({ wgpuPhase: 'arming' });
         }
       }),
       listen('panorama-progress', (event: any) => {

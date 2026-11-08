@@ -2169,6 +2169,38 @@
 
     <lens>
         <maker>Fujifilm</maker>
+        <model>GF63mmF2.8 R WR</model>
+        <mount>Fujifilm G</mount>
+        <cropfactor>0.79</cropfactor>
+        <calibration>
+            <!-- Taken with Fujifilm GFX100S -->
+            <distortion model="ptlens" focal="63" a="0.00540535" b="-0.0300407" c="0.0208103"/>
+            <tca model="poly3" focal="63" br="0.0000517" vr="1.0000390" bb="-0.0000447" vb="1.0000694"/>
+            <vignetting model="pa" focal="63" aperture="2.8" distance="0.5" k1="-1.2607" k2="1.1688" k3="-0.5123"/>
+            <vignetting model="pa" focal="63" aperture="2.8" distance="1" k1="-1.4457" k2="1.3538" k3="-0.5837"/>
+            <vignetting model="pa" focal="63" aperture="2.8" distance="3" k1="-1.5427" k2="1.4639" k3="-0.6366"/>
+            <vignetting model="pa" focal="63" aperture="2.8" distance="1000" k1="-1.5875" k2="1.5115" k3="-0.6589"/>
+            <vignetting model="pa" focal="63" aperture="4" distance="0.5" k1="-0.0699" k2="-0.5251" k3="0.2542"/>
+            <vignetting model="pa" focal="63" aperture="4" distance="1" k1="-0.0649" k2="-0.7478" k3="0.3844"/>
+            <vignetting model="pa" focal="63" aperture="4" distance="3" k1="-0.0916" k2="-0.7305" k3="0.3501"/>
+            <vignetting model="pa" focal="63" aperture="4" distance="1000" k1="-0.1799" k2="-0.5697" k3="0.2483"/>
+            <vignetting model="pa" focal="63" aperture="5.6" distance="0.5" k1="-0.2552" k2="0.2097" k3="-0.1570"/>
+            <vignetting model="pa" focal="63" aperture="5.6" distance="1" k1="-0.3241" k2="0.2736" k3="-0.2224"/>
+            <vignetting model="pa" focal="63" aperture="5.6" distance="3" k1="-0.3664" k2="0.3201" k3="-0.2726"/>
+            <vignetting model="pa" focal="63" aperture="5.6" distance="1000" k1="-0.3136" k2="0.1863" k3="-0.2281"/>
+            <vignetting model="pa" focal="63" aperture="8" distance="0.5" k1="-0.2119" k2="0.0470" k3="-0.0110"/>
+            <vignetting model="pa" focal="63" aperture="8" distance="1" k1="-0.2765" k2="0.0651" k3="-0.0119"/>
+            <vignetting model="pa" focal="63" aperture="8" distance="3" k1="-0.3108" k2="0.0712" k3="-0.0112"/>
+            <vignetting model="pa" focal="63" aperture="8" distance="1000" k1="-0.3319" k2="0.0811" k3="-0.0146"/>
+            <vignetting model="pa" focal="63" aperture="32" distance="0.5" k1="-0.2225" k2="0.0505" k3="-0.0088"/>
+            <vignetting model="pa" focal="63" aperture="32" distance="1" k1="-0.2954" k2="0.0856" k3="-0.0196"/>
+            <vignetting model="pa" focal="63" aperture="32" distance="3" k1="-0.3318" k2="0.0945" k3="-0.0210"/>
+            <vignetting model="pa" focal="63" aperture="32" distance="1000" k1="-0.3531" k2="0.1033" k3="-0.0230"/>
+        </calibration>
+    </lens>
+
+	<lens>
+        <maker>Fujifilm</maker>
         <model>GF110mmF2 R LM WR</model>
         <mount>Fujifilm G</mount>
         <cropfactor>0.79</cropfactor>

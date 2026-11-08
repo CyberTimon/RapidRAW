@@ -945,21 +945,18 @@ fn bilinear_sample(i: usize, scale: f32, n: usize) -> (usize, usize, f32) {
     (i0, i1, (f - i0 as f32).clamp(0.0, 1.0))
 }
 
-pub fn fast_color_guided_filter(
-    guide_hr: &RgbImage,
+pub fn color_guided_coefficients(
+    guide_lr: &RgbImage,
     mask_lr: &GrayImage,
     r: usize,
     eps: f32,
-) -> GrayImage {
-    let (hr_w, hr_h) = guide_hr.dimensions();
+) -> [Vec<f32>; 4] {
     let (lr_w, lr_h) = mask_lr.dimensions();
     let (w, h) = (lr_w as usize, lr_h as usize);
     let area = w * h;
 
-    let guide_lr = imageops::resize(guide_hr, lr_w, lr_h, FilterType::Triangle);
     let guide: [Vec<f32>; 3] =
         std::array::from_fn(|c| guide_lr.pixels().map(|p| p[c] as f32 / 255.0).collect());
-    drop(guide_lr);
     let p: Vec<f32> = mask_lr.as_raw().iter().map(|&v| v as f32 / 255.0).collect();
 
     let mut temp1 = vec![0.0; area];
@@ -1006,10 +1003,22 @@ pub fn fast_color_guided_filter(
         .collect();
     drop((mean_i, mean_p, mean_ip, mean_ii));
 
-    let mean_coefficients: [Vec<f32>; 4] = std::array::from_fn(|i| {
-        box_filter(&coefficients.iter().map(|c| c[i]).collect::<Vec<f32>>())
-    });
-    drop(coefficients);
+    std::array::from_fn(|i| box_filter(&coefficients.iter().map(|c| c[i]).collect::<Vec<f32>>()))
+}
+
+pub fn fast_color_guided_filter(
+    guide_hr: &RgbImage,
+    mask_lr: &GrayImage,
+    r: usize,
+    eps: f32,
+) -> GrayImage {
+    let (hr_w, hr_h) = guide_hr.dimensions();
+    let (lr_w, lr_h) = mask_lr.dimensions();
+    let (w, h) = (lr_w as usize, lr_h as usize);
+
+    let guide_lr = imageops::resize(guide_hr, lr_w, lr_h, FilterType::Triangle);
+    let mean_coefficients = color_guided_coefficients(&guide_lr, mask_lr, r, eps);
+    drop(guide_lr);
 
     let (hr_w, hr_h) = (hr_w as usize, hr_h as usize);
     let x_samples: Vec<(usize, usize, f32)> = (0..hr_w)

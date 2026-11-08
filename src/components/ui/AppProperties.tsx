@@ -41,6 +41,7 @@ export enum Invokes {
   SampleWhiteBalance = 'sample_white_balance',
   CalculateAutoStraighten = 'calculate_auto_straighten',
   CancelAiTask = 'cancel_ai_task',
+  CancelEditInApp = 'cancel_edit_in_app',
   CancelExport = 'cancel_export',
   CheckAIConnectorStatus = 'check_ai_connector_status',
   ClearAllSidecars = 'clear_all_sidecars',
@@ -55,6 +56,7 @@ export enum Invokes {
   DeleteFolder = 'delete_folder',
   DiscardAiJobs = 'discard_ai_jobs',
   DuplicateFile = 'duplicate_file',
+  EditInApp = 'edit_in_app',
   EstimateExportSizes = 'estimate_export_sizes',
   ExportImages = 'export_images',
   FrontendLog = 'frontend_log',
@@ -87,6 +89,7 @@ export enum Invokes {
   ImportFiles = 'import_files',
   InvokeGenerativeReplaseWithMaskDef = 'invoke_generative_replace_with_mask_def',
   IsTetheringSupported = 'is_tethering_supported',
+  IsWgpuRendererSupported = 'is_wgpu_renderer_supported',
   ListImagesInDir = 'list_images_in_dir',
   ListImagesRecursive = 'list_images_recursive',
   LoadImage = 'load_image',
@@ -94,6 +97,7 @@ export enum Invokes {
   LoadPresets = 'load_presets',
   LoadSettings = 'load_settings',
   MoveFiles = 'move_files',
+  PreloadImages = 'preload_images',
   ReadExifForPaths = 'read_exif_for_paths',
   RemoveTagForPaths = 'remove_tag_for_paths',
   RenameFiles = 'rename_files',
@@ -122,8 +126,16 @@ export enum Invokes {
   SaveFocusStack = 'save_focus_stack',
   MergeHdr = 'merge_hdr',
   TestAIConnectorConnection = 'test_ai_connector_connection',
+  SampleHslMixerArea = 'sample_hsl_mixer_area',
+  GetDepthPreview = 'get_depth_preview',
   UpdateWgpuTransform = 'update_wgpu_transform',
+  SetUiScale = 'set_ui_scale',
   ReleaseOriginalPreview = 'release_original_preview',
+  OpenViewerWindow = 'open_viewer_window',
+  CloseViewerWindow = 'close_viewer_window',
+  SetViewerView = 'set_viewer_view',
+  GetViewerInfo = 'get_viewer_info',
+  GetViewerFrame = 'get_viewer_frame',
   UpdateExifFields = 'update_exif_fields',
   FetchCommunityPresets = 'fetch_community_presets',
   GenerateAllCommunityPreviews = 'generate_all_community_previews',
@@ -211,6 +223,18 @@ export interface CustomAspectRatio {
   height: number;
 }
 
+export enum EditInMode {
+  Original = 'original',
+  Rendered = 'rendered',
+}
+
+export interface EditInApp {
+  name: string;
+  path: string;
+  args: string;
+  mode: EditInMode;
+}
+
 export type GroupPreference = 'jpeg' | 'raw';
 export type GroupingMode = 'off' | GroupPreference;
 export type CompareView = 'off' | 'vertical' | 'horizontal' | 'sideBySide';
@@ -229,6 +253,7 @@ export interface AppSettings {
   mediumThumbnailResolution?: number;
   enableZoomHifi?: boolean;
   useFullDpiRendering?: boolean;
+  uiScale?: number;
   highResZoomMultiplier?: number;
   enableLivePreviews?: boolean;
   livePreviewQuality?: string;
@@ -254,6 +279,7 @@ export interface AppSettings {
   exportPresets?: ExportPreset[];
   myLenses?: any;
   customAspectRatios?: CustomAspectRatio[];
+  editInApps?: EditInApp[];
   adjustmentLayout?: AdjustmentLayout;
   enableFolderImageCounts?: boolean;
   displayEditIcon?: boolean;
@@ -271,6 +297,7 @@ export interface AppSettings {
   zoomSpeedMultiplier?: number;
   zoomPhotoToPixelClick?: boolean;
   keybinds?: { [action: string]: string[] };
+  speedEditAdjustments?: string[];
   enableBaselineExposure?: boolean;
   baselineExposure?: number;
   compensateHighlightPreservation?: boolean;
@@ -280,6 +307,7 @@ export interface AppSettings {
   copyPasteSettings?: CopyPasteSettings;
   enableFocusMode?: boolean;
   enableToolFocusMode?: boolean;
+  hideCollapsedPanels?: boolean;
   openTreeSections?: string[];
   folderIcons?: Record<string, string>;
   exifOverlay?: ExifOverlay;

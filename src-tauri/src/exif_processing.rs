@@ -3,7 +3,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::hash::{Hash, Hasher};
-use std::io::{BufReader, Cursor};
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::Duration;
@@ -599,24 +599,48 @@ fn format_lens_specification(components: &[exif::Rational]) -> Option<String> {
     Some(format_lens_spec(focal_min, focal_max, aperture))
 }
 
+pub fn is_tiff(file_bytes: &[u8]) -> bool {
+    file_bytes.starts_with(b"II*\0") || file_bytes.starts_with(b"MM\0*")
+}
+
 pub fn read_exif(file_bytes: &[u8]) -> Option<Exif> {
     let exifreader = exif::Reader::new();
+    if is_tiff(file_bytes) {
+        let mut len = 64 * 1024;
+        while len < file_bytes.len() && len <= 16 * 1024 * 1024 {
+            if let Ok(exif) = exifreader.read_raw(file_bytes[..len].to_vec()) {
+                return Some(exif);
+            }
+            len *= 4;
+        }
+    }
     exifreader
         .read_from_container(&mut Cursor::new(file_bytes))
         .ok()
 }
 
+pub fn read_exif_from_path(path: &Path) -> Option<Exif> {
+    match file_management::read_file_mapped(path) {
+        Ok(mmap) => read_exif(&mmap),
+        Err(_) => read_exif(&fs::read(path).ok()?),
+    }
+}
+
 pub fn read_raw_metadata(file_bytes: &[u8]) -> Option<RawMetadata> {
-    raw_metadata_from_source(&rawler::rawsource::RawSource::new_from_slice(file_bytes))
+    crate::raw_processing::read_from_prefix(file_bytes, |bytes, _| {
+        raw_metadata_from_source(&rawler::rawsource::RawSource::new_from_slice(bytes))
+    })
 }
 
 fn read_raw_metadata_from_path(path_str: &str) -> Option<RawMetadata> {
-    raw_metadata_from_source(&rawler::rawsource::RawSource::new(Path::new(path_str)).ok()?)
+    match file_management::read_file_mapped(Path::new(path_str)) {
+        Ok(mmap) => read_raw_metadata(&mmap),
+        Err(_) => read_raw_metadata(&fs::read(path_str).ok()?),
+    }
 }
 
 fn raw_metadata_from_source(raw_source: &rawler::rawsource::RawSource) -> Option<RawMetadata> {
-    let loader = rawler::RawLoader::new();
-    let decoder = loader.get_decoder(raw_source).ok()?;
+    let decoder = rawler::get_decoder(raw_source).ok()?;
     decoder.raw_metadata(raw_source, &Default::default()).ok()
 }
 
@@ -1196,33 +1220,24 @@ pub fn try_get_exif_creation_date(path: &Path) -> Option<DateTime<Utc>> {
         return Some(creation_datetime_to_utc(dt));
     }
 
-    if let Ok(file) = std::fs::File::open(path) {
-        let mut bufreader = BufReader::new(&file);
-        let exifreader = exif::Reader::new();
-
-        if let Ok(exif_obj) = exifreader.read_from_container(&mut bufreader) {
-            for tag in [exif::Tag::DateTimeOriginal, exif::Tag::DateTime] {
-                if let Some(field) = exif_obj.get_field(tag, exif::In::PRIMARY)
-                    && let Some(dt) = parse_creation_field(field)
-                {
-                    return Some(dt);
-                }
+    if let Some(exif_obj) = read_exif_from_path(path) {
+        for tag in [exif::Tag::DateTimeOriginal, exif::Tag::DateTime] {
+            if let Some(field) = exif_obj.get_field(tag, exif::In::PRIMARY)
+                && let Some(dt) = parse_creation_field(field)
+            {
+                return Some(dt);
             }
         }
     }
 
-    if is_raw_file(path) {
-        let loader = rawler::RawLoader::new();
-        if let Ok(raw_source) = rawler::rawsource::RawSource::new(path)
-            && let Ok(decoder) = loader.get_decoder(&raw_source)
-            && let Ok(metadata) = decoder.raw_metadata(&raw_source, &Default::default())
-        {
-            if let Some(dt) = parse_raw_creation_date(metadata.exif.date_time_original.as_deref()) {
-                return Some(dt);
-            }
-            if let Some(dt) = parse_raw_creation_date(metadata.exif.create_date.as_deref()) {
-                return Some(dt);
-            }
+    if is_raw_file(path)
+        && let Some(metadata) = read_raw_metadata_from_path(&path.to_string_lossy())
+    {
+        if let Some(dt) = parse_raw_creation_date(metadata.exif.date_time_original.as_deref()) {
+            return Some(dt);
+        }
+        if let Some(dt) = parse_raw_creation_date(metadata.exif.create_date.as_deref()) {
+            return Some(dt);
         }
     }
 
@@ -1273,6 +1288,9 @@ fn copy_full_exif_from_source(
             continue;
         }
         for tag in ifd.get_tags() {
+            if !tag.is_writable() || crate::tiff_metadata::is_structural_tag(tag.as_u16()) {
+                continue;
+            }
             metadata.set_tag(tag.clone());
             copied_any = true;
         }
@@ -1500,8 +1518,7 @@ pub fn write_image_with_metadata(
     xmp: &ExportXmp,
     dpi: Option<u16>,
 ) -> Result<(), String> {
-    // FIXME: temporary solution until I find a way to write metadata to TIFF
-    if !keep_metadata || output_format.to_lowercase() == "tiff" {
+    if !keep_metadata {
         return Ok(());
     }
 
@@ -1510,7 +1527,6 @@ pub fn write_image_with_metadata(
         "png" => FileExtension::PNG {
             as_zTXt_chunk: true,
         },
-        "tiff" => FileExtension::TIFF,
         "webp" => FileExtension::WEBP,
         _ => return Ok(()),
     };
@@ -1531,19 +1547,45 @@ fn write_exif_metadata(
     strip_gps: bool,
     dpi: Option<u16>,
 ) -> Result<(), String> {
-    let original_path = Path::new(original_path_str);
-    if !original_path.exists() {
+    let dimensions = image::ImageReader::new(Cursor::new(image_bytes.as_slice()))
+        .with_guessed_format()
+        .ok()
+        .and_then(|reader| reader.into_dimensions().ok());
+
+    let Some(mut metadata) = collect_metadata_from_source(original_path_str, strip_gps, dimensions)
+    else {
         return Ok(());
+    };
+
+    if matches!(file_type, FileExtension::JPEG) {
+        metadata.set_tag(ExifTag::ComponentsConfiguration(vec![1, 2, 3, 0]));
     }
 
-    // Skip TIFF sources to avoid potential tag corruption issues
-    let original_ext = original_path
-        .extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("")
-        .to_lowercase();
-    if original_ext == "tiff" || original_ext == "tif" {
-        return Ok(());
+    if let Some(dpi) = dpi {
+        let resolution = vec![uR64 {
+            nominator: dpi.into(),
+            denominator: 1,
+        }];
+        metadata.set_tag(ExifTag::XResolution(resolution.clone()));
+        metadata.set_tag(ExifTag::YResolution(resolution));
+        metadata.set_tag(ExifTag::ResolutionUnit(vec![2u16]));
+    }
+
+    if let Err(e) = metadata.write_to_vec(image_bytes, file_type) {
+        log::warn!("Failed to write metadata: {}", e);
+    }
+
+    Ok(())
+}
+
+pub fn collect_metadata_from_source(
+    original_path_str: &str,
+    strip_gps: bool,
+    dimensions: Option<(u32, u32)>,
+) -> Option<Metadata> {
+    let original_path = Path::new(original_path_str);
+    if !original_path.exists() {
+        return None;
     }
 
     let mut metadata = Metadata::new();
@@ -1848,33 +1890,13 @@ fn write_exif_metadata(
     metadata.set_tag(ExifTag::ColorSpace(vec![1u16]));
     metadata.set_tag(ExifTag::ExifVersion(b"0232".to_vec()));
     metadata.set_tag(ExifTag::FlashpixVersion(b"0100".to_vec()));
-    if matches!(file_type, FileExtension::JPEG) {
-        metadata.set_tag(ExifTag::ComponentsConfiguration(vec![1, 2, 3, 0]));
-    }
 
-    if let Some(dpi) = dpi {
-        let resolution = vec![uR64 {
-            nominator: dpi.into(),
-            denominator: 1,
-        }];
-        metadata.set_tag(ExifTag::XResolution(resolution.clone()));
-        metadata.set_tag(ExifTag::YResolution(resolution));
-        metadata.set_tag(ExifTag::ResolutionUnit(vec![2u16]));
-    }
-
-    if let Ok(reader) =
-        image::ImageReader::new(Cursor::new(image_bytes.as_slice())).with_guessed_format()
-        && let Ok((width, height)) = reader.into_dimensions()
-    {
+    if let Some((width, height)) = dimensions {
         metadata.set_tag(ExifTag::ExifImageWidth(vec![width]));
         metadata.set_tag(ExifTag::ExifImageHeight(vec![height]));
     }
 
-    if let Err(e) = metadata.write_to_vec(image_bytes, file_type) {
-        log::warn!("Failed to write metadata: {}", e);
-    }
-
-    Ok(())
+    Some(metadata)
 }
 
 pub struct ExportXmp {
@@ -2350,6 +2372,61 @@ pub fn persist_exif_if_missing(source_path: &Path, source_path_str: &str, file_b
         });
     } else {
         save_exif_to_rrcache(source_path, exif_map);
+    }
+}
+
+pub fn encode_converted_image(
+    image: &image::DynamicImage,
+    extension: &str,
+    source_path_str: &str,
+) -> Result<Vec<u8>, String> {
+    let dimensions = image::GenericImageView::dimensions(image);
+    let metadata = collect_metadata_from_source(source_path_str, false, Some(dimensions));
+
+    match extension.to_lowercase().as_str() {
+        "tif" | "tiff" => {
+            let samples = match image {
+                image::DynamicImage::ImageRgb32F(_) | image::DynamicImage::ImageRgba32F(_) => {
+                    crate::tiff_metadata::TiffSamples::ThirtyTwoFloat
+                }
+                image::DynamicImage::ImageRgb16(_)
+                | image::DynamicImage::ImageRgba16(_)
+                | image::DynamicImage::ImageLuma16(_)
+                | image::DynamicImage::ImageLumaA16(_) => {
+                    crate::tiff_metadata::TiffSamples::Sixteen
+                }
+                _ => crate::tiff_metadata::TiffSamples::Eight,
+            };
+            crate::tiff_metadata::encode_tiff_with_metadata(
+                image,
+                samples,
+                metadata.as_ref(),
+                Some(crate::export_processing::SRGB_ICC_PROFILE),
+                None,
+            )
+        }
+        "png" => {
+            let mut bytes = Vec::new();
+            image
+                .write_to(&mut Cursor::new(&mut bytes), image::ImageFormat::Png)
+                .map_err(|e| format!("Failed to encode image: {}", e))?;
+
+            if let Some(metadata) = metadata
+                && let Err(e) = metadata.write_to_vec(
+                    &mut bytes,
+                    FileExtension::PNG {
+                        as_zTXt_chunk: true,
+                    },
+                )
+            {
+                log::warn!("Failed to write metadata: {}", e);
+            }
+            Ok(bytes)
+        }
+        other => Err(format!(
+            "Unsupported format for a converted image: '{}'",
+            other
+        )),
     }
 }
 
