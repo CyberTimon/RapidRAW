@@ -43,7 +43,7 @@ const parseFocalLength = (val: string | undefined): number => {
   return isNaN(numVal) ? 0 : numVal;
 };
 
-const nameCollator = new Intl.Collator();
+const nameCollator = new Intl.Collator(undefined, { numeric: true });
 
 const EXIF_SORT_KEYS = new Set(['date_taken', 'iso', 'shutter_speed', 'aperture', 'focal_length']);
 const EXIF_QUERY_FIELDS = new Set([
@@ -273,7 +273,11 @@ function computeGroupedLibrary(
     names.set(image, image.path.split(/[\\/]/).pop() || image.path);
     values.set(image, getNumericSortValue(image));
   }
-  const compareNames = (a: ImageFile, b: ImageFile) => nameCollator.compare(names.get(a)!, names.get(b)!);
+  const compareNames = (a: ImageFile, b: ImageFile) => {
+    const nameA = names.get(a)!;
+    const nameB = names.get(b)!;
+    return nameCollator.compare(nameA, nameB) || nameA.localeCompare(nameB);
+  };
 
   list.sort((a, b) => {
     let comparison = 0;
