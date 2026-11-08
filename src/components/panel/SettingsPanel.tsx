@@ -1054,6 +1054,7 @@ export default function SettingsPanel({
                           onChange={(value: any) => onSettingsChange({ ...appSettings, language: value })}
                           options={[
                             { value: 'en', label: 'English' },
+                            { value: 'gb', label: 'English (UK)' },
                             { value: 'ca', label: 'Català' },
                             { value: 'de', label: 'Deutsch' },
                             { value: 'es', label: 'Español' },
