@@ -1458,6 +1458,44 @@
       "recent": "Nedávné",
       "title": "Úlohy"
     },
+    "metadataFilter": {
+      "addColumn": "Přidat sloupec filtru",
+      "all": "Vše",
+      "clear": "Odebrat všechny filtry metadat",
+      "collapse": "Sbalit panel filtrů",
+      "expand": "Rozbalit panel filtrů",
+      "fields": {
+        "aperture": "Clona",
+        "camera": "Fotoaparát",
+        "color": "Barevný štítek",
+        "date": "Datum",
+        "edited": "Stav úprav",
+        "fileType": "Typ souboru",
+        "flag": "Příznak",
+        "focal": "Ohnisková vzdálenost",
+        "iso": "ISO",
+        "lens": "Objektiv",
+        "rating": "Hodnocení",
+        "shutter": "Čas závěrky"
+      },
+      "removeColumn": "Odebrat sloupec",
+      "title": "Filtr metadat",
+      "unknown": "Neznámé",
+      "values": {
+        "blue": "Modrá",
+        "edited": "Upravené",
+        "green": "Zelená",
+        "noLabel": "Bez štítku",
+        "picked": "Vybrané",
+        "purple": "Fialová",
+        "red": "Červená",
+        "rejected": "Odmítnuté",
+        "unedited": "Neupravené",
+        "unflagged": "Bez příznaku",
+        "unrated": "Bez hodnocení",
+        "yellow": "Žlutá"
+      }
+    },
     "reject": {
       "deleteConfirm": "Smazat odmítnuté",
       "deleteMessage_few": "Opravdu chcete smazat {{count}} odmítnuté snímky? Budou přesunuty do koše.",
@@ -2066,6 +2104,7 @@
         "toggle_crop": "Přepnout oříznutí / narovnání",
         "toggle_crop_panel": "Přepnout panel oříznutí",
         "toggle_export": "Přepnout panel export",
+        "toggle_filter_bar": "Přepnout panel filtrů metadat",
         "toggle_folder_tree": "Přepnout panel stromu složek",
         "toggle_fullscreen": "Přepnout na celou obrazovku",
         "toggle_left_panel": "Přepnout levý panel",

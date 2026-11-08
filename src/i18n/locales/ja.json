@@ -1392,6 +1392,44 @@
       "recent": "最近",
       "title": "ジョブ"
     },
+    "metadataFilter": {
+      "addColumn": "フィルター列を追加",
+      "all": "すべて",
+      "clear": "すべてのメタデータフィルターを解除",
+      "collapse": "フィルターバーを折りたたむ",
+      "expand": "フィルターバーを展開",
+      "fields": {
+        "aperture": "絞り",
+        "camera": "カメラ",
+        "color": "カラーラベル",
+        "date": "日付",
+        "edited": "編集状態",
+        "fileType": "ファイル形式",
+        "flag": "フラグ",
+        "focal": "焦点距離",
+        "iso": "ISO",
+        "lens": "レンズ",
+        "rating": "レーティング",
+        "shutter": "シャッタースピード"
+      },
+      "removeColumn": "列を削除",
+      "title": "メタデータフィルター",
+      "unknown": "不明",
+      "values": {
+        "blue": "青",
+        "edited": "編集済み",
+        "green": "緑",
+        "noLabel": "ラベルなし",
+        "picked": "採用",
+        "purple": "紫",
+        "red": "赤",
+        "rejected": "除外",
+        "unedited": "未編集",
+        "unflagged": "フラグなし",
+        "unrated": "未評価",
+        "yellow": "黄"
+      }
+    },
     "reject": {
       "deleteConfirm": "除外した画像を削除",
       "deleteMessage_one": "除外した画像 {{count}} 枚を削除してもよろしいですか？ゴミ箱に移動されます。",
@@ -1978,6 +2016,7 @@
         "toggle_crop": "切り抜き/角度補正の切り替え",
         "toggle_crop_panel": "切り抜きパネルの表示/非表示",
         "toggle_export": "書き出しパネルの表示/非表示",
+        "toggle_filter_bar": "メタデータフィルターバーの切り替え",
         "toggle_folder_tree": "フォルダーツリーパネルの切り替え",
         "toggle_fullscreen": "全画面表示の切り替え",
         "toggle_left_panel": "左パネルの表示/非表示",

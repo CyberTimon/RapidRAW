@@ -1428,6 +1428,44 @@
       "recent": "Recents",
       "title": "Tasques"
     },
+    "metadataFilter": {
+      "addColumn": "Afegeix una columna de filtre",
+      "all": "Totes",
+      "clear": "Elimina tots els filtres de metadades",
+      "collapse": "Redueix la barra de filtres",
+      "expand": "Expandeix la barra de filtres",
+      "fields": {
+        "aperture": "Obertura",
+        "camera": "Càmera",
+        "color": "Etiqueta de color",
+        "date": "Data",
+        "edited": "Estat d'edició",
+        "fileType": "Tipus de fitxer",
+        "flag": "Marca",
+        "focal": "Distància focal",
+        "iso": "ISO",
+        "lens": "Objectiu",
+        "rating": "Valoració",
+        "shutter": "Velocitat d'obturació"
+      },
+      "removeColumn": "Elimina la columna",
+      "title": "Filtre de metadades",
+      "unknown": "Desconegut",
+      "values": {
+        "blue": "Blau",
+        "edited": "Editades",
+        "green": "Verd",
+        "noLabel": "Sense etiqueta",
+        "picked": "Seleccionades",
+        "purple": "Lila",
+        "red": "Vermell",
+        "rejected": "Rebutjades",
+        "unedited": "Sense editar",
+        "unflagged": "Sense marca",
+        "unrated": "Sense valorar",
+        "yellow": "Groc"
+      }
+    },
     "reject": {
       "deleteConfirm": "Eliminar les rebutjades",
       "deleteMessage_many": "Segur que voleu eliminar {{count}} imatges rebutjades? Es mouran a la paperera.",
@@ -2025,6 +2063,7 @@
         "toggle_crop": "Alternar Retallar / Redreçar",
         "toggle_crop_panel": "Alternar tauler de Retall",
         "toggle_export": "Alternar tauler d'Exportació",
+        "toggle_filter_bar": "Commuta la barra de filtres de metadades",
         "toggle_folder_tree": "Alternar tauler d'arbre de carpetes",
         "toggle_fullscreen": "Alternar pantalla completa",
         "toggle_left_panel": "Commutar el panell esquerre",

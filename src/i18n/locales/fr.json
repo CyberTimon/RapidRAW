@@ -1429,6 +1429,44 @@
       "recent": "Récent",
       "title": "Tâches"
     },
+    "metadataFilter": {
+      "addColumn": "Ajouter une colonne de filtre",
+      "all": "Toutes",
+      "clear": "Supprimer tous les filtres de métadonnées",
+      "collapse": "Réduire la barre de filtres",
+      "expand": "Développer la barre de filtres",
+      "fields": {
+        "aperture": "Ouverture",
+        "camera": "Appareil",
+        "color": "Étiquette de couleur",
+        "date": "Date",
+        "edited": "État de retouche",
+        "fileType": "Type de fichier",
+        "flag": "Marqueur",
+        "focal": "Focale",
+        "iso": "ISO",
+        "lens": "Objectif",
+        "rating": "Note",
+        "shutter": "Vitesse d'obturation"
+      },
+      "removeColumn": "Supprimer la colonne",
+      "title": "Filtre de métadonnées",
+      "unknown": "Inconnu",
+      "values": {
+        "blue": "Bleu",
+        "edited": "Retouchées",
+        "green": "Vert",
+        "noLabel": "Sans étiquette",
+        "picked": "Retenues",
+        "purple": "Violet",
+        "red": "Rouge",
+        "rejected": "Rejetées",
+        "unedited": "Non retouchées",
+        "unflagged": "Sans marqueur",
+        "unrated": "Sans note",
+        "yellow": "Jaune"
+      }
+    },
     "reject": {
       "deleteConfirm": "Supprimer les rejetées",
       "deleteMessage_many": "Voulez-vous vraiment supprimer {{count}} images rejetées ? Elles seront déplacées dans la corbeille.",
@@ -2026,6 +2064,7 @@
         "toggle_crop": "Basculer Recadrer / Redresser",
         "toggle_crop_panel": "Basculer le panneau de recadrage",
         "toggle_export": "Basculer le panneau d'exportation",
+        "toggle_filter_bar": "Afficher/masquer la barre de filtres de métadonnées",
         "toggle_folder_tree": "Afficher/Masquer le panneau d'arborescence des dossiers",
         "toggle_fullscreen": "Basculer en plein écran",
         "toggle_left_panel": "Afficher/Masquer le panneau gauche",

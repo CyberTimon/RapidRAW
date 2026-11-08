@@ -584,6 +584,8 @@ pub struct AppSettings {
     pub live_preview_quality: Option<String>,
     pub sort_criteria: Option<SortCriteria>,
     pub filter_criteria: Option<FilterCriteria>,
+    #[serde(default)]
+    pub metadata_filter_bar: Option<Value>,
     pub theme: Option<String>,
     #[serde(default)]
     pub font_family: Option<String>,
@@ -815,6 +817,7 @@ impl Default for AppSettings {
             live_preview_quality: Some("high".to_string()),
             sort_criteria: None,
             filter_criteria: None,
+            metadata_filter_bar: None,
             theme: Some("dark".to_string()),
             font_family: None,
             decorations: Some(false),

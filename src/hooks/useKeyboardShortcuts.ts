@@ -10,6 +10,7 @@ import { useProcessStore } from '../store/useProcessStore';
 import { applyCrop, cancelCrop, useEditorActions } from './useEditorActions';
 import { useLibraryActions } from './useLibraryActions';
 import { getDevicePixelRatio } from '../utils/displayScale';
+import { toggleMetadataFilterBar } from '../utils/metadataFilters';
 
 const SPEED_EDIT_IMAGE_DIRECTIONS: Record<string, number> = { KeyQ: -1, KeyE: 1 };
 const NON_TEXT_INPUT_TYPES = new Set(['checkbox', 'radio', 'range', 'button', 'submit', 'reset', 'color', 'file']);
@@ -398,6 +399,13 @@ export const useKeyboardShortcuts = ({
         execute: (e: any, s: any) => {
           e.preventDefault();
           s.ui.setPanel(Panel.FolderTree);
+        },
+      },
+      toggle_filter_bar: {
+        shouldFire: (s: any) => s.ui.activeView === 'library' && !s.editor.selectedImage,
+        execute: (e: any) => {
+          e.preventDefault();
+          toggleMetadataFilterBar();
         },
       },
       toggle_analytics: {

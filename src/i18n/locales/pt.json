@@ -1428,6 +1428,44 @@
       "recent": "Recentes",
       "title": "Tarefas"
     },
+    "metadataFilter": {
+      "addColumn": "Adicionar coluna de filtro",
+      "all": "Todas",
+      "clear": "Remover todos os filtros de metadados",
+      "collapse": "Recolher barra de filtros",
+      "expand": "Expandir barra de filtros",
+      "fields": {
+        "aperture": "Abertura",
+        "camera": "Câmera",
+        "color": "Etiqueta de cor",
+        "date": "Data",
+        "edited": "Estado de edição",
+        "fileType": "Tipo de arquivo",
+        "flag": "Marcação",
+        "focal": "Distância focal",
+        "iso": "ISO",
+        "lens": "Lente",
+        "rating": "Classificação",
+        "shutter": "Velocidade do obturador"
+      },
+      "removeColumn": "Remover coluna",
+      "title": "Filtro de metadados",
+      "unknown": "Desconhecido",
+      "values": {
+        "blue": "Azul",
+        "edited": "Editadas",
+        "green": "Verde",
+        "noLabel": "Sem etiqueta",
+        "picked": "Escolhidas",
+        "purple": "Roxo",
+        "red": "Vermelho",
+        "rejected": "Rejeitadas",
+        "unedited": "Não editadas",
+        "unflagged": "Sem marcação",
+        "unrated": "Sem classificação",
+        "yellow": "Amarelo"
+      }
+    },
     "reject": {
       "deleteConfirm": "Excluir Rejeitadas",
       "deleteMessage_many": "Tem certeza de que deseja excluir {{count}} imagens rejeitadas? Elas serão movidas para a lixeira.",
@@ -2025,6 +2063,7 @@
         "toggle_crop": "Alternar Cortar / Endireitar",
         "toggle_crop_panel": "Alternar painel de Corte",
         "toggle_export": "Alternar painel de Exportação",
+        "toggle_filter_bar": "Alternar barra de filtros de metadados",
         "toggle_folder_tree": "Alternar painel da árvore de pastas",
         "toggle_fullscreen": "Alternar tela cheia",
         "toggle_left_panel": "Alternar painel esquerdo",

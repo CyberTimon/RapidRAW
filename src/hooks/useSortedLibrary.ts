@@ -10,6 +10,7 @@ import {
   ImageFile,
   GroupingMode,
 } from '../components/ui/AppProperties';
+import { MetadataFilterSelections, matchesMetadataFilters, usesExifMetadataFilters } from '../utils/metadataFilters';
 import { buildImageGroups, GroupBadgeInfo, GroupId } from '../utils/imageGrouping';
 
 export const ADVANCED_QUERY_REGEX =
@@ -61,8 +62,14 @@ const EXIF_QUERY_FIELDS = new Set([
 ]);
 const NO_EXIF: Record<string, Record<string, string>> = {};
 
-function usesExif(sortCriteria: { key: string }, searchCriteria: { tags: string[] }): boolean {
+function usesExif(state: {
+  sortCriteria: { key: string };
+  searchCriteria: { tags: string[] };
+  metadataFilters?: MetadataFilterSelections;
+}): boolean {
+  const { sortCriteria, searchCriteria } = state;
   if (EXIF_SORT_KEYS.has(sortCriteria.key)) return true;
+  if (usesExifMetadataFilters(state.metadataFilters ?? {})) return true;
   return searchCriteria.tags.some((tag) => {
     const match = tag.match(ADVANCED_QUERY_REGEX);
     return !!match && EXIF_QUERY_FIELDS.has(match[1].toLowerCase());
@@ -79,7 +86,7 @@ function computeGroupedLibrary(
   settingsState: any,
   options: { includeBadges: boolean } = { includeBadges: true },
 ): GroupedLibrary {
-  const { imageList, imageRatings, filterCriteria, searchCriteria, sortCriteria } = libraryState;
+  const { imageList, imageRatings, filterCriteria, searchCriteria, sortCriteria, metadataFilters } = libraryState;
   const exifByPath: Record<string, Record<string, string>> = libraryState.exifByPath ?? NO_EXIF;
   const { appSettings } = settingsState;
 
@@ -121,6 +128,12 @@ function computeGroupedLibrary(
 
       if (!hasMatchingColor && !matchesNone) return false;
     }
+
+    if (
+      metadataFilters &&
+      !matchesMetadataFilters(image, metadataFilters, exifByPath[image.path], imageRatings[image.path] || 0)
+    )
+      return false;
 
     return true;
   };
@@ -334,7 +347,8 @@ export function useSortedLibrary() {
   const filterCriteria = useLibraryStore((state) => state.filterCriteria);
   const searchCriteria = useLibraryStore((state) => state.searchCriteria);
   const sortCriteria = useLibraryStore((state) => state.sortCriteria);
-  const needsExif = useLibraryStore((state) => usesExif(state.sortCriteria, state.searchCriteria));
+  const metadataFilters = useLibraryStore((state) => state.metadataFilters);
+  const needsExif = useLibraryStore((state) => usesExif(state));
   const exifByPath = useLibraryStore((state) => (needsExif ? state.exifByPath : NO_EXIF));
 
   const appSettings = useSettingsStore((state) => state.appSettings);
@@ -344,11 +358,11 @@ export function useSortedLibrary() {
 
   const displayList = useMemo(() => {
     return computeGroupedLibrary(
-      { imageList, imageRatings, filterCriteria, searchCriteria, sortCriteria, exifByPath },
+      { imageList, imageRatings, filterCriteria, searchCriteria, sortCriteria, metadataFilters, exifByPath },
       { appSettings },
       { includeBadges: false },
     ).displayList;
-  }, [imageList, sortCriteria, imageRatings, filterCriteria, searchCriteria, appSettings, exifByPath]);
+  }, [imageList, sortCriteria, imageRatings, filterCriteria, searchCriteria, metadataFilters, appSettings, exifByPath]);
 
   const badges = useMemo(
     () => (groupingMode !== 'off' ? buildImageGroups(imageList, groupingMode, groupEditedFiles).badges : null),

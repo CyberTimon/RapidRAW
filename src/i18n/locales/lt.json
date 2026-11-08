@@ -1497,6 +1497,44 @@
       "recent": "Naujausi",
       "title": "Užduotys"
     },
+    "metadataFilter": {
+      "addColumn": "Pridėti filtro stulpelį",
+      "all": "Visi",
+      "clear": "Pašalinti visus metaduomenų filtrus",
+      "collapse": "Suskleisti filtrų juostą",
+      "expand": "Išskleisti filtrų juostą",
+      "fields": {
+        "aperture": "Diafragma",
+        "camera": "Fotoaparatas",
+        "color": "Spalvos žymė",
+        "date": "Data",
+        "edited": "Redagavimo būsena",
+        "fileType": "Failo tipas",
+        "flag": "Vėliavėlė",
+        "focal": "Židinio nuotolis",
+        "iso": "ISO",
+        "lens": "Objektyvas",
+        "rating": "Įvertinimas",
+        "shutter": "Išlaikymas"
+      },
+      "removeColumn": "Pašalinti stulpelį",
+      "title": "Metaduomenų filtras",
+      "unknown": "Nežinoma",
+      "values": {
+        "blue": "Mėlyna",
+        "edited": "Redaguota",
+        "green": "Žalia",
+        "noLabel": "Be žymės",
+        "picked": "Atrinkta",
+        "purple": "Violetinė",
+        "red": "Raudona",
+        "rejected": "Atmesta",
+        "unedited": "Neredaguota",
+        "unflagged": "Be vėliavėlės",
+        "unrated": "Neįvertinta",
+        "yellow": "Geltona"
+      }
+    },
     "reject": {
       "deleteConfirm": "Ištrinti atmestas",
       "deleteMessage_few": "Ar tikrai norite ištrinti {{count}} atmestas nuotraukas? Jos bus perkeltos į šiukšlinę.",
@@ -2106,6 +2144,7 @@
         "toggle_crop": "Perjungti kadravimą / tiesinimą",
         "toggle_crop_panel": "Perjungti Kadravimo skydelį",
         "toggle_export": "Perjungti Eksporto skydelį",
+        "toggle_filter_bar": "Perjungti metaduomenų filtrų juostą",
         "toggle_folder_tree": "Perjungti Aplankų medžio skydelį",
         "toggle_fullscreen": "Perjungti visą ekraną",
         "toggle_left_panel": "Perjungti kairįjį skydelį",

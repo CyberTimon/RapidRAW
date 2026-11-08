@@ -1398,6 +1398,44 @@
       "recent": "Recent",
       "title": "Jobs"
     },
+    "metadataFilter": {
+      "addColumn": "Add filter column",
+      "all": "All",
+      "clear": "Remove all metadata filters",
+      "collapse": "Collapse filter bar",
+      "expand": "Expand filter bar",
+      "fields": {
+        "aperture": "Aperture",
+        "camera": "Camera",
+        "color": "Color Label",
+        "date": "Date",
+        "edited": "Edit Status",
+        "fileType": "File Type",
+        "flag": "Flag",
+        "focal": "Focal Length",
+        "iso": "ISO",
+        "lens": "Lens",
+        "rating": "Rating",
+        "shutter": "Shutter Speed"
+      },
+      "removeColumn": "Remove column",
+      "title": "Metadata Filter",
+      "unknown": "Unknown",
+      "values": {
+        "blue": "Blue",
+        "edited": "Edited",
+        "green": "Green",
+        "noLabel": "No Label",
+        "picked": "Picked",
+        "purple": "Purple",
+        "red": "Red",
+        "rejected": "Rejected",
+        "unedited": "Not Edited",
+        "unflagged": "Unflagged",
+        "unrated": "Unrated",
+        "yellow": "Yellow"
+      }
+    },
     "reject": {
       "deleteConfirm": "Delete Rejected",
       "deleteMessage_one": "Are you sure you want to delete {{count}} rejected image? It will be moved to the trash.",
@@ -1984,6 +2022,7 @@
         "toggle_crop": "Toggle Crop / Straighten",
         "toggle_crop_panel": "Toggle Crop panel",
         "toggle_export": "Toggle Export panel",
+        "toggle_filter_bar": "Toggle metadata filter bar",
         "toggle_folder_tree": "Toggle Folder Tree panel",
         "toggle_fullscreen": "Toggle fullscreen",
         "toggle_left_panel": "Toggle Left Panel",

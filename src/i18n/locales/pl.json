@@ -1458,6 +1458,44 @@
       "recent": "Ostatnie",
       "title": "Zadania"
     },
+    "metadataFilter": {
+      "addColumn": "Dodaj kolumnę filtra",
+      "all": "Wszystkie",
+      "clear": "Usuń wszystkie filtry metadanych",
+      "collapse": "Zwiń pasek filtrów",
+      "expand": "Rozwiń pasek filtrów",
+      "fields": {
+        "aperture": "Przysłona",
+        "camera": "Aparat",
+        "color": "Etykieta koloru",
+        "date": "Data",
+        "edited": "Stan edycji",
+        "fileType": "Typ pliku",
+        "flag": "Flaga",
+        "focal": "Ogniskowa",
+        "iso": "ISO",
+        "lens": "Obiektyw",
+        "rating": "Ocena",
+        "shutter": "Czas naświetlania"
+      },
+      "removeColumn": "Usuń kolumnę",
+      "title": "Filtr metadanych",
+      "unknown": "Nieznane",
+      "values": {
+        "blue": "Niebieski",
+        "edited": "Edytowane",
+        "green": "Zielony",
+        "noLabel": "Bez etykiety",
+        "picked": "Wybrane",
+        "purple": "Fioletowy",
+        "red": "Czerwony",
+        "rejected": "Odrzucone",
+        "unedited": "Nieedytowane",
+        "unflagged": "Bez flagi",
+        "unrated": "Bez oceny",
+        "yellow": "Żółty"
+      }
+    },
     "reject": {
       "deleteConfirm": "Usuń odrzucone",
       "deleteMessage_few": "Czy na pewno usunąć {{count}} odrzucone obrazy? Zostaną przeniesione do kosza.",
@@ -2066,6 +2104,7 @@
         "toggle_crop": "Przełącz Kadrowanie / Prostowanie",
         "toggle_crop_panel": "Przełącz panel Kadrowanie",
         "toggle_export": "Przełącz panel Eksport",
+        "toggle_filter_bar": "Przełącz pasek filtrów metadanych",
         "toggle_folder_tree": "Przełącz panel drzewa folderów",
         "toggle_fullscreen": "Przełącz tryb pełnoekranowy",
         "toggle_left_panel": "Przełącz lewy panel",

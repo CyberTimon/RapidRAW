@@ -3,6 +3,7 @@ import { Adjustments, CopyPasteSettings } from '../../utils/adjustments';
 import { ToolType } from '../panel/right/Masks';
 import type { WhiteBalance, WhiteBalanceMode } from '../../utils/whiteBalance';
 import type { ImmichSettings } from '../immich/immichApi';
+import type { MetadataFilterBarSettings } from '../../utils/metadataFilters';
 
 export const GLOBAL_KEYS = [
   ' ',
@@ -239,6 +240,7 @@ export type CompareView = 'off' | 'vertical' | 'horizontal' | 'sideBySide';
 export type CompareMode = 'toggle' | Exclude<CompareView, 'off'>;
 
 export interface AppSettings {
+  metadataFilterBar?: MetadataFilterBarSettings;
   aiCacheLimitGb?: number;
   aiMapsCacheLimitGb?: number;
   thumbnailCacheLimitGb?: number;

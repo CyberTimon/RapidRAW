@@ -1428,6 +1428,44 @@
       "recent": "Recenti",
       "title": "Attività"
     },
+    "metadataFilter": {
+      "addColumn": "Aggiungi colonna filtro",
+      "all": "Tutte",
+      "clear": "Rimuovi tutti i filtri metadati",
+      "collapse": "Comprimi barra filtri",
+      "expand": "Espandi barra filtri",
+      "fields": {
+        "aperture": "Diaframma",
+        "camera": "Fotocamera",
+        "color": "Etichetta colore",
+        "date": "Data",
+        "edited": "Stato modifica",
+        "fileType": "Tipo di file",
+        "flag": "Contrassegno",
+        "focal": "Lunghezza focale",
+        "iso": "ISO",
+        "lens": "Obiettivo",
+        "rating": "Valutazione",
+        "shutter": "Tempo di scatto"
+      },
+      "removeColumn": "Rimuovi colonna",
+      "title": "Filtro metadati",
+      "unknown": "Sconosciuto",
+      "values": {
+        "blue": "Blu",
+        "edited": "Modificate",
+        "green": "Verde",
+        "noLabel": "Nessuna etichetta",
+        "picked": "Selezionate",
+        "purple": "Viola",
+        "red": "Rosso",
+        "rejected": "Scartate",
+        "unedited": "Non modificate",
+        "unflagged": "Senza contrassegno",
+        "unrated": "Senza valutazione",
+        "yellow": "Giallo"
+      }
+    },
     "reject": {
       "deleteConfirm": "Elimina Rifiutate",
       "deleteMessage_many": "Vuoi davvero eliminare {{count}} immagini rifiutate? Verranno spostate nel cestino.",
@@ -2025,6 +2063,7 @@
         "toggle_crop": "Attiva/Disattiva Ritaglio / Raddrizza",
         "toggle_crop_panel": "Attiva/Disattiva pannello Ritaglio",
         "toggle_export": "Attiva/Disattiva pannello Esportazione",
+        "toggle_filter_bar": "Mostra/nascondi barra filtri metadati",
         "toggle_folder_tree": "Mostra/Nascondi pannello albero delle cartelle",
         "toggle_fullscreen": "Attiva/Disattiva schermo intero",
         "toggle_left_panel": "Mostra/Nascondi pannello sinistro",
