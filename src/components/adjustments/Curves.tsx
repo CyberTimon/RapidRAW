@@ -282,6 +282,28 @@ const FINE_ADJUSTMENT_MULTIPLIER = 0.2;
 const POINT_HIT_RADIUS_PX = 12;
 const MIN_POINT_GAP_X = 1;
 
+const normalizeIntegerPointCurve = (points: Array<Coord>): Array<Coord> => {
+  if (points.length === 0) return [];
+  const normalized = points
+    .map((point, index) => ({
+      x: Math.round(Math.max(0, Math.min(255, point.x))),
+      y: Math.round(Math.max(0, Math.min(255, point.y))),
+      originalIndex: index,
+    }))
+    .sort((a, b) => a.x - b.x || a.originalIndex - b.originalIndex)
+    .map(({ x, y }) => ({ x, y }));
+  if (normalized.length === 1) return normalized;
+
+  normalized[0].x = 0;
+  normalized[normalized.length - 1].x = 255;
+  for (let i = 1; i < normalized.length - 1; i += 1) {
+    const minX = normalized[i - 1].x + MIN_POINT_GAP_X;
+    const maxX = 255 - (normalized.length - 1 - i) * MIN_POINT_GAP_X;
+    normalized[i].x = Math.max(minX, Math.min(maxX, normalized[i].x));
+  }
+  return normalized;
+};
+
 const hasFineAdjustmentModifier = (event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) =>
   'shiftKey' in event && (event.shiftKey || event.altKey);
 
@@ -466,8 +488,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
 
         const prevX = index > 0 ? currentPoints[index - 1].x : 0;
         const nextX = index < currentPoints.length - 1 ? currentPoints[index + 1].x : 255;
-        const minX = index === 0 ? 0 : prevX + 0.01;
-        const maxX = index === currentPoints.length - 1 ? 255 : nextX - 0.01;
+        const minX = index === 0 ? 0 : Math.ceil(prevX + MIN_POINT_GAP_X);
+        const maxX = index === currentPoints.length - 1 ? 255 : Math.floor(nextX - MIN_POINT_GAP_X);
 
         accumulatedPointRef.current.x = Math.max(minX, Math.min(maxX, accumulatedPointRef.current.x));
 
@@ -481,8 +503,12 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
           x = Math.max(minX, Math.min(maxX, x));
         }
 
+        // Quantize displayed/stored point coordinates, then re-clamp X so rounding
+        // can never collide with a neighbor or violate the integer minimum gap.
+        x = Math.max(Math.ceil(minX), Math.min(Math.floor(maxX), Math.round(x)));
+        const roundedY = Math.max(0, Math.min(255, Math.round(y)));
         const newPoints = [...currentPoints];
-        newPoints[index] = { x, y };
+        newPoints[index] = { x, y: roundedY };
 
         localPointsRef.current = newPoints;
         setLocalPoints(newPoints);
@@ -532,7 +558,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
 
   const activePoints: Array<Coord> = isParametricMode
     ? buildParametricPoints(activeParametricSettings)
-    : (localPoints ?? adjustments?.curves?.[activeChannel]);
+    : normalizeIntegerPointCurve(localPoints ?? adjustments?.curves?.[activeChannel]);
 
   const color = CHANNEL_COLORS[activeChannel];
 
@@ -547,6 +573,27 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
     setCoordinateDrafts(nextDrafts);
     coordinateBaselineRef.current = nextDrafts;
   }, [selectedPointIndex, activeChannel, adjustments?.curves?.[activeChannel]]);
+
+  // Migrate legacy/fractional point-mode curves to integer coordinates. This is
+  // deliberately excluded in parametric mode, whose generated curve is continuous.
+  useEffect(() => {
+    if (isParametricMode) return;
+    const sourcePoints = adjustments?.curves?.[activeChannel];
+    if (!Array.isArray(sourcePoints)) return;
+    const pointsToNormalize = localPoints ?? sourcePoints;
+    const normalizedPoints = normalizeIntegerPointCurve(pointsToNormalize);
+    if (normalizedPoints.some((point, index) => point.x !== pointsToNormalize[index]?.x || point.y !== pointsToNormalize[index]?.y)) {
+      if (localPoints !== null) {
+        localPointsRef.current = normalizedPoints;
+        setLocalPoints(normalizedPoints);
+      } else {
+        setAdjustments((prev: any) => ({
+          ...prev,
+          curves: { ...prev.curves, [activeChannel]: normalizedPoints },
+        }));
+      }
+    }
+  }, [isParametricMode, adjustments?.curves?.[activeChannel], activeChannel, setAdjustments, localPoints]);
 
   useEffect(() => {
     if (!pendingCoordinateFocusRef.current) return;
@@ -570,12 +617,12 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
     const prevX = selectedPointIndex > 0 ? currentPoints[selectedPointIndex - 1].x : 0;
     const nextX = selectedPointIndex < currentPoints.length - 1 ? currentPoints[selectedPointIndex + 1].x : 255;
 
-    let val = Math.max(0, Math.min(255, isNaN(rawVal) ? 0 : rawVal));
+    let val = Math.round(Math.max(0, Math.min(255, isNaN(rawVal) ? 0 : rawVal)));
 
     if (axis === 'x') {
       // First and last points are locked at 0 and 255 on the X axis
-      const minX = selectedPointIndex === 0 ? 0 : prevX + MIN_POINT_GAP_X;
-      const maxX = selectedPointIndex === currentPoints.length - 1 ? 255 : nextX - MIN_POINT_GAP_X;
+      const minX = selectedPointIndex === 0 ? 0 : Math.ceil(prevX + MIN_POINT_GAP_X);
+      const maxX = selectedPointIndex === currentPoints.length - 1 ? 255 : Math.floor(nextX - MIN_POINT_GAP_X);
       val = Math.max(minX, Math.min(maxX, val));
       currentPoints[selectedPointIndex] = { ...currentPoints[selectedPointIndex], x: val };
     } else {
@@ -602,26 +649,29 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
       return;
     }
 
-    const boundedValue = Math.max(0, Math.min(255, parsedValue));
+    const boundedValue = Math.round(Math.max(0, Math.min(255, parsedValue)));
     const currentPoints = activePoints;
     let committedValue = boundedValue;
     if (axis === 'x') {
       const prevX = selectedPointIndex > 0 ? currentPoints[selectedPointIndex - 1].x : 0;
       const nextX = selectedPointIndex < currentPoints.length - 1 ? currentPoints[selectedPointIndex + 1].x : 255;
-      const minX = selectedPointIndex === 0 ? 0 : prevX + MIN_POINT_GAP_X;
-      const maxX = selectedPointIndex === currentPoints.length - 1 ? 255 : nextX - MIN_POINT_GAP_X;
-      committedValue = Math.max(minX, Math.min(maxX, boundedValue));
+      const minX = selectedPointIndex === 0 ? 0 : Math.ceil(prevX + MIN_POINT_GAP_X);
+      const maxX = selectedPointIndex === currentPoints.length - 1 ? 255 : Math.floor(nextX - MIN_POINT_GAP_X);
+      committedValue = Math.max(minX, Math.min(maxX, Math.round(boundedValue)));
     }
 
     // Avoid writing the curve when a changed spelling represents the existing value.
     const currentValue = currentPoints[selectedPointIndex][axis];
+    // Always normalize committed text, even if rounding/clamping leaves the
+    // coordinate unchanged (for example, entering "12.7" for an existing 13).
+    const normalizedText = String(committedValue);
     if (committedValue === currentValue) {
-      coordinateBaselineRef.current[axis] = text;
+      coordinateBaselineRef.current[axis] = normalizedText;
+      setCoordinateDrafts((drafts) => ({ ...drafts, [axis]: normalizedText }));
       return;
     }
 
     // Normalize the draft to its committed value so a following blur is a no-op.
-    const normalizedText = String(committedValue);
     coordinateBaselineRef.current[axis] = normalizedText;
     setCoordinateDrafts((drafts) => ({ ...drafts, [axis]: normalizedText }));
     handleUpdateSelectedCoord(axis, committedValue);
@@ -723,11 +773,12 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
     lastPointerRef.current = { x: clientX, y: clientY };
-    accumulatedPointRef.current = { ...activePoints[index] };
+    const integerPoints = normalizeIntegerPointCurve(activePoints);
+    accumulatedPointRef.current = { ...integerPoints[index] };
 
     onDragStateChange?.(true);
-    setLocalPoints(activePoints);
-    localPointsRef.current = activePoints;
+    setLocalPoints(integerPoints);
+    localPointsRef.current = integerPoints;
     setDraggingPointIndex(index);
     draggingIndexRef.current = index;
     setSelectedPointIndex(index);
@@ -760,7 +811,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
 
     let nearestIndex = -1;
     let nearestDistance = Infinity;
-    activePoints.forEach((p: Coord, i: number) => {
+    const integerPoints = normalizeIntegerPointCurve(activePoints);
+    integerPoints.forEach((p: Coord, i: number) => {
       const px = rect.left + (p.x / 255) * rect.width;
       const py = rect.top + ((255 - p.y) / 255) * rect.height;
       const distance = Math.hypot(clientX - px, clientY - py);
@@ -774,14 +826,16 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
       return;
     }
 
-    const x = Math.max(0, Math.min(255, ((clientX - rect.left) / rect.width) * 255));
-    const y = Math.max(0, Math.min(255, 255 - ((clientY - rect.top) / rect.height) * 255));
+    const x = Math.round(Math.max(0, Math.min(255, ((clientX - rect.left) / rect.width) * 255)));
+    const y = Math.round(Math.max(0, Math.min(255, 255 - ((clientY - rect.top) / rect.height) * 255)));
 
-    if (activePoints.some((p: Coord) => Math.abs(p.x - x) < MIN_POINT_GAP_X)) return;
+    // Check spacing after quantization, since distinct fractional positions can
+    // round to the same integer X coordinate.
+    if (integerPoints.some((p: Coord) => Math.abs(p.x - x) < MIN_POINT_GAP_X)) return;
 
     onDragStateChange?.(true);
 
-    const newPoints = [...activePoints, { x, y }].sort((a: Coord, b: Coord) => a.x - b.x);
+    const newPoints = [...integerPoints, { x, y }].sort((a: Coord, b: Coord) => a.x - b.x);
     const newPointIndex = newPoints.findIndex((p: Coord) => p.x === x && p.y === y);
 
     lastPointerRef.current = { x: clientX, y: clientY };
@@ -924,7 +978,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
 
     const handlePaste = () => {
       if (!curveClipboard) return;
-      const newPoints = curveClipboard.map((p) => ({ ...p }));
+      const newPoints = normalizeIntegerPointCurve(curveClipboard);
       setLocalPoints(newPoints);
       localPointsRef.current = newPoints;
       setSelectedPointIndex(null);
@@ -933,7 +987,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
 
     const handlePasteFromParametric = () => {
       if (!parametricClipboard) return;
-      const newPoints = convertParametricToPoints(parametricClipboard);
+      const newPoints = normalizeIntegerPointCurve(convertParametricToPoints(parametricClipboard));
       setLocalPoints(newPoints);
       localPointsRef.current = newPoints;
       setSelectedPointIndex(null);
