@@ -21,6 +21,7 @@ struct SyncState {
     local_modified_ms: Option<u64>,
     local_hash: Option<String>,
     remote_updated_at: Option<String>,
+    shared_by_others: bool,
 }
 
 #[derive(Serialize, Clone, Copy, PartialEq, Default)]
@@ -165,6 +166,15 @@ fn keep_as_virtual_copy(
     source: &Path,
     value: &Value,
 ) -> Result<(), String> {
+    let file_name = write_virtual_copy(source, value)?;
+    let _ = app_handle.emit(
+        "immich-edits-conflict",
+        json!({ "path": source, "fileName": file_name }),
+    );
+    Ok(())
+}
+
+fn write_virtual_copy(source: &Path, value: &Value) -> Result<String, String> {
     let file_name = source
         .file_name()
         .ok_or("Invalid file name")?
@@ -185,11 +195,7 @@ fn keep_as_virtual_copy(
         )
         .map_err(|e| e.to_string())?;
     }
-    let _ = app_handle.emit(
-        "immich-edits-conflict",
-        json!({ "path": source, "fileName": file_name }),
-    );
-    Ok(())
+    Ok(file_name)
 }
 
 pub async fn pull(
@@ -258,6 +264,40 @@ fn apply_remote(
     }
 }
 
+pub async fn adopt_upload(
+    app_handle: &AppHandle,
+    client: &ImmichClient,
+    asset_id: &str,
+    target: &Path,
+    local_sidecar: &Path,
+    duplicate: bool,
+) -> Result<(), String> {
+    let local = fs::read_to_string(local_sidecar)
+        .ok()
+        .and_then(|content| serde_json::from_str::<Value>(&content).ok())
+        .map(shared);
+    let remote = if duplicate {
+        client.metadata(asset_id, EDITS_KEY).await?
+    } else {
+        None
+    };
+    match (local, remote) {
+        (Some(local), Some(remote)) if !is_blank(&remote.value) && remote.value != local => {
+            let file_name = write_virtual_copy(target, &local)?;
+            let _ = app_handle.emit(
+                "immich-upload-kept-copy",
+                json!({ "path": target, "fileName": file_name }),
+            );
+            pull(app_handle, client, asset_id, target).await
+        }
+        (Some(_), _) => {
+            fs::copy(local_sidecar, sidecar_of(target)).map_err(|e| e.to_string())?;
+            push(app_handle, client, asset_id, target).await.map(|_| ())
+        }
+        (None, _) => pull(app_handle, client, asset_id, target).await,
+    }
+}
+
 pub async fn push(
     app_handle: &AppHandle,
     client: &ImmichClient,
@@ -265,6 +305,9 @@ pub async fn push(
     source: &Path,
 ) -> Result<bool, String> {
     let state = load_state(source);
+    if state.shared_by_others {
+        return Ok(false);
+    }
     let modified = modified_ms(&sidecar_of(source));
     let Some(local) = local_changes(source, &state) else {
         return Ok(false);
@@ -280,7 +323,24 @@ pub async fn push(
         keep_as_virtual_copy(app_handle, source, &remote.value)?;
     }
 
-    let updated_at = client.set_metadata(asset_id, EDITS_KEY, &local).await?;
+    let updated_at = match client.set_metadata(asset_id, EDITS_KEY, &local).await {
+        Ok(updated_at) => updated_at,
+        Err(e) if client.owns(asset_id).await == Ok(false) => {
+            log::info!("{} belongs to someone else: {e}", source.display());
+            let mut state = load_state(source);
+            state.shared_by_others = true;
+            save_state(source, &state);
+            let _ = app_handle.emit(
+                "immich-edits-local",
+                json!({
+                    "path": source,
+                    "fileName": source.file_name().map(|n| n.to_string_lossy()),
+                }),
+            );
+            return Ok(false);
+        }
+        Err(e) => return Err(e),
+    };
     remember(source, modified, &local, Some(updated_at));
     Ok(true)
 }
@@ -301,9 +361,9 @@ fn unsent_edits(cache_dir: &Path) -> Vec<(String, PathBuf)> {
                 .flatten()
                 .map(|file| file.path())
                 .find(|path| crate::formats::is_supported_image_file(path))?;
-            let changed =
-                modified_ms(&sidecar_of(&source)) != load_state(&source).local_modified_ms;
-            changed.then_some((asset_id, source))
+            let state = load_state(&source);
+            let changed = modified_ms(&sidecar_of(&source)) != state.local_modified_ms;
+            (changed && !state.shared_by_others).then_some((asset_id, source))
         })
         .collect()
 }

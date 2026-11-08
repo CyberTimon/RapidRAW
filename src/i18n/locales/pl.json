@@ -56,6 +56,57 @@
         "reds": "Czerwone",
         "yellows": "Żółte"
       },
+      "mixerPickerTooltip": "Pipeta miksera kolorów: kliknij i przeciągnij w górę lub w dół na zdjęciu",
+      "monochrome": {
+        "badge": "Cz-b",
+        "balance": "Balans",
+        "blackWhite": "Czarno-białe",
+        "film": "Film",
+        "filmDescriptions": {
+          "balanced": "Równa czułość na wszystkie kolory, z jaśniejszymi czerwieniami i skórą",
+          "extendedRed": "Film czuły na czerwień: świetlista skóra i ciemniejsze niebo",
+          "infrared": "Świecące liście i niemal czarne niebo",
+          "neutral": "Odpowiada postrzeganej jasności każdego koloru",
+          "orthoPanchromatic": "Nieco ciemniejsze czerwienie i wyraziste zielenie",
+          "orthochromatic": "Ślepy na czerwień: ciemne czerwienie i jasne niebo",
+          "panchromatic": "Klasyczna charakterystyka filmu z jaśniejszym niebieskim niebem"
+        },
+        "films": {
+          "balanced": "Zrównoważony",
+          "extendedRed": "Rozszerzona czerwień",
+          "infrared": "Podczerwień",
+          "neutral": "Neutralny",
+          "orthoPanchromatic": "Orto-pan",
+          "orthochromatic": "Ortochromatyczny",
+          "panchromatic": "Panchromatyczny"
+        },
+        "filter": "Filtr",
+        "filters": {
+          "blue": "Niebieski",
+          "green": "Zielony",
+          "none": "Brak",
+          "orange": "Pomarańczowy",
+          "red": "Czerwony",
+          "yellow": "Żółty"
+        },
+        "highlights": "Światła",
+        "hue": "Odcień",
+        "mix": "Mikser cz-b",
+        "mixPickerTooltip": "Pipeta miksera cz-b: kliknij i przeciągnij w górę lub w dół na zdjęciu",
+        "saturation": "Nasycenie",
+        "shadows": "Cienie",
+        "strength": "Siła",
+        "toning": "Tonowanie",
+        "tonings": {
+          "cyanotype": "Cyjanotypia",
+          "gold": "Złoto",
+          "none": "Brak",
+          "platinum": "Platyna",
+          "selenium": "Selen",
+          "sepia": "Sepia",
+          "split": "Tonowanie dzielone"
+        }
+      },
       "presence": "Prezencja",
       "saturation": "Nasycenie",
       "temperature": "Temperatura",
@@ -171,7 +222,25 @@
       "roundness": "Zaokrąglenie",
       "size": "Rozmiar",
       "spatial": "Przestrzenne",
-      "vignette": "Winieta"
+      "vignette": "Winieta",
+      "motionBlur": "Rozmycie ruchu",
+      "motionBlurAngle": "Kąt",
+      "motionBlurDepth": "Głębia",
+      "motionBlurHighlights": "Światła",
+      "motionBlurLayer": "Ruch",
+      "motionBlurLayers": {
+        "auto": "Automatycznie",
+        "panning": "Panoramowanie",
+        "subject": "Ruchomy obiekt",
+        "uniform": "Jednolite"
+      },
+      "motionBlurType": "Typ",
+      "motionBlurTypes": {
+        "linear": "Liniowe",
+        "zoom": "Zoom",
+        "spin": "Obrót",
+        "smooth": "Wygładzenie"
+      }
     }
   },
   "contextMenus": {
@@ -227,13 +296,16 @@
       "autoLensCorrection": "Automatyczna korekcja obiektywu",
       "autoStraighten": "Automatyczne prostowanie",
       "cancel": "Anuluj",
+      "closeViewer": "Zamknij drugie okno",
       "colorLabel": "Etykieta koloru",
       "confirmReset": "Potwierdź reset",
+      "convertBlackWhite": "Konwertuj na czarno-białe",
       "convertNegative": "Konwertuj negatyw",
       "copyAdjustments": "Kopiuj ustawienia",
       "cullImage": "Automatyczna selekcja",
       "denoise": "Odszumianie",
       "editImage": "Edytuj obraz",
+      "editIn": "Edytuj w",
       "exportImage": "Eksportuj obraz",
       "flag": "Oznaczenie",
       "flagPick": "Wybrane",
@@ -242,6 +314,7 @@
       "mergeHdr": "Scal do HDR",
       "noLabel": "Brak etykiety",
       "noRating": "Brak oceny",
+      "openViewer": "Otwórz w drugim oknie",
       "pasteAdjustments": "Wklej ustawienia",
       "productivity": "Produktywność",
       "rating": "Ocena",
@@ -250,6 +323,7 @@
       "ratingLabel_one": "{{count}} Gwiazdka",
       "ratingLabel_other": "{{count}} Gwiazdek",
       "redo": "Ponów",
+      "removeBlackWhite": "Usuń konwersję czarno-białą",
       "removeDenoise": "Usuń odszumianie",
       "removeNegativeConversion": "Usuń konwersję negatywu",
       "resetAdjustments": "Resetuj ustawienia",
@@ -305,6 +379,8 @@
       "autoAdjust_many": "Auto-korekta",
       "autoAdjust_one": "Auto-korekta",
       "autoAdjust_other": "Auto-korekta",
+      "autoLensCorrection_few": "Automatyczna korekcja obiektywu",
+      "autoLensCorrection_many": "Automatyczna korekcja obiektywu",
       "autoLensCorrection_one": "Automatyczna korekcja obiektywu",
       "autoLensCorrection_other": "Automatyczna korekcja obiektywu",
       "autoStraighten_few": "Automatyczne prostowanie",
@@ -366,6 +442,9 @@
     "toasts": {
       "couldNotShowExplorer": "Nie można pokazać pliku w eksploratorze: {{err}}",
       "couldNotShowFolder": "Nie można pokazać folderu: {{err}}",
+      "editInFailed": "{{app}} – błąd: {{err}}",
+      "editInNoOutput": "{{app}} zamknięto bez zapisywania.",
+      "editInWaiting": "Oczekiwanie na {{app}}. Zapisz tam plik, aby go przywrócić, lub zamknij ten komunikat, aby przestać czekać.",
       "failedAddToAlbum": "Nie udało się dodać do albumu: {{err}}",
       "failedApplyAuto": "Nie udało się zastosować auto-korekty: {{err}}",
       "failedChangeIcon": "Nie udało się zmienić ikony: {{err}}",
@@ -436,6 +515,15 @@
         "feather": "Wtapianie pędzla",
         "size": "Rozmiar pędzla"
       },
+      "cloneHeal": {
+        "cloneTooltip": "Kopiuje źródło dokładnie, łącznie z jasnością i kolorem",
+        "dragSource": "Przeciągnij, aby przesunąć źródło",
+        "healTooltip": "Kopiuje teksturę źródła i dopasowuje ją do jasności i koloru otoczenia",
+        "hintActive": "Przeciągnij obrys źródła, aby wybrać, skąd pochodzą piksele. Każde nowe pociągnięcie tworzy osobny obszar. Przytrzymaj Shift, aby dodać do tego.",
+        "hintEmpty": "Zamaluj plamkę, przewód lub rozpraszający element. Pasujące źródło zostanie znalezione automatycznie.",
+        "mode": "Tryb",
+        "newSource": "Znajdź inne źródło"
+      },
       "comingSoon": "Wkrótce",
       "connection": {
         "backendLabel": "Backend AI:",
@@ -498,6 +586,8 @@
         "heal_other": "Naprawianie {{count}}",
         "invertedName": "{{name}} odwrócone",
         "liquify": "Skraplanie {{count}}",
+        "liquify_few": "Skraplanie {{count}}",
+        "liquify_many": "Skraplanie {{count}}",
         "liquify_one": "Skraplanie {{count}}",
         "liquify_other": "Skraplanie {{count}}",
         "quickErase": "Szybkie wymazanie {{count}}",
@@ -505,7 +595,11 @@
         "quickErase_many": "Szybkich wymazań {{count}}",
         "quickErase_one": "Szybkie wymazanie {{count}}",
         "quickErase_other": "Szybkie wymazanie {{count}}",
-        "retouch": "Retusz {{count}}"
+        "retouch": "Retusz {{count}}",
+        "retouch_few": "Retusz {{count}}",
+        "retouch_many": "Retusz {{count}}",
+        "retouch_one": "Retusz {{count}}",
+        "retouch_other": "Retusz {{count}}"
       },
       "resetInpaintingTooltip": "Resetuj Inpainting",
       "settings": {
@@ -774,8 +868,7 @@
       "toggleAnalyticsTooltip": "Przełącz widok analityki",
       "tooltips": {
         "addToCurrent": "Dodaj {{name}} do bieżącej maski lub utwórz nową (Prawy przycisk)",
-        "createNew": "Utwórz nową maskę {{name}}",
-        "selectNewSourcePoint": "{{modifier}} + Kliknij, aby wybrać nowy punkt źródłowy"
+        "createNew": "Utwórz nową maskę {{name}}"
       }
     },
     "metadata": {
@@ -878,6 +971,10 @@
         "tool": "Narzędzie"
       }
     },
+    "speedEdit": {
+      "copied": "Skopiowano: <0>{{label}}</0> <1>{{value}}</1>",
+      "pasted": "Wklejono: <0>{{label}}</0> <1>{{value}}</1>"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "Dopasuj",
@@ -905,11 +1002,18 @@
         "undo": "Cofnij (Ctrl+Z) lub Historia (Prawy przycisk)"
       },
       "vc": "VC"
+    },
+    "viewer": {
+      "openFailed": "Nie można otworzyć drugiego okna: {{error}}",
+      "windowTitle": "Przeglądarka RapidRAW"
     }
   },
   "export": {
     "advanced": {
       "exportMasks": "Eksportuj maski jako osobne pliki",
+      "exportOriginal": "Eksportuj również oryginał",
+      "originalCrop": "Zastosuj kadrowanie",
+      "originalKeepExposure": "Zachowaj ekspozycję",
       "preserveFolders": "Zachowaj strukturę folderów",
       "preserveTimestamps": "Ustaw datę modyfikacji pliku na podstawie daty wykonania (EXIF)",
       "title": "Ustawienia eksportu"
@@ -1047,6 +1151,10 @@
       "title": "Edycje jeszcze nie w Immich"
     },
     "export": {
+      "newAlbum": "Nowy album…",
+      "newAlbumName": "Nazwa albumu",
+      "createAlbum": "Utwórz",
+      "newAlbumFailed": "Nie udało się utworzyć albumu: {{error}}",
       "album": "Album",
       "destination": "Immich",
       "noAlbum": "Bez albumu",
@@ -1055,16 +1163,19 @@
       "withOriginalDesc": "Dla zdjęć z folderu lokalnego: oryginał jest przesyłany wraz z edycjami, a eksport układany na nim w stos. Zdjęcia z Immich są zawsze układane na swoim oryginale."
     },
     "section": {
+      "albums": "Albumy",
       "empty": "Brak albumów na serwerze.",
       "error": "Immich jest niedostępny.",
       "loading": "Wczytywanie albumów…",
       "refresh": "Odśwież albumy",
       "timeline": "Oś czasu",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "Bez albumu",
+      "unassignedHint": "Przeciągnij tu zdjęcia, aby przesłać je bez dodawania do albumu."
     },
     "settings": {
       "apiKey": "Klucz API",
-      "apiKeyDesc": "Utwórz go w Immich w Ustawieniach konta → Klucze API z tymi uprawnieniami: album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create i user.read.",
+      "apiKeyDesc": "Utwórz go w Immich w Ustawieniach konta → Klucze API z tymi uprawnieniami: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create i user.read.",
       "connected": "Połączono jako {{user}} (Immich {{version}})",
       "description": "Przeglądaj zdjęcia z serwera Immich w bibliotece i edytuj je bezpośrednio. Oryginały są pobierane przy otwarciu, a edycje zapisywane w Immich, więc wyglądają tak samo na każdym komputerze.",
       "keyInFile": "Zapisano w pliku, który możesz odczytać tylko Ty: brak dostępnego magazynu poświadczeń. W KDE włącz interfejs Secret Service w ustawieniach Portfela KDE i zapisz ponownie.",
@@ -1082,12 +1193,17 @@
       "pending": "Edycje czekające na Immich: {{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} należy do kogoś innego, więc Immich nie przyjmuje dla niego edycji. Twoje edycje zostaną na tym komputerze.",
       "backOnline": "Immich jest znowu dostępny, a wszystkie edycje zostały w nim zapisane.",
       "downloadFailed": "Nie udało się pobrać z Immich: {{error}}",
       "editsConflict": "{{fileName}} edytowano także na innym komputerze. Twoje edycje pozostają, a druga wersja jest zachowana jako kopia wirtualna.",
       "offline": "Immich jest niedostępny. Twoje edycje pozostają tutaj i zostaną wysłane, gdy tylko będzie dostępny.",
+      "transferFailed": "Nie dodano do Immich: {{number}} ({{error}})",
+      "transferred": "Dodano do Immich: {{number}}",
+      "transferring": "Dodawanie do Immich… {{current}}/{{total}}",
       "trashFailed": "Nie udało się przenieść do kosza Immich: {{error}}",
-      "uploaded": "Przesłano do Immich: {{number}}"
+      "uploaded": "Przesłano do Immich: {{number}}",
+      "uploadKeptCopy": "{{fileName}} jest już w Immich z innymi edycjami. Pozostają one bez zmian, a Twoje edycje są zachowane jako kopia wirtualna."
     }
   },
   "library": {
@@ -1414,6 +1530,11 @@
       "goHome": "Przejdź do strony głównej",
       "importImages": "Importuj obrazy",
       "select": "Zaznacz"
+    },
+    "viewMode": {
+      "culling": "Widok selekcji",
+      "grid": "Widok siatki",
+      "list": "Widok listy"
     }
   },
   "masks": {
@@ -1430,6 +1551,7 @@
       "linear": "Liniowy",
       "liquify": "Skraplanie",
       "luminance": "Luminancja",
+      "matchBrush": "Pędzel dopasowania",
       "others": "Inne",
       "quickErase": "Szybkie wymazanie",
       "quickEraser": "Szybka gumka",
@@ -1494,6 +1616,7 @@
       "descReplace": "Nadpisuje wszystkie wybrane ustawienia, przywracając resztę do wartości domyślnych.",
       "groups": {
         "aiDenoise": "Odszumianie AI",
+        "blackWhite": "Czarno-białe",
         "chromaticAberration": "Aberracja chromatyczna",
         "clarityDehaze": "Przejrzystość i Usuwanie mgły",
         "colorCalibration": "Kalibracja kolorów",
@@ -1507,6 +1630,7 @@
         "halationGlow": "Halacja i Poświata",
         "hueShift": "Globalne przesunięcie odcienia",
         "lensBlur": "Rozmycie obiektywu",
+        "motionBlur": "Rozmycie ruchu",
         "lensCorrection": "Korekcja obiektywu",
         "lut": "LUT",
         "masks": "Maski",
@@ -1658,7 +1782,6 @@
       "selectManufacturer": "Wybierz producenta",
       "title": "Korekcja obiektywu",
       "vignetting": "Winietowanie",
-      "waitingAutoDetect": "Oczekiwanie na automatyczne wykrycie...",
       "zoomInTooltip": "Przybliż",
       "zoomOutTooltip": "Oddal"
     },
@@ -1754,6 +1877,27 @@
       "pressKey": "Naciśnij klawisz... (Esc by anulować)",
       "resetDefaults": "Przywróć wszystkie domyślne",
       "speed": "Prędkość",
+      "speedEdit": {
+        "adjustments": "Korekty",
+        "gestures": {
+          "doubleClick": "Dwuklik, aby zresetować",
+          "drag": "Przeciągnij po płótnie, aby zmienić",
+          "fine": "Shift – precyzyjnie"
+        },
+        "keys": {
+          "hold": "Stuknij / Trzymaj",
+          "previousImage": "Poprz. zdjęcie",
+          "nextImage": "Nast. zdjęcie",
+          "reset": "Resetuj",
+          "previousAdjustment": "Poprz. suwak",
+          "nextAdjustment": "Nast. suwak",
+          "copy": "Kopiuj",
+          "paste": "Wklej",
+          "stepDown": "−1 krok",
+          "stepUp": "+1 krok"
+        },
+        "title": "Szybka edycja"
+      },
       "title": "Sterowanie myszą",
       "zoom": "Mnożnik szybkości przybliżania",
       "zoomClick": "Powiększ zdjęcie do 100%",
@@ -1857,6 +2001,8 @@
       "folderImageCountsDesc": "Pokaż liczbę obrazów w folderach podczas najechania myszą na drzewo katalogów.",
       "font": "Czcionka",
       "fontDesc": "Zmień czcionkę aplikacji.",
+      "hideCollapsedPanels": "Ukryj zwinięte panele",
+      "hideCollapsedPanelsDesc": "Zwinięte panele boczne chowają się całkowicie zamiast zostawiać wąski pasek. Otwórz je ponownie z dolnego paska lub za pomocą ich skrótów klawiszowych.",
       "nativeTitlebar": "Natywny pasek tytułu",
       "nativeTitlebarDesc": "Użyj domyślnego paska tytułu okna twojego systemu zamiast niestandardowego w RapidRAW.",
       "neutralGreyCanvas": "Neutralne szare płótno",
@@ -1869,6 +2015,11 @@
       "title": "Ustawienia ogólne",
       "toolFocusMode": "Tryb skupienia na narzędziach",
       "toolFocusModeDesc": "Automatycznie zwija inne narzędzia w panelu, gdy rozwijasz jedno z nich.",
+      "uiScale": "Skala interfejsu",
+      "uiScaleCompact": "Kompaktowy",
+      "uiScaleDefault": "Domyślny",
+      "uiScaleDesc": "Zmniejsz lub powiększ interfejs niezależnie od skalowania ekranu w systemie. Kompaktowe rozmiary mieszczą więcej na małych ekranach laptopów.",
+      "uiScaleLarge": "Duży",
       "xmpSync": "Synchronizacja metadanych XMP",
       "xmpSyncDesc": "Synchronizuj oceny, etykiety kolorów i tagi do standardowych plików XMP w celu zachowania kompatybilności z innymi edytorami zdjęć."
     },
@@ -1910,6 +2061,7 @@
         "toggle_adjustments": "Przełącz panel Ustawienia",
         "toggle_ai": "Przełącz panel AI",
         "toggle_analytics": "Przełącz wyświetlanie analityki",
+        "toggle_black_white": "Przełącz czarno-białe",
         "toggle_bottom_panel": "Przełącz pasek z klatkami",
         "toggle_crop": "Przełącz Kadrowanie / Prostowanie",
         "toggle_crop_panel": "Przełącz panel Kadrowanie",
@@ -1924,6 +2076,7 @@
         "toggle_presets": "Przełącz panel Presety",
         "toggle_reject": "Przełącz oznaczenie odrzucenia",
         "toggle_right_panel": "Przełącz prawy panel",
+        "toggle_viewer_window": "Przełącz drugie okno",
         "undo": "Cofnij korektę",
         "unflag": "Usuń oznaczenie",
         "zoom_100": "Powiększ do 100%",
@@ -2044,6 +2197,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "Edytor renderuje podgląd tak, aby odpowiadał rzeczywistej gęstości pikseli twojego wyświetlacza. Zapewnia to oddanie każdego szczegółu w proporcji 1:1, dostarczając maksymalnej jasności przy zbliżaniu i sprawdzaniu ostrości.",
+      "editIn": {
+        "add": "Dodaj program",
+        "args": "Argumenty ({file} = ścieżka obrazu)",
+        "browse": "Przeglądaj",
+        "description": "Programy w menu „Edytuj w”.",
+        "executable": "Programy",
+        "modes": {
+          "original": "Wyślij oryginalny plik",
+          "rendered": "Wyślij edytowany TIFF"
+        },
+        "name": "Nazwa",
+        "path": "Ścieżka programu",
+        "remove": "Usuń",
+        "title": "Edytuj w"
+      },
       "enableLivePreviews": "Włącz interaktywny podgląd na żywo",
       "highDpi": "Renderowanie High-DPI",
       "highDpiDesc": "Renderuj podglądy w natywnej {{dpr}}x rozdzielczości pikseli fizycznych twojego ekranu. Zapewnia najostrzejszy z możliwych podglądów, ale zużywa znacznie więcej pamięci.",
@@ -2073,7 +2241,7 @@
         "baselineExposure": "Ekspozycja bazowa",
         "baselineExposureAmount": "Wartość bazowa",
         "baselineExposureAmountDesc": "Ekspozycja dodawana do plików RAW. darktable używa +0,7 EV.",
-        "baselineExposureDesc": "Rozjaśnia wszystkie pliki RAW o stałą wartość, podobnie jak domyślne ustawienie darktable w trybie scene-referred, oraz uwzględnia znacznik DNG BaselineExposure, jeśli występuje. Nie wpływa na zdjęcia edytowane przed wprowadzeniem tej opcji.",
+        "baselineExposureDesc": "Rozjaśnia pliki RAW o stałą wartość oraz uwzględnia znacznik DNG BaselineExposure, jeśli występuje.",
         "colorNr": "Bazowa redukcja szumu koloru",
         "colorNrDesc": "Stosuje filtr na wczesnym etapie w celu usunięcia szumu koloru (Chroma). Wyższa wartość = Silniejsza redukcja szumów.",
         "defaultNonRawTonemapper": "Domyślne mapowanie tonów (Non-RAW)",
@@ -2086,7 +2254,7 @@
         "enablePreprocessingNonRaws": "Włącz dla innych niż RAW",
         "enableTonemapperOverride": "Włącz nadpisywanie mapowania tonów",
         "highlightPreservation": "Kompensacja ochrony świateł",
-        "highlightPreservationDesc": "Przywraca ekspozycję, którą aparat ograniczył w trybach ochrony świateł, odczytaną z pliku RAW (Fujifilm DR200/DR400, Canon Priorytet jasnych partii obrazu i Auto Lighting Optimizer, Nikon Aktywna funkcja D-Lighting, gradacja Olympus, rozszerzenie zakresu dynamiki Pentax). Nie wpływa na zdjęcia edytowane przed wprowadzeniem tej opcji.",
+        "highlightPreservationDesc": "Przywraca ekspozycję obniżoną przez tryby ochrony świateł aparatu, np. Fujifilm DR200/DR400 lub Nikon Aktywna funkcja D-Lighting.",
         "highlightRecovery": "Odzyskiwanie świateł w RAW",
         "highlightRecoveryDesc": "Decyduje o tym, ile detali zostanie odzyskanych z obciętych świateł w plikach RAW. Wyższe wartości odzyskują więcej, ale mogą wprowadzać fioletowe artefakty.",
         "linearOptions": {
@@ -2121,15 +2289,14 @@
       "smallThumbnailRes": "Rozdzielczość miniatur w siatce",
       "smallThumbnailResDesc": "Rozdzielczość miniatur wyświetlanych w siatce biblioteki.",
       "staticDesc": "Edytor renderuje obraz w stałej rozdzielczości. Ten tryb jest najszybszy i najbardziej spójny, idealny dla słabszych komputerów, gdzie priorytetem jest płynne działanie a nie perfekcyjna jakość po zbliżeniu.",
-      "staticPreviewRes": "Rozdzielczość statycznego podglądu",
-      "staticPreviewResDesc": "Określa rozdzielczość dla statycznych podglądów, takich jak tryb kadrowania i narzędzia perspektywy. Nie wpływa to na podgląd głównego edytora.",
       "threads": "Wątki",
       "thumbnailRes": "Rozdzielczość miniatur",
       "thumbnailResDesc": "Decyduje o rozdzielczości generowanych miniatur w bibliotece. Wyższa wartość da ostrzejszy obraz po wczytaniu.",
       "title": "Silnik przetwarzania",
       "wgpu": "Bezpośrednie renderowanie WGPU",
       "wgpuDescAndroid": "Omija enkoder przeglądarki dla najszybszego podglądu. (Wyłączone na Androidzie: Tworzenie powierzchni WGPU obecnie nie jest obsługiwane wraz z WebView.)",
-      "wgpuDescLinux": "Omija enkoder przeglądarki. (Wyłączone na Linuksie: Tauri używa GTK dla WebView, co wchodzi w konflikt z WGPU na tej samej powierzchni X11, wywołując migotanie.)",
+      "wgpuDescLinuxExperimental": "Funkcja eksperymentalna w systemie Linux, może działać niestabilnie.",
+      "wgpuDescLinuxX11": "Niedostępne w X11.",
       "wgpuDescRecommended": "Omija kodowanie w przeglądarce pozwalając na natychmiastowe reakcje podglądu. Wysoce zalecane dla zachowania płynności.",
       "wgpuLabel": "Włącz bezpośrednie renderowanie WGPU",
       "workerThreads": "Liczba wątków miniatur",

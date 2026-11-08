@@ -7,6 +7,16 @@ use std::path::Path;
 use std::time::Duration;
 use tokio::io::AsyncWriteExt;
 
+fn with_cause(error: &dyn std::error::Error) -> String {
+    let mut text = error.to_string();
+    let mut source = error.source();
+    while let Some(cause) = source {
+        text.push_str(&format!(": {cause}"));
+        source = cause.source();
+    }
+    text
+}
+
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Asset {
@@ -18,7 +28,13 @@ pub struct Asset {
     #[serde(default)]
     pub file_modified_at: Option<String>,
     #[serde(default)]
+    pub file_created_at: Option<String>,
+    #[serde(default)]
+    pub created_at: Option<String>,
+    #[serde(default)]
     pub is_trashed: bool,
+    #[serde(default)]
+    pub owner_id: String,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -31,11 +47,17 @@ pub struct Album {
     #[serde(default)]
     pub album_thumbnail_asset_id: Option<String>,
     #[serde(default)]
+    pub start_date: Option<String>,
+    #[serde(default)]
+    pub end_date: Option<String>,
+    #[serde(default)]
     pub shared: bool,
 }
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct User {
+    #[serde(default)]
+    pub id: String,
     pub name: String,
     pub email: String,
 }
@@ -51,6 +73,8 @@ pub struct TimelineMonth {
 pub struct UploadResult {
     #[serde(deserialize_with = "asset_id")]
     pub id: String,
+    #[serde(default)]
+    pub status: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -138,7 +162,7 @@ impl ImmichClient {
         let response = builder
             .send()
             .await
-            .map_err(|e| format!("Immich is not reachable ({what}): {e}"))?;
+            .map_err(|e| format!("Immich is not reachable ({what}): {}", with_cause(&e)))?;
         let status = response.status();
         if status.is_success() {
             return Ok(response);
@@ -178,9 +202,28 @@ impl ImmichClient {
             .await
     }
 
+    pub async fn owns(&self, asset_id: &str) -> Result<bool, String> {
+        let asset: Asset = self
+            .json(
+                self.request(Method::GET, &format!("/assets/{asset_id}")),
+                "asset",
+            )
+            .await?;
+        Ok(asset.owner_id == self.me().await?.id)
+    }
+
     pub async fn albums(&self) -> Result<Vec<Album>, String> {
         self.json(self.request(Method::GET, "/albums"), "albums")
             .await
+    }
+
+    pub async fn create_album(&self, name: &str) -> Result<Album, String> {
+        self.json(
+            self.request(Method::POST, "/albums")
+                .json(&json!({ "albumName": name })),
+            "albums",
+        )
+        .await
     }
 
     pub async fn search(&self, query: Value) -> Result<Vec<Asset>, String> {
@@ -239,7 +282,7 @@ impl ImmichClient {
             .timeout(Duration::from_secs(5))
             .send()
             .await
-            .map_err(|e| format!("Immich is not reachable (edits): {e}"))?;
+            .map_err(|e| format!("Immich is not reachable (edits): {}", with_cause(&e)))?;
         let status = response.status();
         if status.is_success() {
             return response

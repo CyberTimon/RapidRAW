@@ -16,7 +16,6 @@ use mozjpeg_rs::{Encoder, Preset};
 use tauri::{AppHandle, Manager, State};
 
 use crate::AppState;
-use crate::cache_utils::calculate_transform_hash;
 use crate::image_processing::{
     RenderRequest, get_all_adjustments_from_json, mark_baseline_exposure,
     process_and_get_dynamic_image, resolve_render_options_from_handle,
@@ -111,7 +110,7 @@ pub fn list_luts_in_dir(dir: &Path, is_built_in: bool) -> anyhow::Result<Vec<Lut
     Ok(entries)
 }
 
-fn unique_lut_destination(dir: &Path, stem: &str, extension: &str) -> PathBuf {
+pub fn unique_destination(dir: &Path, stem: &str, extension: &str) -> PathBuf {
     let mut candidate = dir.join(format!("{}.{}", stem, extension));
     let mut suffix = 1;
     while candidate.exists() && suffix < 1000 {
@@ -146,7 +145,7 @@ pub fn import_luts_to_dir(dir: &Path, source_paths: &[String]) -> anyhow::Result
             .and_then(|s| s.to_str())
             .unwrap_or("cube")
             .to_lowercase();
-        let destination = unique_lut_destination(dir, stem, &extension);
+        let destination = unique_destination(dir, stem, &extension);
         if let Err(error) = copy(source_path, &destination) {
             log::error!("Failed to copy LUT '{}': {}", source, error);
         }
@@ -176,7 +175,7 @@ fn import_android_lut(source: &str) -> anyhow::Result<()> {
         .parent()
         .ok_or_else(|| anyhow!("Invalid cache path"))?
         .to_path_buf();
-    let destination = unique_lut_destination(&cache_dir, &stem, &extension);
+    let destination = unique_destination(&cache_dir, &stem, &extension);
     std::fs::write(&destination, &bytes)?;
     Ok(())
 }
@@ -355,11 +354,14 @@ pub fn parse_lut_file(path_str: &str) -> anyhow::Result<Lut> {
         return Err(anyhow!("Network paths (UNC) are not allowed for LUTs"));
     }
 
-    if path_str.contains("..") {
+    let path = std::path::Path::new(path_str);
+    if path
+        .components()
+        .any(|component| component == std::path::Component::ParentDir)
+    {
         return Err(anyhow!("Directory traversal (..) is not allowed"));
     }
 
-    let path = std::path::Path::new(path_str);
     if let Some(std::path::Component::Prefix(prefix)) = path.components().next() {
         match prefix.kind() {
             std::path::Prefix::UNC(_, _)
@@ -625,8 +627,7 @@ pub fn remove_lut(app_handle: AppHandle, path: String) -> Result<Vec<LutEntry>, 
 fn render_lut_swatch(
     context: &crate::image_processing::GpuContext,
     state: &State<AppState>,
-    base_image: &DynamicImage,
-    transform_hash: u64,
+    source: &crate::render_source::RenderSource,
     adjustments: crate::image_processing::AllAdjustments,
     lut_path: &str,
 ) -> Option<String> {
@@ -634,14 +635,15 @@ fn render_lut_swatch(
     let processed = process_and_get_dynamic_image(
         context,
         state,
-        base_image,
-        transform_hash,
+        source,
         RenderRequest {
             adjustments,
             mask_bitmaps: &[],
             mask_cache_key: None,
             lut: Some(lut),
             roi: None,
+            hsl_probe: false,
+            motion_blur: Default::default(),
         },
         "generate_lut_previews",
     )
@@ -677,11 +679,11 @@ pub async fn generate_lut_previews(
         let is_raw = loaded_image.is_raw;
 
         let base_json = serde_json::json!({});
-        let (base_image, _scale, _offset) =
-            crate::generate_transformed_preview(&state, &loaded_image, &base_json, size)?;
+        let preview =
+            crate::prepare_preview_source(&state, &context, &loaded_image, &base_json, size)?;
+        let source = preview.render_source(&base_json);
 
         let render = resolve_render_options_from_handle(&app_handle, is_raw);
-        let transform_hash = calculate_transform_hash(&base_json);
 
         let previews = luts
             .into_iter()
@@ -700,14 +702,8 @@ pub async fn generate_lut_previews(
                     render,
                 );
 
-                let thumb = render_lut_swatch(
-                    &context,
-                    &state,
-                    &base_image,
-                    transform_hash,
-                    swatch_adjustments,
-                    &request.path,
-                );
+                let thumb =
+                    render_lut_swatch(&context, &state, &source, swatch_adjustments, &request.path);
                 LutPreview {
                     path: request.path,
                     thumb,

@@ -12,6 +12,7 @@ import { useProcessStore } from '../../store/useProcessStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useDraggable } from '@dnd-kit/core';
+import { useCtrlClickMenuGuard } from '../../hooks/useCtrlClickMenuGuard';
 
 const HORIZONTAL_PADDING = 4;
 const ITEM_GAP = 8;
@@ -59,6 +60,7 @@ const FilmstripThumbnail = memo(
   }) => {
     const { t } = useTranslation();
     const thumbData = useProcessStore((s) => s.thumbnails[imageFile.path]);
+    const ctrlClickMenuGuard = useCtrlClickMenuGuard((e) => onImageSelect?.(imageFile.path, e));
     const isAiPending = useProcessStore((s) => !!s.aiPendingPaths[imageFile.path]);
     const isAiPaused = useProcessStore((s) => s.aiJobs.paused);
 
@@ -185,6 +187,7 @@ const FilmstripThumbnail = memo(
           ringClass,
           isDragging && 'opacity-50 ring-2 ring-accent z-50',
         )}
+        {...ctrlClickMenuGuard}
         onClick={(e: any) => {
           e.stopPropagation();
           onImageSelect?.(path, e);

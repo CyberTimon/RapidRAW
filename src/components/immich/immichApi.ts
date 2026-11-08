@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { ImageFile } from '../ui/AppProperties';
 
 export const IMMICH_ALBUM_PREFIX = 'immich:';
+export const IMMICH_UNASSIGNED_ID = `${IMMICH_ALBUM_PREFIX}unassigned`;
 const FILTER_MARKER = '?';
 
 export const isImmichAlbumId = (albumId: string | null | undefined): albumId is string =>
@@ -14,6 +15,7 @@ export const ImmichInvokes = {
   SetApiKey: 'immich_set_api_key',
   TestConnection: 'immich_test_connection',
   ListAlbums: 'immich_list_albums',
+  CreateAlbum: 'immich_create_album',
   GetImages: 'immich_get_images',
   Timeline: 'immich_timeline',
   SyncStatus: 'immich_sync_status',
@@ -46,6 +48,8 @@ export interface ImmichAlbum {
   albumName: string;
   assetCount: number;
   albumThumbnailAssetId: string | null;
+  startDate: string | null;
+  endDate: string | null;
   shared: boolean;
 }
 
@@ -67,6 +71,7 @@ export interface ImmichConnectionInfo {
 
 export interface ImmichFilter {
   albumId?: string | null;
+  notInAlbum?: boolean;
   takenFrom?: string | null;
   takenUntil?: string | null;
 }
@@ -76,6 +81,7 @@ export const filterToAlbumId = (filter: ImmichFilter) =>
 
 export const albumIdToFilter = (albumId: string): ImmichFilter => {
   const rest = albumId.slice(IMMICH_ALBUM_PREFIX.length);
+  if (rest === 'unassigned') return { notInAlbum: true };
   if (rest.startsWith(FILTER_MARKER)) {
     try {
       return JSON.parse(rest.slice(FILTER_MARKER.length));
@@ -89,7 +95,7 @@ export const albumIdToFilter = (albumId: string): ImmichFilter => {
 export const immichAlbumOf = (albumId: string | null | undefined) => {
   if (!isImmichAlbumId(albumId)) return null;
   const rest = albumId.slice(IMMICH_ALBUM_PREFIX.length);
-  return rest.startsWith(FILTER_MARKER) ? null : rest;
+  return rest.startsWith(FILTER_MARKER) || rest === 'unassigned' ? null : rest;
 };
 
 export const removeFromImmichAlbum = (albumId: string, paths: string[]) =>
@@ -104,6 +110,8 @@ export const testImmichConnection = (serverUrl: string, apiKey: string) =>
 
 export const listImmichAlbums = () => invoke<ImmichAlbum[]>(ImmichInvokes.ListAlbums);
 
+export const createImmichAlbum = (name: string) => invoke<ImmichAlbum>(ImmichInvokes.CreateAlbum, { name });
+
 export const listImmichTimeline = () => invoke<ImmichTimelineMonth[]>(ImmichInvokes.Timeline);
 
 export const monthFilter = (timeBucket: string): ImmichFilter => {
@@ -113,8 +121,15 @@ export const monthFilter = (timeBucket: string): ImmichFilter => {
   return { takenFrom: `${year}-${mm}-01`, takenUntil: `${year}-${mm}-${String(lastDay).padStart(2, '0')}` };
 };
 
-export const getImmichAlbumImages = (albumId: string) =>
-  invoke<ImageFile[]>(ImmichInvokes.GetImages, { filter: albumIdToFilter(albumId) });
+const immichImagePaths = new Set<string>();
+
+export const isImmichImagePath = (path: string) => immichImagePaths.has(path.split('?vc=')[0]);
+
+export const getImmichAlbumImages = async (albumId: string) => {
+  const images = await invoke<ImageFile[]>(ImmichInvokes.GetImages, { filter: albumIdToFilter(albumId) });
+  images.forEach((image) => immichImagePaths.add(image.path.split('?vc=')[0]));
+  return images;
+};
 
 export const getImmichSyncStatus = () => invoke<ImmichSyncStatus>(ImmichInvokes.SyncStatus);
 

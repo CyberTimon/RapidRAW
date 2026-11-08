@@ -145,30 +145,29 @@ pub async fn save_panorama(
         .and_then(|s| s.to_str())
         .unwrap_or("panorama");
 
-    let (output_filename, image_to_save): (String, DynamicImage) =
-        if panorama_image.color().has_alpha() {
-            (
-                format!("{}_Pano.png", stem),
-                DynamicImage::ImageRgba8(panorama_image.to_rgba8()),
-            )
-        } else if panorama_image.as_rgb32f().is_some() {
-            (format!("{}_Pano.tiff", stem), panorama_image)
-        } else {
-            (
-                format!("{}_Pano.png", stem),
-                DynamicImage::ImageRgb8(panorama_image.to_rgb8()),
-            )
-        };
+    let (extension, image_to_save): (&str, DynamicImage) = if panorama_image.color().has_alpha() {
+        ("png", DynamicImage::ImageRgba8(panorama_image.to_rgba8()))
+    } else if panorama_image.as_rgb32f().is_some() {
+        ("tiff", panorama_image)
+    } else {
+        ("png", DynamicImage::ImageRgb8(panorama_image.to_rgb8()))
+    };
 
-    let output_path = parent_dir.join(output_filename);
+    let bytes = crate::exif_processing::encode_converted_image(
+        &image_to_save,
+        extension,
+        &first_path.to_string_lossy(),
+    )?;
+    let output_path = crate::file_management::write_unique_output(
+        parent_dir,
+        &format!("{}_Pano", stem),
+        extension,
+        &bytes,
+    )
+    .map_err(|e| format!("Failed to save panorama image: {}", e))?;
 
-    image_to_save
-        .save(&output_path)
-        .map_err(|e| format!("Failed to save panorama image: {}", e))?;
-
-    let (real_path, _) = crate::file_management::parse_virtual_path(&first_path_str);
     let _ =
-        crate::exif_processing::write_rrexif_sidecar(&real_path.to_string_lossy(), &output_path);
+        crate::exif_processing::write_rrexif_sidecar(&first_path.to_string_lossy(), &output_path);
 
     Ok(output_path.to_string_lossy().to_string())
 }

@@ -56,6 +56,57 @@
         "reds": "紅色",
         "yellows": "黃色"
       },
+      "mixerPickerTooltip": "顏色混合器滴管：在相片上按住並上下拖曳",
+      "monochrome": {
+        "badge": "黑白",
+        "balance": "平衡",
+        "blackWhite": "黑白",
+        "film": "底片",
+        "filmDescriptions": {
+          "balanced": "對各顏色感光均勻，紅色與膚色更亮",
+          "extendedRed": "紅色敏感底片，膚色透亮，天空更暗",
+          "infrared": "植被發光，天空近乎全黑",
+          "neutral": "符合每種顏色的感知亮度",
+          "orthoPanchromatic": "紅色略暗，綠色清晰",
+          "orthochromatic": "對紅色不敏感，紅色更暗，天空明亮",
+          "panchromatic": "經典底片響應，藍天更亮"
+        },
+        "films": {
+          "balanced": "均衡",
+          "extendedRed": "延伸紅",
+          "infrared": "紅外線",
+          "neutral": "中性",
+          "orthoPanchromatic": "正全色",
+          "orthochromatic": "正色",
+          "panchromatic": "全色"
+        },
+        "filter": "濾鏡",
+        "filters": {
+          "blue": "藍色",
+          "green": "綠色",
+          "none": "無",
+          "orange": "橙色",
+          "red": "紅色",
+          "yellow": "黃色"
+        },
+        "highlights": "亮部",
+        "hue": "色相",
+        "mix": "黑白混合",
+        "mixPickerTooltip": "黑白混合滴管：在相片上按住並上下拖曳",
+        "saturation": "飽和度",
+        "shadows": "陰影",
+        "strength": "強度",
+        "toning": "色調",
+        "tonings": {
+          "cyanotype": "藍曬",
+          "gold": "金",
+          "none": "無",
+          "platinum": "鉑金",
+          "selenium": "硒",
+          "sepia": "棕褐色",
+          "split": "分離色調"
+        }
+      },
       "presence": "質感",
       "saturation": "飽和度",
       "temperature": "色溫",
@@ -171,7 +222,25 @@
       "roundness": "圓度",
       "size": "大小",
       "spatial": "空間",
-      "vignette": "暗角"
+      "vignette": "暗角",
+      "motionBlur": "動態模糊",
+      "motionBlurAngle": "角度",
+      "motionBlurDepth": "深度",
+      "motionBlurHighlights": "亮部",
+      "motionBlurLayer": "運動",
+      "motionBlurLayers": {
+        "auto": "自動",
+        "panning": "追焦",
+        "subject": "移動主體",
+        "uniform": "均勻"
+      },
+      "motionBlurType": "類型",
+      "motionBlurTypes": {
+        "linear": "線性",
+        "zoom": "縮放",
+        "spin": "旋轉",
+        "smooth": "平滑"
+      }
     }
   },
   "contextMenus": {
@@ -227,13 +296,16 @@
       "autoLensCorrection": "自動鏡頭校正",
       "autoStraighten": "自動拉直",
       "cancel": "取消",
+      "closeViewer": "關閉第二視窗",
       "colorLabel": "顏色標籤",
       "confirmReset": "確認重置",
+      "convertBlackWhite": "轉換為黑白",
       "convertNegative": "轉換負片",
       "copyAdjustments": "複製調整",
       "cullImage": "自動篩選",
       "denoise": "降噪",
       "editImage": "編輯影像",
+      "editIn": "在其他程式中編輯",
       "exportImage": "匯出影像",
       "flag": "標記",
       "flagPick": "留用",
@@ -242,12 +314,14 @@
       "mergeHdr": "合併為 HDR",
       "noLabel": "無標籤",
       "noRating": "無評分",
+      "openViewer": "在第二視窗中開啟",
       "pasteAdjustments": "貼上調整",
       "productivity": "效率",
       "rating": "評分",
       "ratingLabel_one": "{{count}} 星",
       "ratingLabel_other": "{{count}} 星",
       "redo": "重做",
+      "removeBlackWhite": "移除黑白",
       "removeDenoise": "移除降噪",
       "removeNegativeConversion": "移除負片轉換",
       "resetAdjustments": "重置調整",
@@ -334,6 +408,9 @@
     "toasts": {
       "couldNotShowExplorer": "無法在檔案資源管理器中顯示檔案：{{err}}",
       "couldNotShowFolder": "無法顯示資料夾：{{err}}",
+      "editInFailed": "{{app}} 失敗：{{err}}",
+      "editInNoOutput": "{{app}} 已關閉，未儲存。",
+      "editInWaiting": "正在等待 {{app}}。在該程式中儲存檔案即可將其帶回，關閉此訊息可停止等待。",
       "failedAddToAlbum": "新增到相簿失敗：{{err}}",
       "failedApplyAuto": "應用自動調整失敗：{{err}}",
       "failedChangeIcon": "更換圖示失敗：{{err}}",
@@ -404,6 +481,15 @@
         "feather": "畫筆羽化",
         "size": "畫筆大小"
       },
+      "cloneHeal": {
+        "cloneTooltip": "精確複製來源，包括其亮度與顏色",
+        "dragSource": "拖曳以移動來源",
+        "healTooltip": "複製來源的紋理，並使其融入周圍的亮度與顏色",
+        "hintActive": "拖曳來源輪廓以選擇像素的來源位置。每一筆新的塗抹都會成為獨立的區域。按住 Shift 可加入目前的區域。",
+        "hintEmpty": "在污點、電線或干擾物上塗抹，會自動找到合適的來源。",
+        "mode": "模式",
+        "newSource": "尋找其他來源"
+      },
       "comingSoon": "即將推出",
       "connection": {
         "backendLabel": "AI 後端：",
@@ -463,7 +549,8 @@
         "quickErase": "快速擦除 {{count}}",
         "quickErase_one": "快速擦除 {{count}}",
         "quickErase_other": "快速擦除 {{count}}",
-        "retouch": "修飾 {{count}}"
+        "retouch": "修飾 {{count}}",
+        "retouch_other": "修飾 {{count}}"
       },
       "resetInpaintingTooltip": "重置影像修復",
       "settings": {
@@ -730,8 +817,7 @@
       "toggleAnalyticsTooltip": "切換分析顯示",
       "tooltips": {
         "addToCurrent": "將 {{name}} 新增到當前遮色片或建立新遮色片（右鍵單擊）",
-        "createNew": "建立新 {{name}} 遮色片",
-        "selectNewSourcePoint": "{{modifier}} + 點擊選擇新的來源點"
+        "createNew": "建立新 {{name}} 遮色片"
       }
     },
     "metadata": {
@@ -834,6 +920,10 @@
         "tool": "工具"
       }
     },
+    "speedEdit": {
+      "copied": "已複製 <0>{{label}}</0> <1>{{value}}</1>",
+      "pasted": "已貼上 <0>{{label}}</0> <1>{{value}}</1>"
+    },
     "switcher": {
       "tooltips": {
         "adjust": "調整",
@@ -861,11 +951,18 @@
         "undo": "復原（Ctrl+Z）或歷史記錄（右鍵單擊）"
       },
       "vc": "VC"
+    },
+    "viewer": {
+      "openFailed": "無法開啟第二視窗：{{error}}",
+      "windowTitle": "RapidRAW 檢視器"
     }
   },
   "export": {
     "advanced": {
       "exportMasks": "將遮色片匯出為單獨檔案",
+      "exportOriginal": "同時匯出原圖",
+      "originalCrop": "套用裁切",
+      "originalKeepExposure": "保留曝光",
       "preserveFolders": "保留資料夾結構",
       "preserveTimestamps": "將檔案時間戳設為 EXIF 拍攝日期",
       "title": "匯出設定"
@@ -999,6 +1096,10 @@
       "title": "編輯尚未同步到 Immich"
     },
     "export": {
+      "newAlbum": "新增相簿…",
+      "newAlbumName": "相簿名稱",
+      "createAlbum": "建立",
+      "newAlbumFailed": "無法建立相簿：{{error}}",
       "album": "相簿",
       "destination": "Immich",
       "noAlbum": "不加入相簿",
@@ -1007,16 +1108,19 @@
       "withOriginalDesc": "對於本機資料夾中的影像：原始檔會連同編輯內容一起上傳，匯出的影像會堆疊在其上方。來自 Immich 的影像一律堆疊在其原始檔上。"
     },
     "section": {
+      "albums": "相簿",
       "empty": "伺服器上沒有相簿。",
       "error": "無法連線到 Immich。",
       "loading": "正在載入相簿…",
       "refresh": "重新整理相簿",
       "timeline": "時間軸",
-      "title": "Immich"
+      "title": "Immich",
+      "unassigned": "不在任何相簿中",
+      "unassignedHint": "將影像拖到這裡即可上傳，但不加入任何相簿。"
     },
     "settings": {
       "apiKey": "API 金鑰",
-      "apiKeyDesc": "請在 Immich 的「帳戶設定 → API 金鑰」中建立，並授予以下權限：album.read, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create、user.read。",
+      "apiKeyDesc": "請在 Immich 的「帳戶設定 → API 金鑰」中建立，並授予以下權限：album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create、user.read。",
       "connected": "已以 {{user}} 身分連線 (Immich {{version}})",
       "description": "在圖庫中瀏覽 Immich 伺服器上的照片並直接編輯。原始檔會在開啟時下載，編輯內容會儲存到 Immich，因此在每台電腦上看起來都一樣。",
       "keyInFile": "已儲存在只有你能讀取的檔案中：沒有可用的認證資訊儲存區。在 KDE 中，請在 KDE 錢包設定裡啟用 Secret Service 介面，然後重新儲存。",
@@ -1034,12 +1138,17 @@
       "pending": "等待同步到 Immich 的編輯：{{number}}"
     },
     "toasts": {
+      "editsStayLocal": "{{fileName}} 屬於其他人，因此 Immich 不接受對它的編輯。你的編輯會保留在這台電腦上。",
       "backOnline": "Immich 已重新連線，所有編輯內容都已儲存。",
       "downloadFailed": "無法從 Immich 下載：{{error}}",
       "editsConflict": "{{fileName}} 也在另一台電腦上被編輯過。你的編輯內容會保留，另一個版本已儲存為虛擬副本。",
       "offline": "無法連線到 Immich。你的編輯內容會保留在這裡，並在恢復連線後傳送。",
+      "transferFailed": "未能新增到 Immich：{{number}}（{{error}}）",
+      "transferred": "已新增到 Immich：{{number}}",
+      "transferring": "正在新增到 Immich… {{current}}/{{total}}",
       "trashFailed": "無法移至 Immich 垃圾桶：{{error}}",
-      "uploaded": "已上傳到 Immich：{{number}}"
+      "uploaded": "已上傳到 Immich：{{number}}",
+      "uploadKeptCopy": "{{fileName}} 已在 Immich 中，且有其他編輯。那些編輯會保留，你的編輯將作為虛擬副本保存。"
     }
   },
   "library": {
@@ -1351,6 +1460,11 @@
       "goHome": "返回首頁",
       "importImages": "匯入影像",
       "select": "選擇"
+    },
+    "viewMode": {
+      "culling": "篩選檢視",
+      "grid": "網格檢視",
+      "list": "列表檢視"
     }
   },
   "masks": {
@@ -1367,6 +1481,7 @@
       "linear": "線性",
       "liquify": "液化",
       "luminance": "亮度",
+      "matchBrush": "匹配筆刷",
       "others": "其他",
       "quickErase": "快速擦除",
       "quickEraser": "快速橡皮擦",
@@ -1431,6 +1546,7 @@
       "descReplace": "覆蓋所有選中的設定，其餘重置為預設值。",
       "groups": {
         "aiDenoise": "AI 降噪",
+        "blackWhite": "黑白",
         "chromaticAberration": "色差",
         "clarityDehaze": "清晰度與去朦朧",
         "colorCalibration": "顏色校準",
@@ -1444,6 +1560,7 @@
         "halationGlow": "光暈與發光",
         "hueShift": "全域色相偏移",
         "lensBlur": "鏡頭模糊",
+        "motionBlur": "動態模糊",
         "lensCorrection": "鏡頭校正",
         "lut": "LUT",
         "masks": "遮色片",
@@ -1587,7 +1704,6 @@
       "selectManufacturer": "選擇製造商",
       "title": "鏡頭校正",
       "vignetting": "暗角",
-      "waitingAutoDetect": "等待自動檢測...",
       "zoomInTooltip": "放大",
       "zoomOutTooltip": "縮小"
     },
@@ -1679,6 +1795,27 @@
       "pressKey": "按下按鍵...（Esc 清除）",
       "resetDefaults": "全部重置為預設值",
       "speed": "速度",
+      "speedEdit": {
+        "adjustments": "調整項目",
+        "gestures": {
+          "doubleClick": "按兩下重設",
+          "drag": "在畫布上拖曳調整",
+          "fine": "按 Shift 精細調整"
+        },
+        "keys": {
+          "hold": "單擊 / 按住",
+          "previousImage": "上一張",
+          "nextImage": "下一張",
+          "reset": "重設",
+          "previousAdjustment": "上一個滑桿",
+          "nextAdjustment": "下一個滑桿",
+          "copy": "複製",
+          "paste": "貼上",
+          "stepDown": "−1 步",
+          "stepUp": "+1 步"
+        },
+        "title": "快速編輯"
+      },
       "title": "滑鼠控制",
       "zoom": "縮放速度倍率",
       "zoomClick": "縮放照片至 100%",
@@ -1776,6 +1913,8 @@
       "folderImageCountsDesc": "懸停在資料夾樹時顯示資料夾內的影像數量。",
       "font": "字型",
       "fontDesc": "更改應用程式字型。",
+      "hideCollapsedPanels": "隱藏折疊的面板",
+      "hideCollapsedPanelsDesc": "折疊的側邊面板將完全隱藏，而不是留下一道窄條。可透過底部列或鍵盤快捷鍵重新開啟。",
       "nativeTitlebar": "原生標題欄",
       "nativeTitlebarDesc": "使用系統預設的視窗標題欄，而非 RapidRAW 的自定義標題欄。",
       "neutralGreyCanvas": "中性灰畫布",
@@ -1788,6 +1927,11 @@
       "title": "通用設定",
       "toolFocusMode": "工具專注模式",
       "toolFocusModeDesc": "展開某個工具時，自動收合同一面板中的其他工具。",
+      "uiScale": "介面縮放",
+      "uiScaleCompact": "精簡",
+      "uiScaleDefault": "預設",
+      "uiScaleDesc": "獨立於系統顯示縮放，調整介面大小。精簡尺寸可在小尺寸筆電螢幕上顯示更多內容。",
+      "uiScaleLarge": "大",
       "xmpSync": "XMP 後設資料同步",
       "xmpSyncDesc": "將評分、顏色標籤和標籤同步到標準 XMP 附屬檔案，以便與其他照片編輯器相容。"
     },
@@ -1829,6 +1973,7 @@
         "toggle_adjustments": "切換調整面板",
         "toggle_ai": "切換 AI 面板",
         "toggle_analytics": "切換分析顯示",
+        "toggle_black_white": "切換黑白",
         "toggle_bottom_panel": "切換膠片條",
         "toggle_crop": "切換裁剪/拉直",
         "toggle_crop_panel": "切換裁剪面板",
@@ -1843,6 +1988,7 @@
         "toggle_presets": "切換預設面板",
         "toggle_reject": "切換拒絕標記",
         "toggle_right_panel": "切換右側面板",
+        "toggle_viewer_window": "切換第二視窗",
         "undo": "復原調整",
         "unflag": "取消標記",
         "zoom_100": "縮放到 100%",
@@ -1963,6 +2109,21 @@
         "vulkan": "Vulkan"
       },
       "dynamicDesc": "編輯器根據顯示器實際畫素密度渲染預覽。這確保每個細節都以 1:1 畫素精度呈現，在縮放和檢查焦點時提供最大清晰度。",
+      "editIn": {
+        "add": "新增程式",
+        "args": "參數（{file} = 影像路徑）",
+        "browse": "瀏覽",
+        "description": "「在其他程式中編輯」選單中的程式。",
+        "executable": "程式",
+        "modes": {
+          "original": "傳送原始檔案",
+          "rendered": "傳送編輯後的 TIFF"
+        },
+        "name": "名稱",
+        "path": "程式路徑",
+        "remove": "移除",
+        "title": "在其他程式中編輯"
+      },
       "enableLivePreviews": "啟用即時預覽",
       "highDpi": "高 DPI 渲染",
       "highDpiDesc": "以螢幕原生 {{dpr}}x 物理畫素解析度渲染預覽。產生最清晰的預覽，但會顯著增加記憶體使用。",
@@ -1992,7 +2153,7 @@
         "baselineExposure": "基礎曝光",
         "baselineExposureAmount": "基礎量",
         "baselineExposureAmountDesc": "加到 RAW 檔案的曝光量。darktable 使用 +0.7 EV。",
-        "baselineExposureDesc": "將所有 RAW 檔案提亮一個固定值（與 darktable 場景參考模式的預設值相同），如有 DNG BaselineExposure 標籤也會一併加上。在此選項推出之前編輯的影像不受影響。",
+        "baselineExposureDesc": "將 RAW 檔案提亮一個固定值，如有 DNG BaselineExposure 標籤也會一併加上。",
         "colorNr": "基礎顏色降噪",
         "colorNrDesc": "在管線早期應用交叉雙邊濾波器以去除彩色噪點。值越高 = 降噪越強。",
         "defaultNonRawTonemapper": "預設非 RAW 色調映射",
@@ -2005,7 +2166,7 @@
         "enablePreprocessingNonRaws": "對非 RAW 影像啟用",
         "enableTonemapperOverride": "啟用色調映射覆蓋",
         "highlightPreservation": "高光保護補償",
-        "highlightPreservationDesc": "從 RAW 檔案讀取相機在高光保護模式下保留的曝光並予以恢復（富士 DR200/DR400、Canon 高光色調優先與自動亮度優化、Nikon 動態 D-Lighting、Olympus 層次、Pentax 動態範圍擴展）。在此選項推出之前編輯的影像不受影響。",
+        "highlightPreservationDesc": "恢復相機高光保護模式（如富士 DR200/DR400、Nikon 動態 D-Lighting）降低的曝光。",
         "highlightRecovery": "RAW 亮部恢復",
         "highlightRecoveryDesc": "控制從 RAW 檔案的裁剪亮部中恢復細節的程度。較高的值可恢復更多細節，但可能引入紫色偽影。",
         "linearOptions": {
@@ -2040,15 +2201,14 @@
       "smallThumbnailRes": "網格縮圖解析度",
       "smallThumbnailResDesc": "圖庫網格中顯示的縮圖解析度。",
       "staticDesc": "編輯器以固定解析度渲染影像。此模式最快且最一致，非常適合低端硬體，優先考慮流暢效能而非畫素完美的縮放。",
-      "staticPreviewRes": "靜態預覽解析度",
-      "staticPreviewResDesc": "設定靜態預覽的解析度，如裁剪模式、鏡頭校正和透視工具。不影響主編輯器預覽。",
       "threads": "執行緒數",
       "thumbnailRes": "縮圖解析度",
       "thumbnailResDesc": "確定生成的相簿縮圖的解析度。較高的值可在載入時產生更清晰的影像。",
       "title": "處理引擎",
       "wgpu": "WGPU 直接渲染",
       "wgpuDescAndroid": "繞過瀏覽器編碼，實現即時回應的即時預覽。（在 Android 上已停用：原生 WGPU 表面建立目前不支援與移動端 Webview 同時執行。）",
-      "wgpuDescLinux": "繞過瀏覽器編碼，實現即時回應的即時預覽。（在 Linux 上已停用：Tauri 使用 GTK 作為 Webview，與同一 X11 表面上的 WGPU 衝突並導致閃爍。）",
+      "wgpuDescLinuxExperimental": "在 Linux 上為實驗性功能，可能不穩定。",
+      "wgpuDescLinuxX11": "在 X11 上無法使用。",
       "wgpuDescRecommended": "繞過瀏覽器編碼，實現即時回應的即時預覽。強烈推薦以獲得最佳效能。",
       "wgpuLabel": "啟用直接 WGPU 渲染",
       "workerThreads": "縮圖工作執行緒數",

@@ -1,12 +1,24 @@
 import { ReactNode, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import clsx from 'clsx';
-import { Album as AlbumIcon, CloudOff, CloudUpload, RefreshCw, Users } from 'lucide-react';
+import {
+  Album as AlbumIcon,
+  ChevronDown,
+  ChevronRight,
+  CloudOff,
+  CloudUpload,
+  Inbox,
+  Library,
+  RefreshCw,
+  Users,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import Text from '../ui/Text';
+import { FolderTreeSort, SortDirection } from '../ui/AppProperties';
+import { useSettingsStore } from '../../store/useSettingsStore';
 import { TextVariants, TextWeights } from '../../types/typography';
-import { toImmichAlbumId } from './immichApi';
+import { IMMICH_UNASSIGNED_ID, ImmichAlbum, toImmichAlbumId } from './immichApi';
 import ImmichRow from './ImmichRow';
 import ImmichTimeline from './ImmichTimeline';
 import { useImmichStore } from './useImmichStore';
@@ -19,6 +31,18 @@ interface ImmichSectionProps {
   selectedAlbumId: string | null;
   showImageCounts: boolean;
 }
+
+const ALBUMS_SECTION = 'immich-albums';
+
+const sortAlbums = (albums: ImmichAlbum[], sort: FolderTreeSort): ImmichAlbum[] =>
+  [...albums].sort((a, b) => {
+    let comparison = 0;
+    if (sort.key === 'name') comparison = a.albumName.localeCompare(b.albumName);
+    else if (sort.key === 'created') comparison = (a.startDate || '').localeCompare(b.startDate || '');
+    else if (sort.key === 'modified') comparison = (a.endDate || '').localeCompare(b.endDate || '');
+    else if (sort.key === 'imageCount') comparison = a.assetCount - b.assetCount;
+    return sort.order === SortDirection.Ascending ? comparison : -comparison;
+  });
 
 export default function ImmichSection({
   header,
@@ -39,11 +63,25 @@ export default function ImmichSection({
       loadAlbums: state.loadAlbums,
     })),
   );
+  const appSettings = useSettingsStore((state) => state.appSettings);
+  const handleSettingsChange = useSettingsStore((state) => state.handleSettingsChange);
+  const sort = appSettings?.folderTreeSort;
+  const openSections = appSettings?.openTreeSections ?? ['current'];
+  const isAlbumsOpen = openSections.includes(ALBUMS_SECTION);
+
+  const toggleAlbums = () => {
+    if (!appSettings) return;
+    const newSections = isAlbumsOpen
+      ? openSections.filter((s) => s !== ALBUMS_SECTION)
+      : [...openSections, ALBUMS_SECTION];
+    handleSettingsChange({ ...appSettings, openTreeSections: newSections });
+  };
+
   const query = searchQuery.trim().toLowerCase();
-  const visibleAlbums = useMemo(
-    () => (query ? albums.filter((a) => a.albumName.toLowerCase().includes(query)) : albums),
-    [albums, query],
-  );
+  const visibleAlbums = useMemo(() => {
+    const matching = query ? albums.filter((a) => a.albumName.toLowerCase().includes(query)) : albums;
+    return sortAlbums(matching, sort || { key: 'name', order: SortDirection.Ascending });
+  }, [albums, query, sort]);
 
   if (!isConfigured || (query && visibleAlbums.length === 0)) {
     return null;
@@ -77,21 +115,47 @@ export default function ImmichSection({
               {!query && (
                 <>
                   <ImmichTimeline selectedAlbumId={selectedAlbumId} onSelectAlbum={onSelectAlbum} />
-                  <div className="my-1 mx-2 h-px bg-surface" />
+                  <ImmichRow
+                    icon={Library}
+                    label={t('immich.section.albums')}
+                    count={albums.length}
+                    showCount
+                    isSelected={false}
+                    onSelect={toggleAlbums}
+                    trailing={isAlbumsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  />
                 </>
               )}
 
-              {visibleAlbums.map((album) => (
-                <ImmichRow
-                  key={album.id}
-                  icon={album.shared ? Users : AlbumIcon}
-                  label={album.albumName}
-                  count={album.assetCount}
-                  showCount={showImageCounts}
-                  isSelected={toImmichAlbumId(album.id) === selectedAlbumId}
-                  onSelect={() => onSelectAlbum(toImmichAlbumId(album.id), album.albumName, [])}
-                />
-              ))}
+              {(query || isAlbumsOpen) && (
+                <div className={clsx(!query && 'pl-4')}>
+                  {!query && (
+                    <>
+                      <ImmichRow
+                        icon={Inbox}
+                        label={t('immich.section.unassigned')}
+                        dropId={IMMICH_UNASSIGNED_ID}
+                        isSelected={selectedAlbumId === IMMICH_UNASSIGNED_ID}
+                        onSelect={() => onSelectAlbum(IMMICH_UNASSIGNED_ID, t('immich.section.unassigned'), [])}
+                        tooltip={t('immich.section.unassignedHint')}
+                      />
+                      <div className="my-1 mx-2 h-px bg-surface" />
+                    </>
+                  )}
+                  {visibleAlbums.map((album) => (
+                    <ImmichRow
+                      key={album.id}
+                      icon={album.shared ? Users : AlbumIcon}
+                      label={album.albumName}
+                      count={album.assetCount}
+                      showCount={showImageCounts}
+                      dropId={toImmichAlbumId(album.id)}
+                      isSelected={toImmichAlbumId(album.id) === selectedAlbumId}
+                      onSelect={() => onSelectAlbum(toImmichAlbumId(album.id), album.albumName, [])}
+                    />
+                  ))}
+                </div>
+              )}
 
               {error && (
                 <Text variant={TextVariants.small} className="p-2 text-center" data-tooltip={error}>

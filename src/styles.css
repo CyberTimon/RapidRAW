@@ -198,6 +198,13 @@
       hsl(360, 55%, 55%) 100%
     ) !important;
   }
+  .toning-saturation-track {
+    background: linear-gradient(
+      to right,
+      hsl(var(--toning-hue, 40), 0%, 50%),
+      hsl(var(--toning-hue, 40), 70%, 50%)
+    ) !important;
+  }
 
   .hue-slider-reds {
     background: linear-gradient(to right, hsl(260, 50%, 50%), hsl(0, 50%, 50%), hsl(100, 50%, 50%)) !important;

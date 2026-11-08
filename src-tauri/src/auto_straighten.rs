@@ -228,9 +228,14 @@ fn detect_rotation(gray: &GrayImage) -> Option<f64> {
     (rotation.abs() <= MAX_ROTATION_DEGREES).then_some(rotation)
 }
 
-fn rotation_for_image(image: &DynamicImage, is_raw: bool, adjustments: &Value) -> Option<f64> {
+fn rotation_for_image(
+    image: &DynamicImage,
+    path: &str,
+    is_raw: bool,
+    adjustments: &Value,
+) -> Option<f64> {
     let proxy = downscale_f32_image(image, ANALYSIS_MAX_DIM, ANALYSIS_MAX_DIM);
-    let warped = build_full_warped_image(&proxy, is_raw, adjustments);
+    let warped = build_full_warped_image(&proxy, is_raw, path, adjustments);
     let oriented = apply_orientation_and_flip(warped, adjustments);
     detect_rotation(&oriented.to_luma8()).map(|rotation| (rotation * 10.0).round() / 10.0)
 }
@@ -327,7 +332,9 @@ fn crop_for_rotation(
 }
 
 pub fn straighten_adjustments(image: &DynamicImage, source_path: &str, adjustments: &mut Value) {
-    let Some(rotation) = rotation_for_image(image, is_raw_file(source_path), adjustments) else {
+    let Some(rotation) =
+        rotation_for_image(image, source_path, is_raw_file(source_path), adjustments)
+    else {
         return;
     };
 
@@ -362,12 +369,12 @@ pub fn calculate_auto_straighten(
     js_adjustments: Value,
     state: tauri::State<AppState>,
 ) -> Result<Option<f64>, String> {
-    let (image, is_raw) = {
+    let (image, path, is_raw) = {
         let guard = state.original_image.lock().unwrap();
         let loaded = guard
             .as_ref()
             .ok_or("No image loaded for auto straighten")?;
-        (loaded.image.clone(), loaded.is_raw)
+        (loaded.image.clone(), loaded.path.clone(), loaded.is_raw)
     };
-    Ok(rotation_for_image(&image, is_raw, &js_adjustments))
+    Ok(rotation_for_image(&image, &path, is_raw, &js_adjustments))
 }
