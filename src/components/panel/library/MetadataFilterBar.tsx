@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown, ChevronRight, Filter, Plus, X } from 'lucide-react';
@@ -13,6 +13,7 @@ import { ImageFile } from '../../ui/AppProperties';
 import {
   compareMetadataFilterValues,
   getMetadataFilterValue,
+  isExifField,
   hasActiveMetadataFilters,
   matchesMetadataFilters,
   MAX_METADATA_FILTER_COLUMNS,
@@ -30,15 +31,18 @@ interface ColumnEntry {
 
 export default function MetadataFilterBar() {
   const { t } = useTranslation();
-  const { imageList, exifByPath, imageRatings, metadataFilters, setLibrary } = useLibraryStore(
-    useShallow((state) => ({
-      imageList: state.imageList,
-      exifByPath: state.exifByPath,
-      imageRatings: state.imageRatings,
-      metadataFilters: state.metadataFilters,
-      setLibrary: state.setLibrary,
-    })),
-  );
+  const { imageList, exifByPath, imageRatings, metadataFilters, isExifLoading, isViewLoading, setLibrary } =
+    useLibraryStore(
+      useShallow((state) => ({
+        isExifLoading: state.isExifLoading,
+        isViewLoading: state.isViewLoading,
+        imageList: state.imageList,
+        exifByPath: state.exifByPath,
+        imageRatings: state.imageRatings,
+        metadataFilters: state.metadataFilters,
+        setLibrary: state.setLibrary,
+      })),
+    );
   const rawBarSettings = useSettingsStore((state) => state.appSettings?.metadataFilterBar);
   const bar = useMemo(() => normalizeFilterBarSettings(rawBarSettings), [rawBarSettings]);
 
@@ -92,6 +96,10 @@ export default function MetadataFilterBar() {
   const columns = useMemo(() => {
     const result = {} as Record<MetadataFilterField, ColumnEntry[]>;
     for (const field of bar.columns) {
+      if (isViewLoading || (isExifField(field) && isExifLoading)) {
+        result[field] = [];
+        continue;
+      }
       const counts = new Map<string, number>();
       for (const image of imageList as ImageFile[]) {
         const exif = exifByPath[image.path];
@@ -103,21 +111,26 @@ export default function MetadataFilterBar() {
         }
       }
       for (const selected of metadataFilters[field] ?? []) {
-        if (!counts.has(selected)) counts.set(selected, 0);
+        if (!counts.has(selected) && (field !== 'date' || selected === UNKNOWN_VALUE || selected.length === 10))
+          counts.set(selected, 0);
       }
       result[field] = [...counts.entries()]
         .map(([value, count]) => ({ value, count }))
         .sort((a, b) => compareMetadataFilterValues(field, a.value, b.value));
     }
     return result;
-  }, [bar.columns, imageList, exifByPath, imageRatings, metadataFilters]);
+  }, [bar.columns, imageList, exifByPath, imageRatings, metadataFilters, isExifLoading, isViewLoading]);
 
   const setFieldSelection = (field: MetadataFilterField, values: string[]) => {
     setLibrary((state) => ({ metadataFilters: { ...state.metadataFilters, [field]: values } }));
   };
 
-  const toggleValue = (field: MetadataFilterField, value: string) => {
+  const toggleValue = (field: MetadataFilterField, value: string, event: MouseEvent<HTMLButtonElement>) => {
     const current = metadataFilters[field] ?? [];
+    if (!event.metaKey && !event.ctrlKey) {
+      setFieldSelection(field, [value]);
+      return;
+    }
     setFieldSelection(field, current.includes(value) ? current.filter((v) => v !== value) : [...current, value]);
   };
 
@@ -199,6 +212,7 @@ export default function MetadataFilterBar() {
               style={{ gridTemplateColumns: `repeat(${bar.columns.length}, minmax(0, 1fr))` }}
             >
               {bar.columns.map((field, index) => {
+                const loading = isViewLoading || (isExifField(field) && isExifLoading);
                 const entries = columns[field] ?? [];
                 const selected = metadataFilters[field] ?? [];
                 const total = entries.reduce((sum, e) => sum + e.count, 0);
@@ -222,22 +236,39 @@ export default function MetadataFilterBar() {
                         <X size={12} />
                       </button>
                     </div>
-                    <div className="h-36 overflow-y-auto py-1 text-xs">
-                      <FilterRow
-                        label={t('library.metadataFilter.all')}
-                        count={total}
-                        selected={selected.length === 0}
-                        onClick={() => setFieldSelection(field, [])}
-                      />
-                      {entries.map((entry) => (
-                        <FilterRow
-                          key={entry.value}
-                          label={valueLabel(field, entry.value)}
-                          count={entry.count}
-                          selected={selected.includes(entry.value)}
-                          onClick={() => toggleValue(field, entry.value)}
-                        />
-                      ))}
+                    <div className="h-36 overflow-y-auto py-1 text-xs" aria-busy={loading}>
+                      {loading ? (
+                        <div role="status" className="px-2 py-1 text-text-secondary">
+                          {t('library.metadataFilter.loading')}
+                        </div>
+                      ) : (
+                        <>
+                          <FilterRow
+                            label={t('library.metadataFilter.all')}
+                            count={total}
+                            selected={selected.length === 0}
+                            onClick={() => setFieldSelection(field, [])}
+                          />
+                          {field === 'date' ? (
+                            <DateFilterRows
+                              entries={entries}
+                              selected={selected}
+                              onSelect={(value, event) => toggleValue(field, value, event)}
+                              unknownLabel={valueLabel(field, UNKNOWN_VALUE)}
+                            />
+                          ) : (
+                            entries.map((entry) => (
+                              <FilterRow
+                                key={entry.value}
+                                label={valueLabel(field, entry.value)}
+                                count={entry.count}
+                                selected={selected.includes(entry.value)}
+                                onClick={(event) => toggleValue(field, entry.value, event)}
+                              />
+                            ))
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
                 );
@@ -254,7 +285,7 @@ interface FilterRowProps {
   label: string;
   count: number;
   selected: boolean;
-  onClick: () => void;
+  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
 }
 
 function FilterRow({ label, count, selected, onClick }: FilterRowProps) {
@@ -270,5 +301,67 @@ function FilterRow({ label, count, selected, onClick }: FilterRowProps) {
       <span className="truncate">{label}</span>
       <span className="shrink-0 tabular-nums">{count}</span>
     </button>
+  );
+}
+
+interface DateFilterRowsProps {
+  entries: ColumnEntry[];
+  selected: string[];
+  onSelect: (value: string, event: MouseEvent<HTMLButtonElement>) => void;
+  unknownLabel: string;
+  prefix?: string;
+}
+
+function DateFilterRows({ entries, selected, onSelect, unknownLabel, prefix = '' }: DateFilterRowsProps) {
+  const [expanded, setExpanded] = useState<string[]>([]);
+  const length = prefix.length === 0 ? 4 : prefix.length === 4 ? 7 : 10;
+  const groups = new Map<string, ColumnEntry[]>();
+  for (const entry of entries) {
+    if (prefix && !entry.value.startsWith(`${prefix}-`)) continue;
+    const key = entry.value === UNKNOWN_VALUE ? UNKNOWN_VALUE : entry.value.slice(0, length);
+    const group = groups.get(key) ?? [];
+    group.push(entry);
+    groups.set(key, group);
+  }
+  return (
+    <>
+      {[...groups].map(([value, children]) => {
+        const expandable = value !== UNKNOWN_VALUE && length < 10;
+        const open = expanded.includes(value);
+        return (
+          <div key={value}>
+            <div className="flex items-center">
+              {expandable && (
+                <button
+                  className="p-1 text-text-secondary"
+                  aria-expanded={open}
+                  aria-label={value}
+                  onClick={() => setExpanded(open ? expanded.filter((item) => item !== value) : [...expanded, value])}
+                >
+                  {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                </button>
+              )}
+              <FilterRow
+                label={value === UNKNOWN_VALUE ? unknownLabel : value}
+                count={children.reduce((sum, entry) => sum + entry.count, 0)}
+                selected={selected.some((item) => item === value || value.startsWith(`${item}-`))}
+                onClick={(event) => onSelect(value, event)}
+              />
+            </div>
+            {expandable && open && (
+              <div className="pl-3">
+                <DateFilterRows
+                  entries={children}
+                  selected={selected}
+                  onSelect={onSelect}
+                  unknownLabel={unknownLabel}
+                  prefix={value}
+                />
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </>
   );
 }

@@ -1399,6 +1399,7 @@
       "title": "Jobs"
     },
     "metadataFilter": {
+      "loading": "Loading metadata…",
       "addColumn": "Add filter column",
       "all": "All",
       "clear": "Remove all metadata filters",

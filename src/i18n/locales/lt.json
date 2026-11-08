@@ -1498,6 +1498,7 @@
       "title": "Užduotys"
     },
     "metadataFilter": {
+      "loading": "Kraunami metaduomenys…",
       "addColumn": "Pridėti filtro stulpelį",
       "all": "Visi",
       "clear": "Pašalinti visus metaduomenų filtrus",

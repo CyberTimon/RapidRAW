@@ -141,7 +141,7 @@ export function compareMetadataFilterValues(field: MetadataFilterField, a: strin
   if (b === UNKNOWN_VALUE) return -1;
   switch (field) {
     case 'date':
-      return b.localeCompare(a);
+      return a.localeCompare(b);
     case 'iso':
     case 'aperture':
     case 'focal':
@@ -164,7 +164,12 @@ export function matchesMetadataFilters(
 ): boolean {
   for (const [field, values] of Object.entries(selections) as Array<[MetadataFilterField, string[] | undefined]>) {
     if (!values || values.length === 0 || field === skipField) continue;
-    if (!values.includes(getMetadataFilterValue(field, image, exif, rating))) return false;
+    const value = getMetadataFilterValue(field, image, exif, rating);
+    const matches =
+      field === 'date'
+        ? values.some((selected) => value === selected || value.startsWith(`${selected}-`))
+        : values.includes(value);
+    if (!matches) return false;
   }
   return true;
 }
