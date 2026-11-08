@@ -155,10 +155,22 @@ export default function MetadataFilterBar() {
   };
 
   const isActive = hasActiveMetadataFilters(metadataFilters);
-  const activeSummary = (Object.entries(metadataFilters) as Array<[MetadataFilterField, string[]]>)
-    .filter(([, values]) => values.length > 0)
-    .map(([field, values]) => `${fieldLabel(field)}: ${values.map((v) => valueLabel(field, v)).join(', ')}`)
-    .join(' · ');
+  const activeFilters = useMemo(
+    () =>
+      (Object.entries(metadataFilters) as Array<[MetadataFilterField, string[]]>)
+        .filter(([, values]) => values && values.length > 0)
+        .map(([field, values]) => ({
+          field,
+          label: fieldLabel(field),
+          valuesText: values.map((v) => valueLabel(field, v)).join(', '),
+        })),
+    [metadataFilters, fieldLabel, valueLabel],
+  );
+
+  const activeSummary = useMemo(
+    () => activeFilters.map((f) => `${f.label}: ${f.valuesText}`).join(' · '),
+    [activeFilters],
+  );
 
   return (
     <div className="shrink-0 border-b border-surface">
@@ -166,7 +178,9 @@ export default function MetadataFilterBar() {
         <button
           className="flex items-center gap-1.5 min-w-0 flex-1 text-left text-text-secondary hover:text-text-primary transition-colors"
           onClick={() => updateMetadataFilterBar({ expanded: !bar.expanded })}
-          data-tooltip={bar.expanded ? t('library.metadataFilter.collapse') : t('library.metadataFilter.expand')}
+          data-tooltip={
+            bar.expanded ? t('library.metadataFilter.collapse') : activeSummary || t('library.metadataFilter.expand')
+          }
         >
           {bar.expanded ? (
             <ChevronDown size={14} className="shrink-0" />
@@ -182,14 +196,17 @@ export default function MetadataFilterBar() {
             {t('library.metadataFilter.title')}
           </Text>
           {!bar.expanded && isActive && (
-            <Text
-              variant={TextVariants.small}
-              color={TextColors.secondary}
-              className="truncate ml-2 min-w-0"
-              data-tooltip={activeSummary}
-            >
-              {activeSummary}
-            </Text>
+            <span className="flex items-center gap-1.5 ml-2 min-w-0 overflow-hidden" data-tooltip={activeSummary}>
+              {activeFilters.map((item) => (
+                <span
+                  key={item.field}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-surface border border-border-color/60 text-xs shrink-0 max-w-[240px]"
+                >
+                  <span className="text-text-secondary font-normal shrink-0">{item.label}:</span>
+                  <span className="text-text-primary font-semibold truncate">{item.valuesText}</span>
+                </span>
+              ))}
+            </span>
           )}
         </button>
         {isActive && (
