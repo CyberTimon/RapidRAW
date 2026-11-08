@@ -1412,6 +1412,7 @@
         "rating": "별점",
         "shutter": "셔터 속도"
       },
+      "loading": "메타데이터 로딩 중…",
       "removeColumn": "열 제거",
       "title": "메타데이터 필터",
       "unknown": "알 수 없음",

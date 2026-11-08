@@ -1448,6 +1448,7 @@
         "rating": "Valutazione",
         "shutter": "Tempo di scatto"
       },
+      "loading": "Caricamento metadati…",
       "removeColumn": "Rimuovi colonna",
       "title": "Filtro metadati",
       "unknown": "Sconosciuto",

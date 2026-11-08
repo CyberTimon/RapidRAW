@@ -1448,6 +1448,7 @@
         "rating": "Valoración",
         "shutter": "Velocidad de obturación"
       },
+      "loading": "Cargando metadatos…",
       "removeColumn": "Quitar columna",
       "title": "Filtro de metadatos",
       "unknown": "Desconocido",

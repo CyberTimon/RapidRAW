@@ -1412,6 +1412,7 @@
         "rating": "评分",
         "shutter": "快门速度"
       },
+      "loading": "正在加载元数据…",
       "removeColumn": "移除列",
       "title": "元数据筛选",
       "unknown": "未知",

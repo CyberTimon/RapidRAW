@@ -1448,6 +1448,7 @@
         "rating": "Valoració",
         "shutter": "Velocitat d'obturació"
       },
+      "loading": "Carregant metadades…",
       "removeColumn": "Elimina la columna",
       "title": "Filtre de metadades",
       "unknown": "Desconegut",

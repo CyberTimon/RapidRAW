@@ -1478,6 +1478,7 @@
         "rating": "Hodnocení",
         "shutter": "Čas závěrky"
       },
+      "loading": "Načítání metadat…",
       "removeColumn": "Odebrat sloupec",
       "title": "Filtr metadat",
       "unknown": "Neznámé",

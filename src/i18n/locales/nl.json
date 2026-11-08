@@ -1418,6 +1418,7 @@
         "rating": "Beoordeling",
         "shutter": "Sluitertijd"
       },
+      "loading": "Metagegevens laden…",
       "removeColumn": "Kolom verwijderen",
       "title": "Metadatafilter",
       "unknown": "Onbekend",

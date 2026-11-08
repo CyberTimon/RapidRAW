@@ -1449,6 +1449,7 @@
         "rating": "Note",
         "shutter": "Vitesse d'obturation"
       },
+      "loading": "Chargement des métadonnées…",
       "removeColumn": "Supprimer la colonne",
       "title": "Filtre de métadonnées",
       "unknown": "Inconnu",

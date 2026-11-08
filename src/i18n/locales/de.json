@@ -1418,6 +1418,7 @@
         "rating": "Bewertung",
         "shutter": "Verschlusszeit"
       },
+      "loading": "Metadaten werden geladen…",
       "removeColumn": "Spalte entfernen",
       "title": "Metadatenfilter",
       "unknown": "Unbekannt",

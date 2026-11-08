@@ -1412,6 +1412,7 @@
         "rating": "評分",
         "shutter": "快門速度"
       },
+      "loading": "正在載入中繼資料…",
       "removeColumn": "移除欄",
       "title": "中繼資料篩選",
       "unknown": "未知",

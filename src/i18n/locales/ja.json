@@ -1412,6 +1412,7 @@
         "rating": "レーティング",
         "shutter": "シャッタースピード"
       },
+      "loading": "メタデータを読み込み中…",
       "removeColumn": "列を削除",
       "title": "メタデータフィルター",
       "unknown": "不明",

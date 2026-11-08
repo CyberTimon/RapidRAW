@@ -1478,6 +1478,7 @@
         "rating": "Ocena",
         "shutter": "Czas naświetlania"
       },
+      "loading": "Wczytywanie metadanych…",
       "removeColumn": "Usuń kolumnę",
       "title": "Filtr metadanych",
       "unknown": "Nieznane",
