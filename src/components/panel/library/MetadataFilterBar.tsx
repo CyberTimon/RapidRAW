@@ -168,20 +168,33 @@ export default function MetadataFilterBar() {
           onClick={() => updateMetadataFilterBar({ expanded: !bar.expanded })}
           data-tooltip={bar.expanded ? t('library.metadataFilter.collapse') : t('library.metadataFilter.expand')}
         >
-          {bar.expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          <Filter size={14} className={clsx(isActive && 'text-accent')} />
-          <Text variant={TextVariants.small} color={isActive ? TextColors.primary : TextColors.secondary}>
+          {bar.expanded ? (
+            <ChevronDown size={14} className="shrink-0" />
+          ) : (
+            <ChevronRight size={14} className="shrink-0" />
+          )}
+          <Filter size={14} className={clsx('shrink-0', isActive && 'text-accent')} />
+          <Text
+            variant={TextVariants.small}
+            color={isActive ? TextColors.primary : TextColors.secondary}
+            className="shrink-0"
+          >
             {t('library.metadataFilter.title')}
           </Text>
           {!bar.expanded && isActive && (
-            <Text variant={TextVariants.small} color={TextColors.secondary} className="truncate ml-2">
+            <Text
+              variant={TextVariants.small}
+              color={TextColors.secondary}
+              className="truncate ml-2 min-w-0"
+              data-tooltip={activeSummary}
+            >
               {activeSummary}
             </Text>
           )}
         </button>
         {isActive && (
           <button
-            className="p-1 rounded-sm text-text-secondary hover:text-text-primary hover:bg-surface transition-colors"
+            className="p-1 rounded-sm text-text-secondary hover:text-text-primary hover:bg-surface transition-colors shrink-0"
             onClick={() => setLibrary({ metadataFilters: {} })}
             data-tooltip={t('library.metadataFilter.clear')}
           >
@@ -190,7 +203,7 @@ export default function MetadataFilterBar() {
         )}
         {bar.columns.length < MAX_METADATA_FILTER_COLUMNS && (
           <button
-            className="p-1 rounded-sm text-text-secondary hover:text-text-primary hover:bg-surface transition-colors"
+            className="p-1 rounded-sm text-text-secondary hover:text-text-primary hover:bg-surface transition-colors shrink-0"
             onClick={addColumn}
             data-tooltip={t('library.metadataFilter.addColumn')}
           >
@@ -221,7 +234,9 @@ export default function MetadataFilterBar() {
                     <div className="flex items-center gap-1 p-1 border-b border-bg-secondary">
                       <Dropdown
                         className="flex-1 min-w-0"
-                        triggerClassName="h-7 text-xs"
+                        triggerClassName="h-7 text-xs px-2"
+                        textVariant={TextVariants.small}
+                        chevronSize={14}
                         value={field}
                         onChange={(value) => changeColumnField(index, value)}
                         options={METADATA_FILTER_FIELDS.filter((f) => f === field || !bar.columns.includes(f)).map(
@@ -229,7 +244,7 @@ export default function MetadataFilterBar() {
                         )}
                       />
                       <button
-                        className="p-1 rounded-sm text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors"
+                        className="p-1 rounded-sm text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors shrink-0"
                         onClick={() => removeColumn(index)}
                         data-tooltip={t('library.metadataFilter.removeColumn')}
                       >
@@ -297,6 +312,7 @@ function FilterRow({ label, count, selected, onClick }: FilterRowProps) {
         count === 0 && !selected && 'opacity-50',
       )}
       onClick={onClick}
+      data-tooltip={label}
     >
       <span className="truncate">{label}</span>
       <span className="shrink-0 tabular-nums">{count}</span>
