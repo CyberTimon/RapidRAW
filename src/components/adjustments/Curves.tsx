@@ -52,6 +52,10 @@ const CHANNEL_COLORS: Record<ActiveChannel, string> = {
   [ActiveChannel.Blue]: '#4D96FF',
 };
 
+/**
+ * Builds discrete point coordinates representing the parametric curve shape
+ * derived from split points and tone sliders (highlights, lights, darks, shadows).
+ */
 function buildParametricPoints(settings: ParametricCurveSettings): Array<Coord> {
   const vH = settings.highlights / 100;
   const vL = settings.lights / 100;
@@ -106,6 +110,10 @@ function buildParametricPoints(settings: ParametricCurveSettings): Array<Coord> 
   return points;
 }
 
+/**
+ * Computes SVG cubic bezier path commands across points using a monotone cubic spline
+ * (prevents overshooting and maintains smooth tone transitions).
+ */
 function getCurvePath(points: Array<Coord>) {
   if (points.length < 2) return '';
 
@@ -287,6 +295,9 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
   const [localPoints, setLocalPoints] = useState<Array<Coord> | null>(null);
   const [localParametricSettings, setLocalParametricSettings] = useState<ParametricCurveSettings | null>(null);
 
+  // Keyboard navigation & manual coordinate editing state
+  const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(null);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const splitterContainerRef = useRef<HTMLDivElement>(null);
@@ -317,6 +328,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
   const handleToggleMode = (newMode: 'point' | 'parametric') => {
     if (newMode === curveMode) return;
     setCurveMode(newMode);
+    setSelectedPointIndex(null);
 
     setAdjustments((prev: any) => {
       if (newMode === 'parametric') {
@@ -367,6 +379,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
     activeChannelRef.current = activeChannel;
     setLocalPoints(null);
     setDraggingPointIndex(null);
+    setSelectedPointIndex(null);
     setLocalParametricSettings(null);
     setDraggingSplitKey(null);
   }, [activeChannel]);
@@ -517,6 +530,104 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
 
   const color = CHANNEL_COLORS[activeChannel];
 
+  // ---------------------------------------------------------------------------
+  // KEYBOARD NAVIGATION & POINT EDITING LOGIC
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Cycle selection through existing points in point-curve mode.
+   * Supports forward (Tab) and backward (Shift+Tab) circular traversal.
+   */
+  const handleSelectNextPoint = (backwards = false) => {
+    if (isParametricMode || !activePoints || activePoints.length === 0) return;
+
+    if (selectedPointIndex === null) {
+      setSelectedPointIndex(backwards ? activePoints.length - 1 : 0);
+      return;
+    }
+
+    const delta = backwards ? -1 : 1;
+    const nextIdx = (selectedPointIndex + delta + activePoints.length) % activePoints.length;
+    setSelectedPointIndex(nextIdx);
+  };
+
+  /**
+   * Directly updates X or Y coordinates for the currently selected point.
+   * Clamps within [0, 255] and ensures monotonic horizontal order (X axis).
+   */
+  const handleUpdateSelectedCoord = (axis: 'x' | 'y', rawVal: number) => {
+    if (selectedPointIndex === null || isParametricMode) return;
+
+    const currentPoints = [...activePoints];
+    const prevX = selectedPointIndex > 0 ? currentPoints[selectedPointIndex - 1].x : 0;
+    const nextX = selectedPointIndex < currentPoints.length - 1 ? currentPoints[selectedPointIndex + 1].x : 255;
+
+    let val = Math.max(0, Math.min(255, isNaN(rawVal) ? 0 : rawVal));
+
+    if (axis === 'x') {
+      // First and last points are locked at 0 and 255 on the X axis
+      const minX = selectedPointIndex === 0 ? 0 : prevX + 0.1;
+      const maxX = selectedPointIndex === currentPoints.length - 1 ? 255 : nextX - 0.1;
+      val = Math.max(minX, Math.min(maxX, val));
+      currentPoints[selectedPointIndex] = { ...currentPoints[selectedPointIndex], x: val };
+    } else {
+      currentPoints[selectedPointIndex] = { ...currentPoints[selectedPointIndex], y: val };
+    }
+
+    setLocalPoints(currentPoints);
+    setAdjustments((prev: any) => ({
+      ...prev,
+      curves: { ...prev.curves, [activeChannel]: currentPoints },
+    }));
+  };
+
+  /**
+   * Container-level keyboard shortcuts:
+   * - Tab / Shift+Tab: cycle through curve control points
+   * - Arrow Keys: nudge selected point coordinates (hold Shift for step of 5)
+   * - Delete / Backspace: remove selected intermediate point
+   */
+  const handleContainerKeyDown = (e: React.KeyboardEvent) => {
+    if (isParametricMode) return;
+
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      handleSelectNextPoint(e.shiftKey);
+      return;
+    }
+
+    if (selectedPointIndex !== null && activePoints[selectedPointIndex]) {
+      const step = e.shiftKey ? 5 : 1;
+      const curr = activePoints[selectedPointIndex];
+
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        handleUpdateSelectedCoord('y', curr.y + step);
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        handleUpdateSelectedCoord('y', curr.y - step);
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        handleUpdateSelectedCoord('x', curr.x - step);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        handleUpdateSelectedCoord('x', curr.x + step);
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        // Prevent deletion of endpoints
+        if (selectedPointIndex > 0 && selectedPointIndex < activePoints.length - 1) {
+          e.preventDefault();
+          const newPoints = activePoints.filter((_, i) => i !== selectedPointIndex);
+          setLocalPoints(newPoints);
+          setSelectedPointIndex(Math.max(0, selectedPointIndex - 1));
+          setAdjustments((prev: any) => ({
+            ...prev,
+            curves: { ...prev.curves, [activeChannel]: newPoints },
+          }));
+        }
+      }
+    }
+  };
+
   const handlePointStart = (e: any, index: number) => {
     if (isParametricMode || e.button === 2) return;
     if (!e.touches) e.preventDefault();
@@ -533,6 +644,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
     localPointsRef.current = activePoints;
     setDraggingPointIndex(index);
     draggingIndexRef.current = index;
+    setSelectedPointIndex(index);
   };
 
   const handlePointContextMenu = (e: React.MouseEvent, index: number) => {
@@ -543,6 +655,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
       const newPoints = activePoints.filter((_, i) => i !== index);
       setLocalPoints(newPoints);
       localPointsRef.current = newPoints;
+      setSelectedPointIndex(null);
       setAdjustments((prev: any) => ({
         ...prev,
         curves: { ...prev.curves, [activeChannel]: newPoints },
@@ -596,6 +709,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
     }));
     setDraggingPointIndex(newPointIndex);
     draggingIndexRef.current = newPointIndex;
+    setSelectedPointIndex(newPointIndex);
   };
 
   const handleDoubleClick = () => {
@@ -615,6 +729,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
         { x: 255, y: 255 },
       ];
       setLocalPoints(defaultPoints);
+      setSelectedPointIndex(null);
       setAdjustments((prev: any) => ({
         ...prev,
         curves: { ...prev.curves, [activeChannel]: defaultPoints },
@@ -726,6 +841,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
       const newPoints = curveClipboard.map((p) => ({ ...p }));
       setLocalPoints(newPoints);
       localPointsRef.current = newPoints;
+      setSelectedPointIndex(null);
       setAdjustments((prev: any) => ({ ...prev, curves: { ...prev.curves, [activeChannel]: newPoints } }));
     };
 
@@ -734,6 +850,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
       const newPoints = convertParametricToPoints(parametricClipboard);
       setLocalPoints(newPoints);
       localPointsRef.current = newPoints;
+      setSelectedPointIndex(null);
       setAdjustments((prev: any) => ({ ...prev, curves: { ...prev.curves, [activeChannel]: newPoints } }));
     };
 
@@ -744,6 +861,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
       ];
       setLocalPoints(defaultPoints);
       localPointsRef.current = defaultPoints;
+      setSelectedPointIndex(null);
       setAdjustments((prev: any) => ({ ...prev, curves: { ...prev.curves, [activeChannel]: defaultPoints } }));
     };
 
@@ -754,6 +872,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
       ];
       setLocalPoints(defaultPoints);
       localPointsRef.current = defaultPoints;
+      setSelectedPointIndex(null);
       setAdjustments((prev: any) => ({
         ...prev,
         curves: {
@@ -830,8 +949,17 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
     );
   }
 
+  const selectedPoint =
+    !isParametricMode && selectedPointIndex !== null ? activePoints[selectedPointIndex] : null;
+
   return (
-    <div className="select-none touch-none" ref={containerRef}>
+    <div
+      className="select-none touch-none outline-none"
+      ref={containerRef}
+      tabIndex={0}
+      onKeyDown={handleContainerKeyDown}
+    >
+      {/* Mode selection buttons & color channel switchers */}
       <div className="flex items-center justify-between gap-2 mb-2 mt-2">
         <div className="flex items-center gap-1 p-1 rounded-lg bg-surface-secondary shrink-0">
           <button
@@ -883,6 +1011,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
         </div>
       </div>
 
+      {/* Main interactive curve canvas */}
       <div className="relative">
         <div
           className="w-full aspect-square bg-surface-secondary p-1 rounded-md relative touch-none"
@@ -892,6 +1021,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
           onContextMenu={handleContextMenu}
         >
           <svg ref={svgRef} viewBox="0 0 255 255" className="w-full h-full overflow-visible">
+            {/* Background grid */}
             <path
               d={
                 isParametricMode
@@ -901,7 +1031,11 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
               stroke="rgba(255,255,255,0.1)"
               strokeWidth="0.5"
             />
+
+            {/* Realtime histogram fill */}
             <HistogramFill channel={activeChannel} opacity={histogramOpacity} />
+
+            {/* Neutral identity diagonal */}
             <line
               x1="0"
               y1="255"
@@ -912,12 +1046,14 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
               strokeDasharray="2 2"
             />
 
+            {/* Splitter boundary lines in parametric mode */}
             {isParametricMode &&
               splitPositions.map(({ key, value }) => {
                 const x = (value / 100) * 255;
                 return <line key={key} x1={x} y1="0" x2={x} y2="255" stroke="rgba(255,255,255,0.12)" strokeWidth="1" />;
               })}
 
+            {/* Inactive channel ghost curves */}
             {inactiveChannels
               .filter((channel) =>
                 isParametricMode
@@ -936,8 +1072,10 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                 />
               ))}
 
+            {/* Active curve spline */}
             <path d={getCurvePath(activePoints)} fill="none" stroke={color} strokeWidth="2.5" />
 
+            {/* Parametric endpoints */}
             {isParametricMode && activePoints.length >= 2 && (
               <>
                 <circle
@@ -959,26 +1097,93 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
               </>
             )}
 
+            {/* Control points in point-curve mode */}
             {!isParametricMode &&
-              activePoints.map((p: Coord, i: number) => (
-                <circle
-                  className="cursor-pointer"
-                  cx={p.x}
-                  cy={255 - p.y}
-                  fill={color}
-                  key={i}
-                  onMouseDown={(e: any) => handlePointStart(e, i)}
-                  onTouchStart={(e: any) => handlePointStart(e, i)}
-                  onContextMenu={(e: React.MouseEvent) => handlePointContextMenu(e, i)}
-                  r="6"
-                  stroke="#1e1e1e"
-                  strokeWidth="2"
-                />
-              ))}
+              activePoints.map((p: Coord, i: number) => {
+                const isSelected = selectedPointIndex === i;
+                return (
+                  <g key={i}>
+                    {/* Highlight ring for keyboard/focused point */}
+                    {isSelected && (
+                      <circle
+                        cx={p.x}
+                        cy={255 - p.y}
+                        r="9"
+                        fill="none"
+                        stroke="#ffffff"
+                        strokeWidth="2"
+                        className="pointer-events-none"
+                      />
+                    )}
+                    <circle
+                      className="cursor-pointer"
+                      cx={p.x}
+                      cy={255 - p.y}
+                      fill={color}
+                      onMouseDown={(e: any) => handlePointStart(e, i)}
+                      onTouchStart={(e: any) => handlePointStart(e, i)}
+                      onContextMenu={(e: React.MouseEvent) => handlePointContextMenu(e, i)}
+                      r="6"
+                      stroke="#1e1e1e"
+                      strokeWidth="2"
+                    />
+                  </g>
+                );
+              })}
           </svg>
         </div>
       </div>
 
+      {/* Manual Input (In/Out) Coordinate Bar for Point Curves */}
+      {!isParametricMode && (
+        <div className="flex items-center justify-between gap-3 mt-2 px-2 py-1.5 bg-surface-secondary rounded-md text-xs">
+          <Text variant={TextVariants.small} color={TextColors.secondary}>
+            {selectedPoint
+              ? `Point ${selectedPointIndex! + 1} / ${activePoints.length}`
+              : 'Select a point or press Tab'}
+          </Text>
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-1">
+              <span className="text-text-secondary">In:</span>
+              <input
+                type="number"
+                min={0}
+                max={255}
+                disabled={!selectedPoint || selectedPointIndex === 0 || selectedPointIndex === activePoints.length - 1}
+                value={selectedPoint ? Math.round(selectedPoint.x) : ''}
+                onChange={(e) => handleUpdateSelectedCoord('x', parseFloat(e.target.value))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Tab' && e.shiftKey) {
+                    e.preventDefault();
+                    handleSelectNextPoint(true);
+                  }
+                }}
+                className="w-14 px-1.5 py-0.5 bg-surface rounded text-center text-text-primary disabled:opacity-40 focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </label>
+            <label className="flex items-center gap-1">
+              <span className="text-text-secondary">Out:</span>
+              <input
+                type="number"
+                min={0}
+                max={255}
+                disabled={!selectedPoint}
+                value={selectedPoint ? Math.round(selectedPoint.y) : ''}
+                onChange={(e) => handleUpdateSelectedCoord('y', parseFloat(e.target.value))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Tab' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSelectNextPoint(false);
+                  }
+                }}
+                className="w-14 px-1.5 py-0.5 bg-surface rounded text-center text-text-primary disabled:opacity-40 focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </label>
+          </div>
+        </div>
+      )}
+
+      {/* Parametric Curve sliders & splitters */}
       <AnimatePresence initial={false}>
         {isParametricMode && (
           <motion.div
