@@ -436,6 +436,9 @@ export function usePresets(currentAdjustments: Adjustments) {
 
   const movePreset = useCallback(
     (presetId: string, targetFolderId: string | null, overId = null) => {
+      if (targetFolderId && !presets.some((item) => item.folder?.id === targetFolderId)) {
+        return;
+      }
       let presetToMove: Preset | null = null;
       let sourceFolderId = null;
 

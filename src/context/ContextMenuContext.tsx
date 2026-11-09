@@ -144,7 +144,7 @@ function SubMenu({ cancelCloseSubmenu, closeSubmenu, hideContextMenu, options, p
         <div
           className={clsx(
             'backdrop-blur-md rounded-lg shadow-xl',
-            !CustomComponent && 'bg-surface/95 p-2 w-max min-w-56 max-w-72',
+            !CustomComponent && 'bg-surface/95 p-2 w-max min-w-56 max-w-72 max-h-[calc(100vh-10px)] overflow-y-auto',
           )}
           role="menu"
         >
@@ -221,7 +221,7 @@ function MenuItem({ option, path, hideContextMenu }: MenuItemProps) {
             option.onClick();
             hideContextMenu();
           }
-          if (!option.disabled && option.submenu && hasInteractiveSubmenu) {
+          if (!option.disabled && option.submenu) {
             openSubmenu(path);
           }
         }}

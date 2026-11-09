@@ -21,6 +21,7 @@ import {
   Folder as FolderIcon,
   FolderOpen,
   FolderPlus,
+  FolderInput,
   Loader2,
   Plus,
   SortAsc,
@@ -1189,6 +1190,17 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
         },
       ];
     } else {
+      const currentFolderId = itemParentMap.get(data?.id) ?? null;
+      const moveToFolder = (folderId: string | null) => {
+        if (!data?.id || folderId === currentFolderId) return;
+        movePreset(data.id, folderId);
+        if (folderId) {
+          setExpandedFolders((prev: Set<string>) => new Set(prev).add(folderId));
+        }
+        if (!previewsRef.current[data.id]) {
+          void generateSinglePreview(data as Preset);
+        }
+      };
       options = [
         {
           icon: Save,
@@ -1206,6 +1218,30 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
           onClick: () => setConfigureModalState({ isOpen: true, preset: data as Preset }),
         },
         { type: OPTION_SEPARATOR },
+        {
+          icon: FolderInput,
+          label: t('contextMenus.albums.moveTo'),
+          submenu: [
+            {
+              icon: FolderOpen,
+              label: t('contextMenus.albums.rootDir'),
+              disabled: currentFolderId === null,
+              onClick: () => moveToFolder(null),
+            },
+            ...presets.flatMap(({ folder }) =>
+              folder?.id
+                ? [
+                    {
+                      icon: FolderIcon,
+                      label: folder.name,
+                      disabled: folder.id === currentFolderId,
+                      onClick: () => moveToFolder(folder.id!),
+                    },
+                  ]
+                : [],
+            ),
+          ],
+        },
         {
           icon: CopyPlus,
           label: t('editor.presets.menu.duplicatePreset'),
