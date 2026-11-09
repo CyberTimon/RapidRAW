@@ -72,12 +72,11 @@ async fn trash_assets(
     whole_stack: bool,
 ) -> Result<(), String> {
     if whole_stack {
-        for stack in client.stacks().await? {
-            if stack.assets.iter().any(|a| ids.contains(&a.id)) {
-                for asset in stack.assets {
-                    if !ids.contains(&asset.id) {
-                        ids.push(asset.id);
-                    }
+        let stack_ids = client.stack_ids_of(ids).await?;
+        for stack in client.stacks_by_id(stack_ids).await? {
+            for asset in stack.assets {
+                if !ids.contains(&asset.id) {
+                    ids.push(asset.id);
                 }
             }
         }
