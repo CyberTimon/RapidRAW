@@ -46,6 +46,7 @@ pub struct LoadImageResult {
     pub exif: HashMap<String, String>,
     pub is_raw: bool,
     pub as_shot_white_balance: WhiteBalance,
+    pub used_embedded_preview: bool,
 }
 
 #[derive(Deserialize)]
@@ -116,6 +117,23 @@ pub fn load_base_image_from_bytes(
     settings: &AppSettings,
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<DynamicImage> {
+    load_base_image_with_fallback_flag(
+        bytes,
+        path_for_ext_check,
+        use_fast_raw_dev,
+        settings,
+        cancel_token,
+    )
+    .map(|(image, _)| image)
+}
+
+fn load_base_image_with_fallback_flag(
+    bytes: &[u8],
+    path_for_ext_check: &str,
+    use_fast_raw_dev: bool,
+    settings: &AppSettings,
+    cancel_token: Option<(Arc<AtomicUsize>, usize)>,
+) -> Result<(DynamicImage, bool)> {
     let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
     let linear_mode = settings.linear_raw_mode.clone();
     let color_nr_amount = settings
@@ -142,7 +160,7 @@ pub fn load_base_image_from_bytes(
         }
 
         match crate::apple_raw::develop_raw9(bytes, path_for_ext_check) {
-            Ok(image) => return Ok(image),
+            Ok(image) => return Ok((image, false)),
             Err(e) => log::warn!(
                 "Apple RAW 9 unavailable for '{}', falling back to rawler: {}",
                 path_for_ext_check,
@@ -176,7 +194,7 @@ pub fn load_base_image_from_bytes(
                         duration
                     );
                 }
-                Ok(image)
+                Ok((image, false))
             }
             Ok(Err(e)) => {
                 let classified = classify_raw_develop_error(path_for_ext_check, e);
@@ -198,7 +216,7 @@ pub fn load_base_image_from_bytes(
                         preview.height()
                     );
 
-                    return Ok(linearize_embedded_preview(preview));
+                    return Ok((linearize_embedded_preview(preview), true));
                 }
                 Err(classified)
             }
@@ -212,7 +230,7 @@ pub fn load_base_image_from_bytes(
                         preview.height()
                     );
 
-                    return Ok(linearize_embedded_preview(preview));
+                    return Ok((linearize_embedded_preview(preview), true));
                 }
                 Err(anyhow!(
                     "Failed to process RAW file: {}",
@@ -237,7 +255,7 @@ pub fn load_base_image_from_bytes(
             );
         }
 
-        Ok(image)
+        Ok((image, false))
     }
 }
 
@@ -996,22 +1014,31 @@ pub fn decode_pristine(
     path_str: &str,
     settings: &AppSettings,
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
-) -> Result<(DynamicImage, HashMap<String, String>), String> {
+) -> Result<(DynamicImage, HashMap<String, String>, bool), String> {
     if crate::file_management::is_cloud_placeholder(source_path) {
         return Err(format!(
             "'{}' is stored in iCloud and hasn't been downloaded yet. Download it in Finder, then try again.",
             path_str
         ));
     }
-    let decode = |bytes: &[u8]| -> Result<(DynamicImage, HashMap<String, String>), String> {
+    let decode = |bytes: &[u8]| -> Result<(DynamicImage, HashMap<String, String>, bool), String> {
         if is_cancelled(&cancel_token) {
             return Err("Load cancelled".to_string());
         }
-        let image =
-            load_base_image_from_bytes(bytes, path_str, false, settings, cancel_token.clone())
-                .map_err(|e| e.to_string())?;
+        let (image, used_embedded_preview) = load_base_image_with_fallback_flag(
+            bytes,
+            path_str,
+            false,
+            settings,
+            cancel_token.clone(),
+        )
+        .map_err(|e| e.to_string())?;
         crate::as_shot::as_shot_from_bytes(path_str, bytes);
-        Ok((image, exif_processing::read_exif_data(path_str, bytes)))
+        Ok((
+            image,
+            exif_processing::read_exif_data(path_str, bytes),
+            used_embedded_preview,
+        ))
     };
     match read_file_mapped(source_path) {
         Ok(mmap) => decode(&mmap),
@@ -1034,7 +1061,8 @@ pub fn cache_pristine(
     fingerprint: Option<DecodeFingerprint>,
     image: DynamicImage,
     exif: HashMap<String, String>,
-) -> (Arc<DynamicImage>, HashMap<String, String>) {
+    used_embedded_preview: bool,
+) -> DecodedPristine {
     let image = Arc::new(image);
     if let Some(fp) = fingerprint {
         state.decoded_image_cache.lock().unwrap().insert(
@@ -1042,9 +1070,10 @@ pub fn cache_pristine(
             fp,
             Arc::clone(&image),
             exif.clone(),
+            used_embedded_preview,
         );
     }
-    (image, exif)
+    (image, exif, used_embedded_preview)
 }
 
 pub fn get_or_decode_pristine(
@@ -1053,6 +1082,18 @@ pub fn get_or_decode_pristine(
     settings: &AppSettings,
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<(Arc<DynamicImage>, HashMap<String, String>), String> {
+    get_or_decode_pristine_with_fallback_flag(state, source_path, settings, cancel_token)
+        .map(|(image, exif, _)| (image, exif))
+}
+
+type DecodedPristine = (Arc<DynamicImage>, HashMap<String, String>, bool);
+
+fn get_or_decode_pristine_with_fallback_flag(
+    state: &AppState,
+    source_path: &Path,
+    settings: &AppSettings,
+    cancel_token: Option<(Arc<AtomicUsize>, usize)>,
+) -> Result<DecodedPristine, String> {
     let path_str = source_path.to_string_lossy().to_string();
     let fingerprint = DecodeFingerprint::for_file(source_path, settings);
     let cached = || {
@@ -1078,8 +1119,16 @@ pub fn get_or_decode_pristine(
             return Ok(hit);
         }
 
-        let (image, exif) = decode_pristine(source_path, &path_str, settings, cancel_token)?;
-        return Ok(cache_pristine(state, path_str, fingerprint, image, exif));
+        let (image, exif, used_embedded_preview) =
+            decode_pristine(source_path, &path_str, settings, cancel_token)?;
+        return Ok(cache_pristine(
+            state,
+            path_str,
+            fingerprint,
+            image,
+            exif,
+            used_embedded_preview,
+        ));
     }
 }
 
@@ -1164,12 +1213,12 @@ pub async fn load_image(
         .unwrap()
         .promote(&source_path_str);
 
-    let (pristine_arc, exif_data) = {
+    let (pristine_arc, exif_data, used_embedded_preview) = {
         let app_handle = app_handle.clone();
         let source_path = source_path.clone();
         tokio::task::spawn_blocking(move || {
             let state = app_handle.state::<AppState>();
-            get_or_decode_pristine(&state, &source_path, &settings, cancel_token)
+            get_or_decode_pristine_with_fallback_flag(&state, &source_path, &settings, cancel_token)
         })
         .await
         .map_err(|e| e.to_string())??
@@ -1213,5 +1262,6 @@ pub async fn load_image(
         exif: exif_data,
         is_raw,
         as_shot_white_balance: as_shot.white_balance,
+        used_embedded_preview,
     })
 }

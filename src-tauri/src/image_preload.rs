@@ -362,8 +362,15 @@ impl ImagePreloader {
 
         let cancel_token = Some((Arc::clone(cancel), 0));
         match self.in_background(|| decode_pristine(source_path, path, &settings, cancel_token)) {
-            Ok((image, exif)) => {
-                cache_pristine(app_state, path.to_string(), Some(fingerprint), image, exif);
+            Ok((image, exif, used_embedded_preview)) => {
+                cache_pristine(
+                    app_state,
+                    path.to_string(),
+                    Some(fingerprint),
+                    image,
+                    exif,
+                    used_embedded_preview,
+                );
             }
             Err(e) if !e.contains("cancelled") => {
                 log::debug!("Preloading '{}' failed: {}", path, e);

@@ -940,12 +940,14 @@
       }
     },
     "toolbar": {
+      "embeddedPreview": "Ingesloten JPEG",
       "history": "Geschiedenis",
       "switchToVariant": "Overschakelen naar {{label}}",
       "tooltips": {
         "aperture": "Diafragma",
         "backToLibrary": "Terug naar bibliotheek",
         "compare": "Voor / na (B) of modi (rechtsklik)",
+        "embeddedPreview": "Ingesloten JPEG-voorbeeld wordt bewerkt: RAW-decodering mislukt",
         "focalLength": "Brandpuntsafstand",
         "fullscreen": "Volledig scherm aan/uit (F)",
         "iso": "ISO",

@@ -988,12 +988,14 @@
       }
     },
     "toolbar": {
+      "embeddedPreview": "Встроенный JPEG",
       "history": "История",
       "switchToVariant": "Switch to {{label}}",
       "tooltips": {
         "aperture": "Диафрагма",
         "backToLibrary": "Назад в библиотеку",
         "compare": "До / После (B) или режимы (правый клик)",
+        "embeddedPreview": "Редактируется встроенное JPEG-превью: не удалось декодировать RAW",
         "focalLength": "Фокусное расстояние",
         "fullscreen": "Полноэкранный режим (F)",
         "iso": "ISO",

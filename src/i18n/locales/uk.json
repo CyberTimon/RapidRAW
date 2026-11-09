@@ -988,12 +988,14 @@
       }
     },
     "toolbar": {
+      "embeddedPreview": "Вбудований JPEG",
       "history": "Історія",
       "switchToVariant": "Перемкнути на {{label}}",
       "tooltips": {
         "aperture": "Діафрагма",
         "backToLibrary": "Назад до бібліотеки",
         "compare": "До / після (B) або режими (правий клік)",
+        "embeddedPreview": "Редагування вбудованого попереднього перегляду JPEG: не вдалося декодувати RAW",
         "focalLength": "Фокусна відстань",
         "fullscreen": "Повноекранний режим (F)",
         "iso": "ISO",
