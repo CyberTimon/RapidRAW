@@ -1894,7 +1894,12 @@
       },
       "storageTitle": "儲存空間",
       "title": "資料管理",
-      "totalUsed": "RapidRAW 在此裝置上使用了 {{size}}。"
+      "totalUsed": "RapidRAW 在此裝置上使用了 {{size}}。",
+      "cacheLocation": "Cache location",
+      "cacheLocationDescription": "Choose an SSD for thumbnails and processing caches. RapidRAW creates a dedicated subfolder. Photos, edits, albums and Immich files stay where they are.",
+      "chooseCacheFolder": "Choose cache folder",
+      "defaultCacheFolder": "Use default",
+      "cacheRestartRequired": "Restart RapidRAW to use the new cache folder. The previous cache is kept; previews rebuild as needed."
     },
     "general": {
       "createXmp": "建立缺失的 XMP 檔案",
