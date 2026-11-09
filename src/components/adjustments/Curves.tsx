@@ -1274,23 +1274,19 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
         </div>
       </div>
 
-      {/* Manual Input (In/Out) Coordinate Bar for Point Curves */}
+      {/* Coordinate inputs for point curves */}
       {!isParametricMode && (
-        <div className="flex items-center justify-between gap-3 mt-2 px-2 py-1.5 bg-surface-secondary rounded-md text-xs">
-          <Text variant={TextVariants.small} color={TextColors.secondary}>
-            {selectedPoint
-              ? `Point ${selectedPointIndex! + 1} / ${activePoints.length}`
-              : 'Select a point or press Tab'}
-          </Text>
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-center gap-4 mt-2 px-2 py-1.5 bg-surface-secondary rounded-md text-xs">
+          <div className="flex items-center gap-4">
             <label className="flex items-center gap-1">
-              <span className="text-text-secondary">In:</span>
+              <span className="text-text-secondary">Input</span>
               <span className="w-14 shrink-0">
               <input
                 ref={inputXRef}
                 type="text"
                 inputMode="decimal"
                 disabled={!selectedPoint}
+                placeholder="–"
                 readOnly={selectedPointIndex === 0 || selectedPointIndex === activePoints.length - 1}
                 value={coordinateDrafts.x}
                 onFocus={(e) => e.currentTarget.select()}
@@ -1333,13 +1329,14 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
               </span>
             </label>
             <label className="flex items-center gap-1">
-              <span className="text-text-secondary">Out:</span>
+              <span className="text-text-secondary">Output</span>
               <span className="w-14 shrink-0">
               <input
                 ref={inputYRef}
                 type="text"
                 inputMode="decimal"
                 disabled={!selectedPoint}
+                placeholder="–"
                 value={coordinateDrafts.y}
                 onFocus={(e) => e.currentTarget.select()}
                 onChange={(e) => {
