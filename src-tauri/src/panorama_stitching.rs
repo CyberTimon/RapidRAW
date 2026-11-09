@@ -402,7 +402,8 @@ fn stitch_images(image_paths: Vec<String>, app_handle: AppHandle) -> Result<Dyna
         &stitched_images_info,
         &global_homographies,
         app_handle.clone(),
-    );
+    )
+    .inspect_err(|error| log::warn!("Panorama rejected: {}", error))?;
 
     println!("Stitching completed in {:.2?}\n", start_time.elapsed());
 
