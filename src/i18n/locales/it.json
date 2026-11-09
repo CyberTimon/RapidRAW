@@ -911,6 +911,8 @@
         "rapidRawPreset": "Predefinito RapidRAW"
       },
       "menu": {
+        "addToFavorites": "Aggiungi ai preferiti",
+        "removeFromFavorites": "Rimuovi dai preferiti",
         "configurePreset": "Configura Predefinito",
         "deleteFolder": "Elimina Cartella",
         "deletePreset": "Elimina Predefinito",

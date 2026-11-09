@@ -935,6 +935,8 @@
         "rapidRawPreset": "Preset RapidRAW"
       },
       "menu": {
+        "addToFavorites": "Přidat k oblíbeným",
+        "removeFromFavorites": "Odebrat z oblíbených",
         "configurePreset": "Nakonfigurovat preset",
         "deleteFolder": "Smazat složku",
         "deletePreset": "Smazat preset",

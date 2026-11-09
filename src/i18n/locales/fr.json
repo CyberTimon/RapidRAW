@@ -911,6 +911,8 @@
         "rapidRawPreset": "Paramètre prédéfini RapidRAW"
       },
       "menu": {
+        "addToFavorites": "Ajouter aux favoris",
+        "removeFromFavorites": "Retirer des favoris",
         "configurePreset": "Configurer le paramètre prédéfini",
         "deleteFolder": "Supprimer le dossier",
         "deletePreset": "Supprimer le paramètre prédéfini",

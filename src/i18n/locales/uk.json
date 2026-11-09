@@ -935,6 +935,8 @@
         "rapidRawPreset": "Пресет RapidRAW"
       },
       "menu": {
+        "addToFavorites": "Додати до обраного",
+        "removeFromFavorites": "Видалити з обраного",
         "configurePreset": "Налаштувати пресет",
         "deleteFolder": "Видалити папку",
         "deletePreset": "Видалити пресет",

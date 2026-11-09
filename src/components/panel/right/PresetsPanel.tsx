@@ -33,6 +33,8 @@ import {
   Wrench,
   Palette,
   Settings2,
+  Star,
+  StarOff,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ConfigurePresetModal from '../../modals/ConfigurePresetModal';
@@ -566,6 +568,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     importPresetsFromFiles,
     isLoading,
     movePreset,
+    setFavorite,
     overwritePreset,
     presets,
     renameItem,
@@ -582,6 +585,14 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   const [activeItem, setActiveItem] = useState<any>(null);
   const [folderPreviewsGenerated, setFolderPreviewsGenerated] = useState<Set<string>>(new Set());
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
+  const [favoritesExpanded, setFavoritesExpanded] = useState(false);
+  const favoritePresets = useMemo(
+    () =>
+      presets
+        .flatMap((item) => (item.preset ? [item.preset] : (item.folder?.children ?? [])))
+        .filter((preset: Preset) => preset.isFavorite),
+    [presets],
+  );
 
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [presetIntensity, setPresetIntensity] = useState<number>(100);
@@ -772,6 +783,12 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
       return newSet;
     });
   };
+
+  useEffect(() => {
+    if (favoritesExpanded && selectedImage?.isReady) {
+      enqueuePreviews(favoritePresets);
+    }
+  }, [favoritesExpanded, selectedImage?.isReady, favoritePresets, enqueuePreviews]);
 
   const generateSinglePreview = useCallback(
     async (preset: Preset) => {
@@ -1219,6 +1236,13 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
         },
         { type: OPTION_SEPARATOR },
         {
+          icon: (data as Preset)?.isFavorite ? StarOff : Star,
+          label: (data as Preset)?.isFavorite
+            ? t('editor.presets.menu.removeFromFavorites')
+            : t('editor.presets.menu.addToFavorites'),
+          onClick: () => data?.id && setFavorite(data.id, !(data as Preset).isFavorite),
+        },
+        {
           icon: FolderInput,
           label: t('contextMenus.albums.moveTo'),
           submenu: [
@@ -1372,6 +1396,53 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
             </div>
           ) : (
             <>
+              <div className="rounded-lg">
+                <button
+                  type="button"
+                  className="flex items-center gap-2 p-2 rounded-lg bg-surface cursor-pointer w-full text-left"
+                  aria-expanded={favoritesExpanded}
+                  onClick={() => setFavoritesExpanded((value) => !value)}
+                >
+                  <Star size={18} className="text-primary" />
+                  <Text color={TextColors.primary} weight={TextWeights.medium} className="grow truncate select-none">
+                    {t('contextMenus.albumIcons.favorites')}
+                  </Text>
+                  <Text as="span" variant={TextVariants.small} color={TextColors.secondary} className="ml-auto pr-1">
+                    {favoritePresets.length}
+                  </Text>
+                </button>
+                {favoritesExpanded && favoritePresets.length > 0 && (
+                  <div className="ml-4 pl-2 border-l-[1.5px] border-border-color/50 space-y-2 pt-2">
+                    {favoritePresets.map((preset: Preset) => (
+                      <div
+                        key={preset.id}
+                        onClick={() => handleApplyPreset(preset)}
+                        onContextMenu={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          showContextMenu(event.clientX, event.clientY, [
+                            {
+                              icon: StarOff,
+                              label: t('editor.presets.menu.removeFromFavorites'),
+                              onClick: () => setFavorite(preset.id, false),
+                            },
+                          ]);
+                        }}
+                      >
+                        <PresetItemDisplay
+                          preset={preset}
+                          previewUrl={previews[preset.id] || ''}
+                          isGeneratingPreviews={isGeneratingPreviews}
+                          isActive={preset.id === activePresetId}
+                          intensity={preset.id === activePresetId ? presetIntensity : 100}
+                          onIntensityChange={(value) => handleIntensityChange(preset, value)}
+                          onDragStateChange={handleDragStateChange}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               <AnimatePresence>
                 {folders
                   .filter((item: UserPreset) => item.folder?.id !== deletingItemId)

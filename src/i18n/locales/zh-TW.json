@@ -884,6 +884,8 @@
         "rapidRawPreset": "RapidRAW 預設"
       },
       "menu": {
+        "addToFavorites": "加入我的最愛",
+        "removeFromFavorites": "從我的最愛移除",
         "configurePreset": "配置預設",
         "deleteFolder": "刪除資料夾",
         "deletePreset": "刪除預設",

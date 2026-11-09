@@ -884,6 +884,8 @@
         "rapidRawPreset": "RapidRAWプリセット"
       },
       "menu": {
+        "addToFavorites": "お気に入りに追加",
+        "removeFromFavorites": "お気に入りから削除",
         "configurePreset": "プリセットを構成",
         "deleteFolder": "フォルダを削除",
         "deletePreset": "プリセットを削除",

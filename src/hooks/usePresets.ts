@@ -434,6 +434,29 @@ export function usePresets(currentAdjustments: Adjustments) {
     [presets, savePresetsToBackend],
   );
 
+  const setFavorite = useCallback(
+    (presetId: string, isFavorite: boolean) => {
+      const updated = presets.map((item) => {
+        if (item.preset?.id === presetId) return { ...item, preset: { ...item.preset, isFavorite } };
+        if (item.folder) {
+          return {
+            ...item,
+            folder: {
+              ...item.folder,
+              children: item.folder.children.map((preset: Preset) =>
+                preset.id === presetId ? { ...preset, isFavorite } : preset,
+              ),
+            },
+          };
+        }
+        return item;
+      });
+      setPresets(updated);
+      savePresetsToBackend(updated);
+    },
+    [presets, savePresetsToBackend],
+  );
+
   const movePreset = useCallback(
     (presetId: string, targetFolderId: string | null, overId = null) => {
       if (targetFolderId && !presets.some((item) => item.folder?.id === targetFolderId)) {
@@ -652,6 +675,7 @@ export function usePresets(currentAdjustments: Adjustments) {
     importLegacyPresetsFromFile,
     isLoading,
     movePreset,
+    setFavorite,
     overwritePreset,
     presets,
     refreshPresets: loadPresets,
