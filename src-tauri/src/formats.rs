@@ -89,6 +89,16 @@ pub fn is_raw_file<P: AsRef<Path>>(path: P) -> bool {
         .any(|(raw_ext, _)| raw_ext.eq_ignore_ascii_case(ext))
 }
 
+/// Returns true when the bytes start with the signature of a standard (non-RAW) image
+/// format. Used to catch files whose RAW extension does not match their contents, e.g.
+/// JPEGs that cloud photo exports save under the original `.ARW`/`.RW2` filename.
+pub fn has_non_raw_image_signature(bytes: &[u8]) -> bool {
+    const JPEG: &[u8] = &[0xFF, 0xD8, 0xFF];
+    const PNG: &[u8] = &[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
+
+    bytes.starts_with(JPEG) || bytes.starts_with(PNG)
+}
+
 pub fn is_supported_image_file<P: AsRef<Path>>(path: P) -> bool {
     let path = path.as_ref();
 
@@ -115,4 +125,25 @@ pub fn is_supported_image_file<P: AsRef<Path>>(path: P) -> bool {
     NON_RAW_EXTENSIONS
         .iter()
         .any(|non_raw_ext| non_raw_ext.eq_ignore_ascii_case(ext))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn detects_standard_image_signatures() {
+        assert!(has_non_raw_image_signature(&[0xFF, 0xD8, 0xFF, 0xE0, 0x00]));
+        assert!(has_non_raw_image_signature(&[
+            0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A
+        ]));
+    }
+
+    #[test]
+    fn ignores_raw_signatures() {
+        // Little-endian TIFF header used by ARW, NEF, DNG, ...
+        assert!(!has_non_raw_image_signature(&[0x49, 0x49, 0x2A, 0x00]));
+        assert!(!has_non_raw_image_signature(b"FUJIFILMCCD-RAW"));
+        assert!(!has_non_raw_image_signature(&[]));
+    }
 }
