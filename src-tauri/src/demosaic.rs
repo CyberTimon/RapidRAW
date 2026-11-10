@@ -1,15 +1,17 @@
 use std::collections::HashMap;
 use std::num::NonZeroU64;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use anyhow::{Result, anyhow};
+use image::Rgb32FImage;
 use rawler::RawImageData;
 use rawler::imgop::{Dim2, Point, Rect};
 use rawler::rawimage::{RawImage, RawPhotometricInterpretation};
 use rayon::prelude::*;
 use wgpu::util::DeviceExt;
 
+use crate::develop::{Finish, release, scoped, storage, upload, whole};
 use crate::image_processing::GpuContext;
 
 const SHADER: &str = include_str!("shaders/demosaic.wgsl");
@@ -17,7 +19,6 @@ const WORKGROUP: u32 = 8;
 const TILE_BUDGET: u64 = 320 << 20;
 const MAX_TILE: u32 = 2048;
 const RAW_ROW_SLACK: usize = 8;
-const COPY_CHUNK: usize = 1 << 20;
 
 const BAYER_STAGES: &[&str] = &[
     "unpack",
@@ -158,7 +159,7 @@ fn markesteijn_hexagons(colors: &[[u8; 6]; 6]) -> Option<(Hexagons, [usize; 2])>
                     for c in 0..8 {
                         let v = ORTH[d] * PATT[g][c * 2] + ORTH[d + 1] * PATT[g][c * 2 + 1];
                         let h = ORTH[d + 2] * PATT[g][c * 2] + ORTH[d + 3] * PATT[g][c * 2 + 1];
-                        hex[row as usize][col as usize][c ^ (g * 2 & d)] = [h, v];
+                        hex[row as usize][col as usize][c ^ ((g * 2) & d)] = [h, v];
                     }
                     filled[row as usize][col as usize] = true;
                 }
@@ -258,13 +259,6 @@ pub fn warm(device: &Arc<wgpu::Device>) {
         kernels.prepare(Pattern::Bayer);
         kernels.prepare(Pattern::XTrans);
     });
-}
-
-struct Band {
-    slot: usize,
-    first_row: usize,
-    rows: usize,
-    submission: wgpu::SubmissionIndex,
 }
 
 impl<'a> Mosaic<'a> {
@@ -386,22 +380,22 @@ impl<'a> Mosaic<'a> {
         (out, Dim2::new(width, height))
     }
 
-    pub fn demosaic(&self, context: &GpuContext, crop: Rect) -> Result<Vec<[f32; 3]>> {
+    pub fn develop(
+        &self,
+        context: &GpuContext,
+        crop: Rect,
+        finish: &Finish,
+    ) -> Result<Rgb32FImage> {
         let started = Instant::now();
-        let device = &*context.device;
-        let out_of_memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
-        let invalid = device.push_error_scope(wgpu::ErrorFilter::Validation);
-        let result = with_kernels(&context.device, |kernels| {
-            kernels.prepare(self.pattern);
-            self.run(kernels, context, crop)
+        let result = scoped(&context.device, || {
+            with_kernels(&context.device, |kernels| {
+                kernels.prepare(self.pattern);
+                self.run(kernels, context, crop, finish)
+            })
         });
-        let invalid = pollster::block_on(invalid.pop());
-        if let Some(error) = pollster::block_on(out_of_memory.pop()).or(invalid) {
-            return Err(anyhow!("GPU demosaic failed: {}", error));
-        }
         if result.is_ok() {
             log::info!(
-                "GPU demosaic of {}x{} took {:?}",
+                "GPU develop of {}x{} took {:?}",
                 crop.d.w,
                 crop.d.h,
                 started.elapsed()
@@ -449,7 +443,13 @@ impl<'a> Mosaic<'a> {
         }
     }
 
-    fn run(&self, kernels: &Kernels, context: &GpuContext, crop: Rect) -> Result<Vec<[f32; 3]>> {
+    fn run(
+        &self,
+        kernels: &Kernels,
+        context: &GpuContext,
+        crop: Rect,
+        finish: &Finish,
+    ) -> Result<Rgb32FImage> {
         let device = &*context.device;
         let queue = &*context.queue;
         let limits = &context.limits;
@@ -467,68 +467,64 @@ impl<'a> Mosaic<'a> {
         let side = ((texels as f64).sqrt() as u32).min(MAX_TILE) / WORKGROUP * WORKGROUP;
 
         let (crop_w, crop_h) = (crop.d.w as u32, crop.d.h as u32);
-        let row_bytes = crop_w as u64 * 12;
-        let band_rows = (binding_limit / row_bytes).min(u32::MAX as u64) as u32;
         let inner_w = side.saturating_sub(2 * margin).min(crop_w);
-        let inner_h = side.saturating_sub(2 * margin).min(band_rows).min(crop_h);
+        let inner_h = side.saturating_sub(2 * margin).min(crop_h);
         if inner_w < 16 || inner_h < 16 {
             return Err(anyhow!("GPU limits too small for demosaicing"));
         }
         let tile_texels = (inner_w + 2 * margin) as u64 * (inner_h + 2 * margin) as u64;
 
-        let storage = |label: &'static str, bytes: u64, usage: wgpu::BufferUsages| {
-            device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some(label),
-                size: bytes.max(16).div_ceil(16) * 16,
-                usage,
-                mapped_at_creation: false,
-            })
-        };
         let scratch: Vec<wgpu::Buffer> = texel
             .iter()
             .map(|bytes| {
                 storage(
+                    device,
                     "Demosaic Scratch",
                     tile_texels * bytes,
                     wgpu::BufferUsages::STORAGE,
                 )
             })
             .collect();
+        let cam = storage(
+            device,
+            "Demosaic Camera",
+            crop_w as u64 * crop_h as u64 * 12,
+            wgpu::BufferUsages::STORAGE,
+        );
 
         let first_row = self.domain.p.y;
         let raw_rows =
             &self.data[first_row * self.stride..(first_row + self.domain.d.h) * self.stride];
-        let raw = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Demosaic Raw"),
-            contents: bytemuck::cast_slice(raw_rows),
-            usage: wgpu::BufferUsages::STORAGE,
-        });
-        let raw_bytes = raw.size() as usize;
-
-        let band_bytes = row_bytes * inner_h as u64;
-        let bands: [wgpu::Buffer; 2] = std::array::from_fn(|_| {
-            storage(
-                "Demosaic Band",
-                band_bytes,
-                wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-            )
-        });
-        let staging: [wgpu::Buffer; 2] = std::array::from_fn(|_| {
-            storage(
-                "Demosaic Readback",
-                band_bytes,
-                wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-            )
-        });
+        let raw_data: &[u8] = bytemuck::cast_slice(raw_rows);
+        let raw_bytes = raw_data.len().div_ceil(4) * 4;
+        let raw = storage(
+            device,
+            "Demosaic Raw",
+            raw_bytes as u64,
+            wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+        );
+        let mut uploaded = 0;
 
         let base = self.params();
-        let mut out = vec![[0.0f32; 3]; crop.d.w * crop.d.h];
-        let mut pending: Option<Band> = None;
-        let band_count = crop_h.div_ceil(inner_h);
-        for band in 0..band_count {
-            let slot = band as usize % 2;
-            let y0 = band * inner_h;
+        for y0 in (0..crop_h).step_by(inner_h as usize) {
             let rows = inner_h.min(crop_h - y0);
+            let top = (crop.p.y as u32 + y0) as i32 - margin as i32;
+            let row_lo = (top - RAW_ROW_SLACK as i32).max(first_row as i32) as usize - first_row;
+            let row_hi = ((top + (rows + 2 * margin) as i32) as usize + RAW_ROW_SLACK)
+                .min(first_row + self.domain.d.h)
+                - first_row;
+            let start = row_lo * self.stride * 2 / alignment * alignment;
+            let end = ((row_hi * self.stride * 2).div_ceil(4) * 4).min(raw_bytes);
+            let raw_base = first_row * self.stride + start / 2;
+            if end > uploaded {
+                upload(
+                    queue,
+                    &raw,
+                    uploaded,
+                    &raw_data[uploaded..end.min(raw_data.len())],
+                )?;
+                uploaded = end;
+            }
             let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Demosaic Encoder"),
             });
@@ -536,25 +532,17 @@ impl<'a> Mosaic<'a> {
             while x0 < crop_w {
                 let cols = inner_w.min(crop_w - x0);
                 let tile = [cols + 2 * margin, rows + 2 * margin];
-                let origin = [
-                    (crop.p.x as u32 + x0) as i32 - margin as i32,
-                    (crop.p.y as u32 + y0) as i32 - margin as i32,
-                ];
-
-                let row_lo =
-                    (origin[1] - RAW_ROW_SLACK as i32).max(first_row as i32) as usize - first_row;
-                let row_hi = ((origin[1] + tile[1] as i32) as usize + RAW_ROW_SLACK)
-                    .min(first_row + self.domain.d.h)
-                    - first_row;
-                let start = row_lo * self.stride * 2 / alignment * alignment;
-                let end = (row_hi * self.stride * 2).div_ceil(4) * 4;
-                let end = end.min(raw_bytes);
-                let raw_base = first_row * self.stride + start / 2;
+                let origin = [(crop.p.x as u32 + x0) as i32 - margin as i32, top];
 
                 let params = Params {
                     tile: [origin[0], origin[1], tile[0] as i32, tile[1] as i32],
                     inner: [margin as i32, margin as i32, cols as i32, rows as i32],
-                    strides: [self.stride as u32, raw_base as u32, crop_w, x0],
+                    strides: [
+                        self.stride as u32,
+                        raw_base as u32,
+                        crop_w,
+                        y0 * crop_w + x0,
+                    ],
                     ..base
                 };
                 let uniform = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -579,7 +567,7 @@ impl<'a> Mosaic<'a> {
                         .enumerate()
                         .map(|(i, b)| whole(2 + i as u32, b)),
                 );
-                entries.push(whole(7, &bands[slot]));
+                entries.push(whole(7, &cam));
                 let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("Demosaic BG"),
                     layout: &kernels.bind_layout,
@@ -601,68 +589,14 @@ impl<'a> Mosaic<'a> {
                 drop(pass);
                 x0 += cols;
             }
-            encoder.copy_buffer_to_buffer(
-                &bands[slot],
-                0,
-                &staging[slot],
-                0,
-                row_bytes * rows as u64,
-            );
-            let submission = queue.submit(Some(encoder.finish()));
-            let finished = pending.replace(Band {
-                slot,
-                first_row: y0 as usize,
-                rows: rows as usize,
-                submission,
-            });
-            if let Some(finished) = finished {
-                read_band(device, &staging, finished, crop.d.w, &mut out)?;
-            }
+            queue.submit(Some(encoder.finish()));
         }
-        if let Some(finished) = pending {
-            read_band(device, &staging, finished, crop.d.w, &mut out)?;
-        }
-        Ok(out)
+        drop(scratch);
+        let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Develop Encoder"),
+        });
+        let developed = crate::develop::finish(context, encoder, &cam, crop_w, crop_h, finish);
+        release((cam, raw));
+        developed
     }
-}
-
-fn whole(binding: u32, buffer: &wgpu::Buffer) -> wgpu::BindGroupEntry<'_> {
-    wgpu::BindGroupEntry {
-        binding,
-        resource: buffer.as_entire_binding(),
-    }
-}
-
-fn read_band(
-    device: &wgpu::Device,
-    staging: &[wgpu::Buffer; 2],
-    band: Band,
-    width: usize,
-    out: &mut [[f32; 3]],
-) -> Result<()> {
-    let staging = &staging[band.slot];
-    let target = &mut out[band.first_row * width..(band.first_row + band.rows) * width];
-    let slice = staging.slice(..(target.len() * 12) as u64);
-    let (tx, rx) = std::sync::mpsc::channel();
-    slice.map_async(wgpu::MapMode::Read, move |result| {
-        let _ = tx.send(result);
-    });
-    device
-        .poll(wgpu::PollType::Wait {
-            submission_index: Some(band.submission),
-            timeout: Some(Duration::from_secs(60)),
-        })
-        .map_err(|e| anyhow!("Demosaic readback poll failed: {}", e))?;
-    rx.recv()?
-        .map_err(|e| anyhow!("Demosaic readback failed: {}", e))?;
-    {
-        let mapped = slice.get_mapped_range();
-        let bytes: &mut [u8] = bytemuck::cast_slice_mut(target);
-        bytes
-            .par_chunks_mut(COPY_CHUNK)
-            .zip(mapped.par_chunks(COPY_CHUNK))
-            .for_each(|(dst, src)| dst.copy_from_slice(src));
-    }
-    staging.unmap();
-    Ok(())
 }

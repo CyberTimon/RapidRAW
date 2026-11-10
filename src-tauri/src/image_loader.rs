@@ -9,7 +9,6 @@ use crate::formats::is_raw_file;
 use crate::image_processing::ImageMetadata;
 use crate::image_processing::{
     apply_orientation, apply_srgb_to_linear, effective_baseline_exposure, linear_channel_to_srgb,
-    remove_raw_artifacts_and_enhance,
 };
 use crate::mask_generation::{MaskDefinition, SubMask, generate_mask_bitmap};
 use crate::white_balance::WhiteBalance;
@@ -35,7 +34,6 @@ use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
 };
-use std::time::Instant;
 use tauri::Manager;
 
 #[derive(serde::Serialize)]
@@ -158,26 +156,12 @@ pub fn load_base_image_from_bytes(
                 use_fast_raw_dev,
                 highlight_compression,
                 linear_mode,
+                color_nr_amount,
+                sharpening_amount,
                 cancel_token,
             )
         }) {
-            Ok(Ok(mut image)) => {
-                if !use_fast_raw_dev && (color_nr_amount > 0.0 || sharpening_amount > 0.0) {
-                    let start = Instant::now();
-                    remove_raw_artifacts_and_enhance(
-                        &mut image,
-                        color_nr_amount,
-                        sharpening_amount,
-                    );
-                    let duration = start.elapsed();
-                    log::info!(
-                        "Raw enhancing for '{}' took {:?}",
-                        path_for_ext_check,
-                        duration
-                    );
-                }
-                Ok(image)
-            }
+            Ok(Ok(image)) => Ok(image),
             Ok(Err(e)) => {
                 let classified = classify_raw_develop_error(path_for_ext_check, e);
 
@@ -221,23 +205,12 @@ pub fn load_base_image_from_bytes(
             }
         }
     } else {
-        let mut image = load_image_with_orientation(bytes, cancel_token)?;
-
-        if apply_to_non_raws
-            && !use_fast_raw_dev
-            && (color_nr_amount > 0.0 || sharpening_amount > 0.0)
-        {
-            let start = Instant::now();
-            remove_raw_artifacts_and_enhance(&mut image, color_nr_amount, sharpening_amount);
-            let duration = start.elapsed();
-            log::info!(
-                "Enhancing non-RAW '{}' took {:?}",
-                path_for_ext_check,
-                duration
-            );
+        let image = load_image_with_orientation(bytes, cancel_token)?;
+        if apply_to_non_raws && !use_fast_raw_dev {
+            crate::develop::enhance(image, color_nr_amount, sharpening_amount)
+        } else {
+            Ok(image)
         }
-
-        Ok(image)
     }
 }
 

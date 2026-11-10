@@ -966,6 +966,7 @@ pub fn get_or_init_gpu_context(
     let compute = Arc::clone(&new_context.compute);
     std::thread::spawn(move || {
         crate::demosaic::warm(&device);
+        crate::develop::warm(&device);
         compute
             .get_or_init(|| crate::gpu_compute::ComputePipelines::new(&device))
             .warm(&device);
