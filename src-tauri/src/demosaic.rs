@@ -19,13 +19,17 @@ const MAX_TILE: u32 = 2048;
 const RAW_ROW_SLACK: usize = 8;
 const COPY_CHUNK: usize = 1 << 20;
 
-const RCD_STAGES: &[&str] = &[
+const BAYER_STAGES: &[&str] = &[
     "unpack",
     "rcd_vh",
-    "rcd_lpf",
     "rcd_green",
-    "rcd_pq",
-    "rcd_rb",
+    "rb_prepare",
+    "rb_stats",
+    "rb_coef",
+    "rb_average",
+    "rb_tentative",
+    "rb_residual",
+    "rb_smooth",
 ];
 const MARKESTEIJN_STAGES: &[&str] = &[
     "unpack",
@@ -64,28 +68,28 @@ impl Pattern {
 
     fn margin(self) -> u32 {
         match self {
-            Pattern::Bayer => 16,
+            Pattern::Bayer => 32,
             Pattern::XTrans => 32,
         }
     }
 
     fn texel_bytes(self) -> [u64; 5] {
         match self {
-            Pattern::Bayer => [4, 4, 0, 16, 0],
+            Pattern::Bayer => [4, 8, 160, 4, 0],
             Pattern::XTrans => [4, 8, 128, 32, 4],
         }
     }
 
     fn stages(self) -> &'static [&'static str] {
         match self {
-            Pattern::Bayer => RCD_STAGES,
+            Pattern::Bayer => BAYER_STAGES,
             Pattern::XTrans => MARKESTEIJN_STAGES,
         }
     }
 
     fn output(self) -> &'static str {
         match self {
-            Pattern::Bayer => "rcd_out",
+            Pattern::Bayer => "rb_out",
             Pattern::XTrans => "xt_out",
         }
     }

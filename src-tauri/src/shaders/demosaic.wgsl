@@ -19,9 +19,6 @@ struct Params {
 @group(0) @binding(6) var<storage, read_write> words: array<u32>;
 @group(0) @binding(7) var<storage, read_write> dst: array<f32>;
 
-const EPS: f32 = 1e-5;
-const EPSSQ: f32 = 1e-10;
-
 const PHASE_BIAS: i32 = 600;
 
 fn pmod(a: i32, m: i32) -> i32 {
@@ -94,6 +91,45 @@ fn unpack(@builtin(global_invocation_id) id: vec3<u32>) {
     cfa[at(x, y)] = max(value - black, 0.0) * P.wb.w * P.wb[color(x, y)];
 }
 
+const EPS: f32 = 1e-5;
+const EPSSQ: f32 = 1e-10;
+const RB_EPS: f32 = 1e-5;
+const RB_SHOT: f32 = 1e-4;
+const RB_SIGMA: f32 = 1.5;
+const RB_TINY: f32 = 1e-20;
+const RB_RADIUS: i32 = 4;
+const RB_AREA: f32 = 81.0;
+
+const STATE: u32 = 0u;
+const STATS: u32 = 2u;
+const COEF: u32 = 6u;
+const CRIT: u32 = 9u;
+const SMOOTH: u32 = COEF;
+const TENTATIVE: u32 = STATE;
+const REFINED: u32 = 1u;
+
+struct ColorCoef {
+    ri: vec2<f32>,
+    ml: vec3<f32>,
+}
+
+fn layer(i: u32, p: vec2<i32>) -> vec4<f32> {
+    return b1[plane(i) + at(p.x, p.y)];
+}
+
+fn put(i: u32, p: vec2<i32>, v: vec4<f32>) {
+    b1[plane(i) + at(p.x, p.y)] = v;
+}
+
+fn gauss(s: i32, sigma: f32) -> f32 {
+    let f = f32(s) / sigma;
+    return exp(-0.5 * f * f);
+}
+
+fn green_at(p: vec2<i32>) -> f32 {
+    return b2[at(p.x, p.y)];
+}
+
 fn hpf_v(x: i32, y: i32) -> f32 {
     return sq(mos(x, y - 3) - mos(x, y - 1) - mos(x, y + 1) + mos(x, y + 3)
         - 3.0 * (mos(x, y - 2) + mos(x, y + 2)) + 6.0 * mos(x, y));
@@ -104,34 +140,20 @@ fn hpf_h(x: i32, y: i32) -> f32 {
         - 3.0 * (mos(x - 2, y) + mos(x + 2, y)) + 6.0 * mos(x, y));
 }
 
-fn hpf_p(x: i32, y: i32) -> f32 {
-    return sq(mos(x - 3, y - 3) - mos(x - 1, y - 1) - mos(x + 1, y + 1) + mos(x + 3, y + 3)
-        - 3.0 * (mos(x - 2, y - 2) + mos(x + 2, y + 2)) + 6.0 * mos(x, y));
-}
-
-fn hpf_q(x: i32, y: i32) -> f32 {
-    return sq(mos(x + 3, y - 3) - mos(x + 1, y - 1) - mos(x - 1, y + 1) + mos(x - 3, y + 3)
-        - 3.0 * (mos(x + 2, y - 2) + mos(x - 2, y + 2)) + 6.0 * mos(x, y));
-}
-
 fn refine(center: f32, around: f32) -> f32 {
     return clamp(select(center, around, abs(0.5 - center) < abs(0.5 - around)), 0.0, 1.0);
 }
 
 fn vh(x: i32, y: i32) -> f32 {
-    return b0[at(x, y)];
+    return b0[at(x, y) * 2u];
+}
+
+fn lowpass(x: i32, y: i32) -> f32 {
+    return b0[at(x, y) * 2u + 1u];
 }
 
 fn vh_disc(x: i32, y: i32) -> f32 {
     return refine(vh(x, y), 0.25 * (vh(x - 1, y - 1) + vh(x + 1, y - 1) + vh(x - 1, y + 1) + vh(x + 1, y + 1)));
-}
-
-fn rcd_green_at(x: i32, y: i32) -> f32 {
-    return aux(x, y, 3u);
-}
-
-fn aux(x: i32, y: i32, k: u32) -> f32 {
-    return b2[at(x, y) * 4u + k];
 }
 
 @compute @workgroup_size(8, 8)
@@ -143,17 +165,9 @@ fn rcd_vh(@builtin(global_invocation_id) id: vec3<u32>) {
     let y = i32(id.y);
     let v = max(EPSSQ, hpf_v(x, y - 1) + hpf_v(x, y) + hpf_v(x, y + 1));
     let h = max(EPSSQ, hpf_h(x - 1, y) + hpf_h(x, y) + hpf_h(x + 1, y));
-    b0[at(x, y)] = v / (v + h);
-}
-
-@compute @workgroup_size(8, 8)
-fn rcd_lpf(@builtin(global_invocation_id) id: vec3<u32>) {
-    if (!in_tile(id)) {
-        return;
-    }
-    let x = i32(id.x);
-    let y = i32(id.y);
-    b2[at(x, y) * 4u] = mos(x, y)
+    let i = at(x, y) * 2u;
+    b0[i] = v / (v + h);
+    b0[i + 1u] = mos(x, y)
         + 0.5 * (mos(x, y - 1) + mos(x, y + 1) + mos(x - 1, y) + mos(x + 1, y))
         + 0.25 * (mos(x - 1, y - 1) + mos(x + 1, y - 1) + mos(x - 1, y + 1) + mos(x + 1, y + 1));
 }
@@ -167,7 +181,7 @@ fn rcd_green(@builtin(global_invocation_id) id: vec3<u32>) {
     let y = i32(id.y);
     let c0 = mos(x, y);
     if (color(x, y) == 1u) {
-        b2[at(x, y) * 4u + 3u] = c0;
+        b2[at(x, y)] = c0;
         return;
     }
     let n_grad = EPS + abs(mos(x, y - 1) - mos(x, y + 1)) + abs(c0 - mos(x, y - 2))
@@ -179,103 +193,223 @@ fn rcd_green(@builtin(global_invocation_id) id: vec3<u32>) {
     let e_grad = EPS + abs(mos(x + 1, y) - mos(x - 1, y)) + abs(c0 - mos(x + 2, y))
         + abs(mos(x + 1, y) - mos(x + 3, y)) + abs(mos(x + 2, y) - mos(x + 4, y));
 
-    let l = aux(x, y, 0u);
-    let n_est = mos(x, y - 1) * (l + l) / (EPS + l + aux(x, y - 2, 0u));
-    let s_est = mos(x, y + 1) * (l + l) / (EPS + l + aux(x, y + 2, 0u));
-    let w_est = mos(x - 1, y) * (l + l) / (EPS + l + aux(x - 2, y, 0u));
-    let e_est = mos(x + 1, y) * (l + l) / (EPS + l + aux(x + 2, y, 0u));
+    let l = lowpass(x, y);
+    let n_est = mos(x, y - 1) * (l + l) / (EPS + l + lowpass(x, y - 2));
+    let s_est = mos(x, y + 1) * (l + l) / (EPS + l + lowpass(x, y + 2));
+    let w_est = mos(x - 1, y) * (l + l) / (EPS + l + lowpass(x - 2, y));
+    let e_est = mos(x + 1, y) * (l + l) / (EPS + l + lowpass(x + 2, y));
 
     let v_est = (s_grad * n_est + n_grad * s_est) / (n_grad + s_grad);
     let h_est = (w_grad * e_est + e_grad * w_est) / (e_grad + w_grad);
-    b2[at(x, y) * 4u + 3u] = mix(v_est, h_est, vh_disc(x, y));
+    b2[at(x, y)] = mix(v_est, h_est, vh_disc(x, y));
 }
 
 @compute @workgroup_size(8, 8)
-fn rcd_pq(@builtin(global_invocation_id) id: vec3<u32>) {
+fn rb_prepare(@builtin(global_invocation_id) id: vec3<u32>) {
+    let p = vec2<i32>(id.xy);
     if (!in_tile(id)) {
         return;
     }
-    let x = i32(id.x);
-    let y = i32(id.y);
-    if (color(x, y) == 1u) {
+    if (tint(p) == 1u) {
+        put(STATE, p, vec4<f32>(0.0));
+        put(STATE + 1u, p, vec4<f32>(0.0));
         return;
     }
-    let p = max(EPSSQ, hpf_p(x - 1, y - 1) + hpf_p(x, y) + hpf_p(x + 1, y + 1));
-    let q = max(EPSSQ, hpf_q(x + 1, y - 1) + hpf_q(x, y) + hpf_q(x - 1, y + 1));
-    b2[at(x, y) * 4u] = p / (p + q);
+    let g = green_at(p);
+    let x = pick(p);
+    let lg = 4.0 * g - green_at(p + vec2<i32>(-2, 0)) - green_at(p + vec2<i32>(2, 0))
+        - green_at(p + vec2<i32>(0, -2)) - green_at(p + vec2<i32>(0, 2));
+    let lx = 4.0 * x - pick(p + vec2<i32>(-2, 0)) - pick(p + vec2<i32>(2, 0))
+        - pick(p + vec2<i32>(0, -2)) - pick(p + vec2<i32>(0, 2));
+    put(STATE, p, vec4<f32>(1.0, g, x, g * g));
+    put(STATE + 1u, p, vec4<f32>(x * x, g * x, lg * lx, lg * lg));
 }
 
 @compute @workgroup_size(8, 8)
-fn rcd_rb(@builtin(global_invocation_id) id: vec3<u32>) {
+fn rb_stats(@builtin(global_invocation_id) id: vec3<u32>) {
+    let p = vec2<i32>(id.xy);
     if (!in_tile(id)) {
         return;
     }
-    let x = i32(id.x);
-    let y = i32(id.y);
-    let own = color(x, y);
-    if (own == 1u) {
-        return;
+    var r0 = vec4<f32>(0.0);
+    var r1 = vec4<f32>(0.0);
+    var u0 = vec4<f32>(0.0);
+    var u1 = vec4<f32>(0.0);
+    for (var s = -RB_RADIUS; s <= RB_RADIUS; s++) {
+        let q = p + vec2<i32>(s, 0);
+        let red = f32(tint(q) == 0u);
+        let a = layer(STATE, q);
+        let b = layer(STATE + 1u, q);
+        r0 += red * a;
+        r1 += red * b;
+        u0 += (1.0 - red) * a;
+        u1 += (1.0 - red) * b;
     }
-    let disc = refine(aux(x, y, 0u), 0.25 * (aux(x - 1, y - 1, 0u) + aux(x + 1, y - 1, 0u)
-        + aux(x - 1, y + 1, 0u) + aux(x + 1, y + 1, 0u)));
-    let g0 = rcd_green_at(x, y);
+    put(STATS, p, r0);
+    put(STATS + 1u, p, r1);
+    put(STATS + 2u, p, u0);
+    put(STATS + 3u, p, u1);
+}
 
-    let nw_grad = EPS + abs(mos(x - 1, y - 1) - mos(x + 1, y + 1)) + abs(mos(x - 1, y - 1) - mos(x - 3, y - 3))
-        + abs(g0 - rcd_green_at(x - 2, y - 2));
-    let ne_grad = EPS + abs(mos(x + 1, y - 1) - mos(x - 1, y + 1)) + abs(mos(x + 1, y - 1) - mos(x + 3, y - 3))
-        + abs(g0 - rcd_green_at(x + 2, y - 2));
-    let sw_grad = EPS + abs(mos(x + 1, y - 1) - mos(x - 1, y + 1)) + abs(mos(x - 1, y + 1) - mos(x - 3, y + 3))
-        + abs(g0 - rcd_green_at(x - 2, y + 2));
-    let se_grad = EPS + abs(mos(x - 1, y - 1) - mos(x + 1, y + 1)) + abs(mos(x + 1, y + 1) - mos(x + 3, y + 3))
-        + abs(g0 - rcd_green_at(x + 2, y + 2));
-
-    let nw_est = mos(x - 1, y - 1) - rcd_green_at(x - 1, y - 1);
-    let ne_est = mos(x + 1, y - 1) - rcd_green_at(x + 1, y - 1);
-    let sw_est = mos(x - 1, y + 1) - rcd_green_at(x - 1, y + 1);
-    let se_est = mos(x + 1, y + 1) - rcd_green_at(x + 1, y + 1);
-
-    let p_est = (nw_grad * se_est + se_grad * nw_est) / (nw_grad + se_grad);
-    let q_est = (ne_grad * sw_est + sw_grad * ne_est) / (ne_grad + sw_grad);
-
-    let i = at(x, y) * 4u;
-    b2[i + 1u + (own >> 1u)] = mos(x, y);
-    b2[i + 2u - (own >> 1u)] = g0 + mix(p_est, q_est, disc);
+fn color_coef(s0: vec4<f32>, s1: vec4<f32>) -> ColorCoef {
+    let n = max(s0.x, 1e-12);
+    let mg = s0.y / n;
+    let mx = s0.z / n;
+    let a = (s1.y / n - mg * mx) / (s0.w / n - mg * mg + RB_EPS + RB_SHOT * mg);
+    let b = mx - a * mg;
+    let a2 = s1.z / (s1.w + RB_EPS + RB_SHOT * 20.0 * s0.y);
+    let b2 = mx - a2 * mg;
+    let e = (s1.x - 2.0 * a2 * s1.y - 2.0 * b2 * s0.z + a2 * a2 * s0.w + 2.0 * a2 * b2 * s0.y + b2 * b2 * s0.x) / n;
+    let wt = 1.0 / max(e, 1e-10);
+    return ColorCoef(vec2<f32>(a, b), vec3<f32>(wt * a2, wt * b2, wt));
 }
 
 @compute @workgroup_size(8, 8)
-fn rcd_out(@builtin(global_invocation_id) id: vec3<u32>) {
+fn rb_coef(@builtin(global_invocation_id) id: vec3<u32>) {
+    let p = vec2<i32>(id.xy);
+    if (!in_tile(id)) {
+        return;
+    }
+    var m0 = vec4<f32>(0.0);
+    var m1 = vec4<f32>(0.0);
+    var m2 = vec4<f32>(0.0);
+    var m3 = vec4<f32>(0.0);
+    for (var s = -RB_RADIUS; s <= RB_RADIUS; s++) {
+        let q = p + vec2<i32>(0, s);
+        m0 += layer(STATS, q);
+        m1 += layer(STATS + 1u, q);
+        m2 += layer(STATS + 2u, q);
+        m3 += layer(STATS + 3u, q);
+    }
+    let r = color_coef(m0 / RB_AREA, m1 / RB_AREA);
+    let b = color_coef(m2 / RB_AREA, m3 / RB_AREA);
+    put(COEF, p, vec4<f32>(r.ri, b.ri));
+    put(COEF + 1u, p, vec4<f32>(r.ml, b.ml.x));
+    put(COEF + 2u, p, vec4<f32>(b.ml.yz, 0.0, 0.0));
+}
+
+@compute @workgroup_size(8, 8)
+fn rb_average(@builtin(global_invocation_id) id: vec3<u32>) {
+    let p = vec2<i32>(id.xy);
+    if (!in_tile(id)) {
+        return;
+    }
+    var s0 = vec4<f32>(0.0);
+    var s1 = vec4<f32>(0.0);
+    var s2 = vec4<f32>(0.0);
+    for (var s = -RB_RADIUS; s <= RB_RADIUS; s++) {
+        let q = p + vec2<i32>(s, 0);
+        s0 += layer(COEF, q);
+        s1 += layer(COEF + 1u, q);
+        s2 += layer(COEF + 2u, q);
+    }
+    put(STATS, p, s0);
+    put(STATS + 1u, p, s1);
+    put(STATS + 2u, p, s2);
+}
+
+@compute @workgroup_size(8, 8)
+fn rb_tentative(@builtin(global_invocation_id) id: vec3<u32>) {
+    let p = vec2<i32>(id.xy);
+    if (!in_tile(id)) {
+        return;
+    }
+    var s0 = vec4<f32>(0.0);
+    var s1 = vec4<f32>(0.0);
+    var s2 = vec4<f32>(0.0);
+    for (var s = -RB_RADIUS; s <= RB_RADIUS; s++) {
+        let q = p + vec2<i32>(0, s);
+        s0 += layer(STATS, q);
+        s1 += layer(STATS + 1u, q);
+        s2 += layer(STATS + 2u, q);
+    }
+    let g = green_at(p);
+    put(TENTATIVE, p, vec4<f32>(
+        (s0.x * g + s0.y) / RB_AREA,
+        (s1.x * g + s1.y) / s1.z,
+        (s0.z * g + s0.w) / RB_AREA,
+        (s1.w * g + s2.x) / s2.y,
+    ));
+}
+
+@compute @workgroup_size(8, 8)
+fn rb_residual(@builtin(global_invocation_id) id: vec3<u32>) {
+    let p = vec2<i32>(id.xy);
+    if (!in_tile(id)) {
+        return;
+    }
+    var resid = vec4<f32>(0.0);
+    var base = vec2<f32>(0.0);
+    for (var dy = -1; dy <= 1; dy++) {
+        for (var dx = -1; dx <= 1; dx++) {
+            let q = p + vec2<i32>(dx, dy);
+            let col = tint(q);
+            if (col == 1u) {
+                continue;
+            }
+            let k = select(select(0.25, 0.5, dx == 0 || dy == 0), 1.0, dx == 0 && dy == 0);
+            let c = pick(q);
+            let t = layer(TENTATIVE, q);
+            if (col == 0u) {
+                resid += k * vec4<f32>(c - t.x, c - t.y, 0.0, 0.0);
+                base.x += k * (c - green_at(q));
+            } else {
+                resid += k * vec4<f32>(0.0, 0.0, c - t.z, c - t.w);
+                base.y += k * (c - green_at(q));
+            }
+        }
+    }
+    let t = layer(TENTATIVE, p);
+    let g = green_at(p);
+    put(REFINED, p, t + resid);
+    put(CRIT, p, t - vec4<f32>(g + base.x, g + base.x, g + base.y, g + base.y));
+}
+
+fn color_crit(q: vec2<i32>) -> vec4<f32> {
+    let d = layer(CRIT, q);
+    let gx = abs(layer(CRIT, q + vec2<i32>(1, 0)) - layer(CRIT, q - vec2<i32>(1, 0)));
+    let gy = abs(layer(CRIT, q + vec2<i32>(0, 1)) - layer(CRIT, q - vec2<i32>(0, 1)));
+    return d * d * (gx + gy) * 0.5;
+}
+
+@compute @workgroup_size(8, 8)
+fn rb_smooth(@builtin(global_invocation_id) id: vec3<u32>) {
+    let p = vec2<i32>(id.xy);
+    if (!in_tile(id)) {
+        return;
+    }
+    var acc = vec4<f32>(0.0);
+    var total = 0.0;
+    for (var s = -5; s <= 5; s++) {
+        let k = gauss(s, RB_SIGMA);
+        acc += k * color_crit(p + vec2<i32>(s, 0));
+        total += k;
+    }
+    put(SMOOTH, p, acc / total);
+}
+
+@compute @workgroup_size(8, 8)
+fn rb_out(@builtin(global_invocation_id) id: vec3<u32>) {
     if (!in_inner(id)) {
         return;
     }
-    let x = P.inner.x + i32(id.x);
-    let y = P.inner.y + i32(id.y);
-    let g0 = rcd_green_at(x, y);
-    if (color(x, y) != 1u) {
-        emit(id, vec3<f32>(aux(x, y, 1u), g0, aux(x, y, 2u)));
-        return;
+    let p = P.inner.xy + vec2<i32>(id.xy);
+    var acc = vec4<f32>(0.0);
+    var total = 0.0;
+    for (var s = -5; s <= 5; s++) {
+        let k = gauss(s, RB_SIGMA);
+        acc += k * layer(SMOOTH, p + vec2<i32>(0, s));
+        total += k;
     }
-    let disc = vh_disc(x, y);
-    let n1 = EPS + abs(g0 - rcd_green_at(x, y - 2));
-    let s1 = EPS + abs(g0 - rcd_green_at(x, y + 2));
-    let w1 = EPS + abs(g0 - rcd_green_at(x - 2, y));
-    let e1 = EPS + abs(g0 - rcd_green_at(x + 2, y));
-    var rb = vec2<f32>(0.0);
-    for (var k = 1u; k <= 2u; k++) {
-        let sn = abs(aux(x, y - 1, k) - aux(x, y + 1, k));
-        let ew = abs(aux(x - 1, y, k) - aux(x + 1, y, k));
-        let n_grad = n1 + sn + abs(aux(x, y - 1, k) - aux(x, y - 3, k));
-        let s_grad = s1 + sn + abs(aux(x, y + 1, k) - aux(x, y + 3, k));
-        let w_grad = w1 + ew + abs(aux(x - 1, y, k) - aux(x - 3, y, k));
-        let e_grad = e1 + ew + abs(aux(x + 1, y, k) - aux(x + 3, y, k));
-        let n_est = aux(x, y - 1, k) - rcd_green_at(x, y - 1);
-        let s_est = aux(x, y + 1, k) - rcd_green_at(x, y + 1);
-        let w_est = aux(x - 1, y, k) - rcd_green_at(x - 1, y);
-        let e_est = aux(x + 1, y, k) - rcd_green_at(x + 1, y);
-        let v_est = (n_grad * s_est + s_grad * n_est) / (n_grad + s_grad);
-        let h_est = (e_grad * w_est + w_grad * e_est) / (e_grad + w_grad);
-        rb[k - 1u] = g0 + mix(v_est, h_est, disc);
-    }
-    emit(id, vec3<f32>(rb.x, g0, rb.y));
+    let wt = 1.0 / (acc / total + vec4<f32>(RB_TINY));
+    let x = layer(REFINED, p) * wt;
+    var r = (x.x + x.y) / (wt.x + wt.y);
+    var b = (x.z + x.w) / (wt.z + wt.w);
+    let col = tint(p);
+    let c = pick(p);
+    r = select(r, c, col == 0u);
+    b = select(b, c, col == 2u);
+    emit(id, vec3<f32>(r, green_at(p), b));
 }
 
 fn hex(p: vec2<i32>, k: u32) -> vec2<i32> {
