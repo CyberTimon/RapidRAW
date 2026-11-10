@@ -41,6 +41,7 @@ dependencies = [
  "lsdetect",
  "memmap2",
  "mimalloc",
+ "moxcms",
  "mozjpeg-rs",
  "nalgebra",
  "ndarray",
@@ -53,6 +54,7 @@ dependencies = [
  "objc2-foundation",
  "once_cell",
  "ort",
+ "png 0.18.1",
  "pollster",
  "quick-xml 0.41.0",
  "rand 0.10.2",
@@ -4413,7 +4415,7 @@ version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "680998035259dcfcafe653688bf2aa6d3e2dc05e98be6ab46afb089dc84f1df8"
 dependencies = [
- "proc-macro-crate 3.5.0",
+ "proc-macro-crate 2.0.2",
  "proc-macro2",
  "quote",
  "syn 2.0.119",
@@ -5552,7 +5554,7 @@ dependencies = [
 [[package]]
 name = "rawler"
 version = "0.7.1"
-source = "git+https://github.com/CyberTimon/RapidRAW-DngLab.git#9dbcc5654ad4b15e2649e6636e96f1b49fc9cf0f"
+source = "git+https://github.com/CyberTimon/RapidRAW-DngLab.git#b1d102af3e5543c9582e99718c7ae57d564ec176"
 dependencies = [
  "backtrace",
  "bitstream-io",

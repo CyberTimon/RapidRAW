@@ -988,6 +988,9 @@
   "export": {
     "advanced": {
       "exportMasks": "Esporta maschere come file separati",
+      "exportOriginal": "Esporta anche l'originale",
+      "originalCrop": "Applica ritaglio",
+      "originalKeepExposure": "Mantieni esposizione",
       "preserveFolders": "Mantieni Struttura Cartelle",
       "preserveTimestamps": "Imposta Timestamp File dalla Data di Acquisizione EXIF",
       "title": "Impostazioni di Esportazione"
@@ -1744,7 +1747,6 @@
       "selectManufacturer": "Seleziona Produttore",
       "title": "Correzione Obiettivo",
       "vignetting": "Vignettatura",
-      "waitingAutoDetect": "In attesa del Rilevamento Automatico...",
       "zoomInTooltip": "Ingrandisci",
       "zoomOutTooltip": "Riduci"
     },
@@ -1973,6 +1975,11 @@
       "title": "Impostazioni Generali",
       "toolFocusMode": "Modalità Focus Strumenti",
       "toolFocusModeDesc": "Comprime automaticamente gli altri strumenti di un pannello quando ne espandi uno.",
+      "uiScale": "Scala dell'interfaccia",
+      "uiScaleCompact": "Compatta",
+      "uiScaleDefault": "Predefinita",
+      "uiScaleDesc": "Rimpicciolisci o ingrandisci l'interfaccia, indipendentemente dal ridimensionamento dello schermo del sistema. Le dimensioni compatte mostrano più contenuti sugli schermi piccoli dei portatili.",
+      "uiScaleLarge": "Grande",
       "xmpSync": "Sincronizzazione Metadati XMP",
       "xmpSyncDesc": "Sincronizza valutazioni, etichette colore e tag nei file sidecar XMP standard per la compatibilità con altri editor fotografici."
     },
@@ -2242,8 +2249,6 @@
       "smallThumbnailRes": "Risoluzione delle miniature della griglia",
       "smallThumbnailResDesc": "Risoluzione delle miniature mostrate nella griglia della libreria.",
       "staticDesc": "L'editor renderizza l'immagine a una risoluzione fissa. Questa modalità è la più veloce e coerente, rendendola ideale per hardware meno potenti dove si privilegia una prestazione fluida rispetto a uno zoom perfetto al pixel.",
-      "staticPreviewRes": "Risoluzione Anteprima Statica",
-      "staticPreviewResDesc": "Imposta la risoluzione per le anteprime statiche come la modalità ritaglio, la correzione obiettivo e gli strumenti di prospettiva. Non influisce sull'anteprima principale dell'editor.",
       "threads": "Thread",
       "thumbnailRes": "Risoluzione Miniatura",
       "thumbnailResDesc": "Determina la risoluzione delle miniature della libreria generate. Valori più alti producono immagini più nitide durante il caricamento.",

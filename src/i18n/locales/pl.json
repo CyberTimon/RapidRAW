@@ -1012,6 +1012,9 @@
   "export": {
     "advanced": {
       "exportMasks": "Eksportuj maski jako osobne pliki",
+      "exportOriginal": "Eksportuj również oryginał",
+      "originalCrop": "Zastosuj kadrowanie",
+      "originalKeepExposure": "Zachowaj ekspozycję",
       "preserveFolders": "Zachowaj strukturę folderów",
       "preserveTimestamps": "Ustaw datę modyfikacji pliku na podstawie daty wykonania (EXIF)",
       "title": "Ustawienia eksportu"
@@ -1780,7 +1783,6 @@
       "selectManufacturer": "Wybierz producenta",
       "title": "Korekcja obiektywu",
       "vignetting": "Winietowanie",
-      "waitingAutoDetect": "Oczekiwanie na automatyczne wykrycie...",
       "zoomInTooltip": "Przybliż",
       "zoomOutTooltip": "Oddal"
     },
@@ -2014,6 +2016,11 @@
       "title": "Ustawienia ogólne",
       "toolFocusMode": "Tryb skupienia na narzędziach",
       "toolFocusModeDesc": "Automatycznie zwija inne narzędzia w panelu, gdy rozwijasz jedno z nich.",
+      "uiScale": "Skala interfejsu",
+      "uiScaleCompact": "Kompaktowy",
+      "uiScaleDefault": "Domyślny",
+      "uiScaleDesc": "Zmniejsz lub powiększ interfejs niezależnie od skalowania ekranu w systemie. Kompaktowe rozmiary mieszczą więcej na małych ekranach laptopów.",
+      "uiScaleLarge": "Duży",
       "xmpSync": "Synchronizacja metadanych XMP",
       "xmpSyncDesc": "Synchronizuj oceny, etykiety kolorów i tagi do standardowych plików XMP w celu zachowania kompatybilności z innymi edytorami zdjęć."
     },
@@ -2283,8 +2290,6 @@
       "smallThumbnailRes": "Rozdzielczość miniatur w siatce",
       "smallThumbnailResDesc": "Rozdzielczość miniatur wyświetlanych w siatce biblioteki.",
       "staticDesc": "Edytor renderuje obraz w stałej rozdzielczości. Ten tryb jest najszybszy i najbardziej spójny, idealny dla słabszych komputerów, gdzie priorytetem jest płynne działanie a nie perfekcyjna jakość po zbliżeniu.",
-      "staticPreviewRes": "Rozdzielczość statycznego podglądu",
-      "staticPreviewResDesc": "Określa rozdzielczość dla statycznych podglądów, takich jak tryb kadrowania i narzędzia perspektywy. Nie wpływa to na podgląd głównego edytora.",
       "threads": "Wątki",
       "thumbnailRes": "Rozdzielczość miniatur",
       "thumbnailResDesc": "Decyduje o rozdzielczości generowanych miniatur w bibliotece. Wyższa wartość da ostrzejszy obraz po wczytaniu.",

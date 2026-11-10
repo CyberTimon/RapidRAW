@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
 import { TFunction } from 'i18next';
 import { SignalHigh, SignalLow, SignalMedium } from 'lucide-react';
-import { useEditorStore } from '../store/useEditorStore';
+import { useEditorStore, debouncedSetHistory } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useProcessStore } from '../store/useProcessStore';
@@ -17,19 +17,18 @@ import {
   INITIAL_ADJUSTMENTS,
   COPYABLE_ADJUSTMENT_KEYS,
   PasteMode,
-  LensAdjustment,
   getActiveTools,
   mergeActiveTools,
   normalizeLoadedAdjustments,
   setToolActive,
 } from '../utils/adjustments';
 import { calculateAutoCropForRotation, calculateCenteredCrop } from '../utils/cropUtils';
+import originalAdjustmentKeys from '../utils/originalAdjustmentKeys.json';
 import { CompareMode, Invokes, Option, Panel, SelectedImage } from '../components/ui/AppProperties';
 import { globalImageCache } from '../utils/ImageLRUCache';
+import { getDevicePixelRatio } from '../utils/displayScale';
 
-export const debouncedSetHistory = debounce((newAdj: Adjustments, label?: string) => {
-  useEditorStore.getState().pushHistory(newAdj, label);
-}, 500);
+export { debouncedSetHistory };
 
 export const debouncedSave = debounce((path: string, adjustmentsToSave: Adjustments) => {
   invoke(Invokes.SaveMetadataAndUpdateThumbnail, { path, adjustments: adjustmentsToSave }).catch((err) => {
@@ -81,32 +80,9 @@ export const withRotation = (adjustments: Adjustments, image: SelectedImage | nu
       : adjustments.crop,
 });
 
-const ORIGINAL_PRESERVED_KEYS: Array<keyof Adjustments> = [
-  'baselineExposure',
-  'crop',
-  'rotation',
-  'flipHorizontal',
-  'flipVertical',
-  'orientationSteps',
-  'aspectRatio',
-  'transformDistortion',
-  'transformVertical',
-  'transformHorizontal',
-  'transformRotate',
-  'transformAspect',
-  'transformScale',
-  'transformXOffset',
-  'transformYOffset',
-  'lensDistortionAmount',
-  'lensVignetteAmount',
-  'lensTcaAmount',
-  'lensDistortionParams',
-  'lensMaker',
-  'lensModel',
-  'lensDistortionEnabled',
-  'lensTcaEnabled',
-  'lensVignetteEnabled',
-];
+const ORIGINAL_PRESERVED_KEYS = [...originalAdjustmentKeys.preserved, ...originalAdjustmentKeys.crop] as Array<
+  keyof Adjustments
+>;
 
 export const getOriginalAdjustments = (adjustments: Adjustments): Adjustments => {
   const original = { ...INITIAL_ADJUSTMENTS };
@@ -466,12 +442,6 @@ export function useEditorActions() {
         }
       }
 
-      if (includedAdjustments.includes(LensAdjustment.LensMaker)) {
-        if (!adjustmentsToApply.lensMaker) {
-          adjustmentsToApply.lensDistortionParams = null;
-        }
-      }
-
       if (Object.keys(adjustmentsToApply).length === 0) {
         setProcess({ isPasted: true });
         return;
@@ -494,8 +464,7 @@ export function useEditorActions() {
           const meta: any = await invoke(Invokes.LoadMetadata, { path: openPath });
           if (!meta.adjustments || useEditorStore.getState().selectedImage?.path !== openPath) return;
 
-          const pastedKeys = [...Object.keys(adjustmentsToApply), 'lensMaker', 'lensModel', 'lensDistortionParams'];
-          const pasted = Object.fromEntries(pastedKeys.map((key) => [key, meta.adjustments[key]]));
+          const pasted = Object.fromEntries(Object.keys(adjustmentsToApply).map((key) => [key, meta.adjustments[key]]));
           setAdjustments((prev: any) => ({ ...prev, ...pasted }), t('contextMenus.editor.pasteAdjustments'));
         })
         .catch((err) => toast.error(`Failed to paste adjustments: ${err}`));
@@ -507,7 +476,7 @@ export function useEditorActions() {
 
   const handleZoomChange = useCallback((zoomValue: number, fitToWindow: boolean = false) => {
     const { originalSize, baseRenderSize, adjustments } = useEditorStore.getState();
-    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    const dpr = getDevicePixelRatio();
     let targetZoomPercent: number;
 
     const orientationSteps = adjustments.orientationSteps || 0;

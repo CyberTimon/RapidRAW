@@ -5,6 +5,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { AppSettings, Invokes } from '../components/ui/AppProperties';
 import { calculateTargetResolution } from '../utils/previewResolution';
 import { clickZoomTarget, interpretWheel, movedBeyondClick } from '../utils/canvasControls';
+import { getDevicePixelRatio, setLocalUiScale } from '../utils/displayScale';
 
 interface Size {
   width: number;
@@ -52,7 +53,7 @@ const viewRect = (view: ViewerView, win: Size, image: Size) => {
   return { x: win.width / 2 - view.center[0] * width, y: win.height / 2 - view.center[1] * height, width, height };
 };
 
-const maxZoom = (win: Size, image: Size) => Math.max(1, 1 / (fitScale(win, image) * window.devicePixelRatio));
+const maxZoom = (win: Size, image: Size) => Math.max(1, 1 / (fitScale(win, image) * getDevicePixelRatio()));
 
 const clampAxis = (center: number, span: number, extent: number) =>
   span > extent ? Math.min(Math.max(center, extent / (2 * span)), 1 - extent / (2 * span)) : 0.5;
@@ -144,6 +145,7 @@ export default function ViewerWindow() {
       .catch(console.error);
     invoke<AppSettings>(Invokes.LoadSettings)
       .then((loaded) => {
+        setLocalUiScale(loaded.uiScale);
         if (isActive) setSettings(loaded);
       })
       .catch(console.error);
@@ -187,7 +189,7 @@ export default function ViewerWindow() {
           targetResolution: calculateTargetResolution(
             settings,
             Math.max(rect.width, rect.height),
-            window.devicePixelRatio,
+            getDevicePixelRatio(),
             Math.max(image.width, image.height),
           ),
         },

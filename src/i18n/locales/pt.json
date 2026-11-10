@@ -988,6 +988,9 @@
   "export": {
     "advanced": {
       "exportMasks": "Exportar máscaras como arquivos separados",
+      "exportOriginal": "Exportar também o original",
+      "originalCrop": "Aplicar recorte",
+      "originalKeepExposure": "Manter exposição",
       "preserveFolders": "Preservar Estrutura de Pastas",
       "preserveTimestamps": "Definir Data/Hora do Arquivo a partir da Data de Captura EXIF",
       "title": "Configurações de Exportação"
@@ -1744,7 +1747,6 @@
       "selectManufacturer": "Selecionar Fabricante",
       "title": "Correção de Lente",
       "vignetting": "Vinheta",
-      "waitingAutoDetect": "Aguardando Detecção Automática...",
       "zoomInTooltip": "Mais Zoom",
       "zoomOutTooltip": "Menos Zoom"
     },
@@ -1973,6 +1975,11 @@
       "title": "Configurações Gerais",
       "toolFocusMode": "Modo de Foco em Ferramentas",
       "toolFocusModeDesc": "Recolhe automaticamente as outras ferramentas de um painel quando você expande uma.",
+      "uiScale": "Escala da interface",
+      "uiScaleCompact": "Compacta",
+      "uiScaleDefault": "Padrão",
+      "uiScaleDesc": "Torne a interface menor ou maior, independentemente da escala de exibição do sistema. Tamanhos compactos aproveitam melhor telas pequenas de notebook.",
+      "uiScaleLarge": "Grande",
       "xmpSync": "Sincronização de Metadados XMP",
       "xmpSyncDesc": "Sincronize avaliações, rótulos de cores e etiquetas em arquivos sidecar XMP padrão para compatibilidade com outros editores de fotos."
     },
@@ -2242,8 +2249,6 @@
       "smallThumbnailRes": "Resolução das miniaturas da grade",
       "smallThumbnailResDesc": "Resolução das miniaturas exibidas na grade da biblioteca.",
       "staticDesc": "O editor renderiza a imagem em uma resolução fixa. Esse modo é o mais rápido e consistente, tornando-o ideal para hardware de baixo desempenho, onde o desempenho suave é priorizado sobre o zoom com pixels perfeitos.",
-      "staticPreviewRes": "Resolução de Visualização Estática",
-      "staticPreviewResDesc": "Define a resolução para visualizações estáticas como modo de corte, correção de lente e ferramentas de perspectiva. Não afeta a visualização principal do editor.",
       "threads": "Threads",
       "thumbnailRes": "Resolução da Miniatura",
       "thumbnailResDesc": "Determina a resolução das miniaturas da biblioteca geradas. Valores mais altos produzem imagens mais nítidas durante o carregamento.",

@@ -961,6 +961,9 @@
   "export": {
     "advanced": {
       "exportMasks": "將遮色片匯出為單獨檔案",
+      "exportOriginal": "同時匯出原圖",
+      "originalCrop": "套用裁切",
+      "originalKeepExposure": "保留曝光",
       "preserveFolders": "保留資料夾結構",
       "preserveTimestamps": "將檔案時間戳設為 EXIF 拍攝日期",
       "title": "匯出設定"
@@ -1702,7 +1705,6 @@
       "selectManufacturer": "選擇製造商",
       "title": "鏡頭校正",
       "vignetting": "暗角",
-      "waitingAutoDetect": "等待自動檢測...",
       "zoomInTooltip": "放大",
       "zoomOutTooltip": "縮小"
     },
@@ -1926,6 +1928,11 @@
       "title": "通用設定",
       "toolFocusMode": "工具專注模式",
       "toolFocusModeDesc": "展開某個工具時，自動收合同一面板中的其他工具。",
+      "uiScale": "介面縮放",
+      "uiScaleCompact": "精簡",
+      "uiScaleDefault": "預設",
+      "uiScaleDesc": "獨立於系統顯示縮放，調整介面大小。精簡尺寸可在小尺寸筆電螢幕上顯示更多內容。",
+      "uiScaleLarge": "大",
       "xmpSync": "XMP 後設資料同步",
       "xmpSyncDesc": "將評分、顏色標籤和標籤同步到標準 XMP 附屬檔案，以便與其他照片編輯器相容。"
     },
@@ -2195,8 +2202,6 @@
       "smallThumbnailRes": "網格縮圖解析度",
       "smallThumbnailResDesc": "圖庫網格中顯示的縮圖解析度。",
       "staticDesc": "編輯器以固定解析度渲染影像。此模式最快且最一致，非常適合低端硬體，優先考慮流暢效能而非畫素完美的縮放。",
-      "staticPreviewRes": "靜態預覽解析度",
-      "staticPreviewResDesc": "設定靜態預覽的解析度，如裁剪模式、鏡頭校正和透視工具。不影響主編輯器預覽。",
       "threads": "執行緒數",
       "thumbnailRes": "縮圖解析度",
       "thumbnailResDesc": "確定生成的相簿縮圖的解析度。較高的值可在載入時產生更清晰的影像。",

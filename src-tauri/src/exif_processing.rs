@@ -2212,21 +2212,15 @@ pub fn persist_exif_if_missing(source_path: &Path, source_path_str: &str, file_b
     }
 }
 
-pub fn save_converted_image(
+pub fn encode_converted_image(
     image: &image::DynamicImage,
-    output_path: &Path,
+    extension: &str,
     source_path_str: &str,
-) -> Result<(), String> {
+) -> Result<Vec<u8>, String> {
     let dimensions = image::GenericImageView::dimensions(image);
     let metadata = collect_metadata_from_source(source_path_str, false, Some(dimensions));
 
-    let extension = output_path
-        .extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("")
-        .to_lowercase();
-
-    let bytes = match extension.as_str() {
+    match extension.to_lowercase().as_str() {
         "tif" | "tiff" => {
             let samples = match image {
                 image::DynamicImage::ImageRgb32F(_) | image::DynamicImage::ImageRgba32F(_) => {
@@ -2246,7 +2240,7 @@ pub fn save_converted_image(
                 metadata.as_ref(),
                 Some(crate::export_processing::SRGB_ICC_PROFILE),
                 None,
-            )?
+            )
         }
         "png" => {
             let mut bytes = Vec::new();
@@ -2264,18 +2258,13 @@ pub fn save_converted_image(
             {
                 log::warn!("Failed to write metadata: {}", e);
             }
-            bytes
+            Ok(bytes)
         }
-        other => {
-            return Err(format!(
-                "Unsupported format for a converted image: '{}'",
-                other
-            ));
-        }
-    };
-
-    fs::write(output_path, bytes)
-        .map_err(|e| format!("Failed to write file to '{}': {}", output_path.display(), e))
+        other => Err(format!(
+            "Unsupported format for a converted image: '{}'",
+            other
+        )),
+    }
 }
 
 pub fn write_rrexif_sidecar(source_path_str: &str, target_image_path: &Path) -> Result<(), String> {

@@ -23,6 +23,7 @@ import { useLibraryStore } from '../../store/useLibraryStore';
 import { useLibraryActions } from '../../hooks/useLibraryActions';
 import { getReopenedPanelWidth, useUIStore } from '../../store/useUIStore';
 import { COLOR_LABELS } from '../../utils/adjustments';
+import { getDevicePixelRatio } from '../../utils/displayScale';
 
 interface BottomBarProps {
   filmstripHeight?: number;
@@ -224,9 +225,7 @@ export default function BottomBar({
   const [isZoomLabelHovered, setIsZoomLabelHovered] = useState(false);
   const isZoomReady = !isLoading && originalSize && originalSize.width > 0 && displaySize && displaySize.width > 0;
 
-  const currentOriginalPercent = isZoomReady
-    ? (displaySize.width * (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)) / originalSize.width
-    : 1.0;
+  const currentOriginalPercent = isZoomReady ? (displaySize.width * getDevicePixelRatio()) / originalSize.width : 1.0;
 
   const [latchedSliderValue, setLatchedSliderValue] = useState(1.0);
   const [latchedDisplayPercent, setLatchedDisplayPercent] = useState(100);

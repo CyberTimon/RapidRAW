@@ -29,6 +29,7 @@ export const FILENAME_VARIABLES: Array<string> = [
   '{DD}',
   '{hh}',
   '{mm}',
+  '{ss}',
 ];
 
 const UNIQUE_FILENAME_VARIABLES: Array<string> = ['{original_filename}', '{original_filename_number}', '{sequence}'];
@@ -66,6 +67,10 @@ export interface ExportSettings {
   stripGps: boolean;
   watermark: WatermarkSettings | null;
   exportMasks?: boolean;
+  exportOriginal?: {
+    crop: boolean;
+    keepExposure: boolean;
+  } | null;
   preserveFolders?: boolean;
   destinationType?: string;
   subfolder?: string;
@@ -153,6 +158,9 @@ export interface ExportPreset {
   preserveTimestamps: boolean;
   stripGps: boolean;
   exportMasks?: boolean;
+  exportOriginal?: boolean;
+  originalCrop?: boolean;
+  originalKeepExposure?: boolean;
   preserveFolders?: boolean;
   filenameTemplate: string;
   enableWatermark: boolean;

@@ -3047,6 +3047,25 @@
         </calibration>
     </lens>
 
+	<lens>
+        <maker>Nikon</maker>
+        <model>Nikon AF VR Zoom-Nikkor 80-400mm f/4.5-5.6D ED</model>
+		<model lang="en">Nikkor AF 80-400mm f/4.5-5.6D ED VR</model>
+        <mount>Nikon F AF</mount>
+        <cropfactor>1</cropfactor>
+        <calibration>
+            <!-- Taken with Nikon D750 -->
+            <distortion model="ptlens" focal="80" a="-0.0226566" b="0.0696286" c="-0.0919989"/>
+            <distortion model="ptlens" focal="86" a="0.0009637" b="-0.0112172" c="-0.0014313"/>
+            <distortion model="ptlens" focal="135" a="0.0013912" b="-0.0029386" c="0.0027885"/>
+            <distortion model="ptlens" focal="165" a="3.81e-05" b="0.0016182" c="0.0032207"/>
+            <distortion model="ptlens" focal="230" a="0.0002803" b="0.0059832" c="-0.0014096"/>
+            <distortion model="ptlens" focal="280" a="-0.003005" b="0.0157045" c="-0.0059499"/>
+            <distortion model="ptlens" focal="360" a="-0.0031857" b="0.0220546" c="-0.0170847"/>
+            <distortion model="ptlens" focal="400" a="-0.0027536" b="0.0192746" c="-0.0124123"/>
+        </calibration>
+    </lens>
+
     <lens>
         <maker>Nikon</maker>
         <model>Nikon AF Nikkor 14mm f/2.8D ED</model>

@@ -964,6 +964,9 @@
   "export": {
     "advanced": {
       "exportMasks": "Export masks as separate files",
+      "exportOriginal": "Also export the original",
+      "originalCrop": "Apply crop",
+      "originalKeepExposure": "Keep exposure",
       "preserveFolders": "Preserve Folder Structure",
       "preserveTimestamps": "Set File Timestamps from EXIF Capture Date",
       "title": "Export Settings"
@@ -1708,7 +1711,6 @@
       "selectManufacturer": "Select Manufacturer",
       "title": "Lens Correction",
       "vignetting": "Vignetting",
-      "waitingAutoDetect": "Waiting for Auto-Detect...",
       "zoomInTooltip": "Zoom In",
       "zoomOutTooltip": "Zoom Out"
     },
@@ -1932,6 +1934,11 @@
       "title": "General Settings",
       "toolFocusMode": "Tool Focus Mode",
       "toolFocusModeDesc": "Automatically collapses the other tools in a panel when you expand one.",
+      "uiScale": "Interface Scale",
+      "uiScaleCompact": "Compact",
+      "uiScaleDefault": "Default",
+      "uiScaleDesc": "Make the interface smaller or larger, independent of your system display scaling. Compact sizes fit more on small laptop screens.",
+      "uiScaleLarge": "Large",
       "xmpSync": "XMP Metadata Sync",
       "xmpSyncDesc": "Sync ratings, color labels and tags to standard XMP sidecar files for compatibility with other photo editors."
     },
@@ -2201,8 +2208,6 @@
       "smallThumbnailRes": "Grid Thumbnail Resolution",
       "smallThumbnailResDesc": "Resolution of thumbnails shown in the library grid.",
       "staticDesc": "The editor renders the image at a fixed resolution. This mode is the fastest and most consistent, making it ideal for lower-end hardware where smooth performance is prioritized over pixel-perfect zoom.",
-      "staticPreviewRes": "Static Preview Resolution",
-      "staticPreviewResDesc": "Sets the resolution for static previews like crop mode, lens correction, and perspective tools. Does not affect the main editor preview.",
       "threads": "Threads",
       "thumbnailRes": "Thumbnail Resolution",
       "thumbnailResDesc": "Determines the resolution of generated library thumbnails. Higher values produce sharper images during loading.",

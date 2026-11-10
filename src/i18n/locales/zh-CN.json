@@ -961,6 +961,9 @@
   "export": {
     "advanced": {
       "exportMasks": "将蒙版导出为单独文件",
+      "exportOriginal": "同时导出原图",
+      "originalCrop": "应用裁剪",
+      "originalKeepExposure": "保留曝光",
       "preserveFolders": "保留文件夹结构",
       "preserveTimestamps": "将文件时间戳设为 EXIF 拍摄日期",
       "title": "导出设置"
@@ -1702,7 +1705,6 @@
       "selectManufacturer": "选择制造商",
       "title": "镜头校正",
       "vignetting": "暗角",
-      "waitingAutoDetect": "等待自动检测...",
       "zoomInTooltip": "放大",
       "zoomOutTooltip": "缩小"
     },
@@ -1926,6 +1928,11 @@
       "title": "通用设置",
       "toolFocusMode": "工具专注模式",
       "toolFocusModeDesc": "展开某个工具时，自动折叠同一面板中的其他工具。",
+      "uiScale": "界面缩放",
+      "uiScaleCompact": "紧凑",
+      "uiScaleDefault": "默认",
+      "uiScaleDesc": "独立于系统显示缩放，调整界面大小。紧凑尺寸可在小尺寸笔记本屏幕上显示更多内容。",
+      "uiScaleLarge": "大",
       "xmpSync": "XMP 元数据同步",
       "xmpSyncDesc": "将评分、颜色标签和标签同步到标准 XMP 附属文件，以便与其他照片编辑器兼容。"
     },
@@ -2195,8 +2202,6 @@
       "smallThumbnailRes": "网格缩略图分辨率",
       "smallThumbnailResDesc": "图库网格中显示的缩略图分辨率。",
       "staticDesc": "编辑器以固定分辨率渲染图像。此模式最快且最一致，非常适合低端硬件，优先考虑流畅性能而非像素完美的缩放。",
-      "staticPreviewRes": "静态预览分辨率",
-      "staticPreviewResDesc": "设置静态预览的分辨率，如裁剪模式、镜头校正和透视工具。不影响主编辑器预览。",
       "threads": "线程数",
       "thumbnailRes": "缩略图分辨率",
       "thumbnailResDesc": "确定生成的图库缩略图的分辨率。较高的值可在加载时产生更清晰的图像。",

@@ -5,7 +5,7 @@ use std::sync::{LazyLock, Mutex};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::app_state::AppState;
 
@@ -319,6 +319,12 @@ pub struct ExportPreset {
     #[serde(default)]
     pub export_masks: Option<bool>,
     #[serde(default)]
+    pub export_original: Option<bool>,
+    #[serde(default)]
+    pub original_crop: Option<bool>,
+    #[serde(default)]
+    pub original_keep_exposure: Option<bool>,
+    #[serde(default)]
     pub preserve_folders: Option<bool>,
     #[serde(default)]
     pub enable_pad: Option<bool>,
@@ -371,6 +377,9 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             watermark_spacing: 5,
             watermark_opacity: 75,
             export_masks: Some(false),
+            export_original: Some(false),
+            original_crop: Some(true),
+            original_keep_exposure: Some(false),
             preserve_folders: Some(false),
             enable_pad: Some(false),
             pad_ratio_width: Some(1.0),
@@ -406,6 +415,9 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             watermark_spacing: 5,
             watermark_opacity: 75,
             export_masks: Some(false),
+            export_original: Some(false),
+            original_crop: Some(true),
+            original_keep_exposure: Some(false),
             preserve_folders: Some(false),
             enable_pad: Some(false),
             pad_ratio_width: Some(1.0),
@@ -640,6 +652,8 @@ pub struct AppSettings {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub white_balance_mode: Option<String>,
     #[serde(default)]
+    pub ui_scale: Option<f64>,
+    #[serde(default)]
     pub zoom_speed_multiplier: Option<f32>,
     #[serde(default)]
     pub zoom_photo_to_pixel_click: Option<bool>,
@@ -719,6 +733,34 @@ pub struct AppSettings {
     pub workspace: WorkspaceState,
     #[serde(default)]
     pub immich: crate::immich::ImmichSettings,
+}
+
+const UI_SCALE_MIN: f64 = 0.5;
+const UI_SCALE_MAX: f64 = 2.0;
+
+fn clamp_ui_scale(scale: f64) -> f64 {
+    if scale.is_finite() {
+        scale.clamp(UI_SCALE_MIN, UI_SCALE_MAX)
+    } else {
+        1.0
+    }
+}
+
+fn set_window_zoom(window: &tauri::WebviewWindow, scale: f64) {
+    if let Err(e) = window.set_zoom(scale) {
+        log::warn!(
+            "Failed to set UI scale on window '{}': {}",
+            window.label(),
+            e
+        );
+    }
+}
+
+pub fn apply_saved_ui_scale(window: &tauri::WebviewWindow, settings: &AppSettings) {
+    let scale = clamp_ui_scale(settings.ui_scale.unwrap_or(1.0));
+    if scale != 1.0 {
+        set_window_zoom(window, scale);
+    }
 }
 
 impl AppSettings {
@@ -821,6 +863,7 @@ impl Default for AppSettings {
             canvas_input_mode: Some("mouse".to_string()),
             compare_mode: None,
             white_balance_mode: None,
+            ui_scale: Some(1.0),
             zoom_speed_multiplier: Some(1.0),
             zoom_photo_to_pixel_click: Some(false),
             keybinds: HashMap::new(),
@@ -983,10 +1026,19 @@ fn read_settings_from_disk(app_handle: &AppHandle) -> Result<AppSettings, String
     }
 
     if settings_modified && let Ok(json_string) = serde_json::to_string_pretty(&settings) {
-        let _ = fs::write(&path, json_string);
+        let _ = crate::file_management::write_file_atomic(&path, json_string.as_bytes());
     }
 
     Ok(settings)
+}
+
+#[tauri::command]
+pub fn set_ui_scale(scale: f64, app_handle: AppHandle) {
+    let scale = clamp_ui_scale(scale);
+    for window in app_handle.webview_windows().values() {
+        set_window_zoom(window, scale);
+    }
+    let _ = app_handle.emit("ui-scale-changed", scale);
 }
 
 #[tauri::command]
@@ -1001,7 +1053,8 @@ pub fn save_settings(mut settings: AppSettings, app_handle: AppHandle) -> Result
     }
     let path = get_settings_path(&app_handle)?;
     let json_string = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
-    fs::write(path, json_string).map_err(|e| e.to_string())?;
+    crate::file_management::write_file_atomic(&path, json_string.as_bytes())
+        .map_err(|e| e.to_string())?;
     *settings_cache() = None;
     crate::immich::apply_settings(&settings.immich);
 

@@ -46,17 +46,20 @@ mod file_management;
 mod focus_stacking;
 mod fog;
 mod formats;
+mod gpu_compute;
 mod gpu_processing;
 mod guided_perspective;
 mod hdr_deghosting;
 mod highlight_reconstruction;
 mod image_loader;
+mod image_preload;
 mod image_processing;
 mod immich;
 mod inpainting;
 mod launch_request;
 mod lens_blur;
 mod lens_correction;
+mod light_effects;
 mod lut_processing;
 mod mask_generation;
 mod memory_budget;
@@ -69,6 +72,7 @@ mod preset_converter;
 mod preview_jpeg;
 mod raw_processing;
 mod relight;
+mod render_source;
 mod storage;
 mod tagging;
 mod tagging_utils;
@@ -121,16 +125,16 @@ use crate::gpu_processing::DisplayLayer;
 use crate::hdr_deghosting::{align_hdr_frames, assert_uniform_dimensions, load_hdr_frames};
 use crate::image_loader::prepare_base_image_cow;
 use crate::image_processing::{
-    Crop, RenderRequest, apply_coarse_rotation, apply_flip, apply_geometry_warp,
-    apply_linear_to_srgb, downscale_f32_image, get_all_adjustments_from_json,
-    get_geometry_params_from_json, get_or_init_gpu_context, is_geometry_identity,
-    process_and_get_dynamic_image, resolve_render_options, resolve_render_options_from_handle,
-    warp_image_geometry,
+    Crop, GpuContext, RenderRequest, apply_linear_to_srgb, downscale_f32_image,
+    get_all_adjustments_from_json, get_geometry_params_from_json, get_or_init_gpu_context,
+    is_geometry_identity, process_and_get_dynamic_image, resolve_render_options,
+    resolve_render_options_from_handle,
 };
 use crate::mask_generation::{
     MaskDefinition, build_full_warped_image_rgb8, build_warped_image_for_masks,
     generate_mask_bitmap, get_cached_or_generate_masks, resolve_warped_image_for_masks,
 };
+use crate::render_source::{Frame, RenderSource, SourceTransform};
 use crate::window_customizer::PinchZoomDisablePlugin;
 pub use adjustment_utils::*;
 pub use android_integration::*;
@@ -170,7 +174,17 @@ pub fn register_exit_handler() {
 #[cfg(not(target_os = "macos"))]
 pub fn register_exit_handler() {}
 
-const GEOMETRY_PREVIEW_SUPERSAMPLE: f64 = 2.0;
+const PREVIEW_SOURCE_SUPERSAMPLE: f64 = 4.0;
+const WARPED_PREVIEW_MAX_PIXELS: f64 = 50_000_000.0;
+const WORKING_SCALE_STEPS_PER_OCTAVE: f64 = 2.0;
+
+fn working_scale_step(scale: f64) -> f64 {
+    if scale >= 1.0 {
+        return 1.0;
+    }
+    let steps = (scale.log2() * WORKING_SCALE_STEPS_PER_OCTAVE).ceil();
+    2f64.powf(steps / WORKING_SCALE_STEPS_PER_OCTAVE)
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CommunityPreset {
@@ -208,42 +222,10 @@ pub struct WgpuTransformPayload {
     pub split_origin: [f32; 2],
     pub split_normal: [f32; 2],
     pub split_offset: [f32; 2],
-}
-
-pub fn generate_transformed_preview(
-    state: &tauri::State<AppState>,
-    loaded_image: &LoadedImage,
-    adjustments: &serde_json::Value,
-    preview_dim: u32,
-) -> Result<TransformedPreview, String> {
-    let mut hasher = DefaultHasher::new();
-    loaded_image.path.hash(&mut hasher);
-    calculate_transform_hash(adjustments).hash(&mut hasher);
-    preview_dim.hash(&mut hasher);
-    let cache_key = hasher.finish();
-
-    let mut cache_lock = state
-        .full_transformed_cache
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
-
-    if let Some((hash, img, scale, offset)) = cache_lock.as_ref()
-        && *hash == cache_key
-    {
-        return Ok((Arc::clone(img), *scale, *offset));
-    }
-
-    *cache_lock = None;
-    let (preview, scale_for_gpu, unscaled_crop_offset) =
-        compute_transformed_preview(state, loaded_image, adjustments, preview_dim)?;
-    *cache_lock = Some((
-        cache_key,
-        Arc::clone(&preview),
-        scale_for_gpu,
-        unscaled_crop_offset,
-    ));
-
-    Ok((preview, scale_for_gpu, unscaled_crop_offset))
+    #[serde(default)]
+    pub path: Option<String>,
+    #[serde(default)]
+    pub await_present: bool,
 }
 
 fn get_or_compute_stage<T>(
@@ -265,12 +247,13 @@ fn get_or_compute_stage<T>(
     Ok(img)
 }
 
-fn compute_transformed_preview(
+pub fn prepare_preview_source(
     state: &tauri::State<AppState>,
+    context: &GpuContext,
     loaded_image: &LoadedImage,
     adjustments: &serde_json::Value,
     preview_dim: u32,
-) -> Result<TransformedPreview, String> {
+) -> Result<PreviewSource, String> {
     let patched_key = patched_cache_key(&loaded_image.path, adjustments);
 
     let patched = get_or_compute_stage(&state.patched_cache, patched_key, || {
@@ -300,12 +283,18 @@ fn compute_transformed_preview(
     let target_w = ((full_w_px as f64 * target_scale).round() as u32).max(1);
     let target_h = ((full_h_px as f64 * target_scale).round() as u32).max(1);
 
-    let has_geometry = !is_geometry_identity(&get_geometry_params_from_json(adjustments));
-    let working_target_scale = if has_geometry {
-        (target_scale * GEOMETRY_PREVIEW_SUPERSAMPLE).min(1.0)
+    let geometry = get_geometry_params_from_json(&loaded_image.path, adjustments);
+    let warp = (!is_geometry_identity(&geometry)).then_some(geometry);
+    let texture_scale =
+        context.limits.max_texture_dimension_2d as f64 / full_w_px.max(full_h_px).max(1) as f64;
+    let budget_scale = if warp.is_some() {
+        (WARPED_PREVIEW_MAX_PIXELS / (full_w_px as f64 * full_h_px as f64).max(1.0)).sqrt()
     } else {
-        target_scale
+        1.0
     };
+    let working_target_scale = working_scale_step(target_scale * PREVIEW_SOURCE_SUPERSAMPLE)
+        .min(budget_scale.max(working_scale_step(target_scale)))
+        .min(texture_scale);
 
     let working = if working_target_scale < 1.0 {
         let working_w = ((full_w_px as f64 * working_target_scale).round() as u32).max(1);
@@ -329,75 +318,41 @@ fn compute_transformed_preview(
     };
     drop(patched);
 
-    let mut hasher = DefaultHasher::new();
-    loaded_image.path.hash(&mut hasher);
-    calculate_geometry_hash(adjustments).hash(&mut hasher);
-    working.dimensions().hash(&mut hasher);
-    (target_w, target_h).hash(&mut hasher);
-    let warped_key = hasher.finish();
-
-    let warped = get_or_compute_stage(&state.warped_cache, warped_key, || {
-        Ok(
-            match apply_geometry_warp(Cow::Borrowed(working.as_ref()), adjustments) {
-                Cow::Borrowed(_) => Arc::clone(&working),
-                Cow::Owned(img) if img.width() > target_w => {
-                    Arc::new(downscale_f32_image(&img, target_w, target_h))
-                }
-                Cow::Owned(img) => Arc::new(img),
-            },
-        )
-    })?;
-    drop(working);
-
-    let working_scale = warped.width() as f64 / full_w_px.max(1) as f64;
-
-    let mut hasher = DefaultHasher::new();
-    warped_key.hash(&mut hasher);
-    crate::cache_utils::calculate_effects_hash(adjustments).hash(&mut hasher);
-
-    let effected = get_or_compute_stage(&state.effects_cache, hasher.finish(), || {
-        let relit = crate::relight::apply_relight(Cow::Borrowed(warped.as_ref()), adjustments);
-        let fogged = crate::fog::apply_fog(relit, adjustments);
-        let blurred = crate::lens_blur::apply_lens_blur(fogged, adjustments);
-        Ok(match blurred {
-            Cow::Borrowed(_) => Arc::clone(&warped),
-            Cow::Owned(img) => Arc::new(img),
-        })
-    })?;
-    drop(warped);
-
+    let working_size = working.dimensions();
+    let mut transform = SourceTransform {
+        working_fit: (working_size.0 > target_w).then_some((target_w, target_h)),
+        warp,
+        effects: true,
+        ..Default::default()
+    };
+    let working_scale = transform.working_size(working_size).0 as f64 / full_w_px.max(1) as f64;
     let max_dim = preview_dim as f64;
-    let spatial_adjustments = serde_json::json!({
-        "orientationSteps": adjustments["orientationSteps"],
-        "rotation": adjustments["rotation"],
-        "flipHorizontal": adjustments["flipHorizontal"],
-        "flipVertical": adjustments["flipVertical"],
-        "crop": crop.as_ref().map(|c| Crop {
+    transform.frame = Frame {
+        crop: crop.map(|c| Crop {
             x: c.x * working_scale,
             y: c.y * working_scale,
             width: (c.width * working_scale).min(max_dim),
             height: (c.height * working_scale).min(max_dim),
         }),
-    });
-
-    let (transformed, _) = crate::adjustment_utils::apply_spatial_transformations(
-        Cow::Borrowed(effected.as_ref()),
-        &spatial_adjustments,
-    );
-
-    let preview = match transformed {
-        Cow::Borrowed(_) => Arc::clone(&effected),
-        Cow::Owned(img) => Arc::new(img),
+        ..Frame::from_adjustments(adjustments)
     };
 
-    let scale_for_gpu = if full_w > 0.0 {
-        (preview.width() as f64 / full_w) as f32
+    let scale = if full_w > 0.0 {
+        (transform.output_size(working_size).0 as f64 / full_w) as f32
     } else {
         1.0
     };
-    let unscaled_crop_offset = crop.map_or((0.0, 0.0), |c| (c.x as f32, c.y as f32));
 
-    Ok((preview, scale_for_gpu, unscaled_crop_offset))
+    let mut hasher = DefaultHasher::new();
+    (patched_key, working_size).hash(&mut hasher);
+
+    Ok(PreviewSource {
+        image: working,
+        id: hasher.finish(),
+        transform,
+        scale,
+        unscaled_crop_offset: crop.map_or((0.0, 0.0), |c| (c.x as f32, c.y as f32)),
+    })
 }
 
 fn patched_cache_key(path: &str, adjustments: &serde_json::Value) -> u64 {
@@ -476,6 +431,7 @@ fn cancel_thumbnail_generation(
 pub fn build_ai_source_image(
     image: &DynamicImage,
     is_raw: bool,
+    path: &str,
     js_adjustments: &serde_json::Value,
 ) -> DynamicImage {
     let source =
@@ -483,6 +439,7 @@ pub fn build_ai_source_image(
     build_full_warped_image_rgb8(
         &source,
         crate::negative_conversion::effective_is_raw(is_raw, js_adjustments),
+        path,
         js_adjustments,
     )
 }
@@ -548,6 +505,7 @@ pub fn get_cached_full_warped_image_for_path(
     let warped_arc = Arc::new(build_ai_source_image(
         &loaded_image.image,
         loaded_image.is_raw,
+        &loaded_image.path,
         js_adjustments,
     ));
     *state
@@ -563,37 +521,51 @@ async fn update_wgpu_transform(
     payload: WgpuTransformPayload,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
-) -> Result<(), String> {
+) -> Result<bool, String> {
     viewer_window::set_viewer_background(&app_handle, payload.bg_secondary);
 
     let Some(context) = gpu_processing::current_gpu_context(&state) else {
-        return Ok(());
+        return Ok(false);
     };
 
     tokio::task::spawn_blocking(move || {
         let mut display_lock = context.display.lock().unwrap_or_else(|e| e.into_inner());
-        if let Some(display) = display_lock.as_mut() {
-            display.latest_transform.rect = [payload.x, payload.y, payload.width, payload.height];
-            display.latest_transform.clip = [
-                payload.clip_x,
-                payload.clip_y,
-                payload.clip_width,
-                payload.clip_height,
-            ];
-            display.latest_transform.window = [payload.window_width, payload.window_height];
-            display.latest_transform.bg_primary = payload.bg_primary;
-            display.latest_transform.bg_secondary = payload.bg_secondary;
-            display.latest_transform.pixelated = if payload.pixelated { 1.0 } else { 0.0 };
-            display.latest_transform.split_origin = payload.split_origin;
-            display.latest_transform.split_normal = payload.split_normal;
-            display.latest_transform.split_offset = payload.split_offset;
-            display.flush(&context.device, &context.queue);
+        let Some(display) = display_lock.as_mut() else {
+            return false;
+        };
+        let content = payload
+            .path
+            .as_deref()
+            .map(gpu_processing::display_content_key);
+        let rect_applied = display.place_editor_rect(
+            content,
+            [payload.x, payload.y, payload.width, payload.height],
+        );
+        display.latest_transform.clip = [
+            payload.clip_x,
+            payload.clip_y,
+            payload.clip_width,
+            payload.clip_height,
+        ];
+        display.latest_transform.window = [payload.window_width, payload.window_height];
+        display.latest_transform.bg_primary = payload.bg_primary;
+        display.latest_transform.bg_secondary = payload.bg_secondary;
+        display.latest_transform.pixelated = if payload.pixelated { 1.0 } else { 0.0 };
+        display.latest_transform.split_origin = payload.split_origin;
+        display.latest_transform.split_normal = payload.split_normal;
+        display.latest_transform.split_offset = payload.split_offset;
+        let presented = display.flush(&context.device, &context.queue);
+        drop(display_lock);
+        if presented && payload.await_present {
+            let _ = context.device.poll(wgpu::PollType::Wait {
+                submission_index: None,
+                timeout: Some(std::time::Duration::from_millis(250)),
+            });
         }
+        rect_applied && presented
     })
     .await
-    .map_err(|e| format!("Task panicked: {}", e))?;
-
-    Ok(())
+    .map_err(|e| format!("Task panicked: {}", e))
 }
 
 #[tauri::command]
@@ -674,6 +646,7 @@ impl EditorRender {
                 .as_str()
                 .and_then(|p| lut_processing::get_or_load_lut(state, p).ok()),
             motion_blur: motion_blur::MotionBlurs::new(
+                &loaded_image.path,
                 adjustments,
                 (width, height),
                 crop_offset,
@@ -716,22 +689,17 @@ async fn sample_hsl_mixer_area(
         hydrate_adjustments(&state, &mut adjustments);
 
         let transform_hash = calculate_transform_hash(&adjustments);
-        let (image, scale, crop_offset) = state
+        let preview = state
             .cached_preview_for(PreviewTarget::Editor)
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .as_ref()
             .filter(|cached| cached.transform_hash == transform_hash)
-            .map(|cached| {
-                (
-                    Arc::clone(&cached.image),
-                    cached.scale,
-                    cached.unscaled_crop_offset,
-                )
-            })
+            .map(|cached| cached.preview.clone())
             .ok_or("Editor preview is not ready")?;
+        let source = preview.render_source(&adjustments);
 
-        let (width, height) = image.dimensions();
+        let (width, height) = source.size();
         let half = (radius * width as f32).max(1.0);
         let x0 = (x * width as f32 - half).clamp(0.0, width as f32 - 1.0) as u32;
         let y0 = (y * height as f32 - half).clamp(0.0, height as f32 - 1.0) as u32;
@@ -743,8 +711,8 @@ async fn sample_hsl_mixer_area(
             &loaded_image,
             &adjustments,
             (width, height),
-            scale,
-            crop_offset,
+            preview.scale,
+            preview.unscaled_crop_offset,
             resolve_render_options_from_handle(&app_handle, loaded_image.is_raw),
             state.load_image_generation.load(Ordering::SeqCst),
         );
@@ -757,8 +725,7 @@ async fn sample_hsl_mixer_area(
         let probe = process_and_get_dynamic_image(
             &context,
             &state,
-            &image,
-            transform_hash,
+            &source,
             editor_render.request(Some(roi), true),
             "sample_hsl_mixer_area",
         )?;
@@ -840,81 +807,40 @@ fn process_preview_job(
         .lock()
         .unwrap_or_else(|e| e.into_inner());
 
-    let base_valid = cached_preview_lock
+    let preview = match cached_preview_lock
         .as_ref()
-        .is_some_and(|c| c.transform_hash == new_transform_hash && c.preview_dim == preview_dim);
-    let small_valid = base_valid
-        && cached_preview_lock
-            .as_ref()
-            .is_some_and(|c| c.interactive_divisor == interactive_divisor);
-
-    let (final_preview_base, scale_for_gpu, unscaled_crop_offset) = if base_valid {
-        let cached = cached_preview_lock.as_ref().unwrap();
-        (
-            Arc::clone(&cached.image),
-            cached.scale,
-            cached.unscaled_crop_offset,
-        )
-    } else {
-        *cached_preview_lock = None;
-        *state
-            .gpu_image_cache_for(target)
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
-
-        generate_transformed_preview(&state, &loaded_image, &adjustments_clone, preview_dim)?
-    };
-
-    let small_preview_base = if small_valid {
-        Arc::clone(&cached_preview_lock.as_ref().unwrap().small_image)
-    } else {
-        let small = if interactive_divisor > 1.0 {
-            let (w, h) = final_preview_base.dimensions();
-            let (small_w, small_h) = if w > h {
-                let ratio = h as f32 / w as f32;
-                (small_preview_dim, (small_preview_dim as f32 * ratio) as u32)
-            } else {
-                let ratio = w as f32 / h as f32;
-                ((small_preview_dim as f32 * ratio) as u32, small_preview_dim)
-            };
-            Arc::new(image_processing::downscale_f32_image(
-                &final_preview_base,
-                small_w,
-                small_h,
-            ))
-        } else {
-            Arc::clone(&final_preview_base)
-        };
-
-        if is_interactive && base_valid {
-            *state
+        .filter(|c| c.transform_hash == new_transform_hash && c.preview_dim == preview_dim)
+    {
+        Some(cached) => cached.preview.clone(),
+        None => {
+            if let Some(cache) = state
                 .gpu_image_cache_for(target)
                 .lock()
-                .unwrap_or_else(|e| e.into_inner()) = None;
+                .unwrap_or_else(|e| e.into_inner())
+                .as_mut()
+            {
+                cache.entries.clear();
+            }
+            let preview = prepare_preview_source(
+                &state,
+                &context,
+                &loaded_image,
+                &adjustments_clone,
+                preview_dim,
+            )?;
+            *cached_preview_lock = Some(CachedPreview {
+                preview: preview.clone(),
+                transform_hash: new_transform_hash,
+                preview_dim,
+            });
+            preview
         }
-
-        small
     };
-
-    *cached_preview_lock = Some(CachedPreview {
-        image: Arc::clone(&final_preview_base),
-        small_image: Arc::clone(&small_preview_base),
-        transform_hash: new_transform_hash,
-        scale: scale_for_gpu,
-        unscaled_crop_offset,
-        preview_dim,
-        interactive_divisor,
-    });
-
     drop(cached_preview_lock);
 
+    let full_size = preview.size();
     if mirrors_editor {
-        viewer_window::sync_viewer_image(
-            app_handle,
-            &loaded_image.path,
-            final_preview_base.dimensions(),
-            scale_for_gpu,
-        );
+        viewer_window::sync_viewer_image(app_handle, &loaded_image.path, full_size, preview.scale);
     }
 
     let frame_resolution = if is_interactive {
@@ -923,17 +849,35 @@ fn process_preview_job(
         preview_dim
     };
 
-    let (processing_image, effective_scale, jpeg_quality) = if is_interactive {
-        let orig_w = final_preview_base.width() as f32;
-        let small_w = small_preview_base.width() as f32;
-        let scale_factor = if orig_w > 0.0 { small_w / orig_w } else { 1.0 };
-        let new_scale = scale_for_gpu * scale_factor;
-        (small_preview_base, new_scale, interactive_quality)
+    let mut processing_transform = preview.transform.clone();
+    let jpeg_quality = if is_interactive {
+        if interactive_divisor > 1.0 {
+            let (w, h) = full_size;
+            processing_transform.output_fit = Some(if w > h {
+                let ratio = h as f32 / w as f32;
+                (small_preview_dim, (small_preview_dim as f32 * ratio) as u32)
+            } else {
+                let ratio = w as f32 / h as f32;
+                ((small_preview_dim as f32 * ratio) as u32, small_preview_dim)
+            });
+        }
+        interactive_quality
     } else {
-        (final_preview_base, scale_for_gpu, 94)
+        94
     };
-
-    let (preview_width, preview_height) = processing_image.dimensions();
+    let processing_source = RenderSource::new(
+        &preview.image,
+        preview.id,
+        &adjustments_clone,
+        processing_transform,
+    );
+    let (preview_width, preview_height) = processing_source.size();
+    let effective_scale = if full_size.0 > 0 {
+        preview.scale * preview_width as f32 / full_size.0 as f32
+    } else {
+        preview.scale
+    };
+    let unscaled_crop_offset = preview.unscaled_crop_offset;
 
     let pixel_roi = if is_interactive {
         roi.map(|(nx, ny, nw, nh)| crate::gpu_processing::Roi {
@@ -1004,14 +948,14 @@ fn process_preview_job(
         crate::image_processing::process_and_get_dynamic_image_with_analytics(
             &context,
             &state,
-            &processing_image,
-            new_transform_hash,
+            &processing_source,
             editor_render.request(pixel_roi, false),
             caller_id,
             use_wgpu_renderer.then_some(gpu_processing::DisplayOutput {
                 target,
                 layer,
                 to_viewer,
+                content: gpu_processing::display_content_key(&loaded_image.path),
             }),
             analytics_config,
         );
@@ -1182,6 +1126,18 @@ fn catch_render_panic(render: impl FnOnce() -> Result<Vec<u8>, String>) -> Resul
 fn run_editor_job(app_handle: &tauri::AppHandle, job: PreviewJob) {
     let state = app_handle.state::<AppState>();
     let responder = job.responder;
+    let rendered_source = (job.layer == DisplayLayer::Edited
+        && state.image_preloader.is_awaiting_frame())
+    .then(|| {
+        let generation = state.load_image_generation.load(Ordering::SeqCst);
+        state
+            .original_image
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .map(|loaded| (generation, loaded.path.clone()))
+    })
+    .flatten();
     let result = catch_render_panic(|| {
         process_preview_job(
             app_handle,
@@ -1200,6 +1156,12 @@ fn run_editor_job(app_handle: &tauri::AppHandle, job: PreviewJob) {
     match result {
         Ok(bytes) => {
             let _ = responder.send(bytes);
+            let state = app_handle.state::<AppState>();
+            if let Some((generation, path)) = rendered_source
+                && state.load_image_generation.load(Ordering::SeqCst) == generation
+            {
+                state.image_preloader.frame_rendered(&path);
+            }
             if job.layer == DisplayLayer::Edited && !job.is_interactive {
                 viewer_window::schedule_viewer_render(app_handle);
             }
@@ -1325,6 +1287,7 @@ async fn apply_adjustments(
 #[tauri::command]
 async fn generate_uncropped_preview(
     js_adjustments: serde_json::Value,
+    target_resolution: Option<u32>,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<Response, String> {
@@ -1344,7 +1307,8 @@ async fn generate_uncropped_preview(
         let path = loaded_image.path.clone();
         let is_raw = loaded_image.is_raw;
         let settings = load_settings(app_handle.clone()).unwrap_or_default();
-        let target_dim = settings.editor_preview_resolution.unwrap_or(1920);
+        let target_dim =
+            target_resolution.unwrap_or_else(|| settings.editor_preview_resolution.unwrap_or(1920));
 
         let mut hasher = DefaultHasher::new();
         path.hash(&mut hasher);
@@ -1353,57 +1317,58 @@ async fn generate_uncropped_preview(
 
         let mut hasher = DefaultHasher::new();
         patched_key.hash(&mut hasher);
-        crate::cache_utils::calculate_effects_hash(&adjustments_clone).hash(&mut hasher);
         target_dim.hash(&mut hasher);
-        let base_key = hasher.finish();
+        let source_key = hasher.finish();
 
-        let cached_base = state.geometry_cache.lock().unwrap().get(&base_key).cloned();
-        let pre_geometry_base = match cached_base {
+        let cached_source = state
+            .uncropped_source_cache
+            .lock()
+            .unwrap()
+            .get(&source_key)
+            .cloned();
+        let source_image = match cached_source {
             Some(cached) => cached,
             None => {
                 let patched = get_or_compute_stage(&state.patched_cache, patched_key, || {
                     compute_patched(&loaded_image, &adjustments_clone)
                 })?;
-                let downscaled = downscale_f32_image(&patched, target_dim, target_dim);
+                let downscaled = Arc::new(downscale_f32_image(&patched, target_dim, target_dim));
                 drop(patched);
 
-                let relit_image =
-                    crate::relight::apply_relight(Cow::Owned(downscaled), &adjustments_clone);
-                let fogged_image = crate::fog::apply_fog(relit_image, &adjustments_clone);
-                let base = crate::lens_blur::apply_lens_blur(fogged_image, &adjustments_clone)
-                    .into_owned();
-
-                let mut cache = state.geometry_cache.lock().unwrap();
+                let mut cache = state.uncropped_source_cache.lock().unwrap();
                 if cache.len() > 2 {
                     cache.clear();
                 }
-                cache.insert(base_key, base.clone());
-                base
+                cache.insert(source_key, Arc::clone(&downscaled));
+                downscaled
             }
         };
 
         let scale_for_gpu = if loaded_image.image.width() > 0 {
-            pre_geometry_base.width() as f32 / loaded_image.image.width() as f32
+            source_image.width() as f32 / loaded_image.image.width() as f32
         } else {
             1.0
         };
 
-        let params = crate::image_processing::get_geometry_params_from_json(&adjustments_clone);
-        let mut adjusted_params = params;
-        adjusted_params.lens_vignette_amount *= if is_raw { 0.4 } else { 0.8 };
-
-        let warped_image = warp_image_geometry(&pre_geometry_base, adjusted_params);
-        let orientation_steps = adjustments_clone["orientationSteps"].as_u64().unwrap_or(0) as u8;
-        let flipped_image = apply_flip(
-            apply_coarse_rotation(Cow::Owned(warped_image), orientation_steps),
-            adjustments_clone["flipHorizontal"]
-                .as_bool()
-                .unwrap_or(false),
-            adjustments_clone["flipVertical"].as_bool().unwrap_or(false),
-        )
-        .into_owned();
-
-        let (preview_width, preview_height) = flipped_image.dimensions();
+        let geometry =
+            crate::image_processing::get_geometry_params_from_json(&path, &adjustments_clone);
+        let has_geometry = !is_geometry_identity(&geometry);
+        let source = RenderSource::new(
+            &source_image,
+            source_key,
+            &adjustments_clone,
+            SourceTransform {
+                warp: has_geometry.then_some(geometry),
+                effects: true,
+                frame: Frame {
+                    rotation: 0.0,
+                    crop: None,
+                    ..Frame::from_adjustments(&adjustments_clone)
+                },
+                ..Default::default()
+            },
+        );
+        let (preview_width, preview_height) = source.size();
 
         let mask_definitions: Vec<MaskDefinition> = adjustments_clone
             .get("masks")
@@ -1429,13 +1394,10 @@ async fn generate_uncropped_preview(
         let lut_path = adjustments_clone["lutPath"].as_str();
         let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
 
-        let full_hash = calculate_full_job_hash(&path, &adjustments_clone);
-
         if let Ok(processed_image) = process_and_get_dynamic_image(
             &context,
             &state,
-            &flipped_image,
-            full_hash,
+            &source,
             RenderRequest {
                 adjustments: uncropped_adjustments,
                 mask_bitmaps: &mask_bitmaps,
@@ -1444,6 +1406,7 @@ async fn generate_uncropped_preview(
                 roi: None,
                 hsl_probe: false,
                 motion_blur: crate::motion_blur::MotionBlurs::new(
+                    &path,
                     &adjustments_clone,
                     (preview_width, preview_height),
                     (0.0, 0.0),
@@ -1509,18 +1472,18 @@ async fn generate_preset_preview(
             }
         }
 
-        let unique_hash = calculate_full_job_hash(&loaded_image.path, &js_adjustments);
-
         const PRESET_PREVIEW_DIM: u32 = 400;
 
-        let (preview_image, scale_for_gpu, unscaled_crop_offset) = generate_transformed_preview(
+        let preview = prepare_preview_source(
             &state,
+            &context,
             &loaded_image,
             &js_adjustments,
             PRESET_PREVIEW_DIM,
         )?;
-
-        let (img_w, img_h) = preview_image.dimensions();
+        let source = preview.render_source(&js_adjustments);
+        let (scale_for_gpu, unscaled_crop_offset) = (preview.scale, preview.unscaled_crop_offset);
+        let (img_w, img_h) = source.size();
 
         let mask_definitions: Vec<MaskDefinition> = js_adjustments
             .get("masks")
@@ -1554,8 +1517,7 @@ async fn generate_preset_preview(
         let processed_image = process_and_get_dynamic_image(
             &context,
             &state,
-            &preview_image,
-            unique_hash,
+            &source,
             RenderRequest {
                 adjustments: all_adjustments,
                 mask_bitmaps: &mask_bitmaps,
@@ -1564,6 +1526,7 @@ async fn generate_preset_preview(
                 roi: None,
                 hsl_probe: false,
                 motion_blur: crate::motion_blur::MotionBlurs::new(
+                    &loaded_image.path,
                     &js_adjustments,
                     (img_w, img_h),
                     scaled_crop_offset,
@@ -1631,8 +1594,14 @@ async fn generate_all_community_previews(
 
         let settings = load_settings(app_handle.clone()).unwrap_or_default();
 
-        let mut base_thumbnails: Vec<(DynamicImage, bool, crate::as_shot::AsShot, f32, u64)> =
-            Vec::new();
+        let mut base_thumbnails: Vec<(
+            DynamicImage,
+            bool,
+            crate::as_shot::AsShot,
+            f32,
+            u64,
+            String,
+        )> = Vec::new();
         for image_path in image_paths.iter() {
             if is_superseded() {
                 return Ok(());
@@ -1669,6 +1638,7 @@ async fn generate_all_community_previews(
                 crate::as_shot::as_shot(&source_path_str),
                 base_scale,
                 sample_hasher.finish(),
+                image_path.clone(),
             ));
         }
 
@@ -1680,11 +1650,9 @@ async fn generate_all_community_previews(
             let mut processed_tiles: Vec<RgbImage> = Vec::new();
             let js_adjustments = &preset.adjustments;
 
-            let mut preset_hasher = DefaultHasher::new();
-            preset.name.hash(&mut preset_hasher);
-            let preset_hash = preset_hasher.finish();
-
-            for (base_image, is_raw, as_shot, base_scale, sample_hash) in base_thumbnails.iter() {
+            for (base_image, is_raw, as_shot, base_scale, sample_id, image_path) in
+                base_thumbnails.iter()
+            {
                 let mut scaled_adjustments = js_adjustments.clone();
                 if let Some(crop_val) = scaled_adjustments.get_mut("crop")
                     && let Ok(c) = serde_json::from_value::<Crop>(crop_val.clone())
@@ -1698,14 +1666,19 @@ async fn generate_all_community_previews(
                     .unwrap_or(serde_json::Value::Null);
                 }
 
-                let (transformed_image, _scaled_crop_offset) = crate::apply_all_transformations(
-                    crate::negative_conversion::apply_negative_conversion(
-                        Cow::Borrowed(base_image),
-                        &scaled_adjustments,
-                    ),
+                let converted = crate::negative_conversion::apply_negative_conversion(
+                    Cow::Borrowed(base_image),
                     &scaled_adjustments,
                 );
-                let (img_w, img_h) = transformed_image.dimensions();
+                let source_id = {
+                    let mut hasher = DefaultHasher::new();
+                    sample_id.hash(&mut hasher);
+                    calculate_patch_hash(&scaled_adjustments).hash(&mut hasher);
+                    hasher.finish()
+                };
+                let source =
+                    RenderSource::edited(&converted, source_id, image_path, &scaled_adjustments);
+                let (img_w, img_h) = source.size();
 
                 let mask_definitions: Vec<MaskDefinition> = scaled_adjustments
                     .get("masks")
@@ -1741,19 +1714,11 @@ async fn generate_all_community_previews(
                 let lut_path = js_adjustments["lutPath"].as_str();
                 let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
 
-                // An untouched sample keeps one GPU texture across all presets; a preset that
-                // produces a new image (geometry, negative conversion, ...) gets its own.
-                let texture_hash = match transformed_image {
-                    Cow::Borrowed(_) => *sample_hash,
-                    Cow::Owned(_) => preset_hash ^ sample_hash,
-                };
-
                 let processed_image_dynamic =
                     crate::image_processing::process_and_get_dynamic_image(
                         &context,
                         &state,
-                        transformed_image.as_ref(),
-                        texture_hash,
+                        &source,
                         RenderRequest {
                             adjustments: all_adjustments,
                             mask_bitmaps: &mask_bitmaps,
@@ -1762,6 +1727,7 @@ async fn generate_all_community_previews(
                             roi: None,
                             hsl_probe: false,
                             motion_blur: crate::motion_blur::MotionBlurs::new(
+                                image_path,
                                 &scaled_adjustments,
                                 (img_w, img_h),
                                 actual_scaled_crop_offset,
@@ -1857,6 +1823,16 @@ async fn merge_hdr(
         return Err("Please select at least two images to merge.".to_string());
     }
 
+    let paths: Vec<String> = paths
+        .iter()
+        .map(|p| {
+            crate::file_management::parse_virtual_path(p)
+                .0
+                .to_string_lossy()
+                .into_owned()
+        })
+        .collect();
+
     let hdr_result_handle = state.hdr_result.clone();
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
 
@@ -1918,34 +1894,29 @@ async fn save_hdr(
         .and_then(|s| s.to_str())
         .unwrap_or("hdr");
 
-    let (output_filename, image_to_save): (String, DynamicImage) = if hdr_image.color().has_alpha()
-    {
-        (
-            format!("{}_Hdr.png", stem),
-            DynamicImage::ImageRgba8(hdr_image.to_rgba8()),
-        )
+    let (extension, image_to_save): (&str, DynamicImage) = if hdr_image.color().has_alpha() {
+        ("png", DynamicImage::ImageRgba8(hdr_image.to_rgba8()))
     } else if hdr_image.as_rgb32f().is_some() {
-        (format!("{}_Hdr.tiff", stem), hdr_image)
+        ("tiff", hdr_image)
     } else {
-        (
-            format!("{}_Hdr.png", stem),
-            DynamicImage::ImageRgb8(hdr_image.to_rgb8()),
-        )
+        ("png", DynamicImage::ImageRgb8(hdr_image.to_rgb8()))
     };
 
-    let output_path = parent_dir.join(output_filename);
-
-    let (real_path, _) = crate::file_management::parse_virtual_path(&first_path_str);
-
-    crate::exif_processing::save_converted_image(
+    let bytes = crate::exif_processing::encode_converted_image(
         &image_to_save,
-        &output_path,
-        &real_path.to_string_lossy(),
+        extension,
+        &first_path.to_string_lossy(),
+    )?;
+    let output_path = crate::file_management::write_unique_output(
+        parent_dir,
+        &format!("{}_Hdr", stem),
+        extension,
+        &bytes,
     )
     .map_err(|e| format!("Failed to save hdr image: {}", e))?;
 
     let _ =
-        crate::exif_processing::write_rrexif_sidecar(&real_path.to_string_lossy(), &output_path);
+        crate::exif_processing::write_rrexif_sidecar(&first_path.to_string_lossy(), &output_path);
 
     Ok(output_path.to_string_lossy().to_string())
 }
@@ -1971,11 +1942,13 @@ async fn save_collage(base64_data: String, first_path_str: String) -> Result<Str
         .and_then(|s| s.to_str())
         .unwrap_or("collage");
 
-    let output_filename = format!("{}_Collage.png", stem);
-    let output_path = parent_dir.join(output_filename);
-
-    fs::write(&output_path, &decoded_bytes)
-        .map_err(|e| format!("Failed to save collage image: {}", e))?;
+    let output_path = crate::file_management::write_unique_output(
+        parent_dir,
+        &format!("{}_Collage", stem),
+        "png",
+        &decoded_bytes,
+    )
+    .map_err(|e| format!("Failed to save collage image: {}", e))?;
 
     Ok(output_path.to_string_lossy().to_string())
 }
@@ -1998,16 +1971,28 @@ async fn generate_preview_for_path(
             crate::image_loader::get_or_decode_pristine(&state, &source_path, &settings, None)?;
         let base_image = prepare_base_image_cow(&pristine, &source_path_str, &js_adjustments)
             .map_err(|e| e.to_string())?;
-        let (transformed_image, unscaled_crop_offset) =
-            apply_all_transformations(Cow::Borrowed(base_image.as_ref()), &js_adjustments);
-        let (img_w, img_h) = transformed_image.dimensions();
+        let (fitted, scale) = crate::render_source::fit_to_gpu(&context, &base_image);
+        let source = RenderSource::edited(
+            &fitted,
+            crate::render_source::source_id("preview-for-path", &source_path_str, &js_adjustments),
+            &path,
+            &js_adjustments,
+        )
+        .scaled(scale);
+        let crop_offset = source.crop_offset();
+        let (img_w, img_h) = source.size();
         let mask_definitions: Vec<MaskDefinition> = js_adjustments
             .get("masks")
             .and_then(|m| serde_json::from_value(m.clone()).ok())
             .unwrap_or_default();
 
-        let warped_image =
-            build_warped_image_for_masks(&base_image, is_raw, &js_adjustments, &mask_definitions);
+        let warped_image = build_warped_image_for_masks(
+            &base_image,
+            is_raw,
+            &path,
+            &js_adjustments,
+            &mask_definitions,
+        );
         let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
             .iter()
             .filter_map(|def| {
@@ -2015,8 +2000,8 @@ async fn generate_preview_for_path(
                     def,
                     img_w,
                     img_h,
-                    1.0,
-                    unscaled_crop_offset,
+                    scale,
+                    crop_offset,
                     warped_image.as_deref(),
                 )
             })
@@ -2032,13 +2017,10 @@ async fn generate_preview_for_path(
         all_adjustments.global.show_clipping = 0;
         let lut_path = js_adjustments["lutPath"].as_str();
         let lut = lut_path.and_then(|p| lut_processing::get_or_load_lut(&state, p).ok());
-        let unique_hash = calculate_full_job_hash(&source_path_str, &js_adjustments);
-
         let final_image = process_and_get_dynamic_image(
             &context,
             &state,
-            transformed_image.as_ref(),
-            unique_hash,
+            &source,
             RenderRequest {
                 adjustments: all_adjustments,
                 mask_bitmaps: &mask_bitmaps,
@@ -2047,10 +2029,11 @@ async fn generate_preview_for_path(
                 roi: None,
                 hsl_probe: false,
                 motion_blur: crate::motion_blur::MotionBlurs::new(
+                    &path,
                     &js_adjustments,
                     (img_w, img_h),
-                    unscaled_crop_offset,
-                    base_image.width().max(base_image.height()) as f32,
+                    crop_offset,
+                    base_image.width().max(base_image.height()) as f32 * scale,
                 ),
             },
             "generate_preview_for_path",
@@ -2506,11 +2489,7 @@ pub fn run() {
                 let _ = std::fs::remove_file(&crash_flag_path);
             }
 
-            let lens_db = lens_correction::load_lensfun_db(&app_handle);
-            {
-                let state = app.state::<AppState>();
-                *state.lens_db.lock().unwrap() = Some(Arc::new(lens_db));
-            }
+            lens_correction::init_lensfun_db(&app_handle);
 
             unsafe {
                 if let Some(backend) = &settings.processing_backend
@@ -2567,6 +2546,8 @@ pub fn run() {
                 );
             }
 
+            jxl_oxide::integration::register_image_decoding_hook();
+
             match launch_req {
                 LaunchRequest::HeadlessExport(session) => {
                     let app_handle_clone = app_handle.clone();
@@ -2592,10 +2573,10 @@ pub fn run() {
 
             start_preview_worker(app_handle.clone());
             start_analytics_worker(app_handle.clone());
+            image_preload::start_preload_worker(app_handle.clone());
             file_management::start_thumbnail_workers(app_handle.clone());
             file_management::start_metadata_workers(app_handle.clone());
             ai_jobs::start_worker(app_handle.clone());
-            jxl_oxide::integration::register_image_decoding_hook();
 
             let window_cfg = app.config().app.windows.first().unwrap().clone();
             let decorations = settings.decorations.unwrap_or(window_cfg.decorations);
@@ -2622,6 +2603,9 @@ pub fn run() {
             }
 
             let window = window_builder.build().expect("Failed to build window");
+
+            #[cfg(not(target_os = "android"))]
+            app_settings::apply_saved_ui_scale(&window, &settings);
 
             #[cfg(target_os = "android")]
             android_integration::initialize_android(&window);
@@ -2813,21 +2797,18 @@ pub fn run() {
             analytics_channel: Mutex::new(None),
             mask_cache: Mutex::new(HashMap::new()),
             patch_cache: Mutex::new(HashMap::new()),
-            geometry_cache: Mutex::new(HashMap::new()),
-            thumbnail_geometry_cache: Mutex::new(HashMap::new()),
-            lens_db: Mutex::new(None),
+            uncropped_source_cache: Mutex::new(HashMap::new()),
+            thumbnail_source_cache: Mutex::new(HashMap::new()),
             load_image_generation: Arc::new(AtomicUsize::new(0)),
             full_warped_cache: Mutex::new(None),
             full_warped_build_lock: Mutex::new(()),
             wgpu_presented_generation: AtomicUsize::new(usize::MAX),
             patched_cache: Mutex::new(None),
             cleanup_source_cache: Mutex::new(None),
-            warped_cache: Mutex::new(None),
             working_cache: Mutex::new(None),
-            effects_cache: Mutex::new(None),
-            full_transformed_cache: Mutex::new(None),
             decoded_image_cache: Mutex::new(DecodedImageCache::new(5)),
             decode_flights: Default::default(),
+            image_preloader: Default::default(),
             thumbnail_manager: ThumbnailManager::new(),
             memory_budget: crate::memory_budget::MemoryBudget::from_total_ram(0.6),
             metadata_manager: MetadataManager::new(),
@@ -2874,6 +2855,7 @@ pub fn run() {
             cache_utils::clear_image_caches,
             app_settings::load_settings,
             app_settings::save_settings,
+            app_settings::set_ui_scale,
             app_settings::is_tethering_supported,
             app_settings::is_wgpu_renderer_supported,
             ai_commands::generate_ai_subject_mask,
@@ -2887,6 +2869,7 @@ pub fn run() {
             ai_commands::test_ai_connector_connection,
             ai_commands::generate_full_image_depth_map,
             ai_commands::generate_relight_normal_map,
+            ai_commands::get_depth_preview,
             ai_denoise::clear_ai_denoise_cache,
             ai_jobs::get_ai_jobs_status,
             ai_jobs::get_pending_ai_paths,
@@ -2904,6 +2887,7 @@ pub fn run() {
             focus_stacking::save_focus_stack,
             image_loader::load_image,
             image_loader::is_image_cached,
+            image_preload::preload_images,
             panorama_stitching::stitch_panorama,
             panorama_stitching::save_panorama,
             export_processing::export_images,
@@ -2973,8 +2957,7 @@ pub fn run() {
             culling::cull_images,
             lens_correction::get_lensfun_makers,
             lens_correction::get_lensfun_lenses_for_maker,
-            lens_correction::autodetect_lens,
-            lens_correction::get_lens_distortion_params,
+            lens_correction::get_lens_correction_info,
             camera_tethering::tether_list_cameras,
             camera_tethering::tether_connect,
             camera_tethering::tether_get_settings,
