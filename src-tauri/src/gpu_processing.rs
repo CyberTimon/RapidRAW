@@ -1078,6 +1078,7 @@ const TB_FINE_RANGE: f32 = 0.3;
 const TB_FINE_ITERATIONS: usize = 3;
 const TB_BROAD_DIV: u32 = 8;
 const TB_BROAD_RADIUS: f32 = 64.0;
+const TB_CLIP_RADIUS: f32 = 48.0;
 const GF_TONAL_RADIUS: f32 = 10.0;
 const GF_TONAL_EPS: f32 = 0.25;
 const HZ_DIV: u32 = 2;
@@ -1383,7 +1384,9 @@ pub struct GpuPipelines {
     tb_fit_pipeline: wgpu::ComputePipeline,
     tb_merge_pipeline: wgpu::ComputePipeline,
     tb_pack_pipeline: wgpu::ComputePipeline,
+    tb_tone_pipeline: wgpu::ComputePipeline,
     tb_peak_pipeline: wgpu::ComputePipeline,
+    tb_clip_pipeline: wgpu::ComputePipeline,
     tb_stamp_pipeline: wgpu::ComputePipeline,
     hz_downsample_pipeline: wgpu::ComputePipeline,
     hz_airlight_pipeline: wgpu::ComputePipeline,
@@ -1585,7 +1588,9 @@ impl GpuPipelines {
         let tb_fit_pipeline = gf_pipeline("tb_fit");
         let tb_merge_pipeline = gf_pipeline("tb_merge");
         let tb_pack_pipeline = gf_pipeline("tb_pack");
+        let tb_tone_pipeline = gf_pipeline("tb_tone");
         let tb_peak_pipeline = gf_pipeline("tb_peak");
+        let tb_clip_pipeline = gf_pipeline("tb_clip");
         let tb_stamp_pipeline = gf_pipeline("tb_stamp");
 
         let shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -1811,7 +1816,9 @@ impl GpuPipelines {
             tb_fit_pipeline,
             tb_merge_pipeline,
             tb_pack_pipeline,
+            tb_tone_pipeline,
             tb_peak_pipeline,
+            tb_clip_pipeline,
             tb_stamp_pipeline,
             hz_downsample_pipeline,
             hz_airlight_pipeline,
@@ -2013,16 +2020,16 @@ impl GpuProcessor {
         let tb_coarse = make_view("Tone Base Coarse", bw, bh);
         let tb_wide = make_view("Tone Base Wide", bw, bh);
         let tb_fit = make_view("Tone Base Fit", bw, bh);
-        let tb_peak = make_view("Tone Base Peak", 1, 1);
         let hz_a = make_view("Haze Ping", hw, hh);
         let hz_b = make_view("Haze Pong", hw, hh);
         let hz_coarse = make_view("Haze Coarse", hcw, hch);
         let haze = make_view("Haze Coeffs", hw, hh);
-        let airlight = make_view("Haze Airlight", 2, 1);
+        let airlight = make_view("Haze Airlight", 3, 1);
 
         let params_tonal = make_params(GF_TONAL_RADIUS, GF_TONAL_EPS, 1.0);
         let params_tb_fine = make_params(TB_FINE_RADIUS, TB_FINE_RANGE, TB_FINE_DIV as f32);
         let params_tb_broad = make_params(TB_BROAD_RADIUS, 0.0, TB_BROAD_DIV as f32);
+        let params_tb_clip = make_params(TB_CLIP_RADIUS, 0.0, TB_BROAD_DIV as f32);
         let params_hz_patch = make_params(HZ_PATCH_RADIUS, HZ_GF_EPS, HZ_DIV as f32);
         let params_hz_gf = make_params(HZ_GF_RADIUS, HZ_GF_EPS, HZ_DIV as f32);
 
@@ -2326,17 +2333,49 @@ impl GpuProcessor {
             fine,
         );
         pass(
+            &self.pipelines.tb_tone_pipeline,
+            &tb_fit,
+            &ab,
+            &tmp,
+            &params_tb_broad,
+            fine,
+        );
+        pass(
             &self.pipelines.tb_peak_pipeline,
             &tb_coarse,
             &tb_coarse,
-            &tb_peak,
+            &airlight,
             &params_tb_broad,
             (1, 1),
         );
         pass(
+            &self.pipelines.tb_clip_pipeline,
+            &tb_coarse,
+            &airlight,
+            &tb_wide,
+            &params_tb_clip,
+            (bw, bh),
+        );
+        pass(
+            &self.pipelines.gf_blur_h_pipeline,
+            &tb_wide,
+            &tb_wide,
+            &tb_fit,
+            &params_tb_clip,
+            (bw, bh),
+        );
+        pass(
+            &self.pipelines.gf_blur_v_pipeline,
+            &tb_fit,
+            &tb_fit,
+            &tb_wide,
+            &params_tb_clip,
+            (bw, bh),
+        );
+        pass(
             &self.pipelines.tb_stamp_pipeline,
-            &ab,
-            &tb_peak,
+            &tmp,
+            &tb_wide,
             &moments,
             &params_tb_broad,
             fine,
