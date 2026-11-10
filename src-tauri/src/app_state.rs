@@ -213,7 +213,7 @@ pub struct GpuImageEntry {
     pub texture: Texture,
     pub texture_view: TextureView,
     pub gf_coeffs_view: TextureView,
-    pub gf_structure_view: TextureView,
+    pub tone_base_view: TextureView,
     pub haze_view: TextureView,
     pub airlight_view: TextureView,
     pub is_raw: u32,
