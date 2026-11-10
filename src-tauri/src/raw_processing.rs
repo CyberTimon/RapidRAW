@@ -1,4 +1,5 @@
 use crate::as_shot::AsShot;
+use crate::demosaic::Mosaic;
 use crate::highlight_reconstruction::{self, Region};
 use crate::image_processing::{apply_orientation, oriented_rgb32f};
 use crate::white_balance::WhiteBalance;
@@ -48,6 +49,8 @@ fn metadata_orientation(decoder: &dyn Decoder, source: &RawSource) -> Result<Ori
         .map(Orientation::from_u16)
         .unwrap_or(Orientation::Normal))
 }
+
+const HIGHLIGHT_HEADROOM: f32 = 1000.0;
 
 thread_local! {
     static READING_PREFIX: Cell<bool> = const { Cell::new(false) };
@@ -343,6 +346,31 @@ fn develop_internal(
         .map(|r| r.as_f32())
         .unwrap_or(0.0);
 
+    raw_image.wb_coeffs =
+        crate::multi_exposure::neutralize_wb_if_multiexposure(raw_image.wb_coeffs, file_bytes);
+
+    let camera_to_srgb = (apply_calibration || !is_linear_format)
+        .then(|| CameraToSrgb::new(&raw_image))
+        .flatten();
+    let cfa_balance = (!is_linear_format && camera_to_srgb.is_some())
+        .then(|| cfa_white_balance(&raw_image))
+        .flatten();
+    let clamp_limit = if fast_demosaic {
+        1.0
+    } else {
+        HIGHLIGHT_HEADROOM
+    };
+
+    if let (Some(wb), Some(camera_to_srgb)) = (cfa_balance, &camera_to_srgb)
+        && let Some(mosaic) = Mosaic::new(&raw_image, wb)
+    {
+        check_cancel()?;
+        let (data, region) = demosaic_mosaic(&mosaic, &raw_image, fast_demosaic)?;
+        check_cancel()?;
+        let image = finish_cfa(data, region, wb, camera_to_srgb, orientation, clamp_limit);
+        return Ok((image, Orientation::Normal));
+    }
+
     for level in raw_image.whitelevel.0.iter_mut() {
         *level = u32::MAX;
     }
@@ -360,15 +388,6 @@ fn develop_internal(
         developer.demosaic_algorithm = DemosaicAlgorithm::Speed;
     }
 
-    raw_image.wb_coeffs =
-        crate::multi_exposure::neutralize_wb_if_multiexposure(raw_image.wb_coeffs, file_bytes);
-
-    let camera_to_srgb = (apply_calibration || !is_linear_format)
-        .then(|| CameraToSrgb::new(&raw_image))
-        .flatten();
-    let cfa_balance = (!is_linear_format && camera_to_srgb.is_some())
-        .then(|| cfa_white_balance(&raw_image))
-        .flatten();
     if cfa_balance.is_some() {
         developer
             .steps
@@ -391,14 +410,6 @@ fn develop_internal(
 
     let denominator = (original_white_level - original_black_level).max(1.0);
     let rescale_factor = (u32::MAX as f32 - original_black_level) / denominator;
-
-    let safe_highlight_compression = 1000.0;
-
-    let clamp_limit = if fast_demosaic {
-        1.0
-    } else {
-        safe_highlight_compression
-    };
 
     let (width, height) = {
         let dim = developed_intermediate.dim();
@@ -429,10 +440,6 @@ fn develop_internal(
                 height: crop.d.h,
             };
 
-            let levels =
-                highlight_reconstruction::detect_clip_levels(&pixels.data, region, rescale_factor);
-            let clips: [f32; 3] = std::array::from_fn(|c| wb[c] * levels[c]);
-
             pixels
                 .data
                 .par_chunks_exact_mut(region.stride)
@@ -445,18 +452,11 @@ fn develop_internal(
                         }
                     }
                 });
-            highlight_reconstruction::reconstruct_highlights(&mut pixels.data, region, clips);
             check_cancel()?;
 
-            let neutral = wb.map(|c| 1.0 / c);
-            let data = &pixels.data;
-            let image = oriented_rgb32f(region.width, region.height, orientation, |x, y| {
-                let [r, g, b] = data[(region.y + y) * region.stride + region.x + x];
-                camera_to_srgb
-                    .pixel(&[r * neutral[0], g * neutral[1], b * neutral[2]])
-                    .map(|value| value.clamp(0.0, clamp_limit))
-            });
-            return Ok((DynamicImage::ImageRgb32F(image), Orientation::Normal));
+            let data = std::mem::take(&mut pixels.data);
+            let image = finish_cfa(data, region, wb, camera_to_srgb, orientation, clamp_limit);
+            return Ok((image, Orientation::Normal));
         }
         Intermediate::ThreeColor(pixels) => {
             pixels.data.par_iter_mut().for_each(|p| {
@@ -505,6 +505,65 @@ fn develop_internal(
     };
 
     Ok((dynamic_image, orientation))
+}
+
+fn demosaic_mosaic(
+    mosaic: &Mosaic,
+    raw_image: &RawImage,
+    fast_demosaic: bool,
+) -> Result<(Vec<[f32; 3]>, Region)> {
+    let (crop_area, active_area, raw_dim) =
+        (raw_image.crop_area, raw_image.active_area, raw_image.dim());
+    let (data, stride, crop) = if fast_demosaic {
+        let (data, dim) = mosaic.bin();
+        (
+            data,
+            dim.w,
+            default_crop(crop_area, active_area, raw_dim, dim),
+        )
+    } else {
+        let domain = mosaic.domain();
+        let crop = default_crop(crop_area, active_area, raw_dim, domain.d);
+        let crop = Rect::new(
+            Point::new(domain.p.x + crop.p.x, domain.p.y + crop.p.y),
+            crop.d,
+        );
+        let context = crate::gpu_processing::shared_gpu_context().map_err(|e| anyhow!(e))?;
+        let data = mosaic.demosaic(&context, crop)?;
+        (data, crop.d.w, Rect::new(Point::zero(), crop.d))
+    };
+    Ok((
+        data,
+        Region {
+            stride,
+            x: crop.p.x,
+            y: crop.p.y,
+            width: crop.d.w,
+            height: crop.d.h,
+        },
+    ))
+}
+
+fn finish_cfa(
+    mut data: Vec<[f32; 3]>,
+    region: Region,
+    wb: [f32; 3],
+    camera_to_srgb: &CameraToSrgb,
+    orientation: Orientation,
+    clamp_limit: f32,
+) -> DynamicImage {
+    let neutral = wb.map(|c| 1.0 / c);
+    let levels = highlight_reconstruction::detect_clip_levels(&data, region, neutral);
+    let clips: [f32; 3] = std::array::from_fn(|c| wb[c] * levels[c]);
+    highlight_reconstruction::reconstruct_highlights(&mut data, region, clips);
+
+    let image = oriented_rgb32f(region.width, region.height, orientation, |x, y| {
+        let [r, g, b] = data[(region.y + y) * region.stride + region.x + x];
+        camera_to_srgb
+            .pixel(&[r * neutral[0], g * neutral[1], b * neutral[2]])
+            .map(|value| value.clamp(0.0, clamp_limit))
+    });
+    DynamicImage::ImageRgb32F(image)
 }
 
 fn default_crop(
@@ -638,9 +697,11 @@ pub fn get_fast_demosaic_scale_factor(
         let max_comp = (decoded_width as f32).max(decoded_height as f32);
         if max_orig > 0.0 {
             let ratio = max_comp / max_orig;
-            if ratio > 0.1 && ratio < 0.35 {
+            if ratio > 0.1 && ratio < 0.29 {
                 return 0.25;
-            } else if (0.35..0.75).contains(&ratio) {
+            } else if (0.29..0.4).contains(&ratio) {
+                return 1.0 / 3.0;
+            } else if (0.4..0.75).contains(&ratio) {
                 return 0.5;
             }
         }

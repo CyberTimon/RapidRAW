@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
 use half::f16;
@@ -755,6 +755,19 @@ pub fn wgpu_display_failed() -> bool {
     WGPU_DISPLAY_FAILED.load(Ordering::Acquire)
 }
 
+static APP_HANDLE: OnceLock<tauri::AppHandle> = OnceLock::new();
+
+pub fn register_app_handle(app_handle: &tauri::AppHandle) {
+    let _ = APP_HANDLE.set(app_handle.clone());
+}
+
+pub fn shared_gpu_context() -> Result<GpuContext, String> {
+    let app_handle = APP_HANDLE
+        .get()
+        .ok_or("GPU context requested before app setup")?;
+    get_or_init_gpu_context(&app_handle.state::<AppState>(), app_handle)
+}
+
 pub fn get_or_init_gpu_context(
     state: &tauri::State<AppState>,
     #[cfg_attr(target_os = "android", allow(unused_variables))] app_handle: &tauri::AppHandle,
@@ -952,6 +965,7 @@ pub fn get_or_init_gpu_context(
     let device = Arc::clone(&new_context.device);
     let compute = Arc::clone(&new_context.compute);
     std::thread::spawn(move || {
+        crate::demosaic::warm(&device);
         compute
             .get_or_init(|| crate::gpu_compute::ComputePipelines::new(&device))
             .warm(&device);

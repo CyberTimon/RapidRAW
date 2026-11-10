@@ -88,7 +88,7 @@ fn opposed(roots: &[f32; 3], c: usize) -> f32 {
     m * m * m
 }
 
-pub fn detect_clip_levels(data: &[[f32; 3]], region: Region, scale: f32) -> [f32; 3] {
+pub fn detect_clip_levels(data: &[[f32; 3]], region: Region, scale: [f32; 3]) -> [f32; 3] {
     let bins_per_unit = LEVEL_BINS as f32 / (LEVEL_HIGH - LEVEL_LOW);
     let histogram = (0..region.height)
         .into_par_iter()
@@ -97,7 +97,7 @@ pub fn detect_clip_levels(data: &[[f32; 3]], region: Region, scale: f32) -> [f32
             |mut histogram, y| {
                 for p in region.row(data, y) {
                     for c in 0..3 {
-                        let bin = (p[c] * scale - LEVEL_LOW) * bins_per_unit;
+                        let bin = (p[c] * scale[c] - LEVEL_LOW) * bins_per_unit;
                         if bin >= 0.0 && bin < LEVEL_BINS as f32 {
                             histogram[bin as usize][c] += 1;
                         }
