@@ -1412,8 +1412,8 @@ pub struct HslColor {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
 #[repr(C)]
 pub struct ColorGradeSettings {
-    pub hue: f32,
-    pub saturation: f32,
+    pub tint_a: f32,
+    pub tint_b: f32,
     pub luminance: f32,
     _pad: f32,
 }
@@ -1711,8 +1711,8 @@ const SCALES: AdjustmentScales = AdjustmentScales {
     hsl_saturation: 100.0,
     hsl_luminance: 100.0,
 
-    color_grading_saturation: 500.0,
-    color_grading_luminance: 500.0,
+    color_grading_saturation: 1000.0,
+    color_grading_luminance: 1000.0,
     color_grading_blending: 100.0,
     color_grading_balance: 200.0,
 
@@ -1761,10 +1761,12 @@ fn parse_color_grade_settings(js_cg: &serde_json::Value) -> ColorGradeSettings {
     if js_cg.is_null() {
         return ColorGradeSettings::default();
     }
+    let saturation = (js_cg["saturation"].as_f64().unwrap_or(0.0) as f32).clamp(0.0, 100.0);
+    let tint = oklab_hue_direction(js_cg["hue"].as_f64().unwrap_or(0.0) as f32)
+        * (saturation / SCALES.color_grading_saturation);
     ColorGradeSettings {
-        hue: js_cg["hue"].as_f64().unwrap_or(0.0) as f32,
-        saturation: js_cg["saturation"].as_f64().unwrap_or(0.0) as f32
-            / SCALES.color_grading_saturation,
+        tint_a: tint.x,
+        tint_b: tint.y,
         luminance: js_cg["luminance"].as_f64().unwrap_or(0.0) as f32
             / SCALES.color_grading_luminance,
         _pad: 0.0,

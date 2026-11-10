@@ -13,8 +13,8 @@ struct HslColor {
 }
 
 struct ColorGradeSettings {
-    hue: f32,
-    saturation: f32,
+    tint_a: f32,
+    tint_b: f32,
     luminance: f32,
     _pad: f32,
 }
@@ -908,37 +908,87 @@ fn apply_hsl_panel(color: vec3<f32>, hsl_adjustments: array<HslColor, 8>, coords
     return final_color;
 }
 
+const CG_SLOPE_STEP: f32 = 0.05;
+const CG_SLOPE_MIN: f32 = 0.75;
+const CG_SLOPE_MAX: f32 = 1.5;
+const CG_FEATHER_MIN: f32 = 0.06;
+const CG_FEATHER_RANGE: f32 = 0.24;
+const CG_LUMINANCE_FEATHER_MIN: f32 = 0.12;
+const CG_BALANCE_SHIFT: f32 = 0.4;
+
+fn signed_cbrt(x: f32) -> f32 {
+    return select(0.0, sign(x) * pow(abs(x), 1.0 / 3.0), abs(x) > 1.0e-12);
+}
+
+fn linear_srgb_to_oklab(c: vec3<f32>) -> vec3<f32> {
+    let l = signed_cbrt(0.4122214708 * c.r + 0.5363325363 * c.g + 0.0514459929 * c.b);
+    let m = signed_cbrt(0.2119034982 * c.r + 0.6806995451 * c.g + 0.1073969566 * c.b);
+    let s = signed_cbrt(0.0883024619 * c.r + 0.2817188376 * c.g + 0.6299787005 * c.b);
+    return vec3<f32>(
+        0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+        1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+        0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s
+    );
+}
+
+fn display_lightness(scene_lightness: f32) -> f32 {
+    let l = max(scene_lightness, 0.0);
+    let display = clamp(display_transform(vec3<f32>(l * l * l)), vec3<f32>(0.0), vec3<f32>(1.0));
+    return signed_cbrt(get_luma(srgb_to_linear(display)));
+}
+
+fn color_grade_regions(lightness: f32, feather: f32, balance: f32) -> vec3<f32> {
+    let shift = balance * CG_BALANCE_SHIFT;
+    let shadow_split = 1.0 / 3.0 - shift;
+    let highlight_split = 2.0 / 3.0 - shift;
+    let shadow = 1.0 - smoothstep(shadow_split - feather, shadow_split + feather, lightness);
+    let highlight = smoothstep(highlight_split - feather, highlight_split + feather, lightness);
+    return vec3<f32>(shadow, max(1.0 - shadow - highlight, 0.0), highlight);
+}
+
+fn fit_grade_gamut(graded: vec3<f32>, lower_bound: f32) -> vec3<f32> {
+    let lowest = min(graded.r, min(graded.g, graded.b));
+    if (lowest >= lower_bound) {
+        return graded;
+    }
+    let luma = get_luma(graded);
+    if (luma <= lower_bound) {
+        return vec3<f32>(max(luma, 0.0));
+    }
+    return luma + (graded - luma) * ((luma - lower_bound) / (luma - lowest));
+}
+
 fn apply_color_grading(color: vec3<f32>, shadows: ColorGradeSettings, midtones: ColorGradeSettings, highlights: ColorGradeSettings, global: ColorGradeSettings, blending: f32, balance: f32) -> vec3<f32> {
-    let luma = get_luma(max(vec3(0.0), color));
-    let base_shadow_crossover = 0.1;
-    let base_highlight_crossover = 0.5;
-    let balance_range = 0.5;
-    let shadow_crossover = base_shadow_crossover + max(0.0, -balance) * balance_range;
-    let highlight_crossover = base_highlight_crossover - max(0.0, balance) * balance_range;
-    let feather = 0.2 * blending;
-    let final_shadow_crossover = min(shadow_crossover, highlight_crossover - 0.01);
-    let shadow_mask = 1.0 - smoothstep(final_shadow_crossover - feather, final_shadow_crossover + feather, luma);
-    let highlight_mask = smoothstep(highlight_crossover - feather, highlight_crossover + feather, luma);
-    let midtone_mask = max(0.0, 1.0 - shadow_mask - highlight_mask);
-    let global_mask = 1.0;
-    var graded_color = color;
-    let shadow_sat_strength = 0.1;
-    let shadow_lum_strength = 0.5;
-    let midtone_sat_strength = 0.6;
-    let midtone_lum_strength = 0.8;
-    let highlight_sat_strength = 0.8;
-    let highlight_lum_strength = 1.0;
-    let global_sat_strength = 1.0;
-    let global_lum_strength = 1.0;
-    if (shadows.saturation > 0.001) { let tint_rgb = hsv_to_rgb(vec3<f32>(shadows.hue, 1.0, 1.0)); graded_color += (tint_rgb - 0.5) * shadows.saturation * shadow_mask * shadow_sat_strength; }
-    graded_color += shadows.luminance * shadow_mask * shadow_lum_strength;
-    if (midtones.saturation > 0.001) { let tint_rgb = hsv_to_rgb(vec3<f32>(midtones.hue, 1.0, 1.0)); graded_color += (tint_rgb - 0.5) * midtones.saturation * midtone_mask * midtone_sat_strength; }
-    graded_color += midtones.luminance * midtone_mask * midtone_lum_strength;
-    if (highlights.saturation > 0.001) { let tint_rgb = hsv_to_rgb(vec3<f32>(highlights.hue, 1.0, 1.0)); graded_color += (tint_rgb - 0.5) * highlights.saturation * highlight_mask * highlight_sat_strength; }
-    graded_color += highlights.luminance * highlight_mask * highlight_lum_strength;
-    if (global.saturation > 0.001) { let tint_rgb = hsv_to_rgb(vec3<f32>(global.hue, 1.0, 1.0)); graded_color += (tint_rgb - 0.5) * global.saturation * global_mask * global_sat_strength; }
-    graded_color += global.luminance * global_mask * global_lum_strength;
-    return graded_color;
+    let amount = abs(shadows.tint_a) + abs(shadows.tint_b) + abs(shadows.luminance)
+        + abs(midtones.tint_a) + abs(midtones.tint_b) + abs(midtones.luminance)
+        + abs(highlights.tint_a) + abs(highlights.tint_b) + abs(highlights.luminance)
+        + abs(global.tint_a) + abs(global.tint_b) + abs(global.luminance);
+    if (amount == 0.0) {
+        return color;
+    }
+
+    let scene_lightness = signed_cbrt(get_luma(max(color, vec3<f32>(0.0))));
+    let lower = display_lightness(scene_lightness - CG_SLOPE_STEP);
+    let upper = display_lightness(scene_lightness + CG_SLOPE_STEP);
+    let lightness = 0.5 * (lower + upper);
+    let slope = clamp((upper - lower) / (2.0 * CG_SLOPE_STEP), CG_SLOPE_MIN, CG_SLOPE_MAX);
+
+    let feather = CG_FEATHER_MIN + CG_FEATHER_RANGE * blending;
+    let tint_regions = color_grade_regions(lightness, feather, balance);
+    let luminance_regions = color_grade_regions(lightness, max(feather, CG_LUMINANCE_FEATHER_MIN), balance);
+
+    let tint = vec2<f32>(shadows.tint_a, shadows.tint_b) * tint_regions.x
+        + vec2<f32>(midtones.tint_a, midtones.tint_b) * tint_regions.y
+        + vec2<f32>(highlights.tint_a, highlights.tint_b) * tint_regions.z
+        + vec2<f32>(global.tint_a, global.tint_b);
+    let luminance = shadows.luminance * luminance_regions.x
+        + midtones.luminance * luminance_regions.y
+        + highlights.luminance * luminance_regions.z
+        + global.luminance;
+
+    let lab = linear_srgb_to_oklab(color);
+    let graded = oklab_to_linear_srgb(vec3<f32>(max(lab.x + luminance / slope, 0.0), lab.yz + tint / slope));
+    return fit_grade_gamut(graded, min(min(color.r, min(color.g, color.b)), 0.0));
 }
 
 const MONOCHROME_MIX_EV: f32 = 2.0;
@@ -1609,6 +1659,21 @@ fn agx_full_transform(color_in: vec3<f32>) -> vec3<f32> {
     return final_color;
 }
 
+fn display_transform(c: vec3<f32>) -> vec3<f32> {
+    if (has_feature(F_AGX) && adjustments.global.tonemapper_mode == 1u) {
+        return agx_full_transform(c);
+    }
+    if (adjustments.global.is_raw_image == 1u) {
+        var srgb_emulated = linear_to_srgb(c);
+        const BRIGHTNESS_GAMMA: f32 = 1.1;
+        srgb_emulated = pow(srgb_emulated, vec3<f32>(1.0 / BRIGHTNESS_GAMMA));
+        const CONTRAST_MIX: f32 = 0.75;
+        let contrast_curve = srgb_emulated * srgb_emulated * (3.0 - 2.0 * srgb_emulated);
+        return mix(srgb_emulated, contrast_curve, CONTRAST_MIX);
+    }
+    return linear_to_srgb(c);
+}
+
 fn legacy_tonemap(c: vec3<f32>) -> vec3<f32> {
     const a: f32 = 2.51;
     const b: f32 = 0.03;
@@ -2069,19 +2134,7 @@ fn main(
         }
     }
 
-    var default_tonemapped: vec3<f32>;
-    if (has_feature(F_AGX) && adjustments.global.tonemapper_mode == 1u) {
-        default_tonemapped = agx_full_transform(composite_rgb_linear);
-    } else if (is_raw == 1u) {
-        var srgb_emulated = linear_to_srgb(composite_rgb_linear);
-        const BRIGHTNESS_GAMMA: f32 = 1.1;
-        srgb_emulated = pow(srgb_emulated, vec3<f32>(1.0 / BRIGHTNESS_GAMMA));
-        const CONTRAST_MIX: f32 = 0.75;
-        let contrast_curve = srgb_emulated * srgb_emulated * (3.0 - 2.0 * srgb_emulated);
-        default_tonemapped = mix(srgb_emulated, contrast_curve, CONTRAST_MIX);
-    } else {
-        default_tonemapped = linear_to_srgb(composite_rgb_linear);
-    }
+    let default_tonemapped = display_transform(composite_rgb_linear);
     var base_srgb: vec3<f32>;
     let is_scene_lut = (has_feature(F_LUT) && adjustments.global.has_lut == 1u && adjustments.global.lut_is_scene_referred == 1u);
 
