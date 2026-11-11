@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, memo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RotateCcw, Copy, ClipboardPaste, Spline, Settings2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -326,6 +326,12 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
   const coordinateBaselineRef = useRef({ x: '', y: '' });
   const pendingCoordinateFocusRef = useRef<'x' | 'y' | null>(null);
   const skipCoordinateBlurCommitRef = useRef(false);
+  const clearPointSelection = useCallback(() => {
+    setSelectedPointIndex(null);
+    setCoordinateDrafts({ x: '', y: '' });
+    coordinateBaselineRef.current = { x: '', y: '' };
+    pendingCoordinateFocusRef.current = null;
+  }, []);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -337,6 +343,18 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
   const isParametricMode = curveMode === 'parametric';
 
   const parametricCurves = adjustments?.parametricCurve || DEFAULT_PARAMETRIC_CURVE;
+  const adjustmentSourceSignature = useMemo(
+    () =>
+      JSON.stringify(
+        Object.fromEntries(
+          Object.entries(adjustments ?? {}).filter(
+            ([key]) => !['curves', 'pointCurves', 'parametricCurve', 'curveMode'].includes(key),
+          ),
+        ),
+      ),
+    [adjustments],
+  );
+  const previousAdjustmentSourceRef = useRef(adjustmentSourceSignature);
   const parametricCurvesRef = useRef(parametricCurves);
 
   const lastPointerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -351,13 +369,20 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
     setCurveMode(adjustments.curveMode || 'point');
   }, [adjustments.curveMode]);
 
+  useEffect(() => {
+    if (previousAdjustmentSourceRef.current !== adjustmentSourceSignature) {
+      previousAdjustmentSourceRef.current = adjustmentSourceSignature;
+      clearPointSelection();
+    }
+  }, [adjustmentSourceSignature, clearPointSelection]);
+
   const activeParametricSettings =
     (draggingSplitKey ? localParametricSettings : null) ?? parametricCurves[activeChannel];
 
   const handleToggleMode = (newMode: 'point' | 'parametric') => {
     if (newMode === curveMode) return;
     setCurveMode(newMode);
-    setSelectedPointIndex(null);
+    clearPointSelection();
 
     setAdjustments((prev: any) => {
       if (newMode === 'parametric') {
@@ -408,10 +433,10 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
     activeChannelRef.current = activeChannel;
     setLocalPoints(null);
     setDraggingPointIndex(null);
-    setSelectedPointIndex(null);
+    clearPointSelection();
     setLocalParametricSettings(null);
     setDraggingSplitKey(null);
-  }, [activeChannel]);
+  }, [activeChannel, clearPointSelection]);
 
   useEffect(() => {
     if (draggingPointIndex === null) {
@@ -764,7 +789,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
           e.preventDefault();
           const newPoints = activePoints.filter((_, i) => i !== selectedPointIndex);
           setLocalPoints(newPoints);
-          setSelectedPointIndex(Math.max(0, selectedPointIndex - 1));
+          clearPointSelection();
           setAdjustments((prev: any) => ({
             ...prev,
             curves: { ...prev.curves, [activeChannel]: newPoints },
@@ -803,7 +828,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
       const newPoints = activePoints.filter((_, i) => i !== index);
       setLocalPoints(newPoints);
       localPointsRef.current = newPoints;
-      setSelectedPointIndex(null);
+      clearPointSelection();
       setAdjustments((prev: any) => ({
         ...prev,
         curves: { ...prev.curves, [activeChannel]: newPoints },
@@ -880,7 +905,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
         { x: 255, y: 255 },
       ];
       setLocalPoints(defaultPoints);
-      setSelectedPointIndex(null);
+      clearPointSelection();
       setAdjustments((prev: any) => ({
         ...prev,
         curves: { ...prev.curves, [activeChannel]: defaultPoints },
@@ -992,7 +1017,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
       const newPoints = normalizeIntegerPointCurve(curveClipboard);
       setLocalPoints(newPoints);
       localPointsRef.current = newPoints;
-      setSelectedPointIndex(null);
+      clearPointSelection();
       setAdjustments((prev: any) => ({ ...prev, curves: { ...prev.curves, [activeChannel]: newPoints } }));
     };
 
@@ -1001,7 +1026,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
       const newPoints = normalizeIntegerPointCurve(convertParametricToPoints(parametricClipboard));
       setLocalPoints(newPoints);
       localPointsRef.current = newPoints;
-      setSelectedPointIndex(null);
+      clearPointSelection();
       setAdjustments((prev: any) => ({ ...prev, curves: { ...prev.curves, [activeChannel]: newPoints } }));
     };
 
@@ -1012,7 +1037,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
       ];
       setLocalPoints(defaultPoints);
       localPointsRef.current = defaultPoints;
-      setSelectedPointIndex(null);
+      clearPointSelection();
       setAdjustments((prev: any) => ({ ...prev, curves: { ...prev.curves, [activeChannel]: defaultPoints } }));
     };
 
@@ -1023,7 +1048,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
       ];
       setLocalPoints(defaultPoints);
       localPointsRef.current = defaultPoints;
-      setSelectedPointIndex(null);
+      clearPointSelection();
       setAdjustments((prev: any) => ({
         ...prev,
         curves: {
@@ -1296,7 +1321,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                   type="text"
                   inputMode="decimal"
                   disabled={!selectedPoint}
-                  value={coordinateDrafts.x}
+                  value={selectedPoint ? coordinateDrafts.x : '-'}
                   onFocus={(e) => e.currentTarget.select()}
                   onChange={(e) => {
                     const text = e.target.value;
@@ -1340,7 +1365,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                       e.stopPropagation();
                     }
                   }}
-                  className="w-full text-sm text-right bg-card-active border border-gray-500 rounded-sm px-1 py-0 outline-none focus:ring-1 focus:ring-blue-500 text-text-primary"
+                  className="w-full text-sm text-right bg-transparent border border-transparent rounded-sm px-1 py-0 outline-none focus:border-gray-500 focus:ring-1 focus:ring-blue-500 text-text-primary"
                 />
               </span>
             </label>
@@ -1352,7 +1377,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                   type="text"
                   inputMode="decimal"
                   disabled={!selectedPoint}
-                  value={coordinateDrafts.y}
+                  value={selectedPoint ? coordinateDrafts.y : '-'}
                   onFocus={(e) => e.currentTarget.select()}
                   onChange={(e) => {
                     const text = e.target.value;
@@ -1396,7 +1421,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                       e.stopPropagation();
                     }
                   }}
-                  className="w-full text-sm text-right bg-card-active border border-gray-500 rounded-sm px-1 py-0 outline-none focus:ring-1 focus:ring-blue-500 text-text-primary"
+                  className="w-full text-sm text-right bg-transparent border border-transparent rounded-sm px-1 py-0 outline-none focus:border-gray-500 focus:ring-1 focus:ring-blue-500 text-text-primary"
                 />
               </span>
             </label>
