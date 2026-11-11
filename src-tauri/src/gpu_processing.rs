@@ -30,6 +30,8 @@ pub enum RenderOutputPrecision {
     #[default]
     EightBit,
     SixteenBit,
+    /// Extended sRGB readback for HDR export; not a display-surface format.
+    Hdr,
 }
 
 pub struct RenderRequest<'a> {
@@ -1405,6 +1407,7 @@ pub struct GpuPipelines {
     high_precision_entries: Vec<wgpu::BindGroupLayoutEntry>,
     high_precision_pipeline: std::sync::OnceLock<HighPrecisionPipeline>,
     hsl_probe_pipeline: std::sync::OnceLock<wgpu::ComputePipeline>,
+    hdr_pipeline: std::sync::OnceLock<wgpu::ComputePipeline>,
     dummy_blur_view: wgpu::TextureView,
     dummy_lut_view: wgpu::TextureView,
     dummy_lut_sampler: wgpu::Sampler,
@@ -1836,6 +1839,7 @@ impl GpuPipelines {
             high_precision_entries: bind_group_layout_entries,
             high_precision_pipeline: std::sync::OnceLock::new(),
             hsl_probe_pipeline: std::sync::OnceLock::new(),
+            hdr_pipeline: std::sync::OnceLock::new(),
             dummy_blur_view,
             dummy_lut_view,
             dummy_lut_sampler,
@@ -2775,6 +2779,25 @@ impl GpuProcessor {
         })
     }
 
+    fn hdr_pipeline(&self) -> &wgpu::ComputePipeline {
+        self.pipelines.hdr_pipeline.get_or_init(|| {
+            let hp = self.high_precision_pipeline();
+            self.context
+                .device
+                .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                    label: Some("HDR Export Compute Pipeline"),
+                    layout: Some(&hp.layout),
+                    module: &hp.shader,
+                    entry_point: Some("main"),
+                    compilation_options: wgpu::PipelineCompilationOptions {
+                        constants: &[("HIGH_PRECISION_OUTPUT", 1.0), ("HDR_OUTPUT", 1.0)],
+                        ..Default::default()
+                    },
+                    cache: None,
+                })
+        })
+    }
+
     fn hsl_probe_pipeline(&self) -> &wgpu::ComputePipeline {
         self.pipelines.hsl_probe_pipeline.get_or_init(|| {
             self.context
@@ -2856,18 +2879,20 @@ impl GpuProcessor {
         let scale = (width.min(height) as f32) / 1080.0;
         const MAX_MASK_BINDINGS: u32 = 1;
 
-        if output_precision == RenderOutputPrecision::SixteenBit && output_to_display {
+        if output_precision != RenderOutputPrecision::EightBit && output_to_display {
             return Err(
                 "High-precision GPU output is only supported for CPU-readback renders.".to_string(),
             );
         }
 
-        let high_precision_tile = if output_precision == RenderOutputPrecision::SixteenBit {
+        let high_precision_tile = if output_precision != RenderOutputPrecision::EightBit {
             Some(self.high_precision_tile())
         } else {
             None
         };
-        let output_pipeline = if request.hsl_probe {
+        let output_pipeline = if output_precision == RenderOutputPrecision::Hdr {
+            self.hdr_pipeline().clone()
+        } else if request.hsl_probe {
             self.hsl_probe_pipeline().clone()
         } else {
             self.main_pipeline_for(
@@ -2932,7 +2957,9 @@ impl GpuProcessor {
         };
         let mut final_pixels = match output_precision {
             RenderOutputPrecision::EightBit => RenderedPixels::U8(vec![0u8; output_len]),
-            RenderOutputPrecision::SixteenBit => RenderedPixels::U16(vec![0u16; output_len]),
+            RenderOutputPrecision::SixteenBit | RenderOutputPrecision::Hdr => {
+                RenderedPixels::U16(vec![0u16; output_len])
+            }
         };
 
         let start_tile_x = bounds.x / TILE_SIZE;
@@ -3710,6 +3737,18 @@ fn process_and_get_dynamic_image_inner(
             let img_buf = ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(out_w, out_h, pixels)
                 .ok_or("Failed to create 8-bit image buffer from GPU data")?;
             Ok(DynamicImage::ImageRgba8(img_buf))
+        }
+        RenderedPixels::U16(pixels) if output_precision == RenderOutputPrecision::Hdr => {
+            let pixels = pixels
+                .into_iter()
+                .map(|sample| {
+                    let value = f16::from_bits(sample).to_f32();
+                    if value.is_finite() { value.max(0.0) } else { 0.0 }
+                })
+                .collect();
+            let buffer = ImageBuffer::<Rgba<f32>, Vec<f32>>::from_raw(out_w, out_h, pixels)
+                .ok_or("Failed to create HDR image buffer from GPU data")?;
+            Ok(DynamicImage::ImageRgba32F(buffer))
         }
         RenderedPixels::U16(mut pixels) => {
             use rayon::prelude::*;

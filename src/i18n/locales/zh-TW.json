@@ -1005,6 +1005,12 @@
       "quality": "品質",
       "qualityLossless": "品質（無損）",
       "resolution": "解析度",
+      "jpegHdr": "HDR",
+      "jpegHdrInfoLabel": "關於 Ultra HDR",
+      "jpegHdrInfo": "匯出 Ultra HDR JPEG。在配備 HDR 螢幕的 Android 和 iOS 裝置上的相容應用程式中以 HDR 顯示；其他情況下顯示為一般 SDR 照片。",
+      "jxlHdr": "HDR",
+      "jxlHdrPeakNits": "HDR 峰值亮度",
+      "jxlBitDepth": "JPEG XL 位元深度",
       "tiffBitDepth": "TIFF 位元深度",
       "tiffBitDepth16": "16 位元",
       "tiffBitDepth8": "8 位元"

@@ -43,6 +43,8 @@ mod edit_in;
 mod effect_maps;
 mod exif_processing;
 mod export_processing;
+mod jxl_export;
+mod jpeg_hdr_export;
 mod face_masking;
 mod file_management;
 mod focus_stacking;

@@ -618,7 +618,7 @@ Explore example edits processed entirely within RapidRAW. You can download the `
         <li><strong>Undo/Redo History:</strong> Robust history tracking for every edit step.</li>
         <li><strong>Compositions & Merging:</strong> Bracketed HDR merging, Focus Stacking, seamless Panorama Stitcher, and Collage Maker.</li>
         <li><strong>Film Negatives:</strong> Non-destructive negative conversion with color balance and print controls.</li>
-        <li><strong>Flexible Exporting:</strong> Export to JPEG, PNG, WebP, AVIF, TIFF, JXL, or LUT formats with custom watermarking and EXIF retention.</li><br><br>
+        <li><strong>Flexible Exporting:</strong> Export to JPEG, PNG, WebP, AVIF, TIFF, JXL, or LUT formats with custom watermarking and EXIF retention. JPEG XL offers 8- or 16-bit export and a 16-bit HDR option (PQ with sRGB primaries, 1000- or 1600-nit peak, 203-nit diffuse white). JPEG offers an Ultra HDR toggle under Advanced → Export Settings, using a standard SDR JPEG fallback plus ISO 21496-1 and Google-compatible gain-map metadata (1000-nit peak, 203-nit diffuse white). HDR keeps the SDR edit and adds scene highlight headroom; HDR display requires a compatible viewer.</li><br><br>
       </ul>
     </td>
   </tr>

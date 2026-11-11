@@ -1097,6 +1097,10 @@
       "quality": "Kokybė",
       "qualityLossless": "Kokybė (be nuostolių)",
       "resolution": "Raiška",
+      "jpegHdr": "HDR",
+      "jpegHdrInfoLabel": "Apie Ultra HDR",
+      "jpegHdrInfo": "Eksportuoja Ultra HDR JPEG. Suderinamos Android ir iOS programėlės HDR ekrane rodo HDR; kitu atveju rodoma įprasta SDR nuotrauka.",
+      "jxlHdrPeakNits": "HDR didžiausias ryškumas",
       "tiffBitDepth": "TIFF bitų gylis",
       "tiffBitDepth16": "16 bitų",
       "tiffBitDepth8": "8 bitai"

@@ -1005,6 +1005,12 @@
       "quality": "품질",
       "qualityLossless": "품질 (무손실)",
       "resolution": "해상도",
+      "jpegHdr": "HDR",
+      "jpegHdrInfoLabel": "Ultra HDR 정보",
+      "jpegHdrInfo": "Ultra HDR JPEG로 내보냅니다. HDR 디스플레이를 갖춘 Android 및 iOS의 호환 앱에서는 HDR로 표시되며, 그 외에는 일반 SDR 사진으로 표시됩니다.",
+      "jxlHdr": "HDR",
+      "jxlHdrPeakNits": "HDR 최대 밝기",
+      "jxlBitDepth": "JPEG XL 비트 심도",
       "tiffBitDepth": "TIFF 비트 심도",
       "tiffBitDepth16": "16비트",
       "tiffBitDepth8": "8비트"

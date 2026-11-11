@@ -3,6 +3,8 @@ import {
   BorderBasis,
   DEFAULT_EXPORT_DPI,
   ExportPreset,
+  JxlBitDepth,
+  JxlHdrPeakNits,
   TiffBitDepth,
   WatermarkAnchor,
 } from '../components/ui/ExportImportProperties';
@@ -11,6 +13,10 @@ export function useExportSettings() {
   const [fileFormat, setFileFormat] = useState('jpeg');
   const [jpegQuality, setJpegQuality] = useState(90);
   const [tiffBitDepth, setTiffBitDepth] = useState<TiffBitDepth>(16);
+  const [jxlBitDepth, setJxlBitDepth] = useState<JxlBitDepth>(8);
+  const [jpegHdr, setJpegHdr] = useState(false);
+  const [jxlHdr, setJxlHdr] = useState(false);
+  const [jxlHdrPeakNits, setJxlHdrPeakNits] = useState<JxlHdrPeakNits>(1000);
   const [dpi, setDpi] = useState(DEFAULT_EXPORT_DPI);
   const [enableResize, setEnableResize] = useState(false);
   const [resizeMode, setResizeMode] = useState('longEdge');
@@ -47,6 +53,10 @@ export function useExportSettings() {
     setFileFormat(preset.fileFormat);
     setJpegQuality(preset.jpegQuality);
     setTiffBitDepth(preset.tiffBitDepth ?? 16);
+    setJxlBitDepth(preset.jxlHdr ? 16 : (preset.jxlBitDepth ?? 8));
+    setJpegHdr(preset.jpegHdr ?? false);
+    setJxlHdr(preset.jxlHdr ?? false);
+    setJxlHdrPeakNits(preset.jxlHdrPeakNits ?? 1000);
     setDpi(preset.dpi ?? DEFAULT_EXPORT_DPI);
     setEnableResize(preset.enableResize);
     setResizeMode(preset.resizeMode);
@@ -85,6 +95,10 @@ export function useExportSettings() {
       fileFormat,
       jpegQuality,
       tiffBitDepth,
+      jxlBitDepth,
+      jpegHdr,
+      jxlHdr,
+      jxlHdrPeakNits,
       dpi,
       enableResize,
       resizeMode,
@@ -121,6 +135,10 @@ export function useExportSettings() {
       fileFormat,
       jpegQuality,
       tiffBitDepth,
+      jxlBitDepth,
+      jpegHdr,
+      jxlHdr,
+      jxlHdrPeakNits,
       dpi,
       enableResize,
       resizeMode,
@@ -162,6 +180,14 @@ export function useExportSettings() {
     setJpegQuality,
     tiffBitDepth,
     setTiffBitDepth,
+    jxlBitDepth,
+    setJxlBitDepth,
+    jpegHdr,
+    setJpegHdr,
+    jxlHdr,
+    setJxlHdr,
+    jxlHdrPeakNits,
+    setJxlHdrPeakNits,
     dpi,
     setDpi,
     enableResize,

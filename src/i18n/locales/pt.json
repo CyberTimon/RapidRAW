@@ -1033,6 +1033,12 @@
       "quality": "Qualidade",
       "qualityLossless": "Qualidade (Sem Perdas)",
       "resolution": "Resolução",
+      "jpegHdr": "HDR",
+      "jpegHdrInfoLabel": "Sobre o Ultra HDR",
+      "jpegHdrInfo": "Exporta um JPEG Ultra HDR. Exibe HDR em apps compatíveis no Android e iOS com uma tela HDR; caso contrário, exibe uma foto SDR normal.",
+      "jxlHdr": "HDR",
+      "jxlHdrPeakNits": "Brilho máximo HDR",
+      "jxlBitDepth": "Profundidade de bits JPEG XL",
       "tiffBitDepth": "Profundidade de bits TIFF",
       "tiffBitDepth16": "16 bits",
       "tiffBitDepth8": "8 bits"

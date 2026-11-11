@@ -1008,6 +1008,12 @@
       "quality": "Quality",
       "qualityLossless": "Quality (Lossless)",
       "resolution": "Resolution",
+      "jpegHdr": "HDR",
+      "jpegHdrInfoLabel": "About Ultra HDR",
+      "jpegHdrInfo": "Exports a backward-compatible JPEG with an HDR gain map. Based on ISO 21496-1 (Google Ultra HDR / Apple Adaptive HDR).",
+      "jxlHdr": "HDR",
+      "jxlHdrPeakNits": "HDR peak brightness",
+      "jxlBitDepth": "JPEG XL bit depth",
       "tiffBitDepth": "TIFF bit depth",
       "tiffBitDepth16": "16-bit",
       "tiffBitDepth8": "8-bit"

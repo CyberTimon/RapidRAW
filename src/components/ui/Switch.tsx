@@ -10,6 +10,7 @@ interface SwitchProps {
   disabled?: boolean;
   id?: string;
   label: string;
+  labelAccessory?: React.ReactNode;
   onChange(val: boolean): any;
   tooltip?: string;
   trackClassName?: string;
@@ -30,6 +31,7 @@ const Switch = ({
   className = '',
   disabled = false,
   label,
+  labelAccessory,
   onChange,
   tooltip,
   trackClassName,
@@ -43,19 +45,23 @@ const Switch = ({
   } as const;
 
   return (
-    <label
+    <div
       className={clsx(
         'flex items-center justify-between',
         disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
         className,
       )}
-      htmlFor={uniqueId}
       data-tooltip={tooltip}
     >
-      <Text variant={TextVariants.label} className="select-none">
-        {label}
-      </Text>
-      <div className="relative w-10 h-5">
+      <div className="flex items-center gap-1.5">
+        <label htmlFor={uniqueId} className="cursor-inherit">
+          <Text as="span" variant={TextVariants.label} className="select-none">
+            {label}
+          </Text>
+        </label>
+        {labelAccessory}
+      </div>
+      <label htmlFor={uniqueId} className="relative w-10 h-5 cursor-inherit">
         <input
           checked={checked}
           className="sr-only"
@@ -74,8 +80,8 @@ const Switch = ({
           initial={false}
           animate={{ x: checked ? 20 : 0 }}
         />
-      </div>
-    </label>
+      </label>
+    </div>
   );
 };
 

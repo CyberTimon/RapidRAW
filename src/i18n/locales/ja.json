@@ -1005,6 +1005,12 @@
       "quality": "画質",
       "qualityLossless": "画質 (ロスレス)",
       "resolution": "解像度",
+      "jpegHdr": "HDR",
+      "jpegHdrInfoLabel": "Ultra HDRについて",
+      "jpegHdrInfo": "Ultra HDR JPEGとして書き出します。HDRディスプレイを搭載したAndroidやiOSの対応アプリではHDRで表示され、それ以外では通常のSDR写真として表示されます。",
+      "jxlHdr": "HDR",
+      "jxlHdrPeakNits": "HDRピーク輝度",
+      "jxlBitDepth": "JPEG XL ビット深度",
       "tiffBitDepth": "TIFF ビット深度",
       "tiffBitDepth16": "16 ビット",
       "tiffBitDepth8": "8 ビット"

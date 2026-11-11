@@ -1058,6 +1058,12 @@
       "quality": "Качество",
       "qualityLossless": "Качество (без потерь)",
       "resolution": "Разрешение",
+      "jpegHdr": "HDR",
+      "jpegHdrInfoLabel": "Об Ultra HDR",
+      "jpegHdrInfo": "Экспортирует JPEG Ultra HDR. HDR отображается в совместимых приложениях Android и iOS на HDR-экране; в остальных случаях отображается обычное фото SDR.",
+      "jxlHdr": "HDR",
+      "jxlHdrPeakNits": "Пиковая яркость HDR",
+      "jxlBitDepth": "Глубина цвета JPEG XL",
       "tiffBitDepth": "Глубина цвета TIFF",
       "tiffBitDepth16": "16 бит",
       "tiffBitDepth8": "8 бит"

@@ -12,10 +12,6 @@ use image::{
     DynamicImage, GenericImageView, GrayImage, ImageBuffer, ImageEncoder, ImageFormat, Luma,
     imageops,
 };
-use jxl_encoder::{
-    LosslessConfig, LossyConfig, PixelLayout,
-    api::{calibrated_jxl_quality, quality_to_distance},
-};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::Emitter;
@@ -35,6 +31,7 @@ use crate::image_processing::{
     get_all_adjustments_from_json, get_or_init_gpu_context, process_and_get_dynamic_image,
     process_and_get_dynamic_image_with_precision, resolve_render_options_from_handle,
 };
+use crate::jxl_export::{JxlBitDepth, JxlHdrPeakNits};
 use crate::lut_processing::{
     convert_image_to_cube_lut, generate_identity_lut_image, get_or_load_lut,
 };
@@ -128,6 +125,14 @@ pub struct ExportSettings {
     pub jpeg_quality: u8,
     #[serde(default)]
     pub tiff_bit_depth: TiffBitDepth,
+    #[serde(default)]
+    pub jxl_bit_depth: JxlBitDepth,
+    #[serde(default)]
+    pub jpeg_hdr: bool,
+    #[serde(default)]
+    pub jxl_hdr: bool,
+    #[serde(default)]
+    pub jxl_hdr_peak_nits: JxlHdrPeakNits,
     pub resize: Option<ResizeOptions>,
     #[serde(default)]
     pub border: Option<BorderOptions>,
@@ -1202,12 +1207,43 @@ fn process_image_for_export_pipeline(
     )
 }
 
+// JPEG HDR needs a separately rendered SDR base, including identical export geometry.
+struct ExportImage {
+    image: DynamicImage,
+    sdr: Option<DynamicImage>,
+}
+
+fn is_jpeg_hdr(format: &str, settings: &ExportSettings) -> bool {
+    settings.jpeg_hdr && matches!(format.to_ascii_lowercase().as_str(), "jpg" | "jpeg")
+}
+
+fn render_export_images(
+    format: &str,
+    settings: &ExportSettings,
+    mut render: impl FnMut(RenderOutputPrecision) -> Result<DynamicImage, String>,
+) -> Result<ExportImage, String> {
+    let image = render(render_output_precision(format, settings))?;
+    let sdr = if is_jpeg_hdr(format, settings) {
+        Some(render(RenderOutputPrecision::EightBit)?)
+    } else {
+        None
+    };
+    Ok(ExportImage { image, sdr })
+}
+
 fn render_output_precision(
     output_format: &str,
     export_settings: &ExportSettings,
 ) -> RenderOutputPrecision {
-    if matches!(output_format.to_lowercase().as_str(), "tif" | "tiff")
-        && export_settings.tiff_bit_depth == TiffBitDepth::Sixteen
+    if (output_format.eq_ignore_ascii_case("jxl") && export_settings.jxl_hdr)
+        || is_jpeg_hdr(output_format, export_settings)
+    {
+        return RenderOutputPrecision::Hdr;
+    }
+    if (matches!(output_format.to_lowercase().as_str(), "tif" | "tiff")
+        && export_settings.tiff_bit_depth == TiffBitDepth::Sixteen)
+        || (output_format.eq_ignore_ascii_case("jxl")
+            && export_settings.jxl_bit_depth == JxlBitDepth::Sixteen)
     {
         RenderOutputPrecision::SixteenBit
     } else {
@@ -1236,7 +1272,7 @@ fn set_timestamps_from_exif(src: &Path, dst: &Path) {
 }
 
 fn save_image_with_metadata(
-    image: &DynamicImage,
+    images: &ExportImage,
     output_path: &std::path::Path,
     source_path_str: &str,
     export_xmp: &exif_processing::ExportXmp,
@@ -1253,14 +1289,19 @@ fn save_image_with_metadata(
             exif_processing::collect_metadata_from_source(
                 source_path_str,
                 export_settings.strip_gps,
-                Some(image.dimensions()),
+                Some(images.image.dimensions()),
             )
         } else {
             None
         };
 
-    let mut image_bytes =
-        encode_image_to_bytes(image, &extension, export_settings, tiff_metadata.as_ref())?;
+    let mut image_bytes = encode_image_to_bytes(
+        images,
+        &extension,
+        export_settings,
+        tiff_metadata.as_ref(),
+        false,
+    )?;
 
     exif_processing::write_image_with_metadata(
         &mut image_bytes,
@@ -1271,6 +1312,18 @@ fn save_image_with_metadata(
         export_xmp,
         export_settings.dpi,
     )?;
+
+    // Finalize MPF offsets only after EXIF/XMP insertion has changed the base JPEG size.
+    if is_jpeg_hdr(&extension, export_settings) {
+        image_bytes = crate::jpeg_hdr_export::encode(
+            &images.image,
+            images
+                .sdr
+                .as_ref()
+                .ok_or("Missing SDR render for Ultra HDR")?,
+            &image_bytes,
+        )?;
+    }
 
     #[cfg(target_os = "android")]
     {
@@ -1323,20 +1376,23 @@ fn process_image_for_export(
     is_raw: bool,
     app_handle: &tauri::AppHandle,
     output_format: &str,
-) -> Result<DynamicImage, String> {
-    let processed_image = process_image_for_export_pipeline(
-        path,
-        base_image,
-        js_adjustments,
-        context,
-        state,
-        is_raw,
-        "process_image_for_export",
-        app_handle,
-        render_output_precision(output_format, export_settings),
-    )?;
+) -> Result<ExportImage, String> {
+    render_export_images(output_format, export_settings, |precision| {
+        let processed_image = process_image_for_export_pipeline(
+            path,
+            base_image,
+            js_adjustments,
+            context,
+            state,
+            is_raw,
+            "process_image_for_export",
+            app_handle,
+            precision,
+        )?;
 
-    apply_export_geometry_and_watermark(processed_image, export_settings).map(|(image, _)| image)
+        apply_export_geometry_and_watermark(processed_image, export_settings)
+            .map(|(image, _)| image)
+    })
 }
 
 fn build_single_mask_adjustments(all: &AllAdjustments, mask_index: usize) -> AllAdjustments {
@@ -1367,51 +1423,26 @@ fn encode_grayscale_to_png(bitmap: &GrayImage) -> Result<Vec<u8>, String> {
 pub(crate) const SRGB_ICC_PROFILE: &[u8] = include_bytes!("../icc/sRGB-v2-magic.icc");
 
 fn encode_image_to_bytes(
-    image: &DynamicImage,
+    images: &ExportImage,
     output_format: &str,
     export_settings: &ExportSettings,
     tiff_metadata: Option<&little_exif::metadata::Metadata>,
+    finalize_hdr: bool,
 ) -> Result<Vec<u8>, String> {
+    let image = images.sdr.as_ref().unwrap_or(&images.image);
     let jpeg_quality = export_settings.jpeg_quality;
     let mut image_bytes = Vec::new();
     let mut cursor = Cursor::new(&mut image_bytes);
 
     match output_format.to_lowercase().as_str() {
         "jxl" => {
-            let (width, height) = image.dimensions();
-            let has_alpha = image.color().has_alpha();
-
-            let jxl_data = if jpeg_quality == 100 {
-                let config = LosslessConfig::new().with_tree_learning(false);
-                if has_alpha {
-                    let rgba = image.to_rgba8();
-                    config
-                        .encode(rgba.as_raw(), width, height, PixelLayout::Rgba8)
-                        .map_err(|e| format!("Failed to encode lossless JXL: {}", e))?
-                } else {
-                    let rgb = image.to_rgb8();
-                    config
-                        .encode(rgb.as_raw(), width, height, PixelLayout::Rgb8)
-                        .map_err(|e| format!("Failed to encode lossless JXL: {}", e))?
-                }
-            } else {
-                let jxl_quality = calibrated_jxl_quality(jpeg_quality as f32);
-                let distance = quality_to_distance(jxl_quality);
-
-                if has_alpha {
-                    let rgba = image.to_rgba8();
-                    LossyConfig::new(distance)
-                        .encode(rgba.as_raw(), width, height, PixelLayout::Rgba8)
-                        .map_err(|e| format!("Failed to encode lossy JXL: {}", e))?
-                } else {
-                    let rgb = image.to_rgb8();
-                    LossyConfig::new(distance)
-                        .encode(rgb.as_raw(), width, height, PixelLayout::Rgb8)
-                        .map_err(|e| format!("Failed to encode lossy JXL: {}", e))?
-                }
-            };
-
-            return Ok(jxl_data);
+            return crate::jxl_export::encode(
+                image,
+                export_settings.jxl_bit_depth,
+                jpeg_quality,
+                export_settings.jxl_hdr,
+                export_settings.jxl_hdr_peak_nits,
+            );
         }
         "webp" => {
             let encoder = webp::Encoder::from_image(image)
@@ -1474,6 +1505,16 @@ fn encode_image_to_bytes(
         }
         _ => return Err(format!("Unsupported file format: {}", output_format)),
     };
+    if finalize_hdr && is_jpeg_hdr(output_format, export_settings) {
+        return crate::jpeg_hdr_export::encode(
+            &images.image,
+            images
+                .sdr
+                .as_ref()
+                .ok_or("Missing SDR render for Ultra HDR")?,
+            &image_bytes,
+        );
+    }
     Ok(image_bytes)
 }
 
@@ -1561,26 +1602,32 @@ fn export_masks_for_image(
             let full_white_mask = ImageBuffer::from_fn(img_w, img_h, |_, _| Luma([255u8]));
             let single_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = vec![full_white_mask];
 
-            let processed = process_and_get_dynamic_image_with_precision(
-                context,
-                state,
-                &source,
-                RenderRequest {
-                    adjustments: single_adjustments,
-                    mask_bitmaps: &single_bitmaps,
-                    mask_cache_key: None,
-                    lut: lut.clone(),
-                    roi: None,
-                    hsl_probe: false,
-                    motion_blur: Default::default(),
-                },
-                "export_mask_image",
-                render_output_precision(extension, export_settings),
-            )?;
-            ensure_export_not_cancelled(cancellation_token)?;
+            let mut geometry = None;
+            let with_options = render_export_images(extension, export_settings, |precision| {
+                let processed = process_and_get_dynamic_image_with_precision(
+                    context,
+                    state,
+                    &source,
+                    RenderRequest {
+                        adjustments: single_adjustments,
+                        mask_bitmaps: &single_bitmaps,
+                        mask_cache_key: None,
+                        lut: lut.clone(),
+                        roi: None,
+                        hsl_probe: false,
+                        motion_blur: Default::default(),
+                    },
+                    "export_mask_image",
+                    precision,
+                )?;
+                ensure_export_not_cancelled(cancellation_token)?;
 
-            let (with_options, geometry) =
-                apply_export_geometry_and_watermark(processed, export_settings)?;
+                let (image, applied_geometry) =
+                    apply_export_geometry_and_watermark(processed, export_settings)?;
+                geometry = Some(applied_geometry);
+                Ok(image)
+            })?;
+            let geometry = geometry.ok_or("Missing export geometry")?;
 
             let alpha_scaled = imageops::resize(
                 &mask_bitmaps[i],
@@ -2377,6 +2424,10 @@ pub async fn run_headless_export(
     let export_settings = ExportSettings {
         jpeg_quality: session.quality,
         tiff_bit_depth: session.tiff_bit_depth,
+        jxl_bit_depth: JxlBitDepth::default(),
+        jpeg_hdr: false,
+        jxl_hdr: false,
+        jxl_hdr_peak_nits: Default::default(),
         resize: None,
         border: None,
         pad: None,
@@ -2552,31 +2603,40 @@ pub async fn estimate_export_sizes(
         let lut = adjustments_clone["lutPath"]
             .as_str()
             .and_then(|p| get_or_load_lut(&state, p).ok());
-        let processed_preview = process_and_get_dynamic_image_with_precision(
-            &context,
-            &state,
-            &source,
-            RenderRequest {
-                adjustments: all_adjustments,
-                mask_bitmaps: &mask_bitmaps,
-                mask_cache_key: None,
-                lut,
-                roi: None,
-                hsl_probe: false,
-                motion_blur: crate::motion_blur::MotionBlurs::new(
-                    &loaded_image.path,
-                    &adjustments_clone,
-                    (img_w, img_h),
-                    scaled_crop_offset,
-                    loaded_image.image.width().max(loaded_image.image.height()) as f32 * scale,
-                ),
-            },
-            "estimate_export_size",
-            render_output_precision(&output_format, &export_settings),
-        )?;
+        let processed_preview =
+            render_export_images(&output_format, &export_settings, |precision| {
+                process_and_get_dynamic_image_with_precision(
+                    &context,
+                    &state,
+                    &source,
+                    RenderRequest {
+                        adjustments: all_adjustments,
+                        mask_bitmaps: &mask_bitmaps,
+                        mask_cache_key: None,
+                        lut: lut.clone(),
+                        roi: None,
+                        hsl_probe: false,
+                        motion_blur: crate::motion_blur::MotionBlurs::new(
+                            &loaded_image.path,
+                            &adjustments_clone,
+                            (img_w, img_h),
+                            scaled_crop_offset,
+                            loaded_image.image.width().max(loaded_image.image.height()) as f32
+                                * scale,
+                        ),
+                    },
+                    "estimate_export_size",
+                    precision,
+                )
+            })?;
 
-        let preview_bytes =
-            encode_image_to_bytes(&processed_preview, &output_format, &export_settings, None)?;
+        let preview_bytes = encode_image_to_bytes(
+            &processed_preview,
+            &output_format,
+            &export_settings,
+            None,
+            true,
+        )?;
         let preview_byte_size = preview_bytes.len();
 
         let (full_w, full_h) = crate::adjustment_utils::transformed_dimensions(
@@ -2588,7 +2648,7 @@ pub async fn estimate_export_sizes(
         let (final_full_w, final_full_h) =
             compute_export_output_size(full_w, full_h, &export_settings);
 
-        let (processed_preview_w, processed_preview_h) = processed_preview.dimensions();
+        let (processed_preview_w, processed_preview_h) = processed_preview.image.dimensions();
         let pixel_ratio = if processed_preview_w > 0 && processed_preview_h > 0 {
             (final_full_w as f64 * final_full_h as f64)
                 / (processed_preview_w as f64 * processed_preview_h as f64)
@@ -2698,31 +2758,39 @@ pub async fn estimate_export_sizes(
         let lut = js_adjustments["lutPath"]
             .as_str()
             .and_then(|p| get_or_load_lut(&state, p).ok());
-        let processed_preview = process_and_get_dynamic_image_with_precision(
-            &context,
-            &state,
-            &source,
-            RenderRequest {
-                adjustments: all_adjustments,
-                mask_bitmaps: &mask_bitmaps,
-                mask_cache_key: None,
-                lut,
-                roi: None,
-                hsl_probe: false,
-                motion_blur: crate::motion_blur::MotionBlurs::new(
-                    &source_path_str,
-                    &js_adjustments,
-                    (preview_w, preview_h),
-                    scaled_crop_offset,
-                    original_image.width().max(original_image.height()) as f32 * gpu_scale,
-                ),
-            },
-            "estimate_batch_export_size",
-            render_output_precision(&output_format, &export_settings),
-        )?;
+        let processed_preview =
+            render_export_images(&output_format, &export_settings, |precision| {
+                process_and_get_dynamic_image_with_precision(
+                    &context,
+                    &state,
+                    &source,
+                    RenderRequest {
+                        adjustments: all_adjustments,
+                        mask_bitmaps: &mask_bitmaps,
+                        mask_cache_key: None,
+                        lut: lut.clone(),
+                        roi: None,
+                        hsl_probe: false,
+                        motion_blur: crate::motion_blur::MotionBlurs::new(
+                            &source_path_str,
+                            &js_adjustments,
+                            (preview_w, preview_h),
+                            scaled_crop_offset,
+                            original_image.width().max(original_image.height()) as f32 * gpu_scale,
+                        ),
+                    },
+                    "estimate_batch_export_size",
+                    precision,
+                )
+            })?;
 
-        let preview_bytes =
-            encode_image_to_bytes(&processed_preview, &output_format, &export_settings, None)?;
+        let preview_bytes = encode_image_to_bytes(
+            &processed_preview,
+            &output_format,
+            &export_settings,
+            None,
+            true,
+        )?;
         let single_image_estimated_size = preview_bytes.len();
 
         let full_w = (shrunk_w as f32 / raw_scale_factor).round() as u32;
@@ -2731,7 +2799,7 @@ pub async fn estimate_export_sizes(
         let (final_full_w, final_full_h) =
             compute_export_output_size(full_w, full_h, &export_settings);
 
-        let (processed_preview_w, processed_preview_h) = processed_preview.dimensions();
+        let (processed_preview_w, processed_preview_h) = processed_preview.image.dimensions();
         let pixel_ratio = if processed_preview_w > 0 && processed_preview_h > 0 {
             (final_full_w as f64 * final_full_h as f64)
                 / (processed_preview_w as f64 * processed_preview_h as f64)

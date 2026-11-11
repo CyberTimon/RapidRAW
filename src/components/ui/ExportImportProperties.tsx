@@ -38,6 +38,7 @@ export const isUniqueFilenameTemplate = (template: string): boolean =>
   UNIQUE_FILENAME_VARIABLES.some((variable) => template.includes(variable));
 
 export type TiffBitDepth = 8 | 16;
+export type JxlBitDepth = 8 | 16;
 
 export const DEFAULT_EXPORT_DPI = 96;
 export const MAX_EXPORT_DPI = 65535;
@@ -46,6 +47,10 @@ export interface ExportSettings {
   filenameTemplate: string | null;
   jpegQuality: number;
   tiffBitDepth: TiffBitDepth;
+  jxlBitDepth?: JxlBitDepth;
+  jpegHdr?: boolean;
+  jxlHdr?: boolean;
+  jxlHdrPeakNits?: JxlHdrPeakNits;
   keepMetadata: boolean;
   preserveTimestamps: boolean;
   resize: {
@@ -140,6 +145,10 @@ export interface ExportPreset {
   fileFormat: string;
   jpegQuality: number;
   tiffBitDepth?: TiffBitDepth;
+  jxlBitDepth?: JxlBitDepth;
+  jpegHdr?: boolean;
+  jxlHdr?: boolean;
+  jxlHdrPeakNits?: JxlHdrPeakNits;
   dpi?: number;
   enableResize: boolean;
   resizeMode: string;
@@ -173,3 +182,5 @@ export interface ExportPreset {
   destinationType?: string;
   subfolder?: string;
 }
+
+export type JxlHdrPeakNits = 1000 | 1600;

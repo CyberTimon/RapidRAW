@@ -1,7 +1,18 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useId, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { save, open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
-import { FileInput, CheckCircle, XCircle, Loader, Ban, ChevronDown, ChevronRight, Settings, X } from 'lucide-react';
+import {
+  FileInput,
+  CheckCircle,
+  XCircle,
+  Loader,
+  Ban,
+  ChevronDown,
+  ChevronRight,
+  Settings,
+  Info,
+  X,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import debounce from 'lodash.debounce';
@@ -23,6 +34,8 @@ import {
   FileFormats,
   MAX_EXPORT_DPI,
   TiffBitDepth,
+  JxlBitDepth,
+  JxlHdrPeakNits,
   WatermarkAnchor,
 } from '../../ui/ExportImportProperties';
 import { Invokes, SelectedImage, AppSettings, Panel } from '../../ui/AppProperties';
@@ -36,6 +49,45 @@ import { useUIStore } from '../../../store/useUIStore';
 import ImmichExportOptions, { useImmichExportAvailable, useImmichExportChoice } from '../../immich/ImmichExportOptions';
 import { prepareImmichExport } from '../../immich/immichApi';
 import { formatBytes } from '../../../utils/formatBytes';
+
+function JpegHdrInfo() {
+  const { t } = useTranslation();
+  const [isOpen, setIsOpen] = useState(false);
+  const descriptionId = useId();
+
+  return (
+    <span className="relative inline-flex" onMouseEnter={() => setIsOpen(true)} onMouseLeave={() => setIsOpen(false)}>
+      <button
+        type="button"
+        aria-label={t('export.file.jpegHdrInfoLabel')}
+        aria-expanded={isOpen}
+        aria-controls={descriptionId}
+        aria-describedby={isOpen ? descriptionId : undefined}
+        className="text-text-secondary hover:text-text-primary rounded focus-visible:outline-2 focus-visible:outline-accent"
+        onClick={() => setIsOpen(true)}
+        onFocus={() => setIsOpen(true)}
+        onBlur={() => setIsOpen(false)}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            setIsOpen(false);
+            event.stopPropagation();
+          }
+        }}
+      >
+        <Info size={14} aria-hidden="true" />
+      </button>
+      {isOpen && (
+        <span
+          id={descriptionId}
+          role="tooltip"
+          className="absolute left-0 top-full z-50 mt-2 w-60 rounded-md border border-text-secondary/10 bg-surface p-3 text-xs leading-relaxed text-text-primary shadow-xl"
+        >
+          {t('export.file.jpegHdrInfo')}
+        </span>
+      )}
+    </span>
+  );
+}
 
 interface ExportPanelProps {
   exportState: ExportState;
@@ -244,7 +296,7 @@ export default function ExportPanel({
     [t],
   );
 
-  const tiffBitDepthOptions = useMemo(
+  const bitDepthOptions = useMemo(
     () => [
       { label: t('export.file.tiffBitDepth8'), value: '8' },
       { label: t('export.file.tiffBitDepth16'), value: '16' },
@@ -259,6 +311,14 @@ export default function ExportPanel({
     setJpegQuality,
     tiffBitDepth,
     setTiffBitDepth,
+    jxlBitDepth,
+    setJxlBitDepth,
+    jpegHdr,
+    jxlHdr,
+    jxlHdrPeakNits,
+    setJpegHdr,
+    setJxlHdr,
+    setJxlHdrPeakNits,
     dpi,
     setDpi,
     enableResize,
@@ -505,6 +565,10 @@ export default function ExportPanel({
       filenameTemplate,
       jpegQuality,
       tiffBitDepth,
+      jxlBitDepth,
+      jpegHdr,
+      jxlHdr,
+      jxlHdrPeakNits,
       keepMetadata,
       preserveTimestamps,
       preserveFolders,
@@ -559,6 +623,10 @@ export default function ExportPanel({
     fileFormat,
     jpegQuality,
     tiffBitDepth,
+    jxlBitDepth,
+    jpegHdr,
+    jxlHdr,
+    jxlHdrPeakNits,
     enableResize,
     resizeMode,
     resizeValue,
@@ -609,6 +677,10 @@ export default function ExportPanel({
       filenameTemplate,
       jpegQuality,
       tiffBitDepth,
+      jxlBitDepth,
+      jpegHdr,
+      jxlHdr,
+      jxlHdrPeakNits,
       keepMetadata,
       preserveTimestamps,
       preserveFolders,
@@ -785,20 +857,6 @@ export default function ExportPanel({
                     step={1}
                     value={jpegQuality}
                     fillOrigin="min"
-                  />
-                </div>
-              )}
-              {fileFormat === FileFormats.Tiff && (
-                <div className={isExporting ? 'opacity-50 pointer-events-none' : ''}>
-                  <Text variant={TextVariants.label} className="mb-1">
-                    {t('export.file.tiffBitDepth')}
-                  </Text>
-                  <Dropdown
-                    options={tiffBitDepthOptions}
-                    value={String(tiffBitDepth)}
-                    onChange={(value) => setTiffBitDepth(Number(value) as TiffBitDepth)}
-                    disabled={isExporting}
-                    className="w-full"
                   />
                 </div>
               )}
@@ -1133,6 +1191,75 @@ export default function ExportPanel({
                       className="overflow-hidden"
                     >
                       <div className="px-4 pb-4 pt-2 border-t border-surface/50 flex flex-col gap-4">
+                        {fileFormat === FileFormats.Jpeg && (
+                          <Switch
+                            label={t('export.file.jpegHdr')}
+                            labelAccessory={<JpegHdrInfo />}
+                            checked={jpegHdr}
+                            onChange={setJpegHdr}
+                            disabled={isExporting}
+                          />
+                        )}
+                        {fileFormat === FileFormats.Jxl && (
+                          <div className="flex flex-col gap-4">
+                            <div className="space-y-2">
+                              <Text variant={TextVariants.label} className="block">
+                                {t('export.file.jxlBitDepth')}
+                              </Text>
+                              <Dropdown
+                                options={bitDepthOptions}
+                                value={String(jxlBitDepth)}
+                                onChange={(value) => {
+                                  setJxlBitDepth(Number(value) as JxlBitDepth);
+                                  if (value === '8') setJxlHdr(false);
+                                }}
+                                disabled={isExporting}
+                                className="w-full"
+                              />
+                            </div>
+                            <Switch
+                              label={t('export.file.jxlHdr')}
+                              checked={jxlHdr}
+                              onChange={(enabled) => {
+                                setJxlHdr(enabled);
+                                if (enabled) setJxlBitDepth(16);
+                              }}
+                              disabled={isExporting}
+                            />
+                            {jxlHdr && (
+                              <div className="space-y-2">
+                                <Text variant={TextVariants.label} className="block">
+                                  {t('export.file.jxlHdrPeakNits')}
+                                </Text>
+                                <Dropdown
+                                  options={[
+                                    { label: '1000 nits', value: '1000' },
+                                    { label: '1600 nits', value: '1600' },
+                                  ]}
+                                  value={String(jxlHdrPeakNits)}
+                                  onChange={(value) => setJxlHdrPeakNits(Number(value) as JxlHdrPeakNits)}
+                                  disabled={isExporting}
+                                  className="w-full"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {fileFormat === FileFormats.Tiff && (
+                          <div className="space-y-2">
+                            <Text variant={TextVariants.label} className="block">
+                              {t('export.file.tiffBitDepth')}
+                            </Text>
+                            <Dropdown
+                              options={bitDepthOptions}
+                              value={String(tiffBitDepth)}
+                              onChange={(value) => setTiffBitDepth(Number(value) as TiffBitDepth)}
+                              disabled={isExporting}
+                              className="w-full"
+                            />
+                          </div>
+                        )}
+
                         <Switch
                           label={t('export.advanced.preserveFolders')}
                           checked={preserveFolders}
