@@ -5,10 +5,46 @@ import {
   RawStatus,
   SortCriteria,
   SortDirection,
+  Album,
   AlbumItem,
 } from '../components/ui/AppProperties';
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../utils/adjustments';
 import { ColumnWidths } from '../components/panel/MainLibrary';
+
+export const findAlbumById = (nodes: AlbumItem[], id: string): Album | null => {
+  for (const node of nodes) {
+    if (node.type === 'album' && node.id === id) return node;
+    if (node.type === 'group') {
+      const found = findAlbumById(node.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+};
+
+const EMPTY_TARGET_ALBUM_INFO: { name: string | null; images: Set<string> } = {
+  name: null,
+  images: new Set<string>(),
+};
+
+let cachedTreeRef: AlbumItem[] | null = null;
+let cachedTargetId: string | null = null;
+let cachedTargetAlbum: { name: string | null; images: Set<string> } = EMPTY_TARGET_ALBUM_INFO;
+
+export const getTargetAlbumInfo = (
+  albumTree: AlbumItem[],
+  targetAlbumId: string | null,
+): { name: string | null; images: Set<string> } => {
+  if (!targetAlbumId) return EMPTY_TARGET_ALBUM_INFO;
+  if (cachedTreeRef === albumTree && cachedTargetId === targetAlbumId) {
+    return cachedTargetAlbum;
+  }
+  cachedTreeRef = albumTree;
+  cachedTargetId = targetAlbumId;
+  const album = findAlbumById(albumTree, targetAlbumId);
+  cachedTargetAlbum = album ? { name: album.name, images: new Set(album.images) } : EMPTY_TARGET_ALBUM_INFO;
+  return cachedTargetAlbum;
+};
 
 export interface NavHistoryItem {
   type: 'folder' | 'album';
@@ -34,6 +70,7 @@ interface LibraryState {
   // Albums
   albumTree: AlbumItem[];
   activeAlbumId: string | null;
+  targetAlbumId: string | null;
   expandedAlbumGroups: Set<string>;
 
   // Images & Selection
@@ -79,6 +116,7 @@ export const useLibraryStore = create<LibraryState>((set) => ({
 
   albumTree: [],
   activeAlbumId: null,
+  targetAlbumId: null,
   expandedAlbumGroups: new Set<string>(),
 
   imageList: [],

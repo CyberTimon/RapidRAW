@@ -76,6 +76,12 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     section: 'library',
   },
   {
+    action: 'toggle_target_album',
+    description: 'settings.keybinds.actions.toggle_target_album',
+    defaultCombo: ['shift', 'KeyB'],
+    section: 'library',
+  },
+  {
     action: 'zoom_in_step',
     description: 'settings.keybinds.actions.zoom_in_step',
     defaultCombo: ['ArrowUp'],

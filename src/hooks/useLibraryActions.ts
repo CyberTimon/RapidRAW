@@ -1,7 +1,8 @@
 import { createElement, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'react-toastify';
-import { useLibraryStore } from '../store/useLibraryStore';
+import { useTranslation } from 'react-i18next';
+import { useLibraryStore, findAlbumById } from '../store/useLibraryStore';
 import { canvasToolState, useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
 import {
@@ -21,11 +22,18 @@ import { getImageFlag } from '../utils/imageFlags';
 import FilterExitToast from '../components/ui/FilterExitToast';
 
 const resolveTargetPaths = (paths?: string[]) => {
-  const { multiSelectedPaths, imageList } = useLibraryStore.getState();
+  const { multiSelectedPaths, libraryActivePath, imageList } = useLibraryStore.getState();
   const { selectedImage } = useEditorStore.getState();
 
   const selectedPaths =
-    paths || (multiSelectedPaths.length > 0 ? multiSelectedPaths : selectedImage ? [selectedImage.path] : []);
+    paths ||
+    (multiSelectedPaths.length > 0
+      ? multiSelectedPaths
+      : selectedImage
+        ? [selectedImage.path]
+        : libraryActivePath
+          ? [libraryActivePath]
+          : []);
 
   const groupingMode = useSettingsStore.getState().appSettings?.grouping ?? 'off';
   return { selectedPaths, expandedPaths: expandGroupedPaths(imageList, selectedPaths, groupingMode) };
@@ -210,6 +218,8 @@ const applyWithAutoAdvance = (changedPaths: string[], undoable: boolean, applyCh
 };
 
 export function useLibraryActions(handleImageSelect?: (path: string, openInEditor?: boolean) => void) {
+  const { t } = useTranslation();
+
   const handleRate = useCallback((newRating: number, paths?: string[]) => {
     const { imageRatings, imageList, setLibrary } = useLibraryStore.getState();
 
@@ -659,6 +669,75 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
     }
   }, []);
 
+  const handleToggleTargetAlbum = useCallback(
+    async (paths?: string[]) => {
+      const { expandedPaths } = resolveTargetPaths(paths);
+      if (expandedPaths.length === 0) return;
+
+      const { albumTree, targetAlbumId, activeAlbumId, setLibrary } = useLibraryStore.getState();
+      const targetAlbum = targetAlbumId ? findAlbumById(albumTree, targetAlbumId) : undefined;
+      if (!targetAlbum) {
+        if (targetAlbumId) {
+          setLibrary({ targetAlbumId: null });
+        }
+        toast.info(t('contextMenus.toasts.noTargetAlbumSet'));
+        return;
+      }
+
+      const existingSet = new Set(targetAlbum.images);
+      const allPresent = expandedPaths.every((p) => existingSet.has(p));
+
+      if (!allPresent) {
+        const pathsToAdd = expandedPaths.filter((p) => !existingSet.has(p));
+        const optimisticTree = structuredClone(albumTree);
+        const targetInClone = findAlbumById(optimisticTree, targetAlbum.id);
+        if (targetInClone) {
+          targetInClone.images.push(...pathsToAdd);
+          setLibrary({ albumTree: optimisticTree });
+        }
+        try {
+          await invoke(Invokes.AddToAlbum, { albumId: targetAlbum.id, paths: expandedPaths });
+          const sortedTree = await invoke<AlbumItem[]>(Invokes.GetAlbums);
+          setLibrary({ albumTree: sortedTree });
+        } catch (err) {
+          toast.error(t('contextMenus.toasts.failedAddToAlbum', { err }));
+        }
+      } else {
+        const removeSet = new Set(expandedPaths);
+        const newTree = structuredClone(albumTree);
+        const targetInClone = findAlbumById(newTree, targetAlbum.id);
+        if (!targetInClone) return;
+        targetInClone.images = targetInClone.images.filter((p) => !removeSet.has(p));
+
+        if (activeAlbumId === targetAlbum.id) {
+          applyWithAutoAdvance(expandedPaths, false, () =>
+            setLibrary((state) => ({
+              albumTree: newTree,
+              imageList: state.imageList.filter((img) => !removeSet.has(img.path)),
+            })),
+          );
+          if (useLibraryStore.getState().imageList.length === 0) {
+            clearLibrarySelection();
+            if (useUIStore.getState().activeView === 'editor') {
+              useUIStore.getState().setUI({ activeView: 'library' });
+            }
+          }
+        } else {
+          setLibrary({ albumTree: newTree });
+        }
+
+        try {
+          await invoke(Invokes.SaveAlbums, { tree: newTree });
+          const sortedTree = await invoke<AlbumItem[]>(Invokes.GetAlbums);
+          setLibrary({ albumTree: sortedTree });
+        } catch (err) {
+          toast.error(t('contextMenus.toasts.failedRemoveImages', { err }));
+        }
+      }
+    },
+    [t],
+  );
+
   return {
     handleRate,
     handleSetFlag,
@@ -673,5 +752,6 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
     handleTogglePinFolder,
     handleCreateAlbumItem,
     handleRenameAlbumItem,
+    handleToggleTargetAlbum,
   };
 }

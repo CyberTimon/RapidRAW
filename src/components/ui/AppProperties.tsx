@@ -264,6 +264,7 @@ export interface AppSettings {
   customAiTags?: string[];
   filterCriteria?: FilterCriteria;
   lastFolderState?: any;
+  targetAlbumId?: string | null;
   pinnedFolders?: any;
   lastRootPath: string | null;
   rootFolders?: string[];

@@ -267,6 +267,7 @@
     "albums": {
       "alreadyAtRoot": "Già nella cartella principale",
       "alreadyHere": "Già qui",
+      "clearTargetAlbum": "Rimuovi album di destinazione",
       "confirmDeleteAlbum": "Conferma Eliminazione Album",
       "confirmDeleteGroupEmpty": "Conferma Eliminazione Gruppo Album",
       "confirmDeleteGroupNested": "Conferma Eliminazione Gruppo e Tutti gli Album nidificati",
@@ -278,7 +279,8 @@
       "newGroup": "Nuovo Gruppo",
       "renameAlbum": "Rinomina Album",
       "renameGroup": "Rinomina Gruppo",
-      "rootDir": "Cartella Principale"
+      "rootDir": "Cartella Principale",
+      "setTargetAlbum": "Imposta come album di destinazione"
     },
     "autoAdjustModes": {
       "normal": "Normale",
@@ -447,7 +449,8 @@
       "failedMove": "Impossibile spostare i file: {{err}}",
       "failedMoveError": "Impossibile spostare: {{err}}",
       "failedMoveInvalid": "Impossibile spostare: Gruppo di destinazione non trovato o non valido.",
-      "failedRemoveImages": "Impossibile rimuovere le immagini: {{err}}"
+      "failedRemoveImages": "Impossibile rimuovere le immagini: {{err}}",
+      "noTargetAlbumSet": "Nessun album di destinazione impostato. Fai clic destro su un album e seleziona \"Imposta come album di destinazione\"."
     }
   },
   "editor": {
@@ -1325,6 +1328,7 @@
         "name": "In ordine alfabetico"
       },
       "sourcesTitle": "Sorgenti",
+      "targetAlbum": "Album di destinazione",
       "tooltips": {
         "clearSearch": "Cancella ricerca",
         "collapse": "Comprimi",
@@ -1407,6 +1411,7 @@
       "imagesCount_many": "{{count}} immagini",
       "imagesCount_one": "1 immagine",
       "imagesCount_other": "{{count}} immagini",
+      "inTargetAlbum": "Nell’album di destinazione: {{album}}",
       "rejected": "Rifiutata",
       "tooltipAperture": "Apertura",
       "tooltipFocalLength": "Lunghezza Focale",
@@ -2050,6 +2055,7 @@
         "toggle_presets": "Attiva/Disattiva pannello Predefiniti",
         "toggle_reject": "Attiva/disattiva flag Rifiutata",
         "toggle_right_panel": "Mostra/Nascondi pannello destro",
+        "toggle_target_album": "Aggiungi / rimuovi dall’album di destinazione",
         "toggle_viewer_window": "Attiva/disattiva seconda finestra",
         "undo": "Annulla modifica",
         "unflag": "Rimuovi flag",

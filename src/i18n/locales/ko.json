@@ -267,6 +267,7 @@
     "albums": {
       "alreadyAtRoot": "이미 루트에 있음",
       "alreadyHere": "이미 여기에 있음",
+      "clearTargetAlbum": "대상 앨범 해제",
       "confirmDeleteAlbum": "앨범 삭제 확인",
       "confirmDeleteGroupEmpty": "앨범 그룹 삭제 확인",
       "confirmDeleteGroupNested": "그룹 및 모든 하위 앨범 삭제 확인",
@@ -278,7 +279,8 @@
       "newGroup": "새 그룹",
       "renameAlbum": "앨범 이름 변경",
       "renameGroup": "그룹 이름 변경",
-      "rootDir": "루트 디렉터리"
+      "rootDir": "루트 디렉터리",
+      "setTargetAlbum": "대상 앨범으로 설정"
     },
     "autoAdjustModes": {
       "normal": "보통",
@@ -429,7 +431,8 @@
       "failedMove": "파일을 이동하지 못했습니다: {{err}}",
       "failedMoveError": "이동하지 못했습니다: {{err}}",
       "failedMoveInvalid": "이동하지 못했습니다: 대상 그룹을 찾을 수 없거나 유효하지 않습니다.",
-      "failedRemoveImages": "이미지를 제거하지 못했습니다: {{err}}"
+      "failedRemoveImages": "이미지를 제거하지 못했습니다: {{err}}",
+      "noTargetAlbumSet": "대상 앨범이 설정되지 않았습니다. 앨범을 우클릭하여 \"대상 앨범으로 설정\"을 선택하세요."
     }
   },
   "editor": {
@@ -1291,6 +1294,7 @@
         "name": "알파벳순"
       },
       "sourcesTitle": "소스",
+      "targetAlbum": "대상 앨범",
       "tooltips": {
         "clearSearch": "검색 지우기",
         "collapse": "접기",
@@ -1372,6 +1376,7 @@
       "expandFolder": "폴더 펼치기",
       "imagesCount_one": "이미지 1개",
       "imagesCount_other": "이미지 {{count}}개",
+      "inTargetAlbum": "대상 앨범에 포함됨: {{album}}",
       "rejected": "거부됨",
       "tooltipAperture": "조리개",
       "tooltipFocalLength": "초점 거리",
@@ -2002,6 +2007,7 @@
         "toggle_presets": "프리셋 패널 전환",
         "toggle_reject": "거부 플래그 전환",
         "toggle_right_panel": "오른쪽 패널 토글",
+        "toggle_target_album": "대상 앨범에 추가 / 제거",
         "toggle_viewer_window": "보조 창 전환",
         "undo": "조정 실행 취소",
         "unflag": "플래그 해제",

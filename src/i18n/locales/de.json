@@ -267,6 +267,7 @@
     "albums": {
       "alreadyAtRoot": "Bereits im Stammverzeichnis",
       "alreadyHere": "Bereits hier",
+      "clearTargetAlbum": "Zielalbum aufheben",
       "confirmDeleteAlbum": "Album löschen bestätigen",
       "confirmDeleteGroupEmpty": "Albumgruppe löschen bestätigen",
       "confirmDeleteGroupNested": "Gruppe & alle verschachtelten Alben löschen",
@@ -278,7 +279,8 @@
       "newGroup": "Neue Gruppe",
       "renameAlbum": "Album umbenennen",
       "renameGroup": "Gruppe umbenennen",
-      "rootDir": "Stammverzeichnis"
+      "rootDir": "Stammverzeichnis",
+      "setTargetAlbum": "Als Zielalbum festlegen"
     },
     "autoAdjustModes": {
       "normal": "Normal",
@@ -429,7 +431,8 @@
       "failedMove": "Dateien verschieben fehlgeschlagen: {{err}}",
       "failedMoveError": "Verschieben fehlgeschlagen: {{err}}",
       "failedMoveInvalid": "Verschieben fehlgeschlagen: Zielgruppe nicht gefunden oder ungültig.",
-      "failedRemoveImages": "Bilder entfernen fehlgeschlagen: {{err}}"
+      "failedRemoveImages": "Bilder entfernen fehlgeschlagen: {{err}}",
+      "noTargetAlbumSet": "Kein Zielalbum festgelegt. Rechtsklicken Sie auf ein Album und wählen Sie „Als Zielalbum festlegen“."
     }
   },
   "editor": {
@@ -1296,6 +1299,7 @@
         "name": "Alphabetisch"
       },
       "sourcesTitle": "Quellen",
+      "targetAlbum": "Zielalbum",
       "tooltips": {
         "clearSearch": "Suche löschen",
         "collapse": "Zuklappen",
@@ -1377,6 +1381,7 @@
       "expandFolder": "Ordner aufklappen",
       "imagesCount_one": "1 Bild",
       "imagesCount_other": "{{count}} Bilder",
+      "inTargetAlbum": "Im Zielalbum: {{album}}",
       "rejected": "Abgelehnt",
       "tooltipAperture": "Blende",
       "tooltipFocalLength": "Brennweite",
@@ -2008,6 +2013,7 @@
         "toggle_presets": "Vorgaben-Panel ein-/ausblenden",
         "toggle_reject": "Ablehnungsmarkierung umschalten",
         "toggle_right_panel": "Rechtes Panel ein-/ausblenden",
+        "toggle_target_album": "Zum Zielalbum hinzufügen / daraus entfernen",
         "toggle_viewer_window": "Zweites Fenster umschalten",
         "undo": "Bearbeitung rückgängig machen",
         "unflag": "Markierung entfernen",

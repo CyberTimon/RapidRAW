@@ -267,6 +267,7 @@
     "albums": {
       "alreadyAtRoot": "Déjà à la racine",
       "alreadyHere": "Déjà ici",
+      "clearTargetAlbum": "Effacer l’album cible",
       "confirmDeleteAlbum": "Confirmer la suppression de l'album",
       "confirmDeleteGroupEmpty": "Confirmer la suppression du groupe d'albums",
       "confirmDeleteGroupNested": "Confirmer la suppression du groupe & des albums imbriqués",
@@ -278,7 +279,8 @@
       "newGroup": "Nouveau groupe",
       "renameAlbum": "Renommer l'album",
       "renameGroup": "Renommer le groupe",
-      "rootDir": "Répertoire racine"
+      "rootDir": "Répertoire racine",
+      "setTargetAlbum": "Définir comme album cible"
     },
     "autoAdjustModes": {
       "normal": "Normal",
@@ -447,7 +449,8 @@
       "failedMove": "Échec du déplacement des fichiers : {{err}}",
       "failedMoveError": "Échec du déplacement : {{err}}",
       "failedMoveInvalid": "Échec du déplacement : Groupe cible introuvable ou invalide.",
-      "failedRemoveImages": "Échec de la suppression des images : {{err}}"
+      "failedRemoveImages": "Échec de la suppression des images : {{err}}",
+      "noTargetAlbumSet": "Aucun album cible défini. Faites un clic droit sur un album et sélectionnez « Définir comme album cible »."
     }
   },
   "editor": {
@@ -1326,6 +1329,7 @@
         "name": "Alphabétique"
       },
       "sourcesTitle": "Sources",
+      "targetAlbum": "Album cible",
       "tooltips": {
         "clearSearch": "Effacer la recherche",
         "collapse": "Réduire",
@@ -1408,6 +1412,7 @@
       "imagesCount_many": "{{count}} images",
       "imagesCount_one": "1 image",
       "imagesCount_other": "{{count}} images",
+      "inTargetAlbum": "Dans l’album cible : {{album}}",
       "rejected": "Rejetée",
       "tooltipAperture": "Ouverture",
       "tooltipFocalLength": "Longueur focale",
@@ -2051,6 +2056,7 @@
         "toggle_presets": "Basculer le panneau des paramètres prédéfinis",
         "toggle_reject": "Basculer le marquage rejeté",
         "toggle_right_panel": "Afficher/Masquer le panneau droit",
+        "toggle_target_album": "Ajouter / retirer de l’album cible",
         "toggle_viewer_window": "Basculer la seconde fenêtre",
         "undo": "Annuler l'ajustement",
         "unflag": "Retirer le marquage",

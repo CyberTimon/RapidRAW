@@ -267,6 +267,7 @@
     "albums": {
       "alreadyAtRoot": "Já na Raiz",
       "alreadyHere": "Já Aqui",
+      "clearTargetAlbum": "Limpar álbum de destino",
       "confirmDeleteAlbum": "Confirmar Exclusão de Álbum",
       "confirmDeleteGroupEmpty": "Confirmar Exclusão de Grupo de Álbuns",
       "confirmDeleteGroupNested": "Confirmar Exclusão de Grupo e Todos os Álbuns Aninhados",
@@ -278,7 +279,8 @@
       "newGroup": "Novo Grupo",
       "renameAlbum": "Renomear Álbum",
       "renameGroup": "Renomear Grupo",
-      "rootDir": "Diretório Raiz"
+      "rootDir": "Diretório Raiz",
+      "setTargetAlbum": "Definir como álbum de destino"
     },
     "autoAdjustModes": {
       "normal": "Normal",
@@ -447,7 +449,8 @@
       "failedMove": "Falha ao mover arquivos: {{err}}",
       "failedMoveError": "Falha ao mover: {{err}}",
       "failedMoveInvalid": "Falha ao mover: Grupo de destino não encontrado ou inválido.",
-      "failedRemoveImages": "Falha ao remover imagens: {{err}}"
+      "failedRemoveImages": "Falha ao remover imagens: {{err}}",
+      "noTargetAlbumSet": "Nenhum álbum de destino definido. Clique com o botão direito em um álbum e selecione \"Definir como álbum de destino\"."
     }
   },
   "editor": {
@@ -1325,6 +1328,7 @@
         "name": "Alfabeticamente"
       },
       "sourcesTitle": "Fontes",
+      "targetAlbum": "Álbum de destino",
       "tooltips": {
         "clearSearch": "Limpar pesquisa",
         "collapse": "Recolher",
@@ -1407,6 +1411,7 @@
       "imagesCount_many": "{{count}} imagens",
       "imagesCount_one": "1 imagem",
       "imagesCount_other": "{{count}} imagens",
+      "inTargetAlbum": "No álbum de destino: {{album}}",
       "rejected": "Rejeitada",
       "tooltipAperture": "Abertura",
       "tooltipFocalLength": "Distância Focal",
@@ -2050,6 +2055,7 @@
         "toggle_presets": "Alternar painel de Predefinições",
         "toggle_reject": "Alternar marca de Rejeitado",
         "toggle_right_panel": "Alternar painel direito",
+        "toggle_target_album": "Adicionar / remover do álbum de destino",
         "toggle_viewer_window": "Alternar segunda janela",
         "undo": "Desfazer ajuste",
         "unflag": "Remover marca",

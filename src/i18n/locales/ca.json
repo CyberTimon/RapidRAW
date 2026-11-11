@@ -267,6 +267,7 @@
     "albums": {
       "alreadyAtRoot": "Ja és a l'arrel",
       "alreadyHere": "Ja és aquí",
+      "clearTargetAlbum": "Esborra l’àlbum de destinació",
       "confirmDeleteAlbum": "Confirmar eliminació de l'àlbum",
       "confirmDeleteGroupEmpty": "Confirmar eliminació del grup d'àlbums",
       "confirmDeleteGroupNested": "Confirmar eliminació del grup i de tots els àlbums niuats",
@@ -278,7 +279,8 @@
       "newGroup": "Nou grup",
       "renameAlbum": "Reanomenar àlbum",
       "renameGroup": "Reanomenar grup",
-      "rootDir": "Directori arrel"
+      "rootDir": "Directori arrel",
+      "setTargetAlbum": "Estableix com a àlbum de destinació"
     },
     "autoAdjustModes": {
       "normal": "Normal",
@@ -447,7 +449,8 @@
       "failedMove": "No s'han pogut moure els fitxers: {{err}}",
       "failedMoveError": "No s'ha pogut moure: {{err}}",
       "failedMoveInvalid": "No s'ha pogut moure: el grup de destinació no s'ha trobat o no és vàlid.",
-      "failedRemoveImages": "No s'han pogut treure les imatges: {{err}}"
+      "failedRemoveImages": "No s'han pogut treure les imatges: {{err}}",
+      "noTargetAlbumSet": "No s’ha establert cap àlbum de destinació. Fes clic dret en un àlbum i selecciona \"Estableix com a àlbum de destinació\"."
     }
   },
   "editor": {
@@ -1325,6 +1328,7 @@
         "name": "Alfabèticament"
       },
       "sourcesTitle": "Fonts",
+      "targetAlbum": "Àlbum de destinació",
       "tooltips": {
         "clearSearch": "Netejar cerca",
         "collapse": "Contraure",
@@ -1407,6 +1411,7 @@
       "expandFolder": "Expandir carpeta",
       "imagesCount_one": "1 imatge",
       "imagesCount_other": "{{count}} imatges",
+      "inTargetAlbum": "A l’àlbum de destinació: {{album}}",
       "rejected": "Rebutjada",
       "tooltipAperture": "Obertura",
       "tooltipFocalLength": "Distància focal",
@@ -2050,6 +2055,7 @@
         "toggle_presets": "Alternar tauler d'Ajustos preestablerts",
         "toggle_reject": "Commuta la marca de rebutjada",
         "toggle_right_panel": "Commutar el panell dret",
+        "toggle_target_album": "Afegeix / elimina de l’àlbum de destinació",
         "toggle_viewer_window": "Commuta la segona finestra",
         "undo": "Desfer ajustament",
         "unflag": "Treure la marca",
