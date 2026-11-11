@@ -1620,9 +1620,7 @@ fn thumbnail_preview_before_decode(
     target_res: u32,
     before_decode: Option<&dyn Fn()>,
 ) -> Option<DynamicImage> {
-    if use_embedded
-        && let Some(preview) = try_load_embedded_raw_preview(source_path, target_res)
-    {
+    if use_embedded && let Some(preview) = try_load_embedded_raw_preview(source_path, target_res) {
         return Some(preview);
     }
     if let Some(before_decode) = before_decode {
