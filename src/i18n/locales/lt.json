@@ -128,6 +128,8 @@
       "copyParametric": "Kopijuoti {{channel}} parametrinę kreivę",
       "copyPoint": "Kopijuoti {{channel}} taškų kreivę",
       "curveDataUnavailable": "Kreivės duomenys nepasiekiami.",
+      "input": "Įvestis",
+      "output": "Išvestis",
       "parametricCurve": "Parametrinė kreivė",
       "params": {
         "blackLevel": "Juodumo lygis",

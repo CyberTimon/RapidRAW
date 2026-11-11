@@ -128,6 +128,8 @@
       "copyParametric": "複製 {{channel}} 參數曲線",
       "copyPoint": "複製 {{channel}} 點曲線",
       "curveDataUnavailable": "曲線資料不可用。",
+      "input": "输入",
+      "output": "输出",
       "parametricCurve": "參數曲線",
       "params": {
         "blackLevel": "黑色色階",

@@ -128,6 +128,8 @@
       "copyParametric": "Kopieer {{channel}} parametrische curve",
       "copyPoint": "Kopieer {{channel}} puntcurve",
       "curveDataUnavailable": "Curvegegevens niet beschikbaar.",
+      "input": "Invoer",
+      "output": "Uitvoer",
       "parametricCurve": "Parametrische curve",
       "params": {
         "blackLevel": "Zwartniveau",
