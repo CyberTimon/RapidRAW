@@ -1,0 +1,33 @@
+name: Thumbnail preview regression tests
+
+on:
+  push:
+    branches: [fix/embedded-preview-before-hdd-prefetch]
+  pull_request:
+    paths:
+      - 'src-tauri/src/file_management.rs'
+      - '.github/workflows/thumbnail-preview-tests.yml'
+
+jobs:
+  thumbnail-preview:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-15, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          rustflags: ''
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev pkg-config
+      - name: Run thumbnail regression tests
+        working-directory: src-tauri
+        run: cargo test --locked --lib thumbnail_prefetch_tests

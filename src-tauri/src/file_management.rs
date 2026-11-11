@@ -1612,6 +1612,23 @@ fn try_load_embedded_raw_preview(source_path: &Path, target_res: u32) -> Option<
     }
 }
 
+// Keep full-source I/O behind the embedded-preview fast path. This helper is
+// shared by every platform; the caller decides whether HDD prefetch is needed.
+fn thumbnail_preview_before_decode(
+    source_path: &Path,
+    use_embedded: bool,
+    target_res: u32,
+    before_decode: Option<&dyn Fn()>,
+) -> Option<DynamicImage> {
+    if use_embedded && let Some(preview) = try_load_embedded_raw_preview(source_path, target_res) {
+        return Some(preview);
+    }
+    if let Some(before_decode) = before_decode {
+        before_decode();
+    }
+    None
+}
+
 pub fn generate_thumbnail_data(
     path_str: &str,
     gpu_context: Option<&GpuContext>,
@@ -1627,6 +1644,7 @@ pub fn generate_thumbnail_data(
         app_handle,
         metadata.as_ref(),
         &settings,
+        None,
     )
 }
 
@@ -1647,6 +1665,7 @@ fn read_thumbnail_metadata(path_str: &str, app_handle: &AppHandle) -> Option<Ima
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn generate_thumbnail_data_with_metadata(
     path_str: &str,
     gpu_context: Option<&GpuContext>,
@@ -1654,6 +1673,7 @@ fn generate_thumbnail_data_with_metadata(
     app_handle: &AppHandle,
     metadata: Option<&ImageMetadata>,
     settings: &AppSettings,
+    before_decode: Option<&dyn Fn()>,
 ) -> anyhow::Result<DynamicImage> {
     let (source_path, _) = parse_virtual_path(path_str);
     let source_path_str = source_path.to_string_lossy().to_string();
@@ -1667,9 +1687,12 @@ fn generate_thumbnail_data_with_metadata(
 
     let always_decode_raw = settings.always_decode_raw_thumbnails.unwrap_or(false);
 
-    if is_raw && adjustments.is_null() && preloaded_image.is_none() && !always_decode_raw {
+    if preloaded_image.is_none() {
+        let use_embedded = is_raw && adjustments.is_null() && !always_decode_raw;
         let target_res = settings.medium_thumbnail_resolution.unwrap_or(1280);
-        if let Some(preview) = try_load_embedded_raw_preview(&source_path, target_res) {
+        if let Some(preview) =
+            thumbnail_preview_before_decode(&source_path, use_embedded, target_res, before_decode)
+        {
             return Ok(preview);
         }
     }
@@ -2018,7 +2041,7 @@ fn generate_single_thumbnail_and_cache(
     force_regenerate: bool,
     app_handle: &AppHandle,
     settings: &AppSettings,
-    before_generate: Option<&dyn Fn()>,
+    before_decode: Option<&dyn Fn()>,
 ) -> Option<(String, String, u8, bool)> {
     let (source_path, sidecar_path) = parse_virtual_path(path_str);
     let sidecar_is_placeholder = is_cloud_placeholder(&sidecar_path);
@@ -2071,10 +2094,6 @@ fn generate_single_thumbnail_and_cache(
         ));
     }
 
-    if let Some(before_generate) = before_generate {
-        before_generate();
-    }
-
     if is_cloud_placeholder(&source_path) {
         return None;
     }
@@ -2082,19 +2101,16 @@ fn generate_single_thumbnail_and_cache(
     let target_width_small = settings.small_thumbnail_resolution.unwrap_or(480);
     let target_width_medium = settings.medium_thumbnail_resolution.unwrap_or(1280);
 
-    let thumb_result = if sidecar_is_placeholder {
-        generate_thumbnail_data(path_str, gpu_context, preloaded_image, app_handle)
-    } else {
-        let current_settings = load_settings(app_handle.clone()).unwrap_or_default();
-        generate_thumbnail_data_with_metadata(
-            path_str,
-            gpu_context,
-            preloaded_image,
-            app_handle,
-            metadata.as_ref(),
-            &current_settings,
-        )
-    };
+    let current_settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let thumb_result = generate_thumbnail_data_with_metadata(
+        path_str,
+        gpu_context,
+        preloaded_image,
+        app_handle,
+        metadata.as_ref(),
+        &current_settings,
+        before_decode,
+    );
 
     if let Ok(thumb_image) = thumb_result
         && let (Ok(small_data), Ok(medium_data)) = (
@@ -4676,5 +4692,76 @@ pub fn sync_metadata_to_xmp(
         }
 
         let _ = fs::write(&xmp_file, content);
+    }
+}
+
+#[cfg(test)]
+mod thumbnail_prefetch_tests {
+    use super::*;
+    use std::cell::Cell;
+
+    // Minimal TIFF/RAW-style container holding a real JPEG preview. No camera
+    // files or GPU are needed, so these tests also run on non-Windows hosts.
+    fn embedded_preview_file() -> tempfile::NamedTempFile {
+        let image = DynamicImage::new_rgb8(64, 32);
+        let mut jpeg = Vec::new();
+        JpegEncoder::new(&mut jpeg).encode_image(&image).unwrap();
+        let mut tiff = b"II\x2a\x00\x08\x00\x00\x00".to_vec();
+        tiff.extend_from_slice(&3u16.to_le_bytes());
+        for (tag, kind, value) in [
+            (513u16, 4u16, 50u32),
+            (514, 4, jpeg.len() as u32),
+            (274, 3, 6),
+        ] {
+            tiff.extend_from_slice(&tag.to_le_bytes());
+            tiff.extend_from_slice(&kind.to_le_bytes());
+            tiff.extend_from_slice(&1u32.to_le_bytes());
+            tiff.extend_from_slice(&value.to_le_bytes());
+        }
+        tiff.extend_from_slice(&0u32.to_le_bytes());
+        tiff.extend_from_slice(&jpeg);
+        let file = tempfile::NamedTempFile::new().unwrap();
+        fs::write(file.path(), tiff).unwrap();
+        file
+    }
+
+    #[test]
+    fn embedded_preview_skips_prefetch_and_preserves_orientation() {
+        let file = embedded_preview_file();
+        let prefetch = || panic!("usable embedded preview must not prefetch the source");
+        let preview =
+            thumbnail_preview_before_decode(file.path(), true, 64, Some(&prefetch)).unwrap();
+        assert_eq!(preview.dimensions(), (32, 64));
+    }
+
+    #[test]
+    fn undersized_preview_runs_decode_preparation_once() {
+        let file = embedded_preview_file();
+        let calls = Cell::new(0);
+        let prefetch = || calls.set(calls.get() + 1);
+        assert!(
+            thumbnail_preview_before_decode(file.path(), true, 1280, Some(&prefetch)).is_none()
+        );
+        assert_eq!(calls.get(), 1);
+    }
+
+    #[test]
+    fn forced_decode_or_adjustments_bypass_embedded_preview() {
+        let file = embedded_preview_file();
+        let calls = Cell::new(0);
+        let prefetch = || calls.set(calls.get() + 1);
+        assert!(thumbnail_preview_before_decode(file.path(), false, 64, Some(&prefetch)).is_none());
+        assert_eq!(calls.get(), 1);
+    }
+
+    #[test]
+    fn invalid_preview_falls_back_with_or_without_prefetch() {
+        let file = tempfile::NamedTempFile::new().unwrap();
+        fs::write(file.path(), b"invalid RAW preview").unwrap();
+        let calls = Cell::new(0);
+        let prefetch = || calls.set(calls.get() + 1);
+        assert!(thumbnail_preview_before_decode(file.path(), true, 64, Some(&prefetch)).is_none());
+        assert_eq!(calls.get(), 1);
+        assert!(thumbnail_preview_before_decode(file.path(), true, 64, None).is_none());
     }
 }
