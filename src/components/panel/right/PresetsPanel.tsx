@@ -21,6 +21,7 @@ import {
   Folder as FolderIcon,
   FolderOpen,
   FolderPlus,
+  FolderInput,
   Loader2,
   Plus,
   SortAsc,
@@ -32,6 +33,8 @@ import {
   Wrench,
   Palette,
   Settings2,
+  Star,
+  StarOff,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ConfigurePresetModal from '../../modals/ConfigurePresetModal';
@@ -446,6 +449,26 @@ function DraggablePresetItem({
   );
 }
 
+const folderHeaderClass = 'flex items-center gap-2 p-2 rounded-lg bg-surface cursor-pointer';
+const folderContentsClass = 'ml-4 pl-2 border-l-[1.5px] border-border-color/50 space-y-2 overflow-hidden pt-2';
+
+function FolderContents({ expanded, children }: { expanded: boolean; children: React.ReactNode }) {
+  return (
+    <AnimatePresence>
+      {expanded && (
+        <motion.div
+          animate={{ height: 'auto', opacity: 1 }}
+          className={folderContentsClass}
+          exit={{ height: 0, opacity: 0 }}
+          initial={{ height: 0, opacity: 0 }}
+        >
+          {children}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 function DroppableFolderItem({ folder, onContextMenu, children, onToggle, isExpanded }: DroppableFolderItemProps) {
   const {
     attributes,
@@ -475,10 +498,7 @@ function DroppableFolderItem({ folder, onContextMenu, children, onToggle, isExpa
       ref={setDroppableNodeRef}
       style={style}
     >
-      <div
-        className="flex items-center gap-2 p-2 rounded-lg bg-surface cursor-pointer"
-        onContextMenu={(e: any) => onContextMenu(e, { folder })}
-      >
+      <div className={folderHeaderClass} onContextMenu={(e: any) => onContextMenu(e, { folder })}>
         <div className="p-1 cursor-grab" ref={setDraggableNodeRef} {...listeners} {...attributes}>
           {isExpanded ? (
             <FolderOpen
@@ -512,18 +532,7 @@ function DroppableFolderItem({ folder, onContextMenu, children, onToggle, isExpa
           {folder.children?.length || 0}
         </Text>
       </div>
-      <AnimatePresence>
-        {isExpanded && hasChildren && (
-          <motion.div
-            animate={{ height: 'auto', opacity: 1 }}
-            className="ml-4 pl-2 border-l-[1.5px] border-border-color/50 space-y-2 overflow-hidden pt-2"
-            exit={{ height: 0, opacity: 0 }}
-            initial={{ height: 0, opacity: 0 }}
-          >
-            {children}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <FolderContents expanded={!!(isExpanded && hasChildren)}>{children}</FolderContents>
     </div>
   );
 }
@@ -565,6 +574,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     importPresetsFromFiles,
     isLoading,
     movePreset,
+    setFavorite,
     overwritePreset,
     presets,
     renameItem,
@@ -581,6 +591,14 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   const [activeItem, setActiveItem] = useState<any>(null);
   const [folderPreviewsGenerated, setFolderPreviewsGenerated] = useState<Set<string>>(new Set());
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
+  const [favoritesExpanded, setFavoritesExpanded] = useState(false);
+  const favoritePresets = useMemo(
+    () =>
+      presets
+        .flatMap((item) => (item.preset ? [item.preset] : (item.folder?.children ?? [])))
+        .filter((preset: Preset) => preset.isFavorite),
+    [presets],
+  );
 
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [presetIntensity, setPresetIntensity] = useState<number>(100);
@@ -771,6 +789,12 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
       return newSet;
     });
   };
+
+  useEffect(() => {
+    if (favoritesExpanded && selectedImage?.isReady) {
+      enqueuePreviews(favoritePresets);
+    }
+  }, [favoritesExpanded, selectedImage?.isReady, favoritePresets, enqueuePreviews]);
 
   const generateSinglePreview = useCallback(
     async (preset: Preset) => {
@@ -1189,6 +1213,17 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
         },
       ];
     } else {
+      const currentFolderId = itemParentMap.get(data?.id) ?? null;
+      const moveToFolder = (folderId: string | null) => {
+        if (!data?.id || folderId === currentFolderId) return;
+        movePreset(data.id, folderId);
+        if (folderId) {
+          setExpandedFolders((prev: Set<string>) => new Set(prev).add(folderId));
+        }
+        if (!previewsRef.current[data.id]) {
+          void generateSinglePreview(data as Preset);
+        }
+      };
       options = [
         {
           icon: Save,
@@ -1206,6 +1241,37 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
           onClick: () => setConfigureModalState({ isOpen: true, preset: data as Preset }),
         },
         { type: OPTION_SEPARATOR },
+        {
+          icon: (data as Preset)?.isFavorite ? StarOff : Star,
+          label: (data as Preset)?.isFavorite
+            ? t('editor.presets.menu.removeFromFavorites')
+            : t('editor.presets.menu.addToFavorites'),
+          onClick: () => data?.id && setFavorite(data.id, !(data as Preset).isFavorite),
+        },
+        {
+          icon: FolderInput,
+          label: t('contextMenus.albums.moveTo'),
+          submenu: [
+            {
+              icon: FolderOpen,
+              label: t('contextMenus.albums.rootDir'),
+              disabled: currentFolderId === null,
+              onClick: () => moveToFolder(null),
+            },
+            ...presets.flatMap(({ folder }) =>
+              folder?.id
+                ? [
+                    {
+                      icon: FolderIcon,
+                      label: folder.name,
+                      disabled: folder.id === currentFolderId,
+                      onClick: () => moveToFolder(folder.id!),
+                    },
+                  ]
+                : [],
+            ),
+          ],
+        },
         {
           icon: CopyPlus,
           label: t('editor.presets.menu.duplicatePreset'),
@@ -1336,6 +1402,53 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
             </div>
           ) : (
             <>
+              <div className="rounded-lg">
+                <button
+                  type="button"
+                  className={`${folderHeaderClass} w-full text-left`}
+                  aria-expanded={favoritesExpanded}
+                  onClick={() => setFavoritesExpanded((value) => !value)}
+                >
+                  <span className="p-1">
+                    <Star size={18} className={favoritesExpanded ? 'text-primary' : 'text-text-secondary'} />
+                  </span>
+                  <Text color={TextColors.primary} weight={TextWeights.medium} className="grow truncate select-none">
+                    {t('contextMenus.albumIcons.favorites')}
+                  </Text>
+                  <Text as="span" variant={TextVariants.small} color={TextColors.secondary} className="ml-auto pr-1">
+                    {favoritePresets.length}
+                  </Text>
+                </button>
+                <FolderContents expanded={favoritesExpanded && favoritePresets.length > 0}>
+                  {favoritePresets.map((preset: Preset) => (
+                    <div
+                      key={preset.id}
+                      onClick={() => handleApplyPreset(preset)}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        showContextMenu(event.clientX, event.clientY, [
+                          {
+                            icon: StarOff,
+                            label: t('editor.presets.menu.removeFromFavorites'),
+                            onClick: () => setFavorite(preset.id, false),
+                          },
+                        ]);
+                      }}
+                    >
+                      <PresetItemDisplay
+                        preset={preset}
+                        previewUrl={previews[preset.id] || ''}
+                        isGeneratingPreviews={isGeneratingPreviews}
+                        isActive={preset.id === activePresetId}
+                        intensity={preset.id === activePresetId ? presetIntensity : 100}
+                        onIntensityChange={(value) => handleIntensityChange(preset, value)}
+                        onDragStateChange={handleDragStateChange}
+                      />
+                    </div>
+                  ))}
+                </FolderContents>
+              </div>
               <AnimatePresence>
                 {folders
                   .filter((item: UserPreset) => item.folder?.id !== deletingItemId)

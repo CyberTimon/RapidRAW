@@ -895,6 +895,8 @@
         "rapidRawPreset": "RapidRAW-voorinstelling"
       },
       "menu": {
+        "addToFavorites": "Toevoegen aan favorieten",
+        "removeFromFavorites": "Verwijderen uit favorieten",
         "configurePreset": "Voorinstelling configureren",
         "deleteFolder": "Map verwijderen",
         "deletePreset": "Voorinstelling verwijderen",

@@ -895,6 +895,8 @@
         "rapidRawPreset": "RapidRAW Preset"
       },
       "menu": {
+        "addToFavorites": "Add to Favorites",
+        "removeFromFavorites": "Remove from Favorites",
         "configurePreset": "Configure Preset",
         "deleteFolder": "Delete Folder",
         "deletePreset": "Delete Preset",

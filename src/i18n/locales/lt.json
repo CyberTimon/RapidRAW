@@ -984,6 +984,8 @@
         "rapidRawPreset": "RapidRAW nustatymas"
       },
       "menu": {
+        "addToFavorites": "Pridėti prie mėgstamiausių",
+        "removeFromFavorites": "Pašalinti iš mėgstamiausių",
         "configurePreset": "Konfigūruoti nustatymą",
         "deleteFolder": "Ištrinti aplanką",
         "deletePreset": "Ištrinti nustatymą",

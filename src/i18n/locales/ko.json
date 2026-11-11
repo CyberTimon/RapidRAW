@@ -892,6 +892,8 @@
         "rapidRawPreset": "RapidRAW 프리셋"
       },
       "menu": {
+        "addToFavorites": "즐겨찾기에 추가",
+        "removeFromFavorites": "즐겨찾기에서 제거",
         "configurePreset": "프리셋 구성",
         "deleteFolder": "폴더 삭제",
         "deletePreset": "프리셋 삭제",

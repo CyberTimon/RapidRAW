@@ -920,6 +920,8 @@
         "rapidRawPreset": "Ajust preestablert de RapidRAW"
       },
       "menu": {
+        "addToFavorites": "Afegeix als preferits",
+        "removeFromFavorites": "Elimina dels preferits",
         "configurePreset": "Configurar ajust preestablert",
         "deleteFolder": "Eliminar carpeta",
         "deletePreset": "Eliminar ajust preestablert",

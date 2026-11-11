@@ -920,6 +920,8 @@
         "rapidRawPreset": "Predefinição RapidRAW"
       },
       "menu": {
+        "addToFavorites": "Adicionar aos Favoritos",
+        "removeFromFavorites": "Remover dos Favoritos",
         "configurePreset": "Configurar Predefinição",
         "deleteFolder": "Excluir Pasta",
         "deletePreset": "Excluir Predefinição",

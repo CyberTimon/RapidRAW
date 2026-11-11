@@ -439,6 +439,7 @@ export interface Preset {
   includeMasks?: boolean;
   includeCropTransform?: boolean;
   presetType?: 'tool' | 'style';
+  isFavorite?: boolean;
 }
 
 export interface Progress {
