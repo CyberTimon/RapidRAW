@@ -1058,6 +1058,12 @@
       "quality": "Kvalita",
       "qualityLossless": "Kvalita (bezeztrátová)",
       "resolution": "Rozlišení",
+      "jpegHdr": "HDR",
+      "jpegHdrInfoLabel": "O Ultra HDR",
+      "jpegHdrInfo": "Exportuje JPEG Ultra HDR. Zobrazuje HDR v kompatibilních aplikacích pro Android a iOS na HDR displeji; jinak se zobrazí jako běžná SDR fotografie.",
+      "jxlHdr": "HDR",
+      "jxlHdrPeakNits": "Špičkový jas HDR",
+      "jxlBitDepth": "Bitová hloubka JPEG XL",
       "tiffBitDepth": "Bitová hloubka TIFF",
       "tiffBitDepth16": "16bitová",
       "tiffBitDepth8": "8bitová"

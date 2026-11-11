@@ -318,6 +318,7 @@ const BLACK_FLOOR: f32 = 0.005;
 const BLACK_FLOOR_SPREAD: f32 = 0.05;
 
 override HIGH_PRECISION_OUTPUT: u32 = 0u;
+override HDR_OUTPUT: u32 = 0u;
 override FEATURES: u32 = 0xFFFFFFFFu;
 override HSL_PROBE: u32 = 0u;
 
@@ -2201,6 +2202,9 @@ fn main(
         }
     }
 
+    // Keep the SDR edit's tone mapping and colors; HDR adds scene highlight
+    // headroom after those same edits instead of replacing the base rendition.
+    let hdr_headroom = max(1.0, max(composite_rgb_linear.r, max(composite_rgb_linear.g, composite_rgb_linear.b)));
     let default_tonemapped = display_transform(composite_rgb_linear);
     var base_srgb: vec3<f32>;
     let is_scene_lut = (has_feature(F_LUT) && adjustments.global.has_lut == 1u && adjustments.global.lut_is_scene_referred == 1u);
@@ -2259,5 +2263,12 @@ fn main(
         final_rgb += dither(id.xy) * dither_amount;
     }
 
-    textureStore(output_texture, id.xy, vec4<f32>(clamp(final_rgb, vec3<f32>(0.0), vec3<f32>(1.0)), original_alpha));
+    if (HDR_OUTPUT == 1u) {
+        // Keep extended sRGB through resize, padding and watermark composition.
+        // HDR export encoders convert it to linear light with 203-nit diffuse white.
+        let hdr_linear = srgb_to_linear(max(final_rgb, vec3<f32>(0.0))) * hdr_headroom;
+        textureStore(output_texture, id.xy, vec4<f32>(linear_to_srgb_extended(hdr_linear), original_alpha));
+    } else {
+        textureStore(output_texture, id.xy, vec4<f32>(clamp(final_rgb, vec3<f32>(0.0), vec3<f32>(1.0)), original_alpha));
+    }
 }

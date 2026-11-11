@@ -85,6 +85,8 @@ dependencies = [
  "tokenizers",
  "tokio",
  "trash",
+ "ultrahdr-core",
+ "ultrahdr-rs",
  "uuid",
  "walkdir",
  "wayland-backend",
@@ -7733,6 +7735,39 @@ dependencies = [
  "memoffset",
  "tempfile",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "ultrahdr-core"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "964a038e0f75524ef9bd01ee6bda6d2457a3b6c1ca8df22478b9bb94b3547669"
+dependencies = [
+ "archmage",
+ "bytemuck",
+ "enough",
+ "half",
+ "linear-srgb",
+ "magetypes",
+ "thiserror 2.0.20",
+ "wide",
+]
+
+[[package]]
+name = "ultrahdr-rs"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04d23de1da522be7d8abe8e7ebba3b99f08ac9ed0fcb1b16d01c60cfa96addbe"
+dependencies = [
+ "bytemuck",
+ "enough",
+ "half",
+ "imgref",
+ "moxcms",
+ "rgb",
+ "thiserror 2.0.20",
+ "ultrahdr-core",
+ "wide",
 ]
 
 [[package]]

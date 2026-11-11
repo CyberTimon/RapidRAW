@@ -242,6 +242,10 @@ async fn render_tiff(
     let export_settings = ExportSettings {
         jpeg_quality: 100,
         tiff_bit_depth: TiffBitDepth::Sixteen,
+        jxl_bit_depth: Default::default(),
+        jpeg_hdr: false,
+        jxl_hdr: false,
+        jxl_hdr_peak_nits: Default::default(),
         resize: None,
         border: None,
         pad: None,

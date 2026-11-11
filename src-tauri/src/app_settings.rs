@@ -353,6 +353,14 @@ pub struct ExportPreset {
     #[serde(default)]
     pub tiff_bit_depth: Option<u8>,
     #[serde(default)]
+    pub jxl_bit_depth: Option<u8>,
+    #[serde(default)]
+    pub jpeg_hdr: Option<bool>,
+    #[serde(default)]
+    pub jxl_hdr: Option<bool>,
+    #[serde(default)]
+    pub jxl_hdr_peak_nits: Option<crate::jxl_export::JxlHdrPeakNits>,
+    #[serde(default)]
     pub preserve_timestamps: Option<bool>,
 }
 
@@ -394,6 +402,10 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             destination_type: Some("customFolder".to_string()),
             subfolder: Some("".to_string()),
             tiff_bit_depth: Some(16),
+            jxl_bit_depth: Some(8),
+            jpeg_hdr: Some(false),
+            jxl_hdr: Some(false),
+            jxl_hdr_peak_nits: Some(Default::default()),
             preserve_timestamps: Some(false),
         },
         ExportPreset {
@@ -432,6 +444,10 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             destination_type: Some("customFolder".to_string()),
             subfolder: Some("".to_string()),
             tiff_bit_depth: Some(16),
+            jxl_bit_depth: Some(8),
+            jpeg_hdr: Some(false),
+            jxl_hdr: Some(false),
+            jxl_hdr_peak_nits: Some(Default::default()),
             preserve_timestamps: Some(false),
         },
     ]
