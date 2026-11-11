@@ -1279,7 +1279,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
         <div className="flex items-center justify-center gap-4 mt-2 px-2 py-1.5 bg-surface-secondary rounded-md text-xs">
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-1">
-              <span className="text-text-secondary">Input</span>
+              <span className="text-text-secondary">{t('adjustments.curves.input')}</span>
               <span className="w-14 shrink-0">
               <input
                 ref={inputXRef}
@@ -1329,7 +1329,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
               </span>
             </label>
             <label className="flex items-center gap-1">
-              <span className="text-text-secondary">Output</span>
+              <span className="text-text-secondary">{t('adjustments.curves.output')}</span>
               <span className="w-14 shrink-0">
               <input
                 ref={inputYRef}
