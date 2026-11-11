@@ -373,7 +373,7 @@ export function useTauriListeners({
       listen<{ path: string; error: string }>('ai-upscale-error', (event) => {
         if (!isEffectActive) return;
         const { path, error } = event.payload;
-        toast.error(`AI super resolution failed: ${error}`);
+        toast.error(`RapidRes failed: ${error}`);
         useEditorStore.getState().setEditor((state) => {
           const { [path]: _, ...aiUpscaleProgress } = state.aiUpscaleProgress;
           return {
