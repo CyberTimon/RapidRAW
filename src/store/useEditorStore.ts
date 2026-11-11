@@ -98,6 +98,7 @@ interface EditorState {
   isGeneratingAiMask: boolean;
   isGeneratingAi: boolean;
   aiDenoiseProgress: Record<string, number>;
+  aiUpscaleProgress: Record<string, number>;
   isAIConnectorConnected: boolean;
   wgpuPhase: WgpuPhase;
   patchesSentToBackend: Set<string>;
@@ -190,6 +191,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   isAIConnectorConnected: false,
   isGeneratingAi: false,
   aiDenoiseProgress: {},
+  aiUpscaleProgress: {},
   isMaskControlHovered: false,
   wgpuPhase: 'hidden',
   patchesSentToBackend: new Set<string>(),

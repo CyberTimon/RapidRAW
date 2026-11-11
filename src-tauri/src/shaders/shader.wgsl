@@ -1132,16 +1132,17 @@ fn sample_tone_base(abs_coord: vec2<u32>, log_luma: f32) -> ToneBase {
     var total = vec3<f32>(0.0);
     var tone_total = vec2<f32>(0.0);
     var weight_sum = 0.0;
-    var lowest = 1.0e9;
-    var highest = -1.0e9;
+    var edge = 0.0;
     for (var j = -1; j <= 1; j = j + 1) {
         for (var i = -1; i <= 1; i = i + 1) {
             let q = centre + vec2<i32>(i, j);
-            let tent = max(1.0 - abs(vec2<f32>(q) - pos) / 1.5, vec2<f32>(0.0));
+            let offset = abs(vec2<f32>(q) - pos);
+            let tent = max(1.0 - offset / 1.5, vec2<f32>(0.0));
+            let bilinear = max(1.0 - offset, vec2<f32>(0.0));
             let texel = textureLoad(tone_base_texture, clamp(q, vec2<i32>(0), low - vec2<i32>(1)), 0);
-            let v = texel.xyz;
-            lowest = min(lowest, v.x);
-            highest = max(highest, v.x);
+            let texture_range = unpack2x16float(bitcast<u32>(texel.z));
+            let v = vec3<f32>(texel.xy, texture_range.x);
+            edge += texture_range.y * bilinear.x * bilinear.y;
             let d = (v.x - log_luma) / TB_UP_SIGMA;
             let e = (v.x - v.y - log_luma) / TB_UP_SIGMA;
             let w = tent.x * tent.y / (1.0 + d * d + e * e) + 1.0e-7;
@@ -1151,7 +1152,7 @@ fn sample_tone_base(abs_coord: vec2<u32>, log_luma: f32) -> ToneBase {
         }
     }
     let tone = tone_total / weight_sum;
-    return ToneBase(vec4<f32>(total / weight_sum, highest - lowest), tone.x, tone.y);
+    return ToneBase(vec4<f32>(total / weight_sum, edge), tone.x, tone.y);
 }
 
 fn detail_core(d: f32, core: f32) -> f32 {

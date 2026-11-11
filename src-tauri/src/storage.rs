@@ -10,7 +10,7 @@ use walkdir::WalkDir;
 
 use crate::app_settings::{
     AppSettings, default_ai_cache_limit_gb, default_ai_maps_cache_limit_gb,
-    default_thumbnail_cache_limit_gb,
+    default_ai_upscale_cache_limit_gb, default_thumbnail_cache_limit_gb,
 };
 use crate::app_state::AppState;
 
@@ -48,6 +48,11 @@ pub fn apply_cache_limits(settings: &AppSettings) {
         settings
             .ai_cache_limit_gb
             .unwrap_or_else(default_ai_cache_limit_gb),
+    );
+    crate::ai_upscale::set_disk_cache_limit_gb(
+        settings
+            .ai_upscale_cache_limit_gb
+            .unwrap_or_else(default_ai_upscale_cache_limit_gb),
     );
     crate::effect_maps::set_disk_cache_limit_gb(
         settings
@@ -201,6 +206,7 @@ fn prune_thumbnails(dir: &Path, limit_bytes: u64) -> u64 {
 pub struct StorageUsage {
     thumbnails: u64,
     ai_denoise: u64,
+    ai_upscale: u64,
     ai_maps: u64,
     metadata: u64,
     immich: u64,
@@ -239,6 +245,7 @@ pub async fn get_storage_usage(app_handle: AppHandle) -> Result<StorageUsage, St
     tauri::async_runtime::spawn_blocking(move || StorageUsage {
         thumbnails: dir_size(&dirs.cache.join("thumbnails")),
         ai_denoise: dir_size(&dirs.cache.join("ai_denoise")),
+        ai_upscale: dir_size(&dirs.cache.join("ai_upscale")),
         ai_maps: dir_size(&dirs.cache.join("ai_maps")),
         metadata: dir_size(&dirs.cache.join("exif")),
         immich: dir_size(&dirs.cache.join("immich")),

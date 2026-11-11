@@ -332,7 +332,17 @@ fn tb_stamp(@builtin(global_invocation_id) id: vec3<u32>) {
     let dims = textureDimensions(dst);
     if (id.x >= dims.x || id.y >= dims.y) { return; }
 
-    let base = textureLoad(src_a, vec2<i32>(id.xy), 0);
+    let p = vec2<i32>(id.xy);
+    let base = textureLoad(src_a, p, 0);
+    var lowest = base.x;
+    var highest = base.x;
+    for (var j = -1; j <= 1; j = j + 1) {
+        for (var i = -1; i <= 1; i = i + 1) {
+            let v = textureLoad(src_a, clamp(p + vec2<i32>(i, j), vec2<i32>(0), vec2<i32>(dims) - vec2<i32>(1)), 0).x;
+            lowest = min(lowest, v);
+            highest = max(highest, v);
+        }
+    }
     let low = vec2<i32>(textureDimensions(src_b));
     let pos = (vec2<f32>(id.xy) + 0.5) * vec2<f32>(low) / vec2<f32>(dims) - 0.5;
     let f = pos - floor(pos);
@@ -343,7 +353,8 @@ fn tb_stamp(@builtin(global_invocation_id) id: vec3<u32>) {
         mix(textureLoad(src_b, vec2<i32>(c0.x, c1.y), 0).x, textureLoad(src_b, c1, 0).x, f.x),
         f.y
     );
-    textureStore(dst, id.xy, vec4<f32>(base.xyz, bitcast<f32>(pack2x16float(vec2<f32>(base.w, clipped)))));
+    let texture_range = bitcast<f32>(pack2x16float(vec2<f32>(base.z, highest - lowest)));
+    textureStore(dst, id.xy, vec4<f32>(base.xy, texture_range, bitcast<f32>(pack2x16float(vec2<f32>(base.w, clipped)))));
 }
 
 const HZ_BINS: u32 = 256u;

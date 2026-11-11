@@ -1838,6 +1838,17 @@ export default function SettingsPanel({
                       </li>
                       <li>
                         <a
+                          href="https://github.com/Phhofm/models/releases/tag/2xBHI_small_span_pretrain"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-accent hover:underline"
+                        >
+                          2xBHI_small_span_pretrain
+                        </a>
+                        : {t('settings.thanks.list.span')}
+                      </li>
+                      <li>
+                        <a
                           href="http://gphoto.org/"
                           target="_blank"
                           rel="noopener noreferrer"
