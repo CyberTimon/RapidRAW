@@ -93,6 +93,9 @@ fn unpack(@builtin(global_invocation_id) id: vec3<u32>) {
 
 const EPS: f32 = 1e-5;
 const EPSSQ: f32 = 1e-10;
+const DEBIAS_RADIUS: i32 = 3;
+const DEBIAS_NORM: f32 = 1.0 / 64.0;
+const DEBIAS_LIMIT: f32 = 0.04;
 const RB_EPS: f32 = 1e-5;
 const RB_SHOT: f32 = 1e-4;
 const RB_SIGMA: f32 = 1.5;
@@ -202,6 +205,47 @@ fn rcd_green(@builtin(global_invocation_id) id: vec3<u32>) {
     let v_est = (s_grad * n_est + n_grad * s_est) / (n_grad + s_grad);
     let h_est = (w_grad * e_est + e_grad * w_est) / (e_grad + w_grad);
     b2[at(x, y)] = mix(v_est, h_est, vh_disc(x, y));
+}
+
+@compute @workgroup_size(8, 8)
+fn rcd_debias_h(@builtin(global_invocation_id) id: vec3<u32>) {
+    if (!in_tile(id)) {
+        return;
+    }
+    let y = i32(id.y);
+    var modulated = 0.0;
+    var level = 0.0;
+    var weight = 1.0;
+    for (var k = 0; k <= 2 * DEBIAS_RADIUS; k++) {
+        let x = clamp(i32(id.x) + k - DEBIAS_RADIUS, 0, P.tile.z - 1);
+        let g = b2[at(x, y)];
+        modulated += weight * select(g, -g, color(x, y) == 1u);
+        level += weight * g;
+        weight *= f32(2 * DEBIAS_RADIUS - k) / f32(k + 1);
+    }
+    let i = at(i32(id.x), y) * 2u;
+    b0[i] = modulated * DEBIAS_NORM;
+    b0[i + 1u] = level * DEBIAS_NORM;
+}
+
+@compute @workgroup_size(8, 8)
+fn rcd_debias_v(@builtin(global_invocation_id) id: vec3<u32>) {
+    let x = i32(id.x);
+    if (!in_tile(id) || color(x, i32(id.y)) == 1u) {
+        return;
+    }
+    var modulated = 0.0;
+    var level = 0.0;
+    var weight = 1.0;
+    for (var k = 0; k <= 2 * DEBIAS_RADIUS; k++) {
+        let y = clamp(i32(id.y) + k - DEBIAS_RADIUS, 0, P.tile.w - 1);
+        let i = at(x, y) * 2u;
+        modulated += weight * b0[i];
+        level += weight * b0[i + 1u];
+        weight *= f32(2 * DEBIAS_RADIUS - k) / f32(k + 1);
+    }
+    let limit = DEBIAS_LIMIT * level * DEBIAS_NORM;
+    b2[at(x, i32(id.y))] -= clamp(2.0 * modulated * DEBIAS_NORM, -limit, limit);
 }
 
 @compute @workgroup_size(8, 8)

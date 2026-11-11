@@ -24,6 +24,8 @@ const BAYER_STAGES: &[&str] = &[
     "unpack",
     "rcd_vh",
     "rcd_green",
+    "rcd_debias_h",
+    "rcd_debias_v",
     "rb_prepare",
     "rb_stats",
     "rb_coef",
@@ -69,7 +71,7 @@ impl Pattern {
 
     fn margin(self) -> u32 {
         match self {
-            Pattern::Bayer => 32,
+            Pattern::Bayer => 40,
             Pattern::XTrans => 32,
         }
     }
