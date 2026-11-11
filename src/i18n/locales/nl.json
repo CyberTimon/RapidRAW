@@ -1271,9 +1271,11 @@
       "albumsEmpty": "Rechtermuisknop om een album te maken.",
       "collapseSection": "{{section}} inklappen",
       "expandSection": "{{section}} uitklappen",
+      "folderUnavailable": "Niet beschikbaar",
       "loading": "Mappen laden...",
       "noFoldersFound": "Geen mappen gevonden.",
       "openFolderInstruction": "Open een map om de structuur te zien.",
+      "retryFolder": "Opnieuw proberen",
       "searchPlaceholder": "Mappen zoeken...",
       "sections": {
         "albums": "Albums",

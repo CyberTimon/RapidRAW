@@ -1299,9 +1299,11 @@
       "albumsEmpty": "Clique com o botão direito para criar um álbum.",
       "collapseSection": "Recolher {{section}}",
       "expandSection": "Expandir {{section}}",
+      "folderUnavailable": "Indisponível",
       "loading": "Carregando pastas...",
       "noFoldersFound": "Nenhuma pasta encontrada.",
       "openFolderInstruction": "Abra uma pasta para ver sua estrutura.",
+      "retryFolder": "Tentar novamente",
       "searchPlaceholder": "Pesquisar pastas...",
       "sections": {
         "albums": "Álbuns",

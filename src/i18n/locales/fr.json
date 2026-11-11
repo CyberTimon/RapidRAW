@@ -1300,9 +1300,11 @@
       "albumsEmpty": "Faites un clic droit pour créer un album.",
       "collapseSection": "Réduire {{section}}",
       "expandSection": "Développer {{section}}",
+      "folderUnavailable": "Indisponible",
       "loading": "Chargement des dossiers...",
       "noFoldersFound": "Aucun dossier trouvé.",
       "openFolderInstruction": "Ouvrez un dossier pour voir sa structure.",
+      "retryFolder": "Réessayer",
       "searchPlaceholder": "Rechercher des dossiers...",
       "sections": {
         "albums": "Albums",

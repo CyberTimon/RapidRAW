@@ -1266,9 +1266,11 @@
       "albumsEmpty": "右鍵單擊以建立相簿。",
       "collapseSection": "摺疊 {{section}}",
       "expandSection": "展開 {{section}}",
+      "folderUnavailable": "無法使用",
       "loading": "載入資料夾中...",
       "noFoldersFound": "未找到資料夾。",
       "openFolderInstruction": "開啟一個資料夾以檢視其結構。",
+      "retryFolder": "重試",
       "searchPlaceholder": "搜尋資料夾...",
       "sections": {
         "albums": "相簿",

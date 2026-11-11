@@ -1327,9 +1327,11 @@
       "albumsEmpty": "Kliknutím pravým tlačítkem myši vytvoříte album.",
       "collapseSection": "Sbalit {{section}}",
       "expandSection": "Rozbalit {{section}}",
+      "folderUnavailable": "Nedostupná",
       "loading": "Načítání složek...",
       "noFoldersFound": "Nebyly nalezeny žádné složky.",
       "openFolderInstruction": "Otevřete složku a zobrazte její strukturu.",
+      "retryFolder": "Zkusit znovu",
       "searchPlaceholder": "Prohledat složky...",
       "sections": {
         "albums": "Alba",

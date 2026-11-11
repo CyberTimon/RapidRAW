@@ -1299,9 +1299,11 @@
       "albumsEmpty": "Clic derecho para crear un álbum.",
       "collapseSection": "Contraer {{section}}",
       "expandSection": "Expandir {{section}}",
+      "folderUnavailable": "No disponible",
       "loading": "Cargando carpetas...",
       "noFoldersFound": "No se encontraron carpetas.",
       "openFolderInstruction": "Abre una carpeta para ver su estructura.",
+      "retryFolder": "Reintentar",
       "searchPlaceholder": "Buscar carpetas...",
       "sections": {
         "albums": "Álbumes",

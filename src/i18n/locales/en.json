@@ -1271,9 +1271,11 @@
       "albumsEmpty": "Right-click to create an album.",
       "collapseSection": "Collapse {{section}}",
       "expandSection": "Expand {{section}}",
+      "folderUnavailable": "Unavailable",
       "loading": "Loading folders...",
       "noFoldersFound": "No folders found.",
       "openFolderInstruction": "Open a folder to see its structure.",
+      "retryFolder": "Retry",
       "searchPlaceholder": "Search folders...",
       "sections": {
         "albums": "Albums",

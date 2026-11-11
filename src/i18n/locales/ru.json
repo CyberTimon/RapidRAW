@@ -1327,9 +1327,11 @@
       "albumsEmpty": "Нажмите правой кнопкой мыши для создания альбома.",
       "collapseSection": "Свернуть {{section}}",
       "expandSection": "Развернуть {{section}}",
+      "folderUnavailable": "Недоступно",
       "loading": "Загрузка папок...",
       "noFoldersFound": "Папки не найдены.",
       "openFolderInstruction": "Откройте папку, чтобы просмотреть ее структуру.",
+      "retryFolder": "Повторить",
       "searchPlaceholder": "Поиск папок...",
       "sections": {
         "albums": "Альбомы",
