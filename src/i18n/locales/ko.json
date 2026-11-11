@@ -1,6 +1,8 @@
 {
   "adjustments": {
     "basic": {
+      "adaptiveContrast": "적응형 대비",
+      "adaptiveContrastTooltip": "이 슬라이더의 기준점을 이미지 중앙값으로 둡니다. 다시 클릭하면 중간 회색으로 돌아갑니다",
       "blacks": "블랙",
       "brightness": "밝기",
       "contrast": "대비",
@@ -119,6 +121,10 @@
     },
     "curves": {
       "adaptiveContrast": "곡선 포인트 배치",
+      "adaptiveContrastImage": "이미지에서 곡선 포인트 배치",
+      "adaptiveContrastImageTooltip": "중간 톤 앵커를 이미지 중앙값에 놓고 대비 기준점도 그곳으로 옮깁니다",
+      "adaptiveContrastMask": "선택 영역에서 곡선 포인트 배치",
+      "adaptiveContrastMaskTooltip": "중간 톤 앵커를 이 선택 영역의 중앙값에 놓고 대비 기준점도 그곳으로 옮깁니다",
       "adaptiveContrastTooltip": "중간 톤 앵커를 이미지 중앙값에 놓습니다. 슬라이더 값은 그대로 두고, 어두운 톤과 밝은 톤 범위는 기본 너비를 유지합니다",
       "anchorMedian": "중간값에 고정",
       "channelTitle": "{{channel}} 채널",
@@ -131,6 +137,8 @@
       "copyParametric": "{{channel}} 파라메트릭 커브 복사",
       "copyPoint": "{{channel}} 포인트 커브 복사",
       "curveDataUnavailable": "커브 데이터를 사용할 수 없습니다.",
+      "maskLocalTone": "선택 영역 중앙값",
+      "maskLocalToneTooltip": "대비 기준점을 이 선택 영역의 중앙값으로 둡니다. 다시 클릭하면 중간 회색으로 돌아갑니다",
       "median": "중간값 {{value}}",
       "parametricCurve": "파라메트릭 커브",
       "params": {

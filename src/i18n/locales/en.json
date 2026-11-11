@@ -125,8 +125,6 @@
       "adaptiveContrastImageTooltip": "Place the midtone anchor on the image median and pivot the contrast slider there",
       "adaptiveContrastMask": "Set Curve Points from Selection",
       "adaptiveContrastMaskTooltip": "Place the midtone anchor on this selection's median and pivot the contrast slider there",
-      "maskLocalTone": "Selection Median",
-      "maskLocalToneTooltip": "Pivot contrast on this selection's median. Click again to use middle gray",
       "adaptiveContrastTooltip": "Place the midtone anchor on the median of the image. Slider amounts stay as they are, and the dark and light ranges keep their usual width",
       "anchorMedian": "Anchor at Median",
       "channelTitle": "{{channel}} Channel",
@@ -139,6 +137,8 @@
       "copyParametric": "Copy {{channel}} Parametric Curve",
       "copyPoint": "Copy {{channel}} Point Curve",
       "curveDataUnavailable": "Curve data not available.",
+      "maskLocalTone": "Selection Median",
+      "maskLocalToneTooltip": "Pivot contrast on this selection's median. Click again to use middle gray",
       "median": "Median {{value}}",
       "parametricCurve": "Parametric Curve",
       "params": {

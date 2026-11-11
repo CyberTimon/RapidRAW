@@ -1,6 +1,8 @@
 {
   "adjustments": {
     "basic": {
+      "adaptiveContrast": "Contrast adaptatiu",
+      "adaptiveContrastTooltip": "Fes pivotar aquest control sobre la mediana de la imatge. Torna a fer clic per usar el gris mitjà",
       "blacks": "Negres",
       "brightness": "Brillantor",
       "contrast": "Contrast",
@@ -119,6 +121,10 @@
     },
     "curves": {
       "adaptiveContrast": "Col·locar punts",
+      "adaptiveContrastImage": "Col·locar punts des de la imatge",
+      "adaptiveContrastImageTooltip": "Col·loca l'àncora dels tons mitjans a la mediana de la imatge i hi fa pivotar el contrast",
+      "adaptiveContrastMask": "Col·locar punts des de la selecció",
+      "adaptiveContrastMaskTooltip": "Col·loca l'àncora dels tons mitjans a la mediana d'aquesta selecció i hi fa pivotar el contrast",
       "adaptiveContrastTooltip": "Col·loca l'àncora dels tons mitjans a la mediana de la imatge. Els valors dels controls es mantenen, i els rangs de tons foscos i clars conserven l'amplada habitual",
       "anchorMedian": "Ancora a la mediana",
       "channelTitle": "Canal {{channel}}",
@@ -131,6 +137,8 @@
       "copyParametric": "Copiar corba paramètrica de {{channel}}",
       "copyPoint": "Copiar corba de punts de {{channel}}",
       "curveDataUnavailable": "Dades de la corba no disponibles.",
+      "maskLocalTone": "Mediana de la selecció",
+      "maskLocalToneTooltip": "Fes pivotar el contrast sobre la mediana d'aquesta selecció. Torna a fer clic per usar el gris mitjà",
       "median": "Mediana {{value}}",
       "parametricCurve": "Corba paramètrica",
       "params": {

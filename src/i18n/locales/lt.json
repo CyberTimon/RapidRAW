@@ -1,6 +1,8 @@
 {
   "adjustments": {
     "basic": {
+      "adaptiveContrast": "Adaptyvus kontrastas",
+      "adaptiveContrastTooltip": "Šio slankiklio ašį perkelia ant vaizdo medianos. Spustelėkite dar kartą, kad grįžtumėte prie vidutinės pilkos",
       "blacks": "Juodi tonai",
       "brightness": "Šviesumas",
       "contrast": "Kontrastas",
@@ -118,6 +120,13 @@
       "whiteBalance": "Baltos spalvos balansas"
     },
     "curves": {
+      "adaptiveContrast": "Nustatyti kreivės taškus",
+      "adaptiveContrastImage": "Nustatyti kreivės taškus pagal vaizdą",
+      "adaptiveContrastImageTooltip": "Vidurinių tonų inkarą padeda ant vaizdo medianos ir ten perkelia kontrasto ašį",
+      "adaptiveContrastMask": "Nustatyti kreivės taškus pagal pažymėjimą",
+      "adaptiveContrastMaskTooltip": "Vidurinių tonų inkarą padeda ant šio pažymėjimo medianos ir ten perkelia kontrasto ašį",
+      "adaptiveContrastTooltip": "Vidurinių tonų inkarą padeda ant vaizdo medianos. Slankiklių reikšmės lieka, o tamsių ir šviesių tonų intervalai išlaiko įprastą plotį",
+      "anchorMedian": "Inkaras ties mediana",
       "channelTitle": "{{channel}} kanalas",
       "channels": {
         "blue": "Mėlyna",
@@ -128,6 +137,9 @@
       "copyParametric": "Kopijuoti {{channel}} parametrinę kreivę",
       "copyPoint": "Kopijuoti {{channel}} taškų kreivę",
       "curveDataUnavailable": "Kreivės duomenys nepasiekiami.",
+      "maskLocalTone": "Pažymėjimo mediana",
+      "maskLocalToneTooltip": "Kontrasto ašį perkelia ant šio pažymėjimo medianos. Spustelėkite dar kartą, kad grįžtumėte prie vidutinės pilkos",
+      "median": "Mediana {{value}}",
       "parametricCurve": "Parametrinė kreivė",
       "params": {
         "blackLevel": "Juodumo lygis",

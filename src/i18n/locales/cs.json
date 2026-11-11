@@ -1,6 +1,8 @@
 {
   "adjustments": {
     "basic": {
+      "adaptiveContrast": "Adaptivní kontrast",
+      "adaptiveContrastTooltip": "Otočí tento posuvník kolem mediánu snímku. Dalším kliknutím se vrátí střední šedá",
       "blacks": "Černé",
       "brightness": "Jas",
       "contrast": "Kontrast",
@@ -119,6 +121,10 @@
     },
     "curves": {
       "adaptiveContrast": "Nastavit body křivky",
+      "adaptiveContrastImage": "Nastavit body křivky ze snímku",
+      "adaptiveContrastImageTooltip": "Umístí kotvu středních tónů na medián snímku a tam otočí kontrast",
+      "adaptiveContrastMask": "Nastavit body křivky z výběru",
+      "adaptiveContrastMaskTooltip": "Umístí kotvu středních tónů na medián tohoto výběru a tam otočí kontrast",
       "adaptiveContrastTooltip": "Umístí kotvu středních tónů na medián snímku. Hodnoty posuvníků zůstanou a rozsahy tmavých a světlých tónů si zachovají obvyklou šířku",
       "anchorMedian": "Ukotvit na medián",
       "channelTitle": "{{channel}} kanál",
@@ -131,6 +137,8 @@
       "copyParametric": "Kopírovat parametrickou křivku ({{channel}})",
       "copyPoint": "Kopírovat bodovou křivku ({{channel}})",
       "curveDataUnavailable": "Údaje o křivce nejsou k dispozici.",
+      "maskLocalTone": "Medián výběru",
+      "maskLocalToneTooltip": "Otočí kontrast kolem mediánu tohoto výběru. Dalším kliknutím se vrátí střední šedá",
       "median": "Medián {{value}}",
       "parametricCurve": "Parametrická křivka",
       "params": {

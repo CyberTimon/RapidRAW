@@ -1,6 +1,8 @@
 {
   "adjustments": {
     "basic": {
+      "adaptiveContrast": "Contraste adaptatif",
+      "adaptiveContrastTooltip": "Fait pivoter ce curseur sur la médiane de l'image. Cliquez à nouveau pour le gris moyen",
       "blacks": "Noirs",
       "brightness": "Luminosité",
       "contrast": "Contraste",
@@ -119,6 +121,10 @@
     },
     "curves": {
       "adaptiveContrast": "Placer les points",
+      "adaptiveContrastImage": "Placer les points depuis l'image",
+      "adaptiveContrastImageTooltip": "Place l'ancre des tons moyens sur la médiane de l'image et y fait pivoter le contraste",
+      "adaptiveContrastMask": "Placer les points depuis la sélection",
+      "adaptiveContrastMaskTooltip": "Place l'ancre des tons moyens sur la médiane de cette sélection et y fait pivoter le contraste",
       "adaptiveContrastTooltip": "Place l'ancre des tons moyens sur la médiane de l'image. Les valeurs des curseurs restent inchangées, et les plages des tons sombres et clairs gardent leur largeur habituelle",
       "anchorMedian": "Ancrer sur la médiane",
       "channelTitle": "Canal {{channel}}",
@@ -131,6 +137,8 @@
       "copyParametric": "Copier la courbe paramétrique {{channel}}",
       "copyPoint": "Copier la courbe à points {{channel}}",
       "curveDataUnavailable": "Données de courbe non disponibles.",
+      "maskLocalTone": "Médiane de la sélection",
+      "maskLocalToneTooltip": "Fait pivoter le contraste sur la médiane de cette sélection. Cliquez à nouveau pour le gris moyen",
       "median": "Médiane {{value}}",
       "parametricCurve": "Courbe paramétrique",
       "params": {

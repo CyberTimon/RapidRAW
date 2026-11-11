@@ -2943,7 +2943,7 @@ pub struct HistogramData {
 
 fn histogram_median(counts: &[u32; 256]) -> u8 {
     let total: u64 = counts.iter().map(|count| *count as u64).sum();
-    histogram_pick(total, (total + 1) / 2, counts.iter().copied())
+    histogram_pick(total, total.div_ceil(2), counts.iter().copied())
 }
 
 fn histogram_quantile(counts: &[u64; 256], fraction: f64) -> u8 {
