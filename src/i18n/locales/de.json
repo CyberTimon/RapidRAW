@@ -1398,6 +1398,45 @@
       "recent": "Zuletzt",
       "title": "Aufgaben"
     },
+    "metadataFilter": {
+      "addColumn": "Filterspalte hinzufügen",
+      "all": "Alle",
+      "clear": "Alle Metadatenfilter entfernen",
+      "collapse": "Filterleiste einklappen",
+      "expand": "Filterleiste ausklappen",
+      "fields": {
+        "aperture": "Blende",
+        "camera": "Kamera",
+        "color": "Farbmarkierung",
+        "date": "Datum",
+        "edited": "Bearbeitungsstatus",
+        "fileType": "Dateityp",
+        "flag": "Markierung",
+        "focal": "Brennweite",
+        "iso": "ISO",
+        "lens": "Objektiv",
+        "rating": "Bewertung",
+        "shutter": "Verschlusszeit"
+      },
+      "loading": "Metadaten werden geladen…",
+      "removeColumn": "Spalte entfernen",
+      "title": "Metadatenfilter",
+      "unknown": "Unbekannt",
+      "values": {
+        "blue": "Blau",
+        "edited": "Bearbeitet",
+        "green": "Grün",
+        "noLabel": "Keine Markierung",
+        "picked": "Ausgewählt",
+        "purple": "Lila",
+        "red": "Rot",
+        "rejected": "Abgelehnt",
+        "unedited": "Nicht bearbeitet",
+        "unflagged": "Ohne Markierung",
+        "unrated": "Unbewertet",
+        "yellow": "Gelb"
+      }
+    },
     "reject": {
       "deleteConfirm": "Abgelehnte löschen",
       "deleteMessage_one": "Möchten Sie {{count}} abgelehntes Bild wirklich löschen? Es wird in den Papierkorb verschoben.",
@@ -1984,6 +2023,7 @@
         "toggle_crop": "Zuschnitt / Gerade ausrichten umschalten",
         "toggle_crop_panel": "Zuschneiden-Panel ein-/ausblenden",
         "toggle_export": "Exportieren-Panel ein-/ausblenden",
+        "toggle_filter_bar": "Metadaten-Filterleiste umschalten",
         "toggle_folder_tree": "Ordnerstruktur-Panel ein-/ausblenden",
         "toggle_fullscreen": "Vollbild umschalten",
         "toggle_left_panel": "Linkes Panel ein-/ausblenden",

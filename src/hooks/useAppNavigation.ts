@@ -46,6 +46,7 @@ const loadExifForImages = async (
   const exifSortKeys = ['date_taken', 'iso', 'shutter_speed', 'aperture', 'focal_length'];
   const isExifSortActive = exifSortKeys.includes(sortKey);
   const generation = ++exifLoadGeneration;
+  setLibrary({ isExifLoading: files.length > 0 });
 
   const previousExif = useLibraryStore.getState().exifByPath;
   const knownExif: Record<string, Record<string, string>> = {};
@@ -75,7 +76,7 @@ const loadExifForImages = async (
     }
 
     if (generation !== exifLoadGeneration) return;
-    setLibrary({ imageList: files, exifByPath: knownExif });
+    setLibrary({ imageList: files, exifByPath: knownExif, isExifLoading: false });
   } else {
     setLibrary({ imageList: files, exifByPath: knownExif });
 
@@ -97,6 +98,7 @@ const loadExifForImages = async (
             console.error('Failed to read EXIF chunk:', err);
           }
         }
+        if (generation === exifLoadGeneration) setLibrary({ isExifLoading: false });
       };
       fetchExifInChunks();
     }, 500);

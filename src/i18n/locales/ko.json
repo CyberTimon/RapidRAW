@@ -1392,6 +1392,45 @@
       "recent": "최근",
       "title": "작업"
     },
+    "metadataFilter": {
+      "addColumn": "필터 열 추가",
+      "all": "전체",
+      "clear": "모든 메타데이터 필터 제거",
+      "collapse": "필터 막대 접기",
+      "expand": "필터 막대 펼치기",
+      "fields": {
+        "aperture": "조리개",
+        "camera": "카메라",
+        "color": "색상 레이블",
+        "date": "날짜",
+        "edited": "편집 상태",
+        "fileType": "파일 형식",
+        "flag": "플래그",
+        "focal": "초점 거리",
+        "iso": "ISO",
+        "lens": "렌즈",
+        "rating": "별점",
+        "shutter": "셔터 속도"
+      },
+      "loading": "메타데이터 로딩 중…",
+      "removeColumn": "열 제거",
+      "title": "메타데이터 필터",
+      "unknown": "알 수 없음",
+      "values": {
+        "blue": "파랑",
+        "edited": "편집됨",
+        "green": "초록",
+        "noLabel": "레이블 없음",
+        "picked": "선택됨",
+        "purple": "보라",
+        "red": "빨강",
+        "rejected": "거부됨",
+        "unedited": "편집 안 됨",
+        "unflagged": "플래그 없음",
+        "unrated": "별점 없음",
+        "yellow": "노랑"
+      }
+    },
     "reject": {
       "deleteConfirm": "거부된 항목 삭제",
       "deleteMessage_one": "거부된 이미지 {{count}}개를 삭제하시겠습니까? 휴지통으로 이동됩니다.",
@@ -1978,6 +2017,7 @@
         "toggle_crop": "자르기 / 수평 맞추기 전환",
         "toggle_crop_panel": "자르기 패널 전환",
         "toggle_export": "내보내기 패널 전환",
+        "toggle_filter_bar": "메타데이터 필터 막대 전환",
         "toggle_folder_tree": "폴더 트리 패널 토글",
         "toggle_fullscreen": "전체 화면 전환",
         "toggle_left_panel": "왼쪽 패널 토글",

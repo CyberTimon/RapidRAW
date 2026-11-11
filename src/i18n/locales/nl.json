@@ -1398,6 +1398,45 @@
       "recent": "Recent",
       "title": "Taken"
     },
+    "metadataFilter": {
+      "addColumn": "Filterkolom toevoegen",
+      "all": "Alle",
+      "clear": "Alle metadatafilters verwijderen",
+      "collapse": "Filterbalk inklappen",
+      "expand": "Filterbalk uitklappen",
+      "fields": {
+        "aperture": "Diafragma",
+        "camera": "Camera",
+        "color": "Kleurlabel",
+        "date": "Datum",
+        "edited": "Bewerkingsstatus",
+        "fileType": "Bestandstype",
+        "flag": "Markering",
+        "focal": "Brandpuntsafstand",
+        "iso": "ISO",
+        "lens": "Objectief",
+        "rating": "Beoordeling",
+        "shutter": "Sluitertijd"
+      },
+      "loading": "Metagegevens laden…",
+      "removeColumn": "Kolom verwijderen",
+      "title": "Metadatafilter",
+      "unknown": "Onbekend",
+      "values": {
+        "blue": "Blauw",
+        "edited": "Bewerkt",
+        "green": "Groen",
+        "noLabel": "Geen label",
+        "picked": "Gekozen",
+        "purple": "Paars",
+        "red": "Rood",
+        "rejected": "Afgewezen",
+        "unedited": "Niet bewerkt",
+        "unflagged": "Zonder markering",
+        "unrated": "Zonder beoordeling",
+        "yellow": "Geel"
+      }
+    },
     "reject": {
       "deleteConfirm": "Afgewezen verwijderen",
       "deleteMessage_one": "Weet je zeker dat je {{count}} afgewezen afbeelding wilt verwijderen? Deze wordt naar de prullenbak verplaatst.",
@@ -1983,6 +2022,7 @@
         "toggle_crop": "Bijsnijden / rechtzetten aan/uit",
         "toggle_crop_panel": "Bijsnijdpaneel aan/uit",
         "toggle_export": "Exportpaneel aan/uit",
+        "toggle_filter_bar": "Metadatafilterbalk in-/uitschakelen",
         "toggle_folder_tree": "Mappenstructuurpaneel aan/uit",
         "toggle_fullscreen": "Volledig scherm aan/uit",
         "toggle_left_panel": "Linkerpaneel aan/uit",

@@ -1392,6 +1392,45 @@
       "recent": "最近",
       "title": "工作"
     },
+    "metadataFilter": {
+      "addColumn": "新增篩選欄",
+      "all": "全部",
+      "clear": "移除所有中繼資料篩選",
+      "collapse": "收合篩選列",
+      "expand": "展開篩選列",
+      "fields": {
+        "aperture": "光圈",
+        "camera": "相機",
+        "color": "顏色標籤",
+        "date": "日期",
+        "edited": "編輯狀態",
+        "fileType": "檔案類型",
+        "flag": "旗標",
+        "focal": "焦距",
+        "iso": "ISO",
+        "lens": "鏡頭",
+        "rating": "評分",
+        "shutter": "快門速度"
+      },
+      "loading": "正在載入中繼資料…",
+      "removeColumn": "移除欄",
+      "title": "中繼資料篩選",
+      "unknown": "未知",
+      "values": {
+        "blue": "藍色",
+        "edited": "已編輯",
+        "green": "綠色",
+        "noLabel": "無標籤",
+        "picked": "已挑選",
+        "purple": "紫色",
+        "red": "紅色",
+        "rejected": "已拒絕",
+        "unedited": "未編輯",
+        "unflagged": "無旗標",
+        "unrated": "未評分",
+        "yellow": "黃色"
+      }
+    },
     "reject": {
       "deleteConfirm": "刪除已拒絕",
       "deleteMessage_one": "確定要刪除 {{count}} 張已拒絕的影像嗎？它們將被移至資源回收筒。",
@@ -1978,6 +2017,7 @@
         "toggle_crop": "切換裁剪/拉直",
         "toggle_crop_panel": "切換裁剪面板",
         "toggle_export": "切換匯出面板",
+        "toggle_filter_bar": "切換中繼資料篩選列",
         "toggle_folder_tree": "切換資料夾樹面板",
         "toggle_fullscreen": "切換全屏",
         "toggle_left_panel": "切換左側面板",

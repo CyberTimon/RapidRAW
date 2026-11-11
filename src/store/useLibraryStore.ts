@@ -7,6 +7,7 @@ import {
   SortDirection,
   AlbumItem,
 } from '../components/ui/AppProperties';
+import { MetadataFilterSelections } from '../utils/metadataFilters';
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../utils/adjustments';
 import { ColumnWidths } from '../components/panel/MainLibrary';
 
@@ -39,6 +40,7 @@ interface LibraryState {
   // Images & Selection
   imageList: Array<ImageFile>;
   imageRatings: Record<string, number>;
+  isExifLoading: boolean;
   exifByPath: Record<string, Record<string, string>>;
   multiSelectedPaths: Array<string>;
   selectionAnchorPath: string | null;
@@ -49,6 +51,7 @@ interface LibraryState {
   sortCriteria: SortCriteria;
   filterCriteria: FilterCriteria;
   searchCriteria: SearchCriteria;
+  metadataFilters: MetadataFilterSelections;
 
   // UI State specific to the Library View
   isTreeLoading: boolean;
@@ -83,6 +86,7 @@ export const useLibraryStore = create<LibraryState>((set) => ({
 
   imageList: [],
   imageRatings: {},
+  isExifLoading: false,
   exifByPath: {},
   multiSelectedPaths: [],
   selectionAnchorPath: null,
@@ -92,6 +96,7 @@ export const useLibraryStore = create<LibraryState>((set) => ({
   sortCriteria: { key: 'name', order: SortDirection.Ascending },
   filterCriteria: { colors: [], rating: 0, rawStatus: RawStatus.All },
   searchCriteria: { tags: [], text: '', mode: 'OR' },
+  metadataFilters: {},
 
   isTreeLoading: false,
   isViewLoading: false,
@@ -144,3 +149,12 @@ export const useLibraryStore = create<LibraryState>((set) => ({
       return { navHistory: newHistory, navIndex: newHistory.length - 1 };
     }),
 }));
+
+useLibraryStore.subscribe((state, prev) => {
+  if (
+    (state.currentFolderPath !== prev.currentFolderPath || state.activeAlbumId !== prev.activeAlbumId) &&
+    Object.keys(state.metadataFilters).length > 0
+  ) {
+    useLibraryStore.setState({ metadataFilters: {} });
+  }
+});

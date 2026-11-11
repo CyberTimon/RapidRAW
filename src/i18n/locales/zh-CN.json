@@ -1392,6 +1392,45 @@
       "recent": "最近",
       "title": "任务"
     },
+    "metadataFilter": {
+      "addColumn": "添加筛选列",
+      "all": "全部",
+      "clear": "移除所有元数据筛选",
+      "collapse": "折叠筛选栏",
+      "expand": "展开筛选栏",
+      "fields": {
+        "aperture": "光圈",
+        "camera": "相机",
+        "color": "颜色标签",
+        "date": "日期",
+        "edited": "编辑状态",
+        "fileType": "文件类型",
+        "flag": "旗标",
+        "focal": "焦距",
+        "iso": "ISO",
+        "lens": "镜头",
+        "rating": "评分",
+        "shutter": "快门速度"
+      },
+      "loading": "正在加载元数据…",
+      "removeColumn": "移除列",
+      "title": "元数据筛选",
+      "unknown": "未知",
+      "values": {
+        "blue": "蓝色",
+        "edited": "已编辑",
+        "green": "绿色",
+        "noLabel": "无标签",
+        "picked": "已选取",
+        "purple": "紫色",
+        "red": "红色",
+        "rejected": "已拒绝",
+        "unedited": "未编辑",
+        "unflagged": "无旗标",
+        "unrated": "未评分",
+        "yellow": "黄色"
+      }
+    },
     "reject": {
       "deleteConfirm": "删除已拒绝",
       "deleteMessage_one": "确定要删除 {{count}} 张已拒绝的图像吗？它们将被移至回收站。",
@@ -1978,6 +2017,7 @@
         "toggle_crop": "切换裁剪/拉直",
         "toggle_crop_panel": "切换裁剪面板",
         "toggle_export": "切换导出面板",
+        "toggle_filter_bar": "切换元数据筛选栏",
         "toggle_folder_tree": "切换文件夹树面板",
         "toggle_fullscreen": "切换全屏",
         "toggle_left_panel": "切换左侧面板",

@@ -238,6 +238,12 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
     section: 'panels',
   },
   {
+    action: 'toggle_filter_bar',
+    description: 'settings.keybinds.actions.toggle_filter_bar',
+    defaultCombo: ['Backslash'],
+    section: 'panels',
+  },
+  {
     action: 'toggle_analytics',
     description: 'settings.keybinds.actions.toggle_analytics',
     defaultCombo: ['KeyA'],

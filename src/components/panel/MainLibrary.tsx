@@ -43,6 +43,8 @@ import { useUIStore } from '../../store/useUIStore';
 import SettingsPanel from './SettingsPanel';
 
 import LibraryGrid from './library/LibraryGrid';
+import MetadataFilterBar from './library/MetadataFilterBar';
+import { hasActiveMetadataFilters } from '../../utils/metadataFilters';
 import { JobsMenu, SearchInput, ViewOptionsDropdown } from './library/LibraryHeader';
 
 export interface ColumnWidths {
@@ -194,6 +196,7 @@ export default function MainLibrary(props: MainLibraryProps) {
   };
 
   const searchCriteria = useLibraryStore((state) => state.searchCriteria);
+  const hasMetadataFilters = useLibraryStore((state) => hasActiveMetadataFilters(state.metadataFilters));
   const setLibrary = useLibraryStore((state) => state.setLibrary);
 
   const translatedRatingFilterOptions = useMemo(
@@ -656,6 +659,10 @@ export default function MainLibrary(props: MainLibraryProps) {
           </>
         )}
       </header>
+
+      {!(selectionModeActive && props.isAndroid) && (props.imageList.length > 0 || hasMetadataFilters) && (
+        <MetadataFilterBar />
+      )}
 
       {props.imageList.length > 0 ? (
         libraryDisplayMode === LibraryDisplayMode.Cull ? (
