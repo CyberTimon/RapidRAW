@@ -128,6 +128,8 @@
       "copyParametric": "Kopírovat parametrickou křivku ({{channel}})",
       "copyPoint": "Kopírovat bodovou křivku ({{channel}})",
       "curveDataUnavailable": "Údaje o křivce nejsou k dispozici.",
+      "input": "Vstup",
+      "output": "Výstup",
       "parametricCurve": "Parametrická křivka",
       "params": {
         "blackLevel": "Úroveň černé",

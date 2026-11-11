@@ -128,6 +128,8 @@
       "copyParametric": "{{channel}} 파라메트릭 커브 복사",
       "copyPoint": "{{channel}} 포인트 커브 복사",
       "curveDataUnavailable": "커브 데이터를 사용할 수 없습니다.",
+      "input": "입력",
+      "output": "출력",
       "parametricCurve": "파라메트릭 커브",
       "params": {
         "blackLevel": "블랙 레벨",
