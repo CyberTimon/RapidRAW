@@ -37,6 +37,8 @@ mod cache_utils;
 mod camera_tethering;
 mod clone_heal;
 mod culling;
+mod demosaic;
+mod develop;
 mod edit_in;
 mod effect_maps;
 mod exif_processing;
@@ -50,7 +52,6 @@ mod gpu_compute;
 mod gpu_processing;
 mod guided_perspective;
 mod hdr_deghosting;
-mod highlight_reconstruction;
 mod image_loader;
 mod image_preload;
 mod image_processing;
@@ -2444,6 +2445,7 @@ pub fn run() {
             }
 
             let app_handle = app.handle().clone();
+            crate::gpu_processing::register_app_handle(&app_handle);
 
             if !is_headless {
                 crate::immich::start(&app_handle);

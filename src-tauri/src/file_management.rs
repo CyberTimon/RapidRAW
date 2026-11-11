@@ -4200,6 +4200,7 @@ pub fn generate_filename_from_template(
     result = result.replace("{DD}", &local_date.format("%d").to_string());
     result = result.replace("{hh}", &local_date.format("%H").to_string());
     result = result.replace("{mm}", &local_date.format("%M").to_string());
+    result = result.replace("{ss}", &local_date.format("%S").to_string());
 
     result
 }

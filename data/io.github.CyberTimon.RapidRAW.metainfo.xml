@@ -38,6 +38,42 @@
   <url type="homepage">https://github.com/CyberTimon/RapidRAW</url>
 
   <releases>
+    <release version="v1.6.9" date="2026-11-07">
+        <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.6.9</url>
+        <description translate="no">
+            <p>New Features</p>
+            <ul>
+                <li>Black &amp; White Mode: A dedicated mode with film responses like Panchromatic, Orthochromatic and Infrared, color filters, a B&amp;W mix you can adjust directly on the photo, and toning like Sepia, Selenium and Split Tone.</li>
+                <li>Motion Blur: Linear, Zoom, Spin and Smooth blur for the whole image or inside a mask, with panning and moving subject modes that use the depth of the scene.</li>
+                <li>Speed Edit: Hold W and drag on the photo to change sliders, with keyboard shortcuts to switch sliders and images, reset, and copy and paste values.</li>
+                <li>Rebuilt Clone, Heal, Liquify &amp; Retouch: Clone and heal find a matching source automatically, liquify follows crop and rotation, and retouch keeps the natural skin texture.</li>
+                <li>Match Brush Mask: A brush that only paints on areas with a similar color, tone and texture.</li>
+                <li>Second Window: Open your edit in a second window that updates live, with its own zoom and pan.</li>
+                <li>Edit In External Editors: Send the original file or an edited TIFF to programs like Photoshop, GIMP or Topaz Photo AI and get the result back into your library.</li>
+                <li>Color Mixer Picker: Click and drag up or down on the photo to change the colors under your cursor, also inside masks.</li>
+                <li>Interactive 3D Depth Views: Rotate, zoom and pan a 3D view of the estimated depth for Lens Blur, Fog, Relight, Motion Blur and AI depth masks.</li>
+                <li>Rebuilt Glow, Halation, Lens Flare &amp; Film Grain: Realistic glare and aperture ghosts, and crisp grain that reacts to the brightness of the image.</li>
+                <li>Reworked Lens Correction: Matches Lensfun exactly, and the lens profile is found for every photo from its own EXIF data.</li>
+                <li>Performance Improvements: More processing on the GPU, preloading of the next and previous images, much faster loading from network drives and faster slider updates on Linux and Android.</li>
+                <li>Immich Improvements: Drag and drop images onto albums, see images that are in no album and create new albums from the export panel.</li>
+                <li>GPU Renderer on Linux Wayland: The direct GPU renderer can now be turned on under Wayland as an experimental option.</li>
+            </ul>
+            <p>Core Improvements</p>
+            <ul>
+                <li>Interface Scale: Make the interface smaller or larger, independent of the system display scaling.</li>
+                <li>Hide Collapsed Panels: Collapsed side panels can now be hidden completely.</li>
+                <li>Readable History: Every history step now shows a clear name with its value.</li>
+                <li>Export the Original: Export the original next to the edited photo, also in the CLI.</li>
+                <li>Correct Colors for JPEGs: Images with an embedded color profile like Adobe RGB or Display P3 are now converted correctly.</li>
+                <li>Better Exports: TIFF files include EXIF metadata and the sRGB color profile, lossless JPEG XL uses far less memory, and the default resolution is now 96 DPI.</li>
+                <li>Safer Saves: Presets, albums and settings can't get lost if a save is interrupted, and merge results no longer overwrite earlier results.</li>
+                <li>Shortcuts: Enter and Escape apply or cancel a crop, and Ctrl+A toggles select all.</li>
+                <li>Platform Fixes: Fixed context menus and local network access on macOS, Let's Encrypt servers on Android, and saving on some network drives.</li>
+                <li>New Languages: Added Ukrainian and Lithuanian.</li>
+                <li>Stability &amp; Bug Fixes: Updated the Lensfun database and RAW decoder, plus general bug fixes and performance improvements.</li>
+            </ul>
+        </description>
+    </release>
     <release version="v1.6.7" date="2026-10-24">
         <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.6.7</url>
         <description translate="no">
