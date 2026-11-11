@@ -292,17 +292,18 @@ const normalizeIntegerPointCurve = (points: Array<Coord>): Array<Coord> => {
     }))
     .sort((a, b) => a.x - b.x || a.originalIndex - b.originalIndex)
     .map(({ x, y }) => ({ x, y }));
-  if (normalized.length === 1) return normalized;
-
-  normalized[0].x = 0;
-  normalized[normalized.length - 1].x = 255;
-  for (let i = 1; i < normalized.length - 1; i += 1) {
-    const minX = normalized[i - 1].x + MIN_POINT_GAP_X;
-    const maxX = 255 - (normalized.length - 1 - i) * MIN_POINT_GAP_X;
+  for (let i = 0; i < normalized.length; i += 1) {
+    const minX = i > 0 ? normalized[i - 1].x + MIN_POINT_GAP_X : 0;
+    const maxX = i < normalized.length - 1 ? normalized[i + 1].x - MIN_POINT_GAP_X : 255;
     normalized[i].x = Math.max(minX, Math.min(maxX, normalized[i].x));
   }
   return normalized;
 };
+
+const getPointXBounds = (points: Array<Coord>, index: number) => ({
+  min: index > 0 ? Math.ceil(points[index - 1].x + MIN_POINT_GAP_X) : 0,
+  max: index < points.length - 1 ? Math.floor(points[index + 1].x - MIN_POINT_GAP_X) : 255,
+});
 
 const hasFineAdjustmentModifier = (event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) =>
   'shiftKey' in event && (event.shiftKey || event.altKey);
@@ -486,10 +487,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
         accumulatedPointRef.current.x = Math.max(0, Math.min(255, accumulatedPointRef.current.x + deltaX));
         accumulatedPointRef.current.y = Math.max(0, Math.min(255, accumulatedPointRef.current.y + deltaY));
 
-        const prevX = index > 0 ? currentPoints[index - 1].x : 0;
-        const nextX = index < currentPoints.length - 1 ? currentPoints[index + 1].x : 255;
-        const minX = index === 0 ? 0 : Math.ceil(prevX + MIN_POINT_GAP_X);
-        const maxX = index === currentPoints.length - 1 ? 255 : Math.floor(nextX - MIN_POINT_GAP_X);
+        const { min: minX, max: maxX } = getPointXBounds(currentPoints, index);
 
         accumulatedPointRef.current.x = Math.max(minX, Math.min(maxX, accumulatedPointRef.current.x));
 
@@ -582,7 +580,11 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
     if (!Array.isArray(sourcePoints)) return;
     const pointsToNormalize = localPoints ?? sourcePoints;
     const normalizedPoints = normalizeIntegerPointCurve(pointsToNormalize);
-    if (normalizedPoints.some((point, index) => point.x !== pointsToNormalize[index]?.x || point.y !== pointsToNormalize[index]?.y)) {
+    if (
+      normalizedPoints.some(
+        (point, index) => point.x !== pointsToNormalize[index]?.x || point.y !== pointsToNormalize[index]?.y,
+      )
+    ) {
       if (localPoints !== null) {
         localPointsRef.current = normalizedPoints;
         setLocalPoints(normalizedPoints);
@@ -614,15 +616,10 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
     if (selectedPointIndex === null || isParametricMode) return;
 
     const currentPoints = [...activePoints];
-    const prevX = selectedPointIndex > 0 ? currentPoints[selectedPointIndex - 1].x : 0;
-    const nextX = selectedPointIndex < currentPoints.length - 1 ? currentPoints[selectedPointIndex + 1].x : 255;
-
     let val = Math.round(Math.max(0, Math.min(255, isNaN(rawVal) ? 0 : rawVal)));
 
     if (axis === 'x') {
-      // First and last points are locked at 0 and 255 on the X axis
-      const minX = selectedPointIndex === 0 ? 0 : Math.ceil(prevX + MIN_POINT_GAP_X);
-      const maxX = selectedPointIndex === currentPoints.length - 1 ? 255 : Math.floor(nextX - MIN_POINT_GAP_X);
+      const { min: minX, max: maxX } = getPointXBounds(currentPoints, selectedPointIndex);
       val = Math.max(minX, Math.min(maxX, val));
       currentPoints[selectedPointIndex] = { ...currentPoints[selectedPointIndex], x: val };
     } else {
@@ -635,6 +632,21 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
       ...prev,
       curves: { ...prev.curves, [activeChannel]: currentPoints },
     }));
+  };
+
+  const handleCoordinateArrow = (axis: 'x' | 'y', direction: 1 | -1, draft: string, shiftKey: boolean) => {
+    if (selectedPointIndex === null || isParametricMode || !activePoints[selectedPointIndex]) return;
+    const parsedDraft = Number.parseFloat(draft.replace(',', '.'));
+    const currentValue = Number.isFinite(parsedDraft) ? parsedDraft : activePoints[selectedPointIndex][axis];
+    const step = shiftKey ? 10 : 1;
+    let nextValue = Math.round(Math.max(0, Math.min(255, currentValue + direction * step)));
+    if (axis === 'x') {
+      const { min: minX, max: maxX } = getPointXBounds(activePoints, selectedPointIndex);
+      nextValue = Math.max(minX, Math.min(maxX, nextValue));
+    }
+    handleUpdateSelectedCoord(axis, nextValue);
+    setCoordinateDrafts((drafts) => ({ ...drafts, [axis]: String(nextValue) }));
+    coordinateBaselineRef.current = { ...coordinateBaselineRef.current, [axis]: String(nextValue) };
   };
 
   const commitCoordinateDraft = (axis: 'x' | 'y') => {
@@ -653,10 +665,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
     const currentPoints = activePoints;
     let committedValue = boundedValue;
     if (axis === 'x') {
-      const prevX = selectedPointIndex > 0 ? currentPoints[selectedPointIndex - 1].x : 0;
-      const nextX = selectedPointIndex < currentPoints.length - 1 ? currentPoints[selectedPointIndex + 1].x : 255;
-      const minX = selectedPointIndex === 0 ? 0 : Math.ceil(prevX + MIN_POINT_GAP_X);
-      const maxX = selectedPointIndex === currentPoints.length - 1 ? 255 : Math.floor(nextX - MIN_POINT_GAP_X);
+      const { min: minX, max: maxX } = getPointXBounds(currentPoints, selectedPointIndex);
       committedValue = Math.max(minX, Math.min(maxX, Math.round(boundedValue)));
     }
 
@@ -683,8 +692,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
     input?.select();
   };
 
-  const handleCoordinateTab = (field: 'x' | 'y' | null, backwards: boolean) => {
-    if (isParametricMode || activePoints.length === 0) return;
+  const handleCoordinateTab = (field: 'x' | 'y' | null, backwards: boolean): boolean => {
+    if (isParametricMode || activePoints.length === 0) return false;
 
     // Use the latest edited points and sort by x so navigation remains current and stable.
     const navigationPoints = localPointsRef.current ?? activePoints;
@@ -693,6 +702,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
       .sort((a, b) => a.point.x - b.point.x || a.index - b.index)
       .map(({ index }) => index);
 
+    if (sortedPointIndices.length === 0) return false;
+
     const selectedPosition = sortedPointIndices.indexOf(selectedPointIndex ?? -1);
     const fieldCount = sortedPointIndices.length * 2;
     let nextPosition: number;
@@ -700,11 +711,10 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
       const position = selectedPosition * 2 + (field === 'y' ? 1 : 0);
       nextPosition = (position + (backwards ? -1 : 1) + fieldCount) % fieldCount;
     } else if (selectedPosition >= 0) {
-      // A Tab from elsewhere starts at this point's IN field (or OUT with Shift+Tab).
+      // From the focused graph, begin at this point's IN (or OUT in reverse).
       nextPosition = selectedPosition * 2 + (backwards ? 1 : 0);
     } else {
-      // With no point selected, begin at the first IN / last OUT respectively.
-      nextPosition = backwards ? fieldCount - 1 : 0;
+      return false;
     }
     const nextPointIndex = sortedPointIndices[Math.floor(nextPosition / 2)];
     const nextField: 'x' | 'y' = nextPosition % 2 === 0 ? 'x' : 'y';
@@ -715,6 +725,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
     coordinateBaselineRef.current = { x: String(nextPoint.x), y: String(nextPoint.y) };
     pendingCoordinateFocusRef.current = nextField;
     window.requestAnimationFrame(() => focusCoordinateInput(nextField));
+    return true;
   };
 
   /**
@@ -727,8 +738,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
     if (isParametricMode) return;
 
     if (e.key === 'Tab') {
-      e.preventDefault();
-      handleCoordinateTab(null, e.shiftKey);
+      if (selectedPointIndex !== null && handleCoordinateTab(null, e.shiftKey)) e.preventDefault();
       return;
     }
 
@@ -782,6 +792,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
     setDraggingPointIndex(index);
     draggingIndexRef.current = index;
     setSelectedPointIndex(index);
+    containerRef.current?.focus();
   };
 
   const handlePointContextMenu = (e: React.MouseEvent, index: number) => {
@@ -1089,14 +1100,13 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
     );
   }
 
-  const selectedPoint =
-    !isParametricMode && selectedPointIndex !== null ? activePoints[selectedPointIndex] : null;
+  const selectedPoint = !isParametricMode && selectedPointIndex !== null ? activePoints[selectedPointIndex] : null;
 
   return (
     <div
       className="select-none touch-none outline-none"
       ref={containerRef}
-      tabIndex={0}
+      tabIndex={-1}
       onKeyDown={handleContainerKeyDown}
     >
       {/* Mode selection buttons & color channel switchers */}
@@ -1281,100 +1291,113 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
             <label className="flex items-center gap-1">
               <span className="text-text-secondary">{t('adjustments.curves.input')}</span>
               <span className="w-14 shrink-0">
-              <input
-                ref={inputXRef}
-                type="text"
-                inputMode="decimal"
-                disabled={!selectedPoint}
-                placeholder="–"
-                readOnly={selectedPointIndex === 0 || selectedPointIndex === activePoints.length - 1}
-                value={coordinateDrafts.x}
-                onFocus={(e) => e.currentTarget.select()}
-                onChange={(e) => {
-                  const text = e.target.value;
-                  if (/^[0-9.,-]*$/.test(text)) setCoordinateDrafts((drafts) => ({ ...drafts, x: text }));
-                }}
-                onBlur={() => {
-                  if (skipCoordinateBlurCommitRef.current) {
-                    skipCoordinateBlurCommitRef.current = false;
-                    return;
-                  }
-                  commitCoordinateDraft('x');
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Tab') {
-                    e.preventDefault();
-                    e.stopPropagation();
+                <input
+                  ref={inputXRef}
+                  type="text"
+                  inputMode="decimal"
+                  disabled={!selectedPoint}
+                  value={coordinateDrafts.x}
+                  onFocus={(e) => e.currentTarget.select()}
+                  onChange={(e) => {
+                    const text = e.target.value;
+                    if (/^[0-9.,-]*$/.test(text)) setCoordinateDrafts((drafts) => ({ ...drafts, x: text }));
+                  }}
+                  onBlur={() => {
+                    if (skipCoordinateBlurCommitRef.current) {
+                      skipCoordinateBlurCommitRef.current = false;
+                      return;
+                    }
                     commitCoordinateDraft('x');
-                    // We already committed above; ignore the blur caused by moving focus.
-                    skipCoordinateBlurCommitRef.current = true;
-                    handleCoordinateTab('x', e.shiftKey);
-                  } else if (e.key === 'Enter') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    commitCoordinateDraft('x');
-                    e.currentTarget.blur();
-                  } else if (e.key === 'Escape') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const value = selectedPoint ? String(selectedPoint.x) : '';
-                    setCoordinateDrafts((drafts) => ({ ...drafts, x: value }));
-                    coordinateBaselineRef.current = { ...coordinateBaselineRef.current, x: value };
-                    skipCoordinateBlurCommitRef.current = true;
-                    e.currentTarget.blur();
-                  }
-                }}
-                className="w-full text-sm text-right bg-card-active border border-gray-500 rounded-sm px-1 py-0 outline-none focus:ring-1 focus:ring-blue-500 text-text-primary"
-              />
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Tab') {
+                      e.stopPropagation();
+                      commitCoordinateDraft('x');
+                      if (handleCoordinateTab('x', e.shiftKey)) {
+                        e.preventDefault();
+                        // Ignore the blur caused by moving between coordinate fields.
+                        skipCoordinateBlurCommitRef.current = true;
+                      }
+                    } else if (e.key === 'Enter') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      commitCoordinateDraft('x');
+                      e.currentTarget.blur();
+                    } else if (e.key === 'Escape') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const value = selectedPoint ? String(selectedPoint.x) : '';
+                      setCoordinateDrafts((drafts) => ({ ...drafts, x: value }));
+                      coordinateBaselineRef.current = { ...coordinateBaselineRef.current, x: value };
+                      skipCoordinateBlurCommitRef.current = true;
+                      e.currentTarget.blur();
+                    } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleCoordinateArrow('x', e.key === 'ArrowUp' ? 1 : -1, coordinateDrafts.x, e.shiftKey);
+                    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                      // Keep horizontal arrows native for caret movement; prevent the container shortcut.
+                      e.stopPropagation();
+                    }
+                  }}
+                  className="w-full text-sm text-right bg-card-active border border-gray-500 rounded-sm px-1 py-0 outline-none focus:ring-1 focus:ring-blue-500 text-text-primary"
+                />
               </span>
             </label>
             <label className="flex items-center gap-1">
               <span className="text-text-secondary">{t('adjustments.curves.output')}</span>
               <span className="w-14 shrink-0">
-              <input
-                ref={inputYRef}
-                type="text"
-                inputMode="decimal"
-                disabled={!selectedPoint}
-                placeholder="–"
-                value={coordinateDrafts.y}
-                onFocus={(e) => e.currentTarget.select()}
-                onChange={(e) => {
-                  const text = e.target.value;
-                  if (/^[0-9.,-]*$/.test(text)) setCoordinateDrafts((drafts) => ({ ...drafts, y: text }));
-                }}
-                onBlur={() => {
-                  if (skipCoordinateBlurCommitRef.current) {
-                    skipCoordinateBlurCommitRef.current = false;
-                    return;
-                  }
-                  commitCoordinateDraft('y');
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Tab') {
-                    e.preventDefault();
-                    e.stopPropagation();
+                <input
+                  ref={inputYRef}
+                  type="text"
+                  inputMode="decimal"
+                  disabled={!selectedPoint}
+                  value={coordinateDrafts.y}
+                  onFocus={(e) => e.currentTarget.select()}
+                  onChange={(e) => {
+                    const text = e.target.value;
+                    if (/^[0-9.,-]*$/.test(text)) setCoordinateDrafts((drafts) => ({ ...drafts, y: text }));
+                  }}
+                  onBlur={() => {
+                    if (skipCoordinateBlurCommitRef.current) {
+                      skipCoordinateBlurCommitRef.current = false;
+                      return;
+                    }
                     commitCoordinateDraft('y');
-                    // We already committed above; ignore the blur caused by moving focus.
-                    skipCoordinateBlurCommitRef.current = true;
-                    handleCoordinateTab('y', e.shiftKey);
-                  } else if (e.key === 'Enter') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    commitCoordinateDraft('y');
-                    e.currentTarget.blur();
-                  } else if (e.key === 'Escape') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const value = selectedPoint ? String(selectedPoint.y) : '';
-                    setCoordinateDrafts((drafts) => ({ ...drafts, y: value }));
-                    coordinateBaselineRef.current = { ...coordinateBaselineRef.current, y: value };
-                    skipCoordinateBlurCommitRef.current = true;
-                    e.currentTarget.blur();
-                  }
-                }}
-                className="w-full text-sm text-right bg-card-active border border-gray-500 rounded-sm px-1 py-0 outline-none focus:ring-1 focus:ring-blue-500 text-text-primary"
-              />
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Tab') {
+                      e.stopPropagation();
+                      commitCoordinateDraft('y');
+                      if (handleCoordinateTab('y', e.shiftKey)) {
+                        e.preventDefault();
+                        // Ignore the blur caused by moving between coordinate fields.
+                        skipCoordinateBlurCommitRef.current = true;
+                      }
+                    } else if (e.key === 'Enter') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      commitCoordinateDraft('y');
+                      e.currentTarget.blur();
+                    } else if (e.key === 'Escape') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const value = selectedPoint ? String(selectedPoint.y) : '';
+                      setCoordinateDrafts((drafts) => ({ ...drafts, y: value }));
+                      coordinateBaselineRef.current = { ...coordinateBaselineRef.current, y: value };
+                      skipCoordinateBlurCommitRef.current = true;
+                      e.currentTarget.blur();
+                    } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleCoordinateArrow('y', e.key === 'ArrowUp' ? 1 : -1, coordinateDrafts.y, e.shiftKey);
+                    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                      // Keep horizontal arrows native for caret movement; prevent the container shortcut.
+                      e.stopPropagation();
+                    }
+                  }}
+                  className="w-full text-sm text-right bg-card-active border border-gray-500 rounded-sm px-1 py-0 outline-none focus:ring-1 focus:ring-blue-500 text-text-primary"
+                />
               </span>
             </label>
           </div>
