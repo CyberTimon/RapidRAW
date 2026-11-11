@@ -1526,6 +1526,22 @@
       "noResultsAiHint": " Norėdami išsamesnės paieškos, nustatymuose įjunkite automatinį žymėjimą.",
       "noResultsDesc": "Nepavyko rasti nuotraukos pagal failo pavadinimą ar žymas."
     },
+    "sharedImports": {
+      "error": "Nepavyko atidaryti bendrinamų failų: {{error}}",
+      "failed_few": "Nepavyko nukopijuoti {{count}} bendrinamų failų.",
+      "failed_many": "Nepavyko nukopijuoti {{count}} bendrinamų failų.",
+      "failed_one": "Nepavyko nukopijuoti {{count}} bendrinamo failo.",
+      "failed_other": "Nepavyko nukopijuoti {{count}} bendrinamų failų.",
+      "opened_few": "{{count}} bendrinamos nuotraukos aplanke Imports/Shared/{{folder}}",
+      "opened_many": "{{count}} bendrinamos nuotraukos aplanke Imports/Shared/{{folder}}",
+      "opened_one": "{{count}} bendrinama nuotrauka aplanke Imports/Shared/{{folder}}",
+      "opened_other": "{{count}} bendrinamų nuotraukų aplanke Imports/Shared/{{folder}}",
+      "receiving_few": "Gaunami {{count}} bendrinami failai…",
+      "receiving_many": "Gaunama {{count}} bendrinamo failo…",
+      "receiving_one": "Gaunamas {{count}} bendrinamas failas…",
+      "receiving_other": "Gaunama {{count}} bendrinamų failų…",
+      "unsupported": "RapidRAW negali atidaryti: {{names}}"
+    },
     "sort": {
       "aperture": "Diafragma",
       "dateModified": "Pakeitimo data",

@@ -1415,6 +1415,13 @@
       "noResultsAiHint": " 如需更全面的搜索，请在设置中启用自动标签。",
       "noResultsDesc": "无法根据文件名或标签找到图像。"
     },
+    "sharedImports": {
+      "error": "无法打开共享文件：{{error}}",
+      "failed_other": "无法复制 {{count}} 个共享文件。",
+      "opened_other": "{{count}} 张共享照片位于 Imports/Shared/{{folder}}",
+      "receiving_other": "正在接收 {{count}} 个共享文件…",
+      "unsupported": "RapidRAW 无法打开：{{names}}"
+    },
     "sort": {
       "aperture": "光圈",
       "dateModified": "修改日期",

@@ -76,6 +76,7 @@ mod preview_jpeg;
 mod raw_processing;
 mod relight;
 mod render_source;
+mod shared_import;
 mod storage;
 mod tagging;
 mod tagging_utils;
@@ -2867,6 +2868,7 @@ pub fn run() {
             viewer_window::get_viewer_frame,
             sample_hsl_mixer_area,
             android_integration::resolve_android_content_uri_name,
+            shared_import::take_shared_imports,
             cache_utils::clear_session_caches,
             cache_utils::clear_image_caches,
             app_settings::load_settings,

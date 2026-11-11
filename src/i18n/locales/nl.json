@@ -1421,6 +1421,16 @@
       "noResultsAiHint": " Voor een uitgebreidere zoekopdracht kunt u automatische tags inschakelen bij instellingen.",
       "noResultsDesc": "Kon geen afbeelding vinden op basis van bestandsnaam of tags."
     },
+    "sharedImports": {
+      "error": "De gedeelde bestanden konden niet worden geopend: {{error}}",
+      "failed_one": "1 gedeeld bestand kon niet worden gekopieerd.",
+      "failed_other": "{{count}} gedeelde bestanden konden niet worden gekopieerd.",
+      "opened_one": "1 gedeelde foto in Imports/Shared/{{folder}}",
+      "opened_other": "{{count}} gedeelde foto's in Imports/Shared/{{folder}}",
+      "receiving_one": "1 gedeeld bestand ontvangen…",
+      "receiving_other": "{{count}} gedeelde bestanden ontvangen…",
+      "unsupported": "RapidRAW kan niet openen: {{names}}"
+    },
     "sort": {
       "aperture": "Diafragma",
       "dateModified": "Wijzigingsdatum",

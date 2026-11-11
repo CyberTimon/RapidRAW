@@ -1415,6 +1415,13 @@
       "noResultsAiHint": " より包括的な検索を行うには、設定で自動タグ付けを有効にしてください。",
       "noResultsDesc": "ファイル名またはタグに基づく画像が見つかりませんでした。"
     },
+    "sharedImports": {
+      "error": "共有ファイルを開けませんでした: {{error}}",
+      "failed_other": "共有ファイル {{count}} 件をコピーできませんでした。",
+      "opened_other": "共有された写真 {{count}} 枚: Imports/Shared/{{folder}}",
+      "receiving_other": "共有ファイルを {{count}} 件受信中…",
+      "unsupported": "RapidRAW で開けません: {{names}}"
+    },
     "sort": {
       "aperture": "絞り値",
       "dateModified": "更新日時",

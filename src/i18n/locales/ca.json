@@ -1454,6 +1454,19 @@
       "noResultsAiHint": " Per a una cerca més completa, activeu l'etiquetatge automàtic a Configuració.",
       "noResultsDesc": "No s'ha pogut trobar una imatge basada en el nom de fitxer o les etiquetes."
     },
+    "sharedImports": {
+      "error": "No s'han pogut obrir els fitxers compartits: {{error}}",
+      "failed_many": "No s'han pogut copiar {{count}} fitxers compartits.",
+      "failed_one": "No s'ha pogut copiar 1 fitxer compartit.",
+      "failed_other": "No s'han pogut copiar {{count}} fitxers compartits.",
+      "opened_many": "{{count}} fotos compartides a Imports/Shared/{{folder}}",
+      "opened_one": "1 foto compartida a Imports/Shared/{{folder}}",
+      "opened_other": "{{count}} fotos compartides a Imports/Shared/{{folder}}",
+      "receiving_many": "Rebent {{count}} fitxers compartits…",
+      "receiving_one": "Rebent 1 fitxer compartit…",
+      "receiving_other": "Rebent {{count}} fitxers compartits…",
+      "unsupported": "RapidRAW no pot obrir: {{names}}"
+    },
     "sort": {
       "aperture": "Obertura",
       "dateModified": "Data de modificació",

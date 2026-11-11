@@ -1415,6 +1415,13 @@
       "noResultsAiHint": " 如需更全面的搜尋，請在設定中啟用自動標籤。",
       "noResultsDesc": "無法根據檔名或標籤找到影像。"
     },
+    "sharedImports": {
+      "error": "無法開啟分享的檔案：{{error}}",
+      "failed_other": "無法複製 {{count}} 個分享的檔案。",
+      "opened_other": "{{count}} 張分享的相片位於 Imports/Shared/{{folder}}",
+      "receiving_other": "正在接收 {{count}} 個分享的檔案…",
+      "unsupported": "RapidRAW 無法開啟：{{names}}"
+    },
     "sort": {
       "aperture": "光圈",
       "dateModified": "修改日期",

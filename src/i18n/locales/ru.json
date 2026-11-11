@@ -1487,6 +1487,22 @@
       "noResultsAiHint": " Для более точного поиска включите автотегирование в настройках.",
       "noResultsDesc": "Не удалось найти изображение по названию или тегам."
     },
+    "sharedImports": {
+      "error": "Не удалось открыть полученные файлы: {{error}}",
+      "failed_few": "Не удалось скопировать {{count}} файла.",
+      "failed_many": "Не удалось скопировать {{count}} файлов.",
+      "failed_one": "Не удалось скопировать {{count}} файл.",
+      "failed_other": "Не удалось скопировать {{count}} файла.",
+      "opened_few": "{{count}} полученных фото в Imports/Shared/{{folder}}",
+      "opened_many": "{{count}} полученных фото в Imports/Shared/{{folder}}",
+      "opened_one": "{{count}} полученное фото в Imports/Shared/{{folder}}",
+      "opened_other": "{{count}} полученных фото в Imports/Shared/{{folder}}",
+      "receiving_few": "Получение {{count}} общих файлов…",
+      "receiving_many": "Получение {{count}} общих файлов…",
+      "receiving_one": "Получение {{count}} общего файла…",
+      "receiving_other": "Получение {{count}} общих файлов…",
+      "unsupported": "RapidRAW не может открыть: {{names}}"
+    },
     "sort": {
       "aperture": "Диафрагме",
       "dateModified": "Дате изменения",
