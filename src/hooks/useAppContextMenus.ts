@@ -34,6 +34,7 @@ import {
   Gauge,
   Layers,
   Grip,
+  Maximize2,
   Film,
   Contrast,
   Home,
@@ -386,6 +387,21 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
                 ),
               disabled: !selectedImage?.isReady,
             },
+            ...(useSettingsStore.getState().appSettings?.aiProvider === 'ai-free'
+              ? []
+              : [
+                  {
+                    label: adjustments.aiUpscaleEnabled
+                      ? t('contextMenus.editor.removeSuperResolution')
+                      : t('contextMenus.editor.superResolution'),
+                    icon: Maximize2,
+                    onClick: () =>
+                      handleEnableAdjustments([selectedImage.path], {
+                        aiUpscaleEnabled: !adjustments.aiUpscaleEnabled,
+                      }),
+                    disabled: !selectedImage?.isReady,
+                  },
+                ]),
             {
               label: adjustments.monochromeEnabled
                 ? t('contextMenus.editor.removeBlackWhite')
@@ -607,6 +623,7 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
       const collageLabel = t('contextMenus.thumbnail.collage', { count: selectionCount });
       const stitchLabel = t('contextMenus.editor.stitchPanorama');
       const denoiseLabel = t('contextMenus.thumbnail.denoise', { count: selectionCount });
+      const superResolutionLabel = t('contextMenus.thumbnail.superResolution', { count: selectionCount });
       const mergeLabel = t('contextMenus.editor.mergeHdr');
 
       const handleCreateVirtualCopy = async (sourcePath: string) => {
@@ -773,6 +790,27 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
                 },
               ],
             },
+            ...(useSettingsStore.getState().appSettings?.aiProvider === 'ai-free'
+              ? []
+              : [
+                  {
+                    label: superResolutionLabel,
+                    icon: Maximize2,
+                    disabled: finalSelection.length === 0,
+                    submenu: [
+                      {
+                        label: t('contextMenus.thumbnail.enable'),
+                        icon: Check,
+                        onClick: () => handleEnableAdjustments(finalSelection, { aiUpscaleEnabled: true }),
+                      },
+                      {
+                        label: t('contextMenus.thumbnail.remove'),
+                        icon: X,
+                        onClick: () => handleEnableAdjustments(finalSelection, { aiUpscaleEnabled: false }),
+                      },
+                    ],
+                  },
+                ]),
             {
               label: t('contextMenus.editor.convertBlackWhite'),
               icon: Contrast,

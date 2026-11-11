@@ -14,6 +14,7 @@ import { useImmichStore } from '../../immich/useImmichStore';
 interface StorageUsage {
   thumbnails: number;
   aiDenoise: number;
+  aiUpscale: number;
   aiMaps: number;
   metadata: number;
   immich: number;
@@ -47,6 +48,14 @@ const storageItems: StorageItem[] = [
     limit: {
       get: (settings) => settings?.aiCacheLimitGb ?? 10,
       set: (settings, gb) => ({ ...settings, aiCacheLimitGb: gb }),
+    },
+  },
+  {
+    key: 'aiUpscale',
+    color: 'bg-[#a49ab8]',
+    limit: {
+      get: (settings) => settings?.aiUpscaleCacheLimitGb ?? 10,
+      set: (settings, gb) => ({ ...settings, aiUpscaleCacheLimitGb: gb }),
     },
   },
   {
@@ -308,6 +317,11 @@ export default function DataManagementSettings({
       invoke: Invokes.ClearAiDenoiseCache,
       message: t('settings.data.modals.aiDenoiseMessage'),
       success: t('settings.data.statuses.aiDenoiseSuccess'),
+    },
+    aiUpscale: {
+      invoke: Invokes.ClearAiUpscaleCache,
+      message: t('settings.data.modals.aiUpscaleMessage'),
+      success: t('settings.data.statuses.aiUpscaleSuccess'),
     },
     aiMaps: {
       invoke: Invokes.ClearAiMapsCache,

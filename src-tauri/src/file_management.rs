@@ -1731,9 +1731,15 @@ fn generate_thumbnail_data_with_metadata(
 
             let _decode_reservation;
             let composite_image: Cow<DynamicImage> = if let Some(patched) = &cached_patched {
+                if let Some(img) = preloaded_image {
+                    raw_scale_factor = crate::ai_upscale::scale_between(img, patched);
+                }
                 Cow::Borrowed(patched)
             } else if let Some(img) = preloaded_image {
-                image_loader::prepare_base_image_cow(img, &source_path_str, adjustments)?
+                let prepared =
+                    image_loader::prepare_base_image_cow(img, &source_path_str, adjustments)?;
+                raw_scale_factor = crate::ai_upscale::scale_between(img, &prepared);
+                prepared
             } else {
                 let mmap_guard;
                 let vec_guard;
@@ -1762,7 +1768,7 @@ fn generate_thumbnail_data_with_metadata(
                 _decode_reservation =
                     reserve_thumbnail_decode(&state, &source_path, file_slice, is_raw);
                 crate::as_shot::as_shot_from_bytes(&source_path_str, file_slice);
-                let img = image_loader::load_and_composite(
+                let (img, upscale) = image_loader::load_and_composite(
                     file_slice,
                     &source_path_str,
                     adjustments,
@@ -1771,11 +1777,12 @@ fn generate_thumbnail_data_with_metadata(
                     None,
                 )?;
 
+                raw_scale_factor = upscale;
                 if is_raw {
-                    raw_scale_factor = crate::raw_processing::get_fast_demosaic_scale_factor(
+                    raw_scale_factor *= crate::raw_processing::get_fast_demosaic_scale_factor(
                         file_slice,
-                        img.width(),
-                        img.height(),
+                        (img.width() as f32 / upscale).round() as u32,
+                        (img.height() as f32 / upscale).round() as u32,
                     );
                 }
                 Cow::Owned(img)
@@ -1953,14 +1960,17 @@ fn generate_thumbnail_data_with_metadata(
         if adjustments.is_null() {
             crate::as_shot::as_shot_from_bytes(&source_path_str, file_slice);
         }
-        Cow::Owned(image_loader::load_and_composite(
-            file_slice,
-            &source_path_str,
-            adjustments,
-            true,
-            settings,
-            None,
-        )?)
+        Cow::Owned(
+            image_loader::load_and_composite(
+                file_slice,
+                &source_path_str,
+                adjustments,
+                true,
+                settings,
+                None,
+            )?
+            .0,
+        )
     };
 
     if adjustments.is_null() {

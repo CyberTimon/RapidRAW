@@ -2169,6 +2169,7 @@ pub fn is_image_edited(
     }
     if [
         ("noiseReduction", "aiDenoiseEnabled"),
+        ("superResolution", "aiUpscaleEnabled"),
         ("negativeConversion", "negativeConversionEnabled"),
         ("lensBlur", "lensBlurEnabled"),
         ("relight", "relightEnabled"),
@@ -2268,6 +2269,7 @@ const LEGACY_SECTION_TOOLS: &[(&str, &[&str])] = &[
             "sharpening",
             "presence",
             "noiseReduction",
+            "superResolution",
             "chromaticAberration",
             "negativeConversion",
         ],

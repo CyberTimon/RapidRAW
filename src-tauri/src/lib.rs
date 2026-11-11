@@ -20,11 +20,13 @@ macro_rules! cli_eprintln {
 }
 
 mod adjustment_utils;
+mod ai_base_cache;
 mod ai_commands;
 mod ai_connector;
 mod ai_denoise;
 mod ai_jobs;
 mod ai_processing;
+mod ai_upscale;
 mod android_integration;
 mod app_settings;
 mod app_state;
@@ -262,6 +264,7 @@ pub fn prepare_preview_source(
     })?;
 
     let (full_w_px, full_h_px) = patched.dimensions();
+    let base_scale = crate::ai_upscale::scale_between(&loaded_image.image, &patched) as f64;
     let orientation_steps = adjustments["orientationSteps"].as_u64().unwrap_or(0);
     let (oriented_w, oriented_h) = if orientation_steps % 2 == 1 {
         (full_h_px as f64, full_w_px as f64)
@@ -269,7 +272,13 @@ pub fn prepare_preview_source(
         (full_w_px as f64, full_h_px as f64)
     };
 
-    let crop: Option<Crop> = serde_json::from_value(adjustments["crop"].clone()).ok();
+    let canonical_crop: Option<Crop> = serde_json::from_value(adjustments["crop"].clone()).ok();
+    let crop = canonical_crop.map(|c| Crop {
+        x: c.x * base_scale,
+        y: c.y * base_scale,
+        width: c.width * base_scale,
+        height: c.height * base_scale,
+    });
     let (full_w, full_h) = crop
         .as_ref()
         .and_then(|c| {
@@ -339,7 +348,7 @@ pub fn prepare_preview_source(
     };
 
     let scale = if full_w > 0.0 {
-        (transform.output_size(working_size).0 as f64 / full_w) as f32
+        (transform.output_size(working_size).0 as f64 / full_w * base_scale) as f32
     } else {
         1.0
     };
@@ -352,7 +361,7 @@ pub fn prepare_preview_source(
         id: hasher.finish(),
         transform,
         scale,
-        unscaled_crop_offset: crop.map_or((0.0, 0.0), |c| (c.x as f32, c.y as f32)),
+        unscaled_crop_offset: canonical_crop.map_or((0.0, 0.0), |c| (c.x as f32, c.y as f32)),
     })
 }
 
@@ -784,6 +793,7 @@ fn process_preview_job(
     let adjustments_clone = adjustments_json;
 
     crate::ai_denoise::ensure_generated(app_handle, &loaded_image, &adjustments_clone);
+    crate::ai_upscale::ensure_generated(app_handle, &loaded_image, &adjustments_clone);
 
     let new_transform_hash = calculate_transform_hash(&adjustments_clone);
     let live_quality = settings.live_preview_quality.as_deref().unwrap_or("high");
@@ -1972,7 +1982,9 @@ async fn generate_preview_for_path(
             crate::image_loader::get_or_decode_pristine(&state, &source_path, &settings, None)?;
         let base_image = prepare_base_image_cow(&pristine, &source_path_str, &js_adjustments)
             .map_err(|e| e.to_string())?;
-        let (fitted, scale) = crate::render_source::fit_to_gpu(&context, &base_image);
+        let base_scale = crate::ai_upscale::scale_between(&pristine, &base_image);
+        let (fitted, fit_scale) = crate::render_source::fit_to_gpu(&context, &base_image);
+        let scale = fit_scale * base_scale;
         let source = RenderSource::edited(
             &fitted,
             crate::render_source::source_id("preview-for-path", &source_path_str, &js_adjustments),
@@ -1989,6 +2001,7 @@ async fn generate_preview_for_path(
 
         let warped_image = build_warped_image_for_masks(
             &base_image,
+            base_scale,
             is_raw,
             &path,
             &js_adjustments,
@@ -2034,7 +2047,7 @@ async fn generate_preview_for_path(
                     &js_adjustments,
                     (img_w, img_h),
                     crop_offset,
-                    base_image.width().max(base_image.height()) as f32 * scale,
+                    base_image.width().max(base_image.height()) as f32 * fit_scale,
                 ),
             },
             "generate_preview_for_path",
@@ -2452,7 +2465,8 @@ pub fn run() {
             }
 
             if let Ok(cache_dir) = app_handle.path().app_cache_dir() {
-                crate::ai_denoise::initialize_cache_dir(cache_dir.clone());
+                crate::ai_denoise::initialize_cache_dir(&cache_dir);
+                crate::ai_upscale::initialize_cache_dir(&cache_dir);
                 crate::effect_maps::initialize_cache_dir(cache_dir.clone());
                 crate::exif_processing::initialize_cache_dir(cache_dir.clone());
                 crate::storage::initialize_thumbnail_cache(cache_dir);
@@ -2873,6 +2887,7 @@ pub fn run() {
             ai_commands::generate_relight_normal_map,
             ai_commands::get_depth_preview,
             ai_denoise::clear_ai_denoise_cache,
+            ai_upscale::clear_ai_upscale_cache,
             ai_jobs::get_ai_jobs_status,
             ai_jobs::get_pending_ai_paths,
             ai_jobs::pause_ai_jobs,

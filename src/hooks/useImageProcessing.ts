@@ -341,8 +341,11 @@ export function useImageProcessing(
   const calculateTargetRes = useCallback(
     (displayMax: number = fittedDisplayMax * (transformWrapperRef.current?.instance.transformState?.scale || 1)) => {
       const dpr = getDevicePixelRatio();
+      const upscale = adjustments.aiUpscaleEnabled ? 2 : 1;
       const originalMax =
-        originalSize.width > 0 && originalSize.height > 0 ? Math.max(originalSize.width, originalSize.height) : 0;
+        originalSize.width > 0 && originalSize.height > 0
+          ? Math.max(originalSize.width, originalSize.height) * upscale
+          : 0;
       return calculateTargetResolution(
         appSettings,
         displayMax,
@@ -350,7 +353,7 @@ export function useImageProcessing(
         originalMax,
       );
     },
-    [appSettings, fittedDisplayMax, transformWrapperRef, originalSize],
+    [appSettings, fittedDisplayMax, transformWrapperRef, originalSize, adjustments.aiUpscaleEnabled],
   );
 
   const uncroppedTargetRes = useMemo(() => {

@@ -48,6 +48,7 @@ export enum Invokes {
   ClearAiTags = 'clear_ai_tags',
   ClearAllTags = 'clear_all_tags',
   ClearAiDenoiseCache = 'clear_ai_denoise_cache',
+  ClearAiUpscaleCache = 'clear_ai_upscale_cache',
   ClearThumbnailCache = 'clear_thumbnail_cache',
   CopyFiles = 'copy_files',
   CreateFolder = 'create_folder',
@@ -241,6 +242,7 @@ export type CompareMode = 'toggle' | Exclude<CompareView, 'off'>;
 export interface AppSettings {
   aiCacheLimitGb?: number;
   aiMapsCacheLimitGb?: number;
+  aiUpscaleCacheLimitGb?: number;
   thumbnailCacheLimitGb?: number;
   aiConnectorAddress?: string;
   aiGpuAcceleration?: boolean;

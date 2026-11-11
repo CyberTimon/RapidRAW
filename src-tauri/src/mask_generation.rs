@@ -2246,14 +2246,23 @@ pub fn build_full_warped_image_rgb8(
 
 pub fn build_warped_image_for_masks<'a>(
     base_image: &'a DynamicImage,
+    base_scale: f32,
     is_raw: bool,
     path: &str,
     adjustments: &serde_json::Value,
     masks: &[MaskDefinition],
 ) -> Option<Cow<'a, DynamicImage>> {
     if masks.iter().any(|m| m.requires_warped_image()) {
+        let canonical = (base_scale != 1.0).then(|| {
+            let (w, h) = base_image.dimensions();
+            crate::image_processing::downscale_f32_image(
+                base_image,
+                (w as f32 / base_scale).round() as u32,
+                (h as f32 / base_scale).round() as u32,
+            )
+        });
         Some(Cow::Owned(build_full_warped_image_rgb8(
-            base_image,
+            canonical.as_ref().unwrap_or(base_image),
             crate::negative_conversion::effective_is_raw(is_raw, adjustments),
             path,
             adjustments,
