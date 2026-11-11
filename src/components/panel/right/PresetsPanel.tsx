@@ -449,6 +449,26 @@ function DraggablePresetItem({
   );
 }
 
+const folderHeaderClass = 'flex items-center gap-2 p-2 rounded-lg bg-surface cursor-pointer';
+const folderContentsClass = 'ml-4 pl-2 border-l-[1.5px] border-border-color/50 space-y-2 overflow-hidden pt-2';
+
+function FolderContents({ expanded, children }: { expanded: boolean; children: React.ReactNode }) {
+  return (
+    <AnimatePresence>
+      {expanded && (
+        <motion.div
+          animate={{ height: 'auto', opacity: 1 }}
+          className={folderContentsClass}
+          exit={{ height: 0, opacity: 0 }}
+          initial={{ height: 0, opacity: 0 }}
+        >
+          {children}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 function DroppableFolderItem({ folder, onContextMenu, children, onToggle, isExpanded }: DroppableFolderItemProps) {
   const {
     attributes,
@@ -478,10 +498,7 @@ function DroppableFolderItem({ folder, onContextMenu, children, onToggle, isExpa
       ref={setDroppableNodeRef}
       style={style}
     >
-      <div
-        className="flex items-center gap-2 p-2 rounded-lg bg-surface cursor-pointer"
-        onContextMenu={(e: any) => onContextMenu(e, { folder })}
-      >
+      <div className={folderHeaderClass} onContextMenu={(e: any) => onContextMenu(e, { folder })}>
         <div className="p-1 cursor-grab" ref={setDraggableNodeRef} {...listeners} {...attributes}>
           {isExpanded ? (
             <FolderOpen
@@ -515,18 +532,7 @@ function DroppableFolderItem({ folder, onContextMenu, children, onToggle, isExpa
           {folder.children?.length || 0}
         </Text>
       </div>
-      <AnimatePresence>
-        {isExpanded && hasChildren && (
-          <motion.div
-            animate={{ height: 'auto', opacity: 1 }}
-            className="ml-4 pl-2 border-l-[1.5px] border-border-color/50 space-y-2 overflow-hidden pt-2"
-            exit={{ height: 0, opacity: 0 }}
-            initial={{ height: 0, opacity: 0 }}
-          >
-            {children}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <FolderContents expanded={!!(isExpanded && hasChildren)}>{children}</FolderContents>
     </div>
   );
 }
@@ -1399,11 +1405,13 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
               <div className="rounded-lg">
                 <button
                   type="button"
-                  className="flex items-center gap-2 p-2 rounded-lg bg-surface cursor-pointer w-full text-left"
+                  className={`${folderHeaderClass} w-full text-left`}
                   aria-expanded={favoritesExpanded}
                   onClick={() => setFavoritesExpanded((value) => !value)}
                 >
-                  <Star size={18} className="text-primary" />
+                  <span className="p-1">
+                    <Star size={18} className={favoritesExpanded ? 'text-primary' : 'text-text-secondary'} />
+                  </span>
                   <Text color={TextColors.primary} weight={TextWeights.medium} className="grow truncate select-none">
                     {t('contextMenus.albumIcons.favorites')}
                   </Text>
@@ -1411,37 +1419,35 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
                     {favoritePresets.length}
                   </Text>
                 </button>
-                {favoritesExpanded && favoritePresets.length > 0 && (
-                  <div className="ml-4 pl-2 border-l-[1.5px] border-border-color/50 space-y-2 pt-2">
-                    {favoritePresets.map((preset: Preset) => (
-                      <div
-                        key={preset.id}
-                        onClick={() => handleApplyPreset(preset)}
-                        onContextMenu={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          showContextMenu(event.clientX, event.clientY, [
-                            {
-                              icon: StarOff,
-                              label: t('editor.presets.menu.removeFromFavorites'),
-                              onClick: () => setFavorite(preset.id, false),
-                            },
-                          ]);
-                        }}
-                      >
-                        <PresetItemDisplay
-                          preset={preset}
-                          previewUrl={previews[preset.id] || ''}
-                          isGeneratingPreviews={isGeneratingPreviews}
-                          isActive={preset.id === activePresetId}
-                          intensity={preset.id === activePresetId ? presetIntensity : 100}
-                          onIntensityChange={(value) => handleIntensityChange(preset, value)}
-                          onDragStateChange={handleDragStateChange}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <FolderContents expanded={favoritesExpanded && favoritePresets.length > 0}>
+                  {favoritePresets.map((preset: Preset) => (
+                    <div
+                      key={preset.id}
+                      onClick={() => handleApplyPreset(preset)}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        showContextMenu(event.clientX, event.clientY, [
+                          {
+                            icon: StarOff,
+                            label: t('editor.presets.menu.removeFromFavorites'),
+                            onClick: () => setFavorite(preset.id, false),
+                          },
+                        ]);
+                      }}
+                    >
+                      <PresetItemDisplay
+                        preset={preset}
+                        previewUrl={previews[preset.id] || ''}
+                        isGeneratingPreviews={isGeneratingPreviews}
+                        isActive={preset.id === activePresetId}
+                        intensity={preset.id === activePresetId ? presetIntensity : 100}
+                        onIntensityChange={(value) => handleIntensityChange(preset, value)}
+                        onDragStateChange={handleDragStateChange}
+                      />
+                    </div>
+                  ))}
+                </FolderContents>
               </div>
               <AnimatePresence>
                 {folders
