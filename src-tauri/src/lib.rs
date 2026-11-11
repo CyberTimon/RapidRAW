@@ -19,6 +19,15 @@ macro_rules! cli_eprintln {
     }};
 }
 
+macro_rules! test_api_mod {
+    ($name:ident) => {
+        #[cfg(feature = "test-api")]
+        pub mod $name;
+        #[cfg(not(feature = "test-api"))]
+        mod $name;
+    };
+}
+
 mod adjustment_utils;
 mod ai_base_cache;
 mod ai_commands;
@@ -35,7 +44,7 @@ mod as_shot;
 mod auto_straighten;
 mod baseline_exposure;
 mod bm3d;
-mod cache_utils;
+test_api_mod!(cache_utils);
 mod camera_tethering;
 mod clone_heal;
 mod culling;
