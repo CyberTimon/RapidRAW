@@ -100,8 +100,22 @@ pub fn register_exit_handler() {
 #[cfg(not(target_os = "macos"))]
 pub fn register_exit_handler() {}
 
+#[cfg(target_os = "linux")]
+fn force_c_numeric_locale() {
+    unsafe {
+        if let Some(all) = std::env::var_os("LC_ALL").filter(|v| !v.is_empty()) {
+            std::env::set_var("LANG", all);
+            std::env::remove_var("LC_ALL");
+        }
+        std::env::set_var("LC_NUMERIC", "C");
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "linux")]
+    force_c_numeric_locale();
+
     let _ = rayon::ThreadPoolBuilder::new()
         .stack_size(8 * 1024 * 1024)
         .build_global();
