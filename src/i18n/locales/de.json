@@ -1,6 +1,8 @@
 {
   "adjustments": {
     "basic": {
+      "adaptiveContrast": "Adaptiver Kontrast",
+      "adaptiveContrastTooltip": "Legt den Drehpunkt dieses Reglers auf den Median des Bildes. Erneut klicken stellt Mittelgrau ein",
       "blacks": "Schwarz",
       "brightness": "Helligkeit",
       "contrast": "Kontrast",
@@ -118,6 +120,13 @@
       "whiteBalance": "Weißabgleich"
     },
     "curves": {
+      "adaptiveContrast": "Kurvenpunkte setzen",
+      "adaptiveContrastImage": "Kurvenpunkte vom Bild",
+      "adaptiveContrastImageTooltip": "Setzt den Mittelton-Anker auf den Median des Bildes und legt den Kontrastdrehpunkt dorthin",
+      "adaptiveContrastMask": "Kurvenpunkte aus der Auswahl",
+      "adaptiveContrastMaskTooltip": "Setzt den Mittelton-Anker auf den Median dieser Auswahl und legt den Kontrastdrehpunkt dorthin",
+      "adaptiveContrastTooltip": "Setzt den Mittelton-Anker auf den Median des Bildes. Die Reglerwerte bleiben, und die Bereiche für dunkle und helle Töne behalten ihre gewohnte Breite",
+      "anchorMedian": "Am Median verankern",
       "channelTitle": "{{channel}}-Kanal",
       "channels": {
         "blue": "Blau",
@@ -128,6 +137,9 @@
       "copyParametric": "Parametrische {{channel}}-Kurve kopieren",
       "copyPoint": "Punktkurve ({{channel}}) kopieren",
       "curveDataUnavailable": "Kurvendaten nicht verfügbar.",
+      "maskLocalTone": "Auswahlmedian",
+      "maskLocalToneTooltip": "Legt den Kontrastdrehpunkt auf den Median dieser Auswahl. Erneut klicken stellt Mittelgrau ein",
+      "median": "Median {{value}}",
       "parametricCurve": "Parametrische Kurve",
       "params": {
         "blackLevel": "Schwarzpunkt",

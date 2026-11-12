@@ -1,6 +1,8 @@
 {
   "adjustments": {
     "basic": {
+      "adaptiveContrast": "自適應對比",
+      "adaptiveContrastTooltip": "把這個滑桿的支點放在影像中位數上。再次點選則改回中灰",
       "blacks": "黑色",
       "brightness": "亮度",
       "contrast": "對比",
@@ -118,6 +120,13 @@
       "whiteBalance": "白平衡"
     },
     "curves": {
+      "adaptiveContrast": "放置曲線點",
+      "adaptiveContrastImage": "從影像放置曲線點",
+      "adaptiveContrastImageTooltip": "將中間調錨點放在影像的中位數上，並把對比支點也移到那裡",
+      "adaptiveContrastMask": "從選取範圍放置曲線點",
+      "adaptiveContrastMaskTooltip": "將中間調錨點放在此選取範圍的中位數上，並把對比支點也移到那裡",
+      "adaptiveContrastTooltip": "將中間調錨點放在影像的中位數上。滑桿數值保持不變，暗部與亮部範圍維持原有寬度",
+      "anchorMedian": "錨定到中位數",
       "channelTitle": "{{channel}} 通道",
       "channels": {
         "blue": "藍色",
@@ -128,6 +137,9 @@
       "copyParametric": "複製 {{channel}} 參數曲線",
       "copyPoint": "複製 {{channel}} 點曲線",
       "curveDataUnavailable": "曲線資料不可用。",
+      "maskLocalTone": "選取範圍中位數",
+      "maskLocalToneTooltip": "把對比支點放在此選取範圍的中位數上。再次點選則改回中灰",
+      "median": "中位數 {{value}}",
       "parametricCurve": "參數曲線",
       "params": {
         "blackLevel": "黑色色階",

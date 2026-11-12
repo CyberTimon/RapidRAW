@@ -57,6 +57,7 @@ export function useImageProcessing(
   const compareView = useEditorStore((state) => state.compareView);
   const setEditor = useEditorStore((state) => state.setEditor);
 
+  const activeMaskContainerId = useEditorStore((state) => state.activeMaskContainerId);
   const activeView = useUIStore((state) => state.activeView);
   const activePanel = useUIStore((state) => state.activePanel);
   const isViewerOpen = useUIStore((state) => state.isViewerOpen);
@@ -123,6 +124,7 @@ export function useImageProcessing(
           requestAnalytics: false,
           computeWaveform: false,
           activeWaveformChannel: null,
+          activeMaskId: null,
         });
         markSent();
 
@@ -160,6 +162,7 @@ export function useImageProcessing(
           requestAnalytics: true,
           computeWaveform: !!isWaveformVisible,
           activeWaveformChannel: activeWaveformChannelRef.current || null,
+          activeMaskId: useEditorStore.getState().activeMaskContainerId,
         });
         if (!dragging) renderOriginal(targetRes);
         const buffer = await request;
@@ -470,6 +473,10 @@ export function useImageProcessing(
   }, [isComparing, setEditor]);
 
   useEffect(() => {
+    setEditor({ maskHistogram: null });
+  }, [activeMaskContainerId, selectedImage?.path, setEditor]);
+
+  useEffect(() => {
     if (!selectedImage?.isReady) return;
 
     if (dragIdleTimer.current) clearTimeout(dragIdleTimer.current);
@@ -548,6 +555,7 @@ export function useImageProcessing(
     appSettings?.copyPasteSettings?.includedAdjustments,
     appSettings?.copyPasteSettings?.autoSync,
     isWaveformVisible,
+    activeMaskContainerId,
   ]);
 
   return {

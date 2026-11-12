@@ -1,6 +1,8 @@
 {
   "adjustments": {
     "basic": {
+      "adaptiveContrast": "適応コントラスト",
+      "adaptiveContrastTooltip": "このスライダーの支点を画像の中央値にします。もう一度クリックするとミドルグレーに戻ります",
       "blacks": "黒レベル",
       "brightness": "明るさ",
       "contrast": "コントラスト",
@@ -118,6 +120,13 @@
       "whiteBalance": "ホワイトバランス"
     },
     "curves": {
+      "adaptiveContrast": "カーブポイントを置く",
+      "adaptiveContrastImage": "画像からカーブポイントを置く",
+      "adaptiveContrastImageTooltip": "中間調のアンカーを画像の中央値に置き、コントラストの支点もそこへ移します",
+      "adaptiveContrastMask": "選択範囲からカーブポイントを置く",
+      "adaptiveContrastMaskTooltip": "中間調のアンカーをこの選択範囲の中央値に置き、コントラストの支点もそこへ移します",
+      "adaptiveContrastTooltip": "中間調のアンカーを画像の中央値に置きます。スライダーの量はそのまま、暗いトーンと明るいトーンの幅も通常のままです",
+      "anchorMedian": "中央値に固定",
       "channelTitle": "{{channel}} チャンネル",
       "channels": {
         "blue": "ブルー",
@@ -128,6 +137,9 @@
       "copyParametric": "{{channel}} パラメトリックカーブをコピー",
       "copyPoint": "{{channel}} ポイントカーブをコピー",
       "curveDataUnavailable": "カーブデータがありません。",
+      "maskLocalTone": "選択範囲の中央値",
+      "maskLocalToneTooltip": "コントラストの支点をこの選択範囲の中央値にします。もう一度クリックするとミドルグレーに戻ります",
+      "median": "中央値 {{value}}",
       "parametricCurve": "パラメトリックカーブ",
       "params": {
         "blackLevel": "黒レベル",

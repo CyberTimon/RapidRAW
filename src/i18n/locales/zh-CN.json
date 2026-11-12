@@ -1,6 +1,8 @@
 {
   "adjustments": {
     "basic": {
+      "adaptiveContrast": "自适应对比度",
+      "adaptiveContrastTooltip": "把这个滑块的支点放在图像中位数上。再次点击则改回中灰",
       "blacks": "黑色",
       "brightness": "亮度",
       "contrast": "对比度",
@@ -118,6 +120,13 @@
       "whiteBalance": "白平衡"
     },
     "curves": {
+      "adaptiveContrast": "放置曲线点",
+      "adaptiveContrastImage": "从图像放置曲线点",
+      "adaptiveContrastImageTooltip": "将中间调锚点放在图像的中位数上，并把对比度支点也移到那里",
+      "adaptiveContrastMask": "从选区放置曲线点",
+      "adaptiveContrastMaskTooltip": "将中间调锚点放在此选区的中位数上，并把对比度支点也移到那里",
+      "adaptiveContrastTooltip": "将中间调锚点放在图像的中位数上。滑块数值保持不变，暗部和亮部范围保持原有宽度",
+      "anchorMedian": "锚定到中位数",
       "channelTitle": "{{channel}} 通道",
       "channels": {
         "blue": "蓝色",
@@ -128,6 +137,9 @@
       "copyParametric": "复制 {{channel}} 参数曲线",
       "copyPoint": "复制 {{channel}} 点曲线",
       "curveDataUnavailable": "曲线数据不可用。",
+      "maskLocalTone": "选区中位数",
+      "maskLocalToneTooltip": "把对比度支点放在此选区的中位数上。再次点击则改回中灰",
+      "median": "中位数 {{value}}",
       "parametricCurve": "参数曲线",
       "params": {
         "blackLevel": "黑色色阶",

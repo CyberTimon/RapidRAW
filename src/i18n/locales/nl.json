@@ -1,6 +1,8 @@
 {
   "adjustments": {
     "basic": {
+      "adaptiveContrast": "Adaptief contrast",
+      "adaptiveContrastTooltip": "Zet het draaipunt van deze schuif op de mediaan van de afbeelding. Klik opnieuw voor middengrijs",
       "blacks": "Zwarttinten",
       "brightness": "Helderheid",
       "contrast": "Contrast",
@@ -118,6 +120,13 @@
       "whiteBalance": "Witbalans"
     },
     "curves": {
+      "adaptiveContrast": "Curve-punten plaatsen",
+      "adaptiveContrastImage": "Curve-punten uit de afbeelding",
+      "adaptiveContrastImageTooltip": "Zet het middentoonanker op de mediaan van de afbeelding en draai het contrast daar omheen",
+      "adaptiveContrastMask": "Curve-punten uit de selectie",
+      "adaptiveContrastMaskTooltip": "Zet het middentoonanker op de mediaan van deze selectie en draai het contrast daar omheen",
+      "adaptiveContrastTooltip": "Zet het middentoonanker op de mediaan van de afbeelding. De schuifwaarden blijven gelijk, en de donkere en lichte bereiken houden hun gebruikelijke breedte",
+      "anchorMedian": "Veranker op de mediaan",
       "channelTitle": "{{channel}} kanaal",
       "channels": {
         "blue": "Blauw",
@@ -128,6 +137,9 @@
       "copyParametric": "Kopieer {{channel}} parametrische curve",
       "copyPoint": "Kopieer {{channel}} puntcurve",
       "curveDataUnavailable": "Curvegegevens niet beschikbaar.",
+      "maskLocalTone": "Mediaan van de selectie",
+      "maskLocalToneTooltip": "Draai het contrast om de mediaan van deze selectie. Klik opnieuw voor middengrijs",
+      "median": "Mediaan {{value}}",
       "parametricCurve": "Parametrische curve",
       "params": {
         "blackLevel": "Zwartniveau",

@@ -1,6 +1,8 @@
 {
   "adjustments": {
     "basic": {
+      "adaptiveContrast": "Kontrast adaptacyjny",
+      "adaptiveContrastTooltip": "Obraca ten suwak wokół mediany obrazu. Kliknij ponownie, aby użyć średniej szarości",
       "blacks": "Czernie",
       "brightness": "Jasność",
       "contrast": "Kontrast",
@@ -118,6 +120,13 @@
       "whiteBalance": "Balans bieli"
     },
     "curves": {
+      "adaptiveContrast": "Ustaw punkty krzywej",
+      "adaptiveContrastImage": "Ustaw punkty krzywej z obrazu",
+      "adaptiveContrastImageTooltip": "Ustawia kotwicę śródtonów na medianie obrazu i tam obraca kontrast",
+      "adaptiveContrastMask": "Ustaw punkty krzywej z zaznaczenia",
+      "adaptiveContrastMaskTooltip": "Ustawia kotwicę śródtonów na medianie tego zaznaczenia i tam obraca kontrast",
+      "adaptiveContrastTooltip": "Ustawia kotwicę śródtonów na medianie obrazu. Wartości suwaków zostają, a zakresy ciemnych i jasnych tonów zachowują zwykłą szerokość",
+      "anchorMedian": "Zakotwicz na medianie",
       "channelTitle": "Kanał {{channel}}",
       "channels": {
         "blue": "Niebieski",
@@ -128,6 +137,9 @@
       "copyParametric": "Kopiuj krzywą parametryczną ({{channel}})",
       "copyPoint": "Kopiuj krzywą punktową ({{channel}})",
       "curveDataUnavailable": "Dane krzywej są niedostępne.",
+      "maskLocalTone": "Mediana zaznaczenia",
+      "maskLocalToneTooltip": "Obraca kontrast wokół mediany tego zaznaczenia. Kliknij ponownie, aby użyć średniej szarości",
+      "median": "Mediana {{value}}",
       "parametricCurve": "Krzywa parametryczna",
       "params": {
         "blackLevel": "Poziom czerni",
