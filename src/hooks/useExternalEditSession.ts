@@ -24,12 +24,9 @@ export function useExternalEditSession(
   const [isFinishing, setIsFinishing] = useState(false);
 
   const handleImageSelectRef = useRef(handleImageSelect);
-  useEffect(() => {
-    handleImageSelectRef.current = handleImageSelect;
-  });
-
   const handleOpenContainingFolderRef = useRef(handleOpenContainingFolder);
   useEffect(() => {
+    handleImageSelectRef.current = handleImageSelect;
     handleOpenContainingFolderRef.current = handleOpenContainingFolder;
   });
 
