@@ -1292,7 +1292,8 @@
       "syncZoomAndPan": "Синхронизировать масштаб и панорамирование",
       "tags": "Теги",
       "toggleFit": "Переключить 1:1 / Вписать",
-      "vc": "ВК"
+      "vc": "ВК",
+      "autoAdvanceDecisions": "Advance after a rating or flag (P / X / U / 0–5)"
     },
     "filterExit": {
       "hiddenSingle": "{{name}} больше не соответствует фильтру",

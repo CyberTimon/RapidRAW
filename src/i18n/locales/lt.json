@@ -1331,7 +1331,8 @@
       "syncZoomAndPan": "Sinchronizuoti mastelį ir slinkimą",
       "tags": "Žymos",
       "toggleFit": "Perjungti 1:1 / Talpinti",
-      "vc": "VK"
+      "vc": "VK",
+      "autoAdvanceDecisions": "Advance after a rating or flag (P / X / U / 0–5)"
     },
     "filterExit": {
       "hiddenMultiple_few": "{{count}} nuotraukos nebeatitinka filtro sąlygų",

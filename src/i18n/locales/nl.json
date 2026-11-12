@@ -1236,7 +1236,8 @@
       "syncZoomAndPan": "Zoom en pan synchroniseren",
       "tags": "Tags",
       "toggleFit": "1:1 / Passend aan/uit",
-      "vc": "VK"
+      "vc": "VK",
+      "autoAdvanceDecisions": "Advance after a rating or flag (P / X / U / 0–5)"
     },
     "filterExit": {
       "hiddenSingle": "{{name}} komt niet meer overeen met het filter",

@@ -85,25 +85,17 @@ const snapshotMetadata = (paths: string[]) => {
 
 const restoreMetadata = (snapshot: Map<string, MetadataSnapshot>) => {
   const current = snapshotMetadata([...snapshot.keys()]);
-  const groupChanged = <K extends keyof MetadataSnapshot>(
-    field: K,
-    force?: (path: string, before: MetadataSnapshot) => boolean,
-  ) => {
+  const groupChanged = <K extends keyof MetadataSnapshot>(field: K) => {
     const groups = new Map<MetadataSnapshot[K], string[]>();
     snapshot.forEach((before, path) => {
-      if (current.get(path)?.[field] === before[field] && !force?.(path, before)) return;
+      if (current.get(path)?.[field] === before[field]) return;
       groups.set(before[field], [...(groups.get(before[field]) ?? []), path]);
     });
     return groups;
   };
 
   const ratingGroups = groupChanged('rating');
-  const restoredRatingPaths = new Set([...ratingGroups.values()].flat());
-  // Restoring a rating > 0 clears a reject flag in the backend, so re-send the reject afterwards.
-  const flagGroups = groupChanged(
-    'flag',
-    (path, before) => before.flag === ImageFlag.Reject && before.rating > 0 && restoredRatingPaths.has(path),
-  );
+  const flagGroups = groupChanged('flag');
   const colorGroups = groupChanged('color');
 
   useLibraryStore.getState().setLibrary((state) => {
@@ -210,15 +202,14 @@ const applyWithAutoAdvance = (changedPaths: string[], undoable: boolean, applyCh
 };
 
 export function useLibraryActions(handleImageSelect?: (path: string, openInEditor?: boolean) => void) {
-  const handleRate = useCallback((newRating: number, paths?: string[]) => {
-    const { imageRatings, imageList, setLibrary } = useLibraryStore.getState();
+  const handleRate = useCallback((newRating: number, paths?: string[], toggle = true) => {
+    const { imageRatings, setLibrary } = useLibraryStore.getState();
 
     const { selectedPaths, expandedPaths: pathsToRate } = resolveTargetPaths(paths);
     if (selectedPaths.length === 0) return;
 
-    const isRejected = getImageFlag(imageList, selectedPaths[0]) === ImageFlag.Reject;
     const currentRating = imageRatings[selectedPaths[0]] || 0;
-    const finalRating = newRating === currentRating && !isRejected ? 0 : newRating;
+    const finalRating = toggle && newRating === currentRating ? 0 : newRating;
 
     applyWithAutoAdvance(pathsToRate, true, () =>
       setLibrary((state) => {
@@ -226,12 +217,6 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
         pathsToRate.forEach((p) => {
           newRatings[p] = finalRating;
         });
-        if (finalRating > 0) {
-          return {
-            imageRatings: newRatings,
-            imageList: withFlag(state.imageList, pathsToRate, null, ImageFlag.Reject),
-          };
-        }
         return { imageRatings: newRatings };
       }),
     );
