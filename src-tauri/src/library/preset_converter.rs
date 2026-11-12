@@ -152,7 +152,7 @@ pub fn convert_xmp_to_preset(xmp_content: &str) -> Result<Preset, String> {
     }
 
     if let Some(shadows_val) = get_attr_as_f64(&attrs, "Shadows2012") {
-        let adjusted_shadows = (shadows_val * 1.5).min(100.0);
+        let adjusted_shadows = (shadows_val * 1.5).clamp(-100.0, 100.0);
         adjustments.insert("shadows".to_string(), json!(adjusted_shadows));
     }
 

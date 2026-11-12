@@ -45,10 +45,10 @@ pub fn perform_auto_analysis(image: &DynamicImage, exposure: f32) -> AutoAdjustm
 
     const SHADOW_LUMA_MAX: usize = 32;
     const SHADOW_PERCENT_THRESHOLD: f64 = 0.05;
-    const SHADOW_BOOST_SCALE: f64 = 40.0;
-    const SHADOW_MAX: f64 = 50.0;
-    const HIGHLIGHT_BOOST_SCALE: f64 = 120.0;
-    const HIGHLIGHT_MAX: f64 = 70.0;
+    const SHADOW_BOOST_SCALE: f64 = 35.0;
+    const SHADOW_MAX: f64 = 44.0;
+    const HIGHLIGHT_BOOST_SCALE: f64 = 92.0;
+    const HIGHLIGHT_MAX: f64 = 50.0;
 
     const VIBRANCY_SAT_THRESHOLD: f32 = 0.2;
     const VIBRANCY_SCALE: f64 = 120.0;
@@ -68,8 +68,8 @@ pub fn perform_auto_analysis(image: &DynamicImage, exposure: f32) -> AutoAdjustm
     const CENTRE_MAX: f64 = 60.0;
 
     const MID_GRAY: f64 = 128.0;
-    const BLACKS_SCALE: f64 = 0.5;
-    const WHITES_SCALE: f64 = 0.2;
+    const BLACKS_SCALE: f64 = 0.29;
+    const WHITES_SCALE: f64 = 0.05;
     const EXPOSURE_OUTPUT_SCALE: f64 = 20.0;
 
     let analysis_preview = apply_exposure(
