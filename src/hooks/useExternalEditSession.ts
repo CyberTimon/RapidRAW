@@ -14,7 +14,10 @@ import { debouncedSave } from './useEditorActions';
  * Opens the requested image in the editor and, for edit sessions, exports
  * the result to the caller-provided output path and exits the app.
  */
-export function useExternalEditSession(handleImageSelect: (path: string) => void) {
+export function useExternalEditSession(
+  handleImageSelect: (path: string) => void,
+  handleOpenContainingFolder: (path: string) => Promise<void>,
+) {
   const initialFileToOpen = useProcessStore((state) => state.initialFileToOpen);
   const externalEditSession = useProcessStore((state) => state.externalEditSession);
   const exportStatus = useProcessStore((state) => state.exportState.status);
@@ -25,10 +28,16 @@ export function useExternalEditSession(handleImageSelect: (path: string) => void
     handleImageSelectRef.current = handleImageSelect;
   });
 
+  const handleOpenContainingFolderRef = useRef(handleOpenContainingFolder);
+  useEffect(() => {
+    handleOpenContainingFolderRef.current = handleOpenContainingFolder;
+  });
+
   useEffect(() => {
     if (!initialFileToOpen) return;
     useProcessStore.getState().setProcess({ initialFileToOpen: null });
     handleImageSelectRef.current(initialFileToOpen);
+    handleOpenContainingFolderRef.current(initialFileToOpen).catch((e) => console.error('Failed to load folder:', e));
   }, [initialFileToOpen]);
 
   useEffect(() => {

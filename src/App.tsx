@@ -351,6 +351,7 @@ function App() {
     handleSelectSubfolder,
     handleSelectAlbum,
     handleOpenFolder,
+    handleOpenContainingFolder,
     handleNavBack,
     handleNavForward,
     handleContinueSession,
@@ -363,7 +364,7 @@ function App() {
     externalEditSession,
     isFinishing: isExternalEditFinishing,
     finishExternalEdit,
-  } = useExternalEditSession(handleImageSelect);
+  } = useExternalEditSession(handleImageSelect, handleOpenContainingFolder);
 
   const {
     handleRate,
