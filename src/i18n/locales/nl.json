@@ -176,6 +176,7 @@
       "threshold": "Drempelwaarde"
     },
     "effects": {
+      "chromaticAberration": "Chromatische aberratie",
       "amount": "Hoeveelheid",
       "bokehCircular": "Cirkelvormig",
       "bokehHexagonal": "Zeshoekig",

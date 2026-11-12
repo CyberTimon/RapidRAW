@@ -42,6 +42,7 @@ const KEY_NAMES: Record<string, string> = {
   flareAmount: 'Flare Amount',
   glowAmount: 'Glow Amount',
   halationAmount: 'Halation Amount',
+  chromaticAberrationAmount: 'Chromatic Aberration',
   grainAmount: 'Grain Amount',
   grainRoughness: 'Grain Roughness',
   grainSize: 'Grain Size',

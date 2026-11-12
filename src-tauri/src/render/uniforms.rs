@@ -175,6 +175,10 @@ pub struct GlobalAdjustments {
     pub sharpness_threshold: f32,
 
     pub monochrome: MonochromeSettings,
+    pub chromatic_aberration_amount: f32,
+    _pad_ca1: f32,
+    _pad_ca2: f32,
+    _pad_ca3: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
@@ -862,6 +866,18 @@ fn get_global_adjustments_from_json(
         } else {
             MonochromeSettings::default()
         },
+        // Maximum radial channel displacement is 2.5% of the distance to center.
+        chromatic_aberration_amount: get_val(
+            "creative",
+            "chromaticAberrationAmount",
+            100.0,
+            None,
+        )
+        .clamp(0.0, 1.0)
+            * 0.025,
+        _pad_ca1: 0.0,
+        _pad_ca2: 0.0,
+        _pad_ca3: 0.0,
     }
 }
 

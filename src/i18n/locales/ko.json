@@ -176,6 +176,7 @@
       "threshold": "임계값"
     },
     "effects": {
+      "chromaticAberration": "색수차",
       "amount": "양",
       "bokehCircular": "원형",
       "bokehHexagonal": "육각형",

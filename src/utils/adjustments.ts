@@ -210,6 +210,7 @@ export const getRelightLightColor = (light: RelightLight): string => {
 };
 
 export enum CreativeAdjustment {
+  ChromaticAberrationAmount = 'chromaticAberrationAmount',
   GlowAmount = 'glowAmount',
   HalationAmount = 'halationAmount',
   FlareAmount = 'flareAmount',
@@ -318,6 +319,7 @@ export interface Adjustments {
   flipVertical: boolean;
   flareAmount: number;
   glowAmount: number;
+  chromaticAberrationAmount: number;
   grainAmount: number;
   grainRoughness: number;
   grainSize: number;
@@ -993,7 +995,12 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
     { label: 'modals.copyPaste.groups.grain', keys: [Effect.GrainAmount, Effect.GrainRoughness, Effect.GrainSize] },
     {
       label: 'modals.copyPaste.groups.halationGlow',
-      keys: [CreativeAdjustment.GlowAmount, CreativeAdjustment.HalationAmount, CreativeAdjustment.FlareAmount],
+      keys: [
+        CreativeAdjustment.ChromaticAberrationAmount,
+        CreativeAdjustment.GlowAmount,
+        CreativeAdjustment.HalationAmount,
+        CreativeAdjustment.FlareAmount,
+      ],
     },
     {
       label: 'modals.copyPaste.groups.lut',
@@ -1182,6 +1189,7 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     DetailsAdjustment.NegativeContrast,
   ],
   effects: [
+    CreativeAdjustment.ChromaticAberrationAmount,
     CreativeAdjustment.GlowAmount,
     CreativeAdjustment.HalationAmount,
     CreativeAdjustment.FlareAmount,
