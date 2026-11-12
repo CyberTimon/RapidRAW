@@ -1,7 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
-import { Mask, SubMask, SubMaskMode, formatMaskTypeName } from '../components/panel/right/Masks';
+import { Mask, SubMask, SubMaskMode } from '../types/masks';
 import { ImageDimensions } from '../hooks/useImageRenderSize';
 import { AiPatch, Coord, MaskContainer } from './adjustments';
+import { formatMaskTypeName } from './maskNames';
 
 const AI_MASK_TYPES = new Set<string>([
   Mask.AiDepth,
@@ -32,10 +33,7 @@ export const stripAiMaskResults = (masks: Array<MaskContainer>): Array<MaskConta
     }),
   }));
 
-export const mergeAiMaskResults = (
-  masks: Array<MaskContainer>,
-  source: Array<MaskContainer>,
-): Array<MaskContainer> => {
+export const mergeAiMaskResults = (masks: Array<MaskContainer>, source: Array<MaskContainer>): Array<MaskContainer> => {
   const results = new Map(
     source
       .flatMap((container) => container.subMasks)
@@ -56,8 +54,8 @@ export const mergeAiMaskResults = (
 export const createSubMask = (
   type: Mask,
   imageDimensions: ImageDimensions,
-  mode: SubMaskMode = SubMaskMode.Additive
-) => {
+  mode: SubMaskMode = SubMaskMode.Additive,
+): SubMask => {
   const { width, height } = imageDimensions || { width: 1000, height: 1000 };
   const common = {
     id: uuidv4(),

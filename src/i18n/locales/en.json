@@ -150,6 +150,8 @@
       "aiDenoise": "AI Denoise",
       "classicDenoise": "Classic Denoise",
       "aiDenoiseDetail": "Detail",
+      "aiUpscale": "RapidRes 2x",
+      "aiUpscaleDetail": "Detail",
       "blueYellow": "Blue/Yellow",
       "centre": "Centré",
       "chromaticAberration": "Chromatic Aberration",
@@ -165,6 +167,7 @@
       "negativeGreen": "Green",
       "negativeRed": "Red",
       "noiseReduction": "Noise Reduction",
+      "superResolution": "RapidRes",
       "presence": "Presence",
       "redCyan": "Red/Cyan",
       "sharpening": "Sharpening",
@@ -323,6 +326,8 @@
       "redo": "Redo",
       "removeBlackWhite": "Remove Black & White",
       "removeDenoise": "Remove Denoise",
+      "superResolution": "RapidRes (2x)",
+      "removeSuperResolution": "Remove RapidRes",
       "removeNegativeConversion": "Remove Negative Conversion",
       "resetAdjustments": "Reset Adjustments",
       "stitchPanorama": "Stitch Panorama",
@@ -387,6 +392,8 @@
       "deleteSelected": "Delete Selected Only",
       "denoise_one": "Denoise",
       "denoise_other": "Denoise",
+      "superResolution_one": "RapidRes (2x)",
+      "superResolution_other": "RapidRes (2x)",
       "duplicateImage": "Duplicate Image",
       "enable": "Enable",
       "exportImage_one": "Export Image",
@@ -510,6 +517,7 @@
       "createNewTitle": "Create New Generative Edit",
       "createNewTooltip": "Create New {{name}} Edit",
       "denoising": "Running AI Denoise...",
+      "upscaling": "Running RapidRes...",
       "dropzoneText": "Drop here to create a new edit",
       "editSettingsTitle": "Edit Settings",
       "editsTitle": "Edits",
@@ -714,11 +722,13 @@
       "cancel": "Cancel",
       "drawingActive": "Drawing Active",
       "hint": "Draw along edges in your photo that should be vertical or horizontal.",
+      "horizontalLine": "Horizontal Guide #{{index}}",
       "linesStatus": "Active Guide Lines",
       "toast": {
         "angleRejected": "Line angle is too far from horizontal or vertical",
         "maxLines": "Maximum 2 vertical and 2 horizontal lines allowed"
-      }
+      },
+      "verticalLine": "Vertical Guide #{{index}}"
     },
     "layout": {
       "split": "Split"
@@ -1160,6 +1170,7 @@
       "failed": "Failed ({{failedCount}})",
       "kinds": {
         "denoise": "AI denoising",
+        "upscale": "RapidRes upscaling",
         "depthMap": "Analyzing depth",
         "depthMask": "Generating depth mask",
         "faceMask": "Generating face mask",
@@ -1595,6 +1606,7 @@
       "descReplace": "Overwrites all selected settings, resetting the rest to their defaults.",
       "groups": {
         "aiDenoise": "AI Denoise",
+        "aiUpscale": "RapidRes",
         "blackWhite": "Black & White",
         "chromaticAberration": "Chromatic Aberration",
         "clarityDehaze": "Clarity & Dehaze",
@@ -1885,6 +1897,7 @@
       "limit": "Limit",
       "modals": {
         "aiDenoiseMessage": "Are you sure you want to clear the AI Denoise cache?\n\nImages with AI Denoise enabled will need to be denoised again, which can take several minutes per image.",
+        "aiUpscaleMessage": "Are you sure you want to clear the RapidRes cache?\n\nImages with RapidRes enabled will need to be upscaled again.",
         "aiMapsMessage": "Are you sure you want to clear the depth & normal maps?\n\nImages using Lens Blur, Fog or Relight will regenerate their maps the next time they are opened.",
         "aiMessage": "Are you sure you want to remove all AI-generated tags from all images in all active root folders?\n\nThis will not affect user-added tags. This action cannot be undone.",
         "allMessage": "Are you sure you want to remove all AI-generated and user-added tags from all images in all active root folders?\n\nThis action cannot be undone.",
@@ -1912,6 +1925,7 @@
       "show": "Show",
       "statuses": {
         "aiDenoiseSuccess": "AI Denoise cache cleared successfully.",
+        "aiUpscaleSuccess": "RapidRes cache cleared successfully.",
         "aiSuccess": "{{count}} files updated. AI tags removed.",
         "aiSuccess_one": "{{count}} file updated. AI tags removed.",
         "aiSuccess_other": "{{count}} files updated. AI tags removed.",
@@ -1928,6 +1942,8 @@
       "storage": {
         "aiDenoise": "AI Denoise",
         "aiDenoiseDesc": "Cached denoise results.",
+        "aiUpscale": "RapidRes",
+        "aiUpscaleDesc": "Cached 2x RapidRes upscales.",
         "aiMaps": "Depth & Normal Maps",
         "aiMapsDesc": "Used by Lens Blur, Fog and Relight.",
         "immich": "Immich",
@@ -2299,6 +2315,7 @@
         "mediapipe": "For the fast face landmark and segmentation models that power the AI face masks.",
         "negpy": "For the inspiration behind the negative conversion logic.",
         "nind": "For providing AI models that power the AI noise reduction capabilities in RapidRAW.",
+        "span": "For the base AI model behind RapidRes, RapidRAW's 2x AI upscaling, fine-tuned by RapidRAW on its own raw pipeline (by Philip Hofmann, CC BY 4.0).",
         "rawler": "For the excellent Rust crate that provides the foundation for RAW file processing in this project.",
         "sam2": "For providing the foundation model used for the AI subject detection capabilities.",
         "spektrafilm": "For the spectrally-based film emulation LUTs by Andrea Volpato, used to power RapidRAW's built-in film emulations. Licensed CC BY-SA 4.0.",

@@ -150,6 +150,8 @@
       "aiDenoise": "Reducció de soroll IA",
       "classicDenoise": "Reducció de soroll clàssica",
       "aiDenoiseDetail": "Detall",
+      "aiUpscale": "RapidRes 2x",
+      "aiUpscaleDetail": "Detall",
       "blueYellow": "Blau/Groc",
       "centre": "Centre",
       "chromaticAberration": "Aberració cromàtica",
@@ -165,6 +167,7 @@
       "negativeGreen": "Verd",
       "negativeRed": "Vermell",
       "noiseReduction": "Reducció de soroll",
+      "superResolution": "RapidRes",
       "presence": "Presència",
       "redCyan": "Vermell/Cian",
       "sharpening": "Enfocament",
@@ -324,6 +327,8 @@
       "redo": "Refer",
       "removeBlackWhite": "Treure blanc i negre",
       "removeDenoise": "Treure reducció de soroll",
+      "superResolution": "RapidRes (2x)",
+      "removeSuperResolution": "Treure RapidRes",
       "removeNegativeConversion": "Treure conversió de negatiu",
       "resetAdjustments": "Restablir ajustaments",
       "stitchPanorama": "Unir panorama",
@@ -399,6 +404,9 @@
       "denoise_many": "Reduir soroll",
       "denoise_one": "Reduir soroll",
       "denoise_other": "Reduir soroll",
+      "superResolution_many": "RapidRes (2x)",
+      "superResolution_one": "RapidRes (2x)",
+      "superResolution_other": "RapidRes (2x)",
       "duplicateImage": "Duplicar imatge",
       "enable": "Activar",
       "exportImage_many": "Exportar {{count}} imatges",
@@ -527,6 +535,7 @@
       "createNewTitle": "Crear nova edició generativa",
       "createNewTooltip": "Crear nova edició {{name}}",
       "denoising": "Executant la reducció de soroll IA...",
+      "upscaling": "Executant RapidRes...",
       "dropzoneText": "Deixeu anar aquí per crear una edició nova",
       "editSettingsTitle": "Configuració d'edició",
       "editsTitle": "Edicions",
@@ -737,11 +746,13 @@
       "cancel": "Cancel·lar",
       "drawingActive": "Dibuix actiu",
       "hint": "Dibuixa al llarg de les vores de la foto que haurien de ser verticals o horitzontals.",
+      "horizontalLine": "Guia horitzontal núm. {{index}}",
       "linesStatus": "Línies guia actives",
       "toast": {
         "angleRejected": "L'angle de la línia està massa lluny de l'horitzontal o vertical",
         "maxLines": "Es permeten com a màxim 2 línies verticals i 2 horitzontals"
-      }
+      },
+      "verticalLine": "Guia vertical núm. {{index}}"
     },
     "layout": {
       "split": "Dividir"
@@ -1186,6 +1197,7 @@
       "failed": "Fallits ({{failedCount}})",
       "kinds": {
         "denoise": "Reduint soroll amb IA",
+        "upscale": "Ampliant amb RapidRes",
         "depthMap": "Analitzant la profunditat",
         "depthMask": "Generant la màscara de profunditat",
         "faceMask": "Generant la màscara de cara",
@@ -1584,6 +1596,7 @@
       "descReplace": "Sobreescriu tota la configuració seleccionada, restablint la resta als seus valors predeterminats.",
       "groups": {
         "aiDenoise": "Reducció de soroll amb IA",
+        "aiUpscale": "RapidRes",
         "blackWhite": "Blanc i negre",
         "chromaticAberration": "Aberració cromàtica",
         "clarityDehaze": "Claredat i Eliminar boira",
@@ -1880,6 +1893,7 @@
       "limit": "Límit",
       "modals": {
         "aiDenoiseMessage": "Segur que vols esborrar la memòria cau de reducció de soroll IA?\n\nLes imatges amb la reducció de soroll IA activada s'hauran de tornar a processar, cosa que pot trigar diversos minuts per imatge.",
+        "aiUpscaleMessage": "Segur que vols esborrar la memòria cau de RapidRes?\n\nLes imatges amb RapidRes activat s'hauran de tornar a ampliar.",
         "aiMapsMessage": "Segur que vols buidar els mapes de profunditat i normals?\n\nLes imatges que fan servir desenfocament d’objectiu, boira o reil·luminació regeneraran els mapes el proper cop que s’obrin.",
         "aiMessage": "Esteu segur que voleu eliminar totes les etiquetes generades per IA de totes les imatges a totes les carpetes arrel actives?\n\nAixò no afectarà les etiquetes afegides pels usuaris. Aquesta acció no es pot desfer.",
         "allMessage": "Esteu segur que voleu eliminar totes les etiquetes generades per IA i les afegides pels usuaris de totes les imatges a totes les carpetes arrel actives?\n\nAquesta acció no es pot desfer.",
@@ -1907,6 +1921,7 @@
       "show": "Mostrar",
       "statuses": {
         "aiDenoiseSuccess": "Memòria cau de reducció de soroll IA esborrada correctament.",
+        "aiUpscaleSuccess": "Memòria cau de RapidRes esborrada correctament.",
         "aiSuccess": "{{count}} fitxers actualitzats. S'han eliminat les etiquetes d'IA.",
         "aiSuccess_many": "{{count}} fitxers actualitzats. S'han eliminat les etiquetes d'IA.",
         "aiSuccess_one": "{{count}} fitxer actualitzat. S'han eliminat les etiquetes d'IA.",
@@ -1926,6 +1941,8 @@
       "storage": {
         "aiDenoise": "Reducció de soroll IA",
         "aiDenoiseDesc": "Resultats de reducció de soroll a la memòria cau.",
+        "aiUpscale": "RapidRes",
+        "aiUpscaleDesc": "Ampliacions 2x de RapidRes a la memòria cau.",
         "aiMaps": "Mapes de profunditat i normals",
         "aiMapsDesc": "Els fan servir el desenfocament d’objectiu, la boira i la reil·luminació.",
         "immich": "Immich",
@@ -2297,6 +2314,7 @@
         "mediapipe": "Pels models ràpids de punts facials i segmentació que impulsen les màscares de cara amb IA.",
         "negpy": "Per la inspiració que hi ha darrere de la lògica de conversió de negatius.",
         "nind": "Per proporcionar els models d'IA que impulsen les capacitats de reducció de soroll per IA a RapidRAW.",
+        "span": "Pel model d'IA base de RapidRes, l'ampliació 2x amb IA de RapidRAW, ajustat per RapidRAW al seu propi processament RAW (de Philip Hofmann, CC BY 4.0).",
         "rawler": "Per l'excel·lent component de Rust que proporciona la base per al processament de fitxers RAW en aquest projecte.",
         "sam2": "Per proporcionar el model de base utilitzat per a les capacitats de detecció de subjectes per IA.",
         "spektrafilm": "Per les LUTs d'emulació de pel·lícula basades en espectres, d'Andrea Volpato, que impulsen les emulacions integrades de RapidRAW. Amb llicència CC BY-SA 4.0.",

@@ -59,7 +59,8 @@ import {
 import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
 import debounce from 'lodash.debounce';
-import { ImageFile, Invokes } from '../../ui/AppProperties';
+import { ImageFile } from '../../../types/library';
+import { Invokes } from '../../../types/invokes';
 import { useProcessStore } from '../../../store/useProcessStore';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useEditorStore } from '../../../store/useEditorStore';
@@ -719,6 +720,11 @@ const PhotoClusterLayer: React.FC<PhotoClusterLayerProps> = ({
     onContextMenuPhotoRef.current = onContextMenuPhoto;
   }, [onContextMenuPhoto]);
 
+  const onMapContextMenuRef = useRef(onMapContextMenu);
+  useEffect(() => {
+    onMapContextMenuRef.current = onMapContextMenu;
+  }, [onMapContextMenu]);
+
   useEffect(() => {
     const container = map.getContainer();
     if (repositioningPath) {
@@ -814,7 +820,7 @@ const PhotoClusterLayer: React.FC<PhotoClusterLayerProps> = ({
       });
       const photoObj = useLibraryStore.getState().imageList.find((p) => p.path === nextPath);
       if (photoObj) {
-        useEditorStore.getState().setEditor({ selectedImage: photoObj });
+        useEditorStore.getState().setEditor({ selectedImage: photoObj as any });
       }
       onSelectPhotoRef.current(nextPath, new MouseEvent('click'));
       setTimeout(() => {
@@ -874,7 +880,7 @@ const PhotoClusterLayer: React.FC<PhotoClusterLayerProps> = ({
             });
             const photoObj = useLibraryStore.getState().imageList.find((p) => p.path === nextPath);
             if (photoObj) {
-              useEditorStore.getState().setEditor({ selectedImage: photoObj });
+              useEditorStore.getState().setEditor({ selectedImage: photoObj as any });
             }
             onSelectPhotoRef.current(nextPath, new MouseEvent('click'));
           }
@@ -1060,7 +1066,7 @@ const PhotoClusterLayer: React.FC<PhotoClusterLayerProps> = ({
           });
           const photoObj = useLibraryStore.getState().imageList.find((p) => p.path === photoToDrag);
           if (photoObj) {
-            useEditorStore.getState().setEditor({ selectedImage: photoObj });
+            useEditorStore.getState().setEditor({ selectedImage: photoObj as any });
           }
 
           if (onMovePhotoRef.current) {
@@ -1220,7 +1226,7 @@ const PhotoClusterLayer: React.FC<PhotoClusterLayerProps> = ({
 
       const photoObj = useLibraryStore.getState().imageList.find((p) => p.path === activePath);
       if (photoObj) {
-        useEditorStore.getState().setEditor({ selectedImage: photoObj });
+        useEditorStore.getState().setEditor({ selectedImage: photoObj as any });
       }
 
       onSelectPhotoRef.current(activePath, (e as any).originalEvent || new MouseEvent('click'));
@@ -1727,7 +1733,7 @@ const UnlocatedPhotoCard: React.FC<UnlocatedPhotoCardProps> = React.memo(
   },
 );
 
-const UnlocatedDockRow = React.memo((props: any) => {
+function UnlocatedDockRow(props: any) {
   const {
     index,
     style,
@@ -1771,7 +1777,7 @@ const UnlocatedDockRow = React.memo((props: any) => {
       />
     </div>
   );
-});
+}
 
 interface MapControlsProps {
   onFitBounds: () => void;
@@ -2313,12 +2319,12 @@ export default function MapView(props: MapViewProps) {
               const baseExif = nextExifByPath[img.path] || img.exif || localExifMap[img.path];
               if (lat !== null && lon !== null) {
                 const hasNative = baseExif?.HasNativeGPS === 'true';
-                const modUpdate = hasNative ? { IsGpsModified: 'true' } : {};
-                const updatedExif = { ...(baseExif || {}), ...updates, ...modUpdate };
+                const modUpdate: Record<string, string> = hasNative ? { IsGpsModified: 'true' } : {};
+                const updatedExif: Record<string, string> = { ...(baseExif || {}), ...updates, ...modUpdate };
                 nextExifByPath[img.path] = updatedExif;
                 return { ...img, is_edited: true, exif: updatedExif };
               } else if (baseExif) {
-                const cleaned = { ...baseExif };
+                const cleaned: Record<string, string> = { ...baseExif };
                 delete cleaned.GPSLatitude;
                 delete cleaned.GPSLatitudeRef;
                 delete cleaned.GPSLongitude;
@@ -2343,11 +2349,10 @@ export default function MapView(props: MapViewProps) {
               state.selectedImage.exif?.HasNativeGPS === 'true' ||
               localExifMap[state.selectedImage.path]?.HasNativeGPS === 'true' ||
               exifByPath?.[state.selectedImage.path]?.HasNativeGPS === 'true';
-            const modUpdate = hasNative ? { IsGpsModified: 'true' } : {};
+            const modUpdate: Record<string, string> = hasNative ? { IsGpsModified: 'true' } : {};
             return {
               selectedImage: {
                 ...state.selectedImage,
-                is_edited: true,
                 exif: { ...(state.selectedImage.exif || {}), ...updates, ...modUpdate },
               },
             };
@@ -2358,14 +2363,9 @@ export default function MapView(props: MapViewProps) {
             delete cleaned.GPSLongitude;
             delete cleaned.GPSLongitudeRef;
             delete cleaned.IsGpsModified;
-            const hadNative =
-              state.selectedImage.exif?.HasNativeGPS === 'true' ||
-              localExifMap[state.selectedImage.path]?.HasNativeGPS === 'true' ||
-              exifByPath?.[state.selectedImage.path]?.HasNativeGPS === 'true';
             return {
               selectedImage: {
                 ...state.selectedImage,
-                is_edited: hadNative ? true : state.selectedImage.is_edited,
                 exif: cleaned,
               },
             };
@@ -2676,7 +2676,7 @@ export default function MapView(props: MapViewProps) {
           });
           const photoObj = imageList.find((p) => p.path === pathsToGeotag[0]);
           if (photoObj) {
-            useEditorStore.getState().setEditor({ selectedImage: photoObj });
+            useEditorStore.getState().setEditor({ selectedImage: photoObj as any });
           }
         }
       } catch (err) {
@@ -2722,7 +2722,7 @@ export default function MapView(props: MapViewProps) {
 
       const photoObj = imageList.find((p) => p.path === path);
       if (photoObj) {
-        useEditorStore.getState().setEditor({ selectedImage: photoObj });
+        useEditorStore.getState().setEditor({ selectedImage: photoObj as any });
       }
 
       if (e && onImageClick) {
@@ -2813,7 +2813,7 @@ export default function MapView(props: MapViewProps) {
             });
             const photo = imageList.find((p) => p.path === allPaths[0]);
             if (photo) {
-              useEditorStore.getState().setEditor({ selectedImage: photo });
+              useEditorStore.getState().setEditor({ selectedImage: photo as any });
             }
           }
         }
@@ -2856,7 +2856,7 @@ export default function MapView(props: MapViewProps) {
           });
           const photo = imageList.find((p) => p.path === path);
           if (photo) {
-            useEditorStore.getState().setEditor({ selectedImage: photo });
+            useEditorStore.getState().setEditor({ selectedImage: photo as any });
           }
         }
       } else if (isCtrl) {
@@ -2883,7 +2883,7 @@ export default function MapView(props: MapViewProps) {
             selectionAnchorPath: path,
           });
           const photo = newActive ? imageList.find((p) => p.path === newActive) : null;
-          useEditorStore.getState().setEditor({ selectedImage: photo || null });
+          useEditorStore.getState().setEditor({ selectedImage: (photo as any) || null });
           return base;
         });
       } else {
@@ -2896,7 +2896,7 @@ export default function MapView(props: MapViewProps) {
         });
         const photo = imageList.find((p) => p.path === path);
         if (photo) {
-          useEditorStore.getState().setEditor({ selectedImage: photo });
+          useEditorStore.getState().setEditor({ selectedImage: photo as any });
         }
       }
     },
@@ -2918,7 +2918,7 @@ export default function MapView(props: MapViewProps) {
         libraryActivePath: photo.path,
         selectionAnchorPath: photo.path,
       });
-      useEditorStore.getState().setEditor({ selectedImage: photo });
+      useEditorStore.getState().setEditor({ selectedImage: photo as any });
 
       e.dataTransfer.setData('application/json', JSON.stringify({ paths: pathsToDrag }));
       e.dataTransfer.setData('text/plain', JSON.stringify({ paths: pathsToDrag }));
@@ -3241,7 +3241,7 @@ export default function MapView(props: MapViewProps) {
                 });
                 const photo = imageList.find((p) => p.path === paths[0]);
                 if (photo) {
-                  useEditorStore.getState().setEditor({ selectedImage: photo });
+                  useEditorStore.getState().setEditor({ selectedImage: photo as any });
                 }
               }
             } catch (err) {
@@ -3314,7 +3314,7 @@ export default function MapView(props: MapViewProps) {
                         });
                         const photo = imageList.find((p) => p.path === allPaths[0]);
                         if (photo) {
-                          useEditorStore.getState().setEditor({ selectedImage: photo });
+                          useEditorStore.getState().setEditor({ selectedImage: photo as any });
                         }
                       }
                     }}

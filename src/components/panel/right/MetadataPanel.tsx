@@ -4,8 +4,8 @@ import { Check, ChevronDown, ChevronRight, Plus, Star, Tag, X, User } from 'luci
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
-import { Invokes } from '../../ui/AppProperties';
-import FlagToggles from '../../ui/FlagToggles';
+import { Invokes } from '../../../types/invokes';
+import FlagToggles from '../library/FlagToggles';
 import { getImageFlag } from '../../../utils/imageFlags';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
 import Text from '../../ui/Text';
@@ -17,6 +17,7 @@ import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useProcessStore } from '../../../store/useProcessStore';
 import { useLibraryActions } from '../../../hooks/useLibraryActions';
 import { expandGroupedPaths } from '../../../utils/imageGrouping';
+import type { ParseKeys } from 'i18next';
 
 interface CameraSetting {
   format?(value: number): string | number;
@@ -551,7 +552,7 @@ export default function MetadataPanel() {
                           return (
                             <EditableMetadataItem
                               key={field.key}
-                              label={t(`editor.metadata.fields.${field.label}`)}
+                              label={t(`editor.metadata.fields.${field.label}` as ParseKeys)}
                               value={displayValue}
                               onSave={(newVal) => {
                                 handleUpdateExif(targetPaths, { [field.key]: newVal });

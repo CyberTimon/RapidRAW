@@ -150,6 +150,8 @@
       "aiDenoise": "Riduzione rumore IA",
       "classicDenoise": "Riduzione rumore classica",
       "aiDenoiseDetail": "Dettaglio",
+      "aiUpscale": "RapidRes 2x",
+      "aiUpscaleDetail": "Dettaglio",
       "blueYellow": "Blu/Giallo",
       "centre": "Centro",
       "chromaticAberration": "Aberrazione Cromatica",
@@ -165,6 +167,7 @@
       "negativeGreen": "Verde",
       "negativeRed": "Rosso",
       "noiseReduction": "Riduzione Rumore",
+      "superResolution": "RapidRes",
       "presence": "Presenza",
       "redCyan": "Rosso/Ciano",
       "sharpening": "Aumento Nitidezza",
@@ -324,6 +327,8 @@
       "redo": "Ripeti",
       "removeBlackWhite": "Rimuovi Bianco e Nero",
       "removeDenoise": "Rimuovi Riduzione Rumore",
+      "superResolution": "RapidRes (2x)",
+      "removeSuperResolution": "Rimuovi RapidRes",
       "removeNegativeConversion": "Rimuovi Conversione Negativo",
       "resetAdjustments": "Ripristina Regolazioni",
       "stitchPanorama": "Unisci Panorama",
@@ -399,6 +404,9 @@
       "denoise_many": "Riduci Rumore",
       "denoise_one": "Riduci Rumore",
       "denoise_other": "Riduci Rumore",
+      "superResolution_many": "RapidRes (2x)",
+      "superResolution_one": "RapidRes (2x)",
+      "superResolution_other": "RapidRes (2x)",
       "duplicateImage": "Duplica Immagine",
       "enable": "Attiva",
       "exportImage_many": "Esporta {{count}} Immagini",
@@ -527,6 +535,7 @@
       "createNewTitle": "Crea Nuova Modifica Generativa",
       "createNewTooltip": "Crea Nuova Modifica {{name}}",
       "denoising": "Riduzione rumore IA in corso...",
+      "upscaling": "RapidRes in corso...",
       "dropzoneText": "Rilascia qui per creare una nuova modifica",
       "editSettingsTitle": "Impostazioni Modifica",
       "editsTitle": "Modifiche",
@@ -737,11 +746,13 @@
       "cancel": "Annulla",
       "drawingActive": "Disegno attivo",
       "hint": "Disegna lungo i bordi della tua foto che dovrebbero essere verticali o orizzontali.",
+      "horizontalLine": "Guida orizzontale n. {{index}}",
       "linesStatus": "Linee guida attive",
       "toast": {
         "angleRejected": "L'angolo della linea è troppo lontano dall'orizzontale o verticale",
         "maxLines": "Sono consentite massimo 2 linee verticali e 2 orizzontali"
-      }
+      },
+      "verticalLine": "Guida verticale n. {{index}}"
     },
     "layout": {
       "split": "Dividi"
@@ -1186,6 +1197,7 @@
       "failed": "Non riusciti ({{failedCount}})",
       "kinds": {
         "denoise": "Riduzione rumore IA",
+        "upscale": "Ingrandimento RapidRes",
         "depthMap": "Analisi della profondità",
         "depthMask": "Generazione maschera profondità",
         "faceMask": "Generazione maschera viso",
@@ -1627,6 +1639,7 @@
       "descReplace": "Sovrascrive tutte le impostazioni selezionate, ripristinando il resto ai valori predefiniti.",
       "groups": {
         "aiDenoise": "Riduzione rumore IA",
+        "aiUpscale": "RapidRes",
         "blackWhite": "Bianco e nero",
         "chromaticAberration": "Aberrazione Cromatica",
         "clarityDehaze": "Chiarezza e Rimozione Foschia",
@@ -1923,6 +1936,7 @@
       "limit": "Limite",
       "modals": {
         "aiDenoiseMessage": "Vuoi davvero svuotare la cache della riduzione rumore IA?\n\nLe immagini con la riduzione rumore IA attiva dovranno essere elaborate di nuovo, operazione che può richiedere diversi minuti per immagine.",
+        "aiUpscaleMessage": "Vuoi davvero svuotare la cache di RapidRes?\n\nLe immagini con RapidRes attivo dovranno essere ingrandite di nuovo.",
         "aiMapsMessage": "Vuoi davvero svuotare le mappe di profondità e normali?\n\nLe immagini che usano sfocatura obiettivo, nebbia o reilluminazione rigenereranno le mappe alla prossima apertura.",
         "aiMessage": "Sei sicuro di voler rimuovere tutti i tag generati dall'AI da tutte le immagini in tutte le cartelle principali attive?\n\nQuesto non influirà sui tag aggiunti dall'utente. Questa azione non può essere annullata.",
         "allMessage": "Sei sicuro di voler rimuovere tutti i tag generati dall'AI e aggiunti dall'utente da tutte le immagini in tutte le cartelle principali attive?\n\nQuesta azione non può essere annullata.",
@@ -1950,6 +1964,7 @@
       "show": "Mostra",
       "statuses": {
         "aiDenoiseSuccess": "Cache della riduzione rumore IA svuotata correttamente.",
+        "aiUpscaleSuccess": "Cache di RapidRes svuotata correttamente.",
         "aiSuccess": "{{count}} file aggiornati. Tag AI rimossi.",
         "aiSuccess_many": "{{count}} file aggiornati. Tag AI rimossi.",
         "aiSuccess_one": "{{count}} file aggiornato. Tag AI rimossi.",
@@ -1969,6 +1984,8 @@
       "storage": {
         "aiDenoise": "Riduzione rumore IA",
         "aiDenoiseDesc": "Risultati della riduzione rumore in cache.",
+        "aiUpscale": "RapidRes",
+        "aiUpscaleDesc": "Ingrandimenti 2x di RapidRes in cache.",
         "aiMaps": "Mappe di profondità e normali",
         "aiMapsDesc": "Usate da sfocatura obiettivo, nebbia e reilluminazione.",
         "immich": "Immich",
@@ -2340,6 +2357,7 @@
         "mediapipe": "Per i rapidi modelli di punti del viso e segmentazione che alimentano le maschere viso IA.",
         "negpy": "Per l'ispirazione dietro alla logica di conversione dei negativi.",
         "nind": "Per aver fornito i modelli AI che alimentano le capacità di riduzione del rumore AI in RapidRAW.",
+        "span": "Per il modello IA di base di RapidRes, l'ingrandimento 2x con IA di RapidRAW, perfezionato da RapidRAW sulla propria elaborazione RAW (di Philip Hofmann, CC BY 4.0).",
         "rawler": "Per l'eccellente crate Rust che fornisce le basi per l'elaborazione dei file RAW in questo progetto.",
         "sam2": "Per aver fornito il modello fondamentale usato per le funzionalità di rilevamento del soggetto tramite AI.",
         "spektrafilm": "Per le LUT di emulazione pellicola su base spettrale di Andrea Volpato, che alimentano le emulazioni integrate di RapidRAW. Concesse in licenza CC BY-SA 4.0.",

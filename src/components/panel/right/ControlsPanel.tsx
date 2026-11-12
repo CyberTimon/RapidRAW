@@ -20,7 +20,7 @@ import {
   toggleToolActive,
 } from '../../../utils/adjustments';
 import { useContextMenu } from '../../../context/ContextMenuContext';
-import { OPTION_SEPARATOR, Orientation } from '../../ui/AppProperties';
+import { OPTION_SEPARATOR, Orientation } from '../../../types/ui';
 import Text from '../../ui/Text';
 import { TextVariants, TextColors, TextWeights } from '../../../types/typography';
 import { useShallow } from 'zustand/react/shallow';
@@ -29,6 +29,7 @@ import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useUIStore } from '../../../store/useUIStore';
 import { buildAutoAdjustModeOptions, useEditorActions } from '../../../hooks/useEditorActions';
 import { useWaveformControls } from '../../../hooks/useWaveformControls';
+import type { ParseKeys } from 'i18next';
 
 function AdjustmentSectionContent(props: {
   sectionName: string;
@@ -214,7 +215,7 @@ export default function Controls() {
     };
 
     const isPasteAllowed = copiedSectionAdjustments && copiedSectionAdjustments.section === sectionName;
-    const translatedSection = t(`editor.adjustments.sections.${sectionName}`);
+    const translatedSection = t(`editor.adjustments.sections.${sectionName}` as ParseKeys);
 
     const pasteLabel = copiedSectionAdjustments
       ? t('editor.adjustments.actions.pasteLabel', { section: translatedSection })
@@ -303,7 +304,7 @@ export default function Controls() {
       <div className="grow overflow-y-scroll p-3 flex flex-col gap-2">
         {selectedImage ? (
           visibleSections.map((sectionName: string) => {
-            const title = t(`editor.adjustments.sections.${sectionName}`);
+            const title = t(`editor.adjustments.sections.${sectionName}` as ParseKeys);
 
             return (
               <div className="shrink-0 group" key={sectionName}>

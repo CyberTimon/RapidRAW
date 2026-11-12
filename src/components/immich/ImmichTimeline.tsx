@@ -2,9 +2,9 @@ import { useMemo, useState } from 'react';
 import { CalendarDays, ChevronDown, ChevronRight, History } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
-import { filterToAlbumId, monthFilter } from './immichApi';
+import { filterToAlbumId, monthFilter } from '../../utils/immichApi';
 import ImmichRow from './ImmichRow';
-import { useImmichStore } from './useImmichStore';
+import { useImmichStore } from '../../store/useImmichStore';
 
 export default function ImmichTimeline({
   selectedAlbumId,

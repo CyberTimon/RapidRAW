@@ -2,8 +2,10 @@ import { useEffect, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { Channel, convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { toast } from 'react-toastify';
-import { Status } from '../components/ui/ExportImportProperties';
-import { Invokes, Progress, WaveformData } from '../components/ui/AppProperties';
+import { Status } from '../types/export';
+import { Invokes } from '../types/invokes';
+import { Progress } from '../types/library';
+import { WaveformData } from '../types/editor';
 import { MaskContainer } from '../utils/adjustments';
 import { AiJobsStatus, JobKind, JobStatus, useProcessStore } from '../store/useProcessStore';
 import { useEditorStore } from '../store/useEditorStore';
@@ -349,6 +351,37 @@ export function useTauriListeners({
             aiDenoiseProgress,
             ...(state.selectedImage?.path === path
               ? { adjustments: { ...state.adjustments, aiDenoiseEnabled: false } }
+              : {}),
+          };
+        });
+      }),
+      listen<{ path: string; progress: number }>('ai-upscale-progress', (event) => {
+        if (!isEffectActive) return;
+        const { path, progress } = event.payload;
+        useEditorStore
+          .getState()
+          .setEditor((state) => ({ aiUpscaleProgress: { ...state.aiUpscaleProgress, [path]: progress } }));
+      }),
+      listen<string>('ai-upscale-ready', (event) => {
+        if (!isEffectActive) return;
+        useEditorStore.getState().setEditor((state) => {
+          const { [event.payload]: _, ...aiUpscaleProgress } = state.aiUpscaleProgress;
+          return {
+            aiUpscaleProgress,
+            ...(state.selectedImage?.path === event.payload ? { adjustments: { ...state.adjustments } } : {}),
+          };
+        });
+      }),
+      listen<{ path: string; error: string }>('ai-upscale-error', (event) => {
+        if (!isEffectActive) return;
+        const { path, error } = event.payload;
+        toast.error(`RapidRes failed: ${error}`);
+        useEditorStore.getState().setEditor((state) => {
+          const { [path]: _, ...aiUpscaleProgress } = state.aiUpscaleProgress;
+          return {
+            aiUpscaleProgress,
+            ...(state.selectedImage?.path === path
+              ? { adjustments: { ...state.adjustments, aiUpscaleEnabled: false } }
               : {}),
           };
         });

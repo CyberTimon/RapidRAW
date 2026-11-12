@@ -150,6 +150,8 @@
       "aiDenoise": "AI odšumění",
       "classicDenoise": "Klasické odšumění",
       "aiDenoiseDetail": "Detail",
+      "aiUpscale": "RapidRes 2x",
+      "aiUpscaleDetail": "Detail",
       "blueYellow": "Modrá/Žlutá",
       "centre": "Střed",
       "chromaticAberration": "Chromatická aberace",
@@ -165,6 +167,7 @@
       "negativeGreen": "Zelená",
       "negativeRed": "Červená",
       "noiseReduction": "Redukce šumu",
+      "superResolution": "RapidRes",
       "presence": "Prezence",
       "redCyan": "Červená/Azurová",
       "sharpening": "Doostření",
@@ -325,6 +328,8 @@
       "redo": "Znovu",
       "removeBlackWhite": "Odebrat černobílou",
       "removeDenoise": "Odebrat odšumění",
+      "superResolution": "RapidRes (2x)",
+      "removeSuperResolution": "Odebrat RapidRes",
       "removeNegativeConversion": "Odebrat převod negativu",
       "resetAdjustments": "Obnovit nastavení",
       "stitchPanorama": "Složit panorama",
@@ -411,6 +416,10 @@
       "denoise_many": "Odšumit",
       "denoise_one": "Odšumit",
       "denoise_other": "Odšumit",
+      "superResolution_few": "RapidRes (2x)",
+      "superResolution_many": "RapidRes (2x)",
+      "superResolution_one": "RapidRes (2x)",
+      "superResolution_other": "RapidRes (2x)",
       "duplicateImage": "Duplikovat snímek",
       "enable": "Zapnout",
       "exportImage_few": "Exportovat {{count}} snímky",
@@ -544,6 +553,7 @@
       "createNewTitle": "Vytvořit novou generativní úpravu",
       "createNewTooltip": "Vytvořit novou {{name}} úpravu",
       "denoising": "Probíhá AI odšumění...",
+      "upscaling": "Probíhá RapidRes...",
       "dropzoneText": "Přetažením sem vytvoříte novou úpravu",
       "editSettingsTitle": "Upravit nastavení",
       "editsTitle": "Úpravy",
@@ -760,11 +770,13 @@
       "cancel": "Zrušit",
       "drawingActive": "Kreslení aktivní",
       "hint": "Kreslete podél hran na fotografii, které mají být svislé nebo vodorovné.",
+      "horizontalLine": "Vodorovná vodicí čára č. {{index}}",
       "linesStatus": "Aktivní vodicí čáry",
       "toast": {
         "angleRejected": "Úhel čáry je příliš daleko od vodorovného nebo svislého směru",
         "maxLines": "Povoleny jsou maximálně 2 svislé a 2 vodorovné čáry"
-      }
+      },
+      "verticalLine": "Svislá vodicí čára č. {{index}}"
     },
     "layout": {
       "split": "Rozdělit"
@@ -1212,6 +1224,7 @@
       "failed": "Selhalo ({{failedCount}})",
       "kinds": {
         "denoise": "AI odšumování",
+        "upscale": "Zvětšování RapidRes",
         "depthMap": "Analýza hloubky",
         "depthMask": "Vytváření hloubkové masky",
         "faceMask": "Generování masky obličeje",
@@ -1616,6 +1629,7 @@
       "descReplace": "Přepíše všechna vybraná nastavení, zbytek obnoví na výchozí hodnoty.",
       "groups": {
         "aiDenoise": "AI odšumění",
+        "aiUpscale": "RapidRes",
         "blackWhite": "Černobílá",
         "chromaticAberration": "Chromatická aberace",
         "clarityDehaze": "Zřetelnost a odmlžení",
@@ -1918,6 +1932,7 @@
       "limit": "Limit",
       "modals": {
         "aiDenoiseMessage": "Opravdu chcete vymazat mezipaměť AI odšumění?\n\nSnímky se zapnutým AI odšuměním bude nutné znovu odšumět, což může trvat několik minut na snímek.",
+        "aiUpscaleMessage": "Opravdu chcete vymazat mezipaměť RapidRes?\n\nSnímky se zapnutým RapidRes bude nutné znovu zvětšit.",
         "aiMapsMessage": "Opravdu chcete vymazat hloubkové a normálové mapy?\n\nObrázky s rozostřením objektivu, mlhou nebo přesvícením si mapy při dalším otevření vytvoří znovu.",
         "aiMessage": "Opravdu chcete odstranit všechny značky generované AI ze všech snímků ve všech aktivních kořenových složkách?\n\nUživatelem přidané značky tím nebudou dotčeny. Tuto akci nelze vrátit.",
         "allMessage": "Opravdu chcete odstranit všechny značky generované umělou inteligencí i přidané uživatelem ze všech snímků ve všech aktivních kořenových složkách?\n\nTuto akci nelze vrátit.",
@@ -1945,6 +1960,7 @@
       "show": "Zobrazit",
       "statuses": {
         "aiDenoiseSuccess": "Mezipaměť AI odšumění byla úspěšně vymazána.",
+        "aiUpscaleSuccess": "Mezipaměť RapidRes byla úspěšně vymazána.",
         "aiSuccess": "{{count}} souborů aktualizováno. Značky AI odstraněny.",
         "aiSuccess_few": "{{count}} soubory aktualizovány. Značky AI odstraněny.",
         "aiSuccess_many": "{{count}} souboru aktualizováno. Značky AI odstraněny.",
@@ -1967,6 +1983,8 @@
       "storage": {
         "aiDenoise": "AI odšumění",
         "aiDenoiseDesc": "Uložené výsledky odšumění.",
+        "aiUpscale": "RapidRes",
+        "aiUpscaleDesc": "Uložená 2x zvětšení RapidRes.",
         "aiMaps": "Hloubkové a normálové mapy",
         "aiMapsDesc": "Používá je rozostření objektivu, mlha a přesvícení.",
         "immich": "Immich",
@@ -2338,6 +2356,7 @@
         "mediapipe": "Za rychlé modely obličejových bodů a segmentace, které pohánějí AI masky obličeje.",
         "negpy": "Pro inspiraci negativní konverzní logiky.",
         "nind": "Za poskytování modelů AI, které pohánějí funkce redukce šumu AI v RapidRAW.",
+        "span": "Za základní model AI pro RapidRes, 2x AI zvětšování v RapidRAW, který RapidRAW doladil na vlastním zpracování RAW (autor Philip Hofmann, CC BY 4.0).",
         "rawler": "Za vynikající přepravku Rust, která poskytuje základ pro zpracování souborů RAW v tomto projektu.",
         "sam2": "Za poskytnutí základního modelu používaného pro schopnosti detekce předmětů AI.",
         "spektrafilm": "Pro spektrálně založené filmové emulační LUT od Andrey Volpata, použité pro vestavěné filmové emulace v RapidRAW. Licence CC BY-SA 4.0.",

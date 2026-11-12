@@ -150,6 +150,8 @@
       "aiDenoise": "Odszumianie AI",
       "classicDenoise": "Klasyczne odszumianie",
       "aiDenoiseDetail": "Szczegóły",
+      "aiUpscale": "RapidRes 2x",
+      "aiUpscaleDetail": "Szczegóły",
       "blueYellow": "Niebieski/Żółty",
       "centre": "Środek",
       "chromaticAberration": "Aberracja chromatyczna",
@@ -165,6 +167,7 @@
       "negativeGreen": "Zielony",
       "negativeRed": "Czerwony",
       "noiseReduction": "Redukcja szumu",
+      "superResolution": "RapidRes",
       "presence": "Prezencja",
       "redCyan": "Czerwony/Cyjan",
       "sharpening": "Wyostrzanie",
@@ -325,6 +328,8 @@
       "redo": "Ponów",
       "removeBlackWhite": "Usuń konwersję czarno-białą",
       "removeDenoise": "Usuń odszumianie",
+      "superResolution": "RapidRes (2x)",
+      "removeSuperResolution": "Usuń RapidRes",
       "removeNegativeConversion": "Usuń konwersję negatywu",
       "resetAdjustments": "Resetuj ustawienia",
       "stitchPanorama": "Złóż panoramę",
@@ -411,6 +416,10 @@
       "denoise_many": "Odszumianie",
       "denoise_one": "Odszumianie",
       "denoise_other": "Odszumianie",
+      "superResolution_few": "RapidRes (2x)",
+      "superResolution_many": "RapidRes (2x)",
+      "superResolution_one": "RapidRes (2x)",
+      "superResolution_other": "RapidRes (2x)",
       "duplicateImage": "Duplikuj obraz",
       "enable": "Włącz",
       "exportImage_few": "Eksportuj {{count}} obrazy",
@@ -544,6 +553,7 @@
       "createNewTitle": "Utwórz nową edycję generatywną",
       "createNewTooltip": "Utwórz nową edycję {{name}}",
       "denoising": "Trwa odszumianie AI...",
+      "upscaling": "Trwa RapidRes...",
       "dropzoneText": "Upuść tutaj, aby utworzyć nową edycję",
       "editSettingsTitle": "Ustawienia edycji",
       "editsTitle": "Edycje",
@@ -760,11 +770,13 @@
       "cancel": "Anuluj",
       "drawingActive": "Rysowanie aktywne",
       "hint": "Rysuj wzdłuż krawędzi na zdjęciu, które powinny być pionowe lub poziome.",
+      "horizontalLine": "Pozioma linia pomocnicza {{index}}",
       "linesStatus": "Aktywne linie pomocnicze",
       "toast": {
         "angleRejected": "Kąt linii jest zbyt odległy od poziomu lub pionu",
         "maxLines": "Dozwolone są maksymalnie 2 linie pionowe i 2 poziome"
-      }
+      },
+      "verticalLine": "Pionowa linia pomocnicza {{index}}"
     },
     "layout": {
       "split": "Podziel"
@@ -1212,6 +1224,7 @@
       "failed": "Nieudane ({{failedCount}})",
       "kinds": {
         "denoise": "Odszumianie AI",
+        "upscale": "Powiększanie RapidRes",
         "depthMap": "Analiza głębi",
         "depthMask": "Generowanie maski głębi",
         "faceMask": "Generowanie maski twarzy",
@@ -1616,6 +1629,7 @@
       "descReplace": "Nadpisuje wszystkie wybrane ustawienia, przywracając resztę do wartości domyślnych.",
       "groups": {
         "aiDenoise": "Odszumianie AI",
+        "aiUpscale": "RapidRes",
         "blackWhite": "Czarno-białe",
         "chromaticAberration": "Aberracja chromatyczna",
         "clarityDehaze": "Przejrzystość i Usuwanie mgły",
@@ -1918,6 +1932,7 @@
       "limit": "Limit",
       "modals": {
         "aiDenoiseMessage": "Czy na pewno chcesz wyczyścić pamięć podręczną odszumiania AI?\n\nZdjęcia z włączonym odszumianiem AI trzeba będzie odszumić ponownie, co może zająć kilka minut na zdjęcie.",
+        "aiUpscaleMessage": "Czy na pewno chcesz wyczyścić pamięć podręczną RapidRes?\n\nZdjęcia z włączonym RapidRes trzeba będzie powiększyć ponownie.",
         "aiMapsMessage": "Czy na pewno chcesz wyczyścić mapy głębi i normalnych?\n\nZdjęcia używające rozmycia obiektywu, mgły lub ponownego oświetlenia wygenerują mapy ponownie przy następnym otwarciu.",
         "aiMessage": "Czy na pewno chcesz usunąć wszystkie tagi generowane przez AI z wszystkich obrazów we wszystkich aktywnych folderach głównych?\n\nTo nie wpłynie na tagi dodane przez użytkownika. Tej akcji nie można cofnąć.",
         "allMessage": "Czy na pewno chcesz usunąć wszystkie tagi generowane przez AI i dodane przez użytkownika z wszystkich obrazów we wszystkich aktywnych folderach głównych?\n\nTej akcji nie można cofnąć.",
@@ -1945,6 +1960,7 @@
       "show": "Pokaż",
       "statuses": {
         "aiDenoiseSuccess": "Pamięć podręczna odszumiania AI została wyczyszczona.",
+        "aiUpscaleSuccess": "Pamięć podręczna RapidRes została wyczyszczona.",
         "aiSuccess": "Zaktualizowano {{count}} plików. Tagi AI usunięte.",
         "aiSuccess_few": "Zaktualizowano {{count}} pliki. Tagi AI usunięte.",
         "aiSuccess_many": "Zaktualizowano {{count}} plików. Tagi AI usunięte.",
@@ -1967,6 +1983,8 @@
       "storage": {
         "aiDenoise": "Odszumianie AI",
         "aiDenoiseDesc": "Zapisane wyniki odszumiania.",
+        "aiUpscale": "RapidRes",
+        "aiUpscaleDesc": "Zapisane powiększenia 2x RapidRes.",
         "aiMaps": "Mapy głębi i normalnych",
         "aiMapsDesc": "Używane przez rozmycie obiektywu, mgłę i ponowne oświetlenie.",
         "immich": "Immich",
@@ -2338,6 +2356,7 @@
         "mediapipe": "Za szybkie modele punktów charakterystycznych twarzy i segmentacji, które napędzają maski twarzy AI.",
         "negpy": "Za inspirację stojącą za rozwiązaniem do inwersji negatywów.",
         "nind": "Za dostarczenie modeli AI, które stanowią silnik odszumiający RapidRAW.",
+        "span": "Za bazowy model AI w RapidRes, powiększaniu 2x AI w RapidRAW, dostrojony przez RapidRAW do własnego przetwarzania RAW (autor Philip Hofmann, CC BY 4.0).",
         "rawler": "Za świetną bibliotekę w Rust, dostarczającą fundament dla przetwarzania plików RAW w tym projekcie.",
         "sam2": "Za dostarczenie bazowego modelu do wykrywania i wycinania obiektów za pomocą AI.",
         "spektrafilm": "Za oparte na danych spektralnych LUT-y emulacji filmu autorstwa Andrei Volpato, napędzające wbudowane emulacje filmowe RapidRAW. Licencja CC BY-SA 4.0.",

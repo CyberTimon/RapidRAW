@@ -6,14 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { Row } from './LibraryItems';
 import { useShallow } from 'zustand/react/shallow';
 import { useLibraryStore } from '../../../store/useLibraryStore';
-import {
-  LibraryViewMode,
-  SortDirection,
-  LibraryDisplayMode,
-  ThumbnailAspectRatio,
-  ExifOverlay,
-  ImageFile,
-} from '../../ui/AppProperties';
+import { LibraryViewMode, LibraryDisplayMode, ThumbnailAspectRatio, ExifOverlay } from '../../../types/settings';
+import { SortDirection, ImageFile } from '../../../types/library';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights, TEXT_COLOR_KEYS } from '../../../types/typography';
 import { useProcessStore } from '../../../store/useProcessStore';
@@ -401,7 +395,8 @@ export default function LibraryGrid(props: any) {
   const handleToggleRecursiveFolder = useCallback((path: string) => {
     setCollapsedRecursiveFolders((prev) => {
       const next = new Set(prev);
-      next.has(path) ? next.delete(path) : next.add(path);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
       return next;
     });
   }, []);

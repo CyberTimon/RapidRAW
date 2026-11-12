@@ -1,4 +1,4 @@
-import { ImageFile } from '../components/ui/AppProperties';
+import { ImageFile } from '../types/library';
 
 export interface GeoLocation {
   lat: number;
@@ -40,10 +40,10 @@ export function parseGpsCoordinate(coordStr: string): number | null {
 }
 
 export function getImageGps(
-  image: ImageFile,
+  image?: ImageFile | null,
   overrideExif?: Record<string, string>,
 ): GeoLocation | null {
-  const exif = overrideExif !== undefined ? overrideExif : image.exif;
+  const exif = overrideExif !== undefined ? overrideExif : image?.exif;
   if (!exif) return null;
 
   const latStr = exif.GPSLatitude;
@@ -77,15 +77,15 @@ export function getImageGps(
 }
 
 export function getImageTimestamp(
-  image: ImageFile,
+  image?: ImageFile | null,
   overrideExif?: Record<string, string>,
 ): string | null {
-  const exif = overrideExif !== undefined ? overrideExif : image.exif;
+  const exif = overrideExif !== undefined ? overrideExif : image?.exif;
   if (exif) {
     const dt = exif.DateTimeOriginal || exif.CreateDate || exif.ModifyDate || exif.DateTime;
     if (dt) return dt;
   }
-  if (image.modified) {
+  if (image?.modified) {
     try {
       return new Date(image.modified * 1000).toLocaleString();
     } catch {

@@ -1,21 +1,23 @@
 import { useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
-import { homeDir } from '@tauri-apps/api/path';
+import { dirname, homeDir } from '@tauri-apps/api/path';
 import { toast } from 'react-toastify';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { canvasToolState, useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
 import { useProcessStore } from '../store/useProcessStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { Invokes, LibraryViewMode, ImageFile } from '../components/ui/AppProperties';
+import { Invokes } from '../types/invokes';
+import { LibraryViewMode } from '../types/settings';
+import { ImageFile } from '../types/library';
 import { INITIAL_ADJUSTMENTS, normalizeLoadedAdjustments } from '../utils/adjustments';
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { decodeImage } from '../utils/decodeImage';
 import { debouncedSave, debouncedSetHistory } from './useEditorActions';
 import { clearLibrarySelection } from './useLibraryActions';
 import { computeSortedLibrary } from './useSortedLibrary';
-import { getImmichAlbumImages, isImmichAlbumId } from '../components/immich/immichApi';
+import { getImmichAlbumImages, isImmichAlbumId } from '../utils/immichApi';
 
 export interface AppNavigationProps {
   clearThumbnailQueue: () => void;
@@ -238,7 +240,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
         compactEditorPanelHeightOverride: null,
       });
 
-      if (isFrontendCached) {
+      if (isFrontendCached && cached) {
         setEditor({
           selectedImage: {
             ...cached.selectedImage,
@@ -368,7 +370,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
         globalImageCache.clear();
         setUI({ activeView: 'library' });
       } else {
-        setLibrary({ isViewLoading: true });
+        setLibrary({ isViewLoading: true, activeAlbumId: null });
       }
 
       try {
@@ -550,6 +552,15 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
     }
   }, [handleSelectSubfolder, handleSelectAlbum]);
 
+  const handleOpenContainingFolder = useCallback(
+    async (filePath: string) => {
+      const folderPath = await dirname(filePath);
+      if (!folderPath || useLibraryStore.getState().currentFolderPath === folderPath) return;
+      await handleSelectSubfolder(folderPath, false, undefined, true, true);
+    },
+    [handleSelectSubfolder],
+  );
+
   const handleOpenFolder = useCallback(async () => {
     const { osPlatform, appSettings, handleSettingsChange } = useSettingsStore.getState();
     const { rootPaths, folderTrees, setLibrary } = useLibraryStore.getState();
@@ -710,6 +721,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
     handleSelectSubfolder,
     handleSelectAlbum,
     handleOpenFolder,
+    handleOpenContainingFolder,
     handleNavBack,
     handleNavForward,
     handleContinueSession,

@@ -9,7 +9,7 @@ import {
   SwitcherPlacement,
   useUIStore,
 } from '../../store/useUIStore';
-import { Panel, PanelRegion } from '../ui/AppProperties';
+import { Panel, PanelRegion } from '../../types/ui';
 import PanelSwitcher, { MobilePanelSwitcher } from './PanelSwitcher';
 
 const COLLAPSE_THRESHOLD = 200;
@@ -90,7 +90,7 @@ function RegionDroppableContainer({
       const x = activeRect.left + activeRect.width / 2 - rect.left;
       const y = activeRect.top + activeRect.height / 2 - rect.top;
 
-      let intendedPlacement: SwitcherPlacement = 'bottom';
+      let intendedPlacement: SwitcherPlacement;
       if (side === 'left') {
         const isTopLeft = y < (-rect.height / rect.width) * x + rect.height;
         intendedPlacement = isTopLeft ? 'left' : 'bottom';
@@ -252,7 +252,7 @@ function SplitOverlayDropzone({
       const x = activeRect.left + activeRect.width / 2 - rect.left;
       const y = activeRect.top + activeRect.height / 2 - rect.top;
 
-      let intendedPlacement: SwitcherPlacement = 'bottom';
+      let intendedPlacement: SwitcherPlacement;
       if (side === 'left') {
         const isTopLeft = y < (-rect.height / rect.width) * x + rect.height;
         intendedPlacement = isTopLeft ? 'left' : 'bottom';

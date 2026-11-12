@@ -43,9 +43,10 @@ import Slider from '../../ui/Slider';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { Adjustments, INITIAL_ADJUSTMENTS, ADJUSTMENT_GROUPS, MaskContainer } from '../../../utils/adjustments';
 import { hasAiSubMasks, mergeAiMaskResults, stripAiMaskResults } from '../../../utils/maskUtils';
-import { Invokes, OPTION_SEPARATOR, Panel, Preset, SelectedImage } from '../../ui/AppProperties';
+import { Invokes } from '../../../types/invokes';
+import { OPTION_SEPARATOR, type Option } from '../../../types/ui';
+import { Preset } from '../../../types/editor';
 import { useEditorStore } from '../../../store/useEditorStore';
-import { useUIStore } from '../../../store/useUIStore';
 import { debouncedSave, useEditorActions } from '../../../hooks/useEditorActions';
 
 interface DroppableFolderItemProps {
@@ -57,7 +58,6 @@ interface DroppableFolderItemProps {
 }
 
 interface DraggablePresetItemProps {
-  isGeneratingPreviews: boolean;
   onApply(preset: any): void;
   onContextMenu(event: any, preset: any): void;
   preset: any;
@@ -83,7 +83,6 @@ interface ModalState {
 }
 
 interface PresetItemDisplayProps {
-  isGeneratingPreviews: boolean;
   preset: Preset;
   previewUrl: string;
   isActive?: boolean;
@@ -262,7 +261,6 @@ const mixAdjustments = (presetObj: any, intensity: number, initialObj: any = INI
 function PresetItemDisplay({
   preset,
   previewUrl,
-  isGeneratingPreviews,
   isActive,
   intensity,
   onIntensityChange,
@@ -381,7 +379,6 @@ function DraggablePresetItem({
   onApply,
   onContextMenu,
   previewUrl,
-  isGeneratingPreviews,
   isActive,
   intensity,
   onIntensityChange,
@@ -435,7 +432,6 @@ function DraggablePresetItem({
         <PresetItemDisplay
           preset={preset}
           previewUrl={previewUrl}
-          isGeneratingPreviews={isGeneratingPreviews}
           isActive={isActive}
           intensity={intensity}
           onIntensityChange={onIntensityChange}
@@ -573,7 +569,6 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   } = usePresets(adjustments);
   const { showContextMenu } = useContextMenu();
   const [previews, setPreviews] = useState<Record<string, string | null>>({});
-  const [isGeneratingPreviews, setIsGeneratingPreviews] = useState(false);
   const [configureModalState, setConfigureModalState] = useState<ModalState>({ isOpen: false, preset: null });
   const [isAddFolderModalOpen, setIsAddFolderModalOpen] = useState(false);
   const [renameFolderState, setRenameFolderState] = useState<FolderState>({ isOpen: false, folder: null });
@@ -687,7 +682,6 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     }
 
     isProcessingQueue.current = true;
-    setIsGeneratingPreviews(true);
 
     while (previewQueue.current.length > 0) {
       const itemPath = currentImagePathRef.current;
@@ -741,7 +735,6 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     }
 
     isProcessingQueue.current = false;
-    setIsGeneratingPreviews(false);
   }, []);
 
   const enqueuePreviews = useCallback(
@@ -778,7 +771,6 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
         return;
       }
 
-      setIsGeneratingPreviews(true);
       const pathAtStart = currentImagePathRef.current;
 
       try {
@@ -806,10 +798,6 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
           if (pathAtStart === currentImagePathRef.current) {
             setPreviews((prev: Record<string, string | null>) => ({ ...prev, [preset.id]: null }));
           }
-        }
-      } finally {
-        if (pathAtStart === currentImagePathRef.current) {
-          setIsGeneratingPreviews(false);
         }
       }
     },
@@ -1167,7 +1155,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     const isFolder = !!item.folder;
     const data = isFolder ? item.folder : item.preset;
 
-    let options = [];
+    let options: Option[];
     if (isFolder) {
       options = [
         {
@@ -1365,7 +1353,6 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
                                 layout="position"
                               >
                                 <DraggablePresetItem
-                                  isGeneratingPreviews={isGeneratingPreviews}
                                   onApply={handleApplyPreset}
                                   onContextMenu={(e: any) => handleContextMenu(e, { preset })}
                                   preset={preset}
@@ -1396,7 +1383,6 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
                       variants={itemVariants}
                     >
                       <DraggablePresetItem
-                        isGeneratingPreviews={isGeneratingPreviews}
                         onApply={handleApplyPreset}
                         onContextMenu={(e: any) => handleContextMenu(e, item)}
                         preset={item.preset}
@@ -1433,11 +1419,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
       <DragOverlay>
         {activeItem ? (
           activeItem.type === 'preset' ? (
-            <PresetItemDisplay
-              isGeneratingPreviews={false}
-              preset={activeItem.data}
-              previewUrl={previews[activeItem.data.id] || ''}
-            />
+            <PresetItemDisplay preset={activeItem.data} previewUrl={previews[activeItem.data.id] || ''} />
           ) : (
             <FolderItemDisplay folder={activeItem.data} />
           )

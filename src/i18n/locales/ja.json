@@ -150,6 +150,8 @@
       "aiDenoise": "AIノイズ除去",
       "classicDenoise": "クラシックノイズ除去",
       "aiDenoiseDetail": "ディテール",
+      "aiUpscale": "RapidRes 2x",
+      "aiUpscaleDetail": "ディテール",
       "blueYellow": "ブルー/イエロー",
       "centre": "中央",
       "chromaticAberration": "色収差",
@@ -165,6 +167,7 @@
       "negativeGreen": "グリーン",
       "negativeRed": "レッド",
       "noiseReduction": "ノイズ低減",
+      "superResolution": "RapidRes",
       "presence": "外観",
       "redCyan": "レッド/シアン",
       "sharpening": "シャープ",
@@ -323,6 +326,8 @@
       "redo": "やり直し",
       "removeBlackWhite": "白黒を解除",
       "removeDenoise": "ノイズ低減を解除",
+      "superResolution": "RapidRes (2x)",
+      "removeSuperResolution": "RapidResを解除",
       "removeNegativeConversion": "ネガ反転を解除",
       "resetAdjustments": "補正設定をリセット",
       "stitchPanorama": "パノラマ写真を作成",
@@ -387,6 +392,8 @@
       "deleteSelected": "選択したもののみ削除",
       "denoise_one": "ノイズ低減",
       "denoise_other": "ノイズ低減",
+      "superResolution_one": "RapidRes (2x)",
+      "superResolution_other": "RapidRes (2x)",
       "duplicateImage": "画像を複製",
       "enable": "有効にする",
       "exportImage_one": "画像を書き出し",
@@ -510,6 +517,7 @@
       "createNewTitle": "新しい生成編集を作成",
       "createNewTooltip": "新しい {{name}} 編集を作成",
       "denoising": "AIノイズ除去を実行中...",
+      "upscaling": "RapidResを実行中...",
       "dropzoneText": "ここにドロップして新しい編集を作成",
       "editSettingsTitle": "編集設定",
       "editsTitle": "編集一覧",
@@ -711,11 +719,13 @@
       "cancel": "キャンセル",
       "drawingActive": "描画中",
       "hint": "垂直または水平であるべき写真の縁に沿って描画します。",
+      "horizontalLine": "水平ガイド {{index}}",
       "linesStatus": "アクティブなガイドライン",
       "toast": {
         "angleRejected": "線の角度が水平または垂直から離れすぎています",
         "maxLines": "垂直線と水平線はそれぞれ最大2本まで許可されています"
-      }
+      },
+      "verticalLine": "垂直ガイド {{index}}"
     },
     "layout": {
       "split": "分割"
@@ -1157,6 +1167,7 @@
       "failed": "失敗（{{failedCount}}）",
       "kinds": {
         "denoise": "AIノイズ除去中",
+        "upscale": "RapidResで拡大中",
         "depthMap": "深度を解析中",
         "depthMask": "深度マスクを生成中",
         "faceMask": "顔マスクを生成中",
@@ -1546,6 +1557,7 @@
       "descReplace": "選択したすべての設定を上書きし、残りの設定をデフォルトにリセットします。",
       "groups": {
         "aiDenoise": "AIノイズ除去",
+        "aiUpscale": "RapidRes",
         "blackWhite": "白黒",
         "chromaticAberration": "色収差",
         "clarityDehaze": "明瞭度とかすみの除去",
@@ -1836,6 +1848,7 @@
       "limit": "上限",
       "modals": {
         "aiDenoiseMessage": "AIノイズ除去キャッシュを消去してもよろしいですか？\n\nAIノイズ除去が有効な画像は再度処理する必要があり、1枚あたり数分かかる場合があります。",
+        "aiUpscaleMessage": "RapidResキャッシュを消去してもよろしいですか？\n\nRapidResが有効な画像は再度拡大処理する必要があります。",
         "aiMapsMessage": "深度・法線マップをクリアしてもよろしいですか？\n\nレンズブラー、フォグ、リライトを使用している画像は、次に開いたときにマップを再生成します。",
         "aiMessage": "本当にすべてのアクティブなルートフォルダ内の画像から、AI生成されたタグをすべて削除しますか？\n\n手動で追加したタグには影響しません。この操作は取り消せません。",
         "allMessage": "本当にすべてのアクティブなルートフォルダ内の画像から、AI生成および手動追加されたタグをすべて削除しますか？\n\nこの操作は取り消せません。",
@@ -1863,6 +1876,7 @@
       "show": "表示",
       "statuses": {
         "aiDenoiseSuccess": "AIノイズ除去キャッシュを消去しました。",
+        "aiUpscaleSuccess": "RapidResキャッシュを消去しました。",
         "aiSuccess": "{{count}} 件のファイルを更新しました。AIタグを削除しました。",
         "aiSuccess_one": "{{count}} 件のファイルを更新しました。AIタグを削除しました。",
         "aiSuccess_other": "{{count}} 件のファイルを更新しました。AIタグを削除しました。",
@@ -1879,6 +1893,8 @@
       "storage": {
         "aiDenoise": "AI ノイズ除去",
         "aiDenoiseDesc": "キャッシュされたノイズ除去結果。",
+        "aiUpscale": "RapidRes",
+        "aiUpscaleDesc": "キャッシュされたRapidResの2倍拡大結果。",
         "aiMaps": "深度・法線マップ",
         "aiMapsDesc": "レンズブラー、フォグ、リライトで使用されます。",
         "immich": "Immich",
@@ -2250,6 +2266,7 @@
         "mediapipe": "AI顔マスクを支える高速な顔ランドマークおよびセグメンテーションモデルに。",
         "negpy": "ネガ反転アルゴリズムのヒントとなりました。",
         "nind": "AIノイズ低減機能を支えるAIモデルを提供しています。",
+        "span": "RapidRAWのAI 2倍拡大機能RapidResのベースとなるAIモデルです。RapidRAWが独自のRAW処理に合わせてファインチューニングしています（Philip Hofmann作、CC BY 4.0）。",
         "rawler": "RAWファイル処理の基盤となる優れたRustライブラリを提供しています。",
         "sam2": "AI被写体検出機能の基盤となるモデルを提供しています。",
         "spektrafilm": "RapidRAW の内蔵フィルムエミュレーションを支える、Andrea Volpato 氏によるスペクトルベースのフィルムエミュレーション LUT を提供してくださったことに。ライセンスは CC BY-SA 4.0 です。",

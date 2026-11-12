@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { Invokes } from '../components/ui/AppProperties';
+import { Invokes } from '../types/invokes';
 import { INITIAL_ADJUSTMENTS, normalizeLoadedAdjustments } from '../utils/adjustments';
 
 export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
@@ -101,13 +101,7 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
         isEffectActive = false;
       };
     }
-  }, [
-    selectedImage?.path,
-    selectedImage?.isReady,
-    resetHistory,
-    setEditor,
-    setLibrary,
-  ]);
+  }, [selectedImage?.path, selectedImage?.isReady, resetHistory, setEditor, setLibrary]);
 
   useEffect(() => {
     if (selectedImage?.path && selectedImage.isReady && (finalPreviewUrl || isWgpuActive)) {

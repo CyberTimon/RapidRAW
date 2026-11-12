@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
 import { open } from '@tauri-apps/plugin-shell';
 import {
@@ -26,17 +26,14 @@ import Button from '../ui/Button';
 import { ThemeProps, THEMES, DEFAULT_THEME_ID } from '../../utils/themes';
 import {
   AppSettings,
-  ImageFile,
   LibraryViewMode,
   ThumbnailSize,
   ThumbnailAspectRatio,
-  RawStatus,
-  EditedStatus,
-  FlagStatus,
   LibraryDisplayMode,
-} from '../ui/AppProperties';
+} from '../../types/settings';
+import { ImageFile, RawStatus, EditedStatus, FlagStatus } from '../../types/library';
 import { GroupBadgeInfo, GroupId } from '../../utils/imageGrouping';
-import { ImportState, Status } from '../ui/ExportImportProperties';
+import { ImportState, Status } from '../../types/export';
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { useLibraryStore } from '../../store/useLibraryStore';
@@ -46,18 +43,6 @@ import SettingsPanel from './SettingsPanel';
 
 import LibraryGrid from './library/LibraryGrid';
 import { JobsMenu, SearchInput, ViewOptionsDropdown } from './library/LibraryHeader';
-
-export interface ColumnWidths {
-  thumbnail: number;
-  name: number;
-  date: number;
-  rating: number;
-  color: number;
-  shutter: number;
-  aperture: number;
-  iso: number;
-  focal: number;
-}
 
 interface MainLibraryProps {
   activePath: string | null;
@@ -467,7 +452,7 @@ export default function MainLibrary(props: MainLibraryProps) {
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        Timon Käch
+                        {'Timon Käch'}
                       </a>
                     </p>
                     {appVersion && (

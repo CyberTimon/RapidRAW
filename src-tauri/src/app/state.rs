@@ -1,0 +1,386 @@
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::mpsc::Sender;
+use std::sync::{Arc, Condvar, Mutex};
+
+use image::{DynamicImage, GenericImageView, GrayImage, RgbImage};
+use serde::{Deserialize, Serialize};
+use sysinfo::Disks;
+use tokio::sync::Mutex as TokioMutex;
+use tokio::sync::Notify;
+use tokio::task::JoinHandle;
+use wgpu::{Texture, TextureView};
+
+use crate::adjustments::lut_processing::Lut;
+use crate::ai::models::AiState;
+use crate::app::launch_request::ExternalEditSession;
+use crate::decode::as_shot::AsShot;
+use crate::integrations::tethering::CameraSession;
+use crate::render::analytics::AnalyticsFrame;
+use crate::render::cache_utils::{DecodeFlights, DecodedImageCache};
+use crate::render::gpu::context::GpuContext;
+use crate::render::gpu::display::DisplayLayer;
+use crate::render::gpu::processor::GpuProcessor;
+use crate::render::options::RenderOptions;
+
+pub struct AiTaskToken {
+    cancelled: AtomicBool,
+    notify: Notify,
+}
+
+impl AiTaskToken {
+    pub fn new() -> Self {
+        Self {
+            cancelled: AtomicBool::new(false),
+            notify: Notify::new(),
+        }
+    }
+
+    pub fn cancel(&self) {
+        self.cancelled.store(true, Ordering::SeqCst);
+        self.notify.notify_waiters();
+    }
+
+    pub fn is_cancelled(&self) -> bool {
+        self.cancelled.load(Ordering::SeqCst)
+    }
+
+    pub async fn wait_for_cancel(&self) {
+        let notified = self.notify.notified();
+        if self.is_cancelled() {
+            return;
+        }
+        notified.await;
+    }
+}
+
+impl Default for AiTaskToken {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+pub struct AiTaskGuard<'a> {
+    active_ai_tasks: &'a Mutex<HashMap<String, Arc<AiTaskToken>>>,
+    task_id: String,
+    pub token: Arc<AiTaskToken>,
+}
+
+impl<'a> AiTaskGuard<'a> {
+    pub fn new(
+        active_ai_tasks: &'a Mutex<HashMap<String, Arc<AiTaskToken>>>,
+        task_id: String,
+    ) -> Self {
+        let token = Arc::new(AiTaskToken::new());
+        active_ai_tasks
+            .lock()
+            .unwrap()
+            .insert(task_id.clone(), Arc::clone(&token));
+        Self {
+            active_ai_tasks,
+            task_id,
+            token,
+        }
+    }
+}
+
+impl<'a> Drop for AiTaskGuard<'a> {
+    fn drop(&mut self) {
+        let mut tasks = self.active_ai_tasks.lock().unwrap();
+        if let Some(existing) = tasks.get(&self.task_id)
+            && Arc::ptr_eq(existing, &self.token)
+        {
+            tasks.remove(&self.task_id);
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct WindowState {
+    pub width: u32,
+    pub height: u32,
+    pub x: i32,
+    pub y: i32,
+    pub maximized: bool,
+    pub fullscreen: bool,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum PreviewTarget {
+    Editor,
+    Viewer,
+}
+
+impl PreviewTarget {
+    pub const ALL: [PreviewTarget; 2] = [PreviewTarget::Editor, PreviewTarget::Viewer];
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub struct FrameContent {
+    pub job_hash: u64,
+    pub patch_hash: u64,
+    pub render: RenderOptions,
+}
+
+#[derive(Clone, Copy)]
+pub struct ShownFrame {
+    pub content: FrameContent,
+    pub resolution: u32,
+}
+
+#[derive(Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ViewerImage {
+    pub path: String,
+    pub width: u32,
+    pub height: u32,
+}
+
+pub struct ViewerSource {
+    pub path: String,
+    pub adjustments: serde_json::Value,
+    pub content: FrameContent,
+    pub interactive: bool,
+}
+
+#[derive(Default)]
+pub struct ViewerSession {
+    pub frame: Option<Vec<u8>>,
+    pub shown: Option<ShownFrame>,
+    pub source: Option<ViewerSource>,
+    pub image: Option<ViewerImage>,
+    pub target_resolution: Option<u32>,
+}
+
+pub struct ViewerState {
+    pub background: [f32; 4],
+    pub session: ViewerSession,
+}
+
+#[derive(Clone)]
+pub struct LoadedImage {
+    pub path: String,
+    pub image: Arc<DynamicImage>,
+    pub is_raw: bool,
+    pub as_shot: AsShot,
+}
+
+#[derive(Clone)]
+pub struct PreviewSource {
+    pub image: Arc<DynamicImage>,
+    pub id: u64,
+    pub transform: crate::render::source::SourceTransform,
+    pub scale: f32,
+    pub unscaled_crop_offset: (f32, f32),
+}
+
+impl PreviewSource {
+    pub fn size(&self) -> (u32, u32) {
+        self.transform.output_size(self.image.dimensions())
+    }
+
+    pub fn render_source<'a>(
+        &'a self,
+        adjustments: &'a serde_json::Value,
+    ) -> crate::render::source::RenderSource<'a> {
+        crate::render::source::RenderSource::new(
+            &self.image,
+            self.id,
+            adjustments,
+            self.transform.clone(),
+        )
+    }
+}
+
+#[derive(Clone)]
+pub struct CachedPreview {
+    pub preview: PreviewSource,
+    pub transform_hash: u64,
+    pub preview_dim: u32,
+}
+
+#[derive(Default)]
+pub struct GpuImageCache {
+    pub entries: Vec<GpuImageEntry>,
+    pub sources: Vec<UploadedSource>,
+}
+
+pub struct UploadedSource {
+    pub identity: u64,
+    pub slot: crate::render::gpu::compute::Slot,
+}
+
+pub struct GpuImageEntry {
+    pub id: u64,
+    #[allow(dead_code)]
+    pub texture: Texture,
+    pub texture_view: TextureView,
+    pub gf_coeffs_view: TextureView,
+    pub tone_base_view: TextureView,
+    pub haze_view: TextureView,
+    pub airlight_view: TextureView,
+    pub is_raw: u32,
+    pub width: u32,
+    pub height: u32,
+    pub transform_key: u64,
+    pub source_identity: u64,
+}
+
+pub struct GpuProcessorState {
+    pub processor: GpuProcessor,
+    pub width: u32,
+    pub height: u32,
+}
+
+pub struct PreviewJob {
+    pub adjustments: serde_json::Value,
+    pub layer: DisplayLayer,
+    pub is_interactive: bool,
+    pub target_resolution: Option<u32>,
+    pub roi: Option<(f32, f32, f32, f32)>,
+    pub request_analytics: bool,
+    pub compute_waveform: bool,
+    pub active_waveform_channel: Option<String>,
+    pub responder: tokio::sync::oneshot::Sender<Vec<u8>>,
+}
+
+pub enum PreviewTask {
+    Editor(PreviewJob),
+    Viewer,
+}
+
+pub struct AnalyticsJob {
+    pub path: String,
+    pub frame: AnalyticsFrame,
+    pub compute_waveform: bool,
+    pub active_waveform_channel: Option<String>,
+}
+
+pub struct AnalyticsConfig {
+    pub path: String,
+    pub compute_waveform: bool,
+    pub active_waveform_channel: Option<String>,
+    pub sender: Sender<AnalyticsJob>,
+}
+
+pub struct ThumbnailProgressTracker {
+    pub total: usize,
+    pub completed: usize,
+}
+
+pub struct ThumbnailManager {
+    pub queue: Mutex<VecDeque<String>>,
+    pub cvar: Condvar,
+    pub processing_now: Mutex<HashSet<String>>,
+    pub rotational_disk: AtomicBool,
+    pub io_gate: Mutex<()>,
+}
+
+impl ThumbnailManager {
+    pub fn new() -> Arc<Self> {
+        Arc::new(Self {
+            queue: Mutex::new(VecDeque::new()),
+            cvar: Condvar::new(),
+            processing_now: Mutex::new(HashSet::new()),
+            rotational_disk: AtomicBool::new(false),
+            io_gate: Mutex::new(()),
+        })
+    }
+}
+
+pub struct PendingMetadata {
+    pub virtual_path: String,
+    pub image_path: PathBuf,
+    pub sidecar_path: PathBuf,
+}
+
+pub struct MetadataManager {
+    pub queue: Mutex<VecDeque<PendingMetadata>>,
+    pub cvar: Condvar,
+    pub pending: Mutex<HashSet<PathBuf>>,
+}
+
+impl MetadataManager {
+    pub fn new() -> Arc<Self> {
+        Arc::new(Self {
+            queue: Mutex::new(VecDeque::new()),
+            cvar: Condvar::new(),
+            pending: Mutex::new(HashSet::new()),
+        })
+    }
+}
+
+pub struct ThumbnailSource {
+    pub hash: u64,
+    pub image: Arc<DynamicImage>,
+    pub full_max_dim: u32,
+    pub processing_dim: u32,
+    pub raw_scale_factor: f32,
+}
+
+pub struct AppState {
+    pub window_setup_complete: AtomicBool,
+    pub gpu_crash_flag_path: Mutex<Option<PathBuf>>,
+    pub original_image: Mutex<Option<LoadedImage>>,
+    pub cached_preview: Mutex<Option<CachedPreview>>,
+    pub viewer_cached_preview: Mutex<Option<CachedPreview>>,
+    pub gpu_context: Mutex<Option<GpuContext>>,
+    pub gpu_image_cache: Mutex<Option<GpuImageCache>>,
+    pub viewer_gpu_image_cache: Mutex<Option<GpuImageCache>>,
+    pub gpu_processor: Mutex<Option<GpuProcessorState>>,
+    pub ai_state: Mutex<Option<AiState>>,
+    pub ai_init_lock: TokioMutex<()>,
+    pub active_ai_tasks: Mutex<HashMap<String, Arc<AiTaskToken>>>,
+    pub export_task_token: Arc<Mutex<Option<Arc<AtomicBool>>>>,
+    pub hdr_result: Arc<Mutex<Option<DynamicImage>>>,
+    pub panorama_result: Arc<Mutex<Option<DynamicImage>>>,
+    pub focus_stack_result: Arc<Mutex<Option<DynamicImage>>>,
+    pub indexing_task_handle: Mutex<Option<JoinHandle<()>>>,
+    pub lut_cache: Mutex<HashMap<String, Arc<Lut>>>,
+    pub initial_file_path: Mutex<Option<String>>,
+    pub pending_edit_session: Mutex<Option<ExternalEditSession>>,
+    pub thumbnail_cancellation_token: Arc<AtomicBool>,
+    pub thumbnail_progress: Mutex<ThumbnailProgressTracker>,
+    pub preview_worker_tx: Mutex<Option<Sender<PreviewTask>>>,
+    pub analytics_worker_tx: Mutex<Option<Sender<AnalyticsJob>>>,
+    pub analytics_channel: Mutex<Option<tauri::ipc::Channel>>,
+    pub mask_cache: Mutex<HashMap<u64, GrayImage>>,
+    pub patch_cache: Mutex<HashMap<String, serde_json::Value>>,
+    pub uncropped_source_cache: Mutex<HashMap<u64, Arc<DynamicImage>>>,
+    pub thumbnail_source_cache: Mutex<HashMap<String, Arc<ThumbnailSource>>>,
+    pub load_image_generation: Arc<AtomicUsize>,
+    pub wgpu_presented_generation: AtomicUsize,
+    pub full_warped_cache: Mutex<Option<(u64, Arc<DynamicImage>)>>,
+    pub full_warped_build_lock: Mutex<()>,
+    pub patched_cache: Mutex<Option<(u64, Arc<DynamicImage>)>>,
+    pub cleanup_source_cache: Mutex<Option<(u64, Arc<RgbImage>)>>,
+    pub working_cache: Mutex<Option<(u64, Arc<DynamicImage>)>>,
+    pub decoded_image_cache: Mutex<DecodedImageCache>,
+    pub decode_flights: DecodeFlights,
+    pub image_preloader: crate::decode::image_preload::ImagePreloader,
+    pub thumbnail_manager: Arc<ThumbnailManager>,
+    pub memory_budget: Arc<crate::app::memory_budget::MemoryBudget>,
+    pub metadata_manager: Arc<MetadataManager>,
+    pub disks_cache: Mutex<Option<Disks>>,
+    pub disks_cache_refreshing: AtomicBool,
+    #[cfg_attr(not(feature = "tethering"), allow(dead_code))]
+    pub camera_session: Mutex<CameraSession>,
+    pub viewer: Mutex<ViewerState>,
+}
+
+impl AppState {
+    pub fn cached_preview_for(&self, target: PreviewTarget) -> &Mutex<Option<CachedPreview>> {
+        match target {
+            PreviewTarget::Editor => &self.cached_preview,
+            PreviewTarget::Viewer => &self.viewer_cached_preview,
+        }
+    }
+
+    pub fn gpu_image_cache_for(&self, target: PreviewTarget) -> &Mutex<Option<GpuImageCache>> {
+        match target {
+            PreviewTarget::Editor => &self.gpu_image_cache,
+            PreviewTarget::Viewer => &self.viewer_gpu_image_cache,
+        }
+    }
+}

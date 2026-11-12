@@ -9,17 +9,9 @@ import { useProcessStore } from '../store/useProcessStore';
 import { THEMES, DEFAULT_THEME_ID, ThemeProps } from '../utils/themes';
 import { COPYABLE_ADJUSTMENT_KEYS, withAdjustmentLayout } from '../utils/adjustments';
 import { setLocalUiScale } from '../utils/displayScale';
-import {
-  FilterCriteria,
-  Invokes,
-  LibraryViewMode,
-  RawStatus,
-  EditedStatus,
-  FlagStatus,
-  Theme,
-  ThumbnailSize,
-  ThumbnailAspectRatio,
-} from '../components/ui/AppProperties';
+import { FilterCriteria, RawStatus, EditedStatus, FlagStatus, type FolderNode } from '../types/library';
+import { Invokes } from '../types/invokes';
+import { LibraryViewMode, Theme, ThumbnailSize, ThumbnailAspectRatio } from '../types/settings';
 import { useTranslation } from 'react-i18next';
 
 interface UseAppInitializationProps {
@@ -223,7 +215,7 @@ export const useAppInitialization = ({
 
         if (settings?.pinnedFolders && settings.pinnedFolders.length > 0) {
           try {
-            const trees = await invoke(Invokes.GetPinnedFolderTrees, {
+            const trees = await invoke<FolderNode[]>(Invokes.GetPinnedFolderTrees, {
               paths: settings.pinnedFolders,
               expandedFolders: settings.lastFolderState?.expandedFolders || [],
               showImageCounts: settings.enableFolderImageCounts || settings.folderTreeSort?.key === 'imageCount',
@@ -474,7 +466,6 @@ export const useAppInitialization = ({
           setLibrary({ isTreeLoading: false });
         });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appSettings?.enableFolderImageCounts, appSettings?.folderTreeSort?.key]);
 
   useEffect(() => {

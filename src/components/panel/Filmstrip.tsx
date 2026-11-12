@@ -3,8 +3,10 @@ import { Image as ImageIcon, Star, SlidersHorizontal, Loader2, Pause } from 'luc
 import clsx from 'clsx';
 import { Grid, useGridCallbackRef } from 'react-window';
 import { useTranslation } from 'react-i18next';
-import { ImageFile, ImageFlag, SelectedImage, ThumbnailAspectRatio, GroupingMode } from '../ui/AppProperties';
-import FlagBadges from '../ui/FlagBadges';
+import { ImageFile, ImageFlag } from '../../types/library';
+import { SelectedImage } from '../../types/editor';
+import { ThumbnailAspectRatio, GroupingMode } from '../../types/settings';
+import FlagBadges from './library/FlagBadges';
 import { Color, COLOR_LABELS } from '../../utils/adjustments';
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
