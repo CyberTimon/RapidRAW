@@ -29,7 +29,7 @@ fn adjustments_without_patch(patch_id: &str, current_adjustments: &Value) -> Val
     adjustments
 }
 
-fn prepare_source_image(
+pub(crate) fn prepare_source_image(
     patch_id: &str,
     current_adjustments: &Value,
     state: &tauri::State<'_, AppState>,
@@ -196,7 +196,7 @@ fn calculate_mask_bounds(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn encode_patch_result(
+pub(crate) fn encode_patch_result(
     color_image: &RgbImage,
     mask_image: &image::GrayImage,
     offset_x: u32,
