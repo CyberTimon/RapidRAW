@@ -23,6 +23,9 @@ fn adjustments_without_patch(patch_id: &str, current_adjustments: &Value) -> Val
     {
         patches.retain(|p| p.get("id").and_then(|id| id.as_str()) != Some(patch_id));
     }
+    if let Some(obj) = adjustments.as_object_mut() {
+        obj.insert("aiUpscaleEnabled".to_string(), Value::Bool(false));
+    }
     adjustments
 }
 

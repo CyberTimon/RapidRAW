@@ -9,7 +9,6 @@ use crate::formats::is_raw_file;
 use crate::image_processing::ImageMetadata;
 use crate::image_processing::{
     apply_orientation, apply_srgb_to_linear, effective_baseline_exposure, linear_channel_to_srgb,
-    remove_raw_artifacts_and_enhance,
 };
 use crate::mask_generation::{MaskDefinition, SubMask, generate_mask_bitmap};
 use crate::white_balance::WhiteBalance;
@@ -35,7 +34,6 @@ use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
 };
-use std::time::Instant;
 use tauri::Manager;
 
 #[derive(serde::Serialize)]
@@ -82,14 +80,17 @@ pub fn load_and_composite(
     use_fast_raw_dev: bool,
     settings: &AppSettings,
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
-) -> Result<DynamicImage> {
+) -> Result<(DynamicImage, f32)> {
     let base_image =
         load_base_image_from_bytes(base_image, path, use_fast_raw_dev, settings, cancel_token)?;
     let prepared = match prepare_base_image_cow(&base_image, path, adjustments)? {
         Cow::Owned(img) => Some(img),
         Cow::Borrowed(_) => None,
     };
-    Ok(prepared.unwrap_or(base_image))
+    let scale = prepared.as_ref().map_or(1.0, |img| {
+        crate::ai_upscale::scale_between(&base_image, img)
+    });
+    Ok((prepared.unwrap_or(base_image), scale))
 }
 
 pub fn prepare_base_image_cow<'a>(
@@ -103,9 +104,10 @@ pub fn prepare_base_image_cow<'a>(
         .is_some_and(|a| !a.is_empty());
 
     let denoised = crate::ai_denoise::apply_ai_denoise(base_image, path, adjustments);
-    match crate::negative_conversion::apply_negative_conversion(denoised, adjustments) {
+    let upscaled = crate::ai_upscale::apply_ai_upscale(base_image, denoised, path, adjustments);
+    match crate::negative_conversion::apply_negative_conversion(upscaled, adjustments) {
         Cow::Owned(prepared) if !has_patches => Ok(Cow::Owned(prepared)),
-        prepared => composite_patches_cow(prepared, path, adjustments),
+        prepared => composite_patches_cow(prepared, base_image.dimensions(), path, adjustments),
     }
 }
 
@@ -158,26 +160,12 @@ pub fn load_base_image_from_bytes(
                 use_fast_raw_dev,
                 highlight_compression,
                 linear_mode,
+                color_nr_amount,
+                sharpening_amount,
                 cancel_token,
             )
         }) {
-            Ok(Ok(mut image)) => {
-                if !use_fast_raw_dev && (color_nr_amount > 0.0 || sharpening_amount > 0.0) {
-                    let start = Instant::now();
-                    remove_raw_artifacts_and_enhance(
-                        &mut image,
-                        color_nr_amount,
-                        sharpening_amount,
-                    );
-                    let duration = start.elapsed();
-                    log::info!(
-                        "Raw enhancing for '{}' took {:?}",
-                        path_for_ext_check,
-                        duration
-                    );
-                }
-                Ok(image)
-            }
+            Ok(Ok(image)) => Ok(image),
             Ok(Err(e)) => {
                 let classified = classify_raw_develop_error(path_for_ext_check, e);
 
@@ -221,23 +209,12 @@ pub fn load_base_image_from_bytes(
             }
         }
     } else {
-        let mut image = load_image_with_orientation(bytes, cancel_token)?;
-
-        if apply_to_non_raws
-            && !use_fast_raw_dev
-            && (color_nr_amount > 0.0 || sharpening_amount > 0.0)
-        {
-            let start = Instant::now();
-            remove_raw_artifacts_and_enhance(&mut image, color_nr_amount, sharpening_amount);
-            let duration = start.elapsed();
-            log::info!(
-                "Enhancing non-RAW '{}' took {:?}",
-                path_for_ext_check,
-                duration
-            );
+        let image = load_image_with_orientation(bytes, cancel_token)?;
+        if apply_to_non_raws && !use_fast_raw_dev {
+            crate::develop::enhance(image, color_nr_amount, sharpening_amount)
+        } else {
+            Ok(image)
         }
-
-        Ok(image)
     }
 }
 
@@ -558,6 +535,7 @@ fn convert_profile_to_srgb(image: &mut Rgb32FImage, source: &ColorProfile) {
 
 fn composite_patches_cow<'a>(
     base_image: Cow<'a, DynamicImage>,
+    (canon_w, canon_h): (u32, u32),
     path: &str,
     current_adjustments: &Value,
 ) -> Result<Cow<'a, DynamicImage>> {
@@ -594,6 +572,7 @@ fn composite_patches_cow<'a>(
     }
 
     let (base_w, base_h) = base_image.dimensions();
+    let scale = (base_w / canon_w.max(1)).max(1);
 
     struct DecodedPatch {
         offset_x: Option<u32>,
@@ -629,8 +608,8 @@ fn composite_patches_cow<'a>(
             {
                 let mask_bytes = general_purpose::STANDARD.decode(mask_b64)?;
                 let mask_img = image::load_from_memory(&mask_bytes)?.into_luma8();
-                if !is_cropped && (mask_img.width() != base_w || mask_img.height() != base_h) {
-                    imageops::resize(&mask_img, base_w, base_h, imageops::FilterType::Lanczos3)
+                if !is_cropped && (mask_img.width() != canon_w || mask_img.height() != canon_h) {
+                    imageops::resize(&mask_img, canon_w, canon_h, imageops::FilterType::Lanczos3)
                 } else {
                     mask_img
                 }
@@ -653,9 +632,9 @@ fn composite_patches_cow<'a>(
                     .and_then(|v| v.as_u64())
                     .unwrap_or(0) as u8;
                 let (trans_w, trans_h) = if orientation_steps % 2 == 1 {
-                    (base_h, base_w)
+                    (canon_h, canon_w)
                 } else {
-                    (base_w, base_h)
+                    (canon_w, canon_h)
                 };
 
                 let mut gen_mask =
@@ -673,14 +652,14 @@ fn composite_patches_cow<'a>(
                         .get("width")
                         .and_then(|v| v.as_u64())
                         .map(|v| v as u32)
-                        .unwrap_or(base_w);
+                        .unwrap_or(canon_w);
                     let h = patch_data
                         .get("height")
                         .and_then(|v| v.as_u64())
                         .map(|v| v as u32)
-                        .unwrap_or(base_h);
-                    let crop_w = w.min(base_w.saturating_sub(ox));
-                    let crop_h = h.min(base_h.saturating_sub(oy));
+                        .unwrap_or(canon_h);
+                    let crop_w = w.min(canon_w.saturating_sub(ox));
+                    let crop_h = h.min(canon_h.saturating_sub(oy));
                     gen_mask = imageops::crop_imm(&gen_mask, ox, oy, crop_w, crop_h).to_image();
                 }
                 gen_mask
@@ -694,20 +673,31 @@ fn composite_patches_cow<'a>(
             let color_image_u8 = image::load_from_memory(&color_bytes)?.into_rgb8();
 
             let (patch_w, patch_h) = color_image_u8.dimensions();
-            let final_color = if !is_cropped && (base_w != patch_w || base_h != patch_h) {
+            let final_color = if !is_cropped && (canon_w != patch_w || canon_h != patch_h) {
                 imageops::resize(
                     &color_image_u8,
-                    base_w,
-                    base_h,
+                    canon_w,
+                    canon_h,
                     imageops::FilterType::Lanczos3,
                 )
             } else {
                 color_image_u8
             };
 
+            let (mask_bitmap, final_color) = if scale == 1 {
+                (mask_bitmap, final_color)
+            } else {
+                let (w, h) = mask_bitmap.dimensions();
+                let (sw, sh) = (w * scale, h * scale);
+                (
+                    imageops::resize(&mask_bitmap, sw, sh, imageops::FilterType::Triangle),
+                    imageops::resize(&final_color, sw, sh, imageops::FilterType::CatmullRom),
+                )
+            };
+
             Ok(DecodedPatch {
-                offset_x,
-                offset_y,
+                offset_x: offset_x.map(|v| v * scale),
+                offset_y: offset_y.map(|v| v * scale),
                 mask: mask_bitmap,
                 color: final_color,
                 is_srgb_encoded,

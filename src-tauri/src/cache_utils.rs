@@ -104,6 +104,12 @@ fn hash_ai_denoise(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) 
         );
         crate::ai_denoise::cache_epoch().hash(hasher);
     }
+    let upscale = crate::ai_upscale::is_enabled(adjustments);
+    upscale.hash(hasher);
+    if upscale {
+        hash_effect_keys(adjustments, &["aiUpscaleDetail"], hasher);
+        crate::ai_upscale::cache_epoch().hash(hasher);
+    }
 }
 
 fn hash_negative_conversion(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) {

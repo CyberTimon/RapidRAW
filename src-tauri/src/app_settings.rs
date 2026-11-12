@@ -154,6 +154,8 @@ pub fn all_available_adjustments() -> HashSet<String> {
         "aiDenoiseMethod",
         "aiDenoiseAmount",
         "aiDenoiseDetail",
+        "aiUpscaleEnabled",
+        "aiUpscaleDetail",
         "chromaticAberrationRedCyan",
         "chromaticAberrationBlueYellow",
         "negativeConversionEnabled",
@@ -537,6 +539,10 @@ pub fn default_ai_maps_cache_limit_gb() -> u32 {
     4
 }
 
+pub fn default_ai_upscale_cache_limit_gb() -> u32 {
+    10
+}
+
 pub fn default_thumbnail_cache_limit_gb() -> u32 {
     10
 }
@@ -669,6 +675,8 @@ pub struct AppSettings {
     pub thumbnail_cache_limit_gb: Option<u32>,
     #[serde(default)]
     pub ai_maps_cache_limit_gb: Option<u32>,
+    #[serde(default)]
+    pub ai_upscale_cache_limit_gb: Option<u32>,
     #[serde(default)]
     pub export_worker_threads: Option<u32>,
     #[serde(default)]
@@ -878,6 +886,7 @@ impl Default for AppSettings {
             ai_cache_limit_gb: Some(default_ai_cache_limit_gb()),
             thumbnail_cache_limit_gb: Some(default_thumbnail_cache_limit_gb()),
             ai_maps_cache_limit_gb: Some(default_ai_maps_cache_limit_gb()),
+            ai_upscale_cache_limit_gb: Some(default_ai_upscale_cache_limit_gb()),
             export_worker_threads: None,
             export_memory_limit: None,
             enable_baseline_exposure: false,

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
 use half::f16;
@@ -755,6 +755,19 @@ pub fn wgpu_display_failed() -> bool {
     WGPU_DISPLAY_FAILED.load(Ordering::Acquire)
 }
 
+static APP_HANDLE: OnceLock<tauri::AppHandle> = OnceLock::new();
+
+pub fn register_app_handle(app_handle: &tauri::AppHandle) {
+    let _ = APP_HANDLE.set(app_handle.clone());
+}
+
+pub fn shared_gpu_context() -> Result<GpuContext, String> {
+    let app_handle = APP_HANDLE
+        .get()
+        .ok_or("GPU context requested before app setup")?;
+    get_or_init_gpu_context(&app_handle.state::<AppState>(), app_handle)
+}
+
 pub fn get_or_init_gpu_context(
     state: &tauri::State<AppState>,
     #[cfg_attr(target_os = "android", allow(unused_variables))] app_handle: &tauri::AppHandle,
@@ -952,6 +965,8 @@ pub fn get_or_init_gpu_context(
     let device = Arc::clone(&new_context.device);
     let compute = Arc::clone(&new_context.compute);
     std::thread::spawn(move || {
+        crate::demosaic::warm(&device);
+        crate::develop::warm(&device);
         compute
             .get_or_init(|| crate::gpu_compute::ComputePipelines::new(&device))
             .warm(&device);
@@ -1056,11 +1071,14 @@ const BLUR_V_GROUP_SIZE: (u32, u32) = (8, 64);
 const DIRECT_BLUR_MAX_RADIUS: u32 = 8;
 
 const GF_SHORT_EDGE: u32 = 1080;
-const GF_CLARITY_RADIUS: f32 = 8.0;
-const GF_STRUCTURE_RADIUS: f32 = 40.0;
-const GF_CLARITY_EPS: f32 = 0.25;
-const GF_STRUCTURE_EPS: f32 = 0.5;
 const GF_COARSE_DIV: u32 = 4;
+const TB_FINE_DIV: u32 = 2;
+const TB_FINE_RADIUS: f32 = 8.0;
+const TB_FINE_RANGE: f32 = 0.3;
+const TB_FINE_ITERATIONS: usize = 3;
+const TB_BROAD_DIV: u32 = 8;
+const TB_BROAD_RADIUS: f32 = 64.0;
+const TB_CLIP_RADIUS: f32 = 48.0;
 const GF_TONAL_RADIUS: f32 = 10.0;
 const GF_TONAL_EPS: f32 = 0.25;
 const HZ_DIV: u32 = 2;
@@ -1070,7 +1088,7 @@ const HZ_GF_EPS: f32 = 1.0e-3;
 
 pub struct GuidedTextures {
     pub coeffs: wgpu::TextureView,
-    pub structure: wgpu::TextureView,
+    pub tone_base: wgpu::TextureView,
     pub haze: wgpu::TextureView,
     pub airlight: wgpu::TextureView,
 }
@@ -1360,7 +1378,16 @@ pub struct GpuPipelines {
     gf_blur_h_pipeline: wgpu::ComputePipeline,
     gf_blur_v_pipeline: wgpu::ComputePipeline,
     gf_coeffs_pipeline: wgpu::ComputePipeline,
-    gf_pack_pipeline: wgpu::ComputePipeline,
+    tb_bilateral_pipeline: wgpu::ComputePipeline,
+    tb_refine_pipeline: wgpu::ComputePipeline,
+    tb_decimate_pipeline: wgpu::ComputePipeline,
+    tb_fit_pipeline: wgpu::ComputePipeline,
+    tb_merge_pipeline: wgpu::ComputePipeline,
+    tb_pack_pipeline: wgpu::ComputePipeline,
+    tb_tone_pipeline: wgpu::ComputePipeline,
+    tb_peak_pipeline: wgpu::ComputePipeline,
+    tb_clip_pipeline: wgpu::ComputePipeline,
+    tb_stamp_pipeline: wgpu::ComputePipeline,
     hz_downsample_pipeline: wgpu::ComputePipeline,
     hz_airlight_pipeline: wgpu::ComputePipeline,
     hz_min_h_pipeline: wgpu::ComputePipeline,
@@ -1548,7 +1575,6 @@ impl GpuPipelines {
         let gf_blur_h_pipeline = gf_pipeline("gf_blur_h");
         let gf_blur_v_pipeline = gf_pipeline("gf_blur_v");
         let gf_coeffs_pipeline = gf_pipeline("gf_coeffs");
-        let gf_pack_pipeline = gf_pipeline("gf_pack");
         let hz_downsample_pipeline = gf_pipeline("hz_downsample");
         let hz_airlight_pipeline = gf_pipeline("hz_airlight");
         let hz_min_h_pipeline = gf_pipeline("hz_min_h");
@@ -1556,6 +1582,16 @@ impl GpuPipelines {
         let hz_max_h_pipeline = gf_pipeline("hz_max_h");
         let hz_max_v_pipeline = gf_pipeline("hz_max_v");
         let hz_coeffs_pipeline = gf_pipeline("hz_coeffs");
+        let tb_bilateral_pipeline = gf_pipeline("tb_bilateral");
+        let tb_refine_pipeline = gf_pipeline("tb_refine");
+        let tb_decimate_pipeline = gf_pipeline("tb_decimate");
+        let tb_fit_pipeline = gf_pipeline("tb_fit");
+        let tb_merge_pipeline = gf_pipeline("tb_merge");
+        let tb_pack_pipeline = gf_pipeline("tb_pack");
+        let tb_tone_pipeline = gf_pipeline("tb_tone");
+        let tb_peak_pipeline = gf_pipeline("tb_peak");
+        let tb_clip_pipeline = gf_pipeline("tb_clip");
+        let tb_stamp_pipeline = gf_pipeline("tb_stamp");
 
         let shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Image Processing Shader"),
@@ -1774,7 +1810,16 @@ impl GpuPipelines {
             gf_blur_h_pipeline,
             gf_blur_v_pipeline,
             gf_coeffs_pipeline,
-            gf_pack_pipeline,
+            tb_bilateral_pipeline,
+            tb_refine_pipeline,
+            tb_decimate_pipeline,
+            tb_fit_pipeline,
+            tb_merge_pipeline,
+            tb_pack_pipeline,
+            tb_tone_pipeline,
+            tb_peak_pipeline,
+            tb_clip_pipeline,
+            tb_stamp_pipeline,
             hz_downsample_pipeline,
             hz_airlight_pipeline,
             hz_min_h_pipeline,
@@ -1922,8 +1967,6 @@ impl GpuProcessor {
         let lw = ((width as f32 * k).round() as u32).max(1);
         let lh = ((height as f32 * k).round() as u32).max(1);
         let low_short = lw.min(lh) as f32;
-        let cw = lw.div_ceil(GF_COARSE_DIV).max(1);
-        let ch = lh.div_ceil(GF_COARSE_DIV).max(1);
         let hw = lw.div_ceil(HZ_DIV).max(1);
         let hh = lh.div_ceil(HZ_DIV).max(1);
         let hcw = hw.div_ceil(GF_COARSE_DIV).max(1);
@@ -1967,21 +2010,26 @@ impl GpuProcessor {
         let tmp = make_view("GF Ping Pong", lw, lh);
         let blurred = make_view("GF Blurred", lw, lh);
         let ab = make_view("GF Coeffs", lw, lh);
-        let ab_clarity = make_view("GF Coeffs Clarity", lw, lh);
-        let c_moments = make_view("GF Coarse Moments", cw, ch);
-        let c_tmp = make_view("GF Coarse Ping Pong", cw, ch);
-        let c_blurred = make_view("GF Coarse Blurred", cw, ch);
-        let c_ab = make_view("GF Coarse Coeffs", cw, ch);
+        let tw = lw.div_ceil(TB_FINE_DIV).max(1);
+        let th = lh.div_ceil(TB_FINE_DIV).max(1);
+        let bw = lw.div_ceil(TB_BROAD_DIV).max(1);
+        let bh = lh.div_ceil(TB_BROAD_DIV).max(1);
+        let tb_luma = make_view("Tone Base Luma", tw, th);
+        let mut tb_ping = make_view("Tone Base Ping", tw, th);
+        let mut tb_pong = make_view("Tone Base Pong", tw, th);
+        let tb_coarse = make_view("Tone Base Coarse", bw, bh);
+        let tb_wide = make_view("Tone Base Wide", bw, bh);
+        let tb_fit = make_view("Tone Base Fit", bw, bh);
         let hz_a = make_view("Haze Ping", hw, hh);
         let hz_b = make_view("Haze Pong", hw, hh);
         let hz_coarse = make_view("Haze Coarse", hcw, hch);
         let haze = make_view("Haze Coeffs", hw, hh);
-        let airlight = make_view("Haze Airlight", 2, 1);
+        let airlight = make_view("Haze Airlight", 3, 1);
 
-        let params_clarity = make_params(GF_CLARITY_RADIUS, GF_CLARITY_EPS, 1.0);
         let params_tonal = make_params(GF_TONAL_RADIUS, GF_TONAL_EPS, 1.0);
-        let params_coarse =
-            make_params(GF_STRUCTURE_RADIUS, GF_STRUCTURE_EPS, GF_COARSE_DIV as f32);
+        let params_tb_fine = make_params(TB_FINE_RADIUS, TB_FINE_RANGE, TB_FINE_DIV as f32);
+        let params_tb_broad = make_params(TB_BROAD_RADIUS, 0.0, TB_BROAD_DIV as f32);
+        let params_tb_clip = make_params(TB_CLIP_RADIUS, 0.0, TB_BROAD_DIV as f32);
         let params_hz_patch = make_params(HZ_PATCH_RADIUS, HZ_GF_EPS, HZ_DIV as f32);
         let params_hz_gf = make_params(HZ_GF_RADIUS, HZ_GF_EPS, HZ_DIV as f32);
 
@@ -2021,7 +2069,6 @@ impl GpuProcessor {
             cpass.dispatch_workgroups(w.div_ceil(8), h.div_ceil(8), 1);
         };
         let fine = (lw, lh);
-        let coarse = (cw, ch);
         let half = (hw, hh);
 
         pass(
@@ -2029,108 +2076,47 @@ impl GpuProcessor {
             input_view,
             input_view,
             &moments,
-            &params_clarity,
+            &params_tonal,
             fine,
-        );
-
-        pass(
-            &self.pipelines.gf_box_down_pipeline,
-            &moments,
-            &moments,
-            &c_moments,
-            &params_coarse,
-            coarse,
         );
         pass(
             &self.pipelines.gf_blur_h_pipeline,
-            &c_moments,
-            &c_moments,
-            &c_tmp,
-            &params_coarse,
-            coarse,
+            &moments,
+            &moments,
+            &tmp,
+            &params_tonal,
+            fine,
         );
         pass(
             &self.pipelines.gf_blur_v_pipeline,
-            &c_tmp,
-            &c_tmp,
-            &c_blurred,
-            &params_coarse,
-            coarse,
+            &tmp,
+            &tmp,
+            &blurred,
+            &params_tonal,
+            fine,
         );
         pass(
             &self.pipelines.gf_coeffs_pipeline,
-            &c_blurred,
-            &c_blurred,
-            &c_ab,
-            &params_coarse,
-            coarse,
+            &blurred,
+            &blurred,
+            &ab,
+            &params_tonal,
+            fine,
         );
         pass(
             &self.pipelines.gf_blur_h_pipeline,
-            &c_ab,
-            &c_ab,
-            &c_tmp,
-            &params_coarse,
-            coarse,
+            &ab,
+            &ab,
+            &tmp,
+            &params_tonal,
+            fine,
         );
         pass(
             &self.pipelines.gf_blur_v_pipeline,
-            &c_tmp,
-            &c_tmp,
-            &c_moments,
-            &params_coarse,
-            coarse,
-        );
-
-        for (params, out) in [(&params_clarity, &ab_clarity), (&params_tonal, &blurred)] {
-            pass(
-                &self.pipelines.gf_blur_h_pipeline,
-                &moments,
-                &moments,
-                &tmp,
-                params,
-                fine,
-            );
-            pass(
-                &self.pipelines.gf_blur_v_pipeline,
-                &tmp,
-                &tmp,
-                &blurred,
-                params,
-                fine,
-            );
-            pass(
-                &self.pipelines.gf_coeffs_pipeline,
-                &blurred,
-                &blurred,
-                &ab,
-                params,
-                fine,
-            );
-            pass(
-                &self.pipelines.gf_blur_h_pipeline,
-                &ab,
-                &ab,
-                &tmp,
-                params,
-                fine,
-            );
-            pass(
-                &self.pipelines.gf_blur_v_pipeline,
-                &tmp,
-                &tmp,
-                out,
-                params,
-                fine,
-            );
-        }
-
-        pass(
-            &self.pipelines.gf_pack_pipeline,
-            &ab_clarity,
+            &tmp,
+            &tmp,
             &blurred,
-            &ab,
-            &params_clarity,
+            &params_tonal,
             fine,
         );
 
@@ -2231,10 +2217,174 @@ impl GpuProcessor {
             half,
         );
 
+        pass(
+            &self.pipelines.gf_box_down_pipeline,
+            &moments,
+            &moments,
+            &tb_luma,
+            &params_tb_fine,
+            (tw, th),
+        );
+        pass(
+            &self.pipelines.gf_blur_h_pipeline,
+            &tb_luma,
+            &tb_luma,
+            &tb_ping,
+            &params_tb_fine,
+            (tw, th),
+        );
+        pass(
+            &self.pipelines.gf_blur_v_pipeline,
+            &tb_ping,
+            &tb_ping,
+            &tb_pong,
+            &params_tb_fine,
+            (tw, th),
+        );
+        for _ in 0..TB_FINE_ITERATIONS {
+            pass(
+                &self.pipelines.tb_bilateral_pipeline,
+                &tb_luma,
+                &tb_pong,
+                &tb_ping,
+                &params_tb_fine,
+                (tw, th),
+            );
+            std::mem::swap(&mut tb_ping, &mut tb_pong);
+        }
+        pass(
+            &self.pipelines.tb_refine_pipeline,
+            &tb_pong,
+            &moments,
+            &tmp,
+            &params_tb_fine,
+            fine,
+        );
+        pass(
+            &self.pipelines.tb_decimate_pipeline,
+            &tmp,
+            &tmp,
+            &tb_coarse,
+            &params_tb_broad,
+            (bw, bh),
+        );
+        pass(
+            &self.pipelines.gf_box_down_pipeline,
+            &tmp,
+            &tmp,
+            &tb_wide,
+            &params_tb_broad,
+            (bw, bh),
+        );
+        pass(
+            &self.pipelines.gf_blur_h_pipeline,
+            &tb_wide,
+            &tb_wide,
+            &tb_fit,
+            &params_tb_broad,
+            (bw, bh),
+        );
+        pass(
+            &self.pipelines.gf_blur_v_pipeline,
+            &tb_fit,
+            &tb_fit,
+            &tb_wide,
+            &params_tb_broad,
+            (bw, bh),
+        );
+        pass(
+            &self.pipelines.tb_fit_pipeline,
+            &tb_wide,
+            &tb_wide,
+            &tb_fit,
+            &params_tb_broad,
+            (bw, bh),
+        );
+        pass(
+            &self.pipelines.gf_blur_h_pipeline,
+            &tb_fit,
+            &tb_fit,
+            &tb_wide,
+            &params_tb_broad,
+            (bw, bh),
+        );
+        pass(
+            &self.pipelines.gf_blur_v_pipeline,
+            &tb_wide,
+            &tb_wide,
+            &tb_fit,
+            &params_tb_broad,
+            (bw, bh),
+        );
+        pass(
+            &self.pipelines.tb_merge_pipeline,
+            &tb_fit,
+            &tb_coarse,
+            &tb_wide,
+            &params_tb_broad,
+            (bw, bh),
+        );
+        pass(
+            &self.pipelines.tb_pack_pipeline,
+            &tb_wide,
+            &tmp,
+            &ab,
+            &params_tb_broad,
+            fine,
+        );
+        pass(
+            &self.pipelines.tb_tone_pipeline,
+            &tb_fit,
+            &ab,
+            &tmp,
+            &params_tb_broad,
+            fine,
+        );
+        pass(
+            &self.pipelines.tb_peak_pipeline,
+            &tb_coarse,
+            &tb_coarse,
+            &airlight,
+            &params_tb_broad,
+            (1, 1),
+        );
+        pass(
+            &self.pipelines.tb_clip_pipeline,
+            &tb_coarse,
+            &airlight,
+            &tb_wide,
+            &params_tb_clip,
+            (bw, bh),
+        );
+        pass(
+            &self.pipelines.gf_blur_h_pipeline,
+            &tb_wide,
+            &tb_wide,
+            &tb_fit,
+            &params_tb_clip,
+            (bw, bh),
+        );
+        pass(
+            &self.pipelines.gf_blur_v_pipeline,
+            &tb_fit,
+            &tb_fit,
+            &tb_wide,
+            &params_tb_clip,
+            (bw, bh),
+        );
+        pass(
+            &self.pipelines.tb_stamp_pipeline,
+            &tmp,
+            &tb_wide,
+            &moments,
+            &params_tb_broad,
+            fine,
+        );
+
         queue.submit(Some(encoder.finish()));
         GuidedTextures {
-            coeffs: ab,
-            structure: c_moments,
+            coeffs: blurred,
+            tone_base: moments,
             haze,
             airlight,
         }
@@ -2415,7 +2565,7 @@ impl GpuProcessor {
                 texture: output.texture,
                 texture_view: output.view,
                 gf_coeffs_view: guided.coeffs,
-                gf_structure_view: guided.structure,
+                tone_base_view: guided.tone_base,
                 haze_view: guided.haze,
                 airlight_view: guided.airlight,
                 is_raw: input.is_raw,
@@ -2697,7 +2847,7 @@ impl GpuProcessor {
     ) -> Result<(RenderedPixels, u32, u32, u32, u32), String> {
         let input_texture_view = &input.texture_view;
         let gf_coeffs_view = &input.gf_coeffs_view;
-        let gf_structure_view = &input.gf_structure_view;
+        let tone_base_view = &input.tone_base_view;
         let haze_view = &input.haze_view;
         let airlight_view = &input.airlight_view;
         let (width, height) = (input.width, input.height);
@@ -3011,7 +3161,7 @@ impl GpuProcessor {
                 });
                 bind_group_entries.push(wgpu::BindGroupEntry {
                     binding: 12 + MAX_MASK_BINDINGS,
-                    resource: wgpu::BindingResource::TextureView(gf_structure_view),
+                    resource: wgpu::BindingResource::TextureView(tone_base_view),
                 });
                 bind_group_entries.push(wgpu::BindGroupEntry {
                     binding: 13 + MAX_MASK_BINDINGS,
@@ -3325,7 +3475,7 @@ fn process_and_get_dynamic_image_inner(
             texture: input.texture,
             texture_view: input.view,
             gf_coeffs_view: guided.coeffs,
-            gf_structure_view: guided.structure,
+            tone_base_view: guided.tone_base,
             haze_view: guided.haze,
             airlight_view: guided.airlight,
             is_raw,

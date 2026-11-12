@@ -121,6 +121,7 @@ impl MaskKind {
 
 enum Job {
     Denoise(DenoiseMethod),
+    Upscale,
     EffectMap(EffectMapKind),
     Mask {
         sub_mask_id: String,
@@ -133,6 +134,7 @@ impl Job {
     fn kind_label(&self) -> &'static str {
         match self {
             Job::Denoise(_) => "denoise",
+            Job::Upscale => "upscale",
             Job::EffectMap(EffectMapKind::Depth) => "depthMap",
             Job::EffectMap(EffectMapKind::Normal) => "normalMap",
             Job::Mask { kind, .. } => match kind {
@@ -224,6 +226,7 @@ fn ai_sub_masks(adjustments: &Value) -> impl Iterator<Item = (MaskKind, &Value)>
 pub fn has_ai_results(adjustments: &Value) -> bool {
     ai_sub_masks(adjustments).next().is_some()
         || adjustments["aiDenoiseEnabled"].as_bool().unwrap_or(false)
+        || adjustments["aiUpscaleEnabled"].as_bool().unwrap_or(false)
         || EffectMapKind::ALL
             .iter()
             .flat_map(|map| map.uses())
@@ -242,6 +245,11 @@ fn plan(adjustments: &Value, path: &str, source_id: &str) -> Vec<Job> {
         && !crate::ai_denoise::has_cached_entry(path, denoise_method)
     {
         jobs.push(Job::Denoise(denoise_method));
+    }
+    if crate::ai_upscale::is_enabled(adjustments)
+        && !crate::ai_upscale::has_cached_entry(path, adjustments)
+    {
+        jobs.push(Job::Upscale);
     }
 
     for map in EffectMapKind::ALL {
@@ -672,7 +680,7 @@ fn finish_path(app_handle: &AppHandle, path: &str, result: Result<Outcome, Strin
         Ok(Outcome::Interrupted) => queue.pending.push_front(path.to_string()),
         Ok(Outcome::Deferred) => {
             queue.pending.push_back(path.to_string());
-            if crate::ai_denoise::is_generating(path) {
+            if crate::ai_denoise::is_generating(path) || crate::ai_upscale::is_generating(path) {
                 queue.deferred.insert(path.to_string());
             }
         }
@@ -963,6 +971,15 @@ fn run_jobs(
         let job_result = match &job {
             Job::Denoise(method) => {
                 match crate::ai_denoise::generate_for_base(app_handle, path, &base, *method) {
+                    Ok(false) => {
+                        outcome = Outcome::Deferred;
+                        continue;
+                    }
+                    result => result.map(|_| ()),
+                }
+            }
+            Job::Upscale => {
+                match crate::ai_upscale::generate_for_base(app_handle, path, &base, adjustments) {
                     Ok(false) => {
                         outcome = Outcome::Deferred;
                         continue;

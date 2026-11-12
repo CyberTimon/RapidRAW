@@ -16,6 +16,7 @@ export interface AiTask {
 
 export type AiJobKind =
   | 'denoise'
+  | 'upscale'
   | 'depthMap'
   | 'normalMap'
   | 'foregroundMask'

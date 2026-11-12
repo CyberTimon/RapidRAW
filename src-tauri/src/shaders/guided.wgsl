@@ -113,15 +113,248 @@ fn gf_coeffs(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(dst, id.xy, vec4<f32>(a.x, b.x, a.y, b.y));
 }
 
+const TB_UP_SIGMA: f32 = 0.25;
+const TB_TEXTURE_KNEE: f32 = 0.06;
+const TB_OWN_SIGMA: f32 = 0.4;
+const TB_OWN_LO: f32 = 0.35;
+const TB_OWN_HI: f32 = 0.65;
+const TB_WIDE_EPS: f32 = 0.1;
+const TB_TONE_EPS: f32 = 0.3;
+const TB_CLIP_BAND: f32 = 0.1;
+const TB_CLIP_FLAT: f32 = 0.02;
+const TB_CLIP_LO: f32 = 0.0005;
+const TB_CLIP_HI: f32 = 0.0015;
+const TB_CLIP_HEADROOM: f32 = 8.0;
+const TB_CLIP_NEAR_LO: f32 = 0.25;
+const TB_CLIP_NEAR_HI: f32 = 1.0;
+
+fn tb_texture(activity: f32) -> f32 {
+    return activity / (activity + TB_TEXTURE_KNEE);
+}
+
+fn tb_upsample(p: vec2<i32>, level: f32, level_channel: i32) -> vec4<f32> {
+    let low = vec2<i32>(textureDimensions(src_a));
+    let pos = (vec2<f32>(p) + 0.5) * vec2<f32>(low) / vec2<f32>(textureDimensions(dst)) - 0.5;
+    let centre = vec2<i32>(round(pos));
+    var total = vec4<f32>(0.0);
+    var weight_sum = 0.0;
+    for (var j = -1; j <= 1; j = j + 1) {
+        for (var i = -1; i <= 1; i = i + 1) {
+            let q = centre + vec2<i32>(i, j);
+            let tent = max(1.0 - abs(vec2<f32>(q) - pos) / 1.5, vec2<f32>(0.0));
+            let v = textureLoad(src_a, clamp(q, vec2<i32>(0), low - vec2<i32>(1)), 0);
+            let d = (v[level_channel] - level) / TB_UP_SIGMA;
+            let w = tent.x * tent.y / (1.0 + d * d) + 1.0e-7;
+            total += v * w;
+            weight_sum += w;
+        }
+    }
+    return total / weight_sum;
+}
+
 @compute @workgroup_size(8, 8, 1)
-fn gf_pack(@builtin(global_invocation_id) id: vec3<u32>) {
+fn tb_bilateral(@builtin(global_invocation_id) id: vec3<u32>) {
+    let dims = vec2<i32>(textureDimensions(dst));
+    let p = vec2<i32>(id.xy);
+    if (p.x >= dims.x || p.y >= dims.y) { return; }
+
+    let radius = i32(params.radius);
+    let sigma = max(f32(radius) * 0.5, 0.5);
+    let own = textureLoad(src_a, p, 0).xy;
+    let centre = textureLoad(src_b, p, 0).x;
+    var total = 0.0;
+    var weight_sum = 0.0;
+    for (var j = -radius; j <= radius; j = j + 1) {
+        for (var i = -radius; i <= radius; i = i + 1) {
+            let c = clamp(p + vec2<i32>(i, j), vec2<i32>(0), dims - vec2<i32>(1));
+            let d = (textureLoad(src_b, c, 0).x - centre) / params.eps;
+            let w = exp(-f32(i * i + j * j) / (2.0 * sigma * sigma) - 0.5 * d * d);
+            total += textureLoad(src_a, c, 0).x * w;
+            weight_sum += w;
+        }
+    }
+    textureStore(dst, id.xy, vec4<f32>(total / weight_sum, 0.0, own));
+}
+
+@compute @workgroup_size(8, 8, 1)
+fn tb_refine(@builtin(global_invocation_id) id: vec3<u32>) {
+    let dims = vec2<i32>(textureDimensions(dst));
+    let p = vec2<i32>(id.xy);
+    if (p.x >= dims.x || p.y >= dims.y) { return; }
+
+    let l = textureLoad(src_b, p, 0).x;
+    let radius = i32(params.radius);
+    var total = 0.0;
+    var similar = 0.0;
+    for (var j = -radius; j <= radius; j = j + 1) {
+        for (var i = -radius; i <= radius; i = i + 1) {
+            let v = textureLoad(src_b, clamp(p + vec2<i32>(i, j), vec2<i32>(0), dims - vec2<i32>(1)), 0).x;
+            let d = (v - l) / TB_OWN_SIGMA;
+            let w = exp(-0.5 * d * d);
+            total += v * w;
+            similar += w;
+        }
+    }
+    let side = f32(2 * radius + 1);
+    let share = similar / (side * side);
+    let level = mix(tb_upsample(p, l, 0).x, total / similar, smoothstep(TB_OWN_LO, TB_OWN_HI, share));
+    textureStore(dst, id.xy, vec4<f32>(level, level * level, abs(l - level), 0.0));
+}
+
+@compute @workgroup_size(8, 8, 1)
+fn tb_decimate(@builtin(global_invocation_id) id: vec3<u32>) {
+    let dst_dims = textureDimensions(dst);
+    if (id.x >= dst_dims.x || id.y >= dst_dims.y) { return; }
+
+    let src_dims = textureDimensions(src_a);
+    let ratio = vec2<f32>(src_dims) / vec2<f32>(dst_dims);
+    let taps = vec2<i32>(clamp(ceil(ratio), vec2<f32>(1.0), vec2<f32>(8.0)));
+    let origin = vec2<f32>(id.xy) * ratio;
+    let max_idx = vec2<i32>(src_dims) - vec2<i32>(1);
+
+    let centre = clamp(vec2<i32>(origin + 0.5 * ratio), vec2<i32>(0), max_idx);
+    let level = textureLoad(src_a, centre, 0).x;
+    var activity = 0.0;
+    var weight_sum = 0.0;
+    var highest = -1.0e9;
+    for (var j = 0; j < taps.y; j = j + 1) {
+        for (var i = 0; i < taps.x; i = i + 1) {
+            let pos = origin + (vec2<f32>(f32(i), f32(j)) + 0.5) / vec2<f32>(taps) * ratio;
+            let v = textureLoad(src_a, clamp(vec2<i32>(pos), vec2<i32>(0), max_idx), 0).xz;
+            let d = (v.x - level) / TB_UP_SIGMA;
+            let w = 1.0 / (1.0 + d * d);
+            activity += v.y * w;
+            weight_sum += w;
+            highest = max(highest, v.x);
+        }
+    }
+    textureStore(dst, id.xy, vec4<f32>(level, tb_texture(activity / weight_sum), highest, 0.0));
+}
+
+@compute @workgroup_size(8, 8, 1)
+fn tb_fit(@builtin(global_invocation_id) id: vec3<u32>) {
+    let dims = textureDimensions(dst);
+    if (id.x >= dims.x || id.y >= dims.y) { return; }
+
+    let m = textureLoad(src_a, vec2<i32>(id.xy), 0).xy;
+    let variance = max(m.y - m.x * m.x, 0.0);
+    let a = variance / vec2<f32>(variance + TB_WIDE_EPS, variance + TB_TONE_EPS);
+    textureStore(dst, id.xy, vec4<f32>(a.x, m.x * (1.0 - a.x), a.y, m.x * (1.0 - a.y)));
+}
+
+@compute @workgroup_size(8, 8, 1)
+fn tb_merge(@builtin(global_invocation_id) id: vec3<u32>) {
     let dims = textureDimensions(dst);
     if (id.x >= dims.x || id.y >= dims.y) { return; }
 
     let p = vec2<i32>(id.xy);
-    let c = textureLoad(src_a, p, 0).xy;
-    let s = textureLoad(src_b, p, 0).xy;
-    textureStore(dst, id.xy, vec4<f32>(c, s));
+    textureStore(dst, id.xy, vec4<f32>(textureLoad(src_a, p, 0).xy, textureLoad(src_b, p, 0).xy));
+}
+
+@compute @workgroup_size(8, 8, 1)
+fn tb_pack(@builtin(global_invocation_id) id: vec3<u32>) {
+    let dims = vec2<i32>(textureDimensions(dst));
+    let p = vec2<i32>(id.xy);
+    if (p.x >= dims.x || p.y >= dims.y) { return; }
+
+    let level = textureLoad(src_b, p, 0).x;
+    let low = vec2<i32>(textureDimensions(src_a));
+    let pos = (vec2<f32>(p) + 0.5) * vec2<f32>(low) / vec2<f32>(dims) - 0.5;
+    let f = pos - floor(pos);
+    let c0 = clamp(vec2<i32>(floor(pos)), vec2<i32>(0), low - vec2<i32>(1));
+    let c1 = min(c0 + vec2<i32>(1), low - vec2<i32>(1));
+    let fit = mix(
+        mix(textureLoad(src_a, c0, 0).xy, textureLoad(src_a, vec2<i32>(c1.x, c0.y), 0).xy, f.x),
+        mix(textureLoad(src_a, vec2<i32>(c0.x, c1.y), 0).xy, textureLoad(src_a, c1, 0).xy, f.x),
+        f.y
+    );
+    let texture = tb_upsample(p, level, 2).w;
+    textureStore(dst, id.xy, vec4<f32>(level, level - (fit.x * level + fit.y), texture, 0.0));
+}
+
+@compute @workgroup_size(8, 8, 1)
+fn tb_tone(@builtin(global_invocation_id) id: vec3<u32>) {
+    let dims = vec2<i32>(textureDimensions(dst));
+    let p = vec2<i32>(id.xy);
+    if (p.x >= dims.x || p.y >= dims.y) { return; }
+
+    let base = textureLoad(src_b, p, 0);
+    let low = vec2<i32>(textureDimensions(src_a));
+    let pos = (vec2<f32>(p) + 0.5) * vec2<f32>(low) / vec2<f32>(dims) - 0.5;
+    let f = pos - floor(pos);
+    let c0 = clamp(vec2<i32>(floor(pos)), vec2<i32>(0), low - vec2<i32>(1));
+    let c1 = min(c0 + vec2<i32>(1), low - vec2<i32>(1));
+    let fit = mix(
+        mix(textureLoad(src_a, c0, 0).zw, textureLoad(src_a, vec2<i32>(c1.x, c0.y), 0).zw, f.x),
+        mix(textureLoad(src_a, vec2<i32>(c0.x, c1.y), 0).zw, textureLoad(src_a, c1, 0).zw, f.x),
+        f.y
+    );
+    textureStore(dst, id.xy, vec4<f32>(base.xyz, base.x - (fit.x * base.x + fit.y)));
+}
+
+@compute @workgroup_size(8, 8, 1)
+fn tb_peak(@builtin(global_invocation_id) id: vec3<u32>) {
+    if (id.x != 0u || id.y != 0u) { return; }
+
+    let dims = vec2<i32>(textureDimensions(src_a));
+    var peak = -1.0e9;
+    for (var y = 0; y < dims.y; y = y + 1) {
+        for (var x = 0; x < dims.x; x = x + 1) {
+            peak = max(peak, textureLoad(src_a, vec2<i32>(x, y), 0).z);
+        }
+    }
+    var clipped = 0.0;
+    for (var y = 0; y < dims.y; y = y + 1) {
+        for (var x = 0; x < dims.x; x = x + 1) {
+            let cell = textureLoad(src_a, vec2<i32>(x, y), 0).yz;
+            if (peak - cell.y < TB_CLIP_BAND && cell.x < TB_CLIP_FLAT) {
+                clipped += 1.0;
+            }
+        }
+    }
+    let confidence = smoothstep(TB_CLIP_LO, TB_CLIP_HI, clipped / f32(dims.x * dims.y));
+    textureStore(dst, vec2<u32>(2u, 0u), vec4<f32>(peak + (1.0 - confidence) * TB_CLIP_HEADROOM, confidence, peak, 0.0));
+}
+
+@compute @workgroup_size(8, 8, 1)
+fn tb_clip(@builtin(global_invocation_id) id: vec3<u32>) {
+    let dims = textureDimensions(dst);
+    if (id.x >= dims.x || id.y >= dims.y) { return; }
+
+    let white = textureLoad(src_b, vec2<i32>(2, 0), 0);
+    let cell = textureLoad(src_a, vec2<i32>(id.xy), 0).yz;
+    let clipped = (1.0 - smoothstep(TB_CLIP_NEAR_LO, TB_CLIP_NEAR_HI, white.z - cell.y)) * white.y;
+    textureStore(dst, id.xy, vec4<f32>(clipped));
+}
+
+@compute @workgroup_size(8, 8, 1)
+fn tb_stamp(@builtin(global_invocation_id) id: vec3<u32>) {
+    let dims = textureDimensions(dst);
+    if (id.x >= dims.x || id.y >= dims.y) { return; }
+
+    let p = vec2<i32>(id.xy);
+    let base = textureLoad(src_a, p, 0);
+    var lowest = base.x;
+    var highest = base.x;
+    for (var j = -1; j <= 1; j = j + 1) {
+        for (var i = -1; i <= 1; i = i + 1) {
+            let v = textureLoad(src_a, clamp(p + vec2<i32>(i, j), vec2<i32>(0), vec2<i32>(dims) - vec2<i32>(1)), 0).x;
+            lowest = min(lowest, v);
+            highest = max(highest, v);
+        }
+    }
+    let low = vec2<i32>(textureDimensions(src_b));
+    let pos = (vec2<f32>(id.xy) + 0.5) * vec2<f32>(low) / vec2<f32>(dims) - 0.5;
+    let f = pos - floor(pos);
+    let c0 = clamp(vec2<i32>(floor(pos)), vec2<i32>(0), low - vec2<i32>(1));
+    let c1 = min(c0 + vec2<i32>(1), low - vec2<i32>(1));
+    let clipped = mix(
+        mix(textureLoad(src_b, c0, 0).x, textureLoad(src_b, vec2<i32>(c1.x, c0.y), 0).x, f.x),
+        mix(textureLoad(src_b, vec2<i32>(c0.x, c1.y), 0).x, textureLoad(src_b, c1, 0).x, f.x),
+        f.y
+    );
+    let texture_range = bitcast<f32>(pack2x16float(vec2<f32>(base.z, highest - lowest)));
+    textureStore(dst, id.xy, vec4<f32>(base.xy, texture_range, bitcast<f32>(pack2x16float(vec2<f32>(base.w, clipped)))));
 }
 
 const HZ_BINS: u32 = 256u;

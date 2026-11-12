@@ -39,6 +39,9 @@ function DetailsPanel({
   const aiDenoiseProgress = useEditorStore((state) =>
     state.selectedImage ? state.aiDenoiseProgress[state.selectedImage.path] : undefined,
   );
+  const aiUpscaleProgress = useEditorStore((state) =>
+    state.selectedImage ? state.aiUpscaleProgress[state.selectedImage.path] : undefined,
+  );
   const aiModelDownloadStatus = useProcessStore(selectAiModelDownloadStatus);
 
   const handleAdjustmentChange = (key: string, value: string) => {
@@ -232,6 +235,50 @@ function DetailsPanel({
               </SpatialEffect>
             </div>
           )}
+        </AdjustmentSubSection>
+      )}
+
+      {!isForMask && !isAiFree && !hiddenTools.includes('superResolution') && (
+        <AdjustmentSubSection
+          id="superResolution"
+          order={toolOrder.indexOf('superResolution')}
+          title={t('adjustments.details.superResolution')}
+        >
+          <SpatialEffect
+            enabled={!!adjustments.aiUpscaleEnabled}
+            label={t('adjustments.details.aiUpscale')}
+            onToggle={(enabled: boolean) =>
+              setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, aiUpscaleEnabled: enabled }))
+            }
+          >
+            {aiUpscaleProgress !== undefined ? (
+              <div className="flex flex-col items-center justify-center gap-1 p-4 text-text-secondary text-center">
+                <div className="flex items-center gap-2">
+                  <Loader2 size={16} className="animate-spin shrink-0" />
+                  <Text variant={TextVariants.label}>
+                    {aiModelDownloadStatus ? t('editor.masks.settings.aiModelDownloading') : t('editor.ai.upscaling')}
+                  </Text>
+                </div>
+                <Text variant={TextVariants.small} className="text-accent">
+                  {aiModelDownloadStatus || `${Math.round(aiUpscaleProgress * 100)}%`}
+                </Text>
+              </div>
+            ) : (
+              <Slider
+                label={t('adjustments.details.aiUpscaleDetail')}
+                max={100}
+                min={0}
+                defaultValue={30}
+                onChange={(e: SliderChangeEvent) =>
+                  handleAdjustmentChange(DetailsAdjustment.AiUpscaleDetail, String(e.target.value))
+                }
+                step={1}
+                value={adjustments.aiUpscaleDetail ?? 30}
+                onDragStateChange={onDragStateChange}
+                fillOrigin="min"
+              />
+            )}
+          </SpatialEffect>
         </AdjustmentSubSection>
       )}
 
