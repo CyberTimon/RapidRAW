@@ -61,7 +61,7 @@ import {
   getSubMaskName,
   NewMaskDropZone,
 } from './Masks';
-import { Adjustments, AiPatch, Coord } from '../../../utils/adjustments';
+import { Adjustments, AiPatch, Coord, insertAiPatch } from '../../../utils/adjustments';
 import { OPTION_SEPARATOR } from '../../ui/AppProperties';
 import { countPatchesOfType, createSubMask } from '../../../utils/maskUtils';
 import Text from '../../ui/Text';
@@ -491,7 +491,14 @@ export default function AIPanel() {
   const { t } = useTranslation();
   const activePatchContainerId = useEditorStore((s) => s.activeAiPatchContainerId);
   const activeSubMaskId = useEditorStore((s) => s.activeAiSubMaskId);
-  const adjustments = useEditorStore((s) => s.adjustments);
+  const storeAdjustments = useEditorStore((s) => s.adjustments);
+  const adjustments = useMemo(
+    () => ({
+      ...storeAdjustments,
+      aiPatches: (storeAdjustments.aiPatches || []).filter((p: AiPatch) => !p.faceRefine),
+    }),
+    [storeAdjustments],
+  );
   const brushSettings = useEditorStore((s) => s.brushSettings);
   const isAIConnectorConnected = useEditorStore((s) => s.isAIConnectorConnected);
   const selectedImage = useEditorStore((s) => s.selectedImage);
@@ -659,7 +666,10 @@ export default function AIPanel() {
       });
     });
     handleDeselect();
-    setAdjustments((prev: Adjustments) => ({ ...prev, aiPatches: [] }));
+    setAdjustments((prev: Adjustments) => ({
+      ...prev,
+      aiPatches: (prev.aiPatches || []).filter((p: AiPatch) => p.faceRefine),
+    }));
   };
 
   const createMaskLogic = (type: Mask, mode: SubMaskMode = SubMaskMode.Additive) => {
@@ -734,7 +744,10 @@ export default function AIPanel() {
       visible: true,
     };
 
-    setAdjustments((prev: Adjustments) => ({ ...prev, aiPatches: [...(prev.aiPatches || []), newContainer] }));
+    setAdjustments((prev: Adjustments) => ({
+      ...prev,
+      aiPatches: insertAiPatch(prev.aiPatches || [], newContainer),
+    }));
     onSelectPatchContainer(newContainer.id);
 
     const isStandalone = isStandaloneMask(type);
@@ -925,11 +938,7 @@ export default function AIPanel() {
 
   const insertPatchContainer = (container: AiPatch, insertIndex?: number) => {
     setAdjustments((prev: Adjustments) => {
-      const newPatches = [...(prev.aiPatches || [])];
-      const targetIndex = Math.max(0, Math.min(insertIndex ?? newPatches.length, newPatches.length));
-
-      newPatches.splice(targetIndex, 0, container);
-      return { ...prev, aiPatches: newPatches };
+      return { ...prev, aiPatches: insertAiPatch(prev.aiPatches || [], container, insertIndex) };
     });
 
     onSelectPatchContainer(container.id);
@@ -1123,7 +1132,7 @@ export default function AIPanel() {
         const oldIndex = prev.aiPatches.findIndex((p) => p.id === dragData.item!.id);
         let newIndex = -1;
 
-        if (overId === 'ai-list-root') newIndex = prev.aiPatches.length - 1;
+        if (overId === 'ai-list-root') newIndex = prev.aiPatches.filter((p) => !p.faceRefine).length - 1;
         else if (overData?.type === 'Container') newIndex = prev.aiPatches.findIndex((p) => p.id === overId);
         else if (overData?.type === 'SubMask') newIndex = prev.aiPatches.findIndex((p) => p.id === overData.parentId);
 

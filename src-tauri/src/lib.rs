@@ -46,6 +46,8 @@ mod effect_maps;
 mod exif_processing;
 mod export_processing;
 mod face_masking;
+mod face_parsing;
+mod face_refine;
 mod file_management;
 mod focus_stacking;
 mod fog;
@@ -76,6 +78,7 @@ mod preview_jpeg;
 mod raw_processing;
 mod relight;
 mod render_source;
+mod skin_retouch;
 mod storage;
 mod tagging;
 mod tagging_utils;
@@ -2900,6 +2903,8 @@ pub fn run() {
             inpainting::generate_manual_cleanup_patch,
             inpainting::generate_liquify_patch,
             inpainting::generate_retouch_patch,
+            face_refine::detect_faces_for_refine,
+            face_refine::generate_face_refine_patch,
             focus_stacking::stitch_focus_stack,
             focus_stacking::save_focus_stack,
             image_loader::load_image,
