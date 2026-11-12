@@ -770,11 +770,13 @@
       "cancel": "Zrušit",
       "drawingActive": "Kreslení aktivní",
       "hint": "Kreslete podél hran na fotografii, které mají být svislé nebo vodorovné.",
+      "horizontalLine": "Vodorovná vodicí čára č. {{index}}",
       "linesStatus": "Aktivní vodicí čáry",
       "toast": {
         "angleRejected": "Úhel čáry je příliš daleko od vodorovného nebo svislého směru",
         "maxLines": "Povoleny jsou maximálně 2 svislé a 2 vodorovné čáry"
-      }
+      },
+      "verticalLine": "Svislá vodicí čára č. {{index}}"
     },
     "layout": {
       "split": "Rozdělit"

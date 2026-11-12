@@ -16,15 +16,15 @@ import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { useDraggable } from '@dnd-kit/core';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
-import FlagBadges from '../../ui/FlagBadges';
-import { ThumbnailAspectRatio, ImageFile, ImageFlag, ExifOverlay } from '../../ui/AppProperties';
+import FlagBadges from './FlagBadges';
+import { ThumbnailAspectRatio, ExifOverlay } from '../../../types/settings';
+import { ImageFile, ImageFlag, ColumnWidths } from '../../../types/library';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights, TEXT_COLOR_KEYS } from '../../../types/typography';
-import { ColumnWidths } from '../MainLibrary';
 import { useProcessStore } from '../../../store/useProcessStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useLibraryStore } from '../../../store/useLibraryStore';
-import { isImmichAlbumId } from '../../immich/immichApi';
+import { isImmichAlbumId } from '../../../utils/immichApi';
 import { IconAperture, IconFocalLength, IconIso, IconShutter } from '../editor/ExifIcons';
 import { useCtrlClickMenuGuard } from '../../../hooks/useCtrlClickMenuGuard';
 
@@ -904,7 +904,7 @@ const ListItemComponent = ({
 export const Thumbnail = React.memo(ThumbnailComponent);
 const ListItem = React.memo(ListItemComponent);
 
-const RowComponent = ({
+export const Row = ({
   index,
   style,
   rows,
@@ -1099,5 +1099,3 @@ const RowComponent = ({
     </div>
   );
 };
-
-export const Row = React.memo(RowComponent);

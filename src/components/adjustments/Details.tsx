@@ -12,12 +12,12 @@ import {
   getAdjustmentToolOrder,
   getAiDenoiseEnablePatch,
   getHiddenAdjustmentTools,
+  areSectionPropsEqual,
 } from '../../utils/adjustments';
-import { AppSettings } from '../ui/AppProperties';
+import { AppSettings } from '../../types/settings';
 import AdjustmentSubSection from './AdjustmentSubSection';
 import { canvasToolState, useEditorStore } from '../../store/useEditorStore';
 import { selectAiModelDownloadStatus, useProcessStore } from '../../store/useProcessStore';
-import { areSectionPropsEqual } from '../../utils/adjustments';
 
 interface DetailsPanelProps {
   adjustments: Adjustments;

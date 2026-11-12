@@ -719,11 +719,13 @@
       "cancel": "キャンセル",
       "drawingActive": "描画中",
       "hint": "垂直または水平であるべき写真の縁に沿って描画します。",
+      "horizontalLine": "水平ガイド {{index}}",
       "linesStatus": "アクティブなガイドライン",
       "toast": {
         "angleRejected": "線の角度が水平または垂直から離れすぎています",
         "maxLines": "垂直線と水平線はそれぞれ最大2本まで許可されています"
-      }
+      },
+      "verticalLine": "垂直ガイド {{index}}"
     },
     "layout": {
       "split": "分割"

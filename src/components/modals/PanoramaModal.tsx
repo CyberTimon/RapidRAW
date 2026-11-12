@@ -4,7 +4,7 @@ import { CheckCircle, XCircle, Loader2, Save, RefreshCw, Layers } from 'lucide-r
 import { motion } from 'framer-motion';
 import Button from '../ui/Button';
 import Text from '../ui/Text';
-import { TextColors, TextVariants, TextWeights } from '../../types/typography';
+import { TextColors, TextVariants } from '../../types/typography';
 
 interface PanoramaModalProps {
   error: string | null;

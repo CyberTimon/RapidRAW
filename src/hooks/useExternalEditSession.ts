@@ -4,8 +4,8 @@ import { exit } from '@tauri-apps/plugin-process';
 
 import { useProcessStore } from '../store/useProcessStore';
 import { useEditorStore } from '../store/useEditorStore';
-import { Invokes } from '../components/ui/AppProperties';
-import { ExportSettings, Status } from '../components/ui/ExportImportProperties';
+import { Invokes } from '../types/invokes';
+import { ExportSettings, Status } from '../types/export';
 import { debouncedSave } from './useEditorActions';
 
 /**

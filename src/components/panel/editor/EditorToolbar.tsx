@@ -14,7 +14,8 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
-import { CompareMode, SelectedImage, GroupingMode } from '../../ui/AppProperties';
+import { CompareMode, GroupingMode } from '../../../types/settings';
+import { SelectedImage } from '../../../types/editor';
 import { ToolbarMenu, ToolbarMenuItem, useMenuDismiss } from './ToolbarMenu';
 import { IconAperture, IconCalendar, IconClock, IconFocalLength, IconIso, IconShutter } from './ExifIcons';
 import Text from '../../ui/Text';

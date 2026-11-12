@@ -8,7 +8,7 @@ import {
 } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import clsx from 'clsx';
-import { Invokes } from '../AppProperties';
+import { Invokes } from '../../../types/invokes';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useCtrlClickMenuGuard } from '../../../hooks/useCtrlClickMenuGuard';
 import { Camera, DEPTH_SCALE, DepthPreview, DepthScopeRenderer, Frame, toDisplay } from './renderer';

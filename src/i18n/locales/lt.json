@@ -794,11 +794,13 @@
       "cancel": "Atšaukti",
       "drawingActive": "Nubrėžkite liniją palei objektą, kuris turėtų būti horizontalus arba vertikalus.",
       "hint": "Nubrėžkite 2–4 linijas, kad ištaisytumėte perspektyvą.",
+      "horizontalLine": "Horizontali linija Nr. {{index}}",
       "linesStatus": "Nubrėžta linijų: {{count}} iš 4",
       "toast": {
         "angleRejected": "Linijos kampas per daug nutolęs nuo horizontalės ar vertikalės",
         "maxLines": "Leidžiamos daugiausiai 2 vertikalios ir 2 horizontalios linijos"
-      }
+      },
+      "verticalLine": "Vertikali linija Nr. {{index}}"
     },
     "layout": {
       "split": "Padalintas vaizdas"

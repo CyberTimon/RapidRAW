@@ -1,6 +1,6 @@
 import clsx from 'clsx';
-import { ImageFlag } from './AppProperties';
-import { FLAG_ICONS } from '../../utils/imageFlags';
+import { ImageFlag } from '../../../types/library';
+import { FLAG_ICONS } from '../../../utils/imageFlags';
 
 interface FlagBadgesProps {
   flag: ImageFlag | null;

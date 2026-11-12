@@ -6,9 +6,9 @@ import {
   SortCriteria,
   SortDirection,
   AlbumItem,
-} from '../components/ui/AppProperties';
+  ColumnWidths,
+} from '../types/library';
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../utils/adjustments';
-import { ColumnWidths } from '../components/panel/MainLibrary';
 
 export interface NavHistoryItem {
   type: 'folder' | 'album';

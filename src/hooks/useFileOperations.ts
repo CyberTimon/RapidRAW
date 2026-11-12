@@ -8,8 +8,9 @@ import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
 import { JobKind, useProcessStore } from '../store/useProcessStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { ImageFlag, Invokes } from '../components/ui/AppProperties';
-import { Status } from '../components/ui/ExportImportProperties';
+import { ImageFlag } from '../types/library';
+import { Invokes } from '../types/invokes';
+import { Status } from '../types/export';
 
 export const transferFiles = (kind: JobKind.Copy | JobKind.Move, sourcePaths: string[], destinationFolder: string) =>
   useProcessStore
@@ -130,8 +131,8 @@ export function useFileOperations(
       imageList.some((image) => image.path.startsWith(`${pathsToDelete[0]}?vc=`));
 
     let modalTitle = 'Confirm Delete';
-    let modalMessage = '';
-    let confirmText = 'Delete';
+    let modalMessage: string;
+    let confirmText: string;
 
     if (selectionHasVirtualCopies) {
       modalTitle = 'Delete Image and All Virtual Copies?';

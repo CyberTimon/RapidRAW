@@ -1,6 +1,6 @@
 import { type PointerEvent as ReactPointerEvent, useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import Text from './Text';
+import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
 
 export function DepthRangePicker({

@@ -1,4 +1,4 @@
-import { Progress } from './AppProperties';
+import type { Progress } from './library';
 
 export enum FileFormats {
   Jpeg = 'jpeg',

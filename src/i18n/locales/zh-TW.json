@@ -719,11 +719,13 @@
       "cancel": "取消",
       "drawingActive": "繪圖中",
       "hint": "沿著照片中應該是垂直或水平的邊緣繪製。",
+      "horizontalLine": "水平引導線 {{index}}",
       "linesStatus": "活躍引導線",
       "toast": {
         "angleRejected": "線條角度偏離水平或垂直太遠",
         "maxLines": "最多允許 2 條垂直線和 2 條水平線"
-      }
+      },
+      "verticalLine": "垂直引導線 {{index}}"
     },
     "layout": {
       "split": "拆分"

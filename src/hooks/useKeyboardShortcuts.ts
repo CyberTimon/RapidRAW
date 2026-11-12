@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
-import { ImageFile, ImageFlag, Panel, ExifOverlay, LibraryViewMode } from '../components/ui/AppProperties';
+import { ImageFile, ImageFlag } from '../types/library';
+import { Panel } from '../types/ui';
+import { ExifOverlay, LibraryViewMode } from '../types/settings';
 import { KEYBIND_DEFINITIONS, getEffectiveCombo, normalizeCombo } from '../utils/keyboardUtils';
 import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';

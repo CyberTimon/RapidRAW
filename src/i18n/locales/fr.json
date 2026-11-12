@@ -746,11 +746,13 @@
       "cancel": "Annuler",
       "drawingActive": "Dessin actif",
       "hint": "Tracez le long des bords de votre photo qui devraient être verticaux ou horizontaux.",
+      "horizontalLine": "Guide horizontal n° {{index}}",
       "linesStatus": "Lignes de guidage actives",
       "toast": {
         "angleRejected": "L'angle de la ligne est trop éloigné de l'horizontale ou de la verticale",
         "maxLines": "Maximum de 2 lignes verticales et 2 lignes horizontales autorisées"
-      }
+      },
+      "verticalLine": "Guide vertical n° {{index}}"
     },
     "layout": {
       "split": "Diviser"

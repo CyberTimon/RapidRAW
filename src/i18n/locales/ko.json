@@ -719,11 +719,13 @@
       "cancel": "취소",
       "drawingActive": "그리기 활성화",
       "hint": "사진에서 수직이나 수평이 되어야 하는 가장자리를 따라 그리세요.",
+      "horizontalLine": "수평 안내선 {{index}}",
       "linesStatus": "활성 안내선",
       "toast": {
         "angleRejected": "선의 각도가 수평이나 수직에서 너무 벗어났습니다",
         "maxLines": "수직선 2개, 수평선 2개까지만 허용됩니다"
-      }
+      },
+      "verticalLine": "수직 안내선 {{index}}"
     },
     "layout": {
       "split": "분할"

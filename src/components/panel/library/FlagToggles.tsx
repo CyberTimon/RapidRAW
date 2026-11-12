@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
-import { ImageFlag } from './AppProperties';
-import { FLAG_ICONS } from '../../utils/imageFlags';
+import { ImageFlag } from '../../../types/library';
+import { FLAG_ICONS } from '../../../utils/imageFlags';
 
 const FLAG_TOOLTIP_KEYS = {
   [ImageFlag.Pick]: 'ui.flags.togglePick',

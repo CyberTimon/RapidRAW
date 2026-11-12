@@ -746,11 +746,13 @@
       "cancel": "Cancelar",
       "drawingActive": "Dibujo activo",
       "hint": "Dibuja a lo largo de los bordes de tu foto que deberían ser verticales u horizontales.",
+      "horizontalLine": "Guía horizontal n.º {{index}}",
       "linesStatus": "Líneas guía activas",
       "toast": {
         "angleRejected": "El ángulo de la línea está demasiado lejos de la horizontal o vertical",
         "maxLines": "Se permiten un máximo de 2 líneas verticales y 2 horizontales"
-      }
+      },
+      "verticalLine": "Guía vertical n.º {{index}}"
     },
     "layout": {
       "split": "Dividir"

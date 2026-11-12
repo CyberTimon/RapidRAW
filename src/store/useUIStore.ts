@@ -2,16 +2,10 @@ import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
 import i18n from 'i18next';
 import { toast } from 'react-toastify';
-import {
-  Invokes,
-  ImageFile,
-  Panel,
-  UiVisibility,
-  CullingSuggestions,
-  PanelRegion,
-  WorkspaceState,
-  CollapsibleSectionsState,
-} from '../components/ui/AppProperties';
+import { Invokes } from '../types/invokes';
+import { ImageFile, CullingSuggestions } from '../types/library';
+import { Panel, UiVisibility, PanelRegion, CollapsibleSectionsState } from '../types/ui';
+import { WorkspaceState } from '../types/settings';
 import { useEditorStore } from './useEditorStore';
 import { pickCropGeometry } from '../utils/adjustments';
 
@@ -382,7 +376,7 @@ export const useUIStore = create<UIState>((set, get) => ({
       };
       const active = { ...state.activePanels };
 
-      let fromRegion: PanelRegion | null = null;
+      let fromRegion = null as PanelRegion | null;
       (Object.keys(layout) as PanelRegion[]).forEach((r) => {
         if (layout[r].includes(panel)) {
           fromRegion = r;
@@ -417,7 +411,7 @@ export const useUIStore = create<UIState>((set, get) => ({
       };
       const active = { ...state.activePanels };
 
-      let fromRegion: PanelRegion | null = null;
+      let fromRegion = null as PanelRegion | null;
       (Object.keys(layout) as PanelRegion[]).forEach((r) => {
         if (layout[r].includes(panel)) {
           fromRegion = r;

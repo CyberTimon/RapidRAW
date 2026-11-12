@@ -1,5 +1,5 @@
 import React from 'react';
-import type { OverlayMode } from '../../right/CropPanel';
+import type { OverlayMode } from '../../../../types/editor';
 
 interface CompositionOverlaysProps {
   width: number;

@@ -4,10 +4,10 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { ask } from '@tauri-apps/plugin-dialog';
 import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
-import { useLibraryStore } from '../../store/useLibraryStore';
-import { useSettingsStore } from '../../store/useSettingsStore';
-import { flushImmichEdits, ImmichSyncStatus } from './immichApi';
-import { useImmichStore } from './useImmichStore';
+import { useLibraryStore } from '../store/useLibraryStore';
+import { useSettingsStore } from '../store/useSettingsStore';
+import { flushImmichEdits, ImmichSyncStatus } from '../utils/immichApi';
+import { useImmichStore } from '../store/useImmichStore';
 
 interface DownloadEvent {
   path: string;

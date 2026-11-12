@@ -4,15 +4,12 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useEditorStore } from '../../../../store/useEditorStore';
 import { useSettingsStore } from '../../../../store/useSettingsStore';
 import { useUIStore } from '../../../../store/useUIStore';
-import {
-  FINE_ADJUSTMENT_MULTIPLIER,
-  SpeedEditTarget,
-  getSpeedEditTarget,
-  hasFineAdjustmentModifier,
-} from '../../../ui/Slider';
-import { Coord, DEFAULT_SPEED_EDIT_ADJUSTMENTS } from '../../../../utils/adjustments';
-import { Panel, PanelRegion } from '../../../ui/AppProperties';
+import { getSpeedEditTarget } from '../../../ui/Slider';
 import { formatKeyCode, normalizeCombo } from '../../../../utils/keyboardUtils';
+import { FINE_ADJUSTMENT_MULTIPLIER, hasFineAdjustmentModifier } from '../../../../utils/fineAdjustment';
+import { SpeedEditTarget } from '../../../../types/editor';
+import { Coord, DEFAULT_SPEED_EDIT_ADJUSTMENTS } from '../../../../utils/adjustments';
+import { Panel, PanelRegion } from '../../../../types/ui';
 
 const DRAG_RANGE_PX = 400;
 const HUD_OFFSET = 16;

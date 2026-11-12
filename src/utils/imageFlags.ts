@@ -1,5 +1,5 @@
 import { Ban, Flag } from 'lucide-react';
-import { ImageFile, ImageFlag } from '../components/ui/AppProperties';
+import { ImageFile, ImageFlag } from '../types/library';
 
 export const FLAG_ICONS = {
   [ImageFlag.Pick]: Flag,

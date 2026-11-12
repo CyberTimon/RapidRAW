@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { useSettingsStore } from '../../store/useSettingsStore';
+import { useSettingsStore } from './useSettingsStore';
 import {
   getImmichApiKey,
   getImmichSyncStatus,
@@ -8,7 +8,7 @@ import {
   ImmichTimelineMonth,
   listImmichAlbums,
   listImmichTimeline,
-} from './immichApi';
+} from '../utils/immichApi';
 
 interface ImmichState {
   isConfigured: boolean;

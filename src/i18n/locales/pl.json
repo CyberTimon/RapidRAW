@@ -770,11 +770,13 @@
       "cancel": "Anuluj",
       "drawingActive": "Rysowanie aktywne",
       "hint": "Rysuj wzdłuż krawędzi na zdjęciu, które powinny być pionowe lub poziome.",
+      "horizontalLine": "Pozioma linia pomocnicza {{index}}",
       "linesStatus": "Aktywne linie pomocnicze",
       "toast": {
         "angleRejected": "Kąt linii jest zbyt odległy od poziomu lub pionu",
         "maxLines": "Dozwolone są maksymalnie 2 linie pionowe i 2 poziome"
-      }
+      },
+      "verticalLine": "Pionowa linia pomocnicza {{index}}"
     },
     "layout": {
       "split": "Podziel"

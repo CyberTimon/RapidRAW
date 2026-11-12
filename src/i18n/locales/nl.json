@@ -722,11 +722,13 @@
       "cancel": "Annuleren",
       "drawingActive": "Tekenen actief",
       "hint": "Teken langs randen in uw foto die verticaal of horizontaal moeten zijn.",
+      "horizontalLine": "Horizontale hulplijn {{index}}",
       "linesStatus": "Actieve hulplijnen",
       "toast": {
         "angleRejected": "Lijnhoek is te ver van horizontaal of verticaal",
         "maxLines": "Maximaal 2 verticale en 2 horizontale lijnen toegestaan"
-      }
+      },
+      "verticalLine": "Verticale hulplijn {{index}}"
     },
     "layout": {
       "split": "Splitsen"

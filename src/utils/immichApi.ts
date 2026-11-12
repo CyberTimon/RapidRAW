@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
-import { ImageFile } from '../ui/AppProperties';
+import { ImageFile } from '../types/library';
+import { ImmichSettings } from '../types/settings';
 
 export const IMMICH_ALBUM_PREFIX = 'immich:';
 export const IMMICH_UNASSIGNED_ID = `${IMMICH_ALBUM_PREFIX}unassigned`;
@@ -23,13 +24,6 @@ export const ImmichInvokes = {
   PrepareExport: 'immich_prepare_export',
   RemoveFromAlbum: 'immich_remove_from_album',
 } as const;
-
-export interface ImmichSettings {
-  serverUrl: string;
-  cacheLimitGb: number;
-  exportAlbum: string;
-  exportWithOriginal: boolean;
-}
 
 export const DEFAULT_IMMICH_SETTINGS: ImmichSettings = {
   serverUrl: '',
