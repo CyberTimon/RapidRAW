@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import type { MouseEventHandler, PointerEventHandler } from 'react';
-import { Orientation } from './AppProperties';
+import { Orientation } from '../../types/ui';
 
 interface ResizerProps {
   direction: Orientation;

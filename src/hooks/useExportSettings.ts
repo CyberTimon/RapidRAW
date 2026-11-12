@@ -6,7 +6,7 @@ import {
   ExportPreset,
   TiffBitDepth,
   WatermarkAnchor,
-} from '../components/ui/ExportImportProperties';
+} from '../types/export';
 
 export function useExportSettings() {
   const [fileFormat, setFileFormat] = useState('jpeg');

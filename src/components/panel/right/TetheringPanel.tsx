@@ -17,7 +17,6 @@ import {
   BatteryWarning,
   Focus,
   Gauge,
-  Sliders,
   Folder as FolderIcon,
   X,
 } from 'lucide-react';
@@ -32,14 +31,14 @@ import Button from '../../ui/Button';
 import Switch from '../../ui/Switch';
 import Dropdown from '../../ui/Dropdown';
 import { TextVariants, TextColors, TextWeights } from '../../../types/typography';
-import { Invokes, Preset } from '../../ui/AppProperties';
+import { Invokes } from '../../../types/invokes';
+import { Preset, type OverlayMode } from '../../../types/editor';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { usePresets } from '../../../hooks/usePresets';
 import { useContextMenu } from '../../../context/ContextMenuContext';
 
 import CompositionOverlays from '../editor/overlays/CompositionOverlays';
-import type { OverlayMode } from '../right/CropPanel';
 import { IconAperture, IconShutter, IconIso } from '../editor/ExifIcons';
 import { useTetheringStore, CameraSetting } from '../../../store/useTetheringStore';
 
@@ -352,7 +351,7 @@ export default function TetheringPanel({ onLibraryRefresh, onImageSelect }: Teth
     try {
       const config = await invoke<Record<string, any>>(Invokes.TetherGetSettings);
       setTethering({ settings: config });
-    } catch (e) {
+    } catch {
       handleDisconnect(t('tethering.toasts.communicationFailed'));
     }
   }, [setTethering, handleDisconnect, t]);
@@ -384,7 +383,7 @@ export default function TetheringPanel({ onLibraryRefresh, onImageSelect }: Teth
     setIsFocusing(true);
     try {
       await invoke('tether_autofocus');
-    } catch (e) {
+    } catch {
       toast.error(t('tethering.toasts.afFailed'));
     } finally {
       setIsFocusing(false);
@@ -409,7 +408,7 @@ export default function TetheringPanel({ onLibraryRefresh, onImageSelect }: Teth
             paths: [filePath],
             adjustments: autoApplyPreset.adjustments,
           });
-        } catch (presetErr) {
+        } catch {
           toast.error(t('tethering.toasts.presetApplyFailed'));
         }
       }

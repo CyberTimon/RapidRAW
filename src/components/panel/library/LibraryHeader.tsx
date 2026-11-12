@@ -35,22 +35,24 @@ import { useShallow } from 'zustand/react/shallow';
 import { invoke } from '@tauri-apps/api/core';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { isJobActive, Job, JobKind, JobStatus, useProcessStore } from '../../../store/useProcessStore';
+import { Invokes } from '../../../types/invokes';
 import {
-  Invokes,
   FilterCriteria,
   RawStatus,
   EditedStatus,
   FlagStatus,
-  LibraryViewMode,
   SortCriteria,
   SortDirection,
-  ExifOverlay,
   RATING_OPERATORS,
+  Progress,
+} from '../../../types/library';
+import {
+  LibraryViewMode,
+  ExifOverlay,
   GroupingMode,
   ThumbnailSize,
   ThumbnailAspectRatio,
-  Progress,
-} from '../../ui/AppProperties';
+} from '../../../types/settings';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
 import Text from '../../ui/Text';
 import { TextColor, TextColors, TextVariants, TextWeights, TEXT_COLOR_KEYS } from '../../../types/typography';

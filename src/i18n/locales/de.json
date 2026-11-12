@@ -150,6 +150,8 @@
       "aiDenoise": "KI-Entrauschen",
       "classicDenoise": "Klassisches Entrauschen",
       "aiDenoiseDetail": "Details",
+      "aiUpscale": "RapidRes 2x",
+      "aiUpscaleDetail": "Details",
       "blueYellow": "Blau/Gelb",
       "centre": "Zentriert",
       "chromaticAberration": "Chromatische Aberration",
@@ -165,6 +167,7 @@
       "negativeGreen": "Grün",
       "negativeRed": "Rot",
       "noiseReduction": "Rauschreduzierung",
+      "superResolution": "RapidRes",
       "presence": "Präsenz",
       "redCyan": "Rot/Cyan",
       "sharpening": "Schärfen",
@@ -323,6 +326,8 @@
       "redo": "Wiederholen",
       "removeBlackWhite": "Schwarzweiß entfernen",
       "removeDenoise": "Entrauschen entfernen",
+      "superResolution": "RapidRes (2x)",
+      "removeSuperResolution": "RapidRes entfernen",
       "removeNegativeConversion": "Negativumwandlung entfernen",
       "resetAdjustments": "Einstellungen zurücksetzen",
       "stitchPanorama": "Panorama zusammenfügen",
@@ -387,6 +392,8 @@
       "deleteSelected": "Nur Ausgewählte löschen",
       "denoise_one": "Entrauschen",
       "denoise_other": "Entrauschen",
+      "superResolution_one": "RapidRes (2x)",
+      "superResolution_other": "RapidRes (2x)",
       "duplicateImage": "Bild duplizieren",
       "enable": "Aktivieren",
       "exportImage_one": "Bild exportieren",
@@ -510,6 +517,7 @@
       "createNewTitle": "Neue generative Bearbeitung erstellen",
       "createNewTooltip": "Neue {{name}}-Bearbeitung erstellen",
       "denoising": "KI-Entrauschen läuft...",
+      "upscaling": "RapidRes läuft...",
       "dropzoneText": "Hier ablegen, um eine neue Bearbeitung zu erstellen",
       "editSettingsTitle": "Bearbeitungseinstellungen",
       "editsTitle": "Bearbeitungen",
@@ -714,11 +722,13 @@
       "cancel": "Abbrechen",
       "drawingActive": "Zeichnen aktiv",
       "hint": "Zeichnen Sie entlang der Kanten in Ihrem Foto, die vertikal oder horizontal sein sollten.",
+      "horizontalLine": "Horizontale Hilfslinie {{index}}",
       "linesStatus": "Aktive Hilfslinien",
       "toast": {
         "angleRejected": "Linienwinkel ist zu weit von horizontal oder vertikal entfernt",
         "maxLines": "Maximal 2 vertikale und 2 horizontale Linien erlaubt"
-      }
+      },
+      "verticalLine": "Vertikale Hilfslinie {{index}}"
     },
     "layout": {
       "split": "Teilen"
@@ -1160,6 +1170,7 @@
       "failed": "Fehlgeschlagen ({{failedCount}})",
       "kinds": {
         "denoise": "KI-Entrauschen",
+        "upscale": "RapidRes-Hochskalierung",
         "depthMap": "Tiefe wird analysiert",
         "depthMask": "Tiefenmaske wird erstellt",
         "faceMask": "Gesichtsmaske wird erstellt",
@@ -1552,6 +1563,7 @@
       "descReplace": "Überschreibt alle ausgewählten Einstellungen und setzt den Rest auf Standardwerte zurück.",
       "groups": {
         "aiDenoise": "KI-Entrauschen",
+        "aiUpscale": "RapidRes",
         "blackWhite": "Schwarzweiß",
         "chromaticAberration": "Chromatische Aberration",
         "clarityDehaze": "Klarheit & Dunst entfernen",
@@ -1842,6 +1854,7 @@
       "limit": "Limit",
       "modals": {
         "aiDenoiseMessage": "Möchtest du den KI-Entrauschen-Cache wirklich leeren?\n\nBilder mit aktiviertem KI-Entrauschen müssen erneut entrauscht werden, was pro Bild mehrere Minuten dauern kann.",
+        "aiUpscaleMessage": "Möchtest du den RapidRes-Cache wirklich leeren?\n\nBilder mit aktiviertem RapidRes müssen erneut hochskaliert werden.",
         "aiMapsMessage": "Möchtest du die Tiefen- und Normal-Maps wirklich leeren?\n\nBilder mit Objektivunschärfe, Nebel oder Neubeleuchtung erstellen ihre Maps beim nächsten Öffnen neu.",
         "aiMessage": "Sind Sie sicher, dass Sie alle KI-generierten Tags von allen Bildern in allen aktiven Stammordnern entfernen möchten?\n\nBenutzerdefinierte Tags sind nicht betroffen. Diese Aktion kann nicht rückgängig gemacht werden.",
         "allMessage": "Sind Sie sicher, dass Sie alle KI-generierten und benutzerdefinierten Tags von allen Bildern in allen aktiven Stammordnern entfernen möchten?\n\nDiese Aktion kann nicht rückgängig gemacht werden.",
@@ -1869,6 +1882,7 @@
       "show": "Anzeigen",
       "statuses": {
         "aiDenoiseSuccess": "KI-Entrauschen-Cache erfolgreich geleert.",
+        "aiUpscaleSuccess": "RapidRes-Cache erfolgreich geleert.",
         "aiSuccess": "{{count}} Dateien aktualisiert. KI-Tags entfernt.",
         "aiSuccess_one": "{{count}} Datei aktualisiert. KI-Tags entfernt.",
         "aiSuccess_other": "{{count}} Dateien aktualisiert. KI-Tags entfernt.",
@@ -1885,6 +1899,8 @@
       "storage": {
         "aiDenoise": "KI-Entrauschen",
         "aiDenoiseDesc": "Zwischengespeicherte Entrauschungsergebnisse.",
+        "aiUpscale": "RapidRes",
+        "aiUpscaleDesc": "Zwischengespeicherte 2x-Hochskalierungen von RapidRes.",
         "aiMaps": "Tiefen- & Normal-Maps",
         "aiMapsDesc": "Werden von Objektivunschärfe, Nebel und Neubeleuchtung genutzt.",
         "immich": "Immich",
@@ -2256,6 +2272,7 @@
         "mediapipe": "Für die schnellen Gesichtslandmarken- und Segmentierungsmodelle, die die KI-Gesichtsmasken ermöglichen.",
         "negpy": "Für die Inspiration hinter der Negativumwandlungslogik.",
         "nind": "Für die Bereitstellung von KI-Modellen für die Rauschreduzierung.",
+        "span": "Für das KI-Basismodell von RapidRes, der 2x-KI-Hochskalierung in RapidRAW, von RapidRAW auf die eigene RAW-Pipeline feinabgestimmt (von Philip Hofmann, CC BY 4.0).",
         "rawler": "Für die hervorragende Rust-Crate zur RAW-Bildverarbeitung.",
         "sam2": "Für das grundlegende Modell der KI-Motiverkennung.",
         "spektrafilm": "Für die spektralbasierten Filmemulations-LUTs von Andrea Volpato, die RapidRAWs integrierte Filmemulationen ermöglichen. Lizenziert unter CC BY-SA 4.0.",

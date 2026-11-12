@@ -150,6 +150,8 @@
       "aiDenoise": "AI 노이즈 제거",
       "classicDenoise": "클래식 노이즈 제거",
       "aiDenoiseDetail": "디테일",
+      "aiUpscale": "RapidRes 2x",
+      "aiUpscaleDetail": "디테일",
       "blueYellow": "파랑/노랑",
       "centre": "중앙",
       "chromaticAberration": "색수차",
@@ -165,6 +167,7 @@
       "negativeGreen": "초록",
       "negativeRed": "빨강",
       "noiseReduction": "노이즈 감소",
+      "superResolution": "RapidRes",
       "presence": "외관",
       "redCyan": "빨강/시안",
       "sharpening": "선명도 향상",
@@ -323,6 +326,8 @@
       "redo": "다시 실행",
       "removeBlackWhite": "흑백 해제",
       "removeDenoise": "노이즈 제거 해제",
+      "superResolution": "RapidRes (2x)",
+      "removeSuperResolution": "RapidRes 해제",
       "removeNegativeConversion": "네거티브 변환 해제",
       "resetAdjustments": "조정값 초기화",
       "stitchPanorama": "파노라마 스티칭",
@@ -387,6 +392,8 @@
       "deleteSelected": "선택 항목만 삭제",
       "denoise_one": "노이즈 제거",
       "denoise_other": "노이즈 제거",
+      "superResolution_one": "RapidRes (2x)",
+      "superResolution_other": "RapidRes (2x)",
       "duplicateImage": "이미지 복제",
       "enable": "사용",
       "exportImage_one": "이미지 내보내기",
@@ -510,6 +517,7 @@
       "createNewTitle": "새 생성형 편집 만들기",
       "createNewTooltip": "새 {{name}} 편집 만들기",
       "denoising": "AI 노이즈 제거 실행 중...",
+      "upscaling": "RapidRes 실행 중...",
       "dropzoneText": "여기에 놓아 새 편집을 만드세요",
       "editSettingsTitle": "편집 설정",
       "editsTitle": "편집",
@@ -711,11 +719,13 @@
       "cancel": "취소",
       "drawingActive": "그리기 활성화",
       "hint": "사진에서 수직이나 수평이 되어야 하는 가장자리를 따라 그리세요.",
+      "horizontalLine": "수평 안내선 {{index}}",
       "linesStatus": "활성 안내선",
       "toast": {
         "angleRejected": "선의 각도가 수평이나 수직에서 너무 벗어났습니다",
         "maxLines": "수직선 2개, 수평선 2개까지만 허용됩니다"
-      }
+      },
+      "verticalLine": "수직 안내선 {{index}}"
     },
     "layout": {
       "split": "분할"
@@ -1157,6 +1167,7 @@
       "failed": "실패 ({{failedCount}})",
       "kinds": {
         "denoise": "AI 노이즈 제거 중",
+        "upscale": "RapidRes 확대 중",
         "depthMap": "깊이 분석 중",
         "depthMask": "깊이 마스크 생성 중",
         "faceMask": "얼굴 마스크 생성 중",
@@ -1546,6 +1557,7 @@
       "descReplace": "선택한 모든 설정을 덮어쓰고 나머지는 기본값으로 초기화합니다.",
       "groups": {
         "aiDenoise": "AI 노이즈 제거",
+        "aiUpscale": "RapidRes",
         "blackWhite": "흑백",
         "chromaticAberration": "색수차",
         "clarityDehaze": "명료도 및 디헤이즈",
@@ -1836,6 +1848,7 @@
       "limit": "한도",
       "modals": {
         "aiDenoiseMessage": "AI 노이즈 제거 캐시를 지우시겠습니까?\n\nAI 노이즈 제거가 켜진 이미지는 다시 처리해야 하며, 이미지당 몇 분이 걸릴 수 있습니다.",
+        "aiUpscaleMessage": "RapidRes 캐시를 지우시겠습니까?\n\nRapidRes가 켜진 이미지는 다시 확대 처리해야 합니다.",
         "aiMapsMessage": "깊이 및 노멀 맵을 지우시겠습니까?\n\n렌즈 블러, 안개 또는 리라이트를 사용하는 이미지는 다음에 열 때 맵을 다시 생성합니다.",
         "aiMessage": "모든 활성 루트 폴더의 모든 이미지에서 AI가 생성한 태그를 모두 제거하시겠습니까?\n\n사용자가 추가한 태그에는 영향을 주지 않습니다. 이 작업은 취소할 수 없습니다.",
         "allMessage": "모든 활성 루트 폴더의 모든 이미지에서 AI가 생성한 태그와 사용자가 추가한 태그를 모두 제거하시겠습니까?\n\n이 작업은 취소할 수 없습니다.",
@@ -1863,6 +1876,7 @@
       "show": "보기",
       "statuses": {
         "aiDenoiseSuccess": "AI 노이즈 제거 캐시를 지웠습니다.",
+        "aiUpscaleSuccess": "RapidRes 캐시를 지웠습니다.",
         "aiSuccess": "{{count}}개 파일이 업데이트되었습니다. AI 태그가 제거되었습니다.",
         "aiSuccess_one": "{{count}}개 파일이 업데이트되었습니다. AI 태그가 제거되었습니다.",
         "aiSuccess_other": "{{count}}개 파일이 업데이트되었습니다. AI 태그가 제거되었습니다.",
@@ -1879,6 +1893,8 @@
       "storage": {
         "aiDenoise": "AI 노이즈 제거",
         "aiDenoiseDesc": "캐시된 노이즈 제거 결과입니다.",
+        "aiUpscale": "RapidRes",
+        "aiUpscaleDesc": "캐시된 RapidRes 2배 확대 결과입니다.",
         "aiMaps": "깊이 및 노멀 맵",
         "aiMapsDesc": "렌즈 블러, 안개, 리라이트에 사용됩니다.",
         "immich": "Immich",
@@ -2250,6 +2266,7 @@
         "mediapipe": "AI 얼굴 마스크를 구동하는 빠른 얼굴 랜드마크 및 분할 모델에 감사드립니다.",
         "negpy": "네거티브 변환 로직에 영감을 주었습니다.",
         "nind": "RapidRAW의 AI 노이즈 감소 기능을 구동하는 AI 모델을 제공해 주었습니다.",
+        "span": "RapidRAW의 AI 2배 확대 기능인 RapidRes의 기본 AI 모델로, RapidRAW가 자체 RAW 처리에 맞게 미세 조정했습니다 (Philip Hofmann 제작, CC BY 4.0).",
         "rawler": "이 프로젝트의 RAW 파일 처리 기반이 되는 훌륭한 Rust 크레이트를 제공해 주었습니다.",
         "sam2": "AI 피사체 감지 기능에 사용되는 파운데이션 모델을 제공해 주었습니다.",
         "spektrafilm": "RapidRAW의 내장 필름 에뮬레이션을 구동하는, Andrea Volpato의 스펙트럼 기반 필름 에뮬레이션 LUT를 제공해 주셔서. CC BY-SA 4.0 라이선스입니다.",

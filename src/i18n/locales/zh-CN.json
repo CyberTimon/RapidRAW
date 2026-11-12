@@ -150,6 +150,8 @@
       "aiDenoise": "AI 降噪",
       "classicDenoise": "经典降噪",
       "aiDenoiseDetail": "细节",
+      "aiUpscale": "RapidRes 2x",
+      "aiUpscaleDetail": "细节",
       "blueYellow": "蓝/黄",
       "centre": "居中",
       "chromaticAberration": "色差",
@@ -165,6 +167,7 @@
       "negativeGreen": "绿色",
       "negativeRed": "红色",
       "noiseReduction": "降噪",
+      "superResolution": "RapidRes",
       "presence": "质感",
       "redCyan": "红/青",
       "sharpening": "锐化",
@@ -323,6 +326,8 @@
       "redo": "重做",
       "removeBlackWhite": "移除黑白",
       "removeDenoise": "移除降噪",
+      "superResolution": "RapidRes (2x)",
+      "removeSuperResolution": "移除 RapidRes",
       "removeNegativeConversion": "移除负片转换",
       "resetAdjustments": "重置调整",
       "stitchPanorama": "拼接全景图",
@@ -387,6 +392,8 @@
       "deleteSelected": "仅删除选中项",
       "denoise_one": "降噪",
       "denoise_other": "降噪",
+      "superResolution_one": "RapidRes (2x)",
+      "superResolution_other": "RapidRes (2x)",
       "duplicateImage": "复制图像",
       "enable": "启用",
       "exportImage_one": "导出图像",
@@ -510,6 +517,7 @@
       "createNewTitle": "创建新的生成式编辑",
       "createNewTooltip": "创建新的 {{name}} 编辑",
       "denoising": "正在进行 AI 降噪...",
+      "upscaling": "正在运行 RapidRes...",
       "dropzoneText": "拖放到此处以创建新编辑",
       "editSettingsTitle": "编辑设置",
       "editsTitle": "编辑",
@@ -711,11 +719,13 @@
       "cancel": "取消",
       "drawingActive": "绘图中",
       "hint": "沿着照片中应该是垂直或水平的边缘绘制。",
+      "horizontalLine": "水平引导线 {{index}}",
       "linesStatus": "活跃引导线",
       "toast": {
         "angleRejected": "线条角度偏离水平或垂直太远",
         "maxLines": "最多允许 2 条垂直线和 2 条水平线"
-      }
+      },
+      "verticalLine": "垂直引导线 {{index}}"
     },
     "layout": {
       "split": "拆分"
@@ -1157,6 +1167,7 @@
       "failed": "失败（{{failedCount}}）",
       "kinds": {
         "denoise": "正在 AI 降噪",
+        "upscale": "正在 RapidRes 放大",
         "depthMap": "正在分析深度",
         "depthMask": "正在生成深度蒙版",
         "faceMask": "正在生成面部蒙版",
@@ -1546,6 +1557,7 @@
       "descReplace": "覆盖所有选中的设置，其余重置为默认值。",
       "groups": {
         "aiDenoise": "AI 降噪",
+        "aiUpscale": "RapidRes",
         "blackWhite": "黑白",
         "chromaticAberration": "色差",
         "clarityDehaze": "清晰度与去雾",
@@ -1836,6 +1848,7 @@
       "limit": "上限",
       "modals": {
         "aiDenoiseMessage": "确定要清除 AI 降噪缓存吗？\n\n启用了 AI 降噪的图像需要重新降噪，每张图像可能需要几分钟。",
+        "aiUpscaleMessage": "确定要清除 RapidRes 缓存吗？\n\n启用了 RapidRes 的图像需要重新放大。",
         "aiMapsMessage": "确定要清除深度与法线贴图吗？\n\n使用镜头模糊、雾效或重新打光的图像会在下次打开时重新生成贴图。",
         "aiMessage": "您确定要从所有活动根文件夹中的所有图像中移除所有 AI 生成的标签吗？\n\n这不会影响用户添加的标签。此操作无法撤销。",
         "allMessage": "您确定要从所有活动根文件夹中的所有图像中移除所有 AI 生成和用户添加的标签吗？\n\n此操作无法撤销。",
@@ -1863,6 +1876,7 @@
       "show": "显示",
       "statuses": {
         "aiDenoiseSuccess": "AI 降噪缓存已成功清除。",
+        "aiUpscaleSuccess": "RapidRes 缓存已成功清除。",
         "aiSuccess": "{{count}} 个文件已更新。AI 标签已移除。",
         "aiSuccess_one": "{{count}} 个文件已更新。AI 标签已移除。",
         "aiSuccess_other": "{{count}} 个文件已更新。AI 标签已移除。",
@@ -1879,6 +1893,8 @@
       "storage": {
         "aiDenoise": "AI 降噪",
         "aiDenoiseDesc": "缓存的降噪结果。",
+        "aiUpscale": "RapidRes",
+        "aiUpscaleDesc": "缓存的 RapidRes 2 倍放大结果。",
         "aiMaps": "深度与法线贴图",
         "aiMapsDesc": "用于镜头模糊、雾效和重新打光。",
         "immich": "Immich",
@@ -2250,6 +2266,7 @@
         "mediapipe": "感谢其快速的面部关键点和分割模型，为 AI 面部蒙版提供支持。",
         "negpy": "为负片转换逻辑提供了灵感。",
         "nind": "为 AI 模型提供支持，驱动了 RapidRAW 中的 AI 降噪功能。",
+        "span": "RapidRAW 的 AI 2 倍放大功能 RapidRes 的基础 AI 模型，由 RapidRAW 针对自身的 RAW 处理流程进行微调（作者 Philip Hofmann，CC BY 4.0）。",
         "rawler": "为优秀的 Rust 库提供支持，构成了本项目 RAW 文件处理的基础。",
         "sam2": "为提供基础模型，用于 AI 主体检测功能。",
         "spektrafilm": "感谢 Andrea Volpato 提供基于光谱的胶片模拟 LUT，为 RapidRAW 的内置胶片模拟提供支持。采用 CC BY-SA 4.0 许可。",

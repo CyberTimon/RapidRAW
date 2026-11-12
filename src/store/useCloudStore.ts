@@ -38,7 +38,7 @@ export const useCloudStore = create<CloudStoreState>((set, get) => ({
     const { authStatus } = get();
     if (authStatus === 'loading' || authStatus === 'ready' || authStatus === 'unsupported') return;
 
-    let os = '';
+    let os: string;
     try {
       os = platform();
     } catch (_error) {

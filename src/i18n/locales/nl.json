@@ -150,6 +150,8 @@
       "aiDenoise": "AI-ruisonderdrukking",
       "classicDenoise": "Klassieke ruisonderdrukking",
       "aiDenoiseDetail": "Detail",
+      "aiUpscale": "RapidRes 2x",
+      "aiUpscaleDetail": "Detail",
       "blueYellow": "Blauw/Geel",
       "centre": "Centrum",
       "chromaticAberration": "Chromatische aberratie",
@@ -165,6 +167,7 @@
       "negativeGreen": "Groen",
       "negativeRed": "Rood",
       "noiseReduction": "Ruisonderdrukking",
+      "superResolution": "RapidRes",
       "presence": "Presentie",
       "redCyan": "Rood/Cyaan",
       "sharpening": "Verscherping",
@@ -323,6 +326,8 @@
       "redo": "Opnieuw",
       "removeBlackWhite": "Zwart-wit verwijderen",
       "removeDenoise": "Ruisonderdrukking verwijderen",
+      "superResolution": "RapidRes (2x)",
+      "removeSuperResolution": "RapidRes verwijderen",
       "removeNegativeConversion": "Negatiefconversie verwijderen",
       "resetAdjustments": "Aanpassingen herstellen",
       "stitchPanorama": "Panorama samenvoegen",
@@ -387,6 +392,8 @@
       "deleteSelected": "Alleen geselecteerde verwijderen",
       "denoise_one": "Ruis verwijderen",
       "denoise_other": "Ruis verwijderen",
+      "superResolution_one": "RapidRes (2x)",
+      "superResolution_other": "RapidRes (2x)",
       "duplicateImage": "Afbeelding dupliceren",
       "enable": "Inschakelen",
       "exportImage_one": "Afbeelding exporteren",
@@ -510,6 +517,7 @@
       "createNewTitle": "Nieuwe generatieve bewerking maken",
       "createNewTooltip": "Nieuwe {{name}} bewerking maken",
       "denoising": "AI-ruisonderdrukking wordt uitgevoerd...",
+      "upscaling": "RapidRes wordt uitgevoerd...",
       "dropzoneText": "Hier neerzetten om een nieuwe bewerking te maken",
       "editSettingsTitle": "Bewerkingsinstellingen",
       "editsTitle": "Bewerkingen",
@@ -714,11 +722,13 @@
       "cancel": "Annuleren",
       "drawingActive": "Tekenen actief",
       "hint": "Teken langs randen in uw foto die verticaal of horizontaal moeten zijn.",
+      "horizontalLine": "Horizontale hulplijn {{index}}",
       "linesStatus": "Actieve hulplijnen",
       "toast": {
         "angleRejected": "Lijnhoek is te ver van horizontaal of verticaal",
         "maxLines": "Maximaal 2 verticale en 2 horizontale lijnen toegestaan"
-      }
+      },
+      "verticalLine": "Verticale hulplijn {{index}}"
     },
     "layout": {
       "split": "Splitsen"
@@ -1160,6 +1170,7 @@
       "failed": "Mislukt ({{failedCount}})",
       "kinds": {
         "denoise": "AI-ruisonderdrukking",
+        "upscale": "RapidRes-vergroting",
         "depthMap": "Diepte analyseren",
         "depthMask": "Dieptemasker maken",
         "faceMask": "Gezichtsmasker maken",
@@ -1552,6 +1563,7 @@
       "descReplace": "Overschrijft alle geselecteerde instellingen en herstelt de overige naar standaardwaarden.",
       "groups": {
         "aiDenoise": "AI-ruisonderdrukking",
+        "aiUpscale": "RapidRes",
         "blackWhite": "Zwart-wit",
         "chromaticAberration": "Chromatische aberratie",
         "clarityDehaze": "Contrast en nevelreductie",
@@ -1842,6 +1854,7 @@
       "limit": "Limiet",
       "modals": {
         "aiDenoiseMessage": "Weet je zeker dat je de AI-ruisonderdrukkingscache wilt wissen?\n\nAfbeeldingen met AI-ruisonderdrukking ingeschakeld moeten opnieuw worden verwerkt, wat per afbeelding enkele minuten kan duren.",
+        "aiUpscaleMessage": "Weet je zeker dat je de RapidRes-cache wilt wissen?\n\nAfbeeldingen met RapidRes ingeschakeld moeten opnieuw worden vergroot.",
         "aiMapsMessage": "Weet je zeker dat je de diepte- en normal maps wilt wissen?\n\nAfbeeldingen met lensvervaging, mist of herbelichting maken hun maps opnieuw aan wanneer ze weer worden geopend.",
         "aiMessage": "Weet u zeker dat u alle door AI gegenereerde tags van alle afbeeldingen in alle actieve hoofdmappen wilt verwijderen?\n\nDit heeft geen invloed op door gebruikers toegevoegde tags. Deze actie kan niet ongedaan worden gemaakt.",
         "allMessage": "Weet u zeker dat u alle door AI gegenereerde en door gebruikers toegevoegde tags van alle afbeeldingen in alle actieve hoofdmappen wilt verwijderen?\n\nDeze actie kan niet ongedaan worden gemaakt.",
@@ -1869,6 +1882,7 @@
       "show": "Tonen",
       "statuses": {
         "aiDenoiseSuccess": "AI-ruisonderdrukkingscache succesvol gewist.",
+        "aiUpscaleSuccess": "RapidRes-cache succesvol gewist.",
         "aiSuccess": "{{count}} bestanden bijgewerkt. AI-tags verwijderd.",
         "aiSuccess_one": "{{count}} bestand bijgewerkt. AI-tags verwijderd.",
         "aiSuccess_other": "{{count}} bestanden bijgewerkt. AI-tags verwijderd.",
@@ -1885,6 +1899,8 @@
       "storage": {
         "aiDenoise": "AI-ruisonderdrukking",
         "aiDenoiseDesc": "Gecachete ruisonderdrukkingsresultaten.",
+        "aiUpscale": "RapidRes",
+        "aiUpscaleDesc": "Gecachete 2x-vergrotingen van RapidRes.",
         "aiMaps": "Diepte- & normal maps",
         "aiMapsDesc": "Gebruikt door lensvervaging, mist en herbelichting.",
         "immich": "Immich",
@@ -2252,6 +2268,7 @@
         "mediapipe": "Voor de snelle gezichtslandmark- en segmentatiemodellen achter de AI-gezichtsmaskers.",
         "negpy": "Voor de inspiratie achter de negatief-omzetlogica.",
         "nind": "Voor het leveren van AI-modellen die de AI-ruisonderdrukkingmogelijkheden in RapidRAW aandrijven.",
+        "span": "Voor het basis-AI-model achter RapidRes, de 2x AI-vergroting van RapidRAW, door RapidRAW verfijnd op de eigen RAW-verwerking (door Philip Hofmann, CC BY 4.0).",
         "rawler": "Voor de uitstekende Rust-crate die de basis vormt voor RAW-bestandsverwerking in dit project.",
         "sam2": "Voor het leveren van het basismodel dat wordt gebruikt voor de AI-onderwerpdetectiemogelijkheden.",
         "spektrafilm": "Voor de spectraalgebaseerde filmemulatie-LUT's door Andrea Volpato, gebruikt voor de ingebouwde filmemulaties van RapidRAW. Gelicenseerd onder CC BY-SA 4.0.",

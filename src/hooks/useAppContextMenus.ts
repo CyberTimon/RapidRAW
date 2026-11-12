@@ -34,6 +34,7 @@ import {
   Gauge,
   Layers,
   Grip,
+  Maximize2,
   Film,
   Contrast,
   Home,
@@ -60,17 +61,10 @@ import { useLibraryStore } from '../store/useLibraryStore';
 import { JobKind, useProcessStore } from '../store/useProcessStore';
 import { useUIStore } from '../store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import {
-  Invokes,
-  ImageFlag,
-  Option,
-  OPTION_SEPARATOR,
-  Panel,
-  AlbumItem,
-  Album,
-  AlbumGroup,
-  EditInApp,
-} from '../components/ui/AppProperties';
+import { Invokes } from '../types/invokes';
+import { ImageFlag, AlbumItem, Album, AlbumGroup } from '../types/library';
+import { Option, OPTION_SEPARATOR, Panel } from '../types/ui';
+import { EditInApp } from '../types/settings';
 import {
   AutoAdjustMode,
   Color,
@@ -78,7 +72,7 @@ import {
   getAiDenoiseEnablePatch,
   INITIAL_ADJUSTMENTS,
 } from '../utils/adjustments';
-import TaggingSubMenu from '../context/TaggingSubMenu';
+import TaggingSubMenu from '../components/panel/library/TaggingSubMenu';
 import {
   buildAutoAdjustModeOptions,
   debouncedSave,
@@ -88,13 +82,9 @@ import {
 import { useLibraryActions } from './useLibraryActions';
 import { transferFiles } from './useFileOperations';
 import { globalImageCache } from '../utils/ImageLRUCache';
-import {
-  immichAlbumOf,
-  isImmichAlbumId,
-  isImmichImagePath,
-  removeFromImmichAlbum,
-} from '../components/immich/immichApi';
-import { useImmichStore } from '../components/immich/useImmichStore';
+import { immichAlbumOf, isImmichAlbumId, isImmichImagePath, removeFromImmichAlbum } from '../utils/immichApi';
+import { useImmichStore } from '../store/useImmichStore';
+import type { ParseKeys } from 'i18next';
 
 export interface UseAppContextMenusProps {
   handleImageSelect: (path: string) => void;
@@ -386,6 +376,21 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
                 ),
               disabled: !selectedImage?.isReady,
             },
+            ...(useSettingsStore.getState().appSettings?.aiProvider === 'ai-free'
+              ? []
+              : [
+                  {
+                    label: adjustments.aiUpscaleEnabled
+                      ? t('contextMenus.editor.removeSuperResolution')
+                      : t('contextMenus.editor.superResolution'),
+                    icon: Maximize2,
+                    onClick: () =>
+                      handleEnableAdjustments([selectedImage.path], {
+                        aiUpscaleEnabled: !adjustments.aiUpscaleEnabled,
+                      }),
+                    disabled: !selectedImage?.isReady,
+                  },
+                ]),
             {
               label: adjustments.monochromeEnabled
                 ? t('contextMenus.editor.removeBlackWhite')
@@ -446,7 +451,7 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
           submenu: [
             { label: t('contextMenus.editor.noLabel'), onClick: () => handleSetColorLabel(null) },
             ...COLOR_LABELS.map((label: Color) => ({
-              label: t(`contextMenus.colors.${label.name}`),
+              label: t(`contextMenus.colors.${label.name}` as ParseKeys),
               color: label.color,
               onClick: () => handleSetColorLabel(label.name),
             })),
@@ -607,6 +612,7 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
       const collageLabel = t('contextMenus.thumbnail.collage', { count: selectionCount });
       const stitchLabel = t('contextMenus.editor.stitchPanorama');
       const denoiseLabel = t('contextMenus.thumbnail.denoise', { count: selectionCount });
+      const superResolutionLabel = t('contextMenus.thumbnail.superResolution', { count: selectionCount });
       const mergeLabel = t('contextMenus.editor.mergeHdr');
 
       const handleCreateVirtualCopy = async (sourcePath: string) => {
@@ -773,6 +779,27 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
                 },
               ],
             },
+            ...(useSettingsStore.getState().appSettings?.aiProvider === 'ai-free'
+              ? []
+              : [
+                  {
+                    label: superResolutionLabel,
+                    icon: Maximize2,
+                    disabled: finalSelection.length === 0,
+                    submenu: [
+                      {
+                        label: t('contextMenus.thumbnail.enable'),
+                        icon: Check,
+                        onClick: () => handleEnableAdjustments(finalSelection, { aiUpscaleEnabled: true }),
+                      },
+                      {
+                        label: t('contextMenus.thumbnail.remove'),
+                        icon: X,
+                        onClick: () => handleEnableAdjustments(finalSelection, { aiUpscaleEnabled: false }),
+                      },
+                    ],
+                  },
+                ]),
             {
               label: t('contextMenus.editor.convertBlackWhite'),
               icon: Contrast,
@@ -952,7 +979,7 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
           submenu: [
             { label: t('contextMenus.editor.noLabel'), onClick: () => handleSetColorLabel(null, finalSelection) },
             ...COLOR_LABELS.map((label: Color) => ({
-              label: t(`contextMenus.colors.${label.name}`),
+              label: t(`contextMenus.colors.${label.name}` as ParseKeys),
               color: label.color,
               onClick: () => handleSetColorLabel(label.name, finalSelection),
             })),

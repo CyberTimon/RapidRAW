@@ -150,6 +150,8 @@
       "aiDenoise": "Reducción de ruido IA",
       "classicDenoise": "Reducción de ruido clásica",
       "aiDenoiseDetail": "Detalle",
+      "aiUpscale": "RapidRes 2x",
+      "aiUpscaleDetail": "Detalle",
       "blueYellow": "Azul/Amarillo",
       "centre": "Centro",
       "chromaticAberration": "Aberración cromática",
@@ -165,6 +167,7 @@
       "negativeGreen": "Verde",
       "negativeRed": "Rojo",
       "noiseReduction": "Reducción de ruido",
+      "superResolution": "RapidRes",
       "presence": "Presencia",
       "redCyan": "Rojo/Cian",
       "sharpening": "Enfoque",
@@ -324,6 +327,8 @@
       "redo": "Rehacer",
       "removeBlackWhite": "Quitar blanco y negro",
       "removeDenoise": "Quitar reducción de ruido",
+      "superResolution": "RapidRes (2x)",
+      "removeSuperResolution": "Quitar RapidRes",
       "removeNegativeConversion": "Quitar conversión de negativo",
       "resetAdjustments": "Restablecer ajustes",
       "stitchPanorama": "Unir panorama",
@@ -399,6 +404,9 @@
       "denoise_many": "Reducir ruido",
       "denoise_one": "Reducir ruido",
       "denoise_other": "Reducir ruido",
+      "superResolution_many": "RapidRes (2x)",
+      "superResolution_one": "RapidRes (2x)",
+      "superResolution_other": "RapidRes (2x)",
       "duplicateImage": "Duplicar imagen",
       "enable": "Activar",
       "exportImage_many": "Exportar {{count}} imágenes",
@@ -527,6 +535,7 @@
       "createNewTitle": "Crear nueva edición generativa",
       "createNewTooltip": "Crear nueva edición {{name}}",
       "denoising": "Ejecutando reducción de ruido IA...",
+      "upscaling": "Ejecutando RapidRes...",
       "dropzoneText": "Suelta aquí para crear una nueva edición",
       "editSettingsTitle": "Ajustes de edición",
       "editsTitle": "Ediciones",
@@ -737,11 +746,13 @@
       "cancel": "Cancelar",
       "drawingActive": "Dibujo activo",
       "hint": "Dibuja a lo largo de los bordes de tu foto que deberían ser verticales u horizontales.",
+      "horizontalLine": "Guía horizontal n.º {{index}}",
       "linesStatus": "Líneas guía activas",
       "toast": {
         "angleRejected": "El ángulo de la línea está demasiado lejos de la horizontal o vertical",
         "maxLines": "Se permiten un máximo de 2 líneas verticales y 2 horizontales"
-      }
+      },
+      "verticalLine": "Guía vertical n.º {{index}}"
     },
     "layout": {
       "split": "Dividir"
@@ -1186,6 +1197,7 @@
       "failed": "Fallidos ({{failedCount}})",
       "kinds": {
         "denoise": "Reduciendo ruido con IA",
+        "upscale": "Ampliando con RapidRes",
         "depthMap": "Analizando la profundidad",
         "depthMask": "Generando máscara de profundidad",
         "faceMask": "Generando máscara de rostro",
@@ -1584,6 +1596,7 @@
       "descReplace": "Sobrescribe todos los ajustes seleccionados, restableciendo el resto a sus valores predeterminados.",
       "groups": {
         "aiDenoise": "Reducción de ruido con IA",
+        "aiUpscale": "RapidRes",
         "blackWhite": "Blanco y negro",
         "chromaticAberration": "Aberración cromática",
         "clarityDehaze": "Claridad y Borrar neblina",
@@ -1880,6 +1893,7 @@
       "limit": "Límite",
       "modals": {
         "aiDenoiseMessage": "¿Seguro que quieres borrar la caché de reducción de ruido IA?\n\nLas imágenes con la reducción de ruido IA activada tendrán que procesarse de nuevo, lo que puede tardar varios minutos por imagen.",
+        "aiUpscaleMessage": "¿Seguro que quieres borrar la caché de RapidRes?\n\nLas imágenes con RapidRes activado tendrán que ampliarse de nuevo.",
         "aiMapsMessage": "¿Seguro que quieres vaciar los mapas de profundidad y normales?\n\nLas imágenes que usan desenfoque de lente, niebla o reiluminación regenerarán sus mapas la próxima vez que se abran.",
         "aiMessage": "¿Estás seguro de que quieres eliminar todas las etiquetas generadas por IA de todas las imágenes en todas las carpetas raíz activas?\n\nEsto no afectará a las etiquetas añadidas por el usuario. Esta acción no se puede deshacer.",
         "allMessage": "¿Estás seguro de que quieres eliminar todas las etiquetas generadas por IA y las añadidas por el usuario de todas las imágenes en todas las carpetas raíz activas?\n\nEsta acción no se puede deshacer.",
@@ -1907,6 +1921,7 @@
       "show": "Mostrar",
       "statuses": {
         "aiDenoiseSuccess": "Caché de reducción de ruido IA borrada correctamente.",
+        "aiUpscaleSuccess": "Caché de RapidRes borrada correctamente.",
         "aiSuccess": "{{count}} archivos actualizados. Etiquetas de IA eliminadas.",
         "aiSuccess_many": "{{count}} archivos actualizados. Etiquetas de IA eliminadas.",
         "aiSuccess_one": "{{count}} archivo actualizado. Etiquetas de IA eliminadas.",
@@ -1926,6 +1941,8 @@
       "storage": {
         "aiDenoise": "Reducción de ruido IA",
         "aiDenoiseDesc": "Resultados de reducción de ruido en caché.",
+        "aiUpscale": "RapidRes",
+        "aiUpscaleDesc": "Ampliaciones 2x de RapidRes en caché.",
         "aiMaps": "Mapas de profundidad y normales",
         "aiMapsDesc": "Los usan el desenfoque de lente, la niebla y la reiluminación.",
         "immich": "Immich",
@@ -2297,6 +2314,7 @@
         "mediapipe": "Por los rápidos modelos de puntos faciales y segmentación que impulsan las máscaras de rostro con IA.",
         "negpy": "Por la inspiración tras la lógica de conversión de negativos.",
         "nind": "Por proporcionar los modelos de IA que impulsan las capacidades de reducción de ruido por IA en RapidRAW.",
+        "span": "Por el modelo de IA base de RapidRes, la ampliación 2x con IA de RapidRAW, ajustado por RapidRAW a su propio procesado RAW (de Philip Hofmann, CC BY 4.0).",
         "rawler": "Por la excelente caja (crate) de Rust que proporciona la base para el procesamiento de archivos RAW en este proyecto.",
         "sam2": "Por proporcionar el modelo base usado para las capacidades de detección de sujetos de la IA.",
         "spektrafilm": "Por las LUTs de emulación de película basadas en espectros, de Andrea Volpato, que impulsan las emulaciones integradas de RapidRAW. Con licencia CC BY-SA 4.0.",

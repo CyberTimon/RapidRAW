@@ -24,7 +24,10 @@ import {
 } from '../utils/adjustments';
 import { calculateAutoCropForRotation, calculateCenteredCrop } from '../utils/cropUtils';
 import originalAdjustmentKeys from '../utils/originalAdjustmentKeys.json';
-import { CompareMode, Invokes, Option, Panel, SelectedImage } from '../components/ui/AppProperties';
+import { CompareMode } from '../types/settings';
+import { Invokes } from '../types/invokes';
+import { Option, Panel } from '../types/ui';
+import { SelectedImage } from '../types/editor';
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { getDevicePixelRatio } from '../utils/displayScale';
 
@@ -299,8 +302,7 @@ export function useEditorActions() {
 
   const handleResetAdjustments = useCallback(
     (paths?: string[]) => {
-      const { multiSelectedPaths, libraryActivePath, setLibrary } = useLibraryStore.getState();
-      const { selectedImage, resetHistory } = useEditorStore.getState();
+      const { multiSelectedPaths } = useLibraryStore.getState();
       const pathsToReset = paths || multiSelectedPaths;
       if (pathsToReset.length === 0) return;
 
@@ -309,6 +311,8 @@ export function useEditorActions() {
 
       invoke(Invokes.ResetAdjustmentsForPaths, { paths: pathsToReset })
         .then(() => {
+          const { libraryActivePath, setLibrary } = useLibraryStore.getState();
+          const { selectedImage, resetHistory } = useEditorStore.getState();
           if (libraryActivePath && pathsToReset.includes(libraryActivePath))
             setLibrary({ libraryActiveAdjustments: { ...INITIAL_ADJUSTMENTS } });
           if (selectedImage && pathsToReset.includes(selectedImage.path)) {
@@ -426,7 +430,10 @@ export function useEditorActions() {
 
       if (!copiedAdjustments || !appSettings) return;
 
-      const { mode, includedAdjustments } = appSettings.copyPasteSettings;
+      const { mode, includedAdjustments } = appSettings.copyPasteSettings ?? {
+        mode: PasteMode.Merge,
+        includedAdjustments: COPYABLE_ADJUSTMENT_KEYS,
+      };
       const adjustmentsToApply: Partial<Adjustments> = {};
 
       for (const key of includedAdjustments) {

@@ -19,24 +19,24 @@ import {
   getRelightLightColor,
   MotionBlurLayer,
   MotionBlurType,
+  areSectionPropsEqual,
 } from '../../utils/adjustments';
 import Dropdown from '../ui/Dropdown';
-import LUTControl from '../ui/LUTControl';
+import LUTControl from './LUTControl';
 import ColorField, { normalizeHexColor, useParsedTextField } from '../ui/ColorField';
 import { ColorSwatch } from './Color';
-import { AppSettings } from '../ui/AppProperties';
+import { AppSettings } from '../../types/settings';
 import Text from '../ui/Text';
 import AdjustmentSubSection from './AdjustmentSubSection';
 import { TextVariants } from '../../types/typography';
-import { DepthRangePicker } from '../ui/DepthRangePicker';
-import DepthScope from '../ui/depthScope/DepthScope';
-import { ScenePatch } from '../ui/depthScope/scene';
+import { DepthRangePicker } from './DepthRangePicker';
+import DepthScope from './depthScope/DepthScope';
+import { ScenePatch } from './depthScope/scene';
 import { selectAiModelDownloadStatus, useProcessStore } from '../../store/useProcessStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { canvasToolState, useEditorStore } from '../../store/useEditorStore';
 import { useContextMenu } from '../../context/ContextMenuContext';
 import { useEditorActions } from '../../hooks/useEditorActions';
-import { areSectionPropsEqual } from '../../utils/adjustments';
 
 interface EffectsPanelProps {
   adjustments: Adjustments;

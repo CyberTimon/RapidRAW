@@ -30,13 +30,13 @@ import { useTranslation, Trans } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../../../utils/adjustments';
 import clsx from 'clsx';
-import { CustomAspectRatio, Orientation } from '../../ui/AppProperties';
+import { CustomAspectRatio } from '../../../types/settings';
+import { Orientation } from '../../../types/ui';
 import { motion, AnimatePresence } from 'framer-motion';
 import Text from '../../ui/Text';
 import Slider from '../../ui/Slider';
 import Switch from '../../ui/Switch';
 import Dropdown from '../../ui/Dropdown';
-import Button from '../../ui/Button';
 import { TEXT_COLOR_KEYS, TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useEditorActions } from '../../../hooks/useEditorActions';
@@ -52,12 +52,10 @@ import { useShallow } from 'zustand/react/shallow';
 import { useUIStore } from '../../../store/useUIStore';
 import { useContextMenu } from '../../../context/ContextMenuContext';
 import { useSettingsStore } from '../../../store/useSettingsStore';
+import { OverlayMode } from '../../../types/editor';
 
 const BASE_RATIO = 1.618;
 const RATIO_TOLERANCE = 0.01;
-
-export type OverlayMode =
-  'none' | 'thirds' | 'goldenTriangle' | 'goldenSpiral' | 'phiGrid' | 'armature' | 'diagonal' | 'center';
 
 interface CropPreset {
   name: string;
@@ -1093,7 +1091,7 @@ export default function CropPanel() {
                                         : 'text-text-secondary',
                                     )}
                                   >
-                                    {adjustments.guidedPerspective.lines.length} / 4
+                                    {`${adjustments.guidedPerspective.lines.length} / 4`}
                                   </span>
                                 </div>
                                 <div className="flex flex-col gap-1 mt-1">
@@ -1113,9 +1111,14 @@ export default function CropPanel() {
                                         <Text
                                           color={TextColors.primary}
                                           weight={TextWeights.medium}
-                                          className="truncate select-none text-xs capitalize"
+                                          className="truncate select-none text-xs"
                                         >
-                                          {line.type} Guide #{idx + 1}
+                                          {t(
+                                            line.type === 'horizontal'
+                                              ? 'editor.guided.horizontalLine'
+                                              : 'editor.guided.verticalLine',
+                                            { index: idx + 1 },
+                                          )}
                                         </Text>
                                       </div>
                                       <button

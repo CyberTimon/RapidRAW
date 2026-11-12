@@ -6,17 +6,12 @@ import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 
 import Filmstrip from './Filmstrip';
-import {
-  GLOBAL_KEYS,
-  ImageFile,
-  ImageFlag,
-  FlagStatus,
-  RATING_OPERATORS,
-  SelectedImage,
-  ThumbnailAspectRatio,
-} from '../ui/AppProperties';
+import { GLOBAL_KEYS } from '../../types/ui';
+import { ImageFile, ImageFlag, FlagStatus, RATING_OPERATORS } from '../../types/library';
+import { SelectedImage } from '../../types/editor';
+import { ThumbnailAspectRatio } from '../../types/settings';
 import { FLAG_ICONS } from '../../utils/imageFlags';
-import FlagToggles from '../ui/FlagToggles';
+import FlagToggles from './library/FlagToggles';
 import Text from '../ui/Text';
 import { useEditorStore } from '../../store/useEditorStore';
 import { useLibraryStore } from '../../store/useLibraryStore';

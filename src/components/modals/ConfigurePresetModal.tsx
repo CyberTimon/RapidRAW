@@ -5,7 +5,7 @@ import clsx from 'clsx';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
 import Switch from '../ui/Switch';
-import { Preset } from '../ui/AppProperties';
+import { Preset } from '../../types/editor';
 import { ADJUSTMENT_GROUPS } from '../../utils/adjustments';
 
 interface ConfigurePresetModalProps {

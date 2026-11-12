@@ -1,4 +1,5 @@
-import { AppSettings, TransformState } from '../components/ui/AppProperties';
+import { AppSettings } from '../types/settings';
+import { TransformState } from '../types/editor';
 
 const SHARPNESS_FACTOR = 1.25;
 

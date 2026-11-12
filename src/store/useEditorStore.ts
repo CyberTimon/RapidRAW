@@ -1,22 +1,20 @@
 import { RefObject } from 'react';
 import { create } from 'zustand';
 import debounce from 'lodash.debounce';
+import { Adjustments, INITIAL_ADJUSTMENTS, MaskContainer, CropGeometry, pickCropGeometry } from '../utils/adjustments';
 import {
-  Adjustments,
-  INITIAL_ADJUSTMENTS,
-  MaskContainer,
-  AiPatch,
-  CropGeometry,
-  pickCropGeometry,
-} from '../utils/adjustments';
-import { SelectedImage, WaveformData, BrushSettings, CompareView } from '../components/ui/AppProperties';
-import { ChannelConfig } from '../components/adjustments/Curves';
+  SelectedImage,
+  WaveformData,
+  BrushSettings,
+  ChannelConfig,
+  OverlayMode,
+  type SpeedEditTarget,
+} from '../types/editor';
+import { CompareView } from '../types/settings';
 import { ImageDimensions } from '../hooks/useImageRenderSize';
-import { ToolType } from '../components/panel/right/Masks';
-import { OverlayMode } from '../components/panel/right/CropPanel';
+import { ToolType } from '../types/masks';
 import { describeHistoryChange } from '../utils/editHistory';
 import { HslMixerProperty } from '../utils/hslMixer';
-import type { SpeedEditTarget } from '../components/ui/Slider';
 
 export type CenterMarker = 'vignette' | 'centre';
 
@@ -98,6 +96,7 @@ interface EditorState {
   isGeneratingAiMask: boolean;
   isGeneratingAi: boolean;
   aiDenoiseProgress: Record<string, number>;
+  aiUpscaleProgress: Record<string, number>;
   isAIConnectorConnected: boolean;
   wgpuPhase: WgpuPhase;
   patchesSentToBackend: Set<string>;
@@ -190,6 +189,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   isAIConnectorConnected: false,
   isGeneratingAi: false,
   aiDenoiseProgress: {},
+  aiUpscaleProgress: {},
   isMaskControlHovered: false,
   wgpuPhase: 'hidden',
   patchesSentToBackend: new Set<string>(),
