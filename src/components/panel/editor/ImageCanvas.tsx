@@ -1873,9 +1873,11 @@ const ImageCanvas = memo(
       ],
     );
 
+    const strokeFeather = !isMasking && activeSubMask?.type === Mask.Brush ? 0 : (brushSettings?.feather ?? 0) / 100;
+
     const brushCursorPreview = useMemo(() => {
       const radius = Math.max(0.1, brushStageSize / 2);
-      const feather = Math.max(0, Math.min(1, (brushSettings?.feather ?? 0) / 100));
+      const feather = Math.max(0, Math.min(1, strokeFeather));
       const subMaskOpacity = Math.max(0, Math.min(1, (activeSubMask?.opacity ?? 100) / 100));
       const containerOpacity =
         activeContainer && 'opacity' in activeContainer && typeof activeContainer.opacity === 'number'
@@ -1921,7 +1923,7 @@ const ImageCanvas = memo(
       activeSubMask?.opacity,
       activeSubMask?.parameters?.flow,
       activeSubMask?.type,
-      brushSettings?.feather,
+      strokeFeather,
       brushStageSize,
       baseTool,
       isAltPressed,
@@ -2718,7 +2720,7 @@ const ImageCanvas = memo(
 
             const imageSpaceLine: DrawnLine = {
               brushSize: brushImageSpaceSize,
-              feather: brushSettings?.feather ? brushSettings?.feather / 100 : 0,
+              feather: strokeFeather,
               flow: activeLineFlow,
               points: interpolateLine(startImageSpace, endImageSpace),
               tool: effectiveTool,
@@ -2813,6 +2815,7 @@ const ImageCanvas = memo(
         isAiSubjectActive,
         isParametricActive,
         brushSettings,
+        strokeFeather,
         onSelectMask,
         onSelectAiSubMask,
         isMasking,
@@ -3014,7 +3017,7 @@ const ImageCanvas = memo(
               ...stroke.lines,
               {
                 brushSize: brushImageSpaceSize,
-                feather: brushSettings?.feather ? brushSettings?.feather / 100 : 0,
+                feather: strokeFeather,
                 points: updatedLine.points.map((p: Coord) => ({ x: p.x / scale + cropX, y: p.y / scale + cropY })),
                 tool: updatedLine.tool,
               },
@@ -3028,7 +3031,7 @@ const ImageCanvas = memo(
 
             const imageSpaceLine: DrawnLine = {
               brushSize: brushImageSpaceSize,
-              feather: brushSettings?.feather ? brushSettings?.feather / 100 : 0,
+              feather: strokeFeather,
               flow: activeLineFlow,
               points: updatedLine.points.map((p: Coord) => ({
                 x: p.x / scale + cropX,
@@ -3059,7 +3062,7 @@ const ImageCanvas = memo(
 
             const imageSpaceLine: DrawnLine = {
               brushSize: brushImageSpaceSize,
-              feather: brushSettings?.feather ? brushSettings?.feather / 100 : 0,
+              feather: strokeFeather,
               flow: activeLineFlow,
               points: updatedLine.points.map((p: Coord) => ({
                 x: p.x / scale + cropX,
@@ -3119,6 +3122,7 @@ const ImageCanvas = memo(
         cropY,
         effectiveImageDimensions,
         brushSettings,
+        strokeFeather,
         isMasking,
         localInitialDrawParams,
         brushImageSpaceSize,
@@ -3302,7 +3306,7 @@ const ImageCanvas = memo(
       if (isBrushActive) {
         const imageSpaceLine: DrawnLine = {
           brushSize: brushImageSpaceSize,
-          feather: brushSettings?.feather ? brushSettings?.feather / 100 : 0,
+          feather: strokeFeather,
           flow: activeLineFlow,
           points: line.points.map((p: Coord) => ({
             x: p.x / scale + cropX,
@@ -3368,6 +3372,7 @@ const ImageCanvas = memo(
       cropX,
       cropY,
       brushSettings,
+      strokeFeather,
       imageRenderSize.scale,
       isAiEditing,
       isBrushActive,
