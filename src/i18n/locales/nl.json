@@ -2124,6 +2124,27 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "displayColor": {
+        "chooseFile": "Profiel kiezen…",
+        "description": "Zet de bewerkingsweergave om van sRGB naar het kleurprofiel van je monitor, zodat die overeenkomt met apps met kleurbeheer. Exports worden niet beïnvloed.",
+        "iccFilter": "ICC-profiel",
+        "modes": {
+          "auto": "Automatisch (monitorprofiel van het systeem)",
+          "custom": "Eigen profielbestand",
+          "off": "Uit (sRGB-monitor aannemen)"
+        },
+        "noFile": "Geen profielbestand gekozen",
+        "status": {
+          "active": "Omzetten naar: {{name}}",
+          "error": "Profielfout: {{error}}",
+          "notFound": "Geen monitorprofiel gevonden – sRGB aangenomen",
+          "off": "Geen omzetting – de bewerkingsweergave neemt een sRGB-monitor aan",
+          "srgb": "{{name}} komt overeen met sRGB – geen omzetting nodig",
+          "unnamed": "Naamloos profiel",
+          "wgpu": "Niet toegepast zolang directe WGPU-rendering is ingeschakeld"
+        },
+        "title": "Kleurbeheer van het scherm"
+      },
       "dynamicDesc": "De editor rendert het voorbeeld om overeen te komen met de werkelijke pixeldichtheid van uw beeldscherm. Dit zorgt ervoor dat elk detail wordt weergegeven met 1:1 pixelnauwkeurigheid, wat maximale helderheid biedt bij zoomen en scherpte controleren.",
       "editIn": {
         "add": "Programma toevoegen",

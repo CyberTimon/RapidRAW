@@ -123,6 +123,8 @@ reqwest = { version = "0.13", default-features = false, features = ["json", "mul
 include_dir = "0.7.4"
 
 [target.'cfg(target_os = "linux")'.dependencies]
+x11-dl = "2.21"
+zbus = "5"
 zbus-secret-service-keyring-store = { version = "1", features = ["rt-tokio-crypto-rust"] }
 gtk = "0.18.2"
 webkit2gtk = "=2.0.2"

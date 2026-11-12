@@ -2212,6 +2212,27 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "displayColor": {
+        "chooseFile": "Wybierz profil…",
+        "description": "Konwertuje widok edycji z sRGB do profilu kolorów monitora, aby zgadzał się z aplikacjami z zarządzaniem kolorami. Nie wpływa na eksport.",
+        "iccFilter": "Profil ICC",
+        "modes": {
+          "auto": "Automatycznie (systemowy profil monitora)",
+          "custom": "Własny plik profilu",
+          "off": "Wyłączone (zakładaj monitor sRGB)"
+        },
+        "noFile": "Nie wybrano pliku profilu",
+        "status": {
+          "active": "Konwersja do: {{name}}",
+          "error": "Błąd profilu: {{error}}",
+          "notFound": "Nie znaleziono profilu monitora – zakładam sRGB",
+          "off": "Brak konwersji – widok edycji zakłada monitor sRGB",
+          "srgb": "{{name}} odpowiada sRGB – konwersja niepotrzebna",
+          "unnamed": "Profil bez nazwy",
+          "wgpu": "Nie działa, gdy włączone jest bezpośrednie renderowanie WGPU"
+        },
+        "title": "Zarządzanie kolorem monitora"
+      },
       "dynamicDesc": "Edytor renderuje podgląd tak, aby odpowiadał rzeczywistej gęstości pikseli twojego wyświetlacza. Zapewnia to oddanie każdego szczegółu w proporcji 1:1, dostarczając maksymalnej jasności przy zbliżaniu i sprawdzaniu ostrości.",
       "editIn": {
         "add": "Dodaj program",

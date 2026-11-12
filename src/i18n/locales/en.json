@@ -2128,6 +2128,27 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "displayColor": {
+        "chooseFile": "Choose profile…",
+        "description": "Converts the edit view from sRGB to your monitor's color profile so it matches color-managed apps. Exports are not affected.",
+        "iccFilter": "ICC profile",
+        "modes": {
+          "auto": "Auto (system monitor profile)",
+          "custom": "Custom profile file",
+          "off": "Off (assume sRGB monitor)"
+        },
+        "noFile": "No profile file selected",
+        "status": {
+          "active": "Converting to: {{name}}",
+          "error": "Profile error: {{error}}",
+          "notFound": "No monitor profile found – assuming sRGB",
+          "off": "No conversion – the edit view assumes an sRGB monitor",
+          "srgb": "{{name}} matches sRGB – no conversion needed",
+          "unnamed": "Unnamed profile",
+          "wgpu": "Not applied while Direct WGPU Render is enabled"
+        },
+        "title": "Display Color Management"
+      },
       "dynamicDesc": "The editor renders the preview to match your display's actual pixel density. This ensures that every detail is represented with 1:1 pixel accuracy, providing maximum clarity when zooming and checking focus.",
       "editIn": {
         "add": "Add Program",

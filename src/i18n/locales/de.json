@@ -2128,6 +2128,27 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "displayColor": {
+        "chooseFile": "Profil wählen…",
+        "description": "Wandelt die Bearbeitungsansicht von sRGB in das Farbprofil deines Monitors um, damit sie zu farbverwalteten Programmen passt. Exporte sind nicht betroffen.",
+        "iccFilter": "ICC-Profil",
+        "modes": {
+          "auto": "Automatisch (Monitorprofil des Systems)",
+          "custom": "Eigene Profildatei",
+          "off": "Aus (sRGB-Monitor annehmen)"
+        },
+        "noFile": "Keine Profildatei ausgewählt",
+        "status": {
+          "active": "Umwandlung in: {{name}}",
+          "error": "Profilfehler: {{error}}",
+          "notFound": "Kein Monitorprofil gefunden – sRGB wird angenommen",
+          "off": "Keine Umwandlung – die Bearbeitungsansicht nimmt einen sRGB-Monitor an",
+          "srgb": "{{name}} entspricht sRGB – keine Umwandlung nötig",
+          "unnamed": "Unbenanntes Profil",
+          "wgpu": "Nicht aktiv, solange das direkte WGPU-Rendering eingeschaltet ist"
+        },
+        "title": "Monitor-Farbmanagement"
+      },
       "dynamicDesc": "Der Editor rendert die Vorschau passend zur tatsächlichen Pixeldichte Ihres Displays. Dies sorgt für 1:1 Pixelgenauigkeit und maximale Klarheit beim Zoomen.",
       "editIn": {
         "add": "Programm hinzufügen",

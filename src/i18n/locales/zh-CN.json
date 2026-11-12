@@ -2122,6 +2122,27 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "displayColor": {
+        "chooseFile": "选择配置文件…",
+        "description": "将编辑视图从 sRGB 转换为显示器的色彩配置文件，使其与支持色彩管理的应用一致。不影响导出。",
+        "iccFilter": "ICC 配置文件",
+        "modes": {
+          "auto": "自动（系统显示器配置文件）",
+          "custom": "自定义配置文件",
+          "off": "关闭（假定为 sRGB 显示器）"
+        },
+        "noFile": "未选择配置文件",
+        "status": {
+          "active": "正在转换为：{{name}}",
+          "error": "配置文件错误：{{error}}",
+          "notFound": "未找到显示器配置文件 – 假定为 sRGB",
+          "off": "不转换 – 编辑视图假定为 sRGB 显示器",
+          "srgb": "{{name}} 与 sRGB 一致 – 无需转换",
+          "unnamed": "未命名的配置文件",
+          "wgpu": "启用直接 WGPU 渲染时不生效"
+        },
+        "title": "显示器色彩管理"
+      },
       "dynamicDesc": "编辑器根据显示器实际像素密度渲染预览。这确保每个细节都以 1:1 像素精度呈现，在缩放和检查焦点时提供最大清晰度。",
       "editIn": {
         "add": "添加程序",
