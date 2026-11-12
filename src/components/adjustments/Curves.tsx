@@ -1022,40 +1022,6 @@ function CurveGraph({ adjustments, isForMask = false, setAdjustments, theme, onD
               <Settings2 size={14} />
             </button>
           </div>
-          <button
-            className={`w-7 h-7 rounded-md border flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-              isForMask && toneMode === 'image'
-                ? 'bg-accent border-accent text-button-text'
-                : 'bg-card-active border-white/25 text-text-primary hover:border-white/50'
-            }`}
-            data-tooltip={t(
-              isForMask
-                ? 'adjustments.curves.adaptiveContrastImageTooltip'
-                : 'adjustments.curves.adaptiveContrastTooltip',
-            )}
-            disabled={imageAnchorsUnavailable}
-            onClick={applyImageAnchors}
-            aria-pressed={isForMask && toneMode === 'image'}
-            type="button"
-          >
-            <Contrast size={14} />
-          </button>
-          {isForMask && (
-            <button
-              className={`w-7 h-7 rounded-md border flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                toneMode === 'selection'
-                  ? 'bg-accent border-accent text-button-text'
-                  : 'bg-card-active border-white/25 text-text-primary hover:border-white/50'
-              }`}
-              data-tooltip={t('adjustments.curves.adaptiveContrastMaskTooltip')}
-              disabled={selectionAnchorsUnavailable}
-              onClick={applySelectionAnchors}
-              aria-pressed={toneMode === 'selection'}
-              type="button"
-            >
-              <Scan size={14} />
-            </button>
-          )}
         </div>
         <div className="flex items-center gap-0.5 shrink-0 ml-auto">
           {(Object.keys(CHANNEL_COLORS) as Array<ActiveChannel>).map((channel) => {
@@ -1267,6 +1233,42 @@ function CurveGraph({ adjustments, isForMask = false, setAdjustments, theme, onD
                       </button>
                     ))}
                   </div>
+                </div>
+                <div className="flex items-center justify-center gap-1 mt-2">
+                  <button
+                    className={`w-7 h-7 rounded-md border flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                      isForMask && toneMode === 'image'
+                        ? 'bg-accent border-accent text-button-text'
+                        : 'bg-card-active border-white/25 text-text-primary hover:border-white/50'
+                    }`}
+                    data-tooltip={t(
+                      isForMask
+                        ? 'adjustments.curves.adaptiveContrastImageTooltip'
+                        : 'adjustments.curves.adaptiveContrastTooltip',
+                    )}
+                    disabled={imageAnchorsUnavailable}
+                    onClick={applyImageAnchors}
+                    aria-pressed={isForMask && toneMode === 'image'}
+                    type="button"
+                  >
+                    <Contrast size={14} />
+                  </button>
+                  {isForMask && (
+                    <button
+                      className={`w-7 h-7 rounded-md border flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                        toneMode === 'selection'
+                          ? 'bg-accent border-accent text-button-text'
+                          : 'bg-card-active border-white/25 text-text-primary hover:border-white/50'
+                      }`}
+                      data-tooltip={t('adjustments.curves.adaptiveContrastMaskTooltip')}
+                      disabled={selectionAnchorsUnavailable}
+                      onClick={applySelectionAnchors}
+                      aria-pressed={toneMode === 'selection'}
+                      type="button"
+                    >
+                      <Scan size={14} />
+                    </button>
+                  )}
                 </div>
               </div>
 
