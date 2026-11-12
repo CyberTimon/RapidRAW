@@ -2212,6 +2212,27 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "displayColor": {
+        "chooseFile": "Vybrat profil…",
+        "description": "Převádí zobrazení úprav ze sRGB do barevného profilu monitoru, aby odpovídalo aplikacím se správou barev. Exporty nejsou ovlivněny.",
+        "iccFilter": "Profil ICC",
+        "modes": {
+          "auto": "Automaticky (systémový profil monitoru)",
+          "custom": "Vlastní soubor profilu",
+          "off": "Vypnuto (předpokládat monitor sRGB)"
+        },
+        "noFile": "Není vybrán žádný soubor profilu",
+        "status": {
+          "active": "Převod do: {{name}}",
+          "error": "Chyba profilu: {{error}}",
+          "notFound": "Profil monitoru nenalezen – předpokládá se sRGB",
+          "off": "Bez převodu – zobrazení úprav předpokládá monitor sRGB",
+          "srgb": "{{name}} odpovídá sRGB – převod není potřeba",
+          "unnamed": "Nepojmenovaný profil",
+          "wgpu": "Nepoužije se, dokud je zapnuté přímé vykreslování WGPU"
+        },
+        "title": "Správa barev monitoru"
+      },
       "dynamicDesc": "Editor vykresluje náhled tak, aby odpovídal skutečné hustotě pixelů vašeho displeje. Tím je zajištěno, že každý detail je zobrazen s přesností pixelů 1:1, což poskytuje maximální jasnost při přibližování a kontrole zaostření.",
       "editIn": {
         "add": "Přidat program",

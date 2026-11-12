@@ -2170,6 +2170,27 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "displayColor": {
+        "chooseFile": "Tria un perfil…",
+        "description": "Converteix la vista d'edició de sRGB al perfil de color del monitor perquè coincideixi amb les aplicacions amb gestió del color. No afecta les exportacions.",
+        "iccFilter": "Perfil ICC",
+        "modes": {
+          "auto": "Automàtic (perfil del monitor del sistema)",
+          "custom": "Fitxer de perfil personalitzat",
+          "off": "Desactivat (suposar monitor sRGB)"
+        },
+        "noFile": "No s'ha seleccionat cap fitxer de perfil",
+        "status": {
+          "active": "Convertint a: {{name}}",
+          "error": "Error del perfil: {{error}}",
+          "notFound": "No s'ha trobat cap perfil de monitor – se suposa sRGB",
+          "off": "Sense conversió – la vista d'edició suposa un monitor sRGB",
+          "srgb": "{{name}} coincideix amb sRGB – no cal convertir",
+          "unnamed": "Perfil sense nom",
+          "wgpu": "No s'aplica mentre el renderitzat WGPU directe està activat"
+        },
+        "title": "Gestió del color de la pantalla"
+      },
       "dynamicDesc": "L'editor renderitza la vista prèvia perquè coincideixi amb la densitat real de píxels de la vostra pantalla. Això assegura que cada detall es representi amb precisió 1:1, proporcionant la màxima claredat a l'hora de fer zoom i comprovar l'enfocament.",
       "editIn": {
         "add": "Afegeix un programa",

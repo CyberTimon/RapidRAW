@@ -2122,6 +2122,27 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "displayColor": {
+        "chooseFile": "選擇描述檔…",
+        "description": "將編輯檢視從 sRGB 轉換為顯示器的色彩描述檔，使其與支援色彩管理的應用程式一致。不影響匯出。",
+        "iccFilter": "ICC 描述檔",
+        "modes": {
+          "auto": "自動（系統顯示器描述檔）",
+          "custom": "自訂描述檔",
+          "off": "關閉（假設為 sRGB 顯示器）"
+        },
+        "noFile": "未選擇描述檔",
+        "status": {
+          "active": "正在轉換為：{{name}}",
+          "error": "描述檔錯誤：{{error}}",
+          "notFound": "找不到顯示器描述檔 – 假設為 sRGB",
+          "off": "不轉換 – 編輯檢視假設為 sRGB 顯示器",
+          "srgb": "{{name}} 與 sRGB 相符 – 無需轉換",
+          "unnamed": "未命名的描述檔",
+          "wgpu": "啟用直接 WGPU 算繪時不會套用"
+        },
+        "title": "顯示器色彩管理"
+      },
       "dynamicDesc": "編輯器根據顯示器實際畫素密度渲染預覽。這確保每個細節都以 1:1 畫素精度呈現，在縮放和檢查焦點時提供最大清晰度。",
       "editIn": {
         "add": "新增程式",

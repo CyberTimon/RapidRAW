@@ -1074,6 +1074,19 @@ This option is still experimental on Linux. It is not available on **X11**.
 
 </details>
 
+<details>
+<summary>Linux: edit view colors differ from other image viewers</summary>
+
+On Linux the editor is shown by WebKitGTK, which does not apply your monitor's color profile. RapidRAW therefore converts the edit view (including before/after, zoomed regions and the crop view) from sRGB to the monitor profile itself. Choose the mode in **Settings → Processing → Display Color Management**:
+
+- **Auto** (default): uses the profile your desktop assigns to the primary monitor (X11 `_ICC_PROFILE`, or colord as a fallback).
+- **Custom profile file**: uses an `.icc`/`.icm` file you select.
+- **Off**: shows the sRGB values unconverted, as before.
+
+Exports and thumbnails are not affected; exports stay sRGB. Profiles generated from the monitor's EDID are only approximations, so for accurate colors calibrate the monitor with a colorimeter. With multiple monitors, the primary monitor's profile is used for all of them.
+
+</details>
+
 ## Contributing
 
 I’m really grateful for any contributions you make to RapidRAW! Whether you’re reporting a bug, suggesting a new feature, or submitting a pull request - your input helps shape the project and makes it better for everyone. Don’t hesitate to open an issue or share your ideas.

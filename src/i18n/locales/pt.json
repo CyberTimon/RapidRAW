@@ -2170,6 +2170,27 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "displayColor": {
+        "chooseFile": "Escolher perfil…",
+        "description": "Converte a vista de edição de sRGB para o perfil de cor do monitor, para corresponder às aplicações com gestão de cor. As exportações não são afetadas.",
+        "iccFilter": "Perfil ICC",
+        "modes": {
+          "auto": "Automático (perfil do monitor do sistema)",
+          "custom": "Ficheiro de perfil personalizado",
+          "off": "Desligado (assumir monitor sRGB)"
+        },
+        "noFile": "Nenhum ficheiro de perfil selecionado",
+        "status": {
+          "active": "A converter para: {{name}}",
+          "error": "Erro de perfil: {{error}}",
+          "notFound": "Nenhum perfil de monitor encontrado – a assumir sRGB",
+          "off": "Sem conversão – a vista de edição assume um monitor sRGB",
+          "srgb": "{{name}} corresponde a sRGB – conversão desnecessária",
+          "unnamed": "Perfil sem nome",
+          "wgpu": "Não aplicado enquanto a renderização WGPU direta estiver ativa"
+        },
+        "title": "Gestão de cor do ecrã"
+      },
       "dynamicDesc": "O editor renderiza a visualização para corresponder à densidade real de pixels da sua tela. Isso garante que cada detalhe seja representado com precisão de 1:1 pixel, fornecendo clareza máxima ao aumentar o zoom e verificar o foco.",
       "editIn": {
         "add": "Adicionar programa",

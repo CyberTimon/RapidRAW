@@ -61,11 +61,17 @@ export function useImageProcessing(
   const activePanel = useUIStore((state) => state.activePanel);
   const isViewerOpen = useUIStore((state) => state.isViewerOpen);
   const appSettings = useSettingsStore((state) => state.appSettings);
+  const displayProfileGeneration = useSettingsStore((state) => state.displayProfileGeneration);
   const multiSelectedPaths = useLibraryStore((state) => state.multiSelectedPaths);
 
   const uncroppedJobIdRef = useRef(0);
   const latestUncroppedJobIdRef = useRef(0);
-  const lastUncroppedRequestRef = useRef<{ path: string; adjustments: Adjustments; res: number } | null>(null);
+  const lastUncroppedRequestRef = useRef<{
+    path: string;
+    adjustments: Adjustments;
+    res: number;
+    displayProfileGeneration: number;
+  } | null>(null);
 
   const originalRequestKeyRef = useRef<string | null>(null);
   const inFlightCountRef = useRef(0);
@@ -107,8 +113,15 @@ export function useImageProcessing(
       if (view === 'off' || !image?.isReady || ui.activeView !== 'editor' || ui.activePanel === Panel.Crop) return;
 
       const originalAdjustments = getOriginalAdjustments(currentAdjustments);
-      const { useWgpuRenderer } = useSettingsStore.getState().appSettings ?? {};
-      const key = JSON.stringify([image.path, targetRes, useWgpuRenderer, originalAdjustments]);
+      const settingsState = useSettingsStore.getState();
+      const { useWgpuRenderer } = settingsState.appSettings ?? {};
+      const key = JSON.stringify([
+        image.path,
+        targetRes,
+        useWgpuRenderer,
+        settingsState.displayProfileGeneration,
+        originalAdjustments,
+      ]);
       if (key === originalRequestKeyRef.current) return;
       originalRequestKeyRef.current = key;
 
@@ -382,8 +395,15 @@ export function useImageProcessing(
     }
     const last = lastUncroppedRequestRef.current?.path === path ? lastUncroppedRequestRef.current : null;
     const res = Math.max(uncroppedTargetRes, last?.res ?? 0);
-    if (last && last.res === res && isSameIgnoringCrop(last.adjustments, adjustments)) return;
-    lastUncroppedRequestRef.current = { path, adjustments, res };
+    if (
+      last &&
+      last.res === res &&
+      last.displayProfileGeneration === displayProfileGeneration &&
+      isSameIgnoringCrop(last.adjustments, adjustments)
+    ) {
+      return;
+    }
+    lastUncroppedRequestRef.current = { path, adjustments, res, displayProfileGeneration };
     throttledUncroppedPreview(adjustments, res);
   }, [
     activeView,
@@ -393,6 +413,7 @@ export function useImageProcessing(
     selectedImage?.isReady,
     uncroppedTargetRes,
     throttledUncroppedPreview,
+    displayProfileGeneration,
   ]);
 
   const requestHiFiZoom = useMemo(
@@ -455,6 +476,7 @@ export function useImageProcessing(
     selectedImage?.isReady,
     renderOriginal,
     currentResRef,
+    displayProfileGeneration,
   ]);
 
   useEffect(() => {
@@ -548,6 +570,7 @@ export function useImageProcessing(
     appSettings?.copyPasteSettings?.includedAdjustments,
     appSettings?.copyPasteSettings?.autoSync,
     isWaveformVisible,
+    displayProfileGeneration,
   ]);
 
   return {

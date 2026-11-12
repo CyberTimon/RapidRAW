@@ -2252,6 +2252,27 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "displayColor": {
+        "chooseFile": "Pasirinkti profilį…",
+        "description": "Konvertuoja redagavimo rodinį iš sRGB į monitoriaus spalvų profilį, kad jis atitiktų spalvas valdančias programas. Eksportui įtakos neturi.",
+        "iccFilter": "ICC profilis",
+        "modes": {
+          "auto": "Automatiškai (sistemos monitoriaus profilis)",
+          "custom": "Pasirinktinis profilio failas",
+          "off": "Išjungta (laikyti monitorių sRGB)"
+        },
+        "noFile": "Profilio failas nepasirinktas",
+        "status": {
+          "active": "Konvertuojama į: {{name}}",
+          "error": "Profilio klaida: {{error}}",
+          "notFound": "Monitoriaus profilis nerastas – laikoma sRGB",
+          "off": "Be konvertavimo – redagavimo rodinys laiko monitorių sRGB",
+          "srgb": "{{name}} atitinka sRGB – konvertuoti nereikia",
+          "unnamed": "Profilis be pavadinimo",
+          "wgpu": "Netaikoma, kol įjungtas tiesioginis WGPU atvaizdavimas"
+        },
+        "title": "Monitoriaus spalvų valdymas"
+      },
       "dynamicDesc": "Redaktorius atvaizduoja peržiūrą pagal tikrąjį jūsų ekrano pikselių tankį. Tai užtikrina 1:1 pikselių tikslumą vertinant fokusavimą ir triukšmą.",
       "editIn": {
         "add": "Pridėti programą",

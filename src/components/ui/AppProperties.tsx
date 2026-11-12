@@ -31,6 +31,18 @@ export const GLOBAL_KEYS = [
 ];
 export const OPTION_SEPARATOR = 'separator';
 
+export type DisplayColorManagementMode = 'auto' | 'custom' | 'off';
+
+export interface DisplayProfileInfo {
+  mode: DisplayColorManagementMode;
+  source: 'x11' | 'colord' | 'file' | 'none';
+  description: string | null;
+  active: boolean;
+  blockedByWgpu: boolean;
+  error: string | null;
+  generation: number;
+}
+
 export enum Invokes {
   AddTagForPaths = 'add_tag_for_paths',
   ApplyAdjustments = 'apply_adjustments',
@@ -76,6 +88,7 @@ export enum Invokes {
   ClearImmichCache = 'clear_immich_cache',
   ClearMetadataCache = 'clear_metadata_cache',
   GetAiJobsStatus = 'get_ai_jobs_status',
+  GetDisplayProfileInfo = 'get_display_profile_info',
   GetFolderTree = 'get_folder_tree',
   GetFolderChildren = 'get_folder_children',
   GetLogFilePath = 'get_log_file_path',
@@ -128,6 +141,7 @@ export enum Invokes {
   SampleHslMixerArea = 'sample_hsl_mixer_area',
   GetDepthPreview = 'get_depth_preview',
   UpdateWgpuTransform = 'update_wgpu_transform',
+  RefreshDisplayProfile = 'refresh_display_profile',
   SetUiScale = 'set_ui_scale',
   ReleaseOriginalPreview = 'release_original_preview',
   OpenViewerWindow = 'open_viewer_window',
@@ -290,6 +304,8 @@ export interface AppSettings {
   waveformHeight?: number;
   activeWaveformChannel?: string;
   useWgpuRenderer?: boolean;
+  displayColorManagement?: DisplayColorManagementMode;
+  displayProfilePath?: string | null;
   editorNeutralGreyBg?: boolean;
   canvasInputMode?: 'mouse' | 'trackpad';
   compareMode?: CompareMode;
