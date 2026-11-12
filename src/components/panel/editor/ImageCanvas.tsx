@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef, useCallback, memo, useMemo } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, memo, useMemo, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import ReactCrop from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
@@ -3623,6 +3623,24 @@ const ImageCanvas = memo(
             ? 0
             : 1;
 
+    const imageBoxStyle: CSSProperties =
+      imageRenderSize.width > 0 && imageRenderSize.height > 0
+        ? {
+            position: 'absolute',
+            left: `${imageRenderSize.offsetX}px`,
+            top: `${imageRenderSize.offsetY}px`,
+            width: `${imageRenderSize.width}px`,
+            height: `${imageRenderSize.height}px`,
+            overflow: 'visible',
+          }
+        : {
+            position: 'absolute',
+            inset: '0px',
+            width: '100%',
+            height: '100%',
+            overflow: 'visible',
+          };
+
     return (
       <div className="relative" style={{ width: '100%', height: '100%', cursor: effectiveCursor }}>
         <div
@@ -3641,27 +3659,7 @@ const ImageCanvas = memo(
             }}
           >
             <div className="absolute inset-0 w-full h-full">
-              <svg
-                className="pointer-events-none"
-                style={
-                  imageRenderSize.width > 0 && imageRenderSize.height > 0
-                    ? {
-                        position: 'absolute',
-                        left: `${imageRenderSize.offsetX}px`,
-                        top: `${imageRenderSize.offsetY}px`,
-                        width: `${imageRenderSize.width}px`,
-                        height: `${imageRenderSize.height}px`,
-                        overflow: 'visible',
-                      }
-                    : {
-                        position: 'absolute',
-                        inset: '0px',
-                        width: '100%',
-                        height: '100%',
-                        overflow: 'visible',
-                      }
-                }
-              >
+              <svg className="pointer-events-none" style={imageBoxStyle}>
                 {displayState.base && (!isWgpuActive || isWgpuHandoffFading) && (
                   <image
                     href={displayState.base}
@@ -3706,21 +3704,20 @@ const ImageCanvas = memo(
               </svg>
 
               {displayedMaskOverlay && (
-                <img
-                  alt="Mask Overlay"
-                  className="absolute pointer-events-none"
-                  src={displayedMaskOverlay.url}
-                  style={{
-                    height: `${displayedMaskOverlay.region[3] * imageRenderSize.height}px`,
-                    left: `${imageRenderSize.offsetX + displayedMaskOverlay.region[0] * imageRenderSize.width}px`,
-                    opacity: maskOpacity,
-                    top: `${imageRenderSize.offsetY + displayedMaskOverlay.region[1] * imageRenderSize.height}px`,
-                    transition: 'opacity 300ms ease-in-out',
-                    width: `${displayedMaskOverlay.region[2] * imageRenderSize.width}px`,
-                    imageRendering: isMaxZoom ? 'pixelated' : 'auto',
-                    zIndex: 3,
-                  }}
-                />
+                <svg
+                  className="pointer-events-none"
+                  style={{ ...imageBoxStyle, opacity: maskOpacity, transition: 'opacity 300ms ease-in-out', zIndex: 3 }}
+                >
+                  <image
+                    href={displayedMaskOverlay.url}
+                    x={`${displayedMaskOverlay.region[0] * 100}%`}
+                    y={`${displayedMaskOverlay.region[1] * 100}%`}
+                    width={`${displayedMaskOverlay.region[2] * 100}%`}
+                    height={`${displayedMaskOverlay.region[3] * 100}%`}
+                    preserveAspectRatio="none"
+                    style={{ imageRendering: isMaxZoom ? 'pixelated' : 'auto' }}
+                  />
+                </svg>
               )}
             </div>
           </div>
