@@ -3,7 +3,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::f32::consts::PI;
 
-fn grayscale_dilate(image: &GrayImage, k: u8) -> GrayImage {
+pub(crate) fn grayscale_dilate(image: &GrayImage, k: u8) -> GrayImage {
     let (width, height) = image.dimensions();
     if width == 0 || height == 0 {
         return image.clone();
@@ -110,7 +110,7 @@ fn saturate_u8(value: f32) -> u8 {
     }
 }
 
-fn gaussian_blur_mask(mask: &GrayImage, sigma: f32) -> GrayImage {
+pub(crate) fn gaussian_blur_mask(mask: &GrayImage, sigma: f32) -> GrayImage {
     let (w, h) = (mask.width() as usize, mask.height() as usize);
     if w == 0 || h == 0 {
         return mask.clone();

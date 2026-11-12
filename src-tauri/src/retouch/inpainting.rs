@@ -2,7 +2,7 @@ use std::io::Cursor;
 use std::sync::Arc;
 
 use base64::{Engine as _, engine::general_purpose};
-use image::{DynamicImage, GenericImageView, Rgb, RgbImage, RgbaImage};
+use image::{DynamicImage, GenericImageView, GrayImage, Rgb, RgbImage, RgbaImage};
 use serde_json::Value;
 
 use crate::ai::{connector, lama, models};
@@ -13,10 +13,16 @@ use crate::masks::generation::{
     AiPatchDefinition, MaskDefinition, SubMask, generate_mask_bitmap,
     resolve_warped_image_for_masks,
 };
+use crate::masks::morphology::{gaussian_blur_mask, grayscale_dilate};
 use crate::render::geometry::{Crop, inverse_transform_mask, inverse_transform_point};
 use crate::render::image_processing::apply_linear_to_srgb;
 use crate::render::preview::{get_or_compute_stage, patched_cache_key};
 use crate::retouch::touch_up::{LiquifyMode, LiquifyPoint, LiquifyStroke};
+
+const CLOUD_API_URL: &str = "https://www.getrapidraw.com/api";
+const CLOUD_MAX_SIDE: u32 = 2048;
+const CLOUD_MIN_CONTEXT: u32 = 1024;
+const FILL_THRESHOLD: u8 = 16;
 
 fn adjustments_without_patch(patch_id: &str, current_adjustments: &Value) -> Value {
     let mut adjustments = current_adjustments.clone();
@@ -478,8 +484,6 @@ pub async fn invoke_generative_replace_with_mask_def(
     let (source_image, is_raw) =
         prepare_source_image(&patch_definition.id, &current_adjustments, &state)?;
     let (img_w, img_h) = source_image.dimensions();
-    let img_w_usize = img_w as usize;
-    let img_h_usize = img_h as usize;
 
     let orientation_steps = current_adjustments
         .get("orientationSteps")
@@ -518,8 +522,7 @@ pub async fn invoke_generative_replace_with_mask_def(
     .ok_or("Failed to generate mask bitmap for AI replace")?;
 
     let mask_bitmap = inverse_transform_mask(mask_bitmap, &path, &current_adjustments);
-
-    let (min_x, max_x, min_y, max_y) = calculate_mask_bounds(&mask_bitmap)?;
+    let (fill_mask, blend_mask) = generation_masks(&mask_bitmap)?;
 
     if cancel_flag.as_ref().is_some_and(|t| t.is_cancelled()) {
         return Err("Task cancelled".to_string());
@@ -535,134 +538,35 @@ pub async fn invoke_generative_replace_with_mask_def(
             return Err("Task cancelled".to_string());
         }
 
-        lama::run_lama_inpainting(&source_image, &mask_bitmap, &lama_model)
+        lama::run_lama_inpainting(&source_image, &fill_mask, &lama_model)
             .map_err(|e| e.to_string())?
     } else if settings.ai_provider.as_deref() == Some("cloud")
         && let Some(auth_token) = token
     {
-        let tight_w = max_x - min_x + 1;
-        let tight_h = max_y - min_y + 1;
-
-        let pad_x = tight_w / 2;
-        let pad_y = tight_h / 2;
-
-        let padded_min_x = min_x.saturating_sub(pad_x);
-        let padded_min_y = min_y.saturating_sub(pad_y);
-        let padded_max_x = (max_x + pad_x).min(img_w_usize - 1);
-        let padded_max_y = (max_y + pad_y).min(img_h_usize - 1);
-
-        let crop_w = (padded_max_x - padded_min_x + 1) as u32;
-        let crop_h = (padded_max_y - padded_min_y + 1) as u32;
-
-        let src_crop = image::imageops::crop_imm(
+        let cloud_fut = cloud_inpaint(
             &source_image,
-            padded_min_x as u32,
-            padded_min_y as u32,
-            crop_w,
-            crop_h,
-        )
-        .to_image();
-
-        let mask_crop = image::imageops::crop_imm(
-            &mask_bitmap,
-            padded_min_x as u32,
-            padded_min_y as u32,
-            crop_w,
-            crop_h,
-        )
-        .to_image();
-
-        let max_pixels = 1_500_000_f32;
-        let current_pixels = (crop_w * crop_h) as f32;
-
-        let mut ai_w = crop_w;
-        let mut ai_h = crop_h;
-        if current_pixels > max_pixels {
-            let scale = (max_pixels / current_pixels).sqrt();
-            ai_w = (crop_w as f32 * scale) as u32;
-            ai_h = (crop_h as f32 * scale) as u32;
-        }
-
-        ai_w = (ai_w / 16) * 16;
-        ai_h = (ai_h / 16) * 16;
-
-        let resize_needed = ai_w != crop_w || ai_h != crop_h;
-
-        let (final_src_crop, final_mask_crop) = if resize_needed {
-            (
-                image::imageops::resize(
-                    &src_crop,
-                    ai_w,
-                    ai_h,
-                    image::imageops::FilterType::Lanczos3,
-                ),
-                image::imageops::resize(
-                    &mask_crop,
-                    ai_w,
-                    ai_h,
-                    image::imageops::FilterType::Triangle,
-                ),
-            )
-        } else {
-            (src_crop, mask_crop)
-        };
-
-        let mut rgba_mask = RgbaImage::new(ai_w, ai_h);
-        for (src_val, dst_chunk) in final_mask_crop.as_raw().iter().zip(rgba_mask.chunks_mut(4)) {
-            let intensity = *src_val;
-            dst_chunk[0] = intensity;
-            dst_chunk[1] = intensity;
-            dst_chunk[2] = intensity;
-            dst_chunk[3] = 255;
-        }
-
-        let base_url = "https://www.getrapidraw.com/api";
-
-        let dyn_src_crop = DynamicImage::ImageRgba8(final_src_crop);
-        let dyn_rgba_mask = DynamicImage::ImageRgba8(rgba_mask);
-
-        let cloud_fut = connector::process_cloud_inpainting(
-            base_url,
-            &dyn_src_crop,
-            &dyn_rgba_mask,
+            &fill_mask,
             patch_definition.prompt,
             &auth_token,
         );
 
-        let generated_ai_patch = if let Some(token) = cancel_flag.as_ref() {
+        if let Some(token) = cancel_flag.as_ref() {
             tokio::select! {
-                res = cloud_fut => res.map_err(|e| e.to_string())?,
+                res = cloud_fut => res?,
                 _ = token.wait_for_cancel() => {
                     return Err("Task cancelled".to_string());
                 }
             }
         } else {
-            cloud_fut.await.map_err(|e| e.to_string())?
-        };
-
-        let generated_ai_patch_rgba = generated_ai_patch.to_rgba8();
-        let restored_ai_patch = if resize_needed {
-            image::imageops::resize(
-                &generated_ai_patch_rgba,
-                crop_w,
-                crop_h,
-                image::imageops::FilterType::Lanczos3,
-            )
-        } else {
-            generated_ai_patch_rgba
-        };
-
-        let mut patch_canvas = RgbaImage::new(crop_w, crop_h);
-        image::imageops::overlay(&mut patch_canvas, &restored_ai_patch, 0, 0);
-
-        (patch_canvas, padded_min_x as u32, padded_min_y as u32)
+            cloud_fut.await?
+        }
     } else if settings.ai_provider.as_deref() == Some("ai-connector")
         && let Some(address) = settings.ai_connector_address
     {
         let base_url = format!("http://{}", address);
 
         let mut rgba_mask = RgbaImage::new(img_w, img_h);
-        for (src_val, dst_chunk) in mask_bitmap.as_raw().iter().zip(rgba_mask.chunks_mut(4)) {
+        for (src_val, dst_chunk) in fill_mask.as_raw().iter().zip(rgba_mask.chunks_mut(4)) {
             let intensity = *src_val;
             dst_chunk[0] = intensity;
             dst_chunk[1] = intensity;
@@ -715,49 +619,352 @@ pub async fn invoke_generative_replace_with_mask_def(
         return Err("Task cancelled".to_string());
     }
 
-    let min_x_u32 = min_x as u32;
-    let min_y_u32 = min_y as u32;
-    let crop_w = (max_x - min_x + 1) as u32;
-    let crop_h = (max_y - min_y + 1) as u32;
+    encode_generated_patch(
+        &source_image,
+        &final_patch,
+        (patch_x, patch_y),
+        &blend_mask,
+        is_raw,
+    )
+    .map(|v| v.to_string())
+}
 
-    let mut color_image = RgbImage::new(crop_w, crop_h);
+fn generation_masks(mask: &GrayImage) -> Result<(GrayImage, GrayImage), String> {
+    let (min_x, max_x, min_y, max_y) = calculate_mask_bounds(mask)?;
+    let diagonal = ((max_x - min_x + 1) as f32).hypot((max_y - min_y + 1) as f32);
+    let radius = (diagonal * 0.012).round().clamp(4.0, 24.0) as u32;
 
-    for y in min_y..=max_y {
-        for x in min_x..=max_x {
-            let px_x = x as u32;
-            let px_y = y as u32;
-            let mask_value = mask_bitmap.get_pixel(px_x, px_y)[0];
+    let (w, h) = mask.dimensions();
+    let margin = radius * 2 + 2;
+    let x0 = (min_x as u32).saturating_sub(margin);
+    let y0 = (min_y as u32).saturating_sub(margin);
+    let x1 = (max_x as u32 + margin + 1).min(w);
+    let y1 = (max_y as u32 + margin + 1).min(h);
 
-            let out_x = px_x - min_x_u32;
-            let out_y = px_y - min_y_u32;
+    let mut core = image::imageops::crop_imm(mask, x0, y0, x1 - x0, y1 - y0).to_image();
+    let threshold = FILL_THRESHOLD.min(core.iter().copied().max().unwrap_or(1).max(1));
+    core.iter_mut()
+        .for_each(|v| *v = if *v >= threshold { 255 } else { 0 });
 
-            let px = if mask_value > 0 {
-                final_patch
-                    .get_pixel_checked(px_x.wrapping_sub(patch_x), px_y.wrapping_sub(patch_y))
-                    .copied()
-                    .unwrap_or(image::Rgba([0, 0, 0, 0]))
-            } else {
-                source_image.get_pixel(px_x, px_y)
-            };
-            color_image.put_pixel(out_x, out_y, Rgb([px[0], px[1], px[2]]));
+    let fill = grayscale_dilate(&core, (radius * 2) as u8);
+    let mut blend = gaussian_blur_mask(&grayscale_dilate(&core, radius as u8), radius as f32 / 2.0);
+    blend
+        .iter_mut()
+        .zip(core.iter())
+        .for_each(|(b, c)| *b = (*b).max(*c));
+
+    let mut fill_mask = GrayImage::new(w, h);
+    let mut blend_mask = GrayImage::new(w, h);
+    image::imageops::replace(&mut fill_mask, &fill, x0 as i64, y0 as i64);
+    image::imageops::replace(&mut blend_mask, &blend, x0 as i64, y0 as i64);
+    Ok((fill_mask, blend_mask))
+}
+
+fn context_window(min: usize, max: usize, limit: u32) -> (u32, u32) {
+    let size = (((max - min + 1) * 2) as u32)
+        .max(CLOUD_MIN_CONTEXT)
+        .min(limit);
+    let center = (min + max).div_ceil(2) as u32;
+    (center.saturating_sub(size / 2).min(limit - size), size)
+}
+
+async fn cloud_inpaint(
+    source_image: &DynamicImage,
+    fill_mask: &GrayImage,
+    prompt: String,
+    token: &str,
+) -> Result<(RgbaImage, u32, u32), String> {
+    let (img_w, img_h) = source_image.dimensions();
+    let (min_x, max_x, min_y, max_y) = calculate_mask_bounds(fill_mask)?;
+    let (crop_x, crop_w) = context_window(min_x, max_x, img_w);
+    let (crop_y, crop_h) = context_window(min_y, max_y, img_h);
+
+    let src_crop =
+        image::imageops::crop_imm(source_image, crop_x, crop_y, crop_w, crop_h).to_image();
+    let mask_crop = image::imageops::crop_imm(fill_mask, crop_x, crop_y, crop_w, crop_h).to_image();
+
+    let scale = (CLOUD_MAX_SIDE as f32 / crop_w.max(crop_h) as f32).min(1.0);
+    let (model_src, model_mask) = if scale < 1.0 {
+        let ai_w = ((crop_w as f32 * scale).round() as u32).max(1);
+        let ai_h = ((crop_h as f32 * scale).round() as u32).max(1);
+        let mut mask = image::imageops::resize(
+            &mask_crop,
+            ai_w,
+            ai_h,
+            image::imageops::FilterType::Triangle,
+        );
+        mask.iter_mut().filter(|v| **v > 0).for_each(|v| *v = 255);
+        (
+            image::imageops::resize(&src_crop, ai_w, ai_h, image::imageops::FilterType::Lanczos3),
+            mask,
+        )
+    } else {
+        (src_crop.clone(), mask_crop.clone())
+    };
+
+    let generated = connector::process_cloud_inpainting(
+        CLOUD_API_URL,
+        &DynamicImage::ImageRgba8(model_src),
+        &DynamicImage::ImageLuma8(model_mask),
+        prompt,
+        token,
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let mut patch = generated.to_rgba8();
+    if patch.dimensions() != (crop_w, crop_h) {
+        patch = image::imageops::resize(
+            &patch,
+            crop_w,
+            crop_h,
+            image::imageops::FilterType::Lanczos3,
+        );
+    }
+    match_tone(&mut patch, &src_crop, &mask_crop);
+    let float_crop = source_image
+        .crop_imm(crop_x, crop_y, crop_w, crop_h)
+        .to_rgb32f();
+    match_grain(&mut patch, &float_crop, &mask_crop);
+
+    Ok((patch, crop_x, crop_y))
+}
+
+fn match_tone(patch: &mut RgbaImage, source: &RgbaImage, fill: &GrayImage) {
+    let (w, h) = patch.dimensions();
+    let cell = (w.max(h) / 160).max(4);
+    let (gw, gh) = (w.div_ceil(cell) as usize, h.div_ceil(cell) as usize);
+    let mut sums = vec![[0.0f32; 3]; gw * gh];
+    let mut counts = vec![0u32; gw * gh];
+
+    for (x, y, p) in patch.enumerate_pixels() {
+        if fill.get_pixel(x, y)[0] > 0 {
+            continue;
+        }
+        let s = source.get_pixel(x, y);
+        let i = (y / cell) as usize * gw + (x / cell) as usize;
+        for c in 0..3 {
+            sums[i][c] += s[c] as f32 - p[c] as f32;
+        }
+        counts[i] += 1;
+    }
+
+    let mut field = vec![[0.0f32; 3]; gw * gh];
+    let mut known = vec![false; gw * gh];
+    let mut mean = [0.0f32; 3];
+    let mut known_count = 0;
+    for i in 0..gw * gh {
+        if counts[i] < cell * cell / 4 {
+            continue;
+        }
+        let d = sums[i].map(|v| v / counts[i] as f32);
+        if d.iter().map(|v| v.abs()).sum::<f32>() > 24.0 {
+            continue;
+        }
+        field[i] = d;
+        known[i] = true;
+        known_count += 1;
+        for c in 0..3 {
+            mean[c] += d[c];
+        }
+    }
+    if known_count == 0 {
+        return;
+    }
+    let mean = mean.map(|v| v / known_count as f32);
+    for i in 0..gw * gh {
+        if !known[i] {
+            field[i] = mean;
         }
     }
 
+    for _ in 0..400 {
+        for gy in 0..gh {
+            for gx in 0..gw {
+                let i = gy * gw + gx;
+                if known[i] {
+                    continue;
+                }
+                let mut acc = [0.0f32; 3];
+                let mut n = 0.0;
+                for (nx, ny) in [
+                    (gx.wrapping_sub(1), gy),
+                    (gx + 1, gy),
+                    (gx, gy.wrapping_sub(1)),
+                    (gx, gy + 1),
+                ] {
+                    if nx < gw && ny < gh {
+                        let v = field[ny * gw + nx];
+                        for c in 0..3 {
+                            acc[c] += v[c];
+                        }
+                        n += 1.0;
+                    }
+                }
+                field[i] = acc.map(|v| v / n);
+            }
+        }
+    }
+
+    let sample = |fx: f32, fy: f32| {
+        let fx = fx.clamp(0.0, (gw - 1) as f32);
+        let fy = fy.clamp(0.0, (gh - 1) as f32);
+        let (x0, y0) = (fx.floor() as usize, fy.floor() as usize);
+        let (x1, y1) = ((x0 + 1).min(gw - 1), (y0 + 1).min(gh - 1));
+        let (tx, ty) = (fx - x0 as f32, fy - y0 as f32);
+        let mut out = [0.0f32; 3];
+        for (c, o) in out.iter_mut().enumerate() {
+            let top = field[y0 * gw + x0][c] * (1.0 - tx) + field[y0 * gw + x1][c] * tx;
+            let bottom = field[y1 * gw + x0][c] * (1.0 - tx) + field[y1 * gw + x1][c] * tx;
+            *o = top * (1.0 - ty) + bottom * ty;
+        }
+        out
+    };
+
+    for (x, y, p) in patch.enumerate_pixels_mut() {
+        if fill.get_pixel(x, y)[0] == 0 {
+            continue;
+        }
+        let d = sample(
+            (x as f32 + 0.5) / cell as f32 - 0.5,
+            (y as f32 + 0.5) / cell as f32 - 0.5,
+        );
+        for c in 0..3 {
+            p[c] = (p[c] as f32 + d[c]).round().clamp(0.0, 255.0) as u8;
+        }
+    }
+}
+
+fn luma_noise_sigma(
+    (w, h): (u32, u32),
+    luma: impl Fn(u32, u32) -> f32,
+    include: impl Fn(u32, u32) -> bool,
+) -> Option<f32> {
+    let mut residuals = Vec::new();
+    for y in (1..h.saturating_sub(1)).step_by(2) {
+        for x in (1..w.saturating_sub(1)).step_by(2) {
+            if !include(x, y) {
+                continue;
+            }
+            let mut sum = 0.0;
+            for dy in 0..3 {
+                for dx in 0..3 {
+                    sum += luma(x + dx - 1, y + dy - 1);
+                }
+            }
+            residuals.push((luma(x, y) - sum / 9.0).abs());
+        }
+    }
+    if residuals.len() < 256 {
+        return None;
+    }
+    let mid = residuals.len() / 2;
+    let (_, median, _) = residuals.select_nth_unstable_by(mid, |a, b| a.total_cmp(b));
+    Some(*median * 1.4826 / (8.0f32 / 9.0).sqrt())
+}
+
+fn mix64(mut z: u64) -> u64 {
+    z = z.wrapping_add(0x9e37_79b9_7f4a_7c15);
+    z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+    z ^ (z >> 31)
+}
+
+fn gaussian_noise(x: u32, y: u32) -> f32 {
+    let a = mix64(((y as u64) << 32) | x as u64);
+    let b = mix64(a);
+    let u1 = ((a >> 40) as f32 + 1.0) / (1u32 << 24) as f32;
+    let u2 = (b >> 40) as f32 / (1u32 << 24) as f32;
+    (-2.0 * u1.ln()).sqrt() * (std::f32::consts::TAU * u2).cos()
+}
+
+fn match_grain(patch: &mut RgbaImage, source: &image::Rgb32FImage, fill: &GrayImage) {
+    const STEP: u32 = 8;
+    const QUANTIZATION_VARIANCE: f32 = 1.0 / 12.0;
+    let (w, h) = fill.dimensions();
+    let mut coarse = GrayImage::new(w.div_ceil(STEP), h.div_ceil(STEP));
+    for (x, y, v) in fill.enumerate_pixels() {
+        let c = coarse.get_pixel_mut(x / STEP, y / STEP);
+        c[0] = c[0].max(v[0]);
+    }
+    let ring = grayscale_dilate(&coarse, 6);
+
+    let source_luma = |x: u32, y: u32| {
+        let p = source.get_pixel(x, y);
+        (p[0].clamp(0.0, 1.0) + p[1].clamp(0.0, 1.0) + p[2].clamp(0.0, 1.0)) * 85.0
+    };
+    let patch_luma = |x: u32, y: u32| {
+        let p = patch.get_pixel(x, y);
+        (p[0] as f32 + p[1] as f32 + p[2] as f32) / 3.0
+    };
+    let Some(source_sigma) = luma_noise_sigma((w, h), source_luma, |x, y| {
+        fill.get_pixel(x, y)[0] == 0 && ring.get_pixel(x / STEP, y / STEP)[0] > 0
+    }) else {
+        return;
+    };
+    let Some(patch_sigma) =
+        luma_noise_sigma((w, h), patch_luma, |x, y| fill.get_pixel(x, y)[0] > 0)
+    else {
+        return;
+    };
+
+    let patch_variance = (patch_sigma * patch_sigma - QUANTIZATION_VARIANCE).max(0.0);
+    let missing = (source_sigma * source_sigma - patch_variance)
+        .max(0.0)
+        .sqrt();
+    if missing < 0.1 {
+        return;
+    }
+    for (x, y, pixel) in patch.enumerate_pixels_mut() {
+        if fill.get_pixel(x, y)[0] == 0 {
+            continue;
+        }
+        let n = gaussian_noise(x, y) * missing;
+        for c in &mut pixel.0[..3] {
+            *c = (*c as f32 + n).round().clamp(0.0, 255.0) as u8;
+        }
+    }
+}
+
+fn encode_generated_patch(
+    source_image: &DynamicImage,
+    final_patch: &RgbaImage,
+    (patch_x, patch_y): (u32, u32),
+    blend_mask: &GrayImage,
+    is_raw: bool,
+) -> Result<Value, String> {
+    let (min_x, max_x, min_y, max_y) = calculate_mask_bounds(blend_mask)?;
+    let (min_x, min_y) = (min_x as u32, min_y as u32);
+    let crop_w = (max_x as u32) - min_x + 1;
+    let crop_h = (max_y as u32) - min_y + 1;
+
+    let color_image = RgbImage::from_fn(crop_w, crop_h, |out_x, out_y| {
+        let (x, y) = (out_x + min_x, out_y + min_y);
+        let px = if blend_mask.get_pixel(x, y)[0] > 0 {
+            final_patch
+                .get_pixel_checked(x.wrapping_sub(patch_x), y.wrapping_sub(patch_y))
+                .copied()
+                .unwrap_or(image::Rgba([0, 0, 0, 0]))
+        } else {
+            source_image.get_pixel(x, y)
+        };
+        Rgb([px[0], px[1], px[2]])
+    });
+
     let output_mask =
-        image::imageops::crop_imm(&mask_bitmap, min_x_u32, min_y_u32, crop_w, crop_h).to_image();
+        image::imageops::crop_imm(blend_mask, min_x, min_y, crop_w, crop_h).to_image();
 
     encode_patch_result(
         &color_image,
         &output_mask,
-        min_x_u32,
-        min_y_u32,
+        min_x,
+        min_y,
         crop_w,
         crop_h,
         is_raw,
         95,
         true,
     )
-    .map(|v| v.to_string())
 }
 
 fn line_points(line: &Value) -> Vec<(f64, f64)> {

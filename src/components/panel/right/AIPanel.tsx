@@ -94,10 +94,8 @@ const PLACEHOLDER_PATCH: AiPatch = {
 };
 
 const SUB_MASK_CONFIG: any = {
-  [Mask.Radial]: {
-    parameters: [{ key: 'feather', min: 0, max: 100, step: 1, multiplier: 100, defaultValue: 50 }],
-  },
-  [Mask.Brush]: { showBrushTools: true },
+  [Mask.Radial]: { parameters: [] },
+  [Mask.Brush]: { showBrushTools: true, hideFeather: true },
   [Mask.Clone]: { showBrushTools: true, hideToolSwitch: true, defaultFeather: 35 },
   [Mask.Heal]: { showBrushTools: true, hideToolSwitch: true, defaultFeather: 35 },
   [Mask.Liquify]: {
@@ -110,28 +108,16 @@ const SUB_MASK_CONFIG: any = {
   },
   [Mask.Linear]: { parameters: [] },
   [Mask.AiSubject]: {
-    parameters: [
-      { key: 'grow', min: -100, max: 100, step: 1, defaultValue: 50 },
-      { key: 'feather', min: 0, max: 100, step: 1, defaultValue: 25 },
-    ],
+    parameters: [{ key: 'grow', min: -100, max: 100, step: 1, defaultValue: 50 }],
   },
   [Mask.AiForeground]: {
-    parameters: [
-      { key: 'grow', min: -100, max: 100, step: 1, defaultValue: 50 },
-      { key: 'feather', min: 0, max: 100, step: 1, defaultValue: 25 },
-    ],
+    parameters: [{ key: 'grow', min: -100, max: 100, step: 1, defaultValue: 50 }],
   },
   [Mask.AiSky]: {
-    parameters: [
-      { key: 'grow', min: -100, max: 100, step: 1, defaultValue: 0 },
-      { key: 'feather', min: 0, max: 100, step: 1, defaultValue: 0 },
-    ],
+    parameters: [{ key: 'grow', min: -100, max: 100, step: 1, defaultValue: 0 }],
   },
   [Mask.QuickEraser]: {
-    parameters: [
-      { key: 'grow', min: -100, max: 200, step: 1, defaultValue: 150 },
-      { key: 'feather', min: 0, max: 100, step: 1, defaultValue: 75 },
-    ],
+    parameters: [{ key: 'grow', min: -100, max: 200, step: 1, defaultValue: 150 }],
   },
 };
 
@@ -139,11 +125,13 @@ const BrushTools = ({
   settings,
   onSettingsChange,
   showToolSwitch = true,
+  showFeather = true,
   defaultFeather = 50,
 }: {
   settings: any;
   onSettingsChange: any;
   showToolSwitch?: boolean;
+  showFeather?: boolean;
   defaultFeather?: number;
 }) => {
   const { t } = useTranslation();
@@ -160,16 +148,18 @@ const BrushTools = ({
         value={settings.size}
         fillOrigin="min"
       />
-      <Slider
-        defaultValue={defaultFeather}
-        label={t('editor.ai.brush.feather')}
-        max={100}
-        min={0}
-        onChange={(e: any) => onSettingsChange((s: any) => ({ ...s, feather: Number(e.target.value) }))}
-        step={1}
-        value={settings.feather}
-        fillOrigin="min"
-      />
+      {showFeather && (
+        <Slider
+          defaultValue={defaultFeather}
+          label={t('editor.ai.brush.feather')}
+          max={100}
+          min={0}
+          onChange={(e: any) => onSettingsChange((s: any) => ({ ...s, feather: Number(e.target.value) }))}
+          step={1}
+          value={settings.feather}
+          fillOrigin="min"
+        />
+      )}
       {showToolSwitch && (
         <div className="grid grid-cols-2 gap-2 pt-2">
           <button
@@ -2388,6 +2378,7 @@ function SettingsPanel({
                   settings={brushSettings}
                   onSettingsChange={setBrushSettings}
                   showToolSwitch={!subMaskConfig.hideToolSwitch}
+                  showFeather={!subMaskConfig.hideFeather}
                   defaultFeather={subMaskConfig.defaultFeather}
                 />
               )}
