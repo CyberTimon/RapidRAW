@@ -550,9 +550,54 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
     }
   }, [handleSelectSubfolder, handleSelectAlbum]);
 
-  const handleOpenFolder = useCallback(async () => {
-    const { osPlatform, appSettings, handleSettingsChange } = useSettingsStore.getState();
+  const addRootFolder = useCallback(async (rootPath: string) => {
+    const { appSettings, handleSettingsChange } = useSettingsStore.getState();
     const { rootPaths, folderTrees, setLibrary } = useLibraryStore.getState();
+    if (rootPaths.includes(rootPath)) return;
+
+    const newRootPaths = [...rootPaths, rootPath];
+    setLibrary({ rootPaths: newRootPaths });
+
+    if (appSettings) {
+      handleSettingsChange({ ...appSettings, rootFolders: newRootPaths } as any);
+    }
+
+    setLibrary({ isTreeLoading: true });
+    try {
+      const newTree = await invoke(Invokes.GetFolderTree, {
+        path: rootPath,
+        expandedFolders: [rootPath],
+        showImageCounts: appSettings?.enableFolderImageCounts || appSettings?.folderTreeSort?.key === 'imageCount',
+      });
+      setLibrary({ folderTrees: [...folderTrees, newTree] });
+    } catch (e) {
+      toast.error(`Failed to load folder tree: ${e}`);
+    } finally {
+      setLibrary({ isTreeLoading: false });
+    }
+  }, []);
+
+  const handleOpenContainingFolder = useCallback(
+    async (filePath: string) => {
+      const folderPath = filePath.replace(/[\\/][^\\/]*$/, '');
+      if (!folderPath || folderPath === filePath) return;
+      if (useLibraryStore.getState().currentFolderPath === folderPath) return;
+
+      const { rootPaths } = useLibraryStore.getState();
+      const { pinnedFolders } = useSettingsStore.getState().appSettings || {};
+      const isInside = (root: string) =>
+        folderPath === root ||
+        (folderPath.startsWith(root) && (/[\\/]$/.test(root) || ['/', '\\'].includes(folderPath[root.length])));
+      const isKnown = [...rootPaths, ...(pinnedFolders || [])].some(isInside);
+
+      if (!isKnown) await addRootFolder(folderPath);
+      await handleSelectSubfolder(folderPath, false, undefined, true, true);
+    },
+    [addRootFolder, handleSelectSubfolder],
+  );
+
+  const handleOpenFolder = useCallback(async () => {
+    const { osPlatform } = useSettingsStore.getState();
     const isAndroid = osPlatform === 'android';
 
     try {
@@ -567,36 +612,14 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
       }
 
       if (selectedPath) {
-        if (!rootPaths.includes(selectedPath)) {
-          const newRootPaths = [...rootPaths, selectedPath];
-          setLibrary({ rootPaths: newRootPaths });
-
-          if (appSettings) {
-            handleSettingsChange({ ...appSettings, rootFolders: newRootPaths } as any);
-          }
-
-          setLibrary({ isTreeLoading: true });
-          try {
-            const newTree = await invoke(Invokes.GetFolderTree, {
-              path: selectedPath,
-              expandedFolders: [selectedPath],
-              showImageCounts:
-                appSettings?.enableFolderImageCounts || appSettings?.folderTreeSort?.key === 'imageCount',
-            });
-            setLibrary({ folderTrees: [...folderTrees, newTree] });
-          } catch (e) {
-            toast.error(`Failed to load folder tree: ${e}`);
-          } finally {
-            setLibrary({ isTreeLoading: false });
-          }
-        }
+        await addRootFolder(selectedPath);
         await handleSelectSubfolder(selectedPath, true);
       }
     } catch (err) {
       console.error(isAndroid ? 'Failed to open Android library root:' : 'Failed to open directory dialog:', err);
       toast.error(isAndroid ? 'Failed to open library.' : 'Failed to open folder selection dialog.');
     }
-  }, [handleSelectSubfolder]);
+  }, [addRootFolder, handleSelectSubfolder]);
 
   const handleContinueSession = () => {
     const restore = async () => {
@@ -710,6 +733,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
     handleSelectSubfolder,
     handleSelectAlbum,
     handleOpenFolder,
+    handleOpenContainingFolder,
     handleNavBack,
     handleNavForward,
     handleContinueSession,
