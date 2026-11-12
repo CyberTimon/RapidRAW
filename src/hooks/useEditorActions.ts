@@ -299,8 +299,7 @@ export function useEditorActions() {
 
   const handleResetAdjustments = useCallback(
     (paths?: string[]) => {
-      const { multiSelectedPaths, libraryActivePath, setLibrary } = useLibraryStore.getState();
-      const { selectedImage, resetHistory } = useEditorStore.getState();
+      const { multiSelectedPaths } = useLibraryStore.getState();
       const pathsToReset = paths || multiSelectedPaths;
       if (pathsToReset.length === 0) return;
 
@@ -309,6 +308,8 @@ export function useEditorActions() {
 
       invoke(Invokes.ResetAdjustmentsForPaths, { paths: pathsToReset })
         .then(() => {
+          const { libraryActivePath, setLibrary } = useLibraryStore.getState();
+          const { selectedImage, resetHistory } = useEditorStore.getState();
           if (libraryActivePath && pathsToReset.includes(libraryActivePath))
             setLibrary({ libraryActiveAdjustments: { ...INITIAL_ADJUSTMENTS } });
           if (selectedImage && pathsToReset.includes(selectedImage.path)) {
