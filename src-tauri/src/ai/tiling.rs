@@ -20,8 +20,10 @@ const DENOISE_TILE: TileParams = TileParams {
     overlap: 64,
 };
 
+pub const UPSCALE_TILE_SIZE: usize = 544;
+
 const UPSCALE_TILE: TileParams = TileParams {
-    cs: 544,
+    cs: UPSCALE_TILE_SIZE,
     margin: 16,
     overlap: 16,
 };
