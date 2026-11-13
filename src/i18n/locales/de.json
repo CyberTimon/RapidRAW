@@ -722,11 +722,13 @@
       "cancel": "Abbrechen",
       "drawingActive": "Zeichnen aktiv",
       "hint": "Zeichnen Sie entlang der Kanten in Ihrem Foto, die vertikal oder horizontal sein sollten.",
+      "horizontalLine": "Horizontale Hilfslinie {{index}}",
       "linesStatus": "Aktive Hilfslinien",
       "toast": {
         "angleRejected": "Linienwinkel ist zu weit von horizontal oder vertikal entfernt",
         "maxLines": "Maximal 2 vertikale und 2 horizontale Linien erlaubt"
-      }
+      },
+      "verticalLine": "Vertikale Hilfslinie {{index}}"
     },
     "layout": {
       "split": "Teilen"

@@ -7,7 +7,7 @@ import Dropdown, { OptionItem } from '../../ui/Dropdown';
 import Input from '../../ui/Input';
 import Text from '../../ui/Text';
 import { TextVariants } from '../../../types/typography';
-import { AppSettings, EditInApp, EditInMode } from '../../ui/AppProperties';
+import { AppSettings, EditInApp, EditInMode } from '../../../types/settings';
 import { useOsPlatform } from '../../../hooks/useOsPlatform';
 
 interface EditInAppsSettingsProps {

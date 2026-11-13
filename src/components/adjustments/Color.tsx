@@ -11,9 +11,14 @@ import {
   INITIAL_ADJUSTMENTS,
   MonochromeFilm,
   MonochromeToning,
+  Adjustments,
+  ColorGrading,
+  getAdjustmentToolOrder,
+  getHiddenAdjustmentTools,
+  areSectionPropsEqual,
+  withToolCollapsed,
 } from '../../utils/adjustments';
-import { Adjustments, ColorGrading, getAdjustmentToolOrder, getHiddenAdjustmentTools } from '../../utils/adjustments';
-import { AppSettings } from '../ui/AppProperties';
+import { AppSettings } from '../../types/settings';
 import Text from '../ui/Text';
 import AdjustmentSubSection from './AdjustmentSubSection';
 import { useSettingsStore } from '../../store/useSettingsStore';
@@ -35,7 +40,6 @@ import {
 import { TextColors, TextWeights } from '../../types/typography';
 import { useUIStore } from '../../store/useUIStore';
 import { HSL_MIXER_BANDS, HslMixerBand, HslMixerProperty } from '../../utils/hslMixer';
-import { areSectionPropsEqual, withToolCollapsed } from '../../utils/adjustments';
 
 interface ColorProps {
   color: string;

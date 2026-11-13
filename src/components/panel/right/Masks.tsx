@@ -23,102 +23,8 @@ import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import Text from '../../ui/Text';
 import { TextWeights } from '../../../types/typography';
-import i18n from 'i18next';
-
-export enum Mask {
-  AiDepth = 'ai-depth',
-  AiForeground = 'ai-foreground',
-  AiSky = 'ai-sky',
-  AiSubject = 'ai-subject',
-  AiText = 'ai-text',
-  AiFace = 'ai-face',
-  All = 'all',
-  Brush = 'brush',
-  Flow = 'flow',
-  MatchBrush = 'match-brush',
-  Color = 'color',
-  Linear = 'linear',
-  Luminance = 'luminance',
-  QuickEraser = 'quick-eraser',
-  Radial = 'radial',
-  Clone = 'clone',
-  Heal = 'heal',
-  Liquify = 'liquify',
-  Retouch = 'retouch',
-}
-
-export enum SubMaskMode {
-  Additive = 'additive',
-  Subtractive = 'subtractive',
-  Intersect = 'intersect',
-}
-
-export enum ToolType {
-  AiSeletor = 'ai-selector',
-  Brush = 'brush',
-  Eraser = 'eraser',
-  GenerativeReplace = 'generative-replace',
-  SelectSubject = 'select-subject',
-}
-
-export interface MaskType {
-  disabled: boolean;
-  icon: any;
-  id?: string;
-  name: string;
-  type: Mask;
-}
-
-export interface SubMask {
-  id: string;
-  invert: boolean;
-  mode: SubMaskMode;
-  name?: string;
-  opacity: number;
-  parameters?: any;
-  type: Mask;
-  visible: boolean;
-}
-
-export function formatMaskTypeName(type: string) {
-  if (type === Mask.AiDepth) return i18n.t('masks.types.depth');
-  if (type === Mask.AiSubject) return i18n.t('masks.types.subject');
-  if (type === Mask.AiForeground) return i18n.t('masks.types.foreground');
-  if (type === Mask.AiSky) return i18n.t('masks.types.sky');
-  if (type === Mask.AiText) return i18n.t('masks.types.text');
-  if (type === Mask.AiFace) return i18n.t('masks.types.face');
-  if (type === Mask.All) return i18n.t('masks.types.all');
-  if (type === Mask.QuickEraser) return i18n.t('masks.types.quickEraser');
-  if (type === Mask.Brush) return i18n.t('masks.types.brush');
-  if (type === Mask.Flow) return i18n.t('masks.types.flow');
-  if (type === Mask.MatchBrush) return i18n.t('masks.types.matchBrush');
-  if (type === Mask.Color) return i18n.t('masks.types.color');
-  if (type === Mask.Linear) return i18n.t('masks.types.linear');
-  if (type === Mask.Luminance) return i18n.t('masks.types.luminance');
-  if (type === Mask.Radial) return i18n.t('masks.types.radial');
-  if (type === Mask.Clone) return i18n.t('masks.types.clone');
-  if (type === Mask.Heal) return i18n.t('masks.types.heal');
-  if (type === Mask.Liquify) return i18n.t('masks.types.liquify');
-  if (type === Mask.Retouch) return i18n.t('masks.types.retouch');
-  return type.charAt(0).toUpperCase() + type.slice(1);
-}
-
-export function getMaskTypeName(mask: MaskType) {
-  if (mask.id === 'others') return i18n.t('masks.types.others');
-  if (mask.type === Mask.QuickEraser && mask.name === 'Quick Erase') {
-    return i18n.t('masks.types.quickErase');
-  }
-  return formatMaskTypeName(mask.type);
-}
-
-export function getSubMaskName(subMask: Pick<SubMask, 'name' | 'type' | 'parameters'>) {
-  const prompt = subMask.type === Mask.AiText ? subMask.parameters?.prompt?.trim() : '';
-  return (
-    subMask.name?.trim() ||
-    (prompt && prompt.charAt(0).toUpperCase() + prompt.slice(1)) ||
-    formatMaskTypeName(subMask.type)
-  );
-}
+import type { ParseKeys } from 'i18next';
+import { Mask, MaskType } from '../../../types/masks';
 
 export const MASK_ICON_MAP: Record<Mask, any> = {
   [Mask.AiDepth]: BringToFront,
@@ -294,7 +200,7 @@ export const AI_SUB_MASK_COMPONENT_TYPES: Array<MaskType> = [
   ...AI_GENERATIVE_CREATION_TYPES,
 ];
 
-export function NewMaskDropZone({ isOver, textKey }: { isOver: boolean; textKey: string }) {
+export function NewMaskDropZone({ isOver, textKey }: { isOver: boolean; textKey: ParseKeys }) {
   const { t } = useTranslation();
   return (
     <motion.div

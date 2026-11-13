@@ -1,9 +1,10 @@
 import { Crop } from 'react-image-crop';
 import { v4 as uuidv4 } from 'uuid';
-import { SubMask, SubMaskMode } from '../components/panel/right/Masks';
-import type { AdjustmentLayout, AppSettings } from '../components/ui/AppProperties';
+import { SubMask, SubMaskMode } from '../types/masks';
+import type { AdjustmentLayout, AppSettings } from '../types/settings';
 import type { WhiteBalance } from './whiteBalance';
 import defaultAdjustments from './defaultAdjustments.json';
+import type { ParseKeys } from 'i18next';
 
 export enum ActiveChannel {
   Blue = 'blue',
@@ -891,7 +892,7 @@ export const MONOCHROME_ADJUSTMENT_KEYS = [
 ] as const;
 
 export interface AdjustmentGroup {
-  label: string;
+  label: ParseKeys;
   keys: string[];
 }
 

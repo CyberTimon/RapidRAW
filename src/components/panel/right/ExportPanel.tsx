@@ -24,9 +24,12 @@ import {
   MAX_EXPORT_DPI,
   TiffBitDepth,
   WatermarkAnchor,
-} from '../../ui/ExportImportProperties';
-import { Invokes, SelectedImage, AppSettings, Panel } from '../../ui/AppProperties';
-import ExportPresetsList from '../../ui/ExportPresetsList';
+} from '../../../types/export';
+import { Invokes } from '../../../types/invokes';
+import { SelectedImage } from '../../../types/editor';
+import { AppSettings } from '../../../types/settings';
+import { Panel } from '../../../types/ui';
+import ExportPresetsList from './ExportPresetsList';
 import { useExportSettings } from '../../../hooks/useExportSettings';
 import { useOsPlatform } from '../../../hooks/useOsPlatform';
 import Text from '../../ui/Text';
@@ -34,7 +37,7 @@ import { TextColors, TextVariants, TextWeights } from '../../../types/typography
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useUIStore } from '../../../store/useUIStore';
 import ImmichExportOptions, { useImmichExportAvailable, useImmichExportChoice } from '../../immich/ImmichExportOptions';
-import { prepareImmichExport } from '../../immich/immichApi';
+import { prepareImmichExport } from '../../../utils/immichApi';
 import { formatBytes } from '../../../utils/formatBytes';
 
 interface ExportPanelProps {
@@ -447,7 +450,7 @@ export default function ExportPanel({
           path: watermarkPath,
         });
         setWatermarkImageAspectRatio(dimensions.height > 0 ? dimensions.width / dimensions.height : 1);
-      } catch (error) {
+      } catch {
         setWatermarkImageAspectRatio(1);
       }
     };

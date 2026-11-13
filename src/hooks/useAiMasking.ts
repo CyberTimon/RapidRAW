@@ -6,8 +6,8 @@ import { useProcessStore } from '../store/useProcessStore';
 import { useEditorActions } from './useEditorActions';
 import { useCloudStore } from '../store/useCloudStore';
 import { Adjustments, AiPatch, MaskContainer, Coord } from '../utils/adjustments';
-import { SubMask } from '../components/panel/right/Masks';
-import { Invokes } from '../components/ui/AppProperties';
+import { SubMask } from '../types/masks';
+import { Invokes } from '../types/invokes';
 
 const getTransformAdjustments = (adj: Adjustments) => ({
   transformDistortion: adj.transformDistortion,
@@ -353,7 +353,7 @@ export function useAiMasking() {
       const isInpaintMask = !!adjustments.aiPatches?.some((p: AiPatch) =>
         p.subMasks.some((sm: SubMask) => sm.id === subMaskId),
       );
-      const newParameters = await invoke(Invokes.GenerateAiSubjectMask, {
+      const newParameters = await invoke<Record<string, unknown>>(Invokes.GenerateAiSubjectMask, {
         jsAdjustments: transformAdjustments,
         endPoint: [endPoint.x, endPoint.y],
         flipHorizontal: adjustments.flipHorizontal,
@@ -389,7 +389,7 @@ export function useAiMasking() {
 
     try {
       const transformAdjustments = getTransformAdjustments(adjustments);
-      const newParameters = await invoke('generate_ai_depth_mask', {
+      const newParameters = await invoke<Record<string, unknown>>('generate_ai_depth_mask', {
         jsAdjustments: transformAdjustments,
         path: selectedImage.path,
         minDepth: parameters.minDepth ?? 20,

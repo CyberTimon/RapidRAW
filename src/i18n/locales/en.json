@@ -722,11 +722,13 @@
       "cancel": "Cancel",
       "drawingActive": "Drawing Active",
       "hint": "Draw along edges in your photo that should be vertical or horizontal.",
+      "horizontalLine": "Horizontal Guide #{{index}}",
       "linesStatus": "Active Guide Lines",
       "toast": {
         "angleRejected": "Line angle is too far from horizontal or vertical",
         "maxLines": "Maximum 2 vertical and 2 horizontal lines allowed"
-      }
+      },
+      "verticalLine": "Vertical Guide #{{index}}"
     },
     "layout": {
       "split": "Split"

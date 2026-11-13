@@ -276,11 +276,12 @@ const TONE_HS_UNIT: f32 = 1.2;
 const TONE_WB_UNIT: f32 = 0.4;
 const TONE_MAX: f32 = 1.1;
 const TONE_SLOPE_FLOOR: f32 = 0.25;
-const HIGHLIGHT_PIVOT: f32 = -5.5;
-const HIGHLIGHT_KNEE: f32 = 3.0;
-const HIGHLIGHT_PULL: f32 = 0.55;
-const HIGHLIGHT_PUSH: f32 = 0.45;
-const HIGHLIGHT_MAX: f32 = 10.0;
+const HIGHLIGHT_PIVOT: f32 = -3.75;
+const HIGHLIGHT_KNEE: f32 = 1.5;
+const HIGHLIGHT_PULL: f32 = 0.6;
+const HIGHLIGHT_PUSH: f32 = 0.8;
+const HIGHLIGHT_MAX: f32 = 3.0;
+const HIGHLIGHT_PUSH_MAX: f32 = 1.0;
 const HIGHLIGHT_CEILING: f32 = -0.1;
 const HIGHLIGHT_CLIP_HOLD: f32 = 1.0;
 const HIGHLIGHT_HOLD_RANGE: f32 = 2.0;
@@ -292,25 +293,30 @@ const HIGHLIGHT_WHITE_HI: f32 = 1.0;
 const HIGHLIGHT_NEUTRAL: f32 = 0.6;
 const HIGHLIGHT_TINT_LO: f32 = 0.25;
 const HIGHLIGHT_TINT_HI: f32 = 0.6;
-const SHADOW_PIVOT: f32 = -1.5;
-const SHADOW_KNEE: f32 = 1.5;
-const SHADOW_LIFT: f32 = 0.55;
-const SHADOW_DROP: f32 = 0.5;
-const SHADOW_MAX: f32 = 4.0;
-const SHADOW_BLACK_LO: f32 = -9.0;
-const SHADOW_BLACK_HI: f32 = -5.0;
+const SHADOW_PIVOT: f32 = -2.4;
+const SHADOW_KNEE: f32 = 0.8;
+const SHADOW_LIFT: f32 = 1.4;
+const SHADOW_DROP: f32 = 2.0;
+const SHADOW_MAX: f32 = 2.0;
+const SHADOW_DROP_MAX: f32 = 2.0;
+const SHADOW_BLACK_LO: f32 = -7.5;
+const SHADOW_BLACK_HI: f32 = -4.5;
 const SHADOW_POP: f32 = 0.7;
 const SHADOW_POP_SIGMA: f32 = 1.0;
 const WHITE_PIVOT: f32 = -2.3;
 const WHITE_KNEE: f32 = 0.3;
 const WHITE_PULL: f32 = 1.0;
-const WHITE_PUSH: f32 = 1.4;
+const WHITE_PUSH: f32 = 0.82;
 const WHITE_MAX: f32 = 4.0;
-const BLACK_PIVOT: f32 = -4.0;
-const BLACK_KNEE: f32 = 1.0;
-const BLACK_LIFT: f32 = 1.4;
-const BLACK_DROP: f32 = 1.15;
-const BLACK_MAX: f32 = 1.75;
+const WHITE_PUSH_MAX: f32 = 3.0;
+const BLACK_PIVOT: f32 = -3.0;
+const BLACK_DROP_PIVOT: f32 = -3.75;
+const BLACK_EASE: f32 = 0.8;
+const BLACK_KNEE: f32 = 1.5;
+const BLACK_LIFT: f32 = 1.0;
+const BLACK_DROP: f32 = 6.0;
+const BLACK_MAX: f32 = 3.0;
+const BLACK_DROP_MAX: f32 = 2.0;
 const BLACK_POP: f32 = 0.7;
 const BLACK_FINE_POP: f32 = 0.35;
 const BLACK_FINE_CORE: f32 = 0.1;
@@ -596,11 +602,10 @@ fn tone_ramp_slope(x: f32, knee: f32) -> f32 {
     return u * (u + 2.0 * knee) / ((u + knee) * (u + knee));
 }
 
-fn tone_lift(amount: f32, depth: f32, lift: f32, drop: f32, limit: f32) -> f32 {
-    if (amount < 0.0) {
-        return amount * drop * depth;
-    }
-    return amount * limit * (1.0 - exp(-lift * depth / limit));
+fn tone_lift(amount: f32, depth: f32, lift: f32, drop: f32, limit: f32, drop_limit: f32) -> f32 {
+    let rate = select(lift, drop, amount < 0.0);
+    let cap = select(limit, drop_limit, amount < 0.0);
+    return amount * cap * (1.0 - exp(-rate * depth / cap));
 }
 
 fn shape_detail(d: f32, sigma: f32) -> f32 {
@@ -636,11 +641,11 @@ fn apply_tonal_adjustments(
 
     var level = region;
     let depth = tone_ramp(level - HIGHLIGHT_PIVOT, HIGHLIGHT_KNEE);
-    var shift = tone_lift(-hl, depth, HIGHLIGHT_PULL, HIGHLIGHT_PUSH, HIGHLIGHT_MAX);
+    var shift = tone_lift(-hl, depth, HIGHLIGHT_PULL, HIGHLIGHT_PUSH, HIGHLIGHT_MAX, HIGHLIGHT_PUSH_MAX);
     let slope = 1.0 - max(-hl, 0.0) * HIGHLIGHT_PULL * exp(-HIGHLIGHT_PULL * depth / HIGHLIGHT_MAX)
               * tone_ramp_slope(level - HIGHLIGHT_PIVOT, HIGHLIGHT_KNEE);
     if (shift > 0.0) {
-        let at_white = tone_lift(-hl, tone_ramp(white_level - HIGHLIGHT_PIVOT, HIGHLIGHT_KNEE), HIGHLIGHT_PULL, HIGHLIGHT_PUSH, HIGHLIGHT_MAX);
+        let at_white = tone_lift(-hl, tone_ramp(white_level - HIGHLIGHT_PIVOT, HIGHLIGHT_KNEE), HIGHLIGHT_PULL, HIGHLIGHT_PUSH, HIGHLIGHT_MAX, HIGHLIGHT_PUSH_MAX);
         let ceiling = select(HIGHLIGHT_CEILING, AGX_WHITE_LEVEL + HIGHLIGHT_CEILING, has_feature(F_AGX) && adjustments.global.tonemapper_mode == 1u);
         let pinned = clamp((white_level - ceiling) / max(at_white, TONE_FLOOR), 0.0, 1.0);
         let dull = clamp(ceiling - white_level, 0.0, 1.0);
@@ -651,7 +656,7 @@ fn apply_tonal_adjustments(
     let pull = min(level - region, 0.0);
     let lit = level;
     let shade = log_luma - kept_tone + level - region;
-    level += smoothstep(SHADOW_BLACK_LO, SHADOW_BLACK_HI, log_luma) * tone_lift(sh, tone_ramp(SHADOW_PIVOT - shade, SHADOW_KNEE), SHADOW_LIFT, SHADOW_DROP, SHADOW_MAX);
+    level += select(1.0, smoothstep(SHADOW_BLACK_LO, SHADOW_BLACK_HI, log_luma), sh > 0.0) * tone_lift(sh, tone_ramp(SHADOW_PIVOT - shade, SHADOW_KNEE), SHADOW_LIFT, SHADOW_DROP, SHADOW_MAX, SHADOW_DROP_MAX);
     let lift = level - lit;
 
     let pop = max(lift, 0.0) * SHADOW_POP * shape_detail(kept_broad, SHADOW_POP_SIGMA);
@@ -699,12 +704,13 @@ fn apply_tone_ends(
     let kept = TONE_DETAIL_KEEP * shape_detail(fine_detail + tone_detail, TONE_DETAIL_SIGMA);
     let kept_broad = kept - TONE_DETAIL_KEEP * shape_detail(fine_detail, TONE_DETAIL_SIGMA);
     var ends = own;
-    let white_pivot = WHITE_PIVOT - max(tone_lift(-hl, tone_ramp(WHITE_PIVOT - HIGHLIGHT_PIVOT, HIGHLIGHT_KNEE), HIGHLIGHT_PULL, HIGHLIGHT_PUSH, HIGHLIGHT_MAX), 0.0);
+    let white_pivot = WHITE_PIVOT - max(tone_lift(-hl, tone_ramp(WHITE_PIVOT - HIGHLIGHT_PIVOT, HIGHLIGHT_KNEE), HIGHLIGHT_PULL, HIGHLIGHT_PUSH, HIGHLIGHT_MAX, HIGHLIGHT_PUSH_MAX), 0.0);
     let white_pull = min(WHITE_PULL, max(1.0 - TONE_SLOPE_FLOOR / max(slope, TONE_SLOPE_FLOOR), 0.0) / max(-wh, TONE_FLOOR));
-    let white_shift = tone_lift(-wh, tone_ramp(ends - kept - white_pivot, WHITE_KNEE), white_pull, WHITE_PUSH, WHITE_MAX);
+    let white_shift = tone_lift(-wh, tone_ramp(ends - kept - white_pivot, WHITE_KNEE), white_pull, WHITE_PUSH, WHITE_MAX, WHITE_PUSH_MAX);
     ends -= white_shift;
     let pulled = min(ends - own, 0.0);
-    let black_shift = tone_lift(bl, tone_ramp(BLACK_PIVOT - (ends - kept), BLACK_KNEE), BLACK_LIFT, BLACK_DROP, BLACK_MAX);
+    let black_amount = select(bl, bl * (1.0 + BLACK_EASE * (1.0 - bl)), bl > 0.0);
+    let black_shift = tone_lift(black_amount, tone_ramp(select(BLACK_PIVOT, BLACK_DROP_PIVOT, bl < 0.0) - (ends - kept), BLACK_KNEE), BLACK_LIFT, BLACK_DROP, BLACK_MAX, BLACK_DROP_MAX);
     let black_lift = max(black_shift, 0.0);
     let fine_kept = TONE_DETAIL_KEEP * shape_detail(fine_detail, TONE_DETAIL_SIGMA);
     ends += black_shift + black_lift * (BLACK_POP * shape_detail(kept_broad, SHADOW_POP_SIGMA)

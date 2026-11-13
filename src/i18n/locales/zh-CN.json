@@ -719,11 +719,13 @@
       "cancel": "取消",
       "drawingActive": "绘图中",
       "hint": "沿着照片中应该是垂直或水平的边缘绘制。",
+      "horizontalLine": "水平引导线 {{index}}",
       "linesStatus": "活跃引导线",
       "toast": {
         "angleRejected": "线条角度偏离水平或垂直太远",
         "maxLines": "最多允许 2 条垂直线和 2 条水平线"
-      }
+      },
+      "verticalLine": "垂直引导线 {{index}}"
     },
     "layout": {
       "split": "拆分"
