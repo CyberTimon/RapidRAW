@@ -374,7 +374,7 @@ pub fn develop_raw_image(
     {
         check_cancel()?;
         let finish = finish(Some(camera_to_srgb.camera(wb, clamp_limit)));
-        let context = crate::render::gpu::context::shared_gpu_context().map_err(|e| anyhow!(e))?;
+        let context = crate::render::gpu::context::decode_gpu_context().map_err(|e| anyhow!(e))?;
         let crop = |dim| {
             default_crop(
                 raw_image.crop_area,
@@ -476,7 +476,7 @@ pub fn develop_raw_image(
             check_cancel()?;
 
             let context =
-                crate::render::gpu::context::shared_gpu_context().map_err(|e| anyhow!(e))?;
+                crate::render::gpu::context::decode_gpu_context().map_err(|e| anyhow!(e))?;
             let image = develop::finish_rgb(
                 &context,
                 &data,

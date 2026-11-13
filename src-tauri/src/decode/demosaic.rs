@@ -12,7 +12,7 @@ use rayon::prelude::*;
 use wgpu::util::DeviceExt;
 
 use crate::decode::develop::{Finish, release, scoped, storage, upload, whole};
-use crate::render::gpu::context::GpuContext;
+use crate::render::gpu::context::DecodeGpu;
 
 const SHADER: &str = include_str!("../shaders/demosaic.wgsl");
 const WORKGROUP: u32 = 8;
@@ -382,12 +382,7 @@ impl<'a> Mosaic<'a> {
         (out, Dim2::new(width, height))
     }
 
-    pub fn develop(
-        &self,
-        context: &GpuContext,
-        crop: Rect,
-        finish: &Finish,
-    ) -> Result<Rgb32FImage> {
+    pub fn develop(&self, context: &DecodeGpu, crop: Rect, finish: &Finish) -> Result<Rgb32FImage> {
         let started = Instant::now();
         let result = scoped(&context.device, || {
             with_kernels(&context.device, |kernels| {
@@ -448,7 +443,7 @@ impl<'a> Mosaic<'a> {
     fn run(
         &self,
         kernels: &Kernels,
-        context: &GpuContext,
+        context: &DecodeGpu,
         crop: Rect,
         finish: &Finish,
     ) -> Result<Rgb32FImage> {
