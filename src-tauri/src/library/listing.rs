@@ -17,13 +17,13 @@ use sysinfo::Disks;
 use tauri::{AppHandle, Emitter, Manager};
 use walkdir::WalkDir;
 
-struct ImageFileMetadata {
-    is_edited: bool,
-    tags: Option<Vec<String>>,
-    rating: u8,
-    flag: Option<ImageFlag>,
-    is_raw: bool,
-    needs_ai: bool,
+pub(crate) struct ImageFileMetadata {
+    pub(crate) is_edited: bool,
+    pub(crate) tags: Option<Vec<String>>,
+    pub(crate) rating: u8,
+    pub(crate) flag: Option<ImageFlag>,
+    pub(crate) is_raw: bool,
+    pub(crate) needs_ai: bool,
 }
 
 pub fn rating_and_edited(path_str: &str, settings: &AppSettings) -> (u8, bool) {
@@ -59,7 +59,13 @@ fn resolve_image_metadata(
 
     let is_raw = crate::decode::formats::is_raw_file(image_path);
     let tm_override = resolve_tonemapper_override(settings, is_raw);
-    let is_edited = is_image_edited(&metadata.adjustments, is_raw, tm_override);
+    let is_adj_edited = is_image_edited(&metadata.adjustments, is_raw, tm_override);
+    let is_gps_edited = metadata
+        .exif
+        .as_ref()
+        .and_then(|e| e.get("IsGpsModified"))
+        .is_some_and(|v| v == "true");
+    let is_edited = is_adj_edited || is_gps_edited;
     let needs_ai = crate::ai::jobs::needs_generation(&metadata.adjustments, image_path);
     ImageFileMetadata {
         is_edited,
@@ -71,7 +77,11 @@ fn resolve_image_metadata(
     }
 }
 
-fn emit_image_metadata_loaded(app_handle: &AppHandle, path: &str, metadata: &ImageFileMetadata) {
+pub(crate) fn emit_image_metadata_loaded(
+    app_handle: &AppHandle,
+    path: &str,
+    metadata: &ImageFileMetadata,
+) {
     let _ = app_handle.emit(
         "image-metadata-loaded",
         serde_json::json!({

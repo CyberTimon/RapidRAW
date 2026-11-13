@@ -29,6 +29,7 @@ import { Invokes } from '../types/invokes';
 import { Option, Panel } from '../types/ui';
 import { SelectedImage } from '../types/editor';
 import { globalImageCache } from '../utils/ImageLRUCache';
+import { toDmsString } from '../utils/gpsUtils';
 import { getDevicePixelRatio } from '../utils/displayScale';
 
 export { debouncedSetHistory };
@@ -309,8 +310,8 @@ export function useEditorActions() {
       pathsToReset.forEach((p) => globalImageCache.delete(p));
       debouncedSetHistory.cancel();
 
-      invoke(Invokes.ResetAdjustmentsForPaths, { paths: pathsToReset })
-        .then(() => {
+      invoke<Record<string, [number, number] | null>>(Invokes.ResetAdjustmentsForPaths, { paths: pathsToReset })
+        .then((revertedGpsMap) => {
           const { libraryActivePath, setLibrary } = useLibraryStore.getState();
           const { selectedImage, resetHistory } = useEditorStore.getState();
           if (libraryActivePath && pathsToReset.includes(libraryActivePath))
@@ -319,6 +320,105 @@ export function useEditorActions() {
             const resetData = { ...INITIAL_ADJUSTMENTS, aiPatches: [] };
             resetHistory(resetData);
             setEditor({ adjustments: resetData });
+          }
+
+          if (revertedGpsMap && typeof revertedGpsMap === 'object') {
+            const normalizePath = (p: string) => p.replace(/\\/g, '/').split('?vc=')[0];
+            const targetsSet = new Set(pathsToReset.map(normalizePath));
+
+            setLibrary((state) => {
+              const nextExifByPath = { ...state.exifByPath };
+              const nextImageList = state.imageList.map((img) => {
+                const norm = normalizePath(img.path);
+                if (!targetsSet.has(norm)) return img;
+
+                const coords =
+                  revertedGpsMap[img.path] !== undefined ? revertedGpsMap[img.path] : revertedGpsMap[norm];
+                const currentExif = { ...(state.exifByPath[img.path] || img.exif || {}) };
+                delete currentExif.IsGpsModified;
+
+                if (coords) {
+                  const [lat, lon] = coords;
+                  const updatedExif: Record<string, string> = {
+                    ...currentExif,
+                    GPSLatitude: toDmsString(lat),
+                    GPSLatitudeRef: lat >= 0 ? 'N' : 'S',
+                    GPSLongitude: toDmsString(lon),
+                    GPSLongitudeRef: lon >= 0 ? 'E' : 'W',
+                    HasNativeGPS: 'true',
+                  };
+                  nextExifByPath[img.path] = updatedExif;
+                  return {
+                    ...img,
+                    is_edited: false,
+                    exif: updatedExif,
+                  };
+                } else {
+                  delete currentExif.GPSLatitude;
+                  delete currentExif.GPSLatitudeRef;
+                  delete currentExif.GPSLongitude;
+                  delete currentExif.GPSLongitudeRef;
+                  delete currentExif.OriginalGPSLatitude;
+                  delete currentExif.OriginalGPSLatitudeRef;
+                  delete currentExif.OriginalGPSLongitude;
+                  delete currentExif.OriginalGPSLongitudeRef;
+                  currentExif.HasNativeGPS = 'false';
+                  nextExifByPath[img.path] = currentExif;
+                  return {
+                    ...img,
+                    is_edited: false,
+                    exif: currentExif,
+                  };
+                }
+              });
+              return { imageList: nextImageList, exifByPath: nextExifByPath };
+            });
+
+            useEditorStore.getState().setEditor((state) => {
+              if (!state.selectedImage) return state;
+              const norm = normalizePath(state.selectedImage.path);
+              if (!targetsSet.has(norm)) return state;
+
+              const coords =
+                revertedGpsMap[state.selectedImage.path] !== undefined
+                  ? revertedGpsMap[state.selectedImage.path]
+                  : revertedGpsMap[norm];
+              const currentExif = state.selectedImage.exif ? { ...state.selectedImage.exif } : {};
+              delete currentExif.IsGpsModified;
+
+              if (coords) {
+                const [lat, lon] = coords;
+                return {
+                  selectedImage: {
+                    ...state.selectedImage,
+                    exif: {
+                      ...currentExif,
+                      GPSLatitude: toDmsString(lat),
+                      GPSLatitudeRef: lat >= 0 ? 'N' : 'S',
+                      GPSLongitude: toDmsString(lon),
+                      GPSLongitudeRef: lon >= 0 ? 'E' : 'W',
+                      HasNativeGPS: 'true',
+                    },
+                  },
+                };
+              } else {
+                delete currentExif.GPSLatitude;
+                delete currentExif.GPSLatitudeRef;
+                delete currentExif.GPSLongitude;
+                delete currentExif.GPSLongitudeRef;
+                delete currentExif.OriginalGPSLatitude;
+                delete currentExif.OriginalGPSLatitudeRef;
+                delete currentExif.OriginalGPSLongitude;
+                delete currentExif.OriginalGPSLongitudeRef;
+                currentExif.HasNativeGPS = 'false';
+                return {
+                  selectedImage: {
+                    ...state.selectedImage,
+                    exif: currentExif,
+                  },
+                };
+              }
+            });
           }
         })
         .catch((err) => toast.error(`Failed to reset adjustments: ${err}`));

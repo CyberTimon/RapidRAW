@@ -553,16 +553,87 @@ pub fn collect_metadata_from_source(
     }
 
     if !strip_gps {
-        if is_raw_file(original_path_str) {
-            if let Some(gps) = raw_metadata.and_then(|meta| meta.exif.gps) {
-                apply_gps_from_rawler(&mut metadata, gps);
+        let sidecar_map = read_rrexif_sidecar(original_path);
+        let mut gps_applied = false;
+        if let Some(ref map) = sidecar_map {
+            if let (Some(lat_str), Some(lon_str)) =
+                (map.get("GPSLatitude"), map.get("GPSLongitude"))
+            {
+                let lat_ref = map.get("GPSLatitudeRef").map(|s| s.as_str()).unwrap_or("N");
+                let lon_ref = map
+                    .get("GPSLongitudeRef")
+                    .map(|s| s.as_str())
+                    .unwrap_or("E");
+                if let (Some((lat_d, lat_m, lat_s)), Some((lon_d, lon_m, lon_s))) = (
+                    crate::metadata::xmp::parse_gps_components(lat_str),
+                    crate::metadata::xmp::parse_gps_components(lon_str),
+                ) {
+                    metadata.set_tag(ExifTag::GPSLatitude(vec![
+                        uR64 {
+                            nominator: lat_d,
+                            denominator: 1,
+                        },
+                        uR64 {
+                            nominator: (lat_m * 1000.0).round() as u32,
+                            denominator: 1000,
+                        },
+                        uR64 {
+                            nominator: (lat_s * 10000.0).round() as u32,
+                            denominator: 10000,
+                        },
+                    ]));
+                    metadata.set_tag(ExifTag::GPSLatitudeRef(lat_ref.to_string()));
+                    metadata.set_tag(ExifTag::GPSLongitude(vec![
+                        uR64 {
+                            nominator: lon_d,
+                            denominator: 1,
+                        },
+                        uR64 {
+                            nominator: (lon_m * 1000.0).round() as u32,
+                            denominator: 1000,
+                        },
+                        uR64 {
+                            nominator: (lon_s * 10000.0).round() as u32,
+                            denominator: 10000,
+                        },
+                    ]));
+                    metadata.set_tag(ExifTag::GPSLongitudeRef(lon_ref.to_string()));
+                    gps_applied = true;
+                }
+            } else if map
+                .get("IsGpsModified")
+                .map(|s| s == "true")
+                .unwrap_or(false)
+            {
+                metadata.remove_tag(ExifTag::GPSLatitude(Vec::new()));
+                metadata.remove_tag(ExifTag::GPSLatitudeRef(String::new()));
+                metadata.remove_tag(ExifTag::GPSLongitude(Vec::new()));
+                metadata.remove_tag(ExifTag::GPSLongitudeRef(String::new()));
+                metadata.remove_tag(ExifTag::GPSAltitude(Vec::new()));
+                metadata.remove_tag(ExifTag::GPSAltitudeRef(Vec::new()));
+                gps_applied = true;
             }
-        } else {
-            apply_gps_from_kamadak(&mut metadata, original_path);
         }
+
+        if !gps_applied {
+            if is_raw_file(original_path_str) {
+                if let Some(gps) = raw_metadata.and_then(|meta| meta.exif.gps) {
+                    apply_gps_from_rawler(&mut metadata, gps);
+                }
+            } else {
+                apply_gps_from_kamadak(&mut metadata, original_path);
+            }
+        }
+    } else {
+        metadata.remove_tag(ExifTag::GPSLatitude(Vec::new()));
+        metadata.remove_tag(ExifTag::GPSLatitudeRef(String::new()));
+        metadata.remove_tag(ExifTag::GPSLongitude(Vec::new()));
+        metadata.remove_tag(ExifTag::GPSLongitudeRef(String::new()));
+        metadata.remove_tag(ExifTag::GPSAltitude(Vec::new()));
+        metadata.remove_tag(ExifTag::GPSAltitudeRef(Vec::new()));
     }
 
-    if full_exif_copied && let Some(map) = read_rrexif_sidecar(original_path) {
+    if let Some(map) = read_rrexif_sidecar(original_path) {
         apply_sidecar_field_overrides(&mut metadata, &map);
     }
 

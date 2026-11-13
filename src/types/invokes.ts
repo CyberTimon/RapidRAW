@@ -84,6 +84,8 @@ export enum Invokes {
   SetColorLabelForPaths = 'set_color_label_for_paths',
   SetRatingForPaths = 'set_rating_for_paths',
   SetFlagForPaths = 'set_flag_for_paths',
+  SetGpsForPaths = 'set_gps_for_paths',
+  RevertGpsForPaths = 'revert_gps_for_paths',
   ShowInFinder = 'show_in_finder',
   StartBackgroundIndexing = 'start_background_indexing',
   StitchPanorama = 'stitch_panorama',

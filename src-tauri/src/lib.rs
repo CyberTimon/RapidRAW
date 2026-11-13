@@ -745,6 +745,8 @@ pub fn run() {
             library::sidecars::set_color_label_for_paths,
             library::sidecars::set_rating_for_paths,
             library::sidecars::set_flag_for_paths,
+            library::sidecars::set_gps_for_paths,
+            library::sidecars::revert_gps_for_paths,
             library::file_ops::import_files,
             library::sidecars::create_virtual_copy,
             library::albums::get_albums,

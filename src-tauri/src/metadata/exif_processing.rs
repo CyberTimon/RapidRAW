@@ -448,10 +448,50 @@ pub fn extract_metadata(file_bytes: &[u8]) -> Option<HashMap<String, String>> {
     }
 
     if !map.is_empty() {
-        if !map.contains_key("LensModel")
-            && let Some(lens) = read_raw_metadata(file_bytes).and_then(|meta| meta.lens)
-        {
-            insert_missing_lens_fields(&mut map, &lens);
+        if let Some(raw_meta) = read_raw_metadata(file_bytes) {
+            if !map.contains_key("LensModel")
+                && let Some(lens) = raw_meta.lens
+            {
+                insert_missing_lens_fields(&mut map, &lens);
+            }
+            if !map.contains_key("GPSLatitude")
+                && let Some(gps) = raw_meta.exif.gps
+            {
+                let fmt_rat = |r: &rawler::formats::tiff::Rational| -> f32 {
+                    if r.d == 0 {
+                        0.0
+                    } else {
+                        r.n as f32 / r.d as f32
+                    }
+                };
+                let fmt_gps_coord = |coords: &[rawler::formats::tiff::Rational; 3]| -> String {
+                    format!(
+                        "{} deg {} min {} sec",
+                        fmt_rat(&coords[0]),
+                        fmt_rat(&coords[1]),
+                        fmt_rat(&coords[2])
+                    )
+                };
+
+                if let Some(lat) = gps.gps_latitude {
+                    map.insert("GPSLatitude".to_string(), fmt_gps_coord(&lat));
+                }
+                if let Some(lat_ref) = gps.gps_latitude_ref {
+                    map.insert("GPSLatitudeRef".to_string(), lat_ref);
+                }
+                if let Some(lon) = gps.gps_longitude {
+                    map.insert("GPSLongitude".to_string(), fmt_gps_coord(&lon));
+                }
+                if let Some(lon_ref) = gps.gps_longitude_ref {
+                    map.insert("GPSLongitudeRef".to_string(), lon_ref);
+                }
+                if let Some(alt) = gps.gps_altitude {
+                    map.insert("GPSAltitude".to_string(), fmt_rat(&alt).to_string());
+                }
+                if let Some(alt_ref) = gps.gps_altitude_ref {
+                    map.insert("GPSAltitudeRef".to_string(), alt_ref.to_string());
+                }
+            }
         }
         return Some(map);
     }
@@ -804,8 +844,33 @@ pub fn read_rrexif_sidecar(image_path: &Path) -> Option<HashMap<String, String>>
 
 pub fn read_exif_data_from_bytes(path: &str, file_bytes: &[u8]) -> HashMap<String, String> {
     if is_raw_file(path)
-        && let Some(map) = extract_metadata(file_bytes)
+        && let Some(mut map) = extract_metadata(file_bytes)
     {
+        if map.contains_key("GPSLatitude") && map.contains_key("GPSLongitude") {
+            map.insert("HasNativeGPS".to_string(), "true".to_string());
+            if !map.contains_key("OriginalGPSLatitude") {
+                map.insert(
+                    "OriginalGPSLatitude".to_string(),
+                    map["GPSLatitude"].clone(),
+                );
+                map.insert(
+                    "OriginalGPSLatitudeRef".to_string(),
+                    map.get("GPSLatitudeRef")
+                        .cloned()
+                        .unwrap_or_else(|| "N".to_string()),
+                );
+                map.insert(
+                    "OriginalGPSLongitude".to_string(),
+                    map["GPSLongitude"].clone(),
+                );
+                map.insert(
+                    "OriginalGPSLongitudeRef".to_string(),
+                    map.get("GPSLongitudeRef")
+                        .cloned()
+                        .unwrap_or_else(|| "E".to_string()),
+                );
+            }
+        }
         return map;
     }
 
@@ -826,6 +891,33 @@ pub fn read_exif_data_from_bytes(path: &str, file_bytes: &[u8]) -> HashMap<Strin
                 _ => field.display_value().with_unit(&exif).to_string(),
             };
             exif_data.insert(field.tag.to_string(), truncate_large_exif(&raw_val));
+        }
+    }
+    if exif_data.contains_key("GPSLatitude") && exif_data.contains_key("GPSLongitude") {
+        exif_data.insert("HasNativeGPS".to_string(), "true".to_string());
+        if !exif_data.contains_key("OriginalGPSLatitude") {
+            exif_data.insert(
+                "OriginalGPSLatitude".to_string(),
+                exif_data["GPSLatitude"].clone(),
+            );
+            exif_data.insert(
+                "OriginalGPSLatitudeRef".to_string(),
+                exif_data
+                    .get("GPSLatitudeRef")
+                    .cloned()
+                    .unwrap_or_else(|| "N".to_string()),
+            );
+            exif_data.insert(
+                "OriginalGPSLongitude".to_string(),
+                exif_data["GPSLongitude"].clone(),
+            );
+            exif_data.insert(
+                "OriginalGPSLongitudeRef".to_string(),
+                exif_data
+                    .get("GPSLongitudeRef")
+                    .cloned()
+                    .unwrap_or_else(|| "E".to_string()),
+            );
         }
     }
     exif_data

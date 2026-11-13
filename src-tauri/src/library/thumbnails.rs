@@ -613,9 +613,15 @@ pub fn generate_single_thumbnail_and_cache(
         if let Ok(meta) = serde_json::from_str::<ImageMetadata>(&content) {
             let is_raw = crate::decode::formats::is_raw_file(path_str);
             let tm = resolve_tonemapper_override(settings, is_raw);
+            let is_adj_edited = is_image_edited(&meta.adjustments, is_raw, tm);
+            let is_gps_edited = meta
+                .exif
+                .as_ref()
+                .and_then(|e| e.get("IsGpsModified"))
+                .is_some_and(|v| v == "true");
             let info = (
                 meta.rating,
-                is_image_edited(&meta.adjustments, is_raw, tm),
+                is_adj_edited || is_gps_edited,
                 serde_json::to_vec(&meta.adjustments).unwrap_or_default(),
             );
             metadata = Some(meta);

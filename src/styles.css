@@ -1,5 +1,8 @@
 @import 'tailwindcss' source('.');
 @source '../index.html';
+@import 'leaflet/dist/leaflet.css';
+@import 'leaflet.markercluster/dist/MarkerCluster.css';
+@import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 
 @theme {
   --color-bg-primary: var(--app-bg-primary);
@@ -443,4 +446,184 @@
   .text-shadow-shiny {
     text-shadow: 0 0 18px rgba(255, 255, 255, 0.3);
   }
+}
+
+/* ========================================================
+   RapidMAP / Leaflet Map Photographic Dark Theme Styling
+   ======================================================== */
+
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  background: var(--color-bg-primary, #090d16) !important;
+  font-family: inherit;
+}
+
+/* Dark mode filter for standard OSM tiles - zero watermark, high contrast */
+.dark-map-tiles .leaflet-tile {
+  filter: invert(100%) hue-rotate(180deg) brightness(85%) contrast(100%);
+}
+
+/* Custom Photo Pin and Thumbnail Markers */
+.custom-photo-pin,
+.photo-thumbnail-pin,
+.photo-thumbnail-pin-loading,
+.photo-cluster-thumbnail-pin,
+.photo-cluster-thumbnail-pin-loading,
+.leaflet-marker-draggable {
+  background: transparent !important;
+  border: none !important;
+  cursor: grab !important;
+}
+
+.custom-photo-pin:active,
+.photo-thumbnail-pin:active,
+.photo-thumbnail-pin-loading:active,
+.photo-cluster-thumbnail-pin:active,
+.photo-cluster-thumbnail-pin-loading:active,
+.leaflet-marker-dragging,
+.leaflet-marker-dragging * {
+  cursor: grabbing !important;
+}
+
+.custom-photo-pin img,
+.photo-thumbnail-pin img,
+.photo-thumbnail-pin-loading img,
+.photo-cluster-thumbnail-pin img,
+.photo-cluster-thumbnail-pin-loading img {
+  pointer-events: none !important;
+  user-select: none !important;
+  -webkit-user-drag: none !important;
+}
+
+.custom-photo-pin svg,
+.photo-thumbnail-pin svg,
+.photo-thumbnail-pin-loading svg,
+.photo-cluster-thumbnail-pin svg,
+.photo-cluster-thumbnail-pin-loading svg {
+  pointer-events: none !important;
+  user-select: none !important;
+}
+
+.photo-drag-avatar {
+  pointer-events: none !important;
+  user-select: none !important;
+  z-index: 999999 !important;
+}
+
+.photo-drag-avatar img {
+  pointer-events: none !important;
+  user-select: none !important;
+  -webkit-user-drag: none !important;
+}
+
+.photo-thumbnail-pin:hover,
+.photo-thumbnail-pin-loading:hover,
+.photo-cluster-thumbnail-pin:hover,
+.photo-cluster-thumbnail-pin-loading:hover {
+  transform: scale(1.06);
+}
+
+.elevated-map-marker {
+  z-index: 100000 !important;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Map canvas default pointer/arrow cursor instead of grab hand */
+.leaflet-container,
+.leaflet-grab,
+.leaflet-container.leaflet-grab {
+  cursor: default !important;
+}
+
+.leaflet-drag-target,
+.leaflet-container.leaflet-dragging,
+.leaflet-container.leaflet-dragging * {
+  cursor: grabbing !important;
+}
+
+/* Custom dark popup styling matched with RapidRAW theme */
+.leaflet-popup-content-wrapper {
+  background: var(--color-surface, #111827) !important;
+  color: var(--color-text-primary, #f3f4f6) !important;
+  border: 1px solid var(--color-border-color, #374151) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.6) !important;
+  padding: 4px !important;
+}
+
+.leaflet-popup-tip {
+  background: var(--color-surface, #111827) !important;
+  border: 1px solid var(--color-border-color, #374151) !important;
+}
+
+.leaflet-popup-content {
+  margin: 8px 12px !important;
+  line-height: 1.4 !important;
+}
+
+.leaflet-popup-close-button {
+  color: var(--color-text-secondary, #9ca3af) !important;
+  padding: 6px 8px !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: var(--color-text-primary, #f3f4f6) !important;
+}
+
+/* Custom Dark Marker Cluster Styling */
+.marker-cluster-small,
+.marker-cluster-medium,
+.marker-cluster-large {
+  background-color: rgba(14, 165, 233, 0.25) !important;
+  border: 1px solid rgba(56, 189, 248, 0.5) !important;
+  box-shadow: 0 0 15px rgba(14, 165, 233, 0.4) !important;
+  border-radius: 9999px;
+  transition: transform 0.15s ease-in-out;
+}
+
+.marker-cluster-small div,
+.marker-cluster-medium div,
+.marker-cluster-large div {
+  background-color: var(--color-accent, #0284c7) !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  font-size: 12px !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  border-radius: 9999px;
+}
+
+.marker-cluster:hover {
+  transform: scale(1.08);
+}
+
+/* Leaflet Zoom and attribution controls dark theme */
+.leaflet-bar a {
+  background-color: var(--color-surface, #111827) !important;
+  color: var(--color-text-primary, #e5e7eb) !important;
+  border-bottom: 1px solid var(--color-border-color, #374151) !important;
+}
+
+.leaflet-bar a:hover {
+  background-color: var(--color-hover-color, #1f2937) !important;
+  color: var(--color-accent, #38bdf8) !important;
+}
+
+.leaflet-control-attribution {
+  background: rgba(11, 15, 25, 0.75) !important;
+  color: var(--color-text-secondary, #6b7280) !important;
+  font-size: 10px !important;
+  backdrop-filter: blur(4px);
+}
+
+.leaflet-control-attribution a {
+  color: var(--color-text-secondary, #9ca3af) !important;
 }
