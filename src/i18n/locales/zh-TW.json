@@ -326,11 +326,13 @@
       "redo": "重做",
       "removeBlackWhite": "移除黑白",
       "removeDenoise": "移除降噪",
-      "superResolution": "RapidRes (2x)",
-      "removeSuperResolution": "移除 RapidRes",
       "removeNegativeConversion": "移除負片轉換",
+      "removeSuperResolution": "移除 RapidRes",
       "resetAdjustments": "重置調整",
+      "resetToDefaults": "重置為預設值",
+      "resetToNeutral": "重置為中性值",
       "stitchPanorama": "拼接全景圖",
+      "superResolution": "RapidRes (2x)",
       "tagging": "標籤",
       "undo": "復原",
       "unflagged": "無標記"
@@ -884,6 +886,8 @@
     },
     "presets": {
       "amount": "數量",
+      "defaultForAllCameras": "所有相機的預設值",
+      "defaultForCamera": "{{camera}} 的預設值",
       "dialog": {
         "allPresetFiles": "所有預設檔案",
         "exportAllTitle": "匯出所有預設",
@@ -904,7 +908,11 @@
         "newPreset": "新建預設",
         "overwrite": "覆蓋",
         "renameFolder": "重新命名資料夾",
-        "sortAll": "全部按字母排序"
+        "setDefaultAllCameras": "設為所有相機的預設值",
+        "setDefaultForCamera": "設為 {{camera}} 的預設值",
+        "sortAll": "全部按字母排序",
+        "unsetDefaultAllCameras": "不再作為所有相機的預設值",
+        "unsetDefaultForCamera": "不再作為 {{camera}} 的預設值"
       },
       "status": {
         "empty": "尚未儲存預設。建立您自己的預設、從檔案匯入或探索社群預設。",
@@ -2123,6 +2131,31 @@
         "gl": "OpenGL",
         "metal": "Metal",
         "vulkan": "Vulkan"
+      },
+      "defaultAdjustments": {
+        "addCamera": "新增相機…",
+        "applyToNonRaw": "同時套用於 JPEG、TIFF、PNG 等非 RAW 檔案",
+        "applyToNonRawDesc": "關閉時僅 RAW 檔案使用這些預設值。相機直出的 JPEG 通常已處理並校正，再次套用可能會過度。",
+        "autoLensCorrection": "自動鏡頭校正",
+        "autoLensCorrectionDesc": "依據從每張影像中繼資料辨識出的鏡頭描述檔，校正變形、色差與暗角。",
+        "cameraDefaults": "依相機設定預設值",
+        "cameraDefaultsDesc": "為特定相機的影像設定專屬的預設集。未列出的相機使用上方的預設預設集，鏡頭校正適用於所有相機。",
+        "cameraPresetMissing": "所選預設集已被刪除，因此此相機的影像重新使用所有相機的預設集。",
+        "description": "設定未編輯影像的初始值以及「重置調整」恢復到的值；已編輯的影像會保留各自的設定。設定預設值後，RAW 縮圖會重新算繪而不使用相機內嵌預覽，因此首次載入較慢。",
+        "lensCorrection": "鏡頭校正",
+        "noCamerasFound": "找不到其他相機。請開啟包含該相機影像的資料夾，或在編輯其影像時於預設集上按右鍵。",
+        "noPreset": "無（中性）",
+        "preset": "預設預設集",
+        "presetDesc": "套用於所有未編輯的影像。遮罩、裁切與變形只適合建立它們的影像，因此會被略過。",
+        "presetMissing": "所選預設集已被刪除，因此未編輯的影像重新使用中性值。",
+        "removeCamera": "移除相機",
+        "sameAsAllCameras": "與所有相機相同",
+        "scope": "套用於",
+        "sliderReset": "滑桿重置",
+        "sliderResetDefaults": "預設調整",
+        "sliderResetDesc": "透過雙擊或快速編輯等方式重置滑桿時恢復到的值。遮罩滑桿一律重置為中性值。",
+        "sliderResetNeutral": "中性值",
+        "title": "預設調整"
       },
       "dynamicDesc": "編輯器根據顯示器實際畫素密度渲染預覽。這確保每個細節都以 1:1 畫素精度呈現，在縮放和檢查焦點時提供最大清晰度。",
       "editIn": {

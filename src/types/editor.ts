@@ -2,6 +2,14 @@ import type { ActiveChannel, Adjustments } from '../utils/adjustments';
 import type { WhiteBalance } from '../utils/whiteBalance';
 import type { Folder } from './library';
 import type { ToolType } from './masks';
+import type { Camera, DefaultsSource } from './settings';
+
+export interface ImageDefaults {
+  path: string;
+  adjustments: Adjustments;
+  camera: Camera | null;
+  source: DefaultsSource;
+}
 
 export interface BrushSettings {
   feather: number;

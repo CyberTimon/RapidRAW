@@ -28,6 +28,7 @@ import { PANEL_ICONS } from './components/panel/PanelSwitcher';
 import Controls from './components/panel/right/ControlsPanel';
 import MetadataPanel from './components/panel/right/MetadataPanel';
 import CropPanel from './components/panel/right/CropPanel';
+import AdjustmentSliderResetProvider from './components/adjustments/AdjustmentSliderResetProvider';
 import MasksPanel from './components/panel/right/MasksPanel';
 import AIPanel from './components/panel/right/AIPanel';
 import PresetsPanel from './components/panel/right/PresetsPanel';
@@ -468,6 +469,7 @@ function App() {
     handleSelectSubfolder,
     refreshImageList: handleLibraryRefresh,
     markGenerated,
+    prevAdjustmentsRef,
   });
 
   useAndroidBackHandler();
@@ -749,11 +751,19 @@ function App() {
             />
           );
         case Panel.Adjustments:
-          return <Controls />;
+          return (
+            <AdjustmentSliderResetProvider>
+              <Controls />
+            </AdjustmentSliderResetProvider>
+          );
         case Panel.Metadata:
           return <MetadataPanel />;
         case Panel.Crop:
-          return <CropPanel />;
+          return (
+            <AdjustmentSliderResetProvider>
+              <CropPanel />
+            </AdjustmentSliderResetProvider>
+          );
         case Panel.Masks:
           return <MasksPanel />;
         case Panel.Ai:

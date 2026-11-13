@@ -327,11 +327,13 @@
       "redo": "Rétablir",
       "removeBlackWhite": "Retirer le noir et blanc",
       "removeDenoise": "Retirer le débruitage",
-      "superResolution": "RapidRes (2x)",
-      "removeSuperResolution": "Retirer RapidRes",
       "removeNegativeConversion": "Retirer la conversion du négatif",
+      "removeSuperResolution": "Retirer RapidRes",
       "resetAdjustments": "Réinitialiser les ajustements",
+      "resetToDefaults": "Réinitialiser aux valeurs par défaut",
+      "resetToNeutral": "Réinitialiser au neutre",
       "stitchPanorama": "Assembler le panorama",
+      "superResolution": "RapidRes (2x)",
       "tagging": "Marquage",
       "undo": "Annuler",
       "unflagged": "Non marquée"
@@ -912,6 +914,8 @@
     },
     "presets": {
       "amount": "Quantité",
+      "defaultForAllCameras": "Par défaut pour tous les appareils",
+      "defaultForCamera": "Par défaut pour {{camera}}",
       "dialog": {
         "allPresetFiles": "Tous les fichiers de paramètres prédéfinis",
         "exportAllTitle": "Exporter tous les paramètres prédéfinis",
@@ -932,7 +936,11 @@
         "newPreset": "Nouveau paramètre prédéfini",
         "overwrite": "Écraser",
         "renameFolder": "Renommer le dossier",
-        "sortAll": "Trier tout par ordre alphabétique"
+        "setDefaultAllCameras": "Définir par défaut pour tous les appareils",
+        "setDefaultForCamera": "Définir par défaut pour {{camera}}",
+        "sortAll": "Trier tout par ordre alphabétique",
+        "unsetDefaultAllCameras": "Ne plus utiliser par défaut pour tous les appareils",
+        "unsetDefaultForCamera": "Ne plus utiliser par défaut pour {{camera}}"
       },
       "status": {
         "empty": "Aucun paramètre prédéfini enregistré pour le moment. Créez les vôtres, importez-en à partir d'un fichier ou explorez ceux de la communauté.",
@@ -2172,6 +2180,31 @@
         "gl": "OpenGL",
         "metal": "Metal",
         "vulkan": "Vulkan"
+      },
+      "defaultAdjustments": {
+        "addCamera": "Ajouter un appareil…",
+        "applyToNonRaw": "Appliquer aussi aux fichiers JPEG, TIFF, PNG et autres fichiers non RAW",
+        "applyToNonRawDesc": "Désactivé, seuls les fichiers RAW utilisent ces valeurs. Les JPEG de l'appareil sont généralement déjà traités et corrigés, les appliquer à nouveau peut être excessif.",
+        "autoLensCorrection": "Correction automatique de l'objectif",
+        "autoLensCorrectionDesc": "Corrige la distorsion, l'aberration chromatique et le vignettage à l'aide du profil d'objectif détecté dans les métadonnées de chaque image.",
+        "cameraDefaults": "Valeurs par défaut par appareil",
+        "cameraDefaultsDesc": "Attribuez aux images de certains appareils leur propre préréglage. Les appareils non listés utilisent le préréglage par défaut ci-dessus, et la correction d'objectif s'applique à tous les appareils.",
+        "cameraPresetMissing": "Le préréglage choisi a été supprimé, les images de cet appareil utilisent donc à nouveau le préréglage de tous les appareils.",
+        "description": "Définit le point de départ des images non retouchées et la cible de « Réinitialiser les ajustements » ; les images retouchées gardent leurs réglages. Avec des valeurs par défaut, les miniatures RAW sont calculées au lieu d'utiliser l'aperçu intégré de l'appareil et se chargent plus lentement au début.",
+        "lensCorrection": "Correction de l'objectif",
+        "noCamerasFound": "Aucun autre appareil trouvé. Ouvrez un dossier d'images d'un appareil, ou faites un clic droit sur un préréglage en retouchant l'une de ses images.",
+        "noPreset": "Aucun (neutre)",
+        "preset": "Préréglage par défaut",
+        "presetDesc": "Appliqué à chaque image non retouchée. Les masques, recadrages et transformations sont ignorés, car ils ne conviennent qu'à l'image sur laquelle ils ont été créés.",
+        "presetMissing": "Le préréglage choisi a été supprimé, les images non retouchées utilisent donc à nouveau des valeurs neutres.",
+        "removeCamera": "Retirer l'appareil",
+        "sameAsAllCameras": "Comme tous les appareils",
+        "scope": "S'applique à",
+        "sliderReset": "Réinitialisation des curseurs",
+        "sliderResetDefaults": "Ajustements par défaut",
+        "sliderResetDesc": "La valeur à laquelle revient un curseur quand vous le réinitialisez, par exemple par double-clic ou en édition rapide. Les curseurs de masque reviennent toujours à leur valeur neutre.",
+        "sliderResetNeutral": "Valeur neutre",
+        "title": "Ajustements par défaut"
       },
       "dynamicDesc": "L'éditeur effectue le rendu de l'aperçu pour correspondre à la densité de pixels réelle de votre écran. Cela garantit que chaque détail est représenté avec une précision au pixel près, offrant une clarté maximale lors du zoom et de la vérification de la mise au point.",
       "editIn": {

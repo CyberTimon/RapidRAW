@@ -6,6 +6,7 @@ import {
   Flag,
   FlagOff,
   Check,
+  Eraser,
   ClipboardPaste,
   Copy,
   CopyPlus,
@@ -61,6 +62,7 @@ import { useLibraryStore } from '../store/useLibraryStore';
 import { JobKind, useProcessStore } from '../store/useProcessStore';
 import { useUIStore } from '../store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { getOpenImageDefaults, hasCustomDefaults, openImageHasCustomDefaults } from '../utils/developDefaults';
 import { Invokes } from '../types/invokes';
 import { ImageFlag, AlbumItem, Album, AlbumGroup } from '../types/library';
 import { Option, OPTION_SEPARATOR, Panel } from '../types/ui';
@@ -479,17 +481,31 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
           submenu: [
             { label: t('contextMenus.editor.cancel'), icon: X, onClick: () => {} },
             {
-              label: t('contextMenus.editor.confirmReset'),
+              label: openImageHasCustomDefaults()
+                ? t('contextMenus.editor.resetToDefaults')
+                : t('contextMenus.editor.confirmReset'),
               icon: Check,
               isDestructive: true,
-              onClick: () => {
-                resetHistory({
-                  ...INITIAL_ADJUSTMENTS,
-                  aiPatches: [],
-                });
-                setEditor({ adjustments: { ...INITIAL_ADJUSTMENTS, aiPatches: [] } });
+              onClick: async () => {
+                const resetData = { ...(await getOpenImageDefaults()), aiPatches: [] };
+                resetHistory(resetData);
+                setEditor({ adjustments: resetData });
               },
             },
+            ...(openImageHasCustomDefaults()
+              ? [
+                  {
+                    label: t('contextMenus.editor.resetToNeutral'),
+                    icon: Eraser,
+                    isDestructive: true,
+                    onClick: () => {
+                      const resetData = { ...structuredClone(INITIAL_ADJUSTMENTS), aiPatches: [] };
+                      resetHistory(resetData);
+                      setEditor({ adjustments: resetData });
+                    },
+                  },
+                ]
+              : []),
           ],
         },
       ];
@@ -1040,11 +1056,23 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
           submenu: [
             { label: t('contextMenus.editor.cancel'), icon: X, onClick: () => {} },
             {
-              label: t('contextMenus.editor.confirmReset'),
+              label: hasCustomDefaults(appSettings)
+                ? t('contextMenus.editor.resetToDefaults')
+                : t('contextMenus.editor.confirmReset'),
               icon: Check,
               isDestructive: true,
               onClick: () => handleResetAdjustments(finalSelection),
             },
+            ...(hasCustomDefaults(appSettings)
+              ? [
+                  {
+                    label: t('contextMenus.editor.resetToNeutral'),
+                    icon: Eraser,
+                    isDestructive: true,
+                    onClick: () => handleResetAdjustments(finalSelection, true),
+                  },
+                ]
+              : []),
           ],
         },
         {

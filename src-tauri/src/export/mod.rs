@@ -7,6 +7,7 @@ pub mod size_estimate;
 pub mod tasks;
 pub mod watermark;
 
+use crate::adjustments::develop_defaults;
 use std::borrow::Cow;
 use std::collections::HashMap;
 #[cfg(not(target_os = "android"))]
@@ -340,10 +341,12 @@ pub(crate) async fn export_images_impl(
                             if let Some(adj) = active_adjustments {
                                 adj.clone()
                             } else {
-                                sidecar.adjustments
+                                develop_defaults::resolve(&sidecar.adjustments, &source_path)
+                                    .into_owned()
                             }
                         } else {
-                            sidecar.adjustments
+                            develop_defaults::resolve(&sidecar.adjustments, &source_path)
+                                .into_owned()
                         }
                     }
                     ExportAdjustmentsMode::GlobalOverride(adj) => {

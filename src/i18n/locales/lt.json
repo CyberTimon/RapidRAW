@@ -328,11 +328,13 @@
       "redo": "Pakartoti",
       "removeBlackWhite": "Pašalinti nespalvotą (J/B)",
       "removeDenoise": "Pašalinti triukšmo slopinimą",
-      "superResolution": "RapidRes (2x)",
-      "removeSuperResolution": "Pašalinti RapidRes",
       "removeNegativeConversion": "Pašalinti negatyvo konvertavimą",
+      "removeSuperResolution": "Pašalinti RapidRes",
       "resetAdjustments": "Atstatyti koregavimus",
+      "resetToDefaults": "Atstatyti į numatytąsias",
+      "resetToNeutral": "Atstatyti į neutralias",
       "stitchPanorama": "Sujungti panoramą",
+      "superResolution": "RapidRes (2x)",
       "tagging": "Žymėjimas",
       "undo": "Atšaukti",
       "unflagged": "Nežymėta"
@@ -976,6 +978,8 @@
     },
     "presets": {
       "amount": "Kiekis",
+      "defaultForAllCameras": "Numatytasis visiems fotoaparatams",
+      "defaultForCamera": "Numatytasis: {{camera}}",
       "dialog": {
         "allPresetFiles": "Visi nustatymų failai",
         "exportAllTitle": "Eksportuoti visus nustatymus",
@@ -996,7 +1000,11 @@
         "newPreset": "Naujas nustatymas",
         "overwrite": "Perrašyti",
         "renameFolder": "Pervadinti aplanką",
-        "sortAll": "Rikiuoti visus pagal abėcėlę"
+        "setDefaultAllCameras": "Nustatyti kaip numatytąjį visiems fotoaparatams",
+        "setDefaultForCamera": "Nustatyti kaip numatytąjį: {{camera}}",
+        "sortAll": "Rikiuoti visus pagal abėcėlę",
+        "unsetDefaultAllCameras": "Nebenaudoti kaip numatytojo visiems fotoaparatams",
+        "unsetDefaultForCamera": "Nebenaudoti kaip numatytojo: {{camera}}"
       },
       "status": {
         "empty": "Nėra išsaugotų nustatymų. Sukurkite savo, importuokite iš failo arba peržiūrėkite bendruomenės nustatymus.",
@@ -2253,6 +2261,31 @@
         "gl": "OpenGL",
         "metal": "Metal",
         "vulkan": "Vulkan"
+      },
+      "defaultAdjustments": {
+        "addCamera": "Pridėti fotoaparatą…",
+        "applyToNonRaw": "Taikyti ir JPEG, TIFF, PNG bei kitiems ne RAW failams",
+        "applyToNonRawDesc": "Išjungus šias reikšmes naudoja tik RAW failai. Fotoaparato JPEG paprastai jau apdoroti ir pataisyti, todėl taikant dar kartą galima persistengti.",
+        "autoLensCorrection": "Automatinė objektyvo korekcija",
+        "autoLensCorrectionDesc": "Ištaiso iškraipymą, chromatinę aberaciją ir vinjetavimą pagal objektyvo profilį, aptiktą kiekvienos nuotraukos metaduomenyse.",
+        "cameraDefaults": "Numatytosios reikšmės pagal fotoaparatą",
+        "cameraDefaultsDesc": "Suteikite konkrečių fotoaparatų nuotraukoms savo šabloną. Čia nenurodyti fotoaparatai naudoja aukščiau esantį numatytąjį šabloną, o objektyvo korekcija taikoma visiems fotoaparatams.",
+        "cameraPresetMissing": "Pasirinktas šablonas ištrintas, todėl šio fotoaparato nuotraukos vėl naudoja visų fotoaparatų šabloną.",
+        "description": "Nustatykite, nuo ko pradeda neredaguotos nuotraukos ir į ką grąžina „Atstatyti koregavimus“; redaguotos nuotraukos išlaiko savo nustatymus. Nustačius numatytąsias reikšmes, RAW miniatiūros kuriamos vietoj įterptos fotoaparato peržiūros ir iš pradžių įkeliamos lėčiau.",
+        "lensCorrection": "Objektyvo korekcija",
+        "noCamerasFound": "Kitų fotoaparatų nerasta. Atidarykite aplanką su fotoaparato nuotraukomis arba dešiniuoju pelės mygtuku spustelėkite šabloną redaguodami vieną iš jo nuotraukų.",
+        "noPreset": "Nėra (neutralu)",
+        "preset": "Numatytasis šablonas",
+        "presetDesc": "Taikoma kiekvienai neredaguotai nuotraukai. Kaukės, apkarpymai ir transformacijos praleidžiami, nes tinka tik tai nuotraukai, kurioje buvo sukurti.",
+        "presetMissing": "Pasirinktas šablonas ištrintas, todėl neredaguotos nuotraukos vėl naudoja neutralias reikšmes.",
+        "removeCamera": "Pašalinti fotoaparatą",
+        "sameAsAllCameras": "Kaip visiems fotoaparatams",
+        "scope": "Taikoma",
+        "sliderReset": "Slankiklių atstatymas",
+        "sliderResetDefaults": "Numatytieji koregavimai",
+        "sliderResetDesc": "Reikšmė, į kurią grįžta slankiklis jį atstačius, pavyzdžiui, dukart spustelėjus arba greitajame redagavime. Kaukių slankikliai visada atstatomi į neutralią reikšmę.",
+        "sliderResetNeutral": "Neutrali reikšmė",
+        "title": "Numatytieji koregavimai"
       },
       "dynamicDesc": "Redaktorius atvaizduoja peržiūrą pagal tikrąjį jūsų ekrano pikselių tankį. Tai užtikrina 1:1 pikselių tikslumą vertinant fokusavimą ir triukšmą.",
       "editIn": {

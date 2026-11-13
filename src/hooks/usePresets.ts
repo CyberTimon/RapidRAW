@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import debounce from 'lodash.debounce';
 import { Adjustments, COPYABLE_ADJUSTMENT_KEYS, ADJUSTMENT_GROUPS, INITIAL_ADJUSTMENTS } from '../utils/adjustments';
+import { getDefaultAdjustments } from '../utils/developDefaults';
 import { Folder } from '../types/library';
 import { Invokes } from '../types/invokes';
 import { Preset } from '../types/editor';
@@ -75,6 +76,7 @@ export function usePresets(currentAdjustments: Adjustments) {
     const GEOMETRY_KEYS = ADJUSTMENT_GROUPS.geometry.flatMap((group) => group.keys);
     const MASK_KEYS = ADJUSTMENT_GROUPS.masks.flatMap((group) => group.keys);
 
+    const defaults = getDefaultAdjustments();
     const presetAdjustments: Record<string, any> = {};
 
     for (const key of COPYABLE_ADJUSTMENT_KEYS) {
@@ -83,7 +85,7 @@ export function usePresets(currentAdjustments: Adjustments) {
 
       if (Object.prototype.hasOwnProperty.call(currentAdjustments, key)) {
         const currentValue = currentAdjustments[key as keyof Adjustments];
-        const defaultValue = INITIAL_ADJUSTMENTS[key as keyof Adjustments];
+        const defaultValue = defaults[key as keyof Adjustments];
 
         if (presetType === 'tool') {
           if (JSON.stringify(currentValue) !== JSON.stringify(defaultValue)) {
@@ -319,6 +321,7 @@ export function usePresets(currentAdjustments: Adjustments) {
       false;
     const presetType = existingPreset.presetType || 'style';
 
+    const defaults = getDefaultAdjustments();
     const presetAdjustments: Record<string, any> = {};
 
     for (const key of COPYABLE_ADJUSTMENT_KEYS) {
@@ -329,7 +332,7 @@ export function usePresets(currentAdjustments: Adjustments) {
         const currentValue = currentAdjustments[key as keyof Adjustments];
 
         if (presetType === 'tool') {
-          const defaultValue = INITIAL_ADJUSTMENTS[key as keyof Adjustments];
+          const defaultValue = defaults[key as keyof Adjustments];
           if (JSON.stringify(currentValue) !== JSON.stringify(defaultValue)) {
             presetAdjustments[key] = currentValue;
           }

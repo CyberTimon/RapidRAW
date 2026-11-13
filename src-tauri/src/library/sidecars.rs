@@ -198,7 +198,7 @@ pub async fn apply_adjustments_to_paths(
             crate::metadata::sidecar::fill_missing_exif(metadata, source_path);
 
             if metadata.adjustments.is_null() {
-                metadata.adjustments = default_adjustments();
+                metadata.adjustments = default_adjustments(source_path);
             }
 
             let mut pasted = adjustments.clone();
@@ -241,11 +241,17 @@ pub async fn apply_adjustments_to_paths(
 #[tauri::command]
 pub async fn reset_adjustments_for_paths(
     paths: Vec<String>,
+    to_neutral: Option<bool>,
     app_handle: AppHandle,
 ) -> Result<(), String> {
+    let reset_to = if to_neutral.unwrap_or(false) {
+        crate::render::adjustment_utils::neutral_adjustments()
+    } else {
+        Value::Null
+    };
     tauri::async_runtime::spawn_blocking(move || {
-        update_sidecars_and_thumbnails(paths, app_handle, |_, _, metadata| {
-            metadata.adjustments = default_adjustments();
+        update_sidecars_and_thumbnails(paths, app_handle, move |_, _, metadata| {
+            metadata.adjustments = reset_to.clone();
         });
     })
     .await
@@ -352,14 +358,15 @@ pub async fn apply_auto_lens_correction_to_paths(
             crate::metadata::sidecar::fill_missing_exif(metadata, source_path);
 
             if metadata.adjustments.is_null() {
-                metadata.adjustments = default_adjustments();
+                metadata.adjustments = default_adjustments(source_path);
             }
 
             if let Some(obj) = metadata.adjustments.as_object_mut() {
-                obj.insert("lensCorrectionMode".to_string(), serde_json::json!("auto"));
-                obj.insert("lensDistortionEnabled".to_string(), serde_json::json!(true));
-                obj.insert("lensTcaEnabled".to_string(), serde_json::json!(true));
-                obj.insert("lensVignetteEnabled".to_string(), serde_json::json!(true));
+                for (key, value) in
+                    crate::adjustments::develop_defaults::auto_lens_correction_adjustments()
+                {
+                    obj.insert(key.to_string(), value);
+                }
             }
         });
     })
@@ -421,7 +428,7 @@ async fn update_sidecars_from_images(
                     &source_path,
                     |metadata| {
                         if metadata.adjustments.is_null() {
-                            metadata.adjustments = default_adjustments();
+                            metadata.adjustments = default_adjustments(&source_path);
                         }
                         update(
                             &image,
@@ -653,6 +660,11 @@ pub async fn load_metadata(path: String, app_handle: AppHandle) -> Result<ImageM
                     sync_metadata_from_xmp(&source_path, &sidecar_path, current);
                 });
         }
+
+        crate::adjustments::develop_defaults::resolve_in_place(
+            &mut metadata.adjustments,
+            &source_path,
+        );
 
         if crate::ai::jobs::has_ai_results(&metadata.adjustments)
             && let Some(source_id) = crate::ai::jobs::source_id(&source_path)

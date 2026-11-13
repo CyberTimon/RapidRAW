@@ -326,11 +326,13 @@
       "redo": "重做",
       "removeBlackWhite": "移除黑白",
       "removeDenoise": "移除降噪",
-      "superResolution": "RapidRes (2x)",
-      "removeSuperResolution": "移除 RapidRes",
       "removeNegativeConversion": "移除负片转换",
+      "removeSuperResolution": "移除 RapidRes",
       "resetAdjustments": "重置调整",
+      "resetToDefaults": "重置为默认值",
+      "resetToNeutral": "重置为中性值",
       "stitchPanorama": "拼接全景图",
+      "superResolution": "RapidRes (2x)",
       "tagging": "标签",
       "undo": "撤销",
       "unflagged": "无标记"
@@ -884,6 +886,8 @@
     },
     "presets": {
       "amount": "数量",
+      "defaultForAllCameras": "所有相机的默认值",
+      "defaultForCamera": "{{camera}} 的默认值",
       "dialog": {
         "allPresetFiles": "所有预设文件",
         "exportAllTitle": "导出所有预设",
@@ -904,7 +908,11 @@
         "newPreset": "新建预设",
         "overwrite": "覆盖",
         "renameFolder": "重命名文件夹",
-        "sortAll": "全部按字母排序"
+        "setDefaultAllCameras": "设为所有相机的默认值",
+        "setDefaultForCamera": "设为 {{camera}} 的默认值",
+        "sortAll": "全部按字母排序",
+        "unsetDefaultAllCameras": "不再作为所有相机的默认值",
+        "unsetDefaultForCamera": "不再作为 {{camera}} 的默认值"
       },
       "status": {
         "empty": "尚未保存预设。创建您自己的预设、从文件导入或探索社区预设。",
@@ -2123,6 +2131,31 @@
         "gl": "OpenGL",
         "metal": "Metal",
         "vulkan": "Vulkan"
+      },
+      "defaultAdjustments": {
+        "addCamera": "添加相机…",
+        "applyToNonRaw": "同时应用于 JPEG、TIFF、PNG 等非 RAW 文件",
+        "applyToNonRawDesc": "关闭时仅 RAW 文件使用这些默认值。相机直出的 JPEG 通常已处理并校正，再次应用可能会过度。",
+        "autoLensCorrection": "自动镜头校正",
+        "autoLensCorrectionDesc": "根据从每张图像元数据中识别出的镜头配置文件，校正畸变、色差和暗角。",
+        "cameraDefaults": "按相机设置默认值",
+        "cameraDefaultsDesc": "为特定相机的图像设置单独的预设。未列出的相机使用上面的默认预设，镜头校正适用于所有相机。",
+        "cameraPresetMissing": "所选预设已被删除，因此该相机的图像重新使用所有相机的预设。",
+        "description": "设置未编辑图像的初始值以及“重置调整”恢复到的值；已编辑的图像保留各自的设置。设置默认值后，RAW 缩略图将重新渲染而不使用相机内嵌预览，因此首次加载较慢。",
+        "lensCorrection": "镜头校正",
+        "noCamerasFound": "未找到其他相机。请打开包含该相机图像的文件夹，或在编辑其图像时右键单击预设。",
+        "noPreset": "无（中性）",
+        "preset": "默认预设",
+        "presetDesc": "应用于所有未编辑的图像。蒙版、裁剪和变换只适合创建它们的图像，因此会被跳过。",
+        "presetMissing": "所选预设已被删除，因此未编辑的图像重新使用中性值。",
+        "removeCamera": "移除相机",
+        "sameAsAllCameras": "与所有相机相同",
+        "scope": "应用于",
+        "sliderReset": "滑块重置",
+        "sliderResetDefaults": "默认调整",
+        "sliderResetDesc": "通过双击或快速编辑等方式重置滑块时恢复到的值。蒙版滑块始终重置为中性值。",
+        "sliderResetNeutral": "中性值",
+        "title": "默认调整"
       },
       "dynamicDesc": "编辑器根据显示器实际像素密度渲染预览。这确保每个细节都以 1:1 像素精度呈现，在缩放和检查焦点时提供最大清晰度。",
       "editIn": {

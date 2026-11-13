@@ -326,11 +326,13 @@
       "redo": "Redo",
       "removeBlackWhite": "Remove Black & White",
       "removeDenoise": "Remove Denoise",
-      "superResolution": "RapidRes (2x)",
-      "removeSuperResolution": "Remove RapidRes",
       "removeNegativeConversion": "Remove Negative Conversion",
+      "removeSuperResolution": "Remove RapidRes",
       "resetAdjustments": "Reset Adjustments",
+      "resetToDefaults": "Reset to Defaults",
+      "resetToNeutral": "Reset to Neutral",
       "stitchPanorama": "Stitch Panorama",
+      "superResolution": "RapidRes (2x)",
       "tagging": "Tagging",
       "undo": "Undo",
       "unflagged": "Unflagged"
@@ -887,6 +889,8 @@
     },
     "presets": {
       "amount": "Amount",
+      "defaultForAllCameras": "Default for all cameras",
+      "defaultForCamera": "Default for {{camera}}",
       "dialog": {
         "allPresetFiles": "All Preset Files",
         "exportAllTitle": "Export All Presets",
@@ -907,7 +911,11 @@
         "newPreset": "New Preset",
         "overwrite": "Overwrite",
         "renameFolder": "Rename Folder",
-        "sortAll": "Sort All Alphabetically"
+        "setDefaultAllCameras": "Set as Default for All Cameras",
+        "setDefaultForCamera": "Set as Default for {{camera}}",
+        "sortAll": "Sort All Alphabetically",
+        "unsetDefaultAllCameras": "Stop Using as Default for All Cameras",
+        "unsetDefaultForCamera": "Stop Using as Default for {{camera}}"
       },
       "status": {
         "empty": "No presets saved yet. Create your own, import from a file, or explore community presets.",
@@ -2129,6 +2137,31 @@
         "gl": "OpenGL",
         "metal": "Metal",
         "vulkan": "Vulkan"
+      },
+      "defaultAdjustments": {
+        "addCamera": "Add camera…",
+        "applyToNonRaw": "Also apply to JPEG, TIFF, PNG and other non-RAW files",
+        "applyToNonRawDesc": "When off, only RAW files use these defaults. JPEGs from your camera are usually already processed and lens corrected, so applying them again can overdo it.",
+        "autoLensCorrection": "Automatic lens correction",
+        "autoLensCorrectionDesc": "Correct distortion, chromatic aberration and vignetting using the lens profile detected from each image's metadata.",
+        "cameraDefaults": "Camera-Specific Defaults",
+        "cameraDefaultsDesc": "Give images from specific cameras their own preset. Cameras not listed here use the default preset above, and lens correction applies to all cameras.",
+        "cameraPresetMissing": "The selected preset was deleted, so images from this camera use the all-cameras preset again.",
+        "description": "Set what unedited images start with and what Reset Adjustments returns to; edited images keep their own settings. With defaults set, RAW thumbnails are rendered instead of using the camera's embedded preview, so they load slower at first.",
+        "lensCorrection": "Lens Correction",
+        "noCamerasFound": "No other cameras found. Open a folder with images from a camera, or right-click a preset while editing one of its images.",
+        "noPreset": "None (neutral)",
+        "preset": "Default Preset",
+        "presetDesc": "Applied to every unedited image. Masks, crops and transforms are skipped because they only fit the image they were made on.",
+        "presetMissing": "The selected preset was deleted, so unedited images use neutral values again.",
+        "removeCamera": "Remove camera",
+        "sameAsAllCameras": "Same as all cameras",
+        "scope": "Applies To",
+        "sliderReset": "Slider Reset",
+        "sliderResetDefaults": "Default adjustments",
+        "sliderResetDesc": "What a single slider returns to when you reset it, for example by double-clicking it or in speed edit. Mask sliders always reset to their neutral value.",
+        "sliderResetNeutral": "Neutral value",
+        "title": "Default Adjustments"
       },
       "dynamicDesc": "The editor renders the preview to match your display's actual pixel density. This ensures that every detail is represented with 1:1 pixel accuracy, providing maximum clarity when zooming and checking focus.",
       "editIn": {

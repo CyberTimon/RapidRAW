@@ -326,11 +326,13 @@
       "redo": "Wiederholen",
       "removeBlackWhite": "Schwarzweiß entfernen",
       "removeDenoise": "Entrauschen entfernen",
-      "superResolution": "RapidRes (2x)",
-      "removeSuperResolution": "RapidRes entfernen",
       "removeNegativeConversion": "Negativumwandlung entfernen",
+      "removeSuperResolution": "RapidRes entfernen",
       "resetAdjustments": "Einstellungen zurücksetzen",
+      "resetToDefaults": "Auf Standard zurücksetzen",
+      "resetToNeutral": "Auf neutral zurücksetzen",
       "stitchPanorama": "Panorama zusammenfügen",
+      "superResolution": "RapidRes (2x)",
       "tagging": "Tagging",
       "undo": "Rückgängig",
       "unflagged": "Nicht markiert"
@@ -887,6 +889,8 @@
     },
     "presets": {
       "amount": "Stärke",
+      "defaultForAllCameras": "Standard für alle Kameras",
+      "defaultForCamera": "Standard für {{camera}}",
       "dialog": {
         "allPresetFiles": "Alle Vorgabendateien",
         "exportAllTitle": "Alle Vorgaben exportieren",
@@ -907,7 +911,11 @@
         "newPreset": "Neue Vorgabe",
         "overwrite": "Überschreiben",
         "renameFolder": "Ordner umbenennen",
-        "sortAll": "Alle alphabetisch sortieren"
+        "setDefaultAllCameras": "Als Standard für alle Kameras festlegen",
+        "setDefaultForCamera": "Als Standard für {{camera}} festlegen",
+        "sortAll": "Alle alphabetisch sortieren",
+        "unsetDefaultAllCameras": "Nicht mehr als Standard für alle Kameras verwenden",
+        "unsetDefaultForCamera": "Nicht mehr als Standard für {{camera}} verwenden"
       },
       "status": {
         "empty": "Noch keine Vorgaben gespeichert. Eigene erstellen, importieren oder Community-Vorgaben entdecken.",
@@ -2129,6 +2137,31 @@
         "gl": "OpenGL",
         "metal": "Metal",
         "vulkan": "Vulkan"
+      },
+      "defaultAdjustments": {
+        "addCamera": "Kamera hinzufügen…",
+        "applyToNonRaw": "Auch auf JPEG, TIFF, PNG und andere Nicht-RAW-Dateien anwenden",
+        "applyToNonRawDesc": "Wenn deaktiviert, verwenden nur RAW-Dateien diese Standardwerte. Kamera-JPEGs sind meist schon bearbeitet und objektivkorrigiert, eine erneute Anwendung kann zu viel des Guten sein.",
+        "autoLensCorrection": "Automatische Objektivkorrektur",
+        "autoLensCorrectionDesc": "Korrigiert Verzeichnung, chromatische Aberration und Vignettierung anhand des aus den Metadaten jedes Bildes erkannten Objektivprofils.",
+        "cameraDefaults": "Kameraspezifische Standardwerte",
+        "cameraDefaultsDesc": "Geben Sie Bildern bestimmter Kameras ein eigenes Preset. Nicht aufgeführte Kameras verwenden das Standard-Preset oben, die Objektivkorrektur gilt für alle Kameras.",
+        "cameraPresetMissing": "Das gewählte Preset wurde gelöscht, daher verwenden Bilder dieser Kamera wieder das Preset für alle Kameras.",
+        "description": "Legt fest, womit unbearbeitete Bilder starten und wohin „Anpassungen zurücksetzen“ zurückkehrt; bearbeitete Bilder behalten ihre Einstellungen. Mit Standardwerten werden RAW-Miniaturen berechnet statt die eingebettete Kameravorschau zu nutzen und laden anfangs langsamer.",
+        "lensCorrection": "Objektivkorrektur",
+        "noCamerasFound": "Keine weiteren Kameras gefunden. Öffnen Sie einen Ordner mit Bildern einer Kamera oder klicken Sie beim Bearbeiten eines ihrer Bilder mit rechts auf ein Preset.",
+        "noPreset": "Keins (neutral)",
+        "preset": "Standard-Preset",
+        "presetDesc": "Gilt für jedes unbearbeitete Bild. Masken, Zuschnitte und Transformationen werden ausgelassen, da sie nur zum Bild passen, auf dem sie erstellt wurden.",
+        "presetMissing": "Das gewählte Preset wurde gelöscht, daher verwenden unbearbeitete Bilder wieder neutrale Werte.",
+        "removeCamera": "Kamera entfernen",
+        "sameAsAllCameras": "Wie alle Kameras",
+        "scope": "Anwenden auf",
+        "sliderReset": "Regler zurücksetzen",
+        "sliderResetDefaults": "Standardanpassungen",
+        "sliderResetDesc": "Worauf ein einzelner Regler beim Zurücksetzen zurückkehrt, etwa per Doppelklick oder in der Schnellbearbeitung. Maskenregler werden immer auf ihren neutralen Wert zurückgesetzt.",
+        "sliderResetNeutral": "Neutraler Wert",
+        "title": "Standardanpassungen"
       },
       "dynamicDesc": "Der Editor rendert die Vorschau passend zur tatsächlichen Pixeldichte Ihres Displays. Dies sorgt für 1:1 Pixelgenauigkeit und maximale Klarheit beim Zoomen.",
       "editIn": {

@@ -176,7 +176,11 @@ pub async fn estimate_export_sizes(
         (preview_byte_size as f64 * pixel_ratio) as usize
     } else {
         let metadata = crate::metadata::sidecar::load_sidecar(&sidecar_path);
-        let mut js_adjustments = metadata.adjustments;
+        let mut js_adjustments = crate::adjustments::develop_defaults::resolve(
+            &metadata.adjustments,
+            Path::new(&source_path_str),
+        )
+        .into_owned();
 
         const ESTIMATE_DIM: u32 = 1280;
 

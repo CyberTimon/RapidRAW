@@ -9,6 +9,7 @@ import {
   ChannelConfig,
   OverlayMode,
   type SpeedEditTarget,
+  type ImageDefaults,
 } from '../types/editor';
 import { CompareView } from '../types/settings';
 import { ImageDimensions } from '../hooks/useImageRenderSize';
@@ -105,6 +106,8 @@ interface EditorState {
   copiedSectionAdjustments: any | null;
   copiedMask: MaskContainer | null;
   copiedAdjustments: Adjustments | null;
+  copiedAdjustmentsDefaults: Adjustments | null;
+  imageDefaults: ImageDefaults | null;
 
   // Actions
   setEditor: (updater: Partial<EditorState> | ((state: EditorState) => Partial<EditorState>)) => void;
@@ -184,6 +187,8 @@ export const useEditorStore = create<EditorState>((set) => ({
   copiedMask: null,
   brushSettings: { size: 100, feather: 50, tool: ToolType.Brush },
   copiedAdjustments: null,
+  copiedAdjustmentsDefaults: null,
+  imageDefaults: null,
 
   isGeneratingAiMask: false,
   isAIConnectorConnected: false,

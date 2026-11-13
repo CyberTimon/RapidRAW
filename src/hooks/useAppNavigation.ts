@@ -11,7 +11,8 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import { Invokes } from '../types/invokes';
 import { LibraryViewMode } from '../types/settings';
 import { ImageFile } from '../types/library';
-import { INITIAL_ADJUSTMENTS, normalizeLoadedAdjustments } from '../utils/adjustments';
+import { INITIAL_ADJUSTMENTS } from '../utils/adjustments';
+import { adjustmentsFromMetadata } from '../utils/developDefaults';
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { decodeImage } from '../utils/decodeImage';
 import { debouncedSave, debouncedSetHistory } from './useEditorActions';
@@ -280,12 +281,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
         invoke(Invokes.LoadMetadata, { path })
           .then((metadata: any) => {
             if (selectedImagePathRef.current !== path) return;
-            let freshAdjustments: any;
-            if (metadata.adjustments && !metadata.adjustments.is_null) {
-              freshAdjustments = normalizeLoadedAdjustments(metadata.adjustments);
-            } else {
-              freshAdjustments = { ...INITIAL_ADJUSTMENTS };
-            }
+            const freshAdjustments = adjustmentsFromMetadata(metadata.adjustments);
             if (!isSliderDragging && JSON.stringify(cached.adjustments) !== JSON.stringify(freshAdjustments)) {
               setEditor({ adjustments: freshAdjustments });
               resetHistory(freshAdjustments);

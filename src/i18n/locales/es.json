@@ -327,11 +327,13 @@
       "redo": "Rehacer",
       "removeBlackWhite": "Quitar blanco y negro",
       "removeDenoise": "Quitar reducción de ruido",
-      "superResolution": "RapidRes (2x)",
-      "removeSuperResolution": "Quitar RapidRes",
       "removeNegativeConversion": "Quitar conversión de negativo",
+      "removeSuperResolution": "Quitar RapidRes",
       "resetAdjustments": "Restablecer ajustes",
+      "resetToDefaults": "Restablecer a predeterminados",
+      "resetToNeutral": "Restablecer a neutro",
       "stitchPanorama": "Unir panorama",
+      "superResolution": "RapidRes (2x)",
       "tagging": "Etiquetado",
       "undo": "Deshacer",
       "unflagged": "Sin marca"
@@ -912,6 +914,8 @@
     },
     "presets": {
       "amount": "Cantidad",
+      "defaultForAllCameras": "Predeterminado para todas las cámaras",
+      "defaultForCamera": "Predeterminado para {{camera}}",
       "dialog": {
         "allPresetFiles": "Todos los archivos de ajustes",
         "exportAllTitle": "Exportar todos los ajustes preestablecidos",
@@ -932,7 +936,11 @@
         "newPreset": "Nuevo ajuste preestablecido",
         "overwrite": "Sobrescribir",
         "renameFolder": "Renombrar carpeta",
-        "sortAll": "Ordenar todo alfabéticamente"
+        "setDefaultAllCameras": "Establecer como predeterminado para todas las cámaras",
+        "setDefaultForCamera": "Establecer como predeterminado para {{camera}}",
+        "sortAll": "Ordenar todo alfabéticamente",
+        "unsetDefaultAllCameras": "Dejar de usar como predeterminado para todas las cámaras",
+        "unsetDefaultForCamera": "Dejar de usar como predeterminado para {{camera}}"
       },
       "status": {
         "empty": "Aún no hay ajustes guardados. Crea el tuyo, impórtalo desde un archivo o explora los de la comunidad.",
@@ -2171,6 +2179,31 @@
         "gl": "OpenGL",
         "metal": "Metal",
         "vulkan": "Vulkan"
+      },
+      "defaultAdjustments": {
+        "addCamera": "Añadir cámara…",
+        "applyToNonRaw": "Aplicar también a JPEG, TIFF, PNG y otros archivos no RAW",
+        "applyToNonRawDesc": "Si está desactivado, solo los archivos RAW usan estos valores. Los JPEG de la cámara suelen estar ya procesados y corregidos, y aplicarlos otra vez puede ser excesivo.",
+        "autoLensCorrection": "Corrección automática de lente",
+        "autoLensCorrectionDesc": "Corrige la distorsión, la aberración cromática y el viñeteado con el perfil de lente detectado en los metadatos de cada imagen.",
+        "cameraDefaults": "Valores predeterminados por cámara",
+        "cameraDefaultsDesc": "Da a las imágenes de cámaras concretas su propio ajuste preestablecido. Las cámaras no listadas usan el ajuste predeterminado de arriba, y la corrección de lente se aplica a todas las cámaras.",
+        "cameraPresetMissing": "El ajuste preestablecido elegido se eliminó, así que las imágenes de esta cámara vuelven a usar el de todas las cámaras.",
+        "description": "Define con qué empiezan las imágenes sin editar y a qué vuelve «Restablecer ajustes»; las imágenes editadas conservan su configuración. Con valores predeterminados, las miniaturas RAW se generan en lugar de usar la vista previa incrustada de la cámara y tardan más al principio.",
+        "lensCorrection": "Corrección de lente",
+        "noCamerasFound": "No se encontraron otras cámaras. Abre una carpeta con imágenes de una cámara o haz clic derecho en un ajuste preestablecido mientras editas una de sus imágenes.",
+        "noPreset": "Ninguno (neutro)",
+        "preset": "Ajuste preestablecido predeterminado",
+        "presetDesc": "Se aplica a cada imagen sin editar. Se omiten máscaras, recortes y transformaciones, porque solo encajan con la imagen en la que se crearon.",
+        "presetMissing": "El ajuste preestablecido elegido se eliminó, así que las imágenes sin editar vuelven a usar valores neutros.",
+        "removeCamera": "Quitar cámara",
+        "sameAsAllCameras": "Igual que todas las cámaras",
+        "scope": "Se aplica a",
+        "sliderReset": "Restablecer controles deslizantes",
+        "sliderResetDefaults": "Ajustes predeterminados",
+        "sliderResetDesc": "El valor al que vuelve un control deslizante al restablecerlo, por ejemplo con doble clic o en la edición rápida. Los controles de máscara siempre vuelven a su valor neutro.",
+        "sliderResetNeutral": "Valor neutro",
+        "title": "Ajustes predeterminados"
       },
       "dynamicDesc": "El editor renderiza la vista previa para que coincida con la densidad real de píxeles de tu pantalla. Esto garantiza que cada detalle se represente con precisión de 1:1 píxeles, proporcionando la máxima claridad al hacer zoom y verificar el enfoque.",
       "editIn": {

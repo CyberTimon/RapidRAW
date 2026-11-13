@@ -11,7 +11,6 @@ import AdjustmentSectionsSubMenu from './AdjustmentSectionsSubMenu';
 import {
   ActiveTools,
   Adjustments,
-  INITIAL_ADJUSTMENTS,
   ADJUSTMENT_SECTIONS,
   getActiveTools,
   getVisibleAdjustmentSections,
@@ -26,6 +25,7 @@ import { TextVariants, TextColors, TextWeights } from '../../../types/typography
 import { useShallow } from 'zustand/react/shallow';
 import { canvasToolState, useEditorStore } from '../../../store/useEditorStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
+import { getOpenImageDefaults } from '../../../utils/developDefaults';
 import { useUIStore } from '../../../store/useUIStore';
 import { buildAutoAdjustModeOptions, useEditorActions } from '../../../hooks/useEditorActions';
 import { useWaveformControls } from '../../../hooks/useWaveformControls';
@@ -124,17 +124,18 @@ export default function Controls() {
     [setAdjustments],
   );
 
-  const handleResetAdjustments = () => {
+  const handleResetAdjustments = async () => {
+    const defaults = await getOpenImageDefaults();
     setAdjustments(
       (prev: Adjustments) => ({
         ...prev,
         ...Object.keys(ADJUSTMENT_SECTIONS)
           .flatMap((s) => ADJUSTMENT_SECTIONS[s])
           .reduce((acc: any, key: string) => {
-            acc[key] = INITIAL_ADJUSTMENTS[key as keyof Adjustments];
+            acc[key] = defaults[key as keyof Adjustments];
             return acc;
           }, {}),
-        activeTools: { ...INITIAL_ADJUSTMENTS.activeTools },
+        activeTools: { ...defaults.activeTools },
       }),
       t('contextMenus.editor.resetAdjustments'),
     );
@@ -192,10 +193,11 @@ export default function Controls() {
       }));
     };
 
-    const handleReset = () => {
+    const handleReset = async () => {
+      const defaults = await getOpenImageDefaults();
       const resetValues: any = {};
       for (const key of sectionKeys) {
-        resetValues[key] = JSON.parse(JSON.stringify(INITIAL_ADJUSTMENTS[key as keyof Adjustments]));
+        resetValues[key] = defaults[key as keyof Adjustments];
       }
       setAdjustments((prev: Adjustments) => ({
         ...prev,

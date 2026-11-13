@@ -1,4 +1,4 @@
-use crate::adjustments::lens_correction::has_lens_selection;
+use crate::adjustments::lens_correction::{has_lens_selection, same_lens_selection};
 use crate::decode::as_shot::AsShot;
 use crate::decode::baseline_exposure::BaselineOptions;
 use crate::library::{file_ops, sidecars};
@@ -6,7 +6,18 @@ use crate::metadata::exif_cache::save_exif_to_rrcache;
 use crate::metadata::exif_processing::{
     read_exif_data_from_bytes, read_rrexif_sidecar, truncate_large_exif,
 };
-use crate::render::adjustment_utils::{is_default_adjustments, is_effect_enabled, is_tool_active};
+use crate::render::adjustment_utils::{
+    differs_from_default, is_default_adjustments, is_effect_enabled, is_tool_active, is_unedited,
+};
+
+const LENS_CORRECTION_KEYS: &[&str] = &[
+    "lensDistortionEnabled",
+    "lensTcaEnabled",
+    "lensVignetteEnabled",
+    "lensDistortionAmount",
+    "lensTcaAmount",
+    "lensVignetteAmount",
+];
 use crate::render::geometry::{Crop, is_geometry_identity, user_geometry_params};
 use crate::render::options::RenderOptions;
 use crate::render::uniforms::get_all_adjustments_from_json;
@@ -67,10 +78,16 @@ impl Default for ImageMetadata {
 
 pub fn is_image_edited(
     adj: &serde_json::Value,
+    source_path: &Path,
     is_raw: bool,
     tonemapper_override: Option<u32>,
 ) -> bool {
-    if adj.is_null() || adj.as_object().is_none() {
+    if is_unedited(adj) || adj.as_object().is_none() {
+        return false;
+    }
+
+    let develop_defaults = crate::adjustments::develop_defaults::overlay(source_path);
+    if !develop_defaults.is_empty() && is_default_adjustments(adj, source_path) {
         return false;
     }
 
@@ -141,7 +158,14 @@ pub fn is_image_edited(
         return true;
     }
 
-    if has_lens_selection(adj) || !is_geometry_identity(&user_geometry_params(adj)) {
+    let develop_defaults_json = Value::Object((*develop_defaults).clone());
+    let lens_differs = !same_lens_selection(adj, &develop_defaults_json)
+        || LENS_CORRECTION_KEYS
+            .iter()
+            .any(|key| differs_from_default(adj, key, source_path));
+    if ((has_lens_selection(adj) || has_lens_selection(&develop_defaults_json)) && lens_differs)
+        || !is_geometry_identity(&user_geometry_params(adj))
+    {
         return true;
     }
 
@@ -153,7 +177,7 @@ pub fn is_image_edited(
     };
     let current_adj = get_all_adjustments_from_json(adj, is_raw, reference, render);
     let default_adj =
-        get_all_adjustments_from_json(&serde_json::json!({}), is_raw, reference, render);
+        get_all_adjustments_from_json(&develop_defaults_json, is_raw, reference, render);
 
     bytemuck::bytes_of(&current_adj) != bytemuck::bytes_of(&default_adj)
 }
@@ -173,6 +197,25 @@ pub fn lock_sidecar(sidecar_path: &Path) -> MutexGuard<'static, ()> {
     sidecar_lock_stripe(sidecar_path)
         .lock()
         .unwrap_or_else(PoisonError::into_inner)
+}
+
+pub fn parse_sidecar(content: &str) -> Option<ImageMetadata> {
+    let mut meta: ImageMetadata = serde_json::from_str(content).ok()?;
+    remove_legacy_rating(&mut meta);
+    Some(meta)
+}
+
+fn remove_legacy_rating(meta: &mut ImageMetadata) -> bool {
+    let Some(adjustments) = meta.adjustments.as_object_mut() else {
+        return false;
+    };
+    if adjustments.remove("rating").is_none() {
+        return false;
+    }
+    if adjustments.is_empty() {
+        meta.adjustments = Value::Null;
+    }
+    true
 }
 
 fn heal_bloated_exif(meta: &mut ImageMetadata) -> bool {
@@ -218,7 +261,7 @@ fn read_sidecar(sidecar_path: &Path) -> std::io::Result<(ImageMetadata, bool)> {
 
     match serde_json::from_str::<ImageMetadata>(&content) {
         Ok(mut meta) => {
-            let healed = heal_bloated_exif(&mut meta);
+            let healed = heal_bloated_exif(&mut meta) | remove_legacy_rating(&mut meta);
             Ok((meta, healed))
         }
         Err(e) => {
@@ -244,10 +287,7 @@ pub fn load_sidecar(sidecar_path: &Path) -> ImageMetadata {
         && let Ok((current, true)) = read_sidecar(sidecar_path)
         && write_sidecar_json(sidecar_path, &current).is_ok()
     {
-        log::info!(
-            "Auto-healed bloated sidecar for: {}",
-            sidecar_path.display()
-        );
+        log::info!("Auto-healed sidecar for: {}", sidecar_path.display());
     }
 
     meta
@@ -300,7 +340,14 @@ pub fn update_sidecar(
 ) -> std::io::Result<ImageMetadata> {
     let _guard = lock_sidecar(sidecar_path);
     let (mut metadata, _) = read_sidecar(sidecar_path)?;
+    let previous_adjustments = metadata.adjustments.clone();
     update(&mut metadata);
+    if metadata.adjustments != previous_adjustments
+        && !metadata.adjustments.is_null()
+        && is_default_adjustments(&metadata.adjustments, source_path)
+    {
+        metadata.adjustments = Value::Null;
+    }
     if crate::integrations::immich::is_placeholder(source_path)
         && let Some(parent) = sidecar_path.parent()
     {
@@ -336,7 +383,7 @@ fn is_default_sidecar(sidecar_path: &Path, source_path: &Path, metadata: &ImageM
     if metadata.rating != 0
         || metadata.flag.is_some()
         || metadata.tags.as_ref().is_some_and(|tags| !tags.is_empty())
-        || !is_default_adjustments(&metadata.adjustments)
+        || !is_default_adjustments(&metadata.adjustments, source_path)
     {
         return false;
     }
@@ -420,5 +467,36 @@ pub fn persist_exif_if_missing(source_path: &Path, source_path_str: &str, file_b
         metadata.exif.get_or_insert_with(|| exif_map.clone());
     }) {
         save_exif_to_rrcache(source_path, exif_map);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn metadata(adjustments: Value) -> ImageMetadata {
+        ImageMetadata {
+            adjustments,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn legacy_rating_is_removed_from_adjustments() {
+        let mut meta = metadata(json!({ "baselineExposure": true, "rating": 3, "exposure": 0.5 }));
+        assert!(remove_legacy_rating(&mut meta));
+        assert_eq!(
+            meta.adjustments,
+            json!({ "baselineExposure": true, "exposure": 0.5 })
+        );
+
+        let mut rating_only = metadata(json!({ "rating": 4 }));
+        assert!(remove_legacy_rating(&mut rating_only));
+        assert!(rating_only.adjustments.is_null());
+
+        let mut untouched = metadata(json!({ "exposure": 0.5 }));
+        assert!(!remove_legacy_rating(&mut untouched));
+        assert!(!remove_legacy_rating(&mut metadata(Value::Null)));
     }
 }

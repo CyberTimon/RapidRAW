@@ -71,6 +71,7 @@ function DetailsPanel({
           title={t('adjustments.details.sharpening')}
         >
           <Slider
+            resetKey="sharpness"
             label={t('adjustments.details.sharpness')}
             max={100}
             min={-100}
@@ -81,6 +82,7 @@ function DetailsPanel({
           />
           {!isForMask && (
             <Slider
+              resetKey="sharpnessThreshold"
               label={t('adjustments.details.threshold')}
               max={80}
               min={0}
@@ -102,6 +104,7 @@ function DetailsPanel({
           title={t('adjustments.details.presence')}
         >
           <Slider
+            resetKey="clarity"
             label={t('adjustments.details.clarity')}
             max={100}
             min={-100}
@@ -112,6 +115,7 @@ function DetailsPanel({
             onDragStateChange={onDragStateChange}
           />
           <Slider
+            resetKey="dehaze"
             label={t('adjustments.details.dehaze')}
             max={100}
             min={-100}
@@ -122,6 +126,7 @@ function DetailsPanel({
             onDragStateChange={onDragStateChange}
           />
           <Slider
+            resetKey="structure"
             label={t('adjustments.details.structure')}
             max={100}
             min={-100}
@@ -137,6 +142,7 @@ function DetailsPanel({
               onPointerDown={() => setEditor(canvasToolState({ activeCenterMarker: 'centre' }))}
             >
               <Slider
+                resetKey="centré"
                 label={t('adjustments.details.centre')}
                 max={100}
                 min={-100}
@@ -157,6 +163,7 @@ function DetailsPanel({
           title={t('adjustments.details.noiseReduction')}
         >
           <Slider
+            resetKey="lumaNoiseReduction"
             label={t('adjustments.details.luminance')}
             max={100}
             min={isForMask ? -100 : 0}
@@ -166,6 +173,7 @@ function DetailsPanel({
             onDragStateChange={onDragStateChange}
           />
           <Slider
+            resetKey="colorNoiseReduction"
             label={t('adjustments.details.color')}
             max={100}
             min={isForMask ? -100 : 0}
@@ -207,6 +215,7 @@ function DetailsPanel({
                 ) : (
                   <>
                     <Slider
+                      resetKey="aiDenoiseAmount"
                       label={t('adjustments.effects.amount')}
                       max={100}
                       min={0}
@@ -220,6 +229,7 @@ function DetailsPanel({
                       fillOrigin="min"
                     />
                     <Slider
+                      resetKey="aiDenoiseDetail"
                       label={t('adjustments.details.aiDenoiseDetail')}
                       max={100}
                       min={0}
@@ -265,6 +275,7 @@ function DetailsPanel({
               </div>
             ) : (
               <Slider
+                resetKey="aiUpscaleDetail"
                 label={t('adjustments.details.aiUpscaleDetail')}
                 max={100}
                 min={0}
@@ -289,6 +300,7 @@ function DetailsPanel({
           title={t('adjustments.details.chromaticAberration')}
         >
           <Slider
+            resetKey="chromaticAberrationRedCyan"
             label={t('adjustments.details.redCyan')}
             max={100}
             min={-100}
@@ -298,6 +310,7 @@ function DetailsPanel({
             onDragStateChange={onDragStateChange}
           />
           <Slider
+            resetKey="chromaticAberrationBlueYellow"
             label={t('adjustments.details.blueYellow')}
             max={100}
             min={-100}
@@ -325,6 +338,7 @@ function DetailsPanel({
             }
           >
             <Slider
+              resetKey="negativeRedWeight"
               label={t('adjustments.details.negativeRed')}
               max={2}
               min={0.5}
@@ -338,6 +352,7 @@ function DetailsPanel({
               fillOrigin="min"
             />
             <Slider
+              resetKey="negativeGreenWeight"
               label={t('adjustments.details.negativeGreen')}
               max={2}
               min={0.5}
@@ -351,6 +366,7 @@ function DetailsPanel({
               fillOrigin="min"
             />
             <Slider
+              resetKey="negativeBlueWeight"
               label={t('adjustments.details.negativeBlue')}
               max={2}
               min={0.5}
@@ -364,6 +380,7 @@ function DetailsPanel({
               fillOrigin="min"
             />
             <Slider
+              resetKey="negativeExposure"
               label={t('adjustments.details.negativeExposure')}
               max={2}
               min={-2}
@@ -375,6 +392,7 @@ function DetailsPanel({
               onDragStateChange={onDragStateChange}
             />
             <Slider
+              resetKey="negativeContrast"
               label={t('adjustments.details.negativeContrast')}
               max={2.5}
               min={0.5}

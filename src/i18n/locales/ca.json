@@ -327,11 +327,13 @@
       "redo": "Refer",
       "removeBlackWhite": "Treure blanc i negre",
       "removeDenoise": "Treure reducció de soroll",
-      "superResolution": "RapidRes (2x)",
-      "removeSuperResolution": "Treure RapidRes",
       "removeNegativeConversion": "Treure conversió de negatiu",
+      "removeSuperResolution": "Treure RapidRes",
       "resetAdjustments": "Restablir ajustaments",
+      "resetToDefaults": "Restablir als valors per defecte",
+      "resetToNeutral": "Restablir a neutre",
       "stitchPanorama": "Unir panorama",
+      "superResolution": "RapidRes (2x)",
       "tagging": "Etiquetatge",
       "undo": "Desfer",
       "unflagged": "Sense marca"
@@ -912,6 +914,8 @@
     },
     "presets": {
       "amount": "Quantitat",
+      "defaultForAllCameras": "Predeterminat per a totes les càmeres",
+      "defaultForCamera": "Predeterminat per a {{camera}}",
       "dialog": {
         "allPresetFiles": "Tots els fitxers d'ajustos preestablerts",
         "exportAllTitle": "Exportar tots els ajustos preestablerts",
@@ -932,7 +936,11 @@
         "newPreset": "Nou ajust preestablert",
         "overwrite": "Sobreescriure",
         "renameFolder": "Reanomenar carpeta",
-        "sortAll": "Ordenar-ho tot alfabèticament"
+        "setDefaultAllCameras": "Definir com a predeterminat per a totes les càmeres",
+        "setDefaultForCamera": "Definir com a predeterminat per a {{camera}}",
+        "sortAll": "Ordenar-ho tot alfabèticament",
+        "unsetDefaultAllCameras": "Deixar d'usar com a predeterminat per a totes les càmeres",
+        "unsetDefaultForCamera": "Deixar d'usar com a predeterminat per a {{camera}}"
       },
       "status": {
         "empty": "Encara no s'ha desat cap ajust preestablert. Creeu el vostre, importeu-ne des d'un fitxer o exploreu els de la comunitat.",
@@ -2171,6 +2179,31 @@
         "gl": "OpenGL",
         "metal": "Metal",
         "vulkan": "Vulkan"
+      },
+      "defaultAdjustments": {
+        "addCamera": "Afegir càmera…",
+        "applyToNonRaw": "Aplicar també a JPEG, TIFF, PNG i altres fitxers no RAW",
+        "applyToNonRawDesc": "Si està desactivat, només els fitxers RAW fan servir aquests valors. Els JPEG de la càmera solen estar ja processats i corregits, i aplicar-los de nou pot ser excessiu.",
+        "autoLensCorrection": "Correcció automàtica d'objectiu",
+        "autoLensCorrectionDesc": "Corregeix la distorsió, l'aberració cromàtica i el vinyetatge amb el perfil d'objectiu detectat a les metadades de cada imatge.",
+        "cameraDefaults": "Valors per defecte per càmera",
+        "cameraDefaultsDesc": "Dona a les imatges de càmeres concretes el seu propi preajust. Les càmeres no llistades fan servir el preajust per defecte de dalt, i la correcció d'objectiu s'aplica a totes les càmeres.",
+        "cameraPresetMissing": "El preajust escollit s'ha eliminat, per això les imatges d'aquesta càmera tornen a fer servir el de totes les càmeres.",
+        "description": "Defineix amb què comencen les imatges sense editar i on torna «Restablir ajustaments»; les imatges editades conserven la seva configuració. Amb valors per defecte, les miniatures RAW es generen en lloc de fer servir la previsualització incrustada de la càmera i triguen més al principi.",
+        "lensCorrection": "Correcció d'objectiu",
+        "noCamerasFound": "No s'han trobat altres càmeres. Obre una carpeta amb imatges d'una càmera o fes clic dret en un preajust mentre edites una de les seves imatges.",
+        "noPreset": "Cap (neutre)",
+        "preset": "Preajust per defecte",
+        "presetDesc": "S'aplica a cada imatge sense editar. S'ometen màscares, retalls i transformacions, perquè només encaixen amb la imatge on es van crear.",
+        "presetMissing": "El preajust escollit s'ha eliminat, per això les imatges sense editar tornen a fer servir valors neutres.",
+        "removeCamera": "Treure la càmera",
+        "sameAsAllCameras": "Igual que totes les càmeres",
+        "scope": "S'aplica a",
+        "sliderReset": "Restabliment dels controls lliscants",
+        "sliderResetDefaults": "Ajustaments per defecte",
+        "sliderResetDesc": "El valor al qual torna un control lliscant quan el restableixes, per exemple amb doble clic o a l'edició ràpida. Els controls de màscara sempre tornen al seu valor neutre.",
+        "sliderResetNeutral": "Valor neutre",
+        "title": "Ajustaments per defecte"
       },
       "dynamicDesc": "L'editor renderitza la vista prèvia perquè coincideixi amb la densitat real de píxels de la vostra pantalla. Això assegura que cada detall es representi amb precisió 1:1, proporcionant la màxima claredat a l'hora de fer zoom i comprovar l'enfocament.",
       "editIn": {

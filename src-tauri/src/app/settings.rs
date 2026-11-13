@@ -519,6 +519,10 @@ pub fn default_linear_raw_mode() -> String {
     "auto".to_string()
 }
 
+pub fn default_enable_baseline_exposure() -> bool {
+    true
+}
+
 pub fn default_baseline_exposure() -> f32 {
     0.7
 }
@@ -681,7 +685,7 @@ pub struct AppSettings {
     pub export_worker_threads: Option<u32>,
     #[serde(default)]
     pub export_memory_limit: Option<u32>,
-    #[serde(default)]
+    #[serde(default = "default_enable_baseline_exposure")]
     pub enable_baseline_exposure: bool,
     #[serde(default = "default_baseline_exposure")]
     pub baseline_exposure: f32,
@@ -741,6 +745,10 @@ pub struct AppSettings {
     pub workspace: WorkspaceState,
     #[serde(default)]
     pub immich: crate::integrations::immich::ImmichSettings,
+    #[serde(default)]
+    pub develop_defaults: crate::adjustments::develop_defaults::DevelopDefaultsSettings,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slider_reset_target: Option<String>,
 }
 
 const UI_SCALE_MIN: f64 = 0.5;
@@ -890,7 +898,7 @@ impl Default for AppSettings {
             ai_upscale_cache_limit_gb: Some(default_ai_upscale_cache_limit_gb()),
             export_worker_threads: None,
             export_memory_limit: None,
-            enable_baseline_exposure: false,
+            enable_baseline_exposure: default_enable_baseline_exposure(),
             baseline_exposure: default_baseline_exposure(),
             compensate_highlight_preservation: default_compensate_highlight_preservation(),
             tonemapper_override_enabled: Some(false),
@@ -919,6 +927,8 @@ impl Default for AppSettings {
             adjustment_layout: AdjustmentLayout::default(),
             workspace: WorkspaceState::default(),
             immich: crate::integrations::immich::ImmichSettings::default(),
+            develop_defaults: Default::default(),
+            slider_reset_target: None,
         }
     }
 }
@@ -1080,5 +1090,26 @@ pub fn save_settings(mut settings: AppSettings, app_handle: AppHandle) -> Result
     if previous_gpu_acceleration != Some(settings.ai_gpu_acceleration) {
         crate::ai::models::reset_ai_sessions(&state.ai_state);
     }
+    crate::adjustments::develop_defaults::refresh(&app_handle);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn baseline_exposure_is_on_by_default_but_keeps_a_saved_choice() {
+        assert!(AppSettings::default().enable_baseline_exposure);
+
+        let mut saved = serde_json::to_value(AppSettings::default()).unwrap();
+        let object = saved.as_object_mut().unwrap();
+        object.remove("enableBaselineExposure");
+        let missing: AppSettings = serde_json::from_value(saved.clone()).unwrap();
+        assert!(missing.enable_baseline_exposure);
+
+        saved["enableBaselineExposure"] = serde_json::json!(false);
+        let turned_off: AppSettings = serde_json::from_value(saved).unwrap();
+        assert!(!turned_off.enable_baseline_exposure);
+    }
 }

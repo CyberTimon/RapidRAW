@@ -59,6 +59,7 @@ import { useCloudUsage } from '../../hooks/useCloudUsage';
 import { open } from '@tauri-apps/plugin-shell';
 import ImmichSettings from '../immich/ImmichSettings';
 import DataManagementSettings from './settings/DataManagementSettings';
+import DefaultAdjustmentsSettings from './settings/DefaultAdjustmentsSettings';
 import EditInAppsSettings from './settings/EditInAppsSettings';
 import { applyUiScale, clampUiScale, getDevicePixelRatio, UI_SCALE_PRESETS } from '../../utils/displayScale';
 import type { ParseKeys } from 'i18next';
@@ -1486,6 +1487,13 @@ export default function SettingsPanel({
 
                   <div className="p-6 bg-surface rounded-xl shadow-md">
                     <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
+                      {t('settings.processing.defaultAdjustments.title')}
+                    </Text>
+                    <DefaultAdjustmentsSettings appSettings={appSettings} onSettingsChange={onSettingsChange} />
+                  </div>
+
+                  <div className="p-6 bg-surface rounded-xl shadow-md">
+                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
                       {t('settings.lenses.title')}
                     </Text>
                     <Text className="mb-6">{t('settings.lenses.description')}</Text>
@@ -2251,7 +2259,7 @@ export default function SettingsPanel({
                           description={t('settings.processing.preprocessing.baselineExposureDesc')}
                         >
                           <Switch
-                            checked={appSettings?.enableBaselineExposure ?? false}
+                            checked={appSettings?.enableBaselineExposure ?? true}
                             id="baseline-exposure-toggle"
                             label={t('settings.processing.preprocessing.enableBaselineExposure')}
                             onChange={(checked) =>
@@ -2261,7 +2269,7 @@ export default function SettingsPanel({
                         </SettingItem>
 
                         <AnimatePresence>
-                          {(appSettings?.enableBaselineExposure ?? false) && (
+                          {(appSettings?.enableBaselineExposure ?? true) && (
                             <motion.div
                               initial={{ height: 0, opacity: 0 }}
                               animate={{ height: 'auto', opacity: 1 }}

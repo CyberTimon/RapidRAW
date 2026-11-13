@@ -326,11 +326,13 @@
       "redo": "やり直し",
       "removeBlackWhite": "白黒を解除",
       "removeDenoise": "ノイズ低減を解除",
-      "superResolution": "RapidRes (2x)",
-      "removeSuperResolution": "RapidResを解除",
       "removeNegativeConversion": "ネガ反転を解除",
+      "removeSuperResolution": "RapidResを解除",
       "resetAdjustments": "補正設定をリセット",
+      "resetToDefaults": "デフォルトにリセット",
+      "resetToNeutral": "ニュートラルにリセット",
       "stitchPanorama": "パノラマ写真を作成",
+      "superResolution": "RapidRes (2x)",
       "tagging": "タグ付け",
       "undo": "元に戻す",
       "unflagged": "フラグなし"
@@ -884,6 +886,8 @@
     },
     "presets": {
       "amount": "適用量",
+      "defaultForAllCameras": "すべてのカメラのデフォルト",
+      "defaultForCamera": "{{camera}} のデフォルト",
       "dialog": {
         "allPresetFiles": "すべてのプリセットファイル",
         "exportAllTitle": "すべてのプリセットを書き出し",
@@ -904,7 +908,11 @@
         "newPreset": "新規プリセット",
         "overwrite": "上書き",
         "renameFolder": "フォルダ名を変更",
-        "sortAll": "すべて名前順に並べ替え"
+        "setDefaultAllCameras": "すべてのカメラのデフォルトに設定",
+        "setDefaultForCamera": "{{camera}} のデフォルトに設定",
+        "sortAll": "すべて名前順に並べ替え",
+        "unsetDefaultAllCameras": "すべてのカメラのデフォルトから外す",
+        "unsetDefaultForCamera": "{{camera}} のデフォルトから外す"
       },
       "status": {
         "empty": "保存されたプリセットはまだありません。作成、インポート、またはコミュニティのプリセットを探してみましょう。",
@@ -2123,6 +2131,31 @@
         "gl": "OpenGL",
         "metal": "Metal",
         "vulkan": "Vulkan"
+      },
+      "defaultAdjustments": {
+        "addCamera": "カメラを追加…",
+        "applyToNonRaw": "JPEG、TIFF、PNG など RAW 以外のファイルにも適用",
+        "applyToNonRawDesc": "オフの場合、このデフォルトは RAW ファイルにのみ適用されます。カメラ JPEG は通常すでに処理・補正済みのため、再適用すると効きすぎることがあります。",
+        "autoLensCorrection": "自動レンズ補正",
+        "autoLensCorrectionDesc": "各画像のメタデータから検出したレンズプロファイルで、歪曲収差、色収差、周辺減光を補正します。",
+        "cameraDefaults": "カメラ別のデフォルト",
+        "cameraDefaultsDesc": "特定のカメラの画像に専用のプリセットを設定します。ここにないカメラには上のデフォルトのプリセットが適用され、レンズ補正はすべてのカメラに適用されます。",
+        "cameraPresetMissing": "選択したプリセットが削除されたため、このカメラの画像は再びすべてのカメラ用のプリセットを使用します。",
+        "description": "未編集の画像の初期状態と「補正設定をリセット」で戻る値を設定します。編集済みの画像の設定は変わりません。デフォルトを設定すると、RAW のサムネイルはカメラの埋め込みプレビューではなく生成されるため、最初は読み込みが遅くなります。",
+        "lensCorrection": "レンズ補正",
+        "noCamerasFound": "他のカメラが見つかりません。そのカメラの画像があるフォルダを開くか、その画像を編集中にプリセットを右クリックしてください。",
+        "noPreset": "なし（ニュートラル）",
+        "preset": "デフォルトのプリセット",
+        "presetDesc": "未編集のすべての画像に適用されます。マスク、切り抜き、変形は作成した画像にしか合わないため除外されます。",
+        "presetMissing": "選択したプリセットが削除されたため、未編集の画像は再びニュートラル値を使用します。",
+        "removeCamera": "カメラを削除",
+        "sameAsAllCameras": "すべてのカメラと同じ",
+        "scope": "適用対象",
+        "sliderReset": "スライダーのリセット",
+        "sliderResetDefaults": "デフォルトの補正",
+        "sliderResetDesc": "ダブルクリックやスピード編集などでスライダーをリセットしたときに戻る値です。マスクのスライダーは常にニュートラル値に戻ります。",
+        "sliderResetNeutral": "ニュートラル値",
+        "title": "デフォルトの補正"
       },
       "dynamicDesc": "編集画面は、ディスプレイの実際の画素密度に合わせたプレビューをレンダリングします。これにより、ズーム時やピント合わせ時に1:1のピクセル精度で細部まで鮮明に表現されます。",
       "editIn": {

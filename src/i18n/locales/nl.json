@@ -326,11 +326,13 @@
       "redo": "Opnieuw",
       "removeBlackWhite": "Zwart-wit verwijderen",
       "removeDenoise": "Ruisonderdrukking verwijderen",
-      "superResolution": "RapidRes (2x)",
-      "removeSuperResolution": "RapidRes verwijderen",
       "removeNegativeConversion": "Negatiefconversie verwijderen",
+      "removeSuperResolution": "RapidRes verwijderen",
       "resetAdjustments": "Aanpassingen herstellen",
+      "resetToDefaults": "Herstellen naar standaard",
+      "resetToNeutral": "Herstellen naar neutraal",
       "stitchPanorama": "Panorama samenvoegen",
+      "superResolution": "RapidRes (2x)",
       "tagging": "Tags toevoegen",
       "undo": "Ongedaan maken",
       "unflagged": "Niet gemarkeerd"
@@ -887,6 +889,8 @@
     },
     "presets": {
       "amount": "Hoeveelheid",
+      "defaultForAllCameras": "Standaard voor alle camera's",
+      "defaultForCamera": "Standaard voor {{camera}}",
       "dialog": {
         "allPresetFiles": "Alle voorinstellingsbestanden",
         "exportAllTitle": "Alle voorinstellingen exporteren",
@@ -907,7 +911,11 @@
         "newPreset": "Nieuwe voorinstelling",
         "overwrite": "Overschrijven",
         "renameFolder": "Map hernoemen",
-        "sortAll": "Alles alfabetisch sorteren"
+        "setDefaultAllCameras": "Instellen als standaard voor alle camera's",
+        "setDefaultForCamera": "Instellen als standaard voor {{camera}}",
+        "sortAll": "Alles alfabetisch sorteren",
+        "unsetDefaultAllCameras": "Niet meer als standaard gebruiken voor alle camera's",
+        "unsetDefaultForCamera": "Niet meer als standaard gebruiken voor {{camera}}"
       },
       "status": {
         "empty": "Nog geen voorinstellingen opgeslagen. Maak uw eigen, importeer uit een bestand of verken community-voorinstellingen.",
@@ -2125,6 +2133,31 @@
         "gl": "OpenGL",
         "metal": "Metal",
         "vulkan": "Vulkan"
+      },
+      "defaultAdjustments": {
+        "addCamera": "Camera toevoegen…",
+        "applyToNonRaw": "Ook toepassen op JPEG, TIFF, PNG en andere niet-RAW-bestanden",
+        "applyToNonRawDesc": "Indien uit gebruiken alleen RAW-bestanden deze standaardwaarden. JPEG's uit de camera zijn meestal al bewerkt en lensgecorrigeerd, dus nogmaals toepassen kan te veel worden.",
+        "autoLensCorrection": "Automatische lenscorrectie",
+        "autoLensCorrectionDesc": "Corrigeert vertekening, chromatische aberratie en vignettering met het lensprofiel dat uit de metadata van elke afbeelding is herkend.",
+        "cameraDefaults": "Standaardwaarden per camera",
+        "cameraDefaultsDesc": "Geef afbeeldingen van bepaalde camera's een eigen voorinstelling. Camera's die hier niet staan, gebruiken de standaardvoorinstelling hierboven, en lenscorrectie geldt voor alle camera's.",
+        "cameraPresetMissing": "De gekozen voorinstelling is verwijderd, daarom gebruiken afbeeldingen van deze camera weer de voorinstelling voor alle camera's.",
+        "description": "Bepaal waarmee onbewerkte afbeeldingen beginnen en waarnaar \"Aanpassingen herstellen\" terugkeert; bewerkte afbeeldingen behouden hun instellingen. Met standaardwaarden worden RAW-miniaturen berekend in plaats van de ingesloten camerapreview te gebruiken en laden ze eerst trager.",
+        "lensCorrection": "Lenscorrectie",
+        "noCamerasFound": "Geen andere camera's gevonden. Open een map met afbeeldingen van een camera, of klik met rechts op een voorinstelling terwijl je een van de afbeeldingen bewerkt.",
+        "noPreset": "Geen (neutraal)",
+        "preset": "Standaardvoorinstelling",
+        "presetDesc": "Geldt voor elke onbewerkte afbeelding. Maskers, uitsneden en transformaties worden overgeslagen, omdat ze alleen passen bij de afbeelding waarop ze zijn gemaakt.",
+        "presetMissing": "De gekozen voorinstelling is verwijderd, daarom gebruiken onbewerkte afbeeldingen weer neutrale waarden.",
+        "removeCamera": "Camera verwijderen",
+        "sameAsAllCameras": "Zelfde als alle camera's",
+        "scope": "Van toepassing op",
+        "sliderReset": "Schuifregelaar herstellen",
+        "sliderResetDefaults": "Standaardaanpassingen",
+        "sliderResetDesc": "Waar een schuifregelaar naar teruggaat als je hem herstelt, bijvoorbeeld door te dubbelklikken of in snelbewerken. Maskerregelaars gaan altijd terug naar hun neutrale waarde.",
+        "sliderResetNeutral": "Neutrale waarde",
+        "title": "Standaardaanpassingen"
       },
       "dynamicDesc": "De editor rendert het voorbeeld om overeen te komen met de werkelijke pixeldichtheid van uw beeldscherm. Dit zorgt ervoor dat elk detail wordt weergegeven met 1:1 pixelnauwkeurigheid, wat maximale helderheid biedt bij zoomen en scherpte controleren.",
       "editIn": {

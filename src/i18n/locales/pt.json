@@ -327,11 +327,13 @@
       "redo": "Refazer",
       "removeBlackWhite": "Remover Preto e Branco",
       "removeDenoise": "Remover Redução de Ruído",
-      "superResolution": "RapidRes (2x)",
-      "removeSuperResolution": "Remover RapidRes",
       "removeNegativeConversion": "Remover Conversão de Negativo",
+      "removeSuperResolution": "Remover RapidRes",
       "resetAdjustments": "Redefinir Ajustes",
+      "resetToDefaults": "Redefinir para o padrão",
+      "resetToNeutral": "Redefinir para neutro",
       "stitchPanorama": "Montar Panorama",
+      "superResolution": "RapidRes (2x)",
       "tagging": "Etiquetas",
       "undo": "Desfazer",
       "unflagged": "Sem marca"
@@ -912,6 +914,8 @@
     },
     "presets": {
       "amount": "Intensidade",
+      "defaultForAllCameras": "Padrão para todas as câmaras",
+      "defaultForCamera": "Padrão para {{camera}}",
       "dialog": {
         "allPresetFiles": "Todos os Arquivos de Predefinições",
         "exportAllTitle": "Exportar Todas as Predefinições",
@@ -932,7 +936,11 @@
         "newPreset": "Nova Predefinição",
         "overwrite": "Substituir",
         "renameFolder": "Renomear Pasta",
-        "sortAll": "Classificar Todos em Ordem Alfabética"
+        "setDefaultAllCameras": "Definir como padrão para todas as câmaras",
+        "setDefaultForCamera": "Definir como padrão para {{camera}}",
+        "sortAll": "Classificar Todos em Ordem Alfabética",
+        "unsetDefaultAllCameras": "Deixar de usar como padrão para todas as câmaras",
+        "unsetDefaultForCamera": "Deixar de usar como padrão para {{camera}}"
       },
       "status": {
         "empty": "Nenhuma predefinição salva ainda. Crie a sua própria, importe de um arquivo ou explore as predefinições da comunidade.",
@@ -2171,6 +2179,31 @@
         "gl": "OpenGL",
         "metal": "Metal",
         "vulkan": "Vulkan"
+      },
+      "defaultAdjustments": {
+        "addCamera": "Adicionar câmara…",
+        "applyToNonRaw": "Aplicar também a JPEG, TIFF, PNG e outros ficheiros não RAW",
+        "applyToNonRawDesc": "Quando desligado, só os ficheiros RAW usam estes valores. Os JPEG da câmara costumam já estar processados e corrigidos, e aplicá-los novamente pode ser excessivo.",
+        "autoLensCorrection": "Correção automática de lente",
+        "autoLensCorrectionDesc": "Corrige distorção, aberração cromática e vinheta usando o perfil de lente detetado nos metadados de cada imagem.",
+        "cameraDefaults": "Padrões por câmara",
+        "cameraDefaultsDesc": "Dê às imagens de câmaras específicas a sua própria predefinição. As câmaras não listadas usam a predefinição padrão acima, e a correção de lente aplica-se a todas as câmaras.",
+        "cameraPresetMissing": "A predefinição escolhida foi eliminada, por isso as imagens desta câmara voltam a usar a de todas as câmaras.",
+        "description": "Define com que começam as imagens não editadas e para onde «Redefinir ajustes» volta; as imagens editadas mantêm as suas definições. Com padrões definidos, as miniaturas RAW são geradas em vez de usar a pré-visualização incorporada da câmara e carregam mais devagar no início.",
+        "lensCorrection": "Correção de lente",
+        "noCamerasFound": "Nenhuma outra câmara encontrada. Abra uma pasta com imagens de uma câmara ou clique com o botão direito numa predefinição enquanto edita uma das suas imagens.",
+        "noPreset": "Nenhuma (neutra)",
+        "preset": "Predefinição padrão",
+        "presetDesc": "Aplicado a todas as imagens não editadas. Máscaras, recortes e transformações são ignorados, pois só servem para a imagem onde foram criados.",
+        "presetMissing": "A predefinição escolhida foi eliminada, por isso as imagens não editadas voltam a usar valores neutros.",
+        "removeCamera": "Remover câmara",
+        "sameAsAllCameras": "Igual a todas as câmaras",
+        "scope": "Aplica-se a",
+        "sliderReset": "Redefinição de controlos deslizantes",
+        "sliderResetDefaults": "Ajustes padrão",
+        "sliderResetDesc": "O valor para o qual um controlo deslizante volta quando o redefine, por exemplo com duplo clique ou na edição rápida. Os controlos das máscaras voltam sempre ao valor neutro.",
+        "sliderResetNeutral": "Valor neutro",
+        "title": "Ajustes padrão"
       },
       "dynamicDesc": "O editor renderiza a visualização para corresponder à densidade real de pixels da sua tela. Isso garante que cada detalhe seja representado com precisão de 1:1 pixel, fornecendo clareza máxima ao aumentar o zoom e verificar o foco.",
       "editIn": {

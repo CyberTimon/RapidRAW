@@ -499,7 +499,9 @@ pub fn load_presets(app_handle: AppHandle) -> Result<Vec<PresetItem>, String> {
 pub fn save_presets(presets: Vec<PresetItem>, app_handle: AppHandle) -> Result<(), String> {
     let path = get_presets_path(&app_handle)?;
     let json_string = serde_json::to_string_pretty(&presets).map_err(|e| e.to_string())?;
-    write_file_atomic(&path, json_string.as_bytes()).map_err(|e| e.to_string())
+    write_file_atomic(&path, json_string.as_bytes()).map_err(|e| e.to_string())?;
+    crate::adjustments::develop_defaults::refresh(&app_handle);
+    Ok(())
 }
 
 fn preset_file_display_name(file_path: &str) -> String {

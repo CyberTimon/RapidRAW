@@ -219,10 +219,32 @@ fn read_thumbnail_metadata(path_str: &str, app_handle: &AppHandle) -> Option<Ima
         );
         None
     } else {
-        fs::read_to_string(&sidecar_path)
+        let mut metadata = fs::read_to_string(&sidecar_path)
             .ok()
-            .and_then(|content| serde_json::from_str(&content).ok())
+            .and_then(|content| crate::metadata::sidecar::parse_sidecar(&content));
+        resolve_unedited_metadata(&mut metadata, path_str);
+        metadata
     }
+}
+
+fn metadata_adjustments_bytes(metadata: &Option<ImageMetadata>) -> Vec<u8> {
+    metadata
+        .as_ref()
+        .map(|meta| serde_json::to_vec(&meta.adjustments).unwrap_or_default())
+        .unwrap_or_default()
+}
+
+fn resolve_unedited_metadata(metadata: &mut Option<ImageMetadata>, path_str: &str) -> bool {
+    let (source_path, _) = parse_virtual_path(path_str);
+    if !crate::adjustments::develop_defaults::is_customized(&source_path) {
+        return false;
+    }
+    let meta = metadata.get_or_insert_with(ImageMetadata::default);
+    if !crate::render::adjustment_utils::is_unedited(&meta.adjustments) {
+        return false;
+    }
+    crate::adjustments::develop_defaults::resolve_in_place(&mut meta.adjustments, &source_path);
+    true
 }
 
 fn generate_thumbnail_data_with_metadata(
@@ -601,7 +623,7 @@ pub fn generate_single_thumbnail_and_cache(
     let sidecar_is_placeholder = is_cloud_placeholder(&sidecar_path);
 
     let mut metadata: Option<ImageMetadata> = None;
-    let (rating, is_edited, adjustments_bytes) = if sidecar_is_placeholder {
+    let (rating, is_edited, mut adjustments_bytes) = if sidecar_is_placeholder {
         enqueue_metadata(
             app_handle,
             path_str.to_string(),
@@ -610,12 +632,12 @@ pub fn generate_single_thumbnail_and_cache(
         );
         (0, false, Vec::new())
     } else if let Ok(content) = fs::read_to_string(&sidecar_path) {
-        if let Ok(meta) = serde_json::from_str::<ImageMetadata>(&content) {
+        if let Some(meta) = crate::metadata::sidecar::parse_sidecar(&content) {
             let is_raw = crate::decode::formats::is_raw_file(path_str);
             let tm = resolve_tonemapper_override(settings, is_raw);
             let info = (
                 meta.rating,
-                is_image_edited(&meta.adjustments, is_raw, tm),
+                is_image_edited(&meta.adjustments, &source_path, is_raw, tm),
                 serde_json::to_vec(&meta.adjustments).unwrap_or_default(),
             );
             metadata = Some(meta);
@@ -626,6 +648,10 @@ pub fn generate_single_thumbnail_and_cache(
     } else {
         (0, false, Vec::new())
     };
+
+    if !sidecar_is_placeholder && resolve_unedited_metadata(&mut metadata, path_str) {
+        adjustments_bytes = metadata_adjustments_bytes(&metadata);
+    }
 
     if let Some(remote) =
         crate::integrations::immich::placeholder_thumbnail(app_handle, path_str, thumb_cache_dir)
@@ -774,6 +800,8 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
     }
 }
 
+const MAX_QUEUED_THUMBNAILS: usize = 500;
+
 #[tauri::command]
 pub fn update_thumbnail_queue(
     paths: Vec<String>,
@@ -808,9 +836,8 @@ pub fn update_thumbnail_queue(
 
     queue.retain(|p| !seen.contains(p));
 
-    while queue.len() + unique_paths.len() > 500 {
-        queue.pop_front();
-    }
+    unique_paths.truncate(MAX_QUEUED_THUMBNAILS);
+    while queue.len() + unique_paths.len() > MAX_QUEUED_THUMBNAILS && queue.pop_front().is_some() {}
 
     if state
         .thumbnail_manager
@@ -927,15 +954,13 @@ pub fn clear_thumbnail_cache(app_handle: AppHandle) -> Result<(), String> {
 pub fn get_cache_key_hash(path_str: &str, settings: &AppSettings) -> Option<String> {
     let (_, sidecar_path) = parse_virtual_path(path_str);
 
-    let adjustments_bytes = if let Ok(content) = fs::read_to_string(&sidecar_path) {
-        if let Ok(meta) = serde_json::from_str::<ImageMetadata>(&content) {
-            serde_json::to_vec(&meta.adjustments).unwrap_or_default()
-        } else {
-            Vec::new()
-        }
-    } else {
-        Vec::new()
-    };
+    let mut metadata = fs::read_to_string(&sidecar_path)
+        .ok()
+        .and_then(|content| crate::metadata::sidecar::parse_sidecar(&content));
+    let mut adjustments_bytes = metadata_adjustments_bytes(&metadata);
+    if resolve_unedited_metadata(&mut metadata, path_str) {
+        adjustments_bytes = metadata_adjustments_bytes(&metadata);
+    }
 
     compute_thumbnail_cache_hash(path_str, &adjustments_bytes, settings)
 }

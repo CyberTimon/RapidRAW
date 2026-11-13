@@ -69,6 +69,26 @@ export type CompareView = 'off' | 'vertical' | 'horizontal' | 'sideBySide';
 
 export type CompareMode = 'toggle' | Exclude<CompareView, 'off'>;
 
+export type SliderResetTarget = 'neutral' | 'defaults';
+
+export interface Camera {
+  make: string;
+  model: string;
+}
+
+export interface CameraDefaults extends Camera {
+  presetId?: string | null;
+}
+
+export type DefaultsSource = 'factory' | 'allCameras' | 'camera';
+
+export interface DevelopDefaultsSettings {
+  presetId?: string | null;
+  autoLensCorrection?: boolean;
+  applyToNonRaw?: boolean;
+  cameras?: CameraDefaults[];
+}
+
 export interface AppSettings {
   aiCacheLimitGb?: number;
   aiMapsCacheLimitGb?: number;
@@ -135,6 +155,8 @@ export interface AppSettings {
   defaultRawTonemapper?: string;
   defaultNonRawTonemapper?: string;
   copyPasteSettings?: CopyPasteSettings;
+  developDefaults?: DevelopDefaultsSettings;
+  sliderResetTarget?: SliderResetTarget;
   enableFocusMode?: boolean;
   enableToolFocusMode?: boolean;
   hideCollapsedPanels?: boolean;

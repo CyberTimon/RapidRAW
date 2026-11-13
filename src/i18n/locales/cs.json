@@ -328,11 +328,13 @@
       "redo": "Znovu",
       "removeBlackWhite": "Odebrat černobílou",
       "removeDenoise": "Odebrat odšumění",
-      "superResolution": "RapidRes (2x)",
-      "removeSuperResolution": "Odebrat RapidRes",
       "removeNegativeConversion": "Odebrat převod negativu",
+      "removeSuperResolution": "Odebrat RapidRes",
       "resetAdjustments": "Obnovit nastavení",
+      "resetToDefaults": "Obnovit na výchozí",
+      "resetToNeutral": "Obnovit na neutrální",
       "stitchPanorama": "Složit panorama",
+      "superResolution": "RapidRes (2x)",
       "tagging": "Otagování",
       "undo": "Zpět",
       "unflagged": "Bez vlajky"
@@ -937,6 +939,8 @@
     },
     "presets": {
       "amount": "Množství",
+      "defaultForAllCameras": "Výchozí pro všechny fotoaparáty",
+      "defaultForCamera": "Výchozí pro {{camera}}",
       "dialog": {
         "allPresetFiles": "Všechny soubory s presety",
         "exportAllTitle": "Exportovat všechny presety",
@@ -957,7 +961,11 @@
         "newPreset": "Nový preset",
         "overwrite": "Přepsat",
         "renameFolder": "Přejmenovat složku",
-        "sortAll": "Seřadit vše podle abecedy"
+        "setDefaultAllCameras": "Nastavit jako výchozí pro všechny fotoaparáty",
+        "setDefaultForCamera": "Nastavit jako výchozí pro {{camera}}",
+        "sortAll": "Seřadit vše podle abecedy",
+        "unsetDefaultAllCameras": "Přestat používat jako výchozí pro všechny fotoaparáty",
+        "unsetDefaultForCamera": "Přestat používat jako výchozí pro {{camera}}"
       },
       "status": {
         "empty": "Zatím nejsou uloženy žádné presety. Vytvořte si vlastní, importujte ze souboru nebo prozkoumejte presety komunity.",
@@ -2213,6 +2221,31 @@
         "gl": "OpenGL",
         "metal": "Metal",
         "vulkan": "Vulkan"
+      },
+      "defaultAdjustments": {
+        "addCamera": "Přidat fotoaparát…",
+        "applyToNonRaw": "Použít také na JPEG, TIFF, PNG a další soubory jiné než RAW",
+        "applyToNonRawDesc": "Když je vypnuto, tyto hodnoty používají jen soubory RAW. JPEG z fotoaparátu jsou obvykle už zpracované a opravené, takže opětovné použití může být přehnané.",
+        "autoLensCorrection": "Automatická korekce objektivu",
+        "autoLensCorrectionDesc": "Opraví zkreslení, chromatickou vadu a vinětaci pomocí profilu objektivu rozpoznaného z metadat každého snímku.",
+        "cameraDefaults": "Výchozí hodnoty pro fotoaparáty",
+        "cameraDefaultsDesc": "Dejte snímkům z konkrétních fotoaparátů vlastní předvolbu. Fotoaparáty, které tu nejsou, používají výchozí předvolbu výše a korekce objektivu platí pro všechny fotoaparáty.",
+        "cameraPresetMissing": "Vybraná předvolba byla smazána, proto snímky z tohoto fotoaparátu opět používají předvolbu pro všechny fotoaparáty.",
+        "description": "Určuje, s čím začínají neupravené snímky a k čemu se vrací „Obnovit úpravy“; upravené snímky si ponechají své nastavení. S výchozími hodnotami se náhledy RAW vykreslují místo použití vloženého náhledu z fotoaparátu a zpočátku se načítají pomaleji.",
+        "lensCorrection": "Korekce objektivu",
+        "noCamerasFound": "Žádné další fotoaparáty nenalezeny. Otevřete složku se snímky z fotoaparátu nebo klikněte pravým tlačítkem na předvolbu při úpravě některého z jeho snímků.",
+        "noPreset": "Žádná (neutrální)",
+        "preset": "Výchozí předvolba",
+        "presetDesc": "Použije se na každý neupravený snímek. Masky, ořezy a transformace se vynechají, protože sedí jen na snímek, na kterém vznikly.",
+        "presetMissing": "Vybraná předvolba byla smazána, proto neupravené snímky opět používají neutrální hodnoty.",
+        "removeCamera": "Odebrat fotoaparát",
+        "sameAsAllCameras": "Stejně jako všechny fotoaparáty",
+        "scope": "Platí pro",
+        "sliderReset": "Obnovení posuvníků",
+        "sliderResetDefaults": "Výchozí úpravy",
+        "sliderResetDesc": "Hodnota, na kterou se posuvník vrátí při obnovení, například dvojklikem nebo v rychlých úpravách. Posuvníky masek se vždy vrací na neutrální hodnotu.",
+        "sliderResetNeutral": "Neutrální hodnota",
+        "title": "Výchozí úpravy"
       },
       "dynamicDesc": "Editor vykresluje náhled tak, aby odpovídal skutečné hustotě pixelů vašeho displeje. Tím je zajištěno, že každý detail je zobrazen s přesností pixelů 1:1, což poskytuje maximální jasnost při přibližování a kontrole zaostření.",
       "editIn": {
