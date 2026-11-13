@@ -1,0 +1,21 @@
+# RapidRAW Web on a server without a screen (installed by the .deb/.rpm into /usr/lib/systemd/user/).
+#   systemctl --user enable --now rapidraw-web       start now and at every login
+#   sudo loginctl enable-linger $USER                 …and at boot, without logging in
+#   systemctl --user edit rapidraw-web                photo folder: [Service] Environment=RR_PHOTOS=/mnt/photos
+#   journalctl --user -u rapidraw-web -f              logs
+# Then open http://<server>:8780. On a desktop, start "RapidRAW Web Bridge" from the menu instead.
+[Unit]
+Description=RapidRAW Web: RapidRAW in the browser, rendered on this computer's GPU
+After=network-online.target
+
+[Service]
+Environment=RR_PHOTOS=%h/Pictures
+Environment=RR_NO_BROWSER=1
+# WebKitGTK needs a display; the GPU (Vulkan) doesn't. xvfb-run: package xvfb (Debian/Ubuntu),
+# xorg-x11-server-Xvfb (Fedora), xorg-server-xvfb (Arch)
+ExecStart=/usr/bin/xvfb-run -a /usr/bin/rapidraw-web-bridge
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target
