@@ -300,10 +300,6 @@ fn write_exif_metadata(
     strip_gps: bool,
     dpi: Option<u16>,
 ) -> Result<(), String> {
-    if file_type == FileExtension::JXL {
-        jxl_oxide::integration::register_image_decoding_hook();
-    }
-
     let dimensions = image::ImageReader::new(Cursor::new(image_bytes.as_slice()))
         .with_guessed_format()
         .ok()
