@@ -5,17 +5,26 @@ import clsx from 'clsx';
 import { useDroppable, useDndMonitor } from '@dnd-kit/core';
 import {
   DEFAULT_PANEL_SECTION_HEIGHT,
+  getRegionActivePanel,
   getReopenedPanelWidth,
   SwitcherPlacement,
   useUIStore,
 } from '../../store/useUIStore';
 import { Panel, PanelRegion } from '../../types/ui';
-import PanelSwitcher, { MobilePanelSwitcher } from './PanelSwitcher';
+import { getDropPlacement, LayoutDropData, LayoutSide, SPLIT_BAND_RATIO, SplitSlot } from '../../utils/layoutDrop';
+import PanelSwitcher, { MobilePanelSwitcher, PANEL_ICONS } from './PanelSwitcher';
 
 const COLLAPSE_THRESHOLD = 200;
 
+const SWITCHER_BAR: Record<SwitcherPlacement, string> = {
+  top: 'inset-x-0 top-0 h-1',
+  bottom: 'inset-x-0 bottom-0 h-1',
+  left: 'inset-y-0 left-0 w-1',
+  right: 'inset-y-0 right-0 w-1',
+};
+
 interface SidePanelAreaProps {
-  side: 'left' | 'right';
+  side: LayoutSide;
   width: number;
   topRegion: PanelRegion;
   bottomRegion: PanelRegion;
@@ -24,6 +33,51 @@ interface SidePanelAreaProps {
   onWidthReset: () => void;
   isResizing: boolean;
   showAdditionalTabs?: boolean;
+}
+
+function useLayoutDropTarget(id: string, data: LayoutDropData) {
+  const { setNodeRef, isOver, active } = useDroppable({ id, data });
+  const [placement, setPlacement] = useState<SwitcherPlacement | null>(null);
+
+  useDndMonitor({
+    onDragMove({ active: dragged, over }) {
+      const next =
+        over?.id === id && dragged.data.current?.type === 'layout-tab'
+          ? getDropPlacement(data.side, over.rect, dragged.rect.current.translated)
+          : null;
+      setPlacement((prev) => (prev === next ? prev : next));
+    },
+    onDragEnd: () => setPlacement(null),
+    onDragCancel: () => setPlacement(null),
+  });
+
+  return { setNodeRef, isOver: isOver && active?.data.current?.type === 'layout-tab', placement };
+}
+
+function DropHighlight({
+  placement,
+  className,
+  children,
+}: {
+  placement: SwitcherPlacement | null;
+  className: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15, ease: 'easeOut' }}
+      className={clsx(
+        'absolute pointer-events-none overflow-hidden rounded-lg border-2 border-accent bg-accent/10',
+        className,
+      )}
+    >
+      {placement && <div className={clsx('absolute bg-accent', SWITCHER_BAR[placement])} />}
+      {children}
+    </motion.div>
+  );
 }
 
 function RegionDroppableContainer({
@@ -35,83 +89,23 @@ function RegionDroppableContainer({
   isResizing,
 }: {
   region: PanelRegion;
-  side: 'left' | 'right';
+  side: LayoutSide;
   renderPanel: (panel: Panel) => React.ReactNode;
   width: number;
   isInstantTransition: boolean;
   isResizing: boolean;
 }) {
-  const panelLayout = useUIStore((s) => s.panelLayout);
-  const activePanels = useUIStore((s) => s.activePanels);
+  const activePanel = useUIStore((s) => getRegionActivePanel(s, region));
+  const storedPanel = useUIStore((s) => s.activePanels[region] ?? s.panelLayout[region][0] ?? null);
   const setActivePanel = useUIStore((s) => s.setActivePanel);
-
   const placement = useUIStore((s) => s.panelSwitcherPlacement[region]);
-  const setPanelSwitcherPlacement = useUIStore((s) => s.setPanelSwitcherPlacement);
+  const DisabledIcon = storedPanel ? PANEL_ICONS[storedPanel] : null;
 
-  const [hoverPlacement, setHoverPlacement] = useState<SwitcherPlacement | null>(null);
-  const hoverPlacementRef = useRef<SwitcherPlacement | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-
-  const panelsInRegion = panelLayout[region];
-  const activePanel = activePanels[region] ?? (panelsInRegion.length > 0 ? panelsInRegion[0] : null);
-
-  const { setNodeRef, isOver, active } = useDroppable({
-    id: `layout-region-${region}`,
-    data: { type: 'layout-region', region },
-  });
-
-  const isLayoutDrag = active?.data?.current?.type === 'layout-tab';
-  const isActualOver = isOver && isLayoutDrag;
-
-  const setRefs = useCallback(
-    (node: HTMLDivElement | null) => {
-      setNodeRef(node);
-      containerRef.current = node;
-    },
-    [setNodeRef],
-  );
-
-  useDndMonitor({
-    onDragMove(event) {
-      if (event.active.data.current?.type !== 'layout-tab') return;
-
-      if (event.over?.id !== `layout-region-${region}` || !containerRef.current) {
-        if (hoverPlacementRef.current !== null) {
-          hoverPlacementRef.current = null;
-          setHoverPlacement(null);
-        }
-        return;
-      }
-
-      const rect = containerRef.current.getBoundingClientRect();
-      const activeRect = event.active.rect.current.translated;
-      if (!activeRect) return;
-
-      const x = activeRect.left + activeRect.width / 2 - rect.left;
-      const y = activeRect.top + activeRect.height / 2 - rect.top;
-
-      let intendedPlacement: SwitcherPlacement;
-      if (side === 'left') {
-        const isTopLeft = y < (-rect.height / rect.width) * x + rect.height;
-        intendedPlacement = isTopLeft ? 'left' : 'bottom';
-      } else {
-        const isTopRight = y < (rect.height / rect.width) * x;
-        intendedPlacement = isTopRight ? 'right' : 'bottom';
-      }
-
-      if (hoverPlacementRef.current !== intendedPlacement) {
-        hoverPlacementRef.current = intendedPlacement;
-        setHoverPlacement(intendedPlacement);
-      }
-    },
-    onDragEnd(event) {
-      if (event.over?.id === `layout-region-${region}` && hoverPlacementRef.current) {
-        setPanelSwitcherPlacement(region, hoverPlacementRef.current);
-      }
-      hoverPlacementRef.current = null;
-      setHoverPlacement(null);
-    },
-  });
+  const {
+    setNodeRef,
+    isOver,
+    placement: dropPlacement,
+  } = useLayoutDropTarget(`layout-region-${region}`, { type: 'layout-region', side, region });
 
   const handleContentInteraction = () => {
     if (activePanel) {
@@ -125,43 +119,14 @@ function RegionDroppableContainer({
 
   return (
     <div
-      ref={setRefs}
+      ref={setNodeRef}
       className={clsx(
-        'flex h-full w-full bg-bg-secondary rounded-lg overflow-hidden border transition-colors shadow-xs relative',
+        'flex h-full w-full bg-bg-secondary rounded-lg overflow-hidden border border-surface shadow-xs relative',
         isFlexRow ? 'flex-row' : 'flex-col',
-        isActualOver && !hoverPlacement ? 'border-accent' : 'border-surface',
       )}
     >
       <AnimatePresence>
-        {isActualOver && !hoverPlacement && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="absolute inset-0 z-40 bg-accent/10 backdrop-blur-sm pointer-events-none rounded-lg"
-          />
-        )}
-
-        {isActualOver && hoverPlacement && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="absolute inset-0 z-50 pointer-events-none rounded-lg overflow-hidden"
-          >
-            <div
-              className={clsx(
-                'absolute inset-0 bg-accent/10 transition-all duration-200',
-                hoverPlacement === 'bottom' && 'border-b-4 border-accent',
-                hoverPlacement === 'right' && 'border-r-4 border-accent',
-                hoverPlacement === 'left' && 'border-l-4 border-accent',
-                hoverPlacement === 'top' && 'border-t-4 border-accent',
-              )}
-            />
-          </motion.div>
-        )}
+        {isOver && <DropHighlight placement={dropPlacement} className="inset-0 z-40" />}
       </AnimatePresence>
 
       <div
@@ -180,7 +145,7 @@ function RegionDroppableContainer({
           onPointerDownCapture={handleContentInteraction}
         >
           <AnimatePresence mode="wait">
-            {activePanel && (
+            {activePanel ? (
               <motion.div
                 key={activePanel}
                 className="absolute inset-0 overflow-y-auto custom-scrollbar"
@@ -191,6 +156,19 @@ function RegionDroppableContainer({
               >
                 {renderPanel(activePanel)}
               </motion.div>
+            ) : (
+              DisabledIcon && (
+                <motion.div
+                  key="disabled"
+                  className="absolute inset-0 flex items-center justify-center text-text-secondary"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 0.2 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <DisabledIcon size={32} />
+                </motion.div>
+              )
             )}
           </AnimatePresence>
         </div>
@@ -201,122 +179,55 @@ function RegionDroppableContainer({
   );
 }
 
-function SplitOverlayDropzone({
-  region,
-  side,
-  isTop,
-}: {
-  region: PanelRegion;
-  side: 'left' | 'right';
-  isTop: boolean;
-}) {
+function SplitDropZone({ side, region, slot }: { side: LayoutSide; region: PanelRegion; slot: SplitSlot }) {
   const { t } = useTranslation();
-  const setPanelSwitcherPlacement = useUIStore((s) => s.setPanelSwitcherPlacement);
-
-  const [hoverPlacement, setHoverPlacement] = useState<SwitcherPlacement | null>(null);
-  const hoverPlacementRef = useRef<SwitcherPlacement | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-
-  const { setNodeRef, isOver, active } = useDroppable({
-    id: `layout-region-${region}`,
-    data: { type: 'layout-region', region },
+  const { setNodeRef, isOver, placement } = useLayoutDropTarget(`layout-split-${side}-${slot}`, {
+    type: 'layout-split',
+    side,
+    region,
+    slot,
   });
-
-  const isLayoutDrag = active?.data?.current?.type === 'layout-tab';
-  const isActualOver = isOver && isLayoutDrag;
-
-  const setRefs = useCallback(
-    (node: HTMLDivElement | null) => {
-      setNodeRef(node);
-      containerRef.current = node;
-    },
-    [setNodeRef],
-  );
-
-  useDndMonitor({
-    onDragMove(event) {
-      if (event.active.data.current?.type !== 'layout-tab') return;
-
-      if (event.over?.id !== `layout-region-${region}` || !containerRef.current) {
-        if (hoverPlacementRef.current !== null) {
-          hoverPlacementRef.current = null;
-          setHoverPlacement(null);
-        }
-        return;
-      }
-
-      const rect = containerRef.current.getBoundingClientRect();
-      const activeRect = event.active.rect.current.translated;
-      if (!activeRect) return;
-
-      const x = activeRect.left + activeRect.width / 2 - rect.left;
-      const y = activeRect.top + activeRect.height / 2 - rect.top;
-
-      let intendedPlacement: SwitcherPlacement;
-      if (side === 'left') {
-        const isTopLeft = y < (-rect.height / rect.width) * x + rect.height;
-        intendedPlacement = isTopLeft ? 'left' : 'bottom';
-      } else {
-        const isTopRight = y < (rect.height / rect.width) * x;
-        intendedPlacement = isTopRight ? 'right' : 'bottom';
-      }
-
-      if (hoverPlacementRef.current !== intendedPlacement) {
-        hoverPlacementRef.current = intendedPlacement;
-        setHoverPlacement(intendedPlacement);
-      }
-    },
-    onDragEnd(event) {
-      if (event.over?.id === `layout-region-${region}` && hoverPlacementRef.current) {
-        setPanelSwitcherPlacement(region, hoverPlacementRef.current);
-      }
-      hoverPlacementRef.current = null;
-      setHoverPlacement(null);
-    },
-  });
+  const isTop = slot === 'top';
 
   return (
     <motion.div
-      ref={setRefs}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.25, ease: 'easeOut' }}
-      className={clsx(
-        'absolute inset-x-0 h-1/2 z-30 border-2 flex items-center justify-center transition-all duration-200 backdrop-blur-sm overflow-hidden',
-        isTop ? 'top-0 rounded-t-lg' : 'bottom-0 rounded-b-lg',
-        isActualOver
-          ? 'scale-[0.98] text-accent font-semibold border-transparent'
-          : 'border-dashed border-accent/40 bg-bg-secondary/60 text-text-secondary',
-      )}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+      className="absolute inset-0 z-30 pointer-events-none"
     >
+      <div
+        ref={setNodeRef}
+        className={clsx(
+          'absolute inset-x-0 flex justify-center',
+          isTop ? 'top-0 items-start pt-1' : 'bottom-0 items-end pb-1',
+        )}
+        style={{ height: `${SPLIT_BAND_RATIO * 100}%` }}
+      >
+        <div
+          className={clsx(
+            'h-1 w-10 rounded-full bg-accent/60 transition-opacity duration-150',
+            isOver ? 'opacity-0' : 'opacity-100',
+          )}
+        />
+      </div>
+
       <AnimatePresence>
-        {isActualOver && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+        {isOver && (
+          <DropHighlight
+            placement={placement}
             className={clsx(
-              'absolute inset-0 z-0 pointer-events-none overflow-hidden',
-              isTop ? 'rounded-t-lg' : 'rounded-b-lg',
+              'inset-x-0 h-1/2 backdrop-blur-sm flex items-center justify-center',
+              isTop ? 'top-0' : 'bottom-0',
             )}
           >
-            <div
-              className={clsx(
-                'absolute inset-0 bg-accent/20 transition-all duration-200',
-                hoverPlacement === 'bottom' && 'border-b-4 border-accent',
-                hoverPlacement === 'right' && 'border-r-4 border-accent',
-                hoverPlacement === 'left' && 'border-l-4 border-accent',
-                hoverPlacement === 'top' && 'border-t-4 border-accent',
-              )}
-            />
-          </motion.div>
+            <span className="text-xs font-semibold uppercase tracking-wider text-accent">
+              {t('editor.layout.split')}
+            </span>
+          </DropHighlight>
         )}
       </AnimatePresence>
-      <span className="text-xs uppercase tracking-wider relative z-10 pointer-events-none">
-        {t('editor.layout.split')}
-      </span>
     </motion.div>
   );
 }
@@ -332,14 +243,18 @@ export default function SidePanelArea({
   isResizing,
   showAdditionalTabs = false,
 }: SidePanelAreaProps) {
-  const panelLayout = useUIStore((s) => s.panelLayout);
+  const hasTop = useUIStore((s) => s.panelLayout[topRegion].length > 0);
+  const hasBottom = useUIStore((s) => s.panelLayout[bottomRegion].length > 0);
+  const canSplit = useUIStore(
+    (s) =>
+      hasTop !== hasBottom &&
+      s.activeLayoutDragItem !== null &&
+      s.panelLayout[hasTop ? topRegion : bottomRegion].some((panel) => panel !== s.activeLayoutDragItem),
+  );
   const isFullScreen = useUIStore((s) => s.isFullScreen);
   const isInstantTransition = useUIStore((s) => s.isInstantTransition);
   const activeLayoutDragItem = useUIStore((s) => s.activeLayoutDragItem);
   const isDraggingLayout = !!activeLayoutDragItem;
-
-  const topPlacement = useUIStore((s) => s.panelSwitcherPlacement[topRegion]);
-  const bottomPlacement = useUIStore((s) => s.panelSwitcherPlacement[bottomRegion]);
 
   const topHeight = useUIStore((s) => (side === 'left' ? s.leftTopHeight : s.rightTopHeight));
   const setUI = useUIStore((s) => s.setUI);
@@ -384,21 +299,18 @@ export default function SidePanelArea({
     }
   }, [side, setUI]);
 
-  const topPanels = panelLayout[topRegion];
-  const bottomPanels = panelLayout[bottomRegion];
-
-  const hasTop = topPanels.length > 0;
-  const hasBottom = bottomPanels.length > 0;
-
   if (!hasTop && !hasBottom && !isDraggingLayout) return null;
 
-  const canSplitTop =
-    topPanels.length > 1 || (activeLayoutDragItem !== null && !topPanels.includes(activeLayoutDragItem));
-  const canSplitBottom =
-    bottomPanels.length > 1 || (activeLayoutDragItem !== null && !bottomPanels.includes(activeLayoutDragItem));
-
-  const topSplitIsTop = topPlacement === 'bottom';
-  const bottomSplitIsTop = bottomPlacement !== 'top';
+  const renderRegion = (region: PanelRegion) => (
+    <RegionDroppableContainer
+      region={region}
+      side={side}
+      renderPanel={renderPanel}
+      width={width}
+      isInstantTransition={isInstantTransition}
+      isResizing={isResizing}
+    />
+  );
 
   const isCollapsed = width < COLLAPSE_THRESHOLD;
   const shouldAnimateWidth = !isInstantTransition && (!isResizing || isCollapsed);
@@ -470,20 +382,7 @@ export default function SidePanelArea({
             className="flex-1 overflow-hidden relative"
             style={{ flex: hasBottom ? `0 0 ${topHeight}px` : '1 1 auto' }}
           >
-            <RegionDroppableContainer
-              region={topRegion}
-              side={side}
-              renderPanel={renderPanel}
-              width={width}
-              isInstantTransition={isInstantTransition}
-              isResizing={isResizing}
-            />
-
-            <AnimatePresence>
-              {!hasBottom && isDraggingLayout && canSplitTop && (
-                <SplitOverlayDropzone region={bottomRegion} side={side} isTop={topSplitIsTop} />
-              )}
-            </AnimatePresence>
+            {renderRegion(topRegion)}
           </div>
         )}
 
@@ -495,37 +394,14 @@ export default function SidePanelArea({
           />
         )}
 
-        {hasBottom && (
-          <div className="flex-1 overflow-hidden relative">
-            <AnimatePresence>
-              {!hasTop && isDraggingLayout && canSplitBottom && (
-                <SplitOverlayDropzone region={topRegion} side={side} isTop={bottomSplitIsTop} />
-              )}
-            </AnimatePresence>
+        {hasBottom && <div className="flex-1 overflow-hidden relative">{renderRegion(bottomRegion)}</div>}
 
-            <RegionDroppableContainer
-              region={bottomRegion}
-              side={side}
-              renderPanel={renderPanel}
-              width={width}
-              isInstantTransition={isInstantTransition}
-              isResizing={isResizing}
-            />
-          </div>
-        )}
+        {!hasTop && !hasBottom && <div className="flex-1 relative overflow-hidden">{renderRegion(topRegion)}</div>}
 
-        {!hasTop && !hasBottom && isDraggingLayout && (
-          <div className="flex-1 relative overflow-hidden">
-            <RegionDroppableContainer
-              region={topRegion}
-              side={side}
-              renderPanel={renderPanel}
-              width={width}
-              isInstantTransition={isInstantTransition}
-              isResizing={isResizing}
-            />
-          </div>
-        )}
+        <AnimatePresence>
+          {canSplit && <SplitDropZone key="top" side={side} slot="top" region={topRegion} />}
+          {canSplit && <SplitDropZone key="bottom" side={side} slot="bottom" region={bottomRegion} />}
+        </AnimatePresence>
       </div>
 
       {side === 'left' && (

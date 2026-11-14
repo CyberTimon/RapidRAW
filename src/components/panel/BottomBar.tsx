@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Star, Copy, ClipboardPaste, Check, Settings, Filter, PanelLeft, PanelBottom, PanelRight } from 'lucide-react';
+import { Star, Copy, ClipboardPaste, Check, Settings, Filter, PanelLeft, PanelRight } from 'lucide-react';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useShallow } from 'zustand/react/shallow';
@@ -16,7 +16,9 @@ import Text from '../ui/Text';
 import { useEditorStore } from '../../store/useEditorStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useLibraryActions } from '../../hooks/useLibraryActions';
-import { getReopenedPanelWidth, useUIStore } from '../../store/useUIStore';
+import { getReopenedPanelWidth, isFilmstripDocked, useUIStore } from '../../store/useUIStore';
+import { Panel } from '../../types/ui';
+import { PanelTabButton } from './PanelSwitcher';
 import { COLOR_LABELS } from '../../utils/adjustments';
 import { getDevicePixelRatio } from '../../utils/displayScale';
 
@@ -174,12 +176,14 @@ export default function BottomBar({
     })),
   );
 
+  const isDocked = useUIStore(isFilmstripDocked);
+  const hasBottomFilmstrip = showFilmstrip && !(layoutMode === 'full' && isDocked);
   const isLeftOpen = uiVisibility.leftPanel;
   const isRightOpen = uiVisibility.rightPanel;
   const isBottomOpen = uiVisibility.filmstrip;
   const showLeftPanelToggle = layoutMode === 'full';
   const showRightPanelToggle = layoutMode === 'full' || layoutMode === 'wide';
-  const showBottomPanelToggle = layoutMode !== 'compact';
+  const showFilmstripTab = !isLibraryView && layoutMode !== 'compact' && hasBottomFilmstrip;
 
   const toggleLeft = () =>
     setUI((s) => {
@@ -348,7 +352,7 @@ export default function BottomBar({
 
   return (
     <div className="shrink-0 bg-bg-secondary rounded-lg flex flex-col">
-      {!isLibraryView && showFilmstrip && (
+      {!isLibraryView && hasBottomFilmstrip && (
         <div
           className={clsx(
             'overflow-hidden shrink-0 relative',
@@ -385,7 +389,7 @@ export default function BottomBar({
         className={clsx(
           'shrink-0 h-12 flex items-center justify-between px-3',
           !isLibraryView && 'border-t transition-colors duration-300',
-          !isLibraryView && showFilmstrip && isFilmstripVisible ? 'border-surface' : 'border-transparent',
+          !isLibraryView && hasBottomFilmstrip && isFilmstripVisible ? 'border-surface' : 'border-transparent',
         )}
       >
         <div className="flex items-center gap-4">
@@ -702,7 +706,7 @@ export default function BottomBar({
           )}
 
           <div className="flex items-center gap-1 shrink-0">
-            {(showLeftPanelToggle || showRightPanelToggle || showBottomPanelToggle) && (
+            {(showLeftPanelToggle || showRightPanelToggle) && (
               <>
                 {showLeftPanelToggle && (
                   <PanelToggleButton
@@ -711,19 +715,6 @@ export default function BottomBar({
                     tooltip={
                       isLeftOpen ? t('ui.bottomBar.tooltips.collapseLeft') : t('ui.bottomBar.tooltips.expandLeft')
                     }
-                  />
-                )}
-
-                {showBottomPanelToggle && showFilmstrip && (
-                  <PanelToggleButton
-                    onClick={toggleBottom}
-                    Icon={PanelBottom}
-                    tooltip={
-                      isBottomOpen
-                        ? t('ui.bottomBar.tooltips.collapseFilmstrip')
-                        : t('ui.bottomBar.tooltips.expandFilmstrip')
-                    }
-                    disabled={isLibraryView}
                   />
                 )}
 
@@ -739,6 +730,25 @@ export default function BottomBar({
               </>
             )}
           </div>
+
+          {showFilmstripTab && (
+            <>
+              <div className="h-5 w-px shrink-0 bg-surface"></div>
+              <PanelTabButton
+                panel={Panel.Filmstrip}
+                isActive={isBottomOpen}
+                indicatorId="active-indicator-filmstrip"
+                onClick={toggleBottom}
+                isDraggable={layoutMode === 'full'}
+                isCompact
+                tooltip={
+                  isBottomOpen
+                    ? t('ui.bottomBar.tooltips.collapseFilmstrip')
+                    : t('ui.bottomBar.tooltips.expandFilmstrip')
+                }
+              />
+            </>
+          )}
         </div>
       </div>
     </div>

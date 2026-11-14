@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { Image as ImageIcon, Star, SlidersHorizontal, Loader2, Pause } from 'lucide-react';
 import clsx from 'clsx';
-import { Grid, useGridCallbackRef } from 'react-window';
+import { Grid, useGridCallbackRef, type CellComponentProps } from 'react-window';
 import { useTranslation } from 'react-i18next';
 import { ImageFile, ImageFlag } from '../../types/library';
 import { SelectedImage } from '../../types/editor';
+import { Orientation } from '../../types/ui';
 import { ThumbnailAspectRatio, GroupingMode } from '../../types/settings';
 import FlagBadges from './library/FlagBadges';
 import { Color, COLOR_LABELS } from '../../utils/adjustments';
@@ -13,11 +14,15 @@ import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { useProcessStore } from '../../store/useProcessStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
+import { useEditorStore } from '../../store/useEditorStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useDraggable } from '@dnd-kit/core';
 import { useCtrlClickMenuGuard } from '../../hooks/useCtrlClickMenuGuard';
 
 const HORIZONTAL_PADDING = 4;
 const ITEM_GAP = 8;
+const GRID_TARGET_CELL_SIZE = 160;
+const SCROLLBAR_SIZE = 10;
 
 interface ImageLayer {
   id: string;
@@ -35,7 +40,7 @@ interface ItemData {
   onContextMenu?: (event: any, path: string) => void;
   onImageSelect?: (path: string, event: any) => void;
   itemHeight: number;
-  setRatio: (path: string, ratio: number) => void;
+  setRatio?: (path: string, ratio: number) => void;
 }
 
 const FilmstripThumbnail = memo(
@@ -58,7 +63,7 @@ const FilmstripThumbnail = memo(
     onImageSelect?: (path: string, event: any) => void;
     thumbnailAspectRatio: ThumbnailAspectRatio;
     itemHeight: number;
-    setRatio: (path: string, ratio: number) => void;
+    setRatio?: (path: string, ratio: number) => void;
   }) => {
     const { t } = useTranslation();
     const thumbData = useProcessStore((s) => s.thumbnails[imageFile.path]);
@@ -115,7 +120,7 @@ const FilmstripThumbnail = memo(
         thumbnailAspectRatio === ThumbnailAspectRatio.Contain ||
         thumbnailAspectRatio === ThumbnailAspectRatio.Justified;
 
-      if (needsCalculation && thumbData) {
+      if (needsCalculation && thumbData && setRatio) {
         const img = new Image();
         img.onload = () => {
           const ratio = img.naturalWidth / img.naturalHeight;
@@ -332,20 +337,23 @@ const FilmstripThumbnail = memo(
   },
 );
 
-const FilmstripCell = ({
-  columnIndex,
-  style,
-  imageList,
-  imageRatings,
-  selectedPath,
-  multiSelectedSet,
-  thumbnailAspectRatio,
-  onContextMenu,
-  onImageSelect,
-  itemHeight,
-  setRatio,
-}: any) => {
-  const imageFile = imageList[columnIndex];
+type FilmstripCellData = ItemData & { multiSelectedSet: Set<string>; columnCount: number };
+
+const renderThumbnail = (imageFile: ImageFile, props: FilmstripCellData) => (
+  <FilmstripThumbnail
+    imageFile={imageFile}
+    rating={props.imageRatings?.[imageFile.path] || 0}
+    isActive={props.selectedPath === imageFile.path}
+    isSelected={props.multiSelectedSet.has(imageFile.path)}
+    onContextMenu={props.onContextMenu}
+    onImageSelect={props.onImageSelect}
+    thumbnailAspectRatio={props.thumbnailAspectRatio}
+    itemHeight={props.itemHeight}
+    setRatio={props.setRatio}
+  />
+);
+
+const FilmstripCell = ({ columnIndex, style, ...props }: any) => {
   const fullWidth = style.width as number;
   const contentWidth = fullWidth - ITEM_GAP;
 
@@ -360,30 +368,31 @@ const FilmstripCell = ({
         justifyContent: 'flex-start',
       }}
     >
-      <div style={{ width: contentWidth, height: itemHeight }}>
-        <FilmstripThumbnail
-          imageFile={imageFile}
-          rating={imageRatings?.[imageFile.path] || 0}
-          isActive={selectedPath === imageFile.path}
-          isSelected={multiSelectedSet.has(imageFile.path)}
-          onContextMenu={onContextMenu}
-          onImageSelect={onImageSelect}
-          thumbnailAspectRatio={thumbnailAspectRatio}
-          itemHeight={itemHeight}
-          setRatio={setRatio}
-        />
+      <div style={{ width: contentWidth, height: props.itemHeight }}>
+        {renderThumbnail(props.imageList[columnIndex], props)}
       </div>
     </div>
   );
 };
 
+const FilmstripGridCell = ({ columnIndex, rowIndex, style, ...props }: CellComponentProps<FilmstripCellData>) => {
+  const imageFile = props.imageList[rowIndex * props.columnCount + columnIndex];
+  if (!imageFile) return null;
+
+  return <div style={{ ...style, padding: ITEM_GAP / 2 }}>{renderThumbnail(imageFile, props)}</div>;
+};
+
+const getGridColumnCount = (width: number) => Math.max(1, Math.round(width / GRID_TARGET_CELL_SIZE));
+
 const FilmstripList = ({
   height,
   width,
+  isVertical,
   data,
 }: {
   height: number;
   width: number;
+  isVertical: boolean;
   data: Omit<ItemData, 'itemHeight' | 'setRatio'> & {
     clickTriggeredScroll: React.RefObject<boolean>;
     multiSelectedSet: Set<string>;
@@ -405,6 +414,35 @@ const FilmstripList = ({
   const hasCompletedInitialScroll = useRef(false);
   const [isRevealed, setIsRevealed] = useState(false);
 
+  const gridLayout = useMemo(() => {
+    if (!isVertical) return { columnCount: data.imageList.length, rowCount: 1, cellSize: 0 };
+    let innerWidth = width;
+    let columnCount = getGridColumnCount(innerWidth);
+    if (Math.ceil(data.imageList.length / columnCount) * (innerWidth / columnCount) > height) {
+      innerWidth = width - SCROLLBAR_SIZE;
+      columnCount = getGridColumnCount(innerWidth);
+    }
+    return {
+      columnCount,
+      rowCount: Math.ceil(data.imageList.length / columnCount),
+      cellSize: Math.floor(innerWidth / columnCount),
+    };
+  }, [isVertical, data.imageList.length, width, height]);
+  const itemsPerRow = isVertical ? gridLayout.columnCount : 1;
+  const crossAxisSize = isVertical ? width : height;
+
+  const scrollToItem = useCallback(
+    (index: number, behavior: 'smooth' | 'instant') => {
+      if (!gridHandle) return;
+      if (isVertical) {
+        gridHandle.scrollToRow({ index: Math.floor(index / itemsPerRow), align: 'center', behavior });
+      } else {
+        gridHandle.scrollToColumn({ index, align: 'center', behavior });
+      }
+    },
+    [gridHandle, isVertical, itemsPerRow],
+  );
+
   useEffect(() => {
     const timer = setTimeout(() => setIsRevealed(true), 800);
     return () => clearTimeout(timer);
@@ -413,7 +451,7 @@ const FilmstripList = ({
   useEffect(() => {
     if (isRevealed) return;
 
-    if (data.thumbnailAspectRatio === ThumbnailAspectRatio.Cover) {
+    if (isVertical || data.thumbnailAspectRatio === ThumbnailAspectRatio.Cover) {
       setIsRevealed(true);
       return;
     }
@@ -425,14 +463,21 @@ const FilmstripList = ({
     }
 
     if (ratioMapRef.current[data.imageList[selectedIndex].path]) {
-      if (gridHandle) {
-        gridHandle.scrollToColumn({ index: selectedIndex, align: 'center', behavior: 'instant' });
-      }
+      scrollToItem(selectedIndex, 'instant');
       requestAnimationFrame(() => setIsRevealed(true));
     }
-  }, [ratioMapVersion, data.selectedPath, data.imageList, data.thumbnailAspectRatio, gridHandle, isRevealed]);
+  }, [
+    ratioMapVersion,
+    data.selectedPath,
+    data.imageList,
+    data.thumbnailAspectRatio,
+    scrollToItem,
+    isRevealed,
+    isVertical,
+  ]);
 
   const itemHeight = useMemo(() => {
+    if (isVertical) return gridLayout.cellSize;
     const baseHeight = Math.max(20, height - 20);
     const expandedHeight = Math.max(20, height - 8);
 
@@ -450,7 +495,7 @@ const FilmstripList = ({
     }
 
     return baseHeight;
-  }, [data.imageList, data.thumbnailAspectRatio, height, width, ratioMapVersion]);
+  }, [isVertical, gridLayout.cellSize, data.imageList, data.thumbnailAspectRatio, height, width, ratioMapVersion]);
 
   const getColumnWidth = useCallback(
     (index: number) => {
@@ -482,10 +527,10 @@ const FilmstripList = ({
     resizeEndTimer.current = window.setTimeout(() => {
       const { selectedPath, imageList, multiSelectedPaths } = currentDataRef.current;
 
-      if (selectedPath && gridHandle && multiSelectedPaths.length <= 1) {
+      if (selectedPath && multiSelectedPaths.length <= 1) {
         const index = imageList.findIndex((img) => img.path === selectedPath);
         if (index !== -1) {
-          gridHandle.scrollToColumn({ index, align: 'center', behavior: 'smooth' });
+          scrollToItem(index, 'smooth');
         }
       }
     }, 500);
@@ -493,7 +538,7 @@ const FilmstripList = ({
     return () => {
       if (resizeEndTimer.current) clearTimeout(resizeEndTimer.current);
     };
-  }, [height, gridHandle]);
+  }, [crossAxisSize, scrollToItem]);
 
   useEffect(() => {
     return () => {
@@ -516,10 +561,9 @@ const FilmstripList = ({
       visibleCells: { columnStartIndex: number; columnStopIndex: number; rowStartIndex: number; rowStopIndex: number },
       allCells: { columnStartIndex: number; columnStopIndex: number; rowStartIndex: number; rowStopIndex: number },
     ) => {
-      visibleRange.current = {
-        start: visibleCells.columnStartIndex,
-        stop: visibleCells.columnStopIndex,
-      };
+      visibleRange.current = isVertical
+        ? { start: visibleCells.rowStartIndex, stop: visibleCells.rowStopIndex }
+        : { start: visibleCells.columnStartIndex, stop: visibleCells.columnStopIndex };
 
       const currentData = currentDataRef.current;
       if (!currentData.onRequestThumbnails) return;
@@ -527,7 +571,9 @@ const FilmstripList = ({
       const cached = useProcessStore.getState().thumbnails;
       const pathsToRequest: string[] = [];
 
-      for (let i = allCells.columnStartIndex; i <= allCells.columnStopIndex; i++) {
+      const firstIndex = allCells.rowStartIndex * itemsPerRow + allCells.columnStartIndex;
+      const lastIndex = allCells.rowStopIndex * itemsPerRow + allCells.columnStopIndex;
+      for (let i = firstIndex; i <= lastIndex; i++) {
         const img = currentData.imageList[i];
         if (img && !cached[img.path]) {
           pathsToRequest.push(img.path);
@@ -538,13 +584,17 @@ const FilmstripList = ({
         currentData.onRequestThumbnails(pathsToRequest);
       }
     },
-    [],
+    [isVertical, itemsPerRow],
   );
 
-  const isItemVisible = useCallback((index: number) => {
-    const { start, stop } = visibleRange.current;
-    return index > start && index < stop;
-  }, []);
+  const isItemVisible = useCallback(
+    (index: number) => {
+      const { start, stop } = visibleRange.current;
+      const track = Math.floor(index / itemsPerRow);
+      return track > start && track < stop;
+    },
+    [itemsPerRow],
+  );
 
   const performSafeScroll = useCallback(
     (index: number, bypassLock = false) => {
@@ -558,11 +608,7 @@ const FilmstripList = ({
       isAnimatingScroll.current = true;
       pendingScrollTarget.current = null;
 
-      gridHandle.scrollToColumn({
-        index,
-        align: 'center',
-        behavior: isReadyForSmooth.current ? 'smooth' : 'instant',
-      });
+      scrollToItem(index, isReadyForSmooth.current ? 'smooth' : 'instant');
 
       if (scrollAnimationTimeout.current) clearTimeout(scrollAnimationTimeout.current);
 
@@ -579,7 +625,7 @@ const FilmstripList = ({
         }
       }, 250);
     },
-    [gridHandle, isItemVisible],
+    [gridHandle, isItemVisible, scrollToItem],
   );
 
   useEffect(() => {
@@ -626,9 +672,10 @@ const FilmstripList = ({
     () => ({
       ...data,
       itemHeight,
-      setRatio,
+      setRatio: isVertical ? undefined : setRatio,
+      columnCount: itemsPerRow,
     }),
-    [data, itemHeight, setRatio],
+    [data, itemHeight, setRatio, isVertical, itemsPerRow],
   );
 
   return (
@@ -642,22 +689,22 @@ const FilmstripList = ({
       <Grid
         gridRef={setGridHandle}
         defaultWidth={width}
-        rowCount={1}
-        rowHeight={height}
-        columnCount={data.imageList.length}
-        columnWidth={getColumnWidth}
-        cellComponent={FilmstripCell}
+        rowCount={gridLayout.rowCount}
+        rowHeight={isVertical ? gridLayout.cellSize : height}
+        columnCount={gridLayout.columnCount}
+        columnWidth={isVertical ? gridLayout.cellSize : getColumnWidth}
+        cellComponent={isVertical ? FilmstripGridCell : FilmstripCell}
         cellProps={cellProps}
         className="custom-scrollbar"
-        style={{ overflowY: 'hidden' }}
+        style={isVertical ? { overflowX: 'hidden' } : { overflowY: 'hidden' }}
         onWheel={(e: React.WheelEvent<HTMLDivElement>) => {
-          if (e.deltaY !== 0 && Math.abs(e.deltaX) < Math.abs(e.deltaY)) {
+          if (!isVertical && e.deltaY !== 0 && Math.abs(e.deltaX) < Math.abs(e.deltaY)) {
             e.currentTarget.scrollLeft += e.deltaY;
             e.preventDefault();
           }
         }}
         onCellsRendered={onCellsRendered}
-        overscanCount={16}
+        overscanCount={isVertical ? 4 : 16}
       />
     </div>
   );
@@ -673,6 +720,7 @@ interface FilmStripProps {
   onEmptyAreaContextMenu?(event: any): void;
   onImageSelect?(path: string, event: any): void;
   onRequestThumbnails?(paths: string[]): void;
+  orientation?: Orientation;
   selectedImage?: SelectedImage;
   thumbnailAspectRatio: ThumbnailAspectRatio;
   totalImages?: number;
@@ -688,6 +736,7 @@ export default function Filmstrip({
   onEmptyAreaContextMenu,
   onImageSelect,
   onRequestThumbnails,
+  orientation = Orientation.Horizontal,
   selectedImage,
   thumbnailAspectRatio,
 }: FilmStripProps) {
@@ -772,7 +821,43 @@ export default function Filmstrip({
 
   return (
     <div ref={containerRef} className="h-full w-full" onClick={onClearSelection} onContextMenu={handleContextMenu}>
-      {size.height > 0 && size.width > 0 && <FilmstripList height={size.height} width={size.width} data={listData} />}
+      {size.height > 0 && size.width > 0 && (
+        <FilmstripList
+          height={size.height}
+          width={size.width}
+          isVertical={orientation === Orientation.Vertical}
+          data={listData}
+        />
+      )}
+    </div>
+  );
+}
+
+type DockedFilmstripProps = Omit<
+  FilmStripProps,
+  'imageRatings' | 'isLoading' | 'multiSelectedPaths' | 'orientation' | 'selectedImage'
+>;
+
+export function DockedFilmstrip(props: DockedFilmstripProps) {
+  const selectedImage = useEditorStore((s) => s.selectedImage);
+  const { imageRatings, isViewLoading, multiSelectedPaths } = useLibraryStore(
+    useShallow((s) => ({
+      imageRatings: s.imageRatings,
+      isViewLoading: s.isViewLoading,
+      multiSelectedPaths: s.multiSelectedPaths,
+    })),
+  );
+
+  return (
+    <div className="h-full p-1">
+      <Filmstrip
+        {...props}
+        imageRatings={imageRatings}
+        isLoading={isViewLoading}
+        multiSelectedPaths={multiSelectedPaths}
+        orientation={Orientation.Vertical}
+        selectedImage={selectedImage ?? undefined}
+      />
     </div>
   );
 }

@@ -2,6 +2,8 @@ import { type RefObject, type PointerEvent as ReactPointerEvent } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
+import { useDroppable } from '@dnd-kit/core';
 
 import Editor from '../panel/Editor';
 import BottomBar from '../panel/BottomBar';
@@ -9,13 +11,13 @@ import Resizer from '../ui/Resizer';
 import { MobilePanelSwitcher } from '../panel/PanelSwitcher';
 
 import { useEditorStore } from '../../store/useEditorStore';
-import { useUIStore } from '../../store/useUIStore';
+import { isFilmstripDocked, useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useProcessStore } from '../../store/useProcessStore';
 import { getImageFlag } from '../../utils/imageFlags';
 
 import { ImageFile } from '../../types/library';
-import { Orientation } from '../../types/ui';
+import { Orientation, Panel } from '../../types/ui';
 import { ThumbnailAspectRatio } from '../../types/settings';
 
 interface EditorViewProps {
@@ -42,6 +44,32 @@ interface EditorViewProps {
   handlePanelSelect: (panelId: any) => void;
   requestThumbnails: any;
   renderAppPanel: (panelId: any) => React.ReactNode;
+}
+
+function FilmstripDropzone({ height }: { height: number }) {
+  const { t } = useTranslation();
+  const { setNodeRef, isOver } = useDroppable({ id: 'layout-bottom', data: { type: 'layout-bottom' } });
+
+  return (
+    <motion.div
+      ref={setNodeRef}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.25, ease: 'easeOut' }}
+      className={clsx(
+        'absolute inset-x-0 bottom-0 z-30 rounded-lg border-2 flex items-center justify-center transition-all duration-200 backdrop-blur-sm overflow-hidden',
+        isOver
+          ? 'scale-[0.98] border-transparent bg-accent/20 text-accent font-semibold'
+          : 'border-dashed border-accent/40 bg-bg-secondary/60 text-text-secondary',
+      )}
+      style={{ height }}
+    >
+      <span className="text-xs uppercase tracking-wider pointer-events-none">
+        {t('editor.switcher.tooltips.filmstrip')}
+      </span>
+    </motion.div>
+  );
 }
 
 export default function EditorView({
@@ -75,13 +103,24 @@ export default function EditorView({
     })),
   );
 
-  const { isFullScreen, isInstantTransition, uiVisibility, bottomPanelHeight, activePanel, setUI } = useUIStore(
+  const {
+    isFullScreen,
+    isInstantTransition,
+    uiVisibility,
+    bottomPanelHeight,
+    activePanel,
+    isFilmstripInSidePanel,
+    isDraggingFilmstrip,
+    setUI,
+  } = useUIStore(
     useShallow((state) => ({
       isFullScreen: state.isFullScreen,
       isInstantTransition: state.isInstantTransition,
       uiVisibility: state.uiVisibility,
       bottomPanelHeight: state.bottomPanelHeight,
       activePanel: state.activePanel,
+      isFilmstripInSidePanel: layoutMode === 'full' && isFilmstripDocked(state),
+      isDraggingFilmstrip: state.activeLayoutDragItem === Panel.Filmstrip,
       setUI: state.setUI,
     })),
   );
@@ -157,13 +196,16 @@ export default function EditorView({
         opacity: isFullScreen ? 0 : 1,
       }}
     >
-      {layoutMode !== 'compact' && (
-        <Resizer
-          direction={Orientation.Horizontal}
-          onMouseDown={createResizeHandler('bottom', bottomPanelHeight)}
-          onDoubleClick={createResizeResetHandler('bottom')}
-        />
-      )}
+      {layoutMode !== 'compact' &&
+        (isFilmstripInSidePanel ? (
+          <div className="h-2 shrink-0" />
+        ) : (
+          <Resizer
+            direction={Orientation.Horizontal}
+            onMouseDown={createResizeHandler('bottom', bottomPanelHeight)}
+            onDoubleClick={createResizeResetHandler('bottom')}
+          />
+        ))}
       {editorBottomBarComponent}
     </div>
   );
@@ -210,7 +252,12 @@ export default function EditorView({
 
   return (
     <div className={clsx('flex grow h-full min-h-0', layoutMode === 'compact' ? 'flex-col gap-2' : 'flex-col')}>
-      <div className={clsx('flex-1 flex flex-col min-w-0', layoutMode === 'compact' && 'min-h-0')}>{editorNode}</div>
+      <div className={clsx('relative flex-1 flex flex-col min-w-0', layoutMode === 'compact' && 'min-h-0')}>
+        {editorNode}
+        <AnimatePresence>
+          {isFilmstripInSidePanel && isDraggingFilmstrip && <FilmstripDropzone height={bottomPanelHeight} />}
+        </AnimatePresence>
+      </div>
       {layoutMode === 'compact' ? editorMobilePanelNode : editorBottomBarNode}
     </div>
   );

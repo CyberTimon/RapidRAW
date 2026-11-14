@@ -36,6 +36,7 @@ export enum Panel {
   Presets = 'presets',
   FolderTree = 'folderTree',
   Tethering = 'tethering',
+  Filmstrip = 'filmstrip',
 }
 
 export type PanelRegion = 'leftTop' | 'leftBottom' | 'rightTop' | 'rightBottom';
