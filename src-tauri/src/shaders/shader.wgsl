@@ -322,6 +322,9 @@ const BLACK_FINE_POP: f32 = 0.35;
 const BLACK_FINE_CORE: f32 = 0.1;
 const BLACK_FLOOR: f32 = 0.005;
 const BLACK_FLOOR_SPREAD: f32 = 0.05;
+const BLACK_TOE: f32 = 0.6;
+const BLACK_TOE_END: f32 = 0.3;
+const BLACK_TOE_GAIN: f32 = 16.0;
 
 override HIGH_PRECISION_OUTPUT: u32 = 0u;
 override FEATURES: u32 = 0xFFFFFFFFu;
@@ -613,6 +616,30 @@ fn shape_detail(d: f32, sigma: f32) -> f32 {
     return d / (1.0 + x * x);
 }
 
+fn highlight_shift(level: f32, hl: f32, white_level: f32, clipped: f32) -> f32 {
+    var shift = tone_lift(-hl, tone_ramp(level - HIGHLIGHT_PIVOT, HIGHLIGHT_KNEE), HIGHLIGHT_PULL, HIGHLIGHT_PUSH, HIGHLIGHT_MAX, HIGHLIGHT_PUSH_MAX);
+    if (shift > 0.0) {
+        let at_white = tone_lift(-hl, tone_ramp(white_level - HIGHLIGHT_PIVOT, HIGHLIGHT_KNEE), HIGHLIGHT_PULL, HIGHLIGHT_PUSH, HIGHLIGHT_MAX, HIGHLIGHT_PUSH_MAX);
+        let ceiling = select(HIGHLIGHT_CEILING, AGX_WHITE_LEVEL + HIGHLIGHT_CEILING, has_feature(F_AGX) && adjustments.global.tonemapper_mode == 1u);
+        let pinned = clamp((white_level - ceiling) / max(at_white, TONE_FLOOR), 0.0, 1.0);
+        let dull = clamp(ceiling - white_level, 0.0, 1.0);
+        shift *= mix(1.0, max(pinned, dull), smoothstep(white_level - HIGHLIGHT_SHOULDER, white_level, level));
+        shift *= 1.0 - HIGHLIGHT_CLIP_HOLD * clipped * smoothstep(white_level - HIGHLIGHT_HOLD_RANGE, white_level - HIGHLIGHT_HOLD_TOP, level);
+    }
+    return shift;
+}
+
+fn shadow_shift(shade: f32, log_luma: f32, sh: f32) -> f32 {
+    return select(1.0, smoothstep(SHADOW_BLACK_LO, SHADOW_BLACK_HI, log_luma), sh > 0.0) * tone_lift(sh, tone_ramp(SHADOW_PIVOT - shade, SHADOW_KNEE), SHADOW_LIFT, SHADOW_DROP, SHADOW_MAX, SHADOW_DROP_MAX);
+}
+
+fn toned_key(key: f32, white_level: f32) -> f32 {
+    let hl = clamp(adjustments.global.highlights * TONE_HS_UNIT, -TONE_MAX, TONE_MAX);
+    let sh = clamp(adjustments.global.shadows * TONE_HS_UNIT, -TONE_MAX, TONE_MAX);
+    let level = key - highlight_shift(key, hl, white_level, 0.0);
+    return level + shadow_shift(level, key, sh);
+}
+
 fn apply_tonal_adjustments(
     color: vec3<f32>,
     fine_detail: f32,
@@ -641,22 +668,13 @@ fn apply_tonal_adjustments(
 
     var level = region;
     let depth = tone_ramp(level - HIGHLIGHT_PIVOT, HIGHLIGHT_KNEE);
-    var shift = tone_lift(-hl, depth, HIGHLIGHT_PULL, HIGHLIGHT_PUSH, HIGHLIGHT_MAX, HIGHLIGHT_PUSH_MAX);
     let slope = 1.0 - max(-hl, 0.0) * HIGHLIGHT_PULL * exp(-HIGHLIGHT_PULL * depth / HIGHLIGHT_MAX)
               * tone_ramp_slope(level - HIGHLIGHT_PIVOT, HIGHLIGHT_KNEE);
-    if (shift > 0.0) {
-        let at_white = tone_lift(-hl, tone_ramp(white_level - HIGHLIGHT_PIVOT, HIGHLIGHT_KNEE), HIGHLIGHT_PULL, HIGHLIGHT_PUSH, HIGHLIGHT_MAX, HIGHLIGHT_PUSH_MAX);
-        let ceiling = select(HIGHLIGHT_CEILING, AGX_WHITE_LEVEL + HIGHLIGHT_CEILING, has_feature(F_AGX) && adjustments.global.tonemapper_mode == 1u);
-        let pinned = clamp((white_level - ceiling) / max(at_white, TONE_FLOOR), 0.0, 1.0);
-        let dull = clamp(ceiling - white_level, 0.0, 1.0);
-        shift *= mix(1.0, max(pinned, dull), smoothstep(white_level - HIGHLIGHT_SHOULDER, white_level, level));
-        shift *= 1.0 - HIGHLIGHT_CLIP_HOLD * clipped * smoothstep(white_level - HIGHLIGHT_HOLD_RANGE, white_level - HIGHLIGHT_HOLD_TOP, level);
-    }
-    level -= shift;
+    level -= highlight_shift(level, hl, white_level, clipped);
     let pull = min(level - region, 0.0);
     let lit = level;
     let shade = log_luma - kept_tone + level - region;
-    level += select(1.0, smoothstep(SHADOW_BLACK_LO, SHADOW_BLACK_HI, log_luma), sh > 0.0) * tone_lift(sh, tone_ramp(SHADOW_PIVOT - shade, SHADOW_KNEE), SHADOW_LIFT, SHADOW_DROP, SHADOW_MAX, SHADOW_DROP_MAX);
+    level += shadow_shift(shade, log_luma, sh);
     let lift = level - lit;
 
     let pop = max(lift, 0.0) * SHADOW_POP * shape_detail(kept_broad, SHADOW_POP_SIGMA);
@@ -678,6 +696,18 @@ fn apply_tonal_adjustments(
 
 fn black_floor(luma: f32, bl: f32) -> f32 {
     return max(bl, 0.0) * BLACK_FLOOR * BLACK_FLOOR_SPREAD / (BLACK_FLOOR_SPREAD + max(luma, 0.0));
+}
+
+fn black_toe(rgb: vec3<f32>, bl: f32) -> vec3<f32> {
+    let positive = max(rgb, vec3<f32>(0.0));
+    let luma = get_luma(positive);
+    if (bl <= 0.0 || luma < TONE_FLOOR) {
+        return rgb;
+    }
+    let u = min(pow(luma, 1.0 / 2.2) / BLACK_TOE_END, 1.0);
+    let w = (1.0 - u) * (1.0 - u);
+    let gain = min(pow(u, -2.2 * bl * BLACK_TOE * w), BLACK_TOE_GAIN);
+    return rgb + positive * (gain - 1.0);
 }
 
 fn apply_tone_ends(
@@ -730,23 +760,34 @@ fn apply_tone_ends(
     if (raised > 0.0) {
         rgb = mix(rgb, vec3<f32>(get_luma(rgb)), clamp(raised * 0.03, 0.0, 0.12));
     }
-    return rgb + vec3<f32>(black_floor(get_luma(max(rgb, vec3<f32>(0.0))), bl));
+    let toed = black_toe(rgb, bl);
+    return toed + vec3<f32>(black_floor(get_luma(max(toed, vec3<f32>(0.0))), bl));
 }
 
-fn apply_contrast(color: vec3<f32>, con: f32) -> vec3<f32> {
+const CONTRAST_GAIN: f32 = 1.25;
+const CONTRAST_END_KEEP: f32 = 0.75;
+const CONTRAST_PIVOT_LO: f32 = 0.15;
+const CONTRAST_PIVOT_HI: f32 = 0.6;
+
+fn contrast_half(t: vec3<f32>, mid: f32, end: f32) -> vec3<f32> {
+    return t * (end + t * ((3.0 - 2.0 * end - mid) + t * (end + mid - 2.0)));
+}
+
+fn apply_contrast(color: vec3<f32>, con: f32, key: f32) -> vec3<f32> {
     if (con == 0.0) {
         return color;
     }
     let safe_rgb = max(color, vec3<f32>(0.0));
     let g = 2.2;
-    let perceptual = pow(safe_rgb, vec3<f32>(1.0 / g));
-    let clamped_perceptual = clamp(perceptual, vec3<f32>(0.0), vec3<f32>(1.0));
-    let strength = pow(2.0, con * 1.25);
-    let condition = clamped_perceptual < vec3<f32>(0.5);
-    let high_part = 1.0 - 0.5 * pow(2.0 * (1.0 - clamped_perceptual), vec3<f32>(strength));
-    let low_part = 0.5 * pow(2.0 * clamped_perceptual, vec3<f32>(strength));
-    let curved_perceptual = select(high_part, low_part, condition);
-    let contrast_adjusted_rgb = pow(curved_perceptual, vec3<f32>(g));
+    let perceptual = clamp(pow(safe_rgb, vec3<f32>(1.0 / g)), vec3<f32>(0.0), vec3<f32>(1.0));
+    let strength = pow(2.0, con * CONTRAST_GAIN);
+    let end = pow(strength, -CONTRAST_END_KEEP);
+    let scale = min(1.0, 3.0 / sqrt(strength * strength + end * end));
+    let pivot = clamp(pow(exp2(key), 1.0 / g), CONTRAST_PIVOT_LO, CONTRAST_PIVOT_HI);
+    let low_part = pivot * contrast_half(perceptual / pivot, strength * scale, end * scale);
+    let high_part = 1.0 - (1.0 - pivot) * contrast_half((1.0 - perceptual) / (1.0 - pivot), strength * scale, end * scale);
+    let curved_perceptual = select(high_part, low_part, perceptual < vec3<f32>(pivot));
+    let contrast_adjusted_rgb = pow(max(curved_perceptual, vec3<f32>(0.0)), vec3<f32>(g));
     let mix_factor = smoothstep(vec3<f32>(1.0), vec3<f32>(1.01), safe_rgb);
     return mix(contrast_adjusted_rgb, color, mix_factor);
 }
@@ -2143,10 +2184,15 @@ fn main(
     var composite_rgb_linear = processed_rgb;
     composite_rgb_linear = apply_white_balance(composite_rgb_linear, t_wb_log_gains);
     composite_rgb_linear = apply_centre_tonal_and_color(composite_rgb_linear, adjustments.global.centre, vec2<f32>(adjustments.global.centre_x, adjustments.global.centre_y), absolute_coord_i);
-    let white_level = textureLoad(airlight_texture, vec2<i32>(2, 0), 0).x + t_exposure;
+    let tone_stats = textureLoad(airlight_texture, vec2<i32>(2, 0), 0);
+    let white_level = tone_stats.x + t_exposure;
     let tone_broad = sampled_base.tone_detail * max(detail_core(sampled_base.tone_detail, LC_BROAD_CORE), textured);
     let toned = apply_tonal_adjustments(composite_rgb_linear, detail_fine + lc_log_gain, detail_broad, tone_broad, sampled_base.clipped, t_highlights, t_shadows, white_level);
-    composite_rgb_linear = apply_contrast(toned.rgb, t_contrast);
+    var contrast_key = 0.0;
+    if (t_contrast != 0.0) {
+        contrast_key = toned_key(tone_stats.w + adjustments.global.exposure, tone_stats.x + adjustments.global.exposure);
+    }
+    composite_rgb_linear = apply_contrast(toned.rgb, t_contrast, contrast_key);
     composite_rgb_linear = apply_tone_ends(composite_rgb_linear, toned.w, detail_fine + lc_log_gain, tone_broad, t_highlights, t_whites, t_blacks);
     let is_monochrome = has_feature(F_MONOCHROME) && adjustments.global.monochrome.enabled == 1u;
     if (!is_monochrome) {

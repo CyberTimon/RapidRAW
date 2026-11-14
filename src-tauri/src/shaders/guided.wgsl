@@ -11,6 +11,7 @@ struct GfParams {
 @group(0) @binding(3) var<uniform> params: GfParams;
 
 const GF_LUMA_FLOOR: f32 = 1.0e-4;
+const TB_KEY_LO: f32 = -13.0;
 const LUMA_COEFF = vec3<f32>(0.2126, 0.7152, 0.0722);
 
 fn srgb_to_linear(c: vec3<f32>) -> vec3<f32> {
@@ -298,10 +299,29 @@ fn tb_peak(@builtin(global_invocation_id) id: vec3<u32>) {
 
     let dims = vec2<i32>(textureDimensions(src_a));
     var peak = -1.0e9;
+    var hist: array<f32, 72>;
+    for (var i = 0; i < 72; i = i + 1) {
+        hist[i] = 0.0;
+    }
+    var counted = 0.0;
     for (var y = 0; y < dims.y; y = y + 1) {
         for (var x = 0; x < dims.x; x = x + 1) {
-            peak = max(peak, textureLoad(src_a, vec2<i32>(x, y), 0).z);
+            let cell = textureLoad(src_a, vec2<i32>(x, y), 0);
+            peak = max(peak, cell.z);
+            if (cell.x > TB_KEY_LO) {
+                hist[clamp(i32((cell.x - TB_KEY_LO) * 4.0), 0, 71)] += 1.0;
+                counted += 1.0;
+            }
         }
+    }
+    var key = TB_KEY_LO;
+    var below = 0.0;
+    for (var i = 0; i < 72; i = i + 1) {
+        if (counted > 0.0 && below + hist[i] >= 0.5 * counted) {
+            key = TB_KEY_LO + (f32(i) + (0.5 * counted - below) / max(hist[i], 1.0)) * 0.25;
+            break;
+        }
+        below += hist[i];
     }
     var clipped = 0.0;
     for (var y = 0; y < dims.y; y = y + 1) {
@@ -313,7 +333,7 @@ fn tb_peak(@builtin(global_invocation_id) id: vec3<u32>) {
         }
     }
     let confidence = smoothstep(TB_CLIP_LO, TB_CLIP_HI, clipped / f32(dims.x * dims.y));
-    textureStore(dst, vec2<u32>(2u, 0u), vec4<f32>(peak + (1.0 - confidence) * TB_CLIP_HEADROOM, confidence, peak, 0.0));
+    textureStore(dst, vec2<u32>(2u, 0u), vec4<f32>(peak + (1.0 - confidence) * TB_CLIP_HEADROOM, confidence, peak, key));
 }
 
 @compute @workgroup_size(8, 8, 1)
