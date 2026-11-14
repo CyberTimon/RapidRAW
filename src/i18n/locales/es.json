@@ -870,6 +870,7 @@
         "focalLength": "Distancia focal",
         "iso": "ISO",
         "lens": "Lente",
+        "model": "Modelo",
         "shutterSpeed": "Velocidad de obturación",
         "title": "Detalles de la cámara"
       },

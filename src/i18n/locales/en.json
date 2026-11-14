@@ -845,6 +845,7 @@
         "focalLength": "Focal Length",
         "iso": "ISO",
         "lens": "Lens",
+        "model": "Model",
         "shutterSpeed": "Shutter Speed",
         "title": "Camera Details"
       },

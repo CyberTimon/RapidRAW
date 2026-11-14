@@ -842,6 +842,7 @@
         "focalLength": "초점 거리",
         "iso": "ISO",
         "lens": "렌즈",
+        "model": "모델",
         "shutterSpeed": "셔터 속도",
         "title": "카메라 세부 정보"
       },
