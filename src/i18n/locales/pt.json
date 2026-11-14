@@ -1510,10 +1510,7 @@
       "originalRatio": "Proporção Original"
     },
     "thumbnailSize": {
-      "large": "Grande",
-      "list": "Lista",
-      "medium": "Médio",
-      "small": "Pequeno"
+      "list": "Lista"
     },
     "tooltips": {
       "communityPresets": "Predefinições da Comunidade",
@@ -2425,13 +2422,11 @@
     "bottomBar": {
       "imagesSelected": "{{current}} de {{total}} imagens selecionadas",
       "tooltips": {
-        "collapseFilmstrip": "Recolher Tira de Filme",
         "collapseLeft": "Recolher painel esquerdo",
         "collapseRight": "Recolher painel direito",
         "copyPasteSettings": "Copiar e Colar Configurações",
         "copySettings": "Copiar Configurações",
         "customZoom": "Clique para inserir a porcentagem de zoom personalizada",
-        "expandFilmstrip": "Expandir Tira de Filme",
         "expandLeft": "Expandir painel esquerdo",
         "expandRight": "Expandir painel direito",
         "export": "Exportar",

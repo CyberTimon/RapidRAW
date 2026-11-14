@@ -54,7 +54,7 @@ interface PanelTabButtonProps {
   isDraggable?: boolean;
   isDisabled?: boolean;
   isCompact?: boolean;
-  tooltip?: string;
+  dragId?: string;
 }
 
 export function PanelTabButton({
@@ -65,14 +65,14 @@ export function PanelTabButton({
   isDraggable = true,
   isDisabled = false,
   isCompact = false,
-  tooltip,
+  dragId = `layout-tab-${panel}`,
 }: PanelTabButtonProps) {
   const { t } = useTranslation();
   const isInstantTransition = useUIStore((s) => s.isInstantTransition);
   const Icon = PANEL_ICONS[panel];
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `layout-tab-${panel}`,
+    id: dragId,
     data: { type: 'layout-tab', panel },
     disabled: !isDraggable || isDisabled,
   });
@@ -80,7 +80,7 @@ export function PanelTabButton({
   return (
     <button
       data-layout-tab
-      data-tab-id={`layout-tab-${panel}`}
+      data-tab-id={dragId}
       ref={setNodeRef}
       {...listeners}
       {...attributes}
@@ -96,7 +96,7 @@ export function PanelTabButton({
         isDragging && 'opacity-30',
       )}
       onClick={isDisabled ? undefined : onClick}
-      data-tooltip={tooltip ?? t(PANEL_TITLES[panel])}
+      data-tooltip={t(PANEL_TITLES[panel])}
       style={{ touchAction: 'none' }}
     >
       {isActive && (

@@ -28,6 +28,7 @@ import {
   ThumbnailSize,
   ThumbnailAspectRatio,
   LibraryDisplayMode,
+  THUMBNAIL_SIZE_STEPS,
 } from '../../types/settings';
 import { ImageFile, RawStatus, EditedStatus, FlagStatus } from '../../types/library';
 import { GroupBadgeInfo, GroupId } from '../../utils/imageGrouping';
@@ -218,15 +219,6 @@ export default function MainLibrary(props: MainLibraryProps) {
       { key: FlagStatus.Picked, label: t('library.filters.flag.picked') },
       { key: FlagStatus.ExcludeRejected, label: t('library.filters.flag.excludeRejected') },
       { key: FlagStatus.Rejected, label: t('library.filters.flag.rejected') },
-    ],
-    [t],
-  );
-
-  const translatedThumbnailSizeOptions = useMemo(
-    () => [
-      { id: ThumbnailSize.Small, label: t('library.thumbnailSize.small'), size: 160 },
-      { id: ThumbnailSize.Medium, label: t('library.thumbnailSize.medium'), size: 240 },
-      { id: ThumbnailSize.Large, label: t('library.thumbnailSize.large'), size: 320 },
     ],
     [t],
   );
@@ -602,7 +594,7 @@ export default function MainLibrary(props: MainLibraryProps) {
                   setLibraryViewMode={props.setLibraryViewMode}
                   thumbnailSize={props.thumbnailSize}
                   thumbnailAspectRatio={props.thumbnailAspectRatio}
-                  thumbnailSizeOptions={translatedThumbnailSizeOptions}
+                  thumbnailSizeOptions={THUMBNAIL_SIZE_STEPS}
                   thumbnailAspectRatioOptions={translatedThumbnailAspectRatioOptions}
                   ratingFilterOptions={translatedRatingFilterOptions}
                   rawStatusOptions={translatedRawStatusOptions}
@@ -650,7 +642,7 @@ export default function MainLibrary(props: MainLibraryProps) {
             {...props}
             libraryDisplayMode={libraryDisplayMode}
             selectionModeActive={selectionModeActive}
-            thumbnailSizeOptions={translatedThumbnailSizeOptions}
+            thumbnailSizeOptions={THUMBNAIL_SIZE_STEPS}
           />
         )
       ) : props.aiTaggingJob || props.aiModelDownloadStatus || props.importState.status === Status.Importing ? (

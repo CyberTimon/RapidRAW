@@ -1581,10 +1581,7 @@
       "originalRatio": "Pradinis santykis"
     },
     "thumbnailSize": {
-      "large": "Didelis",
-      "list": "Sąrašas",
-      "medium": "Vidutinis",
-      "small": "Mažas"
+      "list": "Sąrašas"
     },
     "tooltips": {
       "communityPresets": "Bendruomenės nustatymai",
@@ -2518,13 +2515,11 @@
     "bottomBar": {
       "imagesSelected": "Pasirinkta nuotraukų: {{current}} iš {{total}}",
       "tooltips": {
-        "collapseFilmstrip": "Suskleisti juostą",
         "collapseLeft": "Suskleisti kairįjį skydelį",
         "collapseRight": "Suskleisti dešinįjį skydelį",
         "copyPasteSettings": "Kopijuoti ir įklijuoti nustatymus",
         "copySettings": "Kopijuoti nustatymus",
         "customZoom": "Spustelėkite, kad įvestumėte mastelį procentais",
-        "expandFilmstrip": "Išskleisti juostą",
         "expandLeft": "Išskleisti kairįjį skydelį",
         "expandRight": "Išskleisti dešinįjį skydelį",
         "export": "Eksportuoti",

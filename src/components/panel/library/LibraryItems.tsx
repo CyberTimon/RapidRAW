@@ -55,6 +55,7 @@ const ThumbnailComponent = ({
   isCloudPlaceholder,
   groupBadgeLabel,
   onAspectRatioLoaded,
+  showFileInfo = true,
 }: any) => {
   const { t } = useTranslation();
   const data = useProcessStore((s) => s.thumbnails[path]);
@@ -385,14 +386,14 @@ const ThumbnailComponent = ({
         className={clsx(
           'absolute bottom-0 left-0 right-0 h-16 transition-opacity duration-300 pointer-events-none z-10',
           'bg-linear-to-t from-black/70 to-transparent',
-          isAlways ? 'opacity-0' : isHover ? 'opacity-100 group-hover:opacity-0' : 'opacity-100',
+          !showFileInfo || isAlways ? 'opacity-0' : isHover ? 'opacity-100 group-hover:opacity-0' : 'opacity-100',
         )}
       />
 
       <div
         className={clsx(
           'w-full transition-[grid-template-rows] duration-300 ease-in-out grid shrink-0 z-0',
-          isAlways ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+          showFileInfo && isAlways ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
         )}
         aria-hidden="true"
       >
@@ -441,11 +442,13 @@ const ThumbnailComponent = ({
       <div
         className={clsx(
           'absolute bottom-0 left-0 right-0 flex flex-col p-2 pb-1.5 transition-all duration-300 ease-in-out z-20',
-          isAlways
-            ? 'bg-surface border-t border-border-color/50 pointer-events-auto'
-            : isHover
-              ? 'bg-transparent group-hover:bg-surface/60 backdrop-blur-none group-hover:backdrop-blur-md border-t border-transparent group-hover:border-border-color/50 pointer-events-none group-hover:pointer-events-auto'
-              : 'bg-transparent border-t border-transparent pointer-events-none',
+          !showFileInfo
+            ? 'opacity-0 translate-y-2 bg-transparent border-t border-transparent pointer-events-none'
+            : isAlways
+              ? 'bg-surface border-t border-border-color/50 pointer-events-auto'
+              : isHover
+                ? 'bg-transparent group-hover:bg-surface/60 backdrop-blur-none group-hover:backdrop-blur-md border-t border-transparent group-hover:border-border-color/50 pointer-events-none group-hover:pointer-events-auto'
+                : 'bg-transparent border-t border-transparent pointer-events-none',
         )}
       >
         <div className="flex items-end justify-between shrink-0">
@@ -532,6 +535,21 @@ const ThumbnailComponent = ({
           </div>
         </div>
       </div>
+
+      {isVirtualCopy && (
+        <Text
+          as="div"
+          variant={TextVariants.small}
+          weight={TextWeights.bold}
+          className={clsx(
+            'absolute bottom-1.5 right-1.5 z-20 px-1.5 py-0.5 rounded-full bg-black/30 text-white backdrop-blur-xs shadow-md transition-opacity duration-300',
+            showFileInfo ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto',
+          )}
+          data-tooltip={t('library.items.tooltipVirtualCopy')}
+        >
+          VC
+        </Text>
+      )}
 
       <div
         className={clsx('absolute inset-0 rounded-md pointer-events-none z-30 transition-all duration-150', ringClass)}
@@ -928,6 +946,7 @@ export const Row = ({
   onToggleRecursiveFolder,
   groupBadgeInfo,
   onAspectRatioLoaded,
+  showFileInfo,
 }: any) => {
   const { t } = useTranslation();
   const row = rows[index];
@@ -1091,6 +1110,7 @@ export const Row = ({
                 isCloudPlaceholder={imageFile.is_cloud_placeholder}
                 groupBadgeLabel={imageFile.group_id && groupBadgeInfo?.get(imageFile.group_id)?.label}
                 onAspectRatioLoaded={onAspectRatioLoaded}
+                showFileInfo={showFileInfo}
               />
             )}
           </div>

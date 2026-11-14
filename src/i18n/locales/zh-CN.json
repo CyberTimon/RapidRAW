@@ -1471,10 +1471,7 @@
       "originalRatio": "原始比例"
     },
     "thumbnailSize": {
-      "large": "大",
-      "list": "列表",
-      "medium": "中",
-      "small": "小"
+      "list": "列表"
     },
     "tooltips": {
       "communityPresets": "社区预设",
@@ -2377,13 +2374,11 @@
     "bottomBar": {
       "imagesSelected": "已选择 {{current}} / {{total}} 张图像",
       "tooltips": {
-        "collapseFilmstrip": "折叠胶片条",
         "collapseLeft": "折叠左侧面板",
         "collapseRight": "折叠右侧面板",
         "copyPasteSettings": "复制与粘贴设置",
         "copySettings": "复制设置",
         "customZoom": "点击输入自定义缩放百分比",
-        "expandFilmstrip": "展开胶片条",
         "expandLeft": "展开左侧面板",
         "expandRight": "展开右侧面板",
         "export": "导出",

@@ -1477,10 +1477,7 @@
       "originalRatio": "Originele verhouding"
     },
     "thumbnailSize": {
-      "large": "Groot",
-      "list": "Lijst",
-      "medium": "Middel",
-      "small": "Klein"
+      "list": "Lijst"
     },
     "tooltips": {
       "communityPresets": "Community-voorinstellingen",
@@ -2379,13 +2376,11 @@
     "bottomBar": {
       "imagesSelected": "{{current}} van {{total}} afbeeldingen geselecteerd",
       "tooltips": {
-        "collapseFilmstrip": "Filmstrip inklappen",
         "collapseLeft": "Linkerpaneel inklappen",
         "collapseRight": "Rechterpaneel inklappen",
         "copyPasteSettings": "Instellingen kopiëren & plakken",
         "copySettings": "Instellingen kopiëren",
         "customZoom": "Klik om aangepast zoompercentage in te voeren",
-        "expandFilmstrip": "Filmstrip uitklappen",
         "expandLeft": "Linkerpaneel uitklappen",
         "expandRight": "Rechterpaneel uitklappen",
         "export": "Exporteren",

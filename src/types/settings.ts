@@ -42,6 +42,8 @@ export interface WorkspaceState {
   panelLayout: Record<PanelRegion, Panel[]>;
   activePanels: Record<PanelRegion, Panel | null>;
   panelSwitcherPlacement: Record<PanelRegion, 'left' | 'right' | 'top' | 'bottom'>;
+  filmstripColumns: number;
+  filmstripShowFileInfo: boolean;
 }
 
 export interface CustomAspectRatio {
@@ -189,10 +191,22 @@ export enum LibraryDisplayMode {
 }
 
 export enum ThumbnailSize {
+  ExtraLarge = 'extraLarge',
   Large = 'large',
   Medium = 'medium',
+  SmallMedium = 'smallMedium',
   Small = 'small',
+  ExtraSmall = 'extraSmall',
 }
+
+export const THUMBNAIL_SIZE_STEPS: Array<{ id: ThumbnailSize; size: number }> = [
+  { id: ThumbnailSize.ExtraSmall, size: 120 },
+  { id: ThumbnailSize.Small, size: 160 },
+  { id: ThumbnailSize.SmallMedium, size: 200 },
+  { id: ThumbnailSize.Medium, size: 240 },
+  { id: ThumbnailSize.Large, size: 320 },
+  { id: ThumbnailSize.ExtraLarge, size: 400 },
+];
 
 export interface AdjustmentLayout {
   collapsedTools?: string[];

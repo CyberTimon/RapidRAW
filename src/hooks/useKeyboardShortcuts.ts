@@ -7,7 +7,7 @@ import { KEYBIND_DEFINITIONS, getEffectiveCombo, normalizeCombo } from '../utils
 import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { getReopenedPanelWidth, useUIStore } from '../store/useUIStore';
+import { getReopenedPanelWidth, isPanelVisible, useUIStore } from '../store/useUIStore';
 import { useProcessStore } from '../store/useProcessStore';
 import { applyCrop, cancelCrop, useEditorActions } from './useEditorActions';
 import { useLibraryActions } from './useLibraryActions';
@@ -453,7 +453,8 @@ export const useKeyboardShortcuts = ({
         },
       },
       toggle_library_exif: {
-        shouldFire: (s: any) => s.ui.activeView === 'library',
+        shouldFire: (s: any) =>
+          s.ui.activeView === 'library' || (s.ui.filmstripShowFileInfo && isPanelVisible(s.ui, Panel.Filmstrip)),
         execute: (e: any, s: any) => {
           e.preventDefault();
           const current = s.settings.appSettings?.exifOverlay || ExifOverlay.Off;

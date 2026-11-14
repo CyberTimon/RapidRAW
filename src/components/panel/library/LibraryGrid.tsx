@@ -10,8 +10,9 @@ import { LibraryViewMode, LibraryDisplayMode, ThumbnailAspectRatio, ExifOverlay 
 import { SortDirection, ImageFile } from '../../../types/library';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights, TEXT_COLOR_KEYS } from '../../../types/typography';
-import { useProcessStore } from '../../../store/useProcessStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
+import { useAspectRatioMap } from '../../../hooks/useAspectRatioMap';
+import { useThumbnailRequestQueue } from '../../../hooks/useThumbnailRequestQueue';
 
 function ListHeader({ widths, setWidths, containerRef, sortCriteria, onSortChange }: any) {
   const { t } = useTranslation();
@@ -247,8 +248,6 @@ export default function LibraryGrid(props: any) {
   const libraryContainerRef = useRef<HTMLDivElement>(null);
   const gridObserverRef = useRef<ResizeObserver | null>(null);
   const loadedThumbnailsRef = useRef(new Set<string>());
-  const requestQueueRef = useRef<Set<string>>(new Set());
-  const requestTimeoutRef = useRef<any>(null);
   const exifOverlay = useSettingsStore((s) => s.appSettings?.exifOverlay || ExifOverlay.Off);
   const showExifCols = exifOverlay !== ExifOverlay.Off;
 
@@ -273,34 +272,7 @@ export default function LibraryGrid(props: any) {
     };
   }, []);
 
-  const ratioMapRef = useRef<Record<string, number>>({});
-  const [ratioMapVersion, setRatioMapVersion] = useState(0);
-  const ratioTimeoutRef = useRef<any>(null);
-
-  const handleAspectRatioLoaded = useCallback(
-    (path: string, ratio: number) => {
-      if (Math.abs((ratioMapRef.current[path] || 0) - ratio) > 0.01) {
-        ratioMapRef.current[path] = ratio;
-
-        if (!ratioTimeoutRef.current) {
-          ratioTimeoutRef.current = setTimeout(() => {
-            if (listHandle && typeof (listHandle as any).resetAfterIndex === 'function') {
-              (listHandle as any).resetAfterIndex(0);
-            }
-            setRatioMapVersion((v) => v + 1);
-            ratioTimeoutRef.current = null;
-          }, 150);
-        }
-      }
-    },
-    [listHandle],
-  );
-
-  useEffect(() => {
-    return () => {
-      if (ratioTimeoutRef.current) clearTimeout(ratioTimeoutRef.current);
-    };
-  }, []);
+  const { ratioMapRef, ratioMapVersion, onAspectRatioLoaded: handleAspectRatioLoaded } = useAspectRatioMap();
 
   useEffect(() => {
     const el = libraryContainerRef.current;
@@ -364,33 +336,9 @@ export default function LibraryGrid(props: any) {
 
   useEffect(() => () => handleScroll.cancel(), [handleScroll]);
 
-  const queueThumbnailRequest = useCallback(
-    (path: string) => {
-      if (!onRequestThumbnails) return;
-      if (useProcessStore.getState().thumbnails[path]) return;
-      requestQueueRef.current.add(path);
-      if (!requestTimeoutRef.current) {
-        requestTimeoutRef.current = setTimeout(() => {
-          const paths = Array.from(requestQueueRef.current);
-          if (paths.length > 0) {
-            onRequestThumbnails(paths);
-            requestQueueRef.current.clear();
-          }
-          requestTimeoutRef.current = null;
-        }, 50);
-      }
-    },
-    [onRequestThumbnails],
-  );
+  const { queueThumbnailRequest, clearThumbnailRequests } = useThumbnailRequestQueue(onRequestThumbnails);
 
-  useEffect(
-    () => () => {
-      if (requestTimeoutRef.current) clearTimeout(requestTimeoutRef.current);
-      requestTimeoutRef.current = null;
-      requestQueueRef.current.clear();
-    },
-    [currentFolderPath],
-  );
+  useEffect(() => clearThumbnailRequests, [currentFolderPath, clearThumbnailRequests]);
 
   const handleToggleRecursiveFolder = useCallback((path: string) => {
     setCollapsedRecursiveFolders((prev) => {

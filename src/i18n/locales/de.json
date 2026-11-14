@@ -1477,10 +1477,7 @@
       "originalRatio": "Original-Verhältnis"
     },
     "thumbnailSize": {
-      "large": "Groß",
-      "list": "Liste",
-      "medium": "Mittel",
-      "small": "Klein"
+      "list": "Liste"
     },
     "tooltips": {
       "communityPresets": "Community-Vorgaben",
@@ -2383,13 +2380,11 @@
     "bottomBar": {
       "imagesSelected": "{{current}} von {{total}} Bildern ausgewählt",
       "tooltips": {
-        "collapseFilmstrip": "Filmstreifen minimieren",
         "collapseLeft": "Linkes Panel einklappen",
         "collapseRight": "Rechtes Panel einklappen",
         "copyPasteSettings": "Einstellungen kopieren & einfügen",
         "copySettings": "Einstellungen kopieren",
         "customZoom": "Klicken, um benutzerdefinierten Zoom-Prozentsatz einzugeben",
-        "expandFilmstrip": "Filmstreifen erweitern",
         "expandLeft": "Linkes Panel ausklappen",
         "expandRight": "Rechtes Panel ausklappen",
         "export": "Exportieren",

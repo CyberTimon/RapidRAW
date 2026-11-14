@@ -102,6 +102,8 @@ const DEFAULT_PANEL_DEFAULT_REGIONS: Partial<Record<Panel, PanelRegion>> = {
 export const DEFAULT_PANEL_WIDTH = 350;
 export const DEFAULT_PANEL_SECTION_HEIGHT = 450;
 export const DEFAULT_BOTTOM_PANEL_HEIGHT = 144;
+export const DEFAULT_FILMSTRIP_COLUMNS = 2;
+export const MAX_FILMSTRIP_COLUMNS = 6;
 const MIN_REOPENED_PANEL_WIDTH = 250;
 
 export const getReopenedPanelWidth = (width: number) =>
@@ -137,6 +139,8 @@ export function reconcileWorkspace(
       rightTop: 'right',
       rightBottom: 'right',
     },
+    filmstripColumns: DEFAULT_FILMSTRIP_COLUMNS,
+    filmstripShowFileInfo: false,
   };
 
   if (!savedWorkspace || !savedWorkspace.panelLayout) {
@@ -196,6 +200,11 @@ export function reconcileWorkspace(
       ...defaultWorkspace.panelSwitcherPlacement,
       ...(savedWorkspace.panelSwitcherPlacement || {}),
     },
+    filmstripColumns: Math.min(
+      MAX_FILMSTRIP_COLUMNS,
+      Math.max(1, savedWorkspace.filmstripColumns || DEFAULT_FILMSTRIP_COLUMNS),
+    ),
+    filmstripShowFileInfo: savedWorkspace.filmstripShowFileInfo ?? false,
   };
 }
 
@@ -297,6 +306,8 @@ export interface UIState {
   bottomPanelHeight: number;
   leftTopHeight: number;
   rightTopHeight: number;
+  filmstripColumns: number;
+  filmstripShowFileInfo: boolean;
   compactEditorPanelHeightOverride: number | null;
 
   panelLayout: Record<PanelRegion, Panel[]>;
@@ -372,6 +383,8 @@ export const useUIStore = create<UIState>((set, get) => ({
   bottomPanelHeight: DEFAULT_BOTTOM_PANEL_HEIGHT,
   leftTopHeight: DEFAULT_PANEL_SECTION_HEIGHT,
   rightTopHeight: DEFAULT_PANEL_SECTION_HEIGHT,
+  filmstripColumns: DEFAULT_FILMSTRIP_COLUMNS,
+  filmstripShowFileInfo: false,
   compactEditorPanelHeightOverride: null,
 
   panelLayout: {
@@ -560,6 +573,8 @@ export const useUIStore = create<UIState>((set, get) => ({
       panelLayout: defaultWorkspace.panelLayout,
       activePanels: defaultWorkspace.activePanels,
       panelSwitcherPlacement: defaultWorkspace.panelSwitcherPlacement,
+      filmstripColumns: defaultWorkspace.filmstripColumns,
+      filmstripShowFileInfo: defaultWorkspace.filmstripShowFileInfo,
       uiVisibility: { filmstrip: true, leftPanel: true, rightPanel: true, quickFilter: false },
       activePanel: defaultWorkspace.activePanels.rightTop || null,
       renderedPanel: defaultWorkspace.activePanels.rightTop || null,

@@ -24,7 +24,7 @@ import AppModals from './components/modals/AppModals';
 
 import SidePanelArea from './components/panel/SidePanelArea';
 import { PANEL_ICONS } from './components/panel/PanelSwitcher';
-import { DockedFilmstrip } from './components/panel/Filmstrip';
+import DockedFilmstrip from './components/panel/DockedFilmstrip';
 import { getDropPlacement, layoutCollisionDetection, type LayoutDropData } from './utils/layoutDrop';
 import Controls from './components/panel/right/ControlsPanel';
 import MetadataPanel from './components/panel/right/MetadataPanel';
@@ -779,6 +779,7 @@ function App() {
           return (
             <DockedFilmstrip
               imageList={sortedImageList}
+              groupBadgeInfo={groupBadgeInfo}
               onClearSelection={handleClearSelection}
               onContextMenu={handleThumbnailContextMenu}
               onEmptyAreaContextMenu={handleMainLibraryContextMenu}
@@ -817,6 +818,7 @@ function App() {
       handleImageClick,
       requestThumbnails,
       thumbnailAspectRatio,
+      groupBadgeInfo,
     ],
   );
 

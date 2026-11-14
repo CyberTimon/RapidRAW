@@ -7,19 +7,17 @@ import { useTranslation } from 'react-i18next';
 
 import Filmstrip from './Filmstrip';
 import { GLOBAL_KEYS } from '../../types/ui';
-import { ImageFile, ImageFlag, FlagStatus, RATING_OPERATORS } from '../../types/library';
+import { ImageFile, ImageFlag } from '../../types/library';
 import { SelectedImage } from '../../types/editor';
 import { ThumbnailAspectRatio } from '../../types/settings';
-import { FLAG_ICONS } from '../../utils/imageFlags';
 import FlagToggles from './library/FlagToggles';
 import Text from '../ui/Text';
 import { useEditorStore } from '../../store/useEditorStore';
-import { useLibraryStore } from '../../store/useLibraryStore';
 import { useLibraryActions } from '../../hooks/useLibraryActions';
 import { getReopenedPanelWidth, isFilmstripDocked, useUIStore } from '../../store/useUIStore';
 import { Panel } from '../../types/ui';
 import { PanelTabButton } from './PanelSwitcher';
-import { COLOR_LABELS } from '../../utils/adjustments';
+import { QuickFilterControls, useQuickFilterToggle } from './QuickFilter';
 import { getDevicePixelRatio } from '../../utils/displayScale';
 
 interface BottomBarProps {
@@ -161,12 +159,6 @@ export default function BottomBar({
 }: BottomBarProps) {
   const { t } = useTranslation();
   const { handleToggleFlag } = useLibraryActions();
-  const handleToggleFlagFilter = (status: FlagStatus) => {
-    setFilterCriteria((prev) => ({
-      ...prev,
-      flagStatus: prev.flagStatus === status ? FlagStatus.All : status,
-    }));
-  };
 
   const { isInstantTransition, uiVisibility, setUI } = useUIStore(
     useShallow((state) => ({
@@ -183,7 +175,8 @@ export default function BottomBar({
   const isBottomOpen = uiVisibility.filmstrip;
   const showLeftPanelToggle = layoutMode === 'full';
   const showRightPanelToggle = layoutMode === 'full' || layoutMode === 'wide';
-  const showFilmstripTab = !isLibraryView && layoutMode !== 'compact' && hasBottomFilmstrip;
+  const showFilmstripTab = layoutMode !== 'compact' && hasBottomFilmstrip;
+  const showQuickFilter = isLibraryView || !(layoutMode === 'full' && isDocked);
 
   const toggleLeft = () =>
     setUI((s) => {
@@ -233,25 +226,7 @@ export default function BottomBar({
   const total = totalImages ?? 0;
   const showSelectionCounter = numSelected > 1;
 
-  const isFilterExpanded = Boolean(uiVisibility.quickFilter);
-
-  const toggleQuickFilter = () => {
-    setUI((s) => ({
-      uiVisibility: {
-        ...s.uiVisibility,
-        quickFilter: !s.uiVisibility.quickFilter,
-      },
-    }));
-  };
-  const { filterCriteria, setFilterCriteria } = useLibraryStore(
-    useShallow((state) => ({
-      filterCriteria: state.filterCriteria,
-      setFilterCriteria: state.setFilterCriteria,
-    })),
-  );
-  const ratingOp = RATING_OPERATORS[filterCriteria.ratingOperator ?? 'gte'];
-
-  const allColors = [...COLOR_LABELS, { name: 'none', color: '#9ca3af' }];
+  const { isExpanded: isFilterExpanded, toggle: toggleQuickFilter } = useQuickFilterToggle();
   const currentHeight = filmstripHeight ?? 120;
   const isCollapsed = !isFilmstripVisible;
   const effectiveHeight = isFilmstripVisible ? currentHeight : 0;
@@ -392,7 +367,7 @@ export default function BottomBar({
           !isLibraryView && hasBottomFilmstrip && isFilmstripVisible ? 'border-surface' : 'border-transparent',
         )}
       >
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <StarRating rating={rating} onRate={onRate} disabled={isRatingDisabled} />
           <FlagToggles
             flag={flag}
@@ -477,155 +452,41 @@ export default function BottomBar({
             </button>
           </div>
 
-          <div className="h-5 w-px bg-surface"></div>
+          {showQuickFilter && (
+            <>
+              <div className="h-5 w-px bg-surface"></div>
 
-          <div
-            className={clsx(
-              'flex items-center transition-all duration-300',
-              isFilterExpanded ? 'bg-surface rounded-md' : 'bg-transparent',
-            )}
-          >
-            <button
-              className={clsx(
-                'relative w-8 h-8 flex items-center justify-center rounded-md transition-colors shrink-0',
-                isFilterExpanded ? 'text-text-primary' : 'text-text-secondary hover:bg-surface hover:text-text-primary',
-              )}
-              onClick={toggleQuickFilter}
-              data-tooltip={t('ui.bottomBar.tooltips.quickFilter')}
-            >
-              <Filter size={18} />
-            </button>
+              <div
+                className={clsx(
+                  'flex items-center transition-all duration-300',
+                  isFilterExpanded ? 'bg-surface rounded-md' : 'bg-transparent',
+                )}
+              >
+                <button
+                  className={clsx(
+                    'relative w-8 h-8 flex items-center justify-center rounded-md transition-colors shrink-0',
+                    isFilterExpanded
+                      ? 'text-text-primary'
+                      : 'text-text-secondary hover:bg-surface hover:text-text-primary',
+                  )}
+                  onClick={toggleQuickFilter}
+                  data-tooltip={t('ui.bottomBar.tooltips.quickFilter')}
+                >
+                  <Filter size={18} />
+                </button>
 
-            <div
-              className={clsx(
-                'flex items-center transition-all duration-300 ease-in-out overflow-hidden',
-                // Increased max-w so stars + flags + colors all fit without clipping
-                isFilterExpanded ? 'max-w-xl opacity-100 pr-2 ml-1' : 'max-w-0 opacity-0 pr-0 ml-0',
-              )}
-            >
-              <div className="flex items-center gap-3 whitespace-nowrap">
-                {/* 1. Star Rating Filter */}
-                <div className="flex items-center gap-0.5">
-                  {[1, 2, 3, 4, 5].map((starValue) => {
-                    const isFilled = filterCriteria.rating > 0 && starValue <= filterCriteria.rating;
-                    return (
-                      <button
-                        key={`qf-star-${starValue}`}
-                        data-tooltip={`${starValue} ${t(ratingOp.suffixKey)}`}
-                        onClick={() =>
-                          setFilterCriteria((prev) => ({
-                            ...prev,
-                            rating: prev.rating === starValue ? 0 : starValue,
-                          }))
-                        }
-                        className="p-0.5 focus:outline-none"
-                      >
-                        <Star
-                          size={16}
-                          className={clsx(
-                            'transition-colors duration-150',
-                            isFilled ? 'text-accent fill-accent' : 'text-text-secondary hover:text-accent',
-                          )}
-                        />
-                      </button>
-                    );
-                  })}
-                  {(() => {
-                    const op = ratingOp;
-                    return (
-                      <button
-                        onClick={() => setFilterCriteria((prev) => ({ ...prev, ratingOperator: op.next }))}
-                        data-tooltip={t(op.labelKey)}
-                        className="ml-1 w-5 h-5 flex items-center justify-center rounded text-sm font-semibold text-text-secondary hover:text-text-primary focus:outline-none"
-                      >
-                        {op.symbol}
-                      </button>
-                    );
-                  })()}
-                </div>
-
-                <div className="h-4 w-px bg-border-color"></div>
-
-                <div className="flex items-center gap-1.5">
-                  {(() => {
-                    const PickIcon = FLAG_ICONS[ImageFlag.Pick];
-                    const isPickedActive = filterCriteria.flagStatus === FlagStatus.Picked;
-                    return (
-                      <button
-                        className="focus:outline-none transition-transform active:scale-95 hover:scale-110"
-                        onClick={() => handleToggleFlagFilter(FlagStatus.Picked)}
-                        data-tooltip={t('library.filters.flag.picked')}
-                      >
-                        <PickIcon
-                          size={16}
-                          className={clsx(
-                            'transition-colors duration-150',
-                            isPickedActive ? 'text-accent fill-accent' : 'text-text-secondary hover:text-accent',
-                          )}
-                        />
-                      </button>
-                    );
-                  })()}
-
-                  {(() => {
-                    const RejectIcon = FLAG_ICONS[ImageFlag.Reject];
-                    const isRejectActive = filterCriteria.flagStatus === FlagStatus.Rejected;
-                    return (
-                      <button
-                        className="focus:outline-none transition-transform active:scale-95 hover:scale-110"
-                        onClick={() => handleToggleFlagFilter(FlagStatus.Rejected)}
-                        data-tooltip={t('library.filters.flag.rejected')}
-                      >
-                        <RejectIcon
-                          size={16}
-                          className={clsx(
-                            'transition-colors duration-150',
-                            isRejectActive ? 'text-accent' : 'text-text-secondary hover:text-accent',
-                          )}
-                        />
-                      </button>
-                    );
-                  })()}
-                </div>
-
-                <div className="h-4 w-px bg-border-color"></div>
-
-                <div className="flex items-center gap-1.5">
-                  {allColors.map((color) => {
-                    const isSelected = (filterCriteria.colors || []).includes(color.name);
-
-                    const tooltipTitle =
-                      color.name === 'none'
-                        ? t('library.header.viewOptions.noLabel')
-                        : t(`contextMenus.colors.${color.name}`, {
-                            defaultValue: color.name.charAt(0).toUpperCase() + color.name.slice(1),
-                          });
-
-                    return (
-                      <button
-                        key={`qf-color-${color.name}`}
-                        onClick={() => {
-                          const currentColors = filterCriteria.colors || [];
-                          const newColors = currentColors.includes(color.name)
-                            ? currentColors.filter((c) => c !== color.name)
-                            : [...currentColors, color.name];
-                          setFilterCriteria((prev) => ({ ...prev, colors: newColors }));
-                        }}
-                        className={clsx(
-                          'w-4 h-4 rounded-full transition-transform hover:scale-105 flex items-center justify-center focus:outline-none',
-                          isSelected ? 'ring-2 ring-accent ring-offset-1 ring-offset-bg-primary' : '',
-                        )}
-                        style={{ backgroundColor: color.color }}
-                        data-tooltip={tooltipTitle}
-                      >
-                        {isSelected && <Check size={10} className="text-white drop-shadow-md" />}
-                      </button>
-                    );
-                  })}
+                <div
+                  className={clsx(
+                    'flex items-center transition-all duration-300 ease-in-out overflow-hidden',
+                    // Increased max-w so stars + flags + colors all fit without clipping
+                    isFilterExpanded ? 'max-w-xl opacity-100 pr-2 ml-1' : 'max-w-0 opacity-0 pr-0 ml-0',
+                  )}
+                >
+                  <QuickFilterControls className="flex items-center gap-3 whitespace-nowrap" />
                 </div>
               </div>
-            </div>
-          </div>
+            </>
+          )}
 
           <div
             className={clsx(
@@ -633,14 +494,14 @@ export default function BottomBar({
               showSelectionCounter ? 'max-w-xs opacity-100' : 'max-w-0 opacity-0',
             )}
           >
-            <div className="h-5 w-px bg-surface mr-4"></div>
+            <div className="h-5 w-px bg-surface mr-3"></div>
             <Text as="span" className="whitespace-nowrap">
               {t('ui.bottomBar.imagesSelected', { current: numSelected, total })}
             </Text>
           </div>
         </div>
 
-        <div className="flex-1 flex items-center justify-end gap-4">
+        <div className="flex-1 flex items-center justify-end gap-3">
           {!isLibraryView && showZoomControls && (
             <>
               <div className="flex-1 max-w-56 flex items-center gap-2">
@@ -736,16 +597,13 @@ export default function BottomBar({
               <div className="h-5 w-px shrink-0 bg-surface"></div>
               <PanelTabButton
                 panel={Panel.Filmstrip}
-                isActive={isBottomOpen}
+                isActive={isBottomOpen && !isLibraryView}
                 indicatorId="active-indicator-filmstrip"
                 onClick={toggleBottom}
                 isDraggable={layoutMode === 'full'}
+                isDisabled={isLibraryView}
                 isCompact
-                tooltip={
-                  isBottomOpen
-                    ? t('ui.bottomBar.tooltips.collapseFilmstrip')
-                    : t('ui.bottomBar.tooltips.expandFilmstrip')
-                }
+                dragId={isLibraryView ? `layout-tab-${Panel.Filmstrip}-library` : undefined}
               />
             </>
           )}
