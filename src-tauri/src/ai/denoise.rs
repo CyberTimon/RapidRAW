@@ -17,6 +17,7 @@ const BM3D_INTENSITY: f32 = 0.15;
 static CACHE: BaseCache = BaseCache::new(
     "ai_denoise",
     "rrdn",
+    b"RRDN0003",
     b"RRDN0002",
     "ai-denoise",
     "AI denoise",

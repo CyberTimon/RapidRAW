@@ -47,7 +47,7 @@ const storageItems: StorageItem[] = [
     key: 'aiDenoise',
     color: 'bg-[#9d93ad]',
     limit: {
-      get: (settings) => settings?.aiCacheLimitGb ?? 10,
+      get: (settings) => settings?.aiCacheLimitGb ?? 25,
       set: (settings, gb) => ({ ...settings, aiCacheLimitGb: gb }),
     },
   },
@@ -55,7 +55,7 @@ const storageItems: StorageItem[] = [
     key: 'aiUpscale',
     color: 'bg-[#a49ab8]',
     limit: {
-      get: (settings) => settings?.aiUpscaleCacheLimitGb ?? 10,
+      get: (settings) => settings?.aiUpscaleCacheLimitGb ?? 25,
       set: (settings, gb) => ({ ...settings, aiUpscaleCacheLimitGb: gb }),
     },
   },
