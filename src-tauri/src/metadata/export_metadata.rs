@@ -280,6 +280,7 @@ pub fn write_image_with_metadata(
             as_zTXt_chunk: true,
         },
         "webp" => FileExtension::WEBP,
+        "jxl" => FileExtension::JXL,
         _ => return Ok(()),
     };
 
@@ -299,6 +300,10 @@ fn write_exif_metadata(
     strip_gps: bool,
     dpi: Option<u16>,
 ) -> Result<(), String> {
+    if file_type == FileExtension::JXL {
+        jxl_oxide::integration::register_image_decoding_hook();
+    }
+
     let dimensions = image::ImageReader::new(Cursor::new(image_bytes.as_slice()))
         .with_guessed_format()
         .ok()
@@ -632,6 +637,7 @@ fn embed_xmp(
         FileExtension::JPEG => embed_jpeg_xmp(image_bytes, &packet),
         FileExtension::PNG { .. } => embed_png_xmp(image_bytes, &packet),
         FileExtension::WEBP => embed_webp_xmp(image_bytes, &packet),
+        FileExtension::JXL => embed_jxl_xmp(image_bytes, &packet),
         _ => {}
     }
 }
@@ -836,6 +842,27 @@ fn embed_webp_xmp(image_bytes: &mut Vec<u8>, packet: &str) {
         image_bytes.push(0);
     }
     update_riff_size(image_bytes);
+}
+
+fn embed_jxl_xmp(image_bytes: &mut Vec<u8>, packet: &str) {
+    if jxl_encoder::container::is_bare_codestream(image_bytes) {
+        *image_bytes =
+            jxl_encoder::container::wrap_in_container(image_bytes, None, Some(packet.as_bytes()));
+        return;
+    }
+
+    if !jxl_encoder::container::is_container(image_bytes) {
+        return;
+    }
+
+    let Ok(box_size) = u32::try_from(8 + packet.len()) else {
+        log::warn!("Skipping XMP metadata: packet exceeds JXL box size");
+        return;
+    };
+
+    image_bytes.extend_from_slice(&box_size.to_be_bytes());
+    image_bytes.extend_from_slice(b"xml ");
+    image_bytes.extend_from_slice(packet.as_bytes());
 }
 
 fn convert_webp_to_extended(image_bytes: &mut Vec<u8>) {
