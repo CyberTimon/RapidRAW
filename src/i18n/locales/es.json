@@ -984,6 +984,9 @@
         "tethering": "Captura conectada"
       }
     },
+    "toasts": {
+      "embeddedPreview": "RapidRAW no pudo decodificar este archivo RAW, así que estás viendo y editando la vista previa JPEG incrustada de la cámara. Espera menor calidad y menos margen de edición que con un RAW real."
+    },
     "toolbar": {
       "history": "Historial",
       "switchToVariant": "Switch to {{label}}",

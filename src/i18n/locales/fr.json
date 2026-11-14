@@ -984,6 +984,9 @@
         "tethering": "Prise de vue connectée"
       }
     },
+    "toasts": {
+      "embeddedPreview": "RapidRAW n'a pas pu décoder ce fichier RAW : vous voyez et modifiez l'aperçu JPEG intégré de l'appareil. Attendez-vous à une qualité inférieure et à moins de latitude d'édition qu'avec un vrai RAW."
+    },
     "toolbar": {
       "history": "Historique",
       "switchToVariant": "Switch to {{label}}",

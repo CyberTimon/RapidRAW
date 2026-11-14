@@ -1047,6 +1047,9 @@
         "tethering": "Prijungimas"
       }
     },
+    "toasts": {
+      "embeddedPreview": "RapidRAW nepavyko iškoduoti šio RAW failo, todėl matote ir redaguojate įterptą fotoaparato JPEG peržiūrą. Tikėkitės prastesnės kokybės ir mažesnės redagavimo atsargos nei tikro RAW."
+    },
     "toolbar": {
       "history": "Istorija",
       "switchToVariant": "Perjungti į {{label}}",

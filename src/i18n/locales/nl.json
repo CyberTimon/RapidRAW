@@ -959,6 +959,9 @@
         "tethering": "Kabelopname"
       }
     },
+    "toasts": {
+      "embeddedPreview": "RapidRAW kon dit RAW-bestand niet decoderen, dus je ziet en bewerkt de ingesloten JPEG-preview van de camera. Verwacht een lagere kwaliteit en minder bewerkingsruimte dan bij een echte RAW."
+    },
     "toolbar": {
       "history": "Geschiedenis",
       "switchToVariant": "Overschakelen naar {{label}}",

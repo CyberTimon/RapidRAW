@@ -26,14 +26,13 @@ use rayon::prelude::*;
 use serde::Deserialize;
 use serde_json::Value;
 use std::borrow::Cow;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::Cursor;
 use std::panic;
 use std::path::Path;
-use std::sync::OnceLock;
 use std::sync::{
-    Arc,
+    Arc, Mutex, OnceLock,
     atomic::{AtomicUsize, Ordering},
 };
 use tauri::Manager;
@@ -46,6 +45,7 @@ pub struct LoadImageResult {
     pub exif: HashMap<String, String>,
     pub is_raw: bool,
     pub as_shot_white_balance: WhiteBalance,
+    pub is_embedded_preview: bool,
 }
 
 #[derive(Deserialize)]
@@ -121,6 +121,23 @@ pub fn load_base_image_from_bytes(
     settings: &AppSettings,
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<DynamicImage> {
+    decode_base_image(
+        bytes,
+        path_for_ext_check,
+        use_fast_raw_dev,
+        settings,
+        cancel_token,
+    )
+    .map(|(image, _)| image)
+}
+
+fn decode_base_image(
+    bytes: &[u8],
+    path_for_ext_check: &str,
+    use_fast_raw_dev: bool,
+    settings: &AppSettings,
+    cancel_token: Option<(Arc<AtomicUsize>, usize)>,
+) -> Result<(DynamicImage, bool)> {
     let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
     let linear_mode = settings.linear_raw_mode.clone();
     let color_nr_amount = settings
@@ -147,7 +164,7 @@ pub fn load_base_image_from_bytes(
         }
 
         match crate::decode::apple_raw::develop_raw9(bytes, path_for_ext_check) {
-            Ok(image) => return Ok(image),
+            Ok(image) => return Ok((image, false)),
             Err(e) => log::warn!(
                 "Apple RAW 9 unavailable for '{}', falling back to rawler: {}",
                 path_for_ext_check,
@@ -168,7 +185,7 @@ pub fn load_base_image_from_bytes(
                 cancel_token,
             )
         }) {
-            Ok(Ok(image)) => Ok(image),
+            Ok(Ok(image)) => Ok((image, false)),
             Ok(Err(e)) => {
                 let classified = classify_raw_develop_error(path_for_ext_check, e);
 
@@ -181,43 +198,25 @@ pub fn load_base_image_from_bytes(
                     path_for_ext_check,
                     classified
                 );
-                if let Some(preview) = safe_embedded_preview_fallback(bytes, path_for_ext_check) {
-                    log::warn!(
-                        "Using embedded preview fallback for '{}' ({}x{})",
-                        path_for_ext_check,
-                        preview.width(),
-                        preview.height()
-                    );
-
-                    return Ok(linearize_embedded_preview(preview));
-                }
-                Err(classified)
+                embedded_preview_instead(bytes, path_for_ext_check)
+                    .map(|preview| (preview, true))
+                    .ok_or(classified)
             }
             Err(_) => {
                 log::error!("Panic while processing RAW file: {}", path_for_ext_check);
-                if let Some(preview) = safe_embedded_preview_fallback(bytes, path_for_ext_check) {
-                    log::warn!(
-                        "Using embedded preview fallback for '{}' after RAW decoder panic ({}x{})",
-                        path_for_ext_check,
-                        preview.width(),
-                        preview.height()
-                    );
-
-                    return Ok(linearize_embedded_preview(preview));
-                }
-                Err(anyhow!(
-                    "Failed to process RAW file: {}",
-                    path_for_ext_check
-                ))
+                embedded_preview_instead(bytes, path_for_ext_check)
+                    .map(|preview| (preview, true))
+                    .ok_or_else(|| anyhow!("Failed to process RAW file: {}", path_for_ext_check))
             }
         }
     } else {
         let image = load_image_with_orientation(bytes, cancel_token)?;
-        if apply_to_non_raws && !use_fast_raw_dev {
-            crate::decode::develop::enhance(image, color_nr_amount, sharpening_amount)
+        let image = if apply_to_non_raws && !use_fast_raw_dev {
+            crate::decode::develop::enhance(image, color_nr_amount, sharpening_amount)?
         } else {
-            Ok(image)
-        }
+            image
+        };
+        Ok((image, false))
     }
 }
 
@@ -359,6 +358,40 @@ pub fn safe_embedded_preview_fallback(bytes: &[u8], path: &str) -> Option<Dynami
             None
         }
     }
+}
+
+fn embedded_preview_paths() -> &'static Mutex<HashSet<String>> {
+    static PATHS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
+    PATHS.get_or_init(|| Mutex::new(HashSet::new()))
+}
+
+fn set_embedded_preview(path: &str, used: bool) {
+    let mut paths = embedded_preview_paths()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    if used {
+        paths.insert(path.to_string());
+    } else {
+        paths.remove(path);
+    }
+}
+
+pub fn is_embedded_preview(path: &str) -> bool {
+    embedded_preview_paths()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .contains(path)
+}
+
+fn embedded_preview_instead(bytes: &[u8], path: &str) -> Option<DynamicImage> {
+    let preview = safe_embedded_preview_fallback(bytes, path)?;
+    log::warn!(
+        "Using embedded preview fallback for '{}' ({}x{})",
+        path,
+        preview.width(),
+        preview.height()
+    );
+    Some(linearize_embedded_preview(preview))
 }
 
 fn linearize_embedded_preview(preview: DynamicImage) -> DynamicImage {
@@ -997,9 +1030,10 @@ pub fn decode_pristine(
         if is_cancelled(&cancel_token) {
             return Err("Load cancelled".to_string());
         }
-        let image =
-            load_base_image_from_bytes(bytes, path_str, false, settings, cancel_token.clone())
+        let (image, is_embedded_preview) =
+            decode_base_image(bytes, path_str, false, settings, cancel_token.clone())
                 .map_err(|e| e.to_string())?;
+        set_embedded_preview(path_str, is_embedded_preview);
         crate::decode::as_shot::as_shot_from_bytes(path_str, bytes);
         Ok((image, sidecar::read_exif_data(path_str, bytes)))
     };
@@ -1203,5 +1237,6 @@ pub async fn load_image(
         exif: exif_data,
         is_raw,
         as_shot_white_balance: as_shot.white_balance,
+        is_embedded_preview: is_embedded_preview(&source_path_str),
     })
 }

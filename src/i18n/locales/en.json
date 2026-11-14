@@ -959,6 +959,9 @@
         "tethering": "Tethering"
       }
     },
+    "toasts": {
+      "embeddedPreview": "RapidRAW couldn't decode this RAW file, so you're seeing and editing the camera's embedded JPEG preview. Expect lower quality and less editing headroom than a real RAW."
+    },
     "toolbar": {
       "history": "History",
       "switchToVariant": "Switch to {{label}}",

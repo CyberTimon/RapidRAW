@@ -956,6 +956,9 @@
         "tethering": "联机拍摄"
       }
     },
+    "toasts": {
+      "embeddedPreview": "RapidRAW 无法解码此 RAW 文件，因此您看到和编辑的是相机内嵌的 JPEG 预览。画质会低于真正的 RAW，可调整的空间也更小。"
+    },
     "toolbar": {
       "history": "历史记录",
       "switchToVariant": "Switch to {{label}}",

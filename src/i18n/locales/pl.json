@@ -1009,6 +1009,9 @@
         "tethering": "Tethering (Połączenie przewodowe)"
       }
     },
+    "toasts": {
+      "embeddedPreview": "RapidRAW nie mógł zdekodować tego pliku RAW, więc widzisz i edytujesz osadzony podgląd JPEG z aparatu. Spodziewaj się niższej jakości i mniejszego zapasu do edycji niż w prawdziwym pliku RAW."
+    },
     "toolbar": {
       "history": "Historia",
       "switchToVariant": "Switch to {{label}}",

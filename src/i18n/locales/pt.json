@@ -984,6 +984,9 @@
         "tethering": "Captura Conectada (Tethering)"
       }
     },
+    "toasts": {
+      "embeddedPreview": "O RapidRAW não conseguiu decodificar este arquivo RAW, então você está vendo e editando a pré-visualização JPEG incorporada da câmera. Espere qualidade menor e menos margem de edição do que com um RAW real."
+    },
     "toolbar": {
       "history": "Histórico",
       "switchToVariant": "Switch to {{label}}",

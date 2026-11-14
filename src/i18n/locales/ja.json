@@ -956,6 +956,9 @@
         "tethering": "テザー撮影"
       }
     },
+    "toasts": {
+      "embeddedPreview": "RapidRAW はこの RAW ファイルをデコードできなかったため、カメラに埋め込まれた JPEG プレビューを表示・編集しています。本来の RAW より画質が低く、編集の余裕も少なくなります。"
+    },
     "toolbar": {
       "history": "履歴",
       "switchToVariant": "Switch to {{label}}",

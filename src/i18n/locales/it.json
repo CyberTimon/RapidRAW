@@ -984,6 +984,9 @@
         "tethering": "Acquisizione diretta"
       }
     },
+    "toasts": {
+      "embeddedPreview": "RapidRAW non è riuscito a decodificare questo file RAW, quindi stai vedendo e modificando l'anteprima JPEG incorporata della fotocamera. Aspettati una qualità inferiore e meno margine di modifica rispetto a un vero RAW."
+    },
     "toolbar": {
       "history": "Cronologia",
       "switchToVariant": "Passa a {{label}}",
