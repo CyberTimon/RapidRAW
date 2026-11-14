@@ -42,6 +42,13 @@ export type TiffBitDepth = 8 | 16;
 export const DEFAULT_EXPORT_DPI = 96;
 export const MAX_EXPORT_DPI = 65535;
 
+export enum ConflictAction {
+  CreateUnique = 'createUnique',
+  Overwrite = 'overwrite',
+  OverwriteIfChanged = 'overwriteIfChanged',
+  Skip = 'skip',
+}
+
 export interface ExportSettings {
   filenameTemplate: string | null;
   jpegQuality: number;
@@ -75,6 +82,7 @@ export interface ExportSettings {
   destinationType?: string;
   subfolder?: string;
   dpi?: number;
+  onConflict?: ConflictAction;
 }
 
 export enum BorderBasis {
@@ -108,6 +116,9 @@ export interface ExportState {
   errorMessage: string;
   progress: Progress;
   status: Status;
+  exportedCount?: number;
+  skippedCount?: number;
+  totalCount?: number;
 }
 
 export interface FileFormat {
@@ -172,4 +183,5 @@ export interface ExportPreset {
   lastExportPath?: string;
   destinationType?: string;
   subfolder?: string;
+  onConflict?: ConflictAction;
 }

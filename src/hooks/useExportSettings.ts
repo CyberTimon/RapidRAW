@@ -1,5 +1,12 @@
 import { useState, useMemo, useCallback } from 'react';
-import { BorderBasis, DEFAULT_EXPORT_DPI, ExportPreset, TiffBitDepth, WatermarkAnchor } from '../types/export';
+import {
+  BorderBasis,
+  ConflictAction,
+  DEFAULT_EXPORT_DPI,
+  ExportPreset,
+  TiffBitDepth,
+  WatermarkAnchor,
+} from '../types/export';
 
 export function useExportSettings() {
   const [fileFormat, setFileFormat] = useState('jpeg');
@@ -36,6 +43,7 @@ export function useExportSettings() {
   const [watermarkOpacity, setWatermarkOpacity] = useState(75);
   const [destinationType, setDestinationType] = useState<string>('customFolder');
   const [subfolder, setSubfolder] = useState<string>('');
+  const [onConflict, setOnConflict] = useState<ConflictAction>(ConflictAction.CreateUnique);
 
   const handleApplyPreset = useCallback((preset: ExportPreset) => {
     setFileFormat(preset.fileFormat);
@@ -72,6 +80,7 @@ export function useExportSettings() {
     setWatermarkOpacity(preset.watermarkOpacity);
     setDestinationType(preset.destinationType || 'customFolder');
     setSubfolder(preset.subfolder || '');
+    setOnConflict(preset.onConflict ?? ConflictAction.CreateUnique);
   }, []);
 
   const currentSettingsObject = useMemo(
@@ -110,6 +119,7 @@ export function useExportSettings() {
       watermarkOpacity,
       destinationType,
       subfolder,
+      onConflict,
     }),
     [
       fileFormat,
@@ -146,6 +156,7 @@ export function useExportSettings() {
       watermarkOpacity,
       destinationType,
       subfolder,
+      onConflict,
     ],
   );
 
@@ -218,6 +229,8 @@ export function useExportSettings() {
     setDestinationType,
     subfolder,
     setSubfolder,
+    onConflict,
+    setOnConflict,
     handleApplyPreset,
     currentSettingsObject,
   };
