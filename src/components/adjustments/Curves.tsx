@@ -293,9 +293,6 @@ const getPointXBounds = (points: Array<Coord>, index: number) => ({
   max: index < points.length - 1 ? Math.floor(points[index + 1].x - MIN_POINT_GAP_X) : 255,
 });
 
-const hasFineAdjustmentModifier = (event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) =>
-  'shiftKey' in event && (event.shiftKey || event.altKey);
-
 function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: CurveGraphProps) {
   const { t } = useTranslation();
   const { showContextMenu } = useContextMenu();
