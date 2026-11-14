@@ -16,7 +16,7 @@ import { Theme } from '../../types/settings';
 import { OPTION_SEPARATOR } from '../../types/ui';
 import { useContextMenu } from '../../context/ContextMenuContext';
 import Text from '../ui/Text';
-import Slider, { FINE_ADJUSTMENT_MULTIPLIER, hasFineAdjustmentModifier } from '../ui/Slider';
+import Slider from '../ui/Slider';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { useEditorStore } from '../../store/useEditorStore';
 import { FINE_ADJUSTMENT_MULTIPLIER, hasFineAdjustmentModifier } from '../../utils/fineAdjustment';

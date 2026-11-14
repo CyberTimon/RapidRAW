@@ -1,12 +1,10 @@
-import React, { useRef } from 'react';
-import { Crop } from 'react-image-crop';
+import React, { useEffect, useRef } from 'react';
 import { MAX_FINE_ROTATION } from '../../../../utils/cropUtils';
-import { FINE_ADJUSTMENT_MULTIPLIER, hasFineAdjustmentModifier } from '../../../ui/Slider';
+import { FINE_ADJUSTMENT_MULTIPLIER, hasFineAdjustmentModifier } from '../../../../utils/fineAdjustment';
 
-export const CROP_ROTATE_MARGIN = 40;
-
-const BAND_EXTENT = 10000;
 const CURSOR_STEP = 45;
+const ROTATE_BAND = 40;
+const CROP_SELECTION_SELECTOR = '.ReactCrop__crop-selection';
 
 const rotateCursor = (angle: number) => {
   const arrow = 'M6 17A11 11 0 0 1 17 6M3 14L6 18L9 14M14 3L18 6L14 9';
@@ -16,72 +14,109 @@ const rotateCursor = (angle: number) => {
 
 const ROTATE_CURSORS = Array.from({ length: 360 / CURSOR_STEP }, (_, i) => rotateCursor(i * CURSOR_STEP));
 
-const BANDS: Array<React.CSSProperties> = [
-  { left: -BAND_EXTENT, right: -BAND_EXTENT, bottom: '100%', height: BAND_EXTENT, cursor: ROTATE_CURSORS[1] },
-  { left: -BAND_EXTENT, right: -BAND_EXTENT, top: '100%', height: BAND_EXTENT, cursor: ROTATE_CURSORS[5] },
-  { top: 0, bottom: 0, right: '100%', width: BAND_EXTENT, cursor: ROTATE_CURSORS[7] },
-  { top: 0, bottom: 0, left: '100%', width: BAND_EXTENT, cursor: ROTATE_CURSORS[3] },
-];
-
 interface CropRotateAreaProps {
-  crop: Crop | null;
+  enabled: boolean;
   rotation: number;
   onRotate(rotation: number): void;
   onRotateEnd(rotation: number | null): void;
+  children: React.ReactNode;
+}
+
+interface Point {
+  x: number;
+  y: number;
 }
 
 interface RotateDrag {
+  pointerId: number;
+  pivot: Point;
   lastAngle: number;
   angleDelta: number;
   startRotation: number;
   rotation: number | null;
 }
 
-export default function CropRotateArea({ crop, rotation, onRotate, onRotateEnd }: CropRotateAreaProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
+const isOnCropSelection = (target: EventTarget) =>
+  target instanceof Element && !!target.closest(CROP_SELECTION_SELECTOR);
+
+const angleAround = (pivot: Point, e: React.PointerEvent) =>
+  (Math.atan2(e.clientY - pivot.y, e.clientX - pivot.x) * 180) / Math.PI;
+
+const centerOf = (rect: DOMRect): Point => ({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+
+const isInRotateZone = (e: React.PointerEvent, selection: DOMRect) => {
+  if (!(e.target instanceof Element) || !e.target.closest('.ReactCrop')) return true;
+  const dx = Math.max(selection.left - e.clientX, 0, e.clientX - selection.right);
+  const dy = Math.max(selection.top - e.clientY, 0, e.clientY - selection.bottom);
+  return Math.hypot(dx, dy) <= ROTATE_BAND;
+};
+
+export default function CropRotateArea({ enabled, rotation, onRotate, onRotateEnd, children }: CropRotateAreaProps) {
+  const areaRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<RotateDrag | null>(null);
 
-  const pointerAngle = (e: React.PointerEvent, container: HTMLDivElement) => {
-    const rect = container.getBoundingClientRect();
-    const scaleX = crop?.unit === '%' ? rect.width / 100 : 1;
-    const scaleY = crop?.unit === '%' ? rect.height / 100 : 1;
-    const centerX = crop ? (crop.x + crop.width / 2) * scaleX : rect.width / 2;
-    const centerY = crop ? (crop.y + crop.height / 2) * scaleY : rect.height / 2;
-    const dx = e.clientX - (rect.left + centerX);
-    const dy = e.clientY - (rect.top + centerY);
-    return (Math.atan2(dy, dx) * 180) / Math.PI;
-  };
+  const getSelectionRect = () =>
+    areaRef.current?.querySelector(CROP_SELECTION_SELECTOR)?.getBoundingClientRect() ?? null;
 
-  const updateCursor = (e: React.PointerEvent<HTMLDivElement>, angle: number) => {
-    const index = Math.round((angle + 135) / CURSOR_STEP);
-    const cursor = ROTATE_CURSORS[((index % ROTATE_CURSORS.length) + ROTATE_CURSORS.length) % ROTATE_CURSORS.length];
-    if (e.currentTarget.style.cursor !== cursor) {
-      e.currentTarget.style.cursor = cursor;
+  const setCursor = (cursor: string) => {
+    if (areaRef.current && areaRef.current.style.cursor !== cursor) {
+      areaRef.current.style.cursor = cursor;
     }
   };
 
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0 || !containerRef.current) return;
-    e.preventDefault();
-    e.stopPropagation();
+  const setRotateCursor = (e: React.PointerEvent<HTMLDivElement>, pivot: Point) => {
+    const index = Math.round((angleAround(pivot, e) + 135) / CURSOR_STEP);
+    setCursor(ROTATE_CURSORS[((index % ROTATE_CURSORS.length) + ROTATE_CURSORS.length) % ROTATE_CURSORS.length]);
+  };
 
+  useEffect(() => {
+    if (!enabled) return;
+    const area = areaRef.current;
+    return () => {
+      if (area) area.style.cursor = '';
+      if (!dragRef.current) return;
+      dragRef.current = null;
+      onRotateEnd(null);
+    };
+  }, [enabled, onRotateEnd]);
+
+  const handlePointerDownCapture = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!enabled || e.button !== 0) return;
+    if (dragRef.current) {
+      e.stopPropagation();
+      return;
+    }
+    if (isOnCropSelection(e.target)) return;
+    const selection = getSelectionRect();
+    if (!selection || !isInRotateZone(e, selection)) return;
+    const pivot = centerOf(selection);
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
     dragRef.current = {
-      lastAngle: pointerAngle(e, containerRef.current),
+      pointerId: e.pointerId,
+      pivot,
+      lastAngle: angleAround(pivot, e),
       angleDelta: 0,
       startRotation: rotation,
       rotation: null,
     };
-    e.currentTarget.setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!containerRef.current) return;
-    const angle = pointerAngle(e, containerRef.current);
-    updateCursor(e, angle);
-
+    if (!enabled) return;
     const drag = dragRef.current;
-    if (!drag) return;
+    if (!drag) {
+      if (e.buttons !== 0) return;
+      const selection = isOnCropSelection(e.target) ? null : getSelectionRect();
+      if (!selection) setCursor('');
+      else if (isInRotateZone(e, selection)) setRotateCursor(e, centerOf(selection));
+      else setCursor('crosshair');
+      return;
+    }
+    if (drag.pointerId !== e.pointerId) return;
+    setRotateCursor(e, drag.pivot);
 
+    const angle = angleAround(drag.pivot, e);
     let step = angle - drag.lastAngle;
     if (step > 180) step -= 360;
     if (step < -180) step += 360;
@@ -98,28 +133,24 @@ export default function CropRotateArea({ crop, rotation, onRotate, onRotateEnd }
 
   const handlePointerEnd = (e: React.PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
-    if (!drag) return;
-
+    if (!drag || drag.pointerId !== e.pointerId) return;
     dragRef.current = null;
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    }
     onRotateEnd(drag.rotation);
   };
 
   return (
-    <div ref={containerRef} className="absolute inset-0 pointer-events-none">
-      {BANDS.map((position, index) => (
-        <div
-          key={index}
-          className="absolute pointer-events-auto touch-none"
-          style={position}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerEnd}
-          onPointerCancel={handlePointerEnd}
-        />
-      ))}
+    <div
+      ref={areaRef}
+      className="absolute inset-0 touch-none select-none"
+      data-crop-rotate={enabled || undefined}
+      style={{ pointerEvents: enabled ? 'auto' : 'none' }}
+      onPointerDownCapture={handlePointerDownCapture}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerEnd}
+      onPointerCancel={handlePointerEnd}
+      onLostPointerCapture={handlePointerEnd}
+    >
+      {children}
     </div>
   );
 }

@@ -29,6 +29,22 @@ export function getOrientedDimensions(
   };
 }
 
+export function getCropViewLayout(
+  viewportWidth: number,
+  viewportHeight: number,
+  imageWidth: number,
+  imageHeight: number,
+): { left: number; top: number; width: number; height: number; scale: number } {
+  const margin = Math.round(Math.min(40, Math.max(16, Math.min(viewportWidth, viewportHeight) * 0.04)));
+  const scale = Math.max(
+    0,
+    Math.min((viewportWidth - 2 * margin) / imageWidth, (viewportHeight - 2 * margin) / imageHeight),
+  );
+  const width = imageWidth * scale;
+  const height = imageHeight * scale;
+  return { left: (viewportWidth - width) / 2, top: (viewportHeight - height) / 2, width, height, scale };
+}
+
 export function normalizeCropChange(
   current: Crop | null,
   next: Crop | null,

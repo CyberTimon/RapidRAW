@@ -451,6 +451,10 @@
   --rc-drag-bar-size: 16px;
 }
 
+[data-crop-rotate] .ReactCrop {
+  cursor: inherit;
+}
+
 .ReactCrop .ReactCrop__drag-handle,
 .ReactCrop .ReactCrop__drag-handle:focus {
   background: none;
