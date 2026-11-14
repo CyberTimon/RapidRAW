@@ -176,6 +176,7 @@
       "threshold": "Slenkstis"
     },
     "effects": {
+      "chromaticAberration": "Chromatinė aberacija",
       "amount": "Kiekis",
       "bokehCircular": "Apskritas",
       "bokehHexagonal": "Šešiakampis",

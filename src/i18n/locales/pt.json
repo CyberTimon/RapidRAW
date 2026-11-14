@@ -176,6 +176,7 @@
       "threshold": "Limiar"
     },
     "effects": {
+      "chromaticAberration": "Aberração Cromática",
       "amount": "Quantidade",
       "bokehCircular": "Circular",
       "bokehHexagonal": "Hexagonal",

@@ -135,6 +135,10 @@ struct GlobalAdjustments {
     sharpness_threshold: f32,
 
     monochrome: MonochromeSettings,
+    chromatic_aberration_amount: f32,
+    _pad_ca1: f32,
+    _pad_ca2: f32,
+    _pad_ca3: f32,
 }
 
 struct MaskAdjustments {
@@ -1631,6 +1635,19 @@ fn apply_noise_reduction(
     return (vec3<f32>(new_yl) + new_c) / gain;
 }
 
+fn sample_ca_color(position: vec2<f32>) -> vec3<f32> {
+    let max_coord = vec2<i32>(textureDimensions(input_texture)) - vec2<i32>(1);
+    let p = clamp(position, vec2<f32>(0.0), vec2<f32>(max_coord));
+    let lo = vec2<i32>(floor(p));
+    let hi = min(lo + vec2<i32>(1), max_coord);
+    let f = fract(p);
+    let top = mix(textureLoad(input_texture, lo, 0).rgb,
+                  textureLoad(input_texture, vec2<i32>(hi.x, lo.y), 0).rgb, f.x);
+    let bottom = mix(textureLoad(input_texture, vec2<i32>(lo.x, hi.y), 0).rgb,
+                     textureLoad(input_texture, hi, 0).rgb, f.x);
+    return mix(top, bottom, f.y);
+}
+
 fn apply_ca_correction(coords: vec2<u32>, ca_rc: f32, ca_by: f32) -> vec3<f32> {
     let dims = vec2<f32>(textureDimensions(input_texture));
     let center = dims / 2.0;
@@ -1960,10 +1977,17 @@ fn main(
     let absolute_coord = id.xy + vec2<u32>(adjustments.tile_offset_x, adjustments.tile_offset_y);
     let absolute_coord_i = vec2<i32>(absolute_coord);
 
+    let ca_amount = adjustments.global.chromatic_aberration_amount;
     let ca_rc = adjustments.global.chromatic_aberration_red_cyan;
     let ca_by = adjustments.global.chromatic_aberration_blue_yellow;
     var color_from_texture = textureLoad(input_texture, absolute_coord, 0).rgb;
-    if (has_feature(F_CA) && (abs(ca_rc) > 0.000001 || abs(ca_by) > 0.000001)) {
+    if (has_feature(F_CA) && ca_amount > 0.0) {
+        let position = vec2<f32>(absolute_coord);
+        let radial = position - full_dims * 0.5;
+        let red = sample_ca_color(position - radial * (ca_rc + ca_amount)).r;
+        let blue = sample_ca_color(position - radial * (ca_by - ca_amount)).b;
+        color_from_texture = vec3<f32>(red, color_from_texture.g, blue);
+    } else if (has_feature(F_CA) && (abs(ca_rc) > 0.000001 || abs(ca_by) > 0.000001)) {
         color_from_texture = apply_ca_correction(absolute_coord, ca_rc, ca_by);
     }
     let original_alpha = textureLoad(input_texture, absolute_coord, 0).a;

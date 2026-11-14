@@ -176,6 +176,7 @@
       "threshold": "臨界值"
     },
     "effects": {
+      "chromaticAberration": "色差",
       "amount": "數量",
       "bokehCircular": "圓形",
       "bokehHexagonal": "六角形",

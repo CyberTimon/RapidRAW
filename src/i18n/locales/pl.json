@@ -176,6 +176,7 @@
       "threshold": "Próg"
     },
     "effects": {
+      "chromaticAberration": "Aberracja chromatyczna",
       "amount": "Ilość",
       "bokehCircular": "Kołowy",
       "bokehHexagonal": "Sześciokątny",
