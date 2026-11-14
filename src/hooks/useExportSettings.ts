@@ -1,11 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import {
-  BorderBasis,
-  DEFAULT_EXPORT_DPI,
-  ExportPreset,
-  TiffBitDepth,
-  WatermarkAnchor,
-} from '../components/ui/ExportImportProperties';
+import { BorderBasis, DEFAULT_EXPORT_DPI, ExportPreset, TiffBitDepth, WatermarkAnchor } from '../types/export';
 
 export function useExportSettings() {
   const [fileFormat, setFileFormat] = useState('jpeg');

@@ -51,7 +51,7 @@ const modeButtons = [
     bgClass: 'bg-accent',
     textActiveClass: 'text-button-text',
   },
-];
+] as const;
 
 const HistogramView = memo(() => {
   const histogram: any = useEditorStore((state) => state.histogram);

@@ -10,30 +10,19 @@ import {
   DEFAULT_PARAMETRIC_CURVE_SETTINGS,
   ParametricCurveSettings,
   getDefaultCurves,
+  areSectionPropsEqual,
 } from '../../utils/adjustments';
-import { Theme, OPTION_SEPARATOR } from '../ui/AppProperties';
+import { Theme } from '../../types/settings';
+import { OPTION_SEPARATOR } from '../../types/ui';
 import { useContextMenu } from '../../context/ContextMenuContext';
 import Text from '../ui/Text';
 import Slider from '../ui/Slider';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
-import { areSectionPropsEqual } from '../../utils/adjustments';
 import { useEditorStore } from '../../store/useEditorStore';
+import { FINE_ADJUSTMENT_MULTIPLIER, hasFineAdjustmentModifier } from '../../utils/fineAdjustment';
 
 let curveClipboard: Array<Coord> | null = null;
 let parametricClipboard: any = null;
-
-export interface ChannelConfig {
-  [index: string]: ColorData;
-  [ActiveChannel.Luma]: ColorData;
-  [ActiveChannel.Red]: ColorData;
-  [ActiveChannel.Green]: ColorData;
-  [ActiveChannel.Blue]: ColorData;
-}
-
-interface ColorData {
-  color: string;
-  data: any;
-}
 
 interface CurveGraphProps {
   adjustments: Adjustments | any;
@@ -278,7 +267,6 @@ function convertParametricToPoints(settings: ParametricCurveSettings): Array<Coo
   return buildParametricPoints(settings);
 }
 
-const FINE_ADJUSTMENT_MULTIPLIER = 0.2;
 const POINT_HIT_RADIUS_PX = 12;
 const MIN_POINT_GAP_X = 1;
 
@@ -1502,6 +1490,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                   max={0}
                   step={1}
                   defaultValue={0}
+                  resetKey={`parametricCurve.${activeChannel}.whiteLevel`}
+
                   value={activeParametricSettings.whiteLevel}
                   onChange={(e: any) => updateParametricValue('whiteLevel', parseFloat(e.target.value))}
                   onDragStateChange={onDragStateChange}
@@ -1513,6 +1503,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                   max={100}
                   step={1}
                   defaultValue={0}
+                  resetKey={`parametricCurve.${activeChannel}.highlights`}
+
                   value={activeParametricSettings.highlights}
                   onChange={(e: any) => updateParametricValue('highlights', parseFloat(e.target.value))}
                   onDragStateChange={onDragStateChange}
@@ -1524,6 +1516,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                   max={100}
                   step={1}
                   defaultValue={0}
+                  resetKey={`parametricCurve.${activeChannel}.lights`}
+
                   value={activeParametricSettings.lights}
                   onChange={(e: any) => updateParametricValue('lights', parseFloat(e.target.value))}
                   onDragStateChange={onDragStateChange}
@@ -1535,6 +1529,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                   max={100}
                   step={1}
                   defaultValue={0}
+                  resetKey={`parametricCurve.${activeChannel}.darks`}
+
                   value={activeParametricSettings.darks}
                   onChange={(e: any) => updateParametricValue('darks', parseFloat(e.target.value))}
                   onDragStateChange={onDragStateChange}
@@ -1546,6 +1542,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                   max={100}
                   step={1}
                   defaultValue={0}
+                  resetKey={`parametricCurve.${activeChannel}.shadows`}
+
                   value={activeParametricSettings.shadows}
                   onChange={(e: any) => updateParametricValue('shadows', parseFloat(e.target.value))}
                   onDragStateChange={onDragStateChange}
@@ -1557,6 +1555,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                   max={100}
                   step={1}
                   defaultValue={0}
+                  resetKey={`parametricCurve.${activeChannel}.blackLevel`}
+
                   value={activeParametricSettings.blackLevel}
                   onChange={(e: any) => updateParametricValue('blackLevel', parseFloat(e.target.value))}
                   onDragStateChange={onDragStateChange}

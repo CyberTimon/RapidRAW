@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useLayoutEffect, use
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronRight } from 'lucide-react';
-import { Option as AppOption, OPTION_SEPARATOR } from '../components/ui/AppProperties';
+import { Option as AppOption, OPTION_SEPARATOR } from '../types/ui';
 import clsx from 'clsx';
 
 interface ContextMenuProviderProps {
@@ -86,7 +86,7 @@ function SubMenu({ cancelCloseSubmenu, closeSubmenu, hideContextMenu, options, p
       setStyle({ top: `${top}px`, left: `${left}px`, opacity: 1 });
 
       const isRightSide = left >= parentRect.right - 10;
-      let path = '';
+      let path: string;
 
       if (isRightSide) {
         path = `

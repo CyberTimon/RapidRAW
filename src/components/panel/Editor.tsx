@@ -24,12 +24,16 @@ import {
   moveCropInsideBounds,
   zoomCrop,
   normalizeCropChange,
+  getCropViewLayout,
 } from '../../utils/cropUtils';
 import EditorToolbar from './editor/EditorToolbar';
 import ImageCanvas, { ImageRegion, MaskOverlayImage } from './editor/ImageCanvas';
 import SpeedEditOverlay from './editor/overlays/SpeedEditOverlay';
-import { Mask, SubMask } from './right/Masks';
-import { CompareView, Panel, TransformState, Invokes } from '../ui/AppProperties';
+import { Mask, SubMask } from '../../types/masks';
+import { CompareView } from '../../types/settings';
+import { Panel } from '../../types/ui';
+import { TransformState } from '../../types/editor';
+import { Invokes } from '../../types/invokes';
 import { useEditorStore, WgpuPhase } from '../../store/useEditorStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUIStore } from '../../store/useUIStore';
@@ -179,7 +183,6 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const isFullScreen = useUIStore((s) => s.isFullScreen);
   const activePanel = useUIStore((s) => s.activePanel);
   const isInstantTransition = useUIStore((s) => s.isInstantTransition);
-  const setUI = useUIStore((s) => s.setUI);
   const isLoading = useLibraryStore((s) => s.isViewLoading);
   const selectedImage = useEditorStore((s) => s.selectedImage);
   const adjustments = useEditorStore(useShallow((s) => omitTonalAdjustments(s.adjustments)));
@@ -698,7 +701,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         const dt = Math.min(time - lastTime, 32);
         lastTime = time;
 
-        let { positionX: x, positionY: y, scale } = transformStateRef.current;
+        const { scale } = transformStateRef.current;
+        let { positionX: x, positionY: y } = transformStateRef.current;
         const bounds = getTransformBounds(scale);
 
         x += vx * dt;
@@ -797,11 +801,11 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       selectedImage.height,
       adjustments.orientationSteps || 0,
     );
-    const viewportW = irs.width + 2 * irs.offsetX;
-    const viewportH = irs.height + 2 * irs.offsetY;
-    const uncroppedScale = Math.min(viewportW / W, viewportH / H);
-    const uncroppedLeft = (viewportW - W * uncroppedScale) / 2;
-    const uncroppedTop = (viewportH - H * uncroppedScale) / 2;
+    const {
+      left: uncroppedLeft,
+      top: uncroppedTop,
+      scale: uncroppedScale,
+    } = getCropViewLayout(irs.width + 2 * irs.offsetX, irs.height + 2 * irs.offsetY, W, H);
     const croppedScale = irs.width / crop.width;
 
     const centerX = container.clientWidth / 2;
@@ -1207,8 +1211,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         lastPanPos.current = { x: e.clientX, y: e.clientY };
 
         const bounds = getTransformBounds(transformStateRef.current.scale);
-        let curX = transformStateRef.current.positionX;
-        let curY = transformStateRef.current.positionY;
+        const curX = transformStateRef.current.positionX;
+        const curY = transformStateRef.current.positionY;
 
         if (curX < bounds.minX && dx < 0) dx *= 0.35;
         if (curX > bounds.maxX && dx > 0) dx *= 0.35;
@@ -1235,8 +1239,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
           const panX = midX - lastPinch.current.midX;
           const panY = midY - lastPinch.current.midY;
 
-          let newX = mouseX - (mouseX - transformStateRef.current.positionX) * ratio + panX;
-          let newY = mouseY - (mouseY - transformStateRef.current.positionY) * ratio + panY;
+          const newX = mouseX - (mouseX - transformStateRef.current.positionX) * ratio + panX;
+          const newY = mouseY - (mouseY - transformStateRef.current.positionY) * ratio + panY;
 
           const bounded = clampToBounds(newX, newY, newScale);
           applyTransform(bounded.x, bounded.y, bounded.scale);
@@ -2041,7 +2045,6 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     }
 
     requestMaskOverlay(maskDefForOverlay, useEditorStore.getState().adjustments);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     overlayTriggerHash,
     requestMaskOverlay,
@@ -2499,14 +2502,14 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         const expandEdge = (edge: 'L' | 'T' | 'R' | 'B', target: number) => {
           let low = 0,
             high = 1;
-          let startVal = edge === 'L' ? currL : edge === 'T' ? currT : edge === 'R' ? currR : currB;
+          const startVal = edge === 'L' ? currL : edge === 'T' ? currT : edge === 'R' ? currR : currB;
           let bestVal = startVal;
 
           for (let i = 0; i < 15; i++) {
-            let mid = (low + high) / 2;
-            let testVal = startVal + (target - startVal) * mid;
+            const mid = (low + high) / 2;
+            const testVal = startVal + (target - startVal) * mid;
 
-            let testCrop: PercentCrop = {
+            const testCrop: PercentCrop = {
               unit: '%',
               x: edge === 'L' ? testVal : currL,
               y: edge === 'T' ? testVal : currT,

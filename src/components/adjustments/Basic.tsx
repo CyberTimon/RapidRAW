@@ -146,6 +146,7 @@ const ToneMapperSwitch = ({
             onChange={(e: any) => onExposureChange(parseFloat(e.target.value))}
             speedEditId={BasicAdjustment.Exposure}
             step={0.01}
+            resetKey="exposure"
             value={exposureValue}
             trackClassName="bg-surface"
             onDragStateChange={onDragStateChange}
@@ -183,6 +184,7 @@ function BasicAdjustments({
     <div>
       {hideTonemapper ? (
         <Slider
+          resetKey="exposure"
           label={t('adjustments.basic.exposure')}
           max={5}
           min={-5}
@@ -202,6 +204,7 @@ function BasicAdjustments({
         />
       )}
       <Slider
+        resetKey="contrast"
         label={t('adjustments.basic.contrast')}
         max={100}
         min={-100}
@@ -212,6 +215,7 @@ function BasicAdjustments({
         onDragStateChange={onDragStateChange}
       />
       <Slider
+        resetKey="highlights"
         label={t('adjustments.basic.highlights')}
         max={100}
         min={-100}
@@ -222,6 +226,7 @@ function BasicAdjustments({
         onDragStateChange={onDragStateChange}
       />
       <Slider
+        resetKey="shadows"
         label={t('adjustments.basic.shadows')}
         max={100}
         min={-100}
@@ -232,6 +237,7 @@ function BasicAdjustments({
         onDragStateChange={onDragStateChange}
       />
       <Slider
+        resetKey="whites"
         label={t('adjustments.basic.whites')}
         max={100}
         min={-100}
@@ -242,6 +248,7 @@ function BasicAdjustments({
         onDragStateChange={onDragStateChange}
       />
       <Slider
+        resetKey="blacks"
         label={t('adjustments.basic.blacks')}
         max={100}
         min={-100}
@@ -252,6 +259,7 @@ function BasicAdjustments({
         onDragStateChange={onDragStateChange}
       />
       <Slider
+        resetKey="brightness"
         label={t('adjustments.basic.brightness')}
         max={5}
         min={-5}

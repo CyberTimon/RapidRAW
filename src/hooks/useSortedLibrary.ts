@@ -1,15 +1,8 @@
 import { useMemo } from 'react';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import {
-  RawStatus,
-  EditedStatus,
-  FlagStatus,
-  ImageFlag,
-  SortDirection,
-  ImageFile,
-  GroupingMode,
-} from '../components/ui/AppProperties';
+import { RawStatus, EditedStatus, FlagStatus, ImageFlag, SortDirection, ImageFile } from '../types/library';
+import { GroupingMode } from '../types/settings';
 import { buildImageGroups, GroupBadgeInfo, GroupId } from '../utils/imageGrouping';
 
 export const ADVANCED_QUERY_REGEX =
@@ -280,7 +273,7 @@ function computeGroupedLibrary(
   };
 
   list.sort((a, b) => {
-    let comparison = 0;
+    let comparison: number;
 
     switch (key) {
       case 'date_taken': {

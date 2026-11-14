@@ -10,11 +10,11 @@ import {
   getImmichApiKey,
   ImmichApiKeyInfo,
   ImmichConnectionInfo,
-  ImmichSettings as ImmichSettingsValues,
   setImmichApiKey,
   testImmichConnection,
-} from './immichApi';
-import { useImmichStore } from './useImmichStore';
+} from '../../utils/immichApi';
+import { ImmichSettings as ImmichSettingsValues } from '../../types/settings';
+import { useImmichStore } from '../../store/useImmichStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 
 type Status =

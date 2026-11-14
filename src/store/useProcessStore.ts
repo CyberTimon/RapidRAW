@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { Progress } from '../components/ui/AppProperties';
-import { ExportState, ImportState, Status } from '../components/ui/ExportImportProperties';
+import { Progress } from '../types/library';
+import { ExportState, ImportState, Status } from '../types/export';
 
 export interface ExternalEditSession {
   source: string;

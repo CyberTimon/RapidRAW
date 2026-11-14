@@ -6,6 +6,7 @@ import {
   Flag,
   FlagOff,
   Check,
+  Eraser,
   ClipboardPaste,
   Copy,
   CopyPlus,
@@ -61,17 +62,11 @@ import { useLibraryStore } from '../store/useLibraryStore';
 import { JobKind, useProcessStore } from '../store/useProcessStore';
 import { useUIStore } from '../store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import {
-  Invokes,
-  ImageFlag,
-  Option,
-  OPTION_SEPARATOR,
-  Panel,
-  AlbumItem,
-  Album,
-  AlbumGroup,
-  EditInApp,
-} from '../components/ui/AppProperties';
+import { getOpenImageDefaults, hasCustomDefaults, openImageHasCustomDefaults } from '../utils/developDefaults';
+import { Invokes } from '../types/invokes';
+import { ImageFlag, AlbumItem, Album, AlbumGroup } from '../types/library';
+import { Option, OPTION_SEPARATOR, Panel } from '../types/ui';
+import { EditInApp } from '../types/settings';
 import {
   AutoAdjustMode,
   Color,
@@ -79,7 +74,7 @@ import {
   getAiDenoiseEnablePatch,
   INITIAL_ADJUSTMENTS,
 } from '../utils/adjustments';
-import TaggingSubMenu from '../context/TaggingSubMenu';
+import TaggingSubMenu from '../components/panel/library/TaggingSubMenu';
 import {
   buildAutoAdjustModeOptions,
   debouncedSave,
@@ -89,13 +84,9 @@ import {
 import { useLibraryActions } from './useLibraryActions';
 import { transferFiles } from './useFileOperations';
 import { globalImageCache } from '../utils/ImageLRUCache';
-import {
-  immichAlbumOf,
-  isImmichAlbumId,
-  isImmichImagePath,
-  removeFromImmichAlbum,
-} from '../components/immich/immichApi';
-import { useImmichStore } from '../components/immich/useImmichStore';
+import { immichAlbumOf, isImmichAlbumId, isImmichImagePath, removeFromImmichAlbum } from '../utils/immichApi';
+import { useImmichStore } from '../store/useImmichStore';
+import type { ParseKeys } from 'i18next';
 
 export interface UseAppContextMenusProps {
   handleImageSelect: (path: string) => void;
@@ -462,7 +453,7 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
           submenu: [
             { label: t('contextMenus.editor.noLabel'), onClick: () => handleSetColorLabel(null) },
             ...COLOR_LABELS.map((label: Color) => ({
-              label: t(`contextMenus.colors.${label.name}`),
+              label: t(`contextMenus.colors.${label.name}` as ParseKeys),
               color: label.color,
               onClick: () => handleSetColorLabel(label.name),
             })),
@@ -490,17 +481,31 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
           submenu: [
             { label: t('contextMenus.editor.cancel'), icon: X, onClick: () => {} },
             {
-              label: t('contextMenus.editor.confirmReset'),
+              label: openImageHasCustomDefaults()
+                ? t('contextMenus.editor.resetToDefaults')
+                : t('contextMenus.editor.confirmReset'),
               icon: Check,
               isDestructive: true,
-              onClick: () => {
-                resetHistory({
-                  ...INITIAL_ADJUSTMENTS,
-                  aiPatches: [],
-                });
-                setEditor({ adjustments: { ...INITIAL_ADJUSTMENTS, aiPatches: [] } });
+              onClick: async () => {
+                const resetData = { ...(await getOpenImageDefaults()), aiPatches: [] };
+                resetHistory(resetData);
+                setEditor({ adjustments: resetData });
               },
             },
+            ...(openImageHasCustomDefaults()
+              ? [
+                  {
+                    label: t('contextMenus.editor.resetToNeutral'),
+                    icon: Eraser,
+                    isDestructive: true,
+                    onClick: () => {
+                      const resetData = { ...structuredClone(INITIAL_ADJUSTMENTS), aiPatches: [] };
+                      resetHistory(resetData);
+                      setEditor({ adjustments: resetData });
+                    },
+                  },
+                ]
+              : []),
           ],
         },
       ];
@@ -990,7 +995,7 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
           submenu: [
             { label: t('contextMenus.editor.noLabel'), onClick: () => handleSetColorLabel(null, finalSelection) },
             ...COLOR_LABELS.map((label: Color) => ({
-              label: t(`contextMenus.colors.${label.name}`),
+              label: t(`contextMenus.colors.${label.name}` as ParseKeys),
               color: label.color,
               onClick: () => handleSetColorLabel(label.name, finalSelection),
             })),
@@ -1051,11 +1056,23 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
           submenu: [
             { label: t('contextMenus.editor.cancel'), icon: X, onClick: () => {} },
             {
-              label: t('contextMenus.editor.confirmReset'),
+              label: hasCustomDefaults(appSettings)
+                ? t('contextMenus.editor.resetToDefaults')
+                : t('contextMenus.editor.confirmReset'),
               icon: Check,
               isDestructive: true,
               onClick: () => handleResetAdjustments(finalSelection),
             },
+            ...(hasCustomDefaults(appSettings)
+              ? [
+                  {
+                    label: t('contextMenus.editor.resetToNeutral'),
+                    icon: Eraser,
+                    isDestructive: true,
+                    onClick: () => handleResetAdjustments(finalSelection, true),
+                  },
+                ]
+              : []),
           ],
         },
         {

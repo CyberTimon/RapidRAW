@@ -7,7 +7,6 @@ import {
   Star as StarIcon,
   ZoomIn,
   ZoomOut,
-  Maximize,
   Link,
   SquarePen,
   Tag,
@@ -19,9 +18,11 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import { Invokes, ImageFile, ImageFlag, ThumbnailAspectRatio } from '../../ui/AppProperties';
-import FlagToggles from '../../ui/FlagToggles';
-import FlagBadges from '../../ui/FlagBadges';
+import { Invokes } from '../../../types/invokes';
+import { ImageFile, ImageFlag } from '../../../types/library';
+import { ThumbnailAspectRatio } from '../../../types/settings';
+import FlagToggles from './FlagToggles';
+import FlagBadges from './FlagBadges';
 import { Thumbnail } from './LibraryItems';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
@@ -948,63 +949,61 @@ function CullingPreview({
   );
 }
 
-const Row = React.memo(
-  ({
-    index,
-    style,
-    imageList,
-    multiSelectedPaths,
-    activePath,
-    onContextMenu,
-    onImageDoubleClick,
-    thumbnailAspectRatio,
-    imageRatings,
-    onImageClick,
-    queueThumbnailRequest,
-    hoveredCullingPath,
-  }: any) => {
-    const image: ImageFile = imageList[index];
-    const isSelected = multiSelectedPaths.includes(image.path);
-    const imagePath = image?.path;
-    const isCloudPlaceholder = !!image?.is_cloud_placeholder;
+const Row = ({
+  index,
+  style,
+  imageList,
+  multiSelectedPaths,
+  activePath,
+  onContextMenu,
+  onImageDoubleClick,
+  thumbnailAspectRatio,
+  imageRatings,
+  onImageClick,
+  queueThumbnailRequest,
+  hoveredCullingPath,
+}: any) => {
+  const image: ImageFile = imageList[index];
+  const isSelected = multiSelectedPaths.includes(image.path);
+  const imagePath = image?.path;
+  const isCloudPlaceholder = !!image?.is_cloud_placeholder;
 
-    useEffect(() => {
-      if (!image || !queueThumbnailRequest) return;
-      queueThumbnailRequest(image.path);
-    }, [image, queueThumbnailRequest]);
+  useEffect(() => {
+    if (!image || !queueThumbnailRequest) return;
+    queueThumbnailRequest(image.path);
+  }, [image, queueThumbnailRequest]);
 
-    useEffect(() => {
-      if (!imagePath || !isCloudPlaceholder || !queueThumbnailRequest) return;
-      const interval = setInterval(() => {
-        queueThumbnailRequest(imagePath);
-      }, 5000);
-      return () => clearInterval(interval);
-    }, [imagePath, isCloudPlaceholder, queueThumbnailRequest]);
+  useEffect(() => {
+    if (!imagePath || !isCloudPlaceholder || !queueThumbnailRequest) return;
+    const interval = setInterval(() => {
+      queueThumbnailRequest(imagePath);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [imagePath, isCloudPlaceholder, queueThumbnailRequest]);
 
-    return (
-      <div style={style} className="p-2 box-border">
-        <div className="w-full h-full">
-          <Thumbnail
-            path={image.path}
-            isSelected={isSelected}
-            isActive={activePath === image.path}
-            isForcedHover={hoveredCullingPath === image.path}
-            onImageClick={onImageClick}
-            onContextMenu={onContextMenu}
-            onImageDoubleClick={onImageDoubleClick}
-            onLoad={NOOP}
-            rating={imageRatings?.[image.path] || 0}
-            flag={image.flag}
-            tags={image.tags}
-            isEdited={image.is_edited}
-            aspectRatio={thumbnailAspectRatio}
-            isCloudPlaceholder={image.is_cloud_placeholder}
-          />
-        </div>
+  return (
+    <div style={style} className="p-2 box-border">
+      <div className="w-full h-full">
+        <Thumbnail
+          path={image.path}
+          isSelected={isSelected}
+          isActive={activePath === image.path}
+          isForcedHover={hoveredCullingPath === image.path}
+          onImageClick={onImageClick}
+          onContextMenu={onContextMenu}
+          onImageDoubleClick={onImageDoubleClick}
+          onLoad={NOOP}
+          rating={imageRatings?.[image.path] || 0}
+          flag={image.flag}
+          tags={image.tags}
+          isEdited={image.is_edited}
+          aspectRatio={thumbnailAspectRatio}
+          isCloudPlaceholder={image.is_cloud_placeholder}
+        />
       </div>
-    );
-  },
-);
+    </div>
+  );
+};
 
 export default function CullingView(props: any) {
   const { t } = useTranslation();

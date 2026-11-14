@@ -4,8 +4,8 @@ import { exit } from '@tauri-apps/plugin-process';
 
 import { useProcessStore } from '../store/useProcessStore';
 import { useEditorStore } from '../store/useEditorStore';
-import { Invokes } from '../components/ui/AppProperties';
-import { ExportSettings, Status } from '../components/ui/ExportImportProperties';
+import { Invokes } from '../types/invokes';
+import { ExportSettings, Status } from '../types/export';
 import { debouncedSave } from './useEditorActions';
 
 /**
@@ -14,21 +14,27 @@ import { debouncedSave } from './useEditorActions';
  * Opens the requested image in the editor and, for edit sessions, exports
  * the result to the caller-provided output path and exits the app.
  */
-export function useExternalEditSession(handleImageSelect: (path: string) => void) {
+export function useExternalEditSession(
+  handleImageSelect: (path: string) => void,
+  handleOpenContainingFolder: (path: string) => Promise<void>,
+) {
   const initialFileToOpen = useProcessStore((state) => state.initialFileToOpen);
   const externalEditSession = useProcessStore((state) => state.externalEditSession);
   const exportStatus = useProcessStore((state) => state.exportState.status);
   const [isFinishing, setIsFinishing] = useState(false);
 
   const handleImageSelectRef = useRef(handleImageSelect);
+  const handleOpenContainingFolderRef = useRef(handleOpenContainingFolder);
   useEffect(() => {
     handleImageSelectRef.current = handleImageSelect;
+    handleOpenContainingFolderRef.current = handleOpenContainingFolder;
   });
 
   useEffect(() => {
     if (!initialFileToOpen) return;
     useProcessStore.getState().setProcess({ initialFileToOpen: null });
     handleImageSelectRef.current(initialFileToOpen);
+    handleOpenContainingFolderRef.current(initialFileToOpen).catch((e) => console.error('Failed to load folder:', e));
   }, [initialFileToOpen]);
 
   useEffect(() => {

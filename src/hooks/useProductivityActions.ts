@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useUIStore } from '../store/useUIStore';
-import { Invokes } from '../components/ui/AppProperties';
+import { Invokes } from '../types/invokes';
 
 export function useProductivityActions(refreshImageList: () => Promise<void>) {
   const setUI = useUIStore((state) => state.setUI);

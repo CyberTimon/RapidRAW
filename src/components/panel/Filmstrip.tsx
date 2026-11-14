@@ -3,8 +3,10 @@ import { Image as ImageIcon, Star, SlidersHorizontal, Loader2, Pause } from 'luc
 import clsx from 'clsx';
 import { Grid, useGridCallbackRef } from 'react-window';
 import { useTranslation } from 'react-i18next';
-import { ImageFile, ImageFlag, SelectedImage, ThumbnailAspectRatio, GroupingMode } from '../ui/AppProperties';
-import FlagBadges from '../ui/FlagBadges';
+import { ImageFile, ImageFlag } from '../../types/library';
+import { SelectedImage } from '../../types/editor';
+import { ThumbnailAspectRatio, GroupingMode } from '../../types/settings';
+import FlagBadges from './library/FlagBadges';
 import { Color, COLOR_LABELS } from '../../utils/adjustments';
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
@@ -676,6 +678,21 @@ interface FilmStripProps {
   totalImages?: number;
 }
 
+export function useFilmstripActivePath(selectedPath: string | undefined, imageList: ImageFile[]) {
+  const groupingMode: GroupingMode = useSettingsStore((s) => s.appSettings?.grouping) ?? 'off';
+  const fullImageList = useLibraryStore((s) => (groupingMode === 'off' ? null : s.imageList));
+
+  return useMemo(() => {
+    if (!selectedPath || groupingMode === 'off') return selectedPath;
+    if (selectedPath.includes('?vc=')) return selectedPath;
+    if (imageList.some((img) => img.path === selectedPath)) return selectedPath;
+    const selected = fullImageList?.find((img) => img.path === selectedPath);
+    if (!selected?.group_id) return selectedPath;
+    const primary = imageList.find((img) => img.group_id === selected.group_id && !img.is_virtual_copy);
+    return primary?.path ?? selectedPath;
+  }, [selectedPath, imageList, fullImageList, groupingMode]);
+}
+
 export default function Filmstrip({
   imageList,
   imageRatings,
@@ -707,19 +724,7 @@ export default function Filmstrip({
     return () => ro.disconnect();
   }, []);
 
-  const groupingMode: GroupingMode = useSettingsStore((s) => s.appSettings?.grouping) ?? 'off';
-  const fullImageList = useLibraryStore((s) => (groupingMode === 'off' ? null : s.imageList));
-
-  const filmstripActivePath = useMemo(() => {
-    const path = selectedImage?.path;
-    if (!path || groupingMode === 'off') return path;
-    if (path.includes('?vc=')) return path;
-    if (imageList.some((img) => img.path === path)) return path;
-    const selected = fullImageList?.find((img) => img.path === path);
-    if (!selected?.group_id) return path;
-    const primary = imageList.find((img) => img.group_id === selected.group_id && !img.is_virtual_copy);
-    return primary?.path ?? path;
-  }, [selectedImage?.path, imageList, fullImageList, groupingMode]);
+  const filmstripActivePath = useFilmstripActivePath(selectedImage?.path, imageList);
 
   const selectedPathRef = useRef(selectedImage?.path);
   selectedPathRef.current = selectedImage?.path;

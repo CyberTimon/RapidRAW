@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, memo, RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GLOBAL_KEYS } from './AppProperties';
+import { GLOBAL_KEYS } from '../../types/ui';
 import { useEditorStore } from '../../store/useEditorStore';
 import { SPEED_EDIT_ADJUSTMENTS } from '../../utils/adjustments';
+import { SpeedEditTarget } from '../../types/editor';
+import { FINE_ADJUSTMENT_MULTIPLIER, hasFineAdjustmentModifier } from '../../utils/fineAdjustment';
+import { useSliderResetResolver } from '../../context/SliderResetContext';
 
 export type SliderChangeEvent =
   | React.ChangeEvent<HTMLInputElement>
@@ -22,20 +25,6 @@ export interface SliderScale {
   toPosition(value: number): number;
 }
 
-export interface SpeedEditTarget {
-  label: string | null;
-  value: number;
-  defaultValue: number;
-  step: number;
-  minPosition: number;
-  maxPosition: number;
-  format(value: number): string;
-  toPosition(value: number): number;
-  toValue(position: number): number;
-  onChange(value: number): void;
-  onDragStateChange(state: boolean): void;
-}
-
 const LINEAR_SCALE: SliderScale = {
   fromPosition: (position) => position,
   toPosition: (value) => value,
@@ -52,6 +41,7 @@ interface SliderProps {
   onChange(event: SliderChangeEvent): void;
   onDragStateChange?(state: boolean): void;
   onPointerUp?(): void;
+  resetKey?: string;
   scale?: SliderScale;
   speedEditId?: string;
   step: number;
@@ -62,7 +52,6 @@ interface SliderProps {
 }
 
 const DOUBLE_CLICK_THRESHOLD_MS = 150;
-export const FINE_ADJUSTMENT_MULTIPLIER = 0.2;
 const TOUCH_DRAG_THRESHOLD_PX = 10;
 const TOUCH_THUMB_HIT_RADIUS_PX = 24;
 
@@ -71,9 +60,6 @@ const getFraction = (value: number, min: number, max: number) => (max !== min ? 
 const speedEditTargets = new WeakMap<Element, RefObject<SpeedEditTarget | null>>();
 
 export const getSpeedEditTarget = (element: Element) => speedEditTargets.get(element) ?? null;
-
-export const hasFineAdjustmentModifier = (event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) =>
-  'shiftKey' in event && (event.shiftKey || event.altKey);
 
 const Slider = ({
   animateValueChanges = true,
@@ -86,6 +72,7 @@ const Slider = ({
   onChange,
   onDragStateChange = () => {},
   onPointerUp,
+  resetKey,
   scale = LINEAR_SCALE,
   speedEditId,
   step = 1,
@@ -94,6 +81,8 @@ const Slider = ({
   fillOrigin = 'default',
   suffix = '',
 }: SliderProps) => {
+  const resolveReset = useSliderResetResolver();
+  const resetValue = (resolveReset && resetKey !== undefined ? resolveReset(resetKey) : undefined) ?? defaultValue;
   const { t } = useTranslation();
   const [displayValue, setDisplayValue] = useState<number>(value);
   const [isDragging, setIsDragging] = useState(false);
@@ -178,7 +167,7 @@ const Slider = ({
     : {
         label: speedEditLabel ? t(speedEditLabel) : typeof label === 'string' ? label : null,
         value: numericValue,
-        defaultValue,
+        defaultValue: resetValue,
         step,
         minPosition,
         maxPosition,
@@ -445,10 +434,10 @@ const Slider = ({
   const handleReset = () => {
     if (disabled) return;
 
-    setInputValue(String(defaultValue));
+    setInputValue(String(resetValue));
     const syntheticEvent = {
       target: {
-        value: defaultValue,
+        value: resetValue,
       },
     };
     onChange(syntheticEvent);

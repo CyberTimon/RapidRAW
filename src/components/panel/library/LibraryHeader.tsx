@@ -35,22 +35,24 @@ import { useShallow } from 'zustand/react/shallow';
 import { invoke } from '@tauri-apps/api/core';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { isJobActive, Job, JobKind, JobStatus, useProcessStore } from '../../../store/useProcessStore';
+import { Invokes } from '../../../types/invokes';
 import {
-  Invokes,
   FilterCriteria,
   RawStatus,
   EditedStatus,
   FlagStatus,
-  LibraryViewMode,
   SortCriteria,
   SortDirection,
-  ExifOverlay,
   RATING_OPERATORS,
+  Progress,
+} from '../../../types/library';
+import {
+  LibraryViewMode,
+  ExifOverlay,
   GroupingMode,
   ThumbnailSize,
   ThumbnailAspectRatio,
-  Progress,
-} from '../../ui/AppProperties';
+} from '../../../types/settings';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
 import Text from '../../ui/Text';
 import { TextColor, TextColors, TextVariants, TextWeights, TEXT_COLOR_KEYS } from '../../../types/typography';
@@ -117,8 +119,11 @@ function DropdownMenu({ buttonContent, buttonTitle, children, contentClassName =
   );
 }
 
+const THUMBNAIL_SIZE_GLYPH_MIN = 6;
+const THUMBNAIL_SIZE_GLYPH_STEP = 2;
+
 interface SegmentedSwitchProps {
-  options: { id: string | number; label: string }[];
+  options: { id: string | number; label: React.ReactNode; title?: string }[];
   value: string | number;
   onChange: (id: any) => void;
 }
@@ -166,8 +171,17 @@ const SegmentedSwitch = ({ options, value, onChange }: SegmentedSwitchProps) => 
               },
             )}
             style={{ WebkitTapHighlightColor: 'transparent' }}
+            aria-label={option.title}
+            data-tooltip={option.title}
           >
-            <span className="relative z-10">{option.label}</span>
+            <span
+              className={clsx(
+                'relative z-10',
+                typeof option.label !== 'string' && 'flex items-center justify-center h-4',
+              )}
+            >
+              {option.label}
+            </span>
           </button>
         ))}
       </div>
@@ -525,7 +539,7 @@ interface ViewOptionsDropdownProps {
   setLibraryViewMode: (mode: LibraryViewMode) => void;
   thumbnailSize: ThumbnailSize;
   thumbnailAspectRatio: ThumbnailAspectRatio;
-  thumbnailSizeOptions: Array<{ id: ThumbnailSize; label: string; size: number }>;
+  thumbnailSizeOptions: Array<{ id: ThumbnailSize; size: number }>;
   thumbnailAspectRatioOptions: Array<{ id: ThumbnailAspectRatio; label: string }>;
   ratingFilterOptions: Array<{ value: number; label: string }>;
   rawStatusOptions: Array<{ key: RawStatus; label: string }>;
@@ -558,6 +572,19 @@ export function ViewOptionsDropdown({
       sortCriteria: state.sortCriteria,
       setSortCriteria: state.setSortCriteria,
     })),
+  );
+
+  const thumbnailSizeSwitchOptions = useMemo(
+    () =>
+      thumbnailSizeOptions.map((option, index) => {
+        const glyphSize = THUMBNAIL_SIZE_GLYPH_MIN + index * THUMBNAIL_SIZE_GLYPH_STEP;
+        return {
+          id: option.id,
+          title: `${option.size}px`,
+          label: <span className="block rounded-[3px] bg-current" style={{ width: glyphSize, height: glyphSize }} />,
+        };
+      }),
+    [thumbnailSizeOptions],
   );
 
   const { appSettings, handleSettingsChange } = useSettingsStore(
@@ -667,7 +694,7 @@ export function ViewOptionsDropdown({
               {t('library.header.viewOptions.thumbnailSize')}
             </Text>
             <div className="px-3 mt-1">
-              <SegmentedSwitch options={thumbnailSizeOptions} value={thumbnailSize} onChange={onSelectSize} />
+              <SegmentedSwitch options={thumbnailSizeSwitchOptions} value={thumbnailSize} onChange={onSelectSize} />
             </div>
           </div>
 
