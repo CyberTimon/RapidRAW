@@ -268,7 +268,7 @@ fn tb_refine(@builtin(global_invocation_id) id: vec3<u32>) {
     let side = f32(2 * radius + 1);
     let share = similar / (side * side);
     let level = mix(tb_upsample(p, l, 0).x, total / similar, smoothstep(TB_OWN_LO, TB_OWN_HI, share));
-    textureStore(dst, id.xy, vec4<f32>(level, level * level, abs(l - level), 0.0));
+    textureStore(dst, id.xy, vec4<f32>(level, level * level, abs(l - level), l));
 }
 
 @compute @workgroup_size(8, 8, 1)
@@ -327,7 +327,8 @@ fn tb_pack(@builtin(global_invocation_id) id: vec3<u32>) {
     let p = vec2<i32>(id.xy);
     if (p.x >= dims.x || p.y >= dims.y) { return; }
 
-    let level = textureLoad(src_b, p, 0).x;
+    let refined = textureLoad(src_b, p, 0);
+    let level = refined.x;
     let low = vec2<i32>(textureDimensions(src_a));
     let pos = (vec2<f32>(p) + 0.5) * vec2<f32>(low) / vec2<f32>(dims) - 0.5;
     let f = pos - floor(pos);
@@ -339,7 +340,7 @@ fn tb_pack(@builtin(global_invocation_id) id: vec3<u32>) {
         f.y
     );
     let texture = tb_upsample(p, level, 2).w;
-    textureStore(dst, id.xy, vec4<f32>(level, level - (fit.x * level + fit.y), texture, 0.0));
+    textureStore(dst, id.xy, vec4<f32>(level, level - (fit.x * level + fit.y), texture, refined.w - level));
 }
 
 @compute @workgroup_size(8, 8, 1)
@@ -359,7 +360,8 @@ fn tb_tone(@builtin(global_invocation_id) id: vec3<u32>) {
         mix(textureLoad(src_a, vec2<i32>(c0.x, c1.y), 0).zw, textureLoad(src_a, c1, 0).zw, f.x),
         f.y
     );
-    textureStore(dst, id.xy, vec4<f32>(base.xyz, base.x - (fit.x * base.x + fit.y)));
+    let broad_guide = bitcast<f32>(pack2x16float(base.yw));
+    textureStore(dst, id.xy, vec4<f32>(base.x, broad_guide, base.z, base.x - (fit.x * base.x + fit.y)));
 }
 
 @compute @workgroup_size(8, 8, 1)

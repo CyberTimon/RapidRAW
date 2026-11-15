@@ -252,6 +252,8 @@ const HZ_CHROMA_FLOOR: f32 = 0.01;
 const GF_NOISE_LO: f32 = 0.0;
 const GF_NOISE_HI: f32 = 0.01;
 const TB_UP_SIGMA: f32 = 0.25;
+const TB_FIT_SIGMA: f32 = 1.5;
+const TB_FIT_EPS: f32 = 0.15;
 const LC_FINE_CORE: f32 = 0.07;
 const LC_BROAD_CORE: f32 = 0.25;
 const LC_TEXTURE_LO: f32 = 0.33;
@@ -1180,10 +1182,12 @@ fn sample_tone_base(abs_coord: vec2<u32>, log_luma: f32) -> ToneBase {
     let low = vec2<i32>(textureDimensions(tone_base_texture));
     let pos = (vec2<f32>(abs_coord) + 0.5) / full * vec2<f32>(low) - 0.5;
     let centre = vec2<i32>(round(pos));
-    var total = vec3<f32>(0.0);
+    var total = vec2<f32>(0.0);
     var tone_total = vec2<f32>(0.0);
     var weight_sum = 0.0;
     var edge = 0.0;
+    var fit = vec3<f32>(0.0);
+    var fit_moments = vec2<f32>(0.0);
     for (var j = -1; j <= 1; j = j + 1) {
         for (var i = -1; i <= 1; i = i + 1) {
             let q = centre + vec2<i32>(i, j);
@@ -1192,18 +1196,30 @@ fn sample_tone_base(abs_coord: vec2<u32>, log_luma: f32) -> ToneBase {
             let bilinear = max(1.0 - offset, vec2<f32>(0.0));
             let texel = textureLoad(tone_base_texture, clamp(q, vec2<i32>(0), low - vec2<i32>(1)), 0);
             let texture_range = unpack2x16float(bitcast<u32>(texel.z));
-            let v = vec3<f32>(texel.xy, texture_range.x);
+            let broad_guide = unpack2x16float(bitcast<u32>(texel.y));
+            let level = texel.x;
+            let broad = broad_guide.x;
+            let guide = level + broad_guide.y;
+            let g = (guide - log_luma) / TB_FIT_SIGMA;
+            let r = tent.x * tent.y * exp(-0.5 * g * g) + 1.0e-7;
+            fit += vec3<f32>(r, r * guide, r * level);
+            fit_moments += vec2<f32>(r * guide * guide, r * guide * level);
             edge += texture_range.y * bilinear.x * bilinear.y;
-            let d = (v.x - log_luma) / TB_UP_SIGMA;
-            let e = (v.x - v.y - log_luma) / TB_UP_SIGMA;
+            let d = (level - log_luma) / TB_UP_SIGMA;
+            let e = (level - broad - log_luma) / TB_UP_SIGMA;
             let w = tent.x * tent.y / (1.0 + d * d + e * e) + 1.0e-7;
-            total += v * w;
+            total += vec2<f32>(broad, texture_range.x) * w;
             tone_total += unpack2x16float(bitcast<u32>(texel.w)) * w;
             weight_sum += w;
         }
     }
     let tone = tone_total / weight_sum;
-    return ToneBase(vec4<f32>(total / weight_sum, edge), tone.x, tone.y);
+    let fit_guide = fit.y / fit.x;
+    let fit_level = fit.z / fit.x;
+    let spread = max(fit_moments.x / fit.x - fit_guide * fit_guide, 0.0);
+    let slope = clamp((fit_moments.y / fit.x - fit_guide * fit_level) / (spread + TB_FIT_EPS), 0.0, 1.0);
+    let follow = fit_level + slope * (log_luma - fit_guide);
+    return ToneBase(vec4<f32>(follow, total / weight_sum, edge), tone.x, tone.y);
 }
 
 fn detail_core(d: f32, core: f32) -> f32 {
