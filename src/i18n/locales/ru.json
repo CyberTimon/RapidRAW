@@ -1011,6 +1011,9 @@
         "tethering": "Съемка на ПК (Тетеринг)"
       }
     },
+    "toasts": {
+      "embeddedPreview": "RapidRAW не удалось декодировать этот RAW-файл, поэтому вы видите и редактируете встроенное JPEG-превью камеры. Качество будет ниже, а запас для редактирования меньше, чем у настоящего RAW."
+    },
     "toolbar": {
       "history": "История",
       "switchToVariant": "Switch to {{label}}",
@@ -2293,7 +2296,7 @@
         "baselineExposure": "Базовая экспозиция",
         "baselineExposureAmount": "Базовая величина",
         "baselineExposureAmountDesc": "Экспозиция, добавляемая к RAW-файлам. В darktable используется +0,7 EV.",
-        "baselineExposureDesc": "Осветляет RAW-файлы на фиксированную величину и добавляет тег DNG BaselineExposure, если он есть.",
+        "baselineExposureDesc": "Осветляет RAW-файлы на фиксированную величину или, если есть тег DNG BaselineExposure, на его значение.",
         "colorNr": "Базовое шумоподавление цвета",
         "colorNrDesc": "Применяет двусторонний пространственный фильтр на раннем этапе обработки для удаления хроматического шума. Больше значение — сильнее эффект.",
         "defaultNonRawTonemapper": "Тон-маппер для не-RAW",

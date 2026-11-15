@@ -57,9 +57,20 @@ RapidRAW is for photographers who love to edit their photos in a <strong>clean, 
 <details>
 <summary><strong>Recent Changes</strong></summary>
 
-- **2026-11-07:** Rebuilt glow, halation and lens flare with realistic glare and aperture ghosts, rebuilt film grain, convert embedded ICC profiles of non-RAW images to sRGB, render previews at the real display size, and added the option to export the original alongside edits
+- **2026-11-15:** Made sharpening halo-free and independent of exposure, and fixed stepped soft edges under highlights and the other tone sliders
+- **2026-11-14:** Docked the filmstrip into the side panels as a vertical grid, added six library thumbnail sizes, added crop rotation by dragging around the frame, rebuilt contrast around each photo's own midtone, kept RAW metadata in JPEG XL exports, added camera make and model to the metadata panel, and made the AI denoise and RapidRes cache about three times smaller
+- **2026-11-13:** Added default adjustments with per-camera presets and automatic lens correction, and kept zooming smooth while a RAW file loads
+- **2026-11-12:** Retuned the tone sliders, improved generative fill edges and cloud inpainting, fixed AI masks on Linux systems with a decimal comma locale, and fixed renames that left sidecar files behind
+- **2026-11-11:** Added RapidRes, a 2x AI super resolution fine-tuned on RapidRAW's own RAW pipeline, and removed green checkerboard artifacts in bright flat areas like snow
+- **2026-11-10:** Moved demosaicing to the GPU with RCD for Bayer and Markesteijn for X-Trans, reworked highlights, shadows, whites, blacks, clarity and structure with stronger highlight recovery, and rebuilt the color grading wheels in OKLab
+- **2026-11-08:** Sorted file names in natural number order
+- **2026-11-07:** Rebuilt glow, halation and lens flare with realistic glare and aperture ghosts, rebuilt film grain, convert embedded ICC profiles of non-RAW images to sRGB, render previews at the real display size, added the option to export the original alongside edits, and fixed Olympus ORF white balance
 - **2026-11-06:** Added an interface scale setting for a compact UI, and fixed macOS context menus and canvas flicker when switching images
 - **2026-11-05:** Reworked lens correction to match Lensfun exactly with per-image lens profiles, moved relight, fog, lens blur and all transforms to the GPU, added next/previous image preloading and interactive 3D depth views
+
+<details>
+<summary><strong>Expand further</strong></summary>
+
 - **2026-11-04:** Fixed macOS local network access with ad-hoc signing, Let's Encrypt certificates on Android, and export panel validation
 - **2026-11-03:** Added Match Brush mask with adaptive color, tone and texture matching, and reworked liquify and retouch with frequency separation smoothing
 - **2026-11-02:** Added Motion Blur with panning, moving subject, spin and depth parallax, reworked clone and heal with automatic source matching, enabled the GPU renderer on Linux Wayland, and added EXIF and ICC metadata to TIFF exports
@@ -67,10 +78,6 @@ RapidRAW is for photographers who love to edit their photos in a <strong>clean, 
 - **2026-10-31:** Added Speed Edit for keyboard and drag-based slider editing, an expanded color mixer with targeted pipette, and "Edit In" for external editors
 - **2026-10-30:** Bounded JPEG XL export memory, fixed virtual copy exports, and kept edits of shared Immich images on this computer
 - **2026-10-29:** Much faster folder loading from network shares, cached GPU pipelines and parallel preview encoding, readable edit history labels, and Enter / Escape to apply or cancel a crop
-
-<details>
-<summary><strong>Expand further</strong></summary>
-
 - **2026-10-28:** Added a second window viewer for multi-monitor setups, a setting to hide collapsed side panels, and drag and drop sorting into Immich albums
 - **2026-10-27:** Added Black & White mode with film responses, lens filters, B&W mix and toning, and added Ukrainian translation
 - **2026-10-25:** Published the technical reference that explains the full processing pipeline

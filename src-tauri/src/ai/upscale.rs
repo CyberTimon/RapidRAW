@@ -21,6 +21,7 @@ const DETAIL_SAMPLE_STEP: usize = 8;
 static CACHE: BaseCache = BaseCache::new(
     "ai_upscale",
     "rrup",
+    b"RRUP0002",
     b"RRUP0001",
     "ai-upscale",
     "AI upscale",

@@ -28,16 +28,19 @@ const FUJI_MAKERNOTE_IFD_OFFSET: u32 = 12;
 #[derive(Clone, Copy, Debug, Default)]
 pub struct RawExposure {
     pub scene_referred: bool,
-    pub dng_baseline: f32,
+    pub dng_baseline: Option<f32>,
     pub highlight_preservation: f32,
 }
 
 impl RawExposure {
     pub fn compensation(&self, options: BaselineOptions) -> f32 {
-        let baseline = options.baseline_exposure.map_or(0.0, |amount| {
-            let scene_referred = if self.scene_referred { amount } else { 0.0 };
-            scene_referred + self.dng_baseline
-        });
+        let baseline = options
+            .baseline_exposure
+            .map_or(0.0, |amount| match self.dng_baseline {
+                Some(dng_baseline) => dng_baseline,
+                None if self.scene_referred => amount,
+                None => 0.0,
+            });
         let highlight_preservation = if options.compensate_highlight_preservation {
             self.highlight_preservation
         } else {
@@ -77,14 +80,12 @@ pub fn read(decoder: &dyn Decoder, file_bytes: &[u8], is_monochrome: bool) -> Ra
     }
 }
 
-fn dng_baseline(decoder: &dyn Decoder) -> f32 {
-    let Ok(Some(tags)) = decoder.ifd(WellKnownIFD::VirtualDngRootTags) else {
-        return 0.0;
-    };
+fn dng_baseline(decoder: &dyn Decoder) -> Option<f32> {
+    let tags = decoder.ifd(WellKnownIFD::VirtualDngRootTags).ok()??;
     [DngTag::BaselineExposure, DngTag::BaselineExposureOffset]
         .into_iter()
         .filter_map(|tag| tags.get_entry(tag)?.value.get_f32(0).ok().flatten())
-        .sum()
+        .reduce(|total, value| total + value)
 }
 
 fn highlight_preservation(format: FormatHint, file_bytes: &[u8]) -> f32 {

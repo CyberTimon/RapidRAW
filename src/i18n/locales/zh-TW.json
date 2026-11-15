@@ -958,6 +958,9 @@
         "tethering": "連線拍攝"
       }
     },
+    "toasts": {
+      "embeddedPreview": "RapidRAW 無法解碼此 RAW 檔案，因此您看到和編輯的是相機內嵌的 JPEG 預覽。畫質會低於真正的 RAW，可調整的空間也更小。"
+    },
     "toolbar": {
       "history": "歷史記錄",
       "switchToVariant": "Switch to {{label}}",
@@ -2203,7 +2206,7 @@
         "baselineExposure": "基礎曝光",
         "baselineExposureAmount": "基礎量",
         "baselineExposureAmountDesc": "加到 RAW 檔案的曝光量。darktable 使用 +0.7 EV。",
-        "baselineExposureDesc": "將 RAW 檔案提亮一個固定值，如有 DNG BaselineExposure 標籤也會一併加上。",
+        "baselineExposureDesc": "將 RAW 檔案提亮一個固定值；如有 DNG BaselineExposure 標籤，則改用該標籤的值。",
         "colorNr": "基礎顏色降噪",
         "colorNrDesc": "在管線早期應用交叉雙邊濾波器以去除彩色噪點。值越高 = 降噪越強。",
         "defaultNonRawTonemapper": "預設非 RAW 色調映射",

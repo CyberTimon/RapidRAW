@@ -26,14 +26,13 @@ use rayon::prelude::*;
 use serde::Deserialize;
 use serde_json::Value;
 use std::borrow::Cow;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::Cursor;
 use std::panic;
 use std::path::Path;
-use std::sync::OnceLock;
 use std::sync::{
-    Arc,
+    Arc, Mutex, OnceLock,
     atomic::{AtomicUsize, Ordering},
 };
 use tauri::Manager;
@@ -46,6 +45,7 @@ pub struct LoadImageResult {
     pub exif: HashMap<String, String>,
     pub is_raw: bool,
     pub as_shot_white_balance: WhiteBalance,
+    pub is_embedded_preview: bool,
 }
 
 #[derive(Deserialize)]
@@ -136,6 +136,12 @@ pub fn load_base_image_from_bytes(
         bytes,
     );
 
+    let record_embedded_preview = |used: bool| {
+        if !use_fast_raw_dev {
+            set_embedded_preview(path_for_ext_check, used);
+        }
+    };
+
     if is_raw_file(path_for_ext_check)
         && !use_fast_raw_dev
         && settings.use_apple_raw9.unwrap_or(false)
@@ -147,7 +153,10 @@ pub fn load_base_image_from_bytes(
         }
 
         match crate::decode::apple_raw::develop_raw9(bytes, path_for_ext_check) {
-            Ok(image) => return Ok(image),
+            Ok(image) => {
+                record_embedded_preview(false);
+                return Ok(image);
+            }
             Err(e) => log::warn!(
                 "Apple RAW 9 unavailable for '{}', falling back to rawler: {}",
                 path_for_ext_check,
@@ -168,7 +177,10 @@ pub fn load_base_image_from_bytes(
                 cancel_token,
             )
         }) {
-            Ok(Ok(image)) => Ok(image),
+            Ok(Ok(image)) => {
+                record_embedded_preview(false);
+                Ok(image)
+            }
             Ok(Err(e)) => {
                 let classified = classify_raw_develop_error(path_for_ext_check, e);
 
@@ -181,34 +193,15 @@ pub fn load_base_image_from_bytes(
                     path_for_ext_check,
                     classified
                 );
-                if let Some(preview) = safe_embedded_preview_fallback(bytes, path_for_ext_check) {
-                    log::warn!(
-                        "Using embedded preview fallback for '{}' ({}x{})",
-                        path_for_ext_check,
-                        preview.width(),
-                        preview.height()
-                    );
-
-                    return Ok(linearize_embedded_preview(preview));
-                }
-                Err(classified)
+                embedded_preview_instead(bytes, path_for_ext_check)
+                    .inspect(|_| record_embedded_preview(true))
+                    .ok_or(classified)
             }
             Err(_) => {
                 log::error!("Panic while processing RAW file: {}", path_for_ext_check);
-                if let Some(preview) = safe_embedded_preview_fallback(bytes, path_for_ext_check) {
-                    log::warn!(
-                        "Using embedded preview fallback for '{}' after RAW decoder panic ({}x{})",
-                        path_for_ext_check,
-                        preview.width(),
-                        preview.height()
-                    );
-
-                    return Ok(linearize_embedded_preview(preview));
-                }
-                Err(anyhow!(
-                    "Failed to process RAW file: {}",
-                    path_for_ext_check
-                ))
+                embedded_preview_instead(bytes, path_for_ext_check)
+                    .inspect(|_| record_embedded_preview(true))
+                    .ok_or_else(|| anyhow!("Failed to process RAW file: {}", path_for_ext_check))
             }
         }
     } else {
@@ -359,6 +352,40 @@ pub fn safe_embedded_preview_fallback(bytes: &[u8], path: &str) -> Option<Dynami
             None
         }
     }
+}
+
+fn embedded_preview_paths() -> &'static Mutex<HashSet<String>> {
+    static PATHS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
+    PATHS.get_or_init(|| Mutex::new(HashSet::new()))
+}
+
+fn set_embedded_preview(path: &str, used: bool) {
+    let mut paths = embedded_preview_paths()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    if used {
+        paths.insert(path.to_string());
+    } else {
+        paths.remove(path);
+    }
+}
+
+pub fn is_embedded_preview(path: &str) -> bool {
+    embedded_preview_paths()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .contains(path)
+}
+
+fn embedded_preview_instead(bytes: &[u8], path: &str) -> Option<DynamicImage> {
+    let preview = safe_embedded_preview_fallback(bytes, path)?;
+    log::warn!(
+        "Using embedded preview fallback for '{}' ({}x{})",
+        path,
+        preview.width(),
+        preview.height()
+    );
+    Some(linearize_embedded_preview(preview))
 }
 
 fn linearize_embedded_preview(preview: DynamicImage) -> DynamicImage {
@@ -1182,7 +1209,7 @@ pub async fn load_image(
             "Baseline exposure for '{}': {:+.2} EV (DNG baseline {:+.2} EV, highlight preservation {:+.2} EV)",
             source_path_str,
             effective_baseline_exposure(&metadata.adjustments, as_shot, baseline_options),
-            as_shot.exposure.dng_baseline,
+            as_shot.exposure.dng_baseline.unwrap_or(0.0),
             as_shot.exposure.highlight_preservation
         );
     }
@@ -1203,5 +1230,6 @@ pub async fn load_image(
         exif: exif_data,
         is_raw,
         as_shot_white_balance: as_shot.white_balance,
+        is_embedded_preview: is_embedded_preview(&source_path_str),
     })
 }

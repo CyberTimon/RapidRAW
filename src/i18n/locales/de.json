@@ -961,6 +961,9 @@
         "tethering": "Tethering"
       }
     },
+    "toasts": {
+      "embeddedPreview": "RapidRAW konnte diese RAW-Datei nicht dekodieren, daher siehst und bearbeitest du die eingebettete JPEG-Vorschau der Kamera. Rechne mit geringerer Qualität und weniger Bearbeitungsspielraum als bei einem echten RAW."
+    },
     "toolbar": {
       "history": "Verlauf",
       "switchToVariant": "Switch to {{label}}",
@@ -2209,7 +2212,7 @@
         "baselineExposure": "Basisbelichtung",
         "baselineExposureAmount": "Basiswert",
         "baselineExposureAmountDesc": "Belichtung, die zu RAW-Dateien addiert wird. darktable verwendet +0,7 LW.",
-        "baselineExposureDesc": "Hellt RAW-Dateien um einen festen Wert auf, zuzüglich des DNG-Tags BaselineExposure, falls vorhanden.",
+        "baselineExposureDesc": "Hellt RAW-Dateien um einen festen Wert auf, oder stattdessen um den Wert des DNG-Tags BaselineExposure, falls vorhanden.",
         "colorNr": "Basis-Farbrauschreduzierung",
         "colorNrDesc": "Wendet früh in der Pipeline einen Filter an, um Farbrauschen zu entfernen. Höherer Wert = Stärkere Reduzierung.",
         "defaultNonRawTonemapper": "Standard-Tonemapper (Nicht-RAW)",

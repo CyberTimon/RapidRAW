@@ -224,7 +224,6 @@ const HSL_RANGES: array<HslRange, 8> = array<HslRange, 8>(
 @group(0) @binding(5) var lut_sampler: sampler;
 
 @group(0) @binding(6) var sharpness_blur_texture: texture_2d<f32>;
-@group(0) @binding(7) var tonal_blur_texture: texture_2d<f32>;
 @group(0) @binding(9) var bloom_texture: texture_2d<f32>;
 @group(0) @binding(10) var flare_texture: texture_2d<f32>;
 @group(0) @binding(11) var light_sampler: sampler;
@@ -253,6 +252,8 @@ const HZ_CHROMA_FLOOR: f32 = 0.01;
 const GF_NOISE_LO: f32 = 0.0;
 const GF_NOISE_HI: f32 = 0.01;
 const TB_UP_SIGMA: f32 = 0.25;
+const TB_FIT_SIGMA: f32 = 1.5;
+const TB_FIT_EPS: f32 = 0.15;
 const LC_FINE_CORE: f32 = 0.07;
 const LC_BROAD_CORE: f32 = 0.25;
 const LC_TEXTURE_LO: f32 = 0.33;
@@ -272,16 +273,17 @@ const LC_DARK_LIMIT: f32 = 2.0;
 const TONE_FLOOR: f32 = 1.0e-6;
 const TONE_DETAIL_KEEP: f32 = 0.9;
 const TONE_DETAIL_SIGMA: f32 = 2.5;
+const PULL_DETAIL_KEEP: f32 = 1.0;
 const TONE_HS_UNIT: f32 = 1.2;
 const TONE_WB_UNIT: f32 = 0.4;
 const TONE_MAX: f32 = 1.1;
 const TONE_SLOPE_FLOOR: f32 = 0.25;
-const HIGHLIGHT_PIVOT: f32 = -3.75;
-const HIGHLIGHT_KNEE: f32 = 1.5;
-const HIGHLIGHT_PULL: f32 = 0.6;
-const HIGHLIGHT_PUSH: f32 = 0.8;
-const HIGHLIGHT_MAX: f32 = 3.0;
-const HIGHLIGHT_PUSH_MAX: f32 = 1.0;
+const HIGHLIGHT_PIVOT: f32 = -3.0;
+const HIGHLIGHT_KNEE: f32 = 1.0;
+const HIGHLIGHT_PULL: f32 = 1.5;
+const HIGHLIGHT_PUSH: f32 = 1.5;
+const HIGHLIGHT_MAX: f32 = 1.3;
+const HIGHLIGHT_PUSH_MAX: f32 = 1.6;
 const HIGHLIGHT_CEILING: f32 = -0.1;
 const HIGHLIGHT_CLIP_HOLD: f32 = 1.0;
 const HIGHLIGHT_HOLD_RANGE: f32 = 2.0;
@@ -299,8 +301,8 @@ const SHADOW_LIFT: f32 = 1.4;
 const SHADOW_DROP: f32 = 2.0;
 const SHADOW_MAX: f32 = 2.0;
 const SHADOW_DROP_MAX: f32 = 2.0;
-const SHADOW_BLACK_LO: f32 = -7.5;
-const SHADOW_BLACK_HI: f32 = -4.5;
+const SHADOW_BLACK_LO: f32 = -10.0;
+const SHADOW_BLACK_HI: f32 = -6.5;
 const SHADOW_POP: f32 = 0.7;
 const SHADOW_POP_SIGMA: f32 = 1.0;
 const WHITE_PIVOT: f32 = -2.3;
@@ -320,8 +322,11 @@ const BLACK_DROP_MAX: f32 = 2.0;
 const BLACK_POP: f32 = 0.7;
 const BLACK_FINE_POP: f32 = 0.35;
 const BLACK_FINE_CORE: f32 = 0.1;
-const BLACK_FLOOR: f32 = 0.005;
+const BLACK_FLOOR: f32 = 0.0025;
 const BLACK_FLOOR_SPREAD: f32 = 0.05;
+const BLACK_TOE: f32 = 0.5;
+const BLACK_TOE_END: f32 = 0.3;
+const BLACK_TOE_GAIN: f32 = 16.0;
 
 override HIGH_PRECISION_OUTPUT: u32 = 0u;
 override FEATURES: u32 = 0xFFFFFFFFu;
@@ -613,6 +618,30 @@ fn shape_detail(d: f32, sigma: f32) -> f32 {
     return d / (1.0 + x * x);
 }
 
+fn highlight_shift(level: f32, hl: f32, white_level: f32, clipped: f32) -> f32 {
+    var shift = tone_lift(-hl, tone_ramp(level - HIGHLIGHT_PIVOT, HIGHLIGHT_KNEE), HIGHLIGHT_PULL, HIGHLIGHT_PUSH, HIGHLIGHT_MAX, HIGHLIGHT_PUSH_MAX);
+    if (shift > 0.0) {
+        let at_white = tone_lift(-hl, tone_ramp(white_level - HIGHLIGHT_PIVOT, HIGHLIGHT_KNEE), HIGHLIGHT_PULL, HIGHLIGHT_PUSH, HIGHLIGHT_MAX, HIGHLIGHT_PUSH_MAX);
+        let ceiling = select(HIGHLIGHT_CEILING, AGX_WHITE_LEVEL + HIGHLIGHT_CEILING, has_feature(F_AGX) && adjustments.global.tonemapper_mode == 1u);
+        let pinned = clamp((white_level - ceiling) / max(at_white, TONE_FLOOR), 0.0, 1.0);
+        let dull = clamp(ceiling - white_level, 0.0, 1.0);
+        shift *= mix(1.0, max(pinned, dull), smoothstep(white_level - HIGHLIGHT_SHOULDER, white_level, level));
+        shift *= 1.0 - HIGHLIGHT_CLIP_HOLD * clipped * smoothstep(white_level - HIGHLIGHT_HOLD_RANGE, white_level - HIGHLIGHT_HOLD_TOP, level);
+    }
+    return shift;
+}
+
+fn shadow_shift(shade: f32, log_luma: f32, sh: f32) -> f32 {
+    return select(1.0, smoothstep(SHADOW_BLACK_LO, SHADOW_BLACK_HI, log_luma), sh > 0.0) * tone_lift(sh, tone_ramp(SHADOW_PIVOT - shade, SHADOW_KNEE), SHADOW_LIFT, SHADOW_DROP, SHADOW_MAX, SHADOW_DROP_MAX);
+}
+
+fn toned_key(key: f32, white_level: f32) -> f32 {
+    let hl = clamp(adjustments.global.highlights * TONE_HS_UNIT, -TONE_MAX, TONE_MAX);
+    let sh = clamp(adjustments.global.shadows * TONE_HS_UNIT, -TONE_MAX, TONE_MAX);
+    let level = key - highlight_shift(key, hl, white_level, 0.0);
+    return level + shadow_shift(level, key, sh);
+}
+
 fn apply_tonal_adjustments(
     color: vec3<f32>,
     fine_detail: f32,
@@ -634,29 +663,22 @@ fn apply_tonal_adjustments(
     }
 
     let log_luma = log2(luma);
-    let kept = TONE_DETAIL_KEEP * shape_detail(fine_detail + broad_detail, TONE_DETAIL_SIGMA);
+    let shaped = shape_detail(fine_detail + broad_detail, TONE_DETAIL_SIGMA);
+    let kept = TONE_DETAIL_KEEP * shaped;
     let kept_tone = TONE_DETAIL_KEEP * shape_detail(fine_detail + tone_detail, TONE_DETAIL_SIGMA);
     let kept_broad = kept_tone - TONE_DETAIL_KEEP * shape_detail(fine_detail, TONE_DETAIL_SIGMA);
     let region = log_luma - kept;
 
     var level = region;
-    let depth = tone_ramp(level - HIGHLIGHT_PIVOT, HIGHLIGHT_KNEE);
-    var shift = tone_lift(-hl, depth, HIGHLIGHT_PULL, HIGHLIGHT_PUSH, HIGHLIGHT_MAX, HIGHLIGHT_PUSH_MAX);
+    let lead = log_luma - select(TONE_DETAIL_KEEP, PULL_DETAIL_KEEP, hl < 0.0) * shaped;
+    let depth = tone_ramp(lead - HIGHLIGHT_PIVOT, HIGHLIGHT_KNEE);
     let slope = 1.0 - max(-hl, 0.0) * HIGHLIGHT_PULL * exp(-HIGHLIGHT_PULL * depth / HIGHLIGHT_MAX)
-              * tone_ramp_slope(level - HIGHLIGHT_PIVOT, HIGHLIGHT_KNEE);
-    if (shift > 0.0) {
-        let at_white = tone_lift(-hl, tone_ramp(white_level - HIGHLIGHT_PIVOT, HIGHLIGHT_KNEE), HIGHLIGHT_PULL, HIGHLIGHT_PUSH, HIGHLIGHT_MAX, HIGHLIGHT_PUSH_MAX);
-        let ceiling = select(HIGHLIGHT_CEILING, AGX_WHITE_LEVEL + HIGHLIGHT_CEILING, has_feature(F_AGX) && adjustments.global.tonemapper_mode == 1u);
-        let pinned = clamp((white_level - ceiling) / max(at_white, TONE_FLOOR), 0.0, 1.0);
-        let dull = clamp(ceiling - white_level, 0.0, 1.0);
-        shift *= mix(1.0, max(pinned, dull), smoothstep(white_level - HIGHLIGHT_SHOULDER, white_level, level));
-        shift *= 1.0 - HIGHLIGHT_CLIP_HOLD * clipped * smoothstep(white_level - HIGHLIGHT_HOLD_RANGE, white_level - HIGHLIGHT_HOLD_TOP, level);
-    }
-    level -= shift;
+              * tone_ramp_slope(lead - HIGHLIGHT_PIVOT, HIGHLIGHT_KNEE);
+    level -= highlight_shift(lead, hl, white_level, clipped);
     let pull = min(level - region, 0.0);
     let lit = level;
     let shade = log_luma - kept_tone + level - region;
-    level += select(1.0, smoothstep(SHADOW_BLACK_LO, SHADOW_BLACK_HI, log_luma), sh > 0.0) * tone_lift(sh, tone_ramp(SHADOW_PIVOT - shade, SHADOW_KNEE), SHADOW_LIFT, SHADOW_DROP, SHADOW_MAX, SHADOW_DROP_MAX);
+    level += shadow_shift(shade, log_luma, sh);
     let lift = level - lit;
 
     let pop = max(lift, 0.0) * SHADOW_POP * shape_detail(kept_broad, SHADOW_POP_SIGMA);
@@ -680,6 +702,18 @@ fn black_floor(luma: f32, bl: f32) -> f32 {
     return max(bl, 0.0) * BLACK_FLOOR * BLACK_FLOOR_SPREAD / (BLACK_FLOOR_SPREAD + max(luma, 0.0));
 }
 
+fn black_toe(rgb: vec3<f32>, bl: f32) -> vec3<f32> {
+    let positive = max(rgb, vec3<f32>(0.0));
+    let luma = get_luma(positive);
+    if (bl <= 0.0 || luma < TONE_FLOOR) {
+        return rgb;
+    }
+    let u = min(pow(luma, 1.0 / 2.2) / BLACK_TOE_END, 1.0);
+    let w = (1.0 - u) * (1.0 - u);
+    let gain = min(pow(u, -2.2 * bl * BLACK_TOE * w), BLACK_TOE_GAIN);
+    return rgb + positive * (gain - 1.0);
+}
+
 fn apply_tone_ends(
     color: vec3<f32>,
     slope: f32,
@@ -701,12 +735,14 @@ fn apply_tone_ends(
     }
 
     let own = log2(luma);
-    let kept = TONE_DETAIL_KEEP * shape_detail(fine_detail + tone_detail, TONE_DETAIL_SIGMA);
+    let shaped = shape_detail(fine_detail + tone_detail, TONE_DETAIL_SIGMA);
+    let kept = TONE_DETAIL_KEEP * shaped;
     let kept_broad = kept - TONE_DETAIL_KEEP * shape_detail(fine_detail, TONE_DETAIL_SIGMA);
     var ends = own;
     let white_pivot = WHITE_PIVOT - max(tone_lift(-hl, tone_ramp(WHITE_PIVOT - HIGHLIGHT_PIVOT, HIGHLIGHT_KNEE), HIGHLIGHT_PULL, HIGHLIGHT_PUSH, HIGHLIGHT_MAX, HIGHLIGHT_PUSH_MAX), 0.0);
     let white_pull = min(WHITE_PULL, max(1.0 - TONE_SLOPE_FLOOR / max(slope, TONE_SLOPE_FLOOR), 0.0) / max(-wh, TONE_FLOOR));
-    let white_shift = tone_lift(-wh, tone_ramp(ends - kept - white_pivot, WHITE_KNEE), white_pull, WHITE_PUSH, WHITE_MAX, WHITE_PUSH_MAX);
+    let white_held = select(TONE_DETAIL_KEEP, PULL_DETAIL_KEEP, wh < 0.0) * shaped;
+    let white_shift = tone_lift(-wh, tone_ramp(ends - white_held - white_pivot, WHITE_KNEE), white_pull, WHITE_PUSH, WHITE_MAX, WHITE_PUSH_MAX);
     ends -= white_shift;
     let pulled = min(ends - own, 0.0);
     let black_amount = select(bl, bl * (1.0 + BLACK_EASE * (1.0 - bl)), bl > 0.0);
@@ -730,23 +766,34 @@ fn apply_tone_ends(
     if (raised > 0.0) {
         rgb = mix(rgb, vec3<f32>(get_luma(rgb)), clamp(raised * 0.03, 0.0, 0.12));
     }
-    return rgb + vec3<f32>(black_floor(get_luma(max(rgb, vec3<f32>(0.0))), bl));
+    let toed = black_toe(rgb, bl);
+    return toed + vec3<f32>(black_floor(get_luma(max(toed, vec3<f32>(0.0))), bl));
 }
 
-fn apply_contrast(color: vec3<f32>, con: f32) -> vec3<f32> {
+const CONTRAST_GAIN: f32 = 1.25;
+const CONTRAST_END_KEEP: f32 = 0.75;
+const CONTRAST_PIVOT_LO: f32 = 0.15;
+const CONTRAST_PIVOT_HI: f32 = 0.6;
+
+fn contrast_half(t: vec3<f32>, mid: f32, end: f32) -> vec3<f32> {
+    return t * (end + t * ((3.0 - 2.0 * end - mid) + t * (end + mid - 2.0)));
+}
+
+fn apply_contrast(color: vec3<f32>, con: f32, key: f32) -> vec3<f32> {
     if (con == 0.0) {
         return color;
     }
     let safe_rgb = max(color, vec3<f32>(0.0));
     let g = 2.2;
-    let perceptual = pow(safe_rgb, vec3<f32>(1.0 / g));
-    let clamped_perceptual = clamp(perceptual, vec3<f32>(0.0), vec3<f32>(1.0));
-    let strength = pow(2.0, con * 1.25);
-    let condition = clamped_perceptual < vec3<f32>(0.5);
-    let high_part = 1.0 - 0.5 * pow(2.0 * (1.0 - clamped_perceptual), vec3<f32>(strength));
-    let low_part = 0.5 * pow(2.0 * clamped_perceptual, vec3<f32>(strength));
-    let curved_perceptual = select(high_part, low_part, condition);
-    let contrast_adjusted_rgb = pow(curved_perceptual, vec3<f32>(g));
+    let perceptual = clamp(pow(safe_rgb, vec3<f32>(1.0 / g)), vec3<f32>(0.0), vec3<f32>(1.0));
+    let strength = pow(2.0, con * CONTRAST_GAIN);
+    let end = pow(strength, -CONTRAST_END_KEEP);
+    let scale = min(1.0, 3.0 / sqrt(strength * strength + end * end));
+    let pivot = clamp(pow(exp2(key), 1.0 / g), CONTRAST_PIVOT_LO, CONTRAST_PIVOT_HI);
+    let low_part = pivot * contrast_half(perceptual / pivot, strength * scale, end * scale);
+    let high_part = 1.0 - (1.0 - pivot) * contrast_half((1.0 - perceptual) / (1.0 - pivot), strength * scale, end * scale);
+    let curved_perceptual = select(high_part, low_part, perceptual < vec3<f32>(pivot));
+    let contrast_adjusted_rgb = pow(max(curved_perceptual, vec3<f32>(0.0)), vec3<f32>(g));
     let mix_factor = smoothstep(vec3<f32>(1.0), vec3<f32>(1.01), safe_rgb);
     return mix(contrast_adjusted_rgb, color, mix_factor);
 }
@@ -1135,10 +1182,12 @@ fn sample_tone_base(abs_coord: vec2<u32>, log_luma: f32) -> ToneBase {
     let low = vec2<i32>(textureDimensions(tone_base_texture));
     let pos = (vec2<f32>(abs_coord) + 0.5) / full * vec2<f32>(low) - 0.5;
     let centre = vec2<i32>(round(pos));
-    var total = vec3<f32>(0.0);
+    var total = vec2<f32>(0.0);
     var tone_total = vec2<f32>(0.0);
     var weight_sum = 0.0;
     var edge = 0.0;
+    var fit = vec3<f32>(0.0);
+    var fit_moments = vec2<f32>(0.0);
     for (var j = -1; j <= 1; j = j + 1) {
         for (var i = -1; i <= 1; i = i + 1) {
             let q = centre + vec2<i32>(i, j);
@@ -1147,18 +1196,30 @@ fn sample_tone_base(abs_coord: vec2<u32>, log_luma: f32) -> ToneBase {
             let bilinear = max(1.0 - offset, vec2<f32>(0.0));
             let texel = textureLoad(tone_base_texture, clamp(q, vec2<i32>(0), low - vec2<i32>(1)), 0);
             let texture_range = unpack2x16float(bitcast<u32>(texel.z));
-            let v = vec3<f32>(texel.xy, texture_range.x);
+            let broad_guide = unpack2x16float(bitcast<u32>(texel.y));
+            let level = texel.x;
+            let broad = broad_guide.x;
+            let guide = level + broad_guide.y;
+            let g = (guide - log_luma) / TB_FIT_SIGMA;
+            let r = tent.x * tent.y * exp(-0.5 * g * g) + 1.0e-7;
+            fit += vec3<f32>(r, r * guide, r * level);
+            fit_moments += vec2<f32>(r * guide * guide, r * guide * level);
             edge += texture_range.y * bilinear.x * bilinear.y;
-            let d = (v.x - log_luma) / TB_UP_SIGMA;
-            let e = (v.x - v.y - log_luma) / TB_UP_SIGMA;
+            let d = (level - log_luma) / TB_UP_SIGMA;
+            let e = (level - broad - log_luma) / TB_UP_SIGMA;
             let w = tent.x * tent.y / (1.0 + d * d + e * e) + 1.0e-7;
-            total += v * w;
+            total += vec2<f32>(broad, texture_range.x) * w;
             tone_total += unpack2x16float(bitcast<u32>(texel.w)) * w;
             weight_sum += w;
         }
     }
     let tone = tone_total / weight_sum;
-    return ToneBase(vec4<f32>(total / weight_sum, edge), tone.x, tone.y);
+    let fit_guide = fit.y / fit.x;
+    let fit_level = fit.z / fit.x;
+    let spread = max(fit_moments.x / fit.x - fit_guide * fit_guide, 0.0);
+    let slope = clamp((fit_moments.y / fit.x - fit_guide * fit_level) / (spread + TB_FIT_EPS), 0.0, 1.0);
+    let follow = fit_level + slope * (log_luma - fit_guide);
+    return ToneBase(vec4<f32>(follow, total / weight_sum, edge), tone.x, tone.y);
 }
 
 fn detail_core(d: f32, core: f32) -> f32 {
@@ -1187,15 +1248,19 @@ fn centre_clarity_strength(centre_amount: f32, centre_pos: vec2<f32>, coords_i: 
     return centre_amount * (2.0 * centre_mask - 1.0) * CLARITY_SCALE;
 }
 
-fn sharpen_perc(c: vec3<f32>, is_raw: u32) -> f32 {
-    let y = max(get_luma(c), 0.0);
-    if (is_raw == 1u) { return sqrt(y); }
-    return y;
-}
+const SH_NR_FINE: f32 = 0.5;
+const SH_WIDE_SPAN: f32 = 2.0;
 
 fn sharpen_tap(coords: vec2<i32>, max_idx: vec2<i32>, is_raw: u32) -> f32 {
-    let c = clamp(coords, vec2<i32>(0), max_idx);
-    return sharpen_perc(textureLoad(input_texture, vec2<u32>(c), 0).rgb, is_raw);
+    var s = textureLoad(input_texture, vec2<u32>(clamp(coords, vec2<i32>(0), max_idx)), 0).rgb;
+    if (is_raw == 0u) { s = srgb_to_linear(s); }
+    return sqrt(max(get_luma(s), 0.0));
+}
+
+fn sharpen_nr_sigma(luma_nr: f32) -> f32 {
+    let nr = clamp(luma_nr, 0.0, 1.0);
+    let to_sensor = exp2(-0.5 * clamp(adjustments.global.exposure, -10.0, 10.0));
+    return select(0.0, luma_nr_sigma(nr) * to_sensor, nr > 0.001);
 }
 
 fn sharpen_core(d: f32, t: f32) -> f32 {
@@ -1205,29 +1270,28 @@ fn sharpen_core(d: f32, t: f32) -> f32 {
 fn apply_sharpen(
     color: vec3<f32>,
     b1_in: vec3<f32>,
-    b2_in: vec3<f32>,
     coords_i: vec2<i32>,
+    abs_coord: vec2<u32>,
     amount: f32,
     threshold: f32,
+    luma_nr: f32,
     is_raw: u32
 ) -> vec3<f32> {
     if (abs(amount) < 0.0005) {
         return color;
     }
 
+    var b1_lin = b1_in;
+    if (is_raw == 0u) { b1_lin = srgb_to_linear(b1_in); }
+
     if (amount < 0.0) {
-        var b1_lin = b1_in;
-        if (is_raw == 0u) { b1_lin = srgb_to_linear(b1_in); }
         return mix(color, b1_lin, clamp(-amount * 0.5, 0.0, 1.0));
     }
 
-    var color_enc = color;
-    if (is_raw == 0u) {
-        color_enc = linear_to_srgb_extended(color);
-    }
-    let l = select(get_luma(color_enc), sqrt(max(get_luma(color), 0.0)), is_raw == 1u);
-    let l1 = sharpen_perc(b1_in, is_raw);
-    let l2 = sharpen_perc(b2_in, is_raw);
+    let l = sqrt(max(get_luma(color), 0.0));
+    let l1 = sqrt(max(get_luma(b1_lin), 0.0));
+    let band = sample_gf_tex(gf_coeffs_texture, abs_coord).zw;
+    let wide = band.x * min(l, SH_WIDE_SPAN * band.y);
 
     let max_idx = vec2<i32>(textureDimensions(input_texture)) - vec2<i32>(1);
     var lo = l;
@@ -1241,7 +1305,8 @@ fn apply_sharpen(
     }
 
     let t = max(threshold * 0.07, 1e-4);
-    let detail = sharpen_core(l - l1, t) + 0.5 * sharpen_core(l1 - l2, t);
+    let t_fine = max(t, SH_NR_FINE * sharpen_nr_sigma(luma_nr));
+    let detail = sharpen_core(l - l1, t_fine) + 0.5 * sharpen_core(wide, t);
     let tapered = detail / (1.0 + abs(detail) * 12.0);
     let delta = tapered * amount * 5.2 / (1.0 + 0.4 * max(amount - 1.0, 0.0));
     let range = hi - lo;
@@ -1256,10 +1321,7 @@ fn apply_sharpen(
     l_new = max(mix(l, l_new, prot), 0.0);
 
     let ratio = l_new / max(l, 1e-4);
-    if (is_raw == 1u) {
-        return color * (ratio * ratio);
-    }
-    return srgb_to_linear(max(color_enc * ratio, vec3<f32>(0.0)));
+    return color * (ratio * ratio);
 }
 
 fn apply_centre_tonal_and_color(
@@ -1414,6 +1476,10 @@ fn nr_pack_guide(local_id: vec2<i32>, scale: f32) {
     }
 }
 
+fn luma_nr_sigma(amount: f32) -> f32 {
+    return 0.002 + 0.06 * pow(amount, 1.3);
+}
+
 fn nr_enabled() -> bool {
     var on = adjustments.global.luma_noise_reduction != 0.0 || adjustments.global.color_noise_reduction != 0.0;
     for (var i = 0u; i < adjustments.mask_count; i = i + 1u) {
@@ -1517,7 +1583,7 @@ fn apply_noise_reduction(
     let center_t = unpack2x16float(nr_tile[base]);
 
     let c_curve = sqrt(color_a);
-    let sigma = select(mix(0.012, 0.03, c_curve), 0.002 + 0.06 * pow(luma_a, 1.3), luma_a > 0.001);
+    let sigma = select(mix(0.012, 0.03, c_curve), luma_nr_sigma(luma_a), luma_a > 0.001);
 
     var new_yl = center_yl;
     var ref_y = center_y + (center_t.y - center_t.x) * tile_ratio_sqrt;
@@ -2063,29 +2129,37 @@ fn main(
     }
 
     let sharpness_blurred = textureLoad(sharpness_blur_texture, id.xy, 0).rgb;
-    let tonal_blurred = textureLoad(tonal_blur_texture, id.xy, 0).rgb;
 
     var locally_contrasted_rgb = initial_linear_rgb;
+    var detail_rgb = initial_linear_rgb;
+    var detail_keep = 1.0;
 
     if (has_feature(F_SHARPEN)) {
         locally_contrasted_rgb = apply_sharpen(
             locally_contrasted_rgb,
-            sharpness_blurred, tonal_blurred,
-            absolute_coord_i, t_sharpness, t_sharp_thresh, is_raw
+            sharpness_blurred,
+            absolute_coord_i, absolute_coord, t_sharpness, t_sharp_thresh, t_luma_nr, is_raw
         );
+        if (t_sharpness < 0.0) {
+            detail_keep = 1.0 - clamp(-t_sharpness * 0.5, 0.0, 1.0);
+        } else {
+            detail_rgb = locally_contrasted_rgb;
+        }
     }
 
     if (has_feature(F_GRAIN) && adjustments.global.grain_softness > 0.0) {
         var grain_soft = sharpness_blurred;
         if (is_raw == 0u) { grain_soft = srgb_to_linear(sharpness_blurred); }
         locally_contrasted_rgb = mix(locally_contrasted_rgb, grain_soft, adjustments.global.grain_softness);
+        detail_keep = detail_keep * (1.0 - adjustments.global.grain_softness);
     }
 
-    let gf_luma = max(get_luma(max(locally_contrasted_rgb, vec3<f32>(0.0))), GF_LUMA_FLOOR);
+    let gf_source = select(locally_contrasted_rgb, detail_rgb, detail_keep < 1.0);
+    let gf_luma = max(get_luma(max(gf_source, vec3<f32>(0.0))), GF_LUMA_FLOOR);
     let gf_i = log2(gf_luma);
     let sampled_base = sample_tone_base(absolute_coord, gf_i);
     let tone_base = sampled_base.base;
-    let detail_fine = gf_i - tone_base.x;
+    let detail_fine = (gf_i - tone_base.x) * detail_keep;
     let textured = smoothstep(LC_TEXTURE_LO, LC_TEXTURE_HI, tone_base.z);
     let detail_broad = tone_base.y * max(detail_core(tone_base.y, LC_BROAD_CORE), textured);
     let boost_fine = shape_detail(detail_fine, LC_FINE_SIGMA) * max(detail_core(detail_fine, LC_FINE_CORE), textured)
@@ -2143,10 +2217,15 @@ fn main(
     var composite_rgb_linear = processed_rgb;
     composite_rgb_linear = apply_white_balance(composite_rgb_linear, t_wb_log_gains);
     composite_rgb_linear = apply_centre_tonal_and_color(composite_rgb_linear, adjustments.global.centre, vec2<f32>(adjustments.global.centre_x, adjustments.global.centre_y), absolute_coord_i);
-    let white_level = textureLoad(airlight_texture, vec2<i32>(2, 0), 0).x + t_exposure;
+    let tone_stats = textureLoad(airlight_texture, vec2<i32>(2, 0), 0);
+    let white_level = tone_stats.x + t_exposure;
     let tone_broad = sampled_base.tone_detail * max(detail_core(sampled_base.tone_detail, LC_BROAD_CORE), textured);
     let toned = apply_tonal_adjustments(composite_rgb_linear, detail_fine + lc_log_gain, detail_broad, tone_broad, sampled_base.clipped, t_highlights, t_shadows, white_level);
-    composite_rgb_linear = apply_contrast(toned.rgb, t_contrast);
+    var contrast_key = 0.0;
+    if (t_contrast != 0.0) {
+        contrast_key = toned_key(tone_stats.w + adjustments.global.exposure, tone_stats.x + adjustments.global.exposure);
+    }
+    composite_rgb_linear = apply_contrast(toned.rgb, t_contrast, contrast_key);
     composite_rgb_linear = apply_tone_ends(composite_rgb_linear, toned.w, detail_fine + lc_log_gain, tone_broad, t_highlights, t_whites, t_blacks);
     let is_monochrome = has_feature(F_MONOCHROME) && adjustments.global.monochrome.enabled == 1u;
     if (!is_monochrome) {

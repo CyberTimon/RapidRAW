@@ -1011,6 +1011,9 @@
         "tethering": "Tetherované snímání"
       }
     },
+    "toasts": {
+      "embeddedPreview": "RapidRAW nedokázal dekódovat tento soubor RAW, takže vidíte a upravujete vložený náhled JPEG z fotoaparátu. Počítejte s nižší kvalitou a menší rezervou pro úpravy než u skutečného RAW."
+    },
     "toolbar": {
       "history": "Historie",
       "switchToVariant": "Přepnout na {{label}}",
@@ -2293,7 +2296,7 @@
         "baselineExposure": "Základní expozice",
         "baselineExposureAmount": "Velikost základu",
         "baselineExposureAmountDesc": "Expozice přidaná k souborům RAW. darktable používá +0,7 EV.",
-        "baselineExposureDesc": "Zesvětlí soubory RAW o pevnou hodnotu a přičte značku DNG BaselineExposure, pokud existuje.",
+        "baselineExposureDesc": "Zesvětlí soubory RAW o pevnou hodnotu, nebo místo ní o hodnotu značky DNG BaselineExposure, pokud existuje.",
         "colorNr": "Redukce šumu základní barvy",
         "colorNrDesc": "Aplikuje křížový bilaterální filtr na začátku procesu k odstranění barevného šumu. Vyšší hodnota = silnější redukce šumu.",
         "defaultNonRawTonemapper": "Výchozí Non-RAW Tonemapper",

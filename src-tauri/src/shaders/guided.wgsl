@@ -11,6 +11,7 @@ struct GfParams {
 @group(0) @binding(3) var<uniform> params: GfParams;
 
 const GF_LUMA_FLOOR: f32 = 1.0e-4;
+const TB_KEY_LO: f32 = -13.0;
 const LUMA_COEFF = vec3<f32>(0.2126, 0.7152, 0.0722);
 
 fn srgb_to_linear(c: vec3<f32>) -> vec3<f32> {
@@ -113,6 +114,75 @@ fn gf_coeffs(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(dst, id.xy, vec4<f32>(a.x, b.x, a.y, b.y));
 }
 
+const SH_RANGE: f32 = 0.09;
+const SH_LEVEL_FLOOR: f32 = 1.0e-3;
+const SH_REF_SHORT: f32 = 1080.0;
+const SH_FINE_SIGMA: f32 = 0.5;
+const SH_WIDE_SIGMA: f32 = 1.75;
+
+@compute @workgroup_size(8, 8, 1)
+fn sh_level(@builtin(global_invocation_id) id: vec3<u32>) {
+    let dst_dims = textureDimensions(dst);
+    if (id.x >= dst_dims.x || id.y >= dst_dims.y) { return; }
+
+    let src_dims = textureDimensions(src_a);
+    let ratio = vec2<f32>(src_dims) / vec2<f32>(dst_dims);
+    let start = vec2<f32>(id.xy) * ratio;
+    let end = vec2<f32>(id.xy + 1u) * ratio;
+    let lo = vec2<u32>(floor(start));
+    let hi = min(vec2<u32>(ceil(end)), src_dims);
+    var sum = 0.0;
+    var total = 0.0;
+    for (var y = lo.y; y < hi.y; y++) {
+        let wy = max(min(end.y, f32(y + 1u)) - max(start.y, f32(y)), 0.0);
+        for (var x = lo.x; x < hi.x; x++) {
+            let w = max(min(end.x, f32(x + 1u)) - max(start.x, f32(x)), 0.0) * wy;
+            var lin = textureLoad(src_a, vec2<u32>(x, y), 0).rgb;
+            if (params.is_raw == 0u) {
+                lin = srgb_to_linear(lin);
+            }
+            sum += dot(lin, LUMA_COEFF) * w;
+            total += w;
+        }
+    }
+    textureStore(dst, id.xy, vec4<f32>(sqrt(max(sum / max(total, 1.0e-6), 0.0)), 0.0, 0.0, 0.0));
+}
+
+@compute @workgroup_size(8, 8, 1)
+fn sh_band(@builtin(global_invocation_id) id: vec3<u32>) {
+    let dims = vec2<i32>(textureDimensions(dst));
+    let p = vec2<i32>(id.xy);
+    if (p.x >= dims.x || p.y >= dims.y) { return; }
+
+    let max_idx = dims - vec2<i32>(1);
+    let level_scale = min(f32(min(dims.x, dims.y)) / SH_REF_SHORT, 1.0);
+    let sigma_b = max(SH_WIDE_SIGMA * level_scale, SH_FINE_SIGMA);
+    let k_a = 0.5 / (SH_FINE_SIGMA * SH_FINE_SIGMA);
+    let k_b = 0.5 / (sigma_b * sigma_b);
+    let c = textureLoad(src_a, p, 0).x;
+    var mid_a = 0.0;
+    var mid_b = 0.0;
+    var wma = 0.0;
+    var wmb = 0.0;
+    for (var dy = -5; dy <= 5; dy++) {
+        for (var dx = -5; dx <= 5; dx++) {
+            let d = textureLoad(src_a, clamp(p + vec2<i32>(dx, dy), vec2<i32>(0), max_idx), 0).x - c;
+            let x = d / SH_RANGE;
+            let f = d * exp(-0.5 * x * x);
+            let r2 = f32(dx * dx + dy * dy);
+            let w_a = exp(-r2 * k_a);
+            let w_b = exp(-r2 * k_b);
+            mid_a += w_a * f;
+            mid_b += w_b * f;
+            wma += w_a;
+            wmb += w_b;
+        }
+    }
+    let coeffs = textureLoad(src_b, p, 0);
+    let band = (mid_a / wma - mid_b / wmb) / max(c, SH_LEVEL_FLOOR);
+    textureStore(dst, id.xy, vec4<f32>(coeffs.xy, band, c));
+}
+
 const TB_UP_SIGMA: f32 = 0.25;
 const TB_TEXTURE_KNEE: f32 = 0.06;
 const TB_OWN_SIGMA: f32 = 0.4;
@@ -198,7 +268,7 @@ fn tb_refine(@builtin(global_invocation_id) id: vec3<u32>) {
     let side = f32(2 * radius + 1);
     let share = similar / (side * side);
     let level = mix(tb_upsample(p, l, 0).x, total / similar, smoothstep(TB_OWN_LO, TB_OWN_HI, share));
-    textureStore(dst, id.xy, vec4<f32>(level, level * level, abs(l - level), 0.0));
+    textureStore(dst, id.xy, vec4<f32>(level, level * level, abs(l - level), l));
 }
 
 @compute @workgroup_size(8, 8, 1)
@@ -257,7 +327,8 @@ fn tb_pack(@builtin(global_invocation_id) id: vec3<u32>) {
     let p = vec2<i32>(id.xy);
     if (p.x >= dims.x || p.y >= dims.y) { return; }
 
-    let level = textureLoad(src_b, p, 0).x;
+    let refined = textureLoad(src_b, p, 0);
+    let level = refined.x;
     let low = vec2<i32>(textureDimensions(src_a));
     let pos = (vec2<f32>(p) + 0.5) * vec2<f32>(low) / vec2<f32>(dims) - 0.5;
     let f = pos - floor(pos);
@@ -269,7 +340,7 @@ fn tb_pack(@builtin(global_invocation_id) id: vec3<u32>) {
         f.y
     );
     let texture = tb_upsample(p, level, 2).w;
-    textureStore(dst, id.xy, vec4<f32>(level, level - (fit.x * level + fit.y), texture, 0.0));
+    textureStore(dst, id.xy, vec4<f32>(level, level - (fit.x * level + fit.y), texture, refined.w - level));
 }
 
 @compute @workgroup_size(8, 8, 1)
@@ -289,7 +360,8 @@ fn tb_tone(@builtin(global_invocation_id) id: vec3<u32>) {
         mix(textureLoad(src_a, vec2<i32>(c0.x, c1.y), 0).zw, textureLoad(src_a, c1, 0).zw, f.x),
         f.y
     );
-    textureStore(dst, id.xy, vec4<f32>(base.xyz, base.x - (fit.x * base.x + fit.y)));
+    let broad_guide = bitcast<f32>(pack2x16float(base.yw));
+    textureStore(dst, id.xy, vec4<f32>(base.x, broad_guide, base.z, base.x - (fit.x * base.x + fit.y)));
 }
 
 @compute @workgroup_size(8, 8, 1)
@@ -298,10 +370,29 @@ fn tb_peak(@builtin(global_invocation_id) id: vec3<u32>) {
 
     let dims = vec2<i32>(textureDimensions(src_a));
     var peak = -1.0e9;
+    var hist: array<f32, 72>;
+    for (var i = 0; i < 72; i = i + 1) {
+        hist[i] = 0.0;
+    }
+    var counted = 0.0;
     for (var y = 0; y < dims.y; y = y + 1) {
         for (var x = 0; x < dims.x; x = x + 1) {
-            peak = max(peak, textureLoad(src_a, vec2<i32>(x, y), 0).z);
+            let cell = textureLoad(src_a, vec2<i32>(x, y), 0);
+            peak = max(peak, cell.z);
+            if (cell.x > TB_KEY_LO) {
+                hist[clamp(i32((cell.x - TB_KEY_LO) * 4.0), 0, 71)] += 1.0;
+                counted += 1.0;
+            }
         }
+    }
+    var key = TB_KEY_LO;
+    var below = 0.0;
+    for (var i = 0; i < 72; i = i + 1) {
+        if (counted > 0.0 && below + hist[i] >= 0.5 * counted) {
+            key = TB_KEY_LO + (f32(i) + (0.5 * counted - below) / max(hist[i], 1.0)) * 0.25;
+            break;
+        }
+        below += hist[i];
     }
     var clipped = 0.0;
     for (var y = 0; y < dims.y; y = y + 1) {
@@ -313,7 +404,7 @@ fn tb_peak(@builtin(global_invocation_id) id: vec3<u32>) {
         }
     }
     let confidence = smoothstep(TB_CLIP_LO, TB_CLIP_HI, clipped / f32(dims.x * dims.y));
-    textureStore(dst, vec2<u32>(2u, 0u), vec4<f32>(peak + (1.0 - confidence) * TB_CLIP_HEADROOM, confidence, peak, 0.0));
+    textureStore(dst, vec2<u32>(2u, 0u), vec4<f32>(peak + (1.0 - confidence) * TB_CLIP_HEADROOM, confidence, peak, key));
 }
 
 @compute @workgroup_size(8, 8, 1)
