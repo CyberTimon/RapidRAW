@@ -2294,7 +2294,7 @@
         "baselineExposure": "Базовая экспозиция",
         "baselineExposureAmount": "Базовая величина",
         "baselineExposureAmountDesc": "Экспозиция, добавляемая к RAW-файлам. В darktable используется +0,7 EV.",
-        "baselineExposureDesc": "Осветляет RAW-файлы на фиксированную величину и добавляет тег DNG BaselineExposure, если он есть.",
+        "baselineExposureDesc": "Осветляет RAW-файлы на фиксированную величину или, если есть тег DNG BaselineExposure, на его значение.",
         "colorNr": "Базовое шумоподавление цвета",
         "colorNrDesc": "Применяет двусторонний пространственный фильтр на раннем этапе обработки для удаления хроматического шума. Больше значение — сильнее эффект.",
         "defaultNonRawTonemapper": "Тон-маппер для не-RAW",

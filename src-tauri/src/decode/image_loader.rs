@@ -1209,7 +1209,7 @@ pub async fn load_image(
             "Baseline exposure for '{}': {:+.2} EV (DNG baseline {:+.2} EV, highlight preservation {:+.2} EV)",
             source_path_str,
             effective_baseline_exposure(&metadata.adjustments, as_shot, baseline_options),
-            as_shot.exposure.dng_baseline,
+            as_shot.exposure.dng_baseline.unwrap_or(0.0),
             as_shot.exposure.highlight_preservation
         );
     }

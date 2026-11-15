@@ -2204,7 +2204,7 @@
         "baselineExposure": "基礎曝光",
         "baselineExposureAmount": "基礎量",
         "baselineExposureAmountDesc": "加到 RAW 檔案的曝光量。darktable 使用 +0.7 EV。",
-        "baselineExposureDesc": "將 RAW 檔案提亮一個固定值，如有 DNG BaselineExposure 標籤也會一併加上。",
+        "baselineExposureDesc": "將 RAW 檔案提亮一個固定值；如有 DNG BaselineExposure 標籤，則改用該標籤的值。",
         "colorNr": "基礎顏色降噪",
         "colorNrDesc": "在管線早期應用交叉雙邊濾波器以去除彩色噪點。值越高 = 降噪越強。",
         "defaultNonRawTonemapper": "預設非 RAW 色調映射",
