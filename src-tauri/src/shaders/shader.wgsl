@@ -224,7 +224,6 @@ const HSL_RANGES: array<HslRange, 8> = array<HslRange, 8>(
 @group(0) @binding(5) var lut_sampler: sampler;
 
 @group(0) @binding(6) var sharpness_blur_texture: texture_2d<f32>;
-@group(0) @binding(7) var tonal_blur_texture: texture_2d<f32>;
 @group(0) @binding(9) var bloom_texture: texture_2d<f32>;
 @group(0) @binding(10) var flare_texture: texture_2d<f32>;
 @group(0) @binding(11) var light_sampler: sampler;
@@ -1233,15 +1232,19 @@ fn centre_clarity_strength(centre_amount: f32, centre_pos: vec2<f32>, coords_i: 
     return centre_amount * (2.0 * centre_mask - 1.0) * CLARITY_SCALE;
 }
 
-fn sharpen_perc(c: vec3<f32>, is_raw: u32) -> f32 {
-    let y = max(get_luma(c), 0.0);
-    if (is_raw == 1u) { return sqrt(y); }
-    return y;
-}
+const SH_NR_FINE: f32 = 0.5;
+const SH_WIDE_SPAN: f32 = 2.0;
 
 fn sharpen_tap(coords: vec2<i32>, max_idx: vec2<i32>, is_raw: u32) -> f32 {
-    let c = clamp(coords, vec2<i32>(0), max_idx);
-    return sharpen_perc(textureLoad(input_texture, vec2<u32>(c), 0).rgb, is_raw);
+    var s = textureLoad(input_texture, vec2<u32>(clamp(coords, vec2<i32>(0), max_idx)), 0).rgb;
+    if (is_raw == 0u) { s = srgb_to_linear(s); }
+    return sqrt(max(get_luma(s), 0.0));
+}
+
+fn sharpen_nr_sigma(luma_nr: f32) -> f32 {
+    let nr = clamp(luma_nr, 0.0, 1.0);
+    let to_sensor = exp2(-0.5 * clamp(adjustments.global.exposure, -10.0, 10.0));
+    return select(0.0, luma_nr_sigma(nr) * to_sensor, nr > 0.001);
 }
 
 fn sharpen_core(d: f32, t: f32) -> f32 {
@@ -1251,29 +1254,28 @@ fn sharpen_core(d: f32, t: f32) -> f32 {
 fn apply_sharpen(
     color: vec3<f32>,
     b1_in: vec3<f32>,
-    b2_in: vec3<f32>,
     coords_i: vec2<i32>,
+    abs_coord: vec2<u32>,
     amount: f32,
     threshold: f32,
+    luma_nr: f32,
     is_raw: u32
 ) -> vec3<f32> {
     if (abs(amount) < 0.0005) {
         return color;
     }
 
+    var b1_lin = b1_in;
+    if (is_raw == 0u) { b1_lin = srgb_to_linear(b1_in); }
+
     if (amount < 0.0) {
-        var b1_lin = b1_in;
-        if (is_raw == 0u) { b1_lin = srgb_to_linear(b1_in); }
         return mix(color, b1_lin, clamp(-amount * 0.5, 0.0, 1.0));
     }
 
-    var color_enc = color;
-    if (is_raw == 0u) {
-        color_enc = linear_to_srgb_extended(color);
-    }
-    let l = select(get_luma(color_enc), sqrt(max(get_luma(color), 0.0)), is_raw == 1u);
-    let l1 = sharpen_perc(b1_in, is_raw);
-    let l2 = sharpen_perc(b2_in, is_raw);
+    let l = sqrt(max(get_luma(color), 0.0));
+    let l1 = sqrt(max(get_luma(b1_lin), 0.0));
+    let band = sample_gf_tex(gf_coeffs_texture, abs_coord).zw;
+    let wide = band.x * min(l, SH_WIDE_SPAN * band.y);
 
     let max_idx = vec2<i32>(textureDimensions(input_texture)) - vec2<i32>(1);
     var lo = l;
@@ -1287,7 +1289,8 @@ fn apply_sharpen(
     }
 
     let t = max(threshold * 0.07, 1e-4);
-    let detail = sharpen_core(l - l1, t) + 0.5 * sharpen_core(l1 - l2, t);
+    let t_fine = max(t, SH_NR_FINE * sharpen_nr_sigma(luma_nr));
+    let detail = sharpen_core(l - l1, t_fine) + 0.5 * sharpen_core(wide, t);
     let tapered = detail / (1.0 + abs(detail) * 12.0);
     let delta = tapered * amount * 5.2 / (1.0 + 0.4 * max(amount - 1.0, 0.0));
     let range = hi - lo;
@@ -1302,10 +1305,7 @@ fn apply_sharpen(
     l_new = max(mix(l, l_new, prot), 0.0);
 
     let ratio = l_new / max(l, 1e-4);
-    if (is_raw == 1u) {
-        return color * (ratio * ratio);
-    }
-    return srgb_to_linear(max(color_enc * ratio, vec3<f32>(0.0)));
+    return color * (ratio * ratio);
 }
 
 fn apply_centre_tonal_and_color(
@@ -1460,6 +1460,10 @@ fn nr_pack_guide(local_id: vec2<i32>, scale: f32) {
     }
 }
 
+fn luma_nr_sigma(amount: f32) -> f32 {
+    return 0.002 + 0.06 * pow(amount, 1.3);
+}
+
 fn nr_enabled() -> bool {
     var on = adjustments.global.luma_noise_reduction != 0.0 || adjustments.global.color_noise_reduction != 0.0;
     for (var i = 0u; i < adjustments.mask_count; i = i + 1u) {
@@ -1563,7 +1567,7 @@ fn apply_noise_reduction(
     let center_t = unpack2x16float(nr_tile[base]);
 
     let c_curve = sqrt(color_a);
-    let sigma = select(mix(0.012, 0.03, c_curve), 0.002 + 0.06 * pow(luma_a, 1.3), luma_a > 0.001);
+    let sigma = select(mix(0.012, 0.03, c_curve), luma_nr_sigma(luma_a), luma_a > 0.001);
 
     var new_yl = center_yl;
     var ref_y = center_y + (center_t.y - center_t.x) * tile_ratio_sqrt;
@@ -2109,29 +2113,37 @@ fn main(
     }
 
     let sharpness_blurred = textureLoad(sharpness_blur_texture, id.xy, 0).rgb;
-    let tonal_blurred = textureLoad(tonal_blur_texture, id.xy, 0).rgb;
 
     var locally_contrasted_rgb = initial_linear_rgb;
+    var detail_rgb = initial_linear_rgb;
+    var detail_keep = 1.0;
 
     if (has_feature(F_SHARPEN)) {
         locally_contrasted_rgb = apply_sharpen(
             locally_contrasted_rgb,
-            sharpness_blurred, tonal_blurred,
-            absolute_coord_i, t_sharpness, t_sharp_thresh, is_raw
+            sharpness_blurred,
+            absolute_coord_i, absolute_coord, t_sharpness, t_sharp_thresh, t_luma_nr, is_raw
         );
+        if (t_sharpness < 0.0) {
+            detail_keep = 1.0 - clamp(-t_sharpness * 0.5, 0.0, 1.0);
+        } else {
+            detail_rgb = locally_contrasted_rgb;
+        }
     }
 
     if (has_feature(F_GRAIN) && adjustments.global.grain_softness > 0.0) {
         var grain_soft = sharpness_blurred;
         if (is_raw == 0u) { grain_soft = srgb_to_linear(sharpness_blurred); }
         locally_contrasted_rgb = mix(locally_contrasted_rgb, grain_soft, adjustments.global.grain_softness);
+        detail_keep = detail_keep * (1.0 - adjustments.global.grain_softness);
     }
 
-    let gf_luma = max(get_luma(max(locally_contrasted_rgb, vec3<f32>(0.0))), GF_LUMA_FLOOR);
+    let gf_source = select(locally_contrasted_rgb, detail_rgb, detail_keep < 1.0);
+    let gf_luma = max(get_luma(max(gf_source, vec3<f32>(0.0))), GF_LUMA_FLOOR);
     let gf_i = log2(gf_luma);
     let sampled_base = sample_tone_base(absolute_coord, gf_i);
     let tone_base = sampled_base.base;
-    let detail_fine = gf_i - tone_base.x;
+    let detail_fine = (gf_i - tone_base.x) * detail_keep;
     let textured = smoothstep(LC_TEXTURE_LO, LC_TEXTURE_HI, tone_base.z);
     let detail_broad = tone_base.y * max(detail_core(tone_base.y, LC_BROAD_CORE), textured);
     let boost_fine = shape_detail(detail_fine, LC_FINE_SIGMA) * max(detail_core(detail_fine, LC_FINE_CORE), textured)
