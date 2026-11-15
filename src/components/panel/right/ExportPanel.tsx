@@ -1005,7 +1005,7 @@ export default function ExportPanel({
                   )}
                 </Section>
 
-                {[FileFormats.Jpeg, FileFormats.Png, FileFormats.Webp, FileFormats.Jxl].includes(
+                {[FileFormats.Jpeg, FileFormats.Png, FileFormats.Tiff, FileFormats.Webp, FileFormats.Jxl].includes(
                   fileFormat as FileFormats,
                 ) && (
                   <Section title={t('export.sections.metadata')}>
