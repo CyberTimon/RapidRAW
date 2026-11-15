@@ -1148,6 +1148,8 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     BasicAdjustment.Blacks,
     BasicAdjustment.Exposure,
     'toneMapper',
+    'maskLocalTone',
+    'contrastPivot',
   ],
   curves: ['curves', 'pointCurves', 'parametricCurve', 'curveMode'],
   color: [

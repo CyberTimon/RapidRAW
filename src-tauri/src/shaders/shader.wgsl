@@ -803,16 +803,6 @@ fn apply_contrast(color: vec3<f32>, con: f32, key: f32) -> vec3<f32> {
     return apply_contrast_at(color, con, pivot);
 }
 
-fn contrast_moved_pivot(pivot: f32, con: f32, key: f32) -> f32 {
-    let clamped = clamp(pivot, 16.0 / 255.0, 239.0 / 255.0);
-    if (con == 0.0) {
-        return clamped;
-    }
-    let linear = pow(clamped, 2.2);
-    let moved = apply_contrast(vec3<f32>(linear), con, key);
-    return clamp(pow(max(get_luma(max(moved, vec3<f32>(0.0))), 0.0), 1.0 / 2.2), 16.0 / 255.0, 239.0 / 255.0);
-}
-
 fn apply_linear_exposure(color_in: vec3<f32>, exposure_adj: f32) -> vec3<f32> {
     if (exposure_adj == 0.0) {
         return color_in;
@@ -2248,8 +2238,7 @@ fn main(
         if (m.contrast_pivot > 0.0 && m.contrast != 0.0) {
             let influence = get_mask_influence(mask_i, absolute_coord);
             if (influence > 0.001) {
-                let moved = contrast_moved_pivot(m.contrast_pivot, t_contrast, contrast_key);
-                composite_rgb_linear = apply_contrast_at(composite_rgb_linear, m.contrast * influence, moved);
+                composite_rgb_linear = apply_contrast_at(composite_rgb_linear, m.contrast * influence, m.contrast_pivot);
             }
         }
     }

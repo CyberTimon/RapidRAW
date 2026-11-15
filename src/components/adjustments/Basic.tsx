@@ -185,12 +185,6 @@ function BasicAdjustments({
   const storedPivot = selectionContrastPivot(statsKey, adjustments.contrast, maskMedian);
   const selectionReady = storedPivot != null || (adjustments.contrast === 0 && maskMedian != null);
 
-  useEffect(() => {
-    if (!selectionTone || adjustments.contrast !== 0 || storedPivot == null) return;
-    if (Math.abs((maskAdjustments.contrastPivot ?? storedPivot) - storedPivot) < 1) return;
-    setAdjustments((prev) => ({ ...prev, contrastPivot: storedPivot }));
-  }, [selectionTone, adjustments.contrast, maskAdjustments.contrastPivot, storedPivot, setAdjustments]);
-
   const toggleSelectionTone = () => {
     const label = t('adjustments.curves.maskLocalTone');
     if (selectionTone) {
@@ -204,7 +198,19 @@ function BasicAdjustments({
 
   const handleAdjustmentChange = (key: BasicAdjustment, value: any) => {
     const numericValue = parseFloat(value);
-    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [key]: numericValue }));
+    setAdjustments((prev: Adjustments & { contrastPivot?: number }) => {
+      const next = { ...prev, [key]: numericValue };
+      if (
+        key === BasicAdjustment.Contrast &&
+        selectionTone &&
+        prev.contrast === 0 &&
+        numericValue !== 0 &&
+        storedPivot != null
+      ) {
+        next.contrastPivot = storedPivot;
+      }
+      return next;
+    });
   };
 
   const handleToneMapperChange = (mapper: string) => {

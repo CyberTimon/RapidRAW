@@ -682,25 +682,21 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isF
     writeLumaPoints(medianBandPoints(median), label);
   };
 
+  const imageBandMedian = isForMask ? imageMedian : shownMedian;
+
   const placeImageBand = () => {
-    if (imageMedian == null) return;
-    placeBand(imageMedian, t(isForMask ? 'adjustments.curves.adaptiveContrastImage' : 'adjustments.curves.adaptiveContrast'));
+    if (imageBandMedian == null) return;
+    placeBand(imageBandMedian, t(isForMask ? 'adjustments.curves.adaptiveContrastImage' : 'adjustments.curves.adaptiveContrast'));
   };
 
   const placeSelectionBand = () => {
-    if (maskMedian == null) return;
-    placeBand(maskMedian, t('adjustments.curves.adaptiveContrastMask'));
+    if (shownMedian == null) return;
+    placeBand(shownMedian, t('adjustments.curves.adaptiveContrastMask'));
   };
 
   const placeAnchor = () => {
     if (shownMedian == null) return;
-    const label = t('adjustments.curves.anchorMedian');
-    if (isParametricMode) {
-      const current = parametricCurves[ActiveChannel.Luma] || DEFAULT_PARAMETRIC_CURVE_SETTINGS;
-      writeLumaParametric({ ...current, ...medianBandSplits(shownMedian) }, label);
-      return;
-    }
-    writeLumaPoints(medianAnchorPoints(shownMedian), label);
+    writeLumaPoints(medianAnchorPoints(shownMedian), t('adjustments.curves.anchorMedian'));
   };
 
   const medianMenuItems =
@@ -710,7 +706,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isF
             label: t(isForMask ? 'adjustments.curves.adaptiveContrastImage' : 'adjustments.curves.adaptiveContrast'),
             icon: Contrast,
             onClick: placeImageBand,
-            disabled: imageMedian == null,
+            disabled: imageBandMedian == null,
           },
           ...(isForMask
             ? [
@@ -718,16 +714,20 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isF
                   label: t('adjustments.curves.adaptiveContrastMask'),
                   icon: Scan,
                   onClick: placeSelectionBand,
-                  disabled: maskMedian == null,
+                  disabled: shownMedian == null,
                 },
               ]
             : []),
-          {
-            label: t('adjustments.curves.anchorMedian'),
-            icon: Crosshair,
-            onClick: placeAnchor,
-            disabled: shownMedian == null,
-          },
+          ...(!isParametricMode
+            ? [
+                {
+                  label: t('adjustments.curves.anchorMedian'),
+                  icon: Crosshair,
+                  onClick: placeAnchor,
+                  disabled: shownMedian == null,
+                },
+              ]
+            : []),
           { type: OPTION_SEPARATOR },
         ]
       : [];
@@ -1179,7 +1179,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isF
                           ? 'adjustments.curves.adaptiveContrastImageTooltip'
                           : 'adjustments.curves.adaptiveContrastTooltip',
                       )}
-                      disabled={imageMedian == null}
+                      disabled={imageBandMedian == null}
                       onClick={placeImageBand}
                       type="button"
                     >
@@ -1189,7 +1189,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isF
                       <button
                         className="w-7 h-7 rounded-md border border-white/25 bg-card-active text-text-primary flex items-center justify-center transition-colors hover:border-white/50 disabled:opacity-40 disabled:cursor-not-allowed"
                         data-tooltip={t('adjustments.curves.adaptiveContrastMaskTooltip')}
-                        disabled={maskMedian == null}
+                        disabled={shownMedian == null}
                         onClick={placeSelectionBand}
                         type="button"
                       >
