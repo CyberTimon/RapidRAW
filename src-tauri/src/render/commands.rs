@@ -235,6 +235,7 @@ pub async fn apply_adjustments(
     request_analytics: bool,
     compute_waveform: bool,
     active_waveform_channel: Option<String>,
+    active_mask_id: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> Result<Response, String> {
     let (tx, rx) = tokio::sync::oneshot::channel();
@@ -255,6 +256,7 @@ pub async fn apply_adjustments(
                 request_analytics,
                 compute_waveform,
                 active_waveform_channel,
+                active_mask_id,
                 responder: tx,
             };
             worker_tx

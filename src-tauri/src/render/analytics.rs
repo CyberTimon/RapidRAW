@@ -1,10 +1,37 @@
 use rayon::prelude::*;
 
+pub struct MaskToneSample {
+    id: String,
+    red: Vec<f32>,
+    green: Vec<f32>,
+    blue: Vec<f32>,
+    luma: Vec<f32>,
+    luma_median: u8,
+}
+
 pub struct HistogramData {
     red: Vec<f32>,
     green: Vec<f32>,
     blue: Vec<f32>,
     luma: Vec<f32>,
+    luma_median: u8,
+    mask: Option<MaskToneSample>,
+}
+
+fn histogram_quantile(counts: &[u64; 256], fraction: f64) -> u8 {
+    let total: u64 = counts.iter().sum();
+    if total == 0 {
+        return 128;
+    }
+    let target = ((total as f64) * fraction).ceil().max(1.0) as u64;
+    let mut cumulative = 0u64;
+    for (bin, count) in counts.iter().enumerate() {
+        cumulative += *count;
+        if cumulative >= target {
+            return bin as u8;
+        }
+    }
+    255
 }
 
 pub enum AnalyticsPixels {
@@ -39,7 +66,60 @@ impl AnalyticsFrame {
     }
 }
 
-pub fn calculate_histogram(frame: &AnalyticsFrame) -> Result<HistogramData, String> {
+fn weighted_histogram(frame: &AnalyticsFrame, mask: &image::GrayImage) -> Option<[[u64; 256]; 4]> {
+    if mask.width() != frame.width || mask.height() != frame.height {
+        return None;
+    }
+
+    let width = frame.width as usize;
+    let pixels = mask.as_raw();
+    let empty = || [[0u64; 256]; 4];
+    let counts = (0..frame.height as usize)
+        .into_par_iter()
+        .with_min_len(16)
+        .fold(empty, |mut acc, y| {
+            let first = (y * width) & 1;
+            let row = &pixels[y * width..(y + 1) * width];
+            for (x, px) in frame.row(y).iter().enumerate().skip(first).step_by(2) {
+                let weight = row[x] as u64;
+                if weight == 0 {
+                    continue;
+                }
+                let r = px[0] as usize;
+                let g = px[1] as usize;
+                let b = px[2] as usize;
+                acc[0][r] += weight;
+                acc[1][g] += weight;
+                acc[2][b] += weight;
+                let luma = (r * 218 + g * 732 + b * 74) >> 10;
+                acc[3][luma.min(255)] += weight;
+            }
+            acc
+        })
+        .reduce(empty, |mut a, b| {
+            for (a_channel, b_channel) in a.iter_mut().zip(b.iter()) {
+                for (a_bin, b_bin) in a_channel.iter_mut().zip(b_channel.iter()) {
+                    *a_bin += *b_bin;
+                }
+            }
+            a
+        });
+
+    let total: u64 = counts[3].iter().sum();
+    (total > 0).then_some(counts)
+}
+
+fn smoothed_histogram(counts: &[u64; 256]) -> Vec<f32> {
+    let mut values = counts.map(|count| count as f32).to_vec();
+    apply_gaussian_smoothing(&mut values, 2.0);
+    normalize_histogram_range(&mut values, 0.99);
+    values
+}
+
+pub fn calculate_histogram(
+    frame: &AnalyticsFrame,
+    mask: Option<(&str, &image::GrayImage)>,
+) -> Result<HistogramData, String> {
     let width = frame.width as usize;
     let empty = || [[0u32; 256]; 4];
 
@@ -71,6 +151,7 @@ pub fn calculate_histogram(frame: &AnalyticsFrame) -> Result<HistogramData, Stri
             a
         });
 
+    let luma_median = histogram_quantile(&counts[3].map(|count| count as u64), 0.5);
     let [mut red, mut green, mut blue, mut luma] =
         counts.map(|channel| channel.map(|c| c as f32).to_vec());
 
@@ -85,11 +166,25 @@ pub fn calculate_histogram(frame: &AnalyticsFrame) -> Result<HistogramData, Stri
     normalize_histogram_range(&mut blue, 0.99);
     normalize_histogram_range(&mut luma, 0.99);
 
+    let mask = mask.and_then(|(id, bitmap)| {
+        let counts = weighted_histogram(frame, bitmap)?;
+        Some(MaskToneSample {
+            id: id.to_string(),
+            red: smoothed_histogram(&counts[0]),
+            green: smoothed_histogram(&counts[1]),
+            blue: smoothed_histogram(&counts[2]),
+            luma: smoothed_histogram(&counts[3]),
+            luma_median: histogram_quantile(&counts[3], 0.5),
+        })
+    });
+
     Ok(HistogramData {
         red,
         green,
         blue,
         luma,
+        luma_median,
+        mask,
     })
 }
 
@@ -190,8 +285,27 @@ pub fn encode_analytics_packet(
                     out.extend_from_slice(&v.to_le_bytes());
                 }
             }
+            put_u32(&mut out, h.luma_median as usize);
+            match &h.mask {
+                Some(mask) => {
+                    put_u32(&mut out, mask.id.len());
+                    out.extend_from_slice(mask.id.as_bytes());
+                    put_u32(&mut out, mask.red.len());
+                    for channel in [&mask.red, &mask.green, &mask.blue, &mask.luma] {
+                        for value in channel {
+                            out.extend_from_slice(&value.to_le_bytes());
+                        }
+                    }
+                    put_u32(&mut out, mask.luma_median as usize);
+                }
+                None => put_u32(&mut out, 0),
+            }
         }
-        None => put_u32(&mut out, 0),
+        None => {
+            put_u32(&mut out, 0);
+            put_u32(&mut out, 256);
+            put_u32(&mut out, 0);
+        }
     }
 
     match waveform {

@@ -12,7 +12,7 @@ use crate::render::image_processing::downscale_f32_image;
 use crate::render::options::RenderOptions;
 use crate::render::source::{Frame, SourceTransform};
 use crate::render::uniforms::{AllAdjustments, get_all_adjustments_from_json};
-use image::{DynamicImage, GenericImageView};
+use image::{DynamicImage, GenericImageView, GrayImage};
 use std::borrow::Cow;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -375,5 +375,33 @@ impl EditorRender {
             hsl_probe,
             motion_blur: self.motion_blur.clone(),
         }
+    }
+
+    pub fn active_mask_bitmap(
+        &self,
+        adjustments: &serde_json::Value,
+        active_id: Option<&str>,
+    ) -> Option<(String, Arc<GrayImage>)> {
+        let active_id = active_id.filter(|id| !id.is_empty())?;
+        let definitions: Vec<MaskDefinition> = adjustments
+            .get("masks")
+            .and_then(|masks| serde_json::from_value(masks.clone()).ok())
+            .unwrap_or_default();
+        let mut index = 0usize;
+        for definition in definitions {
+            if !definition.visible || definition.sub_masks.is_empty() {
+                continue;
+            }
+            if definition.id == active_id {
+                return self
+                    .masks
+                    .bitmaps
+                    .get(index)
+                    .cloned()
+                    .map(|bitmap| (definition.id, Arc::new(bitmap)));
+            }
+            index += 1;
+        }
+        None
     }
 }

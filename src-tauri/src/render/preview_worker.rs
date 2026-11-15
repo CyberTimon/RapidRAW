@@ -35,6 +35,7 @@ fn process_preview_job(
     request_analytics: bool,
     compute_waveform: bool,
     active_waveform_channel: Option<&str>,
+    active_mask_id: Option<&str>,
     target: PreviewTarget,
 ) -> Result<Vec<u8>, String> {
     let fn_start = std::time::Instant::now();
@@ -213,6 +214,7 @@ fn process_preview_job(
                 compute_waveform,
                 active_waveform_channel: channel_filter,
                 sender: tx,
+                mask: editor_render.active_mask_bitmap(&adjustments_clone, active_mask_id),
             })
     } else {
         None
@@ -388,7 +390,13 @@ pub fn start_analytics_worker(app_handle: tauri::AppHandle) {
             }
             last_run = Some(std::time::Instant::now());
 
-            let histogram_data = calculate_histogram(&job.frame).ok();
+            let histogram_data = calculate_histogram(
+                &job.frame,
+                job.mask
+                    .as_ref()
+                    .map(|(id, bitmap)| (id.as_str(), bitmap.as_ref())),
+            )
+            .ok();
 
             let waveform_data = if job.compute_waveform {
                 calculate_waveform(&job.frame, job.active_waveform_channel.as_deref()).ok()
@@ -444,6 +452,7 @@ fn run_editor_job(app_handle: &tauri::AppHandle, job: PreviewJob) {
             job.request_analytics,
             job.compute_waveform,
             job.active_waveform_channel.as_deref(),
+            job.active_mask_id.as_deref(),
             PreviewTarget::Editor,
         )
     });
@@ -483,6 +492,7 @@ fn run_viewer_job(app_handle: &tauri::AppHandle) {
             None,
             false,
             false,
+            None,
             None,
             PreviewTarget::Viewer,
         )

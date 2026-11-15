@@ -1,14 +1,20 @@
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
+import { Scan } from 'lucide-react';
 import Slider from '../ui/Slider';
 import { Adjustments, BasicAdjustment } from '../../utils/adjustments';
 import { useEffect, useRef, useState, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { areSectionPropsEqual } from '../../utils/adjustments';
+import { contrastFulcrum, selectionContrastPivot, toneMedian } from '../../utils/adaptiveContrast';
+import { useEditorStore } from '../../store/useEditorStore';
 
 interface BasicAdjustmentsProps {
   adjustments: Adjustments;
-  setAdjustments(adjustments: Partial<Adjustments>): any;
+  setAdjustments(
+    adjustments: Partial<Adjustments> | ((prev: Adjustments) => Adjustments),
+    label?: string,
+  ): any;
   isForMask?: boolean;
   onDragStateChange?: (isDragging: boolean) => void;
   appSettings?: any;
@@ -165,6 +171,36 @@ function BasicAdjustments({
   appSettings,
 }: BasicAdjustmentsProps) {
   const { t } = useTranslation();
+  const imagePath = useEditorStore((state) => state.selectedImage?.path ?? null);
+  const activeMaskContainerId = useEditorStore((state) => state.activeMaskContainerId);
+  const maskMedian = useEditorStore((state) => {
+    if (!isForMask) return null;
+    const histogram = state.maskHistogram;
+    if (!histogram || histogram.id !== state.activeMaskContainerId) return null;
+    return toneMedian(histogram.lumaMedian);
+  });
+  const maskAdjustments = adjustments as Adjustments & { maskLocalTone?: boolean; contrastPivot?: number };
+  const selectionTone = isForMask && maskAdjustments.maskLocalTone === true;
+  const statsKey = `${imagePath ?? ''}|${activeMaskContainerId ?? ''}`;
+  const storedPivot = selectionContrastPivot(statsKey, adjustments.contrast, maskMedian);
+  const selectionReady = storedPivot != null || (adjustments.contrast === 0 && maskMedian != null);
+
+  useEffect(() => {
+    if (!selectionTone || adjustments.contrast !== 0 || storedPivot == null) return;
+    if (Math.abs((maskAdjustments.contrastPivot ?? storedPivot) - storedPivot) < 1) return;
+    setAdjustments((prev) => ({ ...prev, contrastPivot: storedPivot }));
+  }, [selectionTone, adjustments.contrast, maskAdjustments.contrastPivot, storedPivot, setAdjustments]);
+
+  const toggleSelectionTone = () => {
+    const label = t('adjustments.curves.maskLocalTone');
+    if (selectionTone) {
+      setAdjustments((prev) => ({ ...prev, maskLocalTone: false }), label);
+      return;
+    }
+    const pivot = storedPivot ?? (maskMedian == null ? null : contrastFulcrum(maskMedian));
+    if (pivot == null) return;
+    setAdjustments((prev) => ({ ...prev, maskLocalTone: true, contrastPivot: pivot }), label);
+  };
 
   const handleAdjustmentChange = (key: BasicAdjustment, value: any) => {
     const numericValue = parseFloat(value);
@@ -206,6 +242,25 @@ function BasicAdjustments({
       <Slider
         resetKey="contrast"
         label={t('adjustments.basic.contrast')}
+        headerAction={
+          isForMask ? (
+            <button
+              type="button"
+              data-slider-action=""
+              className={`h-6 w-6 rounded-md border flex items-center justify-center shrink-0 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                selectionTone
+                  ? 'bg-accent border-accent text-button-text'
+                  : 'bg-card-active border-white/25 text-text-primary hover:border-white/50'
+              }`}
+              data-tooltip={t('adjustments.curves.maskLocalToneTooltip')}
+              disabled={!selectionTone && !selectionReady}
+              onClick={toggleSelectionTone}
+              aria-pressed={selectionTone}
+            >
+              <Scan size={14} />
+            </button>
+          ) : undefined
+        }
         max={100}
         min={-100}
         onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Contrast, e.target.value)}
