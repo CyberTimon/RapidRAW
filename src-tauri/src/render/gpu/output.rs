@@ -445,16 +445,7 @@ fn process_and_get_dynamic_image_inner(
                 .ok_or("Failed to create 8-bit image buffer from GPU data")?;
             Ok(DynamicImage::ImageRgba8(img_buf))
         }
-        RenderedPixels::U16(mut pixels) => {
-            use rayon::prelude::*;
-            pixels.par_iter_mut().for_each(|sample| {
-                let value = f16::from_bits(*sample).to_f32();
-                *sample = if value.is_finite() {
-                    (value.clamp(0.0, 1.0) * u16::MAX as f32).round() as u16
-                } else {
-                    0
-                };
-            });
+        RenderedPixels::U16(pixels) => {
             let img_buf = ImageBuffer::<Rgba<u16>, Vec<u16>>::from_raw(out_w, out_h, pixels)
                 .ok_or("Failed to create 16-bit image buffer from GPU data")?;
             Ok(DynamicImage::ImageRgba16(img_buf))

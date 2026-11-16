@@ -11,7 +11,7 @@ use crate::app::state::{AnalyticsConfig, AnalyticsJob, GpuImageEntry};
 use crate::render::analytics::{AnalyticsFrame, AnalyticsPixels};
 use crate::render::gpu::context::GpuContext;
 use crate::render::gpu::pipelines::{
-    ALL_SHADER_FEATURES, GpuPipelines, HighPrecisionPipeline, high_precision_shader_source,
+    ALL_SHADER_FEATURES, GpuPipelines, HighPrecisionPipeline, HIGH_PRECISION_SHADER,
     shader_features,
 };
 use crate::render::uniforms::{AllAdjustments, MAX_MASKS};
@@ -1250,7 +1250,7 @@ impl GpuProcessor {
             });
             let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some("High Precision Image Processing Shader"),
-                source: wgpu::ShaderSource::Wgsl(high_precision_shader_source().into()),
+                source: wgpu::ShaderSource::Wgsl(HIGH_PRECISION_SHADER.into()),
             });
             let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                 label: Some("High Precision Compute Pipeline"),
@@ -1301,7 +1301,7 @@ impl GpuProcessor {
                     mip_level_count: 1,
                     sample_count: 1,
                     dimension: wgpu::TextureDimension::D2,
-                    format: wgpu::TextureFormat::Rgba16Float,
+                    format: wgpu::TextureFormat::Rgba16Uint,
                     usage: wgpu::TextureUsages::TEXTURE_BINDING
                         | wgpu::TextureUsages::STORAGE_BINDING
                         | wgpu::TextureUsages::COPY_SRC,

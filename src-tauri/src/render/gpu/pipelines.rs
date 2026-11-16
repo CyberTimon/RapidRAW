@@ -87,9 +87,14 @@ pub fn shader_features(adjustments: &AllAdjustments) -> u32 {
     features
 }
 
-pub fn high_precision_shader_source() -> String {
-    include_str!("../../shaders/shader.wgsl").replace("rgba8unorm, write>", "rgba16float, write>")
-}
+pub const HIGH_PRECISION_SHADER: &str = concat!(
+    include_str!("../../shaders/output_u16.wgsl"),
+    include_str!("../../shaders/shader.wgsl"),
+);
+const DISPLAY_SHADER: &str = concat!(
+    include_str!("../../shaders/output_u8.wgsl"),
+    include_str!("../../shaders/shader.wgsl"),
+);
 
 pub struct GpuPipelines {
     pub blur_bgl: wgpu::BindGroupLayout,
@@ -327,7 +332,7 @@ impl GpuPipelines {
 
         let shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Image Processing Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("../../shaders/shader.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(DISPLAY_SHADER.into()),
         });
 
         let mut bind_group_layout_entries = vec![
@@ -477,7 +482,7 @@ impl GpuPipelines {
 
         bind_group_layout_entries[1].ty = wgpu::BindingType::StorageTexture {
             access: wgpu::StorageTextureAccess::WriteOnly,
-            format: wgpu::TextureFormat::Rgba16Float,
+            format: wgpu::TextureFormat::Rgba16Uint,
             view_dimension: wgpu::TextureViewDimension::D2,
         };
         let dummy_texture_desc = wgpu::TextureDescriptor {

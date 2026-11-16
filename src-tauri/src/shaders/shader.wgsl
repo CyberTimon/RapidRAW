@@ -215,7 +215,6 @@ const HSL_RANGES: array<HslRange, 8> = array<HslRange, 8>(
 );
 
 @group(0) @binding(0) var input_texture: texture_2d<f32>;
-@group(0) @binding(1) var output_texture: texture_storage_2d<rgba8unorm, write>;
 @group(0) @binding(2) var<storage, read> adjustments: AllAdjustments;
 
 @group(0) @binding(3) var mask_textures: texture_2d_array<f32>;
@@ -2232,7 +2231,7 @@ fn main(
         composite_rgb_linear = apply_color_calibration(composite_rgb_linear, adjustments.global.color_calibration);
     }
     if (HSL_PROBE == 1u) {
-        textureStore(output_texture, id.xy, hsl_probe(composite_rgb_linear));
+        store_output(id.xy, hsl_probe(composite_rgb_linear));
         return;
     }
     if (is_monochrome) {
@@ -2345,5 +2344,5 @@ fn main(
         final_rgb += dither(id.xy) * dither_amount;
     }
 
-    textureStore(output_texture, id.xy, vec4<f32>(clamp(final_rgb, vec3<f32>(0.0), vec3<f32>(1.0)), original_alpha));
+    store_output(id.xy, vec4<f32>(clamp(final_rgb, vec3<f32>(0.0), vec3<f32>(1.0)), original_alpha));
 }
