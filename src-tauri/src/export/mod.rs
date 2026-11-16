@@ -13,7 +13,7 @@ use std::collections::HashMap;
 #[cfg(not(target_os = "android"))]
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use image::{DynamicImage, ImageBuffer, Luma};
@@ -168,6 +168,36 @@ fn process_image_for_export(
     apply_export_geometry_and_watermark(processed_image, export_settings).map(|(image, _)| image)
 }
 
+fn wait_for_ai_bases(
+    app_handle: &tauri::AppHandle,
+    path: &str,
+    base: &DynamicImage,
+    adjustments: &Value,
+    cancellation_token: &AtomicBool,
+) -> Result<(), String> {
+    let generate = || -> Result<bool, String> {
+        if crate::ai::denoise::is_enabled(adjustments)
+            && !crate::ai::denoise::generate_for_base(
+                app_handle,
+                path,
+                base,
+                crate::ai::denoise::DenoiseMethod::from_adjustments(adjustments),
+            )?
+        {
+            return Ok(false);
+        }
+        Ok(!crate::ai::upscale::is_enabled(adjustments)
+            || crate::ai::upscale::generate_for_base(app_handle, path, base, adjustments)?)
+    };
+    loop {
+        ensure_export_not_cancelled(cancellation_token)?;
+        if generate().map_err(|e| format!("Failed to generate AI results for export: {}", e))? {
+            return Ok(());
+        }
+        std::thread::sleep(std::time::Duration::from_millis(200));
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn export_images_impl(
     paths: Vec<String>,
@@ -246,42 +276,27 @@ pub(crate) async fn export_images_impl(
         let total_paths = paths.len();
         let settings = load_settings(app_handle.clone()).unwrap_or_default();
 
-        let mut base_path_counts: HashMap<String, usize> = HashMap::new();
-        let mut export_items = Vec::with_capacity(total_paths);
-
-        for (i, path_str) in paths.into_iter().enumerate() {
-            let (source_path, _) = parse_virtual_path(&path_str);
-            let source_str = source_path.to_string_lossy().to_string();
-            let count = base_path_counts.entry(source_str.clone()).or_insert(0);
-            *count += 1;
-
-            let mut explicit_vc = None;
-            if let Some(idx) = path_str.rfind("vc=") {
-                let id_str = path_str[idx + 3..].split('&').next().unwrap_or("");
-                if let Ok(id) = id_str.parse::<u32>() {
-                    explicit_vc = Some(id);
-                }
-            }
-            if explicit_vc.is_none() {
-                let lower = path_str.to_lowercase();
-                if let Some(idx) = lower.rfind("_vc") {
-                    let id_str: String = lower[idx + 3..]
-                        .chars()
-                        .take_while(|c| c.is_ascii_digit())
-                        .collect();
-                    if let Ok(id) = id_str.parse::<u32>() {
-                        explicit_vc = Some(id);
-                    }
-                }
-            }
-            export_items.push((i, path_str, *count, explicit_vc));
-        }
+        let mut copy_counts: HashMap<PathBuf, usize> = HashMap::new();
+        let export_items: Vec<_> = paths
+            .into_iter()
+            .enumerate()
+            .map(|(i, path_str)| {
+                let copy_number = path_str.contains("?vc=").then(|| {
+                    let count = copy_counts
+                        .entry(parse_virtual_path(&path_str).0)
+                        .or_default();
+                    *count += 1;
+                    *count
+                });
+                (i, path_str, copy_number)
+            })
+            .collect();
 
         let used_paths = Arc::new(Mutex::new(std::collections::HashSet::new()));
         let semaphore = Arc::new(tokio::sync::Semaphore::new(num_threads));
         let mut join_handles = Vec::new();
 
-        for (global_index, image_path_str, appearance_count, explicit_vc) in export_items {
+        for (global_index, image_path_str, copy_number) in export_items {
             if cancellation_token.load(Ordering::SeqCst) {
                 break;
             }
@@ -379,10 +394,8 @@ pub(crate) async fn export_images_impl(
                     &file_date,
                 );
 
-                if let Some(vc_id) = explicit_vc {
-                    new_stem = format!("{}_VC{:02}", new_stem, vc_id);
-                } else if appearance_count > 1 {
-                    new_stem = format!("{}_VC{:02}", new_stem, appearance_count - 1);
+                if let Some(copy_number) = copy_number {
+                    new_stem = format!("{}_VC{:02}", new_stem, copy_number);
                 }
 
                 let new_filename = format!("{}.{}", new_stem, output_format);
@@ -528,10 +541,6 @@ pub(crate) async fn export_images_impl(
                         return Err("Export cancelled".to_string());
                     };
 
-                    let cached_patched = loaded_image.as_ref().and_then(|loaded_image| {
-                        cached_patched_image(&state, &loaded_image.image, &js_adjustments)
-                    });
-
                     let (source_image, source_image_path) = match &loaded_image {
                         Some(loaded_image) => {
                             (Arc::clone(&loaded_image.image), loaded_image.path.as_str())
@@ -541,6 +550,19 @@ pub(crate) async fn export_images_impl(
                             source_path_str.as_str(),
                         ),
                     };
+                    if is_current_edit {
+                        wait_for_ai_bases(
+                            &app_handle_clone,
+                            &image_path_str,
+                            &source_image,
+                            &js_adjustments,
+                            &cancellation_token_clone,
+                        )?;
+                    }
+
+                    let cached_patched = loaded_image.as_ref().and_then(|loaded_image| {
+                        cached_patched_image(&state, &loaded_image.image, &js_adjustments)
+                    });
                     let prepare_base = |adjustments: &Value| -> Result<Arc<DynamicImage>, String> {
                         match prepare_base_image_cow(&source_image, source_image_path, adjustments)
                             .map_err(|e| format!("Failed to composite AI patches: {}", e))?

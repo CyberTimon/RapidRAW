@@ -38,6 +38,32 @@
   <url type="homepage">https://github.com/CyberTimon/RapidRAW</url>
 
   <releases>
+    <release version="v1.7.0" date="2026-11-15">
+        <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.7.0</url>
+        <description translate="no">
+            <p>New Features</p>
+            <ul>
+                <li>Furka Rendering Engine: A new rendering engine with GPU demosaicing (RCD for Bayer, Markesteijn for X-Trans), halo-free Highlights, Shadows, Whites, Blacks, Clarity and Structure, much stronger highlight and shadow recovery, halo-free sharpening and color grading in OKLab.</li>
+                <li>RapidRes AI Super Resolution: A 2x AI upscaler next to AI Denoise, fine-tuned on RapidRAW's own RAW pipeline, with a Detail slider and non-destructive caching.</li>
+                <li>Docked Filmstrip: Dock the filmstrip into the left or right side panel as a vertical grid with a quick filter, file names and adjustable thumbnail size, and split side panels by dropping a panel at the top or bottom.</li>
+                <li>Default Adjustments: Choose a default preset for unedited photos, give each camera its own preset and turn on automatic lens correction.</li>
+                <li>Better Generative Fill &amp; Cloud Inpainting: Fills blend much better into the photo and cloud inpainting matches the tone and grain of the photo.</li>
+                <li>Rotate Crop By Dragging: Rotate the image by dragging around the crop frame, with fine rotation while holding Shift or Alt.</li>
+                <li>Library Improvements: Six thumbnail sizes, natural number sorting of file names, and the camera make in the metadata panel.</li>
+            </ul>
+            <p>Core Improvements</p>
+            <ul>
+                <li>Smooth Zooming While Loading: RAW files are decoded on their own GPU queue, so zooming and panning stay smooth while a photo loads.</li>
+                <li>Smaller AI Cache: The AI Denoise and RapidRes cache takes about a third of the space, and both cache limits were raised to 25 GB.</li>
+                <li>Better Exports: JPEG XL exports keep the RAW metadata, exporting the open photo waits for RapidRes and AI Denoise, and exported virtual copies are numbered one after another.</li>
+                <li>Copy &amp; Paste: Motion Blur is now included when copying and pasting adjustments.</li>
+                <li>Embedded Preview Notice: A message now tells you when a RAW file can't be decoded and the camera's embedded JPEG is shown instead.</li>
+                <li>Fixes: Fixed AI masks on Linux systems with a decimal comma, renames that left sidecar files behind, and the mask overlay jumping at high zoom.</li>
+                <li>Stability &amp; Bug Fixes: General bug fixes and performance improvements.</li>
+            </ul>
+            <p>This is a significant rendering update, so existing edits will look different after updating.</p>
+        </description>
+    </release>
     <release version="v1.6.9" date="2026-11-07">
         <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.6.9</url>
         <description translate="no">

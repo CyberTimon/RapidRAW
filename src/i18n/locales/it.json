@@ -984,6 +984,9 @@
         "tethering": "Acquisizione diretta"
       }
     },
+    "toasts": {
+      "embeddedPreview": "RapidRAW non è riuscito a decodificare questo file RAW, quindi stai vedendo e modificando l'anteprima JPEG incorporata della fotocamera. Aspettati una qualità inferiore e meno margine di modifica rispetto a un vero RAW."
+    },
     "toolbar": {
       "history": "Cronologia",
       "switchToVariant": "Passa a {{label}}",
@@ -2292,7 +2295,7 @@
         "baselineExposure": "Esposizione di base",
         "baselineExposureAmount": "Valore di base",
         "baselineExposureAmountDesc": "Esposizione aggiunta ai file RAW. darktable usa +0,7 EV.",
-        "baselineExposureDesc": "Schiarisce i file RAW di un valore fisso, più il tag DNG BaselineExposure se presente.",
+        "baselineExposureDesc": "Schiarisce i file RAW di un valore fisso, oppure del valore del tag DNG BaselineExposure se presente.",
         "colorNr": "Riduzione Rumore Cromatico di Base",
         "colorNrDesc": "Applica un filtro bilaterale incrociato all'inizio del processo per rimuovere il rumore cromatico. Valore più alto = Riduzione Rumore (NR) più forte.",
         "defaultNonRawTonemapper": "Tonemapper Predefinito per Non-RAW",

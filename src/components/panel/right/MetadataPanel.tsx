@@ -318,24 +318,20 @@ export default function MetadataPanel() {
             : '-',
     };
 
-    const hasCameraMake = exif['Make'] !== undefined && exif['Make'] !== null && exif['Make'] !== '';
-    const cameraMake = hasCameraMake
-      ? (KEY_CAMERA_SETTINGS_MAP['Make'].format
-          ? KEY_CAMERA_SETTINGS_MAP['Make'].format(exif['Make'] as number)
-          : exif['Make'])
-      : '-';
-    const hasCameraModel = exif['Model'] !== undefined && exif['Model'] !== null && exif['Model'] !== '';
-    const cameraModel = hasCameraModel
-      ? (KEY_CAMERA_SETTINGS_MAP['Model'].format
-          ? KEY_CAMERA_SETTINGS_MAP['Model'].format(exif['Model'] as number)
-          : exif['Model'])
-      : '-';
+    const cameraMakeModel = (['Make', 'Model'] as const)
+      .map((key) => {
+        const value = exif[key];
+        if (value === undefined || value === null || value === '') return '';
+        return String(KEY_CAMERA_SETTINGS_MAP[key].format!(value as number)).trim();
+      })
+      .filter(Boolean)
+      .join(' ');
     const cameraMakeModelSetting = {
       key: 'Model',
       label: t('editor.metadata.camera.model'),
-      value: `${cameraMake}${hasCameraMake && hasCameraModel ? ' ' : ''}${cameraModel}`,
+      value: cameraMakeModel || '-',
     };
-    
+
     const latStr = exif.GPSLatitude;
     const latRef = exif.GPSLatitudeRef;
     const lonStr = exif.GPSLongitude;

@@ -16,6 +16,7 @@ import { adjustmentsFromMetadata } from '../utils/developDefaults';
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { decodeImage } from '../utils/decodeImage';
 import { debouncedSave, debouncedSetHistory } from './useEditorActions';
+import { notifyEmbeddedPreview } from './useImageLoader';
 import { clearLibrarySelection } from './useLibraryActions';
 import { computeSortedLibrary } from './useSortedLibrary';
 import { getImmichAlbumImages, isImmichAlbumId } from '../utils/immichApi';
@@ -270,6 +271,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
             isBackendReadyRef.current = true;
             currentResRef.current = 0;
             setEditor({ originalSize: { width: _result.width, height: _result.height } });
+            notifyEmbeddedPreview(_result);
           })
           .catch((err: any) => {
             if (String(err).includes('cancelled')) return;

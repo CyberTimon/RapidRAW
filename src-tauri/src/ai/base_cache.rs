@@ -16,6 +16,114 @@ use tauri::{Emitter, Manager};
 
 const MEMORY_CACHE_CAPACITY: usize = 2;
 pub const HALF_CHUNK: usize = 3 * 16 * 1024;
+const MANTISSA_DROP: u32 = 3;
+const BAND_ROWS: usize = 16;
+const ZSTD_LEVEL: i32 = 3;
+
+fn quantize(value: f32) -> f16 {
+    let bits = f16::from_f32(value).to_bits();
+    let mask = u16::MAX << MANTISSA_DROP;
+    let magnitude = bits & 0x7FFF;
+    let rounded = if magnitude >= 0x7C00 {
+        magnitude & mask
+    } else {
+        (magnitude + (1 << (MANTISSA_DROP - 1))).min(0x7BFF) & mask
+    };
+    f16::from_bits((bits & 0x8000) | rounded)
+}
+
+fn encode_band(band: &[f16], width: usize) -> std::io::Result<Vec<u8>> {
+    let mut planes = vec![0u8; band.len() * 2];
+    let (lo, hi) = planes.split_at_mut(band.len());
+    for ((row, lo), hi) in band
+        .chunks_exact(width * 3)
+        .zip(lo.chunks_exact_mut(width * 3))
+        .zip(hi.chunks_exact_mut(width * 3))
+    {
+        let mut prev = [0u16; 3];
+        for ((px, lo), hi) in row
+            .as_chunks::<3>()
+            .0
+            .iter()
+            .zip(lo.as_chunks_mut::<3>().0)
+            .zip(hi.as_chunks_mut::<3>().0)
+        {
+            for c in 0..3 {
+                let q = px[c].to_bits() >> MANTISSA_DROP;
+                [lo[c], hi[c]] = q.wrapping_sub(prev[c]).to_le_bytes();
+                prev[c] = q;
+            }
+        }
+    }
+    zstd::bulk::compress(&planes, ZSTD_LEVEL)
+}
+
+fn decode_band(
+    decompressor: &mut zstd::bulk::Decompressor,
+    planes: &mut Vec<u8>,
+    compressed: &[u8],
+    band: &mut [f16],
+    width: usize,
+) -> Option<()> {
+    planes.clear();
+    planes.reserve(band.len() * 2);
+    decompressor.decompress_to_buffer(compressed, planes).ok()?;
+    if planes.len() != band.len() * 2 {
+        return None;
+    }
+    let (lo, hi) = planes.split_at(band.len());
+    for ((row, lo), hi) in band
+        .chunks_exact_mut(width * 3)
+        .zip(lo.chunks_exact(width * 3))
+        .zip(hi.chunks_exact(width * 3))
+    {
+        let mut prev = [0u16; 3];
+        for ((px, lo), hi) in row
+            .as_chunks_mut::<3>()
+            .0
+            .iter_mut()
+            .zip(lo.as_chunks::<3>().0)
+            .zip(hi.as_chunks::<3>().0)
+        {
+            for c in 0..3 {
+                prev[c] = prev[c].wrapping_add(u16::from_le_bytes([lo[c], hi[c]]));
+                px[c] = f16::from_bits(prev[c] << MANTISSA_DROP);
+            }
+        }
+    }
+    Some(())
+}
+
+fn band_len(width: usize) -> usize {
+    BAND_ROWS * width.max(1) * 3
+}
+
+fn decode_bands(payload: &[u8], width: usize, len: usize) -> Option<Vec<f16>> {
+    let band_len = band_len(width);
+    let table_len = len.div_ceil(band_len) * 4;
+    let mut offset = table_len;
+    let mut spans = Vec::new();
+    for size in payload.get(..table_len)?.as_chunks::<4>().0 {
+        let size = u32::from_le_bytes(*size) as usize;
+        spans.push(payload.get(offset..offset + size)?);
+        offset += size;
+    }
+
+    let mut data = vec![f16::ZERO; len];
+    data.par_chunks_mut(band_len)
+        .zip(spans.par_iter())
+        .map_init(
+            || (zstd::bulk::Decompressor::new().ok(), Vec::new()),
+            |(decompressor, planes), (band, span)| {
+                decompressor
+                    .as_mut()
+                    .and_then(|d| decode_band(d, planes, span, band, width))
+                    .is_some()
+            },
+        )
+        .all(|ok| ok)
+        .then_some(data)
+}
 
 pub struct CachedBase {
     key: String,
@@ -68,12 +176,14 @@ struct EntryHeader {
     fingerprint: u64,
     width: u32,
     height: u32,
+    compressed: bool,
 }
 
 pub struct BaseCache {
     dir_name: &'static str,
     extension: &'static str,
     magic: &'static [u8; 8],
+    legacy_magic: &'static [u8; 8],
     event: &'static str,
     label: &'static str,
     state: LazyLock<Mutex<CacheState>>,
@@ -132,6 +242,7 @@ impl BaseCache {
         dir_name: &'static str,
         extension: &'static str,
         magic: &'static [u8; 8],
+        legacy_magic: &'static [u8; 8],
         event: &'static str,
         label: &'static str,
     ) -> Self {
@@ -139,6 +250,7 @@ impl BaseCache {
             dir_name,
             extension,
             magic,
+            legacy_magic,
             event,
             label,
             state: LazyLock::new(Default::default),
@@ -179,9 +291,13 @@ impl BaseCache {
     fn read_header(&self, reader: &mut impl Read) -> Option<EntryHeader> {
         let mut magic = [0u8; 8];
         reader.read_exact(&mut magic).ok()?;
-        if &magic != self.magic {
+        let compressed = if &magic == self.magic {
+            true
+        } else if &magic == self.legacy_magic {
+            false
+        } else {
             return None;
-        }
+        };
         let mut u32_buf = [0u8; 4];
         let mut u64_buf = [0u8; 8];
         reader.read_exact(&mut u32_buf).ok()?;
@@ -198,6 +314,7 @@ impl BaseCache {
             fingerprint,
             width,
             height,
+            compressed,
         })
     }
 
@@ -214,10 +331,25 @@ impl BaseCache {
             return None;
         }
 
-        let mut data = vec![f16::ZERO; header.width as usize * header.height as usize * 3];
-        reader
-            .read_exact(bytemuck::cast_slice_mut(&mut data))
-            .ok()?;
+        let len = header.width as usize * header.height as usize * 3;
+        let data = if header.compressed {
+            let mut payload = Vec::new();
+            reader
+                .read_to_end(&mut payload)
+                .ok()
+                .and_then(|_| decode_bands(&payload, header.width as usize, len))
+        } else {
+            let mut data = vec![f16::ZERO; len];
+            reader
+                .read_exact(bytemuck::cast_slice_mut(&mut data))
+                .ok()
+                .map(|_| data)
+        };
+        drop(reader);
+        let Some(data) = data else {
+            let _ = fs::remove_file(&path);
+            return None;
+        };
 
         if let Ok(file) = File::options().write(true).open(&path) {
             let _ = file.set_modified(SystemTime::now());
@@ -239,17 +371,32 @@ impl BaseCache {
             .ok_or_else(|| format!("{} cache directory is not initialized", self.label))?;
         let tmp_path = path.with_extension("tmp");
 
+        let width = entry.width as usize;
+        let bands = entry
+            .data
+            .par_chunks(band_len(width))
+            .map(|band| encode_band(band, width))
+            .collect::<std::io::Result<Vec<_>>>()
+            .map_err(|e| e.to_string())?;
+
         let mut file = BufWriter::new(File::create(&tmp_path).map_err(|e| e.to_string())?);
         let source = entry.source.as_bytes();
-        file.write_all(self.magic)
-            .and_then(|_| file.write_all(&(source.len() as u32).to_le_bytes()))
-            .and_then(|_| file.write_all(source))
-            .and_then(|_| file.write_all(&entry.fingerprint.to_le_bytes()))
-            .and_then(|_| file.write_all(&entry.width.to_le_bytes()))
-            .and_then(|_| file.write_all(&entry.height.to_le_bytes()))
-            .and_then(|_| file.write_all(bytemuck::cast_slice(&entry.data)))
-            .and_then(|_| file.flush())
-            .map_err(|e| e.to_string())?;
+        let mut write = || -> std::io::Result<()> {
+            file.write_all(self.magic)?;
+            file.write_all(&(source.len() as u32).to_le_bytes())?;
+            file.write_all(source)?;
+            file.write_all(&entry.fingerprint.to_le_bytes())?;
+            file.write_all(&entry.width.to_le_bytes())?;
+            file.write_all(&entry.height.to_le_bytes())?;
+            for band in &bands {
+                file.write_all(&(band.len() as u32).to_le_bytes())?;
+            }
+            for band in &bands {
+                file.write_all(band)?;
+            }
+            file.flush()
+        };
+        write().map_err(|e| e.to_string())?;
         drop(file);
 
         fs::rename(&tmp_path, &path).map_err(|e| e.to_string())?;
@@ -322,10 +469,7 @@ impl BaseCache {
 
     fn store(&self, job: Job, image: Rgb32FImage) {
         let (width, height) = image.dimensions();
-        let mut data = vec![f16::ZERO; image.as_raw().len()];
-        data.par_chunks_mut(HALF_CHUNK)
-            .zip(image.as_raw().par_chunks(HALF_CHUNK))
-            .for_each(|(dst, src)| dst.convert_from_f32_slice(src));
+        let data: Vec<f16> = image.as_raw().par_iter().map(|&v| quantize(v)).collect();
         drop(image);
 
         let entry = Arc::new(CachedBase {

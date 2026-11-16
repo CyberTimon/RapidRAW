@@ -959,6 +959,9 @@
         "tethering": "Kabelopname"
       }
     },
+    "toasts": {
+      "embeddedPreview": "RapidRAW kon dit RAW-bestand niet decoderen, dus je ziet en bewerkt de ingesloten JPEG-preview van de camera. Verwacht een lagere kwaliteit en minder bewerkingsruimte dan bij een echte RAW."
+    },
     "toolbar": {
       "history": "Geschiedenis",
       "switchToVariant": "Overschakelen naar {{label}}",
@@ -2203,7 +2206,7 @@
         "baselineExposure": "Basisbelichting",
         "baselineExposureAmount": "Basiswaarde",
         "baselineExposureAmountDesc": "Belichting die aan RAW-bestanden wordt toegevoegd. darktable gebruikt +0,7 EV.",
-        "baselineExposureDesc": "Maakt RAW-bestanden een vaste hoeveelheid lichter, plus de DNG-tag BaselineExposure indien aanwezig.",
+        "baselineExposureDesc": "Maakt RAW-bestanden een vaste hoeveelheid lichter, of in plaats daarvan met de waarde van de DNG-tag BaselineExposure indien aanwezig.",
         "colorNr": "Basis kleurruisonderdrukking",
         "colorNrDesc": "Past een cross-bilateraal filter vroeg in de pijplijn toe om chroominantieruis te verwijderen. Hogere waarde = Sterkere ruisonderdrukking.",
         "defaultNonRawTonemapper": "Standaard niet-RAW-toonmapping",

@@ -1047,6 +1047,9 @@
         "tethering": "Prijungimas"
       }
     },
+    "toasts": {
+      "embeddedPreview": "RapidRAW nepavyko iškoduoti šio RAW failo, todėl matote ir redaguojate įterptą fotoaparato JPEG peržiūrą. Tikėkitės prastesnės kokybės ir mažesnės redagavimo atsargos nei tikro RAW."
+    },
     "toolbar": {
       "history": "Istorija",
       "switchToVariant": "Perjungti į {{label}}",
@@ -2342,7 +2345,7 @@
         "baselineExposure": "Bazinė ekspozicija",
         "baselineExposureAmount": "Bazinė reikšmė",
         "baselineExposureAmountDesc": "RAW failams pridedama ekspozicija. „darktable“ naudoja +0.7 EV.",
-        "baselineExposureDesc": "Pašviesina RAW failus fiksuota reikšme plius DNG BaselineExposure žyma, jei ji yra.",
+        "baselineExposureDesc": "Pašviesina RAW failus fiksuota reikšme arba, jei yra, DNG BaselineExposure žymos reikšme.",
         "colorNr": "Bazinis spalvinio triukšmo slopinimas",
         "colorNrDesc": "Taikomas ankstyvoje eigoje chrominiam triukšmui šalinti. Didesnė reikšmė = stipresnis slopinimas.",
         "defaultNonRawTonemapper": "Numatytasis ne RAW tonų atvaizdavimas",

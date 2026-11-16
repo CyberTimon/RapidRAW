@@ -1,11 +1,18 @@
 import { useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import i18n from 'i18next';
 import { adjustmentsFromMetadata, fetchImageDefaults } from '../utils/developDefaults';
 import { toast } from 'react-toastify';
 import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { Invokes } from '../types/invokes';
+
+export function notifyEmbeddedPreview(loadImageResult: any) {
+  if (loadImageResult?.is_embedded_preview) {
+    toast.warning(i18n.t('editor.toasts.embeddedPreview'), { toastId: 'embedded-preview' });
+  }
+}
 
 export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
   const selectedImage = useEditorStore((s) => s.selectedImage);
@@ -87,6 +94,7 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
             }
             return state;
           });
+          notifyEmbeddedPreview(loadImageResult);
         } catch (err) {
           if (isEffectActive) {
             console.error('Failed to load image:', err);

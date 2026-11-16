@@ -106,6 +106,8 @@ pub struct GpuPipelines {
     pub gf_blur_h_pipeline: wgpu::ComputePipeline,
     pub gf_blur_v_pipeline: wgpu::ComputePipeline,
     pub gf_coeffs_pipeline: wgpu::ComputePipeline,
+    pub sh_level_pipeline: wgpu::ComputePipeline,
+    pub sh_band_pipeline: wgpu::ComputePipeline,
     pub tb_bilateral_pipeline: wgpu::ComputePipeline,
     pub tb_refine_pipeline: wgpu::ComputePipeline,
     pub tb_decimate_pipeline: wgpu::ComputePipeline,
@@ -303,6 +305,8 @@ impl GpuPipelines {
         let gf_blur_h_pipeline = gf_pipeline("gf_blur_h");
         let gf_blur_v_pipeline = gf_pipeline("gf_blur_v");
         let gf_coeffs_pipeline = gf_pipeline("gf_coeffs");
+        let sh_level_pipeline = gf_pipeline("sh_level");
+        let sh_band_pipeline = gf_pipeline("sh_band");
         let hz_downsample_pipeline = gf_pipeline("hz_downsample");
         let hz_airlight_pipeline = gf_pipeline("hz_airlight");
         let hz_min_h_pipeline = gf_pipeline("hz_min_h");
@@ -389,16 +393,6 @@ impl GpuPipelines {
 
         bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
             binding: 5 + MAX_MASK_BINDINGS,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Texture {
-                sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                view_dimension: wgpu::TextureViewDimension::D2,
-                multisampled: false,
-            },
-            count: None,
-        });
-        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
-            binding: 6 + MAX_MASK_BINDINGS,
             visibility: wgpu::ShaderStages::COMPUTE,
             ty: wgpu::BindingType::Texture {
                 sample_type: wgpu::TextureSampleType::Float { filterable: false },
@@ -538,6 +532,8 @@ impl GpuPipelines {
             gf_blur_h_pipeline,
             gf_blur_v_pipeline,
             gf_coeffs_pipeline,
+            sh_level_pipeline,
+            sh_band_pipeline,
             tb_bilateral_pipeline,
             tb_refine_pipeline,
             tb_decimate_pipeline,

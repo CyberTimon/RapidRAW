@@ -956,6 +956,9 @@
         "tethering": "테더링"
       }
     },
+    "toasts": {
+      "embeddedPreview": "RapidRAW가 이 RAW 파일을 디코딩하지 못해 카메라에 포함된 JPEG 미리보기를 표시하고 편집하고 있습니다. 실제 RAW보다 화질이 낮고 편집 여유도 적습니다."
+    },
     "toolbar": {
       "history": "기록",
       "switchToVariant": "Switch to {{label}}",
@@ -2201,7 +2204,7 @@
         "baselineExposure": "기본 노출",
         "baselineExposureAmount": "기본량",
         "baselineExposureAmountDesc": "RAW 파일에 더하는 노출입니다. darktable은 +0.7 EV를 사용합니다.",
-        "baselineExposureDesc": "RAW 파일을 일정량 밝힙니다. DNG BaselineExposure 태그가 있으면 그 값도 더합니다.",
+        "baselineExposureDesc": "RAW 파일을 일정량 밝힙니다. DNG BaselineExposure 태그가 있으면 대신 그 값을 사용합니다.",
         "colorNr": "기본 색상 노이즈 감소",
         "colorNrDesc": "파이프라인 초기에 교차 양방향 필터를 적용하여 색차 노이즈를 제거합니다. 값이 높을수록 노이즈 감소가 강해집니다.",
         "defaultNonRawTonemapper": "기본 비RAW 톤매퍼",

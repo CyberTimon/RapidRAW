@@ -158,17 +158,6 @@ export default function DockedFilmstrip({
     [layout, activePath],
   );
 
-  const scrolledPathRef = useRef<string | undefined>(undefined);
-  useEffect(() => {
-    if (!listHandle || activeRowIndex < 0 || scrolledPathRef.current === activePath) return;
-    listHandle.scrollToRow({
-      index: activeRowIndex,
-      align: 'smart',
-      behavior: scrolledPathRef.current === undefined ? 'instant' : 'smooth',
-    });
-    scrolledPathRef.current = activePath;
-  }, [listHandle, activeRowIndex, activePath]);
-
   const rowProps = useMemo(
     () => ({
       rows: layout?.rows ?? [],
@@ -216,6 +205,22 @@ export default function DockedFilmstrip({
     },
     [layout],
   );
+
+  const scrolledPathRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const element = listHandle?.element;
+    if (!listHandle || !element || activeRowIndex < 0 || scrolledPathRef.current === activePath) return;
+
+    if (scrolledPathRef.current === undefined) {
+      let rowTop = OUTER_PADDING;
+      for (let i = 0; i < activeRowIndex; i++) rowTop += getRowHeight(i);
+      const rowHeight = getRowHeight(activeRowIndex);
+      element.scrollTo({ top: Math.max(0, rowTop - (size.height - rowHeight) / 2), behavior: 'instant' });
+    } else {
+      listHandle.scrollToRow({ index: activeRowIndex, align: 'smart', behavior: 'smooth' });
+    }
+    scrolledPathRef.current = activePath;
+  }, [listHandle, activeRowIndex, activePath, getRowHeight, size.height]);
 
   return (
     <div className="flex flex-col h-full">
