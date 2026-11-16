@@ -24,6 +24,7 @@ import {
   moveCropInsideBounds,
   zoomCrop,
   normalizeCropChange,
+  getCropViewLayout,
 } from '../../utils/cropUtils';
 import EditorToolbar from './editor/EditorToolbar';
 import ImageCanvas, { ImageRegion, MaskOverlayImage } from './editor/ImageCanvas';
@@ -800,11 +801,11 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       selectedImage.height,
       adjustments.orientationSteps || 0,
     );
-    const viewportW = irs.width + 2 * irs.offsetX;
-    const viewportH = irs.height + 2 * irs.offsetY;
-    const uncroppedScale = Math.min(viewportW / W, viewportH / H);
-    const uncroppedLeft = (viewportW - W * uncroppedScale) / 2;
-    const uncroppedTop = (viewportH - H * uncroppedScale) / 2;
+    const {
+      left: uncroppedLeft,
+      top: uncroppedTop,
+      scale: uncroppedScale,
+    } = getCropViewLayout(irs.width + 2 * irs.offsetX, irs.height + 2 * irs.offsetY, W, H);
     const croppedScale = irs.width / crop.width;
 
     const centerX = container.clientWidth / 2;

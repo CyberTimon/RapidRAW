@@ -9,7 +9,7 @@ use rawler::Orientation;
 use rayon::prelude::*;
 use wgpu::util::DeviceExt;
 
-use crate::render::gpu::context::GpuContext;
+use crate::render::gpu::context::DecodeGpu;
 use crate::render::image_processing::into_rgb32f_parallel;
 
 const SHADER: &str = include_str!("../shaders/develop.wgsl");
@@ -514,7 +514,7 @@ pub(crate) fn upload(
 }
 
 pub fn finish(
-    context: &GpuContext,
+    context: &DecodeGpu,
     encoder: wgpu::CommandEncoder,
     cam: &wgpu::Buffer,
     width: u32,
@@ -527,7 +527,7 @@ pub fn finish(
 }
 
 pub fn finish_rgb(
-    context: &GpuContext,
+    context: &DecodeGpu,
     data: &[[f32; 3]],
     width: u32,
     height: u32,
@@ -556,7 +556,7 @@ pub fn enhance(image: DynamicImage, denoise: f32, sharpen: f32) -> Result<Dynami
     if denoise <= 0.0 && sharpen <= 0.0 {
         return Ok(image);
     }
-    let context = crate::render::gpu::context::shared_gpu_context().map_err(|e| anyhow!(e))?;
+    let context = crate::render::gpu::context::decode_gpu_context().map_err(|e| anyhow!(e))?;
     let image = into_rgb32f_parallel(image);
     let (width, height) = image.dimensions();
     let enhanced = finish_rgb(
@@ -576,7 +576,7 @@ pub fn enhance(image: DynamicImage, denoise: f32, sharpen: f32) -> Result<Dynami
 
 fn run(
     kernels: &Kernels,
-    context: &GpuContext,
+    context: &DecodeGpu,
     mut encoder: wgpu::CommandEncoder,
     cam: &wgpu::Buffer,
     width: u32,

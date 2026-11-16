@@ -1039,6 +1039,7 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
         Effect.MotionBlurAmount,
         Effect.MotionBlurAngle,
         Effect.MotionBlurType,
+        Effect.MotionBlurLayer,
         Effect.MotionBlurHighlights,
         Effect.MotionBlurDepthEnabled,
         Effect.MotionBlurDepth,

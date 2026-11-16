@@ -59,7 +59,7 @@ fn resolve_image_metadata(
 
     let is_raw = crate::decode::formats::is_raw_file(image_path);
     let tm_override = resolve_tonemapper_override(settings, is_raw);
-    let is_edited = is_image_edited(&metadata.adjustments, is_raw, tm_override);
+    let is_edited = is_image_edited(&metadata.adjustments, image_path, is_raw, tm_override);
     let needs_ai = crate::ai::jobs::needs_generation(&metadata.adjustments, image_path);
     ImageFileMetadata {
         is_edited,

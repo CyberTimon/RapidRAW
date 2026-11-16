@@ -2,7 +2,6 @@ use crate::library::tagging::COLOR_TAG_PREFIX;
 
 use crate::library::file_ops::write_file_atomic;
 use crate::metadata::sidecar::{ImageFlag, ImageMetadata};
-use crate::render::adjustment_utils::default_adjustments;
 use quick_xml::escape::{escape, unescape};
 use regex::{NoExpand, regex};
 use std::borrow::Cow;
@@ -130,12 +129,6 @@ pub fn sync_metadata_from_xmp(
             && rating != 0
         {
             metadata.rating = rating;
-            if !metadata.adjustments.is_object() {
-                metadata.adjustments = default_adjustments();
-            }
-            if let Some(obj) = metadata.adjustments.as_object_mut() {
-                obj.insert("rating".to_string(), serde_json::json!(rating));
-            }
             changed = true;
         }
 

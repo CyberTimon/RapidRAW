@@ -14,7 +14,7 @@ use crate::render::gpu::pipelines::{
     ALL_SHADER_FEATURES, GpuPipelines, HighPrecisionPipeline, high_precision_shader_source,
     shader_features,
 };
-use crate::render::uniforms::{AllAdjustments, MAX_MASKS, MaskAdjustments};
+use crate::render::uniforms::{AllAdjustments, MAX_MASKS};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Roi {
@@ -188,8 +188,7 @@ pub struct GpuProcessor {
     lut_cache: std::sync::Mutex<Option<LutCache>>,
     ping_pong_view: wgpu::TextureView,
     sharpness_blur_view: wgpu::TextureView,
-    tonal_blur_view: wgpu::TextureView,
-    blur_sources: std::sync::Mutex<[Option<(u64, BlurParams)>; 2]>,
+    blur_source: std::sync::Mutex<Option<(u64, BlurParams)>>,
 
     pub tile_output_texture: wgpu::Texture,
     pub tile_output_texture_view: wgpu::TextureView,
@@ -398,12 +397,6 @@ impl GpuProcessor {
         });
         let sharpness_blur_view = sharpness_blur_texture.create_view(&Default::default());
 
-        let tonal_blur_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Tonal Blur Texture"),
-            ..reusable_texture_desc
-        });
-        let tonal_blur_view = tonal_blur_texture.create_view(&Default::default());
-
         let tile_output_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Tile Output Texture"),
             size: clamped_tile_size,
@@ -432,8 +425,7 @@ impl GpuProcessor {
             lut_cache: std::sync::Mutex::new(None),
             ping_pong_view,
             sharpness_blur_view,
-            tonal_blur_view,
-            blur_sources: std::sync::Mutex::new([None; 2]),
+            blur_source: std::sync::Mutex::new(None),
             tile_output_texture,
             tile_output_texture_view,
             full_image_size,
@@ -870,10 +862,26 @@ impl GpuProcessor {
             &params_tb_broad,
             fine,
         );
+        pass(
+            &self.pipelines.sh_level_pipeline,
+            input_view,
+            input_view,
+            &tmp,
+            &params_tonal,
+            fine,
+        );
+        pass(
+            &self.pipelines.sh_band_pipeline,
+            &tmp,
+            &blurred,
+            &ab,
+            &params_tonal,
+            fine,
+        );
 
         queue.submit(Some(encoder.finish()));
         GuidedTextures {
-            coeffs: blurred,
+            coeffs: ab,
             tone_base: moments,
             haze,
             airlight,
@@ -1454,10 +1462,7 @@ impl GpuProcessor {
                 let input_width = input_x_end - input_x_start;
                 let input_height = input_y_end - input_y_start;
 
-                let run_blur = |slot: usize,
-                                base_radius: f32,
-                                output_view: &wgpu::TextureView|
-                 -> bool {
+                let run_blur = |base_radius: f32, output_view: &wgpu::TextureView| -> bool {
                     let radius = (base_radius * scale).ceil().max(1.0) as u32;
                     if radius == 0 {
                         return false;
@@ -1475,7 +1480,7 @@ impl GpuProcessor {
                     };
 
                     let source = Some((input.id, params));
-                    if self.blur_sources.lock().unwrap_or_else(|e| e.into_inner())[slot] == source {
+                    if *self.blur_source.lock().unwrap_or_else(|e| e.into_inner()) == source {
                         return true;
                     }
 
@@ -1555,25 +1560,20 @@ impl GpuProcessor {
                     }
 
                     queue.submit(Some(blur_encoder.finish()));
-                    self.blur_sources.lock().unwrap_or_else(|e| e.into_inner())[slot] = source;
+                    *self.blur_source.lock().unwrap_or_else(|e| e.into_inner()) = source;
                     true
                 };
 
-                let active_masks = adjustments
-                    .mask_adjustments
-                    .iter()
-                    .take(adjustments.mask_count as usize);
-                let any_term =
-                    |global: f32, pick: &dyn Fn(&MaskAdjustments) -> f32, positive: bool| {
-                        let hit = |v: f32| if positive { v > 0.0 } else { v != 0.0 };
-                        hit(global) || active_masks.clone().any(|m| hit(pick(m)))
-                    };
-                let need_sharpen = any_term(adjustments.global.sharpness, &|m| m.sharpness, false);
+                let need_sharpen = adjustments.global.sharpness != 0.0
+                    || adjustments
+                        .mask_adjustments
+                        .iter()
+                        .take(adjustments.mask_count as usize)
+                        .any(|m| m.sharpness != 0.0);
 
                 let need_grain_softness = adjustments.global.grain_softness > 0.0;
                 let did_create_sharpness_blur = (need_sharpen || need_grain_softness)
-                    && run_blur(0, 1.0, &self.sharpness_blur_view);
-                let did_create_tonal_blur = need_sharpen && run_blur(1, 3.5, &self.tonal_blur_view);
+                    && run_blur(1.0, &self.sharpness_blur_view);
 
                 let mut main_encoder = device.create_command_encoder(&Default::default());
 
@@ -1617,14 +1617,6 @@ impl GpuProcessor {
                     binding: 5 + MAX_MASK_BINDINGS,
                     resource: wgpu::BindingResource::TextureView(if did_create_sharpness_blur {
                         &self.sharpness_blur_view
-                    } else {
-                        &self.pipelines.dummy_blur_view
-                    }),
-                });
-                bind_group_entries.push(wgpu::BindGroupEntry {
-                    binding: 6 + MAX_MASK_BINDINGS,
-                    resource: wgpu::BindingResource::TextureView(if did_create_tonal_blur {
-                        &self.tonal_blur_view
                     } else {
                         &self.pipelines.dummy_blur_view
                     }),

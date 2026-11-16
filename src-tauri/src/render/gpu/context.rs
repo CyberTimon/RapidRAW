@@ -10,7 +10,7 @@ use crate::render::gpu::display::WgpuDisplay;
 use crate::render::gpu::display::{build_wgpu_display, surface_for_window};
 use crate::render::gpu::pipelines::GpuPipelines;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 use tauri::Manager;
 
 pub fn current_gpu_context(state: &AppState) -> Option<GpuContext> {
@@ -34,6 +34,86 @@ pub fn shared_gpu_context() -> Result<GpuContext, String> {
         .get()
         .ok_or("GPU context requested before app setup")?;
     get_or_init_gpu_context(&app_handle.state::<AppState>(), app_handle)
+}
+
+#[derive(Clone)]
+pub struct DecodeGpu {
+    pub device: Arc<wgpu::Device>,
+    pub queue: Arc<wgpu::Queue>,
+    pub limits: wgpu::Limits,
+}
+
+struct DecodeSlot {
+    owner: Arc<wgpu::Device>,
+    gpu: DecodeGpu,
+}
+
+static DECODE_GPU: Mutex<Option<DecodeSlot>> = Mutex::new(None);
+static DECODE_DEVICE_LOST: AtomicBool = AtomicBool::new(false);
+
+pub fn decode_gpu_context() -> Result<DecodeGpu, String> {
+    Ok(decode_gpu_for(&shared_gpu_context()?))
+}
+
+fn decode_gpu_for(context: &GpuContext) -> DecodeGpu {
+    let mut slot = DECODE_GPU.lock().unwrap_or_else(|e| e.into_inner());
+    if DECODE_DEVICE_LOST.swap(false, Ordering::AcqRel) {
+        *slot = None;
+    }
+    if let Some(existing) = slot.as_ref()
+        && Arc::ptr_eq(&existing.owner, &context.device)
+    {
+        return existing.gpu.clone();
+    }
+    let opened = open_device(
+        &context.adapter,
+        "Decode Device",
+        wgpu::Features::empty(),
+        &context.limits,
+        &DECODE_DEVICE_LOST,
+    );
+    let (device, queue) = opened.unwrap_or_else(|e| {
+        log::warn!("Decoding on the display queue: {}", e);
+        (Arc::clone(&context.device), Arc::clone(&context.queue))
+    });
+    let gpu = DecodeGpu {
+        device,
+        queue,
+        limits: context.limits.clone(),
+    };
+    *slot = Some(DecodeSlot {
+        owner: Arc::clone(&context.device),
+        gpu: gpu.clone(),
+    });
+    gpu
+}
+
+fn open_device(
+    adapter: &wgpu::Adapter,
+    label: &'static str,
+    required_features: wgpu::Features,
+    limits: &wgpu::Limits,
+    lost: &'static AtomicBool,
+) -> Result<(Arc<wgpu::Device>, Arc<wgpu::Queue>), String> {
+    let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+        label: Some(label),
+        required_features,
+        required_limits: limits.clone(),
+        experimental_features: wgpu::ExperimentalFeatures::default(),
+        memory_hints: wgpu::MemoryHints::Performance,
+        trace: wgpu::Trace::Off,
+    }))
+    .map_err(|e| e.to_string())?;
+    device.on_uncaptured_error(Arc::new(move |err: wgpu::Error| {
+        log::error!("[wgpu-error] {}: {}", label, err);
+    }));
+    device.set_device_lost_callback(move |reason, message| {
+        if reason == wgpu::DeviceLostReason::Unknown {
+            log::error!("{} lost: {}", label, message);
+            lost.store(true, Ordering::Release);
+        }
+    });
+    Ok((Arc::new(device), Arc::new(queue)))
 }
 
 pub fn get_or_init_gpu_context(
@@ -171,30 +251,18 @@ pub fn get_or_init_gpu_context(
 
     let limits = adapter.limits();
 
-    let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-        label: Some("Processing Device"),
+    let (device, queue) = open_device(
+        &adapter,
+        "Processing Device",
         required_features,
-        required_limits: limits.clone(),
-        experimental_features: wgpu::ExperimentalFeatures::default(),
-        memory_hints: wgpu::MemoryHints::Performance,
-        trace: wgpu::Trace::Off,
-    }))
-    .map_err(|e| {
+        &limits,
+        &GPU_DEVICE_LOST,
+    )
+    .inspect_err(|_| {
         if let Some(p) = &flag_path {
             let _ = std::fs::remove_file(p);
         }
-        e.to_string()
     })?;
-
-    device.on_uncaptured_error(Arc::new(|err: wgpu::Error| {
-        log::error!("[wgpu-error] {}", err);
-    }));
-    device.set_device_lost_callback(|reason, message| {
-        if reason == wgpu::DeviceLostReason::Unknown {
-            log::error!("GPU device lost: {}", message);
-            GPU_DEVICE_LOST.store(true, Ordering::Release);
-        }
-    });
 
     if let Some(p) = &flag_path {
         let _ = std::fs::remove_file(p);
@@ -221,22 +289,22 @@ pub fn get_or_init_gpu_context(
     let new_context = GpuContext {
         instance,
         adapter,
-        device: Arc::new(device),
-        queue: Arc::new(queue),
+        device,
+        queue,
         limits,
         display: Arc::new(std::sync::Mutex::new(display_opt)),
         viewer_display: Arc::new(std::sync::Mutex::new(None)),
         pipelines: Arc::new(std::sync::OnceLock::new()),
         compute: Arc::new(std::sync::OnceLock::new()),
     };
-    let device = Arc::clone(&new_context.device);
-    let compute = Arc::clone(&new_context.compute);
+    let warm = new_context.clone();
     std::thread::spawn(move || {
-        crate::decode::demosaic::warm(&device);
-        crate::decode::develop::warm(&device);
-        compute
-            .get_or_init(|| crate::render::gpu::compute::ComputePipelines::new(&device))
-            .warm(&device);
+        let decode = decode_gpu_for(&warm);
+        crate::decode::demosaic::warm(&decode.device);
+        crate::decode::develop::warm(&decode.device);
+        warm.compute
+            .get_or_init(|| crate::render::gpu::compute::ComputePipelines::new(&warm.device))
+            .warm(&warm.device);
     });
     *context_lock = Some(new_context.clone());
     Ok(new_context)

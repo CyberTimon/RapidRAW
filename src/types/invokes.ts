@@ -62,6 +62,7 @@ export enum Invokes {
   ListImagesRecursive = 'list_images_recursive',
   LoadImage = 'load_image',
   LoadMetadata = 'load_metadata',
+  GetDefaultAdjustments = 'get_default_adjustments',
   LoadPresets = 'load_presets',
   LoadSettings = 'load_settings',
   MoveFiles = 'move_files',

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import Text from './Text';
@@ -29,12 +29,14 @@ const Switch = ({
   checked,
   className = '',
   disabled = false,
+  id,
   label,
   onChange,
   tooltip,
   trackClassName,
 }: SwitchProps) => {
-  const uniqueId = `switch-${label.replace(/\s+/g, '-').toLowerCase()}`;
+  const generatedId = useId();
+  const uniqueId = id ?? generatedId;
 
   const spring = {
     type: 'spring',

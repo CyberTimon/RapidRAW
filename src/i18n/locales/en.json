@@ -326,11 +326,13 @@
       "redo": "Redo",
       "removeBlackWhite": "Remove Black & White",
       "removeDenoise": "Remove Denoise",
-      "superResolution": "RapidRes (2x)",
-      "removeSuperResolution": "Remove RapidRes",
       "removeNegativeConversion": "Remove Negative Conversion",
+      "removeSuperResolution": "Remove RapidRes",
       "resetAdjustments": "Reset Adjustments",
+      "resetToDefaults": "Reset to Defaults",
+      "resetToNeutral": "Reset to Neutral",
       "stitchPanorama": "Stitch Panorama",
+      "superResolution": "RapidRes (2x)",
       "tagging": "Tagging",
       "undo": "Undo",
       "unflagged": "Unflagged"
@@ -843,6 +845,7 @@
         "focalLength": "Focal Length",
         "iso": "ISO",
         "lens": "Lens",
+        "model": "Model",
         "shutterSpeed": "Shutter Speed",
         "title": "Camera Details"
       },
@@ -887,6 +890,8 @@
     },
     "presets": {
       "amount": "Amount",
+      "defaultForAllCameras": "Default for all cameras",
+      "defaultForCamera": "Default for {{camera}}",
       "dialog": {
         "allPresetFiles": "All Preset Files",
         "exportAllTitle": "Export All Presets",
@@ -907,7 +912,11 @@
         "newPreset": "New Preset",
         "overwrite": "Overwrite",
         "renameFolder": "Rename Folder",
-        "sortAll": "Sort All Alphabetically"
+        "setDefaultAllCameras": "Set as Default for All Cameras",
+        "setDefaultForCamera": "Set as Default for {{camera}}",
+        "sortAll": "Sort All Alphabetically",
+        "unsetDefaultAllCameras": "Stop Using as Default for All Cameras",
+        "unsetDefaultForCamera": "Stop Using as Default for {{camera}}"
       },
       "status": {
         "empty": "No presets saved yet. Create your own, import from a file, or explore community presets.",
@@ -942,12 +951,16 @@
         "adjust": "Adjust",
         "crop": "Crop",
         "export": "Export",
+        "filmstrip": "Filmstrip",
         "info": "Info",
         "inpaint": "Inpaint",
         "masks": "Masks",
         "presets": "Presets",
         "tethering": "Tethering"
       }
+    },
+    "toasts": {
+      "embeddedPreview": "RapidRAW couldn't decode this RAW file, so you're seeing and editing the camera's embedded JPEG preview. Expect lower quality and less editing headroom than a real RAW."
     },
     "toolbar": {
       "history": "History",
@@ -1482,10 +1495,7 @@
       "originalRatio": "Original Ratio"
     },
     "thumbnailSize": {
-      "large": "Large",
-      "list": "List",
-      "medium": "Medium",
-      "small": "Small"
+      "list": "List"
     },
     "tooltips": {
       "communityPresets": "Community Presets",
@@ -2145,6 +2155,31 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "defaultAdjustments": {
+        "addCamera": "Add camera…",
+        "applyToNonRaw": "Also apply to JPEG, TIFF, PNG and other non-RAW files",
+        "applyToNonRawDesc": "When off, only RAW files use these defaults. JPEGs from your camera are usually already processed and lens corrected, so applying them again can overdo it.",
+        "autoLensCorrection": "Automatic lens correction",
+        "autoLensCorrectionDesc": "Correct distortion, chromatic aberration and vignetting using the lens profile detected from each image's metadata.",
+        "cameraDefaults": "Camera-Specific Defaults",
+        "cameraDefaultsDesc": "Give images from specific cameras their own preset. Cameras not listed here use the default preset above, and lens correction applies to all cameras.",
+        "cameraPresetMissing": "The selected preset was deleted, so images from this camera use the all-cameras preset again.",
+        "description": "Set what unedited images start with and what Reset Adjustments returns to; edited images keep their own settings. With defaults set, RAW thumbnails are rendered instead of using the camera's embedded preview, so they load slower at first.",
+        "lensCorrection": "Lens Correction",
+        "noCamerasFound": "No other cameras found. Open a folder with images from a camera, or right-click a preset while editing one of its images.",
+        "noPreset": "None (neutral)",
+        "preset": "Default Preset",
+        "presetDesc": "Applied to every unedited image. Masks, crops and transforms are skipped because they only fit the image they were made on.",
+        "presetMissing": "The selected preset was deleted, so unedited images use neutral values again.",
+        "removeCamera": "Remove camera",
+        "sameAsAllCameras": "Same as all cameras",
+        "scope": "Applies To",
+        "sliderReset": "Slider Reset",
+        "sliderResetDefaults": "Default adjustments",
+        "sliderResetDesc": "What a single slider returns to when you reset it, for example by double-clicking it or in speed edit. Mask sliders always reset to their neutral value.",
+        "sliderResetNeutral": "Neutral value",
+        "title": "Default Adjustments"
+      },
       "dynamicDesc": "The editor renders the preview to match your display's actual pixel density. This ensures that every detail is represented with 1:1 pixel accuracy, providing maximum clarity when zooming and checking focus.",
       "editIn": {
         "add": "Add Program",
@@ -2190,7 +2225,7 @@
         "baselineExposure": "Baseline Exposure",
         "baselineExposureAmount": "Baseline Amount",
         "baselineExposureAmountDesc": "Exposure added to RAW files. darktable uses +0.7 EV.",
-        "baselineExposureDesc": "Brightens RAW files by a fixed amount, plus the DNG BaselineExposure tag if present.",
+        "baselineExposureDesc": "Brightens RAW files by a fixed amount, or by the DNG BaselineExposure tag instead when present.",
         "colorNr": "Base Color Noise Reduction",
         "colorNrDesc": "Applies a cross-bilateral filter early in the pipeline to remove chroma noise. Higher value = Stronger NR.",
         "defaultNonRawTonemapper": "Default Non-RAW Tonemapper",
@@ -2363,13 +2398,11 @@
     "bottomBar": {
       "imagesSelected": "{{current}} of {{total}} images selected",
       "tooltips": {
-        "collapseFilmstrip": "Collapse Filmstrip",
         "collapseLeft": "Collapse Left Panel",
         "collapseRight": "Collapse Right Panel",
         "copyPasteSettings": "Copy & Paste Settings",
         "copySettings": "Copy Settings",
         "customZoom": "Click to enter custom zoom percentage",
-        "expandFilmstrip": "Expand Filmstrip",
         "expandLeft": "Expand Left Panel",
         "expandRight": "Expand Right Panel",
         "export": "Export",

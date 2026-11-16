@@ -163,10 +163,44 @@ pub fn mark_baseline_exposure(adjustments: &mut Value) {
     }
 }
 
-pub fn default_adjustments() -> Value {
+pub fn default_adjustments(path: &std::path::Path) -> Value {
     let mut adjustments = json!({});
     mark_baseline_exposure(&mut adjustments);
+    crate::adjustments::develop_defaults::apply_overlay(&mut adjustments, path);
     adjustments
+}
+
+pub fn differs_from_default(adjustments: &Value, key: &str, path: &std::path::Path) -> bool {
+    let factory = default_adjustment_values().and_then(|factory| factory.get(key));
+    let overlay = crate::adjustments::develop_defaults::overlay(path);
+    let stored = adjustments.get(key).filter(|v| !v.is_null()).or(factory);
+    let default = overlay.get(key).or(factory);
+    match (stored, default) {
+        (Some(stored), Some(default)) => !json_values_equal(stored, default),
+        (stored, default) => stored != default,
+    }
+}
+
+pub fn factory_adjustments() -> Option<&'static serde_json::Map<String, Value>> {
+    default_adjustment_values()
+}
+
+pub fn neutral_adjustments() -> Value {
+    let mut adjustments = default_adjustment_values()
+        .cloned()
+        .map_or_else(|| json!({}), Value::Object);
+    mark_baseline_exposure(&mut adjustments);
+    adjustments
+}
+
+pub fn is_unedited(adjustments: &Value) -> bool {
+    match adjustments {
+        Value::Null => true,
+        Value::Object(map) => {
+            map.len() == 1 && map.get(BASELINE_EXPOSURE_KEY).and_then(Value::as_bool) == Some(true)
+        }
+        _ => false,
+    }
 }
 
 fn default_adjustment_values() -> Option<&'static serde_json::Map<String, Value>> {
@@ -203,27 +237,37 @@ fn is_null_or_all_true(value: &Value) -> bool {
     }
 }
 
-pub fn is_default_adjustments(adjustments: &Value) -> bool {
+pub fn is_default_adjustments(adjustments: &Value, path: &std::path::Path) -> bool {
     let map = match adjustments {
         Value::Null => return true,
         Value::Object(map) => map,
         _ => return false,
     };
-    let Some(defaults) = default_adjustment_values() else {
+    let Some(factory) = default_adjustment_values() else {
         return false;
     };
+    let overlay = crate::adjustments::develop_defaults::overlay(path);
 
     if map.get(BASELINE_EXPOSURE_KEY).and_then(Value::as_bool) != Some(true) {
         return false;
     }
 
-    map.iter().all(|(key, value)| match key.as_str() {
-        BASELINE_EXPOSURE_KEY => true,
-        "activeTools" => is_null_or_all_true(value),
-        _ => defaults
-            .get(key)
-            .is_some_and(|default| json_values_equal(value, default)),
-    })
+    let overlay_satisfied = overlay.iter().all(|(key, value)| {
+        map.contains_key(key)
+            || factory
+                .get(key)
+                .is_some_and(|factory| json_values_equal(value, factory))
+    });
+
+    overlay_satisfied
+        && map.iter().all(|(key, value)| match key.as_str() {
+            BASELINE_EXPOSURE_KEY => true,
+            "activeTools" => is_null_or_all_true(value),
+            _ => overlay
+                .get(key)
+                .or_else(|| factory.get(key))
+                .is_some_and(|default| json_values_equal(value, default)),
+        })
 }
 
 fn uses_baseline_exposure(adjustments: &Value) -> bool {

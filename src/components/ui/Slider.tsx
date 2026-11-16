@@ -5,6 +5,7 @@ import { useEditorStore } from '../../store/useEditorStore';
 import { SPEED_EDIT_ADJUSTMENTS } from '../../utils/adjustments';
 import { SpeedEditTarget } from '../../types/editor';
 import { FINE_ADJUSTMENT_MULTIPLIER, hasFineAdjustmentModifier } from '../../utils/fineAdjustment';
+import { useSliderResetResolver } from '../../context/SliderResetContext';
 
 export type SliderChangeEvent =
   | React.ChangeEvent<HTMLInputElement>
@@ -40,6 +41,7 @@ interface SliderProps {
   onChange(event: SliderChangeEvent): void;
   onDragStateChange?(state: boolean): void;
   onPointerUp?(): void;
+  resetKey?: string;
   scale?: SliderScale;
   speedEditId?: string;
   step: number;
@@ -70,6 +72,7 @@ const Slider = ({
   onChange,
   onDragStateChange = () => {},
   onPointerUp,
+  resetKey,
   scale = LINEAR_SCALE,
   speedEditId,
   step = 1,
@@ -78,6 +81,8 @@ const Slider = ({
   fillOrigin = 'default',
   suffix = '',
 }: SliderProps) => {
+  const resolveReset = useSliderResetResolver();
+  const resetValue = (resolveReset && resetKey !== undefined ? resolveReset(resetKey) : undefined) ?? defaultValue;
   const { t } = useTranslation();
   const [displayValue, setDisplayValue] = useState<number>(value);
   const [isDragging, setIsDragging] = useState(false);
@@ -162,7 +167,7 @@ const Slider = ({
     : {
         label: speedEditLabel ? t(speedEditLabel) : typeof label === 'string' ? label : null,
         value: numericValue,
-        defaultValue,
+        defaultValue: resetValue,
         step,
         minPosition,
         maxPosition,
@@ -429,10 +434,10 @@ const Slider = ({
   const handleReset = () => {
     if (disabled) return;
 
-    setInputValue(String(defaultValue));
+    setInputValue(String(resetValue));
     const syntheticEvent = {
       target: {
-        value: defaultValue,
+        value: resetValue,
       },
     };
     onChange(syntheticEvent);

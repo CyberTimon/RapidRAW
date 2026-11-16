@@ -118,6 +118,8 @@ const UPSCALE_FILENAME: &str = "2xBHI_small_span_rapidraw.onnx";
 
 const UPSCALE_SHA256: &str = "9d3a51deab2518cde257048180070b078840f2aa32326b8bf0e86f15f2a689a0";
 
+const UPSCALE_SPATIAL_DIMS: [&str; 2] = ["h", "w"];
+
 const LAMA_URL: &str =
     "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/lama_fp16.onnx?download=true";
 
@@ -570,6 +572,7 @@ fn create_session(
     kind: SessionKind,
     gpu_provider: Option<ExecutionProviderDispatch>,
     gpu_patch: Option<GpuModelPatch>,
+    fixed_dims: &[(&str, i64)],
 ) -> Result<Session> {
     let use_gpu = gpu_provider.is_some();
     let cpu_provider = CPUExecutionProvider::default()
@@ -583,6 +586,9 @@ fn create_session(
     }
     if use_gpu && kind == SessionKind::OneShot {
         builder = builder.with_config_entry("ep.dml.disable_memory_arena", "1")?;
+    }
+    for &(name, size) in fixed_dims {
+        builder = builder.with_dimension_override(name, size)?;
     }
     let builder = builder.with_execution_providers(providers)?;
     match gpu_patch {
@@ -604,11 +610,21 @@ fn build_session(
     use_gpu: bool,
     gpu_patch: Option<GpuModelPatch>,
 ) -> Result<Session> {
+    build_session_with_dims(model_path, kind, use_gpu, gpu_patch, &[])
+}
+
+fn build_session_with_dims(
+    model_path: &Path,
+    kind: SessionKind,
+    use_gpu: bool,
+    gpu_patch: Option<GpuModelPatch>,
+    fixed_dims: &[(&str, i64)],
+) -> Result<Session> {
     if use_gpu
         && GPU_STATUS.load(Ordering::Acquire) < GPU_FAILED
         && let Some(gpu_provider) = gpu_execution_provider()
     {
-        match create_session(model_path, kind, Some(gpu_provider), gpu_patch) {
+        match create_session(model_path, kind, Some(gpu_provider), gpu_patch, fixed_dims) {
             Ok(session) => {
                 let _ = GPU_STATUS.compare_exchange(
                     GPU_IDLE,
@@ -625,7 +641,7 @@ fn build_session(
             ),
         }
     }
-    create_session(model_path, kind, None, None)
+    create_session(model_path, kind, None, None, fixed_dims)
 }
 
 pub fn gpu_acceleration_enabled(app_handle: &tauri::AppHandle) -> bool {
@@ -917,11 +933,13 @@ pub async fn get_or_init_upscale_model(
     download_and_verify_model(app_handle, &models_dir, &UPSCALE_ASSET).await?;
 
     let _ = ort::init().with_name("AI-Upscale").commit();
-    let session = build_session(
+    let tile = crate::ai::tiling::UPSCALE_TILE_SIZE as i64;
+    let session = build_session_with_dims(
         &models_dir.join(UPSCALE_FILENAME),
         SessionKind::Persistent,
         gpu_acceleration_enabled(app_handle),
         None,
+        &UPSCALE_SPATIAL_DIMS.map(|dim| (dim, tile)),
     )?;
     let upscale_model = Arc::new(Mutex::new(session));
 

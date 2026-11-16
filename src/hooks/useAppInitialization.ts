@@ -91,6 +91,8 @@ export const useAppInitialization = ({
       panelLayout: state.panelLayout,
       activePanels: state.activePanels,
       panelSwitcherPlacement: state.panelSwitcherPlacement,
+      filmstripColumns: state.filmstripColumns,
+      filmstripShowFileInfo: state.filmstripShowFileInfo,
     })),
   );
 
@@ -203,6 +205,8 @@ export const useAppInitialization = ({
           panelLayout: reconciledWorkspace.panelLayout,
           activePanels: reconciledWorkspace.activePanels,
           panelSwitcherPlacement: reconciledWorkspace.panelSwitcherPlacement,
+          filmstripColumns: reconciledWorkspace.filmstripColumns,
+          filmstripShowFileInfo: reconciledWorkspace.filmstripShowFileInfo,
         });
 
         if (settings?.isWaveformVisible !== undefined) setEditor({ isWaveformVisible: settings.isWaveformVisible });

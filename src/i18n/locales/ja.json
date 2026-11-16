@@ -326,11 +326,13 @@
       "redo": "やり直し",
       "removeBlackWhite": "白黒を解除",
       "removeDenoise": "ノイズ低減を解除",
-      "superResolution": "RapidRes (2x)",
-      "removeSuperResolution": "RapidResを解除",
       "removeNegativeConversion": "ネガ反転を解除",
+      "removeSuperResolution": "RapidResを解除",
       "resetAdjustments": "補正設定をリセット",
+      "resetToDefaults": "デフォルトにリセット",
+      "resetToNeutral": "ニュートラルにリセット",
       "stitchPanorama": "パノラマ写真を作成",
+      "superResolution": "RapidRes (2x)",
       "tagging": "タグ付け",
       "undo": "元に戻す",
       "unflagged": "フラグなし"
@@ -840,6 +842,7 @@
         "focalLength": "焦点距離",
         "iso": "ISO感度",
         "lens": "レンズ",
+        "model": "モデル",
         "shutterSpeed": "シャッタースピード",
         "title": "カメラ情報"
       },
@@ -884,6 +887,8 @@
     },
     "presets": {
       "amount": "適用量",
+      "defaultForAllCameras": "すべてのカメラのデフォルト",
+      "defaultForCamera": "{{camera}} のデフォルト",
       "dialog": {
         "allPresetFiles": "すべてのプリセットファイル",
         "exportAllTitle": "すべてのプリセットを書き出し",
@@ -904,7 +909,11 @@
         "newPreset": "新規プリセット",
         "overwrite": "上書き",
         "renameFolder": "フォルダ名を変更",
-        "sortAll": "すべて名前順に並べ替え"
+        "setDefaultAllCameras": "すべてのカメラのデフォルトに設定",
+        "setDefaultForCamera": "{{camera}} のデフォルトに設定",
+        "sortAll": "すべて名前順に並べ替え",
+        "unsetDefaultAllCameras": "すべてのカメラのデフォルトから外す",
+        "unsetDefaultForCamera": "{{camera}} のデフォルトから外す"
       },
       "status": {
         "empty": "保存されたプリセットはまだありません。作成、インポート、またはコミュニティのプリセットを探してみましょう。",
@@ -939,12 +948,16 @@
         "adjust": "補正",
         "crop": "切り抜き",
         "export": "書き出し",
+        "filmstrip": "フィルムストリップ",
         "info": "情報",
         "inpaint": "インペイント",
         "masks": "マスク",
         "presets": "プリセット",
         "tethering": "テザー撮影"
       }
+    },
+    "toasts": {
+      "embeddedPreview": "RapidRAW はこの RAW ファイルをデコードできなかったため、カメラに埋め込まれた JPEG プレビューを表示・編集しています。本来の RAW より画質が低く、編集の余裕も少なくなります。"
     },
     "toolbar": {
       "history": "履歴",
@@ -1461,10 +1474,7 @@
       "originalRatio": "オリジナル比率"
     },
     "thumbnailSize": {
-      "large": "大",
-      "list": "リスト",
-      "medium": "中",
-      "small": "小"
+      "list": "リスト"
     },
     "tooltips": {
       "communityPresets": "コミュニティプリセット",
@@ -2124,6 +2134,31 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "defaultAdjustments": {
+        "addCamera": "カメラを追加…",
+        "applyToNonRaw": "JPEG、TIFF、PNG など RAW 以外のファイルにも適用",
+        "applyToNonRawDesc": "オフの場合、このデフォルトは RAW ファイルにのみ適用されます。カメラ JPEG は通常すでに処理・補正済みのため、再適用すると効きすぎることがあります。",
+        "autoLensCorrection": "自動レンズ補正",
+        "autoLensCorrectionDesc": "各画像のメタデータから検出したレンズプロファイルで、歪曲収差、色収差、周辺減光を補正します。",
+        "cameraDefaults": "カメラ別のデフォルト",
+        "cameraDefaultsDesc": "特定のカメラの画像に専用のプリセットを設定します。ここにないカメラには上のデフォルトのプリセットが適用され、レンズ補正はすべてのカメラに適用されます。",
+        "cameraPresetMissing": "選択したプリセットが削除されたため、このカメラの画像は再びすべてのカメラ用のプリセットを使用します。",
+        "description": "未編集の画像の初期状態と「補正設定をリセット」で戻る値を設定します。編集済みの画像の設定は変わりません。デフォルトを設定すると、RAW のサムネイルはカメラの埋め込みプレビューではなく生成されるため、最初は読み込みが遅くなります。",
+        "lensCorrection": "レンズ補正",
+        "noCamerasFound": "他のカメラが見つかりません。そのカメラの画像があるフォルダを開くか、その画像を編集中にプリセットを右クリックしてください。",
+        "noPreset": "なし（ニュートラル）",
+        "preset": "デフォルトのプリセット",
+        "presetDesc": "未編集のすべての画像に適用されます。マスク、切り抜き、変形は作成した画像にしか合わないため除外されます。",
+        "presetMissing": "選択したプリセットが削除されたため、未編集の画像は再びニュートラル値を使用します。",
+        "removeCamera": "カメラを削除",
+        "sameAsAllCameras": "すべてのカメラと同じ",
+        "scope": "適用対象",
+        "sliderReset": "スライダーのリセット",
+        "sliderResetDefaults": "デフォルトの補正",
+        "sliderResetDesc": "ダブルクリックやスピード編集などでスライダーをリセットしたときに戻る値です。マスクのスライダーは常にニュートラル値に戻ります。",
+        "sliderResetNeutral": "ニュートラル値",
+        "title": "デフォルトの補正"
+      },
       "dynamicDesc": "編集画面は、ディスプレイの実際の画素密度に合わせたプレビューをレンダリングします。これにより、ズーム時やピント合わせ時に1:1のピクセル精度で細部まで鮮明に表現されます。",
       "editIn": {
         "add": "プログラムを追加",
@@ -2169,7 +2204,7 @@
         "baselineExposure": "ベース露出",
         "baselineExposureAmount": "ベース量",
         "baselineExposureAmountDesc": "RAWファイルに加える露出量です。darktableは+0.7 EVを使用します。",
-        "baselineExposureDesc": "RAWファイルを一定量明るくします。DNGのBaselineExposureタグがあればその値も加えます。",
+        "baselineExposureDesc": "RAWファイルを一定量明るくします。DNGのBaselineExposureタグがある場合は、代わりにその値を使います。",
         "colorNr": "カラーノイズ低減 (基本)",
         "colorNrDesc": "パイプラインの初期段階でクロスバイラテラルフィルタを適用し、カラーノイズを除去します。値が大きいほど効果が強まります。",
         "defaultNonRawTonemapper": "標準トーンマッパー (RAW以外)",
@@ -2342,13 +2377,11 @@
     "bottomBar": {
       "imagesSelected": "{{total}}枚中 {{current}}枚の画像を選択中",
       "tooltips": {
-        "collapseFilmstrip": "フィルムストリップをたたむ",
         "collapseLeft": "左パネルを折りたたむ",
         "collapseRight": "右パネルを折りたたむ",
         "copyPasteSettings": "補正設定のコピーと貼り付け",
         "copySettings": "補正設定をコピー",
         "customZoom": "クリックしてカスタムのズーム倍率を入力",
-        "expandFilmstrip": "フィルムストリップを展開",
         "expandLeft": "左パネルを展開",
         "expandRight": "右パネルを展開",
         "export": "書き出し",

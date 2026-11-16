@@ -32,6 +32,7 @@ import Switch from '../../ui/Switch';
 import Dropdown from '../../ui/Dropdown';
 import { TextVariants, TextColors, TextWeights } from '../../../types/typography';
 import { Invokes } from '../../../types/invokes';
+import { getDefaultAdjustmentsFor } from '../../../utils/developDefaults';
 import { Preset, type OverlayMode } from '../../../types/editor';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useEditorStore } from '../../../store/useEditorStore';
@@ -300,10 +301,10 @@ export default function TetheringPanel({ onLibraryRefresh, onImageSelect }: Teth
     let currentUrl: string | null = null;
 
     if (showGhostImage && lastCapturedPath) {
-      invoke<Uint8Array>(Invokes.GeneratePreviewForPath, {
-        path: lastCapturedPath,
-        jsAdjustments: {},
-      })
+      getDefaultAdjustmentsFor(lastCapturedPath)
+        .then((jsAdjustments) =>
+          invoke<Uint8Array>(Invokes.GeneratePreviewForPath, { path: lastCapturedPath, jsAdjustments }),
+        )
         .then((bytes) => {
           if (active) {
             const blob = new Blob([new Uint8Array(bytes)], { type: 'image/jpeg' });

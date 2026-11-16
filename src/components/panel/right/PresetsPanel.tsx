@@ -32,6 +32,8 @@ import {
   Wrench,
   Palette,
   Settings2,
+  Star,
+  Camera as CameraIcon,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ConfigurePresetModal from '../../modals/ConfigurePresetModal';
@@ -42,6 +44,9 @@ import Text from '../../ui/Text';
 import Slider from '../../ui/Slider';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { Adjustments, INITIAL_ADJUSTMENTS, ADJUSTMENT_GROUPS, MaskContainer } from '../../../utils/adjustments';
+import { cameraDisplayName, getDefaultAdjustments, isSameCamera } from '../../../utils/developDefaults';
+import { useSettingsStore } from '../../../store/useSettingsStore';
+import type { CameraDefaults, DevelopDefaultsSettings } from '../../../types/settings';
 import { hasAiSubMasks, mergeAiMaskResults, stripAiMaskResults } from '../../../utils/maskUtils';
 import { Invokes } from '../../../types/invokes';
 import { OPTION_SEPARATOR, type Option } from '../../../types/ui';
@@ -273,6 +278,17 @@ function PresetItemDisplay({
   const supportsGeometry =
     preset.includeCropTransform ?? geometryKeys.some((key) => preset.adjustments?.[key] !== undefined);
   const isTool = preset.presetType === 'tool';
+  const developDefaults = useSettingsStore((state) => state.appSettings?.developDefaults);
+  const defaultForLabel = useMemo(() => {
+    const labels: string[] = [];
+    if (developDefaults?.presetId === preset.id) labels.push(t('editor.presets.defaultForAllCameras'));
+    for (const rule of developDefaults?.cameras ?? []) {
+      if (rule.presetId === preset.id) {
+        labels.push(t('editor.presets.defaultForCamera', { camera: cameraDisplayName(rule) }));
+      }
+    }
+    return labels.length > 0 ? labels.join(', ') : null;
+  }, [developDefaults, preset.id, t]);
   const tooltipContent = useMemo(() => {
     const features = [];
     if (supportsMasks) features.push(t('editor.presets.supports.masks'));
@@ -308,9 +324,16 @@ function PresetItemDisplay({
         </div>
 
         <div className="grow min-w-0 flex flex-col justify-center">
-          <Text color={TextColors.primary} weight={TextWeights.medium} className="truncate">
-            {preset.name}
-          </Text>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Text color={TextColors.primary} weight={TextWeights.medium} className="truncate">
+              {preset.name}
+            </Text>
+            {defaultForLabel && (
+              <span className="shrink-0 text-accent" data-tooltip={defaultForLabel}>
+                <Star size={12} fill="currentColor" />
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-1.5 mt-0.5">
             {isTool ? (
               <Wrench size={12} className="text-text-secondary" />
@@ -934,7 +957,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     (preset: Preset, intensity: number) => {
       setPresetIntensity(intensity);
       const { masks: presetMasks, ...presetAdjustments } = preset.adjustments;
-      const mixed = mixAdjustments(presetAdjustments, intensity);
+      const mixed = mixAdjustments(presetAdjustments, intensity, getDefaultAdjustments());
 
       if (presetMasks !== undefined) {
         const currentMasks = useEditorStore.getState().adjustments.masks;
@@ -1148,6 +1171,52 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     }
   };
 
+  const defaultPresetOptions = (presetId: string | undefined): Option[] => {
+    const { appSettings, handleSettingsChange } = useSettingsStore.getState();
+    if (!presetId || !appSettings) return [];
+    const developDefaults: DevelopDefaultsSettings = appSettings.developDefaults ?? {};
+    const saveDefaults = (patch: Partial<DevelopDefaultsSettings>) =>
+      handleSettingsChange({ ...appSettings, developDefaults: { ...developDefaults, ...patch } });
+
+    const isAllCamerasDefault = developDefaults.presetId === presetId;
+    const options: Option[] = [
+      {
+        icon: Star,
+        label: isAllCamerasDefault
+          ? t('editor.presets.menu.unsetDefaultAllCameras')
+          : t('editor.presets.menu.setDefaultAllCameras'),
+        onClick: () => saveDefaults({ presetId: isAllCamerasDefault ? null : presetId }),
+      },
+    ];
+
+    const camera = useEditorStore.getState().imageDefaults?.camera;
+    if (camera) {
+      const rules = developDefaults.cameras ?? [];
+      const ruleIndex = rules.findIndex((rule) => isSameCamera(rule, camera));
+      const rule: CameraDefaults | undefined = rules[ruleIndex];
+      const isCameraDefault = rule?.presetId === presetId;
+      const name = cameraDisplayName(camera);
+      options.push({
+        icon: CameraIcon,
+        label: isCameraDefault
+          ? t('editor.presets.menu.unsetDefaultForCamera', { camera: name })
+          : t('editor.presets.menu.setDefaultForCamera', { camera: name }),
+        onClick: () => {
+          let cameras: CameraDefaults[];
+          if (!rule) {
+            cameras = [...rules, { ...camera, presetId }];
+          } else if (isCameraDefault) {
+            cameras = rules.filter((_, i) => i !== ruleIndex);
+          } else {
+            cameras = rules.map((r, i) => (i === ruleIndex ? { ...r, presetId } : r));
+          }
+          saveDefaults({ cameras });
+        },
+      });
+    }
+    return options;
+  };
+
   const handleContextMenu = (event: any, item: UserPreset) => {
     event.preventDefault();
     event.stopPropagation();
@@ -1193,6 +1262,8 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
           label: t('editor.presets.menu.configurePreset'),
           onClick: () => setConfigureModalState({ isOpen: true, preset: data as Preset }),
         },
+        { type: OPTION_SEPARATOR },
+        ...defaultPresetOptions(data?.id),
         { type: OPTION_SEPARATOR },
         {
           icon: CopyPlus,

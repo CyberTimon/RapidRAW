@@ -742,6 +742,10 @@ pub fn has_lens_selection(adjustments: &Value) -> bool {
     lens_selection(adjustments).is_some()
 }
 
+pub fn same_lens_selection(a: &Value, b: &Value) -> bool {
+    lens_selection(a) == lens_selection(b)
+}
+
 pub fn lens_profile(path: &str, adjustments: &Value) -> Option<LensProfile> {
     resolve(path, adjustments).map(|r| r.profile.clone())
 }

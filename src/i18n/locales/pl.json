@@ -328,11 +328,13 @@
       "redo": "Ponów",
       "removeBlackWhite": "Usuń konwersję czarno-białą",
       "removeDenoise": "Usuń odszumianie",
-      "superResolution": "RapidRes (2x)",
-      "removeSuperResolution": "Usuń RapidRes",
       "removeNegativeConversion": "Usuń konwersję negatywu",
+      "removeSuperResolution": "Usuń RapidRes",
       "resetAdjustments": "Resetuj ustawienia",
+      "resetToDefaults": "Resetuj do domyślnych",
+      "resetToNeutral": "Resetuj do neutralnych",
       "stitchPanorama": "Złóż panoramę",
+      "superResolution": "RapidRes (2x)",
       "tagging": "Tagowanie",
       "undo": "Cofnij",
       "unflagged": "Bez oznaczenia"
@@ -893,6 +895,7 @@
         "focalLength": "Ogniskowa",
         "iso": "ISO",
         "lens": "Obiektyw",
+        "model": "Model",
         "shutterSpeed": "Czas otwarcia migawki",
         "title": "Szczegóły aparatu"
       },
@@ -937,6 +940,8 @@
     },
     "presets": {
       "amount": "Siła",
+      "defaultForAllCameras": "Domyślny dla wszystkich aparatów",
+      "defaultForCamera": "Domyślny dla {{camera}}",
       "dialog": {
         "allPresetFiles": "Wszystkie pliki presetów",
         "exportAllTitle": "Eksportuj wszystkie presety",
@@ -957,7 +962,11 @@
         "newPreset": "Nowy preset",
         "overwrite": "Nadpisz",
         "renameFolder": "Zmień nazwę folderu",
-        "sortAll": "Sortuj wszystko alfabetycznie"
+        "setDefaultAllCameras": "Ustaw jako domyślny dla wszystkich aparatów",
+        "setDefaultForCamera": "Ustaw jako domyślny dla {{camera}}",
+        "sortAll": "Sortuj wszystko alfabetycznie",
+        "unsetDefaultAllCameras": "Przestań używać jako domyślny dla wszystkich aparatów",
+        "unsetDefaultForCamera": "Przestań używać jako domyślny dla {{camera}}"
       },
       "status": {
         "empty": "Brak zapisanych presetów. Utwórz własne, zaimportuj z pliku lub odkryj presety społeczności.",
@@ -992,12 +1001,16 @@
         "adjust": "Dopasuj",
         "crop": "Kadruj",
         "export": "Eksportuj",
+        "filmstrip": "Pasek z klatkami",
         "info": "Informacje",
         "inpaint": "Inpaint",
         "masks": "Maski",
         "presets": "Presety",
         "tethering": "Tethering (Połączenie przewodowe)"
       }
+    },
+    "toasts": {
+      "embeddedPreview": "RapidRAW nie mógł zdekodować tego pliku RAW, więc widzisz i edytujesz osadzony podgląd JPEG z aparatu. Spodziewaj się niższej jakości i mniejszego zapasu do edycji niż w prawdziwym pliku RAW."
     },
     "toolbar": {
       "history": "Historia",
@@ -1533,10 +1546,7 @@
       "originalRatio": "Oryginalne proporcje"
     },
     "thumbnailSize": {
-      "large": "Duży",
-      "list": "Lista",
-      "medium": "Średni",
-      "small": "Mały"
+      "list": "Lista"
     },
     "tooltips": {
       "communityPresets": "Presety społeczności",
@@ -2214,6 +2224,31 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "defaultAdjustments": {
+        "addCamera": "Dodaj aparat…",
+        "applyToNonRaw": "Stosuj także do plików JPEG, TIFF, PNG i innych plików innych niż RAW",
+        "applyToNonRawDesc": "Gdy wyłączone, tylko pliki RAW używają tych ustawień. Pliki JPEG z aparatu są zwykle już przetworzone i skorygowane, więc ponowne zastosowanie może być przesadą.",
+        "autoLensCorrection": "Automatyczna korekcja obiektywu",
+        "autoLensCorrectionDesc": "Koryguje dystorsję, aberrację chromatyczną i winietowanie na podstawie profilu obiektywu wykrytego w metadanych każdego zdjęcia.",
+        "cameraDefaults": "Ustawienia domyślne dla aparatów",
+        "cameraDefaultsDesc": "Nadaj zdjęciom z wybranych aparatów własny preset. Aparaty spoza listy używają domyślnego presetu powyżej, a korekcja obiektywu dotyczy wszystkich aparatów.",
+        "cameraPresetMissing": "Wybrany preset został usunięty, więc zdjęcia z tego aparatu znów używają presetu dla wszystkich aparatów.",
+        "description": "Określ, od czego zaczynają nieedytowane zdjęcia i do czego wraca „Resetuj ustawienia”; edytowane zdjęcia zachowują swoje ustawienia. Przy ustawieniach domyślnych miniatury RAW są generowane zamiast używać wbudowanego podglądu aparatu i na początku ładują się wolniej.",
+        "lensCorrection": "Korekcja obiektywu",
+        "noCamerasFound": "Nie znaleziono innych aparatów. Otwórz folder ze zdjęciami z aparatu albo kliknij preset prawym przyciskiem podczas edycji jednego z jego zdjęć.",
+        "noPreset": "Brak (neutralne)",
+        "preset": "Domyślny preset",
+        "presetDesc": "Stosowany do każdego nieedytowanego zdjęcia. Maski, kadrowanie i transformacje są pomijane, bo pasują tylko do zdjęcia, na którym je utworzono.",
+        "presetMissing": "Wybrany preset został usunięty, więc nieedytowane zdjęcia znów używają wartości neutralnych.",
+        "removeCamera": "Usuń aparat",
+        "sameAsAllCameras": "Jak dla wszystkich aparatów",
+        "scope": "Dotyczy",
+        "sliderReset": "Resetowanie suwaków",
+        "sliderResetDefaults": "Domyślne ustawienia",
+        "sliderResetDesc": "Wartość, do której wraca suwak po zresetowaniu, na przykład dwuklikiem lub w szybkiej edycji. Suwaki masek zawsze wracają do wartości neutralnej.",
+        "sliderResetNeutral": "Wartość neutralna",
+        "title": "Domyślne ustawienia"
+      },
       "dynamicDesc": "Edytor renderuje podgląd tak, aby odpowiadał rzeczywistej gęstości pikseli twojego wyświetlacza. Zapewnia to oddanie każdego szczegółu w proporcji 1:1, dostarczając maksymalnej jasności przy zbliżaniu i sprawdzaniu ostrości.",
       "editIn": {
         "add": "Dodaj program",
@@ -2259,7 +2294,7 @@
         "baselineExposure": "Ekspozycja bazowa",
         "baselineExposureAmount": "Wartość bazowa",
         "baselineExposureAmountDesc": "Ekspozycja dodawana do plików RAW. darktable używa +0,7 EV.",
-        "baselineExposureDesc": "Rozjaśnia pliki RAW o stałą wartość oraz uwzględnia znacznik DNG BaselineExposure, jeśli występuje.",
+        "baselineExposureDesc": "Rozjaśnia pliki RAW o stałą wartość lub, jeśli występuje, o wartość znacznika DNG BaselineExposure.",
         "colorNr": "Bazowa redukcja szumu koloru",
         "colorNrDesc": "Stosuje filtr na wczesnym etapie w celu usunięcia szumu koloru (Chroma). Wyższa wartość = Silniejsza redukcja szumów.",
         "defaultNonRawTonemapper": "Domyślne mapowanie tonów (Non-RAW)",
@@ -2432,13 +2467,11 @@
     "bottomBar": {
       "imagesSelected": "Zaznaczono {{current}} z {{total}} obrazów",
       "tooltips": {
-        "collapseFilmstrip": "Zwiń pasek z klatkami",
         "collapseLeft": "Zwiń lewy panel",
         "collapseRight": "Zwiń prawy panel",
         "copyPasteSettings": "Kopiuj i Wklej Ustawienia",
         "copySettings": "Kopiuj Ustawienia",
         "customZoom": "Kliknij, aby wpisać niestandardowy procent przybliżenia",
-        "expandFilmstrip": "Rozwiń pasek z klatkami",
         "expandLeft": "Rozwiń lewy panel",
         "expandRight": "Rozwiń prawy panel",
         "export": "Eksport",

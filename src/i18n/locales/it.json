@@ -327,11 +327,13 @@
       "redo": "Ripeti",
       "removeBlackWhite": "Rimuovi Bianco e Nero",
       "removeDenoise": "Rimuovi Riduzione Rumore",
-      "superResolution": "RapidRes (2x)",
-      "removeSuperResolution": "Rimuovi RapidRes",
       "removeNegativeConversion": "Rimuovi Conversione Negativo",
+      "removeSuperResolution": "Rimuovi RapidRes",
       "resetAdjustments": "Ripristina Regolazioni",
+      "resetToDefaults": "Ripristina ai predefiniti",
+      "resetToNeutral": "Ripristina al neutro",
       "stitchPanorama": "Unisci Panorama",
+      "superResolution": "RapidRes (2x)",
       "tagging": "Tag",
       "undo": "Annulla",
       "unflagged": "Senza flag"
@@ -868,6 +870,7 @@
         "focalLength": "Lunghezza Focale",
         "iso": "ISO",
         "lens": "Obiettivo",
+        "model": "Modello",
         "shutterSpeed": "Tempo di Esposizione",
         "title": "Dettagli Fotocamera"
       },
@@ -912,6 +915,8 @@
     },
     "presets": {
       "amount": "Quantità",
+      "defaultForAllCameras": "Predefinito per tutte le fotocamere",
+      "defaultForCamera": "Predefinito per {{camera}}",
       "dialog": {
         "allPresetFiles": "Tutti i File Predefiniti",
         "exportAllTitle": "Esporta Tutti i Predefiniti",
@@ -932,7 +937,11 @@
         "newPreset": "Nuovo Predefinito",
         "overwrite": "Sovrascrivi",
         "renameFolder": "Rinomina Cartella",
-        "sortAll": "Ordina Tutti in Ordine Alfabetico"
+        "setDefaultAllCameras": "Imposta come predefinito per tutte le fotocamere",
+        "setDefaultForCamera": "Imposta come predefinito per {{camera}}",
+        "sortAll": "Ordina Tutti in Ordine Alfabetico",
+        "unsetDefaultAllCameras": "Non usare più come predefinito per tutte le fotocamere",
+        "unsetDefaultForCamera": "Non usare più come predefinito per {{camera}}"
       },
       "status": {
         "empty": "Ancora nessun predefinito salvato. Creane uno, importalo da un file o esplora i predefiniti della community.",
@@ -967,12 +976,16 @@
         "adjust": "Regola",
         "crop": "Ritaglio",
         "export": "Esporta",
+        "filmstrip": "Striscia immagini",
         "info": "Info",
         "inpaint": "Inpainting",
         "masks": "Maschere",
         "presets": "Predefiniti",
         "tethering": "Acquisizione diretta"
       }
+    },
+    "toasts": {
+      "embeddedPreview": "RapidRAW non è riuscito a decodificare questo file RAW, quindi stai vedendo e modificando l'anteprima JPEG incorporata della fotocamera. Aspettati una qualità inferiore e meno margine di modifica rispetto a un vero RAW."
     },
     "toolbar": {
       "history": "Cronologia",
@@ -1515,10 +1528,7 @@
       "originalRatio": "Proporzioni Originali"
     },
     "thumbnailSize": {
-      "large": "Grande",
-      "list": "Elenco",
-      "medium": "Media",
-      "small": "Piccola"
+      "list": "Elenco"
     },
     "tooltips": {
       "communityPresets": "Predefiniti della Community",
@@ -2187,6 +2197,31 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "defaultAdjustments": {
+        "addCamera": "Aggiungi fotocamera…",
+        "applyToNonRaw": "Applica anche a JPEG, TIFF, PNG e altri file non RAW",
+        "applyToNonRawDesc": "Se disattivato, solo i file RAW usano questi valori. I JPEG della fotocamera sono di solito già elaborati e corretti, e applicarli di nuovo può essere eccessivo.",
+        "autoLensCorrection": "Correzione automatica dell'obiettivo",
+        "autoLensCorrectionDesc": "Corregge distorsione, aberrazione cromatica e vignettatura usando il profilo dell'obiettivo rilevato dai metadati di ogni immagine.",
+        "cameraDefaults": "Valori predefiniti per fotocamera",
+        "cameraDefaultsDesc": "Assegna alle immagini di fotocamere specifiche un proprio preset. Le fotocamere non elencate usano il preset predefinito sopra, e la correzione dell'obiettivo vale per tutte le fotocamere.",
+        "cameraPresetMissing": "Il preset scelto è stato eliminato, quindi le immagini di questa fotocamera usano di nuovo il preset di tutte le fotocamere.",
+        "description": "Imposta da cosa partono le immagini non modificate e a cosa torna «Ripristina regolazioni»; le immagini modificate mantengono le proprie impostazioni. Con i valori predefiniti, le miniature RAW vengono generate invece di usare l'anteprima incorporata della fotocamera e all'inizio si caricano più lentamente.",
+        "lensCorrection": "Correzione obiettivo",
+        "noCamerasFound": "Nessun'altra fotocamera trovata. Apri una cartella con immagini di una fotocamera, oppure fai clic destro su un preset mentre modifichi una delle sue immagini.",
+        "noPreset": "Nessuno (neutro)",
+        "preset": "Preset predefinito",
+        "presetDesc": "Applicato a ogni immagine non modificata. Maschere, ritagli e trasformazioni vengono ignorati, perché si adattano solo all'immagine su cui sono stati creati.",
+        "presetMissing": "Il preset scelto è stato eliminato, quindi le immagini non modificate usano di nuovo valori neutri.",
+        "removeCamera": "Rimuovi fotocamera",
+        "sameAsAllCameras": "Come tutte le fotocamere",
+        "scope": "Si applica a",
+        "sliderReset": "Ripristino dei cursori",
+        "sliderResetDefaults": "Regolazioni predefinite",
+        "sliderResetDesc": "Il valore a cui torna un singolo cursore quando lo ripristini, ad esempio con un doppio clic o nella modifica rapida. I cursori delle maschere tornano sempre al valore neutro.",
+        "sliderResetNeutral": "Valore neutro",
+        "title": "Regolazioni predefinite"
+      },
       "dynamicDesc": "L'editor renderizza l'anteprima per adattarla all'effettiva densità di pixel del tuo display. Questo garantisce che ogni dettaglio sia rappresentato con un'accuratezza pixel 1:1, fornendo la massima chiarezza durante lo zoom e il controllo della messa a fuoco.",
       "editIn": {
         "add": "Aggiungi programma",
@@ -2232,7 +2267,7 @@
         "baselineExposure": "Esposizione di base",
         "baselineExposureAmount": "Valore di base",
         "baselineExposureAmountDesc": "Esposizione aggiunta ai file RAW. darktable usa +0,7 EV.",
-        "baselineExposureDesc": "Schiarisce i file RAW di un valore fisso, più il tag DNG BaselineExposure se presente.",
+        "baselineExposureDesc": "Schiarisce i file RAW di un valore fisso, oppure del valore del tag DNG BaselineExposure se presente.",
         "colorNr": "Riduzione Rumore Cromatico di Base",
         "colorNrDesc": "Applica un filtro bilaterale incrociato all'inizio del processo per rimuovere il rumore cromatico. Valore più alto = Riduzione Rumore (NR) più forte.",
         "defaultNonRawTonemapper": "Tonemapper Predefinito per Non-RAW",
@@ -2405,13 +2440,11 @@
     "bottomBar": {
       "imagesSelected": "{{current}} di {{total}} immagini selezionate",
       "tooltips": {
-        "collapseFilmstrip": "Comprimi Striscia Immagini",
         "collapseLeft": "Riduci pannello sinistro",
         "collapseRight": "Riduci pannello destro",
         "copyPasteSettings": "Copia e Incolla Impostazioni",
         "copySettings": "Copia Impostazioni",
         "customZoom": "Clicca per inserire la percentuale di zoom personalizzata",
-        "expandFilmstrip": "Espandi Striscia Immagini",
         "expandLeft": "Espandi pannello sinistro",
         "expandRight": "Espandi pannello destro",
         "export": "Esporta",

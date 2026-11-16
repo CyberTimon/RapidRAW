@@ -8,6 +8,7 @@ import { SignalHigh, SignalLow, SignalMedium } from 'lucide-react';
 import { useEditorStore, debouncedSetHistory } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { adjustmentsFromMetadata, getDefaultAdjustmentsFor } from '../utils/developDefaults';
 import { useProcessStore } from '../store/useProcessStore';
 import { useUIStore } from '../store/useUIStore';
 import {
@@ -301,7 +302,7 @@ export function useEditorActions() {
   );
 
   const handleResetAdjustments = useCallback(
-    (paths?: string[]) => {
+    (paths?: string[], toNeutral = false) => {
       const { multiSelectedPaths } = useLibraryStore.getState();
       const pathsToReset = paths || multiSelectedPaths;
       if (pathsToReset.length === 0) return;
@@ -309,14 +310,20 @@ export function useEditorActions() {
       pathsToReset.forEach((p) => globalImageCache.delete(p));
       debouncedSetHistory.cancel();
 
-      invoke(Invokes.ResetAdjustmentsForPaths, { paths: pathsToReset })
-        .then(() => {
+      const resetTarget = (path: string) =>
+        toNeutral ? Promise.resolve(structuredClone(INITIAL_ADJUSTMENTS)) : getDefaultAdjustmentsFor(path);
+
+      invoke(Invokes.ResetAdjustmentsForPaths, { paths: pathsToReset, toNeutral })
+        .then(async () => {
           const { libraryActivePath, setLibrary } = useLibraryStore.getState();
           const { selectedImage, resetHistory } = useEditorStore.getState();
           if (libraryActivePath && pathsToReset.includes(libraryActivePath))
-            setLibrary({ libraryActiveAdjustments: { ...INITIAL_ADJUSTMENTS } });
+            resetTarget(libraryActivePath)
+              .then((adjustments) => setLibrary({ libraryActiveAdjustments: adjustments }))
+              .catch((err) => console.error('Failed to load default adjustments:', err));
           if (selectedImage && pathsToReset.includes(selectedImage.path)) {
-            const resetData = { ...INITIAL_ADJUSTMENTS, aiPatches: [] };
+            const resetData = { ...(await resetTarget(selectedImage.path)), aiPatches: [] };
+            if (useEditorStore.getState().selectedImage?.path !== selectedImage.path) return;
             resetHistory(resetData);
             setEditor({ adjustments: resetData });
           }
@@ -397,11 +404,7 @@ export function useEditorActions() {
     } else if (pathToCopyFrom) {
       try {
         const meta: any = await invoke(Invokes.LoadMetadata, { path: pathToCopyFrom });
-        if (meta?.adjustments && !meta.adjustments.is_null) {
-          sourceAdjustments = normalizeLoadedAdjustments(meta.adjustments);
-        } else {
-          sourceAdjustments = INITIAL_ADJUSTMENTS;
-        }
+        sourceAdjustments = adjustmentsFromMetadata(meta?.adjustments);
       } catch (err) {
         toast.error(`Failed to load metadata for copying: ${err}`);
         return;
@@ -417,13 +420,16 @@ export function useEditorActions() {
         adjustmentsToCopy[key] = structuredClone(sourceAdjustments[key]);
       }
     }
-    useEditorStore.getState().setEditor({ copiedAdjustments: adjustmentsToCopy });
+    const copiedAdjustmentsDefaults = pathToCopyFrom
+      ? await getDefaultAdjustmentsFor(pathToCopyFrom).catch(() => null)
+      : null;
+    useEditorStore.getState().setEditor({ copiedAdjustments: adjustmentsToCopy, copiedAdjustmentsDefaults });
     useProcessStore.getState().setProcess({ isCopied: true });
   }, []);
 
   const handlePasteAdjustments = useCallback(
     (paths?: string[]) => {
-      const { copiedAdjustments, selectedImage } = useEditorStore.getState();
+      const { copiedAdjustments, copiedAdjustmentsDefaults, selectedImage } = useEditorStore.getState();
       const { multiSelectedPaths } = useLibraryStore.getState();
       const { appSettings } = useSettingsStore.getState();
       const { setProcess } = useProcessStore.getState();
@@ -440,7 +446,7 @@ export function useEditorActions() {
         if (Object.prototype.hasOwnProperty.call(copiedAdjustments, key)) {
           const value = copiedAdjustments[key as keyof Adjustments];
           if (mode === PasteMode.Merge) {
-            const defaultValue = INITIAL_ADJUSTMENTS[key as keyof Adjustments];
+            const defaultValue = (copiedAdjustmentsDefaults ?? INITIAL_ADJUSTMENTS)[key as keyof Adjustments];
             if (JSON.stringify(value) !== JSON.stringify(defaultValue))
               adjustmentsToApply[key as keyof Adjustments] = value;
           } else {

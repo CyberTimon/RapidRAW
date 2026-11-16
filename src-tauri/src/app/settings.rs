@@ -200,6 +200,13 @@ pub fn all_available_adjustments() -> HashSet<String> {
         "fogGlow",
         "fogTemperature",
         "fogTint",
+        "motionBlurAmount",
+        "motionBlurAngle",
+        "motionBlurType",
+        "motionBlurLayer",
+        "motionBlurHighlights",
+        "motionBlurDepthEnabled",
+        "motionBlurDepth",
         "relightEnabled",
         "relightLights",
         "relightAmbient",
@@ -466,6 +473,14 @@ pub struct WorkspaceState {
     pub panel_layout: HashMap<String, Vec<String>>,
     pub active_panels: HashMap<String, Option<String>>,
     pub panel_switcher_placement: HashMap<String, String>,
+    #[serde(default = "default_filmstrip_columns")]
+    pub filmstrip_columns: u32,
+    #[serde(default)]
+    pub filmstrip_show_file_info: bool,
+}
+
+fn default_filmstrip_columns() -> u32 {
+    2
 }
 
 impl Default for WorkspaceState {
@@ -516,12 +531,18 @@ impl Default for WorkspaceState {
             panel_layout,
             active_panels,
             panel_switcher_placement,
+            filmstrip_columns: default_filmstrip_columns(),
+            filmstrip_show_file_info: false,
         }
     }
 }
 
 pub fn default_linear_raw_mode() -> String {
     "auto".to_string()
+}
+
+pub fn default_enable_baseline_exposure() -> bool {
+    true
 }
 
 pub fn default_baseline_exposure() -> f32 {
@@ -537,7 +558,7 @@ pub fn default_ai_gpu_acceleration() -> bool {
 }
 
 pub fn default_ai_cache_limit_gb() -> u32 {
-    10
+    25
 }
 
 pub fn default_ai_maps_cache_limit_gb() -> u32 {
@@ -545,7 +566,7 @@ pub fn default_ai_maps_cache_limit_gb() -> u32 {
 }
 
 pub fn default_ai_upscale_cache_limit_gb() -> u32 {
-    10
+    25
 }
 
 pub fn default_thumbnail_cache_limit_gb() -> u32 {
@@ -631,6 +652,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub linux_wgpu_renderer_migrated_v1: Option<bool>,
     #[serde(default)]
+    pub ai_cache_limits_migrated_v1: Option<bool>,
+    #[serde(default)]
     pub library_view_mode: Option<String>,
     #[serde(default = "default_export_presets")]
     pub export_presets: Vec<ExportPreset>,
@@ -686,7 +709,7 @@ pub struct AppSettings {
     pub export_worker_threads: Option<u32>,
     #[serde(default)]
     pub export_memory_limit: Option<u32>,
-    #[serde(default)]
+    #[serde(default = "default_enable_baseline_exposure")]
     pub enable_baseline_exposure: bool,
     #[serde(default = "default_baseline_exposure")]
     pub baseline_exposure: f32,
@@ -746,6 +769,10 @@ pub struct AppSettings {
     pub workspace: WorkspaceState,
     #[serde(default)]
     pub immich: crate::integrations::immich::ImmichSettings,
+    #[serde(default)]
+    pub develop_defaults: crate::adjustments::develop_defaults::DevelopDefaultsSettings,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slider_reset_target: Option<String>,
 }
 
 const UI_SCALE_MIN: f64 = 0.5;
@@ -854,6 +881,7 @@ impl Default for AppSettings {
             linux_gpu_optimization: Some(false),
             linux_gpu_optimization_migrated_v1: Some(true),
             linux_wgpu_renderer_migrated_v1: Some(true),
+            ai_cache_limits_migrated_v1: Some(true),
             library_view_mode: Some("flat".to_string()),
             export_presets: default_export_presets(),
             my_lenses: Some(Vec::new()),
@@ -895,7 +923,7 @@ impl Default for AppSettings {
             ai_upscale_cache_limit_gb: Some(default_ai_upscale_cache_limit_gb()),
             export_worker_threads: None,
             export_memory_limit: None,
-            enable_baseline_exposure: false,
+            enable_baseline_exposure: default_enable_baseline_exposure(),
             baseline_exposure: default_baseline_exposure(),
             compensate_highlight_preservation: default_compensate_highlight_preservation(),
             tonemapper_override_enabled: Some(false),
@@ -924,6 +952,8 @@ impl Default for AppSettings {
             adjustment_layout: AdjustmentLayout::default(),
             workspace: WorkspaceState::default(),
             immich: crate::integrations::immich::ImmichSettings::default(),
+            develop_defaults: Default::default(),
+            slider_reset_target: None,
         }
     }
 }
@@ -1011,6 +1041,19 @@ fn read_settings_from_disk(app_handle: &AppHandle) -> Result<AppSettings, String
         settings_modified = true;
     }
 
+    if !settings.ai_cache_limits_migrated_v1.unwrap_or(false) {
+        for limit in [
+            &mut settings.ai_cache_limit_gb,
+            &mut settings.ai_upscale_cache_limit_gb,
+        ] {
+            if *limit == Some(10) {
+                *limit = Some(25);
+            }
+        }
+        settings.ai_cache_limits_migrated_v1 = Some(true);
+        settings_modified = true;
+    }
+
     let is_first_migration = settings.copy_paste_settings.known_adjustments.is_empty();
 
     if is_first_migration {
@@ -1085,5 +1128,26 @@ pub fn save_settings(mut settings: AppSettings, app_handle: AppHandle) -> Result
     if previous_gpu_acceleration != Some(settings.ai_gpu_acceleration) {
         crate::ai::models::reset_ai_sessions(&state.ai_state);
     }
+    crate::adjustments::develop_defaults::refresh(&app_handle);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn baseline_exposure_is_on_by_default_but_keeps_a_saved_choice() {
+        assert!(AppSettings::default().enable_baseline_exposure);
+
+        let mut saved = serde_json::to_value(AppSettings::default()).unwrap();
+        let object = saved.as_object_mut().unwrap();
+        object.remove("enableBaselineExposure");
+        let missing: AppSettings = serde_json::from_value(saved.clone()).unwrap();
+        assert!(missing.enable_baseline_exposure);
+
+        saved["enableBaselineExposure"] = serde_json::json!(false);
+        let turned_off: AppSettings = serde_json::from_value(saved).unwrap();
+        assert!(!turned_off.enable_baseline_exposure);
+    }
 }

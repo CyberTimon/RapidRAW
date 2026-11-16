@@ -31,11 +31,12 @@ import { useEditorStore, WgpuPhase } from '../../../store/useEditorStore';
 import { MIXER_SAMPLE_SCREEN_SIZE, useHslMixerPicker } from '../../../hooks/useHslMixerPicker';
 import { isPanelVisible, useUIStore } from '../../../store/useUIStore';
 import CompositionOverlays from './overlays/CompositionOverlays';
+import CropRotateArea from './overlays/CropRotateArea';
 import RelightLightShape, { RelightBasis } from './overlays/RelightLightShape';
 import CenterMarkerShape, { CENTER_MARKERS } from './overlays/CenterMarkerShape';
 import CloneSourceOverlay from './overlays/CloneSourceOverlay';
 import { countPatchesOfType, createSubMask, getStrokeCenter } from '../../../utils/maskUtils';
-import { calculateStraightenAngle, resolveAspectRatio } from '../../../utils/cropUtils';
+import { calculateStraightenAngle, getCropViewLayout, resolveAspectRatio } from '../../../utils/cropUtils';
 import { toast } from 'react-toastify';
 import {
   getWhiteBalanceMode,
@@ -2071,12 +2072,13 @@ const ImageCanvas = memo(
         return null;
       }
 
-      const scale = Math.min(viewportWidth / uncroppedEffectiveWidth, viewportHeight / uncroppedEffectiveHeight);
-
-      const renderWidth = uncroppedEffectiveWidth * scale;
-      const renderHeight = uncroppedEffectiveHeight * scale;
-
-      return { width: renderWidth, height: renderHeight };
+      const { width, height } = getCropViewLayout(
+        viewportWidth,
+        viewportHeight,
+        uncroppedEffectiveWidth,
+        uncroppedEffectiveHeight,
+      );
+      return { width, height };
     }, [selectedImage?.width, selectedImage?.height, imageRenderSize, adjustments.orientationSteps]);
 
     const cropRect = useMemo<RectBounds | null>(() => {
@@ -3524,10 +3526,24 @@ const ImageCanvas = memo(
       }
     }, [baseIsReady, interactivePatch]);
 
-    const cropImageTransforms = useMemo(() => {
-      const rotation = liveRotation !== null && liveRotation !== undefined ? liveRotation : adjustments.rotation || 0;
-      return `rotate(${rotation}deg)`;
-    }, [adjustments.rotation, liveRotation]);
+    const effectiveRotation = liveRotation ?? adjustments.rotation ?? 0;
+
+    const cropImageTransforms = useMemo(() => `rotate(${effectiveRotation}deg)`, [effectiveRotation]);
+
+    const handleRotateHandleChange = useCallback(
+      (rotation: number) => setEditor({ isRotationActive: true, liveRotation: rotation }),
+      [setEditor],
+    );
+
+    const handleRotateHandleEnd = useCallback(
+      (rotation: number | null) => {
+        setEditor({ isRotationActive: false, liveRotation: null });
+        if (rotation !== null) {
+          setAdjustments((prev: Adjustments) => ({ ...prev, rotation }));
+        }
+      },
+      [setAdjustments, setEditor],
+    );
 
     const getCropDimensions = () => {
       if (!crop || !uncroppedImageRenderSize?.width || !uncroppedImageRenderSize?.height) {
@@ -4085,55 +4101,65 @@ const ImageCanvas = memo(
                   className="absolute inset-0 transition-opacity duration-200"
                   style={{ opacity: isCropViewVisible ? 1 : 0, pointerEvents: 'none' }}
                 >
-                  <div
-                    ref={cropWrapperRef}
-                    className="absolute"
-                    style={{ pointerEvents: isCropViewVisible ? 'auto' : 'none' }}
-                    onPointerDownCapture={(e) => {
-                      if (e.button !== 0) {
-                        e.stopPropagation();
-                      }
-                    }}
-                    onMouseDownCapture={(e) => {
-                      if (e.button !== 0) {
-                        e.stopPropagation();
-                      }
-                    }}
+                  <CropRotateArea
+                    enabled={isCropViewVisible && !isStraightenActive && !isGuidedPerspectiveActive}
+                    rotation={effectiveRotation}
+                    onRotate={handleRotateHandleChange}
+                    onRotateEnd={handleRotateHandleEnd}
                   >
-                    <ReactCrop
-                      aspect={
-                        resolveAspectRatio(adjustments.aspectRatio, selectedImage, adjustments.orientationSteps || 0) ??
-                        undefined
-                      }
-                      crop={crop ?? undefined}
-                      onChange={setCrop}
-                      onComplete={handleCropComplete}
-                      ruleOfThirds={false}
-                      style={{ display: 'block' }}
-                      renderSelectionAddon={() => {
-                        const { width, height } = getCropDimensions();
-                        if (width <= 0 || height <= 0) {
-                          return null;
+                    <div
+                      ref={cropWrapperRef}
+                      className="absolute"
+                      style={{ pointerEvents: isCropViewVisible ? 'auto' : 'none' }}
+                      onPointerDownCapture={(e) => {
+                        if (e.button !== 0) {
+                          e.stopPropagation();
                         }
-                        const showDenseGrid = isRotationActive && !isStraightenActive && !isGuidedPerspectiveActive;
-                        const currentOverlayMode =
-                          isRotationActive || isStraightenActive || isGuidedPerspectiveActive
-                            ? 'none'
-                            : overlayMode || 'none';
-                        return (
-                          <CompositionOverlays
-                            width={width}
-                            height={height}
-                            mode={currentOverlayMode}
-                            rotation={overlayRotation || 0}
-                            denseVisible={showDenseGrid}
-                          />
-                        );
+                      }}
+                      onMouseDownCapture={(e) => {
+                        if (e.button !== 0) {
+                          e.stopPropagation();
+                        }
                       }}
                     >
-                      <div ref={cropSizerRef} />
-                    </ReactCrop>
-                  </div>
+                      <ReactCrop
+                        aspect={
+                          resolveAspectRatio(
+                            adjustments.aspectRatio,
+                            selectedImage,
+                            adjustments.orientationSteps || 0,
+                          ) ?? undefined
+                        }
+                        crop={crop ?? undefined}
+                        onChange={setCrop}
+                        onComplete={handleCropComplete}
+                        ruleOfThirds={false}
+                        style={{ display: 'block' }}
+                        renderSelectionAddon={() => {
+                          const { width, height } = getCropDimensions();
+                          if (width <= 0 || height <= 0) {
+                            return null;
+                          }
+                          const showDenseGrid = isRotationActive && !isStraightenActive && !isGuidedPerspectiveActive;
+                          const currentOverlayMode =
+                            isRotationActive || isStraightenActive || isGuidedPerspectiveActive
+                              ? 'none'
+                              : overlayMode || 'none';
+                          return (
+                            <CompositionOverlays
+                              width={width}
+                              height={height}
+                              mode={currentOverlayMode}
+                              rotation={overlayRotation || 0}
+                              denseVisible={showDenseGrid}
+                            />
+                          );
+                        }}
+                      >
+                        <div ref={cropSizerRef} />
+                      </ReactCrop>
+                    </div>
+                  </CropRotateArea>
 
                   {(isStraightenActive ||
                     isGuidedPerspectiveActive ||

@@ -78,7 +78,16 @@ const ALL_PANELS: Panel[] = [
   Panel.Presets,
 ];
 
-const DEFAULT_PANEL_DEFAULT_REGIONS: Record<Panel, PanelRegion> = {
+const PANEL_REGIONS: PanelRegion[] = ['leftTop', 'leftBottom', 'rightTop', 'rightBottom'];
+
+const SIBLING_REGION: Record<PanelRegion, PanelRegion> = {
+  leftTop: 'leftBottom',
+  leftBottom: 'leftTop',
+  rightTop: 'rightBottom',
+  rightBottom: 'rightTop',
+};
+
+const DEFAULT_PANEL_DEFAULT_REGIONS: Partial<Record<Panel, PanelRegion>> = {
   [Panel.Metadata]: 'leftTop',
   [Panel.FolderTree]: 'leftTop',
   [Panel.Export]: 'leftTop',
@@ -93,6 +102,8 @@ const DEFAULT_PANEL_DEFAULT_REGIONS: Record<Panel, PanelRegion> = {
 export const DEFAULT_PANEL_WIDTH = 350;
 export const DEFAULT_PANEL_SECTION_HEIGHT = 450;
 export const DEFAULT_BOTTOM_PANEL_HEIGHT = 144;
+export const DEFAULT_FILMSTRIP_COLUMNS = 2;
+export const MAX_FILMSTRIP_COLUMNS = 6;
 const MIN_REOPENED_PANEL_WIDTH = 250;
 
 export const getReopenedPanelWidth = (width: number) =>
@@ -102,7 +113,8 @@ export function reconcileWorkspace(
   savedWorkspace: WorkspaceState | undefined,
   isTetheringSupported: boolean,
 ): WorkspaceState {
-  const allowedPanels = new Set(ALL_PANELS.filter((p) => p !== Panel.Tethering || isTetheringSupported));
+  const defaultPlacedPanels = ALL_PANELS.filter((p) => p !== Panel.Tethering || isTetheringSupported);
+  const allowedPanels = new Set([...defaultPlacedPanels, Panel.Filmstrip]);
 
   const defaultWorkspace: WorkspaceState = {
     leftPanelWidth: DEFAULT_PANEL_WIDTH,
@@ -127,6 +139,8 @@ export function reconcileWorkspace(
       rightTop: 'right',
       rightBottom: 'right',
     },
+    filmstripColumns: DEFAULT_FILMSTRIP_COLUMNS,
+    filmstripShowFileInfo: false,
   };
 
   if (!savedWorkspace || !savedWorkspace.panelLayout) {
@@ -141,7 +155,7 @@ export function reconcileWorkspace(
     rightBottom: [],
   };
 
-  (['leftTop', 'leftBottom', 'rightTop', 'rightBottom'] as PanelRegion[]).forEach((region) => {
+  PANEL_REGIONS.forEach((region) => {
     const list = savedWorkspace.panelLayout[region] || [];
     list.forEach((panel) => {
       if (allowedPanels.has(panel) && !seenPanels.has(panel)) {
@@ -151,7 +165,7 @@ export function reconcileWorkspace(
     });
   });
 
-  allowedPanels.forEach((panel) => {
+  defaultPlacedPanels.forEach((panel) => {
     if (!seenPanels.has(panel)) {
       const targetRegion = DEFAULT_PANEL_DEFAULT_REGIONS[panel] || 'leftTop';
       sanitizedLayout[targetRegion].push(panel);
@@ -166,7 +180,7 @@ export function reconcileWorkspace(
     rightBottom: null,
   };
 
-  (['leftTop', 'leftBottom', 'rightTop', 'rightBottom'] as PanelRegion[]).forEach((region) => {
+  PANEL_REGIONS.forEach((region) => {
     const currentActive = savedWorkspace.activePanels?.[region];
     if (currentActive && sanitizedLayout[region].includes(currentActive)) {
       sanitizedActive[region] = currentActive;
@@ -186,6 +200,11 @@ export function reconcileWorkspace(
       ...defaultWorkspace.panelSwitcherPlacement,
       ...(savedWorkspace.panelSwitcherPlacement || {}),
     },
+    filmstripColumns: Math.min(
+      MAX_FILMSTRIP_COLUMNS,
+      Math.max(1, savedWorkspace.filmstripColumns || DEFAULT_FILMSTRIP_COLUMNS),
+    ),
+    filmstripShowFileInfo: savedWorkspace.filmstripShowFileInfo ?? false,
   };
 }
 
@@ -195,6 +214,81 @@ export const isPanelVisible = (state: UIState, panel: Panel) =>
       state.activePanels[region] === panel &&
       state.uiVisibility[region.startsWith('left') ? 'leftPanel' : 'rightPanel'],
   );
+
+export const isFilmstripDocked = (state: UIState) =>
+  PANEL_REGIONS.some((region) => state.panelLayout[region].includes(Panel.Filmstrip));
+
+export const isPanelAvailable = (state: UIState, panel: Panel) =>
+  panel !== Panel.Filmstrip || state.activeView === 'editor';
+
+export const getRegionActivePanel = (state: UIState, region: PanelRegion) => {
+  const panels = state.panelLayout[region];
+  const active = state.activePanels[region];
+  const index = active ? panels.indexOf(active) : -1;
+  if (active && index >= 0 && isPanelAvailable(state, active)) return active;
+  const candidates = index < 0 ? panels : [...panels.slice(index + 1), ...panels.slice(0, index).reverse()];
+  return candidates.find((panel) => isPanelAvailable(state, panel)) ?? null;
+};
+
+const removePanelFromLayout = (state: UIState, panel: Panel) => {
+  const layout = Object.fromEntries(
+    PANEL_REGIONS.map((region) => [region, state.panelLayout[region].filter((p) => p !== panel)]),
+  ) as Record<PanelRegion, Panel[]>;
+  const active = { ...state.activePanels };
+  const fromRegion = PANEL_REGIONS.find((region) => state.panelLayout[region].includes(panel));
+  let revealedPanel: Panel | null = null;
+  if (fromRegion && active[fromRegion] === panel) {
+    const original = state.panelLayout[fromRegion];
+    const index = original.indexOf(panel);
+    revealedPanel = original[index + 1] ?? original[index - 1] ?? null;
+    active[fromRegion] = revealedPanel;
+  }
+  return { layout, active, fromRegion, revealedPanel };
+};
+
+const resolveGlobalPanel = (current: Panel | null, displaced: Panel | null, panel: Panel) => {
+  if (panel !== Panel.Filmstrip) return panel;
+  return displaced === current ? null : current;
+};
+
+interface PlacePanelOptions {
+  index?: number;
+  split?: boolean;
+  placement?: SwitcherPlacement | null;
+}
+
+const placePanel = (
+  state: UIState,
+  panel: Panel,
+  region: PanelRegion,
+  { index = Number.MAX_SAFE_INTEGER, split = false, placement = null }: PlacePanelOptions,
+) => {
+  const { layout, active, fromRegion, revealedPanel } = removePanelFromLayout(state, panel);
+  const placements = { ...state.panelSwitcherPlacement };
+
+  const sibling = SIBLING_REGION[region];
+  if (split && layout[region].length > 0 && layout[sibling].length === 0) {
+    [layout[region], layout[sibling]] = [layout[sibling], layout[region]];
+    [active[region], active[sibling]] = [active[sibling], active[region]];
+    [placements[region], placements[sibling]] = [placements[sibling], placements[region]];
+  }
+
+  const displacedPanel = active[region];
+  layout[region].splice(Math.max(0, Math.min(index, layout[region].length)), 0, panel);
+  active[region] = panel;
+  if (placement) placements[region] = placement;
+
+  const globalPanel =
+    resolveGlobalPanel(state.activePanel, displacedPanel, panel) ?? (fromRegion !== region ? revealedPanel : null);
+  return {
+    panelLayout: layout,
+    activePanels: active,
+    panelSwitcherPlacement: placements,
+    activeLayoutDragItem: null,
+    activePanel: globalPanel,
+    renderedPanel: globalPanel,
+  };
+};
 
 export interface UIState {
   activeView: string;
@@ -212,18 +306,23 @@ export interface UIState {
   bottomPanelHeight: number;
   leftTopHeight: number;
   rightTopHeight: number;
+  filmstripColumns: number;
+  filmstripShowFileInfo: boolean;
   compactEditorPanelHeightOverride: number | null;
 
   panelLayout: Record<PanelRegion, Panel[]>;
   activePanels: Record<PanelRegion, Panel | null>;
   activeLayoutDragItem: Panel | null;
   setLayoutDragItem: (panel: Panel | null) => void;
-  movePanel: (panel: Panel, toRegion: PanelRegion) => void;
+  dropPanel: (
+    panel: Panel,
+    target: { region: PanelRegion; split: boolean; placement: SwitcherPlacement | null },
+  ) => void;
   movePanelToIndex: (panel: Panel, toRegion: PanelRegion, index: number) => void;
+  dockFilmstripToBottom: () => void;
   setActivePanel: (region: PanelRegion, panel: Panel | null) => void;
 
   panelSwitcherPlacement: Record<PanelRegion, SwitcherPlacement>;
-  setPanelSwitcherPlacement: (region: PanelRegion, placement: SwitcherPlacement) => void;
 
   activePanel: Panel | null;
   renderedPanel: Panel | null;
@@ -284,6 +383,8 @@ export const useUIStore = create<UIState>((set, get) => ({
   bottomPanelHeight: DEFAULT_BOTTOM_PANEL_HEIGHT,
   leftTopHeight: DEFAULT_PANEL_SECTION_HEIGHT,
   rightTopHeight: DEFAULT_PANEL_SECTION_HEIGHT,
+  filmstripColumns: DEFAULT_FILMSTRIP_COLUMNS,
+  filmstripShowFileInfo: false,
   compactEditorPanelHeightOverride: null,
 
   panelLayout: {
@@ -306,10 +407,6 @@ export const useUIStore = create<UIState>((set, get) => ({
     rightTop: 'right',
     rightBottom: 'right',
   },
-  setPanelSwitcherPlacement: (region, placement) =>
-    set((state) => ({
-      panelSwitcherPlacement: { ...state.panelSwitcherPlacement, [region]: placement },
-    })),
 
   activePanel: Panel.Adjustments,
   renderedPanel: Panel.Adjustments,
@@ -366,83 +463,40 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   setLayoutDragItem: (panel) => set({ activeLayoutDragItem: panel }),
 
-  movePanel: (panel, toRegion) =>
+  dropPanel: (panel, { region, split, placement }) =>
     set((state) => {
-      const layout = {
-        leftTop: [...state.panelLayout.leftTop],
-        leftBottom: [...state.panelLayout.leftBottom],
-        rightTop: [...state.panelLayout.rightTop],
-        rightBottom: [...state.panelLayout.rightBottom],
-      };
-      const active = { ...state.activePanels };
-
-      let fromRegion = null as PanelRegion | null;
-      (Object.keys(layout) as PanelRegion[]).forEach((r) => {
-        if (layout[r].includes(panel)) {
-          fromRegion = r;
-          layout[r] = layout[r].filter((p) => p !== panel);
-        }
+      const currentIndex = state.panelLayout[region].indexOf(panel);
+      return placePanel(state, panel, region, {
+        index: !split && currentIndex >= 0 ? currentIndex : undefined,
+        split,
+        placement,
       });
-
-      if (!layout[toRegion].includes(panel)) layout[toRegion].push(panel);
-
-      if (fromRegion && active[fromRegion] === panel) {
-        active[fromRegion] = layout[fromRegion].length > 0 ? layout[fromRegion][0] : null;
-      }
-
-      active[toRegion] = panel;
-
-      return {
-        panelLayout: layout,
-        activePanels: active,
-        activeLayoutDragItem: null,
-        activePanel: panel,
-        renderedPanel: panel,
-      };
     }),
 
-  movePanelToIndex: (panel, toRegion, index) =>
+  movePanelToIndex: (panel, toRegion, index) => set((state) => placePanel(state, panel, toRegion, { index })),
+
+  dockFilmstripToBottom: () =>
     set((state) => {
-      const layout = {
-        leftTop: [...state.panelLayout.leftTop],
-        leftBottom: [...state.panelLayout.leftBottom],
-        rightTop: [...state.panelLayout.rightTop],
-        rightBottom: [...state.panelLayout.rightBottom],
-      };
-      const active = { ...state.activePanels };
-
-      let fromRegion = null as PanelRegion | null;
-      (Object.keys(layout) as PanelRegion[]).forEach((r) => {
-        if (layout[r].includes(panel)) {
-          fromRegion = r;
-          layout[r] = layout[r].filter((p) => p !== panel);
-        }
-      });
-
-      const clampedIndex = Math.max(0, Math.min(index, layout[toRegion].length));
-      layout[toRegion].splice(clampedIndex, 0, panel);
-
-      if (fromRegion && active[fromRegion] === panel) {
-        active[fromRegion] = layout[fromRegion].length > 0 ? layout[fromRegion][0] : null;
-      }
-      active[toRegion] = panel;
-
+      const { layout, active, revealedPanel } = removePanelFromLayout(state, Panel.Filmstrip);
+      const globalPanel = state.activePanel ?? revealedPanel;
       return {
         panelLayout: layout,
         activePanels: active,
         activeLayoutDragItem: null,
-        activePanel: panel,
-        renderedPanel: panel,
+        activePanel: globalPanel,
+        renderedPanel: globalPanel,
+        uiVisibility: { ...state.uiVisibility, filmstrip: true },
       };
     }),
 
   setActivePanel: (region, panel) =>
     set((state) => {
       if (!panel) return state;
+      const globalPanel = resolveGlobalPanel(state.activePanel, state.activePanels[region], panel);
       const updates: Partial<UIState> = {
         activePanels: { ...state.activePanels, [region]: panel },
-        activePanel: panel,
-        renderedPanel: panel,
+        activePanel: globalPanel,
+        renderedPanel: globalPanel,
       };
 
       const isLeft = region === 'leftTop' || region === 'leftBottom';
@@ -519,6 +573,8 @@ export const useUIStore = create<UIState>((set, get) => ({
       panelLayout: defaultWorkspace.panelLayout,
       activePanels: defaultWorkspace.activePanels,
       panelSwitcherPlacement: defaultWorkspace.panelSwitcherPlacement,
+      filmstripColumns: defaultWorkspace.filmstripColumns,
+      filmstripShowFileInfo: defaultWorkspace.filmstripShowFileInfo,
       uiVisibility: { filmstrip: true, leftPanel: true, rightPanel: true, quickFilter: false },
       activePanel: defaultWorkspace.activePanels.rightTop || null,
       renderedPanel: defaultWorkspace.activePanels.rightTop || null,
