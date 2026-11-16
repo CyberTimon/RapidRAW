@@ -24,8 +24,8 @@ const LUMA_SRGB: [f32; 3] = [0.2126, 0.7152, 0.0722];
 
 const FIXED_PEAK_NITS: f64 = 200.0;
 // RapidRAW's scene-linear values are already baseline-exposed.  A +1.0 EV
-// tone-scale offset puts 18% grey at the same code value as AgX (~0.51) and
-// keeps scene white near 0.97.
+// tone-scale offset puts 18% grey near 0.54 and scene white near 1.0, matching
+// the preferred rendering of the existing tone mappers.
 const FIXED_INPUT_EXPOSURE_EV: f32 = 1.0;
 const GAMUT_KNEE: f32 = 0.20;
 const GAMUT_STEEPNESS: f32 = 0.50;
@@ -597,8 +597,8 @@ mod tests {
         let ctx = context();
         let mid = ctx.eval_rgb([0.18, 0.18, 0.18])[0];
         let white = ctx.eval_rgb([1.0, 1.0, 1.0])[0];
-        assert!((0.49..=0.53).contains(&mid), "18% grey -> {mid}");
-        assert!((0.95..=0.99).contains(&white), "scene white -> {white}");
+        assert!((0.53..=0.55).contains(&mid), "18% grey -> {mid}");
+        assert!((0.99..=1.0).contains(&white), "scene white -> {white}");
     }
 
     #[test]

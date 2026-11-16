@@ -57,7 +57,7 @@ RapidRAW is for photographers who love to edit their photos in a <strong>clean, 
 <details>
 <summary><strong>Recent Changes</strong></summary>
 
-- **2026-11-16:** Added the 3DCF tone mapper (ACES 2.0 SSTS + spectral gamut) from Libre DT-Lab, adapted to RapidRAW's native linear sRGB D65 pipeline with a chroma-preserving linear tone scale, a fixed +0.83 EV input calibration and a single final sRGB encoding
+- **2026-11-16:** Added the 3DCF tone mapper (ACES 2.0 SSTS + spectral gamut) from Libre DT-Lab, adapted to RapidRAW's native linear sRGB D65 pipeline with a chroma-preserving linear tone scale, a fixed +1.0 EV input calibration and a single final sRGB encoding
 - **2026-11-15:** Made sharpening halo-free and independent of exposure, and fixed stepped soft edges under highlights and the other tone sliders
 - **2026-11-14:** Docked the filmstrip into the side panels as a vertical grid, added six library thumbnail sizes, added crop rotation by dragging around the frame, rebuilt contrast around each photo's own midtone, kept RAW metadata in JPEG XL exports, added camera make and model to the metadata panel, and made the AI denoise and RapidRes cache about three times smaller
 - **2026-11-13:** Added default adjustments with per-camera presets and automatic lens correction, and kept zooming smooth while a RAW file loads
