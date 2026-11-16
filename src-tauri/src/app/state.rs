@@ -195,6 +195,7 @@ impl PreviewSource {
 
 #[derive(Clone)]
 pub struct CachedPreview {
+    pub source_path: String,
     pub preview: PreviewSource,
     pub transform_hash: u64,
     pub preview_dim: u32,

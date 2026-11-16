@@ -26,7 +26,12 @@ pub struct WhiteBalanceSample {
 
 const MAX_WB_SAMPLES: f64 = 262_144.0;
 
-fn read_linear_rgb(image: &DynamicImage, x: u32, y: u32, is_raw: bool) -> Option<[f32; 3]> {
+pub(super) fn read_linear_rgb(
+    image: &DynamicImage,
+    x: u32,
+    y: u32,
+    is_raw: bool,
+) -> Option<[f32; 3]> {
     let rgb = match image {
         DynamicImage::ImageRgb32F(buf) => {
             let p = buf.get_pixel(x, y);

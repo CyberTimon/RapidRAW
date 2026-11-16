@@ -700,6 +700,7 @@ pub fn run() {
             integrations::edit_in::cancel_edit_in_app,
             adjustments::auto_adjust::calculate_auto_adjustments,
             adjustments::white_balance_picker::sample_white_balance,
+            adjustments::color_harmonizer::sample_color_harmony_histogram,
             adjustments::auto_straighten::calculate_auto_straighten,
             library::sidecars::apply_auto_straighten_to_paths,
             masks::generation::generate_mask_overlay,

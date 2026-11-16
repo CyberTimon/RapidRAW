@@ -175,6 +175,7 @@ pub struct GlobalAdjustments {
     pub sharpness_threshold: f32,
 
     pub monochrome: MonochromeSettings,
+    pub color_harmony: ColorHarmonyGpu,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
@@ -229,6 +230,63 @@ pub struct MaskAdjustments {
     _pad_end5: f32,
     _pad_end6: f32,
     _pad_end7: f32,
+    pub color_harmony: ColorHarmonyGpu,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, Pod, Zeroable, Default)]
+#[repr(C)]
+pub struct ColorHarmonyGpu {
+    pub nodes: [f32; 4],
+    pub saturation: [f32; 4],
+    // [pull strength, width, neutral protection, enabled]
+    pub params: [f32; 4],
+    pub count: u32,
+    pub _padding: [u32; 3],
+}
+
+const _: () = assert!(std::mem::size_of::<ColorHarmonyGpu>() == 64);
+
+fn parse_color_harmony(adj: &serde_json::Value) -> ColorHarmonyGpu {
+    // Older sidecars stored visibility inside colorHarmony.
+    let is_enabled = adj["activeTools"]["colorHarmonizer"]
+        .as_bool()
+        .unwrap_or_else(|| adj["colorHarmony"]["enabled"].as_bool() == Some(true));
+    if !is_enabled {
+        return ColorHarmonyGpu::default();
+    }
+
+    let obj = &adj["colorHarmony"];
+    let mut config = ColorHarmonyGpu {
+        params: [
+            obj["strength"].as_f64().unwrap_or(0.0).clamp(0.0, 1.0) as f32,
+            obj["width"].as_f64().unwrap_or(1.0).clamp(0.25, 4.0) as f32,
+            obj["neutralProtection"]
+                .as_f64()
+                .unwrap_or(0.5)
+                .clamp(0.0, 1.0) as f32,
+            1.0,
+        ],
+        ..Default::default()
+    };
+    let angles = obj["nodes"].as_array();
+    let defaults = [0.0_f64, 180.0];
+    let n = angles.map_or(2, |nodes| nodes.len().clamp(1, 4));
+    config.count = n as u32;
+    for i in 0..n {
+        let angle = angles
+            .and_then(|list| list.get(i))
+            .and_then(|item| item.as_f64())
+            .filter(|angle| angle.is_finite())
+            .unwrap_or(*defaults.get(i).unwrap_or(&0.0));
+        config.nodes[i] = (angle.rem_euclid(360.0) / 360.0) as f32;
+        config.saturation[i] = obj["nodeSaturation"]
+            .get(i)
+            .and_then(|value| value.as_f64())
+            .filter(|sat| sat.is_finite())
+            .unwrap_or(1.0)
+            .clamp(0.0, 2.0) as f32;
+    }
+    config
 }
 
 pub const MAX_MASKS: usize = 32;
@@ -853,6 +911,7 @@ fn get_global_adjustments_from_json(
             Some(15.0),
         ),
 
+        color_harmony: parse_color_harmony(js_adjustments),
         monochrome: if is_monochrome {
             parse_monochrome_settings(
                 js_adjustments,
@@ -1012,6 +1071,7 @@ fn get_mask_adjustments_from_json(
         _pad_end5: 0.0,
         _pad_end6: 0.0,
         _pad_end7: 0.0,
+        color_harmony: parse_color_harmony(adj),
     }
 }
 
