@@ -1071,6 +1071,10 @@
       "removeGps": "Supprimer les données GPS",
       "saveWithMetadata": "Enregistrer avec les métadonnées"
     },
+    "openWith": {
+      "enable": "Ouvrir les images exportées dans un autre programme",
+      "noApps": "Ni Photoshop ni GIMP trouvé. Ajoutez un programme dans Paramètres › Modifier dans."
+    },
     "pad": {
       "aspectRatio": "Rapport d'aspect",
       "backgroundColor": "Couleur d'arrière-plan",
@@ -1097,6 +1101,7 @@
       "fileSettings": "Paramètres du fichier",
       "imageSizing": "Taille de l'image",
       "metadata": "Métadonnées",
+      "openWith": "Ouvrir après l'export",
       "watermark": "Filigrane"
     },
     "status": {

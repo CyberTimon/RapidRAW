@@ -1071,6 +1071,10 @@
       "removeGps": "Eliminar dades GPS",
       "saveWithMetadata": "Desar amb metadades"
     },
+    "openWith": {
+      "enable": "Obre les imatges exportades en un altre programa",
+      "noApps": "No s'ha trobat Photoshop ni GIMP. Afegeix un programa a Configuració › Edita a."
+    },
     "pad": {
       "aspectRatio": "Relació d'aspecte",
       "backgroundColor": "Color de fons",
@@ -1097,6 +1101,7 @@
       "fileSettings": "Configuració del fitxer",
       "imageSizing": "Mida de la imatge",
       "metadata": "Metadades",
+      "openWith": "Obre després d'exportar",
       "watermark": "Marca d'aigua"
     },
     "status": {

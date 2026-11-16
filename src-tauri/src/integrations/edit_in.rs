@@ -129,29 +129,299 @@ fn output_destination(app: &EditInApp, source_path: &Path, extension: &str) -> P
     )
 }
 
-fn launch(app: &EditInApp, file: &Path) -> Result<Child, String> {
-    let file = file.to_string_lossy();
-    let mut args: Vec<String> = app
-        .args
-        .split_whitespace()
-        .map(|arg| arg.replace("{file}", &file))
+/// Builds the command line for `app` with `files`. Each argument containing
+/// `{file}` is repeated once per file; without one, the files are appended.
+fn build_command(app: &EditInApp, files: &[&Path], wait: bool) -> Command {
+    let files: Vec<String> = files
+        .iter()
+        .map(|f| f.to_string_lossy().into_owned())
         .collect();
-    if !app.args.contains("{file}") {
-        args.push(file.into_owned());
+    let mut args: Vec<String> = Vec::new();
+    let mut has_placeholder = false;
+    for arg in app.args.split_whitespace() {
+        if arg.contains("{file}") {
+            has_placeholder = true;
+            args.extend(files.iter().map(|file| arg.replace("{file}", file)));
+        } else {
+            args.push(arg.to_string());
+        }
+    }
+    if !has_placeholder {
+        args.extend(files);
     }
 
     let exe = app.path.trim().trim_matches('"');
     let mut command = if cfg!(target_os = "macos") && exe.ends_with(".app") {
         let mut command = Command::new("open");
-        command.args(["-W", "-a", exe]);
+        if wait {
+            command.arg("-W");
+        }
+        command.args(["-a", exe]);
         command
     } else {
         Command::new(exe)
     };
+    command.args(args);
+    strip_appimage_env(&mut command);
     command
-        .args(args)
+}
+
+/// An AppImage prepends its bundled libraries and GTK/GIO modules to variables
+/// like LD_LIBRARY_PATH and XDG_DATA_DIRS. Programs started from it would load
+/// those instead of their own and can crash, so drop the AppImage entries.
+fn strip_appimage_env(command: &mut Command) {
+    if std::env::var_os("APPIMAGE").is_none() {
+        return;
+    }
+    let Some(appdir) = std::env::var_os("APPDIR").map(PathBuf::from) else {
+        return;
+    };
+    for (key, value) in std::env::vars_os() {
+        let entries: Vec<PathBuf> = std::env::split_paths(&value).collect();
+        if !entries.iter().any(|entry| entry.starts_with(&appdir)) {
+            continue;
+        }
+        let kept: Vec<PathBuf> = entries
+            .into_iter()
+            .filter(|entry| !entry.starts_with(&appdir) && !entry.as_os_str().is_empty())
+            .collect();
+        match std::env::join_paths(&kept) {
+            Ok(joined) if !kept.is_empty() => {
+                command.env(&key, joined);
+            }
+            _ => {
+                command.env_remove(&key);
+            }
+        }
+    }
+}
+
+/// True inside a Flatpak sandbox, which cannot start programs on the host.
+fn in_flatpak_sandbox() -> bool {
+    cfg!(target_os = "linux") && Path::new("/.flatpak-info").exists()
+}
+
+/// Longest command line we pass to an editor. Windows rejects command lines
+/// over 32767 characters, so large batches only open their first files.
+const MAX_COMMAND_LINE: usize = 30_000;
+
+fn spawn_app(app: &EditInApp, files: &[&Path], wait: bool) -> Result<Child, String> {
+    build_command(app, files, wait)
         .spawn()
         .map_err(|e| format!("Failed to launch {}: {}", app.name, e))
+}
+
+fn launch(app: &EditInApp, file: &Path) -> Result<Child, String> {
+    spawn_app(app, &[file], true)
+}
+
+/// Opens exported files in `app` without waiting for it to close.
+pub fn open_files(app: &EditInApp, files: &[PathBuf]) -> Result<(), String> {
+    if files.is_empty() {
+        return Ok(());
+    }
+    if in_flatpak_sandbox() {
+        return Err(format!(
+            "Can't open {}: the Flatpak version of RapidRAW can't start other programs.",
+            app.name
+        ));
+    }
+    let mut length = app.path.len() + app.args.len();
+    let files: Vec<&Path> = files
+        .iter()
+        .map(PathBuf::as_path)
+        .take_while(|file| {
+            length += file.as_os_str().len() + 3;
+            length <= MAX_COMMAND_LINE
+        })
+        .collect();
+    if files.is_empty() {
+        return Err(format!(
+            "Can't open {}: the file path is too long.",
+            app.name
+        ));
+    }
+    let mut child = spawn_app(app, &files, false)?;
+    std::thread::spawn(move || {
+        let _ = child.wait();
+    });
+    Ok(())
+}
+
+fn detected_app(name: impl Into<String>, path: &Path, args: &str) -> EditInApp {
+    EditInApp {
+        name: name.into(),
+        path: path.to_string_lossy().into_owned(),
+        args: args.to_string(),
+        mode: EditInMode::Rendered,
+    }
+}
+
+/// Entries of `dir` whose file name starts with `prefix` (case-insensitive),
+/// newest version last.
+#[cfg(not(target_os = "linux"))]
+fn entries_with_prefix(dir: &Path, prefix: &str) -> Vec<PathBuf> {
+    let prefix = prefix.to_lowercase();
+    let mut paths: Vec<PathBuf> = read_entries(dir)
+        .into_iter()
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n.to_lowercase().starts_with(&prefix))
+        })
+        .collect();
+    paths.sort();
+    paths
+}
+
+#[cfg(target_os = "linux")]
+fn detect_external_editors() -> Vec<EditInApp> {
+    if in_flatpak_sandbox() {
+        return Vec::new();
+    }
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    // Desktop launchers often start apps with a minimal PATH, so also look in
+    // the usual places of distro packages, Snap and Flatpak.
+    let mut dirs: Vec<PathBuf> =
+        std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default()).collect();
+    dirs.extend(
+        [
+            "/usr/local/bin",
+            "/usr/bin",
+            "/snap/bin",
+            "/var/lib/flatpak/exports/bin",
+        ]
+        .into_iter()
+        .map(PathBuf::from),
+    );
+    if let Some(home) = &home {
+        dirs.push(home.join(".local/share/flatpak/exports/bin"));
+        dirs.push(home.join(".local/bin"));
+    }
+
+    // Distro and Snap packages, then the Flatpak wrapper (it forwards files
+    // into the sandbox itself).
+    ["gimp", "gimp-3.0", "gimp-2.10", "org.gimp.GIMP"]
+        .iter()
+        .find_map(|name| {
+            dirs.iter()
+                .map(|dir| dir.join(name))
+                .find(|candidate| candidate.is_file())
+        })
+        .map(|gimp| vec![detected_app("GIMP", &gimp, "")])
+        .unwrap_or_default()
+}
+
+/// Largest number in a folder name like "Adobe Photoshop 2025" or
+/// "Adobe Photoshop CC 2019", used to pick the newest installation.
+#[cfg(target_os = "windows")]
+fn version_in_name(path: &Path) -> u32 {
+    path.file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("")
+        .split(|c: char| !c.is_ascii_digit())
+        .filter_map(|part| part.parse().ok())
+        .max()
+        .unwrap_or(0)
+}
+
+#[cfg(target_os = "windows")]
+fn detect_external_editors() -> Vec<EditInApp> {
+    let roots: Vec<PathBuf> = ["ProgramFiles", "ProgramFiles(x86)", "ProgramW6432"]
+        .iter()
+        .filter_map(|var| std::env::var_os(var).map(PathBuf::from))
+        .chain(std::env::var_os("LOCALAPPDATA").map(|p| PathBuf::from(p).join("Programs")))
+        .collect();
+
+    let gimp = roots
+        .iter()
+        .flat_map(|root| entries_with_prefix(root, "GIMP"))
+        .flat_map(|dir| entries_with_prefix(&dir.join("bin"), "gimp-"))
+        .filter(|exe| {
+            exe.file_name().and_then(|n| n.to_str()).is_some_and(|n| {
+                let n = n.to_lowercase();
+                n.ends_with(".exe")
+                    && !n.contains("console")
+                    && n[5..].starts_with(|c: char| c.is_ascii_digit())
+            })
+        })
+        .max();
+
+    let photoshop = roots
+        .iter()
+        .flat_map(|root| entries_with_prefix(&root.join("Adobe"), "Adobe Photoshop"))
+        .map(|dir| dir.join("Photoshop.exe"))
+        .filter(|exe| exe.is_file())
+        .max_by_key(|exe| version_in_name(exe.parent().unwrap_or(exe)));
+
+    let mut apps = Vec::new();
+    if let Some(exe) = photoshop {
+        let name = exe
+            .parent()
+            .and_then(|d| d.file_name())
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "Adobe Photoshop".to_string());
+        apps.push(detected_app(name, &exe, ""));
+    }
+    if let Some(exe) = gimp {
+        apps.push(detected_app("GIMP", &exe, ""));
+    }
+    apps
+}
+
+#[cfg(target_os = "macos")]
+fn detect_external_editors() -> Vec<EditInApp> {
+    let mut roots = vec![PathBuf::from("/Applications")];
+    if let Some(home) = std::env::var_os("HOME") {
+        roots.push(PathBuf::from(home).join("Applications"));
+    }
+    let is_app = |p: &PathBuf| p.extension().is_some_and(|e| e == "app");
+
+    let photoshop = roots
+        .iter()
+        .flat_map(|root| entries_with_prefix(root, "Adobe Photoshop"))
+        .flat_map(|dir| {
+            if is_app(&dir) {
+                vec![dir]
+            } else {
+                entries_with_prefix(&dir, "Adobe Photoshop")
+            }
+        })
+        .filter(is_app)
+        .max();
+    let gimp = roots
+        .iter()
+        .flat_map(|root| entries_with_prefix(root, "GIMP"))
+        .filter(is_app)
+        .max();
+
+    let app_name = |p: &Path| {
+        p.file_stem()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default()
+    };
+    let mut apps = Vec::new();
+    if let Some(app) = photoshop {
+        apps.push(detected_app(app_name(&app), &app, ""));
+    }
+    if let Some(app) = gimp {
+        apps.push(detected_app("GIMP", &app, ""));
+    }
+    apps
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
+fn detect_external_editors() -> Vec<EditInApp> {
+    Vec::new()
+}
+
+/// Photoshop and GIMP installations found on this computer.
+#[tauri::command]
+pub async fn list_external_editors() -> Vec<EditInApp> {
+    tokio::task::spawn_blocking(detect_external_editors)
+        .await
+        .unwrap_or_default()
 }
 
 fn wait_for_output(
@@ -257,6 +527,7 @@ async fn render_tiff(
         subfolder: None,
         dpi: None,
         export_original: None,
+        open_with: None,
     };
     export_images_and_wait(
         vec![path.clone()],
@@ -366,5 +637,59 @@ pub fn cancel_edit_in_app(session_id: String) {
         && *active_id == session_id
     {
         cancelled.store(true, Ordering::SeqCst);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn args_of(app: &EditInApp, files: &[&str]) -> Vec<String> {
+        let files: Vec<&Path> = files.iter().map(Path::new).collect();
+        build_command(app, &files, false)
+            .get_args()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect()
+    }
+
+    #[test]
+    fn appends_all_files_without_placeholder() {
+        let app = detected_app("GIMP", Path::new("/usr/bin/gimp"), "");
+        assert_eq!(
+            args_of(&app, &["/a.tif", "/b c.tif"]),
+            ["/a.tif", "/b c.tif"]
+        );
+    }
+
+    #[test]
+    fn repeats_placeholder_argument_per_file() {
+        let app = detected_app(
+            "GIMP",
+            Path::new("/usr/bin/flatpak"),
+            "run --file-forwarding org.gimp.GIMP @@ {file} @@",
+        );
+        assert_eq!(
+            args_of(&app, &["/a.tif", "/b.tif"]),
+            [
+                "run",
+                "--file-forwarding",
+                "org.gimp.GIMP",
+                "@@",
+                "/a.tif",
+                "/b.tif",
+                "@@"
+            ]
+        );
+    }
+
+    #[test]
+    fn single_file_edit_in_args_are_unchanged() {
+        let app = EditInApp {
+            name: "X".into(),
+            path: "/usr/bin/x".into(),
+            args: "--open={file} -n".into(),
+            mode: EditInMode::Original,
+        };
+        assert_eq!(args_of(&app, &["/a.tif"]), ["--open=/a.tif", "-n"]);
     }
 }

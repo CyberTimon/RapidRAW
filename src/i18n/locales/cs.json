@@ -1097,6 +1097,10 @@
       "removeGps": "Odebrat data GPS",
       "saveWithMetadata": "Uložit s metadaty"
     },
+    "openWith": {
+      "enable": "Otevřít exportované obrázky v jiném programu",
+      "noApps": "Photoshop ani GIMP nebyl nalezen. Přidejte program v Nastavení › Upravit v."
+    },
     "pad": {
       "aspectRatio": "Poměr stran",
       "backgroundColor": "Barva pozadí",
@@ -1123,6 +1127,7 @@
       "fileSettings": "Nastavení souboru",
       "imageSizing": "Velikost snímku",
       "metadata": "Metadata",
+      "openWith": "Otevřít po exportu",
       "watermark": "Vodoznak"
     },
     "status": {

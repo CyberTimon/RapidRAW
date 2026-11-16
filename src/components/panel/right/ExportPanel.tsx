@@ -27,7 +27,7 @@ import {
 } from '../../../types/export';
 import { Invokes } from '../../../types/invokes';
 import { SelectedImage } from '../../../types/editor';
-import { AppSettings } from '../../../types/settings';
+import { AppSettings, EditInApp } from '../../../types/settings';
 import { Panel } from '../../../types/ui';
 import ExportPresetsList from './ExportPresetsList';
 import { useExportSettings } from '../../../hooks/useExportSettings';
@@ -326,6 +326,10 @@ export default function ExportPanel({
     setDestinationType,
     subfolder,
     setSubfolder,
+    openAfterExport,
+    setOpenAfterExport,
+    openAfterExportApp,
+    setOpenAfterExportApp,
   } = useExportSettings();
 
   const adjustmentsRef = useRef(useEditorStore.getState().adjustments);
@@ -399,6 +403,19 @@ export default function ExportPanel({
   const filenameInputRef = useRef<HTMLInputElement>(null);
   const osPlatform = useOsPlatform();
   const isAndroid = osPlatform === 'android';
+
+  const [detectedEditors, setDetectedEditors] = useState<EditInApp[]>([]);
+  useEffect(() => {
+    if (isAndroid) return;
+    invoke<EditInApp[]>(Invokes.ListExternalEditors).then(setDetectedEditors).catch(console.error);
+  }, [isAndroid]);
+
+  // Detected Photoshop/GIMP first, then the programs set up under Edit In
+  const openWithApps = useMemo(() => {
+    const apps = [...detectedEditors, ...(appSettings?.editInApps ?? [])];
+    return apps.filter((app, index) => apps.findIndex((other) => other.name === app.name) === index);
+  }, [detectedEditors, appSettings?.editInApps]);
+  const openWithApp = openWithApps.find((app) => app.name === openAfterExportApp) ?? openWithApps[0] ?? null;
   const canExportToImmich = useImmichExportAvailable() && !isAndroid;
   const destination = destinationType === 'immich' && !canExportToImmich ? 'customFolder' : destinationType;
   const immichExport = useImmichExportChoice();
@@ -623,6 +640,7 @@ export default function ExportPanel({
       stripGps,
       exportMasks: exportMasks,
       exportOriginal: exportOriginal ? { crop: originalCrop, keepExposure: originalKeepExposure } : null,
+      openWith: openAfterExport && !isAndroid && fileFormat !== FileFormats.Cube ? openWithApp : null,
       watermark:
         enableWatermark && watermarkPath
           ? {
@@ -649,6 +667,7 @@ export default function ExportPanel({
       if (isImmich) {
         exportSettings.preserveFolders = false;
         exportSettings.exportOriginal = null;
+        exportSettings.openWith = null;
         outputFolderOrFile = await prepareImmichExport(immichExport.album, immichExport.withOriginal);
       } else if (isOriginalFolder) {
         outputFolderOrFile = 'originalFolderDummy';
@@ -1103,6 +1122,35 @@ export default function ExportPanel({
                     </div>
                   )}
                 </Section>
+
+                {!isAndroid && destination !== 'immich' && (
+                  <Section title={t('export.sections.openWith')}>
+                    <Switch
+                      label={t('export.openWith.enable')}
+                      checked={openAfterExport}
+                      onChange={setOpenAfterExport}
+                      disabled={isExporting}
+                      trackClassName="bg-surface"
+                    />
+                    {openAfterExport && (
+                      <div className="pl-2 border-l-2 border-surface">
+                        {openWithApps.length > 0 ? (
+                          <Dropdown
+                            options={openWithApps.map((app) => ({ value: app.name, label: app.name }))}
+                            value={openWithApp?.name ?? ''}
+                            onChange={setOpenAfterExportApp}
+                            disabled={isExporting}
+                            className="w-full"
+                          />
+                        ) : (
+                          <Text variant={TextVariants.small} color={TextColors.secondary}>
+                            {t('export.openWith.noApps')}
+                          </Text>
+                        )}
+                      </div>
+                    )}
+                  </Section>
+                )}
               </>
             )}
 

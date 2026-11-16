@@ -1,4 +1,5 @@
 import type { Progress } from './library';
+import type { EditInApp } from './settings';
 
 export enum FileFormats {
   Jpeg = 'jpeg',
@@ -72,6 +73,7 @@ export interface ExportSettings {
     keepExposure: boolean;
   } | null;
   preserveFolders?: boolean;
+  openWith?: EditInApp | null;
   destinationType?: string;
   subfolder?: string;
   dpi?: number;
@@ -172,4 +174,6 @@ export interface ExportPreset {
   lastExportPath?: string;
   destinationType?: string;
   subfolder?: string;
+  openAfterExport?: boolean;
+  openAfterExportApp?: string | null;
 }

@@ -105,6 +105,9 @@ pub struct ExportSettings {
     pub dpi: Option<u16>,
     #[serde(default)]
     pub export_original: Option<OriginalExportOptions>,
+    /// Program that opens the exported files once the whole export succeeded.
+    #[serde(default)]
+    pub open_with: Option<crate::app::settings::EditInApp>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]

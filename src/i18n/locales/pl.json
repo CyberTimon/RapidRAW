@@ -1097,6 +1097,10 @@
       "removeGps": "Usuń dane GPS",
       "saveWithMetadata": "Zapisz z metadanymi"
     },
+    "openWith": {
+      "enable": "Otwórz wyeksportowane zdjęcia w innym programie",
+      "noApps": "Nie znaleziono Photoshopa ani GIMP-a. Dodaj program w Ustawienia › Edytuj w."
+    },
     "pad": {
       "aspectRatio": "Proporcje",
       "backgroundColor": "Kolor tła",
@@ -1123,6 +1127,7 @@
       "fileSettings": "Ustawienia pliku",
       "imageSizing": "Rozmiar obrazu",
       "metadata": "Metadane",
+      "openWith": "Otwórz po eksporcie",
       "watermark": "Znak wodny"
     },
     "status": {
