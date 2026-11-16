@@ -1,3 +1,4 @@
+use crate::merge::focus_stacking::gaussian_kernel;
 use rayon::prelude::*;
 
 #[derive(Clone)]
@@ -126,25 +127,16 @@ fn cubic_weights(t: f32) -> [f32; 4] {
     ]
 }
 
-pub fn gaussian_kernel(sigma: f32) -> Vec<f32> {
-    let radius = (sigma * 3.0).ceil().max(1.0) as usize;
-    let mut kernel: Vec<f32> = (0..=2 * radius)
-        .map(|i| {
-            let d = i as f32 - radius as f32;
-            (-d * d / (2.0 * sigma * sigma)).exp()
-        })
-        .collect();
-    let sum: f32 = kernel.iter().sum();
-    kernel.iter_mut().for_each(|k| *k /= sum);
-    kernel
+#[inline]
+pub fn luminance(p: &[f32]) -> f32 {
+    0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2]
 }
 
 pub fn gaussian_blur(src: &Raster, sigma: f32) -> Raster {
     if sigma <= 0.01 {
         return src.clone();
     }
-    let kernel = gaussian_kernel(sigma);
-    convolve_separable(src, &kernel)
+    convolve_separable(src, &gaussian_kernel(sigma))
 }
 
 fn convolve_row(input: &[f32], output: &mut [f32], width: usize, ch: usize, kernel: &[f32]) {
@@ -172,7 +164,7 @@ fn convolve_row(input: &[f32], output: &mut [f32], width: usize, ch: usize, kern
     }
 }
 
-pub fn convolve_separable(src: &Raster, kernel: &[f32]) -> Raster {
+fn convolve_separable(src: &Raster, kernel: &[f32]) -> Raster {
     let radius = (kernel.len() / 2) as isize;
     let (w, h, ch) = (src.width, src.height, src.channels);
     let stride = w * ch;

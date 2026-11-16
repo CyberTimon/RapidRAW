@@ -6,6 +6,7 @@ pub const NO_LABEL: u16 = u16::MAX;
 
 const GRADIENT_EPSILON: f32 = 0.05;
 const SMOOTHNESS_COST: f32 = 0.002;
+const BORDER_MARGIN_FRACTION: f32 = 0.02;
 const NO_NODE: u32 = u32::MAX;
 
 pub struct SeamLayer {
@@ -17,7 +18,12 @@ pub struct SeamLayer {
 impl SeamLayer {
     #[inline]
     fn is_valid(&self, x: usize, y: usize) -> bool {
-        self.roi.contains(x, y) && self.valid[(y - self.roi.y) * self.roi.width + x - self.roi.x]
+        self.roi.contains(x, y) && self.valid[self.local_index(x, y)]
+    }
+
+    #[inline]
+    fn local_index(&self, x: usize, y: usize) -> usize {
+        (y - self.roi.y) * self.roi.width + x - self.roi.x
     }
 
     #[inline]
@@ -40,8 +46,9 @@ impl SeamLayer {
     }
 }
 
-fn distance_to_border(layer: &SeamLayer) -> Vec<f32> {
+fn distance_to_border(layer: &SeamLayer, width: usize, height: usize) -> Vec<f32> {
     let (w, h) = (layer.roi.width, layer.roi.height);
+    let (x0, y0) = (layer.roi.x as isize, layer.roi.y as isize);
     let mut dist: Vec<f32> = layer
         .valid
         .iter()
@@ -49,7 +56,12 @@ fn distance_to_border(layer: &SeamLayer) -> Vec<f32> {
         .collect();
     let at = |d: &Vec<f32>, x: isize, y: isize| -> f32 {
         if x < 0 || y < 0 || x >= w as isize || y >= h as isize {
-            0.0
+            let (gx, gy) = (x0 + x, y0 + y);
+            if gx < 0 || gy < 0 || gx >= width as isize || gy >= height as isize {
+                f32::MAX
+            } else {
+                0.0
+            }
         } else {
             d[y as usize * w + x as usize]
         }
@@ -83,11 +95,15 @@ fn distance_to_border(layer: &SeamLayer) -> Vec<f32> {
     dist
 }
 
-fn initial_labels(width: usize, height: usize, layers: &[SeamLayer]) -> Vec<u16> {
+fn initial_labels(
+    width: usize,
+    height: usize,
+    layers: &[SeamLayer],
+    distances: &[Vec<f32>],
+) -> Vec<u16> {
     let mut labels = vec![NO_LABEL; width * height];
     let mut best = vec![0.0f32; width * height];
-    for (index, layer) in layers.iter().enumerate() {
-        let dist = distance_to_border(layer);
+    for (index, (layer, dist)) in layers.iter().zip(distances).enumerate() {
         for ly in 0..layer.roi.height {
             for lx in 0..layer.roi.width {
                 let d = dist[ly * layer.roi.width + lx];
@@ -126,11 +142,13 @@ fn refine_pair(
     width: usize,
     height: usize,
     layers: &[SeamLayer],
+    distances: &[Vec<f32>],
     (a, b): (usize, usize),
     region: Rect,
 ) -> Vec<(usize, u16)> {
     let (la, lb) = (&layers[a], &layers[b]);
     let (label_a, label_b) = (a as u16, b as u16);
+    let margin = BORDER_MARGIN_FRACTION * ((width * height) as f32).sqrt();
 
     let mut node_of = vec![NO_NODE; region.width * region.height];
     let mut pixels = Vec::new();
@@ -139,7 +157,12 @@ fn refine_pair(
     for y in region.y..region.bottom() {
         for x in region.x..region.right() {
             let label = labels[y * width + x];
-            if (label != label_a && label != label_b) || !la.is_valid(x, y) || !lb.is_valid(x, y) {
+            if (label != label_a && label != label_b)
+                || !la.is_valid(x, y)
+                || !lb.is_valid(x, y)
+                || distances[a][la.local_index(x, y)] < margin
+                || distances[b][lb.local_index(x, y)] < margin
+            {
                 continue;
             }
             let ca = la.color_at(x, y);
@@ -224,7 +247,11 @@ fn expanded(rect: &Rect, margin: usize) -> Rect {
 }
 
 pub fn find_seams(width: usize, height: usize, layers: &[SeamLayer]) -> Vec<u16> {
-    let mut labels = initial_labels(width, height, layers);
+    let distances: Vec<Vec<f32>> = layers
+        .par_iter()
+        .map(|layer| distance_to_border(layer, width, height))
+        .collect();
+    let mut labels = initial_labels(width, height, layers, &distances);
     let mut pending: Vec<((usize, usize), Rect)> = (0..layers.len())
         .flat_map(|a| (a + 1..layers.len()).map(move |b| (a, b)))
         .filter_map(|(a, b)| pair_region(layers, a, b, width, height).map(|r| ((a, b), r)))
@@ -246,7 +273,9 @@ pub fn find_seams(width: usize, height: usize, layers: &[SeamLayer]) -> Vec<u16>
         }
         let updates: Vec<Vec<(usize, u16)>> = batch
             .par_iter()
-            .map(|&(pair, region)| refine_pair(&labels, width, height, layers, pair, region))
+            .map(|&(pair, region)| {
+                refine_pair(&labels, width, height, layers, &distances, pair, region)
+            })
             .collect();
         for (index, label) in updates.into_iter().flatten() {
             labels[index] = label;

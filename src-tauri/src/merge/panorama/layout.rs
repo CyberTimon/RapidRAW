@@ -173,38 +173,35 @@ fn smooth_envelope(raw: &[Option<f64>], take_max: bool) -> Option<Vec<f64>> {
 }
 
 fn column_curves(mask: &Mask) -> Option<EdgeCurves> {
-    let tops: Vec<Option<f64>> = (0..mask.width)
-        .map(|x| {
-            (0..mask.height)
-                .find(|&y| mask.data[y * mask.width + x])
-                .map(|y| y as f64)
-        })
-        .collect();
-    let bottoms: Vec<Option<f64>> = (0..mask.width)
-        .map(|x| {
-            (0..mask.height)
-                .rev()
-                .find(|&y| mask.data[y * mask.width + x])
-                .map(|y| y as f64 + 1.0)
-        })
-        .collect();
-    build_curves(&tops, &bottoms, mask.scale)
+    edge_curves(mask.width, mask.height, mask.scale, |x, y| {
+        mask.data[y * mask.width + x]
+    })
 }
 
 fn row_curves(mask: &Mask) -> Option<EdgeCurves> {
-    let lefts: Vec<Option<f64>> = (0..mask.height)
-        .map(|y| {
-            let row = &mask.data[y * mask.width..(y + 1) * mask.width];
-            row.iter().position(|&v| v).map(|x| x as f64)
+    edge_curves(mask.height, mask.width, mask.scale, |y, x| {
+        mask.data[y * mask.width + x]
+    })
+}
+
+fn edge_curves(
+    lines: usize,
+    length: usize,
+    scale: f64,
+    covered: impl Fn(usize, usize) -> bool,
+) -> Option<EdgeCurves> {
+    let starts: Vec<Option<f64>> = (0..lines)
+        .map(|line| (0..length).find(|&i| covered(line, i)).map(|i| i as f64))
+        .collect();
+    let ends: Vec<Option<f64>> = (0..lines)
+        .map(|line| {
+            (0..length)
+                .rev()
+                .find(|&i| covered(line, i))
+                .map(|i| i as f64 + 1.0)
         })
         .collect();
-    let rights: Vec<Option<f64>> = (0..mask.height)
-        .map(|y| {
-            let row = &mask.data[y * mask.width..(y + 1) * mask.width];
-            row.iter().rposition(|&v| v).map(|x| x as f64 + 1.0)
-        })
-        .collect();
-    build_curves(&lefts, &rights, mask.scale)
+    build_curves(&starts, &ends, scale)
 }
 
 fn build_curves(starts: &[Option<f64>], ends: &[Option<f64>], scale: f64) -> Option<EdgeCurves> {

@@ -7,14 +7,14 @@ const RANSAC_MIN_ITERATIONS: usize = 64;
 const RANSAC_MAX_ITERATIONS: usize = 4000;
 const LOCAL_OPTIMIZATION_STEPS: usize = 4;
 
-pub struct SplitMix64(u64);
+struct SplitMix64(u64);
 
 impl SplitMix64 {
-    pub fn new(seed: u64) -> Self {
+    fn new(seed: u64) -> Self {
         SplitMix64(seed)
     }
 
-    pub fn next_u64(&mut self) -> u64 {
+    fn next_u64(&mut self) -> u64 {
         self.0 = self.0.wrapping_add(0x9E3779B97F4A7C15);
         let mut z = self.0;
         z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
@@ -22,7 +22,7 @@ impl SplitMix64 {
         z ^ (z >> 31)
     }
 
-    pub fn below(&mut self, bound: usize) -> usize {
+    fn below(&mut self, bound: usize) -> usize {
         (self.next_u64() % bound as u64) as usize
     }
 }

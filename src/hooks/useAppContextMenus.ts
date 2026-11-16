@@ -60,11 +60,11 @@ import { useContextMenu } from '../context/ContextMenuContext';
 import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { JobKind, useProcessStore } from '../store/useProcessStore';
-import { useUIStore } from '../store/useUIStore';
+import { CLOSED_PANORAMA_MODAL_STATE, useUIStore } from '../store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { getOpenImageDefaults, hasCustomDefaults, openImageHasCustomDefaults } from '../utils/developDefaults';
 import { Invokes } from '../types/invokes';
-import { ImageFlag, AlbumItem, Album, AlbumGroup, DEFAULT_PANORAMA_SETTINGS } from '../types/library';
+import { ImageFlag, AlbumItem, Album, AlbumGroup } from '../types/library';
 import { Option, OPTION_SEPARATOR, Panel } from '../types/ui';
 import { EditInApp } from '../types/settings';
 import {
@@ -887,14 +887,8 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
               onClick: () => {
                 setUI({
                   panoramaModalState: {
-                    error: null,
-                    finalImageBase64: null,
+                    ...CLOSED_PANORAMA_MODAL_STATE,
                     isOpen: true,
-                    isProcessing: false,
-                    isUpdatingPreview: false,
-                    previewInfo: null,
-                    progressMessage: null,
-                    settings: DEFAULT_PANORAMA_SETTINGS,
                     stitchingSourcePaths: finalSelection,
                   },
                 });

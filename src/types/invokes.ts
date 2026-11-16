@@ -96,6 +96,7 @@ export enum Invokes {
   SampleHslMixerArea = 'sample_hsl_mixer_area',
   GetDepthPreview = 'get_depth_preview',
   UpdatePanoramaPreview = 'update_panorama_preview',
+  DiscardPanorama = 'discard_panorama',
   UpdateWgpuTransform = 'update_wgpu_transform',
   SetUiScale = 'set_ui_scale',
   ReleaseOriginalPreview = 'release_original_preview',

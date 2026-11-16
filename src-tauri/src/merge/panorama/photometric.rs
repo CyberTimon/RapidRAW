@@ -1,5 +1,5 @@
 use super::camera::{Camera, Lens};
-use super::raster::Raster;
+use super::raster::{Raster, luminance};
 use nalgebra::{DMatrix, DVector, Vector2};
 use rayon::prelude::*;
 
@@ -26,8 +26,7 @@ pub struct Photometric {
 struct Sample {
     a: usize,
     b: usize,
-    r2_a: f64,
-    r2_b: f64,
+    vignetting_basis: [f64; 3],
     log_a: [f64; 3],
     log_b: [f64; 3],
 }
@@ -73,24 +72,14 @@ fn sample_patch(image: &Raster, x: f64, y: f64) -> Option<([f32; 3], f32)> {
             for c in 0..3 {
                 sum[c] += p[c];
             }
-            let lum = 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
+            let lum = luminance(p);
             lum_min = lum_min.min(lum);
             lum_max = lum_max.max(lum);
             count += 1.0;
         }
     }
     let mean = [sum[0] / count, sum[1] / count, sum[2] / count];
-    let lum = 0.2126 * mean[0] + 0.7152 * mean[1] + 0.0722 * mean[2];
-    Some((mean, (lum_max - lum_min) / lum.max(1e-4)))
-}
-
-fn to_level(camera: &Camera, level: &Raster, p: &Vector2<f64>) -> (f64, f64) {
-    let sx = level.width as f64 / camera.width;
-    let sy = level.height as f64 / camera.height;
-    (
-        (p.x + 0.5 * camera.width) * sx - 0.5,
-        (p.y + 0.5 * camera.height) * sy - 0.5,
-    )
+    Some((mean, (lum_max - lum_min) / luminance(&mean).max(1e-4)))
 }
 
 fn collect_samples(
@@ -101,6 +90,7 @@ fn collect_samples(
     b: usize,
 ) -> Vec<Sample> {
     let (ca, cb) = (&cameras[a], &cameras[b]);
+    let (ra, rb) = (ca.radius_norm(), cb.radius_norm());
     let mut samples = Vec::new();
     for gy in 0..SAMPLE_GRID {
         for gx in 0..SAMPLE_GRID {
@@ -115,8 +105,8 @@ fn collect_samples(
             if q.x.abs() > 0.48 * cb.width || q.y.abs() > 0.48 * cb.height {
                 continue;
             }
-            let (ax, ay) = to_level(ca, images[a], &p);
-            let (bx, by) = to_level(cb, images[b], &q);
+            let (ax, ay) = ca.level_position(images[a], &p);
+            let (bx, by) = cb.level_position(images[b], &q);
             let (Some((va, ka)), Some((vb, kb))) = (
                 sample_patch(images[a], ax, ay),
                 sample_patch(images[b], bx, by),
@@ -124,21 +114,23 @@ fn collect_samples(
                 continue;
             };
             let usable = |v: &[f32; 3], k: f32| {
-                let lum = 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
-                lum > MIN_LUMINANCE
+                luminance(v) > MIN_LUMINANCE
                     && v.iter().all(|&c| c > 1e-5 && c < MAX_CHANNEL)
                     && k < MAX_LOCAL_CONTRAST
             };
             if !usable(&va, ka) || !usable(&vb, kb) {
                 continue;
             }
-            let ra = ca.radius_norm();
-            let rb = cb.radius_norm();
+            let r2_a = p.norm_squared() / (ra * ra);
+            let r2_b = q.norm_squared() / (rb * rb);
             samples.push(Sample {
                 a,
                 b,
-                r2_a: p.norm_squared() / (ra * ra),
-                r2_b: q.norm_squared() / (rb * rb),
+                vignetting_basis: [
+                    r2_a - r2_b,
+                    r2_a.powi(2) - r2_b.powi(2),
+                    r2_a.powi(3) - r2_b.powi(3),
+                ],
                 log_a: [va[0].ln() as f64, va[1].ln() as f64, va[2].ln() as f64],
                 log_b: [vb[0].ln() as f64, vb[1].ln() as f64, vb[2].ln() as f64],
             });
@@ -168,18 +160,20 @@ fn solve(
         let mut atb = DVector::<f64>::zeros(unknowns);
         for (s, w) in samples.iter().zip(weights.iter()) {
             for (c, channel_weight) in w.iter().enumerate() {
-                let mut row: Vec<(usize, f64)> = vec![(s.a * 3 + c, 1.0), (s.b * 3 + c, -1.0)];
-                if with_vignetting {
-                    let base = count * 3;
-                    row.push((base, s.r2_a - s.r2_b));
-                    row.push((base + 1, s.r2_a.powi(2) - s.r2_b.powi(2)));
-                    row.push((base + 2, s.r2_a.powi(3) - s.r2_b.powi(3)));
-                }
+                let v = &s.vignetting_basis;
+                let full_row = [
+                    (s.a * 3 + c, 1.0),
+                    (s.b * 3 + c, -1.0),
+                    (count * 3, v[0]),
+                    (count * 3 + 1, v[1]),
+                    (count * 3 + 2, v[2]),
+                ];
+                let row = &full_row[..if with_vignetting { 5 } else { 2 }];
                 let rhs = s.log_a[c] - s.log_b[c];
                 let weight = data_weight * channel_weight;
-                for &(i, vi) in &row {
+                for &(i, vi) in row {
                     atb[i] += weight * vi * rhs;
-                    for &(j, vj) in &row {
+                    for &(j, vj) in row {
                         ata[(i, j)] += weight * vi * vj;
                     }
                 }
@@ -204,9 +198,10 @@ fn solve(
                 let mut predicted = solution[s.a * 3 + c] - solution[s.b * 3 + c];
                 if with_vignetting {
                     let base = count * 3;
-                    predicted += solution[base] * (s.r2_a - s.r2_b)
-                        + solution[base + 1] * (s.r2_a.powi(2) - s.r2_b.powi(2))
-                        + solution[base + 2] * (s.r2_a.powi(3) - s.r2_b.powi(3));
+                    let v = &s.vignetting_basis;
+                    predicted += solution[base] * v[0]
+                        + solution[base + 1] * v[1]
+                        + solution[base + 2] * v[2];
                 }
                 let residual = (s.log_a[c] - s.log_b[c] - predicted).abs();
                 w[c] = if residual <= HUBER_THRESHOLD {

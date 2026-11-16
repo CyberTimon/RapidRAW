@@ -694,6 +694,7 @@ pub fn run() {
             merge::panorama::stitch_panorama,
             merge::panorama::save_panorama,
             merge::panorama::update_panorama_preview,
+            merge::panorama::discard_panorama,
             export::export_images,
             export::tasks::cancel_export,
             export::size_estimate::estimate_export_sizes,

@@ -1,4 +1,5 @@
 use super::homography::Correspondence;
+use super::raster::Raster;
 use nalgebra::{DMatrix, DVector, Matrix3, Rotation3, SymmetricEigen, Vector2, Vector3};
 use rayon::prelude::*;
 use std::collections::VecDeque;
@@ -108,6 +109,13 @@ impl Camera {
         }
         let u = Vector2::new(self.focal * c.x / c.z, self.focal * c.y / c.z);
         self.distort(lens, u)
+    }
+
+    pub fn level_position(&self, level: &Raster, p: &Vector2<f64>) -> (f64, f64) {
+        (
+            (p.x + 0.5 * self.width) * (level.width as f64 / self.width) - 0.5,
+            (p.y + 0.5 * self.height) * (level.height as f64 / self.height) - 0.5,
+        )
     }
 
     pub fn contains(&self, p: &Vector2<f64>) -> bool {

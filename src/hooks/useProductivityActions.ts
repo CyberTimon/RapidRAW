@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { toast } from 'react-toastify';
 import { useUIStore } from '../store/useUIStore';
 import { Invokes } from '../types/invokes';
 import { PanoramaPreview, PanoramaSettings } from '../types/library';
@@ -56,6 +57,7 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
   const handlePanoramaSettingsChange = useCallback(
     async (settings: PanoramaSettings) => {
       const requestId = ++panoramaPreviewRequest.current;
+      const previousSettings = useUIStore.getState().panoramaModalState.settings;
       setUI((state) => ({
         panoramaModalState: { ...state.panoramaModalState, settings, isUpdatingPreview: true },
       }));
@@ -73,8 +75,9 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
       } catch (err) {
         if (requestId !== panoramaPreviewRequest.current) return;
         console.error('Failed to update panorama preview:', err);
+        toast.error(String(err));
         setUI((state) => ({
-          panoramaModalState: { ...state.panoramaModalState, error: String(err), isUpdatingPreview: false },
+          panoramaModalState: { ...state.panoramaModalState, settings: previousSettings, isUpdatingPreview: false },
         }));
       }
     },

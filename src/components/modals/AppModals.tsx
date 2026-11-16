@@ -1,6 +1,6 @@
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
-import { useUIStore } from '../../store/useUIStore';
+import { closePanoramaModal, useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useProcessStore } from '../../store/useProcessStore';
@@ -16,7 +16,7 @@ import ImportSettingsModal from './ImportSettingsModal';
 import CullingModal from './CullingModal';
 import CollageModal from './CollageModal';
 import { AppSettings } from '../../types/settings';
-import { ImageFlag, AlbumItem, AlbumGroup, DEFAULT_PANORAMA_SETTINGS, PanoramaSettings } from '../../types/library';
+import { ImageFlag, AlbumItem, AlbumGroup, PanoramaSettings } from '../../types/library';
 import { CopyPasteSettings } from '../../utils/adjustments';
 
 export interface AppModalsProps {
@@ -147,21 +147,7 @@ export default function AppModals(props: AppModalsProps) {
         isProcessing={panoramaModalState.isProcessing}
         isUpdatingPreview={panoramaModalState.isUpdatingPreview}
         loadingImageUrl={panoramaModalState.stitchingSourcePaths.length > 0 ? panoramaThumbnail || null : null}
-        onClose={() =>
-          setUI({
-            panoramaModalState: {
-              isOpen: false,
-              isProcessing: false,
-              isUpdatingPreview: false,
-              previewInfo: null,
-              progressMessage: '',
-              finalImageBase64: null,
-              error: null,
-              settings: DEFAULT_PANORAMA_SETTINGS,
-              stitchingSourcePaths: [],
-            },
-          })
-        }
+        onClose={closePanoramaModal}
         onOpenFile={(path: string) => props.handleImageSelect(path)}
         onSave={props.handleSavePanorama}
         onSettingsChange={props.handlePanoramaSettingsChange}

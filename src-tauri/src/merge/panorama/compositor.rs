@@ -5,6 +5,7 @@ use super::photometric::Photometric;
 use super::projection::{Projection, ProjectionMode, plan_canvas};
 use super::raster::{Raster, Rect, push_pull_fill};
 use super::seams::{NO_LABEL, SeamLayer, find_seams};
+use crate::render::image_processing::linear_channel_to_srgb;
 use nalgebra::Vector3;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -72,6 +73,10 @@ impl CompositionPlan {
         (MAX_OUTPUT_PIXELS / area).sqrt().min(1.0)
     }
 
+    pub fn magnification(&self, camera: &Camera, scale: f64) -> f64 {
+        magnification(&self.layout, camera, scale)
+    }
+
     pub fn output_size(&self, scale: f64, orientation: Orientation) -> (usize, usize) {
         let w = ((self.layout.crop.width * scale).round() as usize).max(1);
         let h = ((self.layout.crop.height * scale).round() as usize).max(1);
@@ -88,12 +93,8 @@ pub enum Interpolation {
     Bicubic,
 }
 
-pub fn encode_srgb(c: f32) -> f32 {
-    if c <= 0.0031308 {
-        c.max(0.0) * 12.92
-    } else {
-        1.055 * c.powf(1.0 / 2.4) - 0.055
-    }
+fn magnification(layout: &OutputLayout, camera: &Camera, scale: f64) -> f64 {
+    scale * layout.canvas.scale / camera.focal
 }
 
 fn select_level(source: &SourceImage, camera: &Camera, magnification: f64) -> usize {
@@ -121,10 +122,7 @@ fn warp_layer(
     let camera = &scene.cameras[image];
     let source = scene.sources[image];
     let lens = scene.lens;
-    let magnification = scale * layout.canvas.scale / camera.focal;
-    let level = &source.levels[select_level(source, camera, magnification)];
-    let sx = level.width as f64 / camera.width;
-    let sy = level.height as f64 / camera.height;
+    let level = &source.levels[select_level(source, camera, magnification(layout, camera, scale))];
     let r_norm = camera.radius_norm();
 
     let mut color = Raster::new(rect.width, rect.height, 3);
@@ -145,8 +143,7 @@ fn warp_layer(
                 let Some(p) = camera.project(&lens, &ray) else {
                     continue;
                 };
-                let px = (p.x + 0.5 * camera.width) * sx - 0.5;
-                let py = (p.y + 0.5 * camera.height) * sy - 0.5;
+                let (px, py) = camera.level_position(level, &p);
                 if px < -0.5
                     || py < -0.5
                     || px > level.width as f64 - 0.5
@@ -161,7 +158,7 @@ fn warp_layer(
                 let r2 = (p.norm_squared() / (r_norm * r_norm)) as f32;
                 let gain = photometric.correction(image, r2);
                 for c in 0..3 {
-                    row[lx * 3 + c] = encode_srgb(sample[c].max(0.0) * gain[c]);
+                    row[lx * 3 + c] = linear_channel_to_srgb(sample[c] * gain[c]);
                 }
                 valid_row[lx] = 1.0;
             }
@@ -476,20 +473,35 @@ fn rotate_counter_clockwise(src: &Raster) -> Raster {
     out
 }
 
-pub fn build_levels(full: Raster, min_dimension: usize) -> Vec<Raster> {
-    let mut levels = vec![full];
-    while levels
-        .last()
-        .unwrap()
-        .width
-        .min(levels.last().unwrap().height)
-        / 2
-        >= min_dimension
-    {
-        let next = super::raster::downsample_box(levels.last().unwrap());
-        levels.push(next);
+pub fn build_levels(full: Raster, min_dimension: usize, max_dimension: usize) -> Vec<Raster> {
+    let mut levels = Vec::new();
+    let mut level = full;
+    loop {
+        let next = (level.width.min(level.height) / 2 >= min_dimension)
+            .then(|| super::raster::downsample_box(&level));
+        if level.width.max(level.height) <= max_dimension || next.is_none() {
+            levels.push(level);
+        }
+        match next {
+            Some(next) => level = next,
+            None => return levels,
+        }
     }
-    levels
+}
+
+pub fn level_for_magnification(
+    full: Raster,
+    camera: &Camera,
+    magnification: f64,
+    min_dimension: usize,
+) -> Raster {
+    let mut level = full;
+    while level.width.min(level.height) / 2 >= min_dimension
+        && (level.width / 2) as f64 / camera.width >= magnification
+    {
+        level = super::raster::downsample_box(&level);
+    }
+    level
 }
 
 pub fn level_for_size(levels: &[Raster], max_dimension: usize) -> &Raster {

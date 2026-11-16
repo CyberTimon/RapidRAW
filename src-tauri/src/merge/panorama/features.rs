@@ -401,6 +401,14 @@ fn layer_for_sigma(octave_sigma: f32) -> usize {
     (layer.max(0.0) as usize).min(SCALES_PER_OCTAVE + 2)
 }
 
+#[inline]
+fn gradient(image: &Raster, x: isize, y: isize) -> (f32, f32, f32) {
+    let w = image.width as isize;
+    let gx = image.data[(y * w + x + 1) as usize] - image.data[(y * w + x - 1) as usize];
+    let gy = image.data[((y + 1) * w + x) as usize] - image.data[((y - 1) * w + x) as usize];
+    (gx, gy, (gx * gx + gy * gy).sqrt())
+}
+
 fn assign_orientations(
     octave_images: &[Raster],
     kp: &Keypoint,
@@ -426,10 +434,7 @@ fn assign_orientations(
             if x <= 0 || x >= w - 1 {
                 continue;
             }
-            let gx = image.data[(y * w + x + 1) as usize] - image.data[(y * w + x - 1) as usize];
-            let gy =
-                image.data[((y + 1) * w + x) as usize] - image.data[((y - 1) * w + x) as usize];
-            let magnitude = (gx * gx + gy * gy).sqrt();
+            let (gx, gy, magnitude) = gradient(image, x, y);
             let weight = ((dx * dx + dy * dy) as f32 * weight_factor).exp();
             let angle = gy.atan2(gx);
             let bin = ((angle + PI) / (2.0 * PI) * ORIENTATION_BINS as f32).round() as isize;
@@ -502,10 +507,7 @@ fn compute_descriptor(
             if y <= 0 || y >= h - 1 || x <= 0 || x >= w - 1 {
                 continue;
             }
-            let gx = image.data[(y * w + x + 1) as usize] - image.data[(y * w + x - 1) as usize];
-            let gy =
-                image.data[((y + 1) * w + x) as usize] - image.data[((y - 1) * w + x) as usize];
-            let magnitude = (gx * gx + gy * gy).sqrt();
+            let (gx, gy, magnitude) = gradient(image, x, y);
             let weight = ((c_rot * c_rot + r_rot * r_rot) * exp_scale).exp();
             let mut obin = (gy.atan2(gx) - kp.angle) * bins_per_rad;
             obin = obin.rem_euclid(n as f32);

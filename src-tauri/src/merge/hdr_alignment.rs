@@ -31,6 +31,7 @@ const MATCH_RATIO_THRESHOLD: f32 = 0.8;
 const RANSAC_ITERATIONS: usize = 2500;
 const RANSAC_INLIER_THRESHOLD: f64 = 5.0;
 pub const MIN_INLIERS_FOR_CONNECTION: usize = 15;
+
 pub fn calculate_downscale_dimensions_capped(
     width: u32,
     height: u32,
@@ -309,7 +310,7 @@ fn are_points_collinear(p1: Point2<f64>, p2: Point2<f64>, p3: Point2<f64>) -> bo
     area.abs() < 1e-6
 }
 
-pub fn compute_homography(points: &[(Point2<f64>, Point2<f64>)]) -> Option<Matrix3<f64>> {
+fn compute_homography(points: &[(Point2<f64>, Point2<f64>)]) -> Option<Matrix3<f64>> {
     if points.len() < 4 {
         return None;
     }
@@ -353,6 +354,7 @@ fn convert_gray_u8_to_f32(img: &GrayImage) -> ImageBuffer<Luma<f32>, Vec<f32>> {
         Luma([img.get_pixel(x, y)[0] as f32 / 255.0])
     })
 }
+
 pub fn warp_image_homography(
     source: &Rgb32FImage,
     homography: &Matrix3<f64>,

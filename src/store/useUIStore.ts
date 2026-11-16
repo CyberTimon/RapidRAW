@@ -48,6 +48,18 @@ interface PanoramaModalState {
   stitchingSourcePaths: Array<string>;
 }
 
+export const CLOSED_PANORAMA_MODAL_STATE: PanoramaModalState = {
+  error: null,
+  finalImageBase64: null,
+  isOpen: false,
+  isProcessing: false,
+  isUpdatingPreview: false,
+  previewInfo: null,
+  progressMessage: null,
+  settings: DEFAULT_PANORAMA_SETTINGS,
+  stitchingSourcePaths: [],
+};
+
 interface FocusStackModalState {
   error: string | null;
   finalImageBase64: string | null;
@@ -440,17 +452,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   albumActionTarget: null,
 
   confirmModalState: { isOpen: false },
-  panoramaModalState: {
-    error: null,
-    finalImageBase64: null,
-    isOpen: false,
-    isProcessing: false,
-    isUpdatingPreview: false,
-    previewInfo: null,
-    progressMessage: '',
-    settings: DEFAULT_PANORAMA_SETTINGS,
-    stitchingSourcePaths: [],
-  },
+  panoramaModalState: CLOSED_PANORAMA_MODAL_STATE,
   focusStackModalState: {
     error: null,
     finalImageBase64: null,
@@ -613,3 +615,8 @@ useUIStore.subscribe((state, prev) => {
     setEditor({ cropSessionSnapshot: null });
   }
 });
+
+export const closePanoramaModal = () => {
+  useUIStore.getState().setUI({ panoramaModalState: CLOSED_PANORAMA_MODAL_STATE });
+  invoke(Invokes.DiscardPanorama).catch((err) => console.error('Failed to discard panorama:', err));
+};
