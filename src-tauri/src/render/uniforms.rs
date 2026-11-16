@@ -233,10 +233,47 @@ pub struct MaskAdjustments {
 
 pub const MAX_MASKS: usize = 32;
 
+#[derive(Debug, Clone, Copy, Pod, Zeroable)]
+#[repr(C)]
+pub struct ThreeDcfUniforms {
+    pub input_matrix: GpuMat3,
+    pub output_matrix: GpuMat3,
+    pub luma: [f32; 4],
+    pub ssts: [f32; 4],
+    pub ssts2: [f32; 4],
+    pub params: [f32; 4],
+    pub params2: [f32; 4],
+    pub spectral_boundary: [f32; 360],
+    pub gamut_reach: [f32; 360],
+}
+
+impl Default for ThreeDcfUniforms {
+    fn default() -> Self {
+        let ctx = crate::render::three_dcf::context();
+        Self {
+            input_matrix: mat3_to_gpu_mat3(ctx.input_matrix),
+            output_matrix: mat3_to_gpu_mat3(ctx.output_matrix),
+            luma: [ctx.luma[0], ctx.luma[1], ctx.luma[2], 0.0],
+            ssts: [ctx.s_2, ctx.m_2, ctx.g, ctx.t_1],
+            ssts2: [ctx.n_r, ctx.n, 0.0, 0.0],
+            params: [0.0, ctx.gamut_knee, ctx.gamut_steepness, 0.0],
+            params2: [
+                0.0,
+                ctx.white_chroma_x,
+                ctx.white_chroma_z,
+                ctx.exposure_factor,
+            ],
+            spectral_boundary: ctx.spectral_boundary,
+            gamut_reach: crate::render::three_dcf::GAMUT_REACH,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Pod, Zeroable, Default)]
 #[repr(C)]
 pub struct AllAdjustments {
     pub global: GlobalAdjustments,
+    pub three_dcf: ThreeDcfUniforms,
     pub mask_adjustments: [MaskAdjustments; MAX_MASKS],
     pub mask_count: u32,
     pub tile_offset_x: u32,
@@ -771,8 +808,11 @@ fn get_global_adjustments_from_json(
         has_lut,
         lut_intensity,
 
-        tonemapper_mode: tonemapper_override
-            .unwrap_or_else(|| if tone_mapper == "agx" { 1 } else { 0 }),
+        tonemapper_mode: tonemapper_override.unwrap_or(match tone_mapper {
+            "agx" => 1,
+            "3dcf" => 2,
+            _ => 0,
+        }),
         lut_is_scene_referred,
         vignette_center_x: get_val("vignette", "vignetteCenterX", 1.0, Some(0.5)),
         vignette_center_y: get_val("vignette", "vignetteCenterY", 1.0, Some(0.5)),
@@ -1072,6 +1112,7 @@ pub fn get_all_adjustments_from_json(
 
     AllAdjustments {
         global,
+        three_dcf: ThreeDcfUniforms::default(),
         mask_adjustments,
         mask_count,
         tile_offset_x: 0,

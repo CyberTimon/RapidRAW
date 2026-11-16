@@ -10,7 +10,9 @@
         "agx": "AgX",
         "agxDesc": "Filmachtige toonmapping",
         "basic": "Basis",
-        "basicDesc": "Standaard toonmapping"
+        "basicDesc": "Standaard toonmapping",
+        "threeDcf": "3DCF",
+        "threeDcfDesc": "ACES 2.0 SSTS film-like Tonemapping"
       },
       "reset": "Opnieuw instellen",
       "shadows": "Schaduwen",
@@ -2235,7 +2237,8 @@
         "title": "Afbeeldingsvoorverwerking",
         "tonemapperOptions": {
           "agx": "AgX",
-          "basic": "Basis"
+          "basic": "Basis",
+          "threeDcf": "3DCF"
         },
         "tonemapperOverride": "Globale toonmappingoverride",
         "tonemapperOverrideDesc": "Forceer een specifieke toonmapping globaal voor alle afbeeldingen, waardoor de toonmappingschakelaar verborgen wordt in het aanpassingspaneel."

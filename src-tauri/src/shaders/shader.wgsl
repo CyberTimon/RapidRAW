@@ -189,8 +189,21 @@ struct MaskAdjustments {
     _pad_end7: f32,
 }
 
+struct ThreeDcfUniforms {
+    input_matrix: mat3x3<f32>,
+    output_matrix: mat3x3<f32>,
+    luma: vec4<f32>,
+    ssts: vec4<f32>,
+    ssts2: vec4<f32>,
+    params: vec4<f32>,
+    params2: vec4<f32>,
+    spectral_boundary: array<f32, 360>,
+    gamut_reach: array<f32, 360>,
+}
+
 struct AllAdjustments {
     global: GlobalAdjustments,
+    three_dcf: ThreeDcfUniforms,
     mask_adjustments: array<MaskAdjustments, 32>,
     mask_count: u32,
     tile_offset_x: u32,
@@ -344,6 +357,7 @@ const F_LUT: u32 = 256u;
 const F_CA: u32 = 512u;
 const F_AGX: u32 = 1024u;
 const F_MONOCHROME: u32 = 2048u;
+const F_3DCF: u32 = 4096u;
 
 fn has_feature(f: u32) -> bool {
     return (FEATURES & f) != 0u;
@@ -1796,9 +1810,214 @@ fn agx_full_transform(color_in: vec3<f32>) -> vec3<f32> {
     return final_color;
 }
 
+fn three_dcf_is_finite(v: f32) -> bool {
+    return v == v && abs(v) < 1.0e30;
+}
+
+fn three_dcf_reach_from_table(h: f32) -> f32 {
+    if (!three_dcf_is_finite(h)) {
+        return 0.0;
+    }
+    var hw = h % 360.0;
+    if (hw < 0.0) {
+        hw += 360.0;
+    }
+    let i0 = u32(hw);
+    let i1 = (i0 + 1u) % 360u;
+    let t = hw - f32(i0);
+    let a = adjustments.three_dcf.gamut_reach[i0];
+    let b = adjustments.three_dcf.gamut_reach[i1];
+    return a + t * (b - a);
+}
+
+fn three_dcf_chroma_norm(h: f32) -> f32 {
+    let hr = h * (3.141592653589793 / 180.0);
+    let a = cos(hr);
+    let b = sin(hr);
+    let a2 = a * a - b * b;
+    let b2 = 2.0 * a * b;
+    let a3 = 4.0 * a * a * a - 3.0 * a;
+    let b3 = 3.0 * b - 4.0 * b * b * b;
+    return 11.34072 * a + 16.46899 * a2 + 7.88380 * a3
+         + 14.66441 * b - 6.37224 * b2 + 9.19364 * b3
+         + 77.12896;
+}
+
+fn three_dcf_hue_angle_deg(dz: f32, dx: f32) -> f32 {
+    var angle = atan2(dz, dx) * (180.0 / 3.141592653589793);
+    if (angle < 0.0) {
+        angle += 360.0;
+    }
+    if (angle >= 360.0) {
+        angle -= 360.0;
+    }
+    return angle;
+}
+
+fn three_dcf_spectral_gamut(x_in: f32, z_in: f32, y_tm: f32) -> vec2<f32> {
+    var x_tm = x_in;
+    var z_tm = z_in;
+    if (y_tm <= 0.0 || !three_dcf_is_finite(x_tm) || !three_dcf_is_finite(z_tm)) {
+        return vec2<f32>(x_tm, z_tm);
+    }
+    let sum = x_tm + y_tm + z_tm;
+    if (sum <= 0.0) {
+        return vec2<f32>(x_tm, z_tm);
+    }
+
+    let white_x = adjustments.three_dcf.params2.y;
+    let white_z = adjustments.three_dcf.params2.z;
+    let white_sum = white_x + 1.0 + white_z;
+    let white_cie_x = white_x / white_sum;
+    let white_cie_z = white_z / white_sum;
+
+    var cie_x = x_tm / sum;
+    var cie_z = z_tm / sum;
+    var dx = cie_x - white_cie_x;
+    var dz = cie_z - white_cie_z;
+    var chroma_sq = dx * dx + dz * dz;
+
+    let boundary_angle = three_dcf_hue_angle_deg(dz, dx);
+    let boundary_bin = u32(boundary_angle) % 360u;
+    let boundary_next = (boundary_bin + 1u) % 360u;
+    let boundary_frac = boundary_angle - f32(boundary_bin);
+    let boundary_a = adjustments.three_dcf.spectral_boundary[boundary_bin];
+    let boundary_b = adjustments.three_dcf.spectral_boundary[boundary_next];
+    let max_dist = boundary_a + boundary_frac * (boundary_b - boundary_a);
+    let target_dist = max_dist * 0.92;
+
+    if (max_dist > 0.0 && chroma_sq > target_dist * target_dist) {
+        let chroma = sqrt(chroma_sq);
+        let excess = chroma - target_dist;
+        let bsteep = max(target_dist * 0.05, 0.001);
+        let compression = excess / (excess + bsteep);
+        let scale = (chroma - compression * excess) / chroma;
+        cie_x = white_cie_x + scale * dx;
+        cie_z = white_cie_z + scale * dz;
+        let y_new = 1.0 - cie_x - cie_z;
+        if (y_new > 0.0) {
+            let s_new = y_tm / y_new;
+            x_tm = cie_x * s_new;
+            z_tm = cie_z * s_new;
+            dx = cie_x - white_cie_x;
+            dz = cie_z - white_cie_z;
+            chroma_sq = dx * dx + dz * dz;
+        }
+    }
+
+    let knee_angle = three_dcf_hue_angle_deg(dz, dx);
+    let shape = three_dcf_reach_from_table(knee_angle) / max(three_dcf_chroma_norm(knee_angle), 1e-6);
+    let shape_norm = max(shape / 2.090563, 0.0);
+    let knee = adjustments.three_dcf.params.y;
+    let steepness = max(adjustments.three_dcf.params.z, 1e-6);
+    let knee_mod = knee * sqrt(shape_norm);
+
+    if (chroma_sq > knee_mod * knee_mod) {
+        let chroma = sqrt(chroma_sq);
+        let excess = chroma - knee_mod;
+        let compression = excess / (excess + steepness);
+        let scale = (chroma - compression * excess) / chroma;
+        let x_new = white_cie_x + scale * dx;
+        let z_new = white_cie_z + scale * dz;
+        let y_new = 1.0 - x_new - z_new;
+        if (y_new > 0.0) {
+            let s_new = y_tm / y_new;
+            x_tm = x_new * s_new;
+            z_tm = z_new * s_new;
+        }
+    }
+
+    return vec2<f32>(x_tm, z_tm);
+}
+
+fn three_dcf_ssts_fwd(x: f32) -> f32 {
+    if (x <= 0.0) {
+        return 0.0;
+    }
+    let ssts = adjustments.three_dcf.ssts;
+    let f = ssts.y * pow(x / (x + ssts.x), ssts.z);
+    let h = (f * f) / (f + ssts.w);
+    return h * adjustments.three_dcf.ssts2.x;
+}
+
+fn three_dcf_compute_y_tm(y_scene: f32) -> f32 {
+    let ssts2 = adjustments.three_dcf.ssts2;
+    if (ssts2.y <= 0.0) {
+        return 0.0;
+    }
+    let y_linear = three_dcf_ssts_fwd(y_scene * adjustments.three_dcf.params2.w) / ssts2.x;
+    return min(max(y_linear, 0.0), 1.0);
+}
+
+fn three_dcf_gamut_compress(rgb_in: vec3<f32>) -> vec3<f32> {
+    let luma = dot(rgb_in, adjustments.three_dcf.luma.xyz);
+    let anchor = select(1.0, luma, luma > 1e-4);
+    var t = 0.0;
+    let cr = rgb_in.r;
+    let cg = rgb_in.g;
+    let cb = rgb_in.b;
+
+    if (cr < 0.0) {
+        let denom = anchor - cr;
+        t = max(t, select(1.0, -cr / denom, denom > 1e-6));
+    } else if (cr > 1.0) {
+        let denom = cr - anchor;
+        t = max(t, select(1.0, (cr - 1.0) / denom, denom > 1e-6));
+    }
+    if (cg < 0.0) {
+        let denom = anchor - cg;
+        t = max(t, select(1.0, -cg / denom, denom > 1e-6));
+    } else if (cg > 1.0) {
+        let denom = cg - anchor;
+        t = max(t, select(1.0, (cg - 1.0) / denom, denom > 1e-6));
+    }
+    if (cb < 0.0) {
+        let denom = anchor - cb;
+        t = max(t, select(1.0, -cb / denom, denom > 1e-6));
+    } else if (cb > 1.0) {
+        let denom = cb - anchor;
+        t = max(t, select(1.0, (cb - 1.0) / denom, denom > 1e-6));
+    }
+
+    if (t <= 0.0) {
+        return rgb_in;
+    }
+    let blend = min(t, 1.0);
+    return (1.0 - blend) * rgb_in + blend * vec3<f32>(anchor);
+}
+
+fn three_dcf_full_transform(color_in: vec3<f32>) -> vec3<f32> {
+    var c = color_in;
+    let min_c = min(c.r, min(c.g, c.b));
+    if (min_c < 0.0) {
+        c -= vec3<f32>(min_c);
+    }
+
+    let xyz = adjustments.three_dcf.input_matrix * c;
+    let y_abs = xyz.y;
+    if (!(y_abs > 1e-10) || !three_dcf_is_finite(y_abs)) {
+        return vec3<f32>(0.0);
+    }
+
+    let x_ratio = clamp(xyz.x / y_abs, -100.0, 100.0);
+    let z_ratio = clamp(xyz.z / y_abs, -100.0, 100.0);
+    let y_tm = three_dcf_compute_y_tm(y_abs);
+    let xz = three_dcf_spectral_gamut(x_ratio * y_tm, z_ratio * y_tm, y_tm);
+    var rgb = adjustments.three_dcf.output_matrix * vec3<f32>(xz.x, y_tm, xz.y);
+
+    // The tone scale and spectral gamut work on luminance/chromaticity in
+    // XYZ, preserving chromaticity.  Gamut compression happens in linear RGB
+    // and the sRGB transfer function is applied exactly once at the end.
+    rgb = three_dcf_gamut_compress(rgb);
+    return linear_to_srgb(clamp(rgb, vec3<f32>(0.0), vec3<f32>(1.0)));
+}
+
 fn display_transform(c: vec3<f32>) -> vec3<f32> {
     if (has_feature(F_AGX) && adjustments.global.tonemapper_mode == 1u) {
         return agx_full_transform(c);
+    }
+    if (has_feature(F_3DCF) && adjustments.global.tonemapper_mode == 2u) {
+        return three_dcf_full_transform(c);
     }
     if (adjustments.global.is_raw_image == 1u) {
         var srgb_emulated = linear_to_srgb(c);

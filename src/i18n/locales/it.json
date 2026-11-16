@@ -10,7 +10,9 @@
         "agx": "AgX",
         "agxDesc": "Tonemapping stile pellicola",
         "basic": "Base",
-        "basicDesc": "Tonemapping Standard"
+        "basicDesc": "Tonemapping Standard",
+        "threeDcf": "3DCF",
+        "threeDcfDesc": "ACES 2.0 SSTS film-like Tonemapping"
       },
       "reset": "Ripristina",
       "shadows": "Ombre",
@@ -2281,7 +2283,8 @@
         "title": "Pre-elaborazione Immagine",
         "tonemapperOptions": {
           "agx": "AgX",
-          "basic": "Base"
+          "basic": "Base",
+          "threeDcf": "3DCF"
         },
         "tonemapperOverride": "Sovrascrittura Tonemapper Globale",
         "tonemapperOverrideDesc": "Forza un tonemapper specifico globalmente per tutte le immagini, nascondendo il selettore del tonemapper dal pannello delle regolazioni."

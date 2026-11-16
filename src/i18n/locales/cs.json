@@ -10,7 +10,9 @@
         "agx": "AgX",
         "agxDesc": "Tonemapping jako z filmu",
         "basic": "Základní",
-        "basicDesc": "Standardní Tonemapping"
+        "basicDesc": "Standardní Tonemapping",
+        "threeDcf": "3DCF",
+        "threeDcfDesc": "ACES 2.0 SSTS film-like Tonemapping"
       },
       "reset": "Resetovat",
       "shadows": "Stíny",
@@ -2323,7 +2325,8 @@
         "title": "Předzpracování obrazu",
         "tonemapperOptions": {
           "agx": "AgX",
-          "basic": "Základní"
+          "basic": "Základní",
+          "threeDcf": "3DCF"
         },
         "tonemapperOverride": "Globální přepsání mapování tónů",
         "tonemapperOverrideDesc": "Vynutí určité mapování tónů globálně pro všechny snímky a skryje přepínač mapování tónů na panelu úprav."

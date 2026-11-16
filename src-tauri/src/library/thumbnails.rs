@@ -16,7 +16,9 @@ use crate::render::geometry::{
 use crate::render::gpu::context::{GpuContext, get_or_init_gpu_context};
 use crate::render::gpu::output::process_and_get_dynamic_image;
 use crate::render::gpu::processor::RenderRequest;
-use crate::render::image_processing::{apply_cpu_default_raw_processing, apply_exposure};
+use crate::render::image_processing::{
+    apply_cpu_default_raw_processing, apply_cpu_three_dcf_tonemap, apply_exposure,
+};
 use crate::render::options::{resolve_render_options, resolve_tonemapper_override};
 use crate::render::preview::cached_patched_image;
 use crate::render::source::{Frame, RenderSource, SourceTransform};
@@ -576,8 +578,14 @@ fn generate_thumbnail_data_with_metadata(
             effective_baseline_exposure(adjustments, as_shot(&source_path_str), render.baseline),
         );
         let use_agx = render.tonemapper_override == Some(1);
+        let use_three_dcf = render.tonemapper_override == Some(2);
 
-        if use_agx {
+        if use_three_dcf {
+            if !is_raw {
+                owned_image = crate::render::image_processing::apply_srgb_to_linear(owned_image);
+            }
+            apply_cpu_three_dcf_tonemap(&mut owned_image);
+        } else if use_agx {
             if !is_raw {
                 owned_image = crate::render::image_processing::apply_srgb_to_linear(owned_image);
             }

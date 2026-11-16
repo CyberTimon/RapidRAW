@@ -10,7 +10,9 @@
         "agx": "AgX",
         "agxDesc": "Mapeig de tons tipus pel·lícula",
         "basic": "Bàsic",
-        "basicDesc": "Mapeig de tons estàndard"
+        "basicDesc": "Mapeig de tons estàndard",
+        "threeDcf": "3DCF",
+        "threeDcfDesc": "ACES 2.0 SSTS film-like Tonemapping"
       },
       "reset": "Restablir",
       "shadows": "Ombres",
@@ -2281,7 +2283,8 @@
         "title": "Preprocessament d'imatges",
         "tonemapperOptions": {
           "agx": "AgX",
-          "basic": "Bàsic"
+          "basic": "Bàsic",
+          "threeDcf": "3DCF"
         },
         "tonemapperOverride": "Sobreescriptura global del mapejador de tons",
         "tonemapperOverrideDesc": "Força un mapejador de tons específic globalment per a totes les imatges, amagant l'interruptor del mapejador del tauler d'ajustaments."

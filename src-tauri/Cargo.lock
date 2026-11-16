@@ -43,6 +43,7 @@ dependencies = [
  "mimalloc",
  "moxcms",
  "mozjpeg-rs",
+ "naga",
  "nalgebra",
  "ndarray",
  "ndk-context",

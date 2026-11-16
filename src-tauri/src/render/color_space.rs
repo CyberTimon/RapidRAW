@@ -43,6 +43,11 @@ fn rotate_and_scale_primary(primary: Vec2, white_point: Vec2, scale: f32, rotati
     white_point + p_rotated
 }
 
+pub(crate) fn primitives_srgb_matrices() -> (Mat3, Mat3) {
+    let to_xyz = primaries_to_xyz_matrix(&PRIMARIES_SRGB, WP_D65);
+    (to_xyz, to_xyz.inverse())
+}
+
 pub fn calculate_agx_matrices_glam() -> (Mat3, Mat3) {
     let pipe_work_profile_to_xyz = primaries_to_xyz_matrix(&PRIMARIES_SRGB, WP_D65);
     let base_profile_to_xyz = primaries_to_xyz_matrix(&PRIMARIES_REC2020, WP_D65);

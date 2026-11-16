@@ -27,6 +27,7 @@ use std::sync::atomic::AtomicBool;
 fn build_single_mask_adjustments(all: &AllAdjustments, mask_index: usize) -> AllAdjustments {
     let mut single = AllAdjustments {
         global: all.global,
+        three_dcf: all.three_dcf,
         mask_adjustments: all.mask_adjustments,
         mask_count: 1,
         tile_offset_x: all.tile_offset_x,

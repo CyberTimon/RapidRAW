@@ -132,6 +132,9 @@ wayland-client = "0.31"
 wayland-backend = { version = "0.3", features = ["client_system"] }
 wayland-protocols = { version = "0.32", features = ["client"] }
 
+[dev-dependencies]
+naga = { version = "29.0", features = ["wgsl-in"] }
+
 [build-dependencies]
 tauri-build = { version = "2.6", features = [] }
 sha2 = "0.11"

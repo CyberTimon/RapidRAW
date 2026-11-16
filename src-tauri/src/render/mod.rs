@@ -11,4 +11,5 @@ pub mod preview;
 pub mod preview_jpeg;
 pub mod preview_worker;
 pub mod source;
+pub mod three_dcf;
 pub mod uniforms;

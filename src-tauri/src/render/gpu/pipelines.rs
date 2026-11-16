@@ -38,6 +38,8 @@ const F_AGX: u32 = 1024;
 
 const F_MONOCHROME: u32 = 2048;
 
+const F_3DCF: u32 = 4096;
+
 pub fn shader_features(adjustments: &AllAdjustments) -> u32 {
     let g = &adjustments.global;
     let masks = &adjustments.mask_adjustments[..(adjustments.mask_count as usize).min(MAX_MASKS)];
@@ -84,6 +86,7 @@ pub fn shader_features(adjustments: &AllAdjustments) -> u32 {
     );
     set(F_AGX, g.tonemapper_mode == 1);
     set(F_MONOCHROME, g.monochrome.enabled == 1);
+    set(F_3DCF, g.tonemapper_mode == 2);
     features
 }
 

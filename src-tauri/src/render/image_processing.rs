@@ -421,6 +421,18 @@ pub fn apply_cpu_agx_tonemap(image: &mut DynamicImage) {
     });
 }
 
+pub fn apply_cpu_three_dcf_tonemap(image: &mut DynamicImage) {
+    let ctx = crate::render::three_dcf::context();
+    let f32_image = rgb32f_mut(image);
+
+    f32_image.par_chunks_mut(3).for_each(|pixel_chunk| {
+        let out = ctx.eval_rgb([pixel_chunk[0], pixel_chunk[1], pixel_chunk[2]]);
+        pixel_chunk[0] = out[0];
+        pixel_chunk[1] = out[1];
+        pixel_chunk[2] = out[2];
+    });
+}
+
 pub fn into_rgb32f_parallel(image: DynamicImage) -> image::Rgb32FImage {
     match image {
         DynamicImage::ImageRgba32F(rgba) => {

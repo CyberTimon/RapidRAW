@@ -400,7 +400,7 @@ export interface Adjustments {
   structure: number;
   temperature: number;
   tint: number;
-  toneMapper: 'agx' | 'basic';
+  toneMapper: 'agx' | 'basic' | '3dcf';
   transformDistortion: number;
   transformVertical: number;
   transformHorizontal: number;
