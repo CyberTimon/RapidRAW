@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useUIStore } from '../store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { DEFAULT_PANORAMA_SETTINGS } from '../types/library';
 
 export function useAndroidBackHandler() {
   useEffect(() => {
@@ -51,9 +52,12 @@ export function useAndroidBackHandler() {
           panoramaModalState: {
             isOpen: false,
             isProcessing: false,
+            isUpdatingPreview: false,
+            previewInfo: null,
             progressMessage: '',
             finalImageBase64: null,
             error: null,
+            settings: DEFAULT_PANORAMA_SETTINGS,
             stitchingSourcePaths: [],
           },
         });

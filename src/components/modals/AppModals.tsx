@@ -16,13 +16,14 @@ import ImportSettingsModal from './ImportSettingsModal';
 import CullingModal from './CullingModal';
 import CollageModal from './CollageModal';
 import { AppSettings } from '../../types/settings';
-import { ImageFlag, AlbumItem, AlbumGroup } from '../../types/library';
+import { ImageFlag, AlbumItem, AlbumGroup, DEFAULT_PANORAMA_SETTINGS, PanoramaSettings } from '../../types/library';
 import { CopyPasteSettings } from '../../utils/adjustments';
 
 export interface AppModalsProps {
   handleImageSelect: (path: string) => void;
   handleSavePanorama: () => Promise<string>;
   handleStartPanorama: (paths: string[]) => void;
+  handlePanoramaSettingsChange: (settings: PanoramaSettings) => void;
   handleSaveHdr: () => Promise<string>;
   handleStartHdr: (paths: string[]) => void;
   handleStartFocusStack: (paths: string[]) => void;
@@ -144,23 +145,30 @@ export default function AppModals(props: AppModalsProps) {
         imageCount={panoramaModalState.stitchingSourcePaths.length}
         isOpen={panoramaModalState.isOpen}
         isProcessing={panoramaModalState.isProcessing}
+        isUpdatingPreview={panoramaModalState.isUpdatingPreview}
         loadingImageUrl={panoramaModalState.stitchingSourcePaths.length > 0 ? panoramaThumbnail || null : null}
         onClose={() =>
           setUI({
             panoramaModalState: {
               isOpen: false,
               isProcessing: false,
+              isUpdatingPreview: false,
+              previewInfo: null,
               progressMessage: '',
               finalImageBase64: null,
               error: null,
+              settings: DEFAULT_PANORAMA_SETTINGS,
               stitchingSourcePaths: [],
             },
           })
         }
         onOpenFile={(path: string) => props.handleImageSelect(path)}
         onSave={props.handleSavePanorama}
+        onSettingsChange={props.handlePanoramaSettingsChange}
         onStitch={() => props.handleStartPanorama(panoramaModalState.stitchingSourcePaths)}
+        previewInfo={panoramaModalState.previewInfo}
         progressMessage={panoramaModalState.progressMessage}
+        settings={panoramaModalState.settings}
       />
       <HdrModal
         error={hdrModalState.error}

@@ -64,7 +64,7 @@ import { useUIStore } from '../store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { getOpenImageDefaults, hasCustomDefaults, openImageHasCustomDefaults } from '../utils/developDefaults';
 import { Invokes } from '../types/invokes';
-import { ImageFlag, AlbumItem, Album, AlbumGroup } from '../types/library';
+import { ImageFlag, AlbumItem, Album, AlbumGroup, DEFAULT_PANORAMA_SETTINGS } from '../types/library';
 import { Option, OPTION_SEPARATOR, Panel } from '../types/ui';
 import { EditInApp } from '../types/settings';
 import {
@@ -891,7 +891,10 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
                     finalImageBase64: null,
                     isOpen: true,
                     isProcessing: false,
+                    isUpdatingPreview: false,
+                    previewInfo: null,
                     progressMessage: null,
+                    settings: DEFAULT_PANORAMA_SETTINGS,
                     stitchingSourcePaths: finalSelection,
                   },
                 });

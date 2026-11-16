@@ -1,62 +1,322 @@
-pub mod processing;
-pub mod stitching;
+pub mod alignment;
+pub mod blending;
+pub mod camera;
+pub mod compositor;
+pub mod features;
+pub mod homography;
+pub mod layout;
+pub mod matching;
+pub mod maxflow;
+pub mod photometric;
+pub mod projection;
+pub mod raster;
+pub mod seams;
 
-use crate::app::settings::load_settings;
+use crate::app::settings::{AppSettings, load_settings};
 use crate::app::state::AppState;
+use crate::decode::formats::is_raw_file;
 use crate::library::sidecars::parse_virtual_path;
+use crate::metadata::exif_processing::read_focal_length_35mm;
+use crate::render::image_processing::{apply_cpu_default_raw_processing, srgb_channel_to_linear};
+use alignment::{Alignment, AlignmentImage, align_images};
 use base64::{Engine as _, engine::general_purpose};
-use image::ImageFormat;
-use image::{DynamicImage, GenericImageView, GrayImage, Rgb32FImage};
-use nalgebra::Matrix3;
+use compositor::{
+    CompositionPlan, Interpolation, Scene, SourceImage, StitchSettings, build_levels, encode_srgb,
+    level_for_size, plan_composition, render_composition,
+};
+use features::{FeatureSet, detect_features};
+use image::codecs::jpeg::JpegEncoder;
+use image::{DynamicImage, Rgb32FImage, RgbImage};
+use projection::Projection;
+use raster::Raster;
 use rayon::prelude::*;
-use std::collections::{HashMap, HashSet, VecDeque};
+use serde::Serialize;
 use std::fs;
 use std::io::Cursor;
 use std::path::Path;
 use std::time::Instant;
 use tauri::{AppHandle, Emitter};
 
-use crate::decode::formats::is_raw_file;
-use crate::render::image_processing::apply_cpu_default_raw_processing;
+const DETECTION_MAX_DIMENSION: usize = 2000;
+const PHOTOMETRIC_MAX_DIMENSION: usize = 512;
+const MIN_LEVEL_DIMENSION: usize = 128;
+const SESSION_MAX_DIMENSION: usize = 2048;
+const MAX_FEATURES: usize = 3000;
+const PREVIEW_MAX_DIMENSION: f64 = 1600.0;
+const PREVIEW_JPEG_QUALITY: u8 = 90;
 
-pub const BRIEF_DESCRIPTOR_SIZE: usize = 256;
-pub type Descriptor = [u8; BRIEF_DESCRIPTOR_SIZE / 8];
-
-#[derive(Debug, Clone, Copy)]
-pub struct KeyPoint {
-    pub x: u32,
-    pub y: u32,
+pub struct PanoramaSession {
+    paths: Vec<String>,
+    sources: Vec<SourceImage>,
+    alignment: Alignment,
+    excluded_count: usize,
+    plan: Option<(StitchSettings, CompositionPlan)>,
 }
 
-pub struct Feature {
-    pub keypoint: KeyPoint,
-    pub descriptor: Descriptor,
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PanoramaPreview {
+    base64: String,
+    width: usize,
+    height: usize,
+    projection: Projection,
+    image_count: usize,
+    excluded_count: usize,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct Match {
-    pub index1: usize,
-    pub index2: usize,
+struct LoadedSource {
+    source: SourceImage,
+    features: FeatureSet,
+    detection_scale: f64,
+    width: f64,
+    height: f64,
+    focal_35mm: Option<f64>,
 }
 
-pub struct ImageInfo {
-    pub id: usize,
-    pub filename: String,
-    pub image: Rgb32FImage,
-    pub low_detail_mask: GrayImage,
-    pub scale_factor: f64,
-    pub features: Vec<Feature>,
+impl PanoramaSession {
+    fn scene(&self) -> Scene<'_> {
+        self.scene_with(&self.sources)
+    }
+
+    fn scene_with<'a>(&'a self, sources: &'a [SourceImage]) -> Scene<'a> {
+        Scene {
+            sources: sources.iter().collect(),
+            cameras: &self.alignment.cameras,
+            lens: self.alignment.lens,
+            photometric: &self.alignment.photometric,
+            orientation: self.alignment.orientation,
+        }
+    }
+
+    fn plan_for(&mut self, settings: &StitchSettings) -> Result<&CompositionPlan, String> {
+        let cached = self
+            .plan
+            .as_ref()
+            .is_some_and(|(cached_settings, _)| cached_settings == settings);
+        if !cached {
+            let plan = plan_composition(&self.scene(), settings)?;
+            self.plan = Some((*settings, plan));
+        }
+        Ok(&self.plan.as_ref().unwrap().1)
+    }
+
+    fn render_preview(
+        &mut self,
+        settings: &StitchSettings,
+    ) -> Result<(Raster, Projection), String> {
+        self.plan_for(settings)?;
+        let plan = &self.plan.as_ref().unwrap().1;
+        let (w, h) = plan.output_size(1.0, self.alignment.orientation);
+        let scale = (PREVIEW_MAX_DIMENSION / w.max(h) as f64).min(plan.full_scale());
+        let image =
+            render_composition(&self.scene(), plan, scale, Interpolation::Bilinear, &|_| {});
+        Ok((image, plan.projection()))
+    }
+
+    fn render_full(
+        &mut self,
+        settings: &StitchSettings,
+        app_settings: &AppSettings,
+        progress: &dyn Fn(String),
+    ) -> Result<Raster, String> {
+        self.plan_for(settings)?;
+        progress("Loading full resolution images...".to_string());
+        let sources: Vec<SourceImage> = self
+            .paths
+            .par_iter()
+            .map(|path| load_full_resolution(path, app_settings))
+            .collect::<Result<_, _>>()?;
+        let plan = &self.plan.as_ref().unwrap().1;
+        Ok(render_composition(
+            &self.scene_with(&sources),
+            plan,
+            plan.full_scale(),
+            Interpolation::Bicubic,
+            progress,
+        ))
+    }
+
+    fn preview(&mut self, settings: &StitchSettings) -> Result<PanoramaPreview, String> {
+        let (image, projection) = self.render_preview(settings)?;
+        let rgb: Vec<u8> = image
+            .data
+            .par_iter()
+            .map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
+            .collect();
+        let rgb = RgbImage::from_raw(image.width as u32, image.height as u32, rgb)
+            .ok_or("Failed to create panorama preview.")?;
+        let mut buf = Cursor::new(Vec::new());
+        JpegEncoder::new_with_quality(&mut buf, PREVIEW_JPEG_QUALITY)
+            .encode_image(&rgb)
+            .map_err(|e| format!("Failed to encode panorama preview: {}", e))?;
+
+        let plan = &self.plan.as_ref().unwrap().1;
+        let (width, height) = plan.output_size(plan.full_scale(), self.alignment.orientation);
+        Ok(PanoramaPreview {
+            base64: format!(
+                "data:image/jpeg;base64,{}",
+                general_purpose::STANDARD.encode(buf.get_ref())
+            ),
+            width,
+            height,
+            projection,
+            image_count: self.sources.len(),
+            excluded_count: self.excluded_count,
+        })
+    }
 }
 
-#[derive(Clone)]
-pub struct MatchInfo {
-    pub homography: Matrix3<f64>,
-    pub inliers: usize,
+fn file_name(path: &str) -> String {
+    Path::new(path)
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .into_owned()
+}
+
+fn decode_linear(path: &str, file_bytes: &[u8], settings: &AppSettings) -> Result<Raster, String> {
+    let mut dynamic_image = crate::decode::image_loader::load_base_image_from_bytes(
+        file_bytes, path, false, settings, None,
+    )
+    .map_err(|e| format!("Failed to load image {}: {}", path, e))?;
+    if is_raw_file(path) {
+        apply_cpu_default_raw_processing(&mut dynamic_image);
+    }
+
+    let rgb = dynamic_image.into_rgb32f();
+    let (width, height) = (rgb.width() as usize, rgb.height() as usize);
+    let mut data = rgb.into_raw();
+    data.par_iter_mut()
+        .for_each(|v| *v = srgb_channel_to_linear(v.max(0.0)));
+    Ok(Raster::from_data(width, height, 3, data))
+}
+
+fn load_full_resolution(path: &str, settings: &AppSettings) -> Result<SourceImage, String> {
+    let file_bytes = fs::read(path).map_err(|e| format!("Failed to read image {}: {}", path, e))?;
+    let full = decode_linear(path, &file_bytes, settings)?;
+    Ok(SourceImage {
+        levels: build_levels(full, MIN_LEVEL_DIMENSION),
+    })
+}
+
+fn load_source(path: &str, settings: &AppSettings) -> Result<LoadedSource, String> {
+    let file_bytes = fs::read(path).map_err(|e| format!("Failed to read image {}: {}", path, e))?;
+    let full = decode_linear(path, &file_bytes, settings)?;
+    let (width, height) = (full.width, full.height);
+    let mut levels = build_levels(full, MIN_LEVEL_DIMENSION);
+
+    let detection_level = level_for_size(&levels, DETECTION_MAX_DIMENSION);
+    let gray = Raster::from_data(
+        detection_level.width,
+        detection_level.height,
+        1,
+        detection_level
+            .data
+            .par_chunks(3)
+            .map(|p| encode_srgb(0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2]))
+            .collect(),
+    );
+    let features = detect_features(&gray, MAX_FEATURES);
+    println!("    Found {} features in '{}'", features.len(), path);
+    let detection_scale = width as f64 / detection_level.width as f64;
+
+    let first_kept = levels
+        .iter()
+        .position(|l| l.width.max(l.height) <= SESSION_MAX_DIMENSION)
+        .unwrap_or(levels.len() - 1);
+    levels.drain(..first_kept);
+
+    Ok(LoadedSource {
+        detection_scale,
+        source: SourceImage { levels },
+        features,
+        width: width as f64,
+        height: height as f64,
+        focal_35mm: read_focal_length_35mm(&file_bytes).map(|f| f as f64),
+    })
+}
+
+fn build_session(paths: &[String], app_handle: &AppHandle) -> Result<PanoramaSession, String> {
+    let progress = |message: String| {
+        println!("  - {}", message);
+        let _ = app_handle.emit("panorama-progress", message);
+    };
+    let settings = load_settings(app_handle.clone()).unwrap_or_default();
+
+    let start_time = Instant::now();
+    progress("Loading images and detecting features...".to_string());
+    let loaded: Vec<LoadedSource> = paths
+        .par_iter()
+        .map(|path| {
+            let _ = app_handle.emit(
+                "panorama-progress",
+                format!("Processing '{}'", file_name(path)),
+            );
+            load_source(path, &settings)
+        })
+        .collect::<Result<_, _>>()?;
+    println!(
+        "Image loading and feature detection completed in {:.2?}",
+        start_time.elapsed()
+    );
+
+    let start_time = Instant::now();
+    let inputs: Vec<AlignmentImage> = loaded
+        .iter()
+        .map(|l| AlignmentImage {
+            features: &l.features,
+            detection_scale: l.detection_scale,
+            width: l.width,
+            height: l.height,
+            focal_35mm: l.focal_35mm,
+            photometric_level: level_for_size(&l.source.levels, PHOTOMETRIC_MAX_DIMENSION),
+        })
+        .collect();
+    let alignment = align_images(&inputs, &progress)?;
+    drop(inputs);
+    println!("Alignment completed in {:.2?}", start_time.elapsed());
+
+    let excluded_count = loaded.len() - alignment.included.len();
+    if excluded_count > 0 {
+        let excluded: Vec<String> = (0..paths.len())
+            .filter(|i| !alignment.included.contains(i))
+            .map(|i| file_name(&paths[i]))
+            .collect();
+        let warning_msg = format!(
+            "Warning: {} image(s) could not be matched and will be excluded: {}",
+            excluded_count,
+            excluded.join(", ")
+        );
+        println!("{}", warning_msg);
+        let _ = app_handle.emit("panorama-warning", warning_msg);
+    }
+
+    let mut loaded: Vec<Option<LoadedSource>> = loaded.into_iter().map(Some).collect();
+    let sources = alignment
+        .included
+        .iter()
+        .map(|&i| loaded[i].take().unwrap().source)
+        .collect();
+
+    let included_paths = alignment
+        .included
+        .iter()
+        .map(|&i| paths[i].clone())
+        .collect();
+
+    Ok(PanoramaSession {
+        paths: included_paths,
+        sources,
+        alignment,
+        excluded_count,
+        plan: None,
+    })
 }
 
 #[tauri::command]
 pub async fn stitch_panorama(
     paths: Vec<String>,
+    settings: StitchSettings,
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
@@ -70,46 +330,25 @@ pub async fn stitch_panorama(
         .collect();
 
     let panorama_result_handle = state.panorama_result.clone();
+    *panorama_result_handle.lock().unwrap() = None;
 
     let task = tokio::task::spawn_blocking(move || {
-        let panorama_result = stitch_images(source_paths, app_handle.clone());
+        let start_time = Instant::now();
+        println!(
+            "Starting panorama stitching process for {} images...",
+            source_paths.len()
+        );
+        let result = build_session(&source_paths, &app_handle).and_then(|mut session| {
+            let _ = app_handle.emit("panorama-progress", "Finding seams and blending...");
+            let preview = session.preview(&settings)?;
+            Ok((session, preview))
+        });
 
-        match panorama_result {
-            Ok(panorama_image) => {
-                let _ = app_handle.emit("panorama-progress", "Creating preview...");
-
-                let (w, h) = panorama_image.dimensions();
-                let (new_w, new_h) = if w > h {
-                    (800, (800.0 * h as f32 / w as f32).round() as u32)
-                } else {
-                    ((800.0 * w as f32 / h as f32).round() as u32, 800)
-                };
-
-                let preview_f32 = crate::render::image_processing::downscale_f32_image(
-                    &panorama_image,
-                    new_w,
-                    new_h,
-                );
-
-                let preview_u8 = preview_f32.to_rgb8();
-
-                let mut buf = Cursor::new(Vec::new());
-
-                if let Err(e) = preview_u8.write_to(&mut buf, ImageFormat::Png) {
-                    return Err(format!("Failed to encode panorama preview: {}", e));
-                }
-
-                let base64_str = general_purpose::STANDARD.encode(buf.get_ref());
-                let final_base64 = format!("data:image/png;base64,{}", base64_str);
-
-                *panorama_result_handle.lock().unwrap() = Some(panorama_image);
-
-                let _ = app_handle.emit(
-                    "panorama-complete",
-                    serde_json::json!({
-                        "base64": final_base64,
-                    }),
-                );
+        match result {
+            Ok((session, preview)) => {
+                println!("Panorama completed in {:.2?}", start_time.elapsed());
+                *panorama_result_handle.lock().unwrap() = Some(session);
+                let _ = app_handle.emit("panorama-complete", preview);
                 Ok(())
             }
             Err(e) => {
@@ -127,19 +366,52 @@ pub async fn stitch_panorama(
 }
 
 #[tauri::command]
+pub async fn update_panorama_preview(
+    settings: StitchSettings,
+    state: tauri::State<'_, AppState>,
+) -> Result<PanoramaPreview, String> {
+    let panorama_result_handle = state.panorama_result.clone();
+    tokio::task::spawn_blocking(move || {
+        let mut guard = panorama_result_handle.lock().unwrap();
+        let session = guard
+            .as_mut()
+            .ok_or("No panorama is available. Please stitch the images again.")?;
+        session.preview(&settings)
+    })
+    .await
+    .map_err(|e| format!("Panorama preview task failed: {}", e))?
+}
+
+#[tauri::command]
 pub async fn save_panorama(
     first_path_str: String,
+    settings: StitchSettings,
+    app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
-    let panorama_image = state
-        .panorama_result
-        .lock()
-        .unwrap()
-        .take()
-        .ok_or_else(|| {
+    let panorama_result_handle = state.panorama_result.clone();
+    let app_settings = load_settings(app_handle).unwrap_or_default();
+    let panorama_image = tokio::task::spawn_blocking(move || {
+        let mut guard = panorama_result_handle.lock().unwrap();
+        let session = guard.as_mut().ok_or_else(|| {
             "No panorama image found in memory to save. It might have already been saved."
                 .to_string()
         })?;
+        let start_time = Instant::now();
+        let image = session.render_full(&settings, &app_settings, &|message| {
+            println!("  - {}", message)
+        })?;
+        println!(
+            "Full resolution panorama rendered in {:.2?}",
+            start_time.elapsed()
+        );
+        *guard = None;
+        Rgb32FImage::from_raw(image.width as u32, image.height as u32, image.data)
+            .map(DynamicImage::ImageRgb32F)
+            .ok_or_else(|| "Failed to create the panorama image.".to_string())
+    })
+    .await
+    .map_err(|e| format!("Panorama save task failed: {}", e))??;
 
     let (first_path, _) = parse_virtual_path(&first_path_str);
     let parent_dir = first_path
@@ -150,23 +422,15 @@ pub async fn save_panorama(
         .and_then(|s| s.to_str())
         .unwrap_or("panorama");
 
-    let (extension, image_to_save): (&str, DynamicImage) = if panorama_image.color().has_alpha() {
-        ("png", DynamicImage::ImageRgba8(panorama_image.to_rgba8()))
-    } else if panorama_image.as_rgb32f().is_some() {
-        ("tiff", panorama_image)
-    } else {
-        ("png", DynamicImage::ImageRgb8(panorama_image.to_rgb8()))
-    };
-
     let bytes = crate::metadata::export_metadata::encode_converted_image(
-        &image_to_save,
-        extension,
+        &panorama_image,
+        "tiff",
         &first_path.to_string_lossy(),
     )?;
     let output_path = crate::library::file_ops::write_unique_output(
         parent_dir,
         &format!("{}_Pano", stem),
-        extension,
+        "tiff",
         &bytes,
     )
     .map_err(|e| format!("Failed to save panorama image: {}", e))?;
@@ -177,352 +441,4 @@ pub async fn save_panorama(
     );
 
     Ok(output_path.to_string_lossy().to_string())
-}
-
-fn stitch_images(image_paths: Vec<String>, app_handle: AppHandle) -> Result<DynamicImage, String> {
-    if image_paths.len() < 2 {
-        return Err("At least two images are required for a panorama.".to_string());
-    }
-
-    let _ = app_handle.emit("panorama-progress", "Starting panorama process...");
-    println!(
-        "Starting panorama stitching process for {} images...",
-        image_paths.len()
-    );
-
-    let settings = load_settings(app_handle.clone()).unwrap_or_default();
-
-    let start_time = Instant::now();
-    let _ = app_handle.emit("panorama-progress", "Loading and preparing images...");
-    println!("Loading and preparing images (in parallel)...");
-    let brief_pairs = processing::generate_brief_pairs();
-
-    let image_data_results: Vec<Result<ImageInfo, String>> = image_paths
-        .par_iter()
-        .enumerate()
-        .map(|(i, filename)| {
-            let _ = app_handle.emit(
-                "panorama-progress",
-                format!(
-                    "Processing '{}'",
-                    Path::new(filename)
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                ),
-            );
-            println!("  - Processing '{}'", filename);
-
-            let file_bytes = fs::read(filename)
-                .map_err(|e| format!("Failed to read image {}: {}", filename, e))?;
-
-            let mut dynamic_image = crate::decode::image_loader::load_base_image_from_bytes(
-                &file_bytes,
-                filename,
-                false,
-                &settings,
-                None,
-            )
-            .map_err(|e| format!("Failed to load image {}: {}", filename, e))?;
-
-            if is_raw_file(filename) {
-                apply_cpu_default_raw_processing(&mut dynamic_image);
-            }
-
-            let image_f32 = dynamic_image.to_rgb32f();
-
-            let color_full_u8 = dynamic_image.to_rgb8();
-            let gray_full = image::imageops::colorops::grayscale(&color_full_u8);
-
-            let (w, h) = gray_full.dimensions();
-            let (new_w, new_h, scale_factor) = processing::calculate_downscale_dimensions(w, h);
-
-            let gray_small = image::imageops::resize(
-                &gray_full,
-                new_w,
-                new_h,
-                image::imageops::FilterType::Triangle,
-            );
-
-            let low_detail_mask = processing::generate_low_detail_mask(&gray_full);
-
-            let features = processing::find_features(&gray_small, &brief_pairs);
-            println!("    Found {} features in '{}'", features.len(), filename);
-
-            Ok(ImageInfo {
-                id: i,
-                filename: filename.to_string(),
-                image: image_f32,
-                low_detail_mask,
-                scale_factor,
-                features,
-            })
-        })
-        .collect();
-
-    let mut image_data = Vec::new();
-    for result in image_data_results {
-        {
-            let info = result?;
-            image_data.push(info)
-        }
-    }
-
-    println!(
-        "Image loading and feature detection completed in {:.2?}\n",
-        start_time.elapsed()
-    );
-
-    let start_time = Instant::now();
-    let _ = app_handle.emit("panorama-progress", "Finding image matches...");
-    println!("Finding all pairwise matches (in parallel)...");
-    let mut pairwise_matches: HashMap<(usize, usize), MatchInfo> = HashMap::new();
-
-    let pairs_to_check: Vec<(usize, usize)> = (0..image_data.len())
-        .flat_map(|i| (i + 1..image_data.len()).map(move |j| (i, j)))
-        .collect();
-
-    let match_results: Vec<Option<((usize, usize), MatchInfo)>> = pairs_to_check
-        .par_iter()
-        .map(|&(i, j)| {
-            let features1 = &image_data[i].features;
-            let features2 = &image_data[j].features;
-
-            let initial_matches = processing::match_features(features1, features2);
-            if initial_matches.len() < processing::MIN_INLIERS_FOR_CONNECTION {
-                return None;
-            }
-
-            let keypoints1: Vec<KeyPoint> = features1.iter().map(|f| f.keypoint).collect();
-            let keypoints2: Vec<KeyPoint> = features2.iter().map(|f| f.keypoint).collect();
-
-            if let Some((_h_small, inliers)) =
-                processing::find_homography_ransac(&initial_matches, &keypoints1, &keypoints2)
-                && inliers.len() >= processing::MIN_INLIERS_FOR_CONNECTION
-            {
-                println!(
-                    "  - Good match found: '{}' <-> '{}' ({} inliers)",
-                    Path::new(&image_data[i].filename)
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy(),
-                    Path::new(&image_data[j].filename)
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy(),
-                    inliers.len()
-                );
-
-                let inlier_points: Vec<(nalgebra::Point2<f64>, nalgebra::Point2<f64>)> = inliers
-                    .iter()
-                    .map(|m| {
-                        let p1 = keypoints1[m.index1];
-                        let p2 = keypoints2[m.index2];
-                        (
-                            nalgebra::Point2::new(p1.x as f64, p1.y as f64),
-                            nalgebra::Point2::new(p2.x as f64, p2.y as f64),
-                        )
-                    })
-                    .collect();
-
-                if let Some(h_refined) = processing::compute_homography(&inlier_points) {
-                    let s1 = image_data[i].scale_factor;
-                    let s2 = image_data[j].scale_factor;
-                    let scale_mat_i_inv =
-                        Matrix3::new(1.0 / s1, 0.0, 0.0, 0.0, 1.0 / s1, 0.0, 0.0, 0.0, 1.0);
-                    let scale_mat_j = Matrix3::new(s2, 0.0, 0.0, 0.0, s2, 0.0, 0.0, 0.0, 1.0);
-                    let h_full = scale_mat_j * h_refined * scale_mat_i_inv;
-
-                    let match_info = MatchInfo {
-                        homography: h_full,
-                        inliers: inliers.len(),
-                    };
-                    return Some(((i, j), match_info));
-                }
-            }
-            None
-        })
-        .collect();
-
-    for result in match_results.into_iter().flatten() {
-        pairwise_matches.insert(result.0, result.1);
-    }
-    println!(
-        "Pairwise matching completed in {:.2?}\n",
-        start_time.elapsed()
-    );
-
-    if pairwise_matches.is_empty() {
-        return Err(
-            "No suitable matches found between any pair of images. Cannot create a panorama."
-                .to_string(),
-        );
-    }
-
-    let start_time = Instant::now();
-    let _ = app_handle.emit("panorama-progress", "Determining stitching order...");
-    println!("Determining stitching order...");
-    let (ordered_indices, global_homographies) =
-        build_stitching_order(&image_data, &pairwise_matches);
-
-    if ordered_indices.len() < 2 {
-        return Err("Could not find a connected sequence of at least two images.".to_string());
-    }
-
-    let ordered_filenames: Vec<_> = ordered_indices
-        .iter()
-        .map(|&i| {
-            Path::new(&image_data[i].filename)
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .to_string()
-        })
-        .collect();
-    println!("Stitching order determined: {:?}", ordered_filenames);
-    let _ = app_handle.emit(
-        "panorama-progress",
-        format!("Stitching order: {}", ordered_filenames.join(" -> ")),
-    );
-
-    let stitched_images_info: Vec<&ImageInfo> =
-        ordered_indices.iter().map(|&i| &image_data[i]).collect();
-    let unstitched_count = image_data.len() - stitched_images_info.len();
-    if unstitched_count > 0 {
-        let warning_msg = format!(
-            "Warning: {} image(s) could not be matched and will be excluded.",
-            unstitched_count
-        );
-        println!("{}", warning_msg);
-        let _ = app_handle.emit("panorama-warning", warning_msg);
-    }
-    println!(
-        "Global homography calculation completed in {:.2?}\n",
-        start_time.elapsed()
-    );
-
-    let start_time = Instant::now();
-    let _ = app_handle.emit("panorama-progress", "Warping and blending images...");
-    println!("Warping and blending full-resolution images with progressive optimal seams...");
-
-    let panorama = stitching::progressive_seam_stitcher(
-        &stitched_images_info,
-        &global_homographies,
-        app_handle.clone(),
-    );
-
-    println!("Stitching completed in {:.2?}\n", start_time.elapsed());
-
-    let _ = app_handle.emit("panorama-progress", "Finalizing panorama...");
-
-    Ok(DynamicImage::ImageRgb32F(panorama))
-}
-
-struct Dsu {
-    parent: Vec<usize>,
-}
-
-impl Dsu {
-    fn new(n: usize) -> Self {
-        Dsu {
-            parent: (0..n).collect(),
-        }
-    }
-
-    fn find(&mut self, i: usize) -> usize {
-        if self.parent[i] == i {
-            i
-        } else {
-            self.parent[i] = self.find(self.parent[i]);
-            self.parent[i]
-        }
-    }
-
-    fn union(&mut self, i: usize, j: usize) {
-        let root_i = self.find(i);
-        let root_j = self.find(j);
-        if root_i != root_j {
-            self.parent[root_i] = root_j;
-        }
-    }
-}
-
-fn build_stitching_order(
-    images: &[ImageInfo],
-    matches: &HashMap<(usize, usize), MatchInfo>,
-) -> (Vec<usize>, HashMap<usize, Matrix3<f64>>) {
-    if images.is_empty() {
-        return (vec![], HashMap::new());
-    }
-    let n = images.len();
-    if n < 2 {
-        let mut homographies = HashMap::new();
-        if n == 1 {
-            homographies.insert(0, Matrix3::identity());
-        }
-        return ((0..n).collect(), homographies);
-    }
-
-    let mut edges = Vec::new();
-    for (&(i, j), m) in matches {
-        edges.push((m.inliers, i, j));
-    }
-    edges.sort_by_key(|&(inliers, _, _)| std::cmp::Reverse(inliers));
-
-    let mut mst_adj: HashMap<usize, Vec<usize>> = HashMap::new();
-    let mut dsu = Dsu::new(n);
-    let mut num_edges = 0;
-
-    for &(_, i, j) in &edges {
-        if dsu.find(i) != dsu.find(j) {
-            dsu.union(i, j);
-            mst_adj.entry(i).or_default().push(j);
-            mst_adj.entry(j).or_default().push(i);
-            num_edges += 1;
-            if num_edges == n - 1 {
-                break;
-            }
-        }
-    }
-
-    let start_node = (0..n)
-        .filter(|i| mst_adj.contains_key(i))
-        .min_by_key(|&i| mst_adj.get(&i).map_or(usize::MAX, |v| v.len()))
-        .unwrap_or_else(|| mst_adj.keys().next().copied().unwrap_or(0));
-
-    let mut ordered_indices = Vec::new();
-    let mut global_homographies = HashMap::new();
-    let mut q = VecDeque::new();
-    let mut visited = HashSet::new();
-
-    q.push_back((start_node, Matrix3::identity()));
-    visited.insert(start_node);
-
-    while let Some((u, h_u_global)) = q.pop_front() {
-        ordered_indices.push(u);
-        global_homographies.insert(u, h_u_global);
-
-        if let Some(neighbors) = mst_adj.get(&u) {
-            for &v in neighbors {
-                if !visited.contains(&v) {
-                    visited.insert(v);
-
-                    let h_vu = if let Some(m) = matches.get(&(v, u)) {
-                        m.homography
-                    } else if let Some(m) = matches.get(&(u, v)) {
-                        m.homography
-                            .try_inverse()
-                            .expect("Failed to invert homography for MST edge")
-                    } else {
-                        panic!("Match not found for MST edge between {} and {}", u, v);
-                    };
-
-                    let h_v_global = h_u_global * h_vu;
-                    q.push_back((v, h_v_global));
-                }
-            }
-        }
-    }
-
-    (ordered_indices, global_homographies)
 }

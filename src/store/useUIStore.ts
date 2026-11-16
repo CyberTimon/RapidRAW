@@ -3,7 +3,13 @@ import { invoke } from '@tauri-apps/api/core';
 import i18n from 'i18next';
 import { toast } from 'react-toastify';
 import { Invokes } from '../types/invokes';
-import { ImageFile, CullingSuggestions } from '../types/library';
+import {
+  ImageFile,
+  CullingSuggestions,
+  DEFAULT_PANORAMA_SETTINGS,
+  PanoramaPreviewInfo,
+  PanoramaSettings,
+} from '../types/library';
 import { Panel, UiVisibility, PanelRegion, CollapsibleSectionsState } from '../types/ui';
 import { WorkspaceState } from '../types/settings';
 import { useEditorStore } from './useEditorStore';
@@ -35,7 +41,10 @@ interface PanoramaModalState {
   finalImageBase64: string | null;
   isOpen: boolean;
   isProcessing: boolean;
+  isUpdatingPreview: boolean;
+  previewInfo: PanoramaPreviewInfo | null;
   progressMessage: string | null;
+  settings: PanoramaSettings;
   stitchingSourcePaths: Array<string>;
 }
 
@@ -436,7 +445,10 @@ export const useUIStore = create<UIState>((set, get) => ({
     finalImageBase64: null,
     isOpen: false,
     isProcessing: false,
+    isUpdatingPreview: false,
+    previewInfo: null,
     progressMessage: '',
+    settings: DEFAULT_PANORAMA_SETTINGS,
     stitchingSourcePaths: [],
   },
   focusStackModalState: {

@@ -17,6 +17,7 @@ use crate::ai::models::AiState;
 use crate::app::launch_request::ExternalEditSession;
 use crate::decode::as_shot::AsShot;
 use crate::integrations::tethering::CameraSession;
+use crate::merge::panorama::PanoramaSession;
 use crate::render::analytics::AnalyticsFrame;
 use crate::render::cache_utils::{DecodeFlights, DecodedImageCache};
 use crate::render::gpu::context::GpuContext;
@@ -334,7 +335,7 @@ pub struct AppState {
     pub active_ai_tasks: Mutex<HashMap<String, Arc<AiTaskToken>>>,
     pub export_task_token: Arc<Mutex<Option<Arc<AtomicBool>>>>,
     pub hdr_result: Arc<Mutex<Option<DynamicImage>>>,
-    pub panorama_result: Arc<Mutex<Option<DynamicImage>>>,
+    pub panorama_result: Arc<Mutex<Option<PanoramaSession>>>,
     pub focus_stack_result: Arc<Mutex<Option<DynamicImage>>>,
     pub indexing_task_handle: Mutex<Option<JoinHandle<()>>>,
     pub lut_cache: Mutex<HashMap<String, Arc<Lut>>>,

@@ -693,6 +693,7 @@ pub fn run() {
             decode::image_preload::preload_images,
             merge::panorama::stitch_panorama,
             merge::panorama::save_panorama,
+            merge::panorama::update_panorama_preview,
             export::export_images,
             export::tasks::cancel_export,
             export::size_estimate::estimate_export_sizes,

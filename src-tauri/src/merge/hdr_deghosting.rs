@@ -1,8 +1,7 @@
 use crate::app::settings::AppSettings;
 use crate::decode::formats::is_raw_file;
 use crate::decode::image_loader::load_base_image_from_bytes;
-use crate::merge::panorama::{Feature, KeyPoint, Match};
-use crate::merge::panorama::{processing, stitching};
+use crate::merge::hdr_alignment::{self, Feature, KeyPoint, Match};
 use crate::metadata::exif_processing::{read_exposure_time_secs, read_iso};
 use crate::render::image_processing::{
     apply_cpu_default_raw_processing, apply_linear_to_srgb, apply_srgb_to_linear,
@@ -106,7 +105,7 @@ pub fn assert_uniform_dimensions(frames: &[HdrFrame]) -> Result<(), String> {
 pub fn align_hdr_frames(frames: &mut [HdrFrame], app_handle: &AppHandle) {
     assert!(!frames.is_empty(), "alignment requires at least one frame");
     let _ = app_handle.emit("hdr-progress", "Deghosting...");
-    let brief_pairs = processing::generate_brief_pairs();
+    let brief_pairs = hdr_alignment::generate_brief_pairs();
     let reference_index = frames.len() / 2;
     let detections: Vec<FrameDetection> = frames
         .iter()
@@ -156,7 +155,7 @@ fn detect_frame_features(
     let gray_full = image::imageops::colorops::grayscale(&detection_proxy.to_rgb8());
     let (width, height) = gray_full.dimensions();
     let (small_width, small_height, scale_factor) =
-        processing::calculate_downscale_dimensions_capped(
+        hdr_alignment::calculate_downscale_dimensions_capped(
             width,
             height,
             DEGHOST_MAX_PROCESSING_DIMENSION,
@@ -167,8 +166,8 @@ fn detect_frame_features(
         small_height,
         image::imageops::FilterType::Triangle,
     );
-    let normalized = processing::normalize_grayscale(&gray_small);
-    let features = processing::find_features_tuned(
+    let normalized = hdr_alignment::normalize_grayscale(&gray_small);
+    let features = hdr_alignment::find_features_tuned(
         &normalized,
         brief_pairs,
         DEGHOST_FAST_THRESHOLD,
@@ -187,11 +186,11 @@ fn align_frame_to_reference(
     frame: &FrameDetection,
     reference: &FrameDetection,
 ) -> AlignmentOutcome {
-    let matches = processing::match_features(&reference.features, &frame.features);
-    if matches.len() < processing::MIN_INLIERS_FOR_CONNECTION {
+    let matches = hdr_alignment::match_features(&reference.features, &frame.features);
+    if matches.len() < hdr_alignment::MIN_INLIERS_FOR_CONNECTION {
         return AlignmentOutcome::Failed;
     }
-    let (_, inliers) = match processing::find_homography_ransac(
+    let (_, inliers) = match hdr_alignment::find_homography_ransac(
         &matches,
         &reference.keypoints,
         &frame.keypoints,
@@ -208,7 +207,7 @@ fn align_frame_to_reference(
         return AlignmentOutcome::AlreadyAligned;
     }
     let source = frame_image.to_rgb32f();
-    AlignmentOutcome::Warped(stitching::warp_image_homography(
+    AlignmentOutcome::Warped(hdr_alignment::warp_image_homography(
         &source,
         &rigid_full,
         width,

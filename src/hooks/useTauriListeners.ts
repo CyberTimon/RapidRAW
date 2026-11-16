@@ -521,6 +521,13 @@ export function useTauriListeners({
               error: null,
               finalImageBase64: event.payload.base64,
               isProcessing: false,
+              previewInfo: {
+                excludedCount: event.payload.excludedCount,
+                height: event.payload.height,
+                imageCount: event.payload.imageCount,
+                projection: event.payload.projection,
+                width: event.payload.width,
+              },
               progressMessage: null,
             },
           }));

@@ -1,5 +1,6 @@
 pub mod focus_stacking;
 pub mod hdr;
+pub mod hdr_alignment;
 pub mod hdr_deghosting;
 pub mod panorama;
 
