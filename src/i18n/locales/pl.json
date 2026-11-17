@@ -10,7 +10,9 @@
         "agx": "AgX",
         "agxDesc": "Mapowanie tonów w stylu filmowym",
         "basic": "Podstawowe",
-        "basicDesc": "Standardowe mapowanie tonów"
+        "basicDesc": "Standardowe mapowanie tonów",
+        "threeDcf": "3DCF",
+        "threeDcfDesc": "ACES 2.0 SSTS film-like Tonemapping"
       },
       "reset": "Resetuj",
       "shadows": "Cienie",
@@ -2342,7 +2344,8 @@
         "title": "Wstępne przetwarzanie obrazu",
         "tonemapperOptions": {
           "agx": "AgX",
-          "basic": "Podstawowe"
+          "basic": "Podstawowe",
+          "threeDcf": "3DCF"
         },
         "tonemapperOverride": "Globalne nadpisywanie mapowania tonów",
         "tonemapperOverrideDesc": "Wymusza konkretne mapowanie tonów globalnie dla wszystkich obrazów, ukrywając pole wyboru mapera z panelu edycji."

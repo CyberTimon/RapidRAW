@@ -10,7 +10,9 @@
         "agx": "AgX",
         "agxDesc": "电影感色调映射",
         "basic": "基础",
-        "basicDesc": "标准色调映射"
+        "basicDesc": "标准色调映射",
+        "threeDcf": "3DCF",
+        "threeDcfDesc": "ACES 2.0 SSTS film-like Tonemapping"
       },
       "reset": "重置",
       "shadows": "阴影",
@@ -2250,7 +2252,8 @@
         "title": "图像预处理",
         "tonemapperOptions": {
           "agx": "AgX",
-          "basic": "基础"
+          "basic": "基础",
+          "threeDcf": "3DCF"
         },
         "tonemapperOverride": "全局色调映射覆盖",
         "tonemapperOverrideDesc": "为所有图像全局强制使用特定的色调映射器，从调整面板中隐藏色调映射器开关。"

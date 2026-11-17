@@ -756,6 +756,7 @@ export default function SettingsPanel({
     () => [
       { value: 'agx', label: t('settings.processing.preprocessing.tonemapperOptions.agx') },
       { value: 'basic', label: t('settings.processing.preprocessing.tonemapperOptions.basic') },
+      { value: '3dcf', label: t('settings.processing.preprocessing.tonemapperOptions.threeDcf') },
     ],
     [t],
   );

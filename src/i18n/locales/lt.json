@@ -10,7 +10,9 @@
         "agx": "AgX",
         "agxDesc": "Kinematografinis tonų atvaizdavimas",
         "basic": "Standartinis",
-        "basicDesc": "Standartinis tonų atvaizdavimas"
+        "basicDesc": "Standartinis tonų atvaizdavimas",
+        "threeDcf": "3DCF",
+        "threeDcfDesc": "ACES 2.0 SSTS film-like Tonemapping"
       },
       "reset": "Atstatyti",
       "shadows": "Šešėliai",
@@ -2393,7 +2395,8 @@
         "title": "Nuotraukos pirminis apdorojimas",
         "tonemapperOptions": {
           "agx": "AgX",
-          "basic": "Standartinis"
+          "basic": "Standartinis",
+          "threeDcf": "3DCF"
         },
         "tonemapperOverride": "Visuotinis tonų atvaizdavimo nepaisymas",
         "tonemapperOverrideDesc": "Priverstinai naudoti konkretų tonų atvaizdavimą visoms nuotraukoms, paslepiant perjungiklį iš koregavimų skydelio."

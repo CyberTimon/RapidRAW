@@ -10,7 +10,9 @@
         "agx": "AgX",
         "agxDesc": "Mapeo de tonos estilo película",
         "basic": "Básico",
-        "basicDesc": "Mapeo de tonos estándar"
+        "basicDesc": "Mapeo de tonos estándar",
+        "threeDcf": "3DCF",
+        "threeDcfDesc": "ACES 2.0 SSTS film-like Tonemapping"
       },
       "reset": "Restablecer",
       "shadows": "Sombras",
@@ -2299,7 +2301,8 @@
         "title": "Preprocesamiento de imágenes",
         "tonemapperOptions": {
           "agx": "AgX",
-          "basic": "Básico"
+          "basic": "Básico",
+          "threeDcf": "3DCF"
         },
         "tonemapperOverride": "Anulación global del mapeador de tonos",
         "tonemapperOverrideDesc": "Forzar un mapeador de tonos específico a nivel global para todas las imágenes, ocultando el interruptor del mapeador del panel de ajustes."

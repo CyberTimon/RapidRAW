@@ -10,7 +10,9 @@
         "agx": "AgX",
         "agxDesc": "필름 같은 톤 매핑",
         "basic": "기본",
-        "basicDesc": "표준 톤 매핑"
+        "basicDesc": "표준 톤 매핑",
+        "threeDcf": "3DCF",
+        "threeDcfDesc": "ACES 2.0 SSTS film-like Tonemapping"
       },
       "reset": "초기화",
       "shadows": "섀도우",
@@ -2250,7 +2252,8 @@
         "title": "이미지 전처리",
         "tonemapperOptions": {
           "agx": "AgX",
-          "basic": "기본"
+          "basic": "기본",
+          "threeDcf": "3DCF"
         },
         "tonemapperOverride": "전역 톤매퍼 재정의",
         "tonemapperOverrideDesc": "모든 이미지에 특정 톤매퍼를 전역으로 강제 적용하고, 조정 패널에서 톤매퍼 전환을 숨깁니다."

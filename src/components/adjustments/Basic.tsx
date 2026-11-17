@@ -46,6 +46,11 @@ const ToneMapperSwitch = ({
         label: t('adjustments.basic.mappers.agx'),
         title: t('adjustments.basic.mappers.agxDesc'),
       },
+      {
+        id: '3dcf',
+        label: t('adjustments.basic.mappers.threeDcf'),
+        title: t('adjustments.basic.mappers.threeDcfDesc'),
+      },
     ],
     [t],
   );
@@ -174,7 +179,7 @@ function BasicAdjustments({
   const handleToneMapperChange = (mapper: string) => {
     setAdjustments((prev: Partial<Adjustments>) => ({
       ...prev,
-      toneMapper: mapper as 'basic' | 'agx',
+      toneMapper: mapper as 'basic' | 'agx' | '3dcf',
     }));
   };
 

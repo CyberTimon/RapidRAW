@@ -57,6 +57,7 @@ RapidRAW is for photographers who love to edit their photos in a <strong>clean, 
 <details>
 <summary><strong>Recent Changes</strong></summary>
 
+- **2026-11-16:** Added the 3DCF tone mapper (ACES 2.0 SSTS + spectral gamut) from Libre DT-Lab, adapted to RapidRAW's native linear sRGB D65 pipeline with a chroma-preserving linear tone scale, a fixed +1.0 EV input calibration and a single final sRGB encoding
 - **2026-11-15:** Made sharpening halo-free and independent of exposure, and fixed stepped soft edges under highlights and the other tone sliders
 - **2026-11-14:** Docked the filmstrip into the side panels as a vertical grid, added six library thumbnail sizes, added crop rotation by dragging around the frame, rebuilt contrast around each photo's own midtone, kept RAW metadata in JPEG XL exports, added camera make and model to the metadata panel, and made the AI denoise and RapidRes cache about three times smaller
 - **2026-11-13:** Added default adjustments with per-camera presets and automatic lens correction, and kept zooming smooth while a RAW file loads
@@ -1125,6 +1126,7 @@ A huge thank you to the following projects and tools that were very important in
 - **[NegPy](https://github.com/marcinz606/NegPy):** For the inspiration behind the negative conversion logic, particularly the mathematical approach to film inversion using characteristic curves.
 - **[pixls.us](https://discuss.pixls.us/):** For being an incredible community full of knowledgeable people who offered inspiration, advice, and ideas.
 - **[darktable & co.](https://github.com/darktable-org/darktable):** For some reference implementations that guided parts of this work.
+- **[Libre DT-Lab](https://github.com/Christian-Bouhon/libre-dt-lab):** For the 3DCF module by Christian Bouhon, based on the ACES 2.0 SSTS and spectral gamut work, adapted here for RapidRAW's sRGB D65 pipeline.
 - **[libgphoto2](http://gphoto.org/):** For the comprehensive camera communication library powering RapidRAW's tethering and remote capture subsystem.
 - **[spektrafilm](https://github.com/andreavolpato/spektrafilm):** For the spectrally-based film emulation LUTs by Andrea Volpato, used to power RapidRAW's built-in film emulations.
 - **You:** For using and supporting RapidRAW. Your interest keeps this project alive and evolving.
