@@ -495,6 +495,12 @@ export function useTauriListeners({
           useUIStore.getState().setUI({ isViewerOpen: false });
         }
       }),
+      listen('hdr-display-changed', () => {
+        if (isEffectActive) {
+          const editorState = useEditorStore.getState();
+          editorState.setEditor({ hdrRevision: editorState.hdrRevision + 1 });
+        }
+      }),
       listen('wgpu-frame-ready', (event: any) => {
         const editorState = useEditorStore.getState();
         if (

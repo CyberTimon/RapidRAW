@@ -25,6 +25,7 @@ import {
   TiffBitDepth,
   WatermarkAnchor,
   COLOR_SPACE_FILE_FORMATS,
+  HDR_FILE_FORMATS,
   EXPORT_COLOR_SPACES,
   ExportColorSpace,
 } from '../../../types/export';
@@ -267,6 +268,8 @@ export default function ExportPanel({
     setTiffBitDepth,
     colorSpace,
     setColorSpace,
+    hdr,
+    setHdr,
     dpi,
     setDpi,
     enableResize,
@@ -514,6 +517,7 @@ export default function ExportPanel({
       jpegQuality,
       tiffBitDepth,
       colorSpace,
+      hdr,
       keepMetadata,
       preserveTimestamps,
       preserveFolders,
@@ -569,6 +573,7 @@ export default function ExportPanel({
     jpegQuality,
     tiffBitDepth,
     colorSpace,
+    hdr,
     enableResize,
     resizeMode,
     resizeValue,
@@ -620,6 +625,7 @@ export default function ExportPanel({
       jpegQuality,
       tiffBitDepth,
       colorSpace,
+      hdr,
       keepMetadata,
       preserveTimestamps,
       preserveFolders,
@@ -786,7 +792,7 @@ export default function ExportPanel({
                   <Slider
                     defaultValue={90}
                     label={
-                      fileFormat === FileFormats.Jxl && jpegQuality === 100
+                      fileFormat === FileFormats.Jxl && jpegQuality === 100 && !hdr
                         ? t('export.file.qualityLossless')
                         : t('export.file.quality')
                     }
@@ -813,19 +819,15 @@ export default function ExportPanel({
                   />
                 </div>
               )}
-              {COLOR_SPACE_FILE_FORMATS.includes(fileFormat) && (
-                <div className={isExporting ? 'opacity-50 pointer-events-none' : ''}>
-                  <Text variant={TextVariants.label} className="mb-1">
-                    {t('export.file.colorSpace')}
-                  </Text>
-                  <Dropdown
-                    options={EXPORT_COLOR_SPACES}
-                    value={colorSpace}
-                    onChange={(value) => setColorSpace(value as ExportColorSpace)}
-                    disabled={isExporting}
-                    className="w-full"
-                  />
-                </div>
+              {HDR_FILE_FORMATS.includes(fileFormat) && (
+                <Switch
+                  label={t('export.file.hdr')}
+                  tooltip={t(fileFormat === FileFormats.Jpeg ? 'export.file.hdrJpegHint' : 'export.file.hdrJxlHint')}
+                  checked={hdr}
+                  onChange={setHdr}
+                  disabled={isExporting}
+                  trackClassName="bg-surface"
+                />
               )}
             </Section>
 
@@ -1207,6 +1209,20 @@ export default function ExportPanel({
                               </>
                             )}
                           </>
+                        )}
+                        {COLOR_SPACE_FILE_FORMATS.includes(fileFormat) && !(hdr && fileFormat === FileFormats.Jxl) && (
+                          <div className={isExporting ? 'opacity-50 pointer-events-none' : ''}>
+                            <Text variant={TextVariants.label} className="mb-1">
+                              {t('export.file.colorSpace')}
+                            </Text>
+                            <Dropdown
+                              options={EXPORT_COLOR_SPACES}
+                              value={colorSpace}
+                              onChange={(value) => setColorSpace(value as ExportColorSpace)}
+                              disabled={isExporting}
+                              className="w-full"
+                            />
+                          </div>
                         )}
                         {[FileFormats.Jpeg, FileFormats.Png, FileFormats.Tiff].includes(fileFormat as FileFormats) && (
                           <div className="flex items-center gap-2">

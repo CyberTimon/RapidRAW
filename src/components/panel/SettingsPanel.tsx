@@ -110,6 +110,7 @@ interface MyLens {
 
 const EXECUTE_TIMEOUT = 3000;
 const DEFAULT_BASELINE_EXPOSURE = 0.7;
+const DEFAULT_HDR_HEADROOM = 2;
 
 const resolutions: OptionItem<number>[] = [
   { value: 720, label: '720px' },
@@ -679,12 +680,27 @@ export default function SettingsPanel({
       .then(setIsWgpuSupported)
       .catch(() => setIsWgpuSupported(false));
   }, []);
+  const [hdrStatus, setHdrStatus] = useState<{ supported: boolean; active: boolean } | null>(null);
+  useEffect(() => {
+    let mounted = true;
+    const refresh = () =>
+      invoke<{ supported: boolean; active: boolean }>(Invokes.GetHdrDisplayStatus)
+        .then((status) => mounted && setHdrStatus(status))
+        .catch(() => mounted && setHdrStatus(null));
+    refresh();
+    const timer = setInterval(refresh, 3000);
+    return () => {
+      mounted = false;
+      clearInterval(timer);
+    };
+  }, [appSettings?.hdrDisplay]);
   const [processingSettings, setProcessingSettings] = useState({
     editorPreviewResolution: appSettings?.editorPreviewResolution || 1920,
     smallThumbnailResolution: appSettings?.smallThumbnailResolution || 480,
     mediumThumbnailResolution: appSettings?.mediumThumbnailResolution || 1280,
     rawHighlightCompression: appSettings?.rawHighlightCompression ?? 2.5,
     baselineExposure: appSettings?.baselineExposure ?? DEFAULT_BASELINE_EXPOSURE,
+    hdrHeadroom: appSettings?.hdrHeadroom ?? DEFAULT_HDR_HEADROOM,
     processingBackend: appSettings?.processingBackend || 'auto',
     linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
     highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
@@ -813,6 +829,7 @@ export default function SettingsPanel({
       mediumThumbnailResolution: appSettings?.mediumThumbnailResolution || 1280,
       rawHighlightCompression: appSettings?.rawHighlightCompression ?? 2.5,
       baselineExposure: appSettings?.baselineExposure ?? DEFAULT_BASELINE_EXPOSURE,
+      hdrHeadroom: appSettings?.hdrHeadroom ?? DEFAULT_HDR_HEADROOM,
       processingBackend: appSettings?.processingBackend || 'auto',
       linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
       highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
@@ -2371,6 +2388,52 @@ export default function SettingsPanel({
                           )}
                         </AnimatePresence>
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="p-6 bg-surface rounded-xl shadow-md">
+                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
+                      {t('settings.processing.hdr.title')}
+                    </Text>
+                    <div className="space-y-4">
+                      <SettingItem
+                        label={t('settings.processing.hdr.display')}
+                        description={t('settings.processing.hdr.displayDesc')}
+                      >
+                        <Switch
+                          checked={appSettings?.hdrDisplay ?? false}
+                          disabled={hdrStatus?.supported === false && !appSettings?.hdrDisplay}
+                          id="hdr-display-toggle"
+                          label={t('settings.processing.hdr.enableDisplay')}
+                          onChange={(checked) => onSettingsChange({ ...appSettings, hdrDisplay: checked })}
+                        />
+                        {hdrStatus && (
+                          <Text variant={TextVariants.small} className="mt-2">
+                            {!hdrStatus.supported
+                              ? t('settings.processing.hdr.statusUnsupported')
+                              : hdrStatus.active
+                                ? t('settings.processing.hdr.statusActive')
+                                : t('settings.processing.hdr.statusInactive')}
+                          </Text>
+                        )}
+                      </SettingItem>
+
+                      <SettingItem
+                        label={t('settings.processing.hdr.headroom')}
+                        description={t('settings.processing.hdr.headroomDesc')}
+                      >
+                        <Slider
+                          label={t('settings.tagging.amount')}
+                          min={1}
+                          max={4}
+                          step={0.1}
+                          value={processingSettings.hdrHeadroom}
+                          defaultValue={DEFAULT_HDR_HEADROOM}
+                          onChange={(e) => handleProcessingSettingChange('hdrHeadroom', Number(e.target.value))}
+                          fillOrigin="min"
+                          suffix=" EV"
+                        />
+                      </SettingItem>
                     </div>
                   </div>
 

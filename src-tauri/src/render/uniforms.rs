@@ -3,8 +3,10 @@ use crate::decode::white_balance::{self, WhiteBalance};
 use crate::masks::generation::MaskDefinition;
 use crate::render::adjustment_utils::{effective_baseline_exposure, is_tool_active};
 use crate::render::color_space::{
-    OutputColorSpace, OutputTransform, compression_uniform, srgb_decode, working_to_srgb,
+    OutputColorSpace, OutputTransform, TransferCurve, compression_uniform, srgb_decode,
+    working_to_srgb,
 };
+use crate::render::hdr::Headroom;
 use crate::render::options::RenderOptions;
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat3, Vec2, Vec3};
@@ -134,9 +136,9 @@ pub struct GlobalAdjustments {
     pub vignette_center_y: f32,
     _pad_lut5: f32,
 
-    _pad_output1: f32,
-    _pad_output2: f32,
-    _pad_output3: f32,
+    pub hdr_headroom: f32,
+    pub output_peak: f32,
+    pub display_peak: f32,
     pub output_matrix: GpuMat3,
     pub gamut_compression: [f32; 4],
     pub output_transfer: [f32; 4],
@@ -534,6 +536,7 @@ fn get_global_adjustments_from_json(
     baseline_exposure: f32,
     tonemapper_override: Option<u32>,
     output_space: OutputColorSpace,
+    headroom: Headroom,
 ) -> GlobalAdjustments {
     let is_visible = |tool: &str| is_tool_active(js_adjustments, tool);
 
@@ -769,9 +772,17 @@ fn get_global_adjustments_from_json(
         vignette_center_y: get_val("vignette", "vignetteCenterY", 1.0, Some(0.5)),
         _pad_lut5: 0.0,
 
-        _pad_output1: 0.0,
-        _pad_output2: 0.0,
-        _pad_output3: 0.0,
+        hdr_headroom: headroom.ratio(),
+        output_peak: if headroom.is_hdr() {
+            output.curve.encode(headroom.ratio())
+        } else {
+            1.0
+        },
+        display_peak: if headroom.is_hdr() {
+            TransferCurve::SRGB.encode(headroom.ratio())
+        } else {
+            1.0
+        },
         output_matrix: mat3_to_gpu_mat3(output.matrix),
         gamut_compression: compression_uniform(&output.compression),
         output_transfer: output.curve.uniform(),
@@ -1043,6 +1054,7 @@ pub fn get_all_adjustments_from_json(
         effective_baseline_exposure(js_adjustments, as_shot, render.baseline),
         render.tonemapper_override,
         render.output_space,
+        render.headroom,
     );
     let mut mask_adjustments = [MaskAdjustments::default(); MAX_MASKS];
     let mut mask_count = 0;

@@ -1081,6 +1081,9 @@
     "file": {
       "colorSpace": "Barevný prostor",
       "dpi": "DPI",
+      "hdr": "Výstup HDR",
+      "hdrJpegHint": "Přidá gain mapu: HDR displeje zobrazí jasnější světla, vše ostatní zobrazí běžnou fotku.",
+      "hdrJxlHint": "Uloží skutečný HDR soubor (PQ, Rec. 2020). Vyžaduje prohlížeč s podporou HDR.",
       "quality": "Kvalita",
       "qualityLossless": "Kvalita (bezeztrátová)",
       "resolution": "Rozlišení",
@@ -2286,6 +2289,17 @@
         "title": "Upravit v"
       },
       "enableLivePreviews": "Povolit živé náhledy",
+      "hdr": {
+        "display": "Zobrazení HDR",
+        "displayDesc": "Na HDR displeji zobrazuje světla jasnější než běžná bílá. Stíny a střední tóny zůstávají stejné a běžné exporty se nemění.",
+        "enableDisplay": "Používat HDR v editoru",
+        "headroom": "Rozsah světel",
+        "headroomDesc": "Jak daleko mohou světla přesáhnout běžnou bílou. Platí také pro HDR exporty.",
+        "statusActive": "Tento displej je v režimu HDR.",
+        "statusInactive": "Tento displej není v režimu HDR. Zapněte HDR v nastavení zobrazení systému, abyste efekt viděli.",
+        "statusUnsupported": "HDR vyžaduje GPU renderer ve Windows nebo macOS.",
+        "title": "HDR"
+      },
       "highDpi": "High-DPI rendering",
       "highDpiDesc": "Vykreslovat náhledy v nativním {{dpr}}x fyzickém rozlišení pixelů obrazovky. Poskytuje nejostřejší možný náhled, ale spotřebovává výrazně více paměti.",
       "highDpiDescStandard": "Toto nastavení ovlivňuje pouze displeje s vysokým DPI. Váš aktuální displej má standardní rozlišení.",

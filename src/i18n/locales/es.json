@@ -1055,6 +1055,9 @@
     "file": {
       "colorSpace": "Espacio de color",
       "dpi": "PPP",
+      "hdr": "Salida HDR",
+      "hdrJpegHint": "Añade un mapa de ganancia: las pantallas HDR muestran iluminaciones más brillantes y el resto muestra la foto normal.",
+      "hdrJxlHint": "Guarda un archivo HDR real (PQ, Rec. 2020). Requiere un visor compatible con HDR.",
       "quality": "Calidad",
       "qualityLossless": "Calidad (Sin pérdida)",
       "resolution": "Resolución",
@@ -2243,6 +2246,17 @@
         "title": "Editar en"
       },
       "enableLivePreviews": "Activar vistas previas en vivo",
+      "hdr": {
+        "display": "Pantalla HDR",
+        "displayDesc": "Muestra las iluminaciones más brillantes que el blanco normal en una pantalla HDR. Las sombras y los medios tonos no cambian y las exportaciones estándar no se ven afectadas.",
+        "enableDisplay": "Usar HDR en el editor",
+        "headroom": "Rango de iluminaciones",
+        "headroomDesc": "Hasta dónde pueden superar las iluminaciones el blanco normal. También se usa en las exportaciones HDR.",
+        "statusActive": "Esta pantalla está en modo HDR.",
+        "statusInactive": "Esta pantalla no está en modo HDR. Activa HDR en los ajustes de pantalla del sistema para ver el efecto.",
+        "statusUnsupported": "HDR requiere el renderizador por GPU en Windows o macOS.",
+        "title": "HDR"
+      },
       "highDpi": "Renderizado de alto DPI",
       "highDpiDesc": "Renderizar vistas previas en la resolución de píxeles físicos nativa de {{dpr}}x de tu pantalla. Produce la vista previa más nítida posible, pero utiliza mucha más memoria.",
       "highDpiDescStandard": "Este ajuste solo afecta a las pantallas de alto DPI. Tu pantalla actual tiene resolución estándar.",

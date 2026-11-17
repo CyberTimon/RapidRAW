@@ -60,6 +60,7 @@ interface EditorState {
   histogram: ChannelConfig | null;
   waveform: WaveformData | null;
   isWaveformVisible: boolean;
+  hdrRevision: number;
   activeWaveformChannel: string;
   waveformHeight: number;
 
@@ -152,6 +153,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   histogram: null,
   waveform: null,
   isWaveformVisible: false,
+  hdrRevision: 0,
   activeWaveformChannel: 'luma',
   waveformHeight: 220,
 

@@ -92,9 +92,9 @@ struct GlobalAdjustments {
     vignette_center_y: f32,
     _pad_lut5: f32,
 
-    _pad_output1: f32,
-    _pad_output2: f32,
-    _pad_output3: f32,
+    hdr_headroom: f32,
+    output_peak: f32,
+    display_peak: f32,
     output_matrix: mat3x3<f32>,
     gamut_compression: vec4<f32>,
     output_transfer: vec4<f32>,
@@ -1123,7 +1123,7 @@ fn oklab_to_working(lab: vec3<f32>) -> vec3<f32> {
 fn apply_monochrome_toning(srgb_gray: f32, mono: MonochromeSettings) -> vec3<f32> {
     let shadow_ab = vec2<f32>(mono.shadow_a, mono.shadow_b);
     let highlight_ab = vec2<f32>(mono.highlight_a, mono.highlight_b);
-    let gray = clamp(srgb_gray, 0.0, 1.0);
+    let gray = clamp(srgb_gray, 0.0, adjustments.global.display_peak);
     if (all(shadow_ab == vec2<f32>(0.0)) && all(highlight_ab == vec2<f32>(0.0))) {
         return vec3<f32>(gray);
     }
@@ -1132,7 +1132,7 @@ fn apply_monochrome_toning(srgb_gray: f32, mono: MonochromeSettings) -> vec3<f32
     let highlight_weight = smoothstep(0.2, 0.8, lightness + 0.4 * mono.toning_balance);
     let envelope = smoothstep(0.0, 0.3, lightness) * (1.0 - 0.6 * smoothstep(0.8, 1.0, lightness));
     let ab = mix(shadow_ab, highlight_ab, highlight_weight) * envelope;
-    return linear_to_srgb(oklab_to_working(vec3<f32>(lightness, ab)));
+    return display_encode(oklab_to_working(vec3<f32>(lightness, ab)));
 }
 
 fn sample_gf_tex(tex: texture_2d<f32>, abs_coord: vec2<u32>) -> vec4<f32> {
@@ -1733,12 +1733,32 @@ fn agx_compress_gamut(c: vec3<f32>) -> vec3<f32> {
     return lifted;
 }
 
+fn hdr_soft_clip(v: vec3<f32>, peak: f32) -> vec3<f32> {
+    let start = HDR_SOFT_CLIP_START * peak;
+    let span = peak - start;
+    return select(start + span * (1.0 - exp((start - v) / span)), v, v <= vec3<f32>(start));
+}
+
+fn display_encode(linear: vec3<f32>) -> vec3<f32> {
+    return linear_to_srgb_extended(min(linear, vec3<f32>(adjustments.global.hdr_headroom)));
+}
+
+fn agx_display_linear(x: vec3<f32>) -> vec3<f32> {
+    let curved = vec3<f32>(agx_curve(x.r), agx_curve(x.g), agx_curve(x.b));
+    let display = pow(curved, vec3<f32>(AGX_GAMMA));
+    let headroom = adjustments.global.hdr_headroom;
+    if (headroom <= 1.0) {
+        return display;
+    }
+    let extended = AGX_HDR_KNEE_LINEAR * exp2((x - AGX_HDR_KNEE_X) * AGX_RANGE_EV);
+    return select(hdr_soft_clip(extended, headroom), display, x <= vec3<f32>(AGX_HDR_KNEE_X));
+}
+
 fn agx_tonemap(c: vec3<f32>) -> vec3<f32> {
     let hue = rgb_to_hsv(c).x;
     let exposure = log2(max(c / AGX_SCENE_GREY, vec3<f32>(AGX_EPSILON)));
     let x = clamp((exposure - AGX_BLACK_EV) / AGX_RANGE_EV, vec3<f32>(0.0), vec3<f32>(1.0));
-    let curved = vec3<f32>(agx_curve(x.r), agx_curve(x.g), agx_curve(x.b));
-    var hsv = rgb_to_hsv(pow(curved, vec3<f32>(AGX_GAMMA)));
+    var hsv = rgb_to_hsv(agx_display_linear(x));
     let shift = (hsv.x - hue) / 360.0;
     hsv.x = (hue + (1.0 - AGX_HUE_PRESERVATION) * (shift - round(shift)) * 360.0 + 360.0) % 360.0;
     return hsv_to_rgb(hsv);
@@ -1746,22 +1766,42 @@ fn agx_tonemap(c: vec3<f32>) -> vec3<f32> {
 
 fn agx_full_transform(color_in: vec3<f32>) -> vec3<f32> {
     let rendering = AGX_WORKING_TO_RENDERING * agx_compress_gamut(color_in);
-    return linear_to_srgb(AGX_RENDERING_TO_WORKING * agx_tonemap(rendering));
+    return display_encode(AGX_RENDERING_TO_WORKING * agx_tonemap(rendering));
+}
+
+fn basic_raw_curve(c: vec3<f32>) -> vec3<f32> {
+    var srgb_emulated = linear_to_srgb(c);
+    srgb_emulated = pow(srgb_emulated, vec3<f32>(1.0 / BASIC_BRIGHTNESS_GAMMA));
+    let contrast_curve = srgb_emulated * srgb_emulated * (3.0 - 2.0 * srgb_emulated);
+    return mix(srgb_emulated, contrast_curve, BASIC_CONTRAST_MIX);
 }
 
 fn display_transform(c: vec3<f32>) -> vec3<f32> {
     if (has_feature(F_AGX) && adjustments.global.tonemapper_mode == 1u) {
         return agx_full_transform(c);
     }
+    let headroom = adjustments.global.hdr_headroom;
     if (adjustments.global.is_raw_image == 1u) {
-        var srgb_emulated = linear_to_srgb(c);
-        const BRIGHTNESS_GAMMA: f32 = 1.1;
-        srgb_emulated = pow(srgb_emulated, vec3<f32>(1.0 / BRIGHTNESS_GAMMA));
-        const CONTRAST_MIX: f32 = 0.75;
-        let contrast_curve = srgb_emulated * srgb_emulated * (3.0 - 2.0 * srgb_emulated);
-        return mix(srgb_emulated, contrast_curve, CONTRAST_MIX);
+        let display = basic_raw_curve(c);
+        if (headroom <= 1.0) {
+            return display;
+        }
+        let extended = hdr_soft_clip(c * (BASIC_HDR_KNEE_LINEAR / BASIC_HDR_KNEE_SCENE), headroom);
+        return select(linear_to_srgb_extended(extended), display, c <= vec3<f32>(BASIC_HDR_KNEE_SCENE));
     }
-    return linear_to_srgb(c);
+    if (headroom <= 1.0) {
+        return linear_to_srgb(c);
+    }
+    return linear_to_srgb_extended(hdr_soft_clip(c, headroom));
+}
+
+fn hdr_gain(display: vec3<f32>) -> f32 {
+    let linear = srgb_to_linear(max(display, vec3<f32>(0.0)));
+    return max(max(linear.r, max(linear.g, linear.b)), 1.0);
+}
+
+fn scale_display(display: vec3<f32>, gain: f32) -> vec3<f32> {
+    return linear_to_srgb_extended(srgb_to_linear(max(display, vec3<f32>(0.0))) * gain);
 }
 
 fn legacy_tonemap(c: vec3<f32>) -> vec3<f32> {
@@ -1818,7 +1858,7 @@ fn apply_extended_curve(val: f32, src: u32, ch: u32) -> f32 {
 }
 
 fn apply_all_curves(color: vec3<f32>, src: u32) -> vec3<f32> {
-    let display = clamp(color, vec3<f32>(0.0), vec3<f32>(1.0));
+    let display = clamp(color, vec3<f32>(0.0), vec3<f32>(adjustments.global.display_peak));
     let has_red = has_curve(src, 1u);
     let has_green = has_curve(src, 2u);
     let has_blue = has_curve(src, 3u);
@@ -1841,7 +1881,7 @@ fn apply_all_curves(color: vec3<f32>, src: u32) -> vec3<f32> {
         b = apply_extended_curve(b, src, 3u);
     }
 
-    return linear_to_srgb(extended_srgb_to_working(vec3<f32>(r, g, b)));
+    return display_encode(extended_srgb_to_working(vec3<f32>(r, g, b)));
 }
 
 fn get_mask_influence(mask_index: u32, coords: vec2<u32>) -> f32 {
@@ -1922,7 +1962,7 @@ fn output_transform(display: vec3<f32>) -> vec3<f32> {
     let compression = adjustments.global.gamut_compression;
     let curve = adjustments.global.output_transfer;
     let fitted = fit_gamut(adjustments.global.output_matrix * srgb_to_linear(display), compression.w, compression.xyz);
-    let linear = clamp(fitted, vec3<f32>(0.0), vec3<f32>(1.0));
+    let linear = clamp(fitted, vec3<f32>(0.0), vec3<f32>(adjustments.global.hdr_headroom));
     return select((1.0 + curve.y) * pow(linear, vec3<f32>(curve.x)) - curve.y, linear * curve.z, linear <= vec3<f32>(curve.w));
 }
 
@@ -2275,9 +2315,14 @@ fn main(
     var base_srgb: vec3<f32>;
     let is_scene_lut = (has_feature(F_LUT) && adjustments.global.has_lut == 1u && adjustments.global.lut_is_scene_referred == 1u);
 
+    let is_hdr = adjustments.global.hdr_headroom > 1.0;
+
     if (is_scene_lut) {
         let vlog_encoded = linear_to_vlog(WORKING_TO_SRGB * composite_rgb_linear);
-        let lut_color = srgb_display_to_working(sample_lut_tetrahedral(vlog_encoded));
+        var lut_color = srgb_display_to_working(sample_lut_tetrahedral(vlog_encoded));
+        if (is_hdr) {
+            lut_color = scale_display(lut_color, hdr_gain(default_tonemapped));
+        }
         base_srgb = mix(default_tonemapped, lut_color, adjustments.global.lut_intensity);
     } else {
         base_srgb = default_tonemapped;
@@ -2300,7 +2345,16 @@ fn main(
     }
 
     if (has_feature(F_LUT) && adjustments.global.has_lut == 1u && adjustments.global.lut_is_scene_referred == 0u) {
-        let lut_color = srgb_display_to_working(sample_lut_tetrahedral(working_display_to_srgb(final_rgb)));
+        var lut_input = final_rgb;
+        var lut_gain = 1.0;
+        if (is_hdr) {
+            lut_gain = hdr_gain(final_rgb);
+            lut_input = scale_display(final_rgb, 1.0 / lut_gain);
+        }
+        var lut_color = srgb_display_to_working(sample_lut_tetrahedral(working_display_to_srgb(lut_input)));
+        if (is_hdr) {
+            lut_color = scale_display(lut_color, lut_gain);
+        }
         final_rgb = mix(final_rgb, lut_color, adjustments.global.lut_intensity);
     }
 
@@ -2319,7 +2373,7 @@ fn main(
         let SHADOW_WARNING_COLOR = vec3<f32>(0.0, 0.0, 1.0);
         let HIGHLIGHT_CLIP_THRESHOLD = 0.998;
         let SHADOW_CLIP_THRESHOLD = 0.002;
-        if (any(final_rgb > vec3<f32>(HIGHLIGHT_CLIP_THRESHOLD))) {
+        if (any(final_rgb > vec3<f32>(HIGHLIGHT_CLIP_THRESHOLD * adjustments.global.output_peak))) {
             final_rgb = HIGHLIGHT_WARNING_COLOR;
         } else if (any(final_rgb < vec3<f32>(SHADOW_CLIP_THRESHOLD))) {
             final_rgb = SHADOW_WARNING_COLOR;
@@ -2331,5 +2385,5 @@ fn main(
         final_rgb += dither(id.xy) * dither_amount;
     }
 
-    textureStore(output_texture, id.xy, vec4<f32>(clamp(final_rgb, vec3<f32>(0.0), vec3<f32>(1.0)), original_alpha));
+    textureStore(output_texture, id.xy, vec4<f32>(clamp(final_rgb, vec3<f32>(0.0), vec3<f32>(adjustments.global.output_peak)), original_alpha));
 }

@@ -1029,6 +1029,9 @@
     "file": {
       "colorSpace": "Farbraum",
       "dpi": "DPI",
+      "hdr": "HDR-Ausgabe",
+      "hdrJpegHint": "Fügt eine Gain Map hinzu: HDR-Bildschirme zeigen hellere Lichter, alles andere zeigt das normale Foto.",
+      "hdrJxlHint": "Speichert eine echte HDR-Datei (PQ, Rec. 2020). Benötigt einen HDR-fähigen Betrachter.",
       "quality": "Qualität",
       "qualityLossless": "Qualität (Verlustfrei)",
       "resolution": "Auflösung",
@@ -2200,6 +2203,17 @@
         "title": "Bearbeiten in"
       },
       "enableLivePreviews": "Live-Vorschauen aktivieren",
+      "hdr": {
+        "display": "HDR-Anzeige",
+        "displayDesc": "Zeigt Lichter auf einem HDR-Bildschirm heller als normales Weiß. Schatten und Mitteltöne bleiben gleich, normale Exporte sind nicht betroffen.",
+        "enableDisplay": "HDR im Editor verwenden",
+        "headroom": "Lichterumfang",
+        "headroomDesc": "Wie weit Lichter über normales Weiß hinausgehen dürfen. Gilt auch für HDR-Exporte.",
+        "statusActive": "Dieser Bildschirm ist im HDR-Modus.",
+        "statusInactive": "Dieser Bildschirm ist nicht im HDR-Modus. Aktiviere HDR in den Anzeigeeinstellungen des Systems, um den Effekt zu sehen.",
+        "statusUnsupported": "HDR benötigt den GPU-Renderer unter Windows oder macOS.",
+        "title": "HDR"
+      },
       "highDpi": "High-DPI Rendering",
       "highDpiDesc": "Rendern Sie Vorschauen in der nativen {{dpr}}x Auflösung Ihres Bildschirms. Erzeugt die schärfste Vorschau, verbraucht aber mehr Speicher.",
       "highDpiDescStandard": "Diese Einstellung betrifft nur High-DPI-Displays. Ihr aktuelles Display hat Standardauflösung.",

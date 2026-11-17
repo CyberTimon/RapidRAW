@@ -244,6 +244,7 @@ async fn render_tiff(
         jpeg_quality: 100,
         tiff_bit_depth: TiffBitDepth::Sixteen,
         color_space: Default::default(),
+        hdr: false,
         resize: None,
         border: None,
         pad: None,

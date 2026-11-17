@@ -64,6 +64,7 @@ export function useExternalEditSession(
       jpegQuality: session.jpegQuality,
       tiffBitDepth: 16,
       colorSpace: ExportColorSpace.Srgb,
+      hdr: false,
       keepMetadata: true,
       preserveTimestamps: false,
       preserveFolders: false,

@@ -1,8 +1,15 @@
+use crate::app::settings::{AppSettings, load_settings};
 use crate::app::state::{AppState, PreviewTarget};
-use crate::render::gpu::context::current_gpu_context;
+use crate::platform::hdr_display::{self, HdrDisplay};
+use crate::render::color_space::{TransferCurve, with_shader_prelude};
+use crate::render::gpu::context::{GpuContext, current_gpu_context};
 use std::num::NonZero;
-use std::sync::atomic::{AtomicBool, Ordering};
-use tauri::Manager;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
+use tauri::{Emitter, Manager};
+
+pub const HDR_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -13,7 +20,7 @@ pub struct DisplayTransform {
     pub image_size: [f32; 2],
     pub texture_size: [f32; 2],
     pub pixelated: f32,
-    pub _pad: f32,
+    pub hdr_white: f32,
     pub bg_primary: [f32; 4],
     pub bg_secondary: [f32; 4],
     pub original_size: [f32; 2],
@@ -37,7 +44,7 @@ impl Default for DisplayTransform {
             image_size: [100.0, 100.0],
             texture_size: [100.0, 100.0],
             pixelated: 0.0,
-            _pad: 0.0,
+            hdr_white: 0.0,
             bg_primary: [24.0 / 255.0, 24.0 / 255.0, 24.0 / 255.0, 1.0],
             bg_secondary: [35.0 / 255.0, 35.0 / 255.0, 35.0 / 255.0, 1.0],
             original_size: [100.0, 100.0],
@@ -92,6 +99,9 @@ pub struct WgpuDisplay {
     pub surface: wgpu::Surface<'static>,
     pub config: wgpu::SurfaceConfiguration,
     pub pipeline: wgpu::RenderPipeline,
+    hdr_pipeline: Option<wgpu::RenderPipeline>,
+    sdr_format: wgpu::TextureFormat,
+    hdr: Option<HdrDisplay>,
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub sampler: wgpu::Sampler,
     pub transform_buffer: wgpu::Buffer,
@@ -115,11 +125,12 @@ impl WgpuDisplay {
         device: &wgpu::Device,
         width: u32,
         height: u32,
+        format: wgpu::TextureFormat,
     ) -> &wgpu::Texture {
         if self
             .original_texture
             .as_ref()
-            .is_none_or(|(t, _)| t.width() != width || t.height() != height)
+            .is_none_or(|(t, _)| t.width() != width || t.height() != height || t.format() != format)
         {
             let texture = device.create_texture(&wgpu::TextureDescriptor {
                 label: Some("Original Display Texture"),
@@ -131,7 +142,7 @@ impl WgpuDisplay {
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba8Unorm,
+                format,
                 usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
                 view_formats: &[],
             });
@@ -209,8 +220,10 @@ impl WgpuDisplay {
         max_dimension: u32,
     ) {
         let area = |dims: [u32; 2]| dims[0] as u64 * dims[1] as u64;
+        let format = source.format();
         let reusable = self.frame.as_ref().is_some_and(|frame| {
-            frame.capacity[0] >= size[0]
+            frame.texture.format() == format
+                && frame.capacity[0] >= size[0]
                 && frame.capacity[1] >= size[1]
                 && area(frame.capacity) <= 4 * area(size)
         });
@@ -226,7 +239,7 @@ impl WgpuDisplay {
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba8Unorm,
+                format,
                 usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
                 view_formats: &[],
             });
@@ -268,6 +281,47 @@ impl WgpuDisplay {
     pub fn set_view(&mut self, view: DisplayView) {
         self.view = view;
         self.place_image();
+    }
+
+    pub fn hdr(&self) -> Option<HdrDisplay> {
+        self.hdr
+    }
+
+    pub fn set_hdr(&mut self, device: &wgpu::Device, hdr: Option<HdrDisplay>) -> bool {
+        let hdr = hdr.filter(|_| self.hdr_pipeline.is_some());
+        if hdr == self.hdr {
+            return false;
+        }
+        let format = if hdr.is_some() {
+            HDR_FORMAT
+        } else {
+            self.sdr_format
+        };
+        if format != self.config.format {
+            hdr_display::prepare_surface(&self.surface, hdr.is_some());
+            self.config.format = format;
+            self.surface.configure(device, &self.config);
+        }
+        self.latest_transform.hdr_white = hdr.map_or(0.0, |hdr| hdr.white_scale);
+        self.hdr = hdr;
+        true
+    }
+
+    fn surface_color(&self, color: [f32; 4]) -> wgpu::Color {
+        let white = self.latest_transform.hdr_white;
+        let [r, g, b] = [color[0], color[1], color[2]].map(|channel| {
+            f64::from(if white > 0.0 {
+                TransferCurve::SRGB.decode(channel) * white
+            } else {
+                channel
+            })
+        });
+        wgpu::Color {
+            r,
+            g,
+            b,
+            a: f64::from(color[3]),
+        }
     }
 
     pub fn set_background(&mut self, color: [f32; 4]) {
@@ -366,12 +420,9 @@ impl WgpuDisplay {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: self.latest_transform.bg_primary[0] as f64,
-                            g: self.latest_transform.bg_primary[1] as f64,
-                            b: self.latest_transform.bg_primary[2] as f64,
-                            a: self.latest_transform.bg_primary[3] as f64,
-                        }),
+                        load: wgpu::LoadOp::Clear(
+                            self.surface_color(self.latest_transform.bg_primary),
+                        ),
                         store: wgpu::StoreOp::Store,
                     },
                     depth_slice: None,
@@ -409,7 +460,12 @@ impl WgpuDisplay {
                             clamped_height,
                         );
 
-                        rpass.set_pipeline(&self.pipeline);
+                        rpass.set_pipeline(
+                            self.hdr_pipeline
+                                .as_ref()
+                                .filter(|_| self.config.format == HDR_FORMAT)
+                                .unwrap_or(&self.pipeline),
+                        );
                         rpass.set_bind_group(0, bind_group, &[]);
                         rpass.draw(0..4, 0..1);
                     }
@@ -503,7 +559,9 @@ pub fn build_wgpu_display(
 
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("Display Shader"),
-        source: wgpu::ShaderSource::Wgsl(include_str!("../../shaders/display.wgsl").into()),
+        source: wgpu::ShaderSource::Wgsl(
+            with_shader_prelude(include_str!("../../shaders/display.wgsl")).into(),
+        ),
     });
 
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -554,34 +612,39 @@ pub fn build_wgpu_display(
         immediate_size: 0,
     });
 
-    let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        label: Some("Display Pipeline"),
-        layout: Some(&pipeline_layout),
-        vertex: wgpu::VertexState {
-            module: &shader,
-            entry_point: Some("vs_main"),
-            buffers: &[],
-            compilation_options: Default::default(),
-        },
-        fragment: Some(wgpu::FragmentState {
-            module: &shader,
-            entry_point: Some("fs_main"),
-            targets: &[Some(wgpu::ColorTargetState {
-                format: swapchain_format,
-                blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
-                write_mask: wgpu::ColorWrites::ALL,
-            })],
-            compilation_options: Default::default(),
-        }),
-        primitive: wgpu::PrimitiveState {
-            topology: wgpu::PrimitiveTopology::TriangleStrip,
-            ..Default::default()
-        },
-        depth_stencil: None,
-        multisample: wgpu::MultisampleState::default(),
-        multiview_mask: NonZero::new(0),
-        cache: None,
-    });
+    let create_pipeline = |format: wgpu::TextureFormat| {
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Display Pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers: &[],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format,
+                    blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleStrip,
+                ..Default::default()
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview_mask: NonZero::new(0),
+            cache: None,
+        })
+    };
+    let pipeline = create_pipeline(swapchain_format);
+    let hdr_pipeline = (swapchain_caps.formats.contains(&HDR_FORMAT) && usable(&HDR_FORMAT))
+        .then(|| create_pipeline(HDR_FORMAT));
 
     let transform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Transform Buffer"),
@@ -603,6 +666,9 @@ pub fn build_wgpu_display(
         surface,
         config,
         pipeline,
+        hdr_pipeline,
+        sdr_format: swapchain_format,
+        hdr: None,
         bind_group_layout,
         transform_buffer,
         latest_transform: DisplayTransform::default(),
@@ -699,6 +765,127 @@ fn update_display_size(window: &tauri::Window, size: tauri::PhysicalSize<u32>, w
     if let Some(display) = lock.as_mut() {
         display.resize(&ctx.device, size);
         display.flush(&ctx.device, &ctx.queue);
+    }
+}
+
+pub const HDR_DISPLAY_CHANGED_EVENT: &str = "hdr-display-changed";
+
+static HDR_CHECKED_AT: AtomicU64 = AtomicU64::new(0);
+static HDR_WANTED: AtomicBool = AtomicBool::new(false);
+static HDR_REFRESH_PENDING: AtomicBool = AtomicBool::new(false);
+
+pub fn invalidate_hdr() {
+    HDR_CHECKED_AT.store(0, Ordering::Release);
+}
+
+pub fn request_hdr_refresh(app_handle: &tauri::AppHandle) {
+    const DEBOUNCE: Duration = Duration::from_millis(300);
+    if !HDR_WANTED.load(Ordering::Acquire) || HDR_REFRESH_PENDING.swap(true, Ordering::AcqRel) {
+        return;
+    }
+    let app_handle = app_handle.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(DEBOUNCE);
+        HDR_REFRESH_PENDING.store(false, Ordering::Release);
+        invalidate_hdr();
+        if let Some(context) = current_gpu_context(&app_handle.state::<AppState>()) {
+            let settings = load_settings(app_handle.clone()).unwrap_or_default();
+            refresh_hdr(&app_handle, &context, &settings);
+        }
+    });
+}
+
+#[cfg(target_os = "macos")]
+fn query_hdr(app_handle: &tauri::AppHandle, label: &str) -> Option<Option<HdrDisplay>> {
+    const TIMEOUT: Duration = Duration::from_millis(250);
+    let window = app_handle.get_webview_window(label)?;
+    let (tx, rx) = std::sync::mpsc::channel();
+    let target = window.clone();
+    window
+        .run_on_main_thread(move || {
+            let _ = tx.send(hdr_display::query(&target));
+        })
+        .ok()?;
+    rx.recv_timeout(TIMEOUT).ok()
+}
+
+#[cfg(not(target_os = "macos"))]
+fn query_hdr(app_handle: &tauri::AppHandle, label: &str) -> Option<Option<HdrDisplay>> {
+    let window = app_handle.get_webview_window(label)?;
+    Some(hdr_display::query(&window))
+}
+
+pub fn refresh_hdr(app_handle: &tauri::AppHandle, context: &GpuContext, settings: &AppSettings) {
+    const INTERVAL_MS: u64 = 3000;
+    static STARTED: OnceLock<Instant> = OnceLock::new();
+    let now = STARTED.get_or_init(Instant::now).elapsed().as_millis() as u64 + 1;
+    let checked_at = HDR_CHECKED_AT.load(Ordering::Acquire);
+    if checked_at != 0 && now.saturating_sub(checked_at) < INTERVAL_MS {
+        return;
+    }
+    HDR_CHECKED_AT.store(now, Ordering::Release);
+    let mut changed = false;
+
+    let displays: [(&str, &Mutex<Option<WgpuDisplay>>); 2] = [
+        ("main", &context.display),
+        (
+            crate::platform::viewer_window::VIEWER_LABEL,
+            &context.viewer_display,
+        ),
+    ];
+    for (label, display) in displays {
+        if display.lock().unwrap_or_else(|e| e.into_inner()).is_none() {
+            continue;
+        }
+        let hdr = if settings.hdr_display {
+            match query_hdr(app_handle, label) {
+                Some(hdr) => hdr,
+                None => continue,
+            }
+        } else {
+            None
+        };
+        if let Some(display) = display.lock().unwrap_or_else(|e| e.into_inner()).as_mut()
+            && display.set_hdr(&context.device, hdr)
+        {
+            display.flush(&context.device, &context.queue);
+            changed = true;
+        }
+    }
+    HDR_WANTED.store(
+        settings.hdr_display || shared_headroom(context).is_some(),
+        Ordering::Release,
+    );
+    if changed {
+        let _ = app_handle.emit(HDR_DISPLAY_CHANGED_EVENT, ());
+    }
+}
+
+pub fn main_window_is_hdr(app_handle: &tauri::AppHandle) -> bool {
+    let surface_ready =
+        current_gpu_context(&app_handle.state::<AppState>()).is_none_or(|context| {
+            context
+                .display
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .as_ref()
+                .is_none_or(|display| display.hdr_pipeline.is_some())
+        });
+    surface_ready && query_hdr(app_handle, "main").flatten().is_some()
+}
+
+pub fn shared_headroom(context: &GpuContext) -> Option<f32> {
+    let hdr = |display: &Mutex<Option<WgpuDisplay>>| {
+        display
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .map(WgpuDisplay::hdr)
+    };
+    let main = hdr(&context.display)??;
+    match hdr(&context.viewer_display) {
+        None => Some(main.headroom),
+        Some(viewer) => Some(main.headroom.min(viewer?.headroom)),
     }
 }
 

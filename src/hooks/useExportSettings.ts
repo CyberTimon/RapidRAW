@@ -13,6 +13,7 @@ export function useExportSettings() {
   const [jpegQuality, setJpegQuality] = useState(90);
   const [tiffBitDepth, setTiffBitDepth] = useState<TiffBitDepth>(16);
   const [colorSpace, setColorSpace] = useState<ExportColorSpace>(ExportColorSpace.Srgb);
+  const [hdr, setHdr] = useState(false);
   const [dpi, setDpi] = useState(DEFAULT_EXPORT_DPI);
   const [enableResize, setEnableResize] = useState(false);
   const [resizeMode, setResizeMode] = useState('longEdge');
@@ -50,6 +51,7 @@ export function useExportSettings() {
     setJpegQuality(preset.jpegQuality);
     setTiffBitDepth(preset.tiffBitDepth ?? 16);
     setColorSpace(preset.colorSpace ?? ExportColorSpace.Srgb);
+    setHdr(preset.hdr ?? false);
     setDpi(preset.dpi ?? DEFAULT_EXPORT_DPI);
     setEnableResize(preset.enableResize);
     setResizeMode(preset.resizeMode);
@@ -89,6 +91,7 @@ export function useExportSettings() {
       jpegQuality,
       tiffBitDepth,
       colorSpace,
+      hdr,
       dpi,
       enableResize,
       resizeMode,
@@ -126,6 +129,7 @@ export function useExportSettings() {
       jpegQuality,
       tiffBitDepth,
       colorSpace,
+      hdr,
       dpi,
       enableResize,
       resizeMode,
@@ -169,6 +173,8 @@ export function useExportSettings() {
     setTiffBitDepth,
     colorSpace,
     setColorSpace,
+    hdr,
+    setHdr,
     dpi,
     setDpi,
     enableResize,

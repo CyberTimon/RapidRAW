@@ -1026,6 +1026,9 @@
     "file": {
       "colorSpace": "색 공간",
       "dpi": "DPI",
+      "hdr": "HDR 출력",
+      "hdrJpegHint": "게인 맵을 추가합니다. HDR 화면에서는 하이라이트가 더 밝게 보이고, 그 외에는 일반 사진으로 보입니다.",
+      "hdrJxlHint": "실제 HDR 파일(PQ, Rec. 2020)로 저장합니다. HDR 지원 뷰어가 필요합니다.",
       "quality": "품질",
       "qualityLossless": "품질 (무손실)",
       "resolution": "해상도",
@@ -2194,6 +2197,17 @@
         "title": "다른 프로그램에서 편집"
       },
       "enableLivePreviews": "실시간 미리보기 활성화",
+      "hdr": {
+        "display": "HDR 디스플레이",
+        "displayDesc": "HDR 디스플레이에서 하이라이트를 일반 흰색보다 밝게 표시합니다. 섀도와 중간 톤은 그대로이며 일반 내보내기에는 영향을 주지 않습니다.",
+        "enableDisplay": "편집기에서 HDR 사용",
+        "headroom": "하이라이트 범위",
+        "headroomDesc": "하이라이트가 일반 흰색보다 얼마나 밝아질 수 있는지 정합니다. HDR 내보내기에도 사용됩니다.",
+        "statusActive": "이 디스플레이는 HDR 모드입니다.",
+        "statusInactive": "이 디스플레이는 HDR 모드가 아닙니다. 효과를 보려면 시스템 디스플레이 설정에서 HDR을 켜세요.",
+        "statusUnsupported": "HDR에는 Windows 또는 macOS의 GPU 렌더러가 필요합니다.",
+        "title": "HDR"
+      },
       "highDpi": "고해상도(High-DPI) 렌더링",
       "highDpiDesc": "화면의 네이티브 {{dpr}}배 물리적 픽셀 해상도로 미리보기를 렌더링합니다. 가능한 가장 선명한 미리보기를 제공하지만 메모리를 훨씬 많이 사용합니다.",
       "highDpiDescStandard": "이 설정은 고해상도 디스플레이에만 영향을 줍니다. 현재 디스플레이는 표준 해상도입니다.",

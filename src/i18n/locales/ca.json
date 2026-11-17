@@ -1055,6 +1055,9 @@
     "file": {
       "colorSpace": "Espai de color",
       "dpi": "PPP",
+      "hdr": "Sortida HDR",
+      "hdrJpegHint": "Afegeix un mapa de guany: les pantalles HDR mostren altes llums més brillants i la resta mostra la foto normal.",
+      "hdrJxlHint": "Desa un fitxer HDR real (PQ, Rec. 2020). Necessita un visor compatible amb HDR.",
       "quality": "Qualitat",
       "qualityLossless": "Qualitat (Sense pèrdua)",
       "resolution": "Resolució",
@@ -2243,6 +2246,17 @@
         "title": "Edita a"
       },
       "enableLivePreviews": "Activar vistes prèvies en directe",
+      "hdr": {
+        "display": "Pantalla HDR",
+        "displayDesc": "Mostra les altes llums més brillants que el blanc normal en una pantalla HDR. Les ombres i els tons mitjans no canvien i les exportacions estàndard no es veuen afectades.",
+        "enableDisplay": "Utilitza HDR a l'editor",
+        "headroom": "Rang d'altes llums",
+        "headroomDesc": "Fins on poden superar les altes llums el blanc normal. També s'utilitza en les exportacions HDR.",
+        "statusActive": "Aquesta pantalla està en mode HDR.",
+        "statusInactive": "Aquesta pantalla no està en mode HDR. Activa l'HDR a la configuració de pantalla del sistema per veure l'efecte.",
+        "statusUnsupported": "L'HDR necessita el renderitzador per GPU a Windows o macOS.",
+        "title": "HDR"
+      },
       "highDpi": "Renderització High-DPI",
       "highDpiDesc": "Renderitzar vistes prèvies a la resolució nativa de {{dpr}}x píxels de la pantalla. Produeix la vista prèvia més nítida possible, però utilitza molta més memòria.",
       "highDpiDescStandard": "Aquesta configuració només afecta pantalles d'alta densitat (High-DPI). La vostra pantalla actual té una resolució estàndard.",

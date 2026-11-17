@@ -153,6 +153,8 @@ export interface AppSettings {
   enableBaselineExposure?: boolean;
   baselineExposure?: number;
   compensateHighlightPreservation?: boolean;
+  hdrDisplay?: boolean;
+  hdrHeadroom?: number;
   tonemapperOverrideEnabled?: boolean;
   defaultRawTonemapper?: string;
   defaultNonRawTonemapper?: string;

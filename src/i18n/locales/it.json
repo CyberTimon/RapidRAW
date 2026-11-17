@@ -1055,6 +1055,9 @@
     "file": {
       "colorSpace": "Spazio colore",
       "dpi": "DPI",
+      "hdr": "Uscita HDR",
+      "hdrJpegHint": "Aggiunge una gain map: gli schermi HDR mostrano luci più luminose, tutto il resto mostra la foto normale.",
+      "hdrJxlHint": "Salva un vero file HDR (PQ, Rec. 2020). Richiede un visualizzatore compatibile con HDR.",
       "quality": "Qualità",
       "qualityLossless": "Qualità (Senza Perdita)",
       "resolution": "Risoluzione",
@@ -2243,6 +2246,17 @@
         "title": "Modifica in"
       },
       "enableLivePreviews": "Abilita Anteprime dal Vivo",
+      "hdr": {
+        "display": "Schermo HDR",
+        "displayDesc": "Mostra le luci più luminose del bianco normale su uno schermo HDR. Ombre e mezzitoni restano uguali e le esportazioni standard non cambiano.",
+        "enableDisplay": "Usa HDR nell'editor",
+        "headroom": "Gamma delle luci",
+        "headroomDesc": "Quanto le luci possono superare il bianco normale. Usato anche per le esportazioni HDR.",
+        "statusActive": "Questo schermo è in modalità HDR.",
+        "statusInactive": "Questo schermo non è in modalità HDR. Attiva HDR nelle impostazioni dello schermo del sistema per vedere l'effetto.",
+        "statusUnsupported": "HDR richiede il renderer GPU su Windows o macOS.",
+        "title": "HDR"
+      },
       "highDpi": "Rendering High-DPI",
       "highDpiDesc": "Renderizza le anteprime alla risoluzione nativa in pixel fisici {{dpr}}x del tuo schermo. Produce l'anteprima più nitida possibile ma utilizza molta più memoria.",
       "highDpiDescStandard": "Questa impostazione ha effetto solo sui display ad alta risoluzione (High-DPI). Il tuo display attuale ha una risoluzione standard.",

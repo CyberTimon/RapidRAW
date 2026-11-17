@@ -161,7 +161,7 @@ pub struct TransferCurve {
 }
 
 impl TransferCurve {
-    const SRGB: Self = Self {
+    pub const SRGB: Self = Self {
         power: 1.0 / 2.4,
         offset: 0.055,
         slope: 12.92,
@@ -299,7 +299,7 @@ impl OutputColorSpace {
         }
     }
 
-    fn curve(self) -> TransferCurve {
+    pub fn curve(self) -> TransferCurve {
         match self {
             Self::Srgb | Self::DisplayP3 => TransferCurve::SRGB,
             Self::AdobeRgb => TransferCurve::gamma(563.0 / 256.0),

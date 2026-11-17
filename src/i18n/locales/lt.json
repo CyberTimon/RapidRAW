@@ -1119,6 +1119,9 @@
     "file": {
       "colorSpace": "Spalvų erdvė",
       "dpi": "DPI",
+      "hdr": "HDR išvestis",
+      "hdrJpegHint": "Prideda stiprinimo žemėlapį: HDR ekranai rodo ryškesnes šviesias sritis, visa kita rodo įprastą nuotrauką.",
+      "hdrJxlHint": "Išsaugo tikrą HDR failą (PQ, Rec. 2020). Reikia HDR palaikančios peržiūros programos.",
       "quality": "Kokybė",
       "qualityLossless": "Kokybė (be nuostolių)",
       "resolution": "Raiška",
@@ -2330,6 +2333,17 @@
       "exifLabel": "Skaityti EXIF duomenis",
       "exportQuality": "Eksporto kokybė",
       "exportQualityDesc": "Valdo kokybės ir spartos balansą eksportuojant. „Aukšta kokybė“ naudoja geresnį interpoliavimą.",
+      "hdr": {
+        "display": "HDR ekranas",
+        "displayDesc": "HDR ekrane rodo šviesias sritis ryškesnes už įprastą baltą. Šešėliai ir vidutiniai tonai nesikeičia, o įprasti eksportai lieka tokie patys.",
+        "enableDisplay": "Naudoti HDR redaktoriuje",
+        "headroom": "Šviesių sričių diapazonas",
+        "headroomDesc": "Kiek šviesios sritys gali viršyti įprastą baltą. Taip pat naudojama HDR eksportui.",
+        "statusActive": "Šis ekranas veikia HDR režimu.",
+        "statusInactive": "Šis ekranas neveikia HDR režimu. Įjunkite HDR sistemos ekrano nustatymuose, kad pamatytumėte efektą.",
+        "statusUnsupported": "HDR reikia GPU atvaizdavimo „Windows“ arba „macOS“ sistemoje.",
+        "title": "HDR"
+      },
       "highDpi": "Didelės raiškos (High-DPI) atvaizdavimas",
       "highDpiDesc": "Atvaizduoti peržiūras jūsų ekrano fizine {{dpr}}x raiška. Užtikrina ryškiausią peržiūrą, bet naudoja žymiai daugiau atminties.",
       "highDpiDescStandard": "Šis nustatymas veikia tik didelės raiškos (High-DPI) ekranuose. Jūsų dabartinis ekranas yra standartinės raiškos.",

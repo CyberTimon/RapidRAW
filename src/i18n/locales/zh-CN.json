@@ -1026,6 +1026,9 @@
     "file": {
       "colorSpace": "色彩空间",
       "dpi": "DPI",
+      "hdr": "HDR 输出",
+      "hdrJpegHint": "添加增益图：HDR 屏幕显示更亮的高光，其他情况下显示普通照片。",
+      "hdrJxlHint": "保存为真正的 HDR 文件（PQ，Rec. 2020）。需要支持 HDR 的查看器。",
       "quality": "质量",
       "qualityLossless": "质量（无损）",
       "resolution": "分辨率",
@@ -2194,6 +2197,17 @@
         "title": "在其他程序中编辑"
       },
       "enableLivePreviews": "启用实时预览",
+      "hdr": {
+        "display": "HDR 显示",
+        "displayDesc": "在 HDR 显示器上以高于普通白色的亮度显示高光。阴影和中间调保持不变，普通导出不受影响。",
+        "enableDisplay": "在编辑器中使用 HDR",
+        "headroom": "高光范围",
+        "headroomDesc": "高光可以超出普通白色的程度。同样用于 HDR 导出。",
+        "statusActive": "此显示器处于 HDR 模式。",
+        "statusInactive": "此显示器未处于 HDR 模式。请在系统显示设置中开启 HDR 以查看效果。",
+        "statusUnsupported": "HDR 需要在 Windows 或 macOS 上使用 GPU 渲染器。",
+        "title": "HDR"
+      },
       "highDpi": "高 DPI 渲染",
       "highDpiDesc": "以屏幕原生 {{dpr}}x 物理像素分辨率渲染预览。产生最清晰的预览，但会显著增加内存使用。",
       "highDpiDescStandard": "此设置仅影响高 DPI 显示器。您当前的显示器为标准分辨率。",

@@ -425,6 +425,7 @@ fn attach_viewer_display(
     display.set_background(viewer_state(&state).background);
     display.flush(&ctx.device, &ctx.queue);
     *ctx.viewer_display.lock().unwrap_or_else(|e| e.into_inner()) = Some(display);
+    crate::render::gpu::display::invalidate_hdr();
     Ok(())
 }
 

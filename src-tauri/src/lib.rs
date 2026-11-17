@@ -197,6 +197,11 @@ pub fn run() {
                     platform::viewer_window::handle_viewer_resized(window, *size);
                 }
             }
+            tauri::WindowEvent::Moved(_)
+            | tauri::WindowEvent::Focused(true)
+            | tauri::WindowEvent::ScaleFactorChanged { .. } => {
+                render::gpu::display::request_hdr_refresh(window.app_handle());
+            }
             tauri::WindowEvent::CloseRequested { api, .. } => {
                 platform::viewer_window::handle_close_requested(window, api)
             }
@@ -660,6 +665,7 @@ pub fn run() {
             app::settings::set_ui_scale,
             app::settings::is_tethering_supported,
             app::settings::is_wgpu_renderer_supported,
+            app::settings::get_hdr_display_status,
             ai::commands::generate_ai_subject_mask,
             ai::commands::precompute_ai_subject_mask,
             ai::commands::generate_ai_foreground_mask,

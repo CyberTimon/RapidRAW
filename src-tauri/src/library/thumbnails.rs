@@ -72,18 +72,25 @@ pub fn emit_thumbnail_cache_setup_error(app_handle: &AppHandle, path: &str, reas
     );
 }
 
+fn thumbnail_render_key(settings: &AppSettings, is_raw: bool) -> String {
+    let render = resolve_render_options(settings, is_raw);
+    format!(
+        "RenderOptions {{ tonemapper_override: {:?}, non_raw_tonemapper_override: {:?}, \
+         baseline: {:?} }}{:?}",
+        render.tonemapper_override,
+        render.non_raw_tonemapper_override,
+        render.baseline,
+        settings.always_decode_raw_thumbnails
+    )
+}
+
 fn compute_thumbnail_cache_hash(
     path_str: &str,
     adjustments_bytes: &[u8],
     settings: &AppSettings,
 ) -> Option<String> {
     let (source_path, _) = parse_virtual_path(path_str);
-    let is_raw = is_raw_file(&source_path);
-    let render_key = format!(
-        "{:?}{:?}",
-        resolve_render_options(settings, is_raw),
-        settings.always_decode_raw_thumbnails
-    );
+    let render_key = thumbnail_render_key(settings, is_raw_file(&source_path));
 
     let img_mod_time = fs::metadata(&source_path)
         .ok()?

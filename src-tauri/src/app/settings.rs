@@ -365,6 +365,8 @@ pub struct ExportPreset {
     #[serde(default)]
     pub color_space: Option<OutputColorSpace>,
     #[serde(default)]
+    pub hdr: Option<bool>,
+    #[serde(default)]
     pub preserve_timestamps: Option<bool>,
 }
 
@@ -407,6 +409,7 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             subfolder: Some("".to_string()),
             tiff_bit_depth: Some(16),
             color_space: Some(OutputColorSpace::Srgb),
+            hdr: Some(false),
             preserve_timestamps: Some(false),
         },
         ExportPreset {
@@ -446,6 +449,7 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             subfolder: Some("".to_string()),
             tiff_bit_depth: Some(16),
             color_space: Some(OutputColorSpace::Srgb),
+            hdr: Some(false),
             preserve_timestamps: Some(false),
         },
     ]
@@ -551,6 +555,10 @@ pub fn default_baseline_exposure() -> f32 {
 
 pub fn default_compensate_highlight_preservation() -> bool {
     true
+}
+
+pub fn default_hdr_headroom() -> f32 {
+    crate::render::hdr::Headroom::DEFAULT_STOPS
 }
 
 pub fn default_ai_gpu_acceleration() -> bool {
@@ -715,6 +723,10 @@ pub struct AppSettings {
     pub baseline_exposure: f32,
     #[serde(default = "default_compensate_highlight_preservation")]
     pub compensate_highlight_preservation: bool,
+    #[serde(default)]
+    pub hdr_display: bool,
+    #[serde(default = "default_hdr_headroom")]
+    pub hdr_headroom: f32,
     #[serde(default)]
     pub tonemapper_override_enabled: Option<bool>,
     #[serde(default)]
@@ -926,6 +938,8 @@ impl Default for AppSettings {
             enable_baseline_exposure: default_enable_baseline_exposure(),
             baseline_exposure: default_baseline_exposure(),
             compensate_highlight_preservation: default_compensate_highlight_preservation(),
+            hdr_display: false,
+            hdr_headroom: default_hdr_headroom(),
             tonemapper_override_enabled: Some(false),
             default_raw_tonemapper: Some("agx".to_string()),
             default_non_raw_tonemapper: Some("basic".to_string()),
@@ -985,6 +999,25 @@ fn settings_cache() -> std::sync::MutexGuard<'static, Option<AppSettings>> {
 #[tauri::command]
 pub fn is_wgpu_renderer_supported() -> bool {
     wgpu_renderer_available()
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HdrDisplayStatus {
+    supported: bool,
+    active: bool,
+}
+
+#[tauri::command]
+pub async fn get_hdr_display_status(app_handle: AppHandle) -> HdrDisplayStatus {
+    let supported = cfg!(any(target_os = "windows", target_os = "macos"))
+        && load_settings(app_handle.clone())
+            .unwrap_or_default()
+            .wgpu_renderer_enabled();
+    HdrDisplayStatus {
+        supported,
+        active: supported && crate::render::gpu::display::main_window_is_hdr(&app_handle),
+    }
 }
 
 #[tauri::command]
@@ -1115,6 +1148,7 @@ pub fn save_settings(mut settings: AppSettings, app_handle: AppHandle) -> Result
         .map_err(|e| e.to_string())?;
     *settings_cache() = None;
     crate::integrations::immich::apply_settings(&settings.immich);
+    crate::render::gpu::display::invalidate_hdr();
 
     let state = app_handle.state::<AppState>();
     let cache_size = settings.image_cache_size.unwrap_or(5) as usize;

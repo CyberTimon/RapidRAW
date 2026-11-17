@@ -1026,6 +1026,9 @@
     "file": {
       "colorSpace": "カラースペース",
       "dpi": "DPI",
+      "hdr": "HDR出力",
+      "hdrJpegHint": "ゲインマップを追加します。HDR画面ではハイライトがより明るく表示され、それ以外では通常の写真が表示されます。",
+      "hdrJxlHint": "本来のHDRファイル（PQ、Rec. 2020）として保存します。HDR対応のビューアが必要です。",
       "quality": "画質",
       "qualityLossless": "画質 (ロスレス)",
       "resolution": "解像度",
@@ -2194,6 +2197,17 @@
         "title": "外部アプリで編集"
       },
       "enableLivePreviews": "リアルタイムプレビューを有効化",
+      "hdr": {
+        "display": "HDR表示",
+        "displayDesc": "HDRディスプレイでハイライトを通常の白より明るく表示します。シャドウと中間調は変わらず、通常の書き出しには影響しません。",
+        "enableDisplay": "エディターでHDRを使用",
+        "headroom": "ハイライトの範囲",
+        "headroomDesc": "ハイライトが通常の白をどこまで超えられるかを設定します。HDR書き出しにも使用されます。",
+        "statusActive": "このディスプレイはHDRモードです。",
+        "statusInactive": "このディスプレイはHDRモードではありません。効果を確認するには、システムのディスプレイ設定でHDRをオンにしてください。",
+        "statusUnsupported": "HDRにはWindowsまたはmacOSのGPUレンダラーが必要です。",
+        "title": "HDR"
+      },
       "highDpi": "高DPIレンダリング",
       "highDpiDesc": "画面本来の物理解像度である {{dpr}}x でプレビューをレンダリングします。極めて鮮明なプレビューが得られますが、メモリ消費が大幅に増加します。",
       "highDpiDescStandard": "この設定は高DPIディスプレイのみに影響します。現在のディスプレイは標準解像度です。",

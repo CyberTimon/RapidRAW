@@ -1,12 +1,14 @@
-use crate::export::settings::{ExportSettings, TiffBitDepth};
+use crate::export::gain_map;
+use crate::export::settings::{ExportSettings, HdrOutput, TiffBitDepth};
 use crate::metadata::tiff_metadata::{TiffSamples, encode_tiff_with_metadata};
 use crate::metadata::{exif_processing, export_metadata};
 use crate::render::color_space::OutputColorSpace;
+use crate::render::hdr::REFERENCE_WHITE_NITS;
 use image::codecs::jpeg::{JpegEncoder, PixelDensity};
 use image::codecs::png::PngEncoder;
 use image::{DynamicImage, GenericImageView, ImageEncoder};
 use jxl_encoder::{
-    ImageMetadata, LosslessConfig, LossyConfig, PixelLayout,
+    ColorEncoding, ImageMetadata, LosslessConfig, LossyConfig, PixelLayout,
     api::{calibrated_jxl_quality, quality_to_distance},
 };
 use rayon::prelude::*;
@@ -38,6 +40,7 @@ pub fn set_timestamps_from_exif(src: &Path, dst: &Path) {
 
 pub fn save_image_with_metadata(
     image: &DynamicImage,
+    hdr: Option<&DynamicImage>,
     output_path: &std::path::Path,
     source_path_str: &str,
     export_xmp: &export_metadata::ExportXmp,
@@ -74,6 +77,16 @@ pub fn save_image_with_metadata(
             export_xmp,
             export_settings.dpi,
             is_srgb,
+        )?;
+    }
+
+    if let Some(hdr) = hdr {
+        image_bytes = gain_map::attach(
+            &image_bytes,
+            image,
+            hdr,
+            export_settings.color_space_for(&extension),
+            export_settings.jpeg_quality,
         )?;
     }
 
@@ -117,6 +130,39 @@ pub fn mime_type_for_extension(extension: &str) -> &'static str {
     }
 }
 
+fn encode_hdr_jxl(image: &DynamicImage, quality: u8) -> Result<Vec<u8>, String> {
+    const ENCODER_WHITE_NITS: f32 = 255.0;
+    const MIN_DISTANCE: f32 = 0.1;
+
+    let (width, height) = image.dimensions();
+    let (mut samples, channels, layout) = if image.color().has_alpha() {
+        (image.to_rgba32f().into_raw(), 4, PixelLayout::RgbaLinearF32)
+    } else {
+        (image.to_rgb32f().into_raw(), 3, PixelLayout::RgbLinearF32)
+    };
+    let curve = OutputColorSpace::Rec2020.curve();
+    let absolute = REFERENCE_WHITE_NITS / ENCODER_WHITE_NITS;
+    samples.par_chunks_exact_mut(channels).for_each(|pixel| {
+        for sample in &mut pixel[..3] {
+            *sample = curve.decode(sample.max(0.0)) * absolute;
+        }
+    });
+    let peak_nits = samples
+        .par_chunks_exact(channels)
+        .map(|pixel| pixel[0].max(pixel[1]).max(pixel[2]))
+        .reduce(|| absolute, f32::max)
+        * ENCODER_WHITE_NITS;
+
+    let distance = quality_to_distance(calibrated_jxl_quality(f32::from(quality)));
+    let metadata = ImageMetadata::new().with_intensity_target(peak_nits);
+    LossyConfig::new(distance.max(MIN_DISTANCE))
+        .encode_request(width, height, layout)
+        .with_color_encoding(ColorEncoding::bt2100_pq())
+        .with_metadata(&metadata)
+        .encode(bytemuck::cast_slice(&samples))
+        .map_err(|e| format!("Failed to encode HDR JXL: {}", e))
+}
+
 pub fn encode_image_to_bytes(
     image: &DynamicImage,
     output_format: &str,
@@ -129,6 +175,9 @@ pub fn encode_image_to_bytes(
     let mut cursor = Cursor::new(&mut image_bytes);
 
     match output_format.to_lowercase().as_str() {
+        "jxl" if export_settings.hdr_output(output_format) == Some(HdrOutput::Pq) => {
+            return encode_hdr_jxl(image, jpeg_quality);
+        }
         "jxl" => {
             let (width, height) = image.dimensions();
             let has_alpha = image.color().has_alpha();

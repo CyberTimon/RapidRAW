@@ -2,6 +2,7 @@ use crate::render::color_space::{
     REC2020, RgbSpace, WORKING, chromatic_adaptation, chromaticity_to_xyz, srgb_transfer,
     wgsl_mat3, wgsl_vec3, xyz_to_chromaticity,
 };
+use crate::render::hdr::scene_linear_knee;
 use glam::{DMat3, DVec2, DVec3, Mat3, Vec3};
 use std::sync::LazyLock;
 
@@ -37,6 +38,8 @@ pub struct Agx {
     shoulder_scale: f32,
     gamut_luma: Vec3,
     linear_curve: Vec<f32>,
+    hdr_knee_x: f32,
+    hdr_knee_linear: f32,
 }
 
 fn sigmoid_scale(run: f64, rise: f64, slope: f64, power: f64) -> f64 {
@@ -136,6 +139,8 @@ impl Agx {
                 as f32,
             gamut_luma: GAMUT_LUMA.as_vec3(),
             linear_curve: Vec::new(),
+            hdr_knee_x: 1.0,
+            hdr_knee_linear: 1.0,
         };
         agx.linear_curve = (0..CURVE_LUT_SIZE)
             .map(|i| {
@@ -143,6 +148,9 @@ impl Agx {
                     .powf(GAMMA as f32)
             })
             .collect();
+        let knee = scene_linear_knee(|scene| agx.linear_display(scene), MIDDLE_GREY as f32, 1.0);
+        agx.hdr_knee_x = ((knee.scene / agx.scene_grey).log2() - agx.black_ev) / agx.range_ev;
+        agx.hdr_knee_linear = knee.display;
         agx
     }
 
@@ -206,6 +214,8 @@ impl Agx {
             ("AGX_SHOULDER_SCALE", self.shoulder_scale),
             ("AGX_GAMMA", GAMMA as f32),
             ("AGX_HUE_PRESERVATION", HUE_PRESERVATION),
+            ("AGX_HDR_KNEE_X", self.hdr_knee_x),
+            ("AGX_HDR_KNEE_LINEAR", self.hdr_knee_linear),
         ];
         let mut constants: String = scalars
             .iter()

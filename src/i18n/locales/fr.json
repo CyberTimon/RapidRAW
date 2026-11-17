@@ -1055,6 +1055,9 @@
     "file": {
       "colorSpace": "Espace colorimétrique",
       "dpi": "PPP",
+      "hdr": "Sortie HDR",
+      "hdrJpegHint": "Ajoute une gain map : les écrans HDR affichent des hautes lumières plus lumineuses, tout le reste affiche la photo normale.",
+      "hdrJxlHint": "Enregistre un vrai fichier HDR (PQ, Rec. 2020). Nécessite une visionneuse compatible HDR.",
       "quality": "Qualité",
       "qualityLossless": "Qualité (Sans perte)",
       "resolution": "Résolution",
@@ -2244,6 +2247,17 @@
         "title": "Modifier dans"
       },
       "enableLivePreviews": "Activer les aperçus en direct",
+      "hdr": {
+        "display": "Affichage HDR",
+        "displayDesc": "Affiche les hautes lumières plus lumineuses que le blanc normal sur un écran HDR. Les ombres et les tons moyens restent identiques et les exports standard ne sont pas affectés.",
+        "enableDisplay": "Utiliser le HDR dans l'éditeur",
+        "headroom": "Plage des hautes lumières",
+        "headroomDesc": "Jusqu'où les hautes lumières peuvent dépasser le blanc normal. Également utilisé pour les exports HDR.",
+        "statusActive": "Cet écran est en mode HDR.",
+        "statusInactive": "Cet écran n'est pas en mode HDR. Activez le HDR dans les réglages d'affichage du système pour voir l'effet.",
+        "statusUnsupported": "Le HDR nécessite le moteur de rendu GPU sous Windows ou macOS.",
+        "title": "HDR"
+      },
       "highDpi": "Rendu haute résolution (DPI)",
       "highDpiDesc": "Rendez les aperçus à la résolution native de {{dpr}}x pixels physiques de votre écran. Produit l'aperçu le plus net possible mais utilise beaucoup plus de mémoire.",
       "highDpiDescStandard": "Ce paramètre affecte uniquement les écrans à haute résolution (DPI). Votre écran actuel a une résolution standard.",

@@ -1081,6 +1081,9 @@
     "file": {
       "colorSpace": "Przestrzeń barw",
       "dpi": "DPI",
+      "hdr": "Wyjście HDR",
+      "hdrJpegHint": "Dodaje mapę wzmocnienia: ekrany HDR pokazują jaśniejsze światła, a pozostałe zwykłe zdjęcie.",
+      "hdrJxlHint": "Zapisuje prawdziwy plik HDR (PQ, Rec. 2020). Wymaga przeglądarki obsługującej HDR.",
       "quality": "Jakość",
       "qualityLossless": "Jakość (Bezstratna)",
       "resolution": "Rozdzielczość",
@@ -2286,6 +2289,17 @@
         "title": "Edytuj w"
       },
       "enableLivePreviews": "Włącz interaktywny podgląd na żywo",
+      "hdr": {
+        "display": "Wyświetlanie HDR",
+        "displayDesc": "Pokazuje światła jaśniejsze niż zwykła biel na ekranie HDR. Cienie i półtony pozostają bez zmian, a standardowe eksporty nie są zmieniane.",
+        "enableDisplay": "Używaj HDR w edytorze",
+        "headroom": "Zakres świateł",
+        "headroomDesc": "Jak bardzo światła mogą przekraczać zwykłą biel. Dotyczy także eksportów HDR.",
+        "statusActive": "Ten ekran działa w trybie HDR.",
+        "statusInactive": "Ten ekran nie działa w trybie HDR. Włącz HDR w systemowych ustawieniach ekranu, aby zobaczyć efekt.",
+        "statusUnsupported": "HDR wymaga renderera GPU w systemie Windows lub macOS.",
+        "title": "HDR"
+      },
       "highDpi": "Renderowanie High-DPI",
       "highDpiDesc": "Renderuj podglądy w natywnej {{dpr}}x rozdzielczości pikseli fizycznych twojego ekranu. Zapewnia najostrzejszy z możliwych podglądów, ale zużywa znacznie więcej pamięci.",
       "highDpiDescStandard": "To ustawienie wpływa tylko na wyświetlacze high-DPI (np. Retina). Twój obecny wyświetlacz ma standardową rozdzielczość.",

@@ -9,8 +9,9 @@ use crate::render::cache_utils::{
     calculate_full_job_hash, calculate_patch_hash, calculate_transform_hash,
 };
 use crate::render::gpu::context::get_or_init_gpu_context;
-use crate::render::gpu::display::DisplayLayer;
-use crate::render::options::resolve_render_options;
+use crate::render::gpu::display::{self, DisplayLayer};
+use crate::render::hdr::Headroom;
+use crate::render::options::{RenderOptions, resolve_render_options};
 use crate::render::preview::{EditorRender, prepare_preview_source};
 use crate::render::source::RenderSource;
 use image::DynamicImage;
@@ -50,7 +51,13 @@ fn process_preview_job(
 
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let is_raw = loaded_image.is_raw;
-    let render = resolve_render_options(&settings, is_raw);
+    display::refresh_hdr(app_handle, &context, &settings);
+    let render = RenderOptions {
+        headroom: display::shared_headroom(&context).map_or(Headroom::SDR, |limit| {
+            Headroom::from_settings(&settings).limited_to(limit)
+        }),
+        ..resolve_render_options(&settings, is_raw)
+    };
     let content = FrameContent {
         job_hash: calculate_full_job_hash(&loaded_image.path, &adjustments_json),
         patch_hash: calculate_patch_hash(&adjustments_json),

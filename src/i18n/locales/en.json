@@ -1029,6 +1029,9 @@
     "file": {
       "colorSpace": "Color space",
       "dpi": "DPI",
+      "hdr": "HDR output",
+      "hdrJpegHint": "Adds a gain map: HDR screens show brighter highlights, everything else shows the normal photo.",
+      "hdrJxlHint": "Saves a true HDR file (PQ, Rec. 2020). Needs an HDR-capable viewer.",
       "quality": "Quality",
       "qualityLossless": "Quality (Lossless)",
       "resolution": "Resolution",
@@ -2200,6 +2203,17 @@
         "title": "Edit In"
       },
       "enableLivePreviews": "Enable Live Previews",
+      "hdr": {
+        "display": "HDR Display",
+        "displayDesc": "Shows highlights brighter than normal white on an HDR display. Shadows and midtones stay the same, and standard exports are not affected.",
+        "enableDisplay": "Use HDR in the editor",
+        "headroom": "Highlight Range",
+        "headroomDesc": "How far highlights may rise above normal white. Also used for HDR exports.",
+        "statusActive": "This display is in HDR mode.",
+        "statusInactive": "This display is not in HDR mode. Turn on HDR in the system display settings to see the effect.",
+        "statusUnsupported": "HDR needs the GPU renderer on Windows or macOS.",
+        "title": "HDR"
+      },
       "highDpi": "High-DPI Rendering",
       "highDpiDesc": "Render previews at your screen's native {{dpr}}x physical pixel resolution. Produces the sharpest possible preview but uses significantly more memory.",
       "highDpiDescStandard": "This setting only affects high-DPI displays. Your current display is standard resolution.",

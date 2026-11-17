@@ -1055,6 +1055,9 @@
     "file": {
       "colorSpace": "Espaço de cor",
       "dpi": "DPI",
+      "hdr": "Saída HDR",
+      "hdrJpegHint": "Adiciona um mapa de ganho: telas HDR mostram realces mais brilhantes e o restante mostra a foto normal.",
+      "hdrJxlHint": "Salva um arquivo HDR real (PQ, Rec. 2020). Requer um visualizador compatível com HDR.",
       "quality": "Qualidade",
       "qualityLossless": "Qualidade (Sem Perdas)",
       "resolution": "Resolução",
@@ -2243,6 +2246,17 @@
         "title": "Editar em"
       },
       "enableLivePreviews": "Ativar Visualizações ao Vivo",
+      "hdr": {
+        "display": "Tela HDR",
+        "displayDesc": "Mostra os realces mais brilhantes que o branco normal em uma tela HDR. Sombras e meios-tons permanecem iguais e as exportações padrão não são afetadas.",
+        "enableDisplay": "Usar HDR no editor",
+        "headroom": "Faixa de realces",
+        "headroomDesc": "Até onde os realces podem ultrapassar o branco normal. Também é usada nas exportações HDR.",
+        "statusActive": "Esta tela está em modo HDR.",
+        "statusInactive": "Esta tela não está em modo HDR. Ative o HDR nas configurações de tela do sistema para ver o efeito.",
+        "statusUnsupported": "O HDR requer o renderizador por GPU no Windows ou macOS.",
+        "title": "HDR"
+      },
       "highDpi": "Renderização de Alto DPI",
       "highDpiDesc": "Renderizar visualizações na resolução de pixel físico nativa {{dpr}}x da tela. Produz a visualização mais nítida possível, mas usa significativamente mais memória.",
       "highDpiDescStandard": "Esta configuração afeta apenas telas de alto DPI. Sua tela atual tem resolução padrão.",

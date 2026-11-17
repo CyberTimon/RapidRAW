@@ -91,8 +91,9 @@ pub fn shader_features(adjustments: &AllAdjustments) -> u32 {
 
 fn shader_source() -> String {
     with_shader_prelude(&format!(
-        "{}{}",
+        "{}{}{}",
         agx().shader_constants(),
+        crate::render::hdr::shader_constants(),
         include_str!("../../shaders/shader.wgsl")
     ))
 }

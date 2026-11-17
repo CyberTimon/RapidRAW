@@ -5,7 +5,7 @@ struct Transform {
     image_size: vec2<f32>,
     texture_size: vec2<f32>,
     pixelated: f32,
-    _pad: f32,
+    hdr_white: f32,
     bg_primary: vec4<f32>,
     bg_secondary: vec4<f32>,
     original_size: vec2<f32>,
@@ -76,17 +76,24 @@ fn sample_layer(layer: texture_2d<f32>, uv: vec2<f32>, image_size: vec2<f32>, te
     }
 }
 
+fn present(color: vec4<f32>) -> vec4<f32> {
+    if (transform.hdr_white <= 0.0) {
+        return color;
+    }
+    return vec4<f32>(srgb_to_linear(max(color.rgb, vec3<f32>(0.0))) * transform.hdr_white, color.a);
+}
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let is_original = dot(in.pos.xy - transform.split_origin, transform.split_normal) < 0.0;
     let uv = select(in.uv, in.uv + transform.split_offset / transform.rect.zw, is_original);
 
     if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
-        return transform.bg_secondary;
+        return present(transform.bg_secondary);
     }
 
     if (is_original) {
-        return sample_layer(original_tex, uv, transform.original_size, transform.original_size);
+        return present(sample_layer(original_tex, uv, transform.original_size, transform.original_size));
     }
-    return sample_layer(tex, uv, transform.image_size, transform.texture_size);
+    return present(sample_layer(tex, uv, transform.image_size, transform.texture_size));
 }

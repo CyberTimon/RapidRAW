@@ -22,6 +22,7 @@ pub struct HeadlessExportSession {
     pub quality: u8,
     pub tiff_bit_depth: TiffBitDepth,
     pub color_space: OutputColorSpace,
+    pub hdr: bool,
     pub keep_metadata: bool,
     pub adjustments_override: Option<String>,
     pub export_original: Option<OriginalExportOptions>,
@@ -70,6 +71,7 @@ pub fn parse_launch_args(args: &[String]) -> LaunchRequest {
         let mut quality = 90;
         let mut tiff_bit_depth = TiffBitDepth::default();
         let mut color_space = OutputColorSpace::default();
+        let mut hdr = false;
         let mut keep_metadata = false;
         let mut adjustments_override = None;
         let mut export_original = false;
@@ -142,6 +144,7 @@ pub fn parse_launch_args(args: &[String]) -> LaunchRequest {
                         }
                     };
                 }
+                "--hdr" => hdr = true,
                 "--keep-metadata" => keep_metadata = true,
                 "--export-original" => export_original = true,
                 "--original-no-crop" => original_crop = false,
@@ -162,6 +165,7 @@ pub fn parse_launch_args(args: &[String]) -> LaunchRequest {
             quality,
             tiff_bit_depth,
             color_space,
+            hdr,
             keep_metadata,
             adjustments_override,
             export_original: export_original.then_some(OriginalExportOptions {

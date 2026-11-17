@@ -1029,6 +1029,9 @@
     "file": {
       "colorSpace": "Kleurruimte",
       "dpi": "DPI",
+      "hdr": "HDR-uitvoer",
+      "hdrJpegHint": "Voegt een gain map toe: HDR-schermen tonen helderdere hooglichten, al het andere toont de normale foto.",
+      "hdrJxlHint": "Slaat een echt HDR-bestand op (PQ, Rec. 2020). Vereist een viewer met HDR-ondersteuning.",
       "quality": "Kwaliteit",
       "qualityLossless": "Kwaliteit (verliesvrij)",
       "resolution": "Resolutie",
@@ -2196,6 +2199,17 @@
         "title": "Bewerken in"
       },
       "enableLivePreviews": "Live voorbeelden inschakelen",
+      "hdr": {
+        "display": "HDR-weergave",
+        "displayDesc": "Toont hooglichten helderder dan normaal wit op een HDR-scherm. Schaduwen en middentonen blijven gelijk en standaardexports veranderen niet.",
+        "enableDisplay": "HDR gebruiken in de editor",
+        "headroom": "Bereik hooglichten",
+        "headroomDesc": "Hoe ver hooglichten boven normaal wit mogen uitkomen. Geldt ook voor HDR-exports.",
+        "statusActive": "Dit scherm staat in HDR-modus.",
+        "statusInactive": "Dit scherm staat niet in HDR-modus. Schakel HDR in bij de beeldscherminstellingen van het systeem om het effect te zien.",
+        "statusUnsupported": "HDR vereist de GPU-renderer op Windows of macOS.",
+        "title": "HDR"
+      },
       "highDpi": "High-DPI-rendering",
       "highDpiDesc": "Voorbeelden renderen op de native {{dpr}}x fysieke pixelresolutie van uw scherm. Produceert het scherpste mogelijk voorbeeld maar gebruikt aanzienlijk meer geheugen.",
       "highDpiDescStandard": "Deze instelling is alleen van invloed op high-DPI-beeldschermen. Uw huidige beeldscherm heeft een standaardresolutie.",

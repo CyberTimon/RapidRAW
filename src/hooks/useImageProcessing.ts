@@ -50,6 +50,7 @@ export function useImageProcessing(
   const adjustments = useEditorStore((state) => state.adjustments);
   const previewOverride = useEditorStore((state) => state.previewOverride);
   const isWaveformVisible = useEditorStore((state) => state.isWaveformVisible);
+  const hdrRevision = useEditorStore((state) => state.hdrRevision);
   const activeWaveformChannel = useEditorStore((state) => state.activeWaveformChannel);
   const displaySize = useEditorStore((state) => state.displaySize);
   const baseRenderSize = useEditorStore((state) => state.baseRenderSize);
@@ -545,9 +546,12 @@ export function useImageProcessing(
     appSettings?.enableBaselineExposure,
     appSettings?.baselineExposure,
     appSettings?.compensateHighlightPreservation,
+    appSettings?.hdrDisplay,
+    appSettings?.hdrHeadroom,
     appSettings?.copyPasteSettings?.includedAdjustments,
     appSettings?.copyPasteSettings?.autoSync,
     isWaveformVisible,
+    hdrRevision,
   ]);
 
   return {

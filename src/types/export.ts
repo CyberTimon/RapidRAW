@@ -63,6 +63,8 @@ export const COLOR_SPACE_FILE_FORMATS: Array<string> = [
   FileFormats.Jxl,
 ];
 
+export const HDR_FILE_FORMATS: Array<string> = [FileFormats.Jpeg, FileFormats.Jxl];
+
 export const DEFAULT_EXPORT_DPI = 96;
 export const MAX_EXPORT_DPI = 65535;
 
@@ -71,6 +73,7 @@ export interface ExportSettings {
   jpegQuality: number;
   tiffBitDepth: TiffBitDepth;
   colorSpace: ExportColorSpace;
+  hdr: boolean;
   keepMetadata: boolean;
   preserveTimestamps: boolean;
   resize: {
@@ -166,6 +169,7 @@ export interface ExportPreset {
   jpegQuality: number;
   tiffBitDepth?: TiffBitDepth;
   colorSpace?: ExportColorSpace;
+  hdr?: boolean;
   dpi?: number;
   enableResize: boolean;
   resizeMode: string;

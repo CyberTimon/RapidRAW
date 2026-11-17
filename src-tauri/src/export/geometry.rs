@@ -452,6 +452,34 @@ fn compose_image_on_canvas(
     }
 }
 
+fn float_samples(image: &mut DynamicImage) -> Option<&mut [f32]> {
+    match image {
+        DynamicImage::ImageRgb32F(buffer) => Some(&mut **buffer),
+        DynamicImage::ImageRgba32F(buffer) => Some(&mut **buffer),
+        _ => None,
+    }
+}
+
+fn resize_unclamped(
+    mut image: DynamicImage,
+    resize: impl Fn(&DynamicImage) -> DynamicImage,
+) -> DynamicImage {
+    let peak = float_samples(&mut image)
+        .map_or(1.0, |samples| samples.iter().copied().fold(1.0, f32::max));
+    if peak <= 1.0 {
+        return resize(&image);
+    }
+    let scale = |image: &mut DynamicImage, factor: f32| {
+        if let Some(samples) = float_samples(image) {
+            samples.iter_mut().for_each(|sample| *sample *= factor);
+        }
+    };
+    scale(&mut image, 1.0 / peak);
+    let mut resized = resize(&image);
+    scale(&mut resized, peak);
+    resized
+}
+
 fn apply_export_geometry(
     mut image: DynamicImage,
     export_settings: &ExportSettings,
@@ -463,7 +491,9 @@ fn apply_export_geometry(
         None => {
             let (target_w, target_h) = resize_target(src_w, src_h, export_settings.resize.as_ref());
             if target_w != src_w || target_h != src_h {
-                image = image.resize(target_w, target_h, imageops::FilterType::Lanczos3);
+                image = resize_unclamped(image, |image| {
+                    image.resize(target_w, target_h, imageops::FilterType::Lanczos3)
+                });
             }
 
             let (width, height) = image.dimensions();
@@ -483,11 +513,13 @@ fn apply_export_geometry(
         }
         Some(geometry) => {
             if geometry.photo_w != src_w || geometry.photo_h != src_h {
-                image = image.resize_exact(
-                    geometry.photo_w,
-                    geometry.photo_h,
-                    imageops::FilterType::Lanczos3,
-                );
+                image = resize_unclamped(image, |image| {
+                    image.resize_exact(
+                        geometry.photo_w,
+                        geometry.photo_h,
+                        imageops::FilterType::Lanczos3,
+                    )
+                });
             }
 
             let pad_color = fill_color(

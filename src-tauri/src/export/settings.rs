@@ -1,5 +1,8 @@
+use crate::app::settings::AppSettings;
 use crate::render::color_space::OutputColorSpace;
 use crate::render::gpu::processor::RenderOutputPrecision;
+use crate::render::hdr::Headroom;
+use crate::render::options::{RenderOptions, resolve_render_options};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -85,6 +88,8 @@ pub struct ExportSettings {
     pub tiff_bit_depth: TiffBitDepth,
     #[serde(default)]
     pub color_space: OutputColorSpace,
+    #[serde(default)]
+    pub hdr: bool,
     pub resize: Option<ResizeOptions>,
     #[serde(default)]
     pub border: Option<BorderOptions>,
@@ -110,12 +115,58 @@ pub struct ExportSettings {
     pub export_original: Option<OriginalExportOptions>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HdrOutput {
+    Pq,
+    GainMap,
+}
+
 impl ExportSettings {
+    pub fn hdr_output(&self, output_format: &str) -> Option<HdrOutput> {
+        match output_format.to_lowercase().as_str() {
+            "jxl" if self.hdr => Some(HdrOutput::Pq),
+            "jpg" | "jpeg" if self.hdr => Some(HdrOutput::GainMap),
+            _ => None,
+        }
+    }
+
     pub fn color_space_for(&self, output_format: &str) -> OutputColorSpace {
+        if self.hdr_output(output_format) == Some(HdrOutput::Pq) {
+            return OutputColorSpace::Rec2020;
+        }
         match output_format.to_lowercase().as_str() {
             "jpg" | "jpeg" | "png" | "tif" | "tiff" | "webp" | "jxl" => self.color_space,
             _ => OutputColorSpace::Srgb,
         }
+    }
+
+    pub fn render_options(
+        &self,
+        output_format: &str,
+        settings: &AppSettings,
+        is_raw: bool,
+    ) -> RenderOptions {
+        RenderOptions {
+            output_space: self.color_space_for(output_format),
+            headroom: if self.hdr_output(output_format) == Some(HdrOutput::Pq) {
+                Headroom::from_settings(settings)
+            } else {
+                Headroom::SDR
+            },
+            ..resolve_render_options(settings, is_raw)
+        }
+    }
+
+    pub fn gain_map_render_options(
+        &self,
+        output_format: &str,
+        settings: &AppSettings,
+        is_raw: bool,
+    ) -> Option<RenderOptions> {
+        (self.hdr_output(output_format) == Some(HdrOutput::GainMap)).then(|| RenderOptions {
+            headroom: Headroom::from_settings(settings),
+            ..self.render_options(output_format, settings, is_raw)
+        })
     }
 }
 
@@ -163,7 +214,9 @@ pub fn render_output_precision(
     output_format: &str,
     export_settings: &ExportSettings,
 ) -> RenderOutputPrecision {
-    if matches!(output_format.to_lowercase().as_str(), "tif" | "tiff")
+    if export_settings.hdr_output(output_format) == Some(HdrOutput::Pq) {
+        RenderOutputPrecision::Float
+    } else if matches!(output_format.to_lowercase().as_str(), "tif" | "tiff")
         && export_settings.tiff_bit_depth == TiffBitDepth::Sixteen
     {
         RenderOutputPrecision::SixteenBit
