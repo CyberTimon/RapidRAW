@@ -1,23 +1,30 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { toast } from 'react-toastify';
 import { useUIStore } from '../store/useUIStore';
 import { Invokes } from '../types/invokes';
+import { PanoramaPreview, PanoramaSettings } from '../types/library';
 
 export function useProductivityActions(refreshImageList: () => Promise<void>) {
   const setUI = useUIStore((state) => state.setUI);
+  const panoramaPreviewRequest = useRef(0);
 
   const handleStartPanorama = useCallback(
     (paths: string[]) => {
+      panoramaPreviewRequest.current += 1;
       setUI((state) => ({
         panoramaModalState: {
           ...state.panoramaModalState,
           isProcessing: true,
+          isUpdatingPreview: false,
           error: null,
           finalImageBase64: null,
+          previewInfo: null,
           progressMessage: 'Starting panorama process...',
         },
       }));
-      invoke(Invokes.StitchPanorama, { paths }).catch((err) => {
+      const { settings } = useUIStore.getState().panoramaModalState;
+      invoke(Invokes.StitchPanorama, { paths, settings }).catch((err) => {
         setUI((state) => ({
           panoramaModalState: { ...state.panoramaModalState, isProcessing: false, error: String(err) },
         }));
@@ -36,6 +43,7 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
     try {
       const savedPath: string = await invoke(Invokes.SavePanorama, {
         firstPathStr: panoramaModalState.stitchingSourcePaths[0],
+        settings: panoramaModalState.settings,
       });
       await refreshImageList();
       return savedPath;
@@ -45,6 +53,36 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
       throw err;
     }
   }, [refreshImageList, setUI]);
+
+  const handlePanoramaSettingsChange = useCallback(
+    async (settings: PanoramaSettings) => {
+      const requestId = ++panoramaPreviewRequest.current;
+      const previousSettings = useUIStore.getState().panoramaModalState.settings;
+      setUI((state) => ({
+        panoramaModalState: { ...state.panoramaModalState, settings, isUpdatingPreview: true },
+      }));
+      try {
+        const { base64, ...previewInfo }: PanoramaPreview = await invoke(Invokes.UpdatePanoramaPreview, { settings });
+        if (requestId !== panoramaPreviewRequest.current) return;
+        setUI((state) => ({
+          panoramaModalState: {
+            ...state.panoramaModalState,
+            finalImageBase64: base64,
+            isUpdatingPreview: false,
+            previewInfo,
+          },
+        }));
+      } catch (err) {
+        if (requestId !== panoramaPreviewRequest.current) return;
+        console.error('Failed to update panorama preview:', err);
+        toast.error(String(err));
+        setUI((state) => ({
+          panoramaModalState: { ...state.panoramaModalState, settings: previousSettings, isUpdatingPreview: false },
+        }));
+      }
+    },
+    [setUI],
+  );
 
   const handleStartFocusStack = useCallback(
     (paths: string[]) => {
@@ -140,6 +178,7 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
   return {
     handleStartPanorama,
     handleSavePanorama,
+    handlePanoramaSettingsChange,
     handleStartHdr,
     handleSaveHdr,
     handleSaveCollage,

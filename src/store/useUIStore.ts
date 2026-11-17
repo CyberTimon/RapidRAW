@@ -3,7 +3,13 @@ import { invoke } from '@tauri-apps/api/core';
 import i18n from 'i18next';
 import { toast } from 'react-toastify';
 import { Invokes } from '../types/invokes';
-import { ImageFile, CullingSuggestions } from '../types/library';
+import {
+  ImageFile,
+  CullingSuggestions,
+  DEFAULT_PANORAMA_SETTINGS,
+  PanoramaPreviewInfo,
+  PanoramaSettings,
+} from '../types/library';
 import { Panel, UiVisibility, PanelRegion, CollapsibleSectionsState } from '../types/ui';
 import { WorkspaceState } from '../types/settings';
 import { useEditorStore } from './useEditorStore';
@@ -35,9 +41,24 @@ interface PanoramaModalState {
   finalImageBase64: string | null;
   isOpen: boolean;
   isProcessing: boolean;
+  isUpdatingPreview: boolean;
+  previewInfo: PanoramaPreviewInfo | null;
   progressMessage: string | null;
+  settings: PanoramaSettings;
   stitchingSourcePaths: Array<string>;
 }
+
+export const CLOSED_PANORAMA_MODAL_STATE: PanoramaModalState = {
+  error: null,
+  finalImageBase64: null,
+  isOpen: false,
+  isProcessing: false,
+  isUpdatingPreview: false,
+  previewInfo: null,
+  progressMessage: null,
+  settings: DEFAULT_PANORAMA_SETTINGS,
+  stitchingSourcePaths: [],
+};
 
 interface FocusStackModalState {
   error: string | null;
@@ -431,14 +452,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   albumActionTarget: null,
 
   confirmModalState: { isOpen: false },
-  panoramaModalState: {
-    error: null,
-    finalImageBase64: null,
-    isOpen: false,
-    isProcessing: false,
-    progressMessage: '',
-    stitchingSourcePaths: [],
-  },
+  panoramaModalState: CLOSED_PANORAMA_MODAL_STATE,
   focusStackModalState: {
     error: null,
     finalImageBase64: null,
@@ -601,3 +615,8 @@ useUIStore.subscribe((state, prev) => {
     setEditor({ cropSessionSnapshot: null });
   }
 });
+
+export const closePanoramaModal = () => {
+  useUIStore.getState().setUI({ panoramaModalState: CLOSED_PANORAMA_MODAL_STATE });
+  invoke(Invokes.DiscardPanorama).catch((err) => console.error('Failed to discard panorama:', err));
+};
