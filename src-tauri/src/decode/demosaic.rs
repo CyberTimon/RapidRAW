@@ -538,7 +538,7 @@ impl<'a> Mosaic<'a> {
                         self.stride as u32,
                         raw_base as u32,
                         crop_w,
-                        y0 * crop_w + x0,
+                        (y0 * crop_w + x0) * 3,
                     ],
                     ..base
                 };

@@ -51,7 +51,10 @@ fn in_inner(id: vec3<u32>) -> bool {
 }
 
 fn emit(id: vec3<u32>, c: vec3<f32>) {
-    let o = ((id.y * P.strides.z) + P.strides.w + id.x) * 3u;
+    // strides.w is the tile's first output float, premultiplied on the CPU. Folding
+    // it into a single `(...) * 3u` wrapped the index at 2^24 pixels on an Adreno 830,
+    // so the lower half of a 33 MP frame was written over the upper half.
+    let o = P.strides.w + id.y * (P.strides.z * 3u) + id.x * 3u;
     let value = max(c, vec3<f32>(0.0));
     dst[o] = value.x;
     dst[o + 1u] = value.y;
