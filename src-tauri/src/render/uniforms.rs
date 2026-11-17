@@ -3,7 +3,7 @@ use crate::decode::white_balance::{self, WhiteBalance};
 use crate::masks::generation::MaskDefinition;
 use crate::render::adjustment_utils::{effective_baseline_exposure, is_tool_active};
 use crate::render::color_space::{
-    OutputTransform, compression_uniform, srgb_decode, working_to_srgb,
+    OutputColorSpace, OutputTransform, compression_uniform, srgb_decode, working_to_srgb,
 };
 use crate::render::options::RenderOptions;
 use bytemuck::{Pod, Zeroable};
@@ -139,6 +139,7 @@ pub struct GlobalAdjustments {
     _pad_output3: f32,
     pub output_matrix: GpuMat3,
     pub gamut_compression: [f32; 4],
+    pub output_transfer: [f32; 4],
     pub wb_rgb_to_lms_matrix: GpuMat3,
     pub wb_lms_to_rgb_matrix: GpuMat3,
 
@@ -532,6 +533,7 @@ fn get_global_adjustments_from_json(
     white_balance_gains: [f32; 3],
     baseline_exposure: f32,
     tonemapper_override: Option<u32>,
+    output_space: OutputColorSpace,
 ) -> GlobalAdjustments {
     let is_visible = |tool: &str| is_tool_active(js_adjustments, tool);
 
@@ -634,7 +636,7 @@ fn get_global_adjustments_from_json(
     };
 
     let tone_mapper = js_adjustments["toneMapper"].as_str().unwrap_or("basic");
-    let output = OutputTransform::srgb(is_raw);
+    let output = OutputTransform::new(output_space, is_raw);
     let rgb_to_lms = white_balance::rgb_to_lms();
 
     let (has_lut, lut_intensity, lut_is_scene_referred) = if is_visible("lut") {
@@ -772,6 +774,7 @@ fn get_global_adjustments_from_json(
         _pad_output3: 0.0,
         output_matrix: mat3_to_gpu_mat3(output.matrix),
         gamut_compression: compression_uniform(&output.compression),
+        output_transfer: output.curve.uniform(),
         wb_rgb_to_lms_matrix: mat3_to_gpu_mat3(rgb_to_lms),
         wb_lms_to_rgb_matrix: mat3_to_gpu_mat3(rgb_to_lms.inverse()),
 
@@ -1039,6 +1042,7 @@ pub fn get_all_adjustments_from_json(
         white_balance::adaptation_log_gains(as_shot.white_balance, target_white_balance),
         effective_baseline_exposure(js_adjustments, as_shot, render.baseline),
         render.tonemapper_override,
+        render.output_space,
     );
     let mut mask_adjustments = [MaskAdjustments::default(); MAX_MASKS];
     let mut mask_count = 0;

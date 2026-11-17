@@ -1024,6 +1024,7 @@
       "selectFolderTitle_other": "選擇資料夾以匯出 {{count}} 張影像"
     },
     "file": {
+      "colorSpace": "色彩空間",
       "dpi": "DPI",
       "quality": "品質",
       "qualityLossless": "品質（無損）",

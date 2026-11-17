@@ -1053,6 +1053,7 @@
       "selectFolderTitle_other": "Selecionar Pasta para Exportar {{count}} Imagens"
     },
     "file": {
+      "colorSpace": "Espaço de cor",
       "dpi": "DPI",
       "quality": "Qualidade",
       "qualityLossless": "Qualidade (Sem Perdas)",

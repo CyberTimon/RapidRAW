@@ -1003,11 +1003,14 @@ rapidraw export /path/to/photos --output /path/to/output_dir --export-original
 | `--format <fmt>`           | Output format (`jpeg`, `png`, `webp`, `avif`, `tiff`, `jxl`, `cube`)   | `jpeg`            |
 | `--quality <1-100>`        | Image export quality                                                   | `90`              |
 | `--tiff-bit-depth <n>`     | TIFF channel depth (`8` or `16`)                                       | `16`              |
+| `--color-space <space>`    | Color space for JPEG, PNG, TIFF, WebP and JXL output                   | `srgb`            |
 | `--keep-metadata`          | Retain EXIF/capture metadata in exported files                         | `false`           |
 | `--adjustments <path>`     | Path to a custom JSON file containing adjustments to override sidecars | _(Auto-detected)_ |
 | `--export-original`        | Also export the unedited original as `<name>_original`                 | `false`           |
 | `--original-no-crop`       | Export the original uncropped instead of with the edit's crop          | `false`           |
 | `--original-keep-exposure` | Keep the edit's exposure on the original                               | `false`           |
+
+`--color-space` accepts `srgb`, `display-p3`, `adobe-rgb`, `prophoto-rgb` and `rec2020`.
 
 ## Companion Apps & Ecosystem
 

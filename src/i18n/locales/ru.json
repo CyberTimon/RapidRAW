@@ -1079,6 +1079,7 @@
       "selectFolderTitle_other": "Выберите папку для экспорта {{count}} изображений"
     },
     "file": {
+      "colorSpace": "Цветовое пространство",
       "dpi": "DPI",
       "quality": "Качество",
       "qualityLossless": "Качество (без потерь)",

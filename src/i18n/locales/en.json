@@ -1027,6 +1027,7 @@
       "selectFolderTitle_other": "Select Folder to Export {{count}} Images"
     },
     "file": {
+      "colorSpace": "Color space",
       "dpi": "DPI",
       "quality": "Quality",
       "qualityLossless": "Quality (Lossless)",

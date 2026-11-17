@@ -1053,6 +1053,7 @@
       "selectFolderTitle_other": "Seleziona Cartella per Esportare {{count}} Immagini"
     },
     "file": {
+      "colorSpace": "Spazio colore",
       "dpi": "DPI",
       "quality": "Qualità",
       "qualityLossless": "Qualità (Senza Perdita)",

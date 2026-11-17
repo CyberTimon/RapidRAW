@@ -1024,6 +1024,7 @@
       "selectFolderTitle_other": "{{count}} 枚の画像を書き出すフォルダを選択"
     },
     "file": {
+      "colorSpace": "カラースペース",
       "dpi": "DPI",
       "quality": "画質",
       "qualityLossless": "画質 (ロスレス)",

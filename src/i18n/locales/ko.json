@@ -1024,6 +1024,7 @@
       "selectFolderTitle_other": "이미지 {{count}}개를 내보낼 폴더 선택"
     },
     "file": {
+      "colorSpace": "색 공간",
       "dpi": "DPI",
       "quality": "품질",
       "qualityLossless": "품질 (무손실)",

@@ -47,10 +47,11 @@ use crate::masks::generation::{
 };
 use crate::metadata::exif_processing;
 use crate::render::adjustment_utils::hydrate_adjustments;
+use crate::render::color_space::OutputColorSpace;
 use crate::render::gpu::context::{GpuContext, get_or_init_gpu_context};
 use crate::render::gpu::output::process_and_get_dynamic_image_with_precision;
 use crate::render::gpu::processor::{RenderOutputPrecision, RenderRequest};
-use crate::render::options::resolve_render_options_from_handle;
+use crate::render::options::{RenderOptions, resolve_render_options_from_handle};
 use crate::render::preview::cached_patched_image;
 use crate::render::source::{RenderSource, fit_to_gpu, source_id};
 use crate::render::uniforms::get_all_adjustments_from_json;
@@ -67,6 +68,7 @@ fn process_image_for_export_pipeline(
     debug_tag: &str,
     app_handle: &tauri::AppHandle,
     output_precision: RenderOutputPrecision,
+    output_space: OutputColorSpace,
 ) -> Result<DynamicImage, String> {
     let (fitted, fit_scale) = fit_to_gpu(context, base_image);
     let scale = fit_scale * base_scale;
@@ -107,7 +109,10 @@ fn process_image_for_export_pipeline(
         })
         .collect();
 
-    let render = resolve_render_options_from_handle(app_handle, is_raw);
+    let render = RenderOptions {
+        output_space,
+        ..resolve_render_options_from_handle(app_handle, is_raw)
+    };
     let mut all_adjustments =
         get_all_adjustments_from_json(js_adjustments, is_raw, as_shot(path), render);
     all_adjustments.global.show_clipping = 0;
@@ -152,6 +157,7 @@ fn process_image_for_export(
     app_handle: &tauri::AppHandle,
     output_format: &str,
 ) -> Result<DynamicImage, String> {
+    let color_space = export_settings.color_space_for(output_format);
     let processed_image = process_image_for_export_pipeline(
         path,
         base_image,
@@ -163,9 +169,11 @@ fn process_image_for_export(
         "process_image_for_export",
         app_handle,
         render_output_precision(output_format, export_settings),
+        color_space,
     )?;
 
-    apply_export_geometry_and_watermark(processed_image, export_settings).map(|(image, _)| image)
+    apply_export_geometry_and_watermark(processed_image, export_settings, color_space)
+        .map(|(image, _)| image)
 }
 
 fn wait_for_ai_bases(
@@ -887,6 +895,7 @@ pub async fn run_headless_export(
     let export_settings = ExportSettings {
         jpeg_quality: session.quality,
         tiff_bit_depth: session.tiff_bit_depth,
+        color_space: session.color_space,
         resize: None,
         border: None,
         pad: None,

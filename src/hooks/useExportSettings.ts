@@ -1,10 +1,18 @@
 import { useState, useMemo, useCallback } from 'react';
-import { BorderBasis, DEFAULT_EXPORT_DPI, ExportPreset, TiffBitDepth, WatermarkAnchor } from '../types/export';
+import {
+  BorderBasis,
+  DEFAULT_EXPORT_DPI,
+  ExportColorSpace,
+  ExportPreset,
+  TiffBitDepth,
+  WatermarkAnchor,
+} from '../types/export';
 
 export function useExportSettings() {
   const [fileFormat, setFileFormat] = useState('jpeg');
   const [jpegQuality, setJpegQuality] = useState(90);
   const [tiffBitDepth, setTiffBitDepth] = useState<TiffBitDepth>(16);
+  const [colorSpace, setColorSpace] = useState<ExportColorSpace>(ExportColorSpace.Srgb);
   const [dpi, setDpi] = useState(DEFAULT_EXPORT_DPI);
   const [enableResize, setEnableResize] = useState(false);
   const [resizeMode, setResizeMode] = useState('longEdge');
@@ -41,6 +49,7 @@ export function useExportSettings() {
     setFileFormat(preset.fileFormat);
     setJpegQuality(preset.jpegQuality);
     setTiffBitDepth(preset.tiffBitDepth ?? 16);
+    setColorSpace(preset.colorSpace ?? ExportColorSpace.Srgb);
     setDpi(preset.dpi ?? DEFAULT_EXPORT_DPI);
     setEnableResize(preset.enableResize);
     setResizeMode(preset.resizeMode);
@@ -79,6 +88,7 @@ export function useExportSettings() {
       fileFormat,
       jpegQuality,
       tiffBitDepth,
+      colorSpace,
       dpi,
       enableResize,
       resizeMode,
@@ -115,6 +125,7 @@ export function useExportSettings() {
       fileFormat,
       jpegQuality,
       tiffBitDepth,
+      colorSpace,
       dpi,
       enableResize,
       resizeMode,
@@ -156,6 +167,8 @@ export function useExportSettings() {
     setJpegQuality,
     tiffBitDepth,
     setTiffBitDepth,
+    colorSpace,
+    setColorSpace,
     dpi,
     setDpi,
     enableResize,

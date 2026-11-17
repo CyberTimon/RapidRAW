@@ -1024,6 +1024,7 @@
       "selectFolderTitle_other": "选择文件夹以导出 {{count}} 张图像"
     },
     "file": {
+      "colorSpace": "色彩空间",
       "dpi": "DPI",
       "quality": "质量",
       "qualityLossless": "质量（无损）",

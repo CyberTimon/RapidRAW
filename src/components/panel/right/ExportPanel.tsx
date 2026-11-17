@@ -24,6 +24,9 @@ import {
   MAX_EXPORT_DPI,
   TiffBitDepth,
   WatermarkAnchor,
+  COLOR_SPACE_FILE_FORMATS,
+  EXPORT_COLOR_SPACES,
+  ExportColorSpace,
 } from '../../../types/export';
 import { Invokes } from '../../../types/invokes';
 import { SelectedImage } from '../../../types/editor';
@@ -262,6 +265,8 @@ export default function ExportPanel({
     setJpegQuality,
     tiffBitDepth,
     setTiffBitDepth,
+    colorSpace,
+    setColorSpace,
     dpi,
     setDpi,
     enableResize,
@@ -508,6 +513,7 @@ export default function ExportPanel({
       filenameTemplate,
       jpegQuality,
       tiffBitDepth,
+      colorSpace,
       keepMetadata,
       preserveTimestamps,
       preserveFolders,
@@ -562,6 +568,7 @@ export default function ExportPanel({
     fileFormat,
     jpegQuality,
     tiffBitDepth,
+    colorSpace,
     enableResize,
     resizeMode,
     resizeValue,
@@ -612,6 +619,7 @@ export default function ExportPanel({
       filenameTemplate,
       jpegQuality,
       tiffBitDepth,
+      colorSpace,
       keepMetadata,
       preserveTimestamps,
       preserveFolders,
@@ -800,6 +808,20 @@ export default function ExportPanel({
                     options={tiffBitDepthOptions}
                     value={String(tiffBitDepth)}
                     onChange={(value) => setTiffBitDepth(Number(value) as TiffBitDepth)}
+                    disabled={isExporting}
+                    className="w-full"
+                  />
+                </div>
+              )}
+              {COLOR_SPACE_FILE_FORMATS.includes(fileFormat) && (
+                <div className={isExporting ? 'opacity-50 pointer-events-none' : ''}>
+                  <Text variant={TextVariants.label} className="mb-1">
+                    {t('export.file.colorSpace')}
+                  </Text>
+                  <Dropdown
+                    options={EXPORT_COLOR_SPACES}
+                    value={colorSpace}
+                    onChange={(value) => setColorSpace(value as ExportColorSpace)}
                     disabled={isExporting}
                     className="w-full"
                   />

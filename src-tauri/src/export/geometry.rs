@@ -2,6 +2,7 @@ use crate::export::settings::{
     BorderBasis, BorderOptions, ExportSettings, PadOptions, ResizeMode, ResizeOptions,
 };
 use crate::export::watermark::apply_watermark;
+use crate::render::color_space::OutputColorSpace;
 use image::{DynamicImage, GenericImageView, ImageBuffer, imageops};
 use serde_json::Value;
 
@@ -82,8 +83,12 @@ fn parse_hex_color(hex: &str) -> Option<[u8; 3]> {
     ])
 }
 
-fn fill_color(hex: Option<&str>) -> [u8; 3] {
-    hex.and_then(parse_hex_color).unwrap_or([0, 0, 0])
+fn fill_color(hex: Option<&str>, color_space: OutputColorSpace) -> [u8; 3] {
+    let srgb = hex.and_then(parse_hex_color).unwrap_or([0, 0, 0]);
+    if color_space == OutputColorSpace::Srgb {
+        return srgb;
+    }
+    color_space.srgb_converter()(srgb.map(|c| c as f32 / 255.0)).map(|c| (c * 255.0).round() as u8)
 }
 
 fn resize_target(width: u32, height: u32, resize_opts: Option<&ResizeOptions>) -> (u32, u32) {
@@ -450,6 +455,7 @@ fn compose_image_on_canvas(
 fn apply_export_geometry(
     mut image: DynamicImage,
     export_settings: &ExportSettings,
+    color_space: OutputColorSpace,
 ) -> Result<(DynamicImage, ExportGeometry), String> {
     let (src_w, src_h) = image.dimensions();
 
@@ -484,12 +490,16 @@ fn apply_export_geometry(
                 );
             }
 
-            let pad_color = fill_color(export_settings.pad.as_ref().map(|pad| pad.color.as_str()));
+            let pad_color = fill_color(
+                export_settings.pad.as_ref().map(|pad| pad.color.as_str()),
+                color_space,
+            );
             let border_color = fill_color(
                 export_settings
                     .border
                     .as_ref()
                     .map(|border| border.color.as_str()),
+                color_space,
             );
 
             Ok((
@@ -503,11 +513,12 @@ fn apply_export_geometry(
 pub fn apply_export_geometry_and_watermark(
     image: DynamicImage,
     export_settings: &ExportSettings,
+    color_space: OutputColorSpace,
 ) -> Result<(DynamicImage, ExportGeometry), String> {
-    let (mut image, geometry) = apply_export_geometry(image, export_settings)?;
+    let (mut image, geometry) = apply_export_geometry(image, export_settings, color_space)?;
 
     if let Some(watermark_settings) = &export_settings.watermark {
-        apply_watermark(&mut image, watermark_settings)?;
+        apply_watermark(&mut image, watermark_settings, color_space)?;
     }
     Ok((image, geometry))
 }

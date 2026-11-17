@@ -1027,6 +1027,7 @@
       "selectFolderTitle_other": "Map selecteren om {{count}} afbeeldingen te exporteren"
     },
     "file": {
+      "colorSpace": "Kleurruimte",
       "dpi": "DPI",
       "quality": "Kwaliteit",
       "qualityLossless": "Kwaliteit (verliesvrij)",

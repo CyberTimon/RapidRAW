@@ -1,5 +1,9 @@
 use glam::{DMat3, DVec2, DVec3, Mat3, Vec3};
-use moxcms::{ColorProfile, LocalizableString, ProfileText};
+use moxcms::{
+    Chromaticity, ColorPrimaries, ColorProfile, LocalizableString, ProfileText, ToneReprCurve, XyY,
+    Xyzd,
+};
+use serde::{Deserialize, Serialize};
 use std::sync::LazyLock;
 
 pub const BRADFORD: DMat3 = DMat3::from_cols_array(&[
@@ -19,6 +23,7 @@ const OKLAB_XYZ_TO_LMS: DMat3 = DMat3::from_cols_array(&[
 ]);
 
 pub const WHITE_D65: DVec2 = DVec2::new(0.3127, 0.3290);
+const WHITE_D50: DVec2 = DVec2::new(0.3457, 0.3585);
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RgbSpace {
@@ -42,6 +47,33 @@ pub const REC2020: RgbSpace = RgbSpace {
         DVec2::new(0.131, 0.046),
     ],
     white: WHITE_D65,
+};
+
+const DISPLAY_P3: RgbSpace = RgbSpace {
+    primaries: [
+        DVec2::new(0.680, 0.320),
+        DVec2::new(0.265, 0.690),
+        DVec2::new(0.150, 0.060),
+    ],
+    white: WHITE_D65,
+};
+
+const ADOBE_RGB: RgbSpace = RgbSpace {
+    primaries: [
+        DVec2::new(0.64, 0.33),
+        DVec2::new(0.21, 0.71),
+        DVec2::new(0.15, 0.06),
+    ],
+    white: WHITE_D65,
+};
+
+const PRO_PHOTO_RGB: RgbSpace = RgbSpace {
+    primaries: [
+        DVec2::new(0.734699, 0.265301),
+        DVec2::new(0.159597, 0.840403),
+        DVec2::new(0.036598, 0.000105),
+    ],
+    white: WHITE_D50,
 };
 
 pub const WORKING: RgbSpace = REC2020;
@@ -120,25 +152,203 @@ pub fn srgb_to_working() -> Mat3 {
     WORKING_SPACE.from_srgb
 }
 
-pub fn working_profile() -> ColorProfile {
-    let srgb = ColorProfile::new_srgb();
-    let mut profile = ColorProfile::new_bt2020();
-    profile.red_trc = srgb.red_trc;
-    profile.green_trc = srgb.green_trc;
-    profile.blue_trc = srgb.blue_trc;
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TransferCurve {
+    power: f32,
+    offset: f32,
+    slope: f32,
+    cutoff: f32,
+}
+
+impl TransferCurve {
+    const SRGB: Self = Self {
+        power: 1.0 / 2.4,
+        offset: 0.055,
+        slope: 12.92,
+        cutoff: 0.0031308,
+    };
+
+    const REC709: Self = Self {
+        power: 0.45,
+        offset: 0.099_296_83,
+        slope: 4.5,
+        cutoff: 0.018_053_97,
+    };
+
+    const fn gamma(gamma: f32) -> Self {
+        Self {
+            power: 1.0 / gamma,
+            offset: 0.0,
+            slope: 0.0,
+            cutoff: 0.0,
+        }
+    }
+
+    pub fn encode(self, linear: f32) -> f32 {
+        if linear <= self.cutoff {
+            linear.max(0.0) * self.slope
+        } else {
+            (1.0 + self.offset) * linear.powf(self.power) - self.offset
+        }
+    }
+
+    pub fn decode(self, encoded: f32) -> f32 {
+        if encoded <= self.cutoff * self.slope {
+            if self.slope > 0.0 {
+                encoded / self.slope
+            } else {
+                0.0
+            }
+        } else {
+            ((encoded + self.offset) / (1.0 + self.offset)).powf(1.0 / self.power)
+        }
+    }
+
+    pub fn uniform(self) -> [f32; 4] {
+        [self.power, self.offset, self.slope, self.cutoff]
+    }
+
+    fn tone_curve(self) -> ToneReprCurve {
+        let gamma = 1.0 / self.power;
+        let scale = 1.0 + self.offset;
+        ToneReprCurve::Parametric(if self.cutoff > 0.0 {
+            vec![
+                gamma,
+                1.0 / scale,
+                self.offset / scale,
+                1.0 / self.slope,
+                self.cutoff * self.slope,
+            ]
+        } else {
+            vec![gamma]
+        })
+    }
+}
+
+fn color_profile(space: RgbSpace, curve: TransferCurve, name: &str) -> ColorProfile {
+    let chromaticity = |xy: DVec2| Chromaticity {
+        x: xy.x as f32,
+        y: xy.y as f32,
+    };
+    let [red, green, blue] = space.primaries.map(chromaticity);
+    let white = chromaticity_to_xyz(space.white);
+    let mut profile = ColorProfile::new_srgb();
+    profile.update_rgb_colorimetry(
+        XyY {
+            x: space.white.x,
+            y: space.white.y,
+            yb: 1.0,
+        },
+        ColorPrimaries { red, green, blue },
+    );
+    profile.media_white_point = Some(Xyzd {
+        x: white.x,
+        y: white.y,
+        z: white.z,
+    });
+    profile.red_trc = Some(curve.tone_curve());
+    profile.green_trc = Some(curve.tone_curve());
+    profile.blue_trc = Some(curve.tone_curve());
     profile.description = Some(ProfileText::Localizable(vec![LocalizableString::new(
         "en".to_string(),
         "US".to_string(),
-        "Rec.2020 with sRGB tone curve".to_string(),
+        name.to_string(),
     )]));
     profile
+}
+
+pub fn working_profile() -> ColorProfile {
+    color_profile(
+        WORKING,
+        TransferCurve::SRGB,
+        "Rec.2020 with sRGB tone curve",
+    )
 }
 
 pub fn working_icc_profile() -> &'static [u8] {
     &WORKING_SPACE.icc
 }
 
-const SRGB_LINEAR_SEGMENT_END: f32 = 0.0031308;
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum OutputColorSpace {
+    #[default]
+    Srgb,
+    DisplayP3,
+    AdobeRgb,
+    ProPhotoRgb,
+    Rec2020,
+}
+
+impl OutputColorSpace {
+    const ALL: [Self; 5] = [
+        Self::Srgb,
+        Self::DisplayP3,
+        Self::AdobeRgb,
+        Self::ProPhotoRgb,
+        Self::Rec2020,
+    ];
+
+    fn rgb(self) -> RgbSpace {
+        match self {
+            Self::Srgb => SRGB,
+            Self::DisplayP3 => DISPLAY_P3,
+            Self::AdobeRgb => ADOBE_RGB,
+            Self::ProPhotoRgb => PRO_PHOTO_RGB,
+            Self::Rec2020 => REC2020,
+        }
+    }
+
+    fn curve(self) -> TransferCurve {
+        match self {
+            Self::Srgb | Self::DisplayP3 => TransferCurve::SRGB,
+            Self::AdobeRgb => TransferCurve::gamma(563.0 / 256.0),
+            Self::ProPhotoRgb => TransferCurve::gamma(1.8),
+            Self::Rec2020 => TransferCurve::REC709,
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::Srgb => "sRGB",
+            Self::DisplayP3 => "Display P3",
+            Self::AdobeRgb => "Adobe RGB (1998) compatible",
+            Self::ProPhotoRgb => "ProPhoto RGB",
+            Self::Rec2020 => "Rec. 2020",
+        }
+    }
+
+    pub fn icc_profile(self) -> &'static [u8] {
+        static PROFILES: LazyLock<[Vec<u8>; 5]> = LazyLock::new(|| {
+            OutputColorSpace::ALL.map(|space| match space {
+                OutputColorSpace::Srgb => include_bytes!("../../icc/sRGB-v2-magic.icc").to_vec(),
+                _ => color_profile(space.rgb(), space.curve(), space.name())
+                    .encode()
+                    .expect("output color profile encodes"),
+            })
+        });
+        let index = Self::ALL.iter().position(|space| *space == self);
+        &PROFILES[index.expect("every output color space is listed")]
+    }
+
+    pub fn srgb_converter(self) -> impl Fn([f32; 3]) -> [f32; 3] {
+        let matrix = SRGB.to(self.rgb()).as_mat3();
+        let curve = self.curve();
+        move |srgb| {
+            (matrix * Vec3::from_array(srgb.map(|c| TransferCurve::SRGB.decode(c))))
+                .to_array()
+                .map(|c| curve.encode(c.min(1.0)))
+        }
+    }
+
+    pub fn linear_srgb_decoder(self) -> impl Fn([u8; 3]) -> [f32; 3] + Sync {
+        let matrix = self.rgb().to(SRGB).as_mat3();
+        let curve = self.curve();
+        let decoded: [f32; 256] = std::array::from_fn(|i| curve.decode(i as f32 / 255.0));
+        move |encoded| (matrix * Vec3::from_array(encoded.map(|c| decoded[c as usize]))).to_array()
+    }
+}
+
 const TRANSFER_STEPS: usize = 4095;
 
 type TransferTable = [f32; TRANSFER_STEPS + 2];
@@ -147,22 +357,6 @@ type TransferTable = [f32; TRANSFER_STEPS + 2];
 pub struct SrgbTransfer {
     decode: TransferTable,
     encode_from_sqrt: TransferTable,
-}
-
-fn srgb_eotf(c: f32) -> f32 {
-    if c <= 0.04045 {
-        c / 12.92
-    } else {
-        ((c + 0.055) / 1.055).powf(2.4)
-    }
-}
-
-fn srgb_oetf(c: f32) -> f32 {
-    if c <= SRGB_LINEAR_SEGMENT_END {
-        c * 12.92
-    } else {
-        1.055 * c.powf(1.0 / 2.4) - 0.055
-    }
 }
 
 fn transfer_table(curve: impl Fn(f32) -> f32) -> TransferTable {
@@ -182,24 +376,24 @@ impl SrgbTransfer {
         if (0.0..=1.0).contains(&c) {
             interpolate(&self.decode, c)
         } else {
-            srgb_eotf(c)
+            TransferCurve::SRGB.decode(c)
         }
     }
 
     #[inline]
     pub fn encode(&self, c: f32) -> f32 {
-        if c > SRGB_LINEAR_SEGMENT_END && c <= 1.0 {
+        if c > TransferCurve::SRGB.cutoff && c <= 1.0 {
             interpolate(&self.encode_from_sqrt, c.sqrt())
         } else {
-            srgb_oetf(c.max(0.0))
+            TransferCurve::SRGB.encode(c)
         }
     }
 }
 
 pub fn srgb_transfer() -> &'static SrgbTransfer {
     static TRANSFER: LazyLock<SrgbTransfer> = LazyLock::new(|| SrgbTransfer {
-        decode: transfer_table(srgb_eotf),
-        encode_from_sqrt: transfer_table(|root| srgb_oetf(root * root)),
+        decode: transfer_table(|c| TransferCurve::SRGB.decode(c)),
+        encode_from_sqrt: transfer_table(|root| TransferCurve::SRGB.encode(root * root)),
     });
     &TRANSFER
 }
@@ -279,12 +473,13 @@ pub fn fit_gamut(rgb: [f32; 3], compression: &[Option<GamutCompression>; 3]) -> 
 pub struct OutputTransform {
     pub matrix: Mat3,
     pub compression: [Option<GamutCompression>; 3],
+    pub curve: TransferCurve,
     transfer: &'static SrgbTransfer,
 }
 
 impl OutputTransform {
-    pub fn srgb(compress_gamut: bool) -> Self {
-        let matrix = working_to_srgb();
+    pub fn new(space: OutputColorSpace, compress_gamut: bool) -> Self {
+        let matrix = WORKING.to(space.rgb()).as_mat3();
         let compression = if compress_gamut {
             gamut_limits(&matrix.to_cols_array_2d()).map(GamutCompression::new)
         } else {
@@ -293,12 +488,17 @@ impl OutputTransform {
         Self {
             matrix,
             compression,
+            curve: space.curve(),
             transfer: srgb_transfer(),
         }
     }
 
+    pub fn srgb(compress_gamut: bool) -> Self {
+        Self::new(OutputColorSpace::Srgb, compress_gamut)
+    }
+
     #[inline]
-    pub fn apply_encoded(&self, working: [f32; 3]) -> [f32; 3] {
+    pub fn apply_srgb_encoded(&self, working: [f32; 3]) -> [f32; 3] {
         let linear = Vec3::from_array(working.map(|c| self.transfer.decode(c.max(0.0))));
         fit_gamut((self.matrix * linear).to_array(), &self.compression)
             .map(|c| self.transfer.encode(c.min(1.0)))

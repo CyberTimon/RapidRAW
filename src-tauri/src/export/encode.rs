@@ -1,13 +1,15 @@
 use crate::export::settings::{ExportSettings, TiffBitDepth};
 use crate::metadata::tiff_metadata::{TiffSamples, encode_tiff_with_metadata};
 use crate::metadata::{exif_processing, export_metadata};
+use crate::render::color_space::OutputColorSpace;
 use image::codecs::jpeg::{JpegEncoder, PixelDensity};
 use image::codecs::png::PngEncoder;
 use image::{DynamicImage, GenericImageView, ImageEncoder};
 use jxl_encoder::{
-    LosslessConfig, LossyConfig, PixelLayout,
+    ImageMetadata, LosslessConfig, LossyConfig, PixelLayout,
     api::{calibrated_jxl_quality, quality_to_distance},
 };
+use rayon::prelude::*;
 use std::borrow::Cow;
 #[cfg(not(target_os = "android"))]
 use std::fs;
@@ -47,12 +49,14 @@ pub fn save_image_with_metadata(
         .unwrap_or("")
         .to_lowercase();
 
+    let is_srgb = export_settings.color_space_for(&extension) == OutputColorSpace::Srgb;
     let tiff_metadata =
         if export_settings.keep_metadata && matches!(extension.as_str(), "tif" | "tiff") {
             export_metadata::collect_metadata_from_source(
                 source_path_str,
                 export_settings.strip_gps,
                 Some(image.dimensions()),
+                is_srgb,
             )
         } else {
             None
@@ -61,15 +65,17 @@ pub fn save_image_with_metadata(
     let mut image_bytes =
         encode_image_to_bytes(image, &extension, export_settings, tiff_metadata.as_ref())?;
 
-    export_metadata::write_image_with_metadata(
-        &mut image_bytes,
-        source_path_str,
-        &extension,
-        export_settings.keep_metadata,
-        export_settings.strip_gps,
-        export_xmp,
-        export_settings.dpi,
-    )?;
+    if export_settings.keep_metadata {
+        export_metadata::write_image_with_metadata(
+            &mut image_bytes,
+            source_path_str,
+            &extension,
+            export_settings.strip_gps,
+            export_xmp,
+            export_settings.dpi,
+            is_srgb,
+        )?;
+    }
 
     #[cfg(target_os = "android")]
     {
@@ -111,8 +117,6 @@ pub fn mime_type_for_extension(extension: &str) -> &'static str {
     }
 }
 
-pub(crate) const SRGB_ICC_PROFILE: &[u8] = include_bytes!("../../icc/sRGB-v2-magic.icc");
-
 pub fn encode_image_to_bytes(
     image: &DynamicImage,
     output_format: &str,
@@ -120,6 +124,7 @@ pub fn encode_image_to_bytes(
     tiff_metadata: Option<&little_exif::metadata::Metadata>,
 ) -> Result<Vec<u8>, String> {
     let jpeg_quality = export_settings.jpeg_quality;
+    let color_space = export_settings.color_space_for(output_format);
     let mut image_bytes = Vec::new();
     let mut cursor = Cursor::new(&mut image_bytes);
 
@@ -127,35 +132,51 @@ pub fn encode_image_to_bytes(
         "jxl" => {
             let (width, height) = image.dimensions();
             let has_alpha = image.color().has_alpha();
+            let (pixels, layout, linear_layout) = if has_alpha {
+                let pixels = image.to_rgba8().into_raw();
+                (pixels, PixelLayout::Rgba8, PixelLayout::RgbaLinearF32)
+            } else {
+                let pixels = image.to_rgb8().into_raw();
+                (pixels, PixelLayout::Rgb8, PixelLayout::RgbLinearF32)
+            };
+            let channels = layout.bytes_per_pixel();
+            let metadata = match color_space {
+                OutputColorSpace::Srgb => ImageMetadata::new(),
+                _ => ImageMetadata::new().with_icc_profile(color_space.icc_profile()),
+            };
 
             let jxl_data = if jpeg_quality == 100 {
-                let config = LosslessConfig::new().with_tree_learning(false);
-                if has_alpha {
-                    let rgba = image.to_rgba8();
-                    config
-                        .encode(rgba.as_raw(), width, height, PixelLayout::Rgba8)
-                        .map_err(|e| format!("Failed to encode lossless JXL: {}", e))?
-                } else {
-                    let rgb = image.to_rgb8();
-                    config
-                        .encode(rgb.as_raw(), width, height, PixelLayout::Rgb8)
-                        .map_err(|e| format!("Failed to encode lossless JXL: {}", e))?
-                }
+                LosslessConfig::new()
+                    .with_tree_learning(false)
+                    .encode_request(width, height, layout)
+                    .with_metadata(&metadata)
+                    .encode(&pixels)
+                    .map_err(|e| format!("Failed to encode lossless JXL: {}", e))?
             } else {
                 let jxl_quality = calibrated_jxl_quality(jpeg_quality as f32);
-                let distance = quality_to_distance(jxl_quality);
+                let config = LossyConfig::new(quality_to_distance(jxl_quality));
 
-                if has_alpha {
-                    let rgba = image.to_rgba8();
-                    LossyConfig::new(distance)
-                        .encode(rgba.as_raw(), width, height, PixelLayout::Rgba8)
-                        .map_err(|e| format!("Failed to encode lossy JXL: {}", e))?
+                if color_space == OutputColorSpace::Srgb {
+                    config.encode_request(width, height, layout).encode(&pixels)
                 } else {
-                    let rgb = image.to_rgb8();
-                    LossyConfig::new(distance)
-                        .encode(rgb.as_raw(), width, height, PixelLayout::Rgb8)
-                        .map_err(|e| format!("Failed to encode lossy JXL: {}", e))?
+                    let to_linear_srgb = color_space.linear_srgb_decoder();
+                    let mut linear = vec![0.0f32; pixels.len()];
+                    linear
+                        .par_chunks_exact_mut(channels)
+                        .zip(pixels.par_chunks_exact(channels))
+                        .for_each(|(linear, encoded)| {
+                            let rgb = to_linear_srgb([encoded[0], encoded[1], encoded[2]]);
+                            linear[..3].copy_from_slice(&rgb);
+                            if let Some(alpha) = encoded.get(3) {
+                                linear[3] = f32::from(*alpha) / 255.0;
+                            }
+                        });
+                    config
+                        .encode_request(width, height, linear_layout)
+                        .with_metadata(&metadata)
+                        .encode(bytemuck::cast_slice(&linear))
                 }
+                .map_err(|e| format!("Failed to encode lossy JXL: {}", e))?
             };
 
             return Ok(jxl_data);
@@ -163,8 +184,11 @@ pub fn encode_image_to_bytes(
         "webp" => {
             let encoder = webp::Encoder::from_image(image)
                 .map_err(|_| "Failed to create WebP encoder".to_string())?;
-            let webp_mem = encoder.encode(jpeg_quality as f32);
-            return Ok(webp_mem.to_vec());
+            let mut webp_data = encoder.encode(jpeg_quality as f32).to_vec();
+            if color_space != OutputColorSpace::Srgb {
+                export_metadata::embed_webp_icc(&mut webp_data, color_space.icc_profile());
+            }
+            return Ok(webp_data);
         }
         "jpg" | "jpeg" => {
             let rgb_image = image
@@ -172,7 +196,7 @@ pub fn encode_image_to_bytes(
                 .map_or_else(|| Cow::Owned(image.to_rgb8()), Cow::Borrowed);
             let mut encoder = JpegEncoder::new_with_quality(&mut cursor, jpeg_quality);
             encoder
-                .set_icc_profile(SRGB_ICC_PROFILE.to_vec())
+                .set_icc_profile(color_space.icc_profile().to_vec())
                 .map_err(|e| e.to_string())?;
             if let Some(dpi) = export_settings.dpi {
                 encoder.set_pixel_density(PixelDensity::dpi(dpi));
@@ -192,7 +216,7 @@ pub fn encode_image_to_bytes(
 
             let mut encoder = PngEncoder::new(&mut cursor);
             encoder
-                .set_icc_profile(SRGB_ICC_PROFILE.to_vec())
+                .set_icc_profile(color_space.icc_profile().to_vec())
                 .map_err(|e| e.to_string())?;
             image_to_encode
                 .write_with_encoder(encoder)
@@ -210,7 +234,7 @@ pub fn encode_image_to_bytes(
                 image,
                 samples,
                 tiff_metadata,
-                Some(SRGB_ICC_PROFILE),
+                Some(color_space.icc_profile()),
                 export_settings.dpi,
             );
         }

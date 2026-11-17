@@ -311,7 +311,7 @@ pub fn working_display_to_srgb8(pixels: &[f32]) -> Vec<u8> {
         .par_chunks_exact(3)
         .flat_map_iter(|pixel| {
             output
-                .apply_encoded([pixel[0], pixel[1], pixel[2]])
+                .apply_srgb_encoded([pixel[0], pixel[1], pixel[2]])
                 .map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
         })
         .collect()
@@ -337,7 +337,7 @@ pub fn working_display_image_to_srgb8(image: &DynamicImage) -> RgbImage {
 pub fn apply_working_display_to_srgb(image: &mut DynamicImage, compress_gamut: bool) {
     let output = OutputTransform::srgb(compress_gamut);
     rgb32f_mut(image).par_chunks_mut(3).for_each(|pixel| {
-        pixel.copy_from_slice(&output.apply_encoded([pixel[0], pixel[1], pixel[2]]));
+        pixel.copy_from_slice(&output.apply_srgb_encoded([pixel[0], pixel[1], pixel[2]]));
     });
 }
 

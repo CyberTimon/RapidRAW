@@ -97,6 +97,7 @@ struct GlobalAdjustments {
     _pad_output3: f32,
     output_matrix: mat3x3<f32>,
     gamut_compression: vec4<f32>,
+    output_transfer: vec4<f32>,
     wb_rgb_to_lms_matrix: mat3x3<f32>,
     wb_lms_to_rgb_matrix: mat3x3<f32>,
 
@@ -1919,7 +1920,10 @@ fn sample_lut_tetrahedral(uv: vec3<f32>) -> vec3<f32> {
 
 fn output_transform(display: vec3<f32>) -> vec3<f32> {
     let compression = adjustments.global.gamut_compression;
-    return linear_to_srgb(fit_gamut(adjustments.global.output_matrix * srgb_to_linear(display), compression.w, compression.xyz));
+    let curve = adjustments.global.output_transfer;
+    let fitted = fit_gamut(adjustments.global.output_matrix * srgb_to_linear(display), compression.w, compression.xyz);
+    let linear = clamp(fitted, vec3<f32>(0.0), vec3<f32>(1.0));
+    return select((1.0 + curve.y) * pow(linear, vec3<f32>(curve.x)) - curve.y, linear * curve.z, linear <= vec3<f32>(curve.w));
 }
 
 fn working_display_to_srgb(display: vec3<f32>) -> vec3<f32> {

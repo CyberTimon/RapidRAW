@@ -1,3 +1,4 @@
+use crate::render::color_space::OutputColorSpace;
 use crate::render::gpu::processor::RenderOutputPrecision;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -82,6 +83,8 @@ pub struct ExportSettings {
     pub jpeg_quality: u8,
     #[serde(default)]
     pub tiff_bit_depth: TiffBitDepth,
+    #[serde(default)]
+    pub color_space: OutputColorSpace,
     pub resize: Option<ResizeOptions>,
     #[serde(default)]
     pub border: Option<BorderOptions>,
@@ -105,6 +108,15 @@ pub struct ExportSettings {
     pub dpi: Option<u16>,
     #[serde(default)]
     pub export_original: Option<OriginalExportOptions>,
+}
+
+impl ExportSettings {
+    pub fn color_space_for(&self, output_format: &str) -> OutputColorSpace {
+        match output_format.to_lowercase().as_str() {
+            "jpg" | "jpeg" | "png" | "tif" | "tiff" | "webp" | "jxl" => self.color_space,
+            _ => OutputColorSpace::Srgb,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]

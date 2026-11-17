@@ -1053,6 +1053,7 @@
       "selectFolderTitle_other": "Seleccionar carpeta para exportar {{count}} imágenes"
     },
     "file": {
+      "colorSpace": "Espacio de color",
       "dpi": "PPP",
       "quality": "Calidad",
       "qualityLossless": "Calidad (Sin pérdida)",

@@ -1027,6 +1027,7 @@
       "selectFolderTitle_other": "Ordner zum Exportieren von {{count}} Bildern auswählen"
     },
     "file": {
+      "colorSpace": "Farbraum",
       "dpi": "DPI",
       "quality": "Qualität",
       "qualityLossless": "Qualität (Verlustfrei)",

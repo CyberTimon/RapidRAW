@@ -1117,6 +1117,7 @@
       "selectFolderTitle_other": "Pasirinkite aplanką eksportuoti {{count}} nuotrauką"
     },
     "file": {
+      "colorSpace": "Spalvų erdvė",
       "dpi": "DPI",
       "quality": "Kokybė",
       "qualityLossless": "Kokybė (be nuostolių)",
