@@ -206,7 +206,7 @@ pub struct MaskAdjustments {
     pub wb_log_gain_l: f32,
     pub wb_log_gain_m: f32,
     pub wb_log_gain_s: f32,
-    _pad_wb: f32,
+    pub contrast_pivot: f32,
     pub color_grading_shadows: ColorGradeSettings,
     pub color_grading_midtones: ColorGradeSettings,
     pub color_grading_highlights: ColorGradeSettings,
@@ -865,6 +865,23 @@ fn get_global_adjustments_from_json(
     }
 }
 
+/// Perceptual pivot for a mask whose contrast stays local. Zero folds that contrast into the global curve.
+fn mask_contrast_pivot(adj: &serde_json::Value) -> f32 {
+    let local = is_tool_active(adj, "basic")
+        && adj
+            .get("maskLocalTone")
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false);
+    if !local {
+        return 0.0;
+    }
+    let pivot = adj
+        .get("contrastPivot")
+        .and_then(|value| value.as_f64())
+        .unwrap_or(128.0) as f32;
+    (pivot / 255.0).clamp(16.0 / 255.0, 239.0 / 255.0)
+}
+
 fn get_mask_adjustments_from_json(
     adj: &serde_json::Value,
     global_white_balance: WhiteBalance,
@@ -961,7 +978,7 @@ fn get_mask_adjustments_from_json(
         wb_log_gain_l,
         wb_log_gain_m,
         wb_log_gain_s,
-        _pad_wb: 0.0,
+        contrast_pivot: mask_contrast_pivot(adj),
         color_grading_shadows: if color_grading_visible {
             parse_color_grade_settings(&cg_obj["shadows"])
         } else {

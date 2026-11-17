@@ -250,6 +250,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
           },
           originalSize: cached.originalSize,
           histogram: cached.histogram,
+          maskHistogram: null,
           waveform: cached.waveform,
           finalPreviewUrl: cached.finalPreviewUrl,
           uncroppedAdjustedPreviewUrl: cached.uncroppedPreviewUrl,
@@ -313,6 +314,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
         },
         originalSize: { width: 0, height: 0 },
         histogram: null,
+        maskHistogram: null,
         waveform: null,
         uncroppedAdjustedPreviewUrl: null,
       });
@@ -414,7 +416,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
         if (!preserveEditor && selectedImage) {
           debouncedSave.flush();
           debouncedSetHistory.cancel();
-          setEditor({ selectedImage: null, finalPreviewUrl: null, uncroppedAdjustedPreviewUrl: null, histogram: null });
+          setEditor({ selectedImage: null, finalPreviewUrl: null, uncroppedAdjustedPreviewUrl: null, histogram: null, maskHistogram: null });
           setEditor({ adjustments: INITIAL_ADJUSTMENTS });
           resetHistory(INITIAL_ADJUSTMENTS);
           useEditorStore.getState().patchesSentToBackend.clear();

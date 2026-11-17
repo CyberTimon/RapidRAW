@@ -118,6 +118,13 @@
       "whiteBalance": "Weißabgleich"
     },
     "curves": {
+      "adaptiveContrast": "Kurvenpunkte setzen",
+      "adaptiveContrastImage": "Kurvenpunkte vom Bild",
+      "adaptiveContrastImageTooltip": "Setzt den Mittelton auf den Median des Bildes. Die Reglerwerte bleiben, und die dunklen und hellen Bereiche behalten ihre übliche Breite",
+      "adaptiveContrastMask": "Kurvenpunkte von der Auswahl",
+      "adaptiveContrastMaskTooltip": "Setzt den Mittelton auf den Median dieser Auswahl. Die Reglerwerte bleiben, und die dunklen und hellen Bereiche behalten ihre übliche Breite",
+      "adaptiveContrastTooltip": "Setzt den Mittelton auf den Median des Bildes. Die Reglerwerte bleiben, und die dunklen und hellen Bereiche behalten ihre übliche Breite",
+      "anchorMedian": "Anker auf dem Median",
       "channelTitle": "{{channel}}-Kanal",
       "channels": {
         "blue": "Blau",
@@ -128,6 +135,9 @@
       "copyParametric": "Parametrische {{channel}}-Kurve kopieren",
       "copyPoint": "Punktkurve ({{channel}}) kopieren",
       "curveDataUnavailable": "Kurvendaten nicht verfügbar.",
+      "maskLocalTone": "Auswahlmedian",
+      "maskLocalToneTooltip": "Kontrast dieser Maske um den Median der Auswahl drehen. Erneut klicken, um den Kontrast des Bildes zu verwenden",
+      "median": "Median {{value}}",
       "parametricCurve": "Parametrische Kurve",
       "params": {
         "blackLevel": "Schwarzpunkt",

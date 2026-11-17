@@ -164,7 +164,7 @@ struct MaskAdjustments {
     wb_log_gain_l: f32,
     wb_log_gain_m: f32,
     wb_log_gain_s: f32,
-    _pad_wb: f32,
+    contrast_pivot: f32,
     color_grading_shadows: ColorGradeSettings,
     color_grading_midtones: ColorGradeSettings,
     color_grading_highlights: ColorGradeSettings,
@@ -779,7 +779,7 @@ fn contrast_half(t: vec3<f32>, mid: f32, end: f32) -> vec3<f32> {
     return t * (end + t * ((3.0 - 2.0 * end - mid) + t * (end + mid - 2.0)));
 }
 
-fn apply_contrast(color: vec3<f32>, con: f32, key: f32) -> vec3<f32> {
+fn apply_contrast_at(color: vec3<f32>, con: f32, pivot: f32) -> vec3<f32> {
     if (con == 0.0) {
         return color;
     }
@@ -789,13 +789,18 @@ fn apply_contrast(color: vec3<f32>, con: f32, key: f32) -> vec3<f32> {
     let strength = pow(2.0, con * CONTRAST_GAIN);
     let end = pow(strength, -CONTRAST_END_KEEP);
     let scale = min(1.0, 3.0 / sqrt(strength * strength + end * end));
-    let pivot = clamp(pow(exp2(key), 1.0 / g), CONTRAST_PIVOT_LO, CONTRAST_PIVOT_HI);
-    let low_part = pivot * contrast_half(perceptual / pivot, strength * scale, end * scale);
-    let high_part = 1.0 - (1.0 - pivot) * contrast_half((1.0 - perceptual) / (1.0 - pivot), strength * scale, end * scale);
-    let curved_perceptual = select(high_part, low_part, perceptual < vec3<f32>(pivot));
+    let p = clamp(pivot, 16.0 / 255.0, 239.0 / 255.0);
+    let low_part = p * contrast_half(perceptual / p, strength * scale, end * scale);
+    let high_part = 1.0 - (1.0 - p) * contrast_half((1.0 - perceptual) / (1.0 - p), strength * scale, end * scale);
+    let curved_perceptual = select(high_part, low_part, perceptual < vec3<f32>(p));
     let contrast_adjusted_rgb = pow(max(curved_perceptual, vec3<f32>(0.0)), vec3<f32>(g));
     let mix_factor = smoothstep(vec3<f32>(1.0), vec3<f32>(1.01), safe_rgb);
     return mix(contrast_adjusted_rgb, color, mix_factor);
+}
+
+fn apply_contrast(color: vec3<f32>, con: f32, key: f32) -> vec3<f32> {
+    let pivot = clamp(pow(exp2(key), 1.0 / 2.2), CONTRAST_PIVOT_LO, CONTRAST_PIVOT_HI);
+    return apply_contrast_at(color, con, pivot);
 }
 
 fn apply_linear_exposure(color_in: vec3<f32>, exposure_adj: f32) -> vec3<f32> {
@@ -2080,7 +2085,9 @@ fn main(
 
             t_exposure += m.exposure * influence;
             t_brightness += m.brightness * influence;
-            t_contrast += m.contrast * influence;
+            if (m.contrast_pivot <= 0.0) {
+                t_contrast += m.contrast * influence;
+            }
             t_highlights += m.highlights * influence;
             t_shadows += m.shadows * influence;
             t_whites += m.whites * influence;
@@ -2226,6 +2233,15 @@ fn main(
         contrast_key = toned_key(tone_stats.w + adjustments.global.exposure, tone_stats.x + adjustments.global.exposure);
     }
     composite_rgb_linear = apply_contrast(toned.rgb, t_contrast, contrast_key);
+    for (var mask_i = 0u; has_feature(F_MASKS) && mask_i < adjustments.mask_count; mask_i = mask_i + 1u) {
+        let m = adjustments.mask_adjustments[mask_i];
+        if (m.contrast_pivot > 0.0 && m.contrast != 0.0) {
+            let influence = get_mask_influence(mask_i, absolute_coord);
+            if (influence > 0.001) {
+                composite_rgb_linear = apply_contrast_at(composite_rgb_linear, m.contrast * influence, m.contrast_pivot);
+            }
+        }
+    }
     composite_rgb_linear = apply_tone_ends(composite_rgb_linear, toned.w, detail_fine + lc_log_gain, tone_broad, t_highlights, t_whites, t_blacks);
     let is_monochrome = has_feature(F_MONOCHROME) && adjustments.global.monochrome.enabled == 1u;
     if (!is_monochrome) {

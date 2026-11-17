@@ -516,6 +516,8 @@ export interface MaskAdjustments {
   colorGrading: ColorGradingProps;
   colorNoiseReduction: number;
   contrast: number;
+  maskLocalTone?: boolean;
+  contrastPivot?: number;
   curves: Curves;
   pointCurves?: Curves;
   parametricCurve?: ParametricCurve;
@@ -634,6 +636,8 @@ export const INITIAL_MASK_ADJUSTMENTS: MaskAdjustments = {
   colorGrading: { ...INITIAL_COLOR_GRADING },
   colorNoiseReduction: 0,
   contrast: 0,
+  maskLocalTone: false,
+  contrastPivot: 128,
   curves: getDefaultCurves(),
   pointCurves: getDefaultCurves(),
   parametricCurve: getDefaultParametricCurve(),
@@ -900,7 +904,10 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
   basic: [
     { label: 'adjustments.basic.toneMapper', keys: ['toneMapper'] },
     { label: 'adjustments.basic.exposure', keys: [BasicAdjustment.Exposure] },
-    { label: 'adjustments.basic.contrast', keys: [BasicAdjustment.Contrast] },
+    {
+      label: 'adjustments.basic.contrast',
+      keys: [BasicAdjustment.Contrast, 'maskLocalTone', 'contrastPivot'],
+    },
     { label: 'adjustments.basic.highlights', keys: [BasicAdjustment.Highlights] },
     { label: 'adjustments.basic.shadows', keys: [BasicAdjustment.Shadows] },
     { label: 'adjustments.basic.whites', keys: [BasicAdjustment.Whites] },
@@ -1142,6 +1149,8 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     BasicAdjustment.Blacks,
     BasicAdjustment.Exposure,
     'toneMapper',
+    'maskLocalTone',
+    'contrastPivot',
   ],
   curves: ['curves', 'pointCurves', 'parametricCurve', 'curveMode'],
   color: [

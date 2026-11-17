@@ -56,6 +56,7 @@ export function useImageProcessing(
   const originalSize = useEditorStore((state) => state.originalSize);
   const isSliderDragging = useEditorStore((state) => state.isSliderDragging);
   const compareView = useEditorStore((state) => state.compareView);
+  const activeMaskContainerId = useEditorStore((state) => state.activeMaskContainerId);
   const setEditor = useEditorStore((state) => state.setEditor);
 
   const activeView = useUIStore((state) => state.activeView);
@@ -124,6 +125,7 @@ export function useImageProcessing(
           requestAnalytics: false,
           computeWaveform: false,
           activeWaveformChannel: null,
+          activeMaskId: null,
         });
         markSent();
 
@@ -161,6 +163,7 @@ export function useImageProcessing(
           requestAnalytics: true,
           computeWaveform: !!isWaveformVisible,
           activeWaveformChannel: activeWaveformChannelRef.current || null,
+          activeMaskId: useEditorStore.getState().activeMaskContainerId,
         });
         if (!dragging) renderOriginal(targetRes);
         const buffer = await request;
@@ -459,6 +462,10 @@ export function useImageProcessing(
   ]);
 
   useEffect(() => {
+    setEditor({ maskHistogram: null });
+  }, [activeMaskContainerId, selectedImage?.path, setEditor]);
+
+  useEffect(() => {
     if (!isComparing) return;
     return () => {
       originalRequestKeyRef.current = null;
@@ -548,6 +555,7 @@ export function useImageProcessing(
     appSettings?.copyPasteSettings?.includedAdjustments,
     appSettings?.copyPasteSettings?.autoSync,
     isWaveformVisible,
+    activeMaskContainerId,
   ]);
 
   return {

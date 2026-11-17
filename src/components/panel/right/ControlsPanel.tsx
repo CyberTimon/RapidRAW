@@ -132,7 +132,8 @@ export default function Controls() {
         ...Object.keys(ADJUSTMENT_SECTIONS)
           .flatMap((s) => ADJUSTMENT_SECTIONS[s])
           .reduce((acc: any, key: string) => {
-            acc[key] = defaults[key as keyof Adjustments];
+            const value = defaults[key as keyof Adjustments];
+            if (value !== undefined) acc[key] = value;
             return acc;
           }, {}),
         activeTools: { ...defaults.activeTools },
@@ -197,7 +198,8 @@ export default function Controls() {
       const defaults = await getOpenImageDefaults();
       const resetValues: any = {};
       for (const key of sectionKeys) {
-        resetValues[key] = defaults[key as keyof Adjustments];
+        const value = defaults[key as keyof Adjustments];
+        if (value !== undefined) resetValues[key] = value;
       }
       setAdjustments((prev: Adjustments) => ({
         ...prev,

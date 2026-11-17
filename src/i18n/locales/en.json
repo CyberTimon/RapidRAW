@@ -118,6 +118,13 @@
       "whiteBalance": "White Balance"
     },
     "curves": {
+      "adaptiveContrast": "Set Curve Points",
+      "adaptiveContrastImage": "Set Curve Points from Image",
+      "adaptiveContrastImageTooltip": "Place the midtone on the image median. Slider amounts stay as they are, and the dark and light ranges keep their usual width",
+      "adaptiveContrastMask": "Set Curve Points from Selection",
+      "adaptiveContrastMaskTooltip": "Place the midtone on this selection's median. Slider amounts stay as they are, and the dark and light ranges keep their usual width",
+      "adaptiveContrastTooltip": "Place the midtone on the median of the image. Slider amounts stay as they are, and the dark and light ranges keep their usual width",
+      "anchorMedian": "Anchor at Median",
       "channelTitle": "{{channel}} Channel",
       "channels": {
         "blue": "Blue",
@@ -128,6 +135,9 @@
       "copyParametric": "Copy {{channel}} Parametric Curve",
       "copyPoint": "Copy {{channel}} Point Curve",
       "curveDataUnavailable": "Curve data not available.",
+      "maskLocalTone": "Selection Median",
+      "maskLocalToneTooltip": "Pivot this mask's contrast on the selection median. Click again to use the picture's contrast",
+      "median": "Median {{value}}",
       "parametricCurve": "Parametric Curve",
       "params": {
         "blackLevel": "Black Level",

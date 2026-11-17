@@ -295,6 +295,7 @@ fn complete_analytics_readback(readback: AnalyticsReadback) {
             },
             compute_waveform: analytics.compute_waveform,
             active_waveform_channel: analytics.active_waveform_channel,
+            mask: analytics.mask,
         });
     }
 }

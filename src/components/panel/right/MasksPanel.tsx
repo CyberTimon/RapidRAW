@@ -2051,7 +2051,7 @@ function SettingsPanel({
 
   const containerId: string | null = container?.id ?? null;
   const setMaskContainerAdjustments = useCallback(
-    (updater: any) => {
+    (updater: any, label?: string) => {
       if (!containerId) return;
       setAdjustments((prev: Adjustments) => ({
         ...prev,
@@ -2060,7 +2060,7 @@ function SettingsPanel({
             ? { ...m, adjustments: typeof updater === 'function' ? updater(m.adjustments) : updater }
             : m,
         ),
-      }));
+      }), label);
     },
     [containerId, setAdjustments],
   );
