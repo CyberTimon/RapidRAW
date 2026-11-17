@@ -9,7 +9,7 @@ use crate::library::sidecars::{parse_virtual_path, run_batch_workers};
 use crate::masks::generation::MaskDefinition;
 use crate::metadata::exif_processing;
 use crate::metadata::sidecar::{ImageMetadata, is_image_edited};
-use crate::render::adjustment_utils::effective_baseline_exposure;
+use crate::render::adjustment_utils::{effective_baseline_exposure, is_default_adjustments};
 use crate::render::geometry::{
     Crop, apply_coarse_rotation, get_geometry_params_from_json, is_geometry_identity,
 };
@@ -266,7 +266,13 @@ fn generate_thumbnail_data_with_metadata(
 
     let always_decode_raw = settings.always_decode_raw_thumbnails.unwrap_or(false);
 
-    if is_raw && adjustments.is_null() && preloaded_image.is_none() && !always_decode_raw {
+    let untouched = || {
+        adjustments.is_null()
+            || (crate::adjustments::develop_defaults::keeps_embedded_preview(&source_path)
+                && is_default_adjustments(adjustments, &source_path))
+    };
+
+    if is_raw && preloaded_image.is_none() && !always_decode_raw && untouched() {
         let target_res = settings.medium_thumbnail_resolution.unwrap_or(1280);
         if let Some(preview) = try_load_embedded_raw_preview(&source_path, target_res) {
             return Ok(preview);

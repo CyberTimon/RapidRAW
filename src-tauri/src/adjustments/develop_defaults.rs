@@ -87,6 +87,8 @@ const NON_DEFAULTABLE_KEYS: &[&str] = &[
     "motionBlurDepthEnabled",
 ];
 
+const TONE_MAPPER_KEY: &str = "toneMapper";
+
 type Overlay = Arc<Map<String, Value>>;
 type CameraKey = (String, String);
 
@@ -298,6 +300,13 @@ pub fn overlay(path: &Path) -> Arc<Map<String, Value>> {
 
 pub fn is_customized(path: &Path) -> bool {
     lookup(path).0.is_some()
+}
+
+pub fn keeps_embedded_preview(path: &Path) -> bool {
+    let lens_correction = auto_lens_correction_adjustments();
+    overlay(path).keys().all(|key| {
+        key == TONE_MAPPER_KEY || lens_correction.iter().any(|(lens_key, _)| lens_key == key)
+    })
 }
 
 pub fn apply_overlay(base: &mut Value, path: &Path) {
