@@ -529,7 +529,7 @@ fn generate_thumbnail_data_with_metadata(
     }
 
     let _decode_reservation;
-    let mut final_image: Cow<DynamicImage> = if let Some(patched) = &cached_patched {
+    let final_image: Cow<DynamicImage> = if let Some(patched) = &cached_patched {
         Cow::Borrowed(patched)
     } else if let Some(img) = preloaded_image {
         image_loader::prepare_base_image_cow(img, &source_path_str, adjustments)?
@@ -556,6 +556,12 @@ fn generate_thumbnail_data_with_metadata(
         if adjustments.is_null() {
             crate::decode::as_shot::as_shot_from_bytes(&source_path_str, file_slice);
         }
+        if !is_raw
+            && adjustments.is_null()
+            && resolve_render_options(settings, is_raw).tonemapper_override != Some(1)
+        {
+            return image_loader::load_display_image(file_slice, &source_path_str);
+        }
         Cow::Owned(
             image_loader::load_and_composite(
                 file_slice,
@@ -569,10 +575,11 @@ fn generate_thumbnail_data_with_metadata(
         )
     };
 
+    let mut owned_image = final_image.into_owned();
     if adjustments.is_null() {
         let render = resolve_render_options(settings, is_raw);
-        let mut owned_image = apply_exposure(
-            final_image.into_owned(),
+        owned_image = apply_exposure(
+            owned_image,
             effective_baseline_exposure(adjustments, as_shot(&source_path_str), render.baseline),
         );
         let use_agx = render.tonemapper_override == Some(1);
@@ -585,11 +592,11 @@ fn generate_thumbnail_data_with_metadata(
         } else if is_raw {
             apply_cpu_default_raw_processing(&mut owned_image);
         }
-        final_image = Cow::Owned(owned_image);
     }
+    crate::render::image_processing::apply_working_display_to_srgb(&mut owned_image, is_raw);
 
     let fallback_orientation_steps = adjustments["orientationSteps"].as_u64().unwrap_or(0) as u8;
-    Ok(apply_coarse_rotation(final_image, fallback_orientation_steps).into_owned())
+    Ok(apply_coarse_rotation(Cow::Owned(owned_image), fallback_orientation_steps).into_owned())
 }
 
 fn encode_thumbnail(image: &DynamicImage, target_width: u32) -> Result<Vec<u8>> {

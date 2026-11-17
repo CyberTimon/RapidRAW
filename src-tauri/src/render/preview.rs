@@ -218,6 +218,7 @@ pub fn build_ai_source_image(
 ) -> DynamicImage {
     let source = crate::adjustments::negative_conversion::apply_negative_conversion(
         Cow::Borrowed(image),
+        is_raw,
         js_adjustments,
     );
     build_full_warped_image_rgb8(

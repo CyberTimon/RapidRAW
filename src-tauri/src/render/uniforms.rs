@@ -2,7 +2,9 @@ use crate::decode::as_shot::AsShot;
 use crate::decode::white_balance::{self, WhiteBalance};
 use crate::masks::generation::MaskDefinition;
 use crate::render::adjustment_utils::{effective_baseline_exposure, is_tool_active};
-use crate::render::color_space::calculate_agx_matrices_glam;
+use crate::render::color_space::{
+    OutputTransform, compression_uniform, srgb_decode, working_to_srgb,
+};
 use crate::render::options::RenderOptions;
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat3, Vec2, Vec3};
@@ -132,11 +134,11 @@ pub struct GlobalAdjustments {
     pub vignette_center_y: f32,
     _pad_lut5: f32,
 
-    _pad_agx1: f32,
-    _pad_agx2: f32,
-    _pad_agx3: f32,
-    pub agx_pipe_to_rendering_matrix: GpuMat3,
-    pub agx_rendering_to_pipe_matrix: GpuMat3,
+    _pad_output1: f32,
+    _pad_output2: f32,
+    _pad_output3: f32,
+    pub output_matrix: GpuMat3,
+    pub gamut_compression: [f32; 4],
     pub wb_rgb_to_lms_matrix: GpuMat3,
     pub wb_lms_to_rgb_matrix: GpuMat3,
 
@@ -401,13 +403,7 @@ fn hue_to_linear_srgb(hue_degrees: f32) -> Vec3 {
         4 => Vec3::new(x, 0.0, 1.0),
         _ => Vec3::new(1.0, 0.0, x),
     };
-    srgb.map(|c| {
-        if c <= 0.04045 {
-            c / 12.92
-        } else {
-            ((c + 0.055) / 1.055).powf(2.4)
-        }
-    })
+    srgb.map(srgb_decode)
 }
 
 fn oklab_hue_direction(hue_degrees: f32) -> Vec2 {
@@ -454,11 +450,12 @@ fn parse_monochrome_settings(
         monochrome_film_response(js_adjustments["monochromeFilm"].as_str().unwrap_or(""));
     let filtered = (film * filter).max(Vec3::ZERO);
     let filtered_sum = filtered.x + filtered.y + filtered.z;
-    let weights = if filtered_sum > 1e-4 {
-        filtered / filtered_sum
-    } else {
-        film
-    };
+    let weights = working_to_srgb().transpose()
+        * if filtered_sum > 1e-4 {
+            filtered / filtered_sum
+        } else {
+            film
+        };
 
     if mix_visible {
         let js_mix = &js_adjustments["monochromeMix"];
@@ -527,14 +524,6 @@ fn mat3_to_gpu_mat3(m: Mat3) -> GpuMat3 {
         col1: [m.y_axis.x, m.y_axis.y, m.y_axis.z, 0.0],
         col2: [m.z_axis.x, m.z_axis.y, m.z_axis.z, 0.0],
     }
-}
-
-fn calculate_agx_matrices() -> (GpuMat3, GpuMat3) {
-    let (pipe_to_rendering, rendering_to_pipe) = calculate_agx_matrices_glam();
-    (
-        mat3_to_gpu_mat3(pipe_to_rendering),
-        mat3_to_gpu_mat3(rendering_to_pipe),
-    )
 }
 
 fn get_global_adjustments_from_json(
@@ -645,7 +634,7 @@ fn get_global_adjustments_from_json(
     };
 
     let tone_mapper = js_adjustments["toneMapper"].as_str().unwrap_or("basic");
-    let (pipe_to_rendering, rendering_to_pipe) = calculate_agx_matrices();
+    let output = OutputTransform::srgb(is_raw);
     let rgb_to_lms = white_balance::rgb_to_lms();
 
     let (has_lut, lut_intensity, lut_is_scene_referred) = if is_visible("lut") {
@@ -778,11 +767,11 @@ fn get_global_adjustments_from_json(
         vignette_center_y: get_val("vignette", "vignetteCenterY", 1.0, Some(0.5)),
         _pad_lut5: 0.0,
 
-        _pad_agx1: 0.0,
-        _pad_agx2: 0.0,
-        _pad_agx3: 0.0,
-        agx_pipe_to_rendering_matrix: pipe_to_rendering,
-        agx_rendering_to_pipe_matrix: rendering_to_pipe,
+        _pad_output1: 0.0,
+        _pad_output2: 0.0,
+        _pad_output3: 0.0,
+        output_matrix: mat3_to_gpu_mat3(output.matrix),
+        gamut_compression: compression_uniform(&output.compression),
         wb_rgb_to_lms_matrix: mat3_to_gpu_mat3(rgb_to_lms),
         wb_lms_to_rgb_matrix: mat3_to_gpu_mat3(rgb_to_lms.inverse()),
 

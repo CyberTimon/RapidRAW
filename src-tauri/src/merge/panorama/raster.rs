@@ -127,11 +127,6 @@ fn cubic_weights(t: f32) -> [f32; 4] {
     ]
 }
 
-#[inline]
-pub fn luminance(p: &[f32]) -> f32 {
-    0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2]
-}
-
 pub fn gaussian_blur(src: &Raster, sigma: f32) -> Raster {
     if sigma <= 0.01 {
         return src.clone();

@@ -5,6 +5,7 @@ use crate::metadata::exif_processing::{
 };
 use crate::metadata::sidecar::{ImageFlag, ImageMetadata};
 use crate::metadata::xmp;
+use crate::render::color_space::working_icc_profile;
 use image::ImageDecoder;
 use little_exif::exif_tag::ExifTag;
 use little_exif::filetype::FileExtension;
@@ -920,14 +921,17 @@ pub fn encode_converted_image(
                 image,
                 samples,
                 metadata.as_ref(),
-                Some(crate::export::encode::SRGB_ICC_PROFILE),
+                Some(working_icc_profile()),
                 None,
             )
         }
         "png" => {
             let mut bytes = Vec::new();
+            let mut encoder = image::codecs::png::PngEncoder::new(&mut bytes);
+            image::ImageEncoder::set_icc_profile(&mut encoder, working_icc_profile().to_vec())
+                .map_err(|e| format!("Failed to embed color profile: {}", e))?;
             image
-                .write_to(&mut Cursor::new(&mut bytes), image::ImageFormat::Png)
+                .write_with_encoder(encoder)
                 .map_err(|e| format!("Failed to encode image: {}", e))?;
 
             if let Some(metadata) = metadata

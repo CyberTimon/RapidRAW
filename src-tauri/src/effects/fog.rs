@@ -2,9 +2,11 @@ use std::sync::Arc;
 
 use crate::render::geometry::GeometryParams;
 
+use glam::Vec3;
 use image::GrayImage;
 
 use crate::render::adjustment_utils::is_effect_enabled;
+use crate::render::color_space::{luminance, srgb_to_working};
 use crate::render::gpu::compute::{Bind, ComputeEncoder, Grid, Group, Out, RGB_MODE, Slot};
 
 const EPS: f32 = 2.0e-3;
@@ -71,13 +73,14 @@ pub fn prepare(
     }
     let temperature = adjustments["fogTemperature"].as_f64().unwrap_or(0.0) as f32 / 100.0;
     let tint_shift = adjustments["fogTint"].as_f64().unwrap_or(0.0) as f32 / 100.0;
-    let tint = [
-        1.0 + 0.45 * temperature + 0.15 * tint_shift,
-        1.0 - 0.35 * tint_shift,
-        1.0 - 0.45 * temperature + 0.15 * tint_shift,
-    ]
-    .map(|c| c.max(0.0));
-    let tint_luma = (0.2126 * tint[0] + 0.7152 * tint[1] + 0.0722 * tint[2]).max(1e-3);
+    let tint = srgb_to_working()
+        * Vec3::new(
+            1.0 + 0.45 * temperature + 0.15 * tint_shift,
+            1.0 - 0.35 * tint_shift,
+            1.0 - 0.45 * temperature + 0.15 * tint_shift,
+        )
+        .max(Vec3::ZERO);
+    let tint_luma = luminance(&tint.to_array()).max(1e-3);
 
     let depth_map = crate::effects::maps::resolve_luma_map(depth_b64, adjustments, geometry)?;
     let depth_size = depth_map.dimensions();
@@ -88,7 +91,7 @@ pub fn prepare(
     Some(Fog {
         map_key: crate::effects::maps::effect_map_key(depth_b64, adjustments),
         depth_map,
-        tint: [tint[0], tint[1], tint[2], tint_luma],
+        tint: [tint.x, tint.y, tint.z, tint_luma],
         amount,
         start: get("fogStart", 0.0).min(0.99),
         density: 0.5 + get("fogDensity", 50.0) * 7.5,

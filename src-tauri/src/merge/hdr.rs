@@ -1,7 +1,7 @@
 use crate::app::settings::load_settings;
 use crate::app::state::AppState;
 use crate::merge::hdr_deghosting::{align_hdr_frames, assert_uniform_dimensions, load_hdr_frames};
-use crate::render::image_processing::apply_linear_to_srgb;
+use crate::render::image_processing::{apply_linear_to_srgb, working_display_image_to_srgb8};
 use base64::{Engine as _, engine::general_purpose};
 use image::{DynamicImage, ImageFormat};
 use image_hdr::hdr_merge_images;
@@ -52,7 +52,8 @@ pub async fn merge_hdr(
     log::info!("HDR merge completed");
 
     let mut buf = Cursor::new(Vec::new());
-    if let Err(e) = hdr_merged.to_rgb8().write_to(&mut buf, ImageFormat::Png) {
+    if let Err(e) = working_display_image_to_srgb8(&hdr_merged).write_to(&mut buf, ImageFormat::Png)
+    {
         return Err(format!("Failed to encode hdr preview: {}", e));
     }
 

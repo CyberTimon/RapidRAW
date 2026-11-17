@@ -32,11 +32,6 @@ const APERTURE_RADIUS: i32 = 5;
 const APERTURE_BLADES: f32 = 7.0;
 const APERTURE_ROTATION: f32 = 0.2;
 
-fn lt_srgb_to_linear(c: vec3<f32>) -> vec3<f32> {
-    let higher = pow((c + vec3<f32>(0.055)) / 1.055, vec3<f32>(2.4));
-    return select(higher, c / 12.92, c <= vec3<f32>(0.04045));
-}
-
 fn perceptual(l: f32) -> f32 {
     if (l <= 1.0) {
         return pow(max(l, 0.0), 1.0 / 2.2);
@@ -96,7 +91,7 @@ fn lt_prefilter(@builtin(global_invocation_id) id: vec3<u32>) {
             var c = max(textureLoad(t0, vec2<u32>(sx, sy), 0).rgb, vec3<f32>(0.0));
             let clipped = smooth_step(0.92, 1.0, max(c.r, max(c.g, c.b)));
             if (params.is_raw == 0u) {
-                c = lt_srgb_to_linear(c);
+                c = srgb_to_linear(c);
             }
             c *= params.gain;
             let l = plain_luma(c);
@@ -237,7 +232,7 @@ fn ghost(r: vec2<f32>, m: f32, size: f32, tint: vec3<f32>) -> vec3<f32> {
         let weight = frame_fade(uv) * (1.0 - smoothstep(0.2, 0.75, off_axis));
         c[ch] = aperture(lod, uv)[ch] * weight;
     }
-    return c * tint;
+    return tint_in_srgb(c, tint);
 }
 
 @compute @workgroup_size(8, 8, 1)
@@ -269,6 +264,6 @@ fn lt_flare(@builtin(global_invocation_id) id: vec3<u32>) {
         halo[ch] = aperture(3.2, suv)[ch] * weight;
     }
 
-    let flare = glare * GLARE_GAIN + ghosts * GHOST_GAIN + halo * vec3<f32>(0.85, 0.92, 1.0) * HALO_GAIN;
+    let flare = glare * GLARE_GAIN + ghosts * GHOST_GAIN + tint_in_srgb(halo, vec3<f32>(0.85, 0.92, 1.0)) * HALO_GAIN;
     textureStore(out_f16, id.xy, vec4<f32>(flare, 1.0));
 }

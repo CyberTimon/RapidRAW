@@ -1,4 +1,4 @@
-use crate::render::color_space::{PRIMARIES_SRGB, WP_D65, primaries_to_xyz_matrix};
+use crate::render::color_space::{BRADFORD, WHITE_D65, WORKING, chromaticity_to_xyz};
 use glam::{DMat3, DVec3, Mat3};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -13,10 +13,6 @@ const TINT_SCALE: f64 = -3000.0;
 const ILLUMINANT_A_TEMPERATURE: f64 = 2856.0;
 const ILLUMINANT_D65_TEMPERATURE: f64 = 6504.0;
 const MIN_LMS_FRACTION_OF_LOCUS: f64 = 0.25;
-
-const BRADFORD: DMat3 = DMat3::from_cols_array(&[
-    0.8951, -0.7502, 0.0389, 0.2664, 1.7135, -0.0685, -0.1614, 0.0367, 1.0296,
-]);
 
 const ROBERTSON_ISOTHERMS: [[f64; 4]; 31] = [
     [0.0, 0.18006, 0.26352, -0.24341],
@@ -65,7 +61,7 @@ fn isotherm_direction(slope: f64) -> (f64, f64) {
 
 impl WhiteBalance {
     pub fn reference() -> Self {
-        Self::from_xy(WP_D65.x as f64, WP_D65.y as f64)
+        Self::from_xy(WHITE_D65.x, WHITE_D65.y)
     }
 
     fn from_xyz(xyz: DVec3) -> Option<Self> {
@@ -235,19 +231,17 @@ fn neutral_xyz(camera_to_xyz: &[DVec3], neutral: &[f32]) -> Option<DVec3> {
     })
 }
 
-pub fn camera_to_srgb(xyz_to_camera: &[f32], neutral: &[f32]) -> Option<Vec<[f32; 3]>> {
+pub fn camera_to_working(xyz_to_camera: &[f32], neutral: &[f32]) -> Option<Vec<[f32; 3]>> {
     let columns = camera_to_xyz(xyz_to_camera)?;
     let white_lms = BRADFORD * neutral_xyz(&columns, neutral)?;
     if !white_lms.is_finite() || white_lms.min_element() <= 0.0 {
         return None;
     }
-    let (x, y) = (WP_D65.x as f64, WP_D65.y as f64);
-    let d65_lms = BRADFORD * DVec3::new(x / y, 1.0, (1.0 - x - y) / y);
-    let xyz_to_srgb = primaries_to_xyz_matrix(&PRIMARIES_SRGB, WP_D65)
-        .as_dmat3()
-        .inverse();
-    let transform =
-        xyz_to_srgb * BRADFORD.inverse() * DMat3::from_diagonal(d65_lms / white_lms) * BRADFORD;
+    let working_white_lms = BRADFORD * chromaticity_to_xyz(WORKING.white);
+    let transform = WORKING.to_xyz().inverse()
+        * BRADFORD.inverse()
+        * DMat3::from_diagonal(working_white_lms / white_lms)
+        * BRADFORD;
     Some(
         columns
             .iter()
@@ -263,7 +257,7 @@ pub fn adaptation_log_gains(current: WhiteBalance, target: WhiteBalance) -> [f32
 }
 
 pub fn rgb_to_lms() -> Mat3 {
-    (BRADFORD * primaries_to_xyz_matrix(&PRIMARIES_SRGB, WP_D65).as_dmat3()).as_mat3()
+    (BRADFORD * WORKING.to_xyz()).as_mat3()
 }
 
 pub fn from_adjustments(adjustments: &Value, as_shot: WhiteBalance) -> WhiteBalance {

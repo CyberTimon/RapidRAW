@@ -8,7 +8,9 @@ pub use imp::develop_raw9;
 
 #[cfg(target_os = "macos")]
 mod imp {
+    use crate::render::color_space::srgb_to_working;
     use anyhow::{Result, anyhow};
+    use glam::Vec3;
     use image::{DynamicImage, ImageBuffer, Rgba};
     use objc2::rc::{Retained, autoreleasepool};
     use objc2::runtime::{AnyClass, AnyObject};
@@ -150,10 +152,11 @@ mod imp {
                 }
             }
 
+            let to_working = srgb_to_working() * RAW9_EXPOSURE_GAIN;
             for px in buf.chunks_exact_mut(4) {
-                px[0] = (px[0] * RAW9_EXPOSURE_GAIN).clamp(0.0, MAX_LINEAR_VALUE);
-                px[1] = (px[1] * RAW9_EXPOSURE_GAIN).clamp(0.0, MAX_LINEAR_VALUE);
-                px[2] = (px[2] * RAW9_EXPOSURE_GAIN).clamp(0.0, MAX_LINEAR_VALUE);
+                let rgb = (to_working * Vec3::new(px[0], px[1], px[2]))
+                    .clamp(Vec3::ZERO, Vec3::splat(MAX_LINEAR_VALUE));
+                px[..3].copy_from_slice(&rgb.to_array());
                 px[3] = 1.0;
             }
 

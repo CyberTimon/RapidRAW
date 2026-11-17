@@ -18,9 +18,8 @@ use crate::app::state::AppState;
 use crate::decode::formats::is_raw_file;
 use crate::library::sidecars::parse_virtual_path;
 use crate::metadata::exif_processing::read_focal_length_35mm;
-use crate::render::image_processing::{
-    apply_cpu_default_raw_processing, linear_channel_to_srgb, srgb_channel_to_linear,
-};
+use crate::render::color_space::{luminance, srgb_transfer};
+use crate::render::image_processing::{apply_cpu_default_raw_processing, working_display_to_srgb8};
 use alignment::{Alignment, AlignmentImage, align_images};
 use base64::{Engine as _, engine::general_purpose};
 use compositor::{
@@ -31,7 +30,7 @@ use features::{FeatureSet, detect_features};
 use image::codecs::jpeg::JpegEncoder;
 use image::{DynamicImage, Rgb32FImage, RgbImage};
 use projection::Projection;
-use raster::{Raster, luminance};
+use raster::Raster;
 use rayon::prelude::*;
 use serde::Serialize;
 use std::fs;
@@ -153,8 +152,9 @@ impl PanoramaSession {
         }
         let (width, height) = (image.width, image.height);
         let mut data = image.data;
+        let transfer = srgb_transfer();
         data.par_iter_mut()
-            .for_each(|v| *v = srgb_channel_to_linear(v.max(0.0)));
+            .for_each(|v| *v = transfer.decode(v.max(0.0)));
         let mut toned = DynamicImage::ImageRgb32F(
             Rgb32FImage::from_raw(width as u32, height as u32, data)
                 .expect("raster matches its dimensions"),
@@ -175,11 +175,7 @@ impl PanoramaSession {
             Interpolation::Bilinear,
             &|_| {},
         ));
-        let rgb: Vec<u8> = image
-            .data
-            .par_iter()
-            .map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
-            .collect();
+        let rgb = working_display_to_srgb8(&image.data);
         let rgb = RgbImage::from_raw(image.width as u32, image.height as u32, rgb)
             .ok_or("Failed to create panorama preview.")?;
         let mut buf = Cursor::new(Vec::new());
@@ -279,11 +275,12 @@ impl SourceLoader<'_> {
         let rgb = dynamic_image.into_rgb32f();
         let (width, height) = (rgb.width() as usize, rgb.height() as usize);
         let mut data = rgb.into_raw();
+        let transfer = srgb_transfer();
         data.par_iter_mut().for_each(|v| {
             *v = if linear_raw {
                 v.max(0.0)
             } else {
-                srgb_channel_to_linear(v.max(0.0))
+                transfer.decode(v.max(0.0))
             }
         });
         Ok(DecodedSource {
@@ -315,6 +312,7 @@ impl SourceLoader<'_> {
         let levels = build_levels(decoded.image, MIN_LEVEL_DIMENSION, SESSION_MAX_DIMENSION);
 
         let detection_level = level_for_size(&levels, DETECTION_MAX_DIMENSION);
+        let transfer = srgb_transfer();
         let gray = Raster::from_data(
             detection_level.width,
             detection_level.height,
@@ -322,7 +320,7 @@ impl SourceLoader<'_> {
             detection_level
                 .data
                 .par_chunks(3)
-                .map(|p| linear_channel_to_srgb(luminance(p)))
+                .map(|p| transfer.encode(luminance(p)))
                 .collect(),
         );
         let features = detect_features(&gray, MAX_FEATURES);

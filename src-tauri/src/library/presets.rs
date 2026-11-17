@@ -277,6 +277,7 @@ pub async fn generate_all_community_previews(
 
                 let converted = crate::adjustments::negative_conversion::apply_negative_conversion(
                     Cow::Borrowed(base_image),
+                    *is_raw,
                     &scaled_adjustments,
                 );
                 let source_id = {

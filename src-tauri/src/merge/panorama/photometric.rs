@@ -1,5 +1,6 @@
 use super::camera::{Camera, Lens};
-use super::raster::{Raster, luminance};
+use super::raster::Raster;
+use crate::render::color_space::luminance;
 use nalgebra::{DMatrix, DVector, Vector2};
 use rayon::prelude::*;
 

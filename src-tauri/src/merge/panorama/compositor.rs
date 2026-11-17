@@ -5,7 +5,7 @@ use super::photometric::Photometric;
 use super::projection::{Projection, ProjectionMode, plan_canvas};
 use super::raster::{Raster, Rect, push_pull_fill};
 use super::seams::{NO_LABEL, SeamLayer, find_seams};
-use crate::render::image_processing::linear_channel_to_srgb;
+use crate::render::color_space::srgb_transfer;
 use nalgebra::Vector3;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -124,6 +124,7 @@ fn warp_layer(
     let lens = scene.lens;
     let level = &source.levels[select_level(source, camera, magnification(layout, camera, scale))];
     let r_norm = camera.radius_norm();
+    let transfer = srgb_transfer();
 
     let mut color = Raster::new(rect.width, rect.height, 3);
     let mut valid = vec![0.0f32; rect.width * rect.height];
@@ -158,7 +159,7 @@ fn warp_layer(
                 let r2 = (p.norm_squared() / (r_norm * r_norm)) as f32;
                 let gain = photometric.correction(image, r2);
                 for c in 0..3 {
-                    row[lx * 3 + c] = linear_channel_to_srgb(sample[c] * gain[c]);
+                    row[lx * 3 + c] = transfer.encode(sample[c] * gain[c]);
                 }
                 valid_row[lx] = 1.0;
             }
