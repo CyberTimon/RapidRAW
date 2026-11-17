@@ -979,6 +979,9 @@
         "masks": "Маски"
       },
       "title": "Пресеты",
+      "toasts": {
+        "importFailed": "Не удалось импортировать {{fileName}}: {{error}}"
+      },
       "tooltips": {
         "explore": "Обзор пресетов сообщества",
         "export": "Экспортировать все пресеты в файл .rrpreset",

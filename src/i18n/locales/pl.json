@@ -979,6 +979,9 @@
         "masks": "Maski"
       },
       "title": "Presety",
+      "toasts": {
+        "importFailed": "Nie udało się zaimportować {{fileName}}: {{error}}"
+      },
       "tooltips": {
         "explore": "Odkryj presety społeczności",
         "export": "Eksportuj wszystkie presety do pliku .rrpreset",

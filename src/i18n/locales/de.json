@@ -929,6 +929,9 @@
         "masks": "Masken"
       },
       "title": "Vorgaben",
+      "toasts": {
+        "importFailed": "Import von {{fileName}} fehlgeschlagen: {{error}}"
+      },
       "tooltips": {
         "explore": "Community-Vorgaben entdecken",
         "export": "Alle Vorgaben als .rrpreset exportieren",

@@ -1017,6 +1017,9 @@
         "masks": "Kaukes"
       },
       "title": "Išankstiniai nustatymai",
+      "toasts": {
+        "importFailed": "Nepavyko importuoti {{fileName}}: {{error}}"
+      },
       "tooltips": {
         "explore": "Tyrinėti bendruomenės nustatymus",
         "export": "Eksportuoti visus nustatymus į .rrpreset failą",
