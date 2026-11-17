@@ -1735,7 +1735,7 @@ fn agx_compress_gamut(c: vec3<f32>) -> vec3<f32> {
 
 fn agx_tonemap(c: vec3<f32>) -> vec3<f32> {
     let hue = rgb_to_hsv(c).x;
-    let exposure = log2(max(c / AGX_MIDDLE_GREY, vec3<f32>(AGX_EPSILON)));
+    let exposure = log2(max(c / AGX_SCENE_GREY, vec3<f32>(AGX_EPSILON)));
     let x = clamp((exposure - AGX_BLACK_EV) / AGX_RANGE_EV, vec3<f32>(0.0), vec3<f32>(1.0));
     let curved = vec3<f32>(agx_curve(x.r), agx_curve(x.g), agx_curve(x.b));
     var hsv = rgb_to_hsv(pow(curved, vec3<f32>(AGX_GAMMA)));

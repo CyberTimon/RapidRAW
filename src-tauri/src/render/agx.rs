@@ -8,6 +8,7 @@ use std::sync::LazyLock;
 const BLACK_EV: f64 = -10.0;
 const WHITE_EV: f64 = 6.5;
 const MIDDLE_GREY: f64 = 0.18;
+const EXPOSURE_BIAS_EV: f64 = 0.3;
 const CONTRAST: f64 = 3.0;
 const TOE_POWER: f64 = 1.5;
 const SHOULDER_POWER: f64 = 3.3;
@@ -26,6 +27,7 @@ const CURVE_LUT_SIZE: usize = 4096;
 pub struct Agx {
     working_to_rendering: Mat3,
     rendering_to_working: Mat3,
+    scene_grey: f32,
     black_ev: f32,
     range_ev: f32,
     pivot_x: f32,
@@ -123,6 +125,7 @@ impl Agx {
         let mut agx = Self {
             working_to_rendering: (base_to_rendering * working_to_base).as_mat3(),
             rendering_to_working: (working_to_base.inverse() * rendering_to_base).as_mat3(),
+            scene_grey: (MIDDLE_GREY * (-EXPOSURE_BIAS_EV).exp2()) as f32,
             black_ev: BLACK_EV as f32,
             range_ev: range_ev as f32,
             pivot_x: pivot_x as f32,
@@ -155,7 +158,7 @@ impl Agx {
     }
 
     fn linear_display(&self, scene: f32) -> f32 {
-        let exposure = (scene / MIDDLE_GREY as f32).max(EPSILON).log2();
+        let exposure = (scene / self.scene_grey).max(EPSILON).log2();
         let position = ((exposure - self.black_ev) / self.range_ev).clamp(0.0, 1.0)
             * (CURVE_LUT_SIZE - 1) as f32;
         let index = (position as usize).min(CURVE_LUT_SIZE - 2);
@@ -191,7 +194,7 @@ impl Agx {
     pub fn shader_constants(&self) -> String {
         let scalars = [
             ("AGX_EPSILON", EPSILON),
-            ("AGX_MIDDLE_GREY", MIDDLE_GREY as f32),
+            ("AGX_SCENE_GREY", self.scene_grey),
             ("AGX_BLACK_EV", self.black_ev),
             ("AGX_RANGE_EV", self.range_ev),
             ("AGX_PIVOT_X", self.pivot_x),
