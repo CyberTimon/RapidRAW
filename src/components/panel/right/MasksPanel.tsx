@@ -2417,6 +2417,7 @@ function SettingsPanel({
             >
               <AdjustmentSection
                 sectionName={sectionName}
+                isSectionOpen={!!collapsibleState[sectionName]}
                 activeTools={activeTools}
                 onToggleTool={handleToggleVisibility}
                 adjustments={displayContainer.adjustments}

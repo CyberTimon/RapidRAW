@@ -1,5 +1,6 @@
 pub mod auto_adjust;
 pub mod auto_straighten;
+pub mod color_harmonizer;
 pub mod develop_defaults;
 pub mod guided_perspective;
 pub mod lens_correction;

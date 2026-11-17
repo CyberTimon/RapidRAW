@@ -21,6 +21,7 @@ import {
 import { AppSettings } from '../../types/settings';
 import Text from '../ui/Text';
 import AdjustmentSubSection from './AdjustmentSubSection';
+import ColorHarmonizer from './ColorHarmonizer';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { canvasToolState, useEditorStore } from '../../store/useEditorStore';
 import {
@@ -53,6 +54,7 @@ interface ColorPanelProps {
   appSettings: AppSettings | null;
   asShotWhiteBalance?: WhiteBalance;
   isForMask?: boolean;
+  isSectionOpen?: boolean;
   isWbPickerActive?: boolean;
   toggleWbPicker?: () => void;
   onDragStateChange?: (isDragging: boolean) => void;
@@ -734,6 +736,7 @@ function ColorPanel({
   setAdjustments,
   appSettings,
   isForMask = false,
+  isSectionOpen = false,
   isWbPickerActive = false,
   toggleWbPicker,
   onDragStateChange,
@@ -1147,6 +1150,24 @@ function ColorPanel({
                 </motion.div>
               </AnimatePresence>
             </div>
+          )}
+        </AdjustmentSubSection>
+      )}
+
+      {!showMonochromeMix && !hiddenTools.includes('colorHarmonizer') && (
+        <AdjustmentSubSection
+          id="colorHarmonizer"
+          initiallyCollapsed
+          order={toolOrder.indexOf('colorHarmonizer')}
+          title={t('adjustments.colorHarmonizer.title')}
+        >
+          {(expanded) => (
+            <ColorHarmonizer
+              adjustments={adjustments}
+              setAdjustments={setAdjustments}
+              onDragStateChange={onDragStateChange}
+              isOpen={isSectionOpen && expanded}
+            />
           )}
         </AdjustmentSubSection>
       )}
