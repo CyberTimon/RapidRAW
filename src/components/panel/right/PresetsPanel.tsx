@@ -1099,7 +1099,6 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
 
   const handleImportPresets = async () => {
     try {
-      // Android filters by MIME type and preset extensions have none registered.
       const isAndroid = useSettingsStore.getState().osPlatform === 'android';
       const selectedPaths = await openDialog({
         filters: isAndroid

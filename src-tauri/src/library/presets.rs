@@ -547,8 +547,6 @@ fn read_preset_file_to_string(file_path: &str) -> Result<String, String> {
 }
 
 fn parse_preset_file(file_path: &str) -> Result<Vec<PresetItem>, String> {
-    // Android pickers hand back opaque content:// URIs, so the extension has to
-    // come from the resolved display name rather than the path itself.
     let lower_path = preset_file_display_name(file_path).to_lowercase();
     let content = read_preset_file_to_string(file_path)
         .map_err(|e| format!("Failed to read preset file: {}", e))?;
@@ -558,7 +556,6 @@ fn parse_preset_file(file_path: &str) -> Result<Vec<PresetItem>, String> {
     } else if lower_path.ends_with(".rrpreset") {
         false
     } else {
-        // Some Android document providers drop the extension from the display name.
         !content.trim_start().starts_with('{')
     };
 
