@@ -55,6 +55,7 @@ import { DEFAULT_SPEED_EDIT_ADJUSTMENTS, SPEED_EDIT_ADJUSTMENTS } from '../../ut
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { useOsPlatform } from '../../hooks/useOsPlatform';
+import { DEFAULT_HDR_HEADROOM, useDisplayStatus } from '../../hooks/useDisplayStatus';
 import { useCloudUsage } from '../../hooks/useCloudUsage';
 import { open } from '@tauri-apps/plugin-shell';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
@@ -111,21 +112,12 @@ interface MyLens {
 
 const EXECUTE_TIMEOUT = 3000;
 const DEFAULT_BASELINE_EXPOSURE = 0.7;
-const DEFAULT_HDR_HEADROOM = 2;
+const DISPLAY_STATUS_INTERVAL = 3000;
 const PREVIEW_SPACE_NAMES: Record<string, string> = {
   displayP3: 'Display P3',
   adobeRgb: 'Adobe RGB',
   rec2020: 'Rec. 2020',
 };
-
-interface DisplayStatus {
-  rendererActive: boolean;
-  hdrSupported: boolean;
-  hdrActive: boolean;
-  colorManagement: 'none' | 'system' | 'profile';
-  profileName: string | null;
-  previewSpace: string;
-}
 
 const resolutions: OptionItem<number>[] = [
   { value: 720, label: '720px' },
@@ -695,20 +687,7 @@ export default function SettingsPanel({
       .then(setIsWgpuSupported)
       .catch(() => setIsWgpuSupported(false));
   }, []);
-  const [displayStatus, setDisplayStatus] = useState<DisplayStatus | null>(null);
-  useEffect(() => {
-    let mounted = true;
-    const refresh = () =>
-      invoke<DisplayStatus>(Invokes.GetDisplayStatus)
-        .then((status) => mounted && setDisplayStatus(status))
-        .catch(() => mounted && setDisplayStatus(null));
-    refresh();
-    const timer = setInterval(refresh, 3000);
-    return () => {
-      mounted = false;
-      clearInterval(timer);
-    };
-  }, [appSettings?.hdrDisplay, appSettings?.displayColorMode, appSettings?.displayIccProfile]);
+  const displayStatus = useDisplayStatus(DISPLAY_STATUS_INTERVAL);
   const displayColorMode = appSettings?.displayColorMode ?? 'auto';
   const displayColorOptions = useMemo<OptionItem<string>[]>(
     () => [

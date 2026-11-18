@@ -36,6 +36,8 @@ import { Panel } from '../../../types/ui';
 import ExportPresetsList from './ExportPresetsList';
 import { useExportSettings } from '../../../hooks/useExportSettings';
 import { useOsPlatform } from '../../../hooks/useOsPlatform';
+import { DEFAULT_HDR_HEADROOM, useDisplayStatus } from '../../../hooks/useDisplayStatus';
+import { useSettingsStore } from '../../../store/useSettingsStore';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useEditorStore } from '../../../store/useEditorStore';
@@ -406,6 +408,38 @@ export default function ExportPanel({
   const [imageAspectRatio, setImageAspectRatio] = useState(16 / 9);
   const filenameInputRef = useRef<HTMLInputElement>(null);
   const osPlatform = useOsPlatform();
+  const displayStatus = useDisplayStatus();
+  const [hdrHeadroom, setHdrHeadroom] = useState(appSettings?.hdrHeadroom ?? DEFAULT_HDR_HEADROOM);
+  const pendingHdrHeadroom = useRef<number | null>(null);
+  useEffect(() => {
+    if (pendingHdrHeadroom.current === null) {
+      setHdrHeadroom(appSettings?.hdrHeadroom ?? DEFAULT_HDR_HEADROOM);
+    }
+  }, [appSettings?.hdrHeadroom]);
+  const saveHdrHeadroom = useMemo(
+    () =>
+      debounce((value: number) => {
+        const { appSettings: latest, handleSettingsChange } = useSettingsStore.getState();
+        if (latest) {
+          handleSettingsChange({ ...latest, hdrHeadroom: value });
+        }
+        pendingHdrHeadroom.current = null;
+      }, 200),
+    [],
+  );
+  useEffect(() => () => saveHdrHeadroom.flush(), [saveHdrHeadroom]);
+  const handleHdrHeadroomChange = (value: number) => {
+    pendingHdrHeadroom.current = value;
+    setHdrHeadroom(value);
+    saveHdrHeadroom(value);
+  };
+  const hdrPreviewHint = !displayStatus
+    ? null
+    : !displayStatus.hdrActive
+      ? t('export.file.hdrNoPreview')
+      : !appSettings?.hdrDisplay
+        ? t('export.file.hdrPreviewOff')
+        : null;
   const isAndroid = osPlatform === 'android';
   const canExportToImmich = useImmichExportAvailable() && !isAndroid;
   const destination = destinationType === 'immich' && !canExportToImmich ? 'customFolder' : destinationType;
@@ -819,16 +853,6 @@ export default function ExportPanel({
                   />
                 </div>
               )}
-              {HDR_FILE_FORMATS.includes(fileFormat) && (
-                <Switch
-                  label={t('export.file.hdr')}
-                  tooltip={t(fileFormat === FileFormats.Jpeg ? 'export.file.hdrJpegHint' : 'export.file.hdrJxlHint')}
-                  checked={hdr}
-                  onChange={setHdr}
-                  disabled={isExporting}
-                  trackClassName="bg-surface"
-                />
-              )}
             </Section>
 
             <Section title={t('export.sections.destination')}>
@@ -1209,6 +1233,37 @@ export default function ExportPanel({
                               </>
                             )}
                           </>
+                        )}
+                        {HDR_FILE_FORMATS.includes(fileFormat) && (
+                          <Switch
+                            label={t('export.file.hdr')}
+                            tooltip={t(
+                              fileFormat === FileFormats.Jpeg ? 'export.file.hdrJpegHint' : 'export.file.hdrJxlHint',
+                            )}
+                            checked={hdr}
+                            onChange={setHdr}
+                            disabled={isExporting}
+                          />
+                        )}
+                        {HDR_FILE_FORMATS.includes(fileFormat) && hdr && (
+                          <div className={isExporting ? 'opacity-50 pointer-events-none' : ''}>
+                            <Slider
+                              defaultValue={DEFAULT_HDR_HEADROOM}
+                              label={t('settings.processing.hdr.headroom')}
+                              max={4}
+                              min={1}
+                              onChange={(e) => handleHdrHeadroomChange(Number(e.target.value))}
+                              step={0.1}
+                              value={hdrHeadroom}
+                              fillOrigin="min"
+                              suffix=" EV"
+                            />
+                            {hdrPreviewHint && (
+                              <Text variant={TextVariants.small} className="mt-1">
+                                {hdrPreviewHint}
+                              </Text>
+                            )}
+                          </div>
                         )}
                         {COLOR_SPACE_FILE_FORMATS.includes(fileFormat) && !(hdr && fileFormat === FileFormats.Jxl) && (
                           <div className={isExporting ? 'opacity-50 pointer-events-none' : ''}>

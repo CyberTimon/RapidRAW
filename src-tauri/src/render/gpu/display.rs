@@ -983,6 +983,7 @@ pub const DISPLAY_CHANGED_EVENT: &str = "display-changed";
 
 static DISPLAYS_CHECKED_AT: AtomicU64 = AtomicU64::new(0);
 static DISPLAYS_TRACKED: AtomicBool = AtomicBool::new(false);
+static HDR_AVAILABLE: AtomicBool = AtomicBool::new(false);
 static DISPLAY_REFRESH_PENDING: AtomicBool = AtomicBool::new(false);
 
 pub fn invalidate_displays() {
@@ -1056,10 +1057,8 @@ pub fn refresh_displays(
         .as_deref()
         .filter(|_| mode == DisplayColorMode::Custom)
         .and_then(|path| MonitorProfile::load(Path::new(path)));
-    DISPLAYS_TRACKED.store(
-        settings.hdr_display || mode != DisplayColorMode::Off,
-        Ordering::Release,
-    );
+    DISPLAYS_TRACKED.store(true, Ordering::Release);
+    let mut main_hdr_available = None;
     let mut outputs = Vec::new();
     for (label, display) in displays(context) {
         let Some(window) = app_handle.get_webview_window(label) else {
@@ -1073,10 +1072,9 @@ pub fn refresh_displays(
         else {
             continue;
         };
-        let wants_hdr = settings.hdr_display && supports_hdr;
         let wants_color = mode == DisplayColorMode::Auto;
-        let state = if wants_hdr || wants_color {
-            match query_monitor(&window, wants_hdr, wants_color) {
+        let state = if supports_hdr || wants_color {
+            match query_monitor(&window, supports_hdr, wants_color) {
                 Some(state) => state,
                 None => return,
             }
@@ -1086,6 +1084,9 @@ pub fn refresh_displays(
                 color: SystemColor::Unmanaged,
             }
         };
+        if label == "main" {
+            main_hdr_available = Some(state.hdr.is_some());
+        }
         let color = match (mode, state.color) {
             (DisplayColorMode::Custom, _) => custom
                 .clone()
@@ -1101,7 +1102,7 @@ pub fn refresh_displays(
             }
             _ => MonitorColor::Unmanaged,
         };
-        outputs.push((display, state.hdr, color));
+        outputs.push((display, state.hdr.filter(|_| settings.hdr_display), color));
     }
     let space = if outputs.iter().any(|(_, hdr, _)| hdr.is_some()) {
         OutputColorSpace::Srgb
@@ -1109,7 +1110,8 @@ pub fn refresh_displays(
         shared_space(outputs.iter().map(|(_, _, color)| color.preferred_space()))
     };
 
-    let mut changed = false;
+    let mut changed = main_hdr_available
+        .is_some_and(|available| HDR_AVAILABLE.swap(available, Ordering::AcqRel) != available);
     for (display, hdr, color) in outputs {
         if let Some(display) = display.lock().unwrap_or_else(|e| e.into_inner()).as_mut()
             && display.set_output(&context.device, &context.queue, hdr, color, space)
