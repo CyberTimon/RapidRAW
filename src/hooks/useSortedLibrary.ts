@@ -38,6 +38,9 @@ const parseFocalLength = (val: string | undefined): number => {
 
 const nameCollator = new Intl.Collator(undefined, { numeric: true });
 
+const normalizeExifDate = (val: string | undefined): string =>
+  val ? val.trim().replace(/^(\d{4})[:-](\d{2})[:-](\d{2})[T ]?/, '$1-$2-$3 ') : '';
+
 const EXIF_SORT_KEYS = new Set(['date_taken', 'iso', 'shutter_speed', 'aperture', 'focal_length']);
 const EXIF_QUERY_FIELDS = new Set([
   'iso',
@@ -262,9 +265,11 @@ function computeGroupedLibrary(
 
   const names = new Map<ImageFile, string>();
   const values = new Map<ImageFile, number>();
+  const dates = new Map<ImageFile, string>();
   for (const image of list) {
     names.set(image, image.path.split(/[\\/]/).pop() || image.path);
     values.set(image, getNumericSortValue(image));
+    if (key === 'date_taken') dates.set(image, normalizeExifDate(exifByPath[image.path]?.DateTimeOriginal));
   }
   const compareNames = (a: ImageFile, b: ImageFile) => {
     const nameA = names.get(a)!;
@@ -277,8 +282,8 @@ function computeGroupedLibrary(
 
     switch (key) {
       case 'date_taken': {
-        const dateA = exifByPath[a.path]?.DateTimeOriginal || '';
-        const dateB = exifByPath[b.path]?.DateTimeOriginal || '';
+        const dateA = dates.get(a)!;
+        const dateB = dates.get(b)!;
         if (dateA !== dateB) comparison = dateA < dateB ? -1 : 1;
         else comparison = a.modified - b.modified;
         break;
