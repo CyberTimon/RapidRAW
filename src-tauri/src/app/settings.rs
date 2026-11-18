@@ -735,6 +735,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub display_icc_profile: Option<String>,
     #[serde(default)]
+    pub wide_gamut_preview: bool,
+    #[serde(default)]
     pub tonemapper_override_enabled: Option<bool>,
     #[serde(default)]
     pub default_raw_tonemapper: Option<String>,
@@ -950,6 +952,7 @@ impl Default for AppSettings {
             hdr_headroom: default_hdr_headroom(),
             display_color_mode: DisplayColorMode::default(),
             display_icc_profile: None,
+            wide_gamut_preview: false,
             tonemapper_override_enabled: Some(false),
             default_raw_tonemapper: Some("agx".to_string()),
             default_non_raw_tonemapper: Some("basic".to_string()),
@@ -1036,7 +1039,9 @@ pub async fn get_display_status(app_handle: AppHandle) -> DisplayStatus {
 
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let renderer_active = settings.wgpu_renderer_enabled();
-    let hdr_supported = cfg!(any(target_os = "windows", target_os = "macos")) && renderer_active;
+    let hdr_supported = cfg!(any(target_os = "windows", target_os = "macos"))
+        && renderer_active
+        && display::main_display_supports_hdr(&app_handle);
     let mut status = DisplayStatus {
         renderer_active,
         hdr_supported,

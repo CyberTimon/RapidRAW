@@ -2220,8 +2220,11 @@
         "statusProfile": "Utilise {{name}}.",
         "statusSystem": "Les couleurs sont gérées par le système d'exploitation.",
         "statusUnavailable": "La gestion des couleurs nécessite le moteur de rendu GPU.",
-        "title": "Gestion des couleurs",
-        "wideGamut": "Aperçu à gamut étendu ({{space}})."
+        "wideGamut": "Aperçu à gamut étendu ({{space}}).",
+        "wideGamutHdrNote": "Inactif tant que l'éditeur affiche en HDR.",
+        "wideGamutPreview": "Aperçu gamut étendu",
+        "wideGamutPreviewDesc": "Affiche les couleurs au-delà de sRGB sur les moniteurs à gamut étendu. Activez cette option si vous exportez en Display P3, Adobe RGB ou un autre espace colorimétrique étendu. Désactivée, l'aperçu montre le rendu d'un export sRGB.",
+        "wideGamutPreviewEnable": "Afficher les couleurs à gamut étendu"
       },
       "defaultAdjustments": {
         "addCamera": "Ajouter un appareil…",
@@ -2248,6 +2251,9 @@
         "sliderResetNeutral": "Valeur neutre",
         "title": "Ajustements par défaut"
       },
+      "display": {
+        "title": "Affichage"
+      },
       "dynamicDesc": "L'éditeur effectue le rendu de l'aperçu pour correspondre à la densité de pixels réelle de votre écran. Cela garantit que chaque détail est représenté avec une précision au pixel près, offrant une clarté maximale lors du zoom et de la vérification de la mise au point.",
       "editIn": {
         "add": "Ajouter un programme",
@@ -2273,8 +2279,7 @@
         "headroomDesc": "Jusqu'où les hautes lumières peuvent dépasser le blanc normal. Également utilisé pour les exports HDR.",
         "statusActive": "Cet écran est en mode HDR.",
         "statusInactive": "Cet écran n'est pas en mode HDR. Activez le HDR dans les réglages d'affichage du système pour voir l'effet.",
-        "statusUnsupported": "Le HDR nécessite le moteur de rendu GPU sous Windows ou macOS.",
-        "title": "HDR"
+        "statusUnsupported": "Le HDR nécessite le moteur de rendu GPU sous Windows ou macOS."
       },
       "highDpi": "Rendu haute résolution (DPI)",
       "highDpiDesc": "Rendez les aperçus à la résolution native de {{dpr}}x pixels physiques de votre écran. Produit l'aperçu le plus net possible mais utilise beaucoup plus de mémoire.",

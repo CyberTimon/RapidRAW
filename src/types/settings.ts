@@ -158,6 +158,7 @@ export interface AppSettings {
   hdrHeadroom?: number;
   displayColorMode?: 'auto' | 'off' | 'custom';
   displayIccProfile?: string | null;
+  wideGamutPreview?: boolean;
   tonemapperOverrideEnabled?: boolean;
   defaultRawTonemapper?: string;
   defaultNonRawTonemapper?: string;

@@ -89,6 +89,7 @@ interface SettingItemProps {
   children: any;
   description?: string;
   label: string;
+  status?: string | null;
 }
 
 interface SettingsPanelProps {
@@ -228,7 +229,7 @@ const KeybindRow = ({
   );
 };
 
-const SettingItem = ({ children, description, label }: SettingItemProps) => (
+const SettingItem = ({ children, description, label, status }: SettingItemProps) => (
   <div>
     <Text variant={TextVariants.heading} className="block mb-2">
       {label}
@@ -237,6 +238,11 @@ const SettingItem = ({ children, description, label }: SettingItemProps) => (
     {description && (
       <Text variant={TextVariants.small} className="mt-2">
         {description}
+      </Text>
+    )}
+    {status && (
+      <Text variant={TextVariants.small} className="mt-1">
+        {status}
       </Text>
     )}
   </div>
@@ -712,6 +718,7 @@ export default function SettingsPanel({
         return appSettings?.displayIccProfile ? t('settings.processing.colorManagement.statusInvalid') : null;
     }
   }, [displayStatus, displayColorMode, appSettings?.displayIccProfile, t]);
+  const hdrPreviewActive = Boolean(appSettings?.hdrDisplay && displayStatus?.hdrActive);
   const pickDisplayProfile = async () => {
     const selected = await openDialog({
       multiple: false,
@@ -2441,12 +2448,13 @@ export default function SettingsPanel({
 
                   <div className="p-6 bg-surface rounded-xl shadow-md">
                     <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
-                      {t('settings.processing.colorManagement.title')}
+                      {t('settings.processing.display.title')}
                     </Text>
                     <div className="space-y-4">
                       <SettingItem
                         label={t('settings.processing.colorManagement.profile')}
                         description={t('settings.processing.colorManagement.profileDesc')}
+                        status={displayColorStatus}
                       >
                         <Dropdown
                           onChange={(value: any) => onSettingsChange({ ...appSettings, displayColorMode: value })}
@@ -2466,23 +2474,34 @@ export default function SettingsPanel({
                             )}
                           </div>
                         )}
-                        {displayColorStatus && (
-                          <Text variant={TextVariants.small} className="mt-2">
-                            {displayColorStatus}
-                          </Text>
-                        )}
                       </SettingItem>
-                    </div>
-                  </div>
+                      {displayColorMode !== 'off' && (
+                        <SettingItem
+                          label={t('settings.processing.colorManagement.wideGamutPreview')}
+                          description={t('settings.processing.colorManagement.wideGamutPreviewDesc')}
+                          status={hdrPreviewActive ? t('settings.processing.colorManagement.wideGamutHdrNote') : null}
+                        >
+                          <Switch
+                            checked={appSettings?.wideGamutPreview ?? false}
+                            disabled={hdrPreviewActive}
+                            id="wide-gamut-preview-toggle"
+                            label={t('settings.processing.colorManagement.wideGamutPreviewEnable')}
+                            onChange={(checked) => onSettingsChange({ ...appSettings, wideGamutPreview: checked })}
+                          />
+                        </SettingItem>
+                      )}
 
-                  <div className="p-6 bg-surface rounded-xl shadow-md">
-                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
-                      {t('settings.processing.hdr.title')}
-                    </Text>
-                    <div className="space-y-4">
                       <SettingItem
                         label={t('settings.processing.hdr.display')}
                         description={t('settings.processing.hdr.displayDesc')}
+                        status={
+                          displayStatus &&
+                          (!displayStatus.hdrSupported
+                            ? t('settings.processing.hdr.statusUnsupported')
+                            : displayStatus.hdrActive
+                              ? t('settings.processing.hdr.statusActive')
+                              : t('settings.processing.hdr.statusInactive'))
+                        }
                       >
                         <Switch
                           checked={appSettings?.hdrDisplay ?? false}
@@ -2491,15 +2510,6 @@ export default function SettingsPanel({
                           label={t('settings.processing.hdr.enableDisplay')}
                           onChange={(checked) => onSettingsChange({ ...appSettings, hdrDisplay: checked })}
                         />
-                        {displayStatus && (
-                          <Text variant={TextVariants.small} className="mt-2">
-                            {!displayStatus.hdrSupported
-                              ? t('settings.processing.hdr.statusUnsupported')
-                              : displayStatus.hdrActive
-                                ? t('settings.processing.hdr.statusActive')
-                                : t('settings.processing.hdr.statusInactive')}
-                          </Text>
-                        )}
                       </SettingItem>
 
                       <SettingItem

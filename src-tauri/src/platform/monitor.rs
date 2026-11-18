@@ -260,7 +260,24 @@ mod platform {
         }
     }
 
-    pub fn tag_surface(_surface: &wgpu::Surface, _tag: SurfaceTag) {}
+    pub fn tag_surface(surface: &wgpu::Surface, tag: SurfaceTag) {
+        use windows::Win32::Graphics::Dxgi::Common::{
+            DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709, DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709,
+        };
+        let Some(surface) = (unsafe { surface.as_hal::<wgpu::hal::api::Dx12>() }) else {
+            return;
+        };
+        let Some(swap_chain) = surface.swap_chain() else {
+            return;
+        };
+        let space = match tag {
+            SurfaceTag::Hdr => DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709,
+            _ => DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709,
+        };
+        if let Err(e) = unsafe { swap_chain.SetColorSpace1(space) } {
+            log::warn!("Cannot set the swap chain color space: {}", e);
+        }
+    }
 }
 
 #[cfg(target_os = "macos")]

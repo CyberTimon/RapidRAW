@@ -21,6 +21,7 @@ export function useDisplayStatus(pollInterval?: number) {
   const hdrDisplay = useSettingsStore((state) => state.appSettings?.hdrDisplay);
   const displayColorMode = useSettingsStore((state) => state.appSettings?.displayColorMode);
   const displayIccProfile = useSettingsStore((state) => state.appSettings?.displayIccProfile);
+  const wideGamutPreview = useSettingsStore((state) => state.appSettings?.wideGamutPreview);
 
   useEffect(() => {
     let mounted = true;
@@ -36,7 +37,7 @@ export function useDisplayStatus(pollInterval?: number) {
       window.removeEventListener('focus', refresh);
       clearInterval(timer);
     };
-  }, [displayRevision, hdrDisplay, displayColorMode, displayIccProfile, pollInterval]);
+  }, [displayRevision, hdrDisplay, displayColorMode, displayIccProfile, wideGamutPreview, pollInterval]);
 
   return status;
 }

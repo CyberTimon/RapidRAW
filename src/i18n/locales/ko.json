@@ -2170,8 +2170,11 @@
         "statusProfile": "{{name}} 사용 중.",
         "statusSystem": "색상은 운영 체제에서 관리합니다.",
         "statusUnavailable": "색상 관리를 사용하려면 GPU 렌더러가 필요합니다.",
-        "title": "색상 관리",
-        "wideGamut": "광색역 미리보기({{space}})."
+        "wideGamut": "광색역 미리보기({{space}}).",
+        "wideGamutHdrNote": "편집기가 HDR로 표시하는 동안에는 사용되지 않습니다.",
+        "wideGamutPreview": "광색역 미리보기",
+        "wideGamutPreviewDesc": "광색역 모니터에서 sRGB를 넘는 색을 표시합니다. Display P3, Adobe RGB 등 넓은 색 공간으로 내보낼 때 켜세요. 끄면 sRGB로 내보낸 결과를 미리 볼 수 있습니다.",
+        "wideGamutPreviewEnable": "광색역 색상 표시"
       },
       "defaultAdjustments": {
         "addCamera": "카메라 추가…",
@@ -2198,6 +2201,9 @@
         "sliderResetNeutral": "중립 값",
         "title": "기본 조정값"
       },
+      "display": {
+        "title": "디스플레이"
+      },
       "dynamicDesc": "편집기는 디스플레이의 실제 픽셀 밀도에 맞춰 미리보기를 렌더링합니다. 이를 통해 모든 디테일이 1:1 픽셀 정확도로 표현되어, 확대하고 초점을 확인할 때 최대의 선명도를 제공합니다.",
       "editIn": {
         "add": "프로그램 추가",
@@ -2223,8 +2229,7 @@
         "headroomDesc": "하이라이트가 일반 흰색보다 얼마나 밝아질 수 있는지 정합니다. HDR 내보내기에도 사용됩니다.",
         "statusActive": "이 디스플레이는 HDR 모드입니다.",
         "statusInactive": "이 디스플레이는 HDR 모드가 아닙니다. 효과를 보려면 시스템 디스플레이 설정에서 HDR을 켜세요.",
-        "statusUnsupported": "HDR에는 Windows 또는 macOS의 GPU 렌더러가 필요합니다.",
-        "title": "HDR"
+        "statusUnsupported": "HDR에는 Windows 또는 macOS의 GPU 렌더러가 필요합니다."
       },
       "highDpi": "고해상도(High-DPI) 렌더링",
       "highDpiDesc": "화면의 네이티브 {{dpr}}배 물리적 픽셀 해상도로 미리보기를 렌더링합니다. 가능한 가장 선명한 미리보기를 제공하지만 메모리를 훨씬 많이 사용합니다.",

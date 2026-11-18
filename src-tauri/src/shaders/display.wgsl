@@ -15,6 +15,7 @@ struct Transform {
     lut: vec4<f32>,
     frame_curve: vec4<f32>,
     frame_to_srgb: mat3x3<f32>,
+    linear_max: f32,
 };
 
 @group(0) @binding(0) var<uniform> transform: Transform;
@@ -90,7 +91,8 @@ fn frame_to_linear(encoded: vec3<f32>) -> vec3<f32> {
 
 fn present(color: vec4<f32>) -> vec4<f32> {
     if (transform.hdr_white > 0.0) {
-        return vec4<f32>(transform.frame_to_srgb * frame_to_linear(color.rgb) * transform.hdr_white, color.a);
+        let linear = transform.frame_to_srgb * frame_to_linear(color.rgb) * transform.hdr_white;
+        return vec4<f32>(min(linear, vec3<f32>(transform.linear_max)), color.a);
     }
     if (transform.lut.x > 0.0) {
         let shaped = pow(frame_to_linear(min(color.rgb, vec3<f32>(1.0))), vec3<f32>(transform.lut.z));

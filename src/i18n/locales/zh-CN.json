@@ -2170,8 +2170,11 @@
         "statusProfile": "正在使用 {{name}}。",
         "statusSystem": "颜色由操作系统管理。",
         "statusUnavailable": "色彩管理需要 GPU 渲染器。",
-        "title": "色彩管理",
-        "wideGamut": "广色域预览（{{space}}）。"
+        "wideGamut": "广色域预览（{{space}}）。",
+        "wideGamutHdrNote": "编辑器显示 HDR 时不生效。",
+        "wideGamutPreview": "广色域预览",
+        "wideGamutPreviewDesc": "在广色域显示器上显示超出 sRGB 的颜色。以 Display P3、Adobe RGB 或其他宽色彩空间导出时请开启。关闭时预览与 sRGB 导出效果一致。",
+        "wideGamutPreviewEnable": "显示广色域颜色"
       },
       "defaultAdjustments": {
         "addCamera": "添加相机…",
@@ -2198,6 +2201,9 @@
         "sliderResetNeutral": "中性值",
         "title": "默认调整"
       },
+      "display": {
+        "title": "显示"
+      },
       "dynamicDesc": "编辑器根据显示器实际像素密度渲染预览。这确保每个细节都以 1:1 像素精度呈现，在缩放和检查焦点时提供最大清晰度。",
       "editIn": {
         "add": "添加程序",
@@ -2223,8 +2229,7 @@
         "headroomDesc": "高光可以超出普通白色的程度。同样用于 HDR 导出。",
         "statusActive": "此显示器处于 HDR 模式。",
         "statusInactive": "此显示器未处于 HDR 模式。请在系统显示设置中开启 HDR 以查看效果。",
-        "statusUnsupported": "HDR 需要在 Windows 或 macOS 上使用 GPU 渲染器。",
-        "title": "HDR"
+        "statusUnsupported": "HDR 需要在 Windows 或 macOS 上使用 GPU 渲染器。"
       },
       "highDpi": "高 DPI 渲染",
       "highDpiDesc": "以屏幕原生 {{dpr}}x 物理像素分辨率渲染预览。产生最清晰的预览，但会显著增加内存使用。",

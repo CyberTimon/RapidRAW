@@ -2262,8 +2262,11 @@
         "statusProfile": "Používá se {{name}}.",
         "statusSystem": "Barvy spravuje operační systém.",
         "statusUnavailable": "Správa barev vyžaduje GPU renderer.",
-        "title": "Správa barev",
-        "wideGamut": "Náhled v širokém gamutu ({{space}})."
+        "wideGamut": "Náhled v širokém gamutu ({{space}}).",
+        "wideGamutHdrNote": "Nepoužívá se, dokud editor zobrazuje HDR.",
+        "wideGamutPreview": "Náhled širokého gamutu",
+        "wideGamutPreviewDesc": "Na monitorech se širokým gamutem zobrazí barvy mimo sRGB. Zapněte, pokud exportujete do Display P3, Adobe RGB nebo jiného širokého barevného prostoru. Vypnuté ukazuje, jak bude vypadat export do sRGB.",
+        "wideGamutPreviewEnable": "Zobrazit barvy širokého gamutu"
       },
       "defaultAdjustments": {
         "addCamera": "Přidat fotoaparát…",
@@ -2290,6 +2293,9 @@
         "sliderResetNeutral": "Neutrální hodnota",
         "title": "Výchozí úpravy"
       },
+      "display": {
+        "title": "Displej"
+      },
       "dynamicDesc": "Editor vykresluje náhled tak, aby odpovídal skutečné hustotě pixelů vašeho displeje. Tím je zajištěno, že každý detail je zobrazen s přesností pixelů 1:1, což poskytuje maximální jasnost při přibližování a kontrole zaostření.",
       "editIn": {
         "add": "Přidat program",
@@ -2315,8 +2321,7 @@
         "headroomDesc": "Jak daleko mohou světla přesáhnout běžnou bílou. Platí také pro HDR exporty.",
         "statusActive": "Tento displej je v režimu HDR.",
         "statusInactive": "Tento displej není v režimu HDR. Zapněte HDR v nastavení zobrazení systému, abyste efekt viděli.",
-        "statusUnsupported": "HDR vyžaduje GPU renderer ve Windows nebo macOS.",
-        "title": "HDR"
+        "statusUnsupported": "HDR vyžaduje GPU renderer ve Windows nebo macOS."
       },
       "highDpi": "High-DPI rendering",
       "highDpiDesc": "Vykreslovat náhledy v nativním {{dpr}}x fyzickém rozlišení pixelů obrazovky. Poskytuje nejostřejší možný náhled, ale spotřebovává výrazně více paměti.",

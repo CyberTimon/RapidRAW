@@ -2301,8 +2301,11 @@
         "statusProfile": "Naudojamas {{name}}.",
         "statusSystem": "Spalvas valdo operacinė sistema.",
         "statusUnavailable": "Spalvų valdymui reikalingas GPU atvaizdavimas.",
-        "title": "Spalvų valdymas",
-        "wideGamut": "Plačios gamos peržiūra ({{space}})."
+        "wideGamut": "Plačios gamos peržiūra ({{space}}).",
+        "wideGamutHdrNote": "Nenaudojama, kol redaktorius rodo HDR.",
+        "wideGamutPreview": "Plačios gamos peržiūra",
+        "wideGamutPreviewDesc": "Plačios gamos monitoriuose rodo spalvas už sRGB ribų. Įjunkite, jei eksportuojate į Display P3, Adobe RGB ar kitą plačią spalvų erdvę. Išjungus matysite, kaip atrodys sRGB eksportas.",
+        "wideGamutPreviewEnable": "Rodyti plačios gamos spalvas"
       },
       "defaultAdjustments": {
         "addCamera": "Pridėti fotoaparatą…",
@@ -2328,6 +2331,9 @@
         "sliderResetDesc": "Reikšmė, į kurią grįžta slankiklis jį atstačius, pavyzdžiui, dukart spustelėjus arba greitajame redagavime. Kaukių slankikliai visada atstatomi į neutralią reikšmę.",
         "sliderResetNeutral": "Neutrali reikšmė",
         "title": "Numatytieji koregavimai"
+      },
+      "display": {
+        "title": "Ekranas"
       },
       "dynamicDesc": "Redaktorius atvaizduoja peržiūrą pagal tikrąjį jūsų ekrano pikselių tankį. Tai užtikrina 1:1 pikselių tikslumą vertinant fokusavimą ir triukšmą.",
       "editIn": {
@@ -2359,8 +2365,7 @@
         "headroomDesc": "Kiek šviesios sritys gali viršyti įprastą baltą. Taip pat naudojama HDR eksportui.",
         "statusActive": "Šis ekranas veikia HDR režimu.",
         "statusInactive": "Šis ekranas neveikia HDR režimu. Įjunkite HDR sistemos ekrano nustatymuose, kad pamatytumėte efektą.",
-        "statusUnsupported": "HDR reikia GPU atvaizdavimo „Windows“ arba „macOS“ sistemoje.",
-        "title": "HDR"
+        "statusUnsupported": "HDR reikia GPU atvaizdavimo „Windows“ arba „macOS“ sistemoje."
       },
       "highDpi": "Didelės raiškos (High-DPI) atvaizdavimas",
       "highDpiDesc": "Atvaizduoti peržiūras jūsų ekrano fizine {{dpr}}x raiška. Užtikrina ryškiausią peržiūrą, bet naudoja žymiai daugiau atminties.",

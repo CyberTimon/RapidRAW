@@ -2219,8 +2219,11 @@
         "statusProfile": "Usando {{name}}.",
         "statusSystem": "El sistema operativo gestiona los colores.",
         "statusUnavailable": "La gestión del color requiere el renderizador GPU.",
-        "title": "Gestión del color",
-        "wideGamut": "Vista previa de gama amplia ({{space}})."
+        "wideGamut": "Vista previa de gama amplia ({{space}}).",
+        "wideGamutHdrNote": "No se usa mientras el editor muestra HDR.",
+        "wideGamutPreview": "Vista previa de gama amplia",
+        "wideGamutPreviewDesc": "Muestra colores más allá de sRGB en monitores de gama amplia. Actívalo si exportas en Display P3, Adobe RGB u otro espacio de color amplio. Desactivado, verás cómo quedará una exportación sRGB.",
+        "wideGamutPreviewEnable": "Mostrar colores de gama amplia"
       },
       "defaultAdjustments": {
         "addCamera": "Añadir cámara…",
@@ -2247,6 +2250,9 @@
         "sliderResetNeutral": "Valor neutro",
         "title": "Ajustes predeterminados"
       },
+      "display": {
+        "title": "Pantalla"
+      },
       "dynamicDesc": "El editor renderiza la vista previa para que coincida con la densidad real de píxeles de tu pantalla. Esto garantiza que cada detalle se represente con precisión de 1:1 píxeles, proporcionando la máxima claridad al hacer zoom y verificar el enfoque.",
       "editIn": {
         "add": "Añadir programa",
@@ -2272,8 +2278,7 @@
         "headroomDesc": "Hasta dónde pueden superar las iluminaciones el blanco normal. También se usa en las exportaciones HDR.",
         "statusActive": "Esta pantalla está en modo HDR.",
         "statusInactive": "Esta pantalla no está en modo HDR. Activa HDR en los ajustes de pantalla del sistema para ver el efecto.",
-        "statusUnsupported": "HDR requiere el renderizador por GPU en Windows o macOS.",
-        "title": "HDR"
+        "statusUnsupported": "HDR requiere el renderizador por GPU en Windows o macOS."
       },
       "highDpi": "Renderizado de alto DPI",
       "highDpiDesc": "Renderizar vistas previas en la resolución de píxeles físicos nativa de {{dpr}}x de tu pantalla. Produce la vista previa más nítida posible, pero utiliza mucha más memoria.",

@@ -39,6 +39,8 @@ pub struct DisplayTransform {
     pub lut: [f32; 4],
     pub frame_curve: [f32; 4],
     pub frame_to_srgb: [[f32; 4]; 3],
+    pub linear_max: f32,
+    pub _padding: [f32; 3],
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -66,6 +68,8 @@ impl Default for DisplayTransform {
             lut: [0.0; 4],
             frame_curve: OutputColorSpace::Srgb.curve().uniform(),
             frame_to_srgb: frame_matrix(OutputColorSpace::Srgb),
+            linear_max: f32::MAX,
+            _padding: [0.0; 3],
         }
     }
 }
@@ -348,13 +352,13 @@ impl WgpuDisplay {
         } else {
             self.sdr_format
         };
+        let retag = tag != self.tag;
+        self.tag = tag;
         if format != self.config.format {
             self.config.format = format;
-            self.surface.configure(device, &self.config);
-        }
-        if tag != self.tag {
+            self.configure_surface(device);
+        } else if retag {
             monitor::tag_surface(&self.surface, tag);
-            self.tag = tag;
         }
         if !same_lut {
             self.lut = lut_source.as_ref().and_then(|(profile, space)| {
@@ -379,6 +383,10 @@ impl WgpuDisplay {
         self.latest_transform.frame_curve = space.curve().uniform();
         self.latest_transform.frame_to_srgb = frame_matrix(space);
         self.latest_transform.hdr_white = linear_white.unwrap_or(0.0);
+        self.latest_transform.linear_max = match (&hdr, linear_white) {
+            (None, Some(white)) => white,
+            _ => f32::MAX,
+        };
         self.hdr = hdr;
         self.color = color;
         self.space = space;
@@ -435,9 +443,14 @@ impl WgpuDisplay {
         if width != self.config.width || height != self.config.height {
             self.config.width = width;
             self.config.height = height;
-            self.surface.configure(device, &self.config);
+            self.configure_surface(device);
         }
         self.place_image();
+    }
+
+    fn configure_surface(&self, device: &wgpu::Device) {
+        self.surface.configure(device, &self.config);
+        monitor::tag_surface(&self.surface, self.tag);
     }
 
     pub fn place_editor_rect(&mut self, content: Option<u64>, rect: [f32; 4]) -> bool {
@@ -499,7 +512,7 @@ impl WgpuDisplay {
             wgpu::CurrentSurfaceTexture::Success(tex)
             | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
             wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
-                self.surface.configure(device, &self.config);
+                self.configure_surface(device);
                 match self.surface.get_current_texture() {
                     wgpu::CurrentSurfaceTexture::Success(tex)
                     | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
@@ -658,8 +671,10 @@ pub fn build_wgpu_display(
 
     let (bind_group_layout, create_pipeline) = display_pipelines(device);
     let pipeline = create_pipeline(swapchain_format);
-    let hdr_pipeline = (swapchain_caps.formats.contains(&HDR_FORMAT) && usable(&HDR_FORMAT))
-        .then(|| create_pipeline(HDR_FORMAT));
+    let hdr_pipeline = (adapter.get_info().backend != wgpu::Backend::Gl
+        && swapchain_caps.formats.contains(&HDR_FORMAT)
+        && usable(&HDR_FORMAT))
+    .then(|| create_pipeline(HDR_FORMAT));
 
     let transform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Transform Buffer"),
@@ -1093,7 +1108,9 @@ pub fn refresh_displays(
                 .map_or(MonitorColor::Unmanaged, MonitorColor::Profile),
             (DisplayColorMode::Auto, SystemColor::Managed(wide_gamut)) => {
                 MonitorColor::System(match wide_gamut {
-                    WideGamut::Linear { .. } if !supports_hdr => WideGamut::Unavailable,
+                    WideGamut::Linear { .. } if !supports_hdr || !settings.wide_gamut_preview => {
+                        WideGamut::Unavailable
+                    }
                     available => available,
                 })
             }
@@ -1104,7 +1121,7 @@ pub fn refresh_displays(
         };
         outputs.push((display, state.hdr.filter(|_| settings.hdr_display), color));
     }
-    let space = if outputs.iter().any(|(_, hdr, _)| hdr.is_some()) {
+    let space = if !settings.wide_gamut_preview || outputs.iter().any(|(_, hdr, _)| hdr.is_some()) {
         OutputColorSpace::Srgb
     } else {
         shared_space(outputs.iter().map(|(_, _, color)| color.preferred_space()))
@@ -1127,17 +1144,19 @@ pub fn refresh_displays(
     }
 }
 
+pub fn main_display_supports_hdr(app_handle: &tauri::AppHandle) -> bool {
+    current_gpu_context(&app_handle.state::<AppState>()).is_none_or(|context| {
+        context
+            .display
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .is_none_or(WgpuDisplay::supports_hdr)
+    })
+}
+
 pub fn main_window_is_hdr(app_handle: &tauri::AppHandle) -> bool {
-    let surface_ready =
-        current_gpu_context(&app_handle.state::<AppState>()).is_none_or(|context| {
-            context
-                .display
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .as_ref()
-                .is_none_or(WgpuDisplay::supports_hdr)
-        });
-    surface_ready
+    main_display_supports_hdr(app_handle)
         && app_handle
             .get_webview_window("main")
             .and_then(|window| query_monitor(&window, true, false))

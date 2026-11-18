@@ -2219,8 +2219,11 @@
         "statusProfile": "In uso: {{name}}.",
         "statusSystem": "I colori sono gestiti dal sistema operativo.",
         "statusUnavailable": "La gestione del colore richiede il renderer GPU.",
-        "title": "Gestione del colore",
-        "wideGamut": "Anteprima ad ampio gamut ({{space}})."
+        "wideGamut": "Anteprima ad ampio gamut ({{space}}).",
+        "wideGamutHdrNote": "Non usata mentre l'editor mostra l'HDR.",
+        "wideGamutPreview": "Anteprima gamut esteso",
+        "wideGamutPreviewDesc": "Mostra i colori oltre sRGB sui monitor a gamut esteso. Attivala se esporti in Display P3, Adobe RGB o un altro spazio colore ampio. Disattivata, vedi l'aspetto di un'esportazione sRGB.",
+        "wideGamutPreviewEnable": "Mostra colori a gamut esteso"
       },
       "defaultAdjustments": {
         "addCamera": "Aggiungi fotocamera…",
@@ -2247,6 +2250,9 @@
         "sliderResetNeutral": "Valore neutro",
         "title": "Regolazioni predefinite"
       },
+      "display": {
+        "title": "Display"
+      },
       "dynamicDesc": "L'editor renderizza l'anteprima per adattarla all'effettiva densità di pixel del tuo display. Questo garantisce che ogni dettaglio sia rappresentato con un'accuratezza pixel 1:1, fornendo la massima chiarezza durante lo zoom e il controllo della messa a fuoco.",
       "editIn": {
         "add": "Aggiungi programma",
@@ -2272,8 +2278,7 @@
         "headroomDesc": "Quanto le luci possono superare il bianco normale. Usato anche per le esportazioni HDR.",
         "statusActive": "Questo schermo è in modalità HDR.",
         "statusInactive": "Questo schermo non è in modalità HDR. Attiva HDR nelle impostazioni dello schermo del sistema per vedere l'effetto.",
-        "statusUnsupported": "HDR richiede il renderer GPU su Windows o macOS.",
-        "title": "HDR"
+        "statusUnsupported": "HDR richiede il renderer GPU su Windows o macOS."
       },
       "highDpi": "Rendering High-DPI",
       "highDpiDesc": "Renderizza le anteprime alla risoluzione nativa in pixel fisici {{dpr}}x del tuo schermo. Produce l'anteprima più nitida possibile ma utilizza molta più memoria.",

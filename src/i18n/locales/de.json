@@ -2176,8 +2176,11 @@
         "statusProfile": "Verwendet {{name}}.",
         "statusSystem": "Die Farben werden vom Betriebssystem verwaltet.",
         "statusUnavailable": "Farbmanagement benötigt den GPU-Renderer.",
-        "title": "Farbmanagement",
-        "wideGamut": "Wide-Gamut-Vorschau ({{space}})."
+        "wideGamut": "Wide-Gamut-Vorschau ({{space}}).",
+        "wideGamutHdrNote": "Nicht aktiv, solange der Editor HDR anzeigt.",
+        "wideGamutPreview": "Wide-Gamut-Vorschau",
+        "wideGamutPreviewDesc": "Zeigt auf Wide-Gamut-Monitoren Farben jenseits von sRGB. Aktiviere dies, wenn du in Display P3, Adobe RGB oder einem anderen großen Farbraum exportierst. Deaktiviert siehst du, wie ein sRGB-Export aussehen wird.",
+        "wideGamutPreviewEnable": "Wide-Gamut-Farben anzeigen"
       },
       "defaultAdjustments": {
         "addCamera": "Kamera hinzufügen…",
@@ -2204,6 +2207,9 @@
         "sliderResetNeutral": "Neutraler Wert",
         "title": "Standardanpassungen"
       },
+      "display": {
+        "title": "Anzeige"
+      },
       "dynamicDesc": "Der Editor rendert die Vorschau passend zur tatsächlichen Pixeldichte Ihres Displays. Dies sorgt für 1:1 Pixelgenauigkeit und maximale Klarheit beim Zoomen.",
       "editIn": {
         "add": "Programm hinzufügen",
@@ -2229,8 +2235,7 @@
         "headroomDesc": "Wie weit Lichter über normales Weiß hinausgehen dürfen. Gilt auch für HDR-Exporte.",
         "statusActive": "Dieser Bildschirm ist im HDR-Modus.",
         "statusInactive": "Dieser Bildschirm ist nicht im HDR-Modus. Aktiviere HDR in den Anzeigeeinstellungen des Systems, um den Effekt zu sehen.",
-        "statusUnsupported": "HDR benötigt den GPU-Renderer unter Windows oder macOS.",
-        "title": "HDR"
+        "statusUnsupported": "HDR benötigt den GPU-Renderer unter Windows oder macOS."
       },
       "highDpi": "High-DPI Rendering",
       "highDpiDesc": "Rendern Sie Vorschauen in der nativen {{dpr}}x Auflösung Ihres Bildschirms. Erzeugt die schärfste Vorschau, verbraucht aber mehr Speicher.",

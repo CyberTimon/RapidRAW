@@ -2262,8 +2262,11 @@
         "statusProfile": "Używany profil: {{name}}.",
         "statusSystem": "Kolorami zarządza system operacyjny.",
         "statusUnavailable": "Zarządzanie kolorem wymaga renderera GPU.",
-        "title": "Zarządzanie kolorem",
-        "wideGamut": "Podgląd w szerokim gamucie ({{space}})."
+        "wideGamut": "Podgląd w szerokim gamucie ({{space}}).",
+        "wideGamutHdrNote": "Nieużywane, gdy edytor wyświetla HDR.",
+        "wideGamutPreview": "Podgląd szerokiego gamutu",
+        "wideGamutPreviewDesc": "Wyświetla kolory spoza sRGB na monitorach o szerokim gamucie. Włącz, jeśli eksportujesz do Display P3, Adobe RGB lub innej szerokiej przestrzeni barw. Wyłączone pokazuje, jak będzie wyglądał eksport sRGB.",
+        "wideGamutPreviewEnable": "Pokaż kolory szerokiego gamutu"
       },
       "defaultAdjustments": {
         "addCamera": "Dodaj aparat…",
@@ -2290,6 +2293,9 @@
         "sliderResetNeutral": "Wartość neutralna",
         "title": "Domyślne ustawienia"
       },
+      "display": {
+        "title": "Wyświetlacz"
+      },
       "dynamicDesc": "Edytor renderuje podgląd tak, aby odpowiadał rzeczywistej gęstości pikseli twojego wyświetlacza. Zapewnia to oddanie każdego szczegółu w proporcji 1:1, dostarczając maksymalnej jasności przy zbliżaniu i sprawdzaniu ostrości.",
       "editIn": {
         "add": "Dodaj program",
@@ -2315,8 +2321,7 @@
         "headroomDesc": "Jak bardzo światła mogą przekraczać zwykłą biel. Dotyczy także eksportów HDR.",
         "statusActive": "Ten ekran działa w trybie HDR.",
         "statusInactive": "Ten ekran nie działa w trybie HDR. Włącz HDR w systemowych ustawieniach ekranu, aby zobaczyć efekt.",
-        "statusUnsupported": "HDR wymaga renderera GPU w systemie Windows lub macOS.",
-        "title": "HDR"
+        "statusUnsupported": "HDR wymaga renderera GPU w systemie Windows lub macOS."
       },
       "highDpi": "Renderowanie High-DPI",
       "highDpiDesc": "Renderuj podglądy w natywnej {{dpr}}x rozdzielczości pikseli fizycznych twojego ekranu. Zapewnia najostrzejszy z możliwych podglądów, ale zużywa znacznie więcej pamięci.",
