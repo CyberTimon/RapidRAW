@@ -39,7 +39,7 @@ fn smooth_step(e0: f32, e1: f32, x: f32) -> f32 {
 }
 
 fn plain_luma(c: vec3<f32>) -> f32 {
-    return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+    return dot(c, LUMA_COEFF);
 }
 
 fn relight_luma(c: vec3<f32>) -> f32 {

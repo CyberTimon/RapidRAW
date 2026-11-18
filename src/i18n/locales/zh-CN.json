@@ -928,6 +928,9 @@
         "masks": "蒙版"
       },
       "title": "预设",
+      "toasts": {
+        "importFailed": "导入 {{fileName}} 失败: {{error}}"
+      },
       "tooltips": {
         "explore": "探索社区预设",
         "export": "将所有预设导出为 .rrpreset 文件",
@@ -970,6 +973,7 @@
         "compare": "前后对比（B）或模式（右键）",
         "focalLength": "焦距",
         "fullscreen": "切换全屏（F）",
+        "hdr": "HDR 预览",
         "iso": "ISO",
         "redo": "重做（Ctrl+Y）或历史记录（右键单击）",
         "shutterSpeed": "快门速度",
@@ -1026,7 +1030,13 @@
       "selectFolderTitle_other": "选择文件夹以导出 {{count}} 张图像"
     },
     "file": {
+      "colorSpace": "色彩空间",
       "dpi": "DPI",
+      "hdr": "HDR 输出",
+      "hdrJpegHint": "添加增益图：HDR 屏幕显示更亮的高光，其他情况下显示普通照片。",
+      "hdrJxlHint": "保存为真正的 HDR 文件（PQ，Rec. 2020）。需要支持 HDR 的查看器。",
+      "hdrNoPreview": "此显示器无法显示 HDR 高光，但导出的文件仍会包含它们。",
+      "hdrPreviewOff": "在编辑器工具栏中开启 HDR 以预览高光。",
       "quality": "质量",
       "qualityLossless": "质量（无损）",
       "resolution": "分辨率",
@@ -1732,18 +1742,35 @@
       "zoomOutTooltip": "缩小"
     },
     "panorama": {
+      "autoCrop": "自动裁剪",
+      "autoProjectionUsed": "正在使用：{{projection}}",
+      "boundaryWarp": "边界变形",
+      "boundaryWarpHint": "拉伸边缘以填满画面，而不是将其裁掉。",
       "cancel": "取消",
       "close": "关闭",
       "descCount": "将 {{count}} 张重叠图像合并为一张无缝全景图。",
       "descCount_one": "将 {{count}} 张重叠图像合并为一张无缝全景图。",
       "descCount_other": "将 {{count}} 张重叠图像合并为一张无缝全景图。",
       "descGeneric": "将您的重叠图像合并为一张无缝全景图。",
+      "excludedImages": "{{count}} 张图像无法匹配，已被排除",
+      "excludedImages_one": "{{count}} 张图像无法匹配，已被排除",
+      "excludedImages_other": "{{count}} 张图像无法匹配，已被排除",
+      "exposureCompensation": "曝光补偿",
+      "exposureCompensationHint": "统一各图像之间的曝光、白平衡和暗角。",
       "failed": "全景图拼接失败",
       "initializing": "初始化中...",
       "openInEditor": "在编辑器中打开",
+      "outputInfo": "{{images}} 张图像 · {{width}} × {{height}} 像素",
+      "projection": "投影",
+      "projectionAuto": "自动",
+      "projectionCylindrical": "圆柱",
+      "projectionFallback": "{{requested}} 无法覆盖此视野，正在使用 {{projection}}",
+      "projectionPerspective": "透视",
+      "projectionSpherical": "球面",
       "retry": "重试",
       "save": "保存",
       "savedSuccess": "全景图保存成功！",
+      "saving": "正在保存…",
       "speedNotice": "这可能需要几分钟，具体取决于图像的数量和大小。",
       "start": "开始",
       "stitchingProgress": "拼接全景图中",
@@ -2136,6 +2163,24 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "colorManagement": {
+        "chooseProfile": "选择配置文件",
+        "modeAuto": "自动（系统配置文件）",
+        "modeCustom": "自定义 ICC 配置文件",
+        "modeOff": "关闭",
+        "profile": "显示器配置文件",
+        "profileDesc": "将编辑器预览转换为显示器的色彩配置文件，使颜色在已校准和广色域显示器上准确显示。导出不受影响。",
+        "statusInvalid": "无法加载此配置文件。",
+        "statusNone": "未找到显示器配置文件。预览以 sRGB 显示。",
+        "statusProfile": "正在使用 {{name}}。",
+        "statusSystem": "颜色由操作系统管理。",
+        "statusUnavailable": "色彩管理需要 GPU 渲染器。",
+        "wideGamut": "广色域预览（{{space}}）。",
+        "wideGamutHdrNote": "编辑器显示 HDR 时不生效。",
+        "wideGamutPreview": "广色域预览",
+        "wideGamutPreviewDesc": "在广色域显示器上显示超出 sRGB 的颜色。以 Display P3、Adobe RGB 或其他宽色彩空间导出时请开启。关闭时预览与 sRGB 导出效果一致。",
+        "wideGamutPreviewEnable": "显示广色域颜色"
+      },
       "defaultAdjustments": {
         "addCamera": "添加相机…",
         "applyToNonRaw": "同时应用于 JPEG、TIFF、PNG 等非 RAW 文件",
@@ -2161,6 +2206,9 @@
         "sliderResetNeutral": "中性值",
         "title": "默认调整"
       },
+      "display": {
+        "title": "显示"
+      },
       "dynamicDesc": "编辑器根据显示器实际像素密度渲染预览。这确保每个细节都以 1:1 像素精度呈现，在缩放和检查焦点时提供最大清晰度。",
       "editIn": {
         "add": "添加程序",
@@ -2178,6 +2226,16 @@
         "title": "在其他程序中编辑"
       },
       "enableLivePreviews": "启用实时预览",
+      "hdr": {
+        "display": "HDR 显示",
+        "displayDesc": "在 HDR 显示器上以高于普通白色的亮度显示高光。阴影和中间调保持不变，普通导出不受影响。",
+        "enableDisplay": "在编辑器中使用 HDR",
+        "headroom": "高光范围",
+        "headroomDesc": "高光可以超出普通白色的程度。同样用于 HDR 导出。",
+        "statusActive": "此显示器处于 HDR 模式。",
+        "statusInactive": "此显示器未处于 HDR 模式。请在系统显示设置中开启 HDR 以查看效果。",
+        "statusUnsupported": "HDR 需要在 Windows 或 macOS 上使用 GPU 渲染器。"
+      },
       "highDpi": "高 DPI 渲染",
       "highDpiDesc": "以屏幕原生 {{dpr}}x 物理像素分辨率渲染预览。产生最清晰的预览，但会显著增加内存使用。",
       "highDpiDescStandard": "此设置仅影响高 DPI 显示器。您当前的显示器为标准分辨率。",
@@ -2246,6 +2304,13 @@
       "qualities": {
         "high": "高质量",
         "performance": "性能优先"
+      },
+      "rawDecoding": "RAW 解码",
+      "rawDecodingDesc": "选择在何处解码 RAW 文件。「自动」使用 GPU，并在 GPU 无法处理您的图像时切换到 CPU。「GPU」始终先尝试 GPU。「CPU」较慢，但适用于所有系统。",
+      "rawDecodingOptions": {
+        "auto": "自动",
+        "cpu": "CPU",
+        "gpu": "GPU"
       },
       "renderScale": "渲染分辨率缩放",
       "renderScaleDesc": "相对于显示器缩放渲染分辨率。较低的值可在高分辨率屏幕上提高性能，但会牺牲一些清晰度。",

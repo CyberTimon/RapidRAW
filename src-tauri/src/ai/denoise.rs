@@ -1,6 +1,7 @@
 use crate::ai::base_cache::{BaseCache, CachedBase, HALF_CHUNK, entry_key, source_string};
 use crate::app::state::{AppState, LoadedImage};
 use crate::render::adjustment_utils::is_effect_enabled;
+use crate::render::color_space::working_luma;
 use half::f16;
 use half::slice::HalfFloatSliceExt;
 use image::{DynamicImage, GenericImageView, Rgb32FImage, imageops};
@@ -10,8 +11,8 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
 
-const MODEL_TAG: &str = "nind-v3";
-const BM3D_TAG: &str = "bm3d-v1";
+const MODEL_TAG: &str = "nind-v4";
+const BM3D_TAG: &str = "bm3d-v2";
 const BM3D_INTENSITY: f32 = 0.15;
 
 static CACHE: BaseCache = BaseCache::new(
@@ -81,6 +82,7 @@ pub fn blend_strength(adjustments: &serde_json::Value) -> (f32, f32) {
 pub fn blend_into(out: &mut [f32], denoised: &[f16], (amount, detail): (f32, f32)) {
     let luma_keep = 1.0 - amount * (1.0 - detail);
     let chroma_keep = 1.0 - amount;
+    let [luma_r, luma_g, luma_b] = working_luma();
 
     out.par_chunks_mut(HALF_CHUNK)
         .zip(denoised.par_chunks(HALF_CHUNK))
@@ -94,7 +96,7 @@ pub fn blend_into(out: &mut [f32], denoised: &[f16], (amount, detail): (f32, f32
                 .zip(dn_values.as_chunks::<3>().0)
             {
                 let r = [px[0] - dn[0], px[1] - dn[1], px[2] - dn[2]];
-                let r_luma = 0.2126 * r[0] + 0.7152 * r[1] + 0.0722 * r[2];
+                let r_luma = luma_r * r[0] + luma_g * r[1] + luma_b * r[2];
                 for c in 0..3 {
                     px[c] = dn[c] + chroma_keep * (r[c] - r_luma) + luma_keep * r_luma;
                 }

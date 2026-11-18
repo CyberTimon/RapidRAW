@@ -956,6 +956,9 @@
         "masks": "Máscaras"
       },
       "title": "Predefinições",
+      "toasts": {
+        "importFailed": "Falha ao importar {{fileName}}: {{error}}"
+      },
       "tooltips": {
         "explore": "Explorar Predefinições da Comunidade",
         "export": "Exportar todas as predefinições para arquivo .rrpreset",
@@ -998,6 +1001,7 @@
         "compare": "Antes / depois (B) ou modos (clique direito)",
         "focalLength": "Distância Focal",
         "fullscreen": "Alternar Tela Cheia (F)",
+        "hdr": "Pré-visualização HDR",
         "iso": "ISO",
         "redo": "Refazer (Ctrl+Y) ou Histórico (Botão Direito)",
         "shutterSpeed": "Velocidade do Obturador",
@@ -1055,7 +1059,13 @@
       "selectFolderTitle_other": "Selecionar Pasta para Exportar {{count}} Imagens"
     },
     "file": {
+      "colorSpace": "Espaço de cor",
       "dpi": "DPI",
+      "hdr": "Saída HDR",
+      "hdrJpegHint": "Adiciona um mapa de ganho: telas HDR mostram realces mais brilhantes e o restante mostra a foto normal.",
+      "hdrJxlHint": "Salva um arquivo HDR real (PQ, Rec. 2020). Requer um visualizador compatível com HDR.",
+      "hdrNoPreview": "Este ecrã não consegue mostrar os realces HDR. A exportação irá contê-los na mesma.",
+      "hdrPreviewOff": "Ative o HDR na barra de ferramentas do editor para pré-visualizar os realces.",
       "quality": "Qualidade",
       "qualityLossless": "Qualidade (Sem Perdas)",
       "resolution": "Resolução",
@@ -1775,6 +1785,10 @@
       "zoomOutTooltip": "Menos Zoom"
     },
     "panorama": {
+      "autoCrop": "Corte automático",
+      "autoProjectionUsed": "Usando {{projection}}",
+      "boundaryWarp": "Deformação de limites",
+      "boundaryWarpHint": "Estica as bordas para preencher o quadro em vez de cortá-las.",
       "cancel": "Cancelar",
       "close": "Fechar",
       "descCount": "Combine {{count}} imagens sobrepostas em um panorama contínuo.",
@@ -1782,12 +1796,26 @@
       "descCount_one": "Combine {{count}} imagem sobreposta em um panorama contínuo.",
       "descCount_other": "Combine {{count}} imagens sobrepostas em um panorama contínuo.",
       "descGeneric": "Combine suas imagens sobrepostas em um panorama contínuo.",
+      "excludedImages": "{{count}} imagens não puderam ser correspondidas e foram deixadas de fora",
+      "excludedImages_many": "{{count}} de imagens não puderam ser correspondidas e foram deixadas de fora",
+      "excludedImages_one": "{{count}} imagem não pôde ser correspondida e foi deixada de fora",
+      "excludedImages_other": "{{count}} imagens não puderam ser correspondidas e foram deixadas de fora",
+      "exposureCompensation": "Compensação de exposição",
+      "exposureCompensationHint": "Equaliza a exposição, o balanço de brancos e a vinheta entre as imagens.",
       "failed": "O Panorama Falhou",
       "initializing": "Inicializando...",
       "openInEditor": "Abrir no Editor",
+      "outputInfo": "{{images}} imagens · {{width}} × {{height}} px",
+      "projection": "Projeção",
+      "projectionAuto": "Automática",
+      "projectionCylindrical": "Cilíndrica",
+      "projectionFallback": "{{requested}} não cobre este campo de visão, usando {{projection}}",
+      "projectionPerspective": "Perspectiva",
+      "projectionSpherical": "Esférica",
       "retry": "Tentar Novamente",
       "save": "Salvar",
       "savedSuccess": "Panorama Salvo com Sucesso!",
+      "saving": "Salvando…",
       "speedNotice": "Isso pode levar alguns minutos dependendo do número e tamanho das imagens.",
       "start": "Iniciar",
       "stitchingProgress": "Montando Panorama",
@@ -2184,6 +2212,24 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "colorManagement": {
+        "chooseProfile": "Escolher perfil",
+        "modeAuto": "Automático (perfil do sistema)",
+        "modeCustom": "Perfil ICC personalizado",
+        "modeOff": "Desativado",
+        "profile": "Perfil do monitor",
+        "profileDesc": "Converte a pré-visualização do editor para o perfil de cores do seu monitor, para que as cores fiquem corretas em ecrãs calibrados e de gama ampla. As exportações não são afetadas.",
+        "statusInvalid": "Não foi possível carregar este perfil.",
+        "statusNone": "Nenhum perfil de monitor encontrado. A pré-visualização é mostrada como sRGB.",
+        "statusProfile": "A usar {{name}}.",
+        "statusSystem": "As cores são geridas pelo sistema operativo.",
+        "statusUnavailable": "A gestão de cores requer o renderizador GPU.",
+        "wideGamut": "Pré-visualização de gama ampla ({{space}}).",
+        "wideGamutHdrNote": "Não é usado enquanto o editor mostra HDR.",
+        "wideGamutPreview": "Pré-visualização de gama ampla",
+        "wideGamutPreviewDesc": "Mostra cores além do sRGB em monitores de gama ampla. Ative ao exportar em Display P3, Adobe RGB ou outro espaço de cor amplo. Desativado, vê como ficará uma exportação sRGB.",
+        "wideGamutPreviewEnable": "Mostrar cores de gama ampla"
+      },
       "defaultAdjustments": {
         "addCamera": "Adicionar câmara…",
         "applyToNonRaw": "Aplicar também a JPEG, TIFF, PNG e outros ficheiros não RAW",
@@ -2209,6 +2255,9 @@
         "sliderResetNeutral": "Valor neutro",
         "title": "Ajustes padrão"
       },
+      "display": {
+        "title": "Ecrã"
+      },
       "dynamicDesc": "O editor renderiza a visualização para corresponder à densidade real de pixels da sua tela. Isso garante que cada detalhe seja representado com precisão de 1:1 pixel, fornecendo clareza máxima ao aumentar o zoom e verificar o foco.",
       "editIn": {
         "add": "Adicionar programa",
@@ -2226,6 +2275,16 @@
         "title": "Editar em"
       },
       "enableLivePreviews": "Ativar Visualizações ao Vivo",
+      "hdr": {
+        "display": "Tela HDR",
+        "displayDesc": "Mostra os realces mais brilhantes que o branco normal em uma tela HDR. Sombras e meios-tons permanecem iguais e as exportações padrão não são afetadas.",
+        "enableDisplay": "Usar HDR no editor",
+        "headroom": "Faixa de realces",
+        "headroomDesc": "Até onde os realces podem ultrapassar o branco normal. Também é usada nas exportações HDR.",
+        "statusActive": "Esta tela está em modo HDR.",
+        "statusInactive": "Esta tela não está em modo HDR. Ative o HDR nas configurações de tela do sistema para ver o efeito.",
+        "statusUnsupported": "O HDR requer o renderizador por GPU no Windows ou macOS."
+      },
       "highDpi": "Renderização de Alto DPI",
       "highDpiDesc": "Renderizar visualizações na resolução de pixel físico nativa {{dpr}}x da tela. Produz a visualização mais nítida possível, mas usa significativamente mais memória.",
       "highDpiDescStandard": "Esta configuração afeta apenas telas de alto DPI. Sua tela atual tem resolução padrão.",
@@ -2294,6 +2353,13 @@
       "qualities": {
         "high": "Alta Qualidade",
         "performance": "Desempenho"
+      },
+      "rawDecoding": "Decodificação RAW",
+      "rawDecodingDesc": "Selecione onde os arquivos RAW são decodificados. 'Auto' usa a GPU e muda para a CPU se ela não der conta das suas imagens. 'GPU' sempre tenta a GPU primeiro. 'CPU' é mais lenta, mas funciona em qualquer sistema.",
+      "rawDecodingOptions": {
+        "auto": "Auto",
+        "cpu": "CPU",
+        "gpu": "GPU"
       },
       "renderScale": "Escala de Resolução de Renderização",
       "renderScaleDesc": "Dimensiona a resolução de renderização em relação à sua tela. Valores mais baixos melhoram o desempenho em telas de alta resolução ao custo de alguma nitidez.",

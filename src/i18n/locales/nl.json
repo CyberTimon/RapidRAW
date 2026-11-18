@@ -931,6 +931,9 @@
         "masks": "Maskers"
       },
       "title": "Voorinstellingen",
+      "toasts": {
+        "importFailed": "Importeren van {{fileName}} mislukt: {{error}}"
+      },
       "tooltips": {
         "explore": "Community-voorinstellingen verkennen",
         "export": "Alle voorinstellingen exporteren naar .rrpreset-bestand",
@@ -973,6 +976,7 @@
         "compare": "Voor / na (B) of modi (rechtsklik)",
         "focalLength": "Brandpuntsafstand",
         "fullscreen": "Volledig scherm aan/uit (F)",
+        "hdr": "HDR-voorvertoning",
         "iso": "ISO",
         "redo": "Opnieuw (Ctrl+Y) of geschiedenis (rechtermuisknop)",
         "shutterSpeed": "Sluitertijd",
@@ -1029,7 +1033,13 @@
       "selectFolderTitle_other": "Map selecteren om {{count}} afbeeldingen te exporteren"
     },
     "file": {
+      "colorSpace": "Kleurruimte",
       "dpi": "DPI",
+      "hdr": "HDR-uitvoer",
+      "hdrJpegHint": "Voegt een gain map toe: HDR-schermen tonen helderdere hooglichten, al het andere toont de normale foto.",
+      "hdrJxlHint": "Slaat een echt HDR-bestand op (PQ, Rec. 2020). Vereist een viewer met HDR-ondersteuning.",
+      "hdrNoPreview": "Dit scherm kan de HDR-hooglichten niet weergeven. De export bevat ze wel.",
+      "hdrPreviewOff": "Schakel HDR in via de werkbalk van de editor om de hooglichten te bekijken.",
       "quality": "Kwaliteit",
       "qualityLossless": "Kwaliteit (verliesvrij)",
       "resolution": "Resolutie",
@@ -1738,18 +1748,35 @@
       "zoomOutTooltip": "Uitzoomen"
     },
     "panorama": {
+      "autoCrop": "Automatisch bijsnijden",
+      "autoProjectionUsed": "Gebruikt: {{projection}}",
+      "boundaryWarp": "Grensvervorming",
+      "boundaryWarpHint": "Rekt de randen uit om het kader te vullen in plaats van ze weg te snijden.",
       "cancel": "Annuleren",
       "close": "Sluiten",
       "descCount": "Combineer {{count}} overlappende afbeeldingen tot een naadloos panorama.",
       "descCount_one": "Combineer {{count}} overlappende afbeelding tot een naadloos panorama.",
       "descCount_other": "Combineer {{count}} overlappende afbeeldingen tot een naadloos panorama.",
       "descGeneric": "Combineer uw overlappende afbeeldingen tot een naadloos panorama.",
+      "excludedImages": "{{count}} afbeeldingen konden niet worden gekoppeld en zijn weggelaten",
+      "excludedImages_one": "{{count}} afbeelding kon niet worden gekoppeld en is weggelaten",
+      "excludedImages_other": "{{count}} afbeeldingen konden niet worden gekoppeld en zijn weggelaten",
+      "exposureCompensation": "Belichtingscompensatie",
+      "exposureCompensationHint": "Egaliseert belichting, witbalans en vignettering tussen de afbeeldingen.",
       "failed": "Panorama mislukt",
       "initializing": "Initialiseren...",
       "openInEditor": "Openen in editor",
+      "outputInfo": "{{images}} afbeeldingen · {{width}} × {{height}} px",
+      "projection": "Projectie",
+      "projectionAuto": "Automatisch",
+      "projectionCylindrical": "Cilindrisch",
+      "projectionFallback": "{{requested}} dekt dit gezichtsveld niet, gebruikt: {{projection}}",
+      "projectionPerspective": "Perspectief",
+      "projectionSpherical": "Sferisch",
       "retry": "Opnieuw",
       "save": "Opslaan",
       "savedSuccess": "Panorama succesvol opgeslagen!",
+      "saving": "Opslaan…",
       "speedNotice": "Dit kan enkele minuten duren afhankelijk van het aantal en de grootte van afbeeldingen.",
       "start": "Starten",
       "stitchingProgress": "Panorama samenvoegen",
@@ -2138,6 +2165,24 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "colorManagement": {
+        "chooseProfile": "Profiel kiezen",
+        "modeAuto": "Automatisch (systeemprofiel)",
+        "modeCustom": "Aangepast ICC-profiel",
+        "modeOff": "Uit",
+        "profile": "Monitorprofiel",
+        "profileDesc": "Zet de voorvertoning in de editor om naar het kleurprofiel van je monitor, zodat kleuren kloppen op gekalibreerde en wide-gamutschermen. Exports blijven ongewijzigd.",
+        "statusInvalid": "Dit profiel kon niet worden geladen.",
+        "statusNone": "Geen monitorprofiel gevonden. De voorvertoning wordt als sRGB weergegeven.",
+        "statusProfile": "Gebruikt {{name}}.",
+        "statusSystem": "Kleuren worden beheerd door het besturingssysteem.",
+        "statusUnavailable": "Kleurbeheer vereist de GPU-renderer.",
+        "wideGamut": "Wide-gamutvoorvertoning ({{space}}).",
+        "wideGamutHdrNote": "Niet gebruikt zolang de editor HDR toont.",
+        "wideGamutPreview": "Wide-gamut-voorbeeld",
+        "wideGamutPreviewDesc": "Toont kleuren buiten sRGB op wide-gamut-monitoren. Zet dit aan als je exporteert in Display P3, Adobe RGB of een andere brede kleurruimte. Uitgeschakeld zie je hoe een sRGB-export eruit zal zien.",
+        "wideGamutPreviewEnable": "Wide-gamut-kleuren tonen"
+      },
       "defaultAdjustments": {
         "addCamera": "Camera toevoegen…",
         "applyToNonRaw": "Ook toepassen op JPEG, TIFF, PNG en andere niet-RAW-bestanden",
@@ -2163,6 +2208,9 @@
         "sliderResetNeutral": "Neutrale waarde",
         "title": "Standaardaanpassingen"
       },
+      "display": {
+        "title": "Weergave"
+      },
       "dynamicDesc": "De editor rendert het voorbeeld om overeen te komen met de werkelijke pixeldichtheid van uw beeldscherm. Dit zorgt ervoor dat elk detail wordt weergegeven met 1:1 pixelnauwkeurigheid, wat maximale helderheid biedt bij zoomen en scherpte controleren.",
       "editIn": {
         "add": "Programma toevoegen",
@@ -2180,6 +2228,16 @@
         "title": "Bewerken in"
       },
       "enableLivePreviews": "Live voorbeelden inschakelen",
+      "hdr": {
+        "display": "HDR-weergave",
+        "displayDesc": "Toont hooglichten helderder dan normaal wit op een HDR-scherm. Schaduwen en middentonen blijven gelijk en standaardexports veranderen niet.",
+        "enableDisplay": "HDR gebruiken in de editor",
+        "headroom": "Bereik hooglichten",
+        "headroomDesc": "Hoe ver hooglichten boven normaal wit mogen uitkomen. Geldt ook voor HDR-exports.",
+        "statusActive": "Dit scherm staat in HDR-modus.",
+        "statusInactive": "Dit scherm staat niet in HDR-modus. Schakel HDR in bij de beeldscherminstellingen van het systeem om het effect te zien.",
+        "statusUnsupported": "HDR vereist de GPU-renderer op Windows of macOS."
+      },
       "highDpi": "High-DPI-rendering",
       "highDpiDesc": "Voorbeelden renderen op de native {{dpr}}x fysieke pixelresolutie van uw scherm. Produceert het scherpste mogelijk voorbeeld maar gebruikt aanzienlijk meer geheugen.",
       "highDpiDescStandard": "Deze instelling is alleen van invloed op high-DPI-beeldschermen. Uw huidige beeldscherm heeft een standaardresolutie.",
@@ -2248,6 +2306,13 @@
       "qualities": {
         "high": "Hoge kwaliteit",
         "performance": "Prestaties"
+      },
+      "rawDecoding": "RAW-decodering",
+      "rawDecodingDesc": "Selecteer waar RAW-bestanden worden gedecodeerd. 'Automatisch' gebruikt de GPU en schakelt over naar de CPU als die je afbeeldingen niet aankan. 'GPU' probeert altijd eerst de GPU. 'CPU' is langzamer, maar werkt op elk systeem.",
+      "rawDecodingOptions": {
+        "auto": "Automatisch",
+        "cpu": "CPU",
+        "gpu": "GPU"
       },
       "renderScale": "Renderresolutieschaal",
       "renderScaleDesc": "Schaalt de renderresolutie ten opzichte van uw beeldscherm. Lagere waarden verbeteren de prestaties op hoge-resolutie-schermen ten koste van wat scherpte.",

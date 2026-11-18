@@ -4,17 +4,25 @@ import { Channel, convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { toast } from 'react-toastify';
 import { Status } from '../types/export';
 import { Invokes } from '../types/invokes';
-import { Progress } from '../types/library';
+import { PanoramaPreview, Progress } from '../types/library';
 import { ImageDefaults, WaveformData } from '../types/editor';
 import { Adjustments, MaskContainer } from '../utils/adjustments';
 import { AiJobsStatus, JobKind, JobStatus, useProcessStore } from '../store/useProcessStore';
 import { useEditorStore } from '../store/useEditorStore';
-import { useUIStore } from '../store/useUIStore';
+import { closePanoramaModal, useUIStore } from '../store/useUIStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { adjustmentsFromMetadata, fetchImageDefaults } from '../utils/developDefaults';
 import { globalImageCache } from '../utils/ImageLRUCache';
 
 const THUMBNAIL_REFRESH_LIMIT = 500;
+
+const normalizeFolderPath = (path: string) => path.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+
+const isPathInside = (path: string, folder: string) => {
+  const normalizedPath = normalizeFolderPath(path);
+  const normalizedFolder = normalizeFolderPath(folder);
+  return normalizedPath === normalizedFolder || normalizedPath.startsWith(`${normalizedFolder}/`);
+};
 
 const parseAnalyticsPacket = async (buffer: ArrayBuffer) => {
   const view = new DataView(buffer);
@@ -28,6 +36,8 @@ const parseAnalyticsPacket = async (buffer: ArrayBuffer) => {
   const pathLength = readU32();
   const path = new TextDecoder().decode(new Uint8Array(buffer, offset, pathLength));
   offset += pathLength;
+  const sdrWhite = view.getFloat32(offset, true);
+  offset += 4;
 
   const bins = readU32();
   let histogram: { red: number[]; green: number[]; blue: number[]; luma: number[] } | null = null;
@@ -57,7 +67,7 @@ const parseAnalyticsPacket = async (buffer: ArrayBuffer) => {
     waveform = { width, height, rgb, luma, parade, vectorscope };
   }
 
-  return { path, histogram, waveform };
+  return { path, sdrWhite, histogram, waveform };
 };
 
 interface TauriListenerProps {
@@ -115,6 +125,16 @@ export function useTauriListeners({
     let isEffectActive = true;
     let aiTaggingJobId: string | null = null;
     const modelDownloadJobIds: Record<string, string> = {};
+
+    const refreshAfterExport = () => {
+      const currentPath = useLibraryStore.getState().currentFolderPath;
+      if (!currentPath || currentPath.startsWith('Album: ')) return;
+      const { destination, isOriginalFolder } = useProcessStore.getState().exportState;
+      const target = destination ?? (isOriginalFolder ? currentPath : null);
+      if (!target || !isPathInside(target, currentPath)) return;
+      refs.current.refreshAllFolderTrees();
+      refs.current.refreshImageList();
+    };
 
     const flushThumbnailBatch = () => {
       flushHandle.current = null;
@@ -328,20 +348,25 @@ export function useTauriListeners({
         if (isEffectActive) useProcessStore.getState().setExportState({ progress: event.payload });
       }),
       listen('export-complete', () => {
-        if (isEffectActive) useProcessStore.getState().setExportState({ status: Status.Success });
+        if (!isEffectActive) return;
+        useProcessStore.getState().setExportState({ status: Status.Success });
+        refreshAfterExport();
       }),
       listen('export-error', (event: any) => {
-        if (isEffectActive)
-          useProcessStore.getState().setExportState({
-            status: Status.Error,
-            errorMessage: typeof event.payload === 'string' ? event.payload : 'Unknown error',
-          });
+        if (!isEffectActive) return;
+        useProcessStore.getState().setExportState({
+          status: Status.Error,
+          errorMessage: typeof event.payload === 'string' ? event.payload : 'Unknown error',
+        });
+        refreshAfterExport();
       }),
       listen('export-cancelling', () => {
         if (isEffectActive) useProcessStore.getState().setExportState({ status: Status.Cancelling });
       }),
       listen('export-cancelled', () => {
-        if (isEffectActive) useProcessStore.getState().setExportState({ status: Status.Cancelled });
+        if (!isEffectActive) return;
+        useProcessStore.getState().setExportState({ status: Status.Cancelled });
+        refreshAfterExport();
       }),
       listen('import-start', (event: any) => {
         if (isEffectActive)
@@ -495,6 +520,12 @@ export function useTauriListeners({
           useUIStore.getState().setUI({ isViewerOpen: false });
         }
       }),
+      listen('display-changed', () => {
+        if (isEffectActive) {
+          const editorState = useEditorStore.getState();
+          editorState.setEditor({ displayRevision: editorState.displayRevision + 1 });
+        }
+      }),
       listen('wgpu-frame-ready', (event: any) => {
         const editorState = useEditorStore.getState();
         if (
@@ -513,14 +544,20 @@ export function useTauriListeners({
           });
         }
       }),
-      listen('panorama-complete', (event: any) => {
+      listen('panorama-complete', (event: { payload: PanoramaPreview }) => {
         if (isEffectActive) {
+          if (!useUIStore.getState().panoramaModalState.isOpen) {
+            closePanoramaModal();
+            return;
+          }
+          const { base64, ...previewInfo } = event.payload;
           useUIStore.getState().setUI((state) => ({
             panoramaModalState: {
               ...state.panoramaModalState,
               error: null,
-              finalImageBase64: event.payload.base64,
+              finalImageBase64: base64,
               isProcessing: false,
+              previewInfo,
               progressMessage: null,
             },
           }));
@@ -660,11 +697,11 @@ export function useTauriListeners({
     const analyticsChannel = new Channel<ArrayBuffer>();
     analyticsChannel.onmessage = async (buffer) => {
       const sequence = ++analyticsSequence;
-      const { path, histogram, waveform } = await parseAnalyticsPacket(buffer);
+      const { path, sdrWhite, histogram, waveform } = await parseAnalyticsPacket(buffer);
       if (!isEffectActive || sequence < latestAppliedAnalytics) return;
       if (path !== useEditorStore.getState().selectedImage?.path) return;
       latestAppliedAnalytics = sequence;
-      const update: { histogram?: any; waveform?: WaveformData } = {};
+      const update: { histogram?: any; waveform?: WaveformData; scopeWhite: number } = { scopeWhite: sdrWhite };
       if (histogram) update.histogram = histogram;
       if (waveform) update.waveform = waveform;
       useEditorStore.getState().setEditor(update);

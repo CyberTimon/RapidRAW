@@ -928,6 +928,9 @@
         "masks": "마스크"
       },
       "title": "프리셋",
+      "toasts": {
+        "importFailed": "{{fileName}} 가져오기 실패: {{error}}"
+      },
       "tooltips": {
         "explore": "커뮤니티 프리셋 둘러보기",
         "export": "모든 프리셋을 .rrpreset 파일로 내보내기",
@@ -970,6 +973,7 @@
         "compare": "전 / 후 (B) 또는 모드 (우클릭)",
         "focalLength": "초점 거리",
         "fullscreen": "전체 화면 전환 (F)",
+        "hdr": "HDR 미리보기",
         "iso": "ISO",
         "redo": "다시 실행 (Ctrl+Y) 또는 기록 (우클릭)",
         "shutterSpeed": "셔터 속도",
@@ -1026,7 +1030,13 @@
       "selectFolderTitle_other": "이미지 {{count}}개를 내보낼 폴더 선택"
     },
     "file": {
+      "colorSpace": "색 공간",
       "dpi": "DPI",
+      "hdr": "HDR 출력",
+      "hdrJpegHint": "게인 맵을 추가합니다. HDR 화면에서는 하이라이트가 더 밝게 보이고, 그 외에는 일반 사진으로 보입니다.",
+      "hdrJxlHint": "실제 HDR 파일(PQ, Rec. 2020)로 저장합니다. HDR 지원 뷰어가 필요합니다.",
+      "hdrNoPreview": "이 디스플레이에서는 HDR 하이라이트를 표시할 수 없습니다. 내보낸 파일에는 포함됩니다.",
+      "hdrPreviewOff": "하이라이트를 미리 보려면 편집기 도구 모음에서 HDR을 켜세요.",
       "quality": "품질",
       "qualityLossless": "품질 (무손실)",
       "resolution": "해상도",
@@ -1732,18 +1742,35 @@
       "zoomOutTooltip": "축소"
     },
     "panorama": {
+      "autoCrop": "자동 자르기",
+      "autoProjectionUsed": "사용 중: {{projection}}",
+      "boundaryWarp": "경계 변형",
+      "boundaryWarpHint": "가장자리를 잘라내는 대신 늘려서 프레임을 채웁니다.",
       "cancel": "취소",
       "close": "닫기",
       "descCount": "겹치는 이미지 {{count}}개를 매끄러운 파노라마로 결합합니다.",
       "descCount_one": "겹치는 이미지 {{count}}개를 매끄러운 파노라마로 결합합니다.",
       "descCount_other": "겹치는 이미지 {{count}}개를 매끄러운 파노라마로 결합합니다.",
       "descGeneric": "겹치는 이미지를 매끄러운 파노라마로 결합합니다.",
+      "excludedImages": "{{count}}개의 이미지를 일치시킬 수 없어 제외했습니다",
+      "excludedImages_one": "{{count}}개의 이미지를 일치시킬 수 없어 제외했습니다",
+      "excludedImages_other": "{{count}}개의 이미지를 일치시킬 수 없어 제외했습니다",
+      "exposureCompensation": "노출 보정",
+      "exposureCompensationHint": "이미지 간 노출, 화이트 밸런스, 비네팅을 균일하게 맞춥니다.",
       "failed": "파노라마 실패",
       "initializing": "초기화 중...",
       "openInEditor": "편집기에서 열기",
+      "outputInfo": "이미지 {{images}}개 · {{width}} × {{height}} px",
+      "projection": "투영",
+      "projectionAuto": "자동",
+      "projectionCylindrical": "원통형",
+      "projectionFallback": "{{requested}}(으)로는 이 화각을 담을 수 없어 {{projection}}을(를) 사용합니다",
+      "projectionPerspective": "원근",
+      "projectionSpherical": "구형",
       "retry": "다시 시도",
       "save": "저장",
       "savedSuccess": "파노라마가 성공적으로 저장되었습니다!",
+      "saving": "저장 중…",
       "speedNotice": "이미지의 개수와 크기에 따라 몇 분이 걸릴 수 있습니다.",
       "start": "시작",
       "stitchingProgress": "파노라마 스티칭 중",
@@ -2136,6 +2163,24 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "colorManagement": {
+        "chooseProfile": "프로파일 선택",
+        "modeAuto": "자동(시스템 프로파일)",
+        "modeCustom": "사용자 지정 ICC 프로파일",
+        "modeOff": "끄기",
+        "profile": "모니터 프로파일",
+        "profileDesc": "편집기 미리보기를 모니터의 색상 프로파일로 변환하여 캘리브레이션된 디스플레이와 광색역 디스플레이에서 색을 정확하게 표시합니다. 내보내기에는 영향을 주지 않습니다.",
+        "statusInvalid": "이 프로파일을 불러올 수 없습니다.",
+        "statusNone": "모니터 프로파일을 찾을 수 없습니다. 미리보기는 sRGB로 표시됩니다.",
+        "statusProfile": "{{name}} 사용 중.",
+        "statusSystem": "색상은 운영 체제에서 관리합니다.",
+        "statusUnavailable": "색상 관리를 사용하려면 GPU 렌더러가 필요합니다.",
+        "wideGamut": "광색역 미리보기({{space}}).",
+        "wideGamutHdrNote": "편집기가 HDR로 표시하는 동안에는 사용되지 않습니다.",
+        "wideGamutPreview": "광색역 미리보기",
+        "wideGamutPreviewDesc": "광색역 모니터에서 sRGB를 넘는 색을 표시합니다. Display P3, Adobe RGB 등 넓은 색 공간으로 내보낼 때 켜세요. 끄면 sRGB로 내보낸 결과를 미리 볼 수 있습니다.",
+        "wideGamutPreviewEnable": "광색역 색상 표시"
+      },
       "defaultAdjustments": {
         "addCamera": "카메라 추가…",
         "applyToNonRaw": "JPEG, TIFF, PNG 등 RAW가 아닌 파일에도 적용",
@@ -2161,6 +2206,9 @@
         "sliderResetNeutral": "중립 값",
         "title": "기본 조정값"
       },
+      "display": {
+        "title": "디스플레이"
+      },
       "dynamicDesc": "편집기는 디스플레이의 실제 픽셀 밀도에 맞춰 미리보기를 렌더링합니다. 이를 통해 모든 디테일이 1:1 픽셀 정확도로 표현되어, 확대하고 초점을 확인할 때 최대의 선명도를 제공합니다.",
       "editIn": {
         "add": "프로그램 추가",
@@ -2178,6 +2226,16 @@
         "title": "다른 프로그램에서 편집"
       },
       "enableLivePreviews": "실시간 미리보기 활성화",
+      "hdr": {
+        "display": "HDR 디스플레이",
+        "displayDesc": "HDR 디스플레이에서 하이라이트를 일반 흰색보다 밝게 표시합니다. 섀도와 중간 톤은 그대로이며 일반 내보내기에는 영향을 주지 않습니다.",
+        "enableDisplay": "편집기에서 HDR 사용",
+        "headroom": "하이라이트 범위",
+        "headroomDesc": "하이라이트가 일반 흰색보다 얼마나 밝아질 수 있는지 정합니다. HDR 내보내기에도 사용됩니다.",
+        "statusActive": "이 디스플레이는 HDR 모드입니다.",
+        "statusInactive": "이 디스플레이는 HDR 모드가 아닙니다. 효과를 보려면 시스템 디스플레이 설정에서 HDR을 켜세요.",
+        "statusUnsupported": "HDR에는 Windows 또는 macOS의 GPU 렌더러가 필요합니다."
+      },
       "highDpi": "고해상도(High-DPI) 렌더링",
       "highDpiDesc": "화면의 네이티브 {{dpr}}배 물리적 픽셀 해상도로 미리보기를 렌더링합니다. 가능한 가장 선명한 미리보기를 제공하지만 메모리를 훨씬 많이 사용합니다.",
       "highDpiDescStandard": "이 설정은 고해상도 디스플레이에만 영향을 줍니다. 현재 디스플레이는 표준 해상도입니다.",
@@ -2246,6 +2304,13 @@
       "qualities": {
         "high": "고품질",
         "performance": "성능"
+      },
+      "rawDecoding": "RAW 디코딩",
+      "rawDecodingDesc": "RAW 파일을 디코딩할 위치를 선택합니다. 'Auto'는 GPU를 사용하고 GPU가 이미지를 처리할 수 없으면 CPU로 전환합니다. 'GPU'는 항상 GPU를 먼저 시도합니다. 'CPU'는 더 느리지만 모든 시스템에서 작동합니다.",
+      "rawDecodingOptions": {
+        "auto": "Auto",
+        "cpu": "CPU",
+        "gpu": "GPU"
       },
       "renderScale": "렌더 해상도 배율",
       "renderScaleDesc": "디스플레이를 기준으로 렌더 해상도를 조정합니다. 값이 낮을수록 약간의 선명도를 희생하여 고해상도 화면에서 성능이 향상됩니다.",

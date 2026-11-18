@@ -11,6 +11,7 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'react-toastify';
 import { PresetImportFailure, PresetListType, usePresets, UserPreset } from '../../../hooks/usePresets';
 import { useContextMenu } from '../../../context/ContextMenuContext';
 import {
@@ -1098,12 +1099,15 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
 
   const handleImportPresets = async () => {
     try {
+      const isAndroid = useSettingsStore.getState().osPlatform === 'android';
       const selectedPaths = await openDialog({
-        filters: [
-          { name: t('editor.presets.dialog.allPresetFiles'), extensions: ['rrpreset', 'xmp', 'lrtemplate'] },
-          { name: t('editor.presets.dialog.rapidRawPreset'), extensions: ['rrpreset'] },
-          { name: t('editor.presets.dialog.legacyPreset'), extensions: ['xmp', 'lrtemplate'] },
-        ],
+        filters: isAndroid
+          ? []
+          : [
+              { name: t('editor.presets.dialog.allPresetFiles'), extensions: ['rrpreset', 'xmp', 'lrtemplate'] },
+              { name: t('editor.presets.dialog.rapidRawPreset'), extensions: ['rrpreset'] },
+              { name: t('editor.presets.dialog.legacyPreset'), extensions: ['xmp', 'lrtemplate'] },
+            ],
         multiple: true,
         title: t('editor.presets.dialog.importPresetsTitle'),
       });
@@ -1122,9 +1126,10 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
       setFolderPreviewsGenerated(new Set<string>());
       setPreviews({});
 
-      failures.forEach((failure: PresetImportFailure) =>
-        console.error(`Failed to import ${failure.fileName}: ${failure.error}`),
-      );
+      failures.forEach((failure: PresetImportFailure) => {
+        console.error(`Failed to import ${failure.fileName}: ${failure.error}`);
+        toast.error(t('editor.presets.toasts.importFailed', { fileName: failure.fileName, error: failure.error }));
+      });
     } catch (error) {
       console.error('Failed to import presets:', error);
     }

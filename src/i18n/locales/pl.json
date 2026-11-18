@@ -981,6 +981,9 @@
         "masks": "Maski"
       },
       "title": "Presety",
+      "toasts": {
+        "importFailed": "Nie udało się zaimportować {{fileName}}: {{error}}"
+      },
       "tooltips": {
         "explore": "Odkryj presety społeczności",
         "export": "Eksportuj wszystkie presety do pliku .rrpreset",
@@ -1023,6 +1026,7 @@
         "compare": "Przed / po (B) lub tryby (prawy przycisk)",
         "focalLength": "Ogniskowa",
         "fullscreen": "Przełącz pełny ekran (F)",
+        "hdr": "Podgląd HDR",
         "iso": "ISO",
         "redo": "Ponów (Ctrl+Y) lub Historia (Prawy przycisk)",
         "shutterSpeed": "Czas otwarcia migawki",
@@ -1081,7 +1085,13 @@
       "selectFolderTitle_other": "Wybierz folder do eksportu {{count}} obrazów"
     },
     "file": {
+      "colorSpace": "Przestrzeń barw",
       "dpi": "DPI",
+      "hdr": "Wyjście HDR",
+      "hdrJpegHint": "Dodaje mapę wzmocnienia: ekrany HDR pokazują jaśniejsze światła, a pozostałe zwykłe zdjęcie.",
+      "hdrJxlHint": "Zapisuje prawdziwy plik HDR (PQ, Rec. 2020). Wymaga przeglądarki obsługującej HDR.",
+      "hdrNoPreview": "Ten ekran nie może wyświetlić świateł HDR. Eksport i tak będzie je zawierał.",
+      "hdrPreviewOff": "Włącz HDR na pasku narzędzi edytora, aby zobaczyć podgląd świateł.",
       "quality": "Jakość",
       "qualityLossless": "Jakość (Bezstratna)",
       "resolution": "Rozdzielczość",
@@ -1812,6 +1822,10 @@
       "zoomOutTooltip": "Oddal"
     },
     "panorama": {
+      "autoCrop": "Automatyczne kadrowanie",
+      "autoProjectionUsed": "Używana: {{projection}}",
+      "boundaryWarp": "Wypaczenie krawędzi",
+      "boundaryWarpHint": "Rozciąga krawędzie, aby wypełnić kadr, zamiast je przycinać.",
       "cancel": "Anuluj",
       "close": "Zamknij",
       "descCount": "Połącz {{count}} nakładających się obrazów w płynną panoramę.",
@@ -1820,12 +1834,27 @@
       "descCount_one": "Połącz {{count}} nakładający się obraz w płynną panoramę.",
       "descCount_other": "Połącz {{count}} nakładających się obrazów w płynną panoramę.",
       "descGeneric": "Połącz swoje nakładające się obrazy w płynną panoramę.",
+      "excludedImages": "Pominięto {{count}} zdjęcia, których nie udało się dopasować",
+      "excludedImages_few": "Pominięto {{count}} zdjęcia, których nie udało się dopasować",
+      "excludedImages_many": "Pominięto {{count}} zdjęć, których nie udało się dopasować",
+      "excludedImages_one": "Pominięto {{count}} zdjęcie, którego nie udało się dopasować",
+      "excludedImages_other": "Pominięto {{count}} zdjęcia, których nie udało się dopasować",
+      "exposureCompensation": "Kompensacja ekspozycji",
+      "exposureCompensationHint": "Wyrównuje ekspozycję, balans bieli i winietowanie między zdjęciami.",
       "failed": "Składanie panoramy nie powiodło się",
       "initializing": "Inicjowanie...",
       "openInEditor": "Otwórz w edytorze",
+      "outputInfo": "Zdjęcia: {{images}} · {{width}} × {{height}} px",
+      "projection": "Projekcja",
+      "projectionAuto": "Automatyczna",
+      "projectionCylindrical": "Cylindryczna",
+      "projectionFallback": "{{requested}} nie obejmuje tego pola widzenia, używana: {{projection}}",
+      "projectionPerspective": "Perspektywiczna",
+      "projectionSpherical": "Sferyczna",
       "retry": "Spróbuj ponownie",
       "save": "Zapisz",
       "savedSuccess": "Panorama zapisana pomyślnie!",
+      "saving": "Zapisywanie…",
       "speedNotice": "Może to potrwać kilka minut w zależności od liczby i rozmiaru obrazów.",
       "start": "Rozpocznij",
       "stitchingProgress": "Składanie panoramy",
@@ -2226,6 +2255,24 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "colorManagement": {
+        "chooseProfile": "Wybierz profil",
+        "modeAuto": "Automatycznie (profil systemowy)",
+        "modeCustom": "Własny profil ICC",
+        "modeOff": "Wyłączone",
+        "profile": "Profil monitora",
+        "profileDesc": "Przekształca podgląd w edytorze do profilu kolorów monitora, dzięki czemu kolory są poprawne na skalibrowanych i szerokogamutowych ekranach. Eksporty pozostają bez zmian.",
+        "statusInvalid": "Nie udało się wczytać tego profilu.",
+        "statusNone": "Nie znaleziono profilu monitora. Podgląd jest wyświetlany jako sRGB.",
+        "statusProfile": "Używany profil: {{name}}.",
+        "statusSystem": "Kolorami zarządza system operacyjny.",
+        "statusUnavailable": "Zarządzanie kolorem wymaga renderera GPU.",
+        "wideGamut": "Podgląd w szerokim gamucie ({{space}}).",
+        "wideGamutHdrNote": "Nieużywane, gdy edytor wyświetla HDR.",
+        "wideGamutPreview": "Podgląd szerokiego gamutu",
+        "wideGamutPreviewDesc": "Wyświetla kolory spoza sRGB na monitorach o szerokim gamucie. Włącz, jeśli eksportujesz do Display P3, Adobe RGB lub innej szerokiej przestrzeni barw. Wyłączone pokazuje, jak będzie wyglądał eksport sRGB.",
+        "wideGamutPreviewEnable": "Pokaż kolory szerokiego gamutu"
+      },
       "defaultAdjustments": {
         "addCamera": "Dodaj aparat…",
         "applyToNonRaw": "Stosuj także do plików JPEG, TIFF, PNG i innych plików innych niż RAW",
@@ -2251,6 +2298,9 @@
         "sliderResetNeutral": "Wartość neutralna",
         "title": "Domyślne ustawienia"
       },
+      "display": {
+        "title": "Wyświetlacz"
+      },
       "dynamicDesc": "Edytor renderuje podgląd tak, aby odpowiadał rzeczywistej gęstości pikseli twojego wyświetlacza. Zapewnia to oddanie każdego szczegółu w proporcji 1:1, dostarczając maksymalnej jasności przy zbliżaniu i sprawdzaniu ostrości.",
       "editIn": {
         "add": "Dodaj program",
@@ -2268,6 +2318,16 @@
         "title": "Edytuj w"
       },
       "enableLivePreviews": "Włącz interaktywny podgląd na żywo",
+      "hdr": {
+        "display": "Wyświetlanie HDR",
+        "displayDesc": "Pokazuje światła jaśniejsze niż zwykła biel na ekranie HDR. Cienie i półtony pozostają bez zmian, a standardowe eksporty nie są zmieniane.",
+        "enableDisplay": "Używaj HDR w edytorze",
+        "headroom": "Zakres świateł",
+        "headroomDesc": "Jak bardzo światła mogą przekraczać zwykłą biel. Dotyczy także eksportów HDR.",
+        "statusActive": "Ten ekran działa w trybie HDR.",
+        "statusInactive": "Ten ekran nie działa w trybie HDR. Włącz HDR w systemowych ustawieniach ekranu, aby zobaczyć efekt.",
+        "statusUnsupported": "HDR wymaga renderera GPU w systemie Windows lub macOS."
+      },
       "highDpi": "Renderowanie High-DPI",
       "highDpiDesc": "Renderuj podglądy w natywnej {{dpr}}x rozdzielczości pikseli fizycznych twojego ekranu. Zapewnia najostrzejszy z możliwych podglądów, ale zużywa znacznie więcej pamięci.",
       "highDpiDescStandard": "To ustawienie wpływa tylko na wyświetlacze high-DPI (np. Retina). Twój obecny wyświetlacz ma standardową rozdzielczość.",
@@ -2336,6 +2396,13 @@
       "qualities": {
         "high": "Wysoka jakość",
         "performance": "Wydajność"
+      },
+      "rawDecoding": "Dekodowanie RAW",
+      "rawDecodingDesc": "Wybierz, gdzie dekodowane są pliki RAW. 'Auto' używa GPU i przełącza się na CPU, jeśli GPU nie radzi sobie z Twoimi zdjęciami. 'GPU' zawsze najpierw próbuje GPU. 'CPU' jest wolniejsze, ale działa na każdym systemie.",
+      "rawDecodingOptions": {
+        "auto": "Auto",
+        "cpu": "CPU",
+        "gpu": "GPU"
       },
       "renderScale": "Skala rozdzielczości renderowania",
       "renderScaleDesc": "Skaluje rozdzielczość względem twojego ekranu. Niższe wartości poprawiają wydajność na ekranach o wysokiej rozdzielczości kosztem ostrości.",

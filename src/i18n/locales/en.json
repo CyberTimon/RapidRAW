@@ -931,6 +931,9 @@
         "masks": "Masks"
       },
       "title": "Presets",
+      "toasts": {
+        "importFailed": "Failed to import {{fileName}}: {{error}}"
+      },
       "tooltips": {
         "explore": "Explore Community Presets",
         "export": "Export all presets to .rrpreset file",
@@ -973,6 +976,7 @@
         "compare": "Before / After (B) or Modes (Right-click)",
         "focalLength": "Focal Length",
         "fullscreen": "Toggle Fullscreen (F)",
+        "hdr": "HDR Preview",
         "iso": "ISO",
         "redo": "Redo (Ctrl+Y) or History (Right-click)",
         "shutterSpeed": "Shutter Speed",
@@ -1029,7 +1033,13 @@
       "selectFolderTitle_other": "Select Folder to Export {{count}} Images"
     },
     "file": {
+      "colorSpace": "Color space",
       "dpi": "DPI",
+      "hdr": "HDR output",
+      "hdrJpegHint": "Adds a gain map: HDR screens show brighter highlights, everything else shows the normal photo.",
+      "hdrJxlHint": "Saves a true HDR file (PQ, Rec. 2020). Needs an HDR-capable viewer.",
+      "hdrNoPreview": "This display can't show the HDR highlights. The export will still contain them.",
+      "hdrPreviewOff": "Turn on HDR in the editor toolbar to preview the highlights.",
       "quality": "Quality",
       "qualityLossless": "Quality (Lossless)",
       "resolution": "Resolution",
@@ -1738,18 +1748,35 @@
       "zoomOutTooltip": "Zoom Out"
     },
     "panorama": {
+      "autoCrop": "Auto Crop",
+      "autoProjectionUsed": "Using {{projection}}",
+      "boundaryWarp": "Boundary Warp",
+      "boundaryWarpHint": "Stretches the edges to fill the frame instead of cropping them away.",
       "cancel": "Cancel",
       "close": "Close",
       "descCount": "Combine {{count}} overlapping images into a seamless panorama.",
       "descCount_one": "Combine {{count}} overlapping image into a seamless panorama.",
       "descCount_other": "Combine {{count}} overlapping images into a seamless panorama.",
       "descGeneric": "Combine your overlapping images into a seamless panorama.",
+      "excludedImages": "{{count}} images couldn't be matched and were left out",
+      "excludedImages_one": "{{count}} image couldn't be matched and was left out",
+      "excludedImages_other": "{{count}} images couldn't be matched and were left out",
+      "exposureCompensation": "Exposure Compensation",
+      "exposureCompensationHint": "Evens out exposure, white balance and vignetting between the images.",
       "failed": "Panorama Failed",
       "initializing": "Initializing...",
       "openInEditor": "Open in Editor",
+      "outputInfo": "{{images}} images · {{width}} × {{height}} px",
+      "projection": "Projection",
+      "projectionAuto": "Auto",
+      "projectionCylindrical": "Cylindrical",
+      "projectionFallback": "{{requested}} can't cover this field of view, using {{projection}}",
+      "projectionPerspective": "Perspective",
+      "projectionSpherical": "Spherical",
       "retry": "Retry",
       "save": "Save",
       "savedSuccess": "Panorama Saved Successfully!",
+      "saving": "Saving…",
       "speedNotice": "This may take a few minutes depending on the number and size of images.",
       "start": "Start",
       "stitchingProgress": "Stitching Panorama",
@@ -2142,6 +2169,24 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "colorManagement": {
+        "chooseProfile": "Choose Profile",
+        "modeAuto": "Automatic (system profile)",
+        "modeCustom": "Custom ICC profile",
+        "modeOff": "Off",
+        "profile": "Monitor Profile",
+        "profileDesc": "Converts the editor preview to your monitor's color profile, so colors look right on calibrated and wide gamut displays. Exports are not affected.",
+        "statusInvalid": "This profile could not be loaded.",
+        "statusNone": "No monitor profile found. The preview is shown as sRGB.",
+        "statusProfile": "Using {{name}}.",
+        "statusSystem": "Colors are managed by the operating system.",
+        "statusUnavailable": "Color management needs the GPU renderer.",
+        "wideGamut": "Wide gamut preview ({{space}}).",
+        "wideGamutHdrNote": "Not used while the editor shows HDR.",
+        "wideGamutPreview": "Wide Gamut Preview",
+        "wideGamutPreviewDesc": "Shows colors beyond sRGB on wide gamut monitors. Turn this on when you export in Display P3, Adobe RGB or another wide color space. Leave it off to see what an sRGB export will look like.",
+        "wideGamutPreviewEnable": "Show wide gamut colors"
+      },
       "defaultAdjustments": {
         "addCamera": "Add camera…",
         "applyToNonRaw": "Also apply to JPEG, TIFF, PNG and other non-RAW files",
@@ -2167,6 +2212,9 @@
         "sliderResetNeutral": "Neutral value",
         "title": "Default Adjustments"
       },
+      "display": {
+        "title": "Display"
+      },
       "dynamicDesc": "The editor renders the preview to match your display's actual pixel density. This ensures that every detail is represented with 1:1 pixel accuracy, providing maximum clarity when zooming and checking focus.",
       "editIn": {
         "add": "Add Program",
@@ -2184,6 +2232,16 @@
         "title": "Edit In"
       },
       "enableLivePreviews": "Enable Live Previews",
+      "hdr": {
+        "display": "HDR Display",
+        "displayDesc": "Shows highlights brighter than normal white on an HDR display. Shadows and midtones stay the same, and standard exports are not affected.",
+        "enableDisplay": "Use HDR in the editor",
+        "headroom": "Highlight Range",
+        "headroomDesc": "How far highlights may rise above normal white. Also used for HDR exports.",
+        "statusActive": "This display is in HDR mode.",
+        "statusInactive": "This display is not in HDR mode. Turn on HDR in the system display settings to see the effect.",
+        "statusUnsupported": "HDR needs the GPU renderer on Windows or macOS."
+      },
       "highDpi": "High-DPI Rendering",
       "highDpiDesc": "Render previews at your screen's native {{dpr}}x physical pixel resolution. Produces the sharpest possible preview but uses significantly more memory.",
       "highDpiDescStandard": "This setting only affects high-DPI displays. Your current display is standard resolution.",
@@ -2252,6 +2310,13 @@
       "qualities": {
         "high": "High Quality",
         "performance": "Performance"
+      },
+      "rawDecoding": "RAW Decoding",
+      "rawDecodingDesc": "Select where RAW files are decoded. 'Auto' uses the GPU and switches to the CPU if it can't handle your images. 'GPU' always tries the GPU first. 'CPU' is slower but works on every system.",
+      "rawDecodingOptions": {
+        "auto": "Auto",
+        "cpu": "CPU",
+        "gpu": "GPU"
       },
       "renderScale": "Render Resolution Scale",
       "renderScaleDesc": "Scales the render resolution relative to your display. Lower values improve performance on high-resolution screens at the cost of some sharpness.",

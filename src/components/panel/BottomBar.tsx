@@ -12,13 +12,12 @@ import { SelectedImage } from '../../types/editor';
 import { ThumbnailAspectRatio } from '../../types/settings';
 import FlagToggles from './library/FlagToggles';
 import Text from '../ui/Text';
-import { useEditorStore } from '../../store/useEditorStore';
+import { getZoomContentSize, getZoomPercent, useEditorStore } from '../../store/useEditorStore';
 import { useLibraryActions } from '../../hooks/useLibraryActions';
 import { getReopenedPanelWidth, isFilmstripDocked, useUIStore } from '../../store/useUIStore';
 import { Panel } from '../../types/ui';
 import { PanelTabButton } from './PanelSwitcher';
 import { QuickFilterControls, useQuickFilterToggle } from './QuickFilter';
-import { getDevicePixelRatio } from '../../utils/displayScale';
 
 interface BottomBarProps {
   filmstripHeight?: number;
@@ -199,10 +198,11 @@ export default function BottomBar({
       uiVisibility: { ...s.uiVisibility, filmstrip: !s.uiVisibility.filmstrip },
     }));
 
-  const { displaySize, originalSize } = useEditorStore(
+  const { displayWidth, contentWidth, zoomPercent } = useEditorStore(
     useShallow((state) => ({
-      displaySize: state.displaySize,
-      originalSize: state.originalSize,
+      displayWidth: state.displaySize.width,
+      contentWidth: getZoomContentSize(state).width,
+      zoomPercent: getZoomPercent(state),
     })),
   );
 
@@ -213,9 +213,9 @@ export default function BottomBar({
 
   const percentInputRef = useRef<HTMLInputElement>(null);
   const [isZoomLabelHovered, setIsZoomLabelHovered] = useState(false);
-  const isZoomReady = !isLoading && originalSize && originalSize.width > 0 && displaySize && displaySize.width > 0;
+  const isZoomReady = !isLoading && contentWidth > 0 && displayWidth > 0;
 
-  const currentOriginalPercent = isZoomReady ? (displaySize.width * getDevicePixelRatio()) / originalSize.width : 1.0;
+  const currentOriginalPercent = isZoomReady ? zoomPercent : 1.0;
 
   const [latchedSliderValue, setLatchedSliderValue] = useState(1.0);
   const [latchedDisplayPercent, setLatchedDisplayPercent] = useState(100);

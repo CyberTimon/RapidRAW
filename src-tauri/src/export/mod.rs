@@ -1,4 +1,5 @@
 pub mod encode;
+pub mod gain_map;
 pub mod geometry;
 pub mod masks;
 pub mod original;
@@ -50,7 +51,7 @@ use crate::render::adjustment_utils::hydrate_adjustments;
 use crate::render::gpu::context::{GpuContext, get_or_init_gpu_context};
 use crate::render::gpu::output::process_and_get_dynamic_image_with_precision;
 use crate::render::gpu::processor::{RenderOutputPrecision, RenderRequest};
-use crate::render::options::resolve_render_options_from_handle;
+use crate::render::options::RenderOptions;
 use crate::render::preview::cached_patched_image;
 use crate::render::source::{RenderSource, fit_to_gpu, source_id};
 use crate::render::uniforms::get_all_adjustments_from_json;
@@ -65,9 +66,8 @@ fn process_image_for_export_pipeline(
     state: &tauri::State<AppState>,
     is_raw: bool,
     debug_tag: &str,
-    app_handle: &tauri::AppHandle,
-    output_precision: RenderOutputPrecision,
-) -> Result<DynamicImage, String> {
+    renders: &[(RenderOptions, RenderOutputPrecision)],
+) -> Result<Vec<DynamicImage>, String> {
     let (fitted, fit_scale) = fit_to_gpu(context, base_image);
     let scale = fit_scale * base_scale;
     let source = RenderSource::edited(
@@ -107,36 +107,45 @@ fn process_image_for_export_pipeline(
         })
         .collect();
 
-    let render = resolve_render_options_from_handle(app_handle, is_raw);
-    let mut all_adjustments =
-        get_all_adjustments_from_json(js_adjustments, is_raw, as_shot(path), render);
-    all_adjustments.global.show_clipping = 0;
-
     let lut_path = js_adjustments["lutPath"].as_str();
     let lut = lut_path.and_then(|p| get_or_load_lut(state, p).ok());
 
-    process_and_get_dynamic_image_with_precision(
-        context,
-        state,
-        &source,
-        RenderRequest {
-            adjustments: all_adjustments,
-            mask_bitmaps: &mask_bitmaps,
-            mask_cache_key: None,
-            lut,
-            roi: None,
-            hsl_probe: false,
-            motion_blur: crate::effects::motion_blur::MotionBlurs::new(
-                path,
-                js_adjustments,
-                (img_w, img_h),
-                crop_offset,
-                base_image.width().max(base_image.height()) as f32 * fit_scale,
-            ),
-        },
-        debug_tag,
-        output_precision,
-    )
+    renders
+        .iter()
+        .map(|(render, output_precision)| {
+            let mut all_adjustments =
+                get_all_adjustments_from_json(js_adjustments, is_raw, as_shot(path), *render);
+            all_adjustments.global.show_clipping = 0;
+
+            process_and_get_dynamic_image_with_precision(
+                context,
+                state,
+                &source,
+                RenderRequest {
+                    adjustments: all_adjustments,
+                    mask_bitmaps: &mask_bitmaps,
+                    mask_cache_key: None,
+                    lut: lut.clone(),
+                    roi: None,
+                    hsl_probe: false,
+                    motion_blur: crate::effects::motion_blur::MotionBlurs::new(
+                        path,
+                        js_adjustments,
+                        (img_w, img_h),
+                        crop_offset,
+                        base_image.width().max(base_image.height()) as f32 * fit_scale,
+                    ),
+                },
+                debug_tag,
+                *output_precision,
+            )
+        })
+        .collect()
+}
+
+struct ExportImage {
+    image: DynamicImage,
+    hdr: Option<DynamicImage>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -151,8 +160,20 @@ fn process_image_for_export(
     is_raw: bool,
     app_handle: &tauri::AppHandle,
     output_format: &str,
-) -> Result<DynamicImage, String> {
-    let processed_image = process_image_for_export_pipeline(
+) -> Result<ExportImage, String> {
+    let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let color_space = export_settings.color_space_for(output_format);
+    let mut renders = vec![(
+        export_settings.render_options(output_format, &settings, is_raw),
+        render_output_precision(output_format, export_settings),
+    )];
+    renders.extend(
+        export_settings
+            .gain_map_render_options(output_format, &settings, is_raw)
+            .map(|options| (options, RenderOutputPrecision::Float)),
+    );
+
+    let mut images = process_image_for_export_pipeline(
         path,
         base_image,
         base_scale,
@@ -161,11 +182,18 @@ fn process_image_for_export(
         state,
         is_raw,
         "process_image_for_export",
-        app_handle,
-        render_output_precision(output_format, export_settings),
-    )?;
+        &renders,
+    )?
+    .into_iter()
+    .map(|image| {
+        apply_export_geometry_and_watermark(image, export_settings, color_space)
+            .map(|(image, _)| image)
+    });
 
-    apply_export_geometry_and_watermark(processed_image, export_settings).map(|(image, _)| image)
+    Ok(ExportImage {
+        image: images.next().ok_or("Export produced no image")??,
+        hdr: images.next().transpose()?,
+    })
 }
 
 fn wait_for_ai_bases(
@@ -378,25 +406,13 @@ pub(crate) async fn export_images_impl(
 
                 hydrate_adjustments(&state, &mut js_adjustments);
                 let is_raw = is_raw_file(&source_path_str);
-                let original_path = std::path::Path::new(&source_path_str);
-                let file_date = exif_processing::get_creation_date_from_path(original_path);
-
-                let filename_template = export_settings
-                    .filename_template
-                    .as_deref()
-                    .unwrap_or("{original_filename}_edited");
-
-                let mut new_stem = generate_filename_from_template(
-                    filename_template,
-                    original_path,
+                let new_stem = export_file_stem(
+                    export_settings.filename_template.as_deref(),
+                    &source_path,
                     global_index + 1,
                     total_paths,
-                    &file_date,
+                    copy_number,
                 );
-
-                if let Some(copy_number) = copy_number {
-                    new_stem = format!("{}_VC{:02}", new_stem, copy_number);
-                }
 
                 let new_filename = format!("{}.{}", new_stem, output_format);
 
@@ -621,7 +637,8 @@ pub(crate) async fn export_images_impl(
                     }
                     ensure_export_not_cancelled(&cancellation_token_clone)?;
                     save_image_with_metadata(
-                        &final_image,
+                        &final_image.image,
+                        final_image.hdr.as_ref(),
                         &output_path,
                         &source_path_str,
                         &export_xmp,
@@ -653,7 +670,8 @@ pub(crate) async fn export_images_impl(
                         ensure_export_not_cancelled(&cancellation_token_clone)?;
                         let original_path = original_output_path(&output_path);
                         save_image_with_metadata(
-                            &original_image,
+                            &original_image.image,
+                            original_image.hdr.as_ref(),
                             &original_path,
                             &source_path_str,
                             &export_xmp,
@@ -808,6 +826,39 @@ pub(crate) async fn export_images_and_wait(
     }
 }
 
+fn export_file_stem(
+    filename_template: Option<&str>,
+    source_path: &std::path::Path,
+    sequence: usize,
+    total: usize,
+    copy_number: Option<usize>,
+) -> String {
+    let file_date = exif_processing::get_creation_date_from_path(source_path);
+    let stem = generate_filename_from_template(
+        filename_template.unwrap_or("{original_filename}_edited"),
+        source_path,
+        sequence,
+        total,
+        &file_date,
+    );
+    match copy_number {
+        Some(copy_number) => format!("{}_VC{:02}", stem, copy_number),
+        None => stem,
+    }
+}
+
+#[tauri::command]
+pub async fn resolve_export_file_stem(path: String, filename_template: Option<String>) -> String {
+    let (source_path, _) = parse_virtual_path(&path);
+    export_file_stem(
+        filename_template.as_deref(),
+        &source_path,
+        1,
+        1,
+        path.contains("?vc=").then_some(1),
+    )
+}
+
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn export_images(
@@ -887,6 +938,8 @@ pub async fn run_headless_export(
     let export_settings = ExportSettings {
         jpeg_quality: session.quality,
         tiff_bit_depth: session.tiff_bit_depth,
+        color_space: session.color_space,
+        hdr: session.hdr,
         resize: None,
         border: None,
         pad: None,

@@ -65,13 +65,15 @@ pub fn process_and_get_dynamic_image_with_analytics(
     display_output: Option<DisplayOutput>,
     analytics_config: Option<AnalyticsConfig>,
 ) -> Result<DynamicImage, String> {
+    let output_precision =
+        display_output.map_or(RenderOutputPrecision::EightBit, |output| output.precision);
     process_and_get_dynamic_image_inner(
         context,
         state,
         source,
         request,
         caller_id,
-        RenderOutputPrecision::EightBit,
+        output_precision,
         display_output,
         analytics_config,
     )
@@ -82,7 +84,7 @@ fn process_and_get_dynamic_image_inner(
     context: &GpuContext,
     state: &tauri::State<AppState>,
     source: &RenderSource,
-    request: RenderRequest,
+    mut request: RenderRequest,
     caller_id: &str,
     output_precision: RenderOutputPrecision,
     display_output: Option<DisplayOutput>,
@@ -241,7 +243,22 @@ fn process_and_get_dynamic_image_inner(
     };
 
     let skip_readback = output_to_display;
+    let display_textures =
+        output_to_display.then(|| processor.display_textures(output_precision.texture_format()));
+    let shows_edited = display_layer == Some(DisplayLayer::Edited);
+    if shows_edited
+        && display_textures
+            .as_ref()
+            .is_some_and(|textures| !textures.has_edited_frame())
+    {
+        request.roi = None;
+    }
 
+    let output_peak = if output_precision.is_high() {
+        request.adjustments.global.output_peak.max(1.0)
+    } else {
+        1.0
+    };
     let (processed_pixels, out_w, out_h, out_x, out_y) = processor.run(
         input,
         &mask_view,
@@ -258,8 +275,9 @@ fn process_and_get_dynamic_image_inner(
     let mut async_readback_buffer: Option<wgpu::Buffer> = None;
     let mut async_padded_bpr: u32 = 0;
 
-    if analytics_config.is_some() && skip_readback {
-        let unpadded_bytes_per_row = 4 * out_w;
+    if let (true, Some(display_textures)) = (analytics_config.is_some(), &display_textures) {
+        let bytes_per_pixel = if output_precision.is_high() { 8 } else { 4 };
+        let unpadded_bytes_per_row = bytes_per_pixel * out_w;
         let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
         let padded_bytes_per_row = (unpadded_bytes_per_row + align - 1) & !(align - 1);
         let output_buffer_size = (padded_bytes_per_row * out_h) as u64;
@@ -268,7 +286,7 @@ fn process_and_get_dynamic_image_inner(
 
         final_encoder.copy_texture_to_buffer(
             wgpu::TexelCopyTextureInfo {
-                texture: &processor.display_textures().working_texture,
+                texture: &display_textures.working_texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d {
                     x: out_x,
@@ -302,17 +320,17 @@ fn process_and_get_dynamic_image_inner(
     let mut display = display_lock.as_mut().and_then(|d| d.as_mut());
 
     let display_target = match display_layer {
-        Some(DisplayLayer::Edited) => Some(&processor.display_textures().output_texture),
-        Some(DisplayLayer::Original) => display
-            .as_deref_mut()
-            .map(|display| display.original_texture(device, width, height)),
+        Some(DisplayLayer::Edited) => display_textures.as_ref().map(|t| &t.output_texture),
+        Some(DisplayLayer::Original) => display.as_deref_mut().map(|display| {
+            display.original_texture(device, width, height, output_precision.texture_format())
+        }),
         None => None,
     };
 
-    if let Some(target) = display_target {
+    if let (Some(target), Some(display_textures)) = (display_target, &display_textures) {
         final_encoder.copy_texture_to_texture(
             wgpu::TexelCopyTextureInfo {
-                texture: &processor.display_textures().working_texture,
+                texture: &display_textures.working_texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d {
                     x: out_x,
@@ -341,6 +359,12 @@ fn process_and_get_dynamic_image_inner(
     }
 
     let final_submission = submit_final_encoder.then(|| queue.submit(Some(final_encoder.finish())));
+    if shows_edited
+        && (out_w, out_h) == (width, height)
+        && let Some(textures) = &display_textures
+    {
+        textures.mark_edited_frame();
+    }
 
     if let Some(analytics) = analytics_config {
         if let (Some(output_buffer), Some(submission)) = (async_readback_buffer, final_submission) {
@@ -353,6 +377,8 @@ fn process_and_get_dynamic_image_inner(
                 width: out_w,
                 height: out_h,
                 row_stride: async_padded_bpr as usize,
+                half_float: output_precision.is_high(),
+                peak: output_peak,
             });
         } else {
             if let RenderedPixels::U8(pixels) = &processed_pixels {
@@ -363,6 +389,8 @@ fn process_and_get_dynamic_image_inner(
                         width: out_w,
                         height: out_h,
                         row_stride: out_w as usize * 4,
+                        peak: 1.0,
+                        space: analytics.space,
                     },
                     compute_waveform: analytics.compute_waveform,
                     active_waveform_channel: analytics.active_waveform_channel,
@@ -375,12 +403,14 @@ fn process_and_get_dynamic_image_inner(
 
     let image_size = [width as f32, height as f32];
     let texture_size = [processor_state.width as f32, processor_state.height as f32];
-    if let (Some(layer), Some(display)) = (display_layer, display) {
+    if let (Some(layer), Some(display), Some(display_textures)) =
+        (display_layer, display, &display_textures)
+    {
         match layer {
             DisplayLayer::Edited => display.show_texture(
                 device,
                 queue,
-                &processor.display_textures().output_texture_view,
+                &display_textures.output_texture_view,
                 image_size,
                 texture_size,
                 display_output.map(|output| output.content),
@@ -395,6 +425,7 @@ fn process_and_get_dynamic_image_inner(
     drop(display_lock);
 
     if display_output.is_some_and(|output| output.to_viewer)
+        && let Some(display_textures) = &display_textures
         && let Some(display) = context
             .viewer_display
             .lock()
@@ -404,7 +435,7 @@ fn process_and_get_dynamic_image_inner(
         display.show_frame(
             device,
             queue,
-            &processor.display_textures().working_texture,
+            &display_textures.working_texture,
             [width, height],
             context.limits.max_texture_dimension_2d,
         );
@@ -444,6 +475,19 @@ fn process_and_get_dynamic_image_inner(
             let img_buf = ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(out_w, out_h, pixels)
                 .ok_or("Failed to create 8-bit image buffer from GPU data")?;
             Ok(DynamicImage::ImageRgba8(img_buf))
+        }
+        RenderedPixels::U16(pixels) if output_precision == RenderOutputPrecision::Float => {
+            use rayon::prelude::*;
+            let samples = pixels
+                .par_iter()
+                .map(|sample| {
+                    let value = f16::from_bits(*sample).to_f32();
+                    if value.is_finite() { value } else { 0.0 }
+                })
+                .collect();
+            let img_buf = ImageBuffer::<Rgba<f32>, Vec<f32>>::from_raw(out_w, out_h, samples)
+                .ok_or("Failed to create float image buffer from GPU data")?;
+            Ok(DynamicImage::ImageRgba32F(img_buf))
         }
         RenderedPixels::U16(mut pixels) => {
             use rayon::prelude::*;

@@ -931,6 +931,9 @@
         "masks": "Masken"
       },
       "title": "Vorgaben",
+      "toasts": {
+        "importFailed": "Import von {{fileName}} fehlgeschlagen: {{error}}"
+      },
       "tooltips": {
         "explore": "Community-Vorgaben entdecken",
         "export": "Alle Vorgaben als .rrpreset exportieren",
@@ -973,6 +976,7 @@
         "compare": "Vorher / Nachher (B) oder Modi (Rechtsklick)",
         "focalLength": "Brennweite",
         "fullscreen": "Vollbild umschalten (F)",
+        "hdr": "HDR-Vorschau",
         "iso": "ISO",
         "redo": "Wiederholen (Strg+Y) oder Verlauf (Rechtsklick)",
         "shutterSpeed": "Verschlusszeit",
@@ -1029,7 +1033,13 @@
       "selectFolderTitle_other": "Ordner zum Exportieren von {{count}} Bildern auswählen"
     },
     "file": {
+      "colorSpace": "Farbraum",
       "dpi": "DPI",
+      "hdr": "HDR-Ausgabe",
+      "hdrJpegHint": "Fügt eine Gain Map hinzu: HDR-Bildschirme zeigen hellere Lichter, alles andere zeigt das normale Foto.",
+      "hdrJxlHint": "Speichert eine echte HDR-Datei (PQ, Rec. 2020). Benötigt einen HDR-fähigen Betrachter.",
+      "hdrNoPreview": "Dieses Display kann die HDR-Lichter nicht anzeigen. Der Export enthält sie trotzdem.",
+      "hdrPreviewOff": "Aktiviere HDR in der Editor-Symbolleiste, um die Lichter in der Vorschau zu sehen.",
       "quality": "Qualität",
       "qualityLossless": "Qualität (Verlustfrei)",
       "resolution": "Auflösung",
@@ -1738,18 +1748,35 @@
       "zoomOutTooltip": "Verkleinern"
     },
     "panorama": {
+      "autoCrop": "Automatisch zuschneiden",
+      "autoProjectionUsed": "Verwendet: {{projection}}",
+      "boundaryWarp": "Begrenzungsverkrümmung",
+      "boundaryWarpHint": "Dehnt die Ränder, um das Bild zu füllen, statt sie wegzuschneiden.",
       "cancel": "Abbrechen",
       "close": "Schließen",
       "descCount": "Kombinieren Sie {{count}} überlappende Bilder zu einem nahtlosen Panorama.",
       "descCount_one": "Kombinieren Sie {{count}} überlappendes Bild zu einem nahtlosen Panorama.",
       "descCount_other": "Kombinieren Sie {{count}} überlappende Bilder zu einem nahtlosen Panorama.",
       "descGeneric": "Kombinieren Sie Ihre überlappenden Bilder zu einem nahtlosen Panorama.",
+      "excludedImages": "{{count}} Bilder konnten nicht zugeordnet werden und wurden ausgelassen",
+      "excludedImages_one": "{{count}} Bild konnte nicht zugeordnet werden und wurde ausgelassen",
+      "excludedImages_other": "{{count}} Bilder konnten nicht zugeordnet werden und wurden ausgelassen",
+      "exposureCompensation": "Belichtungsausgleich",
+      "exposureCompensationHint": "Gleicht Belichtung, Weißabgleich und Vignettierung zwischen den Bildern an.",
       "failed": "Panorama fehlgeschlagen",
       "initializing": "Wird initialisiert...",
       "openInEditor": "Im Editor öffnen",
+      "outputInfo": "{{images}} Bilder · {{width}} × {{height}} px",
+      "projection": "Projektion",
+      "projectionAuto": "Automatisch",
+      "projectionCylindrical": "Zylindrisch",
+      "projectionFallback": "{{requested}} deckt dieses Blickfeld nicht ab, verwendet: {{projection}}",
+      "projectionPerspective": "Perspektivisch",
+      "projectionSpherical": "Sphärisch",
       "retry": "Wiederholen",
       "save": "Speichern",
       "savedSuccess": "Panorama erfolgreich gespeichert!",
+      "saving": "Speichern…",
       "speedNotice": "Dies kann je nach Anzahl und Größe der Bilder einige Minuten dauern.",
       "start": "Start",
       "stitchingProgress": "Panorama wird zusammengefügt",
@@ -2142,6 +2169,24 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "colorManagement": {
+        "chooseProfile": "Profil wählen",
+        "modeAuto": "Automatisch (Systemprofil)",
+        "modeCustom": "Eigenes ICC-Profil",
+        "modeOff": "Aus",
+        "profile": "Monitorprofil",
+        "profileDesc": "Wandelt die Editor-Vorschau in das Farbprofil deines Monitors um, damit Farben auf kalibrierten und Wide-Gamut-Displays stimmen. Exporte sind nicht betroffen.",
+        "statusInvalid": "Dieses Profil konnte nicht geladen werden.",
+        "statusNone": "Kein Monitorprofil gefunden. Die Vorschau wird als sRGB angezeigt.",
+        "statusProfile": "Verwendet {{name}}.",
+        "statusSystem": "Die Farben werden vom Betriebssystem verwaltet.",
+        "statusUnavailable": "Farbmanagement benötigt den GPU-Renderer.",
+        "wideGamut": "Wide-Gamut-Vorschau ({{space}}).",
+        "wideGamutHdrNote": "Nicht aktiv, solange der Editor HDR anzeigt.",
+        "wideGamutPreview": "Wide-Gamut-Vorschau",
+        "wideGamutPreviewDesc": "Zeigt auf Wide-Gamut-Monitoren Farben jenseits von sRGB. Aktiviere dies, wenn du in Display P3, Adobe RGB oder einem anderen großen Farbraum exportierst. Deaktiviert siehst du, wie ein sRGB-Export aussehen wird.",
+        "wideGamutPreviewEnable": "Wide-Gamut-Farben anzeigen"
+      },
       "defaultAdjustments": {
         "addCamera": "Kamera hinzufügen…",
         "applyToNonRaw": "Auch auf JPEG, TIFF, PNG und andere Nicht-RAW-Dateien anwenden",
@@ -2167,6 +2212,9 @@
         "sliderResetNeutral": "Neutraler Wert",
         "title": "Standardanpassungen"
       },
+      "display": {
+        "title": "Anzeige"
+      },
       "dynamicDesc": "Der Editor rendert die Vorschau passend zur tatsächlichen Pixeldichte Ihres Displays. Dies sorgt für 1:1 Pixelgenauigkeit und maximale Klarheit beim Zoomen.",
       "editIn": {
         "add": "Programm hinzufügen",
@@ -2184,6 +2232,16 @@
         "title": "Bearbeiten in"
       },
       "enableLivePreviews": "Live-Vorschauen aktivieren",
+      "hdr": {
+        "display": "HDR-Anzeige",
+        "displayDesc": "Zeigt Lichter auf einem HDR-Bildschirm heller als normales Weiß. Schatten und Mitteltöne bleiben gleich, normale Exporte sind nicht betroffen.",
+        "enableDisplay": "HDR im Editor verwenden",
+        "headroom": "Lichterumfang",
+        "headroomDesc": "Wie weit Lichter über normales Weiß hinausgehen dürfen. Gilt auch für HDR-Exporte.",
+        "statusActive": "Dieser Bildschirm ist im HDR-Modus.",
+        "statusInactive": "Dieser Bildschirm ist nicht im HDR-Modus. Aktiviere HDR in den Anzeigeeinstellungen des Systems, um den Effekt zu sehen.",
+        "statusUnsupported": "HDR benötigt den GPU-Renderer unter Windows oder macOS."
+      },
       "highDpi": "High-DPI Rendering",
       "highDpiDesc": "Rendern Sie Vorschauen in der nativen {{dpr}}x Auflösung Ihres Bildschirms. Erzeugt die schärfste Vorschau, verbraucht aber mehr Speicher.",
       "highDpiDescStandard": "Diese Einstellung betrifft nur High-DPI-Displays. Ihr aktuelles Display hat Standardauflösung.",
@@ -2252,6 +2310,13 @@
       "qualities": {
         "high": "Hohe Qualität",
         "performance": "Leistung"
+      },
+      "rawDecoding": "RAW-Decodierung",
+      "rawDecodingDesc": "Wählen Sie, wo RAW-Dateien decodiert werden. 'Auto' verwendet die GPU und wechselt zur CPU, wenn sie Ihre Bilder nicht verarbeiten kann. 'GPU' versucht es immer zuerst mit der GPU. 'CPU' ist langsamer, funktioniert aber auf jedem System.",
+      "rawDecodingOptions": {
+        "auto": "Auto",
+        "cpu": "CPU",
+        "gpu": "GPU"
       },
       "renderScale": "Render-Auflösungsskalierung",
       "renderScaleDesc": "Skaliert die Renderauflösung relativ zu Ihrem Display. Niedrigere Werte verbessern die Leistung auf hochauflösenden Bildschirmen.",

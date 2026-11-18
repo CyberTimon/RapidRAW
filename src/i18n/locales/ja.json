@@ -928,6 +928,9 @@
         "masks": "マスク"
       },
       "title": "プリセット",
+      "toasts": {
+        "importFailed": "{{fileName}} のインポートに失敗しました: {{error}}"
+      },
       "tooltips": {
         "explore": "コミュニティのプリセットを検索",
         "export": "すべてのプリセットを .rrpreset ファイルとして書き出し",
@@ -970,6 +973,7 @@
         "compare": "補正前 / 補正後 (B) またはモード (右クリック)",
         "focalLength": "焦点距離",
         "fullscreen": "全画面表示切り替え (F)",
+        "hdr": "HDR プレビュー",
         "iso": "ISO感度",
         "redo": "やり直し (Ctrl+Y) または履歴 (右クリック)",
         "shutterSpeed": "シャッタースピード",
@@ -1026,7 +1030,13 @@
       "selectFolderTitle_other": "{{count}} 枚の画像を書き出すフォルダを選択"
     },
     "file": {
+      "colorSpace": "カラースペース",
       "dpi": "DPI",
+      "hdr": "HDR出力",
+      "hdrJpegHint": "ゲインマップを追加します。HDR画面ではハイライトがより明るく表示され、それ以外では通常の写真が表示されます。",
+      "hdrJxlHint": "本来のHDRファイル（PQ、Rec. 2020）として保存します。HDR対応のビューアが必要です。",
+      "hdrNoPreview": "このディスプレイでは HDR のハイライトを表示できません。書き出したファイルには含まれます。",
+      "hdrPreviewOff": "ハイライトをプレビューするには、エディターのツールバーで HDR をオンにしてください。",
       "quality": "画質",
       "qualityLossless": "画質 (ロスレス)",
       "resolution": "解像度",
@@ -1732,18 +1742,35 @@
       "zoomOutTooltip": "縮小"
     },
     "panorama": {
+      "autoCrop": "自動切り抜き",
+      "autoProjectionUsed": "使用中: {{projection}}",
+      "boundaryWarp": "境界のワープ",
+      "boundaryWarpHint": "端を切り抜く代わりに引き伸ばしてフレームを埋めます。",
       "cancel": "キャンセル",
       "close": "閉じる",
       "descCount": "{{count}} 枚の重複する画像をシームレスなパノラマに結合します。",
       "descCount_one": "{{count}} 枚の重複する画像をシームレスなパノラマに結合します。",
       "descCount_other": "{{count}} 枚の重複する画像をシームレスなパノラマに結合します。",
       "descGeneric": "重複する画像をシームレスなパノラマに結合します。",
+      "excludedImages": "{{count}} 枚の画像は一致しなかったため除外されました",
+      "excludedImages_one": "{{count}} 枚の画像は一致しなかったため除外されました",
+      "excludedImages_other": "{{count}} 枚の画像は一致しなかったため除外されました",
+      "exposureCompensation": "露出補正",
+      "exposureCompensationHint": "画像間の露出、ホワイトバランス、周辺減光を揃えます。",
       "failed": "パノラマ作成に失敗しました",
       "initializing": "初期化中...",
       "openInEditor": "エディタで開く",
+      "outputInfo": "{{images}} 枚 · {{width}} × {{height}} px",
+      "projection": "投影法",
+      "projectionAuto": "自動",
+      "projectionCylindrical": "円筒",
+      "projectionFallback": "{{requested}} ではこの画角をカバーできないため、{{projection}} を使用しています",
+      "projectionPerspective": "遠近法",
+      "projectionSpherical": "球面",
       "retry": "再試行",
       "save": "保存",
       "savedSuccess": "パノラマを正常に保存しました！",
+      "saving": "保存中…",
       "speedNotice": "画像枚数や画像サイズによって、数分かかる場合があります。",
       "start": "開始",
       "stitchingProgress": "パノラマ写真を作成中",
@@ -2136,6 +2163,24 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "colorManagement": {
+        "chooseProfile": "プロファイルを選択",
+        "modeAuto": "自動（システムのプロファイル）",
+        "modeCustom": "カスタム ICC プロファイル",
+        "modeOff": "オフ",
+        "profile": "モニタープロファイル",
+        "profileDesc": "エディターのプレビューをモニターのカラープロファイルに変換し、キャリブレーション済みや広色域のディスプレイで正確な色を表示します。書き出しには影響しません。",
+        "statusInvalid": "このプロファイルを読み込めませんでした。",
+        "statusNone": "モニタープロファイルが見つかりません。プレビューは sRGB として表示されます。",
+        "statusProfile": "{{name}} を使用中です。",
+        "statusSystem": "色は OS によって管理されています。",
+        "statusUnavailable": "カラーマネジメントには GPU レンダラーが必要です。",
+        "wideGamut": "広色域プレビュー（{{space}}）。",
+        "wideGamutHdrNote": "エディターが HDR 表示中は使用されません。",
+        "wideGamutPreview": "広色域プレビュー",
+        "wideGamutPreviewDesc": "広色域モニターで sRGB を超える色を表示します。Display P3、Adobe RGB などの広い色空間で書き出す場合はオンにしてください。オフにすると sRGB で書き出した場合の見た目を確認できます。",
+        "wideGamutPreviewEnable": "広色域の色を表示"
+      },
       "defaultAdjustments": {
         "addCamera": "カメラを追加…",
         "applyToNonRaw": "JPEG、TIFF、PNG など RAW 以外のファイルにも適用",
@@ -2161,6 +2206,9 @@
         "sliderResetNeutral": "ニュートラル値",
         "title": "デフォルトの補正"
       },
+      "display": {
+        "title": "ディスプレイ"
+      },
       "dynamicDesc": "編集画面は、ディスプレイの実際の画素密度に合わせたプレビューをレンダリングします。これにより、ズーム時やピント合わせ時に1:1のピクセル精度で細部まで鮮明に表現されます。",
       "editIn": {
         "add": "プログラムを追加",
@@ -2178,6 +2226,16 @@
         "title": "外部アプリで編集"
       },
       "enableLivePreviews": "リアルタイムプレビューを有効化",
+      "hdr": {
+        "display": "HDR表示",
+        "displayDesc": "HDRディスプレイでハイライトを通常の白より明るく表示します。シャドウと中間調は変わらず、通常の書き出しには影響しません。",
+        "enableDisplay": "エディターでHDRを使用",
+        "headroom": "ハイライトの範囲",
+        "headroomDesc": "ハイライトが通常の白をどこまで超えられるかを設定します。HDR書き出しにも使用されます。",
+        "statusActive": "このディスプレイはHDRモードです。",
+        "statusInactive": "このディスプレイはHDRモードではありません。効果を確認するには、システムのディスプレイ設定でHDRをオンにしてください。",
+        "statusUnsupported": "HDRにはWindowsまたはmacOSのGPUレンダラーが必要です。"
+      },
       "highDpi": "高DPIレンダリング",
       "highDpiDesc": "画面本来の物理解像度である {{dpr}}x でプレビューをレンダリングします。極めて鮮明なプレビューが得られますが、メモリ消費が大幅に増加します。",
       "highDpiDescStandard": "この設定は高DPIディスプレイのみに影響します。現在のディスプレイは標準解像度です。",
@@ -2246,6 +2304,13 @@
       "qualities": {
         "high": "高画質",
         "performance": "パフォーマンス優先"
+      },
+      "rawDecoding": "RAWデコード",
+      "rawDecodingDesc": "RAWファイルをデコードする場所を選択します。「自動」はGPUを使用し、GPUで画像を処理できない場合はCPUに切り替えます。「GPU」は常に最初にGPUを試します。「CPU」は低速ですが、すべてのシステムで動作します。",
+      "rawDecodingOptions": {
+        "auto": "自動",
+        "cpu": "CPU",
+        "gpu": "GPU"
       },
       "renderScale": "レンダリングスケール",
       "renderScaleDesc": "画面解像度に対する表示解像度の比率を調整します。高解像度ディスプレイで値を下げると、シャープネスがわずかに低下する代わりに動作が軽くなります。",

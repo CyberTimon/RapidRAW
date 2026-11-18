@@ -1,8 +1,7 @@
 use crate::app::settings::load_settings;
 use crate::app::state::AppState;
-use crate::library::sidecars::parse_virtual_path;
 use crate::merge::hdr_deghosting::{align_hdr_frames, assert_uniform_dimensions, load_hdr_frames};
-use crate::render::image_processing::apply_linear_to_srgb;
+use crate::render::image_processing::{apply_linear_to_srgb, working_display_image_to_srgb8};
 use base64::{Engine as _, engine::general_purpose};
 use image::{DynamicImage, ImageFormat};
 use image_hdr::hdr_merge_images;
@@ -53,7 +52,8 @@ pub async fn merge_hdr(
     log::info!("HDR merge completed");
 
     let mut buf = Cursor::new(Vec::new());
-    if let Err(e) = hdr_merged.to_rgb8().write_to(&mut buf, ImageFormat::Png) {
+    if let Err(e) = working_display_image_to_srgb8(&hdr_merged).write_to(&mut buf, ImageFormat::Png)
+    {
         return Err(format!("Failed to encode hdr preview: {}", e));
     }
 
@@ -82,15 +82,6 @@ pub async fn save_hdr(
         "No hdr image found in memory to save. It might have already been saved.".to_string()
     })?;
 
-    let (first_path, _) = parse_virtual_path(&first_path_str);
-    let parent_dir = first_path
-        .parent()
-        .ok_or_else(|| "Could not determine parent directory of the first image.".to_string())?;
-    let stem = first_path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("hdr");
-
     let (extension, image_to_save): (&str, DynamicImage) = if hdr_image.color().has_alpha() {
         ("png", DynamicImage::ImageRgba8(hdr_image.to_rgba8()))
     } else if hdr_image.as_rgb32f().is_some() {
@@ -99,23 +90,5 @@ pub async fn save_hdr(
         ("png", DynamicImage::ImageRgb8(hdr_image.to_rgb8()))
     };
 
-    let bytes = crate::metadata::export_metadata::encode_converted_image(
-        &image_to_save,
-        extension,
-        &first_path.to_string_lossy(),
-    )?;
-    let output_path = crate::library::file_ops::write_unique_output(
-        parent_dir,
-        &format!("{}_Hdr", stem),
-        extension,
-        &bytes,
-    )
-    .map_err(|e| format!("Failed to save hdr image: {}", e))?;
-
-    let _ = crate::metadata::exif_processing::write_rrexif_sidecar(
-        &first_path.to_string_lossy(),
-        &output_path,
-    );
-
-    Ok(output_path.to_string_lossy().to_string())
+    super::save_merged_image(&first_path_str, "Hdr", &image_to_save, extension)
 }

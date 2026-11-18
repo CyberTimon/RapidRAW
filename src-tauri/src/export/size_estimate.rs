@@ -1,10 +1,11 @@
 use crate::adjustments::lut_processing::get_or_load_lut;
-use crate::app::settings::load_settings;
+use crate::app::settings::{AppSettings, load_settings};
 use crate::app::state::AppState;
 use crate::decode::as_shot::as_shot;
 use crate::decode::formats::is_raw_file;
 use crate::decode::image_loader::load_base_image_from_bytes;
 use crate::export::encode::encode_image_to_bytes;
+use crate::export::gain_map;
 use crate::export::geometry::{compute_export_output_size, upscale_factor};
 use crate::export::settings::{ExportSettings, render_output_precision};
 use crate::library::file_ops::read_file_mapped;
@@ -15,15 +16,40 @@ use crate::render::cache_utils::calculate_transform_hash;
 use crate::render::geometry::Crop;
 use crate::render::gpu::context::get_or_init_gpu_context;
 use crate::render::gpu::output::process_and_get_dynamic_image_with_precision;
-use crate::render::gpu::processor::RenderRequest;
-use crate::render::options::resolve_render_options_from_handle;
+use crate::render::gpu::processor::{RenderOutputPrecision, RenderRequest};
+use crate::render::options::RenderOptions;
 use crate::render::preview::prepare_preview_source;
 use crate::render::source::{RenderSource, fit_to_gpu, source_id};
 use crate::render::uniforms::get_all_adjustments_from_json;
-use image::GenericImageView;
+use image::{DynamicImage, GenericImageView};
 use serde_json::Value;
 use std::fs;
 use std::path::Path;
+
+fn encoded_preview(
+    render: impl Fn(RenderOptions, RenderOutputPrecision) -> Result<DynamicImage, String>,
+    output_format: &str,
+    export_settings: &ExportSettings,
+    settings: &AppSettings,
+    is_raw: bool,
+) -> Result<(usize, (u32, u32)), String> {
+    let preview = render(
+        export_settings.render_options(output_format, settings, is_raw),
+        render_output_precision(output_format, export_settings),
+    )?;
+    let mut bytes = encode_image_to_bytes(&preview, output_format, export_settings, None)?;
+    if let Some(options) = export_settings.gain_map_render_options(output_format, settings, is_raw)
+    {
+        bytes = gain_map::attach(
+            &bytes,
+            &preview,
+            &render(options, RenderOutputPrecision::Float)?,
+            export_settings.color_space_for(output_format),
+            export_settings.jpeg_quality,
+        )?;
+    }
+    Ok((bytes.len(), preview.dimensions()))
+}
 
 #[tauri::command]
 pub async fn estimate_export_sizes(
@@ -119,40 +145,42 @@ pub async fn estimate_export_sizes(
         )
         .bitmaps;
 
-        let render = resolve_render_options_from_handle(&app_handle, is_raw);
-        let mut all_adjustments =
-            get_all_adjustments_from_json(&adjustments_clone, is_raw, loaded_image.as_shot, render);
-        all_adjustments.global.show_clipping = 0;
-
         let lut = adjustments_clone["lutPath"]
             .as_str()
             .and_then(|p| get_or_load_lut(&state, p).ok());
-        let processed_preview = process_and_get_dynamic_image_with_precision(
-            &context,
-            &state,
-            &source,
-            RenderRequest {
-                adjustments: all_adjustments,
-                mask_bitmaps: &mask_bitmaps,
-                mask_cache_key: None,
-                lut,
-                roi: None,
-                hsl_probe: false,
-                motion_blur: crate::effects::motion_blur::MotionBlurs::new(
-                    &loaded_image.path,
-                    &adjustments_clone,
-                    (img_w, img_h),
-                    scaled_crop_offset,
-                    loaded_image.image.width().max(loaded_image.image.height()) as f32 * scale,
-                ),
-            },
-            "estimate_export_size",
-            render_output_precision(&output_format, &export_settings),
-        )?;
-
-        let preview_bytes =
-            encode_image_to_bytes(&processed_preview, &output_format, &export_settings, None)?;
-        let preview_byte_size = preview_bytes.len();
+        let render = |render: RenderOptions, precision: RenderOutputPrecision| {
+            let mut all_adjustments = get_all_adjustments_from_json(
+                &adjustments_clone,
+                is_raw,
+                loaded_image.as_shot,
+                render,
+            );
+            all_adjustments.global.show_clipping = 0;
+            process_and_get_dynamic_image_with_precision(
+                &context,
+                &state,
+                &source,
+                RenderRequest {
+                    adjustments: all_adjustments,
+                    mask_bitmaps: &mask_bitmaps,
+                    mask_cache_key: None,
+                    lut: lut.clone(),
+                    roi: None,
+                    hsl_probe: false,
+                    motion_blur: crate::effects::motion_blur::MotionBlurs::new(
+                        &loaded_image.path,
+                        &adjustments_clone,
+                        (img_w, img_h),
+                        scaled_crop_offset,
+                        loaded_image.image.width().max(loaded_image.image.height()) as f32 * scale,
+                    ),
+                },
+                "estimate_export_size",
+                precision,
+            )
+        };
+        let (preview_byte_size, (processed_preview_w, processed_preview_h)) =
+            encoded_preview(render, &output_format, &export_settings, &settings, is_raw)?;
 
         let (full_w, full_h) = transformed_dimensions(
             loaded_image.image.width(),
@@ -165,7 +193,6 @@ pub async fn estimate_export_sizes(
         let (final_full_w, final_full_h) =
             compute_export_output_size(full_w, full_h, &export_settings);
 
-        let (processed_preview_w, processed_preview_h) = processed_preview.dimensions();
         let pixel_ratio = if processed_preview_w > 0 && processed_preview_h > 0 {
             (final_full_w as f64 * final_full_h as f64)
                 / (processed_preview_w as f64 * processed_preview_h as f64)
@@ -267,44 +294,39 @@ pub async fn estimate_export_sizes(
         )
         .bitmaps;
 
-        let render = resolve_render_options_from_handle(&app_handle, is_raw);
-        let mut all_adjustments = get_all_adjustments_from_json(
-            &js_adjustments,
-            is_raw,
-            as_shot(&source_path_str),
-            render,
-        );
-        all_adjustments.global.show_clipping = 0;
-
         let lut = js_adjustments["lutPath"]
             .as_str()
             .and_then(|p| get_or_load_lut(&state, p).ok());
-        let processed_preview = process_and_get_dynamic_image_with_precision(
-            &context,
-            &state,
-            &source,
-            RenderRequest {
-                adjustments: all_adjustments,
-                mask_bitmaps: &mask_bitmaps,
-                mask_cache_key: None,
-                lut,
-                roi: None,
-                hsl_probe: false,
-                motion_blur: crate::effects::motion_blur::MotionBlurs::new(
-                    &source_path_str,
-                    &js_adjustments,
-                    (preview_w, preview_h),
-                    scaled_crop_offset,
-                    original_image.width().max(original_image.height()) as f32 * gpu_scale,
-                ),
-            },
-            "estimate_batch_export_size",
-            render_output_precision(&output_format, &export_settings),
-        )?;
-
-        let preview_bytes =
-            encode_image_to_bytes(&processed_preview, &output_format, &export_settings, None)?;
-        let single_image_estimated_size = preview_bytes.len();
+        let source_as_shot = as_shot(&source_path_str);
+        let render = |render: RenderOptions, precision: RenderOutputPrecision| {
+            let mut all_adjustments =
+                get_all_adjustments_from_json(&js_adjustments, is_raw, source_as_shot, render);
+            all_adjustments.global.show_clipping = 0;
+            process_and_get_dynamic_image_with_precision(
+                &context,
+                &state,
+                &source,
+                RenderRequest {
+                    adjustments: all_adjustments,
+                    mask_bitmaps: &mask_bitmaps,
+                    mask_cache_key: None,
+                    lut: lut.clone(),
+                    roi: None,
+                    hsl_probe: false,
+                    motion_blur: crate::effects::motion_blur::MotionBlurs::new(
+                        &source_path_str,
+                        &js_adjustments,
+                        (preview_w, preview_h),
+                        scaled_crop_offset,
+                        original_image.width().max(original_image.height()) as f32 * gpu_scale,
+                    ),
+                },
+                "estimate_batch_export_size",
+                precision,
+            )
+        };
+        let (single_image_estimated_size, (processed_preview_w, processed_preview_h)) =
+            encoded_preview(render, &output_format, &export_settings, &settings, is_raw)?;
 
         let upscale = upscale_factor(&js_adjustments) as f32;
         let full_w = (shrunk_w as f32 / raw_scale_factor * upscale).round() as u32;
@@ -313,7 +335,6 @@ pub async fn estimate_export_sizes(
         let (final_full_w, final_full_h) =
             compute_export_output_size(full_w, full_h, &export_settings);
 
-        let (processed_preview_w, processed_preview_h) = processed_preview.dimensions();
         let pixel_ratio = if processed_preview_w > 0 && processed_preview_h > 0 {
             (final_full_w as f64 * final_full_h as f64)
                 / (processed_preview_w as f64 * processed_preview_h as f64)

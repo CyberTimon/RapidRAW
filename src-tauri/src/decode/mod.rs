@@ -4,6 +4,7 @@ pub mod baseline_exposure;
 pub mod demosaic;
 pub mod develop;
 pub mod formats;
+pub mod gpu_fallback;
 pub mod image_loader;
 pub mod image_preload;
 pub mod multi_exposure;

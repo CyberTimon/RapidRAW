@@ -928,6 +928,9 @@
         "masks": "遮色片"
       },
       "title": "預設",
+      "toasts": {
+        "importFailed": "匯入 {{fileName}} 失敗: {{error}}"
+      },
       "tooltips": {
         "explore": "探索社群預設",
         "export": "將所有預設匯出為 .rrpreset 檔案",
@@ -970,6 +973,7 @@
         "compare": "前後對比（B）或模式（右鍵）",
         "focalLength": "焦距",
         "fullscreen": "切換全屏（F）",
+        "hdr": "HDR 預覽",
         "iso": "ISO",
         "redo": "重做（Ctrl+Y）或歷史記錄（右鍵單擊）",
         "shutterSpeed": "快門速度",
@@ -1026,7 +1030,13 @@
       "selectFolderTitle_other": "選擇資料夾以匯出 {{count}} 張影像"
     },
     "file": {
+      "colorSpace": "色彩空間",
       "dpi": "DPI",
+      "hdr": "HDR 輸出",
+      "hdrJpegHint": "加入增益圖：HDR 螢幕顯示更亮的亮部，其他情況下顯示一般照片。",
+      "hdrJxlHint": "儲存為真正的 HDR 檔案（PQ，Rec. 2020）。需要支援 HDR 的檢視器。",
+      "hdrNoPreview": "此螢幕無法顯示 HDR 亮部，但匯出的檔案仍會包含它們。",
+      "hdrPreviewOff": "在編輯器工具列中開啟 HDR 以預覽亮部。",
       "quality": "品質",
       "qualityLossless": "品質（無損）",
       "resolution": "解析度",
@@ -1732,18 +1742,35 @@
       "zoomOutTooltip": "縮小"
     },
     "panorama": {
+      "autoCrop": "自動裁切",
+      "autoProjectionUsed": "使用中：{{projection}}",
+      "boundaryWarp": "邊界變形",
+      "boundaryWarpHint": "延展邊緣以填滿畫面，而非將其裁掉。",
       "cancel": "取消",
       "close": "關閉",
       "descCount": "將 {{count}} 張重疊影像合併為一張無縫全景圖。",
       "descCount_one": "將 {{count}} 張重疊影像合併為一張無縫全景圖。",
       "descCount_other": "將 {{count}} 張重疊影像合併為一張無縫全景圖。",
       "descGeneric": "將您的重疊影像合併為一張無縫全景圖。",
+      "excludedImages": "{{count}} 張影像無法比對，已被排除",
+      "excludedImages_one": "{{count}} 張影像無法比對，已被排除",
+      "excludedImages_other": "{{count}} 張影像無法比對，已被排除",
+      "exposureCompensation": "曝光補償",
+      "exposureCompensationHint": "統一各影像之間的曝光、白平衡與暗角。",
       "failed": "全景圖拼接失敗",
       "initializing": "初始化中...",
       "openInEditor": "在編輯器中開啟",
+      "outputInfo": "{{images}} 張影像 · {{width}} × {{height}} 像素",
+      "projection": "投影",
+      "projectionAuto": "自動",
+      "projectionCylindrical": "圓柱",
+      "projectionFallback": "{{requested}} 無法涵蓋此視野，正在使用 {{projection}}",
+      "projectionPerspective": "透視",
+      "projectionSpherical": "球面",
       "retry": "重試",
       "save": "儲存",
       "savedSuccess": "全景圖儲存成功！",
+      "saving": "正在儲存…",
       "speedNotice": "這可能需要幾分鐘，具體取決於影像的數量和大小。",
       "start": "開始",
       "stitchingProgress": "拼接全景圖中",
@@ -2136,6 +2163,24 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "colorManagement": {
+        "chooseProfile": "選擇描述檔",
+        "modeAuto": "自動（系統描述檔）",
+        "modeCustom": "自訂 ICC 描述檔",
+        "modeOff": "關閉",
+        "profile": "螢幕描述檔",
+        "profileDesc": "將編輯器預覽轉換為螢幕的色彩描述檔，讓顏色在已校色與廣色域螢幕上正確顯示。匯出不受影響。",
+        "statusInvalid": "無法載入此描述檔。",
+        "statusNone": "找不到螢幕描述檔。預覽以 sRGB 顯示。",
+        "statusProfile": "正在使用 {{name}}。",
+        "statusSystem": "顏色由作業系統管理。",
+        "statusUnavailable": "色彩管理需要 GPU 算繪器。",
+        "wideGamut": "廣色域預覽（{{space}}）。",
+        "wideGamutHdrNote": "編輯器顯示 HDR 時不會套用。",
+        "wideGamutPreview": "廣色域預覽",
+        "wideGamutPreviewDesc": "在廣色域螢幕上顯示超出 sRGB 的色彩。以 Display P3、Adobe RGB 或其他寬色彩空間匯出時請開啟。關閉時預覽與 sRGB 匯出效果一致。",
+        "wideGamutPreviewEnable": "顯示廣色域色彩"
+      },
       "defaultAdjustments": {
         "addCamera": "新增相機…",
         "applyToNonRaw": "同時套用於 JPEG、TIFF、PNG 等非 RAW 檔案",
@@ -2161,6 +2206,9 @@
         "sliderResetNeutral": "中性值",
         "title": "預設調整"
       },
+      "display": {
+        "title": "顯示"
+      },
       "dynamicDesc": "編輯器根據顯示器實際畫素密度渲染預覽。這確保每個細節都以 1:1 畫素精度呈現，在縮放和檢查焦點時提供最大清晰度。",
       "editIn": {
         "add": "新增程式",
@@ -2178,6 +2226,16 @@
         "title": "在其他程式中編輯"
       },
       "enableLivePreviews": "啟用即時預覽",
+      "hdr": {
+        "display": "HDR 顯示",
+        "displayDesc": "在 HDR 顯示器上以高於一般白色的亮度顯示亮部。陰影與中間調維持不變，一般匯出不受影響。",
+        "enableDisplay": "在編輯器中使用 HDR",
+        "headroom": "亮部範圍",
+        "headroomDesc": "亮部可以超出一般白色的程度。也用於 HDR 匯出。",
+        "statusActive": "此顯示器處於 HDR 模式。",
+        "statusInactive": "此顯示器未處於 HDR 模式。請在系統顯示設定中開啟 HDR 以查看效果。",
+        "statusUnsupported": "HDR 需要在 Windows 或 macOS 上使用 GPU 繪製器。"
+      },
       "highDpi": "高 DPI 渲染",
       "highDpiDesc": "以螢幕原生 {{dpr}}x 物理畫素解析度渲染預覽。產生最清晰的預覽，但會顯著增加記憶體使用。",
       "highDpiDescStandard": "此設定僅影響高 DPI 顯示器。您當前的顯示器為標準解析度。",
@@ -2246,6 +2304,13 @@
       "qualities": {
         "high": "高品質",
         "performance": "效能優先"
+      },
+      "rawDecoding": "RAW 解碼",
+      "rawDecodingDesc": "選擇在何處解碼 RAW 檔案。「自動」使用 GPU，並在 GPU 無法處理您的影像時切換到 CPU。「GPU」始終先嘗試 GPU。「CPU」較慢，但適用於所有系統。",
+      "rawDecodingOptions": {
+        "auto": "自動",
+        "cpu": "CPU",
+        "gpu": "GPU"
       },
       "renderScale": "渲染解析度縮放",
       "renderScaleDesc": "相對於顯示器縮放渲染解析度。較低的值可在高解析度螢幕上提高效能，但會犧牲一些清晰度。",

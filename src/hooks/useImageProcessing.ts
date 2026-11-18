@@ -50,6 +50,7 @@ export function useImageProcessing(
   const adjustments = useEditorStore((state) => state.adjustments);
   const previewOverride = useEditorStore((state) => state.previewOverride);
   const isWaveformVisible = useEditorStore((state) => state.isWaveformVisible);
+  const displayRevision = useEditorStore((state) => state.displayRevision);
   const activeWaveformChannel = useEditorStore((state) => state.activeWaveformChannel);
   const displaySize = useEditorStore((state) => state.displaySize);
   const baseRenderSize = useEditorStore((state) => state.baseRenderSize);
@@ -108,8 +109,20 @@ export function useImageProcessing(
       if (view === 'off' || !image?.isReady || ui.activeView !== 'editor' || ui.activePanel === Panel.Crop) return;
 
       const originalAdjustments = getOriginalAdjustments(currentAdjustments);
-      const { useWgpuRenderer } = useSettingsStore.getState().appSettings ?? {};
-      const key = JSON.stringify([image.path, targetRes, useWgpuRenderer, originalAdjustments]);
+      const { useWgpuRenderer, hdrDisplay, hdrHeadroom, displayColorMode, displayIccProfile, wideGamutPreview } =
+        useSettingsStore.getState().appSettings ?? {};
+      const key = JSON.stringify([
+        image.path,
+        targetRes,
+        useWgpuRenderer,
+        hdrDisplay,
+        hdrHeadroom,
+        displayColorMode,
+        displayIccProfile,
+        wideGamutPreview,
+        useEditorStore.getState().displayRevision,
+        originalAdjustments,
+      ]);
       if (key === originalRequestKeyRef.current) return;
       originalRequestKeyRef.current = key;
 
@@ -545,9 +558,15 @@ export function useImageProcessing(
     appSettings?.enableBaselineExposure,
     appSettings?.baselineExposure,
     appSettings?.compensateHighlightPreservation,
+    appSettings?.hdrDisplay,
+    appSettings?.hdrHeadroom,
+    appSettings?.displayColorMode,
+    appSettings?.displayIccProfile,
+    appSettings?.wideGamutPreview,
     appSettings?.copyPasteSettings?.includedAdjustments,
     appSettings?.copyPasteSettings?.autoSync,
     isWaveformVisible,
+    displayRevision,
   ]);
 
   return {

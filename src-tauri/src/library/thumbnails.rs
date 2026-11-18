@@ -9,7 +9,7 @@ use crate::library::sidecars::{parse_virtual_path, run_batch_workers};
 use crate::masks::generation::MaskDefinition;
 use crate::metadata::exif_processing;
 use crate::metadata::sidecar::{ImageMetadata, is_image_edited};
-use crate::render::adjustment_utils::effective_baseline_exposure;
+use crate::render::adjustment_utils::{effective_baseline_exposure, is_default_adjustments};
 use crate::render::geometry::{
     Crop, apply_coarse_rotation, get_geometry_params_from_json, is_geometry_identity,
 };
@@ -72,18 +72,25 @@ pub fn emit_thumbnail_cache_setup_error(app_handle: &AppHandle, path: &str, reas
     );
 }
 
+fn thumbnail_render_key(settings: &AppSettings, is_raw: bool) -> String {
+    let render = resolve_render_options(settings, is_raw);
+    format!(
+        "RenderOptions {{ tonemapper_override: {:?}, non_raw_tonemapper_override: {:?}, \
+         baseline: {:?} }}{:?}",
+        render.tonemapper_override,
+        render.non_raw_tonemapper_override,
+        render.baseline,
+        settings.always_decode_raw_thumbnails
+    )
+}
+
 fn compute_thumbnail_cache_hash(
     path_str: &str,
     adjustments_bytes: &[u8],
     settings: &AppSettings,
 ) -> Option<String> {
     let (source_path, _) = parse_virtual_path(path_str);
-    let is_raw = is_raw_file(&source_path);
-    let render_key = format!(
-        "{:?}{:?}",
-        resolve_render_options(settings, is_raw),
-        settings.always_decode_raw_thumbnails
-    );
+    let render_key = thumbnail_render_key(settings, is_raw_file(&source_path));
 
     let img_mod_time = fs::metadata(&source_path)
         .ok()?
@@ -266,7 +273,13 @@ fn generate_thumbnail_data_with_metadata(
 
     let always_decode_raw = settings.always_decode_raw_thumbnails.unwrap_or(false);
 
-    if is_raw && adjustments.is_null() && preloaded_image.is_none() && !always_decode_raw {
+    let untouched = || {
+        adjustments.is_null()
+            || (crate::adjustments::develop_defaults::keeps_embedded_preview(&source_path)
+                && is_default_adjustments(adjustments, &source_path))
+    };
+
+    if is_raw && preloaded_image.is_none() && !always_decode_raw && untouched() {
         let target_res = settings.medium_thumbnail_resolution.unwrap_or(1280);
         if let Some(preview) = try_load_embedded_raw_preview(&source_path, target_res) {
             return Ok(preview);
@@ -529,7 +542,7 @@ fn generate_thumbnail_data_with_metadata(
     }
 
     let _decode_reservation;
-    let mut final_image: Cow<DynamicImage> = if let Some(patched) = &cached_patched {
+    let final_image: Cow<DynamicImage> = if let Some(patched) = &cached_patched {
         Cow::Borrowed(patched)
     } else if let Some(img) = preloaded_image {
         image_loader::prepare_base_image_cow(img, &source_path_str, adjustments)?
@@ -556,6 +569,12 @@ fn generate_thumbnail_data_with_metadata(
         if adjustments.is_null() {
             crate::decode::as_shot::as_shot_from_bytes(&source_path_str, file_slice);
         }
+        if !is_raw
+            && adjustments.is_null()
+            && resolve_render_options(settings, is_raw).tonemapper_override != Some(1)
+        {
+            return image_loader::load_display_image(file_slice, &source_path_str);
+        }
         Cow::Owned(
             image_loader::load_and_composite(
                 file_slice,
@@ -569,10 +588,11 @@ fn generate_thumbnail_data_with_metadata(
         )
     };
 
+    let mut owned_image = final_image.into_owned();
     if adjustments.is_null() {
         let render = resolve_render_options(settings, is_raw);
-        let mut owned_image = apply_exposure(
-            final_image.into_owned(),
+        owned_image = apply_exposure(
+            owned_image,
             effective_baseline_exposure(adjustments, as_shot(&source_path_str), render.baseline),
         );
         let use_agx = render.tonemapper_override == Some(1);
@@ -585,11 +605,11 @@ fn generate_thumbnail_data_with_metadata(
         } else if is_raw {
             apply_cpu_default_raw_processing(&mut owned_image);
         }
-        final_image = Cow::Owned(owned_image);
     }
+    crate::render::image_processing::apply_working_display_to_srgb(&mut owned_image, is_raw);
 
     let fallback_orientation_steps = adjustments["orientationSteps"].as_u64().unwrap_or(0) as u8;
-    Ok(apply_coarse_rotation(final_image, fallback_orientation_steps).into_owned())
+    Ok(apply_coarse_rotation(Cow::Owned(owned_image), fallback_orientation_steps).into_owned())
 }
 
 fn encode_thumbnail(image: &DynamicImage, target_width: u32) -> Result<Vec<u8>> {

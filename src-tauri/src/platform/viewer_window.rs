@@ -19,8 +19,10 @@ use crate::platform::main_window::{
     write_window_state,
 };
 use crate::render::cache_utils::clear_preview_slot;
+use crate::render::color_space::OutputColorSpace;
 use crate::render::gpu::context::current_gpu_context;
 use crate::render::gpu::display::{DisplayView, WgpuDisplay};
+use crate::render::hdr::Headroom;
 
 pub const VIEWER_LABEL: &str = "viewer";
 const RESIZE_SETTLE_DELAY: Duration = Duration::from_millis(100);
@@ -181,6 +183,25 @@ pub fn record_editor_source(
         content,
         interactive,
     });
+}
+
+pub fn handle_display_changed(
+    app_handle: &AppHandle,
+    output_space: OutputColorSpace,
+    headroom: Headroom,
+) {
+    if !viewer_is_open(app_handle) {
+        return;
+    }
+    if let Some(source) = viewer_state(&app_handle.state::<AppState>())
+        .session
+        .source
+        .as_mut()
+    {
+        source.content.render.output_space = output_space;
+        source.content.render.headroom = headroom;
+    }
+    schedule_viewer_render(app_handle);
 }
 
 pub fn sync_viewer_image(app_handle: &AppHandle, path: &str, base_size: (u32, u32), scale: f32) {
@@ -418,6 +439,7 @@ fn attach_viewer_display(
         surface,
         &ctx.adapter,
         &ctx.device,
+        &ctx.queue,
         size,
         true,
         platform,
@@ -425,6 +447,7 @@ fn attach_viewer_display(
     display.set_background(viewer_state(&state).background);
     display.flush(&ctx.device, &ctx.queue);
     *ctx.viewer_display.lock().unwrap_or_else(|e| e.into_inner()) = Some(display);
+    crate::render::gpu::display::invalidate_displays();
     Ok(())
 }
 

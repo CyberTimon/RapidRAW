@@ -1,5 +1,7 @@
 use crate::app::settings::{AppSettings, load_settings};
 use crate::decode::baseline_exposure::BaselineOptions;
+use crate::render::color_space::OutputColorSpace;
+use crate::render::hdr::Headroom;
 
 pub fn resolve_tonemapper_override(settings: &AppSettings, is_raw: bool) -> Option<u32> {
     if !settings.tonemapper_override_enabled.unwrap_or(false) {
@@ -21,6 +23,8 @@ pub struct RenderOptions {
     pub tonemapper_override: Option<u32>,
     pub non_raw_tonemapper_override: Option<u32>,
     pub baseline: BaselineOptions,
+    pub output_space: OutputColorSpace,
+    pub headroom: Headroom,
 }
 
 pub fn resolve_render_options(settings: &AppSettings, is_raw: bool) -> RenderOptions {
@@ -28,6 +32,8 @@ pub fn resolve_render_options(settings: &AppSettings, is_raw: bool) -> RenderOpt
         tonemapper_override: resolve_tonemapper_override(settings, is_raw),
         non_raw_tonemapper_override: resolve_tonemapper_override(settings, false),
         baseline: BaselineOptions::from_settings(settings),
+        output_space: OutputColorSpace::default(),
+        headroom: Headroom::SDR,
     }
 }
 

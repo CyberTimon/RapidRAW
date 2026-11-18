@@ -1,6 +1,6 @@
 use crate::app::state::AppState;
 use crate::decode::white_balance::{self, WhiteBalance};
-use crate::render::image_processing::srgb_channel_to_linear;
+use crate::render::color_space::srgb_decode;
 use crate::render::preview::cached_patched_image;
 use image::{DynamicImage, GenericImageView};
 use serde::{Deserialize, Serialize};
@@ -51,7 +51,7 @@ fn read_linear_rgb(image: &DynamicImage, x: u32, y: u32, is_raw: bool) -> Option
     if is_raw {
         Some(rgb)
     } else {
-        Some(rgb.map(srgb_channel_to_linear))
+        Some(rgb.map(srgb_decode))
     }
 }
 
@@ -176,6 +176,7 @@ pub async fn sample_white_balance(
             Some(image) => Cow::Borrowed(image.as_ref()),
             None => crate::adjustments::negative_conversion::apply_negative_conversion(
                 Cow::Borrowed(loaded_image.image.as_ref()),
+                loaded_image.is_raw,
                 &adjustments,
             ),
         };

@@ -2,8 +2,10 @@ use crate::decode::as_shot::AsShot;
 use crate::decode::demosaic::Mosaic;
 use crate::decode::develop::{self, Camera, Finish};
 use crate::decode::white_balance::WhiteBalance;
+use crate::render::color_space::{GamutCompression, fit_gamut, gamut_limits, srgb_to_working};
 use crate::render::geometry::apply_orientation;
 use anyhow::{Result, anyhow};
+use glam::Vec3;
 use image::{DynamicImage, ImageBuffer, Rgb};
 use rawler::{
     decoders::{Decoder, Orientation, RawDecodeParams},
@@ -176,43 +178,12 @@ fn primary_color_matrix(raw_image: &RawImage) -> Option<&FlatColorMatrix> {
         .or_else(|| matrices.values().next())
 }
 
-struct GamutCompression {
-    threshold: f32,
-    scale: f32,
-}
-
-impl GamutCompression {
-    const THRESHOLD: f32 = 0.8;
-    const POWER: f32 = 1.2;
-
-    fn new(limit: f32) -> Option<Self> {
-        if limit <= 1.0 {
-            return None;
-        }
-        let threshold = Self::THRESHOLD;
-        let span = limit - threshold;
-        let scale =
-            span / (((1.0 - threshold) / span).powf(-Self::POWER) - 1.0).powf(1.0 / Self::POWER);
-        Some(Self { threshold, scale })
-    }
-
-    #[inline]
-    fn compress(&self, distance: f32) -> f32 {
-        if distance <= self.threshold {
-            return distance;
-        }
-        let excess = distance - self.threshold;
-        self.threshold
-            + excess / (1.0 + (excess / self.scale).powf(Self::POWER)).powf(1.0 / Self::POWER)
-    }
-}
-
-struct CameraToSrgb {
+struct CameraToWorking {
     matrix: [[f32; 4]; 3],
     compression: [Option<GamutCompression>; 3],
 }
 
-impl CameraToSrgb {
+impl CameraToWorking {
     fn new(raw_image: &RawImage) -> Option<Self> {
         let color_matrix = as_shot_color(raw_image)
             .map(|(_, color_matrix)| color_matrix)
@@ -220,57 +191,37 @@ impl CameraToSrgb {
         if color_matrix.len() % 3 != 0 || color_matrix.len() > 12 {
             return None;
         }
-        let primaries = crate::decode::white_balance::camera_to_srgb(
+        let primaries = crate::decode::white_balance::camera_to_working(
             &color_matrix,
             &camera_neutral(raw_image),
         )?;
 
         let mut matrix = [[0.0f32; 4]; 3];
-        let mut limits = [0.0f32; 3];
         for (channel, primary) in primaries.iter().enumerate() {
             for (row, value) in matrix.iter_mut().zip(primary) {
                 row[channel] = *value;
-            }
-            let peak = primary[0].max(primary[1]).max(primary[2]);
-            if peak > 0.0 {
-                for (limit, value) in limits.iter_mut().zip(primary) {
-                    *limit = limit.max((peak - value) / peak);
-                }
             }
         }
 
         Some(Self {
             matrix,
-            compression: limits.map(GamutCompression::new),
+            compression: gamut_limits(&primaries).map(GamutCompression::new),
         })
     }
 
     #[inline]
     fn pixel<const N: usize>(&self, camera: &[f32; N]) -> [f32; 3] {
-        let mut rgb = self
+        let rgb = self
             .matrix
             .map(|row| row.iter().zip(camera).map(|(m, c)| m * c).sum::<f32>());
-        let achromatic = rgb[0].max(rgb[1]).max(rgb[2]);
-        if achromatic <= 0.0 {
-            return [0.0; 3];
-        }
-        for (value, compression) in rgb.iter_mut().zip(&self.compression) {
-            if let Some(compression) = compression {
-                let distance = (achromatic - *value) / achromatic;
-                *value = achromatic - compression.compress(distance) * achromatic;
-            }
-        }
-        rgb
+        fit_gamut(rgb, &self.compression)
     }
 
     fn camera(&self, wb: [f32; 3], clamp_limit: f32) -> Camera {
         Camera {
             wb,
             matrix: self.matrix.map(|row| [row[0], row[1], row[2]]),
-            compression: self
-                .compression
-                .each_ref()
-                .map(|c| c.as_ref().map(|c| (c.threshold, c.scale))),
+            compression: self.compression,
             clamp_limit,
         }
     }
@@ -351,10 +302,10 @@ pub fn develop_raw_image(
         file_bytes,
     );
 
-    let camera_to_srgb = (apply_calibration || !is_linear_format)
-        .then(|| CameraToSrgb::new(&raw_image))
+    let camera_to_working = (apply_calibration || !is_linear_format)
+        .then(|| CameraToWorking::new(&raw_image))
         .flatten();
-    let cfa_balance = (!is_linear_format && camera_to_srgb.is_some())
+    let cfa_balance = (!is_linear_format && camera_to_working.is_some())
         .then(|| cfa_white_balance(&raw_image))
         .flatten();
     let (clamp_limit, denoise, sharpen) = if fast_demosaic {
@@ -369,12 +320,11 @@ pub fn develop_raw_image(
         sharpen,
     };
 
-    if let (Some(wb), Some(camera_to_srgb)) = (cfa_balance, &camera_to_srgb)
+    if let (Some(wb), Some(camera_to_working)) = (cfa_balance, &camera_to_working)
         && let Some(mosaic) = Mosaic::new(&raw_image, wb)
     {
         check_cancel()?;
-        let finish = finish(Some(camera_to_srgb.camera(wb, clamp_limit)));
-        let context = crate::render::gpu::context::decode_gpu_context().map_err(|e| anyhow!(e))?;
+        let finish = finish(Some(camera_to_working.camera(wb, clamp_limit)));
         let crop = |dim| {
             default_crop(
                 raw_image.crop_area,
@@ -388,12 +338,11 @@ pub fn develop_raw_image(
             check_cancel()?;
             let crop = crop(dim);
             develop::finish_rgb(
-                &context,
                 &crop_rows(&data, dim.w, crop),
                 crop.d.w as u32,
                 crop.d.h as u32,
                 &finish,
-            )?
+            )
         } else {
             let domain = mosaic.domain();
             let crop = crop(domain.d);
@@ -401,7 +350,7 @@ pub fn develop_raw_image(
                 Point::new(domain.p.x + crop.p.x, domain.p.y + crop.p.y),
                 crop.d,
             );
-            mosaic.develop(&context, crop, &finish)?
+            mosaic.develop(crop, &finish, check_cancel)?
         };
         return Ok(DynamicImage::ImageRgb32F(image));
     }
@@ -437,10 +386,10 @@ pub fn develop_raw_image(
     drop(raw_image);
 
     if cfa_balance.is_none()
-        && let Some(camera_to_srgb) = &camera_to_srgb
+        && let Some(camera_to_working) = &camera_to_working
     {
         check_cancel()?;
-        developed_intermediate = camera_to_srgb.apply(developed_intermediate);
+        developed_intermediate = camera_to_working.apply(developed_intermediate);
     }
 
     let denominator = (original_white_level - original_black_level).max(1.0);
@@ -465,7 +414,7 @@ pub fn develop_raw_image(
         }
         Intermediate::ThreeColor(pixels) if cfa_balance.is_some() => {
             let wb = cfa_balance.unwrap();
-            let camera = camera_to_srgb.as_ref().unwrap().camera(wb, clamp_limit);
+            let camera = camera_to_working.as_ref().unwrap().camera(wb, clamp_limit);
             let crop = default_crop(crop_area, active_area, raw_dim, pixels.dim());
             let mut data = crop_rows(&pixels.data, pixels.width, crop).into_owned();
             data.par_iter_mut().for_each(|p| {
@@ -475,18 +424,16 @@ pub fn develop_raw_image(
             });
             check_cancel()?;
 
-            let context =
-                crate::render::gpu::context::decode_gpu_context().map_err(|e| anyhow!(e))?;
             let image = develop::finish_rgb(
-                &context,
                 &data,
                 crop.d.w as u32,
                 crop.d.h as u32,
                 &finish(Some(camera)),
-            )?;
+            );
             return Ok(DynamicImage::ImageRgb32F(image));
         }
         Intermediate::ThreeColor(pixels) => {
+            let uncalibrated_to_working = camera_to_working.is_none().then(srgb_to_working);
             pixels.data.par_iter_mut().for_each(|p| {
                 let mut r = (p[0] * rescale_factor).max(0.0);
                 let mut g = (p[1] * rescale_factor).max(0.0);
@@ -499,10 +446,10 @@ pub fn develop_raw_image(
                 }
 
                 let (rec_r, rec_g, rec_b) = recover_clipped_pixel(r, g, b);
+                let recovered = Vec3::new(rec_r, rec_g, rec_b);
+                let rgb = uncalibrated_to_working.map_or(recovered, |matrix| matrix * recovered);
 
-                p[0] = rec_r.clamp(0.0, clamp_limit);
-                p[1] = rec_g.clamp(0.0, clamp_limit);
-                p[2] = rec_b.clamp(0.0, clamp_limit);
+                *p = rgb.clamp(Vec3::ZERO, Vec3::splat(clamp_limit)).to_array();
             });
         }
         Intermediate::FourColor(pixels) => {
@@ -532,11 +479,11 @@ pub fn develop_raw_image(
         }
     };
 
-    develop::enhance(
+    Ok(develop::enhance(
         apply_orientation(dynamic_image, orientation),
         denoise,
         sharpen,
-    )
+    ))
 }
 
 fn crop_rows(data: &[[f32; 3]], stride: usize, crop: Rect) -> Cow<'_, [[f32; 3]]> {

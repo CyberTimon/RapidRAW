@@ -29,10 +29,12 @@ pub fn register_app_handle(app_handle: &tauri::AppHandle) {
     let _ = APP_HANDLE.set(app_handle.clone());
 }
 
+pub fn app_handle() -> Option<&'static tauri::AppHandle> {
+    APP_HANDLE.get()
+}
+
 pub fn shared_gpu_context() -> Result<GpuContext, String> {
-    let app_handle = APP_HANDLE
-        .get()
-        .ok_or("GPU context requested before app setup")?;
+    let app_handle = app_handle().ok_or("GPU context requested before app setup")?;
     get_or_init_gpu_context(&app_handle.state::<AppState>(), app_handle)
 }
 
@@ -41,6 +43,7 @@ pub struct DecodeGpu {
     pub device: Arc<wgpu::Device>,
     pub queue: Arc<wgpu::Queue>,
     pub limits: wgpu::Limits,
+    pub adapter: String,
 }
 
 struct DecodeSlot {
@@ -52,7 +55,11 @@ static DECODE_GPU: Mutex<Option<DecodeSlot>> = Mutex::new(None);
 static DECODE_DEVICE_LOST: AtomicBool = AtomicBool::new(false);
 
 pub fn decode_gpu_context() -> Result<DecodeGpu, String> {
-    Ok(decode_gpu_for(&shared_gpu_context()?))
+    let context = shared_gpu_context()?;
+    if context.shares_one_gl_context() {
+        return Err("the GL backend cannot run decoding next to rendering".into());
+    }
+    Ok(decode_gpu_for(&context))
 }
 
 fn decode_gpu_for(context: &GpuContext) -> DecodeGpu {
@@ -76,10 +83,15 @@ fn decode_gpu_for(context: &GpuContext) -> DecodeGpu {
         log::warn!("Decoding on the display queue: {}", e);
         (Arc::clone(&context.device), Arc::clone(&context.queue))
     });
+    let info = context.adapter.get_info();
     let gpu = DecodeGpu {
         device,
         queue,
         limits: context.limits.clone(),
+        adapter: format!(
+            "{} ({:?}, {} {})",
+            info.name, info.backend, info.driver, info.driver_info
+        ),
     };
     *slot = Some(DecodeSlot {
         owner: Arc::clone(&context.device),
@@ -277,7 +289,7 @@ pub fn get_or_init_gpu_context(
             .inner_size()
             .unwrap_or(tauri::PhysicalSize::new(1280, 720));
         Some(build_wgpu_display(
-            surface, &adapter, &device, size, false, platform,
+            surface, &adapter, &device, &queue, size, false, platform,
         )?)
     } else {
         None
@@ -292,20 +304,23 @@ pub fn get_or_init_gpu_context(
         device,
         queue,
         limits,
+        backend: adapter_info.backend,
         display: Arc::new(std::sync::Mutex::new(display_opt)),
         viewer_display: Arc::new(std::sync::Mutex::new(None)),
         pipelines: Arc::new(std::sync::OnceLock::new()),
         compute: Arc::new(std::sync::OnceLock::new()),
     };
-    let warm = new_context.clone();
-    std::thread::spawn(move || {
-        let decode = decode_gpu_for(&warm);
-        crate::decode::demosaic::warm(&decode.device);
-        crate::decode::develop::warm(&decode.device);
-        warm.compute
-            .get_or_init(|| crate::render::gpu::compute::ComputePipelines::new(&warm.device))
-            .warm(&warm.device);
-    });
+    if !new_context.shares_one_gl_context() {
+        let warm = new_context.clone();
+        std::thread::spawn(move || {
+            let decode = decode_gpu_for(&warm);
+            crate::decode::demosaic::warm(&decode.device);
+            crate::decode::develop::warm(&decode.device);
+            warm.compute
+                .get_or_init(|| crate::render::gpu::compute::ComputePipelines::new(&warm.device))
+                .warm(&warm.device);
+        });
+    }
     *context_lock = Some(new_context.clone());
     Ok(new_context)
 }
@@ -317,6 +332,7 @@ pub struct GpuContext {
     pub device: Arc<wgpu::Device>,
     pub queue: Arc<wgpu::Queue>,
     pub limits: wgpu::Limits,
+    pub backend: wgpu::Backend,
     pub display: Arc<std::sync::Mutex<Option<WgpuDisplay>>>,
     pub viewer_display: Arc<std::sync::Mutex<Option<WgpuDisplay>>>,
     pub pipelines: Arc<OnceLock<Arc<GpuPipelines>>>,
@@ -324,6 +340,10 @@ pub struct GpuContext {
 }
 
 impl GpuContext {
+    pub fn shares_one_gl_context(&self) -> bool {
+        self.backend == wgpu::Backend::Gl
+    }
+
     pub fn display_for_label(
         &self,
         label: &str,

@@ -1,26 +1,36 @@
-use crate::merge::panorama::{BRIEF_DESCRIPTOR_SIZE, Descriptor, Feature, KeyPoint, Match};
-use image::{GrayImage, ImageBuffer, Luma};
+use image::{GrayImage, ImageBuffer, Luma, Rgb, Rgb32FImage};
 use imageproc::corners::{Corner, corners_fast9};
 use imageproc::filter::gaussian_blur_f32;
-use nalgebra::{Matrix3, Point2, SVD};
+use nalgebra::{Matrix3, Point2, Point3, SVD};
 use rand::prelude::*;
 use rand::rng;
 use rayon::prelude::*;
 
-const MAX_PROCESSING_DIMENSION: u32 = 1600;
-const FAST_THRESHOLD: u8 = 15;
-const NON_MAXIMA_SUPPRESSION_RADIUS: f32 = 15.0;
+pub const BRIEF_DESCRIPTOR_SIZE: usize = 256;
+pub type Descriptor = [u8; BRIEF_DESCRIPTOR_SIZE / 8];
+
+#[derive(Debug, Clone, Copy)]
+pub struct KeyPoint {
+    pub x: u32,
+    pub y: u32,
+}
+
+pub struct Feature {
+    pub keypoint: KeyPoint,
+    pub descriptor: Descriptor,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Match {
+    pub index1: usize,
+    pub index2: usize,
+}
+
 const BRIEF_PATCH_SIZE: u32 = 32;
 const MATCH_RATIO_THRESHOLD: f32 = 0.8;
 const RANSAC_ITERATIONS: usize = 2500;
 const RANSAC_INLIER_THRESHOLD: f64 = 5.0;
 pub const MIN_INLIERS_FOR_CONNECTION: usize = 15;
-const LOW_DETAIL_WINDOW_RADIUS: u32 = 16;
-const LOW_DETAIL_VARIANCE_THRESHOLD: f64 = 60.0;
-
-pub fn calculate_downscale_dimensions(width: u32, height: u32) -> (u32, u32, f64) {
-    calculate_downscale_dimensions_capped(width, height, MAX_PROCESSING_DIMENSION)
-}
 
 pub fn calculate_downscale_dimensions_capped(
     width: u32,
@@ -60,15 +70,6 @@ pub fn normalize_grayscale(img: &GrayImage) -> GrayImage {
         let stretched = ((value - minimum) as f32 / span * 255.0).round();
         Luma([stretched as u8])
     })
-}
-
-pub fn find_features(img: &GrayImage, brief_pairs: &[(Point2<i32>, Point2<i32>)]) -> Vec<Feature> {
-    find_features_tuned(
-        img,
-        brief_pairs,
-        FAST_THRESHOLD,
-        NON_MAXIMA_SUPPRESSION_RADIUS,
-    )
 }
 
 pub fn find_features_tuned(
@@ -309,7 +310,7 @@ fn are_points_collinear(p1: Point2<f64>, p2: Point2<f64>, p3: Point2<f64>) -> bo
     area.abs() < 1e-6
 }
 
-pub fn compute_homography(points: &[(Point2<f64>, Point2<f64>)]) -> Option<Matrix3<f64>> {
+fn compute_homography(points: &[(Point2<f64>, Point2<f64>)]) -> Option<Matrix3<f64>> {
     if points.len() < 4 {
         return None;
     }
@@ -354,98 +355,64 @@ fn convert_gray_u8_to_f32(img: &GrayImage) -> ImageBuffer<Luma<f32>, Vec<f32>> {
     })
 }
 
-fn build_integral_images(gray: &GrayImage) -> (Vec<u64>, Vec<u128>) {
-    let (width, height) = gray.dimensions();
-    let mut sat = vec![0u64; (width * height) as usize];
-    let mut sat_sq = vec![0u128; (width * height) as usize];
-
-    for y in 0..height {
-        let mut row_sum = 0u64;
-        let mut row_sum_sq = 0u128;
-        for x in 0..width {
-            let pixel_val = gray.get_pixel(x, y)[0] as u64;
-            let pixel_val_sq = pixel_val as u128 * pixel_val as u128;
-            row_sum += pixel_val;
-            row_sum_sq += pixel_val_sq;
-
-            let idx = (y * width + x) as usize;
-            let above_idx = if y > 0 {
-                ((y - 1) * width + x) as usize
-            } else {
-                usize::MAX
-            };
-
-            sat[idx] = row_sum
-                + if above_idx != usize::MAX {
-                    sat[above_idx]
-                } else {
-                    0
-                };
-            sat_sq[idx] = row_sum_sq
-                + if above_idx != usize::MAX {
-                    sat_sq[above_idx]
-                } else {
-                    0
-                };
-        }
-    }
-    (sat, sat_sq)
-}
-
-pub fn generate_low_detail_mask(gray_full: &GrayImage) -> GrayImage {
-    println!("    - Generating low-detail mask...");
-    let (width, height) = gray_full.dimensions();
-    let mut mask = GrayImage::new(width, height);
-    let (sat, sat_sq) = build_integral_images(gray_full);
-    let r = LOW_DETAIL_WINDOW_RADIUS as i32;
-
-    let get_sat_val = |s: &Vec<u64>, x: i32, y: i32| -> u64 {
-        if x < 0 || y < 0 {
-            0
-        } else {
-            s[(y as u32 * width + x as u32) as usize]
-        }
-    };
-    let get_sat_sq_val = |s: &Vec<u128>, x: i32, y: i32| -> u128 {
-        if x < 0 || y < 0 {
-            0
-        } else {
-            s[(y as u32 * width + x as u32) as usize]
-        }
-    };
-
-    mask.par_chunks_mut(width as usize)
+pub fn warp_image_homography(
+    source: &Rgb32FImage,
+    homography: &Matrix3<f64>,
+    width: u32,
+    height: u32,
+) -> Rgb32FImage {
+    assert!(width > 0 && height > 0, "warp output must be non-empty");
+    let mut buffer = vec![0.0f32; (width as usize) * (height as usize) * 3];
+    buffer
+        .par_chunks_mut(width as usize * 3)
         .enumerate()
         .for_each(|(y, row)| {
-            for x in 0..width as i32 {
-                let x1 = x - r - 1;
-                let y1 = y as i32 - r - 1;
-                let x2 = (x + r).min(width as i32 - 1);
-                let y2 = (y as i32 + r).min(height as i32 - 1);
-
-                let n_x = (x2 - (x1 + 1) + 1) as f64;
-                let n_y = (y2 - (y1 + 1) + 1) as f64;
-                let n = n_x * n_y;
-                if n < 1.0 {
-                    continue;
-                }
-
-                let sum = get_sat_val(&sat, x2, y2) + get_sat_val(&sat, x1, y1)
-                    - get_sat_val(&sat, x2, y1)
-                    - get_sat_val(&sat, x1, y2);
-                let sum_sq = get_sat_sq_val(&sat_sq, x2, y2) + get_sat_sq_val(&sat_sq, x1, y1)
-                    - get_sat_sq_val(&sat_sq, x2, y1)
-                    - get_sat_sq_val(&sat_sq, x1, y2);
-
-                let mean = sum as f64 / n;
-                let variance = (sum_sq as f64 / n) - mean.powi(2);
-
-                if variance < LOW_DETAIL_VARIANCE_THRESHOLD {
-                    row[x as usize] = 255;
+            for x in 0..width {
+                let mapped = homography * Point3::new(x as f64, y as f64, 1.0);
+                let pixel = if mapped.z.abs() < 1e-8 {
+                    Rgb([0.0, 0.0, 0.0])
                 } else {
-                    row[x as usize] = 0;
-                }
+                    get_interpolated_pixel(source, mapped.x / mapped.z, mapped.y / mapped.z)
+                };
+                let base = x as usize * 3;
+                row[base] = pixel[0];
+                row[base + 1] = pixel[1];
+                row[base + 2] = pixel[2];
             }
         });
-    mask
+    Rgb32FImage::from_raw(width, height, buffer)
+        .expect("warp buffer dimensions must match output image")
+}
+
+fn get_interpolated_pixel(img: &Rgb32FImage, x: f64, y: f64) -> Rgb<f32> {
+    let (width, height) = img.dimensions();
+    let x_floor = x.floor() as u32;
+    let y_floor = y.floor() as u32;
+    if x_floor + 1 >= width || y_floor + 1 >= height || x < 0.0 || y < 0.0 {
+        return *img.get_pixel(
+            x.max(0.0).min(width as f64 - 1.0) as u32,
+            y.max(0.0).min(height as f64 - 1.0) as u32,
+        );
+    }
+    let dx = x - x_floor as f64;
+    let dy = y - y_floor as f64;
+    let p00 = img.get_pixel(x_floor, y_floor);
+    let p10 = img.get_pixel(x_floor + 1, y_floor);
+    let p01 = img.get_pixel(x_floor, y_floor + 1);
+    let p11 = img.get_pixel(x_floor + 1, y_floor + 1);
+    let mut final_pixel = [0.0; 3];
+    for i in 0..3 {
+        let c00 = p00[i] as f64;
+        let c10 = p10[i] as f64;
+        let c01 = p01[i] as f64;
+        let c11 = p11[i] as f64;
+        let top = c00 * (1.0 - dx) + c10 * dx;
+        let bottom = c01 * (1.0 - dx) + c11 * dx;
+        final_pixel[i] = top * (1.0 - dy) + bottom * dy;
+    }
+    Rgb([
+        final_pixel[0] as f32,
+        final_pixel[1] as f32,
+        final_pixel[2] as f32,
+    ])
 }

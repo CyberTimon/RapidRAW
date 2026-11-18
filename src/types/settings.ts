@@ -127,6 +127,7 @@ export interface AppSettings {
   uiVisibility?: UiVisibility;
   rawHighlightCompression?: number;
   processingBackend?: string;
+  rawDecoding?: string;
   linuxGpuOptimization?: boolean;
   exportPresets?: ExportPreset[];
   myLenses?: any;
@@ -153,6 +154,11 @@ export interface AppSettings {
   enableBaselineExposure?: boolean;
   baselineExposure?: number;
   compensateHighlightPreservation?: boolean;
+  hdrDisplay?: boolean;
+  hdrHeadroom?: number;
+  displayColorMode?: 'auto' | 'off' | 'custom';
+  displayIccProfile?: string | null;
+  wideGamutPreview?: boolean;
   tonemapperOverrideEnabled?: boolean;
   defaultRawTonemapper?: string;
   defaultNonRawTonemapper?: string;

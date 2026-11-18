@@ -956,6 +956,9 @@
         "masks": "Màscares"
       },
       "title": "Ajustos preestablerts",
+      "toasts": {
+        "importFailed": "No s'ha pogut importar {{fileName}}: {{error}}"
+      },
       "tooltips": {
         "explore": "Explorar ajustos de la comunitat",
         "export": "Exportar tots els ajustos preestablerts a un fitxer .rrpreset",
@@ -998,6 +1001,7 @@
         "compare": "Abans / després (B) o modes (clic dret)",
         "focalLength": "Distància focal",
         "fullscreen": "Alternar pantalla completa (F)",
+        "hdr": "Previsualització HDR",
         "iso": "ISO",
         "redo": "Refer (Ctrl+Y) o Historial (Clic dret)",
         "shutterSpeed": "Velocitat d'obturació",
@@ -1055,7 +1059,13 @@
       "selectFolderTitle_other": "Seleccioneu la carpeta per exportar {{count}} imatges"
     },
     "file": {
+      "colorSpace": "Espai de color",
       "dpi": "PPP",
+      "hdr": "Sortida HDR",
+      "hdrJpegHint": "Afegeix un mapa de guany: les pantalles HDR mostren altes llums més brillants i la resta mostra la foto normal.",
+      "hdrJxlHint": "Desa un fitxer HDR real (PQ, Rec. 2020). Necessita un visor compatible amb HDR.",
+      "hdrNoPreview": "Aquesta pantalla no pot mostrar les altes llums HDR. L'exportació les inclourà igualment.",
+      "hdrPreviewOff": "Activa l'HDR a la barra d'eines de l'editor per previsualitzar les altes llums.",
       "quality": "Qualitat",
       "qualityLossless": "Qualitat (Sense pèrdua)",
       "resolution": "Resolució",
@@ -1775,6 +1785,10 @@
       "zoomOutTooltip": "Allunyar"
     },
     "panorama": {
+      "autoCrop": "Retall automàtic",
+      "autoProjectionUsed": "S'utilitza {{projection}}",
+      "boundaryWarp": "Deformació dels límits",
+      "boundaryWarpHint": "Estira les vores per omplir l'enquadrament en lloc de retallar-les.",
       "cancel": "Cancel·lar",
       "close": "Tancar",
       "descCount": "Combineu {{count}} imatges superposades en un panorama perfecte.",
@@ -1782,12 +1796,26 @@
       "descCount_one": "Combineu {{count}} imatge superposada en un panorama perfecte.",
       "descCount_other": "Combineu {{count}} imatges superposades en un panorama perfecte.",
       "descGeneric": "Combineu les imatges superposades en un panorama perfecte.",
+      "excludedImages": "{{count}} imatges no s'han pogut emparellar i s'han omès",
+      "excludedImages_many": "{{count}} d'imatges no s'han pogut emparellar i s'han omès",
+      "excludedImages_one": "{{count}} imatge no s'ha pogut emparellar i s'ha omès",
+      "excludedImages_other": "{{count}} imatges no s'han pogut emparellar i s'han omès",
+      "exposureCompensation": "Compensació de l'exposició",
+      "exposureCompensationHint": "Iguala l'exposició, el balanç de blancs i el vinyetatge entre les imatges.",
       "failed": "El panorama ha fallat",
       "initializing": "S'està inicialitzant...",
       "openInEditor": "Obrir a l'editor",
+      "outputInfo": "{{images}} imatges · {{width}} × {{height}} px",
+      "projection": "Projecció",
+      "projectionAuto": "Automàtica",
+      "projectionCylindrical": "Cilíndrica",
+      "projectionFallback": "{{requested}} no cobreix aquest camp de visió, s'utilitza {{projection}}",
+      "projectionPerspective": "Perspectiva",
+      "projectionSpherical": "Esfèrica",
       "retry": "Tornar-ho a intentar",
       "save": "Desar",
       "savedSuccess": "Panorama desat correctament!",
+      "saving": "S'està desant…",
       "speedNotice": "Això pot trigar uns minuts depenent del nombre i la mida de les imatges.",
       "start": "Iniciar",
       "stitchingProgress": "S'està unint el panorama",
@@ -2184,6 +2212,24 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "colorManagement": {
+        "chooseProfile": "Tria un perfil",
+        "modeAuto": "Automàtic (perfil del sistema)",
+        "modeCustom": "Perfil ICC personalitzat",
+        "modeOff": "Desactivat",
+        "profile": "Perfil del monitor",
+        "profileDesc": "Converteix la previsualització de l'editor al perfil de color del teu monitor perquè els colors es vegin correctament en pantalles calibrades i de gamma àmplia. Les exportacions no es veuen afectades.",
+        "statusInvalid": "No s'ha pogut carregar aquest perfil.",
+        "statusNone": "No s'ha trobat cap perfil de monitor. La previsualització es mostra com a sRGB.",
+        "statusProfile": "S'està utilitzant {{name}}.",
+        "statusSystem": "El sistema operatiu gestiona els colors.",
+        "statusUnavailable": "La gestió del color necessita el renderitzador GPU.",
+        "wideGamut": "Previsualització de gamma àmplia ({{space}}).",
+        "wideGamutHdrNote": "No s'utilitza mentre l'editor mostra HDR.",
+        "wideGamutPreview": "Previsualització de gamma àmplia",
+        "wideGamutPreviewDesc": "Mostra colors més enllà de sRGB en monitors de gamma àmplia. Activa-ho si exportes en Display P3, Adobe RGB o un altre espai de color ampli. Desactivat, veus com quedarà una exportació sRGB.",
+        "wideGamutPreviewEnable": "Mostra colors de gamma àmplia"
+      },
       "defaultAdjustments": {
         "addCamera": "Afegir càmera…",
         "applyToNonRaw": "Aplicar també a JPEG, TIFF, PNG i altres fitxers no RAW",
@@ -2209,6 +2255,9 @@
         "sliderResetNeutral": "Valor neutre",
         "title": "Ajustaments per defecte"
       },
+      "display": {
+        "title": "Pantalla"
+      },
       "dynamicDesc": "L'editor renderitza la vista prèvia perquè coincideixi amb la densitat real de píxels de la vostra pantalla. Això assegura que cada detall es representi amb precisió 1:1, proporcionant la màxima claredat a l'hora de fer zoom i comprovar l'enfocament.",
       "editIn": {
         "add": "Afegeix un programa",
@@ -2226,6 +2275,16 @@
         "title": "Edita a"
       },
       "enableLivePreviews": "Activar vistes prèvies en directe",
+      "hdr": {
+        "display": "Pantalla HDR",
+        "displayDesc": "Mostra les altes llums més brillants que el blanc normal en una pantalla HDR. Les ombres i els tons mitjans no canvien i les exportacions estàndard no es veuen afectades.",
+        "enableDisplay": "Utilitza HDR a l'editor",
+        "headroom": "Rang d'altes llums",
+        "headroomDesc": "Fins on poden superar les altes llums el blanc normal. També s'utilitza en les exportacions HDR.",
+        "statusActive": "Aquesta pantalla està en mode HDR.",
+        "statusInactive": "Aquesta pantalla no està en mode HDR. Activa l'HDR a la configuració de pantalla del sistema per veure l'efecte.",
+        "statusUnsupported": "L'HDR necessita el renderitzador per GPU a Windows o macOS."
+      },
       "highDpi": "Renderització High-DPI",
       "highDpiDesc": "Renderitzar vistes prèvies a la resolució nativa de {{dpr}}x píxels de la pantalla. Produeix la vista prèvia més nítida possible, però utilitza molta més memòria.",
       "highDpiDescStandard": "Aquesta configuració només afecta pantalles d'alta densitat (High-DPI). La vostra pantalla actual té una resolució estàndard.",
@@ -2294,6 +2353,13 @@
       "qualities": {
         "high": "Alta qualitat",
         "performance": "Rendiment"
+      },
+      "rawDecoding": "Descodificació RAW",
+      "rawDecodingDesc": "Seleccioneu on es descodifiquen els fitxers RAW. 'Auto' utilitza la GPU i canvia a la CPU si no pot gestionar les vostres imatges. 'GPU' sempre prova primer la GPU. 'CPU' és més lenta, però funciona a tots els sistemes.",
+      "rawDecodingOptions": {
+        "auto": "Auto",
+        "cpu": "CPU",
+        "gpu": "GPU"
       },
       "renderScale": "Escala de resolució de renderització",
       "renderScaleDesc": "Escala la resolució de renderització respecte a la vostra pantalla. Valors més baixos milloren el rendiment en pantalles d'alta resolució a canvi d'una mica de pèrdua de nitidesa.",

@@ -55,8 +55,10 @@ import { DEFAULT_SPEED_EDIT_ADJUSTMENTS, SPEED_EDIT_ADJUSTMENTS } from '../../ut
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { useOsPlatform } from '../../hooks/useOsPlatform';
+import { DEFAULT_HDR_HEADROOM, useDisplayStatus } from '../../hooks/useDisplayStatus';
 import { useCloudUsage } from '../../hooks/useCloudUsage';
 import { open } from '@tauri-apps/plugin-shell';
+import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import ImmichSettings from '../immich/ImmichSettings';
 import DataManagementSettings from './settings/DataManagementSettings';
 import DefaultAdjustmentsSettings from './settings/DefaultAdjustmentsSettings';
@@ -87,6 +89,7 @@ interface SettingItemProps {
   children: any;
   description?: string;
   label: string;
+  status?: string | null;
 }
 
 interface SettingsPanelProps {
@@ -110,6 +113,12 @@ interface MyLens {
 
 const EXECUTE_TIMEOUT = 3000;
 const DEFAULT_BASELINE_EXPOSURE = 0.7;
+const DISPLAY_STATUS_INTERVAL = 3000;
+const PREVIEW_SPACE_NAMES: Record<string, string> = {
+  displayP3: 'Display P3',
+  adobeRgb: 'Adobe RGB',
+  rec2020: 'Rec. 2020',
+};
 
 const resolutions: OptionItem<number>[] = [
   { value: 720, label: '720px' },
@@ -220,7 +229,7 @@ const KeybindRow = ({
   );
 };
 
-const SettingItem = ({ children, description, label }: SettingItemProps) => (
+const SettingItem = ({ children, description, label, status }: SettingItemProps) => (
   <div>
     <Text variant={TextVariants.heading} className="block mb-2">
       {label}
@@ -229,6 +238,11 @@ const SettingItem = ({ children, description, label }: SettingItemProps) => (
     {description && (
       <Text variant={TextVariants.small} className="mt-2">
         {description}
+      </Text>
+    )}
+    {status && (
+      <Text variant={TextVariants.small} className="mt-1">
+        {status}
       </Text>
     )}
   </div>
@@ -679,12 +693,48 @@ export default function SettingsPanel({
       .then(setIsWgpuSupported)
       .catch(() => setIsWgpuSupported(false));
   }, []);
+  const displayStatus = useDisplayStatus(DISPLAY_STATUS_INTERVAL);
+  const displayColorMode = appSettings?.displayColorMode ?? 'auto';
+  const displayColorOptions = useMemo<OptionItem<string>[]>(
+    () => [
+      { value: 'auto', label: t('settings.processing.colorManagement.modeAuto') },
+      { value: 'off', label: t('settings.processing.colorManagement.modeOff') },
+      { value: 'custom', label: t('settings.processing.colorManagement.modeCustom') },
+    ],
+    [t],
+  );
+  const displayColorStatus = useMemo(() => {
+    if (!displayStatus || displayColorMode === 'off') return null;
+    if (!displayStatus.rendererActive) return t('settings.processing.colorManagement.statusUnavailable');
+    const space = PREVIEW_SPACE_NAMES[displayStatus.previewSpace];
+    const wideGamut = space ? ` ${t('settings.processing.colorManagement.wideGamut', { space })}` : '';
+    switch (displayStatus.colorManagement) {
+      case 'profile':
+        return t('settings.processing.colorManagement.statusProfile', { name: displayStatus.profileName }) + wideGamut;
+      case 'system':
+        return t('settings.processing.colorManagement.statusSystem') + wideGamut;
+      default:
+        if (displayColorMode === 'auto') return t('settings.processing.colorManagement.statusNone');
+        return appSettings?.displayIccProfile ? t('settings.processing.colorManagement.statusInvalid') : null;
+    }
+  }, [displayStatus, displayColorMode, appSettings?.displayIccProfile, t]);
+  const hdrPreviewActive = Boolean(appSettings?.hdrDisplay && displayStatus?.hdrActive);
+  const pickDisplayProfile = async () => {
+    const selected = await openDialog({
+      multiple: false,
+      filters: [{ name: t('settings.processing.colorManagement.modeCustom'), extensions: ['icc', 'icm'] }],
+    });
+    if (typeof selected === 'string') {
+      onSettingsChange({ ...appSettings, displayIccProfile: selected });
+    }
+  };
   const [processingSettings, setProcessingSettings] = useState({
     editorPreviewResolution: appSettings?.editorPreviewResolution || 1920,
     smallThumbnailResolution: appSettings?.smallThumbnailResolution || 480,
     mediumThumbnailResolution: appSettings?.mediumThumbnailResolution || 1280,
     rawHighlightCompression: appSettings?.rawHighlightCompression ?? 2.5,
     baselineExposure: appSettings?.baselineExposure ?? DEFAULT_BASELINE_EXPOSURE,
+    hdrHeadroom: appSettings?.hdrHeadroom ?? DEFAULT_HDR_HEADROOM,
     processingBackend: appSettings?.processingBackend || 'auto',
     linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
     highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
@@ -741,6 +791,15 @@ export default function SettingsPanel({
       return true;
     });
   }, [t, osPlatform]);
+
+  const rawDecodingOptions = useMemo<OptionItem<string>[]>(
+    () => [
+      { value: 'auto', label: t('settings.processing.rawDecodingOptions.auto') },
+      { value: 'gpu', label: t('settings.processing.rawDecodingOptions.gpu') },
+      { value: 'cpu', label: t('settings.processing.rawDecodingOptions.cpu') },
+    ],
+    [t],
+  );
 
   const linearRawOptions = useMemo<OptionItem<string>[]>(
     () => [
@@ -813,6 +872,7 @@ export default function SettingsPanel({
       mediumThumbnailResolution: appSettings?.mediumThumbnailResolution || 1280,
       rawHighlightCompression: appSettings?.rawHighlightCompression ?? 2.5,
       baselineExposure: appSettings?.baselineExposure ?? DEFAULT_BASELINE_EXPOSURE,
+      hdrHeadroom: appSettings?.hdrHeadroom ?? DEFAULT_HDR_HEADROOM,
       processingBackend: appSettings?.processingBackend || 'auto',
       linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
       highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
@@ -2018,6 +2078,18 @@ export default function SettingsPanel({
                         />
                       </SettingItem>
 
+                      <SettingItem
+                        label={t('settings.processing.rawDecoding')}
+                        description={t('settings.processing.rawDecodingDesc')}
+                      >
+                        <Dropdown
+                          onChange={(value: string) => onSettingsChange({ ...appSettings, rawDecoding: value })}
+                          options={rawDecodingOptions}
+                          value={appSettings?.rawDecoding ?? 'auto'}
+                          triggerClassName="bg-bg-primary"
+                        />
+                      </SettingItem>
+
                       {osPlatform !== 'macos' && osPlatform !== 'windows' && (
                         <SettingItem
                           label={t('settings.processing.linuxCompat')}
@@ -2371,6 +2443,91 @@ export default function SettingsPanel({
                           )}
                         </AnimatePresence>
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="p-6 bg-surface rounded-xl shadow-md">
+                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
+                      {t('settings.processing.display.title')}
+                    </Text>
+                    <div className="space-y-4">
+                      <SettingItem
+                        label={t('settings.processing.colorManagement.profile')}
+                        description={t('settings.processing.colorManagement.profileDesc')}
+                        status={displayColorStatus}
+                      >
+                        <Dropdown
+                          onChange={(value: any) => onSettingsChange({ ...appSettings, displayColorMode: value })}
+                          options={displayColorOptions}
+                          value={displayColorMode}
+                          triggerClassName="bg-bg-primary"
+                        />
+                        {displayColorMode === 'custom' && (
+                          <div className="mt-3 flex items-center gap-3">
+                            <Button onClick={pickDisplayProfile}>
+                              {t('settings.processing.colorManagement.chooseProfile')}
+                            </Button>
+                            {appSettings?.displayIccProfile && (
+                              <Text variant={TextVariants.small} className="truncate">
+                                {appSettings.displayIccProfile.split(/[\\/]/).pop()}
+                              </Text>
+                            )}
+                          </div>
+                        )}
+                      </SettingItem>
+                      {displayColorMode !== 'off' && (
+                        <SettingItem
+                          label={t('settings.processing.colorManagement.wideGamutPreview')}
+                          description={t('settings.processing.colorManagement.wideGamutPreviewDesc')}
+                          status={hdrPreviewActive ? t('settings.processing.colorManagement.wideGamutHdrNote') : null}
+                        >
+                          <Switch
+                            checked={appSettings?.wideGamutPreview ?? false}
+                            disabled={hdrPreviewActive}
+                            id="wide-gamut-preview-toggle"
+                            label={t('settings.processing.colorManagement.wideGamutPreviewEnable')}
+                            onChange={(checked) => onSettingsChange({ ...appSettings, wideGamutPreview: checked })}
+                          />
+                        </SettingItem>
+                      )}
+
+                      <SettingItem
+                        label={t('settings.processing.hdr.display')}
+                        description={t('settings.processing.hdr.displayDesc')}
+                        status={
+                          displayStatus &&
+                          (!displayStatus.hdrSupported
+                            ? t('settings.processing.hdr.statusUnsupported')
+                            : displayStatus.hdrActive
+                              ? t('settings.processing.hdr.statusActive')
+                              : t('settings.processing.hdr.statusInactive'))
+                        }
+                      >
+                        <Switch
+                          checked={appSettings?.hdrDisplay ?? false}
+                          disabled={displayStatus?.hdrSupported === false && !appSettings?.hdrDisplay}
+                          id="hdr-display-toggle"
+                          label={t('settings.processing.hdr.enableDisplay')}
+                          onChange={(checked) => onSettingsChange({ ...appSettings, hdrDisplay: checked })}
+                        />
+                      </SettingItem>
+
+                      <SettingItem
+                        label={t('settings.processing.hdr.headroom')}
+                        description={t('settings.processing.hdr.headroomDesc')}
+                      >
+                        <Slider
+                          label={t('settings.tagging.amount')}
+                          min={1}
+                          max={4}
+                          step={0.1}
+                          value={processingSettings.hdrHeadroom}
+                          defaultValue={DEFAULT_HDR_HEADROOM}
+                          onChange={(e) => handleProcessingSettingChange('hdrHeadroom', Number(e.target.value))}
+                          fillOrigin="min"
+                          suffix=" EV"
+                        />
+                      </SettingItem>
                     </div>
                   </div>
 

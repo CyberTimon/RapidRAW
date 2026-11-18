@@ -981,6 +981,9 @@
         "masks": "Masky"
       },
       "title": "Předvolby",
+      "toasts": {
+        "importFailed": "Import souboru {{fileName}} se nezdařil: {{error}}"
+      },
       "tooltips": {
         "explore": "Prozkoumejte předvolby komunity",
         "export": "Exportujte všechny předvolby do souboru .rrpreset",
@@ -1023,6 +1026,7 @@
         "compare": "Před / po (B) nebo režimy (pravé tlačítko)",
         "focalLength": "Ohnisková vzdálenost",
         "fullscreen": "Přepnout na celou obrazovku (F)",
+        "hdr": "Náhled HDR",
         "iso": "ISO",
         "redo": "Znovu (Ctrl+Y) nebo Historie (kliknutí pravým tlačítkem)",
         "shutterSpeed": "Rychlost závěrky",
@@ -1081,7 +1085,13 @@
       "selectFolderTitle_other": "Vyberte složku pro export {{count}} fotografií"
     },
     "file": {
+      "colorSpace": "Barevný prostor",
       "dpi": "DPI",
+      "hdr": "Výstup HDR",
+      "hdrJpegHint": "Přidá gain mapu: HDR displeje zobrazí jasnější světla, vše ostatní zobrazí běžnou fotku.",
+      "hdrJxlHint": "Uloží skutečný HDR soubor (PQ, Rec. 2020). Vyžaduje prohlížeč s podporou HDR.",
+      "hdrNoPreview": "Tento displej neumí zobrazit světla HDR. Export je přesto bude obsahovat.",
+      "hdrPreviewOff": "Zapněte HDR na panelu nástrojů editoru, abyste viděli náhled světel.",
       "quality": "Kvalita",
       "qualityLossless": "Kvalita (bezeztrátová)",
       "resolution": "Rozlišení",
@@ -1812,6 +1822,10 @@
       "zoomOutTooltip": "Oddálit"
     },
     "panorama": {
+      "autoCrop": "Automatické oříznutí",
+      "autoProjectionUsed": "Použita: {{projection}}",
+      "boundaryWarp": "Deformace okrajů",
+      "boundaryWarpHint": "Roztáhne okraje tak, aby vyplnily snímek, místo aby je ořízla.",
       "cancel": "Zrušit",
       "close": "Zavřít",
       "descCount": "Kombinovat {{count}} překrývající se snímky do plynulého panoramatu.",
@@ -1820,12 +1834,27 @@
       "descCount_one": "Kombinovat {{count}} překrývající se snímek do hladkého panoramatu.",
       "descCount_other": "Kombinovat {{count}} překrývajících se snímků do hladkého panoramatu.",
       "descGeneric": "Spojte své překrývající se snímky do plynulého panoramatu.",
+      "excludedImages": "{{count}} snímků nebylo možné spárovat a bylo vynecháno",
+      "excludedImages_few": "{{count}} snímky nebylo možné spárovat a byly vynechány",
+      "excludedImages_many": "{{count}} snímku nebylo možné spárovat a bylo vynecháno",
+      "excludedImages_one": "{{count}} snímek nebylo možné spárovat a byl vynechán",
+      "excludedImages_other": "{{count}} snímků nebylo možné spárovat a bylo vynecháno",
+      "exposureCompensation": "Kompenzace expozice",
+      "exposureCompensationHint": "Vyrovná expozici, vyvážení bílé a vinětaci mezi snímky.",
       "failed": "Panorama se nezdařilo",
       "initializing": "Inicializace...",
       "openInEditor": "Otevřít v Editoru",
+      "outputInfo": "Snímky: {{images}} · {{width}} × {{height}} px",
+      "projection": "Projekce",
+      "projectionAuto": "Automatická",
+      "projectionCylindrical": "Válcová",
+      "projectionFallback": "{{requested}} nepokryje toto zorné pole, použita: {{projection}}",
+      "projectionPerspective": "Perspektivní",
+      "projectionSpherical": "Sférická",
       "retry": "Zkuste to znovu",
       "save": "Uložit",
       "savedSuccess": "Panorama úspěšně uloženo!",
+      "saving": "Ukládání…",
       "speedNotice": "To může trvat několik minut v závislosti na počtu a velikosti snímků.",
       "start": "Start",
       "stitchingProgress": "Skládání panorama",
@@ -2226,6 +2255,24 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "colorManagement": {
+        "chooseProfile": "Vybrat profil",
+        "modeAuto": "Automaticky (systémový profil)",
+        "modeCustom": "Vlastní profil ICC",
+        "modeOff": "Vypnuto",
+        "profile": "Profil monitoru",
+        "profileDesc": "Převádí náhled v editoru do barevného profilu vašeho monitoru, aby barvy odpovídaly na kalibrovaných a širokogamutových displejích. Exporty nejsou ovlivněny.",
+        "statusInvalid": "Tento profil se nepodařilo načíst.",
+        "statusNone": "Profil monitoru nebyl nalezen. Náhled se zobrazuje jako sRGB.",
+        "statusProfile": "Používá se {{name}}.",
+        "statusSystem": "Barvy spravuje operační systém.",
+        "statusUnavailable": "Správa barev vyžaduje GPU renderer.",
+        "wideGamut": "Náhled v širokém gamutu ({{space}}).",
+        "wideGamutHdrNote": "Nepoužívá se, dokud editor zobrazuje HDR.",
+        "wideGamutPreview": "Náhled širokého gamutu",
+        "wideGamutPreviewDesc": "Na monitorech se širokým gamutem zobrazí barvy mimo sRGB. Zapněte, pokud exportujete do Display P3, Adobe RGB nebo jiného širokého barevného prostoru. Vypnuté ukazuje, jak bude vypadat export do sRGB.",
+        "wideGamutPreviewEnable": "Zobrazit barvy širokého gamutu"
+      },
       "defaultAdjustments": {
         "addCamera": "Přidat fotoaparát…",
         "applyToNonRaw": "Použít také na JPEG, TIFF, PNG a další soubory jiné než RAW",
@@ -2251,6 +2298,9 @@
         "sliderResetNeutral": "Neutrální hodnota",
         "title": "Výchozí úpravy"
       },
+      "display": {
+        "title": "Displej"
+      },
       "dynamicDesc": "Editor vykresluje náhled tak, aby odpovídal skutečné hustotě pixelů vašeho displeje. Tím je zajištěno, že každý detail je zobrazen s přesností pixelů 1:1, což poskytuje maximální jasnost při přibližování a kontrole zaostření.",
       "editIn": {
         "add": "Přidat program",
@@ -2268,6 +2318,16 @@
         "title": "Upravit v"
       },
       "enableLivePreviews": "Povolit živé náhledy",
+      "hdr": {
+        "display": "Zobrazení HDR",
+        "displayDesc": "Na HDR displeji zobrazuje světla jasnější než běžná bílá. Stíny a střední tóny zůstávají stejné a běžné exporty se nemění.",
+        "enableDisplay": "Používat HDR v editoru",
+        "headroom": "Rozsah světel",
+        "headroomDesc": "Jak daleko mohou světla přesáhnout běžnou bílou. Platí také pro HDR exporty.",
+        "statusActive": "Tento displej je v režimu HDR.",
+        "statusInactive": "Tento displej není v režimu HDR. Zapněte HDR v nastavení zobrazení systému, abyste efekt viděli.",
+        "statusUnsupported": "HDR vyžaduje GPU renderer ve Windows nebo macOS."
+      },
       "highDpi": "High-DPI rendering",
       "highDpiDesc": "Vykreslovat náhledy v nativním {{dpr}}x fyzickém rozlišení pixelů obrazovky. Poskytuje nejostřejší možný náhled, ale spotřebovává výrazně více paměti.",
       "highDpiDescStandard": "Toto nastavení ovlivňuje pouze displeje s vysokým DPI. Váš aktuální displej má standardní rozlišení.",
@@ -2336,6 +2396,13 @@
       "qualities": {
         "high": "Vysoká kvalita",
         "performance": "Výkon"
+      },
+      "rawDecoding": "Dekódování RAW",
+      "rawDecodingDesc": "Vyberte, kde se dekódují soubory RAW. „Auto“ používá GPU a přepne na CPU, pokud GPU vaše snímky nezvládne. „GPU“ vždy nejprve zkusí GPU. „CPU“ je pomalejší, ale funguje na každém systému.",
+      "rawDecodingOptions": {
+        "auto": "Auto",
+        "cpu": "CPU",
+        "gpu": "GPU"
       },
       "renderScale": "Měřítko rozlišení vykreslení",
       "renderScaleDesc": "Mění měřítko rozlišení vykreslení vzhledem k vašemu displeji. Nižší hodnoty zlepšují výkon na displejích s vysokým rozlišením za cenu určité ostrosti.",
