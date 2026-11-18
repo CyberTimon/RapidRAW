@@ -409,6 +409,108 @@ fn decode_with_orientation(
         Ok(())
     };
 
+    if crate::decode::heif_parser::is_isobmff_heif_or_avif(bytes) {
+        check_cancel()?;
+        if let Ok(image) = crate::decode::heif_avif::decode_heif_or_avif(bytes) {
+            check_cancel()?;
+            let heif_meta = crate::decode::heif_parser::parse_heif_metadata(bytes);
+
+            let exif_obj = ExifReader::new()
+                .read_from_container(&mut Cursor::new(bytes))
+                .ok()
+                .or_else(|| {
+                    heif_meta.exif.as_ref().and_then(|exif_bytes| {
+                        ExifReader::new()
+                            .read_from_container(&mut Cursor::new(exif_bytes))
+                            .or_else(|_| ExifReader::new().read_raw(exif_bytes.clone()))
+                            .ok()
+                    })
+                });
+
+            // Container transformative properties (irot/imir) are authoritative per ISO/IEC 23008-12.
+            let (target_orientation, is_container_transform) = match heif_meta.container_orientation() {
+                Some(o) if o > 1 => (Some(o), true),
+                _ => (
+                    exif_obj
+                        .as_ref()
+                        .and_then(|exif| {
+                            exif.get_field(Tag::Orientation, exif::In::PRIMARY)?
+                                .value
+                                .get_uint(0)
+                        })
+                        .map(|o| o as u16),
+                    false,
+                ),
+            };
+
+            let decoded_width = image.width();
+            let decoded_height = image.height();
+
+            // Deterministic guard against OS decoder auto-rotation collisions:
+            let should_apply_rotation = match target_orientation {
+                Some(orientation) if orientation > 1 => {
+                    let orientation_swaps_dimensions = matches!(orientation, 5..=8);
+                    if let (Some(ispe_w), Some(ispe_h)) = (heif_meta.ispe_width, heif_meta.ispe_height) {
+                        if orientation_swaps_dimensions && ispe_w != ispe_h {
+                            let already_rotated = decoded_width == ispe_h && decoded_height == ispe_w;
+                            !already_rotated
+                        } else if is_container_transform {
+                            #[cfg(target_os = "windows")]
+                            {
+                                false
+                            }
+                            #[cfg(not(target_os = "windows"))]
+                            {
+                                true
+                            }
+                        } else {
+                            true
+                        }
+                    } else if is_container_transform {
+                        #[cfg(target_os = "windows")]
+                        {
+                            false
+                        }
+                        #[cfg(not(target_os = "windows"))]
+                        {
+                            true
+                        }
+                    } else {
+                        true
+                    }
+                }
+                _ => false,
+            };
+
+            let oriented_image = if should_apply_rotation {
+                if let Some(orientation) = target_orientation {
+                    apply_orientation(image, Orientation::from_u16(orientation))
+                } else {
+                    image
+                }
+            } else {
+                image
+            };
+
+            let rgb = oriented_image.to_rgb32f();
+
+            let source_profile = heif_meta
+                .icc_profile
+                .as_deref()
+                .and_then(|icc| ColorProfile::new_from_slice(icc).ok())
+                .or_else(|| heif_meta.cicp.and_then(|c| c.to_moxcms_profile()))
+                .or_else(|| {
+                    exif_obj
+                        .as_ref()
+                        .is_some_and(is_exif_adobe_rgb)
+                        .then(ColorProfile::new_adobe_rgb)
+                });
+
+            check_cancel()?;
+            return Ok((rgb, source_profile.as_ref().and_then(ProfileToWorking::new)));
+        }
+    }
+
     let cursor = Cursor::new(bytes);
     let mut reader = ImageReader::new(cursor.clone())
         .with_guessed_format()

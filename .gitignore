@@ -43,3 +43,15 @@ src-tauri/libs/
 
 # bench/replay.js result dumps
 bench/out/
+
+# Local test media & build outputs
+*.heic
+*.avif
+*.icm
+*.icc
+Webkit-logo-P3.png
+RapidRAW-portable/
+RapidRAW*.zip
+build_artifacts/
+scratch/
+

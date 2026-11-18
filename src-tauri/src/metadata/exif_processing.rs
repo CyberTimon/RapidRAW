@@ -150,6 +150,19 @@ pub fn is_tiff(file_bytes: &[u8]) -> bool {
 
 pub fn read_exif(file_bytes: &[u8]) -> Option<Exif> {
     let exifreader = exif::Reader::new();
+    if crate::decode::heif_parser::is_isobmff_heif_or_avif(file_bytes) {
+        if let Ok(exif) = exifreader.read_from_container(&mut Cursor::new(file_bytes)) {
+            return Some(exif);
+        }
+        if let Some(exif_bytes) = crate::decode::heif_parser::parse_heif_metadata(file_bytes).exif {
+            if let Ok(exif) = exifreader
+                .read_from_container(&mut Cursor::new(&exif_bytes))
+                .or_else(|_| exifreader.read_raw(exif_bytes.clone()))
+            {
+                return Some(exif);
+            }
+        }
+    }
     if is_tiff(file_bytes) {
         let mut len = 64 * 1024;
         while len < file_bytes.len() && len <= 16 * 1024 * 1024 {
