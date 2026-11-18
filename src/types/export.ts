@@ -133,6 +133,7 @@ interface WatermarkSettings {
 
 export interface ExportState {
   destination?: string | null;
+  isOriginalFolder?: boolean;
   errorMessage: string;
   progress: Progress;
   status: Status;

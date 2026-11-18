@@ -406,25 +406,13 @@ pub(crate) async fn export_images_impl(
 
                 hydrate_adjustments(&state, &mut js_adjustments);
                 let is_raw = is_raw_file(&source_path_str);
-                let original_path = std::path::Path::new(&source_path_str);
-                let file_date = exif_processing::get_creation_date_from_path(original_path);
-
-                let filename_template = export_settings
-                    .filename_template
-                    .as_deref()
-                    .unwrap_or("{original_filename}_edited");
-
-                let mut new_stem = generate_filename_from_template(
-                    filename_template,
-                    original_path,
+                let new_stem = export_file_stem(
+                    export_settings.filename_template.as_deref(),
+                    &source_path,
                     global_index + 1,
                     total_paths,
-                    &file_date,
+                    copy_number,
                 );
-
-                if let Some(copy_number) = copy_number {
-                    new_stem = format!("{}_VC{:02}", new_stem, copy_number);
-                }
 
                 let new_filename = format!("{}.{}", new_stem, output_format);
 
@@ -836,6 +824,39 @@ pub(crate) async fn export_images_and_wait(
         Ok(Err(errors)) => Err(format!("Export completed with {} errors.", errors)),
         Err(_) => Err("Export task panicked or was cancelled.".to_string()),
     }
+}
+
+fn export_file_stem(
+    filename_template: Option<&str>,
+    source_path: &std::path::Path,
+    sequence: usize,
+    total: usize,
+    copy_number: Option<usize>,
+) -> String {
+    let file_date = exif_processing::get_creation_date_from_path(source_path);
+    let stem = generate_filename_from_template(
+        filename_template.unwrap_or("{original_filename}_edited"),
+        source_path,
+        sequence,
+        total,
+        &file_date,
+    );
+    match copy_number {
+        Some(copy_number) => format!("{}_VC{:02}", stem, copy_number),
+        None => stem,
+    }
+}
+
+#[tauri::command]
+pub async fn resolve_export_file_stem(path: String, filename_template: Option<String>) -> String {
+    let (source_path, _) = parse_virtual_path(&path);
+    export_file_stem(
+        filename_template.as_deref(),
+        &source_path,
+        1,
+        1,
+        path.contains("?vc=").then_some(1),
+    )
 }
 
 #[allow(clippy::too_many_arguments)]

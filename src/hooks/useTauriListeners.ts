@@ -16,6 +16,14 @@ import { globalImageCache } from '../utils/ImageLRUCache';
 
 const THUMBNAIL_REFRESH_LIMIT = 500;
 
+const normalizeFolderPath = (path: string) => path.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+
+const isPathInside = (path: string, folder: string) => {
+  const normalizedPath = normalizeFolderPath(path);
+  const normalizedFolder = normalizeFolderPath(folder);
+  return normalizedPath === normalizedFolder || normalizedPath.startsWith(`${normalizedFolder}/`);
+};
+
 const parseAnalyticsPacket = async (buffer: ArrayBuffer) => {
   const view = new DataView(buffer);
   let offset = 0;
@@ -117,6 +125,16 @@ export function useTauriListeners({
     let isEffectActive = true;
     let aiTaggingJobId: string | null = null;
     const modelDownloadJobIds: Record<string, string> = {};
+
+    const refreshAfterExport = () => {
+      const currentPath = useLibraryStore.getState().currentFolderPath;
+      if (!currentPath || currentPath.startsWith('Album: ')) return;
+      const { destination, isOriginalFolder } = useProcessStore.getState().exportState;
+      const target = destination ?? (isOriginalFolder ? currentPath : null);
+      if (!target || !isPathInside(target, currentPath)) return;
+      refs.current.refreshAllFolderTrees();
+      refs.current.refreshImageList();
+    };
 
     const flushThumbnailBatch = () => {
       flushHandle.current = null;
@@ -330,20 +348,25 @@ export function useTauriListeners({
         if (isEffectActive) useProcessStore.getState().setExportState({ progress: event.payload });
       }),
       listen('export-complete', () => {
-        if (isEffectActive) useProcessStore.getState().setExportState({ status: Status.Success });
+        if (!isEffectActive) return;
+        useProcessStore.getState().setExportState({ status: Status.Success });
+        refreshAfterExport();
       }),
       listen('export-error', (event: any) => {
-        if (isEffectActive)
-          useProcessStore.getState().setExportState({
-            status: Status.Error,
-            errorMessage: typeof event.payload === 'string' ? event.payload : 'Unknown error',
-          });
+        if (!isEffectActive) return;
+        useProcessStore.getState().setExportState({
+          status: Status.Error,
+          errorMessage: typeof event.payload === 'string' ? event.payload : 'Unknown error',
+        });
+        refreshAfterExport();
       }),
       listen('export-cancelling', () => {
         if (isEffectActive) useProcessStore.getState().setExportState({ status: Status.Cancelling });
       }),
       listen('export-cancelled', () => {
-        if (isEffectActive) useProcessStore.getState().setExportState({ status: Status.Cancelled });
+        if (!isEffectActive) return;
+        useProcessStore.getState().setExportState({ status: Status.Cancelled });
+        refreshAfterExport();
       }),
       listen('import-start', (event: any) => {
         if (isEffectActive)

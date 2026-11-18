@@ -701,9 +701,10 @@ export default function ExportPanel({
       } else if (isOriginalFolder) {
         outputFolderOrFile = 'originalFolderDummy';
       } else if (shouldChooseOutputFile) {
-        const originalFilename = pathsToExport[0].split(/[\\/]/).pop() || '';
-        const stem = originalFilename.substring(0, originalFilename.lastIndexOf('.')) || originalFilename;
-        const suggestedName = (filenameTemplate || '').replace('{original_filename}', stem);
+        const suggestedName = await invoke<string>(Invokes.ResolveExportFileStem, {
+          path: pathsToExport[0],
+          filenameTemplate,
+        });
         const outputFileName = `${suggestedName}.${selectedFormat.extensions[0]}`;
 
         outputFolderOrFile = isAndroid
@@ -746,6 +747,7 @@ export default function ExportPanel({
 
         setExportState({
           destination: isOriginalFolder || isImmich || isAndroid ? null : outputFolderOrFile,
+          isOriginalFolder,
           errorMessage: '',
           progress: { current: 0, total: numImages },
           status: Status.Exporting,
@@ -889,30 +891,28 @@ export default function ExportPanel({
               </div>
             </Section>
 
-            {numImages > 1 && (
-              <Section title={t('export.sections.fileNaming')}>
-                <input
-                  className="w-full bg-surface border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
-                  disabled={isExporting}
-                  onChange={(e) => setFilenameTemplate(e.target.value)}
-                  ref={filenameInputRef}
-                  type="text"
-                  value={filenameTemplate}
-                />
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {FILENAME_VARIABLES.map((variable: string) => (
-                    <button
-                      className="px-2 py-1 bg-surface text-text-secondary text-xs rounded-md hover:bg-card-active transition-colors disabled:opacity-50"
-                      disabled={isExporting}
-                      key={variable}
-                      onClick={() => handleVariableClick(variable)}
-                    >
-                      {variable}
-                    </button>
-                  ))}
-                </div>
-              </Section>
-            )}
+            <Section title={t('export.sections.fileNaming')}>
+              <input
+                className="w-full bg-surface border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
+                disabled={isExporting}
+                onChange={(e) => setFilenameTemplate(e.target.value)}
+                ref={filenameInputRef}
+                type="text"
+                value={filenameTemplate}
+              />
+              <div className="flex flex-wrap gap-2 mt-2">
+                {FILENAME_VARIABLES.map((variable: string) => (
+                  <button
+                    className="px-2 py-1 bg-surface text-text-secondary text-xs rounded-md hover:bg-card-active transition-colors disabled:opacity-50"
+                    disabled={isExporting}
+                    key={variable}
+                    onClick={() => handleVariableClick(variable)}
+                  >
+                    {variable}
+                  </button>
+                ))}
+              </div>
+            </Section>
 
             {fileFormat !== FileFormats.Cube && (
               <>

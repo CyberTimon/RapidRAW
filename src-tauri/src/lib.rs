@@ -702,6 +702,7 @@ pub fn run() {
             merge::panorama::update_panorama_preview,
             merge::panorama::discard_panorama,
             export::export_images,
+            export::resolve_export_file_stem,
             export::tasks::cancel_export,
             export::size_estimate::estimate_export_sizes,
             integrations::edit_in::edit_in_app,
