@@ -175,7 +175,7 @@ impl TransferCurve {
         cutoff: 0.018_053_97,
     };
 
-    const fn gamma(gamma: f32) -> Self {
+    pub const fn gamma(gamma: f32) -> Self {
         Self {
             power: 1.0 / gamma,
             offset: 0.0,
@@ -299,6 +299,18 @@ impl OutputColorSpace {
         }
     }
 
+    pub fn working_matrix(self) -> Mat3 {
+        WORKING.to(self.rgb()).as_mat3()
+    }
+
+    pub fn profile(self) -> ColorProfile {
+        self.profile_with_curve(self.curve())
+    }
+
+    pub fn profile_with_curve(self, curve: TransferCurve) -> ColorProfile {
+        color_profile(self.rgb(), curve, self.name())
+    }
+
     pub fn curve(self) -> TransferCurve {
         match self {
             Self::Srgb | Self::DisplayP3 => TransferCurve::SRGB,
@@ -322,7 +334,8 @@ impl OutputColorSpace {
         static PROFILES: LazyLock<[Vec<u8>; 5]> = LazyLock::new(|| {
             OutputColorSpace::ALL.map(|space| match space {
                 OutputColorSpace::Srgb => include_bytes!("../../icc/sRGB-v2-magic.icc").to_vec(),
-                _ => color_profile(space.rgb(), space.curve(), space.name())
+                _ => space
+                    .profile()
                     .encode()
                     .expect("output color profile encodes"),
             })
@@ -341,8 +354,12 @@ impl OutputColorSpace {
         }
     }
 
+    pub fn srgb_matrix(self) -> Mat3 {
+        self.rgb().to(SRGB).as_mat3()
+    }
+
     pub fn linear_srgb_decoder(self) -> impl Fn([u8; 3]) -> [f32; 3] + Sync {
-        let matrix = self.rgb().to(SRGB).as_mat3();
+        let matrix = self.srgb_matrix();
         let curve = self.curve();
         let decoded: [f32; 256] = std::array::from_fn(|i| curve.decode(i as f32 / 255.0));
         move |encoded| (matrix * Vec3::from_array(encoded.map(|c| decoded[c as usize]))).to_array()

@@ -2161,6 +2161,21 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "colorManagement": {
+        "chooseProfile": "Choose Profile",
+        "modeAuto": "Automatic (system profile)",
+        "modeCustom": "Custom ICC profile",
+        "modeOff": "Off",
+        "profile": "Monitor Profile",
+        "profileDesc": "Converts the editor preview to your monitor's color profile, so colors look right on calibrated and wide gamut displays. Exports are not affected.",
+        "statusInvalid": "This profile could not be loaded.",
+        "statusNone": "No monitor profile found. The preview is shown as sRGB.",
+        "statusProfile": "Using {{name}}.",
+        "statusSystem": "Colors are managed by the operating system.",
+        "statusUnavailable": "Color management needs the GPU renderer.",
+        "title": "Color Management",
+        "wideGamut": "Wide gamut preview ({{space}})."
+      },
       "defaultAdjustments": {
         "addCamera": "Add camera…",
         "applyToNonRaw": "Also apply to JPEG, TIFF, PNG and other non-RAW files",

@@ -2155,6 +2155,21 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "colorManagement": {
+        "chooseProfile": "プロファイルを選択",
+        "modeAuto": "自動（システムのプロファイル）",
+        "modeCustom": "カスタム ICC プロファイル",
+        "modeOff": "オフ",
+        "profile": "モニタープロファイル",
+        "profileDesc": "エディターのプレビューをモニターのカラープロファイルに変換し、キャリブレーション済みや広色域のディスプレイで正確な色を表示します。書き出しには影響しません。",
+        "statusInvalid": "このプロファイルを読み込めませんでした。",
+        "statusNone": "モニタープロファイルが見つかりません。プレビューは sRGB として表示されます。",
+        "statusProfile": "{{name}} を使用中です。",
+        "statusSystem": "色は OS によって管理されています。",
+        "statusUnavailable": "カラーマネジメントには GPU レンダラーが必要です。",
+        "title": "カラーマネジメント",
+        "wideGamut": "広色域プレビュー（{{space}}）。"
+      },
       "defaultAdjustments": {
         "addCamera": "カメラを追加…",
         "applyToNonRaw": "JPEG、TIFF、PNG など RAW 以外のファイルにも適用",

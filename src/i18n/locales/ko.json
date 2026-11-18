@@ -2155,6 +2155,21 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "colorManagement": {
+        "chooseProfile": "프로파일 선택",
+        "modeAuto": "자동(시스템 프로파일)",
+        "modeCustom": "사용자 지정 ICC 프로파일",
+        "modeOff": "끄기",
+        "profile": "모니터 프로파일",
+        "profileDesc": "편집기 미리보기를 모니터의 색상 프로파일로 변환하여 캘리브레이션된 디스플레이와 광색역 디스플레이에서 색을 정확하게 표시합니다. 내보내기에는 영향을 주지 않습니다.",
+        "statusInvalid": "이 프로파일을 불러올 수 없습니다.",
+        "statusNone": "모니터 프로파일을 찾을 수 없습니다. 미리보기는 sRGB로 표시됩니다.",
+        "statusProfile": "{{name}} 사용 중.",
+        "statusSystem": "색상은 운영 체제에서 관리합니다.",
+        "statusUnavailable": "색상 관리를 사용하려면 GPU 렌더러가 필요합니다.",
+        "title": "색상 관리",
+        "wideGamut": "광색역 미리보기({{space}})."
+      },
       "defaultAdjustments": {
         "addCamera": "카메라 추가…",
         "applyToNonRaw": "JPEG, TIFF, PNG 등 RAW가 아닌 파일에도 적용",

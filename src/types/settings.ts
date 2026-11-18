@@ -155,6 +155,8 @@ export interface AppSettings {
   compensateHighlightPreservation?: boolean;
   hdrDisplay?: boolean;
   hdrHeadroom?: number;
+  displayColorMode?: 'auto' | 'off' | 'custom';
+  displayIccProfile?: string | null;
   tonemapperOverrideEnabled?: boolean;
   defaultRawTonemapper?: string;
   defaultNonRawTonemapper?: string;

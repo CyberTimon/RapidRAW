@@ -277,7 +277,7 @@ pub fn get_or_init_gpu_context(
             .inner_size()
             .unwrap_or(tauri::PhysicalSize::new(1280, 720));
         Some(build_wgpu_display(
-            surface, &adapter, &device, size, false, platform,
+            surface, &adapter, &device, &queue, size, false, platform,
         )?)
     } else {
         None

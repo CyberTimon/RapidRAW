@@ -2204,6 +2204,21 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "colorManagement": {
+        "chooseProfile": "Tria un perfil",
+        "modeAuto": "Automàtic (perfil del sistema)",
+        "modeCustom": "Perfil ICC personalitzat",
+        "modeOff": "Desactivat",
+        "profile": "Perfil del monitor",
+        "profileDesc": "Converteix la previsualització de l'editor al perfil de color del teu monitor perquè els colors es vegin correctament en pantalles calibrades i de gamma àmplia. Les exportacions no es veuen afectades.",
+        "statusInvalid": "No s'ha pogut carregar aquest perfil.",
+        "statusNone": "No s'ha trobat cap perfil de monitor. La previsualització es mostra com a sRGB.",
+        "statusProfile": "S'està utilitzant {{name}}.",
+        "statusSystem": "El sistema operatiu gestiona els colors.",
+        "statusUnavailable": "La gestió del color necessita el renderitzador GPU.",
+        "title": "Gestió del color",
+        "wideGamut": "Previsualització de gamma àmplia ({{space}})."
+      },
       "defaultAdjustments": {
         "addCamera": "Afegir càmera…",
         "applyToNonRaw": "Aplicar també a JPEG, TIFF, PNG i altres fitxers no RAW",

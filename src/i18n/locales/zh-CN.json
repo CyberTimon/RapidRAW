@@ -2155,6 +2155,21 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "colorManagement": {
+        "chooseProfile": "选择配置文件",
+        "modeAuto": "自动（系统配置文件）",
+        "modeCustom": "自定义 ICC 配置文件",
+        "modeOff": "关闭",
+        "profile": "显示器配置文件",
+        "profileDesc": "将编辑器预览转换为显示器的色彩配置文件，使颜色在已校准和广色域显示器上准确显示。导出不受影响。",
+        "statusInvalid": "无法加载此配置文件。",
+        "statusNone": "未找到显示器配置文件。预览以 sRGB 显示。",
+        "statusProfile": "正在使用 {{name}}。",
+        "statusSystem": "颜色由操作系统管理。",
+        "statusUnavailable": "色彩管理需要 GPU 渲染器。",
+        "title": "色彩管理",
+        "wideGamut": "广色域预览（{{space}}）。"
+      },
       "defaultAdjustments": {
         "addCamera": "添加相机…",
         "applyToNonRaw": "同时应用于 JPEG、TIFF、PNG 等非 RAW 文件",

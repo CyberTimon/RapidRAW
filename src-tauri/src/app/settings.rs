@@ -9,6 +9,7 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::app::state::AppState;
 use crate::render::color_space::OutputColorSpace;
+use crate::render::display_color::{DisplayColorMode, MonitorColor};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -728,6 +729,10 @@ pub struct AppSettings {
     #[serde(default = "default_hdr_headroom")]
     pub hdr_headroom: f32,
     #[serde(default)]
+    pub display_color_mode: DisplayColorMode,
+    #[serde(default)]
+    pub display_icc_profile: Option<String>,
+    #[serde(default)]
     pub tonemapper_override_enabled: Option<bool>,
     #[serde(default)]
     pub default_raw_tonemapper: Option<String>,
@@ -940,6 +945,8 @@ impl Default for AppSettings {
             compensate_highlight_preservation: default_compensate_highlight_preservation(),
             hdr_display: false,
             hdr_headroom: default_hdr_headroom(),
+            display_color_mode: DisplayColorMode::default(),
+            display_icc_profile: None,
             tonemapper_override_enabled: Some(false),
             default_raw_tonemapper: Some("agx".to_string()),
             default_non_raw_tonemapper: Some("basic".to_string()),
@@ -1003,21 +1010,59 @@ pub fn is_wgpu_renderer_supported() -> bool {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct HdrDisplayStatus {
-    supported: bool,
-    active: bool,
+pub enum DisplayColorManagement {
+    None,
+    System,
+    Profile,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DisplayStatus {
+    renderer_active: bool,
+    hdr_supported: bool,
+    hdr_active: bool,
+    color_management: DisplayColorManagement,
+    profile_name: Option<String>,
+    preview_space: OutputColorSpace,
 }
 
 #[tauri::command]
-pub async fn get_hdr_display_status(app_handle: AppHandle) -> HdrDisplayStatus {
-    let supported = cfg!(any(target_os = "windows", target_os = "macos"))
-        && load_settings(app_handle.clone())
-            .unwrap_or_default()
-            .wgpu_renderer_enabled();
-    HdrDisplayStatus {
-        supported,
-        active: supported && crate::render::gpu::display::main_window_is_hdr(&app_handle),
+pub async fn get_display_status(app_handle: AppHandle) -> DisplayStatus {
+    use crate::render::gpu::display;
+
+    let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let renderer_active = settings.wgpu_renderer_enabled();
+    let hdr_supported = cfg!(any(target_os = "windows", target_os = "macos")) && renderer_active;
+    let mut status = DisplayStatus {
+        renderer_active,
+        hdr_supported,
+        hdr_active: hdr_supported && display::main_window_is_hdr(&app_handle),
+        color_management: DisplayColorManagement::None,
+        profile_name: None,
+        preview_space: OutputColorSpace::Srgb,
+    };
+    let state = app_handle.state::<AppState>();
+    if renderer_active
+        && let Some(context) = crate::render::gpu::context::current_gpu_context(&state)
+    {
+        display::refresh_displays(&app_handle, &context, &settings);
+        let display = context.display.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(display) = display.as_ref() {
+            status.preview_space = display.space();
+            (status.color_management, status.profile_name) = match (display.hdr(), display.color())
+            {
+                (Some(_), _) | (None, MonitorColor::System(_)) => {
+                    (DisplayColorManagement::System, None)
+                }
+                (None, MonitorColor::Profile(profile)) => {
+                    (DisplayColorManagement::Profile, Some(profile.name.clone()))
+                }
+                (None, MonitorColor::Unmanaged) => (DisplayColorManagement::None, None),
+            };
+        }
     }
+    status
 }
 
 #[tauri::command]
@@ -1148,7 +1193,7 @@ pub fn save_settings(mut settings: AppSettings, app_handle: AppHandle) -> Result
         .map_err(|e| e.to_string())?;
     *settings_cache() = None;
     crate::integrations::immich::apply_settings(&settings.immich);
-    crate::render::gpu::display::invalidate_hdr();
+    crate::render::gpu::display::invalidate_displays();
 
     let state = app_handle.state::<AppState>();
     let cache_size = settings.image_cache_size.unwrap_or(5) as usize;

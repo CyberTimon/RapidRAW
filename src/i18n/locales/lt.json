@@ -2286,6 +2286,21 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "colorManagement": {
+        "chooseProfile": "Pasirinkti profilį",
+        "modeAuto": "Automatinis (sistemos profilis)",
+        "modeCustom": "Pasirinktinis ICC profilis",
+        "modeOff": "Išjungta",
+        "profile": "Monitoriaus profilis",
+        "profileDesc": "Konvertuoja redaktoriaus peržiūrą į jūsų monitoriaus spalvų profilį, kad spalvos būtų tikslios kalibruotuose ir plačios gamos ekranuose. Eksportui tai įtakos neturi.",
+        "statusInvalid": "Šio profilio įkelti nepavyko.",
+        "statusNone": "Monitoriaus profilis nerastas. Peržiūra rodoma kaip sRGB.",
+        "statusProfile": "Naudojamas {{name}}.",
+        "statusSystem": "Spalvas valdo operacinė sistema.",
+        "statusUnavailable": "Spalvų valdymui reikalingas GPU atvaizdavimas.",
+        "title": "Spalvų valdymas",
+        "wideGamut": "Plačios gamos peržiūra ({{space}})."
+      },
       "defaultAdjustments": {
         "addCamera": "Pridėti fotoaparatą…",
         "applyToNonRaw": "Taikyti ir JPEG, TIFF, PNG bei kitiems ne RAW failams",

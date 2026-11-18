@@ -256,6 +256,7 @@ pub struct AnalyticsReadback {
     pub height: u32,
     pub row_stride: usize,
     pub half_float: bool,
+    pub peak: f32,
 }
 
 pub fn analytics_readback_sender() -> &'static std::sync::mpsc::Sender<AnalyticsReadback> {
@@ -308,7 +309,9 @@ fn complete_analytics_readback(readback: AnalyticsReadback) {
                 .chunks(readback.row_stride)
                 .take(readback.height as usize)
                 .flat_map(|row| bytemuck::cast_slice::<u8, f16>(&row[..row_samples * 2]))
-                .map(|sample| (sample.to_f32().clamp(0.0, 1.0) * 255.0).round() as u8)
+                .map(|sample| {
+                    ((sample.to_f32() / readback.peak).clamp(0.0, 1.0) * 255.0).round() as u8
+                })
                 .collect();
             (AnalyticsPixels::Owned(pixels), row_samples)
         } else {
@@ -321,6 +324,8 @@ fn complete_analytics_readback(readback: AnalyticsReadback) {
                 width: readback.width,
                 height: readback.height,
                 row_stride,
+                peak: readback.peak,
+                space: analytics.space,
             },
             compute_waveform: analytics.compute_waveform,
             active_waveform_channel: analytics.active_waveform_channel,

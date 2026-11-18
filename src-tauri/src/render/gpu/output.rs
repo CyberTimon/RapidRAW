@@ -65,11 +65,8 @@ pub fn process_and_get_dynamic_image_with_analytics(
     display_output: Option<DisplayOutput>,
     analytics_config: Option<AnalyticsConfig>,
 ) -> Result<DynamicImage, String> {
-    let output_precision = if request.adjustments.global.hdr_headroom > 1.0 {
-        RenderOutputPrecision::Float
-    } else {
-        RenderOutputPrecision::EightBit
-    };
+    let output_precision =
+        display_output.map_or(RenderOutputPrecision::EightBit, |output| output.precision);
     process_and_get_dynamic_image_inner(
         context,
         state,
@@ -257,6 +254,11 @@ fn process_and_get_dynamic_image_inner(
         request.roi = None;
     }
 
+    let output_peak = if output_precision.is_high() {
+        request.adjustments.global.output_peak.max(1.0)
+    } else {
+        1.0
+    };
     let (processed_pixels, out_w, out_h, out_x, out_y) = processor.run(
         input,
         &mask_view,
@@ -376,6 +378,7 @@ fn process_and_get_dynamic_image_inner(
                 height: out_h,
                 row_stride: async_padded_bpr as usize,
                 half_float: output_precision.is_high(),
+                peak: output_peak,
             });
         } else {
             if let RenderedPixels::U8(pixels) = &processed_pixels {
@@ -386,6 +389,8 @@ fn process_and_get_dynamic_image_inner(
                         width: out_w,
                         height: out_h,
                         row_stride: out_w as usize * 4,
+                        peak: 1.0,
+                        space: analytics.space,
                     },
                     compute_waveform: analytics.compute_waveform,
                     active_waveform_channel: analytics.active_waveform_channel,

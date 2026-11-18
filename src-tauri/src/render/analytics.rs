@@ -1,3 +1,4 @@
+use crate::render::color_space::{OutputColorSpace, srgb_encode};
 use rayon::prelude::*;
 
 pub struct HistogramData {
@@ -28,9 +29,35 @@ pub struct AnalyticsFrame {
     pub width: u32,
     pub height: u32,
     pub row_stride: usize,
+    pub peak: f32,
+    pub space: OutputColorSpace,
 }
 
 impl AnalyticsFrame {
+    pub fn into_srgb(self) -> Self {
+        if self.space == OutputColorSpace::Srgb {
+            return self;
+        }
+        let to_linear_srgb = self.space.linear_srgb_decoder();
+        let row_stride = self.width as usize * 4;
+        let mut data = vec![0u8; row_stride * self.height as usize];
+        data.par_chunks_mut(row_stride.max(1))
+            .enumerate()
+            .for_each(|(y, row)| {
+                for (target, source) in row.as_chunks_mut::<4>().0.iter_mut().zip(self.row(y)) {
+                    let [r, g, b] = to_linear_srgb([source[0], source[1], source[2]])
+                        .map(|c| (srgb_encode(c.clamp(0.0, 1.0)) * 255.0).round() as u8);
+                    *target = [r, g, b, source[3]];
+                }
+            });
+        Self {
+            data: AnalyticsPixels::Owned(data),
+            row_stride,
+            space: OutputColorSpace::Srgb,
+            ..self
+        }
+    }
+
     fn row(&self, y: usize) -> &[[u8; 4]] {
         let start = y * self.row_stride;
         self.data[start..start + self.width as usize * 4]
@@ -170,6 +197,7 @@ pub struct WaveformData {
 
 pub fn encode_analytics_packet(
     path: &str,
+    sdr_white: f32,
     histogram: Option<&HistogramData>,
     waveform: Option<&WaveformData>,
 ) -> Vec<u8> {
@@ -181,6 +209,7 @@ pub fn encode_analytics_packet(
 
     put_u32(&mut out, path.len());
     out.extend_from_slice(path.as_bytes());
+    out.extend_from_slice(&sdr_white.to_le_bytes());
 
     match histogram {
         Some(h) => {
@@ -298,6 +327,7 @@ pub fn calculate_waveform(
         }
     }
 
+    let peak = frame.peak;
     let process_pixel =
         |bins: &mut WaveformBins, r: u8, g: u8, b: u8, out_x: usize, orig_x: usize| {
             if do_rgb {
@@ -315,9 +345,7 @@ pub fn calculate_waveform(
                 bins.parade[(255 - b as usize) * W + x_buckets_parade_b[orig_x]] += 1;
             }
             if do_vectorscope {
-                let r_f = r as f32;
-                let g_f = g as f32;
-                let b_f = b as f32;
+                let [r_f, g_f, b_f] = [r, g, b].map(|c| (c as f32 * peak).min(255.0));
 
                 let mut cb = (-0.1146 * r_f - 0.3854 * g_f + 0.5 * b_f) * 0.836;
                 let mut cr = (0.5 * r_f - 0.4542 * g_f - 0.0458 * b_f) * 0.836;

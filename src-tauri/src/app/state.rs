@@ -20,6 +20,7 @@ use crate::integrations::tethering::CameraSession;
 use crate::merge::panorama::PanoramaSession;
 use crate::render::analytics::AnalyticsFrame;
 use crate::render::cache_utils::{DecodeFlights, DecodedImageCache};
+use crate::render::color_space::OutputColorSpace;
 use crate::render::gpu::context::GpuContext;
 use crate::render::gpu::display::DisplayLayer;
 use crate::render::gpu::processor::GpuProcessor;
@@ -263,6 +264,7 @@ pub struct AnalyticsConfig {
     pub compute_waveform: bool,
     pub active_waveform_channel: Option<String>,
     pub sender: Sender<AnalyticsJob>,
+    pub space: OutputColorSpace,
 }
 
 pub struct ThumbnailProgressTracker {

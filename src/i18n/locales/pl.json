@@ -2247,6 +2247,21 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "colorManagement": {
+        "chooseProfile": "Wybierz profil",
+        "modeAuto": "Automatycznie (profil systemowy)",
+        "modeCustom": "Własny profil ICC",
+        "modeOff": "Wyłączone",
+        "profile": "Profil monitora",
+        "profileDesc": "Przekształca podgląd w edytorze do profilu kolorów monitora, dzięki czemu kolory są poprawne na skalibrowanych i szerokogamutowych ekranach. Eksporty pozostają bez zmian.",
+        "statusInvalid": "Nie udało się wczytać tego profilu.",
+        "statusNone": "Nie znaleziono profilu monitora. Podgląd jest wyświetlany jako sRGB.",
+        "statusProfile": "Używany profil: {{name}}.",
+        "statusSystem": "Kolorami zarządza system operacyjny.",
+        "statusUnavailable": "Zarządzanie kolorem wymaga renderera GPU.",
+        "title": "Zarządzanie kolorem",
+        "wideGamut": "Podgląd w szerokim gamucie ({{space}})."
+      },
       "defaultAdjustments": {
         "addCamera": "Dodaj aparat…",
         "applyToNonRaw": "Stosuj także do plików JPEG, TIFF, PNG i innych plików innych niż RAW",

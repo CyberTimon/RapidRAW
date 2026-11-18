@@ -2247,6 +2247,21 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "colorManagement": {
+        "chooseProfile": "Vybrat profil",
+        "modeAuto": "Automaticky (systémový profil)",
+        "modeCustom": "Vlastní profil ICC",
+        "modeOff": "Vypnuto",
+        "profile": "Profil monitoru",
+        "profileDesc": "Převádí náhled v editoru do barevného profilu vašeho monitoru, aby barvy odpovídaly na kalibrovaných a širokogamutových displejích. Exporty nejsou ovlivněny.",
+        "statusInvalid": "Tento profil se nepodařilo načíst.",
+        "statusNone": "Profil monitoru nebyl nalezen. Náhled se zobrazuje jako sRGB.",
+        "statusProfile": "Používá se {{name}}.",
+        "statusSystem": "Barvy spravuje operační systém.",
+        "statusUnavailable": "Správa barev vyžaduje GPU renderer.",
+        "title": "Správa barev",
+        "wideGamut": "Náhled v širokém gamutu ({{space}})."
+      },
       "defaultAdjustments": {
         "addCamera": "Přidat fotoaparát…",
         "applyToNonRaw": "Použít také na JPEG, TIFF, PNG a další soubory jiné než RAW",

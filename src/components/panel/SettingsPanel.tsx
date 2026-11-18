@@ -57,6 +57,7 @@ import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { useOsPlatform } from '../../hooks/useOsPlatform';
 import { useCloudUsage } from '../../hooks/useCloudUsage';
 import { open } from '@tauri-apps/plugin-shell';
+import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import ImmichSettings from '../immich/ImmichSettings';
 import DataManagementSettings from './settings/DataManagementSettings';
 import DefaultAdjustmentsSettings from './settings/DefaultAdjustmentsSettings';
@@ -111,6 +112,20 @@ interface MyLens {
 const EXECUTE_TIMEOUT = 3000;
 const DEFAULT_BASELINE_EXPOSURE = 0.7;
 const DEFAULT_HDR_HEADROOM = 2;
+const PREVIEW_SPACE_NAMES: Record<string, string> = {
+  displayP3: 'Display P3',
+  adobeRgb: 'Adobe RGB',
+  rec2020: 'Rec. 2020',
+};
+
+interface DisplayStatus {
+  rendererActive: boolean;
+  hdrSupported: boolean;
+  hdrActive: boolean;
+  colorManagement: 'none' | 'system' | 'profile';
+  profileName: string | null;
+  previewSpace: string;
+}
 
 const resolutions: OptionItem<number>[] = [
   { value: 720, label: '720px' },
@@ -680,20 +695,53 @@ export default function SettingsPanel({
       .then(setIsWgpuSupported)
       .catch(() => setIsWgpuSupported(false));
   }, []);
-  const [hdrStatus, setHdrStatus] = useState<{ supported: boolean; active: boolean } | null>(null);
+  const [displayStatus, setDisplayStatus] = useState<DisplayStatus | null>(null);
   useEffect(() => {
     let mounted = true;
     const refresh = () =>
-      invoke<{ supported: boolean; active: boolean }>(Invokes.GetHdrDisplayStatus)
-        .then((status) => mounted && setHdrStatus(status))
-        .catch(() => mounted && setHdrStatus(null));
+      invoke<DisplayStatus>(Invokes.GetDisplayStatus)
+        .then((status) => mounted && setDisplayStatus(status))
+        .catch(() => mounted && setDisplayStatus(null));
     refresh();
     const timer = setInterval(refresh, 3000);
     return () => {
       mounted = false;
       clearInterval(timer);
     };
-  }, [appSettings?.hdrDisplay]);
+  }, [appSettings?.hdrDisplay, appSettings?.displayColorMode, appSettings?.displayIccProfile]);
+  const displayColorMode = appSettings?.displayColorMode ?? 'auto';
+  const displayColorOptions = useMemo<OptionItem<string>[]>(
+    () => [
+      { value: 'auto', label: t('settings.processing.colorManagement.modeAuto') },
+      { value: 'off', label: t('settings.processing.colorManagement.modeOff') },
+      { value: 'custom', label: t('settings.processing.colorManagement.modeCustom') },
+    ],
+    [t],
+  );
+  const displayColorStatus = useMemo(() => {
+    if (!displayStatus || displayColorMode === 'off') return null;
+    if (!displayStatus.rendererActive) return t('settings.processing.colorManagement.statusUnavailable');
+    const space = PREVIEW_SPACE_NAMES[displayStatus.previewSpace];
+    const wideGamut = space ? ` ${t('settings.processing.colorManagement.wideGamut', { space })}` : '';
+    switch (displayStatus.colorManagement) {
+      case 'profile':
+        return t('settings.processing.colorManagement.statusProfile', { name: displayStatus.profileName }) + wideGamut;
+      case 'system':
+        return t('settings.processing.colorManagement.statusSystem') + wideGamut;
+      default:
+        if (displayColorMode === 'auto') return t('settings.processing.colorManagement.statusNone');
+        return appSettings?.displayIccProfile ? t('settings.processing.colorManagement.statusInvalid') : null;
+    }
+  }, [displayStatus, displayColorMode, appSettings?.displayIccProfile, t]);
+  const pickDisplayProfile = async () => {
+    const selected = await openDialog({
+      multiple: false,
+      filters: [{ name: t('settings.processing.colorManagement.modeCustom'), extensions: ['icc', 'icm'] }],
+    });
+    if (typeof selected === 'string') {
+      onSettingsChange({ ...appSettings, displayIccProfile: selected });
+    }
+  };
   const [processingSettings, setProcessingSettings] = useState({
     editorPreviewResolution: appSettings?.editorPreviewResolution || 1920,
     smallThumbnailResolution: appSettings?.smallThumbnailResolution || 480,
@@ -2393,6 +2441,42 @@ export default function SettingsPanel({
 
                   <div className="p-6 bg-surface rounded-xl shadow-md">
                     <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
+                      {t('settings.processing.colorManagement.title')}
+                    </Text>
+                    <div className="space-y-4">
+                      <SettingItem
+                        label={t('settings.processing.colorManagement.profile')}
+                        description={t('settings.processing.colorManagement.profileDesc')}
+                      >
+                        <Dropdown
+                          onChange={(value: any) => onSettingsChange({ ...appSettings, displayColorMode: value })}
+                          options={displayColorOptions}
+                          value={displayColorMode}
+                          triggerClassName="bg-bg-primary"
+                        />
+                        {displayColorMode === 'custom' && (
+                          <div className="mt-3 flex items-center gap-3">
+                            <Button onClick={pickDisplayProfile}>
+                              {t('settings.processing.colorManagement.chooseProfile')}
+                            </Button>
+                            {appSettings?.displayIccProfile && (
+                              <Text variant={TextVariants.small} className="truncate">
+                                {appSettings.displayIccProfile.split(/[\\/]/).pop()}
+                              </Text>
+                            )}
+                          </div>
+                        )}
+                        {displayColorStatus && (
+                          <Text variant={TextVariants.small} className="mt-2">
+                            {displayColorStatus}
+                          </Text>
+                        )}
+                      </SettingItem>
+                    </div>
+                  </div>
+
+                  <div className="p-6 bg-surface rounded-xl shadow-md">
+                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
                       {t('settings.processing.hdr.title')}
                     </Text>
                     <div className="space-y-4">
@@ -2402,16 +2486,16 @@ export default function SettingsPanel({
                       >
                         <Switch
                           checked={appSettings?.hdrDisplay ?? false}
-                          disabled={hdrStatus?.supported === false && !appSettings?.hdrDisplay}
+                          disabled={displayStatus?.hdrSupported === false && !appSettings?.hdrDisplay}
                           id="hdr-display-toggle"
                           label={t('settings.processing.hdr.enableDisplay')}
                           onChange={(checked) => onSettingsChange({ ...appSettings, hdrDisplay: checked })}
                         />
-                        {hdrStatus && (
+                        {displayStatus && (
                           <Text variant={TextVariants.small} className="mt-2">
-                            {!hdrStatus.supported
+                            {!displayStatus.hdrSupported
                               ? t('settings.processing.hdr.statusUnsupported')
-                              : hdrStatus.active
+                              : displayStatus.hdrActive
                                 ? t('settings.processing.hdr.statusActive')
                                 : t('settings.processing.hdr.statusInactive')}
                           </Text>

@@ -2157,6 +2157,21 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "colorManagement": {
+        "chooseProfile": "Profiel kiezen",
+        "modeAuto": "Automatisch (systeemprofiel)",
+        "modeCustom": "Aangepast ICC-profiel",
+        "modeOff": "Uit",
+        "profile": "Monitorprofiel",
+        "profileDesc": "Zet de voorvertoning in de editor om naar het kleurprofiel van je monitor, zodat kleuren kloppen op gekalibreerde en wide-gamutschermen. Exports blijven ongewijzigd.",
+        "statusInvalid": "Dit profiel kon niet worden geladen.",
+        "statusNone": "Geen monitorprofiel gevonden. De voorvertoning wordt als sRGB weergegeven.",
+        "statusProfile": "Gebruikt {{name}}.",
+        "statusSystem": "Kleuren worden beheerd door het besturingssysteem.",
+        "statusUnavailable": "Kleurbeheer vereist de GPU-renderer.",
+        "title": "Kleurbeheer",
+        "wideGamut": "Wide-gamutvoorvertoning ({{space}})."
+      },
       "defaultAdjustments": {
         "addCamera": "Camera toevoegen…",
         "applyToNonRaw": "Ook toepassen op JPEG, TIFF, PNG en andere niet-RAW-bestanden",

@@ -4,6 +4,7 @@ pub mod analytics;
 pub mod cache_utils;
 pub mod color_space;
 pub mod commands;
+pub mod display_color;
 pub mod geometry;
 pub mod gpu;
 pub mod hdr;

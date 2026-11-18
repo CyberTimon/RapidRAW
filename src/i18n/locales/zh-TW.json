@@ -2155,6 +2155,21 @@
         "metal": "Metal",
         "vulkan": "Vulkan"
       },
+      "colorManagement": {
+        "chooseProfile": "選擇描述檔",
+        "modeAuto": "自動（系統描述檔）",
+        "modeCustom": "自訂 ICC 描述檔",
+        "modeOff": "關閉",
+        "profile": "螢幕描述檔",
+        "profileDesc": "將編輯器預覽轉換為螢幕的色彩描述檔，讓顏色在已校色與廣色域螢幕上正確顯示。匯出不受影響。",
+        "statusInvalid": "無法載入此描述檔。",
+        "statusNone": "找不到螢幕描述檔。預覽以 sRGB 顯示。",
+        "statusProfile": "正在使用 {{name}}。",
+        "statusSystem": "顏色由作業系統管理。",
+        "statusUnavailable": "色彩管理需要 GPU 算繪器。",
+        "title": "色彩管理",
+        "wideGamut": "廣色域預覽（{{space}}）。"
+      },
       "defaultAdjustments": {
         "addCamera": "新增相機…",
         "applyToNonRaw": "同時套用於 JPEG、TIFF、PNG 等非 RAW 檔案",
