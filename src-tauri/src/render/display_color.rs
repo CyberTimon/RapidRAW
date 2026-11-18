@@ -3,8 +3,8 @@ use crate::render::color_space::{OutputColorSpace, TransferCurve, working_profil
 use glam::Vec3;
 use half::f16;
 use moxcms::{
-    ColorProfile, DataColorSpace, Layout, ProfileText, RenderingIntent, TransformF32Executor,
-    TransformOptions,
+    ColorProfile, DataColorSpace, Layout, LutWarehouse, Matrix3d, ProfileText, RenderingIntent,
+    TransformF32Executor, TransformOptions,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -78,6 +78,34 @@ fn transform(from: &ColorProfile, to: &ColorProfile) -> Result<Arc<TransformF32E
     .map_err(|e| e.to_string())
 }
 
+fn without_unreliable_tables(mut profile: ColorProfile) -> Result<ColorProfile, String> {
+    if profile.color_space != DataColorSpace::Rgb {
+        return Err("not an RGB profile".to_string());
+    }
+    if profile.is_matrix_shaper() {
+        profile.lut_a_to_b_perceptual = None;
+        profile.lut_a_to_b_colorimetric = None;
+        profile.lut_a_to_b_saturation = None;
+        profile.lut_b_to_a_perceptual = None;
+        profile.lut_b_to_a_colorimetric = None;
+        profile.lut_b_to_a_saturation = None;
+        return Ok(profile);
+    }
+    let needs_matrix = |table: &Option<LutWarehouse>| matches!(table, Some(LutWarehouse::Lut(lut)) if lut.matrix != Matrix3d::IDENTITY);
+    if profile.pcs == DataColorSpace::Xyz
+        && [
+            &profile.lut_b_to_a_perceptual,
+            &profile.lut_b_to_a_colorimetric,
+            &profile.lut_b_to_a_saturation,
+        ]
+        .into_iter()
+        .any(needs_matrix)
+    {
+        return Err("table profiles with an XYZ matrix are not supported".to_string());
+    }
+    Ok(profile)
+}
+
 pub struct MonitorProfile {
     pub name: String,
     pub space: OutputColorSpace,
@@ -87,10 +115,9 @@ pub struct MonitorProfile {
 impl MonitorProfile {
     fn read(path: &Path) -> Result<Self, String> {
         let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
-        let profile = ColorProfile::new_from_slice(&bytes).map_err(|e| e.to_string())?;
-        if profile.color_space != DataColorSpace::Rgb {
-            return Err("not an RGB profile".to_string());
-        }
+        let profile = without_unreliable_tables(
+            ColorProfile::new_from_slice(&bytes).map_err(|e| e.to_string())?,
+        )?;
 
         let primaries = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0f32];
         let mut encoded = [0.0f32; 9];
