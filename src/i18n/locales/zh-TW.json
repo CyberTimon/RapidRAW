@@ -2295,6 +2295,13 @@
         "high": "高品質",
         "performance": "效能優先"
       },
+      "rawDecoding": "RAW 解碼",
+      "rawDecodingDesc": "選擇在何處解碼 RAW 檔案。「自動」使用 GPU，並在 GPU 無法處理您的影像時切換到 CPU。「GPU」始終先嘗試 GPU。「CPU」較慢，但適用於所有系統。",
+      "rawDecodingOptions": {
+        "auto": "自動",
+        "cpu": "CPU",
+        "gpu": "GPU"
+      },
       "renderScale": "渲染解析度縮放",
       "renderScaleDesc": "相對於顯示器縮放渲染解析度。較低的值可在高解析度螢幕上提高效能，但會犧牲一些清晰度。",
       "restartRequired": "處理引擎的更改需要重啟應用程式才能生效。",

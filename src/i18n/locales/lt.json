@@ -2438,6 +2438,13 @@
         "high": "Aukšta kokybė",
         "performance": "Maksimalus našumas"
       },
+      "rawDecoding": "RAW dekodavimas",
+      "rawDecodingDesc": "Pasirinkite, kur dekoduojami RAW failai. „Auto“ naudoja GPU ir persijungia į CPU, jei GPU nesusidoroja su jūsų nuotraukomis. „GPU“ visada pirmiausia bando GPU. „CPU“ yra lėtesnis, bet veikia visose sistemose.",
+      "rawDecodingOptions": {
+        "auto": "Automatinis",
+        "cpu": "CPU",
+        "gpu": "GPU"
+      },
       "renderScale": "Atvaizdavimo raiškos mastelis",
       "renderScaleDesc": "Pakeičia atvaizdavimo raišką proporcingai jūsų ekranui. Mažesnės reikšmės pagerina našumą didelės raiškos ekranuose šiek tiek paaukojant ryškumą.",
       "restartRequired": "Apdorojimo variklio pakeitimai įsigalios iš naujo paleidus programą.",

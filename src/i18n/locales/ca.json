@@ -2344,6 +2344,13 @@
         "high": "Alta qualitat",
         "performance": "Rendiment"
       },
+      "rawDecoding": "Descodificació RAW",
+      "rawDecodingDesc": "Seleccioneu on es descodifiquen els fitxers RAW. 'Auto' utilitza la GPU i canvia a la CPU si no pot gestionar les vostres imatges. 'GPU' sempre prova primer la GPU. 'CPU' és més lenta, però funciona a tots els sistemes.",
+      "rawDecodingOptions": {
+        "auto": "Auto",
+        "cpu": "CPU",
+        "gpu": "GPU"
+      },
       "renderScale": "Escala de resolució de renderització",
       "renderScaleDesc": "Escala la resolució de renderització respecte a la vostra pantalla. Valors més baixos milloren el rendiment en pantalles d'alta resolució a canvi d'una mica de pèrdua de nitidesa.",
       "restartRequired": "Els canvis al motor de processament requereixen reiniciar l'aplicació per fer efecte.",

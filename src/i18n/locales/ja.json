@@ -2295,6 +2295,13 @@
         "high": "高画質",
         "performance": "パフォーマンス優先"
       },
+      "rawDecoding": "RAWデコード",
+      "rawDecodingDesc": "RAWファイルをデコードする場所を選択します。「自動」はGPUを使用し、GPUで画像を処理できない場合はCPUに切り替えます。「GPU」は常に最初にGPUを試します。「CPU」は低速ですが、すべてのシステムで動作します。",
+      "rawDecodingOptions": {
+        "auto": "自動",
+        "cpu": "CPU",
+        "gpu": "GPU"
+      },
       "renderScale": "レンダリングスケール",
       "renderScaleDesc": "画面解像度に対する表示解像度の比率を調整します。高解像度ディスプレイで値を下げると、シャープネスがわずかに低下する代わりに動作が軽くなります。",
       "restartRequired": "処理エンジンの変更を有効にするには、アプリを再起動する必要があります。",

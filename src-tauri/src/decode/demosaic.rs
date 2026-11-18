@@ -11,8 +11,11 @@ use rawler::rawimage::{RawImage, RawPhotometricInterpretation};
 use rayon::prelude::*;
 use wgpu::util::DeviceExt;
 
-use crate::decode::develop::{Finish, release, scoped, storage, upload, whole};
+use crate::decode::develop::{Finish, finish_rgb, release, storage, upload, whole};
+use crate::decode::gpu_fallback::{Load, on_gpu};
 use crate::render::gpu::context::DecodeGpu;
+
+mod cpu;
 
 const SHADER: &str = include_str!("../shaders/demosaic.wgsl");
 const WORKGROUP: u32 = 8;
@@ -382,23 +385,40 @@ impl<'a> Mosaic<'a> {
         (out, Dim2::new(width, height))
     }
 
-    pub fn develop(&self, context: &DecodeGpu, crop: Rect, finish: &Finish) -> Result<Rgb32FImage> {
+    pub fn develop(
+        &self,
+        crop: Rect,
+        finish: &Finish,
+        check_cancel: impl Fn() -> Result<()>,
+    ) -> Result<Rgb32FImage> {
         let started = Instant::now();
-        let result = scoped(&context.device, || {
+        let load = Load {
+            pixels: crop.d.w * crop.d.h,
+            demosaic: true,
+        };
+        let gpu = on_gpu(load, |context| {
             with_kernels(&context.device, |kernels| {
                 kernels.prepare(self.pattern);
                 self.run(kernels, context, crop, finish)
             })
         });
-        if result.is_ok() {
-            log::info!(
-                "GPU develop of {}x{} took {:?}",
-                crop.d.w,
-                crop.d.h,
-                started.elapsed()
-            );
-        }
-        result
+        let (processor, image) = match gpu {
+            Some(image) => ("GPU", image),
+            None => {
+                let demosaiced = self.demosaic(crop);
+                check_cancel()?;
+                let (width, height) = (crop.d.w as u32, crop.d.h as u32);
+                ("CPU", finish_rgb(&demosaiced, width, height, finish))
+            }
+        };
+        log::info!(
+            "{} develop of {}x{} took {:?}",
+            processor,
+            crop.d.w,
+            crop.d.h,
+            started.elapsed()
+        );
+        Ok(image)
     }
 
     fn params(&self) -> Params {
@@ -538,7 +558,7 @@ impl<'a> Mosaic<'a> {
                         self.stride as u32,
                         raw_base as u32,
                         crop_w,
-                        y0 * crop_w + x0,
+                        (y0 * crop_w + x0) * 3,
                     ],
                     ..base
                 };

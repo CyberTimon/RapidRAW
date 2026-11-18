@@ -325,7 +325,6 @@ pub fn develop_raw_image(
     {
         check_cancel()?;
         let finish = finish(Some(camera_to_working.camera(wb, clamp_limit)));
-        let context = crate::render::gpu::context::decode_gpu_context().map_err(|e| anyhow!(e))?;
         let crop = |dim| {
             default_crop(
                 raw_image.crop_area,
@@ -339,12 +338,11 @@ pub fn develop_raw_image(
             check_cancel()?;
             let crop = crop(dim);
             develop::finish_rgb(
-                &context,
                 &crop_rows(&data, dim.w, crop),
                 crop.d.w as u32,
                 crop.d.h as u32,
                 &finish,
-            )?
+            )
         } else {
             let domain = mosaic.domain();
             let crop = crop(domain.d);
@@ -352,7 +350,7 @@ pub fn develop_raw_image(
                 Point::new(domain.p.x + crop.p.x, domain.p.y + crop.p.y),
                 crop.d,
             );
-            mosaic.develop(&context, crop, &finish)?
+            mosaic.develop(crop, &finish, check_cancel)?
         };
         return Ok(DynamicImage::ImageRgb32F(image));
     }
@@ -426,15 +424,12 @@ pub fn develop_raw_image(
             });
             check_cancel()?;
 
-            let context =
-                crate::render::gpu::context::decode_gpu_context().map_err(|e| anyhow!(e))?;
             let image = develop::finish_rgb(
-                &context,
                 &data,
                 crop.d.w as u32,
                 crop.d.h as u32,
                 &finish(Some(camera)),
-            )?;
+            );
             return Ok(DynamicImage::ImageRgb32F(image));
         }
         Intermediate::ThreeColor(pixels) => {
@@ -484,11 +479,11 @@ pub fn develop_raw_image(
         }
     };
 
-    develop::enhance(
+    Ok(develop::enhance(
         apply_orientation(dynamic_image, orientation),
         denoise,
         sharpen,
-    )
+    ))
 }
 
 fn crop_rows(data: &[[f32; 3]], stride: usize, crop: Rect) -> Cow<'_, [[f32; 3]]> {

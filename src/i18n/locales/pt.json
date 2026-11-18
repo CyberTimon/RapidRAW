@@ -2344,6 +2344,13 @@
         "high": "Alta Qualidade",
         "performance": "Desempenho"
       },
+      "rawDecoding": "Decodificação RAW",
+      "rawDecodingDesc": "Selecione onde os arquivos RAW são decodificados. 'Auto' usa a GPU e muda para a CPU se ela não der conta das suas imagens. 'GPU' sempre tenta a GPU primeiro. 'CPU' é mais lenta, mas funciona em qualquer sistema.",
+      "rawDecodingOptions": {
+        "auto": "Auto",
+        "cpu": "CPU",
+        "gpu": "GPU"
+      },
       "renderScale": "Escala de Resolução de Renderização",
       "renderScaleDesc": "Dimensiona a resolução de renderização em relação à sua tela. Valores mais baixos melhoram o desempenho em telas de alta resolução ao custo de alguma nitidez.",
       "restartRequired": "As alterações no mecanismo de processamento exigem uma reinicialização do aplicativo para entrarem em vigor.",

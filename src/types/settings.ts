@@ -127,6 +127,7 @@ export interface AppSettings {
   uiVisibility?: UiVisibility;
   rawHighlightCompression?: number;
   processingBackend?: string;
+  rawDecoding?: string;
   linuxGpuOptimization?: boolean;
   exportPresets?: ExportPreset[];
   myLenses?: any;

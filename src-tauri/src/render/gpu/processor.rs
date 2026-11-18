@@ -1181,7 +1181,7 @@ impl GpuProcessor {
                 &self.pipelines.main_pipeline_layout,
             )
         };
-        if features == ALL_SHADER_FEATURES {
+        if features == ALL_SHADER_FEATURES || self.context.shares_one_gl_context() {
             return generic.clone();
         }
 

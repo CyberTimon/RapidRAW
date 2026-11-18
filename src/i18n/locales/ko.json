@@ -2295,6 +2295,13 @@
         "high": "고품질",
         "performance": "성능"
       },
+      "rawDecoding": "RAW 디코딩",
+      "rawDecodingDesc": "RAW 파일을 디코딩할 위치를 선택합니다. 'Auto'는 GPU를 사용하고 GPU가 이미지를 처리할 수 없으면 CPU로 전환합니다. 'GPU'는 항상 GPU를 먼저 시도합니다. 'CPU'는 더 느리지만 모든 시스템에서 작동합니다.",
+      "rawDecodingOptions": {
+        "auto": "Auto",
+        "cpu": "CPU",
+        "gpu": "GPU"
+      },
       "renderScale": "렌더 해상도 배율",
       "renderScaleDesc": "디스플레이를 기준으로 렌더 해상도를 조정합니다. 값이 낮을수록 약간의 선명도를 희생하여 고해상도 화면에서 성능이 향상됩니다.",
       "restartRequired": "처리 엔진 변경 사항을 적용하려면 애플리케이션을 다시 시작해야 합니다.",

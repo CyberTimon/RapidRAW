@@ -785,6 +785,15 @@ export default function SettingsPanel({
     });
   }, [t, osPlatform]);
 
+  const rawDecodingOptions = useMemo<OptionItem<string>[]>(
+    () => [
+      { value: 'auto', label: t('settings.processing.rawDecodingOptions.auto') },
+      { value: 'gpu', label: t('settings.processing.rawDecodingOptions.gpu') },
+      { value: 'cpu', label: t('settings.processing.rawDecodingOptions.cpu') },
+    ],
+    [t],
+  );
+
   const linearRawOptions = useMemo<OptionItem<string>[]>(
     () => [
       { value: 'auto', label: t('settings.processing.preprocessing.linearOptions.auto') },
@@ -2058,6 +2067,18 @@ export default function SettingsPanel({
                               ? processingSettings.processingBackend
                               : 'auto'
                           }
+                          triggerClassName="bg-bg-primary"
+                        />
+                      </SettingItem>
+
+                      <SettingItem
+                        label={t('settings.processing.rawDecoding')}
+                        description={t('settings.processing.rawDecodingDesc')}
+                      >
+                        <Dropdown
+                          onChange={(value: string) => onSettingsChange({ ...appSettings, rawDecoding: value })}
+                          options={rawDecodingOptions}
+                          value={appSettings?.rawDecoding ?? 'auto'}
                           triggerClassName="bg-bg-primary"
                         />
                       </SettingItem>

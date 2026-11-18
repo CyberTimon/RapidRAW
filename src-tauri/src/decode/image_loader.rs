@@ -204,11 +204,11 @@ pub fn load_base_image_from_bytes(
         }
     } else {
         let image = load_image_with_orientation(bytes, cancel_token)?;
-        if apply_to_non_raws && !use_fast_raw_dev {
+        Ok(if apply_to_non_raws && !use_fast_raw_dev {
             crate::decode::develop::enhance(image, color_nr_amount, sharpening_amount)
         } else {
-            Ok(image)
-        }
+            image
+        })
     }
 }
 

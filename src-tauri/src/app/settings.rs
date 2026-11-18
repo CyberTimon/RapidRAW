@@ -655,6 +655,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub processing_backend: Option<String>,
     #[serde(default)]
+    pub raw_decoding: Option<String>,
+    #[serde(default)]
     pub linux_gpu_optimization: Option<bool>,
     #[serde(default)]
     pub linux_gpu_optimization_migrated_v1: Option<bool>,
@@ -895,6 +897,7 @@ impl Default for AppSettings {
             copy_paste_settings: CopyPasteSettings::default(),
             raw_highlight_compression: Some(2.5),
             processing_backend: Some("auto".to_string()),
+            raw_decoding: Some("auto".to_string()),
             linux_gpu_optimization: Some(false),
             linux_gpu_optimization_migrated_v1: Some(true),
             linux_wgpu_renderer_migrated_v1: Some(true),

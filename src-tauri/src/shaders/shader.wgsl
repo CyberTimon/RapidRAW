@@ -519,11 +519,12 @@ fn curve_point(src: u32, ch: u32, i: u32) -> Point {
             default: { return adjustments.global.blue_curve[i]; }
         }
     }
+    let mask = min(src, 31u);
     switch ch {
-        case 0u: { return adjustments.mask_adjustments[src].luma_curve[i]; }
-        case 1u: { return adjustments.mask_adjustments[src].red_curve[i]; }
-        case 2u: { return adjustments.mask_adjustments[src].green_curve[i]; }
-        default: { return adjustments.mask_adjustments[src].blue_curve[i]; }
+        case 0u: { return adjustments.mask_adjustments[mask].luma_curve[i]; }
+        case 1u: { return adjustments.mask_adjustments[mask].red_curve[i]; }
+        case 2u: { return adjustments.mask_adjustments[mask].green_curve[i]; }
+        default: { return adjustments.mask_adjustments[mask].blue_curve[i]; }
     }
 }
 
@@ -536,11 +537,12 @@ fn curve_count(src: u32, ch: u32) -> u32 {
             default: { return adjustments.global.blue_curve_count; }
         }
     }
+    let mask = min(src, 31u);
     switch ch {
-        case 0u: { return adjustments.mask_adjustments[src].luma_curve_count; }
-        case 1u: { return adjustments.mask_adjustments[src].red_curve_count; }
-        case 2u: { return adjustments.mask_adjustments[src].green_curve_count; }
-        default: { return adjustments.mask_adjustments[src].blue_curve_count; }
+        case 0u: { return adjustments.mask_adjustments[mask].luma_curve_count; }
+        case 1u: { return adjustments.mask_adjustments[mask].red_curve_count; }
+        case 2u: { return adjustments.mask_adjustments[mask].green_curve_count; }
+        default: { return adjustments.mask_adjustments[mask].blue_curve_count; }
     }
 }
 

@@ -2387,6 +2387,13 @@
         "high": "Vysoká kvalita",
         "performance": "Výkon"
       },
+      "rawDecoding": "Dekódování RAW",
+      "rawDecodingDesc": "Vyberte, kde se dekódují soubory RAW. „Auto“ používá GPU a přepne na CPU, pokud GPU vaše snímky nezvládne. „GPU“ vždy nejprve zkusí GPU. „CPU“ je pomalejší, ale funguje na každém systému.",
+      "rawDecodingOptions": {
+        "auto": "Auto",
+        "cpu": "CPU",
+        "gpu": "GPU"
+      },
       "renderScale": "Měřítko rozlišení vykreslení",
       "renderScaleDesc": "Mění měřítko rozlišení vykreslení vzhledem k vašemu displeji. Nižší hodnoty zlepšují výkon na displejích s vysokým rozlišením za cenu určité ostrosti.",
       "restartRequired": "Změny enginu zpracování vyžadují restart aplikace, aby se projevily.",

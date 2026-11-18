@@ -2301,6 +2301,13 @@
         "high": "High Quality",
         "performance": "Performance"
       },
+      "rawDecoding": "RAW Decoding",
+      "rawDecodingDesc": "Select where RAW files are decoded. 'Auto' uses the GPU and switches to the CPU if it can't handle your images. 'GPU' always tries the GPU first. 'CPU' is slower but works on every system.",
+      "rawDecodingOptions": {
+        "auto": "Auto",
+        "cpu": "CPU",
+        "gpu": "GPU"
+      },
       "renderScale": "Render Resolution Scale",
       "renderScaleDesc": "Scales the render resolution relative to your display. Lower values improve performance on high-resolution screens at the cost of some sharpness.",
       "restartRequired": "Changes to the processing engine require an application restart to take effect.",

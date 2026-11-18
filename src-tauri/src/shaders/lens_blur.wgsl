@@ -39,7 +39,7 @@ fn tent(c: f32, k: u32) -> f32 {
     let rk = radius_at(k);
     if (c <= rk) {
         if (k == 0u) { return 1.0; }
-        let rp = radius_at(k - 1u);
+        let rp = radius_at(max(k, 1u) - 1u);
         return clamp((c - rp) / max(rk - rp, 1e-5), 0.0, 1.0);
     }
     if (k == 4u) { return 1.0; }

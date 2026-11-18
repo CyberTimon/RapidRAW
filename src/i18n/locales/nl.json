@@ -2297,6 +2297,13 @@
         "high": "Hoge kwaliteit",
         "performance": "Prestaties"
       },
+      "rawDecoding": "RAW-decodering",
+      "rawDecodingDesc": "Selecteer waar RAW-bestanden worden gedecodeerd. 'Automatisch' gebruikt de GPU en schakelt over naar de CPU als die je afbeeldingen niet aankan. 'GPU' probeert altijd eerst de GPU. 'CPU' is langzamer, maar werkt op elk systeem.",
+      "rawDecodingOptions": {
+        "auto": "Automatisch",
+        "cpu": "CPU",
+        "gpu": "GPU"
+      },
       "renderScale": "Renderresolutieschaal",
       "renderScaleDesc": "Schaalt de renderresolutie ten opzichte van uw beeldscherm. Lagere waarden verbeteren de prestaties op hoge-resolutie-schermen ten koste van wat scherpte.",
       "restartRequired": "Wijzigingen in de verwerkingsmotor vereisen een herstart van de toepassing om effect te hebben.",
