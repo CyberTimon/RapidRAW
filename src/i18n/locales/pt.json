@@ -954,6 +954,9 @@
         "masks": "Máscaras"
       },
       "title": "Predefinições",
+      "toasts": {
+        "importFailed": "Falha ao importar {{fileName}}: {{error}}"
+      },
       "tooltips": {
         "explore": "Explorar Predefinições da Comunidade",
         "export": "Exportar todas as predefinições para arquivo .rrpreset",

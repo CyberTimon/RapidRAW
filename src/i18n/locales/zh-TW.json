@@ -926,6 +926,9 @@
         "masks": "遮色片"
       },
       "title": "預設",
+      "toasts": {
+        "importFailed": "匯入 {{fileName}} 失敗: {{error}}"
+      },
       "tooltips": {
         "explore": "探索社群預設",
         "export": "將所有預設匯出為 .rrpreset 檔案",

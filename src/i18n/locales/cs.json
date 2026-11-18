@@ -979,6 +979,9 @@
         "masks": "Masky"
       },
       "title": "Předvolby",
+      "toasts": {
+        "importFailed": "Import souboru {{fileName}} se nezdařil: {{error}}"
+      },
       "tooltips": {
         "explore": "Prozkoumejte předvolby komunity",
         "export": "Exportujte všechny předvolby do souboru .rrpreset",

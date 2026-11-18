@@ -926,6 +926,9 @@
         "masks": "마스크"
       },
       "title": "프리셋",
+      "toasts": {
+        "importFailed": "{{fileName}} 가져오기 실패: {{error}}"
+      },
       "tooltips": {
         "explore": "커뮤니티 프리셋 둘러보기",
         "export": "모든 프리셋을 .rrpreset 파일로 내보내기",

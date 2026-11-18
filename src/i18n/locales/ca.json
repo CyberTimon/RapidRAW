@@ -954,6 +954,9 @@
         "masks": "Màscares"
       },
       "title": "Ajustos preestablerts",
+      "toasts": {
+        "importFailed": "No s'ha pogut importar {{fileName}}: {{error}}"
+      },
       "tooltips": {
         "explore": "Explorar ajustos de la comunitat",
         "export": "Exportar tots els ajustos preestablerts a un fitxer .rrpreset",

@@ -954,6 +954,9 @@
         "masks": "Maschere"
       },
       "title": "Predefiniti",
+      "toasts": {
+        "importFailed": "Importazione di {{fileName}} non riuscita: {{error}}"
+      },
       "tooltips": {
         "explore": "Esplora i Predefiniti della Community",
         "export": "Esporta tutti i predefiniti in un file .rrpreset",

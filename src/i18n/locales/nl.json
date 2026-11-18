@@ -929,6 +929,9 @@
         "masks": "Maskers"
       },
       "title": "Voorinstellingen",
+      "toasts": {
+        "importFailed": "Importeren van {{fileName}} mislukt: {{error}}"
+      },
       "tooltips": {
         "explore": "Community-voorinstellingen verkennen",
         "export": "Alle voorinstellingen exporteren naar .rrpreset-bestand",

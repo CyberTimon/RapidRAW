@@ -926,6 +926,9 @@
         "masks": "マスク"
       },
       "title": "プリセット",
+      "toasts": {
+        "importFailed": "{{fileName}} のインポートに失敗しました: {{error}}"
+      },
       "tooltips": {
         "explore": "コミュニティのプリセットを検索",
         "export": "すべてのプリセットを .rrpreset ファイルとして書き出し",

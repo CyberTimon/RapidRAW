@@ -929,6 +929,9 @@
         "masks": "Masks"
       },
       "title": "Presets",
+      "toasts": {
+        "importFailed": "Failed to import {{fileName}}: {{error}}"
+      },
       "tooltips": {
         "explore": "Explore Community Presets",
         "export": "Export all presets to .rrpreset file",

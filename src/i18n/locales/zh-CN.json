@@ -926,6 +926,9 @@
         "masks": "蒙版"
       },
       "title": "预设",
+      "toasts": {
+        "importFailed": "导入 {{fileName}} 失败: {{error}}"
+      },
       "tooltips": {
         "explore": "探索社区预设",
         "export": "将所有预设导出为 .rrpreset 文件",

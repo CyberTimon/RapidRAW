@@ -954,6 +954,9 @@
         "masks": "Masques"
       },
       "title": "Paramètres prédéfinis",
+      "toasts": {
+        "importFailed": "Échec de l'importation de {{fileName}} : {{error}}"
+      },
       "tooltips": {
         "explore": "Explorer les paramètres prédéfinis de la communauté",
         "export": "Exporter tous les paramètres prédéfinis vers un fichier .rrpreset",

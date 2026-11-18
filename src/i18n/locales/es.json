@@ -954,6 +954,9 @@
         "masks": "Máscaras"
       },
       "title": "Ajustes preestablecidos",
+      "toasts": {
+        "importFailed": "No se pudo importar {{fileName}}: {{error}}"
+      },
       "tooltips": {
         "explore": "Explorar ajustes de la comunidad",
         "export": "Exportar todos los ajustes a un archivo .rrpreset",
