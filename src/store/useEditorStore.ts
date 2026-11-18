@@ -16,6 +16,8 @@ import { ImageDimensions } from '../hooks/useImageRenderSize';
 import { ToolType } from '../types/masks';
 import { describeHistoryChange } from '../utils/editHistory';
 import { HslMixerProperty } from '../utils/hslMixer';
+import { getCroppedDimensions } from '../utils/cropUtils';
+import { getDevicePixelRatio } from '../utils/displayScale';
 
 export type CenterMarker = 'vignette' | 'centre';
 
@@ -119,6 +121,21 @@ interface EditorState {
   resetHistory: (initialState: Adjustments) => void;
   goToHistoryIndex: (index: number) => void;
 }
+
+export const getZoomContentSize = (state: Pick<EditorState, 'originalSize' | 'adjustments'>): ImageDimensions =>
+  getCroppedDimensions(
+    state.originalSize.width,
+    state.originalSize.height,
+    state.adjustments.orientationSteps || 0,
+    state.adjustments.crop,
+  );
+
+export const getZoomPercent = (state: Pick<EditorState, 'originalSize' | 'adjustments' | 'displaySize'>): number => {
+  const contentWidth = getZoomContentSize(state).width;
+  return contentWidth > 0 && state.displaySize.width > 0
+    ? (state.displaySize.width * getDevicePixelRatio()) / contentWidth
+    : 1.0;
+};
 
 export const debouncedSetHistory = debounce((newAdj: Adjustments, label?: string) => {
   useEditorStore.getState().pushHistory(newAdj, label);

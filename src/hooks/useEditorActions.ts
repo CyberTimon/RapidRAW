@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
 import { TFunction } from 'i18next';
 import { SignalHigh, SignalLow, SignalMedium } from 'lucide-react';
-import { useEditorStore, debouncedSetHistory } from '../store/useEditorStore';
+import { useEditorStore, debouncedSetHistory, getZoomContentSize } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { adjustmentsFromMetadata, getDefaultAdjustmentsFor } from '../utils/developDefaults';
@@ -488,28 +488,19 @@ export function useEditorActions() {
   );
 
   const handleZoomChange = useCallback((zoomValue: number, fitToWindow: boolean = false) => {
-    const { originalSize, baseRenderSize, adjustments } = useEditorStore.getState();
+    const editorState = useEditorStore.getState();
+    const { baseRenderSize } = editorState;
     const dpr = getDevicePixelRatio();
     let targetZoomPercent: number;
 
-    const orientationSteps = adjustments.orientationSteps || 0;
-    const isSwapped = orientationSteps === 1 || orientationSteps === 3;
-    const effectiveOriginalWidth = isSwapped ? originalSize.height : originalSize.width;
-    const effectiveOriginalHeight = isSwapped ? originalSize.width : originalSize.height;
+    const { width: contentWidth, height: contentHeight } = getZoomContentSize(editorState);
 
     if (fitToWindow) {
-      if (
-        effectiveOriginalWidth > 0 &&
-        effectiveOriginalHeight > 0 &&
-        baseRenderSize.width > 0 &&
-        baseRenderSize.height > 0
-      ) {
-        const originalAspect = effectiveOriginalWidth / effectiveOriginalHeight;
+      if (contentWidth > 0 && contentHeight > 0 && baseRenderSize.width > 0 && baseRenderSize.height > 0) {
+        const contentAspect = contentWidth / contentHeight;
         const baseAspect = baseRenderSize.width / baseRenderSize.height;
         targetZoomPercent =
-          originalAspect > baseAspect
-            ? baseRenderSize.width / effectiveOriginalWidth
-            : baseRenderSize.height / effectiveOriginalHeight;
+          contentAspect > baseAspect ? baseRenderSize.width / contentWidth : baseRenderSize.height / contentHeight;
       } else {
         targetZoomPercent = 1.0;
       }
@@ -520,18 +511,13 @@ export function useEditorActions() {
     targetZoomPercent = Math.max(0.1 / dpr, Math.min(2.0, targetZoomPercent));
 
     let transformZoom = 1.0;
-    if (
-      effectiveOriginalWidth > 0 &&
-      effectiveOriginalHeight > 0 &&
-      baseRenderSize.width > 0 &&
-      baseRenderSize.height > 0
-    ) {
-      const originalAspect = effectiveOriginalWidth / effectiveOriginalHeight;
+    if (contentWidth > 0 && contentHeight > 0 && baseRenderSize.width > 0 && baseRenderSize.height > 0) {
+      const contentAspect = contentWidth / contentHeight;
       const baseAspect = baseRenderSize.width / baseRenderSize.height;
-      if (originalAspect > baseAspect) {
-        transformZoom = (targetZoomPercent * effectiveOriginalWidth) / baseRenderSize.width;
+      if (contentAspect > baseAspect) {
+        transformZoom = (targetZoomPercent * contentWidth) / baseRenderSize.width;
       } else {
-        transformZoom = (targetZoomPercent * effectiveOriginalHeight) / baseRenderSize.height;
+        transformZoom = (targetZoomPercent * contentHeight) / baseRenderSize.height;
       }
     }
     useEditorStore.getState().setEditor({ zoom: transformZoom });
