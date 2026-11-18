@@ -1381,10 +1381,13 @@ impl GpuProcessor {
         &self,
         input: &GpuImageEntry,
         mask_texture_view: &wgpu::TextureView,
-        request: RenderRequest,
+        mut request: RenderRequest,
         output_to_display: bool,
         output_precision: RenderOutputPrecision,
     ) -> Result<(RenderedPixels, u32, u32, u32, u32), String> {
+        if request.lut.is_none() {
+            request.adjustments.global.has_lut = 0;
+        }
         let input_texture_view = &input.texture_view;
         let gf_coeffs_view = &input.gf_coeffs_view;
         let tone_base_view = &input.tone_base_view;
