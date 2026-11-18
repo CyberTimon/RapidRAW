@@ -1173,6 +1173,7 @@ export default function SettingsPanel({
                             { value: 'nl', label: 'Nederlands' },
                             { value: 'pl', label: 'Polski' },
                             { value: 'pt', label: 'Português' },
+                            { value: 'sv', label: 'Svenska' },
                             { value: 'ru', label: 'Русский' },
                             { value: 'uk', label: 'Українська' },
                             { value: 'ja', label: '日本語' },
