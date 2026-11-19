@@ -464,19 +464,26 @@ export default function LibraryGrid(props: any) {
       setLibrary({ libraryGridRows: [] });
       return;
     }
-    const navRows = gridData.rows
-      .filter((row) => row.type === 'images')
-      .map((row) => {
-        let x = 0;
-        return row.images.map((image: ImageFile, i: number) => {
-          const width = row.justifiedWidths ? row.justifiedWidths[i] : gridData.itemWidth;
-          const center = x + width / 2;
-          x += width + gridData.ITEM_GAP;
-          return { path: image.path, center };
-        });
+    const imageRows = gridData.rows.filter((row) => row.type === 'images');
+    const navRows = imageRows.map((row) => {
+      let x = 0;
+      return row.images.map((image: ImageFile, i: number) => {
+        const width = row.justifiedWidths ? row.justifiedWidths[i] : gridData.itemWidth;
+        const center = x + width / 2;
+        x += width + gridData.ITEM_GAP;
+        return { path: image.path, center };
       });
-    setLibrary({ libraryGridRows: navRows });
-  }, [gridData, setLibrary]);
+    });
+    const averageRowHeight =
+      imageRows.reduce(
+        (sum, row) =>
+          sum +
+          (gridData.isListView ? gridData.listRowHeight : (row.rowHeight || gridData.itemWidth) + gridData.ITEM_GAP),
+        0,
+      ) / Math.max(1, imageRows.length);
+    const libraryGridPageRows = Math.max(1, Math.floor(gridSize.height / Math.max(1, averageRowHeight)));
+    setLibrary({ libraryGridRows: navRows, libraryGridPageRows });
+  }, [gridData, gridSize.height, setLibrary]);
 
   useEffect(() => () => setLibrary({ libraryGridRows: [] }), [setLibrary]);
 
