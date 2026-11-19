@@ -1,8 +1,24 @@
+use crate::app::settings::{AppSettings, load_settings};
 use crate::app::state::{AppState, PreviewTarget};
-use crate::render::gpu::context::current_gpu_context;
+use crate::platform::monitor::{
+    self, HdrDisplay, MonitorState, SurfaceTag, SystemColor, WideGamut,
+};
+use crate::render::color_space::{OutputColorSpace, TransferCurve, with_shader_prelude};
+use crate::render::display_color::{
+    ColorLut, DisplayColorMode, LUT_SHAPER_GAMMA, LUT_SIZE, MonitorColor, MonitorProfile,
+    shared_space,
+};
+use crate::render::gpu::context::{GpuContext, current_gpu_context};
+use crate::render::gpu::processor::RenderOutputPrecision;
+use crate::render::hdr::Headroom;
 use std::num::NonZero;
-use std::sync::atomic::{AtomicBool, Ordering};
-use tauri::Manager;
+use std::path::Path;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
+use tauri::{Emitter, Manager};
+
+pub const HDR_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -13,13 +29,18 @@ pub struct DisplayTransform {
     pub image_size: [f32; 2],
     pub texture_size: [f32; 2],
     pub pixelated: f32,
-    pub _pad: f32,
+    pub hdr_white: f32,
     pub bg_primary: [f32; 4],
     pub bg_secondary: [f32; 4],
     pub original_size: [f32; 2],
     pub split_origin: [f32; 2],
     pub split_normal: [f32; 2],
     pub split_offset: [f32; 2],
+    pub lut: [f32; 4],
+    pub frame_curve: [f32; 4],
+    pub frame_to_srgb: [[f32; 4]; 3],
+    pub linear_max: f32,
+    pub _padding: [f32; 3],
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -37,13 +58,18 @@ impl Default for DisplayTransform {
             image_size: [100.0, 100.0],
             texture_size: [100.0, 100.0],
             pixelated: 0.0,
-            _pad: 0.0,
+            hdr_white: 0.0,
             bg_primary: [24.0 / 255.0, 24.0 / 255.0, 24.0 / 255.0, 1.0],
             bg_secondary: [35.0 / 255.0, 35.0 / 255.0, 35.0 / 255.0, 1.0],
             original_size: [100.0, 100.0],
             split_origin: [0.0, 0.0],
             split_normal: [0.0, 0.0],
             split_offset: [0.0, 0.0],
+            lut: [0.0; 4],
+            frame_curve: OutputColorSpace::Srgb.curve().uniform(),
+            frame_to_srgb: frame_matrix(OutputColorSpace::Srgb),
+            linear_max: f32::MAX,
+            _padding: [0.0; 3],
         }
     }
 }
@@ -75,6 +101,7 @@ pub struct DisplayOutput {
     pub layer: DisplayLayer,
     pub to_viewer: bool,
     pub content: u64,
+    pub precision: RenderOutputPrecision,
 }
 
 pub fn display_content_key(path: &str) -> u64 {
@@ -92,6 +119,17 @@ pub struct WgpuDisplay {
     pub surface: wgpu::Surface<'static>,
     pub config: wgpu::SurfaceConfiguration,
     pub pipeline: wgpu::RenderPipeline,
+    hdr_pipeline: Option<wgpu::RenderPipeline>,
+    sdr_format: wgpu::TextureFormat,
+    hdr: Option<HdrDisplay>,
+    color: MonitorColor,
+    space: OutputColorSpace,
+    tag: SurfaceTag,
+    lut: Option<ColorLut>,
+    lut_source: Option<(Arc<MonitorProfile>, OutputColorSpace)>,
+    lut_view: wgpu::TextureView,
+    backgrounds: [[f32; 4]; 2],
+    clear_color: wgpu::Color,
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub sampler: wgpu::Sampler,
     pub transform_buffer: wgpu::Buffer,
@@ -115,11 +153,12 @@ impl WgpuDisplay {
         device: &wgpu::Device,
         width: u32,
         height: u32,
+        format: wgpu::TextureFormat,
     ) -> &wgpu::Texture {
         if self
             .original_texture
             .as_ref()
-            .is_none_or(|(t, _)| t.width() != width || t.height() != height)
+            .is_none_or(|(t, _)| t.width() != width || t.height() != height || t.format() != format)
         {
             let texture = device.create_texture(&wgpu::TextureDescriptor {
                 label: Some("Original Display Texture"),
@@ -131,7 +170,7 @@ impl WgpuDisplay {
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba8Unorm,
+                format,
                 usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
                 view_formats: &[],
             });
@@ -149,28 +188,14 @@ impl WgpuDisplay {
             .original_texture
             .as_ref()
             .map_or(edited_view, |(_, view)| view);
-        self.current_bind_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &self.bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: self.transform_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(edited_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::Sampler(&self.sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: wgpu::BindingResource::TextureView(original_view),
-                },
-            ],
-            label: None,
-        }));
+        self.current_bind_group = Some(display_bind_group(
+            device,
+            &self.bind_group_layout,
+            &self.transform_buffer,
+            &self.sampler,
+            [edited_view, original_view],
+            &self.lut_view,
+        ));
     }
 
     pub fn show_texture(
@@ -209,8 +234,10 @@ impl WgpuDisplay {
         max_dimension: u32,
     ) {
         let area = |dims: [u32; 2]| dims[0] as u64 * dims[1] as u64;
+        let format = source.format();
         let reusable = self.frame.as_ref().is_some_and(|frame| {
-            frame.capacity[0] >= size[0]
+            frame.texture.format() == format
+                && frame.capacity[0] >= size[0]
                 && frame.capacity[1] >= size[1]
                 && area(frame.capacity) <= 4 * area(size)
         });
@@ -226,7 +253,7 @@ impl WgpuDisplay {
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba8Unorm,
+                format,
                 usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
                 view_formats: &[],
             });
@@ -270,9 +297,144 @@ impl WgpuDisplay {
         self.place_image();
     }
 
+    pub fn hdr(&self) -> Option<HdrDisplay> {
+        self.hdr
+    }
+
+    pub fn space(&self) -> OutputColorSpace {
+        self.space
+    }
+
+    pub fn color(&self) -> &MonitorColor {
+        &self.color
+    }
+
+    pub fn supports_hdr(&self) -> bool {
+        self.hdr_pipeline.is_some()
+    }
+
+    pub fn set_output(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        hdr: Option<HdrDisplay>,
+        color: MonitorColor,
+        space: OutputColorSpace,
+    ) -> bool {
+        let hdr = hdr.filter(|_| self.supports_hdr());
+        let linear_white = match (&hdr, &color) {
+            (Some(hdr), _) => Some(hdr.white_scale),
+            (None, MonitorColor::System(WideGamut::Linear { white_scale })) => Some(*white_scale),
+            _ => None,
+        };
+        let tag = match (linear_white, &color) {
+            (Some(_), _) => SurfaceTag::Hdr,
+            (None, MonitorColor::System(_)) => SurfaceTag::Space(space),
+            _ => SurfaceTag::Unmanaged,
+        };
+        let lut_source = match (linear_white, &color) {
+            (None, MonitorColor::Profile(profile)) => Some((Arc::clone(profile), space)),
+            _ => None,
+        };
+        let same_lut = match (&lut_source, &self.lut_source) {
+            (None, None) => true,
+            (Some((profile, space)), Some((current, current_space))) => {
+                Arc::ptr_eq(profile, current) && space == current_space
+            }
+            _ => false,
+        };
+        if hdr == self.hdr && color == self.color && space == self.space && tag == self.tag {
+            return false;
+        }
+
+        let format = if linear_white.is_some() {
+            HDR_FORMAT
+        } else {
+            self.sdr_format
+        };
+        let retag = tag != self.tag;
+        self.tag = tag;
+        if format != self.config.format {
+            self.config.format = format;
+            self.configure_surface(device);
+        } else if retag {
+            monitor::tag_surface(&self.surface, tag);
+        }
+        if !same_lut {
+            self.lut = lut_source.as_ref().and_then(|(profile, space)| {
+                profile.lut_from(*space).unwrap_or_else(|e| {
+                    log::warn!(
+                        "Cannot convert to monitor profile '{}': {}",
+                        profile.name,
+                        e
+                    );
+                    None
+                })
+            });
+            self.lut_view = lut_texture_view(device, queue, self.lut.as_ref());
+            self.lut_source = lut_source;
+            self.rebind(device);
+        }
+        let size = LUT_SIZE as f32;
+        self.latest_transform.lut = match self.lut {
+            Some(_) => [(size - 1.0) / size, 0.5 / size, 1.0 / LUT_SHAPER_GAMMA, 0.0],
+            None => [0.0; 4],
+        };
+        self.latest_transform.frame_curve = space.curve().uniform();
+        self.latest_transform.frame_to_srgb = frame_matrix(space);
+        self.latest_transform.hdr_white = linear_white.unwrap_or(0.0);
+        self.latest_transform.linear_max = match (&hdr, linear_white) {
+            (None, Some(white)) => white,
+            _ => f32::MAX,
+        };
+        self.hdr = hdr;
+        self.color = color;
+        self.space = space;
+        self.apply_backgrounds();
+        true
+    }
+
+    fn apply_backgrounds(&mut self) {
+        let [primary, secondary] = self.backgrounds;
+        let in_srgb = self.space == OutputColorSpace::Srgb;
+        let to_frame = self.space.srgb_converter();
+        let frame_color = |color: [f32; 4]| {
+            if in_srgb {
+                return color;
+            }
+            let [r, g, b] = to_frame([color[0], color[1], color[2]]);
+            [r, g, b, color[3]]
+        };
+        let white = self.latest_transform.hdr_white;
+        let [r, g, b] = if white > 0.0 {
+            [primary[0], primary[1], primary[2]]
+                .map(|channel| TransferCurve::SRGB.decode(channel) * white)
+        } else {
+            let [r, g, b, _] = frame_color(primary);
+            match &self.lut {
+                Some(lut) => lut.convert([r, g, b]),
+                None => [r, g, b],
+            }
+        };
+        self.clear_color = wgpu::Color {
+            r: f64::from(r),
+            g: f64::from(g),
+            b: f64::from(b),
+            a: f64::from(primary[3]),
+        };
+        self.latest_transform.bg_primary = primary;
+        self.latest_transform.bg_secondary = frame_color(secondary);
+    }
+
+    pub fn set_backgrounds(&mut self, primary: [f32; 4], secondary: [f32; 4]) {
+        if self.backgrounds != [primary, secondary] {
+            self.backgrounds = [primary, secondary];
+            self.apply_backgrounds();
+        }
+    }
+
     pub fn set_background(&mut self, color: [f32; 4]) {
-        self.latest_transform.bg_primary = color;
-        self.latest_transform.bg_secondary = color;
+        self.set_backgrounds(color, color);
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, size: tauri::PhysicalSize<u32>) {
@@ -281,9 +443,14 @@ impl WgpuDisplay {
         if width != self.config.width || height != self.config.height {
             self.config.width = width;
             self.config.height = height;
-            self.surface.configure(device, &self.config);
+            self.configure_surface(device);
         }
         self.place_image();
+    }
+
+    fn configure_surface(&self, device: &wgpu::Device) {
+        self.surface.configure(device, &self.config);
+        monitor::tag_surface(&self.surface, self.tag);
     }
 
     pub fn place_editor_rect(&mut self, content: Option<u64>, rect: [f32; 4]) -> bool {
@@ -345,7 +512,7 @@ impl WgpuDisplay {
             wgpu::CurrentSurfaceTexture::Success(tex)
             | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
             wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
-                self.surface.configure(device, &self.config);
+                self.configure_surface(device);
                 match self.surface.get_current_texture() {
                     wgpu::CurrentSurfaceTexture::Success(tex)
                     | wgpu::CurrentSurfaceTexture::Suboptimal(tex) => tex,
@@ -366,12 +533,7 @@ impl WgpuDisplay {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: self.latest_transform.bg_primary[0] as f64,
-                            g: self.latest_transform.bg_primary[1] as f64,
-                            b: self.latest_transform.bg_primary[2] as f64,
-                            a: self.latest_transform.bg_primary[3] as f64,
-                        }),
+                        load: wgpu::LoadOp::Clear(self.clear_color),
                         store: wgpu::StoreOp::Store,
                     },
                     depth_slice: None,
@@ -409,7 +571,12 @@ impl WgpuDisplay {
                             clamped_height,
                         );
 
-                        rpass.set_pipeline(&self.pipeline);
+                        rpass.set_pipeline(
+                            self.hdr_pipeline
+                                .as_ref()
+                                .filter(|_| self.config.format == HDR_FORMAT)
+                                .unwrap_or(&self.pipeline),
+                        );
                         rpass.set_bind_group(0, bind_group, &[]);
                         rpass.draw(0..4, 0..1);
                     }
@@ -427,6 +594,7 @@ pub fn build_wgpu_display(
     surface: wgpu::Surface<'static>,
     adapter: &wgpu::Adapter,
     device: &wgpu::Device,
+    queue: &wgpu::Queue,
     size: tauri::PhysicalSize<u32>,
     standalone: bool,
     #[cfg_attr(not(target_os = "linux"), allow(unused_variables))] platform: PlatformSurface,
@@ -501,9 +669,121 @@ pub fn build_wgpu_display(
         present_mode
     );
 
+    let (bind_group_layout, create_pipeline) = display_pipelines(device);
+    let pipeline = create_pipeline(swapchain_format);
+    let hdr_pipeline = (adapter.get_info().backend != wgpu::Backend::Gl
+        && swapchain_caps.formats.contains(&HDR_FORMAT)
+        && usable(&HDR_FORMAT))
+    .then(|| create_pipeline(HDR_FORMAT));
+
+    let transform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("Transform Buffer"),
+        size: std::mem::size_of::<DisplayTransform>() as u64,
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+
+    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+        label: Some("Display Sampler"),
+        address_mode_u: wgpu::AddressMode::ClampToEdge,
+        address_mode_v: wgpu::AddressMode::ClampToEdge,
+        mag_filter: wgpu::FilterMode::Linear,
+        min_filter: wgpu::FilterMode::Linear,
+        ..Default::default()
+    });
+
+    let mut display = WgpuDisplay {
+        surface,
+        config,
+        pipeline,
+        hdr_pipeline,
+        sdr_format: swapchain_format,
+        hdr: None,
+        color: MonitorColor::Unmanaged,
+        space: OutputColorSpace::Srgb,
+        tag: SurfaceTag::Unmanaged,
+        lut: None,
+        lut_source: None,
+        lut_view: lut_texture_view(device, queue, None),
+        backgrounds: [
+            DisplayTransform::default().bg_primary,
+            DisplayTransform::default().bg_secondary,
+        ],
+        clear_color: wgpu::Color::BLACK,
+        bind_group_layout,
+        transform_buffer,
+        latest_transform: DisplayTransform::default(),
+        sampler,
+        current_bind_group: None,
+        edited_view: None,
+        original_texture: None,
+        standalone,
+        view: DisplayView::default(),
+        frame: None,
+        content_key: None,
+        rect_key: None,
+        pending_rect: None,
+        #[cfg(target_os = "linux")]
+        wayland: platform,
+    };
+    display.apply_backgrounds();
+    Ok(display)
+}
+
+fn frame_matrix(space: OutputColorSpace) -> [[f32; 4]; 3] {
+    space
+        .srgb_matrix()
+        .to_cols_array_2d()
+        .map(|[x, y, z]| [x, y, z, 0.0])
+}
+
+fn display_bind_group(
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+    transform_buffer: &wgpu::Buffer,
+    sampler: &wgpu::Sampler,
+    [edited_view, original_view]: [&wgpu::TextureView; 2],
+    lut_view: &wgpu::TextureView,
+) -> wgpu::BindGroup {
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
+        layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: transform_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::TextureView(edited_view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: wgpu::BindingResource::Sampler(sampler),
+            },
+            wgpu::BindGroupEntry {
+                binding: 3,
+                resource: wgpu::BindingResource::TextureView(original_view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 4,
+                resource: wgpu::BindingResource::TextureView(lut_view),
+            },
+        ],
+        label: None,
+    })
+}
+
+fn display_pipelines(
+    device: &wgpu::Device,
+) -> (
+    wgpu::BindGroupLayout,
+    impl Fn(wgpu::TextureFormat) -> wgpu::RenderPipeline,
+) {
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("Display Shader"),
-        source: wgpu::ShaderSource::Wgsl(include_str!("../../shaders/display.wgsl").into()),
+        source: wgpu::ShaderSource::Wgsl(
+            with_shader_prelude(include_str!("../../shaders/display.wgsl")).into(),
+        ),
     });
 
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -545,6 +825,16 @@ pub fn build_wgpu_display(
                     multisampled: false,
                 },
             },
+            wgpu::BindGroupLayoutEntry {
+                binding: 4,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                count: None,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    view_dimension: wgpu::TextureViewDimension::D3,
+                    multisampled: false,
+                },
+            },
         ],
     });
 
@@ -554,71 +844,73 @@ pub fn build_wgpu_display(
         immediate_size: 0,
     });
 
-    let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        label: Some("Display Pipeline"),
-        layout: Some(&pipeline_layout),
-        vertex: wgpu::VertexState {
-            module: &shader,
-            entry_point: Some("vs_main"),
-            buffers: &[],
-            compilation_options: Default::default(),
-        },
-        fragment: Some(wgpu::FragmentState {
-            module: &shader,
-            entry_point: Some("fs_main"),
-            targets: &[Some(wgpu::ColorTargetState {
-                format: swapchain_format,
-                blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
-                write_mask: wgpu::ColorWrites::ALL,
-            })],
-            compilation_options: Default::default(),
-        }),
-        primitive: wgpu::PrimitiveState {
-            topology: wgpu::PrimitiveTopology::TriangleStrip,
-            ..Default::default()
-        },
-        depth_stencil: None,
-        multisample: wgpu::MultisampleState::default(),
-        multiview_mask: NonZero::new(0),
-        cache: None,
-    });
+    let create_pipeline = move |format: wgpu::TextureFormat| {
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Display Pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers: &[],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format,
+                    blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleStrip,
+                ..Default::default()
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview_mask: NonZero::new(0),
+            cache: None,
+        })
+    };
+    (bind_group_layout, create_pipeline)
+}
 
-    let transform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("Transform Buffer"),
-        size: std::mem::size_of::<DisplayTransform>() as u64,
-        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
+fn lut_texture_view(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    lut: Option<&ColorLut>,
+) -> wgpu::TextureView {
+    let size = lut.map_or(1, |_| LUT_SIZE);
+    let extent = wgpu::Extent3d {
+        width: size,
+        height: size,
+        depth_or_array_layers: size,
+    };
+    let texture = device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("Display Color LUT"),
+        size: extent,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D3,
+        format: wgpu::TextureFormat::Rgba16Float,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        view_formats: &[],
     });
-
-    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-        label: Some("Display Sampler"),
-        address_mode_u: wgpu::AddressMode::ClampToEdge,
-        address_mode_v: wgpu::AddressMode::ClampToEdge,
-        mag_filter: wgpu::FilterMode::Linear,
-        min_filter: wgpu::FilterMode::Linear,
-        ..Default::default()
-    });
-
-    Ok(WgpuDisplay {
-        surface,
-        config,
-        pipeline,
-        bind_group_layout,
-        transform_buffer,
-        latest_transform: DisplayTransform::default(),
-        sampler,
-        current_bind_group: None,
-        edited_view: None,
-        original_texture: None,
-        standalone,
-        view: DisplayView::default(),
-        frame: None,
-        content_key: None,
-        rect_key: None,
-        pending_rect: None,
-        #[cfg(target_os = "linux")]
-        wayland: platform,
-    })
+    if let Some(lut) = lut {
+        queue.write_texture(
+            texture.as_image_copy(),
+            bytemuck::cast_slice(&lut.texels),
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(size * 8),
+                rows_per_image: Some(size),
+            },
+            extent,
+        );
+    }
+    texture.create_view(&Default::default())
 }
 
 #[cfg(target_os = "linux")]
@@ -699,6 +991,211 @@ fn update_display_size(window: &tauri::Window, size: tauri::PhysicalSize<u32>, w
     if let Some(display) = lock.as_mut() {
         display.resize(&ctx.device, size);
         display.flush(&ctx.device, &ctx.queue);
+    }
+}
+
+pub const DISPLAY_CHANGED_EVENT: &str = "display-changed";
+
+static DISPLAYS_CHECKED_AT: AtomicU64 = AtomicU64::new(0);
+static DISPLAYS_TRACKED: AtomicBool = AtomicBool::new(false);
+static HDR_AVAILABLE: AtomicBool = AtomicBool::new(false);
+static DISPLAY_REFRESH_PENDING: AtomicBool = AtomicBool::new(false);
+
+pub fn invalidate_displays() {
+    DISPLAYS_CHECKED_AT.store(0, Ordering::Release);
+}
+
+pub fn request_display_refresh(app_handle: &tauri::AppHandle) {
+    const DEBOUNCE: Duration = Duration::from_millis(300);
+    if !DISPLAYS_TRACKED.load(Ordering::Acquire)
+        || DISPLAY_REFRESH_PENDING.swap(true, Ordering::AcqRel)
+    {
+        return;
+    }
+    let app_handle = app_handle.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(DEBOUNCE);
+        DISPLAY_REFRESH_PENDING.store(false, Ordering::Release);
+        invalidate_displays();
+        if let Some(context) = current_gpu_context(&app_handle.state::<AppState>()) {
+            let settings = load_settings(app_handle.clone()).unwrap_or_default();
+            refresh_displays(&app_handle, &context, &settings);
+        }
+    });
+}
+
+#[cfg(target_os = "macos")]
+fn query_monitor(window: &tauri::WebviewWindow, hdr: bool, color: bool) -> Option<MonitorState> {
+    const TIMEOUT: Duration = Duration::from_millis(250);
+    let (tx, rx) = std::sync::mpsc::channel();
+    let target = window.clone();
+    window
+        .run_on_main_thread(move || {
+            let _ = tx.send(monitor::query(&target, hdr, color));
+        })
+        .ok()?;
+    rx.recv_timeout(TIMEOUT).ok()
+}
+
+#[cfg(not(target_os = "macos"))]
+fn query_monitor(window: &tauri::WebviewWindow, hdr: bool, color: bool) -> Option<MonitorState> {
+    Some(monitor::query(window, hdr, color))
+}
+
+fn displays(context: &GpuContext) -> [(&'static str, &Mutex<Option<WgpuDisplay>>); 2] {
+    [
+        ("main", &context.display),
+        (
+            crate::platform::viewer_window::VIEWER_LABEL,
+            &context.viewer_display,
+        ),
+    ]
+}
+
+pub fn refresh_displays(
+    app_handle: &tauri::AppHandle,
+    context: &GpuContext,
+    settings: &AppSettings,
+) {
+    const INTERVAL_MS: u64 = 3000;
+    static STARTED: OnceLock<Instant> = OnceLock::new();
+    let now = STARTED.get_or_init(Instant::now).elapsed().as_millis() as u64 + 1;
+    let checked_at = DISPLAYS_CHECKED_AT.load(Ordering::Acquire);
+    if checked_at != 0 && now.saturating_sub(checked_at) < INTERVAL_MS {
+        return;
+    }
+    DISPLAYS_CHECKED_AT.store(now, Ordering::Release);
+
+    let mode = settings.display_color_mode;
+    let custom = settings
+        .display_icc_profile
+        .as_deref()
+        .filter(|_| mode == DisplayColorMode::Custom)
+        .and_then(|path| MonitorProfile::load(Path::new(path)));
+    DISPLAYS_TRACKED.store(true, Ordering::Release);
+    let mut main_hdr_available = None;
+    let mut outputs = Vec::new();
+    for (label, display) in displays(context) {
+        let Some(window) = app_handle.get_webview_window(label) else {
+            continue;
+        };
+        let Some(supports_hdr) = display
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .map(WgpuDisplay::supports_hdr)
+        else {
+            continue;
+        };
+        let wants_color = mode == DisplayColorMode::Auto;
+        let state = if supports_hdr || wants_color {
+            match query_monitor(&window, supports_hdr, wants_color) {
+                Some(state) => state,
+                None => return,
+            }
+        } else {
+            MonitorState {
+                hdr: None,
+                color: SystemColor::Unmanaged,
+            }
+        };
+        if label == "main" {
+            main_hdr_available = Some(state.hdr.is_some());
+        }
+        let color = match (mode, state.color) {
+            (DisplayColorMode::Custom, _) => custom
+                .clone()
+                .map_or(MonitorColor::Unmanaged, MonitorColor::Profile),
+            (DisplayColorMode::Auto, SystemColor::Managed(wide_gamut)) => {
+                MonitorColor::System(match wide_gamut {
+                    WideGamut::Linear { .. } if !supports_hdr || !settings.wide_gamut_preview => {
+                        WideGamut::Unavailable
+                    }
+                    available => available,
+                })
+            }
+            (DisplayColorMode::Auto, SystemColor::Profile(path)) => {
+                MonitorProfile::load(&path).map_or(MonitorColor::Unmanaged, MonitorColor::Profile)
+            }
+            _ => MonitorColor::Unmanaged,
+        };
+        outputs.push((display, state.hdr.filter(|_| settings.hdr_display), color));
+    }
+    let space = if !settings.wide_gamut_preview || outputs.iter().any(|(_, hdr, _)| hdr.is_some()) {
+        OutputColorSpace::Srgb
+    } else {
+        shared_space(outputs.iter().map(|(_, _, color)| color.preferred_space()))
+    };
+
+    let mut changed = main_hdr_available
+        .is_some_and(|available| HDR_AVAILABLE.swap(available, Ordering::AcqRel) != available);
+    for (display, hdr, color) in outputs {
+        if let Some(display) = display.lock().unwrap_or_else(|e| e.into_inner()).as_mut()
+            && display.set_output(&context.device, &context.queue, hdr, color, space)
+        {
+            display.flush(&context.device, &context.queue);
+            changed = true;
+        }
+    }
+    if changed {
+        let (space, headroom) = frame_output(context, settings);
+        crate::platform::viewer_window::handle_display_changed(app_handle, space, headroom);
+        let _ = app_handle.emit(DISPLAY_CHANGED_EVENT, ());
+    }
+}
+
+pub fn main_display_supports_hdr(app_handle: &tauri::AppHandle) -> bool {
+    current_gpu_context(&app_handle.state::<AppState>()).is_none_or(|context| {
+        context
+            .display
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .is_none_or(WgpuDisplay::supports_hdr)
+    })
+}
+
+pub fn main_window_is_hdr(app_handle: &tauri::AppHandle) -> bool {
+    main_display_supports_hdr(app_handle)
+        && app_handle
+            .get_webview_window("main")
+            .and_then(|window| query_monitor(&window, true, false))
+            .is_some_and(|state| state.hdr.is_some())
+}
+
+fn shared_headroom(context: &GpuContext) -> Option<f32> {
+    let hdr = |display: &Mutex<Option<WgpuDisplay>>| {
+        display
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .map(WgpuDisplay::hdr)
+    };
+    let main = hdr(&context.display)??;
+    match hdr(&context.viewer_display) {
+        None => Some(main.headroom),
+        Some(viewer) => Some(main.headroom.min(viewer?.headroom)),
+    }
+}
+
+pub fn frame_output(context: &GpuContext, settings: &AppSettings) -> (OutputColorSpace, Headroom) {
+    let space = context
+        .display
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_ref()
+        .map_or(OutputColorSpace::Srgb, WgpuDisplay::space);
+    let headroom = shared_headroom(context).map_or(Headroom::SDR, |limit| {
+        Headroom::from_settings(settings).limited_to(limit)
+    });
+    (space, headroom)
+}
+
+pub fn frame_precision(space: OutputColorSpace, headroom: Headroom) -> RenderOutputPrecision {
+    if headroom.is_hdr() || space == OutputColorSpace::Rec2020 {
+        RenderOutputPrecision::Float
+    } else {
+        RenderOutputPrecision::EightBit
     }
 }
 

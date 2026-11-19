@@ -1,10 +1,35 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle, XCircle, Loader2, Save, RefreshCw, Layers } from 'lucide-react';
-import { motion } from 'framer-motion';
+import {
+  CheckCircle,
+  XCircle,
+  Loader2,
+  Save,
+  RefreshCw,
+  Layers,
+  WandSparkles,
+  Globe,
+  Cylinder,
+  Square,
+  TriangleAlert,
+} from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import clsx from 'clsx';
 import Button from '../ui/Button';
+import Slider from '../ui/Slider';
+import Switch from '../ui/Switch';
 import Text from '../ui/Text';
 import { TextColors, TextVariants } from '../../types/typography';
+import { PanoramaPreviewInfo, PanoramaProjectionMode, PanoramaSettings } from '../../types/library';
+
+const SETTINGS_COMMIT_DELAY_MS = 250;
+
+const PROJECTION_OPTIONS = [
+  { value: 'auto', label: 'modals.panorama.projectionAuto', icon: WandSparkles },
+  { value: 'spherical', label: 'modals.panorama.projectionSpherical', icon: Globe },
+  { value: 'cylindrical', label: 'modals.panorama.projectionCylindrical', icon: Cylinder },
+  { value: 'perspective', label: 'modals.panorama.projectionPerspective', icon: Square },
+] as const;
 
 interface PanoramaModalProps {
   error: string | null;
@@ -12,12 +37,16 @@ interface PanoramaModalProps {
   imageCount?: number;
   isOpen: boolean;
   isProcessing: boolean;
+  isUpdatingPreview: boolean;
   loadingImageUrl?: string | null;
   onClose(): void;
   onOpenFile(path: string): void;
   onSave(): Promise<string>;
+  onSettingsChange(settings: PanoramaSettings): void;
   onStitch(): void;
+  previewInfo: PanoramaPreviewInfo | null;
   progressMessage: string | null;
+  settings: PanoramaSettings;
 }
 
 export default function PanoramaModal({
@@ -26,20 +55,31 @@ export default function PanoramaModal({
   imageCount,
   isOpen,
   isProcessing,
+  isUpdatingPreview,
   loadingImageUrl,
   onClose,
   onOpenFile,
   onSave,
+  onSettingsChange,
   onStitch,
+  previewInfo,
   progressMessage,
+  settings,
 }: PanoramaModalProps) {
   const { t } = useTranslation();
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [savedPath, setSavedPath] = useState<string | null>(null);
+  const [draftSettings, setDraftSettings] = useState<PanoramaSettings>(settings);
 
   const mouseDownTarget = useRef<EventTarget | null>(null);
+  const commitTimer = useRef<number | null>(null);
+  const pendingSettings = useRef<PanoramaSettings | null>(null);
+
+  useEffect(() => {
+    setDraftSettings(settings);
+  }, [settings]);
 
   useEffect(() => {
     if (isOpen) {
@@ -57,8 +97,43 @@ export default function PanoramaModal({
     }
   }, [isOpen]);
 
+  useEffect(
+    () => () => {
+      if (commitTimer.current !== null) {
+        window.clearTimeout(commitTimer.current);
+      }
+    },
+    [],
+  );
+
+  const flushSettings = useCallback(() => {
+    if (commitTimer.current !== null) {
+      window.clearTimeout(commitTimer.current);
+      commitTimer.current = null;
+    }
+    if (pendingSettings.current) {
+      onSettingsChange(pendingSettings.current);
+      pendingSettings.current = null;
+    }
+  }, [onSettingsChange]);
+
+  const updateSettings = (patch: Partial<PanoramaSettings>) => {
+    const next = { ...draftSettings, ...patch };
+    setDraftSettings(next);
+    pendingSettings.current = next;
+    if (commitTimer.current !== null) {
+      window.clearTimeout(commitTimer.current);
+    }
+    commitTimer.current = window.setTimeout(flushSettings, SETTINGS_COMMIT_DELAY_MS);
+  };
+
   const handleClose = useCallback(() => {
     if (isSaving) return;
+    if (commitTimer.current !== null) {
+      window.clearTimeout(commitTimer.current);
+      commitTimer.current = null;
+    }
+    pendingSettings.current = null;
     onClose();
   }, [onClose, isSaving]);
 
@@ -74,6 +149,7 @@ export default function PanoramaModal({
   };
 
   const handleSave = async () => {
+    flushSettings();
     setIsSaving(true);
     try {
       const path = await onSave();
@@ -90,6 +166,87 @@ export default function PanoramaModal({
       onOpenFile(savedPath);
       handleClose();
     }
+  };
+
+  const projectionLabel = (value: PanoramaProjectionMode) =>
+    t(PROJECTION_OPTIONS.find((option) => option.value === value)?.label ?? 'modals.panorama.projectionAuto');
+
+  const renderProjectionNote = () => {
+    if (!previewInfo || isUpdatingPreview) return null;
+    if (draftSettings.projection === 'auto') {
+      return t('modals.panorama.autoProjectionUsed', { projection: projectionLabel(previewInfo.projection) });
+    }
+    if (draftSettings.projection !== previewInfo.projection) {
+      return t('modals.panorama.projectionFallback', {
+        requested: projectionLabel(draftSettings.projection),
+        projection: projectionLabel(previewInfo.projection),
+      });
+    }
+    return null;
+  };
+
+  const renderOptions = () => {
+    const note = renderProjectionNote();
+    const disabled = isSaving;
+    return (
+      <div className={clsx('grid grid-cols-1 md:grid-cols-3 gap-6 mt-5', disabled && 'opacity-50 pointer-events-none')}>
+        <div>
+          <Text variant={TextVariants.heading} className="mb-2">
+            {t('modals.panorama.projection')}
+          </Text>
+          <div className="grid grid-cols-2 gap-2">
+            {PROJECTION_OPTIONS.map(({ value, label, icon: Icon }) => (
+              <button
+                key={value}
+                onClick={() => updateSettings({ projection: value })}
+                className={clsx(
+                  'flex items-center justify-center gap-1.5 px-2 py-1.5 text-sm rounded-md transition-colors',
+                  draftSettings.projection === value
+                    ? 'bg-accent text-button-text'
+                    : 'bg-bg-primary hover:bg-card-active',
+                )}
+              >
+                <Icon size={14} />
+                {t(label)}
+              </button>
+            ))}
+          </div>
+          <Text variant={TextVariants.small} className="mt-2 min-h-8">
+            {note}
+          </Text>
+        </div>
+
+        <div>
+          <Slider
+            label={t('modals.panorama.boundaryWarp')}
+            min={0}
+            max={100}
+            step={1}
+            defaultValue={0}
+            value={draftSettings.boundaryWarp}
+            onChange={(e) => updateSettings({ boundaryWarp: Number(e.target.value) })}
+            fillOrigin="min"
+          />
+          <Text variant={TextVariants.small} className="mt-2">
+            {t('modals.panorama.boundaryWarpHint')}
+          </Text>
+        </div>
+
+        <div className="space-y-3">
+          <Switch
+            label={t('modals.panorama.autoCrop')}
+            checked={draftSettings.autoCrop}
+            onChange={(checked) => updateSettings({ autoCrop: checked })}
+          />
+          <Switch
+            label={t('modals.panorama.exposureCompensation')}
+            checked={draftSettings.exposureCompensation}
+            onChange={(checked) => updateSettings({ exposureCompensation: checked })}
+            tooltip={t('modals.panorama.exposureCompensationHint')}
+          />
+        </div>
+      </div>
+    );
   };
 
   const renderContent = () => {
@@ -112,14 +269,47 @@ export default function PanoramaModal({
     if (finalImageBase64 && !isProcessing) {
       return (
         <div className="w-full">
-          <div className="w-full max-h-[500px] bg-[#111] rounded-lg overflow-hidden border border-surface flex items-center justify-center">
-            <img
-              src={finalImageBase64}
-              alt="Stitched Panorama"
-              className="w-full h-full object-contain max-h-[500px]"
-            />
+          <div className="relative w-full h-[360px] bg-[#111] rounded-lg overflow-hidden border border-surface flex items-center justify-center">
+            <img src={finalImageBase64} alt="Stitched Panorama" className="max-w-full max-h-full object-contain" />
+            <AnimatePresence>
+              {isUpdatingPreview && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute inset-0 flex items-center justify-center bg-black/30"
+                >
+                  <Loader2 className="w-8 h-8 animate-spin text-white" />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-          {savedPath && (
+
+          {previewInfo && (
+            <div className="flex flex-wrap items-center justify-between gap-2 mt-3">
+              <Text variant={TextVariants.small}>
+                {t('modals.panorama.outputInfo', {
+                  images: previewInfo.imageCount,
+                  width: previewInfo.width,
+                  height: previewInfo.height,
+                })}
+              </Text>
+              {previewInfo.excludedCount > 0 && (
+                <Text
+                  as="div"
+                  variant={TextVariants.small}
+                  color={TextColors.accent}
+                  className="flex items-center gap-1.5"
+                >
+                  <TriangleAlert size={14} />
+                  {t('modals.panorama.excludedImages', { count: previewInfo.excludedCount })}
+                </Text>
+              )}
+            </div>
+          )}
+
+          {savedPath ? (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
               <Text
                 as="div"
@@ -131,6 +321,8 @@ export default function PanoramaModal({
                 <span>{t('modals.panorama.savedSuccess')}</span>
               </Text>
             </motion.div>
+          ) : (
+            renderOptions()
           )}
         </div>
       );
@@ -247,9 +439,9 @@ export default function PanoramaModal({
         </Button>
 
         {finalImageBase64 && (
-          <Button onClick={handleSave} disabled={isSaving || isProcessing}>
+          <Button onClick={handleSave} disabled={isSaving || isProcessing || isUpdatingPreview}>
             {isSaving ? <Loader2 className="animate-spin mr-2" size={16} /> : <Save className="mr-2" size={16} />}
-            {t('modals.panorama.save')}
+            {isSaving ? t('modals.panorama.saving') : t('modals.panorama.save')}
           </Button>
         )}
       </div>

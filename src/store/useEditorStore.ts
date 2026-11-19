@@ -14,8 +14,10 @@ import {
 import { CompareView } from '../types/settings';
 import { ImageDimensions } from '../hooks/useImageRenderSize';
 import { ToolType } from '../types/masks';
-import { describeHistoryChange } from '../utils/editHistory';
+import { describeHistoryChange, isSameValue } from '../utils/editHistory';
 import { HslMixerProperty } from '../utils/hslMixer';
+import { getCroppedDimensions } from '../utils/cropUtils';
+import { getDevicePixelRatio } from '../utils/displayScale';
 
 export type CenterMarker = 'vignette' | 'centre';
 
@@ -60,6 +62,8 @@ interface EditorState {
   histogram: ChannelConfig | null;
   waveform: WaveformData | null;
   isWaveformVisible: boolean;
+  scopeWhite: number;
+  displayRevision: number;
   activeWaveformChannel: string;
   waveformHeight: number;
 
@@ -114,9 +118,40 @@ interface EditorState {
   pushHistory: (newAdjustments: Adjustments, label?: string) => void;
   undo: () => void;
   redo: () => void;
-  resetHistory: (initialState: Adjustments) => void;
+  resetHistory: (initialState: Adjustments, path?: string | null) => void;
+  stashHistory: () => void;
   goToHistoryIndex: (index: number) => void;
 }
+
+export const getZoomContentSize = (state: Pick<EditorState, 'originalSize' | 'adjustments'>): ImageDimensions =>
+  getCroppedDimensions(
+    state.originalSize.width,
+    state.originalSize.height,
+    state.adjustments.orientationSteps || 0,
+    state.adjustments.crop,
+  );
+
+export const getZoomPercent = (state: Pick<EditorState, 'originalSize' | 'adjustments' | 'displaySize'>): number => {
+  const contentWidth = getZoomContentSize(state).width;
+  return contentWidth > 0 && state.displaySize.width > 0
+    ? (state.displaySize.width * getDevicePixelRatio()) / contentWidth
+    : 1.0;
+};
+
+type StoredHistory = Pick<EditorState, 'history' | 'historyLabels' | 'historyIndex'>;
+
+const MAX_STORED_HISTORIES = 20;
+const storedHistories = new Map<string, StoredHistory>();
+let historyPath: string | null = null;
+
+const restoreStoredHistory = (path: string, initialState: Adjustments): StoredHistory | null => {
+  const stored = storedHistories.get(path);
+  if (!stored || !isSameValue(stored.history[stored.historyIndex], initialState)) return null;
+  storedHistories.delete(path);
+  const history = [...stored.history];
+  history[stored.historyIndex] = initialState;
+  return { ...stored, history };
+};
 
 export const debouncedSetHistory = debounce((newAdj: Adjustments, label?: string) => {
   useEditorStore.getState().pushHistory(newAdj, label);
@@ -135,7 +170,7 @@ export const canvasToolState = (activeTool: Partial<CanvasToolState> = {}): Canv
   ...activeTool,
 });
 
-export const useEditorStore = create<EditorState>((set) => ({
+export const useEditorStore = create<EditorState>((set, get) => ({
   selectedImage: null,
   adjustments: INITIAL_ADJUSTMENTS,
   previewOverride: null,
@@ -152,6 +187,8 @@ export const useEditorStore = create<EditorState>((set) => ({
   histogram: null,
   waveform: null,
   isWaveformVisible: false,
+  scopeWhite: 1,
+  displayRevision: 0,
   activeWaveformChannel: 'luma',
   waveformHeight: 220,
 
@@ -236,11 +273,11 @@ export const useEditorStore = create<EditorState>((set) => ({
     });
   },
 
-  resetHistory: (initialState) =>
+  resetHistory: (initialState, path) => {
+    if (path !== undefined) historyPath = path;
+    const restored = path ? restoreStoredHistory(path, initialState) : null;
     set((state) => ({
-      history: [initialState],
-      historyLabels: [''],
-      historyIndex: 0,
+      ...(restored ?? { history: [initialState], historyLabels: [''], historyIndex: 0 }),
       adjustments: initialState,
       ...(state.cropSessionSnapshot
         ? {
@@ -250,7 +287,22 @@ export const useEditorStore = create<EditorState>((set) => ({
             },
           }
         : {}),
-    })),
+    }));
+  },
+
+  stashHistory: () => {
+    debouncedSetHistory.flush();
+    if (!historyPath) return;
+    const { history, historyLabels, historyIndex } = get();
+    storedHistories.delete(historyPath);
+    if (history.length > 1) {
+      storedHistories.set(historyPath, { history, historyLabels, historyIndex });
+      if (storedHistories.size > MAX_STORED_HISTORIES) {
+        storedHistories.delete(storedHistories.keys().next().value!);
+      }
+    }
+    historyPath = null;
+  },
 
   goToHistoryIndex: (index) => {
     debouncedSetHistory.flush();

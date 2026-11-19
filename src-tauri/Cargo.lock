@@ -52,6 +52,7 @@ dependencies = [
  "objc2-core-graphics",
  "objc2-core-image",
  "objc2-foundation",
+ "objc2-quartz-core",
  "once_cell",
  "ort",
  "png 0.18.1",
@@ -95,6 +96,7 @@ dependencies = [
  "wgpu",
  "windows 0.62.2",
  "windows-native-keyring-store",
+ "zbus",
  "zbus-secret-service-keyring-store",
  "zstd",
 ]
@@ -4648,6 +4650,7 @@ dependencies = [
  "bitflags 2.13.1",
  "objc2",
  "objc2-core-foundation",
+ "objc2-core-graphics",
  "objc2-foundation",
  "objc2-metal",
 ]

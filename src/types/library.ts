@@ -105,6 +105,36 @@ export interface Progress {
   total: number;
 }
 
+export type PanoramaProjection = 'perspective' | 'cylindrical' | 'spherical';
+
+export type PanoramaProjectionMode = 'auto' | PanoramaProjection;
+
+export interface PanoramaSettings {
+  autoCrop: boolean;
+  boundaryWarp: number;
+  exposureCompensation: boolean;
+  projection: PanoramaProjectionMode;
+}
+
+export const DEFAULT_PANORAMA_SETTINGS: PanoramaSettings = {
+  autoCrop: true,
+  boundaryWarp: 0,
+  exposureCompensation: true,
+  projection: 'auto',
+};
+
+export interface PanoramaPreviewInfo {
+  excludedCount: number;
+  height: number;
+  imageCount: number;
+  projection: PanoramaProjection;
+  width: number;
+}
+
+export interface PanoramaPreview extends PanoramaPreviewInfo {
+  base64: string;
+}
+
 export interface CullingSettings {
   similarityThreshold: number;
   blurThreshold: number;

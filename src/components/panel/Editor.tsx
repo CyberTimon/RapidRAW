@@ -25,6 +25,7 @@ import {
   zoomCrop,
   normalizeCropChange,
   getCropViewLayout,
+  getCroppedDimensions,
 } from '../../utils/cropUtils';
 import EditorToolbar from './editor/EditorToolbar';
 import ImageCanvas, { ImageRegion, MaskOverlayImage } from './editor/ImageCanvas';
@@ -480,17 +481,12 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     if (!selectedImage?.width || !selectedImage?.height) {
       return null;
     }
-    if (adjustments.crop) {
-      return { width: adjustments.crop.width, height: adjustments.crop.height } as ImageDimensions;
-    }
-    if (selectedImage) {
-      const orientationSteps = adjustments.orientationSteps || 0;
-      const isSwapped = orientationSteps === 1 || orientationSteps === 3;
-      const width = isSwapped ? selectedImage.height : selectedImage.width;
-      const height = isSwapped ? selectedImage.width : selectedImage.height;
-      return { width, height } as ImageDimensions;
-    }
-    return null;
+    return getCroppedDimensions(
+      selectedImage.width,
+      selectedImage.height,
+      adjustments.orientationSteps || 0,
+      adjustments.crop,
+    );
   }, [selectedImage, adjustments.crop, adjustments.orientationSteps]);
 
   const imageRenderSize = useImageRenderSize(imageContainerRef, croppedDimensions);

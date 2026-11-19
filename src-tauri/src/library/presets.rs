@@ -7,6 +7,10 @@ use crate::library::sidecars::parse_virtual_path;
 use crate::masks::generation::{
     MaskDefinition, generate_mask_bitmap, get_cached_or_generate_masks,
 };
+#[cfg(target_os = "android")]
+use crate::platform::android::{
+    is_android_content_uri, read_android_content_uri, resolve_android_content_uri_name,
+};
 use crate::render::cache_utils::calculate_patch_hash;
 use crate::render::geometry::Crop;
 use crate::render::gpu::context::get_or_init_gpu_context;
@@ -277,6 +281,7 @@ pub async fn generate_all_community_previews(
 
                 let converted = crate::adjustments::negative_conversion::apply_negative_conversion(
                     Cow::Borrowed(base_image),
+                    *is_raw,
                     &scaled_adjustments,
                 );
                 let source_id = {
@@ -505,6 +510,14 @@ pub fn save_presets(presets: Vec<PresetItem>, app_handle: AppHandle) -> Result<(
 }
 
 fn preset_file_display_name(file_path: &str) -> String {
+    #[cfg(target_os = "android")]
+    {
+        if is_android_content_uri(file_path) {
+            return resolve_android_content_uri_name(file_path)
+                .unwrap_or_else(|_| file_path.to_string());
+        }
+    }
+
     Path::new(file_path)
         .file_name()
         .map(|name| name.to_string_lossy().to_string())
@@ -521,20 +534,37 @@ fn collect_top_level_preset_names(items: &[PresetItem]) -> HashSet<String> {
         .collect()
 }
 
+fn read_preset_file_to_string(file_path: &str) -> Result<String, String> {
+    #[cfg(target_os = "android")]
+    {
+        if is_android_content_uri(file_path) {
+            let bytes = read_android_content_uri(file_path)?;
+            return String::from_utf8(bytes)
+                .map_err(|e| format!("Preset file is not valid UTF-8: {}", e));
+        }
+    }
+
+    fs::read_to_string(file_path).map_err(|e| e.to_string())
+}
+
 fn parse_preset_file(file_path: &str) -> Result<Vec<PresetItem>, String> {
-    let lower_path = file_path.to_lowercase();
-    let is_legacy = lower_path.ends_with(".xmp") || lower_path.ends_with(".lrtemplate");
+    let lower_path = preset_file_display_name(file_path).to_lowercase();
+    let content = read_preset_file_to_string(file_path)
+        .map_err(|e| format!("Failed to read preset file: {}", e))?;
+
+    let is_legacy = if lower_path.ends_with(".xmp") || lower_path.ends_with(".lrtemplate") {
+        true
+    } else if lower_path.ends_with(".rrpreset") {
+        false
+    } else {
+        !content.trim_start().starts_with('{')
+    };
 
     if !is_legacy {
-        let content = fs::read_to_string(file_path)
-            .map_err(|e| format!("Failed to read preset file: {}", e))?;
         let preset_file: PresetFile = serde_json::from_str(&content)
             .map_err(|e| format!("Failed to parse preset file: {}", e))?;
         return Ok(preset_file.presets);
     }
-
-    let content = fs::read_to_string(file_path)
-        .map_err(|e| format!("Failed to read legacy preset file: {}", e))?;
 
     let xmp_content = if lower_path.ends_with(".lrtemplate") {
         if let Some(caps) = regex!(r#"(?s)s.xmp = "(.*)""#).captures(&content) {

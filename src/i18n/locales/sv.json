@@ -1,0 +1,2538 @@
+{
+  "adjustments": {
+    "basic": {
+      "blacks": "Svarta toner",
+      "brightness": "Ljusstyrka",
+      "contrast": "Kontrast",
+      "exposure": "Exponering",
+      "highlights": "Högdagrar",
+      "mappers": {
+        "agx": "AgX",
+        "agxDesc": "Filmlik tonmappning",
+        "basic": "Grundläggande",
+        "basicDesc": "Standardtonmappning"
+      },
+      "reset": "Återställ",
+      "shadows": "Skuggor",
+      "toneMapper": "Tonmappning",
+      "whites": "Vita toner"
+    },
+    "color": {
+      "ariaSelectColor": "Välj färgen {{name}}",
+      "calibration": {
+        "colors": {
+          "blue": "Blå",
+          "green": "Grön",
+          "red": "Röd"
+        },
+        "hue": "Nyans",
+        "primaries": "Primärfärger",
+        "saturation": "Mättnad",
+        "shadows": "Skuggor",
+        "tint": "Färgton",
+        "title": "Färgkalibrering"
+      },
+      "colorGrading": "Färggradering",
+      "colorMixer": "Färgblandare",
+      "grading": {
+        "balance": "Balans",
+        "blending": "Blandning",
+        "global": "Global",
+        "highlights": "Högdagrar",
+        "midtones": "Mellantoner",
+        "shadows": "Skuggor"
+      },
+      "hue": "Nyans",
+      "kelvinModeTooltip": "Visa temperaturen i kelvin",
+      "localHue": "Lokal nyans",
+      "luminance": "Luminans",
+      "mixerColors": {
+        "aquas": "Turkosa toner",
+        "blues": "Blå toner",
+        "greens": "Gröna toner",
+        "magentas": "Magentatoner",
+        "oranges": "Orange toner",
+        "purples": "Lila toner",
+        "reds": "Röda toner",
+        "yellows": "Gula toner"
+      },
+      "mixerPickerTooltip": "Färgväljare för färgblandaren: klicka och dra uppåt eller nedåt i fotot",
+      "monochrome": {
+        "badge": "S/V",
+        "balance": "Balans",
+        "blackWhite": "Svartvitt",
+        "film": "Film",
+        "filmDescriptions": {
+          "balanced": "Jämn känslighet för olika färger, med ljusare röda toner och hudtoner",
+          "extendedRed": "Rödkänslig film med ljusa hudtoner och mörkare himlar",
+          "infrared": "Lysande lövverk och nästan svarta himlar",
+          "neutral": "Motsvarar den upplevda ljusstyrkan hos varje färg",
+          "orthochromatic": "Okänslig för rött, med mörka röda toner och ljusa himlar",
+          "orthoPanchromatic": "Något mörkare röda toner och tydliga gröna toner",
+          "panchromatic": "Klassisk filmåtergivning med ljusare blå himlar"
+        },
+        "films": {
+          "balanced": "Balanserad",
+          "extendedRed": "Utökad rödkänslighet",
+          "infrared": "Infraröd",
+          "neutral": "Neutral",
+          "orthochromatic": "Ortokromatisk",
+          "orthoPanchromatic": "Ortopankromatisk",
+          "panchromatic": "Pankromatisk"
+        },
+        "filter": "Filter",
+        "filters": {
+          "blue": "Blå",
+          "green": "Grön",
+          "none": "Inget",
+          "orange": "Orange",
+          "red": "Röd",
+          "yellow": "Gul"
+        },
+        "highlights": "Högdagrar",
+        "hue": "Nyans",
+        "mix": "Svartvit blandning",
+        "mixPickerTooltip": "Färgväljare för svartvit blandning: klicka och dra uppåt eller nedåt i fotot",
+        "saturation": "Mättnad",
+        "shadows": "Skuggor",
+        "strength": "Styrka",
+        "toning": "Toning",
+        "tonings": {
+          "cyanotype": "Cyanotypi",
+          "gold": "Guld",
+          "none": "Ingen",
+          "platinum": "Platina",
+          "selenium": "Selen",
+          "sepia": "Sepia",
+          "split": "Delad toning"
+        }
+      },
+      "presence": "Närvaro",
+      "saturation": "Mättnad",
+      "temperature": "Temperatur",
+      "tint": "Färgton",
+      "toggleSliders": "Visa/dölj reglage",
+      "vibrance": "Lyster",
+      "wbPickerTooltip": "Vitbalanspipett",
+      "wbPickerWgpuDisabled": "Vitbalanspipett: inaktivera WGPU i inställningarna.",
+      "whiteBalance": "Vitbalans"
+    },
+    "curves": {
+      "channels": {
+        "blue": "Blå",
+        "green": "Grön",
+        "luma": "Luma",
+        "red": "Röd"
+      },
+      "channelTitle": "Kanal: {{channel}}",
+      "copyParametric": "Kopiera parametrisk kurva för {{channel}}",
+      "copyPoint": "Kopiera punktkurva för {{channel}}",
+      "curveDataUnavailable": "Kurvdata är inte tillgängliga.",
+      "parametricCurve": "Parametrisk kurva",
+      "params": {
+        "blackLevel": "Svartnivå",
+        "darks": "Mörka toner",
+        "highlights": "Högdagrar",
+        "lights": "Ljusa toner",
+        "shadows": "Skuggor",
+        "whiteLevel": "Vitnivå"
+      },
+      "pasteFromParametric": "Klistra in från parametrisk kurva",
+      "pasteParametric": "Klistra in parametrisk kurva",
+      "pastePoint": "Klistra in punktkurva",
+      "pointCurve": "Punktkurva",
+      "resetAllParametric": "Återställ alla parametriska kurvor",
+      "resetAllPoint": "Återställ alla punktkurvor",
+      "resetParametric": "Återställ parametrisk kurva för {{channel}}",
+      "resetPoint": "Återställ punktkurva för {{channel}}"
+    },
+    "details": {
+      "aiDenoise": "AI-brusreducering",
+      "aiDenoiseDetail": "Detalj",
+      "aiUpscale": "RapidRes 2x",
+      "aiUpscaleDetail": "Detalj",
+      "blueYellow": "Blå/gul",
+      "centre": "Centré",
+      "chromaticAberration": "Kromatisk aberration",
+      "clarity": "Klarhet",
+      "classicDenoise": "Klassisk brusreducering",
+      "color": "Färg",
+      "convertNegative": "Konvertera negativ",
+      "dehaze": "Ta bort dis",
+      "luminance": "Luminans",
+      "negativeBlue": "Blå",
+      "negativeContrast": "Pappersgradation",
+      "negativeConversion": "Negativkonvertering",
+      "negativeExposure": "Kopieringsexponering",
+      "negativeGreen": "Grön",
+      "negativeRed": "Röd",
+      "noiseReduction": "Brusreducering",
+      "presence": "Närvaro",
+      "redCyan": "Röd/cyan",
+      "sharpening": "Skärpning",
+      "sharpness": "Skärpa",
+      "structure": "Struktur",
+      "superResolution": "RapidRes",
+      "threshold": "Tröskelvärde"
+    },
+    "effects": {
+      "amount": "Mängd",
+      "bokehCircular": "Cirkelformad",
+      "bokehHexagonal": "Sexkantig",
+      "bokehOctagonal": "Åttakantig",
+      "bokehRing": "Bubbla (ring)",
+      "bokehShape": "Bokehform",
+      "creative": "Kreativt",
+      "feather": "Mjuk kant",
+      "fog": "Dimma",
+      "fogDensity": "Täthet",
+      "fogHeight": "Markdimma",
+      "fogStart": "Början",
+      "fogVariation": "Variation",
+      "glow": "Glöd",
+      "grain": "Korn",
+      "halation": "Halation",
+      "lensBlur": "Objektivoskärpa",
+      "lensDiffusion": "Diffusion",
+      "lightFlares": "Ljusreflexer",
+      "lut": "LUT",
+      "midpoint": "Mittpunkt",
+      "motionBlur": "Rörelseoskärpa",
+      "motionBlurAngle": "Vinkel",
+      "motionBlurDepth": "Djup",
+      "motionBlurHighlights": "Högdagrar",
+      "motionBlurLayer": "Rörelse",
+      "motionBlurLayers": {
+        "auto": "Automatisk",
+        "panning": "Panorering",
+        "subject": "Rörligt motiv",
+        "uniform": "Enhetlig"
+      },
+      "motionBlurType": "Typ",
+      "motionBlurTypes": {
+        "linear": "Linjär",
+        "smooth": "Mjuk",
+        "spin": "Rotation",
+        "zoom": "Zoom"
+      },
+      "relight": "Ny ljussättning",
+      "relightAddLight": "Lägg till ljuskälla",
+      "relightAmbient": "Omgivningsljus",
+      "relightAngle": "Vinkel",
+      "relightColor": "Ljusfärg",
+      "relightCone": "Kon",
+      "relightDepth": "Djup",
+      "relightDuplicateLight": "Duplicera ljuskälla",
+      "relightElevation": "Höjdvinkel",
+      "relightFalloff": "Avtagande",
+      "relightHint": "Lägg till eller välj en ljuskälla och klicka eller dra sedan i bilden för att placera den.",
+      "relightIntensity": "Intensitet",
+      "relightLight": "Ljuskälla {{index}}",
+      "relightRemoveLight": "Ta bort ljuskälla",
+      "relightShadows": "Skuggor",
+      "relightShadowSoftness": "Skuggmjukhet",
+      "relightShine": "Glans",
+      "relightSoftness": "Mjukhet",
+      "relightType": "Ljustyp",
+      "relightTypes": {
+        "directional": "Riktat ljus",
+        "point": "Punktljus",
+        "spot": "Spotljus"
+      },
+      "roughness": "Grovlek",
+      "roundness": "Rundhet",
+      "size": "Storlek",
+      "spatial": "Rumsligt",
+      "vignette": "Vinjettering"
+    }
+  },
+  "contextMenus": {
+    "album": {
+      "emptyGroup": "(Tom grupp)"
+    },
+    "albumIcons": {
+      "automotive": "Fordon",
+      "default": "Mapp (standard)",
+      "favorites": "Favoriter",
+      "featured": "Utvalda",
+      "locations": "Platser",
+      "nature": "Natur",
+      "people": "Människor",
+      "person": "Person",
+      "photography": "Fotografi",
+      "portfolio": "Portfolio",
+      "summer": "Sommar",
+      "travel": "Resor"
+    },
+    "albums": {
+      "alreadyAtRoot": "Redan i roten",
+      "alreadyHere": "Redan här",
+      "confirmDeleteAlbum": "Bekräfta radering av album",
+      "confirmDeleteGroupEmpty": "Bekräfta radering av albumgrupp",
+      "confirmDeleteGroupNested": "Bekräfta radering av gruppen och alla underliggande album",
+      "deleteAlbum": "Radera album",
+      "deleteGroup": "Radera grupp",
+      "moveHere": "Flytta hit",
+      "moveTo": "Flytta till...",
+      "newAlbum": "Nytt album",
+      "newGroup": "Ny grupp",
+      "renameAlbum": "Byt namn på album",
+      "renameGroup": "Byt namn på grupp",
+      "rootDir": "Rotmapp"
+    },
+    "autoAdjustModes": {
+      "normal": "Normal",
+      "strong": "Stark",
+      "subtle": "Diskret"
+    },
+    "colors": {
+      "blue": "Blå",
+      "green": "Grön",
+      "orange": "Orange",
+      "pink": "Rosa",
+      "purple": "Lila",
+      "red": "Röd",
+      "yellow": "Gul"
+    },
+    "editor": {
+      "autoAdjust": "Justera automatiskt",
+      "autoLensCorrection": "Automatisk objektivkorrigering",
+      "autoStraighten": "Räta upp automatiskt",
+      "cancel": "Avbryt",
+      "closeViewer": "Stäng det andra fönstret",
+      "colorLabel": "Färgetikett",
+      "confirmReset": "Bekräfta återställning",
+      "convertBlackWhite": "Konvertera till svartvitt",
+      "convertNegative": "Konvertera negativ",
+      "copyAdjustments": "Kopiera justeringar",
+      "cullImage": "Sålla automatiskt",
+      "denoise": "Reducera brus",
+      "editImage": "Redigera bild",
+      "editIn": "Redigera i",
+      "exportImage": "Exportera bild",
+      "flag": "Flagga",
+      "flagPick": "Utvald",
+      "flagReject": "Bortvald",
+      "frameImage": "Ramredigerare",
+      "mergeHdr": "Sammanfoga till HDR",
+      "noLabel": "Ingen etikett",
+      "noRating": "Inget betyg",
+      "openViewer": "Öppna i ett andra fönster",
+      "pasteAdjustments": "Klistra in justeringar",
+      "productivity": "Produktivitet",
+      "rating": "Betyg",
+      "ratingLabel_one": "{{count}} stjärna",
+      "ratingLabel_other": "{{count}} stjärnor",
+      "redo": "Gör om",
+      "removeBlackWhite": "Ta bort svartvitt",
+      "removeDenoise": "Ta bort brusreducering",
+      "removeNegativeConversion": "Ta bort negativkonvertering",
+      "removeSuperResolution": "Ta bort RapidRes",
+      "resetAdjustments": "Återställ justeringar",
+      "resetToDefaults": "Återställ till standardvärden",
+      "resetToNeutral": "Återställ till neutralt",
+      "stitchPanorama": "Sammanfoga panorama",
+      "superResolution": "RapidRes (2x)",
+      "tagging": "Taggning",
+      "undo": "Ångra",
+      "unflagged": "Oflaggad"
+    },
+    "folders": {
+      "changeIcon": "Ändra ikon",
+      "confirm": "Bekräfta",
+      "copyHere_one": "Kopiera bilden hit",
+      "copyHere_other": "Kopiera {{count}} bilder hit",
+      "deleteFolder": "Radera mapp",
+      "importImages": "Importera bilder",
+      "moveHere_one": "Flytta bilden hit",
+      "moveHere_other": "Flytta {{count}} bilder hit",
+      "newFolder": "Ny mapp",
+      "paste": "Klistra in",
+      "pin": "Fäst mapp",
+      "refresh": "Uppdatera mappar",
+      "removeRoot": "Ta bort rotmapp",
+      "renameFolder": "Byt namn på mapp",
+      "showExplorer": "Visa i filhanteraren",
+      "unpin": "Lossa mapp"
+    },
+    "library": {
+      "addCopiedToAlbum_one": "Lägg till den kopierade bilden i album",
+      "addCopiedToAlbum_other": "Lägg till {{count}} kopierade bilder i album",
+      "deleteRejected": "Radera bortvalda bilder",
+      "refreshView": "Uppdatera vy"
+    },
+    "merge": {
+      "focusStack": "Fokusstackning",
+      "title": "Sammanfoga"
+    },
+    "tagging": {
+      "addTagTooltip": "Lägg till tagg",
+      "noTags": "Inga taggar har lagts till",
+      "placeholder": "Lägg till en tagg...",
+      "removeTooltip": "Ta bort taggen ”{{tag}}”",
+      "shortcutsHeading": "GENVÄGAR"
+    },
+    "thumbnail": {
+      "addToAlbum": "Lägg till i album",
+      "autoAdjust_one": "Justera automatiskt",
+      "autoAdjust_other": "Justera automatiskt",
+      "autoLensCorrection_one": "Automatisk objektivkorrigering",
+      "autoLensCorrection_other": "Automatisk objektivkorrigering",
+      "autoStraighten_one": "Räta upp automatiskt",
+      "autoStraighten_other": "Räta upp automatiskt",
+      "collage_one": "Ramredigerare",
+      "collage_other": "Skapa kollage",
+      "confirmDelete": "Bekräfta radering",
+      "confirmDeleteVc": "Bekräfta radering inklusive virtuella kopior",
+      "copyImage_one": "Kopiera bild",
+      "copyImage_other": "Kopiera {{count}} bilder",
+      "cullImage_one": "Sålla automatiskt",
+      "cullImage_other": "Sålla automatiskt",
+      "deleteAssociated": "Radera inklusive tillhörande filer",
+      "deleteImage_one": "Radera bild",
+      "deleteImage_other": "Radera {{count}} bilder",
+      "deleteSelected": "Radera endast markerade",
+      "denoise_one": "Reducera brus",
+      "denoise_other": "Reducera brus",
+      "duplicateImage": "Duplicera bild",
+      "enable": "Aktivera",
+      "exportImage_one": "Exportera bild",
+      "exportImage_other": "Exportera {{count}} bilder",
+      "noAlbums": "Inga album tillgängliga",
+      "pasteAdjustments_one": "Klistra in justeringar",
+      "pasteAdjustments_other": "Klistra in justeringar i {{count}} bilder",
+      "physicalCopy": "Fysisk kopia",
+      "remove": "Ta bort",
+      "removeFromAlbum_one": "Ta bort från album",
+      "removeFromAlbum_other": "Ta bort {{count}} bilder från album",
+      "renameImage_one": "Byt namn på bild",
+      "renameImage_other": "Byt namn på {{count}} bilder",
+      "resetAdjustments_one": "Återställ justeringar",
+      "resetAdjustments_other": "Återställ justeringar för {{count}} bilder",
+      "showExplorer": "Visa i filhanteraren",
+      "superResolution_one": "RapidRes (2x)",
+      "superResolution_other": "RapidRes (2x)",
+      "virtualCopy": "Virtuell kopia"
+    },
+    "toasts": {
+      "couldNotShowExplorer": "Kunde inte visa filen i filhanteraren: {{err}}",
+      "couldNotShowFolder": "Kunde inte visa mappen: {{err}}",
+      "editInFailed": "{{app}} misslyckades: {{err}}",
+      "editInNoOutput": "{{app}} stängdes utan att spara.",
+      "editInWaiting": "Väntar på {{app}}. Spara filen där för att hämta tillbaka den, eller stäng det här meddelandet för att sluta vänta.",
+      "failedAddToAlbum": "Kunde inte lägga till i albumet: {{err}}",
+      "failedApplyAuto": "Kunde inte tillämpa automatiska justeringar: {{err}}",
+      "failedChangeIcon": "Kunde inte ändra ikonen: {{err}}",
+      "failedCopy": "Kunde inte kopiera filerna: {{err}}",
+      "failedCreateVirtualCopy": "Kunde inte skapa en virtuell kopia: {{err}}",
+      "failedDelete": "Kunde inte radera: {{err}}",
+      "failedDeleteFolder": "Kunde inte radera mappen: {{err}}",
+      "failedDuplicate": "Kunde inte duplicera filen: {{err}}",
+      "failedMove": "Kunde inte flytta filerna: {{err}}",
+      "failedMoveError": "Kunde inte flytta: {{err}}",
+      "failedMoveInvalid": "Kunde inte flytta: målgruppen hittades inte eller är ogiltig.",
+      "failedRemoveImages": "Kunde inte ta bort bilderna: {{err}}"
+    }
+  },
+  "editor": {
+    "adjustments": {
+      "actions": {
+        "copySectionSettings": "Kopiera inställningar för {{section}}",
+        "customizePanels": "Anpassa paneler",
+        "pasteLabel": "Klistra in inställningar för {{section}}",
+        "pasteSettings": "Klistra in inställningar",
+        "resetPanelLayout": "Återställ till standard",
+        "resetSectionSettings": "Återställ inställningar för {{section}}"
+      },
+      "sections": {
+        "basic": "Grundläggande",
+        "color": "Färg",
+        "curves": "Kurvor",
+        "details": "Detaljer",
+        "effects": "Effekter"
+      },
+      "title": "Justeringar",
+      "tooltips": {
+        "autoAdjust": "Justera bilden automatiskt",
+        "hideFromPanel": "Dölj i panelen",
+        "resetAdjustments": "Återställ justeringar",
+        "showInPanel": "Visa i panelen",
+        "toggleAnalytics": "Visa/dölj bildanalys"
+      }
+    },
+    "ai": {
+      "actions": {
+        "addNewComponent": "Lägg till ny komponent",
+        "copyComponent": "Kopiera komponent",
+        "copyEdit": "Kopiera redigering",
+        "deleteComponent": "Radera komponent",
+        "deleteEdit": "Radera redigering",
+        "duplicateAndInvertComponent": "Duplicera och invertera komponent",
+        "duplicateAndInvertEdit": "Duplicera och invertera redigering",
+        "duplicateComponent": "Duplicera komponent",
+        "duplicateEdit": "Duplicera redigering",
+        "hideEdit": "Dölj redigering",
+        "intersectEditWith": "Ta skärningen mellan redigeringen och",
+        "pasteComponent": "Klistra in komponent",
+        "pasteEdit": "Klistra in redigering",
+        "rename": "Byt namn",
+        "resetSelection": "Återställ markering",
+        "showEdit": "Visa redigering",
+        "subtractFromEdit": "Subtrahera från redigeringen",
+        "switchToAdd": "Byt till addition",
+        "switchToIntersect": "Byt till skärning",
+        "switchToSubtract": "Byt till subtraktion"
+      },
+      "addNewEdit": "Lägg till ny redigering",
+      "brush": {
+        "add": "Lägg till",
+        "erase": "Sudda",
+        "feather": "Mjuk penselkant",
+        "size": "Penselstorlek"
+      },
+      "cloneHeal": {
+        "cloneTooltip": "Kopiera källan exakt, inklusive ljusstyrka och färg",
+        "dragSource": "Dra för att flytta källan",
+        "healTooltip": "Kopiera källans struktur och anpassa den till omgivningens ljusstyrka och färg",
+        "hintActive": "Dra källans kontur för att välja varifrån pixlarna hämtas. Varje nytt penseldrag blir en egen fläck. Håll ned Skift för att lägga till i den här.",
+        "hintEmpty": "Måla över en fläck, ledning eller ett störande föremål. En passande källa hittas automatiskt.",
+        "mode": "Läge",
+        "newSource": "Hitta en annan källa"
+      },
+      "comingSoon": "Kommer snart",
+      "connection": {
+        "backendLabel": "AI-motor:",
+        "builtinDesc": "Använder enkel inbyggd AI. Välj molnet eller AI Connector i inställningarna för generativ ersättning.",
+        "builtinLabel": "Inbyggd AI:",
+        "cloudLabel": "Molnbaserad AI:",
+        "connectorConnectedDesc": "Ansluten till lokal generativ AI-motor.",
+        "connectorDisconnectedDesc": "Endast enkel ifyllning är tillgänglig. Starta din lokala AI-motor.",
+        "connectorLabel": "AI Connector:",
+        "loginRequiredDesc": "Logga in via inställningarna för att använda molnbaserad AI.",
+        "monthlyUsage": "Månadsanvändning",
+        "notDetected": "Hittades inte",
+        "notLoggedIn": "Inte inloggad",
+        "proRequiredDesc": "Pro-prenumeration krävs. Uppgradera i inställningarna.",
+        "ready": "Klar",
+        "upgradeRequired": "Uppgradering krävs"
+      },
+      "createNewTitle": "Skapa ny generativ redigering",
+      "createNewTooltip": "Skapa ny redigering: {{name}}",
+      "denoising": "Kör AI-brusreducering...",
+      "dropzoneText": "Släpp här för att skapa en ny redigering",
+      "editSettingsTitle": "Redigeringsinställningar",
+      "editsTitle": "Redigeringar",
+      "generatingDepthMap": "Beräknar AI-djupkarta...",
+      "generatingNormalMap": "Beräknar AI-normalkarta...",
+      "generativeEditTitle": "Generativ redigering",
+      "inpaintingTitle": "Ifyllning",
+      "liquify": {
+        "mode": "Deformeringsläge",
+        "modes": {
+          "expand": "Utvidga",
+          "pinch": "Dra ihop",
+          "push": "Skjut",
+          "twirl": "Virvla"
+        }
+      },
+      "manualCleanupTitle": "Manuell retuschering",
+      "noImageSelected": "Ingen bild har valts.",
+      "params": {
+        "feather": "Mjuk kant",
+        "grow": "Utöka",
+        "intensity": "Intensitet",
+        "pressure": "Tryck"
+      },
+      "patches": {
+        "aiEdit": "AI-redigering {{count}}",
+        "aiEdit_one": "AI-redigering {{count}}",
+        "aiEdit_other": "AI-redigering {{count}}",
+        "clone": "Kloning {{count}}",
+        "clone_one": "Kloning {{count}}",
+        "clone_other": "Kloning {{count}}",
+        "heal": "Lagning {{count}}",
+        "heal_one": "Lagning {{count}}",
+        "heal_other": "Lagning {{count}}",
+        "invertedName": "{{name}} inverterad",
+        "liquify": "Deformering {{count}}",
+        "liquify_one": "Deformering {{count}}",
+        "liquify_other": "Deformering {{count}}",
+        "quickErase": "Snabbsuddning {{count}}",
+        "quickErase_one": "Snabbsuddning {{count}}",
+        "quickErase_other": "Snabbsuddning {{count}}",
+        "retouch": "Retusch {{count}}",
+        "retouch_one": "Retusch {{count}}",
+        "retouch_other": "Retusch {{count}}"
+      },
+      "resetInpaintingTooltip": "Återställ ifyllning",
+      "settings": {
+        "aiModelDownloading": "AI-modell hämtas: ",
+        "basicInpaintTooltipDisabled": "Den generativa AI-motorn är inte tillgänglig eller har inte konfigurerats. Enkel ifyllning krävs.",
+        "basicInpaintTooltipEnabled": "Enkel ifyllning är snabbare men inte generativ. Avmarkera för att använda generativ AI med en textinstruktion.",
+        "cancelGeneration": "Avbryt generering",
+        "componentPropertiesTitle": "Egenskaper för {{name}}",
+        "downloading": "Hämtar: ",
+        "fastInpaintDesc": "Fyll markeringen utifrån omgivande pixlar.",
+        "generateWithAiButton": "Generera med AI",
+        "generating": "Genererar...",
+        "generativeDesc": "Beskriv vad du vill generera i det markerade området.",
+        "generativeReplaceTitle": "Generativ ersättning",
+        "inpaintSelectionButton": "Fyll i markeringen",
+        "invertComponent": "Invertera komponent",
+        "invertSelection": "Invertera markering",
+        "placeholder": "t.ex. en blomsteräng",
+        "quickEraseDesc": "Fyll markeringen för att ta bort objektet.",
+        "selectionPropertiesTitle": "Markeringens egenskaper",
+        "useBasicInpaint": "Använd enkel ifyllning"
+      },
+      "touchUpTitle": "Retuschering",
+      "upscaling": "Kör RapidRes..."
+    },
+    "compare": {
+      "horizontal": "Dela över/under",
+      "sideBySide": "Sida vid sida",
+      "title": "Före/efter",
+      "toggle": "Hela originalet",
+      "vertical": "Dela vänster/höger"
+    },
+    "crop": {
+      "aspectRatioHeading": "Bildförhållande",
+      "autoStraightenFailed": "Automatisk upprätning misslyckades: {{error}}",
+      "autoStraightenNoLines": "Inga raka linjer hittades att räta upp bilden efter",
+      "custom": {
+        "hPlaceholder": "H",
+        "hTooltip": "Höjd",
+        "removeTooltip": "Ta bort sparat bildförhållande",
+        "savedTooltip": "Sparat bildförhållande {{ratio}}",
+        "saveTooltip": "Spara bildförhållandet som förinställning",
+        "wPlaceholder": "B",
+        "wTooltip": "Bredd"
+      },
+      "geometryHeading": "Geometri",
+      "labels": {
+        "flipHoriz": "Spegla vågrätt",
+        "flipVert": "Spegla lodrätt",
+        "lens": "Objektiv",
+        "rotateLeft": "Rotera åt vänster",
+        "rotateRight": "Rotera åt höger",
+        "transform": "Transformera"
+      },
+      "orientationHeading": "Orientering",
+      "overlays": {
+        "armature": {
+          "desc": "Kompositionslinjer",
+          "name": "Kompositionslinjer"
+        },
+        "center": {
+          "desc": "Mittlinjer",
+          "name": "Mitt"
+        },
+        "diagonal": {
+          "desc": "Diagonala linjer",
+          "name": "Diagonala linjer"
+        },
+        "none": {
+          "desc": "Inga hjälplinjer",
+          "name": "Ingen"
+        },
+        "phiGrid": {
+          "desc": "Fi-rutnät (gyllene snittet)",
+          "name": "Fi-rutnät"
+        },
+        "spiral": {
+          "desc": "Gyllene spiral (Fibonacci)",
+          "name": "Spiral"
+        },
+        "thirds": {
+          "desc": "Tredjedelsregeln",
+          "name": "Tredjedelar"
+        },
+        "triangle": {
+          "desc": "Gyllene triangel",
+          "name": "Triangel"
+        }
+      },
+      "presets": {
+        "custom": {
+          "name": "Anpassat",
+          "tooltip": "Ange anpassat bildförhållande"
+        },
+        "free": {
+          "desc": "Fri beskärning",
+          "name": "Fri"
+        },
+        "original": {
+          "desc": "Originalbildens bildförhållande",
+          "name": "Original"
+        },
+        "r169": {
+          "desc": "16:9 – bredbild, skrivbordsbakgrunder, YouTube",
+          "name": "16:9"
+        },
+        "r219": {
+          "desc": "21:9 – ultrabreda bildskärmar, filmformat",
+          "name": "21:9"
+        },
+        "r32": {
+          "desc": "3:2 – 35 mm-film, digitala systemkameror",
+          "name": "3:2"
+        },
+        "r43": {
+          "desc": "4:3 – traditionella bildskärmar, surfplattor",
+          "name": "4:3"
+        },
+        "r54": {
+          "desc": "5:4 – liggande Instagram-bilder, utskrifter på 8 × 10 tum",
+          "name": "5:4"
+        },
+        "r6524": {
+          "desc": "65:24 – panoramaformat på 35 mm-film",
+          "name": "65:24"
+        },
+        "sq": {
+          "desc": "Kvadrat – Instagram, profilbilder",
+          "name": "1:1"
+        }
+      },
+      "resetTooltip": "Återställ beskärning och transformering",
+      "rotationHeading": "Rotation",
+      "title": "Beskär och transformera",
+      "tooltips": {
+        "autoStraighten": "Räta upp automatiskt (Shift+S)",
+        "compositionOverlay": "Kompositionslinjer",
+        "flipHoriz": "Spegla bilden vågrätt",
+        "flipVert": "Spegla bilden lodrätt",
+        "lens": "Korrigering av objektivdistorsion",
+        "overlayDetails": "Hjälplinjer: {{name}}{{rotateHint}}",
+        "resetFineRotation": "Återställ finrotation",
+        "rotateHint": " (Shift+O för att rotera)",
+        "rotateLeft": "Rotera 90° moturs",
+        "rotateRight": "Rotera 90° medurs",
+        "straighten": "Upprätningsverktyg (S)",
+        "switchOrientation": "Byt orientering",
+        "switchToLandscape": "Byt till liggande",
+        "switchToPortrait": "Byt till stående",
+        "transform": "Perspektiv- och trapetskorrigering"
+      }
+    },
+    "externalEdit": {
+      "done": "Klart",
+      "exporting": "Exporterar…",
+      "savesTo": "Extern redigering – sparas i"
+    },
+    "guided": {
+      "cancel": "Avbryt",
+      "drawingActive": "Ritning aktiv",
+      "hint": "Rita längs kanter i fotot som ska vara lodräta eller vågräta.",
+      "horizontalLine": "Vågrät stödlinje #{{index}}",
+      "linesStatus": "Aktiva stödlinjer",
+      "toast": {
+        "angleRejected": "Linjens vinkel avviker för mycket från vågrätt eller lodrätt",
+        "maxLines": "Högst 2 lodräta och 2 vågräta linjer tillåts"
+      },
+      "verticalLine": "Lodrät stödlinje #{{index}}"
+    },
+    "layout": {
+      "split": "Dela"
+    },
+    "masks": {
+      "actions": {
+        "addNewComponent": "Lägg till ny komponent",
+        "applyPreset": "Tillämpa förinställning",
+        "copyComponent": "Kopiera komponent",
+        "copyMask": "Kopiera mask",
+        "deleteComponent": "Radera komponent",
+        "deleteMask": "Radera mask",
+        "duplicateAndInvertComponent": "Duplicera och invertera komponent",
+        "duplicateAndInvertMask": "Duplicera och invertera mask",
+        "duplicateComponent": "Duplicera komponent",
+        "duplicateMask": "Duplicera mask",
+        "hideComponent": "Dölj komponent",
+        "hideMask": "Dölj mask",
+        "intersectMaskWith": "Ta skärningen mellan masken och",
+        "noPresets": "Inga förinställningar",
+        "pasteComponent": "Klistra in komponent",
+        "pasteMask": "Klistra in mask",
+        "pasteMaskAdjustments": "Klistra in maskjusteringar",
+        "rename": "Byt namn",
+        "resetMaskAdjustments": "Återställ maskjusteringar",
+        "showComponent": "Visa komponent",
+        "showMask": "Visa mask",
+        "subtractFromMask": "Subtrahera från masken",
+        "switchToAdd": "Byt till addition",
+        "switchToIntersect": "Byt till skärning",
+        "switchToSubtract": "Byt till subtraktion"
+      },
+      "addNewMask": "Lägg till ny mask",
+      "aiTitle": "AI-markeringar",
+      "basicTitle": "Grundläggande verktyg",
+      "brush": {
+        "brush": "Pensel",
+        "eraser": "Suddgummi",
+        "feather": "Mjuk penselkant",
+        "flow": "Flöde",
+        "size": "Penselstorlek"
+      },
+      "comingSoon": "Kommer snart",
+      "depthRange": {
+        "far": "Långt bort",
+        "near": "Nära",
+        "reset": "Återställ",
+        "title": "Djupintervall"
+      },
+      "dropzoneText": "Släpp här för att skapa en ny mask",
+      "maskAdjustmentsTitle": "Maskjusteringar",
+      "maskingTitle": "Maskering",
+      "masksTitle": "Masker",
+      "params": {
+        "feather": "Mjuk kant",
+        "globalFeather": "Global mjuk kant",
+        "grow": "Utöka",
+        "tolerance": "Tolerans"
+      },
+      "patches": {
+        "copyName": "{{name}} kopia",
+        "invertedName": "{{name}} inverterad",
+        "maskName": "Mask {{count}}",
+        "maskName_one": "Mask {{count}}",
+        "maskName_other": "Mask {{count}}"
+      },
+      "rangeTitle": "Intervall och globalt",
+      "resetMaskingTooltip": "Återställ maskering",
+      "settings": {
+        "aiModelDownloading": "AI-modell hämtas: ",
+        "applyPreset": "Tillämpa förinställning",
+        "componentPropertiesTitle": "Egenskaper för {{name}}",
+        "copySectionSettings": "Kopiera inställningar för {{section}}",
+        "faceParts": {
+          "bodySkin": "Hud på kroppen",
+          "eyebrows": "Ögonbryn",
+          "eyeWhites": "Ögonvitor",
+          "faceSkin": "Hud i ansiktet",
+          "hair": "Hår",
+          "iris": "Iris och pupill",
+          "lips": "Läppar",
+          "nose": "Näsa",
+          "teeth": "Tänder"
+        },
+        "generateTextMask": "Generera mask",
+        "invertComponent": "Invertera komponent",
+        "invertMask": "Invertera mask",
+        "maskPropertiesTitle": "Maskegenskaper",
+        "noPresetsFound": "Inga förinställningar hittades",
+        "opacity": "Opacitet",
+        "pasteSectionSettings": "Klistra in inställningar för {{section}}",
+        "pasteSettings": "Klistra in inställningar",
+        "resetSectionSettings": "Återställ inställningar för {{section}}",
+        "select": "Välj",
+        "selectPresetTooltip": "Välj en förinställning att tillämpa",
+        "textPromptPlaceholder": "t.ex. person, bil, vatten"
+      },
+      "toggleAnalyticsInAdjustments": "Visa/dölj bildanalys i justeringspanelen",
+      "toggleAnalyticsTooltip": "Visa/dölj bildanalys",
+      "tooltips": {
+        "addToCurrent": "Lägg till {{name}} i aktuell mask eller skapa en ny (högerklick)",
+        "createNew": "Skapa ny mask: {{name}}"
+      }
+    },
+    "metadata": {
+      "author": {
+        "creatorDetails": "Uppgifter om upphovsperson",
+        "title": "Upphovsperson och upphovsrätt"
+      },
+      "camera": {
+        "aperture": "Bländare",
+        "focalLength": "Brännvidd",
+        "iso": "ISO",
+        "lens": "Objektiv",
+        "model": "Modell",
+        "shutterSpeed": "Slutartid",
+        "title": "Kamerauppgifter"
+      },
+      "clickToEdit": "Klicka för att redigera",
+      "copied": "Kopierat",
+      "copy": "Kopiera",
+      "emptyClickToAdd": "Tomt (klicka för att lägga till)",
+      "extendedExif": {
+        "title": "Utökad EXIF"
+      },
+      "fields": {
+        "author": "Upphovsperson",
+        "comments": "Kommentarer",
+        "copyright": "Upphovsrätt",
+        "title": "Titel"
+      },
+      "fileInfo": {
+        "dimensions": "{{width}} × {{height}} px • {{megapixels}} MP",
+        "dimensionsNoMp": "{{width}} × {{height}} px",
+        "emptyDimensions": "- × - px",
+        "title": "Filinformation",
+        "virtualCopy": "Virtuell kopia"
+      },
+      "gps": {
+        "altitude": "Höjd över havet",
+        "clickToOpenTooltip": "Klicka för att öppna kartan i en ny flik",
+        "latitude": "Latitud",
+        "longitude": "Longitud",
+        "title": "GPS-position"
+      },
+      "organization": {
+        "addTagPlaceholder": "Lägg till tagg...",
+        "colorLabel": "Färgetikett",
+        "none": "Ingen",
+        "noTags": "Inga taggar",
+        "rating": "Betyg",
+        "ratingLabels": "Betyg och etiketter",
+        "tags": "Taggar",
+        "title": "Organisering"
+      },
+      "title": "Metadata"
+    },
+    "presets": {
+      "amount": "Mängd",
+      "defaultForAllCameras": "Standard för alla kameror",
+      "defaultForCamera": "Standard för {{camera}}",
+      "dialog": {
+        "allPresetFiles": "Alla förinställningsfiler",
+        "exportAllTitle": "Exportera alla förinställningar",
+        "exportTitle": "Exportera {{type}}",
+        "importPresetsTitle": "Importera förinställningar",
+        "legacyPreset": "Äldre förinställning",
+        "presetFile": "Förinställningsfil",
+        "rapidRawPreset": "RapidRAW-förinställning"
+      },
+      "menu": {
+        "configurePreset": "Konfigurera förinställning",
+        "deleteFolder": "Radera mapp",
+        "deletePreset": "Radera förinställning",
+        "duplicatePreset": "Duplicera förinställning",
+        "exportFolder": "Exportera mapp",
+        "exportPreset": "Exportera förinställning",
+        "newFolder": "Ny mapp",
+        "newPreset": "Ny förinställning",
+        "overwrite": "Skriv över",
+        "renameFolder": "Byt namn på mapp",
+        "setDefaultAllCameras": "Använd som standard för alla kameror",
+        "setDefaultForCamera": "Använd som standard för {{camera}}",
+        "sortAll": "Sortera alla alfabetiskt",
+        "unsetDefaultAllCameras": "Sluta använda som standard för alla kameror",
+        "unsetDefaultForCamera": "Sluta använda som standard för {{camera}}"
+      },
+      "status": {
+        "empty": "Inga förinställningar har sparats ännu. Skapa egna, importera från en fil eller utforska förinställningar från andra användare.",
+        "getCommunity": "Hämta användarnas förinställningar",
+        "loading": "Läser in förinställningar..."
+      },
+      "supports": {
+        "cropTransform": "Beskär och transformera",
+        "label": "Stöder {{features}}",
+        "masks": "Masker"
+      },
+      "title": "Förinställningar",
+      "toasts": {
+        "importFailed": "Det gick inte att importera {{fileName}}: {{error}}"
+      },
+      "tooltips": {
+        "explore": "Utforska användarnas förinställningar",
+        "export": "Exportera alla förinställningar till en .rrpreset-fil",
+        "import": "Importera förinställningar från en .rrpreset-fil",
+        "saveNew": "Spara som ny förinställning"
+      },
+      "types": {
+        "folder": "Mapp",
+        "preset": "Förinställning",
+        "style": "Stil",
+        "tool": "Verktyg"
+      }
+    },
+    "speedEdit": {
+      "copied": "Kopierade <0>{{label}}</0> <1>{{value}}</1>",
+      "pasted": "Klistrade in <0>{{label}}</0> <1>{{value}}</1>"
+    },
+    "switcher": {
+      "tooltips": {
+        "adjust": "Justera",
+        "crop": "Beskär",
+        "export": "Exportera",
+        "filmstrip": "Bildremsa",
+        "info": "Info",
+        "inpaint": "Fyll i",
+        "masks": "Masker",
+        "presets": "Förinställningar",
+        "tethering": "Direktfotografering"
+      }
+    },
+    "toasts": {
+      "embeddedPreview": "RapidRAW kunde inte avkoda den här RAW-filen, så du ser och redigerar kamerans inbäddade JPEG-förhandsvisning. Räkna med lägre kvalitet och mindre redigeringsmarginal än med en riktig RAW-bild."
+    },
+    "toolbar": {
+      "history": "Historik",
+      "switchToVariant": "Byt till {{label}}",
+      "tooltips": {
+        "aperture": "Bländare",
+        "backToLibrary": "Tillbaka till biblioteket",
+        "compare": "Före/efter (B) eller lägen (högerklick)",
+        "focalLength": "Brännvidd",
+        "fullscreen": "Växla helskärmsläge (F)",
+        "hdr": "HDR-förhandsvisning",
+        "iso": "ISO",
+        "redo": "Gör om (Ctrl+Y) eller historik (högerklick)",
+        "shutterSpeed": "Slutartid",
+        "undo": "Ångra (Ctrl+Z) eller historik (högerklick)"
+      },
+      "vc": "VK"
+    },
+    "viewer": {
+      "openFailed": "Kunde inte öppna det andra fönstret: {{error}}",
+      "windowTitle": "RapidRAW-bildvisare"
+    }
+  },
+  "export": {
+    "advanced": {
+      "exportMasks": "Exportera masker som separata filer",
+      "exportOriginal": "Exportera även originalet",
+      "originalCrop": "Tillämpa beskärning",
+      "originalKeepExposure": "Behåll exponering",
+      "preserveFolders": "Bevara mappstruktur",
+      "preserveTimestamps": "Använd fotograferingsdatum från EXIF som filtidsstämplar",
+      "title": "Exportinställningar"
+    },
+    "border": {
+      "addBorder": "Lägg till ram",
+      "bases": {
+        "eachEdge": "Respektive kant",
+        "longEdge": "Längsta kanten",
+        "shortEdge": "Kortaste kanten"
+      },
+      "basis": "Beräkna tjocklek utifrån",
+      "color": "Ramfärg",
+      "invalidPercent": "Ange ett tal mellan 0 och 100 för båda.",
+      "leftRight": "Vänster och höger",
+      "percent": "%",
+      "topBottom": "Över- och underkant"
+    },
+    "bytes": {
+      "bytes": "byte",
+      "gb": "GB",
+      "kb": "KB",
+      "mb": "MB",
+      "tb": "TB"
+    },
+    "destination": {
+      "customFolder": "Valfri mapp",
+      "originalFolder": "Originalbildens mapp",
+      "subfolder": "Undermapp",
+      "subfolderPlaceholder": "t.ex. färdiga, WebP"
+    },
+    "dialog": {
+      "saveEditedImageTitle": "Spara redigerad bild",
+      "selectFolderTitle": "Välj mapp för export av {{count}} bilder",
+      "selectFolderTitle_one": "Välj mapp för export av {{count}} bild",
+      "selectFolderTitle_other": "Välj mapp för export av {{count}} bilder"
+    },
+    "file": {
+      "colorSpace": "Färgrymd",
+      "dpi": "DPI",
+      "hdr": "HDR-export",
+      "hdrJpegHint": "Lägger till en förstärkningskarta: HDR-skärmar visar ljusare högdagrar, medan bilden visas som vanligt på andra skärmar.",
+      "hdrJxlHint": "Sparar en äkta HDR-fil (PQ, Rec. 2020). Kräver en bildvisare med HDR-stöd.",
+      "hdrNoPreview": "Den här skärmen kan inte visa HDR-högdagrarna. De kommer ändå att finnas med i exporten.",
+      "hdrPreviewOff": "Aktivera HDR i redigerarens verktygsfält för att förhandsvisa högdagrarna.",
+      "quality": "Kvalitet",
+      "qualityLossless": "Kvalitet (förlustfri)",
+      "resolution": "Upplösning",
+      "tiffBitDepth": "Bitdjup för TIFF",
+      "tiffBitDepth16": "16 bitar",
+      "tiffBitDepth8": "8 bitar"
+    },
+    "labels": {
+      "image": "bild",
+      "image_plural": "bilder",
+      "lut": "LUT",
+      "lut_plural": "LUT:ar"
+    },
+    "metadata": {
+      "removeGps": "Ta bort GPS-data",
+      "saveWithMetadata": "Spara med metadata"
+    },
+    "pad": {
+      "aspectRatio": "Bildförhållande",
+      "backgroundColor": "Bakgrundsfärg",
+      "invalidRatio": "Ange ett positivt tal för både bredd och höjd.",
+      "padToAspectRatio": "Fyll ut till bildförhållande",
+      "ratioHeight": "Bildförhållandets höjd",
+      "ratioWidth": "Bildförhållandets bredd"
+    },
+    "resize": {
+      "dontEnlarge": "Förstora inte",
+      "modes": {
+        "height": "Höjd",
+        "longEdge": "Långsida",
+        "shortEdge": "Kortsida",
+        "width": "Bredd"
+      },
+      "pixels": "pixlar",
+      "resizeToFit": "Anpassa storlek"
+    },
+    "sections": {
+      "advanced": "Avancerat",
+      "destination": "Mål",
+      "fileNaming": "Filnamngivning",
+      "fileSettings": "Filinställningar",
+      "imageSizing": "Bildstorlek",
+      "metadata": "Metadata",
+      "watermark": "Vattenstämpel"
+    },
+    "status": {
+      "cancelExport": "Avbryt export",
+      "cancelled": "Exporten avbröts",
+      "cancelling": "Avbryter export…",
+      "estimatedAverageSize": " ({{size}} i genomsnitt)",
+      "estimatedSize": "Uppskattad filstorlek: ~{{size}}",
+      "estimatedTotalSize": "Uppskattad totalstorlek: ~{{size}}",
+      "estimatingSize": "Beräknar storlek…",
+      "exporting": "Exporterar…",
+      "exportingProgress": "Exporterar… ({{current}}/{{total}})",
+      "exportMultiple": "Exportera {{count}} {{label}}",
+      "exportMultiple_one": "Exportera {{count}} {{label}}",
+      "exportMultiple_other": "Exportera {{count}} {{label}}",
+      "exportSingle": "Exportera {{label}}",
+      "failed": "Exporten misslyckades",
+      "noImageSelected": "Ingen bild har valts för export.",
+      "noImagesSelected": "Inga bilder har valts.",
+      "success": "Exporten lyckades!"
+    },
+    "title": "Exportera",
+    "watermark": {
+      "addWatermark": "Lägg till vattenstämpel",
+      "anchors": {
+        "bottomCenter": "Nederst i mitten",
+        "bottomLeft": "Nederst till vänster",
+        "bottomRight": "Nederst till höger",
+        "center": "Mitten",
+        "centerLeft": "Mitten till vänster",
+        "centerRight": "Mitten till höger",
+        "topCenter": "Överst i mitten",
+        "topLeft": "Överst till vänster",
+        "topRight": "Överst till höger"
+      },
+      "logoText": "Logotyp",
+      "opacity": "Opacitet",
+      "previewText": "Förhandsvisning",
+      "scale": "Skala",
+      "spacing": "Avstånd",
+      "watermarkImage": "Vattenstämpelbild"
+    }
+  },
+  "immich": {
+    "close": {
+      "cancel": "Avbryt",
+      "closeAnyway": "Stäng ändå",
+      "message": "Redigeringar som väntar på Immich: {{number}}. De sparas på den här datorn och skickas nästa gång RapidRAW körs och Immich går att nå.",
+      "title": "Redigeringarna finns ännu inte i Immich"
+    },
+    "export": {
+      "album": "Album",
+      "createAlbum": "Skapa",
+      "destination": "Immich",
+      "newAlbum": "Nytt album…",
+      "newAlbumFailed": "Det gick inte att skapa albumet: {{error}}",
+      "newAlbumName": "Albumnamn",
+      "noAlbum": "Inget album",
+      "sourceAlbum": "Albumet som bilden öppnades från",
+      "withOriginal": "Ladda även upp originalet",
+      "withOriginalDesc": "För bilder från en lokal mapp laddas originalet upp med sina redigeringar och den exporterade bilden läggs överst i en bildstapel tillsammans med det. Bilder från Immich grupperas alltid i en bildstapel med sitt original."
+    },
+    "section": {
+      "albums": "Album",
+      "empty": "Inga album på servern.",
+      "error": "Det går inte att nå Immich.",
+      "loading": "Läser in album…",
+      "refresh": "Uppdatera album",
+      "timeline": "Tidslinje",
+      "title": "Immich",
+      "unassigned": "Utan album",
+      "unassignedHint": "Släpp bilder här för att ladda upp dem utan att lägga till dem i ett album."
+    },
+    "settings": {
+      "apiKey": "API-nyckel",
+      "apiKeyDesc": "Skapa en i Immich under Kontoinställningar → API-nycklar med följande behörigheter: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create och user.read.",
+      "connected": "Ansluten som {{user}} (Immich {{version}})",
+      "description": "Bläddra bland fotona på din Immich-server i biblioteket och redigera dem direkt. Originalen hämtas när du öppnar dem och dina redigeringar sparas i Immich, så att bilderna ser likadana ut på alla datorer.",
+      "keyInFile": "Sparad i en fil som bara du kan läsa: ingen hanterare för inloggningsuppgifter är tillgänglig. I KDE kan du aktivera Secret Service-gränssnittet i inställningarna för KDE:s plånbok och spara igen.",
+      "keyInStore": "Sparad i systemets hanterare för inloggningsuppgifter.",
+      "save": "Spara",
+      "saved": "Sparat.",
+      "serverUrl": "Serveradress",
+      "serverUrlDesc": "Adressen du använder för att öppna Immich i webbläsaren.",
+      "test": "Testa anslutning",
+      "title": "Immich",
+      "working": "Arbetar…"
+    },
+    "sync": {
+      "offline": "Frånkopplad",
+      "pending": "Redigeringar som väntar på Immich: {{number}}"
+    },
+    "toasts": {
+      "backOnline": "Immich går att nå igen och alla redigeringar har sparats där.",
+      "downloadFailed": "Det gick inte att hämta från Immich: {{error}}",
+      "editsConflict": "{{fileName}} redigerades även på en annan dator. Dina redigeringar behålls och den andra versionen sparas som en virtuell kopia.",
+      "editsStayLocal": "{{fileName}} tillhör någon annan, så Immich godtar inte redigeringar av den. Dina redigeringar sparas på den här datorn.",
+      "offline": "Det går inte att nå Immich. Dina redigeringar sparas här och skickas så snart tjänsten går att nå igen.",
+      "transferFailed": "Lades inte till i Immich: {{number}} ({{error}})",
+      "transferred": "Tillagda i Immich: {{number}}",
+      "transferring": "Lägger till i Immich… {{current}}/{{total}}",
+      "trashFailed": "Det gick inte att flytta till papperskorgen i Immich: {{error}}",
+      "uploaded": "Uppladdade till Immich: {{number}}",
+      "uploadKeptCopy": "{{fileName}} finns redan i Immich med andra redigeringar. De behålls och dina redigeringar sparas som en virtuell kopia."
+    }
+  },
+  "library": {
+    "aiJobs": {
+      "discard": "Avbryt återstående AI-bearbetning",
+      "failed": "Misslyckade ({{failedCount}})",
+      "kinds": {
+        "denoise": "AI-brusreducering",
+        "depthMap": "Analyserar djup",
+        "depthMask": "Genererar djupmask",
+        "faceMask": "Genererar ansiktsmask",
+        "foregroundMask": "Genererar förgrundsmask",
+        "normalMap": "Analyserar ytor",
+        "skyMask": "Genererar himmelsmask",
+        "subjectMask": "Genererar motivmask",
+        "textMask": "Genererar mask från text",
+        "upscale": "Uppskalning med RapidRes"
+      },
+      "more": "+{{moreCount}} till",
+      "pause": "Pausa AI-bearbetning",
+      "paused": "Pausad · {{remaining}} återstår",
+      "pausedItem": "Pausad",
+      "pausing": "Pausar efter det aktuella steget…",
+      "process": "Bearbeta bilder",
+      "progress": "{{current}}/{{total}}",
+      "queue": "Kö",
+      "queuedItem": "Köad",
+      "resume": "Återuppta AI-bearbetning",
+      "retry": "Försök igen",
+      "taskWithMask": "{{task}} ”{{mask}}”",
+      "thumbnailPaused": "AI-bearbetningen är pausad",
+      "thumbnailPending": "AI-bearbetning väntar",
+      "title": "AI-bearbetning",
+      "unprocessed_one": "{{count}} bild behöver AI-bearbetning",
+      "unprocessed_other": "{{count}} bilder behöver AI-bearbetning",
+      "waiting": "Förbereder AI-bearbetning…"
+    },
+    "community": {
+      "actionSave": "Spara",
+      "actionSaved": "Sparad",
+      "actionSaving": "Sparar…",
+      "fetchingPresets": "Hämtar förinställningar från GitHub…",
+      "footerHeading": "Vill du dela din förinställning här?",
+      "footerLinkText": "Skapa ett ärende på GitHub",
+      "headerDesc": "Upptäck förinställningar som andra användare har skapat.",
+      "headerTitle": "Användarnas förinställningar",
+      "presetBy": "av {{creator}}",
+      "searchPlaceholder": "Sök förinställningar…",
+      "sortBy": "Sortera efter:",
+      "sortMethods": {
+        "name": "Namn (A–Ö)"
+      }
+    },
+    "culling": {
+      "addTagPlaceholder": "Lägg till tagg…",
+      "altCullingPreviewHighRes": "Högupplöst förhandsvisning för bildurval",
+      "altThumbnailLoading": "Miniatyrbild läses in",
+      "aperture": "Bländare",
+      "cameraSettings": "Kamerainställningar",
+      "clickThumbnailsHint": "Klicka på miniatyrbilder i höger sidofält för att lägga till dem i jämförelsevyn.",
+      "colorLabel": "Färgetikett",
+      "dimensions": "Mått",
+      "editImage": "Redigera bild",
+      "focalLength": "Brännvidd",
+      "iso": "ISO",
+      "metadata": "Metadata",
+      "noMetadataAvailable": "Inga metadata tillgängliga",
+      "none": "Ingen",
+      "noTagsAdded": "Inga taggar har lagts till",
+      "rateAndLabel": "Betygsätt och märk",
+      "rating": "Betyg",
+      "selectImagesToCompare": "Välj bilder att jämföra",
+      "shutterSpeed": "Slutartid",
+      "syncZoomAndPan": "Synkronisera zoom och panorering",
+      "tags": "Taggar",
+      "toggleFit": "Växla mellan 1:1 och anpassad storlek",
+      "vc": "VK"
+    },
+    "filterExit": {
+      "hiddenMultiple_one": "{{count}} bild matchar inte längre filtret",
+      "hiddenMultiple_other": "{{count}} bilder matchar inte längre filtret",
+      "hiddenSingle": "{{name}} matchar inte längre filtret",
+      "undo": "Ångra"
+    },
+    "filters": {
+      "edited": {
+        "all": "Alla bilder",
+        "editedOnly": "Endast redigerade",
+        "uneditedOnly": "Endast oredigerade"
+      },
+      "flag": {
+        "all": "Alla bilder",
+        "excludeRejected": "Dölj bortvalda",
+        "picked": "Utvalda",
+        "rejected": "Bortvalda"
+      },
+      "noMatch": "Inga bilder matchar ditt filter.",
+      "rating": {
+        "all": "Visa alla",
+        "andDownSuffix": "och lägre",
+        "andUpSuffix": "och högre",
+        "fiveOnly": "endast 5",
+        "fourAndUp": "4 och högre",
+        "oneAndUp": "1 och högre",
+        "onlySuffix": "(enbart)",
+        "threeAndUp": "3 och högre",
+        "twoAndUp": "2 och högre",
+        "unrated": "Endast utan betyg"
+      },
+      "raw": {
+        "all": "Alla typer",
+        "nonRawOnly": "Endast andra än RAW",
+        "rawOnly": "Endast RAW"
+      }
+    },
+    "folders": {
+      "addFolder": "Lägg till mapp",
+      "albumsEmpty": "Högerklicka för att skapa ett album.",
+      "collapseSection": "Fäll ihop {{section}}",
+      "expandSection": "Fäll ut {{section}}",
+      "loading": "Läser in mappar…",
+      "noFoldersFound": "Inga mappar hittades.",
+      "openFolderInstruction": "Öppna en mapp för att se dess struktur.",
+      "searchPlaceholder": "Sök mappar…",
+      "sections": {
+        "albums": "Album",
+        "folders": "Mappar",
+        "pinned": "Fästa"
+      },
+      "sort": {
+        "created": "Skapandedatum",
+        "imageCount": "Antal bilder",
+        "modified": "Ändringsdatum",
+        "name": "Alfabetiskt"
+      },
+      "sourcesTitle": "Källor",
+      "tooltips": {
+        "clearSearch": "Rensa sökning",
+        "collapse": "Fäll ihop",
+        "expand": "Fäll ut",
+        "moreOptions": "Alternativ",
+        "navBack": "Gå bakåt",
+        "navForward": "Gå framåt",
+        "sortFolders": "Sortera mappar"
+      }
+    },
+    "grid": {
+      "columns": {
+        "aperture": "Bländare",
+        "focal": "Brännvidd",
+        "iso": "ISO",
+        "label": "Etikett",
+        "modified": "Ändrad",
+        "name": "Namn",
+        "rating": "Betyg",
+        "shutter": "Slutartid"
+      }
+    },
+    "header": {
+      "cancel": "Avbryt",
+      "deselectAll": "Avmarkera alla",
+      "search": {
+        "addFilterOrSearch": "Lägg till filter eller sök…",
+        "indexingImages": "Indexerar bilder…",
+        "indexingProgress": "Indexerar… ({{current}}/{{total}})",
+        "matchAll": "Matcha ALLA taggar",
+        "matchAny": "Matcha NÅGON tagg",
+        "searchOrQuery": "Sök eller lägg till sökvillkor",
+        "tooltipAdvancedQueries": "Avancerade sökvillkor: iso:>800, f:<=2.8, s:1/200, mm:50, camera:sony",
+        "tooltipClearSearch": "Rensa sökning",
+        "tooltipSearchFilter": "Sök eller filtrera"
+      },
+      "selectAll": "Markera alla",
+      "selectItems": "Markera objekt",
+      "title": "Bibliotek",
+      "viewOptions": {
+        "currentFolder": "Aktuell mapp",
+        "displayMode": "Visningsläge",
+        "exifDisabledTooltip": "Aktivera EXIF-läsning i inställningarna för att använda det här alternativet.",
+        "filterByColorLabel": "Filtrera efter färgetikett",
+        "filterByEdited": "Filtrera efter redigeringsstatus",
+        "filterByFileType": "Filtrera efter filtyp",
+        "filterByFlag": "Filtrera efter flagga",
+        "filterByRating": "Filtrera efter betyg",
+        "groupEditedFiles": "Ta med redigerade filer i grupper",
+        "groupIgnoreMetadata": "Ignorera skillnader i EXIF-datum",
+        "groupOff": "Av",
+        "groupPreferJpeg": "Föredra JPEG",
+        "groupPreferRaw": "Föredra RAW",
+        "groupRawJpeg": "Gruppera RAW + JPEG",
+        "metadataAlways": "Alltid",
+        "metadataHover": "När pekaren hålls över bilden",
+        "metadataOff": "Av",
+        "noLabel": "Ingen etikett",
+        "ratingOperator": {
+          "eq": "Exakt detta betyg",
+          "gte": "Detta betyg eller högre",
+          "lte": "Detta betyg eller lägre"
+        },
+        "recursive": "Inkludera undermappar",
+        "showMetadata": "Visa metadata",
+        "sortAscending": "Sortera stigande",
+        "sortBy": "Sortera efter",
+        "sortDescending": "Sortera fallande",
+        "thumbnailFit": "Miniatyrbildslayout",
+        "thumbnailSize": "Miniatyrbildsstorlek",
+        "title": "Visningsalternativ"
+      }
+    },
+    "items": {
+      "cloudPlaceholder": "Lagrad i iCloud – inte hämtad",
+      "collapseFolder": "Fäll ihop mapp",
+      "currentFolder": "Aktuell mapp",
+      "expandFolder": "Fäll ut mapp",
+      "imagesCount_one": "1 bild",
+      "imagesCount_other": "{{count}} bilder",
+      "immichPlaceholder": "Lagrad i Immich – inte hämtad",
+      "rejected": "Bortvald",
+      "tooltipAperture": "Bländare",
+      "tooltipFocalLength": "Brännvidd",
+      "tooltipIso": "ISO",
+      "tooltipShutterSpeed": "Slutartid",
+      "tooltipVirtualCopy": "Virtuell kopia"
+    },
+    "jobs": {
+      "active": "Pågår",
+      "cancel": "Avbryt export",
+      "cancelling": "Avbryter…",
+      "clear": "Rensa",
+      "copyError": "Klicka för att kopiera",
+      "empty": "Inga aktiva jobb",
+      "emptyHint": "Exporter, importer, filöverföringar och AI-bearbetning visas här.",
+      "errorCopied": "Felmeddelandet har kopierats till urklipp",
+      "images_one": "{{count}} bild",
+      "images_other": "{{count}} bilder",
+      "kinds": {
+        "aiTagging": "AI-taggning",
+        "copy": "Kopiera filer",
+        "export": "Export",
+        "import": "Import",
+        "modelDownload": "Hämtning av AI-modell",
+        "move": "Flytta filer"
+      },
+      "openInLibrary": "Öppna i biblioteket",
+      "recent": "Senaste",
+      "title": "Jobb"
+    },
+    "reject": {
+      "deleteConfirm": "Radera bortvalda",
+      "deleteMessage_one": "Vill du verkligen radera {{count}} bortvald bild? Den flyttas till papperskorgen.",
+      "deleteMessage_other": "Vill du verkligen radera {{count}} bortvalda bilder? De flyttas till papperskorgen.",
+      "deleteTitle": "Radera bortvalda bilder",
+      "noneToDelete": "Det finns inga bortvalda bilder att radera.",
+      "virtualCopiesWarning_one": "Även {{count}} virtuell kopia som inte är bortvald raderas eftersom dess original är bortvalt.",
+      "virtualCopiesWarning_other": "Även {{count}} virtuella kopior som inte är bortvalda raderas eftersom deras original är bortvalda."
+    },
+    "search": {
+      "noResults": "Inga resultat hittades",
+      "noResultsAiHint": " Aktivera automatisk taggning i inställningarna för en mer omfattande sökning.",
+      "noResultsDesc": "Det gick inte att hitta någon bild utifrån filnamn eller taggar."
+    },
+    "sort": {
+      "aperture": "Bländare",
+      "dateModified": "Ändringsdatum",
+      "dateTaken": "Fotograferingsdatum",
+      "editedStatus": "Redigeringsstatus",
+      "fileName": "Filnamn",
+      "focalLength": "Brännvidd",
+      "iso": "ISO",
+      "rating": "Betyg",
+      "shutterSpeed": "Slutartid"
+    },
+    "splash": {
+      "addFolder": "Lägg till mapp",
+      "brand": "RapidRAW",
+      "continueSession": "Fortsätt session",
+      "contribute": "Bidra på GitHub",
+      "descriptionAndroid": "En blixtsnabb, GPU-accelererad redigerare för RAW-bilder. Öppna biblioteket för att börja.",
+      "descriptionDesktop": "En blixtsnabb, GPU-accelererad redigerare för RAW-bilder. Öppna en mapp för att börja.",
+      "donate": "Donera på Ko-Fi",
+      "downloadVersion": "Klicka för att hämta version {{version}}",
+      "goToSettings": "Gå till inställningar",
+      "imagesBy": "Bilder av",
+      "latestVersion": "Du använder den senaste versionen",
+      "newVersionAvailable": "En ny version finns tillgänglig!",
+      "openFolder": "Öppna mapp",
+      "openLibrary": "Öppna bibliotek",
+      "or": "eller",
+      "version": "Version {{version}}",
+      "welcomeBack": "Välkommen tillbaka!",
+      "welcomeBackDesc": "Fortsätt där du slutade eller starta en ny session."
+    },
+    "status": {
+      "downloading": "Hämtar {{status}}…",
+      "importing": "Importerar bilder… ({{current}}/{{total}})",
+      "indexing": "Indexerar bilder… ({{current}}/{{total}})",
+      "moment": "Det här kan ta en stund.",
+      "processing": "Bearbetar bilder…"
+    },
+    "thumbnailFit": {
+      "fillSquare": "Fyll kvadrat",
+      "justified": "Tegellayout",
+      "originalRatio": "Ursprungligt bildförhållande"
+    },
+    "thumbnailSize": {
+      "list": "Lista"
+    },
+    "tooltips": {
+      "communityPresets": "Användarnas förinställningar",
+      "goHome": "Gå till startsidan",
+      "importImages": "Importera bilder",
+      "select": "Markera"
+    },
+    "viewMode": {
+      "culling": "Urvalsvy",
+      "grid": "Rutnätsvy",
+      "list": "Listvy"
+    }
+  },
+  "masks": {
+    "types": {
+      "all": "Hela bilden",
+      "brush": "Pensel",
+      "clone": "Klona",
+      "color": "Färg",
+      "depth": "Djup",
+      "face": "Ansikte",
+      "flow": "Flöde",
+      "foreground": "Förgrund",
+      "heal": "Laga",
+      "linear": "Linjär",
+      "liquify": "Gör flytande",
+      "luminance": "Luminans",
+      "matchBrush": "Matchningspensel",
+      "others": "Övriga",
+      "quickErase": "Snabbsudda",
+      "quickEraser": "Snabbsuddgummi",
+      "radial": "Radiell",
+      "retouch": "Retuschera",
+      "sky": "Himmel",
+      "subject": "Motiv",
+      "text": "Text"
+    }
+  },
+  "menus": {
+    "tagging": {
+      "addTagTooltip": "Lägg till tagg",
+      "noTags": "Inga taggar har lagts till",
+      "placeholder": "Lägg till en tagg...",
+      "removeTooltip": "Ta bort taggen ”{{tag}}”",
+      "shortcutsHeading": "GENVÄGAR"
+    }
+  },
+  "modals": {
+    "collage": {
+      "aspectRatio": "Bildförhållande",
+      "background": "Bakgrund",
+      "borderRadius": "Hörnradie",
+      "cancel": "Avbryt",
+      "close": "Stäng",
+      "done": "Klart",
+      "errorTitle": "Ett fel uppstod",
+      "exportSize": "Exportstorlek (px)",
+      "keepOriginalRatio": "Behåll ursprungligt bildförhållande",
+      "layout": "Layout",
+      "original": "Original",
+      "saveButton": "Spara kollage",
+      "saved": "Kollaget har sparats!",
+      "saving": "Sparar...",
+      "shuffleTooltip": "Blanda bilder",
+      "spacing": "Avstånd"
+    },
+    "configurePreset": {
+      "cancel": "Avbryt",
+      "includeCropTransform": "Inkludera beskärning och transformering",
+      "includeMasks": "Inkludera masker",
+      "placeholder": "Ange förinställningens namn...",
+      "save": "Spara",
+      "titleConfigure": "Konfigurera förinställning",
+      "titleSave": "Spara ny förinställning",
+      "typeStyleDesc": "Tillämpar hela stilen. Alla dina aktuella inställningar ersätts så att de stämmer exakt med förinställningen.",
+      "typeStyleLabel": "Stil",
+      "typeToolDesc": "Tillämpar endast specifika ändringar utan att påverka dina andra inställningar.",
+      "typeToolLabel": "Verktyg"
+    },
+    "confirm": {
+      "cancel": "Avbryt",
+      "confirm": "Bekräfta"
+    },
+    "copyPaste": {
+      "autoSyncDesc": "Tillämpa justeringar automatiskt på alla markerade bilder.",
+      "autoSyncLabel": "Aktivera automatisk synkronisering",
+      "autoSyncTitle": "Synkronisera justeringar automatiskt",
+      "cancel": "Avbryt",
+      "descMerge": "Lägger till dina kopierade ändringar utan att påverka övriga inställningar.",
+      "descReplace": "Skriver över alla valda inställningar och återställer resten till standardvärdena.",
+      "groups": {
+        "aiDenoise": "AI-brusreducering",
+        "aiUpscale": "RapidRes",
+        "blackWhite": "Svartvitt",
+        "chromaticAberration": "Kromatisk aberration",
+        "clarityDehaze": "Klarhet och borttagning av dis",
+        "colorCalibration": "Färgkalibrering",
+        "colorGrading": "Färggradering",
+        "colorMixer": "Färgblandare",
+        "cropAspectRatio": "Beskärning och bildförhållande",
+        "curves": "Kurvor",
+        "fog": "Dimma",
+        "grain": "Korn",
+        "guidedPerspective": "Guidad perspektivkorrigering",
+        "halationGlow": "Halation och glöd",
+        "hueShift": "Global nyansförskjutning",
+        "lensBlur": "Objektivoskärpa",
+        "lensCorrection": "Objektivkorrigering",
+        "lut": "LUT",
+        "masks": "Masker",
+        "motionBlur": "Rörelseoskärpa",
+        "negativeConversion": "Negativkonvertering",
+        "noiseReduction": "Brusreducering",
+        "presence": "Närvaro",
+        "relight": "Ny ljussättning",
+        "sharpness": "Skärpa",
+        "transformRotation": "Transformering och rotation",
+        "vignette": "Vinjettering",
+        "whiteBalance": "Vitbalans"
+      },
+      "includedAdjustments": "Inkluderade justeringar",
+      "modeMerge": "Sammanfoga",
+      "modeReplace": "Ersätt",
+      "pasteMode": "Inklistringsläge",
+      "save": "Spara",
+      "selectAll": "Markera alla",
+      "selectNone": "Avmarkera alla",
+      "title": "Inställningar för kopiering och inklistring"
+    },
+    "createAlbum": {
+      "placeholder": "Ange albumnamn..."
+    },
+    "createFolder": {
+      "cancel": "Avbryt",
+      "create": "Skapa",
+      "placeholder": "Ange mappnamn...",
+      "title": "Skapa ny mapp"
+    },
+    "createGroup": {
+      "placeholder": "Ange gruppnamn..."
+    },
+    "culling": {
+      "actionDelete": "Flytta till papperskorgen",
+      "actionRateZero": "Sätt betyget till 1 stjärna",
+      "actionReject": "Markera som bortvald",
+      "applyButton_one": "Tillämpa på 1 bild",
+      "applyButton_other": "Tillämpa på {{count}} bilder",
+      "bestImage": "Bästa bilden",
+      "blurryImagesTab": "Oskarpa bilder",
+      "blurThreshold": "Tröskelvärde för oskärpa",
+      "blurThresholdDesc": "Bilder med ett skärpevärde under detta värde flaggas. Ett högre värde är striktare.",
+      "cancel": "Avbryt",
+      "close": "Stäng",
+      "cullingFailed": "Bildurvalet misslyckades",
+      "cullingSuggestions": "Förslag på bildurval",
+      "done": "Klart",
+      "duplicatesHeader": "Dubbletter ({{count}})",
+      "duplicatesHeader_one": "Dubbletter ({{count}})",
+      "duplicatesHeader_other": "Dubbletter ({{count}})",
+      "filterBlurry": "Filtrera oskarpa bilder",
+      "groupHeader": "Grupp {{index}}",
+      "groupSimilar": "Gruppera liknande bilder",
+      "noIssuesDesc": "Alla bilder verkar vara unika och skarpa.",
+      "noIssuesFound": "Inga problem hittades!",
+      "score": "Poäng: {{score}}",
+      "sharpness": "Skärpa: {{sharpness}}",
+      "similarGroupsTab": "Grupper med liknande bilder",
+      "similarityThreshold": "Tröskelvärde för likhet",
+      "similarityThresholdDesc": "Ett lägre värde är striktare (exakta dubbletter). Ett högre värde är mindre strikt (nästan identiska bilder). Ett värde på 24–32 rekommenderas.",
+      "startCulling": "Starta bildurval",
+      "starting": "Startar...",
+      "title": "Välj ut bilder"
+    },
+    "focusStack": {
+      "cancel": "Avbryt",
+      "close": "Stäng",
+      "depthMap": "Djupkarta",
+      "description": "Kombinera flera bilder med olika fokusavstånd till en enda helt skarp bild.",
+      "descriptionWithCount_one": "Kombinera {{count}} bild med olika fokusavstånd till en enda helt skarp bild.",
+      "descriptionWithCount_other": "Kombinera {{count}} bilder med olika fokusavstånd till en enda helt skarp bild.",
+      "failed": "Fokusstackningen misslyckades",
+      "initializing": "Initierar...",
+      "openInEditor": "Öppna i redigeraren",
+      "result": "Resultat",
+      "save": "Spara",
+      "savedSuccess": "Fokusstackningen har sparats!",
+      "stacking": "Fokusstackar",
+      "start": "Starta",
+      "title": "Fokusstackning"
+    },
+    "hdr": {
+      "cancel": "Avbryt",
+      "close": "Stäng",
+      "description": "Kombinera dina alternativexponeringar till en enda bild med stort dynamiskt omfång.",
+      "descriptionWithCount": "Kombinera {{count}} alternativexponeringar till en enda bild med stort dynamiskt omfång.",
+      "descriptionWithCount_one": "Kombinera {{count}} alternativexponering till en enda bild med stort dynamiskt omfång.",
+      "descriptionWithCount_other": "Kombinera {{count}} alternativexponeringar till en enda bild med stort dynamiskt omfång.",
+      "failed": "HDR-sammanfogningen misslyckades",
+      "initializing": "Initierar...",
+      "merging": "Sammanfogar HDR",
+      "openInEditor": "Öppna i redigeraren",
+      "retry": "Försök igen",
+      "save": "Spara",
+      "savedSuccess": "HDR-bilden har sparats!",
+      "speedNotice": "Detta kan ta några minuter beroende på antalet exponeringar och deras storlek.",
+      "start": "Starta",
+      "title": "Sammanfoga till HDR"
+    },
+    "importSettings": {
+      "cancel": "Avbryt",
+      "dateFormat": "Datumformat",
+      "dateFormatPlaceholder": "t.ex. YYYY/MM-DD",
+      "deleteAfterImport": "Radera originalen efter en lyckad import",
+      "deleteWarning": "Filerna flyttas till systemets papperskorg.",
+      "fileNaming": "Filnamngivning",
+      "folderOrganization": "Mappstruktur",
+      "notUniqueWarning": "Utan {original_filename}, {original_filename_number} eller {sequence} kan filer få samma namn. Sådana filer importeras inte.",
+      "organizeByDate": "Ordna i undermappar efter datum",
+      "sourceFiles": "Källfiler",
+      "startImport": "Starta import",
+      "title": "Importinställningar"
+    },
+    "lensCorrection": {
+      "amount": "Mängd",
+      "apply": "Tillämpa",
+      "autoDetectLens": "Identifiera objektiv automatiskt",
+      "autoDetectStatus": "Status för automatisk identifiering",
+      "cancel": "Avbryt",
+      "chooseSavedLens": "Välj sparat objektiv",
+      "chromaticAberration": "Kromatisk aberration",
+      "compareTooltip": "Håll ned för att jämföra",
+      "corrections": "Korrigeringar",
+      "databaseNotice": "Objektivdatabasen tillhandahålls av <0>Lensfun-projektet</0> (<1>CC BY-SA 3.0</1>).",
+      "detecting": "Identifierar...",
+      "detectingExif": "Läser av EXIF...",
+      "distortion": "Distorsion",
+      "lensFound": "Objektiv hittat",
+      "lensProfileNotFound": "Objektivprofilen hittades inte",
+      "manageLensesPlaceholder": "Hantera dina objektiv i Inställningar",
+      "manualSelection": "Manuellt val",
+      "maskWarning": "Objektivkorrigering ändrar bildens grundgeometri. Befintliga masker kan förskjutas, och AI-masker måste skapas på nytt.",
+      "modeAuto": "Automatisk",
+      "modeManual": "Manuell",
+      "notFound": "Hittades inte",
+      "original": "Original",
+      "resetTooltip": "Återställ objektivkorrigering",
+      "resetZoomTooltip": "Återställ zoom",
+      "selectLensModel": "Välj objektivmodell",
+      "selectManufacturer": "Välj tillverkare",
+      "title": "Objektivkorrigering",
+      "vignetting": "Vinjettering",
+      "zoomInTooltip": "Zooma in",
+      "zoomOutTooltip": "Zooma ut"
+    },
+    "panorama": {
+      "autoCrop": "Automatisk beskärning",
+      "autoProjectionUsed": "Använder {{projection}}",
+      "boundaryWarp": "Kantutfyllnad",
+      "boundaryWarpHint": "Sträcker ut kanterna för att fylla bildytan i stället för att beskära dem.",
+      "cancel": "Avbryt",
+      "close": "Stäng",
+      "descCount": "Kombinera {{count}} överlappande bilder till ett sömlöst panorama.",
+      "descCount_one": "Kombinera {{count}} överlappande bild till ett sömlöst panorama.",
+      "descCount_other": "Kombinera {{count}} överlappande bilder till ett sömlöst panorama.",
+      "descGeneric": "Kombinera dina överlappande bilder till ett sömlöst panorama.",
+      "excludedImages": "{{count}} bilder kunde inte matchas och utelämnades",
+      "excludedImages_one": "{{count}} bild kunde inte matchas och utelämnades",
+      "excludedImages_other": "{{count}} bilder kunde inte matchas och utelämnades",
+      "exposureCompensation": "Exponeringskompensation",
+      "exposureCompensationHint": "Jämnar ut exponering, vitbalans och vinjettering mellan bilderna.",
+      "failed": "Panoramat misslyckades",
+      "initializing": "Initierar...",
+      "openInEditor": "Öppna i redigeraren",
+      "outputInfo": "{{images}} bilder · {{width}} × {{height}} px",
+      "projection": "Projektion",
+      "projectionAuto": "Automatisk",
+      "projectionCylindrical": "Cylindrisk",
+      "projectionFallback": "{{requested}} kan inte täcka detta synfält, använder {{projection}}",
+      "projectionPerspective": "Perspektiv",
+      "projectionSpherical": "Sfärisk",
+      "retry": "Försök igen",
+      "save": "Spara",
+      "savedSuccess": "Panoramat har sparats!",
+      "saving": "Sparar…",
+      "speedNotice": "Detta kan ta några minuter beroende på antalet bilder och deras storlek.",
+      "start": "Starta",
+      "stitchingProgress": "Sammanfogar panorama",
+      "title": "Sammanfoga panorama"
+    },
+    "renameAlbum": {
+      "placeholder": "Ange nytt albumnamn..."
+    },
+    "renameFile": {
+      "cancel": "Avbryt",
+      "fileNamingTemplate": "Mall för filnamn",
+      "newName": "Nytt namn",
+      "notUniqueWarning": "Utan {original_filename}, {original_filename_number} eller {sequence} kan filer få samma namn. Då ändras inga namn.",
+      "save": "Spara",
+      "titleMultiple": "Byt namn på {{count}} bilder",
+      "titleMultiple_one": "Byt namn på {{count}} bild",
+      "titleMultiple_other": "Byt namn på {{count}} bilder",
+      "titleSingle": "Byt namn på bild"
+    },
+    "renameFolder": {
+      "cancel": "Avbryt",
+      "placeholder": "Ange nytt mappnamn...",
+      "save": "Spara",
+      "title": "Byt namn på mapp"
+    },
+    "renameGroup": {
+      "placeholder": "Ange nytt gruppnamn..."
+    },
+    "transform": {
+      "amount": "Mängd",
+      "apply": "Tillämpa",
+      "aspect": "Bildförhållande",
+      "cancel": "Avbryt",
+      "compareTooltip": "Håll ned för att jämföra",
+      "distortion": "Distorsion",
+      "geometry": "Geometri",
+      "guided": "Guidad perspektivkorrigering",
+      "horizontal": "Horisontell",
+      "manual": "Manuell transformering",
+      "maskWarning": "Transformering ändrar bildens grundgeometri. Befintliga masker kan förskjutas, och AI-masker måste skapas på nytt.",
+      "offset": "Förskjutning",
+      "original": "Original",
+      "perspective": "Perspektiv",
+      "resetTooltip": "Återställ transformering",
+      "resetZoomTooltip": "Återställ zoom",
+      "rotate": "Rotera",
+      "scale": "Skala",
+      "title": "Transformera",
+      "toggleGridTooltip": "Visa/dölj rutnät",
+      "toggleHelperLinesTooltip": "Visa/dölj hjälplinjer",
+      "vertical": "Vertikal",
+      "xAxis": "X-axel",
+      "yAxis": "Y-axel",
+      "zoomInTooltip": "Zooma in",
+      "zoomOutTooltip": "Zooma ut"
+    }
+  },
+  "settings": {
+    "categories": {
+      "general": "Allmänt",
+      "processing": "Bearbetning",
+      "shortcuts": "Kontroller"
+    },
+    "controls": {
+      "keyboardTitle": "Tangentbordskontroller",
+      "modes": {
+        "mouse": "Mus",
+        "trackpad": "Styrplatta"
+      },
+      "notAssigned": "Inte tilldelad",
+      "optimization": "Optimering för inmatningsenhet",
+      "optimizationDesc": "Välj den inmatningsenhet du främst använder för att panorera och zooma bildytan.",
+      "pressKey": "Tryck på en tangent... (Esc för att rensa)",
+      "resetDefaults": "Återställ allt till standardvärden",
+      "speed": "Hastighet",
+      "speedEdit": {
+        "adjustments": "Justeringar",
+        "gestures": {
+          "doubleClick": "Dubbelklicka för att återställa",
+          "drag": "Dra på bildytan för att justera",
+          "fine": "Shift för finjustering"
+        },
+        "keys": {
+          "copy": "Kopiera",
+          "hold": "Tryck/håll ned",
+          "nextAdjustment": "Nästa reglage",
+          "nextImage": "Nästa bild",
+          "paste": "Klistra in",
+          "previousAdjustment": "Föreg. reglage",
+          "previousImage": "Föreg. bild",
+          "reset": "Återställ",
+          "stepDown": "−1 steg",
+          "stepUp": "+1 steg"
+        },
+        "title": "Snabbredigering"
+      },
+      "title": "Muskontroller",
+      "zoom": "Zoomhastighetsfaktor",
+      "zoomClick": "Zooma bilden till 100 %",
+      "zoomClickDesc": "Zooma bilden i redigeraren till 100 % med ett musklick",
+      "zoomClickInfo": "Klicka på bilden för att direkt zooma till 100 % (1:1 i pixlar) och bedöma skärpa och brus. När detta är avstängt zoomar klick in stegvis.",
+      "zoomDesc": "Justera hur snabbt bildytan zoomas in och ut när du använder rullhjulet eller en nypgest."
+    },
+    "data": {
+      "aiTags": "Rensa AI-taggar",
+      "aiTagsDesc": "Tar bort AI-genererade taggar från alla bilder i dina rotmappar. Dina egna taggar behålls.",
+      "allTags": "Rensa alla taggar",
+      "allTagsDesc": "Tar bort AI-genererade och egna taggar från alla bilder i dina rotmappar. Färgetiketter behålls.",
+      "clear": "Rensa",
+      "delete": "Radera",
+      "deleteEdits": "Radera alla redigeringar",
+      "deleteEditsDesc": "Tar bort alla .rrdata-metadatafiler (dina redigeringar) i alla rotmappar. Detta kan inte ångras.",
+      "libraryAndWorkspace": "Bibliotek och arbetsyta",
+      "limit": "Gräns",
+      "modals": {
+        "aiDenoiseMessage": "Vill du verkligen rensa cachen för AI-brusreducering?\n\nBilder med AI-brusreducering aktiverad måste brusreduceras igen, vilket kan ta flera minuter per bild.",
+        "aiMapsMessage": "Vill du verkligen rensa djup- och normalkartorna?\n\nBilder som använder objektivoskärpa, dimma eller ny ljussättning får sina kartor återskapade nästa gång de öppnas.",
+        "aiMessage": "Vill du verkligen ta bort alla AI-genererade taggar från alla bilder i alla aktiva rotmappar?\n\nTaggar som du själv har lagt till påverkas inte. Åtgärden kan inte ångras.",
+        "aiUpscaleMessage": "Vill du verkligen rensa RapidRes-cachen?\n\nBilder med RapidRes aktiverat måste skalas upp igen.",
+        "allMessage": "Vill du verkligen ta bort alla AI-genererade och egna taggar från alla bilder i alla aktiva rotmappar?\n\nÅtgärden kan inte ångras.",
+        "cacheMessage": "Vill du verkligen rensa miniatyrcachen?\n\nAlla miniatyrer måste återskapas, vilket kan ta tid för stora mappar.",
+        "confirmAiTitle": "Bekräfta borttagning av AI-taggar",
+        "confirmAllTitle": "Bekräfta borttagning av alla taggar",
+        "confirmClear": "Rensa",
+        "confirmClearAi": "Rensa AI-taggar",
+        "confirmClearAll": "Rensa alla taggar",
+        "confirmDeleteAllEdits": "Radera alla redigeringar",
+        "confirmResetLayout": "Återställ layout",
+        "confirmResetLayoutTitle": "Återställ arbetsytans layout",
+        "confirmTitle": "Bekräfta radering",
+        "immichMessage": "Vill du verkligen rensa de hämtade Immich-originalen?\n\nDina redigeringar behålls. Originalen hämtas igen när du öppnar dem.",
+        "metadataMessage": "Vill du verkligen rensa metadatacachen?\n\nMetadata läses in från dina filer igen när du bläddrar.",
+        "modelsMessage": "Vill du verkligen ta bort de hämtade AI-modellerna?\n\nDe hämtas igen nästa gång en AI-funktion används.",
+        "resetLayoutMessage": "Vill du verkligen återställa arbetsytans layout? Alla dockade paneler, bredder och panelväxlares positioner återställs till standardvärdena.",
+        "sidecarMessage": "Vill du verkligen radera alla metadatafiler?\n\nDetta tar permanent bort alla dina redigeringar för alla bilder i alla aktiva rotmappar och deras undermappar."
+      },
+      "noFolders": "Inga mappar valda",
+      "refresh": "Uppdatera",
+      "reset": "Återställ",
+      "resetLayoutDesc": "Återställ panelernas dockning, sidoavdelare, höjder och panelväxlare till standardlayouten.",
+      "resetLayoutTitle": "Återställ arbetsytans layout",
+      "show": "Visa",
+      "statuses": {
+        "aiDenoiseSuccess": "Cachen för AI-brusreducering har rensats.",
+        "aiSuccess": "{{count}} filer uppdaterade. AI-taggarna har tagits bort.",
+        "aiSuccess_one": "{{count}} fil uppdaterad. AI-taggarna har tagits bort.",
+        "aiSuccess_other": "{{count}} filer uppdaterade. AI-taggarna har tagits bort.",
+        "aiUpscaleSuccess": "RapidRes-cachen har rensats.",
+        "allSuccess": "{{count}} filer uppdaterade. Alla taggar utom färgetiketter har tagits bort.",
+        "allSuccess_one": "{{count}} fil uppdaterad. Alla taggar utom färgetiketter har tagits bort.",
+        "allSuccess_other": "{{count}} filer uppdaterade. Alla taggar utom färgetiketter har tagits bort.",
+        "cacheSuccess": "Miniatyrcachen har rensats.",
+        "cleared": "Rensningen lyckades.",
+        "layoutResetSuccess": "Arbetsytans layout har återställts till standardlayouten.",
+        "sidecarSuccess": "{{count}} metadatafiler har raderats.",
+        "sidecarSuccess_one": "{{count}} metadatafil har raderats.",
+        "sidecarSuccess_other": "{{count}} metadatafiler har raderats."
+      },
+      "storage": {
+        "aiDenoise": "AI-brusreducering",
+        "aiDenoiseDesc": "Cachade brusreduceringsresultat.",
+        "aiMaps": "Djup- och normalkartor",
+        "aiMapsDesc": "Används för objektivoskärpa, dimma och ny ljussättning.",
+        "aiUpscale": "RapidRes",
+        "aiUpscaleDesc": "Cachade bilder som skalats upp 2× med RapidRes.",
+        "immich": "Immich",
+        "immichDesc": "Hämtade original. När gränsen nås tas de som inte har använts på längst tid bort. Dina redigeringar behålls.",
+        "logs": "Loggar",
+        "logsDesc": "Programmets loggfiler för felsökning. Rensas vid varje start.",
+        "metadata": "Metadata",
+        "metadataDesc": "Cachade EXIF-data för snabbare mappinläsning.",
+        "models": "AI-modeller",
+        "modelsDesc": "Hämtas vid behov när en AI-funktion används första gången.",
+        "thumbnails": "Miniatyrer",
+        "thumbnailsDesc": "Återskapas automatiskt när du bläddrar."
+      },
+      "storageTitle": "Lagring",
+      "title": "Datahantering",
+      "totalUsed": "RapidRAW använder {{size}} på den här enheten."
+    },
+    "general": {
+      "createXmp": "Skapa saknade XMP-filer",
+      "createXmpDesc": "Skapa automatiskt en ny XMP-metadatafil om en sådan saknas för en bild.",
+      "createXmpMissing": "Skapa XMP om det saknas",
+      "displayEditIcon": "Visa redigeringsikon",
+      "displayEditIconDesc": "Visa en liten reglageikon på miniatyrer som har redigerats.",
+      "enableFocusMode": "Aktivera fokusläge",
+      "enableNeutralGreyCanvas": "Aktivera neutralgrå bakgrund",
+      "enableOsTitlebar": "Aktivera operativsystemets namnlist",
+      "enableToolFocusMode": "Aktivera verktygsfokus",
+      "enableXmpSync": "Aktivera XMP-synkronisering",
+      "focusMode": "Fokusläge",
+      "focusModeDesc": "Hjälper dig att fokusera genom att automatiskt stänga andra paneler när du öppnar en ny.",
+      "folderImageCounts": "Antal bilder i mappar",
+      "folderImageCountsDesc": "Visa antalet bilder i mappar när du håller pekaren över mappträdet.",
+      "font": "Typsnitt",
+      "fontDesc": "Ändra programmets typsnitt.",
+      "hideCollapsedPanels": "Dölj hopfällda paneler",
+      "hideCollapsedPanelsDesc": "Hopfällda sidopaneler döljs helt i stället för att lämna en smal remsa. Öppna dem igen från det nedre fältet eller med deras kortkommandon.",
+      "nativeTitlebar": "Systemets namnlist",
+      "nativeTitlebarDesc": "Använd systemets vanliga namnlist för fönster i stället för RapidRAW:s egen.",
+      "neutralGreyCanvas": "Neutralgrå bildyta",
+      "neutralGreyCanvasDesc": "Använd en neutralgrå bildyta för mer exakt bedömning av färg och exponering utan att ändra programmets tema.",
+      "poppins": "Poppins",
+      "showImageCounts": "Visa antal bilder",
+      "system": "Systemets standard",
+      "theme": "Tema",
+      "themeDesc": "Ändra programmets utseende.",
+      "title": "Allmänna inställningar",
+      "toolFocusMode": "Verktygsfokus",
+      "toolFocusModeDesc": "Fäller automatiskt ihop övriga verktyg i en panel när du fäller ut ett.",
+      "uiScale": "Gränssnittsskala",
+      "uiScaleCompact": "Kompakt",
+      "uiScaleDefault": "Standard",
+      "uiScaleDesc": "Gör gränssnittet mindre eller större, oberoende av systemets bildskärmsskalning. Kompakta storlekar ger plats för mer på små skärmar på bärbara datorer.",
+      "uiScaleLarge": "Stor",
+      "xmpSync": "Synkronisering av XMP-metadata",
+      "xmpSyncDesc": "Synkronisera betyg, färgetiketter och taggar med standardiserade XMP-metadatafiler för kompatibilitet med andra bildredigerare."
+    },
+    "keybinds": {
+      "actions": {
+        "auto_straighten": "Räta upp automatiskt",
+        "brush_size_down": "Minska penselstorleken",
+        "brush_size_up": "Öka penselstorleken",
+        "color_label_blue": "Färgetikett: Blå",
+        "color_label_green": "Färgetikett: Grön",
+        "color_label_none": "Färgetikett: Ingen",
+        "color_label_purple": "Färgetikett: Lila",
+        "color_label_red": "Färgetikett: Röd",
+        "color_label_yellow": "Färgetikett: Gul",
+        "copy_adjustments": "Kopiera valda justeringar",
+        "copy_files": "Kopiera markerade filer",
+        "copy_image_path": "Kopiera sökvägarna till markerade bilder",
+        "cycle_zoom": "Växla zoom (anpassad, 2× anpassad, 100 %)",
+        "delete_rejected": "Radera bortvalda filer",
+        "delete_selected": "Radera markerade filer",
+        "focus_search": "Fokusera sökfältet",
+        "open_image": "Öppna markerad bild",
+        "open_settings": "Öppna inställningar",
+        "paste_adjustments": "Klistra in kopierade justeringar",
+        "paste_files": "Klistra in filer i aktuell mapp",
+        "preview_next": "Nästa bild",
+        "preview_prev": "Föregående bild",
+        "rate_0": "Stjärnbetyg: 0",
+        "rate_1": "Stjärnbetyg: 1",
+        "rate_2": "Stjärnbetyg: 2",
+        "rate_3": "Stjärnbetyg: 3",
+        "rate_4": "Stjärnbetyg: 4",
+        "rate_5": "Stjärnbetyg: 5",
+        "redo": "Gör om justering",
+        "rotate_left": "Rotera 90° moturs",
+        "rotate_right": "Rotera 90° medurs",
+        "select_all": "Markera alla bilder",
+        "show_original": "Visa original (före/efter)",
+        "toggle_adjustments": "Visa/dölj justeringspanelen",
+        "toggle_ai": "Visa/dölj AI-panelen",
+        "toggle_analytics": "Visa/dölj analysvyn",
+        "toggle_black_white": "Slå på/av svartvitt",
+        "toggle_bottom_panel": "Visa/dölj bildremsan",
+        "toggle_crop": "Slå på/av beskärning och upprätning",
+        "toggle_crop_panel": "Visa/dölj beskärningspanelen",
+        "toggle_export": "Visa/dölj exportpanelen",
+        "toggle_folder_tree": "Visa/dölj mappträdspanelen",
+        "toggle_fullscreen": "Slå på/av helskärm",
+        "toggle_left_panel": "Visa/dölj vänsterpanelen",
+        "toggle_library_exif": "Visa/dölj EXIF-överlägg",
+        "toggle_masks": "Visa/dölj maskpanelen",
+        "toggle_metadata": "Visa/dölj metadatapanelen",
+        "toggle_pick": "Slå på/av flaggan för utvald bild",
+        "toggle_presets": "Visa/dölj förinställningspanelen",
+        "toggle_reject": "Slå på/av flaggan för bortvald bild",
+        "toggle_right_panel": "Visa/dölj högerpanelen",
+        "toggle_viewer_window": "Visa/dölj andra fönstret",
+        "undo": "Ångra justering",
+        "unflag": "Ta bort flagga",
+        "zoom_100": "Zooma till 100 %",
+        "zoom_fit": "Anpassa zoom",
+        "zoom_in": "Zooma in",
+        "zoom_in_step": "Zooma in (stegvis)",
+        "zoom_out": "Zooma ut",
+        "zoom_out_step": "Zooma ut (stegvis)"
+      },
+      "sections": {
+        "editing": "Redigering",
+        "library": "Bibliotek",
+        "panels": "Paneler",
+        "rating": "Betyg och etiketter",
+        "view": "Visa"
+      }
+    },
+    "language": "Språk",
+    "languageDesc": "Ändra programmets språk.",
+    "lenses": {
+      "addButton": "Lägg till i Mina objektiv",
+      "addNew": "Lägg till nytt objektiv",
+      "description": "Skapa en lista över dina ofta använda objektiv för snabb åtkomst till dem i panelen Objektivkorrigering.",
+      "manufacturerPlaceholder": "Välj tillverkare",
+      "modelPlaceholder": "Välj objektivmodell",
+      "noLenses": "Inga objektiv har lagts till ännu.",
+      "removeTooltip": "Ta bort objektiv",
+      "saved": "Sparade objektiv",
+      "title": "Mina objektiv"
+    },
+    "processing": {
+      "advanced": {
+        "auto": "Automatiskt",
+        "exportMemoryLimit": "Minnesgräns för export",
+        "exportMemoryLimitDesc": "Andel av ledigt RAM-minne som massexport får använda. Minska värdet för att andra program ska förbli responsiva under stora exporter.",
+        "exportThreads": "Parallella exporter",
+        "exportThreadsDesc": "Antal bilder som exporteras samtidigt. Automatiskt väljer ett värde utifrån din processor. Minska antalet om stora exporter misslyckas eller grafikkortet har lite minne.",
+        "heading": "Avancerat",
+        "headingDesc": "Prestandainställningar för miniatyrer, cache och export. Standardvärdena fungerar bra för de flesta användare.",
+        "title": "Avancerade inställningar"
+      },
+      "ai": {
+        "aiFree": {
+          "description": "Stäng av alla AI-funktioner. Alla AI-relaterade kontroller döljs i gränssnittet så att RapidRAW fungerar som en helt traditionell RAW-redigerare.",
+          "feature1": "Inga AI-masker, ingen objektivoskärpa och inga generativa redigeringar i gränssnittet",
+          "feature2": "Befintliga AI-redigeringar renderas fortfarande som vanligt",
+          "feature3": "Ett renare, mer fokuserat gränssnitt",
+          "title": "Utan AI"
+        },
+        "cloud": {
+          "description": "För dig som vill ha en enklare lösning ger en valfri prenumeration samma högkvalitativa resultat som egen drift, utan krångel. Det är det bekvämaste alternativet och det bästa sättet att stödja projektet.",
+          "feature1": "Maximal bekvämlighet, inga inställningar behövs",
+          "feature2": "Samma resultat som vid egen drift",
+          "feature3": "Ingen kraftfull maskinvara krävs",
+          "signedIn": {
+            "active": "Molnprenumerationen är aktiv",
+            "inactive": "Ingen aktiv prenumeration",
+            "logout": "Logga ut",
+            "manage": "Hantera",
+            "usage": "Månatlig användning",
+            "usageStats": "{{requests}} / {{limit}} förfrågningar"
+          },
+          "signedOut": {
+            "noAccount": "Har du inget konto?",
+            "signup": "Registrera dig på webbplatsen",
+            "upgradeBtn": "Uppgradera på webbplatsen",
+            "upgradeDesc": "Du behöver en molnprenumeration för att använda AI-funktionerna i molnet."
+          },
+          "statuses": {
+            "connecting": "Ansluter…",
+            "retry": "Försök ansluta igen",
+            "unsupported": "Molninloggning är för närvarande endast tillgänglig på datorer."
+          },
+          "title": "Molntjänst"
+        },
+        "connector": {
+          "address": "Adress till AI Connector",
+          "addressDesc": "Ange adressen och porten för din körande AI Connector-instans. Krävs för generativa AI-funktioner.",
+          "description": "Om du har ett kraftfullt grafikkort och vill ha maximal kontroll kan du ansluta RapidRAW till din egen Connector-server. Det ger dig full kontroll över tekniska arbetsflöden.",
+          "failed": "Anslutningen misslyckades.",
+          "feature1": "Använd din egen ComfyUI-instans",
+          "feature2": "Kostnadsfria avancerade generativa redigeringar",
+          "feature3": "Välj egna arbetsflöden",
+          "success": "Anslutningen lyckades!",
+          "test": "Testa",
+          "testing": "Testar...",
+          "title": "Egen drift (RapidRAW AI Connector)"
+        },
+        "cpu": {
+          "description": "Dessa funktioner är direkt integrerade i RapidRAW och körs helt på din dator. De är snabba, kostnadsfria och kräver inga inställningar, vilket gör dem idealiska för att effektivisera det dagliga arbetet.",
+          "feature1": "AI-maskning (motiv, himmel, förgrund)",
+          "feature2": "Automatisk bildtaggning",
+          "feature3": "Enkel generativ ersättning lokalt på enheten",
+          "gpuAcceleration": "GPU-acceleration",
+          "gpuAccelerationDesc": "Kör inbyggda AI-funktioner som brusreducering, masker, djup- och normalkartor samt taggning på grafikkortet för mycket snabbare resultat. Stäng av detta om du upplever krascher eller felaktiga AI-resultat.",
+          "gpuAccelerationLabel": "Använd GPU för AI-modeller",
+          "title": "Inbyggd AI"
+        },
+        "description": "RapidRAW:s AI är utformad för flexibilitet. Välj ditt idealiska arbetsflöde, från snabba lokala verktyg till kraftfull egen drift.",
+        "providers": {
+          "aiConnector": "AI Connector",
+          "aiFree": "Utan AI",
+          "cloud": "Moln",
+          "cpu": "Inbyggd"
+        },
+        "title": "Generativ AI"
+      },
+      "alwaysDecodeRaw": "Avkoda alltid RAW",
+      "alwaysDecodeRawDesc": "Tvinga fullständig RAW-avkodning för miniatyrer i stället för att använda inbäddade JPEG-förhandsvisningar. Aktivera detta om miniatyrernas färg eller kontrast skiljer sig från den öppnade bilden.",
+      "alwaysDecodeRawLabel": "Avkoda alltid RAW för miniatyrer",
+      "backend": "Bearbetningsmotor",
+      "backendDesc": "Välj grafik-API. ”Automatiskt” rekommenderas. Kan åtgärda krascher på vissa system.",
+      "backends": {
+        "auto": "Automatiskt",
+        "dx12": "DirectX 12",
+        "gl": "OpenGL",
+        "metal": "Metal",
+        "vulkan": "Vulkan"
+      },
+      "colorManagement": {
+        "chooseProfile": "Välj profil",
+        "modeAuto": "Automatisk (systemprofil)",
+        "modeCustom": "Anpassad ICC-profil",
+        "modeOff": "Av",
+        "profile": "Bildskärmsprofil",
+        "profileDesc": "Omvandlar redigerarens förhandsvisning till bildskärmens färgprofil, så att färgerna ser rätt ut på kalibrerade skärmar och skärmar med stort färgomfång. Exporten påverkas inte.",
+        "statusInvalid": "Den här profilen kunde inte läsas in.",
+        "statusNone": "Ingen bildskärmsprofil hittades. Förhandsvisningen visas som sRGB.",
+        "statusProfile": "Använder {{name}}.",
+        "statusSystem": "Färgerna hanteras av operativsystemet.",
+        "statusUnavailable": "Färghantering kräver GPU-rendering.",
+        "wideGamut": "Förhandsvisning med stort färgomfång ({{space}}).",
+        "wideGamutHdrNote": "Används inte när redigeraren visar HDR.",
+        "wideGamutPreview": "Förhandsvisning med stort färgomfång",
+        "wideGamutPreviewDesc": "Visar färger utanför sRGB på skärmar med stort färgomfång. Aktivera detta när du exporterar i Display P3, Adobe RGB eller en annan färgrymd med stort färgomfång. Låt det vara avstängt för att se hur en export i sRGB kommer att se ut.",
+        "wideGamutPreviewEnable": "Visa ett stort färgomfång"
+      },
+      "defaultAdjustments": {
+        "addCamera": "Lägg till kamera…",
+        "applyToNonRaw": "Tillämpa även på JPEG, TIFF, PNG och andra filer som inte är RAW",
+        "applyToNonRawDesc": "När detta är avstängt används standardinställningarna endast för RAW-filer. JPEG-bilder från kameran är vanligtvis redan bearbetade och objektivkorrigerade, så ytterligare bearbetning kan bli för kraftig.",
+        "autoLensCorrection": "Automatisk objektivkorrigering",
+        "autoLensCorrectionDesc": "Korrigera distorsion, kromatisk aberration och vinjettering med objektivprofilen som identifieras i varje bilds metadata.",
+        "cameraDefaults": "Kameraspecifika standardinställningar",
+        "cameraDefaultsDesc": "Ge bilder från vissa kameror en egen förinställning. Kameror som inte finns i listan använder standardförinställningen ovan, och objektivkorrigeringen gäller alla kameror.",
+        "cameraPresetMissing": "Den valda förinställningen har raderats, så bilder från den här kameran använder återigen förinställningen för alla kameror.",
+        "description": "Ange startvärden för oredigerade bilder och vad Återställ justeringar återgår till. Redigerade bilder behåller sina egna inställningar. När standardinställningar har angetts renderas RAW-miniatyrerna i stället för att använda kamerans inbäddade förhandsvisning, så inläsningen tar längre tid första gången.",
+        "lensCorrection": "Objektivkorrigering",
+        "noCamerasFound": "Inga andra kameror hittades. Öppna en mapp med bilder från en kamera, eller högerklicka på en förinställning medan du redigerar en av kamerans bilder.",
+        "noPreset": "Ingen (neutral)",
+        "preset": "Standardförinställning",
+        "presetDesc": "Tillämpas på varje oredigerad bild. Masker, beskärningar och transformeringar hoppas över eftersom de bara passar bilden de skapades för.",
+        "presetMissing": "Den valda förinställningen har raderats, så oredigerade bilder använder återigen neutrala värden.",
+        "removeCamera": "Ta bort kamera",
+        "sameAsAllCameras": "Samma som för alla kameror",
+        "scope": "Gäller för",
+        "sliderReset": "Återställning av reglage",
+        "sliderResetDefaults": "Standardjusteringar",
+        "sliderResetDesc": "Vad ett enskilt reglage återgår till när du återställer det, till exempel genom att dubbelklicka eller vid snabbredigering. Maskreglage återställs alltid till sina neutrala värden.",
+        "sliderResetNeutral": "Neutralt värde",
+        "title": "Standardjusteringar"
+      },
+      "display": {
+        "title": "Bildskärm"
+      },
+      "dynamicDesc": "Redigeraren renderar förhandsvisningen så att den matchar bildskärmens faktiska pixeltäthet. Då återges varje detalj med pixelnoggrannheten 1:1, vilket ger maximal skärpa när du zoomar och kontrollerar fokus.",
+      "editIn": {
+        "add": "Lägg till program",
+        "args": "Argument ({file} = bildsökväg)",
+        "browse": "Bläddra",
+        "description": "Program för menyn ”Redigera i”.",
+        "executable": "Program",
+        "modes": {
+          "original": "Skicka originalfilen",
+          "rendered": "Skicka redigerad TIFF"
+        },
+        "name": "Namn",
+        "path": "Programsökväg",
+        "remove": "Ta bort",
+        "title": "Redigera i"
+      },
+      "enableLivePreviews": "Aktivera förhandsvisning i realtid",
+      "hdr": {
+        "display": "HDR-visning",
+        "displayDesc": "Visar högdagrar ljusare än normalt vitt på en HDR-skärm. Skuggor och mellantoner förblir oförändrade, och vanlig export påverkas inte.",
+        "enableDisplay": "Använd HDR i redigeraren",
+        "headroom": "Högdageromfång",
+        "headroomDesc": "Hur mycket ljusare än normalt vitt högdagrarna får vara. Används även vid HDR-export.",
+        "statusActive": "Den här skärmen är i HDR-läge.",
+        "statusInactive": "Den här skärmen är inte i HDR-läge. Aktivera HDR i systemets bildskärmsinställningar för att se effekten.",
+        "statusUnsupported": "HDR kräver GPU-rendering i Windows eller macOS."
+      },
+      "highDpi": "Rendering med hög DPI",
+      "highDpiDesc": "Rendera förhandsvisningar med skärmens faktiska upplösning på {{dpr}}× i fysiska pixlar. Ger skarpast möjliga förhandsvisning men använder betydligt mer minne.",
+      "highDpiDescStandard": "Den här inställningen påverkar endast skärmar med hög DPI. Din aktuella skärm har standardupplösning.",
+      "imageCache": "Cache för avkodade bilder",
+      "imageCacheDesc": "Maximalt antal bilder i full upplösning som hålls i RAM-minnet. Högre värden gör växlingen mellan nyligen redigerade bilder omedelbar, men använder betydligt mer minne.",
+      "images": "Bilder",
+      "linuxCompat": "Kompatibilitetsläge för Linux",
+      "linuxCompatDesc": "Tvinga mjukvarukomposition för att kringgå krascher i grafikdrivrutinen. Nvidia-grafikkort får redan en enklare automatisk lösning, så aktivera detta endast om du fortfarande upplever krascher vid start eller när du öppnar bilder.",
+      "linuxCompatLabel": "Aktivera kompatibilitetsläge",
+      "livePreviewQuality": "Kvalitet för förhandsvisning i realtid",
+      "livePreviewQualityDesc": "Styr bildens upplösning och komprimering medan du drar i reglagen. Lägre kvalitet ger betydligt snabbare respons.",
+      "livePreviews": "Interaktiv förhandsvisning i realtid",
+      "livePreviewsDesc": "Uppdatera förhandsvisningen direkt medan du drar i reglagen. Stäng av detta om gränssnittet känns trögt när du gör justeringar.",
+      "mediumThumbnailRes": "Miniatyrupplösning i redigeraren",
+      "mediumThumbnailResDesc": "Upplösning för förhandsvisningen som visas medan fullständiga bilder läses in i redigeraren.",
+      "modes": {
+        "dynamic": "Dynamisk",
+        "static": "Fast upplösning"
+      },
+      "nativeDpi": "Rendera med skärmens faktiska DPI",
+      "preprocessing": {
+        "appleRaw9": "Apple RAW 9-motor",
+        "appleRaw9Desc": "Framkalla RAW-filer med Apples Core Image RAW 9-avkodare, som gör demosaikering och brusreducering i ett steg på Neural Engine. Kräver macOS 27 eller senare och en kamera som stöds. Filer som inte stöds använder automatiskt den inbyggda avkodaren. Långsammare än standardavkodaren. Miniatyrerna påverkas inte.",
+        "applyPreprocessing": "Förbehandla även andra format än RAW",
+        "applyPreprocessingDesc": "Om detta är aktiverat tillämpas även den grundläggande färgbrusreduceringen och förskärpningen ovan på standardformat.",
+        "baselineExposure": "Grundexponering",
+        "baselineExposureAmount": "Grundmängd",
+        "baselineExposureAmountDesc": "Exponering som läggs till i RAW-filer. darktable använder +0,7 EV.",
+        "baselineExposureDesc": "Ljusar upp RAW-filer med ett fast värde, eller med DNG-taggen BaselineExposure om den finns.",
+        "colorNr": "Grundläggande färgbrusreducering",
+        "colorNrDesc": "Tillämpar ett korsbilateralt filter tidigt i bearbetningen för att ta bort färgbrus. Högre värde = kraftigare brusreducering.",
+        "defaultNonRawTonemapper": "Standardtonmappning för andra format än RAW",
+        "defaultNonRawTonemapperDesc": "Tonmappningen som ska tillämpas på bilder som inte är RAW (t.ex. JPEG, PNG).",
+        "defaultRawTonemapper": "Standardtonmappning för RAW",
+        "defaultRawTonemapperDesc": "Tonmappningen som ska tillämpas på RAW-bilder.",
+        "enableAppleRaw9": "Använd Apple RAW 9 för RAW-filer",
+        "enableBaselineExposure": "Tillämpa grundexponering på RAW-filer",
+        "enableHighlightPreservation": "Kompensera för kameralägen som bevarar högdagrar",
+        "enablePreprocessingNonRaws": "Aktivera för andra format än RAW",
+        "enableTonemapperOverride": "Aktivera åsidosättning av tonmappning",
+        "highlightPreservation": "Kompensation för högdagerbevarande",
+        "highlightPreservationDesc": "Återställer exponering som sänkts av kameralägen som bevarar högdagrar, till exempel Fujifilm DR200/DR400 eller Nikon Active D-Lighting.",
+        "highlightRecovery": "Återställning av högdagrar i RAW",
+        "highlightRecoveryDesc": "Styr hur mycket detaljer som återställs från klippta högdagrar i RAW-filer. Högre värden återställer fler detaljer men kan ge lila artefakter.",
+        "linearOptions": {
+          "auto": "Automatisk",
+          "gamma": "Tillämpa gamma",
+          "gamma_skip_calib": "Tillämpa gamma och hoppa över kalibrering",
+          "skip_calib": "Hoppa över kalibrering"
+        },
+        "linearRaw": "Bearbetning av linjär RAW",
+        "linearRawDesc": "Åtgärdar färgstick eller rosa toner i vissa DNG-filer. Styr hur redan bearbetade LinearRAW-data tolkas.",
+        "sharpening": "Grundläggande förskärpning",
+        "sharpeningDesc": "Tillämpar försiktig detaljförstärkning tidigt i bearbetningen. Högre värde = mer skärpa.",
+        "title": "Bildförbehandling",
+        "tonemapperOptions": {
+          "agx": "AgX",
+          "basic": "Grundläggande"
+        },
+        "tonemapperOverride": "Global åsidosättning av tonmappning",
+        "tonemapperOverrideDesc": "Tvinga en viss tonmappning för alla bilder och dölj tonmappningsväxlaren i justeringspanelen."
+      },
+      "previewRes": "Förhandsvisningsupplösning",
+      "previewResDesc": "Bestämmer förhandsvisningens maximala upplösning. Lägre värden ger betydligt bättre prestanda.",
+      "previewStrategy": "Renderingsmetod för förhandsvisning",
+      "qualities": {
+        "high": "Hög kvalitet",
+        "performance": "Prestanda"
+      },
+      "rawDecoding": "RAW-avkodning",
+      "rawDecodingDesc": "Välj var RAW-filer avkodas. ”Automatiskt” använder GPU:n och växlar till CPU:n om GPU:n inte kan hantera dina bilder. ”GPU” försöker alltid med GPU:n först. ”CPU” är långsammare men fungerar på alla system.",
+      "rawDecodingOptions": {
+        "auto": "Automatiskt",
+        "cpu": "CPU",
+        "gpu": "GPU"
+      },
+      "renderScale": "Skala för renderingsupplösning",
+      "renderScaleDesc": "Skalar renderingsupplösningen i förhållande till din bildskärm. Lägre värden förbättrar prestandan på högupplösta skärmar på bekostnad av viss skärpa.",
+      "restartRequired": "Ändringar av bearbetningsmotorn kräver att programmet startas om för att träda i kraft.",
+      "saveRelaunch": "Spara och starta om",
+      "smallThumbnailRes": "Miniatyrupplösning i rutnätet",
+      "smallThumbnailResDesc": "Upplösning för miniatyrerna i bibliotekets rutnät.",
+      "staticDesc": "Redigeraren renderar bilden med fast upplösning. Det här läget är snabbast och mest konsekvent, vilket gör det idealiskt för enklare maskinvara där jämn prestanda prioriteras framför pixelnoggrann zoom.",
+      "threads": "Trådar",
+      "thumbnailRes": "Miniatyrupplösning",
+      "thumbnailResDesc": "Bestämmer upplösningen för de biblioteksminiatyrer som skapas. Högre värden ger skarpare bilder under inläsning.",
+      "title": "Bearbetningsmotor",
+      "wgpu": "Direktrendering med WGPU",
+      "wgpuDescAndroid": "Kringgår webbläsarkodning för förhandsvisning i realtid med omedelbar respons. (Avstängt på Android: Det går för närvarande inte att skapa en inbyggd WGPU-yta tillsammans med den mobila webbvyn.)",
+      "wgpuDescLinuxExperimental": "Experimentellt på Linux och kan vara instabilt.",
+      "wgpuDescLinuxX11": "Inte tillgängligt på X11.",
+      "wgpuDescRecommended": "Kringgår webbläsarkodning för förhandsvisning i realtid med omedelbar respons. Rekommenderas starkt för bättre prestanda.",
+      "wgpuLabel": "Aktivera direktrendering med WGPU",
+      "workerThreads": "Arbetstrådar för miniatyrer",
+      "workerThreadsDesc": "Antal parallella trådar som används för att skapa miniatyrer. Högre värden gör biblioteksinläsningen snabbare men använder mer CPU och RAM."
+    },
+    "tagging": {
+      "addCustomPlaceholder": "Lägg till egna AI-taggar (kommaseparerade)...",
+      "addCustomTooltip": "Lägg till AI-tagg",
+      "addShortcutsPlaceholder": "Lägg till genvägar (kommaseparerade)...",
+      "addShortcutTooltip": "Lägg till genväg",
+      "aiTagging": "AI-taggning",
+      "aiTaggingDesc": "Aktiverar automatisk bildtaggning med en AI-modell (CLIP). Detta hämtar en extra modell och påverkar prestandan när du bläddrar i mappar. Taggar används för att söka i en mapp.",
+      "amount": "Antal",
+      "automaticAiTagging": "Automatisk AI-taggning",
+      "clearCustomTooltip": "Rensa AI-tagglistan",
+      "clearShortcutsTooltip": "Rensa listan över tagggenvägar",
+      "customList": "Egen AI-tagglista",
+      "customListDesc": "Om du anger en lista använder AI:n ENDAST taggar från den, i stället för RapidRAW:s inbyggda lista. Taggning fungerar endast på engelska.",
+      "maxAiTags": "Maximalt antal AI-taggar",
+      "maxAiTagsDesc": "Maximalt antal taggar som ska skapas per bild.",
+      "noCustomTags": "Inga egna AI-taggar (den inbyggda listan används)",
+      "noShortcuts": "Inga genvägar har lagts till",
+      "removeCustomTooltip": "Ta bort taggen ”{{tag}}”",
+      "removeShortcutTooltip": "Ta bort genvägen ”{{shortcut}}”",
+      "shortcuts": "Tagggenvägar",
+      "shortcutsDesc": "En lista över taggar som visas som genvägar i snabbmenyn för taggning.",
+      "title": "Taggning"
+    },
+    "thanks": {
+      "description": "Ett stort tack till följande projekt, som var mycket viktiga för utvecklingen av RapidRAW:",
+      "list": {
+        "birefnet": "För den högupplösta segmenteringsmodellen som används för AI-baserad förgrundsidentifiering.",
+        "darktable": "För referensimplementationer som har väglett delar av detta arbete.",
+        "depth": "För den kraftfulla modellen för monokulär djupskattning som möjliggör AI-baserad djupmaskning.",
+        "efficientsam3": "För den effektiva segmenteringsmodellen med promptstöd, destillerad från SAM 3, som används för AI-baserade himmels- och textmasker.",
+        "lama": "För den kraftfulla och enkla modellen för bildifyllning, som möjliggör innehållsanpassad fyllning och borttagning av objekt.",
+        "lensfun": "För dess ovärderliga bibliotek med öppen källkod och omfattande databas för automatisk objektivkorrigering.",
+        "libgphoto2": "För det omfattande biblioteket för kamerakommunikation som används för RapidRAW:s direktfotografering och fjärrstyrda fotografering.",
+        "mediapipe": "För de snabba modellerna för ansiktsreferenspunkter och segmentering som används för AI-baserade ansiktsmasker.",
+        "negpy": "För inspirationen bakom logiken för negativkonvertering.",
+        "nind": "För AI-modellerna som används för AI-brusreduceringen i RapidRAW.",
+        "rawler": "För det utmärkta Rust-paket som utgör grunden för RAW-filbearbetningen i det här projektet.",
+        "sam2": "För grundmodellen som används för AI-baserad motividentifiering.",
+        "span": "För AI-grundmodellen bakom RapidRes, RapidRAW:s AI-uppskalning med 2×, som RapidRAW har finjusterat för sin egen RAW-bearbetning (av Philip Hofmann, CC BY 4.0).",
+        "spektrafilm": "För Andrea Volpatos spektralt baserade LUT:ar för filmsimulering, som används i RapidRAW:s inbyggda filmsimuleringar. Licensierade under CC BY-SA 4.0.",
+        "you": "För att du använder och stöder RapidRAW. Ditt intresse håller projektet vid liv och driver det framåt.",
+        "youLabel": "Du"
+      },
+      "title": "Särskilt tack"
+    },
+    "themes": {
+      "dark": "Mörkt",
+      "grey": "Grått",
+      "light": "Ljust"
+    },
+    "title": "Inställningar",
+    "tooltips": {
+      "goHome": "Gå till startsidan"
+    }
+  },
+  "tethering": {
+    "aperture": "Bländare",
+    "aperturePlaceholder": "t.ex. 2.8",
+    "autoApplyPreset": "Tillämpa förinställning automatiskt",
+    "autoOpenCaptured": "Öppna tagna bilder automatiskt",
+    "cameraConnected": "Kamera ansluten",
+    "capturing": "Tar bild…",
+    "changePreset": "Ändra",
+    "clearPreset": "Ta bort förinställning",
+    "connectCamera": "Anslut kamera",
+    "expComp": "Exponeringskomp.",
+    "expCompPlaceholder": "t.ex. 0.0",
+    "expMode": "Exponeringsläge",
+    "exposureSettings": "Exponeringsinställningar",
+    "flipHorizontal": "Spegla vågrätt",
+    "generalSettings": "Allmänna inställningar",
+    "ghostOverlayAlt": "Genomskinlig överlagring",
+    "iso": "ISO",
+    "isoPlaceholder": "t.ex. 400",
+    "liveViewAlt": "Direktvisning",
+    "metering": "Ljusmätningsläge",
+    "noCameraDetected": "Ingen kamera identifierades",
+    "noCamerasFound": "Inga kameror hittades. Kontrollera att kameran är ansluten och i läget PC Remote.",
+    "overlayLastShot": "Överlagra senaste bilden",
+    "overlayOff": "Av",
+    "rotate90": "Rotera 90°",
+    "scanTooltip": "Sök efter kameror",
+    "selectCamera": "Välj kamera",
+    "selectCameraPlaceholder": "Välj en kamera",
+    "shutter": "Slutartid",
+    "shutterPlaceholder": "t.ex. 1/200",
+    "startLiveView": "Starta direktvisning",
+    "status": "Status",
+    "stopLiveView": "Stoppa direktvisning",
+    "title": "Direktfotografering",
+    "toasts": {
+      "afFailed": "Det gick inte att aktivera autofokus",
+      "cameraDisconnected": "Kameran kopplades från",
+      "captureFailed": "Det gick inte att ta bilden: {{err}}",
+      "communicationFailed": "Det gick inte att kommunicera med kameran",
+      "connectionFailed": "Anslutningen misslyckades: {{err}}",
+      "detectionFailed": "Identifieringen misslyckades: {{err}}",
+      "noCamerasFound": "Inga kameror hittades. Kontrollera att kameran är i läget PC Remote.",
+      "presetApplyFailed": "Det gick inte att tillämpa förinställningen på den tagna bilden",
+      "selectFolderFirst": "Välj först en vanlig mapp i biblioteket.",
+      "setFailed": "Det gick inte att ställa in {{key}}: {{err}}"
+    },
+    "triggerAutofocus": "Aktivera autofokus",
+    "triggerCapture": "Ta bild",
+    "wbTemp": "Vitbalanstemp. (K)",
+    "wbTempPlaceholder": "t.ex. 5600",
+    "whiteBalance": "Vitbalans"
+  },
+  "ui": {
+    "bottomBar": {
+      "imagesSelected": "{{current}} av {{total}} bilder markerade",
+      "tooltips": {
+        "collapseLeft": "Fäll ihop vänster panel",
+        "collapseRight": "Fäll ihop höger panel",
+        "copyPasteSettings": "Kopiera och klistra in inställningar",
+        "copySettings": "Kopiera inställningar",
+        "customZoom": "Klicka för att ange valfri zoomnivå i procent",
+        "expandLeft": "Fäll ut vänster panel",
+        "expandRight": "Fäll ut höger panel",
+        "export": "Exportera",
+        "pasteSettings": "Klistra in inställningar",
+        "quickFilter": "Snabbfilter",
+        "rateStars_one": "Ge betyget 1 stjärna",
+        "rateStars_other": "Ge betyget {{count}} stjärnor",
+        "resetZoom": "Återställ zoom så att bilden passar fönstret",
+        "selectToRate": "Välj en bild att betygsätta"
+      },
+      "zoomLabel": "Zoom",
+      "zoomLabelReset": "Återställ zoom"
+    },
+    "collapsibleSection": {
+      "disableSection": "Inaktivera avsnitt",
+      "enableSection": "Aktivera avsnitt"
+    },
+    "colorWheel": {
+      "hue": "Nyans",
+      "hueAbbreviation": "N:",
+      "luminance": "Luminans",
+      "reset": "Återställ",
+      "saturation": "Mättnad",
+      "saturationAbbreviation": "M:"
+    },
+    "exportPresets": {
+      "deleteTooltip": "Radera förinställning",
+      "heading": "Exportförinställningar",
+      "overwriteTooltip": "Skriv över vald förinställning",
+      "placeholder": "Välj en förinställning…",
+      "presetNamePlaceholder": "Förinställningens namn",
+      "saveAsNewTooltip": "Spara aktuella inställningar som en ny förinställning",
+      "savedTooltip": "Sparat!"
+    },
+    "filmstrip": {
+      "tooltips": {
+        "color": "Färg: {{color}}",
+        "virtualCopy": "Virtuell kopia"
+      },
+      "virtualCopyAbbreviation": "VK"
+    },
+    "flags": {
+      "togglePick": "Växla markering som utvald",
+      "toggleReject": "Växla markering som bortvald"
+    },
+    "imagePicker": {
+      "clearImage": "Ta bort bild",
+      "filterLabel": "Bildfiler",
+      "select": "Välj",
+      "selectImageFile": "Välj en bildfil"
+    },
+    "lut": {
+      "clearLut": "Ta bort LUT",
+      "customLuts": "Egna LUT:ar",
+      "empty": "Inga LUT:ar ännu – importera några",
+      "filmEmulations": "Filmsimuleringar",
+      "filterLabel": "LUT-filer",
+      "import": "Importera profiler",
+      "importFailed": "Det gick inte att importera LUT:ar",
+      "intensity": "Intensitet",
+      "label": "LUT",
+      "removeLut": "Ta bort LUT",
+      "select": "Välj",
+      "selectLutFile": "Välj en LUT-fil",
+      "unsupportedFormat": "Filformat som inte stöds har identifierats: .{{ext}}"
+    },
+    "slider": {
+      "clickToEdit": "Klicka för att redigera",
+      "reset": "Återställ"
+    },
+    "waveform": {
+      "tooltips": {
+        "hideClipping": "Dölj klippningsvarningar",
+        "histogram": "Histogram",
+        "luma": "Luma",
+        "parade": "Paraddiagram",
+        "rgb": "RGB-överlagring",
+        "showClipping": "Visa klippningsvarningar",
+        "vectorscope": "Vektorskop"
+      }
+    }
+  }
+}

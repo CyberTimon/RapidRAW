@@ -1,5 +1,6 @@
 use std::ffi::c_void;
 use std::ptr::NonNull;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, Weak};
 
 use gtk::prelude::*;
@@ -17,6 +18,12 @@ use wgpu::rwh::{
     HasDisplayHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle, WaylandDisplayHandle,
     WaylandWindowHandle,
 };
+
+static COMPOSITOR_MANAGES_COLOR: AtomicBool = AtomicBool::new(false);
+
+pub fn compositor_manages_color() -> bool {
+    COMPOSITOR_MANAGES_COLOR.load(Ordering::Acquire)
+}
 
 struct State;
 
@@ -131,6 +138,13 @@ pub fn create(window: &tauri::WebviewWindow) -> Result<WaylandSubsurface, String
 
     let (globals, mut queue) = registry_queue_init::<State>(&conn).map_err(|e| e.to_string())?;
     let qh = queue.handle();
+    COMPOSITOR_MANAGES_COLOR.store(
+        globals.contents().with_list(|list| {
+            list.iter()
+                .any(|global| global.interface == "wp_color_manager_v1")
+        }),
+        Ordering::Release,
+    );
     let compositor: WlCompositor = globals.bind(&qh, 1..=4, ()).map_err(|e| e.to_string())?;
     let subcompositor: WlSubcompositor = globals.bind(&qh, 1..=1, ()).map_err(|e| e.to_string())?;
     let viewporter: WpViewporter = globals

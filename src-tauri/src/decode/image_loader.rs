@@ -11,15 +11,19 @@ use crate::metadata::sidecar::ImageMetadata;
 use crate::metadata::{exif_processing, sidecar};
 use crate::render::adjustment_utils::effective_baseline_exposure;
 use crate::render::cache_utils::{DecodeFingerprint, FlightRole, clear_preview_slot};
+use crate::render::color_space::{
+    fit_gamut, srgb_decode, srgb_encode, srgb_to_working, srgb_transfer, working_profile,
+};
 use crate::render::geometry::{apply_orientation, inverse_transform_mask};
-use crate::render::image_processing::{apply_srgb_to_linear, linear_channel_to_srgb};
+use crate::render::image_processing::apply_working_display_to_srgb;
 use anyhow::{Context, Result, anyhow};
 use base64::{Engine as _, engine::general_purpose};
 use exif::{Reader as ExifReader, Tag};
 use glam::{DMat3, Mat3, Vec3};
 use image::{DynamicImage, GenericImageView, ImageDecoder, ImageReader, Rgb32FImage, imageops};
 use moxcms::{
-    ColorProfile, DataColorSpace, Layout, RenderingIntent, ToneReprCurve, TransformOptions,
+    CmsError, ColorProfile, DataColorSpace, Layout, RenderingIntent, ToneReprCurve,
+    TransformF32Executor, TransformOptions,
 };
 use rawler::Orientation;
 use rayon::prelude::*;
@@ -59,20 +63,11 @@ struct PatchMaskInfo {
     sub_masks: Vec<SubMask>,
 }
 
+pub const PATCH_PRIMARIES: &str = "rec2020";
+
 fn srgb_to_linear_lut() -> &'static [f32; 256] {
     static LUT: OnceLock<[f32; 256]> = OnceLock::new();
-    LUT.get_or_init(|| {
-        let mut lut = [0.0f32; 256];
-        for (i, v) in lut.iter_mut().enumerate() {
-            let x = i as f32 / 255.0;
-            *v = if x <= 0.04045 {
-                x / 12.92
-            } else {
-                ((x + 0.055) / 1.055).powf(2.4)
-            };
-        }
-        lut
-    })
+    LUT.get_or_init(|| std::array::from_fn(|i| srgb_decode(i as f32 / 255.0)))
 }
 
 pub fn load_and_composite(
@@ -107,8 +102,11 @@ pub fn prepare_base_image_cow<'a>(
 
     let denoised = crate::ai::denoise::apply_ai_denoise(base_image, path, adjustments);
     let upscaled = crate::ai::upscale::apply_ai_upscale(base_image, denoised, path, adjustments);
-    match crate::adjustments::negative_conversion::apply_negative_conversion(upscaled, adjustments)
-    {
+    match crate::adjustments::negative_conversion::apply_negative_conversion(
+        upscaled,
+        is_raw_file(path),
+        adjustments,
+    ) {
         Cow::Owned(prepared) if !has_patches => Ok(Cow::Owned(prepared)),
         prepared => composite_patches_cow(prepared, base_image.dimensions(), path, adjustments),
     }
@@ -206,11 +204,11 @@ pub fn load_base_image_from_bytes(
         }
     } else {
         let image = load_image_with_orientation(bytes, cancel_token)?;
-        if apply_to_non_raws && !use_fast_raw_dev {
+        Ok(if apply_to_non_raws && !use_fast_raw_dev {
             crate::decode::develop::enhance(image, color_nr_amount, sharpening_amount)
         } else {
-            Ok(image)
-        }
+            image
+        })
     }
 }
 
@@ -389,22 +387,21 @@ fn embedded_preview_instead(bytes: &[u8], path: &str) -> Option<DynamicImage> {
 }
 
 fn linearize_embedded_preview(preview: DynamicImage) -> DynamicImage {
-    let preview = DynamicImage::ImageRgb32F(preview.to_rgb32f());
-    let mut linear_preview = apply_srgb_to_linear(preview).into_rgb32f();
+    const PREVIEW_GAIN: f32 = 0.4;
+    let mut linear_preview = preview.to_rgb32f();
+    let matrix = srgb_to_working() * PREVIEW_GAIN;
     for pixel in linear_preview.pixels_mut() {
-        pixel[0] *= 0.4;
-        pixel[1] *= 0.4;
-        pixel[2] *= 0.4;
+        pixel.0 = (matrix * Vec3::from_array(pixel.0.map(|c| srgb_decode(c.max(0.0))))).to_array();
     }
     DynamicImage::ImageRgb32F(linear_preview)
 }
 
-pub fn load_image_with_orientation(
+fn decode_with_orientation(
     bytes: &[u8],
-    cancel_token: Option<(Arc<AtomicUsize>, usize)>,
-) -> Result<DynamicImage> {
+    cancel_token: &Option<(Arc<AtomicUsize>, usize)>,
+) -> Result<(Rgb32FImage, Option<ProfileToWorking>)> {
     let check_cancel = || -> Result<()> {
-        if let Some((tracker, generation)) = &cancel_token
+        if let Some((tracker, generation)) = cancel_token
             && tracker.load(Ordering::SeqCst) != *generation
         {
             return Err(anyhow!("Load cancelled"));
@@ -439,7 +436,7 @@ pub fn load_image_with_orientation(
         None => image,
     };
 
-    let mut rgb = oriented_image.to_rgb32f();
+    let rgb = oriented_image.to_rgb32f();
     let source_profile = match icc_profile {
         Some(icc) => ColorProfile::new_from_slice(&icc).ok(),
         None => exif
@@ -447,12 +444,30 @@ pub fn load_image_with_orientation(
             .is_some_and(is_exif_adobe_rgb)
             .then(ColorProfile::new_adobe_rgb),
     };
-    if let Some(profile) = source_profile {
-        check_cancel()?;
-        convert_profile_to_srgb(&mut rgb, &profile);
-    }
+    check_cancel()?;
 
+    Ok((rgb, source_profile.as_ref().and_then(ProfileToWorking::new)))
+}
+
+pub fn load_image_with_orientation(
+    bytes: &[u8],
+    cancel_token: Option<(Arc<AtomicUsize>, usize)>,
+) -> Result<DynamicImage> {
+    let (mut rgb, from_profile) = decode_with_orientation(bytes, &cancel_token)?;
+    convert_to_working(&mut rgb, from_profile.as_ref());
     Ok(DynamicImage::ImageRgb32F(rgb))
+}
+
+pub fn load_display_image(bytes: &[u8], path: &str) -> Result<DynamicImage> {
+    crate::metadata::sidecar::persist_exif_if_missing(Path::new(path), path, bytes);
+    let (mut rgb, from_profile) = decode_with_orientation(bytes, &None)?;
+    if from_profile.is_none() {
+        return Ok(DynamicImage::ImageRgb32F(rgb));
+    }
+    convert_to_working(&mut rgb, from_profile.as_ref());
+    let mut image = DynamicImage::ImageRgb32F(rgb);
+    apply_working_display_to_srgb(&mut image, false);
+    Ok(image)
 }
 
 fn is_exif_adobe_rgb(exif: &exif::Exif) -> bool {
@@ -479,89 +494,109 @@ fn colorants(profile: &ColorProfile) -> DMat3 {
     DMat3::from_cols_array_2d(&profile.colorant_matrix().v).transpose()
 }
 
-fn convert_profile_to_srgb(image: &mut Rgb32FImage, source: &ColorProfile) {
-    if source.color_space != DataColorSpace::Rgb || image.width() == 0 {
-        return;
+fn srgb_to_linear_working(src: &[f32], dst: &mut [f32]) {
+    let transfer = srgb_transfer();
+    let matrix = srgb_to_working();
+    for (out, rgb) in dst
+        .as_chunks_mut::<3>()
+        .0
+        .iter_mut()
+        .zip(src.as_chunks::<3>().0)
+    {
+        *out = (matrix * Vec3::from_array(rgb.map(|c| transfer.decode(c.max(0.0))))).to_array();
     }
-    let srgb = ColorProfile::new_srgb();
-    let (target, to_srgb) = if source.is_matrix_shaper() {
-        let matrix = (colorants(&srgb).inverse() * colorants(source)).as_mat3();
-        (with_linear_trc(source.clone()), matrix)
-    } else {
-        (with_linear_trc(srgb), Mat3::IDENTITY)
-    };
+}
 
-    let options = TransformOptions {
-        rendering_intent: RenderingIntent::RelativeColorimetric,
-        ..TransformOptions::default()
-    };
-    let Ok(transform) = source.create_transform_f32(Layout::Rgb, &target, Layout::Rgb, options)
-    else {
-        log::warn!("Unsupported embedded color profile, assuming sRGB");
-        return;
-    };
-    let to_linear_srgb = |src: &[f32], dst: &mut [f32]| {
-        transform.transform(src, dst)?;
-        for rgb in dst.as_chunks_mut::<3>().0 {
-            *rgb = (to_srgb * Vec3::from_array(*rgb)).to_array();
+struct ProfileToWorking {
+    linearize: Arc<TransformF32Executor>,
+    matrix: Mat3,
+}
+
+impl ProfileToWorking {
+    fn new(source: &ColorProfile) -> Option<Self> {
+        if source.color_space != DataColorSpace::Rgb {
+            return None;
         }
-        Ok::<_, moxcms::CmsError>(())
-    };
+        let working = working_profile();
+        let (target, matrix) = if source.is_matrix_shaper() {
+            let matrix = (colorants(&working).inverse() * colorants(source)).as_mat3();
+            (with_linear_trc(source.clone()), matrix)
+        } else {
+            (with_linear_trc(working), Mat3::IDENTITY)
+        };
 
-    const STEPS: usize = 16;
-    let probe: Vec<f32> = (0..(STEPS + 1).pow(3))
-        .flat_map(|i| {
-            [
-                i % (STEPS + 1),
-                i / (STEPS + 1) % (STEPS + 1),
-                i / (STEPS + 1).pow(2),
-            ]
-            .map(|c| c as f32 / STEPS as f32)
-        })
-        .collect();
-    let mut probe_out = vec![0.0f32; probe.len()];
-    if to_linear_srgb(&probe, &mut probe_out).is_err() {
-        return;
-    }
-    let is_srgb = probe.iter().zip(&probe_out).all(|(input, linear)| {
-        (linear_channel_to_srgb(*linear).min(1.0) - input).abs() < 2.0 / 255.0
-    });
-    if is_srgb {
-        return;
+        let options = TransformOptions {
+            rendering_intent: RenderingIntent::RelativeColorimetric,
+            ..TransformOptions::default()
+        };
+        let Ok(linearize) = source.create_transform_f32(Layout::Rgb, &target, Layout::Rgb, options)
+        else {
+            log::warn!("Unsupported embedded color profile, assuming sRGB");
+            return None;
+        };
+        let transform = Self { linearize, matrix };
+
+        const STEPS: usize = 16;
+        let probe: Vec<f32> = (0..(STEPS + 1).pow(3))
+            .flat_map(|i| {
+                [
+                    i % (STEPS + 1),
+                    i / (STEPS + 1) % (STEPS + 1),
+                    i / (STEPS + 1).pow(2),
+                ]
+                .map(|c| c as f32 / STEPS as f32)
+            })
+            .collect();
+        let mut from_profile = vec![0.0f32; probe.len()];
+        if transform.apply(&probe, &mut from_profile).is_err() {
+            log::warn!("Failed to apply embedded color profile, assuming sRGB");
+            return None;
+        }
+        let mut from_srgb = vec![0.0f32; probe.len()];
+        srgb_to_linear_working(&probe, &mut from_srgb);
+        let is_srgb = from_profile
+            .iter()
+            .zip(&from_srgb)
+            .all(|(a, b)| (srgb_encode(*a) - srgb_encode(*b)).abs() < 2.0 / 255.0);
+        (!is_srgb).then_some(transform)
     }
 
+    fn apply(&self, src: &[f32], dst: &mut [f32]) -> Result<(), CmsError> {
+        self.linearize.transform(src, dst)?;
+        for rgb in dst.as_chunks_mut::<3>().0 {
+            *rgb = (self.matrix * Vec3::from_array(*rgb)).to_array();
+        }
+        Ok(())
+    }
+}
+
+fn convert_to_working(image: &mut Rgb32FImage, from_profile: Option<&ProfileToWorking>) {
     let row_len = image.width() as usize * 3;
-    let mut linear = vec![0.0f32; image.as_raw().len()];
-    let converted = linear
-        .par_chunks_mut(row_len)
-        .zip(image.as_raw().par_chunks(row_len))
-        .try_for_each(|(dst, src)| to_linear_srgb(src, dst));
-    if converted.is_err() {
-        log::warn!("Failed to apply embedded color profile, assuming sRGB");
+    if row_len == 0 {
         return;
     }
+    let transfer = srgb_transfer();
 
-    image
-        .as_mut()
-        .par_chunks_exact_mut(3)
-        .zip(linear.par_chunks_exact(3))
-        .for_each(|(out, rgb)| {
-            let peak = rgb[0].max(rgb[1]).max(rgb[2]);
-            if peak <= 0.0 {
-                out.fill(0.0);
-                return;
+    image.par_chunks_mut(row_len).for_each_init(
+        || vec![0.0f32; row_len],
+        |linear, row| {
+            let converted =
+                from_profile.is_some_and(|transform| transform.apply(row, linear).is_ok());
+            if !converted {
+                srgb_to_linear_working(row, linear);
             }
-            let floor = rgb[0].min(rgb[1]).min(rgb[2]);
-            let saturation = if floor < 0.0 {
-                peak / (peak - floor)
-            } else {
-                1.0
-            };
-            let scale = peak.max(1.0);
-            for (o, c) in out.iter_mut().zip(rgb) {
-                *o = linear_channel_to_srgb((peak - (peak - c) * saturation) / scale);
+            for (out, rgb) in row
+                .as_chunks_mut::<3>()
+                .0
+                .iter_mut()
+                .zip(linear.as_chunks::<3>().0)
+            {
+                let fitted = fit_gamut(*rgb, &[None; 3]);
+                let scale = fitted[0].max(fitted[1]).max(fitted[2]).max(1.0);
+                *out = fitted.map(|c| transfer.encode(c / scale));
             }
-        });
+        },
+    );
 }
 
 fn composite_patches_cow<'a>(
@@ -611,6 +646,7 @@ fn composite_patches_cow<'a>(
         mask: image::GrayImage,
         color: image::RgbImage,
         is_srgb_encoded: bool,
+        is_working_space: bool,
     }
 
     let decoded_patches: Result<Vec<DecodedPatch>> = visible_patches
@@ -631,6 +667,8 @@ fn composite_patches_cow<'a>(
                 .get("isSrgbEncoded")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false);
+            let is_working_space =
+                patch_data.get("primaries").and_then(|v| v.as_str()) == Some(PATCH_PRIMARIES);
 
             let mask_bitmap = if let Some(mask_b64) = patch_data
                 .get("mask")
@@ -728,6 +766,7 @@ fn composite_patches_cow<'a>(
                 mask: mask_bitmap,
                 color: final_color,
                 is_srgb_encoded,
+                is_working_space,
             })
         })
         .collect();
@@ -737,11 +776,15 @@ fn composite_patches_cow<'a>(
     let mut composited_image = base_image.into_owned();
     let lut = srgb_to_linear_lut();
 
+    let from_srgb = srgb_to_working();
+
     let get_color = |patch: &DecodedPatch, r: u8, g: u8, b: u8| -> (f32, f32, f32) {
-        if patch.is_srgb_encoded {
-            (lut[r as usize], lut[g as usize], lut[b as usize])
-        } else {
-            (r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0)
+        let linear = || Vec3::new(lut[r as usize], lut[g as usize], lut[b as usize]);
+        match (patch.is_working_space, patch.is_srgb_encoded) {
+            (true, true) => linear().into(),
+            (true, false) => (r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0),
+            (false, true) => (from_srgb * linear()).into(),
+            (false, false) => (from_srgb * linear()).map(srgb_encode).into(),
         }
     };
 
@@ -1162,10 +1205,6 @@ pub async fn load_image(
             .clear();
 
         *state.hdr_result.lock().unwrap_or_else(|e| e.into_inner()) = None;
-        *state
-            .panorama_result
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
     }
 
     crate::integrations::immich::ensure_local(&app_handle, &source_path).await?;

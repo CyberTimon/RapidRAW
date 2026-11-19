@@ -29,6 +29,16 @@ export function getOrientedDimensions(
   };
 }
 
+export function getCroppedDimensions(
+  imageWidth: number,
+  imageHeight: number,
+  orientationSteps: number,
+  crop: Crop | null | undefined,
+): { width: number; height: number } {
+  if (crop?.width && crop?.height) return { width: crop.width, height: crop.height };
+  return getOrientedDimensions(imageWidth, imageHeight, orientationSteps);
+}
+
 export function getCropViewLayout(
   viewportWidth: number,
   viewportHeight: number,
@@ -146,10 +156,29 @@ export function calculateAreaPreservingCrop(
   const { width: W, height: H } = getOrientedDimensions(imageWidth, imageHeight, orientationSteps);
 
   const area = currentCrop.width * currentCrop.height;
-  const newH = Math.sqrt(area / aspectRatio);
-  const newW = aspectRatio * newH;
   const centerX = currentCrop.x + currentCrop.width / 2;
   const centerY = currentCrop.y + currentCrop.height / 2;
+
+  const largestForCurrentRatio = calculateCenteredCrop(
+    imageWidth,
+    imageHeight,
+    orientationSteps,
+    currentCrop.width / currentCrop.height,
+    rotation,
+  );
+  if (largestForCurrentRatio && area >= largestForCurrentRatio.width * largestForCurrentRatio.height * 0.99) {
+    const largest = calculateCenteredCrop(imageWidth, imageHeight, orientationSteps, aspectRatio, rotation);
+    if (!largest) return null;
+    const moved: Crop = {
+      ...largest,
+      x: Math.round(Math.min(Math.max(centerX - largest.width / 2, 0), W - largest.width)),
+      y: Math.round(Math.min(Math.max(centerY - largest.height / 2, 0), H - largest.height)),
+    };
+    return isCropWithinBounds(moved, W, H, rotation) ? moved : largest;
+  }
+
+  const newH = Math.sqrt(area / aspectRatio);
+  const newW = aspectRatio * newH;
 
   const candidate: Crop = {
     unit: 'px',

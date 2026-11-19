@@ -63,7 +63,7 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
           const initialAdjusts = adjustmentsFromMetadata(metadata.adjustments);
 
           setEditor({ adjustments: initialAdjusts });
-          resetHistory(initialAdjusts);
+          resetHistory(initialAdjusts, selectedImage.path);
         } catch (err) {
           console.error('Failed to load metadata early:', err);
         }

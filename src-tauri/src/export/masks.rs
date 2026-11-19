@@ -1,4 +1,5 @@
 use crate::adjustments::lut_processing::get_or_load_lut;
+use crate::app::settings::load_settings;
 use crate::app::state::AppState;
 use crate::decode::as_shot::as_shot;
 use crate::export::encode::{save_image_with_metadata, set_timestamps_from_exif};
@@ -12,7 +13,6 @@ use crate::metadata::export_metadata;
 use crate::render::gpu::context::GpuContext;
 use crate::render::gpu::output::process_and_get_dynamic_image_with_precision;
 use crate::render::gpu::processor::RenderRequest;
-use crate::render::options::resolve_render_options_from_handle;
 use crate::render::source::{RenderSource, fit_to_gpu, source_id};
 use crate::render::uniforms::{AllAdjustments, get_all_adjustments_from_json};
 use image::{DynamicImage, GrayImage, ImageBuffer, ImageFormat, Luma, imageops};
@@ -106,7 +106,13 @@ pub fn export_masks_for_image(
     }
 
     if !mask_bitmaps.is_empty() {
-        let render = resolve_render_options_from_handle(app_handle, is_raw);
+        let extension = output_path_obj
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("jpg");
+        let color_space = export_settings.color_space_for(extension);
+        let settings = load_settings(app_handle.clone()).unwrap_or_default();
+        let render = export_settings.render_options(extension, &settings, is_raw);
         let all_adjustments =
             get_all_adjustments_from_json(js_adjustments, is_raw, as_shot(source_path_str), render);
         let lut_path = js_adjustments["lutPath"].as_str();
@@ -116,10 +122,6 @@ pub fn export_masks_for_image(
             .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("export");
-        let extension = output_path_obj
-            .extension()
-            .and_then(|s| s.to_str())
-            .unwrap_or("jpg");
 
         for (i, _) in mask_bitmaps.iter().enumerate() {
             ensure_export_not_cancelled(cancellation_token)?;
@@ -146,7 +148,7 @@ pub fn export_masks_for_image(
             ensure_export_not_cancelled(cancellation_token)?;
 
             let (with_options, geometry) =
-                apply_export_geometry_and_watermark(processed, export_settings)?;
+                apply_export_geometry_and_watermark(processed, export_settings, color_space)?;
 
             let alpha_scaled = imageops::resize(
                 &mask_bitmaps[i],
@@ -168,6 +170,7 @@ pub fn export_masks_for_image(
 
             save_image_with_metadata(
                 &with_options,
+                None,
                 &mask_image_path,
                 source_path_str,
                 export_xmp,

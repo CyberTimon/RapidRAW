@@ -1,3 +1,5 @@
+use crate::render::agx::agx;
+use crate::render::color_space::with_shader_prelude;
 use crate::render::uniforms::{AllAdjustments, HslColor, MAX_MASKS, MaskAdjustments};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -87,8 +89,17 @@ pub fn shader_features(adjustments: &AllAdjustments) -> u32 {
     features
 }
 
+fn shader_source() -> String {
+    with_shader_prelude(&format!(
+        "{}{}{}",
+        agx().shader_constants(),
+        crate::render::hdr::shader_constants(),
+        include_str!("../../shaders/shader.wgsl")
+    ))
+}
+
 pub fn high_precision_shader_source() -> String {
-    include_str!("../../shaders/shader.wgsl").replace("rgba8unorm, write>", "rgba16float, write>")
+    shader_source().replace("rgba8unorm, write>", "rgba16float, write>")
 }
 
 pub struct GpuPipelines {
@@ -241,7 +252,9 @@ impl GpuPipelines {
 
         let gf_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Guided Filter Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("../../shaders/guided.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(
+                with_shader_prelude(include_str!("../../shaders/guided.wgsl")).into(),
+            ),
         });
 
         let gf_texture_entry = |binding: u32| wgpu::BindGroupLayoutEntry {
@@ -327,7 +340,7 @@ impl GpuPipelines {
 
         let shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Image Processing Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("../../shaders/shader.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(shader_source().into()),
         });
 
         let mut bind_group_layout_entries = vec![

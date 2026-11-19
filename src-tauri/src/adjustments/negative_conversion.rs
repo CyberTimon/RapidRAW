@@ -1,10 +1,12 @@
-use image::DynamicImage;
+use glam::Vec3;
+use image::{DynamicImage, Rgb32FImage};
 use rayon::prelude::*;
 use serde_json::Value;
 use std::borrow::Cow;
 use std::cmp::Ordering;
 
 use crate::render::adjustment_utils::is_effect_enabled;
+use crate::render::color_space::{SRGB, srgb_to_working, srgb_transfer, working_to_srgb};
 use crate::render::image_processing::downscale_f32_image_if_needed;
 
 pub const PARAM_KEYS: &[&str] = &[
@@ -55,13 +57,14 @@ pub fn effective_is_raw(is_raw: bool, adjustments: &Value) -> bool {
 
 pub fn apply_negative_conversion<'a>(
     image: Cow<'a, DynamicImage>,
+    is_raw: bool,
     adjustments: &Value,
 ) -> Cow<'a, DynamicImage> {
     if !is_enabled(adjustments) {
         return image;
     }
     let params = NegativeConversionParams::from_adjustments(adjustments);
-    Cow::Owned(convert(image.into_owned(), &params))
+    Cow::Owned(convert(image.into_owned(), is_raw, &params))
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -149,9 +152,31 @@ fn channel_bounds(image: &DynamicImage) -> [ChannelBounds; 3] {
     analyze_bounds(&log_pixels, width as usize, height as usize)
 }
 
-fn convert(input: DynamicImage, params: &NegativeConversionParams) -> DynamicImage {
-    let bounds = channel_bounds(&input);
-    let mut rgb = input.into_rgb32f();
+fn working_to_srgb_primaries(image: &mut Rgb32FImage, is_linear: bool) {
+    let transfer = srgb_transfer();
+    let to_srgb = working_to_srgb();
+    image.par_chunks_mut(PIXEL_CHUNK).for_each(|chunk| {
+        for px in chunk.as_chunks_mut::<3>().0 {
+            *px = if is_linear {
+                (to_srgb * Vec3::from_array(*px)).to_array()
+            } else {
+                (to_srgb * Vec3::from_array(px.map(|c| transfer.decode(c.max(0.0)))))
+                    .to_array()
+                    .map(|c| transfer.encode(c))
+            };
+        }
+    });
+}
+
+fn convert(input: DynamicImage, is_raw: bool, params: &NegativeConversionParams) -> DynamicImage {
+    let mut negative = input.into_rgb32f();
+    working_to_srgb_primaries(&mut negative, is_raw);
+    let negative = DynamicImage::ImageRgb32F(negative);
+    let bounds = channel_bounds(&negative);
+    let mut rgb = negative.into_rgb32f();
+    let transfer = srgb_transfer();
+    let from_srgb = srgb_to_working();
+    let luma_weights = SRGB.luma().as_vec3();
 
     let k = 4.0 * params.contrast.max(0.1);
     let x0 = 0.6 - (params.exposure * 0.25);
@@ -175,7 +200,7 @@ fn convert(input: DynamicImage, params: &NegativeConversionParams) -> DynamicIma
                 apply_curve(n.max(0.0) * weights[c])
             });
 
-            let luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            let luma = luma_weights.dot(Vec3::new(r, g, b));
             let max_ch = r.max(g).max(b);
 
             if max_ch > 0.9 {
@@ -187,9 +212,10 @@ fn convert(input: DynamicImage, params: &NegativeConversionParams) -> DynamicIma
                 b = b + (luma - b) * sat_reduction;
             }
 
-            px[0] = r.clamp(0.0, 1.0).powf(gamma_inv);
-            px[1] = g.clamp(0.0, 1.0).powf(gamma_inv);
-            px[2] = b.clamp(0.0, 1.0).powf(gamma_inv);
+            let positive = [r, g, b].map(|c| transfer.decode(c.clamp(0.0, 1.0).powf(gamma_inv)));
+            *px = (from_srgb * Vec3::from_array(positive))
+                .to_array()
+                .map(|c| transfer.encode(c));
         }
     });
 

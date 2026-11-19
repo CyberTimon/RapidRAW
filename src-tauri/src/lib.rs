@@ -197,6 +197,11 @@ pub fn run() {
                     platform::viewer_window::handle_viewer_resized(window, *size);
                 }
             }
+            tauri::WindowEvent::Moved(_)
+            | tauri::WindowEvent::Focused(true)
+            | tauri::WindowEvent::ScaleFactorChanged { .. } => {
+                render::gpu::display::request_display_refresh(window.app_handle());
+            }
             tauri::WindowEvent::CloseRequested { api, .. } => {
                 platform::viewer_window::handle_close_requested(window, api)
             }
@@ -660,6 +665,7 @@ pub fn run() {
             app::settings::set_ui_scale,
             app::settings::is_tethering_supported,
             app::settings::is_wgpu_renderer_supported,
+            app::settings::get_display_status,
             ai::commands::generate_ai_subject_mask,
             ai::commands::precompute_ai_subject_mask,
             ai::commands::generate_ai_foreground_mask,
@@ -693,7 +699,10 @@ pub fn run() {
             decode::image_preload::preload_images,
             merge::panorama::stitch_panorama,
             merge::panorama::save_panorama,
+            merge::panorama::update_panorama_preview,
+            merge::panorama::discard_panorama,
             export::export_images,
+            export::resolve_export_file_stem,
             export::tasks::cancel_export,
             export::size_estimate::estimate_export_sizes,
             integrations::edit_in::edit_in_app,

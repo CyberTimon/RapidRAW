@@ -12,6 +12,7 @@ use image::DynamicImage;
 use rayon::prelude::*;
 use wgpu::util::DeviceExt;
 
+use crate::render::color_space::with_shader_prelude;
 use crate::render::gpu::context::GpuContext;
 
 pub const KEEP_ZW: u32 = 1;
@@ -266,7 +267,9 @@ impl ComputePipelines {
             let (source, entries) = group.source();
             let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some("Compute Shader"),
-                source: wgpu::ShaderSource::Wgsl(format!("{}\n{}", source, COMMON_SOURCE).into()),
+                source: wgpu::ShaderSource::Wgsl(
+                    with_shader_prelude(&format!("{}\n{}", source, COMMON_SOURCE)).into(),
+                ),
             });
             entries
                 .iter()

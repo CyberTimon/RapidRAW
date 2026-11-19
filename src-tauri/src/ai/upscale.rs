@@ -2,6 +2,7 @@ use crate::ai::base_cache::{BaseCache, entry_key, source_string};
 use crate::ai::denoise::DenoiseMethod;
 use crate::app::state::{AppState, LoadedImage};
 use crate::render::adjustment_utils::is_effect_enabled;
+use crate::render::color_space::working_luma;
 use image::{DynamicImage, GenericImageView, Rgb32FImage};
 use rayon::prelude::*;
 use std::borrow::Cow;
@@ -10,7 +11,7 @@ use std::sync::{Arc, Mutex};
 use tauri::Manager;
 
 pub const FACTOR: u32 = 2;
-const MODEL_TAG: &str = "upscale-v3";
+const MODEL_TAG: &str = "upscale-v4";
 const GAMMA: f32 = 2.2;
 const DETAIL_GAIN: f32 = 1.5;
 const DETAIL_NOISE_FLOOR: f32 = 2.0;
@@ -89,10 +90,6 @@ fn upsample_add(dst: &mut [f32], src: &[f32], width: usize, height: usize) {
                 }
             }
         });
-}
-
-fn luma(p: &[f32]) -> f32 {
-    0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2]
 }
 
 fn detail_amount(adjustments: &serde_json::Value) -> f32 {
@@ -175,6 +172,7 @@ impl DetailField<'_> {
         let span = scratch.span(slot);
         let blend = &scratch.blend;
         let last = self.width - 1;
+        let [luma_r, luma_g, luma_b] = working_luma();
         for (x, (pair, (s, r))) in pixels
             .as_chunks::<6>()
             .0
@@ -194,7 +192,9 @@ impl DetailField<'_> {
                 centre + 0.25 * blend[(x + 1).min(last)],
             ];
             for k in 0..2 {
-                s[k] = luma(&pair[k * 3..k * 3 + 3]).max(0.0).sqrt();
+                let luma =
+                    luma_r * pair[k * 3] + luma_g * pair[k * 3 + 1] + luma_b * pair[k * 3 + 2];
+                s[k] = luma.max(0.0).sqrt();
                 r[k] = s[k] - up[k].max(0.0).sqrt();
             }
         }
@@ -241,7 +241,12 @@ fn soft_limit(value: f32, lo: f32, hi: f32, knee: f32) -> f32 {
 }
 
 fn enhance_detail(out: &mut Rgb32FImage, source: &Rgb32FImage, amount: f32) {
-    let source_luma: Vec<f32> = source.as_raw().par_chunks_exact(3).map(luma).collect();
+    let [luma_r, luma_g, luma_b] = working_luma();
+    let source_luma: Vec<f32> = source
+        .as_raw()
+        .par_chunks_exact(3)
+        .map(|p| luma_r * p[0] + luma_g * p[1] + luma_b * p[2])
+        .collect();
     let field = DetailField {
         source_luma: &source_luma,
         width: source.width() as usize,
