@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import {
@@ -63,9 +64,13 @@ import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useUIStore } from '../../../store/useUIStore';
 import { ADVANCED_QUERY_REGEX } from '../../../hooks/useSortedLibrary';
 
+const DROPDOWN_MENU_GAP = 8;
+
 function DropdownMenu({ buttonContent, buttonTitle, children, contentClassName = 'w-56', onOpenChange }: any) {
   const [isOpen, setIsOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
   const dropdownRef = useRef<any>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const onOpenChangeRef = useRef(onOpenChange);
   onOpenChangeRef.current = onOpenChange;
 
@@ -77,13 +82,39 @@ function DropdownMenu({ buttonContent, buttonTitle, children, contentClassName =
   useEffect(() => {
     if (!isOpen) return;
     const handleClickOutside = (event: any) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target) &&
+        !menuRef.current?.contains(event.target)
+      ) {
         setOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen, setOpen]);
+
+  useLayoutEffect(() => {
+    if (!isOpen) {
+      setMenuPosition(null);
+      return;
+    }
+    const updatePosition = () => {
+      const anchor = dropdownRef.current?.getBoundingClientRect();
+      if (!anchor) return;
+      const menuWidth = menuRef.current?.offsetWidth ?? 0;
+      const maxLeft = window.innerWidth - menuWidth - DROPDOWN_MENU_GAP;
+      const top = anchor.bottom + DROPDOWN_MENU_GAP;
+      setMenuPosition({
+        top,
+        left: Math.max(DROPDOWN_MENU_GAP, Math.min(anchor.right - menuWidth, maxLeft)),
+        maxHeight: Math.max(0, window.innerHeight - top - DROPDOWN_MENU_GAP),
+      });
+    };
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    return () => window.removeEventListener('resize', updatePosition);
+  }, [isOpen]);
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -96,25 +127,35 @@ function DropdownMenu({ buttonContent, buttonTitle, children, contentClassName =
       >
         {buttonContent}
       </Button>
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            className={`absolute right-0 mt-2 ${contentClassName} origin-top-right z-50`}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.1, ease: 'easeOut' }}
-          >
-            <div
-              className="bg-surface/90 backdrop-blur-md rounded-lg shadow-xl"
-              role="menu"
-              aria-orientation="vertical"
+      {createPortal(
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              ref={menuRef}
+              className={`fixed ${contentClassName} origin-top-right z-50 flex flex-col`}
+              style={{
+                top: menuPosition?.top ?? 0,
+                left: menuPosition?.left ?? 0,
+                maxHeight: menuPosition?.maxHeight,
+                visibility: menuPosition ? 'visible' : 'hidden',
+              }}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.1, ease: 'easeOut' }}
             >
-              {children}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <div
+                className="bg-surface/90 backdrop-blur-md rounded-lg shadow-xl min-h-0 overflow-y-auto custom-scrollbar"
+                role="menu"
+                aria-orientation="vertical"
+              >
+                {children}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
     </div>
   );
 }
