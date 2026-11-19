@@ -369,13 +369,13 @@ const AiProviderSwitch = ({ selectedProvider, onProviderChange }: AiProviderSwit
   );
 
   return (
-    <div className="relative flex w-full p-1 bg-bg-primary rounded-md border border-border-color">
+    <div className="relative flex flex-wrap w-full p-1 bg-bg-primary rounded-md border border-border-color">
       {aiProviders.map((provider) => (
         <button
           key={provider.id}
           onClick={() => onProviderChange(provider.id)}
           className={clsx(
-            'relative flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+            'relative flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium whitespace-nowrap rounded-md transition-colors',
             {
               'text-text-primary hover:bg-surface': selectedProvider !== provider.id,
               'text-button-text': selectedProvider === provider.id,
