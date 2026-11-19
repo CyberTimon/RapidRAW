@@ -31,7 +31,7 @@ import {
 } from '../../../types/export';
 import { Invokes } from '../../../types/invokes';
 import { SelectedImage } from '../../../types/editor';
-import { AppSettings } from '../../../types/settings';
+import { AppSettings, ExportDialogFolder } from '../../../types/settings';
 import { Panel } from '../../../types/ui';
 import ExportPresetsList from './ExportPresetsList';
 import { useExportSettings } from '../../../hooks/useExportSettings';
@@ -62,6 +62,13 @@ const MAX_PAD_RATIO = 1000;
 function parseRatio(value: string): number | null {
   const parsed = Number(value.trim().replace(',', '.'));
   return Number.isFinite(parsed) && parsed > 0 && parsed <= MAX_PAD_RATIO ? parsed : null;
+}
+
+function getParentFolder(path: string | undefined): string | undefined {
+  const physicalPath = path?.split('?vc=')[0];
+  if (!physicalPath) return undefined;
+  const separatorIndex = Math.max(physicalPath.lastIndexOf('/'), physicalPath.lastIndexOf('\\'));
+  return separatorIndex > 0 ? physicalPath.substring(0, separatorIndex) : undefined;
 }
 
 const MAX_BORDER_PERCENT = 100;
@@ -660,6 +667,8 @@ export default function ExportPanel({
     };
 
     const lastExportPath = appSettings?.exportPresets?.find((p) => p.id === '__last_used__')?.lastExportPath;
+    const dialogStartFolder =
+      appSettings?.exportDialogFolder === 'source' ? getParentFolder(pathsToExport[0]) : lastExportPath;
 
     try {
       const selectedFormat: any = FILE_FORMATS.find((f) => f.id === fileFormat);
@@ -686,7 +695,7 @@ export default function ExportPanel({
           ? outputFileName
           : ((await save({
               title: t('export.dialog.saveEditedImageTitle'),
-              defaultPath: lastExportPath ? `${lastExportPath}/${outputFileName}` : outputFileName,
+              defaultPath: dialogStartFolder ? `${dialogStartFolder}/${outputFileName}` : outputFileName,
               filters: [
                 { name: selectedFormat.name, extensions: selectedFormat.extensions },
                 ...FILE_FORMATS.filter((f: FileFormat) => f.id !== fileFormat).map((f: FileFormat) => ({
@@ -701,7 +710,7 @@ export default function ExportPanel({
           : ((await open({
               title: t('export.dialog.selectFolderTitle', { count: numImages }),
               directory: true,
-              defaultPath: lastExportPath ?? undefined,
+              defaultPath: dialogStartFolder || undefined,
             })) as string);
       }
 
@@ -847,6 +856,27 @@ export default function ExportPanel({
                 />
 
                 {destination === 'immich' && <ImmichExportOptions disabled={isExporting} />}
+
+                {(destination || 'customFolder') === 'customFolder' && !isAndroid && (
+                  <div className="flex items-center gap-3 pl-2 border-l-2 border-surface">
+                    <Text variant={TextVariants.label} className="whitespace-nowrap min-w-[70px]">
+                      {t('export.destination.dialogFolder')}
+                    </Text>
+                    <Dropdown
+                      options={[
+                        { label: t('export.destination.dialogFolderLastUsed'), value: 'lastUsed' },
+                        { label: t('export.destination.dialogFolderSource'), value: 'source' },
+                      ]}
+                      value={appSettings?.exportDialogFolder || 'lastUsed'}
+                      onChange={(val) =>
+                        appSettings &&
+                        onSettingsChange({ ...appSettings, exportDialogFolder: val as ExportDialogFolder })
+                      }
+                      disabled={isExporting}
+                      className="w-full"
+                    />
+                  </div>
+                )}
 
                 {destination === 'originalFolder' && (
                   <div className="flex items-center gap-3 pl-2 border-l-2 border-surface">

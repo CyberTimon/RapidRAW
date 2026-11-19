@@ -1045,6 +1045,9 @@
     },
     "destination": {
       "customFolder": "Pasta personalizada",
+      "dialogFolder": "Iniciar em",
+      "dialogFolderLastUsed": "Última pasta utilizada",
+      "dialogFolderSource": "Pasta da imagem",
       "originalFolder": "Pasta da imagem original",
       "subfolder": "Subpasta",
       "subfolderPlaceholder": "ex. final, WebP"

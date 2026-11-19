@@ -1020,6 +1020,9 @@
     },
     "destination": {
       "customFolder": "Aangepaste map",
+      "dialogFolder": "Starten in",
+      "dialogFolderLastUsed": "Laatst gebruikte map",
+      "dialogFolderSource": "Map van de afbeelding",
       "originalFolder": "Originele afbeeldingsmap",
       "subfolder": "Submap",
       "subfolderPlaceholder": "bijv. definitief, WebP"

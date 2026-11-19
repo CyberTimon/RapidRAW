@@ -1070,6 +1070,9 @@
     },
     "destination": {
       "customFolder": "Власна папка",
+      "dialogFolder": "Відкривати в",
+      "dialogFolderLastUsed": "Остання використана тека",
+      "dialogFolderSource": "Тека зображення",
       "originalFolder": "Папка оригінального зображення",
       "subfolder": "Вкладена папка",
       "subfolderPlaceholder": "напр. final, WebP"

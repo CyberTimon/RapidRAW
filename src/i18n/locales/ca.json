@@ -1045,6 +1045,9 @@
     },
     "destination": {
       "customFolder": "Carpeta personalitzada",
+      "dialogFolder": "Comença a",
+      "dialogFolderLastUsed": "Última carpeta utilitzada",
+      "dialogFolderSource": "Carpeta de la imatge",
       "originalFolder": "Carpeta de la imatge original",
       "subfolder": "Subcarpeta",
       "subfolderPlaceholder": "p. ex. final, WebP"

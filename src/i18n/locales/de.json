@@ -1020,6 +1020,9 @@
     },
     "destination": {
       "customFolder": "Benutzerdefinierter Ordner",
+      "dialogFolder": "Starten in",
+      "dialogFolderLastUsed": "Zuletzt verwendeter Ordner",
+      "dialogFolderSource": "Bildordner",
       "originalFolder": "Ursprungsordner des Bildes",
       "subfolder": "Unterordner",
       "subfolderPlaceholder": "z. B. final, WebP"

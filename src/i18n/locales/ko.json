@@ -1017,6 +1017,9 @@
     },
     "destination": {
       "customFolder": "사용자 지정 폴더",
+      "dialogFolder": "시작 위치",
+      "dialogFolderLastUsed": "마지막으로 사용한 폴더",
+      "dialogFolderSource": "이미지 폴더",
       "originalFolder": "원본 이미지 폴더",
       "subfolder": "하위 폴더",
       "subfolderPlaceholder": "예: final, WebP"

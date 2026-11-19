@@ -1017,6 +1017,9 @@
     },
     "destination": {
       "customFolder": "自定义文件夹",
+      "dialogFolder": "起始位置",
+      "dialogFolderLastUsed": "上次使用的文件夹",
+      "dialogFolderSource": "图像所在文件夹",
       "originalFolder": "原始图像文件夹",
       "subfolder": "子文件夹",
       "subfolderPlaceholder": "例如：final, WebP"

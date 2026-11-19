@@ -1045,6 +1045,9 @@
     },
     "destination": {
       "customFolder": "Cartella personalizzata",
+      "dialogFolder": "Inizia in",
+      "dialogFolderLastUsed": "Ultima cartella usata",
+      "dialogFolderSource": "Cartella dell'immagine",
       "originalFolder": "Cartella dell'immagine originale",
       "subfolder": "Sottocartella",
       "subfolderPlaceholder": "es. final, WebP"

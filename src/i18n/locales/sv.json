@@ -1020,6 +1020,9 @@
     },
     "destination": {
       "customFolder": "Valfri mapp",
+      "dialogFolder": "Börja i",
+      "dialogFolderLastUsed": "Senast använda mapp",
+      "dialogFolderSource": "Bildens mapp",
       "originalFolder": "Originalbildens mapp",
       "subfolder": "Undermapp",
       "subfolderPlaceholder": "t.ex. färdiga, WebP"
