@@ -1955,6 +1955,8 @@
       "enableOsTitlebar": "OSのタイトルバーを有効にする",
       "enableToolFocusMode": "ツールフォーカスモードを有効にする",
       "enableXmpSync": "XMP同期を有効にする",
+      "filmstripAutoCenter": "フィルムストリップを自動で中央に配置",
+      "filmstripAutoCenterDesc": "サムネイルをクリックしたときに、選択した画像が中央に来るようにエディターのフィルムストリップをスクロールします。",
       "focusMode": "フォーカスモード",
       "focusModeDesc": "新しいパネルを開いたときに他のパネルを自動的に閉じることで、編集作業に集中できるようにします。",
       "folderImageCounts": "フォルダ内画像数",

@@ -2049,6 +2049,8 @@
       "enableOsTitlebar": "Włącz systemowy pasek tytułu",
       "enableToolFocusMode": "Włącz Tryb skupienia na narzędziach",
       "enableXmpSync": "Włącz synchronizację XMP",
+      "filmstripAutoCenter": "Automatyczne centrowanie paska miniatur",
+      "filmstripAutoCenterDesc": "Przewijaj pasek miniatur w edytorze, aby wyśrodkować wybrane zdjęcie po kliknięciu miniatury.",
       "focusMode": "Tryb skupienia",
       "focusModeDesc": "Pomaga się skupić, automatycznie zamykając inne panele, gdy otwierasz nowy.",
       "folderImageCounts": "Licznik obrazów w folderze",

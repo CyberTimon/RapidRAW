@@ -1955,6 +1955,8 @@
       "enableOsTitlebar": "OS 제목 표시줄 활성화",
       "enableToolFocusMode": "도구 집중 모드 활성화",
       "enableXmpSync": "XMP 동기화 활성화",
+      "filmstripAutoCenter": "필름 스트립 자동 가운데 정렬",
+      "filmstripAutoCenterDesc": "썸네일을 클릭하면 선택한 이미지가 가운데에 오도록 편집기 필름 스트립을 스크롤합니다.",
       "focusMode": "집중 모드",
       "focusModeDesc": "새 패널을 열 때 다른 패널을 자동으로 닫아 집중할 수 있도록 도와줍니다.",
       "folderImageCounts": "폴더 이미지 개수",

@@ -2049,6 +2049,8 @@
       "enableOsTitlebar": "Povolit záhlaví OS",
       "enableToolFocusMode": "Povolit režim zaměření na nástroj",
       "enableXmpSync": "Povolit synchronizaci XMP",
+      "filmstripAutoCenter": "Automaticky vystředit filmový pás",
+      "filmstripAutoCenterDesc": "Při kliknutí na náhled posunout filmový pás v editoru tak, aby byl vybraný snímek uprostřed.",
       "focusMode": "Focus mode",
       "focusModeDesc": "Pomáhá vám soustředit se tím, že automaticky zavírá ostatní panely, když otevřete nový.",
       "folderImageCounts": "Počet snímků ve složce",

@@ -1961,6 +1961,8 @@
       "enableOsTitlebar": "OS-Titelleiste aktivieren",
       "enableToolFocusMode": "Werkzeug-Fokusmodus aktivieren",
       "enableXmpSync": "XMP-Sync aktivieren",
+      "filmstripAutoCenter": "Filmstreifen automatisch zentrieren",
+      "filmstripAutoCenterDesc": "Den Filmstreifen im Editor beim Klick auf eine Miniatur so scrollen, dass das ausgewählte Bild zentriert ist.",
       "focusMode": "Fokusmodus",
       "focusModeDesc": "Hilft beim Fokussieren, indem andere Panels automatisch geschlossen werden, wenn Sie ein neues öffnen.",
       "folderImageCounts": "Bildanzahl im Ordner",

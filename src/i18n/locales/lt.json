@@ -2089,6 +2089,8 @@
       "enableOsTitlebar": "Įjungti OS lango antraštę",
       "enableToolFocusMode": "Įjungti įrankių susikaupimo režimą",
       "enableXmpSync": "Įjungti XMP sinchronizavimą",
+      "filmstripAutoCenter": "Automatiškai centruoti juostą",
+      "filmstripAutoCenterDesc": "Spustelėjus miniatiūrą, slinkti redaktoriaus juostą taip, kad pasirinkta nuotrauka būtų centre.",
       "focusMode": "Susikaupimo režimas",
       "focusModeDesc": "Padeda susikaupti automatiškai uždarant kitus skydelius, kai atidarote naują.",
       "folderImageCounts": "Nuotraukų skaičius aplankuose",

@@ -2005,6 +2005,8 @@
       "enableOsTitlebar": "Activar barra de títol del SO",
       "enableToolFocusMode": "Activar mode de concentració en eines",
       "enableXmpSync": "Activar sincronització XMP",
+      "filmstripAutoCenter": "Centra automàticament la tira",
+      "filmstripAutoCenterDesc": "Desplaça la tira d'imatges de l'editor per centrar la imatge seleccionada en fer clic a una miniatura.",
       "focusMode": "Mode de concentració",
       "focusModeDesc": "Us ajuda a concentrar-vos tancant automàticament altres taulers quan n'obriu un de nou.",
       "folderImageCounts": "Recomptes d'imatges a les carpetes",

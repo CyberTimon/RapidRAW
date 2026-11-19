@@ -2006,6 +2006,8 @@
       "enableOsTitlebar": "Activer la barre de titre de l'OS",
       "enableToolFocusMode": "Activer le mode de concentration sur les outils",
       "enableXmpSync": "Activer la synchronisation XMP",
+      "filmstripAutoCenter": "Centrer automatiquement le film",
+      "filmstripAutoCenterDesc": "Faire défiler le film de l'éditeur pour centrer l'image sélectionnée lors d'un clic sur une miniature.",
       "focusMode": "Mode de concentration",
       "focusModeDesc": "Vous aide à vous concentrer en fermant automatiquement les autres panneaux lorsque vous en ouvrez un nouveau.",
       "folderImageCounts": "Nombre d'images dans les dossiers",

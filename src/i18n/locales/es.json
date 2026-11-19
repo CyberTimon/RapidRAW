@@ -2005,6 +2005,8 @@
       "enableOsTitlebar": "Activar barra de título del SO",
       "enableToolFocusMode": "Activar modo de enfoque de herramientas",
       "enableXmpSync": "Activar sincronización XMP",
+      "filmstripAutoCenter": "Centrar automáticamente la tira de imágenes",
+      "filmstripAutoCenterDesc": "Desplaza la tira de imágenes del editor para centrar la imagen seleccionada al hacer clic en una miniatura.",
       "focusMode": "Modo de enfoque",
       "focusModeDesc": "Te ayuda a concentrarte cerrando automáticamente otros paneles cuando abres uno nuevo.",
       "folderImageCounts": "Recuentos de imágenes en carpetas",

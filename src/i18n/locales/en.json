@@ -1961,6 +1961,8 @@
       "enableOsTitlebar": "Enable OS Titlebar",
       "enableToolFocusMode": "Enable Tool Focus Mode",
       "enableXmpSync": "Enable XMP Sync",
+      "filmstripAutoCenter": "Auto-Center Filmstrip",
+      "filmstripAutoCenterDesc": "Scroll the editor filmstrip to center the selected image when you click a thumbnail.",
       "focusMode": "Focus Mode",
       "focusModeDesc": "Helps you focus by automatically closing other panels when you open a new one.",
       "folderImageCounts": "Folder Image Counts",

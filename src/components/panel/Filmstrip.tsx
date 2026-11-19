@@ -394,6 +394,7 @@ const FilmstripList = ({
   const [ratioMapVersion, setRatioMapVersion] = useState(0);
   const visibleRange = useRef({ start: 0, stop: 0 });
   const prevSelectedPath = useRef<string | null>(null);
+  const autoCenter = useSettingsStore((s) => s.appSettings?.filmstripAutoCenter ?? true);
   const isReadyForSmooth = useRef(false);
   const resizeEndTimer = useRef<number | null>(null);
   const currentDataRef = useRef(data);
@@ -592,7 +593,10 @@ const FilmstripList = ({
         if (currentPath !== prevSelectedPath.current) {
           const isVisible = isItemVisible(index);
 
-          if (data.clickTriggeredScroll.current) {
+          if (!autoCenter) {
+            data.clickTriggeredScroll.current = false;
+            gridHandle.scrollToColumn({ index, align: 'auto', behavior: 'smooth' });
+          } else if (data.clickTriggeredScroll.current) {
             data.clickTriggeredScroll.current = false;
             performSafeScroll(index, true);
           } else if (!isVisible) {
@@ -607,7 +611,15 @@ const FilmstripList = ({
         }
       }
     }
-  }, [data.selectedPath, data.imageList, isItemVisible, data.clickTriggeredScroll, performSafeScroll, gridHandle]);
+  }, [
+    data.selectedPath,
+    data.imageList,
+    isItemVisible,
+    data.clickTriggeredScroll,
+    performSafeScroll,
+    gridHandle,
+    autoCenter,
+  ]);
 
   const setRatio = useCallback((path: string, ratio: number) => {
     if (Math.abs((ratioMapRef.current[path] || 0) - ratio) > 0.01) {

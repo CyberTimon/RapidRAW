@@ -1955,6 +1955,8 @@
       "enableOsTitlebar": "启用系统标题栏",
       "enableToolFocusMode": "启用工具专注模式",
       "enableXmpSync": "启用 XMP 同步",
+      "filmstripAutoCenter": "胶片栏自动居中",
+      "filmstripAutoCenterDesc": "点击缩略图时，滚动编辑器胶片栏使所选图像居中。",
       "focusMode": "专注模式",
       "focusModeDesc": "在您打开新面板时自动关闭其他面板，帮助您保持专注。",
       "folderImageCounts": "文件夹图像计数",

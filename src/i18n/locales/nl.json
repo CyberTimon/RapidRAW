@@ -1961,6 +1961,8 @@
       "enableOsTitlebar": "OS-titelbalk inschakelen",
       "enableToolFocusMode": "Toolfocusmodus inschakelen",
       "enableXmpSync": "XMP-synchronisatie inschakelen",
+      "filmstripAutoCenter": "Filmstrip automatisch centreren",
+      "filmstripAutoCenterDesc": "Scroll de filmstrip in de editor zodat de geselecteerde afbeelding gecentreerd wordt wanneer je op een miniatuur klikt.",
       "focusMode": "Focusmodus",
       "focusModeDesc": "Helpt u te concentreren door andere panelen automatisch te sluiten wanneer u een nieuw paneel opent.",
       "folderImageCounts": "Aantal afbeeldingen in map",

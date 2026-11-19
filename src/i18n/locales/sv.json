@@ -1961,6 +1961,8 @@
       "enableOsTitlebar": "Aktivera operativsystemets namnlist",
       "enableToolFocusMode": "Aktivera verktygsfokus",
       "enableXmpSync": "Aktivera XMP-synkronisering",
+      "filmstripAutoCenter": "Centrera filmremsan automatiskt",
+      "filmstripAutoCenterDesc": "Rulla redigerarens filmremsa så att den valda bilden centreras när du klickar på en miniatyr.",
       "focusMode": "Fokusläge",
       "focusModeDesc": "Hjälper dig att fokusera genom att automatiskt stänga andra paneler när du öppnar en ny.",
       "folderImageCounts": "Antal bilder i mappar",

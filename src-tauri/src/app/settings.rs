@@ -683,6 +683,8 @@ pub struct AppSettings {
     pub enable_folder_image_counts: Option<bool>,
     #[serde(default)]
     pub display_edit_icon: Option<bool>,
+    #[serde(default)]
+    pub filmstrip_auto_center: Option<bool>,
     #[serde(default = "default_linear_raw_mode")]
     pub linear_raw_mode: String,
     #[serde(default)]
@@ -932,6 +934,7 @@ impl Default for AppSettings {
             high_res_zoom_multiplier: Some(1.0),
             enable_folder_image_counts: Some(false),
             display_edit_icon: Some(true),
+            filmstrip_auto_center: Some(true),
             linear_raw_mode: default_linear_raw_mode(),
             enable_xmp_sync: Some(true),
             create_xmp_if_missing: Some(false),
