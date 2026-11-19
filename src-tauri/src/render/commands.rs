@@ -106,8 +106,7 @@ pub async fn update_wgpu_transform(
             payload.clip_height,
         ];
         display.latest_transform.window = [payload.window_width, payload.window_height];
-        display.latest_transform.bg_primary = payload.bg_primary;
-        display.latest_transform.bg_secondary = payload.bg_secondary;
+        display.set_backgrounds(payload.bg_primary, payload.bg_secondary);
         display.latest_transform.pixelated = if payload.pixelated { 1.0 } else { 0.0 };
         display.latest_transform.split_origin = payload.split_origin;
         display.latest_transform.split_normal = payload.split_normal;

@@ -315,6 +315,13 @@ pub fn read_iso(path: &str, file_bytes: &[u8]) -> Option<u32> {
     None
 }
 
+pub fn read_focal_length_35mm(file_bytes: &[u8]) -> Option<f32> {
+    let exif = read_exif(file_bytes)?;
+    let field = exif.get_field(exif::Tag::FocalLengthIn35mmFilm, In::PRIMARY)?;
+    let value = field.value.get_uint(0)? as f32;
+    (value > 0.0).then_some(value)
+}
+
 pub fn extract_metadata(file_bytes: &[u8]) -> Option<HashMap<String, String>> {
     let mut map = HashMap::new();
 

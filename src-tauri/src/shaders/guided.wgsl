@@ -12,16 +12,6 @@ struct GfParams {
 
 const GF_LUMA_FLOOR: f32 = 1.0e-4;
 const TB_KEY_LO: f32 = -13.0;
-const LUMA_COEFF = vec3<f32>(0.2126, 0.7152, 0.0722);
-
-fn srgb_to_linear(c: vec3<f32>) -> vec3<f32> {
-    let cutoff = vec3<f32>(0.04045);
-    let a = vec3<f32>(0.055);
-    let higher = pow((c + a) / (1.0 + a), vec3<f32>(2.4));
-    let lower = c / 12.92;
-    return select(higher, lower, c <= cutoff);
-}
-
 @compute @workgroup_size(8, 8, 1)
 fn gf_downsample(@builtin(global_invocation_id) id: vec3<u32>) {
     let dst_dims = textureDimensions(dst);

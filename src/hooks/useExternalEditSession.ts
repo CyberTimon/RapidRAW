@@ -5,7 +5,7 @@ import { exit } from '@tauri-apps/plugin-process';
 import { useProcessStore } from '../store/useProcessStore';
 import { useEditorStore } from '../store/useEditorStore';
 import { Invokes } from '../types/invokes';
-import { ExportSettings, Status } from '../types/export';
+import { ExportColorSpace, ExportSettings, Status } from '../types/export';
 import { debouncedSave } from './useEditorActions';
 
 /**
@@ -63,6 +63,8 @@ export function useExternalEditSession(
       filenameTemplate: null,
       jpegQuality: session.jpegQuality,
       tiffBitDepth: 16,
+      colorSpace: ExportColorSpace.Srgb,
+      hdr: false,
       keepMetadata: true,
       preserveTimestamps: false,
       preserveFolders: false,

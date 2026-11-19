@@ -18,7 +18,9 @@ use crate::masks::shapes::{
     generate_brush_bitmap, generate_flow_bitmap, generate_linear_bitmap, generate_radial_bitmap,
 };
 use crate::render::geometry::apply_geometry_warp;
-use crate::render::image_processing::apply_cpu_default_raw_processing;
+use crate::render::image_processing::{
+    apply_cpu_default_raw_processing, working_display_image_to_srgb8,
+};
 use crate::render::preview::{get_cached_full_warped_image, get_cached_full_warped_image_for_path};
 
 const MASK_CACHE_LIMIT_BYTES: usize = 128 * 1024 * 1024;
@@ -332,6 +334,7 @@ pub fn build_converted_source_image<'a>(
 ) -> Cow<'a, DynamicImage> {
     let mut image = crate::adjustments::negative_conversion::apply_negative_conversion(
         Cow::Borrowed(base_image),
+        is_raw,
         adjustments,
     );
     if crate::adjustments::negative_conversion::effective_is_raw(is_raw, adjustments) {
@@ -360,19 +363,7 @@ pub fn build_full_warped_image_rgb8(
     adjustments: &serde_json::Value,
 ) -> DynamicImage {
     let warped = build_full_warped_image(base_image, is_raw, path, adjustments);
-    let rgb8 = match warped.as_rgb32f() {
-        Some(buffer) => {
-            let data: Vec<u8> = buffer
-                .as_raw()
-                .par_iter()
-                .map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
-                .collect();
-            image::RgbImage::from_raw(buffer.width(), buffer.height(), data)
-                .expect("RGB8 buffer matches image dimensions")
-        }
-        None => warped.to_rgb8(),
-    };
-    DynamicImage::ImageRgb8(rgb8)
+    DynamicImage::ImageRgb8(working_display_image_to_srgb8(&warped))
 }
 
 pub fn build_warped_image_for_masks<'a>(

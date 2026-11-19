@@ -2,9 +2,11 @@ use std::sync::Arc;
 
 use crate::render::geometry::GeometryParams;
 
+use glam::Vec3;
 use image::RgbaImage;
 
 use crate::render::adjustment_utils::is_effect_enabled;
+use crate::render::color_space::{luminance, srgb_to_working};
 use crate::render::gpu::compute::{Bind, ComputeEncoder, Grid, Group, Out, Slot, Tex};
 
 const EPS: f32 = 2.0e-3;
@@ -47,12 +49,14 @@ fn parse_light(l: &serde_json::Value, aspect: [f32; 2]) -> [f32; 16] {
         .and_then(|c| u32::from_str_radix(c.trim_start_matches('#'), 16).ok())
         .map(|hex| [hex >> 16, hex >> 8, hex].map(|c| ((c & 255) as f32 / 255.0).powf(2.2)))
         .unwrap_or([1.0; 3]);
-    let rgb = [
-        base[0] * (1.0 + 0.45 * temperature + 0.15 * tint),
-        base[1] * (1.0 - 0.35 * tint),
-        base[2] * (1.0 - 0.45 * temperature + 0.15 * tint),
-    ];
-    let luma = 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+    let rgb = (srgb_to_working()
+        * Vec3::new(
+            base[0] * (1.0 + 0.45 * temperature + 0.15 * tint),
+            base[1] * (1.0 - 0.35 * tint),
+            base[2] * (1.0 - 0.45 * temperature + 0.15 * tint),
+        ))
+    .to_array();
+    let luma = luminance(&rgb);
     let strength = get("intensity", 40.0).max(0.0) / 100.0 * 4.0 / luma.max(1e-3);
     let radius = 0.05 + get("radius", 30.0) / 100.0 * 1.45;
     let angle = get("angle", 135.0).to_radians();

@@ -1,5 +1,6 @@
 use crate::app::state::AppState;
 use crate::render::adjustment_utils::effective_baseline_exposure;
+use crate::render::color_space::working_luma;
 use crate::render::image_processing::{apply_exposure, downscale_f32_image};
 use crate::render::options::resolve_render_options_from_handle;
 use image::DynamicImage;
@@ -26,9 +27,7 @@ pub struct AutoAdjustmentResults {
 pub fn perform_auto_analysis(image: &DynamicImage, exposure: f32) -> AutoAdjustmentResults {
     const ANALYSIS_MAX_DIM: u32 = 1024;
 
-    const LUMA_R: f32 = 0.2126;
-    const LUMA_G: f32 = 0.7152;
-    const LUMA_B: f32 = 0.0722;
+    let [luma_r, luma_g, luma_b] = working_luma();
 
     const EXPOSURE_MIDPOINT: f64 = 128.0;
     const EXPOSURE_SCALE: f64 = 0.125;
@@ -97,7 +96,7 @@ pub fn perform_auto_analysis(image: &DynamicImage, exposure: f32) -> AutoAdjustm
         let g = pixel[1] as f32;
         let b = pixel[2] as f32;
 
-        let luma_f = LUMA_R * r + LUMA_G * g + LUMA_B * b;
+        let luma_f = luma_r * r + luma_g * g + luma_b * b;
         luma_hist[(luma_f.round() as usize).min(255)] += 1;
 
         let r_n = r / 255.0;
@@ -217,7 +216,7 @@ pub fn perform_auto_analysis(image: &DynamicImage, exposure: f32) -> AutoAdjustm
         let r = pixel[0] as f64;
         let g = pixel[1] as f64;
         let b = pixel[2] as f64;
-        let mut luma = LUMA_R as f64 * r + LUMA_G as f64 * g + LUMA_B as f64 * b;
+        let mut luma = luma_r as f64 * r + luma_g as f64 * g + luma_b as f64 * b;
         luma += exposure;
         luma = (luma - MID_GRAY) * (1.0 + contrast / 100.0) + MID_GRAY;
         adjusted_luma_hist[luma.clamp(0.0, 255.0).round() as usize] += 1;

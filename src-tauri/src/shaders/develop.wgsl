@@ -5,7 +5,7 @@ struct Finish {
     wb: vec4<f32>,
     neutral: vec4<f32>,
     matrix: array<vec4<f32>, 3>,
-    comp: array<vec4<f32>, 3>,
+    comp: vec4<f32>,
     amounts: vec4<f32>,
     half: vec4<u32>,
     quarter: vec4<u32>,
@@ -41,7 +41,6 @@ const LEVEL_BINS: u32 = 2048u;
 const LEVEL_LOW: f32 = 0.75;
 const LEVEL_HIGH: f32 = 1.25;
 const PLATEAU_RATIO: f32 = 8.0;
-const COMPRESSION_POWER: f32 = 1.2;
 const FLOOR: f32 = 0.002;
 const PAD: i32 = 2;
 
@@ -266,15 +265,6 @@ fn refill(x: i32, y: i32, obs: vec3<f32>, rebuilt: vec3<f32>) -> vec3<f32> {
     return rebuilt + (scale * tint - rebuilt) * full;
 }
 
-fn compress(c: u32, d: f32) -> f32 {
-    let k = F.comp[c];
-    if (k.x == 0.0 || d <= k.y) {
-        return d;
-    }
-    let excess = d - k.y;
-    return k.y + excess / pow(1.0 + pow(excess / k.z, COMPRESSION_POWER), 1.0 / COMPRESSION_POWER);
-}
-
 fn to_output(p: vec3<f32>) -> vec3<f32> {
     if (!flag(COLOR)) {
         return p;
@@ -285,15 +275,7 @@ fn to_output(p: vec3<f32>) -> vec3<f32> {
         F.matrix[1].x * c.x + F.matrix[1].y * c.y + F.matrix[1].z * c.z,
         F.matrix[2].x * c.x + F.matrix[2].y * c.y + F.matrix[2].z * c.z,
     );
-    let achromatic = max(max(rgb.x, rgb.y), rgb.z);
-    if (achromatic <= 0.0) {
-        return vec3<f32>(0.0);
-    }
-    for (var i = 0u; i < 3u; i++) {
-        let distance = (achromatic - rgb[i]) / achromatic;
-        rgb[i] = achromatic - compress(i, distance) * achromatic;
-    }
-    return clamp(rgb, vec3<f32>(0.0), vec3<f32>(F.wb.w));
+    return min(fit_gamut(rgb, F.comp.w, F.comp.xyz), vec3<f32>(F.wb.w));
 }
 
 fn source(o: vec2<i32>) -> vec2<i32> {
@@ -334,7 +316,7 @@ fn developed(o: vec2<i32>) -> vec3<f32> {
 }
 
 fn stabilize(rgb: vec3<f32>) -> vec3<f32> {
-    let l = 0.2126 * rgb.x + 0.7152 * rgb.y + 0.0722 * rgb.z;
+    let l = dot(rgb, LUMA_COEFF);
     let s = sqrt(max(l, 0.0) + FLOOR);
     return vec3<f32>(s, sqrt(max(rgb.x, 0.0) + FLOOR) - s, sqrt(max(rgb.z, 0.0) + FLOOR) - s);
 }
@@ -930,7 +912,7 @@ fn sh_luma(@builtin(global_invocation_id) id: vec3<u32>) {
         return;
     }
     let p = developed(vec2<i32>(id.xy));
-    pl[F.planes[4].x + id.y * F.dims.z + id.x] = sqrt(max(0.2126 * p.x + 0.7152 * p.y + 0.0722 * p.z, 0.0) + FLOOR);
+    pl[F.planes[4].x + id.y * F.dims.z + id.x] = sqrt(max(dot(p, LUMA_COEFF), 0.0) + FLOOR);
 }
 
 fn blur(x: i32, y: i32) -> f32 {
@@ -1085,10 +1067,10 @@ fn out_band(@builtin(global_invocation_id) id: vec3<u32>) {
         return;
     }
     var rgb = developed(vec2<i32>(x, y));
-    let qc = sqrt(max(0.2126 * rgb.x + 0.7152 * rgb.y + 0.0722 * rgb.z, 0.0) + FLOOR);
+    let qc = sqrt(max(dot(rgb, LUMA_COEFF), 0.0) + FLOOR);
     if (flag(DENOISE)) {
         let a = F.amounts.x;
-        let lk = 0.2126 * rgb.x + 0.7152 * rgb.y + 0.0722 * rgb.z;
+        let lk = dot(rgb, LUMA_COEFF);
         let cr = sqrt(max(rgb.x, 0.0) + FLOOR) - qc;
         let cb = sqrt(max(rgb.z, 0.0) + FLOOR) - qc;
         let eps = upsample_eps();
@@ -1108,7 +1090,7 @@ fn out_band(@builtin(global_invocation_id) id: vec3<u32>) {
         let vb = max(qc + nb, 0.0);
         let dr = vr * vr - FLOOR - lk;
         let db = vb * vb - FLOOR - lk;
-        let dg = -(0.2126 * dr + 0.0722 * db) * (1.0 / 0.7152);
+        let dg = -(LUMA_COEFF.r * dr + LUMA_COEFF.b * db) / LUMA_COEFF.g;
         let m = min(min(dr, dg), db);
         let s = select(1.0, -lk / m, lk + m < 0.0);
         if (lk > 0.0) {

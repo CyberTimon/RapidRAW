@@ -185,6 +185,17 @@ function getHistogramPath(data: Array<any>) {
   return `M0,255 L${pathData} L255,255 Z`;
 }
 
+function sdrHistogram(data: number[], sdrWhite: number) {
+  if (sdrWhite >= 0.999 || data.length < 2) return data;
+  const last = data.length - 1;
+  return data.map((_, index) => {
+    const position = index * sdrWhite;
+    const low = Math.floor(position);
+    const fraction = position - low;
+    return data[low] * (1 - fraction) + data[Math.min(low + 1, last)] * fraction;
+  });
+}
+
 function getZeroHistogramPath(data: Array<any>) {
   if (!data || data.length === 0) return '';
   const pathData = data.map((_, index: number) => `${(index / 255) * 255},255`).join(' ');
@@ -192,7 +203,9 @@ function getZeroHistogramPath(data: Array<any>) {
 }
 
 const HistogramFill = memo(({ channel, opacity }: { channel: ActiveChannel; opacity: number }) => {
-  const data: number[] | undefined = useEditorStore((state) => state.histogram?.[channel]) as any;
+  const displayed: number[] | undefined = useEditorStore((state) => state.histogram?.[channel]) as any;
+  const sdrWhite = useEditorStore((state) => state.scopeWhite);
+  const data = useMemo(() => displayed && sdrHistogram(displayed, sdrWhite), [displayed, sdrWhite]);
   const histogramPath = useMemo(() => getHistogramPath(data ?? []), [data]);
   const zeroHistogramPath = useMemo(() => getZeroHistogramPath(data ?? []), [data]);
 

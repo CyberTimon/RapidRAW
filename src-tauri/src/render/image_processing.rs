@@ -1,9 +1,10 @@
 use glam::Vec3;
-use image::{DynamicImage, GenericImageView, Rgb32FImage};
+use image::{DynamicImage, GenericImageView, Rgb32FImage, RgbImage};
 use rayon::prelude::*;
 use std::sync::OnceLock;
 
-use crate::render::color_space::calculate_agx_matrices_glam;
+use crate::render::agx::agx;
+use crate::render::color_space::{OutputTransform, srgb_transfer};
 
 pub fn downscale_f32_image(image: &DynamicImage, nwidth: u32, nheight: u32) -> DynamicImage {
     downscale_f32_image_if_needed(image, nwidth, nheight).unwrap_or_else(|| image.clone())
@@ -259,14 +260,6 @@ pub fn apply_cpu_default_raw_processing(image: &mut DynamicImage) {
     });
 }
 
-pub fn srgb_channel_to_linear(c: f32) -> f32 {
-    if c <= 0.04045 {
-        c / 12.92
-    } else {
-        ((c + 0.055) / 1.055).powf(2.4)
-    }
-}
-
 fn map_color_channels(
     mut image: DynamicImage,
     map: impl Fn(f32) -> f32 + Send + Sync,
@@ -296,128 +289,55 @@ pub fn apply_exposure(image: DynamicImage, exposure: f32) -> DynamicImage {
 }
 
 pub fn apply_srgb_to_linear(image: DynamicImage) -> DynamicImage {
-    map_color_channels(image, |x| srgb_channel_to_linear(x.max(0.0)))
-}
-
-pub(crate) fn linear_channel_to_srgb(x: f32) -> f32 {
-    let x = x.max(0.0);
-    if x <= 0.0031308 {
-        x * 12.92
-    } else {
-        1.055 * x.powf(1.0 / 2.4) - 0.055
-    }
+    let transfer = srgb_transfer();
+    map_color_channels(image, |x| transfer.decode(x.max(0.0)))
 }
 
 pub fn apply_linear_to_srgb(image: DynamicImage) -> DynamicImage {
-    map_color_channels(image, linear_channel_to_srgb)
+    let transfer = srgb_transfer();
+    map_color_channels(image, |x| transfer.encode(x))
 }
 
 pub fn apply_cpu_agx_tonemap(image: &mut DynamicImage) {
-    const AGX_EPSILON: f32 = 1.0e-6;
-    const AGX_MIN_EV: f32 = -15.2;
-    const AGX_MAX_EV: f32 = 5.0;
-    const AGX_RANGE_EV: f32 = AGX_MAX_EV - AGX_MIN_EV;
-    const AGX_GAMMA: f32 = 2.4;
-    const AGX_SLOPE: f32 = 2.3843;
-    const AGX_TOE_POWER: f32 = 1.5;
-    const AGX_SHOULDER_POWER: f32 = 1.5;
-    const AGX_TOE_TRANSITION_X: f32 = 0.6060606;
-    const AGX_TOE_TRANSITION_Y: f32 = 0.43446;
-    const AGX_SHOULDER_TRANSITION_X: f32 = 0.6060606;
-    const AGX_SHOULDER_TRANSITION_Y: f32 = 0.43446;
-    const AGX_INTERCEPT: f32 = -1.0112;
-    const AGX_TOE_SCALE: f32 = -1.0359;
-    const AGX_SHOULDER_SCALE: f32 = 1.3475;
+    let agx = agx();
+    rgb32f_mut(image).par_chunks_mut(3).for_each(|pixel| {
+        pixel.copy_from_slice(&agx.tonemap(Vec3::from_slice(pixel)).to_array());
+    });
+}
 
-    fn agx_sigmoid(x: f32, power: f32) -> f32 {
-        x / (1.0 + x.powf(power)).powf(1.0 / power)
-    }
+pub fn working_display_to_srgb8(pixels: &[f32]) -> Vec<u8> {
+    let output = OutputTransform::srgb(false);
+    pixels
+        .par_chunks_exact(3)
+        .flat_map_iter(|pixel| {
+            output
+                .apply_srgb_encoded([pixel[0], pixel[1], pixel[2]])
+                .map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
+        })
+        .collect()
+}
 
-    fn agx_scaled_sigmoid(x: f32, scale: f32, slope: f32, power: f32, tx: f32, ty: f32) -> f32 {
-        scale * agx_sigmoid(slope * (x - tx) / scale, power) + ty
-    }
+pub fn working_display_image_to_srgb8(image: &DynamicImage) -> RgbImage {
+    let converted;
+    let rgb = match image.as_rgb32f() {
+        Some(rgb) => rgb,
+        None => {
+            converted = image.to_rgb32f();
+            &converted
+        }
+    };
+    RgbImage::from_raw(
+        rgb.width(),
+        rgb.height(),
+        working_display_to_srgb8(rgb.as_raw()),
+    )
+    .expect("RGB8 buffer matches image dimensions")
+}
 
-    fn agx_curve_channel(x: f32) -> f32 {
-        let result = if x < AGX_TOE_TRANSITION_X {
-            agx_scaled_sigmoid(
-                x,
-                AGX_TOE_SCALE,
-                AGX_SLOPE,
-                AGX_TOE_POWER,
-                AGX_TOE_TRANSITION_X,
-                AGX_TOE_TRANSITION_Y,
-            )
-        } else if x <= AGX_SHOULDER_TRANSITION_X {
-            AGX_SLOPE * x + AGX_INTERCEPT
-        } else {
-            agx_scaled_sigmoid(
-                x,
-                AGX_SHOULDER_SCALE,
-                AGX_SLOPE,
-                AGX_SHOULDER_POWER,
-                AGX_SHOULDER_TRANSITION_X,
-                AGX_SHOULDER_TRANSITION_Y,
-            )
-        };
-        result.clamp(0.0, 1.0)
-    }
-
-    const LUT_SIZE: usize = 4096;
-    let mut curve_lut = [0.0f32; LUT_SIZE];
-    for (i, slot) in curve_lut.iter_mut().enumerate() {
-        let x = i as f32 / (LUT_SIZE - 1) as f32;
-        *slot = agx_curve_channel(x).max(0.0).powf(AGX_GAMMA);
-    }
-
-    let (pipe_to_rendering, rendering_to_pipe) = calculate_agx_matrices_glam();
-
-    let f32_image = rgb32f_mut(image);
-
-    f32_image.par_chunks_mut(3).for_each(|pixel_chunk| {
-        let r = pixel_chunk[0];
-        let g = pixel_chunk[1];
-        let b = pixel_chunk[2];
-
-        let min_c = r.min(g).min(b);
-        let (r, g, b) = if min_c < 0.0 {
-            (r - min_c, g - min_c, b - min_c)
-        } else {
-            (r, g, b)
-        };
-
-        let in_rendering = pipe_to_rendering * Vec3::new(r, g, b);
-
-        let x = Vec3::new(
-            (in_rendering.x / 0.18).max(AGX_EPSILON),
-            (in_rendering.y / 0.18).max(AGX_EPSILON),
-            (in_rendering.z / 0.18).max(AGX_EPSILON),
-        );
-        let log_encoded = Vec3::new(
-            (x.x.log2() - AGX_MIN_EV) / AGX_RANGE_EV,
-            (x.y.log2() - AGX_MIN_EV) / AGX_RANGE_EV,
-            (x.z.log2() - AGX_MIN_EV) / AGX_RANGE_EV,
-        );
-        let mapped = Vec3::new(
-            log_encoded.x.clamp(0.0, 1.0),
-            log_encoded.y.clamp(0.0, 1.0),
-            log_encoded.z.clamp(0.0, 1.0),
-        );
-
-        let lut_lookup = |v: f32| -> f32 {
-            let idx = (v * (LUT_SIZE - 1) as f32) as usize;
-            curve_lut[idx.min(LUT_SIZE - 1)]
-        };
-        let curved = Vec3::new(
-            lut_lookup(mapped.x),
-            lut_lookup(mapped.y),
-            lut_lookup(mapped.z),
-        );
-
-        let final_color = rendering_to_pipe * curved;
-
-        pixel_chunk[0] = final_color.x.clamp(0.0, 1.0);
-        pixel_chunk[1] = final_color.y.clamp(0.0, 1.0);
-        pixel_chunk[2] = final_color.z.clamp(0.0, 1.0);
+pub fn apply_working_display_to_srgb(image: &mut DynamicImage, compress_gamut: bool) {
+    let output = OutputTransform::srgb(compress_gamut);
+    rgb32f_mut(image).par_chunks_mut(3).for_each(|pixel| {
+        pixel.copy_from_slice(&output.apply_srgb_encoded([pixel[0], pixel[1], pixel[2]]));
     });
 }
 

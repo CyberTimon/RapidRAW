@@ -15,7 +15,7 @@ use crate::masks::generation::{
 };
 use crate::masks::morphology::{gaussian_blur_mask, grayscale_dilate};
 use crate::render::geometry::{Crop, inverse_transform_mask, inverse_transform_point};
-use crate::render::image_processing::apply_linear_to_srgb;
+use crate::render::image_processing::{apply_linear_to_srgb, apply_working_display_to_srgb};
 use crate::render::preview::{get_or_compute_stage, patched_cache_key};
 use crate::retouch::touch_up::{LiquifyMode, LiquifyPoint, LiquifyStroke};
 
@@ -215,6 +215,7 @@ fn encode_patch_result(
     width: u32,
     height: u32,
     is_srgb: bool,
+    is_working_space: bool,
     quality: u8,
     mask_as_png: bool,
 ) -> Result<Value, String> {
@@ -249,7 +250,8 @@ fn encode_patch_result(
         "offsetY": offset_y,
         "width": width,
         "height": height,
-        "isSrgbEncoded": is_srgb
+        "isSrgbEncoded": is_srgb,
+        "primaries": is_working_space.then_some(crate::decode::image_loader::PATCH_PRIMARIES)
     }))
 }
 
@@ -448,6 +450,7 @@ pub async fn generate_manual_cleanup_patch(
         crop_w,
         crop_h,
         is_raw,
+        true,
         100,
         false,
     )?;
@@ -481,8 +484,9 @@ pub async fn invoke_generative_replace_with_mask_def(
 
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
 
-    let (source_image, is_raw) =
+    let (mut source_image, is_raw) =
         prepare_source_image(&patch_definition.id, &current_adjustments, &state)?;
+    apply_working_display_to_srgb(&mut source_image, false);
     let (img_w, img_h) = source_image.dimensions();
 
     let orientation_steps = current_adjustments
@@ -962,6 +966,7 @@ fn encode_generated_patch(
         crop_w,
         crop_h,
         is_raw,
+        false,
         95,
         true,
     )
@@ -1076,6 +1081,7 @@ pub async fn generate_liquify_patch(
         color_image.width(),
         color_image.height(),
         is_raw,
+        true,
         100,
         true,
     )
@@ -1145,6 +1151,7 @@ pub async fn generate_retouch_patch(
         crop_w,
         crop_h,
         is_raw,
+        true,
         100,
         true,
     )

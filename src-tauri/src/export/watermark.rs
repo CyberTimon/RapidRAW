@@ -1,4 +1,5 @@
 use crate::export::settings::{WatermarkAnchor, WatermarkSettings};
+use crate::render::color_space::OutputColorSpace;
 use image::{DynamicImage, GenericImageView};
 use std::fs;
 use std::sync::{Arc, Mutex};
@@ -8,7 +9,7 @@ struct WatermarkCacheEntry {
     modified: Option<std::time::SystemTime>,
     len: Option<u64>,
     image: Arc<DynamicImage>,
-    scaled: Option<((u32, u32), Arc<DynamicImage>)>,
+    scaled: Option<((u32, u32, OutputColorSpace), Arc<DynamicImage>)>,
 }
 
 static WATERMARK_CACHE: Mutex<Option<WatermarkCacheEntry>> = Mutex::new(None);
@@ -50,34 +51,48 @@ fn load_watermark_image(path: &str) -> Result<Arc<DynamicImage>, String> {
     Ok(image)
 }
 
+fn in_color_space(watermark: DynamicImage, color_space: OutputColorSpace) -> DynamicImage {
+    if color_space == OutputColorSpace::Srgb {
+        return watermark;
+    }
+    let from_srgb = color_space.srgb_converter();
+    let mut converted = watermark.to_rgba32f();
+    for pixel in converted.pixels_mut() {
+        let [r, g, b] = from_srgb([pixel[0], pixel[1], pixel[2]]);
+        pixel.0 = [r, g, b, pixel[3]];
+    }
+    DynamicImage::ImageRgba32F(converted)
+}
+
 fn scaled_watermark_image(
     path: &str,
     watermark_img: &Arc<DynamicImage>,
     new_wm_w: u32,
     new_wm_h: u32,
+    color_space: OutputColorSpace,
 ) -> Arc<DynamicImage> {
+    let key = (new_wm_w, new_wm_h, color_space);
     {
         let cache = WATERMARK_CACHE.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(entry) = cache.as_ref()
             && entry.path == path
             && Arc::ptr_eq(&entry.image, watermark_img)
-            && let Some((size, scaled)) = &entry.scaled
-            && *size == (new_wm_w, new_wm_h)
+            && let Some((cached_key, scaled)) = &entry.scaled
+            && *cached_key == key
         {
             return Arc::clone(scaled);
         }
     }
-    let scaled = Arc::new(watermark_img.resize_exact(
-        new_wm_w,
-        new_wm_h,
-        image::imageops::FilterType::Lanczos3,
+    let scaled = Arc::new(in_color_space(
+        watermark_img.resize_exact(new_wm_w, new_wm_h, image::imageops::FilterType::Lanczos3),
+        color_space,
     ));
     let mut cache = WATERMARK_CACHE.lock().unwrap_or_else(|e| e.into_inner());
     if let Some(entry) = cache.as_mut()
         && entry.path == path
         && Arc::ptr_eq(&entry.image, watermark_img)
     {
-        entry.scaled = Some(((new_wm_w, new_wm_h), Arc::clone(&scaled)));
+        entry.scaled = Some((key, Arc::clone(&scaled)));
     }
     scaled
 }
@@ -85,6 +100,7 @@ fn scaled_watermark_image(
 pub fn apply_watermark(
     base_image: &mut DynamicImage,
     watermark_settings: &WatermarkSettings,
+    color_space: OutputColorSpace,
 ) -> Result<(), String> {
     let watermark_img = load_watermark_image(&watermark_settings.path)?;
 
@@ -100,8 +116,13 @@ pub fn apply_watermark(
         return Ok(());
     }
 
-    let scaled_watermark =
-        scaled_watermark_image(&watermark_settings.path, &watermark_img, new_wm_w, new_wm_h);
+    let scaled_watermark = scaled_watermark_image(
+        &watermark_settings.path,
+        &watermark_img,
+        new_wm_w,
+        new_wm_h,
+        color_space,
+    );
     let opacity_factor = (watermark_settings.opacity / 100.0).clamp(0.0, 1.0);
 
     let spacing_pixels = (base_min_dim * (watermark_settings.spacing / 100.0)) as i64;

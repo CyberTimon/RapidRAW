@@ -1,6 +1,5 @@
 use crate::adjustments::lens_correction::{has_lens_selection, same_lens_selection};
 use crate::decode::as_shot::AsShot;
-use crate::decode::baseline_exposure::BaselineOptions;
 use crate::library::{file_ops, sidecars};
 use crate::metadata::exif_cache::save_exif_to_rrcache;
 use crate::metadata::exif_processing::{
@@ -173,7 +172,7 @@ pub fn is_image_edited(
     let render = RenderOptions {
         tonemapper_override,
         non_raw_tonemapper_override: tonemapper_override,
-        baseline: BaselineOptions::default(),
+        ..RenderOptions::default()
     };
     let current_adj = get_all_adjustments_from_json(adj, is_raw, reference, render);
     let default_adj =

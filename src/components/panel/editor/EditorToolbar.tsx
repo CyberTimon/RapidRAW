@@ -22,6 +22,7 @@ import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
+import { useDisplayStatus } from '../../../hooks/useDisplayStatus';
 import { findGroupVariants, getVariantLabel } from '../../../utils/imageGrouping';
 
 const COMPARE_MODES = [
@@ -37,6 +38,36 @@ interface CompareButtonProps {
   onKeyDown(e: React.KeyboardEvent<HTMLButtonElement>): void;
   onSelectMode(mode: CompareMode): void;
   onToggle(): void;
+}
+
+function HdrButton({ onKeyDown }: { onKeyDown(e: React.KeyboardEvent<HTMLButtonElement>): void }) {
+  const { t } = useTranslation();
+  const isEnabled = useSettingsStore((state) => state.appSettings?.hdrDisplay ?? false);
+
+  const handleToggle = () => {
+    const { appSettings, handleSettingsChange } = useSettingsStore.getState();
+    if (appSettings) {
+      handleSettingsChange({ ...appSettings, hdrDisplay: !appSettings.hdrDisplay });
+    }
+  };
+
+  return (
+    <button
+      className={clsx(
+        'p-2 rounded-full transition-colors',
+        isEnabled
+          ? 'bg-accent text-button-text hover:bg-accent/90 hover:text-button-text'
+          : 'bg-surface hover:bg-card-active text-text-primary',
+      )}
+      onClick={handleToggle}
+      onKeyDown={onKeyDown}
+      data-tooltip={t('editor.toolbar.tooltips.hdr')}
+    >
+      <div className="w-5 h-5 flex items-center justify-center text-[10px] font-bold leading-none tracking-tight">
+        HDR
+      </div>
+    </button>
+  );
 }
 
 function CompareButton({ compareMode, isComparing, onKeyDown, onSelectMode, onToggle }: CompareButtonProps) {
@@ -256,6 +287,8 @@ const EditorToolbar = memo(
       }
     }, [isHistoryVisible, adjustmentsHistoryIndex]);
 
+    const isHdrAvailable = useDisplayStatus()?.hdrActive ?? false;
+
     const handleButtonKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
       if (e.key === 'Tab') return;
       e.currentTarget.blur();
@@ -289,6 +322,11 @@ const EditorToolbar = memo(
             <div className="p-2 invisible pointer-events-none">
               <Undo size={20} />
             </div>
+            {isHdrAvailable && (
+              <div className="p-2 invisible pointer-events-none">
+                <Undo size={20} />
+              </div>
+            )}
           </div>
         </div>
 
@@ -544,6 +582,7 @@ const EditorToolbar = memo(
             onSelectMode={onSelectCompareMode}
             onToggle={onToggleCompare}
           />
+          {isHdrAvailable && <HdrButton onKeyDown={handleButtonKeyDown} />}
           <button
             className="bg-surface text-text-primary p-2 rounded-full hover:bg-card-active transition-colors disabled:opacity-50 disabled:cursor-not-allowed relative"
             onClick={onToggleFullScreen}

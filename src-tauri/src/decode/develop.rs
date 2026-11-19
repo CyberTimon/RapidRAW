@@ -9,8 +9,12 @@ use rawler::Orientation;
 use rayon::prelude::*;
 use wgpu::util::DeviceExt;
 
+use crate::decode::gpu_fallback::{Load, on_gpu};
+use crate::render::color_space::{GamutCompression, compression_uniform, with_shader_prelude};
 use crate::render::gpu::context::DecodeGpu;
 use crate::render::image_processing::into_rgb32f_parallel;
+
+mod cpu;
 
 const SHADER: &str = include_str!("../shaders/develop.wgsl");
 const WORKGROUP: u32 = 8;
@@ -58,7 +62,7 @@ const ENTRIES: &[&str] = &[
 pub struct Camera {
     pub wb: [f32; 3],
     pub matrix: [[f32; 3]; 3],
-    pub compression: [Option<(f32, f32)>; 3],
+    pub compression: [Option<GamutCompression>; 3],
     pub clamp_limit: f32,
 }
 
@@ -79,7 +83,7 @@ struct Params {
     wb: [f32; 4],
     neutral: [f32; 4],
     matrix: [[f32; 4]; 3],
-    comp: [[f32; 4]; 3],
+    comp: [f32; 4],
     amounts: [f32; 4],
     half: [u32; 4],
     quarter: [u32; 4],
@@ -129,7 +133,7 @@ impl Kernels {
         });
         let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Develop Shader"),
-            source: wgpu::ShaderSource::Wgsl(SHADER.into()),
+            source: wgpu::ShaderSource::Wgsl(with_shader_prelude(SHADER).into()),
         });
         let pipelines = ENTRIES
             .iter()
@@ -353,12 +357,10 @@ fn layout(w: u32, h: u32, finish: &Finish) -> Layout {
             camera.wb,
             camera.wb.map(|c| 1.0 / c),
             camera.matrix.map(|r| [r[0], r[1], r[2], 0.0]),
-            camera
-                .compression
-                .map(|c| c.map_or([0.0; 4], |(t, s)| [1.0, t, s, 0.0])),
+            compression_uniform(&camera.compression),
             camera.clamp_limit,
         ),
-        None => ([1.0; 3], [1.0; 3], [[0.0; 4]; 3], [[0.0; 4]; 3], f32::MAX),
+        None => ([1.0; 3], [1.0; 3], [[0.0; 4]; 3], [0.0; 4], f32::MAX),
     };
     let support = w.max(h) as f32 / FILL_SUPPORT_DIVISOR;
 
@@ -481,17 +483,6 @@ pub(crate) fn storage(
     })
 }
 
-pub(crate) fn scoped<T>(device: &wgpu::Device, run: impl FnOnce() -> Result<T>) -> Result<T> {
-    let out_of_memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
-    let invalid = device.push_error_scope(wgpu::ErrorFilter::Validation);
-    let result = run();
-    let invalid = pollster::block_on(invalid.pop());
-    if let Some(error) = pollster::block_on(out_of_memory.pop()).or(invalid) {
-        return Err(anyhow!("GPU develop failed: {}", error));
-    }
-    result
-}
-
 pub(crate) fn release<T: Send + 'static>(resources: T) {
     rayon::spawn(move || drop(resources));
 }
@@ -526,15 +517,13 @@ pub fn finish(
     })
 }
 
-pub fn finish_rgb(
-    context: &DecodeGpu,
-    data: &[[f32; 3]],
-    width: u32,
-    height: u32,
-    finish: &Finish,
-) -> Result<Rgb32FImage> {
-    let device = &*context.device;
-    scoped(device, || {
+pub fn finish_rgb(data: &[[f32; 3]], width: u32, height: u32, finish: &Finish) -> Rgb32FImage {
+    let load = Load {
+        pixels: data.len(),
+        demosaic: false,
+    };
+    on_gpu(load, |context| {
+        let device = &*context.device;
         let bytes: &[u8] = bytemuck::cast_slice(data);
         let cam = storage(
             device,
@@ -550,17 +539,16 @@ pub fn finish_rgb(
         release(cam);
         developed
     })
+    .unwrap_or_else(|| cpu::finish(data, width as usize, height as usize, finish))
 }
 
-pub fn enhance(image: DynamicImage, denoise: f32, sharpen: f32) -> Result<DynamicImage> {
+pub fn enhance(image: DynamicImage, denoise: f32, sharpen: f32) -> DynamicImage {
     if denoise <= 0.0 && sharpen <= 0.0 {
-        return Ok(image);
+        return image;
     }
-    let context = crate::render::gpu::context::decode_gpu_context().map_err(|e| anyhow!(e))?;
     let image = into_rgb32f_parallel(image);
     let (width, height) = image.dimensions();
     let enhanced = finish_rgb(
-        &context,
         bytemuck::cast_slice(image.as_raw()),
         width,
         height,
@@ -570,8 +558,8 @@ pub fn enhance(image: DynamicImage, denoise: f32, sharpen: f32) -> Result<Dynami
             denoise: denoise.max(0.0),
             sharpen: sharpen.max(0.0),
         },
-    )?;
-    Ok(DynamicImage::ImageRgb32F(enhanced))
+    );
+    DynamicImage::ImageRgb32F(enhanced)
 }
 
 fn run(
