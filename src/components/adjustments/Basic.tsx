@@ -5,6 +5,17 @@ import { Adjustments, BasicAdjustment } from '../../utils/adjustments';
 import { useEffect, useRef, useState, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { areSectionPropsEqual } from '../../utils/adjustments';
+import { useSettingsStore } from '../../store/useSettingsStore';
+
+const EXPOSURE_SNAP_DIVISIONS = { off: 0, third: 3, half: 2 } as const;
+
+const useExposureDragSnap = () => {
+  const divisions = EXPOSURE_SNAP_DIVISIONS[useSettingsStore((s) => s.appSettings?.exposureSnapping) ?? 'off'];
+  return useMemo(
+    () => (divisions ? (value: number) => Math.round(value * divisions) / divisions : undefined),
+    [divisions],
+  );
+};
 
 interface BasicAdjustmentsProps {
   adjustments: Adjustments;
@@ -33,6 +44,7 @@ const ToneMapperSwitch = ({
   const [bubbleStyle, setBubbleStyle] = useState({});
   const isInitialAnimation = useRef(true);
   const [isLabelHovered, setIsLabelHovered] = useState(false);
+  const exposureDragSnap = useExposureDragSnap();
 
   const toneMapperOptions = useMemo(
     () => [
@@ -140,6 +152,7 @@ const ToneMapperSwitch = ({
         </div>
         <div className="mt-2.5 px-1">
           <Slider
+            dragSnap={exposureDragSnap}
             label={t('adjustments.basic.exposure')}
             max={5}
             min={-5}
@@ -165,6 +178,7 @@ function BasicAdjustments({
   appSettings,
 }: BasicAdjustmentsProps) {
   const { t } = useTranslation();
+  const exposureDragSnap = useExposureDragSnap();
 
   const handleAdjustmentChange = (key: BasicAdjustment, value: any) => {
     const numericValue = parseFloat(value);
@@ -184,6 +198,7 @@ function BasicAdjustments({
     <div>
       {hideTonemapper ? (
         <Slider
+          dragSnap={exposureDragSnap}
           resetKey="exposure"
           label={t('adjustments.basic.exposure')}
           max={5}
