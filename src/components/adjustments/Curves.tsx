@@ -896,7 +896,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                   ? 'M 0,63.75 H 255 M 0,127.5 H 255 M 0,191.25 H 255'
                   : 'M 63.75,0 V 255 M 127.5,0 V 255 M 191.25,0 V 255 M 0,63.75 H 255 M 0,127.5 H 255 M 0,191.25 H 255'
               }
-              stroke="rgba(255,255,255,0.1)"
+              style={{ stroke: 'var(--app-curve-guide)' }}
+              strokeOpacity={0.1}
               strokeWidth="0.5"
             />
             <HistogramFill channel={activeChannel} opacity={histogramOpacity} />
@@ -905,7 +906,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
               y1="255"
               x2="255"
               y2="0"
-              stroke="rgba(255,255,255,0.2)"
+              style={{ stroke: 'var(--app-curve-guide)' }}
+              strokeOpacity={0.2}
               strokeWidth="1"
               strokeDasharray="2 2"
             />
@@ -913,7 +915,18 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
             {isParametricMode &&
               splitPositions.map(({ key, value }) => {
                 const x = (value / 100) * 255;
-                return <line key={key} x1={x} y1="0" x2={x} y2="255" stroke="rgba(255,255,255,0.12)" strokeWidth="1" />;
+                return (
+                  <line
+                    key={key}
+                    x1={x}
+                    y1="0"
+                    x2={x}
+                    y2="255"
+                    style={{ stroke: 'var(--app-curve-guide)' }}
+                    strokeOpacity={0.12}
+                    strokeWidth="1"
+                  />
+                );
               })}
 
             {inactiveChannels
