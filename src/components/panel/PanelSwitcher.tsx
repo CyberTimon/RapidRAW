@@ -291,7 +291,11 @@ export function MobilePanelSwitcher({
   onPanelSelect: (id: Panel) => void;
   placement?: 'bottom' | 'right';
 }) {
+  const isVertical = placement === 'right';
+
+  // The wide layout has no left panel, so its side switcher also offers the sources panel.
   const MOBILE_PANELS = [
+    ...(isVertical ? [Panel.FolderTree] : []),
     Panel.Metadata,
     Panel.Adjustments,
     Panel.Crop,
@@ -300,8 +304,6 @@ export function MobilePanelSwitcher({
     Panel.Presets,
     Panel.Export,
   ];
-
-  const isVertical = placement === 'right';
 
   return (
     <div
