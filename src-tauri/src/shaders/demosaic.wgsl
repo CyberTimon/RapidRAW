@@ -93,6 +93,8 @@ fn unpack(@builtin(global_invocation_id) id: vec3<u32>) {
 
 const EPS: f32 = 1e-5;
 const EPSSQ: f32 = 1e-10;
+const CARDINAL_FLAT: f32 = EPS + 1e-4;
+const CARDINAL_EDGE: f32 = EPS + 1e-3;
 const DEBIAS_RADIUS: i32 = 3;
 const DEBIAS_NORM: f32 = 1.0 / 64.0;
 const DEBIAS_LIMIT: f32 = 0.04;
@@ -175,6 +177,11 @@ fn rcd_vh(@builtin(global_invocation_id) id: vec3<u32>) {
         + 0.25 * (mos(x - 1, y - 1) + mos(x + 1, y - 1) + mos(x - 1, y + 1) + mos(x + 1, y + 1));
 }
 
+fn cardinal_eps(grad: f32) -> f32 {
+    let u = clamp((grad - CARDINAL_FLAT) / (CARDINAL_EDGE - CARDINAL_FLAT), 0.0, 1.0);
+    return EPS * (1.0 - u * u * (3.0 - 2.0 * u));
+}
+
 @compute @workgroup_size(8, 8)
 fn rcd_green(@builtin(global_invocation_id) id: vec3<u32>) {
     if (!in_tile(id)) {
@@ -197,10 +204,11 @@ fn rcd_green(@builtin(global_invocation_id) id: vec3<u32>) {
         + abs(mos(x + 1, y) - mos(x + 3, y)) + abs(mos(x + 2, y) - mos(x + 4, y));
 
     let l = lowpass(x, y);
-    let n_est = mos(x, y - 1) * (l + l) / (EPS + l + lowpass(x, y - 2));
-    let s_est = mos(x, y + 1) * (l + l) / (EPS + l + lowpass(x, y + 2));
-    let w_est = mos(x - 1, y) * (l + l) / (EPS + l + lowpass(x - 2, y));
-    let e_est = mos(x + 1, y) * (l + l) / (EPS + l + lowpass(x + 2, y));
+    let num = l + l + cardinal_eps(max(max(n_grad, s_grad), max(w_grad, e_grad)));
+    let n_est = mos(x, y - 1) * num / (EPS + l + lowpass(x, y - 2));
+    let s_est = mos(x, y + 1) * num / (EPS + l + lowpass(x, y + 2));
+    let w_est = mos(x - 1, y) * num / (EPS + l + lowpass(x - 2, y));
+    let e_est = mos(x + 1, y) * num / (EPS + l + lowpass(x + 2, y));
 
     let v_est = (s_grad * n_est + n_grad * s_est) / (n_grad + s_grad);
     let h_est = (w_grad * e_est + e_grad * w_est) / (e_grad + w_grad);

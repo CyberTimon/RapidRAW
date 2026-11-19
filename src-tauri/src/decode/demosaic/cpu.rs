@@ -10,6 +10,8 @@ const TILE: usize = 256;
 
 const EPS: f32 = 1e-5;
 const EPSSQ: f32 = 1e-10;
+const CARDINAL_FLAT: f32 = EPS + 1e-4;
+const CARDINAL_EDGE: f32 = EPS + 1e-3;
 const DEBIAS: [f32; 7] = [1.0, 6.0, 15.0, 20.0, 15.0, 6.0, 1.0];
 const DEBIAS_NORM: f32 = 1.0 / 64.0;
 const DEBIAS_LIMIT: f32 = 0.04;
@@ -79,6 +81,11 @@ const MARKESTEIJN: (&[Stage], Output) = (
     ],
     (Tile::xt_out, [2, 2]),
 );
+
+fn cardinal_eps(grad: f32) -> f32 {
+    let u = ((grad - CARDINAL_FLAT) / (CARDINAL_EDGE - CARDINAL_FLAT)).clamp(0.0, 1.0);
+    EPS * (1.0 - u * u * (3.0 - 2.0 * u))
+}
 
 fn sq(v: f32) -> f32 {
     v * v
@@ -253,9 +260,10 @@ impl Tile {
                     + (mos(o) - mos(3 * o)).abs()
                     + (mos(2 * o) - mos(4 * o)).abs()
             };
-            let l = lowpass(0);
-            let est = |o: isize| mos(o) * (l + l) / (EPS + l + lowpass(2 * o));
             let (north, south, west, east) = (grad(-row), grad(row), grad(-1), grad(1));
+            let l = lowpass(0);
+            let num = l + l + cardinal_eps(north.max(south).max(west.max(east)));
+            let est = |o: isize| mos(o) * num / (EPS + l + lowpass(2 * o));
             let v_est = (south * est(-row) + north * est(row)) / (north + south);
             let h_est = (west * est(1) + east * est(-1)) / (east + west);
             let center = vh(0);
