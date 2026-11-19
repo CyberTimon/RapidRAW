@@ -696,7 +696,7 @@ RapidRAW supports automatic lens profile detection, distortion, transverse chrom
 <details>
 <summary><strong>Supported Languages</strong></summary>
 
-RapidRAW is fully translated into the following 17 languages:
+RapidRAW is fully translated into the following 18 languages:
 
 - 🇬🇧 **English**
 - 🇪🇸 **Català**
@@ -709,6 +709,7 @@ RapidRAW is fully translated into the following 17 languages:
 - 🇳🇱 **Nederlands**
 - 🇵🇱 **Polski**
 - 🇵🇹 **Português**
+- 🇸🇪 **Svenska**
 - 🇷🇺 **Русский**
 - 🇺🇦 **Українська**
 - 🇯🇵 **日本語**
