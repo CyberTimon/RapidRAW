@@ -779,6 +779,10 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     [animateTransform, applyTransform, clampToBounds],
   );
 
+  useLayoutEffect(() => {
+    if (isCropping && transformStateRef.current.scale > 1.01) applyTransform(0, 0, 1);
+  }, [isCropping, applyTransform]);
+
   const isCropViewShown = isCropping && !!uncroppedAdjustedPreviewUrl;
   const wasCropViewShownRef = useRef(isCropViewShown);
 
