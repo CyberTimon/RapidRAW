@@ -15,6 +15,7 @@ import {
   FileInput,
   Folder,
   FolderInput,
+  FolderOpen,
   FolderPlus,
   Images,
   LayoutTemplate,
@@ -102,6 +103,7 @@ export interface UseAppContextMenusProps {
   executeDelete: (paths: string[], options: any) => Promise<void>;
   handleDeleteRejected: () => void;
   handleTogglePinFolder: (path: string) => Promise<void>;
+  handleSelectSubfolder: (path: string) => Promise<void>;
 }
 
 export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
@@ -119,6 +121,7 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
       executeDelete: (paths, options) => propsRef.current.executeDelete(paths, options),
       handleDeleteRejected: () => propsRef.current.handleDeleteRejected(),
       handleTogglePinFolder: (path) => propsRef.current.handleTogglePinFolder(path),
+      handleSelectSubfolder: (path) => propsRef.current.handleSelectSubfolder(path),
     }),
     [],
   );
@@ -686,6 +689,20 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
         setPanel(Panel.Export);
       };
 
+      const handleShowInOriginalLocation = async () => {
+        const target = finalSelection[0];
+        const physicalPath = target.split('?vc=')[0];
+        const separatorIndex = Math.max(physicalPath.lastIndexOf('/'), physicalPath.lastIndexOf('\\'));
+        if (separatorIndex === -1) return;
+        const isRootFolder = separatorIndex === 0 || physicalPath[separatorIndex - 1] === ':';
+        const folder = physicalPath.substring(0, isRootFolder ? separatorIndex + 1 : separatorIndex);
+        await props.handleSelectSubfolder(folder);
+        const { currentFolderPath, imageList: folderImages } = useLibraryStore.getState();
+        if (currentFolderPath !== folder) return;
+        const selectedPath = folderImages.some((img) => img.path === target) ? target : physicalPath;
+        setLibrary({ multiSelectedPaths: [selectedPath], libraryActivePath: selectedPath });
+      };
+
       const handleRemoveFromAlbum = async () => {
         if (!activeAlbumId) return;
         const immichAlbum = immichAlbumOf(activeAlbumId);
@@ -1012,6 +1029,16 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
             ]
           : []),
         { type: OPTION_SEPARATOR },
+        ...(activeAlbumId && !isImmichAlbumId(activeAlbumId) && !isImmichImagePath(path)
+          ? [
+              {
+                disabled: !isSingleSelection,
+                icon: FolderOpen,
+                label: t('contextMenus.thumbnail.showOriginalLocation'),
+                onClick: handleShowInOriginalLocation,
+              },
+            ]
+          : []),
         {
           disabled: !isSingleSelection,
           icon: Folder,

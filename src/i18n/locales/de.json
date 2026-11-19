@@ -392,6 +392,7 @@
       "deleteSelected": "Nur Ausgewählte löschen",
       "denoise_one": "Entrauschen",
       "denoise_other": "Entrauschen",
+      "showOriginalLocation": "Am Originalort anzeigen",
       "duplicateImage": "Bild duplizieren",
       "enable": "Aktivieren",
       "exportImage_one": "Bild exportieren",

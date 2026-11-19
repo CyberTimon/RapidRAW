@@ -403,6 +403,7 @@
       "denoise_one": "Reduir soroll",
       "denoise_many": "Reduir soroll",
       "denoise_other": "Reduir soroll",
+      "showOriginalLocation": "Mostra a la ubicació original",
       "duplicateImage": "Duplicar imatge",
       "enable": "Activar",
       "exportImage_one": "Exportar imatge",

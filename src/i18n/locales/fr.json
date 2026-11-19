@@ -403,6 +403,7 @@
       "denoise_one": "Débruiter",
       "denoise_many": "Débruiter",
       "denoise_other": "Débruiter",
+      "showOriginalLocation": "Afficher dans l'emplacement d'origine",
       "duplicateImage": "Dupliquer l'image",
       "enable": "Activer",
       "exportImage_one": "Exporter l'image",

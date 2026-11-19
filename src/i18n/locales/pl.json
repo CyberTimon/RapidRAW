@@ -414,6 +414,7 @@
       "denoise_few": "Odszumianie",
       "denoise_many": "Odszumianie",
       "denoise_other": "Odszumianie",
+      "showOriginalLocation": "Pokaż w oryginalnej lokalizacji",
       "duplicateImage": "Duplikuj obraz",
       "enable": "Włącz",
       "exportImage_one": "Eksportuj obraz",

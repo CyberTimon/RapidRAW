@@ -414,6 +414,7 @@
       "denoise_few": "Шумоподавление",
       "denoise_many": "Шумоподавление",
       "denoise_other": "Шумоподавление",
+      "showOriginalLocation": "Показать в исходной папке",
       "duplicateImage": "Дублировать изображение",
       "enable": "Включить",
       "exportImage_one": "Экспортировать {{count}} изображение",
