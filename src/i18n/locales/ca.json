@@ -720,6 +720,8 @@
       },
       "resetTooltip": "Restablir retall i transformació",
       "rotationHeading": "Rotació",
+      "sizeLabel": "Mida",
+      "sizeValue": "{{width}} × {{height}} px",
       "title": "Retallar i transformar",
       "tooltips": {
         "autoStraighten": "Redreçar automàticament (Maj+S)",

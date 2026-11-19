@@ -720,6 +720,8 @@
       },
       "resetTooltip": "Réinitialiser Recadrage & Transformation",
       "rotationHeading": "Rotation",
+      "sizeLabel": "Taille",
+      "sizeValue": "{{width}} × {{height}} px",
       "title": "Recadrage & Transformation",
       "tooltips": {
         "autoStraighten": "Redresser automatiquement (Maj+S)",

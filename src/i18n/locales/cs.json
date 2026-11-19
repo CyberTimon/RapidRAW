@@ -744,6 +744,8 @@
       },
       "resetTooltip": "Resetovat oříznutí a transformaci",
       "rotationHeading": "Otáčení",
+      "sizeLabel": "Velikost",
+      "sizeValue": "{{width}} × {{height}} px",
       "title": "Oříznout a transformovat",
       "tooltips": {
         "autoStraighten": "Automatické vyrovnání (Shift+S)",

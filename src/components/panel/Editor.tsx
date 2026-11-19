@@ -2260,6 +2260,24 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     }
   }, [isCropping, adjustments.crop, adjustments.orientationSteps, selectedImage, liveRotation]);
 
+  useEffect(() => {
+    if (!isCropping || !crop || !selectedImage?.width || !selectedImage?.height) {
+      setEditor({ liveCropSize: null });
+      return;
+    }
+    const { width: W, height: H } = getOrientedDimensions(
+      selectedImage.width,
+      selectedImage.height,
+      adjustments.orientationSteps || 0,
+    );
+    setEditor({
+      liveCropSize: {
+        width: Math.floor((crop.width / 100) * W),
+        height: Math.floor((crop.height / 100) * H),
+      },
+    });
+  }, [isCropping, crop, selectedImage, adjustments.orientationSteps, setEditor]);
+
   const handleCropChange = useCallback(
     (_pixelCrop: Crop, percentCrop: PercentCrop) => {
       if (!selectedImage) return;

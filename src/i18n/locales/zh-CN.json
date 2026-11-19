@@ -693,6 +693,8 @@
       },
       "resetTooltip": "重置裁剪和变换",
       "rotationHeading": "旋转",
+      "sizeLabel": "尺寸",
+      "sizeValue": "{{width}} × {{height}} px",
       "title": "裁剪与变换",
       "tooltips": {
         "autoStraighten": "自动拉直（Shift+S）",

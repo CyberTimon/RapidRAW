@@ -720,6 +720,8 @@
       },
       "resetTooltip": "Ripristina Ritaglio e Trasformazione",
       "rotationHeading": "Rotazione",
+      "sizeLabel": "Dimensioni",
+      "sizeValue": "{{width}} × {{height}} px",
       "title": "Ritaglio e Trasformazione",
       "tooltips": {
         "autoStraighten": "Raddrizza automaticamente (Shift+S)",

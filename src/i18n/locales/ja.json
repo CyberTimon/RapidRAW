@@ -693,6 +693,8 @@
       },
       "resetTooltip": "切り抜きと変形をリセット",
       "rotationHeading": "回転",
+      "sizeLabel": "サイズ",
+      "sizeValue": "{{width}} × {{height}} px",
       "title": "切り抜きと変形",
       "tooltips": {
         "autoStraighten": "自動角度補正（Shift+S）",

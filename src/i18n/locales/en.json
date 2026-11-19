@@ -696,6 +696,8 @@
       },
       "resetTooltip": "Reset Crop & Transform",
       "rotationHeading": "Rotation",
+      "sizeLabel": "Size",
+      "sizeValue": "{{width}} × {{height}} px",
       "title": "Crop & Transform",
       "tooltips": {
         "autoStraighten": "Auto Straighten (Shift+S)",

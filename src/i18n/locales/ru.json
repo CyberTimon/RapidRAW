@@ -744,6 +744,8 @@
       },
       "resetTooltip": "Сбросить кадрирование и геометрию",
       "rotationHeading": "Вращение",
+      "sizeLabel": "Размер",
+      "sizeValue": "{{width}} × {{height}} px",
       "title": "Обрезка и трансформация",
       "tooltips": {
         "autoStraighten": "Автовыравнивание (Shift+S)",
