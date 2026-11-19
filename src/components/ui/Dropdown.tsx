@@ -8,6 +8,8 @@ import { TEXT_COLOR_KEYS, TextColors, TextVariants, TextWeights } from '../../ty
 import clsx from 'clsx';
 
 const MENU_GAP = 8;
+const MENU_MAX_HEIGHT = 320;
+const VIEWPORT_MARGIN = 8;
 
 export interface OptionItem<T extends React.Key> {
   label: string;
@@ -39,7 +41,11 @@ const Dropdown = <T extends React.Key>({
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const focusOptionOnOpenRef = useRef(false);
   const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
+  const [listMaxHeight, setListMaxHeight] = useState(MENU_MAX_HEIGHT);
   const [opensUp, setOpensUp] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -86,9 +92,12 @@ const Dropdown = <T extends React.Key>({
       if (!trigger) {
         return;
       }
-      const height = menuRef.current?.offsetHeight ?? 0;
-      const up = trigger.bottom + MENU_GAP + height > window.innerHeight && trigger.top - MENU_GAP - height >= 0;
+      const height = Math.min(listRef.current?.scrollHeight ?? 0, MENU_MAX_HEIGHT);
+      const spaceBelow = window.innerHeight - trigger.bottom - MENU_GAP - VIEWPORT_MARGIN;
+      const spaceAbove = trigger.top - MENU_GAP - VIEWPORT_MARGIN;
+      const up = height > spaceBelow && spaceAbove > spaceBelow;
       setOpensUp(up);
+      setListMaxHeight(Math.max(0, Math.min(MENU_MAX_HEIGHT, up ? spaceAbove : spaceBelow)));
       setMenuStyle({
         left: trigger.left,
         width: trigger.width,
@@ -105,6 +114,30 @@ const Dropdown = <T extends React.Key>({
     };
   }, [isOpen, filteredOptions.length, showSearch]);
 
+  useEffect(() => {
+    if (!isOpen || !focusOptionOnOpenRef.current) return;
+    focusOptionOnOpenRef.current = false;
+    const optionButtons = Array.from(
+      menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]:not(:disabled)') ?? [],
+    );
+    (optionButtons.find((button) => button.getAttribute('aria-selected') === 'true') ?? optionButtons[0])?.focus();
+  }, [isOpen]);
+
+  const moveOptionFocus = (key: string) => {
+    const optionButtons = Array.from(
+      menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]:not(:disabled)') ?? [],
+    );
+    if (optionButtons.length === 0) return;
+    const currentIndex = optionButtons.indexOf(document.activeElement as HTMLButtonElement);
+    let nextIndex: number;
+    if (key === 'Home') nextIndex = 0;
+    else if (key === 'End') nextIndex = optionButtons.length - 1;
+    else if (key === 'ArrowDown')
+      nextIndex = currentIndex === -1 ? 0 : Math.min(currentIndex + 1, optionButtons.length - 1);
+    else nextIndex = currentIndex === -1 ? optionButtons.length - 1 : Math.max(currentIndex - 1, 0);
+    optionButtons[nextIndex].focus();
+  };
+
   const isPrintableKey = (e: React.KeyboardEvent<Element>): boolean => {
     if (e.metaKey || e.ctrlKey || e.altKey) return false;
     return e.key.length === 1;
@@ -113,7 +146,21 @@ const Dropdown = <T extends React.Key>({
   const handleContainerKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       e.stopPropagation();
+      if (isOpen) triggerRef.current?.focus();
       setIsOpen(false);
+      return;
+    }
+
+    if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) {
+      if (!isOpen && (e.key === 'Home' || e.key === 'End')) return;
+      e.stopPropagation();
+      e.preventDefault();
+      if (isOpen) {
+        moveOptionFocus(e.key);
+      } else if (!disabled) {
+        focusOptionOnOpenRef.current = true;
+        setIsOpen(true);
+      }
       return;
     }
 
@@ -141,6 +188,7 @@ const Dropdown = <T extends React.Key>({
   return (
     <div className={`relative ${className}`} ref={dropdownRef} onKeyDown={handleContainerKeyDown}>
       <button
+        ref={triggerRef}
         aria-expanded={isOpen}
         aria-haspopup="listbox"
         disabled={disabled}
@@ -177,8 +225,10 @@ const Dropdown = <T extends React.Key>({
             >
               <div
                 aria-orientation="vertical"
-                className="bg-surface/95 backdrop-blur-md rounded-lg shadow-xl p-2 max-h-80 overflow-y-auto"
+                className="bg-surface/95 backdrop-blur-md rounded-lg shadow-xl p-2 overflow-y-auto overscroll-contain"
+                ref={listRef}
                 role="listbox"
+                style={{ maxHeight: listMaxHeight }}
               >
                 {showSearch && (
                   <Input
