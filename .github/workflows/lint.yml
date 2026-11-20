@@ -6,9 +6,13 @@ on:
       - main
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   frontend-lint:
-    name: Frontend Lint & Format
+    name: Lint & Format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -36,19 +40,16 @@ jobs:
         run: npm run i18n:check
         continue-on-error: true
 
-  fmt:
-    name: cargo fmt
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-
       - uses: actions-rust-lang/setup-rust-toolchain@v1
+        if: ${{ !cancelled() }}
         with:
           components: rustfmt
           rustflags: ''
           rust-src-dir: src-tauri
+          cache: false
 
-      - name: Check formatting
+      - name: cargo fmt
+        if: ${{ !cancelled() }}
         working-directory: src-tauri
         run: cargo fmt -p RapidRAW -- --check
 
@@ -63,6 +64,7 @@ jobs:
           components: clippy
           rustflags: ''
           rust-src-dir: src-tauri
+          cache-save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install system dependencies
         run: |

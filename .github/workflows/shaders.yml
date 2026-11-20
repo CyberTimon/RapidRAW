@@ -23,6 +23,10 @@ on:
       - '.github/workflows/shaders.yml'
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   compile:
     name: ${{ matrix.name }}
@@ -47,6 +51,7 @@ jobs:
         with:
           rustflags: ''
           rust-src-dir: src-tauri
+          cache: false
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
