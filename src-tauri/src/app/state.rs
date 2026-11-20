@@ -327,7 +327,6 @@ pub struct ThumbnailSource {
 
 pub struct AppState {
     pub window_setup_complete: AtomicBool,
-    pub gpu_crash_flag_path: Mutex<Option<PathBuf>>,
     pub original_image: Mutex<Option<LoadedImage>>,
     pub cached_preview: Mutex<Option<CachedPreview>>,
     pub viewer_cached_preview: Mutex<Option<CachedPreview>>,

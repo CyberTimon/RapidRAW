@@ -52,7 +52,7 @@ use crate::app::launch_request::{
     resolve_gui_launch_paths, set_process_exit_code,
 };
 use crate::app::logging::setup_logging;
-use crate::app::settings::{AppSettings, load_settings, save_settings};
+use crate::app::settings::{AppSettings, load_settings};
 #[cfg(not(target_os = "android"))]
 use crate::app::state::WindowState;
 use crate::app::state::{
@@ -272,15 +272,11 @@ pub fn run() {
                 });
             }
 
-            let config_dir = app_handle.path().app_config_dir().expect("Failed to get config dir");
-            let crash_flag_path = config_dir.join(".gpu_init_crash_flag");
-
-            {
-                let state = app.state::<AppState>();
-                *state.gpu_crash_flag_path.lock().unwrap() = Some(crash_flag_path.clone());
+            if let Ok(config_dir) = app_handle.path().app_config_dir() {
+                let _ = std::fs::remove_file(config_dir.join(".gpu_init_crash_flag"));
             }
 
-            let mut settings: AppSettings = load_settings(app_handle.clone()).unwrap_or_default();
+            let settings: AppSettings = load_settings(app_handle.clone()).unwrap_or_default();
 
             {
                 let state = app.state::<AppState>();
@@ -289,20 +285,15 @@ pub fn run() {
             }
             crate::app::storage::apply_cache_limits(&settings);
 
-            if crash_flag_path.exists() {
-                log::warn!("GPU Driver crash detected on last run! Falling back to OpenGL backend.");
-                settings.processing_backend = Some("gl".to_string());
-                let _ = save_settings(settings.clone(), app_handle.clone());
-                let _ = std::fs::remove_file(&crash_flag_path);
-            }
+            let backend =
+                render::gpu::fallback::choose_backend(settings.processing_backend.as_deref());
 
             adjustments::lens_correction::init_lensfun_db(&app_handle);
 
             unsafe {
-                if let Some(backend) = &settings.processing_backend
-                    && backend != "auto" {
-                        std::env::set_var("WGPU_BACKEND", backend);
-                    }
+                if let Some(backend) = &backend {
+                    std::env::set_var("WGPU_BACKEND", backend);
+                }
 
                 #[cfg(target_os = "linux")]
                 {
@@ -338,10 +329,9 @@ pub fn run() {
 
             setup_logging(&app_handle);
 
-            if let Some(backend) = &settings.processing_backend
-                && backend != "auto" {
-                    log::info!("Applied processing backend setting: {}", backend);
-                }
+            if let Some(backend) = &backend {
+                log::info!("Applied processing backend: {}", backend);
+            }
 
             #[cfg(target_os = "linux")]
             if settings.linux_gpu_optimization.unwrap_or(false) {
@@ -578,7 +568,6 @@ pub fn run() {
         })
         .manage(AppState {
             window_setup_complete: AtomicBool::new(false),
-            gpu_crash_flag_path: Mutex::new(None),
             original_image: Mutex::new(None),
             cached_preview: Mutex::new(None),
             viewer_cached_preview: Mutex::new(None),
@@ -627,6 +616,8 @@ pub fn run() {
             }),
         })
         .invoke_handler(tauri::generate_handler![
+            render::gpu::fallback::get_gpu_fallbacks,
+            render::gpu::fallback::reset_gpu_fallback,
             render::commands::apply_adjustments,
             render::commands::subscribe_analytics,
             render::commands::generate_preview_for_path,
@@ -828,6 +819,7 @@ pub fn run() {
                 tauri::RunEvent::ExitRequested { api, code, .. } => {
                     api.prevent_exit();
                     let code = resolve_exit_code(code, process_exit_code());
+                    render::gpu::fallback::abandon_attempt();
 
                     #[cfg(target_os = "macos")]
                     unsafe { libc::_exit(code); }
@@ -837,6 +829,7 @@ pub fn run() {
                 }
                 tauri::RunEvent::Exit => {
                     let code = process_exit_code();
+                    render::gpu::fallback::abandon_attempt();
 
                     #[cfg(target_os = "macos")]
                     unsafe { libc::_exit(code); }

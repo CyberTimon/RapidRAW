@@ -2149,6 +2149,9 @@
       "alwaysDecodeRawLabel": "サムネイル用に常にRAWをデコード",
       "backend": "処理バックエンド",
       "backendDesc": "グラフィックスAPIを選択します。「自動」を推奨します。一部のシステムでのクラッシュを回避できる場合があります。",
+      "backendFallback": "{{failed}} がこの GPU での起動中にクラッシュしたため、当面は {{using}} を使用します。",
+      "backendFallbackRetry": "{{failed}} を再試行",
+      "backendFallbackRetryPending": "次回の起動時に {{failed}} を再試行します。",
       "backends": {
         "auto": "自動",
         "dx12": "DirectX 12",
@@ -2306,6 +2309,8 @@
       },
       "rawDecoding": "RAWデコード",
       "rawDecodingDesc": "RAWファイルをデコードする場所を選択します。「自動」はGPUを使用し、GPUで画像を処理できない場合はCPUに切り替えます。「GPU」は常に最初にGPUを試します。「CPU」は低速ですが、すべてのシステムで動作します。",
+      "rawDecodingFallback": "大きな RAW ファイルで GPU が失敗したため、{{megapixels}} MP 以上のファイルは当面 CPU で現像されます。",
+      "rawDecodingFallbackRetry": "GPU を再試行",
       "rawDecodingOptions": {
         "auto": "自動",
         "cpu": "CPU",

@@ -2243,6 +2243,9 @@
       "alwaysDecodeRawLabel": "Vždy dekódovat RAW pro miniatury",
       "backend": "Backend zpracování",
       "backendDesc": "Vyberte grafické API. Doporučuje se „Auto“. Může opravit pády na některých systémech.",
+      "backendFallback": "{{failed}} při spuštění na této GPU spadl, proto se zatím používá {{using}}.",
+      "backendFallbackRetry": "Zkusit znovu {{failed}}",
+      "backendFallbackRetryPending": "{{failed}} se znovu vyzkouší při příštím spuštění.",
       "backends": {
         "auto": "Auto",
         "dx12": "DirectX 12",
@@ -2400,6 +2403,8 @@
       },
       "rawDecoding": "Dekódování RAW",
       "rawDecodingDesc": "Vyberte, kde se dekódují soubory RAW. „Auto“ používá GPU a přepne na CPU, pokud GPU vaše snímky nezvládne. „GPU“ vždy nejprve zkusí GPU. „CPU“ je pomalejší, ale funguje na každém systému.",
+      "rawDecodingFallback": "GPU selhala u velkých souborů RAW, proto se soubory od {{megapixels}} MP zatím vyvolávají na CPU.",
+      "rawDecodingFallbackRetry": "Zkusit znovu GPU",
       "rawDecodingOptions": {
         "auto": "Auto",
         "cpu": "CPU",

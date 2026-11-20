@@ -2155,6 +2155,9 @@
       "alwaysDecodeRawLabel": "Always decode RAW for thumbnails",
       "backend": "Processing Backend",
       "backendDesc": "Select the graphics API. 'Auto' is recommended. May fix crashes on some systems.",
+      "backendFallback": "{{failed}} crashed while starting on this GPU, so {{using}} is used for now.",
+      "backendFallbackRetry": "Try {{failed}} again",
+      "backendFallbackRetryPending": "{{failed}} will be tried again on the next start.",
       "backends": {
         "auto": "Auto",
         "dx12": "DirectX 12",
@@ -2312,6 +2315,8 @@
       },
       "rawDecoding": "RAW Decoding",
       "rawDecodingDesc": "Select where RAW files are decoded. 'Auto' uses the GPU and switches to the CPU if it can't handle your images. 'GPU' always tries the GPU first. 'CPU' is slower but works on every system.",
+      "rawDecodingFallback": "The GPU failed on large RAW files, so files of {{megapixels}} MP and larger are developed on the CPU for now.",
+      "rawDecodingFallbackRetry": "Try the GPU again",
       "rawDecodingOptions": {
         "auto": "Auto",
         "cpu": "CPU",

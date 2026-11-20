@@ -2199,6 +2199,9 @@
       "alwaysDecodeRawLabel": "Descodificar sempre els RAW per a miniatures",
       "backend": "Motor de processament",
       "backendDesc": "Seleccioneu l'API de gràfics. Es recomana 'Auto'. Pot solucionar bloquejos en alguns sistemes.",
+      "backendFallback": "{{failed}} ha fallat en iniciar-se en aquesta GPU, així que de moment s'utilitza {{using}}.",
+      "backendFallbackRetry": "Tornar a provar {{failed}}",
+      "backendFallbackRetryPending": "{{failed}} es tornarà a provar en el proper inici.",
       "backends": {
         "auto": "Auto",
         "dx12": "DirectX 12",
@@ -2356,6 +2359,8 @@
       },
       "rawDecoding": "Descodificació RAW",
       "rawDecodingDesc": "Seleccioneu on es descodifiquen els fitxers RAW. 'Auto' utilitza la GPU i canvia a la CPU si no pot gestionar les vostres imatges. 'GPU' sempre prova primer la GPU. 'CPU' és més lenta, però funciona a tots els sistemes.",
+      "rawDecodingFallback": "La GPU ha fallat amb fitxers RAW grans, així que de moment els fitxers de {{megapixels}} MP o més es revelen a la CPU.",
+      "rawDecodingFallbackRetry": "Tornar a provar la GPU",
       "rawDecodingOptions": {
         "auto": "Auto",
         "cpu": "CPU",

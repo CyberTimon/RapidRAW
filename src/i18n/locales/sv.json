@@ -2155,6 +2155,9 @@
       "alwaysDecodeRawLabel": "Avkoda alltid RAW för miniatyrer",
       "backend": "Bearbetningsmotor",
       "backendDesc": "Välj grafik-API. ”Automatiskt” rekommenderas. Kan åtgärda krascher på vissa system.",
+      "backendFallback": "{{failed}} kraschade vid start på den här GPU:n, så {{using}} används tills vidare.",
+      "backendFallbackRetry": "Försök med {{failed}} igen",
+      "backendFallbackRetryPending": "{{failed}} provas igen vid nästa start.",
       "backends": {
         "auto": "Automatiskt",
         "dx12": "DirectX 12",
@@ -2312,6 +2315,8 @@
       },
       "rawDecoding": "RAW-avkodning",
       "rawDecodingDesc": "Välj var RAW-filer avkodas. ”Automatiskt” använder GPU:n och växlar till CPU:n om GPU:n inte kan hantera dina bilder. ”GPU” försöker alltid med GPU:n först. ”CPU” är långsammare men fungerar på alla system.",
+      "rawDecodingFallback": "GPU:n misslyckades med stora RAW-filer, så filer på {{megapixels}} MP och större framkallas på CPU:n tills vidare.",
+      "rawDecodingFallbackRetry": "Försök med GPU:n igen",
       "rawDecodingOptions": {
         "auto": "Automatiskt",
         "cpu": "CPU",

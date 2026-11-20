@@ -2283,6 +2283,9 @@
       "alwaysDecodeRawLabel": "Visada dekoduoti RAW miniatiūroms",
       "backend": "Apdorojimo posistemė (Backend)",
       "backendDesc": "Pasirinkite grafikos API. Rekomenduojama „Auto“. Gali išspręsti strigtis kai kuriose sistemose.",
+      "backendFallback": "{{failed}} užstrigo paleidžiant šiame GPU, todėl kol kas naudojamas {{using}}.",
+      "backendFallbackRetry": "Bandyti {{failed}} dar kartą",
+      "backendFallbackRetryPending": "{{failed}} bus išbandytas dar kartą kito paleidimo metu.",
       "backends": {
         "auto": "Automatinis",
         "dx12": "DirectX 12",
@@ -2452,6 +2455,8 @@
       },
       "rawDecoding": "RAW dekodavimas",
       "rawDecodingDesc": "Pasirinkite, kur dekoduojami RAW failai. „Auto“ naudoja GPU ir persijungia į CPU, jei GPU nesusidoroja su jūsų nuotraukomis. „GPU“ visada pirmiausia bando GPU. „CPU“ yra lėtesnis, bet veikia visose sistemose.",
+      "rawDecodingFallback": "GPU nesusitvarkė su dideliais RAW failais, todėl kol kas {{megapixels}} MP ir didesni failai ryškinami CPU.",
+      "rawDecodingFallbackRetry": "Bandyti GPU dar kartą",
       "rawDecodingOptions": {
         "auto": "Automatinis",
         "cpu": "CPU",

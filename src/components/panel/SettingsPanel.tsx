@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useReducer, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import {
   ArrowLeft,
   Cloud,
@@ -90,6 +90,12 @@ interface SettingItemProps {
   description?: string;
   label: string;
   status?: string | null;
+  statusAction?: { label: string; onClick(): void } | null;
+}
+
+interface GpuFallbacks {
+  backend: { failed: string; using: string; retryPending: boolean } | null;
+  rawDecodingMegapixels: number | null;
 }
 
 interface SettingsPanelProps {
@@ -110,6 +116,14 @@ interface MyLens {
   maker: string;
   model: string;
 }
+
+const BACKEND_NAME_KEYS = {
+  auto: 'settings.processing.backends.auto',
+  vulkan: 'settings.processing.backends.vulkan',
+  dx12: 'settings.processing.backends.dx12',
+  metal: 'settings.processing.backends.metal',
+  gl: 'settings.processing.backends.gl',
+} as const;
 
 const EXECUTE_TIMEOUT = 3000;
 const DEFAULT_BASELINE_EXPOSURE = 0.7;
@@ -229,7 +243,7 @@ const KeybindRow = ({
   );
 };
 
-const SettingItem = ({ children, description, label, status }: SettingItemProps) => (
+const SettingItem = ({ children, description, label, status, statusAction }: SettingItemProps) => (
   <div>
     <Text variant={TextVariants.heading} className="block mb-2">
       {label}
@@ -243,6 +257,14 @@ const SettingItem = ({ children, description, label, status }: SettingItemProps)
     {status && (
       <Text variant={TextVariants.small} className="mt-1">
         {status}
+        {statusAction && (
+          <>
+            {' '}
+            <button className="text-accent hover:underline focus:outline-none" onClick={statusAction.onClick}>
+              {statusAction.label}
+            </button>
+          </>
+        )}
       </Text>
     )}
   </div>
@@ -694,6 +716,21 @@ export default function SettingsPanel({
       .catch(() => setIsWgpuSupported(false));
   }, []);
   const displayStatus = useDisplayStatus(DISPLAY_STATUS_INTERVAL);
+  const [gpuFallbacks, setGpuFallbacks] = useState<GpuFallbacks | null>(null);
+  const refreshGpuFallbacks = useCallback(() => {
+    invoke<GpuFallbacks>('get_gpu_fallbacks').then(setGpuFallbacks).catch(console.error);
+  }, []);
+  useEffect(() => {
+    refreshGpuFallbacks();
+  }, [refreshGpuFallbacks]);
+  const resetGpuFallback = async (kind: 'backend' | 'rawDecoding') => {
+    await invoke('reset_gpu_fallback', { kind });
+    refreshGpuFallbacks();
+  };
+  const backendName = (backend: string) =>
+    t(BACKEND_NAME_KEYS[backend as keyof typeof BACKEND_NAME_KEYS] ?? BACKEND_NAME_KEYS.auto);
+  const backendFallback = gpuFallbacks?.backend;
+  const rawDecodingMegapixels = gpuFallbacks?.rawDecodingMegapixels;
   const displayColorMode = appSettings?.displayColorMode ?? 'auto';
   const displayColorOptions = useMemo<OptionItem<string>[]>(
     () => [
@@ -804,11 +841,13 @@ export default function SettingsPanel({
       { value: 'metal', label: t('settings.processing.backends.metal') },
       { value: 'gl', label: t('settings.processing.backends.gl') },
     ];
-    return rawOptions.filter((opt) => {
-      if (opt.value === 'metal' && osPlatform !== 'macos') return false;
-      if (opt.value === 'dx12' && osPlatform === 'macos') return false;
-      return true;
-    });
+    const available =
+      osPlatform === 'macos'
+        ? ['auto', 'metal']
+        : osPlatform === 'windows'
+          ? ['auto', 'dx12', 'vulkan', 'gl']
+          : ['auto', 'vulkan', 'gl'];
+    return rawOptions.filter((opt) => available.includes(opt.value));
   }, [t, osPlatform]);
 
   const rawDecodingOptions = useMemo<OptionItem<string>[]>(
@@ -2083,6 +2122,27 @@ export default function SettingsPanel({
                       <SettingItem
                         label={t('settings.processing.backend')}
                         description={t('settings.processing.backendDesc')}
+                        status={
+                          backendFallback &&
+                          (backendFallback.retryPending
+                            ? t('settings.processing.backendFallbackRetryPending', {
+                                failed: backendName(backendFallback.failed),
+                              })
+                            : t('settings.processing.backendFallback', {
+                                failed: backendName(backendFallback.failed),
+                                using: backendName(backendFallback.using),
+                              }))
+                        }
+                        statusAction={
+                          backendFallback && !backendFallback.retryPending
+                            ? {
+                                label: t('settings.processing.backendFallbackRetry', {
+                                  failed: backendName(backendFallback.failed),
+                                }),
+                                onClick: () => resetGpuFallback('backend'),
+                              }
+                            : null
+                        }
                       >
                         <Dropdown
                           onChange={(value: any) => handleProcessingSettingChange('processingBackend', value)}
@@ -2101,6 +2161,21 @@ export default function SettingsPanel({
                       <SettingItem
                         label={t('settings.processing.rawDecoding')}
                         description={t('settings.processing.rawDecodingDesc')}
+                        status={
+                          rawDecodingMegapixels
+                            ? t('settings.processing.rawDecodingFallback', {
+                                megapixels: Math.round(rawDecodingMegapixels),
+                              })
+                            : null
+                        }
+                        statusAction={
+                          rawDecodingMegapixels
+                            ? {
+                                label: t('settings.processing.rawDecodingFallbackRetry'),
+                                onClick: () => resetGpuFallback('rawDecoding'),
+                              }
+                            : null
+                        }
                       >
                         <Dropdown
                           onChange={(value: string) => onSettingsChange({ ...appSettings, rawDecoding: value })}

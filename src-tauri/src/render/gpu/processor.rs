@@ -375,6 +375,7 @@ impl GpuProcessor {
                 .pipelines
                 .get_or_init(|| Arc::new(GpuPipelines::new(device))),
         );
+        crate::render::gpu::fallback::gpu_started(context.backend);
 
         let blur_params_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Blur Params Buffer"),

@@ -2155,6 +2155,9 @@
       "alwaysDecodeRawLabel": "RAW altijd decoderen voor miniaturen",
       "backend": "Verwerkingsbackend",
       "backendDesc": "Selecteer de grafische API. 'Automatisch' wordt aanbevolen. Kan crashes op sommige systemen verhelpen.",
+      "backendFallback": "{{failed}} is bij het starten op deze GPU gecrasht, dus voorlopig wordt {{using}} gebruikt.",
+      "backendFallbackRetry": "{{failed}} opnieuw proberen",
+      "backendFallbackRetryPending": "{{failed}} wordt bij de volgende start opnieuw geprobeerd.",
       "backends": {
         "auto": "Automatisch",
         "dx12": "DirectX 12",
@@ -2312,6 +2315,8 @@
       },
       "rawDecoding": "RAW-decodering",
       "rawDecodingDesc": "Selecteer waar RAW-bestanden worden gedecodeerd. 'Automatisch' gebruikt de GPU en schakelt over naar de CPU als die je afbeeldingen niet aankan. 'GPU' probeert altijd eerst de GPU. 'CPU' is langzamer, maar werkt op elk systeem.",
+      "rawDecodingFallback": "De GPU faalde bij grote RAW-bestanden, dus bestanden vanaf {{megapixels}} MP worden voorlopig op de CPU ontwikkeld.",
+      "rawDecodingFallbackRetry": "GPU opnieuw proberen",
       "rawDecodingOptions": {
         "auto": "Automatisch",
         "cpu": "CPU",

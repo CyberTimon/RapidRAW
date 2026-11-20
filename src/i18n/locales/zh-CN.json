@@ -2149,6 +2149,9 @@
       "alwaysDecodeRawLabel": "始终为缩略图解码 RAW",
       "backend": "处理后端",
       "backendDesc": "选择图形 API。推荐使用「自动」。在某些系统上可能解决崩溃问题。",
+      "backendFallback": "{{failed}} 在此 GPU 上启动时崩溃，因此暂时使用 {{using}}。",
+      "backendFallbackRetry": "重新尝试 {{failed}}",
+      "backendFallbackRetryPending": "下次启动时将重新尝试 {{failed}}。",
       "backends": {
         "auto": "自动",
         "dx12": "DirectX 12",
@@ -2306,6 +2309,8 @@
       },
       "rawDecoding": "RAW 解码",
       "rawDecodingDesc": "选择在何处解码 RAW 文件。「自动」使用 GPU，并在 GPU 无法处理您的图像时切换到 CPU。「GPU」始终先尝试 GPU。「CPU」较慢，但适用于所有系统。",
+      "rawDecodingFallback": "GPU 处理大型 RAW 文件失败，因此 {{megapixels}} MP 及以上的文件暂时在 CPU 上显影。",
+      "rawDecodingFallbackRetry": "重新尝试 GPU",
       "rawDecodingOptions": {
         "auto": "自动",
         "cpu": "CPU",

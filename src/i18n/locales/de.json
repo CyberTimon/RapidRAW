@@ -2155,6 +2155,9 @@
       "alwaysDecodeRawLabel": "RAW für Vorschaubilder immer decodieren",
       "backend": "Verarbeitungs-Backend",
       "backendDesc": "Wählen Sie die Grafik-API. 'Auto' wird empfohlen. Kann Abstürze auf einigen Systemen beheben.",
+      "backendFallback": "{{failed}} ist beim Start auf dieser GPU abgestürzt, daher wird vorerst {{using}} verwendet.",
+      "backendFallbackRetry": "{{failed}} erneut versuchen",
+      "backendFallbackRetryPending": "{{failed}} wird beim nächsten Start erneut versucht.",
       "backends": {
         "auto": "Auto",
         "dx12": "DirectX 12",
@@ -2312,6 +2315,8 @@
       },
       "rawDecoding": "RAW-Decodierung",
       "rawDecodingDesc": "Wählen Sie, wo RAW-Dateien decodiert werden. 'Auto' verwendet die GPU und wechselt zur CPU, wenn sie Ihre Bilder nicht verarbeiten kann. 'GPU' versucht es immer zuerst mit der GPU. 'CPU' ist langsamer, funktioniert aber auf jedem System.",
+      "rawDecodingFallback": "Die GPU ist bei großen RAW-Dateien gescheitert, daher werden Dateien ab {{megapixels}} MP vorerst auf der CPU entwickelt.",
+      "rawDecodingFallbackRetry": "GPU erneut versuchen",
       "rawDecodingOptions": {
         "auto": "Auto",
         "cpu": "CPU",
