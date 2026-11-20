@@ -618,6 +618,7 @@ Explore example edits processed entirely within RapidRAW. You can download the `
     <td valign="top" width="50%" style="border-top: 1px solid #444; padding-top: 12px;">
       <h4>Productivity & UI</h4>
       <ul>
+        <li><strong>Library Navigation:</strong> Use Home/End to select the first/last displayed image and Page Up/Down to move by a viewport in folder and album grids or lists.</li>
         <li><strong>Preset System:</strong> Create, save, import, share, and adjust preset intensity.</li>
         <li><strong>Default Adjustments:</strong> A starting edit for every new photo, with per-camera presets and automatic lens correction.</li>
         <li><strong>Image Analytics:</strong> Real-time Vectorscope, Waveform, RGB Parade, and Histogram displays.</li>
